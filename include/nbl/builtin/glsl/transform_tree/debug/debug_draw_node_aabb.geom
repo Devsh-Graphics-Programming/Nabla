@@ -17,7 +17,7 @@ layout(location = 0) out vec4 outColor;
 #include "nbl/builtin/glsl/utils/transform.glsl"
 
 layout(lines) in;
-layout(line_strip, max_vertices = 18) out;
+layout(line_strip, max_vertices = 36) out;
 
 void main()
 {

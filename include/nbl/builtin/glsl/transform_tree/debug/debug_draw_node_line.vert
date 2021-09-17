@@ -1,6 +1,7 @@
 #version 460 core
 
 layout(location = 0) in uint iNodeID; // instance data
+layout(location = 1) in float iScale; // instance data
 
 layout(binding = 0, std430) restrict readonly buffer NodeParents
 {
@@ -36,6 +37,6 @@ void main()
 	
 	mat4x3 nodeGlobalTransform = nodeGlobalTransforms.data[iNodeID];
 	
-	outGlobalTMinEdge = nbl_glsl_pseudoMul3x4with3x1(nodeGlobalTransform,PushConstants.minEdge.xyz);
-	outGlobalTMaxEdge = nbl_glsl_pseudoMul3x4with3x1(nodeGlobalTransform,PushConstants.maxEdge.xyz);
+	outGlobalTMinEdge = nbl_glsl_pseudoMul3x4with3x1(nodeGlobalTransform,PushConstants.minEdge.xyz * iScale);
+	outGlobalTMaxEdge = nbl_glsl_pseudoMul3x4with3x1(nodeGlobalTransform,PushConstants.maxEdge.xyz * iScale);
 }

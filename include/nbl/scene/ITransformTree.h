@@ -125,14 +125,19 @@ class ITransformTree : public virtual core::IReferenceCounted
 				video::IGPUSpecializedShader* gpuShaders[] = {gpuDebugVertexShader.get(), gpuDebugGeometryShader.get(), gpuDebugFragmentShader.get()};
 
 				asset::SVertexInputParams vertexInputParams;
-				vertexInputParams.bindings[DEBUG_GLOBAL_NODE_ID_BINDING].inputRate = asset::EVIR_PER_INSTANCE;
-				vertexInputParams.bindings[DEBUG_GLOBAL_NODE_ID_BINDING].stride = sizeof(uint32_t);
-				vertexInputParams.attributes[DEBUG_GLOBAL_NODE_ID_ATTRIBUTE].binding = DEBUG_GLOBAL_NODE_ID_BINDING;
-				vertexInputParams.attributes[DEBUG_GLOBAL_NODE_ID_ATTRIBUTE].format = asset::EF_R32_UINT;
-				vertexInputParams.attributes[DEBUG_GLOBAL_NODE_ID_ATTRIBUTE].relativeOffset = 0u;
+				vertexInputParams.bindings[DEBUG_GLOBAL_NODE_ID_AND_SCALE_BINDING].inputRate = asset::EVIR_PER_INSTANCE;
+				vertexInputParams.bindings[DEBUG_GLOBAL_NODE_ID_AND_SCALE_BINDING].stride = sizeof(DebugNodeVtxInput);
 
-				vertexInputParams.enabledBindingFlags |= 0x1u << DEBUG_GLOBAL_NODE_ID_BINDING;
-				vertexInputParams.enabledAttribFlags |= 0x1u << DEBUG_GLOBAL_NODE_ID_ATTRIBUTE;
+				vertexInputParams.attributes[DEBUG_GLOBAL_NODE_ID_ATTRIBUTE].binding = DEBUG_GLOBAL_NODE_ID_AND_SCALE_BINDING;
+				vertexInputParams.attributes[DEBUG_GLOBAL_NODE_ID_ATTRIBUTE].format = asset::EF_R32_UINT;
+				vertexInputParams.attributes[DEBUG_GLOBAL_NODE_ID_ATTRIBUTE].relativeOffset = offsetof(DebugNodeVtxInput, node);
+
+				vertexInputParams.attributes[DEBUG_SCALE_NODE_ATTRIBUTE].binding = DEBUG_GLOBAL_NODE_ID_AND_SCALE_BINDING;
+				vertexInputParams.attributes[DEBUG_SCALE_NODE_ATTRIBUTE].format = asset::EF_R32_SFLOAT;
+				vertexInputParams.attributes[DEBUG_SCALE_NODE_ATTRIBUTE].relativeOffset = offsetof(DebugNodeVtxInput, scale);
+
+				vertexInputParams.enabledBindingFlags |= 0x1u << DEBUG_GLOBAL_NODE_ID_AND_SCALE_BINDING;
+				vertexInputParams.enabledAttribFlags |= 0x1u << DEBUG_GLOBAL_NODE_ID_ATTRIBUTE | 0x1u << DEBUG_SCALE_NODE_ATTRIBUTE;
 
 				asset::SBlendParams blendParams;
 				asset::SPrimitiveAssemblyParams primitiveAssemblyParams;
@@ -179,16 +184,6 @@ class ITransformTree : public virtual core::IReferenceCounted
 			}
 
 			return transformTree;
-		}
-
-		inline void setDebugEnabledFlag(bool debugEnabled = true)
-		{
-			m_debugEnabled = debugEnabled;
-		}
-
-		inline void setDebugLiveAllocations(const core::unordered_set<node_t>& nodes)
-		{
-			m_debugLiveAllocations = nodes;
 		}
 		
 		//
@@ -244,6 +239,14 @@ class ITransformTree : public virtual core::IReferenceCounted
 		}
 
 		#include "nbl/nblpack.h"
+		struct DebugNodeVtxInput
+		{
+			node_t node;
+			float scale;
+		} PACK_STRUCT;
+		#include "nbl/nblunpack.h"
+
+		#include "nbl/nblpack.h"
 		struct DebugPushConstants
 		{
 			core::matrix4SIMD viewProjectionMatrix;
@@ -254,6 +257,16 @@ class ITransformTree : public virtual core::IReferenceCounted
 		} PACK_STRUCT;
 		#include "nbl/nblunpack.h"
 
+		inline void setDebugEnabledFlag(bool debugEnabled = true)
+		{
+			m_debugEnabled = debugEnabled;
+		}
+
+		inline void setDebugLiveAllocations(const core::vector<DebugNodeVtxInput>& nodes)
+		{
+			m_debugLiveAllocations = nodes;
+		}
+
 		void debugDraw(video::ILogicalDevice* device, video::IGPUCommandBuffer* commandBuffer, const DebugPushConstants& debugPushConstants)
 		{
 			if (!m_debugEnabled)
@@ -261,7 +274,7 @@ class ITransformTree : public virtual core::IReferenceCounted
 
 			if (m_debugLiveAllocationsGpuBuffer)
 			{
-				if (!m_debugLiveAllocationsGpuBuffer->getSize() || m_debugLiveAllocationsGpuBuffer->getSize() != m_debugLiveAllocations.size() * sizeof(node_t))
+				if (!m_debugLiveAllocationsGpuBuffer->getSize() || m_debugLiveAllocationsGpuBuffer->getSize() != m_debugLiveAllocations.size() * sizeof(DebugNodeVtxInput))
 					return;
 			}
 			else
@@ -270,13 +283,11 @@ class ITransformTree : public virtual core::IReferenceCounted
 					return;
 
 				auto localGPUMemoryReqs = device->getDeviceLocalGPUMemoryReqs();
-				localGPUMemoryReqs.vulkanReqs.size = m_debugLiveAllocations.size() * sizeof(node_t);
+				localGPUMemoryReqs.vulkanReqs.size = m_debugLiveAllocations.size() * sizeof(DebugNodeVtxInput);
 				localGPUMemoryReqs.mappingCapability = video::IDriverMemoryAllocation::EMCAF_READ_AND_WRITE;
 				m_debugLiveAllocationsGpuBuffer = std::move(device->createGPUBufferOnDedMem(localGPUMemoryReqs, true));
 
-				std::vector<node_t> debugLiveAllocationsData;
-				std::for_each(m_debugLiveAllocations.begin(), m_debugLiveAllocations.end(), [&debugLiveAllocationsData](const node_t& node) { debugLiveAllocationsData.emplace_back(node); });
-				commandBuffer->updateBuffer(m_debugLiveAllocationsGpuBuffer.get(), 0, m_debugLiveAllocationsGpuBuffer->getSize(), debugLiveAllocationsData.data());
+				commandBuffer->updateBuffer(m_debugLiveAllocationsGpuBuffer.get(), 0, m_debugLiveAllocationsGpuBuffer->getSize(), m_debugLiveAllocations.data());
 			}
 
 			//if (needFlush) what about this one?
@@ -290,7 +301,7 @@ class ITransformTree : public virtual core::IReferenceCounted
 				for (size_t i = 0; i < nbl::asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; ++i)
 					gpuBufferBindings[i] = nullptr;
 
-				gpuBufferBindings[DEBUG_GLOBAL_NODE_ID_BINDING] = m_debugLiveAllocationsGpuBuffer.get();
+				gpuBufferBindings[DEBUG_GLOBAL_NODE_ID_AND_SCALE_BINDING] = m_debugLiveAllocationsGpuBuffer.get();
 			}
 
 			size_t bufferBindingsOffsets[nbl::asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT];
@@ -330,10 +341,11 @@ class ITransformTree : public virtual core::IReferenceCounted
 	private:
 		bool m_debugEnabled = false;
 
-		_NBL_STATIC_INLINE_CONSTEXPR size_t DEBUG_GLOBAL_NODE_ID_BINDING = 15u;
+		_NBL_STATIC_INLINE_CONSTEXPR size_t DEBUG_GLOBAL_NODE_ID_AND_SCALE_BINDING = 15u;
 		_NBL_STATIC_INLINE_CONSTEXPR size_t DEBUG_GLOBAL_NODE_ID_ATTRIBUTE = 0u;
+		_NBL_STATIC_INLINE_CONSTEXPR size_t DEBUG_SCALE_NODE_ATTRIBUTE = 1u;
 
-		core::unordered_set<node_t> m_debugLiveAllocations;
+		core::vector<DebugNodeVtxInput> m_debugLiveAllocations;
 		core::smart_refctd_ptr<video::IGPUBuffer> m_debugLiveAllocationsGpuBuffer;
 
 		core::smart_refctd_ptr<video::IGPUGraphicsPipeline> m_debugGpuPipelineNode;

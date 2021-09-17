@@ -634,12 +634,18 @@ int main()
 		bufrng.size = nodeIdsBuf->getSize();
 		utils->updateBufferRangeViaStagingBuffer(device->getQueue(0, 0), bufrng, countAndIds);
 
-		core::unordered_set<scene::ITransformTree::node_t> liveNodes;
+		core::vector<scene::ITransformTree::DebugNodeVtxInput> liveDebugNodeVtxInputs;
 
 		for (const auto& solarSystemObject : solarSystemObjectsData)
-			liveNodes.insert(solarSystemObject.node);
+		{
+			scene::ITransformTree::DebugNodeVtxInput debugVtxInput;
+			debugVtxInput.node = solarSystemObject.node;
+			debugVtxInput.scale = solarSystemObject.scale;
 
-		tt->setDebugLiveAllocations(liveNodes);
+			liveDebugNodeVtxInputs.push_back(debugVtxInput);
+		}
+			
+		tt->setDebugLiveAllocations(liveDebugNodeVtxInputs);
 	}
 
 	scene::ITransformTree::DebugPushConstants debugPushConstants;
@@ -728,7 +734,7 @@ int main()
 					auto rot = current_rotation + 300; // just offset in time for beauty
 					rotationMat.setRotation(core::quaternion(0.0f, rot * solarSystemObjectsData[i].yRotationSpeed, rot * solarSystemObjectsData[i].zRotationSpeed));
 				}
-				scaleMat.setScale(core::vectorSIMDf(solarSystemObjectsData[i].scale));
+				scaleMat.setScale(core::vectorSIMDf(solarSystemObjectsData[i].scale)); //?
 
 				auto tform = core::matrix3x4SIMD::concatenateBFollowedByA(rotationMat, translationMat);
 
