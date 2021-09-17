@@ -256,6 +256,7 @@ int main()
 		imgParams.arrayLayers = 1u;
 		imgParams.samples = IImage::ESCF_1_BIT;
 		imgParams.usage = core::bitflag(IImage::EUF_SAMPLED_BIT) | IImage::EUF_TRANSFER_DST_BIT;
+		imgParams.initialLayout = asset::EIL_GENERAL; // @Erfan you don't have to obey the Vulkan spec here which says initialLayout should either be UNDEFINED or PREINITIALIZED, createFilledDeviceLocalGPUImageOnDedMem will do the transition to the layout you specify here
 
 		IGPUImage::SBufferCopy region;
 		region.imageExtent = imgParams.extent;

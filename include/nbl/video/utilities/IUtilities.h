@@ -65,11 +65,44 @@ class IUtilities : public core::IReferenceCounted
         //! Remember to ensure a memory dependency between the command recorded here and any users (so fence wait, semaphore when submitting, pipeline barrier or event)
         inline core::smart_refctd_ptr<IGPUImage> createFilledDeviceLocalGPUImageOnDedMem(IGPUCommandBuffer* cmdbuf, IGPUImage::SCreationParams&& params, const IGPUBuffer* srcBuffer, uint32_t regionCount, const IGPUImage::SBufferCopy* pRegions)
         {
+            // Todo(achal): 
+            // dstImage's format should support VK_FORMAT_FEATURE_TRANSFER_DST_BIT
+
             const auto finalLayout = params.initialLayout;
-            params.initialLayout = asset::EIL_TRANSFER_DST_OPTIMAL; // TODO: @achal verify my layouts
+
+            if (!((params.usage & asset::IImage::EUF_TRANSFER_DST_BIT).value))
+                params.usage |= asset::IImage::EUF_TRANSFER_DST_BIT;
+
             auto retval = m_device->createDeviceLocalGPUImageOnDedMem(std::move(params));
+
             assert(cmdbuf->getState()==IGPUCommandBuffer::ES_RECORDING);
-            cmdbuf->copyBufferToImage(srcBuffer,retval.get(),finalLayout,regionCount,pRegions);
+
+            IGPUCommandBuffer::SImageMemoryBarrier barrier = {};
+            barrier.barrier.srcAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0);
+            barrier.barrier.dstAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
+            barrier.oldLayout = asset::EIL_UNDEFINED;
+            barrier.newLayout = asset::EIL_TRANSFER_DST_OPTIMAL;
+            barrier.srcQueueFamilyIndex = ~0u;
+            barrier.dstQueueFamilyIndex = ~0u;
+            barrier.image = retval;
+            barrier.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT; // need this from input, infact this family of functions would be more usable if we take in a SSubresourceRange to operate on
+            barrier.subresourceRange.baseArrayLayer = 0u;
+            barrier.subresourceRange.layerCount = retval->getCreationParameters().arrayLayers;
+            barrier.subresourceRange.baseMipLevel = 0u;
+            barrier.subresourceRange.levelCount = retval->getCreationParameters().mipLevels;
+            cmdbuf->pipelineBarrier(asset::EPSF_TOP_OF_PIPE_BIT, asset::EPSF_TRANSFER_BIT, asset::EDF_NONE, 0u, nullptr, 0u, nullptr, 1u, &barrier);
+
+            cmdbuf->copyBufferToImage(srcBuffer,retval.get(),asset::EIL_TRANSFER_DST_OPTIMAL,regionCount,pRegions);
+
+            if (finalLayout != asset::EIL_TRANSFER_DST_OPTIMAL)
+            {
+                barrier.barrier.srcAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
+                barrier.barrier.dstAccessMask = asset::EAF_TRANSFER_READ_BIT;
+                barrier.oldLayout = asset::EIL_TRANSFER_DST_OPTIMAL;
+                barrier.newLayout = finalLayout;
+                cmdbuf->pipelineBarrier(asset::EPSF_TRANSFER_BIT, asset::EPSF_TRANSFER_BIT, asset::EDF_NONE, 0u, nullptr, 0u, nullptr, 1u, &barrier);
+            }
+
             return retval;
         }
         //! Don't use this function in hot loops or to do batch updates, its merely a convenience for one-off uploads
@@ -97,6 +130,7 @@ class IUtilities : public core::IReferenceCounted
             submit.pWaitSemaphores = semaphoresToWaitBeforeExecution;
             submit.pWaitDstStageMask = stagesToWaitForPerSemaphore;
             queue->submit(1u,&submit,fence);
+            m_device->waitForFences(1u, &fence, false, 9999999999ull);
             return retval;
         }
         //! WARNING: This function blocks the CPU and stalls the GPU!
@@ -120,11 +154,43 @@ class IUtilities : public core::IReferenceCounted
         //! Remember to ensure a memory dependency between the command recorded here and any users (so fence wait, semaphore when submitting, pipeline barrier or event)
         inline core::smart_refctd_ptr<IGPUImage> createFilledDeviceLocalGPUImageOnDedMem(IGPUCommandBuffer* cmdbuf, IGPUImage::SCreationParams&& params, const IGPUImage* srcImage, uint32_t regionCount, const IGPUImage::SImageCopy* pRegions)
         {
+            // Todo(achal): srcImage's format should support VK_FORMAT_FEATURE_TRANSFER_SRC_BIT,
+            // dstImage's format should support VK_FORMAT_FEATURE_TRANSFER_DST_BIT
+
             const auto finalLayout = params.initialLayout;
-            params.initialLayout = asset::EIL_TRANSFER_DST_OPTIMAL; // TODO: @achal verify my layouts
+
+            if (!((params.usage & asset::IImage::EUF_TRANSFER_DST_BIT).value))
+                params.usage |= asset::IImage::EUF_TRANSFER_DST_BIT;
+
             auto retval = m_device->createDeviceLocalGPUImageOnDedMem(std::move(params));
+
             assert(cmdbuf->getState()==IGPUCommandBuffer::ES_RECORDING);
-            cmdbuf->copyImage(srcImage,asset::EIL_TRANSFER_SRC_OPTIMAL,retval.get(),finalLayout,regionCount,pRegions);
+
+            IGPUCommandBuffer::SImageMemoryBarrier barrier = {};
+            barrier.barrier.srcAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0);
+            barrier.barrier.dstAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
+            barrier.oldLayout = asset::EIL_UNDEFINED;
+            barrier.newLayout = asset::EIL_TRANSFER_DST_OPTIMAL;
+            barrier.srcQueueFamilyIndex = ~0u;
+            barrier.dstQueueFamilyIndex = ~0u;
+            barrier.image = retval;
+            barrier.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT; // need this from input, infact this family of functions would be more usable if we take in a SSubresourceRange to operate on
+            barrier.subresourceRange.baseArrayLayer = 0u;
+            barrier.subresourceRange.layerCount = retval->getCreationParameters().arrayLayers;
+            barrier.subresourceRange.baseMipLevel = 0u;
+            barrier.subresourceRange.levelCount = retval->getCreationParameters().mipLevels;
+            cmdbuf->pipelineBarrier(asset::EPSF_TOP_OF_PIPE_BIT, asset::EPSF_TRANSFER_BIT, asset::EDF_NONE, 0u, nullptr, 0u, nullptr, 1u, &barrier);
+
+            cmdbuf->copyImage(srcImage,asset::EIL_TRANSFER_SRC_OPTIMAL,retval.get(),asset::EIL_TRANSFER_DST_OPTIMAL,regionCount,pRegions);
+
+            if (finalLayout != asset::EIL_TRANSFER_DST_OPTIMAL)
+            {
+                barrier.barrier.srcAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
+                barrier.barrier.dstAccessMask = asset::EAF_TRANSFER_READ_BIT;
+                barrier.oldLayout = asset::EIL_TRANSFER_DST_OPTIMAL;
+                barrier.newLayout = finalLayout;
+                cmdbuf->pipelineBarrier(asset::EPSF_TRANSFER_BIT, asset::EPSF_TRANSFER_BIT, asset::EDF_NONE, 0u, nullptr, 0u, nullptr, 1u, &barrier);
+            }
             return retval;
         }
         //! Don't use this function in hot loops or to do batch updates, its merely a convenience for one-off uploads
@@ -152,6 +218,7 @@ class IUtilities : public core::IReferenceCounted
             submit.pWaitSemaphores = semaphoresToWaitBeforeExecution;
             submit.pWaitDstStageMask = stagesToWaitForPerSemaphore;
             queue->submit(1u,&submit,fence);
+            m_device->waitForFences(1u, &fence, false, 9999999999ull);
             return retval;
         }
         //! WARNING: This function blocks the CPU and stalls the GPU!

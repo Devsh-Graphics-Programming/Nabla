@@ -335,6 +335,7 @@ class ILogicalDevice : public core::IReferenceCounted
         inline core::smart_refctd_ptr<IGPUImage> createDeviceLocalGPUImageOnDedMem(IGPUImage::SCreationParams&& params)
         {
             auto reqs = getDeviceLocalGPUMemoryReqs();
+            params.initialLayout = asset::EIL_UNDEFINED; // initialLayout in Vulkan could either be UNDEFINED or PREINITIALIZED, can't find a use case for PREINITIALIZED yet
             return this->createGPUImageOnDedMem(std::move(params), reqs);
         }
 
