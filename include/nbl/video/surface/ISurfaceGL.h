@@ -12,11 +12,11 @@
 namespace nbl::video
 {
 
-template<class Window, template<typename> typename Base>
-class CSurfaceGLImpl final : public Base<Window>
+template<class Window, template<typename> typename Base, class CRTP = void>
+class CSurfaceGLImpl : public Base<Window>
 {
     public:
-        using this_t = CSurfaceGLImpl<Window,Base>;
+        using this_t = std::conditional_t<std::is_void_v<CRTP>,CSurfaceGLImpl<Window,Base>,CRTP>;
         using base_t = Base<Window>;
 
         template<video::E_API_TYPE API_TYPE>
@@ -70,9 +70,9 @@ class CSurfaceGLImpl final : public Base<Window>
             // Todo(achal): Fill it properly
             capabilities.minImageCount = 2u;
             capabilities.maxImageCount = 8u;
-            capabilities.currentExtent = { base_t::m_window->getWidth(), base_t::m_window->getHeight() };
+            capabilities.currentExtent = { this->getWidth(), this->getHeight() };
             capabilities.minImageExtent = { 1u, 1u };
-            capabilities.maxImageExtent = { base_t::m_window->getWidth(), base_t::m_window->getHeight() };
+            capabilities.maxImageExtent = { this->getWidth(), this->getHeight() };
             capabilities.maxImageArrayLayers = 1u;
             capabilities.supportedUsageFlags = static_cast<asset::IImage::E_USAGE_FLAGS>(0u);
 
@@ -85,12 +85,30 @@ class CSurfaceGLImpl final : public Base<Window>
 
 template <typename Window>
 using CSurfaceGL = CSurfaceGLImpl<Window, CSurface>;
-template <typename Window>
-using CSurfaceNativeGL = CSurfaceGLImpl<Window, CSurfaceNative>;
+template <typename Window, typename CRTP>
+using CSurfaceNativeGL = CSurfaceGLImpl<Window, CSurfaceNative, CRTP>;
 
 // TODO: conditional defines
 using CSurfaceGLWin32 = CSurfaceGL<ui::IWindowWin32>;
-using CSurfaceNativeGLWin32 = CSurfaceNativeGL<ui::IWindowWin32>;
+class CSurfaceNativeGLWin32 : public CSurfaceNativeGL<ui::IWindowWin32, CSurfaceNativeGLWin32>
+{
+protected:
+    using base_t = CSurfaceNativeGL<ui::IWindowWin32, CSurfaceNativeGLWin32>;
+    using base_t::base_t;
+
+    uint32_t getWidth() const override 
+    { 
+        RECT wr;
+        GetWindowRect(m_handle, &wr);
+        return wr.right - wr.left;
+    }
+    uint32_t getHeight() const override 
+    { 
+        RECT wr;
+        GetWindowRect(m_handle, &wr);
+        return wr.top - wr.bottom;
+    }
+};
 
 //using CSurfaceGLAndroid = CSurfaceGL<ui::IWindowAndroid>;
 //using CSurfaceGLX11 = CSurfaceGL<ui::IWindowX11>;

@@ -972,12 +972,8 @@ public:
         uint32_t bufferMemoryBarrierCount, const SBufferMemoryBarrier* pBufferMemoryBarriers,
         uint32_t imageMemoryBarrierCount, const SImageMemoryBarrier* pImageMemoryBarriers) override
     {
-<<<<<<< HEAD
         const SOpenGLBarrierHelper helper(m_features);
-        const GLbitfield barrier = helper.pipelineStageFlagsToMemoryBarrierBits(static_cast<asset::E_PIPELINE_STAGE_FLAGS>(srcStageMask), static_cast<asset::E_PIPELINE_STAGE_FLAGS>(dstStageMask));
-=======
-        GLbitfield barrier = pipelineStageFlagsToMemoryBarrierBits(srcStageMask.value, dstStageMask.value);
->>>>>>> origin/raytracing_device_extensions
+        const GLbitfield barrier = helper.pipelineStageFlagsToMemoryBarrierBits(srcStageMask.value, dstStageMask.value);
 
         SCmd<impl::ECT_PIPELINE_BARRIER> cmd;
         cmd.barrier = barrier & barriersToMemBarrierBits(helper,memoryBarrierCount, pMemoryBarriers, bufferMemoryBarrierCount, pBufferMemoryBarriers, imageMemoryBarrierCount, pImageMemoryBarriers);

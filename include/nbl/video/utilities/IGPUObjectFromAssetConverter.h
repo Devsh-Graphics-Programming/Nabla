@@ -824,7 +824,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
         if (img->getRegions().size() == 0u)
             return false;
         auto format = img->getCreationParameters().format;
-        if (asset::isIntegerFormat(format))
+        if (asset::isIntegerFormat(format) || asset::isBlockCompressionFormat(format))
             return false;
         return true;
     };
@@ -888,15 +888,18 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
         computeCmdbuf->bindDescriptorSets();
         computeCmdbuf->pushConstants();
         computeCmdbuf->dispatch();*/
+        if (cpuimg->getCreationParameters().mipLevels == gpuimg->getCreationParameters().mipLevels)
+            return;
 
         video::IGPUCommandBuffer::SImageMemoryBarrier barrier = {};
         barrier.srcQueueFamilyIndex = ~0u;
         barrier.dstQueueFamilyIndex = ~0u;
         barrier.image = core::smart_refctd_ptr<video::IGPUImage>(gpuimg);
-        barrier.subresourceRange.aspectMask = cpuimg->getRegions().begin()->imageSubresource.aspectMask;
+        // TODO this is probably wrong (especially in case of depth/stencil formats), but i think i can leave it like this since we'll never have any depth/stencil images loaded (right?)
+        barrier.subresourceRange.aspectMask = cpuimg->getRegions().begin()->imageSubresource.aspectMask; 
         barrier.subresourceRange.levelCount = 1u;
-        barrier.subresourceRange.baseArrayLayer = cpuimg->getRegions().begin()->imageSubresource.baseArrayLayer;
-        barrier.subresourceRange.layerCount = cpuimg->getRegions().begin()->imageSubresource.layerCount;
+        barrier.subresourceRange.baseArrayLayer = 0u;
+        barrier.subresourceRange.layerCount = cpuimg->getCreationParameters().arrayLayers;
 
         asset::SImageBlit blitRegion = {};
         blitRegion.srcSubresource.aspectMask = barrier.subresourceRange.aspectMask;
@@ -910,16 +913,17 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
         blitRegion.dstOffsets[0] = { 0, 0, 0 };
 
         // Compute mips
-        int32_t mipWidth = cpuimg->getCreationParameters().extent.width;
-        int32_t mipHeight = cpuimg->getCreationParameters().extent.height;
-        int32_t mipDepth = cpuimg->getCreationParameters().extent.depth;
-        for (uint32_t i = 1u; i < gpuimg->getCreationParameters().mipLevels; ++i)
+        auto mipsize = cpuimg->getMipSize(cpuimg->getCreationParameters().mipLevels);
+        uint32_t mipWidth = mipsize.x;
+        uint32_t mipHeight = mipsize.y;
+        uint32_t mipDepth = mipsize.z;
+        for (uint32_t i = cpuimg->getCreationParameters().mipLevels; i < gpuimg->getCreationParameters().mipLevels; ++i)
         {
             barrier.barrier.srcAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
             barrier.barrier.dstAccessMask = asset::EAF_TRANSFER_READ_BIT;
             barrier.oldLayout = asset::EIL_TRANSFER_DST_OPTIMAL;
             barrier.newLayout = asset::EIL_TRANSFER_SRC_OPTIMAL;
-            barrier.subresourceRange.baseMipLevel = i - 1;
+            barrier.subresourceRange.baseMipLevel = i - 1u;
 
             cmdbuf_transfer->pipelineBarrier(asset::EPSF_TRANSFER_BIT, asset::EPSF_TRANSFER_BIT,
                 static_cast<asset::E_DEPENDENCY_FLAGS>(0u), 0u, nullptr, 0u, nullptr, 1u, &barrier);
@@ -1059,13 +1063,14 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
         if (_params.perQueue[EQU_COMPUTE].fence && oneQueue && needToGenMips)
             _params.perQueue[EQU_COMPUTE].fence[0] = fence;
 
+         // must be outside `if` scope to not get deleted after `batch_final_fence = compute_fence_ptr;` assignment
+        core::smart_refctd_ptr<IGPUFence> compute_fence;
         if (!oneSubmitPerBatch)
         {
             core::smart_refctd_ptr<IGPUSemaphore> compute_sem;
             if (_params.perQueue[EQU_COMPUTE].semaphore)
                 compute_sem = _params.device->createSemaphore();
             auto* compute_sem_ptr = compute_sem.get();
-            core::smart_refctd_ptr<IGPUFence> compute_fence;
             compute_fence = _params.device->createFence(static_cast<IGPUFence::E_CREATE_FLAGS>(0));
             auto* compute_fence_ptr = compute_fence.get();
 
@@ -1086,7 +1091,9 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
             if (_params.perQueue[EQU_COMPUTE].fence)
                 _params.perQueue[EQU_COMPUTE].fence[0] = compute_fence;
 
+#if 0 //TODO: (!) enable when mips are in fact computed on `cmdbuf_compute` (currently they are done with blits on cmdbuf_transfer)
             batch_final_fence = compute_fence_ptr;
+#endif
         }
 
         // wait to finish all batch work in order to safely reset command buffers
