@@ -43,9 +43,8 @@ public:
     using memory_pool_mt_t = core::CMemoryPool<core::PoolAddressAllocator<uint32_t>, core::default_aligned_allocator, true, uint32_t>;
 
 public:
-    CVulkanLogicalDevice(IPhysicalDevice* physicalDevice, VkDevice vkdev,
-        const SCreationParams& params, core::smart_refctd_ptr<system::ISystem>&& sys)
-        : ILogicalDevice(physicalDevice, params), m_vkdev(vkdev), m_devf(vkdev),
+    CVulkanLogicalDevice(core::smart_refctd_ptr<IAPIConnection>&& api, IPhysicalDevice* physicalDevice, VkDevice vkdev, const SCreationParams& params)
+        : ILogicalDevice(std::move(api),physicalDevice,params), m_vkdev(vkdev), m_devf(vkdev),
           m_deferred_op_mempool(NODES_PER_BLOCK_DEFERRED_OP * sizeof(CVulkanDeferredOperation), 1u, MAX_BLOCK_COUNT_DEFERRED_OP, static_cast<uint32_t>(sizeof(CVulkanDeferredOperation)))
     {
         // create actual queue objects

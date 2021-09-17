@@ -331,6 +331,9 @@ public:
         uint32_t bufferMemoryBarrierCount, const SBufferMemoryBarrier* pBufferMemoryBarriers,
         uint32_t imageMemoryBarrierCount, const SImageMemoryBarrier* pImageMemoryBarriers) override
     {
+        if ((memoryBarrierCount == 0u) && (bufferMemoryBarrierCount == 0u) && (imageMemoryBarrierCount == 0u))
+            return false;
+
         constexpr uint32_t MAX_BARRIER_COUNT = 100u;
 
         assert(memoryBarrierCount <= MAX_BARRIER_COUNT);

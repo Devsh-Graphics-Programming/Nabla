@@ -1035,8 +1035,8 @@ protected:
     core::smart_refctd_dynamic_array<std::string> m_supportedGLSLExtsNames;
 
 public:
-    IOpenGL_LogicalDevice(IPhysicalDevice* physicalDevice, const SCreationParams& params, const egl::CEGL* _egl)
-        : ILogicalDevice(physicalDevice,params), m_egl(_egl) {}
+    IOpenGL_LogicalDevice(core::smart_refctd_ptr<IAPIConnection>&& api, IPhysicalDevice* physicalDevice, const SCreationParams& params, const egl::CEGL* _egl)
+        : ILogicalDevice(std::move(api),physicalDevice,params), m_egl(_egl) {}
 
     const core::smart_refctd_dynamic_array<std::string> getSupportedGLSLExtensions() const override
     {

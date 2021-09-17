@@ -636,7 +636,8 @@ class ILogicalDevice : public core::IReferenceCounted
         }
 
     protected:
-        ILogicalDevice(IPhysicalDevice* physicalDevice, const SCreationParams& params) : m_physicalDevice(physicalDevice)
+        ILogicalDevice(core::smart_refctd_ptr<IAPIConnection>&& api, IPhysicalDevice* physicalDevice, const SCreationParams& params)
+            : m_api(api), m_physicalDevice(physicalDevice)
         {
             uint32_t qcnt = 0u;
             uint32_t greatestFamNum = 0u;

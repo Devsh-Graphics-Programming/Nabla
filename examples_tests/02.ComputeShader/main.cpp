@@ -50,7 +50,6 @@ int main()
 	auto inputSystem = core::make_smart_refctd_ptr<CommonAPI::InputSystem>(system::logger_opt_smart_ptr(logger));
 	auto eventCallback = core::make_smart_refctd_ptr<CommonAPI::CommonAPIEventCallback>(core::smart_refctd_ptr(inputSystem), system::logger_opt_smart_ptr(logger));
 	auto winManager = core::make_smart_refctd_ptr<nbl::ui::CWindowManagerWin32>();
-	auto assetManager = core::make_smart_refctd_ptr<nbl::asset::IAssetManager>(nbl::core::smart_refctd_ptr(system));
 
 	nbl::ui::IWindow::SCreationParams params;
 	params.callback = nullptr;
@@ -64,7 +63,8 @@ int main()
 	params.callback = eventCallback;
 	auto window = winManager->createWindow(std::move(params));
 
-#if 1
+	auto assetManager = core::make_smart_refctd_ptr<nbl::asset::IAssetManager>(nbl::core::smart_refctd_ptr(system));
+
 	core::smart_refctd_ptr<video::CVulkanConnection> apiConnection =
 		video::CVulkanConnection::create(core::smart_refctd_ptr(system), 0, "02.ComputeShader", true);
 
@@ -359,6 +359,15 @@ int main()
 		creationParams.arrayLayers = 1u;
 		creationParams.samples = asset::IImage::ESCF_1_BIT;
 		creationParams.tiling = asset::IImage::ET_OPTIMAL;
+		{
+			// Todo(achal): Need to wrap this up
+			VkFormatProperties formatProps;
+			vkGetPhysicalDeviceFormatProperties(
+				static_cast<video::CVulkanPhysicalDevice*>(gpu)->getInternalObject(),
+				video::getVkFormatFromFormat(creationParams.format), &formatProps);
+			assert(formatProps.optimalTilingFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT);
+			assert(formatProps.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT); // this is required to use vkCmdBlitImage to generate mipmaps, this check should be included in asset converter after we have other ways for mip map generation
+		}
 		creationParams.usage = core::bitflag(asset::IImage::EUF_STORAGE_BIT) | asset::IImage::EUF_TRANSFER_DST_BIT;
 		creationParams.sharingMode = asset::ESM_EXCLUSIVE;
 		creationParams.queueFamilyIndexCount = 1u;
@@ -380,8 +389,6 @@ int main()
 	}
 #endif
 
-	// core::smart_refctd_ptr<video::IGPUImage> inImage = nullptr;
-#if 1
 	core::smart_refctd_ptr<video::IUtilities> utils = core::make_smart_refctd_ptr<video::IUtilities>(core::smart_refctd_ptr<video::ILogicalDevice>(device));
 
 	video::IGPUObjectFromAssetConverter::SParams cpu2gpuParams = {};
@@ -397,157 +404,6 @@ int main()
 
 	video::IGPUObjectFromAssetConverter CPU2GPU;
 	auto inImage = CPU2GPU.getGPUObjectsFromAssets(&inImage_CPU, &inImage_CPU + 1, cpu2gpuParams);
-#endif
-
-#if 0
-	{
-		core::smart_refctd_ptr<video::IGPUBuffer> stagingBuffer = nullptr;
-		{
-			video::IGPUBuffer::SCreationParams params = {};
-			params.size = imageSize;
-			params.usage = video::IGPUBuffer::EUF_TRANSFER_SRC_BIT;
-			params.sharingMode = asset::ESM_EXCLUSIVE;
-			params.queueFamilyIndexCount = 0u;
-			params.queuueFamilyIndices = nullptr;
-
-			video::IDriverMemoryBacked::SDriverMemoryRequirements memReqs = {};
-			memReqs.vulkanReqs.alignment = 0u;
-			memReqs.vulkanReqs.size = 0u;
-			memReqs.vulkanReqs.memoryTypeBits = 0xFFFFFFFF; // Gets bitwise ANDed inside createGPUBufferOnDedMem, however this is bad because it is not coherent with the heapLocation and mappingCapability params			
-			memReqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL;
-			memReqs.mappingCapability = video::IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_WRITE | video::IDriverMemoryAllocation::EMCF_COHERENT;
-			memReqs.prefersDedicatedAllocation = true; // Fake value, will get overwritten in createGPUBufferOnDedMem
-			memReqs.requiresDedicatedAllocation = true; // Fake value, will get overwritten in createGPUBufferOnDedMem
-
-			stagingBuffer = device->createGPUBufferOnDedMem(params, memReqs); // This will most likely be on shared GPU mem
-
-			video::IDriverMemoryAllocation::MappedMemoryRange memRange(stagingBuffer->getBoundMemory(),
-				stagingBuffer->getBoundMemoryOffset(), stagingBuffer->getSize());
-
-			void* mapped = device->mapMemory(memRange);
-			assert(mapped);
-			memcpy(mapped, imagePixels->getPointer(), imageSize);
-			device->unmapMemory(memRange.memory);
-		}
-
-		const uint32_t mipLevels = 1u;
-		std::vector<asset::IImage::SBufferCopy> copyRegions(mipLevels);
-		for (size_t i = 0ull; i < copyRegions.size(); ++i)
-		{
-			copyRegions[i].bufferOffset = 0ull;
-			// If "setting this to different from 0 can fail an image copy on OpenGL", then
-			// it could cause problems???
-			copyRegions[i].bufferRowLength = 0ull;
-			// If "setting this to different from 0 can fail an image copy on OpenGL", then
-			// it could cause problems???
-			copyRegions[i].bufferImageHeight = 0ull;
-			copyRegions[i].imageSubresource.aspectMask = asset::IImage::EAF_COLOR_BIT;
-			copyRegions[i].imageSubresource.mipLevel = i;
-			copyRegions[i].imageSubresource.baseArrayLayer = 0u;
-			copyRegions[i].imageSubresource.layerCount = 1u;
-			copyRegions[i].imageOffset = { 0u,0u,0u };
-			copyRegions[i].imageExtent = { imageWidth, imageHeight, 1u };
-		}
-
-		// Create image on GPU
-		{
-			video::IGPUImage::SCreationParams creationParams = {};
-			creationParams.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0u);
-			creationParams.type = asset::IImage::ET_2D;
-			asset::E_FORMAT imageFormat = asset::EF_R8G8B8A8_UNORM;
-			{
-				// Todo(achal): Need to wrap this up
-				VkFormatProperties formatProps;
-				vkGetPhysicalDeviceFormatProperties(
-					static_cast<video::CVulkanPhysicalDevice*>(gpu)->getInternalObject(),
-					video::getVkFormatFromFormat(imageFormat), &formatProps);
-				assert(formatProps.optimalTilingFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT);
-			}
-			creationParams.format = imageFormat;
-			creationParams.extent = { imageWidth, imageHeight, 1u };
-			creationParams.mipLevels = mipLevels;
-			creationParams.arrayLayers = 1u;
-			creationParams.samples = asset::IImage::ESCF_1_BIT;
-			creationParams.tiling = asset::IImage::ET_OPTIMAL;
-			creationParams.usage = core::bitflag(asset::IImage::EUF_STORAGE_BIT) | asset::IImage::EUF_TRANSFER_DST_BIT;
-			creationParams.sharingMode = asset::ESM_EXCLUSIVE;
-			creationParams.queueFamilyIndexCount = 0u;
-			creationParams.queueFamilyIndices = nullptr;
-			creationParams.initialLayout = asset::EIL_UNDEFINED; // trash any previous image contents
-
-			video::IDriverMemoryBacked::SDriverMemoryRequirements memReqs = {};
-			memReqs.vulkanReqs.alignment = 0u;
-			memReqs.vulkanReqs.size = 0u;
-			memReqs.vulkanReqs.memoryTypeBits = 0xFFFFFFFF; // Gets bitwise ANDed inside createGPUImageOnDedMem, however this is bad because it is not coherent with the heapLocation and mappingCapability params			
-			memReqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
-			memReqs.mappingCapability = video::IDriverMemoryAllocation::EMCF_CANNOT_MAP;
-			memReqs.prefersDedicatedAllocation = true; // Fake value, will get overwritten in createGPUImageOnDedMem
-			memReqs.requiresDedicatedAllocation = true; // Fake value, will get overwritten in createGPUImageOnDedMem
-
-			inImage = device->createGPUImageOnDedMem(std::move(creationParams), memReqs);
-		}
-
-		// I have a single queue family right now both for compute and present
-		// at index 0
-		auto copyCmdPool = device->createCommandPool(0u, static_cast<video::IGPUCommandPool::E_CREATE_FLAGS>(0u));
-		core::smart_refctd_ptr<video::IGPUCommandBuffer> copyCmdBuf = nullptr;
-		device->createCommandBuffers(copyCmdPool.get(), video::IGPUCommandBuffer::EL_PRIMARY, 1u, &copyCmdBuf);
-		assert(copyCmdBuf);
-
-		copyCmdBuf->begin(video::IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
-
-		video::IGPUCommandBuffer::SImageMemoryBarrier undefToTransferDst = {};
-		undefToTransferDst.barrier.srcAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0u);
-		undefToTransferDst.barrier.dstAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
-		undefToTransferDst.oldLayout = asset::EIL_UNDEFINED;
-		undefToTransferDst.newLayout = asset::EIL_TRANSFER_DST_OPTIMAL;
-		undefToTransferDst.srcQueueFamilyIndex = ~0u;
-		undefToTransferDst.dstQueueFamilyIndex = ~0u;
-		undefToTransferDst.image = inImage;
-		undefToTransferDst.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
-		undefToTransferDst.subresourceRange.baseMipLevel = 0u;
-		undefToTransferDst.subresourceRange.levelCount = mipLevels;
-		undefToTransferDst.subresourceRange.baseArrayLayer = 0u;
-		undefToTransferDst.subresourceRange.layerCount = 1u;
-
-		copyCmdBuf->pipelineBarrier(asset::EPSF_ALL_COMMANDS_BIT, asset::EPSF_ALL_COMMANDS_BIT, static_cast<asset::E_DEPENDENCY_FLAGS>(0u),
-			0u, nullptr, 0u, nullptr, 1u, &undefToTransferDst);
-
-		copyCmdBuf->copyBufferToImage(stagingBuffer.get(), inImage.get(),
-			asset::EIL_TRANSFER_DST_OPTIMAL, static_cast<uint32_t>(copyRegions.size()),
-			copyRegions.data());
-
-		video::IGPUCommandBuffer::SImageMemoryBarrier transferDstToGeneral = {};
-		transferDstToGeneral.barrier.srcAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
-		transferDstToGeneral.barrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
-		transferDstToGeneral.oldLayout = asset::EIL_TRANSFER_DST_OPTIMAL;
-		transferDstToGeneral.newLayout = asset::EIL_GENERAL;
-		transferDstToGeneral.srcQueueFamilyIndex = ~0u;
-		transferDstToGeneral.dstQueueFamilyIndex = ~0u;
-		transferDstToGeneral.image = inImage;
-		transferDstToGeneral.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
-		transferDstToGeneral.subresourceRange.baseMipLevel = 0u;
-		transferDstToGeneral.subresourceRange.levelCount = mipLevels;
-		transferDstToGeneral.subresourceRange.baseArrayLayer = 0u;
-		transferDstToGeneral.subresourceRange.layerCount = 1u;
-
-		copyCmdBuf->pipelineBarrier(asset::E_PIPELINE_STAGE_FLAGS::EPSF_ALL_COMMANDS_BIT, asset::E_PIPELINE_STAGE_FLAGS::EPSF_ALL_COMMANDS_BIT, static_cast<asset::E_DEPENDENCY_FLAGS>(0u),
-			0u, nullptr, 0u, nullptr, 1u, &transferDstToGeneral);
-
-		copyCmdBuf->end();
-
-		// Execute the command buffer
-		auto fence = device->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0u));
-
-		video::IGPUQueue::SSubmitInfo submitInfo = {};
-		submitInfo.commandBufferCount = 1u;
-		submitInfo.commandBuffers = &copyCmdBuf.get();
-
-		computeQueue->submit(1u, &submitInfo, fence.get());
-
-		device->waitForFences(1u, &fence.get(), true, ~0ull);
-	}
-#endif
 	assert(inImage);
 
 	// Create an image view for input image
@@ -562,7 +418,6 @@ int main()
 		viewParams.subresourceRange.baseArrayLayer = 0u;
 		viewParams.subresourceRange.layerCount = 1u;
 		viewParams.image = inImage->begin()[0];
-		// viewParams.image = inImage;
 
 		inImageView = device->createGPUImageView(std::move(viewParams));
 	}
@@ -734,9 +589,7 @@ int main()
 
 	device->waitIdle();
 
-
 	return 0;
-#endif
 }
 
 #if 0
