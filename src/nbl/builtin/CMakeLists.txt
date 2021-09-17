@@ -147,7 +147,6 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/transform_tree/relative_transform_update_common.glsl"
   "nbl/builtin/glsl/transform_tree/relative_transform_update_descriptor_set.glsl"
   "nbl/builtin/glsl/transform_tree/debug/debug_draw_node_line.vert"
-  "nbl/builtin/glsl/transform_tree/debug/debug_draw_node_aabb.geom"
   "nbl/builtin/glsl/transform_tree/debug/debug_draw.frag"
   # ext shouldn't be built into the engine, but there's no harm including some non-dynamic GLSL source to make life easier
   #"nbl/builtin/glsl/ext/.glsl"

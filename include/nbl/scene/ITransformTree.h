@@ -114,15 +114,14 @@ class ITransformTree : public virtual core::IReferenceCounted
 					return device->createGPUSpecializedShader(gpuShader.get(), {nullptr, nullptr, "main", type});
 				};
 
-				constexpr uint16_t SHADER_COUNT = 3u;
+				constexpr uint16_t SHADER_COUNT = 2u;
 				auto gpuDebugVertexShader = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/transform_tree/debug/debug_draw_node_line.vert")(), asset::ISpecializedShader::ESS_VERTEX);
-				auto gpuDebugGeometryShader = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/transform_tree/debug/debug_draw_node_aabb.geom")(), asset::ISpecializedShader::ESS_GEOMETRY);
 				auto gpuDebugFragmentShader = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/transform_tree/debug/debug_draw.frag")(), asset::ISpecializedShader::ESS_FRAGMENT);
 
-				if (!gpuDebugVertexShader || !gpuDebugGeometryShader || !gpuDebugFragmentShader)
+				if (!gpuDebugVertexShader || !gpuDebugFragmentShader)
 					return nullptr;
 
-				video::IGPUSpecializedShader* gpuShaders[] = {gpuDebugVertexShader.get(), gpuDebugGeometryShader.get(), gpuDebugFragmentShader.get()};
+				video::IGPUSpecializedShader* gpuShaders[] = {gpuDebugVertexShader.get(), gpuDebugFragmentShader.get()};
 
 				asset::SVertexInputParams vertexInputParams;
 				vertexInputParams.bindings[DEBUG_GLOBAL_NODE_ID_AND_SCALE_BINDING].inputRate = asset::EVIR_PER_INSTANCE;
@@ -161,7 +160,7 @@ class ITransformTree : public virtual core::IReferenceCounted
 				asset::SPushConstantRange pcRange;
 				pcRange.offset = 0u;
 				pcRange.size = sizeof(DebugPushConstants);
-				pcRange.stageFlags = static_cast<asset::ISpecializedShader::E_SHADER_STAGE>(asset::ISpecializedShader::ESS_VERTEX | asset::ISpecializedShader::ESS_GEOMETRY);
+				pcRange.stageFlags = static_cast<asset::ISpecializedShader::E_SHADER_STAGE>(asset::ISpecializedShader::ESS_VERTEX);
 
 				auto gpuPipelineLayout = device->createGPUPipelineLayout(&pcRange, &pcRange + 1, core::smart_refctd_ptr(descriptorSetLayout));
 				auto gpuRenderpassIndependentPipeline = device->createGPURenderpassIndependentPipeline(nullptr, std::move(gpuPipelineLayout), gpuShaders, gpuShaders + SHADER_COUNT, vertexInputParams, blendParams, primitiveAssemblyParams, rasterizationParams);
@@ -293,7 +292,10 @@ class ITransformTree : public virtual core::IReferenceCounted
 			//if (needFlush) what about this one?
 			//	device->flushRanges();
 
-			_NBL_STATIC_INLINE_CONSTEXPR auto VERTEX_COUNT = 2;
+			#define LINE_VERTEX_COUNT 2u
+			#define BOX_VERTEX_COUNT 24u
+
+			_NBL_STATIC_INLINE_CONSTEXPR auto VERTEX_COUNT = LINE_VERTEX_COUNT + BOX_VERTEX_COUNT;
 			const size_t INSTANCE_COUNT = m_debugLiveAllocations.size();
 
 			const nbl::video::IGPUBuffer* gpuBufferBindings[nbl::asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT];
