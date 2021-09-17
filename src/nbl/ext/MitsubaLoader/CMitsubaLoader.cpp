@@ -456,6 +456,8 @@ const char** CMitsubaLoader::getAssociatedFileExtensions() const
 
 asset::SAssetBundle CMitsubaLoader::loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
+	//ParserLog::setLogger(_params.logger);
+
 	ParserManager parserManager(m_assetMgr->getSystem(),_override);
 	if (!parserManager.parse(_file, _params.logger))
 		return {};

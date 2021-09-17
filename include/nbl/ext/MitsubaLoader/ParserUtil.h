@@ -31,12 +31,15 @@ namespace MitsubaLoader
 class ParserLog
 {
 public:
+	static inline void setLogger(const system::logger_opt_ptr& logger) { ParserLog::logger = logger; };
+
 	/*prints this message:
 	Mitsuba loader error:
 	Invalid .xml file structure: message */
-	// TODO: I can't use `const system::logger_opt_ptr&` as a parameter here, figure it out
 	static void invalidXMLFileStructure(const std::string& errorMessage);
 
+private:
+	static system::logger_opt_ptr logger;
 };
 
 

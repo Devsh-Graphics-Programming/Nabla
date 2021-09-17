@@ -16,13 +16,14 @@ namespace ext
 namespace MitsubaLoader
 {
 
-// TODO:
+system::logger_opt_ptr ParserLog::logger = nullptr;
+
 void ParserLog::invalidXMLFileStructure(const std::string& errorMessage)
 {
-	/*std::string message = "Mitsuba loader error - Invalid .xml file structure: \'"
+	std::string message = "Mitsuba loader error - Invalid .xml file structure: \'"
 		+ errorMessage + '\'';
 
-	os::Printer::log(message.c_str(), ELL_ERROR);*/
+	//ParserLog::logger.log(message, system::ILogger::E_LOG_LEVEL::ELL_ERROR);
 	_NBL_DEBUG_BREAK_IF(true);
 }
 
@@ -54,7 +55,6 @@ bool ParserManager::parse(system::IFile* _file, const system::logger_opt_ptr& _l
 	XML_SetElementHandler(parser, elementHandlerStart, elementHandlerEnd);
 
 	//from now data (instance of ParserData struct) will be visible to expat handlers
-	// TODO: test
 	Context ctx = {this,parser,_file->getFileName().parent_path()/""};
 	XML_SetUserData(parser, &ctx);
 
@@ -133,7 +133,6 @@ void ParserManager::parseElement(const Context& ctx, const char* _el, const char
 	
 	if (core::strcmpi(_el, "include") == 0)
 	{
-		//TODO: test
 		system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
 		bool validInput = m_system->createFile(future, ctx.currentXMLDir.string()+_atts[1], system::IFile::ECF_READ);
 		if (!validInput) // try global path

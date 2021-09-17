@@ -111,8 +111,6 @@ class ILogger : public core::IReferenceCounted
 		std::underlying_type_t<E_LOG_LEVEL> m_logLevelMask;
 };
 
-
-
 class logger_opt_ptr final
 {
 	public:

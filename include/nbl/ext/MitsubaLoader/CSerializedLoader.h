@@ -28,13 +28,10 @@ class CSerializedLoader final : public asset::IRenderpassIndependentPipelineLoad
 		inline bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger = nullptr) const override
 		{
 			FileHeader header;
-
-			/* OLD
-			const size_t prevPos = _file->getPos();
-			_file->seek(0u);
-			_file->read(&header, sizeof(header));
-			_file->seek(prevPos);*/
-			__debugbreak();
+			
+			system::future<size_t> future;
+			_file->read(future, &header, 0u, sizeof(header));
+			future.get();
 
 			return header==FileHeader();
 		}

@@ -60,19 +60,16 @@ asset::SAssetBundle CSerializedLoader::loadAsset(system::IFile* _file, const ass
 	size_t maxSize = 0u;
 	{
 		FileHeader header;
-		// TODO: test
 		system::future<size_t> future;
 		ctx.inner.mainFile->read(future, &header, 0u, sizeof(header));
 		future.get();
 		if (header!=FileHeader())
 		{
-			// TODO: test
 			_params.logger.log("Not a valid `.serialized` file", system::ILogger::E_LOG_LEVEL::ELL_ERROR, ctx.inner.mainFile->getFileName().string().c_str());
 			return {};
 		}
 
 		size_t backPos = ctx.inner.mainFile->getSize() - sizeof(uint32_t);
-		// TODO: can I reuse future?
 		ctx.inner.mainFile->read(future,&ctx.meshCount,backPos,sizeof(uint32_t));
 		future.get();
 		if (ctx.meshCount==0u)
@@ -108,7 +105,6 @@ asset::SAssetBundle CSerializedLoader::loadAsset(system::IFile* _file, const ass
 	for (uint32_t i=0; i<ctx.meshCount; i++)
 	{
 		auto localSize = ctx.meshOffsets->operator[](i+ctx.meshCount);
-		// TODO: test
 		ctx.inner.mainFile->read(future,data,sizeof(FileHeader)+ctx.meshOffsets->operator[](i),localSize);
 		// decompress
 		size_t decompressSize;
@@ -146,7 +142,6 @@ asset::SAssetBundle CSerializedLoader::loadAsset(system::IFile* _file, const ass
 				err = err2;
 			if (err != Z_OK)
 			{
-				// TODO: test
 				std::string msg("Error decompressing mesh ix ");
 				msg += std::to_string(i);
 				_params.logger.log(msg, system::ILogger::E_LOG_LEVEL::ELL_ERROR);
