@@ -237,10 +237,10 @@ int main()
 		core::smart_refctd_ptr<IGPUBuffer> gpuSequenceBuffer;
 		{
 			IGPUBuffer::SCreationParams params = {};
-			params.size = sampleSequence->getSize();
+			const size_t size = sampleSequence->getSize();
 			params.usage = core::bitflag(asset::IBuffer::EUF_TRANSFER_DST_BIT) | asset::IBuffer::EUF_UNIFORM_TEXEL_BUFFER_BIT; 
-			gpuSequenceBuffer = device->createDeviceLocalGPUBufferOnDedMem(params);
-			utilities->updateBufferRangeViaStagingBuffer(graphicsQueue, asset::SBufferRange<IGPUBuffer>{0u,params.size,gpuSequenceBuffer},sampleSequence->getPointer());
+			gpuSequenceBuffer = device->createDeviceLocalGPUBufferOnDedMem(params, size);
+			utilities->updateBufferRangeViaStagingBuffer(graphicsQueue, asset::SBufferRange<IGPUBuffer>{0u,size,gpuSequenceBuffer},sampleSequence->getPointer());
 		}
 		gpuSequenceBufferView = device->createGPUBufferView(gpuSequenceBuffer.get(), asset::EF_R32G32B32_UINT);
 	}
@@ -256,6 +256,7 @@ int main()
 		imgParams.arrayLayers = 1u;
 		imgParams.samples = IImage::ESCF_1_BIT;
 		imgParams.usage = core::bitflag(IImage::EUF_SAMPLED_BIT) | IImage::EUF_TRANSFER_DST_BIT;
+		imgParams.initialLayout = asset::EIL_GENERAL; // @Erfan you don't have to obey the Vulkan spec here which says initialLayout should either be UNDEFINED or PREINITIALIZED, createFilledDeviceLocalGPUImageOnDedMem will do the transition to the layout you specify here
 
 		IGPUImage::SBufferCopy region;
 		region.imageExtent = imgParams.extent;
@@ -276,10 +277,10 @@ int main()
 		core::smart_refctd_ptr<IGPUBuffer> buffer;
 		{
 			IGPUBuffer::SCreationParams params = {};
-			params.size = random.size()*sizeof(uint32_t);
+			const size_t size = random.size() * sizeof(uint32_t);
 			params.usage = core::bitflag(asset::IBuffer::EUF_TRANSFER_DST_BIT) | asset::IBuffer::EUF_TRANSFER_SRC_BIT; 
-			buffer = device->createDeviceLocalGPUBufferOnDedMem(params);
-			utilities->updateBufferRangeViaStagingBuffer(graphicsQueue, asset::SBufferRange<IGPUBuffer>{0u,params.size,buffer},random.data());
+			buffer = device->createDeviceLocalGPUBufferOnDedMem(params, size);
+			utilities->updateBufferRangeViaStagingBuffer(graphicsQueue, asset::SBufferRange<IGPUBuffer>{0u,size,buffer},random.data());
 		}
 
 		IGPUImageView::SCreationParams viewParams;
@@ -321,9 +322,9 @@ int main()
 	}
 
 	IGPUBuffer::SCreationParams gpuuboParams = {};
-	gpuuboParams.size = sizeof(SBasicViewParameters);
+	const size_t gpuuboParamsSize = sizeof(SBasicViewParameters);
 	gpuuboParams.usage = core::bitflag(IGPUBuffer::EUF_UNIFORM_BUFFER_BIT) | IGPUBuffer::EUF_TRANSFER_DST_BIT;
-	auto gpuubo = device->createDeviceLocalGPUBufferOnDedMem(gpuuboParams);
+	auto gpuubo = device->createDeviceLocalGPUBufferOnDedMem(gpuuboParams, gpuuboParamsSize);
 	auto uboDescriptorSet1 = device->createGPUDescriptorSet(descriptorPool.get(), core::smart_refctd_ptr(gpuDescriptorSetLayout1));
 	{
 		video::IGPUDescriptorSet::SWriteDescriptorSet uboWriteDescriptorSet;
@@ -342,6 +343,11 @@ int main()
 		device->updateDescriptorSets(1u, &uboWriteDescriptorSet, 0u, nullptr);
 	}
 
+	ISampler::SParams samplerParams0 = { ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_FLOAT_OPAQUE_BLACK, ISampler::ETF_LINEAR, ISampler::ETF_LINEAR, ISampler::ESMM_LINEAR, 0u, false, ECO_ALWAYS };
+	auto sampler0 = device->createGPUSampler(samplerParams0);
+	ISampler::SParams samplerParams1 = { ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_INT_OPAQUE_BLACK, ISampler::ETF_NEAREST, ISampler::ETF_NEAREST, ISampler::ESMM_NEAREST, 0u, false, ECO_ALWAYS };
+	auto sampler1 = device->createGPUSampler(samplerParams1);
+	
 	auto descriptorSet2 = device->createGPUDescriptorSet(descriptorPool.get(), core::smart_refctd_ptr(gpuDescriptorSetLayout2));
 	{
 		constexpr auto kDescriptorCount = 3;
@@ -361,20 +367,19 @@ int main()
 
 		samplerDescriptorInfo[0].desc = gpuEnvmapImageView;
 		{
-			ISampler::SParams samplerParams = { ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_FLOAT_OPAQUE_BLACK, ISampler::ETF_LINEAR, ISampler::ETF_LINEAR, ISampler::ESMM_LINEAR, 0u, false, ECO_ALWAYS };
-			samplerDescriptorInfo[0].image.sampler = device->createGPUSampler(samplerParams);
+			// ISampler::SParams samplerParams = { ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_FLOAT_OPAQUE_BLACK, ISampler::ETF_LINEAR, ISampler::ETF_LINEAR, ISampler::ESMM_LINEAR, 0u, false, ECO_ALWAYS };
+			samplerDescriptorInfo[0].image.sampler = sampler0;
 			samplerDescriptorInfo[0].image.imageLayout = EIL_SHADER_READ_ONLY_OPTIMAL;
 		}
 		samplerDescriptorInfo[1].desc = gpuSequenceBufferView;
 		samplerDescriptorInfo[2].desc = gpuScrambleImageView;
 		{
-			ISampler::SParams samplerParams = { ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_INT_OPAQUE_BLACK, ISampler::ETF_NEAREST, ISampler::ETF_NEAREST, ISampler::ESMM_NEAREST, 0u, false, ECO_ALWAYS };
-			samplerDescriptorInfo[2].image.sampler = device->createGPUSampler(samplerParams);
+			// ISampler::SParams samplerParams = { ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_INT_OPAQUE_BLACK, ISampler::ETF_NEAREST, ISampler::ETF_NEAREST, ISampler::ESMM_NEAREST, 0u, false, ECO_ALWAYS };
+			samplerDescriptorInfo[2].image.sampler = sampler1;
 			samplerDescriptorInfo[2].image.imageLayout = EIL_SHADER_READ_ONLY_OPTIMAL;
 		}
 
-		// TODO: Uncomment when device->createGPUSampler works on Vulkan
-		// device->updateDescriptorSets(kDescriptorCount, samplerWriteDescriptorSet, 0u, nullptr);
+		device->updateDescriptorSets(kDescriptorCount, samplerWriteDescriptorSet, 0u, nullptr);
 	}
 
 	constexpr uint32_t FRAME_COUNT = 500000u;
@@ -489,7 +494,7 @@ int main()
 				
 		// TRANSITION outHDRImageViews[imgnum] to EIL_GENERAL (because of descriptorSets0 -> ComputeShader Writes into the image)
 		{
-			IGPUCommandBuffer::SImageMemoryBarrier imageBarriers[1u] = {};
+			IGPUCommandBuffer::SImageMemoryBarrier imageBarriers[3u] = {};
 			imageBarriers[0].barrier.srcAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0u);
 			imageBarriers[0].barrier.dstAccessMask = static_cast<asset::E_ACCESS_FLAGS>(asset::EAF_SHADER_WRITE_BIT);
 			imageBarriers[0].oldLayout = asset::EIL_UNDEFINED;
@@ -502,7 +507,33 @@ int main()
 			imageBarriers[0].subresourceRange.levelCount = 1;
 			imageBarriers[0].subresourceRange.baseArrayLayer = 0u;
 			imageBarriers[0].subresourceRange.layerCount = 1;
-			cb->pipelineBarrier(asset::EPSF_TOP_OF_PIPE_BIT, asset::EPSF_COMPUTE_SHADER_BIT, asset::EDF_NONE, 0u, nullptr, 0u, nullptr, 1u, imageBarriers);
+
+			imageBarriers[1].barrier.srcAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0u);
+			imageBarriers[1].barrier.dstAccessMask = static_cast<asset::E_ACCESS_FLAGS>(asset::EAF_SHADER_READ_BIT);
+			imageBarriers[1].oldLayout = asset::EIL_UNDEFINED;
+			imageBarriers[1].newLayout = asset::EIL_SHADER_READ_ONLY_OPTIMAL;
+			imageBarriers[1].srcQueueFamilyIndex = cmdPoolQueueFamIdx;
+			imageBarriers[1].dstQueueFamilyIndex = cmdPoolQueueFamIdx;
+			imageBarriers[1].image = gpuEnvmapImageView->getCreationParameters().image;
+			imageBarriers[1].subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
+			imageBarriers[1].subresourceRange.baseMipLevel = 0u;
+			imageBarriers[1].subresourceRange.levelCount = 1;
+			imageBarriers[1].subresourceRange.baseArrayLayer = 0u;
+			imageBarriers[1].subresourceRange.layerCount = 1;
+
+			imageBarriers[2].barrier.srcAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0u);
+			imageBarriers[2].barrier.dstAccessMask = static_cast<asset::E_ACCESS_FLAGS>(asset::EAF_SHADER_READ_BIT);
+			imageBarriers[2].oldLayout = asset::EIL_UNDEFINED;
+			imageBarriers[2].newLayout = asset::EIL_SHADER_READ_ONLY_OPTIMAL;
+			imageBarriers[2].srcQueueFamilyIndex = cmdPoolQueueFamIdx;
+			imageBarriers[2].dstQueueFamilyIndex = cmdPoolQueueFamIdx;
+			imageBarriers[2].image = gpuScrambleImageView->getCreationParameters().image;
+			imageBarriers[2].subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
+			imageBarriers[2].subresourceRange.baseMipLevel = 0u;
+			imageBarriers[2].subresourceRange.levelCount = 1;
+			imageBarriers[2].subresourceRange.baseArrayLayer = 0u;
+			imageBarriers[2].subresourceRange.layerCount = 1;
+			cb->pipelineBarrier(asset::EPSF_TOP_OF_PIPE_BIT, asset::EPSF_COMPUTE_SHADER_BIT, asset::EDF_NONE, 0u, nullptr, 0u, nullptr, 3u, imageBarriers);
 		}
 
 		// cube envmap handle
@@ -601,6 +632,8 @@ int main()
 	
 	const auto& fboCreationParams = fbo[0]->getCreationParameters();
 	auto gpuSourceImageView = fboCreationParams.attachments[0];
+
+	device->waitIdle();
 
 	// bool status = ext::ScreenShot::createScreenShot(device.get(), queues[decltype(initOutput)::EQT_TRANSFER_UP], renderFinished[0].get(), gpuSourceImageView.get(), assetManager.get(), "ScreenShot.png");
 	// assert(status);

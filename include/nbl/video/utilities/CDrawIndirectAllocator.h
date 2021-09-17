@@ -32,7 +32,7 @@ class CDrawIndirectAllocator final : public IDrawIndirectAllocator
             ExplicitBufferCreationParameters explicit_params;
 
             video::IGPUBuffer::SCreationParams creationParams;
-            creationParams.size = explicit_params.drawCommandBuffer.size;
+            const size_t bufferSize = explicit_params.drawCommandBuffer.size;
             creationParams.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
             creationParams.sharingMode = asset::E_SHARING_MODE::ESM_CONCURRENT;
             creationParams.queueFamilyIndexCount = 0u;
@@ -47,8 +47,8 @@ class CDrawIndirectAllocator final : public IDrawIndirectAllocator
             explicit_params.drawCountBuffer.size = core::roundUp<size_t>(params.drawCountCapacity*sizeof(uint32_t),limits.SSBOAlignment);
             if (explicit_params.drawCountBuffer.size)
             {
-                creationParams.size = explicit_params.drawCountBuffer.size;
-                explicit_params.drawCountBuffer.buffer = params.device->createDeviceLocalGPUBufferOnDedMem(creationParams);
+                bufferSize = explicit_params.drawCountBuffer.size;
+                explicit_params.drawCountBuffer.buffer = params.device->createDeviceLocalGPUBufferOnDedMem(creationParams, bufferSize);
             }
             else
                 explicit_params.drawCountBuffer.buffer = nullptr;
