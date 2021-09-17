@@ -76,9 +76,10 @@ public:
         VkPhysicalDeviceRayTracingPipelineFeaturesKHR rayTracingPipelineFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR, nullptr };
         VkPhysicalDeviceAccelerationStructureFeaturesKHR accelerationFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR, &rayTracingPipelineFeatures };
         VkPhysicalDeviceRayQueryFeaturesKHR rayQueryFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR, &accelerationFeatures };
+        VkPhysicalDeviceBufferDeviceAddressFeaturesEXT bufferDeviceAddressFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_ADDRESS_FEATURES_EXT, &rayQueryFeatures };
         {
             VkPhysicalDeviceFeatures2 deviceFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
-            deviceFeatures.pNext = &rayQueryFeatures;
+            deviceFeatures.pNext = &bufferDeviceAddressFeatures;
             vkGetPhysicalDeviceFeatures2(m_vkPhysicalDevice, &deviceFeatures);
             auto features = deviceFeatures.features;
                     
@@ -110,11 +111,13 @@ public:
                 
         requestDeviceExtension(VK_KHR_SWAPCHAIN_EXTENSION_NAME, false);
         requestDeviceExtension(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME, true); // requires vulkan 1.1
-        requestDeviceExtension(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME, true); // required by VK_KHR_acceleration_structure
         requestDeviceExtension(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME, true); // required by VK_KHR_acceleration_structure
-        requestDeviceExtension<VkPhysicalDeviceAccelerationStructureFeaturesKHR>(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME, true, &accelerationFeatures);
+        requestDeviceExtension<VkPhysicalDeviceBufferDeviceAddressFeaturesEXT>(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME, true, &bufferDeviceAddressFeatures); // required by VK_KHR_acceleration_structure
+        requestDeviceExtension<VkPhysicalDeviceAccelerationStructureFeaturesKHR>(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME, true, &accelerationFeatures); // required by VK_KHR_ray_query and VK_KHR_ray_tracing_pipeline 
+        requestDeviceExtension(VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME, true); // required by VK_KHR_spirv_1_4
+        requestDeviceExtension(VK_KHR_SPIRV_1_4_EXTENSION_NAME, true); // required by VK_KHR_ray_query and VK_KHR_ray_tracing_pipeline
+        requestDeviceExtension<VkPhysicalDeviceRayQueryFeaturesKHR>(VK_KHR_RAY_QUERY_EXTENSION_NAME, true, &rayQueryFeatures);
         // requestDeviceExtension<VkPhysicalDeviceRayTracingPipelineFeaturesKHR>(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME, true, &rayTracingPipelineFeatures);
-        // requestDeviceExtension<VkPhysicalDeviceRayQueryFeaturesKHR>(VK_KHR_RAY_QUERY_EXTENSION_NAME, true, &rayQueryFeatures);
 
 
         // Get physical device's memory properties

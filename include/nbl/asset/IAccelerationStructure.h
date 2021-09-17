@@ -28,6 +28,7 @@ class IAccelerationStructure : public IDescriptor
 		};
 		enum E_CREATE_FLAGS : uint32_t
 		{
+			ECF_NONE								= 0u,
 			ECF_DEVICE_ADDRESS_CAPTURE_REPLAY_BIT	= 0x1u << 0u,
 			ECF_MOTION_BIT_NV						= 0x1u << 1u, // Provided by VK_NV_ray_tracing_motion_blur
 		};
@@ -55,6 +56,7 @@ class IAccelerationStructure : public IDescriptor
 			EGT_INSTANCES = 2,
 		};
 		enum E_GEOM_FLAGS {
+			EGF_NONE								= 0u,
 			EGF_OPAQUE_BIT							= 0x1u << 0u,
 			EGF_NO_DUPLICATE_ANY_HIT_INVOCATION_BIT	= 0x1u << 1u,
 		};

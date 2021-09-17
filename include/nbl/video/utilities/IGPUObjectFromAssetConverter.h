@@ -1686,15 +1686,16 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUAccelerationStructure
     auto allocateBufferAndCreateAccelerationStructure = [&](size_t asSize, const asset::ICPUAccelerationStructure* cpuas)
     {
         // Create buffer with cpuas->getAccelerationStructureSize
-        // TODO -> Needs Usage Flags
         IGPUBuffer::SCreationParams gpuBufParams = {};
         gpuBufParams.size = asSize;
+        gpuBufParams.usage = core::bitflag(asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT) | asset::IBuffer::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT;
         auto gpubuf = _params.device->createDeviceLocalGPUBufferOnDedMem(gpuBufParams);
             
         // Create GPUAccelerationStructure with that buffer
         video::IGPUAccelerationStructure::SCreationParams creatationParams = {};
-        creatationParams.bufferRange.offset = 0;
         creatationParams.bufferRange.buffer = gpubuf;
+        creatationParams.bufferRange.offset = 0;
+        creatationParams.bufferRange.size = asSize;
         creatationParams.flags = cpuas->getCreationParameters().flags;
         creatationParams.type = cpuas->getCreationParameters().type;
         return _params.device->createGPUAccelerationStructure(std::move(creatationParams));
@@ -1912,9 +1913,9 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUAccelerationStructure
             }
 
             // Allocate Scratch Buffer
-            // TODO -> Needs Usage Flags
             IGPUBuffer::SCreationParams gpuScratchBufParams = {};
             gpuScratchBufParams.size = totalScratchBufferSize;
+		    gpuScratchBufParams.usage = core::bitflag(asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT) | asset::IBuffer::EUF_STORAGE_BUFFER_BIT; 
             auto gpuScratchBuf = _params.device->createDeviceLocalGPUBufferOnDedMem(gpuScratchBufParams);
             for (ptrdiff_t i = 0u; i < toCreateAndBuild.size(); ++i)
             {
@@ -1933,8 +1934,6 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUAccelerationStructure
             {
                 submit.commandBufferCount = 1u;
                 submit.commandBuffers = &cmdbuf.get();
-                // CPU to GPU upload doesn't need to wait for anything or narrow down the execution barrier
-                // buffer and addresses we're writing into are fresh and brand new, don't need to synchronize the writing with anything
                 submit.waitSemaphoreCount = 0u;
                 submit.pWaitDstStageMask = nullptr;
                 submit.pWaitSemaphores = nullptr;

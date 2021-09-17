@@ -89,7 +89,7 @@ public:
 			}
 
 			VkAccelerationStructureKHR vk_srcAS = (buildGeomInfo.srcAS) ? static_cast<CVulkanAccelerationStructure *>(buildGeomInfo.srcAS)->getInternalObject() : VK_NULL_HANDLE;
-			VkAccelerationStructureKHR vk_dstAS = (buildGeomInfo.srcAS) ? static_cast<CVulkanAccelerationStructure *>(buildGeomInfo.dstAS)->getInternalObject() : VK_NULL_HANDLE;
+			VkAccelerationStructureKHR vk_dstAS = (buildGeomInfo.dstAS) ? static_cast<CVulkanAccelerationStructure *>(buildGeomInfo.dstAS)->getInternalObject() : VK_NULL_HANDLE;
 
 			ret.type = getVkASTypeFromASType(buildGeomInfo.type);
 			ret.flags = getVkASBuildFlagsFromASBuildFlags(buildGeomInfo.buildFlags);

@@ -1462,7 +1462,7 @@ protected:
     template<typename AddressType>
     IGPUAccelerationStructure::BuildSizes getAccelerationStructureBuildSizes_impl(VkAccelerationStructureBuildTypeKHR buildType, const IGPUAccelerationStructure::BuildGeometryInfo<AddressType>& pBuildInfo, const uint32_t* pMaxPrimitiveCounts) 
     {
-        VkAccelerationStructureBuildSizesInfoKHR vk_ret = {};
+        VkAccelerationStructureBuildSizesInfoKHR vk_ret = {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR, nullptr};
 
         if(pMaxPrimitiveCounts == nullptr) {
             assert(false);
