@@ -88,11 +88,14 @@ public:
 				inoutGeomArray[g] = vk_geom;
 			}
 
+			VkAccelerationStructureKHR vk_srcAS = (buildGeomInfo.srcAS) ? static_cast<CVulkanAccelerationStructure *>(buildGeomInfo.srcAS)->getInternalObject() : VK_NULL_HANDLE;
+			VkAccelerationStructureKHR vk_dstAS = (buildGeomInfo.srcAS) ? static_cast<CVulkanAccelerationStructure *>(buildGeomInfo.dstAS)->getInternalObject() : VK_NULL_HANDLE;
+
 			ret.type = getVkASTypeFromASType(buildGeomInfo.type);
 			ret.flags = getVkASBuildFlagsFromASBuildFlags(buildGeomInfo.buildFlags);
 			ret.mode = getVkASBuildModeFromASBuildMode(buildGeomInfo.buildMode);
-			ret.srcAccelerationStructure = static_cast<CVulkanAccelerationStructure *>(buildGeomInfo.srcAS)->getInternalObject();
-			ret.dstAccelerationStructure = static_cast<CVulkanAccelerationStructure *>(buildGeomInfo.dstAS)->getInternalObject();
+			ret.srcAccelerationStructure = vk_srcAS;
+			ret.dstAccelerationStructure = vk_dstAS;
 			ret.geometryCount = geomCount;
 			ret.pGeometries = inoutGeomArray;
 			ret.ppGeometries = nullptr;

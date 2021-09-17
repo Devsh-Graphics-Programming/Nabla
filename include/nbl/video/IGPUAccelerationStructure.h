@@ -38,13 +38,14 @@ class IGPUAccelerationStructure : public asset::IAccelerationStructure, public I
 		template<typename AddressType>
 		struct BuildGeometryInfo
 		{
+			using Geometry = IAccelerationStructure::Geometry<AddressType>;
 			BuildGeometryInfo() 
 				: type(static_cast<Base::E_TYPE>(0u))
 				, buildFlags(static_cast<E_BUILD_FLAGS>(0u))
 				, buildMode(static_cast<E_BUILD_MODE>(0u))
 				, srcAS(nullptr)
 				, dstAS(nullptr)
-				, geometries(core::SRange<Geometry<AddressType>>(nullptr, nullptr))
+				, geometries(core::SRange<Geometry>(nullptr, nullptr))
 				, scratchAddr({})
 			{}
 			~BuildGeometryInfo() = default;
@@ -53,7 +54,7 @@ class IGPUAccelerationStructure : public asset::IAccelerationStructure, public I
 			E_BUILD_MODE	buildMode;
 			IGPUAccelerationStructure * srcAS;
 			IGPUAccelerationStructure * dstAS;
-			core::SRange<Geometry<AddressType>> geometries;
+			core::SRange<Geometry> geometries;
 			AddressType		scratchAddr;
 		};
 

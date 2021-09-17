@@ -152,10 +152,9 @@ core::smart_refctd_ptr<IGPUAccelerationStructure> CVulkanLogicalDevice::createGP
     auto physicalDevice = static_cast<const CVulkanPhysicalDevice*>(getPhysicalDevice());
     auto features = physicalDevice->getFeatures();
     
-    // TODO(Validation): accelerationStructure feature must be enabled
-    if(!features.accelerationStructure) // this is not "enabled" feature :(
+    if(!features.accelerationStructure)
     {
-        assert(false && "device acceleration structures is not enabled.");
+        assert(false && "device accelerationStructures is not enabled.");
         return nullptr;
     }
 
@@ -177,7 +176,15 @@ bool CVulkanLogicalDevice::buildAccelerationStructures(
     const core::SRange<IGPUAccelerationStructure::HostBuildGeometryInfo>& pInfos,
     IGPUAccelerationStructure::BuildRangeInfo* const* ppBuildRangeInfos)
 {
-    // TODO(Validation): accelerationStructureHostCommands feature must be enabled
+    auto physicalDevice = static_cast<const CVulkanPhysicalDevice*>(getPhysicalDevice());
+    auto features = physicalDevice->getFeatures();
+    if(!features.accelerationStructure)
+    {
+        assert(false && "device acceleration structures is not enabled.");
+        return false;
+    }
+
+
     bool ret = false;
     if(!pInfos.empty() && deferredOperation.get() != nullptr)
     {
@@ -218,7 +225,14 @@ bool CVulkanLogicalDevice::buildAccelerationStructures(
 
 bool CVulkanLogicalDevice::copyAccelerationStructure(core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation, const IGPUAccelerationStructure::CopyInfo& copyInfo)
 {
-    // TODO(Validation): accelerationStructureHostCommands feature must be enabled
+    auto physicalDevice = static_cast<const CVulkanPhysicalDevice*>(getPhysicalDevice());
+    auto features = physicalDevice->getFeatures();
+    if(!features.accelerationStructureHostCommands || !features.accelerationStructure)
+    {
+        assert(false && "device accelerationStructuresHostCommands is not enabled.");
+        return false;
+    }
+
     bool ret = false;
     if(deferredOperation.get() != nullptr)
     {
@@ -241,7 +255,14 @@ bool CVulkanLogicalDevice::copyAccelerationStructure(core::smart_refctd_ptr<IDef
     
 bool CVulkanLogicalDevice::copyAccelerationStructureToMemory(core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation, const IGPUAccelerationStructure::HostCopyToMemoryInfo& copyInfo)
 {
-    // TODO(Validation): accelerationStructureHostCommands feature must be enabled
+    auto physicalDevice = static_cast<const CVulkanPhysicalDevice*>(getPhysicalDevice());
+    auto features = physicalDevice->getFeatures();
+    if(!features.accelerationStructureHostCommands || !features.accelerationStructure)
+    {
+        assert(false && "device accelerationStructuresHostCommands is not enabled.");
+        return false;
+    }
+
     bool ret = false;
     if(deferredOperation.get() != nullptr)
     {
@@ -265,7 +286,14 @@ bool CVulkanLogicalDevice::copyAccelerationStructureToMemory(core::smart_refctd_
 
 bool CVulkanLogicalDevice::copyAccelerationStructureFromMemory(core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation, const IGPUAccelerationStructure::HostCopyFromMemoryInfo& copyInfo)
 {
-    // TODO(Validation): accelerationStructureHostCommands feature must be enabled
+    auto physicalDevice = static_cast<const CVulkanPhysicalDevice*>(getPhysicalDevice());
+    auto features = physicalDevice->getFeatures();
+    if(!features.accelerationStructureHostCommands || !features.accelerationStructure)
+    {
+        assert(false && "device accelerationStructuresHostCommands is not enabled.");
+        return false;
+    }
+
     bool ret = false;
     if(deferredOperation.get() != nullptr)
     {

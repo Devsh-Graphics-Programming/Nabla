@@ -70,7 +70,10 @@ class IAccelerationStructure : public IDescriptor
 		template<typename AddressType>
 		struct GeometryData
 		{
-			GeometryData() {}
+			GeometryData() 
+			{
+				std::memset(this, 0, sizeof(GeometryData));
+			}
 			~GeometryData() {}
 
 			GeometryData(GeometryData& copy)
@@ -129,12 +132,12 @@ class IAccelerationStructure : public IDescriptor
 				, flags(static_cast<E_GEOM_FLAGS>(0u))
 			{};
 			E_GEOM_TYPE					type;
-			E_GEOM_FLAGS				flags;
+			E_GEOM_FLAGS				flags; // change to core::bitflags later
 			GeometryData<AddressType>	data;
 		};
 
 		// For Filling the Instances/AABBs Buffer
-		using aabbPosition = core::aabbox3d<float>;
+		using AABB_Position = core::aabbox3d<float>;
 
 		struct Instance
 		{

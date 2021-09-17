@@ -1483,8 +1483,7 @@ protected:
             assert(geomCount > 0);
             assert(geomCount <= MaxGeometryPerBuildInfoCount);
 
-            vk_buildGeomsInfo = CVulkanAccelerationStructure::getVkASBuildGeomInfoFromBuildGeomInfo(m_vkdev, pBuildInfo, &vk_geometries[geometryArrayOffset]);
-            geometryArrayOffset += geomCount;
+            vk_buildGeomsInfo = CVulkanAccelerationStructure::getVkASBuildGeomInfoFromBuildGeomInfo(m_vkdev, pBuildInfo, vk_geometries);
         }
 
         vkGetAccelerationStructureBuildSizesKHR(m_vkdev, buildType, &vk_buildGeomsInfo, pMaxPrimitiveCounts, &vk_ret);
