@@ -1690,9 +1690,8 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUAccelerationStructure
     {
         // Create buffer with cpuas->getAccelerationStructureSize
         IGPUBuffer::SCreationParams gpuBufParams = {};
-        gpuBufParams.size = asSize;
         gpuBufParams.usage = core::bitflag(asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT) | asset::IBuffer::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT;
-        auto gpubuf = _params.device->createDeviceLocalGPUBufferOnDedMem(gpuBufParams);
+        auto gpubuf = _params.device->createDeviceLocalGPUBufferOnDedMem(gpuBufParams, asSize);
             
         // Create GPUAccelerationStructure with that buffer
         video::IGPUAccelerationStructure::SCreationParams creatationParams = {};
@@ -1917,9 +1916,8 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUAccelerationStructure
 
             // Allocate Scratch Buffer
             IGPUBuffer::SCreationParams gpuScratchBufParams = {};
-            gpuScratchBufParams.size = totalScratchBufferSize;
 		    gpuScratchBufParams.usage = core::bitflag(asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT) | asset::IBuffer::EUF_STORAGE_BUFFER_BIT; 
-            auto gpuScratchBuf = _params.device->createDeviceLocalGPUBufferOnDedMem(gpuScratchBufParams);
+            auto gpuScratchBuf = _params.device->createDeviceLocalGPUBufferOnDedMem(gpuScratchBufParams, totalScratchBufferSize);
             for (ptrdiff_t i = 0u; i < toCreateAndBuild.size(); ++i)
             {
                 auto & gpuBuildInfo = buildGeomInfos[i];
