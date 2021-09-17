@@ -237,10 +237,10 @@ int main()
 		core::smart_refctd_ptr<IGPUBuffer> gpuSequenceBuffer;
 		{
 			IGPUBuffer::SCreationParams params = {};
-			params.size = sampleSequence->getSize();
+			const size_t size = sampleSequence->getSize();
 			params.usage = core::bitflag(asset::IBuffer::EUF_TRANSFER_DST_BIT) | asset::IBuffer::EUF_UNIFORM_TEXEL_BUFFER_BIT; 
-			gpuSequenceBuffer = device->createDeviceLocalGPUBufferOnDedMem(params);
-			utilities->updateBufferRangeViaStagingBuffer(graphicsQueue, asset::SBufferRange<IGPUBuffer>{0u,params.size,gpuSequenceBuffer},sampleSequence->getPointer());
+			gpuSequenceBuffer = device->createDeviceLocalGPUBufferOnDedMem(params, size);
+			utilities->updateBufferRangeViaStagingBuffer(graphicsQueue, asset::SBufferRange<IGPUBuffer>{0u,size,gpuSequenceBuffer},sampleSequence->getPointer());
 		}
 		gpuSequenceBufferView = device->createGPUBufferView(gpuSequenceBuffer.get(), asset::EF_R32G32B32_UINT);
 	}
@@ -277,10 +277,10 @@ int main()
 		core::smart_refctd_ptr<IGPUBuffer> buffer;
 		{
 			IGPUBuffer::SCreationParams params = {};
-			params.size = random.size()*sizeof(uint32_t);
+			const size_t size = random.size() * sizeof(uint32_t);
 			params.usage = core::bitflag(asset::IBuffer::EUF_TRANSFER_DST_BIT) | asset::IBuffer::EUF_TRANSFER_SRC_BIT; 
-			buffer = device->createDeviceLocalGPUBufferOnDedMem(params);
-			utilities->updateBufferRangeViaStagingBuffer(graphicsQueue, asset::SBufferRange<IGPUBuffer>{0u,params.size,buffer},random.data());
+			buffer = device->createDeviceLocalGPUBufferOnDedMem(params, size);
+			utilities->updateBufferRangeViaStagingBuffer(graphicsQueue, asset::SBufferRange<IGPUBuffer>{0u,size,buffer},random.data());
 		}
 
 		IGPUImageView::SCreationParams viewParams;
@@ -322,9 +322,9 @@ int main()
 	}
 
 	IGPUBuffer::SCreationParams gpuuboParams = {};
-	gpuuboParams.size = sizeof(SBasicViewParameters);
+	const size_t gpuuboParamsSize = sizeof(SBasicViewParameters);
 	gpuuboParams.usage = core::bitflag(IGPUBuffer::EUF_UNIFORM_BUFFER_BIT) | IGPUBuffer::EUF_TRANSFER_DST_BIT;
-	auto gpuubo = device->createDeviceLocalGPUBufferOnDedMem(gpuuboParams);
+	auto gpuubo = device->createDeviceLocalGPUBufferOnDedMem(gpuuboParams, gpuuboParamsSize);
 	auto uboDescriptorSet1 = device->createGPUDescriptorSet(descriptorPool.get(), core::smart_refctd_ptr(gpuDescriptorSetLayout1));
 	{
 		video::IGPUDescriptorSet::SWriteDescriptorSet uboWriteDescriptorSet;
@@ -602,6 +602,8 @@ int main()
 	
 	const auto& fboCreationParams = fbo[0]->getCreationParameters();
 	auto gpuSourceImageView = fboCreationParams.attachments[0];
+
+	device->waitIdle();
 
 	// bool status = ext::ScreenShot::createScreenShot(device.get(), queues[decltype(initOutput)::EQT_TRANSFER_UP], renderFinished[0].get(), gpuSourceImageView.get(), assetManager.get(), "ScreenShot.png");
 	// assert(status);

@@ -510,12 +510,12 @@ public:
         return !anyFailed;
     }
 
-    core::smart_refctd_ptr<IGPUBuffer> createGPUBuffer(const IGPUBuffer::SCreationParams& creationParams, const bool canModifySubData = false) override
+    core::smart_refctd_ptr<IGPUBuffer> createGPUBuffer(const IGPUBuffer::SCreationParams& creationParams, const size_t size, const bool canModifySubData = false) override
     {
         VkBufferCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
         vk_createInfo.pNext = nullptr; // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkBufferDeviceAddressCreateInfoEXT, VkBufferOpaqueCaptureAddressCreateInfo, VkDedicatedAllocationBufferCreateInfoNV, VkExternalMemoryBufferCreateInfo, VkVideoProfileKHR, or VkVideoProfilesKHR
         vk_createInfo.flags = static_cast<VkBufferCreateFlags>(0); // Nabla doesn't support any of these flags
-        vk_createInfo.size = static_cast<VkDeviceSize>(creationParams.size);
+        vk_createInfo.size = static_cast<VkDeviceSize>(size);
         vk_createInfo.usage = static_cast<VkBufferUsageFlags>(creationParams.usage.value);
         vk_createInfo.sharingMode = static_cast<VkSharingMode>(creationParams.sharingMode); 
         vk_createInfo.queueFamilyIndexCount = creationParams.queueFamilyIndexCount;
@@ -553,7 +553,7 @@ public:
 
     core::smart_refctd_ptr<IGPUBuffer> createGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& creationParams, const IDriverMemoryBacked::SDriverMemoryRequirements& additionalMemoryReqs, const bool canModifySubData = false) override
     {
-        core::smart_refctd_ptr<IGPUBuffer> gpuBuffer = createGPUBuffer(creationParams);
+        core::smart_refctd_ptr<IGPUBuffer> gpuBuffer = createGPUBuffer(creationParams, additionalMemoryReqs.vulkanReqs.size);
 
         if (!gpuBuffer)
             return nullptr;

@@ -55,8 +55,7 @@ class IUtilities : public core::IReferenceCounted
         inline core::smart_refctd_ptr<IGPUBuffer> createFilledDeviceLocalGPUBufferOnDedMem(IGPUQueue* queue, size_t size, const void* data)
 	    {
             IGPUBuffer::SCreationParams params = {};
-            params.size = size;
-		    auto retval = m_device->createDeviceLocalGPUBufferOnDedMem(params);
+		    auto retval = m_device->createDeviceLocalGPUBufferOnDedMem(params, size);
             updateBufferRangeViaStagingBuffer(queue,asset::SBufferRange<IGPUBuffer>{0u,size,retval},data);
 		    return retval;
 	    }
