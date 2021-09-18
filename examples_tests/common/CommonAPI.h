@@ -908,7 +908,7 @@ public:
 		sc_params.arrayLayers = 1u;
 		sc_params.minImageCount = imageCount;
 		sc_params.presentMode = requestedPresentMode;
-		sc_params.imageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_STORAGE_BIT | asset::IImage::EUF_TRANSFER_DST_BIT);;
+		sc_params.imageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_TRANSFER_DST_BIT);;
 		sc_params.surface = surface;
 		sc_params.imageSharingMode = imageSharingMode;
 		sc_params.surfaceFormat = surfaceFormat;
