@@ -50,6 +50,7 @@ uvec3 nbl_glsl_depthPyramid_scheduler_getWork(in uint metaZLayer)
 
         uint prevLvlWGCnt = virtualWorkGroupData.zLayerWorkGroupDim[pc.data.virtualDispatchIndex].x * virtualWorkGroupData.zLayerWorkGroupDim[pc.data.virtualDispatchIndex].y;
         while(virtualWorkGroup.workGroupsFinished < prevLvlWGCnt); //spin lock
+        memoryBarrierBuffer();
 
         return unmappedVirtualWorkGroupIDShared;
     }
