@@ -91,6 +91,8 @@ namespace impl
             ERT_MAP_BUFFER_RANGE,
             ERT_UNMAP_BUFFER,
             //BIND_BUFFER_MEMORY,
+            
+            ERT_SET_DEBUG_NAME,
             ERT_GET_QUERY_POOL_RESULTS,
 
             ERT_CTX_MAKE_CURRENT,
@@ -107,6 +109,10 @@ namespace impl
         constexpr static inline bool isCreationRequest(E_REQUEST_TYPE rt)
         {
             return !isDestroyRequest(rt) && (rt < ERT_GET_EVENT_STATUS);
+        }
+        constexpr static inline bool isWaitlessRequest(E_REQUEST_TYPE rt)
+        {
+            return isDestroyRequest(rt) || rt==ERT_INVALIDATE_MAPPED_MEMORY_RANGES || rt==ERT_UNMAP_BUFFER;
         }
 
         template <E_REQUEST_TYPE rt>
@@ -266,6 +272,16 @@ namespace impl
 
             core::smart_refctd_ptr<IDriverMemoryAllocation> buf;
         };
+        struct SRequestSetDebugName
+        {
+            static inline constexpr E_REQUEST_TYPE type = ERT_SET_DEBUG_NAME;
+            using retval_t = void;
+
+            GLenum id;
+            GLuint object;
+            GLsizei len;
+            std::string label;
+        };
         struct SRequestGetQueryPoolResults
         {
             static inline constexpr E_REQUEST_TYPE type = ERT_GET_QUERY_POOL_RESULTS;
@@ -418,6 +434,8 @@ protected:
             SRequestUnmapBuffer,
             SRequestGetQueryPoolResults,
 
+            SRequestSetDebugName,
+
             SRequestMakeCurrent,
 
             SRequestWaitIdle
@@ -426,7 +444,7 @@ protected:
         // lock when overwriting the request
         void reset()
         {
-            if (isDestroyRequest(type))
+            if (isWaitlessRequest(type))
             {
                 uint32_t expected = ES_READY;
                 while (!state.compare_exchange_strong(expected,ES_RECORDING))
@@ -562,7 +580,8 @@ protected:
             case ERT_PROGRAM_DESTROY:
             {
                 auto& p = std::get<SRequest_Destroy<ERT_PROGRAM_DESTROY>>(req.params_variant);
-                gl.glShader.pglDeleteProgram(p.glnames[0]);
+                for (uint32_t i = 0u; i < p.count; ++i) 
+                    gl.glShader.pglDeleteProgram(p.glnames[i]);
             }
                 break;
             case ERT_QUERY_DESTROY:
@@ -785,6 +804,13 @@ protected:
                 *reinterpret_cast<IGPUFence::E_STATUS*>(req.pretval) = waitForFences(gl, _count, _fences, p.waitForAll, p.timeoutPoint);
             }
                 break;
+            case ERT_SET_DEBUG_NAME:
+            {
+                auto& p = std::get<SRequestSetDebugName>(req.params_variant);
+
+                gl.extGlObjectLabel(p.id, p.object, p.len, p.label.c_str());
+            }
+                break;
             case ERT_CTX_MAKE_CURRENT:
             {
                 auto& p = std::get<SRequestMakeCurrent>(req.params_variant);
@@ -882,8 +908,12 @@ protected:
                 auto bin = cache ? cache->find(key) : COpenGLSpecializedShader::SProgramBinary{ 0,nullptr };
                 if (bin.binary)
                 {
+                    const std::string& dbgnm = glshdr->getObjectDebugName();
+
                     const GLuint GLname = gl.glShader.pglCreateProgram();
                     gl.glShader.pglProgramBinary(GLname, bin.format, bin.binary->data(), bin.binary->size());
+                    if (dbgnm.size())
+                        gl.extGlObjectLabel(GL_PROGRAM, GLname, dbgnm.size(), dbgnm.c_str());
                     GLnames[ix] = GLname;
                     binaries[ix] = bin;
 
@@ -1048,8 +1078,9 @@ public:
     virtual void destroyTexture(GLuint img) = 0;
     virtual void destroyBuffer(GLuint buf) = 0;
     virtual void destroySampler(GLuint s) = 0;
-    virtual void destroySpecializedShader(uint32_t count, const GLuint* programs) = 0;
+    virtual void destroySpecializedShaders(core::smart_refctd_dynamic_array<IOpenGLPipelineBase::SShaderProgram>&& programs) = 0;
     virtual void destroySync(GLsync sync) = 0;
+    virtual void setObjectDebugName(GLenum id, GLuint object, GLsizei len, const GLchar* label) = 0;
     virtual void destroyQueryPool(COpenGLQueryPool* qp) = 0;
 };
 

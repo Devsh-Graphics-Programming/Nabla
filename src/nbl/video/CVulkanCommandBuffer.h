@@ -10,6 +10,9 @@
 #include "nbl/video/CVulkanComputePipeline.h"
 #include "nbl/video/CVulkanPipelineLayout.h"
 #include "nbl/video/CVulkanDescriptorSet.h"
+#include "nbl/video/CVulkanFramebuffer.h"
+#include "nbl/video/CVulkanRenderpass.h"
+
 
 #include <volk.h>
 

@@ -115,6 +115,8 @@ class COpenGLSampler : public IGPUSampler
 			}
 		}
 
+		void setObjectDebugName(const char* label) const override;
+
 		GLuint getOpenGLName() const { return m_GLname; }
 
 	private:
