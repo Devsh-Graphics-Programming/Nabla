@@ -131,23 +131,78 @@ int main()
 
 	auto descriptorPool = device->createDescriptorPool(static_cast<nbl::video::IDescriptorPool::E_CREATE_FLAGS>(0), maxDescriptorCount, PoolSizesCount, poolSizes);
 	
-	// Acceleration Structure Test
+	// Initialize Spheres
+	constexpr uint32_t SphereCount = 9u;
+	constexpr uint32_t INVALID_ID_16BIT = 0xffffu;
 
+	struct alignas(16) Sphere
+	{
+		Sphere()
+			: position(0.0f, 0.0f, 0.0f)
+			, radius2(0.0f)
+		{
+			bsdfLightIDs = core::bitfieldInsert<uint32_t>(0u,INVALID_ID_16BIT,16,16);
+		}
+
+		Sphere(core::vector3df _position, float _radius, uint32_t _bsdfID, uint32_t _lightID)
+		{
+			position = _position;
+			radius2 = _radius*_radius;
+			bsdfLightIDs = core::bitfieldInsert(_bsdfID,_lightID,16,16);
+		}
+
+		IGPUAccelerationStructure::AABB_Position getAABB() const
+		{
+			float radius = core::sqrt(radius2);
+			return IGPUAccelerationStructure::AABB_Position(position-core::vector3df(radius, radius, radius), position+core::vector3df(radius, radius, radius));
+		}
+
+		core::vector3df position;
+		float radius2;
+		uint32_t bsdfLightIDs;
+	};
+	
+	Sphere spheres[SphereCount] = {};
+	spheres[0] = Sphere(core::vector3df(0.0,-100.5,-1.0), 100.0, 0u, INVALID_ID_16BIT);
+	spheres[1] = Sphere(core::vector3df(2.0,0.0,-1.0), 0.5,	 1u, INVALID_ID_16BIT);
+	spheres[2] = Sphere(core::vector3df(0.0,0.0,-1.0), 0.5,	 2u, INVALID_ID_16BIT);
+	spheres[3] = Sphere(core::vector3df(-2.0,0.0,-1.0), 0.5, 3u, INVALID_ID_16BIT);
+	spheres[4] = Sphere(core::vector3df(2.0,0.0,1.0), 0.5,	 4u, INVALID_ID_16BIT);
+	spheres[5] = Sphere(core::vector3df(0.0,0.0,1.0), 0.5,	 4u, INVALID_ID_16BIT);
+	spheres[6] = Sphere(core::vector3df(-2.0,0.0,1.0), 0.5,	 5u, INVALID_ID_16BIT);
+	spheres[7] = Sphere(core::vector3df(0.5,1.0,0.5), 0.5,	 6u, INVALID_ID_16BIT);
+	spheres[8] = Sphere(core::vector3df(-1.5,1.5,0.0), 0.3,  INVALID_ID_16BIT, 0u);
+	// Create Spheres Buffer
+	core::smart_refctd_ptr<IGPUBuffer> spheresBuffer;
+	uint32_t spheresBufferSize = sizeof(Sphere) * SphereCount;
+
+	{
+		IGPUBuffer::SCreationParams params = {};
+		params.usage = core::bitflag(asset::IBuffer::EUF_STORAGE_BUFFER_BIT) | asset::IBuffer::EUF_TRANSFER_DST_BIT; 
+		spheresBuffer = device->createDeviceLocalGPUBufferOnDedMem(params, spheresBufferSize);
+		utilities->updateBufferRangeViaStagingBuffer(graphicsQueue, asset::SBufferRange<IGPUBuffer>{0u,spheresBufferSize,spheresBuffer}, spheres);
+	}
+
+	// Acceleration Structure Test
 	core::smart_refctd_ptr<IGPUBuffer> aabbsBuffer;
 	core::smart_refctd_ptr<IGPUAccelerationStructure> gpuBlas;
 	// Create + Build BLAS
 	{
 		// Build BLAS with AABBS
-		const uint32_t aabbsCount = 1u;
+		const uint32_t aabbsCount = SphereCount;
 
+		// TODO: Temp fix before nonCoherentAtomSize fix
 		struct alignas(64) AABB {
 			IGPUAccelerationStructure::AABB_Position aabb;
 		};
 	
 		AABB aabbs[aabbsCount] = {};
-		aabbs[0].aabb = IGPUAccelerationStructure::AABB_Position(core::vector3df(0.0f, 0.0f, 0.0f), core::vector3df(1.0f, 1.0f, 1.0f));
+		for(uint32_t i = 0; i < aabbsCount; ++i)
+		{
+			aabbs[i].aabb = spheres[i].getAABB();
+		}
 		auto raytracingFlags = core::bitflag(asset::IBuffer::EUF_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT) | asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
-		uint32_t aabbsBufferSize = sizeof(AABB);
+		uint32_t aabbsBufferSize = sizeof(AABB) * aabbsCount;
 
 		{
 			IGPUBuffer::SCreationParams params = {};
@@ -231,6 +286,7 @@ int main()
 	core::smart_refctd_ptr<IGPUBuffer> instancesBuffer;
 	// Create + Build TLAS
 	{
+		// TODO: Temp fix before nonCoherentAtomSize fix
 		struct alignas(64) Instance {
 			IGPUAccelerationStructure::Instance instance;
 		};
@@ -337,12 +393,13 @@ int main()
 		{ 0u, EDT_COMBINED_IMAGE_SAMPLER, 1u, IGPUSpecializedShader::ESS_COMPUTE, nullptr },
 		{ 1u, EDT_UNIFORM_TEXEL_BUFFER, 1u, IGPUSpecializedShader::ESS_COMPUTE, nullptr },
 		{ 2u, EDT_COMBINED_IMAGE_SAMPLER, 1u, IGPUSpecializedShader::ESS_COMPUTE, nullptr },
-		{ 3u, EDT_ACCELERATION_STRUCTURE_KHR, 1u, IGPUSpecializedShader::ESS_COMPUTE, nullptr }
+		{ 3u, EDT_ACCELERATION_STRUCTURE_KHR, 1u, IGPUSpecializedShader::ESS_COMPUTE, nullptr },
+		{ 4u, EDT_STORAGE_BUFFER, 1u, IGPUSpecializedShader::ESS_COMPUTE, nullptr }
 	};
 	
 	auto gpuDescriptorSetLayout0 = device->createGPUDescriptorSetLayout(descriptorSet0Bindings, descriptorSet0Bindings + 1u);
 	auto gpuDescriptorSetLayout1 = device->createGPUDescriptorSetLayout(&uboBinding, &uboBinding + 1u);
-	auto gpuDescriptorSetLayout2 = device->createGPUDescriptorSetLayout(descriptorSet3Bindings, descriptorSet3Bindings+4u);
+	auto gpuDescriptorSetLayout2 = device->createGPUDescriptorSetLayout(descriptorSet3Bindings, descriptorSet3Bindings+5u);
 
 	auto createGpuResources = [&](std::string pathToShader) -> core::smart_refctd_ptr<video::IGPUComputePipeline>
 	{
@@ -555,7 +612,7 @@ int main()
 	
 	auto descriptorSet2 = device->createGPUDescriptorSet(descriptorPool.get(), core::smart_refctd_ptr(gpuDescriptorSetLayout2));
 	{
-		constexpr auto kDescriptorCount = 4;
+		constexpr auto kDescriptorCount = 5;
 		IGPUDescriptorSet::SWriteDescriptorSet writeDescriptorSet2[kDescriptorCount];
 		IGPUDescriptorSet::SDescriptorInfo writeDescriptorInfo[kDescriptorCount];
 		for (auto i=0; i<kDescriptorCount; i++)
@@ -570,6 +627,7 @@ int main()
 		writeDescriptorSet2[1].descriptorType = EDT_UNIFORM_TEXEL_BUFFER;
 		writeDescriptorSet2[2].descriptorType = EDT_COMBINED_IMAGE_SAMPLER;
 		writeDescriptorSet2[3].descriptorType = EDT_ACCELERATION_STRUCTURE_KHR;
+		writeDescriptorSet2[4].descriptorType = EDT_STORAGE_BUFFER;
 
 		writeDescriptorInfo[0].desc = gpuEnvmapImageView;
 		{
@@ -586,6 +644,10 @@ int main()
 		}
 
 		writeDescriptorInfo[3].desc = gpuTlas;
+
+		writeDescriptorInfo[4].desc = spheresBuffer;
+		writeDescriptorInfo[4].buffer.offset = 0;
+		writeDescriptorInfo[4].buffer.size = spheresBufferSize;
 
 		device->updateDescriptorSets(kDescriptorCount, writeDescriptorSet2, 0u, nullptr);
 	}

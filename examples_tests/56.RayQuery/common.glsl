@@ -10,12 +10,24 @@
 //#define KILL_DIFFUSE_SPECULAR_PATHS
 //#define VISUALIZE_HIGH_VARIANCE
 
+#define INVALID_ID_16BIT 0xffffu
+struct Sphere
+{
+    vec3 position;
+    float radius2;
+    uint bsdfLightIDs;
+}; 
+
+layout(set=0, binding=0, rgba16f) uniform image2D outImage;
+
 layout(set = 2, binding = 0) uniform sampler2D envMap; 
 layout(set = 2, binding = 1) uniform usamplerBuffer sampleSequence;
 layout(set = 2, binding = 2) uniform usampler2D scramblebuf;
 layout(set = 2, binding = 3) uniform accelerationStructureEXT topLevelAS;
-
-layout(set=0, binding=0, rgba16f) uniform image2D outImage;
+layout(set = 2, binding = 4) readonly restrict buffer InputBuffer
+{
+	Sphere spheres[];
+};
 
 #ifndef _NBL_GLSL_WORKGROUP_SIZE_
 #define _NBL_GLSL_WORKGROUP_SIZE_ 16
@@ -43,15 +55,6 @@ layout(set = 1, binding = 0, row_major, std140) uniform UBO
 {
 	nbl_glsl_SBasicViewParameters params;
 } cameraData;
-
-
-#define INVALID_ID_16BIT 0xffffu
-struct Sphere
-{
-    vec3 position;
-    float radius2;
-    uint bsdfLightIDs;
-}; 
 
 Sphere Sphere_Sphere(in vec3 position, in float radius, in uint bsdfID, in uint lightID)
 {
@@ -92,22 +95,6 @@ float Sphere_getSolidAngle(in Sphere sphere, in vec3 origin)
     float cosThetaMax = sqrt(1.0-sphere.radius2/nbl_glsl_lengthSq(sphere.position-origin));
     return Sphere_getSolidAngle_impl(cosThetaMax);
 }
-
-
-Sphere spheres[SPHERE_COUNT] = {
-    Sphere_Sphere(vec3(0.0,-100.5,-1.0),100.0,0u,INVALID_ID_16BIT),
-    Sphere_Sphere(vec3(2.0,0.0,-1.0),0.5,1u,INVALID_ID_16BIT),
-    Sphere_Sphere(vec3(0.0,0.0,-1.0),0.5,2u,INVALID_ID_16BIT),
-    Sphere_Sphere(vec3(-2.0,0.0,-1.0),0.5,3u,INVALID_ID_16BIT),
-    Sphere_Sphere(vec3(2.0,0.0,1.0),0.5,4u,INVALID_ID_16BIT),
-    Sphere_Sphere(vec3(0.0,0.0,1.0),0.5,4u,INVALID_ID_16BIT),
-    Sphere_Sphere(vec3(-2.0,0.0,1.0),0.5,5u,INVALID_ID_16BIT),
-    Sphere_Sphere(vec3(0.5,1.0,0.5),0.5,6u,INVALID_ID_16BIT)
-#if SPHERE_COUNT>8
-    ,Sphere_Sphere(vec3(-1.5,1.5,0.0),0.3,INVALID_ID_16BIT,0u)
-#endif
-};
-
 
 struct Triangle
 {
