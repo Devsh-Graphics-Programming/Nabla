@@ -794,7 +794,7 @@ public:
 		nbl::video::ISurface::SFormat requestedFormat;
 		if(api_type == EAT_VULKAN)
 		{
-			requestedFormat.format = asset::EF_B8G8R8A8_UNORM;
+			requestedFormat.format = asset::EF_B8G8R8A8_SRGB;
 			requestedFormat.colorSpace.eotf = asset::EOTF_sRGB;
 			requestedFormat.colorSpace.primary = asset::ECP_SRGB;
 		}
