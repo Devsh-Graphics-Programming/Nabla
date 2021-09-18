@@ -186,7 +186,7 @@ namespace impl
                 relDir = std::filesystem::path(_requesting_source).parent_path();
             }
 
-            std::filesystem::path name = (_type == shaderc_include_type_relative) ? (relDir.string() + _requested_source) : (_requested_source);
+            std::filesystem::path name = (_type == shaderc_include_type_relative) ? (relDir/_requested_source) : (_requested_source);
 
             if (!reqBuiltin)
                 name = std::filesystem::absolute(name);

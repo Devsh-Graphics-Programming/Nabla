@@ -7,10 +7,15 @@
 namespace nbl::video
 {
 
-    COpenGLCommandBuffer::~COpenGLCommandBuffer()
-    {
-        freeSpaceInCmdPool();
-    }
+COpenGLCommandBuffer::COpenGLCommandBuffer(core::smart_refctd_ptr<const ILogicalDevice>&& dev, E_LEVEL lvl, IGPUCommandPool* _cmdpool, system::logger_opt_smart_ptr&& logger, const COpenGLFeatureMap* _features)
+    : IGPUCommandBuffer(std::move(dev), lvl, _cmdpool), m_logger(std::move(logger)), m_features(_features)
+{
+}
+
+COpenGLCommandBuffer::~COpenGLCommandBuffer()
+{
+    freeSpaceInCmdPool();
+}
 
     void COpenGLCommandBuffer::freeSpaceInCmdPool()
     {
@@ -495,7 +500,7 @@ namespace nbl::video
 
                 ctxlocal->flushStateGraphics(gl, SOpenGLContextLocalCache::GSB_ALL, ctxid);
 
-                const asset::E_PRIMITIVE_TOPOLOGY primType = ctxlocal->currentState.pipeline.graphics.pipeline->getPrimitiveAssemblyParams().primitiveType;
+                const asset::E_PRIMITIVE_TOPOLOGY primType = ctxlocal->currentState.pipeline.graphics.pipeline->getRenderpassIndependentPipeline()->getPrimitiveAssemblyParams().primitiveType;
                 GLenum glpt = getGLprimitiveType(primType);
 
                 gl->extGlDrawArraysInstancedBaseInstance(glpt, c.firstVertex, c.vertexCount, c.instanceCount, c.firstInstance);
@@ -507,7 +512,7 @@ namespace nbl::video
 
                 ctxlocal->flushStateGraphics(gl, SOpenGLContextLocalCache::GSB_ALL, ctxid);
 
-                const asset::E_PRIMITIVE_TOPOLOGY primType = ctxlocal->currentState.pipeline.graphics.pipeline->getPrimitiveAssemblyParams().primitiveType;
+                const asset::E_PRIMITIVE_TOPOLOGY primType = ctxlocal->currentState.pipeline.graphics.pipeline->getRenderpassIndependentPipeline()->getPrimitiveAssemblyParams().primitiveType;
                 GLenum glpt = getGLprimitiveType(primType);
                 GLenum idxType = GL_INVALID_ENUM;
                 switch (ctxlocal->currentState.vertexInputParams.vaoval.idxType)
@@ -542,7 +547,7 @@ namespace nbl::video
 
                 ctxlocal->flushStateGraphics(gl, SOpenGLContextLocalCache::GSB_ALL, ctxid);
                 
-                const asset::E_PRIMITIVE_TOPOLOGY primType = ctxlocal->currentState.pipeline.graphics.pipeline->getPrimitiveAssemblyParams().primitiveType;
+                const asset::E_PRIMITIVE_TOPOLOGY primType = ctxlocal->currentState.pipeline.graphics.pipeline->getRenderpassIndependentPipeline()->getPrimitiveAssemblyParams().primitiveType;
                 GLenum glpt = getGLprimitiveType(primType);
 
                 GLuint64 offset = c.offset;
@@ -577,7 +582,7 @@ namespace nbl::video
                         break;
                 }
 
-                const asset::E_PRIMITIVE_TOPOLOGY primType = ctxlocal->currentState.pipeline.graphics.pipeline->getPrimitiveAssemblyParams().primitiveType;
+                const asset::E_PRIMITIVE_TOPOLOGY primType = ctxlocal->currentState.pipeline.graphics.pipeline->getRenderpassIndependentPipeline()->getPrimitiveAssemblyParams().primitiveType;
                 GLenum glpt = getGLprimitiveType(primType);
 
                 GLuint64 offset = c.offset;
@@ -876,8 +881,9 @@ namespace nbl::video
             {
                 auto& c = cmd.get<impl::ECT_BIND_GRAPHICS_PIPELINE>();
 
+                ctxlocal->updateNextState_pipelineAndRaster(c.pipeline.get(), ctxid);
+
                 auto* rpindependent = c.pipeline->getRenderpassIndependentPipeline();
-                ctxlocal->updateNextState_pipelineAndRaster(rpindependent, ctxid);
                 auto* glppln = static_cast<const COpenGLRenderpassIndependentPipeline*>(rpindependent);
                 ctxlocal->nextState.vertexInputParams.vaokey = glppln->getVAOHash();
             }

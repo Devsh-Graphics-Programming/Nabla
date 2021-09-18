@@ -15,7 +15,7 @@ struct bitflag final
 {
 	static_assert(std::is_enum<ENUM_TYPE>::value);
 
-	ENUM_TYPE value;
+	ENUM_TYPE value = static_cast<ENUM_TYPE>(0);
 
 	bitflag() = default;
 	bitflag(ENUM_TYPE value) : value(value) {}

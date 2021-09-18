@@ -20,9 +20,9 @@ core::smart_refctd_ptr<COpenGL_Connection<API_TYPE>> COpenGL_Connection<API_TYPE
     auto retval = new COpenGL_Connection<API_TYPE>();
     std::unique_ptr<IPhysicalDevice> physicalDevice;
     if constexpr (API_TYPE==EAT_OPENGL)
-        physicalDevice.reset(COpenGLPhysicalDevice::create(retval,std::move(sys),std::move(egl),std::move(dbgCb)));
+        physicalDevice.reset(COpenGLPhysicalDevice::create(retval,retval->m_rdoc_api,std::move(sys),std::move(egl),std::move(dbgCb)));
     else
-        physicalDevice.reset(COpenGLESPhysicalDevice::create(retval,std::move(sys),std::move(egl),std::move(dbgCb)));
+        physicalDevice.reset(COpenGLESPhysicalDevice::create(retval,retval->m_rdoc_api,std::move(sys),std::move(egl),std::move(dbgCb)));
 
     if (!physicalDevice)
     {

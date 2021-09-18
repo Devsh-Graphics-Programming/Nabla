@@ -66,7 +66,6 @@ public:
         bool robustBufferAccess = false;
         bool imageCubeArray = false;
         bool logicOp = false;
-        bool multiDrawIndirect = false;
         bool multiViewport = false;
         bool vertexAttributeDouble = false;
         bool dispatchBase = false;
@@ -82,6 +81,13 @@ public:
         // See SLimit::subgroupOpsShaderStages.
         bool shaderSubgroupQuadAllStages = false;
         bool drawIndirectCount = false;
+        bool multiDrawIndirect = false;
+        bool rayQuery = false;
+        bool accelerationStructure = false;
+        bool accelerationStructureCaptureReplay = false;
+        bool accelerationStructureIndirectBuild = false;
+        bool accelerationStructureHostCommands = false;
+        bool descriptorBindingAccelerationStructureUpdateAfterBind = false;
     };
 
     struct SMemoryProperties

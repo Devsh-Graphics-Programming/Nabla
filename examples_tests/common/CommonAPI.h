@@ -1,6 +1,8 @@
 #define _NBL_STATIC_LIB_
 #include <nabla.h>
 
+#include "nbl/video/CVulkanConnection.h"
+#include "nbl/video/surface/CSurfaceVulkan.h"
 #if defined(_NBL_PLATFORM_WINDOWS_)
 #	include <nbl/system/CColoredStdoutLoggerWin32.h>
 #endif // TODO more platforms

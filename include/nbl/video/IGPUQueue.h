@@ -45,10 +45,17 @@ class IGPUQueue : public core::Interface, public core::Unmovable
 
         }
 
-        virtual inline bool submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFence* _fence) = 0;
+        // for renderdoc and friends
+        virtual bool startCapture() { return false; }// = 0;
+        virtual bool endCapture() { return false; }// = 0;
 
+        //
+        virtual bool submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFence* _fence) = 0;
+
+        //
         virtual bool present(const SPresentInfo& info) = 0;
 
+        // getters
         float getPriority() const { return m_priority; }
         uint32_t getFamilyIndex() const { return m_familyIndex; }
         E_CREATE_FLAGS getFlags() const { return m_flags; }

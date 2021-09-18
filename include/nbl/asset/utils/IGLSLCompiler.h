@@ -89,14 +89,14 @@ class IGLSLCompiler final : public core::IReferenceCounted
 			beginning of the output buffer.
 		*/
 		template<typename... Args>
-		static core::smart_refctd_ptr<ICPUShader> createOverridenCopy(const ICPUShader* original, const char* fmt, Args&&... args)
+		static core::smart_refctd_ptr<ICPUShader> createOverridenCopy(const ICPUShader* original, const char* fmt, Args... args)
 		{
 			assert(original == nullptr || (!original->isADummyObjectForCache() && original->containsGLSL()));
 
-			constexpr auto getMaxSize = [](auto num)
+			constexpr auto getMaxSize = [](auto num) -> size_t
 			{
 				using in_type_t = decltype(num);
-				static_assert(std::is_fundamental_v<in_type_t> || std::is_same_v<in_type_t, const char*>);
+				static_assert(std::is_fundamental_v<in_type_t> || std::is_same_v<in_type_t,const char*>);
 				if constexpr (std::is_floating_point_v<in_type_t>)
 				{
 					return std::numeric_limits<decltype(num)>::max_digits10; // there is probably a better way to cope with scientific representation
@@ -105,7 +105,7 @@ class IGLSLCompiler final : public core::IReferenceCounted
 				{
 					return std::to_string(num).length();
 				}
-				else if constexpr (std::is_same_v<in_type_t, const char*>)
+				else
 				{
 					return strlen(num);
 				}

@@ -126,10 +126,26 @@ set(_OLD_SKIP_INSTALL_ALL ${SKIP_INSTALL_ALL})
 set(BUILD_SHARED_LIBS OFF)
 set(SKIP_INSTALL_ALL ON)
 add_subdirectory(zlib zlib EXCLUDE_FROM_ALL)
+execute_process(COMMAND ${CMAKE_COMMAND} -E rename zconf.h.included zconf.h 
+		WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/zlib") # clean zlib git working-tree
 set(SKIP_INSTALL_ALL ${_OLD_SKIP_INSTALL_ALL})
 set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
 
+get_target_property(ZLIB_SOURCE_DIR zlibstatic "SOURCE_DIR")
 get_target_property(ZLIB_BINARY_DIR zlibstatic "BINARY_DIR")
+get_filename_component(_ORIGINAL_SOURCE_ "${ZLIB_SOURCE_DIR}" ABSOLUTE)
+get_filename_component(_COPY_BIN_SOURCE_ "${ZLIB_BINARY_DIR}/copy_source" ABSOLUTE)
+
+add_custom_target(zlib_copy
+	COMMAND ${CMAKE_COMMAND} -E rm -Rf "${_COPY_BIN_SOURCE_}"
+	COMMAND ${CMAKE_COMMAND} -E copy_directory "${_ORIGINAL_SOURCE_}" "${_COPY_BIN_SOURCE_}"
+	COMMAND ${CMAKE_COMMAND} -E rm -f ${_COPY_BIN_SOURCE_}/zconf.h # no duplicates in include search paths!
+	COMMENT "Copying zlib..."
+)
+
+unset(_ORIGINAL_SOURCE_)
+unset(_COPY_BIN_SOURCE_)
+
 #https://stackoverflow.com/questions/47175912/using-cmake-how-to-stop-the-debug-and-release-subdirectories
 set_target_properties(zlibstatic PROPERTIES ARCHIVE_OUTPUT_DIRECTORY $<1:${ZLIB_BINARY_DIR}>)
 set_target_properties(zlibstatic PROPERTIES DEBUG_POSTFIX "d")
