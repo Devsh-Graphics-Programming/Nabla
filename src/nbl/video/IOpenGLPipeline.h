@@ -91,7 +91,7 @@ class IOpenGLPipeline : IOpenGLPipelineBase
                     }
 
                     {
-                        const GLuint name_created_by_device = (*m_GLprograms)[j];
+                        const GLuint name_created_by_device = (*m_GLprograms)[j].GLname;
                         gl->extGlGetObjectLabel(GL_PROGRAM, name_created_by_device, sizeof(dbgname_buf), &dbgname_len, dbgname_buf);
                         if (dbgname_len)
                             gl->extGlObjectLabel(GL_PROGRAM, GLname, dbgname_len, dbgname_buf);

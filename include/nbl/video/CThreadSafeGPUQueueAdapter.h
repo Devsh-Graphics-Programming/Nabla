@@ -40,6 +40,9 @@ class CThreadSafeGPUQueueAdapter : public IGPUQueue
             return originalQueue->present(info);
         }
 
+        virtual bool startCapture() override { return originalQueue->startCapture(); }
+        virtual bool endCapture() override { return originalQueue->endCapture(); }
+
         IGPUQueue* getUnderlyingQueue() const
         {
             return originalQueue;

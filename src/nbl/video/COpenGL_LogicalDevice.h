@@ -7,6 +7,7 @@
 
 #include "nbl/video/IOpenGL_LogicalDevice.h"
 
+#include "nbl/video/utilities/renderdoc.h"
 #include "nbl/video/COpenGLFramebuffer.h"
 #include "nbl/video/COpenGLRenderpass.h"
 #include "nbl/video/COpenGLDescriptorSet.h"
@@ -54,8 +55,9 @@ public:
 
     static_assert(std::is_same_v<typename QueueType::FunctionTableType, typename SwapchainType::FunctionTableType>, "QueueType and SwapchainType come from 2 different backends!");
 
-    COpenGL_LogicalDevice(core::smart_refctd_ptr<IAPIConnection>&& api, IPhysicalDevice* physicalDevice, const SCreationParams& params, const egl::CEGL* _egl, const FeaturesType* _features, EGLConfig config, EGLint major, EGLint minor) :
+    COpenGL_LogicalDevice(core::smart_refctd_ptr<IAPIConnection>&& api, IPhysicalDevice* physicalDevice, renderdoc_api_t* rdoc, const SCreationParams& params, const egl::CEGL* _egl, const FeaturesType* _features, EGLConfig config, EGLint major, EGLint minor) :
         IOpenGL_LogicalDevice(std::move(api),physicalDevice,params,_egl),
+        m_rdoc_api(rdoc),
         m_threadHandler(
             this,_egl,_features,
             getTotalQueueCount(params),
@@ -90,7 +92,7 @@ public:
                 (*m_queues)[ix] = new CThreadSafeGPUQueueAdapter
                 (
                     this,
-                    new QueueType(this, _egl, m_glfeatures, ctxid, glctx.ctx,
+                    new QueueType(this, rdoc, _egl, m_glfeatures, ctxid, glctx.ctx,
                         glctx.pbuffer, famIx, flags, priority,
                         static_cast<COpenGLDebugCallback*>(physicalDevice->getDebugCallback()))
                 );
@@ -736,6 +738,7 @@ protected:
     }
 
 private:
+    renderdoc_api_t* m_rdoc_api;
     CThreadHandler<FunctionTableType> m_threadHandler;
     const FeaturesType* m_glfeatures;
     EGLConfig m_config;

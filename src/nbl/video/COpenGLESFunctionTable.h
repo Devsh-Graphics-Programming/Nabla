@@ -71,6 +71,10 @@ public:
 		, glDebugMessageControl
 		, glDebugMessageCallbackKHR
 		, glDebugMessageCallback
+		, glLabelObjectEXT
+		, glObjectLabel // since ES 3.2
+		, glGetObjectLabelEXT
+		, glGetObjectLabel // since ES 3.2
 	);
 	NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(GLESdrawing, OpenGLFunctionLoader
 		, glDrawElementsBaseVertexEXT
@@ -89,12 +93,6 @@ public:
 		, glMinSampleShading
 		, glMinSampleShadingOES
 	);
-	NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(GLESdebug, OpenGLFunctionLoader
-		, glLabelObjectEXT
-		, glObjectLabel // since ES 3.2
-		, glGetObjectLabelEXT
-		, glGetObjectLabel // since ES 3.2
-	);
 
 	GLESgeneral glesGeneral;
 	GLESbuffer glesBuffer;
@@ -102,7 +100,6 @@ public:
 	GLESdebug glesDebug;
 	GLESdrawing glesDrawing;
 	GLESfragment glesFragment;
-	GLESdebug glesDebug;
 
 	COpenGLESFunctionTable(const egl::CEGL* _egl, const COpenGLFeatureMap* _features, system::logger_opt_smart_ptr&& logger) :
 		IOpenGL_FunctionTable(_egl, _features, std::move(logger)),

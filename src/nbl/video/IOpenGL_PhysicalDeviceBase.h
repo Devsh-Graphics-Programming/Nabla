@@ -2,6 +2,7 @@
 #define __NBL_I_OPENGL_PHYSICAL_DEVICE_BASE_H_INCLUDED__
 
 #include "nbl/video/IPhysicalDevice.h"
+#include "nbl/video/utilities/renderdoc.h"
 #include <regex>
 
 #include "nbl/video/COpenGLFeatureMap.h"
@@ -160,8 +161,8 @@ protected:
 	}
 
 public:
-    IOpenGL_PhysicalDeviceBase(IAPIConnection* api, core::smart_refctd_ptr<system::ISystem>&& s, egl::CEGL&& _egl, COpenGLDebugCallback&& _dbgCb, EGLConfig _config, EGLContext ctx, EGLint _major, EGLint _minor)
-		: IPhysicalDevice(std::move(s),core::make_smart_refctd_ptr<asset::IGLSLCompiler>(s.get())), m_api(api), m_egl(std::move(_egl)), m_dbgCb(std::move(_dbgCb)), m_config(_config), m_gl_major(_major), m_gl_minor(_minor)
+    IOpenGL_PhysicalDeviceBase(IAPIConnection* api, renderdoc_api_t* rdoc, core::smart_refctd_ptr<system::ISystem>&& s, egl::CEGL&& _egl, COpenGLDebugCallback&& _dbgCb, EGLConfig _config, EGLContext ctx, EGLint _major, EGLint _minor)
+		: IPhysicalDevice(std::move(s),core::make_smart_refctd_ptr<asset::IGLSLCompiler>(s.get())), m_api(api), m_rdoc_api(rdoc), m_egl(std::move(_egl)), m_dbgCb(std::move(_dbgCb)), m_config(_config), m_gl_major(_major), m_gl_minor(_minor)
     {
         // OpenGL backend emulates presence of just one queue family with all capabilities (graphics, compute, transfer, ... what about sparse binding?)
         SQueueFamilyProperties qprops;
@@ -351,17 +352,7 @@ public:
 		GetIntegerv(GL_MAX_DRAW_BUFFERS, &num);
 		m_glfeatures.MaxMultipleRenderTargets = static_cast<uint8_t>(num);
 
-		bool runningInRenderDoc = false;
-		#ifdef _NBL_PLATFORM_WINDOWS_
-			if (GetModuleHandleA("renderdoc.dll"))
-		#elif defined(_NBL_PLATFORM_ANDROID_)
-			if (dlopen("libVkLayer_GLES_RenderDoc.so", RTLD_NOW | RTLD_NOLOAD))
-		#elif defined(_NBL_PLATFORM_LINUX_)
-			if (dlopen("librenderdoc.so", RTLD_NOW | RTLD_NOLOAD))
-		#else
-			if (false)
-		#endif
-			runningInRenderDoc = true;
+		const bool runningInRenderDoc = (m_rdoc_api != nullptr);
 		m_glfeatures.runningInRenderDoc = runningInRenderDoc;
 
 		// physical device features
@@ -490,6 +481,7 @@ protected:
 	}
 
 	IAPIConnection* m_api; // dumb pointer to avoid circ ref
+	renderdoc_api_t* m_rdoc_api;
     egl::CEGL m_egl;
 	COpenGLDebugCallback m_dbgCb;
 
