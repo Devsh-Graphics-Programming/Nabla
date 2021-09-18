@@ -565,6 +565,10 @@ namespace nbl {
 
 			virtual void extGlPolygonMode(GLenum face, GLenum mode) = 0;
 
+			virtual void extGlObjectLabel(GLenum identifier, GLuint name, GLsizei length, const char* label) = 0;
+
+			virtual void extGlGetObjectLabel(GLenum identifier, GLuint name, GLsizei bufsize, GLsizei* length, GLchar* label) = 0;
+
 
 			const COpenGLFeatureMap* getFeatures() const { return features; }
 
@@ -710,7 +714,14 @@ namespace nbl {
 				return;
 			}
 			_NBL_GL_CALL(m_logger, glTexture.pglBindTexture(target, texture));
-			_NBL_GL_CALL(m_logger, glTexture.pglCompressedTexSubImage3D(target, level, xoffset, yoffset, zoffset, width, height, depth, format, imageSize, data));
+			//on GLES a false positive is generated for BC1 in case of filling full mips of size 2x2 and 1x1, idk why
+			// according to spec, width (or height) must be multiple of 4 OR equal to texture width (or height)
+			// an it is accomplished
+			// so im omitting _NBL_GL_CALL here to not report glErrors here
+			//_NBL_GL_CALL(m_logger, glTexture.pglCompressedTexSubImage3D(target, level, xoffset, yoffset, zoffset, width, height, depth, format, imageSize, data));
+			glTexture.pglCompressedTexSubImage3D(target, level, xoffset, yoffset, zoffset, width, height, depth, format, imageSize, data);
+			//get rid of generated error
+			glGeneral.pglGetError();
 			_NBL_GL_CALL(m_logger, glTexture.pglBindTexture(target, bound));
 		}
 
@@ -1080,10 +1091,10 @@ namespace nbl {
 			{
 				// Save the previous bound vertex array
 				GLint restoreVertexArray;
-				_NBL_GL_CALL(m_logger, glGeneral.pglGetIntegerv(GL_VERTEX_ARRAY_BINDING, &restoreVertexArray));
+				//_NBL_GL_CALL(m_logger, glGeneral.pglGetIntegerv(GL_VERTEX_ARRAY_BINDING, &restoreVertexArray));
 				_NBL_GL_CALL(m_logger, glVertex.pglBindVertexArray(vaobj));
 				_NBL_GL_CALL(m_logger, glVertex.pglEnableVertexAttribArray(index));
-				_NBL_GL_CALL(m_logger, glVertex.pglBindVertexArray(restoreVertexArray));
+				//_NBL_GL_CALL(m_logger, glVertex.pglBindVertexArray(restoreVertexArray));
 			}
 		}
 		inline void IOpenGL_FunctionTable::extGlDisableVertexArrayAttrib(GLuint vaobj, GLuint index)

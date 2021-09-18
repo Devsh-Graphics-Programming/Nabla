@@ -90,6 +90,7 @@ void nbl_glsl_ext_Scan_downsweep##BIN_OP_NAME(in uint idx, out TYPE val)\
 // to allow `nbl_glsl_and` and friends to work on ints and floats, for example. This could also benefit
 // other places plagued by CONV/INCONV in the code base like reduction functions in arithmetic.glsl by
 // doing all the conversion in a single place it typeless_arithmetic.glsl.
+// Note: Except that `float` bitwise operators cannot be trusted, they might flush denormalized bitpatterns to 0.
 NBL_GLSL_EXT_SCAN_DEFINE_DOWNSWEEP(And, uint, ~0u, nbl_glsl_and, nbl_glsl_identityFunction, nbl_glsl_identityFunction)
 NBL_GLSL_EXT_SCAN_DEFINE_DOWNSWEEP(And, int, int(~0u), nbl_glsl_and, uint, int)
 NBL_GLSL_EXT_SCAN_DEFINE_DOWNSWEEP(And, float, uintBitsToFloat(~0u), nbl_glsl_and, floatBitsToUint, uintBitsToFloat)

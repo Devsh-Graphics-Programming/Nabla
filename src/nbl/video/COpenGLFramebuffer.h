@@ -211,6 +211,12 @@ public:
         }
         gl->glGeneral.pglFlush();
 
+        const auto& dbgname = getObjectDebugName();
+        if (dbgname.size())
+        {
+            gl->extGlObjectLabel(GL_FRAMEBUFFER, fbo, dbgname.size(), dbgname.c_str());
+        }
+
         return fbo;
     }
 };
