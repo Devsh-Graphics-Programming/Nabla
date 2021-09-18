@@ -13,6 +13,7 @@
 layout(set = 2, binding = 0) uniform sampler2D envMap; 
 layout(set = 2, binding = 1) uniform usamplerBuffer sampleSequence;
 layout(set = 2, binding = 2) uniform usampler2D scramblebuf;
+layout(set = 2, binding = 3) uniform accelerationStructureEXT topLevelAS;
 
 layout(set=0, binding=0, rgba16f) uniform image2D outImage;
 

@@ -837,7 +837,7 @@ public:
                 {
                     // Get WriteAS
                     auto & writeAS = vk_writeDescriptorSetAS[i];
-                    
+                    writeAS = { VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR, nullptr};
                     // Fill Write AS
                     for (uint32_t j = 0u; j < pDescriptorWrites[i].count; ++j)
                     {

@@ -131,12 +131,10 @@ int main()
 
 	auto descriptorPool = device->createDescriptorPool(static_cast<nbl::video::IDescriptorPool::E_CREATE_FLAGS>(0), maxDescriptorCount, PoolSizesCount, poolSizes);
 	
-
 	// Acceleration Structure Test
 
 	core::smart_refctd_ptr<IGPUBuffer> aabbsBuffer;
 	core::smart_refctd_ptr<IGPUAccelerationStructure> gpuBlas;
-
 	// Create + Build BLAS
 	{
 		// Build BLAS with AABBS
@@ -229,8 +227,8 @@ int main()
 		}
 	}
 	
-	core::smart_refctd_ptr<IGPUBuffer> instancesBuffer;
 	core::smart_refctd_ptr<IGPUAccelerationStructure> gpuTlas;
+	core::smart_refctd_ptr<IGPUBuffer> instancesBuffer;
 	// Create + Build TLAS
 	{
 		struct alignas(64) Instance {
@@ -325,6 +323,7 @@ int main()
 		}
 	}
 	
+
 	// Camera 
 	core::vectorSIMDf cameraPosition(0, 5, -10);
 	matrix4SIMD proj = matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(core::radians(60), float(WIN_W) / WIN_H, 0.01f, 500.0f);
@@ -337,12 +336,13 @@ int main()
 	IGPUDescriptorSetLayout::SBinding descriptorSet3Bindings[] = {
 		{ 0u, EDT_COMBINED_IMAGE_SAMPLER, 1u, IGPUSpecializedShader::ESS_COMPUTE, nullptr },
 		{ 1u, EDT_UNIFORM_TEXEL_BUFFER, 1u, IGPUSpecializedShader::ESS_COMPUTE, nullptr },
-		{ 2u, EDT_COMBINED_IMAGE_SAMPLER, 1u, IGPUSpecializedShader::ESS_COMPUTE, nullptr }
+		{ 2u, EDT_COMBINED_IMAGE_SAMPLER, 1u, IGPUSpecializedShader::ESS_COMPUTE, nullptr },
+		{ 3u, EDT_ACCELERATION_STRUCTURE_KHR, 1u, IGPUSpecializedShader::ESS_COMPUTE, nullptr }
 	};
 	
 	auto gpuDescriptorSetLayout0 = device->createGPUDescriptorSetLayout(descriptorSet0Bindings, descriptorSet0Bindings + 1u);
 	auto gpuDescriptorSetLayout1 = device->createGPUDescriptorSetLayout(&uboBinding, &uboBinding + 1u);
-	auto gpuDescriptorSetLayout2 = device->createGPUDescriptorSetLayout(descriptorSet3Bindings, descriptorSet3Bindings+3u);
+	auto gpuDescriptorSetLayout2 = device->createGPUDescriptorSetLayout(descriptorSet3Bindings, descriptorSet3Bindings+4u);
 
 	auto createGpuResources = [&](std::string pathToShader) -> core::smart_refctd_ptr<video::IGPUComputePipeline>
 	{
@@ -555,36 +555,39 @@ int main()
 	
 	auto descriptorSet2 = device->createGPUDescriptorSet(descriptorPool.get(), core::smart_refctd_ptr(gpuDescriptorSetLayout2));
 	{
-		constexpr auto kDescriptorCount = 3;
-		IGPUDescriptorSet::SWriteDescriptorSet samplerWriteDescriptorSet[kDescriptorCount];
-		IGPUDescriptorSet::SDescriptorInfo samplerDescriptorInfo[kDescriptorCount];
+		constexpr auto kDescriptorCount = 4;
+		IGPUDescriptorSet::SWriteDescriptorSet writeDescriptorSet2[kDescriptorCount];
+		IGPUDescriptorSet::SDescriptorInfo writeDescriptorInfo[kDescriptorCount];
 		for (auto i=0; i<kDescriptorCount; i++)
 		{
-			samplerWriteDescriptorSet[i].dstSet = descriptorSet2.get();
-			samplerWriteDescriptorSet[i].binding = i;
-			samplerWriteDescriptorSet[i].arrayElement = 0u;
-			samplerWriteDescriptorSet[i].count = 1u;
-			samplerWriteDescriptorSet[i].info = samplerDescriptorInfo+i;
+			writeDescriptorSet2[i].dstSet = descriptorSet2.get();
+			writeDescriptorSet2[i].binding = i;
+			writeDescriptorSet2[i].arrayElement = 0u;
+			writeDescriptorSet2[i].count = 1u;
+			writeDescriptorSet2[i].info = writeDescriptorInfo+i;
 		}
-		samplerWriteDescriptorSet[0].descriptorType = EDT_COMBINED_IMAGE_SAMPLER;
-		samplerWriteDescriptorSet[1].descriptorType = EDT_UNIFORM_TEXEL_BUFFER;
-		samplerWriteDescriptorSet[2].descriptorType = EDT_COMBINED_IMAGE_SAMPLER;
+		writeDescriptorSet2[0].descriptorType = EDT_COMBINED_IMAGE_SAMPLER;
+		writeDescriptorSet2[1].descriptorType = EDT_UNIFORM_TEXEL_BUFFER;
+		writeDescriptorSet2[2].descriptorType = EDT_COMBINED_IMAGE_SAMPLER;
+		writeDescriptorSet2[3].descriptorType = EDT_ACCELERATION_STRUCTURE_KHR;
 
-		samplerDescriptorInfo[0].desc = gpuEnvmapImageView;
+		writeDescriptorInfo[0].desc = gpuEnvmapImageView;
 		{
 			// ISampler::SParams samplerParams = { ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_FLOAT_OPAQUE_BLACK, ISampler::ETF_LINEAR, ISampler::ETF_LINEAR, ISampler::ESMM_LINEAR, 0u, false, ECO_ALWAYS };
-			samplerDescriptorInfo[0].image.sampler = sampler0;
-			samplerDescriptorInfo[0].image.imageLayout = EIL_SHADER_READ_ONLY_OPTIMAL;
+			writeDescriptorInfo[0].image.sampler = sampler0;
+			writeDescriptorInfo[0].image.imageLayout = EIL_SHADER_READ_ONLY_OPTIMAL;
 		}
-		samplerDescriptorInfo[1].desc = gpuSequenceBufferView;
-		samplerDescriptorInfo[2].desc = gpuScrambleImageView;
+		writeDescriptorInfo[1].desc = gpuSequenceBufferView;
+		writeDescriptorInfo[2].desc = gpuScrambleImageView;
 		{
 			// ISampler::SParams samplerParams = { ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_INT_OPAQUE_BLACK, ISampler::ETF_NEAREST, ISampler::ETF_NEAREST, ISampler::ESMM_NEAREST, 0u, false, ECO_ALWAYS };
-			samplerDescriptorInfo[2].image.sampler = sampler1;
-			samplerDescriptorInfo[2].image.imageLayout = EIL_SHADER_READ_ONLY_OPTIMAL;
+			writeDescriptorInfo[2].image.sampler = sampler1;
+			writeDescriptorInfo[2].image.imageLayout = EIL_SHADER_READ_ONLY_OPTIMAL;
 		}
 
-		device->updateDescriptorSets(kDescriptorCount, samplerWriteDescriptorSet, 0u, nullptr);
+		writeDescriptorInfo[3].desc = gpuTlas;
+
+		device->updateDescriptorSets(kDescriptorCount, writeDescriptorSet2, 0u, nullptr);
 	}
 
 	constexpr uint32_t FRAME_COUNT = 500000u;
