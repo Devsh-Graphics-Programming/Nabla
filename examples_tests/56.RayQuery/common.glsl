@@ -489,8 +489,9 @@ void traceRay_extraShape(inout int objectID, inout float intersectionT, in vec3 
 int traceRay(inout float intersectionT, in vec3 origin, in vec3 direction)
 {
     const bool anyHit = intersectionT!=FLT_MAX;
-
 	int objectID = -1;
+    
+#if 0
 	for (int i=0; i<SPHERE_COUNT; i++)
     {
         float t = Sphere_intersect(spheres[i],origin,direction);
@@ -503,6 +504,24 @@ int traceRay(inout float intersectionT, in vec3 origin, in vec3 direction)
         //if (anyHit && closerIntersection)
            //break;
     }
+#else
+    rayQueryEXT rayQuery;
+    // rayQueryInitializeEXT(rayQuery, topLevelAS, gl_RayFlagsNoneEXT, 0xFF, vec3(2,0,0), 0.0, vec3(0,0,-1), FLT_MAX);
+    rayQueryInitializeEXT(rayQuery, topLevelAS, gl_RayFlagsNoneEXT, 0xFF, origin, 0.0, direction, FLT_MAX);
+    
+    // Start traversal: return false if traversal is complete
+    while(rayQueryProceedEXT(rayQuery))
+    {}
+    
+    // Returns type of committed (true) intersection
+    if(rayQueryGetIntersectionTypeEXT(rayQuery, true) != gl_RayQueryCommittedIntersectionNoneEXT)
+    {
+        // Got an intersection
+        objectID = rayQueryGetIntersectionPrimitiveIndexEXT(rayQuery, true);
+        intersectionT = Sphere_intersect(spheres[objectID], origin, direction);
+    }
+#endif
+
     traceRay_extraShape(objectID,intersectionT,origin,direction);
     return objectID;
 }

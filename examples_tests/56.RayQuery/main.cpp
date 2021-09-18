@@ -215,7 +215,7 @@ int main()
 
 		DeviceGeom simpleGeom = {};
 		simpleGeom.type = IAccelerationStructure::EGT_AABBS;
-		simpleGeom.flags = IAccelerationStructure::EGF_NONE;
+		simpleGeom.flags = IAccelerationStructure::EGF_OPAQUE_BIT;
 		simpleGeom.data.aabbs.data.offset = 0u;
 		simpleGeom.data.aabbs.data.buffer = aabbsBuffer;
 		simpleGeom.data.aabbs.stride = sizeof(AABB);
@@ -233,7 +233,7 @@ int main()
 		IGPUAccelerationStructure::BuildSizes buildSizes = {};
 		{
 			std::vector<uint32_t> maxPrimCount(1u);
-			maxPrimCount[0] = 1u;
+			maxPrimCount[0] = aabbsCount;
 			buildSizes = device->getAccelerationStructureBuildSizes(blasBuildInfo, maxPrimCount.data());
 		}
 	
@@ -268,7 +268,7 @@ int main()
 		}
 	
 		IGPUAccelerationStructure::BuildRangeInfo firstBuildRangeInfos[1u];
-		firstBuildRangeInfos[0].primitiveCount = 1u;
+		firstBuildRangeInfos[0].primitiveCount = aabbsCount;
 		firstBuildRangeInfos[0].primitiveOffset = 0u;
 		firstBuildRangeInfos[0].firstVertex = 0u;
 		firstBuildRangeInfos[0].transformOffset = 0u;
