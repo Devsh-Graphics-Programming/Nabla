@@ -256,10 +256,14 @@ int main()
 		imgParams.arrayLayers = 1u;
 		imgParams.samples = IImage::ESCF_1_BIT;
 		imgParams.usage = core::bitflag(IImage::EUF_SAMPLED_BIT) | IImage::EUF_TRANSFER_DST_BIT;
-		imgParams.initialLayout = asset::EIL_GENERAL; // @Erfan you don't have to obey the Vulkan spec here which says initialLayout should either be UNDEFINED or PREINITIALIZED, createFilledDeviceLocalGPUImageOnDedMem will do the transition to the layout you specify here
+		imgParams.initialLayout = asset::EIL_SHADER_READ_ONLY_OPTIMAL;
 
-		IGPUImage::SBufferCopy region;
+		IGPUImage::SBufferCopy region = {};
+		region.bufferOffset = 0u;
+		region.bufferRowLength = 0u;
+		region.bufferImageHeight = 0u;
 		region.imageExtent = imgParams.extent;
+		region.imageOffset = {0u,0u,0u};
 		region.imageSubresource.layerCount = 1u;
 		region.imageSubresource.aspectMask = IImage::E_ASPECT_FLAGS::EAF_COLOR_BIT;
 
@@ -320,9 +324,15 @@ int main()
 		writeDescriptorSet.info = &info;
 		device->updateDescriptorSets(1u, &writeDescriptorSet, 0u, nullptr);
 	}
+	
+	// TODO: Temp Fix because of validation error: VkPhysicalDeviceLimits::nonCoherentAtomSize
+	struct alignas(64) SBasicViewParametersAligned
+	{
+		SBasicViewParameters uboData;
+	};
 
 	IGPUBuffer::SCreationParams gpuuboParams = {};
-	const size_t gpuuboParamsSize = sizeof(SBasicViewParameters);
+	const size_t gpuuboParamsSize = sizeof(SBasicViewParametersAligned);
 	gpuuboParams.usage = core::bitflag(IGPUBuffer::EUF_UNIFORM_BUFFER_BIT) | IGPUBuffer::EUF_TRANSFER_DST_BIT;
 	auto gpuubo = device->createDeviceLocalGPUBufferOnDedMem(gpuuboParams, gpuuboParamsSize);
 	auto uboDescriptorSet1 = device->createGPUDescriptorSet(descriptorPool.get(), core::smart_refctd_ptr(gpuDescriptorSetLayout1));
@@ -337,7 +347,7 @@ int main()
 		{
 			info.desc = gpuubo;
 			info.buffer.offset = 0ull;
-			info.buffer.size = sizeof(SBasicViewParameters);
+			info.buffer.size = sizeof(SBasicViewParametersAligned);
 		}
 		uboWriteDescriptorSet.info = &info;
 		device->updateDescriptorSets(1u, &uboWriteDescriptorSet, 0u, nullptr);
@@ -437,59 +447,26 @@ int main()
 				
 		// safe to proceed
 		cb->begin(0);
-		{
-			asset::SViewport vp;
-			vp.minDepth = 1.f;
-			vp.maxDepth = 0.f;
-			vp.x = 0u;
-			vp.y = 0u;
-			vp.width = WIN_W;
-			vp.height = WIN_H;
-			cb->setViewport(0u, 1u, &vp);
-		}
 
 		// renderpass 
 		uint32_t imgnum = 0u;
 		swapchain->acquireNextImage(MAX_TIMEOUT,imageAcquire[resourceIx].get(),nullptr,&imgnum);
-		{
-			video::IGPUCommandBuffer::SRenderpassBeginInfo info;
-			asset::SClearValue clearValues[2] ={};
-			VkRect2D area;
-			clearValues[0].color.float32[0] = 0.1f;
-			clearValues[0].color.float32[1] = 0.1f;
-			clearValues[0].color.float32[2] = 0.1f;
-			clearValues[0].color.float32[3] = 1.f;
-
-			clearValues[1].depthStencil.depth = 0.0f;
-			clearValues[1].depthStencil.stencil = 0.0f;
-
-			info.renderpass = renderpass;
-			info.framebuffer = fbo[imgnum];
-			info.clearValueCount = 2u;
-			info.clearValues = clearValues;
-			info.renderArea.offset = { 0, 0 };
-			info.renderArea.extent = { WIN_W, WIN_H };
-			cb->beginRenderPass(&info,asset::ESC_INLINE);
-			// Do nothing?
-			cb->endRenderPass();
-		}
-
 		{
 			auto mv = viewMatrix;
 			auto mvp = viewProjectionMatrix;
 			core::matrix3x4SIMD normalMat;
 			mv.getSub3x3InverseTranspose(normalMat);
 
-			SBasicViewParameters uboData;
-			memcpy(uboData.MV, mv.pointer(), sizeof(mv));
-			memcpy(uboData.MVP, mvp.pointer(), sizeof(mvp));
-			memcpy(uboData.NormalMat, normalMat.pointer(), sizeof(normalMat));
+			SBasicViewParametersAligned viewParams;
+			memcpy(viewParams.uboData.MV, mv.pointer(), sizeof(mv));
+			memcpy(viewParams.uboData.MVP, mvp.pointer(), sizeof(mvp));
+			memcpy(viewParams.uboData.NormalMat, normalMat.pointer(), sizeof(normalMat));
 			
 			asset::SBufferRange<video::IGPUBuffer> range;
 			range.buffer = gpuubo;
 			range.offset = 0ull;
-			range.size = sizeof(uboData);
-			utilities->updateBufferRangeViaStagingBuffer(graphicsQueue, range, &uboData);
+			range.size = sizeof(viewParams);
+			utilities->updateBufferRangeViaStagingBuffer(graphicsQueue, range, &viewParams);
 		}
 				
 		// TRANSITION outHDRImageViews[imgnum] to EIL_GENERAL (because of descriptorSets0 -> ComputeShader Writes into the image)
@@ -514,25 +491,26 @@ int main()
 			imageBarriers[1].newLayout = asset::EIL_SHADER_READ_ONLY_OPTIMAL;
 			imageBarriers[1].srcQueueFamilyIndex = cmdPoolQueueFamIdx;
 			imageBarriers[1].dstQueueFamilyIndex = cmdPoolQueueFamIdx;
-			imageBarriers[1].image = gpuEnvmapImageView->getCreationParameters().image;
+			imageBarriers[1].image = gpuScrambleImageView->getCreationParameters().image;
 			imageBarriers[1].subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
 			imageBarriers[1].subresourceRange.baseMipLevel = 0u;
 			imageBarriers[1].subresourceRange.levelCount = 1;
 			imageBarriers[1].subresourceRange.baseArrayLayer = 0u;
 			imageBarriers[1].subresourceRange.layerCount = 1;
 
-			imageBarriers[2].barrier.srcAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0u);
-			imageBarriers[2].barrier.dstAccessMask = static_cast<asset::E_ACCESS_FLAGS>(asset::EAF_SHADER_READ_BIT);
-			imageBarriers[2].oldLayout = asset::EIL_UNDEFINED;
-			imageBarriers[2].newLayout = asset::EIL_SHADER_READ_ONLY_OPTIMAL;
-			imageBarriers[2].srcQueueFamilyIndex = cmdPoolQueueFamIdx;
-			imageBarriers[2].dstQueueFamilyIndex = cmdPoolQueueFamIdx;
-			imageBarriers[2].image = gpuScrambleImageView->getCreationParameters().image;
-			imageBarriers[2].subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
-			imageBarriers[2].subresourceRange.baseMipLevel = 0u;
-			imageBarriers[2].subresourceRange.levelCount = 1;
-			imageBarriers[2].subresourceRange.baseArrayLayer = 0u;
-			imageBarriers[2].subresourceRange.layerCount = 1;
+			 imageBarriers[2].barrier.srcAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0u);
+			 imageBarriers[2].barrier.dstAccessMask = static_cast<asset::E_ACCESS_FLAGS>(asset::EAF_SHADER_READ_BIT);
+			 imageBarriers[2].oldLayout = asset::EIL_UNDEFINED;
+			 imageBarriers[2].newLayout = asset::EIL_SHADER_READ_ONLY_OPTIMAL;
+			 imageBarriers[2].srcQueueFamilyIndex = cmdPoolQueueFamIdx;
+			 imageBarriers[2].dstQueueFamilyIndex = cmdPoolQueueFamIdx;
+			 imageBarriers[2].image = gpuEnvmapImageView->getCreationParameters().image;
+			 imageBarriers[2].subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
+			 imageBarriers[2].subresourceRange.baseMipLevel = 0u;
+			 imageBarriers[2].subresourceRange.levelCount = gpuEnvmapImageView->getCreationParameters().subresourceRange.levelCount;
+			 imageBarriers[2].subresourceRange.baseArrayLayer = 0u;
+			 imageBarriers[2].subresourceRange.layerCount = gpuEnvmapImageView->getCreationParameters().subresourceRange.layerCount;
+
 			cb->pipelineBarrier(asset::EPSF_TOP_OF_PIPE_BIT, asset::EPSF_COMPUTE_SHADER_BIT, asset::EDF_NONE, 0u, nullptr, 0u, nullptr, 3u, imageBarriers);
 		}
 
