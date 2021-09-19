@@ -506,19 +506,31 @@ int traceRay(inout float intersectionT, in vec3 origin, in vec3 direction)
     }
 #else
     rayQueryEXT rayQuery;
-    // rayQueryInitializeEXT(rayQuery, topLevelAS, gl_RayFlagsNoneEXT, 0xFF, vec3(2,0,0), 0.0, vec3(0,0,-1), FLT_MAX);
     rayQueryInitializeEXT(rayQuery, topLevelAS, gl_RayFlagsNoneEXT, 0xFF, origin, 0.0, direction, FLT_MAX);
     
     // Start traversal: return false if traversal is complete
     while(rayQueryProceedEXT(rayQuery))
-    {}
+    {
+        if(rayQueryGetIntersectionTypeEXT(rayQuery, false) == gl_RayQueryCandidateIntersectionAABBEXT)
+        {
+            int id = rayQueryGetIntersectionPrimitiveIndexEXT(rayQuery, false);
+            float t = Sphere_intersect(spheres[id],origin,direction);
+            bool closerIntersection = t>0.0 && t<intersectionT;
+            if(closerIntersection)
+            {
+                intersectionT = t;
+                objectID = id;
+            }
+        }
+    }
     
     // Returns type of committed (true) intersection
     if(rayQueryGetIntersectionTypeEXT(rayQuery, true) != gl_RayQueryCommittedIntersectionNoneEXT)
     {
         // Got an intersection
-        objectID = rayQueryGetIntersectionPrimitiveIndexEXT(rayQuery, true);
-        intersectionT = Sphere_intersect(spheres[objectID], origin, direction);
+        // objectID = rayQueryGetIntersectionPrimitiveIndexEXT(rayQuery, true);
+        // intersectionT = Sphere_intersect(spheres[objectID], origin, direction);
+        // objectID = 1;
     }
 #endif
 
