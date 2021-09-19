@@ -488,25 +488,12 @@ mat2x3 rand3d(in uint protoDimension, in uint _sample, inout nbl_glsl_xoroshiro6
 void traceRay_extraShape(inout int objectID, inout float intersectionT, in vec3 origin, in vec3 direction);
 int traceRay(inout float intersectionT, in vec3 origin, in vec3 direction)
 {
-    const bool anyHit = intersectionT!=FLT_MAX;
 	int objectID = -1;
     
-#if 0
-	for (int i=0; i<SPHERE_COUNT; i++)
-    {
-        float t = Sphere_intersect(spheres[i],origin,direction);
-        bool closerIntersection = t>0.0 && t<intersectionT;
-
-        intersectionT = closerIntersection ? t : intersectionT;
-		objectID = closerIntersection ? i:objectID;
-        
-        // allowing early out results in a performance regression, WTF!?
-        //if (anyHit && closerIntersection)
-           //break;
-    }
-#else
+#define USE_RAY_QUERY
+#ifdef USE_RAY_QUERY
     rayQueryEXT rayQuery;
-    rayQueryInitializeEXT(rayQuery, topLevelAS, gl_RayFlagsNoneEXT, 0xFF, origin, 0.0, direction, FLT_MAX);
+    rayQueryInitializeEXT(rayQuery, topLevelAS, gl_RayFlagsNoneEXT, 0xFF, origin, 0.0, direction, 1000.0);
     
     // Start traversal: return false if traversal is complete
     while(rayQueryProceedEXT(rayQuery))
@@ -515,22 +502,23 @@ int traceRay(inout float intersectionT, in vec3 origin, in vec3 direction)
         {
             int id = rayQueryGetIntersectionPrimitiveIndexEXT(rayQuery, false);
             float t = Sphere_intersect(spheres[id],origin,direction);
-            bool closerIntersection = t>0.0 && t<intersectionT;
-            if(closerIntersection)
+            bool reportIntersection = (t != nbl_glsl_FLT_NAN && t > 0 && t < intersectionT);
+            if(reportIntersection)
             {
                 intersectionT = t;
                 objectID = id;
+                rayQueryGenerateIntersectionEXT(rayQuery, t);
             }
         }
     }
-    
-    // Returns type of committed (true) intersection
-    if(rayQueryGetIntersectionTypeEXT(rayQuery, true) != gl_RayQueryCommittedIntersectionNoneEXT)
+#else
+	for (int i=0; i<SPHERE_COUNT; i++)
     {
-        // Got an intersection
-        // objectID = rayQueryGetIntersectionPrimitiveIndexEXT(rayQuery, true);
-        // intersectionT = Sphere_intersect(spheres[objectID], origin, direction);
-        // objectID = 1;
+        float t = Sphere_intersect(spheres[i],origin,direction);
+        bool closerIntersection = t>0.0 && t<intersectionT;
+
+        intersectionT = closerIntersection ? t : intersectionT;
+		objectID = closerIntersection ? i:objectID;
     }
 #endif
 
