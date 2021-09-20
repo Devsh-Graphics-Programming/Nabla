@@ -569,7 +569,9 @@ public:
 
 		if(api_type == EAT_VULKAN) 
 		{
-			result.apiConnection = video::CVulkanConnection::create(core::smart_refctd_ptr(result.system), 0, app_name.data(), true);
+			const uint32_t requiredExtensionCount = 1u;
+			video::IAPIConnection::E_EXTENSION requiredExtensions[requiredExtensionCount] = { video::IAPIConnection::E_SURFACE };
+			result.apiConnection = video::CVulkanConnection::create(core::smart_refctd_ptr(result.system), 0, app_name.data(), requiredExtensionCount, requiredExtensions, nullptr, true);
 		}
 		else if(api_type == EAT_OPENGL)
 		{

@@ -4,10 +4,13 @@
 #include "nbl/video/IAPIConnection.h"
 #include "nbl/video/CVulkanPhysicalDevice.h"
 #include "nbl/video/CVulkanCommon.h"
+#include "nbl/video//debug/CVulkanDebugCallback.h"
 
 #if defined(_NBL_PLATFORM_WINDOWS_)
 #   include "nbl/ui/IWindowWin32.h"
 #endif
+
+#define LOG(logger, ...) if (logger) {logger->log(__VA_ARGS__);}
 
 namespace nbl::video
 {
@@ -17,20 +20,159 @@ class CVulkanConnection final : public IAPIConnection
 public:
     static core::smart_refctd_ptr<CVulkanConnection> create(
         core::smart_refctd_ptr<system::ISystem>&& sys, uint32_t appVer, const char* appName,
-        bool enableValidation = true)
+        const uint32_t extensionCount, video::IAPIConnection::E_EXTENSION* extensions,
+        core::smart_refctd_ptr<system::ILogger>&& logger, bool enableValidation)
     {
-        const std::vector<const char*> requiredInstanceLayerNames({ "VK_LAYER_KHRONOS_validation" });
-
-        // Todo(achal): Do I need to check availability for these?
-        // Currently all applications are forced to have support for windows and debug utils messenger
-        const uint32_t instanceExtensionCount = 3u;
-        const char* instanceExtensions[instanceExtensionCount] = { "VK_KHR_surface", "VK_KHR_win32_surface", VK_EXT_DEBUG_UTILS_EXTENSION_NAME };
-
         if (volkInitialize() != VK_SUCCESS)
         {
-            printf("Failed to initialize volk!\n");
+            LOG(logger, "Failed to initialize volk!\n", system::ILogger::ELL_ERROR);
             return nullptr;
         }
+
+        constexpr uint32_t MAX_EXTENSION_COUNT = (1u << 12) / sizeof(char*);
+        constexpr uint32_t MAX_LAYER_COUNT = 100u;
+
+        const size_t memSizeNeeded = MAX_EXTENSION_COUNT * sizeof(VkExtensionProperties) + MAX_LAYER_COUNT * sizeof(VkLayerProperties);
+        void* mem = _NBL_ALIGNED_MALLOC(memSizeNeeded, _NBL_SIMD_ALIGNMENT);
+        auto memFree = core::makeRAIIExiter([mem] {_NBL_ALIGNED_FREE(mem); });
+
+        VkExtensionProperties* availableExtensions = static_cast<VkExtensionProperties*>(mem);
+        VkLayerProperties* availableLayers = reinterpret_cast<VkLayerProperties*>(availableExtensions + MAX_EXTENSION_COUNT);
+
+        const char* requiredExtensionNames[MAX_EXTENSION_COUNT];
+        uint32_t requiredExtensionNameCount = 0u;
+        {
+            if (logger)
+                requiredExtensionNames[requiredExtensionNameCount++] = VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
+
+            for (uint32_t i = 0u; i < extensionCount; ++i)
+            {
+                // Handle other platforms
+                if (extensions[i] == video::IAPIConnection::E_SURFACE)
+                {
+                    requiredExtensionNames[requiredExtensionNameCount++] = "VK_KHR_surface";
+                    requiredExtensionNames[requiredExtensionNameCount++] = "VK_KHR_win32_surface";
+                }
+            }
+        }
+        assert(requiredExtensionNameCount <= MAX_EXTENSION_COUNT);
+
+        const char* requiredLayerNames[MAX_LAYER_COUNT] = { nullptr };
+        uint32_t requiredLayerNameCount = 0u;
+        {
+            if (enableValidation)
+            {
+                requiredLayerNames[requiredLayerNameCount++] = "VK_LAYER_KHRONOS_validation";
+            }
+        }
+        assert(requiredLayerNameCount <= MAX_LAYER_COUNT);
+
+        uint32_t availableExtensionCount = 0u;
+        {
+            uint32_t count;
+
+            if (!getExtensionsForLayer(nullptr, count, availableExtensions))
+            {
+                LOG(logger, "Failed to get implicit instance extensions!\n");
+                return nullptr;
+            }
+
+            availableExtensionCount += count;
+
+            for (uint32_t i = 0u; i < requiredLayerNameCount; ++i)
+            {
+                if (!getExtensionsForLayer(requiredLayerNames[i], count, availableExtensions + availableExtensionCount))
+                {
+                    LOG(logger, "Failed to get instance extensions for the layer: %s\n", system::ILogger::ELL_ERROR, requiredLayerNames[i]);
+                    return nullptr;
+                }
+
+                availableExtensionCount += count;
+            }
+        }
+        assert(availableExtensionCount <= MAX_EXTENSION_COUNT);
+
+        uint32_t availableLayerCount = 0u;
+        {
+            uint32_t count;
+            VkResult retval = vkEnumerateInstanceLayerProperties(&count, nullptr);
+            if ((retval != VK_SUCCESS) && (retval != VK_INCOMPLETE))
+                return nullptr;
+
+            retval = vkEnumerateInstanceLayerProperties(&count, availableLayers);
+            if ((retval != VK_SUCCESS) && (retval != VK_INCOMPLETE))
+                return nullptr;
+
+            availableLayerCount += count;
+        }
+        assert(availableLayerCount <= MAX_LAYER_COUNT);
+
+        // Can't find anything in C++ STL for this
+        const bool extensionsSupported = std::all_of(requiredExtensionNames, requiredExtensionNames + requiredExtensionNameCount,
+            [availableExtensions, availableExtensionCount, &logger](const char* extensionName)
+            {
+                const VkExtensionProperties* retval = std::find_if(availableExtensions, availableExtensions + availableExtensionCount,
+                    [extensionName](const VkExtensionProperties& extensionProps)
+                    {
+                        return strcmp(extensionName, extensionProps.extensionName) == 0;
+                    });
+
+                if (retval == (availableExtensions + availableExtensionCount))
+                {
+                    LOG(logger, "Failed to find required instance extension: %s\n", system::ILogger::ELL_ERROR, extensionName);
+                    return false;
+                }
+
+                return true;
+            });
+
+        const bool layersSupported = std::all_of(requiredLayerNames, requiredLayerNames + requiredLayerNameCount,
+            [availableLayers, availableLayerCount, &logger](const char* layerName)
+            {
+                const VkLayerProperties* retval = std::find_if(availableLayers, availableLayers + availableLayerCount,
+                    [layerName](const VkLayerProperties& layerProps)
+                    {
+                        return strcmp(layerName, layerProps.layerName) == 0;
+                    });
+
+                if (retval == (availableLayers + availableLayerCount))
+                {
+                    LOG(logger, "Failed to find required instance layer: %s\n", system::ILogger::ELL_ERROR, layerName);
+                    return false;
+                }
+
+                return true;
+            });
+
+        if (!extensionsSupported || !layersSupported)
+            return nullptr;
+
+#if 0
+        // Create a CVulkanDebugCallback here based on if logger is available
+        core::smart_refctd_ptr<CVulkanDebugCallback> debugCallback = nullptr;
+        if (logger)
+        {
+            // If the logger is available I would need the instance extension VK_EXT_DEBUG_UTILS_EXTENSION_NAME
+            // to create a debug callback so first check the availability of this instance extension
+            VkDebugUtilsMessengerCreateInfoEXT debugUtilsMessengerCreateInfo = { VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT };
+            const void* pNext;
+            VkDebugUtilsMessengerCreateFlagsEXT     flags;
+            VkDebugUtilsMessageSeverityFlagsEXT     messageSeverity;
+            VkDebugUtilsMessageTypeFlagsEXT         messageType;
+            PFN_vkDebugUtilsMessengerCallbackEXT    pfnUserCallback;
+            void* pUserData;
+        }
+
+        if (debugCallback && enableValidation)
+        {
+            if (!isInstanceLayerAvailable(validationLayer))
+            {
+                logger->log("Validation layer (%s) requested but not available!\n", system::ILogger::ELL_ERROR, validationLayer);
+                return nullptr;
+            }
+        }
+#endif
+
 
         VkApplicationInfo applicationInfo = { VK_STRUCTURE_TYPE_APPLICATION_INFO };
         applicationInfo.pNext = nullptr; // pNext must be NULL
@@ -40,30 +182,31 @@ public:
         applicationInfo.apiVersion = VK_MAKE_VERSION(1, 1, 0);
         applicationInfo.engineVersion = NABLA_VERSION_INTEGER;
 
-        if (enableValidation)
-        {
-            if (!areAllInstanceLayersAvailable(requiredInstanceLayerNames))
-            {
-                printf("Validation layers requested but not available!\n");
-                return nullptr;
-            }
-        }
-
-        // Note(achal): This exact create info is used for application wide debug messenger for now
+        // Just copy the logger->getLogLevelMasks here as well
         VkDebugUtilsMessengerCreateInfoEXT debugUtilsMessengerCreateInfo = { VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT };
+#if 0
+        const void* pNext;
+        VkDebugUtilsMessengerCreateFlagsEXT     flags;
+        VkDebugUtilsMessageSeverityFlagsEXT     messageSeverity;
+        VkDebugUtilsMessageTypeFlagsEXT         messageType;
+        PFN_vkDebugUtilsMessengerCallbackEXT    pfnUserCallback;
+        void* pUserData;
+#endif
+
         debugUtilsMessengerCreateInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
         debugUtilsMessengerCreateInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT
             | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-        debugUtilsMessengerCreateInfo.pfnUserCallback = &placeholderDebugCallback;
+        // debugUtilsMessengerCreateInfo.pfnUserCallback = debugCallback.defaultCallback;
+        debugUtilsMessengerCreateInfo.pfnUserCallback = placeholderDebugCallback;
 
         VkInstanceCreateInfo instanceCreateInfo = { VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO };
         instanceCreateInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debugUtilsMessengerCreateInfo;
         instanceCreateInfo.flags = static_cast<VkInstanceCreateFlags>(0);
         instanceCreateInfo.pApplicationInfo = &applicationInfo;
-        instanceCreateInfo.enabledLayerCount = static_cast<uint32_t>(requiredInstanceLayerNames.size());
-        instanceCreateInfo.ppEnabledLayerNames = requiredInstanceLayerNames.data();
-        instanceCreateInfo.enabledExtensionCount = 3u;
-        instanceCreateInfo.ppEnabledExtensionNames = instanceExtensions;
+        instanceCreateInfo.enabledLayerCount = requiredLayerNameCount;
+        instanceCreateInfo.ppEnabledLayerNames = requiredLayerNames;
+        instanceCreateInfo.enabledExtensionCount = requiredExtensionNameCount;
+        instanceCreateInfo.ppEnabledExtensionNames = requiredExtensionNames;
 
         VkInstance vk_instance;
         if (vkCreateInstance(&instanceCreateInfo, nullptr, &vk_instance) != VK_SUCCESS)
@@ -74,6 +217,7 @@ public:
 
         // Todo(achal): Perhaps use volkLoadInstanceOnly?
         volkLoadInstance(vk_instance);
+
         VkDebugUtilsMessengerEXT vk_debugMessenger;
         if (vkCreateDebugUtilsMessengerEXT(vk_instance, &debugUtilsMessengerCreateInfo, nullptr, &vk_debugMessenger) != VK_SUCCESS)
         {
@@ -139,22 +283,33 @@ public:
         return VK_FALSE;
     }
 
-    static inline bool areAllInstanceLayersAvailable(const std::vector<const char*>& requiredInstanceLayerNames)
+    static inline bool isInstanceLayerAvailable(const char* requiredInstanceLayer)
     {
         uint32_t instanceLayerCount;
         vkEnumerateInstanceLayerProperties(&instanceLayerCount, nullptr);
         std::vector<VkLayerProperties> instanceLayers(instanceLayerCount);
         vkEnumerateInstanceLayerProperties(&instanceLayerCount, instanceLayers.data());
 
-        for (const auto& requiredLayerName : requiredInstanceLayerNames)
-        {
-            const auto& result = std::find_if(instanceLayers.begin(), instanceLayers.end(),
-                [requiredLayerName](const VkLayerProperties& layer) -> bool
-                {
-                    return (strcmp(requiredLayerName, layer.layerName) == 0);
-                });
+        auto retval = std::find_if(instanceLayers.begin(), instanceLayers.end(),
+            [requiredInstanceLayer](const VkLayerProperties& layer) -> bool
+            {
+                return (strcmp(requiredInstanceLayer, layer.layerName) == 0);
+            });
 
-            if (result == instanceLayers.end())
+        return retval != instanceLayers.end();
+    }
+
+    static inline bool getExtensionsForLayer(const char* layerName, uint32_t& extensionCount,
+        VkExtensionProperties* extensions)
+    {
+        VkResult retval = vkEnumerateInstanceExtensionProperties(layerName, &extensionCount, nullptr);
+        if ((retval != VK_SUCCESS) && (retval != VK_INCOMPLETE))
+            return false;
+
+        if (extensions)
+        {
+            retval = vkEnumerateInstanceExtensionProperties(layerName, &extensionCount, extensions);
+            if ((retval != VK_SUCCESS) && (retval != VK_INCOMPLETE))
                 return false;
         }
 

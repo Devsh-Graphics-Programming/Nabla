@@ -14,6 +14,11 @@ class IPhysicalDevice;
 class IAPIConnection : public core::IReferenceCounted
 {
 public:
+    enum E_EXTENSION
+    {
+        E_SURFACE = 0
+    };
+
     virtual E_API_TYPE getAPIType() const = 0;
 
     virtual IDebugCallback* getDebugCallback() const = 0;

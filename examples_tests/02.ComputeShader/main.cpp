@@ -49,6 +49,7 @@ int main()
 	auto logger = core::make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>();
 	auto inputSystem = core::make_smart_refctd_ptr<CommonAPI::InputSystem>(system::logger_opt_smart_ptr(logger));
 	auto eventCallback = core::make_smart_refctd_ptr<CommonAPI::CommonAPIEventCallback>(core::smart_refctd_ptr(inputSystem), system::logger_opt_smart_ptr(logger));
+	auto assetManager = core::make_smart_refctd_ptr<nbl::asset::IAssetManager>(nbl::core::smart_refctd_ptr(system));
 	auto winManager = core::make_smart_refctd_ptr<nbl::ui::CWindowManagerWin32>();
 
 	nbl::ui::IWindow::SCreationParams params;
@@ -63,10 +64,12 @@ int main()
 	params.callback = eventCallback;
 	auto window = winManager->createWindow(std::move(params));
 
-	auto assetManager = core::make_smart_refctd_ptr<nbl::asset::IAssetManager>(nbl::core::smart_refctd_ptr(system));
+	const uint32_t requiredExtensionCount = 1u;
+	video::IAPIConnection::E_EXTENSION requiredExtensions[requiredExtensionCount] = { video::IAPIConnection::E_SURFACE };
 
 	core::smart_refctd_ptr<video::CVulkanConnection> apiConnection =
-		video::CVulkanConnection::create(core::smart_refctd_ptr(system), 0, "02.ComputeShader", true);
+		video::CVulkanConnection::create(core::smart_refctd_ptr(system), 0, "02.ComputeShader",
+			requiredExtensionCount, requiredExtensions, core::smart_refctd_ptr(logger), true);
 
 	core::smart_refctd_ptr<video::CSurfaceVulkanWin32> surface =
 		video::CSurfaceVulkanWin32::create(core::smart_refctd_ptr(apiConnection),
