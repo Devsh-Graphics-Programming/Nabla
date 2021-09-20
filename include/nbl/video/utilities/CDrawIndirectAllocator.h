@@ -32,7 +32,6 @@ class CDrawIndirectAllocator final : public IDrawIndirectAllocator
             ExplicitBufferCreationParameters explicit_params;
 
             video::IGPUBuffer::SCreationParams creationParams;
-            const size_t bufferSize = explicit_params.drawCommandBuffer.size;
             creationParams.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
             creationParams.sharingMode = asset::E_SHARING_MODE::ESM_CONCURRENT;
             creationParams.queueFamilyIndexCount = 0u;
@@ -42,12 +41,12 @@ class CDrawIndirectAllocator final : public IDrawIndirectAllocator
             explicit_params.drawCommandBuffer.offset = 0ull;
             assert(limits.SSBOAlignment<params.maxDrawCommandStride); // need to add a little padding, because generalpurpose allocator doesnt allow for allocations that would leave freeblocks smaller than the minimum allocation size
             explicit_params.drawCommandBuffer.size = core::roundUp<size_t>(params.drawCommandCapacity*params.maxDrawCommandStride+params.maxDrawCommandStride,limits.SSBOAlignment);
-            explicit_params.drawCommandBuffer.buffer = params.device->createDeviceLocalGPUBufferOnDedMem(creationParams);
+            explicit_params.drawCommandBuffer.buffer = params.device->createDeviceLocalGPUBufferOnDedMem(creationParams, explicit_params.drawCommandBuffer.size);
             explicit_params.drawCountBuffer.offset = 0ull;
             explicit_params.drawCountBuffer.size = core::roundUp<size_t>(params.drawCountCapacity*sizeof(uint32_t),limits.SSBOAlignment);
             if (explicit_params.drawCountBuffer.size)
             {
-                bufferSize = explicit_params.drawCountBuffer.size;
+                const size_t bufferSize = explicit_params.drawCountBuffer.size;
                 explicit_params.drawCountBuffer.buffer = params.device->createDeviceLocalGPUBufferOnDedMem(creationParams, bufferSize);
             }
             else
