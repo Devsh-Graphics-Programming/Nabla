@@ -253,7 +253,7 @@ class ILogicalDevice : public core::IReferenceCounted
         //! Utility wrapper for the pointer based func
         virtual void invalidateMappedMemoryRanges(core::SRange<const video::IDriverMemoryAllocation::MappedMemoryRange> ranges) = 0;
 
-        virtual core::smart_refctd_ptr<IGPUBuffer> createGPUBuffer(const IGPUBuffer::SCreationParams& creationParams, const bool canModifySubData = false) { return nullptr; }
+        virtual core::smart_refctd_ptr<IGPUBuffer> createGPUBuffer(const IGPUBuffer::SCreationParams& creationParams, const size_t size, const bool canModifySubData = false) { return nullptr; }
 
         //! Binds memory allocation to provide the backing for the resource.
         /** Available only on Vulkan, in OpenGL all resources create their own memory implicitly,
@@ -265,42 +265,42 @@ class ILogicalDevice : public core::IReferenceCounted
         virtual bool bindBufferMemory(uint32_t bindInfoCount, const SBindBufferMemoryInfo* pBindInfos) { return false; }
 
         //! Creates the buffer, allocates memory dedicated memory and binds it at once.
-        inline core::smart_refctd_ptr<IGPUBuffer> createDeviceLocalGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& params)
+        inline core::smart_refctd_ptr<IGPUBuffer> createDeviceLocalGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& params, const size_t size)
         {
             auto reqs = getDeviceLocalGPUMemoryReqs();
-            reqs.vulkanReqs.size = params.size;
+            reqs.vulkanReqs.size = size;
             return this->createGPUBufferOnDedMem(params, reqs, false);
         }
 
         //! Creates the buffer, allocates memory dedicated memory and binds it at once.
-        inline core::smart_refctd_ptr<IGPUBuffer> createSpilloverGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& params)
+        inline core::smart_refctd_ptr<IGPUBuffer> createSpilloverGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& params, const size_t size)
         {
             auto reqs = getSpilloverGPUMemoryReqs();
-            reqs.vulkanReqs.size = params.size;
+            reqs.vulkanReqs.size = size;
             return this->createGPUBufferOnDedMem(params, reqs, false);
         }
 
         //! Creates the buffer, allocates memory dedicated memory and binds it at once.
-        inline core::smart_refctd_ptr<IGPUBuffer> createUpStreamingGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& params)
+        inline core::smart_refctd_ptr<IGPUBuffer> createUpStreamingGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& params, const size_t size)
         {
             auto reqs = getUpStreamingMemoryReqs();
-            reqs.vulkanReqs.size = params.size;
+            reqs.vulkanReqs.size = size;
             return this->createGPUBufferOnDedMem(params, reqs, false);
         }
 
         //! Creates the buffer, allocates memory dedicated memory and binds it at once.
-        inline core::smart_refctd_ptr<IGPUBuffer> createDownStreamingGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& params)
+        inline core::smart_refctd_ptr<IGPUBuffer> createDownStreamingGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& params, const size_t size)
         {
             auto reqs = getDownStreamingMemoryReqs();
-            reqs.vulkanReqs.size = params.size;
+            reqs.vulkanReqs.size = size;
             return this->createGPUBufferOnDedMem(params, reqs, false);
         }
 
         //! Creates the buffer, allocates memory dedicated memory and binds it at once.
-        inline core::smart_refctd_ptr<IGPUBuffer> createCPUSideGPUVisibleGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& params)
+        inline core::smart_refctd_ptr<IGPUBuffer> createCPUSideGPUVisibleGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& params, const size_t size)
         {
             auto reqs = getCPUSideGPUVisibleGPUMemoryReqs();
-            reqs.vulkanReqs.size = params.size;
+            reqs.vulkanReqs.size = size;
             return this->createGPUBufferOnDedMem(params, reqs, false);
         }
 
@@ -335,6 +335,7 @@ class ILogicalDevice : public core::IReferenceCounted
         inline core::smart_refctd_ptr<IGPUImage> createDeviceLocalGPUImageOnDedMem(IGPUImage::SCreationParams&& params)
         {
             auto reqs = getDeviceLocalGPUMemoryReqs();
+            params.initialLayout = asset::EIL_UNDEFINED; // initialLayout in Vulkan could either be UNDEFINED or PREINITIALIZED, can't find a use case for PREINITIALIZED yet
             return this->createGPUImageOnDedMem(std::move(params), reqs);
         }
 

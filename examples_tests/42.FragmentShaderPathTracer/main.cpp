@@ -34,6 +34,7 @@ smart_refctd_ptr<IGPUImageView> createHDRImageView(nbl::core::smart_refctd_ptr<n
 		imgInfo.arrayLayers = 1u;
 		imgInfo.samples = asset::ICPUImage::ESCF_1_BIT;
 		imgInfo.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0u);
+		imgInfo.usage = core::bitflag(asset::IImage::EUF_STORAGE_BIT) | asset::IImage::EUF_TRANSFER_SRC_BIT;
 
 		auto image = device->createGPUImageOnDedMem(std::move(imgInfo),device->getDeviceLocalGPUMemoryReqs());
 
@@ -90,7 +91,7 @@ int main()
 	constexpr uint32_t FRAMES_IN_FLIGHT = 5u;
 	static_assert(FRAMES_IN_FLIGHT>FBO_COUNT);
 
-	auto initOutput = CommonAPI::Init<WIN_W, WIN_H, FBO_COUNT>(video::EAT_OPENGL, "Compute Shader PathTracer", asset::EF_D32_SFLOAT);
+	auto initOutput = CommonAPI::Init<WIN_W, WIN_H, FBO_COUNT>(video::EAT_VULKAN, "Compute Shader PathTracer", asset::EF_D32_SFLOAT);
 	auto system = std::move(initOutput.system);
 	auto window = std::move(initOutput.window);
 	auto windowCb = std::move(initOutput.windowCb);
@@ -113,6 +114,7 @@ int main()
 
 	nbl::video::IGPUObjectFromAssetConverter CPU2GPU;
 	
+	auto cmdPoolQueueFamIdx = initOutput.mainQueue->getFamilyIndex();
 	core::smart_refctd_ptr<nbl::video::IGPUCommandBuffer> cmdbuf[FRAMES_IN_FLIGHT];
 	device->createCommandBuffers(commandPool.get(), nbl::video::IGPUCommandBuffer::EL_PRIMARY, FRAMES_IN_FLIGHT, cmdbuf);
 	
@@ -136,7 +138,7 @@ int main()
 	IGPUDescriptorSetLayout::SBinding descriptorSet0Bindings[] = {
 		{ 0u, EDT_STORAGE_IMAGE, 1u, IGPUSpecializedShader::ESS_COMPUTE, nullptr },
 	};
-	IGPUDescriptorSetLayout::SBinding uboBinding {0, EDT_UNIFORM_BUFFER, 1u, IGPUSpecializedShader::ESS_FRAGMENT, nullptr};
+	IGPUDescriptorSetLayout::SBinding uboBinding {0, EDT_UNIFORM_BUFFER, 1u, IGPUSpecializedShader::ESS_COMPUTE, nullptr};
 	IGPUDescriptorSetLayout::SBinding descriptorSet3Bindings[] = {
 		{ 0u, EDT_COMBINED_IMAGE_SAMPLER, 1u, IGPUSpecializedShader::ESS_COMPUTE, nullptr },
 		{ 1u, EDT_UNIFORM_TEXEL_BUFFER, 1u, IGPUSpecializedShader::ESS_COMPUTE, nullptr },
@@ -145,7 +147,7 @@ int main()
 	
 	auto gpuDescriptorSetLayout0 = device->createGPUDescriptorSetLayout(descriptorSet0Bindings, descriptorSet0Bindings + 1u);
 	auto gpuDescriptorSetLayout1 = device->createGPUDescriptorSetLayout(&uboBinding, &uboBinding + 1u);
-	auto gpuDescriptorSetLayout3 = device->createGPUDescriptorSetLayout(descriptorSet3Bindings, descriptorSet3Bindings+3u);
+	auto gpuDescriptorSetLayout2 = device->createGPUDescriptorSetLayout(descriptorSet3Bindings, descriptorSet3Bindings+3u);
 
 	auto createGpuResources = [&](std::string pathToShader) -> core::smart_refctd_ptr<video::IGPUComputePipeline>
 	{
@@ -171,7 +173,7 @@ int main()
 
 		auto gpuComputeSpecializedShader = CPU2GPU.getGPUObjectsFromAssets(&cpuComputeSpecializedShader, &cpuComputeSpecializedShader + 1, cpu2gpuParams)->front();
 
-		auto gpuPipelineLayout = device->createGPUPipelineLayout(nullptr, nullptr, core::smart_refctd_ptr(gpuDescriptorSetLayout0), core::smart_refctd_ptr(gpuDescriptorSetLayout1), nullptr, core::smart_refctd_ptr(gpuDescriptorSetLayout3));
+		auto gpuPipelineLayout = device->createGPUPipelineLayout(nullptr, nullptr, core::smart_refctd_ptr(gpuDescriptorSetLayout0), core::smart_refctd_ptr(gpuDescriptorSetLayout1), core::smart_refctd_ptr(gpuDescriptorSetLayout2), nullptr);
 
 		auto gpuPipeline = device->createGPUComputePipeline(nullptr, std::move(gpuPipelineLayout), std::move(gpuComputeSpecializedShader));
 
@@ -191,13 +193,15 @@ int main()
 		auto cpuTexture = assetManager->getAsset(pathToTexture, lp);
 		auto cpuTextureContents = cpuTexture.getContents();
 		assert(!cpuTextureContents.empty());
-		auto asset = *cpuTextureContents.begin();
+		auto cpuImage = core::smart_refctd_ptr_static_cast<asset::ICPUImage>(*cpuTextureContents.begin());
+		cpuImage->setImageUsageFlags(IImage::E_USAGE_FLAGS::EUF_SAMPLED_BIT);
 
 		ICPUImageView::SCreationParams viewParams;
 		viewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
-		viewParams.image = core::smart_refctd_ptr_static_cast<asset::ICPUImage>(asset);
+		viewParams.image = cpuImage;
 		viewParams.format = viewParams.image->getCreationParameters().format;
 		viewParams.viewType = IImageView<ICPUImage>::ET_2D;
+		viewParams.subresourceRange.aspectMask = IImage::E_ASPECT_FLAGS::EAF_COLOR_BIT;
 		viewParams.subresourceRange.baseArrayLayer = 0u;
 		viewParams.subresourceRange.layerCount = 1u;
 		viewParams.subresourceRange.baseMipLevel = 0u;
@@ -227,7 +231,17 @@ int main()
 		{
 			out[i*MaxDimensions+dim] = sampler.sample(dim,i);
 		}
-		auto gpuSequenceBuffer = utilities->createFilledDeviceLocalGPUBufferOnDedMem(graphicsQueue, sampleSequence->getSize(), sampleSequence->getPointer());
+		
+		// TODO: Temp Fix because createFilledDeviceLocalGPUBufferOnDedMem doesn't take in params
+		// auto gpuSequenceBuffer = utilities->createFilledDeviceLocalGPUBufferOnDedMem(graphicsQueue, sampleSequence->getSize(), sampleSequence->getPointer());
+		core::smart_refctd_ptr<IGPUBuffer> gpuSequenceBuffer;
+		{
+			IGPUBuffer::SCreationParams params = {};
+			const size_t size = sampleSequence->getSize();
+			params.usage = core::bitflag(asset::IBuffer::EUF_TRANSFER_DST_BIT) | asset::IBuffer::EUF_UNIFORM_TEXEL_BUFFER_BIT; 
+			gpuSequenceBuffer = device->createDeviceLocalGPUBufferOnDedMem(params, size);
+			utilities->updateBufferRangeViaStagingBuffer(graphicsQueue, asset::SBufferRange<IGPUBuffer>{0u,size,gpuSequenceBuffer},sampleSequence->getPointer());
+		}
 		gpuSequenceBufferView = device->createGPUBufferView(gpuSequenceBuffer.get(), asset::EF_R32G32B32_UINT);
 	}
 
@@ -241,10 +255,13 @@ int main()
 		imgParams.mipLevels = 1u;
 		imgParams.arrayLayers = 1u;
 		imgParams.samples = IImage::ESCF_1_BIT;
+		imgParams.usage = core::bitflag(IImage::EUF_SAMPLED_BIT) | IImage::EUF_TRANSFER_DST_BIT;
+		imgParams.initialLayout = asset::EIL_GENERAL; // @Erfan you don't have to obey the Vulkan spec here which says initialLayout should either be UNDEFINED or PREINITIALIZED, createFilledDeviceLocalGPUImageOnDedMem will do the transition to the layout you specify here
 
 		IGPUImage::SBufferCopy region;
 		region.imageExtent = imgParams.extent;
 		region.imageSubresource.layerCount = 1u;
+		region.imageSubresource.aspectMask = IImage::E_ASPECT_FLAGS::EAF_COLOR_BIT;
 
 		constexpr auto ScrambleStateChannels = 2u;
 		const auto renderPixelCount = imgParams.extent.width*imgParams.extent.height;
@@ -254,13 +271,24 @@ int main()
 			for (auto& pixel : random)
 				pixel = rng.nextSample();
 		}
-		auto buffer = utilities->createFilledDeviceLocalGPUBufferOnDedMem(graphicsQueue, random.size()*sizeof(uint32_t), random.data());
+
+		// TODO: Temp Fix because createFilledDeviceLocalGPUBufferOnDedMem doesn't take in params
+		// auto buffer = utilities->createFilledDeviceLocalGPUBufferOnDedMem(graphicsQueue, random.size()*sizeof(uint32_t), random.data());
+		core::smart_refctd_ptr<IGPUBuffer> buffer;
+		{
+			IGPUBuffer::SCreationParams params = {};
+			const size_t size = random.size() * sizeof(uint32_t);
+			params.usage = core::bitflag(asset::IBuffer::EUF_TRANSFER_DST_BIT) | asset::IBuffer::EUF_TRANSFER_SRC_BIT; 
+			buffer = device->createDeviceLocalGPUBufferOnDedMem(params, size);
+			utilities->updateBufferRangeViaStagingBuffer(graphicsQueue, asset::SBufferRange<IGPUBuffer>{0u,size,buffer},random.data());
+		}
 
 		IGPUImageView::SCreationParams viewParams;
 		viewParams.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(0u);
 		viewParams.image = utilities->createFilledDeviceLocalGPUImageOnDedMem(graphicsQueue, std::move(imgParams), buffer.get(), 1u, &region);
 		viewParams.viewType = IGPUImageView::ET_2D;
 		viewParams.format = EF_R32G32_UINT;
+		viewParams.subresourceRange.aspectMask = IImage::E_ASPECT_FLAGS::EAF_COLOR_BIT;
 		viewParams.subresourceRange.levelCount = 1u;
 		viewParams.subresourceRange.layerCount = 1u;
 		gpuScrambleImageView = device->createGPUImageView(std::move(viewParams));
@@ -287,15 +315,16 @@ int main()
 		{
 			info.desc = outHDRImageViews[i];
 			info.image.sampler = nullptr;
-			info.image.imageLayout = static_cast<asset::E_IMAGE_LAYOUT>(0u);;
+			info.image.imageLayout = asset::E_IMAGE_LAYOUT::EIL_GENERAL;
 		}
 		writeDescriptorSet.info = &info;
 		device->updateDescriptorSets(1u, &writeDescriptorSet, 0u, nullptr);
 	}
 
 	IGPUBuffer::SCreationParams gpuuboParams = {};
-	gpuuboParams.size = sizeof(SBasicViewParameters);
-	auto gpuubo = device->createDeviceLocalGPUBufferOnDedMem(gpuuboParams);
+	const size_t gpuuboParamsSize = sizeof(SBasicViewParameters);
+	gpuuboParams.usage = core::bitflag(IGPUBuffer::EUF_UNIFORM_BUFFER_BIT) | IGPUBuffer::EUF_TRANSFER_DST_BIT;
+	auto gpuubo = device->createDeviceLocalGPUBufferOnDedMem(gpuuboParams, gpuuboParamsSize);
 	auto uboDescriptorSet1 = device->createGPUDescriptorSet(descriptorPool.get(), core::smart_refctd_ptr(gpuDescriptorSetLayout1));
 	{
 		video::IGPUDescriptorSet::SWriteDescriptorSet uboWriteDescriptorSet;
@@ -314,14 +343,14 @@ int main()
 		device->updateDescriptorSets(1u, &uboWriteDescriptorSet, 0u, nullptr);
 	}
 
-	auto descriptorSet3 = device->createGPUDescriptorSet(descriptorPool.get(), core::smart_refctd_ptr(gpuDescriptorSetLayout3));
+	auto descriptorSet2 = device->createGPUDescriptorSet(descriptorPool.get(), core::smart_refctd_ptr(gpuDescriptorSetLayout2));
 	{
 		constexpr auto kDescriptorCount = 3;
 		IGPUDescriptorSet::SWriteDescriptorSet samplerWriteDescriptorSet[kDescriptorCount];
 		IGPUDescriptorSet::SDescriptorInfo samplerDescriptorInfo[kDescriptorCount];
 		for (auto i=0; i<kDescriptorCount; i++)
 		{
-			samplerWriteDescriptorSet[i].dstSet = descriptorSet3.get();
+			samplerWriteDescriptorSet[i].dstSet = descriptorSet2.get();
 			samplerWriteDescriptorSet[i].binding = i;
 			samplerWriteDescriptorSet[i].arrayElement = 0u;
 			samplerWriteDescriptorSet[i].count = 1u;
@@ -344,9 +373,10 @@ int main()
 			samplerDescriptorInfo[2].image.sampler = device->createGPUSampler(samplerParams);
 			samplerDescriptorInfo[2].image.imageLayout = EIL_SHADER_READ_ONLY_OPTIMAL;
 		}
-		device->updateDescriptorSets(kDescriptorCount, samplerWriteDescriptorSet, 0u, nullptr);
-	}
 
+		// TODO: Uncomment when device->createGPUSampler works on Vulkan
+		// device->updateDescriptorSets(kDescriptorCount, samplerWriteDescriptorSet, 0u, nullptr);
+	}
 
 	constexpr uint32_t FRAME_COUNT = 500000u;
 
@@ -436,6 +466,8 @@ int main()
 			info.renderArea.offset = { 0, 0 };
 			info.renderArea.extent = { WIN_W, WIN_H };
 			cb->beginRenderPass(&info,asset::ESC_INLINE);
+			// Do nothing?
+			cb->endRenderPass();
 		}
 
 		{
@@ -455,13 +487,31 @@ int main()
 			range.size = sizeof(uboData);
 			utilities->updateBufferRangeViaStagingBuffer(graphicsQueue, range, &uboData);
 		}
+				
+		// TRANSITION outHDRImageViews[imgnum] to EIL_GENERAL (because of descriptorSets0 -> ComputeShader Writes into the image)
+		{
+			IGPUCommandBuffer::SImageMemoryBarrier imageBarriers[1u] = {};
+			imageBarriers[0].barrier.srcAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0u);
+			imageBarriers[0].barrier.dstAccessMask = static_cast<asset::E_ACCESS_FLAGS>(asset::EAF_SHADER_WRITE_BIT);
+			imageBarriers[0].oldLayout = asset::EIL_UNDEFINED;
+			imageBarriers[0].newLayout = asset::EIL_GENERAL;
+			imageBarriers[0].srcQueueFamilyIndex = cmdPoolQueueFamIdx;
+			imageBarriers[0].dstQueueFamilyIndex = cmdPoolQueueFamIdx;
+			imageBarriers[0].image = outHDRImageViews[imgnum]->getCreationParameters().image;
+			imageBarriers[0].subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
+			imageBarriers[0].subresourceRange.baseMipLevel = 0u;
+			imageBarriers[0].subresourceRange.levelCount = 1;
+			imageBarriers[0].subresourceRange.baseArrayLayer = 0u;
+			imageBarriers[0].subresourceRange.layerCount = 1;
+			cb->pipelineBarrier(asset::EPSF_TOP_OF_PIPE_BIT, asset::EPSF_COMPUTE_SHADER_BIT, asset::EDF_NONE, 0u, nullptr, 0u, nullptr, 1u, imageBarriers);
+		}
 
 		// cube envmap handle
 		{
 			cb->bindComputePipeline(gpuComputePipeline.get());
 			cb->bindDescriptorSets(EPBP_COMPUTE, gpuComputePipeline->getLayout(), 0u, 1u, &descriptorSets0[imgnum].get(), nullptr);
 			cb->bindDescriptorSets(EPBP_COMPUTE, gpuComputePipeline->getLayout(), 1u, 1u, &uboDescriptorSet1.get(), nullptr);
-			cb->bindDescriptorSets(EPBP_COMPUTE, gpuComputePipeline->getLayout(), 3u, 1u, &descriptorSet3.get(), nullptr);
+			cb->bindDescriptorSets(EPBP_COMPUTE, gpuComputePipeline->getLayout(), 2u, 1u, &descriptorSet2.get(), nullptr);
 			cb->dispatch(dispatchInfo.workGroupCount[0], dispatchInfo.workGroupCount[1], dispatchInfo.workGroupCount[2]);
 		}
 		// TODO: tone mapping and stuff
@@ -469,29 +519,83 @@ int main()
 		// Copy HDR Image to SwapChain
 		auto srcImgViewCreationParams = outHDRImageViews[imgnum]->getCreationParameters();
 		auto dstImgViewCreationParams = fbo[imgnum]->getCreationParameters().attachments[0]->getCreationParameters();
-
-		SImageBlit blit = {};
-		blit.srcOffsets[0] = {0, 0, 0};
-		blit.srcOffsets[1] = {WIN_W, WIN_H, 1};
 		
-		blit.srcSubresource.aspectMask = srcImgViewCreationParams.subresourceRange.aspectMask;
-		blit.srcSubresource.mipLevel = srcImgViewCreationParams.subresourceRange.baseMipLevel;
-		blit.srcSubresource.baseArrayLayer = srcImgViewCreationParams.subresourceRange.baseArrayLayer;
-		blit.srcSubresource.layerCount = srcImgViewCreationParams.subresourceRange.layerCount;
-		blit.dstOffsets[0] = {0, 0, 0};
-		blit.dstOffsets[1] = {WIN_W, WIN_H, 1};
-		blit.dstSubresource.aspectMask = dstImgViewCreationParams.subresourceRange.aspectMask;
-		blit.dstSubresource.mipLevel = dstImgViewCreationParams.subresourceRange.baseMipLevel;
-		blit.dstSubresource.baseArrayLayer = dstImgViewCreationParams.subresourceRange.baseArrayLayer;
-		blit.dstSubresource.layerCount = dstImgViewCreationParams.subresourceRange.layerCount;
+		// Getting Ready for Blit
+		// TRANSITION outHDRImageViews[imgnum] to EIL_TRANSFER_SRC_OPTIMAL
+		// TRANSITION `fbo[imgnum]->getCreationParameters().attachments[0]` to EIL_TRANSFER_DST_OPTIMAL
+		{
+			IGPUCommandBuffer::SImageMemoryBarrier imageBarriers[2u] = {};
+			imageBarriers[0].barrier.srcAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0u);
+			imageBarriers[0].barrier.dstAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
+			imageBarriers[0].oldLayout = asset::EIL_UNDEFINED;
+			imageBarriers[0].newLayout = asset::EIL_TRANSFER_SRC_OPTIMAL;
+			imageBarriers[0].srcQueueFamilyIndex = cmdPoolQueueFamIdx;
+			imageBarriers[0].dstQueueFamilyIndex = cmdPoolQueueFamIdx;
+			imageBarriers[0].image = srcImgViewCreationParams.image;
+			imageBarriers[0].subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
+			imageBarriers[0].subresourceRange.baseMipLevel = 0u;
+			imageBarriers[0].subresourceRange.levelCount = 1;
+			imageBarriers[0].subresourceRange.baseArrayLayer = 0u;
+			imageBarriers[0].subresourceRange.layerCount = 1;
 
-		auto srcImg = srcImgViewCreationParams.image;
-		auto dstImg = dstImgViewCreationParams.image;
-		cb->blitImage(srcImg.get(), EIL_GENERAL, dstImg.get(), EIL_COLOR_ATTACHMENT_OPTIMAL, 1u, &blit , ISampler::ETF_NEAREST);
+			imageBarriers[1].barrier.srcAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0u);
+			imageBarriers[1].barrier.dstAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
+			imageBarriers[1].oldLayout = asset::EIL_UNDEFINED;
+			imageBarriers[1].newLayout = asset::EIL_TRANSFER_DST_OPTIMAL;
+			imageBarriers[1].srcQueueFamilyIndex = cmdPoolQueueFamIdx;
+			imageBarriers[1].dstQueueFamilyIndex = cmdPoolQueueFamIdx;
+			imageBarriers[1].image = dstImgViewCreationParams.image;
+			imageBarriers[1].subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
+			imageBarriers[1].subresourceRange.baseMipLevel = 0u;
+			imageBarriers[1].subresourceRange.levelCount = 1;
+			imageBarriers[1].subresourceRange.baseArrayLayer = 0u;
+			imageBarriers[1].subresourceRange.layerCount = 1;
+			cb->pipelineBarrier(asset::EPSF_TRANSFER_BIT, asset::EPSF_TRANSFER_BIT, asset::EDF_NONE, 0u, nullptr, 0u, nullptr, 2u, imageBarriers);
+		}
 
-		cb->endRenderPass();
+		// Blit Image
+		{
+			SImageBlit blit = {};
+			blit.srcOffsets[0] = {0, 0, 0};
+			blit.srcOffsets[1] = {WIN_W, WIN_H, 1};
+		
+			blit.srcSubresource.aspectMask = srcImgViewCreationParams.subresourceRange.aspectMask;
+			blit.srcSubresource.mipLevel = srcImgViewCreationParams.subresourceRange.baseMipLevel;
+			blit.srcSubresource.baseArrayLayer = srcImgViewCreationParams.subresourceRange.baseArrayLayer;
+			blit.srcSubresource.layerCount = srcImgViewCreationParams.subresourceRange.layerCount;
+			blit.dstOffsets[0] = {0, 0, 0};
+			blit.dstOffsets[1] = {WIN_W, WIN_H, 1};
+			blit.dstSubresource.aspectMask = dstImgViewCreationParams.subresourceRange.aspectMask;
+			blit.dstSubresource.mipLevel = dstImgViewCreationParams.subresourceRange.baseMipLevel;
+			blit.dstSubresource.baseArrayLayer = dstImgViewCreationParams.subresourceRange.baseArrayLayer;
+			blit.dstSubresource.layerCount = dstImgViewCreationParams.subresourceRange.layerCount;
+
+			auto srcImg = srcImgViewCreationParams.image;
+			auto dstImg = dstImgViewCreationParams.image;
+
+			cb->blitImage(srcImg.get(), EIL_TRANSFER_SRC_OPTIMAL, dstImg.get(), EIL_TRANSFER_DST_OPTIMAL, 1u, &blit , ISampler::ETF_NEAREST);
+		}
+		
+		// TRANSITION `fbo[imgnum]->getCreationParameters().attachments[0]` to EIL_PRESENT
+		{
+			IGPUCommandBuffer::SImageMemoryBarrier imageBarriers[1u] = {};
+			imageBarriers[0].barrier.srcAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
+			imageBarriers[0].barrier.dstAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0u);
+			imageBarriers[0].oldLayout = asset::EIL_TRANSFER_DST_OPTIMAL;
+			imageBarriers[0].newLayout = asset::EIL_PRESENT_SRC_KHR;
+			imageBarriers[0].srcQueueFamilyIndex = cmdPoolQueueFamIdx;
+			imageBarriers[0].dstQueueFamilyIndex = cmdPoolQueueFamIdx;
+			imageBarriers[0].image = dstImgViewCreationParams.image;
+			imageBarriers[0].subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
+			imageBarriers[0].subresourceRange.baseMipLevel = 0u;
+			imageBarriers[0].subresourceRange.levelCount = 1;
+			imageBarriers[0].subresourceRange.baseArrayLayer = 0u;
+			imageBarriers[0].subresourceRange.layerCount = 1;
+			cb->pipelineBarrier(asset::EPSF_TRANSFER_BIT, asset::EPSF_TOP_OF_PIPE_BIT, asset::EDF_NONE, 0u, nullptr, 0u, nullptr, 1u, imageBarriers);
+		}
+
 		cb->end();
-		
+		device->resetFences(1, &fence.get());
 		CommonAPI::Submit(device.get(), swapchain.get(), cb.get(), graphicsQueue, imageAcquire[resourceIx].get(), renderFinished[resourceIx].get(), fence.get());
 		CommonAPI::Present(device.get(), swapchain.get(), graphicsQueue, renderFinished[resourceIx].get(), imgnum);
 	}
@@ -499,8 +603,10 @@ int main()
 	const auto& fboCreationParams = fbo[0]->getCreationParameters();
 	auto gpuSourceImageView = fboCreationParams.attachments[0];
 
-	bool status = ext::ScreenShot::createScreenShot(device.get(), queues[decltype(initOutput)::EQT_TRANSFER_UP], renderFinished[0].get(), gpuSourceImageView.get(), assetManager.get(), "ScreenShot.png");
-	assert(status);
+	device->waitIdle();
+
+	// bool status = ext::ScreenShot::createScreenShot(device.get(), queues[decltype(initOutput)::EQT_TRANSFER_UP], renderFinished[0].get(), gpuSourceImageView.get(), assetManager.get(), "ScreenShot.png");
+	// assert(status);
 
 	return 0;
 }

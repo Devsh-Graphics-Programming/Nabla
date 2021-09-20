@@ -87,7 +87,7 @@ class IGPUObjectFromAssetConverter
     public:
         enum E_QUEUE_USAGE
         {
-            EQU_TRANSFER,
+            EQU_TRANSFER = 0,
             EQU_COMPUTE,
 
             EQU_COUNT
@@ -763,8 +763,11 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
     const auto assetCount = std::distance(_begin, _end);
     auto res = core::make_refctd_dynamic_array<created_gpu_object_array<asset::ICPUImage> >(assetCount);
 
+    // This should be the other way round because if a queue supports either compute or graphics
+    // but not the other way round
     const uint32_t transferFamIx = _params.perQueue[EQU_TRANSFER].queue->getFamilyIndex();
     const uint32_t computeFamIx = _params.perQueue[EQU_COMPUTE].queue ? _params.perQueue[EQU_COMPUTE].queue->getFamilyIndex() : transferFamIx;
+
     bool oneQueue = _params.perQueue[EQU_TRANSFER].queue == _params.perQueue[EQU_COMPUTE].queue;
 
     bool needToGenMips = false;
@@ -782,8 +785,8 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
         //(we can always discard/not cache the GPU Buffers created only for image data upload)
         IGPUBuffer::SCreationParams params = {};
         params.usage = core::bitflag(video::IGPUBuffer::EUF_TRANSFER_SRC_BIT) | video::IGPUBuffer::EUF_TRANSFER_DST_BIT;
-        params.size = cpuimg->getBuffer()->getSize();
-        auto gpubuf = _params.device->createDeviceLocalGPUBufferOnDedMem(params);
+        const size_t size = cpuimg->getBuffer()->getSize();
+        auto gpubuf = _params.device->createDeviceLocalGPUBufferOnDedMem(params, size);
         img2gpubuf.insert({ cpuimg, std::move(gpubuf) });
 
         const auto format = cpuimg->getCreationParameters().format;
@@ -1047,11 +1050,11 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
         auto transfer_sem = _params.device->createSemaphore();
         auto* transfer_sem_ptr = transfer_sem.get();
 
-        IGPUFence* batch_final_fence = fence.get();
+        auto batch_final_fence = fence;
 
         submit_transfer.signalSemaphoreCount = 1u;
         submit_transfer.pSignalSemaphores = &transfer_sem_ptr;
-        _params.perQueue[EQU_TRANSFER].queue->submit(1u, &submit_transfer, batch_final_fence);
+        _params.perQueue[EQU_TRANSFER].queue->submit(1u, &submit_transfer, batch_final_fence.get());
 
         if (_params.perQueue[EQU_TRANSFER].semaphore)
             _params.perQueue[EQU_TRANSFER].semaphore[0] = transfer_sem;
@@ -1092,12 +1095,13 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
                 _params.perQueue[EQU_COMPUTE].fence[0] = compute_fence;
 
 #if 0 //TODO: (!) enable when mips are in fact computed on `cmdbuf_compute` (currently they are done with blits on cmdbuf_transfer)
-            batch_final_fence = compute_fence_ptr;
+            batch_final_fence = compute_fence;
 #endif
         }
 
         // wait to finish all batch work in order to safely reset command buffers
-        _params.device->waitForFences(1u, &batch_final_fence, false, 9999999999ull);
+        auto batch_final_fence_ptr = batch_final_fence.get();
+        _params.device->waitForFences(1u, &batch_final_fence_ptr, false, 9999999999ull);
 
         // separate cmdbufs per batch instead?
         if (it != _end)

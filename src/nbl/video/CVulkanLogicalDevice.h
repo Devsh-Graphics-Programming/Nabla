@@ -510,12 +510,12 @@ public:
         return !anyFailed;
     }
 
-    core::smart_refctd_ptr<IGPUBuffer> createGPUBuffer(const IGPUBuffer::SCreationParams& creationParams, const bool canModifySubData = false) override
+    core::smart_refctd_ptr<IGPUBuffer> createGPUBuffer(const IGPUBuffer::SCreationParams& creationParams, const size_t size, const bool canModifySubData = false) override
     {
         VkBufferCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
         vk_createInfo.pNext = nullptr; // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkBufferDeviceAddressCreateInfoEXT, VkBufferOpaqueCaptureAddressCreateInfo, VkDedicatedAllocationBufferCreateInfoNV, VkExternalMemoryBufferCreateInfo, VkVideoProfileKHR, or VkVideoProfilesKHR
         vk_createInfo.flags = static_cast<VkBufferCreateFlags>(0); // Nabla doesn't support any of these flags
-        vk_createInfo.size = static_cast<VkDeviceSize>(creationParams.size);
+        vk_createInfo.size = static_cast<VkDeviceSize>(size);
         vk_createInfo.usage = static_cast<VkBufferUsageFlags>(creationParams.usage.value);
         vk_createInfo.sharingMode = static_cast<VkSharingMode>(creationParams.sharingMode); 
         vk_createInfo.queueFamilyIndexCount = creationParams.queueFamilyIndexCount;
@@ -553,7 +553,7 @@ public:
 
     core::smart_refctd_ptr<IGPUBuffer> createGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& creationParams, const IDriverMemoryBacked::SDriverMemoryRequirements& additionalMemoryReqs, const bool canModifySubData = false) override
     {
-        core::smart_refctd_ptr<IGPUBuffer> gpuBuffer = createGPUBuffer(creationParams);
+        core::smart_refctd_ptr<IGPUBuffer> gpuBuffer = createGPUBuffer(creationParams, additionalMemoryReqs.vulkanReqs.size);
 
         if (!gpuBuffer)
             return nullptr;
@@ -855,7 +855,37 @@ public:
 
     core::smart_refctd_ptr<IGPUSampler> createGPUSampler(const IGPUSampler::SParams& _params) override
     {
-        return nullptr;
+        VkSamplerCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
+        vk_createInfo.pNext = nullptr; // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkSamplerCustomBorderColorCreateInfoEXT, VkSamplerReductionModeCreateInfo, or VkSamplerYcbcrConversionInfo
+        vk_createInfo.flags = static_cast<VkSamplerCreateFlags>(0); // No flags supported yet
+        assert(_params.MaxFilter <= asset::ISampler::ETF_LINEAR);
+        vk_createInfo.magFilter = static_cast<VkFilter>(_params.MaxFilter);
+        assert(_params.MinFilter <= asset::ISampler::ETF_LINEAR);
+        vk_createInfo.minFilter = static_cast<VkFilter>(_params.MinFilter);
+        vk_createInfo.mipmapMode = static_cast<VkSamplerMipmapMode>(_params.MipmapMode);
+        vk_createInfo.addressModeU = getVkAddressModeFromTexClamp(static_cast<asset::ISampler::E_TEXTURE_CLAMP>(_params.TextureWrapU));
+        vk_createInfo.addressModeV = getVkAddressModeFromTexClamp(static_cast<asset::ISampler::E_TEXTURE_CLAMP>(_params.TextureWrapV));
+        vk_createInfo.addressModeW = getVkAddressModeFromTexClamp(static_cast<asset::ISampler::E_TEXTURE_CLAMP>(_params.TextureWrapW));
+        vk_createInfo.mipLodBias = _params.LodBias;
+        vk_createInfo.anisotropyEnable = _params.AnisotropicFilter; // Todo(achal): Verify
+        vk_createInfo.maxAnisotropy = std::log2(_params.AnisotropicFilter); // Todo(achal): Verify
+        vk_createInfo.compareEnable = _params.CompareEnable;
+        vk_createInfo.compareOp = static_cast<VkCompareOp>(_params.CompareFunc);
+        vk_createInfo.minLod = _params.MinLod;
+        vk_createInfo.maxLod = _params.MaxLod;
+        assert(_params.BorderColor < asset::ISampler::ETBC_COUNT);
+        vk_createInfo.borderColor = static_cast<VkBorderColor>(_params.BorderColor);
+        vk_createInfo.unnormalizedCoordinates = VK_FALSE; // Todo(achal): Verify
+
+        VkSampler vk_sampler;
+        if (vkCreateSampler(m_vkdev, &vk_createInfo, nullptr, &vk_sampler) == VK_SUCCESS)
+        {
+            return core::make_smart_refctd_ptr<CVulkanSampler>(core::smart_refctd_ptr<ILogicalDevice>(this), _params, vk_sampler);
+        }
+        else
+        {
+            return nullptr;
+        }
     }
 
     // API changes needed, this could also fail.
