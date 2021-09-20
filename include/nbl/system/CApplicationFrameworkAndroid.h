@@ -59,7 +59,7 @@ namespace nbl::system
             void* userData;
         };
     public:
-        CApplicationFrameworkAndroid(android_app* params)
+        CApplicationFrameworkAndroid(android_app* params) : eventPoller(params, this)
         {
             params->onAppCmd = handleCommand;
             params->onInputEvent = handleInput;
@@ -131,6 +131,47 @@ namespace nbl::system
                 break;
             }
         }
+
+        class CEventPoller : public  system::IThreadHandler<CEventPoller>
+        {
+            using base_t = system::IThreadHandler<CEventPoller>;
+            friend base_t;
+            android_poll_source* source;
+            android_app* app;
+            ALooper* looper;
+            CApplicationFrameworkAndroid* framework;
+            int ident;
+            int events;
+            bool keepPolling = true;
+        public:
+            CEventPoller(android_app* _app, CApplicationFrameworkAndroid* _framework) : app(app), framework(_framework) { }
+        protected:
+            void init() {
+                looper = ALooper_prepare(0); // prepare the looper to poll in the current thread
+            }
+            void work(typename base_t::lock_t& lock)
+            {
+                ident = ALooper_pollAll(0, nullptr, &events, (void**)&source);
+                if (ident >= 0)
+                {
+                    if (source != nullptr) 
+                    {
+                        source->process(app, source);
+                    }
+                    if (app->destroyRequested != 0) 
+                    {
+                        framework->onWindowTerminated(app);
+                    }
+                }
+                else keepPolling = false;
+            }
+            void exit() {}
+            bool wakeupPredicate() const { return true; }
+        public:
+            bool continuePredicate() const { return keepPolling; }
+        };
+        CEventPoller eventPoller;
+        bool keepPolling() const { return eventPoller.continuePredicate(); }
     };
 
 }
@@ -151,21 +192,8 @@ namespace nbl::system
     if (app->savedState != nullptr) {\
         ctx.state = (nbl::system::CApplicationFrameworkAndroid::SSavedState*)app->savedState;\
     }\
-    while (true) {\
-    int ident;\
-    int events;\
-    android_poll_source* source;\
-    while ((ident = ALooper_pollAll(0, nullptr, &events, (void**)&source)) >= 0) {\
-        logger->log("Entered poll loop iteration!");\
-        if (source != nullptr) {\
-            source->process(app, source);\
-        }\
-        if (app->destroyRequested != 0) {\
-            framework->onWindowTerminated(app);\
-            return;\
-        }\
-    }\
-    \
+    while (framework->keepPolling()) {\
+    logger->log("Entered poll loop iteration!");\
     framework->workLoopBody(app);\
     }\
 }
