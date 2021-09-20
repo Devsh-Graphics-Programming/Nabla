@@ -1837,19 +1837,16 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUAccelerationStructure
                         gpu_geom.data.triangles.maxVertex = cpu_geom.data.triangles.maxVertex;
                         gpu_geom.data.triangles.indexType = cpu_geom.data.triangles.indexType;
 
-                        if(cpu_geom.data.triangles.indexData.isValid())
                         {
                             IGPUOffsetBufferPair* gpubuf = (*gpuBufs)[redirs[bufIter++]].get();
                             gpu_geom.data.triangles.indexData.buffer = core::smart_refctd_ptr<IGPUBuffer>(gpubuf->getBuffer());
                             gpu_geom.data.triangles.indexData.offset = gpubuf->getOffset() + cpu_geom.data.triangles.indexData.offset;
                         }
-                        if(cpu_geom.data.triangles.vertexData.isValid())
                         {
                             IGPUOffsetBufferPair* gpubuf = (*gpuBufs)[redirs[bufIter++]].get();
                             gpu_geom.data.triangles.vertexData.buffer = core::smart_refctd_ptr<IGPUBuffer>(gpubuf->getBuffer());
                             gpu_geom.data.triangles.vertexData.offset = gpubuf->getOffset() + cpu_geom.data.triangles.vertexData.offset;
                         }
-                        if(cpu_geom.data.triangles.transformData.isValid())
                         {
                             IGPUOffsetBufferPair* gpubuf = (*gpuBufs)[redirs[bufIter++]].get();
                             gpu_geom.data.triangles.transformData.buffer = core::smart_refctd_ptr<IGPUBuffer>(gpubuf->getBuffer());
@@ -1859,7 +1856,6 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUAccelerationStructure
                     else if(cpu_geom.type == asset::IAccelerationStructure::EGT_AABBS)
                     {
                         gpu_geom.data.aabbs.stride = cpu_geom.data.aabbs.stride;
-                        if(cpu_geom.data.aabbs.data.isValid())
                         {
                             IGPUOffsetBufferPair* gpubuf = (*gpuBufs)[redirs[bufIter++]].get();
                             gpu_geom.data.aabbs.data.buffer = core::smart_refctd_ptr<IGPUBuffer>(gpubuf->getBuffer());
@@ -1868,7 +1864,6 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUAccelerationStructure
                     }
                     else if(cpu_geom.type == asset::IAccelerationStructure::EGT_INSTANCES)
                     {
-                        if(cpu_geom.data.instances.data.isValid())
                         {
                             IGPUOffsetBufferPair* gpubuf = (*gpuBufs)[redirs[bufIter++]].get();
                             gpu_geom.data.instances.data.buffer = core::smart_refctd_ptr<IGPUBuffer>(gpubuf->getBuffer());
@@ -1895,7 +1890,6 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUAccelerationStructure
                     continue;
                 }
 
-                toBuildIndex++;
                 assert(cpuas == toCreateAndBuild[toBuildIndex]);
                 assert(toBuildIndex < toCreateAndBuild.size());
 
@@ -1920,11 +1914,12 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUAccelerationStructure
 
                 totalScratchBufferSize += buildSize.buildScratchSize;
                 core::max(maxScratchBufferSize, buildSize.buildScratchSize); // maxScratchBufferSize has no use now (unless we changed this function to build 1 by 1 instead of batch builds or have some kind of memory limit?)
+                ++toBuildIndex;
             }
 
             // Allocate Scratch Buffer
             IGPUBuffer::SCreationParams gpuScratchBufParams = {};
-		    gpuScratchBufParams.usage = core::bitflag(asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT) | asset::IBuffer::EUF_STORAGE_BUFFER_BIT; 
+            gpuScratchBufParams.usage = core::bitflag(asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT) | asset::IBuffer::EUF_STORAGE_BUFFER_BIT; 
             auto gpuScratchBuf = _params.device->createDeviceLocalGPUBufferOnDedMem(gpuScratchBufParams, totalScratchBufferSize);
             for (ptrdiff_t i = 0u; i < toCreateAndBuild.size(); ++i)
             {
