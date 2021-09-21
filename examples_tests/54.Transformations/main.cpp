@@ -187,13 +187,12 @@ int main()
 	const size_t ssboSz = offset_recompStamp + recompStampPropSz * ObjectCount;
 
 	video::IGPUBuffer::SCreationParams ssboCreationParams;
-	ssboCreationParams.size = ssboSz;
 	ssboCreationParams.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
 	ssboCreationParams.sharingMode = asset::E_SHARING_MODE::ESM_CONCURRENT;
 	ssboCreationParams.queueFamilyIndexCount = 0u;
 	ssboCreationParams.queueFamilyIndices = nullptr;
 
-	auto ssbo_buf = device->createDeviceLocalGPUBufferOnDedMem(ssboCreationParams);
+	auto ssbo_buf = device->createDeviceLocalGPUBufferOnDedMem(ssboCreationParams, ssboSz);
 
 	asset::SBufferRange<video::IGPUBuffer> propBufs[PropertyCount];
 	for (uint32_t i = 0u; i < PropertyCount; ++i)
@@ -490,13 +489,12 @@ int main()
 
 	constexpr size_t ColorBufSz = sizeof(core::vectorSIMDf) * ObjectCount;
 	video::IGPUBuffer::SCreationParams colorBufCreationParams;
-	colorBufCreationParams.size = ColorBufSz;
 	colorBufCreationParams.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
 	colorBufCreationParams.sharingMode = asset::E_SHARING_MODE::ESM_CONCURRENT;
 	colorBufCreationParams.queueFamilyIndexCount = 0u;
 	colorBufCreationParams.queueFamilyIndices = nullptr;
 
-	auto gpuColorBuf = device->createDeviceLocalGPUBufferOnDedMem(colorBufCreationParams);
+	auto gpuColorBuf = device->createDeviceLocalGPUBufferOnDedMem(colorBufCreationParams, ColorBufSz);
 	core::vectorSIMDf colors[ObjectCount]{
 		core::vectorSIMDf(0.f, 0.f, 1.f),
 		core::vectorSIMDf(0.f, 1.f, 0.f),
@@ -610,17 +608,14 @@ int main()
 
 	constexpr size_t ModsRangesBufSz = 2u*sizeof(uint32_t) + sizeof(scene::nbl_glsl_transform_tree_modification_request_range_t)*ObjectCount;
 	video::IGPUBuffer::SCreationParams creationParams;
-	creationParams.size = ModsRangesBufSz;
 	creationParams.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
 	creationParams.sharingMode = asset::E_SHARING_MODE::ESM_CONCURRENT;
 	creationParams.queueFamilyIndexCount = 0u;
 	creationParams.queueFamilyIndices = nullptr;
 
-	auto modRangesBuf = device->createDeviceLocalGPUBufferOnDedMem(creationParams);
-	creationParams.size = sizeof(scene::nbl_glsl_transform_tree_relative_transform_modification_t) * ObjectCount;
-	auto relTformModsBuf = device->createDeviceLocalGPUBufferOnDedMem(creationParams);
-	creationParams.size = std::max(sizeof(uint32_t) + sizeof(scene::ITransformTree::node_t) * ObjectCount, 128ull);
-	auto nodeIdsBuf = device->createDeviceLocalGPUBufferOnDedMem(creationParams);
+	auto modRangesBuf = device->createDeviceLocalGPUBufferOnDedMem(creationParams, ModsRangesBufSz);
+	auto relTformModsBuf = device->createDeviceLocalGPUBufferOnDedMem(creationParams, sizeof(scene::nbl_glsl_transform_tree_relative_transform_modification_t) * ObjectCount);
+	auto nodeIdsBuf = device->createDeviceLocalGPUBufferOnDedMem(creationParams, std::max(sizeof(uint32_t) + sizeof(scene::ITransformTree::node_t) * ObjectCount, 128ull));
 	{
 		//update `nodeIdsBuf`
 		uint32_t countAndIds[1u + ObjectCount];
