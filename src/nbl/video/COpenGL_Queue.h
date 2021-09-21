@@ -142,6 +142,8 @@ class COpenGL_Queue final : public IGPUQueue
                     //_NBL_DEBUG_BREAK_IF(mcres!=EGL_TRUE);
                 }
 
+                egl->call.peglGetPlatformDependentHandles(&nativeHandles, egl->display, pbuffer, thisCtx);
+
                 new (state_ptr) ThreadInternalStateType(egl,features,core::smart_refctd_ptr<system::ILogger>(m_dbgCb->getLogger()));
                 auto& gl = state_ptr->gl;
                 auto& ctxlocal = state_ptr->ctxlocal;
@@ -258,10 +260,10 @@ class COpenGL_Queue final : public IGPUQueue
                 }
                 break;
                 case ERT_BEGIN_CAPTURE:
-                    m_rdoc_api->StartFrameCapture(NULL, NULL);
+                    m_rdoc_api->StartFrameCapture(nativeHandles.context, NULL);
                 break;
                 case ERT_END_CAPTURE:
-                    m_rdoc_api->EndFrameCapture(NULL, NULL);
+                    m_rdoc_api->EndFrameCapture(nativeHandles.context, NULL);
                 break;
                 }
             }
@@ -285,6 +287,9 @@ class COpenGL_Queue final : public IGPUQueue
             const FeaturesType* features;
             uint32_t m_ctxid;
             COpenGLDebugCallback* m_dbgCb;
+
+            //for renderdoc captures
+            EGLContextInternals nativeHandles;
         };
 
     public:
