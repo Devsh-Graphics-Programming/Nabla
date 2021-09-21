@@ -40,17 +40,13 @@ namespace nbl
 
 		namespace SAttributes
 		{
-			_NBL_STATIC_INLINE_CONSTEXPR uint8_t POSITION_ATTRIBUTE_ID = 0;
-			_NBL_STATIC_INLINE_CONSTEXPR uint8_t NORMAL_ATTRIBUTE_ID = 1;
-			_NBL_STATIC_INLINE_CONSTEXPR uint8_t UV_ATTRIBUTE_BEGINING_ID = 2;			//!< those attributes are indexed
-			_NBL_STATIC_INLINE_CONSTEXPR uint8_t COLOR_ATTRIBUTE_BEGINING_ID = 5;		//!< those attributes are indexed
-			_NBL_STATIC_INLINE_CONSTEXPR uint8_t JOINTS_ATTRIBUTE_BEGINING_ID = 8;		//!< those attributes are indexed
-			_NBL_STATIC_INLINE_CONSTEXPR uint8_t WEIGHTS_ATTRIBUTE_BEGINING_ID = 12;	//!< those attributes are indexed
-
-			_NBL_STATIC_INLINE_CONSTEXPR uint8_t MAX_UV_ATTRIBUTES = 3;				
-			_NBL_STATIC_INLINE_CONSTEXPR uint8_t MAX_COLOR_ATTRIBUTES = 3;
-			_NBL_STATIC_INLINE_CONSTEXPR uint8_t MAX_JOINTS_ATTRIBUTES = 4;
-			_NBL_STATIC_INLINE_CONSTEXPR uint8_t MAX_WEIGHTS_ATTRIBUTES = 4;
+			_NBL_STATIC_INLINE_CONSTEXPR uint8_t POSITION_ATTRIBUTE_LAYOUT_ID = 0;
+			_NBL_STATIC_INLINE_CONSTEXPR uint8_t NORMAL_ATTRIBUTE_LAYOUT_ID = 1;
+			//_NBL_STATIC_INLINE_CONSTEXPR uint8_t TANGENT_ATTRIBUTE_LAYOUT_ID = 2; // TODO - missing tangent!
+			_NBL_STATIC_INLINE_CONSTEXPR uint8_t UV_ATTRIBUTE_BEGINING_LAYOUT_ID = 2;			//!< those attributes are indexed
+			_NBL_STATIC_INLINE_CONSTEXPR uint8_t COLOR_ATTRIBUTE_BEGINING_LAYOUT_ID = 5;		//!< those attributes are indexed
+			_NBL_STATIC_INLINE_CONSTEXPR uint8_t JOINTS_ATTRIBUTE_BEGINING_LAYOUT_ID = 8;		//!< those attributes are indexed
+			_NBL_STATIC_INLINE_CONSTEXPR uint8_t WEIGHTS_ATTRIBUTE_BEGINING_LAYOUT_ID = 12;		//!< those attributes are indexed
 		}
 
 		/*
@@ -346,396 +342,397 @@ namespace nbl
 					}
 				}
 			}
-			
+
 			std::vector<std::vector<core::smart_refctd_ptr<asset::CGLTFPipelineMetadata>>> globalMetadataContainer; // TODO: to optimize in future
 			core::vector<core::smart_refctd_ptr<ICPUMesh>> cpuMeshes;
-			for (auto& glTFnode : glTF.nodes) 
 			{
-				auto& globalPipelineMeta = globalMetadataContainer.emplace_back();
-				auto& cpuMesh = cpuMeshes.emplace_back() = core::make_smart_refctd_ptr<ICPUMesh>();
-
-				for (auto& glTFprimitive : glTFnode.glTFMesh.primitives) 
+				for (const auto& glTFMesh : glTF.meshes)
 				{
-					typedef std::remove_reference<decltype(glTFprimitive)>::type SGLTFPrimitive;
-					
-					auto cpuMeshBuffer = core::make_smart_refctd_ptr<ICPUMeshBuffer>();
+					auto& globalPipelineMeta = globalMetadataContainer.emplace_back();
+					auto& cpuMesh = cpuMeshes.emplace_back() = core::make_smart_refctd_ptr<ICPUMesh>();
 
-					auto getMode = [&](uint32_t modeValue) -> E_PRIMITIVE_TOPOLOGY
+					for (const auto& glTFprimitive : glTFMesh.primitives)
 					{
-						switch (modeValue)
+						typedef std::remove_reference<decltype(glTFprimitive)>::type SGLTFPrimitive;
+
+						auto cpuMeshBuffer = core::make_smart_refctd_ptr<ICPUMeshBuffer>();
+
+						auto getMode = [&](uint32_t modeValue) -> E_PRIMITIVE_TOPOLOGY
 						{
-							case SGLTFPrimitive::SGLTFPT_POINTS:
-								return EPT_POINT_LIST;
-							case SGLTFPrimitive::SGLTFPT_LINES:
-								return EPT_LINE_LIST;
-							case SGLTFPrimitive::SGLTFPT_LINE_LOOP:
-								return EPT_LINE_LIST_WITH_ADJACENCY; // check it
-							case SGLTFPrimitive::SGLTFPT_LINE_STRIP:
-								return EPT_LINE_STRIP;
-							case SGLTFPrimitive::SGLTFPT_TRIANGLES:
-								return EPT_TRIANGLE_LIST;
-							case SGLTFPrimitive::SGLTFPT_TRIANGLE_STRIP:
-								return EPT_TRIANGLE_STRIP;
-							case SGLTFPrimitive::SGLTFPT_TRIANGLE_FAN:
-								return EPT_TRIANGLE_STRIP_WITH_ADJACENCY; // check it
-						}
-					};
-
-					auto [hasUV, hasColor] = std::make_pair<bool, bool>(false, false);
-
-					using BufferViewReferencingBufferID = uint32_t;
-					std::unordered_map<BufferViewReferencingBufferID, core::smart_refctd_ptr<ICPUBuffer>> idReferenceBindingBuffers;
-
-					SVertexInputParams vertexInputParams;
-					SBlendParams blendParams;
-					SPrimitiveAssemblyParams primitiveAssemblyParams;
-					SRasterizationParams rastarizationParmas;
-
-					typedef std::remove_reference<decltype(SGLTFPrimitive::accessors)::value_type::second_type>::type SGLTFAccessor;
-
-					auto handleAccessor = [&](SGLTFAccessor& glTFAccessor, const std::optional<uint32_t> queryAttributeId = {})
-					{
-						auto getFormat = [&](uint32_t componentType, SGLTFAccessor::SGLTFType type)
-						{
-							switch (componentType)
+							switch (modeValue)
 							{
-								case SGLTFAccessor::SCT_BYTE:
-								{
-									if (type == SGLTFAccessor::SGLTFT_SCALAR)
-										return EF_R8_SINT;
-									else if (type == SGLTFAccessor::SGLTFT_VEC2)
-										return EF_R8G8_SINT;
-									else if (type == SGLTFAccessor::SGLTFT_VEC3)
-										return EF_R8G8B8_SINT;
-									else if (type == SGLTFAccessor::SGLTFT_VEC4)
-										return EF_R8G8B8A8_SINT;
-									else if (type == SGLTFAccessor::SGLTFT_MAT2)
-										return EF_R8G8B8A8_SINT;
-									else if (type == SGLTFAccessor::SGLTFT_MAT3)
-										return EF_UNKNOWN; // ?
-									else if (type == SGLTFAccessor::SGLTFT_MAT4)
-										return EF_UNKNOWN; // ?
-								} break;
-
-								case SGLTFAccessor::SCT_FLOAT:
-								{
-									if (type == SGLTFAccessor::SGLTFT_SCALAR)
-										return EF_R32_SFLOAT;
-									else if (type == SGLTFAccessor::SGLTFT_VEC2)
-										return EF_R32G32_SFLOAT;
-									else if (type == SGLTFAccessor::SGLTFT_VEC3)
-										return EF_R32G32B32_SFLOAT;
-									else if (type == SGLTFAccessor::SGLTFT_VEC4)
-										return EF_R32G32B32A32_SFLOAT;
-									else if (type == SGLTFAccessor::SGLTFT_MAT2)
-										return EF_R32G32B32A32_SFLOAT;
-									else if (type == SGLTFAccessor::SGLTFT_MAT3)
-										return EF_UNKNOWN; // ?
-									else if (type == SGLTFAccessor::SGLTFT_MAT4)
-										return EF_UNKNOWN; // ?
-								} break;
-
-								case SGLTFAccessor::SCT_SHORT:
-								{
-									if (type == SGLTFAccessor::SGLTFT_SCALAR)
-										return EF_R16_SINT;
-									else if (type == SGLTFAccessor::SGLTFT_VEC2)
-										return EF_R16G16_SINT;
-									else if (type == SGLTFAccessor::SGLTFT_VEC3)
-										return EF_R16G16B16_SINT;
-									else if (type == SGLTFAccessor::SGLTFT_VEC4)
-										return EF_R16G16B16A16_SINT;
-									else if (type == SGLTFAccessor::SGLTFT_MAT2)
-										return EF_R16G16B16A16_SINT;
-									else if (type == SGLTFAccessor::SGLTFT_MAT3)
-										return EF_UNKNOWN; // ?
-									else if (type == SGLTFAccessor::SGLTFT_MAT4)
-										return EF_UNKNOWN; // ?
-								} break;
-
-								case SGLTFAccessor::SCT_UNSIGNED_BYTE:
-								{
-									if (type == SGLTFAccessor::SGLTFT_SCALAR)
-										return EF_R8_UINT;
-									else if (type == SGLTFAccessor::SGLTFT_VEC2)
-										return EF_R8G8_UINT;
-									else if (type == SGLTFAccessor::SGLTFT_VEC3)
-										return EF_R8G8B8_UINT;
-									else if (type == SGLTFAccessor::SGLTFT_VEC4)
-										return EF_R8G8B8A8_UINT;
-									else if (type == SGLTFAccessor::SGLTFT_MAT2)
-										return EF_R8G8B8A8_UINT;
-									else if (type == SGLTFAccessor::SGLTFT_MAT3)
-										return EF_UNKNOWN; // ?
-									else if (type == SGLTFAccessor::SGLTFT_MAT4)
-										return EF_UNKNOWN; // ?
-								} break;
-
-								case SGLTFAccessor::SCT_UNSIGNED_INT:
-								{
-									if (type == SGLTFAccessor::SGLTFT_SCALAR)
-										return EF_R32_UINT;
-									else if (type == SGLTFAccessor::SGLTFT_VEC2)
-										return EF_R32G32_UINT;
-									else if (type == SGLTFAccessor::SGLTFT_VEC3)
-										return EF_R32G32B32_UINT;
-									else if (type == SGLTFAccessor::SGLTFT_VEC4)
-										return EF_R32G32B32A32_UINT;
-									else if (type == SGLTFAccessor::SGLTFT_MAT2)
-										return EF_R32G32B32A32_UINT;
-									else if (type == SGLTFAccessor::SGLTFT_MAT3)
-										return EF_UNKNOWN; // ?
-									else if (type == SGLTFAccessor::SGLTFT_MAT4)
-										return EF_UNKNOWN; // ?
-								} break;
-
-								case SGLTFAccessor::SCT_UNSIGNED_SHORT:
-								{
-									if (type == SGLTFAccessor::SGLTFT_SCALAR)
-										return EF_R16_UINT;
-									else if (type == SGLTFAccessor::SGLTFT_VEC2)
-										return EF_R16G16_UINT;
-									else if (type == SGLTFAccessor::SGLTFT_VEC3)
-										return EF_R16G16B16_UINT;
-									else if (type == SGLTFAccessor::SGLTFT_VEC4)
-										return EF_R16G16B16A16_UINT;
-									else if (type == SGLTFAccessor::SGLTFT_MAT2)
-										return EF_R16G16B16A16_UINT;
-									else if (type == SGLTFAccessor::SGLTFT_MAT3)
-										return EF_UNKNOWN; // ?
-									else if (type == SGLTFAccessor::SGLTFT_MAT4)
-										return EF_UNKNOWN; // ?
-								} break;
+								case SGLTFPrimitive::SGLTFPT_POINTS:
+									return EPT_POINT_LIST;
+								case SGLTFPrimitive::SGLTFPT_LINES:
+									return EPT_LINE_LIST;
+								case SGLTFPrimitive::SGLTFPT_LINE_LOOP:
+									return EPT_LINE_LIST_WITH_ADJACENCY; // check it
+								case SGLTFPrimitive::SGLTFPT_LINE_STRIP:
+									return EPT_LINE_STRIP;
+								case SGLTFPrimitive::SGLTFPT_TRIANGLES:
+									return EPT_TRIANGLE_LIST;
+								case SGLTFPrimitive::SGLTFPT_TRIANGLE_STRIP:
+									return EPT_TRIANGLE_STRIP;
+								case SGLTFPrimitive::SGLTFPT_TRIANGLE_FAN:
+									return EPT_TRIANGLE_STRIP_WITH_ADJACENCY; // check it
 							}
 						};
 
-						const E_FORMAT format = getFormat(glTFAccessor.componentType.value(), glTFAccessor.type.value());
-						if (format == EF_UNKNOWN)
-							assert(false);
+						auto [hasUV, hasColor] = std::make_pair<bool, bool>(false, false);
 
-						auto& glTFbufferView = glTF.bufferViews[glTFAccessor.bufferView.value()];
-						const uint32_t& bufferBindingId = glTFAccessor.bufferView.value();
-						const uint32_t& bufferDataId = glTFbufferView.buffer.value();
-						const auto& globalOffsetInBufferBindingResource = glTFbufferView.byteOffset.has_value() ? glTFbufferView.byteOffset.value() : 0u;
-						const auto& relativeOffsetInBufferViewAttribute = glTFAccessor.byteOffset.has_value() ? glTFAccessor.byteOffset.value() : 0u;
+						using BufferViewReferencingBufferID = uint32_t;
+						std::unordered_map<BufferViewReferencingBufferID, core::smart_refctd_ptr<ICPUBuffer>> idReferenceBindingBuffers;
 
-						typedef std::remove_reference<decltype(glTFbufferView)>::type SGLTFBufferView;
+						SVertexInputParams vertexInputParams;
+						SBlendParams blendParams;
+						SPrimitiveAssemblyParams primitiveAssemblyParams;
+						SRasterizationParams rastarizationParmas;
 
-						auto setBufferBinding = [&](uint32_t target) -> void
+						auto handleAccessor = [&](SGLTF::SGLTFAccessor& glTFAccessor, const std::optional<uint32_t> queryAttributeId = {})
 						{
-							asset::SBufferBinding<ICPUBuffer> bufferBinding;
-							bufferBinding.offset = globalOffsetInBufferBindingResource;
-
-							idReferenceBindingBuffers[bufferDataId] = cpuBuffers[bufferDataId];
-							bufferBinding.buffer = idReferenceBindingBuffers[bufferDataId];
-
-							auto isDataInterleaved = [&]()
+							auto getFormat = [&](uint32_t componentType, SGLTF::SGLTFAccessor::SGLTFType type)
 							{
-								return glTFbufferView.byteStride.has_value();
+								switch (componentType)
+								{
+									case SGLTF::SGLTFAccessor::SCT_BYTE:
+									{
+										if (type == SGLTF::SGLTFAccessor::SGLTFT_SCALAR)
+											return EF_R8_SINT;
+										else if (type == SGLTF::SGLTFAccessor::SGLTFT_VEC2)
+											return EF_R8G8_SINT;
+										else if (type == SGLTF::SGLTFAccessor::SGLTFT_VEC3)
+											return EF_R8G8B8_SINT;
+										else if (type == SGLTF::SGLTFAccessor::SGLTFT_VEC4)
+											return EF_R8G8B8A8_SINT;
+										else if (type == SGLTF::SGLTFAccessor::SGLTFT_MAT2)
+											return EF_R8G8B8A8_SINT;
+										else if (type == SGLTF::SGLTFAccessor::SGLTFT_MAT3)
+											return EF_UNKNOWN; // ?
+										else if (type == SGLTF::SGLTFAccessor::SGLTFT_MAT4)
+											return EF_UNKNOWN; // ?
+									} break;
+
+									case SGLTF::SGLTFAccessor::SCT_FLOAT:
+									{
+										if (type == SGLTF::SGLTFAccessor::SGLTFT_SCALAR)
+											return EF_R32_SFLOAT;
+										else if (type == SGLTF::SGLTFAccessor::SGLTFT_VEC2)
+											return EF_R32G32_SFLOAT;
+										else if (type == SGLTF::SGLTFAccessor::SGLTFT_VEC3)
+											return EF_R32G32B32_SFLOAT;
+										else if (type == SGLTF::SGLTFAccessor::SGLTFT_VEC4)
+											return EF_R32G32B32A32_SFLOAT;
+										else if (type == SGLTF::SGLTFAccessor::SGLTFT_MAT2)
+											return EF_R32G32B32A32_SFLOAT;
+										else if (type == SGLTF::SGLTFAccessor::SGLTFT_MAT3)
+											return EF_UNKNOWN; // ?
+										else if (type == SGLTF::SGLTFAccessor::SGLTFT_MAT4)
+											return EF_UNKNOWN; // ?
+									} break;
+
+									case SGLTF::SGLTFAccessor::SCT_SHORT:
+									{
+										if (type == SGLTF::SGLTFAccessor::SGLTFT_SCALAR)
+											return EF_R16_SINT;
+										else if (type == SGLTF::SGLTFAccessor::SGLTFT_VEC2)
+											return EF_R16G16_SINT;
+										else if (type == SGLTF::SGLTFAccessor::SGLTFT_VEC3)
+											return EF_R16G16B16_SINT;
+										else if (type == SGLTF::SGLTFAccessor::SGLTFT_VEC4)
+											return EF_R16G16B16A16_SINT;
+										else if (type == SGLTF::SGLTFAccessor::SGLTFT_MAT2)
+											return EF_R16G16B16A16_SINT;
+										else if (type == SGLTF::SGLTFAccessor::SGLTFT_MAT3)
+											return EF_UNKNOWN; // ?
+										else if (type == SGLTF::SGLTFAccessor::SGLTFT_MAT4)
+											return EF_UNKNOWN; // ?
+									} break;
+
+									case SGLTF::SGLTFAccessor::SCT_UNSIGNED_BYTE:
+									{
+										if (type == SGLTF::SGLTFAccessor::SGLTFT_SCALAR)
+											return EF_R8_UINT;
+										else if (type == SGLTF::SGLTFAccessor::SGLTFT_VEC2)
+											return EF_R8G8_UINT;
+										else if (type == SGLTF::SGLTFAccessor::SGLTFT_VEC3)
+											return EF_R8G8B8_UINT;
+										else if (type == SGLTF::SGLTFAccessor::SGLTFT_VEC4)
+											return EF_R8G8B8A8_UINT;
+										else if (type == SGLTF::SGLTFAccessor::SGLTFT_MAT2)
+											return EF_R8G8B8A8_UINT;
+										else if (type == SGLTF::SGLTFAccessor::SGLTFT_MAT3)
+											return EF_UNKNOWN; // ?
+										else if (type == SGLTF::SGLTFAccessor::SGLTFT_MAT4)
+											return EF_UNKNOWN; // ?
+									} break;
+
+									case SGLTF::SGLTFAccessor::SCT_UNSIGNED_INT:
+									{
+										if (type == SGLTF::SGLTFAccessor::SGLTFT_SCALAR)
+											return EF_R32_UINT;
+										else if (type == SGLTF::SGLTFAccessor::SGLTFT_VEC2)
+											return EF_R32G32_UINT;
+										else if (type == SGLTF::SGLTFAccessor::SGLTFT_VEC3)
+											return EF_R32G32B32_UINT;
+										else if (type == SGLTF::SGLTFAccessor::SGLTFT_VEC4)
+											return EF_R32G32B32A32_UINT;
+										else if (type == SGLTF::SGLTFAccessor::SGLTFT_MAT2)
+											return EF_R32G32B32A32_UINT;
+										else if (type == SGLTF::SGLTFAccessor::SGLTFT_MAT3)
+											return EF_UNKNOWN; // ?
+										else if (type == SGLTF::SGLTFAccessor::SGLTFT_MAT4)
+											return EF_UNKNOWN; // ?
+									} break;
+
+									case SGLTF::SGLTFAccessor::SCT_UNSIGNED_SHORT:
+									{
+										if (type == SGLTF::SGLTFAccessor::SGLTFT_SCALAR)
+											return EF_R16_UINT;
+										else if (type == SGLTF::SGLTFAccessor::SGLTFT_VEC2)
+											return EF_R16G16_UINT;
+										else if (type == SGLTF::SGLTFAccessor::SGLTFT_VEC3)
+											return EF_R16G16B16_UINT;
+										else if (type == SGLTF::SGLTFAccessor::SGLTFT_VEC4)
+											return EF_R16G16B16A16_UINT;
+										else if (type == SGLTF::SGLTFAccessor::SGLTFT_MAT2)
+											return EF_R16G16B16A16_UINT;
+										else if (type == SGLTF::SGLTFAccessor::SGLTFT_MAT3)
+											return EF_UNKNOWN; // ?
+										else if (type == SGLTF::SGLTFAccessor::SGLTFT_MAT4)
+											return EF_UNKNOWN; // ?
+									} break;
+								}
 							};
 
-							switch (target)
-							{
-								case SGLTFBufferView::SGLTFT_ARRAY_BUFFER:
-								{
-									cpuMeshBuffer->setVertexBufferBinding(std::move(bufferBinding), bufferBindingId);
+							const E_FORMAT format = getFormat(glTFAccessor.componentType.value(), glTFAccessor.type.value());
+							if (format == EF_UNKNOWN)
+								assert(false);
 
-									vertexInputParams.enabledBindingFlags |= core::createBitmask({ bufferBindingId });
-									vertexInputParams.bindings[bufferBindingId].inputRate = EVIR_PER_VERTEX;
-									vertexInputParams.bindings[bufferBindingId].stride = isDataInterleaved() ? glTFbufferView.byteStride.value() : getTexelOrBlockBytesize(format); // TODO: change it when handling matrices as well
-					
-									const auto attributeId = queryAttributeId.value();
-									vertexInputParams.enabledAttribFlags |= core::createBitmask({ attributeId });
-									vertexInputParams.attributes[attributeId].binding = bufferBindingId;
-									vertexInputParams.attributes[attributeId].format = format;
-									vertexInputParams.attributes[attributeId].relativeOffset = relativeOffsetInBufferViewAttribute;
+							auto& glTFbufferView = glTF.bufferViews[glTFAccessor.bufferView.value()];
+							const uint32_t& bufferBindingId = glTFAccessor.bufferView.value();
+							const uint32_t& bufferDataId = glTFbufferView.buffer.value();
+							const auto& globalOffsetInBufferBindingResource = glTFbufferView.byteOffset.has_value() ? glTFbufferView.byteOffset.value() : 0u;
+							const auto& relativeOffsetInBufferViewAttribute = glTFAccessor.byteOffset.has_value() ? glTFAccessor.byteOffset.value() : 0u;
+
+							typedef std::remove_reference<decltype(glTFbufferView)>::type SGLTFBufferView;
+
+							auto setBufferBinding = [&](uint32_t target) -> void
+							{
+								asset::SBufferBinding<ICPUBuffer> bufferBinding;
+								bufferBinding.offset = globalOffsetInBufferBindingResource;
+
+								idReferenceBindingBuffers[bufferDataId] = cpuBuffers[bufferDataId];
+								bufferBinding.buffer = idReferenceBindingBuffers[bufferDataId];
+
+								auto isDataInterleaved = [&]()
+								{
+									return glTFbufferView.byteStride.has_value();
+								};
+
+								switch (target)
+								{
+									case SGLTFBufferView::SGLTFT_ARRAY_BUFFER:
+									{
+										cpuMeshBuffer->setVertexBufferBinding(std::move(bufferBinding), bufferBindingId);
+
+										vertexInputParams.enabledBindingFlags |= core::createBitmask({ bufferBindingId });
+										vertexInputParams.bindings[bufferBindingId].inputRate = EVIR_PER_VERTEX;
+										vertexInputParams.bindings[bufferBindingId].stride = isDataInterleaved() ? glTFbufferView.byteStride.value() : getTexelOrBlockBytesize(format); // TODO: change it when handling matrices as well
+
+										const auto attributeId = queryAttributeId.value();
+										vertexInputParams.enabledAttribFlags |= core::createBitmask({ attributeId });
+										vertexInputParams.attributes[attributeId].binding = bufferBindingId;
+										vertexInputParams.attributes[attributeId].format = format;
+										vertexInputParams.attributes[attributeId].relativeOffset = relativeOffsetInBufferViewAttribute;
+									} break;
+
+									case SGLTFBufferView::SGLTFT_ELEMENT_ARRAY_BUFFER:
+									{
+										// TODO: make sure glTF data has validated index type
+
+										bufferBinding.offset += relativeOffsetInBufferViewAttribute;
+										cpuMeshBuffer->setIndexBufferBinding(std::move(bufferBinding));
+									} break;
+								}
+							};
+
+							setBufferBinding(queryAttributeId.has_value() ? SGLTF::SGLTFBufferView::SGLTFT_ARRAY_BUFFER : SGLTF::SGLTFBufferView::SGLTFT_ELEMENT_ARRAY_BUFFER);
+						};
+
+						const E_PRIMITIVE_TOPOLOGY primitiveTopology = getMode(glTFprimitive.mode.value());
+						primitiveAssemblyParams.primitiveType = primitiveTopology;
+
+						if (glTFprimitive.indices.has_value())
+						{
+							const size_t accessorID = glTFprimitive.indices.value();
+
+							auto& glTFIndexAccessor = glTF.accessors[accessorID];
+							handleAccessor(glTFIndexAccessor);
+
+							switch (glTFIndexAccessor.componentType.value())
+							{
+								case SGLTF::SGLTFAccessor::SCT_UNSIGNED_SHORT:
+								{
+									cpuMeshBuffer->setIndexType(EIT_16BIT);
 								} break;
 
-								case SGLTFBufferView::SGLTFT_ELEMENT_ARRAY_BUFFER:
+								case SGLTF::SGLTFAccessor::SCT_UNSIGNED_INT:
 								{
-									// TODO: make sure glTF data has validated index type
-
-									bufferBinding.offset += relativeOffsetInBufferViewAttribute;
-									cpuMeshBuffer->setIndexBufferBinding(std::move(bufferBinding));
+									cpuMeshBuffer->setIndexType(EIT_32BIT);
 								} break;
 							}
-						};
 
-						setBufferBinding(queryAttributeId.has_value() ? SGLTF::SGLTFBufferView::SGLTFT_ARRAY_BUFFER : SGLTF::SGLTFBufferView::SGLTFT_ELEMENT_ARRAY_BUFFER);
-					};
-
-					const E_PRIMITIVE_TOPOLOGY primitiveTopology = getMode(glTFprimitive.mode.value());
-					primitiveAssemblyParams.primitiveType = primitiveTopology;
-					
-					if (glTFprimitive.indices.has_value())
-					{
-						auto& glTFIndexAccessor = glTFprimitive.accessors[std::make_pair(SGLTFPrimitive::SGLTFA_INDEX, 0)];
-						handleAccessor(glTFIndexAccessor);
-
-						switch (glTFIndexAccessor.componentType.value())
-						{
-							case SGLTFAccessor::SCT_UNSIGNED_SHORT:
-							{
-								cpuMeshBuffer->setIndexType(EIT_16BIT);
-							} break;
-
-							case SGLTFAccessor::SCT_UNSIGNED_INT:
-							{
-								cpuMeshBuffer->setIndexType(EIT_32BIT);
-							} break;
+							cpuMeshBuffer->setIndexCount(glTFIndexAccessor.count.value());
 						}
 
-						cpuMeshBuffer->setIndexCount(glTFIndexAccessor.count.value());
-					}
+						if (glTFprimitive.attributes.position.has_value())
+						{
+							const size_t accessorID = glTFprimitive.attributes.position.value();
 
-					auto statusPosition = glTFprimitive.accessors.find(std::make_pair(SGLTFPrimitive::SGLTFA_POSITION, 0));
-					if (statusPosition != glTFprimitive.accessors.end())
-					{
-						auto& glTFPositionAccessor = glTFprimitive.accessors[std::make_pair(SGLTFPrimitive::SGLTFA_POSITION, 0)];
-						handleAccessor(glTFPositionAccessor, SAttributes::POSITION_ATTRIBUTE_ID);
+							auto& glTFPositionAccessor = glTF.accessors[accessorID];
+							handleAccessor(glTFPositionAccessor, SAttributes::POSITION_ATTRIBUTE_LAYOUT_ID);
 
-						if(!glTFprimitive.indices.has_value())
-							cpuMeshBuffer->setIndexCount(glTFPositionAccessor.count.value());
-					}
-					else
-						return {};
-
-					auto statusNormal = glTFprimitive.accessors.find(std::make_pair(SGLTFPrimitive::SGLTFA_NORMAL, 0));
-					if (statusNormal != glTFprimitive.accessors.end())
-					{
-						auto& glTFNormalAccessor = glTFprimitive.accessors[std::make_pair(SGLTFPrimitive::SGLTFA_NORMAL, 0)];
-						handleAccessor(glTFNormalAccessor, SAttributes::NORMAL_ATTRIBUTE_ID);
-					}
-
-					for (uint32_t i = 0; i < SAttributes::MAX_UV_ATTRIBUTES; ++i)
-					{
-						auto statusTexcoord = glTFprimitive.accessors.find(std::make_pair(SGLTFPrimitive::SGLTFA_TEXCOORD, i));
-						if (statusTexcoord == glTFprimitive.accessors.end())
-							break;
+							if (!glTFprimitive.indices.has_value())
+								cpuMeshBuffer->setIndexCount(glTFPositionAccessor.count.value());
+						}
 						else
-						{
-							hasUV = true;
-							auto& glTFTexcoordXAccessor = glTFprimitive.accessors[std::make_pair(SGLTFPrimitive::SGLTFA_TEXCOORD, i)];
-							handleAccessor(glTFTexcoordXAccessor, SAttributes::UV_ATTRIBUTE_BEGINING_ID + i);
-						}
-					}
-
-					for (uint32_t i = 0; i < SAttributes::MAX_COLOR_ATTRIBUTES; ++i)
-					{
-						auto statusColor = glTFprimitive.accessors.find(std::make_pair(SGLTFPrimitive::SGLTFA_COLOR, i));
-						if (statusColor == glTFprimitive.accessors.end())
-							break;
-						else
-						{
-							hasColor = true;
-							auto& glTFColorXAccessor = glTFprimitive.accessors[std::make_pair(SGLTFPrimitive::SGLTFA_COLOR, i)];
-							handleAccessor(glTFColorXAccessor, SAttributes::COLOR_ATTRIBUTE_BEGINING_ID + i);
-						}
-					}
-
-					uint32_t jointsPerVxAmount = {};
-					for (uint32_t i = 0; i < SAttributes::MAX_JOINTS_ATTRIBUTES; ++i)
-					{
-						auto statusJoints = glTFprimitive.accessors.find(std::make_pair(SGLTFPrimitive::SGLTFA_JOINTS, i));
-						if (statusJoints == glTFprimitive.accessors.end())
-							break;
-						else
-						{
-							auto& glTFJointsXAccessor = glTFprimitive.accessors[std::make_pair(SGLTFPrimitive::SGLTFA_JOINTS, i)];
-							handleAccessor(glTFJointsXAccessor, SAttributes::JOINTS_ATTRIBUTE_BEGINING_ID + i);
-							++jointsPerVxAmount;
-						}
-					}
-
-					for (uint32_t i = 0; i < SAttributes::MAX_WEIGHTS_ATTRIBUTES; ++i)
-					{
-						auto statusWeights = glTFprimitive.accessors.find(std::make_pair(SGLTFPrimitive::SGLTFA_WEIGHTS, i));
-						if (statusWeights == glTFprimitive.accessors.end())
-							break;
-						else
-						{
-							auto& glTFWeightsXAccessor = glTFprimitive.accessors[std::make_pair(SGLTFPrimitive::SGLTFA_WEIGHTS, i)];
-							handleAccessor(glTFWeightsXAccessor, SAttributes::WEIGHTS_ATTRIBUTE_BEGINING_ID + i);
-						}
-					}
-
-					auto getShaders = [&](bool hasUV, bool hasColor) -> std::pair<core::smart_refctd_ptr<ICPUSpecializedShader>, core::smart_refctd_ptr<ICPUSpecializedShader>>
-					{
-						auto loadShader = [&](const std::string_view& cacheKey) -> core::smart_refctd_ptr<ICPUSpecializedShader>
-						{
-							size_t storageSz = 1ull;
-							asset::SAssetBundle bundle;
-							const IAsset::E_TYPE types[]{ IAsset::ET_SPECIALIZED_SHADER, static_cast<IAsset::E_TYPE>(0u) };
-
-							assetManager->findAssets(storageSz, &bundle, cacheKey.data(), types);
-							if (bundle.getContents().empty())
-								return nullptr;
-							auto assets = bundle.getContents();
+							return {}; 
 							
-							return core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(assets.begin()[0]);
+						if (glTFprimitive.attributes.normal.has_value())
+						{
+							const size_t accessorID = glTFprimitive.attributes.normal.value();
+
+							auto& glTFNormalAccessor = glTF.accessors[accessorID];
+							handleAccessor(glTFNormalAccessor, SAttributes::NORMAL_ATTRIBUTE_LAYOUT_ID);
+						}
+
+						// TODO - reorganize shaders and apply tangent as well
+
+						/*if (glTFprimitive.attributes.tangent.has_value())
+						{
+							const size_t accessorID = glTFprimitive.attributes.tangent.value();
+
+							auto& glTFTangentAccessor = glTF.accessors[accessorID];
+							handleAccessor(glTFTangentAccessor, SAttributes::TANGENT);
+						}*/
+
+						for (uint32_t i = 0; i < SGLTFPrimitive::Attributes::MAX_UV_ATTRIBUTES; ++i)
+							if (glTFprimitive.attributes.texcoord[i].has_value())
+							{
+								const size_t accessorID = glTFprimitive.attributes.texcoord[i].value();
+
+								hasUV = true;
+								auto& glTFTexcoordXAccessor = glTF.accessors[accessorID];
+								handleAccessor(glTFTexcoordXAccessor, SAttributes::UV_ATTRIBUTE_BEGINING_LAYOUT_ID + i);
+							}
+
+						for (uint32_t i = 0; i < SGLTFPrimitive::Attributes::MAX_COLOR_ATTRIBUTES; ++i)
+							if (glTFprimitive.attributes.color[i].has_value())
+							{
+								const size_t accessorID = glTFprimitive.attributes.color[i].value();
+
+								hasColor = true;
+								auto& glTFColorXAccessor = glTF.accessors[accessorID];
+								handleAccessor(glTFColorXAccessor, SAttributes::COLOR_ATTRIBUTE_BEGINING_LAYOUT_ID + i);
+							}
+				
+						uint32_t jointsPerVxAmount = {};
+						for (uint32_t i = 0; i < SGLTFPrimitive::Attributes::MAX_JOINT_ATTRIBUTES; ++i)
+							if (glTFprimitive.attributes.joint[i].has_value())
+							{
+								const size_t accessorID = glTFprimitive.attributes.joint[i].value();
+
+								auto& glTFJointsXAccessor = glTF.accessors[accessorID];
+								handleAccessor(glTFJointsXAccessor, SAttributes::JOINTS_ATTRIBUTE_BEGINING_LAYOUT_ID + i);
+								++jointsPerVxAmount;
+							}
+
+						for (uint32_t i = 0; i < SGLTFPrimitive::Attributes::MAX_WEIGHT_ATTRIBUTES; ++i)
+							if (glTFprimitive.attributes.weight[i].has_value())
+							{
+								const size_t accessorID = glTFprimitive.attributes.weight[i].value();
+
+								auto& glTFWeightsXAccessor = glTF.accessors[accessorID];
+								handleAccessor(glTFWeightsXAccessor, SAttributes::WEIGHTS_ATTRIBUTE_BEGINING_LAYOUT_ID + i);
+							}
+
+						auto getShaders = [&](bool hasUV, bool hasColor) -> std::pair<core::smart_refctd_ptr<ICPUSpecializedShader>, core::smart_refctd_ptr<ICPUSpecializedShader>>
+						{
+							auto loadShader = [&](const std::string_view& cacheKey) -> core::smart_refctd_ptr<ICPUSpecializedShader>
+							{
+								size_t storageSz = 1ull;
+								asset::SAssetBundle bundle;
+								const IAsset::E_TYPE types[]{ IAsset::ET_SPECIALIZED_SHADER, static_cast<IAsset::E_TYPE>(0u) };
+
+								assetManager->findAssets(storageSz, &bundle, cacheKey.data(), types);
+								if (bundle.getContents().empty())
+									return nullptr;
+								auto assets = bundle.getContents();
+
+								return core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(assets.begin()[0]);
+							};
+
+							if (hasUV) // if both UV and Color defined - we use the UV
+								return std::make_pair(loadShader(VERT_SHADER_UV_CACHE_KEY), loadShader(FRAG_SHADER_UV_CACHE_KEY));
+							else if (hasColor)
+								return std::make_pair(loadShader(VERT_SHADER_COLOR_CACHE_KEY), loadShader(FRAG_SHADER_COLOR_CACHE_KEY));
+							else
+								return std::make_pair(loadShader(VERT_SHADER_NO_UV_COLOR_CACHE_KEY), loadShader(FRAG_SHADER_NO_UV_COLOR_CACHE_KEY));
 						};
 
-						if (hasUV) // if both UV and Color defined - we use the UV
-							return std::make_pair(loadShader(VERT_SHADER_UV_CACHE_KEY), loadShader(FRAG_SHADER_UV_CACHE_KEY));
-						else if (hasColor)
-							return std::make_pair(loadShader(VERT_SHADER_COLOR_CACHE_KEY), loadShader(FRAG_SHADER_COLOR_CACHE_KEY));
-						else
-							return std::make_pair(loadShader(VERT_SHADER_NO_UV_COLOR_CACHE_KEY), loadShader(FRAG_SHADER_NO_UV_COLOR_CACHE_KEY));
-					};
-
-					core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> cpuPipeline;
-					const std::string& pipelineCacheKey = getPipelineCacheKey(primitiveTopology, vertexInputParams);
-					{
-						const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_RENDERPASS_INDEPENDENT_PIPELINE, (asset::IAsset::E_TYPE)0u };
-						auto pipeline_bundle = _override->findCachedAsset(pipelineCacheKey, types, context.loadContext, _hierarchyLevel + ICPUMesh::PIPELINE_HIERARCHYLEVELS_BELOW);
-						if (!pipeline_bundle.getContents().empty())
-							cpuPipeline = core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(pipeline_bundle.getContents().begin()[0]);
-						else
+						core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> cpuPipeline;
+						const std::string& pipelineCacheKey = getPipelineCacheKey(primitiveTopology, vertexInputParams);
 						{
-							CGLTFPipelineMetadata::SGLTFMaterialParameters pushConstants;
-							SMaterialDependencyData materialDependencyData;
-							const bool ds3lAvailableFlag = glTFprimitive.material.has_value();
-
-							materialDependencyData.cpuMeshBuffer = cpuMeshBuffer.get();
-							materialDependencyData.glTFMaterial = ds3lAvailableFlag ? &glTF.materials[glTFprimitive.material.value()] : nullptr;
-							materialDependencyData.cpuTextures = &cpuTextures;
-
-							auto cpuPipelineLayout = makePipelineLayoutFromGLTF(context, pushConstants, materialDependencyData);
-							auto [cpuVertexShader, cpuFragmentShader] = getShaders(hasUV, hasColor);
-
-							cpuPipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(std::move(cpuPipelineLayout), nullptr, nullptr, vertexInputParams, blendParams, primitiveAssemblyParams, rastarizationParmas);
-							cpuPipeline->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_VERTEX_SHADER_IX, cpuVertexShader.get());
-							cpuPipeline->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_FRAGMENT_SHADER_IX, cpuFragmentShader.get());
-
-							core::smart_refctd_ptr<CGLTFPipelineMetadata> glTFPipelineMetadata;
+							const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_RENDERPASS_INDEPENDENT_PIPELINE, (asset::IAsset::E_TYPE)0u };
+							auto pipeline_bundle = _override->findCachedAsset(pipelineCacheKey, types, context.loadContext, _hierarchyLevel + ICPUMesh::PIPELINE_HIERARCHYLEVELS_BELOW);
+							if (!pipeline_bundle.getContents().empty())
+								cpuPipeline = core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(pipeline_bundle.getContents().begin()[0]);
+							else
 							{
-								if (ds3lAvailableFlag)
+								CGLTFPipelineMetadata::SGLTFMaterialParameters pushConstants;
+								SMaterialDependencyData materialDependencyData;
+								const bool ds3lAvailableFlag = glTFprimitive.material.has_value();
+
+								materialDependencyData.cpuMeshBuffer = cpuMeshBuffer.get();
+								materialDependencyData.glTFMaterial = ds3lAvailableFlag ? &glTF.materials[glTFprimitive.material.value()] : nullptr;
+								materialDependencyData.cpuTextures = &cpuTextures;
+
+								auto cpuPipelineLayout = makePipelineLayoutFromGLTF(context, pushConstants, materialDependencyData);
+								auto [cpuVertexShader, cpuFragmentShader] = getShaders(hasUV, hasColor);
+
+								cpuPipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(std::move(cpuPipelineLayout), nullptr, nullptr, vertexInputParams, blendParams, primitiveAssemblyParams, rastarizationParmas);
+								cpuPipeline->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_VERTEX_SHADER_IX, cpuVertexShader.get());
+								cpuPipeline->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_FRAGMENT_SHADER_IX, cpuFragmentShader.get());
+
+								core::smart_refctd_ptr<CGLTFPipelineMetadata> glTFPipelineMetadata;
 								{
-									if (materialDependencyData.glTFMaterial->pbrMetallicRoughness.has_value())
+									if (ds3lAvailableFlag)
 									{
-										auto& glTFMetallicRoughness = materialDependencyData.glTFMaterial->pbrMetallicRoughness.value();
+										if (materialDependencyData.glTFMaterial->pbrMetallicRoughness.has_value())
+										{
+											auto& glTFMetallicRoughness = materialDependencyData.glTFMaterial->pbrMetallicRoughness.value();
 
-										if (glTFMetallicRoughness.baseColorFactor.has_value())
-											for(uint8_t i = 0; i < glTFMetallicRoughness.baseColorFactor.value().size(); ++i)
-												pushConstants.metallicRoughness.baseColorFactor[i] = glTFMetallicRoughness.baseColorFactor.value()[i];
+											if (glTFMetallicRoughness.baseColorFactor.has_value())
+												for (uint8_t i = 0; i < glTFMetallicRoughness.baseColorFactor.value().size(); ++i)
+													pushConstants.metallicRoughness.baseColorFactor[i] = glTFMetallicRoughness.baseColorFactor.value()[i];
 
-										if (glTFMetallicRoughness.metallicFactor.has_value())
-											pushConstants.metallicRoughness.metallicFactor = glTFMetallicRoughness.metallicFactor.value();
+											if (glTFMetallicRoughness.metallicFactor.has_value())
+												pushConstants.metallicRoughness.metallicFactor = glTFMetallicRoughness.metallicFactor.value();
 
-										if (glTFMetallicRoughness.roughnessFactor.has_value())
-											pushConstants.metallicRoughness.roughnessFactor = glTFMetallicRoughness.roughnessFactor.value();
-									}
+											if (glTFMetallicRoughness.roughnessFactor.has_value())
+												pushConstants.metallicRoughness.roughnessFactor = glTFMetallicRoughness.roughnessFactor.value();
+										}
 
-									if (materialDependencyData.glTFMaterial->alphaCutoff.has_value())
-										pushConstants.alphaCutoff = materialDependencyData.glTFMaterial->alphaCutoff.value();
+										if (materialDependencyData.glTFMaterial->alphaCutoff.has_value())
+											pushConstants.alphaCutoff = materialDependencyData.glTFMaterial->alphaCutoff.value();
 
-									CGLTFLoader::SGLTF::SGLTFMaterial::E_ALPHA_MODE alphaModeStream = decltype(alphaModeStream)::EAM_OPAQUE;
+										CGLTFLoader::SGLTF::SGLTFMaterial::E_ALPHA_MODE alphaModeStream = decltype(alphaModeStream)::EAM_OPAQUE;
 
-									if (materialDependencyData.glTFMaterial->alphaMode.has_value())
-										alphaModeStream = materialDependencyData.glTFMaterial->alphaMode.value();
+										if (materialDependencyData.glTFMaterial->alphaMode.has_value())
+											alphaModeStream = materialDependencyData.glTFMaterial->alphaMode.value();
 
-									switch (alphaModeStream)
-									{
+										switch (alphaModeStream)
+										{
 										case decltype(alphaModeStream)::EAM_OPAQUE:
 										{
 											pushConstants.alphaMode = CGLTFPipelineMetadata::EAM_OPAQUE;
@@ -750,43 +747,56 @@ namespace nbl
 										{
 											pushConstants.alphaMode = CGLTFPipelineMetadata::EAM_BLEND;
 										} break;
+										}
+
+										if (materialDependencyData.glTFMaterial->emissiveFactor.has_value())
+											for (uint8_t i = 0; i < materialDependencyData.glTFMaterial->emissiveFactor.value().size(); ++i)
+												pushConstants.emissiveFactor[i] = materialDependencyData.glTFMaterial->emissiveFactor.value()[i];
+
+										glTFPipelineMetadata = core::make_smart_refctd_ptr<CGLTFPipelineMetadata>(pushConstants, core::smart_refctd_ptr(m_basicViewParamsSemantics));
 									}
-
-									if (materialDependencyData.glTFMaterial->emissiveFactor.has_value())
-										for (uint8_t i = 0; i < materialDependencyData.glTFMaterial->emissiveFactor.value().size(); ++i)
-											pushConstants.emissiveFactor[i] = materialDependencyData.glTFMaterial->emissiveFactor.value()[i];
-										 
-									glTFPipelineMetadata = core::make_smart_refctd_ptr<CGLTFPipelineMetadata>(pushConstants, core::smart_refctd_ptr(m_basicViewParamsSemantics));
 								}
+
+								globalPipelineMeta.push_back(core::smart_refctd_ptr(glTFPipelineMetadata));
+								SAssetBundle pipelineBundle = SAssetBundle(core::smart_refctd_ptr(glTFPipelineMetadata), { cpuPipeline });
+
+								_override->insertAssetIntoCache(pipelineBundle, pipelineCacheKey, context.loadContext, _hierarchyLevel + ICPUMesh::PIPELINE_HIERARCHYLEVELS_BELOW);
+
+								cpuMeshBuffer->setPipeline(std::move(cpuPipeline));
+
+								/*
+									TODO: skinning
+								*/
+
+								/*{
+									SBufferBinding<ICPUBuffer> inverseBindPoseBufferBinding;
+									SBufferBinding<ICPUBuffer> jointAABBBufferBinding;
+									core::smart_refctd_ptr<ICPUSkeleton> skeleton;
+									const uint32_t maxJointsPerVx = jointsPerVxAmount;
+
+									cpuMeshBuffer->setSkin(std::move(inverseBindPoseBufferBinding), std::move(jointAABBBufferBinding), std::move(skeleton), maxJointsPerVx);
+								}*/
+
+								cpuMesh->getMeshBufferVector().push_back(std::move(cpuMeshBuffer));
 							}
-
-							globalPipelineMeta.push_back(core::smart_refctd_ptr(glTFPipelineMetadata));
-							SAssetBundle pipelineBundle = SAssetBundle(core::smart_refctd_ptr(glTFPipelineMetadata), { cpuPipeline } );
-
-							_override->insertAssetIntoCache(pipelineBundle, pipelineCacheKey, context.loadContext, _hierarchyLevel + ICPUMesh::PIPELINE_HIERARCHYLEVELS_BELOW);
-
-							cpuMeshBuffer->setPipeline(std::move(cpuPipeline));
-							{
-								SBufferBinding<ICPUBuffer> inverseBindPoseBufferBinding;
-								SBufferBinding<ICPUBuffer> jointAABBBufferBinding;
-								core::smart_refctd_ptr<ICPUSkeleton> skeleton;
-								const uint32_t maxJointsPerVx = jointsPerVxAmount;
-
-								cpuMeshBuffer->setSkin(std::move(inverseBindPoseBufferBinding), std::move(jointAABBBufferBinding), std::move(skeleton), maxJointsPerVx);
-							}
-
-							/*
-								TODO: skinning
-							*/
-
-
-							cpuMesh->getMeshBufferVector().push_back(std::move(cpuMeshBuffer));
 						}
 					}
 				}
 			}
 
+			for (auto& glTFnode : glTF.nodes) 
+			{
+				/* TODO:
+				 
+				 NODE REFERENCING A MESH
+				 INITIAL TRANSLATIONS FOR A NODE,
+				 SKINNING*/
+			}
+
 			/*
+			* 
+			*   TODO: IT MAY BE AN ISSUE VERY SOON!
+			* 
 				TODO: it needs hashes and better system for meta since gltf bundle may return more than one mesh
 				and each mesh may have more than one meshbuffer, so more meta as well
 			*/
@@ -1271,6 +1281,193 @@ namespace nbl
 				}
 			}
 
+			if (accessors.error() != simdjson::error_code::NO_SUCH_FIELD)
+			{
+				const auto& aData = accessors.get_array();
+				for (const auto& accessor : aData)
+				{
+					auto& glTFAccessor = glTF.accessors.emplace_back();
+
+					const auto& bufferView = accessor.at_key("bufferView");
+					const auto& byteOffset = accessor.at_key("byteOffset");
+					const auto& componentType = accessor.at_key("componentType");
+					const auto& normalized = accessor.at_key("normalized");
+					const auto& count = accessor.at_key("count");
+					const auto& type = accessor.at_key("type");
+					const auto& max = accessor.at_key("max");
+					const auto& min = accessor.at_key("min");
+					const auto& sparse = accessor.at_key("sparse");
+					const auto& name = accessor.at_key("name");
+					const auto& extensions = accessor.at_key("extensions");
+					const auto& extras = accessor.at_key("extras");
+
+					if (bufferView.error() != simdjson::error_code::NO_SUCH_FIELD)
+						glTFAccessor.bufferView = bufferView.get_uint64().value();
+
+					if (byteOffset.error() != simdjson::error_code::NO_SUCH_FIELD)
+						glTFAccessor.byteOffset = byteOffset.get_uint64().value();
+
+					if (componentType.error() != simdjson::error_code::NO_SUCH_FIELD)
+						glTFAccessor.componentType = componentType.get_uint64().value();
+
+					if (normalized.error() != simdjson::error_code::NO_SUCH_FIELD)
+						glTFAccessor.normalized = normalized.get_bool().value();
+
+					if (count.error() != simdjson::error_code::NO_SUCH_FIELD)
+						glTFAccessor.count = count.get_uint64().value();
+
+					if (type.error() != simdjson::error_code::NO_SUCH_FIELD)
+					{
+						bool status = true;
+						std::string typeStream = type.get_string().value().data();
+
+						if (typeStream == "SCALAR")
+							glTFAccessor.type = SGLTF::SGLTFAccessor::SGLTFT_SCALAR;
+						else if (typeStream == "VEC2")
+							glTFAccessor.type = SGLTF::SGLTFAccessor::SGLTFT_VEC2;
+						else if (typeStream == "VEC3")
+							glTFAccessor.type = SGLTF::SGLTFAccessor::SGLTFT_VEC3;
+						else if (typeStream == "VEC4")
+							glTFAccessor.type = SGLTF::SGLTFAccessor::SGLTFT_VEC4;
+						else if (typeStream == "MAT2")
+							glTFAccessor.type = SGLTF::SGLTFAccessor::SGLTFT_MAT2;
+						else if (typeStream == "MAT3")
+							glTFAccessor.type = SGLTF::SGLTFAccessor::SGLTFT_MAT3;
+						else if (typeStream == "MAT4")
+							glTFAccessor.type = SGLTF::SGLTFAccessor::SGLTFT_MAT4;
+						else
+						{
+							status = false; // TODO: better validation, no asserts!
+							assert(status);
+						}
+					}
+
+					if (max.error() != simdjson::error_code::NO_SUCH_FIELD)
+					{
+						glTFAccessor.max.emplace();
+						const auto& maxArray = max.get_array();
+						for (uint32_t i = 0; i < maxArray.size(); ++i)
+							glTFAccessor.max.value().push_back(maxArray.at(i).get_double().value());
+					}
+
+					if (min.error() != simdjson::error_code::NO_SUCH_FIELD)
+					{
+						glTFAccessor.min.emplace();
+						const auto& minArray = min.get_array();
+						for (uint32_t i = 0; i < minArray.size(); ++i)
+							glTFAccessor.min.value().push_back(minArray.at(i).get_double().value());
+					}
+
+					//if (sparse.error() != simdjson::error_code::NO_SUCH_FIELD)
+					//	glTFAccessor.sparse = ; //! TODO: in future
+
+					if (name.error() != simdjson::error_code::NO_SUCH_FIELD)
+						glTFAccessor.name = count.get_string().value();
+
+					/*if (!glTFAccessor.validate())
+						return false;*/ // TODO!
+				}
+			}
+
+			if (meshes.error() != simdjson::error_code::NO_SUCH_FIELD)
+			{
+				const auto& mData = meshes.get_array();
+				for (const auto& mesh : mData)
+				{
+					auto& glTFMesh = glTF.meshes.emplace_back();
+
+					const auto& primitives = mesh.at_key("primitives");
+					const auto& weights = mesh.at_key("weights");
+					const auto& name = mesh.at_key("name");
+					const auto& extensions = mesh.at_key("extensions");
+					const auto& extras = mesh.at_key("extras");
+
+					if (primitives.error() == simdjson::error_code::NO_SUCH_FIELD)
+						assert(false); // TODO: return from loader
+
+					const auto& pData = primitives.get_array();
+					for (const auto& primitive : pData)
+					{
+						auto& glTFPrimitive = glTFMesh.primitives.emplace_back();
+						
+						const auto& attributes = primitive.at_key("attributes");
+						const auto& indices = primitive.at_key("indices");
+						const auto& material = primitive.at_key("material");
+						const auto& mode = primitive.at_key("mode");
+						const auto& targets = primitive.at_key("targets");
+						const auto& extensions = primitive.at_key("extensions");
+						const auto& extras = primitive.at_key("extras");
+
+						if (indices.error() != simdjson::error_code::NO_SUCH_FIELD)
+							glTFPrimitive.indices = indices.get_uint64().value();
+
+						if (material.error() != simdjson::error_code::NO_SUCH_FIELD)
+							glTFPrimitive.material = material.get_uint64().value();
+
+						if (mode.error() != simdjson::error_code::NO_SUCH_FIELD)
+							glTFPrimitive.mode = mode.get_uint64().value();
+						else
+							glTFPrimitive.mode = 4;
+
+						if (targets.error() != simdjson::error_code::NO_SUCH_FIELD)
+							for (const auto& [targetKey, targetID] : targets.get_object())
+								glTFPrimitive.targets.emplace()[targetKey.data()] = targetID.get_uint64().value();
+
+						if (attributes.error() != simdjson::error_code::NO_SUCH_FIELD)
+						{
+							for (const auto& [attributeKey, accessorID] : attributes.get_object())
+							{
+								const auto& requestedAccessor = accessorID.get_uint64().value();
+
+								std::pair<std::string, uint8_t> attributeMap;
+								{
+									const std::string key = attributeKey.data();
+									auto foundIndexAttribute = key.find_last_of("_");
+
+									if (foundIndexAttribute != std::string::npos)
+										attributeMap = std::make_pair(key.substr(0, foundIndexAttribute), std::stoi(key.substr(foundIndexAttribute + 1)));
+									else
+										attributeMap = std::make_pair(key, 0);
+								}
+
+								if (attributeMap.first == "POSITION")
+									glTFPrimitive.attributes.position = requestedAccessor;
+								else if (attributeMap.first == "NORMAL")
+									glTFPrimitive.attributes.normal = requestedAccessor;
+								else if (attributeMap.first == "TANGENT")
+									glTFPrimitive.attributes.tangent = requestedAccessor;
+								else if (attributeMap.first == "TEXCOORD")
+								{
+									assert(attributeMap.second < glTFPrimitive.attributes.texcoord.size()); // TODO: log and validation without assert
+									glTFPrimitive.attributes.texcoord[attributeMap.second] = requestedAccessor;
+								}
+								else if (attributeMap.first == "COLOR")
+								{
+									assert(attributeMap.second < glTFPrimitive.attributes.color.size()); // TODO: log and validation without assert
+									glTFPrimitive.attributes.color[attributeMap.second] = requestedAccessor;
+								}
+								else if (attributeMap.first == "JOINTS")
+								{
+									assert(attributeMap.second < glTFPrimitive.attributes.joint.size()); // TODO: log and validation without assert
+									glTFPrimitive.attributes.joint[attributeMap.second] = requestedAccessor;
+								}
+								else if (attributeMap.first == "WEIGHTS")
+								{
+									assert(attributeMap.second < glTFPrimitive.attributes.weight.size()); // TODO: log and validation without assert
+									glTFPrimitive.attributes.weight[attributeMap.second] = requestedAccessor;
+								}
+							}
+						}
+					}
+
+					//! Array of weights to be applied to the Morph Targets.
+					// weights - TODO in future
+
+					if (name.error() != simdjson::error_code::NO_SUCH_FIELD)
+						glTFMesh.name = name.get_string().value();
+				}
+			}
+
 			if (nodes.error() != simdjson::error_code::NO_SUCH_FIELD)
 			{
 				const auto& nData = nodes.get_array();
@@ -1369,221 +1566,7 @@ namespace nbl
 
 						// TODO camera, skinning, etc HERE
 
-						if (glTFnode.validate())
-						{
-							const auto& mData = meshes.get_array();
-							for (size_t iteratorID = 0; iteratorID < mData.size(); ++iteratorID)
-							{
-								const auto& jsonMesh = meshes.get_array().at(iteratorID);
-
-								if (jsonMesh.error() != simdjson::error_code::NO_SUCH_FIELD)
-								{
-									auto& glTFMesh = glTFnode.glTFMesh;
-
-									const auto& primitives = jsonMesh.at_key("primitives");
-									const auto& weights = jsonMesh.at_key("weights");
-									const auto& name = jsonMesh.at_key("name");
-									const auto& extensions = jsonMesh.at_key("extensions");
-									const auto& extras = jsonMesh.at_key("extras");
-
-									if (primitives.error() == simdjson::error_code::NO_SUCH_FIELD)
-										return false;
-
-									const auto& pData = primitives.get_array();
-									for (size_t iteratorID = 0; iteratorID < pData.size(); ++iteratorID)
-									{
-										auto& glTFPrimitive = glTFMesh.primitives.emplace_back();
-										const auto& jsonPrimitive = pData.at(iteratorID);
-
-										const auto& attributes = jsonPrimitive.at_key("attributes");
-										const auto& indices = jsonPrimitive.at_key("indices");
-										const auto& material = jsonPrimitive.at_key("material");
-										const auto& mode = jsonPrimitive.at_key("mode");
-										const auto& targets = jsonPrimitive.at_key("targets");
-										const auto& extensions = jsonPrimitive.at_key("extensions");
-										const auto& extras = jsonPrimitive.at_key("extras");
-
-										if (indices.error() != simdjson::error_code::NO_SUCH_FIELD)
-											glTFPrimitive.indices = indices.get_uint64().value();
-
-										if (material.error() != simdjson::error_code::NO_SUCH_FIELD)
-											glTFPrimitive.material = material.get_uint64().value();
-
-										if (mode.error() != simdjson::error_code::NO_SUCH_FIELD)
-											glTFPrimitive.mode = mode.get_uint64().value();
-										else
-											glTFPrimitive.mode = 4;
-
-										if (targets.error() != simdjson::error_code::NO_SUCH_FIELD)
-											for (const auto& [targetKey, targetID] : targets.get_object())
-												glTFPrimitive.targets.emplace()[targetKey.data()] = targetID.get_uint64().value();
-
-										auto insertAccessorIntoGLTFCache = [&](const std::string_view& cacheKey, const uint32_t accessorID)
-										{
-											auto getAttributeIdPair = [&]() -> std::pair<SGLTFNode::SGLTFMesh::SPrimitive::SGLTFAttribute, uint8_t>
-											{
-												std::string key = cacheKey.data();
-
-												std::pair<std::string, uint8_t> attribute = [&]()
-												{
-													auto foundIndexAttribute = key.find_last_of("_");
-
-													if (foundIndexAttribute != std::string::npos)
-														return std::make_pair(key.substr(0, foundIndexAttribute), std::stoi(key.substr(foundIndexAttribute + 1)));
-													else
-														return std::make_pair(key, 0);
-												}();
-
-												bool status = true;
-
-												if (attribute.first == "INDEX")
-													return std::make_pair(SGLTFNode::SGLTFMesh::SPrimitive::SGLTFA_INDEX, attribute.second);
-												else if(attribute.first == "POSITION")
-													return std::make_pair(SGLTFNode::SGLTFMesh::SPrimitive::SGLTFA_POSITION, attribute.second);
-												else if(attribute.first == "NORMAL")
-													return std::make_pair(SGLTFNode::SGLTFMesh::SPrimitive::SGLTFA_NORMAL, attribute.second);
-												else if(attribute.first == "TANGENT")
-													return std::make_pair(SGLTFNode::SGLTFMesh::SPrimitive::SGLTFA_TANGENT, attribute.second);
-												else if(attribute.first == "TEXCOORD")
-													return std::make_pair(SGLTFNode::SGLTFMesh::SPrimitive::SGLTFA_TEXCOORD, attribute.second);
-												else if(attribute.first == "COLOR")
-													return std::make_pair(SGLTFNode::SGLTFMesh::SPrimitive::SGLTFA_COLOR, attribute.second);
-												else if(attribute.first == "JOINTS")
-													return std::make_pair(SGLTFNode::SGLTFMesh::SPrimitive::SGLTFA_JOINTS, attribute.second);
-												else if(attribute.first == "WEIGHTS")
-													return std::make_pair(SGLTFNode::SGLTFMesh::SPrimitive::SGLTFA_WEIGHTS, attribute.second);
-												else
-												{
-													status = false;
-													assert(status);
-												}
-
-											};
-
-											const auto& jsonAccessor = accessors.get_array().at(accessorID);
-
-											if (jsonAccessor.error() != simdjson::NO_SUCH_FIELD)
-											{
-												auto& glTFAccessor = glTFPrimitive.accessors[getAttributeIdPair()];
-
-												const auto& bufferView = jsonAccessor.at_key("bufferView");
-												const auto& byteOffset = jsonAccessor.at_key("byteOffset");
-												const auto& componentType = jsonAccessor.at_key("componentType");
-												const auto& normalized = jsonAccessor.at_key("normalized");
-												const auto& count = jsonAccessor.at_key("count");
-												const auto& type = jsonAccessor.at_key("type");
-												const auto& max = jsonAccessor.at_key("max");
-												const auto& min = jsonAccessor.at_key("min");
-												const auto& sparse = jsonAccessor.at_key("sparse");
-												const auto& name = jsonAccessor.at_key("name");
-												const auto& extensions = jsonAccessor.at_key("extensions");
-												const auto& extras = jsonAccessor.at_key("extras");
-
-												if (bufferView.error() != simdjson::error_code::NO_SUCH_FIELD)
-													glTFAccessor.bufferView = bufferView.get_uint64().value();
-
-												if (byteOffset.error() != simdjson::error_code::NO_SUCH_FIELD)
-													glTFAccessor.byteOffset = byteOffset.get_uint64().value();
-
-												if (componentType.error() != simdjson::error_code::NO_SUCH_FIELD)
-													glTFAccessor.componentType = componentType.get_uint64().value();
-
-												if (normalized.error() != simdjson::error_code::NO_SUCH_FIELD)
-													glTFAccessor.normalized = normalized.get_bool().value();
-
-												if (count.error() != simdjson::error_code::NO_SUCH_FIELD)
-													glTFAccessor.count = count.get_uint64().value();
-
-												if (type.error() != simdjson::error_code::NO_SUCH_FIELD)
-												{
-													bool status = true;
-													std::string typeStream = type.get_string().value().data();
-
-													if (typeStream == "SCALAR")
-														glTFAccessor.type = SGLTFNode::SGLTFMesh::SPrimitive::SGLTFAccessor::SGLTFT_SCALAR;
-													else if(typeStream == "VEC2")
-														glTFAccessor.type = SGLTFNode::SGLTFMesh::SPrimitive::SGLTFAccessor::SGLTFT_VEC2;
-													else if(typeStream == "VEC3")
-														glTFAccessor.type = SGLTFNode::SGLTFMesh::SPrimitive::SGLTFAccessor::SGLTFT_VEC3;
-													else if (typeStream == "VEC4")
-														glTFAccessor.type = SGLTFNode::SGLTFMesh::SPrimitive::SGLTFAccessor::SGLTFT_VEC4;
-													else if(typeStream == "MAT2")
-														glTFAccessor.type = SGLTFNode::SGLTFMesh::SPrimitive::SGLTFAccessor::SGLTFT_MAT2;
-													else if(typeStream == "MAT3")
-														glTFAccessor.type = SGLTFNode::SGLTFMesh::SPrimitive::SGLTFAccessor::SGLTFT_MAT3;
-													else if(typeStream == "MAT4")
-														glTFAccessor.type = SGLTFNode::SGLTFMesh::SPrimitive::SGLTFAccessor::SGLTFT_MAT4;
-													else
-													{
-														status = false;
-														assert(status);
-													}
-												}
-													
-
-												if (max.error() != simdjson::error_code::NO_SUCH_FIELD)
-												{
-													glTFAccessor.max.emplace();
-													const auto& maxArray = max.get_array();
-													for (uint32_t i = 0; i < maxArray.size(); ++i)
-														glTFAccessor.max.value().push_back(maxArray.at(i).get_double().value());
-												}
-
-												if (min.error() != simdjson::error_code::NO_SUCH_FIELD)
-												{
-													glTFAccessor.min.emplace();
-													const auto& minArray = min.get_array();
-													for (uint32_t i = 0; i < minArray.size(); ++i)
-														glTFAccessor.min.value().push_back(minArray.at(i).get_double().value());
-												}
-
-												/*
-													TODO: in future
-
-													if (sparse.error() != simdjson::error_code::NO_SUCH_FIELD)
-														glTFAccessor.sparse = ;
-												*/
-
-												if (name.error() != simdjson::error_code::NO_SUCH_FIELD)
-													glTFAccessor.name = count.get_string().value();
-
-												if (!glTFAccessor.validate())
-													return false;
-											}
-											else
-												return false; // todo
-										};
-
-										if (attributes.error() != simdjson::error_code::NO_SUCH_FIELD)
-										{
-											if (glTFPrimitive.indices.has_value())
-												insertAccessorIntoGLTFCache("INDEX", glTFPrimitive.indices.value());
-
-											for (const auto& [attributeKey, attributeID] : attributes.get_object())
-												insertAccessorIntoGLTFCache(attributeKey, attributeID.get_uint64().value());
-										}
-										else
-											return false;
-									}
-
-									// weights - TODO in future
-
-									if (name.error() != simdjson::error_code::NO_SUCH_FIELD)
-										glTFMesh.name = name.get_string().value();
-								}
-								else
-								{
-									/*
-										A node doesnt have a mesh -> it is valid by the documentation of the glTF, but I think the
-										loader should do continue, delete the node and handle next node or we should provide the defaults
-									*/
-
-									return false;
-								}
-							}
-						}
-						else
-							return false;
+						return glTFnode.validate();
 					};
 
 					if (!handleTheGLTFTree())

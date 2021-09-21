@@ -71,56 +71,10 @@ namespace nbl
 					std::optional<std::string> copyright;
 				};
 
-				/*
-					A node in the node hierarchy. A node can have either a matrix or any combination of 
-					translation/rotation/scale (TRS) properties.
-				*/
-
-				struct SGLTFNode
+				struct SGLTF
 				{
-					SGLTFNode() {}
-					virtual ~SGLTFNode() {}
-
-					std::optional<std::string> name;				//!< The user-defined name of this object.
-					std::optional<std::vector<uint32_t>> children;	//!< The indices of this node's children.
-					std::optional<uint32_t> mesh;					//!< The index of the mesh in this node.
-					std::optional<uint32_t> camera;					//!< The index of the camera referenced by this node.
-					std::optional<uint32_t> skin;					//!< The index of the skin referenced by this node.
-					std::optional<uint32_t> weights;				//!< The weights of the instantiated Morph Target. Number of elements must match number of Morph Targets of used mesh.
-
-					union SGLTFTransformation
-					{
-						SGLTFTransformation() {}
-						~SGLTFTransformation() {}
-
-						SGLTFTransformation(SGLTFTransformation& copy)
-						{
-							std::memmove(this, &copy, sizeof(SGLTFTransformation));
-						}
-
-						SGLTFTransformation(const SGLTFTransformation& copy)
-						{
-							std::memmove(this, &copy, sizeof(SGLTFTransformation));
-						}
-
-						SGLTFTransformation& operator=(SGLTFTransformation& copy)
-						{
-							std::memmove(this, &copy, sizeof(SGLTFTransformation));
-							return *this;
-						}
-
-						SGLTFTransformation& operator=(const SGLTFTransformation& copy)
-						{
-							std::memmove(this, &copy, sizeof(SGLTFTransformation));
-							return *this;
-						}
-	
-						core::matrix3x4SIMD matrix;
-					} transformation;
-
 					/*
-						A set of primitives to be rendered. A node can contain one mesh.
-						A node's transform places the mesh in the scene.
+						A set of primitives to be rendered.
 					*/
 
 					struct SGLTFMesh
@@ -132,97 +86,36 @@ namespace nbl
 							std::optional<uint32_t> mode;										//!< The type of primitives to render.
 							std::optional<std::unordered_map<std::string, uint32_t>> targets;	//!< An array of Morph Targets, each Morph Target is a dictionary mapping attributes (only POSITION, NORMAL, and TANGENT supported) to their deviations in the Morph Target.
 
-							/*
-								An accessor provides a typed view into a bufferView or a subset of a bufferView similar to
-								how WebGL's vertexAttribPointer() defines an attribute in a buffer.
-							*/
-
-							struct SGLTFAccessor
+							struct Attributes
 							{
-								enum SGLTFType
-								{
-									SGLTFT_SCALAR,
-									SGLTFT_VEC2,
-									SGLTFT_VEC3,
-									SGLTFT_VEC4,
-									SGLTFT_MAT2,
-									SGLTFT_MAT3,
-									SGLTFT_MAT4
-								};
+								_NBL_STATIC_INLINE_CONSTEXPR uint8_t MAX_UV_ATTRIBUTES = 3u;
+								_NBL_STATIC_INLINE_CONSTEXPR uint8_t MAX_COLOR_ATTRIBUTES = 3u;
+								_NBL_STATIC_INLINE_CONSTEXPR uint8_t MAX_JOINT_ATTRIBUTES = 4u;
+								_NBL_STATIC_INLINE_CONSTEXPR uint8_t MAX_WEIGHT_ATTRIBUTES = 4u;
 
-								std::optional<uint32_t> bufferView;
-								std::optional<uint32_t> byteOffset;
-								std::optional<uint32_t> componentType;
-								std::optional<bool> normalized;
-								std::optional<uint32_t> count;
-								std::optional<SGLTFType> type;
-								std::optional<std::vector<double>> max; // todo - common number types
-								std::optional<std::vector<double>> min; // todo - common number types
-								// TODO - sparse;
-								std::optional<std::string> name;
+								std::optional<size_t> position;									//!< The index of the accessor that contains the position.
+								std::optional<size_t> normal;									//!< The index of the accessor that contains the normal.
+								std::optional<size_t> tangent;									//!< The index of the accessor that contains the tangent.
 
-								enum SCompomentType
-								{
-									SCT_BYTE = 5120,
-									SCT_UNSIGNED_BYTE = 5121,
-									SCT_SHORT = 5122,
-									SCT_UNSIGNED_SHORT = 5123,
-									SCT_UNSIGNED_INT = 5125,
-									SCT_FLOAT = 5126
-								};
-
-								struct SType
-								{
-									_NBL_STATIC_INLINE_CONSTEXPR std::string_view SCALAR = "SCALAR";
-									_NBL_STATIC_INLINE_CONSTEXPR std::string_view VEC2 = "VEC2";
-									_NBL_STATIC_INLINE_CONSTEXPR std::string_view VEC3 = "VEC3";
-									_NBL_STATIC_INLINE_CONSTEXPR std::string_view VEC4 = "VEC4";
-									_NBL_STATIC_INLINE_CONSTEXPR std::string_view MAT2 = "MAT2";
-									_NBL_STATIC_INLINE_CONSTEXPR std::string_view MAT3 = "MAT3";
-									_NBL_STATIC_INLINE_CONSTEXPR std::string_view MAT4 = "MAT4";
-								};
-
-								bool validate()
-								{
-									if (!componentType.has_value())
-										return false;
-
-									if (!count.has_value())
-										return false;
-									else
-										if (count.has_value() < 1)
-											return false;
-
-									if (!type.has_value())
-										return false;
-
-									return true;
-								}
+								std::array<std::optional<size_t>, MAX_UV_ATTRIBUTES> texcoord;		//!< The indices of the accessors containing the UVs.
+								std::array<std::optional<size_t>, MAX_COLOR_ATTRIBUTES> color;		//!< The indices of the accessors containing the colors.
+								std::array<std::optional<size_t>, MAX_JOINT_ATTRIBUTES> joint;		//!< The indices of the accessors containing the joints.
+								std::array<std::optional<size_t>, MAX_WEIGHT_ATTRIBUTES> weight;	//!< The indices of the accessors containing the weights.
 							};
 
-							enum SGLTFAttribute : uint8_t
-							{
-								SGLTFA_INDEX,
-								SGLTFA_POSITION,
-								SGLTFA_NORMAL,
-								SGLTFA_TANGENT,
-								SGLTFA_TEXCOORD,
-								SGLTFA_COLOR,
-								SGLTFA_JOINTS,
-								SGLTFA_WEIGHTS
-							};
+							Attributes attributes;
 
-							struct AccessorHash 
+							/*struct AccessorHash
 							{
 								template <class T1, class T2>
-								std::size_t operator () (const std::pair<T1, T2>& p) const 
+								std::size_t operator () (const std::pair<T1, T2>& p) const
 								{
 									auto h1 = std::hash<T1>{}(p.first);
 									auto h2 = std::hash<T2>{}(p.second);
 
 									return h1 ^ h2;
 								}
-							};
+							};*/
 
 							/*
 								Valid attribute semantic property names include POSITION, NORMAL, TANGENT, TEXCOORD_0, TEXCOORD_1, COLOR_0, JOINTS_0, and WEIGHTS_0.
@@ -230,7 +123,7 @@ namespace nbl
 								semantic property names must be of the form [semantic]_[set_index], e.g., TEXCOORD_0, TEXCOORD_1, COLOR_0.
 							*/
 
-							std::unordered_map<std::pair<SGLTFAttribute, uint8_t>, SGLTFAccessor, AccessorHash> accessors; //! An accessor is queried with an atribute name (like POSITION)
+							//std::unordered_map<std::pair<SGLTFAttribute, uint8_t>, SGLTFAccessor, AccessorHash> accessors; //! An accessor is queried with an atribute name (like POSITION)
 
 							enum SGLTFPrimitiveTopology
 							{
@@ -245,9 +138,9 @@ namespace nbl
 
 							bool validate()
 							{
-								for(auto& [attribute, accessor] : accessors)
+								/*for (auto& [attribute, accessor] : accessors)
 									if (!accessor.validate())
-										return false;
+										return false;*/
 
 								return true;
 							}
@@ -267,29 +160,137 @@ namespace nbl
 						}
 					};
 
-					SGLTFMesh glTFMesh;
+					/*
+						A node in the node hierarchy. A node can contain one mesh.
+						A node's transform places the mesh in the scene. A node can have either 
+						a matrix or any combination of translation/rotation/scale (TRS) properties.
+					*/
 
-					bool validate(bool validateEntireTree = false)
+					struct SGLTFNode
 					{
-						if (mesh.has_value() && mesh.value() < 0)
-							return false;
+						SGLTFNode() {}
+						virtual ~SGLTFNode() {}
 
-						if (camera.has_value() && camera.value() < 0)
-							return false;
+						std::optional<std::string> name;				//!< The user-defined name of this object.
+						std::optional<std::vector<uint32_t>> children;	//!< The indices of this node's children.
+						std::optional<uint32_t> mesh;					//!< The index of the mesh in this node.
+						std::optional<uint32_t> camera;					//!< The index of the camera referenced by this node.
+						std::optional<uint32_t> skin;					//!< The index of the skin referenced by this node.
+						std::optional<uint32_t> weights;				//!< The weights of the instantiated Morph Target. Number of elements must match number of Morph Targets of used mesh.
 
-						if (skin.has_value() && skin.value() < 0)
-							return false;
+						union SGLTFTransformation
+						{
+							SGLTFTransformation() {}
+							~SGLTFTransformation() {}
 
-						if (validateEntireTree)
-							return glTFMesh.validate();
-						else
+							SGLTFTransformation(SGLTFTransformation& copy)
+							{
+								std::memmove(this, &copy, sizeof(SGLTFTransformation));
+							}
+
+							SGLTFTransformation(const SGLTFTransformation& copy)
+							{
+								std::memmove(this, &copy, sizeof(SGLTFTransformation));
+							}
+
+							SGLTFTransformation& operator=(SGLTFTransformation& copy)
+							{
+								std::memmove(this, &copy, sizeof(SGLTFTransformation));
+								return *this;
+							}
+
+							SGLTFTransformation& operator=(const SGLTFTransformation& copy)
+							{
+								std::memmove(this, &copy, sizeof(SGLTFTransformation));
+								return *this;
+							}
+
+							core::matrix3x4SIMD matrix;
+						} transformation;
+
+						bool validate(bool validateEntireTree = false)
+						{
+							if (mesh.has_value() && mesh.value() < 0)
+								return false;
+
+							if (camera.has_value() && camera.value() < 0)
+								return false;
+
+							if (skin.has_value() && skin.value() < 0)
+								return false;
+
 							return true;
-					}
-				};
+						}
+					};
 
-				struct SGLTF
-				{
-					std::vector<SGLTFNode> nodes;
+
+					/*
+						An accessor provides a typed view into a bufferView or a subset of a bufferView similar to
+						how WebGL's vertexAttribPointer() defines an attribute in a buffer.
+					*/
+
+					struct SGLTFAccessor
+					{
+						enum SGLTFType
+						{
+							SGLTFT_SCALAR,
+							SGLTFT_VEC2,
+							SGLTFT_VEC3,
+							SGLTFT_VEC4,
+							SGLTFT_MAT2,
+							SGLTFT_MAT3,
+							SGLTFT_MAT4
+						};
+
+						std::optional<uint32_t> bufferView;
+						std::optional<uint32_t> byteOffset;
+						std::optional<uint32_t> componentType;
+						std::optional<bool> normalized;
+						std::optional<uint32_t> count;
+						std::optional<SGLTFType> type;
+						std::optional<std::vector<double>> max; // todo - common number types
+						std::optional<std::vector<double>> min; // todo - common number types
+						// TODO - sparse;
+						std::optional<std::string> name;
+
+						enum SCompomentType
+						{
+							SCT_BYTE = 5120,
+							SCT_UNSIGNED_BYTE = 5121,
+							SCT_SHORT = 5122,
+							SCT_UNSIGNED_SHORT = 5123,
+							SCT_UNSIGNED_INT = 5125,
+							SCT_FLOAT = 5126
+						};
+
+						struct SType
+						{
+							_NBL_STATIC_INLINE_CONSTEXPR std::string_view SCALAR = "SCALAR";
+							_NBL_STATIC_INLINE_CONSTEXPR std::string_view VEC2 = "VEC2";
+							_NBL_STATIC_INLINE_CONSTEXPR std::string_view VEC3 = "VEC3";
+							_NBL_STATIC_INLINE_CONSTEXPR std::string_view VEC4 = "VEC4";
+							_NBL_STATIC_INLINE_CONSTEXPR std::string_view MAT2 = "MAT2";
+							_NBL_STATIC_INLINE_CONSTEXPR std::string_view MAT3 = "MAT3";
+							_NBL_STATIC_INLINE_CONSTEXPR std::string_view MAT4 = "MAT4";
+						};
+
+						bool validate()
+						{
+							if (!componentType.has_value())
+								return false;
+
+							if (!count.has_value())
+								return false;
+							else
+								if (count.has_value() < 1)
+									return false;
+
+							if (!type.has_value())
+								return false;
+
+							return true;
+						}
+					};
 
 					struct SGLTFBuffer
 					{
@@ -597,10 +598,13 @@ namespace nbl
 					};
 
 					/*
-						Various resources referenced by accessors, etc and may be the same,
-						not unique, so holding it bellow is necessary
+						Various resources established by using their 
+						indices to look up the objects in arrays 
 					*/
 					
+					std::vector<SGLTFMesh> meshes;
+					std::vector<SGLTFNode> nodes;
+					std::vector<SGLTFAccessor> accessors;
 					std::vector<SGLTFBufferView> bufferViews; 
 					std::vector<SGLTFBuffer> buffers;
 					std::vector<SGLTFImage> images;
