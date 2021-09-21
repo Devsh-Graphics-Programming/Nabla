@@ -71,9 +71,13 @@ int main()
 	scanner->buildParameters(elementCount,scan_push_constants,scan_dispatch_info);
 	
 	SBufferRange<IGPUBuffer> scratch_gpu_range;
-	scratch_gpu_range.offset = 0u;
-	scratch_gpu_range.size = scan_push_constants.getScratchSize();
-	scratch_gpu_range.buffer = logicalDevice->createDeviceLocalGPUBufferOnDedMem(scratch_gpu_range.size);
+	{
+		scratch_gpu_range.offset = 0u;
+		scratch_gpu_range.size = scan_push_constants.getScratchSize();
+		IGPUBuffer::SCreationParams params = {};
+		params.usage = IGPUBuffer::EUF_STORAGE_BUFFER_BIT;
+		scratch_gpu_range.buffer = logicalDevice->createDeviceLocalGPUBufferOnDedMem(params,scratch_gpu_range.size);
+	}
 
 	auto dsLayout = scanner->getDefaultDescriptorSetLayout();
 	auto dsPool = logicalDevice->createDescriptorPoolForDSLayouts(IDescriptorPool::ECF_NONE,&dsLayout,&dsLayout+1u);
@@ -113,8 +117,10 @@ int main()
 		IGPUQueue::SSubmitInfo submit = {};
 		submit.commandBufferCount = 1u;
 		submit.commandBuffers = &cmdbuf.get();
+		computeQueue->startCapture();
 		for (auto i=0u; i<BenchmarkingRuns; i++)
 			computeQueue->submit(1u,&submit,i!=(BenchmarkingRuns-1u) ? nullptr:lastFence.get());
+		computeQueue->endCapture();
 	}
 	// cpu counterpart
 	auto cpu_begin = in+begin;
@@ -134,7 +140,9 @@ int main()
 
 	if (BenchmarkingRuns==1u)
 	{
-		auto downloaded_buffer = logicalDevice->createDownStreamingGPUBufferOnDedMem(in_gpu_range.size);
+		IGPUBuffer::SCreationParams params = {};
+		params.usage = IGPUBuffer::EUF_TRANSFER_DST_BIT;
+		auto downloaded_buffer = logicalDevice->createDownStreamingGPUBufferOnDedMem(params,in_gpu_range.size);
 		{
 			core::smart_refctd_ptr<IGPUCommandBuffer> cmdbuf;
 			{
