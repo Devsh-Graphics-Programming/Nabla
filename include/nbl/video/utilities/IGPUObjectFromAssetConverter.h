@@ -1930,7 +1930,6 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUAccelerationStructure
             // Record CommandBuffer for Building (We have Completed buildInfos + buildRanges for each CPUAS)
             // TODO: Should do something different?
             core::smart_refctd_ptr<IGPUCommandPool> pool = _params.device->createCommandPool(_params.perQueue[EQU_COMPUTE].queue->getFamilyIndex(), IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
-            auto fence = _params.device->createFence(static_cast<IGPUFence::E_CREATE_FLAGS>(0));
             core::smart_refctd_ptr<IGPUCommandBuffer> cmdbuf;
             _params.device->createCommandBuffers(pool.get(), IGPUCommandBuffer::EL_PRIMARY, 1u, &cmdbuf);
 
@@ -1955,15 +1954,21 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUAccelerationStructure
             // TODO for future to make this function more sophisticated: Compaction, MemoryLimit for Build
 
             core::smart_refctd_ptr<IGPUSemaphore> sem;
+            core::smart_refctd_ptr<IGPUFence> fence;
+            
             if (_params.perQueue[EQU_COMPUTE].semaphore)
                 sem = _params.device->createSemaphore();
+            if(_params.perQueue[EQU_COMPUTE].fence)
+                fence = _params.device->createFence(static_cast<IGPUFence::E_CREATE_FLAGS>(0));
+
             auto* sem_ptr = sem.get();
+            auto* fence_ptr = fence.get();
+
             submit.signalSemaphoreCount = sem_ptr?1u:0u;
             submit.pSignalSemaphores = sem_ptr?&sem_ptr:nullptr;
 
-            // dont event tell the queue to signal a fence after last submit if it'll never be touched by user
-            auto* signalFence = _params.perQueue[EQU_TRANSFER].fence ? fence.get() : nullptr;
-            _params.perQueue[EQU_COMPUTE].queue->submit(1u, &submit, signalFence);
+            _params.perQueue[EQU_COMPUTE].queue->submit(1u, &submit, fence_ptr);
+
             if (_params.perQueue[EQU_COMPUTE].fence)
                 _params.perQueue[EQU_COMPUTE].fence[0] = std::move(fence);
             if (_params.perQueue[EQU_COMPUTE].semaphore)

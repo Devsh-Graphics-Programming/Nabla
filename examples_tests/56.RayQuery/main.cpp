@@ -131,6 +131,41 @@ int main()
 
 	auto descriptorPool = device->createDescriptorPool(static_cast<nbl::video::IDescriptorPool::E_CREATE_FLAGS>(0), maxDescriptorCount, PoolSizesCount, poolSizes);
 	
+	auto geometryCreator = assetManager->getGeometryCreator();
+	auto cubeGeom = geometryCreator->createCubeMesh(core::vector3df(1.0f, 1.0f, 1.0f));
+
+	auto dummyPplnLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>();
+	auto createMeshBufferFromGeomCreatorReturnType = [&dummyPplnLayout](
+		asset::IGeometryCreator::return_type& _data,
+		asset::IAssetManager* _manager,
+		asset::ICPUSpecializedShader** _shadersBegin, asset::ICPUSpecializedShader** _shadersEnd)
+	{
+		//creating pipeline just to forward vtx and primitive params
+		auto pipeline = core::make_smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline>(
+			core::smart_refctd_ptr(dummyPplnLayout), _shadersBegin, _shadersEnd,
+			_data.inputParams, 
+			asset::SBlendParams(),
+			_data.assemblyParams,
+			asset::SRasterizationParams()
+			);
+
+		auto mb = core::make_smart_refctd_ptr<asset::ICPUMeshBuffer>(
+			nullptr, nullptr,
+			_data.bindings, std::move(_data.indexBuffer)
+		);
+
+		mb->setIndexCount(_data.indexCount);
+		mb->setIndexType(_data.indexType);
+		mb->setBoundingBox(_data.bbox);
+		mb->setPipeline(std::move(pipeline));
+		constexpr auto NORMAL_ATTRIBUTE = 3;
+		mb->setNormalAttributeIx(NORMAL_ATTRIBUTE);
+
+		return mb;
+
+	};
+	auto cpuMeshCube = createMeshBufferFromGeomCreatorReturnType(cubeGeom, assetManager.get(), nullptr, nullptr);
+
 	// Initialize Spheres
 	constexpr uint32_t SphereCount = 9u;
 	constexpr uint32_t INVALID_ID_16BIT = 0xffffu;
@@ -164,12 +199,12 @@ int main()
 	
 	Sphere spheres[SphereCount] = {};
 	spheres[0] = Sphere(core::vector3df(0.0,-100.5,-1.0), 100.0, 0u, INVALID_ID_16BIT);
-	spheres[1] = Sphere(core::vector3df(2.0,0.0,-1.0), 0.5,	 1u, INVALID_ID_16BIT);
+	spheres[1] = Sphere(core::vector3df(3.0,0.0,-1.0), 0.5,	 1u, INVALID_ID_16BIT);
 	spheres[2] = Sphere(core::vector3df(0.0,0.0,-1.0), 0.5,	 2u, INVALID_ID_16BIT);
-	spheres[3] = Sphere(core::vector3df(-2.0,0.0,-1.0), 0.5, 3u, INVALID_ID_16BIT);
-	spheres[4] = Sphere(core::vector3df(2.0,0.0,1.0), 0.5,	 4u, INVALID_ID_16BIT);
+	spheres[3] = Sphere(core::vector3df(-3.0,0.0,-1.0), 0.5, 3u, INVALID_ID_16BIT);
+	spheres[4] = Sphere(core::vector3df(3.0,0.0,1.0), 0.5,	 4u, INVALID_ID_16BIT);
 	spheres[5] = Sphere(core::vector3df(0.0,0.0,1.0), 0.5,	 4u, INVALID_ID_16BIT);
-	spheres[6] = Sphere(core::vector3df(-2.0,0.0,1.0), 0.5,	 5u, INVALID_ID_16BIT);
+	spheres[6] = Sphere(core::vector3df(-3.0,0.0,1.0), 0.5,	 5u, INVALID_ID_16BIT);
 	spheres[7] = Sphere(core::vector3df(0.5,1.0,0.5), 0.5,	 6u, INVALID_ID_16BIT);
 	spheres[8] = Sphere(core::vector3df(-1.5,1.5,0.0), 0.3,  INVALID_ID_16BIT, 0u);
 	// Create Spheres Buffer
@@ -182,8 +217,76 @@ int main()
 		spheresBuffer = device->createDeviceLocalGPUBufferOnDedMem(params, spheresBufferSize);
 		utilities->updateBufferRangeViaStagingBuffer(graphicsQueue, asset::SBufferRange<IGPUBuffer>{0u,spheresBufferSize,spheresBuffer}, spheres);
 	}
-
+#define TEST_CPU_2_GPU
+#ifdef TEST_CPU_2_GPU
 	// Acceleration Structure Test
+	core::smart_refctd_ptr<IGPUAccelerationStructure> gpuBlas2;
+	// Create + Build BLAS (ICPU Version)
+	{
+		// TODO: Temp fix before nonCoherentAtomSize fix
+		struct alignas(64) AABB {
+			IGPUAccelerationStructure::AABB_Position aabb;
+		};
+		const uint32_t aabbsCount = SphereCount;
+		uint32_t aabbsBufferSize = sizeof(AABB) * aabbsCount;
+		
+		AABB aabbs[aabbsCount] = {};
+		for(uint32_t i = 0; i < aabbsCount; ++i)
+		{
+			aabbs[i].aabb = spheres[i%3].getAABB();
+		}
+		
+		// auto raytracingFlags = core::bitflag(asset::IBuffer::EUF_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT) | asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
+		// | asset::IBuffer::EUF_TRANSFER_DST_BIT | asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT
+		core::smart_refctd_ptr<ICPUBuffer> aabbsBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(aabbsBufferSize);
+		memcpy(aabbsBuffer->getPointer(), aabbs, aabbsBufferSize);
+
+		ICPUAccelerationStructure::SCreationParams asCreateParams;
+		asCreateParams.type = ICPUAccelerationStructure::ET_BOTTOM_LEVEL;
+		asCreateParams.flags = ICPUAccelerationStructure::ECF_NONE;
+		core::smart_refctd_ptr<ICPUAccelerationStructure> cpuBlas = ICPUAccelerationStructure::create(std::move(asCreateParams));
+		
+		using HostGeom = ICPUAccelerationStructure::HostBuildGeometryInfo::Geom;
+		core::smart_refctd_dynamic_array<HostGeom> geometries = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<HostGeom>>(1u);
+
+		HostGeom & simpleGeom = geometries->operator[](0u);
+		simpleGeom.type = IAccelerationStructure::EGT_AABBS;
+		simpleGeom.flags = IAccelerationStructure::EGF_OPAQUE_BIT;
+		simpleGeom.data.aabbs.data.offset = 0u;
+		simpleGeom.data.aabbs.data.buffer = aabbsBuffer;
+		simpleGeom.data.aabbs.stride = sizeof(AABB);
+
+		ICPUAccelerationStructure::HostBuildGeometryInfo buildInfo;
+		buildInfo.type = asCreateParams.type;
+		buildInfo.buildFlags = ICPUAccelerationStructure::EBF_PREFER_FAST_TRACE_BIT;
+		buildInfo.buildMode = ICPUAccelerationStructure::EBM_BUILD;
+		buildInfo.geometries = geometries;
+
+		core::smart_refctd_dynamic_array<ICPUAccelerationStructure::BuildRangeInfo> buildRangeInfos = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUAccelerationStructure::BuildRangeInfo>>(1u);
+		ICPUAccelerationStructure::BuildRangeInfo & firstBuildRangeInfo = buildRangeInfos->operator[](0u);
+		firstBuildRangeInfo.primitiveCount = aabbsCount;
+		firstBuildRangeInfo.primitiveOffset = 0u;
+		firstBuildRangeInfo.firstVertex = 0u;
+		firstBuildRangeInfo.transformOffset = 0u;
+
+		cpuBlas->setBuildInfoAndRanges(std::move(buildInfo), buildRangeInfos);
+
+		// Build BLAS 
+		{
+			core::smart_refctd_ptr<IGPUFence> waitForComputeFence;
+			core::smart_refctd_ptr<IGPUFence> waitForTransferFence;
+			cpu2gpuParams.perQueue[IGPUObjectFromAssetConverter::EQU_COMPUTE].fence = &waitForComputeFence; // this will be created
+			cpu2gpuParams.perQueue[IGPUObjectFromAssetConverter::EQU_TRANSFER].fence = &waitForTransferFence; // this will be created
+
+			gpuBlas2 = CPU2GPU.getGPUObjectsFromAssets(&cpuBlas, &cpuBlas + 1u, cpu2gpuParams)->front();
+
+			device->waitForFences(1, &waitForComputeFence.get(), false, 9999999999ull);
+			cpu2gpuParams.waitForCreationToComplete();
+			cpu2gpuParams.perQueue[IGPUObjectFromAssetConverter::EQU_COMPUTE].fence = nullptr;
+			cpu2gpuParams.perQueue[IGPUObjectFromAssetConverter::EQU_TRANSFER].fence = nullptr;
+		}
+	}
+#endif 
 	core::smart_refctd_ptr<IGPUBuffer> aabbsBuffer;
 	core::smart_refctd_ptr<IGPUAccelerationStructure> gpuBlas;
 	// Create + Build BLAS
