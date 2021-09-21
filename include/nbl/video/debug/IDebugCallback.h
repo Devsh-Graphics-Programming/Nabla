@@ -23,15 +23,6 @@ class IDebugCallback
         void* m_extraUserData;
 };
 
-
-// TODO: move this later
-class CVulkanDebugCallback : public IDebugCallback
-{
-    public:
-        static void defaultCallback();
-        decltype(&defaultCallback) m_callback = &defaultCallback;
-};
-
 }
 
 #endif
