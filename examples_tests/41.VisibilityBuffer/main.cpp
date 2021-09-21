@@ -48,6 +48,7 @@ public:
     }
 };
 
+#include "hiZCommon.h"
 #include "common.h"
 #include "rasterizationCommon.h"
 
@@ -227,6 +228,15 @@ struct CullShaderData
     uint32_t maxBatchCount;
 };
 
+struct HiZCullShaderData
+{
+    core::smart_refctd_ptr<IGPUComputePipeline> ppln;
+    core::smart_refctd_ptr<IGPUDescriptorSetLayout> dsLayout;
+    core::smart_refctd_ptr<IGPUDescriptorSet> ds;
+
+    uint32_t dispatchSizeX;
+};
+
 using MeshPacker = CCPUMeshPackerV2<DrawElementsIndirectCommand_t>;
 using GPUMeshPacker = CGPUMeshPackerV2<DrawElementsIndirectCommand_t>;
 
@@ -250,6 +260,12 @@ STextureData getTextureData(core::vector<commit_t>& _out_commits, const asset::I
     return addr;
 }
 
+enum class E_OCCLUSION_CULLING_METHOD
+{
+    EOCM_QUERY = 0u,
+    EOCM_HI_Z_BUFFER = 1u
+};
+constexpr E_OCCLUSION_CULLING_METHOD occlusionCullingMethod = E_OCCLUSION_CULLING_METHOD::EOCM_HI_Z_BUFFER;
 constexpr bool useSSBO = true;
 
 int main()
@@ -337,10 +353,10 @@ int main()
     //config.lvlLimit = 5u;
     DPG dpg(driver, am, depthBufferView, config);
 
-    const uint32_t mipCnt = DPG::getMaxMipCntFromImage(depthBufferView, config);
+    const uint32_t dpgMipCnt = DPG::getMaxMipCntFromImage(depthBufferView, config);
     
-    core::vector<core::smart_refctd_ptr<IGPUImage>> mipImages(mipCnt);
-    core::vector<core::smart_refctd_ptr<IGPUImageView>> mips(mipCnt);
+    core::vector<core::smart_refctd_ptr<IGPUImage>> mipImages(dpgMipCnt);
+    core::vector<core::smart_refctd_ptr<IGPUImageView>> mips(dpgMipCnt);
     DPG::createMipMapImages(driver, depthBufferView, mipImages.data(), config);
     DPG::createMipMapImageViews(driver, depthBufferView, mipImages.data(), mips.data(), config);
     
@@ -698,8 +714,6 @@ int main()
                 bindings[0].samplers = &sampler;
                 bindings[0].stageFlags = ISpecializedShader::ESS_COMPUTE;
                 bindings[0].type = EDT_COMBINED_IMAGE_SAMPLER;
-
-                
 
                 bindings[1].binding = 1u;
                 bindings[1].count = 1u;
@@ -1098,13 +1112,132 @@ int main()
         cullShaderData.mapPipeline = driver->createGPUComputePipeline(nullptr, std::move(mapPipelineLayout), std::move(gpuMapShader));
     }
 
+    // hi-z occlusion culling pipeline setup
+    HiZCullShaderData hiZCullData;
+    SHiZPushConstants hiZPushConstants;
+    {
+        SPushConstantRange range{ ISpecializedShader::ESS_COMPUTE, 0u, sizeof(SHiZPushConstants) };
+
+        hiZCullData.dispatchSizeX = (cullShaderData.maxBatchCount + 255u) / 256u;
+
+        {
+            IGPUDescriptorSetLayout::SBinding bindings[3];
+            for (uint32_t i = 0u; i < 3; i++)
+            {
+                bindings[i].binding = i;
+                bindings[i].count = 1u;
+                bindings[i].samplers = nullptr;
+                bindings[i].stageFlags = ISpecializedShader::ESS_COMPUTE;
+                bindings[i].type = EDT_STORAGE_BUFFER;
+            }
+
+            assert(dpgMipCnt < 16u);
+
+            IGPUSampler::SParams params;
+            params.TextureWrapU = ISampler::ETC_MIRROR;
+            params.TextureWrapV = ISampler::ETC_MIRROR;
+            params.TextureWrapW = ISampler::ETC_MIRROR;
+            params.BorderColor = ISampler::ETBC_FLOAT_OPAQUE_BLACK;
+            params.MinFilter = ISampler::ETF_NEAREST;
+            params.MaxFilter = ISampler::ETF_NEAREST;
+            params.MipmapMode = ISampler::ESMM_NEAREST;
+            params.AnisotropicFilter = 0;
+            params.CompareEnable = 0;
+
+            core::vector<core::smart_refctd_ptr<IGPUSampler>> samplers(dpgMipCnt);
+
+            for (auto it = samplers.begin(); it != samplers.end(); it++)
+                (*it) = driver->createGPUSampler(params);
+
+            bindings[2].count = dpgMipCnt;
+            bindings[2].samplers = samplers.data();
+            bindings[2].type = EDT_COMBINED_IMAGE_SAMPLER;
+
+            hiZCullData.dsLayout = driver->createGPUDescriptorSetLayout(bindings, bindings + sizeof(bindings) / sizeof(IGPUDescriptorSetLayout::SBinding));
+        }
+
+        {
+            core::vector<IGPUDescriptorSet::SDescriptorInfo> infos(2u + dpgMipCnt);
+
+            infos[0].desc = cullShaderData.perBatchCull;
+            infos[0].buffer.offset = 0u;
+            infos[0].buffer.size = cullShaderData.perBatchCull->getSize();
+
+            infos[1].desc = sceneData.occlusionCulledMdiBuffer;
+            infos[1].buffer.offset = 0u;
+            infos[1].buffer.size = cullShaderData.cubeDrawGUIDs->getSize();
+
+            for (uint32_t i = 2u; i < dpgMipCnt + 2u; i++)
+            {
+                infos[i].desc = mips[i - 2u];
+                infos[i].image.sampler = nullptr;
+            }
+
+            hiZCullData.ds = driver->createGPUDescriptorSet(smart_refctd_ptr(hiZCullData.dsLayout));
+
+            IGPUDescriptorSet::SWriteDescriptorSet writes[3];
+            
+            writes[0].dstSet = hiZCullData.ds.get();
+            writes[0].binding = 0;
+            writes[0].arrayElement = 0u;
+            writes[0].count = 1u;
+            writes[0].descriptorType = EDT_STORAGE_BUFFER;
+            writes[0].info = infos.data();
+
+            writes[1].dstSet = hiZCullData.ds.get();
+            writes[1].binding = 1;
+            writes[1].arrayElement = 0u;
+            writes[1].count = 1u;
+            writes[1].descriptorType = EDT_STORAGE_BUFFER;
+            writes[1].info = infos.data() + 1;
+
+            writes[2].dstSet = hiZCullData.ds.get();
+            writes[2].binding = 2;
+            writes[2].arrayElement = 0u;
+            writes[2].count = dpgMipCnt;
+            writes[2].descriptorType = EDT_COMBINED_IMAGE_SAMPLER;
+            writes[2].info = infos.data() + 2;
+
+            driver->updateDescriptorSets(sizeof(writes) / sizeof(IGPUDescriptorSet::SWriteDescriptorSet), writes, 0u, nullptr);
+        }
+
+        const VkExtent3D lvl0MipExtent = mipImages[0]->getCreationParameters().extent;
+        hiZPushConstants.lvl0MipExtent = core::vector2d<uint32_t>(lvl0MipExtent.width, lvl0MipExtent.height);
+        hiZPushConstants.maxBatchCnt = cullShaderData.maxBatchCount;
+
+        const char* source =
+            R"(#version 460 core
+#define Z_PYRAMID_MIP_LVL_CNT %u
+ 
+layout (local_size_x = 256u) in;
+
+#include "../hiZOcclustionCull.comp"
+)";
+
+        constexpr size_t extraSize = 2u;
+        auto shaderCode = core::make_smart_refctd_ptr<ICPUBuffer>(strlen(source) + extraSize + 1u);
+        snprintf(reinterpret_cast<char*>(shaderCode->getPointer()), shaderCode->getSize(), source, dpgMipCnt);
+
+        auto cpuSpecializedShader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(
+            core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(shaderCode), asset::ICPUShader::buffer_contains_glsl),
+            asset::ISpecializedShader::SInfo{ nullptr, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE });
+
+        auto gpuShader = driver->createGPUShader(core::smart_refctd_ptr<const asset::ICPUShader>(cpuSpecializedShader->getUnspecialized()));
+        auto hiZOcclusionCullShader = driver->createGPUSpecializedShader(gpuShader.get(), cpuSpecializedShader->getSpecializationInfo());
+
+        auto pplnLayout = driver->createGPUPipelineLayout(&range, &range + 1u, core::smart_refctd_ptr(hiZCullData.dsLayout));
+        hiZCullData.ppln = driver->createGPUComputePipeline(nullptr, std::move(pplnLayout), std::move(hiZOcclusionCullShader));
+    }
+
     // frustum cull shader pipeline setup
     {
         SPushConstantRange range{ ISpecializedShader::ESS_COMPUTE,0u,sizeof(CullShaderData_t) };
         
+        constexpr uint32_t frustumCullShaderBindingCnt = (occlusionCullingMethod == E_OCCLUSION_CULLING_METHOD::EOCM_HI_Z_BUFFER) ? 4 : 9u;
+
         {
-            IGPUDescriptorSetLayout::SBinding bindings[9];
-            for (uint32_t i = 0u; i < 9; i++)
+            IGPUDescriptorSetLayout::SBinding bindings[frustumCullShaderBindingCnt];
+            for (uint32_t i = 0u; i < frustumCullShaderBindingCnt; i++)
             {
                 bindings[i].binding = i;
                 bindings[i].count = 1u;
@@ -1117,7 +1250,7 @@ int main()
         }
         
         {
-            IGPUDescriptorSet::SDescriptorInfo infos[9];
+            IGPUDescriptorSet::SDescriptorInfo infos[9u];
         
             infos[0].desc = core::smart_refctd_ptr(cullShaderData.perBatchCull);
             infos[0].buffer.offset = 0u;
@@ -1127,21 +1260,21 @@ int main()
             infos[1].buffer.offset = 0u;
             infos[1].buffer.size = cullShaderData.mvpBuffer->getSize();
 
-            infos[2].desc = cullShaderData.cubeVertexBuffers[0].buffer;
+            infos[2].desc = sceneData.frustumCulledMdiBuffer;
             infos[2].buffer.offset = 0u;
-            infos[2].buffer.size = cullShaderData.cubeVertexBuffers[0].buffer->getSize();
+            infos[2].buffer.size = sceneData.frustumCulledMdiBuffer->getSize();
 
-            infos[3].desc = cullShaderData.cubeCommandBuffer;
+            infos[3].desc = sceneData.occlusionCulledMdiBuffer;
             infos[3].buffer.offset = 0u;
-            infos[3].buffer.size = cullShaderData.cubeCommandBuffer->getSize();
+            infos[3].buffer.size = sceneData.occlusionCulledMdiBuffer->getSize();
 
-            infos[4].desc = sceneData.frustumCulledMdiBuffer;
+            infos[4].desc = cullShaderData.cubeVertexBuffers[0].buffer;
             infos[4].buffer.offset = 0u;
-            infos[4].buffer.size = sceneData.frustumCulledMdiBuffer->getSize();
+            infos[4].buffer.size = cullShaderData.cubeVertexBuffers[0].buffer->getSize();
 
-            infos[5].desc = sceneData.occlusionCulledMdiBuffer;
+            infos[5].desc = cullShaderData.cubeCommandBuffer;
             infos[5].buffer.offset = 0u;
-            infos[5].buffer.size = sceneData.occlusionCulledMdiBuffer->getSize();
+            infos[5].buffer.size = cullShaderData.cubeCommandBuffer->getSize();
 
             infos[6].desc = cullShaderData.cubeDrawGUIDs;
             infos[6].buffer.offset = 0u;
@@ -1157,8 +1290,8 @@ int main()
 
             cullShaderData.cullDS = driver->createGPUDescriptorSet(smart_refctd_ptr(cullShaderData.cullDSLayout));
         
-            IGPUDescriptorSet::SWriteDescriptorSet writes[9];
-            for (uint32_t i = 0u; i < 9; i++)
+            IGPUDescriptorSet::SWriteDescriptorSet writes[frustumCullShaderBindingCnt];
+            for (uint32_t i = 0u; i < frustumCullShaderBindingCnt; i++)
             {
                 writes[i].dstSet = cullShaderData.cullDS.get();
                 writes[i].binding = i;
@@ -1170,17 +1303,37 @@ int main()
         
             driver->updateDescriptorSets(sizeof(writes) / sizeof(IGPUDescriptorSet::SWriteDescriptorSet), writes, 0u, nullptr);
         }
-        
-        asset::IAssetLoader::SAssetLoadParams lp;
-        auto cullShader = IAsset::castDown<ICPUSpecializedShader>(*am->getAsset("../cull.comp", lp).getContents().begin());
-        assert(cullShader);
-        const asset::ICPUShader* unspec = cullShader->getUnspecialized();
-        assert(unspec->containsGLSL());
-        
-        auto gpuCullShader = driver->getGPUObjectsFromAssets(&cullShader, &cullShader + 1u)->begin()[0];
-        
-        auto cullPipelineLayout = driver->createGPUPipelineLayout(&range, &range + 1u, core::smart_refctd_ptr(cullShaderData.cullDSLayout));
-        cullShaderData.cullPipeline = driver->createGPUComputePipeline(nullptr, std::move(cullPipelineLayout), std::move(gpuCullShader));
+
+        const char* source =
+            R"(#version 430 core
+#extension GL_EXT_shader_16bit_storage : require
+#define %s
+
+#include "../rasterizationCommon.h"
+layout (local_size_x = WORKGROUP_SIZE) in;
+
+#include "../cull.comp"
+)";
+
+        constexpr size_t extraSize = 22u;
+        auto shaderCode = core::make_smart_refctd_ptr<ICPUBuffer>(strlen(source) + extraSize + 1u);
+
+        constexpr char* occlusionCullMethodDefine[] =
+        {
+            "OCCLUSION_QUERY", "HI_Z_OCCLUSION_CULLING"
+        };
+
+        snprintf(reinterpret_cast<char*>(shaderCode->getPointer()), shaderCode->getSize(), source, occlusionCullMethodDefine[static_cast<uint32_t>(occlusionCullingMethod)]);
+
+        auto cpuSpecializedShader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(
+            core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(shaderCode), asset::ICPUShader::buffer_contains_glsl),
+            asset::ISpecializedShader::SInfo{ nullptr, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE });
+
+        auto gpuShader = driver->createGPUShader(core::smart_refctd_ptr<const asset::ICPUShader>(cpuSpecializedShader->getUnspecialized()));
+        auto frustumCullShader = driver->createGPUSpecializedShader(gpuShader.get(), cpuSpecializedShader->getSpecializationInfo());
+
+        auto pplnLayout = driver->createGPUPipelineLayout(&range, &range + 1u, core::smart_refctd_ptr(cullShaderData.cullDSLayout));
+        cullShaderData.cullPipeline = driver->createGPUComputePipeline(nullptr, std::move(pplnLayout), std::move(frustumCullShader));
     }
 
     auto cullBatches = [&driver, &cullShaderData, &sceneData](const core::matrix4SIMD& vp, const core::vector3df& camPos, bool freezeCulling)
@@ -1260,29 +1413,42 @@ int main()
         driver->clearColorBuffer(EFAP_COLOR_ATTACHMENT0, invalidObjectCode);
         fillVBuffer(sceneData.frustumCulledMdiBuffer);
 
-        // create depth pyramid
-        for (uint32_t i = 0u; i < dpgDsCnt; i++)
-            dpg.generateMipMaps(depthBufferView, dpgPpln, dpgDs[i], dpgDispatchData[i]);
+        if constexpr (occlusionCullingMethod == E_OCCLUSION_CULLING_METHOD::EOCM_HI_Z_BUFFER)
+        {
+            // create depth pyramid
+            for (uint32_t i = 0u; i < dpgDsCnt; i++)
+                dpg.generateMipMaps(depthBufferView, dpgPpln, dpgDs[i], dpgDispatchData[i]);
 
-        // occlusion cull (against partially filled new Z-buffer)
-        driver->setRenderTarget(zBuffOnlyFrameBuffer);
-        driver->bindDescriptorSets(video::EPBP_GRAPHICS, cullShaderData.occlusionCullPipeline->getLayout(), 0u, 1u, &cullShaderData.occlusionCullDS.get(), nullptr);
-        driver->bindGraphicsPipeline(cullShaderData.occlusionCullPipeline.get());
+            // hi-z occlusion cull
+            driver->bindDescriptorSets(video::EPBP_COMPUTE, hiZCullData.ppln->getLayout(), 0u, 1u, &hiZCullData.ds.get(), nullptr);
+            driver->bindComputePipeline(hiZCullData.ppln.get());
+            memcpy(&hiZPushConstants.vp, camera->getViewMatrix().pointer(), sizeof(core::matrix3x4SIMD));
+            driver->pushConstants(hiZCullData.ppln->getLayout(), IGPUSpecializedShader::ESS_COMPUTE, 0u, sizeof(SHiZPushConstants), &hiZPushConstants);
+            driver->dispatch(hiZCullData.dispatchSizeX, 1u, 1u);
+            COpenGLExtensionHandler::extGlMemoryBarrier(GL_COMMAND_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT);
+        }
+        else if (occlusionCullingMethod == E_OCCLUSION_CULLING_METHOD::EOCM_QUERY)
+        {
+            // occlusion cull (against partially filled new Z-buffer)
+            driver->setRenderTarget(zBuffOnlyFrameBuffer);
+            driver->bindDescriptorSets(video::EPBP_GRAPHICS, cullShaderData.occlusionCullPipeline->getLayout(), 0u, 1u, &cullShaderData.occlusionCullDS.get(), nullptr);
+            driver->bindGraphicsPipeline(cullShaderData.occlusionCullPipeline.get());
 
-        driver->drawIndexedIndirect(
-            cullShaderData.cubeVertexBuffers, EPT_TRIANGLE_LIST, EIT_16BIT,
-            cullShaderData.cubeIdxBuffer.buffer.get(), cullShaderData.cubeCommandBuffer.get(),
-            0u, 1u,
-            sizeof(DrawElementsIndirectCommand_t)
-        );
-        COpenGLExtensionHandler::pGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+            driver->drawIndexedIndirect(
+                cullShaderData.cubeVertexBuffers, EPT_TRIANGLE_LIST, EIT_16BIT,
+                cullShaderData.cubeIdxBuffer.buffer.get(), cullShaderData.cubeCommandBuffer.get(),
+                0u, 1u,
+                sizeof(DrawElementsIndirectCommand_t)
+            );
+            COpenGLExtensionHandler::pGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
-        // map batchIDs of batches that passed occlusion test to the `occlusionCulledMdiBuffer`
-        driver->bindDescriptorSets(video::EPBP_COMPUTE, cullShaderData.mapPipeline->getLayout(), 0u, 1u, &cullShaderData.mapDS.get(), nullptr);
-        driver->bindComputePipeline(cullShaderData.mapPipeline.get());
-        
-        driver->dispatchIndirect(cullShaderData.dispatchIndirect.get(), 0u);
-        COpenGLExtensionHandler::pGlMemoryBarrier(GL_COMMAND_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT);
+            // map batchIDs of batches that passed occlusion test to the `occlusionCulledMdiBuffer`
+            driver->bindDescriptorSets(video::EPBP_COMPUTE, cullShaderData.mapPipeline->getLayout(), 0u, 1u, &cullShaderData.mapDS.get(), nullptr);
+            driver->bindComputePipeline(cullShaderData.mapPipeline.get());
+
+            driver->dispatchIndirect(cullShaderData.dispatchIndirect.get(), 0u);
+            COpenGLExtensionHandler::pGlMemoryBarrier(GL_COMMAND_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT);
+        }
 
         // second fill visibility buffer pass
         driver->setRenderTarget(visBuffer);
