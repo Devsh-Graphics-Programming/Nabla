@@ -274,10 +274,7 @@ class ITransformTree : public virtual core::IReferenceCounted
 
 				commandBuffer->updateBuffer(m_debugLiveAllocationsGpuBuffer.get(), 0, m_debugLiveAllocationsGpuBuffer->getSize(), m_debugLiveAllocations.data());
 			}
-
-			//if (needFlush) what about this one?
-			//	device->flushRanges();
-
+			
 			#define LINE_VERTEX_COUNT 2u
 			#define BOX_VERTEX_COUNT 24u
 
