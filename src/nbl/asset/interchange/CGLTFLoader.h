@@ -166,7 +166,7 @@ namespace nbl
 						virtual ~SGLTFNode() {}
 
 						std::optional<std::string> name;				//!< The user-defined name of this object.
-						std::optional<std::vector<uint32_t>> children;	//!< The indices of this node's children.
+						std::vector<uint32_t> children;					//!< The indices of this node's children.
 						std::optional<uint32_t> mesh;					//!< The index of the mesh in this node.
 						std::optional<uint32_t> camera;					//!< The index of the camera referenced by this node.
 						std::optional<uint32_t> skin;					//!< The index of the skin referenced by this node.
@@ -586,7 +586,7 @@ namespace nbl
 						std::optional<std::string> name;
 						std::optional<size_t> inverseBindMatrices;						//! The index of the accessor containing the floating-point 4x4 inverse-bind matrices. The default is that each matrix is a 4x4 identity matrix, which implies that inverse-bind matrices were pre-applied.
 						std::optional<size_t> skeleton;									//! The index of the node used as a skeleton root.
-						std::vector<size_t> joints;										//! Indices of skeleton nodes, used as joints in this skin.
+						std::vector<uint32_t> joints;									//! Indices of skeleton nodes, used as joints in this skin.
 						std::optional<std::string> extensions;
 						std::optional<std::string> extras;
 					};

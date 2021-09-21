@@ -747,20 +747,6 @@ namespace nbl
 								_override->insertAssetIntoCache(pipelineBundle, pipelineCacheKey, context.loadContext, _hierarchyLevel + ICPUMesh::PIPELINE_HIERARCHYLEVELS_BELOW);
 
 								cpuMeshBuffer->setPipeline(std::move(cpuPipeline));
-
-								/*
-									TODO: skinning
-								*/
-
-								/*{
-									SBufferBinding<ICPUBuffer> inverseBindPoseBufferBinding;
-									SBufferBinding<ICPUBuffer> jointAABBBufferBinding;
-									core::smart_refctd_ptr<ICPUSkeleton> skeleton;
-									const uint32_t maxJointsPerVx = jointsPerVxAmount;
-
-									cpuMeshBuffer->setSkin(std::move(inverseBindPoseBufferBinding), std::move(jointAABBBufferBinding), std::move(skeleton), maxJointsPerVx);
-								}*/
-
 								cpuMesh->getMeshBufferVector().push_back(std::move(cpuMeshBuffer));
 							}
 						}
@@ -768,13 +754,75 @@ namespace nbl
 				}
 			}
 
-			for (auto& glTFnode : glTF.nodes) 
+			for (auto& glTFnode : glTF.nodes) // this assumes scene at index 0, TODO!
 			{
-				/* TODO:
-				 
-				 NODE REFERENCING A MESH
-				 INITIAL TRANSLATIONS FOR A NODE,
-				 SKINNING*/
+				const std::string key = glTFnode.name.has_value() ? glTFnode.name.value() : "NBL_IDENTITY";
+				const uint32_t rootMesh = glTFnode.mesh.has_value() ? glTFnode.mesh.value() : 0xdeadbeef;
+				const auto& children = glTFnode.children;
+				const uint32_t queriedSkin = glTFnode.skin.has_value() ? glTFnode.skin.value() : 0xdeadbeef;
+			
+				if (queriedSkin != 0xdeadbeef)
+				{
+					const auto& glTFSkin = glTF.skins[queriedSkin];
+					const auto& rootSkeletonNode = glTFSkin.skeleton.has_value() ? glTFSkin.skeleton.value() : 0xdeadbeef;
+
+					const auto& accessorInverseBindMatricesID = glTFSkin.inverseBindMatrices.has_value() ? glTFSkin.inverseBindMatrices.value() : 0xdeadbeef;
+					const auto& jointNodeIDs = glTFSkin.joints;
+
+					core::smart_refctd_ptr<ICPUSkeleton> skeleton;
+					const uint32_t jointsPerVertex = 4u; // TODO!
+					SBufferBinding<ICPUBuffer> inverseBindPoseBufferBinding;
+					SBufferBinding<ICPUBuffer> jointAABBBufferBinding;
+					{
+						auto cpuBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(jointNodeIDs.size() * sizeof(uint32_t));
+						memcpy(cpuBuffer->getPointer(), jointNodeIDs.data(), cpuBuffer->getSize());
+						
+						jointAABBBufferBinding.buffer = std::move(cpuBuffer);
+						jointAABBBufferBinding.offset = 0u;
+					}
+
+					if (accessorInverseBindMatricesID == 0xdeadbeef)
+					{
+						// we have to send 4x4 identity matrices here, but how can I know the length
+						// + is there any sens to fill entire buffer with identities?
+						inverseBindPoseBufferBinding.buffer = nullptr;
+						inverseBindPoseBufferBinding.offset = 0u;
+					}
+					else
+					{
+						const auto& glTFAccessor = glTF.accessors[accessorInverseBindMatricesID];
+
+						const auto& bufferViewID = glTFAccessor.bufferView.has_value() ? glTFAccessor.bufferView.value() : 0xdeadbeef;
+						assert(bufferViewID != 0xdeadbeef); // TODO log and nullptr
+
+						const auto& glTFBufferView = glTF.bufferViews[bufferViewID];
+						const auto& bufferID = glTFBufferView.buffer.has_value() ? glTFBufferView.buffer.value() : 0xdeadbeef;
+						assert(bufferID != 0xdeadbeef);
+
+						auto cpuBuffer = cpuBuffers[bufferID];
+						const size_t globalIBPOffset = [&]()
+						{
+							const size_t bufferViewOffset = glTFBufferView.byteOffset.has_value() ? glTFBufferView.byteOffset.value() : 0u;
+							const size_t relativeAccessorOffset = glTFAccessor.byteOffset.has_value() ? glTFAccessor.byteOffset.value() : 0u;
+
+							return bufferViewOffset + relativeAccessorOffset;
+						}();
+
+						inverseBindPoseBufferBinding.buffer = core::smart_refctd_ptr(cpuBuffer);
+						inverseBindPoseBufferBinding.offset = globalIBPOffset;
+
+
+					}
+
+					/*
+						TODO: skinning, pull appropriate mesh and 
+						appropriate mesh buffer via mesh buffer mutable vector
+					*/
+
+					/*
+						cpuMeshBuffer->setSkin(std::move(inverseBindPoseBufferBinding), std::move(jointAABBBufferBinding), std::move(skeleton), maxJointsPerVx);
+					}*/
+				}
 			}
 
 			/*
@@ -1481,11 +1529,8 @@ namespace nbl
 							glTFnode.camera = camera.get_uint64().value();
 
 						if (children.error() != simdjson::error_code::NO_SUCH_FIELD)
-						{
-							glTFnode.children.emplace();
 							for (const auto& child : children)
-								glTFnode.children.value().emplace_back() = child.get_uint64().value();
-						}
+								glTFnode.children.push_back(child.get_uint64().value());
 
 						if (skin.error() != simdjson::error_code::NO_SUCH_FIELD)
 							glTFnode.skin = skin.get_uint64().value();
