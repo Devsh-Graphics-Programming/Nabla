@@ -237,11 +237,12 @@ class IImage : public IDescriptor
 			uint32_t									arrayLayers;
 			E_SAMPLE_COUNT_FLAGS						samples;
 			// stuff below is irrelevant in OpenGL backend
-			E_TILING									tiling = static_cast<E_TILING>(0);
+			E_TILING									tiling = ET_OPTIMAL;
 			core::bitflag<E_USAGE_FLAGS>				usage = static_cast<E_USAGE_FLAGS>(0);
-			E_SHARING_MODE								sharingMode = ESM_EXCLUSIVE;
-			uint32_t									queueFamilyIndexCount;
-			const uint32_t*								queueFamilyIndices;
+			// TODO: @achal sharing mode and queue family lists shouldn't be in ICPUImage's creation params!
+			E_SHARING_MODE								sharingMode = ESM_CONCURRENT;
+			uint32_t									queueFamilyIndexCount = 0u;
+			const uint32_t*								queueFamilyIndices = nullptr;
 			E_IMAGE_LAYOUT								initialLayout = EIL_UNDEFINED;
 			bool operator==(const SCreationParams& rhs) const
 			{
