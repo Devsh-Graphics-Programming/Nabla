@@ -1,7 +1,7 @@
 #ifndef __NBL_VIDEO_UTILITIES_RENDERDOC_H_INCLUDED_
 #define __NBL_VIDEO_UTILITIES_RENDERDOC_H_INCLUDED_
 
-#include "nbl/video/utilities/renderdoc_app.h"
+#include "renderdoc/renderdoc_app.h" // renderdoc_app from /3rdparty
 
 namespace nbl::video 
 {
