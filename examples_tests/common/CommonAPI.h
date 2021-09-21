@@ -492,7 +492,7 @@ public:
 
 		if(ret == ~0u)
 		{
-			assert(false);
+			_NBL_DEBUG_BREAK_IF(true);
 			ret = 0;
 		}
 
