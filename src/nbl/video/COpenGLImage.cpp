@@ -23,7 +23,7 @@ void COpenGLImage::setObjectDebugName(const char* label) const
     IBackendObject::setObjectDebugName(label);
 
     auto* device = static_cast<IOpenGL_LogicalDevice*>(const_cast<ILogicalDevice*>(getOriginDevice()));
-    device->setObjectDebugName(GL_TEXTURE, name, getObjectDebugName().size(), getObjectDebugName().c_str());
+    device->setObjectDebugName(GL_TEXTURE, name, strlen(getObjectDebugName()), getObjectDebugName());
 }
 
 }

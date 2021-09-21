@@ -284,14 +284,6 @@ void SOpenGLContextLocalCache::flushStateGraphics(IOpenGL_FunctionTable* gl, uin
             }
 
             currentState.pipeline.graphics.pipeline = nextState.pipeline.graphics.pipeline;
-
-            if (currentState.pipeline.graphics.pipeline->getObjectDebugName().size())
-            {
-                const GLuint glname = currentState.pipeline.graphics.usedPipeline;
-                const auto& dbgnm = currentState.pipeline.graphics.pipeline->getObjectDebugName();
-
-                gl->extGlObjectLabel(GL_PROGRAM_PIPELINE, glname, dbgnm.size(), dbgnm.c_str());
-            }
         }
     }
     
@@ -614,12 +606,6 @@ void SOpenGLContextLocalCache::flushStateGraphics(IOpenGL_FunctionTable* gl, uin
             }
 
             GLuint vao = currentState.vertexInputParams.vaoval.GLname;
-
-            if (currentState.pipeline.graphics.pipeline->getObjectDebugName().size())
-            {
-                const auto& dbgnm = currentState.pipeline.graphics.pipeline->getObjectDebugName();
-                gl->extGlObjectLabel(GL_VERTEX_ARRAY, vao, dbgnm.size(), dbgnm.c_str());
-            }
 
             gl->glVertex.pglBindVertexArray(vao);
 
