@@ -12,7 +12,8 @@ CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice
 	auto glsl = system->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/property_pool/copy.comp")>();
 	auto cpushader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl), asset::ICPUShader::buffer_contains_glsl);
 	
-	const auto maxSSBO = core::min<uint32_t>(m_device->getPhysicalDevice()->getLimits().maxPerStageSSBOs,MaxPropertyTransfers);
+	const auto& deviceLimits = m_device->getPhysicalDevice()->getLimits();
+	const auto maxSSBO = core::min<uint32_t>(deviceLimits.maxPerStageSSBOs,MaxPropertyTransfers);
 	m_maxPropertiesPerPass = (maxSSBO-1u)/2u;
 	
 	const auto maxStreamingAllocations = 2u*m_maxPropertiesPerPass+1u;
@@ -21,7 +22,7 @@ CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice
 		m_tmpAddresses = reinterpret_cast<uint32_t*>(m_tmpAddressRanges+maxStreamingAllocations);
 		m_tmpSizes = reinterpret_cast<uint32_t*>(m_tmpAddresses+maxStreamingAllocations);
 		m_alignments = reinterpret_cast<uint32_t*>(m_tmpSizes+maxStreamingAllocations);
-		std::fill_n(m_alignments,maxStreamingAllocations,m_device->getPhysicalDevice()->getLimits().SSBOAlignment);
+		std::fill_n(m_alignments,maxStreamingAllocations,core::max(deviceLimits.SSBOAlignment,256u/*TODO: deviceLimits.nonCoherentAtomSize*/));
 	}
 
 	auto shader = m_device->createGPUShader(asset::IGLSLCompiler::createOverridenCopy(cpushader.get(),"#define _NBL_GLSL_WORKGROUP_SIZE_ %d\n#define NBL_BUILTIN_MAX_PROPERTIES_PER_COPY %d\n",IdealWorkGroupSize,m_maxPropertiesPerPass));
@@ -341,7 +342,11 @@ bool CPropertyPoolHandler::download_future_t::wait()
 	{
 		result = m_device->waitForFences(1u,&m_fence.get(),true,9999999999ull);
 	} while (result==IGPUFence::ES_TIMEOUT||result==IGPUFence::ES_NOT_READY);
-	m_downBuff->multi_free(m_allocCount,m_addresses,m_sizes);
+	if (m_downBuff->needsManualFlushOrInvalidate())
+	{
+		// TODO: invalidate ranges
+	}
+	m_downBuff->multi_free(m_allocCount,m_addresses,m_sizes); // TODO: move this out, `wait` shouldn't free the allocations in the buffer we're about to read from XD
 	m_sizes = nullptr;
 	m_fence = nullptr;
 	m_device = nullptr;
