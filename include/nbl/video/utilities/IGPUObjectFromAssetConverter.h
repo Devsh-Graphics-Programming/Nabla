@@ -922,20 +922,24 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
         uint32_t mipDepth = mipsize.z;
         for (uint32_t i = cpuimg->getCreationParameters().mipLevels; i < gpuimg->getCreationParameters().mipLevels; ++i)
         {
+            const uint32_t srcLoD = i - 1u;
+
             barrier.barrier.srcAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
             barrier.barrier.dstAccessMask = asset::EAF_TRANSFER_READ_BIT;
             barrier.oldLayout = asset::EIL_TRANSFER_DST_OPTIMAL;
             barrier.newLayout = asset::EIL_TRANSFER_SRC_OPTIMAL;
-            barrier.subresourceRange.baseMipLevel = i - 1u;
+            barrier.subresourceRange.baseMipLevel = srcLoD;
 
             cmdbuf_transfer->pipelineBarrier(asset::EPSF_TRANSFER_BIT, asset::EPSF_TRANSFER_BIT,
                 static_cast<asset::E_DEPENDENCY_FLAGS>(0u), 0u, nullptr, 0u, nullptr, 1u, &barrier);
 
-            blitRegion.srcSubresource.mipLevel = i - 1;
-            blitRegion.srcOffsets[1] = { static_cast<uint32_t>(mipWidth), static_cast<uint32_t>(mipHeight), static_cast<uint32_t>(mipDepth) };
+            const auto srcMipSz = cpuimg->getMipSize(srcLoD);
+
+            blitRegion.srcSubresource.mipLevel = srcLoD;
+            blitRegion.srcOffsets[1] = { srcMipSz.x, srcMipSz.y, srcMipSz.z };
 
             blitRegion.dstSubresource.mipLevel = i;
-            blitRegion.dstOffsets[1] = { mipWidth > 1 ? mipWidth / 2 : 1u, mipHeight > 1 ? mipHeight / 2 : 1u, mipDepth > 1 ? mipDepth / 2 : 1u };
+            blitRegion.dstOffsets[1] = { mipWidth, mipHeight, mipDepth };
 
             cmdbuf_transfer->blitImage(gpuimg, asset::EIL_TRANSFER_SRC_OPTIMAL, gpuimg,
                 asset::EIL_TRANSFER_DST_OPTIMAL, 1u, &blitRegion, asset::ISampler::ETF_LINEAR);
@@ -948,9 +952,9 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
             cmdbuf_transfer->pipelineBarrier(asset::EPSF_TRANSFER_BIT, asset::EPSF_COMPUTE_SHADER_BIT, static_cast<asset::E_DEPENDENCY_FLAGS>(0u), 0u, nullptr,
                 0u, nullptr, 1u, &barrier);
 
-            if (mipWidth > 1) mipWidth /= 2;
-            if (mipHeight > 1) mipHeight /= 2;
-            if (mipDepth > 1) mipDepth /= 2;
+            if (mipWidth > 1u) mipWidth /= 2u;
+            if (mipHeight > 1u) mipHeight /= 2u;
+            if (mipDepth > 1u) mipDepth /= 2u;
         }
     };
 
@@ -1095,7 +1099,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
                 _params.perQueue[EQU_COMPUTE].fence[0] = compute_fence;
 
 #if 0 //TODO: (!) enable when mips are in fact computed on `cmdbuf_compute` (currently they are done with blits on cmdbuf_transfer)
-            batch_final_fence = compute_fence_ptr;
+            batch_final_fence = compute_fence;
 #endif
         }
 
