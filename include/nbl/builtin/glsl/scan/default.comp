@@ -101,22 +101,6 @@ void nbl_glsl_ext_Scan_setData(in uint idx, in nbl_glsl_ext_Scan_Storage_t val)
 #endif
 */
 
-/*
-void nbl_glsl_scan_markWorkgroupFinished(in uint level, in uint virtualWorkgroupIndex)
-{
-	atomicAdd(scanScratch.data[offset[level]+virtualWorkgroupIndex/_NBL_GLSL_WORKGROUP_SIZE_],1u);
-}
-void nbl_glsl_scan_waitPreviousWorkgroups(in uint level, in uint virtualWorkgroupIndex)
-{
-	if (level==0u)
-		return;
-
-	const uint waitVal = _NBL_GLSL_WORKGROUP_SIZE_;
-	while (scanScratch.data[offset[level-1u]+virtualWorkgroupIndex]!=waitVal);
-		memoryBarrierBuffer();
-}
-*/
-
 
 #include <nbl/builtin/glsl/workgroup/arithmetic.glsl>
 #include <nbl/builtin/glsl/math/typeless_arithmetic.glsl>
