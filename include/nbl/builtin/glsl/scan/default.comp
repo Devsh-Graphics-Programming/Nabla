@@ -155,7 +155,7 @@ void nbl_glsl_scan_scheduler_getWork(in nbl_glsl_scan_Parameters_t params, out u
 		const uint dependentsCount = nbl_glsl_scan_scheduler_getDependantWorkgroupCount(params,lastLevel,lastWorkgroup);
 
 		const uint dependentsFinishedFlagOffset = params.finishedFlagOffset[lastLevel]+localWorkgroupIndex;
-		while (scanScratch.data[dependentsFinishedFlagOffset]!=dependentsCount)
+		//while (scanScratch.data[dependentsFinishedFlagOffset]!=dependentsCount)
 			memoryBarrierBuffer();
 	}
 
@@ -180,7 +180,7 @@ void main()
 	{
 		uint treeLevel,localWorkgroupIndex;
 		nbl_glsl_scan_scheduler_getWork(params,treeLevel,localWorkgroupIndex);
-		if (treeLevel==NBL_BUILTIN_MAX_SCAN_LEVELS)
+		//if (treeLevel==NBL_BUILTIN_MAX_SCAN_LEVELS)
 			return;
 
 		nbl_glsl_scan_scheduler_markComplete(params,treeLevel,localWorkgroupIndex);
