@@ -3,46 +3,22 @@
 #ifdef _NBL_PLATFORM_ANDROID_
 #include "nbl/core/declarations.h"
 #include "nbl/system/CStdoutLoggerAndroid.h"
+#include "nbl/system/IApplicationFramework.h"
 #include <android_native_app_glue.h>
 #include <android/sensor.h>
 #include <android/log.h>
 namespace nbl::system
 {
 
-    class CApplicationFrameworkAndroid : public core::IReferenceCounted
+    class CApplicationAndroid : public IApplicationFramework
     {
     public:
         void onStateSaved(android_app* params)
         {
             return onStateSaved_impl(params);
         }
-        void onWindowInitialized(android_app* params)
-        {
-            return onWindowInitialized_impl(params);
-        }
-        void onWindowTerminated(android_app* params)
-        {
-            return onWindowTerminated_impl(params);
-            auto wnd = ((SContext*)params->userData)->window;
-            auto eventCallback = wnd->getEventCallback();
-            [[maybe_unused]] bool ok = eventCallback->onWindowClosed(wnd.get());
-            //TODO other callbacks;
-        }
-        void onFocusGained(android_app* params)
-        {
-            return onFocusGained_impl(params);
-        }
-        void onFocusLost(android_app* params)
-        {
-            return onFocusLost_impl(params);
-        }
-        virtual void workLoopBody(android_app* params) = 0;
     protected:
         virtual void onStateSaved_impl(android_app* params) {}
-        virtual void onWindowInitialized_impl(android_app* params) {}
-        virtual void onWindowTerminated_impl(android_app* params) {}
-        virtual void onFocusGained_impl(android_app* params) {}
-        virtual void onFocusLost_impl(android_app* params) {}
 
     public:
         struct SSavedState {
@@ -53,13 +29,12 @@ namespace nbl::system
         struct SContext
         {
             SSavedState* state;
-            CApplicationFrameworkAndroid* framework;
+            CApplicationAndroid* framework;
             core::smart_refctd_ptr<nbl::ui::IWindow> window;
-            system::logger_opt_smart_ptr logger = nullptr;
             void* userData;
         };
     public:
-        CApplicationFrameworkAndroid(android_app* params) : eventPoller(params, this)
+        CApplicationAndroid(android_app* params) : eventPoller(params, this)
         {
             params->onAppCmd = handleCommand;
             params->onInputEvent = handleInput;
@@ -79,6 +54,8 @@ namespace nbl::system
         static void handleCommand(android_app* app, int32_t cmd) {
             auto* framework = ((SContext*)app->userData)->framework;
             auto* usrData = (SContext*)app->userData;
+            auto wnd = ((SContext*)app->userData)->window;
+            auto eventCallback = wnd->getEventCallback();
             switch (cmd) {
             case APP_CMD_SAVE_STATE:
                 // The system has asked us to save our current state.  Do so.
@@ -94,39 +71,21 @@ namespace nbl::system
                     engine_init_display(engine);
                     engine_draw_frame(engine);
                 }*/
-                framework->onWindowInitialized(app);
+                framework->onAppInitialized(usrData);
                 break;
             case APP_CMD_TERM_WINDOW:
                 // The window is being hidden or closed, clean it up.
                 //engine_term_display(engine);
-                framework->onWindowTerminated(app);
+                framework->onAppTerminated(usrData);
+                (void)eventCallback->onWindowClosed(wnd.get());
                 break;
-
-            case APP_CMD_GAINED_FOCUS:
-                // When our app gains focus, we start monitoring the accelerometer.
-                //if (engine->accelerometerSensor != nullptr) {
-                //    ASensorEventQueue_enableSensor(engine->sensorEventQueue,
-                //                                   engine->accelerometerSensor);
-                //    // We'd like to get 60 events per second (in us).
-                //    ASensorEventQueue_setEventRate(engine->sensorEventQueue,
-                //                                   engine->accelerometerSensor,
-                //                                   (1000L/60)*1000);
-                //}
-                framework->onFocusGained(app);
+            case APP_CMD_WINDOW_RESIZED:
+            {
+                int width = ANativeWindow_getWidth(app->window);
+                int height = ANativeWindow_getHeight(app->window);
+                (void)eventCallback->onWindowResized(wnd.get(), width, height);
                 break;
-            case APP_CMD_LOST_FOCUS:
-                // When our app loses focus, we stop monitoring the accelerometer.
-                // This is to avoid consuming battery while not being used.
-                //if (engine->accelerometerSensor != nullptr) {
-                //    ASensorEventQueue_disableSensor(engine->sensorEventQueue,
-                //                                    engine->accelerometerSensor);
-                //}
-                //// Also stop animating.
-                //engine->animating = 0;
-                //engine_draw_frame(engine);
-                framework->onFocusLost(app);
-                break;
-
+            }
             default:
                 break;
             }
@@ -139,12 +98,12 @@ namespace nbl::system
             android_poll_source* source;
             android_app* app;
             ALooper* looper;
-            CApplicationFrameworkAndroid* framework;
+            CApplicationAndroid* framework;
             int ident;
             int events;
             bool keepPolling = true;
         public:
-            CEventPoller(android_app* _app, CApplicationFrameworkAndroid* _framework) : app(app), framework(_framework) { }
+            CEventPoller(android_app* _app, CApplicationAndroid* _framework) : app(app), framework(_framework) { }
         protected:
             void init() {
                 looper = ALooper_prepare(0); // prepare the looper to poll in the current thread
@@ -154,13 +113,13 @@ namespace nbl::system
                 ident = ALooper_pollAll(0, nullptr, &events, (void**)&source);
                 if (ident >= 0)
                 {
-                    if (source != nullptr) 
+                    if (source != nullptr)
                     {
                         source->process(app, source);
                     }
-                    if (app->destroyRequested != 0) 
+                    if (app->destroyRequested != 0)
                     {
-                        framework->onWindowTerminated(app);
+                        framework->onAppTerminated(app);
                     }
                 }
                 else keepPolling = false;
@@ -178,7 +137,7 @@ namespace nbl::system
 // ... are the window event callback optional ctor params;
 #define NBL_ANDROID_MAIN(android_app_class, user_data_type, window_event_callback, ...) void android_main(android_app* app){\
     user_data_type engine{};\
-    nbl::system::CApplicationFrameworkAndroid::SContext ctx{};\
+    nbl::system::CApplicationAndroid::SContext ctx{};\
     ctx.userData = &engine;\
     app->userData = &ctx;\
     auto framework = nbl::core::make_smart_refctd_ptr<android_app_class>(app);\
@@ -186,16 +145,13 @@ namespace nbl::system
     nbl::ui::IWindow::SCreationParams params;\
     params.callback = nbl::core::make_smart_refctd_ptr<window_event_callback>(__VA_ARGS__);\
     auto wnd = wndManager->createWindow(std::move(params));\
-    auto logger = core::make_smart_refctd_ptr<CStdoutLoggerAndroid>();\
-    ctx.logger = system::logger_opt_smart_ptr(core::smart_refctd_ptr(logger));\
     ctx.window = core::smart_refctd_ptr(wnd);\
     if (app->savedState != nullptr) {\
-        ctx.state = (nbl::system::CApplicationFrameworkAndroid::SSavedState*)app->savedState;\
+        ctx.state = (nbl::system::CApplicationAndroid::SSavedState*)app->savedState;\
     }\
     while (framework->keepPolling()) {\
-    logger->log("Entered poll loop iteration!");\
     framework->workLoopBody(app);\
     }\
 }
 #endif
-#endif
+#endif 

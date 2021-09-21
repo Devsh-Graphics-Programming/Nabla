@@ -26,7 +26,7 @@
 #include <nabla.h>
 #include <nbl/ui/CWindowAndroid.h>
 #include <nbl/ui/CWindowManagerAndroid.h>
-#include <nbl/system/CApplicationFrameworkAndroid.h>
+#include <nbl/system/CApplicationAndroid.h>
 
 //#include <EGL/egl.h>
 //#include <GLES/gl.h>
@@ -48,6 +48,7 @@ struct nabla {
     const ASensor* accelerometerSensor;
     ASensorEventQueue* sensorEventQueue;
 
+	system::logger_opt_smart_ptr logger = nullptr;
     core::smart_refctd_ptr<ui::IWindow> window;
     core::smart_refctd_ptr<system::ISystem> system;
     core::smart_refctd_ptr<video::IAPIConnection> api;
@@ -65,15 +66,13 @@ struct nabla {
 /**
  * Initialize an EGL context for the current display.
  */
-static int engine_init_display(android_app* app) {
+static int engine_init_display(nabla* engine) {
     //debug_break();
-	nabla* engine = (nabla*)((nbl::system::CApplicationFrameworkAndroid::SContext*)app->userData)->userData;
-	auto logger = ((nbl::system::CApplicationFrameworkAndroid::SContext*)app->userData)->logger;
+	auto logger = engine->logger;
 	logger.log("Test here");
 
     // initialize OpenGL ES and EGL
     engine->system = core::make_smart_refctd_ptr<system::ISystem>(nullptr);
-    engine->window = core::make_smart_refctd_ptr<ui::CWindowAndroid>(app->window);
 
     video::COpenGLDebugCallback cb;
     engine->api = video::COpenGLConnection::create(core::smart_refctd_ptr<system::ISystem>(engine->system), 0, "android-sample", std::move(cb));
@@ -485,40 +484,30 @@ ASensorManager* AcquireASensorManagerInstance(android_app* app) {
   return getInstanceFunc();
 }
 
-class SampleApp : public nbl::system::CApplicationFrameworkAndroid
+
+class SampleApp : public nbl::system::CApplicationAndroid
 {
-    using base_t = nbl::system::CApplicationFrameworkAndroid;
+    using base_t = nbl::system::CApplicationAndroid;
     void onStateSaved_impl(android_app* app) override
     {
 
     }
-    void onWindowInitialized_impl(android_app* app) override
+    void onAppInitialized_impl(void* data) override
     {
-        nabla* engine = (nabla*)((SContext*)app->userData)->userData;
-        if (app->window != nullptr)
-        {
-            engine_init_display(app);
-            engine_draw_frame(engine);
-        }
-    }
-    void onFocusGained_impl(android_app* app) override
-    {
-
-    }
-    void onFocusLost_impl(android_app* app) override
-    {
-
+        nabla* engine = (nabla*)data;
+        engine_init_display(engine);
+        engine_draw_frame(engine);
     }
 public:
     SampleApp(android_app* app) : base_t(app) {}
-    void onWindowTerminated_impl(android_app* app) override
+    void onAppTerminated_impl(void* data) override
     {
-        nabla* engine = (nabla*)((SContext*)app->userData)->userData;
+        nabla* engine = (nabla*)data;
         engine_term_display(engine);
     }
-    void workLoopBody(android_app* params) override
+    void workLoopBody(void* params) override
     {
-
+		engine_draw_frame((nabla*)params);
     }
 };
 
