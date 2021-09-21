@@ -40,6 +40,17 @@ class CThreadSafeGPUQueueAdapter : public IGPUQueue
             return originalQueue->present(info);
         }
 
+        virtual bool startCapture() override 
+        { 
+            std::lock_guard g(m);
+            return originalQueue->startCapture();
+        }
+        virtual bool endCapture() override 
+        { 
+            std::lock_guard g(m);
+            return originalQueue->endCapture(); 
+        }
+
         IGPUQueue* getUnderlyingQueue() const
         {
             return originalQueue;

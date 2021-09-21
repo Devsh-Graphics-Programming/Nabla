@@ -236,6 +236,8 @@ public:
 		, glDebugMessageControlARB
 		, glDebugMessageCallback
 		, glDebugMessageCallbackARB
+		, glObjectLabel
+		, glGetObjectLabel
 	);
 
 	GL4frameBuffer gl4Framebuffer;
@@ -1807,6 +1809,16 @@ public:
 	void extGlPolygonMode(GLenum face, GLenum mode) override
 	{
 		gl4Shader.pglPolygonMode(face, mode);
+	}
+
+	void extGlObjectLabel(GLenum identifier, GLuint name, GLsizei length, const char* label) override
+	{
+		gl4Debug.pglObjectLabel(identifier, name, length, label);
+	}
+
+	void extGlGetObjectLabel(GLenum identifier, GLuint name, GLsizei bufsize, GLsizei* length, GLchar* label) override
+	{
+		gl4Debug.pglGetObjectLabel(identifier, name, bufsize, length, label);
 	}
 };
 

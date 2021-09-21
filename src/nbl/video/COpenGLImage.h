@@ -28,7 +28,7 @@ class COpenGLImage final : public IGPUImage, public IDriverMemoryAllocation
 	public:
 		//! constructor
 		COpenGLImage(core::smart_refctd_ptr<const ILogicalDevice>&& dev, IOpenGL_FunctionTable* gl, IGPUImage::SCreationParams&& _params) : IGPUImage(std::move(dev), std::move(_params)),
-			internalFormat(GL_INVALID_ENUM), target(GL_INVALID_ENUM), name(0u)
+			IDriverMemoryAllocation(getOriginDevice()), internalFormat(GL_INVALID_ENUM), target(GL_INVALID_ENUM), name(0u)
 		{
 			#ifdef OPENGL_LEAK_DEBUG
 				COpenGLExtensionHandler::textureLeaker.registerObj(this);
@@ -62,6 +62,8 @@ class COpenGLImage final : public IGPUImage, public IDriverMemoryAllocation
 					break;
 			}
 		}
+
+		void setObjectDebugName(const char* label) const override;
 
 		//!
 		inline GLenum getOpenGLSizedFormat() const { return internalFormat; }

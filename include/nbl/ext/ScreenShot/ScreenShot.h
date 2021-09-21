@@ -18,7 +18,7 @@ namespace nbl::ext::ScreenShot
 
 inline core::smart_refctd_ptr<asset::ICPUImageView> createScreenShot(video::ILogicalDevice* logicalDevice, video::IGPUQueue* queue, video::IGPUSemaphore* semaphore, const video::IGPUImageView* gpuImageView)
 {
-	assert(logicalDevice->getPhysicalDevice()->getQueueFamilyProperties().begin()[queue->getFamilyIndex()].queueFlags&video::IPhysicalDevice::EQF_TRANSFER_BIT);
+	assert(logicalDevice->getPhysicalDevice()->getQueueFamilyProperties().begin()[queue->getFamilyIndex()].queueFlags.value&video::IPhysicalDevice::EQF_TRANSFER_BIT);
 
 	auto fetchedImageViewParmas = gpuImageView->getCreationParameters();
 	auto gpuImage = fetchedImageViewParmas.image;
@@ -32,7 +32,7 @@ inline core::smart_refctd_ptr<asset::ICPUImageView> createScreenShot(video::ILog
 	core::smart_refctd_ptr<video::IGPUCommandBuffer> gpuCommandBuffer;
 	{
 		// commandbuffer should refcount the pool, so it should be 100% legal to drop at the end of the scope
-		auto gpuCommandPool = logicalDevice->createCommandPool(queue->getFamilyIndex(),0u);
+		auto gpuCommandPool = logicalDevice->createCommandPool(queue->getFamilyIndex(),static_cast<video::IGPUCommandPool::E_CREATE_FLAGS>(0u));
 		logicalDevice->createCommandBuffers(gpuCommandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY, 1u, &gpuCommandBuffer);
 		assert(gpuCommandBuffer);
 	}
@@ -41,9 +41,11 @@ inline core::smart_refctd_ptr<asset::ICPUImageView> createScreenShot(video::ILog
 		auto extent = gpuImage->getMipSize();
 		video::IGPUImage::SBufferCopy pRegions[1u] = { {0u,extent.x,extent.y,{static_cast<asset::IImage::E_ASPECT_FLAGS>(0u),0,0u,1u},{0u,0u,0u},{extent.x,extent.y,extent.z}} };
 
+		video::IGPUBuffer::SCreationParams unused = {};
+
 		auto deviceLocalGPUMemoryReqs = logicalDevice->getDownStreamingMemoryReqs();
 		deviceLocalGPUMemoryReqs.vulkanReqs.size = extent.x*extent.y*extent.z*asset::getTexelOrBlockBytesize(fetchedGpuImageParams.format);
-		gpuTexelBuffer = logicalDevice->createGPUBufferOnDedMem(deviceLocalGPUMemoryReqs, true);
+		gpuTexelBuffer = logicalDevice->createGPUBufferOnDedMem(unused, deviceLocalGPUMemoryReqs, true);
 
 		// TODO: after Vulkan comes, pay attention to the image layout
 		gpuCommandBuffer->copyImageToBuffer(gpuImage.get(),asset::EIL_GENERAL,gpuTexelBuffer.get(),1,pRegions);

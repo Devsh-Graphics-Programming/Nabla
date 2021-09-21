@@ -500,7 +500,7 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
 
                 ctxlocal->flushStateGraphics(gl, SOpenGLContextLocalCache::GSB_ALL, ctxid);
 
-                const asset::E_PRIMITIVE_TOPOLOGY primType = ctxlocal->currentState.pipeline.graphics.pipeline->getPrimitiveAssemblyParams().primitiveType;
+                const asset::E_PRIMITIVE_TOPOLOGY primType = ctxlocal->currentState.pipeline.graphics.pipeline->getRenderpassIndependentPipeline()->getPrimitiveAssemblyParams().primitiveType;
                 GLenum glpt = getGLprimitiveType(primType);
 
                 gl->extGlDrawArraysInstancedBaseInstance(glpt, c.firstVertex, c.vertexCount, c.instanceCount, c.firstInstance);
@@ -512,7 +512,7 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
 
                 ctxlocal->flushStateGraphics(gl, SOpenGLContextLocalCache::GSB_ALL, ctxid);
 
-                const asset::E_PRIMITIVE_TOPOLOGY primType = ctxlocal->currentState.pipeline.graphics.pipeline->getPrimitiveAssemblyParams().primitiveType;
+                const asset::E_PRIMITIVE_TOPOLOGY primType = ctxlocal->currentState.pipeline.graphics.pipeline->getRenderpassIndependentPipeline()->getPrimitiveAssemblyParams().primitiveType;
                 GLenum glpt = getGLprimitiveType(primType);
                 GLenum idxType = GL_INVALID_ENUM;
                 switch (ctxlocal->currentState.vertexInputParams.vaoval.idxType)
@@ -547,7 +547,7 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
 
                 ctxlocal->flushStateGraphics(gl, SOpenGLContextLocalCache::GSB_ALL, ctxid);
                 
-                const asset::E_PRIMITIVE_TOPOLOGY primType = ctxlocal->currentState.pipeline.graphics.pipeline->getPrimitiveAssemblyParams().primitiveType;
+                const asset::E_PRIMITIVE_TOPOLOGY primType = ctxlocal->currentState.pipeline.graphics.pipeline->getRenderpassIndependentPipeline()->getPrimitiveAssemblyParams().primitiveType;
                 GLenum glpt = getGLprimitiveType(primType);
 
                 GLuint64 offset = c.offset;
@@ -582,7 +582,7 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
                         break;
                 }
 
-                const asset::E_PRIMITIVE_TOPOLOGY primType = ctxlocal->currentState.pipeline.graphics.pipeline->getPrimitiveAssemblyParams().primitiveType;
+                const asset::E_PRIMITIVE_TOPOLOGY primType = ctxlocal->currentState.pipeline.graphics.pipeline->getRenderpassIndependentPipeline()->getPrimitiveAssemblyParams().primitiveType;
                 GLenum glpt = getGLprimitiveType(primType);
 
                 GLuint64 offset = c.offset;
@@ -881,8 +881,9 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
             {
                 auto& c = cmd.get<impl::ECT_BIND_GRAPHICS_PIPELINE>();
 
+                ctxlocal->updateNextState_pipelineAndRaster(c.pipeline.get(), ctxid);
+
                 auto* rpindependent = c.pipeline->getRenderpassIndependentPipeline();
-                ctxlocal->updateNextState_pipelineAndRaster(rpindependent, ctxid);
                 auto* glppln = static_cast<const COpenGLRenderpassIndependentPipeline*>(rpindependent);
                 ctxlocal->nextState.vertexInputParams.vaokey = glppln->getVAOHash();
             }
@@ -959,16 +960,16 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
             {
                 auto& c = cmd.get<impl::ECT_PUSH_CONSTANTS>();
 
-                if (pushConstants_validate(c.layout.get(), c.stageFlags, c.offset, c.size, c.values))
+                if (pushConstants_validate(c.layout.get(), c.stageFlags.value, c.offset, c.size, c.values))
                 {
                     asset::SPushConstantRange updtRng;
                     updtRng.offset = c.offset;
                     updtRng.size = c.size;
 
-                    if (c.stageFlags & asset::ISpecializedShader::ESS_ALL_GRAPHICS)
-                        ctxlocal->pushConstants<asset::EPBP_GRAPHICS>(static_cast<const COpenGLPipelineLayout*>(c.layout.get()), c.stageFlags, c.offset, c.size, c.values);
-                    if (c.stageFlags & asset::ISpecializedShader::ESS_COMPUTE)
-                        ctxlocal->pushConstants<asset::EPBP_COMPUTE>(static_cast<const COpenGLPipelineLayout*>(c.layout.get()), c.stageFlags, c.offset, c.size, c.values);
+                    if (c.stageFlags.value & asset::ISpecializedShader::ESS_ALL_GRAPHICS)
+                        ctxlocal->pushConstants<asset::EPBP_GRAPHICS>(static_cast<const COpenGLPipelineLayout*>(c.layout.get()), c.stageFlags.value, c.offset, c.size, c.values);
+                    if (c.stageFlags.value & asset::ISpecializedShader::ESS_COMPUTE)
+                        ctxlocal->pushConstants<asset::EPBP_COMPUTE>(static_cast<const COpenGLPipelineLayout*>(c.layout.get()), c.stageFlags.value, c.offset, c.size, c.values);
                 }
             }
             break;

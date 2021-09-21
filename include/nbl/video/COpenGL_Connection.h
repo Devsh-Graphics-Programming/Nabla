@@ -23,8 +23,7 @@ class COpenGL_Connection final : public IAPIConnection
         IDebugCallback* getDebugCallback() const override;
 
     private:
-        COpenGL_Connection(std::vector<std::unique_ptr<IPhysicalDevice>>&& physicalDevices)
-            : IAPIConnection(std::move(physicalDevices))
+        COpenGL_Connection() : IAPIConnection()
         {}
 };
 

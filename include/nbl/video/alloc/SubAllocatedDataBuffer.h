@@ -16,9 +16,10 @@
 namespace nbl::video
 {
 
-// this buffer is not growabl
+namespace impl
+{
 template<class HeterogenousMemoryAddressAllocator, class CustomDeferredFreeFunctor=void>
-class SubAllocatedDataBuffer : public core::IReferenceCounted, protected core::impl::FriendOfHeterogenousMemoryAddressAllocatorAdaptor
+class SubAllocatedDataBuffer : protected core::impl::FriendOfHeterogenousMemoryAddressAllocatorAdaptor
 {
     public:
         typedef typename HeterogenousMemoryAddressAllocator::OtherAllocatorType GPUBufferAllocator;
@@ -76,12 +77,12 @@ class SubAllocatedDataBuffer : public core::IReferenceCounted, protected core::i
                     out += numAllocs;
                     memcpy(out,bytes,sizeof(size_type)*numAllocs);
                     out += numAllocs;
-                    auto* const objHoldIt = reinterpret_cast<core::smart_refctd_ptr<const IReferenceCounted>*>(out);
+                    auto* const objHoldIt = reinterpret_cast<core::smart_refctd_ptr<const core::IReferenceCounted>*>(out);
                     for (size_t i=0u; i<numAllocs; i++)
                     {
                         reinterpret_cast<const void**>(out)[i] = nullptr; // clear it first
                         if (objectsToHold)
-                            objHoldIt[i] = core::smart_refctd_ptr<const IReferenceCounted>(objectsToHold[i]);
+                            objHoldIt[i] = core::smart_refctd_ptr<const core::IReferenceCounted>(objectsToHold[i]);
                     }
                 }
                 DefaultDeferredFreeFunctor(const DefaultDeferredFreeFunctor& other) = delete;
@@ -140,7 +141,7 @@ class SubAllocatedDataBuffer : public core::IReferenceCounted, protected core::i
                     #endif // _NBL_DEBUG
                     HeterogenousMemoryAddressAllocator& alloctr = sadbRef->getAllocator();
                     alloctr.multi_free_addr(numAllocs,rangeData,rangeData+numAllocs);
-                    auto* const objHoldIt = reinterpret_cast<core::smart_refctd_ptr<const IReferenceCounted>*>(rangeData+numAllocs*2u);
+                    auto* const objHoldIt = reinterpret_cast<core::smart_refctd_ptr<const core::IReferenceCounted>*>(rangeData+numAllocs*2u);
                     for (size_t i=0u; i<numAllocs; i++)
                         objHoldIt[i] = nullptr;
                 }
@@ -148,12 +149,12 @@ class SubAllocatedDataBuffer : public core::IReferenceCounted, protected core::i
         constexpr static bool UsingDefaultFunctor = std::is_same<CustomDeferredFreeFunctor,void>::value;
         using DeferredFreeFunctor = typename std::conditional<UsingDefaultFunctor,DefaultDeferredFreeFunctor,CustomDeferredFreeFunctor>::type;
         GPUDeferredEventHandlerST<DeferredFreeFunctor> deferredFrees;
-        core::allocator<std::tuple<size_type,size_type,void*> > functorAllocator; // TODO : CMemoryPool<RobustGeneralpurposeAllocator> a-la naughty dog
-
+        core::allocator<std::tuple<size_type,size_type,void*> > functorAllocator; // TODO : CMemoryPool<RobustGeneralpurposeAllocator> a-la naughty do
     public:
-        #define DUMMY_DEFAULT_CONSTRUCTOR SubAllocatedDataBuffer() {}
-        GCC_CONSTRUCTOR_INHERITANCE_BUG_WORKAROUND(DUMMY_DEFAULT_CONSTRUCTOR)
-        #undef DUMMY_DEFAULT_CONSTRUCTOR
+        SubAllocatedDataBuffer() {}
+
+        virtual ~SubAllocatedDataBuffer() {}
+
         //!
         template<typename... Args>
         SubAllocatedDataBuffer(ILogicalDevice* dev, Args&&... args) : mAllocator(std::forward<Args>(args)...), mDevice(dev)
@@ -277,10 +278,20 @@ class SubAllocatedDataBuffer : public core::IReferenceCounted, protected core::i
                 multi_free(count,addr,bytes);
         }
 };
+}
 
-
+// this buffer is not growable
 template< typename _size_type=uint32_t, class BasicAddressAllocator=core::GeneralpurposeAddressAllocator<_size_type>, class GPUBufferAllocator=SimpleGPUBufferAllocator, class CPUAllocator=core::allocator<uint8_t> >
-using SubAllocatedDataBufferST = SubAllocatedDataBuffer<core::HeterogenousMemoryAddressAllocatorAdaptor<BasicAddressAllocator,GPUBufferAllocator,CPUAllocator> >;
+class SubAllocatedDataBufferST : public core::IReferenceCounted, public impl::SubAllocatedDataBuffer<core::HeterogenousMemoryAddressAllocatorAdaptor<BasicAddressAllocator, GPUBufferAllocator, CPUAllocator> >
+{
+        using Base = impl::SubAllocatedDataBuffer<core::HeterogenousMemoryAddressAllocatorAdaptor<BasicAddressAllocator,GPUBufferAllocator,CPUAllocator> >;
+    protected:
+        ~SubAllocatedDataBufferST() = default;
+    public:
+        template<typename... Args>
+        SubAllocatedDataBufferST(Args&&... args) : Base(std::forward<Args>(args)...) {}
+};
+
 
 //MT version?
 

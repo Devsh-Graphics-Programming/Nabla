@@ -84,7 +84,7 @@ int main()
 		cpu2gpuParams.finalQueueFamIx = queues[decltype(initOutput)::EQT_GRAPHICS]->getFamilyIndex();
 		cpu2gpuParams.limits = gpuPhysicalDevice->getLimits();
 		cpu2gpuParams.pipelineCache = nullptr;
-		cpu2gpuParams.sharingMode = nbl::asset::ESM_EXCLUSIVE;
+		cpu2gpuParams.sharingMode = nbl::asset::ESM_CONCURRENT;
 		cpu2gpuParams.utilities = utilities.get();
 
 		cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].fence = &gpuTransferFence;
@@ -192,7 +192,15 @@ int main()
 
 		auto ubomemreq = logicalDevice->getDeviceLocalGPUMemoryReqs();
 		ubomemreq.vulkanReqs.size = uboDS1ByteSize;
-		auto gpuubo = logicalDevice->createGPUBufferOnDedMem(ubomemreq, true);
+
+		video::IGPUBuffer::SCreationParams creationParams;
+		creationParams.size = uboDS1ByteSize;
+		creationParams.usage = asset::IBuffer::E_USAGE_FLAGS::EUF_UNIFORM_BUFFER_BIT;
+		creationParams.sharingMode = asset::E_SHARING_MODE::ESM_EXCLUSIVE;
+		creationParams.queueFamilyIndices = 0u;
+		creationParams.queueFamilyIndices = nullptr;
+
+		auto gpuubo = logicalDevice->createGPUBufferOnDedMem(creationParams, ubomemreq, true);
 		auto gpuds1 = logicalDevice->createGPUDescriptorSet(gpuUBODescriptorPool.get(), std::move(gpuds1layout));
 		{
 			video::IGPUDescriptorSet::SWriteDescriptorSet write;

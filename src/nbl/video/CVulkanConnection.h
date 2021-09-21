@@ -95,17 +95,18 @@ public:
             vkEnumeratePhysicalDevices(vk_instance, &physicalDeviceCount, vk_physicalDevices);
         }
 
-        std::vector<std::unique_ptr<IPhysicalDevice>> physicalDevices;
+        auto api = core::make_smart_refctd_ptr<CVulkanConnection>(vk_instance,vk_debugMessenger);
+        auto& physicalDevices = api->m_physicalDevices;
         physicalDevices.reserve(physicalDeviceCount);
         for (uint32_t i = 0u; i < physicalDeviceCount; ++i)
         {
             physicalDevices.emplace_back(std::make_unique<CVulkanPhysicalDevice>(
-                vk_physicalDevices[i], core::smart_refctd_ptr(sys),
-                core::make_smart_refctd_ptr<asset::IGLSLCompiler>(sys.get())));
+                core::smart_refctd_ptr(sys),
+                core::make_smart_refctd_ptr<asset::IGLSLCompiler>(sys.get()),
+                api.get(), vk_physicalDevices[i]
+            ));
         }
-
-        return core::make_smart_refctd_ptr<CVulkanConnection>(vk_instance,
-            std::move(physicalDevices), vk_debugMessenger);
+        return api;
     }
 
     VkInstance getInternalObject() const { return m_vkInstance; }
@@ -118,11 +119,8 @@ public:
 // Todo(achal): Remove
 // private:
 
-    CVulkanConnection(VkInstance instance,
-        std::vector<std::unique_ptr<IPhysicalDevice>>&& physicalDevices,
-        VkDebugUtilsMessengerEXT debugUtilsMessenger = VK_NULL_HANDLE)
-        : IAPIConnection(std::move(physicalDevices)), m_vkInstance(instance),
-        m_vkDebugUtilsMessengerEXT(debugUtilsMessenger)
+    CVulkanConnection(VkInstance instance, VkDebugUtilsMessengerEXT debugUtilsMessenger = VK_NULL_HANDLE)
+        : IAPIConnection(), m_vkInstance(instance), m_vkDebugUtilsMessengerEXT(debugUtilsMessenger)
     {}
 
     ~CVulkanConnection()

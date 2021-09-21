@@ -349,7 +349,7 @@ namespace impl
         constexpr static inline uint32_t MAX_PUSH_CONSTANT_BYTESIZE = 128u;
 
         core::smart_refctd_ptr<const IGPUPipelineLayout> layout;
-        std::underlying_type_t<asset::ISpecializedShader::E_SHADER_STAGE> stageFlags;
+        core::bitflag<asset::ISpecializedShader::E_SHADER_STAGE> stageFlags;
         uint32_t offset;
         uint32_t size;
         uint8_t values[MAX_PUSH_CONSTANT_BYTESIZE];
@@ -465,6 +465,7 @@ protected:
         for (uint32_t i = 0u; i < imageMemoryBarrierCount; ++i)
             imgaccess |= helper.accessFlagsToMemoryBarrierBits(pImageMemoryBarriers[i].barrier);
         GLbitfield membarrier = 0u;
+
         for (uint32_t i = 0u; i < memoryBarrierCount; ++i)
             membarrier |= helper.accessFlagsToMemoryBarrierBits(pMemoryBarriers[i]);
 
@@ -965,14 +966,14 @@ public:
         return true;
     }
 
-    bool pipelineBarrier(std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> srcStageMask, std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> dstStageMask,
-        std::underlying_type_t<asset::E_DEPENDENCY_FLAGS> dependencyFlags,
+    bool pipelineBarrier(core::bitflag<asset::E_PIPELINE_STAGE_FLAGS> srcStageMask, core::bitflag<asset::E_PIPELINE_STAGE_FLAGS> dstStageMask,
+        core::bitflag<asset::E_DEPENDENCY_FLAGS> dependencyFlags,
         uint32_t memoryBarrierCount, const asset::SMemoryBarrier* pMemoryBarriers,
         uint32_t bufferMemoryBarrierCount, const SBufferMemoryBarrier* pBufferMemoryBarriers,
         uint32_t imageMemoryBarrierCount, const SImageMemoryBarrier* pImageMemoryBarriers) override
     {
         const SOpenGLBarrierHelper helper(m_features);
-        const GLbitfield barrier = helper.pipelineStageFlagsToMemoryBarrierBits(static_cast<asset::E_PIPELINE_STAGE_FLAGS>(srcStageMask), static_cast<asset::E_PIPELINE_STAGE_FLAGS>(dstStageMask));
+        const GLbitfield barrier = helper.pipelineStageFlagsToMemoryBarrierBits(srcStageMask.value, dstStageMask.value);
 
         SCmd<impl::ECT_PIPELINE_BARRIER> cmd;
         cmd.barrier = barrier & barriersToMemBarrierBits(helper,memoryBarrierCount, pMemoryBarriers, bufferMemoryBarrierCount, pBufferMemoryBarriers, imageMemoryBarrierCount, pImageMemoryBarriers);
@@ -1056,11 +1057,11 @@ public:
         pushCommand(std::move(cmd));
         return true;
     }
-    bool pushConstants(const pipeline_layout_t* layout, std::underlying_type_t<asset::ISpecializedShader::E_SHADER_STAGE> stageFlags, uint32_t offset, uint32_t size, const void* pValues) override
+    bool pushConstants(const pipeline_layout_t* layout, core::bitflag<asset::ISpecializedShader::E_SHADER_STAGE> stageFlags, uint32_t offset, uint32_t size, const void* pValues) override
     {
         SCmd<impl::ECT_PUSH_CONSTANTS> cmd;
         cmd.layout = core::smart_refctd_ptr<const pipeline_layout_t>(layout);
-        cmd.stageFlags = stageFlags;
+        cmd.stageFlags = stageFlags.value;
         cmd.offset = offset;
         cmd.size = size;
         memcpy(cmd.values, pValues, size);
