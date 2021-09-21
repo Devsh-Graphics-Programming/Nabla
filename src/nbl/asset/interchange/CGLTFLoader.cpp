@@ -41,12 +41,11 @@ namespace nbl
 		namespace SAttributes
 		{
 			_NBL_STATIC_INLINE_CONSTEXPR uint8_t POSITION_ATTRIBUTE_LAYOUT_ID = 0;
-			_NBL_STATIC_INLINE_CONSTEXPR uint8_t NORMAL_ATTRIBUTE_LAYOUT_ID = 1;
-			//_NBL_STATIC_INLINE_CONSTEXPR uint8_t TANGENT_ATTRIBUTE_LAYOUT_ID = 2; // TODO - missing tangent!
-			_NBL_STATIC_INLINE_CONSTEXPR uint8_t UV_ATTRIBUTE_BEGINING_LAYOUT_ID = 2;			//!< those attributes are indexed
-			_NBL_STATIC_INLINE_CONSTEXPR uint8_t COLOR_ATTRIBUTE_BEGINING_LAYOUT_ID = 5;		//!< those attributes are indexed
-			_NBL_STATIC_INLINE_CONSTEXPR uint8_t JOINTS_ATTRIBUTE_BEGINING_LAYOUT_ID = 8;		//!< those attributes are indexed
-			_NBL_STATIC_INLINE_CONSTEXPR uint8_t WEIGHTS_ATTRIBUTE_BEGINING_LAYOUT_ID = 12;		//!< those attributes are indexed
+			_NBL_STATIC_INLINE_CONSTEXPR uint8_t UV_ATTRIBUTE_LAYOUT_ID = 1;
+			_NBL_STATIC_INLINE_CONSTEXPR uint8_t COLOR_ATTRIBUTE_LAYOUT_ID = 2;	
+			_NBL_STATIC_INLINE_CONSTEXPR uint8_t NORMAL_ATTRIBUTE_LAYOUT_ID = 3;
+			_NBL_STATIC_INLINE_CONSTEXPR uint8_t JOINTS_ATTRIBUTE_LAYOUT_ID = 4;	
+			_NBL_STATIC_INLINE_CONSTEXPR uint8_t WEIGHTS_ATTRIBUTE_LAYOUT_ID = 5;
 		}
 
 		/*
@@ -606,55 +605,40 @@ namespace nbl
 							handleAccessor(glTFNormalAccessor, SAttributes::NORMAL_ATTRIBUTE_LAYOUT_ID);
 						}
 
-						// TODO - reorganize shaders and apply tangent as well
-
-						/*if (glTFprimitive.attributes.tangent.has_value())
+						if (glTFprimitive.attributes.texcoord.has_value())
 						{
-							const size_t accessorID = glTFprimitive.attributes.tangent.value();
+							const size_t accessorID = glTFprimitive.attributes.texcoord.value();
 
-							auto& glTFTangentAccessor = glTF.accessors[accessorID];
-							handleAccessor(glTFTangentAccessor, SAttributes::TANGENT);
-						}*/
+							hasUV = true;
+							auto& glTFTexcoordXAccessor = glTF.accessors[accessorID];
+							handleAccessor(glTFTexcoordXAccessor, SAttributes::UV_ATTRIBUTE_LAYOUT_ID);
+						}
 
-						for (uint32_t i = 0; i < SGLTFPrimitive::Attributes::MAX_UV_ATTRIBUTES; ++i)
-							if (glTFprimitive.attributes.texcoord[i].has_value())
-							{
-								const size_t accessorID = glTFprimitive.attributes.texcoord[i].value();
+						if (glTFprimitive.attributes.color.has_value())
+						{
+							const size_t accessorID = glTFprimitive.attributes.color.value();
 
-								hasUV = true;
-								auto& glTFTexcoordXAccessor = glTF.accessors[accessorID];
-								handleAccessor(glTFTexcoordXAccessor, SAttributes::UV_ATTRIBUTE_BEGINING_LAYOUT_ID + i);
-							}
-
-						for (uint32_t i = 0; i < SGLTFPrimitive::Attributes::MAX_COLOR_ATTRIBUTES; ++i)
-							if (glTFprimitive.attributes.color[i].has_value())
-							{
-								const size_t accessorID = glTFprimitive.attributes.color[i].value();
-
-								hasColor = true;
-								auto& glTFColorXAccessor = glTF.accessors[accessorID];
-								handleAccessor(glTFColorXAccessor, SAttributes::COLOR_ATTRIBUTE_BEGINING_LAYOUT_ID + i);
-							}
+							hasColor = true;
+							auto& glTFColorXAccessor = glTF.accessors[accessorID];
+							handleAccessor(glTFColorXAccessor, SAttributes::COLOR_ATTRIBUTE_LAYOUT_ID);
+						}
 				
-						uint32_t jointsPerVxAmount = {};
-						for (uint32_t i = 0; i < SGLTFPrimitive::Attributes::MAX_JOINT_ATTRIBUTES; ++i)
-							if (glTFprimitive.attributes.joint[i].has_value())
-							{
-								const size_t accessorID = glTFprimitive.attributes.joint[i].value();
+						uint32_t jointsPerVxAmount = {}; // TODO: count the amount of vertex joints used in a shader (1 up to max 4, packed in uvec4)
+						if (glTFprimitive.attributes.joints.has_value())
+						{
+							const size_t accessorID = glTFprimitive.attributes.joints.value();
 
-								auto& glTFJointsXAccessor = glTF.accessors[accessorID];
-								handleAccessor(glTFJointsXAccessor, SAttributes::JOINTS_ATTRIBUTE_BEGINING_LAYOUT_ID + i);
-								++jointsPerVxAmount;
-							}
+							auto& glTFJointsXAccessor = glTF.accessors[accessorID];
+							handleAccessor(glTFJointsXAccessor, SAttributes::JOINTS_ATTRIBUTE_LAYOUT_ID); // TODO: ALWAYS UVEC4, PACK TO IT IF NECESSARY
+						}
 
-						for (uint32_t i = 0; i < SGLTFPrimitive::Attributes::MAX_WEIGHT_ATTRIBUTES; ++i)
-							if (glTFprimitive.attributes.weight[i].has_value())
-							{
-								const size_t accessorID = glTFprimitive.attributes.weight[i].value();
+						if (glTFprimitive.attributes.weights.has_value())
+						{
+							const size_t accessorID = glTFprimitive.attributes.weights.value();
 
-								auto& glTFWeightsXAccessor = glTF.accessors[accessorID];
-								handleAccessor(glTFWeightsXAccessor, SAttributes::WEIGHTS_ATTRIBUTE_BEGINING_LAYOUT_ID + i);
-							}
+							auto& glTFWeightsXAccessor = glTF.accessors[accessorID];
+							handleAccessor(glTFWeightsXAccessor, SAttributes::WEIGHTS_ATTRIBUTE_LAYOUT_ID); // TODO: ALWAYS UVEC4, PACK TO IT IF NECESSARY
+						}
 
 						auto getShaders = [&](bool hasUV, bool hasColor) -> std::pair<core::smart_refctd_ptr<ICPUSpecializedShader>, core::smart_refctd_ptr<ICPUSpecializedShader>>
 						{
@@ -1438,23 +1422,23 @@ namespace nbl
 									glTFPrimitive.attributes.tangent = requestedAccessor;
 								else if (attributeMap.first == "TEXCOORD")
 								{
-									assert(attributeMap.second < glTFPrimitive.attributes.texcoord.size()); // TODO: log and validation without assert
-									glTFPrimitive.attributes.texcoord[attributeMap.second] = requestedAccessor;
+									assert(attributeMap.second < 1u); // TODO: log and validation without assert
+									glTFPrimitive.attributes.texcoord = requestedAccessor;
 								}
 								else if (attributeMap.first == "COLOR")
 								{
-									assert(attributeMap.second < glTFPrimitive.attributes.color.size()); // TODO: log and validation without assert
-									glTFPrimitive.attributes.color[attributeMap.second] = requestedAccessor;
+									assert(attributeMap.second < 1u); // TODO: log and validation without assert
+									glTFPrimitive.attributes.color = requestedAccessor;
 								}
 								else if (attributeMap.first == "JOINTS")
 								{
-									assert(attributeMap.second < glTFPrimitive.attributes.joint.size()); // TODO: log and validation without assert
-									glTFPrimitive.attributes.joint[attributeMap.second] = requestedAccessor;
+									assert(attributeMap.second < 1u); // TODO: log and validation without assert
+									glTFPrimitive.attributes.joints = requestedAccessor;
 								}
 								else if (attributeMap.first == "WEIGHTS")
 								{
-									assert(attributeMap.second < glTFPrimitive.attributes.weight.size()); // TODO: log and validation without assert
-									glTFPrimitive.attributes.weight[attributeMap.second] = requestedAccessor;
+									assert(attributeMap.second < 1u); // TODO: log and validation without assert
+									glTFPrimitive.attributes.weights = requestedAccessor;
 								}
 							}
 						}

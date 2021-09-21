@@ -88,19 +88,13 @@ namespace nbl
 
 							struct Attributes
 							{
-								_NBL_STATIC_INLINE_CONSTEXPR uint8_t MAX_UV_ATTRIBUTES = 3u;
-								_NBL_STATIC_INLINE_CONSTEXPR uint8_t MAX_COLOR_ATTRIBUTES = 3u;
-								_NBL_STATIC_INLINE_CONSTEXPR uint8_t MAX_JOINT_ATTRIBUTES = 4u;
-								_NBL_STATIC_INLINE_CONSTEXPR uint8_t MAX_WEIGHT_ATTRIBUTES = 4u;
-
 								std::optional<size_t> position;									//!< The index of the accessor that contains the position.
 								std::optional<size_t> normal;									//!< The index of the accessor that contains the normal.
 								std::optional<size_t> tangent;									//!< The index of the accessor that contains the tangent.
-
-								std::array<std::optional<size_t>, MAX_UV_ATTRIBUTES> texcoord;		//!< The indices of the accessors containing the UVs.
-								std::array<std::optional<size_t>, MAX_COLOR_ATTRIBUTES> color;		//!< The indices of the accessors containing the colors.
-								std::array<std::optional<size_t>, MAX_JOINT_ATTRIBUTES> joint;		//!< The indices of the accessors containing the joints.
-								std::array<std::optional<size_t>, MAX_WEIGHT_ATTRIBUTES> weight;	//!< The indices of the accessors containing the weights.
+								std::optional<size_t> texcoord;									//!< The index of the accessor that contains the UV.
+								std::optional<size_t> color;									//!< The index of the accessor that contains the color.
+								std::optional<size_t> joints;									//!< The index of the accessor that contains the joints
+								std::optional<size_t> weights;									//!< The index of the accessor that contains the weights.
 							};
 
 							Attributes attributes;
