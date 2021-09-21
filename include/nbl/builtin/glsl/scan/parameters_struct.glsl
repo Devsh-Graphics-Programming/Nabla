@@ -11,9 +11,9 @@ struct nbl_glsl_scan_Parameters_t
 {
 	uint elementCount;
 	uint cumulativeWorkgroupCount[NBL_BUILTIN_MAX_SCAN_LEVELS];
-	uint finishedFlagOffset[NBL_BUILTIN_MAX_SCAN_LEVELS];
-	uint lastWorkgroupItems[NBL_BUILTIN_MAX_SCAN_LEVELS/2];
-	uint maxLevels;
+	uint finishedFlagOffset[NBL_BUILTIN_MAX_SCAN_LEVELS-1];
+	uint lastWorkgroupDependentCount[NBL_BUILTIN_MAX_SCAN_LEVELS/2];
+	uint topLevel;
 };
 #ifdef __cplusplus
 #undef uint

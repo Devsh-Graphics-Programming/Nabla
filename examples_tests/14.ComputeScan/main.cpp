@@ -84,7 +84,7 @@ int main()
 	auto ds = logicalDevice->createGPUDescriptorSet(dsPool.get(),core::smart_refctd_ptr<IGPUDescriptorSetLayout>(dsLayout));
 	scanner->updateDescriptorSet(ds.get(),in_gpu_range,scratch_gpu_range);
 
-	constexpr auto BenchmarkingRuns = 1u;
+	constexpr auto BenchmarkingRuns = 256u;
 	auto computeQueue = queues[decltype(initOutput)::EQT_COMPUTE];
 	core::smart_refctd_ptr<IGPUFence> lastFence;
 	// TODO: timestamp queries
@@ -178,7 +178,7 @@ int main()
 		for (auto i=0u; i<elementCount; i++)
 		{
 			if (gpu_begin[i]!=cpu_begin[i])
-				__debugbreak();
+				_NBL_DEBUG_BREAK_IF(true);
 		}
 		logger->log("Result Comparison Test Passed",system::ILogger::ELL_PERFORMANCE);
 	}
