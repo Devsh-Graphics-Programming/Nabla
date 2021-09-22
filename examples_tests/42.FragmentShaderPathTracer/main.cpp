@@ -347,8 +347,7 @@ int main()
 		device->updateDescriptorSets(1u, &writeDescriptorSet, 0u, nullptr);
 	}
 	
-	// TODO: Temp Fix because of validation error: VkPhysicalDeviceLimits::nonCoherentAtomSize
-	struct alignas(64) SBasicViewParametersAligned
+	struct SBasicViewParametersAligned
 	{
 		SBasicViewParameters uboData;
 	};

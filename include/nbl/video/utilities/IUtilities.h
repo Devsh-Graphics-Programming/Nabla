@@ -261,6 +261,7 @@ class IUtilities : public core::IReferenceCounted
             uint32_t& waitSemaphoreCount, IGPUSemaphore*const * &semaphoresToWaitBeforeOverwrite, const asset::E_PIPELINE_STAGE_FLAGS* &stagesToWaitForPerSemaphore
         )
         {
+            const auto& limits = m_device->getPhysicalDevice()->getLimits();
             auto* cmdpool = cmdbuf->getPool();
             assert(cmdpool->getCreationFlags()&IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
             assert(cmdpool->getQueueFamilyIndex()==queue->getFamilyIndex());
@@ -269,7 +270,7 @@ class IUtilities : public core::IReferenceCounted
             {
                 const void* dataPtr = reinterpret_cast<const uint8_t*>(data)+uploadedSize;
                 uint32_t localOffset = video::StreamingTransientDataBufferMT<>::invalid_address;
-                const uint32_t alignment = 256u; // TODO: change this to features.nonCoherentAtomiSize
+                const uint32_t alignment = static_cast<uint32_t>(limits.nonCoherentAtomSize);
                 const uint32_t subSize = static_cast<uint32_t>(core::min<uint64_t>(core::alignDown(m_defaultUploadBuffer.get()->max_size(),alignment), bufferRange.size-uploadedSize));
                 const uint32_t paddedSize = core::alignUp(subSize,alignment);
                 m_defaultUploadBuffer.get()->multi_place(std::chrono::high_resolution_clock::now()+std::chrono::microseconds(500u), 1u, (const void* const*)&dataPtr, &localOffset, &paddedSize, &alignment);

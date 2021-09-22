@@ -176,6 +176,11 @@ class ICPUImage final : public IImage, public IAsset
 			std::sort(regions->begin(),regions->end(),mip_order_t());
 			return true;
 		}
+		
+		inline core::bitflag<E_USAGE_FLAGS> getImageUsageFlags() const
+		{
+			return params.usage;
+		}
 
 		inline bool setImageUsageFlags(core::bitflag<E_USAGE_FLAGS> usage)
 		{
