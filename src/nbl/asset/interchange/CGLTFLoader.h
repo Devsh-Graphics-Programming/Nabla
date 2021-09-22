@@ -95,6 +95,8 @@ namespace nbl
 								std::optional<size_t> color;									//!< The index of the accessor that contains the color.
 								std::optional<size_t> joints;									//!< The index of the accessor that contains the joints
 								std::optional<size_t> weights;									//!< The index of the accessor that contains the weights.
+
+								std::optional<size_t> perVertexJointsAmount;					//!< 1 up to 4 range specifing input joint IDs amount per vertex
 							};
 
 							Attributes attributes;

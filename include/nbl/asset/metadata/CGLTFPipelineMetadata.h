@@ -56,13 +56,21 @@ namespace nbl
 
             } PACK_STRUCT;
             #include "nbl/nblunpack.h"
-            //VS Intellisense shows error here because it think vectorSIMDf is 32 bytes, but it just Intellisense - it'll build anyway
-            //static_assert(sizeof(SGLTFMaterialParameters) == (sizeof(SGLTFMaterialParameters::SPBRMetallicRoughness::baseColorFactor) + sizeof(SGLTFMaterialParameters::SPBRMetallicRoughness::metallicFactor) + sizeof(SGLTFMaterialParameters::SPBRMetallicRoughness::roughnessFactor) + sizeof(SGLTFMaterialParameters::emissiveFactor) + sizeof(SGLTFMaterialParameters::alphaMode) + sizeof(SGLTFMaterialParameters::alphaCutoff)), "Something went wrong");
 
-            CGLTFPipelineMetadata(const SGLTFMaterialParameters& materialParams, core::smart_refctd_dynamic_array<ShaderInputSemantic>&& _inputs)
-                : m_materialParams(materialParams), IRenderpassIndependentPipelineMetadata(core::SRange<const IRenderpassIndependentPipelineMetadata::ShaderInputSemantic>(_inputs->begin(), _inputs->end())) {}
+            #include "nbl/nblpack.h"
+            //! This struct is compliant with GLSL's std140 and std430 layouts
+            struct alignas(16) SGLTFSkinParameters
+            {
+                uint32_t perVertexJointsAmount;
+
+            } PACK_STRUCT;
+            #include "nbl/nblunpack.h"
+            
+            CGLTFPipelineMetadata(const SGLTFMaterialParameters& materialParams, const SGLTFSkinParameters& skinParams, core::smart_refctd_dynamic_array<ShaderInputSemantic>&& _inputs)
+                : m_materialParams(materialParams), m_skinParams(skinParams), IRenderpassIndependentPipelineMetadata(core::SRange<const IRenderpassIndependentPipelineMetadata::ShaderInputSemantic>(_inputs->begin(), _inputs->end())) {}
 
             SGLTFMaterialParameters m_materialParams;
+            SGLTFSkinParameters m_skinParams;
 
             _NBL_STATIC_INLINE_CONSTEXPR const char* loaderName = "CGLTFLoader";
             const char* getLoaderName() const override { return loaderName; }

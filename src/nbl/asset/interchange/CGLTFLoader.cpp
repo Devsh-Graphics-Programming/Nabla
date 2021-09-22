@@ -628,8 +628,7 @@ namespace nbl
 							auto& glTFColorXAccessor = glTF.accessors[accessorID];
 							handleAccessor(glTFColorXAccessor, SAttributes::COLOR_ATTRIBUTE_LAYOUT_ID);
 						}
-				
-						uint32_t jointsPerVxAmount = {}; // TODO: count the amount of vertex joints used in a shader (1 up to max 4, packed in uvec4)
+			
 						if (glTFprimitive.attributes.joints.has_value())
 						{
 							const size_t accessorID = glTFprimitive.attributes.joints.value();
@@ -680,6 +679,9 @@ namespace nbl
 							else
 							{
 								CGLTFPipelineMetadata::SGLTFMaterialParameters pushConstants;
+								CGLTFPipelineMetadata::SGLTFSkinParameters skinParameters;
+								skinParameters.perVertexJointsAmount = glTFprimitive.attributes.perVertexJointsAmount.has_value() ? glTFprimitive.attributes.perVertexJointsAmount.value() : 0xdeadbeef;
+
 								SMaterialDependencyData materialDependencyData;
 								const bool ds3lAvailableFlag = glTFprimitive.material.has_value();
 
@@ -743,7 +745,7 @@ namespace nbl
 											for (uint8_t i = 0; i < materialDependencyData.glTFMaterial->emissiveFactor.value().size(); ++i)
 												pushConstants.emissiveFactor[i] = materialDependencyData.glTFMaterial->emissiveFactor.value()[i];
 
-										glTFPipelineMetadata = core::make_smart_refctd_ptr<CGLTFPipelineMetadata>(pushConstants, core::smart_refctd_ptr(m_basicViewParamsSemantics));
+										glTFPipelineMetadata = core::make_smart_refctd_ptr<CGLTFPipelineMetadata>(pushConstants, skinParameters, core::smart_refctd_ptr(m_basicViewParamsSemantics));
 									}
 								}
 
@@ -803,11 +805,16 @@ namespace nbl
 
 					auto cpuMesh = cpuMeshes[meshID];
 					auto cpuMeshBuffer = cpuMesh->getMeshBufferVector()[0];
+					const auto cpuPipeline = cpuMeshBuffer->getPipeline();
+					const auto pipelineCacheKey = getPipelineCacheKey(cpuPipeline->getPrimitiveAssemblyParams().primitiveType, cpuPipeline->getVertexInputParams());
+
+					auto bundle = interm_getAssetInHierarchy(m_assetMgr, pipelineCacheKey, context.loadContext.params, context.hierarchyLevel);
+					const auto* pipelineMetadata = static_cast<const asset::CGLTFPipelineMetadata*>(bundle.getMetadata());
 
 					//template<typename NameIterator>
 					//inline ICPUSkeleton(SBufferBinding<ICPUBuffer>&& _parentJointIDsBinding, SBufferBinding<ICPUBuffer>&& _defaultTransforms, NameIterator begin, NameIterator end)
 
-					const uint32_t jointsPerVertex = 4u; // TODO!
+					const uint32_t jointsPerVertex = pipelineMetadata->m_skinParams.perVertexJointsAmount;
 					core::smart_refctd_ptr<ICPUSkeleton> skeleton; // TODO!
 
 					SBufferBinding<ICPUBuffer> inverseBindPoseBufferBinding;
@@ -1560,12 +1567,13 @@ namespace nbl
 								}
 								else if (attributeMap.first == "JOINTS")
 								{
-									assert(attributeMap.second < 1u); // TODO: log and validation without assert
+									assert(0u <= attributeMap.second < 4u); // TODO: log and validation without assert
+									glTFPrimitive.attributes.perVertexJointsAmount = attributeMap.second + 1u; // involves weights as well
 									glTFPrimitive.attributes.joints = requestedAccessor;
 								}
 								else if (attributeMap.first == "WEIGHTS")
 								{
-									assert(attributeMap.second < 1u); // TODO: log and validation without assert
+									assert(0u <= attributeMap.second < 4u); // TODO: log and validation without assert
 									glTFPrimitive.attributes.weights = requestedAccessor;
 								}
 							}
