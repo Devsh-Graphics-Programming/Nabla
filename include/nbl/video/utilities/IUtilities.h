@@ -32,7 +32,11 @@ class IUtilities : public core::IReferenceCounted
                 m_defaultUploadBuffer = core::make_smart_refctd_ptr<StreamingTransientDataBufferMT<> >(m_device.get(), reqs);
             }
             m_propertyPoolHandler = core::make_smart_refctd_ptr<CPropertyPoolHandler>(core::smart_refctd_ptr(m_device));
-            m_scanner = core::make_smart_refctd_ptr<CScanner>(core::smart_refctd_ptr(m_device),core::roundDownToPoT(limits.maxWorkgroupSize[0]));
+            // smaller workgroups fill occupancy gaps better, especially on new Nvidia GPUs, but we don't want too small workgroups on mobile
+            // TODO: investigate whether we need to clamp against 256u on mobile
+            // TODO: investigate if `>>2u` still holds after we support subgroup intrinsics properly
+            const auto scan_workgroup_size = core::max(core::roundDownToPoT(limits.maxWorkgroupSize[0])>>2u,128u);
+            m_scanner = core::make_smart_refctd_ptr<CScanner>(core::smart_refctd_ptr(m_device),scan_workgroup_size);
         }
 
         //!
