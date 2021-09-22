@@ -125,8 +125,8 @@ class IGPUObjectFromAssetConverter
             inline void beginCommandBuffer(E_QUEUE_USAGE queueUsage)
             {
                 uint32_t queue = static_cast<uint32_t>(queueUsage);
-                assert(perQueue[queue].cmdbuf);
-                perQueue[queue].cmdbuf->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
+                if(perQueue[queue].cmdbuf)
+                    perQueue[queue].cmdbuf->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
             }
 
             inline void beginCommandBuffers()
@@ -137,12 +137,12 @@ class IGPUObjectFromAssetConverter
                 }
             }
             
-            inline void endUnusedCommandBuffers()
+            inline void resetCommandBuffers()
             {
-                for(auto & queue : perQueue)
+                for (auto i=0; i<EQU_COUNT; i++)
                 {
-                    if(queue.cmdbuf->getState() == IGPUCommandBuffer::ES_RECORDING)
-                        queue.cmdbuf->end();
+                    if(perQueue[i].cmdbuf)
+                        perQueue[i].cmdbuf->reset(IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
                 }
             }
             
@@ -163,7 +163,7 @@ class IGPUObjectFromAssetConverter
                     device->resetFences(count, fence_ptrs);
                 }
                 setFencesToNull();
-                endUnusedCommandBuffers();
+                resetCommandBuffers();
             }
 
         protected:
