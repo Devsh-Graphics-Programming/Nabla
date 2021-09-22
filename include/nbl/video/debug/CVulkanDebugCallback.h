@@ -8,7 +8,6 @@
 
 namespace nbl::video
 {
-class CVulkanConnection;
 
 class CVulkanDebugCallback : public IDebugCallback
 {
@@ -16,12 +15,6 @@ public:
     explicit CVulkanDebugCallback(core::smart_refctd_ptr<system::ILogger>&& _logger)
         : IDebugCallback(std::move(_logger)), m_callback(&defaultCallback)
     {}
-
-    ~CVulkanDebugCallback();
-
-    inline void setInternalObject(VkDebugUtilsMessengerEXT messenger) { m_vkDebugUtilsMessengerEXT = messenger; }
-
-    inline void setAPIConnection(CVulkanConnection* api) { m_api = api; }
 
     static VKAPI_ATTR VkBool32 VKAPI_CALL defaultCallback(
         VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
@@ -69,10 +62,6 @@ public:
     }
 
     decltype(&defaultCallback) m_callback;
-
-    private:
-        VkDebugUtilsMessengerEXT m_vkDebugUtilsMessengerEXT = VK_NULL_HANDLE;
-        CVulkanConnection* m_api = nullptr;
 };
 
 }

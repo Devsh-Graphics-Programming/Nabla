@@ -4,7 +4,7 @@
 #include "nbl/video/IAPIConnection.h"
 #include "nbl/video/CVulkanPhysicalDevice.h"
 #include "nbl/video/CVulkanCommon.h"
-#include "nbl/video//debug/CVulkanDebugCallback.h"
+#include "nbl/video/debug/CVulkanDebugCallback.h"
 
 #if defined(_NBL_PLATFORM_WINDOWS_)
 #   include "nbl/ui/IWindowWin32.h"
@@ -189,15 +189,6 @@ public:
         // Todo(achal): Perhaps use volkLoadInstanceOnly?
         volkLoadInstance(vk_instance);
 
-        if (debugCallback)
-        {
-            VkDebugUtilsMessengerEXT vk_debugMessenger;
-            if (vkCreateDebugUtilsMessengerEXT(vk_instance, &debugMessengerCreateInfo, nullptr, &vk_debugMessenger) == VK_SUCCESS)
-                debugCallback->setInternalObject(vk_debugMessenger);
-            else
-                return nullptr;
-        }
-
         constexpr uint32_t MAX_PHYSICAL_DEVICE_COUNT = 16u;
         uint32_t physicalDeviceCount = 0u;
         VkPhysicalDevice vk_physicalDevices[MAX_PHYSICAL_DEVICE_COUNT];
@@ -213,7 +204,14 @@ public:
             vkEnumeratePhysicalDevices(vk_instance, &physicalDeviceCount, vk_physicalDevices);
         }
 
-        auto api = core::make_smart_refctd_ptr<CVulkanConnection>(vk_instance, std::move(debugCallback));
+        VkDebugUtilsMessengerEXT vk_debugMessenger = VK_NULL_HANDLE;
+        if (debugCallback)
+        {
+            if (vkCreateDebugUtilsMessengerEXT(vk_instance, &debugMessengerCreateInfo, nullptr, &vk_debugMessenger) != VK_SUCCESS)
+                return nullptr;
+        }
+
+        auto api = core::make_smart_refctd_ptr<CVulkanConnection>(vk_instance, std::move(debugCallback), vk_debugMessenger);
         auto& physicalDevices = api->m_physicalDevices;
         physicalDevices.reserve(physicalDeviceCount);
         for (uint32_t i = 0u; i < physicalDeviceCount; ++i)
@@ -237,20 +235,23 @@ public:
 // Todo(achal): Remove
 // private:
 
-    CVulkanConnection(VkInstance instance, std::unique_ptr<CVulkanDebugCallback>&& debugCallback)
-        : IAPIConnection(), m_vkInstance(instance), m_debugCallback(std::move(debugCallback))
-    {
-        m_debugCallback->setAPIConnection(this);
-    }
+    CVulkanConnection(VkInstance instance, std::unique_ptr<CVulkanDebugCallback>&& debugCallback,
+        VkDebugUtilsMessengerEXT vk_debugMessenger)
+        : IAPIConnection(), m_vkInstance(instance), m_debugCallback(std::move(debugCallback)),
+        m_vkDebugUtilsMessengerEXT(vk_debugMessenger)
+    {}
 
     ~CVulkanConnection()
     {
-        m_debugCallback.reset();
+        if (m_vkDebugUtilsMessengerEXT != VK_NULL_HANDLE)
+            vkDestroyDebugUtilsMessengerEXT(m_vkInstance, m_vkDebugUtilsMessengerEXT, nullptr);
+
         vkDestroyInstance(m_vkInstance, nullptr);
     }
 
     VkInstance m_vkInstance = VK_NULL_HANDLE;
-    std::unique_ptr<CVulkanDebugCallback> m_debugCallback = nullptr;
+    VkDebugUtilsMessengerEXT m_vkDebugUtilsMessengerEXT = VK_NULL_HANDLE;
+    std::unique_ptr<CVulkanDebugCallback> m_debugCallback = nullptr; // this needs to live longer than VkDebugUtilsMessengerEXT handle above
 
     static inline bool getExtensionsForLayer(const char* layerName, uint32_t& extensionCount,
         VkExtensionProperties* extensions)
