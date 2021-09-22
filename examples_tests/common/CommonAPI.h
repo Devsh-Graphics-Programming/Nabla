@@ -589,7 +589,8 @@ public:
 		InitOutput<0> result = {};
 
 		result.system = createSystem();
-		result.logger = core::make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>(); // we should let user choose it?
+		auto logLevelMask = core::bitflag(system::ILogger::ELL_DEBUG) | system::ILogger::ELL_PERFORMANCE | system::ILogger::ELL_WARNING | system::ILogger::ELL_ERROR;
+		result.logger = core::make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>(logLevelMask); // we should let user choose it?
 		result.inputSystem = core::make_smart_refctd_ptr<InputSystem>(system::logger_opt_smart_ptr(result.logger));
 
 		if(api_type == EAT_VULKAN) 
@@ -693,7 +694,8 @@ public:
 		// TODO: Windows/Linux logger define switch
 		auto windowManager = core::make_smart_refctd_ptr<nbl::ui::CWindowManagerWin32>(); // should we store it in result?
 		result.system = createSystem();
-		result.logger = core::make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>(); // we should let user choose it?
+		auto logLevelMask = core::bitflag(system::ILogger::ELL_DEBUG) | system::ILogger::ELL_PERFORMANCE | system::ILogger::ELL_WARNING | system::ILogger::ELL_ERROR;
+		result.logger = core::make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>(logLevelMask); // we should let user choose it?
 		result.inputSystem = make_smart_refctd_ptr<InputSystem>(system::logger_opt_smart_ptr(result.logger));
 		result.windowCb = nbl::core::make_smart_refctd_ptr<EventCallback>(core::smart_refctd_ptr(result.inputSystem), system::logger_opt_smart_ptr(result.logger));
 
