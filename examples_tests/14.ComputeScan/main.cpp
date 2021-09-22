@@ -63,8 +63,9 @@ int main()
 	in_gpu_range.size = elementCount*sizeof(uint32_t);
 	in_gpu_range.buffer = utilities->createFilledDeviceLocalGPUBufferOnDedMem(queues[decltype(initOutput)::EQT_TRANSFER_UP],in_count*sizeof(uint32_t),in);
 	
+	const auto scanType = video::CScanner::EST_EXCLUSIVE;
 	auto scanner = utilities->getDefaultScanner();
-	auto scan_pipeline = scanner->getDefaultPipeline(CScanner::EDT_UINT,CScanner::EO_ADD);
+	auto scan_pipeline = scanner->getDefaultPipeline(scanType,CScanner::EDT_UINT,CScanner::EO_ADD);
 
 	CScanner::Parameters scan_push_constants;
 	CScanner::DispatchInfo scan_dispatch_info;
@@ -129,8 +130,19 @@ int main()
 		logger->log("CPU scan begin",system::ILogger::ELL_PERFORMANCE);
 
 		auto start = std::chrono::high_resolution_clock::now();
-		std::inclusive_scan(cpu_begin,in+end,cpu_begin);
-		//std::exclusive_scan(cpu_begin,in+end,cpu_begin,0u);
+		switch (scanType)
+		{
+			case video::CScanner::EST_INCLUSIVE:
+				std::inclusive_scan(cpu_begin,in+end,cpu_begin);
+				break;
+			case video::CScanner::EST_EXCLUSIVE:
+				std::exclusive_scan(cpu_begin,in+end,cpu_begin,0u);
+				break;
+			default:
+				assert(false);
+				exit(0xdeadbeefu);
+				break;
+		}
 		auto stop = std::chrono::high_resolution_clock::now();
 
 		logger->log("CPU scan end. Time taken: %d us",system::ILogger::ELL_PERFORMANCE,std::chrono::duration_cast<std::chrono::microseconds>(stop-start).count());

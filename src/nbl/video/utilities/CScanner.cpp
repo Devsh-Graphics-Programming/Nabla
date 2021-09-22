@@ -4,9 +4,9 @@ using namespace nbl;
 using namespace video;
 
 //
-IGPUSpecializedShader* CScanner::getDefaultSpecializedShader(const E_DATA_TYPE dataType, const E_OPERATOR op)
+IGPUSpecializedShader* CScanner::getDefaultSpecializedShader(const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op)
 {
-	if (!m_specialized_shaders[dataType][op])
+	if (!m_specialized_shaders[scanType][dataType][op]) 
 	{
 		auto system = m_device->getPhysicalDevice()->getSystem();
 		auto glsl = system->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/scan/default.comp")>();
@@ -30,11 +30,13 @@ IGPUSpecializedShader* CScanner::getDefaultSpecializedShader(const E_DATA_TYPE d
 		auto shader = m_device->createGPUShader(
 			asset::IGLSLCompiler::createOverridenCopy(
 				cpushader.get(),
-				"#define _NBL_GLSL_WORKGROUP_SIZE_ %d\n#define _NBL_GLSL_SCAN_STORAGE_TYPE_ %s\n#define _NBL_GLSL_SCAN_BIN_OP_ %d\n",
-				m_wg_size,storageType,uint32_t(op)
+				"#define _NBL_GLSL_WORKGROUP_SIZE_ %d\n#define _NBL_GLSL_SCAN_TYPE_ %d\n#define _NBL_GLSL_SCAN_STORAGE_TYPE_ %s\n#define _NBL_GLSL_SCAN_BIN_OP_ %d\n",
+				m_wg_size,uint32_t(scanType),storageType,uint32_t(op)
 			)
 		);
-		m_specialized_shaders[dataType][op] = m_device->createGPUSpecializedShader(shader.get(),{nullptr,nullptr,"main",asset::ISpecializedShader::ESS_COMPUTE,"nbl/builtin/glsl/scan/default.comp"});
+		m_specialized_shaders[scanType][dataType][op] = m_device->createGPUSpecializedShader(
+			shader.get(),{nullptr,nullptr,"main",asset::ISpecializedShader::ESS_COMPUTE,"nbl/builtin/glsl/scan/default.comp"}
+		);
 	}
-	return m_specialized_shaders[dataType][op].get();
+	return m_specialized_shaders[scanType][dataType][op].get();
 }

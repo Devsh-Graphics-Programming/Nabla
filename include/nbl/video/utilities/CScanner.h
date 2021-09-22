@@ -21,7 +21,13 @@ class CScanner final : public core::IReferenceCounted
 {
 	public:
 		static inline constexpr uint32_t DefaultWorkGroupSize = 256u;
-
+		
+		enum E_SCAN_TYPE : uint8_t
+		{
+			 EST_INCLUSIVE = _NBL_GLSL_SCAN_TYPE_INCLUSIVE_,
+			 EST_EXCLUSIVE = _NBL_GLSL_SCAN_TYPE_EXCLUSIVE_,
+			 EST_COUNT
+		};
 		enum E_DATA_TYPE : uint8_t
 		{
 			EDT_UINT=0u,
@@ -127,15 +133,18 @@ class CScanner final : public core::IReferenceCounted
 		inline auto getDefaultPipelineLayout() const { return m_pipeline_layout.get(); }
 
 		//
-		IGPUSpecializedShader* getDefaultSpecializedShader(const E_DATA_TYPE dataType, const E_OPERATOR op);
+		IGPUSpecializedShader* getDefaultSpecializedShader(const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op);
 
 		//
-		inline auto getDefaultPipeline(const E_DATA_TYPE dataType, const E_OPERATOR op)
+		inline auto getDefaultPipeline(const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op)
 		{
 			// ondemand
-			if (!m_pipelines[dataType][op])
-				m_pipelines[dataType][op] = m_device->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(m_pipeline_layout),core::smart_refctd_ptr<IGPUSpecializedShader>(getDefaultSpecializedShader(dataType,op)));
-			return m_pipelines[dataType][op].get();
+			if (!m_pipelines[scanType][dataType][op])
+				m_pipelines[scanType][dataType][op] = m_device->createGPUComputePipeline(
+					nullptr,core::smart_refctd_ptr(m_pipeline_layout),
+					core::smart_refctd_ptr<IGPUSpecializedShader>(getDefaultSpecializedShader(scanType,dataType,op))
+				);
+			return m_pipelines[scanType][dataType][op].get();
 		}
 
 		//
@@ -196,8 +205,8 @@ class CScanner final : public core::IReferenceCounted
 		core::smart_refctd_ptr<ILogicalDevice> m_device;
 		core::smart_refctd_ptr<IGPUDescriptorSetLayout> m_ds_layout;
 		core::smart_refctd_ptr<IGPUPipelineLayout> m_pipeline_layout;
-		core::smart_refctd_ptr<IGPUSpecializedShader> m_specialized_shaders[EDT_COUNT][EO_COUNT];
-		core::smart_refctd_ptr<IGPUComputePipeline> m_pipelines[EDT_COUNT][EO_COUNT];
+		core::smart_refctd_ptr<IGPUSpecializedShader> m_specialized_shaders[EST_COUNT][EDT_COUNT][EO_COUNT];
+		core::smart_refctd_ptr<IGPUComputePipeline> m_pipelines[EST_COUNT][EDT_COUNT][EO_COUNT];
 		const uint32_t m_wg_size;
 };
 

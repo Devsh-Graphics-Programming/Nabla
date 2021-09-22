@@ -205,29 +205,6 @@ NBL_GLSL_SCAN_DEFINE_DOWNSWEEP(Max, float, -FLT_INF, max, float, float)
 #error "_NBL_GLSL_SCAN_BIN_OP_ must be defined!"
 #endif
 #include "nbl/builtin/glsl/macros.glsl"
-
-#if NBL_GLSL_EQUAL(_NBL_GLSL_SCAN_BIN_OP_,_NBL_GLSL_SCAN_OP_AND_)
-#define _NBL_GLSL_SCAN_UPSWEEP_TYPE_ nbl_glsl_scan_upsweepAnd
-#define _NBL_GLSL_SCAN_DOWNSWEEP_TYPE_ nbl_glsl_scan_downsweepAnd
-#elif NBL_GLSL_EQUAL(_NBL_GLSL_SCAN_BIN_OP_,_NBL_GLSL_SCAN_OP_XOR_)
-#define _NBL_GLSL_SCAN_UPSWEEP_TYPE_ nbl_glsl_scan_upsweepXor
-#define _NBL_GLSL_SCAN_DOWNSWEEP_TYPE_ nbl_glsl_scan_downsweepXor
-#elif NBL_GLSL_EQUAL(_NBL_GLSL_SCAN_BIN_OP_,_NBL_GLSL_SCAN_OP_OR_)
-#define _NBL_GLSL_SCAN_UPSWEEP_TYPE_ nbl_glsl_scan_upsweepOr
-#define _NBL_GLSL_SCAN_DOWNSWEEP_TYPE_ nbl_glsl_scan_downsweepOr
-#elif NBL_GLSL_EQUAL(_NBL_GLSL_SCAN_BIN_OP_,_NBL_GLSL_SCAN_OP_ADD_)
-#define _NBL_GLSL_SCAN_UPSWEEP_TYPE_ nbl_glsl_scan_upsweepAdd
-#define _NBL_GLSL_SCAN_DOWNSWEEP_TYPE_ nbl_glsl_scan_downsweepAdd
-#elif NBL_GLSL_EQUAL(_NBL_GLSL_SCAN_BIN_OP_,_NBL_GLSL_SCAN_OP_MUL_)
-#define _NBL_GLSL_SCAN_UPSWEEP_TYPE_ nbl_glsl_scan_upsweepMul
-#define _NBL_GLSL_SCAN_DOWNSWEEP_TYPE_ nbl_glsl_scan_downsweepMul
-#elif NBL_GLSL_EQUAL(_NBL_GLSL_SCAN_BIN_OP_,_NBL_GLSL_SCAN_OP_MIN_)
-#define _NBL_GLSL_SCAN_UPSWEEP_TYPE_ nbl_glsl_scan_upsweepMin
-#define _NBL_GLSL_SCAN_DOWNSWEEP_TYPE_ nbl_glsl_scan_downsweepMin
-#elif NBL_GLSL_EQUAL(_NBL_GLSL_SCAN_BIN_OP_,_NBL_GLSL_SCAN_OP_MAX_)
-#define _NBL_GLSL_SCAN_UPSWEEP_TYPE_ nbl_glsl_scan_upsweepMax
-#define _NBL_GLSL_SCAN_DOWNSWEEP_TYPE_ nbl_glsl_scan_downsweepMax
-#endif
 */
 
 #include <nbl/builtin/glsl/workgroup/arithmetic.glsl>
@@ -300,9 +277,7 @@ void nbl_glsl_scan_scheduler_markComplete(in nbl_glsl_scan_Parameters_t params, 
 	}
 }
 
-#define _NBL_GLSL_SCAN_TYPE_INCLUSIVE_ 0
-#define _NBL_GLSL_SCAN_TYPE_EXCLUSIVE_ 1
-#define _NBL_GLSL_SCAN_TYPE_ _NBL_GLSL_SCAN_TYPE_INCLUSIVE_
+
 // TODO: refactor this crap
 void nbl_glsl_scan_virtualWorkgroup(in uint treeLevel, in uint localWorkgroupIndex)
 {
