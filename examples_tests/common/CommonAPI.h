@@ -882,12 +882,12 @@ public:
 			}
 			else if(found_format != ~0u) // fallback
 			{
-				assert(false && "Fallback: requested 'colorspace' is not supported.");
+				_NBL_DEBUG_BREAK_IF(true); // "Fallback: requested 'colorspace' is not supported."
 				surfaceFormat = gpuInfo.availableSurfaceFormats[found_format];
 			}
 			else
 			{
-				assert(false && "Fallback: requested 'format' and 'colorspace' is not supported.");
+				_NBL_DEBUG_BREAK_IF(true); // "Fallback: requested 'format' and 'colorspace' is not supported."
 				surfaceFormat = gpuInfo.availableSurfaceFormats[0];
 			}
 
@@ -896,7 +896,7 @@ public:
 			if(!presentModeSupported) // fallback 
 			{
 				requestedPresentMode = nbl::video::ISurface::E_PRESENT_MODE::EPM_FIFO;
-				assert(false && "Fallback: requested 'present mode' is not supported");
+				_NBL_DEBUG_BREAK_IF(true); // "Fallback: requested 'present mode' is not supported."
 			}
 		}
 		else
