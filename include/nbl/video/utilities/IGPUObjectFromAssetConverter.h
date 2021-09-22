@@ -489,10 +489,17 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUBuffer** const _begin
         reqs.vulkanReqs.size = addrAllctr.get_allocated_size();
         if (reqs.vulkanReqs.size==0u)
             return;
-
+        
         IGPUBuffer::SCreationParams bufparams;
+        bufparams.usage = core::bitflag(IGPUBuffer::EUF_TRANSFER_DST_BIT);
+
+        for (auto it = firstInBlock; it != out; it++)
+        {
+            auto cpubuffer = _begin[std::distance(res->begin(), it)];
+            bufparams.usage |= cpubuffer->getUsageFlags();
+        }
+
         bufparams.sharingMode = _params.sharingMode;
-        //bufparams.usage = //this has to be sourced from somewhere..
         uint32_t qfams[2]{ _params.perQueue[EQU_TRANSFER].queue->getFamilyIndex(), _params.finalQueueFamIx };
         bufparams.queueFamilyIndices = qfams;
         bufparams.queueFamilyIndexCount = (qfams[0] == qfams[1]) ? 1u : 2u;
