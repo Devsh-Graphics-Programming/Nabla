@@ -71,12 +71,12 @@ namespace nbl::system
                     engine_init_display(engine);
                     engine_draw_frame(engine);
                 }*/
-                framework->onAppInitialized(usrData);
+                framework->onAppInitialized(usrData->userData);
                 break;
             case APP_CMD_TERM_WINDOW:
                 // The window is being hidden or closed, clean it up.
                 //engine_term_display(engine);
-                framework->onAppTerminated(usrData);
+                framework->onAppTerminated(usrData->userData);
                 (void)eventCallback->onWindowClosed(wnd.get());
                 break;
             case APP_CMD_WINDOW_RESIZED:

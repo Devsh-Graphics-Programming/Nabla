@@ -1,10 +1,30 @@
 #define _NBL_STATIC_LIB_
 #include <nabla.h>
+#include "nbl/system/IApplicationFramework.h"
+#include "nbl/system/CApplicationAndroid.h"
 
 #if defined(_NBL_PLATFORM_WINDOWS_)
 #	include <nbl/system/CColoredStdoutLoggerWin32.h>
 #endif // TODO more platforms
 // TODO: make these include themselves via `nabla.h`
+
+//***** Application framework macros ******
+#ifdef _NBL_PLATFORM_ANDROID_
+using ApplicationBase = nbl::system::CApplicationAndroid;
+#define APP_CONSTRUCTOR(type) type(android_app* app, nbl::system::path cwd) : nbl::system::CApplicationAndroid(app, cwd) {}
+#else
+using ApplicationBase = nbl::system::IApplicationFramework;
+#define APP_CONSTRUCTOR(type) type(nbl::system::path cwd) : nbl::system::IApplicationFramework(cwd) {}
+#endif
+
+#define NBL_COMMON_API_MAIN(android_app_class, user_data_type) int main(int argc, char** argv){\
+CommonAPI::main<android_app_class, user_data_type>(argc, argv);\
+}
+
+
+
+//***** Application framework macros ******
+
 
 class CommonAPI
 {
@@ -346,9 +366,25 @@ public:
 		nbl::core::smart_refctd_ptr<nbl::system::ISystem> system;
 		nbl::core::smart_refctd_ptr<nbl::asset::IAssetManager> assetManager;
 		nbl::video::IGPUObjectFromAssetConverter::SParams cpu2gpuParams;
-		nbl::core::smart_refctd_ptr<nbl::system::CColoredStdoutLoggerWin32> logger;
+		nbl::core::smart_refctd_ptr<nbl::system::ILogger> logger;
 		nbl::core::smart_refctd_ptr<InputSystem> inputSystem;
 	};
+
+	template<typename AppClassName, typename UserDataType>
+	static void main(int argc, char** argv)
+	{
+#ifndef _NBL_PLATFORM_ANDROID_
+		system::path CWD = nbl::system::path(argv[0]).parent_path().generic_string() + "/";
+		AppClassName app(CWD);
+		UserDataType usrData{};
+		app.onAppInitialized(&usrData);
+		while (app.keepRunning(&usrData))
+		{
+			app.workLoopBody(&usrData);
+		}
+		app.onAppTerminated(&usrData);
+#endif
+	}
 
 	static InitOutput<0> Init(nbl::video::E_API_TYPE api_type, const std::string_view app_name)
 	{
@@ -358,7 +394,7 @@ public:
 
 		result.system = createSystem();
 		result.logger = core::make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>(); // we should let user choose it?
-		result.inputSystem = core::make_smart_refctd_ptr<InputSystem>(system::logger_opt_smart_ptr(result.logger));
+		result.inputSystem = core::make_smart_refctd_ptr<InputSystem>(system::logger_opt_smart_ptr(core::smart_refctd_ptr(result.logger)));
 
 		assert(api_type == video::EAT_OPENGL); // TODO: more choice OR EVEN RANDOM CHOICE!
 

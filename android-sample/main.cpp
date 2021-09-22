@@ -509,6 +509,11 @@ public:
     {
 		engine_draw_frame((nabla*)params);
     }
+	bool keepRunning(void* params) override
+	{
+		return true;
+	}
+
 };
 
 class DemoEventCallback : public nbl::ui::IWindow::IEventCallback
