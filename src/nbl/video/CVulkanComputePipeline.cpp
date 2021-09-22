@@ -7,12 +7,9 @@ namespace nbl::video
 
 CVulkanComputePipeline::~CVulkanComputePipeline()
 {
-    const auto originDevice = getOriginDevice();
-    if (originDevice->getAPIType() == EAT_VULKAN)
-    {
-        VkDevice device = static_cast<const CVulkanLogicalDevice*>(originDevice)->getInternalObject();
-        vkDestroyPipeline(device, m_pipeline, nullptr);
-    }
+    const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
+    auto* vk = vulkanDevice->getFunctionTable();
+    vk->vk.vkDestroyPipeline(vulkanDevice->getInternalObject(), m_pipeline, nullptr);
 }
 
 }

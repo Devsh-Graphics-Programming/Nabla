@@ -186,8 +186,7 @@ public:
                 return nullptr;
         }
 
-        // Todo(achal): Perhaps use volkLoadInstanceOnly?
-        volkLoadInstance(vk_instance);
+        volkLoadInstanceOnly(vk_instance);
 
         constexpr uint32_t MAX_PHYSICAL_DEVICE_COUNT = 16u;
         uint32_t physicalDeviceCount = 0u;

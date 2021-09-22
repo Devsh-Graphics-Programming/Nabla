@@ -42,8 +42,8 @@ int main()
 	constexpr uint32_t WIN_H = 512u;
 	constexpr uint32_t MAX_SWAPCHAIN_IMAGE_COUNT = 8u;
 	constexpr uint32_t FBO_COUNT = 2u;
-	constexpr uint32_t FRAMES_IN_FLIGHT = 5u;
-	static_assert(FRAMES_IN_FLIGHT>FBO_COUNT);
+	constexpr uint32_t FRAMES_IN_FLIGHT = 2u;
+	// static_assert(FRAMES_IN_FLIGHT>FBO_COUNT);
 
 	auto system = CommonAPI::createSystem();
 	auto logLevelMask = core::bitflag(system::ILogger::ELL_DEBUG) | system::ILogger::ELL_PERFORMANCE | system::ILogger::ELL_WARNING | system::ILogger::ELL_ERROR;

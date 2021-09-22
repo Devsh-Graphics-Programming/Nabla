@@ -10,6 +10,7 @@
 #include "nbl/video/CVulkanComputePipeline.h"
 #include "nbl/video/CVulkanPipelineLayout.h"
 #include "nbl/video/CVulkanDescriptorSet.h"
+#include "nbl/video/CVulkanLogicalDevice.h"
 
 #include <volk.h>
 
@@ -45,7 +46,8 @@ public:
         beginInfo.flags = static_cast<VkCommandBufferUsageFlags>(recordingFlags);
         beginInfo.pInheritanceInfo = nullptr; // useful if it was a secondary command buffer
         
-        VkResult retval = vkBeginCommandBuffer(m_cmdbuf, &beginInfo);
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        VkResult retval = vk->vk.vkBeginCommandBuffer(m_cmdbuf, &beginInfo);
         assert(retval == VK_SUCCESS);
         IGPUCommandBuffer::begin(recordingFlags);
     }
@@ -53,7 +55,8 @@ public:
     // API needs to changed, vkEndCommandBuffer can fail
     void end() override
     {
-        VkResult retval = vkEndCommandBuffer(m_cmdbuf);
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        VkResult retval = vk->vk.vkEndCommandBuffer(m_cmdbuf);
         assert(retval == VK_SUCCESS);
         IGPUCommandBuffer::end();
     }
@@ -62,7 +65,9 @@ public:
     {
         freeSpaceInCmdPool();
 
-        if (vkResetCommandBuffer(m_cmdbuf, static_cast<VkCommandBufferResetFlags>(_flags)) == VK_SUCCESS)
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+
+        if (vk->vk.vkResetCommandBuffer(m_cmdbuf, static_cast<VkCommandBufferResetFlags>(_flags)) == VK_SUCCESS)
         {
             IGPUCommandBuffer::reset(_flags);
             return true;
@@ -156,7 +161,8 @@ public:
             vk_bufferCopyRegions[i].size = pRegions[i].size;
         }
 
-        vkCmdCopyBuffer(m_cmdbuf, vk_srcBuffer, vk_dstBuffer, regionCount, vk_bufferCopyRegions);
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdCopyBuffer(m_cmdbuf, vk_srcBuffer, vk_dstBuffer, regionCount, vk_bufferCopyRegions);
 
         return true;
     }
@@ -197,7 +203,8 @@ public:
             vk_regions[i].imageExtent = { pRegions[i].imageExtent.width, pRegions[i].imageExtent.height, pRegions[i].imageExtent.depth }; // Todo(achal): Make the regular old assignment operator work
         }
 
-        vkCmdCopyBufferToImage(m_cmdbuf,
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdCopyBufferToImage(m_cmdbuf,
             static_cast<const video::CVulkanBuffer*>(srcBuffer)->getInternalObject(),
             static_cast<const video::CVulkanImage*>(dstImage)->getInternalObject(),
             static_cast<VkImageLayout>(dstImageLayout), regionCount, vk_regions);
@@ -250,7 +257,8 @@ public:
             vk_blitRegions[i].dstOffsets[1] = { static_cast<int32_t>(pRegions[i].dstOffsets[1].x), static_cast<int32_t>(pRegions[i].dstOffsets[1].y), static_cast<int32_t>(pRegions[i].dstOffsets[1].z) };
         }
 
-        vkCmdBlitImage(m_cmdbuf, vk_srcImage, static_cast<VkImageLayout>(srcImageLayout),
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdBlitImage(m_cmdbuf, vk_srcImage, static_cast<VkImageLayout>(srcImageLayout),
             vk_dstImage, static_cast<VkImageLayout>(dstImageLayout), regionCount, vk_blitRegions,
             static_cast<VkFilter>(filter));
 
@@ -295,7 +303,8 @@ public:
     // Doesn't really require the return value here
     bool dispatch(uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ) override
     {
-        vkCmdDispatch(m_cmdbuf, groupCountX, groupCountY, groupCountZ);
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdDispatch(m_cmdbuf, groupCountX, groupCountY, groupCountZ);
         return true;
     }
 
@@ -394,7 +403,8 @@ public:
             vk_imageMemoryBarriers[i].subresourceRange.layerCount = pImageMemoryBarriers[i].subresourceRange.layerCount;
         }
 
-        vkCmdPipelineBarrier(m_cmdbuf, static_cast<VkPipelineStageFlags>(srcStageMask.value),
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdPipelineBarrier(m_cmdbuf, static_cast<VkPipelineStageFlags>(srcStageMask.value),
             static_cast<VkPipelineStageFlags>(dstStageMask.value),
             static_cast<VkDependencyFlags>(dependencyFlags.value),
             memoryBarrierCount, vk_memoryBarriers,
@@ -434,7 +444,8 @@ public:
         vk_beginInfo.clearValueCount = pRenderPassBegin->clearValueCount;
         vk_beginInfo.pClearValues = vk_clearValues;
 
-        vkCmdBeginRenderPass(m_cmdbuf, &vk_beginInfo, static_cast<VkSubpassContents>(content));
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdBeginRenderPass(m_cmdbuf, &vk_beginInfo, static_cast<VkSubpassContents>(content));
 
         return true;
     }
@@ -446,7 +457,8 @@ public:
 
     bool endRenderPass() override
     {
-        vkCmdEndRenderPass(m_cmdbuf);
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdEndRenderPass(m_cmdbuf);
         return true;
     }
 
@@ -473,7 +485,8 @@ public:
             return false;
 
         VkPipeline vk_pipeline = static_cast<const CVulkanComputePipeline*>(pipeline)->getInternalObject();
-        vkCmdBindPipeline(m_cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, vk_pipeline);
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdBindPipeline(m_cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, vk_pipeline);
 
         return true;
     }
@@ -512,7 +525,8 @@ public:
             vk_dynamicOffsets = dynamicOffsets->begin();
         }
 
-        vkCmdBindDescriptorSets(m_cmdbuf, static_cast<VkPipelineBindPoint>(pipelineBindPoint),
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdBindDescriptorSets(m_cmdbuf, static_cast<VkPipelineBindPoint>(pipelineBindPoint),
             vk_pipelineLayout, firstSet, descriptorSetCount, vk_descriptorSets, vk_dynamicOffsetCount, vk_dynamicOffsets);
 
         return true;
@@ -527,7 +541,8 @@ public:
         if (!saveReferencesToResources(tmp, tmp + 1))
             return false;
 
-        vkCmdPushConstants(m_cmdbuf,
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdPushConstants(m_cmdbuf,
             static_cast<const CVulkanPipelineLayout*>(layout)->getInternalObject(),
             static_cast<VkShaderStageFlags>(stageFlags.value),
             offset,

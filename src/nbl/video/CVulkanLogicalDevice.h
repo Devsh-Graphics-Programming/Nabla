@@ -17,7 +17,6 @@
 #include "nbl/video/CVulkanShader.h"
 #include "nbl/video/CVulkanSpecializedShader.h"
 #include "nbl/video/CVulkanCommandPool.h"
-#include "nbl/video/CVulkanCommandBuffer.h"
 #include "nbl/video/CVulkanDescriptorSetLayout.h"
 #include "nbl/video/CVulkanSampler.h"
 #include "nbl/video/CVulkanPipelineLayout.h"
@@ -33,6 +32,8 @@
 
 namespace nbl::video
 {
+
+class CVulkanCommandBuffer;
 
 class CVulkanLogicalDevice final : public ILogicalDevice
 {
@@ -53,8 +54,7 @@ public:
                 const float priority = qci.priorities[j];
                         
                 VkQueue q;
-                // m_devf.vk.vkGetDeviceQueue(m_vkdev, famIx, j, &q);
-                vkGetDeviceQueue(m_vkdev, famIx, j, &q);
+                m_devf.vk.vkGetDeviceQueue(m_vkdev, famIx, j, &q);
                         
                 const uint32_t ix = offset + j;
                 (*m_queues)[ix] = new CThreadSafeGPUQueueAdapter(this, new CVulkanQueue(this, q, famIx, flags, priority));
@@ -64,8 +64,7 @@ public:
             
     ~CVulkanLogicalDevice()
     {
-        // m_devf.vk.vkDestroyDevice(m_vkdev, nullptr);
-        vkDestroyDevice(m_vkdev, nullptr);
+        m_devf.vk.vkDestroyDevice(m_vkdev, nullptr);
     }
             
     core::smart_refctd_ptr<ISwapchain> createSwapchain(ISwapchain::SCreationParams&& params) override
@@ -105,18 +104,18 @@ public:
         vk_createInfo.oldSwapchain = VK_NULL_HANDLE; // Todo(achal)
 
         VkSwapchainKHR vk_swapchain;
-        if (vkCreateSwapchainKHR(m_vkdev, &vk_createInfo, nullptr, &vk_swapchain) != VK_SUCCESS)
+        if (m_devf.vk.vkCreateSwapchainKHR(m_vkdev, &vk_createInfo, nullptr, &vk_swapchain) != VK_SUCCESS)
             return nullptr;
 
         uint32_t imageCount;
-        VkResult retval = vkGetSwapchainImagesKHR(m_vkdev, vk_swapchain, &imageCount, nullptr);
+        VkResult retval = m_devf.vk.vkGetSwapchainImagesKHR(m_vkdev, vk_swapchain, &imageCount, nullptr);
         if ((retval != VK_SUCCESS) && (retval != VK_INCOMPLETE)) // Todo(achal): Would there be a need to handle VK_INCOMPLETE separately?
             return nullptr;
 
         assert(imageCount <= MAX_SWAPCHAIN_IMAGE_COUNT);
 
         VkImage vk_images[MAX_SWAPCHAIN_IMAGE_COUNT];
-        retval = vkGetSwapchainImagesKHR(m_vkdev, vk_swapchain, &imageCount, vk_images);
+        retval = m_devf.vk.vkGetSwapchainImagesKHR(m_vkdev, vk_swapchain, &imageCount, vk_images);
         if ((retval != VK_SUCCESS) && (retval != VK_INCOMPLETE)) // Todo(achal): Would there be a need to handle VK_INCOMPLETE separately?
             return nullptr;
 
@@ -151,7 +150,7 @@ public:
         createInfo.flags = static_cast<VkSemaphoreCreateFlags>(0); // flags must be 0
 
         VkSemaphore semaphore;
-        if (vkCreateSemaphore(m_vkdev, &createInfo, nullptr, &semaphore) == VK_SUCCESS)
+        if (m_devf.vk.vkCreateSemaphore(m_vkdev, &createInfo, nullptr, &semaphore) == VK_SUCCESS)
         {
             return core::make_smart_refctd_ptr<CVulkanSemaphore>
                 (core::smart_refctd_ptr<CVulkanLogicalDevice>(this), semaphore);
@@ -189,7 +188,7 @@ public:
         vk_createInfo.flags = static_cast<VkFenceCreateFlags>(flags);
 
         VkFence vk_fence;
-        if (vkCreateFence(m_vkdev, &vk_createInfo, nullptr, &vk_fence) == VK_SUCCESS)
+        if (m_devf.vk.vkCreateFence(m_vkdev, &vk_createInfo, nullptr, &vk_fence) == VK_SUCCESS)
         {
             return core::make_smart_refctd_ptr<CVulkanFence>(
                 core::smart_refctd_ptr<CVulkanLogicalDevice>(this), flags, vk_fence);
@@ -205,7 +204,7 @@ public:
         if (!_fence && (_fence->getAPIType() != EAT_VULKAN))
             return IGPUFence::E_STATUS::ES_ERROR;
 
-        VkResult retval = vkGetFenceStatus(m_vkdev, static_cast<const CVulkanFence*>(_fence)->getInternalObject());
+        VkResult retval = m_devf.vk.vkGetFenceStatus(m_vkdev, static_cast<const CVulkanFence*>(_fence)->getInternalObject());
 
         switch (retval)
         {
@@ -233,7 +232,7 @@ public:
             vk_fences[i] = static_cast<CVulkanFence*>(_fences[i])->getInternalObject();
         }
 
-        vkResetFences(m_vkdev, _count, vk_fences);
+        m_devf.vk.vkResetFences(m_vkdev, _count, vk_fences);
     }
             
     IGPUFence::E_STATUS waitForFences(uint32_t _count, IGPUFence*const* _fences, bool _waitAll, uint64_t _timeout) override
@@ -251,7 +250,7 @@ public:
             vk_fences[i] = static_cast<CVulkanFence*>(_fences[i])->getInternalObject();
         }
 
-        VkResult result = vkWaitForFences(m_vkdev, _count, vk_fences, _waitAll, _timeout);
+        VkResult result = m_devf.vk.vkWaitForFences(m_vkdev, _count, vk_fences, _waitAll, _timeout);
         switch (result)
         {
         case VK_SUCCESS:
@@ -276,7 +275,7 @@ public:
         vk_createInfo.queueFamilyIndex = familyIndex;
 
         VkCommandPool vk_commandPool = VK_NULL_HANDLE;
-        if (vkCreateCommandPool(m_vkdev, &vk_createInfo, nullptr, &vk_commandPool) == VK_SUCCESS)
+        if (m_devf.vk.vkCreateCommandPool(m_vkdev, &vk_createInfo, nullptr, &vk_commandPool) == VK_SUCCESS)
         {
             return core::make_smart_refctd_ptr<CVulkanCommandPool>(
                 core::smart_refctd_ptr<CVulkanLogicalDevice>(this), flags, familyIndex, vk_commandPool);
@@ -311,7 +310,7 @@ public:
         vk_createInfo.pPoolSizes = vk_descriptorPoolSizes;
 
         VkDescriptorPool vk_descriptorPool;
-        if (vkCreateDescriptorPool(m_vkdev, &vk_createInfo, nullptr, &vk_descriptorPool) == VK_SUCCESS)
+        if (m_devf.vk.vkCreateDescriptorPool(m_vkdev, &vk_createInfo, nullptr, &vk_descriptorPool) == VK_SUCCESS)
         {
             return core::make_smart_refctd_ptr<CVulkanDescriptorPool>(
                 core::smart_refctd_ptr<CVulkanLogicalDevice>(this), maxSets, vk_descriptorPool);
@@ -324,8 +323,6 @@ public:
             
     core::smart_refctd_ptr<IGPURenderpass> createGPURenderpass(const IGPURenderpass::SCreationParams& params) override
     {
-        // auto* vk = m_vkdev->getFunctionTable();
-
         VkRenderPassCreateInfo createInfo = { VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO };
         createInfo.pNext = nullptr;
         createInfo.flags = static_cast<VkRenderPassCreateFlags>(0u); // No flags are supported
@@ -441,9 +438,8 @@ public:
         }
         createInfo.pDependencies = deps.data();
 
-        // vk->vk.vkCreateRenderPass(vkdev, &ci, nullptr, &m_renderpass);
         VkRenderPass vk_renderpass;
-        if (vkCreateRenderPass(m_vkdev, &createInfo, nullptr, &vk_renderpass) == VK_SUCCESS)
+        if (m_devf.vk.vkCreateRenderPass(m_vkdev, &createInfo, nullptr, &vk_renderpass) == VK_SUCCESS)
         {
             return core::make_smart_refctd_ptr<CVulkanRenderpass>(
                 core::smart_refctd_ptr<CVulkanLogicalDevice>(this), params, vk_renderpass);
@@ -465,7 +461,7 @@ public:
 
         getVkMappedMemoryRanges(vk_memoryRanges, ranges.begin(), ranges.end());
         
-        if (vkFlushMappedMemoryRanges(m_vkdev, memoryRangeCount, vk_memoryRanges) != VK_SUCCESS)
+        if (m_devf.vk.vkFlushMappedMemoryRanges(m_vkdev, memoryRangeCount, vk_memoryRanges) != VK_SUCCESS)
             printf("flushMappedMemoryRanges failed\n");
     }
             
@@ -480,7 +476,7 @@ public:
 
         getVkMappedMemoryRanges(vk_memoryRanges, ranges.begin(), ranges.end());
 
-        if (vkInvalidateMappedMemoryRanges(m_vkdev, memoryRangeCount, vk_memoryRanges) != VK_SUCCESS)
+        if (m_devf.vk.vkInvalidateMappedMemoryRanges(m_vkdev, memoryRangeCount, vk_memoryRanges) != VK_SUCCESS)
             printf("invalidateMappedMemoryRanges failed!\n");
     }
 
@@ -500,7 +496,7 @@ public:
 
             VkBuffer vk_buffer = vulkanBuffer->getInternalObject();
             VkDeviceMemory vk_memory = static_cast<const CVulkanMemoryAllocation*>(pBindInfos[i].memory)->getInternalObject();
-            if (vkBindBufferMemory(m_vkdev, vk_buffer, vk_memory, static_cast<VkDeviceSize>(pBindInfos[i].offset)) != VK_SUCCESS)
+            if (m_devf.vk.vkBindBufferMemory(m_vkdev, vk_buffer, vk_memory, static_cast<VkDeviceSize>(pBindInfos[i].offset)) != VK_SUCCESS)
             {
                 // Todo(achal): Log which one failed
                 anyFailed = true;
@@ -522,7 +518,7 @@ public:
         vk_createInfo.pQueueFamilyIndices = creationParams.queueFamilyIndices;
 
         VkBuffer vk_buffer;
-        if (vkCreateBuffer(m_vkdev, &vk_createInfo, nullptr, &vk_buffer) == VK_SUCCESS)
+        if (m_devf.vk.vkCreateBuffer(m_vkdev, &vk_createInfo, nullptr, &vk_buffer) == VK_SUCCESS)
         {
             VkBufferMemoryRequirementsInfo2 vk_memoryRequirementsInfo = { VK_STRUCTURE_TYPE_BUFFER_MEMORY_REQUIREMENTS_INFO_2 };
             vk_memoryRequirementsInfo.pNext = nullptr; // pNext must be NULL
@@ -531,7 +527,7 @@ public:
             VkMemoryDedicatedRequirements vk_dedicatedMemoryRequirements = { VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS };
             VkMemoryRequirements2 vk_memoryRequirements = { VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2 };
             vk_memoryRequirements.pNext = &vk_dedicatedMemoryRequirements;
-            vkGetBufferMemoryRequirements2(m_vkdev, &vk_memoryRequirementsInfo, &vk_memoryRequirements);
+            m_devf.vk.vkGetBufferMemoryRequirements2(m_vkdev, &vk_memoryRequirementsInfo, &vk_memoryRequirements);
 
             IDriverMemoryBacked::SDriverMemoryRequirements bufferMemoryReqs = {};
             bufferMemoryReqs.vulkanReqs.alignment = vk_memoryRequirements.memoryRequirements.alignment;
@@ -619,7 +615,7 @@ public:
         vk_createInfo.initialLayout = static_cast<VkImageLayout>(params.initialLayout);
 
         VkImage vk_image;
-        if (vkCreateImage(m_vkdev, &vk_createInfo, nullptr, &vk_image) == VK_SUCCESS)
+        if (m_devf.vk.vkCreateImage(m_vkdev, &vk_createInfo, nullptr, &vk_image) == VK_SUCCESS)
         {
             VkImageMemoryRequirementsInfo2 vk_memReqsInfo = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_REQUIREMENTS_INFO_2 };
             vk_memReqsInfo.pNext = nullptr;
@@ -629,7 +625,7 @@ public:
             VkMemoryRequirements2 vk_memReqs = { VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2 };
             vk_memReqs.pNext = &vk_memDedReqs;
 
-            vkGetImageMemoryRequirements2(m_vkdev, &vk_memReqsInfo, &vk_memReqs);
+            m_devf.vk.vkGetImageMemoryRequirements2(m_vkdev, &vk_memReqsInfo, &vk_memReqs);
 
             IDriverMemoryBacked::SDriverMemoryRequirements imageMemReqs = {};
             imageMemReqs.vulkanReqs.alignment = vk_memReqs.memoryRequirements.alignment;
@@ -667,7 +663,7 @@ public:
 
             VkImage vk_image = vulkanImage->getInternalObject();
             VkDeviceMemory vk_deviceMemory = static_cast<const CVulkanMemoryAllocation*>(bindInfo.memory)->getInternalObject();
-            if (vkBindImageMemory(m_vkdev, vk_image, vk_deviceMemory, static_cast<VkDeviceSize>(bindInfo.offset)) != VK_SUCCESS)
+            if (m_devf.vk.vkBindImageMemory(m_vkdev, vk_image, vk_deviceMemory, static_cast<VkDeviceSize>(bindInfo.offset)) != VK_SUCCESS)
             {
                 // Todo(achal): Log which one failed
                 anyFailed = true;
@@ -832,7 +828,7 @@ public:
             vk_copyDescriptorSets[i].descriptorCount = pDescriptorCopies[i].count;
         }
 
-        vkUpdateDescriptorSets(m_vkdev, descriptorWriteCount, vk_writeDescriptorSets, descriptorCopyCount, vk_copyDescriptorSets);
+        m_devf.vk.vkUpdateDescriptorSets(m_vkdev, descriptorWriteCount, vk_writeDescriptorSets, descriptorCopyCount, vk_copyDescriptorSets);
     }
 
     core::smart_refctd_ptr<IDriverMemoryAllocation> allocateDeviceLocalMemory(
@@ -878,7 +874,7 @@ public:
         vk_createInfo.unnormalizedCoordinates = VK_FALSE; // Todo(achal): Verify
 
         VkSampler vk_sampler;
-        if (vkCreateSampler(m_vkdev, &vk_createInfo, nullptr, &vk_sampler) == VK_SUCCESS)
+        if (m_devf.vk.vkCreateSampler(m_vkdev, &vk_createInfo, nullptr, &vk_sampler) == VK_SUCCESS)
         {
             return core::make_smart_refctd_ptr<CVulkanSampler>(core::smart_refctd_ptr<ILogicalDevice>(this), _params, vk_sampler);
         }
@@ -891,7 +887,7 @@ public:
     // API changes needed, this could also fail.
     void waitIdle() override
     {
-        VkResult retval = vkDeviceWaitIdle(m_vkdev);
+        VkResult retval = m_devf.vk.vkDeviceWaitIdle(m_vkdev);
 
         // Todo(achal): Handle errors
         assert(retval == VK_SUCCESS);
@@ -905,7 +901,7 @@ public:
         VkMemoryMapFlags vk_memoryMapFlags = 0; // reserved for future use, by Vulkan
         VkDeviceMemory vk_memory = static_cast<const CVulkanMemoryAllocation*>(memory.memory)->getInternalObject();
         void* mappedPtr;
-        if (vkMapMemory(m_vkdev, vk_memory, static_cast<VkDeviceSize>(memory.offset),
+        if (m_devf.vk.vkMapMemory(m_vkdev, vk_memory, static_cast<VkDeviceSize>(memory.offset),
             static_cast<VkDeviceSize>(memory.length), vk_memoryMapFlags, &mappedPtr) == VK_SUCCESS)
         {
             return mappedPtr;
@@ -922,49 +918,16 @@ public:
             return;
 
         VkDeviceMemory vk_deviceMemory = static_cast<const CVulkanMemoryAllocation*>(memory)->getInternalObject();
-        vkUnmapMemory(m_vkdev, vk_deviceMemory);
+        m_devf.vk.vkUnmapMemory(m_vkdev, vk_deviceMemory);
     }
 
-    CVulkanDeviceFunctionTable* getFunctionTable() { return &m_devf; }
+    const CVulkanDeviceFunctionTable* getFunctionTable() const { return &m_devf; }
 
     VkDevice getInternalObject() const { return m_vkdev; }
 
 protected:
     bool createCommandBuffers_impl(IGPUCommandPool* cmdPool, IGPUCommandBuffer::E_LEVEL level,
-        uint32_t count, core::smart_refctd_ptr<IGPUCommandBuffer>* outCmdBufs) override
-    {
-        constexpr uint32_t MAX_COMMAND_BUFFER_COUNT = 1000u;
-
-        if (cmdPool->getAPIType() != EAT_VULKAN)
-            return false;
-
-        auto vulkanCommandPool = static_cast<CVulkanCommandPool*>(cmdPool)->getInternalObject();
-
-        assert(count <= MAX_COMMAND_BUFFER_COUNT);
-        VkCommandBuffer vk_commandBuffers[MAX_COMMAND_BUFFER_COUNT];
-
-        VkCommandBufferAllocateInfo vk_allocateInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
-        vk_allocateInfo.pNext = nullptr; // this must be NULL
-        vk_allocateInfo.commandPool = vulkanCommandPool;
-        vk_allocateInfo.level = static_cast<VkCommandBufferLevel>(level);
-        vk_allocateInfo.commandBufferCount = count;
-
-        if (vkAllocateCommandBuffers(m_vkdev, &vk_allocateInfo, vk_commandBuffers) == VK_SUCCESS)
-        {
-            for (uint32_t i = 0u; i < count; ++i)
-            {
-                outCmdBufs[i] = core::make_smart_refctd_ptr<CVulkanCommandBuffer>(
-                    core::smart_refctd_ptr<ILogicalDevice>(this), level, vk_commandBuffers[i],
-                    cmdPool);
-            }
-
-            return true;
-        }
-        else
-        {
-            return false;
-        }
-    }
+        uint32_t count, core::smart_refctd_ptr<IGPUCommandBuffer>* outCmdBufs) override;
 
     bool freeCommandBuffers_impl(IGPUCommandBuffer** _cmdbufs, uint32_t _count) override
     {
@@ -1005,9 +968,8 @@ protected:
         createInfo.height = params.height;
         createInfo.layers = params.layers;
 
-        // vk->vk.vkCreateFramebuffer(vkdev, &createInfo, nullptr, &m_vkfbo);
         VkFramebuffer vk_framebuffer;
-        if (vkCreateFramebuffer(m_vkdev, &createInfo, nullptr, &vk_framebuffer) == VK_SUCCESS)
+        if (m_devf.vk.vkCreateFramebuffer(m_vkdev, &createInfo, nullptr, &vk_framebuffer) == VK_SUCCESS)
         {
             return core::make_smart_refctd_ptr<CVulkanFramebuffer>(
                 core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(params), vk_framebuffer);
@@ -1065,7 +1027,7 @@ protected:
         vk_createInfo.pCode = reinterpret_cast<const uint32_t*>(spirv->getPointer());
 
         VkShaderModule vk_shaderModule;
-        if (vkCreateShaderModule(m_vkdev, &vk_createInfo, nullptr, &vk_shaderModule) == VK_SUCCESS)
+        if (m_devf.vk.vkCreateShaderModule(m_vkdev, &vk_createInfo, nullptr, &vk_shaderModule) == VK_SUCCESS)
         {
             return core::make_smart_refctd_ptr<video::CVulkanSpecializedShader>(
                 core::smart_refctd_ptr<CVulkanLogicalDevice>(this), vk_shaderModule, shaderStage);
@@ -1092,7 +1054,7 @@ protected:
         vk_createInfo.range = _size;
 
         VkBufferView vk_bufferView;
-        if (vkCreateBufferView(m_vkdev, &vk_createInfo, nullptr, &vk_bufferView) == VK_SUCCESS)
+        if (m_devf.vk.vkCreateBufferView(m_vkdev, &vk_createInfo, nullptr, &vk_bufferView) == VK_SUCCESS)
         {
             return core::make_smart_refctd_ptr<CVulkanBufferView>(
                 core::smart_refctd_ptr<CVulkanLogicalDevice>(this),
@@ -1129,7 +1091,7 @@ protected:
         vk_createInfo.subresourceRange.layerCount = params.subresourceRange.layerCount;
 
         VkImageView vk_imageView;
-        if (vkCreateImageView(m_vkdev, &vk_createInfo, nullptr, &vk_imageView) == VK_SUCCESS)
+        if (m_devf.vk.vkCreateImageView(m_vkdev, &vk_createInfo, nullptr, &vk_imageView) == VK_SUCCESS)
         {
             return core::make_smart_refctd_ptr<CVulkanImageView>(core::smart_refctd_ptr<CVulkanLogicalDevice>(this),
                 std::move(params), vk_imageView);
@@ -1159,7 +1121,7 @@ protected:
         vk_allocateInfo.pSetLayouts = &vk_dsLayout;
 
         VkDescriptorSet vk_descriptorSet;
-        if (vkAllocateDescriptorSets(m_vkdev, &vk_allocateInfo, &vk_descriptorSet) == VK_SUCCESS)
+        if (m_devf.vk.vkAllocateDescriptorSets(m_vkdev, &vk_allocateInfo, &vk_descriptorSet) == VK_SUCCESS)
         {
             return core::make_smart_refctd_ptr<CVulkanDescriptorSet>(
                 core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(layout),
@@ -1218,7 +1180,7 @@ protected:
         vk_createInfo.pBindings = vk_dsLayoutBindings;
 
         VkDescriptorSetLayout vk_dsLayout;
-        if (vkCreateDescriptorSetLayout(m_vkdev, &vk_createInfo, nullptr, &vk_dsLayout) == VK_SUCCESS)
+        if (m_devf.vk.vkCreateDescriptorSetLayout(m_vkdev, &vk_createInfo, nullptr, &vk_dsLayout) == VK_SUCCESS)
         {
             return core::make_smart_refctd_ptr<CVulkanDescriptorSetLayout>(
                 core::smart_refctd_ptr<CVulkanLogicalDevice>(this), _begin, _end, vk_dsLayout);
@@ -1269,7 +1231,7 @@ protected:
         vk_createInfo.pPushConstantRanges = vk_pushConstantRanges;
                 
         VkPipelineLayout vk_pipelineLayout;
-        if (vkCreatePipelineLayout(m_vkdev, &vk_createInfo, nullptr, &vk_pipelineLayout) == VK_SUCCESS)
+        if (m_devf.vk.vkCreatePipelineLayout(m_vkdev, &vk_createInfo, nullptr, &vk_pipelineLayout) == VK_SUCCESS)
         {
             return core::make_smart_refctd_ptr<CVulkanPipelineLayout>(
                 core::smart_refctd_ptr<CVulkanLogicalDevice>(this), _pcRangesBegin, _pcRangesEnd,
@@ -1372,7 +1334,7 @@ protected:
         }
         
         VkPipeline vk_pipelines[MAX_PIPELINE_COUNT];
-        if (vkCreateComputePipelines(m_vkdev, vk_pipelineCache, static_cast<uint32_t>(createInfos.size()),
+        if (m_devf.vk.vkCreateComputePipelines(m_vkdev, vk_pipelineCache, static_cast<uint32_t>(createInfos.size()),
             vk_createInfos, nullptr, vk_pipelines) == VK_SUCCESS)
         {
             for (size_t i = 0ull; i < createInfos.size(); ++i)
@@ -1417,7 +1379,6 @@ protected:
     }
 
 private:
-
     inline void getVkMappedMemoryRanges(VkMappedMemoryRange* outRanges, const IDriverMemoryAllocation::MappedMemoryRange* inRangeBegin, const IDriverMemoryAllocation::MappedMemoryRange* inRangeEnd)
     {
         uint32_t k = 0u;
@@ -1437,7 +1398,7 @@ private:
     }
 
     VkDevice m_vkdev;
-    CVulkanDeviceFunctionTable m_devf; // Todo(achal): I don't have a function table yet
+    CVulkanDeviceFunctionTable m_devf;
 };
 
 }

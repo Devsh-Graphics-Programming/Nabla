@@ -1,6 +1,7 @@
 #include "CVulkanLogicalDevice.h"
 
 #include "nbl/video/CVulkanPhysicalDevice.h"
+#include "nbl/video/CVulkanCommandBuffer.h"
 
 namespace nbl::video
 {
@@ -136,7 +137,7 @@ core::smart_refctd_ptr<IDriverMemoryAllocation> CVulkanLogicalDevice::allocateGP
         vk_allocateInfo.memoryTypeIndex = compatibleMemoryTypeIndices[i];
 
         VkDeviceMemory vk_deviceMemory;
-        if (vkAllocateMemory(m_vkdev, &vk_allocateInfo, nullptr, &vk_deviceMemory) == VK_SUCCESS)
+        if (m_devf.vk.vkAllocateMemory(m_vkdev, &vk_allocateInfo, nullptr, &vk_deviceMemory) == VK_SUCCESS)
         {
             // Todo(achal): Change dedicate to not always be false
             return core::make_smart_refctd_ptr<CVulkanMemoryAllocation>(this, reqs.vulkanReqs.size, false, vk_deviceMemory);
@@ -144,6 +145,42 @@ core::smart_refctd_ptr<IDriverMemoryAllocation> CVulkanLogicalDevice::allocateGP
     }
 
     return nullptr;
+}
+
+bool CVulkanLogicalDevice::createCommandBuffers_impl(IGPUCommandPool* cmdPool, IGPUCommandBuffer::E_LEVEL level,
+    uint32_t count, core::smart_refctd_ptr<IGPUCommandBuffer>* outCmdBufs)
+{
+    constexpr uint32_t MAX_COMMAND_BUFFER_COUNT = 1000u;
+
+    if (cmdPool->getAPIType() != EAT_VULKAN)
+        return false;
+
+    auto vulkanCommandPool = static_cast<CVulkanCommandPool*>(cmdPool)->getInternalObject();
+
+    assert(count <= MAX_COMMAND_BUFFER_COUNT);
+    VkCommandBuffer vk_commandBuffers[MAX_COMMAND_BUFFER_COUNT];
+
+    VkCommandBufferAllocateInfo vk_allocateInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
+    vk_allocateInfo.pNext = nullptr; // this must be NULL
+    vk_allocateInfo.commandPool = vulkanCommandPool;
+    vk_allocateInfo.level = static_cast<VkCommandBufferLevel>(level);
+    vk_allocateInfo.commandBufferCount = count;
+
+    if (m_devf.vk.vkAllocateCommandBuffers(m_vkdev, &vk_allocateInfo, vk_commandBuffers) == VK_SUCCESS)
+    {
+        for (uint32_t i = 0u; i < count; ++i)
+        {
+            outCmdBufs[i] = core::make_smart_refctd_ptr<CVulkanCommandBuffer>(
+                core::smart_refctd_ptr<ILogicalDevice>(this), level, vk_commandBuffers[i],
+                cmdPool);
+        }
+
+        return true;
+    }
+    else
+    {
+        return false;
+    }
 }
 
 }

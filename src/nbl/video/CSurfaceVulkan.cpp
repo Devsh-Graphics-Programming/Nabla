@@ -40,11 +40,8 @@ core::smart_refctd_ptr<CSurfaceVulkan<Window>> CSurfaceVulkan<Window>::create(
 template <typename Window>
 CSurfaceVulkan<Window>::~CSurfaceVulkan()
 {
-    if (base_t::m_api->getAPIType() == EAT_VULKAN)
-    {
-        VkInstance vk_instance = static_cast<const CVulkanConnection*>(base_t::m_api.get())->getInternalObject();
-        vkDestroySurfaceKHR(vk_instance, m_vkSurfaceKHR, nullptr);
-    }
+    VkInstance vk_instance = static_cast<const CVulkanConnection*>(base_t::m_api.get())->getInternalObject();
+    vkDestroySurfaceKHR(vk_instance, m_vkSurfaceKHR, nullptr);
 }
 
 template <typename Window>

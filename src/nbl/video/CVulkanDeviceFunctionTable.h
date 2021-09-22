@@ -1,10 +1,9 @@
 #ifndef __C_VULKAN_FUNCTION_TABLE_H_INCLUDED__
 #define __C_VULKAN_FUNCTION_TABLE_H_INCLUDED__
 
-#include <volk.h>
+#include <volk/volk.h>
 
-namespace nbl {
-namespace video
+namespace nbl::video
 {
 
 class CVulkanDeviceFunctionTable
@@ -18,7 +17,6 @@ public:
     VolkDeviceTable vk;
 };
 
-}
 }
 
 #endif
