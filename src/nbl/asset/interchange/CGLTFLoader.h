@@ -97,6 +97,7 @@ namespace nbl
 								std::optional<size_t> weights;									//!< The index of the accessor that contains the weights.
 
 								std::optional<size_t> perVertexJointsAmount;					//!< 1 up to 4 range specifing input joint IDs amount per vertex
+								bool needsRepackingSkinningBuffers = false;						//!< if perVertexJointsAmount is greater than 1u it means that joints come as single R_UINT attributes, for implemetnation reasons we want to avoid splitting attributes and it will pack it to uvec4 then
 							};
 
 							Attributes attributes;

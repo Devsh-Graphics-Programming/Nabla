@@ -762,7 +762,7 @@ namespace nbl
 				}
 			}
 
-			struct SkeletonData //! for 
+			struct SkeletonData //! for cpu skeleton
 			{
 				struct HierarchyBuffer
 				{
@@ -1573,6 +1573,13 @@ namespace nbl
 									assert(0u <= attributeMap.second < 4u); // TODO: log and validation without assert
 									glTFPrimitive.attributes.weights = requestedAccessor;
 								}
+							}
+
+							if (glTFPrimitive.attributes.perVertexJointsAmount.has_value())
+							{
+								const bool repackVertexSkinningBuffers = glTFPrimitive.attributes.perVertexJointsAmount.value() > 1u;
+								if (repackVertexSkinningBuffers)
+									glTFPrimitive.attributes.needsRepackingSkinningBuffers = true;
 							}
 						}
 					}
