@@ -84,7 +84,7 @@ int main()
 	auto ds = logicalDevice->createGPUDescriptorSet(dsPool.get(),core::smart_refctd_ptr<IGPUDescriptorSetLayout>(dsLayout));
 	scanner->updateDescriptorSet(ds.get(),in_gpu_range,scratch_gpu_range);
 
-	constexpr auto BenchmarkingRuns = 256u;
+	constexpr auto BenchmarkingRuns = 128u;
 	auto computeQueue = queues[decltype(initOutput)::EQT_COMPUTE];
 	core::smart_refctd_ptr<IGPUFence> lastFence;
 	// TODO: timestamp queries
@@ -129,7 +129,7 @@ int main()
 		logger->log("CPU scan begin",system::ILogger::ELL_PERFORMANCE);
 
 		auto start = std::chrono::high_resolution_clock::now();
-		std::inclusive_scan(cpu_begin,in+end,cpu_begin);
+		std::exclusive_scan(cpu_begin,in+end,cpu_begin,0u);
 		auto stop = std::chrono::high_resolution_clock::now();
 
 		logger->log("CPU sort end. Time taken: %d us",system::ILogger::ELL_PERFORMANCE,std::chrono::duration_cast<std::chrono::microseconds>(stop-start).count());

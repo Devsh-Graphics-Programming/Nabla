@@ -7,42 +7,32 @@
 layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_) in;
 
 
+
+// declarations
+#include "nbl/builtin/glsl/scan/parameters_struct.glsl"
+#ifndef _NBL_GLSL_SCAN_GET_PARAMETERS_DECLARED_
+nbl_glsl_scan_Parameters_t nbl_glsl_scan_getParameters();
+#define _NBL_GLSL_SCAN_GET_PARAMETERS_DECLARED_
+#endif
+
+
 #ifndef _NBL_GLSL_SCAN_STORAGE_TYPE_
 #error "_NBL_GLSL_SCAN_STORAGE_TYPE needs to be defined to any of uint/int/float"
 #endif
 
 #define nbl_glsl_scan_Storage_t _NBL_GLSL_SCAN_STORAGE_TYPE_
 
-
-#ifndef _NBL_GLSL_SCAN_DESCRIPTOR_SET_DEFINED_
-#define _NBL_GLSL_SCAN_DESCRIPTOR_SET_DEFINED_ 0
+/*
+#ifndef _NBL_GLSL_SCAN_GET_PADDED_DATA_DECLARED_
+int nbl_glsl_scan_getPaddedData(in uint treeLevel, in uint ix, in uint pad_val);
+uint nbl_glsl_scan_getPaddedData(in uint treeLevel, in uint ix, in uint pad_val);
+float nbl_glsl_scan_getPaddedData(in uint treeLevel, in uint ix, in uint pad_val);
+#define _NBL_GLSL_SCAN_GET_PADDED_DATA_DECLARED_
 #endif
-
-#ifndef _NBL_GLSL_SCAN_INPUT_DESCRIPTOR_DEFINED_
-#ifndef _NBL_GLSL_SCAN_INPUT_BINDING_DEFINED_
-#define _NBL_GLSL_SCAN_INPUT_BINDING_DEFINED_ 0
-#endif
-layout(set=_NBL_GLSL_SCAN_DESCRIPTOR_SET_DEFINED_, binding=_NBL_GLSL_SCAN_INPUT_BINDING_DEFINED_, std430) restrict buffer ScanInputBuffer
-{
-	nbl_glsl_scan_Storage_t data[];
-} scanInput;
-#define _NBL_GLSL_SCAN_INPUT_DESCRIPTOR_DEFINED_
-#endif
-
-#ifndef _NBL_GLSL_SCAN_SCRATCH_DESCRIPTOR_DEFINED_
-#ifndef _NBL_GLSL_SCAN_SCRATCH_BINDING_DEFINED_
-#define _NBL_GLSL_SCAN_SCRATCH_BINDING_DEFINED_ 1
-#endif
-layout(set=_NBL_GLSL_SCAN_DESCRIPTOR_SET_DEFINED_, binding=_NBL_GLSL_SCAN_SCRATCH_BINDING_DEFINED_, std430) restrict coherent buffer ScanScratchBuffer
-{
-	uint workgroupsStarted;
-	uint data[];
-} scanScratch;
-#define _NBL_GLSL_SCAN_SCRATCH_DESCRIPTOR_DEFINED_
-#endif
+*/
 
 
-#include "nbl/builtin/glsl/scan/parameters_struct.glsl"
+//
 #ifndef _NBL_GLSL_SCAN_PUSH_CONSTANTS_DEFINED_
 layout(push_constant) uniform PushConstants
 {
@@ -59,9 +49,158 @@ nbl_glsl_scan_Parameters_t nbl_glsl_scan_getParameters()
 #define _NBL_GLSL_SCAN_GET_PARAMETERS_DEFINED_
 #endif
 
-//#include "nbl/builtin/glsl/scan/parameters.glsl"
 
 
+// descriptors
+#ifndef _NBL_GLSL_SCAN_DESCRIPTOR_SET_DEFINED_
+#define _NBL_GLSL_SCAN_DESCRIPTOR_SET_DEFINED_ 0
+#endif
+
+#ifndef _NBL_GLSL_SCAN_INPUT_DESCRIPTOR_DEFINED_
+#ifndef _NBL_GLSL_SCAN_INPUT_BINDING_DEFINED_
+#define _NBL_GLSL_SCAN_INPUT_BINDING_DEFINED_ 0
+#endif
+layout(set=_NBL_GLSL_SCAN_DESCRIPTOR_SET_DEFINED_, binding=_NBL_GLSL_SCAN_INPUT_BINDING_DEFINED_, std430) restrict buffer ScanBuffer
+{
+	nbl_glsl_scan_Storage_t data[];
+} scanBuffer;
+#define _NBL_GLSL_SCAN_INPUT_DESCRIPTOR_DEFINED_
+#endif
+
+#ifndef _NBL_GLSL_SCAN_SCRATCH_DESCRIPTOR_DEFINED_
+#ifndef _NBL_GLSL_SCAN_SCRATCH_BINDING_DEFINED_
+#define _NBL_GLSL_SCAN_SCRATCH_BINDING_DEFINED_ 1
+#endif
+layout(set=_NBL_GLSL_SCAN_DESCRIPTOR_SET_DEFINED_, binding=_NBL_GLSL_SCAN_SCRATCH_BINDING_DEFINED_, std430) restrict coherent buffer ScanScratchBuffer
+{
+	uint workgroupsStarted;
+	uint data[];
+} scanScratch;
+#define _NBL_GLSL_SCAN_SCRATCH_DESCRIPTOR_DEFINED_
+#endif
+
+#ifndef _NBL_GLSL_SCAN_GET_PARAMETERS_DEFINED_
+#error "You need to define `nbl_glsl_scan_getParameters` and mark `_NBL_GLSL_SCAN_GET_PARAMETERS_DEFINED_`!"
+#endif
+
+/*
+#ifndef _NBL_GLSL_SCAN_GET_PADDED_DATA_DEFINED_
+uint nbl_glsl_scan_getPaddedData(in nbl_glsl_scan_Parameters_t params, in uint treeLevel, in uint ix, in uint pad_val)
+{
+	uint data = pad_val;
+	if (treeLevel!=0u)
+	{
+		if (ix<params.cumulativeWorkgroupCount[treeLevel-1u])
+			data = scanScratch.data[ix+params.temporaryStorageOffset[treeLevel-1]];
+	}
+	else if (ix<params.elementCount)
+		data = scanBuffer.data[ix];
+	return data;
+}
+int nbl_glsl_scan_getPaddedData(in nbl_glsl_scan_Parameters_t params, in uint treeLevel, in uint ix, in uint pad_val)
+{
+	return int(nbl_glsl_scan_getPaddedData(params,treeLevel,ix,pad_val));
+}
+float nbl_glsl_scan_getPaddedData(in nbl_glsl_scan_Parameters_t params, in uint treeLevel, in uint ix, in uint pad_val)
+{
+	return uintBitsToFloat(nbl_glsl_scan_getPaddedData(params,treeLevel,ix,pad_val));
+}
+#define _NBL_GLSL_SCAN_GET_PADDED_DATA_DEFINED_
+#endif
+//
+// Upsweep
+//
+#ifndef _NBL_GLSL_SCAN_GET_PADDED_DATA_DEFINED_
+#error "You need to define `nbl_glsl_scan_getPaddedData` and mark `_NBL_GLSL_SCAN_GET_PADDED_DATA_DEFINED_`!"
+#endif
+
+#define NBL_GLSL_SCAN_DEFINE_UPSWEEP(BIN_OP_NAME, TYPE, IDENTITY) void nbl_glsl_scan_upsweep##BIN_OP_NAME(in nbl_glsl_scan_Parameters_t params, in uint treeLevel, in uint idx)\
+{\
+	TYPE data = nbl_glsl_scan_getPaddedData(params,treeLevel,idx,IDENTITY);\
+	if (treeLevel!=0u)\
+		data = nbl_glsl_workgroupInclusive##BIN_OP_NAME(data);\
+	else\
+		data = nbl_glsl_workgroupExclusive##BIN_OP_NAME(data);\
+	if (gl_LocalInvocationIndex==(_NBL_GLSL_WORKGROUP_SIZE_-1)) \
+		nbl_glsl_scan_setData(idx/_NBL_GLSL_WORKGROUP_SIZE_,data);\
+}
+
+NBL_GLSL_SCAN_DEFINE_UPSWEEP(And, uint, ~0u)
+NBL_GLSL_SCAN_DEFINE_UPSWEEP(And, int, int(~0u))
+NBL_GLSL_SCAN_DEFINE_UPSWEEP(And, float, uintBitsToFloat(~0u))
+
+NBL_GLSL_SCAN_DEFINE_UPSWEEP(Xor, uint, 0u)
+NBL_GLSL_SCAN_DEFINE_UPSWEEP(Xor, int, 0)
+NBL_GLSL_SCAN_DEFINE_UPSWEEP(Xor, float, uintBitsToFloat(0u))
+
+NBL_GLSL_SCAN_DEFINE_UPSWEEP(Or, uint, 0u)
+NBL_GLSL_SCAN_DEFINE_UPSWEEP(Or, int, 0)
+NBL_GLSL_SCAN_DEFINE_UPSWEEP(Or, float, uintBitsToFloat(0u))
+
+NBL_GLSL_SCAN_DEFINE_UPSWEEP(Add, uint, 0u)
+NBL_GLSL_SCAN_DEFINE_UPSWEEP(Add, int, 0)
+NBL_GLSL_SCAN_DEFINE_UPSWEEP(Add, float, 0.0)
+
+NBL_GLSL_SCAN_DEFINE_UPSWEEP(Mul, uint, 1u)
+NBL_GLSL_SCAN_DEFINE_UPSWEEP(Mul, int, 1)
+NBL_GLSL_SCAN_DEFINE_UPSWEEP(Mul, float, 1.0)
+
+NBL_GLSL_SCAN_DEFINE_UPSWEEP(Min, uint, ~0u)
+NBL_GLSL_SCAN_DEFINE_UPSWEEP(Min, int, INT_MAX)
+NBL_GLSL_SCAN_DEFINE_UPSWEEP(Min, float, FLT_INF)
+
+NBL_GLSL_SCAN_DEFINE_UPSWEEP(Max, uint, 0u)
+NBL_GLSL_SCAN_DEFINE_UPSWEEP(Max, int, INT_MIN)
+NBL_GLSL_SCAN_DEFINE_UPSWEEP(Max, float, -FLT_INF)
+
+
+
+#define NBL_GLSL_SCAN_DEFINE_DOWNSWEEP(BIN_OP_NAME, TYPE, IDENTITY, BIN_OP, CONV, INVCONV)\
+void nbl_glsl_Scan_downsweep##BIN_OP_NAME(in uint idx, out TYPE val)\
+{\
+	TYPE data;\
+	if (gl_LocalInvocationIndex==0u)\
+		data = nbl_glsl_scan_getPaddedData(params,treeLevel-1u,idx/_NBL_GLSL_WORKGROUP_SIZE_,IDENTITY);\
+	data = nbl_glsl_workgroupBroadcast(data,0u);\
+	if (gl_LocalInvocationIndex != 0u && (gl_GlobalInvocationID.x < nbl_glsl_ext_Scan_Parameters_t_getElementCountPass()))\
+	{\
+		uint prev_idx = idx-1u;\
+		data = INVCONV(BIN_OP(CONV(data), CONV(nbl_glsl_ext_Scan_getPaddedData(params,treeLevel,prev_idx, IDENTITY))));\
+	}\
+	val = data;\
+}
+
+NBL_GLSL_SCAN_DEFINE_DOWNSWEEP(And, uint, ~0u, nbl_glsl_and, nbl_glsl_identityFunction, nbl_glsl_identityFunction)
+NBL_GLSL_SCAN_DEFINE_DOWNSWEEP(And, int, int(~0u), nbl_glsl_and, uint, int)
+NBL_GLSL_SCAN_DEFINE_DOWNSWEEP(And, float, uintBitsToFloat(~0u), nbl_glsl_and, floatBitsToUint, uintBitsToFloat)
+
+NBL_GLSL_SCAN_DEFINE_DOWNSWEEP(Xor, uint, 0u, nbl_glsl_xor, nbl_glsl_identityFunction, nbl_glsl_identityFunction)
+NBL_GLSL_SCAN_DEFINE_DOWNSWEEP(Xor, int, int(0u), nbl_glsl_xor, uint, int)
+NBL_GLSL_SCAN_DEFINE_DOWNSWEEP(Xor, float, uintBitsToFloat(0u), nbl_glsl_xor, floatBitsToUint, uintBitsToFloat)
+
+NBL_GLSL_SCAN_DEFINE_DOWNSWEEP(Or, uint, 0u, nbl_glsl_or, nbl_glsl_identityFunction, nbl_glsl_identityFunction)
+NBL_GLSL_SCAN_DEFINE_DOWNSWEEP(Or, int, int(0u), nbl_glsl_or, uint, int)
+NBL_GLSL_SCAN_DEFINE_DOWNSWEEP(Or, float, uintBitsToFloat(0u), nbl_glsl_or, floatBitsToUint, uintBitsToFloat)
+
+NBL_GLSL_SCAN_DEFINE_DOWNSWEEP(Add, uint, 0u, nbl_glsl_add, nbl_glsl_identityFunction, nbl_glsl_identityFunction)
+NBL_GLSL_SCAN_DEFINE_DOWNSWEEP(Add, int, 0, nbl_glsl_add, uint, int)
+NBL_GLSL_SCAN_DEFINE_DOWNSWEEP(Add, float, 0.0, nbl_glsl_add, float, float)
+
+NBL_GLSL_SCAN_DEFINE_DOWNSWEEP(Mul, uint, 1u, nbl_glsl_mul, nbl_glsl_identityFunction, nbl_glsl_identityFunction)
+NBL_GLSL_SCAN_DEFINE_DOWNSWEEP(Mul, int, 1, nbl_glsl_mul, uint, int)
+NBL_GLSL_SCAN_DEFINE_DOWNSWEEP(Mul, float, 1.0, nbl_glsl_mul, float, float)
+
+NBL_GLSL_SCAN_DEFINE_DOWNSWEEP(Min, uint, ~0u, min, nbl_glsl_identityFunction, nbl_glsl_identityFunction)
+NBL_GLSL_SCAN_DEFINE_DOWNSWEEP(Min, int, INT_MAX, min, int, int)
+NBL_GLSL_SCAN_DEFINE_DOWNSWEEP(Min, float, FLT_INF, min, float, float)
+
+NBL_GLSL_SCAN_DEFINE_DOWNSWEEP(Max, uint, 0u, max, nbl_glsl_identityFunction, nbl_glsl_identityFunction)
+NBL_GLSL_SCAN_DEFINE_DOWNSWEEP(Max, int, INT_MIN, max, int, int)
+NBL_GLSL_SCAN_DEFINE_DOWNSWEEP(Max, float, -FLT_INF, max, float, float)
+
+
+
+// scan impl
 #ifndef _NBL_GLSL_SCAN_BIN_OP_
 #error "_NBL_GLSL_SCAN_BIN_OP_ must be defined!"
 #endif
@@ -89,18 +228,7 @@ nbl_glsl_scan_Parameters_t nbl_glsl_scan_getParameters()
 #define _NBL_GLSL_SCAN_UPSWEEP_TYPE_ nbl_glsl_scan_upsweepMax
 #define _NBL_GLSL_SCAN_DOWNSWEEP_TYPE_ nbl_glsl_scan_downsweepMax
 #endif
-
-/*
-#ifndef _NBL_GLSL_EXT_SCAN_SET_DATA_DEFINED_
-void nbl_glsl_ext_Scan_setData(in uint idx, in nbl_glsl_ext_Scan_Storage_t val)
-{
-	if (gl_GlobalInvocationID.x < nbl_glsl_ext_Scan_Parameters_t_getElementCountPass())
-		inout_values[idx] = val;
-}
-#define _NBL_GLSL_EXT_SCAN_SET_DATA_DEFINED_
-#endif
 */
-
 
 #include <nbl/builtin/glsl/workgroup/arithmetic.glsl>
 #include <nbl/builtin/glsl/math/typeless_arithmetic.glsl>
@@ -114,7 +242,7 @@ uint nbl_glsl_scan_scheduler_getDependantWorkgroupCount(in nbl_glsl_scan_Paramet
 		return 1u;
 }
 
-void nbl_glsl_scan_scheduler_getWork(in nbl_glsl_scan_Parameters_t params, out uint treeLevel, out uint localWorkgroupIndex)
+void nbl_glsl_scan_scheduler_getWork(in nbl_glsl_scan_Parameters_t params, out uint treeLevel, out uint localWorkgroupIndex, out uint globalWorkgroupIndex)
 {
 	if (gl_LocalInvocationIndex==0u)
 		_NBL_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex] = atomicAdd(scanScratch.workgroupsStarted,1u);
@@ -122,7 +250,7 @@ void nbl_glsl_scan_scheduler_getWork(in nbl_glsl_scan_Parameters_t params, out u
 		_NBL_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex] = 0u;
 	barrier();
 
-	const uint globalWorkgroupIndex = _NBL_GLSL_SCRATCH_SHARED_DEFINED_[0u]; // does every thread need to know?
+	globalWorkgroupIndex = _NBL_GLSL_SCRATCH_SHARED_DEFINED_[0u]; // does every thread need to know?
 	if (gl_LocalInvocationIndex<NBL_BUILTIN_MAX_SCAN_LEVELS && globalWorkgroupIndex>=params.cumulativeWorkgroupCount[gl_LocalInvocationIndex])
 		atomicAdd(_NBL_GLSL_SCRATCH_SHARED_DEFINED_[1u],1u);
 	barrier();
@@ -132,14 +260,14 @@ void nbl_glsl_scan_scheduler_getWork(in nbl_glsl_scan_Parameters_t params, out u
 	const bool dependantLevel = treeLevel!=0u;
 	if (dependantLevel)
 	{
-		const uint lastLevel = treeLevel-1u;
-		localWorkgroupIndex -= params.cumulativeWorkgroupCount[lastLevel];
+		const uint prevLevel = treeLevel-1u;
+		localWorkgroupIndex -= params.cumulativeWorkgroupCount[prevLevel];
 		if (gl_LocalInvocationIndex==0u)
 		{
 			const bool lastWorkgroup = (globalWorkgroupIndex+1u)==params.cumulativeWorkgroupCount[treeLevel];
-			const uint dependentsCount = nbl_glsl_scan_scheduler_getDependantWorkgroupCount(params,lastLevel,lastWorkgroup);
+			const uint dependentsCount = nbl_glsl_scan_scheduler_getDependantWorkgroupCount(params,prevLevel,lastWorkgroup);
 
-			const uint dependentsFinishedFlagOffset = params.finishedFlagOffset[lastLevel]+localWorkgroupIndex/_NBL_GLSL_WORKGROUP_SIZE_;
+			const uint dependentsFinishedFlagOffset = params.finishedFlagOffset[prevLevel]+localWorkgroupIndex/_NBL_GLSL_WORKGROUP_SIZE_;
 			while (scanScratch.data[dependentsFinishedFlagOffset]!=dependentsCount)
 				memoryBarrierBuffer();
 		}
@@ -165,6 +293,7 @@ void nbl_glsl_scan_scheduler_markComplete(in nbl_glsl_scan_Parameters_t params, 
 	}
 }
 
+
 #ifndef _NBL_GLSL_SCAN_MAIN_DEFINED_
 void main()
 {
@@ -172,11 +301,71 @@ void main()
 	// persistent workgroups
 	while (true)
 	{
-		uint treeLevel,localWorkgroupIndex;
-		nbl_glsl_scan_scheduler_getWork(params,treeLevel,localWorkgroupIndex);
-		if (treeLevel==(params.topLevel<<1u))
-			return;
+		uint treeLevel,localWorkgroupIndex,globalWorkgroupIndex;
+		nbl_glsl_scan_scheduler_getWork(params,treeLevel,localWorkgroupIndex,globalWorkgroupIndex);
+		
+		const uint lastLevel = params.topLevel<<1u;
+	#define TYPE nbl_glsl_scan_Storage_t
+	#define IDENTITY 0u
+		const uint levelInvocationIndex = localWorkgroupIndex*_NBL_GLSL_WORKGROUP_SIZE_+gl_LocalInvocationIndex;
+		const uint globalInvocationIndex = globalWorkgroupIndex*_NBL_GLSL_WORKGROUP_SIZE_+gl_LocalInvocationIndex;
+		TYPE data;
+		if (treeLevel==0u)
+		{
+			data = IDENTITY;
+			if (levelInvocationIndex<params.elementCount)
+				data = scanBuffer.data[levelInvocationIndex];
+			data = nbl_glsl_workgroupInclusiveAdd(data);
+			if (gl_LocalInvocationIndex==0u)
+				scanScratch.data[localWorkgroupIndex+params.temporaryStorageOffset[0u]] = data;
+		}
+		else if (treeLevel<params.topLevel)
+		{
+			const uint prevLevel = treeLevel-1u;
+			data = IDENTITY;
+			if (globalInvocationIndex<params.cumulativeWorkgroupCount[prevLevel])
+				data = scanScratch.data[levelInvocationIndex+params.temporaryStorageOffset[prevLevel]];
+			data = nbl_glsl_workgroupInclusiveAdd(data);
+			if (gl_LocalInvocationIndex==0u)
+				scanScratch.data[localWorkgroupIndex+params.temporaryStorageOffset[treeLevel]] = data;
+		}
+		else if (treeLevel==params.topLevel)
+		{
+			const uint prevLevel = params.topLevel-1u;
+			const bool inRange = globalInvocationIndex<params.cumulativeWorkgroupCount[prevLevel];
+			const uint offset = levelInvocationIndex+params.temporaryStorageOffset[prevLevel];
+			data = IDENTITY;
+			if (inRange)
+				data = scanScratch.data[offset];
+			data = nbl_glsl_workgroupExclusiveAdd(data);
+			if (inRange)
+				scanScratch.data[offset] = data;
+		}
+		else if (treeLevel<lastLevel)
+		{
+			const uint prevLevel = treeLevel-1u;
+			if (gl_LocalInvocationIndex==0u)
+				data = scanScratch.data[localWorkgroupIndex+params.temporaryStorageOffset[prevLevel-1u]];
+			data = nbl_glsl_workgroupBroadcast(data,0u);
+			const uint offset = levelInvocationIndex+params.temporaryStorageOffset[prevLevel];
+			if (gl_LocalInvocationIndex!=0u && globalInvocationIndex<params.cumulativeWorkgroupCount[prevLevel])
+				data = data+scanScratch.data[offset-1u];
+			barrier();
+			scanScratch.data[offset] = data;
+		}
+		else
+		{
+			if (gl_LocalInvocationIndex==0u)
+				data = scanScratch.data[localWorkgroupIndex+params.temporaryStorageOffset[lastLevel-2u]];
+			data = nbl_glsl_workgroupBroadcast(data,0u);
+			if (gl_LocalInvocationIndex!=0u && levelInvocationIndex<params.elementCount)
+				data = data+scanBuffer.data[levelInvocationIndex-1u];
+			barrier();
+			scanBuffer.data[levelInvocationIndex] = data;
+		}
 
+		if (treeLevel==lastLevel)
+			return;
 		nbl_glsl_scan_scheduler_markComplete(params,treeLevel,localWorkgroupIndex);
 	}
 }

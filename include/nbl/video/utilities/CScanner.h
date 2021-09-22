@@ -51,6 +51,7 @@ class CScanner final : public core::IReferenceCounted
 				elementCount = 0u;
 				std::fill_n(cumulativeWorkgroupCount,MaxScanLevels,0u);
 				std::fill_n(finishedFlagOffset,MaxScanLevels-1,0u);
+				std::fill_n(temporaryStorageOffset,MaxScanLevels-1,0u);
 				std::fill_n(lastWorkgroupDependentCount,MaxScanLevels/2,1u);
 			}
 			Parameters(const uint32_t _elementCount, const uint32_t wg_size=DefaultWorkGroupSize) : Parameters()
@@ -77,7 +78,11 @@ class CScanner final : public core::IReferenceCounted
 
 				for (auto i=topLevel+1u; i<(topLevel<<1u); i++)
 					finishedFlagOffset[i] = cumulativeWorkgroupCount[i];
-				std::exclusive_scan(finishedFlagOffset,finishedFlagOffset+MaxScanLevels-1,finishedFlagOffset,0u);
+				for (auto i=0u; i<topLevel; i++)
+					temporaryStorageOffset[i] = cumulativeWorkgroupCount[i];
+				for (auto i=topLevel; i<(topLevel<<1u); i++)
+					temporaryStorageOffset[i] = cumulativeWorkgroupCount[i+1u];
+				std::exclusive_scan(finishedFlagOffset,temporaryStorageOffset+MaxScanLevels-1,finishedFlagOffset,0u);
 
 				std::inclusive_scan(cumulativeWorkgroupCount,cumulativeWorkgroupCount+MaxScanLevels,cumulativeWorkgroupCount);
 			}
@@ -85,8 +90,8 @@ class CScanner final : public core::IReferenceCounted
 			inline uint32_t getScratchSize(uint32_t ssboAlignment=256u)
 			{
 				uint32_t uint_count = 1u; // workgroup enumerator
-				uint_count += finishedFlagOffset[MaxScanLevels-1u]; // finished counters
-				uint_count += cumulativeWorkgroupCount[MaxScanLevels-1u]; // transient sweep output
+				uint_count += temporaryStorageOffset[MaxScanLevels-2u]; // last scratch offset
+				uint_count += cumulativeWorkgroupCount[MaxScanLevels-1u]; // and its size
 				return core::roundUp<uint32_t>(uint_count*sizeof(uint32_t),ssboAlignment);
 			}
 		};
@@ -98,7 +103,9 @@ class CScanner final : public core::IReferenceCounted
 			DispatchInfo(const uint32_t elementCount, const uint32_t wg_size=DefaultWorkGroupSize)
 			{
 				assert(elementCount!=0u && "Input element count can't be 0!");
-				wg_count = core::min<uint32_t>((0x1u<<16)-1u,(elementCount-1u)/wg_size+1u);
+				constexpr auto workgroupSpinningProtection = 4u;
+				constexpr auto beefyGPUWorkgroupMaxOccupancy = 256u; // TODO: find a way to query and report this somehow, persistent threads are very useful!
+				wg_count = core::min<uint32_t>(beefyGPUWorkgroupMaxOccupancy,(elementCount-1u)/(wg_size*workgroupSpinningProtection)+1u);
 			}
 
 			uint32_t wg_count;
