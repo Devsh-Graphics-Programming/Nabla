@@ -240,7 +240,7 @@ class IImage : public IDescriptor
 			E_TILING									tiling = ET_OPTIMAL;
 			core::bitflag<E_USAGE_FLAGS>				usage = static_cast<E_USAGE_FLAGS>(0);
 			// TODO: @achal sharing mode and queue family lists shouldn't be in ICPUImage's creation params!
-			E_SHARING_MODE								sharingMode = ESM_CONCURRENT;
+			E_SHARING_MODE								sharingMode = ESM_EXCLUSIVE;
 			uint32_t									queueFamilyIndexCount = 0u;
 			const uint32_t*								queueFamilyIndices = nullptr;
 			E_IMAGE_LAYOUT								initialLayout = EIL_UNDEFINED;

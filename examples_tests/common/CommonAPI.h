@@ -815,7 +815,7 @@ public:
 			requestedFormat.colorSpace.primary = asset::ECP_SRGB;
 		}
 
-		result.swapchain = createSwapchain(api_type, window_width, window_height, sc_image_count, result.logicalDevice, result.surface, video::ISurface::EPM_FIFO_RELAXED, requestedFormat, gpuInfo);
+		result.swapchain = createSwapchain(api_type, gpuInfo, window_width, window_height, sc_image_count, result.logicalDevice, result.surface, video::ISurface::EPM_FIFO_RELAXED, requestedFormat);
 		assert(result.swapchain);
 		
 		asset::E_FORMAT swapChainFormat = result.swapchain->getCreationParameters().surfaceFormat.format;
@@ -845,14 +845,14 @@ public:
 	}
 	static nbl::core::smart_refctd_ptr<nbl::video::ISwapchain> createSwapchain(
 		nbl::video::E_API_TYPE api_type,
+		const GPUInfo& gpuInfo,
 		uint32_t width,
 		uint32_t height,
 		uint32_t imageCount,
 		const nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice>& device,
 		const nbl::core::smart_refctd_ptr<nbl::video::ISurface>& surface,
-		nbl::video::ISurface::E_PRESENT_MODE requestedPresentMode,
-		nbl::video::ISurface::SFormat requestedSurfaceFormat,
-		const GPUInfo& gpuInfo)
+		nbl::video::ISurface::E_PRESENT_MODE requestedPresentMode = nbl::video::ISurface::EPM_FIFO_RELAXED,
+		nbl::video::ISurface::SFormat requestedSurfaceFormat = nbl::video::ISurface::SFormat(nbl::asset::EF_B8G8R8A8_SRGB, nbl::asset::ECP_SRGB, nbl::asset::EOTF_sRGB))
 	{
 		using namespace nbl;
 
@@ -868,17 +868,43 @@ public:
 		{
 			uint32_t found_format_and_colorspace = ~0u;
 			uint32_t found_format = ~0u;
+			uint32_t found_colorspace = ~0u;
 			for(uint32_t i = 0; i < gpuInfo.availableSurfaceFormats.size(); ++i)
 			{
 				const auto & supportedFormat = gpuInfo.availableSurfaceFormats[i];
-				if(requestedSurfaceFormat.format == supportedFormat.format)
+				bool hasMatchingFormats = requestedSurfaceFormat.format == supportedFormat.format;
+				bool hasMatchingColorspace = requestedSurfaceFormat.colorSpace.eotf == supportedFormat.colorSpace.eotf && requestedSurfaceFormat.colorSpace.primary == supportedFormat.colorSpace.primary;
+				if(hasMatchingFormats)
 				{
 					if(found_format == ~0u)
 						found_format = i;
-					if(requestedSurfaceFormat.colorSpace.eotf == supportedFormat.colorSpace.eotf && requestedSurfaceFormat.colorSpace.primary == supportedFormat.colorSpace.primary)
+					if(hasMatchingColorspace)
 					{
 						found_format_and_colorspace = i;
 						break;
+					}
+				}
+				else if(hasMatchingColorspace)
+				{
+					// format with matching eotf and colorspace, but with wider bitdepth is an acceptable substitute
+					uint32_t supportedFormatChannelCount = getFormatChannelCount(supportedFormat.format);
+					uint32_t requestedFormatChannelCount = getFormatChannelCount(requestedSurfaceFormat.format);
+					if(supportedFormatChannelCount >= requestedFormatChannelCount)
+					{
+						bool channelsMatch = true;
+						for(uint32_t c = 0; c < requestedFormatChannelCount; ++c)
+						{
+							float requestedFormatChannelPrecision = getFormatPrecision<float>(requestedSurfaceFormat.format, c, 0.0f);
+							float supportedFormatChannelPrecision = getFormatPrecision<float>(supportedFormat.format, c, 0.0f);
+							if(supportedFormatChannelPrecision < requestedFormatChannelPrecision)
+							{
+								channelsMatch = false;
+								break;
+							}
+						}
+
+						if(channelsMatch)
+							found_colorspace = i;
 					}
 				}
 			}
@@ -891,6 +917,11 @@ public:
 			{
 				_NBL_DEBUG_BREAK_IF(true); // "Fallback: requested 'colorspace' is not supported."
 				surfaceFormat = gpuInfo.availableSurfaceFormats[found_format];
+			}
+			else if(found_colorspace != ~0u) // fallback
+			{
+				_NBL_DEBUG_BREAK_IF(true); // "Fallback: requested 'format' was not supported, but same colorspace and wider bitdepth was chosen."
+				surfaceFormat = gpuInfo.availableSurfaceFormats[found_colorspace];
 			}
 			else
 			{

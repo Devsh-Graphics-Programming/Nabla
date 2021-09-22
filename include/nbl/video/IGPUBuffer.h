@@ -30,7 +30,7 @@ class IGPUBuffer : public asset::IBuffer, public IDriverMemoryBacked, public IBa
 		struct SCreationParams
 		{
 			core::bitflag<E_USAGE_FLAGS> usage = EUF_NONE;
-			asset::E_SHARING_MODE sharingMode = asset::ESM_CONCURRENT;
+			asset::E_SHARING_MODE sharingMode = asset::ESM_EXCLUSIVE;
 			uint32_t queueFamilyIndexCount = 0u;
 			const uint32_t* queueFamilyIndices = nullptr;
 		};
