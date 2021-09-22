@@ -912,7 +912,21 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
             barrier.barrier.srcAccessMask = asset::EAF_TRANSFER_READ_BIT;
             barrier.barrier.dstAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
 
-            cmdbuf_transfer->pipelineBarrier(asset::EPSF_TRANSFER_BIT, asset::EPSF_TRANSFER_BIT, asset::EDF_NONE, 0u, nullptr, 1u, &barrier, 0u, nullptr);
+            IGPUCommandBuffer::SImageMemoryBarrier toTransferDst = {};
+            toTransferDst.barrier.srcAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0u);
+            toTransferDst.barrier.dstAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
+            toTransferDst.oldLayout = asset::EIL_UNDEFINED;
+            toTransferDst.newLayout = asset::EIL_TRANSFER_DST_OPTIMAL;
+            toTransferDst.srcQueueFamilyIndex = transferFamIx;
+            toTransferDst.dstQueueFamilyIndex = transferFamIx;
+            toTransferDst.image = core::smart_refctd_ptr<video::IGPUImage>(img);
+            toTransferDst.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT; // this probably shoudn't be hardcoded
+            toTransferDst.subresourceRange.baseMipLevel = 0u;
+            toTransferDst.subresourceRange.levelCount = img->getCreationParameters().mipLevels;
+            toTransferDst.subresourceRange.baseArrayLayer = 0u;
+            toTransferDst.subresourceRange.layerCount = cpuimg->getCreationParameters().arrayLayers;
+
+            cmdbuf_transfer->pipelineBarrier(asset::EPSF_TRANSFER_BIT, asset::EPSF_TRANSFER_BIT, asset::EDF_NONE, 0u, nullptr, 1u, &barrier, 1u, &toTransferDst);
 
             cmdbuf_transfer->copyBufferToImage(buf.get(), img, asset::EIL_TRANSFER_DST_OPTIMAL, cpuimg->getRegions().size(), cpuimg->getRegions().begin());
         }

@@ -5,7 +5,10 @@ namespace nbl::video
 {
 
 // public
-inline IBackendObject::IBackendObject(core::smart_refctd_ptr<const ILogicalDevice>&& device) : m_originDevice(std::move(device)) {}
+inline IBackendObject::IBackendObject(core::smart_refctd_ptr<const ILogicalDevice>&& device) : m_originDevice(std::move(device)) 
+{
+    memset(m_debugName, 0, sizeof(m_debugName));
+}
 inline IBackendObject::~IBackendObject() {}
 
 
