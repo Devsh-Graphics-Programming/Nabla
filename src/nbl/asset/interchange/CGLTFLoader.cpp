@@ -818,16 +818,15 @@ namespace nbl
 					core::smart_refctd_ptr<ICPUSkeleton> skeleton; // TODO!
 
 					SBufferBinding<ICPUBuffer> inverseBindPoseBufferBinding;
+					inverseBindPoseBufferBinding.buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(glTFjointNodeIDs.size() * sizeof(core::matrix3x4SIMD));
+					inverseBindPoseBufferBinding.offset = 0u;
 					{
 						if (accessorInverseBindMatricesID == 0xdeadbeef)
 						{
-							const core::matrix4SIMD identity;
+							const core::matrix3x4SIMD identity;
 
-							inverseBindPoseBufferBinding.buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(glTFjointNodeIDs.size() * sizeof(core::matrix4SIMD));
-							inverseBindPoseBufferBinding.offset = 0u;
-
-							auto* data = reinterpret_cast<core::matrix4SIMD*>(inverseBindPoseBufferBinding.buffer->getPointer());
-							auto* end = data + inverseBindPoseBufferBinding.buffer->getSize() / sizeof(core::matrix4SIMD);
+							auto* data = reinterpret_cast<core::matrix3x4SIMD*>(inverseBindPoseBufferBinding.buffer->getPointer());
+							auto* end = data + inverseBindPoseBufferBinding.buffer->getSize() / sizeof(core::matrix3x4SIMD);
 
 							std::fill(data, end, identity);
 						}
@@ -851,8 +850,11 @@ namespace nbl
 								return bufferViewOffset + relativeAccessorOffset;
 							}();
 
-							inverseBindPoseBufferBinding.buffer = core::smart_refctd_ptr(cpuBuffer);
-							inverseBindPoseBufferBinding.offset = globalIBPOffset;
+							auto* inData = reinterpret_cast<core::matrix4SIMD*>(reinterpret_cast<uint8_t*>(cpuBuffer->getPointer()) + globalIBPOffset); //! glTF stores 4x4 IBP matrices
+							auto* outData = reinterpret_cast<core::matrix3x4SIMD*>(inverseBindPoseBufferBinding.buffer->getPointer());
+
+							for (uint32_t i = 0; i < glTFjointNodeIDs.size(); ++i)
+								*(outData + i) = (inData + i)->extractSub3x4();
 						}
 					}
 
@@ -890,15 +892,10 @@ namespace nbl
 								const auto localJointNodeID = std::distance(glTFjointNodeIDs.begin(), lower); //! the ID is in range [0u, glTFjointNodeIDs.size() - 1u]
 								{
 									uint8_t* data = reinterpret_cast<uint8_t*>(inverseBindPoseBufferBinding.buffer->getPointer()) + inverseBindPoseBufferBinding.offset;
-									core::matrix4SIMD* IBPMatrix = reinterpret_cast<core::matrix4SIMD*>(data) + localJointNodeID;
+									core::matrix3x4SIMD* IBPMatrix = reinterpret_cast<core::matrix3x4SIMD*>(data) + localJointNodeID;
 
-									auto nbl_cpp_pseudoMul4x4with3x1 = [](const core::matrix4SIMD& matrix, const core::vectorSIMDf& vector) -> core::vectorSIMDf
-									{
-										return matrix.getRow(0) * vector.x + matrix.getRow(1) * vector.y + matrix.getRow(2) * vector.z + matrix.getRow(3) * vector.z;
-									};
-
-									const auto newInternalPoint = nbl_cpp_pseudoMul4x4with3x1(*IBPMatrix, currentJointVertexPair.vPosition);
-									jointBboxes[localJointNodeID].addInternalPoint(newInternalPoint.getAsVector3df());
+									IBPMatrix->transformVect(currentJointVertexPair.vPosition);
+									jointBboxes[localJointNodeID].addInternalPoint(currentJointVertexPair.vPosition.getAsVector3df());
 								}
 							}
 						}
