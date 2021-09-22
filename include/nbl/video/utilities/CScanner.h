@@ -48,41 +48,35 @@ class CScanner final : public core::IReferenceCounted
 
 			Parameters()
 			{
-				elementCount = 0u;
-				std::fill_n(cumulativeWorkgroupCount,MaxScanLevels,0u);
+				std::fill_n(elementCount,MaxScanLevels,0u);
 				std::fill_n(finishedFlagOffset,MaxScanLevels-1,0u);
-				std::fill_n(temporaryStorageOffset,MaxScanLevels-1,0u);
+				std::fill_n(temporaryStorageOffset,MaxScanLevels/2-1,0u);
 				std::fill_n(lastWorkgroupDependentCount,MaxScanLevels/2,1u);
+				std::fill_n(cumulativeWorkgroupCount,MaxScanLevels,0u);
 			}
 			Parameters(const uint32_t _elementCount, const uint32_t wg_size=DefaultWorkGroupSize) : Parameters()
 			{
 				assert(_elementCount!=0u && "Input element count can't be 0!");
 				const auto maxReductionLog2 = core::findMSB(wg_size)*(MaxScanLevels/2u+1u);
 				assert(maxReductionLog2>=32u||((_elementCount-1u)>>maxReductionLog2)==0u && "Can't scan this many elements with such small workgroups!");
-				elementCount = _elementCount;
 
-				topLevel = 0u;
-				while (true)
-				{
-					const auto totalItemsThisLevel = topLevel ? cumulativeWorkgroupCount[topLevel-1]:elementCount;
-					cumulativeWorkgroupCount[topLevel] = (totalItemsThisLevel-1u)/wg_size;
-					finishedFlagOffset[topLevel] = cumulativeWorkgroupCount[topLevel]/wg_size+1u;
-					if (++cumulativeWorkgroupCount[topLevel]==1u)
-						break;
-					topLevel++;
-				}
+				elementCount[0u] = _elementCount;
+				for (topLevel=0u; elementCount[topLevel]>wg_size;)
+					elementCount[++topLevel] = (elementCount[topLevel]-1u)/wg_size+1u;
+				std::reverse_copy(elementCount,elementCount+topLevel,elementCount+topLevel+1u);
+				
+
+				std::copy_n(elementCount+1u,topLevel,cumulativeWorkgroupCount);
+				cumulativeWorkgroupCount[topLevel] = 1u;
+
 				for (auto i=0u; i<topLevel; i++)
 					lastWorkgroupDependentCount[i] = cumulativeWorkgroupCount[i]-(cumulativeWorkgroupCount[i+1u]-1u)*wg_size;
-				
 				std::reverse_copy(cumulativeWorkgroupCount,cumulativeWorkgroupCount+topLevel,cumulativeWorkgroupCount+topLevel+1u);
 
-				for (auto i=topLevel+1u; i<(topLevel<<1u); i++)
-					finishedFlagOffset[i] = cumulativeWorkgroupCount[i];
-				for (auto i=0u; i<topLevel; i++)
-					temporaryStorageOffset[i] = cumulativeWorkgroupCount[i];
-				for (auto i=topLevel; i<(topLevel<<1u); i++)
-					temporaryStorageOffset[i] = cumulativeWorkgroupCount[i+1u];
-				std::exclusive_scan(finishedFlagOffset,temporaryStorageOffset+MaxScanLevels-1,finishedFlagOffset,0u);
+				std::copy_n(cumulativeWorkgroupCount+1u,topLevel,finishedFlagOffset);
+				std::copy_n(cumulativeWorkgroupCount+topLevel,topLevel,finishedFlagOffset+topLevel);
+				std::copy_n(cumulativeWorkgroupCount,topLevel,temporaryStorageOffset);
+				std::exclusive_scan(finishedFlagOffset,temporaryStorageOffset+MaxScanLevels/2-1u,finishedFlagOffset,0u);
 
 				std::inclusive_scan(cumulativeWorkgroupCount,cumulativeWorkgroupCount+MaxScanLevels,cumulativeWorkgroupCount);
 			}
@@ -90,8 +84,8 @@ class CScanner final : public core::IReferenceCounted
 			inline uint32_t getScratchSize(uint32_t ssboAlignment=256u)
 			{
 				uint32_t uint_count = 1u; // workgroup enumerator
-				uint_count += temporaryStorageOffset[MaxScanLevels-2u]; // last scratch offset
-				uint_count += cumulativeWorkgroupCount[MaxScanLevels-1u]; // and its size
+				uint_count += temporaryStorageOffset[MaxScanLevels/2u-2u]; // last scratch offset
+				uint_count += elementCount[topLevel]; // and its size
 				return core::roundUp<uint32_t>(uint_count*sizeof(uint32_t),ssboAlignment);
 			}
 		};
