@@ -1091,10 +1091,10 @@ namespace nbl {
 			{
 				// Save the previous bound vertex array
 				GLint restoreVertexArray;
-				//_NBL_GL_CALL(m_logger, glGeneral.pglGetIntegerv(GL_VERTEX_ARRAY_BINDING, &restoreVertexArray));
+				_NBL_GL_CALL(m_logger, glGeneral.pglGetIntegerv(GL_VERTEX_ARRAY_BINDING, &restoreVertexArray));
 				_NBL_GL_CALL(m_logger, glVertex.pglBindVertexArray(vaobj));
 				_NBL_GL_CALL(m_logger, glVertex.pglEnableVertexAttribArray(index));
-				//_NBL_GL_CALL(m_logger, glVertex.pglBindVertexArray(restoreVertexArray));
+				_NBL_GL_CALL(m_logger, glVertex.pglBindVertexArray(restoreVertexArray));
 			}
 		}
 		inline void IOpenGL_FunctionTable::extGlDisableVertexArrayAttrib(GLuint vaobj, GLuint index)
