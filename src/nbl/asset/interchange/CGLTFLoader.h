@@ -88,16 +88,18 @@ namespace nbl
 
 							struct Attributes
 							{
-								std::optional<size_t> position;									//!< The index of the accessor that contains the position.
-								std::optional<size_t> normal;									//!< The index of the accessor that contains the normal.
-								std::optional<size_t> tangent;									//!< The index of the accessor that contains the tangent.
-								std::optional<size_t> texcoord;									//!< The index of the accessor that contains the UV.
-								std::optional<size_t> color;									//!< The index of the accessor that contains the color.
-								std::optional<size_t> joints;									//!< The index of the accessor that contains the joints
-								std::optional<size_t> weights;									//!< The index of the accessor that contains the weights.
+								_NBL_STATIC_INLINE_CONSTEXPR uint16_t MAX_JOINTS_ATTRIBUTES = 4u;
+								_NBL_STATIC_INLINE_CONSTEXPR uint16_t MAX_WEIGHTS_ATTRIBUTES = 4u;
 
-								std::optional<size_t> perVertexJointsAmount;					//!< 1 up to 4 range specifing input joint IDs amount per vertex
-								bool needsRepackingSkinningBuffers = false;						//!< if perVertexJointsAmount is greater than 1u it means that joints come as single R_UINT attributes, for implemetnation reasons we want to avoid splitting attributes and it will pack it to uvec4 then
+								std::optional<size_t> position;										//!< The index of the accessor that contains the position.
+								std::optional<size_t> normal;										//!< The index of the accessor that contains the normal.
+								std::optional<size_t> tangent;										//!< The index of the accessor that contains the tangent.
+								std::optional<size_t> texcoord;										//!< The index of the accessor that contains the UV.
+								std::optional<size_t> color;										//!< The index of the accessor that contains the color.
+								std::array<std::optional<size_t>, MAX_JOINTS_ATTRIBUTES> joints;	//!< The indices of the accessors containing the joints
+								std::array<std::optional<size_t>, MAX_WEIGHTS_ATTRIBUTES> weights;	//!< The indices of the accessors containing the the weights.
+
+								bool needsRepackingSkinningBuffers = false;							//!< if perVertexJointsAmount is greater than 1u it means that joints come as single R_UINT attributes, for implemetnation reasons we want to avoid splitting attributes and it will pack it to uvec4 then
 							};
 
 							Attributes attributes;

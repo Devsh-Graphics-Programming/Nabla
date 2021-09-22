@@ -628,21 +628,54 @@ namespace nbl
 							auto& glTFColorXAccessor = glTF.accessors[accessorID];
 							handleAccessor(glTFColorXAccessor, SAttributes::COLOR_ATTRIBUTE_LAYOUT_ID);
 						}
-			
-						if (glTFprimitive.attributes.joints.has_value())
-						{
-							const size_t accessorID = glTFprimitive.attributes.joints.value();
 
-							auto& glTFJointsXAccessor = glTF.accessors[accessorID];
-							handleAccessor(glTFJointsXAccessor, cpuMeshBuffer->getJointIDAttributeIx()); // TODO: ALWAYS UVEC4, PACK TO IT IF NECESSARY
+						uint32_t perVertexJointsAmount = 0xdeadbeef;
+
+						for (uint8_t i = 0; i < glTFprimitive.attributes.joints.size(); ++i)
+						{
+							if (glTFprimitive.attributes.needsRepackingSkinningBuffers)
+							{
+								 /*iterate through available joint attributes and pack them
+								 into single buffer, then manually insert new buffer into
+								 cpu mesh*/
+
+								// ++perVertexJointsAmount;
+							}
+							else //! goes as vec4
+							{
+								if (glTFprimitive.attributes.joints[0].has_value())
+								{
+									const size_t accessorID = glTFprimitive.attributes.joints[0].value();
+
+									auto& glTFJointsXAccessor = glTF.accessors[accessorID];
+									handleAccessor(glTFJointsXAccessor, cpuMeshBuffer->getJointIDAttributeIx());
+									perVertexJointsAmount = 4u;
+								}
+
+								break;
+							}
 						}
 
-						if (glTFprimitive.attributes.weights.has_value())
+						for (uint8_t i = 0; i < glTFprimitive.attributes.weights.size(); ++i)
 						{
-							const size_t accessorID = glTFprimitive.attributes.weights.value();
+							if (glTFprimitive.attributes.needsRepackingSkinningBuffers)
+							{
+								/*iterate through available weight attributes and pack them
+								into single buffer, then manually insert new buffer into
+								cpu mesh*/
+							}
+							else //! goes as vec4
+							{
+								if (glTFprimitive.attributes.weights[0u].has_value())
+								{
+									const size_t accessorID = glTFprimitive.attributes.weights[0u].value();
 
-							auto& glTFWeightsXAccessor = glTF.accessors[accessorID];
-							handleAccessor(glTFWeightsXAccessor, cpuMeshBuffer->getJointWeightAttributeIx()); // TODO: ALWAYS UVEC4, PACK TO IT IF NECESSARY
+									auto& glTFWeightsXAccessor = glTF.accessors[accessorID];
+									handleAccessor(glTFWeightsXAccessor, cpuMeshBuffer->getJointWeightAttributeIx());
+								}
+
+								break;
+							}
 						}
 
 						auto getShaders = [&](bool hasUV, bool hasColor) -> std::pair<core::smart_refctd_ptr<ICPUSpecializedShader>, core::smart_refctd_ptr<ICPUSpecializedShader>>
@@ -680,7 +713,7 @@ namespace nbl
 							{
 								CGLTFPipelineMetadata::SGLTFMaterialParameters pushConstants;
 								CGLTFPipelineMetadata::SGLTFSkinParameters skinParameters;
-								skinParameters.perVertexJointsAmount = glTFprimitive.attributes.perVertexJointsAmount.has_value() ? glTFprimitive.attributes.perVertexJointsAmount.value() : 0xdeadbeef;
+								skinParameters.perVertexJointsAmount = perVertexJointsAmount;
 
 								SMaterialDependencyData materialDependencyData;
 								const bool ds3lAvailableFlag = glTFprimitive.material.has_value();
@@ -1565,21 +1598,23 @@ namespace nbl
 								else if (attributeMap.first == "JOINTS")
 								{
 									assert(0u <= attributeMap.second < 4u); // TODO: log and validation without assert
-									glTFPrimitive.attributes.perVertexJointsAmount = attributeMap.second + 1u; // involves weights as well
-									glTFPrimitive.attributes.joints = requestedAccessor;
+									glTFPrimitive.attributes.joints[attributeMap.second] = requestedAccessor;
+
+									/*
+										if there are specified JOINT_1-3 (and WEIGHTS_1-3 so on) attributes
+										for primitive, then it means they don't come as single vec4 but
+										rather R_UINT for each joint vertex input - pack them!
+									*/
+
+									const bool needsRapacking = attributeMap.second > 0u;
+									if (needsRapacking)
+										glTFPrimitive.attributes.needsRepackingSkinningBuffers = true; //! involves weights as well
 								}
 								else if (attributeMap.first == "WEIGHTS")
 								{
 									assert(0u <= attributeMap.second < 4u); // TODO: log and validation without assert
-									glTFPrimitive.attributes.weights = requestedAccessor;
+									glTFPrimitive.attributes.weights[attributeMap.second] = requestedAccessor;
 								}
-							}
-
-							if (glTFPrimitive.attributes.perVertexJointsAmount.has_value())
-							{
-								const bool repackVertexSkinningBuffers = glTFPrimitive.attributes.perVertexJointsAmount.value() > 1u;
-								if (repackVertexSkinningBuffers)
-									glTFPrimitive.attributes.needsRepackingSkinningBuffers = true;
 							}
 						}
 					}
