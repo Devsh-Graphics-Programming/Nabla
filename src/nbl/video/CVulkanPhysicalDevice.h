@@ -140,6 +140,21 @@ public:
 
         return false;
     }
+
+    SFormatProperties getFormatProperties(asset::E_FORMAT format) const override
+    {
+        SFormatProperties result;
+
+        VkFormatProperties vk_formatProps;
+        vkGetPhysicalDeviceFormatProperties(m_vkPhysicalDevice, getVkFormatFromFormat(format),
+            &vk_formatProps);
+
+        result.linearTilingFeatures = static_cast<asset::E_FORMAT_FEATURE>(vk_formatProps.linearTilingFeatures);
+        result.optimalTilingFeatures = static_cast<asset::E_FORMAT_FEATURE>(vk_formatProps.optimalTilingFeatures);
+        result.bufferFeatures = static_cast<asset::E_FORMAT_FEATURE>(vk_formatProps.bufferFeatures);
+
+        return result;
+    }
             
 protected:
     core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice_impl(const ILogicalDevice::SCreationParams& params) override
