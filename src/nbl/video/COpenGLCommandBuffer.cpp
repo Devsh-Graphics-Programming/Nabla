@@ -308,7 +308,7 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
             gl->glFramebuffer.pglBindFramebuffer(GL_READ_FRAMEBUFFER, prevReadFB);
     }
 
-    void COpenGLCommandBuffer::beginRenderpass_clearAttachments(IOpenGL_FunctionTable* gl, const SRenderpassBeginInfo& info, GLuint fbo, const system::logger_opt_ptr logger)
+    void COpenGLCommandBuffer::beginRenderpass_clearAttachments(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid, const SRenderpassBeginInfo& info, GLuint fbo, const system::logger_opt_ptr logger)
     {
         auto& rp = info.framebuffer->getCreationParameters().renderpass;
         auto& sub = rp->getSubpasses().begin()[0];
@@ -364,20 +364,28 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
 
                     // isnt there a way in vulkan to clear only depth or only stencil part?? TODO
 
+                    const bool is_depth = asset::isDepthOnlyFormat(fmt);
+                    const bool is_stencil = asset::isStencilOnlyFormat(fmt);
+                    const bool is_depth_stencil = asset::isDepthOrStencilFormat(fmt);
+
+                    const auto state_backup = ctxlocal->backupAndFlushStateClear(gl, ctxid, false, (is_depth | is_depth_stencil), (is_stencil | is_depth_stencil));
+
                     GLfloat depth = clear.depth;
                     GLint stencil = clear.stencil;
-                    if (asset::isDepthOnlyFormat(fmt))
+                    if (is_depth)
                     {
                         gl->extGlClearNamedFramebufferfv(fbo, GL_DEPTH, 0, &depth);
                     }
-                    else if (asset::isStencilOnlyFormat(fmt))
+                    else if (is_stencil)
                     {
                         gl->extGlClearNamedFramebufferiv(fbo, GL_STENCIL, 0, &stencil);
                     }
-                    else if (asset::isDepthOrStencilFormat(fmt))
+                    else if (is_depth_stencil)
                     {
                         gl->extGlClearNamedFramebufferfi(fbo, GL_DEPTH_STENCIL, 0, depth, stencil);
                     }
+
+                    ctxlocal->restoreStateAfterClear(state_backup);
                 }
                 else
                 {
@@ -853,7 +861,7 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
 
                 GLuint fbo = ctxlocal->currentState.framebuffer.GLname;
                 if (fbo)
-                    beginRenderpass_clearAttachments(gl, c.renderpassBegin, fbo, m_logger.getOptRawPtr());
+                    beginRenderpass_clearAttachments(gl, ctxlocal, ctxid, c.renderpassBegin, fbo, m_logger.getOptRawPtr());
             }
             break;
             case impl::ECT_NEXT_SUBPASS:
