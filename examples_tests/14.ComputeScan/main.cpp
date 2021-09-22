@@ -84,7 +84,7 @@ int main()
 	auto ds = logicalDevice->createGPUDescriptorSet(dsPool.get(),core::smart_refctd_ptr<IGPUDescriptorSetLayout>(dsLayout));
 	scanner->updateDescriptorSet(ds.get(),in_gpu_range,scratch_gpu_range);
 
-	constexpr auto BenchmarkingRuns = 128u;
+	constexpr auto BenchmarkingRuns = 1u;
 	auto computeQueue = queues[decltype(initOutput)::EQT_COMPUTE];
 	core::smart_refctd_ptr<IGPUFence> lastFence;
 	// TODO: timestamp queries
