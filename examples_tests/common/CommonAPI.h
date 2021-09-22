@@ -595,7 +595,7 @@ public:
 		{
 			const uint32_t requiredExtensionCount = 1u;
 			video::IAPIConnection::E_EXTENSION requiredExtensions[requiredExtensionCount] = { video::IAPIConnection::E_SURFACE };
-			result.apiConnection = video::CVulkanConnection::create(core::smart_refctd_ptr(result.system), 0, app_name.data(), requiredExtensionCount, requiredExtensions, nullptr, true);
+			result.apiConnection = video::CVulkanConnection::create(core::smart_refctd_ptr(result.system), 0, app_name.data(), requiredExtensionCount, requiredExtensions, result.logger, true);
 		}
 		else if(api_type == EAT_OPENGL)
 		{
@@ -710,7 +710,9 @@ public:
 
 		if(api_type == EAT_VULKAN) 
 		{
-			auto _apiConnection = video::CVulkanConnection::create(core::smart_refctd_ptr(result.system), 0, app_name.data(), true);
+			const uint32_t requiredExtensionCount = 1u;
+			video::IAPIConnection::E_EXTENSION requiredExtensions[requiredExtensionCount] = { video::IAPIConnection::E_SURFACE };
+			auto _apiConnection = video::CVulkanConnection::create(core::smart_refctd_ptr(result.system), 0, app_name.data(), requiredExtensionCount, requiredExtensions, result.logger, true);
 			result.surface = video::CSurfaceVulkanWin32::create(core::smart_refctd_ptr(_apiConnection), core::smart_refctd_ptr<ui::IWindowWin32>(static_cast<ui::IWindowWin32*>(result.window.get())));
 			result.apiConnection = _apiConnection;
 		}
