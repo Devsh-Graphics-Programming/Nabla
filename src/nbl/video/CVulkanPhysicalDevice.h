@@ -145,8 +145,7 @@ public:
             
     E_API_TYPE getAPIType() const override { return EAT_VULKAN; }
 
-    // Todo(achal)
-    IDebugCallback* getDebugCallback() override { return nullptr; }
+    IDebugCallback* getDebugCallback() override { return m_api->getDebugCallback(); }
 
     bool isSwapchainSupported() const override
     {
