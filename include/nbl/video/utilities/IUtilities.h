@@ -32,7 +32,11 @@ class IUtilities : public core::IReferenceCounted
                 m_defaultUploadBuffer = core::make_smart_refctd_ptr<StreamingTransientDataBufferMT<> >(m_device.get(), reqs);
             }
             m_propertyPoolHandler = core::make_smart_refctd_ptr<CPropertyPoolHandler>(core::smart_refctd_ptr(m_device));
-            m_scanner = core::make_smart_refctd_ptr<CScanner>(core::smart_refctd_ptr(m_device),core::roundDownToPoT(limits.maxWorkgroupSize[0]));
+            // smaller workgroups fill occupancy gaps better, especially on new Nvidia GPUs, but we don't want too small workgroups on mobile
+            // TODO: investigate whether we need to clamp against 256u on mobile
+            // TODO: investigate if `>>2u` still holds after we support subgroup intrinsics properly
+            const auto scan_workgroup_size = core::max(core::roundDownToPoT(limits.maxWorkgroupSize[0])>>2u,128u);
+            m_scanner = core::make_smart_refctd_ptr<CScanner>(core::smart_refctd_ptr(m_device),scan_workgroup_size);
         }
 
         //!
@@ -265,9 +269,10 @@ class IUtilities : public core::IReferenceCounted
             {
                 const void* dataPtr = reinterpret_cast<const uint8_t*>(data)+uploadedSize;
                 uint32_t localOffset = video::StreamingTransientDataBufferMT<>::invalid_address;
-                uint32_t alignment = 64u; // smallest mapping alignment capability
-                uint32_t subSize = static_cast<uint32_t>(core::min<uint32_t>(core::alignDown(m_defaultUploadBuffer.get()->max_size(), alignment), bufferRange.size-uploadedSize));
-                m_defaultUploadBuffer.get()->multi_place(std::chrono::high_resolution_clock::now()+std::chrono::microseconds(500u), 1u, (const void* const*)&dataPtr, &localOffset, &subSize, &alignment);
+                const uint32_t alignment = 256u; // TODO: change this to features.nonCoherentAtomiSize
+                const uint32_t subSize = static_cast<uint32_t>(core::min<uint64_t>(core::alignDown(m_defaultUploadBuffer.get()->max_size(),alignment), bufferRange.size-uploadedSize));
+                const uint32_t paddedSize = core::alignUp(subSize,alignment);
+                m_defaultUploadBuffer.get()->multi_place(std::chrono::high_resolution_clock::now()+std::chrono::microseconds(500u), 1u, (const void* const*)&dataPtr, &localOffset, &paddedSize, &alignment);
 
                 // keep trying again
                 if (localOffset == video::StreamingTransientDataBufferMT<>::invalid_address)
@@ -299,7 +304,7 @@ class IUtilities : public core::IReferenceCounted
                 // some platforms expose non-coherent host-visible GPU memory, so writes need to be flushed explicitly
                 if (m_defaultUploadBuffer.get()->needsManualFlushOrInvalidate())
                 {
-                    IDriverMemoryAllocation::MappedMemoryRange flushRange(m_defaultUploadBuffer.get()->getBuffer()->getBoundMemory(),localOffset,subSize);
+                    IDriverMemoryAllocation::MappedMemoryRange flushRange(m_defaultUploadBuffer.get()->getBuffer()->getBoundMemory(),localOffset,paddedSize);
                     m_device->flushMappedMemoryRanges(1u,&flushRange);
                 }
                 // after we make sure writes are in GPU memory (visible to GPU) and not still in a cache, we can copy using the GPU to device-only memory
@@ -309,7 +314,7 @@ class IUtilities : public core::IReferenceCounted
                 copy.size = subSize;
                 cmdbuf->copyBuffer(m_defaultUploadBuffer.get()->getBuffer(),bufferRange.buffer.get(),1u,&copy);
                 // this doesn't actually free the memory, the memory is queued up to be freed only after the GPU fence/event is signalled
-                m_defaultUploadBuffer.get()->multi_free(1u,&localOffset,&subSize,core::smart_refctd_ptr<IGPUFence>(fence),&cmdbuf); // can queue with a reset but not yet pending fence, just fine
+                m_defaultUploadBuffer.get()->multi_free(1u,&localOffset,&paddedSize,core::smart_refctd_ptr<IGPUFence>(fence),&cmdbuf); // can queue with a reset but not yet pending fence, just fine
                 uploadedSize += subSize;
             }
         }
