@@ -26,5 +26,6 @@ void main()
     const uint batchMdiOffset = cubeDrawGUIDBuffer.drawGUID[gl_GlobalInvocationID.x];
     occlusionCommandBuff.draws[batchMdiOffset].instanceCount = 1;
     
+    // TODO: do I need it?
     visibleBuff.visible[gl_GlobalInvocationID.x] = uint16_t(0u);
 }
