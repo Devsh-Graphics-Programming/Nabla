@@ -12,22 +12,22 @@ layout(set=0, binding=1, std430) restrict buffer MVPs
 #define FRUSTUM_CULLED_COMMAND_BUFF_BINDING 2
 #define OCCLUSION_CULLED_COMMAND_BUFF_SET 0
 #define OCCLUSION_CULLED_COMMAND_BUFF_BINDING 3
+#define VISIBLE_BUFF_SET 0
+#define VISIBLE_BUFF_BINDING 4
 
 #ifdef OCCLUSION_QUERY
 
-layout(set=0, binding=4, std430, column_major) restrict buffer CubeMVPs
+layout(set=0, binding=5, std430, column_major) restrict buffer CubeMVPs
 {
     mat4 cubeMVPs[];
 } cubeMvpBuff;
 
 #define CUBE_COMMAND_BUFF_SET 0
-#define CUBE_COMMAND_BUFF_BINDING 5
+#define CUBE_COMMAND_BUFF_BINDING 6
 #define CUBE_DRAW_GUID_BUFF_SET 0
-#define CUBE_DRAW_GUID_BUFF_BINDING 6
+#define CUBE_DRAW_GUID_BUFF_BINDING 7
 #define OCCLUSION_DISPATCH_INDIRECT_BUFF_SET 0
-#define OCCLUSION_DISPATCH_INDIRECT_BUFF_BINDING 7
-#define VISIBLE_BUFF_SET 0
-#define VISIBLE_BUFF_BINDING 8
+#define OCCLUSION_DISPATCH_INDIRECT_BUFF_BINDING 8
 
 #endif
 
@@ -56,13 +56,6 @@ void prepareOcclusionTest(in uint drawCommandGUID)
 {
     occlusionCommandBuff.draws[drawCommandGUID].instanceCount = 1;
 }
-
-bool wasVisibleLastFrame()
-{
-    const CullData_t batchCullData = cullData[gl_GlobalInvocationID.x];
-    const uint drawCommandGUID = batchCullData.drawCommandGUID;
-    return (occlusionCommandBuff.draws[drawCommandGUID].instanceCount == 1u) || (frustumCommandBuff.draws[drawCommandGUID].instanceCount == 1u);
-}
 #else //occlusion query
 void prepareOcclusionTest(in uint drawCommandGUID)
 {
@@ -81,11 +74,6 @@ void prepareOcclusionTest(in uint drawCommandGUID)
     );
 
     cubeDrawGUIDBuffer.drawGUID[currCubeIdx] = drawCommandGUID;
-}
-
-bool wasVisibleLastFrame()
-{
-    return uint(visibleBuff.visible[gl_GlobalInvocationID.x]) == 1u;
 }
 #endif
 
@@ -109,7 +97,7 @@ void main()
     {
         const vec3 localCameraPos = pc.data.worldCamPos; // true in this case
         const bool cameraInsideAABB = all(greaterThanEqual(localCameraPos, batchCullData.aabbMinEdge)) && all(lessThanEqual(localCameraPos, batchCullData.aabbMaxEdge));
-        const bool assumedVisible = wasVisibleLastFrame() || cameraInsideAABB;
+        const bool assumedVisible = uint(visibleBuff.visible[gl_GlobalInvocationID.x]) == 1u || cameraInsideAABB;
         occlusionCommandBuff.draws[drawCommandGUID].instanceCount = 0;
         frustumCommandBuff.draws[drawCommandGUID].instanceCount = assumedVisible ? 1u : 0u;
         // if not frustum culled, batch was not visible in the last frame and it makes sense to test
@@ -123,7 +111,5 @@ void main()
     }
     
     // does `freezeCulling` affect this negatively?
-    #ifdef OCCLUSION_QUERY
     visibleBuff.visible[gl_GlobalInvocationID.x] = uint16_t(0u);
-    #endif
 }

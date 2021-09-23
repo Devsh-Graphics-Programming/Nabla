@@ -99,8 +99,8 @@ void main()
     
     const vec2 uv = clipSpcMin * vec2(0.5, -0.5) + vec2(0.5);
     vec4 depthVals = textureGather(zPyramid[LOD], uv);
-    
-    bool isOccluded = all(maxDepthVal <= depthVals);
+
+    bool isOccluded = (maxDepthVal <= depthVals[0]) && (maxDepthVal <= depthVals[1]) && (maxDepthVal <= depthVals[2]) && (maxDepthVal <= depthVals[3]);
     if(isOccluded)
         occlusionCommandBuff.draws[drawCommandGUID].instanceCount = 0u;
 }

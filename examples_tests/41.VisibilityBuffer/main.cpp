@@ -1335,7 +1335,7 @@ layout (local_size_x = 256u) in;
     {
         SPushConstantRange range{ ISpecializedShader::ESS_COMPUTE,0u,sizeof(CullShaderData_t) };
         
-        constexpr uint32_t frustumCullShaderBindingCnt = (occlusionCullingMethod == E_OCCLUSION_CULLING_METHOD::EOCM_HI_Z_BUFFER) ? 4 : 9u;
+        constexpr uint32_t frustumCullShaderBindingCnt = (occlusionCullingMethod == E_OCCLUSION_CULLING_METHOD::EOCM_HI_Z_BUFFER) ? 5 : 9u;
 
         {
             IGPUDescriptorSetLayout::SBinding bindings[frustumCullShaderBindingCnt];
@@ -1370,25 +1370,25 @@ layout (local_size_x = 256u) in;
             infos[3].buffer.offset = 0u;
             infos[3].buffer.size = sceneData.occlusionCulledMdiBuffer->getSize();
 
-            infos[4].desc = cullShaderData.cubeVertexBuffers[0].buffer;
+            infos[4].desc = cullShaderData.visible;
             infos[4].buffer.offset = 0u;
-            infos[4].buffer.size = cullShaderData.cubeVertexBuffers[0].buffer->getSize();
+            infos[4].buffer.size = cullShaderData.visible->getSize();
 
-            infos[5].desc = cullShaderData.cubeCommandBuffer;
+            infos[5].desc = cullShaderData.cubeVertexBuffers[0].buffer;
             infos[5].buffer.offset = 0u;
-            infos[5].buffer.size = cullShaderData.cubeCommandBuffer->getSize();
+            infos[5].buffer.size = cullShaderData.cubeVertexBuffers[0].buffer->getSize();
 
-            infos[6].desc = cullShaderData.cubeDrawGUIDs;
+            infos[6].desc = cullShaderData.cubeCommandBuffer;
             infos[6].buffer.offset = 0u;
-            infos[6].buffer.size = cullShaderData.cubeDrawGUIDs->getSize();
+            infos[6].buffer.size = cullShaderData.cubeCommandBuffer->getSize();
 
-            infos[7].desc = cullShaderData.dispatchIndirect;
+            infos[7].desc = cullShaderData.cubeDrawGUIDs;
             infos[7].buffer.offset = 0u;
-            infos[7].buffer.size = cullShaderData.dispatchIndirect->getSize();
+            infos[7].buffer.size = cullShaderData.cubeDrawGUIDs->getSize();
 
-            infos[8].desc = cullShaderData.visible;
+            infos[8].desc = cullShaderData.dispatchIndirect;
             infos[8].buffer.offset = 0u;
-            infos[8].buffer.size = cullShaderData.visible->getSize();
+            infos[8].buffer.size = cullShaderData.dispatchIndirect->getSize();
 
             cullShaderData.cullDS = driver->createGPUDescriptorSet(smart_refctd_ptr(cullShaderData.cullDSLayout));
         
