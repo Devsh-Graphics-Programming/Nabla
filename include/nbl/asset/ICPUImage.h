@@ -174,6 +174,7 @@ class ICPUImage final : public IImage, public IAsset
 			buffer = std::move(_buffer);
 			regions = _regions;
 			std::sort(regions->begin(),regions->end(),mip_order_t());
+			addImageUsageFlags(EUF_TRANSFER_DST_BIT);
 			return true;
 		}
 		

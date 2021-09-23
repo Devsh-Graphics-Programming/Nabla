@@ -617,9 +617,14 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUSkeleton** _begin, co
     for (ptrdiff_t i=0u; i<assetCount; i++)
     {
         const asset::ICPUSkeleton* cpusk = _begin[i];
-        cpuBuffers.push_back(cpusk->getParentJointIDBinding().buffer.get());
-        if (const asset::ICPUBuffer* buf = cpusk->getDefaultTransformBinding().buffer.get())
-            cpuBuffers.push_back(buf);
+        asset::ICPUBuffer* jointIdBuf = cpusk->getParentJointIDBinding().buffer.get();
+        jointIdBuf->addUsageFlags(asset::IBuffer::EUF_STORAGE_BUFFER_BIT);
+        cpuBuffers.push_back(jointIdBuf);
+        if (asset::ICPUBuffer* transformationBuf = cpusk->getDefaultTransformBinding().buffer.get())
+        {
+            transformationBuf->addUsageFlags(asset::IBuffer::EUF_STORAGE_BUFFER_BIT);
+            cpuBuffers.push_back(transformationBuf);
+        }
     }
 
     using redirs_t = core::vector<size_t>;
@@ -1509,7 +1514,7 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
     };
     auto isBufviewDesc = [](asset::E_DESCRIPTOR_TYPE t) {
         using namespace asset;
-        return t==EDT_STORAGE_TEXEL_BUFFER || t==EDT_STORAGE_TEXEL_BUFFER;
+        return t==EDT_STORAGE_TEXEL_BUFFER || t==EDT_UNIFORM_TEXEL_BUFFER;
     };
     auto isSampledImgViewDesc = [](asset::E_DESCRIPTOR_TYPE t) {
         return t==asset::EDT_COMBINED_IMAGE_SAMPLER;
@@ -1568,17 +1573,42 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
 			for (const auto& info : cpuds->getDescriptors(j))
 			{
 				if (isBufferDesc(type))
-					cpuBuffers.push_back(static_cast<asset::ICPUBuffer*>(info.desc.get()));
+				{
+					auto cpuBuf = static_cast<asset::ICPUBuffer*>(info.desc.get());
+					if(type == asset::EDT_UNIFORM_BUFFER || type == asset::EDT_UNIFORM_BUFFER_DYNAMIC)
+						cpuBuf->addUsageFlags(asset::IBuffer::EUF_UNIFORM_BUFFER_BIT);
+					else if(type == asset::EDT_STORAGE_BUFFER || type == asset::EDT_STORAGE_BUFFER_DYNAMIC)
+						cpuBuf->addUsageFlags(asset::IBuffer::EUF_STORAGE_BUFFER_BIT);
+					cpuBuffers.push_back(cpuBuf);
+				}
 				else if (isBufviewDesc(type))
-					cpuBufviews.push_back(static_cast<asset::ICPUBufferView*>(info.desc.get()));
+				{
+					auto cpuBufView = static_cast<asset::ICPUBufferView*>(info.desc.get());
+					auto cpuBuf = cpuBufView->getUnderlyingBuffer();
+					if(cpuBuf && type == asset::EDT_UNIFORM_TEXEL_BUFFER)
+						cpuBuf->addUsageFlags(asset::IBuffer::EUF_UNIFORM_TEXEL_BUFFER_BIT);
+					else if(cpuBuf && type == asset::EDT_STORAGE_TEXEL_BUFFER)
+						cpuBuf->addUsageFlags(asset::IBuffer::EUF_STORAGE_TEXEL_BUFFER_BIT);
+					cpuBufviews.push_back(cpuBufView);
+				}
 				else if (isSampledImgViewDesc(type))
 				{
-					cpuImgViews.push_back(static_cast<asset::ICPUImageView*>(info.desc.get()));
-                    if (info.image.sampler)
+					auto cpuImgView = static_cast<asset::ICPUImageView*>(info.desc.get());
+					auto cpuImg = cpuImgView->getCreationParameters().image;
+					if(cpuImg)
+						cpuImg->addImageUsageFlags(asset::IImage::EUF_SAMPLED_BIT);
+					cpuImgViews.push_back(cpuImgView);
+					if (info.image.sampler)
 					    cpuSamplers.push_back(info.image.sampler.get());
 				}
 				else if (isStorageImgDesc(type))
-					cpuImgViews.push_back(static_cast<asset::ICPUImageView*>(info.desc.get()));
+				{
+					auto cpuImgView = static_cast<asset::ICPUImageView*>(info.desc.get());
+					auto cpuImg = cpuImgView->getCreationParameters().image;
+					if(cpuImg)
+						cpuImg->addImageUsageFlags(asset::IImage::EUF_STORAGE_BIT);
+					cpuImgViews.push_back(cpuImgView);
+				}
 			}
 		}
     }
@@ -1683,6 +1713,8 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUAnimationLibrary** _b
     for (ptrdiff_t i=0u; i<assetCount; i++)
     {
         const asset::ICPUAnimationLibrary* cpuanim = _begin[i];
+        cpuanim->getKeyframeStorageBinding().buffer->addUsageFlags(IGPUBuffer::EUF_STORAGE_BUFFER_BIT);
+        cpuanim->getTimestampStorageBinding().buffer->addUsageFlags(IGPUBuffer::EUF_STORAGE_BUFFER_BIT);
         cpuBuffers.push_back(cpuanim->getKeyframeStorageBinding().buffer.get());
         cpuBuffers.push_back(cpuanim->getTimestampStorageBinding().buffer.get());
         if (const asset::ICPUBuffer* buf = cpuanim->getAnimationStorageRange().buffer.get())
