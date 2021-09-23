@@ -114,12 +114,18 @@ vec3 uintIDToColor(uint id)
     return vec3(bitfieldExtract(id,0,4),bitfieldExtract(id,4,4),bitfieldExtract(id,8,4))/15.0;
 }
 
+
 #define VISIBLE_BUFF_SET 3
 #define VISIBLE_BUFF_BINDING 2
+
+#ifdef OCCLUSION_QUERY
+
 #define CUBE_COMMAND_BUFF_SET 3
 #define CUBE_COMMAND_BUFF_BINDING 3
 #define OCCLUSION_DISPATCH_INDIRECT_BUFF_SET 3
 #define OCCLUSION_DISPATCH_INDIRECT_BUFF_BINDING 4
+
+#endif
 
 
 #include "occlusionCullingShaderCommon.glsl"
@@ -188,11 +194,13 @@ void main()
 
         visibleBuff.visible[drawGUID] = uint16_t(1u);
 
+        #ifdef OCCLUSION_QUERY
         if(gl_GlobalInvocationID.x == 0)
         {
             cubeIndirectDraw.draw.instanceCount = 0;
             occlusionDispatchIndirect.di.num_groups_x = 0;
         }
+        #endif
     }
 
     imageStore(frameBuffer,fragCoord,vec4(nbl_glsl_oetf_sRGB(color.rgb),color.a));

@@ -271,7 +271,7 @@ enum class E_OCCLUSION_CULLING_METHOD
     EOCM_QUERY = 0u,
     EOCM_HI_Z_BUFFER = 1u,
 };
-constexpr E_OCCLUSION_CULLING_METHOD occlusionCullingMethod = E_OCCLUSION_CULLING_METHOD::EOCM_QUERY;
+constexpr E_OCCLUSION_CULLING_METHOD occlusionCullingMethod = E_OCCLUSION_CULLING_METHOD::EOCM_HI_Z_BUFFER;
 constexpr bool debugOccusionCulling = true;
 constexpr bool useSSBO = true;
 
@@ -706,6 +706,7 @@ int main()
                 driver->updateDescriptorSets(sizeof(writes) / sizeof(IGPUDescriptorSet::SWriteDescriptorSet), writes, 0u, nullptr);
             }
 
+            constexpr uint32_t shadingDSLayoutBindingCnt = (occlusionCullingMethod == E_OCCLUSION_CULLING_METHOD::EOCM_HI_Z_BUFFER) ? 3u : 5u;
             {
                 IGPUSampler::SParams params;
                 params.TextureWrapU = ISampler::ETC_MIRROR;
@@ -719,7 +720,8 @@ int main()
                 params.CompareEnable = 0;
                 auto sampler = driver->createGPUSampler(params);
 
-                IGPUDescriptorSetLayout::SBinding bindings[5];
+
+                IGPUDescriptorSetLayout::SBinding bindings[shadingDSLayoutBindingCnt];
                 bindings[0].binding = 0u;
                 bindings[0].count = 1u;
                 bindings[0].samplers = &sampler;
@@ -732,7 +734,7 @@ int main()
                 bindings[1].stageFlags = ISpecializedShader::ESS_COMPUTE;
                 bindings[1].type = EDT_STORAGE_IMAGE;
 
-                for (uint32_t i = 2u; i < 5u; i++)
+                for (uint32_t i = 2u; i < shadingDSLayoutBindingCnt; i++)
                 {
                     bindings[i].binding = i;
                     bindings[i].count = 1u;
@@ -741,7 +743,7 @@ int main()
                     bindings[i].type = EDT_STORAGE_BUFFER;
                 }
 
-                shadingDSLayout = driver->createGPUDescriptorSetLayout(bindings, bindings + sizeof(bindings) / sizeof(IGPUDescriptorSetLayout::SBinding));
+                shadingDSLayout = driver->createGPUDescriptorSetLayout(bindings, bindings + shadingDSLayoutBindingCnt);
             }
             {
                 IGPUDescriptorSet::SDescriptorInfo infos[5];
@@ -765,22 +767,20 @@ int main()
                 infos[4].desc = cullShaderData.dispatchIndirect;
 
                 sceneData.shadingDS = driver->createGPUDescriptorSet(smart_refctd_ptr(shadingDSLayout));
-                IGPUDescriptorSet::SWriteDescriptorSet writes[5];
-                for (auto i = 0u; i < 5u; i++)
+                IGPUDescriptorSet::SWriteDescriptorSet writes[shadingDSLayoutBindingCnt];
+                for (auto i = 0u; i < shadingDSLayoutBindingCnt; i++)
                 {
                     writes[i].dstSet = sceneData.shadingDS.get();
                     writes[i].binding = i;
                     writes[i].arrayElement = 0u;
                     writes[i].count = 1u;
+                    writes[i].descriptorType = EDT_STORAGE_BUFFER;
                     writes[i].info = infos + i;
                 }
                 writes[0].descriptorType = EDT_COMBINED_IMAGE_SAMPLER;
                 writes[1].descriptorType = EDT_STORAGE_IMAGE;
-                writes[2].descriptorType = EDT_STORAGE_BUFFER;
-                writes[3].descriptorType = EDT_STORAGE_BUFFER;
-                writes[4].descriptorType = EDT_STORAGE_BUFFER;
 
-                driver->updateDescriptorSets(sizeof(writes) / sizeof(IGPUDescriptorSet::SWriteDescriptorSet), writes, 0u, nullptr);
+                driver->updateDescriptorSets(shadingDSLayoutBindingCnt, writes, 0u, nullptr);
             }
         }
 
@@ -946,8 +946,13 @@ int main()
             );
         }
         {
+            constexpr char* occlusionCullMethodDefine[] =
+            {
+                "#define OCCLUSION_QUERY\n", "#define HI_Z_OCCLUSION_CULLING\n"
+            };
+
             extraCode += "#define _NBL_VT_FLOAT_VIEWS_COUNT " + std::to_string(gpuvt->getFloatViews().size()) + "\n";
-            std::cout << gpuvt->getGLSLFunctionsIncludePath().c_str() << std::endl;
+            extraCode += occlusionCullMethodDefine[static_cast<uint32_t>(occlusionCullingMethod)];
 
             SPushConstantRange pcRange;
             pcRange.size = sizeof(core::vector3df);
