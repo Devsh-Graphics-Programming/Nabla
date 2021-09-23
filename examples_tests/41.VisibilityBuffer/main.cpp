@@ -271,7 +271,7 @@ enum class E_OCCLUSION_CULLING_METHOD
     EOCM_QUERY = 0u,
     EOCM_HI_Z_BUFFER = 1u,
 };
-constexpr E_OCCLUSION_CULLING_METHOD occlusionCullingMethod = E_OCCLUSION_CULLING_METHOD::EOCM_HI_Z_BUFFER;
+constexpr E_OCCLUSION_CULLING_METHOD occlusionCullingMethod = E_OCCLUSION_CULLING_METHOD::EOCM_QUERY;
 constexpr bool debugOccusionCulling = true;
 constexpr bool useSSBO = true;
 
@@ -1504,9 +1504,12 @@ layout (local_size_x = WORKGROUP_SIZE) in;
         driver->updateBufferRangeViaStagingBuffer(sceneData.ubo.get(), 0u, sizeof(SBasicViewParameters), &uboData);
 
         // frustum cull
-        // TODO: fill instanceCounts of frustumCulledMdiBuffer with zeros
-        cullBatches(camera->getConcatenatedMatrix(), camera->getPosition(), freezeCulling);
-        COpenGLExtensionHandler::pGlMemoryBarrier(GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT | GL_COMMAND_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT);
+        if (!freezeCulling)
+        {
+            cullBatches(camera->getConcatenatedMatrix(), camera->getPosition(), freezeCulling);
+            COpenGLExtensionHandler::pGlMemoryBarrier(GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT | GL_COMMAND_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT);
+        }
+        
 
         // first fill visibility buffer pass
         driver->setRenderTarget(visBuffer);
@@ -1515,7 +1518,8 @@ layout (local_size_x = WORKGROUP_SIZE) in;
         driver->clearColorBuffer(EFAP_COLOR_ATTACHMENT0, invalidObjectCode);
         fillVBuffer(sceneData.frustumCulledMdiBuffer);
 
-        if constexpr (occlusionCullingMethod == E_OCCLUSION_CULLING_METHOD::EOCM_HI_Z_BUFFER)
+        //if constexpr (occlusionCullingMethod == E_OCCLUSION_CULLING_METHOD::EOCM_HI_Z_BUFFER)
+        if (occlusionCullingMethod == E_OCCLUSION_CULLING_METHOD::EOCM_HI_Z_BUFFER && !freezeCulling)
         {
             // create depth pyramid
             for (uint32_t i = 0u; i < dpgDsCnt; i++)
@@ -1538,7 +1542,8 @@ layout (local_size_x = WORKGROUP_SIZE) in;
 
             COpenGLExtensionHandler::extGlMemoryBarrier(barriers);
         }
-        else if (occlusionCullingMethod == E_OCCLUSION_CULLING_METHOD::EOCM_QUERY)
+        //else if (occlusionCullingMethod == E_OCCLUSION_CULLING_METHOD::EOCM_QUERY)
+        else if (occlusionCullingMethod == E_OCCLUSION_CULLING_METHOD::EOCM_QUERY && !freezeCulling)
         {
             // occlusion cull (against partially filled new Z-buffer)
             driver->setRenderTarget(zBuffOnlyFrameBuffer);
