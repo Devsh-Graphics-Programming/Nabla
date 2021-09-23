@@ -63,6 +63,8 @@ class COpenGLImage final : public IGPUImage, public IDriverMemoryAllocation
 			}
 		}
 
+		void setObjectDebugName(const char* label) const override;
+
 		//!
 		inline GLenum getOpenGLSizedFormat() const { return internalFormat; }
 

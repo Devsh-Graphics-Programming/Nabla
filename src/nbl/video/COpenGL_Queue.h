@@ -16,6 +16,7 @@
 #include "nbl/video/COpenGLCommon.h"
 #include "nbl/core/alloc/GeneralpurposeAddressAllocator.h"
 #include "nbl/core/containers/CMemoryPool.h"
+#include "nbl/video/utilities/renderdoc.h"
 
 //#define DEBUGGING_BAW
 
@@ -51,7 +52,9 @@ class COpenGL_Queue final : public IGPUQueue
         {
             ERT_SUBMIT,
             ERT_DESTROY_FRAMEBUFFER,
-            ERT_DESTROY_PIPELINE
+            ERT_DESTROY_PIPELINE,
+            ERT_BEGIN_CAPTURE,
+            ERT_END_CAPTURE
         };
         template <E_REQUEST_TYPE ERT>
         struct SRequestParamsBase
@@ -78,11 +81,19 @@ class COpenGL_Queue final : public IGPUQueue
         {
             SOpenGLState::SGraphicsPipelineHash hash;
         };
+        using SRequestParams_BeginCapture = SRequestParamsBase<ERT_BEGIN_CAPTURE>;
+        using SRequestParams_EndCapture = SRequestParamsBase<ERT_END_CAPTURE>;
         struct SRequest : public system::impl::IAsyncQueueDispatcherBase::request_base_t 
         {
             E_REQUEST_TYPE type;
 
-            std::variant<SRequestParams_Submit, SRequestParams_DestroyFramebuffer, SRequestParams_DestroyPipeline> params;
+            std::variant<
+                SRequestParams_Submit, 
+                SRequestParams_DestroyFramebuffer, 
+                SRequestParams_DestroyPipeline,
+                SRequestParams_BeginCapture,
+                SRequestParams_EndCapture
+            > params;
         };
 
         struct CThreadHandler final : public system::IAsyncQueueDispatcher<CThreadHandler, SRequest, 256u, ThreadInternalStateType>
@@ -91,7 +102,8 @@ class COpenGL_Queue final : public IGPUQueue
             using base_t = system::IAsyncQueueDispatcher<CThreadHandler, SRequest, 256u, ThreadInternalStateType>;
             friend base_t;
 
-            CThreadHandler(const egl::CEGL* _egl, IOpenGL_LogicalDevice* dev, const FeaturesType* _features, EGLContext _ctx, EGLSurface _pbuf, uint32_t _ctxid, COpenGLDebugCallback* _dbgCb) :
+            CThreadHandler(const egl::CEGL* _egl, renderdoc_api_t* rdoc, IOpenGL_LogicalDevice* dev, const FeaturesType* _features, EGLContext _ctx, EGLSurface _pbuf, uint32_t _ctxid, COpenGLDebugCallback* _dbgCb) :
+                m_rdoc_api(rdoc),
                 egl(_egl),
                 m_device(dev),
                 thisCtx(_ctx), pbuffer(_pbuf),
@@ -129,6 +141,8 @@ class COpenGL_Queue final : public IGPUQueue
                     */
                     //_NBL_DEBUG_BREAK_IF(mcres!=EGL_TRUE);
                 }
+
+                egl->call.peglGetPlatformDependentHandles(&nativeHandles, egl->display, pbuffer, thisCtx);
 
                 new (state_ptr) ThreadInternalStateType(egl,features,core::smart_refctd_ptr<system::ILogger>(m_dbgCb->getLogger()));
                 auto& gl = state_ptr->gl;
@@ -187,7 +201,7 @@ class COpenGL_Queue final : public IGPUQueue
                     GLbitfield barrierBits = 0;
                     for (uint32_t i = 0; i < submit.waitSemaphoreCount; ++i)
                     {
-                        barrierBits |= pipelineStageFlagsToMemoryBarrierBits(asset::EPSF_BOTTOM_OF_PIPE_BIT, submit.pWaitDstStageMask[i]);
+                        barrierBits |= SOpenGLBarrierHelper(gl.features).pipelineStageFlagsToMemoryBarrierBits(asset::EPSF_BOTTOM_OF_PIPE_BIT,submit.pWaitDstStageMask[i]);
                     }
 
 #ifdef DEBUGGING_BAW
@@ -245,6 +259,12 @@ class COpenGL_Queue final : public IGPUQueue
                     _state.ctxlocal.removePipelineEntry(&gl, hash);
                 }
                 break;
+                case ERT_BEGIN_CAPTURE:
+                    m_rdoc_api->StartFrameCapture(nativeHandles.context, NULL);
+                break;
+                case ERT_END_CAPTURE:
+                    m_rdoc_api->EndFrameCapture(nativeHandles.context, NULL);
+                break;
                 }
             }
 
@@ -258,6 +278,7 @@ class COpenGL_Queue final : public IGPUQueue
                 egl->call.peglDestroySurface(egl->display, pbuffer);
             }
 
+            renderdoc_api_t* m_rdoc_api;
         private:
             const egl::CEGL* egl;
             IOpenGL_LogicalDevice* m_device;
@@ -266,11 +287,15 @@ class COpenGL_Queue final : public IGPUQueue
             const FeaturesType* features;
             uint32_t m_ctxid;
             COpenGLDebugCallback* m_dbgCb;
+
+            //for renderdoc captures
+            EGLContextInternals nativeHandles;
         };
 
     public:
         COpenGL_Queue(
             IOpenGL_LogicalDevice* gldev,
+            renderdoc_api_t* rdoc,
             const egl::CEGL* _egl,
             const FeaturesType* _features,
             uint32_t _ctxid,
@@ -281,7 +306,7 @@ class COpenGL_Queue final : public IGPUQueue
             float _priority,
             COpenGLDebugCallback* _dbgCb
         ) : IGPUQueue(gldev,_famIx,_flags,_priority),
-            threadHandler(_egl,gldev,_features,_ctx,_surface,_ctxid,_dbgCb),
+            threadHandler(_egl,rdoc,gldev,_features,_ctx,_surface,_ctxid,_dbgCb),
             m_mempool(128u,1u,512u,sizeof(void*)),
             m_ctxid(_ctxid)
         {
@@ -341,8 +366,7 @@ class COpenGL_Queue final : public IGPUQueue
                 params.syncToInit = sync;
 
                 auto& req = threadHandler.request(std::move(params));
-                // TODO: Copy all the data to the request and dont wait for the request to finish, also 
-                // TODO: Use a special form of request/IAsyncQueueDispatcher that lets us specify that certain requests wont be waited for and can be transitioned straight into ES_INITIAL
+                // TODO: Copy all the data to the request and dont wait for the request to finish, then mark this request type as `isWaitlessRequest`
                 threadHandler.template waitForRequestCompletion<SRequestParams_Submit>(req);
 
                 if (waitSems)
@@ -396,6 +420,7 @@ class COpenGL_Queue final : public IGPUQueue
 
             auto& req = threadHandler.request(std::move(params));
             // TODO: Use a special form of request/IAsyncQueueDispatcher that lets us specify that certain requests wont be waited for and can be transitioned straight into ES_INITIAL
+            // TODO: basically implement `isWaitlessRequest` for this thread handler (like the LogicalDevice queue)
             threadHandler.template waitForRequestCompletion<SRequestParams_DestroyFramebuffer>(req);
         }
 
@@ -406,7 +431,31 @@ class COpenGL_Queue final : public IGPUQueue
 
             auto& req = threadHandler.request(std::move(params));
             // TODO: Use a special form of request/IAsyncQueueDispatcher that lets us specify that certain requests wont be waited for and can be transitioned straight into ES_INITIAL
+            // TODO: basically implement `isWaitlessRequest` for this thread handler (like the LogicalDevice queue)
             threadHandler.template waitForRequestCompletion<SRequestParams_DestroyPipeline>(req);
+        }
+
+        bool startCapture() override
+        {
+            if (!threadHandler.m_rdoc_api)
+                return false;
+
+            SRequestParams_BeginCapture p;
+
+            threadHandler.request(std::move(p));
+
+            return true;
+        }
+        bool endCapture() override
+        {
+            if (!threadHandler.m_rdoc_api)
+                return false;
+
+            SRequestParams_EndCapture p;
+
+            threadHandler.request(std::move(p));
+
+            return true;
         }
 
     protected:

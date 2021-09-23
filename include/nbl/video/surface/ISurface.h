@@ -22,6 +22,10 @@ class ISurface : public core::IReferenceCounted
         ISurface(core::smart_refctd_ptr<IAPIConnection>&& api) : m_api(std::move(api)) {}
         virtual ~ISurface() = default;
 
+        //impl of getSurfaceCapabilitiesForPhysicalDevice() needs this
+        virtual uint32_t getWidth() const = 0;
+        virtual uint32_t getHeight() const = 0;
+
         core::smart_refctd_ptr<IAPIConnection> m_api;
 
     public:
@@ -32,6 +36,12 @@ class ISurface : public core::IReferenceCounted
         };
         struct SFormat
         {
+            SFormat() = default;
+            SFormat(asset::E_FORMAT _format, asset::E_COLOR_PRIMARIES _primary, asset::ELECTRO_OPTICAL_TRANSFER_FUNCTION _eotf)
+                : format(_format)
+                , colorSpace({_primary, _eotf})
+            {
+            }
             asset::E_FORMAT format;
             SColorSpace colorSpace;
         };
@@ -85,6 +95,9 @@ class CSurface : public ISurface
     protected:
         CSurface(core::smart_refctd_ptr<IAPIConnection>&& api, core::smart_refctd_ptr<Window>&& window) : ISurface(std::move(api)), m_window(std::move(window)) {}
         virtual ~CSurface() = default;
+
+        uint32_t getWidth() const override { return m_window->getWidth(); }
+        uint32_t getHeight() const override { return m_window->getHeight(); }
 
         core::smart_refctd_ptr<Window> m_window;
 };

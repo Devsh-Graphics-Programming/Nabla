@@ -28,7 +28,7 @@ ivec2 getCoordinates() {
 vec2 getTexCoords() {
     ivec2 imageSize = imageSize(outImage);
     ivec2 iCoords = getCoordinates();
-    return vec2(float(iCoords.x) / imageSize.x, float(iCoords.y) / imageSize.y);
+    return vec2(float(iCoords.x) / imageSize.x, 1.0 - float(iCoords.y) / imageSize.y);
 }
 
 
@@ -384,7 +384,7 @@ vec2 SampleSphericalMap(vec3 v)
 void missProgram(in ImmutableRay_t _immutable, inout Payload_t _payload)
 {
     vec3 finalContribution = _payload.throughput; 
-    //#define USE_ENVMAP
+    // #define USE_ENVMAP
 #ifdef USE_ENVMAP
 	vec2 uv = SampleSphericalMap(_immutable.direction);
     finalContribution *= textureLod(envMap, uv, 0.0).rgb;
@@ -477,8 +477,8 @@ vec3 nbl_glsl_bsdf_cos_remainder_and_pdf(out float pdf, in nbl_glsl_LightSample 
     return remainder;
 }
 
-layout (constant_id = 0) const int MAX_DEPTH_LOG2 = 0;
-layout (constant_id = 1) const int MAX_SAMPLES_LOG2 = 0;
+layout (constant_id = 0) const int MAX_DEPTH_LOG2 = 4;
+layout (constant_id = 1) const int MAX_SAMPLES_LOG2 = 10;
 
 
 #include <nbl/builtin/glsl/random/xoroshiro.glsl>

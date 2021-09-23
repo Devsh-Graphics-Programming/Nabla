@@ -7,6 +7,7 @@
 
 #include "nbl/video/IOpenGL_LogicalDevice.h"
 
+#include "nbl/video/utilities/renderdoc.h"
 #include "nbl/video/COpenGLFramebuffer.h"
 #include "nbl/video/COpenGLRenderpass.h"
 #include "nbl/video/COpenGLDescriptorSet.h"
@@ -28,7 +29,7 @@ class COpenGL_LogicalDevice : public IOpenGL_LogicalDevice
 
         req_params_t params;
         params.count = count;
-        std::copy(names, names + count, params.glnames);
+        std::copy_n(names,count,params.glnames);
 
         auto& req = m_threadHandler.request(std::move(params));
         // dont need to wait on this
@@ -54,8 +55,9 @@ public:
 
     static_assert(std::is_same_v<typename QueueType::FunctionTableType, typename SwapchainType::FunctionTableType>, "QueueType and SwapchainType come from 2 different backends!");
 
-    COpenGL_LogicalDevice(core::smart_refctd_ptr<IAPIConnection>&& api, IPhysicalDevice* physicalDevice, const SCreationParams& params, const egl::CEGL* _egl, const FeaturesType* _features, EGLConfig config, EGLint major, EGLint minor) :
+    COpenGL_LogicalDevice(core::smart_refctd_ptr<IAPIConnection>&& api, IPhysicalDevice* physicalDevice, renderdoc_api_t* rdoc, const SCreationParams& params, const egl::CEGL* _egl, const FeaturesType* _features, EGLConfig config, EGLint major, EGLint minor) :
         IOpenGL_LogicalDevice(std::move(api),physicalDevice,params,_egl),
+        m_rdoc_api(rdoc),
         m_threadHandler(
             this,_egl,_features,
             getTotalQueueCount(params),
@@ -90,7 +92,7 @@ public:
                 (*m_queues)[ix] = new CThreadSafeGPUQueueAdapter
                 (
                     this,
-                    new QueueType(this, _egl, m_glfeatures, ctxid, glctx.ctx,
+                    new QueueType(this, rdoc, _egl, m_glfeatures, ctxid, glctx.ctx,
                         glctx.pbuffer, famIx, flags, priority,
                         static_cast<COpenGLDebugCallback*>(physicalDevice->getDebugCallback()))
                 );
@@ -354,7 +356,6 @@ public:
     {
         SRequestInvalidateMappedMemoryRanges req_params{ ranges };
         auto& req = m_threadHandler.request(std::move(req_params));
-        m_threadHandler.template waitForRequestCompletion<SRequestInvalidateMappedMemoryRanges>(req);
     }
 
     void* mapMemory(const IDriverMemoryAllocation::MappedMemoryRange& memory, IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAG access = IDriverMemoryAllocation::EMCAF_READ_AND_WRITE) override final
@@ -400,11 +401,11 @@ public:
         req_params.buf = core::smart_refctd_ptr<IDriverMemoryAllocation>(memory);
 
         auto& req = m_threadHandler.request(std::move(req_params));
-        m_threadHandler.template waitForRequestCompletion<SRequestUnmapBuffer>(req);
 
         post_unmapMemory(memory);
     }
 
+    // TODO: remove from the engine, not thread safe (access to queues must be synchronized externally)
     void waitIdle() override
     {
         // TODO: I think glFinish affects only the current context... you'd have to post a request for a glFinish for every single queue and swapchain as well.
@@ -439,11 +440,22 @@ public:
     {
         destroyGlObjects<ERT_SAMPLER_DESTROY>(1u, &s);
     }
-    void destroySpecializedShader(uint32_t count, const GLuint* programs) override final
+    void destroySpecializedShaders(core::smart_refctd_dynamic_array<IOpenGLPipelineBase::SShaderProgram>&& programs) override final
     {
-        auto& req = destroyGlObjects<ERT_PROGRAM_DESTROY>(count, programs);
-        // actually wait for this to complete because `programs` is most likely stack array or something owned exclusively by the object (which is being destroyed)
-        m_threadHandler.template waitForRequestCompletion<SRequest_Destroy<ERT_PROGRAM_DESTROY>>(req);
+        const auto count = programs->size();
+        assert(count<=MaxGlNamesForSingleObject);
+
+        SRequest_Destroy<ERT_PROGRAM_DESTROY> params;
+        params.count = 0u;
+        for (auto i=0u; i<count; i++)
+        {
+            const auto glname = programs->operator[](i).GLname;
+            if (glname)
+                params.glnames[params.count++] = glname;
+        }
+
+        auto& req = m_threadHandler.request(std::move(params));
+        // dont need to wait on this
     }
     void destroySync(GLsync sync) override final
     {
@@ -451,6 +463,21 @@ public:
         req_params.glsync = sync;
         auto& req = m_threadHandler.request(std::move(req_params));
         //dont need to wait on this
+    }
+    void setObjectDebugName(GLenum id, GLuint object, GLsizei len, const GLchar* label) override
+    {
+        //any other object type having name set by device request is something unexcpected
+        assert(id == GL_BUFFER || id == GL_SAMPLER || id == GL_TEXTURE);
+        assert(len <= IBackendObject::MAX_DEBUG_NAME_LENGTH);
+#ifdef _NBL_DEBUG
+        assert(len == strlen(label));
+#endif
+
+        SRequestSetDebugName req_params{ id, object, len };
+        strcpy(req_params.label, label);
+
+        auto& req = m_threadHandler.request(std::move(req_params));
+        m_threadHandler.template waitForRequestCompletion<SRequestSetDebugName>(req);
     }
 
 protected:
@@ -474,7 +501,12 @@ protected:
     bool createCommandBuffers_impl(IGPUCommandPool* _cmdPool, IGPUCommandBuffer::E_LEVEL _level, uint32_t _count, core::smart_refctd_ptr<IGPUCommandBuffer>* _output) override final
     {
         for (uint32_t i = 0u; i < _count; ++i)
-            _output[i] = core::make_smart_refctd_ptr<COpenGLCommandBuffer>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this), _level, _cmdPool, core::smart_refctd_ptr<system::ILogger>(getLogger().get()));
+            _output[i] = core::make_smart_refctd_ptr<COpenGLCommandBuffer>(
+                core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this),
+                _level, _cmdPool,
+                core::smart_refctd_ptr<system::ILogger>(getLogger().get()),
+                m_glfeatures
+            );
         return true;
     }
     bool freeCommandBuffers_impl(IGPUCommandBuffer** _cmdbufs, uint32_t _count) override final
@@ -710,6 +742,7 @@ protected:
     }
 
 private:
+    renderdoc_api_t* m_rdoc_api;
     CThreadHandler<FunctionTableType> m_threadHandler;
     const FeaturesType* m_glfeatures;
     EGLConfig m_config;
@@ -721,7 +754,7 @@ private:
 }
 
 
-#include "nbl/video/COpenGL_Queue.h"
+#include "nbl/video/COpenGL_Queue.h" 
 
 namespace nbl::video
 {

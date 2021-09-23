@@ -6,7 +6,7 @@
 // Temporary
 #define VK_NO_PROTOTYPES
 #include "vulkan/vulkan.h"
-#include "../../src/nbl/video/CVulkanConnection.h"
+#include "../../include/nbl/video/CVulkanConnection.h"
 #include "../../src/nbl/video/CVulkanCommon.h"
 
 #include <nbl/ui/CWindowManagerWin32.h>
@@ -397,7 +397,16 @@ int main()
 #endif
 
 	core::smart_refctd_ptr<video::IUtilities> utils = core::make_smart_refctd_ptr<video::IUtilities>(core::smart_refctd_ptr<video::ILogicalDevice>(device));
+	
+	// For CPU2GPU Params
+	core::smart_refctd_ptr<video::IGPUCommandPool> pool_compute = device->createCommandPool(computeQueue->getFamilyIndex(), video::IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
+	
+	core::smart_refctd_ptr<video::IGPUCommandBuffer> transferCmdBuffer;
+	core::smart_refctd_ptr<video::IGPUCommandBuffer> computeCmdBuffer;
 
+	device->createCommandBuffers(pool_compute.get(), video::IGPUCommandBuffer::EL_PRIMARY, 1u, &transferCmdBuffer);
+	device->createCommandBuffers(pool_compute.get(), video::IGPUCommandBuffer::EL_PRIMARY, 1u, &computeCmdBuffer);
+	
 	video::IGPUObjectFromAssetConverter::SParams cpu2gpuParams = {};
 	cpu2gpuParams.utilities = utils.get();
 	cpu2gpuParams.device = device.get();
@@ -408,9 +417,14 @@ int main()
 	cpu2gpuParams.sharingMode = asset::ESM_EXCLUSIVE;
 	cpu2gpuParams.perQueue[video::IGPUObjectFromAssetConverter::EQU_TRANSFER].queue = computeQueue;
 	cpu2gpuParams.perQueue[video::IGPUObjectFromAssetConverter::EQU_COMPUTE].queue = computeQueue;
+	cpu2gpuParams.perQueue[video::IGPUObjectFromAssetConverter::EQU_TRANSFER].cmdbuf = transferCmdBuffer;
+	cpu2gpuParams.perQueue[video::IGPUObjectFromAssetConverter::EQU_COMPUTE].cmdbuf = computeCmdBuffer;
+
 
 	video::IGPUObjectFromAssetConverter CPU2GPU;
+	cpu2gpuParams.beginCommandBuffers();
 	auto inImage = CPU2GPU.getGPUObjectsFromAssets(&inImage_CPU, &inImage_CPU + 1, cpu2gpuParams);
+	cpu2gpuParams.waitForCreationToComplete(false);
 	assert(inImage);
 
 	// Create an image view for input image

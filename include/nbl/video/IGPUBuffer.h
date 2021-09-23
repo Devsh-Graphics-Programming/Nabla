@@ -9,6 +9,7 @@
 #include "nbl/asset/IBuffer.h"
 #include "nbl/asset/IDescriptor.h"
 
+#include "nbl/asset/ECommonEnums.h"
 #include "nbl/video/decl/IBackendObject.h"
 #include "nbl/video/IDriverMemoryBacked.h"
 
@@ -26,6 +27,14 @@ class IGPUBuffer : public asset::IBuffer, public IDriverMemoryBacked, public IBa
         IGPUBuffer(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const IDriverMemoryBacked::SDriverMemoryRequirements& reqs) : IDriverMemoryBacked(reqs), IBackendObject(std::move(dev)) {}
 
     public:
+		struct SCreationParams
+		{
+			core::bitflag<E_USAGE_FLAGS> usage = EUF_NONE;
+			asset::E_SHARING_MODE sharingMode = asset::ESM_EXCLUSIVE;
+			uint32_t queueFamilyIndexCount = 0u;
+			const uint32_t* queueFamilyIndices = nullptr;
+		};
+
         //! Get usable buffer byte size.
         inline const uint64_t& getSize() const {return cachedMemoryReqs.vulkanReqs.size;}
 

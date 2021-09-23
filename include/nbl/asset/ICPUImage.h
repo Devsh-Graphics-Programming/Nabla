@@ -176,11 +176,23 @@ class ICPUImage final : public IImage, public IAsset
 			std::sort(regions->begin(),regions->end(),mip_order_t());
 			return true;
 		}
+		
+		inline core::bitflag<E_USAGE_FLAGS> getImageUsageFlags() const
+		{
+			return params.usage;
+		}
 
 		inline bool setImageUsageFlags(core::bitflag<E_USAGE_FLAGS> usage)
 		{
 			assert(!isImmutable_debug());
 			params.usage = usage;
+			return true;
+		}
+
+		inline bool addImageUsageFlags(core::bitflag<E_USAGE_FLAGS> usage)
+		{
+			assert(!isImmutable_debug());
+			params.usage |= usage;
 			return true;
 		}
 

@@ -99,6 +99,25 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
 
             return true;
         }
+        
+		inline core::bitflag<E_USAGE_FLAGS> getUsageFlags() const
+		{
+			return usage;
+		}
+
+		inline bool setUsageFlags(core::bitflag<E_USAGE_FLAGS> _usage)
+		{
+			assert(!isImmutable_debug());
+			usage = _usage;
+			return true;
+		}
+
+		inline bool addUsageFlags(core::bitflag<E_USAGE_FLAGS> _usage)
+		{
+			assert(!isImmutable_debug());
+			usage |= _usage;
+			return true;
+		}
 
     protected:
         void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
@@ -108,7 +127,8 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
             if (willBeRestoredFrom(_other))
                 std::swap(data, other->data);
         }
-
+        
+        core::bitflag<E_USAGE_FLAGS> usage = EUF_NONE;
         uint64_t size;
         void* data;
 };
