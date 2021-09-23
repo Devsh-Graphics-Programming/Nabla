@@ -645,8 +645,16 @@ namespace nbl
 								return {};
 						}
 
-						uint32_t perVertexJointsAmount = 0xdeadbeef;
-
+						struct OverrideReference
+						{
+							E_FORMAT format;
+							SGLTF::SGLTFAccessor* accessor;
+							asset::SBufferRange<asset::ICPUBuffer> bufferRange;
+						};
+						
+						std::vector<OverrideReference> overrideJointsReference;
+						std::vector<OverrideReference> overrideWeightsReference;
+						
 						for (uint8_t i = 0; i < glTFprimitive.attributes.joints.size(); ++i)
 						{
 							if (glTFprimitive.attributes.joints[i].has_value())
@@ -661,37 +669,408 @@ namespace nbl
 									return {};
 								}
 
-								/*
-									TODO: repack and sort joints according to weights, remove joint if a matching weight is 0
-									then specify perVertexJointsAmount
-								*/
+								const asset::E_FORMAT jointsFormat = [&]()
+								{
+									if (glTFJointsXAccessor.componentType.value() == SGLTF::SGLTFAccessor::SCT_UNSIGNED_BYTE)
+										return EF_R8G8B8A8_UINT;
+									else if (glTFJointsXAccessor.componentType.value() == SGLTF::SGLTFAccessor::SCT_UNSIGNED_SHORT)
+										return EF_R16G16B16A16_UINT;
+									else
+										EF_UNKNOWN;
+								}();
 
-								if (!handleAccessor(glTFJointsXAccessor, cpuMeshBuffer->getJointIDAttributeIx()))
+								if (jointsFormat == EF_UNKNOWN)
+								{
+									context.loadContext.params.logger.log("GLTF: DETECTED JOINTS BUFFER WITH INVALID COMPONENT TYPE!", system::ILogger::ELL_WARNING);
 									return {};
+								}
+
+								if (!glTFJointsXAccessor.bufferView.has_value())
+								{
+									context.loadContext.params.logger.log("GLTF: NO BUFFER VIEW INDEX FOUND!", system::ILogger::ELL_WARNING);
+									return {};
+								}
+
+								const auto& bufferViewID = glTFJointsXAccessor.bufferView.value();
+								const auto& glTFBufferView = glTF.bufferViews[bufferViewID];
+
+								if (!glTFBufferView.buffer.has_value())
+								{
+									context.loadContext.params.logger.log("GLTF: NO BUFFER INDEX FOUND!", system::ILogger::ELL_WARNING);
+									return {};
+								}
+
+								const auto& bufferID = glTFBufferView.buffer.value();
+								auto cpuBuffer = cpuBuffers[bufferID];
+
+								const size_t globalOffset = [&]()
+								{
+									const size_t bufferViewOffset = glTFBufferView.byteOffset.has_value() ? glTFBufferView.byteOffset.value() : 0u;
+									const size_t relativeAccessorOffset = glTFJointsXAccessor.byteOffset.has_value() ? glTFJointsXAccessor.byteOffset.value() : 0u;
+
+									return bufferViewOffset + relativeAccessorOffset;
+								}();
+
+								auto& overrideRef = overrideJointsReference.emplace_back();
+								overrideRef.accessor = &glTFJointsXAccessor;
+								overrideRef.format = jointsFormat;
+
+								overrideRef.bufferRange.buffer = core::smart_refctd_ptr(cpuBuffer);
+								overrideRef.bufferRange.offset = globalOffset;
+								overrideRef.bufferRange.size = overrideRef.accessor->count.value() * asset::getTexelOrBlockBytesize(overrideRef.format);
 							}
 						}
 
 						for (uint8_t i = 0; i < glTFprimitive.attributes.weights.size(); ++i)
 						{
-							if (glTFprimitive.attributes.weights[0u].has_value())
+							if (glTFprimitive.attributes.weights[i].has_value())
 							{
-								const size_t accessorID = glTFprimitive.attributes.weights[0u].value();
+								const size_t accessorID = glTFprimitive.attributes.weights[i].value();
 
-								auto& glTFWeightsXAccessor = glTF.accessors[accessorID]; 
+								auto& glTFWeightsXAccessor = glTF.accessors[accessorID];
 
 								if (glTFWeightsXAccessor.type.value() != SGLTF::SGLTFAccessor::SGLTFT_VEC4)
 								{
 									context.loadContext.params.logger.log("GLTF: WEIGHTS ACCESSOR MUST HAVE VEC4 TYPE!", system::ILogger::ELL_WARNING);
 									return {};
 								}
+								
+								const asset::E_FORMAT weightsFormat = [&]()
+								{
+									if (glTFWeightsXAccessor.componentType.value() == SGLTF::SGLTFAccessor::SCT_FLOAT)
+										return EF_R32G32B32A32_SFLOAT;
+									else if (glTFWeightsXAccessor.componentType.value() == SGLTF::SGLTFAccessor::SCT_UNSIGNED_BYTE)
+										return EF_R8G8B8A8_UINT;
+									else if (glTFWeightsXAccessor.componentType.value() == SGLTF::SGLTFAccessor::SCT_UNSIGNED_SHORT)
+										return EF_R16G16B16A16_UINT;
+									else
+										EF_UNKNOWN;
+								}();
 
-								/*
-									TODO: repack and sort joints according to weights, remove joint if a matching weight is 0
-									then specify perVertexJointsAmount
-								*/
-
-								if (!handleAccessor(glTFWeightsXAccessor, cpuMeshBuffer->getJointWeightAttributeIx()))
+								if (weightsFormat == EF_UNKNOWN)
+								{
+									context.loadContext.params.logger.log("GLTF: DETECTED WEIGHTS BUFFER WITH INVALID COMPONENT TYPE!", system::ILogger::ELL_WARNING);
 									return {};
+								}
+
+								if (!glTFWeightsXAccessor.bufferView.has_value())
+								{
+									context.loadContext.params.logger.log("GLTF: NO BUFFER VIEW INDEX FOUND!", system::ILogger::ELL_WARNING);
+									return {};
+								}
+
+								const auto& bufferViewID = glTFWeightsXAccessor.bufferView.value();
+								const auto& glTFBufferView = glTF.bufferViews[bufferViewID];
+
+								if (!glTFBufferView.buffer.has_value())
+								{
+									context.loadContext.params.logger.log("GLTF: NO BUFFER INDEX FOUND!", system::ILogger::ELL_WARNING);
+									return {};
+								}
+
+								const auto& bufferID = glTFBufferView.buffer.value();
+								auto cpuBuffer = cpuBuffers[bufferID];
+
+								const size_t globalOffset = [&]()
+								{
+									const size_t bufferViewOffset = glTFBufferView.byteOffset.has_value() ? glTFBufferView.byteOffset.value() : 0u;
+									const size_t relativeAccessorOffset = glTFWeightsXAccessor.byteOffset.has_value() ? glTFWeightsXAccessor.byteOffset.value() : 0u;
+
+									return bufferViewOffset + relativeAccessorOffset;
+								}();
+
+								auto& overrideRef = overrideWeightsReference.emplace_back();
+								overrideRef.accessor = &glTFWeightsXAccessor;
+								overrideRef.format = weightsFormat;
+
+								overrideRef.bufferRange.buffer = core::smart_refctd_ptr(cpuBuffer);
+								overrideRef.bufferRange.offset = globalOffset;
+								overrideRef.bufferRange.size = overrideRef.accessor->count.value() * asset::getTexelOrBlockBytesize(overrideRef.format);
+							}
+						}
+
+						uint32_t maxJointsPerVertex = 0xdeadbeef;
+
+						if (overrideJointsReference.size() && overrideWeightsReference.size())
+						{
+							if (overrideJointsReference.size() != overrideWeightsReference.size())
+							{
+								context.loadContext.params.logger.log("GLTF: JOINTS ATTRIBUTES VERTEX BUFFERS AMOUNT MUST BE EQUAL TO WEIGHTS ATTRIBUTES VERTEX BUFFERS AMOUNT!", system::ILogger::ELL_WARNING);
+								return {};
+							}
+						
+							if (overrideJointsReference.size() > 1u || overrideWeightsReference.size() > 1u)
+							{
+								if (!std::equal(std::begin(overrideJointsReference) + 1, std::end(overrideJointsReference), std::begin(overrideJointsReference), [](const OverrideReference& lhs, const OverrideReference& rhs) { return lhs.format == rhs.format && lhs.accessor->count.value() == rhs.accessor->count.value(); }))
+								{
+									context.loadContext.params.logger.log("GLTF: JOINTS ATTRIBUTES VERTEX BUFFERS MUST NOT HAVE VARIOUS DATA TYPE OR LENGTH!", system::ILogger::ELL_WARNING);
+									return {};
+								}
+
+								if (!std::equal(std::begin(overrideWeightsReference) + 1, std::end(overrideWeightsReference), std::begin(overrideWeightsReference), [](const OverrideReference& lhs, const OverrideReference& rhs) { return lhs.format == rhs.format && lhs.accessor->count.value() == rhs.accessor->count.value(); }))
+								{
+									context.loadContext.params.logger.log("GLTF: WEIGHTS ATTRIBUTES VERTEX BUFFERS MUST NOT HAVE VARIOUS DATA TYPE OR LENGTH!", system::ILogger::ELL_WARNING);
+									return {};
+								}
+							}
+
+							struct OverrideSkinningBuffers
+							{
+								struct Override
+								{
+									core::smart_refctd_ptr<asset::ICPUBuffer> cpuBuffer;
+									E_FORMAT format;
+								};
+
+								Override jointsAttributes;
+								Override weightsAttributes;
+							} overrideSkinningBuffers; // TODO: given this one insert new buffer into cpu mesh buffer's vertex inputs
+									
+							{
+								const uint16_t overrideReferencesCount = overrideJointsReference.size(); //! doesn't matter if overrideJointsReference or overrideWeightsReference
+								const size_t vCommonOverrideAttributesCount = overrideJointsReference[0].accessor->count.value(); //! doesn't matter if overrideJointsReference or overrideWeightsReference
+
+								const E_FORMAT vJointsFormat = overrideJointsReference[0].format;
+								const size_t vJointsTexelByteSize = asset::getTexelOrBlockBytesize(vJointsFormat);
+
+								const E_FORMAT vWeightsFormat = overrideWeightsReference[0].format;
+								const size_t vWeightsTexelByteSize = asset::getTexelOrBlockBytesize(vWeightsFormat);
+
+								core::smart_refctd_ptr<asset::ICPUBuffer> vOverrideJointsBuffer = nullptr;
+								core::smart_refctd_ptr<asset::ICPUBuffer> vOverrideWeightsBuffer = nullptr;
+
+								auto createOverrideBuffers = [&]<typename JointComponentT, typename WeightCompomentT>() -> void
+								{
+									constexpr bool isValidJointComponentT = std::is_same<JointComponentT, uint8_t>::value || std::is_same<JointComponentT, uint16_t>::value;
+									constexpr bool isValidWeighComponentT = std::is_same<WeightCompomentT, uint8_t>::value || std::is_same<WeightCompomentT, uint16_t>::value || std::is_same<WeightCompomentT, float>::value;
+									static_assert(isValidJointComponentT && isValidWeighComponentT);
+
+									vOverrideJointsBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(vCommonOverrideAttributesCount * vJointsTexelByteSize);
+									vOverrideWeightsBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(vCommonOverrideAttributesCount * vWeightsTexelByteSize);
+
+									for (size_t vAttributeIx = 0; vAttributeIx < vCommonOverrideAttributesCount; ++vAttributeIx)
+									{
+										const size_t commonVJointsOffset = vAttributeIx * vJointsTexelByteSize;
+										const size_t commonVWeightsOffset = vAttributeIx * vWeightsTexelByteSize;
+
+										struct PerVertexData
+										{
+											JointComponentT joint;
+											WeightCompomentT weight;
+										};
+
+										std::vector<PerVertexData> perVertexDataContainer;
+
+										for (uint16_t i = 0; i < overrideReferencesCount; ++i)
+										{
+											auto* cpuJointsXVertexBuffer = reinterpret_cast<uint8_t*>(overrideJointsReference[i].bufferRange.buffer->getPointer());
+											auto* jointsXVertexBufferBegin = cpuJointsXVertexBuffer + overrideJointsReference[i].bufferRange.offset;
+											 
+											auto* cpuWeightsXVertexBuffer = reinterpret_cast<uint8_t*>(overrideWeightsReference[i].bufferRange.buffer->getPointer());
+											auto* weightsXVertexBufferBegin = cpuWeightsXVertexBuffer + overrideWeightsReference[i].bufferRange.offset;
+
+											auto* vJointsComponentDataRaw = jointsXVertexBufferBegin + commonVJointsOffset;
+											auto* vWeightsComponentDataRaw = weightsXVertexBufferBegin + commonVWeightsOffset;
+
+											for (uint16_t i = 0; i < 4u; ++i) //! iterate over single components
+											{
+												auto& data = perVertexDataContainer.emplace_back();
+
+												JointComponentT* vJoint = reinterpret_cast<JointComponentT*>(vJointsComponentDataRaw) + i;
+												WeightCompomentT* vWeight = reinterpret_cast<WeightCompomentT*>(vWeightsComponentDataRaw) + i;
+
+												data.joint = *vJoint;
+												data.weight = *vWeight;
+											}
+										}
+
+										//! keep only biggest influencers
+										std::sort(std::begin(perVertexDataContainer), std::end(perVertexDataContainer), [&](const PerVertexData& lhs, const PerVertexData& rhs) { return lhs.weight < rhs.weight; });
+
+										auto* vOverrideJointsData = reinterpret_cast<uint8_t*>(vOverrideJointsBuffer->getPointer()) + commonVJointsOffset;
+										auto* vOverrideWeightsData = reinterpret_cast<uint8_t*>(vOverrideWeightsBuffer->getPointer()) + commonVWeightsOffset;
+
+										uint32_t validWeights = {};
+										for (uint16_t i = 0; i < 4u; ++i)
+										{
+											const PerVertexData& perVertexData = perVertexDataContainer[i];
+
+											//! TODO, test quantization?
+
+											JointComponentT* vOverrideJoint = reinterpret_cast<JointComponentT*>(vOverrideJointsData) + i;
+											WeightCompomentT* vOverrideWeight = reinterpret_cast<WeightCompomentT*>(vOverrideWeightsData) + i;
+
+											*vOverrideJoint = perVertexData.joint;
+											*vOverrideWeight = perVertexData.weight;
+
+											if (perVertexData.weight != 0)
+												++validWeights;
+										}
+
+										maxJointsPerVertex = std::max(maxJointsPerVertex == 0xdeadbeef ? 0u : maxJointsPerVertex, validWeights);
+									}
+
+									using REPACK_JOINTS_FORMAT = E_FORMAT;
+									using REPACK_WEIGHTS_FORMAT = E_FORMAT;
+
+									auto getRepackFormats = [&]() -> std::pair<REPACK_JOINTS_FORMAT, REPACK_WEIGHTS_FORMAT>
+									{
+										E_FORMAT repackJointsFormat = EF_UNKNOWN;
+										E_FORMAT repackWeightsFormat = EF_UNKNOWN;
+
+										switch (maxJointsPerVertex)
+										{
+											case 1u:
+											{
+												if constexpr (std::is_same<JointComponentT, uint8_t>::value)
+													repackJointsFormat = EF_R8_UINT;
+												else if (std::is_same<JointComponentT, uint16_t>::value)
+													repackJointsFormat = EF_R16_UINT;
+
+												if constexpr (std::is_same<WeightCompomentT, uint8_t>::value)
+													repackWeightsFormat = EF_R8_UINT;
+												else if (std::is_same<WeightCompomentT, uint16_t>::value)
+													repackWeightsFormat = EF_R16_UINT;
+												else if (std::is_same<WeightCompomentT, float>::value)
+													repackWeightsFormat = EF_R32_SFLOAT;
+											} break;
+
+											case 2u:
+											{
+												if constexpr (std::is_same<JointComponentT, uint8_t>::value)
+													repackJointsFormat = EF_R8G8_UINT;
+												else if (std::is_same<JointComponentT, uint16_t>::value)
+													repackJointsFormat = EF_R16G16_UINT;
+
+												if constexpr (std::is_same<WeightCompomentT, uint8_t>::value)
+													repackWeightsFormat = EF_R8G8_UINT;
+												else if (std::is_same<WeightCompomentT, uint16_t>::value)
+													repackWeightsFormat = EF_R16G16_UINT;
+												else if (std::is_same<WeightCompomentT, float>::value)
+													repackWeightsFormat = EF_R32G32_SFLOAT;
+											} break;
+
+											default:
+											{
+												if constexpr (std::is_same<JointComponentT, uint8_t>::value)
+													repackJointsFormat = EF_R8G8B8A8_UINT;
+												else if (std::is_same<JointComponentT, uint16_t>::value)
+													repackJointsFormat = EF_R16G16B16A16_UINT;
+
+												if constexpr (std::is_same<WeightCompomentT, uint8_t>::value)
+													repackWeightsFormat = EF_R8G8B8A8_UINT;
+												else if (std::is_same<WeightCompomentT, uint16_t>::value)
+													repackWeightsFormat = EF_R16G16B16A16_UINT;
+												else if (std::is_same<WeightCompomentT, float>::value)
+													repackWeightsFormat = EF_R32G32B32A32_SFLOAT;
+											} break; //! vertex formats need to be PoT
+										}
+
+										return std::make_pair(repackJointsFormat, repackWeightsFormat);
+									};
+
+									const auto [repackJointsFormat, repackWeightsFormat] = getRepackFormats();
+									{
+										const size_t repackJointsTexelByteSize = asset::getTexelOrBlockBytesize(repackJointsFormat);
+										const size_t repackWeightsTexelByteSize = asset::getTexelOrBlockBytesize(repackWeightsFormat);
+
+										auto vOverrideRepackedJointsBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(vCommonOverrideAttributesCount * repackJointsTexelByteSize);
+										auto vOverrideRepackedWeightsBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(vCommonOverrideAttributesCount * repackWeightsTexelByteSize);
+
+										memset(vOverrideRepackedJointsBuffer->getPointer(), 0, vOverrideRepackedJointsBuffer->getSize());
+										memset(vOverrideRepackedWeightsBuffer->getPointer(), 0, vOverrideRepackedWeightsBuffer->getSize());
+
+										for (size_t vAttributeIx = 0; vAttributeIx < vCommonOverrideAttributesCount; ++vAttributeIx)
+										{
+											const size_t unpackedVJointsOffset = vAttributeIx * vJointsTexelByteSize;
+											const size_t unpackedVWeightsOffset = vAttributeIx * vWeightsTexelByteSize;
+
+											auto* unpackedJointsData = reinterpret_cast<JointComponentT*>(reinterpret_cast<uint8_t*>(vOverrideJointsBuffer->getPointer()) + vAttributeIx * vJointsTexelByteSize);
+											auto* unpackedWeightsData = reinterpret_cast<WeightCompomentT*>(reinterpret_cast<uint8_t*>(vOverrideWeightsBuffer->getPointer()) + vAttributeIx * vWeightsTexelByteSize);
+
+											const size_t packedVJointsOffset = vAttributeIx * repackJointsTexelByteSize;
+											const size_t packedVWeightsOffset = vAttributeIx * repackWeightsTexelByteSize;
+
+											auto* packedJointsData = reinterpret_cast<JointComponentT*>(reinterpret_cast<uint8_t*>(vOverrideRepackedJointsBuffer->getPointer()) + vAttributeIx * repackJointsTexelByteSize);
+											auto* packedWeightsData = reinterpret_cast<WeightCompomentT*>(reinterpret_cast<uint8_t*>(vOverrideRepackedWeightsBuffer->getPointer()) + vAttributeIx * repackWeightsTexelByteSize);
+
+											for (uint16_t i = 0; i < maxJointsPerVertex; ++i)
+											{
+												packedJointsData[i] = unpackedJointsData[i];
+												packedWeightsData[i] = unpackedWeightsData[i];
+											}
+										}
+
+										vOverrideJointsBuffer = std::move(vOverrideRepackedJointsBuffer);
+										vOverrideWeightsBuffer = std::move(vOverrideRepackedWeightsBuffer);
+
+										overrideSkinningBuffers.jointsAttributes.cpuBuffer = std::move(vOverrideJointsBuffer);
+										overrideSkinningBuffers.jointsAttributes.format = repackJointsFormat;
+
+										overrideSkinningBuffers.weightsAttributes.cpuBuffer = std::move(vOverrideWeightsBuffer);
+										overrideSkinningBuffers.weightsAttributes.format = repackWeightsFormat;
+									}
+								};
+
+								switch (vJointsFormat)
+								{
+									case EF_R8G8B8A8_UINT:
+									{
+										using JointCompomentT = uint8_t;
+
+										switch (vWeightsFormat)
+										{
+											case EF_R32G32B32A32_SFLOAT:
+											{
+												using WeightCompomentT = float;
+												createOverrideBuffers.template operator() < JointCompomentT, WeightCompomentT > ();
+											} break;
+
+											case EF_R8G8B8A8_UINT:
+											{
+												using WeightCompomentT = uint8_t;
+												createOverrideBuffers.template operator() < JointCompomentT, WeightCompomentT > ();
+											} break;
+
+											case EF_R16G16B16A16_UINT:
+											{
+												using WeightCompomentT = uint16_t;
+												createOverrideBuffers.template operator() < JointCompomentT, WeightCompomentT > ();
+											} break;
+										}
+									} break;
+
+									case EF_R16G16B16A16_UINT:
+									{
+										using JointCompomentT = uint16_t;
+
+										switch (vWeightsFormat)
+										{
+											case EF_R32G32B32A32_SFLOAT:
+											{
+												using WeightCompomentT = float;
+												createOverrideBuffers.template operator() < JointCompomentT, WeightCompomentT > ();
+											} break;
+
+											case EF_R8G8B8A8_UINT:
+											{
+												using WeightCompomentT = uint8_t;
+												createOverrideBuffers.template operator() < JointCompomentT, WeightCompomentT > ();
+											} break;
+
+											case EF_R16G16B16A16_UINT:
+											{
+												using WeightCompomentT = uint16_t;
+												createOverrideBuffers.template operator() < JointCompomentT, WeightCompomentT > ();
+											} break;
+										}
+									} break;
+
+									default:
+									{
+										assert(false); //! at this line impossible
+									} break;
+								}
 							}
 						}
 
@@ -730,7 +1109,7 @@ namespace nbl
 							{
 								CGLTFPipelineMetadata::SGLTFMaterialParameters pushConstants;
 								CGLTFPipelineMetadata::SGLTFSkinParameters skinParameters;
-								skinParameters.perVertexJointsAmount = perVertexJointsAmount;
+								skinParameters.perVertexJointsAmount = maxJointsPerVertex;
 
 								SMaterialDependencyData materialDependencyData;
 								const bool ds3lAvailableFlag = glTFprimitive.material.has_value();
