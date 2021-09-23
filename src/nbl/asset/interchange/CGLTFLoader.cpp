@@ -123,9 +123,6 @@ namespace nbl
 
 		asset::SAssetBundle CGLTFLoader::loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 		{
-			SGLTF glTF;
-			loadAndGetGLTF(glTF, _file);
-
 			auto overrideAssetLoadParams = _params;
 
 			/*
@@ -136,6 +133,10 @@ namespace nbl
 			const std::string relativeDirectory = _file->getFileName().parent_path().string() + "/";
 			//overrideAssetLoadParams.relativeDir = relativeDirectory.c_str();
 			SContext context(overrideAssetLoadParams, _file, _override, _hierarchyLevel);
+
+			SGLTF glTF;
+			if(!loadAndGetGLTF(glTF, context))
+				return {};
 
 			auto getURIAbsolutePath = [&](std::string uri) -> std::string
 			{
@@ -193,7 +194,7 @@ namespace nbl
 
 							default:
 							{
-								context.loadContext.params.logger.log("EXPECTED IMAGE ASSET TYPE!", system::ILogger::ELL_ERROR);
+								context.loadContext.params.logger.log("GLTF: EXPECTED IMAGE ASSET TYPE!", system::ILogger::ELL_WARNING);
 								return {};
 							}
 						}
@@ -338,7 +339,10 @@ namespace nbl
 							cpuImageView = core::smart_refctd_ptr<ICPUImageView>(cpuDummyImageView);
 						}
 						else
-							assert(status);
+						{
+							context.loadContext.params.logger.log("GLTF: COULD NOT LOAD BUILTIN DUMMY IMAGE VIEW!", system::ILogger::ELL_WARNING);
+							return {};
+						}
 					}
 				}
 			}
@@ -393,7 +397,7 @@ namespace nbl
 						SPrimitiveAssemblyParams primitiveAssemblyParams;
 						SRasterizationParams rastarizationParmas;
 
-						auto handleAccessor = [&](SGLTF::SGLTFAccessor& glTFAccessor, const std::optional<uint32_t> queryAttributeId = {})
+						auto handleAccessor = [&](SGLTF::SGLTFAccessor& glTFAccessor, const std::optional<uint32_t> queryAttributeId = {}) -> bool
 						{
 							auto getFormat = [&](uint32_t componentType, SGLTF::SGLTFAccessor::SGLTFType type)
 							{
@@ -511,7 +515,10 @@ namespace nbl
 
 							const E_FORMAT format = getFormat(glTFAccessor.componentType.value(), glTFAccessor.type.value());
 							if (format == EF_UNKNOWN)
-								assert(false);
+							{
+								context.loadContext.params.logger.log("GLTF: COULD NOT SPECIFY NABLA FORMAT!", system::ILogger::ELL_WARNING);
+								return false;
+							}
 
 							auto& glTFbufferView = glTF.bufferViews[glTFAccessor.bufferView.value()];
 							const uint32_t& bufferBindingId = glTFAccessor.bufferView.value();
@@ -562,6 +569,7 @@ namespace nbl
 							};
 
 							setBufferBinding(queryAttributeId.has_value() ? SGLTF::SGLTFBufferView::SGLTFT_ARRAY_BUFFER : SGLTF::SGLTFBufferView::SGLTFT_ELEMENT_ARRAY_BUFFER);
+							return true;
 						};
 
 						const E_PRIMITIVE_TOPOLOGY primitiveTopology = getMode(glTFprimitive.mode.value());
@@ -572,7 +580,8 @@ namespace nbl
 							const size_t accessorID = glTFprimitive.indices.value();
 
 							auto& glTFIndexAccessor = glTF.accessors[accessorID];
-							handleAccessor(glTFIndexAccessor);
+							if (!handleAccessor(glTFIndexAccessor))
+								return {};
 
 							switch (glTFIndexAccessor.componentType.value())
 							{
@@ -595,20 +604,25 @@ namespace nbl
 							const size_t accessorID = glTFprimitive.attributes.position.value();
 
 							auto& glTFPositionAccessor = glTF.accessors[accessorID];
-							handleAccessor(glTFPositionAccessor, cpuMeshBuffer->getPositionAttributeIx());
+							if (!handleAccessor(glTFPositionAccessor, cpuMeshBuffer->getPositionAttributeIx()))
+								return {};
 
 							if (!glTFprimitive.indices.has_value())
 								cpuMeshBuffer->setIndexCount(glTFPositionAccessor.count.value());
 						}
 						else
-							return {}; 
+						{
+							context.loadContext.params.logger.log("GLTF: COULD NOT DETECT POSITION ATTRIBUTE!", system::ILogger::ELL_WARNING);
+							return false;
+						}
 							
 						if (glTFprimitive.attributes.normal.has_value())
 						{
 							const size_t accessorID = glTFprimitive.attributes.normal.value();
 
 							auto& glTFNormalAccessor = glTF.accessors[accessorID];
-							handleAccessor(glTFNormalAccessor, cpuMeshBuffer->getNormalAttributeIx());
+							if (!handleAccessor(glTFNormalAccessor, cpuMeshBuffer->getNormalAttributeIx()))
+								return {};
 						}
 
 						if (glTFprimitive.attributes.texcoord.has_value())
@@ -617,7 +631,8 @@ namespace nbl
 
 							hasUV = true;
 							auto& glTFTexcoordXAccessor = glTF.accessors[accessorID];
-							handleAccessor(glTFTexcoordXAccessor, SAttributes::UV_ATTRIBUTE_LAYOUT_ID);
+							if (!handleAccessor(glTFTexcoordXAccessor, SAttributes::UV_ATTRIBUTE_LAYOUT_ID))
+								return {};
 						}
 
 						if (glTFprimitive.attributes.color.has_value())
@@ -626,55 +641,57 @@ namespace nbl
 
 							hasColor = true;
 							auto& glTFColorXAccessor = glTF.accessors[accessorID];
-							handleAccessor(glTFColorXAccessor, SAttributes::COLOR_ATTRIBUTE_LAYOUT_ID);
+							if (!handleAccessor(glTFColorXAccessor, SAttributes::COLOR_ATTRIBUTE_LAYOUT_ID))
+								return {};
 						}
 
 						uint32_t perVertexJointsAmount = 0xdeadbeef;
 
 						for (uint8_t i = 0; i < glTFprimitive.attributes.joints.size(); ++i)
 						{
-							if (glTFprimitive.attributes.needsRepackingSkinningBuffers)
+							if (glTFprimitive.attributes.joints[i].has_value())
 							{
-								 /*iterate through available joint attributes and pack them
-								 into single buffer, then manually insert new buffer into
-								 cpu mesh*/
+								const size_t accessorID = glTFprimitive.attributes.joints[i].value();
 
-								// ++perVertexJointsAmount;
-							}
-							else //! goes as vec4
-							{
-								if (glTFprimitive.attributes.joints[0].has_value())
+								auto& glTFJointsXAccessor = glTF.accessors[accessorID];
+
+								if (glTFJointsXAccessor.type.value() != SGLTF::SGLTFAccessor::SGLTFT_VEC4)
 								{
-									const size_t accessorID = glTFprimitive.attributes.joints[0].value();
-
-									auto& glTFJointsXAccessor = glTF.accessors[accessorID];
-									handleAccessor(glTFJointsXAccessor, cpuMeshBuffer->getJointIDAttributeIx());
-									perVertexJointsAmount = 4u;
+									context.loadContext.params.logger.log("GLTF: JOINTS ACCESSOR MUST HAVE VEC4 TYPE!", system::ILogger::ELL_WARNING);
+									return {};
 								}
 
-								break;
+								/*
+									TODO: repack and sort joints according to weights, remove joint if a matching weight is 0
+									then specify perVertexJointsAmount
+								*/
+
+								if (!handleAccessor(glTFJointsXAccessor, cpuMeshBuffer->getJointIDAttributeIx()))
+									return {};
 							}
 						}
 
 						for (uint8_t i = 0; i < glTFprimitive.attributes.weights.size(); ++i)
 						{
-							if (glTFprimitive.attributes.needsRepackingSkinningBuffers)
+							if (glTFprimitive.attributes.weights[0u].has_value())
 							{
-								/*iterate through available weight attributes and pack them
-								into single buffer, then manually insert new buffer into
-								cpu mesh*/
-							}
-							else //! goes as vec4
-							{
-								if (glTFprimitive.attributes.weights[0u].has_value())
-								{
-									const size_t accessorID = glTFprimitive.attributes.weights[0u].value();
+								const size_t accessorID = glTFprimitive.attributes.weights[0u].value();
 
-									auto& glTFWeightsXAccessor = glTF.accessors[accessorID];
-									handleAccessor(glTFWeightsXAccessor, cpuMeshBuffer->getJointWeightAttributeIx());
+								auto& glTFWeightsXAccessor = glTF.accessors[accessorID]; 
+
+								if (glTFWeightsXAccessor.type.value() != SGLTF::SGLTFAccessor::SGLTFT_VEC4)
+								{
+									context.loadContext.params.logger.log("GLTF: WEIGHTS ACCESSOR MUST HAVE VEC4 TYPE!", system::ILogger::ELL_WARNING);
+									return {};
 								}
 
-								break;
+								/*
+									TODO: repack and sort joints according to weights, remove joint if a matching weight is 0
+									then specify perVertexJointsAmount
+								*/
+
+								if (!handleAccessor(glTFWeightsXAccessor, cpuMeshBuffer->getJointWeightAttributeIx()))
+									return {};
 							}
 						}
 
@@ -724,6 +741,12 @@ namespace nbl
 
 								auto cpuPipelineLayout = makePipelineLayoutFromGLTF(context, pushConstants, materialDependencyData);
 								auto [cpuVertexShader, cpuFragmentShader] = getShaders(hasUV, hasColor);
+
+								if (!cpuVertexShader || !cpuFragmentShader)
+								{
+									context.loadContext.params.logger.log("GLTF: COULD NOT LOAD SHADERS!", system::ILogger::ELL_WARNING);
+									return false;
+								}
 
 								cpuPipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(std::move(cpuPipelineLayout), nullptr, nullptr, vertexInputParams, blendParams, primitiveAssemblyParams, rastarizationParmas);
 								cpuPipeline->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_VERTEX_SHADER_IX, cpuVertexShader.get());
@@ -834,7 +857,12 @@ namespace nbl
 
 					const auto& accessorInverseBindMatricesID = glTFSkin.inverseBindMatrices.has_value() ? glTFSkin.inverseBindMatrices.value() : 0xdeadbeef;
 					const auto& glTFjointNodeIDs = glTFSkin.joints; 
-					assert(std::is_sorted(std::begin(glTFjointNodeIDs), std::end(glTFjointNodeIDs))); // TODO log and nullptr
+
+					if (!std::is_sorted(std::begin(glTFjointNodeIDs), std::end(glTFjointNodeIDs)))
+					{
+						context.loadContext.params.logger.log("GLTF: SKIN JOINT NODE IDs REFERENCES MUST BE SORTED!", system::ILogger::ELL_WARNING);
+						return false;
+					}
 
 					auto cpuMesh = cpuMeshes[meshID];
 					auto cpuMeshBuffer = cpuMesh->getMeshBufferVector()[0];
@@ -867,14 +895,24 @@ namespace nbl
 						{
 							const auto& glTFAccessor = glTF.accessors[accessorInverseBindMatricesID];
 
-							const auto& bufferViewID = glTFAccessor.bufferView.has_value() ? glTFAccessor.bufferView.value() : 0xdeadbeef;
-							assert(bufferViewID != 0xdeadbeef); // TODO log and nullptr
+							if (!glTFAccessor.bufferView.has_value())
+							{
+								context.loadContext.params.logger.log("GLTF: NO BUFFER VIEW INDEX FOUND!", system::ILogger::ELL_WARNING);
+								return false;
+							}
 
+							const auto& bufferViewID = glTFAccessor.bufferView.value();
 							const auto& glTFBufferView = glTF.bufferViews[bufferViewID];
-							const auto& bufferID = glTFBufferView.buffer.has_value() ? glTFBufferView.buffer.value() : 0xdeadbeef;
-							assert(bufferID != 0xdeadbeef); // TODO log and nullptr
 
+							if (!glTFBufferView.buffer.has_value())
+							{
+								context.loadContext.params.logger.log("GLTF: NO BUFFER INDEX FOUND!", system::ILogger::ELL_WARNING);
+								return false;
+							}
+
+							const auto& bufferID = glTFBufferView.buffer.value();
 							auto cpuBuffer = cpuBuffers[bufferID];
+
 							const size_t globalIBPOffset = [&]()
 							{
 								const size_t bufferViewOffset = glTFBufferView.byteOffset.has_value() ? glTFBufferView.byteOffset.value() : 0u;
@@ -918,9 +956,9 @@ namespace nbl
 									got confused
 								*/
 
-								assert(currentJointVertexPair.vJoint.x == currentJointVertexPair.vJoint.y == currentJointVertexPair.vJoint.z == currentJointVertexPair.vJoint.w);
+								assert(currentJointVertexPair.vJoint.x == currentJointVertexPair.vJoint.y == currentJointVertexPair.vJoint.z == currentJointVertexPair.vJoint.w); // TMP, ISSUE!
 								const auto lower = std::lower_bound(std::begin(glTFjointNodeIDs), std::end(glTFjointNodeIDs), currentJointVertexPair.vJoint.x);
-								assert(lower != std::end(glTFjointNodeIDs));
+								assert(lower != std::end(glTFjointNodeIDs)); // TMP, ISSUE!
 
 								const auto localJointNodeID = std::distance(glTFjointNodeIDs.begin(), lower); //! the ID is in range [0u, glTFjointNodeIDs.size() - 1u]
 								{
@@ -968,9 +1006,10 @@ namespace nbl
 			return SAssetBundle(core::smart_refctd_ptr(glTFPipelineMetadata), cpuMeshes);
 		}
 
-		void CGLTFLoader::loadAndGetGLTF(SGLTF& glTF, system::IFile* _file)
+		bool CGLTFLoader::loadAndGetGLTF(SGLTF& glTF, SContext& context)
 		{
 			simdjson::dom::parser parser;
+			auto* _file = context.loadContext.mainFile;
 
 			auto jsonBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(_file->getSize());
 			{
@@ -1467,7 +1506,6 @@ namespace nbl
 
 					if (type.error() != simdjson::error_code::NO_SUCH_FIELD)
 					{
-						bool status = true;
 						std::string typeStream = type.get_string().value().data();
 
 						if (typeStream == "SCALAR")
@@ -1486,8 +1524,8 @@ namespace nbl
 							glTFAccessor.type = SGLTF::SGLTFAccessor::SGLTFT_MAT4;
 						else
 						{
-							status = false; // TODO: better validation, no asserts!
-							assert(status);
+							context.loadContext.params.logger.log("GLTF: DETECTED UNSUPPORTED TYPE!", system::ILogger::ELL_WARNING);
+							return false;
 						}
 					}
 
@@ -1532,7 +1570,10 @@ namespace nbl
 					const auto& extras = mesh.at_key("extras");
 
 					if (primitives.error() == simdjson::error_code::NO_SUCH_FIELD)
-						assert(false); // TODO: return from loader
+					{
+						context.loadContext.params.logger.log("GLTF: COULD NOT DETECT ANY PRIMITIVE!", system::ILogger::ELL_WARNING);
+						return false;
+					}
 
 					const auto& pData = primitives.get_array();
 					for (const auto& primitive : pData)
@@ -1587,32 +1628,42 @@ namespace nbl
 									glTFPrimitive.attributes.tangent = requestedAccessor;
 								else if (attributeMap.first == "TEXCOORD")
 								{
-									assert(attributeMap.second < 1u); // TODO: log and validation without assert
+									if (attributeMap.second >= 1u)
+									{
+										context.loadContext.params.logger.log("GLTF: LOADER DOESN'T SUPPORT MULTIPLE UV ATTRIBUTES!", system::ILogger::ELL_WARNING);
+										return false;
+									}
+
 									glTFPrimitive.attributes.texcoord = requestedAccessor;
 								}
 								else if (attributeMap.first == "COLOR")
 								{
-									assert(attributeMap.second < 1u); // TODO: log and validation without assert
+									if (attributeMap.second >= 1u)
+									{
+										context.loadContext.params.logger.log("GLTF: LOADER DOESN'T SUPPORT MULTIPLE COLOR ATTRIBUTES!", system::ILogger::ELL_WARNING);
+										return false;
+									}
+
 									glTFPrimitive.attributes.color = requestedAccessor;
 								}
 								else if (attributeMap.first == "JOINTS")
 								{
-									assert(0u <= attributeMap.second < 4u); // TODO: log and validation without assert
+									if (attributeMap.second >= glTFPrimitive.attributes.MAX_JOINTS_ATTRIBUTES)
+									{
+										context.loadContext.params.logger.log("GLTF: EXCEEDED 'MAX_JOINTS_ATTRIBUTES' FOR JOINTS ATTRIBUTES!", system::ILogger::ELL_WARNING);
+										return false;
+									}
+
 									glTFPrimitive.attributes.joints[attributeMap.second] = requestedAccessor;
-
-									/*
-										if there are specified JOINT_1-3 (and WEIGHTS_1-3 so on) attributes
-										for primitive, then it means they don't come as single vec4 but
-										rather R_UINT for each joint vertex input - pack them!
-									*/
-
-									const bool needsRapacking = attributeMap.second > 0u;
-									if (needsRapacking)
-										glTFPrimitive.attributes.needsRepackingSkinningBuffers = true; //! involves weights as well
 								}
 								else if (attributeMap.first == "WEIGHTS")
 								{
-									assert(0u <= attributeMap.second < 4u); // TODO: log and validation without assert
+									if (attributeMap.second >= glTFPrimitive.attributes.MAX_WEIGHTS_ATTRIBUTES)
+									{
+										context.loadContext.params.logger.log("GLTF: EXCEEDED 'MAX_WEIGHTS_ATTRIBUTES' FOR JOINTS ATTRIBUTES!", system::ILogger::ELL_WARNING);
+										return false;
+									}
+
 									glTFPrimitive.attributes.weights[attributeMap.second] = requestedAccessor;
 								}
 							}
@@ -1725,13 +1776,15 @@ namespace nbl
 						return glTFnode.validate();
 					};
 
-					if (!handleTheGLTFTree())
+					if (!handleTheGLTFTree()) //! TODO more validations in future for glTF objects
 					{
-						glTF.nodes.pop_back();
-						continue;
+						context.loadContext.params.logger.log("GLTF: NODE VALIDATION FAILED!", system::ILogger::ELL_WARNING);
+						return false;
 					}
 				}
 			}
+
+			return true;
 		}
 
 		core::smart_refctd_ptr<ICPUPipelineLayout> CGLTFLoader::makePipelineLayoutFromGLTF(SContext& context, CGLTFPipelineMetadata::SGLTFMaterialParameters& pushConstants, SMaterialDependencyData& materialData)

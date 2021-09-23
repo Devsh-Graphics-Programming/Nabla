@@ -88,8 +88,8 @@ namespace nbl
 
 							struct Attributes
 							{
-								_NBL_STATIC_INLINE_CONSTEXPR uint16_t MAX_JOINTS_ATTRIBUTES = 4u;
-								_NBL_STATIC_INLINE_CONSTEXPR uint16_t MAX_WEIGHTS_ATTRIBUTES = 4u;
+								_NBL_STATIC_INLINE_CONSTEXPR uint16_t MAX_JOINTS_ATTRIBUTES = 16u;
+								_NBL_STATIC_INLINE_CONSTEXPR uint16_t MAX_WEIGHTS_ATTRIBUTES = 16u;
 
 								std::optional<size_t> position;										//!< The index of the accessor that contains the position.
 								std::optional<size_t> normal;										//!< The index of the accessor that contains the normal.
@@ -98,8 +98,6 @@ namespace nbl
 								std::optional<size_t> color;										//!< The index of the accessor that contains the color.
 								std::array<std::optional<size_t>, MAX_JOINTS_ATTRIBUTES> joints;	//!< The indices of the accessors containing the joints
 								std::array<std::optional<size_t>, MAX_WEIGHTS_ATTRIBUTES> weights;	//!< The indices of the accessors containing the the weights.
-
-								bool needsRepackingSkinningBuffers = false;							//!< if perVertexJointsAmount is greater than 1u it means that joints come as single R_UINT attributes, for implemetnation reasons we want to avoid splitting attributes and it will pack it to uvec4 then
 							};
 
 							Attributes attributes;
@@ -635,7 +633,7 @@ namespace nbl
 					SShaderDefinesCode extraShaderDefinesCode; // TODO IN FUTURE
 				};
 
-				void loadAndGetGLTF(SGLTF& glTF, system::IFile* _file);
+				bool loadAndGetGLTF(SGLTF& glTF, SContext& context);
 				core::smart_refctd_ptr<ICPUPipelineLayout> makePipelineLayoutFromGLTF(SContext& context, CGLTFPipelineMetadata::SGLTFMaterialParameters& pushConstants, SMaterialDependencyData& materialData);
 				core::smart_refctd_ptr<ICPUDescriptorSet> makeAndGetDS3set(std::array<core::smart_refctd_ptr<ICPUImageView>, SGLTF::SGLTFMaterial::EGT_COUNT>& cpuImageViews, core::smart_refctd_ptr<ICPUDescriptorSetLayout> cpuDescriptorSet3Layout);
 
