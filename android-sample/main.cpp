@@ -26,7 +26,7 @@
 #include <nabla.h>
 #include <nbl/ui/CWindowAndroid.h>
 #include <nbl/ui/CWindowManagerAndroid.h>
-#include <nbl/system/CApplicationAndroid.h>
+#include <nbl/ui/CGraphicalApplicationAndroid.h>
 
 //#include <EGL/egl.h>
 //#include <GLES/gl.h>
@@ -485,9 +485,9 @@ ASensorManager* AcquireASensorManagerInstance(android_app* app) {
 }
 
 
-class SampleApp : public nbl::system::CApplicationAndroid
+class SampleApp : public nbl::ui::CGraphicalApplicationAndroid
 {
-    using base_t = nbl::system::CApplicationAndroid;
+    using base_t = nbl::ui::CGraphicalApplicationAndroid;
     void onStateSaved_impl(android_app* app) override
     {
 
@@ -499,7 +499,7 @@ class SampleApp : public nbl::system::CApplicationAndroid
         engine_draw_frame(engine);
     }
 public:
-    SampleApp(android_app* app) : base_t(app) {}
+    SampleApp(android_app* app, const system::path& cwd) : base_t(app, cwd) {}
     void onAppTerminated_impl(void* data) override
     {
         nabla* engine = (nabla*)data;

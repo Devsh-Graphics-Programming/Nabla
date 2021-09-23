@@ -12,6 +12,7 @@ namespace nbl::ui
 		{
 			core::smart_refctd_ptr<nbl::ui::IWindow> window;
 		};
+		CGraphicalApplicationAndroid(android_app* app, const system::path& cwd) : system::CApplicationAndroid(app, cwd) {}
 	private:
 		void handleCommand_impl(android_app* app, int32_t cmd) override
 		{
@@ -41,9 +42,9 @@ namespace nbl::ui
 
 // ... are the window event callback optional ctor params;
 #define NBL_ANDROID_MAIN(android_app_class, user_data_type, window_event_callback, ...) void android_main(android_app* app){\
-	system::path CWD = std::filesystem::current_path().generic_string();
+	system::path CWD = std::filesystem::current_path().generic_string();\
     user_data_type engine{};\
-    nbl::system::CGraphicalApplicationAndroid::SGraphicalContext ctx{};\
+    nbl::ui::CGraphicalApplicationAndroid::SGraphicalContext ctx{};\
     ctx.userData = &engine;\
     app->userData = &ctx;\
     auto framework = nbl::core::make_smart_refctd_ptr<android_app_class>(app, CWD);\
