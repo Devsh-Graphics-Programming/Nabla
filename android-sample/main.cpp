@@ -43,7 +43,7 @@ using namespace core;
 
 static constexpr uint32_t SC_IMG_COUNT = 3u;
 
-struct nabla {
+struct nabla : IApplicationFramework::IUserData {
     ASensorManager* sensorManager;
     const ASensor* accelerometerSensor;
     ASensorEventQueue* sensorEventQueue;
@@ -60,6 +60,11 @@ struct nabla {
     core::smart_refctd_ptr<video::IGPUGraphicsPipeline> pipeline;
     core::smart_refctd_ptr<video::IGPUBuffer> buffer;
     core::smart_refctd_ptr<video::IGPUCommandBuffer> cmdbuf[SC_IMG_COUNT];
+	
+	void setWindow(core::smart_refctd_ptr<nbl::ui::IWindow>&& wnd) override
+	{
+		window = std::move(wnd);
+	}
 };
 
 

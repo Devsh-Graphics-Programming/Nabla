@@ -30,8 +30,9 @@ class MeshLoaderApp : public ApplicationBase
 
     static_assert(FRAMES_IN_FLIGHT > SC_IMG_COUNT);
 public:
-    struct nabla
+    struct nabla : IUserData
     {
+        nbl::core::smart_refctd_ptr<nbl::ui::IWindowManager> windowManager;
         nbl::core::smart_refctd_ptr<nbl::ui::IWindow> window;
         nbl::core::smart_refctd_ptr<CommonAPI::CommonAPIEventCallback> windowCb;
         nbl::core::smart_refctd_ptr<nbl::video::IAPIConnection> apiConnection;
@@ -118,12 +119,19 @@ public:
                 return logicalDevice->createDescriptorPool(static_cast<nbl::video::IDescriptorPool::E_CREATE_FLAGS>(0), maxItemCount, 1u, &poolSize);
             }
         }
+
+        void setWindow(core::smart_refctd_ptr<nbl::ui::IWindow>&& wnd) override
+        {
+            window = std::move(wnd);
+        }
     };
     APP_CONSTRUCTOR(MeshLoaderApp)
     void onAppInitialized_impl(void* data) override
     {
         nabla* engine = (nabla*)data;
-        auto initOutput = CommonAPI::Init<WIN_W, WIN_H, SC_IMG_COUNT>(video::EAT_OPENGL, "MeshLoaders", nbl::asset::EF_D32_SFLOAT);
+        CommonAPI::InitOutput<SC_IMG_COUNT> initOutput;
+        initOutput.window = core::smart_refctd_ptr(engine->window);
+        CommonAPI::Init<WIN_W, WIN_H, SC_IMG_COUNT>(initOutput, video::EAT_OPENGL, "MeshLoaders", nbl::asset::EF_D32_SFLOAT);
         engine->window = std::move(initOutput.window);
         engine->windowCb = std::move(initOutput.windowCb);
         engine->apiConnection = std::move(initOutput.apiConnection);

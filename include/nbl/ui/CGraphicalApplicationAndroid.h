@@ -42,6 +42,7 @@ namespace nbl::ui
 
 // ... are the window event callback optional ctor params;
 #define NBL_ANDROID_MAIN(android_app_class, user_data_type, window_event_callback, ...) void android_main(android_app* app){\
+	static_assert(std::is_base_of_v<nbl::system::IApplicationFramework::IUserData, user_data_type>);\
 	system::path CWD = std::filesystem::current_path().generic_string();\
     user_data_type engine{};\
     nbl::ui::CGraphicalApplicationAndroid::SGraphicalContext ctx{};\
@@ -52,6 +53,7 @@ namespace nbl::ui
     nbl::ui::IWindow::SCreationParams params;\
     params.callback = nbl::core::make_smart_refctd_ptr<window_event_callback>(__VA_ARGS__);\
     auto wnd = wndManager->createWindow(std::move(params));\
+	engine.setWindow(nbl::core::smart_refctd_ptr(wnd));\
     ctx.window = core::smart_refctd_ptr(wnd);\
     if (app->savedState != nullptr) {\
         ctx.state = (nbl::system::CApplicationAndroid::SSavedState*)app->savedState;\

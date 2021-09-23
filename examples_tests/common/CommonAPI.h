@@ -12,6 +12,8 @@
 #ifdef _NBL_PLATFORM_ANDROID_
 using ApplicationBase = nbl::system::CApplicationAndroid;
 #define APP_CONSTRUCTOR(type) type(android_app* app, nbl::system::path cwd) : nbl::system::CApplicationAndroid(app, cwd) {}
+#define NBL_COMMON_API_MAIN(android_app_class, user_data_type)\
+	NBL_ANDROID_MAIN(android_app_class, user_data_type, CommonAPI::CommonAPIEventCallback);
 #else
 using ApplicationBase = nbl::system::IApplicationFramework;
 #define APP_CONSTRUCTOR(type) type(nbl::system::path cwd) : nbl::system::IApplicationFramework(cwd) {}
@@ -386,11 +388,10 @@ public:
 #endif
 	}
 
-	static InitOutput<0> Init(nbl::video::E_API_TYPE api_type, const std::string_view app_name)
+	static void Init(InitOutput<0>& result, nbl::video::E_API_TYPE api_type, const std::string_view app_name)
 	{
 		using namespace nbl;
 		using namespace nbl::video;
-		InitOutput<0> result = {};
 
 		result.system = createSystem();
 		result.logger = core::make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>(); // we should let user choose it?
@@ -450,24 +451,24 @@ public:
 
 		result.cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].queue = result.queues[InitOutput<0>::EQT_TRANSFER_UP];
 		result.cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].queue = result.queues[InitOutput<0>::EQT_COMPUTE];
-
-		return result;
 	}
 
 	template<uint32_t window_width, uint32_t window_height, uint32_t sc_image_count, class EventCallback = CommonAPIEventCallback>
-	static InitOutput<sc_image_count> Init(nbl::video::E_API_TYPE api_type, const std::string_view app_name, nbl::asset::E_FORMAT depthFormat = nbl::asset::EF_UNKNOWN, const bool graphicsQueueEnable = true)
+	static void Init(InitOutput<sc_image_count>& result, nbl::video::E_API_TYPE api_type, const std::string_view app_name, nbl::asset::E_FORMAT depthFormat = nbl::asset::EF_UNKNOWN, const bool graphicsQueueEnable = true)
 	{
 		using namespace nbl;
 		using namespace nbl::video;
-		InitOutput<sc_image_count> result = {};
 
 		// TODO: Windows/Linux logger define switch
+#ifndef _NBL_PLATFORM_ANDROID_
 		auto windowManager = core::make_smart_refctd_ptr<nbl::ui::CWindowManagerWin32>(); // should we store it in result?
+#endif
 		result.system = createSystem();
 		result.logger = core::make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>(); // we should let user choose it?
 		result.inputSystem = make_smart_refctd_ptr<InputSystem>(system::logger_opt_smart_ptr(result.logger));
 		result.windowCb = nbl::core::make_smart_refctd_ptr<EventCallback>(core::smart_refctd_ptr(result.inputSystem), system::logger_opt_smart_ptr(result.logger));
 
+#ifndef _NBL_PLATFORM_ANDROID_
 		nbl::ui::IWindow::SCreationParams windowsCreationParams;
 		windowsCreationParams.width = window_width;
 		windowsCreationParams.height = window_height;
@@ -479,6 +480,7 @@ public:
 		windowsCreationParams.callback = result.windowCb;
 		
 		result.window = windowManager->createWindow(std::move(windowsCreationParams));
+#endif
 		assert(api_type == video::EAT_OPENGL); // TODO: more choice OR EVEN RANDOM CHOICE!
 		auto _apiConnection = video::COpenGLConnection::create(nbl::core::smart_refctd_ptr(result.system), 0, app_name.data(), video::COpenGLDebugCallback(core::smart_refctd_ptr(result.logger)));
 		result.surface = video::CSurfaceGLWin32::create(core::smart_refctd_ptr(_apiConnection),core::smart_refctd_ptr<ui::IWindowWin32>(static_cast<ui::IWindowWin32*>(result.window.get())));
@@ -547,9 +549,7 @@ public:
 
 		result.cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].queue = result.queues[InitOutput<sc_image_count>::EQT_TRANSFER_UP];
 		result.cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].queue = result.queues[InitOutput<sc_image_count>::EQT_COMPUTE];
-	
-		return result;
-	}
+}
 	static nbl::core::smart_refctd_ptr<nbl::video::ISwapchain> createSwapchain(uint32_t width,
 		uint32_t height,
 		uint32_t imageCount,
