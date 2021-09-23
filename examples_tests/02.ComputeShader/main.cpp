@@ -27,12 +27,18 @@ layout (set = 0, binding = 1, rgba8) uniform readonly image2D inImage;
 
 void main()
 {
+	const uint halfWidth = u_pushConstants.imgSize.x/2;
 	if (all(lessThan(gl_GlobalInvocationID.xy, u_pushConstants.imgSize)))
 	{
-		vec3 inColor = imageLoad(inImage, ivec2(gl_GlobalInvocationID.xy)).rgb;
-		float grayscale = 0.2126 * inColor.r + 0.7152 * inColor.g + 0.0722 * inColor.b;
+		const vec3 inColor = imageLoad(inImage, ivec2(gl_GlobalInvocationID.xy)).rgb;
+		vec4 outColor = vec4(inColor, 1.f);
+		if (gl_GlobalInvocationID.x < halfWidth)
+		{
+			float grayscale = 0.2126 * inColor.r + 0.7152 * inColor.g + 0.0722 * inColor.b;
+			outColor = vec4(vec3(grayscale), 1.f);
+		}
 		
-		imageStore(outImage, ivec2(gl_GlobalInvocationID.xy), vec4(vec3(grayscale), 1.f));
+		imageStore(outImage, ivec2(gl_GlobalInvocationID.xy), outColor);
 	}
 })";
 
@@ -41,7 +47,6 @@ int main()
 	constexpr uint32_t WIN_W = 768;
 	constexpr uint32_t WIN_H = 512u;
 	constexpr uint32_t MAX_SWAPCHAIN_IMAGE_COUNT = 8u;
-	constexpr uint32_t FBO_COUNT = 2u;
 	constexpr uint32_t FRAMES_IN_FLIGHT = 2u;
 	// static_assert(FRAMES_IN_FLIGHT>FBO_COUNT);
 
@@ -65,31 +70,31 @@ int main()
 	params.callback = eventCallback;
 	auto window = winManager->createWindow(std::move(params));
 
+#if 1
+
 	const uint32_t requiredExtensionCount = 1u;
 	video::IAPIConnection::E_EXTENSION requiredExtensions[requiredExtensionCount] = { video::IAPIConnection::E_SURFACE };
 
-	core::smart_refctd_ptr<video::CVulkanConnection> apiConnection =
+	core::smart_refctd_ptr<video::CVulkanConnection> api =
 		video::CVulkanConnection::create(core::smart_refctd_ptr(system), 0, "02.ComputeShader",
 			requiredExtensionCount, requiredExtensions, core::smart_refctd_ptr(logger), true);
 
 	core::smart_refctd_ptr<video::CSurfaceVulkanWin32> surface =
-		video::CSurfaceVulkanWin32::create(core::smart_refctd_ptr(apiConnection),
+		video::CSurfaceVulkanWin32::create(core::smart_refctd_ptr(api),
 			core::smart_refctd_ptr<ui::IWindowWin32>(static_cast<ui::IWindowWin32*>(window.get())));
+#else
 
-#if 0
-	// Todo(achal): Pending bug investigation
-	{
-		auto opengl_logger = core::make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>();
-		core::smart_refctd_ptr<video::COpenGLConnection> opengl =
-			video::COpenGLConnection::create(core::smart_refctd_ptr(system), 0, "02.ComputeShader", video::COpenGLDebugCallback(core::smart_refctd_ptr(opengl_logger)));
+	// Todo(achal): Pending bug investigation, when both API connections are created at
+	// the same time
+	core::smart_refctd_ptr<video::COpenGLConnection> api =
+		video::COpenGLConnection::create(core::smart_refctd_ptr(system), 0, "02.ComputeShader", video::COpenGLDebugCallback(core::smart_refctd_ptr(logger)));
 
-		core::smart_refctd_ptr<video::CSurfaceGLWin32> surface_opengl =
-			video::CSurfaceGLWin32::create(core::smart_refctd_ptr(opengl),
-				core::smart_refctd_ptr<ui::IWindowWin32>(static_cast<ui::IWindowWin32*>(window.get())));
-	}
+	core::smart_refctd_ptr<video::CSurfaceGLWin32> surface =
+		video::CSurfaceGLWin32::create(core::smart_refctd_ptr(api),
+			core::smart_refctd_ptr<ui::IWindowWin32>(static_cast<ui::IWindowWin32*>(window.get())));
 #endif
 
-	auto gpus = apiConnection->getPhysicalDevices();
+	auto gpus = api->getPhysicalDevices();
 	assert(!gpus.empty());
 
 	// I want a GPU which supports both compute queue and present queue
@@ -180,7 +185,6 @@ int main()
 			break;
 	}
 	assert((computeFamilyIndex != ~0u) && (presentFamilyIndex != ~0u));
-
 
 	video::ILogicalDevice::SCreationParams deviceCreationParams;
 	if (computeFamilyIndex == presentFamilyIndex)
@@ -363,6 +367,9 @@ int main()
 		creationParams.arrayLayers = 1u;
 		creationParams.samples = asset::IImage::ESCF_1_BIT;
 		creationParams.tiling = asset::IImage::ET_OPTIMAL;
+		// This API check is temporary (or not?) since getFormatProperties is not
+		// yet implemented on OpenGL
+		if (api->getAPIType() == video::EAT_VULKAN)
 		{
 			const auto& formatProps = gpu->getFormatProperties(creationParams.format);
 			assert(formatProps.optimalTilingFeatures.operator&(asset::EFF_STORAGE_IMAGE_BIT).value);
@@ -484,7 +491,7 @@ int main()
 	}
 
 	// Record commands in commandBuffers here
-	const uint32_t windowDim[2] = { window->getWidth() / 2, window->getHeight() };
+	const uint32_t windowDim[2] = { window->getWidth(), window->getHeight() };
 	for (uint32_t i = 0u; i < swapchainImageCount; ++i)
 	{
 		video::IGPUCommandBuffer::SImageMemoryBarrier undefToComputeTransitionBarrier;
