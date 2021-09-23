@@ -15,11 +15,11 @@ using ApplicationBase = nbl::system::CApplicationAndroid;
 #else
 using ApplicationBase = nbl::system::IApplicationFramework;
 #define APP_CONSTRUCTOR(type) type(nbl::system::path cwd) : nbl::system::IApplicationFramework(cwd) {}
-#endif
-
 #define NBL_COMMON_API_MAIN(android_app_class, user_data_type) int main(int argc, char** argv){\
 CommonAPI::main<android_app_class, user_data_type>(argc, argv);\
 }
+#endif
+
 
 
 

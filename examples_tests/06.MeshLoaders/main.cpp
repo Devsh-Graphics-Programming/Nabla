@@ -155,14 +155,14 @@ public:
             auto* quantNormalCache = engine->assetManager->getMeshManipulator()->getQuantNormalCache();
             quantNormalCache->loadCacheFromFile<asset::EF_A2B10G10R10_SNORM_PACK32>(engine->system.get(), "../../tmp/normalCache101010.sse");
 
-            system::path archPath = CWD / "../../media/sponza.zip";
+            system::path archPath = CWDOnStartup / "../../media/sponza.zip";
             auto arch = engine->system->openFileArchive(archPath);
             // test no alias loading (TODO: fix loading from absolute paths)
             engine->system->mount(std::move(arch));
             asset::IAssetLoader::SAssetLoadParams loadParams;
-            loadParams.workingDirectory = CWD;
+            loadParams.workingDirectory = CWDOnStartup;
             loadParams.logger = engine->logger.get();
-            auto meshes_bundle = engine->assetManager->getAsset((CWD / "../../media/sponza.zip/sponza.obj").string(), loadParams);
+            auto meshes_bundle = engine->assetManager->getAsset((CWDOnStartup / "../../media/sponza.zip/sponza.obj").string(), loadParams);
             assert(!meshes_bundle.getContents().empty());
 
             engine->metaOBJ = meshes_bundle.getMetadata()->selfCast<const asset::COBJMetadata>();

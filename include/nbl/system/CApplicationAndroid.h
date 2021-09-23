@@ -30,11 +30,10 @@ namespace nbl::system
         {
             SSavedState* state;
             CApplicationAndroid* framework;
-            core::smart_refctd_ptr<nbl::ui::IWindow> window;
             void* userData;
         };
     public:
-        CApplicationAndroid(android_app* params) : eventPoller(params, this)
+        CApplicationAndroid(android_app* params, system::path CWD) : IApplicationFramework(CWD),  eventPoller(params, this)
         {
             params->onAppCmd = handleCommand;
             params->onInputEvent = handleInput;
@@ -54,8 +53,6 @@ namespace nbl::system
         static void handleCommand(android_app* app, int32_t cmd) {
             auto* framework = ((SContext*)app->userData)->framework;
             auto* usrData = (SContext*)app->userData;
-            auto wnd = ((SContext*)app->userData)->window;
-            auto eventCallback = wnd->getEventCallback();
             switch (cmd) {
             case APP_CMD_SAVE_STATE:
                 // The system has asked us to save our current state.  Do so.
@@ -65,31 +62,19 @@ namespace nbl::system
                 framework->onStateSaved(app);
                 break;
             case APP_CMD_INIT_WINDOW:
-                //debug_break();
-                // The window is being shown, get it ready.
-               /* if (app->window != nullptr) {
-                    engine_init_display(engine);
-                    engine_draw_frame(engine);
-                }*/
                 framework->onAppInitialized(usrData->userData);
+                framework->workLoopBody(usrData->userData);
                 break;
             case APP_CMD_TERM_WINDOW:
                 // The window is being hidden or closed, clean it up.
-                //engine_term_display(engine);
                 framework->onAppTerminated(usrData->userData);
-                (void)eventCallback->onWindowClosed(wnd.get());
                 break;
-            case APP_CMD_WINDOW_RESIZED:
-            {
-                int width = ANativeWindow_getWidth(app->window);
-                int height = ANativeWindow_getHeight(app->window);
-                (void)eventCallback->onWindowResized(wnd.get(), width, height);
-                break;
-            }
             default:
                 break;
             }
+            framework->handleCommand_impl(app, cmd);
         }
+        virtual void handleCommand_impl(android_app* data, int32_t cmd) = 0;
 
         class CEventPoller : public  system::IThreadHandler<CEventPoller>
         {
@@ -134,24 +119,6 @@ namespace nbl::system
     };
 
 }
-// ... are the window event callback optional ctor params;
-#define NBL_ANDROID_MAIN(android_app_class, user_data_type, window_event_callback, ...) void android_main(android_app* app){\
-    user_data_type engine{};\
-    nbl::system::CApplicationAndroid::SContext ctx{};\
-    ctx.userData = &engine;\
-    app->userData = &ctx;\
-    auto framework = nbl::core::make_smart_refctd_ptr<android_app_class>(app);\
-    auto wndManager = nbl::core::make_smart_refctd_ptr<nbl::ui::CWindowManagerAndroid>(app);\
-    nbl::ui::IWindow::SCreationParams params;\
-    params.callback = nbl::core::make_smart_refctd_ptr<window_event_callback>(__VA_ARGS__);\
-    auto wnd = wndManager->createWindow(std::move(params));\
-    ctx.window = core::smart_refctd_ptr(wnd);\
-    if (app->savedState != nullptr) {\
-        ctx.state = (nbl::system::CApplicationAndroid::SSavedState*)app->savedState;\
-    }\
-    while (framework->keepPolling()) {\
-    framework->workLoopBody(app);\
-    }\
-}
+
 #endif
 #endif 

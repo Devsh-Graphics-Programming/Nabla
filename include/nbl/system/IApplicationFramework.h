@@ -6,7 +6,7 @@ namespace nbl::system
 	class IApplicationFramework : public core::IReferenceCounted
 	{
 	public:
-        IApplicationFramework(const system::path& _cwd) : CWD(_cwd)
+        IApplicationFramework(const system::path& _cwd) : CWDOnStartup(_cwd)
 		{
 
 		}
@@ -24,7 +24,7 @@ namespace nbl::system
         virtual void onAppInitialized_impl(void* data) {}
         virtual void onAppTerminated_impl(void* data) {}
     protected:
-        system::path CWD;
+        system::path CWDOnStartup;
     };
 }
 
