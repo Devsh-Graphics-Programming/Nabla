@@ -20,6 +20,7 @@ class IBuffer : public core::IBuffer, public IDescriptor
 
         enum E_USAGE_FLAGS : uint32_t
         {
+            EUF_NONE = 0x00000000,
             EUF_TRANSFER_SRC_BIT = 0x00000001,
             EUF_TRANSFER_DST_BIT = 0x00000002,
             EUF_UNIFORM_TEXEL_BUFFER_BIT = 0x00000004,
@@ -29,14 +30,6 @@ class IBuffer : public core::IBuffer, public IDescriptor
             EUF_INDEX_BUFFER_BIT = 0x00000040,
             EUF_VERTEX_BUFFER_BIT = 0x00000080,
             EUF_INDIRECT_BUFFER_BIT = 0x00000100
-        };
-
-        struct SCreationParams
-        {
-            core::bitflag<E_USAGE_FLAGS> usage;
-            E_SHARING_MODE sharingMode;
-            uint32_t queueFamilyIndexCount;
-            const uint32_t* queueFamilyIndices;
         };
 
 	protected:

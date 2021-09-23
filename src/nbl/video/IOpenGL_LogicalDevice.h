@@ -271,7 +271,7 @@ namespace impl
             GLenum id;
             GLuint object;
             GLsizei len;
-            std::string label;
+            char label[IBackendObject::MAX_DEBUG_NAME_LENGTH+1U];
         };
         struct SRequestMakeCurrent
         {
@@ -680,7 +680,7 @@ protected:
             {
                 auto& p = std::get<SRequestSetDebugName>(req.params_variant);
 
-                gl.extGlObjectLabel(p.id, p.object, p.len, p.label.c_str());
+                gl.extGlObjectLabel(p.id, p.object, p.len, p.label);
             }
                 break;
             case ERT_CTX_MAKE_CURRENT:
@@ -780,12 +780,12 @@ protected:
                 auto bin = cache ? cache->find(key) : COpenGLSpecializedShader::SProgramBinary{ 0,nullptr };
                 if (bin.binary)
                 {
-                    const std::string& dbgnm = glshdr->getObjectDebugName();
+                    const char* dbgnm = glshdr->getObjectDebugName();
 
                     const GLuint GLname = gl.glShader.pglCreateProgram();
                     gl.glShader.pglProgramBinary(GLname, bin.format, bin.binary->data(), bin.binary->size());
-                    if (dbgnm.size())
-                        gl.extGlObjectLabel(GL_PROGRAM, GLname, dbgnm.size(), dbgnm.c_str());
+                    if (dbgnm[0])
+                        gl.extGlObjectLabel(GL_PROGRAM, GLname, strlen(dbgnm), dbgnm);
                     GLnames[ix] = GLname;
                     binaries[ix] = bin;
 

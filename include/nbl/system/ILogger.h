@@ -47,6 +47,11 @@ class ILogger : public core::IReferenceCounted
 			}
 		}
 
+		inline core::bitflag<E_LOG_LEVEL> getLogLevelMask() const
+		{
+			return m_logLevelMask;
+		}
+
 	protected:
 		virtual void log_impl(const std::string_view& fmtString, E_LOG_LEVEL logLevel, va_list args) = 0;
 		virtual std::string constructLogString(const std::string_view& fmtString, E_LOG_LEVEL logLevel, va_list l)

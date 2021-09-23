@@ -6,7 +6,7 @@
 // Temporary
 #define VK_NO_PROTOTYPES
 #include "vulkan/vulkan.h"
-#include "../../src/nbl/video/CVulkanConnection.h"
+#include "../../include/nbl/video/CVulkanConnection.h"
 #include "../../src/nbl/video/CVulkanCommon.h"
 
 #include <nbl/ui/CWindowManagerWin32.h>
@@ -46,9 +46,11 @@ int main()
 	static_assert(FRAMES_IN_FLIGHT>FBO_COUNT);
 
 	auto system = CommonAPI::createSystem();
-	auto logger = core::make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>();
+	auto logLevelMask = core::bitflag(system::ILogger::ELL_DEBUG) | system::ILogger::ELL_PERFORMANCE | system::ILogger::ELL_WARNING | system::ILogger::ELL_ERROR;
+	auto logger = core::make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>(logLevelMask);
 	auto inputSystem = core::make_smart_refctd_ptr<CommonAPI::InputSystem>(system::logger_opt_smart_ptr(logger));
 	auto eventCallback = core::make_smart_refctd_ptr<CommonAPI::CommonAPIEventCallback>(core::smart_refctd_ptr(inputSystem), system::logger_opt_smart_ptr(logger));
+	auto assetManager = core::make_smart_refctd_ptr<nbl::asset::IAssetManager>(nbl::core::smart_refctd_ptr(system));
 	auto winManager = core::make_smart_refctd_ptr<nbl::ui::CWindowManagerWin32>();
 
 	nbl::ui::IWindow::SCreationParams params;
@@ -63,10 +65,12 @@ int main()
 	params.callback = eventCallback;
 	auto window = winManager->createWindow(std::move(params));
 
-	auto assetManager = core::make_smart_refctd_ptr<nbl::asset::IAssetManager>(nbl::core::smart_refctd_ptr(system));
+	const uint32_t requiredExtensionCount = 1u;
+	video::IAPIConnection::E_EXTENSION requiredExtensions[requiredExtensionCount] = { video::IAPIConnection::E_SURFACE };
 
 	core::smart_refctd_ptr<video::CVulkanConnection> apiConnection =
-		video::CVulkanConnection::create(core::smart_refctd_ptr(system), 0, "02.ComputeShader", true);
+		video::CVulkanConnection::create(core::smart_refctd_ptr(system), 0, "02.ComputeShader",
+			requiredExtensionCount, requiredExtensions, core::smart_refctd_ptr(logger), true);
 
 	core::smart_refctd_ptr<video::CSurfaceVulkanWin32> surface =
 		video::CSurfaceVulkanWin32::create(core::smart_refctd_ptr(apiConnection),
@@ -390,7 +394,16 @@ int main()
 #endif
 
 	core::smart_refctd_ptr<video::IUtilities> utils = core::make_smart_refctd_ptr<video::IUtilities>(core::smart_refctd_ptr<video::ILogicalDevice>(device));
+	
+	// For CPU2GPU Params
+	core::smart_refctd_ptr<video::IGPUCommandPool> pool_compute = device->createCommandPool(computeQueue->getFamilyIndex(), video::IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
+	
+	core::smart_refctd_ptr<video::IGPUCommandBuffer> transferCmdBuffer;
+	core::smart_refctd_ptr<video::IGPUCommandBuffer> computeCmdBuffer;
 
+	device->createCommandBuffers(pool_compute.get(), video::IGPUCommandBuffer::EL_PRIMARY, 1u, &transferCmdBuffer);
+	device->createCommandBuffers(pool_compute.get(), video::IGPUCommandBuffer::EL_PRIMARY, 1u, &computeCmdBuffer);
+	
 	video::IGPUObjectFromAssetConverter::SParams cpu2gpuParams = {};
 	cpu2gpuParams.utilities = utils.get();
 	cpu2gpuParams.device = device.get();
@@ -401,9 +414,14 @@ int main()
 	cpu2gpuParams.sharingMode = asset::ESM_EXCLUSIVE;
 	cpu2gpuParams.perQueue[video::IGPUObjectFromAssetConverter::EQU_TRANSFER].queue = computeQueue;
 	cpu2gpuParams.perQueue[video::IGPUObjectFromAssetConverter::EQU_COMPUTE].queue = computeQueue;
+	cpu2gpuParams.perQueue[video::IGPUObjectFromAssetConverter::EQU_TRANSFER].cmdbuf = transferCmdBuffer;
+	cpu2gpuParams.perQueue[video::IGPUObjectFromAssetConverter::EQU_COMPUTE].cmdbuf = computeCmdBuffer;
+
 
 	video::IGPUObjectFromAssetConverter CPU2GPU;
+	cpu2gpuParams.beginCommandBuffers();
 	auto inImage = CPU2GPU.getGPUObjectsFromAssets(&inImage_CPU, &inImage_CPU + 1, cpu2gpuParams);
+	cpu2gpuParams.waitForCreationToComplete(false);
 	assert(inImage);
 
 	// Create an image view for input image

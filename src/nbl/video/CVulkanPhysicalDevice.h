@@ -70,6 +70,8 @@ public:
                     
             m_limits.subgroupSize = subgroupProperties.subgroupSize;
             m_limits.subgroupOpsShaderStages = static_cast<asset::ISpecializedShader::E_SHADER_STAGE>(subgroupProperties.supportedStages);
+
+            m_limits.nonCoherentAtomSize = deviceProperties.properties.limits.nonCoherentAtomSize;
         }
         
         // Get physical device's features
@@ -145,8 +147,7 @@ public:
             
     E_API_TYPE getAPIType() const override { return EAT_VULKAN; }
 
-    // Todo(achal)
-    IDebugCallback* getDebugCallback() override { return nullptr; }
+    IDebugCallback* getDebugCallback() override { return m_api->getDebugCallback(); }
 
     bool isSwapchainSupported() const override
     {
