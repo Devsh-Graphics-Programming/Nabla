@@ -150,17 +150,17 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
         }
 
         virtual void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
-	    {
+        {
             convertToDummyObject_common(referenceLevelsBelowToConvert);
 
-		    if (referenceLevelsBelowToConvert)
-		    {
+            if (referenceLevelsBelowToConvert)
+            {
                 --referenceLevelsBelowToConvert;
-			    for (auto i=0u; i<MAX_ATTR_BUF_BINDING_COUNT; i++)
+                for (auto i=0u; i<MAX_ATTR_BUF_BINDING_COUNT; i++)
                     if (m_vertexBufferBindings[i].buffer)
-				        m_vertexBufferBindings[i].buffer->convertToDummyObject(referenceLevelsBelowToConvert);
+                        m_vertexBufferBindings[i].buffer->convertToDummyObject(referenceLevelsBelowToConvert);
                 if (m_indexBufferBinding.buffer)
-			        m_indexBufferBinding.buffer->convertToDummyObject(referenceLevelsBelowToConvert);
+                    m_indexBufferBinding.buffer->convertToDummyObject(referenceLevelsBelowToConvert);
                 if (m_inverseBindPoseBufferBinding.buffer)
                     m_inverseBindPoseBufferBinding.buffer->convertToDummyObject(referenceLevelsBelowToConvert);
                 if (m_jointAABBBufferBinding.buffer)
@@ -168,11 +168,11 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
                 if (m_skeleton)
                     m_skeleton->convertToDummyObject(referenceLevelsBelowToConvert);
                 if (m_descriptorSet)
-			        m_descriptorSet->convertToDummyObject(referenceLevelsBelowToConvert);
+                    m_descriptorSet->convertToDummyObject(referenceLevelsBelowToConvert);
                 if (m_pipeline)
-			        m_pipeline->convertToDummyObject(referenceLevelsBelowToConvert);
-		    }
-	    }
+                    m_pipeline->convertToDummyObject(referenceLevelsBelowToConvert);
+            }
+        }
 
         _NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_SUB_MESH;
         inline E_TYPE getAssetType() const override { return AssetType; }
@@ -180,16 +180,18 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
         inline size_t conservativeSizeEstimate() const override { return sizeof(base_t) + sizeof(uint32_t); }
         
         inline bool setVertexBufferBinding(SBufferBinding<ICPUBuffer>&& bufferBinding, uint32_t bindingIndex)
-	    {
+        {
             assert(!isImmutable_debug());
+            bufferBinding.buffer->addUsageFlags(IBuffer::EUF_VERTEX_BUFFER_BIT);
             return base_t::setVertexBufferBinding(std::move(bufferBinding), bindingIndex);
-	    }
+        }
 
-	    inline void setIndexBufferBinding(SBufferBinding<ICPUBuffer>&& bufferBinding)
-	    {
+        inline void setIndexBufferBinding(SBufferBinding<ICPUBuffer>&& bufferBinding)
+        {
             assert(!isImmutable_debug());
+            bufferBinding.buffer->addUsageFlags(IBuffer::EUF_INDEX_BUFFER_BIT);
             return base_t::setIndexBufferBinding(std::move(bufferBinding));
-	    }
+        }
 
         //!
         inline const ICPUSkeleton* getSkeleton() const
@@ -211,6 +213,10 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
         ) override
         {
             assert(!isImmutable_debug());
+            
+            _inverseBindPoseBufferBinding.buffer->addUsageFlags(IBuffer::EUF_STORAGE_BUFFER_BIT);
+            _jointAABBBufferBinding.buffer->addUsageFlags(IBuffer::EUF_STORAGE_BUFFER_BIT);
+
             return base_t::setSkin(std::move(_inverseBindPoseBufferBinding),std::move(_jointAABBBufferBinding),std::move(_skeleton),_maxJointsPerVx);
         }
 
@@ -224,11 +230,11 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
             //assert(!isImmutable_debug()); // TODO? @Crisspl?
             return m_descriptorSet.get();
         }
-	    inline void setAttachedDescriptorSet(core::smart_refctd_ptr<ICPUDescriptorSet>&& descriptorSet)
-	    {
+        inline void setAttachedDescriptorSet(core::smart_refctd_ptr<ICPUDescriptorSet>&& descriptorSet)
+        {
             assert(!isImmutable_debug());
             base_t::setAttachedDescriptorSet(std::move(descriptorSet));
-	    }
+        }
 
         //!
         inline const ICPURenderpassIndependentPipeline* getPipeline() const {return base_t::getPipeline();}
@@ -237,11 +243,11 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
             assert(!isImmutable_debug());
             return m_pipeline.get();
         }
-	    inline void setPipeline(core::smart_refctd_ptr<ICPURenderpassIndependentPipeline>&& pipeline) override final
-	    {
+        inline void setPipeline(core::smart_refctd_ptr<ICPURenderpassIndependentPipeline>&& pipeline) override final
+        {
             assert(!isImmutable_debug());
             base_t::setPipeline(std::move(pipeline));
-	    }
+        }
 
         //
         inline uint32_t getIndexValue(uint32_t _i) const
@@ -398,10 +404,10 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
 
             return reinterpret_cast<uint8_t*>(mappedAttrBuf->getPointer()) + ix;
         }
-	    inline const uint8_t* getAttribPointer(uint32_t attrId) const
-	    {
-		    return const_cast<typename std::decay<decltype(*this)>::type&>(*this).getAttribPointer(attrId);
-	    }
+        inline const uint8_t* getAttribPointer(uint32_t attrId) const
+        {
+            return const_cast<typename std::decay<decltype(*this)>::type&>(*this).getAttribPointer(attrId);
+        }
 
         static inline bool getAttribute(core::vectorSIMDf& output, const void* src, E_FORMAT format)
         {
@@ -608,35 +614,35 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
             return setAttribute(_input, dst, getAttribFormat(attrId));
         }
 
-		//!
-		inline const core::matrix3x4SIMD* getInverseBindPoses() const
-		{
+        //!
+        inline const core::matrix3x4SIMD* getInverseBindPoses() const
+        {
             if (!m_inverseBindPoseBufferBinding.buffer)
                 return nullptr;
 
-			const uint8_t* ptr = reinterpret_cast<const uint8_t*>(m_inverseBindPoseBufferBinding.buffer->getPointer());
-			return reinterpret_cast<const core::matrix3x4SIMD*>(ptr+m_inverseBindPoseBufferBinding.offset);
-		}
-		inline core::matrix3x4SIMD* getInverseBindPoses()
-		{
+            const uint8_t* ptr = reinterpret_cast<const uint8_t*>(m_inverseBindPoseBufferBinding.buffer->getPointer());
+            return reinterpret_cast<const core::matrix3x4SIMD*>(ptr+m_inverseBindPoseBufferBinding.offset);
+        }
+        inline core::matrix3x4SIMD* getInverseBindPoses()
+        {
             assert(!isImmutable_debug());
-			return const_cast<core::matrix3x4SIMD*>(const_cast<const ICPUMeshBuffer*>(this)->getInverseBindPoses());
-		}
+            return const_cast<core::matrix3x4SIMD*>(const_cast<const ICPUMeshBuffer*>(this)->getInverseBindPoses());
+        }
 
-		//!
-		inline const core::aabbox3df* getJointAABBs() const
-		{
+        //!
+        inline const core::aabbox3df* getJointAABBs() const
+        {
             if (!m_jointAABBBufferBinding.buffer)
                 return nullptr;
 
-			const uint8_t* ptr = reinterpret_cast<const uint8_t*>(m_jointAABBBufferBinding.buffer->getPointer());
-			return reinterpret_cast<const core::aabbox3df*>(ptr+ m_jointAABBBufferBinding.offset);
-		}
-		inline core::aabbox3df* getJointAABBs()
-		{
+            const uint8_t* ptr = reinterpret_cast<const uint8_t*>(m_jointAABBBufferBinding.buffer->getPointer());
+            return reinterpret_cast<const core::aabbox3df*>(ptr+ m_jointAABBBufferBinding.offset);
+        }
+        inline core::aabbox3df* getJointAABBs()
+        {
             assert(!isImmutable_debug());
-			return const_cast<core::aabbox3df*>(const_cast<const ICPUMeshBuffer*>(this)->getJointAABBs());
-		}
+            return const_cast<core::aabbox3df*>(const_cast<const ICPUMeshBuffer*>(this)->getJointAABBs());
+        }
 
         bool canBeRestoredFrom(const IAsset* _other) const override
         {

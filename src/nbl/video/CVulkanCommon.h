@@ -242,6 +242,37 @@ static inline VkSamplerAddressMode getVkAddressModeFromTexClamp(const asset::ISa
     }
 }
 
+static inline std::pair<VkDebugUtilsMessageSeverityFlagsEXT, VkDebugUtilsMessageTypeFlagsEXT> getDebugCallbackFlagsFromLogLevelMask(const core::bitflag<system::ILogger::E_LOG_LEVEL> logLevelMask)
+{
+    std::pair<VkDebugUtilsMessageSeverityFlagsEXT, VkDebugUtilsMessageTypeFlagsEXT> result = { 0, 0 };
+    auto& sev = result.first;
+    auto& type = result.second;
+    
+    if ((logLevelMask & system::ILogger::ELL_DEBUG).value)
+    {
+        type |= VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT;
+    }
+    if ((logLevelMask & system::ILogger::ELL_INFO).value)
+    {
+        sev |= (VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT);
+        type |= VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT;
+    }
+    if ((logLevelMask & system::ILogger::ELL_WARNING).value)
+    {
+        sev |= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT;
+    }
+    if ((logLevelMask & system::ILogger::ELL_PERFORMANCE).value)
+    {
+        type |= VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+    }
+    if ((logLevelMask & system::ILogger::ELL_ERROR).value)
+    {
+        sev |= VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+    }
+
+    return result;
+}
+
 }
 
 #define __NBL_VIDEO_C_VULKAN_COMMON_H_INCLUDED__

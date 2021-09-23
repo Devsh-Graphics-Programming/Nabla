@@ -442,6 +442,8 @@ public:
 
 			m_limits.subgroupSize = 0u;
 			m_limits.subgroupOpsShaderStages = static_cast<asset::ISpecializedShader::E_SHADER_STAGE>(0u);
+			
+			m_limits.nonCoherentAtomSize = 256ull;
 
 			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_KHR_shader_subgroup))
 			{

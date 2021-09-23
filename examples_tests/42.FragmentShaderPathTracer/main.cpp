@@ -102,6 +102,7 @@ int main()
 	auto queues = std::move(initOutput.queues);
 	auto graphicsQueue = queues[decltype(initOutput)::EQT_GRAPHICS];
 	auto transferUpQueue = queues[decltype(initOutput)::EQT_TRANSFER_UP];
+	auto computeQueue = queues[decltype(initOutput)::EQT_COMPUTE];
 	auto swapchain = std::move(initOutput.swapchain);
 	auto renderpass = std::move(initOutput.renderpass);
 	auto fbo = std::move(initOutput.fbo);
@@ -114,6 +115,24 @@ int main()
 
 	nbl::video::IGPUObjectFromAssetConverter CPU2GPU;
 	
+	// For CPU2GPU Params
+	auto pool_transfer = device->createCommandPool(transferUpQueue->getFamilyIndex(), IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
+	core::smart_refctd_ptr<IGPUCommandPool> pool_compute;
+
+	if(transferUpQueue->getFamilyIndex() == computeQueue->getFamilyIndex())
+		pool_compute = pool_transfer;
+	else
+		pool_compute = device->createCommandPool(computeQueue->getFamilyIndex(), IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
+	
+	core::smart_refctd_ptr<IGPUCommandBuffer> transferCmdBuffer;
+	core::smart_refctd_ptr<IGPUCommandBuffer> computeCmdBuffer;
+
+	device->createCommandBuffers(pool_transfer.get(), IGPUCommandBuffer::EL_PRIMARY, 1u, &transferCmdBuffer);
+	device->createCommandBuffers(pool_compute.get(), IGPUCommandBuffer::EL_PRIMARY, 1u, &computeCmdBuffer);
+	
+	cpu2gpuParams.perQueue[IGPUObjectFromAssetConverter::EQU_TRANSFER].cmdbuf = transferCmdBuffer;
+	cpu2gpuParams.perQueue[IGPUObjectFromAssetConverter::EQU_COMPUTE].cmdbuf = computeCmdBuffer;
+
 	auto cmdPoolQueueFamIdx = initOutput.mainQueue->getFamilyIndex();
 	core::smart_refctd_ptr<nbl::video::IGPUCommandBuffer> cmdbuf[FRAMES_IN_FLIGHT];
 	device->createCommandBuffers(commandPool.get(), nbl::video::IGPUCommandBuffer::EL_PRIMARY, FRAMES_IN_FLIGHT, cmdbuf);
@@ -208,7 +227,10 @@ int main()
 		viewParams.subresourceRange.levelCount = 1u;
 
 		auto cpuImageView = ICPUImageView::create(std::move(viewParams));
+
+		cpu2gpuParams.beginCommandBuffers();
 		auto gpuImageView = CPU2GPU.getGPUObjectsFromAssets(&cpuImageView, &cpuImageView + 1u, cpu2gpuParams)->front();
+		cpu2gpuParams.waitForCreationToComplete(false);
 
 		return gpuImageView;
 	};
@@ -325,8 +347,7 @@ int main()
 		device->updateDescriptorSets(1u, &writeDescriptorSet, 0u, nullptr);
 	}
 	
-	// TODO: Temp Fix because of validation error: VkPhysicalDeviceLimits::nonCoherentAtomSize
-	struct alignas(64) SBasicViewParametersAligned
+	struct SBasicViewParametersAligned
 	{
 		SBasicViewParameters uboData;
 	};

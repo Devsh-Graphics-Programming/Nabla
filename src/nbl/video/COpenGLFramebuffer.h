@@ -211,10 +211,10 @@ public:
         }
         gl->glGeneral.pglFlush();
 
-        const auto& dbgname = getObjectDebugName();
-        if (dbgname.size())
+        const char* dbgname = getObjectDebugName();
+        if (dbgname[0])
         {
-            gl->extGlObjectLabel(GL_FRAMEBUFFER, fbo, dbgname.size(), dbgname.c_str());
+            gl->extGlObjectLabel(GL_FRAMEBUFFER, fbo, strlen(dbgname), dbgname);
         }
 
         return fbo;

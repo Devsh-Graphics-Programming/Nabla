@@ -36,6 +36,12 @@ class ISurface : public core::IReferenceCounted
         };
         struct SFormat
         {
+            SFormat() = default;
+            SFormat(asset::E_FORMAT _format, asset::E_COLOR_PRIMARIES _primary, asset::ELECTRO_OPTICAL_TRANSFER_FUNCTION _eotf)
+                : format(_format)
+                , colorSpace({_primary, _eotf})
+            {
+            }
             asset::E_FORMAT format;
             SColorSpace colorSpace;
         };

@@ -16,7 +16,7 @@ void COpenGLSampler::setObjectDebugName(const char* label) const
     IBackendObject::setObjectDebugName(label);
 
     auto* device = static_cast<IOpenGL_LogicalDevice*>(const_cast<ILogicalDevice*>(getOriginDevice()));
-    device->setObjectDebugName(GL_SAMPLER, m_GLname, getObjectDebugName().size(), getObjectDebugName().c_str());
+    device->setObjectDebugName(GL_SAMPLER, m_GLname, strlen(getObjectDebugName()), getObjectDebugName());
 }
 
 }

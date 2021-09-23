@@ -273,17 +273,9 @@ int main()
 
 		// Build BLAS 
 		{
-			core::smart_refctd_ptr<IGPUFence> waitForComputeFence;
-			core::smart_refctd_ptr<IGPUFence> waitForTransferFence;
-			cpu2gpuParams.perQueue[IGPUObjectFromAssetConverter::EQU_COMPUTE].fence = &waitForComputeFence; // this will be created
-			cpu2gpuParams.perQueue[IGPUObjectFromAssetConverter::EQU_TRANSFER].fence = &waitForTransferFence; // this will be created
-
+			cpu2gpuParams.beginCommandBuffers();
 			gpuBlas2 = CPU2GPU.getGPUObjectsFromAssets(&cpuBlas, &cpuBlas + 1u, cpu2gpuParams)->front();
-
-			device->waitForFences(1, &waitForComputeFence.get(), false, 9999999999ull);
 			cpu2gpuParams.waitForCreationToComplete();
-			cpu2gpuParams.perQueue[IGPUObjectFromAssetConverter::EQU_COMPUTE].fence = nullptr;
-			cpu2gpuParams.perQueue[IGPUObjectFromAssetConverter::EQU_TRANSFER].fence = nullptr;
 		}
 	}
 #endif 
@@ -563,7 +555,10 @@ int main()
 		viewParams.subresourceRange.levelCount = 1u;
 
 		auto cpuImageView = ICPUImageView::create(std::move(viewParams));
+		
+		cpu2gpuParams.beginCommandBuffers();
 		auto gpuImageView = CPU2GPU.getGPUObjectsFromAssets(&cpuImageView, &cpuImageView + 1u, cpu2gpuParams)->front();
+		cpu2gpuParams.waitForCreationToComplete();
 
 		return gpuImageView;
 	};

@@ -116,7 +116,6 @@ int main(int argc, char** argv)
         ubomemreq.vulkanReqs.size = neededDS1UBOsz;
 
         video::IGPUBuffer::SCreationParams cameraUBOCreationParams;
-        cameraUBOCreationParams.size = neededDS1UBOsz;
         cameraUBOCreationParams.usage = asset::IBuffer::EUF_UNIFORM_BUFFER_BIT;
         cameraUBOCreationParams.sharingMode = asset::E_SHARING_MODE::ESM_EXCLUSIVE;
         cameraUBOCreationParams.queueFamilyIndexCount = 0u;

@@ -59,6 +59,8 @@ public:
 
         uint32_t subgroupSize;
         core::bitflag<asset::ISpecializedShader::E_SHADER_STAGE> subgroupOpsShaderStages;
+
+        uint64_t nonCoherentAtomSize;
     };
 
     struct SFeatures

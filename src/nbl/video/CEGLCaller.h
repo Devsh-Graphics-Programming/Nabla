@@ -76,8 +76,10 @@ class CEGLCaller final
 public:
     CEGLCaller() : dummy(0)
         NBL_IMPL_INIT_EGL_FUNC_PTRS(NBL_EGL_FUNC_LIST)
+#if !defined(_NBL_PLATFORM_ANDROID_)
+        NBL_IMPL_INIT_EGL_FUNCPTR(eglGetPlatformDependentHandles)
+#endif
     {
-
     }
 
     CEGLCaller(CEGLCaller&& other)
@@ -88,12 +90,18 @@ public:
     CEGLCaller& operator=(CEGLCaller&& other)
     {
         NBL_IMPL_SWAP_EGL_FUNC_PTRS(NBL_EGL_FUNC_LIST);
+#if !defined(_NBL_PLATFORM_ANDROID_)
+        std::swap(peglGetPlatformDependentHandles, other.peglGetPlatformDependentHandles);
+#endif
 
         return *this;
     }
 
     int dummy;
     NBL_IMPL_DECLARE_EGL_FUNC_PTRS(NBL_EGL_FUNC_LIST)
+#if !defined(_NBL_PLATFORM_ANDROID_)
+    NBL_SYSTEM_DECLARE_DYNLIB_FUNCPTR(eglGetPlatformDependentHandles);
+#endif
 };
 
 }

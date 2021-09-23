@@ -502,9 +502,13 @@ public:
     {
         //any other object type having name set by device request is something unexcpected
         assert(id == GL_BUFFER || id == GL_SAMPLER || id == GL_TEXTURE);
+        assert(len <= IBackendObject::MAX_DEBUG_NAME_LENGTH);
+#ifdef _NBL_DEBUG
+        assert(len == strlen(label));
+#endif
 
-        SRequestSetDebugName req_params{ id, object, len, std::string(label) };
-        assert(req_params.len == req_params.label.size());
+        SRequestSetDebugName req_params{ id, object, len };
+        strcpy(req_params.label, label);
 
         auto& req = m_threadHandler.request(std::move(req_params));
         m_threadHandler.template waitForRequestCompletion<SRequestSetDebugName>(req);
