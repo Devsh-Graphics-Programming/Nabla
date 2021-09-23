@@ -121,7 +121,6 @@ void main()
         frustumCommandBuff.draws[drawCommandGUID].instanceCount = 0;
         occlusionCommandBuff.draws[drawCommandGUID].instanceCount = 0;
     }
-
     
     // does `freezeCulling` affect this negatively?
     #ifdef OCCLUSION_QUERY

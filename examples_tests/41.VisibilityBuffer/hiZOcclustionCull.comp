@@ -1,27 +1,107 @@
-layout (local_size_x = WORKGROUP_SIZE) in;
-
-layout(set = 0, binding = 0) uniform sampler2D zPyramid;
 
 #include <nbl/builtin/glsl/utils/indirect_commands.glsl>
+#include "rasterizationCommon.h"
 
-struct AABB
+layout(set = 0, binding = 0, std430) restrict readonly buffer CullDataBuffer
 {
-    vec3 aabbMin;
-    vec3 aabbMax;
-}
+    CullData_t data[];
+}cullDataBuffer;
 
-layout(set = 0, binding = 1) restrict readonly buffer AABBBuffer
-{
-    AABB aabbs[];
-}aabbBuff;
-
-layout(set = 0, binding = 2) restrict buffer DrawCommandBuffer
+layout(set = 0, binding = 1, std430) restrict buffer OcclusionommandBuffer
 {
     nbl_glsl_DrawElementsIndirectCommand_t draws[];
-}drawCommandBuff;
+}occlusionCommandBuff;
+
+layout(set = 0, binding = 2) uniform sampler2D zPyramid[Z_PYRAMID_MIP_LVL_CNT];
+
+#include "hiZCommon.h"
+layout(push_constant, row_major) uniform PushConstants
+{
+    SHiZPushConstants data;
+}pc;
+
+#ifdef DEBUG_HI_Z_CULLING
+layout(set = 1, binding = 0) restrict buffer DbgBuffer
+{
+    vec2 lineVertices[];
+}dbgBuff;
+#endif
+
 
 void main()
 {
+    const uint globalInvocationID = gl_GlobalInvocationID.x;
+    if(globalInvocationID >= pc.data.maxBatchCnt)
+        return;
+
+    const CullData_t batchCullData = cullDataBuffer.data[globalInvocationID];
+    const uint drawCommandGUID = batchCullData.drawCommandGUID;
+
+    if(occlusionCommandBuff.draws[drawCommandGUID].instanceCount == 0u)
+    {
+        #ifdef DEBUG_HI_Z_CULLING
+        const uint offset = gl_GlobalInvocationID.x * 4u;
+
+        dbgBuff.lineVertices[offset] = vec2(0.0);
+        dbgBuff.lineVertices[offset + 1u] = vec2(0.0);
+        dbgBuff.lineVertices[offset + 2u] = vec2(0.0);
+        dbgBuff.lineVertices[offset + 3u] = vec2(0.0);
+        #endif
+        return;
+    }
+
+    // TODO: different method
+    float a = cullDataBuffer.data[globalInvocationID].aabbMaxEdge.x - cullDataBuffer.data[globalInvocationID].aabbMinEdge.x;
+    float b = cullDataBuffer.data[globalInvocationID].aabbMaxEdge.y - cullDataBuffer.data[globalInvocationID].aabbMinEdge.y;
+
+    vec4 clipSpcBBVertices[8];
+    clipSpcBBVertices[0] = pc.data.vp * vec4(cullDataBuffer.data[globalInvocationID].aabbMinEdge, 1.0);
+    clipSpcBBVertices[1] = pc.data.vp * vec4(cullDataBuffer.data[globalInvocationID].aabbMinEdge + vec3(a, 0.0, 0.0), 1.0);
+    clipSpcBBVertices[2] = pc.data.vp * vec4(cullDataBuffer.data[globalInvocationID].aabbMinEdge + vec3(0.0, b, 0.0), 1.0);
+    clipSpcBBVertices[3] = pc.data.vp * vec4(cullDataBuffer.data[globalInvocationID].aabbMinEdge + vec3(a, b, 0.0), 1.0);
+    clipSpcBBVertices[5] = pc.data.vp * vec4(cullDataBuffer.data[globalInvocationID].aabbMaxEdge, 1.0);
+    clipSpcBBVertices[4] = pc.data.vp * vec4(cullDataBuffer.data[globalInvocationID].aabbMaxEdge - vec3(a, 0.0, 0.0), 1.0);
+    clipSpcBBVertices[6] = pc.data.vp * vec4(cullDataBuffer.data[globalInvocationID].aabbMaxEdge - vec3(0.0, b, 0.0), 1.0);
+    clipSpcBBVertices[7] = pc.data.vp * vec4(cullDataBuffer.data[globalInvocationID].aabbMaxEdge - vec3(a, b, 0.0), 1.0);
+
+    for(uint i = 0u; i < 8u; i++)
+    {
+        clipSpcBBVertices[i] /= clipSpcBBVertices[i].w;
+        clipSpcBBVertices[i].z = 1.0 - clipSpcBBVertices[i].z;
+    }
+
+    vec2 clipSpcMin = min(clipSpcBBVertices[0].xy, clipSpcBBVertices[1].xy);
+    vec2 clipSpcMax = max(clipSpcBBVertices[0].xy, clipSpcBBVertices[1].xy);
+    float maxDepthVal = max(clipSpcBBVertices[0].z, clipSpcBBVertices[1].z);
+
+    for(uint i = 2u; i < 8u; i++)
+    {
+        clipSpcMin = min(clipSpcMin, clipSpcBBVertices[i].xy);
+        clipSpcMax = max(clipSpcMax, clipSpcBBVertices[i].xy);
+        maxDepthVal = max(maxDepthVal, clipSpcBBVertices[i].z);
+    }
+
+    clipSpcMin = clamp(clipSpcMin, -1.0, 1.0);
+    clipSpcMax = clamp(clipSpcMax, -1.0, 1.0);
+
+    #ifdef DEBUG_HI_Z_CULLING
+    const uint offset = gl_GlobalInvocationID.x * 4u;
+    const vec2 dbgExtent = clipSpcMax - clipSpcMin;
+
+    dbgBuff.lineVertices[offset] = clipSpcMin;
+    dbgBuff.lineVertices[offset + 1u] = clipSpcMin + vec2(0.0, dbgExtent.y);
+    dbgBuff.lineVertices[offset + 2u] = clipSpcMax;
+    dbgBuff.lineVertices[offset + 3u] = clipSpcMin + vec2(dbgExtent.x, 0.0);
+    #endif
+
+    const vec2 scrSpcbRectExtent = (clipSpcMax - clipSpcMin) * vec2(pc.data.lvl0MipExtent);
+    const uint LOD = uint(floor(log2(max(scrSpcbRectExtent.x, scrSpcbRectExtent.y))));
     
+    const vec2 uv = clipSpcMin * vec2(0.5, -0.5) + vec2(0.5);
+    vec4 depthVals = textureGather(zPyramid[LOD], uv);
+    
+    bool isOccluded = all(maxDepthVal <= depthVals);
+    if(isOccluded)
+        occlusionCommandBuff.draws[drawCommandGUID].instanceCount = 0u;
 }
 
