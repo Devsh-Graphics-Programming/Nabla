@@ -85,7 +85,6 @@ if(NBL_BUILD_ANDROID)
 	set(_NBL_COMPILE_WITH_BAW_WRITER_ OFF CACHE BOOL "Off for Android purposes at the moment" FORCE)	# TODO - remove when BAW-v4 is done
 	set(_NBL_COMPILE_WITH_OBJ_LOADER_ OFF CACHE BOOL "Off for Android purposes at the moment" FORCE) 	# TODO - references BAW files, linker errors
 	set(NBL_BUILD_MITSUBA_LOADER OFF CACHE BOOL "Off for Android purposes at the moment" FORCE) 		# TODO - compile/linker errors
-	set(NBL_BUILD_EXAMPLES OFF CACHE BOOL "Off for Android purposes at the moment" FORCE)				# TODO - check it out
 	
 	find_package(Java 1.8)
 	
@@ -194,6 +193,10 @@ if(NBL_BUILD_ANDROID)
 endif()
 
 project(Nabla LANGUAGES CXX C)
+
+if(NBL_BUILD_ANDROID)
+	enable_language(ASM)
+endif()
 
 find_package(Vulkan)
 if (Vulkan_FOUND)
