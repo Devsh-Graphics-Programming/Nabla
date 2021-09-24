@@ -497,7 +497,9 @@ endif()
 #TODO maybe make a macro to do this (note: it's also used in common.cmake)
 set_property(TARGET Nabla PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
-add_dependencies(Nabla openssl_build)
+if(ANDROID AND NOT "${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Windows") # OpenSSL can't be built for Android platform using windows OS host
+	add_dependencies(Nabla openssl_build)
+endif()
 if(DEFINED ENV{VULKAN_SDK})
 	nbl_target_link_vulkan(Nabla)
 endif()
