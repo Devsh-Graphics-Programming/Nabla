@@ -4,6 +4,9 @@
 #include "nbl/ui/IWindowAndroid.h"
 
 #ifdef _NBL_PLATFORM_ANDROID_
+#include <android_native_app_glue.h>
+#include <android/sensor.h>
+#include <android/log.h>
 
 namespace nbl::ui
 {

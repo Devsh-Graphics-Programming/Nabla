@@ -526,4 +526,4 @@ class DemoEventCallback : public nbl::ui::IWindow::IEventCallback
 
 };
 
-NBL_ANDROID_MAIN(SampleApp, nabla, DemoEventCallback)
+NBL_ANDROID_MAIN_FUNC(SampleApp, nabla, DemoEventCallback)

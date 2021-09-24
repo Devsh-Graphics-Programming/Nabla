@@ -2,6 +2,8 @@
 #define _NBL_SYSTEM_C_STDOUT_LOGGER_ANDROID_H_INCLUDED_
 #ifdef _NBL_PLATFORM_ANDROID_
 #include "nbl/system/IThreadsafeLogger.h"
+#include <android/log.h>
+
 
 namespace nbl::system
 {

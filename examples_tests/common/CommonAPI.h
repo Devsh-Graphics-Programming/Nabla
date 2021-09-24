@@ -1,19 +1,20 @@
 #define _NBL_STATIC_LIB_
 #include <nabla.h>
 #include "nbl/system/IApplicationFramework.h"
-#include "nbl/system/CApplicationAndroid.h"
-
+#include "nbl/ui/CGraphicalApplicationAndroid.h"
+#include "nbl/ui/CWindowManagerAndroid.h"
 #if defined(_NBL_PLATFORM_WINDOWS_)
 #	include <nbl/system/CColoredStdoutLoggerWin32.h>
-#endif // TODO more platforms
+#elif defined(_NBL_PLATFORM_ANDROID_)
+#	include <nbl/system/CStdoutLoggerAndroid.h>
+#endif
 // TODO: make these include themselves via `nabla.h`
 
 //***** Application framework macros ******
 #ifdef _NBL_PLATFORM_ANDROID_
-using ApplicationBase = nbl::system::CApplicationAndroid;
-#define APP_CONSTRUCTOR(type) type(android_app* app, nbl::system::path cwd) : nbl::system::CApplicationAndroid(app, cwd) {}
-#define NBL_COMMON_API_MAIN(android_app_class, user_data_type)\
-	NBL_ANDROID_MAIN(android_app_class, user_data_type, CommonAPI::CommonAPIEventCallback);
+using ApplicationBase = nbl::ui::CGraphicalApplicationAndroid;
+#define APP_CONSTRUCTOR(type) type(android_app* app, nbl::system::path cwd) : nbl::ui::CGraphicalApplicationAndroid(app, cwd) {}
+#define NBL_COMMON_API_MAIN(android_app_class, user_data_type) NBL_ANDROID_MAIN_FUNC(android_app_class, user_data_type, CommonAPI::CommonAPIEventCallback)
 #else
 using ApplicationBase = nbl::system::IApplicationFramework;
 #define APP_CONSTRUCTOR(type) type(nbl::system::path cwd) : nbl::system::IApplicationFramework(cwd) {}
@@ -64,7 +65,8 @@ public:
 						);
 						consumedCounter = events.size()-frontBufferCapacity;
 					}
-					processFunc(ChannelType::range_t(events.begin()+consumedCounter,events.end()));
+					typename ChannelType::range_t rng(events.begin() + consumedCounter, events.end());
+					processFunc(rng);
 					consumedCounter = events.size();
 				}
 
@@ -343,7 +345,7 @@ public:
 		nbl::core::smart_refctd_ptr<nbl::system::ISystem> system;
 		nbl::core::smart_refctd_ptr<nbl::asset::IAssetManager> assetManager;
 		nbl::video::IGPUObjectFromAssetConverter::SParams cpu2gpuParams;
-		nbl::core::smart_refctd_ptr<nbl::system::CColoredStdoutLoggerWin32> logger;
+		nbl::core::smart_refctd_ptr<nbl::system::ILogger> logger;
 		nbl::core::smart_refctd_ptr<InputSystem> inputSystem;
 	};
 
@@ -394,7 +396,11 @@ public:
 		using namespace nbl::video;
 
 		result.system = createSystem();
+#ifdef _NBL_PLATFORM_WINDOWS
 		result.logger = core::make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>(); // we should let user choose it?
+#elif defined(_NBL_PLATFORM_ANDROID_)
+		result.logger = core::make_smart_refctd_ptr<system::CStdoutLoggerAndroid>(); // we should let user choose it?
+#endif
 		result.inputSystem = core::make_smart_refctd_ptr<InputSystem>(system::logger_opt_smart_ptr(core::smart_refctd_ptr(result.logger)));
 
 		assert(api_type == video::EAT_OPENGL); // TODO: more choice OR EVEN RANDOM CHOICE!
@@ -464,9 +470,13 @@ public:
 		auto windowManager = core::make_smart_refctd_ptr<nbl::ui::CWindowManagerWin32>(); // should we store it in result?
 #endif
 		result.system = createSystem();
+#ifdef _NBL_PLATFORM_WINDOWS
 		result.logger = core::make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>(); // we should let user choose it?
-		result.inputSystem = make_smart_refctd_ptr<InputSystem>(system::logger_opt_smart_ptr(result.logger));
-		result.windowCb = nbl::core::make_smart_refctd_ptr<EventCallback>(core::smart_refctd_ptr(result.inputSystem), system::logger_opt_smart_ptr(result.logger));
+#elif defined(_NBL_PLATFORM_ANDROID_)
+		result.logger = core::make_smart_refctd_ptr<system::CStdoutLoggerAndroid>(); // we should let user choose it?
+#endif
+		result.inputSystem = make_smart_refctd_ptr<InputSystem>(system::logger_opt_smart_ptr(core::smart_refctd_ptr(result.logger)));
+		result.windowCb = nbl::core::make_smart_refctd_ptr<EventCallback>(core::smart_refctd_ptr(result.inputSystem), system::logger_opt_smart_ptr(core::smart_refctd_ptr(result.logger)));
 
 #ifndef _NBL_PLATFORM_ANDROID_
 		nbl::ui::IWindow::SCreationParams windowsCreationParams;
@@ -480,10 +490,17 @@ public:
 		windowsCreationParams.callback = result.windowCb;
 		
 		result.window = windowManager->createWindow(std::move(windowsCreationParams));
+#else
+		result.window->setEventCallback(core::smart_refctd_ptr(result.windowCb));
 #endif
 		assert(api_type == video::EAT_OPENGL); // TODO: more choice OR EVEN RANDOM CHOICE!
 		auto _apiConnection = video::COpenGLConnection::create(nbl::core::smart_refctd_ptr(result.system), 0, app_name.data(), video::COpenGLDebugCallback(core::smart_refctd_ptr(result.logger)));
+		
+#ifdef _NBL_PLATFORM_WINDOWS
 		result.surface = video::CSurfaceGLWin32::create(core::smart_refctd_ptr(_apiConnection),core::smart_refctd_ptr<ui::IWindowWin32>(static_cast<ui::IWindowWin32*>(result.window.get())));
+#elif defined(_NBL_PLATFORM_ANDROID_)
+		result.surface = video::CSurfaceGLAndroid::create(core::smart_refctd_ptr(_apiConnection),core::smart_refctd_ptr<ui::IWindowAndroid>(static_cast<ui::IWindowAndroid*>(result.window.get())));
+#endif
 		result.apiConnection = _apiConnection;
 
 		auto gpus = result.apiConnection->getPhysicalDevices();

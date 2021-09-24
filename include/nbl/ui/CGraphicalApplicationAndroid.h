@@ -41,7 +41,7 @@ namespace nbl::ui
 }
 
 // ... are the window event callback optional ctor params;
-#define NBL_ANDROID_MAIN(android_app_class, user_data_type, window_event_callback, ...) void android_main(android_app* app){\
+#define NBL_ANDROID_MAIN_FUNC(android_app_class, user_data_type, window_event_callback, ...) void android_main(android_app* app){\
 	static_assert(std::is_base_of_v<nbl::system::IApplicationFramework::IUserData, user_data_type>);\
 	system::path CWD = std::filesystem::current_path().generic_string();\
     user_data_type engine{};\
@@ -51,7 +51,7 @@ namespace nbl::ui
     auto framework = nbl::core::make_smart_refctd_ptr<android_app_class>(app, CWD);\
     auto wndManager = nbl::core::make_smart_refctd_ptr<nbl::ui::CWindowManagerAndroid>(app);\
     nbl::ui::IWindow::SCreationParams params;\
-    params.callback = nbl::core::make_smart_refctd_ptr<window_event_callback>(__VA_ARGS__);\
+    params.callback = nullptr;\
     auto wnd = wndManager->createWindow(std::move(params));\
 	engine.setWindow(nbl::core::smart_refctd_ptr(wnd));\
     ctx.window = core::smart_refctd_ptr(wnd);\

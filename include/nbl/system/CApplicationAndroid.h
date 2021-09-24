@@ -74,7 +74,7 @@ namespace nbl::system
             }
             framework->handleCommand_impl(app, cmd);
         }
-        virtual void handleCommand_impl(android_app* data, int32_t cmd) = 0;
+        virtual void handleCommand_impl(android_app* data, int32_t cmd) {}
 
         class CEventPoller : public  system::IThreadHandler<CEventPoller>
         {
@@ -88,7 +88,7 @@ namespace nbl::system
             int events;
             bool keepPolling = true;
         public:
-            CEventPoller(android_app* _app, CApplicationAndroid* _framework) : app(app), framework(_framework) { }
+            CEventPoller(android_app* _app, CApplicationAndroid* _framework) : app(_app), framework(_framework) { }
         protected:
             void init() {
                 looper = ALooper_prepare(0); // prepare the looper to poll in the current thread

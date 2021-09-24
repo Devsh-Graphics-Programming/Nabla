@@ -141,7 +141,7 @@ public:
         {
             onKeyboardDisconnected_impl(kbch);
         }
-
+        
     protected:
         virtual bool onWindowShown_impl() { return true; }
         virtual bool onWindowHidden_impl() { return true; }
@@ -211,6 +211,9 @@ protected:
     uint32_t m_width = 0u, m_height = 0u;
     int32_t m_x, m_y; // gonna add it here until further instructions XD
     std::underlying_type_t<E_CREATE_FLAGS> m_flags = 0u;
+public:
+        void setEventCallback(core::smart_refctd_ptr<IEventCallback>&& evCb) { m_cb = std::move(evCb); }
+
 };
 
 }
