@@ -15,7 +15,7 @@ class IPhysicalDevice;
 class IAPIConnection : public core::IReferenceCounted
 {
 public:
-    enum E_EXTENSION
+    enum E_FEATURE
     {
         E_SURFACE = 0
     };
@@ -25,6 +25,8 @@ public:
     virtual IDebugCallback* getDebugCallback() const = 0;
 
     core::SRange<IPhysicalDevice* const> getPhysicalDevices() const;
+
+    static core::SRange<E_FEATURE> getDependentFeatures(const E_FEATURE feature);
 
 protected:
     inline IAPIConnection() : m_physicalDevices(), m_rdoc_api(nullptr)

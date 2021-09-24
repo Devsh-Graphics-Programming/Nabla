@@ -20,7 +20,7 @@ class CVulkanConnection final : public IAPIConnection
 public:
     static core::smart_refctd_ptr<CVulkanConnection> create(
         core::smart_refctd_ptr<system::ISystem>&& sys, uint32_t appVer, const char* appName,
-        const uint32_t extensionCount, video::IAPIConnection::E_EXTENSION* extensions,
+        const uint32_t extensionCount, video::IAPIConnection::E_FEATURE* extensions,
         core::smart_refctd_ptr<system::ILogger>&& logger, bool enableValidation)
     {
         if (volkInitialize() != VK_SUCCESS)
