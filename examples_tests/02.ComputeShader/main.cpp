@@ -51,23 +51,16 @@ int main()
 	// static_assert(FRAMES_IN_FLIGHT>FBO_COUNT);
 
 	const uint32_t requiredFeatureCount = 1u;
-	const video::IAPIConnection::E_FEATURE requiredFeatures[requiredFeatureCount] = { video::IAPIConnection::E_SURFACE };
-	// const uint32_t optionalFeatureCount = 0u;
-	// const video::IAPIConnection::E_FEATURE optionalFeatures[optionalFeatureCount] = {};
-	// 
-	// for (uint32_t i = 0u; i < requiredFeatureCount; ++i)
-	// {
-	// 	getDependentFeatures(requiredFeatures[i]);
-	// }
-	// 
-	// getDependentFeatures();
+	const video::IAPIConnection::E_FEATURE requiredFeatures[requiredFeatureCount] = { video::IAPIConnection::EF_SURFACE };
+	const uint32_t optionalFeatureCount = 1u;
+	const video::IAPIConnection::E_FEATURE optionalFeatures[optionalFeatureCount] = { video::IAPIConnection::EF_COUNT };
 
 	// This creates FBOs with swapchain images but I don't really need them
 	const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_STORAGE_BIT);
 	const video::ISurface::SFormat surfaceFormat(asset::EF_B8G8R8A8_UNORM, asset::ECP_COUNT, asset::EOTF_UNKNOWN);
 	auto initResult = CommonAPI::Init<WIN_W, WIN_H, MAX_SWAPCHAIN_IMAGE_COUNT>(
 		video::EAT_VULKAN, "02.ComputeShader", swapchainImageUsage,
-		surfaceFormat, asset::EF_UNKNOWN, false);
+		surfaceFormat);
 
 #if 0
 

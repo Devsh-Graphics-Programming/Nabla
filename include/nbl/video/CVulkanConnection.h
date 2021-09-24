@@ -20,7 +20,8 @@ class CVulkanConnection final : public IAPIConnection
 public:
     static core::smart_refctd_ptr<CVulkanConnection> create(
         core::smart_refctd_ptr<system::ISystem>&& sys, uint32_t appVer, const char* appName,
-        const uint32_t extensionCount, video::IAPIConnection::E_FEATURE* extensions,
+        const uint32_t requiredFeatureCount, video::IAPIConnection::E_FEATURE* requiredFeatures,
+        const uint32_t optionalFeatureCount, video::IAPIConnection::E_FEATURE* optionalFeatures,
         core::smart_refctd_ptr<system::ILogger>&& logger, bool enableValidation)
     {
         if (volkInitialize() != VK_SUCCESS)
@@ -28,6 +29,25 @@ public:
             LOG(logger, "Failed to initialize volk!\n", system::ILogger::ELL_ERROR);
             return nullptr;
         }
+
+        core::set<IAPIConnection::E_FEATURE> requiredFeatureSet;
+        for (uint32_t i = 0u; i < requiredFeatureCount; ++i)
+        {
+            const auto depFeatures = IAPIConnection::getDependentFeatures(requiredFeatures[i]);
+            requiredFeatureSet.insert(depFeatures.begin(), depFeatures.end());
+        }
+
+
+        for (uint32_t i = 0u; i < optionalFeatureCount; ++i)
+        {
+            const auto depFeatures = IAPIConnection::getDependentFeatures(optionalFeatures[i]);
+            // Check if all the dependent features are present
+
+
+
+        
+        }
+        __debugbreak();
 
         constexpr uint32_t MAX_EXTENSION_COUNT = (1u << 12) / sizeof(char*);
         constexpr uint32_t MAX_LAYER_COUNT = 100u;
@@ -45,10 +65,10 @@ public:
             if (logger)
                 requiredExtensionNames[requiredExtensionNameCount++] = VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
 
-            for (uint32_t i = 0u; i < extensionCount; ++i)
+            for (uint32_t i = 0u; i < requiredFeatureCount; ++i)
             {
                 // Handle other platforms
-                if (extensions[i] == video::IAPIConnection::E_SURFACE)
+                if (requiredFeatures[i] == video::IAPIConnection::EF_SURFACE)
                 {
                     requiredExtensionNames[requiredExtensionNameCount++] = "VK_KHR_surface";
                     requiredExtensionNames[requiredExtensionNameCount++] = "VK_KHR_win32_surface";

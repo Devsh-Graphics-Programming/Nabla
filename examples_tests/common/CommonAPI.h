@@ -597,7 +597,9 @@ public:
 		{
 			const uint32_t requiredFeatureCount = 1u;
 			video::IAPIConnection::E_FEATURE requiredFeatures[requiredFeatureCount] = { video::IAPIConnection::E_SURFACE };
-			result.apiConnection = video::CVulkanConnection::create(core::smart_refctd_ptr(result.system), 0, app_name.data(), requiredFeatureCount, requiredFeatures, result.logger, true);
+			const uint32_t optionalFeatureCount = 1u;
+			video::IAPIConnection::E_FEATURE optionalFeatures[optionalFeatureCount] = {};
+			result.apiConnection = video::CVulkanConnection::create(core::smart_refctd_ptr(result.system), 0, app_name.data(), requiredFeatureCount, requiredFeatures, optionalFeatureCount, optionalFeatures, result.logger, true);
 		}
 		else if(api_type == EAT_OPENGL)
 		{
@@ -719,22 +721,13 @@ public:
 
 		if(api_type == EAT_VULKAN) 
 		{
-
+			// Todo(achal): Need to pipe this in from the user
 			const uint32_t requiredFeatureCount = 1u;
 			video::IAPIConnection::E_FEATURE requiredFeatures[requiredFeatureCount] = { video::IAPIConnection::E_SURFACE };
-#if 0
-			const uint32_t optionalFeatureCount = 0u;
-			const video::IAPIConnection::E_FEATURE optionalFeatures[optionalFeatureCount] = {};
+			const uint32_t optionalFeatureCount = 1u;
+			video::IAPIConnection::E_FEATURE optionalFeatures[optionalFeatureCount] = {};
 
-			for (uint32_t i = 0u; i < requiredFeatureCount; ++i)
-			{
-				getDependentFeatures(requiredFeatures[i]);
-			}
-
-			getDependentFeatures();
-#endif
-
-			auto _apiConnection = video::CVulkanConnection::create(core::smart_refctd_ptr(result.system), 0, app_name.data(), requiredFeatureCount, requiredFeatures, result.logger, true);
+			auto _apiConnection = video::CVulkanConnection::create(core::smart_refctd_ptr(result.system), 0, app_name.data(), requiredFeatureCount, requiredFeatures, optionalFeatureCount, optionalFeatures, result.logger, true);
 			result.surface = video::CSurfaceVulkanWin32::create(core::smart_refctd_ptr(_apiConnection), core::smart_refctd_ptr<ui::IWindowWin32>(static_cast<ui::IWindowWin32*>(result.window.get())));
 			result.apiConnection = _apiConnection;
 		}

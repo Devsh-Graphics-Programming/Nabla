@@ -16,21 +16,16 @@ core::SRange<IPhysicalDevice* const> IAPIConnection::getPhysicalDevices() const
 
 core::SRange<IAPIConnection::E_FEATURE> IAPIConnection::getDependentFeatures(const E_FEATURE feature)
 {
-#if 0
-    constexpr uint32_t MAX_COUNT = (1 << 13) / sizeof(E_FEATURE);
-
-    E_FEATURE depFeatures[MAX_COUNT];
-    core::SRange<E_FEATURE> result = { E_SURFACE };
-    uint32_t totalDepFeatureCount = 0u;
-    if (feature == E_SURFACE)
+    switch (feature)
     {
-        depFeatures[totalDepFeatureCount++] = E_SURFACE;
-        depFeatures[totalDepFeatureCount++] = E_SURFACE;
+    case EF_SURFACE:
+    {
+        static E_FEATURE depFeatures[] = { EF_SURFACE };
+        return { depFeatures, depFeatures + sizeof(depFeatures)/sizeof(E_FEATURE) };
     }
-
-    return result;
-#endif
-    return { nullptr, nullptr };
+    default:
+        return { nullptr, nullptr };
+    }
 }
 
 }
