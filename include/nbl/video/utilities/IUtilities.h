@@ -288,7 +288,7 @@ class IUtilities : public core::IReferenceCounted
                     submit.pWaitSemaphores = semaphoresToWaitBeforeOverwrite;
                     submit.pWaitDstStageMask = stagesToWaitForPerSemaphore;
                     queue->submit(1u,&submit,fence);
-                    m_device->waitForFences(1u,&fence,false,9999999999ull);
+                    m_device->blockForFences(1u,&fence);
                     waitSemaphoreCount = 0u;
                     semaphoresToWaitBeforeOverwrite = nullptr;
                     stagesToWaitForPerSemaphore = nullptr;
@@ -353,7 +353,7 @@ class IUtilities : public core::IReferenceCounted
             auto fence = m_device->createFence(static_cast<IGPUFence::E_CREATE_FLAGS>(0));
             updateBufferRangeViaStagingBuffer(fence.get(),queue,bufferRange,data,waitSemaphoreCount,semaphoresToWaitBeforeOverwrite,stagesToWaitForPerSemaphore,signalSemaphoreCount,semaphoresToSignal);
             auto* fenceptr = fence.get();
-            m_device->waitForFences(1u,&fenceptr,false,9999999999ull);
+            m_device->blockForFences(1u,&fenceptr);
         }
 
     protected:
