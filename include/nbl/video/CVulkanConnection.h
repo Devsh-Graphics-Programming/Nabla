@@ -47,7 +47,7 @@ public:
 
         
         }
-        __debugbreak();
+        // __debugbreak();
 
         constexpr uint32_t MAX_EXTENSION_COUNT = (1u << 12) / sizeof(char*);
         constexpr uint32_t MAX_LAYER_COUNT = 100u;
