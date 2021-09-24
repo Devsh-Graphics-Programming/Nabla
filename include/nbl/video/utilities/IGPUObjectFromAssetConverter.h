@@ -298,18 +298,25 @@ class IGPUObjectFromAssetConverter
             }
         }
 
+        bool computeQueueSupportsGraphics(const SParams& _params)
+        {
+            // assert that ComputeQueue also supports Graphics
+            const uint32_t transferFamIx = _params.perQueue[EQU_TRANSFER].queue->getFamilyIndex();
+            const uint32_t computeFamIx = _params.perQueue[EQU_COMPUTE].queue ? _params.perQueue[EQU_COMPUTE].queue->getFamilyIndex() : transferFamIx;
+
+            auto queueFamProps = _params.device->getPhysicalDevice()->getQueueFamilyProperties();
+            const auto& familyProperty = queueFamProps.begin()[computeFamIx];
+            bool hasGraphicsFlag = (familyProperty.queueFlags & IPhysicalDevice::EQF_GRAPHICS_BIT).value != 0;
+            return hasGraphicsFlag;
+        }
+
     public:
         virtual ~IGPUObjectFromAssetConverter() = default;
 
         template<typename AssetType>
         created_gpu_object_array<AssetType> getGPUObjectsFromAssets(const core::SRange<const core::smart_refctd_ptr<asset::IAsset>>& _range, SParams& _params)
         {
-            // assert that ComputeQueue also supports Graphics
-            auto queueFamProps = _params.device->getPhysicalDevice()->getQueueFamilyProperties();
-            const auto& familyProperty = queueFamProps.begin()[computeFamIx];
-            bool hasGraphicsFlag = (familyProperty.queueFlags & IPhysicalDevice::EQF_GRAPHICS_BIT).value != 0;
-            assert(hasGraphicsFlag);
-
+            assert(computeQueueSupportsGraphics(_params));
             _params.setFencesToNull();
             impl::AssetBundleIterator<AssetType> begin(_range.begin());
             impl::AssetBundleIterator<AssetType> end(_range.end());
@@ -319,12 +326,7 @@ class IGPUObjectFromAssetConverter
         template<typename AssetType>
         created_gpu_object_array<AssetType> getGPUObjectsFromAssets(const AssetType* const* const _begin, const AssetType* const* const _end, SParams& _params)
         {
-            // assert that ComputeQueue also supports Graphics
-            auto queueFamProps = _params.device->getPhysicalDevice()->getQueueFamilyProperties();
-            const auto& familyProperty = queueFamProps.begin()[computeFamIx];
-            bool hasGraphicsFlag = (familyProperty.queueFlags & IPhysicalDevice::EQF_GRAPHICS_BIT).value != 0;
-            assert(hasGraphicsFlag);
-
+            assert(computeQueueSupportsGraphics(_params));
             _params.setFencesToNull();
             return this->template getGPUObjectsFromAssets<AssetType, const AssetType* const*>(_begin, _end, _params);
         }
@@ -332,12 +334,7 @@ class IGPUObjectFromAssetConverter
         template<typename AssetType>
         created_gpu_object_array<AssetType> getGPUObjectsFromAssets(const core::smart_refctd_ptr<AssetType>* _begin, const core::smart_refctd_ptr<AssetType>* _end, SParams& _params)
         {
-            // assert that ComputeQueue also supports Graphics
-            auto queueFamProps = _params.device->getPhysicalDevice()->getQueueFamilyProperties();
-            const auto& familyProperty = queueFamProps.begin()[computeFamIx];
-            bool hasGraphicsFlag = (familyProperty.queueFlags & IPhysicalDevice::EQF_GRAPHICS_BIT).value != 0;
-            assert(hasGraphicsFlag);
-
+            assert(computeQueueSupportsGraphics(_params));
             _params.setFencesToNull();
             return this->template getGPUObjectsFromAssets<AssetType, const core::smart_refctd_ptr<AssetType>*>(_begin, _end, _params);
         }
