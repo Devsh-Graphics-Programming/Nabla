@@ -837,8 +837,7 @@ namespace nbl
 
 								Override jointsAttributes;
 								Override weightsAttributes;
-							} overrideSkinningBuffers; // TODO: given this one insert new buffer into cpu mesh buffer's vertex inputs
-									
+							} overrideSkinningBuffers;
 							{
 								const uint16_t overrideReferencesCount = overrideJointsReference.size(); //! doesn't matter if overrideJointsReference or overrideWeightsReference
 								const size_t vCommonOverrideAttributesCount = overrideJointsReference[0].accessor->count.value(); //! doesn't matter if overrideJointsReference or overrideWeightsReference
@@ -1245,6 +1244,50 @@ namespace nbl
 									{
 										assert(false); //! at this line probably impossible
 									} break;
+								}
+
+								auto setOverrideBufferBinding = [&](OverrideSkinningBuffers::Override& overrideData, uint16_t attributeID) -> bool
+								{
+									asset::SBufferBinding<ICPUBuffer> bufferBinding;
+									bufferBinding.buffer = core::smart_refctd_ptr(overrideData.cpuBuffer);
+									bufferBinding.offset = 0u;
+
+									auto findFreeBinding = [&]() -> uint32_t
+									{
+										for (uint16_t i = 0; i < asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; ++i)
+											if (!vertexInputParams.enabledBindingFlags & core::createBitmask({ i }))
+												return i;
+										return 0xdeadbeef;
+									};
+
+									const uint32_t bufferBindingId = findFreeBinding();
+									if (bufferBindingId == 0xdeadbeef)
+										return false;
+
+									cpuMeshBuffer->setVertexBufferBinding(std::move(bufferBinding), bufferBindingId);
+
+									vertexInputParams.enabledBindingFlags |= core::createBitmask({ bufferBindingId });
+									vertexInputParams.bindings[bufferBindingId].inputRate = EVIR_PER_VERTEX;
+									vertexInputParams.bindings[bufferBindingId].stride = asset::getTexelOrBlockBytesize(overrideData.format);
+
+									vertexInputParams.enabledAttribFlags |= core::createBitmask({ attributeID });
+									vertexInputParams.attributes[attributeID].binding = bufferBindingId;
+									vertexInputParams.attributes[attributeID].format = overrideData.format;
+									vertexInputParams.attributes[attributeID].relativeOffset = 0;
+
+									return true;
+								};
+
+								if (!setOverrideBufferBinding(overrideSkinningBuffers.jointsAttributes, cpuMeshBuffer->getJointIDAttributeIx()))
+								{
+									context.loadContext.params.logger.log("GLTF: COULD NOT SET OVERRIDE JOINTS BUFFER!", system::ILogger::ELL_WARNING);
+									return {};
+								}
+
+								if(!setOverrideBufferBinding(overrideSkinningBuffers.weightsAttributes, cpuMeshBuffer->getJointWeightAttributeIx()))
+								{
+									context.loadContext.params.logger.log("GLTF: COULD NOT SET OVERRIDE WEIGHTS BUFFER!", system::ILogger::ELL_WARNING);
+									return {};
 								}
 							}
 						}
