@@ -2061,6 +2061,12 @@ namespace nbl
 						for (const auto& joint : joints.get_array())
 							glTFSkin.joints.push_back(joint.get_uint64().value());
 
+					if (glTFSkin.joints.size() > SGLTF::SGLTFSkin::MAX_JOINTS_REFERENCES)
+					{
+						context.loadContext.params.logger.log("GLTF: DETECTED TOO MANY JOINTS REFERENCES!", system::ILogger::ELL_WARNING);
+						return false;
+					}
+
 					if (name.error() != simdjson::error_code::NO_SUCH_FIELD)
 						glTFSkin.name = name.get_string().value();
 				}

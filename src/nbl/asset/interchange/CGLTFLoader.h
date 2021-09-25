@@ -586,6 +586,8 @@ namespace nbl
 
 					struct SGLTFSkin
 					{
+						_NBL_STATIC_INLINE_CONSTEXPR uint16_t MAX_JOINTS_REFERENCES = 256;
+
 						std::optional<std::string> name;
 						std::optional<size_t> inverseBindMatrices;						//! The index of the accessor containing the floating-point 4x4 inverse-bind matrices. The default is that each matrix is a 4x4 identity matrix, which implies that inverse-bind matrices were pre-applied.
 						std::optional<size_t> skeleton;									//! The index of the node used as a skeleton root.
