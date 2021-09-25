@@ -23,6 +23,14 @@ namespace nbl
 {
 	namespace asset
 	{
+		enum WEIGHT_ENCODING
+		{
+			WE_UNORM8,
+			WE_UNORM16,
+			WE_SFLOAT,
+			WE_COUNT
+		};
+
 		template<typename AssetType, IAsset::E_TYPE assetType>
 		static core::smart_refctd_ptr<AssetType> getDefaultAsset(const char* _key, IAssetManager* _assetMgr)
 		{
@@ -812,6 +820,11 @@ namespace nbl
 									context.loadContext.params.logger.log("GLTF: WEIGHTS ATTRIBUTES VERTEX BUFFERS MUST NOT HAVE VARIOUS DATA TYPE OR LENGTH!", system::ILogger::ELL_WARNING);
 									return {};
 								}
+
+								/*
+									TODO: it is not enough, I should have checked if joints attribute buffers are the same
+									because if they are different then sorting weights is wrong.
+								*/
 							}
 
 							struct OverrideSkinningBuffers
@@ -895,8 +908,6 @@ namespace nbl
 										{
 											const PerVertexData& perVertexData = perVertexDataContainer[i];
 
-											//! TODO, test quantization?
-
 											JointComponentT* vOverrideJoint = reinterpret_cast<JointComponentT*>(vOverrideJointsData) + i;
 											WeightCompomentT* vOverrideWeight = reinterpret_cast<WeightCompomentT*>(vOverrideWeightsData) + i;
 
@@ -979,36 +990,191 @@ namespace nbl
 
 										memset(vOverrideRepackedJointsBuffer->getPointer(), 0, vOverrideRepackedJointsBuffer->getSize());
 										memset(vOverrideRepackedWeightsBuffer->getPointer(), 0, vOverrideRepackedWeightsBuffer->getSize());
-
-										for (size_t vAttributeIx = 0; vAttributeIx < vCommonOverrideAttributesCount; ++vAttributeIx)
-										{
-											const size_t unpackedVJointsOffset = vAttributeIx * vJointsTexelByteSize;
-											const size_t unpackedVWeightsOffset = vAttributeIx * vWeightsTexelByteSize;
-
-											auto* unpackedJointsData = reinterpret_cast<JointComponentT*>(reinterpret_cast<uint8_t*>(vOverrideJointsBuffer->getPointer()) + vAttributeIx * vJointsTexelByteSize);
-											auto* unpackedWeightsData = reinterpret_cast<WeightCompomentT*>(reinterpret_cast<uint8_t*>(vOverrideWeightsBuffer->getPointer()) + vAttributeIx * vWeightsTexelByteSize);
-
-											const size_t packedVJointsOffset = vAttributeIx * repackJointsTexelByteSize;
-											const size_t packedVWeightsOffset = vAttributeIx * repackWeightsTexelByteSize;
-
-											auto* packedJointsData = reinterpret_cast<JointComponentT*>(reinterpret_cast<uint8_t*>(vOverrideRepackedJointsBuffer->getPointer()) + vAttributeIx * repackJointsTexelByteSize);
-											auto* packedWeightsData = reinterpret_cast<WeightCompomentT*>(reinterpret_cast<uint8_t*>(vOverrideRepackedWeightsBuffer->getPointer()) + vAttributeIx * repackWeightsTexelByteSize);
-
-											for (uint16_t i = 0; i < maxJointsPerVertex; ++i)
+										{ //! pack buffers and quantize weights buffer
+											struct QuantRequest
 											{
-												packedJointsData[i] = unpackedJointsData[i];
-												packedWeightsData[i] = unpackedWeightsData[i];
+												_NBL_STATIC_INLINE_CONSTEXPR uint16_t MAX_INFLUENCE_WEIGHTS_PER_VERTEX = 4;
+												using QUANT_BUFFER = uint8_t[32]; //! for entire weights glTF vec4 entry
+												using ERROR_TYPE = float; // for each weight component
+												using ERROR_BUFFER = ERROR_TYPE[MAX_INFLUENCE_WEIGHTS_PER_VERTEX]; //! abs(decode(encode(weight)) - weight)
+												std::array<std::tuple<WEIGHT_ENCODING, E_FORMAT, QUANT_BUFFER, ERROR_BUFFER>, WE_COUNT> encodeData =
+												{
+													std::make_tuple(WE_UNORM8, EF_R8G8B8A8_UNORM, {}, {}),
+													std::make_tuple(WE_UNORM16, EF_R16G16B16A16_UNORM, {}, {}),
+													std::make_tuple(WE_SFLOAT, EF_R32G32B32A32_SFLOAT, {}, {})
+												};
+
+												struct BestWeightsFit
+												{
+													WEIGHT_ENCODING quantizeEncoding = WE_UNORM8;
+													ERROR_TYPE smallestError = FLT_MAX;
+												} bestWeightsFit;
+											} quantRequest;
+										
+											for (size_t vAttributeIx = 0; vAttributeIx < vCommonOverrideAttributesCount; ++vAttributeIx)
+											{
+												const size_t unpackedVJointsOffset = vAttributeIx * vJointsTexelByteSize;
+												const size_t unpackedVWeightsOffset = vAttributeIx * vWeightsTexelByteSize;
+
+												auto* unpackedJointsData = reinterpret_cast<JointComponentT*>(reinterpret_cast<uint8_t*>(vOverrideJointsBuffer->getPointer()) + vAttributeIx * vJointsTexelByteSize);
+												auto* unpackedWeightsData = reinterpret_cast<WeightCompomentT*>(reinterpret_cast<uint8_t*>(vOverrideWeightsBuffer->getPointer()) + vAttributeIx * vWeightsTexelByteSize);
+
+												const size_t packedVJointsOffset = vAttributeIx * repackJointsTexelByteSize;
+												const size_t packedVWeightsOffset = vAttributeIx * repackWeightsTexelByteSize;
+
+												auto* packedJointsData = reinterpret_cast<JointComponentT*>(reinterpret_cast<uint8_t*>(vOverrideRepackedJointsBuffer->getPointer()) + vAttributeIx * repackJointsTexelByteSize);
+												auto* packedWeightsData = reinterpret_cast<WeightCompomentT*>(reinterpret_cast<uint8_t*>(vOverrideRepackedWeightsBuffer->getPointer()) + vAttributeIx * repackWeightsTexelByteSize);
+
+												auto quantize = [&](const core::vectorSIMDf& input, void* data, const E_FORMAT requestQuantizeFormat)
+												{
+													return ICPUMeshBuffer::setAttribute(input, data, requestQuantizeFormat);
+												};
+
+												auto decodeQuant = [&](void* data, const E_FORMAT requestQuantizeFormat)
+												{
+													core::vectorSIMDf out;
+													ICPUMeshBuffer::getAttribute(out, data, requestQuantizeFormat);
+													return out;
+												};
+
+												core::vectorSIMDf packedWeightsStream; //! always go with full vectorSIMDf stream, weights being not used are leaved with default vector's compoment value and are not considered
+
+												for (uint16_t i = 0; i < maxJointsPerVertex; ++i) //! weights packing
+												{
+													packedJointsData[i] = unpackedJointsData[i];
+													packedWeightsStream.pointer[i] = packedWeightsData[i] = unpackedWeightsData[i];
+												}
+
+												for(uint16_t i = 0; i < quantRequest.encodeData.size(); ++i) //! quantization test
+												{
+													auto& encode = quantRequest.encodeData[i];
+													auto* quantBuffer = std::get<QuantRequest::QUANT_BUFFER>(encode);
+													auto* errorBuffer = std::get<QuantRequest::ERROR_BUFFER>(encode);
+													const WEIGHT_ENCODING requestWeightEncoding = std::get<WEIGHT_ENCODING>(encode);
+													const E_FORMAT requestQuantFormat = std::get<E_FORMAT>(encode);
+
+													quantize(packedWeightsStream, quantBuffer, requestQuantFormat);
+													core::vectorSIMDf quantsDecoded = decodeQuant(quantBuffer, requestQuantFormat);
+
+													for (uint16_t i = 0; i < QuantRequest::MAX_INFLUENCE_WEIGHTS_PER_VERTEX; ++i)
+													{
+														const auto& weightInput = packedWeightsStream.pointer[i];
+														const QuantRequest::ERROR_TYPE& errorComponent = errorBuffer[i] = core::abs(quantsDecoded.pointer[i] - weightInput);
+															
+														if(errorComponent)
+															if (errorComponent < quantRequest.bestWeightsFit.smallestError)
+															{
+																//! update request quantization format
+																quantRequest.bestWeightsFit.smallestError = errorComponent;
+																quantRequest.bestWeightsFit.quantizeEncoding = requestWeightEncoding;
+															}
+													}
+												}
+											}
+
+											auto getWeightsQuantizeFormat = [&]() -> E_FORMAT
+											{
+												switch (maxJointsPerVertex)
+												{
+													case 1u:
+													{
+														switch (quantRequest.bestWeightsFit.quantizeEncoding)
+														{
+															case WE_UNORM8:
+															{
+																return EF_R8_UNORM;
+															} break;
+
+															case WE_UNORM16:
+															{
+																return EF_R16_UNORM;
+															} break;
+
+															case WE_SFLOAT:
+															{
+																return EF_R32_SFLOAT;
+															} break;
+														}
+
+													} break;
+
+													case 2u:
+													{
+														switch (quantRequest.bestWeightsFit.quantizeEncoding)
+														{
+															case WE_UNORM8:
+															{
+																return EF_R8G8_UNORM;
+															} break;
+
+															case WE_UNORM16:
+															{
+																return EF_R16G16_UNORM;
+															} break;
+
+															case WE_SFLOAT:
+															{
+																return EF_R32G32_SFLOAT;
+															} break;
+														}
+													} break;
+
+													default:
+													{
+														switch (quantRequest.bestWeightsFit.quantizeEncoding)
+														{
+															case WE_UNORM8:
+															{
+																return EF_R8G8B8A8_UNORM;
+															} break;
+
+															case WE_UNORM16:
+															{
+																return EF_R16G16B16A16_UNORM;
+															} break;
+
+															case WE_SFLOAT:
+															{
+																return EF_R32G32B32A32_SFLOAT;
+															} break;
+														}
+													} break;
+												}
+
+												return EF_UNKNOWN;
+											};
+
+											vOverrideJointsBuffer = std::move(vOverrideRepackedJointsBuffer);
+											overrideSkinningBuffers.jointsAttributes.cpuBuffer = std::move(vOverrideJointsBuffer);
+											overrideSkinningBuffers.jointsAttributes.format = repackJointsFormat;
+
+											const E_FORMAT weightsQuantizeFormat = getWeightsQuantizeFormat();
+											const size_t weightComponentsByteStride = asset::getTexelOrBlockBytesize(weightsQuantizeFormat);
+											assert(weightsQuantizeFormat != EF_UNKNOWN);
+											{
+												vOverrideWeightsBuffer = std::move(core::smart_refctd_ptr<asset::ICPUBuffer>()); //! free memory
+												auto vOverrideQuantizedWeightsBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(weightComponentsByteStride * vCommonOverrideAttributesCount);
+												{
+													for (size_t vAttributeIx = 0; vAttributeIx < vCommonOverrideAttributesCount; ++vAttributeIx)
+													{
+														const size_t quantizedVWeightsOffset = vAttributeIx * weightComponentsByteStride;
+														void* quantizedWeightsData = reinterpret_cast<uint8_t*>(vOverrideQuantizedWeightsBuffer->getPointer()) + quantizedVWeightsOffset;
+
+														core::vectorSIMDf packedWeightsStream; //! always go with full vectorSIMDf stream, weights being not used are leaved with default vector's compoment value and are not considered
+														auto* packedWeightsData = reinterpret_cast<WeightCompomentT*>(reinterpret_cast<uint8_t*>(vOverrideRepackedWeightsBuffer->getPointer()) + vAttributeIx * repackWeightsTexelByteSize);
+
+														for (uint16_t i = 0; i < maxJointsPerVertex; ++i)
+															packedWeightsStream.pointer[i] = packedWeightsData[i];
+
+														ICPUMeshBuffer::setAttribute(packedWeightsStream, quantizedWeightsData, weightsQuantizeFormat); //! quantize
+													}
+												}
+												
+												overrideSkinningBuffers.weightsAttributes.cpuBuffer = std::move(vOverrideQuantizedWeightsBuffer);
+												overrideSkinningBuffers.weightsAttributes.format = weightsQuantizeFormat;
 											}
 										}
-
-										vOverrideJointsBuffer = std::move(vOverrideRepackedJointsBuffer);
-										vOverrideWeightsBuffer = std::move(vOverrideRepackedWeightsBuffer);
-
-										overrideSkinningBuffers.jointsAttributes.cpuBuffer = std::move(vOverrideJointsBuffer);
-										overrideSkinningBuffers.jointsAttributes.format = repackJointsFormat;
-
-										overrideSkinningBuffers.weightsAttributes.cpuBuffer = std::move(vOverrideWeightsBuffer);
-										overrideSkinningBuffers.weightsAttributes.format = repackWeightsFormat;
+			
 									}
 								};
 
@@ -1068,7 +1234,7 @@ namespace nbl
 
 									default:
 									{
-										assert(false); //! at this line impossible
+										assert(false); //! at this line probably impossible
 									} break;
 								}
 							}
