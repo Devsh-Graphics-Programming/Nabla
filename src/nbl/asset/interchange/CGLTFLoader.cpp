@@ -991,18 +991,27 @@ namespace nbl
 										memset(vOverrideRepackedJointsBuffer->getPointer(), 0, vOverrideRepackedJointsBuffer->getSize());
 										memset(vOverrideRepackedWeightsBuffer->getPointer(), 0, vOverrideRepackedWeightsBuffer->getSize());
 										{ //! pack buffers and quantize weights buffer
+
+											_NBL_STATIC_INLINE_CONSTEXPR uint16_t MAX_INFLUENCE_WEIGHTS_PER_VERTEX = 4;
+
 											struct QuantRequest
 											{
-												_NBL_STATIC_INLINE_CONSTEXPR uint16_t MAX_INFLUENCE_WEIGHTS_PER_VERTEX = 4;
+												QuantRequest()
+												{
+													std::get<WEIGHT_ENCODING>(encodeData[0]) = WE_UNORM8;
+													std::get<E_FORMAT>(encodeData[0]) = EF_R8G8B8A8_UNORM;
+
+													std::get<WEIGHT_ENCODING>(encodeData[1]) = WE_UNORM16;
+													std::get<E_FORMAT>(encodeData[1]) = EF_R16G16B16A16_UNORM;
+
+													std::get<WEIGHT_ENCODING>(encodeData[2]) = WE_SFLOAT;
+													std::get<E_FORMAT>(encodeData[2]) = EF_R32G32B32A32_SFLOAT;	
+												}
+
 												using QUANT_BUFFER = uint8_t[32]; //! for entire weights glTF vec4 entry
 												using ERROR_TYPE = float; // for each weight component
 												using ERROR_BUFFER = ERROR_TYPE[MAX_INFLUENCE_WEIGHTS_PER_VERTEX]; //! abs(decode(encode(weight)) - weight)
-												std::array<std::tuple<WEIGHT_ENCODING, E_FORMAT, QUANT_BUFFER, ERROR_BUFFER>, WE_COUNT> encodeData =
-												{
-													std::make_tuple(WE_UNORM8, EF_R8G8B8A8_UNORM, {}, {}),
-													std::make_tuple(WE_UNORM16, EF_R16G16B16A16_UNORM, {}, {}),
-													std::make_tuple(WE_SFLOAT, EF_R32G32B32A32_SFLOAT, {}, {})
-												};
+												std::array<std::tuple<WEIGHT_ENCODING, E_FORMAT, QUANT_BUFFER, ERROR_BUFFER>, WE_COUNT> encodeData;
 
 												struct BestWeightsFit
 												{
@@ -1056,7 +1065,7 @@ namespace nbl
 													quantize(packedWeightsStream, quantBuffer, requestQuantFormat);
 													core::vectorSIMDf quantsDecoded = decodeQuant(quantBuffer, requestQuantFormat);
 
-													for (uint16_t i = 0; i < QuantRequest::MAX_INFLUENCE_WEIGHTS_PER_VERTEX; ++i)
+													for (uint16_t i = 0; i < MAX_INFLUENCE_WEIGHTS_PER_VERTEX; ++i)
 													{
 														const auto& weightInput = packedWeightsStream.pointer[i];
 														const QuantRequest::ERROR_TYPE& errorComponent = errorBuffer[i] = core::abs(quantsDecoded.pointer[i] - weightInput);
