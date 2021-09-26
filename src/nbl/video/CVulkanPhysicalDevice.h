@@ -117,7 +117,6 @@ public:
         // requestDeviceExtension<VkPhysicalDeviceRayTracingPipelineFeaturesKHR>(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME, true, &rayTracingPipelineFeatures);
         // requestDeviceExtension<VkPhysicalDeviceRayQueryFeaturesKHR>(VK_KHR_RAY_QUERY_EXTENSION_NAME, true, &rayQueryFeatures);
 
-
         // Get physical device's memory properties
         {
             VkPhysicalDeviceMemoryProperties vk_physicalDeviceMemoryProperties;

@@ -50,8 +50,8 @@ int main()
 	constexpr uint32_t FRAMES_IN_FLIGHT = 2u;
 	// static_assert(FRAMES_IN_FLIGHT>FBO_COUNT);
 
-	const uint32_t requiredFeatureCount = 1u;
-	const video::IAPIConnection::E_FEATURE requiredFeatures[requiredFeatureCount] = { video::IAPIConnection::EF_SURFACE };
+	const uint32_t requiredFeatureCount = 2u;
+	const video::IAPIConnection::E_FEATURE requiredFeatures[requiredFeatureCount] = { video::IAPIConnection::EF_SURFACE, video::IAPIConnection::EF_SURFACE };
 	const uint32_t optionalFeatureCount = 1u;
 	const video::IAPIConnection::E_FEATURE optionalFeatures[optionalFeatureCount] = { video::IAPIConnection::EF_COUNT };
 

@@ -722,10 +722,11 @@ public:
 		if(api_type == EAT_VULKAN) 
 		{
 			// Todo(achal): Need to pipe this in from the user
-			const uint32_t requiredFeatureCount = 1u;
-			video::IAPIConnection::E_FEATURE requiredFeatures[requiredFeatureCount] = { video::IAPIConnection::EF_SURFACE };
+			const uint32_t requiredFeatureCount = 2u;
+			video::IAPIConnection::E_FEATURE requiredFeatures[requiredFeatureCount] = { video::IAPIConnection::EF_SURFACE, video::IAPIConnection::EF_SURFACE };
 			const uint32_t optionalFeatureCount = 1u;
 			video::IAPIConnection::E_FEATURE optionalFeatures[optionalFeatureCount] = { video::IAPIConnection::EF_COUNT };
+			// video::IAPIConnection::E_FEATURE optionalFeatures[optionalFeatureCount] = { video::IAPIConnection::EF_SURFACE };
 
 			auto _apiConnection = video::CVulkanConnection::create(core::smart_refctd_ptr(result.system), 0, app_name.data(), requiredFeatureCount, requiredFeatures, optionalFeatureCount, optionalFeatures, result.logger, true);
 			result.surface = video::CSurfaceVulkanWin32::create(core::smart_refctd_ptr(_apiConnection), core::smart_refctd_ptr<ui::IWindowWin32>(static_cast<ui::IWindowWin32*>(result.window.get())));
