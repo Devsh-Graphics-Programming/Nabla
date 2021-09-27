@@ -271,7 +271,11 @@ class IUtilities : public core::IReferenceCounted
                 const uint32_t alignment = 256u; // TODO: change this to features.nonCoherentAtomiSize
                 const uint32_t subSize = static_cast<uint32_t>(core::min<uint64_t>(core::alignDown(m_defaultUploadBuffer.get()->max_size(),alignment), bufferRange.size-uploadedSize));
                 const uint32_t paddedSize = core::alignUp(subSize,alignment);
-                m_defaultUploadBuffer.get()->multi_place(std::chrono::high_resolution_clock::now()+std::chrono::microseconds(500u), 1u, (const void* const*)&dataPtr, &localOffset, &paddedSize, &alignment);
+                // cannot use `multi_place` because of the extra padding size we could have added
+                m_defaultUploadBuffer.get()->multi_alloc(std::chrono::high_resolution_clock::now()+std::chrono::microseconds(500u),1u,&localOffset,&paddedSize,&alignment);
+                // copy only the unpadded part
+                if (localOffset!=video::StreamingTransientDataBufferMT<>::invalid_address)
+                    memcpy(reinterpret_cast<uint8_t*>(m_defaultUploadBuffer->getBufferPointer())+localOffset,dataPtr,subSize);
 
                 // keep trying again
                 if (localOffset == video::StreamingTransientDataBufferMT<>::invalid_address)
