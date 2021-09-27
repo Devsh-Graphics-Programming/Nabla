@@ -438,6 +438,7 @@ bool CMitsubaLoader::isALoadableFileFormat(system::IFile* _file, const system::l
 		if (offset > maxStringSize)
 			offset -= maxStringSize;
 
+		system::future<size_t> future;
 		_file->read(future, tempBuff, offset, stackSize);
 		future.get();
 		for (auto i=0u; i<sizeof(stringsToFind)/sizeof(const char*); i++)

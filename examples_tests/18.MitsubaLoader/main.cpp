@@ -94,7 +94,7 @@ vec3 nbl_computeLighting(inout nbl_glsl_AnisotropicViewSurfaceInteraction out_in
 		const float intensityScale = LIGHT_INTENSITY_SCALE;//ehh might want to render to hdr fbo and do tonemapping
 		nbl_glsl_LightSample _sample;
 		_sample.L = L*inversesqrt(d2);
-		color += nbl_bsdf_cos_eval(_sample,out_interaction)*l.intensity*intensityScale/d2;
+		color += nbl_bsdf_cos_eval(_sample,out_interaction,mat2(1.0))*l.intensity*intensityScale/d2;
 	}
 
 	return color+emissive;
@@ -107,7 +107,7 @@ void main()
 	mat2 dUV = mat2(dFdx(UV),dFdy(UV));
 
 	// "The sign of this computation is negated when the value of GL_CLIP_ORIGIN (the clip volume origin, set with glClipControl) is GL_UPPER_LEFT."
-	const bool front = bool((InstData.data[InstanceIndex].determinantSignBit^mix(~0u,0u,gl_FrontFacing!=PC.camTformDeterminant<0.0))&0x80000000u);
+	const bool front = bool(InstData.data[InstanceIndex].determinant<0.0);
 	precomp = nbl_glsl_MC_precomputeData(front);
 	material = nbl_glsl_MC_material_data_t_getOriented(InstData.data[InstanceIndex].material,precomp.frontface);
 #ifdef TEX_PREFETCH_STREAM
@@ -703,9 +703,9 @@ int main(int argc, char** argv)
 
 		auto cpuBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(random.size() * sizeof(uint32_t));
 		memcpy(cpuBuffer->getPointer(), random.data(), cpuBuffer->getSize());
-		auto gpuSSBOOffsetBufferPair = cpu2gpu.getGPUObjectsFromAssets(&cpuBuffer, &cpuBuffer + 1u, cpu2gpuParams)->begin()[0];
-		cpu2gpuParams.waitForCreationToComplete();
-		auto buffer = core::smart_refctd_ptr<video::IGPUBuffer>(gpuSSBOOffsetBufferPair->getBuffer());
+		//auto gpuSSBOOffsetBufferPair = cpu2gpu.getGPUObjectsFromAssets(&cpuBuffer, &cpuBuffer + 1u, cpu2gpuParams)->begin()[0];
+		//cpu2gpuParams.waitForCreationToComplete();
+		//auto buffer = core::smart_refctd_ptr<video::IGPUBuffer>(gpuSSBOOffsetBufferPair->getBuffer());
 
 		core::smart_refctd_ptr<ICPUImage> cpuImage = ICPUImage::create(std::move(imgParams));
 		cpuImage->setBufferAndRegions(std::move(cpuBuffer), regionArray);
@@ -914,7 +914,7 @@ int main(int argc, char** argv)
 		std::memcpy(viewParams.MVP, viewProjectionMatrix.pointer(), sizeof(core::matrix4SIMD));
 		std::memcpy(viewParams.MV, viewMatrix.pointer(), sizeof(core::matrix3x4SIMD));
 		commandBuffer->updateBuffer(cameraUBO.get(), 0ull, cameraUBO->getSize(), &viewParams) == false;
-		for (uint32_t i = 0u, mbIdx = 0; i < gpuMeshes->size(); i++, mbIdx++)
+		for (uint32_t i = 0u, mbIdx = 0; i < gpuMeshes->size(); i++)
 		{
 			auto& mesh = (*gpuMeshes)[i];
 
