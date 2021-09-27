@@ -124,26 +124,30 @@ public:
         {
             const auto depFeatures = IAPIConnection::getDependentFeatures(feature);
 
+            constexpr uint32_t MAX_VULKAN_NAME_COUNT_PER_FEATURE = 8u;  // each feature/extension can spawn multiple extension names (mostly platform-specific ones)
+            constexpr uint32_t MAX_FEATURE_COUNT = 1u << 9;
+            const char* vulkanNames[MAX_FEATURE_COUNT * MAX_VULKAN_NAME_COUNT_PER_FEATURE];
+            uint32_t vulkanNameCount = 0u;
             for (const auto& depFeature : depFeatures)
             {
-                constexpr uint32_t MAX_VULKAN_EXT_NAME_COUNT = 8u; // each feature/extension can spawn multiple extensions (mostly platform-specific ones)
-                uint32_t vulkanExtNameCount = 0u;
-                const char* vulkanExtNames[MAX_VULKAN_EXT_NAME_COUNT];
+                uint32_t count = 0u;
+                getVulkanExtensionNamesFromFeature(depFeature, count, vulkanNames + vulkanNameCount);
 
-                getVulkanExtensionNamesFromFeature(depFeature, vulkanExtNames, vulkanExtNameCount);
-                assert(vulkanExtNameCount <= MAX_VULKAN_EXT_NAME_COUNT);
-
-                for (uint32_t extIndex = 0u; extIndex < vulkanExtNameCount; ++extIndex)
+                for (uint32_t index = 0u; index < count; ++index)
                 {
-                    if (availableFeatureSet.find(vulkanExtNames[extIndex]) == availableFeatureSet.end())
+                    if (availableFeatureSet.find(vulkanNames[vulkanNameCount + index]) == availableFeatureSet.end())
                     {
-                        LOG(logger, "Failed to find instance extension: %s\n", system::ILogger::ELL_ERROR, vulkanExtNames[extIndex]);
+                        LOG(logger, "Failed to find instance extension: %s\n", system::ILogger::ELL_ERROR, vulkanNames[vulkanNameCount + index]);
                         return false;
                     }
                 }
-
-                featureSet.insert(vulkanExtNames, vulkanExtNames + vulkanExtNameCount);
+                vulkanNameCount += count;
             }
+            assert(vulkanNameCount <= MAX_FEATURE_COUNT * MAX_VULKAN_NAME_COUNT_PER_FEATURE);
+
+            featureSet.insert(vulkanNames, vulkanNames + vulkanNameCount);
+
+            return true;
         };
 
         FeatureSetType selectedFeatureSet;
@@ -289,7 +293,7 @@ public:
         return true;
     }
 
-    static inline void getVulkanExtensionNamesFromFeature(const IAPIConnection::E_FEATURE feature, const char** extNames, uint32_t& extNameCount)
+    static inline void getVulkanExtensionNamesFromFeature(const IAPIConnection::E_FEATURE feature, uint32_t& extNameCount, const char** extNames)
     {
         extNameCount = 0u;
 

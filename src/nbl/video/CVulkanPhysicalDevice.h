@@ -171,6 +171,62 @@ public:
 protected:
     core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice_impl(const ILogicalDevice::SCreationParams& params) override
     {
+        uint32_t count;
+        VkResult res = vkEnumerateDeviceExtensionProperties(m_vkPhysicalDevice, nullptr, &count, nullptr);
+        assert(VK_SUCCESS == res);
+        std::vector<VkExtensionProperties> vk_extensions;
+        vk_extensions.resize(count);
+        // Get Supported Extensions
+        res = vkEnumerateDeviceExtensionProperties(m_vkPhysicalDevice, nullptr, &count, vk_extensions.data());
+        assert(VK_SUCCESS == res);
+
+        // Guess this shouldn't be here
+        core::unordered_set<std::string> availableFeatureSet;
+        for (const auto& vk_extension : vk_extensions)
+            availableFeatureSet.insert(vk_extension.extensionName);
+
+        auto insertFeatureIfAvailable = [&availableFeatureSet](const ILogicalDevice::E_FEATURE feature, auto& featureSet) -> bool
+        {
+            constexpr uint32_t MAX_COUNT = 1 << 12u;
+            ILogicalDevice::E_FEATURE requiredFeatures[MAX_COUNT];
+            uint32_t requiredFeatureCount = 0u;
+            CVulkanLogicalDevice::getRequiredFeatures(feature, requiredFeatureCount, requiredFeatures);
+            assert(requiredFeatureCount <= MAX_COUNT);
+
+            const char* vulkanNames[MAX_COUNT] = {};
+            for (uint32_t i = 0u; i < requiredFeatureCount; ++i)
+            {
+                vulkanNames[i] = CVulkanLogicalDevice::getVulkanExtensionName(requiredFeatures[i]);
+                if (availableFeatureSet.find(vulkanNames[i]) == availableFeatureSet.end())
+                    return false;
+            }
+
+            featureSet.insert(vulkanNames, vulkanNames + requiredFeatureCount);
+            return true;
+        };
+
+        core::unordered_set<core::string> selectedFeatureSet;
+        for (uint32_t i = 0u; i < params.requiredFeatureCount; ++i)
+        {
+            if (!insertFeatureIfAvailable(params.requiredFeatures[i], selectedFeatureSet))
+                return nullptr;
+        }
+
+        for (uint32_t i = 0u; i < params.optionalFeatureCount; ++i)
+        {
+            if (!insertFeatureIfAvailable(params.optionalFeatures[i], selectedFeatureSet))
+                continue;
+        }
+
+        core::vector<const char*> selectedFeatures(selectedFeatureSet.size());
+        {
+            uint32_t i = 0u;
+            for (const auto& feature : selectedFeatureSet)
+                selectedFeatures[i++] = feature.c_str();
+        }
+
+
+
         // Filter Requested Extensions based on Availability and constructs chain for features
         std::vector<std::string> filteredExtensions;
         void* firstFeatureInChain;

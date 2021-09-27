@@ -33,6 +33,20 @@ class IPhysicalDevice;
 class ILogicalDevice : public core::IReferenceCounted
 {
     public:
+        enum E_FEATURE
+        {
+            EF_SWAPCHAIN = 0,
+            EF_DEFERRED_HOST_OPERATIONS,
+            EF_BUFFER_DEVICE_ADDRESS,
+            EF_DESCRIPTOR_INDEXING,
+            EF_ACCELERATION_STRUCTURE,
+            EF_SHADER_FLOAT_CONTROLS,
+            EF_SPIRV_1_4,
+            EF_RAY_TRACING_PIPELINE,
+            EF_RAY_QUERY,
+            EF_COUNT
+        };
+
         struct SQueueCreationParams
         {
             IGPUQueue::E_CREATE_FLAGS flags;
@@ -44,6 +58,10 @@ class ILogicalDevice : public core::IReferenceCounted
         {
             uint32_t queueParamsCount;
             const SQueueCreationParams* queueParams;
+            uint32_t requiredFeatureCount;
+            E_FEATURE* requiredFeatures;
+            uint32_t optionalFeatureCount;
+            E_FEATURE* optionalFeatures;
             // ???:
             //uint32_t enabledExtensionCount;
             //const char* const* ppEnabledExtensionNames;
