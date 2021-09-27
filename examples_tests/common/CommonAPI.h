@@ -396,7 +396,7 @@ public:
 		using namespace nbl::video;
 
 		result.system = createSystem();
-#ifdef _NBL_PLATFORM_WINDOWS
+#ifdef _NBL_PLATFORM_WINDOWS_
 		result.logger = core::make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>(); // we should let user choose it?
 #elif defined(_NBL_PLATFORM_ANDROID_)
 		result.logger = core::make_smart_refctd_ptr<system::CStdoutLoggerAndroid>(); // we should let user choose it?
@@ -470,7 +470,7 @@ public:
 		auto windowManager = core::make_smart_refctd_ptr<nbl::ui::CWindowManagerWin32>(); // should we store it in result?
 #endif
 		result.system = createSystem();
-#ifdef _NBL_PLATFORM_WINDOWS
+#ifdef _NBL_PLATFORM_WINDOWS_
 		result.logger = core::make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>(); // we should let user choose it?
 #elif defined(_NBL_PLATFORM_ANDROID_)
 		result.logger = core::make_smart_refctd_ptr<system::CStdoutLoggerAndroid>(); // we should let user choose it?
@@ -496,7 +496,7 @@ public:
 		assert(api_type == video::EAT_OPENGL); // TODO: more choice OR EVEN RANDOM CHOICE!
 		auto _apiConnection = video::COpenGLConnection::create(nbl::core::smart_refctd_ptr(result.system), 0, app_name.data(), video::COpenGLDebugCallback(core::smart_refctd_ptr(result.logger)));
 		
-#ifdef _NBL_PLATFORM_WINDOWS
+#ifdef _NBL_PLATFORM_WINDOWS_
 		result.surface = video::CSurfaceGLWin32::create(core::smart_refctd_ptr(_apiConnection),core::smart_refctd_ptr<ui::IWindowWin32>(static_cast<ui::IWindowWin32*>(result.window.get())));
 #elif defined(_NBL_PLATFORM_ANDROID_)
 		result.surface = video::CSurfaceGLAndroid::create(core::smart_refctd_ptr(_apiConnection),core::smart_refctd_ptr<ui::IWindowAndroid>(static_cast<ui::IWindowAndroid*>(result.window.get())));
@@ -504,7 +504,6 @@ public:
 		result.apiConnection = _apiConnection;
 
 		auto gpus = result.apiConnection->getPhysicalDevices();
-		assert(!gpus.empty());
 		auto gpu = gpus.begin()[0];
 
 		auto getFamilyIndex = [&]() -> int
