@@ -34,17 +34,21 @@ class COpenGLImage final : public IGPUImage, public IDriverMemoryAllocation
 				COpenGLExtensionHandler::textureLeaker.registerObj(this);
 			#endif // OPENGL_LEAK_DEBUG
 			internalFormat = getSizedOpenGLFormatFromOurFormat(gl, params.format);
+
 			GLsizei samples = params.samples;
 			switch (params.type) // TODO what about multisample targets?
 			{
 				case IGPUImage::ET_1D:
-					target = gl->TEXTURE_1D_ARRAY;
+					target = GL_TEXTURE_1D_ARRAY;
 					gl->extGlCreateTextures(target, 1, &name);
 					gl->extGlTextureStorage2D(	name, target, params.mipLevels, internalFormat,
 																	params.extent.width, params.arrayLayers);
 					break;
 				case IGPUImage::ET_2D:
-					target = samples>1 ? GL_TEXTURE_2D_MULTISAMPLE_ARRAY : GL_TEXTURE_2D_ARRAY;
+					if (params.flags & ECF_CUBE_COMPATIBLE_BIT)
+						target = GL_TEXTURE_CUBE_MAP_ARRAY;
+					else
+						target = samples>1 ? GL_TEXTURE_2D_MULTISAMPLE_ARRAY : GL_TEXTURE_2D_ARRAY;
 					gl->extGlCreateTextures(target, 1, &name);
 					if (samples == 1)
 						gl->extGlTextureStorage3D(name, target, params.mipLevels, internalFormat, params.extent.width, params.extent.height, params.arrayLayers);
