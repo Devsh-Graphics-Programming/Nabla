@@ -121,7 +121,8 @@ int main()
 	{
 		asset::IAssetLoader::SAssetLoadParams loadingParams;
 
-		meshes_bundle = assetManager->getAsset("../../../3rdparty/glTFSampleModels/2.0/Avocado/glTF/Avocado.gltf", loadingParams);
+		//meshes_bundle = assetManager->getAsset("../../../3rdparty/glTFSampleModels/2.0/Avocado/glTF/Avocado.gltf", loadingParams);
+		meshes_bundle = assetManager->getAsset("../../../3rdparty/glTFSampleModels/2.0/SimpleSkin/glTF/SimpleSkin.gltf", loadingParams);
 		auto contents = meshes_bundle.getContents();
 		{
 			bool status = !contents.empty();

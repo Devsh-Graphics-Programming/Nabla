@@ -658,6 +658,7 @@ namespace nbl
 							E_FORMAT format;
 							SGLTF::SGLTFAccessor* accessor;
 							asset::SBufferRange<asset::ICPUBuffer> bufferRange;
+							void* data; //! begin data with offset according to buffer range
 						};
 						
 						std::vector<OverrideReference> overrideJointsReference;
@@ -726,6 +727,9 @@ namespace nbl
 								overrideRef.bufferRange.buffer = core::smart_refctd_ptr(cpuBuffer);
 								overrideRef.bufferRange.offset = globalOffset;
 								overrideRef.bufferRange.size = overrideRef.accessor->count.value() * asset::getTexelOrBlockBytesize(overrideRef.format);
+
+								auto* bufferData = reinterpret_cast<uint8_t*>(overrideRef.bufferRange.buffer->getPointer());
+								overrideRef.data = bufferData + overrideRef.bufferRange.offset;
 							}
 						}
 
@@ -794,6 +798,9 @@ namespace nbl
 								overrideRef.bufferRange.buffer = core::smart_refctd_ptr(cpuBuffer);
 								overrideRef.bufferRange.offset = globalOffset;
 								overrideRef.bufferRange.size = overrideRef.accessor->count.value() * asset::getTexelOrBlockBytesize(overrideRef.format);
+
+								auto* bufferData = reinterpret_cast<uint8_t*>(overrideRef.bufferRange.buffer->getPointer());
+								overrideRef.data = bufferData + overrideRef.bufferRange.offset;
 							}
 						}
 
@@ -865,39 +872,59 @@ namespace nbl
 										const size_t commonVJointsOffset = vAttributeIx * vJointsTexelByteSize;
 										const size_t commonVWeightsOffset = vAttributeIx * vWeightsTexelByteSize;
 
-										struct PerVertexData
+										struct VertexInfluenceData
 										{
-											JointComponentT joint;
-											WeightCompomentT weight;
+											struct ComponentData
+											{
+												JointComponentT joint;
+												WeightCompomentT weight;
+											};
+
+											std::array<ComponentData, 4u> perVertexComponentsData;
 										};
 
-										std::vector<PerVertexData> perVertexDataContainer;
+										std::vector<VertexInfluenceData> vertexInfluenceDataContainer;
 
 										for (uint16_t i = 0; i < overrideReferencesCount; ++i)
 										{
-											auto* cpuJointsXVertexBuffer = reinterpret_cast<uint8_t*>(overrideJointsReference[i].bufferRange.buffer->getPointer());
-											auto* jointsXVertexBufferBegin = cpuJointsXVertexBuffer + overrideJointsReference[i].bufferRange.offset;
-											 
-											auto* cpuWeightsXVertexBuffer = reinterpret_cast<uint8_t*>(overrideWeightsReference[i].bufferRange.buffer->getPointer());
-											auto* weightsXVertexBufferBegin = cpuWeightsXVertexBuffer + overrideWeightsReference[i].bufferRange.offset;
+											VertexInfluenceData& vertexInfluenceData = vertexInfluenceDataContainer.emplace_back();
 
-											auto* vJointsComponentDataRaw = jointsXVertexBufferBegin + commonVJointsOffset;
-											auto* vWeightsComponentDataRaw = weightsXVertexBufferBegin + commonVWeightsOffset;
+											auto* vJointsComponentDataRaw = reinterpret_cast<uint8_t*>(overrideJointsReference[i].data) + commonVJointsOffset;
+											auto* vWeightsComponentDataRaw = reinterpret_cast<uint8_t*>(overrideWeightsReference[i].data) + commonVWeightsOffset;
 
-											for (uint16_t i = 0; i < 4u; ++i) //! iterate over single components
+											for (uint16_t i = 0; i < vertexInfluenceData.perVertexComponentsData.size(); ++i) //! iterate over single components
 											{
-												auto& data = perVertexDataContainer.emplace_back();
+												VertexInfluenceData::ComponentData& skinComponent = vertexInfluenceData.perVertexComponentsData[i];
 
 												JointComponentT* vJoint = reinterpret_cast<JointComponentT*>(vJointsComponentDataRaw) + i;
 												WeightCompomentT* vWeight = reinterpret_cast<WeightCompomentT*>(vWeightsComponentDataRaw) + i;
 
-												data.joint = *vJoint;
-												data.weight = *vWeight;
+												skinComponent.joint = *vJoint;
+												skinComponent.weight = *vWeight;
 											}
 										}
 
-										//! keep only biggest influencers
-										std::sort(std::begin(perVertexDataContainer), std::end(perVertexDataContainer), [&](const PerVertexData& lhs, const PerVertexData& rhs) { return lhs.weight < rhs.weight; });
+										std::vector<VertexInfluenceData::ComponentData> skinComponentUnlimitedStream;
+										{
+											for(const auto& vertexInfluenceData : vertexInfluenceDataContainer)
+												for (const auto& skinComponent : vertexInfluenceData.perVertexComponentsData)
+												{
+													auto& data = skinComponentUnlimitedStream.emplace_back();
+
+													data.joint = skinComponent.joint;
+													data.weight = skinComponent.weight;
+												}
+										}
+
+										//! sort, cache and keep only biggest influencers
+										std::sort(std::begin(skinComponentUnlimitedStream), std::end(skinComponentUnlimitedStream), [&](const VertexInfluenceData::ComponentData& lhs, const VertexInfluenceData::ComponentData& rhs) { return lhs.weight < rhs.weight; });
+										{
+											auto iteratorEnd = skinComponentUnlimitedStream.begin() + (vertexInfluenceDataContainer.size() - 1u) * 4u;
+											if (skinComponentUnlimitedStream.begin() != iteratorEnd)
+												skinComponentUnlimitedStream.erase(skinComponentUnlimitedStream.begin(), iteratorEnd);
+
+											std::sort(std::begin(skinComponentUnlimitedStream), std::end(skinComponentUnlimitedStream), [&](const VertexInfluenceData::ComponentData& lhs, const VertexInfluenceData::ComponentData& rhs) { return lhs.joint < rhs.joint; });
+										}
 
 										auto* vOverrideJointsData = reinterpret_cast<uint8_t*>(vOverrideJointsBuffer->getPointer()) + commonVJointsOffset;
 										auto* vOverrideWeightsData = reinterpret_cast<uint8_t*>(vOverrideWeightsBuffer->getPointer()) + commonVWeightsOffset;
@@ -905,15 +932,15 @@ namespace nbl
 										uint32_t validWeights = {};
 										for (uint16_t i = 0; i < 4u; ++i)
 										{
-											const PerVertexData& perVertexData = perVertexDataContainer[i];
+											const auto& skinComponent = skinComponentUnlimitedStream[i];
 
 											JointComponentT* vOverrideJoint = reinterpret_cast<JointComponentT*>(vOverrideJointsData) + i;
 											WeightCompomentT* vOverrideWeight = reinterpret_cast<WeightCompomentT*>(vOverrideWeightsData) + i;
 
-											*vOverrideJoint = perVertexData.joint;
-											*vOverrideWeight = perVertexData.weight;
+											*vOverrideJoint = skinComponent.joint;
+											*vOverrideWeight = skinComponent.weight;
 
-											if (perVertexData.weight != 0)
+											if (*vOverrideWeight != 0)
 												++validWeights;
 										}
 
@@ -1021,14 +1048,8 @@ namespace nbl
 										
 											for (size_t vAttributeIx = 0; vAttributeIx < vCommonOverrideAttributesCount; ++vAttributeIx)
 											{
-												const size_t unpackedVJointsOffset = vAttributeIx * vJointsTexelByteSize;
-												const size_t unpackedVWeightsOffset = vAttributeIx * vWeightsTexelByteSize;
-
 												auto* unpackedJointsData = reinterpret_cast<JointComponentT*>(reinterpret_cast<uint8_t*>(vOverrideJointsBuffer->getPointer()) + vAttributeIx * vJointsTexelByteSize);
 												auto* unpackedWeightsData = reinterpret_cast<WeightCompomentT*>(reinterpret_cast<uint8_t*>(vOverrideWeightsBuffer->getPointer()) + vAttributeIx * vWeightsTexelByteSize);
-
-												const size_t packedVJointsOffset = vAttributeIx * repackJointsTexelByteSize;
-												const size_t packedVWeightsOffset = vAttributeIx * repackWeightsTexelByteSize;
 
 												auto* packedJointsData = reinterpret_cast<JointComponentT*>(reinterpret_cast<uint8_t*>(vOverrideRepackedJointsBuffer->getPointer()) + vAttributeIx * repackJointsTexelByteSize);
 												auto* packedWeightsData = reinterpret_cast<WeightCompomentT*>(reinterpret_cast<uint8_t*>(vOverrideRepackedWeightsBuffer->getPointer()) + vAttributeIx * repackWeightsTexelByteSize);
@@ -1047,10 +1068,16 @@ namespace nbl
 
 												core::vectorSIMDf packedWeightsStream; //! always go with full vectorSIMDf stream, weights being not used are leaved with default vector's compoment value and are not considered
 
-												for (uint16_t i = 0; i < maxJointsPerVertex; ++i) //! weights packing
+												for (uint16_t i = 0, vxSkinComponentOffset = 0; i < 4u; ++i) //! packing
 												{
-													packedJointsData[i] = unpackedJointsData[i];
-													packedWeightsStream.pointer[i] = packedWeightsData[i] = unpackedWeightsData[i];
+													if (unpackedWeightsData[i])
+													{
+														packedJointsData[vxSkinComponentOffset] = unpackedJointsData[i];
+														packedWeightsStream.pointer[i] = packedWeightsData[vxSkinComponentOffset] = unpackedWeightsData[i];
+
+														++vxSkinComponentOffset;
+														assert(vxSkinComponentOffset <= maxJointsPerVertex);
+													}
 												}
 
 												for(uint16_t i = 0; i < quantRequest.encodeData.size(); ++i) //! quantization test
@@ -1067,15 +1094,20 @@ namespace nbl
 													for (uint16_t i = 0; i < MAX_INFLUENCE_WEIGHTS_PER_VERTEX; ++i)
 													{
 														const auto& weightInput = packedWeightsStream.pointer[i];
-														const QuantRequest::ERROR_TYPE& errorComponent = errorBuffer[i] = core::abs(quantsDecoded.pointer[i] - weightInput);
-															
-														if(errorComponent)
-															if (errorComponent < quantRequest.bestWeightsFit.smallestError)
+														if (weightInput)
+														{
+															const QuantRequest::ERROR_TYPE& errorComponent = errorBuffer[i] = core::abs(quantsDecoded.pointer[i] - weightInput);
+
+															if (errorComponent)
 															{
-																//! update request quantization format
-																quantRequest.bestWeightsFit.smallestError = errorComponent;
-																quantRequest.bestWeightsFit.quantizeEncoding = requestWeightEncoding;
+																if (errorComponent < quantRequest.bestWeightsFit.smallestError)
+																{
+																	//! update request quantization format
+																	quantRequest.bestWeightsFit.smallestError = errorComponent;
+																	quantRequest.bestWeightsFit.quantizeEncoding = requestWeightEncoding;
+																}
 															}
+														}
 													}
 												}
 											}
@@ -1173,7 +1205,7 @@ namespace nbl
 
 														for (uint16_t i = 0; i < maxJointsPerVertex; ++i)
 															packedWeightsStream.pointer[i] = packedWeightsData[i];
-
+														
 														ICPUMeshBuffer::setAttribute(packedWeightsStream, quantizedWeightsData, weightsQuantizeFormat); //! quantize
 													}
 												}
@@ -1255,8 +1287,9 @@ namespace nbl
 									auto findFreeBinding = [&]() -> uint32_t
 									{
 										for (uint16_t i = 0; i < asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; ++i)
-											if (!vertexInputParams.enabledBindingFlags & core::createBitmask({ i }))
+											if (!(vertexInputParams.enabledBindingFlags & core::createBitmask({ i })))
 												return i;
+									
 										return 0xdeadbeef;
 									};
 
@@ -1976,7 +2009,6 @@ namespace nbl
 								if (path.error() != simdjson::error_code::NO_SUCH_FIELD)
 								{
 									const std::string gltfPath = path.get_string().value().data();
-									bool status = true;
 
 									if (gltfPath == "transaltion")
 										gltfChannel.target.path = SGLTF::SGLTFAnimation::SGLTFChannel::SGLTFP_TRANSLATION;
@@ -1988,8 +2020,8 @@ namespace nbl
 										gltfChannel.target.path = SGLTF::SGLTFAnimation::SGLTFChannel::SGLTFP_WEIGHTS;
 									else
 									{
-										status = false;
-										assert(status);
+										context.loadContext.params.logger.log("GLTF: UNSUPPORTED TARGET PATH!", system::ILogger::ELL_WARNING);
+										return false;
 									}
 								}
 							}
@@ -2016,18 +2048,17 @@ namespace nbl
 							if (gltfInterpolation.error() != simdjson::error_code::NO_SUCH_FIELD)
 							{
 								const std::string interpolation = gltfInterpolation.get_string().value().data();
-								bool status = true;
 
 								if (interpolation == "LINEAR")
 									gltfSampler.interpolation = SGLTF::SGLTFAnimation::SGLTFSampler::SGLTFI_LINEAR;
-								if (interpolation == "STEP")
+								else if (interpolation == "STEP")
 									gltfSampler.interpolation = SGLTF::SGLTFAnimation::SGLTFSampler::SGLTFI_STEP;
-								if (interpolation == "CUBICSPLINE")
+								else if (interpolation == "CUBICSPLINE")
 									gltfSampler.interpolation = SGLTF::SGLTFAnimation::SGLTFSampler::SGLTFI_CUBICSPLINE;
 								else
 								{
-									status = false;
-									assert(status);
+									context.loadContext.params.logger.log("GLTF: UNSUPPORTED INTERPOLATION!", system::ILogger::ELL_WARNING);
+									return false;
 								}
 							}
 
