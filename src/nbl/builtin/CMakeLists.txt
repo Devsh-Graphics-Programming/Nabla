@@ -165,5 +165,9 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/ext/MitsubaLoader/instance_data_struct.glsl"
   "nbl/builtin/glsl/ext/MitsubaLoader/instance_data_descriptor.glsl"
   "nbl/builtin/glsl/ext/MitsubaLoader/material_compiler_compatibility_impl.glsl"
+  # OIT
+  "nbl/builtin/glsl/ext/OIT/oit.glsl"
+  "nbl/builtin/glsl/ext/OIT/insert_node.glsl"
+  "nbl/builtin/glsl/ext/OIT/resolve.frag"
 PARENT_SCOPE)
 
