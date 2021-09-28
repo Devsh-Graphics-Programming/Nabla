@@ -99,6 +99,7 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/sampling/spherical_triangle.glsl"
   # global exclusive scan
   "nbl/builtin/glsl/scan/default.comp"
+  "nbl/builtin/glsl/scan/default_scheduler.glsl"
   "nbl/builtin/glsl/scan/parameters_struct.glsl"
   # scene
   "nbl/builtin/glsl/scene/animation.glsl"

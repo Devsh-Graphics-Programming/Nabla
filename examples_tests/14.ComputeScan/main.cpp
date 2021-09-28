@@ -67,14 +67,14 @@ int main()
 	auto scanner = utilities->getDefaultScanner();
 	auto scan_pipeline = scanner->getDefaultPipeline(scanType,CScanner::EDT_UINT,CScanner::EO_ADD);
 
-	CScanner::Parameters scan_push_constants;
+	CScanner::DefaultPushConstants scan_push_constants;
 	CScanner::DispatchInfo scan_dispatch_info;
 	scanner->buildParameters(elementCount,scan_push_constants,scan_dispatch_info);
 	
 	SBufferRange<IGPUBuffer> scratch_gpu_range;
 	{
 		scratch_gpu_range.offset = 0u;
-		scratch_gpu_range.size = scan_push_constants.getScratchSize();
+		scratch_gpu_range.size = scan_push_constants.scanParams.getScratchSize();
 		IGPUBuffer::SCreationParams params = {};
 		params.usage = IGPUBuffer::EUF_STORAGE_BUFFER_BIT;
 		scratch_gpu_range.buffer = logicalDevice->createDeviceLocalGPUBufferOnDedMem(params,scratch_gpu_range.size);
