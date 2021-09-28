@@ -7,8 +7,9 @@ namespace nbl::video
 
 CVulkanMemoryAllocation::~CVulkanMemoryAllocation()
 {
-    VkDevice device = static_cast<const CVulkanLogicalDevice*>(m_originDevice)->getInternalObject();
-    vkFreeMemory(device, m_deviceMemoryHandle, nullptr);
+    const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(m_originDevice);
+    auto* vk = vulkanDevice->getFunctionTable();
+    vk->vk.vkFreeMemory(vulkanDevice->getInternalObject(), m_deviceMemoryHandle, nullptr);
 }
 
 }

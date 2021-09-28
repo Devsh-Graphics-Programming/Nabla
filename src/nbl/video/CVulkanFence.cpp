@@ -7,15 +7,9 @@ namespace nbl::video
 
 CVulkanFence::~CVulkanFence()
 {
-    const auto originDevice = getOriginDevice();
-
-    if (originDevice->getAPIType() == EAT_VULKAN)
-    {
-        // auto* vk = m_vkdev->getFunctionTable();
-        VkDevice vk_device = static_cast<const CVulkanLogicalDevice*>(originDevice)->getInternalObject();
-        // vk->vk.vkDestroyFence(vkdev, m_fence, nullptr);
-        vkDestroyFence(vk_device, m_fence, nullptr);
-    }
+    const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
+    auto* vk = vulkanDevice->getFunctionTable();
+    vk->vk.vkDestroyFence(vulkanDevice->getInternalObject(), m_fence, nullptr);
 }
 
 }

@@ -100,6 +100,13 @@ public:
         VkMemoryHeap    memoryHeaps[VK_MAX_MEMORY_HEAPS];
     };
 
+    struct SFormatProperties
+    {
+        core::bitflag<asset::E_FORMAT_FEATURE> linearTilingFeatures;
+        core::bitflag<asset::E_FORMAT_FEATURE> optimalTilingFeatures;
+        core::bitflag<asset::E_FORMAT_FEATURE> bufferFeatures;
+    };
+
     enum E_QUEUE_FLAGS : uint32_t
     {
         EQF_GRAPHICS_BIT = 0x01,
@@ -146,13 +153,14 @@ public:
 
     virtual E_API_TYPE getAPIType() const = 0;
 
+    virtual SFormatProperties getFormatProperties(asset::E_FORMAT format) const = 0;
+
 protected:
     IPhysicalDevice(core::smart_refctd_ptr<system::ISystem>&& s, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc);
 
     virtual core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice_impl(const ILogicalDevice::SCreationParams& params) = 0;
 
     bool validateLogicalDeviceCreation(const ILogicalDevice::SCreationParams& params) const;
-
 
     core::smart_refctd_ptr<system::ISystem> m_system;
     core::smart_refctd_ptr<asset::IGLSLCompiler> m_GLSLCompiler;

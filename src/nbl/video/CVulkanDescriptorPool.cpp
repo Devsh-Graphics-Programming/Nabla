@@ -7,12 +7,9 @@ namespace nbl::video
 
 CVulkanDescriptorPool::~CVulkanDescriptorPool()
 {
-    const auto originDevice = getOriginDevice();
-    if (originDevice->getAPIType() == EAT_VULKAN)
-    {
-        VkDevice device = static_cast<const CVulkanLogicalDevice*>(originDevice)->getInternalObject();
-        vkDestroyDescriptorPool(device, m_descriptorPool, nullptr);
-    }
+    const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
+    auto* vk = vulkanDevice->getFunctionTable();
+    vk->vk.vkDestroyDescriptorPool(vulkanDevice->getInternalObject(), m_descriptorPool, nullptr);
 }
 
 }

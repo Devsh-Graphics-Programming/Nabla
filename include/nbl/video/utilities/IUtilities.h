@@ -77,8 +77,17 @@ class IUtilities : public core::IReferenceCounted
         //! Remember to ensure a memory dependency between the command recorded here and any users (so fence wait, semaphore when submitting, pipeline barrier or event)
         inline core::smart_refctd_ptr<IGPUImage> createFilledDeviceLocalGPUImageOnDedMem(IGPUCommandBuffer* cmdbuf, IGPUImage::SCreationParams&& params, const IGPUBuffer* srcBuffer, uint32_t regionCount, const IGPUImage::SBufferCopy* pRegions)
         {
-            // Todo(achal): 
-            // dstImage's format should support VK_FORMAT_FEATURE_TRANSFER_DST_BIT
+            // This API check is temporary (or not?) since getFormatProperties is not
+            // yet implemented on OpenGL
+            if (srcBuffer->getAPIType() == EAT_VULKAN)
+            {
+                const auto reqFormatFeature = asset::EFF_TRANSFER_DST_BIT;
+                const auto& formatProps = srcBuffer->getOriginDevice()->getPhysicalDevice()->getFormatProperties(params.format);
+                if ((params.tiling == asset::IImage::ET_OPTIMAL) && (formatProps.optimalTilingFeatures & reqFormatFeature).value == 0)
+                    return nullptr;
+                if ((params.tiling == asset::IImage::ET_LINEAR) && (formatProps.linearTilingFeatures & reqFormatFeature).value == 0)
+                    return nullptr;
+            }
 
             const auto finalLayout = params.initialLayout;
 
@@ -166,8 +175,29 @@ class IUtilities : public core::IReferenceCounted
         //! Remember to ensure a memory dependency between the command recorded here and any users (so fence wait, semaphore when submitting, pipeline barrier or event)
         inline core::smart_refctd_ptr<IGPUImage> createFilledDeviceLocalGPUImageOnDedMem(IGPUCommandBuffer* cmdbuf, IGPUImage::SCreationParams&& params, const IGPUImage* srcImage, uint32_t regionCount, const IGPUImage::SImageCopy* pRegions)
         {
-            // Todo(achal): srcImage's format should support VK_FORMAT_FEATURE_TRANSFER_SRC_BIT,
-            // dstImage's format should support VK_FORMAT_FEATURE_TRANSFER_DST_BIT
+            // This API check is temporary (or not?) since getFormatProperties is not
+            // yet implemented on OpenGL
+            if (srcImage->getAPIType() == EAT_VULKAN)
+            {
+                const auto* physicalDevice = srcImage->getOriginDevice()->getPhysicalDevice();
+                const auto validateFormatFeature = [&params, physicalDevice](const auto format, const auto reqFormatFeature) -> bool
+                {
+                    const auto& formatProps = physicalDevice->getFormatProperties(params.format);
+
+                    if ((params.tiling == asset::IImage::ET_OPTIMAL) && (formatProps.optimalTilingFeatures & reqFormatFeature).value == 0)
+                        return false;
+                    if ((params.tiling == asset::IImage::ET_LINEAR) && (formatProps.linearTilingFeatures & reqFormatFeature).value == 0)
+                        return false;
+
+                    return true;
+                };
+
+                if (!validateFormatFeature(srcImage->getCreationParameters().format, asset::EFF_TRANSFER_SRC_BIT))
+                    return nullptr;
+
+                if (!validateFormatFeature(params.format, asset::EFF_TRANSFER_DST_BIT))
+                    return nullptr;
+            }
 
             const auto finalLayout = params.initialLayout;
 

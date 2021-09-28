@@ -476,6 +476,12 @@ public:
 
 	bool isSwapchainSupported() const override { return true; }
 
+	SFormatProperties getFormatProperties(asset::E_FORMAT format) const override
+	{
+		_NBL_TODO();
+		return {};
+	}
+
 protected:
 	virtual ~IOpenGL_PhysicalDeviceBase()
 	{

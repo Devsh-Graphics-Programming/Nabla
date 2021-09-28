@@ -373,7 +373,7 @@ public:
 
 		for (size_t i = 0ull; i < gpus.size(); ++i)
 		{
-			auto & extractedInfo = extractedInfos[i];
+			auto& extractedInfo = extractedInfos[i];
 			extractedInfo = {};
 			auto gpu = gpus.begin()[i];
 
@@ -595,9 +595,11 @@ public:
 
 		if(api_type == EAT_VULKAN) 
 		{
-			const uint32_t requiredExtensionCount = 1u;
-			video::IAPIConnection::E_EXTENSION requiredExtensions[requiredExtensionCount] = { video::IAPIConnection::E_SURFACE };
-			result.apiConnection = video::CVulkanConnection::create(core::smart_refctd_ptr(result.system), 0, app_name.data(), requiredExtensionCount, requiredExtensions, result.logger, true);
+			const uint32_t requiredFeatureCount = 1u;
+			video::IAPIConnection::E_FEATURE requiredFeatures[requiredFeatureCount] = { video::IAPIConnection::EF_SURFACE };
+			const uint32_t optionalFeatureCount = 1u;
+			video::IAPIConnection::E_FEATURE optionalFeatures[optionalFeatureCount] = { video::IAPIConnection::EF_COUNT };
+			result.apiConnection = video::CVulkanConnection::create(core::smart_refctd_ptr(result.system), 0, app_name.data(), requiredFeatureCount, requiredFeatures, optionalFeatureCount, optionalFeatures, result.logger, true);
 		}
 		else if(api_type == EAT_OPENGL)
 		{
@@ -685,7 +687,13 @@ public:
 	}
 
 	template<uint32_t window_width, uint32_t window_height, uint32_t sc_image_count, class EventCallback = CommonAPIEventCallback>
-	static InitOutput<sc_image_count> Init(nbl::video::E_API_TYPE api_type, const std::string_view app_name, nbl::asset::E_FORMAT depthFormat = nbl::asset::EF_UNKNOWN, const bool graphicsQueueEnable = true)
+	static InitOutput<sc_image_count> Init(
+		nbl::video::E_API_TYPE api_type,
+		const std::string_view app_name,
+		nbl::asset::IImage::E_USAGE_FLAGS swapchainImageUsage,
+		nbl::video::ISurface::SFormat surfaceFormat = nbl::video::ISurface::SFormat(nbl::asset::EF_UNKNOWN, nbl::asset::ECP_COUNT, nbl::asset::EOTF_UNKNOWN),
+		nbl::asset::E_FORMAT depthFormat = nbl::asset::EF_UNKNOWN,
+		const bool graphicsQueueEnable = true)
 	{
 		using namespace nbl;
 		using namespace nbl::video;
@@ -696,8 +704,8 @@ public:
 		result.system = createSystem();
 		auto logLevelMask = core::bitflag(system::ILogger::ELL_DEBUG) | system::ILogger::ELL_PERFORMANCE | system::ILogger::ELL_WARNING | system::ILogger::ELL_ERROR;
 		result.logger = core::make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>(logLevelMask); // we should let user choose it?
-		result.inputSystem = make_smart_refctd_ptr<InputSystem>(system::logger_opt_smart_ptr(result.logger));
-		result.windowCb = nbl::core::make_smart_refctd_ptr<EventCallback>(core::smart_refctd_ptr(result.inputSystem), system::logger_opt_smart_ptr(result.logger));
+		result.inputSystem = core::make_smart_refctd_ptr<InputSystem>(system::logger_opt_smart_ptr(result.logger));
+		result.windowCb = core::make_smart_refctd_ptr<EventCallback>(core::smart_refctd_ptr(result.inputSystem), system::logger_opt_smart_ptr(result.logger));
 
 		nbl::ui::IWindow::SCreationParams windowsCreationParams;
 		windowsCreationParams.width = window_width;
@@ -713,9 +721,14 @@ public:
 
 		if(api_type == EAT_VULKAN) 
 		{
-			const uint32_t requiredExtensionCount = 1u;
-			video::IAPIConnection::E_EXTENSION requiredExtensions[requiredExtensionCount] = { video::IAPIConnection::E_SURFACE };
-			auto _apiConnection = video::CVulkanConnection::create(core::smart_refctd_ptr(result.system), 0, app_name.data(), requiredExtensionCount, requiredExtensions, result.logger, true);
+			// Todo(achal): Need to pipe this in from the user
+			const uint32_t requiredFeatureCount = 2u;
+			video::IAPIConnection::E_FEATURE requiredFeatures[requiredFeatureCount] = { video::IAPIConnection::EF_SURFACE, video::IAPIConnection::EF_SURFACE };
+			const uint32_t optionalFeatureCount = 1u;
+			video::IAPIConnection::E_FEATURE optionalFeatures[optionalFeatureCount] = { video::IAPIConnection::EF_COUNT };
+			// video::IAPIConnection::E_FEATURE optionalFeatures[optionalFeatureCount] = { video::IAPIConnection::EF_SURFACE };
+
+			auto _apiConnection = video::CVulkanConnection::create(core::smart_refctd_ptr(result.system), 0, app_name.data(), requiredFeatureCount, requiredFeatures, optionalFeatureCount, optionalFeatures, result.logger, true);
 			result.surface = video::CSurfaceVulkanWin32::create(core::smart_refctd_ptr(_apiConnection), core::smart_refctd_ptr<ui::IWindowWin32>(static_cast<ui::IWindowWin32*>(result.window.get())));
 			result.apiConnection = _apiConnection;
 		}
@@ -743,7 +756,7 @@ public:
 		auto gpu = gpus.begin()[suitableGPUIndex];
 		const auto& gpuInfo = extractedInfos[suitableGPUIndex];
 
-		float queuePriority = 1.f;
+		float queuePriority = IGPUQueue::DEFAULT_QUEUE_PRIORITY;
 		constexpr uint32_t MaxQueueCount = 4;
 		video::ILogicalDevice::SQueueCreationParams qcp[MaxQueueCount] = {}; 
 		
@@ -801,21 +814,34 @@ public:
 		result.queues[InitOutput<sc_image_count>::EQT_TRANSFER_DOWN] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.transfer.index, 0);
 
 		nbl::video::ISurface::SFormat requestedFormat;
+		
 		if(api_type == EAT_VULKAN)
 		{
-			requestedFormat.format = asset::EF_B8G8R8A8_SRGB;
-			requestedFormat.colorSpace.eotf = asset::EOTF_sRGB;
-			requestedFormat.colorSpace.primary = asset::ECP_SRGB;
+			requestedFormat.format = (surfaceFormat.format == asset::EF_UNKNOWN)
+				? asset::EF_B8G8R8A8_SRGB
+				: surfaceFormat.format;
+			requestedFormat.colorSpace.eotf = (surfaceFormat.colorSpace.eotf == asset::EOTF_UNKNOWN)
+				? asset::EOTF_sRGB
+				: surfaceFormat.colorSpace.eotf;
+			requestedFormat.colorSpace.primary = (surfaceFormat.colorSpace.primary == asset::ECP_COUNT)
+				? asset::ECP_SRGB
+				: surfaceFormat.colorSpace.primary;
 		}
 		else
 		{
 			// Temporary to make previous examples work
-			requestedFormat.format = asset::EF_R8G8B8A8_SRGB;
-			requestedFormat.colorSpace.eotf = asset::EOTF_sRGB;
-			requestedFormat.colorSpace.primary = asset::ECP_SRGB;
+			requestedFormat.format = (surfaceFormat.format == asset::EF_UNKNOWN)
+				? asset::EF_R8G8B8A8_SRGB
+				: surfaceFormat.format;
+			requestedFormat.colorSpace.eotf = (surfaceFormat.colorSpace.eotf == asset::EOTF_UNKNOWN)
+				? asset::EOTF_sRGB
+				: surfaceFormat.colorSpace.eotf;
+			requestedFormat.colorSpace.primary = (surfaceFormat.colorSpace.primary == asset::ECP_COUNT)
+				? asset::ECP_SRGB
+				: surfaceFormat.colorSpace.primary;
 		}
 
-		result.swapchain = createSwapchain(api_type, gpuInfo, window_width, window_height, sc_image_count, result.logicalDevice, result.surface, video::ISurface::EPM_FIFO_RELAXED, requestedFormat);
+		result.swapchain = createSwapchain(api_type, gpuInfo, window_width, window_height, sc_image_count, result.logicalDevice, result.surface, swapchainImageUsage, video::ISurface::EPM_FIFO_RELAXED, requestedFormat);
 		assert(result.swapchain);
 		
 		asset::E_FORMAT swapChainFormat = result.swapchain->getCreationParameters().surfaceFormat.format;
@@ -851,30 +877,40 @@ public:
 		uint32_t imageCount,
 		const nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice>& device,
 		const nbl::core::smart_refctd_ptr<nbl::video::ISurface>& surface,
+		nbl::asset::IImage::E_USAGE_FLAGS imageUsage, 
 		nbl::video::ISurface::E_PRESENT_MODE requestedPresentMode = nbl::video::ISurface::EPM_FIFO_RELAXED,
 		nbl::video::ISurface::SFormat requestedSurfaceFormat = nbl::video::ISurface::SFormat(nbl::asset::EF_B8G8R8A8_SRGB, nbl::asset::ECP_SRGB, nbl::asset::EOTF_sRGB))
 	{
 		using namespace nbl;
 
-		nbl::asset::E_SHARING_MODE imageSharingMode;
+		asset::E_SHARING_MODE imageSharingMode;
 		if (gpuInfo.queueFamilyProps.graphics.index == gpuInfo.queueFamilyProps.present.index)
 			imageSharingMode = asset::ESM_EXCLUSIVE;
 		else
 			imageSharingMode = asset::ESM_CONCURRENT;
 		
-		nbl::video::ISurface::SFormat surfaceFormat;
+		video::ISurface::SFormat surfaceFormat;
 
 		if(api_type == video::EAT_VULKAN)
 		{
+			// Deduce format features from imageUsage param
+			core::bitflag<asset::E_FORMAT_FEATURE> requiredFormatFeatures = static_cast<asset::E_FORMAT_FEATURE>(0u);
+			if (imageUsage & asset::IImage::EUF_STORAGE_BIT)
+				requiredFormatFeatures |= asset::EFF_STORAGE_IMAGE_BIT;
+
 			uint32_t found_format_and_colorspace = ~0u;
 			uint32_t found_format = ~0u;
 			uint32_t found_colorspace = ~0u;
 			for(uint32_t i = 0; i < gpuInfo.availableSurfaceFormats.size(); ++i)
 			{
-				const auto & supportedFormat = gpuInfo.availableSurfaceFormats[i];
-				bool hasMatchingFormats = requestedSurfaceFormat.format == supportedFormat.format;
-				bool hasMatchingColorspace = requestedSurfaceFormat.colorSpace.eotf == supportedFormat.colorSpace.eotf && requestedSurfaceFormat.colorSpace.primary == supportedFormat.colorSpace.primary;
-				if(hasMatchingFormats)
+				const auto& supportedFormat = gpuInfo.availableSurfaceFormats[i];
+				const bool hasMatchingFormats = requestedSurfaceFormat.format == supportedFormat.format;
+
+				const auto& formatProps = device->getPhysicalDevice()->getFormatProperties(requestedSurfaceFormat.format);
+				const bool formatSupportsFeatures = ((formatProps.optimalTilingFeatures & requiredFormatFeatures).value == requiredFormatFeatures.value);
+
+				const bool hasMatchingColorspace = requestedSurfaceFormat.colorSpace.eotf == supportedFormat.colorSpace.eotf && requestedSurfaceFormat.colorSpace.primary == supportedFormat.colorSpace.primary;
+				if(hasMatchingFormats && formatSupportsFeatures)
 				{
 					if(found_format == ~0u)
 						found_format = i;
@@ -948,7 +984,7 @@ public:
 		sc_params.arrayLayers = 1u;
 		sc_params.minImageCount = imageCount;
 		sc_params.presentMode = requestedPresentMode;
-		sc_params.imageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_TRANSFER_DST_BIT | asset::IImage::EUF_TRANSFER_SRC_BIT);;
+		sc_params.imageUsage = imageUsage;
 		sc_params.surface = surface;
 		sc_params.imageSharingMode = imageSharingMode;
 		sc_params.surfaceFormat = surfaceFormat;
@@ -1100,7 +1136,7 @@ public:
 			submit.signalSemaphoreCount = imgAcqSemaphore ? 1u:0u;
 			submit.pSignalSemaphores = &signalsem;
 			video::IGPUSemaphore* waitsem = imgAcqSemaphore;
-			asset::E_PIPELINE_STAGE_FLAGS dstWait = asset::EPSF_COLOR_ATTACHMENT_OUTPUT_BIT;
+			asset::E_PIPELINE_STAGE_FLAGS dstWait = asset::EPSF_COLOR_ATTACHMENT_OUTPUT_BIT; // hardcoded like that?
 			submit.waitSemaphoreCount = 1u;
 			submit.pWaitSemaphores = &waitsem;
 			submit.pWaitDstStageMask = &dstWait;

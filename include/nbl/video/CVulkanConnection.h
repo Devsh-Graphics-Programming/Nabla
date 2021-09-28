@@ -20,7 +20,8 @@ class CVulkanConnection final : public IAPIConnection
 public:
     static core::smart_refctd_ptr<CVulkanConnection> create(
         core::smart_refctd_ptr<system::ISystem>&& sys, uint32_t appVer, const char* appName,
-        const uint32_t extensionCount, video::IAPIConnection::E_EXTENSION* extensions,
+        const uint32_t requiredFeatureCount, video::IAPIConnection::E_FEATURE* requiredFeatures,
+        const uint32_t optionalFeatureCount, video::IAPIConnection::E_FEATURE* optionalFeatures,
         core::smart_refctd_ptr<system::ILogger>&& logger, bool enableValidation)
     {
         if (volkInitialize() != VK_SUCCESS)
@@ -29,8 +30,24 @@ public:
             return nullptr;
         }
 
-        constexpr uint32_t MAX_EXTENSION_COUNT = (1u << 12) / sizeof(char*);
+        auto getAvailableLayers = [](uint32_t& layerCount, VkLayerProperties* layers) -> bool
+        {
+            uint32_t count;
+            VkResult retval = vkEnumerateInstanceLayerProperties(&count, nullptr);
+            if ((retval != VK_SUCCESS) && (retval != VK_INCOMPLETE))
+                return false;
+
+            retval = vkEnumerateInstanceLayerProperties(&count, layers);
+            if ((retval != VK_SUCCESS) && (retval != VK_INCOMPLETE))
+                return false;
+
+            layerCount += count;
+
+            return true;
+        };
+
         constexpr uint32_t MAX_LAYER_COUNT = 100u;
+        constexpr uint32_t MAX_EXTENSION_COUNT = (1u << 12) / sizeof(char*);
 
         const size_t memSizeNeeded = MAX_EXTENSION_COUNT * sizeof(VkExtensionProperties) + MAX_LAYER_COUNT * sizeof(VkLayerProperties);
         void* mem = _NBL_ALIGNED_MALLOC(memSizeNeeded, _NBL_SIMD_ALIGNMENT);
@@ -39,92 +56,19 @@ public:
         VkExtensionProperties* availableExtensions = static_cast<VkExtensionProperties*>(mem);
         VkLayerProperties* availableLayers = reinterpret_cast<VkLayerProperties*>(availableExtensions + MAX_EXTENSION_COUNT);
 
-        const char* requiredExtensionNames[MAX_EXTENSION_COUNT];
-        uint32_t requiredExtensionNameCount = 0u;
-        {
-            if (logger)
-                requiredExtensionNames[requiredExtensionNameCount++] = VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
-
-            for (uint32_t i = 0u; i < extensionCount; ++i)
-            {
-                // Handle other platforms
-                if (extensions[i] == video::IAPIConnection::E_SURFACE)
-                {
-                    requiredExtensionNames[requiredExtensionNameCount++] = "VK_KHR_surface";
-                    requiredExtensionNames[requiredExtensionNameCount++] = "VK_KHR_win32_surface";
-                }
-            }
-        }
-        assert(requiredExtensionNameCount <= MAX_EXTENSION_COUNT);
+        // Get available layers
+        uint32_t availableLayerCount = 0u;
+        if (!getAvailableLayers(availableLayerCount, availableLayers))
+            return nullptr;
+        assert(availableLayerCount <= MAX_LAYER_COUNT);
 
         const char* requiredLayerNames[MAX_LAYER_COUNT] = { nullptr };
         uint32_t requiredLayerNameCount = 0u;
         {
             if (enableValidation)
-            {
                 requiredLayerNames[requiredLayerNameCount++] = "VK_LAYER_KHRONOS_validation";
-            }
         }
         assert(requiredLayerNameCount <= MAX_LAYER_COUNT);
-
-        uint32_t availableExtensionCount = 0u;
-        {
-            uint32_t count;
-
-            if (!getExtensionsForLayer(nullptr, count, availableExtensions))
-            {
-                LOG(logger, "Failed to get implicit instance extensions!\n");
-                return nullptr;
-            }
-
-            availableExtensionCount += count;
-
-            for (uint32_t i = 0u; i < requiredLayerNameCount; ++i)
-            {
-                if (!getExtensionsForLayer(requiredLayerNames[i], count, availableExtensions + availableExtensionCount))
-                {
-                    LOG(logger, "Failed to get instance extensions for the layer: %s\n", system::ILogger::ELL_ERROR, requiredLayerNames[i]);
-                    return nullptr;
-                }
-
-                availableExtensionCount += count;
-            }
-        }
-        assert(availableExtensionCount <= MAX_EXTENSION_COUNT);
-
-        uint32_t availableLayerCount = 0u;
-        {
-            uint32_t count;
-            VkResult retval = vkEnumerateInstanceLayerProperties(&count, nullptr);
-            if ((retval != VK_SUCCESS) && (retval != VK_INCOMPLETE))
-                return nullptr;
-
-            retval = vkEnumerateInstanceLayerProperties(&count, availableLayers);
-            if ((retval != VK_SUCCESS) && (retval != VK_INCOMPLETE))
-                return nullptr;
-
-            availableLayerCount += count;
-        }
-        assert(availableLayerCount <= MAX_LAYER_COUNT);
-
-        // Can't find anything in C++ STL for this
-        const bool extensionsSupported = std::all_of(requiredExtensionNames, requiredExtensionNames + requiredExtensionNameCount,
-            [availableExtensions, availableExtensionCount, &logger](const char* extensionName)
-            {
-                const VkExtensionProperties* retval = std::find_if(availableExtensions, availableExtensions + availableExtensionCount,
-                    [extensionName](const VkExtensionProperties& extensionProps)
-                    {
-                        return strcmp(extensionName, extensionProps.extensionName) == 0;
-                    });
-
-                if (retval == (availableExtensions + availableExtensionCount))
-                {
-                    LOG(logger, "Failed to find required instance extension: %s\n", system::ILogger::ELL_ERROR, extensionName);
-                    return false;
-                }
-
-                return true;
-            });
 
         const bool layersSupported = std::all_of(requiredLayerNames, requiredLayerNames + requiredLayerNameCount,
             [availableLayers, availableLayerCount, &logger](const char* layerName)
@@ -144,8 +88,84 @@ public:
                 return true;
             });
 
-        if (!extensionsSupported || !layersSupported)
+        if (!layersSupported)
             return nullptr;
+
+        using FeatureSetType = core::unordered_set<core::string>;
+
+        auto getAvailableFeatureSet = [&logger, requiredLayerNameCount, requiredLayerNames](VkExtensionProperties* extensions) -> FeatureSetType
+        {
+            uint32_t totalCount = 0u;
+            uint32_t count;
+
+            if (getExtensionsForLayer(nullptr, count, extensions))
+                totalCount += count;
+            else
+                LOG(logger, "Failed to get implicit instance extensions!\n");
+
+            for (uint32_t i = 0u; i < requiredLayerNameCount; ++i)
+            {
+                if (getExtensionsForLayer(requiredLayerNames[i], count, extensions + totalCount))
+                    totalCount += count;
+                else
+                    LOG(logger, "Failed to get instance extensions for the layer: %s\n", system::ILogger::ELL_ERROR, requiredLayerNames[i]);
+            }
+
+            FeatureSetType result;
+            for (uint32_t i = 0; i < totalCount; ++i)
+                result.insert(extensions[i].extensionName);
+
+            return result;
+        };
+
+        FeatureSetType availableFeatureSet = getAvailableFeatureSet(availableExtensions);
+
+        auto insertFeatureIfAvailable = [&logger, &availableFeatureSet](const E_FEATURE feature, auto& featureSet) -> bool
+        {
+            const auto depFeatures = IAPIConnection::getDependentFeatures(feature);
+
+            for (const auto& depFeature : depFeatures)
+            {
+                constexpr uint32_t MAX_VULKAN_EXT_NAME_COUNT = 8u; // each feature/extension can spawn multiple extensions (mostly platform-specific ones)
+                uint32_t vulkanExtNameCount = 0u;
+                const char* vulkanExtNames[MAX_VULKAN_EXT_NAME_COUNT];
+
+                getVulkanExtensionNamesFromFeature(depFeature, vulkanExtNames, vulkanExtNameCount);
+                assert(vulkanExtNameCount <= MAX_VULKAN_EXT_NAME_COUNT);
+
+                for (uint32_t extIndex = 0u; extIndex < vulkanExtNameCount; ++extIndex)
+                {
+                    if (availableFeatureSet.find(vulkanExtNames[extIndex]) == availableFeatureSet.end())
+                    {
+                        LOG(logger, "Failed to find instance extension: %s\n", system::ILogger::ELL_ERROR, vulkanExtNames[extIndex]);
+                        return false;
+                    }
+                }
+
+                featureSet.insert(vulkanExtNames, vulkanExtNames + vulkanExtNameCount);
+            }
+        };
+
+        FeatureSetType selectedFeatureSet;
+        for (uint32_t i = 0u; i < requiredFeatureCount; ++i)
+        {
+            if (!insertFeatureIfAvailable(requiredFeatures[i], selectedFeatureSet))
+                return nullptr;
+        }
+
+        for (uint32_t i = 0u; i < optionalFeatureCount; ++i)
+        {
+            if (!insertFeatureIfAvailable(optionalFeatures[i], selectedFeatureSet))
+                continue;
+        }
+
+        const size_t totalFeatureCount = logger ? selectedFeatureSet.size() + 1ull : selectedFeatureSet.size();
+        core::vector<const char*> selectedFeatures(totalFeatureCount);
+        uint32_t k = 0u;
+        for (const auto& feature : selectedFeatureSet)
+            selectedFeatures[k++] = feature.c_str();
+        if (logger)
+            selectedFeatures[k++] = VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
 
         std::unique_ptr<CVulkanDebugCallback> debugCallback = nullptr;
         VkDebugUtilsMessengerCreateInfoEXT debugMessengerCreateInfo = { VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT };
@@ -179,15 +199,14 @@ public:
             createInfo.pApplicationInfo = &applicationInfo;
             createInfo.enabledLayerCount = requiredLayerNameCount;
             createInfo.ppEnabledLayerNames = requiredLayerNames;
-            createInfo.enabledExtensionCount = requiredExtensionNameCount;
-            createInfo.ppEnabledExtensionNames = requiredExtensionNames;
+            createInfo.enabledExtensionCount = static_cast<uint32_t>(selectedFeatures.size());
+            createInfo.ppEnabledExtensionNames = selectedFeatures.data();
 
             if (vkCreateInstance(&createInfo, nullptr, &vk_instance) != VK_SUCCESS)
                 return nullptr;
         }
 
-        // Todo(achal): Perhaps use volkLoadInstanceOnly?
-        volkLoadInstance(vk_instance);
+        volkLoadInstanceOnly(vk_instance);
 
         constexpr uint32_t MAX_PHYSICAL_DEVICE_COUNT = 16u;
         uint32_t physicalDeviceCount = 0u;
@@ -268,6 +287,27 @@ public:
         }
 
         return true;
+    }
+
+    static inline void getVulkanExtensionNamesFromFeature(const IAPIConnection::E_FEATURE feature, const char** extNames, uint32_t& extNameCount)
+    {
+        extNameCount = 0u;
+
+        switch (feature)
+        {
+        case IAPIConnection::EF_SURFACE:
+        {
+            extNames[extNameCount++] = VK_KHR_SURFACE_EXTENSION_NAME;
+#if defined(_NBL_PLATFORM_WINDOWS_)
+            extNames[extNameCount++] = VK_KHR_WIN32_SURFACE_EXTENSION_NAME;
+#endif
+        } break;
+
+        default:
+            break;
+        }
+
+        assert(extNameCount <= 8u); // it is rare that any feature will spawn more than 8 "variations" (usually due to OS-specific stuff), consequently the caller might only provide enough memory to write <= 8 of them
     }
 };
 

@@ -10,11 +10,7 @@ namespace nbl::video
 
 bool CVulkanQueue::submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFence* _fence)
 {
-    if (m_originDevice->getAPIType() != EAT_VULKAN)
-        return false;
-
-    // auto* vk = m_vkdev->getFunctionTable();
-    VkDevice vk_device = static_cast<const CVulkanLogicalDevice*>(m_originDevice)->getInternalObject();
+    auto* vk = static_cast<const CVulkanLogicalDevice*>(m_originDevice)->getFunctionTable();
 
     uint32_t waitSemCnt = 0u;
     uint32_t signalSemCnt = 0u;
@@ -101,8 +97,7 @@ bool CVulkanQueue::submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFenc
     }
 
     VkFence fence = _fence ? static_cast<CVulkanFence*>(_fence)->getInternalObject() : VK_NULL_HANDLE;
-    // vk->vk.vkQueueSubmit(m_vkqueue, _count, submits, fence);
-    if (vkQueueSubmit(m_vkQueue, _count, submits, fence) == VK_SUCCESS)
+    if (vk->vk.vkQueueSubmit(m_vkQueue, _count, submits, fence) == VK_SUCCESS)
         return true;
 
     return false;
@@ -110,6 +105,8 @@ bool CVulkanQueue::submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFenc
 
 bool CVulkanQueue::present(const SPresentInfo& info)
 {
+    auto* vk = static_cast<const CVulkanLogicalDevice*>(m_originDevice)->getFunctionTable();
+
     assert(info.waitSemaphoreCount <= 100);
     VkSemaphore vk_waitSemaphores[100];
     for (uint32_t i = 0u; i < info.waitSemaphoreCount; ++i)
@@ -117,7 +114,7 @@ bool CVulkanQueue::present(const SPresentInfo& info)
         if (info.waitSemaphores[i]->getAPIType() != EAT_VULKAN)
             return false;
 
-        vk_waitSemaphores[i] = reinterpret_cast<CVulkanSemaphore*>(info.waitSemaphores[i])->getInternalObject();
+        vk_waitSemaphores[i] = static_cast<const CVulkanSemaphore*>(info.waitSemaphores[i])->getInternalObject();
     }
 
     assert(info.swapchainCount <= 5);
@@ -127,7 +124,7 @@ bool CVulkanQueue::present(const SPresentInfo& info)
         if (info.swapchains[i]->getAPIType() != EAT_VULKAN)
             return false;
 
-        vk_swapchains[i] = reinterpret_cast<CVulkanSwapchain*>(info.swapchains[i])->m_vkSwapchainKHR;
+        vk_swapchains[i] = static_cast<const CVulkanSwapchain*>(info.swapchains[i])->m_vkSwapchainKHR;
     }
 
     VkPresentInfoKHR presentInfo = { VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
@@ -137,7 +134,7 @@ bool CVulkanQueue::present(const SPresentInfo& info)
     presentInfo.pSwapchains = vk_swapchains;
     presentInfo.pImageIndices = info.imgIndices;
 
-    VkResult result = vkQueuePresentKHR(m_vkQueue, &presentInfo);
+    VkResult result = vk->vk.vkQueuePresentKHR(m_vkQueue, &presentInfo);
 
     switch (result)
     {

@@ -117,7 +117,6 @@ public:
         // requestDeviceExtension<VkPhysicalDeviceRayTracingPipelineFeaturesKHR>(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME, true, &rayTracingPipelineFeatures);
         // requestDeviceExtension<VkPhysicalDeviceRayQueryFeaturesKHR>(VK_KHR_RAY_QUERY_EXTENSION_NAME, true, &rayQueryFeatures);
 
-
         // Get physical device's memory properties
         {
             VkPhysicalDeviceMemoryProperties vk_physicalDeviceMemoryProperties;
@@ -154,6 +153,21 @@ public:
         return isExtensionSupported(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
     }
 
+    SFormatProperties getFormatProperties(asset::E_FORMAT format) const override
+    {
+        SFormatProperties result;
+
+        VkFormatProperties vk_formatProps;
+        vkGetPhysicalDeviceFormatProperties(m_vkPhysicalDevice, getVkFormatFromFormat(format),
+            &vk_formatProps);
+
+        result.linearTilingFeatures = static_cast<asset::E_FORMAT_FEATURE>(vk_formatProps.linearTilingFeatures);
+        result.optimalTilingFeatures = static_cast<asset::E_FORMAT_FEATURE>(vk_formatProps.optimalTilingFeatures);
+        result.bufferFeatures = static_cast<asset::E_FORMAT_FEATURE>(vk_formatProps.bufferFeatures);
+
+        return result;
+    }
+            
 protected:
     core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice_impl(const ILogicalDevice::SCreationParams& params) override
     {

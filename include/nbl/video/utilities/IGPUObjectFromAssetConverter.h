@@ -1077,9 +1077,13 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
 
             if (needToCompMipsForThisImg(cpuimg))
             {
-                // Todo(achal): Get format props from the physical device and check
-                // if vkCmdBlitImage can be used, assert for now until we do polyphase
-                // in compute
+                // This API check is temporary (or not?) since getFormatProperties is not
+                // yet implemented on OpenGL
+                if (_params.device->getAPIType() == EAT_VULKAN)
+                {
+                    const auto& formatProps = _params.device->getPhysicalDevice()->getFormatProperties(cpuimg->getCreationParameters().format);
+                    assert((formatProps.optimalTilingFeatures& asset::EFF_SAMPLED_IMAGE_FILTER_LINEAR_BIT).value); // for blits, can lift are polyphase compute
+                }
                 cmdComputeMip(cpuimg, gpuimg, newLayout);
             }
             else

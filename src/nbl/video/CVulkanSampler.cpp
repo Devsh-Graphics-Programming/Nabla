@@ -7,8 +7,9 @@ namespace nbl::video
 
 CVulkanSampler::~CVulkanSampler()
 {
-    VkDevice vk_device = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getInternalObject();
-    vkDestroySampler(vk_device, m_sampler, nullptr);
+    const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
+    auto* vk = vulkanDevice->getFunctionTable();
+    vk->vk.vkDestroySampler(vulkanDevice->getInternalObject(), m_sampler, nullptr);
 }
 
 }
