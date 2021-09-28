@@ -493,6 +493,12 @@ public:
 					(extractedInfo.queueFamilyProps.transfer.index != QueueFamilyProps::InvalidIndex) &&
 					(extractedInfo.queueFamilyProps.present.index != QueueFamilyProps::InvalidIndex))
 					isGPUSuitable = true;
+				
+				if(extractedInfo.isSwapChainSupported == false)
+					isGPUSuitable = false;
+
+				if(extractedInfo.hasSurfaceCapabilities == false)
+					isGPUSuitable = false;
 			}
 			else
 			{
@@ -500,12 +506,6 @@ public:
 					(extractedInfo.queueFamilyProps.transfer.index != QueueFamilyProps::InvalidIndex))
 					isGPUSuitable = true;
 			}
-
-			if(extractedInfo.isSwapChainSupported == false)
-				isGPUSuitable = false;
-
-			if(extractedInfo.hasSurfaceCapabilities == false)
-				isGPUSuitable = false;
 
 			if(isGPUSuitable)
 			{
