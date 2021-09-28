@@ -24,6 +24,7 @@ namespace nbl::video
 class IPhysicalDevice : public core::Interface, public core::Unmovable
 {
 public:
+    // Probably should rename this to SProperties?
     struct SLimits
     {
         uint32_t UBOAlignment;
@@ -61,6 +62,26 @@ public:
         core::bitflag<asset::ISpecializedShader::E_SHADER_STAGE> subgroupOpsShaderStages;
 
         uint64_t nonCoherentAtomSize;
+
+        // AccelerationStructure
+        uint64_t           maxGeometryCount;
+        uint64_t           maxInstanceCount;
+        uint64_t           maxPrimitiveCount;
+        uint32_t           maxPerStageDescriptorAccelerationStructures;
+        uint32_t           maxPerStageDescriptorUpdateAfterBindAccelerationStructures;
+        uint32_t           maxDescriptorSetAccelerationStructures;
+        uint32_t           maxDescriptorSetUpdateAfterBindAccelerationStructures;
+        uint32_t           minAccelerationStructureScratchOffsetAlignment;
+
+        // RayTracingPipeline
+        uint32_t           shaderGroupHandleSize;
+        uint32_t           maxRayRecursionDepth;
+        uint32_t           maxShaderGroupStride;
+        uint32_t           shaderGroupBaseAlignment;
+        uint32_t           shaderGroupHandleCaptureReplaySize;
+        uint32_t           maxRayDispatchInvocationCount;
+        uint32_t           shaderGroupHandleAlignment;
+        uint32_t           maxRayHitAttributeSize;
     };
 
     struct SFeatures
@@ -84,12 +105,23 @@ public:
         bool shaderSubgroupQuadAllStages = false;
         bool drawIndirectCount = false;
         bool multiDrawIndirect = false;
+
+        // RayQuery
         bool rayQuery = false;
+
+        // AccelerationStructure
         bool accelerationStructure = false;
         bool accelerationStructureCaptureReplay = false;
         bool accelerationStructureIndirectBuild = false;
         bool accelerationStructureHostCommands = false;
         bool descriptorBindingAccelerationStructureUpdateAfterBind = false;
+
+        // RayTracingPipeline
+        bool rayTracingPipeline = false;
+        bool rayTracingPipelineShaderGroupHandleCaptureReplay = false;
+        bool rayTracingPipelineShaderGroupHandleCaptureReplayMixed = false;
+        bool rayTracingPipelineTraceRaysIndirect = false;
+        bool rayTraversalPrimitiveCulling = false;
     };
 
     struct SMemoryProperties

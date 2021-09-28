@@ -17,24 +17,24 @@ public:
     {
         // Get Supported Extensions
         {
-            uint32_t  count;
-            // Get Count First and Resize
+            uint32_t count;
             VkResult res = vkEnumerateDeviceExtensionProperties(m_vkPhysicalDevice, nullptr, &count, nullptr);
             assert(VK_SUCCESS == res);
-            supportedExtensions.resize(count); 
-            // Now fill the Vector
-            res = vkEnumerateDeviceExtensionProperties(m_vkPhysicalDevice, nullptr, &count, supportedExtensions.data());
+            core::vector<VkExtensionProperties> vk_extensions(count);
+            res = vkEnumerateDeviceExtensionProperties(m_vkPhysicalDevice, nullptr, &count, vk_extensions.data());
             assert(VK_SUCCESS == res);
-            supportedExtensions.resize(core::min(supportedExtensions.size(), size_t(count)));
+
+            for (const auto& vk_extension : vk_extensions)
+                m_availableFeatureSet.insert(vk_extension.extensionName);
         }
 
-        // Get physical device's limits
-        VkPhysicalDeviceSubgroupProperties subgroupProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_PROPERTIES, nullptr };
+        // Get physical device's limits/properties
+        VkPhysicalDeviceSubgroupProperties subgroupProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_PROPERTIES };
         VkPhysicalDeviceRayTracingPipelinePropertiesKHR rayTracingPipelineProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR, &subgroupProperties };
-        VkPhysicalDeviceAccelerationStructurePropertiesKHR accelerationProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR, &rayTracingPipelineProperties };
+        VkPhysicalDeviceAccelerationStructurePropertiesKHR accelerationStructureProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR, &rayTracingPipelineProperties };
         {
             VkPhysicalDeviceProperties2 deviceProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
-            deviceProperties.pNext = &accelerationProperties;
+            deviceProperties.pNext = &accelerationStructureProperties;
             vkGetPhysicalDeviceProperties2(m_vkPhysicalDevice, &deviceProperties);
                     
             // TODO fill m_properties
@@ -72,17 +72,43 @@ public:
             m_limits.subgroupOpsShaderStages = static_cast<asset::ISpecializedShader::E_SHADER_STAGE>(subgroupProperties.supportedStages);
 
             m_limits.nonCoherentAtomSize = deviceProperties.properties.limits.nonCoherentAtomSize;
+
+            // AccelerationStructure
+            if (m_availableFeatureSet.find(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME) != m_availableFeatureSet.end())
+            {
+                m_limits.maxGeometryCount = accelerationStructureProperties.maxGeometryCount;
+                m_limits.maxInstanceCount = accelerationStructureProperties.maxInstanceCount;
+                m_limits.maxPrimitiveCount = accelerationStructureProperties.maxPrimitiveCount;
+                m_limits.maxPerStageDescriptorAccelerationStructures = accelerationStructureProperties.maxPerStageDescriptorAccelerationStructures;
+                m_limits.maxPerStageDescriptorUpdateAfterBindAccelerationStructures = accelerationStructureProperties.maxPerStageDescriptorUpdateAfterBindAccelerationStructures;
+                m_limits.maxDescriptorSetAccelerationStructures = accelerationStructureProperties.maxDescriptorSetAccelerationStructures;
+                m_limits.maxDescriptorSetUpdateAfterBindAccelerationStructures = accelerationStructureProperties.maxDescriptorSetUpdateAfterBindAccelerationStructures;
+                m_limits.minAccelerationStructureScratchOffsetAlignment = accelerationStructureProperties.minAccelerationStructureScratchOffsetAlignment;
+            }
+
+            // RayTracingPipeline
+            if (m_availableFeatureSet.find(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME) != m_availableFeatureSet.end())
+            {
+                m_limits.shaderGroupHandleSize = rayTracingPipelineProperties.shaderGroupHandleSize;
+                m_limits.maxRayRecursionDepth = rayTracingPipelineProperties.maxRayRecursionDepth;
+                m_limits.maxShaderGroupStride = rayTracingPipelineProperties.maxShaderGroupStride;
+                m_limits.shaderGroupBaseAlignment = rayTracingPipelineProperties.shaderGroupBaseAlignment;
+                m_limits.shaderGroupHandleCaptureReplaySize = rayTracingPipelineProperties.shaderGroupHandleCaptureReplaySize;
+                m_limits.maxRayDispatchInvocationCount = rayTracingPipelineProperties.maxRayDispatchInvocationCount;
+                m_limits.shaderGroupHandleAlignment = rayTracingPipelineProperties.shaderGroupHandleAlignment;
+                m_limits.maxRayHitAttributeSize = rayTracingPipelineProperties.maxRayHitAttributeSize;
+            }
         }
         
         // Get physical device's features
-        VkPhysicalDeviceRayTracingPipelineFeaturesKHR rayTracingPipelineFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR, nullptr };
+        VkPhysicalDeviceRayTracingPipelineFeaturesKHR rayTracingPipelineFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR };
         VkPhysicalDeviceAccelerationStructureFeaturesKHR accelerationFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR, &rayTracingPipelineFeatures };
         VkPhysicalDeviceRayQueryFeaturesKHR rayQueryFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR, &accelerationFeatures };
         {
             VkPhysicalDeviceFeatures2 deviceFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
             deviceFeatures.pNext = &rayQueryFeatures;
             vkGetPhysicalDeviceFeatures2(m_vkPhysicalDevice, &deviceFeatures);
-            auto features = deviceFeatures.features;
+            const auto& features = deviceFeatures.features;
                     
             m_features.robustBufferAccess = features.robustBufferAccess;
             m_features.imageCubeArray = features.imageCubeArray;
@@ -101,21 +127,31 @@ public:
             m_features.shaderSubgroupQuad = subgroupProperties.supportedOperations & VK_SUBGROUP_FEATURE_QUAD_BIT;
             m_features.shaderSubgroupQuadAllStages = ((subgroupProperties.supportedStages & asset::ISpecializedShader::E_SHADER_STAGE::ESS_ALL)
                                                         == asset::ISpecializedShader::E_SHADER_STAGE::ESS_ALL);
-            m_features.rayQuery = rayQueryFeatures.rayQuery;
-            m_features.accelerationStructure = accelerationFeatures.accelerationStructure;
-            m_features.accelerationStructureCaptureReplay = accelerationFeatures.accelerationStructureCaptureReplay;
-            m_features.accelerationStructureIndirectBuild = accelerationFeatures.accelerationStructureIndirectBuild;
-            m_features.accelerationStructureHostCommands = accelerationFeatures.accelerationStructureHostCommands;
-            m_features.descriptorBindingAccelerationStructureUpdateAfterBind = accelerationFeatures.descriptorBindingAccelerationStructureUpdateAfterBind;
+            
+            // RayQuery
+            if (m_availableFeatureSet.find(VK_KHR_RAY_QUERY_EXTENSION_NAME) != m_availableFeatureSet.end())
+                m_features.rayQuery = rayQueryFeatures.rayQuery;
+            
+            // AccelerationStructure
+            if (m_availableFeatureSet.find(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME) != m_availableFeatureSet.end())
+            {
+                m_features.accelerationStructure = accelerationFeatures.accelerationStructure;
+                m_features.accelerationStructureCaptureReplay = accelerationFeatures.accelerationStructureCaptureReplay;
+                m_features.accelerationStructureIndirectBuild = accelerationFeatures.accelerationStructureIndirectBuild;
+                m_features.accelerationStructureHostCommands = accelerationFeatures.accelerationStructureHostCommands;
+                m_features.descriptorBindingAccelerationStructureUpdateAfterBind = accelerationFeatures.descriptorBindingAccelerationStructureUpdateAfterBind;
+            }
+
+            // RayTracingPipeline
+            if (m_availableFeatureSet.find(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME) != m_availableFeatureSet.end())
+            {
+                m_features.rayTracingPipeline = rayTracingPipelineFeatures.rayTracingPipeline;
+                m_features.rayTracingPipelineShaderGroupHandleCaptureReplay = rayTracingPipelineFeatures.rayTracingPipelineShaderGroupHandleCaptureReplay;
+                m_features.rayTracingPipelineShaderGroupHandleCaptureReplayMixed = rayTracingPipelineFeatures.rayTracingPipelineShaderGroupHandleCaptureReplayMixed;
+                m_features.rayTracingPipelineTraceRaysIndirect = rayTracingPipelineFeatures.rayTracingPipelineTraceRaysIndirect;
+                m_features.rayTraversalPrimitiveCulling = rayTracingPipelineFeatures.rayTraversalPrimitiveCulling;
+            }
         }
-                
-        requestDeviceExtension(VK_KHR_SWAPCHAIN_EXTENSION_NAME, false);
-        requestDeviceExtension(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME, true); // requires vulkan 1.1
-        requestDeviceExtension(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME, true); // required by VK_KHR_acceleration_structure
-        requestDeviceExtension(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME, true); // required by VK_KHR_acceleration_structure
-        requestDeviceExtension<VkPhysicalDeviceAccelerationStructureFeaturesKHR>(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME, true, &accelerationFeatures);
-        // requestDeviceExtension<VkPhysicalDeviceRayTracingPipelineFeaturesKHR>(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME, true, &rayTracingPipelineFeatures);
-        // requestDeviceExtension<VkPhysicalDeviceRayQueryFeaturesKHR>(VK_KHR_RAY_QUERY_EXTENSION_NAME, true, &rayQueryFeatures);
 
         // Get physical device's memory properties
         {
@@ -171,21 +207,7 @@ public:
 protected:
     core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice_impl(const ILogicalDevice::SCreationParams& params) override
     {
-        uint32_t count;
-        VkResult res = vkEnumerateDeviceExtensionProperties(m_vkPhysicalDevice, nullptr, &count, nullptr);
-        assert(VK_SUCCESS == res);
-        std::vector<VkExtensionProperties> vk_extensions;
-        vk_extensions.resize(count);
-        // Get Supported Extensions
-        res = vkEnumerateDeviceExtensionProperties(m_vkPhysicalDevice, nullptr, &count, vk_extensions.data());
-        assert(VK_SUCCESS == res);
-
-        // Guess this shouldn't be here
-        core::unordered_set<std::string> availableFeatureSet;
-        for (const auto& vk_extension : vk_extensions)
-            availableFeatureSet.insert(vk_extension.extensionName);
-
-        auto insertFeatureIfAvailable = [&availableFeatureSet](const ILogicalDevice::E_FEATURE feature, auto& featureSet) -> bool
+        auto insertFeatureIfAvailable = [this](const ILogicalDevice::E_FEATURE feature, auto& featureSet) -> bool
         {
             constexpr uint32_t MAX_COUNT = 1 << 12u;
             ILogicalDevice::E_FEATURE requiredFeatures[MAX_COUNT];
@@ -197,7 +219,7 @@ protected:
             for (uint32_t i = 0u; i < requiredFeatureCount; ++i)
             {
                 vulkanNames[i] = CVulkanLogicalDevice::getVulkanExtensionName(requiredFeatures[i]);
-                if (availableFeatureSet.find(vulkanNames[i]) == availableFeatureSet.end())
+                if (m_availableFeatureSet.find(vulkanNames[i]) == m_availableFeatureSet.end())
                     return false;
             }
 
@@ -225,20 +247,34 @@ protected:
                 selectedFeatures[i++] = feature.c_str();
         }
 
-
-
-        // Filter Requested Extensions based on Availability and constructs chain for features
-        std::vector<std::string> filteredExtensions;
-        void* firstFeatureInChain;
-        getFilteredExtensions(filteredExtensions, firstFeatureInChain);
-        
-        // Get cstr's for vulkan input
-        std::vector<const char*> filteredExtensionNames;
-        for(const auto& it : filteredExtensions)
-            filteredExtensionNames.push_back(it.c_str());
+        // Currently enabling all features supported by the GPU, for the following extensions
+        // @Erfan you can cherry pick the ones you want
+        VkPhysicalDeviceAccelerationStructureFeaturesKHR accelerationStructureFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR };
+        if (selectedFeatureSet.find(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME) != selectedFeatureSet.end())
+        {
+            accelerationStructureFeatures.accelerationStructure = m_features.accelerationStructure;
+            accelerationStructureFeatures.accelerationStructureCaptureReplay = m_features.accelerationStructureCaptureReplay;
+            accelerationStructureFeatures.accelerationStructureIndirectBuild = m_features.accelerationStructureIndirectBuild;
+            accelerationStructureFeatures.accelerationStructureHostCommands = m_features.accelerationStructureHostCommands;
+            accelerationStructureFeatures.descriptorBindingAccelerationStructureUpdateAfterBind = m_features.descriptorBindingAccelerationStructureUpdateAfterBind;
+        }
+        VkPhysicalDeviceRayTracingPipelineFeaturesKHR rayTracingPipelineFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR, &accelerationStructureFeatures };
+        if (selectedFeatureSet.find(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME) != selectedFeatureSet.end())
+        {
+            rayTracingPipelineFeatures.rayTracingPipeline = m_features.rayTracingPipeline;
+            rayTracingPipelineFeatures.rayTracingPipelineShaderGroupHandleCaptureReplay = m_features.rayTracingPipelineShaderGroupHandleCaptureReplay;
+            rayTracingPipelineFeatures.rayTracingPipelineShaderGroupHandleCaptureReplayMixed = m_features.rayTracingPipelineShaderGroupHandleCaptureReplayMixed;
+            rayTracingPipelineFeatures.rayTracingPipelineTraceRaysIndirect = m_features.rayTracingPipelineTraceRaysIndirect;
+            rayTracingPipelineFeatures.rayTraversalPrimitiveCulling = m_features.rayTraversalPrimitiveCulling;
+        }
+        VkPhysicalDeviceRayQueryFeaturesKHR rayQueryFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR, &rayTracingPipelineFeatures };
+        if (selectedFeatureSet.find(VK_KHR_RAY_QUERY_EXTENSION_NAME) != selectedFeatureSet.end())
+        {
+            rayQueryFeatures.rayQuery = m_features.rayQuery;
+        }
 
         VkPhysicalDeviceFeatures2 vk_deviceFeatures2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
-        vk_deviceFeatures2.pNext = firstFeatureInChain;
+        vk_deviceFeatures2.pNext = &rayQueryFeatures;
         vk_deviceFeatures2.features = {};
 
         // Create Device
@@ -263,13 +299,8 @@ protected:
         }
         vk_createInfo.pQueueCreateInfos = queueCreateInfos.data();
 
-        vk_createInfo.enabledLayerCount = 1u; // deprecated and ignored param
-        const char* validationLayerName[] = { "VK_LAYER_KHRONOS_validation" };
-        vk_createInfo.ppEnabledLayerNames = validationLayerName; // deprecated and ignored param
-
-        // Todo(achal): Need to get this from the user based on if its a headless compute or some presentation worthy workload
-        vk_createInfo.enabledExtensionCount = filteredExtensionNames.size();
-        vk_createInfo.ppEnabledExtensionNames = filteredExtensionNames.data();
+        vk_createInfo.enabledExtensionCount = static_cast<uint32_t>(selectedFeatures.size());
+        vk_createInfo.ppEnabledExtensionNames = selectedFeatures.data();
         
         VkDevice vk_device = VK_NULL_HANDLE;
         if (vkCreateDevice(m_vkPhysicalDevice, &vk_createInfo, nullptr, &vk_device) == VK_SUCCESS)
@@ -282,102 +313,15 @@ protected:
         }    
     }
 
-    // Functions and Structs to work with extensions and add them 
-    struct DeviceExtensionRequest 
+    inline bool isExtensionSupported(const char* name) const
     {
-        struct FeatureHeader
-        {
-            VkStructureType           sType;
-            void*                     pNext;
-        };
-
-        DeviceExtensionRequest(const char* extensionName, bool isOptional = false, std::vector<uint8_t>&& featureMemory = std::vector<uint8_t>())
-            : name(extensionName), optional(isOptional), featureMem(std::move(featureMemory))
-        { }
-
-        using byte = unsigned char; 
-
-        std::string             name;
-        bool                    optional = false;
-        std::vector<uint8_t>    featureMem = std::vector<uint8_t>(); // usefull when constructing features chain for vk_createInfo.pEnabledFeatures
-        // TODO(Better Container for featureMem?)
-    };
-
-    std::vector<VkExtensionProperties> getSupportedExtensions(VkPhysicalDevice physicalDevice)
-    {
-        return supportedExtensions;
-    }
-
-    bool isExtensionSupported(const char* name) const {
-        for (uint32_t i = 0u; i < supportedExtensions.size(); ++i)
-        {
-            if (strcmp(supportedExtensions[i].extensionName, name) == 0)
-                return true;
-        }
-        return false;
-    }
-
-    void requestDeviceExtension(const char* name, bool optional = false)
-    {
-        deviceExtensionRequests.emplace_back(name, optional, std::vector<uint8_t>());
-    }
-    
-    template<typename T>
-    void requestDeviceExtension(const char* name, bool optional = false, const T* featureStruct = nullptr)
-    {
-        std::vector<uint8_t>    featureMem;
-        auto ptr = reinterpret_cast<const uint8_t*>(featureStruct);
-        featureMem.insert(featureMem.end(),ptr,ptr+sizeof(T));
-        deviceExtensionRequests.emplace_back(name, optional, std::move(featureMem));
-    }
-
-    // Checks if Requested Extensions are Supported based on `is_optional` and `extensionName` and fills a chain for features
-    void getFilteredExtensions(std::vector<std::string>& filteredExtensions, void*& firstFeatureInChain)
-    {
-        std::vector<void*> featureStructPtrs;
-
-        for(uint32_t i = 0; i < deviceExtensionRequests.size(); ++i)
-        {
-            auto & request = deviceExtensionRequests[i];
-            bool isSupported = isExtensionSupported(request.name.c_str());
-
-            if(isSupported)
-            {
-                filteredExtensions.push_back(request.name);
-                if(!request.featureMem.empty()) {
-                    featureStructPtrs.push_back(request.featureMem.data());
-                }
-            }
-            else if(request.optional == false)
-            {
-                assert(false && "Device Extension is not supported by PhysicalDevice");
-            }
-        }
-        
-               
-        // Construct Chain for Device Features
-        // ExtensionHeader is just something for reinterpret_cast
-        struct ExtensionHeader 
-        {
-            VkStructureType sType;
-            void*           pNext;
-        };
-
-        for(uint32_t i = 0; i < featureStructPtrs.size(); i++)
-        {
-            ExtensionHeader* header  = reinterpret_cast<ExtensionHeader*>(featureStructPtrs[i]);
-            header->pNext = (i < featureStructPtrs.size() - 1) ? featureStructPtrs[i + 1] : nullptr;
-        }
-
-        firstFeatureInChain = featureStructPtrs[0];
+        return m_availableFeatureSet.find(name) != m_availableFeatureSet.end();
     }
 
 private:
     IAPIConnection* m_api; // purposefully not refcounted to avoid circular ref
     VkPhysicalDevice m_vkPhysicalDevice;
-
-    std::vector<DeviceExtensionRequest> deviceExtensionRequests;
-    std::vector<VkExtensionProperties> supportedExtensions;
+    core::unordered_set<std::string> m_availableFeatureSet;
 };
         
 }
