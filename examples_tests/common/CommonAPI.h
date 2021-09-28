@@ -442,6 +442,7 @@ public:
 
 				extractedInfo.availablePresentModes = surface->getAvailablePresentModesForPhysicalDevice(gpu);
 
+				// TODO: @achal OpenGL shouldn't fail this
 				extractedInfo.surfaceCapabilities = {};
 				if (surface->getSurfaceCapabilitiesForPhysicalDevice(gpu, extractedInfo.surfaceCapabilities))
 					extractedInfo.hasSurfaceCapabilities = true;
@@ -492,7 +493,7 @@ public:
 
 		if(ret == ~0u)
 		{
-			assert(false);
+			_NBL_DEBUG_BREAK_IF(true);
 			ret = 0;
 		}
 
