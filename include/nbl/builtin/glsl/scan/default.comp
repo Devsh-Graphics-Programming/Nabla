@@ -11,12 +11,19 @@ layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_) in;
 // declarations
 #include "nbl/builtin/glsl/scan/parameters_struct.glsl"
 
+#ifndef _NBL_GLSL_SCAN_GET_PARAMETERS_DECLARED_
+nbl_glsl_scan_Parameters_t nbl_glsl_scan_getParameters();
+#define _NBL_GLSL_SCAN_GET_PARAMETERS_DECLARED_
+#endif
+
 
 #ifndef _NBL_GLSL_SCAN_STORAGE_TYPE_
 #error "_NBL_GLSL_SCAN_STORAGE_TYPE needs to be defined to any of uint/int/float"
 #endif
 
+#ifndef nbl_glsl_scan_Storage_t
 #define nbl_glsl_scan_Storage_t _NBL_GLSL_SCAN_STORAGE_TYPE_
+#endif
 
 /*
 #ifndef _NBL_GLSL_SCAN_GET_PADDED_DATA_DECLARED_
@@ -32,6 +39,15 @@ float nbl_glsl_scan_getPaddedData(in uint treeLevel, in uint ix, in uint pad_val
 
 
 // descriptors
+#ifndef _NBL_GLSL_SCAN_STORAGE_TYPE_
+#error "_NBL_GLSL_SCAN_STORAGE_TYPE needs to be defined to any of uint/int/float"
+#endif
+
+#ifndef nbl_glsl_scan_Storage_t
+#define nbl_glsl_scan_Storage_t _NBL_GLSL_SCAN_STORAGE_TYPE_
+#endif
+
+
 #ifndef _NBL_GLSL_SCAN_DESCRIPTOR_SET_DEFINED_
 #define _NBL_GLSL_SCAN_DESCRIPTOR_SET_DEFINED_ 0
 #endif
@@ -59,6 +75,77 @@ layout(set=_NBL_GLSL_SCAN_DESCRIPTOR_SET_DEFINED_, binding=_NBL_GLSL_SCAN_SCRATC
 #define _NBL_GLSL_SCAN_SCRATCH_DESCRIPTOR_DEFINED_
 #endif
 
+
+nbl_glsl_scan_Storage_t nbl_glsl_scan_getPaddedData(in uint levelInvocationIndex, in uint localWorkgroupIndex, in uint treeLevel, in bool inRange, in nbl_glsl_scan_Storage_t identity)
+{
+	const nbl_glsl_scan_Parameters_t params = nbl_glsl_scan_getParameters();
+	nbl_glsl_scan_Storage_t data = identity;
+	if (inRange)
+	{
+		uint offset = levelInvocationIndex;
+		if (treeLevel>params.topLevel)
+		{
+			const uint lastLevel = params.topLevel<<1u;
+			const bool notFirstInvocationInGroup = gl_LocalInvocationIndex!=0u;
+			const uint pseudoLevel = lastLevel-treeLevel;
+			if (bool(localWorkgroupIndex) && gl_LocalInvocationIndex==0u)
+				data = scanScratch.data[localWorkgroupIndex+params.temporaryStorageOffset[pseudoLevel]];
+
+			if (treeLevel!=lastLevel)
+			{
+				offset += params.temporaryStorageOffset[pseudoLevel-1u];
+				if (notFirstInvocationInGroup)
+					data = scanScratch.data[offset-1u];
+			}
+			else
+			{
+#				if _NBL_GLSL_SCAN_TYPE_==_NBL_GLSL_SCAN_TYPE_EXCLUSIVE_
+				offset--;
+				if (notFirstInvocationInGroup)
+#				endif
+					data += scanBuffer.data[offset];
+			}
+		}
+		else
+		{
+			if (bool(treeLevel))
+			{
+				offset += params.temporaryStorageOffset[treeLevel-1u];
+				data = scanScratch.data[offset];
+			}
+			else
+				data = scanBuffer.data[offset];
+		}
+	}
+	return data;
+}
+
+void nbl_glsl_scan_setData(in nbl_glsl_scan_Storage_t data, in uint levelInvocationIndex, in uint localWorkgroupIndex, in uint treeLevel, in bool inRange)
+{
+	const nbl_glsl_scan_Parameters_t params = nbl_glsl_scan_getParameters();
+	if (treeLevel<params.topLevel)
+	{
+		const bool lastInvocationInGroup = gl_LocalInvocationIndex==(_NBL_GLSL_WORKGROUP_SIZE_-1);
+		if (lastInvocationInGroup)
+			scanScratch.data[localWorkgroupIndex+params.temporaryStorageOffset[treeLevel]] = data;
+	}
+	else if (inRange)
+	{
+		const uint lastLevel = params.topLevel<<1u;
+		if (treeLevel!=lastLevel)
+		{
+			uint pseudoLevel;
+			if (treeLevel!=params.topLevel)
+				pseudoLevel = lastLevel-treeLevel;
+			else
+				pseudoLevel = treeLevel;
+			const uint offset = params.temporaryStorageOffset[pseudoLevel-1u];
+			scanScratch.data[levelInvocationIndex+offset] = data;
+		}
+		else
+			scanBuffer.data[levelInvocationIndex] = data;
+	}
+}
 
 
 
@@ -191,80 +278,27 @@ NBL_GLSL_SCAN_DEFINE_DOWNSWEEP(Max, float, -FLT_INF, max, float, float)
 #include <nbl/builtin/glsl/limits/numeric.glsl>
 
 
-// TODO: refactor this crap
-void nbl_glsl_scan_virtualWorkgroup(in nbl_glsl_scan_Parameters_t params, in uint treeLevel, in uint localWorkgroupIndex)
+
+
+void nbl_glsl_scan_virtualWorkgroup(in uint treeLevel, in uint localWorkgroupIndex)
 {
-#define TYPE nbl_glsl_scan_Storage_t
-#define IDENTITY 0u
+	const nbl_glsl_scan_Parameters_t params = nbl_glsl_scan_getParameters();
 	const uint levelInvocationIndex = localWorkgroupIndex*_NBL_GLSL_WORKGROUP_SIZE_+gl_LocalInvocationIndex;
 	const bool inRange = levelInvocationIndex<params.elementCount[treeLevel];
-	const bool lastInvocation = gl_LocalInvocationIndex==(_NBL_GLSL_WORKGROUP_SIZE_-1);
-	TYPE data = IDENTITY;
-	if (treeLevel==0u)
-	{
-		if (inRange)
-			data = scanBuffer.data[levelInvocationIndex];
+	const bool lastInvocationInGroup = gl_LocalInvocationIndex==(_NBL_GLSL_WORKGROUP_SIZE_-1);
+
+#define IDENTITY 0u
+	nbl_glsl_scan_Storage_t data = nbl_glsl_scan_getPaddedData(levelInvocationIndex,localWorkgroupIndex,treeLevel,inRange,IDENTITY);
+
+	if (treeLevel<params.topLevel)
 		data = nbl_glsl_workgroupAdd(data);
-		if (lastInvocation)
-			scanScratch.data[localWorkgroupIndex+params.temporaryStorageOffset[0u]] = data;
-	}
-	else if (treeLevel==(params.topLevel<<1u))
-	{
-		if (bool(localWorkgroupIndex) && gl_LocalInvocationIndex==0u)
-			data = scanScratch.data[localWorkgroupIndex+params.temporaryStorageOffset[0u]];
-#if _NBL_GLSL_SCAN_TYPE_==_NBL_GLSL_SCAN_TYPE_INCLUSIVE_
-		if (inRange)
-			data = data+scanBuffer.data[levelInvocationIndex];
-#elif _NBL_GLSL_SCAN_TYPE_==_NBL_GLSL_SCAN_TYPE_EXCLUSIVE_
-		if (inRange && gl_LocalInvocationIndex!=0u)
-			data = data+scanBuffer.data[levelInvocationIndex-1u];
-#else
-#error "There are only inclusive or exclusive scans, define _NBL_GLSL_SCAN_TYPE_ properly!"
-#endif
-		data = nbl_glsl_workgroupInclusiveAdd(data);
-		if (inRange)
-			scanBuffer.data[levelInvocationIndex] = data;
-	}
+	else if (treeLevel==params.topLevel)
+		data = nbl_glsl_workgroupExclusiveAdd(data);
 	else
-	{
-		if (treeLevel<=params.topLevel)
-		{
-			const uint prevLevel = treeLevel-1u;
-			const uint offset = levelInvocationIndex+params.temporaryStorageOffset[prevLevel];
-			if (inRange)
-				data = scanScratch.data[offset];
-			if (treeLevel!=params.topLevel)
-			{
-				data = nbl_glsl_workgroupAdd(data);
-				if (lastInvocation)
-					scanScratch.data[localWorkgroupIndex+params.temporaryStorageOffset[treeLevel]] = data;
-			}
-			else
-			{
-				data = nbl_glsl_workgroupExclusiveAdd(data);
-				if (inRange)
-					scanScratch.data[offset] = data;
-			}
-		}
-		else
-		{
-			const uint pseudoLevel = (params.topLevel<<1u)-treeLevel;
-			if (bool(localWorkgroupIndex) && gl_LocalInvocationIndex==0u)
-				data = scanScratch.data[localWorkgroupIndex+params.temporaryStorageOffset[pseudoLevel]];
-			const uint offset = levelInvocationIndex+params.temporaryStorageOffset[pseudoLevel-1u];
-			if (inRange && gl_LocalInvocationIndex!=0u)
-				data = scanScratch.data[offset-1u];
-			data = nbl_glsl_workgroupInclusiveAdd(data);
-			if (inRange)
-				scanScratch.data[offset] = data;
-		}
-	}
+		data = nbl_glsl_workgroupInclusiveAdd(data);
+	
+	nbl_glsl_scan_setData(data,levelInvocationIndex,localWorkgroupIndex,treeLevel,inRange);
 }
-
-
-
-
-
 
 
 
@@ -285,22 +319,27 @@ layout(push_constant) uniform PushConstants
 #define _NBL_GLSL_SCAN_PUSH_CONSTANTS_DEFINED_
 #endif
 
-#ifndef _NBL_GLSL_SCAN_MAIN_DEFINED_
+nbl_glsl_scan_Parameters_t nbl_glsl_scan_getParameters()
+{
+	return pc.scanParams;
+}
+
+#ifndef _NBL_GLSL_MAIN_DEFINED_
 void main()
 {
 	const nbl_glsl_scan_DefaultSchedulerParameters_t schedulerParams = pc.schedulerParams;
-	const nbl_glsl_scan_Parameters_t scanParams = pc.scanParams;
+	const uint topLevel = nbl_glsl_scan_getParameters().topLevel;
 	// persistent workgroups
 	while (true)
 	{
 		uint treeLevel,localWorkgroupIndex;
-		if (nbl_glsl_scan_scheduler_getWork(schedulerParams,scanParams.topLevel,treeLevel,localWorkgroupIndex))
+		if (nbl_glsl_scan_scheduler_getWork(schedulerParams,topLevel,treeLevel,localWorkgroupIndex))
 			return;
 
-		nbl_glsl_scan_virtualWorkgroup(scanParams,treeLevel,localWorkgroupIndex);
+		nbl_glsl_scan_virtualWorkgroup(treeLevel,localWorkgroupIndex);
 
-		nbl_glsl_scan_scheduler_markComplete(schedulerParams,scanParams.topLevel,treeLevel,localWorkgroupIndex);
+		nbl_glsl_scan_scheduler_markComplete(schedulerParams,topLevel,treeLevel,localWorkgroupIndex);
 	}
 }
-#define _NBL_GLSL_SCAN_MAIN_DEFINED_
+#define _NBL_GLSL_MAIN_DEFINED_
 #endif
