@@ -897,6 +897,10 @@ public:
 			core::bitflag<asset::E_FORMAT_FEATURE> requiredFormatFeatures = static_cast<asset::E_FORMAT_FEATURE>(0u);
 			if (imageUsage & asset::IImage::EUF_STORAGE_BIT)
 				requiredFormatFeatures |= asset::EFF_STORAGE_IMAGE_BIT;
+			
+			const auto requestedFormatProps = device->getPhysicalDevice()->getFormatProperties(requestedSurfaceFormat.format);
+			const bool requestedFormatSupportsFeatures = ((requestedFormatProps.optimalTilingFeatures & requiredFormatFeatures).value == requiredFormatFeatures.value);
+			_NBL_DEBUG_BREAK_IF(requestedFormatSupportsFeatures == false); // requested format doesn't support requiredFormatFeatures for TILING_OPTIMAL
 
 			uint32_t found_format_and_colorspace = ~0u;
 			uint32_t found_format = ~0u;
@@ -905,12 +909,15 @@ public:
 			{
 				const auto& supportedFormat = gpuInfo.availableSurfaceFormats[i];
 				const bool hasMatchingFormats = requestedSurfaceFormat.format == supportedFormat.format;
-
-				const auto& formatProps = device->getPhysicalDevice()->getFormatProperties(requestedSurfaceFormat.format);
-				const bool formatSupportsFeatures = ((formatProps.optimalTilingFeatures & requiredFormatFeatures).value == requiredFormatFeatures.value);
-
 				const bool hasMatchingColorspace = requestedSurfaceFormat.colorSpace.eotf == supportedFormat.colorSpace.eotf && requestedSurfaceFormat.colorSpace.primary == supportedFormat.colorSpace.primary;
-				if(hasMatchingFormats && formatSupportsFeatures)
+
+				const auto supportedFormatProps = device->getPhysicalDevice()->getFormatProperties(supportedFormat.format);
+				const bool supportedFormatSupportsFeatures = ((supportedFormatProps.optimalTilingFeatures & requiredFormatFeatures).value == requiredFormatFeatures.value);
+
+				if(!supportedFormatSupportsFeatures)
+					continue;
+
+				if(hasMatchingFormats)
 				{
 					if(found_format == ~0u)
 						found_format = i;

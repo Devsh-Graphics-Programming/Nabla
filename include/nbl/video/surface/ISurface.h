@@ -36,7 +36,11 @@ class ISurface : public core::IReferenceCounted
         };
         struct SFormat
         {
-            SFormat() = default;
+            SFormat()
+                : format(asset::EF_UNKNOWN)
+                , colorSpace({asset::ECP_COUNT, asset::EOTF_UNKNOWN})
+            {}
+
             SFormat(asset::E_FORMAT _format, asset::E_COLOR_PRIMARIES _primary, asset::ELECTRO_OPTICAL_TRANSFER_FUNCTION _eotf)
                 : format(_format)
                 , colorSpace({_primary, _eotf})
