@@ -9,7 +9,7 @@ CVulkanCommandPool::~CVulkanCommandPool()
 {
     const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
     auto* vk = vulkanDevice->getFunctionTable();
-    vk->vk.vkDestroyCommandPool(vulkanDevice->getInternalObject(), m_commandPool, nullptr);
+    vk->vk.vkDestroyCommandPool(vulkanDevice->getInternalObject(), m_vkCommandPool, nullptr);
 }
 
 }

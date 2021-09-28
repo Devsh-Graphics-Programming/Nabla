@@ -47,6 +47,7 @@ int main()
 	constexpr uint32_t WIN_W = 768u;
 	constexpr uint32_t WIN_H = 512u;
 	constexpr uint32_t MAX_SWAPCHAIN_IMAGE_COUNT = 8u;
+	constexpr uint32_t SWAPCHAIN_IMAGE_COUNT = 3u; // Temporary, this will be gone as soon as CommonAPI::Init won't take in SC_IMAGE_COUNT template param
 	constexpr uint32_t FRAMES_IN_FLIGHT = 2u;
 	// static_assert(FRAMES_IN_FLIGHT>FBO_COUNT);
 
@@ -58,12 +59,11 @@ int main()
 	// This creates FBOs with swapchain images but I don't really need them
 	const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_STORAGE_BIT);
 	const video::ISurface::SFormat surfaceFormat(asset::EF_B8G8R8A8_UNORM, asset::ECP_COUNT, asset::EOTF_UNKNOWN);
-	auto initResult = CommonAPI::Init<WIN_W, WIN_H, MAX_SWAPCHAIN_IMAGE_COUNT>(
+	auto initResult = CommonAPI::Init<WIN_W, WIN_H, SWAPCHAIN_IMAGE_COUNT>(
 		video::EAT_VULKAN, "02.ComputeShader", swapchainImageUsage,
 		surfaceFormat);
 
 #if 0
-
 	// Todo(achal): Pending bug investigation, when both API connections are created at
 	// the same time
 	core::smart_refctd_ptr<video::COpenGLConnection> api =
