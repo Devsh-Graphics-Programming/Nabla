@@ -152,8 +152,8 @@ public:
         engine->logger = std::move(initOutput.logger);
         engine->inputSystem = std::move(initOutput.inputSystem);
 
-        engine->gpuTransferFence = engine->logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
-        engine->gpuComputeFence = engine->logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
+        //engine->gpuTransferFence = engine->logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
+        //engine->gpuComputeFence = engine->logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
 
         {
             engine->cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].fence = &engine->gpuTransferFence;
@@ -184,18 +184,13 @@ public:
 
             quantNormalCache->saveCacheToFile<asset::EF_A2B10G10R10_SNORM_PACK32>(engine->system.get(), "../../tmp/normalCache101010.sse");
         }
+
         {
             const auto meshbuffers = engine->meshRaw->getMeshBuffers();
 
             core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> gpuds1layout;
             size_t neededDS1UBOsz = 0ull;
             {
-                nbl::video::IGPUObjectFromAssetConverter::SParams cpu2gpuParams;
-                {
-                    cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].fence = &engine->gpuTransferFence;
-                    cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].fence = &engine->gpuComputeFence;
-                }
-
                 // we can safely assume that all meshbuffers within mesh loaded from OBJ has same DS1 layout (used for camera-specific data)
                 const asset::ICPUMeshBuffer* const firstMeshBuffer = *meshbuffers.begin();
                 engine->pipelineMetadata = engine->metaOBJ->getAssetSpecificMetadata(firstMeshBuffer->getPipeline());
@@ -213,10 +208,10 @@ public:
                     if (shdrIn.descriptorSection.type == asset::IRenderpassIndependentPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER && shdrIn.descriptorSection.uniformBufferObject.set == 1u && shdrIn.descriptorSection.uniformBufferObject.binding == engine->cameraUBOBinding)
                         neededDS1UBOsz = std::max<size_t>(neededDS1UBOsz, shdrIn.descriptorSection.uniformBufferObject.relByteoffset + shdrIn.descriptorSection.uniformBufferObject.bytesize);
 
-                auto gpu_array = engine->cpu2gpu.getGPUObjectsFromAssets(&ds1layout, &ds1layout + 1, cpu2gpuParams);
+                auto gpu_array = engine->cpu2gpu.getGPUObjectsFromAssets(&ds1layout, &ds1layout + 1, engine->cpu2gpuParams);
                 assert(gpu_array && gpu_array->size() && (*gpu_array)[0]);
                 gpuds1layout = (*gpu_array)[0];
-                cpu2gpuParams.waitForCreationToComplete();
+                //engine->cpu2gpuParams.waitForCreationToComplete();
             }
 
             engine->descriptorPool = engine->logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE, &gpuds1layout.get(), &gpuds1layout.get() + 1);
@@ -378,25 +373,18 @@ public:
         }
         engine->bakedCommandBuffer->end();
 
-        CommonAPI::InputSystem::ChannelReader<IMouseEventChannel> mouse;
-        CommonAPI::InputSystem::ChannelReader<IKeyboardEventChannel> keyboard;
-
         core::vectorSIMDf cameraPosition(0, 5, -10);
         matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60), float(WIN_W) / WIN_H, 2.f, 4000.f);
-        Camera camera = Camera(cameraPosition, core::vectorSIMDf(0, 0, 0), projectionMatrix, 10.f, 1.f);
+        engine->camera = Camera(cameraPosition, core::vectorSIMDf(0, 0, 0), projectionMatrix, 10.f, 1.f);
 
         engine->oracle.reportBeginFrameRecord();
 
-        core::smart_refctd_ptr<video::IGPUCommandBuffer> commandBuffers[FRAMES_IN_FLIGHT];
-        engine->logicalDevice->createCommandBuffers(engine->commandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY, FRAMES_IN_FLIGHT, commandBuffers);
+        engine->logicalDevice->createCommandBuffers(engine->commandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY, FRAMES_IN_FLIGHT, engine->commandBuffers);
 
-        core::smart_refctd_ptr<video::IGPUFence> frameComplete[FRAMES_IN_FLIGHT] = { nullptr };
-        core::smart_refctd_ptr<video::IGPUSemaphore> imageAcquire[FRAMES_IN_FLIGHT] = { nullptr };
-        core::smart_refctd_ptr<video::IGPUSemaphore> renderFinished[FRAMES_IN_FLIGHT] = { nullptr };
         for (uint32_t i = 0u; i < FRAMES_IN_FLIGHT; i++)
         {
-            imageAcquire[i] = engine->logicalDevice->createSemaphore();
-            renderFinished[i] = engine->logicalDevice->createSemaphore();
+            engine->imageAcquire[i] = engine->logicalDevice->createSemaphore();
+            engine->renderFinished[i] = engine->logicalDevice->createSemaphore();
         }
 
         engine->resourceIx = -1;
