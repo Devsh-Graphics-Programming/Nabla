@@ -1492,12 +1492,12 @@ namespace nbl
 
 					auto& root = *rootIterator;
 
-					typedef decltype(skeleton.hierarchyBuffer) HIERARCHY_BUFFERS;
+					typedef decltype(skeleton.hierarchyBuffer) HIERARCHY_BUFFER;
 					typedef decltype(glTF.nodes) GLTF_NODES;
 
-					auto setParents = [](SkeletonData::HierarchyBuffer& nodeHierarchyData, uint32_t localParentID, HIERARCHY_BUFFERS& hierarchyBuffers, GLTF_NODES& glTFNodes) -> uint32_t
+					auto setParents = [](SkeletonData::HierarchyBuffer& nodeHierarchyData, uint32_t localParentID, HIERARCHY_BUFFER& hierarchyBuffer, GLTF_NODES& glTFNodes) -> uint32_t
 					{
-						auto setParents_impl = [](SkeletonData::HierarchyBuffer& nodeHierarchyData, uint32_t localParentID, HIERARCHY_BUFFERS& hierarchyBuffers, GLTF_NODES& glTFNodes, auto& impl) -> uint32_t
+						auto setParents_impl = [](SkeletonData::HierarchyBuffer& nodeHierarchyData, uint32_t localParentID, HIERARCHY_BUFFER& hierarchyBuffer, GLTF_NODES& glTFNodes, auto& impl) -> uint32_t
 						{
 							auto& glTFNode = glTFNodes[nodeHierarchyData.glTFGlobalNodeID];
 
@@ -1507,20 +1507,20 @@ namespace nbl
 								{
 									auto& glTFChildNode = glTFNodes[childID];
 
-									auto childIterator = std::find_if(std::begin(hierarchyBuffers), std::end(hierarchyBuffers), [childID](const auto& nodeHierarchyData) {return nodeHierarchyData.glTFGlobalNodeID == childID; });
-									assert(childIterator != std::end(hierarchyBuffers));
+									auto childIterator = std::find_if(std::begin(hierarchyBuffer), std::end(hierarchyBuffer), [childID](const auto& nodeHierarchyData) {return nodeHierarchyData.glTFGlobalNodeID == childID; });
+									assert(childIterator != std::end(hierarchyBuffer));
 
 									SkeletonData::HierarchyBuffer& childNodeHierarchyData = *childIterator;
-									nodeHierarchyData.localParentJointID = impl(childNodeHierarchyData, nodeHierarchyData.localJointID, hierarchyBuffers, glTFNodes, impl);
+									childNodeHierarchyData.localParentJointID = impl(childNodeHierarchyData, nodeHierarchyData.localJointID, hierarchyBuffer, glTFNodes, impl);
 								}
 							}
 							else
 								return localParentID;
 
-							return nodeHierarchyData.localParentJointID = localParentID;
+							return localParentID;
 						};
 
-						return setParents_impl(nodeHierarchyData, localParentID, hierarchyBuffers, glTFNodes, setParents_impl);
+						return nodeHierarchyData.localParentJointID = setParents_impl(nodeHierarchyData, localParentID, hierarchyBuffer, glTFNodes, setParents_impl);
 					};
 
 					setParents(root, 0xdeadbeef, skeleton.hierarchyBuffer, glTF.nodes);
