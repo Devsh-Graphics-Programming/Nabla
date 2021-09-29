@@ -296,16 +296,19 @@ public:
 		return make_smart_refctd_ptr<ISystem>(std::move(caller));
 	}
 	
+	// Used to help with queue selection
 	struct QueueFamilyProps
 	{
 		static constexpr uint32_t InvalidIndex = ~0u;
-		uint32_t index                  = InvalidIndex;
-		bool supportsGraphics           : 1;
-		bool supportsCompute            : 1;
-		bool supportsTransfer           : 1;
-		bool supportsSparseBinding      : 1;
-		bool supportsPresent            : 1;
-		bool supportsProtected          : 1;
+		uint32_t index					= InvalidIndex;
+		uint32_t dedicatedQueueCount	= 0u;
+		uint32_t score					= 0u;
+		bool supportsGraphics			: 1;
+		bool supportsCompute			: 1;
+		bool supportsTransfer			: 1;
+		bool supportsSparseBinding		: 1;
+		bool supportsPresent			: 1;
+		bool supportsProtected			: 1;
 	};
 
 	struct GPUInfo
@@ -326,45 +329,10 @@ public:
 		bool isSwapChainSupported = false;
 	};
 	
-	static void finalizeQueueSelection(GPUInfo& gpuInfo, const bool preferSeperateComputeAndTransferQueues)
-	{
-		// If Graphics supports Present, then use Graphics for Present
-		if(gpuInfo.queueFamilyProps.present.index != gpuInfo.queueFamilyProps.graphics.index && gpuInfo.queueFamilyProps.graphics.supportsPresent) 
-		{
-			gpuInfo.queueFamilyProps.present = gpuInfo.queueFamilyProps.graphics;
-		}
-
-		// If a unique Compute is not found but Graphics supports Compute, then use Graphics for Compute
-		if(gpuInfo.queueFamilyProps.compute.index == QueueFamilyProps::InvalidIndex && gpuInfo.queueFamilyProps.graphics.supportsCompute)
-		{
-			gpuInfo.queueFamilyProps.compute = gpuInfo.queueFamilyProps.graphics;
-		}
-				
-		// If a unique Transfer is not found then use either Graphics or Compute for Transfer (prefer compute)
-		if(gpuInfo.queueFamilyProps.transfer.index == QueueFamilyProps::InvalidIndex)
-		{
-			if(gpuInfo.queueFamilyProps.compute.supportsTransfer)
-				gpuInfo.queueFamilyProps.transfer = gpuInfo.queueFamilyProps.compute;
-			else if(gpuInfo.queueFamilyProps.graphics.supportsTransfer)
-				gpuInfo.queueFamilyProps.transfer = gpuInfo.queueFamilyProps.graphics;
-		}
-
-		if(!preferSeperateComputeAndTransferQueues)
-		{
-			// Try to merge everything into 1 queue if possible 
-
-			if(gpuInfo.queueFamilyProps.graphics.supportsCompute)
-				gpuInfo.queueFamilyProps.compute = gpuInfo.queueFamilyProps.graphics;
-			
-			// use either Graphics or Compute for Transfer (prefer graphics)
-			if(gpuInfo.queueFamilyProps.graphics.supportsTransfer) // It should be always true but check anyways
-				gpuInfo.queueFamilyProps.transfer = gpuInfo.queueFamilyProps.graphics;
-			else if(gpuInfo.queueFamilyProps.compute.supportsTransfer) // It should be always true but check anyways
-				gpuInfo.queueFamilyProps.transfer = gpuInfo.queueFamilyProps.compute;
-		}
-	}
-
-	static std::vector<GPUInfo> extractGPUInfos(nbl::core::SRange<nbl::video::IPhysicalDevice* const> gpus, nbl::core::smart_refctd_ptr<nbl::video::ISurface> surface, const bool preferSeperateComputeAndTransferQueues = false)
+	static std::vector<GPUInfo> extractGPUInfos(
+		nbl::core::SRange<nbl::video::IPhysicalDevice* const> gpus,
+		nbl::core::smart_refctd_ptr<nbl::video::ISurface> surface,
+		const bool headlessCompute = false)
 	{
 		using namespace nbl;
 		using namespace nbl::video;
@@ -377,16 +345,153 @@ public:
 			extractedInfo = {};
 			auto gpu = gpus.begin()[i];
 
-			// Find required queue family indices
+			// Find queue family indices
 			{
 				const auto& queueFamilyProperties = gpu->getQueueFamilyProperties();
 
+				std::vector<uint32_t> remainingQueueCounts = std::vector<uint32_t>(queueFamilyProperties.size(), 0u);
+				
+				for (uint32_t familyIndex = 0u; familyIndex < queueFamilyProperties.size(); ++familyIndex)
+				{
+					const auto& familyProperty = queueFamilyProperties.begin()[familyIndex];
+					remainingQueueCounts[familyIndex] = familyProperty.queueCount;
+				}
+
+				// Select Graphics Queue Family Index
+				if(!headlessCompute)
+				{
+					// Select Graphics Queue Family Index
+					for (uint32_t familyIndex = 0u; familyIndex < queueFamilyProperties.size(); ++familyIndex)
+					{
+						const auto& familyProperty = queueFamilyProperties.begin()[familyIndex];
+						auto& outFamilyProp = extractedInfo.queueFamilyProps;
+					
+						const uint32_t currentFamilyQueueCount = familyProperty.queueCount;
+						if(currentFamilyQueueCount <= 0)
+							continue;
+
+						bool supportsPresent = surface && surface->isSupportedForPhysicalDevice(gpu, familyIndex);
+						bool hasGraphicsFlag = (familyProperty.queueFlags & IPhysicalDevice::EQF_GRAPHICS_BIT).value != 0;
+						bool hasComputeFlag = (familyProperty.queueFlags & IPhysicalDevice::EQF_COMPUTE_BIT).value != 0;
+						bool hasTransferFlag = (familyProperty.queueFlags & IPhysicalDevice::EQF_TRANSFER_BIT).value != 0;
+						bool hasSparseBindingFlag = (familyProperty.queueFlags & IPhysicalDevice::EQF_SPARSE_BINDING_BIT).value != 0;
+						bool hasProtectedFlag = (familyProperty.queueFlags & IPhysicalDevice::EQF_PROTECTED_BIT).value != 0;
+
+						const uint32_t remainingQueueCount = remainingQueueCounts[familyIndex];
+						const bool hasEnoughQueues = remainingQueueCount >= 1u;
+						
+						/*
+						* Examples:
+						*	-> score is 0 for every queueFam with no Graphics support
+						*	-> If both queue families !hasEnoughtQueues -> score will be equal but this doesn't/shouldn't happen -> there should be a queueFamily with "enoughQueues" for graphics.
+						*	-> if both queue families hasEnoughQueues and have similar support for present and compute: Queue Family with more remainingQueueCount is preferred.
+						*	-> if both queue families hasEnoughQueues with the same number of remainingQueueCount -> "QueueFamily with present and no compute" >>>> "QueueFamily with compute and no present"
+						*	-> if both queue families hasEnoughQueues -> "QueueFamily with compute and no present and 16 remainingQueues" ==== "QueueFamily with present and no compute and 1 remaining Queue"
+						*	-> if both queue families hasEnoughQueues -> "QueueFamily with present and compute and 1 remaining Queue" ==== "QueueFamily with no compute and no present and 34 remaining Queues xD"
+						*/
+						uint32_t score = 0u;
+						if(hasGraphicsFlag) {
+							score++;
+							if(hasEnoughQueues) {
+								score += 1u * remainingQueueCount;
+
+								if(supportsPresent) 
+								{
+									score += 32u; // more important to have present than compute (presentSupport is larger in scoring to 16 extra compute queues)
+								}
+
+								if(hasComputeFlag) 
+								{
+									score += 1u * remainingQueueCount;
+								}
+							}	
+						}
+
+						if(score > outFamilyProp.graphics.score)
+						{
+							outFamilyProp.graphics.index = familyIndex;
+							outFamilyProp.graphics.supportsGraphics = hasGraphicsFlag;
+							outFamilyProp.graphics.supportsCompute = hasComputeFlag;
+							outFamilyProp.graphics.supportsTransfer = true; // Reporting this is optional for Vk Graphics-Capable QueueFam, but Its support is guaranteed.
+							outFamilyProp.graphics.supportsSparseBinding = hasSparseBindingFlag;
+							outFamilyProp.graphics.supportsPresent = supportsPresent;
+							outFamilyProp.graphics.supportsProtected = hasProtectedFlag;
+							outFamilyProp.graphics.dedicatedQueueCount = 1u;
+							outFamilyProp.graphics.score = score;
+						}
+					}
+					assert(extractedInfo.queueFamilyProps.graphics.index != QueueFamilyProps::InvalidIndex);
+					remainingQueueCounts[extractedInfo.queueFamilyProps.graphics.index] -= extractedInfo.queueFamilyProps.graphics.dedicatedQueueCount;
+				}
+
+				// Select Compute Queue Family Index
 				for (uint32_t familyIndex = 0u; familyIndex < queueFamilyProperties.size(); ++familyIndex)
 				{
 					const auto& familyProperty = queueFamilyProperties.begin()[familyIndex];
 					auto& outFamilyProp = extractedInfo.queueFamilyProps;
+					
+					const uint32_t currentFamilyQueueCount = familyProperty.queueCount;
+					if(currentFamilyQueueCount <= 0)
+						continue;
 
-					if(familyProperty.queueCount <= 0)
+					bool supportsPresent = surface && surface->isSupportedForPhysicalDevice(gpu, familyIndex);
+					bool hasGraphicsFlag = (familyProperty.queueFlags & IPhysicalDevice::EQF_GRAPHICS_BIT).value != 0;
+					bool hasComputeFlag = (familyProperty.queueFlags & IPhysicalDevice::EQF_COMPUTE_BIT).value != 0;
+					bool hasTransferFlag = (familyProperty.queueFlags & IPhysicalDevice::EQF_TRANSFER_BIT).value != 0;
+					bool hasSparseBindingFlag = (familyProperty.queueFlags & IPhysicalDevice::EQF_SPARSE_BINDING_BIT).value != 0;
+					bool hasProtectedFlag = (familyProperty.queueFlags & IPhysicalDevice::EQF_PROTECTED_BIT).value != 0;
+					
+					const uint32_t remainingQueueCount = remainingQueueCounts[familyIndex];
+					const bool hasExtraQueues = remainingQueueCount >= 1u;
+
+					/*
+					* Examples:
+					*	-> If both !hasEnoughExtraQueues: "queue family that supports graphics" >>>> "queue family that doesn't support graphics"
+					*	-> If both queueFams supports Graphics and hasEnoughExtraQueues: "Graphics-capable QueueFamily equal to the selected Graphics QueueFam" >>>> "Any other Graphics-capable QueueFamily"
+					*	-> If both support Graphics (not equal to graphicsQueueFamIndex): "queue family that hasEnoughExtraQueues" >>>> "queue family that !hasEnoughExtraQueues"
+					*	-> If both support Graphics and hasEnoughExtraQueues (not equal to graphicsQueueFamIndex):  both are adequate enough, depends on the order of the queueFams.
+					*	-> "Compute-capable QueueFam with hasEnoughExtraQueues" >>>> "Compute-capable QueueFam with graphics capability and ==graphicsQueueFamIdx with no extra dedicated queues"
+					*/
+					uint32_t score = 0u;
+					if(hasComputeFlag) {
+						score++;
+
+						if(hasExtraQueues) {
+							score += 3;
+						}
+						
+						if(!headlessCompute && hasGraphicsFlag) {
+							score++;
+							if(familyIndex == outFamilyProp.graphics.index) {
+								score++;
+							}
+						}
+					}
+
+					if(score > outFamilyProp.compute.score)
+					{
+						outFamilyProp.compute.index = familyIndex;
+						outFamilyProp.compute.supportsGraphics = hasGraphicsFlag;
+						outFamilyProp.compute.supportsCompute = hasComputeFlag;
+						outFamilyProp.compute.supportsTransfer = true; // Reporting this is optional for Vk Compute-Capable QueueFam, but Its support is guaranteed.
+						outFamilyProp.compute.supportsSparseBinding = hasSparseBindingFlag;
+						outFamilyProp.compute.supportsPresent = supportsPresent;
+						outFamilyProp.compute.supportsProtected = hasProtectedFlag;
+						outFamilyProp.compute.dedicatedQueueCount = (hasExtraQueues) ? 1u : 0u;
+						outFamilyProp.compute.score = score;
+					}
+				}
+				assert(extractedInfo.queueFamilyProps.compute.index != QueueFamilyProps::InvalidIndex);
+				remainingQueueCounts[extractedInfo.queueFamilyProps.compute.index] -= extractedInfo.queueFamilyProps.compute.dedicatedQueueCount;
+
+				// Select Transfer Queue Family Index
+				for (uint32_t familyIndex = 0u; familyIndex < queueFamilyProperties.size(); ++familyIndex)
+				{
+					const auto& familyProperty = queueFamilyProperties.begin()[familyIndex];
+					auto& outFamilyProp = extractedInfo.queueFamilyProps;
+					
+					const uint32_t currentFamilyQueueCount = familyProperty.queueCount;
+					if(currentFamilyQueueCount <= 0)
 						continue;
 
 					bool supportsPresent = surface && surface->isSupportedForPhysicalDevice(gpu, familyIndex);
@@ -396,47 +501,40 @@ public:
 					bool hasSparseBindingFlag = (familyProperty.queueFlags & IPhysicalDevice::EQF_SPARSE_BINDING_BIT).value != 0;
 					bool hasProtectedFlag = (familyProperty.queueFlags & IPhysicalDevice::EQF_PROTECTED_BIT).value != 0;
 
-					// Select Unique queues indices for each queue type (Try to get different "queue index"s for each queue type)
-					// Later we can decide if we want them seperate or together. (EXCLUSIVE/CONCURRENT)
+					const uint32_t extraQueueCount = core::min(remainingQueueCounts[familyIndex], 2u); // UP + DOWN
+					const bool hasExtraQueues = extraQueueCount >= 1u;
 					
-					// Graphics
-					if(hasGraphicsFlag && (outFamilyProp.graphics.index == QueueFamilyProps::InvalidIndex || outFamilyProp.graphics.supportsPresent == false))
-					{
-						outFamilyProp.graphics.index = familyIndex;
-						outFamilyProp.graphics.supportsGraphics = hasGraphicsFlag;
-						outFamilyProp.graphics.supportsCompute = hasComputeFlag;
-						outFamilyProp.graphics.supportsTransfer = hasTransferFlag;
-						outFamilyProp.graphics.supportsSparseBinding = hasSparseBindingFlag;
-						outFamilyProp.graphics.supportsPresent = supportsPresent;
-						outFamilyProp.graphics.supportsProtected = hasProtectedFlag;
-					}
-					
-					// Present
-					if(supportsPresent && (outFamilyProp.present.index == QueueFamilyProps::InvalidIndex || outFamilyProp.present.supportsGraphics == false))
-					{
-						outFamilyProp.present.index = familyIndex;
-						outFamilyProp.present.supportsGraphics = hasGraphicsFlag;
-						outFamilyProp.present.supportsCompute = hasComputeFlag;
-						outFamilyProp.present.supportsTransfer = hasTransferFlag;
-						outFamilyProp.present.supportsSparseBinding = hasSparseBindingFlag;
-						outFamilyProp.present.supportsPresent = supportsPresent;
-						outFamilyProp.present.supportsProtected = hasProtectedFlag;
+					/*
+					* Examples:
+					*	-> score is 0 for every queueFam with no Transfer support
+					*	-> If both have similar hasEnoughExtraQueues, compute and graphics support: the one with more remainingQueueCount is preferred
+					*	-> If both support Transfer: "QueueFam with >=1 extra queues and graphics and compute support" >>>> (less probable)"QueueFam with no extra queues and transfer-only(no compute and graphics support)"
+					*	-> If both support Transfer: "QueueFam with >=0 extra queues and only compute" >>>> "QueueFam with >=0 extra queues and only graphics"
+					*/
+					uint32_t score = 0u;
+					if(hasTransferFlag) {
+						score += 1u;
+
+						uint32_t notHavingComputeScore = 1u;
+						uint32_t notHavingGraphicsScore = 2u;
+
+						if(hasExtraQueues) { // Having extra queues to have seperate up/down transfer queues is more important
+							score += 4u * extraQueueCount;
+							notHavingComputeScore *= extraQueueCount;
+							notHavingGraphicsScore *= extraQueueCount;
+						}
+						
+						if(!hasGraphicsFlag) {
+							score += notHavingGraphicsScore;
+						}
+
+						if(!hasComputeFlag) {
+							score += notHavingComputeScore;
+						}
+
 					}
 
-					// Compute
-					if(hasComputeFlag && !hasGraphicsFlag && outFamilyProp.compute.index == QueueFamilyProps::InvalidIndex)
-					{
-						outFamilyProp.compute.index = familyIndex;
-						outFamilyProp.compute.supportsGraphics = hasGraphicsFlag;
-						outFamilyProp.compute.supportsCompute = hasComputeFlag;
-						outFamilyProp.compute.supportsTransfer = hasTransferFlag;
-						outFamilyProp.compute.supportsSparseBinding = hasSparseBindingFlag;
-						outFamilyProp.compute.supportsPresent = supportsPresent;
-						outFamilyProp.compute.supportsProtected = hasProtectedFlag;
-					}
-
-					// Transfer
-					if(hasTransferFlag && !hasGraphicsFlag && !hasComputeFlag && outFamilyProp.transfer.index == QueueFamilyProps::InvalidIndex)
+					if(score > outFamilyProp.transfer.score)
 					{
 						outFamilyProp.transfer.index = familyIndex;
 						outFamilyProp.transfer.supportsGraphics = hasGraphicsFlag;
@@ -445,15 +543,89 @@ public:
 						outFamilyProp.transfer.supportsSparseBinding = hasSparseBindingFlag;
 						outFamilyProp.transfer.supportsPresent = supportsPresent;
 						outFamilyProp.transfer.supportsProtected = hasProtectedFlag;
+						outFamilyProp.transfer.dedicatedQueueCount = extraQueueCount;
+						outFamilyProp.transfer.score = score;
 					}
 				}
-				
-				finalizeQueueSelection(extractedInfo, preferSeperateComputeAndTransferQueues);
-				assert(extractedInfo.queueFamilyProps.graphics.supportsTransfer && "This shouldn't happen");
+				assert(extractedInfo.queueFamilyProps.transfer.index != QueueFamilyProps::InvalidIndex);
+				remainingQueueCounts[extractedInfo.queueFamilyProps.transfer.index] -= extractedInfo.queueFamilyProps.transfer.dedicatedQueueCount;
+
+				// Select Present Queue Family Index
+				if(!headlessCompute)
+				{
+					if(extractedInfo.queueFamilyProps.graphics.supportsPresent && extractedInfo.queueFamilyProps.graphics.index != QueueFamilyProps::InvalidIndex)
+					{
+						extractedInfo.queueFamilyProps.present = extractedInfo.queueFamilyProps.graphics;
+						extractedInfo.queueFamilyProps.present.dedicatedQueueCount = 0u;
+					}
+					else
+					{
+						const uint32_t maxNeededQueueCountForPresent = 1u;
+						for (uint32_t familyIndex = 0u; familyIndex < queueFamilyProperties.size(); ++familyIndex)
+						{
+							const auto& familyProperty = queueFamilyProperties.begin()[familyIndex];
+							auto& outFamilyProp = extractedInfo.queueFamilyProps;
+					
+							const uint32_t currentFamilyQueueCount = familyProperty.queueCount;
+							if(currentFamilyQueueCount <= 0)
+								continue;
+
+							bool supportsPresent = surface && surface->isSupportedForPhysicalDevice(gpu, familyIndex);
+							bool hasGraphicsFlag = (familyProperty.queueFlags & IPhysicalDevice::EQF_GRAPHICS_BIT).value != 0;
+							bool hasComputeFlag = (familyProperty.queueFlags & IPhysicalDevice::EQF_COMPUTE_BIT).value != 0;
+							bool hasTransferFlag = (familyProperty.queueFlags & IPhysicalDevice::EQF_TRANSFER_BIT).value != 0;
+							bool hasSparseBindingFlag = (familyProperty.queueFlags & IPhysicalDevice::EQF_SPARSE_BINDING_BIT).value != 0;
+							bool hasProtectedFlag = (familyProperty.queueFlags & IPhysicalDevice::EQF_PROTECTED_BIT).value != 0;
+
+							const uint32_t remainingQueueCount = remainingQueueCounts[familyIndex];
+							const bool hasEnoughExtraQueues = remainingQueueCount >= 1u;
+							
+							/* this will only lead here if selected graphics queue can't support present
+							* Examples:
+							*	-> score is 0 for every queueFam with no Present support
+							*	-> If both queue families support Present -> "graphics support is preferred rather than extra dedicated queues"
+							*		-> graphics support is equal in scoring to 100 extra queues with no graphics support
+							*	-> If both queue families !hasEnoughExtraQueues -> "graphics support is preferred"
+							*	-> If both queue families hasEnoughExtraQueues and have similar support for graphics -> "queue family with more remainingQueueCount is preferred"
+							*/
+							uint32_t score = 0u;
+							if(supportsPresent) {
+								score += 1u;
+								
+								uint32_t graphicsSupportScore = 100u;
+								if(hasEnoughExtraQueues) {
+									score += 1u * remainingQueueCount;
+									graphicsSupportScore *= remainingQueueCount;
+								}
+
+								if(hasGraphicsFlag) {
+									score += graphicsSupportScore; // graphics support is larger in scoring than 100 extra queues with no graphics support
+								}
+							}
+
+							if(score > outFamilyProp.present.score)
+							{
+								outFamilyProp.present.index = familyIndex;
+								outFamilyProp.present.supportsGraphics = hasGraphicsFlag;
+								outFamilyProp.present.supportsCompute = hasComputeFlag;
+								outFamilyProp.present.supportsTransfer = hasTransferFlag;
+								outFamilyProp.present.supportsSparseBinding = hasSparseBindingFlag;
+								outFamilyProp.present.supportsPresent = supportsPresent;
+								outFamilyProp.present.supportsProtected = hasProtectedFlag;
+								outFamilyProp.present.dedicatedQueueCount = (hasEnoughExtraQueues) ? 1u : 0u;
+								outFamilyProp.present.score = score;
+							}
+						}
+					}
+					assert(extractedInfo.queueFamilyProps.present.index != QueueFamilyProps::InvalidIndex);
+					remainingQueueCounts[extractedInfo.queueFamilyProps.present.index] -= extractedInfo.queueFamilyProps.present.dedicatedQueueCount;
+				}
+
+				if(!headlessCompute)
+					assert(extractedInfo.queueFamilyProps.graphics.supportsTransfer && "This shouldn't happen");
 				assert(extractedInfo.queueFamilyProps.compute.supportsTransfer && "This shouldn't happen");
 			}
 
-			// Since our workload is not headless compute, a swapchain is mandatory
 			extractedInfo.isSwapChainSupported = gpu->isSwapchainSupported();
 
 			// Check if the surface is adequate
@@ -478,7 +650,7 @@ public:
 	
 	// TODO: also implement a function:findBestGPU
 	// Returns an index into gpus info vector
-	static uint32_t findSuitableGPU(const std::vector<GPUInfo>& extractedInfos, const bool graphicsQueueEnable)
+	static uint32_t findSuitableGPU(const std::vector<GPUInfo>& extractedInfos, const bool headlessCompute)
 	{
 		uint32_t ret = ~0u;
 		for(uint32_t i = 0; i < extractedInfos.size(); ++i)
@@ -486,7 +658,7 @@ public:
 			bool isGPUSuitable = false;
 			const auto& extractedInfo = extractedInfos[i];
 
-			if(graphicsQueueEnable)
+			if(!headlessCompute)
 			{
 				if ((extractedInfo.queueFamilyProps.graphics.index != QueueFamilyProps::InvalidIndex) &&
 					(extractedInfo.queueFamilyProps.compute.index != QueueFamilyProps::InvalidIndex) &&
@@ -617,7 +789,7 @@ public:
 		auto gpus = result.apiConnection->getPhysicalDevices();
 		assert(!gpus.empty());
 		auto extractedInfos = extractGPUInfos(gpus, nullptr, false);
-		auto suitableGPUIndex = findSuitableGPU(extractedInfos, false);
+		auto suitableGPUIndex = findSuitableGPU(extractedInfos, true);
 		auto gpu = gpus.begin()[suitableGPUIndex];
 
 		const auto& gpuInfo = extractedInfos[suitableGPUIndex];
@@ -693,7 +865,7 @@ public:
 		nbl::asset::IImage::E_USAGE_FLAGS swapchainImageUsage,
 		nbl::video::ISurface::SFormat surfaceFormat = nbl::video::ISurface::SFormat(nbl::asset::EF_UNKNOWN, nbl::asset::ECP_COUNT, nbl::asset::EOTF_UNKNOWN),
 		nbl::asset::E_FORMAT depthFormat = nbl::asset::EF_UNKNOWN,
-		const bool graphicsQueueEnable = true)
+		const bool headlessCompute = false)
 	{
 		using namespace nbl;
 		using namespace nbl::video;
@@ -751,67 +923,188 @@ public:
 
 		auto gpus = result.apiConnection->getPhysicalDevices();
 		assert(!gpus.empty());
-		auto extractedInfos = extractGPUInfos(gpus, result.surface, false);
-		auto suitableGPUIndex = findSuitableGPU(extractedInfos, graphicsQueueEnable);
+		auto extractedInfos = extractGPUInfos(gpus, result.surface, headlessCompute);
+		auto suitableGPUIndex = findSuitableGPU(extractedInfos, headlessCompute);
 		auto gpu = gpus.begin()[suitableGPUIndex];
 		const auto& gpuInfo = extractedInfos[suitableGPUIndex];
-
-		float queuePriority = IGPUQueue::DEFAULT_QUEUE_PRIORITY;
-		constexpr uint32_t MaxQueueCount = 4;
-		video::ILogicalDevice::SQueueCreationParams qcp[MaxQueueCount] = {}; 
 		
-		uint32_t actualQueueCount = 1;
+		constexpr uint32_t MaxQueuesInFamily = 32;
+		float queuePriorities[MaxQueuesInFamily];
+		std::fill(queuePriorities, queuePriorities + MaxQueuesInFamily, IGPUQueue::DEFAULT_QUEUE_PRIORITY);
+
+		constexpr uint32_t MaxQueueFamilyCount = 4;
+		video::ILogicalDevice::SQueueCreationParams qcp[MaxQueueFamilyCount] = {}; 
+		
+		uint32_t actualQueueParamsCount = 0u;
+
+		uint32_t graphicsQueueIndexInFamily = 0u;
+		uint32_t computeQueueIndexInFamily = 0u;
+		uint32_t transferUpQueueIndexInFamily = 0u;
+		uint32_t transferDownQueueIndexInFamily = 0u;
+		uint32_t presentQueueIndexInFamily = 0u;
+
+		// Graphics Queue
+		if(!headlessCompute)
+		{
+			uint32_t dedicatedQueuesInFamily = gpuInfo.queueFamilyProps.graphics.dedicatedQueueCount;
+			assert(dedicatedQueuesInFamily >= 1u);
+
+			qcp[0].familyIndex = gpuInfo.queueFamilyProps.graphics.index;
+			qcp[0].count = dedicatedQueuesInFamily;
+			qcp[0].flags = static_cast<video::IGPUQueue::E_CREATE_FLAGS>(0);
+			qcp[0].priorities = queuePriorities;
+			graphicsQueueIndexInFamily = 0u;
+			actualQueueParamsCount++;
+		}
+		
+		// Compute Queue
+		bool foundComputeInOtherFamily = false;
+		for(uint32_t i = 0; i < actualQueueParamsCount; ++i)
+		{
+			auto& otherQcp = qcp[i];
+			uint32_t dedicatedQueuesInFamily = gpuInfo.queueFamilyProps.compute.dedicatedQueueCount;
+			if(otherQcp.familyIndex == gpuInfo.queueFamilyProps.compute.index)
+			{
+				if(dedicatedQueuesInFamily >= 1)
+				{
+					computeQueueIndexInFamily = otherQcp.count + 0u;
+				}
+				else
+				{
+					computeQueueIndexInFamily = 0u;
+				}
+				otherQcp.count += dedicatedQueuesInFamily;
+				foundComputeInOtherFamily = true;
+				break; // If works correctly no need to check other family indices as they are unique
+			}
+		}
+		if(!foundComputeInOtherFamily)
+		{
+			uint32_t dedicatedQueuesInFamily = gpuInfo.queueFamilyProps.compute.dedicatedQueueCount;
+			assert(dedicatedQueuesInFamily == 1u);
+
+			auto & computeQcp = qcp[actualQueueParamsCount];
+			computeQcp.familyIndex = gpuInfo.queueFamilyProps.compute.index;
+			computeQcp.count = dedicatedQueuesInFamily;
+			computeQcp.flags = static_cast<video::IGPUQueue::E_CREATE_FLAGS>(0);
+			computeQcp.priorities = queuePriorities;
+			actualQueueParamsCount++;
+		}
+		
+		// Transfer Queue
+		bool foundTransferInOtherFamily = false;
+		for(uint32_t i = 0; i < actualQueueParamsCount; ++i)
+		{
+			auto& otherQcp = qcp[i];
+			uint32_t dedicatedQueuesInFamily = gpuInfo.queueFamilyProps.transfer.dedicatedQueueCount;
+			if(otherQcp.familyIndex == gpuInfo.queueFamilyProps.transfer.index)
+			{
+				if(dedicatedQueuesInFamily >= 2u)
+				{
+					transferUpQueueIndexInFamily = otherQcp.count + 0u;
+					transferDownQueueIndexInFamily = otherQcp.count + 1u;
+				}
+				else if(dedicatedQueuesInFamily >= 1u)
+				{
+					transferUpQueueIndexInFamily = otherQcp.count + 0u;
+					transferDownQueueIndexInFamily = otherQcp.count + 0u;
+				}
+				else if(dedicatedQueuesInFamily == 0u)
+				{
+					transferUpQueueIndexInFamily = 0u;
+					transferDownQueueIndexInFamily = 0u;
+				}
+				otherQcp.count += dedicatedQueuesInFamily;
+				foundTransferInOtherFamily = true;
+				break; // If works correctly no need to check other family indices as they are unique
+			}
+		}
+		if(!foundTransferInOtherFamily)
+		{
+			uint32_t dedicatedQueuesInFamily = gpuInfo.queueFamilyProps.transfer.dedicatedQueueCount;
+			assert(dedicatedQueuesInFamily >= 1u);
+
+			if(dedicatedQueuesInFamily >= 2u)
+			{
+				transferUpQueueIndexInFamily = 0u;
+				transferDownQueueIndexInFamily = 1u;
+			}
+			else if(dedicatedQueuesInFamily >= 1u)
+			{
+				transferUpQueueIndexInFamily = 0u;
+				transferDownQueueIndexInFamily = 0u;
+			}
+			else
+			{
+				assert(false);
+			}
+
+			auto & transferQcp = qcp[actualQueueParamsCount];
+			transferQcp.familyIndex = gpuInfo.queueFamilyProps.transfer.index;
+			transferQcp.count = dedicatedQueuesInFamily;
+			transferQcp.flags = static_cast<video::IGPUQueue::E_CREATE_FLAGS>(0);
+			transferQcp.priorities = queuePriorities;
+			actualQueueParamsCount++;
+		}
+
+		// Present Queue
+		bool foundPresentInOtherFamily = false;
+		for(uint32_t i = 0; i < actualQueueParamsCount; ++i)
+		{
+			auto& otherQcp = qcp[i];
+			if(otherQcp.familyIndex == gpuInfo.queueFamilyProps.present.index)
+			{
+				if(otherQcp.familyIndex == gpuInfo.queueFamilyProps.graphics.index)
+				{
+					presentQueueIndexInFamily = 0u;
+				}
+				else
+				{
+					uint32_t dedicatedQueuesInFamily = gpuInfo.queueFamilyProps.present.dedicatedQueueCount;
+
+					if(dedicatedQueuesInFamily >= 1u)
+					{
+						presentQueueIndexInFamily = otherQcp.count + 0u;
+					}
+					else if(dedicatedQueuesInFamily == 0u)
+					{
+						presentQueueIndexInFamily = 0u;
+					}
+					otherQcp.count += dedicatedQueuesInFamily;
+				}
+				foundPresentInOtherFamily = true;
+				break; // If works correctly no need to check other family indices as they are unique
+			}
+		}
+		if(!foundPresentInOtherFamily)
+		{
+			uint32_t dedicatedQueuesInFamily = gpuInfo.queueFamilyProps.present.dedicatedQueueCount;
+			assert(dedicatedQueuesInFamily == 1u);
+			presentQueueIndexInFamily = 0u;
+
+			auto & presentQcp = qcp[actualQueueParamsCount];
+			presentQcp.familyIndex = gpuInfo.queueFamilyProps.present.index;
+			presentQcp.count = dedicatedQueuesInFamily;
+			presentQcp.flags = static_cast<video::IGPUQueue::E_CREATE_FLAGS>(0);
+			presentQcp.priorities = queuePriorities;
+			actualQueueParamsCount++;
+		}
+
 		uint32_t mainQueueFamilyIndex = QueueFamilyProps::InvalidIndex;
-		if(graphicsQueueEnable)
-			mainQueueFamilyIndex = gpuInfo.queueFamilyProps.graphics.index;
-		else
-			mainQueueFamilyIndex = gpuInfo.queueFamilyProps.compute.index;
-
-		qcp[0].familyIndex = mainQueueFamilyIndex;
-		qcp[0].count = 1u;
-		qcp[0].flags = static_cast<video::IGPUQueue::E_CREATE_FLAGS>(0);
-		qcp[0].priorities = &queuePriority;
-
-		if(qcp[0].familyIndex != gpuInfo.queueFamilyProps.compute.index)
-		{
-			qcp[actualQueueCount].flags = static_cast<video::IGPUQueue::E_CREATE_FLAGS>(0);
-			qcp[actualQueueCount].familyIndex = gpuInfo.queueFamilyProps.compute.index;
-			qcp[actualQueueCount].count = 1u;
-			qcp[actualQueueCount].priorities = &queuePriority;
-			actualQueueCount++;
-		}
-		if(gpuInfo.queueFamilyProps.transfer.index != gpuInfo.queueFamilyProps.compute.index && gpuInfo.queueFamilyProps.transfer.index != gpuInfo.queueFamilyProps.graphics.index)
-		{
-			qcp[actualQueueCount].flags = static_cast<video::IGPUQueue::E_CREATE_FLAGS>(0);
-			qcp[actualQueueCount].familyIndex = gpuInfo.queueFamilyProps.transfer.index;
-			qcp[actualQueueCount].count = 1u;
-			qcp[actualQueueCount].priorities = &queuePriority;
-			actualQueueCount++;
-		}
-		if(gpuInfo.queueFamilyProps.present.index != gpuInfo.queueFamilyProps.compute.index &&
-			gpuInfo.queueFamilyProps.present.index != gpuInfo.queueFamilyProps.graphics.index &&
-			gpuInfo.queueFamilyProps.present.index != gpuInfo.queueFamilyProps.transfer.index )
-		{
-			qcp[actualQueueCount].flags = static_cast<video::IGPUQueue::E_CREATE_FLAGS>(0);
-			qcp[actualQueueCount].familyIndex = gpuInfo.queueFamilyProps.present.index;
-			qcp[actualQueueCount].count = 1u;
-			qcp[actualQueueCount].priorities = &queuePriority;
-			actualQueueCount++;
-		}
 
 		video::ILogicalDevice::SCreationParams dev_params;
-		dev_params.queueParamsCount = actualQueueCount;
+		dev_params.queueParamsCount = actualQueueParamsCount;
 		dev_params.queueParams = qcp;
 		result.logicalDevice = gpu->createLogicalDevice(dev_params);
 
 		result.utilities = core::make_smart_refctd_ptr<video::IUtilities>(core::smart_refctd_ptr(result.logicalDevice));
 
 		result.mainQueue = result.logicalDevice->getQueue(mainQueueFamilyIndex, 0);
-		if(graphicsQueueEnable)
-			result.queues[InitOutput<sc_image_count>::EQT_GRAPHICS] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.graphics.index, 0);
-		result.queues[InitOutput<sc_image_count>::EQT_COMPUTE] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.compute.index, 0);
-		result.queues[InitOutput<sc_image_count>::EQT_TRANSFER_UP] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.transfer.index, 0);
-		result.queues[InitOutput<sc_image_count>::EQT_TRANSFER_DOWN] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.transfer.index, 0);
+		if(!headlessCompute)
+			result.queues[InitOutput<sc_image_count>::EQT_GRAPHICS] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.graphics.index, graphicsQueueIndexInFamily);
+		result.queues[InitOutput<sc_image_count>::EQT_COMPUTE] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.compute.index, computeQueueIndexInFamily);
+		result.queues[InitOutput<sc_image_count>::EQT_TRANSFER_UP] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.transfer.index, transferUpQueueIndexInFamily);
+		result.queues[InitOutput<sc_image_count>::EQT_TRANSFER_DOWN] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.transfer.index, transferDownQueueIndexInFamily);
 
 		nbl::video::ISurface::SFormat requestedFormat;
 		
