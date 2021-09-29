@@ -20,6 +20,7 @@ class IBuffer : public core::IBuffer, public IDescriptor
 
         enum E_USAGE_FLAGS : uint32_t
         {
+            EUF_NONE = 0x00000000,
             EUF_TRANSFER_SRC_BIT = 0x00000001,
             EUF_TRANSFER_DST_BIT = 0x00000002,
             EUF_UNIFORM_TEXEL_BUFFER_BIT = 0x00000004,
@@ -31,12 +32,13 @@ class IBuffer : public core::IBuffer, public IDescriptor
             EUF_INDIRECT_BUFFER_BIT = 0x00000100
         };
 
+        // TODO: @achal boot this to IGPUBuffer (but add `core::bitflag<E_USAGE_FLAGS> m_usage` along with getters,setter and adders to ICPU)
         struct SCreationParams
         {
-            core::bitflag<E_USAGE_FLAGS> usage;
-            E_SHARING_MODE sharingMode;
-            uint32_t queueFamilyIndexCount;
-            const uint32_t* queueFamilyIndices;
+            core::bitflag<E_USAGE_FLAGS> usage = EUF_NONE;
+            E_SHARING_MODE sharingMode = ESM_CONCURRENT;
+            uint32_t queueFamilyIndexCount = 0u;
+            const uint32_t* queueFamilyIndices = nullptr;
         };
 
 	protected:
