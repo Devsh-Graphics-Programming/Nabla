@@ -1579,8 +1579,12 @@ namespace nbl
 					const auto cpuPipeline = cpuMeshBuffer->getPipeline();
 					const auto pipelineCacheKey = getPipelineCacheKey(cpuPipeline->getPrimitiveAssemblyParams().primitiveType, cpuPipeline->getVertexInputParams());
 
-					auto bundle = interm_getAssetInHierarchy(m_assetMgr, pipelineCacheKey, context.loadContext.params, context.hierarchyLevel);
-					const auto* pipelineMetadata = static_cast<const asset::CGLTFPipelineMetadata*>(bundle.getMetadata());
+
+					const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_RENDERPASS_INDEPENDENT_PIPELINE, (asset::IAsset::E_TYPE)0u };
+					auto pipeline_bundle = _override->findCachedAsset(pipelineCacheKey, types, context.loadContext, context.hierarchyLevel + ICPUMesh::PIPELINE_HIERARCHYLEVELS_BELOW);
+					assert(!pipeline_bundle.getContents().empty());
+
+					const auto* pipelineMetadata = static_cast<const asset::CGLTFPipelineMetadata*>(pipeline_bundle.getMetadata());
 
 					const uint32_t jointsPerVertex = pipelineMetadata->m_skinParams.perVertexJointsAmount;
 					using bnd_t = asset::SBufferBinding<asset::ICPUBuffer>;
