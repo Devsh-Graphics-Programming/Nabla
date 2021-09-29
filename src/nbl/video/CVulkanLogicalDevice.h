@@ -92,7 +92,6 @@ public:
         else if((params.presentMode & ISurface::E_PRESENT_MODE::EPM_FIFO_RELAXED) == ISurface::E_PRESENT_MODE::EPM_FIFO_RELAXED)
             vkPresentMode = VK_PRESENT_MODE_FIFO_RELAXED_KHR;
 
->>>>>>> criss_baw
         VkSwapchainCreateInfoKHR vk_createInfo = { VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR };
 #ifdef _NBL_PLATFORM_WINDOWS_
         vk_createInfo.surface = vk_surface;
