@@ -65,9 +65,19 @@
 #define nbl_glsl_oit_depth_nodes_t   nbl_glsl_oit_uvec_t
 #define nbl_glsl_oit_vis_nodes_t     nbl_glsl_oit_vec_t
 
-layout(set = NBL_GLSL_OIT_SET_NUM, binding = NBL_GLSL_COLOR_IMAGE_BINDING, NBL_GLSL_OIT_IMG_FORMAT_COLOR) uniform coherent uimage2D g_color;
-layout(set = NBL_GLSL_OIT_SET_NUM, binding = NBL_GLSL_DEPTH_IMAGE_BINDING, NBL_GLSL_OIT_IMG_FORMAT_DEPTH) uniform coherent uimage2D g_depth;
-layout(set = NBL_GLSL_OIT_SET_NUM, binding = NBL_GLSL_VIS_IMAGE_BINDING,   NBL_GLSL_OIT_IMG_FORMAT_VIS) uniform coherent image2D g_vis;
+#ifdef  _NBL_GLSL_OIT_GLSL_RESOLVE_FRAG_
+#define IMAGE_QUALIFIERS uniform readonly
+#define VIS_QUALIFIERS uniform
+#else
+#define IMAGE_QUALIFIERS uniform coherent
+#define VIS_QUALIFIERS IMAGE_QUALIFIERS
+#endif
+layout(set = NBL_GLSL_OIT_SET_NUM, binding = NBL_GLSL_COLOR_IMAGE_BINDING, NBL_GLSL_OIT_IMG_FORMAT_COLOR) IMAGE_QUALIFIERS uimage2D g_color;
+layout(set = NBL_GLSL_OIT_SET_NUM, binding = NBL_GLSL_DEPTH_IMAGE_BINDING, NBL_GLSL_OIT_IMG_FORMAT_DEPTH) IMAGE_QUALIFIERS uimage2D g_depth;
+layout(set = NBL_GLSL_OIT_SET_NUM, binding = NBL_GLSL_VIS_IMAGE_BINDING,   NBL_GLSL_OIT_IMG_FORMAT_VIS) VIS_QUALIFIERS image2D g_vis;
+#undef IMAGE_QUALIFIERS
+#undef VIS_QUALIFIERS
+
 #ifdef NBL_GL_ARB_fragment_shader_interlock
 #define NBL_GLSL_OIT_CRITICAL_SECTION(FUNC) beginInvocationInterlockARB(); FUNC; endInvocationInterlockARB()
 #else
@@ -81,6 +91,7 @@ layout(set = NBL_GLSL_OIT_SET_NUM, binding = NBL_GLSL_SPINLOCK_IMAGE_BINDING,   
 	} \
 }
 #endif
+
 
 float nbl_glsl_oit_get_rev_depth()
 {
