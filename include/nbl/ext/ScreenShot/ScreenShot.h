@@ -75,7 +75,7 @@ inline core::smart_refctd_ptr<asset::ICPUImageView> createScreenShot(video::ILog
 
 	core::smart_refctd_ptr<asset::ICPUImageView> cpuImageView;
 	{
-		const auto gpuTexelBufferSize = gpuTexelBuffer->getSize();
+		const auto gpuTexelBufferSize = gpuTexelBuffer->getSize(); // If you get validation errors from the `invalidateMappedMemoryRanges` we need to expose VK_WHOLE_BUFFER equivalent constant
 		video::IDriverMemoryAllocation::MappedMemoryRange mappedMemoryRange(gpuTexelBuffer->getBoundMemory(),0u,gpuTexelBufferSize);
 		logicalDevice->mapMemory(mappedMemoryRange,video::IDriverMemoryAllocation::EMCAF_READ);
 
