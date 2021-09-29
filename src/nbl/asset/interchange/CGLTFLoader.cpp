@@ -1583,7 +1583,8 @@ namespace nbl
 					const auto* pipelineMetadata = static_cast<const asset::CGLTFPipelineMetadata*>(bundle.getMetadata());
 
 					const uint32_t jointsPerVertex = pipelineMetadata->m_skinParams.perVertexJointsAmount;
-					core::smart_refctd_ptr<ICPUSkeleton> skeleton = core::make_smart_refctd_ptr<ICPUSkeleton>(std::move(skeletonData.toPass.parentJointIDs), std::move(skeletonData.toPass.defaultTransforms), skeletonData.toPass.jointNames.data(), skeletonData.toPass.jointNames.data() + skeletonData.toPass.jointNames.size());
+					using bnd_t = asset::SBufferBinding<asset::ICPUBuffer>;
+					core::smart_refctd_ptr<ICPUSkeleton> skeleton = core::make_smart_refctd_ptr<ICPUSkeleton>(bnd_t(skeletonData.toPass.parentJointIDs), bnd_t(skeletonData.toPass.defaultTransforms), skeletonData.toPass.jointNames.begin(), skeletonData.toPass.jointNames.end());
 
 					SBufferBinding<ICPUBuffer> inverseBindPoseBufferBinding;
 					inverseBindPoseBufferBinding.buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(glTFjointNodeIDs.size() * sizeof(core::matrix3x4SIMD));
