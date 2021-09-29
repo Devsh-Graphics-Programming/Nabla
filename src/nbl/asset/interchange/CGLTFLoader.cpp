@@ -1448,167 +1448,233 @@ namespace nbl
 				}
 			}
 
-			struct SkeletonData //! for cpu skeleton
+			struct SkeletonData
 			{
 				struct HierarchyBuffer
 				{
-					uint32_t localJointID; // in range [0, x]
-					uint32_t localParentJointID; // for _parentJointIDsBinding 
-					core::matrix3x4SIMD defaultNodeTransform; // _defaultTransforms
 					std::string glTFNodeName;
+					uint32_t glTFGlobalNodeID;
+					core::matrix3x4SIMD defaultNodeTransform; // _defaultTransforms
+
+					uint32_t localJointID; // in range [0, jointsSize - 1]
+					uint32_t localParentJointID; // for _parentJointIDsBinding 
 				};
 
 				std::vector<HierarchyBuffer> hierarchyBuffer;
-
-				uint32_t glTFRootNodeID;
-				std::string glTFRootName;
 			};
 
-			std::vector<SkeletonData> roots; // TODO, let's assume one root in glTF nodes at the moment
+			std::vector<SkeletonData> skeletons;
 
-			for (uint32_t index = 0; index < glTF.nodes.size(); ++index)
+			for (size_t i = 0; i < glTF.skins.size(); ++i)
 			{
-				auto& glTFnode = glTF.nodes[index];
+				auto& skeleton = skeletons.emplace_back();
 
-				const uint32_t meshID = glTFnode.mesh.has_value() ? glTFnode.mesh.value() : 0xdeadbeef;
-				const uint32_t skinID = glTFnode.skin.has_value() ? glTFnode.skin.value() : 0xdeadbeef;
+				const auto& glTFSkin = glTF.skins[i];
 
-				const bool isSkinnedRootDefinition = meshID != 0xdeadbeef && skinID != 0xdeadbeef;
-			
-				if (isSkinnedRootDefinition)
+				for (size_t z = 0; z < glTFSkin.joints.size(); ++z)
 				{
-					auto& root = roots.emplace_back();
-					root.glTFRootNodeID = index;
-					root.glTFRootName = glTFnode.name.has_value() ? glTFnode.name.value() : "NBL_IDENTITY";
-					//const auto& children = glTFnode.children;
+					const auto& nodeID = glTFSkin.joints[z];
 
-					const auto& glTFSkin = glTF.skins[skinID];
-					const auto& rootSkeletonNode = glTFSkin.skeleton.has_value() ? glTFSkin.skeleton.value() : 0xdeadbeef;
+					auto& nodeHierarchyData = skeleton.hierarchyBuffer.emplace_back();
+					auto& glTFNode = glTF.nodes[nodeID];
 
-					const auto& accessorInverseBindMatricesID = glTFSkin.inverseBindMatrices.has_value() ? glTFSkin.inverseBindMatrices.value() : 0xdeadbeef;
-					const auto& glTFjointNodeIDs = glTFSkin.joints; 
+					nodeHierarchyData.glTFNodeName = glTFNode.name.has_value() ? glTFNode.name.value() : "NBL_IDENTITY";
+					nodeHierarchyData.glTFGlobalNodeID = nodeID;
+					nodeHierarchyData.defaultNodeTransform = glTFNode.transformation.matrix;
+					nodeHierarchyData.localJointID = z;
+				}
+				
+				if (glTFSkin.skeleton.has_value()) //! we can explicitly point skin root node
+				{
+					const size_t& rootNodeID = glTFSkin.skeleton.value();
+					auto rootIterator = std::find_if(std::begin(skeleton.hierarchyBuffer), std::end(skeleton.hierarchyBuffer), [rootNodeID](const auto& nodeHierarchyData) {return nodeHierarchyData.glTFGlobalNodeID == rootNodeID; });
+					assert(rootIterator != std::end(skeleton.hierarchyBuffer));
 
-					if (!std::is_sorted(std::begin(glTFjointNodeIDs), std::end(glTFjointNodeIDs)))
+					auto& root = *rootIterator;
+
+					typedef decltype(skeleton.hierarchyBuffer) HIERARCHY_BUFFERS;
+					typedef decltype(glTF.nodes) GLTF_NODES;
+
+					auto setParents = [](SkeletonData::HierarchyBuffer& nodeHierarchyData, uint32_t localParentID, HIERARCHY_BUFFERS& hierarchyBuffers, GLTF_NODES& glTFNodes) -> uint32_t
 					{
-						context.loadContext.params.logger.log("GLTF: SKIN JOINT NODE IDs REFERENCES MUST BE SORTED!", system::ILogger::ELL_WARNING);
-						return false;
-					}
-
-					auto cpuMesh = cpuMeshes[meshID];
-					auto cpuMeshBuffer = cpuMesh->getMeshBufferVector()[0];
-					const auto cpuPipeline = cpuMeshBuffer->getPipeline();
-					const auto pipelineCacheKey = getPipelineCacheKey(cpuPipeline->getPrimitiveAssemblyParams().primitiveType, cpuPipeline->getVertexInputParams());
-
-					auto bundle = interm_getAssetInHierarchy(m_assetMgr, pipelineCacheKey, context.loadContext.params, context.hierarchyLevel);
-					const auto* pipelineMetadata = static_cast<const asset::CGLTFPipelineMetadata*>(bundle.getMetadata());
-
-					//template<typename NameIterator>
-					//inline ICPUSkeleton(SBufferBinding<ICPUBuffer>&& _parentJointIDsBinding, SBufferBinding<ICPUBuffer>&& _defaultTransforms, NameIterator begin, NameIterator end)
-
-					const uint32_t jointsPerVertex = pipelineMetadata->m_skinParams.perVertexJointsAmount;
-					core::smart_refctd_ptr<ICPUSkeleton> skeleton; // TODO!
-
-					SBufferBinding<ICPUBuffer> inverseBindPoseBufferBinding;
-					inverseBindPoseBufferBinding.buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(glTFjointNodeIDs.size() * sizeof(core::matrix3x4SIMD));
-					inverseBindPoseBufferBinding.offset = 0u;
-					{
-						if (accessorInverseBindMatricesID == 0xdeadbeef)
+						auto setParents_impl = [](SkeletonData::HierarchyBuffer& nodeHierarchyData, uint32_t localParentID, HIERARCHY_BUFFERS& hierarchyBuffers, GLTF_NODES& glTFNodes, auto& impl) -> uint32_t
 						{
-							const core::matrix3x4SIMD identity;
+							auto& glTFNode = glTFNodes[nodeHierarchyData.glTFGlobalNodeID];
 
-							auto* data = reinterpret_cast<core::matrix3x4SIMD*>(inverseBindPoseBufferBinding.buffer->getPointer());
-							auto* end = data + inverseBindPoseBufferBinding.buffer->getSize() / sizeof(core::matrix3x4SIMD);
-
-							std::fill(data, end, identity);
-						}
-						else
-						{
-							const auto& glTFAccessor = glTF.accessors[accessorInverseBindMatricesID];
-
-							if (!glTFAccessor.bufferView.has_value())
+							if (glTFNode.children.size())
 							{
-								context.loadContext.params.logger.log("GLTF: NO BUFFER VIEW INDEX FOUND!", system::ILogger::ELL_WARNING);
-								return false;
-							}
-
-							const auto& bufferViewID = glTFAccessor.bufferView.value();
-							const auto& glTFBufferView = glTF.bufferViews[bufferViewID];
-
-							if (!glTFBufferView.buffer.has_value())
-							{
-								context.loadContext.params.logger.log("GLTF: NO BUFFER INDEX FOUND!", system::ILogger::ELL_WARNING);
-								return false;
-							}
-
-							const auto& bufferID = glTFBufferView.buffer.value();
-							auto cpuBuffer = cpuBuffers[bufferID];
-
-							const size_t globalIBPOffset = [&]()
-							{
-								const size_t bufferViewOffset = glTFBufferView.byteOffset.has_value() ? glTFBufferView.byteOffset.value() : 0u;
-								const size_t relativeAccessorOffset = glTFAccessor.byteOffset.has_value() ? glTFAccessor.byteOffset.value() : 0u;
-
-								return bufferViewOffset + relativeAccessorOffset;
-							}();
-
-							auto* inData = reinterpret_cast<core::matrix4SIMD*>(reinterpret_cast<uint8_t*>(cpuBuffer->getPointer()) + globalIBPOffset); //! glTF stores 4x4 IBP matrices
-							auto* outData = reinterpret_cast<core::matrix3x4SIMD*>(inverseBindPoseBufferBinding.buffer->getPointer());
-
-							for (uint32_t i = 0; i < glTFjointNodeIDs.size(); ++i)
-								*(outData + i) = (inData + i)->extractSub3x4();
-						}
-					}
-
-					SBufferBinding<ICPUBuffer> jointAABBBufferBinding;
-					{
-						std::vector<core::aabbox3df> jointBboxes(glTFjointNodeIDs.size());
-						{
-							struct JointVertexPair
-							{
-								core::vectorSIMDf vPosition;
-								core::vectorSIMDf vJoint;
-							} currentJointVertexPair;
-
-							const uint16_t jointIDAttributeIx = cpuMeshBuffer->getJointIDAttributeIx();
-
-							for (size_t i = 0; i < cpuMeshBuffer->getIndexCount(); ++i)
-							{
-								currentJointVertexPair.vPosition = cpuMeshBuffer->getPosition(i);
-								assert(cpuMeshBuffer->getAttribute(currentJointVertexPair.vJoint, jointIDAttributeIx, i));
-
-								/*
-								*	TODO
-								* 
-									how to do this correctly with respect to all per-vertex joints?
-									right now it makes any sense only if we have one joint ID
-									per vertex or all joints per vertex are the same!
-
-									got confused
-								*/
-
-								assert(currentJointVertexPair.vJoint.x == currentJointVertexPair.vJoint.y == currentJointVertexPair.vJoint.z == currentJointVertexPair.vJoint.w); // TMP, ISSUE!
-								const auto lower = std::lower_bound(std::begin(glTFjointNodeIDs), std::end(glTFjointNodeIDs), currentJointVertexPair.vJoint.x);
-								assert(lower != std::end(glTFjointNodeIDs)); // TMP, ISSUE!
-
-								const auto localJointNodeID = std::distance(glTFjointNodeIDs.begin(), lower); //! the ID is in range [0u, glTFjointNodeIDs.size() - 1u]
+								for (const auto& childID : glTFNode.children)
 								{
-									uint8_t* data = reinterpret_cast<uint8_t*>(inverseBindPoseBufferBinding.buffer->getPointer()) + inverseBindPoseBufferBinding.offset;
-									core::matrix3x4SIMD* IBPMatrix = reinterpret_cast<core::matrix3x4SIMD*>(data) + localJointNodeID;
+									auto& glTFChildNode = glTFNodes[childID];
 
-									IBPMatrix->transformVect(currentJointVertexPair.vPosition);
-									jointBboxes[localJointNodeID].addInternalPoint(currentJointVertexPair.vPosition.getAsVector3df());
+									auto childIterator = std::find_if(std::begin(hierarchyBuffers), std::end(hierarchyBuffers), [childID](const auto& nodeHierarchyData) {return nodeHierarchyData.glTFGlobalNodeID == childID; });
+									assert(childIterator != std::end(hierarchyBuffers));
+
+									SkeletonData::HierarchyBuffer& childNodeHierarchyData = *childIterator;
+									nodeHierarchyData.localParentJointID = impl(childNodeHierarchyData, nodeHierarchyData.localJointID, hierarchyBuffers, glTFNodes, impl);
 								}
 							}
-						}
+							else
+								return localParentID;
 
-						jointAABBBufferBinding.buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(jointBboxes.size() * sizeof(core::aabbox3df));
-						memcpy(jointAABBBufferBinding.buffer->getPointer(), jointBboxes.data(), jointAABBBufferBinding.buffer->getSize());
-						jointAABBBufferBinding.offset = 0u;
-					}
+							return nodeHierarchyData.localParentJointID = localParentID;
+						};
 
-					cpuMeshBuffer->setSkin(std::move(inverseBindPoseBufferBinding), std::move(jointAABBBufferBinding), std::move(skeleton), jointsPerVertex);
+						return setParents_impl(nodeHierarchyData, localParentID, hierarchyBuffers, glTFNodes, setParents_impl);
+					};
+
+					setParents(root, 0xdeadbeef, skeleton.hierarchyBuffer, glTF.nodes);
 				}
 			}
+
+			/*
+				stuff bellow needs logic correction a bit
+			*/
+
+
+			//for (uint32_t index = 0; index < glTF.nodes.size(); ++index)
+			//{
+			//	auto& glTFnode = glTF.nodes[index];
+
+			//	const uint32_t meshID = glTFnode.mesh.has_value() ? glTFnode.mesh.value() : 0xdeadbeef;
+			//	const uint32_t skinID = glTFnode.skin.has_value() ? glTFnode.skin.value() : 0xdeadbeef;
+
+			//	const bool isSkinnedRootDefinition = meshID != 0xdeadbeef && skinID != 0xdeadbeef;
+			//
+			//	if (isSkinnedRootDefinition)
+			//	{
+			//		auto& root = roots.emplace_back();
+			//		root.glTFRootNodeID = index;
+			//		root.glTFRootName = glTFnode.name.has_value() ? glTFnode.name.value() : "NBL_IDENTITY";
+			//		//const auto& children = glTFnode.children;
+
+			//		const auto& glTFSkin = glTF.skins[skinID];
+			//		const auto& rootSkeletonNode = glTFSkin.skeleton.has_value() ? glTFSkin.skeleton.value() : 0xdeadbeef;
+
+			//		const auto& accessorInverseBindMatricesID = glTFSkin.inverseBindMatrices.has_value() ? glTFSkin.inverseBindMatrices.value() : 0xdeadbeef;
+			//		const auto& glTFjointNodeIDs = glTFSkin.joints; 
+
+			//		if (!std::is_sorted(std::begin(glTFjointNodeIDs), std::end(glTFjointNodeIDs)))
+			//		{
+			//			context.loadContext.params.logger.log("GLTF: SKIN JOINT NODE IDs REFERENCES MUST BE SORTED!", system::ILogger::ELL_WARNING);
+			//			return false;
+			//		}
+
+			//		auto cpuMesh = cpuMeshes[meshID];
+			//		auto cpuMeshBuffer = cpuMesh->getMeshBufferVector()[0];
+			//		const auto cpuPipeline = cpuMeshBuffer->getPipeline();
+			//		const auto pipelineCacheKey = getPipelineCacheKey(cpuPipeline->getPrimitiveAssemblyParams().primitiveType, cpuPipeline->getVertexInputParams());
+
+			//		auto bundle = interm_getAssetInHierarchy(m_assetMgr, pipelineCacheKey, context.loadContext.params, context.hierarchyLevel);
+			//		const auto* pipelineMetadata = static_cast<const asset::CGLTFPipelineMetadata*>(bundle.getMetadata());
+
+			//		//template<typename NameIterator>
+			//		//inline ICPUSkeleton(SBufferBinding<ICPUBuffer>&& _parentJointIDsBinding, SBufferBinding<ICPUBuffer>&& _defaultTransforms, NameIterator begin, NameIterator end)
+
+			//		const uint32_t jointsPerVertex = pipelineMetadata->m_skinParams.perVertexJointsAmount;
+			//		core::smart_refctd_ptr<ICPUSkeleton> skeleton; // TODO!
+
+			//		SBufferBinding<ICPUBuffer> inverseBindPoseBufferBinding;
+			//		inverseBindPoseBufferBinding.buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(glTFjointNodeIDs.size() * sizeof(core::matrix3x4SIMD));
+			//		inverseBindPoseBufferBinding.offset = 0u;
+			//		{
+			//			if (accessorInverseBindMatricesID == 0xdeadbeef)
+			//			{
+			//				const core::matrix3x4SIMD identity;
+
+			//				auto* data = reinterpret_cast<core::matrix3x4SIMD*>(inverseBindPoseBufferBinding.buffer->getPointer());
+			//				auto* end = data + inverseBindPoseBufferBinding.buffer->getSize() / sizeof(core::matrix3x4SIMD);
+
+			//				std::fill(data, end, identity);
+			//			}
+			//			else
+			//			{
+			//				const auto& glTFAccessor = glTF.accessors[accessorInverseBindMatricesID];
+
+			//				if (!glTFAccessor.bufferView.has_value())
+			//				{
+			//					context.loadContext.params.logger.log("GLTF: NO BUFFER VIEW INDEX FOUND!", system::ILogger::ELL_WARNING);
+			//					return false;
+			//				}
+
+			//				const auto& bufferViewID = glTFAccessor.bufferView.value();
+			//				const auto& glTFBufferView = glTF.bufferViews[bufferViewID];
+
+			//				if (!glTFBufferView.buffer.has_value())
+			//				{
+			//					context.loadContext.params.logger.log("GLTF: NO BUFFER INDEX FOUND!", system::ILogger::ELL_WARNING);
+			//					return false;
+			//				}
+
+			//				const auto& bufferID = glTFBufferView.buffer.value();
+			//				auto cpuBuffer = cpuBuffers[bufferID];
+
+			//				const size_t globalIBPOffset = [&]()
+			//				{
+			//					const size_t bufferViewOffset = glTFBufferView.byteOffset.has_value() ? glTFBufferView.byteOffset.value() : 0u;
+			//					const size_t relativeAccessorOffset = glTFAccessor.byteOffset.has_value() ? glTFAccessor.byteOffset.value() : 0u;
+
+			//					return bufferViewOffset + relativeAccessorOffset;
+			//				}();
+
+			//				auto* inData = reinterpret_cast<core::matrix4SIMD*>(reinterpret_cast<uint8_t*>(cpuBuffer->getPointer()) + globalIBPOffset); //! glTF stores 4x4 IBP matrices
+			//				auto* outData = reinterpret_cast<core::matrix3x4SIMD*>(inverseBindPoseBufferBinding.buffer->getPointer());
+
+			//				for (uint32_t i = 0; i < glTFjointNodeIDs.size(); ++i)
+			//					*(outData + i) = (inData + i)->extractSub3x4();
+			//			}
+			//		}
+
+			//		SBufferBinding<ICPUBuffer> jointAABBBufferBinding;
+			//		{
+			//			std::vector<core::aabbox3df> jointBboxes(glTFjointNodeIDs.size());
+			//			{
+			//				struct JointVertexPair
+			//				{
+			//					core::vectorSIMDf vPosition;
+			//					core::vectorSIMDf vJoint;
+			//				} currentJointVertexPair;
+
+			//				const uint16_t jointIDAttributeIx = cpuMeshBuffer->getJointIDAttributeIx();
+
+			//				for (size_t i = 0; i < cpuMeshBuffer->getIndexCount(); ++i)
+			//				{
+			//					currentJointVertexPair.vPosition = cpuMeshBuffer->getPosition(i);
+			//					assert(cpuMeshBuffer->getAttribute(currentJointVertexPair.vJoint, jointIDAttributeIx, i));
+
+			//					/*
+			//					*	TODO
+			//					* 
+			//						how to do this correctly with respect to all per-vertex joints?
+			//						right now it makes any sense only if we have one joint ID
+			//						per vertex or all joints per vertex are the same!
+
+			//						got confused
+			//					*/
+
+			//					assert(currentJointVertexPair.vJoint.x == currentJointVertexPair.vJoint.y == currentJointVertexPair.vJoint.z == currentJointVertexPair.vJoint.w); // TMP, ISSUE!
+			//					const auto lower = std::lower_bound(std::begin(glTFjointNodeIDs), std::end(glTFjointNodeIDs), currentJointVertexPair.vJoint.x);
+			//					assert(lower != std::end(glTFjointNodeIDs)); // TMP, ISSUE!
+
+			//					const auto localJointNodeID = std::distance(glTFjointNodeIDs.begin(), lower); //! the ID is in range [0u, glTFjointNodeIDs.size() - 1u]
+			//					{
+			//						uint8_t* data = reinterpret_cast<uint8_t*>(inverseBindPoseBufferBinding.buffer->getPointer()) + inverseBindPoseBufferBinding.offset;
+			//						core::matrix3x4SIMD* IBPMatrix = reinterpret_cast<core::matrix3x4SIMD*>(data) + localJointNodeID;
+
+			//						IBPMatrix->transformVect(currentJointVertexPair.vPosition);
+			//						jointBboxes[localJointNodeID].addInternalPoint(currentJointVertexPair.vPosition.getAsVector3df());
+			//					}
+			//				}
+			//			}
+
+			//			jointAABBBufferBinding.buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(jointBboxes.size() * sizeof(core::aabbox3df));
+			//			memcpy(jointAABBBufferBinding.buffer->getPointer(), jointBboxes.data(), jointAABBBufferBinding.buffer->getSize());
+			//			jointAABBBufferBinding.offset = 0u;
+			//		}
+
+			//		cpuMeshBuffer->setSkin(std::move(inverseBindPoseBufferBinding), std::move(jointAABBBufferBinding), std::move(skeleton), jointsPerVertex);
+			//	}
+			//}
 
 			/*
 			* 
@@ -2010,7 +2076,7 @@ namespace nbl
 								{
 									const std::string gltfPath = path.get_string().value().data();
 
-									if (gltfPath == "transaltion")
+									if (gltfPath == "translation")
 										gltfChannel.target.path = SGLTF::SGLTFAnimation::SGLTFChannel::SGLTFP_TRANSLATION;
 									else if (gltfPath == "rotation")
 										gltfChannel.target.path = SGLTF::SGLTFAnimation::SGLTFChannel::SGLTFP_ROTATION;
