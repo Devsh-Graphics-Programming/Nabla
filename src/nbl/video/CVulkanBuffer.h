@@ -8,44 +8,47 @@ namespace nbl::video
 {
 
 class ILogicalDevice;
+class CVulkanMemoryAllocation;
 
 class CVulkanBuffer : public IGPUBuffer
 {
 public:
-    CVulkanBuffer(core::smart_refctd_ptr<ILogicalDevice>&& dev, const IDriverMemoryBacked::SDriverMemoryRequirements& reqs, 
-        VkBuffer buffer) : IGPUBuffer(std::move(dev), reqs), m_vkBuffer(buffer)
+    CVulkanBuffer(core::smart_refctd_ptr<ILogicalDevice>&& dev,
+        const IDriverMemoryBacked::SDriverMemoryRequirements& reqs, const bool canModifySubData, VkBuffer buffer)
+        : IGPUBuffer(std::move(dev), reqs), m_canModifySubData(canModifySubData), m_vkBuffer(buffer)
     {}
 
     ~CVulkanBuffer();
 
     inline VkBuffer getInternalObject() const { return m_vkBuffer; };
 
-    // Todo(achal): I don't think its possible
-    bool canUpdateSubRange() const override { return false; }
+    bool canUpdateSubRange() const override { return true; }
 
-    // Todo(achal)
-    //! Returns the allocation which is bound to the resource
     IDriverMemoryAllocation* getBoundMemory() override
     {
-        return nullptr;
+        return m_memory.get();
     }
 
-    // Todo(achal)
-    //! Constant version
     const IDriverMemoryAllocation* getBoundMemory() const override
     {
-        return nullptr;
+        return m_memory.get();
     }
 
-    // Todo(achal)
-    //! Returns the offset in the allocation at which it is bound to the resource
     size_t getBoundMemoryOffset() const override
     {
-        return 0ull;
+        return m_memBindingOffset;
+    }
+
+    inline void setMemoryAndOffset(core::smart_refctd_ptr<IDriverMemoryAllocation>&& memory, uint64_t memBindingOffset)
+    {
+        m_memory = std::move(memory);
+        m_memBindingOffset = memBindingOffset;
     }
 
 private:
-    // Todo(achal): A smart_refctd_ptr to buffer's memory, perhaps?
+    core::smart_refctd_ptr<IDriverMemoryAllocation> m_memory = nullptr;
+    uint64_t m_memBindingOffset;
+    const bool m_canModifySubData;
     VkBuffer m_vkBuffer;
 };
 

@@ -218,8 +218,16 @@ public:
 
             engine->ubomemreq = engine->logicalDevice->getDeviceLocalGPUMemoryReqs();
             engine->ubomemreq.vulkanReqs.size = neededDS1UBOsz;
-            engine->cameraUBO = engine->logicalDevice->createGPUBufferOnDedMem(engine->ubomemreq, true);
             engine->perCameraDescSet = engine->logicalDevice->createGPUDescriptorSet(engine->descriptorPool.get(), std::move(gpuds1layout));
+
+            video::IGPUBuffer::SCreationParams cameraUBOCreationParams;
+            cameraUBOCreationParams.usage = asset::IBuffer::EUF_UNIFORM_BUFFER_BIT;
+            cameraUBOCreationParams.sharingMode = asset::E_SHARING_MODE::ESM_EXCLUSIVE;
+            cameraUBOCreationParams.queueFamilyIndexCount = 0u;
+            cameraUBOCreationParams.queueFamilyIndices = nullptr;
+
+            engine->cameraUBO = engine->logicalDevice->createGPUBufferOnDedMem(cameraUBOCreationParams, engine->ubomemreq,true);
+
             {
                 video::IGPUDescriptorSet::SWriteDescriptorSet write;
                 write.dstSet = engine->perCameraDescSet.get();

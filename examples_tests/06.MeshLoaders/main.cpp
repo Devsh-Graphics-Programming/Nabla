@@ -215,8 +215,15 @@ public:
 
         engine->ubomemreq = engine->logicalDevice->getDeviceLocalGPUMemoryReqs();
         engine->ubomemreq.vulkanReqs.size = neededDS1UBOsz;
-        engine->gpuubo = engine->logicalDevice->createGPUBufferOnDedMem(engine->ubomemreq, true);
+        video::IGPUBuffer::SCreationParams gpuuboCreationParams;
+        gpuuboCreationParams.usage = asset::IBuffer::EUF_UNIFORM_BUFFER_BIT;
+        gpuuboCreationParams.sharingMode = asset::E_SHARING_MODE::ESM_CONCURRENT;
+        gpuuboCreationParams.queueFamilyIndexCount = 0u;
+        gpuuboCreationParams.queueFamilyIndices = nullptr;
+
+        engine->gpuubo = engine->logicalDevice->createGPUBufferOnDedMem(gpuuboCreationParams,engine->ubomemreq,true);
         engine->gpuds1 = engine->logicalDevice->createGPUDescriptorSet(engine->descriptorPool.get(), std::move(gpuds1layout));
+
         {
             video::IGPUDescriptorSet::SWriteDescriptorSet write;
             write.dstSet = engine->gpuds1.get();

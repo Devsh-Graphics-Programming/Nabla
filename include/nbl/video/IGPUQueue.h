@@ -46,8 +46,8 @@ class IGPUQueue : public core::Interface, public core::Unmovable
         }
 
         // for renderdoc and friends
-        virtual bool startCapture() { return true; }// = 0;
-        virtual bool endCapture() { return true; }// = 0;
+        virtual bool startCapture() { return false; }// = 0;
+        virtual bool endCapture() { return false; }// = 0;
 
         //
         virtual bool submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFence* _fence) = 0;
@@ -59,6 +59,8 @@ class IGPUQueue : public core::Interface, public core::Unmovable
         float getPriority() const { return m_priority; }
         uint32_t getFamilyIndex() const { return m_familyIndex; }
         E_CREATE_FLAGS getFlags() const { return m_flags; }
+
+        inline constexpr static float DEFAULT_QUEUE_PRIORITY = 1.f;
 
     protected:
         const uint32_t m_familyIndex;

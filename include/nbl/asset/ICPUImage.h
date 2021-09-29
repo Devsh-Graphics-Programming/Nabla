@@ -178,6 +178,13 @@ class ICPUImage final : public IImage, public IAsset
 			return true;
 		}
 
+		inline bool setImageUsageFlags(core::bitflag<E_USAGE_FLAGS> usage)
+		{
+			assert(!isImmutable_debug());
+			params.usage = usage;
+			return true;
+		}
+
 		bool canBeRestoredFrom(const IAsset* _other) const override
 		{
 			auto* other = static_cast<const ICPUImage*>(_other);

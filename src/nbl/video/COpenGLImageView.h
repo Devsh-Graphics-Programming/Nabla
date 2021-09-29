@@ -27,6 +27,8 @@ class COpenGLImageView final : public IGPUImageView
 		};
 		_NBL_STATIC_INLINE_CONSTEXPR GLenum ComponentMappingToGLenumSwizzle[IGPUImageView::SComponentMapping::ES_COUNT] = {GL_INVALID_ENUM,GL_ZERO,GL_ONE,GL_RED,GL_GREEN,GL_BLUE,GL_ALPHA};
 
+		void setObjectDebugName(const char* label) const override;
+
 		GLenum getOpenGLTarget() const
 		{
 			auto viewtype = params.viewType;

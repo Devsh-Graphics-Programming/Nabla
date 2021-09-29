@@ -12,11 +12,11 @@
 namespace nbl::video
 {
 
-template<class Window, template<typename> typename Base>
-class CSurfaceGLImpl final : public Base<Window>
+template<class Window, template<typename> typename Base, class CRTP = void>
+class CSurfaceGLImpl : public Base<Window>
 {
     public:
-        using this_t = CSurfaceGLImpl<Window,Base>;
+        using this_t = std::conditional_t<std::is_void_v<CRTP>,CSurfaceGLImpl<Window,Base>,CRTP>;
         using base_t = Base<Window>;
 
         template<video::E_API_TYPE API_TYPE>
@@ -65,10 +65,18 @@ class CSurfaceGLImpl final : public Base<Window>
             return static_cast<ISurface::E_PRESENT_MODE>(ISurface::EPM_IMMEDIATE | ISurface::EPM_FIFO | ISurface::EPM_FIFO_RELAXED);
         }
 
-        // Todo(achal)
         bool getSurfaceCapabilitiesForPhysicalDevice(const IPhysicalDevice* physicalDevice, ISurface::SCapabilities& capabilities) const override
         {
-            return false;
+            // Todo(achal): Fill it properly
+            capabilities.minImageCount = 2u;
+            capabilities.maxImageCount = 8u;
+            capabilities.currentExtent = { this->getWidth(), this->getHeight() };
+            capabilities.minImageExtent = { 1u, 1u };
+            capabilities.maxImageExtent = { this->getWidth(), this->getHeight() };
+            capabilities.maxImageArrayLayers = 1u;
+            capabilities.supportedUsageFlags = static_cast<asset::IImage::E_USAGE_FLAGS>(0u);
+
+            return true;
         }
 
     protected:
@@ -77,18 +85,37 @@ class CSurfaceGLImpl final : public Base<Window>
 
 template <typename Window>
 using CSurfaceGL = CSurfaceGLImpl<Window, CSurface>;
-template <typename Window>
-using CSurfaceNativeGL = CSurfaceGLImpl<Window, CSurfaceNative>;
+template <typename Window, typename CRTP>
+using CSurfaceNativeGL = CSurfaceGLImpl<Window, CSurfaceNative, CRTP>;
 
 // TODO: conditional defines
 #ifdef _NBL_PLATFORM_WINDOWS_
 using CSurfaceGLWin32 = CSurfaceGL<ui::IWindowWin32>;
-using CSurfaceNativeGLWin32 = CSurfaceNativeGL<ui::IWindowWin32>;
+class CSurfaceNativeGLWin32 : public CSurfaceNativeGL<ui::IWindowWin32, CSurfaceNativeGLWin32>
+{
+protected:
+    using base_t = CSurfaceNativeGL<ui::IWindowWin32, CSurfaceNativeGLWin32>;
+    using base_t::base_t;
+
+    uint32_t getWidth() const override 
+    { 
+        RECT wr;
+        GetWindowRect(m_handle, &wr);
+        return wr.right - wr.left;
+    }
+    uint32_t getHeight() const override 
+    { 
+        RECT wr;
+        GetWindowRect(m_handle, &wr);
+        return wr.top - wr.bottom;
+    }
+};
 #elif defined(_NBL_PLATFORM_LINUX_)
 using CSurfaceGLX11 = CSurfaceGL<ui::IWindowX11>;
 #elif defined(_NBL_PLATFORM_ANDROID_)
 using CSurfaceGLAndroid = CSurfaceGL<ui::IWindowAndroid>;
 #endif
+
 
 //using CSurfaceGLAndroid = CSurfaceGL<ui::IWindowAndroid>;
 //using CSurfaceGLX11 = CSurfaceGL<ui::IWindowX11>;

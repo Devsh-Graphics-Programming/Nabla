@@ -47,7 +47,7 @@ public:
             auto canShow = onWindowShown_impl();
             if(canShow)
             {
-                w->m_flags &= (~ECF_HIDDEN);
+                w->m_flags &= (~core::bitflag(ECF_HIDDEN));
             }
             return canShow;
         }
@@ -90,7 +90,7 @@ public:
             if (canMinimize)
             {
                 w->m_flags |= ECF_MINIMIZED;
-                w->m_flags &= (~ECF_MAXIMIZED);
+                w->m_flags &= (~core::bitflag(ECF_MAXIMIZED));
             }
             return canMinimize;
         }
@@ -100,7 +100,7 @@ public:
             if (canMaximize)
             {
                 w->m_flags |= ECF_MAXIMIZED;
-                w->m_flags &= (~ECF_MINIMIZED);
+                w->m_flags &= (~core::bitflag(ECF_MINIMIZED));
             }
             return canMaximize;
         }
@@ -174,16 +174,16 @@ public:
     };
     friend struct IEventCallback;
 
-    inline bool isFullscreen()      { return (m_flags & ECF_FULLSCREEN); }
-    inline bool isHidden()          { return (m_flags & ECF_HIDDEN); }
-    inline bool isBorderless()      { return (m_flags & ECF_BORDERLESS); }
-    inline bool isResizable()       { return (m_flags & ECF_RESIZABLE); }
-    inline bool isMinimized()       { return (m_flags & ECF_MINIMIZED); }
-    inline bool isMaximized()       { return (m_flags & ECF_MAXIMIZED); }
-    inline bool hasMouseCaptured()  { return (m_flags & ECF_MOUSE_CAPTURE); }
-    inline bool hasInputFocus()     { return (m_flags & ECF_INPUT_FOCUS); }
-    inline bool hasMouseFocus()     { return (m_flags & ECF_MOUSE_FOCUS); }
-    inline bool isAlwaysOnTop()     { return (m_flags & ECF_ALWAYS_ON_TOP); }
+    inline bool isFullscreen()      { return (m_flags.value & ECF_FULLSCREEN); }
+    inline bool isHidden()          { return (m_flags.value & ECF_HIDDEN); }
+    inline bool isBorderless()      { return (m_flags.value & ECF_BORDERLESS); }
+    inline bool isResizable()       { return (m_flags.value & ECF_RESIZABLE); }
+    inline bool isMinimized()       { return (m_flags.value & ECF_MINIMIZED); }
+    inline bool isMaximized()       { return (m_flags.value & ECF_MAXIMIZED); }
+    inline bool hasMouseCaptured()  { return (m_flags.value & ECF_MOUSE_CAPTURE); }
+    inline bool hasInputFocus()     { return (m_flags.value & ECF_INPUT_FOCUS); }
+    inline bool hasMouseFocus()     { return (m_flags.value & ECF_MOUSE_FOCUS); }
+    inline bool isAlwaysOnTop()     { return (m_flags.value & ECF_ALWAYS_ON_TOP); }
 
     inline uint32_t getWidth() const { return m_width; }
     inline uint32_t getHeight() const { return m_height; }
@@ -210,10 +210,9 @@ protected:
     core::smart_refctd_ptr<system::ISystem> m_sys;
     uint32_t m_width = 0u, m_height = 0u;
     int32_t m_x, m_y; // gonna add it here until further instructions XD
-    std::underlying_type_t<E_CREATE_FLAGS> m_flags = 0u;
+    core::bitflag<E_CREATE_FLAGS> m_flags = static_cast<E_CREATE_FLAGS>(0u);
 public:
         void setEventCallback(core::smart_refctd_ptr<IEventCallback>&& evCb) { m_cb = std::move(evCb); }
-
 };
 
 }

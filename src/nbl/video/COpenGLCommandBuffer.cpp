@@ -308,7 +308,7 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
             gl->glFramebuffer.pglBindFramebuffer(GL_READ_FRAMEBUFFER, prevReadFB);
     }
 
-    void COpenGLCommandBuffer::beginRenderpass_clearAttachments(IOpenGL_FunctionTable* gl, const SRenderpassBeginInfo& info, GLuint fbo, const system::logger_opt_ptr logger)
+    void COpenGLCommandBuffer::beginRenderpass_clearAttachments(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid, const SRenderpassBeginInfo& info, GLuint fbo, const system::logger_opt_ptr logger)
     {
         auto& rp = info.framebuffer->getCreationParameters().renderpass;
         auto& sub = rp->getSubpasses().begin()[0];
@@ -364,20 +364,28 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
 
                     // isnt there a way in vulkan to clear only depth or only stencil part?? TODO
 
+                    const bool is_depth = asset::isDepthOnlyFormat(fmt);
+                    const bool is_stencil = asset::isStencilOnlyFormat(fmt);
+                    const bool is_depth_stencil = asset::isDepthOrStencilFormat(fmt);
+
+                    const auto state_backup = ctxlocal->backupAndFlushStateClear(gl, ctxid, false, (is_depth | is_depth_stencil), (is_stencil | is_depth_stencil));
+
                     GLfloat depth = clear.depth;
                     GLint stencil = clear.stencil;
-                    if (asset::isDepthOnlyFormat(fmt))
+                    if (is_depth)
                     {
                         gl->extGlClearNamedFramebufferfv(fbo, GL_DEPTH, 0, &depth);
                     }
-                    else if (asset::isStencilOnlyFormat(fmt))
+                    else if (is_stencil)
                     {
                         gl->extGlClearNamedFramebufferiv(fbo, GL_STENCIL, 0, &stencil);
                     }
-                    else if (asset::isDepthOrStencilFormat(fmt))
+                    else if (is_depth_stencil)
                     {
                         gl->extGlClearNamedFramebufferfi(fbo, GL_DEPTH_STENCIL, 0, depth, stencil);
                     }
+
+                    ctxlocal->restoreStateAfterClear(state_backup);
                 }
                 else
                 {
@@ -500,7 +508,7 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
 
                 ctxlocal->flushStateGraphics(gl, SOpenGLContextLocalCache::GSB_ALL, ctxid);
 
-                const asset::E_PRIMITIVE_TOPOLOGY primType = ctxlocal->currentState.pipeline.graphics.pipeline->getPrimitiveAssemblyParams().primitiveType;
+                const asset::E_PRIMITIVE_TOPOLOGY primType = ctxlocal->currentState.pipeline.graphics.pipeline->getRenderpassIndependentPipeline()->getPrimitiveAssemblyParams().primitiveType;
                 GLenum glpt = getGLprimitiveType(primType);
 
                 gl->extGlDrawArraysInstancedBaseInstance(glpt, c.firstVertex, c.vertexCount, c.instanceCount, c.firstInstance);
@@ -512,7 +520,7 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
 
                 ctxlocal->flushStateGraphics(gl, SOpenGLContextLocalCache::GSB_ALL, ctxid);
 
-                const asset::E_PRIMITIVE_TOPOLOGY primType = ctxlocal->currentState.pipeline.graphics.pipeline->getPrimitiveAssemblyParams().primitiveType;
+                const asset::E_PRIMITIVE_TOPOLOGY primType = ctxlocal->currentState.pipeline.graphics.pipeline->getRenderpassIndependentPipeline()->getPrimitiveAssemblyParams().primitiveType;
                 GLenum glpt = getGLprimitiveType(primType);
                 GLenum idxType = GL_INVALID_ENUM;
                 switch (ctxlocal->currentState.vertexInputParams.vaoval.idxType)
@@ -547,7 +555,7 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
 
                 ctxlocal->flushStateGraphics(gl, SOpenGLContextLocalCache::GSB_ALL, ctxid);
                 
-                const asset::E_PRIMITIVE_TOPOLOGY primType = ctxlocal->currentState.pipeline.graphics.pipeline->getPrimitiveAssemblyParams().primitiveType;
+                const asset::E_PRIMITIVE_TOPOLOGY primType = ctxlocal->currentState.pipeline.graphics.pipeline->getRenderpassIndependentPipeline()->getPrimitiveAssemblyParams().primitiveType;
                 GLenum glpt = getGLprimitiveType(primType);
 
                 GLuint64 offset = c.offset;
@@ -582,7 +590,7 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
                         break;
                 }
 
-                const asset::E_PRIMITIVE_TOPOLOGY primType = ctxlocal->currentState.pipeline.graphics.pipeline->getPrimitiveAssemblyParams().primitiveType;
+                const asset::E_PRIMITIVE_TOPOLOGY primType = ctxlocal->currentState.pipeline.graphics.pipeline->getRenderpassIndependentPipeline()->getPrimitiveAssemblyParams().primitiveType;
                 GLenum glpt = getGLprimitiveType(primType);
 
                 GLuint64 offset = c.offset;
@@ -853,7 +861,7 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
 
                 GLuint fbo = ctxlocal->currentState.framebuffer.GLname;
                 if (fbo)
-                    beginRenderpass_clearAttachments(gl, c.renderpassBegin, fbo, m_logger.getOptRawPtr());
+                    beginRenderpass_clearAttachments(gl, ctxlocal, ctxid, c.renderpassBegin, fbo, m_logger.getOptRawPtr());
             }
             break;
             case impl::ECT_NEXT_SUBPASS:
@@ -881,8 +889,9 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
             {
                 auto& c = cmd.get<impl::ECT_BIND_GRAPHICS_PIPELINE>();
 
+                ctxlocal->updateNextState_pipelineAndRaster(c.pipeline.get(), ctxid);
+
                 auto* rpindependent = c.pipeline->getRenderpassIndependentPipeline();
-                ctxlocal->updateNextState_pipelineAndRaster(rpindependent, ctxid);
                 auto* glppln = static_cast<const COpenGLRenderpassIndependentPipeline*>(rpindependent);
                 ctxlocal->nextState.vertexInputParams.vaokey = glppln->getVAOHash();
             }
@@ -959,16 +968,16 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
             {
                 auto& c = cmd.get<impl::ECT_PUSH_CONSTANTS>();
 
-                if (pushConstants_validate(c.layout.get(), c.stageFlags, c.offset, c.size, c.values))
+                if (pushConstants_validate(c.layout.get(), c.stageFlags.value, c.offset, c.size, c.values))
                 {
                     asset::SPushConstantRange updtRng;
                     updtRng.offset = c.offset;
                     updtRng.size = c.size;
 
-                    if (c.stageFlags & asset::ISpecializedShader::ESS_ALL_GRAPHICS)
-                        ctxlocal->pushConstants<asset::EPBP_GRAPHICS>(static_cast<const COpenGLPipelineLayout*>(c.layout.get()), c.stageFlags, c.offset, c.size, c.values);
-                    if (c.stageFlags & asset::ISpecializedShader::ESS_COMPUTE)
-                        ctxlocal->pushConstants<asset::EPBP_COMPUTE>(static_cast<const COpenGLPipelineLayout*>(c.layout.get()), c.stageFlags, c.offset, c.size, c.values);
+                    if (c.stageFlags.value & asset::ISpecializedShader::ESS_ALL_GRAPHICS)
+                        ctxlocal->pushConstants<asset::EPBP_GRAPHICS>(static_cast<const COpenGLPipelineLayout*>(c.layout.get()), c.stageFlags.value, c.offset, c.size, c.values);
+                    if (c.stageFlags.value & asset::ISpecializedShader::ESS_COMPUTE)
+                        ctxlocal->pushConstants<asset::EPBP_COMPUTE>(static_cast<const COpenGLPipelineLayout*>(c.layout.get()), c.stageFlags.value, c.offset, c.size, c.values);
                 }
             }
             break;

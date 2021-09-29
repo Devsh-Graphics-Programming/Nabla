@@ -16,6 +16,7 @@ core::smart_refctd_ptr<CSurfaceVulkan<Window>> CSurfaceVulkan<Window>::create(
         return nullptr;
 
 #ifdef _NBL_PLATFORM_WINDOWS_    
+    // This needs to know what ui::IWindowWin32 is! Won't work on other platforms!
     if constexpr (std::is_same_v<Window, ui::IWindowWin32>)
     {
         VkWin32SurfaceCreateInfoKHR createInfo = { VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR };

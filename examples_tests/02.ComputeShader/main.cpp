@@ -3,165 +3,68 @@
 
 #include "../common/CommonAPI.h"
 
-#include "../../src/nbl/video/CVulkanConnection.h"
-
 // Temporary
 #define VK_NO_PROTOTYPES
 #include "vulkan/vulkan.h"
+#include "../../src/nbl/video/CVulkanConnection.h"
+#include "../../src/nbl/video/CVulkanCommon.h"
 
 #include <nbl/ui/CWindowManagerWin32.h>
 
 using namespace nbl;
-using namespace core;
 
-// This probably a TODO for @sadiuk
-static bool windowShouldClose_Global = false;
-
-#if 0
 const char* src = R"(#version 450
 
 layout (local_size_x = 16, local_size_y = 16) in;
 
-layout(push_constant) uniform pushConstants {
-    layout (offset = 0) uvec2 imgSize;
+layout (push_constant) uniform pushConstants
+{
+	layout (offset = 0) uvec2 imgSize;
 } u_pushConstants;
 
-layout (set = 0, binding = 0, rgba8) uniform readonly image2D inImage;
-layout (set = 0, binding = 1, rgba8) uniform image2D outImage;
+layout (set = 0, binding = 0, rgba8) uniform writeonly image2D outImage;
+layout (set = 0, binding = 1, rgba8) uniform readonly image2D inImage;
 
 void main()
 {
 	if (all(lessThan(gl_GlobalInvocationID.xy, u_pushConstants.imgSize)))
 	{
-		vec3 rgb = imageLoad(inImage, ivec2(gl_GlobalInvocationID.xy)).rgb;
+		vec3 inColor = imageLoad(inImage, ivec2(gl_GlobalInvocationID.xy)).rgb;
+		float grayscale = 0.2126 * inColor.r + 0.7152 * inColor.g + 0.0722 * inColor.b;
 		
-		imageStore(outImage, ivec2(gl_GlobalInvocationID.xy), vec4(1, 1, 0, 1));
+		imageStore(outImage, ivec2(gl_GlobalInvocationID.xy), vec4(vec3(grayscale), 1.f));
 	}
 })";
-#else
-const char* src = R"(#version 450
-
-// layout (local_size_x = 16, local_size_y = 16) in;
-
-layout (set = 0, binding = 0, rgba8) uniform writeonly image2D outImage;
-
-layout (set = 0, binding = 1) uniform UniformBufferObject
-{
-	float r;
-	float g;
-	float b;
-	float a;
-} ubo;
-
-void main()
-{
-	// if (all(lessThan(gl_GlobalInvocationID.xy, u_pushConstants.imgSize)))
-	{
-		// vec3 rgb = imageLoad(inImage, ivec2(gl_GlobalInvocationID.xy)).rgb;
-		
-		// imageStore(outImage, ivec2(gl_GlobalInvocationID.xy), vec4(1, 0, 1, 1));
-		imageStore(outImage, ivec2(gl_GlobalInvocationID.xy), vec4(ubo.r, ubo.g, ubo.b, ubo.a));
-	}
-})";
-#endif
-
-#define LOG(...) printf(__VA_ARGS__); printf("\n");
-class DemoEventCallback : public nbl::ui::IWindow::IEventCallback
-{
-	bool onWindowShown_impl() override
-	{
-		LOG("Window Shown");
-		return true;
-	}
-	bool onWindowHidden_impl() override
-	{
-		LOG("Window hidden");
-		return true;
-	}
-	bool onWindowMoved_impl(int32_t x, int32_t y) override
-	{
-		LOG("Window window moved to { %d, %d }", x, y);
-		return true;
-	}
-	bool onWindowResized_impl(uint32_t w, uint32_t h) override
-	{
-		LOG("Window resized to { %u, %u }", w, h);
-		return true;
-	}
-	bool onWindowMinimized_impl() override
-	{
-		LOG("Window minimized");
-		return true;
-	}
-	bool onWindowMaximized_impl() override
-	{
-		LOG("Window maximized");
-		return true;
-	}
-	void onGainedMouseFocus_impl() override
-	{
-		LOG("Window gained mouse focus");
-	}
-	void onLostMouseFocus_impl() override
-	{
-		LOG("Window lost mouse focus");
-	}
-	void onGainedKeyboardFocus_impl() override
-	{
-		LOG("Window gained keyboard focus");
-	}
-	void onLostKeyboardFocus_impl() override
-	{
-		LOG("Window lost keyboard focus");
-		windowShouldClose_Global = true;
-	}
-
-	void onMouseConnected_impl(core::smart_refctd_ptr<nbl::ui::IMouseEventChannel>&& mch) override
-	{
-		LOG("A mouse has been connected");
-	}
-	void onMouseDisconnected_impl(nbl::ui::IMouseEventChannel* mch) override
-	{
-		LOG("A mouse has been disconnected");
-	}
-	void onKeyboardConnected_impl(core::smart_refctd_ptr<nbl::ui::IKeyboardEventChannel>&& kbch) override
-	{
-		LOG("A keyboard has been connected");
-	}
-	void onKeyboardDisconnected_impl(nbl::ui::IKeyboardEventChannel* mch) override
-	{
-		LOG("A keyboard has been disconnected");
-	}
-};
-
-struct alignas(256) UniformBufferObject
-{
-	float r, g, b, a;
-};
 
 int main()
 {
-	constexpr uint32_t WIN_W = 800u;
-	constexpr uint32_t WIN_H = 600u;
-	constexpr uint32_t MAX_SWAPCHAIN_IMAGE_COUNT = 16u;
+	constexpr uint32_t WIN_W = 768;
+	constexpr uint32_t WIN_H = 512u;
+	constexpr uint32_t MAX_SWAPCHAIN_IMAGE_COUNT = 8u;
+	constexpr uint32_t FBO_COUNT = 2u;
+	constexpr uint32_t FRAMES_IN_FLIGHT = 5u;
+	static_assert(FRAMES_IN_FLIGHT>FBO_COUNT);
 
-	auto system = CommonAPI::createSystem(); // Todo(achal): Need to get rid of this
-
+	auto system = CommonAPI::createSystem();
+	auto logger = core::make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>();
+	auto inputSystem = core::make_smart_refctd_ptr<CommonAPI::InputSystem>(system::logger_opt_smart_ptr(logger));
+	auto eventCallback = core::make_smart_refctd_ptr<CommonAPI::CommonAPIEventCallback>(core::smart_refctd_ptr(inputSystem), system::logger_opt_smart_ptr(logger));
 	auto winManager = core::make_smart_refctd_ptr<nbl::ui::CWindowManagerWin32>();
 
 	nbl::ui::IWindow::SCreationParams params;
 	params.callback = nullptr;
 	params.width = WIN_W;
 	params.height = WIN_H;
-	params.x = 0;
-	params.y = 0;
+	params.x = 100;
+	params.y = 100;
 	params.system = core::smart_refctd_ptr(system);
 	params.flags = nbl::ui::IWindow::ECF_NONE;
 	params.windowCaption = "02.ComputeShader";
-	params.callback = core::make_smart_refctd_ptr<DemoEventCallback>();
+	params.callback = eventCallback;
 	auto window = winManager->createWindow(std::move(params));
 
-#if 1
+	auto assetManager = core::make_smart_refctd_ptr<nbl::asset::IAssetManager>(nbl::core::smart_refctd_ptr(system));
+
 	core::smart_refctd_ptr<video::CVulkanConnection> apiConnection =
 		video::CVulkanConnection::create(core::smart_refctd_ptr(system), 0, "02.ComputeShader", true);
 
@@ -214,7 +117,7 @@ int main()
 			{
 				const auto& familyProperty = queueFamilyProperties.begin() + familyIndex;
 
-				if (familyProperty->queueFlags & video::IPhysicalDevice::E_QUEUE_FLAGS::EQF_COMPUTE_BIT)
+				if (familyProperty->queueFlags.value & video::IPhysicalDevice::E_QUEUE_FLAGS::EQF_COMPUTE_BIT)
 					computeFamilyIndex = familyIndex;
 
 				if (surface->isSupportedForPhysicalDevice(gpu, familyIndex))
@@ -250,7 +153,8 @@ int main()
 			printf("Min swapchain image count: %d\n", surfaceCapabilities.minImageCount);
 			printf("Max swapchain image count: %d\n", surfaceCapabilities.maxImageCount);
 
-			// This flag is required, for some reason, I forgot xD
+			// This is probably required because we're using swapchain image as storage image
+			// in this example
 			if ((surfaceCapabilities.supportedUsageFlags & asset::IImage::EUF_STORAGE_BIT) == 0)
 				isGPUSuitable = false;
 			
@@ -273,6 +177,7 @@ int main()
 	}
 	assert((computeFamilyIndex != ~0u) && (presentFamilyIndex != ~0u));
 
+
 	video::ILogicalDevice::SCreationParams deviceCreationParams;
 	if (computeFamilyIndex == presentFamilyIndex)
 	{
@@ -285,54 +190,46 @@ int main()
 		imageSharingMode = asset::ESM_CONCURRENT;
 	}
 
-	using QueueFamilyIndicesArrayType = core::smart_refctd_dynamic_array<uint32_t>;
-	QueueFamilyIndicesArrayType queueFamilyIndices;
-	queueFamilyIndices = core::make_refctd_dynamic_array<QueueFamilyIndicesArrayType>(deviceCreationParams.queueParamsCount);
+	std::vector<uint32_t> queueFamilyIndices(deviceCreationParams.queueParamsCount);
 	{
 		const uint32_t tmp[] = { computeFamilyIndex, presentFamilyIndex };
 		for (uint32_t i = 0u; i < deviceCreationParams.queueParamsCount; ++i)
-			(*queueFamilyIndices)[i] = tmp[i];
+			queueFamilyIndices[i] = tmp[i];
 	}
 
-	// Could make this a static member of IGPUQueue, something like
-	// IGPUQueue::DEFAULT_QUEUE_PRIORITY, as a "don't-care" value for the user
-	const float defaultQueuePriority = 1.f;
+	const float defaultQueuePriority = video::IGPUQueue::DEFAULT_QUEUE_PRIORITY;
 
 	std::vector<video::ILogicalDevice::SQueueCreationParams> queueCreationParams(deviceCreationParams.queueParamsCount);
 	for (uint32_t i = 0u; i < deviceCreationParams.queueParamsCount; ++i)
 	{
-		queueCreationParams[i].familyIndex = (*queueFamilyIndices)[i];
+		queueCreationParams[i].familyIndex = queueFamilyIndices[i];
 		queueCreationParams[i].count = 1u;
 		queueCreationParams[i].flags = static_cast<video::IGPUQueue::E_CREATE_FLAGS>(0);
 		queueCreationParams[i].priorities = &defaultQueuePriority;
 	}
-	deviceCreationParams.queueCreateInfos = queueCreationParams.data();
+	deviceCreationParams.queueParams = queueCreationParams.data();
 
 	core::smart_refctd_ptr<video::ILogicalDevice> device = gpu->createLogicalDevice(deviceCreationParams);
 
 	video::IGPUQueue* computeQueue = device->getQueue(computeFamilyIndex, 0u);
 	video::IGPUQueue* presentQueue = device->getQueue(presentFamilyIndex, 0u);
 
-	// Todo(achal): We might want to check if: VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT and
-	// VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT are supported for current surface format
-	// and current physical device. In fact, we might want to put this up as a criteria
-	// for making the physical device suitable
-
-	nbl::video::ISwapchain::SCreationParams sc_params = {};
-	sc_params.surface = surface;
-	sc_params.minImageCount = minSwapchainImageCount;
-	sc_params.surfaceFormat = surfaceFormat;
-	sc_params.presentMode = presentMode;
-	sc_params.width = WIN_W;
-	sc_params.height = WIN_H;
-	sc_params.queueFamilyIndices = queueFamilyIndices;
-	sc_params.imageSharingMode = imageSharingMode;
-	sc_params.imageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(
+	nbl::video::ISwapchain::SCreationParams scParams = {};
+	scParams.surface = surface;
+	scParams.minImageCount = minSwapchainImageCount;
+	scParams.surfaceFormat = surfaceFormat;
+	scParams.presentMode = presentMode;
+	scParams.width = WIN_W;
+	scParams.height = WIN_H;
+	scParams.queueFamilyIndexCount = static_cast<uint32_t>(queueFamilyIndices.size());
+	scParams.queueFamilyIndices = queueFamilyIndices.data();
+	scParams.imageSharingMode = imageSharingMode;
+	scParams.imageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(
 		asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_STORAGE_BIT);
-	sc_params.oldSwapchain = nullptr;
+	scParams.oldSwapchain = nullptr;
 
 	core::smart_refctd_ptr<video::ISwapchain> swapchain = device->createSwapchain(
-		std::move(sc_params));
+		std::move(scParams));
 
 	const auto swapchainImages = swapchain->getImages();
 	const uint32_t swapchainImageCount = swapchain->getImageCount();
@@ -385,7 +282,7 @@ int main()
 
 		// ubo
 		bindings[1].binding = 1u;
-		bindings[1].type = asset::EDT_UNIFORM_BUFFER;
+		bindings[1].type = asset::EDT_STORAGE_IMAGE;
 		bindings[1].count = 1u;
 		bindings[1].stageFlags = asset::ISpecializedShader::ESS_COMPUTE;
 		bindings[1].samplers = nullptr;
@@ -393,12 +290,10 @@ int main()
 	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> dsLayout =
 		device->createGPUDescriptorSetLayout(bindings, bindings + bindingCount);
 
-	const uint32_t descriptorPoolSizeCount = 2u;
+	const uint32_t descriptorPoolSizeCount = 1u;
 	video::IDescriptorPool::SDescriptorPoolSize poolSizes[descriptorPoolSizeCount];
 	poolSizes[0].type = asset::EDT_STORAGE_IMAGE;
-	poolSizes[0].count = swapchainImageCount;
-	poolSizes[1].type = asset::EDT_UNIFORM_BUFFER;
-	poolSizes[1].count = swapchainImageCount;
+	poolSizes[0].count = swapchainImageCount + 1u;
 
 	video::IDescriptorPool::E_CREATE_FLAGS descriptorPoolFlags =
 		static_cast<video::IDescriptorPool::E_CREATE_FLAGS>(0);
@@ -418,56 +313,115 @@ int main()
 			core::smart_refctd_ptr(dsLayout));
 	}
 
-	core::smart_refctd_ptr<video::IGPUBuffer> ubos[MAX_SWAPCHAIN_IMAGE_COUNT];
+	// Uncomment once the KTX loader works
+#if 0
+	constexpr auto cachingFlags = static_cast<asset::IAssetLoader::E_CACHING_FLAGS>(
+		asset::IAssetLoader::ECF_DONT_CACHE_REFERENCES & asset::IAssetLoader::ECF_DONT_CACHE_TOP_LEVEL);
 
-	// Kinda janky to pass buffer size like this, I think, because we're overriding
-	// these values at the end of createGPUBuffer anyway (by the values obtained from
-	// vkGetBufferMemoryRequirements)
-	video::IDriverMemoryBacked::SDriverMemoryRequirements memoryRequirements = {};
-	memoryRequirements.vulkanReqs.size = sizeof(UniformBufferObject);
-	memoryRequirements.vulkanBufferUsageFlags = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-	memoryRequirements.sharingMode = asset::ESM_EXCLUSIVE;
-	memoryRequirements.queueFamilyIndices = nullptr;
-	for (uint32_t i = 0u; i < swapchainImageCount; ++i)
-		ubos[i] = device->createGPUBuffer(memoryRequirements);
-
-	// Allocate memory for GPU buffer
-	core::smart_refctd_ptr<video::IDriverMemoryAllocation> ubosMemory[MAX_SWAPCHAIN_IMAGE_COUNT];
-	for (uint32_t i = 0u; i < swapchainImageCount; ++i)
+	const char* pathToImage = "../../media/color_space_test/kueken7_rgba8_unorm.ktx";
+	
+	asset::IAssetLoader::SAssetLoadParams loadParams(0ull, nullptr, cachingFlags);
+	auto cpuImageBundle = assetManager->getAsset(pathToImage, loadParams);
+	auto cpuImageContents = cpuImageBundle.getContents();
+	if (cpuImageContents.empty())
 	{
-		// THIS IS ONLY USED FOR DETERMINING THE SIZE OF ALLOCATION FOR NOW
-		// Again kinda janky to pass size of allocation this way
-		video::IDriverMemoryBacked::SDriverMemoryRequirements additionalMemReqs = {};
-		additionalMemReqs.vulkanReqs.size = sizeof(UniformBufferObject);
-		additionalMemReqs.vulkanReqs.memoryTypeBits = ubos[i]->getMemoryReqs().vulkanReqs.memoryTypeBits;
-
-		ubosMemory[i] = device->allocateDeviceLocalMemory(additionalMemReqs);
+		logger->log("Failed to read image at path %s", nbl::system::ILogger::ELL_ERROR, pathToImage);
+		exit(-1);
 	}
 
-	video::ILogicalDevice::SBindBufferMemoryInfo bindBufferInfos[MAX_SWAPCHAIN_IMAGE_COUNT];
-	for (uint32_t i = 0u; i < swapchainImageCount; ++i)
+	auto cpuImage = core::smart_refctd_ptr_static_cast<asset::ICPUImage>(*cpuImageContents.begin());
+#else
+	const uint32_t imageWidth = WIN_W;
+	const uint32_t imageHeight = WIN_H;
+	const uint32_t imageChannelCount = 4u;
+	const uint32_t mipLevels = 1u; // WILL NOT WORK FOR MORE THAN 1 MIPS
+	const size_t imageSize = imageWidth * imageHeight * imageChannelCount * sizeof(uint8_t);
+	auto imagePixels = core::make_smart_refctd_ptr<asset::ICPUBuffer>(imageSize);
+
+	uint32_t* dstPixel = (uint32_t*)imagePixels->getPointer();
+	for (uint32_t y = 0u; y < imageHeight; ++y)
 	{
-		bindBufferInfos[i].buffer = ubos[i].get();
-		bindBufferInfos[i].memory = ubosMemory[i].get();
-		bindBufferInfos[i].offset = 0ull;
+		for (uint32_t x = 0u; x < imageWidth; ++x)
+		{
+			// Should be red in R8G8B8A8_UNORM
+			*dstPixel++ = 0x000000FF;
+		}
 	}
-	device->bindBufferMemory(swapchainImageCount, bindBufferInfos);
 
-	// Fill up ubos with dummy data
-	// Todo(achal): Would probably make sense to ditch map/unmap in favor of staging buffer,
-	// infact device local memory shouldn't be host mapped
-	struct UniformBufferObject uboData_cpu[3] = { { 1.f, 0.f, 0.f, 1.f}, {0.f, 1.f, 0.f, 1.f}, {0.f, 0.f, 1.f, 1.f} };
-	for (uint32_t i = 0u; i < swapchainImageCount; ++i)
+	core::smart_refctd_ptr<asset::ICPUImage> inImage_CPU = nullptr;
 	{
-		video::IDriverMemoryAllocation::MappedMemoryRange mappedMemoryRange(ubosMemory[i].get(),
-			0ull, sizeof(UniformBufferObject));
-		void* mappedMemoryAddress = device->mapMemory(mappedMemoryRange);
-		assert(mappedMemoryAddress);
+		asset::ICPUImage::SCreationParams creationParams = {};
+		creationParams.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0u);
+		creationParams.type = asset::IImage::ET_2D;
+		creationParams.format = asset::EF_R8G8B8A8_UNORM;
+		creationParams.extent = { imageWidth, imageHeight, 1u };
+		creationParams.mipLevels = mipLevels;
+		creationParams.arrayLayers = 1u;
+		creationParams.samples = asset::IImage::ESCF_1_BIT;
+		creationParams.tiling = asset::IImage::ET_OPTIMAL;
+		{
+			// Todo(achal): Need to wrap this up
+			VkFormatProperties formatProps;
+			vkGetPhysicalDeviceFormatProperties(
+				static_cast<video::CVulkanPhysicalDevice*>(gpu)->getInternalObject(),
+				video::getVkFormatFromFormat(creationParams.format), &formatProps);
+			assert(formatProps.optimalTilingFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT);
+			assert(formatProps.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT); // this is required to use vkCmdBlitImage to generate mipmaps, this check should be included in asset converter after we have other ways for mip map generation
+		}
+		creationParams.usage = core::bitflag(asset::IImage::EUF_STORAGE_BIT) | asset::IImage::EUF_TRANSFER_DST_BIT;
+		creationParams.sharingMode = asset::ESM_EXCLUSIVE;
+		creationParams.queueFamilyIndexCount = 1u;
+		creationParams.queueFamilyIndices = nullptr;
+		creationParams.initialLayout = asset::EIL_UNDEFINED;
 
-		memcpy(mappedMemoryAddress, &uboData_cpu[i], sizeof(UniformBufferObject));
+		auto imageRegions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ICPUImage::SBufferCopy>>(1ull);
+		imageRegions->begin()->bufferOffset = 0ull;
+		imageRegions->begin()->bufferRowLength = creationParams.extent.width;
+		imageRegions->begin()->bufferImageHeight = 0u;
+		imageRegions->begin()->imageSubresource = {};
+		imageRegions->begin()->imageSubresource.aspectMask = asset::IImage::EAF_COLOR_BIT;
+		imageRegions->begin()->imageSubresource.layerCount = 1u;
+		imageRegions->begin()->imageOffset = { 0, 0, 0 };
+		imageRegions->begin()->imageExtent = { creationParams.extent.width, creationParams.extent.height, 1u };
 
-		device->unmapMemory(ubosMemory[i].get());
+		inImage_CPU = asset::ICPUImage::create(std::move(creationParams));
+		inImage_CPU->setBufferAndRegions(core::smart_refctd_ptr<asset::ICPUBuffer>(imagePixels), imageRegions);
 	}
+#endif
+
+	core::smart_refctd_ptr<video::IUtilities> utils = core::make_smart_refctd_ptr<video::IUtilities>(core::smart_refctd_ptr<video::ILogicalDevice>(device));
+
+	video::IGPUObjectFromAssetConverter::SParams cpu2gpuParams = {};
+	cpu2gpuParams.utilities = utils.get();
+	cpu2gpuParams.device = device.get();
+	cpu2gpuParams.assetManager = assetManager.get();
+	cpu2gpuParams.pipelineCache = nullptr;
+	cpu2gpuParams.limits = gpu->getLimits();
+	cpu2gpuParams.finalQueueFamIx = 0u; // queue at index 0 supports both compute and present for me
+	cpu2gpuParams.sharingMode = asset::ESM_EXCLUSIVE;
+	cpu2gpuParams.perQueue[video::IGPUObjectFromAssetConverter::EQU_TRANSFER].queue = computeQueue;
+	cpu2gpuParams.perQueue[video::IGPUObjectFromAssetConverter::EQU_COMPUTE].queue = computeQueue;
+
+	video::IGPUObjectFromAssetConverter CPU2GPU;
+	auto inImage = CPU2GPU.getGPUObjectsFromAssets(&inImage_CPU, &inImage_CPU + 1, cpu2gpuParams);
+	assert(inImage);
+
+	// Create an image view for input image
+	core::smart_refctd_ptr<video::IGPUImageView> inImageView = nullptr;
+	{
+		video::IGPUImageView::SCreationParams viewParams;
+		viewParams.format = asset::EF_R8G8B8A8_UNORM; // inImage->getCreationParameters().format;
+		viewParams.viewType = asset::IImageView<video::IGPUImage>::ET_2D;
+		viewParams.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
+		viewParams.subresourceRange.baseMipLevel = 0u;
+		viewParams.subresourceRange.levelCount = 1u;
+		viewParams.subresourceRange.baseArrayLayer = 0u;
+		viewParams.subresourceRange.layerCount = 1u;
+		viewParams.image = inImage->begin()[0];
+
+		inImageView = device->createGPUImageView(std::move(viewParams));
+	}
+	assert(inImageView);
 
 	for (uint32_t i = 0u; i < swapchainImageCount; ++i)
 	{
@@ -476,7 +430,7 @@ int main()
 		video::IGPUDescriptorSet::SDescriptorInfo descriptorInfos[writeDescriptorCount];
 		video::IGPUDescriptorSet::SWriteDescriptorSet writeDescriptorSets[writeDescriptorCount] = {};
 
-		// image2D
+		// image2D -- swapchain image
 		{
 			descriptorInfos[0].image.imageLayout = asset::EIL_GENERAL;
 			descriptorInfos[0].image.sampler = nullptr;
@@ -490,33 +444,34 @@ int main()
 			writeDescriptorSets[0].info = &descriptorInfos[0];
 		}
 
-		// ubo
+		// image2D -- my input
 		{
-			descriptorInfos[1].buffer.offset = 0ull;
-			descriptorInfos[1].buffer.size = sizeof(UniformBufferObject);
-			descriptorInfos[1].desc = ubos[i];
+			descriptorInfos[1].image.imageLayout = asset::EIL_GENERAL;
+			descriptorInfos[1].image.sampler = nullptr;
+			descriptorInfos[1].desc = inImageView;
 
 			writeDescriptorSets[1].dstSet = descriptorSets[i].get();
 			writeDescriptorSets[1].binding = 1u;
 			writeDescriptorSets[1].arrayElement = 0u;
 			writeDescriptorSets[1].count = 1u;
-			writeDescriptorSets[1].descriptorType = asset::EDT_UNIFORM_BUFFER;
+			writeDescriptorSets[1].descriptorType = asset::EDT_STORAGE_IMAGE;
 			writeDescriptorSets[1].info = &descriptorInfos[1];
 		}
 
 		device->updateDescriptorSets(writeDescriptorCount, writeDescriptorSets, 0u, nullptr);
 	}
 
-	// Todo(achal): Make use of push constants for something, just to test
+	asset::SPushConstantRange pcRange = {};
+	pcRange.stageFlags = asset::ISpecializedShader::ESS_COMPUTE;
+	pcRange.offset = 0u;
+	pcRange.size = 2*sizeof(uint32_t);
 	core::smart_refctd_ptr<video::IGPUPipelineLayout> pipelineLayout =
-		device->createGPUPipelineLayout(nullptr, nullptr, core::smart_refctd_ptr(dsLayout));
+		device->createGPUPipelineLayout(&pcRange, &pcRange + 1, core::smart_refctd_ptr(dsLayout));
 
 	core::smart_refctd_ptr<video::IGPUComputePipeline> pipeline =
 		device->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(pipelineLayout),
 			core::smart_refctd_ptr(specializedShader));
 
-	// Todo(achal): Consider making it greater than swapchainImageCount
-	const uint32_t FRAMES_IN_FLIGHT = 2u;
 
 	core::smart_refctd_ptr<video::IGPUSemaphore> acquireSemaphores[FRAMES_IN_FLIGHT];
 	core::smart_refctd_ptr<video::IGPUSemaphore> releaseSemaphores[FRAMES_IN_FLIGHT];
@@ -529,6 +484,7 @@ int main()
 	}
 
 	// Record commands in commandBuffers here
+	const uint32_t windowDim[2] = { window->getWidth() / 2, window->getHeight() };
 	for (uint32_t i = 0u; i < swapchainImageCount; ++i)
 	{
 		video::IGPUCommandBuffer::SImageMemoryBarrier undefToComputeTransitionBarrier;
@@ -566,7 +522,7 @@ int main()
 		// VK_PIPELINE_STAGE_TRANSFER_BIT shouldn't be specified in compute queue
 		// but present queue (or transfer queue if theres one??)
 		commandBuffers[i]->pipelineBarrier(asset::EPSF_TRANSFER_BIT,
-			asset::EPSF_COMPUTE_SHADER_BIT, 0, 0u, nullptr, 0u, nullptr, 1u,
+			asset::EPSF_COMPUTE_SHADER_BIT, static_cast<asset::E_DEPENDENCY_FLAGS>(0u), 0u, nullptr, 0u, nullptr, 1u,
 			&undefToComputeTransitionBarrier);
 
 		commandBuffers[i]->bindComputePipeline(pipeline.get());
@@ -575,10 +531,11 @@ int main()
 		commandBuffers[i]->bindDescriptorSets(asset::EPBP_COMPUTE, pipelineLayout.get(),
 			0u, 1u, tmp);
 
-		commandBuffers[i]->dispatch(WIN_W, WIN_H, 1);
+		commandBuffers[i]->pushConstants(pipelineLayout.get(), pcRange.stageFlags, pcRange.offset, pcRange.size, windowDim);
+		commandBuffers[i]->dispatch((WIN_W + 15u) / 16u, (WIN_H + 15u) / 16u, 1u);
 
 		commandBuffers[i]->pipelineBarrier(asset::EPSF_COMPUTE_SHADER_BIT, asset::EPSF_BOTTOM_OF_PIPE_BIT,
-			0, 0u, nullptr, 0u, nullptr, 1u, &computeToPresentTransitionBarrier);
+			static_cast<asset::E_DEPENDENCY_FLAGS>(0u), 0u, nullptr, 0u, nullptr, 1u, &computeToPresentTransitionBarrier);
 
 		commandBuffers[i]->end();
 	}
@@ -586,9 +543,7 @@ int main()
 	video::ISwapchain* rawPointerToSwapchain = swapchain.get();
 	
 	uint32_t currentFrameIndex = 0u;
-	// while (!windowShouldClose_Global)
-	// for (uint32_t i = 0u; i < 1000u; ++i)
-	do
+	while (eventCallback->isWindowOpen())
 	{
 		video::IGPUSemaphore* acquireSemaphore_frame = acquireSemaphores[currentFrameIndex].get();
 		video::IGPUSemaphore* releaseSemaphore_frame = releaseSemaphores[currentFrameIndex].get();
@@ -626,16 +581,15 @@ int main()
 		presentInfo.swapchainCount = 1u;
 		presentInfo.swapchains = &rawPointerToSwapchain;
 		presentInfo.imgIndices = &imageIndex;
+
 		presentQueue->present(presentInfo);
 
 		currentFrameIndex = (currentFrameIndex + 1) % FRAMES_IN_FLIGHT;
-	} while (!windowShouldClose_Global);
+	}
 
 	device->waitIdle();
 
-
 	return 0;
-#endif
 }
 
 #if 0
