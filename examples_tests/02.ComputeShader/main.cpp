@@ -144,8 +144,6 @@ int main()
 	// For each swapchain image we have one descriptor set with two descriptors each
 	core::smart_refctd_ptr<video::IGPUDescriptorSet> descriptorSets[MAX_SWAPCHAIN_IMAGE_COUNT];
 
-	// Todo(achal): Test this as well: 
-	// device->createGPUDescriptorSets(descriptorPool.get(), SC_IMG_COUNT, )
 	for (uint32_t i = 0u; i < swapchainImageCount; ++i)
 	{
 		descriptorSets[i] = initResult.logicalDevice->createGPUDescriptorSet(descriptorPool.get(),
@@ -173,7 +171,7 @@ int main()
 	const uint32_t imageWidth = WIN_W;
 	const uint32_t imageHeight = WIN_H;
 	const uint32_t imageChannelCount = 4u;
-	const uint32_t mipLevels = 1u; // WILL NOT WORK FOR MORE THAN 1 MIPS
+	const uint32_t mipLevels = 1u; // WILL NOT WORK FOR MORE THAN 1 MIPS, but doesn't matter since it is temporary until KTX loading works
 	const size_t imageSize = imageWidth * imageHeight * imageChannelCount * sizeof(uint8_t);
 	auto imagePixels = core::make_smart_refctd_ptr<asset::ICPUBuffer>(imageSize);
 
@@ -227,34 +225,13 @@ int main()
 		inImage_CPU = asset::ICPUImage::create(std::move(creationParams));
 		inImage_CPU->setBufferAndRegions(core::smart_refctd_ptr<asset::ICPUBuffer>(imagePixels), imageRegions);
 	}
-#endif
-
-	// core::smart_refctd_ptr<video::IUtilities> utils = core::make_smart_refctd_ptr<video::IUtilities>(core::smart_refctd_ptr<video::ILogicalDevice>(device));
-	
-	// For CPU2GPU Params
-	// I don't know why would I need a separate pool for compute??
-	// core::smart_refctd_ptr<video::IGPUCommandPool> pool_compute = device->createCommandPool(computeQueue->getFamilyIndex(), video::IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
+#endif	
 
 	core::smart_refctd_ptr<video::IGPUCommandBuffer> transferCmdBuffer;
 	core::smart_refctd_ptr<video::IGPUCommandBuffer> computeCmdBuffer;
 
 	initResult.logicalDevice->createCommandBuffers(initResult.commandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY, 1u, &transferCmdBuffer);
 	initResult.logicalDevice->createCommandBuffers(initResult.commandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY, 1u, &computeCmdBuffer);
-	
-#if 0
-	video::IGPUObjectFromAssetConverter::SParams cpu2gpuParams = {};
-	cpu2gpuParams.utilities = initOutput.utilities.get();
-	cpu2gpuParams.device = device.get();
-	cpu2gpuParams.assetManager = assetManager.get();
-	cpu2gpuParams.pipelineCache = nullptr;
-	cpu2gpuParams.limits = gpu->getLimits();
-	cpu2gpuParams.finalQueueFamIx = 0u; // queue at index 0 supports both compute and present for me
-	cpu2gpuParams.sharingMode = asset::ESM_EXCLUSIVE;
-	cpu2gpuParams.perQueue[video::IGPUObjectFromAssetConverter::EQU_TRANSFER].queue = computeQueue;
-	cpu2gpuParams.perQueue[video::IGPUObjectFromAssetConverter::EQU_COMPUTE].queue = computeQueue;
-	cpu2gpuParams.perQueue[video::IGPUObjectFromAssetConverter::EQU_TRANSFER].cmdbuf = transferCmdBuffer;
-	cpu2gpuParams.perQueue[video::IGPUObjectFromAssetConverter::EQU_COMPUTE].cmdbuf = computeCmdBuffer;
-#endif
 
 	initResult.cpu2gpuParams.perQueue[video::IGPUObjectFromAssetConverter::EQU_TRANSFER].cmdbuf = transferCmdBuffer;
 	initResult.cpu2gpuParams.perQueue[video::IGPUObjectFromAssetConverter::EQU_COMPUTE].cmdbuf = computeCmdBuffer;
@@ -269,7 +246,7 @@ int main()
 	core::smart_refctd_ptr<video::IGPUImageView> inImageView = nullptr;
 	{
 		video::IGPUImageView::SCreationParams viewParams;
-		viewParams.format = asset::EF_R8G8B8A8_UNORM; // inImage->getCreationParameters().format;
+		viewParams.format = inImage_CPU->getCreationParameters().format;
 		viewParams.viewType = asset::IImageView<video::IGPUImage>::ET_2D;
 		viewParams.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
 		viewParams.subresourceRange.baseMipLevel = 0u;
@@ -341,60 +318,49 @@ int main()
 		frameFences[i] = initResult.logicalDevice->createFence(video::IGPUFence::E_CREATE_FLAGS::ECF_SIGNALED_BIT);
 	}
 
-	// Record commands in commandBuffers here
 	const uint32_t windowDim[2] = { initResult.window->getWidth(), initResult.window->getHeight() };
+
+	video::IGPUCommandBuffer::SImageMemoryBarrier layoutTransBarrier = {};
+	layoutTransBarrier.srcQueueFamilyIndex = ~0u;
+	layoutTransBarrier.dstQueueFamilyIndex = ~0u;
+	layoutTransBarrier.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
+	layoutTransBarrier.subresourceRange.baseMipLevel = 0u;
+	layoutTransBarrier.subresourceRange.levelCount = 1u;
+	layoutTransBarrier.subresourceRange.baseArrayLayer = 0u;
+	layoutTransBarrier.subresourceRange.layerCount = 1u;
+
 	for (uint32_t i = 0u; i < swapchainImageCount; ++i)
 	{
-		// Todo(achal): Factor a lot of this shit out
-		video::IGPUCommandBuffer::SImageMemoryBarrier undefToComputeTransitionBarrier;
-		undefToComputeTransitionBarrier.barrier.srcAccessMask = asset::EAF_TRANSFER_READ_BIT;
-		undefToComputeTransitionBarrier.barrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
-		undefToComputeTransitionBarrier.oldLayout = asset::EIL_UNDEFINED;
-		undefToComputeTransitionBarrier.newLayout = asset::EIL_GENERAL;
-		undefToComputeTransitionBarrier.srcQueueFamilyIndex = ~0u;
-		undefToComputeTransitionBarrier.dstQueueFamilyIndex = ~0u;
-		undefToComputeTransitionBarrier.image = *(swapchainImages.begin() + i);
-		undefToComputeTransitionBarrier.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
-		undefToComputeTransitionBarrier.subresourceRange.baseMipLevel = 0u;
-		undefToComputeTransitionBarrier.subresourceRange.levelCount = 1u;
-		undefToComputeTransitionBarrier.subresourceRange.baseArrayLayer = 0u;
-		undefToComputeTransitionBarrier.subresourceRange.layerCount = 1u;
-
-		video::IGPUCommandBuffer::SImageMemoryBarrier computeToPresentTransitionBarrier;
-		computeToPresentTransitionBarrier.barrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
-		computeToPresentTransitionBarrier.barrier.dstAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0);
-		computeToPresentTransitionBarrier.oldLayout = asset::EIL_GENERAL;
-		computeToPresentTransitionBarrier.newLayout = asset::EIL_PRESENT_SRC_KHR;
-		computeToPresentTransitionBarrier.srcQueueFamilyIndex = ~0u;
-		computeToPresentTransitionBarrier.dstQueueFamilyIndex = ~0u;
-		computeToPresentTransitionBarrier.image = *(swapchainImages.begin() + i);
-		computeToPresentTransitionBarrier.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
-		computeToPresentTransitionBarrier.subresourceRange.baseMipLevel = 0u;
-		computeToPresentTransitionBarrier.subresourceRange.levelCount = 1u;
-		computeToPresentTransitionBarrier.subresourceRange.baseArrayLayer = 0u;
-		computeToPresentTransitionBarrier.subresourceRange.layerCount = 1u;
-
 		commandBuffers[i]->begin(0);
 
-		// Todo(achal): The fact that this pipeline barrier is solely on a compute queue might
-		// affect the srcStageMask. More precisely, I think, for some reason, that
-		// VK_PIPELINE_STAGE_TRANSFER_BIT shouldn't be specified in compute queue
-		// but present queue (or transfer queue if theres one??)
-		commandBuffers[i]->pipelineBarrier(asset::EPSF_TRANSFER_BIT,
-			asset::EPSF_COMPUTE_SHADER_BIT, static_cast<asset::E_DEPENDENCY_FLAGS>(0u), 0u, nullptr, 0u, nullptr, 1u,
-			&undefToComputeTransitionBarrier);
+		layoutTransBarrier.barrier.srcAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0);
+		layoutTransBarrier.barrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
+		layoutTransBarrier.oldLayout = asset::EIL_UNDEFINED;
+		layoutTransBarrier.newLayout = asset::EIL_GENERAL;
+		layoutTransBarrier.image = *(swapchainImages.begin() + i);
 
-		commandBuffers[i]->bindComputePipeline(pipeline.get());
+		commandBuffers[i]->pipelineBarrier(asset::EPSF_TOP_OF_PIPE_BIT,
+			asset::EPSF_COMPUTE_SHADER_BIT, static_cast<asset::E_DEPENDENCY_FLAGS>(0u), 0u,
+			nullptr, 0u, nullptr, 1u, &layoutTransBarrier);
 
 		const video::IGPUDescriptorSet* tmp[] = { descriptorSets[i].get() };
 		commandBuffers[i]->bindDescriptorSets(asset::EPBP_COMPUTE, pipelineLayout.get(),
 			0u, 1u, tmp);
 
+		commandBuffers[i]->bindComputePipeline(pipeline.get());
+
 		commandBuffers[i]->pushConstants(pipelineLayout.get(), pcRange.stageFlags, pcRange.offset, pcRange.size, windowDim);
+
 		commandBuffers[i]->dispatch((WIN_W + 15u) / 16u, (WIN_H + 15u) / 16u, 1u);
 
+		layoutTransBarrier.barrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
+		layoutTransBarrier.barrier.dstAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0);
+		layoutTransBarrier.oldLayout = asset::EIL_GENERAL;
+		layoutTransBarrier.newLayout = asset::EIL_PRESENT_SRC_KHR;
+
 		commandBuffers[i]->pipelineBarrier(asset::EPSF_COMPUTE_SHADER_BIT, asset::EPSF_BOTTOM_OF_PIPE_BIT,
-			static_cast<asset::E_DEPENDENCY_FLAGS>(0u), 0u, nullptr, 0u, nullptr, 1u, &computeToPresentTransitionBarrier);
+			static_cast<asset::E_DEPENDENCY_FLAGS>(0u), 0u, nullptr, 0u, nullptr,
+			1u, &layoutTransBarrier);
 
 		commandBuffers[i]->end();
 	}
