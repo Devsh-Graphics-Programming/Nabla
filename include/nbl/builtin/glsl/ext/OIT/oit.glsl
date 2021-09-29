@@ -13,6 +13,9 @@
 #ifndef NBL_GLSL_VIS_IMAGE_BINDING
 #define NBL_GLSL_VIS_IMAGE_BINDING 2
 #endif
+#ifndef NBL_GLSL_SPINLOCK_IMAGE_BINDING
+#define NBL_GLSL_SPINLOCK_IMAGE_BINDING 3
+#endif
 
 #define NBL_GLSL_OIT_NODE_COUNT 4
 
@@ -65,6 +68,19 @@
 layout(set = NBL_GLSL_OIT_SET_NUM, binding = NBL_GLSL_COLOR_IMAGE_BINDING, NBL_GLSL_OIT_IMG_FORMAT_COLOR) uniform coherent uimage2D g_color;
 layout(set = NBL_GLSL_OIT_SET_NUM, binding = NBL_GLSL_DEPTH_IMAGE_BINDING, NBL_GLSL_OIT_IMG_FORMAT_DEPTH) uniform coherent uimage2D g_depth;
 layout(set = NBL_GLSL_OIT_SET_NUM, binding = NBL_GLSL_VIS_IMAGE_BINDING,   NBL_GLSL_OIT_IMG_FORMAT_VIS) uniform coherent image2D g_vis;
+#ifdef NBL_GL_ARB_fragment_shader_interlock
+#define NBL_GLSL_OIT_CRITICAL_SECTION(FUNC) beginInvocationInterlockARB(); FUNC; endInvocationInterlockARB()
+#else
+layout(set = NBL_GLSL_OIT_SET_NUM, binding = NBL_GLSL_SPINLOCK_IMAGE_BINDING,   r32ui) uniform coherent uimage2D g_lock;
+#define NBL_GLSL_OIT_CRITICAL_SECTION(FUNC) for (bool done=gl_HelperInvocation; !done;) {\
+	if (imageAtomicExchange(g_lock,ivec2(gl_FragCoord.xy),1u)==0u) \
+	{ \
+		FUNC; \
+		imageStore(g_lock,ivec2(gl_FragCoord.xy),uvec4(0u)); \
+		done = true; \
+	} \
+}
+#endif
 
 float nbl_glsl_oit_get_rev_depth()
 {
