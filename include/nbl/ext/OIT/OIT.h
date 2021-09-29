@@ -37,7 +37,9 @@ namespace nbl::ext::OIT
             asset::SRasterizationParams raster;
         };
 
-        bool initialize(video::ILogicalDevice* dev, uint32_t w, uint32_t h, video::IGPUObjectFromAssetConverter::SParams& c2gparams)
+        bool initialize(video::ILogicalDevice* dev, uint32_t w, uint32_t h,
+            video::IGPUObjectFromAssetConverter::SParams& c2gparams,
+            uint32_t set = DefaultSetNum, uint32_t colorBnd = DefaultColorImgBinding, uint32_t depthBnd = DefaultDepthImgBinding, uint32_t visBnd = DefaultVisImgBinding)
         {
             auto createOITImage = [&dev,w,h](asset::E_FORMAT fmt) -> core::smart_refctd_ptr<video::IGPUImageView> {
                 core::smart_refctd_ptr<video::IGPUImage> img;
@@ -91,11 +93,14 @@ namespace nbl::ext::OIT
             if (!m_images.vis)
                 return false;
 
-            const char* resolve_glsl = R"(#version 430 core
-#include <nbl/builtin/glsl/ext/OIT/resolve.frag>
-)";
+            std::string resolve_glsl = "#version 430 core\n\n";
+            resolve_glsl += "#define NBL_GLSL_OIT_SET_NUM " + std::to_string(set) + "\n";
+            resolve_glsl += "#define NBL_GLSL_COLOR_IMAGE_BINDING " + std::to_string(colorBnd) + "\n";
+            resolve_glsl += "#define NBL_GLSL_DEPTH_IMAGE_BINDING " + std::to_string(depthBnd) + "\n";
+            resolve_glsl += "#define NBL_GLSL_VIS_IMAGE_BINDING " + std::to_string(visBnd) + "\n";
+            resolve_glsl += "#include <nbl/builtin/glsl/ext/OIT/resolve.frag>\n";
 
-            auto cpushader = core::make_smart_refctd_ptr<asset::ICPUShader>(resolve_glsl);
+            auto cpushader = core::make_smart_refctd_ptr<asset::ICPUShader>(resolve_glsl.c_str());
             auto shader = dev->createGPUShader(std::move(cpushader));
             if (!shader)
                 return false;
