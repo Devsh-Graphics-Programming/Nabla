@@ -12,8 +12,8 @@ namespace nbl::video
 class CVulkanPhysicalDevice final : public IPhysicalDevice
 {
 public:
-    CVulkanPhysicalDevice(core::smart_refctd_ptr<system::ISystem>&& sys, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc, IAPIConnection* api, VkPhysicalDevice vk_physicalDevice)
-        : IPhysicalDevice(std::move(sys),std::move(glslc)), m_api(api), m_vkPhysicalDevice(vk_physicalDevice)
+    CVulkanPhysicalDevice(core::smart_refctd_ptr<system::ISystem>&& sys, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc, IAPIConnection* api, renderdoc_api_t* rdoc, VkPhysicalDevice vk_physicalDevice, VkInstance vk_instance)
+        : IPhysicalDevice(std::move(sys),std::move(glslc)), m_api(api), m_rdoc_api(rdoc), m_vkPhysicalDevice(vk_physicalDevice), m_vkInstance(vk_instance)
     {
         // Get Supported Extensions
         {
@@ -113,7 +113,7 @@ public:
         requestDeviceExtension(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME, true); // requires vulkan 1.1
         requestDeviceExtension(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME, true); // required by VK_KHR_acceleration_structure
         requestDeviceExtension(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME, true); // required by VK_KHR_acceleration_structure
-        requestDeviceExtension<VkPhysicalDeviceAccelerationStructureFeaturesKHR>(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME, true, &accelerationFeatures);
+        // requestDeviceExtension<VkPhysicalDeviceAccelerationStructureFeaturesKHR>(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME, true, &accelerationFeatures);
         // requestDeviceExtension<VkPhysicalDeviceRayTracingPipelineFeaturesKHR>(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME, true, &rayTracingPipelineFeatures);
         // requestDeviceExtension<VkPhysicalDeviceRayQueryFeaturesKHR>(VK_KHR_RAY_QUERY_EXTENSION_NAME, true, &rayQueryFeatures);
 
@@ -218,7 +218,7 @@ protected:
         VkDevice vk_device = VK_NULL_HANDLE;
         if (vkCreateDevice(m_vkPhysicalDevice, &vk_createInfo, nullptr, &vk_device) == VK_SUCCESS)
         {
-            return core::make_smart_refctd_ptr<CVulkanLogicalDevice>(core::smart_refctd_ptr<IAPIConnection>(m_api),this,vk_device,params);
+            return core::make_smart_refctd_ptr<CVulkanLogicalDevice>(core::smart_refctd_ptr<IAPIConnection>(m_api),m_rdoc_api,this,vk_device,m_vkInstance,params);
         }
         else
         {
@@ -312,13 +312,17 @@ protected:
             ExtensionHeader* header  = reinterpret_cast<ExtensionHeader*>(featureStructPtrs[i]);
             header->pNext = (i < featureStructPtrs.size() - 1) ? featureStructPtrs[i + 1] : nullptr;
         }
-
-        firstFeatureInChain = featureStructPtrs[0];
+        if(featureStructPtrs.size() > 0)
+            firstFeatureInChain = featureStructPtrs[0];
+        else 
+            firstFeatureInChain = nullptr;
     }
 
 private:
     IAPIConnection* m_api; // purposefully not refcounted to avoid circular ref
+    renderdoc_api_t* m_rdoc_api;
     VkPhysicalDevice m_vkPhysicalDevice;
+    VkInstance m_vkInstance;
 
     std::vector<DeviceExtensionRequest> deviceExtensionRequests;
     std::vector<VkExtensionProperties> supportedExtensions;

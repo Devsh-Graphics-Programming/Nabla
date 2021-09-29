@@ -146,4 +146,18 @@ bool CVulkanQueue::present(const SPresentInfo& info)
     }
 }
 
+bool CVulkanQueue::startCapture() 
+{
+	if(m_rdoc_api == nullptr)
+		return false;
+    m_rdoc_api->StartFrameCapture(RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(m_vkInstance), NULL);
+	return true;
+}
+bool CVulkanQueue::endCapture()
+{
+	if(m_rdoc_api == nullptr)
+		return false;
+    m_rdoc_api->EndFrameCapture(RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(m_vkInstance), NULL);
+	return true;
+}
 }
