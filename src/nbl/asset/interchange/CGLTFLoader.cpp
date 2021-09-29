@@ -1525,6 +1525,10 @@ namespace nbl
 
 					setParents(root, 0xdeadbeef, skeleton.hierarchyBuffer, glTF.nodes);
 				}
+				else
+				{
+					// this needs a case-handle too!
+				}
 			}
 
 			/*
