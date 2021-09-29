@@ -1090,7 +1090,7 @@ public:
 			actualQueueParamsCount++;
 		}
 
-		uint32_t mainQueueFamilyIndex = QueueFamilyProps::InvalidIndex;
+		uint32_t mainQueueFamilyIndex = gpuInfo.queueFamilyProps.graphics.index;
 
 		video::ILogicalDevice::SCreationParams dev_params;
 		dev_params.queueParamsCount = actualQueueParamsCount;
@@ -1103,8 +1103,20 @@ public:
 		if(!headlessCompute)
 			result.queues[InitOutput<sc_image_count>::EQT_GRAPHICS] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.graphics.index, graphicsQueueIndexInFamily);
 		result.queues[InitOutput<sc_image_count>::EQT_COMPUTE] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.compute.index, computeQueueIndexInFamily);
-		result.queues[InitOutput<sc_image_count>::EQT_TRANSFER_UP] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.transfer.index, transferUpQueueIndexInFamily);
-		result.queues[InitOutput<sc_image_count>::EQT_TRANSFER_DOWN] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.transfer.index, transferDownQueueIndexInFamily);
+
+		// TEMP_FIX -> because of examples and cpu2gpu not being ready to have transfer without graphics cap.
+		if(!headlessCompute)
+		{
+			result.queues[InitOutput<sc_image_count>::EQT_TRANSFER_UP] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.graphics.index, 0u);
+			result.queues[InitOutput<sc_image_count>::EQT_TRANSFER_DOWN] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.graphics.index, 0u);
+		}
+		else
+		{
+			result.queues[InitOutput<sc_image_count>::EQT_TRANSFER_UP] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.compute.index, computeQueueIndexInFamily);
+			result.queues[InitOutput<sc_image_count>::EQT_TRANSFER_DOWN] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.compute.index, computeQueueIndexInFamily);
+		}
+		// result.queues[InitOutput<sc_image_count>::EQT_TRANSFER_UP] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.transfer.index, transferUpQueueIndexInFamily);
+		// result.queues[InitOutput<sc_image_count>::EQT_TRANSFER_DOWN] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.transfer.index, transferDownQueueIndexInFamily);
 
 		nbl::video::ISurface::SFormat requestedFormat;
 		
