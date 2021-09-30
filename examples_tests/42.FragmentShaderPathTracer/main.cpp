@@ -93,7 +93,8 @@ int main()
 	
 	const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_TRANSFER_DST_BIT);
 	const video::ISurface::SFormat surfaceFormat;
-	auto initOutput = CommonAPI::Init<WIN_W, WIN_H, FBO_COUNT>(video::EAT_VULKAN, "Compute Shader PathTracer", swapchainImageUsage, surfaceFormat, asset::EF_D32_SFLOAT);
+	
+	auto initOutput = CommonAPI::Init(video::EAT_VULKAN, "Compute Shader PathTracer", WIN_W, WIN_H, FBO_COUNT, swapchainImageUsage, surfaceFormat, asset::EF_D32_SFLOAT);
 	auto system = std::move(initOutput.system);
 	auto window = std::move(initOutput.window);
 	auto windowCb = std::move(initOutput.windowCb);
@@ -102,42 +103,26 @@ int main()
 	auto gpuPhysicalDevice = std::move(initOutput.physicalDevice);
 	auto device = std::move(initOutput.logicalDevice);
 	auto queues = std::move(initOutput.queues);
-	auto graphicsQueue = queues[decltype(initOutput)::EQT_GRAPHICS];
-	auto transferUpQueue = queues[decltype(initOutput)::EQT_TRANSFER_UP];
-	auto computeQueue = queues[decltype(initOutput)::EQT_COMPUTE];
+	auto graphicsQueue = queues[CommonAPI::InitOutput::EQT_GRAPHICS];
+	auto transferUpQueue = queues[CommonAPI::InitOutput::EQT_TRANSFER_UP];
+	auto computeQueue = queues[CommonAPI::InitOutput::EQT_COMPUTE];
 	auto swapchain = std::move(initOutput.swapchain);
 	auto renderpass = std::move(initOutput.renderpass);
 	auto fbo = std::move(initOutput.fbo);
-	auto commandPool = std::move(initOutput.commandPool);
 	auto assetManager = std::move(initOutput.assetManager);
 	auto cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
 	auto logger = std::move(initOutput.logger);
 	auto inputSystem = std::move(initOutput.inputSystem);
 	auto utilities = std::move(initOutput.utilities);
+	auto graphicsCommandPool = std::move(initOutput.commandPools[CommonAPI::InitOutput::EQT_GRAPHICS]);
+	auto computeCommandPool = std::move(initOutput.commandPools[CommonAPI::InitOutput::EQT_COMPUTE]);
+
+	auto graphicsCmdPoolQueueFamIdx = graphicsQueue->getFamilyIndex();
 
 	nbl::video::IGPUObjectFromAssetConverter CPU2GPU;
 	
-	// For CPU2GPU Params
-	auto pool_transfer = device->createCommandPool(transferUpQueue->getFamilyIndex(), IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
-	core::smart_refctd_ptr<IGPUCommandPool> pool_compute;
-
-	if(transferUpQueue->getFamilyIndex() == computeQueue->getFamilyIndex())
-		pool_compute = pool_transfer;
-	else
-		pool_compute = device->createCommandPool(computeQueue->getFamilyIndex(), IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
-	
-	core::smart_refctd_ptr<IGPUCommandBuffer> transferCmdBuffer;
-	core::smart_refctd_ptr<IGPUCommandBuffer> computeCmdBuffer;
-
-	device->createCommandBuffers(pool_transfer.get(), IGPUCommandBuffer::EL_PRIMARY, 1u, &transferCmdBuffer);
-	device->createCommandBuffers(pool_compute.get(), IGPUCommandBuffer::EL_PRIMARY, 1u, &computeCmdBuffer);
-	
-	cpu2gpuParams.perQueue[IGPUObjectFromAssetConverter::EQU_TRANSFER].cmdbuf = transferCmdBuffer;
-	cpu2gpuParams.perQueue[IGPUObjectFromAssetConverter::EQU_COMPUTE].cmdbuf = computeCmdBuffer;
-
-	auto cmdPoolQueueFamIdx = initOutput.mainQueue->getFamilyIndex();
 	core::smart_refctd_ptr<nbl::video::IGPUCommandBuffer> cmdbuf[FRAMES_IN_FLIGHT];
-	device->createCommandBuffers(commandPool.get(), nbl::video::IGPUCommandBuffer::EL_PRIMARY, FRAMES_IN_FLIGHT, cmdbuf);
+	device->createCommandBuffers(graphicsCommandPool.get(), nbl::video::IGPUCommandBuffer::EL_PRIMARY, FRAMES_IN_FLIGHT, cmdbuf);
 	
 	constexpr uint32_t maxDescriptorCount = 256u;
 	constexpr uint32_t PoolSizesCount = 5u;
@@ -499,8 +484,8 @@ int main()
 			imageBarriers[0].barrier.dstAccessMask = static_cast<asset::E_ACCESS_FLAGS>(asset::EAF_SHADER_WRITE_BIT);
 			imageBarriers[0].oldLayout = asset::EIL_UNDEFINED;
 			imageBarriers[0].newLayout = asset::EIL_GENERAL;
-			imageBarriers[0].srcQueueFamilyIndex = cmdPoolQueueFamIdx;
-			imageBarriers[0].dstQueueFamilyIndex = cmdPoolQueueFamIdx;
+			imageBarriers[0].srcQueueFamilyIndex = graphicsCmdPoolQueueFamIdx;
+			imageBarriers[0].dstQueueFamilyIndex = graphicsCmdPoolQueueFamIdx;
 			imageBarriers[0].image = outHDRImageViews[imgnum]->getCreationParameters().image;
 			imageBarriers[0].subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
 			imageBarriers[0].subresourceRange.baseMipLevel = 0u;
@@ -512,8 +497,8 @@ int main()
 			imageBarriers[1].barrier.dstAccessMask = static_cast<asset::E_ACCESS_FLAGS>(asset::EAF_SHADER_READ_BIT);
 			imageBarriers[1].oldLayout = asset::EIL_UNDEFINED;
 			imageBarriers[1].newLayout = asset::EIL_SHADER_READ_ONLY_OPTIMAL;
-			imageBarriers[1].srcQueueFamilyIndex = cmdPoolQueueFamIdx;
-			imageBarriers[1].dstQueueFamilyIndex = cmdPoolQueueFamIdx;
+			imageBarriers[1].srcQueueFamilyIndex = graphicsCmdPoolQueueFamIdx;
+			imageBarriers[1].dstQueueFamilyIndex = graphicsCmdPoolQueueFamIdx;
 			imageBarriers[1].image = gpuScrambleImageView->getCreationParameters().image;
 			imageBarriers[1].subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
 			imageBarriers[1].subresourceRange.baseMipLevel = 0u;
@@ -525,8 +510,8 @@ int main()
 			 imageBarriers[2].barrier.dstAccessMask = static_cast<asset::E_ACCESS_FLAGS>(asset::EAF_SHADER_READ_BIT);
 			 imageBarriers[2].oldLayout = asset::EIL_UNDEFINED;
 			 imageBarriers[2].newLayout = asset::EIL_SHADER_READ_ONLY_OPTIMAL;
-			 imageBarriers[2].srcQueueFamilyIndex = cmdPoolQueueFamIdx;
-			 imageBarriers[2].dstQueueFamilyIndex = cmdPoolQueueFamIdx;
+			 imageBarriers[2].srcQueueFamilyIndex = graphicsCmdPoolQueueFamIdx;
+			 imageBarriers[2].dstQueueFamilyIndex = graphicsCmdPoolQueueFamIdx;
 			 imageBarriers[2].image = gpuEnvmapImageView->getCreationParameters().image;
 			 imageBarriers[2].subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
 			 imageBarriers[2].subresourceRange.baseMipLevel = 0u;
@@ -560,8 +545,8 @@ int main()
 			imageBarriers[0].barrier.dstAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
 			imageBarriers[0].oldLayout = asset::EIL_UNDEFINED;
 			imageBarriers[0].newLayout = asset::EIL_TRANSFER_SRC_OPTIMAL;
-			imageBarriers[0].srcQueueFamilyIndex = cmdPoolQueueFamIdx;
-			imageBarriers[0].dstQueueFamilyIndex = cmdPoolQueueFamIdx;
+			imageBarriers[0].srcQueueFamilyIndex = graphicsCmdPoolQueueFamIdx;
+			imageBarriers[0].dstQueueFamilyIndex = graphicsCmdPoolQueueFamIdx;
 			imageBarriers[0].image = srcImgViewCreationParams.image;
 			imageBarriers[0].subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
 			imageBarriers[0].subresourceRange.baseMipLevel = 0u;
@@ -573,8 +558,8 @@ int main()
 			imageBarriers[1].barrier.dstAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
 			imageBarriers[1].oldLayout = asset::EIL_UNDEFINED;
 			imageBarriers[1].newLayout = asset::EIL_TRANSFER_DST_OPTIMAL;
-			imageBarriers[1].srcQueueFamilyIndex = cmdPoolQueueFamIdx;
-			imageBarriers[1].dstQueueFamilyIndex = cmdPoolQueueFamIdx;
+			imageBarriers[1].srcQueueFamilyIndex = graphicsCmdPoolQueueFamIdx;
+			imageBarriers[1].dstQueueFamilyIndex = graphicsCmdPoolQueueFamIdx;
 			imageBarriers[1].image = dstImgViewCreationParams.image;
 			imageBarriers[1].subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
 			imageBarriers[1].subresourceRange.baseMipLevel = 0u;
@@ -614,8 +599,8 @@ int main()
 			imageBarriers[0].barrier.dstAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0u);
 			imageBarriers[0].oldLayout = asset::EIL_TRANSFER_DST_OPTIMAL;
 			imageBarriers[0].newLayout = asset::EIL_PRESENT_SRC_KHR;
-			imageBarriers[0].srcQueueFamilyIndex = cmdPoolQueueFamIdx;
-			imageBarriers[0].dstQueueFamilyIndex = cmdPoolQueueFamIdx;
+			imageBarriers[0].srcQueueFamilyIndex = graphicsCmdPoolQueueFamIdx;
+			imageBarriers[0].dstQueueFamilyIndex = graphicsCmdPoolQueueFamIdx;
 			imageBarriers[0].image = dstImgViewCreationParams.image;
 			imageBarriers[0].subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
 			imageBarriers[0].subresourceRange.baseMipLevel = 0u;
