@@ -1643,48 +1643,36 @@ namespace nbl
 
 					SBufferBinding<ICPUBuffer> jointAABBBufferBinding;
 					{
-						std::vector<core::aabbox3df> jointBboxes(glTFjointNodeIDs.size());
+						std::vector<core::aabbox3df> jointBoundingBoxes(glTFjointNodeIDs.size());
 						{
 							struct JointVertexPair
 							{
 								core::vectorSIMDf vPosition;
-								core::vectorSIMDf vJoint;
+								core::vector4du32_SIMD vJoint;
 							} currentJointVertexPair;
 
 							const uint16_t jointIDAttributeIx = cpuMeshBuffer->getJointIDAttributeIx();
+							const auto* inverseBindPoseMatrices = reinterpret_cast<core::matrix3x4SIMD*>(reinterpret_cast<uint8_t*>(inverseBindPoseBufferBinding.buffer->getPointer()) + inverseBindPoseBufferBinding.offset);
 
 							for (size_t i = 0; i < cpuMeshBuffer->getIndexCount(); ++i)
 							{
 								currentJointVertexPair.vPosition = cpuMeshBuffer->getPosition(i);
-								assert(cpuMeshBuffer->getAttribute(currentJointVertexPair.vJoint, jointIDAttributeIx, i));
+								assert(cpuMeshBuffer->getAttribute(currentJointVertexPair.vJoint.pointer, jointIDAttributeIx, i));
 
-								/*
-								*	TODO
-								* 
-									how to do this correctly with respect to all per-vertex joints?
-									right now it makes any sense only if we have one joint ID
-									per vertex or all joints per vertex are the same!
-
-									got confused
-								*/
-
-								assert(currentJointVertexPair.vJoint.x == currentJointVertexPair.vJoint.y == currentJointVertexPair.vJoint.z == currentJointVertexPair.vJoint.w); // TMP, ISSUE!
-								const auto lower = std::lower_bound(std::begin(glTFjointNodeIDs), std::end(glTFjointNodeIDs), currentJointVertexPair.vJoint.x);
-								assert(lower != std::end(glTFjointNodeIDs)); // TMP, ISSUE!
-
-								const auto localJointNodeID = std::distance(glTFjointNodeIDs.begin(), lower); //! the ID is in range [0u, glTFjointNodeIDs.size() - 1u]
+								auto updateBoundingBoxBuffers = [&](const uint32_t vtxJointID)
 								{
-									uint8_t* data = reinterpret_cast<uint8_t*>(inverseBindPoseBufferBinding.buffer->getPointer()) + inverseBindPoseBufferBinding.offset;
-									core::matrix3x4SIMD* IBPMatrix = reinterpret_cast<core::matrix3x4SIMD*>(data) + localJointNodeID;
+									const auto& inverseBindPoseMatrix = inverseBindPoseMatrices[vtxJointID];
+									inverseBindPoseMatrix.transformVect(currentJointVertexPair.vPosition);
+									jointBoundingBoxes[vtxJointID].addInternalPoint(currentJointVertexPair.vPosition.getAsVector3df());
+								};
 
-									IBPMatrix->transformVect(currentJointVertexPair.vPosition);
-									jointBboxes[localJointNodeID].addInternalPoint(currentJointVertexPair.vPosition.getAsVector3df());
-								}
+								for (uint32_t i = 0; i < jointsPerVertex; ++i)
+									updateBoundingBoxBuffers(currentJointVertexPair.vJoint.pointer[i]);
 							}
 						}
 
-						jointAABBBufferBinding.buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(jointBboxes.size() * sizeof(core::aabbox3df));
-						memcpy(jointAABBBufferBinding.buffer->getPointer(), jointBboxes.data(), jointAABBBufferBinding.buffer->getSize());
+						jointAABBBufferBinding.buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(jointBoundingBoxes.size() * sizeof(core::aabbox3df));
+						memcpy(jointAABBBufferBinding.buffer->getPointer(), jointBoundingBoxes.data(), jointAABBBufferBinding.buffer->getSize());
 						jointAABBBufferBinding.offset = 0u;
 					}
 
