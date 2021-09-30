@@ -19,7 +19,7 @@ using namespace core;
 
 // #define NBL_MORE_LOGS
 
-class OITSampleApp : public ApplicationBase
+class MeshLoadersApp : public ApplicationBase
 {
     constexpr static uint32_t WIN_W = 1280;
     constexpr static uint32_t WIN_H = 720;
@@ -125,7 +125,7 @@ public:
             window = std::move(wnd);
         }
     };
-    APP_CONSTRUCTOR(OITSampleApp)
+    APP_CONSTRUCTOR(MeshLoadersApp)
     void onAppInitialized_impl(void* data) override
     {
         nabla* engine = (nabla*)data;
@@ -450,4 +450,4 @@ public:
     }
 };
 
-NBL_COMMON_API_MAIN(OITSampleApp, OITSampleApp::nabla)
+NBL_COMMON_API_MAIN(MeshLoadersApp, MeshLoadersApp::nabla)

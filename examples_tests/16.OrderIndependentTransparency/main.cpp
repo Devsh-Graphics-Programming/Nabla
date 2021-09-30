@@ -22,7 +22,7 @@ using namespace core;
 
 // #define NBL_MORE_LOGS
 
-class MeshLoaderApp : public ApplicationBase
+class OITSampleApp : public ApplicationBase
 {
     constexpr static uint32_t WIN_W = 1280;
     constexpr static uint32_t WIN_H = 720;
@@ -138,13 +138,13 @@ public:
             window = std::move(wnd);
         }
     };
-    APP_CONSTRUCTOR(MeshLoaderApp)
+    APP_CONSTRUCTOR(OITSampleApp)
     void onAppInitialized_impl(void* data) override
     {
         nabla* engine = (nabla*)data;
         CommonAPI::InitOutput<SC_IMG_COUNT> initOutput;
         initOutput.window = core::smart_refctd_ptr(engine->window);
-        CommonAPI::Init<WIN_W, WIN_H, SC_IMG_COUNT>(initOutput, video::EAT_OPENGL, "MeshLoaders", nbl::asset::EF_D32_SFLOAT);
+        CommonAPI::Init<WIN_W, WIN_H, SC_IMG_COUNT>(initOutput, video::EAT_OPENGL, "OITSample", nbl::asset::EF_D32_SFLOAT);
         engine->window = std::move(initOutput.window);
         engine->windowCb = std::move(initOutput.windowCb);
         engine->apiConnection = std::move(initOutput.apiConnection);
@@ -633,7 +633,7 @@ public:
     }
 };
 
-NBL_COMMON_API_MAIN(MeshLoaderApp, MeshLoaderApp::nabla)
+NBL_COMMON_API_MAIN(OITSampleApp, OITSampleApp::nabla)
 //
 //int main(int argc, char** argv)
 //{
