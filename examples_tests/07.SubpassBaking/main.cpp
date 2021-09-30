@@ -168,11 +168,7 @@ public:
             auto arch = engine->system->openFileArchive(archPath);
             engine->system->mount(std::move(arch),"resources");
             asset::IAssetLoader::SAssetLoadParams loadParams;
-#if 0 // @sadiuk unfuck this please
             loadParams.workingDirectory = "resources";
-#else
-            loadParams.workingDirectory = archPath;
-#endif
             loadParams.logger = engine->logger.get();
             auto meshes_bundle = engine->assetManager->getAsset("sponza.obj", loadParams);
             assert(!meshes_bundle.getContents().empty());

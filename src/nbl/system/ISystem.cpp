@@ -34,8 +34,8 @@ namespace nbl::system
             auto archives = m_cachedArchiveFiles.findRange(realPath);
             for (auto& archive : archives)
             {
-                auto absolute = std::filesystem::absolute(_path).generic_string();
                 auto relative = std::filesystem::relative(_path, path);
+                auto absolute = (realPath / relative).generic_string();
                 auto files = archive.second->getArchivedFiles();
                 // TODO: file list should be sorted by the path and you should be using a binary search !!!!!!
                 auto requiredFile = std::find_if(files.begin(), files.end(), [&relative](const IFileArchive::SFileListEntry& entry) { return entry.fullName == relative; });
