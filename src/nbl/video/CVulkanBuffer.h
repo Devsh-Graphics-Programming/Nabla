@@ -44,6 +44,8 @@ public:
         m_memory = std::move(memory);
         m_memBindingOffset = memBindingOffset;
     }
+    
+    void setObjectDebugName(const char* label) const override;
 
 private:
     core::smart_refctd_ptr<IDriverMemoryAllocation> m_memory = nullptr;

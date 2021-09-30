@@ -12,4 +12,18 @@ CVulkanCommandPool::~CVulkanCommandPool()
     vk->vk.vkDestroyCommandPool(vulkanDevice->getInternalObject(), m_commandPool, nullptr);
 }
 
+void CVulkanCommandPool::setObjectDebugName(const char* label) const
+{
+    IBackendObject::setObjectDebugName(label);
+
+	// TODO: Check for VK_EXT_debug_marker support
+
+    const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
+	VkDebugUtilsObjectNameInfoEXT nameInfo = {VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT, nullptr};
+	nameInfo.objectType = VK_OBJECT_TYPE_COMMAND_POOL;
+	nameInfo.objectHandle = reinterpret_cast<uint64_t>(getInternalObject());
+	nameInfo.pObjectName = getObjectDebugName();
+	vkSetDebugUtilsObjectNameEXT(vulkanDevice->getInternalObject(), &nameInfo);
+}
+
 }

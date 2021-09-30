@@ -12,4 +12,18 @@ CVulkanPipelineCache::~CVulkanPipelineCache()
     vk->vk.vkDestroyPipelineCache(vulkanDevice->getInternalObject(), m_pipelineCache, nullptr);
 }
 
+void CVulkanPipelineCache::setObjectDebugName(const char* label) const
+{
+    IBackendObject::setObjectDebugName(label);
+
+	// TODO: Check for VK_EXT_debug_marker support
+
+    const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
+	VkDebugUtilsObjectNameInfoEXT nameInfo = {VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT, nullptr};
+	nameInfo.objectType = VK_OBJECT_TYPE_PIPELINE_CACHE;
+	nameInfo.objectHandle = reinterpret_cast<uint64_t>(getInternalObject());
+	nameInfo.pObjectName = getObjectDebugName();
+	vkSetDebugUtilsObjectNameEXT(vulkanDevice->getInternalObject(), &nameInfo);
+}
+
 }

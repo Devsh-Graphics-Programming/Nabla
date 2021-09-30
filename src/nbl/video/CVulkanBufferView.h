@@ -22,6 +22,8 @@ public:
     inline VkBufferView getInternalObject() const { return m_vkBufferView; }
 
     ~CVulkanBufferView();
+	
+    void setObjectDebugName(const char* label) const override;
 
 private:
     VkBufferView m_vkBufferView;

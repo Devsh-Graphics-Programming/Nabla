@@ -20,6 +20,8 @@ public:
 
     inline VkDescriptorPool getInternalObject() const { return m_descriptorPool; }
 
+    void setObjectDebugName(const char* label) const override;
+
 private:
     VkDescriptorPool m_descriptorPool;
 };

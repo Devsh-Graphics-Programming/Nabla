@@ -38,6 +38,8 @@ class CVulkanImage : public IGPUImage
 			m_memBindingOffset = memBindingOffset;
 		}
 
+		void setObjectDebugName(const char* label) const override;
+
 	protected:
 		virtual ~CVulkanImage();
 

@@ -20,6 +20,8 @@ public:
 
     inline VkPipelineCache getInternalObject() const { return m_pipelineCache; }
 
+    void setObjectDebugName(const char* label) const override;
+
 private:
     VkPipelineCache m_pipelineCache;
 };

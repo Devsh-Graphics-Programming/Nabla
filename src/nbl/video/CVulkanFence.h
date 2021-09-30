@@ -21,6 +21,8 @@ public:
 
     VkFence getInternalObject() const { return m_fence; }
 
+    void setObjectDebugName(const char* label) const override;
+
 private:
     VkFence m_fence;
 };

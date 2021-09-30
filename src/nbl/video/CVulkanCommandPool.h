@@ -78,6 +78,8 @@ public:
     VkCommandPool getInternalObject() const { return m_commandPool; }
 
     ~CVulkanCommandPool();
+	
+    void setObjectDebugName(const char* label) const override;
 
 private:
     // Todo(achal): Remove
