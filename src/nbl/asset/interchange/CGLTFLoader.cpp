@@ -1654,21 +1654,40 @@ namespace nbl
 							const uint16_t jointIDAttributeIx = cpuMeshBuffer->getJointIDAttributeIx();
 							const auto* inverseBindPoseMatrices = reinterpret_cast<core::matrix3x4SIMD*>(reinterpret_cast<uint8_t*>(inverseBindPoseBufferBinding.buffer->getPointer()) + inverseBindPoseBufferBinding.offset);
 
-							for (size_t i = 0; i < cpuMeshBuffer->getIndexCount(); ++i)
+							auto createBoneBoundingBoxes = [&]<bool isIndexedT>()
 							{
-								currentJointVertexPair.vPosition = cpuMeshBuffer->getPosition(i);
-								assert(cpuMeshBuffer->getAttribute(currentJointVertexPair.vJoint.pointer, jointIDAttributeIx, i));
-
-								auto updateBoundingBoxBuffers = [&](const uint32_t vtxJointID)
+								for (size_t i = 0; i < cpuMeshBuffer->getIndexCount(); ++i)
 								{
-									const auto& inverseBindPoseMatrix = inverseBindPoseMatrices[vtxJointID];
-									inverseBindPoseMatrix.transformVect(currentJointVertexPair.vPosition);
-									jointBoundingBoxes[vtxJointID].addInternalPoint(currentJointVertexPair.vPosition.getAsVector3df());
-								};
+									if constexpr (isIndexedT)
+									{
+										const auto& vtxIndex = cpuMeshBuffer->getIndexValue(i);
 
-								for (uint32_t i = 0; i < jointsPerVertex; ++i)
-									updateBoundingBoxBuffers(currentJointVertexPair.vJoint.pointer[i]);
-							}
+										currentJointVertexPair.vPosition = cpuMeshBuffer->getPosition(vtxIndex);
+										assert(cpuMeshBuffer->getAttribute(currentJointVertexPair.vJoint.pointer, jointIDAttributeIx, vtxIndex));
+									}
+									else
+									{
+										currentJointVertexPair.vPosition = cpuMeshBuffer->getPosition(i);
+										assert(cpuMeshBuffer->getAttribute(currentJointVertexPair.vJoint.pointer, jointIDAttributeIx, i));
+									}
+
+
+									auto updateBoundingBoxBuffers = [&](const uint32_t vtxJointID)
+									{
+										const auto& inverseBindPoseMatrix = inverseBindPoseMatrices[vtxJointID];
+										inverseBindPoseMatrix.transformVect(currentJointVertexPair.vPosition);
+										jointBoundingBoxes[vtxJointID].addInternalPoint(currentJointVertexPair.vPosition.getAsVector3df());
+									};
+
+									for (uint32_t z = 0; z < jointsPerVertex; ++z)
+										updateBoundingBoxBuffers(currentJointVertexPair.vJoint.pointer[z]);
+								}
+							};
+
+							if(cpuMeshBuffer->getIndexType() == asset::EIT_UNKNOWN)
+								createBoneBoundingBoxes.template operator() < false > ();
+							else
+								createBoneBoundingBoxes.template operator() < true > ();
 						}
 
 						jointAABBBufferBinding.buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(jointBoundingBoxes.size() * sizeof(core::aabbox3df));
