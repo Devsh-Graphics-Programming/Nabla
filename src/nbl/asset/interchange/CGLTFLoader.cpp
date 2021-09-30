@@ -529,7 +529,9 @@ namespace nbl
 							}
 
 							auto& glTFbufferView = glTF.bufferViews[glTFAccessor.bufferView.value()];
-							const uint32_t& bufferBindingId = glTFAccessor.bufferView.value();
+							const uint32_t attributeId = queryAttributeId.has_value() ? queryAttributeId.value() : 0xdeadbeef;
+							const uint32_t& bufferBindingId = attributeId; //! glTF exporters are sometimes retarded setting relativeOffset more than 2048, so we go with single binding per attribute
+
 							const uint32_t& bufferDataId = glTFbufferView.buffer.value();
 							const auto& globalOffsetInBufferBindingResource = glTFbufferView.byteOffset.has_value() ? glTFbufferView.byteOffset.value() : 0u;
 							const auto& relativeOffsetInBufferViewAttribute = glTFAccessor.byteOffset.has_value() ? glTFAccessor.byteOffset.value() : 0u;
@@ -539,7 +541,7 @@ namespace nbl
 							auto setBufferBinding = [&](uint32_t target) -> void
 							{
 								asset::SBufferBinding<ICPUBuffer> bufferBinding;
-								bufferBinding.offset = globalOffsetInBufferBindingResource;
+								bufferBinding.offset = globalOffsetInBufferBindingResource + relativeOffsetInBufferViewAttribute;
 
 								idReferenceBindingBuffers[bufferDataId] = cpuBuffers[bufferDataId];
 								bufferBinding.buffer = idReferenceBindingBuffers[bufferDataId];
@@ -559,11 +561,10 @@ namespace nbl
 										vertexInputParams.bindings[bufferBindingId].inputRate = EVIR_PER_VERTEX;
 										vertexInputParams.bindings[bufferBindingId].stride = isDataInterleaved() ? glTFbufferView.byteStride.value() : getTexelOrBlockBytesize(format); // TODO: change it when handling matrices as well
 
-										const auto attributeId = queryAttributeId.value();
 										vertexInputParams.enabledAttribFlags |= core::createBitmask({ attributeId });
 										vertexInputParams.attributes[attributeId].binding = bufferBindingId;
 										vertexInputParams.attributes[attributeId].format = format;
-										vertexInputParams.attributes[attributeId].relativeOffset = relativeOffsetInBufferViewAttribute;
+										vertexInputParams.attributes[attributeId].relativeOffset = 0u;
 									} break;
 
 									case SGLTFBufferView::SGLTFT_ELEMENT_ARRAY_BUFFER:
@@ -1278,25 +1279,14 @@ namespace nbl
 									} break;
 								}
 
-								auto setOverrideBufferBinding = [&](OverrideSkinningBuffers::Override& overrideData, uint16_t attributeID) -> bool
+								auto setOverrideBufferBinding = [&](OverrideSkinningBuffers::Override& overrideData, uint16_t attributeID)
 								{
 									asset::SBufferBinding<ICPUBuffer> bufferBinding;
 									bufferBinding.buffer = core::smart_refctd_ptr(overrideData.cpuBuffer);
 									bufferBinding.offset = 0u;
 
-									auto findFreeBinding = [&]() -> uint32_t
-									{
-										for (uint16_t i = 0; i < asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; ++i)
-											if (!(vertexInputParams.enabledBindingFlags & core::createBitmask({ i })))
-												return i;
+									const uint32_t bufferBindingId = attributeID;
 									
-										return 0xdeadbeef;
-									};
-
-									const uint32_t bufferBindingId = findFreeBinding();
-									if (bufferBindingId == 0xdeadbeef)
-										return false;
-
 									cpuMeshBuffer->setVertexBufferBinding(std::move(bufferBinding), bufferBindingId);
 
 									vertexInputParams.enabledBindingFlags |= core::createBitmask({ bufferBindingId });
@@ -1307,21 +1297,10 @@ namespace nbl
 									vertexInputParams.attributes[attributeID].binding = bufferBindingId;
 									vertexInputParams.attributes[attributeID].format = overrideData.format;
 									vertexInputParams.attributes[attributeID].relativeOffset = 0;
-
-									return true;
 								};
 
-								if (!setOverrideBufferBinding(overrideSkinningBuffers.jointsAttributes, cpuMeshBuffer->getJointIDAttributeIx()))
-								{
-									context.loadContext.params.logger.log("GLTF: COULD NOT SET OVERRIDE JOINTS BUFFER!", system::ILogger::ELL_WARNING);
-									return {};
-								}
-
-								if(!setOverrideBufferBinding(overrideSkinningBuffers.weightsAttributes, cpuMeshBuffer->getJointWeightAttributeIx()))
-								{
-									context.loadContext.params.logger.log("GLTF: COULD NOT SET OVERRIDE WEIGHTS BUFFER!", system::ILogger::ELL_WARNING);
-									return {};
-								}
+								setOverrideBufferBinding(overrideSkinningBuffers.jointsAttributes, cpuMeshBuffer->getJointIDAttributeIx());
+								setOverrideBufferBinding(overrideSkinningBuffers.weightsAttributes, cpuMeshBuffer->getJointWeightAttributeIx());
 							}
 						}
 
@@ -1670,7 +1649,6 @@ namespace nbl
 										currentJointVertexPair.vPosition = cpuMeshBuffer->getPosition(i);
 										assert(cpuMeshBuffer->getAttribute(currentJointVertexPair.vJoint.pointer, jointIDAttributeIx, i));
 									}
-
 
 									auto updateBoundingBoxBuffers = [&](const uint32_t vtxJointID)
 									{
