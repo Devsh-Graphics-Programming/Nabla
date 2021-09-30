@@ -144,6 +144,25 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			transfers[3].source = &ITransformTree::initial_recomputed_timestamp;
 			return request.poolHandler->transferProperties(request.upBuff,nullptr,request.cmdbuf,request.fence,transfers,transfers+TransferCount,request.logger,maxWaitPoint).transferSuccess;
 		}
+
+		struct SkeletonAllocationRequest
+		{
+			video::CPropertyPoolHandler* poolHandler;
+			video::StreamingTransientDataBufferMT<>* upBuff;
+			video::IGPUCommandBuffer* cmdbuf; //! must be in recording state
+			video::IGPUFence* fence;
+			ITransformTree* tree;
+			core::SRange<ITransformTree::node_t> outNodes = { nullptr, nullptr };
+
+			struct Batch
+			{
+				const asset::ICPUSkeleton* skeleton;
+				uint32_t instanceCount = 0u;
+			};
+
+			Batch* skeletonBatches;
+			system::logger_opt_ptr logger = nullptr;
+		};
 		// TODO: utility for adding skeleton node instances, etc.
 		 
 		//

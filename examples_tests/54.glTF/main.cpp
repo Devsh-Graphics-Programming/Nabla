@@ -135,6 +135,94 @@ int main()
 	}
 
 	/*
+		Property Buffers for skinning
+	*/
+
+	auto xCpuMeshBuffer = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(meshes_bundle.getContents().begin()[0])->getMeshBuffers().begin()[0];
+	const auto& nodeCount = xCpuMeshBuffer->getSkeleton()->getJointCount();
+	constexpr uint32_t PropertyCount = 5u;
+
+	constexpr size_t parentPropSz = sizeof(uint32_t);						// tt0->getNodePropertyPool()->getPropertySize(scene::ITransformTree::parent_prop_ix);
+	constexpr size_t relTformPropSz = sizeof(core::matrix3x4SIMD);			// tt0->getNodePropertyPool()->getPropertySize(scene::ITransformTree::relative_transform_prop_ix);
+	constexpr size_t modifStampPropSz = sizeof(uint32_t);					// tt0->getNodePropertyPool()->getPropertySize(scene::ITransformTree::modified_stamp_prop_ix);
+	constexpr size_t globalTformPropSz = sizeof(core::matrix3x4SIMD);		// tt0->getNodePropertyPool()->getPropertySize(scene::ITransformTree::global_transform_prop_ix);
+	constexpr size_t recompStampPropSz = sizeof(uint32_t);					// tt0->getNodePropertyPool()->getPropertySize(scene::ITransformTree::recomputed_stamp_prop_ix);
+
+	const size_t SSBOAlignment = gpuPhysicalDevice->getLimits().SSBOAlignment;
+	const size_t offset_parent = 0u;
+	const size_t offset_relTform = core::alignUp(offset_parent + parentPropSz * nodeCount, SSBOAlignment);
+	const size_t offset_modifStamp = core::alignUp(offset_relTform + relTformPropSz * nodeCount, SSBOAlignment);
+	const size_t offset_globalTform = core::alignUp(offset_modifStamp + modifStampPropSz * nodeCount, SSBOAlignment);
+	const size_t offset_recompStamp = core::alignUp(offset_globalTform + globalTformPropSz * nodeCount, SSBOAlignment);
+
+	const size_t gpuSSBOSize = offset_recompStamp + recompStampPropSz * nodeCount;
+	auto SSBOGPUBuffer = logicalDevice->createDeviceLocalGPUBufferOnDedMem(gpuSSBOSize);
+
+	asset::SBufferRange<video::IGPUBuffer> propertyGPUBuffers[PropertyCount];
+	for (uint32_t i = 0u; i < PropertyCount; ++i)
+		propertyGPUBuffers[i].buffer = SSBOGPUBuffer;
+
+	propertyGPUBuffers[scene::ITransformTree::parent_prop_ix].offset = offset_parent;
+	propertyGPUBuffers[scene::ITransformTree::parent_prop_ix].size = parentPropSz * nodeCount;
+
+	propertyGPUBuffers[scene::ITransformTree::relative_transform_prop_ix].offset = offset_relTform;
+	propertyGPUBuffers[scene::ITransformTree::relative_transform_prop_ix].size = relTformPropSz * nodeCount;
+
+	propertyGPUBuffers[scene::ITransformTree::modified_stamp_prop_ix].offset = offset_modifStamp;
+	propertyGPUBuffers[scene::ITransformTree::modified_stamp_prop_ix].size = modifStampPropSz * nodeCount;
+
+	propertyGPUBuffers[scene::ITransformTree::global_transform_prop_ix].offset = offset_globalTform;
+	propertyGPUBuffers[scene::ITransformTree::global_transform_prop_ix].size = globalTformPropSz * nodeCount;
+
+	propertyGPUBuffers[scene::ITransformTree::recomputed_stamp_prop_ix].offset = offset_recompStamp;
+	propertyGPUBuffers[scene::ITransformTree::recomputed_stamp_prop_ix].size = recompStampPropSz * nodeCount;
+
+	// I need merging Criss (compile errors)
+
+	/*auto transformTree = scene::ITransformTree::create(logicalDevice.get(), renderpass, propertyGPUBuffers, nodeCount, true);
+	auto transformTreeManager = scene::ITransformTreeManager::create(core::smart_refctd_ptr(logicalDevice));
+
+	auto propertyPoolHandler = core::make_smart_refctd_ptr<video::CPropertyPoolHandler>(core::smart_refctd_ptr(logicalDevice));*/
+
+	/*
+		NOTES:
+		
+		wait, we have single gpu mesh and gpu mesh buffer within it, and the transformation 
+		example uses gpu mesh per object in solar system, need to think about it
+	*/
+
+	//scene::ITransformTree::node_t parent_node = scene::ITransformTree::invalid_node;
+	//{
+	//	scene::ITransformTreeManager::SkeletonAllocationRequest skeletonAllocationRequest;
+	//	parent_req.cmdbuf = .get();
+	//	parent_req.fence = fence_nodes.get();
+	//	auto tform = solarSystemObjectsData[sunIndex].getTform();
+	//	parent_req.relativeTransforms = &tform;
+	//	parent_req.outNodes = { &parent_node, &parent_node + 1 };
+	//	parent_req.parents = nullptr; //allocating root node
+	//	parent_req.poolHandler = ppHandler.get();
+	//	parent_req.tree = tt.get();
+	//	parent_req.upBuff = utils->getDefaultUpStreamingBuffer();
+	//	parent_req.logger = initOutput.logger.get();
+	//	ttm->addNodes(parent_req);
+	//	cmdbuf_nodes->end();
+
+	//	auto* q = device->getQueue(0u, 0u);
+	//	video::IGPUQueue::SSubmitInfo submit;
+	//	submit.commandBufferCount = 1u;
+	//	submit.commandBuffers = &cmdbuf_nodes.get();
+	//	q->submit(1u, &submit, fence_nodes.get());
+	//}
+
+	//auto waitres = device->waitForFences(1u, &fence_nodes.get(), false, 999999999ull);
+	//assert(waitres == video::IGPUFence::ES_SUCCESS);
+
+	//cmdbuf_nodes->reset(video::IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
+	//device->resetFences(1u, &fence_nodes.get());
+
+
+
+	/*
 		We can safely assume that all meshes' mesh buffers loaded from glTF has the same DS1 layout 
 		used for camera-specific data, so we can create just one DS.
 	*/
