@@ -61,6 +61,25 @@ int main()
         shaders[0] = IAsset::castDown<ICPUSpecializedShader>(*vertexShaderBundle.getContents().begin());
         shaders[1] = IAsset::castDown<ICPUSpecializedShader>(*fragShaderBundle.getContents().begin());
     }
+    
+
+    // TODO: refactor
+    constexpr auto MaxInstanceCount = 8u;
+    core::smart_refctd_ptr<video::IGPUBuffer> perViewPerInstanceDataScratch,perInstancePointersScratch;
+    {
+        video::IGPUBuffer::SCreationParams params;
+        params.usage = core::bitflag(asset::IBuffer::EUF_STORAGE_BUFFER_BIT);
+        perViewPerInstanceDataScratch = logicalDevice->createDeviceLocalGPUBufferOnDedMem(params,sizeof(core::matrix4SIMD)*MaxInstanceCount);
+        auto mreqs = logicalDevice->getDeviceLocalGPUMemoryReqs();
+        mreqs.vulkanReqs.size = sizeof(core::matrix4SIMD)*MaxInstanceCount;
+        perViewPerInstanceDataScratch = logicalDevice->createGPUBufferOnDedMem(params,mreqs,true);
+
+        params.usage = core::bitflag(asset::IBuffer::EUF_STORAGE_BUFFER_BIT)|asset::IBuffer::EUF_VERTEX_BUFFER_BIT;
+        perInstancePointersScratch = logicalDevice->createDeviceLocalGPUBufferOnDedMem(params,sizeof(uint32_t)*2u*MaxInstanceCount);
+        std::array<uint32_t,2u> duckReferences[] = {{0u,0u},{1u,1u},{2u,2u},{3u,3u},{4u,4u},{5u,5u},{6u,6u},{7u,7u}};
+        perInstancePointersScratch = utilities->createFilledDeviceLocalGPUBufferOnDedMem(queues[decltype(initOutput)::EQT_TRANSFER_UP],sizeof(duckReferences),duckReferences);
+    }
+
 
     core::smart_refctd_ptr<video::IGPUDescriptorSet> perViewDS;
     core::smart_refctd_ptr<ICPUDescriptorSetLayout> cpuPerViewDSLayout;
@@ -81,20 +100,22 @@ int main()
         auto perViewDSLayout = logicalDevice->createGPUDescriptorSetLayout(bindings,bindings+BindingCount);
         auto dsPool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE,&perViewDSLayout.get(),&perViewDSLayout.get()+1u);
         perViewDS = logicalDevice->createGPUDescriptorSet(dsPool.get(),std::move(perViewDSLayout));
-    }
-
-    // TODO: refactor
-    constexpr auto MaxInstanceCount = 8u;
-    core::smart_refctd_ptr<video::IGPUBuffer> perViewPerInstanceDataScratch,perInstancePointersScratch;
-    {
-        video::IGPUBuffer::SCreationParams params;
-        params.usage = core::bitflag(asset::IBuffer::EUF_STORAGE_BUFFER_BIT);
-        perViewPerInstanceDataScratch = logicalDevice->createDeviceLocalGPUBufferOnDedMem(params,sizeof(core::matrix4SIMD)*MaxInstanceCount);
-
-        params.usage = core::bitflag(asset::IBuffer::EUF_STORAGE_BUFFER_BIT)|asset::IBuffer::EUF_VERTEX_BUFFER_BIT;
-        perInstancePointersScratch = logicalDevice->createDeviceLocalGPUBufferOnDedMem(params,sizeof(uint32_t)*2u*MaxInstanceCount);
-        std::array<uint32_t,2u> duckReferences[] = {{0u,0u},{1u,1u},{2u,2u},{3u,3u},{4u,4u},{5u,5u},{6u,6u},{7u,7u}};
-        perInstancePointersScratch = utilities->createFilledDeviceLocalGPUBufferOnDedMem(queues[decltype(initOutput)::EQT_TRANSFER_UP],sizeof(duckReferences),duckReferences);
+        {
+            video::IGPUDescriptorSet::SWriteDescriptorSet writes[BindingCount];
+            video::IGPUDescriptorSet::SDescriptorInfo infos[BindingCount];
+            for (auto i=0; i<BindingCount; i++)
+            {
+                writes[i].dstSet = perViewDS.get();
+                writes[i].binding = i;
+                writes[i].arrayElement = 0u;
+                writes[i].count = 1u;
+                writes[i].info = infos+i;
+            }
+            writes[0].descriptorType = EDT_STORAGE_BUFFER;
+            infos[0].desc = perViewPerInstanceDataScratch;
+            infos[0].buffer = {0u,video::IGPUDescriptorSet::SDescriptorInfo::SBufferInfo::WholeBuffer};
+            logicalDevice->updateDescriptorSets(BindingCount,writes,0u,nullptr);
+        }
     }
     
     core::smart_refctd_ptr<video::IGPUCommandBuffer> bakedCommandBuffer;
@@ -118,7 +139,7 @@ int main()
             auto tmp = 0;
             core::vector<core::smart_refctd_ptr<ICPUMeshBuffer>> cpumeshes;
             core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> cpupipeline;
-            for (uint32_t poly=2u; poly<=256; poly<<=1)
+            for (uint32_t poly=4u; poly<=256; poly<<=1)
             {
                 auto sphereData = geometryCreator->createSphereMesh(2.f,poly,poly,meshManipulator);
                 // we'll stick instance data refs in the last attribute binding
@@ -143,8 +164,9 @@ int main()
                     auto& mb = cpumeshes.emplace_back(
                         core::make_smart_refctd_ptr<ICPUMeshBuffer>()
                     );
+                    mb->setPipeline(core::smart_refctd_ptr(cpupipeline));
                     for (auto j=0u; j<ICPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT; j++)
-                        mb->setVertexBufferBinding(std::move(sphereData.bindings[j]),j);
+                        mb->setVertexBufferBinding(asset::SBufferBinding(sphereData.bindings[j]),j);
                     mb->setIndexType(sphereData.indexType);
                     mb->setIndexCount(core::min(sphereData.indexCount-i,indicesPerBatch));
                     auto indexBinding = sphereData.indexBuffer;
@@ -162,7 +184,7 @@ int main()
                     }
                     mb->setIndexBufferBinding(std::move(indexBinding));
                     // TODO: undo this
-                    mb->setIndexCount(1u);
+                    mb->setInstanceCount(1u);
                     mb->setBaseInstance(tmp);
                     mb->setBoundingBox(sphereData.bbox);
                 }
@@ -184,7 +206,10 @@ int main()
             const video::IGPUDescriptorSet* descriptorSets[1] = {perViewDS.get()};
             bakedCommandBuffer->bindDescriptorSets(EPBP_GRAPHICS,renderpassindependent->getLayout(),1u,1u,descriptorSets);
             for (auto& mb : *gpumeshes)
+            {
+                mb->setVertexBufferBinding({0ull,perInstancePointersScratch},15);
                 bakedCommandBuffer->drawMeshBuffer(mb.get());
+            }
         }
     }
     bakedCommandBuffer->end();
@@ -195,7 +220,7 @@ int main()
 
     core::vectorSIMDf cameraPosition(0, 5, -10);
     matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60), float(WIN_W) / WIN_H, 2.f, 4000.f);
-    Camera camera = Camera(cameraPosition, core::vectorSIMDf(0, 0, 0), projectionMatrix, 10.f, 1.f);
+    Camera camera = Camera(cameraPosition, core::vectorSIMDf(0, 0, 0), projectionMatrix, 2.f, 1.f);
     
     video::CDumbPresentationOracle oracle;
     oracle.reportBeginFrameRecord();

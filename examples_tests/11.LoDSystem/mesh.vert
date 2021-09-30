@@ -20,7 +20,7 @@ layout(location = 3) in vec3 vNormal;
 layout(location = 15) in uvec2 InstanceGUID_PerViewPerInstance;
 
 layout(location = 0) out vec3 Normal;
-layout(location = 1) out uint LoD;
+layout(location = 1) out flat uint LoD;
 
 void main()
 {

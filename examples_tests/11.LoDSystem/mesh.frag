@@ -4,7 +4,7 @@
 #version 430 core
 
 layout(location = 0) in vec3 Normal;
-layout(location = 1) in uint LoD;
+layout(location = 1) in flat uint LoD;
 
 layout(location = 0) out vec4 pixelColor;
 
