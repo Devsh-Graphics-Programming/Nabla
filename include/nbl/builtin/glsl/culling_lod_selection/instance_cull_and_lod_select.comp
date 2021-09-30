@@ -1,0 +1,60 @@
+#version 440 core
+layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_) in;
+
+
+uint nbl_glsl_culling_lod_selection_getInstanceCount();
+
+
+layout(set=X,binding=N) readonly restrict buffer Instances
+{
+#ifdef INDIRECT
+    uint count;
+#endif
+    uvec2 data[]; // <instanceGUID,lod_table_t>
+} instances; // input
+
+#ifdef INDIRECT
+uint nbl_glsl_culling_lod_selection_getInstanceCount()
+{
+    return instances.count;
+}
+#else
+layout(push_constant) uniform PushConstants
+{
+    uint count;
+} pc;
+
+uint nbl_glsl_culling_lod_selection_getInstanceCount()
+{
+    return instances.count;
+}
+#endif
+
+
+layout(set=INTERMEDIATE,binding=0) writeonly restrict buffer LoDDrawcallOffsets
+{
+    uint data[];
+} lodDrawcallOffsets;
+layout(set=INTERMEDIATE,binding=1) restrict buffer LoDDrawcallExclusiveCounts
+{
+    uint data[];
+} lodDrawcallExclusiveCounts;
+
+
+void main()
+{
+    for (uint instanceID=gl_GlobalInvocationID.x; instanceID<nbl_glsl_culling_lod_selection_getInstanceCount(); instanceID++)
+    {
+        // compute perview data
+        // cull lod_table_t
+        // select lod_t
+        // cull it
+
+        // output perview data
+        // get its drawcall offset
+        lodDrawcallOffsets.data[instanceID] = 0xdeadbeefu;
+        const uint drawCallCount = 0x45u;
+        lodDrawcallExclusiveCounts.data[instanceID] = drawCallCount;
+        // prefix sum
+    }
+}

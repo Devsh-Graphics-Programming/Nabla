@@ -1,0 +1,13 @@
+#ifndef _NBL_GLSL_CULLING_LOD_SELECTION_DISPATCH_INDIRECT_PARAMS_GLSL_INCLUDED_
+#define _NBL_GLSL_CULLING_LOD_SELECTION_DISPATCH_INDIRECT_PARAMS_GLSL_INCLUDED_
+
+struct nbl_glsl_culling_lod_selection_dispatch_indirect_params_t
+{
+	nbl_glsl_DispatchIndirectCommand_t instanceCullAndLoDSelect;
+	nbl_glsl_DispatchIndirectCommand_t instanceDrawCull;
+	nbl_glsl_DispatchIndirectCommand_t drawInstanceCountPrefixSum;
+	nbl_glsl_DispatchIndirectCommand_t instanceRefCountingSortScatter;
+	nbl_glsl_DispatchIndirectCommand_t drawCompact;
+};
+
+#endif

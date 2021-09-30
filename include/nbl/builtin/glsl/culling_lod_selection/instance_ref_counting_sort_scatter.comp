@@ -1,0 +1,83 @@
+#version 440 core
+layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_) in;
+
+
+/*
+// disable descriptors we dont need
+#define NBL_GLSL_TRANSFORM_TREE_POOL_NODE_PARENT_DESCRIPTOR_BINDING
+#define NBL_GLSL_TRANSFORM_TREE_POOL_NODE_GLOBAL_TRANSFORM_DESCRIPTOR_BINDING
+#define NBL_GLSL_TRANSFORM_TREE_POOL_NODE_RECOMPUTED_TIMESTAMP_DESCRIPTOR_BINDING
+*/
+// constrain access type
+//#define NBL_GLSL_TRANSFORM_TREE_POOL_NODE_MODIFIED_TIMESTAMP_DESCRIPTOR_QUALIFIERS writeonly restrict
+//#include "nbl/builtin/glsl/culling_lod_selection/common_descriptor_sets.glsl"
+layout(set=X,binding=N) readonly restrict buffer DrawCallPool
+{
+    uint data[];
+} drawCallPool;
+
+uint nbl_glsl_culling_lod_selection_drawCallInstanceCountIncr(in uint drawCallDWORDOffset)
+{
+    return atomicAdd(drawCallPool.data[drawCallDWORDOffset+1u],1u);
+}
+
+void nbl_glsl_culling_lod_selection_drawCallSetDWORD(in uint DWORDOffset, in uint value)
+{
+    drawCallPool.data[DWORDOffset] = value;
+}
+void nbl_glsl_culling_lod_selection_drawArraysSetBaseInstance(in uint drawCallDWORDOffset, in uint baseInstance)
+{
+    drawCallPool.data[drawCallDWORDOffset+3u] = baseInstance;
+}
+void nbl_glsl_culling_lod_selection_drawElementsSetBaseInstance(in uint drawCallDWORDOffset, in uint baseInstance)
+{
+    drawCallPool.data[drawCallDWORDOffset+4u] = baseInstance;
+}
+
+uint nbl_glsl_culling_lod_selection_drawCallGetDWORD(in uint DWORDOffset)
+{
+    return drawCallPool.data[DWORDOffset];
+}
+uint nbl_glsl_culling_lod_selection_drawArraysGetBaseInstance(in uint drawCallDWORDOffset)
+{
+    return nbl_glsl_culling_lod_selection_drawCallGetDWORD(drawCallDWORDOffset+3u);
+}
+uint nbl_glsl_culling_lod_selection_drawElementsGetBaseInstance(in uint drawCallDWORDOffset)
+{
+    return nbl_glsl_culling_lod_selection_drawCallGetDWORD(drawCallDWORDOffset+4u);
+}
+
+
+
+
+layout(set=X,binding=N) readonly restrict buffer DrawInstanceCallMetadata
+{
+    uint count;
+    uvec4 data[]; // <drawBaseInstanceDWORDOffset,instanceID,instanceGUID,perViewPerInstanceID>
+} unsortedDrawInstances;
+
+uint nbl_glsl_culling_lod_selection_getSortedDrawInstanceIndex(in uint unsortedDrawInstanceID)
+{
+    const uvec2 data = unsortedDrawInstances.data[unsortedDrawInstanceID].xy;
+    const uint drawBaseInstanceDWORDOffset = data[0];
+    return nbl_glsl_culling_lod_selection_drawElementsGetBaseInstance(drawBaseInstanceDWORDOffset)+data[1];
+}
+uint nbl_glsl_culling_lod_selection_getDrawInstanceAttributes(in uint unsortedDrawInstanceID)
+{
+    return unsortedDrawInstances.data[unsortedDrawInstanceID].zw;
+}
+
+
+layout(set=X,binding=N+1) writeonly restrict buffer SortedPerDrawInstanceAttributes
+{
+    uvec2 data[];
+} sortedPerDrawInstanceAttributes; // output
+
+void main()
+{
+    for (uint unsortedDrawInstanceID=gl_GlobalInvocationID.x; unsortedDrawInstanceID<unsortedDrawInstances.count; unsortedDrawInstanceID++)
+    {
+        const uint instanceIndex = nbl_glsl_culling_lod_selection_getSortedDrawInstanceIndex(unsortedDrawInstanceID);
+        sortedPerDrawInstanceAttributes.data[instanceIndex] = nbl_glsl_culling_lod_selection_getDrawInstanceAttributes(unsortedDrawInstanceID);
+    }
+}

@@ -4,6 +4,7 @@
 
 #define _NBL_STATIC_LIB_
 #include <nabla.h>
+#include "nbl/scene/ICullingLoDSelectionSystem.h"
 
 #include "../common/Camera.hpp"
 #include "../common/CommonAPI.h"
@@ -65,7 +66,7 @@ int main()
 
     // TODO: refactor
     constexpr auto MaxInstanceCount = 8u;
-    core::smart_refctd_ptr<video::IGPUBuffer> perViewPerInstanceDataScratch,perInstancePointersScratch;
+    core::smart_refctd_ptr<video::IGPUBuffer> perViewPerInstanceDataScratch;
     {
         video::IGPUBuffer::SCreationParams params;
         params.usage = core::bitflag(asset::IBuffer::EUF_STORAGE_BUFFER_BIT);
@@ -73,11 +74,6 @@ int main()
         auto mreqs = logicalDevice->getDeviceLocalGPUMemoryReqs();
         mreqs.vulkanReqs.size = sizeof(core::matrix4SIMD)*MaxInstanceCount;
         perViewPerInstanceDataScratch = logicalDevice->createGPUBufferOnDedMem(params,mreqs,true);
-
-        params.usage = core::bitflag(asset::IBuffer::EUF_STORAGE_BUFFER_BIT)|asset::IBuffer::EUF_VERTEX_BUFFER_BIT;
-        perInstancePointersScratch = logicalDevice->createDeviceLocalGPUBufferOnDedMem(params,sizeof(uint32_t)*2u*MaxInstanceCount);
-        std::array<uint32_t,2u> duckReferences[] = {{0u,0u},{1u,1u},{2u,2u},{3u,3u},{4u,4u},{5u,5u},{6u,6u},{7u,7u}};
-        perInstancePointersScratch = utilities->createFilledDeviceLocalGPUBufferOnDedMem(queues[decltype(initOutput)::EQT_TRANSFER_UP],sizeof(duckReferences),duckReferences);
     }
 
 
@@ -117,7 +113,9 @@ int main()
             logicalDevice->updateDescriptorSets(BindingCount,writes,0u,nullptr);
         }
     }
-    
+
+    core::smart_refctd_ptr<video::IGPUBuffer> perInstancePointersScratch;
+    //
     core::smart_refctd_ptr<video::IGPUCommandBuffer> bakedCommandBuffer;
     logicalDevice->createCommandBuffers(commandPool.get(),video::IGPUCommandBuffer::EL_SECONDARY,1u,&bakedCommandBuffer);
     bakedCommandBuffer->begin(video::IGPUCommandBuffer::EU_RENDER_PASS_CONTINUE_BIT|video::IGPUCommandBuffer::EU_SIMULTANEOUS_USE_BIT);
@@ -128,6 +126,8 @@ int main()
         drawAllocatorParams.drawCommandCapacity = 32u;
         drawAllocatorParams.drawCountCapacity = 1u;
         auto drawIndirectAllocator = video::CDrawIndirectAllocator<>::create(std::move(drawAllocatorParams));
+
+        uint32_t maxInstancedDrawcalls = 0u;
         {
             auto* geometryCreator = assetManager->getGeometryCreator();
             auto* meshManipulator = assetManager->getMeshManipulator();
@@ -159,7 +159,8 @@ int main()
                     cpupipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(std::move(pipelinelayout),&shaders->get(),&shaders->get()+2u,sphereData.inputParams,SBlendParams{},sphereData.assemblyParams,SRasterizationParams{});
                 }
                 constexpr auto indicesPerBatch = 1023u;
-                for (auto i=0u; i<sphereData.indexCount; i+=indicesPerBatch)
+                auto i = 0u;
+                for (; i<sphereData.indexCount; i+=indicesPerBatch)
                 {
                     auto& mb = cpumeshes.emplace_back(
                         core::make_smart_refctd_ptr<ICPUMeshBuffer>()
@@ -183,18 +184,22 @@ int main()
                             break;
                     }
                     mb->setIndexBufferBinding(std::move(indexBinding));
+
+                    meshManipulator->recalculateBoundingBox(mb.get());
                     // TODO: undo this
                     mb->setInstanceCount(1u);
-                    mb->setBaseInstance(tmp);
-                    mb->setBoundingBox(sphereData.bbox);
+                    mb->setBaseInstance(cpumeshes.size()-1u);
                 }
+                maxInstancedDrawcalls = i*MaxInstanceCount;
                 tmp++;
             }
-
             auto gpumeshes = cpu2gpu.getGPUObjectsFromAssets(cpumeshes.data(),cpumeshes.data()+cpumeshes.size(),cpu2gpuParams);
             //! cache results -- speeds up mesh generation on second run
             qnc->saveCacheToFile<asset::EF_A2B10G10R10_SNORM_PACK32>(system.get(),cachePath);
             cpu2gpuParams.waitForCreationToComplete();
+            
+            // TODO: refactor some more?
+            perInstancePointersScratch = scene::ICullingLoDSelectionSystem::createInstanceRedirectBuffer(logicalDevice.get(),maxInstancedDrawcalls);
 
             auto renderpassindependent = core::smart_refctd_ptr_dynamic_cast<video::IGPURenderpassIndependentPipeline>(assetManager->findGPUObject(cpupipeline.get()));
             video::IGPUGraphicsPipeline::SCreationParams params;
