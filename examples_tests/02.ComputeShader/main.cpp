@@ -109,12 +109,22 @@ int main()
 	}
 
 	// TODO: Load from "../compute.comp" instead of getting source from src
-	core::smart_refctd_ptr<video::IGPUShader> unspecializedShader = initResult.logicalDevice->createGPUShader(
+#if 0
+	core::smart_refctd_ptr<video::IGPUShader> shader = initResult.logicalDevice->createGPUShader(
 		core::make_smart_refctd_ptr<asset::ICPUShader>(src));
+#endif
+
+	asset::ISpecializedShader::SInfo specInfo(nullptr, nullptr, "main",
+		asset::ISpecializedShader::ESS_COMPUTE);
+	core::smart_refctd_ptr<video::IGPUSpecializedShader> shader = initResult.logicalDevice->createGPUShader_Vulkan(
+		core::make_smart_refctd_ptr<asset::ICPUShader>(src), specInfo);
+
+#if 0
 	asset::ISpecializedShader::SInfo specializationInfo(nullptr, nullptr, "main",
 		asset::ISpecializedShader::ESS_COMPUTE);
 	core::smart_refctd_ptr<video::IGPUSpecializedShader> specializedShader =
 		initResult.logicalDevice->createGPUSpecializedShader(unspecializedShader.get(), specializationInfo);
+#endif
 
 	core::smart_refctd_ptr<video::IGPUCommandBuffer> commandBuffers[MAX_SWAPCHAIN_IMAGE_COUNT];
 	initResult.logicalDevice->createCommandBuffers(initResult.commandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY,
@@ -317,7 +327,7 @@ int main()
 
 	core::smart_refctd_ptr<video::IGPUComputePipeline> pipeline =
 		initResult.logicalDevice->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(pipelineLayout),
-			core::smart_refctd_ptr(specializedShader));
+			core::smart_refctd_ptr(shader));
 
 	core::smart_refctd_ptr<video::IGPUSemaphore> acquireSemaphores[FRAMES_IN_FLIGHT];
 	core::smart_refctd_ptr<video::IGPUSemaphore> releaseSemaphores[FRAMES_IN_FLIGHT];

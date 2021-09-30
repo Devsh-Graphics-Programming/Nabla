@@ -18,7 +18,6 @@ public:
     enum E_FEATURE
     {
         EF_SURFACE = 0,
-        EF_GET_DISPLAY_PROPERTIES2,
         EF_COUNT
     };
 

@@ -4,7 +4,6 @@
 #include <algorithm>
 
 #include "nbl/video/ILogicalDevice.h"
-// Todo(achal): I should probably consider putting some defintions in CVulkanLogicalDevice.cpp
 #include "nbl/video/CVulkanCommon.h"
 #include "nbl/video/CVulkanDeviceFunctionTable.h"
 #include "nbl/video/CVulkanSwapchain.h"
@@ -65,6 +64,56 @@ public:
     ~CVulkanLogicalDevice()
     {
         m_devf.vk.vkDestroyDevice(m_vkdev, nullptr);
+    }
+
+    core::smart_refctd_ptr<IGPUSpecializedShader> createGPUShader_Vulkan(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader, const asset::ISpecializedShader::SInfo& specInfo, const asset::ISPIRVOptimizer* spvopt = nullptr) override
+    {
+        const asset::ICPUBuffer* source = cpushader->getSPVorGLSL();
+
+        core::smart_refctd_ptr< const asset::ICPUBuffer> spirv = nullptr;
+        if (cpushader->containsGLSL())
+        {
+            const char* begin = static_cast<const char*>(source->getPointer());
+            const char* end = begin + source->getSize();
+
+            std::string glsl(begin, end);
+
+            core::smart_refctd_ptr<asset::ICPUShader> glslShader_woIncludes =
+                m_physicalDevice->getGLSLCompiler()->resolveIncludeDirectives(glsl.c_str(),
+                    specInfo.shaderStage, specInfo.m_filePathHint.string().c_str());
+
+            spirv = m_physicalDevice->getGLSLCompiler()->compileSPIRVFromGLSL(
+                static_cast<const char*>(glslShader_woIncludes->getSPVorGLSL()->getPointer()),
+                specInfo.shaderStage, specInfo.entryPoint.c_str(), specInfo.m_filePathHint.string().c_str());
+        }
+        else
+        {
+            spirv = core::smart_refctd_ptr<const asset::ICPUBuffer>(source);
+        }
+
+        // Should just do the existence check for `spirv` in ISPIRVOptimizer::optimize
+        if (spvopt && spirv)
+            spirv = spvopt->optimize(spirv.get(), m_physicalDevice->getDebugCallback()->getLogger());
+
+        if (!spirv)
+            return nullptr;
+
+        VkShaderModuleCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO };
+        vk_createInfo.pNext = nullptr;
+        vk_createInfo.flags = static_cast<VkShaderModuleCreateFlags>(0u); // reserved for future use by Vulkan
+        vk_createInfo.codeSize = spirv->getSize();
+        vk_createInfo.pCode = static_cast<const uint32_t*>(spirv->getPointer());
+
+        VkShaderModule vk_shaderModule;
+        if (m_devf.vk.vkCreateShaderModule(m_vkdev, &vk_createInfo, nullptr, &vk_shaderModule) == VK_SUCCESS)
+        {
+            return core::make_smart_refctd_ptr<video::CVulkanShader>(
+                core::smart_refctd_ptr<CVulkanLogicalDevice>(this), specInfo.shaderStage, vk_shaderModule);
+        }
+        else
+        {
+            return nullptr;
+        }
     }
             
     core::smart_refctd_ptr<ISwapchain> createSwapchain(ISwapchain::SCreationParams&& params) override
@@ -580,20 +629,72 @@ public:
         
     core::smart_refctd_ptr<IGPUShader> createGPUShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader) override
     {
+        assert(!"Under construction, shouldn't be called under Vulkan");
+        return nullptr;
+#if 0
+        // Todo(achal): Not hardcode, need to get these from outside the function
+        asset::ISpecializedShader::SInfo specInfo(nullptr, nullptr, "main",
+            asset::ISpecializedShader::ESS_COMPUTE);
+        const asset::ISPIRVOptimizer* spvopt = nullptr;
+
         const asset::ICPUBuffer* source = cpushader->getSPVorGLSL();
-        core::smart_refctd_ptr<asset::ICPUBuffer> clone =
-            core::smart_refctd_ptr_static_cast<asset::ICPUBuffer>(source->clone(1u));
+
+        core::smart_refctd_ptr<asset::ICPUBuffer> spirv = nullptr;
         if (cpushader->containsGLSL())
         {
+            const char* begin = static_cast<const char*>(source->getPointer());
+            const char* end = begin + source->getSize();
+
+            std::string glsl(begin, end);
+
+            core::smart_refctd_ptr<asset::ICPUShader> glslShader_woIncludes =
+                m_physicalDevice->getGLSLCompiler()->resolveIncludeDirectives(glsl.c_str(),
+                    specInfo.shaderStage, specInfo.m_filePathHint.string().c_str());
+
+            spirv = m_physicalDevice->getGLSLCompiler()->compileSPIRVFromGLSL(
+                static_cast<const char*>(glslShader_woIncludes->getSPVorGLSL()->getPointer()),
+                specInfo.shaderStage, specInfo.entryPoint.c_str(), specInfo.m_filePathHint.string().c_str());
+
+#if 0
             return core::make_smart_refctd_ptr<CVulkanShader>(
                 core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(clone),
                 IGPUShader::buffer_contains_glsl);
+#endif
         }
         else
         {
+            spirv = core::make_smart_refctd_ptr<asset::ICPUBuffer(source);
+#if 0
+            spirv = unspecializedShader->getSPVorGLSL_refctd();
             return core::make_smart_refctd_ptr<CVulkanShader>(core::smart_refctd_ptr<CVulkanLogicalDevice>(this),
                 std::move(clone));
+#endif
         }
+
+        // Should just do the existence check for `spirv` in ISPIRVOptimizer::optimize
+        if (spvopt && spirv)
+            spirv = spvopt->optimize(spirv.get(), m_physicalDevice->getDebugCallback()->getLogger());
+
+        if (!spirv)
+            return nullptr;
+
+        VkShaderModuleCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO };
+        vk_createInfo.pNext = nullptr;
+        vk_createInfo.flags = static_cast<VkShaderModuleCreateFlags>(0u); // reserved for future use by Vulkan
+        vk_createInfo.codeSize = spirv->getSize();
+        vk_createInfo.pCode = static_cast<const uint32_t*>(spirv->getPointer());
+        
+        VkShaderModule vk_shaderModule;
+        if (m_devf.vk.vkCreateShaderModule(m_vkdev, &vk_createInfo, nullptr, &vk_shaderModule) == VK_SUCCESS)
+        {
+            return core::make_smart_refctd_ptr<video::CVulkanShader>(
+                core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(spirv), vk_shaderModule);
+        }
+        else
+        {
+            return nullptr;
+        }
+#endif
     }
 
     core::smart_refctd_ptr<IGPUImage> createGPUImage(asset::IImage::SCreationParams&& params) override
@@ -1095,6 +1196,9 @@ protected:
     // Todo(achal): For some reason this is not printing shader errors to console
     core::smart_refctd_ptr<IGPUSpecializedShader> createGPUSpecializedShader_impl(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& specInfo, const asset::ISPIRVOptimizer* spvopt) override
     {
+        assert(!"Under construction, shouldn't be called on Vulkan!");
+        return nullptr;
+#if 0
         if (_unspecialized->getAPIType() != EAT_VULKAN)
             return nullptr;
 
@@ -1108,7 +1212,9 @@ protected:
         {
             const char* begin = reinterpret_cast<const char*>(unspecializedShader->getSPVorGLSL()->getPointer());
             const char* end = begin + unspecializedShader->getSPVorGLSL()->getSize();
+
             std::string glsl(begin, end);
+
             core::smart_refctd_ptr<asset::ICPUShader> glslShader_woIncludes =
                 m_physicalDevice->getGLSLCompiler()->resolveIncludeDirectives(glsl.c_str(),
                     shaderStage, specInfo.m_filePathHint.string().c_str());
@@ -1122,11 +1228,8 @@ protected:
             spirv = unspecializedShader->getSPVorGLSL_refctd();
         }
 
-        // Should just do this check in ISPIRVOptimizer::optimize
-        if (!spirv)
-            return nullptr;
-
-        if (spvopt)
+        // Should just do the existence check for `spirv` in ISPIRVOptimizer::optimize
+        if (spvopt && spirv)
             spirv = spvopt->optimize(spirv.get(), m_physicalDevice->getDebugCallback()->getLogger());
 
         if (!spirv)
@@ -1148,6 +1251,7 @@ protected:
         {
             return nullptr;
         }
+#endif
     }
 
     core::smart_refctd_ptr<IGPUBufferView> createGPUBufferView_impl(IGPUBuffer* _underlying, asset::E_FORMAT _fmt, size_t _offset = 0ull, size_t _size = IGPUBufferView::whole_buffer) override
