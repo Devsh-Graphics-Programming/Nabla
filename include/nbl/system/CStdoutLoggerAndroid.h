@@ -10,7 +10,7 @@ namespace nbl::system
 	class CStdoutLoggerAndroid : public IThreadsafeLogger
 	{
 	public:
-		CStdoutLoggerAndroid(std::underlying_type_t<E_LOG_LEVEL> logLevelMask = ILogger::defaultLogMask()) : IThreadsafeLogger(logLevelMask) {}
+		CStdoutLoggerAndroid(core::bitflag<E_LOG_LEVEL> logLevelMask = ILogger::defaultLogMask()) : IThreadsafeLogger(logLevelMask) {}
 
 	private:
 		auto getNativeLogLevel(E_LOG_LEVEL logLevel)

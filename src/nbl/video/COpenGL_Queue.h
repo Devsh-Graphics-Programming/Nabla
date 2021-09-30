@@ -142,8 +142,9 @@ class COpenGL_Queue final : public IGPUQueue
                     //_NBL_DEBUG_BREAK_IF(mcres!=EGL_TRUE);
                 }
 
+#ifndef _NBL_PLATFORM_ANDROID_
                 egl->call.peglGetPlatformDependentHandles(&nativeHandles, egl->display, pbuffer, thisCtx);
-
+#endif
                 new (state_ptr) ThreadInternalStateType(egl,features,core::smart_refctd_ptr<system::ILogger>(m_dbgCb->getLogger()));
                 auto& gl = state_ptr->gl;
                 auto& ctxlocal = state_ptr->ctxlocal;

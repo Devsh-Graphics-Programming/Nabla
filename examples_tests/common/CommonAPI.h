@@ -738,7 +738,7 @@ public:
 #ifdef _NBL_PLATFORM_WINDOWS_
 			result.surface = video::CSurfaceVulkanWin32::create(core::smart_refctd_ptr(_apiConnection), core::smart_refctd_ptr<ui::IWindowWin32>(static_cast<ui::IWindowWin32*>(result.window.get())));
 #elif defined(_NBL_PLATFORM_ANDROID_)
-			result.surface = video::CSurfaceVulkanAndroid::create(core::smart_refctd_ptr(_apiConnection), core::smart_refctd_ptr<ui::IWindowAndroid>(static_cast<ui::IWindowAndroid*>(result.window.get())));
+			////result.surface = video::CSurfaceVulkanAndroid::create(core::smart_refctd_ptr(_apiConnection), core::smart_refctd_ptr<ui::IWindowAndroid>(static_cast<ui::IWindowAndroid*>(result.window.get())));
 #endif
 			result.apiConnection = _apiConnection;
 		}
