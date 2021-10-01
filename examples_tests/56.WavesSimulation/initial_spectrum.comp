@@ -1,0 +1,67 @@
+#version 450
+
+#include "waves_common.glsl"
+
+layout (local_size_x = 16, local_size_y = 16) in;
+
+layout(set = 0, binding = 0, std430) buffer H0_DATA
+{
+	mat2 data[];
+} primary_calculations;
+
+
+layout(push_constant) uniform pushConstants {
+    uvec2 IMG_SIZE;
+    vec2  LENGTH_UNIT;
+    vec2  WIND_DIR;
+    float WIND_SPEED;
+    float A;
+    float WIND_DEP;
+} u_pc;
+
+
+vec2 rand(vec2 co){
+    co = vec2(fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453),
+    1 - fract(cos(dot(co.yx ,vec2(7.2246,29.009))) * 134.9976));
+    if(co.x < 0.00001) co.x = 0.01;
+    vec2 res = nbl_glsl_BoxMullerTransform(co, 1.0f);
+    return res;
+}
+
+
+
+float Ph(vec2 k)
+{
+    float L = u_pc.WIND_SPEED * u_pc.WIND_SPEED / G;
+    float W = L / 1000;
+    if(abs(length(k)) < 0.000001) return 0;
+    float cosine_factor_sqrt = dot(normalize(k), u_pc.WIND_DIR);
+    float cosine_factor = cosine_factor_sqrt  * cosine_factor_sqrt;
+    float k2 = dot(k, k);
+    float k6 = k2 * k2;
+    float res =  u_pc.A * exp(-1 / (k2 * L * L)) / k6 * cosine_factor; 
+    if(cosine_factor_sqrt < 0)
+        res *= u_pc.WIND_DEP;
+
+    return res;
+}
+
+vec2 h0(vec2 k)
+{
+    vec2 rand_val = rand(vec2(gl_GlobalInvocationID.xy));
+    return nbl_glsl_complex_mul(rand_val, vec2((1 / sqrt(2)) * sqrt(Ph(k)), 0));
+}
+void main()
+{
+    if (all(lessThan(gl_GlobalInvocationID.xy, u_pc.IMG_SIZE)))
+    {
+        uvec2 bitreverse_pos = bitfieldReverse(gl_GlobalInvocationID.xy) >> (32 - int(log2(u_pc.IMG_SIZE.x)));
+        float n = float(int(gl_GlobalInvocationID.x) - int(u_pc.IMG_SIZE.x) / 2); 
+        float m = float(int(gl_GlobalInvocationID.y) - int(u_pc.IMG_SIZE.y) / 2); 
+        vec2 k = vec2(2 * nbl_glsl_PI * n / u_pc.LENGTH_UNIT.x, 2 * nbl_glsl_PI * m / u_pc.LENGTH_UNIT.y);
+        
+        uint ssbo_index = bitreverse_pos.y * u_pc.IMG_SIZE.x + bitreverse_pos.x;
+        primary_calculations.data[ssbo_index][0] = h0(k);
+        primary_calculations.data[ssbo_index][1] = nbl_glsl_complex_conjugate(h0(-k));
+    }
+}
