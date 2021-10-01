@@ -1,7 +1,7 @@
 #pragma once
 #include <nabla.h>
 
-#include "../common/QToQuitEventReceiver.h"
+#include "../common/CommonAPI.h"
 
 using namespace nbl;
 using namespace asset;
@@ -67,10 +67,33 @@ private:
 	WaveSimParams m_params;
 	
 private:
-	smart_refctd_ptr<IrrlichtDevice> m_device;
-	IVideoDriver* m_driver;
-	io::IFileSystem* m_filesystem;
-	IAssetManager* m_asset_manager;
+	constexpr static uint32_t WIN_W = 1280;
+	constexpr static uint32_t WIN_H = 720;
+	constexpr static uint32_t SC_IMG_COUNT = 3u;
+	constexpr static uint32_t FRAMES_IN_FLIGHT = 5u;
+	constexpr static uint64_t MAX_TIMEOUT = 99999999999999ull;
+	constexpr static size_t NBL_FRAMES_TO_AVERAGE = 100ull;
+private:
+	nbl::core::smart_refctd_ptr<nbl::ui::IWindow> window;
+	nbl::core::smart_refctd_ptr<CommonAPI::CommonAPIEventCallback> windowCb;
+	nbl::core::smart_refctd_ptr<nbl::video::IAPIConnection> apiConnection;
+	nbl::core::smart_refctd_ptr<nbl::video::ISurface> surface;
+	nbl::core::smart_refctd_ptr<nbl::video::IUtilities> utilities;
+	nbl::core::smart_refctd_ptr<nbl::video::IUtilities> utilities;
+	nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice> logicalDevice;
+	nbl::video::IPhysicalDevice* physicalDevice;
+	nbl::video::IGPUQueue* mainQueue = nullptr; 
+	std::array<nbl::video::IGPUQueue*, CommonAPI::InitOutput<1>::EQT_COUNT> queues = { nullptr, nullptr, nullptr, nullptr };
+	nbl::core::smart_refctd_ptr<nbl::video::ISwapchain> swapchain;
+	nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpass> renderpass;
+	std::array<nbl::core::smart_refctd_ptr<nbl::video::IGPUFramebuffer>, SC_IMG_COUNT> fbo;
+	nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandPool> commandPool; 
+	nbl::core::smart_refctd_ptr<nbl::system::ISystem> system;
+	nbl::core::smart_refctd_ptr<nbl::asset::IAssetManager> assetManager;
+	nbl::video::IGPUObjectFromAssetConverter::SParams cpu2gpuParams;
+	nbl::core::smart_refctd_ptr<nbl::system::CColoredStdoutLoggerWin32> logger;
+	nbl::core::smart_refctd_ptr<CommonAPI::InputSystem> inputSystem;
+	nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
 
 	graphicsPipeline m_presenting_pipeline;
 	graphicsPipeline m_skybox_pipeline;
@@ -94,6 +117,4 @@ private:
 	smart_refctd_ptr<IGPUDescriptorSetLayout> m_gpu_descriptor_set_layout_skybox;
 	
 	core::smart_refctd_ptr<video::IGPUMeshBuffer> m_gpu_sphere;
-
-	QToQuitEventReceiver m_receiver;
 };
