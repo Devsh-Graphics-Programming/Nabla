@@ -1405,6 +1405,7 @@ protected:
             vk_pipelineCache = static_cast<const CVulkanPipelineCache*>(pipelineCache)->getInternalObject();
 
         VkPipelineShaderStageCreateInfo vk_shaderStageCreateInfos[MAX_PIPELINE_COUNT];
+        VkSpecializationInfo vk_specializationInfos[MAX_PIPELINE_COUNT];
 
         VkComputePipelineCreateInfo vk_createInfos[MAX_PIPELINE_COUNT];
         for (size_t i = 0ull; i < createInfos.size(); ++i)
@@ -1423,10 +1424,19 @@ protected:
 
             vk_shaderStageCreateInfos[i].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
             vk_shaderStageCreateInfos[i].pNext = nullptr; // pNext must be NULL or a pointer to a valid instance of VkPipelineShaderStageRequiredSubgroupSizeCreateInfoEXT
-            vk_shaderStageCreateInfos[i].flags = 0; // currently there is no way to get this in the API https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/VkPipelineShaderStageCreateFlagBits.html
+            vk_shaderStageCreateInfos[i].flags = 0;
             vk_shaderStageCreateInfos[i].stage = static_cast<VkShaderStageFlagBits>(specShader->getStage());
             vk_shaderStageCreateInfos[i].module = specShader->getInternalObject();
             vk_shaderStageCreateInfos[i].pName = "main";
+#if 0
+            {
+                // specShader->get
+                vk_specializationInfos[i].mapEntryCount = ;
+                vk_specializationInfos[i].pMapEntries = ;
+                vk_specializationInfos[i].dataSize = ;
+                vk_specializationInfos[i].pData = ;
+            }
+#endif
             vk_shaderStageCreateInfos[i].pSpecializationInfo = nullptr; // Todo(achal): Should we have a asset::ISpecializedShader::SInfo member in CVulkanSpecializedShader, otherwise I don't know how I'm gonna get the values required for VkSpecializationInfo https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/VkSpecializationInfo.html
 
             vk_createInfos[i].stage = vk_shaderStageCreateInfos[i];

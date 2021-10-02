@@ -3,46 +3,7 @@
 
 #include "../common/CommonAPI.h"
 
-// Temporary
-#define VK_NO_PROTOTYPES
-#include "vulkan/vulkan.h"
-#include "../../include/nbl/video/CVulkanConnection.h"
-#include "../../src/nbl/video/CVulkanCommon.h"
-
-#include <nbl/ui/CWindowManagerWin32.h>
-
 using namespace nbl;
-
-const char* src = R"(#version 450
-
-#pragma shader_stage(compute)
-
-layout (local_size_x = 16, local_size_y = 16) in;
-
-layout (push_constant) uniform pushConstants
-{
-	layout (offset = 0) uvec2 imgSize;
-} u_pushConstants;
-
-layout (set = 0, binding = 0, rgba8) uniform writeonly image2D outImage;
-layout (set = 0, binding = 1, rgba8) uniform readonly image2D inImage;
-
-void main()
-{
-	const uint halfWidth = u_pushConstants.imgSize.x/2;
-	if (all(lessThan(gl_GlobalInvocationID.xy, u_pushConstants.imgSize)))
-	{
-		const vec3 inColor = imageLoad(inImage, ivec2(gl_GlobalInvocationID.xy)).rgb;
-		vec4 outColor = vec4(inColor, 1.f);
-		if (gl_GlobalInvocationID.x < halfWidth)
-		{
-			float grayscale = 0.2126 * inColor.r + 0.7152 * inColor.g + 0.0722 * inColor.b;
-			outColor = vec4(vec3(grayscale), 1.f);
-		}
-		
-		imageStore(outImage, ivec2(gl_GlobalInvocationID.xy), outColor);
-	}
-})";
 
 int main()
 {
@@ -118,13 +79,18 @@ int main()
 		}
 	}
 
-	// TODO: Load from "../compute.comp" instead of getting source from src
-	core::smart_refctd_ptr<video::IGPUShader> unspecializedShader = initResult.logicalDevice->createGPUShader(
-		core::make_smart_refctd_ptr<asset::ICPUShader>(src), "????");
-	asset::ISpecializedShader::SInfo specializationInfo(nullptr, nullptr, "main",
-		asset::ISpecializedShader::ESS_COMPUTE);
-	core::smart_refctd_ptr<video::IGPUSpecializedShader> specializedShader =
-		initResult.logicalDevice->createGPUSpecializedShader(unspecializedShader.get(), specializationInfo);
+	video::IGPUObjectFromAssetConverter CPU2GPU;
+
+	const char* pathToShader = "../compute.comp";
+	core::smart_refctd_ptr<video::IGPUSpecializedShader> specializedShader = nullptr;
+	{
+		asset::IAssetLoader::SAssetLoadParams params = {};
+		params.logger = initResult.logger.get();
+		auto spec = (initResult.assetManager->getAsset(pathToShader, params).getContents());
+		auto specShader_cpu = core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(*initResult.assetManager->getAsset(pathToShader, params).getContents().begin());
+		specializedShader = CPU2GPU.getGPUObjectsFromAssets(&specShader_cpu, &specShader_cpu + 1, initResult.cpu2gpuParams)->front();
+	}
+	assert(specializedShader);
 
 	core::smart_refctd_ptr<video::IGPUCommandBuffer> commandBuffers[MAX_SWAPCHAIN_IMAGE_COUNT];
 	initResult.logicalDevice->createCommandBuffers(initResult.commandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY,
@@ -257,7 +223,6 @@ int main()
 	initResult.cpu2gpuParams.perQueue[video::IGPUObjectFromAssetConverter::EQU_TRANSFER].cmdbuf = transferCmdBuffer;
 	initResult.cpu2gpuParams.perQueue[video::IGPUObjectFromAssetConverter::EQU_COMPUTE].cmdbuf = computeCmdBuffer;
 
-	video::IGPUObjectFromAssetConverter CPU2GPU;
 	initResult.cpu2gpuParams.beginCommandBuffers();
 	auto inImage = CPU2GPU.getGPUObjectsFromAssets(&inImage_CPU, &inImage_CPU + 1, initResult.cpu2gpuParams);
 	initResult.cpu2gpuParams.waitForCreationToComplete(false);

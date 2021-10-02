@@ -4,7 +4,6 @@
 #include "nbl/video/CVulkanCommon.h"
 #include "nbl/video/debug/CVulkanDebugCallback.h"
 
-// Todo(achal): Probably should just use a logger_opt_ptr here
 #define LOG(logger, ...) if (logger) {logger->log(__VA_ARGS__);}
 
 namespace nbl::video
