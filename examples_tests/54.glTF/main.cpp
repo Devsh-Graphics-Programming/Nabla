@@ -221,8 +221,6 @@ int main()
 	cmdbuf_nodes->reset(video::IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
 	logicalDevice->resetFences(1u, &fence_nodes.get());
 
-
-
 	/*
 		We can safely assume that all meshes' mesh buffers loaded from glTF has the same DS1 layout 
 		used for camera-specific data, so we can create just one DS.

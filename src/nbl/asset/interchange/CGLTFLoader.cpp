@@ -806,6 +806,7 @@ namespace nbl
 						}
 
 						uint32_t maxJointsPerVertex = 0xdeadbeef;
+						bool skinningEnabled = false;
 
 						if (overrideJointsReference.size() && overrideWeightsReference.size())
 						{
@@ -1302,9 +1303,11 @@ namespace nbl
 								setOverrideBufferBinding(overrideSkinningBuffers.jointsAttributes, cpuMeshBuffer->getJointIDAttributeIx());
 								setOverrideBufferBinding(overrideSkinningBuffers.weightsAttributes, cpuMeshBuffer->getJointWeightAttributeIx());
 							}
+
+							skinningEnabled = true;
 						}
 
-						auto getShaders = [&](bool hasUV, bool hasColor) -> std::pair<core::smart_refctd_ptr<ICPUSpecializedShader>, core::smart_refctd_ptr<ICPUSpecializedShader>>
+						auto getShaders = [&](bool hasUV, bool hasColor, bool isSkinned) -> std::pair<core::smart_refctd_ptr<ICPUSpecializedShader>, core::smart_refctd_ptr<ICPUSpecializedShader>>
 						{
 							auto loadShader = [&](const std::string_view& cacheKey) -> core::smart_refctd_ptr<ICPUSpecializedShader>
 							{
@@ -1320,12 +1323,40 @@ namespace nbl
 								return core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(assets.begin()[0]);
 							};
 
+							std::pair<core::smart_refctd_ptr<ICPUSpecializedShader>, core::smart_refctd_ptr<ICPUSpecializedShader>> cpuShaders;
+
 							if (hasUV) // if both UV and Color defined - we use the UV
-								return std::make_pair(loadShader(VERT_SHADER_UV_CACHE_KEY), loadShader(FRAG_SHADER_UV_CACHE_KEY));
+								cpuShaders = std::make_pair(loadShader(VERT_SHADER_UV_CACHE_KEY), loadShader(FRAG_SHADER_UV_CACHE_KEY));
 							else if (hasColor)
-								return std::make_pair(loadShader(VERT_SHADER_COLOR_CACHE_KEY), loadShader(FRAG_SHADER_COLOR_CACHE_KEY));
+								cpuShaders = std::make_pair(loadShader(VERT_SHADER_COLOR_CACHE_KEY), loadShader(FRAG_SHADER_COLOR_CACHE_KEY));
 							else
-								return std::make_pair(loadShader(VERT_SHADER_NO_UV_COLOR_CACHE_KEY), loadShader(FRAG_SHADER_NO_UV_COLOR_CACHE_KEY));
+								cpuShaders = std::make_pair(loadShader(VERT_SHADER_NO_UV_COLOR_CACHE_KEY), loadShader(FRAG_SHADER_NO_UV_COLOR_CACHE_KEY));
+
+							if (isSkinned)
+							{
+								constexpr std::string_view NBL_SKINNING_OVERRIDE = "#define _NBL_SKINNING_ENABLED_\n";
+
+								auto getOverridenShader = [&](core::smart_refctd_ptr<ICPUSpecializedShader> cpuShader) -> core::smart_refctd_ptr<ICPUSpecializedShader>
+								{
+									const asset::ICPUShader* unspecializedShader = cpuShader->getUnspecialized();
+									assert(unspecializedShader->containsGLSL());
+
+									auto begin = reinterpret_cast<const char*>(unspecializedShader->getSPVorGLSL()->getPointer());
+									auto end = begin + unspecializedShader->getSPVorGLSL()->getSize();
+									std::string glsl(begin, end);
+
+									std::string newGlslCode = NBL_SKINNING_OVERRIDE.data() + glsl;
+									auto newUnspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(newGlslCode.c_str());
+
+									auto specializedInfo = cpuShader->getSpecializationInfo();
+									return core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(newUnspecializedShader), std::move(specializedInfo));
+								};
+
+								cpuShaders.first = std::move(getOverridenShader(cpuShaders.first));
+								cpuShaders.second = std::move(getOverridenShader(cpuShaders.second));
+							}
+
+							return cpuShaders;
 						};
 
 						core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> cpuPipeline;
@@ -1349,7 +1380,7 @@ namespace nbl
 								materialDependencyData.cpuTextures = &cpuTextures;
 
 								auto cpuPipelineLayout = makePipelineLayoutFromGLTF(context, pushConstants, materialDependencyData);
-								auto [cpuVertexShader, cpuFragmentShader] = getShaders(hasUV, hasColor);
+								auto [cpuVertexShader, cpuFragmentShader] = getShaders(hasUV, hasColor, skinningEnabled);
 
 								if (!cpuVertexShader || !cpuFragmentShader)
 								{
