@@ -190,10 +190,60 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 				uint32_t instanceCount = 0u;
 			};
 
-			Batch* skeletonBatches;
+			Batch skeletonBatches;
 			system::logger_opt_ptr logger = nullptr;
 		};
-		// TODO: utility for adding skeleton node instances, etc.
+		
+		inline bool addSkeletonNodes(const SkeletonAllocationRequest& request, const std::chrono::steady_clock::time_point& maxWaitPoint = video::GPUEventWrapper::default_wait())
+		{
+			if (!request.poolHandler || !request.upBuff || !request.cmdbuf || !request.fence || !request.tree)
+				return false;
+
+			auto* pool = request.tree->getNodePropertyPool();
+			if (request.outNodes.size() > pool->getFree())
+				return false;
+
+			/*
+			*	TODO:
+			* 
+				for testing purposes
+				
+				let's assume it allocates "local" indicies in range [0, maxJoints-1]
+				covering indices range from glTF, also let's assume we have 1 instance
+			*/
+
+			pool->allocateProperties(request.outNodes.begin(), request.outNodes.end());
+			const core::matrix3x4SIMD IdentityTransform;
+
+			constexpr auto TransferCount = 4u;
+			video::CPropertyPoolHandler::TransferRequest transfers[TransferCount];
+			for (auto i = 0u; i < TransferCount; i++)
+			{
+				transfers[i].elementCount = request.outNodes.size();
+				transfers[i].srcAddresses = nullptr;
+				transfers[i].dstAddresses = request.outNodes.begin();
+				transfers[i].device2device = false;
+			}
+
+			const auto& parentJointIDBinding = request.skeletonBatches.skeleton->getParentJointIDBinding();
+			const auto& defaultTransformBinding = request.skeletonBatches.skeleton->getDefaultTransformBinding();
+
+			transfers[0].setFromPool(pool, ITransformTree::parent_prop_ix);
+			transfers[0].flags = video::CPropertyPoolHandler::TransferRequest::EF_FILL;
+			transfers[0].source = parentJointIDBinding.buffer->getPointer();
+			transfers[1].setFromPool(pool, ITransformTree::relative_transform_prop_ix);
+			transfers[1].flags = video::CPropertyPoolHandler::TransferRequest::EF_FILL;
+			transfers[1].source = defaultTransformBinding.buffer->getPointer();
+			transfers[2].setFromPool(pool, ITransformTree::modified_stamp_prop_ix);
+			transfers[2].flags = video::CPropertyPoolHandler::TransferRequest::EF_FILL;
+			transfers[2].source = &ITransformTree::initial_modified_timestamp;
+			transfers[3].setFromPool(pool, ITransformTree::recomputed_stamp_prop_ix);
+			transfers[3].flags = video::CPropertyPoolHandler::TransferRequest::EF_FILL;
+			transfers[3].source = &ITransformTree::initial_recomputed_timestamp;
+			return request.poolHandler->transferProperties(request.upBuff, nullptr, request.cmdbuf, request.fence, transfers, transfers + TransferCount, request.logger, maxWaitPoint).transferSuccess;
+		}
+
+
 		 
 		//
 		inline void removeNodes(ITransformTree* tree, const ITransformTree::node_t* begin, const ITransformTree::node_t* end)
