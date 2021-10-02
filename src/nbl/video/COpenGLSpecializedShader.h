@@ -58,6 +58,7 @@ class COpenGLSpecializedShader : public core::impl::ResolveAlignment<IGPUSpecial
 			const auto& pc_layout = pc.info;
 			core::queue<SMember> q;
 			SMember initial;
+			initial.offset = 0u;
 			initial.type = asset::EGVT_UNKNOWN_OR_STRUCT;
 			initial.members = pc_layout.members;
 			initial.name = pc.info.name;
@@ -85,6 +86,7 @@ class COpenGLSpecializedShader : public core::impl::ResolveAlignment<IGPUSpecial
 				if (top.type == asset::EGVT_UNKNOWN_OR_STRUCT && top.members.count) {
 					for (size_t i = 0ull; i < top.members.count; ++i) {
 						SMember m = top.members.array[i];
+						m.offset += top.offset;
 						m.name = (top.name.size() ? (top.name+"."):"")+m.name;
 						if (m.count > 1u)
 							m.name += "[0]";

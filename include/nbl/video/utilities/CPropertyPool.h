@@ -40,16 +40,23 @@ class CPropertyPool final : public IPropertyPool
         }
 
         // easy dont care creation
-        static inline core::smart_refctd_ptr<this_t> create(const ILogicalDevice* device, const uint32_t capacity, const bool contiguous = false)
+        static inline core::smart_refctd_ptr<this_t> create(ILogicalDevice* device, const uint32_t capacity, const bool contiguous = false)
         {
             asset::SBufferRange<video::IGPUBuffer> blocks[PropertyCount];
-            for (auto i=0u; i<PropertyCount; i++)
+            video::IGPUBuffer::SCreationParams params;
+            params.queueFamilyIndexCount = 0u;
+            params.queueFamilyIndices = nullptr;
+            params.sharingMode = asset::ESM_CONCURRENT;
+            //params.usage = // should be user-provided probably
+            auto mreqs = device->getDeviceLocalGPUMemoryReqs();
+            for (auto i = 0u; i < PropertyCount; i++)
             {
                 blocks[i].offset = 0ull;
-                blocks[i].size = capacity*PropertySizes[i];
-                blocks[i].buffer = device->createDeviceLocalGPUBufferOnDedMem(blocks[i].size);
+                blocks[i].size = capacity * PropertySizes[i];
+                mreqs.vulkanReqs.size = blocks[i].size;
+                blocks[i].buffer = device->createGPUBufferOnDedMem(params, mreqs);
             }
-            return create(device,blocks,capacity,contiguous,allocator<uint8_t>());
+            return create(device, blocks, capacity, contiguous, allocator<uint8_t>());
         }
         // you can either construct the pool with explicit capacity or have it deduced from the memory blocks you pass
 		static inline core::smart_refctd_ptr<this_t> create(const ILogicalDevice* device, const asset::SBufferRange<IGPUBuffer>* _memoryBlocks, uint32_t capacity=0u, const bool contiguous=false, allocator<uint8_t>&& alloc = allocator<uint8_t>())
@@ -78,6 +85,7 @@ class CPropertyPool final : public IPropertyPool
 			auto* pool = new CPropertyPool(_memoryBlocks,capacity,reserved,contiguous,std::move(alloc));
             return core::smart_refctd_ptr<CPropertyPool>(pool,core::dont_grab);
         }
+
 
         //
         const asset::SBufferRange<IGPUBuffer>& getPropertyMemoryBlock(uint32_t ix) const override {return m_memoryBlocks[ix];}

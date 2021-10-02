@@ -12,7 +12,7 @@ class COpenGLPhysicalDevice final : public IOpenGL_PhysicalDeviceBase<COpenGLLog
     using base_t = IOpenGL_PhysicalDeviceBase<COpenGLLogicalDevice>;
 
 public:
-	static COpenGLPhysicalDevice* create(core::smart_refctd_ptr<system::ISystem>&& s, egl::CEGL&& _egl, COpenGLDebugCallback&& dbgCb)
+	static COpenGLPhysicalDevice* create(IAPIConnection* api, renderdoc_api_t* rdoc, core::smart_refctd_ptr<system::ISystem>&& s, egl::CEGL&& _egl, COpenGLDebugCallback&& dbgCb)
 	{
 		constexpr EGLint OPENGL_MAJOR = 4;
 		constexpr EGLint OPENGL_MINOR_BEST	= 6;
@@ -22,7 +22,7 @@ public:
 		if (initRes.ctx==EGL_NO_CONTEXT || initRes.minor<OPENGL_MINOR_WORST) // TODO: delete context if minor is too low, right now its leaking
 			return nullptr;
 
-		return new COpenGLPhysicalDevice(std::move(s),std::move(_egl),std::move(dbgCb),initRes.config,initRes.ctx,initRes.major,initRes.minor);
+		return new COpenGLPhysicalDevice(api,rdoc,std::move(s),std::move(_egl),std::move(dbgCb),initRes.config,initRes.ctx,initRes.major,initRes.minor);
 	}
 
 	E_API_TYPE getAPIType() const override { return EAT_OPENGL; }
@@ -30,12 +30,12 @@ public:
 protected:
 	core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice_impl(const ILogicalDevice::SCreationParams& params) final override
 	{
-		return core::make_smart_refctd_ptr<COpenGLLogicalDevice>(this,params,&m_egl,&m_glfeatures,m_config,m_gl_major,m_gl_minor);
+		return core::make_smart_refctd_ptr<COpenGLLogicalDevice>(core::smart_refctd_ptr<IAPIConnection>(m_api),this,m_rdoc_api,params,&m_egl,&m_glfeatures,m_config,m_gl_major,m_gl_minor);
 	}
 
 private:
-    COpenGLPhysicalDevice(core::smart_refctd_ptr<system::ISystem>&& s, egl::CEGL&& _egl, COpenGLDebugCallback&& dbgCb, EGLConfig config, EGLContext ctx, EGLint major, EGLint minor)
-		: base_t(std::move(s),std::move(_egl),std::move(dbgCb), config,ctx,major,minor)
+    COpenGLPhysicalDevice(IAPIConnection* api, renderdoc_api_t* rdoc, core::smart_refctd_ptr<system::ISystem>&& s, egl::CEGL&& _egl, COpenGLDebugCallback&& dbgCb, EGLConfig config, EGLContext ctx, EGLint major, EGLint minor)
+		: base_t(api, rdoc, std::move(s),std::move(_egl),std::move(dbgCb), config,ctx,major,minor)
     {
     }
 };

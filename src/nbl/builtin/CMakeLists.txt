@@ -106,12 +106,19 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/sampling/projected_spherical_triangle.glsl"
   #"nbl/builtin/glsl/sampling/spherical_rectangle.glsl"
   "nbl/builtin/glsl/sampling/spherical_triangle.glsl"
+  # global exclusive scan
+  "nbl/builtin/glsl/scan/default.comp"
+  "nbl/builtin/glsl/scan/declarations.glsl"
+  "nbl/builtin/glsl/scan/descriptors.glsl"
+  "nbl/builtin/glsl/scan/default_scheduler.glsl"
+  "nbl/builtin/glsl/scan/parameters_struct.glsl"
+  "nbl/builtin/glsl/scan/virtual_workgroup.glsl"
   # scene
   "nbl/builtin/glsl/scene/animation.glsl"
   "nbl/builtin/glsl/scene/keyframe.glsl"
   "nbl/builtin/glsl/scene/node.glsl"
   # shapes
-  #"nbl/builtin/glsl/shapes/rectangle.glsl"
+  #"nbl/builtin/glsl/shapes/rectangle.glsl" 
   "nbl/builtin/glsl/shapes/triangle.glsl"
   # subgroup emulation
   "nbl/builtin/glsl/subgroup/shared_arithmetic_portability.glsl"
@@ -146,8 +153,18 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/workgroup/shuffle.glsl"
   "nbl/builtin/glsl/workgroup/shuffle_relative.glsl"
   "nbl/builtin/glsl/workgroup/vote.glsl"
+  #transform_tree
+  "nbl/builtin/glsl/transform_tree/global_transform_update.comp"
+  "nbl/builtin/glsl/transform_tree/global_transform_update_descriptor_set.glsl"
+  "nbl/builtin/glsl/transform_tree/modification_request_range.glsl"
+  "nbl/builtin/glsl/transform_tree/pool_descriptor_set.glsl"
+  "nbl/builtin/glsl/transform_tree/relative_transform_modification.glsl"
+  "nbl/builtin/glsl/transform_tree/relative_transform_update.comp"
+  "nbl/builtin/glsl/transform_tree/relative_transform_update_common.glsl"
+  "nbl/builtin/glsl/transform_tree/relative_transform_update_descriptor_set.glsl"
   # ext shouldn't be built into the engine, but there's no harm including some non-dynamic GLSL source to make life easier
   #"nbl/builtin/glsl/ext/.glsl"
+  # radix sort
   "nbl/builtin/glsl/ext/FFT/default_compute_fft.comp"
   "nbl/builtin/glsl/ext/FFT/fft.glsl"
   "nbl/builtin/glsl/ext/FFT/parameters_struct.glsl"
@@ -161,5 +178,9 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/ext/MitsubaLoader/instance_data_struct.glsl"
   "nbl/builtin/glsl/ext/MitsubaLoader/instance_data_descriptor.glsl"
   "nbl/builtin/glsl/ext/MitsubaLoader/material_compiler_compatibility_impl.glsl"
+  # OIT
+  "nbl/builtin/glsl/ext/OIT/oit.glsl"
+  "nbl/builtin/glsl/ext/OIT/insert_node.glsl"
+  "nbl/builtin/glsl/ext/OIT/resolve.frag"
 PARENT_SCOPE)
 

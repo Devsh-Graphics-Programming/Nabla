@@ -10,9 +10,9 @@
 //#define KILL_DIFFUSE_SPECULAR_PATHS
 //#define VISUALIZE_HIGH_VARIANCE
 
-layout(set = 3, binding = 0) uniform sampler2D envMap; 
-layout(set = 3, binding = 1) uniform usamplerBuffer sampleSequence;
-layout(set = 3, binding = 2) uniform usampler2D scramblebuf;
+layout(set = 2, binding = 0) uniform sampler2D envMap; 
+layout(set = 2, binding = 1) uniform usamplerBuffer sampleSequence;
+layout(set = 2, binding = 2) uniform usampler2D scramblebuf;
 
 layout(set=0, binding=0, rgba16f) uniform image2D outImage;
 

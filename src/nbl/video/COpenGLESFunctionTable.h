@@ -71,6 +71,10 @@ public:
 		, glDebugMessageControl
 		, glDebugMessageCallbackKHR
 		, glDebugMessageCallback
+		, glLabelObjectEXT
+		, glObjectLabel // since ES 3.2
+		, glGetObjectLabelEXT
+		, glGetObjectLabel // since ES 3.2
 	);
 	NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(GLESdrawing, OpenGLFunctionLoader
 		, glDrawElementsBaseVertexEXT
@@ -537,7 +541,6 @@ public:
 		}
 #endif
 	}
-
 	void extGlMultiDrawElementsIndirect(GLenum mode, GLenum type, const void* indirect, GLsizei drawcount, GLsizei stride) override
 	{
 		if (features->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_multi_draw_indirect))
@@ -550,6 +553,15 @@ public:
 			m_logger.log("MDI not supported!", system::ILogger::ELL_ERROR);
 		}
 #endif
+	}
+
+	void extGlMultiDrawArraysIndirectCount(GLenum mode, const void* indirect, GLintptr drawcount, GLsizei maxdrawcount, GLsizei stride) override
+	{
+		m_logger.log("MDI with DrawCount not supported!", system::ILogger::ELL_ERROR);
+	}
+	void extGlMultiDrawElementsIndirectCount(GLenum mode, GLenum type, const void* indirect, GLintptr drawcount, GLsizei maxdrawcount, GLsizei stride) override
+	{
+		m_logger.log("MDI with DrawCount not supported!", system::ILogger::ELL_ERROR);
 	}
 
 	void extGlViewportArrayv(GLuint first, GLsizei count, const GLfloat* v) override
@@ -615,6 +627,46 @@ public:
 	void extGlPolygonMode(GLenum face, GLenum mode) override
 	{
 		assert(false);
+	}
+
+	void extGlObjectLabel(GLenum id, GLuint name, GLsizei length, const char* label) override
+	{
+		if (features->Version >= 320u)
+			glesDebug.pglObjectLabel(id, name, length, label);
+		else if (features->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_debug_label))
+		{
+			switch (id)
+			{
+			case GL_BUFFER:				id = GL_BUFFER_OBJECT_EXT; break;
+			case GL_SHADER:				id = GL_SHADER_OBJECT_EXT; break;
+			case GL_PROGRAM:			id = GL_PROGRAM_OBJECT_EXT; break;
+			case GL_VERTEX_ARRAY:		id = GL_VERTEX_ARRAY_OBJECT_EXT; break;
+			case GL_QUERY:				id = GL_QUERY_OBJECT_EXT; break;
+			case GL_PROGRAM_PIPELINE:	id = GL_PROGRAM_PIPELINE_OBJECT_EXT; break;
+			// other types does not need to be translated into extension-specific enums
+			}
+			glesDebug.pglLabelObjectEXT(id, name, length, label);
+		}
+	}
+
+	void extGlGetObjectLabel(GLenum identifier, GLuint name, GLsizei bufsize, GLsizei* length, GLchar* label) override
+	{
+		if (features->Version >= 320u)
+			glesDebug.pglGetObjectLabel(identifier, name, bufsize, length, label);
+		else if (features->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_debug_label))
+		{
+			switch (identifier)
+			{
+			case GL_BUFFER:				identifier = GL_BUFFER_OBJECT_EXT; break;
+			case GL_SHADER:				identifier = GL_SHADER_OBJECT_EXT; break;
+			case GL_PROGRAM:			identifier = GL_PROGRAM_OBJECT_EXT; break;
+			case GL_VERTEX_ARRAY:		identifier = GL_VERTEX_ARRAY_OBJECT_EXT; break;
+			case GL_QUERY:				identifier = GL_QUERY_OBJECT_EXT; break;
+			case GL_PROGRAM_PIPELINE:	identifier = GL_PROGRAM_PIPELINE_OBJECT_EXT; break;
+			// other types does not need to be translated into extension-specific enums
+			}
+			glesDebug.pglGetObjectLabelEXT(identifier, name, bufsize, length, label);
+		}
 	}
 };
 

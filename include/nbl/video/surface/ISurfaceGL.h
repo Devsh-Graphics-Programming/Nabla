@@ -12,12 +12,12 @@
 namespace nbl::video
 {
 
-template<class Window>
-class CSurfaceGL final : public CSurface<Window>
+template<class Window, template<typename> typename Base, class CRTP = void>
+class CSurfaceGLImpl : public Base<Window>
 {
     public:
-        using this_t = CSurfaceGL<Window>;
-        using base_t = CSurface<Window>;
+        using this_t = std::conditional_t<std::is_void_v<CRTP>,CSurfaceGLImpl<Window,Base>,CRTP>;
+        using base_t = Base<Window>;
 
         template<video::E_API_TYPE API_TYPE>
         static inline core::smart_refctd_ptr<this_t> create(core::smart_refctd_ptr<video::COpenGL_Connection<API_TYPE>>&& api, core::smart_refctd_ptr<Window>&& window)
@@ -26,6 +26,14 @@ class CSurfaceGL final : public CSurface<Window>
                 return nullptr;
             auto retval = new this_t(std::move(api),std::move(window));
             return core::smart_refctd_ptr<this_t>(retval,core::dont_grab);
+        }
+        template<video::E_API_TYPE API_TYPE>
+        static inline core::smart_refctd_ptr<this_t> create(core::smart_refctd_ptr<video::COpenGL_Connection<API_TYPE>>&& api, typename Window::native_handle_t ntv_window)
+        {
+            if (!api || !ntv_window)
+                return nullptr;
+            auto retval = new this_t(std::move(api), ntv_window);
+            return core::smart_refctd_ptr<this_t>(retval, core::dont_grab);
         }
 
         bool isSupportedForPhysicalDevice(const IPhysicalDevice* dev, uint32_t _queueFamIx) const override
@@ -57,27 +65,51 @@ class CSurfaceGL final : public CSurface<Window>
             return static_cast<ISurface::E_PRESENT_MODE>(ISurface::EPM_IMMEDIATE | ISurface::EPM_FIFO | ISurface::EPM_FIFO_RELAXED);
         }
 
-        // Todo(achal)
         bool getSurfaceCapabilitiesForPhysicalDevice(const IPhysicalDevice* physicalDevice, ISurface::SCapabilities& capabilities) const override
         {
-            return false;
-        }
+            // Todo(achal): Fill it properly
+            capabilities.minImageCount = 2u;
+            capabilities.maxImageCount = 8u;
+            capabilities.currentExtent = { this->getWidth(), this->getHeight() };
+            capabilities.minImageExtent = { 1u, 1u };
+            capabilities.maxImageExtent = { this->getWidth(), this->getHeight() };
+            capabilities.maxImageArrayLayers = 1u;
+            capabilities.supportedUsageFlags = static_cast<asset::IImage::E_USAGE_FLAGS>(0u);
 
-        inline const void* getNativeWindowHandle() const override
-        {
-            return &base_t::m_window->getNativeHandle();
+            return true;
         }
 
     protected:
-        template<video::E_API_TYPE API_TYPE>
-        explicit CSurfaceGL(core::smart_refctd_ptr<video::COpenGL_Connection<API_TYPE>>&& api, core::smart_refctd_ptr<Window>&& window) : base_t(std::move(api),std::move(window))
-        {
-        }
+        using base_t::base_t;
 };
 
+template <typename Window>
+using CSurfaceGL = CSurfaceGLImpl<Window, CSurface>;
+template <typename Window, typename CRTP>
+using CSurfaceNativeGL = CSurfaceGLImpl<Window, CSurfaceNative, CRTP>;
 
 // TODO: conditional defines
 using CSurfaceGLWin32 = CSurfaceGL<ui::IWindowWin32>;
+class CSurfaceNativeGLWin32 : public CSurfaceNativeGL<ui::IWindowWin32, CSurfaceNativeGLWin32>
+{
+protected:
+    using base_t = CSurfaceNativeGL<ui::IWindowWin32, CSurfaceNativeGLWin32>;
+    using base_t::base_t;
+
+    uint32_t getWidth() const override 
+    { 
+        RECT wr;
+        GetWindowRect(m_handle, &wr);
+        return wr.right - wr.left;
+    }
+    uint32_t getHeight() const override 
+    { 
+        RECT wr;
+        GetWindowRect(m_handle, &wr);
+        return wr.top - wr.bottom;
+    }
+};
+
 //using CSurfaceGLAndroid = CSurfaceGL<ui::IWindowAndroid>;
 //using CSurfaceGLX11 = CSurfaceGL<ui::IWindowX11>;
 //using CSurfaceGLWayland = CSurfaceGL<ui::IWindowWayland>;

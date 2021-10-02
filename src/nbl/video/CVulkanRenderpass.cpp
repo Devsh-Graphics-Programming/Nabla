@@ -7,15 +7,10 @@ namespace nbl::video
 
 CVulkanRenderpass::~CVulkanRenderpass()
 {
-    const auto originDevice = getOriginDevice();
-
-    if (originDevice->getAPIType() == EAT_VULKAN)
-    {
-        // auto* vk = m_vkdev->getFunctionTable();
-        VkDevice vk_device = static_cast<const CVulkanLogicalDevice*>(originDevice)->getInternalObject();
-        // vk->vk.vkDestroyRenderPass(vkdev, m_renderpass, nullptr);
-        vkDestroyRenderPass(vk_device, m_renderpass, nullptr);
-    }
+    // auto* vk = m_vkdev->getFunctionTable();
+    VkDevice vk_device = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getInternalObject();
+    // vk->vk.vkDestroyRenderPass(vkdev, m_renderpass, nullptr);
+    vkDestroyRenderPass(vk_device, m_renderpass, nullptr);
 }
 
 }

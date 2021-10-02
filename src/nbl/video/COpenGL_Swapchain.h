@@ -169,7 +169,8 @@ private:
 
                 EGL_NONE
             };
-            surface = _egl->call.peglCreateWindowSurface(_egl->display, _config, *reinterpret_cast<const EGLNativeWindowType*>(_window), surface_attributes);
+
+            surface = _egl->call.peglCreateWindowSurface(_egl->display, _config, (EGLNativeWindowType)_window, surface_attributes);
             assert(surface != EGL_NO_SURFACE);
 
             base_t::start();

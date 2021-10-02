@@ -4,17 +4,18 @@
 #include "nbl/video/COpenGLCommandBuffer.h"
 #include "nbl/video/COpenGLCommon.h"
 
-//#include "renderdoc_app.h"
-
-//extern RENDERDOC_API_1_1_2* g_rdoc_api;
-
 namespace nbl::video
 {
 
-    COpenGLCommandBuffer::~COpenGLCommandBuffer()
-    {
-        freeSpaceInCmdPool();
-    }
+COpenGLCommandBuffer::COpenGLCommandBuffer(core::smart_refctd_ptr<const ILogicalDevice>&& dev, E_LEVEL lvl, IGPUCommandPool* _cmdpool, system::logger_opt_smart_ptr&& logger, const COpenGLFeatureMap* _features)
+    : IGPUCommandBuffer(std::move(dev), lvl, _cmdpool), m_logger(std::move(logger)), m_features(_features)
+{
+}
+
+COpenGLCommandBuffer::~COpenGLCommandBuffer()
+{
+    freeSpaceInCmdPool();
+}
 
     void COpenGLCommandBuffer::freeSpaceInCmdPool()
     {
@@ -307,7 +308,7 @@ namespace nbl::video
             gl->glFramebuffer.pglBindFramebuffer(GL_READ_FRAMEBUFFER, prevReadFB);
     }
 
-    void COpenGLCommandBuffer::beginRenderpass_clearAttachments(IOpenGL_FunctionTable* gl, const SRenderpassBeginInfo& info, GLuint fbo, const system::logger_opt_ptr logger)
+    void COpenGLCommandBuffer::beginRenderpass_clearAttachments(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid, const SRenderpassBeginInfo& info, GLuint fbo, const system::logger_opt_ptr logger)
     {
         auto& rp = info.framebuffer->getCreationParameters().renderpass;
         auto& sub = rp->getSubpasses().begin()[0];
@@ -363,20 +364,28 @@ namespace nbl::video
 
                     // isnt there a way in vulkan to clear only depth or only stencil part?? TODO
 
+                    const bool is_depth = asset::isDepthOnlyFormat(fmt);
+                    const bool is_stencil = asset::isStencilOnlyFormat(fmt);
+                    const bool is_depth_stencil = asset::isDepthOrStencilFormat(fmt);
+
+                    const auto state_backup = ctxlocal->backupAndFlushStateClear(gl, ctxid, false, (is_depth | is_depth_stencil), (is_stencil | is_depth_stencil));
+
                     GLfloat depth = clear.depth;
                     GLint stencil = clear.stencil;
-                    if (asset::isDepthOnlyFormat(fmt))
+                    if (is_depth)
                     {
                         gl->extGlClearNamedFramebufferfv(fbo, GL_DEPTH, 0, &depth);
                     }
-                    else if (asset::isStencilOnlyFormat(fmt))
+                    else if (is_stencil)
                     {
                         gl->extGlClearNamedFramebufferiv(fbo, GL_STENCIL, 0, &stencil);
                     }
-                    else if (asset::isDepthOrStencilFormat(fmt))
+                    else if (is_depth_stencil)
                     {
                         gl->extGlClearNamedFramebufferfi(fbo, GL_DEPTH_STENCIL, 0, depth, stencil);
                     }
+
+                    ctxlocal->restoreStateAfterClear(state_backup);
                 }
                 else
                 {
@@ -499,7 +508,7 @@ namespace nbl::video
 
                 ctxlocal->flushStateGraphics(gl, SOpenGLContextLocalCache::GSB_ALL, ctxid);
 
-                const asset::E_PRIMITIVE_TOPOLOGY primType = ctxlocal->currentState.pipeline.graphics.pipeline->getPrimitiveAssemblyParams().primitiveType;
+                const asset::E_PRIMITIVE_TOPOLOGY primType = ctxlocal->currentState.pipeline.graphics.pipeline->getRenderpassIndependentPipeline()->getPrimitiveAssemblyParams().primitiveType;
                 GLenum glpt = getGLprimitiveType(primType);
 
                 gl->extGlDrawArraysInstancedBaseInstance(glpt, c.firstVertex, c.vertexCount, c.instanceCount, c.firstInstance);
@@ -509,12 +518,9 @@ namespace nbl::video
             {
                 auto& c = cmd.get<impl::ECT_DRAW_INDEXED>();
 
-                //if (g_rdoc_api)
-                //	g_rdoc_api->StartFrameCapture(NULL, NULL);
-
                 ctxlocal->flushStateGraphics(gl, SOpenGLContextLocalCache::GSB_ALL, ctxid);
 
-                const asset::E_PRIMITIVE_TOPOLOGY primType = ctxlocal->currentState.pipeline.graphics.pipeline->getPrimitiveAssemblyParams().primitiveType;
+                const asset::E_PRIMITIVE_TOPOLOGY primType = ctxlocal->currentState.pipeline.graphics.pipeline->getRenderpassIndependentPipeline()->getPrimitiveAssemblyParams().primitiveType;
                 GLenum glpt = getGLprimitiveType(primType);
                 GLenum idxType = GL_INVALID_ENUM;
                 switch (ctxlocal->currentState.vertexInputParams.vaoval.idxType)
@@ -536,58 +542,63 @@ namespace nbl::video
                     static_assert(sizeof(idxBufOffset) == sizeof(void*), "Bad reinterpret_cast");
                     gl->extGlDrawElementsInstancedBaseVertexBaseInstance(glpt, c.indexCount, idxType, reinterpret_cast<void*>(idxBufOffset), c.instanceCount, c.vertexOffset, c.firstInstance);
                 }
-
-                //if (g_rdoc_api)
-                //	g_rdoc_api->EndFrameCapture(NULL, NULL);
             }
             break;
             case impl::ECT_DRAW_INDIRECT:
             {
                 auto& c = cmd.get<impl::ECT_DRAW_INDIRECT>();
+                if (c.maxDrawCount==0u)
+                    break;
 
                 ctxlocal->nextState.vertexInputParams.indirectDrawBuf = core::smart_refctd_ptr_static_cast<const COpenGLBuffer>(c.buffer);
-                const asset::E_PRIMITIVE_TOPOLOGY primType = ctxlocal->currentState.pipeline.graphics.pipeline->getPrimitiveAssemblyParams().primitiveType;
-                GLenum glpt = getGLprimitiveType(primType);
+                ctxlocal->nextState.vertexInputParams.parameterBuf = core::smart_refctd_ptr_static_cast<const COpenGLBuffer>(c.countBuffer);
 
                 ctxlocal->flushStateGraphics(gl, SOpenGLContextLocalCache::GSB_ALL, ctxid);
+                
+                const asset::E_PRIMITIVE_TOPOLOGY primType = ctxlocal->currentState.pipeline.graphics.pipeline->getRenderpassIndependentPipeline()->getPrimitiveAssemblyParams().primitiveType;
+                GLenum glpt = getGLprimitiveType(primType);
 
-                if (c.drawCount)
-                {
-                    GLuint64 offset = c.offset;
-                    static_assert(sizeof(offset) == sizeof(void*), "Bad reinterpret_cast");
-                    gl->extGlMultiDrawArraysIndirect(glpt, reinterpret_cast<void*>(offset), c.drawCount, c.stride);
-                }
+                GLuint64 offset = c.offset;
+                static_assert(sizeof(offset) == sizeof(void*), "Bad reinterpret_cast");
+                if (ctxlocal->currentState.vertexInputParams.parameterBuf)
+                    gl->extGlMultiDrawArraysIndirectCount(glpt, reinterpret_cast<void*>(offset), c.countBufferOffset, c.maxDrawCount, c.stride);
+                else
+                    gl->extGlMultiDrawArraysIndirect(glpt, reinterpret_cast<void*>(offset), c.maxDrawCount, c.stride);
             }
             break;
             case impl::ECT_DRAW_INDEXED_INDIRECT:
             {
                 auto& c = cmd.get<impl::ECT_DRAW_INDEXED_INDIRECT>();
+                if (c.maxDrawCount==0u)
+                    break;
 
                 ctxlocal->nextState.vertexInputParams.indirectDrawBuf = core::smart_refctd_ptr_static_cast<const COpenGLBuffer>(c.buffer);
+                ctxlocal->nextState.vertexInputParams.parameterBuf = core::smart_refctd_ptr_static_cast<const COpenGLBuffer>(c.countBuffer);
 
                 ctxlocal->flushStateGraphics(gl, SOpenGLContextLocalCache::GSB_ALL, ctxid);
-
-                const asset::E_PRIMITIVE_TOPOLOGY primType = ctxlocal->currentState.pipeline.graphics.pipeline->getPrimitiveAssemblyParams().primitiveType;
-                GLenum glpt = getGLprimitiveType(primType);
 
                 GLenum idxType = GL_INVALID_ENUM;
                 switch (ctxlocal->currentState.vertexInputParams.vaoval.idxType)
                 {
-                case asset::EIT_16BIT:
-                    idxType = GL_UNSIGNED_SHORT;
-                    break;
-                case asset::EIT_32BIT:
-                    idxType = GL_UNSIGNED_INT;
-                    break;
-                default: break;
+                    case asset::EIT_16BIT:
+                        idxType = GL_UNSIGNED_SHORT;
+                        break;
+                    case asset::EIT_32BIT:
+                        idxType = GL_UNSIGNED_INT;
+                        break;
+                    default:
+                        break;
                 }
 
-                if (c.drawCount && idxType != GL_INVALID_ENUM)
-                {
-                    GLuint64 offset = c.offset;
-                    static_assert(sizeof(offset) == sizeof(void*), "Bad reinterpret_cast");
-                    gl->extGlMultiDrawElementsIndirect(glpt, idxType, reinterpret_cast<void*>(offset), c.drawCount, c.stride);
-                }
+                const asset::E_PRIMITIVE_TOPOLOGY primType = ctxlocal->currentState.pipeline.graphics.pipeline->getRenderpassIndependentPipeline()->getPrimitiveAssemblyParams().primitiveType;
+                GLenum glpt = getGLprimitiveType(primType);
+
+                GLuint64 offset = c.offset;
+                static_assert(sizeof(offset) == sizeof(void*), "Bad reinterpret_cast");
+                if (ctxlocal->currentState.vertexInputParams.parameterBuf)
+                    gl->extGlMultiDrawElementsIndirectCount(glpt, idxType, reinterpret_cast<void*>(offset), c.countBufferOffset, c.maxDrawCount, c.stride);
+                else
+                    gl->extGlMultiDrawElementsIndirect(glpt, idxType, reinterpret_cast<void*>(offset), c.maxDrawCount, c.stride);
             }
             break;
             case impl::ECT_SET_VIEWPORT:
@@ -850,7 +861,7 @@ namespace nbl::video
 
                 GLuint fbo = ctxlocal->currentState.framebuffer.GLname;
                 if (fbo)
-                    beginRenderpass_clearAttachments(gl, c.renderpassBegin, fbo, m_logger.getOptRawPtr());
+                    beginRenderpass_clearAttachments(gl, ctxlocal, ctxid, c.renderpassBegin, fbo, m_logger.getOptRawPtr());
             }
             break;
             case impl::ECT_NEXT_SUBPASS:
@@ -878,8 +889,9 @@ namespace nbl::video
             {
                 auto& c = cmd.get<impl::ECT_BIND_GRAPHICS_PIPELINE>();
 
+                ctxlocal->updateNextState_pipelineAndRaster(c.pipeline.get(), ctxid);
+
                 auto* rpindependent = c.pipeline->getRenderpassIndependentPipeline();
-                ctxlocal->updateNextState_pipelineAndRaster(rpindependent, ctxid);
                 auto* glppln = static_cast<const COpenGLRenderpassIndependentPipeline*>(rpindependent);
                 ctxlocal->nextState.vertexInputParams.vaokey = glppln->getVAOHash();
             }
@@ -956,16 +968,16 @@ namespace nbl::video
             {
                 auto& c = cmd.get<impl::ECT_PUSH_CONSTANTS>();
 
-                if (pushConstants_validate(c.layout.get(), c.stageFlags, c.offset, c.size, c.values))
+                if (pushConstants_validate(c.layout.get(), c.stageFlags.value, c.offset, c.size, c.values))
                 {
                     asset::SPushConstantRange updtRng;
                     updtRng.offset = c.offset;
                     updtRng.size = c.size;
 
-                    if (c.stageFlags & asset::ISpecializedShader::ESS_ALL_GRAPHICS)
-                        ctxlocal->pushConstants<asset::EPBP_GRAPHICS>(static_cast<const COpenGLPipelineLayout*>(c.layout.get()), c.stageFlags, c.offset, c.size, c.values);
-                    if (c.stageFlags & asset::ISpecializedShader::ESS_COMPUTE)
-                        ctxlocal->pushConstants<asset::EPBP_COMPUTE>(static_cast<const COpenGLPipelineLayout*>(c.layout.get()), c.stageFlags, c.offset, c.size, c.values);
+                    if (c.stageFlags.value & asset::ISpecializedShader::ESS_ALL_GRAPHICS)
+                        ctxlocal->pushConstants<asset::EPBP_GRAPHICS>(static_cast<const COpenGLPipelineLayout*>(c.layout.get()), c.stageFlags.value, c.offset, c.size, c.values);
+                    if (c.stageFlags.value & asset::ISpecializedShader::ESS_COMPUTE)
+                        ctxlocal->pushConstants<asset::EPBP_COMPUTE>(static_cast<const COpenGLPipelineLayout*>(c.layout.get()), c.stageFlags.value, c.offset, c.size, c.values);
                 }
             }
             break;

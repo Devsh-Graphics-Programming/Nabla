@@ -19,21 +19,22 @@
 #include "nbl/video/IGPUSemaphore.h"
 #include "nbl/video/ILogicalDevice.h"
 
+#include "nbl/asset/ECommonEnums.h"
 
 namespace nbl::video
 {
 
 namespace impl
 {
-    // non-pointer iterator type is AssetBundleIterator<> (see IDriver.cpp)
-    template<typename iterator_type>
-    inline constexpr bool is_const_iterator_v =
-        (std::is_pointer_v<iterator_type> && is_pointer_to_const_object_v<iterator_type>) ||
-        (!std::is_pointer_v<iterator_type> && std::is_const_v<iterator_type>);
+// non-pointer iterator type is AssetBundleIterator<> (see IDriver.cpp)
+template<typename iterator_type>
+inline constexpr bool is_const_iterator_v =
+    (std::is_pointer_v<iterator_type> && is_pointer_to_const_object_v<iterator_type>) ||
+    (!std::is_pointer_v<iterator_type> && std::is_const_v<iterator_type>);
 
-    template<class AssetType>
-    struct AssetBundleIterator
-    {
+template<class AssetType>
+struct AssetBundleIterator
+{
         using iterator_category = std::random_access_iterator_tag;
         using difference_type = std::ptrdiff_t;
 
@@ -76,7 +77,7 @@ namespace impl
 
     private:
         const core::smart_refctd_ptr<asset::IAsset>* ptr;
-    };
+};
 }
 
 
@@ -86,7 +87,7 @@ class IGPUObjectFromAssetConverter
     public:
         enum E_QUEUE_USAGE
         {
-            EQU_TRANSFER,
+            EQU_TRANSFER = 0,
             EQU_COMPUTE,
 
             EQU_COUNT
@@ -119,6 +120,24 @@ class IGPUObjectFromAssetConverter
             // @sadiuk put here more parameters if needed
 
             SPerQueue perQueue[EQU_COUNT];
+
+
+            //
+            inline void waitForCreationToComplete()
+            {
+                IGPUFence* fences[EQU_COUNT];
+                uint32_t count = 0;
+                for (auto i=0; i<EQU_COUNT; i++)
+                {
+                    auto pFence = perQueue[i].fence;
+                    if (pFence && pFence->get()) // user wanted, and something actually got submitted
+                        fences[count++] = pFence->get();
+                }
+                device->blockForFences(count,fences);
+                for (auto i=0; i<EQU_COUNT; i++)
+                if (perQueue[i].fence)
+                    perQueue[i].fence->operator=(nullptr);
+            }
         };
 
 	protected:
@@ -429,8 +448,15 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUBuffer** const _begin
         reqs.vulkanReqs.size = addrAllctr.get_allocated_size();
         if (reqs.vulkanReqs.size==0u)
             return;
+
+        IGPUBuffer::SCreationParams bufparams;
+        bufparams.sharingMode = _params.sharingMode;
+        //bufparams.usage = //this has to be sourced from somewhere..
+        uint32_t qfams[2]{ _params.perQueue[EQU_TRANSFER].queue->getFamilyIndex(), _params.finalQueueFamIx };
+        bufparams.queueFamilyIndices = qfams;
+        bufparams.queueFamilyIndexCount = (qfams[0] == qfams[1]) ? 1u : 2u;
         
-        auto gpubuffer = _params.device->createGPUBufferOnDedMem(reqs);
+        auto gpubuffer = _params.device->createGPUBufferOnDedMem(bufparams, reqs);
         for (auto it = firstInBlock; it != out; it++)
         {
             if (auto output = *it)
@@ -471,13 +497,18 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUBuffer** const _begin
     cmdbuf->end();
     core::smart_refctd_ptr<IGPUSemaphore> sem;
     if (_params.perQueue[EQU_TRANSFER].semaphore)
+    {
         sem = _params.device->createSemaphore();
-    auto* sem_ptr = sem.get();
-    submit.signalSemaphoreCount = sem_ptr?1u:0u;
-    submit.pSignalSemaphores = sem_ptr?&sem_ptr:nullptr;
-    // dont event tell the queue to signal a fence after last submit if it'll never be touched by user
-    auto* signalFence = _params.perQueue[EQU_TRANSFER].fence ? fence.get() : nullptr;
-    _params.perQueue[EQU_TRANSFER].queue->submit(1u, &submit, signalFence);
+        submit.signalSemaphoreCount = 1u;
+        submit.pSignalSemaphores = &sem.get();
+    }
+    else
+    {
+        submit.signalSemaphoreCount = 0u;
+        submit.pSignalSemaphores = nullptr;
+    }
+    // fence needs to be signalled because of the streaming buffer uploads need to be fenced
+    _params.perQueue[EQU_TRANSFER].queue->submit(1u,&submit,fence.get());
     if (_params.perQueue[EQU_TRANSFER].fence)
         _params.perQueue[EQU_TRANSFER].fence[0] = std::move(fence);
     if (_params.perQueue[EQU_TRANSFER].semaphore)
@@ -737,8 +768,11 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
     const auto assetCount = std::distance(_begin, _end);
     auto res = core::make_refctd_dynamic_array<created_gpu_object_array<asset::ICPUImage> >(assetCount);
 
+    // This should be the other way round because if a queue supports either compute or graphics
+    // but not the other way round
     const uint32_t transferFamIx = _params.perQueue[EQU_TRANSFER].queue->getFamilyIndex();
     const uint32_t computeFamIx = _params.perQueue[EQU_COMPUTE].queue ? _params.perQueue[EQU_COMPUTE].queue->getFamilyIndex() : transferFamIx;
+
     bool oneQueue = _params.perQueue[EQU_TRANSFER].queue == _params.perQueue[EQU_COMPUTE].queue;
 
     bool needToGenMips = false;
@@ -754,10 +788,14 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
 
         // TODO: @criss why isn't this buffer cached and why are we not going through recursive asset creation and getting ICPUBuffer equivalents? 
         //(we can always discard/not cache the GPU Buffers created only for image data upload)
-        auto gpubuf = _params.device->createDeviceLocalGPUBufferOnDedMem(cpuimg->getBuffer()->getSize());
+        IGPUBuffer::SCreationParams params = {};
+        params.usage = core::bitflag(video::IGPUBuffer::EUF_TRANSFER_SRC_BIT) | video::IGPUBuffer::EUF_TRANSFER_DST_BIT;
+        const size_t size = cpuimg->getBuffer()->getSize();
+        auto gpubuf = _params.device->createDeviceLocalGPUBufferOnDedMem(params, size);
         img2gpubuf.insert({ cpuimg, std::move(gpubuf) });
 
-        if (!asset::isIntegerFormat(cpuimg->getCreationParameters().format))
+        const auto format = cpuimg->getCreationParameters().format;
+        if (!asset::isIntegerFormat(format) && !asset::isBlockCompressionFormat(format))
             needToGenMips = true;
     }
 
@@ -794,7 +832,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
         if (img->getRegions().size() == 0u)
             return false;
         auto format = img->getCreationParameters().format;
-        if (asset::isIntegerFormat(format))
+        if (asset::isIntegerFormat(format) || asset::isBlockCompressionFormat(format))
             return false;
         return true;
     };
@@ -831,56 +869,97 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
             barrier.dstQueueFamilyIndex = transferFamIx;
             barrier.barrier.srcAccessMask = asset::EAF_TRANSFER_READ_BIT;
             barrier.barrier.dstAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
-            cmdbuf_transfer->pipelineBarrier(asset::EPSF_TRANSFER_BIT, asset::EPSF_TRANSFER_BIT, 0, 0u, nullptr, 1u, &barrier, 0u, nullptr);
-            cmdbuf_transfer->copyBufferToImage(buf.get(), img, asset::EIL_UNDEFINED, cpuimg->getRegions().size(), cpuimg->getRegions().begin());
+
+            IGPUCommandBuffer::SImageMemoryBarrier toTransferDst = {};
+            toTransferDst.barrier.srcAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0u);
+            toTransferDst.barrier.dstAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
+            toTransferDst.oldLayout = asset::EIL_UNDEFINED;
+            toTransferDst.newLayout = asset::EIL_TRANSFER_DST_OPTIMAL;
+            toTransferDst.srcQueueFamilyIndex = transferFamIx;
+            toTransferDst.dstQueueFamilyIndex = transferFamIx;
+            toTransferDst.image = core::smart_refctd_ptr<video::IGPUImage>(img);
+            toTransferDst.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT; // this probably shoudn't be hardcoded
+            toTransferDst.subresourceRange.baseMipLevel = 0u;
+            toTransferDst.subresourceRange.levelCount = img->getCreationParameters().mipLevels;
+            toTransferDst.subresourceRange.baseArrayLayer = 0u;
+            toTransferDst.subresourceRange.layerCount = cpuimg->getCreationParameters().arrayLayers;
+
+            cmdbuf_transfer->pipelineBarrier(asset::EPSF_TRANSFER_BIT, asset::EPSF_TRANSFER_BIT, asset::EDF_NONE, 0u, nullptr, 1u, &barrier, 1u, &toTransferDst);
+
+            cmdbuf_transfer->copyBufferToImage(buf.get(), img, asset::EIL_TRANSFER_DST_OPTIMAL, cpuimg->getRegions().size(), cpuimg->getRegions().begin());
         }
     };
-    auto cmdComputeMip = [&](const asset::ICPUImage* cpuimg, IGPUImage* img) -> void {
-        if (!needToCompMipsForThisImg(cpuimg))
-            return;
+    auto cmdComputeMip = [&](const asset::ICPUImage* cpuimg, IGPUImage* gpuimg, asset::E_IMAGE_LAYOUT newLayout) -> void
+    {
         // TODO when we have compute shader mips generation:
         /*computeCmdbuf->bindPipeline();
         computeCmdbuf->bindDescriptorSets();
         computeCmdbuf->pushConstants();
         computeCmdbuf->dispatch();*/
+        if (cpuimg->getCreationParameters().mipLevels == gpuimg->getCreationParameters().mipLevels)
+            return;
 
-        uint32_t lowestPresentMip = 1u;
-        for (auto& region : cpuimg->getRegions())
-            lowestPresentMip = (std::max)(lowestPresentMip, region.imageSubresource.mipLevel);
-        // generate temporary image view to make sure we don't screw up any explicit mip levels
-        IGPUImageView::SCreationParams tmpViewParams;
-        tmpViewParams.subresourceRange.levelCount = img->getCreationParameters().mipLevels + 1u - lowestPresentMip;
-        // if not all mip levels have been manually specified
-        if (tmpViewParams.subresourceRange.levelCount > 1u)
+        video::IGPUCommandBuffer::SImageMemoryBarrier barrier = {};
+        barrier.srcQueueFamilyIndex = ~0u;
+        barrier.dstQueueFamilyIndex = ~0u;
+        barrier.image = core::smart_refctd_ptr<video::IGPUImage>(gpuimg);
+        // TODO this is probably wrong (especially in case of depth/stencil formats), but i think i can leave it like this since we'll never have any depth/stencil images loaded (right?)
+        barrier.subresourceRange.aspectMask = cpuimg->getRegions().begin()->imageSubresource.aspectMask; 
+        barrier.subresourceRange.levelCount = 1u;
+        barrier.subresourceRange.baseArrayLayer = 0u;
+        barrier.subresourceRange.layerCount = cpuimg->getCreationParameters().arrayLayers;
+
+        asset::SImageBlit blitRegion = {};
+        blitRegion.srcSubresource.aspectMask = barrier.subresourceRange.aspectMask;
+        blitRegion.srcSubresource.baseArrayLayer = barrier.subresourceRange.baseArrayLayer;
+        blitRegion.srcSubresource.layerCount = barrier.subresourceRange.layerCount;
+        blitRegion.srcOffsets[0] = { 0, 0, 0 };
+
+        blitRegion.dstSubresource.aspectMask = barrier.subresourceRange.aspectMask;
+        blitRegion.dstSubresource.baseArrayLayer = barrier.subresourceRange.baseArrayLayer;
+        blitRegion.dstSubresource.layerCount = barrier.subresourceRange.layerCount;
+        blitRegion.dstOffsets[0] = { 0, 0, 0 };
+
+        // Compute mips
+        auto mipsize = cpuimg->getMipSize(cpuimg->getCreationParameters().mipLevels);
+        uint32_t mipWidth = mipsize.x;
+        uint32_t mipHeight = mipsize.y;
+        uint32_t mipDepth = mipsize.z;
+        for (uint32_t i = cpuimg->getCreationParameters().mipLevels; i < gpuimg->getCreationParameters().mipLevels; ++i)
         {
-            tmpViewParams.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(0u);
-            tmpViewParams.image = core::smart_refctd_ptr<IGPUImage>(img);
-            switch (img->getCreationParameters().type)
-            {
-            case asset::IImage::ET_1D:
-                tmpViewParams.viewType = IGPUImageView::ET_1D_ARRAY;
-                break;
-            case asset::IImage::ET_2D:
-                if (img->getCreationParameters().flags & asset::IImage::ECF_CUBE_COMPATIBLE_BIT)
-                    tmpViewParams.viewType = IGPUImageView::ET_CUBE_MAP_ARRAY;
-                else
-                    tmpViewParams.viewType = IGPUImageView::ET_2D_ARRAY;
-                break;
-            case asset::IImage::ET_3D:
-                tmpViewParams.viewType = IGPUImageView::ET_3D;
-                break;
-            default:
-                assert(false);
-                break;
-            }
-            tmpViewParams.format = img->getCreationParameters().format;
-            //tmpViewParams.subresourceRange.aspectMask
-            tmpViewParams.subresourceRange.baseMipLevel = lowestPresentMip - 1u;
-            tmpViewParams.subresourceRange.layerCount = img->getCreationParameters().arrayLayers;
-            auto tmpView = _params.device->createGPUImageView(std::move(tmpViewParams));
+            const uint32_t srcLoD = i - 1u;
 
-            // deprecated OpenGL path (do with compute shader in the future)
-            cmdbuf_compute->regenerateMipmaps(tmpView.get());
+            barrier.barrier.srcAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
+            barrier.barrier.dstAccessMask = asset::EAF_TRANSFER_READ_BIT;
+            barrier.oldLayout = asset::EIL_TRANSFER_DST_OPTIMAL;
+            barrier.newLayout = asset::EIL_TRANSFER_SRC_OPTIMAL;
+            barrier.subresourceRange.baseMipLevel = srcLoD;
+
+            cmdbuf_transfer->pipelineBarrier(asset::EPSF_TRANSFER_BIT, asset::EPSF_TRANSFER_BIT,
+                static_cast<asset::E_DEPENDENCY_FLAGS>(0u), 0u, nullptr, 0u, nullptr, 1u, &barrier);
+
+            const auto srcMipSz = cpuimg->getMipSize(srcLoD);
+
+            blitRegion.srcSubresource.mipLevel = srcLoD;
+            blitRegion.srcOffsets[1] = { srcMipSz.x, srcMipSz.y, srcMipSz.z };
+
+            blitRegion.dstSubresource.mipLevel = i;
+            blitRegion.dstOffsets[1] = { mipWidth, mipHeight, mipDepth };
+
+            cmdbuf_transfer->blitImage(gpuimg, asset::EIL_TRANSFER_SRC_OPTIMAL, gpuimg,
+                asset::EIL_TRANSFER_DST_OPTIMAL, 1u, &blitRegion, asset::ISampler::ETF_LINEAR);
+
+            barrier.barrier.srcAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
+            barrier.barrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
+            barrier.oldLayout = asset::EIL_TRANSFER_SRC_OPTIMAL;
+            barrier.newLayout = newLayout;
+
+            cmdbuf_transfer->pipelineBarrier(asset::EPSF_TRANSFER_BIT, asset::EPSF_COMPUTE_SHADER_BIT, static_cast<asset::E_DEPENDENCY_FLAGS>(0u), 0u, nullptr,
+                0u, nullptr, 1u, &barrier);
+
+            if (mipWidth > 1u) mipWidth /= 2u;
+            if (mipHeight > 1u) mipHeight /= 2u;
+            if (mipDepth > 1u) mipDepth /= 2u;
         }
     };
 
@@ -888,19 +967,19 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
     {
         const asset::ICPUImage* cpuimg = _begin[i];
         asset::IImage::SCreationParams params = cpuimg->getCreationParameters();
+        params.initialLayout = asset::EIL_UNDEFINED;
         params.sharingMode = _params.sharingMode;
+
         const bool integerFmt = asset::isIntegerFormat(params.format);
         if (!integerFmt)
             params.mipLevels = 1u + static_cast<uint32_t>(std::log2(static_cast<float>(core::max<uint32_t>(core::max<uint32_t>(params.extent.width, params.extent.height), params.extent.depth))));
-        if (cpuimg->getRegions().size())
-        {
+
+        if (cpuimg->getRegions().size() && !(cpuimg->getCreationParameters().usage.value & asset::IImage::EUF_TRANSFER_DST_BIT))
             params.usage |= asset::IImage::EUF_TRANSFER_DST_BIT;
-            params.initialLayout = asset::EIL_TRANSFER_DST_OPTIMAL;
-        }
-        else
-        {
-            params.initialLayout = asset::EIL_GENERAL;
-        }
+
+        if (needToCompMipsForThisImg(cpuimg))
+            params.usage |= asset::IImage::EUF_TRANSFER_SRC_BIT;
+
         auto gpuimg = _params.device->createDeviceLocalGPUImageOnDedMem(std::move(params));
 
 		res->operator[](i) = std::move(gpuimg);
@@ -914,8 +993,8 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
     {
         constexpr uint32_t pipeliningDepth = 8u;
 
-        IGPUCommandBuffer::SImageMemoryBarrier imgbarriers[pipeliningDepth];
         uint32_t barrierCount = 0u;
+        IGPUCommandBuffer::SImageMemoryBarrier imgbarriers[pipeliningDepth];
 
         const uint32_t n = it - _begin;
 
@@ -925,28 +1004,38 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
             auto* cpuimg = *(it++);
             auto* gpuimg = (*res)[n+i].get();
             cmdUpload(cpuimg, gpuimg);
-            {
-                asset::E_IMAGE_LAYOUT finalLayout;
-                auto usage = gpuimg->getCreationParameters().usage;
-                //constexpr auto UsageWriteMask = asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_DEPTH_STENCIL_ATTACHMENT_BIT | asset::IImage::EUF_FRAGMENT_DENSITY_MAP_BIT_EXT | asset::IImage::EUF_STORAGE_BIT;
-                if (!needToCompMipsForThisImg(cpuimg) && usage == asset::IImage::EUF_SAMPLED_BIT)
-                    finalLayout = asset::EIL_SHADER_READ_ONLY_OPTIMAL;
-                else
-                    finalLayout = asset::EIL_GENERAL;
 
+            asset::E_IMAGE_LAYOUT newLayout;
+            auto usage = gpuimg->getCreationParameters().usage.value;
+            //constexpr auto UsageWriteMask = asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_DEPTH_STENCIL_ATTACHMENT_BIT | asset::IImage::EUF_FRAGMENT_DENSITY_MAP_BIT_EXT | asset::IImage::EUF_STORAGE_BIT;
+            if (!needToCompMipsForThisImg(cpuimg) && (usage & asset::IImage::EUF_SAMPLED_BIT))
+                newLayout = asset::EIL_SHADER_READ_ONLY_OPTIMAL;
+            else
+                newLayout = asset::EIL_GENERAL;
+
+            if (needToCompMipsForThisImg(cpuimg))
+            {
+                // Todo(achal): Get format props from the physical device and check
+                // if vkCmdBlitImage can be used, assert for now until we do polyphase
+                // in compute
+                cmdComputeMip(cpuimg, gpuimg, newLayout);
+            }
+            else
+            {
                 auto& b = imgbarriers[barrierCount];
                 b.image = core::smart_refctd_ptr<IGPUImage>(gpuimg);
+
                 asset::IImage::SSubresourceRange subres;
                 subres.baseArrayLayer = 0u;
                 subres.baseMipLevel = 0;
                 subres.layerCount = b.image->getCreationParameters().arrayLayers;
                 subres.levelCount = b.image->getCreationParameters().mipLevels;
-                //subres.aspectMask = ...
+                subres.aspectMask = cpuimg->getRegions().begin()->imageSubresource.aspectMask;
                 b.subresourceRange = subres;
                 b.srcQueueFamilyIndex = transferFamIx;
                 b.dstQueueFamilyIndex = computeFamIx;
                 b.oldLayout = asset::EIL_TRANSFER_DST_OPTIMAL;
-                b.newLayout = finalLayout;
+                b.newLayout = newLayout;
                 b.barrier.srcAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
                 b.barrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
 
@@ -955,32 +1044,26 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
         }
 
         // ownership transition release or just a barrier
-        cmdbuf_transfer->pipelineBarrier(asset::EPSF_TRANSFER_BIT, asset::EPSF_COMPUTE_SHADER_BIT, 0, 0u, nullptr, 0u, nullptr, barrierCount, imgbarriers);
+        cmdbuf_transfer->pipelineBarrier(asset::EPSF_TRANSFER_BIT, asset::EPSF_COMPUTE_SHADER_BIT, asset::EDF_NONE, 0u, nullptr, 0u, nullptr, barrierCount, imgbarriers);
+
         if ((_params.sharingMode == asset::ESM_EXCLUSIVE) && (transferFamIx != computeFamIx) && cmdbuf_compute && barrierCount) // need to do ownership transition
         {
             // ownership transition acquire
-            cmdbuf_compute->pipelineBarrier(asset::EPSF_TRANSFER_BIT, asset::EPSF_COMPUTE_SHADER_BIT, 0, 0u, nullptr, 0u, nullptr, barrierCount, imgbarriers);
-        }
-
-        if (needToGenMips)
-        {
-            it = oldIt;
-            for (uint32_t i = 0u; i < pipeliningDepth && it != _end; ++i)
-                cmdComputeMip(*(it++), (*res)[n + i].get());
+            cmdbuf_compute->pipelineBarrier(asset::EPSF_TRANSFER_BIT, asset::EPSF_COMPUTE_SHADER_BIT, asset::EDF_NONE, 0u, nullptr, 0u, nullptr, barrierCount, imgbarriers);
         }
 
         cmdbuf_transfer->end();
-        if (!oneQueue)
+        if (needToGenMips && !oneQueue)
             cmdbuf_compute->end();
 
         auto transfer_sem = _params.device->createSemaphore();
         auto* transfer_sem_ptr = transfer_sem.get();
 
-        IGPUFence* batch_final_fence = fence.get();
+        auto batch_final_fence = fence;
 
         submit_transfer.signalSemaphoreCount = 1u;
         submit_transfer.pSignalSemaphores = &transfer_sem_ptr;
-        _params.perQueue[EQU_TRANSFER].queue->submit(1u, &submit_transfer, fence.get());
+        _params.perQueue[EQU_TRANSFER].queue->submit(1u, &submit_transfer, batch_final_fence.get());
 
         if (_params.perQueue[EQU_TRANSFER].semaphore)
             _params.perQueue[EQU_TRANSFER].semaphore[0] = transfer_sem;
@@ -992,13 +1075,14 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
         if (_params.perQueue[EQU_COMPUTE].fence && oneQueue && needToGenMips)
             _params.perQueue[EQU_COMPUTE].fence[0] = fence;
 
+         // must be outside `if` scope to not get deleted after `batch_final_fence = compute_fence_ptr;` assignment
+        core::smart_refctd_ptr<IGPUFence> compute_fence;
         if (!oneSubmitPerBatch)
         {
             core::smart_refctd_ptr<IGPUSemaphore> compute_sem;
             if (_params.perQueue[EQU_COMPUTE].semaphore)
                 compute_sem = _params.device->createSemaphore();
             auto* compute_sem_ptr = compute_sem.get();
-            core::smart_refctd_ptr<IGPUFence> compute_fence;
             compute_fence = _params.device->createFence(static_cast<IGPUFence::E_CREATE_FLAGS>(0));
             auto* compute_fence_ptr = compute_fence.get();
 
@@ -1019,15 +1103,18 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
             if (_params.perQueue[EQU_COMPUTE].fence)
                 _params.perQueue[EQU_COMPUTE].fence[0] = compute_fence;
 
-            batch_final_fence = compute_fence_ptr;
+#if 0 //TODO: (!) enable when mips are in fact computed on `cmdbuf_compute` (currently they are done with blits on cmdbuf_transfer)
+            batch_final_fence = compute_fence;
+#endif
         }
+
+        // wait to finish all batch work in order to safely reset command buffers
+        auto batch_final_fence_ptr = batch_final_fence.get();
+        _params.device->waitForFences(1u, &batch_final_fence_ptr, false, 9999999999ull);
 
         // separate cmdbufs per batch instead?
         if (it != _end)
         {
-            // wait to finish all batch work in order to safely reset command buffers
-            _params.device->waitForFences(1u, &batch_final_fence, false, 9999999999ull);
-
             cmdbuf_transfer->reset(IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
             cmdbuf_transfer->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
             if (!oneSubmitPerBatch)
@@ -1036,7 +1123,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
                 cmdbuf_compute->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
             }
 
-            // new fence for new batch
+            // new fence for new batch (TODO: investigate fence reset = but need to poll streaming buffer deferred frees)
             fence = _params.device->createFence(static_cast<nbl::video::IGPUFence::E_CREATE_FLAGS>(0));
         }
     };

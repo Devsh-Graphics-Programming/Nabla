@@ -89,6 +89,8 @@ class IDriverMemoryAllocation : public virtual core::IReferenceCounted
             EMCF_CACHED=0x08u, ///< whether mapping is cached, i.e. if cpu reads go through cache, this is relevant to Vulkan only and is transparent to program operation.
         };
 
+        E_API_TYPE getAPIType() const;
+
         //! Where the memory was actually allocated
         virtual E_SOURCE_MEMORY_TYPE getType() const {return ESMT_DONT_KNOW;}
 
@@ -141,8 +143,12 @@ class IDriverMemoryAllocation : public virtual core::IReferenceCounted
             currentMappingAccess = access;
         }
 
-        IDriverMemoryAllocation() : mappedPtr(nullptr), mappedRange(0,0), currentMappingAccess(EMCAF_NO_MAPPING_ACCESS) {}
+        IDriverMemoryAllocation(const ILogicalDevice* originDevice)
+            : m_originDevice(originDevice), mappedPtr(nullptr), mappedRange(0,0),
+            currentMappingAccess(EMCAF_NO_MAPPING_ACCESS)
+        {}
 
+        const ILogicalDevice* m_originDevice = nullptr;
         uint8_t* mappedPtr;
         MemoryRange                 mappedRange;
         E_MAPPING_CPU_ACCESS_FLAG   currentMappingAccess;

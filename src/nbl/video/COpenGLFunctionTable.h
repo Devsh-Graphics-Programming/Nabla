@@ -236,6 +236,8 @@ public:
 		, glDebugMessageControlARB
 		, glDebugMessageCallback
 		, glDebugMessageCallbackARB
+		, glObjectLabel
+		, glGetObjectLabel
 	);
 
 	GL4frameBuffer gl4Framebuffer;
@@ -1754,10 +1756,36 @@ public:
 	{
 		gl4Drawing.pglMultiDrawArraysIndirect(mode, indirect, drawcount, stride);
 	}
-
 	void extGlMultiDrawElementsIndirect(GLenum mode, GLenum type, const void* indirect, GLsizei drawcount, GLsizei stride) override
 	{
 		gl4Drawing.pglMultiDrawElementsIndirect(mode, type, indirect, drawcount, stride);
+	}
+
+	void extGlMultiDrawArraysIndirectCount(GLenum mode, const void* indirect, GLintptr drawcount, GLsizei maxdrawcount, GLsizei stride) override
+	{
+		if (features->Version>=460)
+			gl4Drawing.pglMultiDrawArraysIndirectCount(mode, indirect, drawcount, maxdrawcount, stride);
+		else if (features->isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_indirect_parameters))
+			gl4Drawing.pglMultiDrawArraysIndirectCountARB(mode, indirect, drawcount, maxdrawcount, stride);
+#ifdef _NBL_DEBUG
+		else
+		{
+			m_logger.log("MDI not supported!", system::ILogger::ELL_ERROR);
+		}
+#endif
+	}
+	void extGlMultiDrawElementsIndirectCount(GLenum mode, GLenum type, const void* indirect, GLintptr drawcount, GLsizei maxdrawcount, GLsizei stride) override
+	{
+		if (features->Version>=460)
+			gl4Drawing.pglMultiDrawElementsIndirectCount(mode, type, indirect, drawcount, maxdrawcount, stride);
+		else if (features->isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_indirect_parameters))
+			gl4Drawing.pglMultiDrawElementsIndirectCountARB(mode, type, indirect, drawcount, maxdrawcount, stride);
+#ifdef _NBL_DEBUG
+		else
+		{
+			m_logger.log("MDI not supported!", system::ILogger::ELL_ERROR);
+		}
+#endif
 	}
 
 	void extGlViewportArrayv(GLuint first, GLsizei count, const GLfloat* v) override
@@ -1781,6 +1809,16 @@ public:
 	void extGlPolygonMode(GLenum face, GLenum mode) override
 	{
 		gl4Shader.pglPolygonMode(face, mode);
+	}
+
+	void extGlObjectLabel(GLenum identifier, GLuint name, GLsizei length, const char* label) override
+	{
+		gl4Debug.pglObjectLabel(identifier, name, length, label);
+	}
+
+	void extGlGetObjectLabel(GLenum identifier, GLuint name, GLsizei bufsize, GLsizei* length, GLchar* label) override
+	{
+		gl4Debug.pglGetObjectLabel(identifier, name, bufsize, length, label);
 	}
 };
 

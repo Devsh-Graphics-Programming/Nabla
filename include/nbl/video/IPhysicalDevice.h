@@ -15,6 +15,9 @@
 #include "nbl/video/debug/IDebugCallback.h"
 #include "nbl/video/ILogicalDevice.h"
 
+#define VK_NO_PROTOTYPES
+#include "vulkan/vulkan.h"
+
 namespace nbl::video
 {
 
@@ -44,6 +47,8 @@ public:
         uint32_t maxTextures;
         uint32_t maxStorageImages;
 
+        uint32_t maxDrawIndirectCount;
+
         float pointSizeRange[2];
         float lineWidthRange[2];
 
@@ -53,7 +58,7 @@ public:
         uint32_t maxWorkgroupSize[3];
 
         uint32_t subgroupSize;
-        std::underlying_type_t<asset::ISpecializedShader::E_SHADER_STAGE> subgroupOpsShaderStages;
+        core::bitflag<asset::ISpecializedShader::E_SHADER_STAGE> subgroupOpsShaderStages;
     };
 
     struct SFeatures
@@ -61,7 +66,6 @@ public:
         bool robustBufferAccess = false;
         bool imageCubeArray = false;
         bool logicOp = false;
-        bool multiDrawIndirect = false;
         bool multiViewport = false;
         bool vertexAttributeDouble = false;
         bool dispatchBase = false;
@@ -76,6 +80,22 @@ public:
         // Whether `shaderSubgroupQuad` flag refer to all stages where subgroup ops are reported to be supported.
         // See SLimit::subgroupOpsShaderStages.
         bool shaderSubgroupQuadAllStages = false;
+        bool drawIndirectCount = false;
+        bool multiDrawIndirect = false;
+        bool rayQuery = false;
+        bool accelerationStructure = false;
+        bool accelerationStructureCaptureReplay = false;
+        bool accelerationStructureIndirectBuild = false;
+        bool accelerationStructureHostCommands = false;
+        bool descriptorBindingAccelerationStructureUpdateAfterBind = false;
+    };
+
+    struct SMemoryProperties
+    {
+        uint32_t        memoryTypeCount;
+        VkMemoryType    memoryTypes[VK_MAX_MEMORY_TYPES];
+        uint32_t        memoryHeapCount;
+        VkMemoryHeap    memoryHeaps[VK_MAX_MEMORY_HEAPS];
     };
 
     enum E_QUEUE_FLAGS : uint32_t
@@ -88,7 +108,7 @@ public:
     };
     struct SQueueFamilyProperties
     {
-        std::underlying_type_t<E_QUEUE_FLAGS> queueFlags;
+        core::bitflag<E_QUEUE_FLAGS> queueFlags;
         uint32_t queueCount;
         uint32_t timestampValidBits;
         asset::VkExtent3D minImageTransferGranularity;
@@ -96,6 +116,7 @@ public:
 
     const SLimits& getLimits() const { return m_limits; }
     const SFeatures& getFeatures() const { return m_features; }
+    const SMemoryProperties& getMemoryProperties() const { return m_memoryProperties; }
 
     auto getQueueFamilyProperties() const 
     {
@@ -136,6 +157,7 @@ protected:
 
     SLimits m_limits;
     SFeatures m_features;
+    SMemoryProperties m_memoryProperties;
     using qfam_props_array_t = core::smart_refctd_dynamic_array<SQueueFamilyProperties>;
     qfam_props_array_t m_qfamProperties;
 };

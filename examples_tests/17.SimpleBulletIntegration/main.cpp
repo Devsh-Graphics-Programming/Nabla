@@ -80,6 +80,7 @@ int main(int argc, char** argv)
 	auto gl = std::move(initOutput.apiConnection);
 	auto surface = std::move(initOutput.surface);
 	auto gpuPhysicalDevice = std::move(initOutput.physicalDevice);
+    
 	auto device = std::move(initOutput.logicalDevice);
 	auto utilities = std::move(initOutput.utilities);
 	auto queues = std::move(initOutput.queues);
@@ -129,12 +130,20 @@ int main(int argc, char** argv)
 	{
 		using pool_type = std::remove_reference_t<decltype(retval)>::pointee;
 		asset::SBufferRange<video::IGPUBuffer> blocks[pool_type::PropertyCount];
+
+		video::IGPUBuffer::SCreationParams creationParams;
+		creationParams.usage = asset::IBuffer::E_USAGE_FLAGS::EUF_STORAGE_BUFFER_BIT;
+		creationParams.sharingMode = asset::E_SHARING_MODE::ESM_CONCURRENT;
+		creationParams.queueFamilyIndices = 0u;
+		creationParams.queueFamilyIndices = nullptr;
+
 		for (auto i=0u; i<pool_type::PropertyCount; i++)
 		{
 			auto& block = blocks[i];
 			block.offset = 0u;
 			block.size = pool_type::PropertySizes[i]*capacity;
-			block.buffer = device->createDeviceLocalGPUBufferOnDedMem(block.size);
+			creationParams.size = block.size;
+			block.buffer = device->createDeviceLocalGPUBufferOnDedMem(creationParams);
 		}
 		retval = pool_type::create(device.get(),blocks,capacity,contiguous);
 	};
@@ -207,11 +216,9 @@ int main(int argc, char** argv)
 	for (auto i=0u; i<transfers.size(); i++)
 	{
 		transfers[i].flags = video::CPropertyPoolHandler::TransferRequest::EF_NONE;
-		transfers[i].propertyID = i;
 		transfers[i].device2device = false;
 		transfers[i].srcAddresses = nullptr;
 	}
-	transfers[2].propertyID = 0;
 	// add a shape
 	auto addShapes = [&](
 		video::IGPUFence* fence,
@@ -245,14 +252,14 @@ int main(int argc, char** argv)
 		}
 		for (auto i=0u; i<object_property_pool_t::PropertyCount; i++)
 		{
-			transfers[i].pool = objectPool.get();
+			transfers[i].setFromPool(objectPool.get(),i);
 			transfers[i].elementCount = count;
 			transfers[i].dstAddresses = scratchObjectIDs.data();
 		}
 		transfers[0].source = initialColor.data();
 		transfers[1].source = instanceTransforms.data();
 		//
-		transfers[2].pool = pool;
+		transfers[2].setFromPool(pool,0u);
 		pool->indicesToAddresses(scratchInstanceRedirects.begin(),scratchInstanceRedirects.end(),scratchInstanceRedirects.begin());
 		transfers[2].elementCount = count;
 		transfers[2].srcAddresses = nullptr;
@@ -400,10 +407,10 @@ int main(int argc, char** argv)
 	// Creating CPU Shaders 
 	auto createCPUSpecializedShaderFromSource = [=](const char* path, asset::ISpecializedShader::E_SHADER_STAGE stage) -> core::smart_refctd_ptr<asset::ICPUSpecializedShader>
 	{
-		// TODO: Change IAssetLoader::SAssetLoadParams::relativeDir to `system::path`
-		//auto tmp = system::path(argv[0]).root_directory().string();
+		auto cwd = system::path(argv[0]).parent_path();
 
 		asset::IAssetLoader::SAssetLoadParams params{};
+		params.workingDirectory = cwd;
 		params.logger = logger.get();
 		//params.relativeDir = tmp.c_str();
 		auto spec = assetManager->getAsset(path,params).getContents();
@@ -632,9 +639,8 @@ int main(int argc, char** argv)
 			world->getWorld()->stepSimulation(dt);
 
 			video::CPropertyPoolHandler::TransferRequest request;
-			request.pool = objectPool.get();
+			request.setFromPool(objectPool.get(),TransformPropertyID);
 			request.flags = video::CPropertyPoolHandler::TransferRequest::EF_NONE;
-			request.propertyID = TransformPropertyID;
 			request.elementCount = CInstancedMotionState::s_updateAddresses.size();
 			request.srcAddresses = nullptr;
 			request.dstAddresses = CInstancedMotionState::s_updateAddresses.data();
@@ -672,7 +678,7 @@ int main(int argc, char** argv)
 				memBarrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
 				memBarrier.dstAccessMask = static_cast<asset::E_ACCESS_FLAGS>(asset::EAF_SHADER_READ_BIT|asset::EAF_VERTEX_ATTRIBUTE_READ_BIT);
 				cb->pipelineBarrier(
-					asset::EPSF_COMPUTE_SHADER_BIT,asset::EPSF_COMPUTE_SHADER_BIT|asset::EPSF_VERTEX_INPUT_BIT|asset::EPSF_VERTEX_SHADER_BIT,asset::EDF_NONE,
+					asset::EPSF_COMPUTE_SHADER_BIT,core::bitflag(asset::EPSF_COMPUTE_SHADER_BIT)|asset::EPSF_VERTEX_INPUT_BIT|asset::EPSF_VERTEX_SHADER_BIT,asset::EDF_NONE,
 					1u,&memBarrier,0u,nullptr,0u,nullptr
 				);
 			}			

@@ -57,37 +57,14 @@ int main()
     auto cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
     auto utilities = std::move(initOutput.utilities);
 
-    auto gpuTransferFence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
-    auto gpuComputeFence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
+    core::smart_refctd_ptr<video::IGPUFence> gpuTransferFence = nullptr;
+    core::smart_refctd_ptr<video::IGPUFence> gpuComputeFence = nullptr;
 
     nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
     {
         cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].fence = &gpuTransferFence;
         cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].fence = &gpuComputeFence;
     }
-
-    auto cpu2gpuWaitForFences = [&]() -> void
-    {
-        video::IGPUFence::E_STATUS waitStatus = video::IGPUFence::ES_NOT_READY;
-        while (waitStatus != video::IGPUFence::ES_SUCCESS)
-        {
-            waitStatus = logicalDevice->waitForFences(1u, &gpuTransferFence.get(), false, 999999999ull);
-            if (waitStatus == video::IGPUFence::ES_ERROR)
-                assert(false);
-            else if (waitStatus == video::IGPUFence::ES_TIMEOUT)
-                break;
-        }
-
-        waitStatus = video::IGPUFence::ES_NOT_READY;
-        while (waitStatus != video::IGPUFence::ES_SUCCESS)
-        {
-            waitStatus = logicalDevice->waitForFences(1u, &gpuComputeFence.get(), false, 999999999ull);
-            if (waitStatus == video::IGPUFence::ES_ERROR)
-                assert(false);
-            else if (waitStatus == video::IGPUFence::ES_TIMEOUT)
-                break;
-        }
-    };
 
     auto createDescriptorPool = [&](const uint32_t count, asset::E_DESCRIPTOR_TYPE type)
     {
@@ -114,7 +91,7 @@ int main()
         if (!gpu_array || gpu_array->size() < 1u || !(*gpu_array)[0])
             assert(false);
 
-        cpu2gpuWaitForFences();
+        cpu2gpuParams.waitForCreationToComplete();
         gpuComputeShader = (*gpu_array)[0];
     }
 
@@ -155,7 +132,15 @@ int main()
     auto ssboMemoryReqs = logicalDevice->getDeviceLocalGPUMemoryReqs();
     ssboMemoryReqs.vulkanReqs.size = sizeof(SShaderStorageBufferObject);
     ssboMemoryReqs.mappingCapability = video::IDriverMemoryAllocation::EMCAF_READ_AND_WRITE;
-    auto gpuDownloadSSBOmapped = logicalDevice->createGPUBufferOnDedMem(ssboMemoryReqs, true);
+
+    video::IGPUBuffer::SCreationParams ssboCreationParams;
+    ssboCreationParams.size = sizeof(SShaderStorageBufferObject);
+    ssboCreationParams.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
+    ssboCreationParams.sharingMode = asset::E_SHARING_MODE::ESM_CONCURRENT;
+    ssboCreationParams.queueFamilyIndexCount = 0u;
+    ssboCreationParams.queueFamilyIndices = nullptr;
+
+    auto gpuDownloadSSBOmapped = logicalDevice->createGPUBufferOnDedMem(ssboCreationParams, ssboMemoryReqs, true);
 
     video::IGPUDescriptorSetLayout::SBinding gpuBindingsLayout[ES_COUNT] =
     {

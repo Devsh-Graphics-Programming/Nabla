@@ -2,7 +2,8 @@
 
 #include "nbl/video/IGPUSampler.h"
 
-#include <volk.h>
+#define VK_NO_PROTOTYPES
+#include <vulkan/vulkan.h>
 
 namespace nbl::video
 {
@@ -10,7 +11,12 @@ namespace nbl::video
 class CVulkanSampler : public IGPUSampler
 {
 public:
-    // Todo(achal): Constructor & desctructor
+    CVulkanSampler(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const SParams& params,
+        const VkSampler vk_sampler)
+        : IGPUSampler(std::move(dev), params), m_sampler(vk_sampler)
+    {}
+
+    ~CVulkanSampler();
 
     inline VkSampler getInternalObject() const { return m_sampler; }
 

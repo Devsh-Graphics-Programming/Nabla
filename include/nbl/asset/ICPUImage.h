@@ -88,6 +88,12 @@ class ICPUImage final : public IImage, public IAsset
 			auto end = std::upper_bound(regions->begin(),regions->end(),dummy,mip_order_t());
 			return {begin,end};
 		}
+		inline auto getRegionArray() const
+		{
+			using immutable_refctd_array_t = const core::refctd_dynamic_array<const IImage::SBufferCopy>;
+			return core::smart_refctd_ptr<immutable_refctd_array_t>(reinterpret_cast<immutable_refctd_array_t*>(regions.get()));
+		}
+		inline auto getRegionArray() { return regions; }
 
 		// `texelCoord=(xTexelPos,yTexelPos,zTexelPos,imageLayer)`
 		inline const IImage::SBufferCopy* getRegion(uint32_t mipLevel, const core::vectorSIMDu32& texelCoord) const
@@ -169,6 +175,13 @@ class ICPUImage final : public IImage, public IAsset
 			buffer = std::move(_buffer);
 			regions = _regions;
 			std::sort(regions->begin(),regions->end(),mip_order_t());
+			return true;
+		}
+
+		inline bool setImageUsageFlags(core::bitflag<E_USAGE_FLAGS> usage)
+		{
+			assert(!isImmutable_debug());
+			params.usage = usage;
 			return true;
 		}
 

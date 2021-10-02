@@ -21,7 +21,7 @@ class IPropertyPool : public core::IReferenceCounted
 	public:
 		using PropertyAddressAllocator = core::PoolAddressAllocatorST<uint32_t>;
 
-        _NBL_STATIC_INLINE_CONSTEXPR auto invalid = PropertyAddressAllocator::invalid_address;
+        static inline constexpr auto invalid = PropertyAddressAllocator::invalid_address;
 
 		//
         virtual const asset::SBufferRange<IGPUBuffer>& getPropertyMemoryBlock(uint32_t ix) const =0;
@@ -94,43 +94,56 @@ class IPropertyPool : public core::IReferenceCounted
             const uint32_t head = getAllocated();
             const uint32_t removedCount = oldHead-head;
             // no point trying to move anything if we've freed nothing or everything
-            if (isContiguous() && head!=oldHead && head!=0u)
+            if (isContiguous() && head!=oldHead)
             {
-                if (!srcAddresses || !dstAddresses)
+                if (head!=0u)
                 {
-                    assert(false);
-                    __debugbreak();
-                    exit(0xdeadbeefu);
+                    if (!srcAddresses || !dstAddresses)
+                    {
+                        assert(false);
+                        __debugbreak();
+                        exit(0xdeadbeefu);
+                    }
+                    auto gapIt = dstAddresses;
+                    for (auto it=indicesBegin; it!=indicesEnd; it++)
+                    {
+                        const auto index = *it;
+                        if (index==invalid)
+                            continue;
+                        auto& addr = m_indexToAddr[index];
+                        if (addr<head) // overwrite if address in live range
+                            *(gapIt++) = addr;
+                        else // mark as dead if outside
+                            m_addrToIndex[addr] = invalid;
+                        // index doesn't map to any address anymore
+                        addr = invalid;
+                    }
+                    gapIt = dstAddresses; // rewind
+                    for (auto a=head; a<oldHead; a++)
+                    {
+                        auto& index = m_addrToIndex[a];
+                        // marked as dead by previous pass
+                        if (index==invalid)
+                            continue;
+                        // if not dead we need to move
+                        *(srcAddresses++) = a;
+                        const auto freeAddr = *(gapIt++);
+                        m_addrToIndex[freeAddr] = index;
+                        m_indexToAddr[index] = freeAddr;
+                        index = invalid;
+                    }
+                    return (gapIt-dstAddresses);
                 }
-                auto gapIt = dstAddresses;
-                for (auto it=indicesBegin; it!=indicesEnd; it++)
+                else
                 {
-                    const auto index = *it;
-                    if (index==invalid)
-                        continue;
-                    auto& addr = m_indexToAddr[index];
-                    if (addr<head) // overwrite if address in live range
-                        *(gapIt++) = addr;
-                    else // mark as dead if outside
-                        m_addrToIndex[addr] = invalid;
-                    // index doesn't map to any address anymore
-                    addr = invalid;
+                    bool clearMappings = false;
+                    assert(clearMappings=true);
+                    if (clearMappings)
+                    {
+                        std::fill_n(m_indexToAddr,getCapacity(),invalid);
+                        std::fill_n(m_addrToIndex,oldHead,invalid);
+                    }
                 }
-                gapIt = dstAddresses; // rewind
-                for (auto a=head; a<oldHead; a++)
-                {
-                    auto& index = m_addrToIndex[a];
-                    // marked as dead by previous pass
-                    if (index==invalid)
-                        continue;
-                    // if not dead we need to move
-                    *(srcAddresses++) = a;
-                    const auto freeAddr = *(gapIt++);
-                    m_addrToIndex[freeAddr] = index;
-                    m_indexToAddr[index] = freeAddr;
-                    index = invalid;
-                }
-                return (gapIt-dstAddresses);
             }
             return 0u;
         }

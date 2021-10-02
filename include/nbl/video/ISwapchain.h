@@ -26,7 +26,8 @@ class ISwapchain : public core::IReferenceCounted, public IBackendObject
             uint32_t width;
             uint32_t height;
             uint32_t arrayLayers = 1u;
-            core::smart_refctd_dynamic_array<uint32_t> queueFamilyIndices;
+            uint32_t queueFamilyIndexCount;
+            const uint32_t* queueFamilyIndices;
 
             asset::IImage::E_USAGE_FLAGS imageUsage;
             asset::E_SHARING_MODE imageSharingMode;
@@ -53,6 +54,21 @@ class ISwapchain : public core::IReferenceCounted, public IBackendObject
         }
 
         virtual E_ACQUIRE_IMAGE_RESULT acquireNextImage(uint64_t timeout, IGPUSemaphore* semaphore, IGPUFence* fence, uint32_t* out_imgIx) = 0;
+        // 100% blocking version, guaranteed to **not** return TIMEOUT or NOT_READY
+        virtual E_ACQUIRE_IMAGE_RESULT acquireNextImage(IGPUSemaphore* semaphore, IGPUFence* fence, uint32_t* out_imgIx)
+        {
+            E_ACQUIRE_IMAGE_RESULT result=EAIR_NOT_READY;
+            while (result==EAIR_NOT_READY||result==EAIR_TIMEOUT)
+            {
+                result = acquireNextImage(999999999ull,semaphore,fence,out_imgIx);
+                if (result==EAIR_ERROR)
+                {
+                    assert(false);
+                    break;
+                }
+            }
+            return result;
+        }
 
         // Only present for backwards compatibility with OpenGL backend
         ISwapchain(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& params) : IBackendObject(std::move(dev)), m_params(std::move(params)) {}
@@ -61,6 +77,11 @@ class ISwapchain : public core::IReferenceCounted, public IBackendObject
             images_array_t&& images)
             : IBackendObject(std::move(dev)), m_params(std::move(params)), m_images(std::move(images))
         {}
+        
+        inline const auto& getCreationParameters() const
+        {
+            return m_params;
+        }
 
     protected:
         virtual ~ISwapchain() = default;

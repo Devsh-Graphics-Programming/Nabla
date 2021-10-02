@@ -224,6 +224,24 @@ static inline VkColorSpaceKHR getVkColorSpaceKHRFromColorSpace(ISurface::SColorS
     return VK_COLOR_SPACE_MAX_ENUM_KHR;
 }
 
+static inline VkSamplerAddressMode getVkAddressModeFromTexClamp(const asset::ISampler::E_TEXTURE_CLAMP in)
+{
+    switch (in)
+    {
+    case asset::ISampler::ETC_REPEAT:
+        return VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    case asset::ISampler::ETC_CLAMP_TO_EDGE:
+        return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    case asset::ISampler::ETC_CLAMP_TO_BORDER:
+        return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+    case asset::ISampler::ETC_MIRROR:
+        return VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
+    default:
+        assert(!"ADDRESS MODE NOT SUPPORTED!");
+        return VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
+    }
+}
+
 }
 
 #define __NBL_VIDEO_C_VULKAN_COMMON_H_INCLUDED__
