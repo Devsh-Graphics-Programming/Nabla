@@ -1216,7 +1216,6 @@ namespace nbl
 												overrideSkinningBuffers.weightsAttributes.format = weightsQuantizeFormat;
 											}
 										}
-			
 									}
 								};
 
@@ -1379,7 +1378,7 @@ namespace nbl
 								materialDependencyData.glTFMaterial = ds3lAvailableFlag ? &glTF.materials[glTFprimitive.material.value()] : nullptr;
 								materialDependencyData.cpuTextures = &cpuTextures;
 
-								auto cpuPipelineLayout = makePipelineLayoutFromGLTF(context, pushConstants, materialDependencyData);
+								auto cpuPipelineLayout = makePipelineLayoutFromGLTF(context, pushConstants, materialDependencyData, skinningEnabled);
 								auto [cpuVertexShader, cpuFragmentShader] = getShaders(hasUV, hasColor, skinningEnabled);
 
 								if (!cpuVertexShader || !cpuFragmentShader)
@@ -2519,8 +2518,29 @@ namespace nbl
 			return true;
 		}
 
-		core::smart_refctd_ptr<ICPUPipelineLayout> CGLTFLoader::makePipelineLayoutFromGLTF(SContext& context, CGLTFPipelineMetadata::SGLTFMaterialParameters& pushConstants, SMaterialDependencyData& materialData)
+		core::smart_refctd_ptr<ICPUPipelineLayout> CGLTFLoader::makePipelineLayoutFromGLTF(SContext& context, CGLTFPipelineMetadata::SGLTFMaterialParameters& pushConstants, SMaterialDependencyData& materialData, bool isSkinned)
 		{
+			/*
+				Skinning buffers
+			*/
+
+			auto getCpuDs0Layout = [&]() -> core::smart_refctd_ptr<ICPUDescriptorSetLayout>
+			{
+				if (isSkinned)
+				{
+					ICPUDescriptorSetLayout::SBinding cpuBufferBinding;
+					cpuBufferBinding.count = 1u;
+					cpuBufferBinding.stageFlags = ICPUSpecializedShader::ESS_VERTEX;
+					cpuBufferBinding.type = EDT_STORAGE_BUFFER;
+					cpuBufferBinding.binding = 0u;
+					cpuBufferBinding.samplers = nullptr;
+
+					return core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(&cpuBufferBinding, &cpuBufferBinding + 1);
+				}
+				else
+					return nullptr;
+			};
+
 			/*
 				Assumes all supported textures are always present
 				since vulkan doesnt support bindings with no/null descriptor,
@@ -2686,6 +2706,9 @@ namespace nbl
 				return core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(cpuDS3Bindings->begin(), cpuDS3Bindings->end());
 			};
 
+			//! node global transforms, user should provide DS given skin data from mesh buffer
+			auto cpuDs0Layout = getCpuDs0Layout();
+
 			//! camera UBO DS
 			auto cpuDs1Layout = getDefaultAsset<ICPUDescriptorSetLayout, IAsset::ET_DESCRIPTOR_SET_LAYOUT>("nbl/builtin/descriptor_set_layout/basic_view_parameters", assetManager);		
 			
@@ -2701,7 +2724,7 @@ namespace nbl
 			pushConstantRange[0].offset = 0u;
 			pushConstantRange[0].size = sizeof(CGLTFPipelineMetadata::SGLTFMaterialParameters);
 
-			auto cpuPipelineLayout = core::make_smart_refctd_ptr<ICPUPipelineLayout>(pushConstantRange, pushConstantRange + PUSH_CONSTANTS_COUNT, nullptr, std::move(cpuDs1Layout), nullptr, std::move(cpuDs3Layout));
+			auto cpuPipelineLayout = core::make_smart_refctd_ptr<ICPUPipelineLayout>(pushConstantRange, pushConstantRange + PUSH_CONSTANTS_COUNT, std::move(cpuDs0Layout), std::move(cpuDs1Layout), nullptr, std::move(cpuDs3Layout));
 			return cpuPipelineLayout;
 		}
 		
