@@ -270,7 +270,7 @@ class ITransformTree : public virtual core::IReferenceCounted
 				auto localGPUMemoryReqs = device->getDeviceLocalGPUMemoryReqs();
 				localGPUMemoryReqs.vulkanReqs.size = m_debugLiveAllocations.size() * sizeof(DebugNodeVtxInput);
 				localGPUMemoryReqs.mappingCapability = video::IDriverMemoryAllocation::EMCAF_READ_AND_WRITE;
-				m_debugLiveAllocationsGpuBuffer = std::move(device->createGPUBufferOnDedMem(localGPUMemoryReqs, true));
+				m_debugLiveAllocationsGpuBuffer = std::move(device->createGPUBufferOnDedMem(video::IGPUBuffer::SCreationParams{}, localGPUMemoryReqs, true));
 
 				commandBuffer->updateBuffer(m_debugLiveAllocationsGpuBuffer.get(), 0, m_debugLiveAllocationsGpuBuffer->getSize(), m_debugLiveAllocations.data());
 			}
@@ -296,7 +296,7 @@ class ITransformTree : public virtual core::IReferenceCounted
 			}
 
 			commandBuffer->bindGraphicsPipeline(m_debugGpuPipelineNode.get());
-			constexpr auto stage = asset::ISpecializedShader::ESS_VERTEX | asset::ISpecializedShader::ESS_GEOMETRY;
+			const auto stage = core::bitflag(asset::ISpecializedShader::ESS_VERTEX) | core::bitflag(asset::ISpecializedShader::ESS_GEOMETRY);
 			commandBuffer->pushConstants(m_debugGpuRenderpassIndependentPipelineNode->getLayout(), stage, 0u, sizeof(DebugPushConstants), &debugPushConstants);
 			commandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS, m_debugGpuRenderpassIndependentPipelineNode->getLayout(), 0u, 1u, &m_transformHierarchyDS.get());
 

@@ -138,44 +138,44 @@ int main()
 		Property Buffers for skinning
 	*/
 
-	auto xCpuMeshBuffer = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(meshes_bundle.getContents().begin()[0])->getMeshBuffers().begin()[0];
-	const auto& nodeCount = xCpuMeshBuffer->getSkeleton()->getJointCount();
-	constexpr uint32_t PropertyCount = 5u;
+	//auto xCpuMeshBuffer = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(meshes_bundle.getContents().begin()[0])->getMeshBuffers().begin()[0];
+	//const auto& nodeCount = xCpuMeshBuffer->getSkeleton()->getJointCount();
+	//constexpr uint32_t PropertyCount = 5u;
 
-	constexpr size_t parentPropSz = sizeof(uint32_t);						// tt0->getNodePropertyPool()->getPropertySize(scene::ITransformTree::parent_prop_ix);
-	constexpr size_t relTformPropSz = sizeof(core::matrix3x4SIMD);			// tt0->getNodePropertyPool()->getPropertySize(scene::ITransformTree::relative_transform_prop_ix);
-	constexpr size_t modifStampPropSz = sizeof(uint32_t);					// tt0->getNodePropertyPool()->getPropertySize(scene::ITransformTree::modified_stamp_prop_ix);
-	constexpr size_t globalTformPropSz = sizeof(core::matrix3x4SIMD);		// tt0->getNodePropertyPool()->getPropertySize(scene::ITransformTree::global_transform_prop_ix);
-	constexpr size_t recompStampPropSz = sizeof(uint32_t);					// tt0->getNodePropertyPool()->getPropertySize(scene::ITransformTree::recomputed_stamp_prop_ix);
+	//constexpr size_t parentPropSz = sizeof(uint32_t);						// tt0->getNodePropertyPool()->getPropertySize(scene::ITransformTree::parent_prop_ix);
+	//constexpr size_t relTformPropSz = sizeof(core::matrix3x4SIMD);			// tt0->getNodePropertyPool()->getPropertySize(scene::ITransformTree::relative_transform_prop_ix);
+	//constexpr size_t modifStampPropSz = sizeof(uint32_t);					// tt0->getNodePropertyPool()->getPropertySize(scene::ITransformTree::modified_stamp_prop_ix);
+	//constexpr size_t globalTformPropSz = sizeof(core::matrix3x4SIMD);		// tt0->getNodePropertyPool()->getPropertySize(scene::ITransformTree::global_transform_prop_ix);
+	//constexpr size_t recompStampPropSz = sizeof(uint32_t);					// tt0->getNodePropertyPool()->getPropertySize(scene::ITransformTree::recomputed_stamp_prop_ix);
 
-	const size_t SSBOAlignment = gpuPhysicalDevice->getLimits().SSBOAlignment;
-	const size_t offset_parent = 0u;
-	const size_t offset_relTform = core::alignUp(offset_parent + parentPropSz * nodeCount, SSBOAlignment);
-	const size_t offset_modifStamp = core::alignUp(offset_relTform + relTformPropSz * nodeCount, SSBOAlignment);
-	const size_t offset_globalTform = core::alignUp(offset_modifStamp + modifStampPropSz * nodeCount, SSBOAlignment);
-	const size_t offset_recompStamp = core::alignUp(offset_globalTform + globalTformPropSz * nodeCount, SSBOAlignment);
+	//const size_t SSBOAlignment = gpuPhysicalDevice->getLimits().SSBOAlignment;
+	//const size_t offset_parent = 0u;
+	//const size_t offset_relTform = core::alignUp(offset_parent + parentPropSz * nodeCount, SSBOAlignment);
+	//const size_t offset_modifStamp = core::alignUp(offset_relTform + relTformPropSz * nodeCount, SSBOAlignment);
+	//const size_t offset_globalTform = core::alignUp(offset_modifStamp + modifStampPropSz * nodeCount, SSBOAlignment);
+	//const size_t offset_recompStamp = core::alignUp(offset_globalTform + globalTformPropSz * nodeCount, SSBOAlignment);
 
-	const size_t gpuSSBOSize = offset_recompStamp + recompStampPropSz * nodeCount;
-	auto SSBOGPUBuffer = logicalDevice->createDeviceLocalGPUBufferOnDedMem(gpuSSBOSize);
+	//const size_t gpuSSBOSize = offset_recompStamp + recompStampPropSz * nodeCount;
+	//auto SSBOGPUBuffer = logicalDevice->createDeviceLocalGPUBufferOnDedMem(gpuSSBOSize);
 
-	asset::SBufferRange<video::IGPUBuffer> propertyGPUBuffers[PropertyCount];
-	for (uint32_t i = 0u; i < PropertyCount; ++i)
-		propertyGPUBuffers[i].buffer = SSBOGPUBuffer;
+	//asset::SBufferRange<video::IGPUBuffer> propertyGPUBuffers[PropertyCount];
+	//for (uint32_t i = 0u; i < PropertyCount; ++i)
+	//	propertyGPUBuffers[i].buffer = SSBOGPUBuffer;
 
-	propertyGPUBuffers[scene::ITransformTree::parent_prop_ix].offset = offset_parent;
-	propertyGPUBuffers[scene::ITransformTree::parent_prop_ix].size = parentPropSz * nodeCount;
+	//propertyGPUBuffers[scene::ITransformTree::parent_prop_ix].offset = offset_parent;
+	//propertyGPUBuffers[scene::ITransformTree::parent_prop_ix].size = parentPropSz * nodeCount;
 
-	propertyGPUBuffers[scene::ITransformTree::relative_transform_prop_ix].offset = offset_relTform;
-	propertyGPUBuffers[scene::ITransformTree::relative_transform_prop_ix].size = relTformPropSz * nodeCount;
+	//propertyGPUBuffers[scene::ITransformTree::relative_transform_prop_ix].offset = offset_relTform;
+	//propertyGPUBuffers[scene::ITransformTree::relative_transform_prop_ix].size = relTformPropSz * nodeCount;
 
-	propertyGPUBuffers[scene::ITransformTree::modified_stamp_prop_ix].offset = offset_modifStamp;
-	propertyGPUBuffers[scene::ITransformTree::modified_stamp_prop_ix].size = modifStampPropSz * nodeCount;
+	//propertyGPUBuffers[scene::ITransformTree::modified_stamp_prop_ix].offset = offset_modifStamp;
+	//propertyGPUBuffers[scene::ITransformTree::modified_stamp_prop_ix].size = modifStampPropSz * nodeCount;
 
-	propertyGPUBuffers[scene::ITransformTree::global_transform_prop_ix].offset = offset_globalTform;
-	propertyGPUBuffers[scene::ITransformTree::global_transform_prop_ix].size = globalTformPropSz * nodeCount;
+	//propertyGPUBuffers[scene::ITransformTree::global_transform_prop_ix].offset = offset_globalTform;
+	//propertyGPUBuffers[scene::ITransformTree::global_transform_prop_ix].size = globalTformPropSz * nodeCount;
 
-	propertyGPUBuffers[scene::ITransformTree::recomputed_stamp_prop_ix].offset = offset_recompStamp;
-	propertyGPUBuffers[scene::ITransformTree::recomputed_stamp_prop_ix].size = recompStampPropSz * nodeCount;
+	//propertyGPUBuffers[scene::ITransformTree::recomputed_stamp_prop_ix].offset = offset_recompStamp;
+	//propertyGPUBuffers[scene::ITransformTree::recomputed_stamp_prop_ix].size = recompStampPropSz * nodeCount;
 
 	// I need merging Criss (compile errors)
 
@@ -240,7 +240,7 @@ int main()
 	auto uboMemoryReqs = logicalDevice->getDeviceLocalGPUMemoryReqs();
 	uboMemoryReqs.vulkanReqs.size = sizeof(SBasicViewParameters);
 
-	auto gpuubo = logicalDevice->createGPUBufferOnDedMem(uboMemoryReqs, true);
+	auto gpuubo = logicalDevice->createGPUBufferOnDedMem(video::IGPUBuffer::SCreationParams{}, uboMemoryReqs, true);
 	auto gpuUboDescriptorPool = createDescriptorPool(1u, EDT_UNIFORM_BUFFER);
 
 	auto gpuDescriptorSet1 = logicalDevice->createGPUDescriptorSet(gpuUboDescriptorPool.get(), core::smart_refctd_ptr(gpuDescriptorSet1Layout));
