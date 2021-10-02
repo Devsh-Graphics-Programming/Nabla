@@ -142,7 +142,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 		static inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createOutputDescriptorSetLayout(video::ILogicalDevice* device, bool withMDICounts=false)
 		{
 			withMDICounts &= device->getPhysicalDevice()->getFeatures().multiDrawIndirect;
-			//withMDICounts &= device->getPhysicalDevice()->getFeatures().multiDrawIndirectCount; // TODO: @achal
+			withMDICounts &= device->getPhysicalDevice()->getFeatures().drawIndirectCount;
 
 			video::IGPUDescriptorSetLayout::SBinding bindings[OutputDescriptorBindingCount];
 			for (auto i=0u; i<OutputDescriptorBindingCount; i++)

@@ -25,7 +25,7 @@ class CDrawIndirectAllocator final : public IDrawIndirectAllocator
                 return nullptr;
 
             const auto& features = params.device->getPhysicalDevice()->getFeatures();
-            if (features.drawIndirectCount)
+            if (!features.drawIndirectCount)
                 params.drawCountCapacity = 0;
             const auto& limits = params.device->getPhysicalDevice()->getLimits();
             
@@ -34,9 +34,6 @@ class CDrawIndirectAllocator final : public IDrawIndirectAllocator
             video::IGPUBuffer::SCreationParams creationParams;
             creationParams.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
             creationParams.usage |= asset::IBuffer::EUF_INDIRECT_BUFFER_BIT;
-            creationParams.sharingMode = asset::E_SHARING_MODE::ESM_CONCURRENT;
-            creationParams.queueFamilyIndexCount = 0u;
-            creationParams.queueFamilyIndices = nullptr;
 
             static_cast<CreationParametersBase&>(explicit_params) = std::move(params);
             explicit_params.drawCommandBuffer.offset = 0ull;
