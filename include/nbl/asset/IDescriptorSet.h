@@ -74,6 +74,20 @@ class IDescriptorSet : public virtual core::IReferenceCounted
 				{
 					memset(&buffer, 0, core::max<size_t>(sizeof(buffer), sizeof(image)));
 				}
+				template<typename BufferType>
+				SDescriptorInfo(const asset::SBufferBinding<BufferType>& binding)
+				{
+					desc = binding.buffer;
+					buffer.offset = binding.offset;
+					buffer.size = SBufferBinding::WholeBuffer;
+				}
+				template<typename BufferType>
+				SDescriptorInfo(const asset::SBufferRange<BufferType>& range)
+				{
+					desc = range.buffer;
+					buffer.offset = range.offset;
+					buffer.size = range.size;
+				}
 				~SDescriptorInfo()
 				{
 					if (desc && desc->getTypeCategory()==IDescriptor::EC_IMAGE)
