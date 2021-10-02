@@ -33,9 +33,8 @@ class IUtilities : public core::IReferenceCounted
             }
             m_propertyPoolHandler = core::make_smart_refctd_ptr<CPropertyPoolHandler>(core::smart_refctd_ptr(m_device));
             // smaller workgroups fill occupancy gaps better, especially on new Nvidia GPUs, but we don't want too small workgroups on mobile
-            // TODO: investigate whether we need to clamp against 256u on mobile
-            // TODO: investigate if `>>2u` still holds after we support subgroup intrinsics properly
-            const auto scan_workgroup_size = core::max(core::roundDownToPoT(limits.maxWorkgroupSize[0])>>2u,128u);
+            // TODO: investigate whether we need to clamp against 256u instead of 128u on mobile
+            const auto scan_workgroup_size = core::max(core::roundDownToPoT(limits.maxWorkgroupSize[0])>>1u,128u);
             m_scanner = core::make_smart_refctd_ptr<CScanner>(core::smart_refctd_ptr(m_device),scan_workgroup_size);
         }
 
@@ -303,7 +302,11 @@ class IUtilities : public core::IReferenceCounted
                 const uint32_t alignment = static_cast<uint32_t>(limits.nonCoherentAtomSize);
                 const uint32_t subSize = static_cast<uint32_t>(core::min<uint64_t>(core::alignDown(m_defaultUploadBuffer.get()->max_size(),alignment), bufferRange.size-uploadedSize));
                 const uint32_t paddedSize = core::alignUp(subSize,alignment);
-                m_defaultUploadBuffer.get()->multi_place(std::chrono::high_resolution_clock::now()+std::chrono::microseconds(500u), 1u, (const void* const*)&dataPtr, &localOffset, &paddedSize, &alignment);
+                // cannot use `multi_place` because of the extra padding size we could have added
+                m_defaultUploadBuffer.get()->multi_alloc(std::chrono::high_resolution_clock::now()+std::chrono::microseconds(500u),1u,&localOffset,&paddedSize,&alignment);
+                // copy only the unpadded part
+                if (localOffset!=video::StreamingTransientDataBufferMT<>::invalid_address)
+                    memcpy(reinterpret_cast<uint8_t*>(m_defaultUploadBuffer->getBufferPointer())+localOffset,dataPtr,subSize);
 
                 // keep trying again
                 if (localOffset == video::StreamingTransientDataBufferMT<>::invalid_address)
@@ -320,7 +323,7 @@ class IUtilities : public core::IReferenceCounted
                     submit.pWaitSemaphores = semaphoresToWaitBeforeOverwrite;
                     submit.pWaitDstStageMask = stagesToWaitForPerSemaphore;
                     queue->submit(1u,&submit,fence);
-                    m_device->waitForFences(1u,&fence,false,9999999999ull);
+                    m_device->blockForFences(1u,&fence);
                     waitSemaphoreCount = 0u;
                     semaphoresToWaitBeforeOverwrite = nullptr;
                     stagesToWaitForPerSemaphore = nullptr;
@@ -385,7 +388,7 @@ class IUtilities : public core::IReferenceCounted
             auto fence = m_device->createFence(static_cast<IGPUFence::E_CREATE_FLAGS>(0));
             updateBufferRangeViaStagingBuffer(fence.get(),queue,bufferRange,data,waitSemaphoreCount,semaphoresToWaitBeforeOverwrite,stagesToWaitForPerSemaphore,signalSemaphoreCount,semaphoresToSignal);
             auto* fenceptr = fence.get();
-            m_device->waitForFences(1u,&fenceptr,false,9999999999ull);
+            m_device->blockForFences(1u,&fenceptr);
         }
 
     protected:

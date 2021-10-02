@@ -3,545 +3,558 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 
 #define _NBL_STATIC_LIB_
-#include <nabla.h>
 #include <iostream>
 #include <cstdio>
+#include <nabla.h>
 
-#include "nbl/ext/FullScreenTriangle/FullScreenTriangle.h"
+#include "../common/Camera.hpp"
+#include "../common/CommonAPI.h"
 #include "nbl/ext/ScreenShot/ScreenShot.h"
-
-#include "../common/QToQuitEventReceiver.h"
-
-
-
-#include "COpenGLStateManager.h"
+#include "nbl/ext/OIT/OIT.h"
 
 using namespace nbl;
 using namespace core;
+/*
+    Uncomment for more detailed logging
+*/
 
+#define LIMIT_TRANSPARENT_FRAGMENTS
 
-class SimpleCallBack : public video::IShaderConstantSetCallBack
+// #define NBL_MORE_LOGS
+
+int main(int argc, char** argv)
 {
-    int32_t mvpUniformLocation;
-    int32_t selfPosLocation;
-    int32_t texUniformLocation[4];
-    video::E_SHADER_CONSTANT_TYPE mvpUniformType;
-    video::E_SHADER_CONSTANT_TYPE selfPosType;
-    video::E_SHADER_CONSTANT_TYPE texUniformType[4];
-public:
-    SimpleCallBack() : selfPosLocation(-1), selfPosType(video::ESCT_FLOAT_VEC3) {}
+    system::path CWD = system::path(argv[0]).parent_path().generic_string() + "/";
+    constexpr uint32_t WIN_W = 1280;
+    constexpr uint32_t WIN_H = 720;
+    constexpr uint32_t SC_IMG_COUNT = 3u;
+    constexpr uint32_t FRAMES_IN_FLIGHT = 5u;
+    static_assert(FRAMES_IN_FLIGHT > SC_IMG_COUNT);
 
-    virtual void PostLink(video::IMaterialRendererServices* services, const video::E_MATERIAL_TYPE& materialType, const core::vector<video::SConstantLocationNamePair>& constants)
+    auto initOutput = CommonAPI::Init<WIN_W, WIN_H, SC_IMG_COUNT>(video::EAT_OPENGL, "MeshLoaders", nbl::asset::EF_D32_SFLOAT);
+    auto window = std::move(initOutput.window);
+    auto gl = std::move(initOutput.apiConnection);
+    auto surface = std::move(initOutput.surface);
+    auto gpuPhysicalDevice = std::move(initOutput.physicalDevice);
+    auto logicalDevice = std::move(initOutput.logicalDevice);
+    auto queues = std::move(initOutput.queues);
+    auto swapchain = std::move(initOutput.swapchain);
+    auto renderpass = std::move(initOutput.renderpass);
+    auto fbos = std::move(initOutput.fbo);
+    auto commandPool = std::move(initOutput.commandPool);
+    auto assetManager = std::move(initOutput.assetManager);
+    auto logger = std::move(initOutput.logger);
+    auto inputSystem = std::move(initOutput.inputSystem);
+    auto system = std::move(initOutput.system);
+    auto windowCallback = std::move(initOutput.windowCb);
+    auto cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
+    auto utilities = std::move(initOutput.utilities);
+
+    ext::OIT::COIT oit;
+    bool oit_init = oit.initialize(logicalDevice.get(), WIN_W, WIN_H, cpu2gpuParams);
+    assert(oit_init);
+
+    auto gpuTransferFence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
+    auto gpuComputeFence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
+
+    core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> cpu_ds2layout;
     {
-        for (size_t i=0; i<constants.size(); i++)
+        asset::ICPUDescriptorSetLayout::SBinding bnd[ext::OIT::COIT::BindingCount];
+        oit.getDSLayoutBindings<asset::ICPUDescriptorSetLayout>(bnd);
+
+        cpu_ds2layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(bnd, bnd+ext::OIT::COIT::BindingCount);
+    }
+    core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> ds2layout;
+    {
+        video::IGPUObjectFromAssetConverter cpu2gpu;
+        ds2layout = cpu2gpu.getGPUObjectsFromAssets(&cpu_ds2layout.get(), &cpu_ds2layout.get() + 1, cpu2gpuParams)->operator[](0);
+    }
+
+    auto ds2pool = logicalDevice->createDescriptorPoolForDSLayouts(static_cast<video::IDescriptorPool::E_CREATE_FLAGS>(0), &ds2layout.get(), &ds2layout.get() + 1);
+    core::smart_refctd_ptr<video::IGPUDescriptorSet> ds2;
+    {
+        ds2 = logicalDevice->createGPUDescriptorSet(ds2pool.get(), core::smart_refctd_ptr(ds2layout));
+
+        video::IGPUDescriptorSet::SDescriptorInfo info[ext::OIT::COIT::BindingCount];
+        video::IGPUDescriptorSet::SWriteDescriptorSet w[ext::OIT::COIT::BindingCount];
+        
+        oit.getDSWrites(w, info, ds2.get());
+
+        logicalDevice->updateDescriptorSets(3u, w, 0u, nullptr);
+    }
+
+    core::smart_refctd_ptr<video::IGPUGraphicsPipeline> oit_resolve_ppln;
+    {
+        auto layout = logicalDevice->createGPUPipelineLayout(nullptr, nullptr, nullptr, nullptr, core::smart_refctd_ptr(ds2layout), nullptr);
+
+        const auto& proto = oit.getResolveProtoPipeline();
+
+        video::IGPUSpecializedShader* shaders[2]{ proto.vs.get(), proto.fs.get() };
+        auto rpindep = logicalDevice->createGPURenderpassIndependentPipeline(nullptr, std::move(layout), shaders, shaders + 2, proto.vtx, proto.blend, proto.primAsm, proto.raster);
+
+        video::IGPUGraphicsPipeline::SCreationParams pplnparams;
+        pplnparams.renderpass = renderpass;
+        pplnparams.renderpassIndependent = rpindep;
+        pplnparams.subpassIx = 0u;
+        oit_resolve_ppln = logicalDevice->createGPUGraphicsPipeline(nullptr, std::move(pplnparams));
+    }
+    
+    nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
+    {
+        cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].fence = &gpuTransferFence;
+        cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].fence = &gpuComputeFence;
+    }
+
+    auto cpu2gpuWaitForFences = [&]() -> void
+    {
+        video::IGPUFence::E_STATUS waitStatus = video::IGPUFence::ES_NOT_READY;
+        while (waitStatus != video::IGPUFence::ES_SUCCESS)
         {
-            if (constants[i].name=="MVP")
+            waitStatus = logicalDevice->waitForFences(1u, &gpuTransferFence.get(), false, 999999999ull);
+            if (waitStatus == video::IGPUFence::ES_ERROR)
+                assert(false);
+            else if (waitStatus == video::IGPUFence::ES_TIMEOUT)
+                break;
+        }
+
+        waitStatus = video::IGPUFence::ES_NOT_READY;
+        while (waitStatus != video::IGPUFence::ES_SUCCESS)
+        {
+            waitStatus = logicalDevice->waitForFences(1u, &gpuComputeFence.get(), false, 999999999ull);
+            if (waitStatus == video::IGPUFence::ES_ERROR)
+                assert(false);
+            else if (waitStatus == video::IGPUFence::ES_TIMEOUT)
+                break;
+        }
+    };
+    
+    auto createDescriptorPool = [&](const uint32_t textureCount)
+    {
+        constexpr uint32_t maxItemCount = 256u;
+        {
+            nbl::video::IDescriptorPool::SDescriptorPoolSize poolSize;
+            poolSize.count = textureCount;
+            poolSize.type = nbl::asset::EDT_COMBINED_IMAGE_SAMPLER;
+            return logicalDevice->createDescriptorPool(static_cast<nbl::video::IDescriptorPool::E_CREATE_FLAGS>(0), maxItemCount, 1u, &poolSize);
+        }
+    };
+
+    asset::ICPUMesh* meshRaw = nullptr;
+    const asset::COBJMetadata* metaOBJ = nullptr;
+    {        
+        auto* quantNormalCache = assetManager->getMeshManipulator()->getQuantNormalCache();
+        quantNormalCache->loadCacheFromFile<asset::EF_A2B10G10R10_SNORM_PACK32>(system.get(), "../../tmp/normalCache101010.sse");
+
+        system::path archPath = CWD/"../../media/white_oak.zip";
+        auto arch = system->openFileArchive(archPath);
+        // test no alias loading (TODO: fix loading from absolute paths)
+        system->mount(std::move(arch));
+        asset::IAssetLoader::SAssetLoadParams loadParams;
+        loadParams.workingDirectory = CWD;
+        loadParams.logger = logger.get();
+        auto meshes_bundle = assetManager->getAsset((CWD/"../../media/white_oak.zip/white_oak.obj").string(), loadParams);
+        assert(!meshes_bundle.getContents().empty());
+
+        metaOBJ = meshes_bundle.getMetadata()->selfCast<const asset::COBJMetadata>();
+
+        auto cpuMesh = meshes_bundle.getContents().begin()[0];
+        meshRaw = static_cast<asset::ICPUMesh*>(cpuMesh.get());
+
+        quantNormalCache->saveCacheToFile<asset::EF_A2B10G10R10_SNORM_PACK32>(system.get(), "../../tmp/normalCache101010.sse");
+    }
+
+    core::vector<core::smart_refctd_ptr<asset::ICPUMeshBuffer>> transparentMeshes;
+    core::vector<core::smart_refctd_ptr<asset::ICPUMeshBuffer>> opaqueMeshes;
+    asset::ICPURenderpassIndependentPipeline* transPpln;
+    {
+        for (auto& mb : meshRaw->getMeshBufferVector())
+        {
+            auto* ppln = mb->getPipeline();
+            if (ppln->getBlendParams().blendParams[0].dstColorFactor != asset::EBF_ZERO)
             {
-                mvpUniformLocation = constants[i].location;
-                mvpUniformType = constants[i].type;
+                transparentMeshes.push_back(mb);
+                transPpln = ppln;
             }
-            else if (constants[i].name=="selfPos")
+            else
             {
-                selfPosLocation = constants[i].location;
-                selfPosType = constants[i].type;
+                opaqueMeshes.push_back(mb);
             }
         }
     }
 
-    virtual void OnSetConstants(video::IMaterialRendererServices* services, int32_t userData)
+    core::smart_refctd_ptr<video::IGPUGraphicsPipeline> oit_pass1_pipeline;
     {
-        core::vectorSIMDf selfPos = services->getVideoDriver()->getTransform(video::E4X3TS_WORLD).getTranslation3D();
-        if (selfPosLocation!=-1)
-            services->setShaderConstant(selfPos.pointer,selfPosLocation,selfPosType,1);
-        if (mvpUniformLocation!=-1)
-            services->setShaderConstant(services->getVideoDriver()->getTransform(video::EPTS_PROJ_VIEW_WORLD).pointer(),mvpUniformLocation,mvpUniformType,1);
-    }
+        auto srcppln = core::smart_refctd_ptr_static_cast<asset::ICPURenderpassIndependentPipeline>(transPpln->clone());
 
-    virtual void OnUnsetMaterial() {}
-};
+        auto* layout = srcppln->getLayout();
+        layout->setDescriptorSetLayout(2u, core::smart_refctd_ptr(cpu_ds2layout));
 
-class PostProcCallBack : public video::IShaderConstantSetCallBack
-{
-    int32_t sampleCountUniformLocation;
-    video::E_SHADER_CONSTANT_TYPE sampleCountUniformType;
-public:
-    PostProcCallBack() : sampleCountUniformLocation(-1) {}
+        asset::IAssetLoader::SAssetLoadParams lparams;
+        lparams.workingDirectory = CWD;
+        auto fs_bundle = assetManager->getAsset("../oit_fill_nodes.frag",lparams);
+        assert(!fs_bundle.getContents().empty());
+        auto fs = core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(fs_bundle.getContents().begin()[0]);
 
-    virtual void PostLink(video::IMaterialRendererServices* services, const video::E_MATERIAL_TYPE& materialType, const core::vector<video::SConstantLocationNamePair>& constants)
-    {
-        /**
-        Shader Unigorms get saved as Program (Shader state)
-        So we can perma-assign texture slots to sampler uniforms
-        **/
-        for (size_t i=0; i<constants.size(); i++)
+        srcppln->setShaderAtStage(asset::ISpecializedShader::ESS_FRAGMENT, fs.get());
+
+        asset::SVertexInputParams& vtxparams = srcppln->getVertexInputParams();
+        asset::SPrimitiveAssemblyParams& primparams = srcppln->getPrimitiveAssemblyParams();
+        asset::SBlendParams& blendparams = srcppln->getBlendParams();
+        asset::SRasterizationParams& rasterparams = srcppln->getRasterizationParams();
+
+        blendparams.blendParams[0].blendEnable = 0;
+        blendparams.blendParams[0].colorWriteMask = 0;
+        rasterparams.faceCullingMode = nbl::asset::EFCM_NONE;
+        rasterparams.depthCompareOp = nbl::asset::ECO_GREATER;
+        rasterparams.depthWriteEnable = 0;
+        rasterparams.depthTestEnable = 1;
+
+        core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> rpindep;
         {
-            if (constants[i].name=="sampleCount")
-            {
-                sampleCountUniformLocation = constants[i].location;
-                sampleCountUniformType = constants[i].type;
-            }
+            video::IGPUObjectFromAssetConverter c2g;
+            auto gpu_bundle = c2g.getGPUObjectsFromAssets(&srcppln.get(),&srcppln.get()+1, cpu2gpuParams);
+            assert(gpu_bundle&& gpu_bundle->size() && (*gpu_bundle)[0]);
+            rpindep = (*gpu_bundle)[0];
         }
+
+        video::IGPUGraphicsPipeline::SCreationParams pplnparams;
+        pplnparams.renderpass = renderpass;
+        pplnparams.renderpassIndependent = rpindep;
+        pplnparams.subpassIx = 0u;
+        oit_pass1_pipeline = logicalDevice->createGPUGraphicsPipeline(nullptr, std::move(pplnparams));
     }
 
-    virtual void OnSetConstants(video::IMaterialRendererServices* services, int32_t userData)
-    {
-        if (sampleCountUniformLocation!=-1)
-            services->setShaderConstant(&userData,sampleCountUniformLocation,sampleCountUniformType,1);
-    }
 
-    virtual void OnUnsetMaterial() {}
-};
+    // we can safely assume that all meshbuffers within mesh loaded from OBJ has same DS1 layout (used for camera-specific data)
+    const asset::ICPUMeshBuffer* const firstMeshBuffer = *meshRaw->getMeshBuffers().begin();
+    auto pipelineMetadata = metaOBJ->getAssetSpecificMetadata(firstMeshBuffer->getPipeline());
 
-
-
-int main()
-{
-	printf("\nChoose the Transparency Algorithm:\n");
-	printf(" (0 : default) None\n");
-	printf(" (1) Z-Sorted\n"); //would benefit from transmittance thresholding
-	printf(" (2) Stencil Routed Original\n"); //records k-first fragments (needs sorting for depth complexity>k)
-	printf(" (3) Stencil Routed A-la DevSH\n"); //records k nearest fragments from k disjoint sets
-	printf(" (4) Stencil Routed Min-Transmission\n"); //records k most opaque fragments from k disjoint sets (by putting the alpha value into the Z-buffer)
-	printf(" (5) A-Buffer\n");
-	printf(" (6) Stochastic\n");
-	printf(" (7) Adaptive OIT\n");
-	printf(" (8) Moment Transparency\n");
-	/** TODO
-	+ A-Buffer http://www.icare3d.org/codes-and-projects/codes/opengl-4-0-abuffer-v2-0-linked-lists-of-fragment-pages.html
-	+ Linked List
-	+ Offset List
-	+ Atomic Loop 64
-	+ Intel Method
-	+ AMD DX11 Method
-	+ k+ Buffer
-	**/
-
-	uint32_t method=3;
-	std::cin >> method;
-    printf("\nUsing method %d.\n",method);
-
-	// create device with full flexibility over creation parameters
-	// you can add more parameters if desired, check nbl::SIrrlichtCreationParameters
-	nbl::SIrrlichtCreationParameters params;
-	params.Bits = 24; //may have to set to 32bit for some platforms
-	params.ZBufferBits = 24; //we'd like 32bit here
-	params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing
-	params.WindowSize = dimension2d<uint32_t>(1280, 720);
-	params.Fullscreen = false;
-	params.Vsync = true; //! If supported by target platform
-	params.Doublebuffer = true;
-	params.Stencilbuffer = false; //! This will not even be a choice soon
-	IrrlichtDevice* device = createDeviceEx(params);
-
-	if (device == 0)
-		return 1; // could not create selected driver.
-
-
-	video::IVideoDriver* driver = device->getVideoDriver();
-
-	scene::ISceneManager* smgr = device->getSceneManager();
-	driver->setTextureCreationFlag(video::ETCF_ALWAYS_32_BIT, true);
-	scene::ICameraSceneNode* camera =
-		smgr->addCameraSceneNodeFPS(0,100.0f,0.01f);
-	camera->setPosition(core::vector3df(-4,0,0));
-	camera->setTarget(core::vector3df(0,0,0));
-	camera->setNearValue(0.01f);
-	camera->setFarValue(250.0f);
-    smgr->setActiveCamera(camera);
-
-
-	device->getCursorControl()->setVisible(false);
-	QToQuitEventReceiver receiver;
-	device->setEventReceiver(&receiver);
-
-
-        #define kInstanceSquareSize 10
-	core::matrix3x4SIMD instancePositions[kInstanceSquareSize*kInstanceSquareSize];
-
-    asset::IAssetLoader::SAssetLoadParams lparams;
-	auto cpumesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(*device->getAssetManager()->getAsset("../../media/dwarf.baw", lparams).getContents().first);
-    core::smart_refctd_ptr<video::IGPUMesh> gpumesh;
-    if (cpumesh)
-    {
-        gpumesh = driver->getGPUObjectsFromAssets(&cpumesh.get(), (&cpumesh.get()) + 1)->front();
-
-        for (size_t z=0; z<kInstanceSquareSize; z++)
-        for (size_t x=0; x<kInstanceSquareSize; x++)
+    // so we can create just one DS
+    const asset::ICPUDescriptorSetLayout* ds1layout = firstMeshBuffer->getPipeline()->getLayout()->getDescriptorSetLayout(1u);
+    uint32_t ds1UboBinding = 0u;
+    for (const auto& bnd : ds1layout->getBindings())
+        if (bnd.type==asset::EDT_UNIFORM_BUFFER)
         {
-            auto& matrix = instancePositions[x+kInstanceSquareSize*z];
-            matrix.setScale(core::vectorSIMDf(0.05f,0.05f,0.05f));
-            matrix.setTranslation(core::vectorSIMDf(x,0.f,z)*4.f);
-        }
-    }
-
-    //! Set up screen triangle for post-processing
-    auto screenTriangleMeshBuffer = ext::FullScreenTriangle::createFullScreenTriangle(driver);
-
-
-    //! Must be Power Of Two!
-    const uint32_t transparencyLayers = 0x1u<<3;
-
-
-    video::IFrameBuffer* framebuffer = driver->addFrameBuffer();
-    video::IMultisampleTexture* colorMT=NULL,* depthMT=NULL;
-    video::SGPUMaterial initMaterial,resolveMaterial;
-    switch (method)
-    {
-        case 0:
-        case 1:
-            {
-                SimpleCallBack* cb = new SimpleCallBack();
-                video::E_MATERIAL_TYPE newMaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../mesh.vert",
-                                                                    "","","", //! No Geometry or Tessellation Shaders
-                                                                    "../mesh.frag",
-                                                                    3,nbl::video::EMT_TRANSPARENT_ALPHA_CHANNEL,
-                                                                    cb, //! Our Shader Callback
-                                                                    0); //! No custom user data
-                cb->drop();
-                for (size_t i=0; i<gpumesh->getMeshBufferCount(); i++)
-                {
-                    video::SGPUMaterial& mat = gpumesh->getMeshBuffer(i)->getMaterial();
-                    mat.BlendOperation = video::EBO_ADD;
-                    mat.ZWriteEnable = false;
-                    mat.BackfaceCulling = false;
-                    mat.MaterialType = (video::E_MATERIAL_TYPE)newMaterialType;
-                }
-            }
+            ds1UboBinding = bnd.binding;
             break;
-        case 2:
-        case 3:
-            {
-                SimpleCallBack* cb = new SimpleCallBack();
-                video::E_MATERIAL_TYPE newMaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../mesh.vert",
-                                                                    "","","", //! No Geometry or Tessellation Shaders
-                                                                    "../mesh.frag",
-                                                                    3,nbl::video::EMT_SOLID,
-                                                                    cb, //! Our Shader Callback
-                                                                    0); //! No custom user data
-                cb->drop();
-                for (size_t i=0; i<gpumesh->getMeshBufferCount(); i++)
-                {
-                    video::SGPUMaterial& mat = gpumesh->getMeshBuffer(i)->getMaterial();
-                    if (method==2)
-                    {
-                        mat.ZBuffer = video::ECFN_ALWAYS;
-                        mat.ZWriteEnable = true; //original bavoil has this off
-                    }
-                    mat.BackfaceCulling = false;
-                    mat.MaterialType = (video::E_MATERIAL_TYPE)newMaterialType;
-                }
+        }
 
-                {
-                    const uint32_t numberOfSamples = transparencyLayers;
-                    colorMT = driver->addMultisampleTexture(video::IMultisampleTexture::EMTT_2D,numberOfSamples,&params.WindowSize.Width,asset::EF_B8G8R8A8_UNORM);
-                    depthMT = driver->addMultisampleTexture(video::IMultisampleTexture::EMTT_2D,numberOfSamples,&params.WindowSize.Width,asset::EF_D32_SFLOAT_S8_UINT);
-                    framebuffer->attach(video::EFAP_COLOR_ATTACHMENT0,colorMT);
-                    framebuffer->attach(video::EFAP_DEPTH_STENCIL_ATTACHMENT,depthMT);
-
-
-                    PostProcCallBack* callBack = new PostProcCallBack();
-
-
-                    initMaterial.BackfaceCulling = false; //! Triangles will be visible from both sides
-                    initMaterial.ZBuffer = video::ECFN_ALWAYS; //! Ignore Depth Test
-                    initMaterial.ZWriteEnable = false; //! Why even write depth?
-                    initMaterial.ColorMask = video::ECP_NONE; //! Why even write depth?
-                    initMaterial.MaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../fullscreentri.vert",
-                                                                                        "","","", //! No Geometry or Tessellation Shaders
-                                                                                        "../stencilKClear.frag",
-                                                                                        3,video::EMT_SOLID);
-
-                    resolveMaterial.BackfaceCulling = false; //! Triangles will be visible from both sides
-                    resolveMaterial.ZBuffer = video::ECFN_ALWAYS; //! Ignore Depth Test
-                    resolveMaterial.ZWriteEnable = false; //! Why even write depth?
-                    resolveMaterial.BlendOperation = video::EBO_ADD;
-                    resolveMaterial.MaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../fullscreentri.vert",
-                                                                                        "","","", //! No Geometry or Tessellation Shaders
-                                                                                        "../stencilKResolve.frag",
-                                                                                        3,video::EMT_TRANSPARENT_ALPHA_CHANNEL, //! 3 vertices per primitive (this is tessellation shader relevant only)
-                                                                                        callBack,
-                                                                                        NULL,0, //! Xform feedback stuff, irrelevant here
-                                                                                        numberOfSamples); //! custom user data
-                    //! Need to bind our Multisample Textures to the correct texture units upon draw
-                    resolveMaterial.setTexture(0,core::smart_refctd_ptr<video::IMultisampleTexture>(colorMT,dont_grab));
-                    resolveMaterial.setTexture(1,core::smart_refctd_ptr<video::IMultisampleTexture>(depthMT,dont_grab));
-
-
-                    callBack->drop();
-                }
-            }
-            break;
-        case 4:
-            {
-                SimpleCallBack* cb = new SimpleCallBack();
-                video::E_MATERIAL_TYPE newMaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../mesh.vert",
-                                                                    "","","", //! No Geometry or Tessellation Shaders
-                                                                    "../mesh_minTrans.frag",
-                                                                    3,nbl::video::EMT_SOLID,
-                                                                    cb, //! Our Shader Callback
-                                                                    0); //! No custom user data
-                cb->drop();
-                for (size_t i=0; i<gpumesh->getMeshBufferCount(); i++)
-                {
-                    video::SGPUMaterial& mat = gpumesh->getMeshBuffer(i)->getMaterial();
-                    mat.BackfaceCulling = false;
-                    mat.ZBuffer = video::ECFN_GREATER;
-                    mat.MaterialType = (video::E_MATERIAL_TYPE)newMaterialType;
-                }
-
-                {
-                    const uint32_t numberOfSamples = transparencyLayers;
-                    colorMT = driver->addMultisampleTexture(video::IMultisampleTexture::EMTT_2D,numberOfSamples,&params.WindowSize.Width,asset::EF_B8G8R8A8_UNORM);
-                    depthMT = driver->addMultisampleTexture(video::IMultisampleTexture::EMTT_2D,numberOfSamples,&params.WindowSize.Width,asset::EF_D32_SFLOAT_S8_UINT);
-                    framebuffer->attach(video::EFAP_COLOR_ATTACHMENT0,colorMT);
-                    framebuffer->attach(video::EFAP_DEPTH_STENCIL_ATTACHMENT,depthMT);
-
-
-                    PostProcCallBack* callBack = new PostProcCallBack();
-
-
-                    initMaterial.BackfaceCulling = false; //! Triangles will be visible from both sides
-                    initMaterial.ZBuffer = video::ECFN_ALWAYS; //! Ignore Depth Test
-                    initMaterial.ZWriteEnable = false; //! Why even write depth?
-                    initMaterial.ColorMask = video::ECP_NONE; //! Why even write depth?
-                    initMaterial.MaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../fullscreentri.vert",
-                                                                                        "","","", //! No Geometry or Tessellation Shaders
-                                                                                        "../stencilKClear.frag",
-                                                                                        3,video::EMT_SOLID);
-
-                    resolveMaterial.BackfaceCulling = false; //! Triangles will be visible from both sides
-                    resolveMaterial.ZBuffer = video::ECFN_ALWAYS; //! Ignore Depth Test
-                    resolveMaterial.ZWriteEnable = false; //! Why even write depth?
-                    resolveMaterial.BlendOperation = video::EBO_ADD;
-                    resolveMaterial.MaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../fullscreentri.vert",
-                                                                                        "","","", //! No Geometry or Tessellation Shaders
-                                                                                        "../minTransResolve.frag",
-                                                                                        3,video::EMT_TRANSPARENT_ALPHA_CHANNEL, //! 3 vertices per primitive (this is tessellation shader relevant only)
-                                                                                        callBack,
-                                                                                        NULL,0, //! Xform feedback stuff, irrelevant here
-                                                                                        numberOfSamples); //! custom user data
-                    //! Need to bind our Multisample Textures to the correct texture units upon draw
-					resolveMaterial.setTexture(0, core::smart_refctd_ptr<video::IMultisampleTexture>(colorMT, dont_grab));
-					resolveMaterial.setTexture(1, core::smart_refctd_ptr<video::IMultisampleTexture>(depthMT, dont_grab));
-
-
-                    callBack->drop();
-                }
-            }
-            break;
-        default:
-            break;
-    }
-
-
-    uint64_t lastFPSTime = 0;
-
-    while(device->run() && receiver.keepOpen())
+    size_t neededDS1UBOsz = 0ull;
     {
-        driver->beginScene( false,false );
+        for (const auto& shdrIn : pipelineMetadata->m_inputSemantics)
+            if (shdrIn.descriptorSection.type==asset::IRenderpassIndependentPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER && shdrIn.descriptorSection.uniformBufferObject.set==1u && shdrIn.descriptorSection.uniformBufferObject.binding==ds1UboBinding)
+                neededDS1UBOsz = std::max<size_t>(neededDS1UBOsz, shdrIn.descriptorSection.uniformBufferObject.relByteoffset+shdrIn.descriptorSection.uniformBufferObject.bytesize);
+    }
 
-        //! This animates (moves) the camera and sets the transforms
-        smgr->drawAll();
+    core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> gpuds1layout;
+    {
+        auto gpu_array = cpu2gpu.getGPUObjectsFromAssets(&ds1layout, &ds1layout + 1, cpu2gpuParams);
+        if (!gpu_array || gpu_array->size() < 1u || !(*gpu_array)[0])
+            assert(false);
 
-        switch (method)
+        //cpu2gpuWaitForFences();
+        gpuds1layout = (*gpu_array)[0];
+    }
+
+    auto descriptorPool = createDescriptorPool(1u);
+
+    auto ubomemreq = logicalDevice->getDeviceLocalGPUMemoryReqs();
+    ubomemreq.vulkanReqs.size = neededDS1UBOsz;
+
+    video::IGPUBuffer::SCreationParams gpuuboCreationParams;
+    gpuuboCreationParams.usage = asset::IBuffer::EUF_UNIFORM_BUFFER_BIT;
+    gpuuboCreationParams.sharingMode = asset::E_SHARING_MODE::ESM_CONCURRENT;
+    gpuuboCreationParams.queueFamilyIndexCount = 0u;
+    gpuuboCreationParams.queueFamilyIndices = nullptr;
+
+    auto gpuubo = logicalDevice->createGPUBufferOnDedMem(gpuuboCreationParams,ubomemreq,true);
+    auto gpuds1 = logicalDevice->createGPUDescriptorSet(descriptorPool.get(), std::move(gpuds1layout));
+    {
+        video::IGPUDescriptorSet::SWriteDescriptorSet write;
+        write.dstSet = gpuds1.get();
+        write.binding = ds1UboBinding;
+        write.count = 1u;
+        write.arrayElement = 0u;
+        write.descriptorType = asset::EDT_UNIFORM_BUFFER;
+        video::IGPUDescriptorSet::SDescriptorInfo info;
         {
-            case 0:
-                {
-                    vectorSIMDf clearColor(1.f,1.f,1.f,1.f);
-                    driver->clearColorBuffer(video::EFAP_COLOR_ATTACHMENT0,clearColor.pointer);
-                    driver->clearZBuffer();
-
-                    for (size_t z=0; z<kInstanceSquareSize; z++)
-                    for (size_t x=0; x<kInstanceSquareSize; x++)
-                    {
-                        driver->setTransform(video::E4X3TS_WORLD,instancePositions[x+kInstanceSquareSize*z]);
-                        for (size_t i=0; i<gpumesh->getMeshBufferCount(); i++)
-                        {
-                            driver->setMaterial(gpumesh->getMeshBuffer(i)->getMaterial());
-                            driver->drawMeshBuffer(gpumesh->getMeshBuffer(i));
-                        }
-                    }
-                }
-                break;
-            case 1:
-                {
-                    vectorSIMDf clearColor(1.f,1.f,1.f,1.f);
-                    driver->clearColorBuffer(video::EFAP_COLOR_ATTACHMENT0,clearColor.pointer);
-                    driver->clearZBuffer();
-
-
-                    std::pair<float,const core::matrix3x4SIMD*> distanceSortedInstances[kInstanceSquareSize*kInstanceSquareSize];
-                    for (size_t z=0; z<kInstanceSquareSize; z++)
-                    for (size_t x=0; x<kInstanceSquareSize; x++)
-                    {
-                        size_t offset = x+kInstanceSquareSize*z;
-                        const auto* matrix = instancePositions+offset;
-                        float dist = core::length(core::vectorSIMDf().set(camera->getAbsolutePosition())-matrix->getTranslation3D()).x;
-                        distanceSortedInstances[offset] = std::pair<float,const core::matrix3x4SIMD*>(dist,matrix);
-                    }
-                    struct
-                    {
-                        bool operator()(const std::pair<float,const core::matrix3x4SIMD*>& a, const std::pair<float,const core::matrix3x4SIMD*>& b) const
-                        {
-                            return a.first > b.first;
-                        }
-                    } customLess;
-                    std::stable_sort(distanceSortedInstances,distanceSortedInstances+kInstanceSquareSize*kInstanceSquareSize,customLess);
-
-
-                    for (size_t ix=0; ix<kInstanceSquareSize*kInstanceSquareSize; ix++)
-                    {
-                        driver->setTransform(video::E4X3TS_WORLD,*distanceSortedInstances[ix].second);
-                        for (size_t i=0; i<gpumesh->getMeshBufferCount(); i++)
-                        {
-                            driver->setMaterial(gpumesh->getMeshBuffer(i)->getMaterial());
-                            driver->drawMeshBuffer(gpumesh->getMeshBuffer(i));
-                        }
-                    }
-                }
-                break;
-            case 2:
-                {
-                    ///fix the shit between here
-                    driver->setRenderTarget(framebuffer);
-                    vectorSIMDf clearColor(0.f);
-                    driver->clearColorBuffer(video::EFAP_COLOR_ATTACHMENT0,clearColor.pointer);
-                    //to reset the depth mask, otherwise won't clear
-                    glDepthMask(GL_TRUE);
-                    driver->clearZStencilBuffers(0,2);
-
-                    glEnable(GL_STENCIL_TEST);
-                    glStencilOp(GL_KEEP,GL_KEEP,GL_REPLACE);
-
-                    //init the stencil buffer
-                    glEnable(GL_MULTISAMPLE);
-                    glEnable(GL_SAMPLE_MASK);
-                    for (uint32_t i=1; i<transparencyLayers; i++)
-                    {
-                        glStencilFunc(GL_ALWAYS,i+2,transparencyLayers-1);
-                        video::COpenGLExtensionHandler::extGlSampleMaski(0,0x1u<<i);
-                        driver->setMaterial(initMaterial);
-                        driver->drawMeshBuffer(screenTriangleMeshBuffer.get());
-                    }
-                    video::COpenGLExtensionHandler::extGlSampleMaski(0,~0x0u);
-                    glDisable(GL_SAMPLE_MASK);
-                    glDisable(GL_MULTISAMPLE);
-
-                    //draw our stuff
-                    glStencilOp(GL_DECR,GL_DECR,GL_DECR);
-                    glStencilFunc(GL_EQUAL,2,transparencyLayers-1);
-                    for (size_t z=0; z<kInstanceSquareSize; z++)
-                    for (size_t x=0; x<kInstanceSquareSize; x++)
-                    {
-                        driver->setTransform(video::E4X3TS_WORLD,instancePositions[x+kInstanceSquareSize*z]);
-                        for (size_t i=0; i<gpumesh->getMeshBufferCount(); i++)
-                        {
-                            driver->setMaterial(gpumesh->getMeshBuffer(i)->getMaterial());
-                            driver->drawMeshBuffer(gpumesh->getMeshBuffer(i));
-                        }
-                    }
-                    glDisable(GL_STENCIL_TEST);
-
-                    //! Resolve
-                    {
-                        driver->setRenderTarget(0);
-                        clearColor = vectorSIMDf(1.f);
-                        driver->clearColorBuffer(video::EFAP_COLOR_ATTACHMENT0,clearColor.pointer);
-
-                        driver->setMaterial(resolveMaterial);
-                        driver->drawMeshBuffer(screenTriangleMeshBuffer.get());
-                    }
-                    //to reset the depth mask
-                    ///driver->setMaterial(video::SMaterial());
-                }
-                break;
-            case 3:
-            case 4: //only resolve differs
-                {
-                    ///fix the shit between here
-                    driver->setRenderTarget(framebuffer);
-                    vectorSIMDf clearColor(0.f);
-                    driver->clearColorBuffer(video::EFAP_COLOR_ATTACHMENT0,clearColor.pointer);
-                    //to reset the depth mask, otherwise won't clear
-                    glDepthMask(GL_TRUE);
-                    driver->clearZStencilBuffers(0,0);
-
-                    glEnable(GL_STENCIL_TEST);
-                    glStencilOp(GL_KEEP,GL_KEEP,GL_REPLACE);
-
-                    //init the stencil buffer
-                    glEnable(GL_MULTISAMPLE);
-                    glEnable(GL_SAMPLE_MASK);
-                    for (uint32_t i=1; i<transparencyLayers; i++)
-                    {
-                        glStencilFunc(GL_ALWAYS,i,transparencyLayers-1);
-                        video::COpenGLExtensionHandler::extGlSampleMaski(0,0x1u<<i);
-                        driver->setMaterial(initMaterial);
-                        driver->drawMeshBuffer(screenTriangleMeshBuffer.get());
-                    }
-                    video::COpenGLExtensionHandler::extGlSampleMaski(0,~0x0u);
-                    glDisable(GL_SAMPLE_MASK);
-                    glDisable(GL_MULTISAMPLE);
-
-                    //draw our stuff
-                    glStencilOp(GL_DECR_WRAP,GL_DECR_WRAP,GL_DECR_WRAP);
-                    glStencilFunc(GL_EQUAL,0,transparencyLayers-1);
-                    for (size_t z=0; z<kInstanceSquareSize; z++)
-                    for (size_t x=0; x<kInstanceSquareSize; x++)
-                    {
-                        driver->setTransform(video::E4X3TS_WORLD,instancePositions[x+kInstanceSquareSize*z]);
-                        for (size_t i=0; i<gpumesh->getMeshBufferCount(); i++)
-                        {
-                            driver->setMaterial(gpumesh->getMeshBuffer(i)->getMaterial());
-                            driver->drawMeshBuffer(gpumesh->getMeshBuffer(i));
-                        }
-                    }
-                    glDisable(GL_STENCIL_TEST);
-
-                    //! Resolve
-                    {
-                        driver->setRenderTarget(0);
-                        clearColor = vectorSIMDf(1.f);
-                        driver->clearColorBuffer(video::EFAP_COLOR_ATTACHMENT0,clearColor.pointer);
-
-                        driver->setMaterial(resolveMaterial);
-                        driver->drawMeshBuffer(screenTriangleMeshBuffer.get());
-                    }
-                    //to reset the depth mask
-                    ///driver->setMaterial(video::SMaterial());
-                }
-                break;
-            default:
-                break;
+            info.desc = gpuubo;
+            info.buffer.offset = 0ull;
+            info.buffer.size = neededDS1UBOsz;
         }
+        write.info = &info;
+        logicalDevice->updateDescriptorSets(1u, &write, 0u, nullptr);
+    }
 
+    core::vector<core::smart_refctd_ptr<video::IGPUMeshBuffer>> gpu_transMeshes;
+    core::vector<core::smart_refctd_ptr<video::IGPUMeshBuffer>> gpu_opaqueMeshes;
+    core::vector<core::smart_refctd_ptr<video::IGPUMeshBuffer>> gpu_allMeshes;
+    {
+        auto gpu_array = cpu2gpu.getGPUObjectsFromAssets(transparentMeshes.data(), transparentMeshes.data()+transparentMeshes.size(), cpu2gpuParams);
+        if (!gpu_array || gpu_array->size() < 1u || !(*gpu_array)[0])
+            assert(false);
+        for (auto& mb : *gpu_array)
+            gpu_transMeshes.push_back(mb);
+        cpu2gpuWaitForFences();
 
-        driver->endScene();
+        gpuTransferFence = nullptr;
+        gpuComputeFence = nullptr;
+        
+        gpu_array = cpu2gpu.getGPUObjectsFromAssets(opaqueMeshes.data(), opaqueMeshes.data() + opaqueMeshes.size(), cpu2gpuParams);
+        if (!gpu_array || gpu_array->size() < 1u || !(*gpu_array)[0])
+            assert(false);
+        for (auto& mb : *gpu_array)
+            gpu_opaqueMeshes.push_back(mb);
+        cpu2gpuWaitForFences();
 
-        // display frames per second in window title
-        uint64_t time = device->getTimer()->getRealTime();
-        if (time-lastFPSTime > 1000)
+        gpuTransferFence = nullptr;
+        gpuComputeFence = nullptr;
+
+        gpu_allMeshes.insert(gpu_allMeshes.begin(), gpu_transMeshes.begin(), gpu_transMeshes.end());
+        gpu_allMeshes.insert(gpu_allMeshes.begin(), gpu_opaqueMeshes.begin(), gpu_opaqueMeshes.end());
+    }
+
+    using RENDERPASS_INDEPENDENT_PIPELINE_ADRESS = size_t;
+    std::map<RENDERPASS_INDEPENDENT_PIPELINE_ADRESS, core::smart_refctd_ptr<video::IGPUGraphicsPipeline>> gpuPipelines;
+    {
+        for (size_t i = 0; i < gpu_allMeshes.size(); ++i)
         {
-            std::wostringstream str;
-            str << L"Builtin Nodes Demo - Irrlicht Engine [" << driver->getName() << "] FPS:" << driver->getFPS() << " PrimitvesDrawn:" << driver->getPrimitiveCountDrawn();
+            auto gpuIndependentPipeline = gpu_allMeshes[i]->getPipeline();
 
-            device->setWindowCaption(str.str());
-            lastFPSTime = time;
+            nbl::video::IGPUGraphicsPipeline::SCreationParams graphicsPipelineParams;
+            graphicsPipelineParams.renderpassIndependent = core::smart_refctd_ptr<nbl::video::IGPURenderpassIndependentPipeline>(const_cast<video::IGPURenderpassIndependentPipeline*>(gpuIndependentPipeline));
+            graphicsPipelineParams.renderpass = core::smart_refctd_ptr(renderpass);
+
+            const RENDERPASS_INDEPENDENT_PIPELINE_ADRESS adress = reinterpret_cast<RENDERPASS_INDEPENDENT_PIPELINE_ADRESS>(graphicsPipelineParams.renderpassIndependent.get());
+            if (gpuPipelines.find(adress) != gpuPipelines.end())
+                continue;
+            gpuPipelines[adress] = logicalDevice->createGPUGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
         }
     }
 
+    CommonAPI::InputSystem::ChannelReader<IMouseEventChannel> mouse;
+    CommonAPI::InputSystem::ChannelReader<IKeyboardEventChannel> keyboard;
 
-    //! Cleanup
-    driver->removeAllFrameBuffers();
-    driver->removeAllMultisampleTextures();
+    core::vectorSIMDf cameraPosition(0, 5, -10);
+    matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60), float(WIN_W) / WIN_H, 0.1, 1000);
+    Camera camera = Camera(cameraPosition, core::vectorSIMDf(0, 0, 0), projectionMatrix, 10.f, 1.f);
+    auto lastTime = std::chrono::system_clock::now();
 
-	//create a screenshot
+    constexpr size_t NBL_FRAMES_TO_AVERAGE = 100ull;
+    bool frameDataFilled = false;
+    size_t frame_count = 0ull;
+    double time_sum = 0;
+    double dtList[NBL_FRAMES_TO_AVERAGE] = {};
+    for (size_t i = 0ull; i < NBL_FRAMES_TO_AVERAGE; ++i)
+        dtList[i] = 0.0;
+
+    core::smart_refctd_ptr<video::IGPUCommandBuffer> commandBuffers[FRAMES_IN_FLIGHT];
+    logicalDevice->createCommandBuffers(commandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY, FRAMES_IN_FLIGHT, commandBuffers);
+
+    core::smart_refctd_ptr<video::IGPUFence> frameComplete[FRAMES_IN_FLIGHT] = { nullptr };
+    core::smart_refctd_ptr<video::IGPUSemaphore> imageAcquire[FRAMES_IN_FLIGHT] = { nullptr };
+    core::smart_refctd_ptr<video::IGPUSemaphore> renderFinished[FRAMES_IN_FLIGHT] = { nullptr };
+
+    for (uint32_t i = 0u; i < FRAMES_IN_FLIGHT; i++)
+    {
+        imageAcquire[i] = logicalDevice->createSemaphore();
+        renderFinished[i] = logicalDevice->createSemaphore();
+    }
+
+    constexpr uint64_t MAX_TIMEOUT = 99999999999999ull;
+    uint32_t acquiredNextFBO = {};
+    auto resourceIx = -1;
+
+    uint32_t frameNum = 0u;
+	while(windowCallback->isWindowOpen())
 	{
-		core::rect<uint32_t> sourceRect(0, 0, params.WindowSize.Width, params.WindowSize.Height);
-		ext::ScreenShot::dirtyCPUStallingScreenshot(driver, device->getAssetManager(), "screenshot.png", sourceRect, asset::EF_R8G8B8_SRGB);
-	}
+        ++resourceIx;
+        if (resourceIx >= FRAMES_IN_FLIGHT)
+            resourceIx = 0;
+        
+        auto& commandBuffer = commandBuffers[resourceIx];
+        auto& fence = frameComplete[resourceIx];
 
-	device->drop();
+        if (fence)
+            while (logicalDevice->waitForFences(1u, &fence.get(), false, MAX_TIMEOUT) == video::IGPUFence::ES_TIMEOUT) {}
+        else
+            fence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
 
-	return 0;
+        auto renderStart = std::chrono::system_clock::now();
+        const auto renderDt = std::chrono::duration_cast<std::chrono::milliseconds>(renderStart - lastTime).count();
+        lastTime = renderStart;
+        { // Calculate Simple Moving Average for FrameTime
+            time_sum -= dtList[frame_count];
+            time_sum += renderDt;
+            dtList[frame_count] = renderDt;
+            frame_count++;
+            if (frame_count >= NBL_FRAMES_TO_AVERAGE) 
+			{
+				frameDataFilled = true;
+				frame_count = 0;
+			}
+                
+        }
+        const double averageFrameTime = frameDataFilled ? (time_sum / (double)NBL_FRAMES_TO_AVERAGE) : (time_sum / frame_count);
+
+        #ifdef NBL_MORE_LOGS
+        logger->log("renderDt = %f ------ averageFrameTime = %f", system::ILogger::ELL_INFO, renderDt, averageFrameTime);
+        #endif // NBL_MORE_LOGS
+
+        auto averageFrameTimeDuration = std::chrono::duration<double, std::milli>(averageFrameTime);
+        auto nextPresentationTime = renderStart + averageFrameTimeDuration;
+        auto nextPresentationTimeStamp = std::chrono::duration_cast<std::chrono::microseconds>(nextPresentationTime.time_since_epoch());
+
+        inputSystem->getDefaultMouse(&mouse);
+        inputSystem->getDefaultKeyboard(&keyboard);
+
+        camera.beginInputProcessing(nextPresentationTimeStamp);
+        mouse.consumeEvents([&](const IMouseEventChannel::range_t& events) -> void { camera.mouseProcess(events); }, logger.get());
+        keyboard.consumeEvents([&](const IKeyboardEventChannel::range_t& events) -> void { camera.keyboardProcess(events); }, logger.get());
+        camera.endInputProcessing(nextPresentationTimeStamp);
+
+        const auto& viewMatrix = camera.getViewMatrix();
+        const auto& viewProjectionMatrix = camera.getConcatenatedMatrix();
+
+        commandBuffer->reset(nbl::video::IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
+        commandBuffer->begin(0);
+        
+        asset::SViewport viewport;
+        viewport.minDepth = 1.f;
+        viewport.maxDepth = 0.f;
+        viewport.x = 0u;
+        viewport.y = 0u;
+        viewport.width = WIN_W;
+        viewport.height = WIN_H;
+        commandBuffer->setViewport(0u, 1u, &viewport);
+
+        swapchain->acquireNextImage(MAX_TIMEOUT, imageAcquire[resourceIx].get(), nullptr, &acquiredNextFBO);
+
+        // clear all pixels to 1.f in first frame,
+        // all later frames will clear their pixels at the end of OIT resolve shader
+        if (frameNum == 0u)
+        {
+            oit.invalidateNodesVisibility(commandBuffer.get());
+        }
+
+        nbl::video::IGPUCommandBuffer::SRenderpassBeginInfo beginInfo;
+        {
+            VkRect2D area;
+            area.offset = { 0,0 };
+            area.extent = { WIN_W, WIN_H };
+            asset::SClearValue clear[2] = {};
+            clear[0].color.float32[0] = 1.f;
+            clear[0].color.float32[1] = 1.f;
+            clear[0].color.float32[2] = 1.f;
+            clear[0].color.float32[3] = 0.f;
+            clear[1].depthStencil.depth = 0.f;
+            clear[1].depthStencil.stencil = 0;
+
+            beginInfo.clearValueCount = 2u;
+            beginInfo.framebuffer = fbos[acquiredNextFBO];
+            beginInfo.renderpass = renderpass;
+            beginInfo.renderArea = area;
+            beginInfo.clearValues = clear;
+        }
+        
+        commandBuffer->beginRenderPass(&beginInfo, nbl::asset::ESC_INLINE);
+
+        core::matrix3x4SIMD modelMatrix;
+        modelMatrix.setTranslation(nbl::core::vectorSIMDf(0, 0, 0, 0));
+
+        core::matrix4SIMD mvp = core::concatenateBFollowedByA(viewProjectionMatrix, modelMatrix);
+
+        core::vector<uint8_t> uboData(gpuubo->getSize());
+        for (const auto& shdrIn : pipelineMetadata->m_inputSemantics)
+        {
+            if (shdrIn.descriptorSection.type==asset::IRenderpassIndependentPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER && shdrIn.descriptorSection.uniformBufferObject.set==1u && shdrIn.descriptorSection.uniformBufferObject.binding==ds1UboBinding)
+            {
+                switch (shdrIn.type)
+                {
+                    case asset::IRenderpassIndependentPipelineMetadata::ECSI_WORLD_VIEW_PROJ:
+                    {
+                        memcpy(uboData.data()+shdrIn.descriptorSection.uniformBufferObject.relByteoffset, mvp.pointer(), shdrIn.descriptorSection.uniformBufferObject.bytesize);
+                    } break;
+                    
+                    case asset::IRenderpassIndependentPipelineMetadata::ECSI_WORLD_VIEW:
+                    {
+                        memcpy(uboData.data() + shdrIn.descriptorSection.uniformBufferObject.relByteoffset, viewMatrix.pointer(), shdrIn.descriptorSection.uniformBufferObject.bytesize);
+                    } break;
+                    
+                    case asset::IRenderpassIndependentPipelineMetadata::ECSI_WORLD_VIEW_INVERSE_TRANSPOSE:
+                    {
+                        memcpy(uboData.data()+shdrIn.descriptorSection.uniformBufferObject.relByteoffset, viewMatrix.pointer(), shdrIn.descriptorSection.uniformBufferObject.bytesize);
+                    } break;
+                }
+            }
+        }       
+
+        commandBuffer->updateBuffer(gpuubo.get(), 0ull, gpuubo->getSize(), uboData.data());
+
+        //draw opaque
+        for (size_t i = 0; i < gpu_opaqueMeshes.size(); ++i)
+        {
+            auto gpuMeshBuffer = gpu_opaqueMeshes[i].get();
+            auto gpuGraphicsPipeline = gpuPipelines[reinterpret_cast<RENDERPASS_INDEPENDENT_PIPELINE_ADRESS>(gpuMeshBuffer->getPipeline())];
+
+            const video::IGPURenderpassIndependentPipeline* gpuRenderpassIndependentPipeline = gpuMeshBuffer->getPipeline();
+            const video::IGPUDescriptorSet* ds3 = gpuMeshBuffer->getAttachedDescriptorSet();
+            
+            commandBuffer->bindGraphicsPipeline(gpuGraphicsPipeline.get());
+
+            const video::IGPUDescriptorSet* gpuds1_ptr = gpuds1.get();
+            commandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS, gpuRenderpassIndependentPipeline->getLayout(), 1u, 1u, &gpuds1_ptr, nullptr);
+            const video::IGPUDescriptorSet* gpuds3_ptr = gpuMeshBuffer->getAttachedDescriptorSet();
+            if (gpuds3_ptr)
+                commandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS, gpuRenderpassIndependentPipeline->getLayout(), 3u, 1u, &gpuds3_ptr, nullptr);
+            commandBuffer->pushConstants(gpuRenderpassIndependentPipeline->getLayout(), video::IGPUSpecializedShader::ESS_FRAGMENT, 0u, gpuMeshBuffer->MAX_PUSH_CONSTANT_BYTESIZE, gpuMeshBuffer->getPushConstantsDataPtr());
+
+            commandBuffer->drawMeshBuffer(gpuMeshBuffer);
+        }
+
+        // OIT 1st pass
+        for (size_t i = 0; i < gpu_transMeshes.size(); ++i)
+        {
+            auto gpuMeshBuffer = gpu_transMeshes[i].get();
+
+            const video::IGPURenderpassIndependentPipeline* gpuRenderpassIndependentPipeline = gpuMeshBuffer->getPipeline();
+            const video::IGPUDescriptorSet* ds3 = gpuMeshBuffer->getAttachedDescriptorSet();
+            const video::IGPUDescriptorSet* gpuds2_ptr = ds2.get();
+            const video::IGPUDescriptorSet* gpuds3_ptr = gpuMeshBuffer->getAttachedDescriptorSet();
+
+            commandBuffer->bindGraphicsPipeline(oit_pass1_pipeline.get());
+            const video::IGPUDescriptorSet* gpuds1_ptr = gpuds1.get();
+            commandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS, oit_pass1_pipeline->getRenderpassIndependentPipeline()->getLayout(), 1u, 1u, &gpuds1_ptr, nullptr);
+            commandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS, oit_pass1_pipeline->getRenderpassIndependentPipeline()->getLayout(), 2u, 1u, &ds2.get());
+            if (gpuds3_ptr)
+                commandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS, oit_pass1_pipeline->getRenderpassIndependentPipeline()->getLayout(), 3u, 1u, &gpuds3_ptr, nullptr);
+
+            commandBuffer->drawMeshBuffer(gpuMeshBuffer);
+        }
+
+        // mem barriers on OIT images
+        oit.barrierBetweenPasses(commandBuffer.get(), queues[decltype(initOutput)::EQT_GRAPHICS]->getFamilyIndex());
+
+        //OIT resolve
+        oit.resolvePass(commandBuffer.get(), oit_resolve_ppln.get(), ds2.get(), 2u);
+
+        // mem barrier on OIT vis image (written at the end of resolve pass)
+        oit.barrierAfterResolve(commandBuffer.get(), queues[decltype(initOutput)::EQT_GRAPHICS]->getFamilyIndex());
+
+        commandBuffer->endRenderPass();
+        commandBuffer->end();
+
+        CommonAPI::Submit(logicalDevice.get(), swapchain.get(), commandBuffer.get(), queues[decltype(initOutput)::EQT_GRAPHICS], imageAcquire[resourceIx].get(), renderFinished[resourceIx].get(), fence.get());
+        CommonAPI::Present(logicalDevice.get(), swapchain.get(), queues[decltype(initOutput)::EQT_GRAPHICS], renderFinished[resourceIx].get(), acquiredNextFBO);
+
+        frameNum++;
+    }
+
+    const auto& fboCreationParams = fbos[acquiredNextFBO]->getCreationParameters();
+    auto gpuSourceImageView = fboCreationParams.attachments[0];
+
+    bool status = ext::ScreenShot::createScreenShot(logicalDevice.get(), queues[decltype(initOutput)::EQT_TRANSFER_UP], renderFinished[resourceIx].get(), gpuSourceImageView.get(), assetManager.get(), "ScreenShot.png");
+    assert(status);
+
+    return 0;
 }
