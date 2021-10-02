@@ -26,13 +26,38 @@ struct NBL_CAPTION_DATA_TO_DISPLAY
 
 int main()
 {
-    constexpr uint32_t NBL_WINDOW_WIDTH = 1280;
-    constexpr uint32_t NBL_WINDOW_HEIGHT = 720;
+    constexpr uint32_t WINDOW_WIDTH = 1280;
+    constexpr uint32_t WINDOW_HEIGHT = 720;
 	constexpr uint32_t SC_IMG_COUNT = 3u;
-	constexpr uint32_t FRAMES_IN_FLIGHT = 5u;
-	static_assert(FRAMES_IN_FLIGHT > SC_IMG_COUNT);
+	constexpr uint32_t FRAMES_IN_FLIGHT = 2u;
+	// static_assert(FRAMES_IN_FLIGHT > SC_IMG_COUNT);
 
-    auto initOutput = CommonAPI::Init<NBL_WINDOW_WIDTH, NBL_WINDOW_HEIGHT, SC_IMG_COUNT>(video::EAT_OPENGL, "ColorSpaceTest");
+	CommonAPI::SFeatureRequest<video::IAPIConnection::E_FEATURE> requiredInstanceFeatures = {};
+	requiredInstanceFeatures.count = 1u;
+	video::IAPIConnection::E_FEATURE requiredFeatures_Instance[] = { video::IAPIConnection::EF_SURFACE };
+
+	CommonAPI::SFeatureRequest<video::IAPIConnection::E_FEATURE> optionalInstanceFeatures = {};
+
+	CommonAPI::SFeatureRequest<video::ILogicalDevice::E_FEATURE> requiredDeviceFeatures = {};
+	requiredDeviceFeatures.count = 1u;
+	video::ILogicalDevice::E_FEATURE requiredFeatures_Device[] = { video::ILogicalDevice::EF_SWAPCHAIN };
+	requiredDeviceFeatures.features = requiredFeatures_Device;
+
+	CommonAPI::SFeatureRequest< video::ILogicalDevice::E_FEATURE> optionalDeviceFeatures = {};
+
+	const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_STORAGE_BIT);
+	const video::ISurface::SFormat surfaceFormat(asset::EF_B8G8R8A8_UNORM, asset::ECP_COUNT, asset::EOTF_UNKNOWN);
+
+    auto initOutput = CommonAPI::Init<WINDOW_WIDTH, WINDOW_HEIGHT, SC_IMG_COUNT>(
+		video::EAT_OPENGL,
+		"09.ColorSpaceTest",
+		requiredInstanceFeatures,
+		optionalInstanceFeatures,
+		requiredDeviceFeatures,
+		optionalDeviceFeatures,
+		swapchainImageUsage,
+		surfaceFormat);
+
     auto window = std::move(initOutput.window);
     auto gl = std::move(initOutput.apiConnection);
     auto surface = std::move(initOutput.surface);
@@ -51,10 +76,13 @@ int main()
 	auto gpuComputeFence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
 
 	nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
+	// Not sure why we havet this
+#if 0
 	{
 		cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].fence = &gpuTransferFence;
 		cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].fence = &gpuComputeFence;
 	}
+#endif
 
 	auto cpu2gpuWaitForFences = [&]() -> void
 	{
@@ -231,11 +259,23 @@ int main()
 			}
 		}
 	}
+
+	core::smart_refctd_ptr<video::IGPUCommandBuffer> transferCmdBuffer, computeCmdBuffer;
+
+	logicalDevice->createCommandBuffers(commandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY, 1u, &transferCmdBuffer);
+	logicalDevice->createCommandBuffers(commandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY, 1u, &computeCmdBuffer);
+
+	cpu2gpuParams.perQueue[video::IGPUObjectFromAssetConverter::EQU_TRANSFER].cmdbuf = transferCmdBuffer;
+	cpu2gpuParams.perQueue[video::IGPUObjectFromAssetConverter::EQU_COMPUTE].cmdbuf = computeCmdBuffer;
 	
+	cpu2gpuParams.beginCommandBuffers();
 	auto gpuImageViews = cpu2gpu.getGPUObjectsFromAssets(cpuImageViews.data(), cpuImageViews.data() + cpuImageViews.size(), cpu2gpuParams);
+	cpu2gpuParams.waitForCreationToComplete(false);
+
 	if (!gpuImageViews || gpuImageViews->size() < cpuImageViews.size())
 		assert(false);
-	cpu2gpuWaitForFences();
+
+	// cpu2gpuWaitForFences();
 
 	auto getCurrentGPURenderpassIndependentPipeline = [&](nbl::video::IGPUImageView* gpuImageView)
 	{
@@ -343,8 +383,8 @@ int main()
 			viewport.maxDepth = 0.f;
 			viewport.x = 0u;
 			viewport.y = 0u;
-			viewport.width = NBL_WINDOW_WIDTH;
-			viewport.height = NBL_WINDOW_HEIGHT;
+			viewport.width = WINDOW_WIDTH;
+			viewport.height = WINDOW_HEIGHT;
 			commandBuffer->setViewport(0u, 1u, &viewport);
 
 			swapchain->acquireNextImage(MAX_TIMEOUT, imageAcquire[resourceIx].get(), nullptr, &acquiredNextFBO);
@@ -353,7 +393,7 @@ int main()
 			{
 				VkRect2D area;
 				area.offset = { 0,0 };
-				area.extent = { NBL_WINDOW_WIDTH, NBL_WINDOW_HEIGHT };
+				area.extent = { WINDOW_WIDTH, WINDOW_HEIGHT };
 				nbl::asset::SClearValue clear;
 				clear.color.float32[0] = 1.f;
 				clear.color.float32[1] = 1.f;
@@ -393,6 +433,7 @@ int main()
 		bool status = presentImageOnTheScreen(nbl::core::smart_refctd_ptr(gpuImageView), captionData);
 		assert(status);
 	}
+
 
 	return 0;
 }
