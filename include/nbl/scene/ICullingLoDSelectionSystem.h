@@ -29,11 +29,27 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 		};
 
 		//
-		static core::smart_refctd_ptr<video::IGPUBuffer> createDispatchIndirectBuffer(video::ILogicalDevice* logicalDevice)
+		static core::smart_refctd_ptr<video::IGPUBuffer> createDispatchIndirectBuffer(video::IUtilities* utils, video::IGPUQueue* queue)
 		{
+			DispatchIndirectParams contents;
+			auto setWorkgroups = [](asset::DispatchIndirectCommand_t& cmd)
+			{
+				cmd.num_groups_x = 0u;
+				cmd.num_groups_y = 1u;
+				cmd.num_groups_z = 1u;
+			};
+			setWorkgroups(contents.instanceCullAndLoDSelect);
+			setWorkgroups(contents.instanceDrawCountPrefixSum);
+			setWorkgroups(contents.instanceDrawCull);
+			setWorkgroups(contents.drawInstanceCountPrefixSum);
+			setWorkgroups(contents.instanceRefCountingSortScatter);
+			setWorkgroups(contents.drawCompact);
+			// TODO: get rid of this
+			contents.instanceRefCountingSortScatter.num_groups_x = 1u;
+
             video::IGPUBuffer::SCreationParams params;
             params.usage = core::bitflag(asset::IBuffer::EUF_STORAGE_BUFFER_BIT)|asset::IBuffer::EUF_INDIRECT_BUFFER_BIT;
-            return logicalDevice->createDeviceLocalGPUBufferOnDedMem(params,sizeof(DispatchIndirectParams));
+            return utils->createFilledDeviceLocalGPUBufferOnDedMem(queue,sizeof(contents),&contents);
 		}
 
 		//
@@ -223,10 +239,10 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 		{
 			video::IGPUCommandBuffer* cmdbuf; // must already be in recording state
 			asset::SBufferBinding<const video::IGPUBuffer> indirectDispatchParams;
-			const video::IGPUDescriptorSet* lodLibraryDS;
-			const video::IGPUDescriptorSet* transientInputDS;
-			const video::IGPUDescriptorSet* transientOutputDS;
-			const video::IGPUDescriptorSet* customDS;
+			core::smart_refctd_ptr<video::IGPUDescriptorSet> lodLibraryDS;
+			core::smart_refctd_ptr<video::IGPUDescriptorSet> transientInputDS;
+			core::smart_refctd_ptr<video::IGPUDescriptorSet> transientOutputDS;
+			core::smart_refctd_ptr<video::IGPUDescriptorSet> customDS;
 			uint32_t directInstanceCount; // set as 0u for indirect dispatch
 			// these are for the pipeline barriers
 			asset::SBufferRange<const video::IGPUBuffer> lodDrawCallOffsets;
@@ -294,7 +310,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 
 			cmdbuf->bindComputePipeline(instanceDrawCull.get());
 #endif
-			cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,sharedPipelineLayout.get(),0u,3u,&params.lodLibraryDS);
+			cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,sharedPipelineLayout.get(),0u,4u,&params.lodLibraryDS.get());
 #if 0
 			cmdbuf->dispatchIndirect(indirectRange.buffer.get(),indirectRange.offset+offsetof(DispatchIndirectParams,instanceDrawCull));
 			{

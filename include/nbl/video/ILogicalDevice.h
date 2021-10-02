@@ -390,12 +390,12 @@ class ILogicalDevice : public core::IReferenceCounted
             return dsPool;
         }
 
-        void createGPUDescriptorSets(IDescriptorPool* pool, uint32_t count, const IGPUDescriptorSetLayout** _layouts, core::smart_refctd_ptr<IGPUDescriptorSet>* output)
+        void createGPUDescriptorSets(IDescriptorPool* pool, uint32_t count, const IGPUDescriptorSetLayout* const* _layouts, core::smart_refctd_ptr<IGPUDescriptorSet>* output)
         {
-            core::SRange<const IGPUDescriptorSetLayout*> layouts{ _layouts, _layouts + count };
+            core::SRange<const IGPUDescriptorSetLayout* const> layouts{ _layouts, _layouts + count };
             createGPUDescriptorSets(pool, layouts, output);
         }
-        void createGPUDescriptorSets(IDescriptorPool* pool, core::SRange<const IGPUDescriptorSetLayout*> layouts, core::smart_refctd_ptr<IGPUDescriptorSet>* output)
+        void createGPUDescriptorSets(IDescriptorPool* pool, core::SRange<const IGPUDescriptorSetLayout* const> layouts, core::smart_refctd_ptr<IGPUDescriptorSet>* output)
         {
             uint32_t i = 0u;
             for (const IGPUDescriptorSetLayout* layout_ : layouts)

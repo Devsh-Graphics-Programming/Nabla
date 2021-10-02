@@ -43,40 +43,55 @@ int main()
     auto windowCallback = std::move(initOutput.windowCb);
     auto cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
     auto utilities = std::move(initOutput.utilities);
-    
 
-    //auto lodLibrary = scene::ILevelOfDetailLibrary::create();
-    auto lodLibraryDSLayout = scene::ILevelOfDetailLibrary::createDescriptorSetLayout(logicalDevice.get()); // TODO: scope better
 
-    core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> customCullingDSLayout; // TODO: scope better
+    //
+    constexpr auto MaxInstanceCount = 8u;
+    constexpr auto MaxTotalDrawcallInstances = 1024u;
+
+    using lod_library_t = scene::ILevelOfDetailLibrary;
+    //auto lodLibrary = lod_library_t::create();
+
+    using culling_system_t = scene::ICullingLoDSelectionSystem;
+    core::smart_refctd_ptr<culling_system_t> cullingSystem;
+    culling_system_t::Params cullingParams;
     {
-        // TODO: figure out what should be here
-        constexpr auto BindingCount = 1u;
-        video::IGPUDescriptorSetLayout::SBinding bindings[BindingCount];
-        for (auto i=0u; i<BindingCount; i++)
+        constexpr auto LayoutCount = 4u;
+        core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> layouts[LayoutCount] =
         {
-            bindings[i].binding = i;
-            bindings[i].type = asset::EDT_STORAGE_BUFFER;
-            bindings[i].count = 1u;
-            bindings[i].stageFlags = asset::ISpecializedShader::ESS_COMPUTE;
-            bindings[i].samplers = nullptr;
+            scene::ILevelOfDetailLibrary::createDescriptorSetLayout(logicalDevice.get()),
+            culling_system_t::createInputDescriptorSetLayout(logicalDevice.get()),
+            culling_system_t::createOutputDescriptorSetLayout(logicalDevice.get()),
+            [&]() -> core::smart_refctd_ptr<video::IGPUDescriptorSetLayout>
+            {
+                // TODO: figure out what should be here
+                constexpr auto BindingCount = 1u;
+                video::IGPUDescriptorSetLayout::SBinding bindings[BindingCount];
+                for (auto i=0u; i<BindingCount; i++)
+                {
+                    bindings[i].binding = i;
+                    bindings[i].type = asset::EDT_STORAGE_BUFFER;
+                    bindings[i].count = 1u;
+                    bindings[i].stageFlags = asset::ISpecializedShader::ESS_COMPUTE;
+                    bindings[i].samplers = nullptr;
+                }
+                return logicalDevice->createGPUDescriptorSetLayout(bindings,bindings+BindingCount);
+            }()
+        };
+        
+        cullingSystem = core::make_smart_refctd_ptr<culling_system_t>(logicalDevice.get(),core::smart_refctd_ptr(layouts[3]));
+
+        cullingParams.indirectDispatchParams = {0ull,culling_system_t::createDispatchIndirectBuffer(utilities.get(),queues[decltype(initOutput)::EQT_TRANSFER_UP])};
+        {
+            auto pLayouts = &layouts->get();
+            auto pool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE,pLayouts,pLayouts+LayoutCount);
+            logicalDevice->createGPUDescriptorSets(pool.get(),LayoutCount,pLayouts,&cullingParams.lodLibraryDS);
         }
-        customCullingDSLayout = logicalDevice->createGPUDescriptorSetLayout(bindings,bindings+BindingCount);
-    }
-    auto cullingSystem = core::make_smart_refctd_ptr<scene::ICullingLoDSelectionSystem>(logicalDevice.get(),core::smart_refctd_ptr(customCullingDSLayout));
-
-    core::smart_refctd_ptr<video::IGPUDescriptorSet> cullingDescriptorSets[4u];
-    {
-        auto inputDSLayout = scene::ICullingLoDSelectionSystem::createInputDescriptorSetLayout(logicalDevice.get());
-        auto outputDSLayout = scene::ICullingLoDSelectionSystem::createOutputDescriptorSetLayout(logicalDevice.get());
-        const video::IGPUDescriptorSetLayout* layouts[] = {lodLibraryDSLayout.get(),inputDSLayout.get(),outputDSLayout.get(),customCullingDSLayout.get()};
-        const core::SRange<const video::IGPUDescriptorSetLayout*> layoutRange = {layouts,layouts+sizeof(layouts)/sizeof(void*)};
-
-        auto pool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE,layoutRange.begin(),layoutRange.end());
-        logicalDevice->createGPUDescriptorSets(pool.get(),layoutRange,cullingDescriptorSets);
-    }
-    {
-        //
+        // TODO: get rid of this
+        culling_system_t::DispatchIndirectParams params;
+        params.instanceRefCountingSortScatter.num_groups_x = 1u;
+        // TODO: add the rest of the buffers
+        cullingParams.perInstanceRedirectAttribs = {0ul,~0ull,culling_system_t::createInstanceRedirectBuffer(logicalDevice.get(),MaxTotalDrawcallInstances)};
     }
 
 
@@ -101,7 +116,6 @@ int main()
     
 
     // TODO: refactor
-    constexpr auto MaxInstanceCount = 8u;
     core::smart_refctd_ptr<video::IGPUBuffer> perViewPerInstanceDataScratch;
     {
         video::IGPUBuffer::SCreationParams params;
@@ -155,6 +169,7 @@ int main()
     core::smart_refctd_ptr<video::IGPUCommandBuffer> bakedCommandBuffer;
     logicalDevice->createCommandBuffers(commandPool.get(),video::IGPUCommandBuffer::EL_SECONDARY,1u,&bakedCommandBuffer);
     bakedCommandBuffer->begin(video::IGPUCommandBuffer::EU_RENDER_PASS_CONTINUE_BIT|video::IGPUCommandBuffer::EU_SIMULTANEOUS_USE_BIT);
+    //
     {
         video::IDrawIndirectAllocator::ImplicitBufferCreationParameters drawAllocatorParams;
         drawAllocatorParams.device = logicalDevice.get();
@@ -235,7 +250,7 @@ int main()
             cpu2gpuParams.waitForCreationToComplete();
             
             // TODO: refactor some more?
-            perInstancePointersScratch = scene::ICullingLoDSelectionSystem::createInstanceRedirectBuffer(logicalDevice.get(),maxInstancedDrawcalls);
+            perInstancePointersScratch = culling_system_t::createInstanceRedirectBuffer(logicalDevice.get(),maxInstancedDrawcalls);
 
             auto renderpassindependent = core::smart_refctd_ptr_dynamic_cast<video::IGPURenderpassIndependentPipeline>(assetManager->findGPUObject(cpupipeline.get()));
             video::IGPUGraphicsPipeline::SCreationParams params;
@@ -321,6 +336,9 @@ int main()
                 data[i] = core::concatenateBFollowedByA(viewProjectionMatrix,data[i]);
             }
             commandBuffer->updateBuffer(perViewPerInstanceDataScratch.get(),0ull,perViewPerInstanceDataScratch->getSize(),data.data());
+
+            cullingParams.cmdbuf = commandBuffer.get();
+            //cullingSystem->processInstancesAndFillIndirectDraws(cullingParams);
         }
         
         // renderpass
