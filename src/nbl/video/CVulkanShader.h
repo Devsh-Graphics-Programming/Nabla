@@ -1,26 +1,31 @@
 #ifndef __NBL_VIDEO_C_VULKAN_SHADER_H_INCLUDED__
 
-#include "nbl/video/IGPUSpecializedshader.h"
+#include "nbl/video/IGPUShader.h"
 
 namespace nbl::video
 {
 
 class ILogicalDevice;
 
-class CVulkanShader : public IGPUSpecializedShader
+class CVulkanShader : public IGPUShader
 {
 public:
     CVulkanShader(core::smart_refctd_ptr<ILogicalDevice>&& dev,
-        asset::ISpecializedShader::E_SHADER_STAGE shaderStage, VkShaderModule vk_shaderModule)
-        : IGPUSpecializedShader(std::move(dev), shaderStage), m_vkShaderModule(vk_shaderModule)
+        core::smart_refctd_ptr<asset::ICPUBuffer>&& spirv,
+        VkShaderModule vk_shaderModule)
+        : IGPUShader(std::move(dev)), m_spirv(std::move(spirv)), m_vkShaderModule(vk_shaderModule)
     {}
 
     ~CVulkanShader();
 
+    const asset::ICPUBuffer* getSPV() const { return m_spirv.get(); };
+
     inline VkShaderModule getInternalObject() const { return m_vkShaderModule; }
 
 private:
+    core::smart_refctd_ptr<asset::ICPUBuffer> m_spirv;
     VkShaderModule m_vkShaderModule = VK_NULL_HANDLE;
+
 };
 }
 

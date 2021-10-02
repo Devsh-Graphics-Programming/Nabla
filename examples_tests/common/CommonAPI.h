@@ -524,6 +524,13 @@ public:
 		return ret;
 	}
 
+	template <typename FeatureType>
+	struct SFeatureRequest
+	{
+		uint32_t count = 0u;
+		FeatureType* features = nullptr;
+	};
+
 	template<uint32_t sc_image_count> //! input with window creation
 	struct InitOutput
 	{
@@ -690,6 +697,10 @@ public:
 	static InitOutput<sc_image_count> Init(
 		nbl::video::E_API_TYPE api_type,
 		const std::string_view app_name,
+		const SFeatureRequest<nbl::video::IAPIConnection::E_FEATURE>& requiredInstanceFeatures,
+		const SFeatureRequest<nbl::video::IAPIConnection::E_FEATURE>& optionalInstanceFeatures,
+		const SFeatureRequest<nbl::video::ILogicalDevice::E_FEATURE>& requiredDeviceFeatures,
+		const SFeatureRequest<nbl::video::ILogicalDevice::E_FEATURE>& optionalDeviceFeatures,
 		nbl::asset::IImage::E_USAGE_FLAGS swapchainImageUsage,
 		nbl::video::ISurface::SFormat surfaceFormat = nbl::video::ISurface::SFormat(nbl::asset::EF_UNKNOWN, nbl::asset::ECP_COUNT, nbl::asset::EOTF_UNKNOWN),
 		nbl::asset::E_FORMAT depthFormat = nbl::asset::EF_UNKNOWN,
@@ -721,13 +732,7 @@ public:
 
 		if(api_type == EAT_VULKAN) 
 		{
-			// Todo(achal): Need to pipe this in from the user
-			const uint32_t requiredFeatureCount = 2u;
-			video::IAPIConnection::E_FEATURE requiredFeatures[requiredFeatureCount] = { video::IAPIConnection::EF_SURFACE, video::IAPIConnection::EF_SURFACE };
-			const uint32_t optionalFeatureCount = 1u;
-			video::IAPIConnection::E_FEATURE optionalFeatures[optionalFeatureCount] = { video::IAPIConnection::EF_COUNT };
-
-			auto _apiConnection = video::CVulkanConnection::create(core::smart_refctd_ptr(result.system), 0, app_name.data(), requiredFeatureCount, requiredFeatures, optionalFeatureCount, optionalFeatures, result.logger, true);
+			auto _apiConnection = video::CVulkanConnection::create(core::smart_refctd_ptr(result.system), 0, app_name.data(), requiredInstanceFeatures.count, requiredInstanceFeatures.features, optionalInstanceFeatures.count, optionalInstanceFeatures.features, result.logger, true);
 			result.surface = video::CSurfaceVulkanWin32::create(core::smart_refctd_ptr(_apiConnection), core::smart_refctd_ptr<ui::IWindowWin32>(static_cast<ui::IWindowWin32*>(result.window.get())));
 			result.apiConnection = _apiConnection;
 		}
@@ -801,19 +806,10 @@ public:
 		video::ILogicalDevice::SCreationParams dev_params;
 		dev_params.queueParamsCount = actualQueueCount;
 		dev_params.queueParams = qcp;
-		// Todo(achal): Get it from the user
-		const uint32_t requiredFeatureCount = 1u;
-		ILogicalDevice::E_FEATURE requiredFeatures[requiredFeatureCount] = { ILogicalDevice::EF_SWAPCHAIN };
-		dev_params.requiredFeatureCount = requiredFeatureCount;
-		dev_params.requiredFeatures = requiredFeatures;
-		const uint32_t optionalFeatureCount = 2u;
-		ILogicalDevice::E_FEATURE optionalFeatures[optionalFeatureCount] =
-		{
-			ILogicalDevice::EF_RAY_TRACING_PIPELINE,
-			ILogicalDevice::EF_RAY_QUERY
-		};
-		dev_params.optionalFeatureCount = optionalFeatureCount;
-		dev_params.optionalFeatures = optionalFeatures;
+		dev_params.requiredFeatureCount = requiredDeviceFeatures.count;
+		dev_params.requiredFeatures = requiredDeviceFeatures.features;
+		dev_params.optionalFeatureCount = optionalDeviceFeatures.count;
+		dev_params.optionalFeatures = optionalDeviceFeatures.features;
 		result.logicalDevice = gpu->createLogicalDevice(dev_params);
 
 		result.utilities = core::make_smart_refctd_ptr<video::IUtilities>(core::smart_refctd_ptr(result.logicalDevice));

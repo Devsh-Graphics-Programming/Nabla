@@ -15,6 +15,8 @@ using namespace nbl;
 
 const char* src = R"(#version 450
 
+#pragma shader_stage(compute)
+
 layout (local_size_x = 16, local_size_y = 16) in;
 
 layout (push_constant) uniform pushConstants
@@ -51,16 +53,35 @@ int main()
 	constexpr uint32_t FRAMES_IN_FLIGHT = 2u;
 	// static_assert(FRAMES_IN_FLIGHT>FBO_COUNT);
 
-	const uint32_t requiredFeatureCount = 2u;
-	const video::IAPIConnection::E_FEATURE requiredFeatures[requiredFeatureCount] = { video::IAPIConnection::EF_SURFACE, video::IAPIConnection::EF_SURFACE };
-	const uint32_t optionalFeatureCount = 1u;
-	const video::IAPIConnection::E_FEATURE optionalFeatures[optionalFeatureCount] = { video::IAPIConnection::EF_COUNT };
+	CommonAPI::SFeatureRequest<video::IAPIConnection::E_FEATURE> requiredInstanceFeatures = {};
+	requiredInstanceFeatures.count = 1u;
+	video::IAPIConnection::E_FEATURE requiredFeatures_Instance[] = { video::IAPIConnection::EF_SURFACE };
+	requiredInstanceFeatures.features = requiredFeatures_Instance;
 
-	// This creates FBOs with swapchain images but I don't really need them
+	CommonAPI::SFeatureRequest<video::IAPIConnection::E_FEATURE> optionalInstanceFeatures = {};
+
+	CommonAPI::SFeatureRequest<video::ILogicalDevice::E_FEATURE> requiredDeviceFeatures = {};
+	requiredDeviceFeatures.count = 1u;
+	video::ILogicalDevice::E_FEATURE requiredFeatures_Device[] = { video::ILogicalDevice::EF_SWAPCHAIN };
+	requiredDeviceFeatures.features = requiredFeatures_Device;
+
+	CommonAPI::SFeatureRequest< video::ILogicalDevice::E_FEATURE> optionalDeviceFeatures = {};
+	optionalDeviceFeatures.count = 2u;
+	video::ILogicalDevice::E_FEATURE optionalFeatures_Device[] = { video::ILogicalDevice::EF_RAY_TRACING_PIPELINE, video::ILogicalDevice::EF_RAY_QUERY };
+	optionalDeviceFeatures.features = optionalFeatures_Device;
+
 	const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_STORAGE_BIT);
 	const video::ISurface::SFormat surfaceFormat(asset::EF_B8G8R8A8_UNORM, asset::ECP_COUNT, asset::EOTF_UNKNOWN);
+
+	// This creates FBOs with swapchain images but I don't really need them
 	auto initResult = CommonAPI::Init<WIN_W, WIN_H, SWAPCHAIN_IMAGE_COUNT>(
-		video::EAT_VULKAN, "02.ComputeShader", swapchainImageUsage,
+		video::EAT_VULKAN,
+		"02.ComputeShader",
+		requiredInstanceFeatures,
+		optionalInstanceFeatures,
+		requiredDeviceFeatures,
+		optionalDeviceFeatures,
+		swapchainImageUsage,
 		surfaceFormat);
 
 #if 0
@@ -98,22 +119,12 @@ int main()
 	}
 
 	// TODO: Load from "../compute.comp" instead of getting source from src
-#if 0
-	core::smart_refctd_ptr<video::IGPUShader> shader = initResult.logicalDevice->createGPUShader(
-		core::make_smart_refctd_ptr<asset::ICPUShader>(src));
-#endif
-
-	asset::ISpecializedShader::SInfo specInfo(nullptr, nullptr, "main",
-		asset::ISpecializedShader::ESS_COMPUTE);
-	core::smart_refctd_ptr<video::IGPUSpecializedShader> shader = initResult.logicalDevice->createGPUShader_Vulkan(
-		core::make_smart_refctd_ptr<asset::ICPUShader>(src), specInfo);
-
-#if 0
+	core::smart_refctd_ptr<video::IGPUShader> unspecializedShader = initResult.logicalDevice->createGPUShader(
+		core::make_smart_refctd_ptr<asset::ICPUShader>(src), "????");
 	asset::ISpecializedShader::SInfo specializationInfo(nullptr, nullptr, "main",
 		asset::ISpecializedShader::ESS_COMPUTE);
 	core::smart_refctd_ptr<video::IGPUSpecializedShader> specializedShader =
 		initResult.logicalDevice->createGPUSpecializedShader(unspecializedShader.get(), specializationInfo);
-#endif
 
 	core::smart_refctd_ptr<video::IGPUCommandBuffer> commandBuffers[MAX_SWAPCHAIN_IMAGE_COUNT];
 	initResult.logicalDevice->createCommandBuffers(initResult.commandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY,
@@ -316,7 +327,7 @@ int main()
 
 	core::smart_refctd_ptr<video::IGPUComputePipeline> pipeline =
 		initResult.logicalDevice->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(pipelineLayout),
-			core::smart_refctd_ptr(shader));
+			core::smart_refctd_ptr(specializedShader));
 
 	core::smart_refctd_ptr<video::IGPUSemaphore> acquireSemaphores[FRAMES_IN_FLIGHT];
 	core::smart_refctd_ptr<video::IGPUSemaphore> releaseSemaphores[FRAMES_IN_FLIGHT];

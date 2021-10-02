@@ -62,10 +62,6 @@ class ILogicalDevice : public core::IReferenceCounted
             E_FEATURE* requiredFeatures;
             uint32_t optionalFeatureCount;
             E_FEATURE* optionalFeatures;
-            // ???:
-            //uint32_t enabledExtensionCount;
-            //const char* const* ppEnabledExtensionNames;
-            //const VkPhysicalDeviceFeatures* pEnabledFeatures;
         };
 
         struct SDescriptorSetCreationParams
@@ -95,31 +91,6 @@ class ILogicalDevice : public core::IReferenceCounted
                 for (uint32_t i = 0u; i < m_queues->size(); ++i)
                     delete (*m_queues)[i];
             }
-        }
-        
-        // Todo(achal): This is a temporary function I have to add because the current API
-        // won't let me make CVulkanShader a simple wrapper around VkShaderModule.
-        // 
-        // 1. I can use createGPUShader as the main method for creating CVulkanShader
-        // but it returns IGPUShader which isn't accepted by things like createGPUComputePipelines,
-        // it also lacks the params (ISpecializedShader::SInfo for shaderStage,
-        // and asset::ISPIRVOptimizer* spvopt) needed to compile to (and optimize) SPIRV
-        // 
-        // 2. If I use createGPUSpecializedShader as the main method for creating a 
-        // CVulkanShader, it takes in a IGPUShader, but I'm not supposed to create one!
-        // 
-        // The only reason this returns a IGPUSpecializedShader instead of IGPUShader
-        // is because the rest of the code (for example: createGPUComputePipeline(s)) only
-        // know how to work with IGPUSpecializedShader. A (weird?) consequence of this
-        // is CVulkanShader now inherits from IGPUSpecializedShader instead of IGPUShader.
-        //
-        // I'm leaving this note in hopes that the seniors would find it and show me the way.
-        // 
-        // PS- This change compiles but doesn't work, so I have to remove this at any rate.
-        virtual core::smart_refctd_ptr<IGPUSpecializedShader> createGPUShader_Vulkan(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader, const asset::ISpecializedShader::SInfo& _specInfo, const asset::ISPIRVOptimizer* _spvopt = nullptr)
-        {
-            assert(!"Temporary function, shouldn't be called on anything but Vulkan!");
-            return nullptr;
         }
 
         inline IPhysicalDevice* getPhysicalDevice() const { return m_physicalDevice; }
@@ -350,7 +321,7 @@ class ILogicalDevice : public core::IReferenceCounted
         //! Low level function used to implement the above, use with caution
         virtual core::smart_refctd_ptr<IGPUBuffer> createGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& creationParams, const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData = false) { return nullptr; }
 
-        virtual core::smart_refctd_ptr<IGPUShader> createGPUShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader) = 0;
+        virtual core::smart_refctd_ptr<IGPUShader> createGPUShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader, std::string&& filepathHint) = 0;
 
         core::smart_refctd_ptr<IGPUSpecializedShader> createGPUSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo, const asset::ISPIRVOptimizer* _spvopt = nullptr)
         {

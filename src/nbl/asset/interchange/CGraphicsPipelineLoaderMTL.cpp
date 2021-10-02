@@ -36,9 +36,9 @@ CGraphicsPipelineLoaderMTL::CGraphicsPipelineLoaderMTL(IAssetManager* _am, core:
         auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(data), asset::ICPUShader::buffer_contains_glsl);
         
         ICPUSpecializedShader::SInfo specInfo(
-            {}, nullptr, "main", stage,
-            stage!=ICPUSpecializedShader::ESS_VERTEX ? "?IrrlichtBAW PipelineLoaderMTL FragmentShader?":"?IrrlichtBAW PipelineLoaderMTL VertexShader?"
+            {}, nullptr, "main", stage
         );
+        // Probably ICPUShader should have a std::string member for filepath?
 		auto shader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecializedShader),std::move(specInfo));
         const char* cacheKey = decltype(constexprStringType)::value;
         auto assetbundle = SAssetBundle(nullptr,{ core::smart_refctd_ptr_static_cast<IAsset>(std::move(shader)) });

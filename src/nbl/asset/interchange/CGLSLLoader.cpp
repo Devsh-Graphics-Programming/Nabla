@@ -44,5 +44,5 @@ SAssetBundle CGLSLLoader::loadAsset(system::IFile* _file, const IAssetLoader::SA
 	if (found==typeFromExt.end())
 		return {};
 
-	return SAssetBundle(nullptr,{ core::make_smart_refctd_ptr<ICPUSpecializedShader>(std::move(shader),ISpecializedShader::SInfo({},nullptr,"main",found->second,filename.string())) });
+	return SAssetBundle(nullptr,{ core::make_smart_refctd_ptr<ICPUSpecializedShader>(std::move(shader),ISpecializedShader::SInfo({},nullptr,"main",found->second)) });
 } 

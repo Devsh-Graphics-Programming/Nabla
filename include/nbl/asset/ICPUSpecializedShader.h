@@ -38,7 +38,6 @@ class ICPUSpecializedShader : public IAsset, public ISpecializedShader
 			size_t estimate = m_specInfo.entryPoint.size()+sizeof(uint32_t);
 			if (m_specInfo.getEntries())
 				estimate += sizeof(void*)+sizeof(SInfo::SMapEntry)*m_specInfo.getEntries()->size();
-			estimate += m_specInfo.m_filePathHint.native().size();
 			return estimate;
 		}
 

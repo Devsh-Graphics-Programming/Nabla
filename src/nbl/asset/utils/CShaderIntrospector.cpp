@@ -123,7 +123,7 @@ bool CShaderIntrospector::introspectAllShaders(const CIntrospectionData** intros
     {
         auto shader = *shdr;
         const auto& specInfo = shader->getSpecializationInfo();
-        *it = introspect(shader->getUnspecialized(), { shader->getStage(), specInfo.entryPoint, extensions, specInfo.m_filePathHint });
+        *it = introspect(shader->getUnspecialized(), { shader->getStage(), specInfo.entryPoint, extensions });
         if (!*it)
             return false;
     }
