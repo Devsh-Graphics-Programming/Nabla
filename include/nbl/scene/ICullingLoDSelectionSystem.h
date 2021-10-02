@@ -245,9 +245,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 			core::smart_refctd_ptr<video::IGPUDescriptorSet> customDS;
 			uint32_t directInstanceCount; // set as 0u for indirect dispatch
 			// these are for the pipeline barriers
-			asset::SBufferRange<const video::IGPUBuffer> lodDrawCallOffsets;
-			asset::SBufferRange<const video::IGPUBuffer> lodDrawCallCount;
-			asset::SBufferRange<const video::IGPUBuffer> prefixSumScratch;
+			ScratchBufferRanges scratchBufferRanges;
 			asset::SBufferRange<const video::IGPUBuffer> perInstanceRedirectAttribs;
 		};
 		void processInstancesAndFillIndirectDraws(const Params& params)

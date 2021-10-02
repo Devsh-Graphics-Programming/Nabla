@@ -47,7 +47,7 @@ int main()
 
     //
     constexpr auto MaxInstanceCount = 8u;
-    constexpr auto MaxTotalDrawcallInstances = 1024u;
+    constexpr auto MaxTotalDrawcallInstances = 2048u;
 
     using lod_library_t = scene::ILevelOfDetailLibrary;
     //auto lodLibrary = lod_library_t::create();
@@ -78,20 +78,34 @@ int main()
                 return logicalDevice->createGPUDescriptorSetLayout(bindings,bindings+BindingCount);
             }()
         };
+        auto pool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE,&layouts->get(),&layouts->get()+LayoutCount);
         
         cullingSystem = core::make_smart_refctd_ptr<culling_system_t>(logicalDevice.get(),core::smart_refctd_ptr(layouts[3]));
 
         cullingParams.indirectDispatchParams = {0ull,culling_system_t::createDispatchIndirectBuffer(utilities.get(),queues[decltype(initOutput)::EQT_TRANSFER_UP])};
-        {
-            auto pLayouts = &layouts->get();
-            auto pool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE,pLayouts,pLayouts+LayoutCount);
-            logicalDevice->createGPUDescriptorSets(pool.get(),LayoutCount,pLayouts,&cullingParams.lodLibraryDS);
-        }
-        // TODO: get rid of this
-        culling_system_t::DispatchIndirectParams params;
-        params.instanceRefCountingSortScatter.num_groups_x = 1u;
         // TODO: add the rest of the buffers
+        cullingParams.scratchBufferRanges = culling_system_t::createScratchBuffer(logicalDevice.get(),MaxInstanceCount,MaxTotalDrawcallInstances);
         cullingParams.perInstanceRedirectAttribs = {0ul,~0ull,culling_system_t::createInstanceRedirectBuffer(logicalDevice.get(),MaxTotalDrawcallInstances)};
+
+        cullingParams.lodLibraryDS = nullptr;
+#if 0
+        culling_system_t::createInputDescriptorSet(
+            logicalDevice.get(),pool.get(),std::move(layouts[1]),
+            cullingParams.indirectDispatchParams,
+            cullingParams.instanceList, // TODO: allocate
+            cullingParams.scratchBufferRanges.lodDrawCallOffsets,
+            cullingParams.scratchBufferRanges.lodDrawCallCounts,
+            cullingParams.scratchBufferRanges.pvsInstanceDraws, // use
+            cullingParams.scratchBufferRanges.prefixSumScratch
+        );
+        cullingParams.transientOutputDS = culling_system_t::createOutputDescriptorSet(
+            logicalDevice.get(),pool.get(),std::move(layouts[2]),
+            drawCalls, // use TODO: allocate
+            perViewPerInstance, // TODO: allocate
+            cullingParams.perInstanceRedirectAttribs // use
+        );
+#endif
+        cullingParams.customDS = logicalDevice->createGPUDescriptorSet(pool.get(),std::move(layouts[3]));
     }
 
 
@@ -114,6 +128,10 @@ int main()
         shaders[1] = IAsset::castDown<ICPUSpecializedShader>(*fragShaderBundle.getContents().begin());
     }
     
+
+
+
+
 
     // TODO: refactor
     core::smart_refctd_ptr<video::IGPUBuffer> perViewPerInstanceDataScratch;
@@ -164,7 +182,17 @@ int main()
         }
     }
 
+    //TODO: delete this
     core::smart_refctd_ptr<video::IGPUBuffer> perInstancePointersScratch;
+    struct PotentiallyVisibleInstanceDraw
+    {
+        uint32_t drawBaseInstanceDWORDOffset;
+        uint32_t instanceID;
+        uint32_t instanceGUID;
+        uint32_t perViewPerInstanceID;
+    };
+    core::vector<PotentiallyVisibleInstanceDraw> pvsContents(1u);
+    auto& pvsCount = pvsContents[0].drawBaseInstanceDWORDOffset;
     //
     core::smart_refctd_ptr<video::IGPUCommandBuffer> bakedCommandBuffer;
     logicalDevice->createCommandBuffers(commandPool.get(),video::IGPUCommandBuffer::EL_SECONDARY,1u,&bakedCommandBuffer);
@@ -269,6 +297,7 @@ int main()
         }
     }
     bakedCommandBuffer->end();
+    // TODO: get rid of this
 
 
     CommonAPI::InputSystem::ChannelReader<IMouseEventChannel> mouse;
@@ -521,17 +550,6 @@ int main2()
     }
     
 
-    auto smgr = device->getSceneManager();
-
-	scene::ICameraSceneNode* camera =
-		smgr->addCameraSceneNodeFPS(0,100.0f,0.01f);
-	camera->setPosition(core::vector3df(-4,0,0));
-	camera->setTarget(core::vector3df(0,0,0));
-	camera->setNearValue(0.01f);
-	camera->setFarValue(250.0f);
-    smgr->setActiveCamera(camera);
-
-    device->getCursorControl()->setVisible(false);
 
 
 
