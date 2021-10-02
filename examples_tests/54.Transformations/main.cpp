@@ -96,6 +96,30 @@ struct SolarSystemObject {
 	}
 };
 
+class CEventReceiver
+{
+public:
+	CEventReceiver() : debugDrawRequestFlag(false) {}
+
+	void process(const nbl::ui::IKeyboardEventChannel::range_t& events)
+	{
+		for (auto eventIterator = events.begin(); eventIterator != events.end(); eventIterator++)
+		{
+			auto event = *eventIterator;
+
+			if (event.keyCode == nbl::ui::EKC_D)
+				debugDrawRequestFlag = true;
+			if (event.keyCode == nbl::ui::EKC_C)
+				debugDrawRequestFlag = false;
+		}
+	}
+
+	inline bool isDebugRequested() const { return debugDrawRequestFlag; }
+
+private:
+	bool debugDrawRequestFlag;
+};
+
 struct GPUObject {
 	core::smart_refctd_ptr<video::IGPUMeshBuffer> gpuMesh;
 	core::smart_refctd_ptr<video::IGPUGraphicsPipeline> graphicsPipeline;
@@ -143,6 +167,7 @@ int main()
 	auto system = std::move(initOutput.system);
     auto window = std::move(initOutput.window);
     auto windowCb = std::move(initOutput.windowCb);
+	auto inputSystem = std::move(initOutput.inputSystem);
     auto gl = std::move(initOutput.apiConnection);
     auto surface = std::move(initOutput.surface);
     auto gpuPhysicalDevice = std::move(initOutput.physicalDevice);
@@ -208,7 +233,7 @@ int main()
 	propBufs[4].offset = offset_recompStamp;
 	propBufs[4].size = recompStampPropSz*ObjectCount;
 
-	auto tt = scene::ITransformTree::create(device.get(), propBufs, ObjectCount, true);
+	auto tt = scene::ITransformTree::create(device.get(), renderpass, propBufs, ObjectCount, true);
 	auto ttm = scene::ITransformTreeManager::create(core::smart_refctd_ptr(device));
 
 	auto ppHandler = core::make_smart_refctd_ptr<video::CPropertyPoolHandler>(core::smart_refctd_ptr(device));
@@ -416,7 +441,6 @@ int main()
 
 	scene::ITransformTree::node_t moon_node = scene::ITransformTree::invalid_node;
 	{
-
 		scene::ITransformTreeManager::AllocationRequest req;
 		req.cmdbuf = cmdbuf_nodes.get();
 		req.fence = fence_nodes.get();
@@ -438,7 +462,6 @@ int main()
 		q->submit(1u, &submit, fence_nodes.get());
 	}
 	
-
 	waitres = device->waitForFences(1u, &fence_nodes.get(), false, 999999999ull);
 	assert(waitres == video::IGPUFence::ES_SUCCESS);
 
@@ -546,7 +569,7 @@ int main()
 		pipeline->setLayout(core::smart_refctd_ptr(gfxLayout));
 
 		core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> rpIndependentPipeline = CPU2GPU.getGPUObjectsFromAssets(&pipeline,&pipeline+1,cpu2gpuParams)->front();
-	
+	   
 		asset::SBufferBinding<video::IGPUBuffer> colorBufBinding;
 		colorBufBinding.offset = colorBufferOffset;
 		colorBufBinding.buffer = colorBuffer;
@@ -628,7 +651,27 @@ int main()
 		bufrng.offset = 0;
 		bufrng.size = nodeIdsBuf->getSize();
 		utils->updateBufferRangeViaStagingBuffer(device->getQueue(0, 0), bufrng, countAndIds);
+
+		core::vector<scene::ITransformTree::DebugNodeVtxInput> liveDebugNodeVtxInputs;
+
+		for (const auto& solarSystemObject : solarSystemObjectsData)
+		{
+			scene::ITransformTree::DebugNodeVtxInput debugVtxInput;
+			debugVtxInput.node = solarSystemObject.node;
+			debugVtxInput.scale = solarSystemObject.scale;
+
+			liveDebugNodeVtxInputs.push_back(debugVtxInput);
+		}
+			
+		tt->setDebugLiveAllocations(liveDebugNodeVtxInputs);
 	}
+
+	scene::ITransformTree::DebugPushConstants debugPushConstants;
+	debugPushConstants.lineColor = core::vector4df_SIMD(1, 0, 0, 0);
+	debugPushConstants.aabbColor = core::vector4df_SIMD(0, 0, 1, 0);
+
+	CEventReceiver eventReceiver;
+	CommonAPI::InputSystem::ChannelReader<nbl::ui::IKeyboardEventChannel> keyboard;
 
 	uint32_t timestamp = 1u;
 	while(windowCb->isWindowOpen())
@@ -709,7 +752,7 @@ int main()
 					auto rot = current_rotation + 300; // just offset in time for beauty
 					rotationMat.setRotation(core::quaternion(0.0f, rot * solarSystemObjectsData[i].yRotationSpeed, rot * solarSystemObjectsData[i].zRotationSpeed));
 				}
-				scaleMat.setScale(core::vectorSIMDf(solarSystemObjectsData[i].scale));
+				scaleMat.setScale(core::vectorSIMDf(solarSystemObjectsData[i].scale)); //?
 
 				auto tform = core::matrix3x4SIMD::concatenateBFollowedByA(rotationMat, translationMat);
 
@@ -838,8 +881,23 @@ int main()
 				cb->pushConstants(gpuObject.graphicsPipeline->getRenderpassIndependentPipeline()->getLayout(), asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD), viewProj.pointer());
 				cb->bindDescriptorSets(asset::EPBP_GRAPHICS, gpuObject.graphicsPipeline->getRenderpassIndependentPipeline()->getLayout(), 0u, 1u, &gfxDs0.get());
 				cb->drawMeshBuffer(gpuObject.gpuMesh.get());
+
+				//gpuObject.gpuMesh->getBoundingBox().MaxEdge
 			}
 		}
+
+		inputSystem->getDefaultKeyboard(&keyboard);
+		keyboard.consumeEvents([&](const nbl::ui::IKeyboardEventChannel::range_t& events) -> void { eventReceiver.process(events); }, initOutput.logger.get());
+		{ 
+			debugPushConstants.viewProjectionMatrix = viewProj;
+			const auto& boundingBox = gpuObjects[0].gpuMesh->getBoundingBox();
+			debugPushConstants.minEdge = core::vector4df_SIMD(boundingBox.MinEdge.X, boundingBox.MinEdge.Y, boundingBox.MinEdge.Z);
+			debugPushConstants.maxEdge = core::vector4df_SIMD(boundingBox.MaxEdge.X, boundingBox.MaxEdge.Y, boundingBox.MaxEdge.Z);
+
+			tt->setDebugEnabledFlag(eventReceiver.isDebugRequested());
+			tt->debugDraw(device.get(), cb.get(), debugPushConstants);
+		}
+
 		cb->endRenderPass();
 		cb->end();
 		
