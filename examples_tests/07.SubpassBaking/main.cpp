@@ -114,7 +114,14 @@ int main(int argc, char** argv)
 
         auto ubomemreq = logicalDevice->getDeviceLocalGPUMemoryReqs();
         ubomemreq.vulkanReqs.size = neededDS1UBOsz;
-        cameraUBO = logicalDevice->createGPUBufferOnDedMem(ubomemreq,true);
+
+        video::IGPUBuffer::SCreationParams cameraUBOCreationParams;
+        cameraUBOCreationParams.usage = asset::IBuffer::EUF_UNIFORM_BUFFER_BIT;
+        cameraUBOCreationParams.sharingMode = asset::E_SHARING_MODE::ESM_EXCLUSIVE;
+        cameraUBOCreationParams.queueFamilyIndexCount = 0u;
+        cameraUBOCreationParams.queueFamilyIndices = nullptr;
+
+        cameraUBO = logicalDevice->createGPUBufferOnDedMem(cameraUBOCreationParams,ubomemreq,true);
         perCameraDescSet = logicalDevice->createGPUDescriptorSet(descriptorPool.get(),std::move(gpuds1layout));
         {
             video::IGPUDescriptorSet::SWriteDescriptorSet write;

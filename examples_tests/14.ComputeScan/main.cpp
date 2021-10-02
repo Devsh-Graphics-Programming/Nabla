@@ -63,17 +63,22 @@ int main()
 	in_gpu_range.size = elementCount*sizeof(uint32_t);
 	in_gpu_range.buffer = utilities->createFilledDeviceLocalGPUBufferOnDedMem(queues[decltype(initOutput)::EQT_TRANSFER_UP],in_count*sizeof(uint32_t),in);
 	
+	const auto scanType = video::CScanner::EST_EXCLUSIVE;
 	auto scanner = utilities->getDefaultScanner();
-	auto scan_pipeline = scanner->getDefaultPipeline(CScanner::EDT_UINT,CScanner::EO_ADD);
+	auto scan_pipeline = scanner->getDefaultPipeline(scanType,CScanner::EDT_UINT,CScanner::EO_ADD);
 
-	CScanner::Parameters scan_push_constants;
+	CScanner::DefaultPushConstants scan_push_constants;
 	CScanner::DispatchInfo scan_dispatch_info;
 	scanner->buildParameters(elementCount,scan_push_constants,scan_dispatch_info);
 	
 	SBufferRange<IGPUBuffer> scratch_gpu_range;
-	scratch_gpu_range.offset = 0u;
-	scratch_gpu_range.size = scan_push_constants.getScratchSize();
-	scratch_gpu_range.buffer = logicalDevice->createDeviceLocalGPUBufferOnDedMem(scratch_gpu_range.size);
+	{
+		scratch_gpu_range.offset = 0u;
+		scratch_gpu_range.size = scan_push_constants.scanParams.getScratchSize();
+		IGPUBuffer::SCreationParams params = {};
+		params.usage = IGPUBuffer::EUF_STORAGE_BUFFER_BIT;
+		scratch_gpu_range.buffer = logicalDevice->createDeviceLocalGPUBufferOnDedMem(params,scratch_gpu_range.size);
+	}
 
 	auto dsLayout = scanner->getDefaultDescriptorSetLayout();
 	auto dsPool = logicalDevice->createDescriptorPoolForDSLayouts(IDescriptorPool::ECF_NONE,&dsLayout,&dsLayout+1u);
@@ -113,8 +118,10 @@ int main()
 		IGPUQueue::SSubmitInfo submit = {};
 		submit.commandBufferCount = 1u;
 		submit.commandBuffers = &cmdbuf.get();
+		computeQueue->startCapture();
 		for (auto i=0u; i<BenchmarkingRuns; i++)
 			computeQueue->submit(1u,&submit,i!=(BenchmarkingRuns-1u) ? nullptr:lastFence.get());
+		computeQueue->endCapture();
 	}
 	// cpu counterpart
 	auto cpu_begin = in+begin;
@@ -123,10 +130,22 @@ int main()
 		logger->log("CPU scan begin",system::ILogger::ELL_PERFORMANCE);
 
 		auto start = std::chrono::high_resolution_clock::now();
-		std::inclusive_scan(cpu_begin,in+end,cpu_begin);
+		switch (scanType)
+		{
+			case video::CScanner::EST_INCLUSIVE:
+				std::inclusive_scan(cpu_begin,in+end,cpu_begin);
+				break;
+			case video::CScanner::EST_EXCLUSIVE:
+				std::exclusive_scan(cpu_begin,in+end,cpu_begin,0u);
+				break;
+			default:
+				assert(false);
+				exit(0xdeadbeefu);
+				break;
+		}
 		auto stop = std::chrono::high_resolution_clock::now();
 
-		logger->log("CPU sort end. Time taken: %d us",system::ILogger::ELL_PERFORMANCE,std::chrono::duration_cast<std::chrono::microseconds>(stop-start).count());
+		logger->log("CPU scan end. Time taken: %d us",system::ILogger::ELL_PERFORMANCE,std::chrono::duration_cast<std::chrono::microseconds>(stop-start).count());
 	}
 	
 	// wait for the gpu impl to complete
@@ -134,7 +153,9 @@ int main()
 
 	if (BenchmarkingRuns==1u)
 	{
-		auto downloaded_buffer = logicalDevice->createDownStreamingGPUBufferOnDedMem(in_gpu_range.size);
+		IGPUBuffer::SCreationParams params = {};
+		params.usage = IGPUBuffer::EUF_TRANSFER_DST_BIT;
+		auto downloaded_buffer = logicalDevice->createDownStreamingGPUBufferOnDedMem(params,in_gpu_range.size);
 		{
 			core::smart_refctd_ptr<IGPUCommandBuffer> cmdbuf;
 			{
@@ -170,7 +191,7 @@ int main()
 		for (auto i=0u; i<elementCount; i++)
 		{
 			if (gpu_begin[i]!=cpu_begin[i])
-				__debugbreak();
+				_NBL_DEBUG_BREAK_IF(true);
 		}
 		logger->log("Result Comparison Test Passed",system::ILogger::ELL_PERFORMANCE);
 	}

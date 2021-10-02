@@ -174,6 +174,25 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			transfers[3].source = &ITransformTree::initial_recomputed_timestamp;
 			return request.poolHandler->transferProperties(request.upBuff,nullptr,request.cmdbuf,request.fence,transfers,transfers+TransferCount,request.logger,maxWaitPoint).transferSuccess;
 		}
+
+		struct SkeletonAllocationRequest
+		{
+			video::CPropertyPoolHandler* poolHandler;
+			video::StreamingTransientDataBufferMT<>* upBuff;
+			video::IGPUCommandBuffer* cmdbuf; //! must be in recording state
+			video::IGPUFence* fence;
+			ITransformTree* tree;
+			core::SRange<ITransformTree::node_t> outNodes = { nullptr, nullptr };
+
+			struct Batch
+			{
+				const asset::ICPUSkeleton* skeleton;
+				uint32_t instanceCount = 0u;
+			};
+
+			Batch* skeletonBatches;
+			system::logger_opt_ptr logger = nullptr;
+		};
 		// TODO: utility for adding skeleton node instances, etc.
 		 
 		//
@@ -399,7 +418,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 				setUpBarrier(ITransformTree::recomputed_stamp_prop_ix);
 			}
 			cmdbuf->pipelineBarrier(
-				asset::EPSF_COMPUTE_SHADER_BIT,params.finalBarrier.dstStages|asset::EPSF_COMPUTE_SHADER_BIT,
+				asset::EPSF_COMPUTE_SHADER_BIT,core::bitflag<asset::E_PIPELINE_STAGE_FLAGS>(params.finalBarrier.dstStages)|asset::EPSF_COMPUTE_SHADER_BIT,
 				asset::EDF_NONE,0u,nullptr,barrierCount,bufferBarriers,0u,nullptr
 			);
 		}

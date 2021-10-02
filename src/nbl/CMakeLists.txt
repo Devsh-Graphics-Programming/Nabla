@@ -118,6 +118,8 @@ option(_NBL_COMPILE_WITH_OPENEXR_LOADER_ "Compile with OpenEXR Loader" ON)
 option(_NBL_COMPILE_WITH_OPENEXR_WRITER_ "Compile with OpenEXR Writer" ON)
 option(_NBL_COMPILE_WITH_GLI_LOADER_ "Compile with GLI Loader" ON)
 option(_NBL_COMPILE_WITH_GLI_WRITER_ "Compile with GLI Writer" ON)
+option(_NBL_COMPILE_WITH_GLTF_LOADER_ "Compile with GLTF Loader" ON)
+option(_NBL_COMPILE_WITH_GLTF_WRITER_ "Compile with GLTF Writer" ON)
 
 nbl_get_conf_dir(NABLA_CONF_DIR_DEBUG Debug)
 nbl_get_conf_dir(NABLA_CONF_DIR_RELEASE Release)
@@ -223,11 +225,14 @@ set(NBL_ASSET_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CPLYMeshFileLoader.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CSTLMeshFileLoader.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CBufferLoaderBIN.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CGLTFLoader.cpp
 
 # Mesh writers
 #	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/CBAWMeshWriter.cpp
+
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CPLYMeshWriter.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CSTLMeshWriter.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CGLTFWriter.cpp
 
 # BaW Format
 #	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/TypedBlob.cpp
@@ -280,6 +285,7 @@ set(NBL_VIDEO_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/video/IPhysicalDevice.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/ILogicalDevice.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IGPUFence.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/IDriverMemoryAllocation.cpp
 )
 set(NBL_SCENE_SOURCES
 # Junk to refactor
@@ -329,6 +335,9 @@ set(NABLA_SRCS_NORMAL
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanMemoryAllocation.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanBufferView.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanForeignImage.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanLogicalDevice.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanSampler.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanConnection.cpp
 
 
 	#opengl
@@ -375,6 +384,7 @@ endmacro()
 
 # TODO: Change all MACROS into FUNCTIONS (if possible, need to clarify variable scoping rules)
 macro(nbl_target_link_zlib _trgt)
+	add_dependencies(zlibstatic zlib_copy)
 	add_dependencies(${_trgt} zlibstatic)
 	target_link_libraries(${_trgt} INTERFACE zlibstatic)
 
@@ -383,7 +393,8 @@ macro(nbl_target_link_zlib _trgt)
 		$<$<CONFIG:Release>:${ZLIB_LIBRARY_RELEASE}>
 		$<$<CONFIG:RelWithDebInfo>:${ZLIB_LIBRARY_RELWITHDEBINFO}>
 	)
-	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/zlib)
+	
+	target_include_directories(${_trgt} PUBLIC $<TARGET_PROPERTY:zlibstatic,BINARY_DIR>/copy_source)
 endmacro()
 
 #Parallel hashmap
@@ -465,6 +476,16 @@ macro(nbl_target_link_EGL _trgt)
 	target_link_libraries(${_trgt} PRIVATE egl)
 endmacro()
 
+# simdjson
+macro(nbl_target_link_simdjson _trgt)
+	add_dependencies(${_trgt} simdjson)
+	target_link_libraries(${_trgt} INTERFACE
+		simdjson
+	)
+	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/simdjson)
+	set_target_properties(simdjson PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endmacro()
+
 add_library(Nabla STATIC
 	${NABLA_SRCS_COMMON}
 	${NABLA_SRCS_NORMAL}
@@ -502,7 +523,7 @@ if(DEFINED ENV{VULKAN_SDK})
 	nbl_target_link_vulkan(Nabla)
 endif()
 nbl_target_link_openssl(Nabla)
-#nbl_target_link_zlib(Nabla)
+nbl_target_link_zlib(Nabla)
 nbl_target_link_shaderc(Nabla)
 nbl_target_link_libjpeg_turbo(Nabla)
 nbl_target_link_libpng(Nabla)
@@ -519,6 +540,7 @@ if (NBL_COMPILE_WITH_SDL2)
 endif()
 nbl_target_link_volk(Nabla)
 nbl_target_link_EGL(Nabla)
+nbl_target_link_simdjson(Nabla)
 
 #target_link_libraries(Nabla INTERFACE ${OPENGL_gl_LIBRARY})
 if (UNIX)
@@ -671,3 +693,4 @@ nbl_install_lib(SPIRV-Tools-opt)
 nbl_install_lib(OGLCompiler)
 nbl_install_lib(OSDependent)
 nbl_install_lib(zlibstatic)
+nbl_install_lib(simdjson)

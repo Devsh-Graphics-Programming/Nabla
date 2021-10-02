@@ -2,6 +2,7 @@
 #define __NBL_I_FILE_H_INCLUDED__
 
 #include "nbl/core/decl/smart_refctd_ptr.h"
+#include "nbl/core/util/bitflag.h"
 
 #include <filesystem>
 #include <type_traits>
@@ -36,7 +37,7 @@ class IFile : public core::IReferenceCounted
 		/** \return File name as zero terminated character string. */
 		virtual const std::filesystem::path& getFileName() const = 0;
 
-		E_CREATE_FLAGS getFlags() const { return static_cast<E_CREATE_FLAGS>(m_flags); }
+		E_CREATE_FLAGS getFlags() const { return m_flags.value; }
 
 		virtual void* getMappedPointer() = 0;
 		virtual const void* getMappedPointer() const = 0;
@@ -44,7 +45,7 @@ class IFile : public core::IReferenceCounted
 
 		bool isMappingCoherent() const
 		{
-			return (m_flags & ECF_COHERENT) == ECF_COHERENT;
+			return (m_flags & ECF_COHERENT).value == ECF_COHERENT;
 		}
 
 		// TODO: make the `ISystem` methods protected instead 
@@ -56,10 +57,10 @@ class IFile : public core::IReferenceCounted
 		virtual size_t write_impl(const void* buffer, size_t offset, size_t sizeToWrite) = 0;
 
 		// the ISystem is the factory, so this starys protected
-		explicit IFile(core::smart_refctd_ptr<ISystem>&& _system, std::underlying_type_t<E_CREATE_FLAGS> _flags);
+		explicit IFile(core::smart_refctd_ptr<ISystem>&& _system, core::bitflag<E_CREATE_FLAGS> _flags);
 
 		core::smart_refctd_ptr<ISystem> m_system;
-		std::underlying_type_t<E_CREATE_FLAGS> m_flags;
+		core::bitflag<E_CREATE_FLAGS> m_flags;
 };
 
 }

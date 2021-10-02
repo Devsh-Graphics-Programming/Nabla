@@ -27,6 +27,10 @@
 //#include "nbl/asset/bawformat/CBAWMeshFileLoader.h"
 #endif
 
+#ifdef _NBL_COMPILE_WITH_GLTF_LOADER_
+#include "nbl/asset/interchange/CGLTFLoader.h"
+#endif
+
 #ifdef _NBL_COMPILE_WITH_JPG_LOADER_
 #include "nbl/asset/interchange/CImageLoaderJPG.h"
 #endif
@@ -59,6 +63,10 @@
 //#include "nbl/asset/bawformat/CBAWMeshWriter.h"
 #endif
 
+#ifdef _NBL_COMPILE_WITH_GLTF_WRITER_
+#include "nbl/asset/interchange/CGLTFWriter.h"
+#endif
+
 #ifdef _NBL_COMPILE_WITH_TGA_WRITER_
 #include "nbl/asset/interchange/CImageWriterTGA.h"
 #endif
@@ -79,6 +87,7 @@
 #include "nbl/asset/interchange/CGLIWriter.h"
 #endif
 
+#include "nbl/asset/interchange/CBufferLoaderBIN.h"
 #include "nbl/asset/utils/CGeometryCreator.h"
 #include "nbl/asset/utils/CMeshManipulator.h"
 
@@ -142,6 +151,9 @@ void IAssetManager::addLoadersAndWriters()
 #ifdef _NBL_COMPILE_WITH_BAW_LOADER_
 	//addAssetLoader(core::make_smart_refctd_ptr<asset::CBAWMeshFileLoader>(this));
 #endif
+#ifdef _NBL_COMPILE_WITH_GLTF_LOADER_
+    addAssetLoader(core::make_smart_refctd_ptr<asset::CGLTFLoader>(this));
+#endif
 #ifdef _NBL_COMPILE_WITH_JPG_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderJPG>());
 #endif
@@ -157,11 +169,15 @@ void IAssetManager::addLoadersAndWriters()
 #ifdef _NBL_COMPILE_WITH_TGA_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderTGA>());
 #endif
+    addAssetLoader(core::make_smart_refctd_ptr<asset::CBufferLoaderBIN>());
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CGLSLLoader>());
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CSPVLoader>());
 
 #ifdef _NBL_COMPILE_WITH_BAW_WRITER_
 	//addAssetWriter(core::make_smart_refctd_ptr<asset::CBAWMeshWriter>(getFileSystem()));
+#endif
+#ifdef _NBL_COMPILE_WITH_GLTF_WRITER_
+    addAssetWriter(core::make_smart_refctd_ptr<asset::CGLTFWriter>());
 #endif
 #ifdef _NBL_COMPILE_WITH_PLY_WRITER_
 	addAssetWriter(core::make_smart_refctd_ptr<asset::CPLYMeshWriter>());

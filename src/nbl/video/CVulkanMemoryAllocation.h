@@ -12,24 +12,24 @@ class ILogicalDevice;
 class CVulkanMemoryAllocation : public IDriverMemoryAllocation
 {
 public:
-    CVulkanMemoryAllocation(ILogicalDevice* dev, VkDeviceMemory deviceMemoryHandle)
-        : IDriverMemoryAllocation(), m_originDevice(dev), m_deviceMemoryHandle(deviceMemoryHandle)
+    CVulkanMemoryAllocation(ILogicalDevice* dev, size_t size, bool isDedicated, VkDeviceMemory deviceMemoryHandle)
+        : IDriverMemoryAllocation(dev), m_size(size), m_isDedicated(isDedicated), m_deviceMemoryHandle(deviceMemoryHandle)
     {}
 
     ~CVulkanMemoryAllocation();
 
     //! Whether the allocation was made for a specific resource and is supposed to only be bound to that resource.
-    bool isDedicated() const override { return false; }
+    bool isDedicated() const override { return m_isDedicated; }
 
-    // Todo(achal)
     //! Returns the size of the memory allocation
-    size_t getAllocationSize() const override { return 0ull; }
+    size_t getAllocationSize() const override { return m_size; }
 
     inline VkDeviceMemory getInternalObject() const { return m_deviceMemoryHandle; }
 
 private:
     VkDeviceMemory m_deviceMemoryHandle;
-    ILogicalDevice* m_originDevice; // IDriverMemoryAllocation doesn't inherit from IBackendObject ???
+    const bool m_isDedicated;
+    const size_t m_size;
 };
 
 }

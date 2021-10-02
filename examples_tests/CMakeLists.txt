@@ -65,6 +65,8 @@ add_subdirectory(49.ComputeFFT EXCLUDE_FROM_ALL)
 add_subdirectory(50.NewAPITest EXCLUDE_FROM_ALL)
 add_subdirectory(51.RadixSort EXCLUDE_FROM_ALL)
 add_subdirectory(52.SystemTest EXCLUDE_FROM_ALL)
-add_subdirectory(53.ComputeShaders EXCLUDE_FROM_ALL) # todo change the number
+
+add_subdirectory(53.ComputeShaders EXCLUDE_FROM_ALL)
+add_subdirectory(54.glTF EXCLUDE_FROM_ALL) # todo change the number
 add_subdirectory(54.Transformations EXCLUDE_FROM_ALL)
 add_subdirectory(55.RGB18E7S3 EXCLUDE_FROM_ALL)

@@ -291,7 +291,7 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
         //! Returns id of jointID attribute.
         inline uint32_t getJointIDAttributeIx() const { return jointIDAttrId; }
 
-        //! Sets id of position atrribute.
+        //! Sets id of joint atrribute.
         inline void setJointIDAttributeIx(const uint32_t attrId)
         {
             assert(!isImmutable_debug());
@@ -301,7 +301,7 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
         //! Returns id of joint weight attribute.
         inline uint32_t getJointWeightAttributeIx() const { return jointWeightAttrId; }
 
-        //! Sets id of position atrribute.
+        //! Sets id of joint's weight atrribute.
         inline void setJointWeightAttributeIx(const uint32_t attrId)
         {
             assert(!isImmutable_debug());

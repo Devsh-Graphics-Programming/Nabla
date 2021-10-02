@@ -7,6 +7,7 @@
 
 #include "nbl/core/decl/Types.h"
 #include "nbl/core/IReferenceCounted.h"
+#include "nbl/asset/ECommonEnums.h"
 
 namespace nbl::core
 {
@@ -19,6 +20,7 @@ class IBuffer : public virtual IReferenceCounted
     public:
         //! size in BYTES
         virtual const uint64_t& getSize() const = 0;
+
     protected:
         _NBL_INTERFACE_CHILD(IBuffer) {}
 };

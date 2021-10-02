@@ -5,6 +5,7 @@
 #ifndef __NBL_ASSET_I_IMAGE_H_INCLUDED__
 #define __NBL_ASSET_I_IMAGE_H_INCLUDED__
 
+#include "nbl/core/util/bitflag.h"
 #include "nbl/core/containers/refctd_dynamic_array.h"
 #include "nbl/core/math/glslFunctions.tcc"
 
@@ -18,7 +19,11 @@
 
 namespace nbl::asset
 {
-	
+
+// Todo(achal): Vulkan's VkOffset3D has int32_t members, getting rid of this
+// produces a bunch of errors in the filtering APIs and core::vectorSIMD**,
+// gotta do it carefully
+
 //placeholder until we configure Vulkan SDK
 typedef struct VkOffset3D {
 	uint32_t	x;
@@ -39,6 +44,7 @@ typedef struct VkExtent3D {
 	uint32_t	height;
 	uint32_t	depth;
 } VkExtent3D; //depr
+
 inline bool operator!=(const VkExtent3D& v1, const VkExtent3D& v2)
 {
 	return v1.width!=v2.width||v1.height!=v2.height||v1.depth!=v2.depth;
@@ -231,10 +237,12 @@ class IImage : public IDescriptor
 			uint32_t									arrayLayers;
 			E_SAMPLE_COUNT_FLAGS						samples;
 			// stuff below is irrelevant in OpenGL backend
-			E_TILING									tiling = static_cast<E_TILING>(0);
-			std::underlying_type_t<E_USAGE_FLAGS>		usage = 0u;
-			E_SHARING_MODE								sharingMode = ESM_EXCLUSIVE;
-			core::smart_refctd_dynamic_array<uint32_t>	queueFamilyIndices = nullptr;
+			E_TILING									tiling = ET_OPTIMAL;
+			core::bitflag<E_USAGE_FLAGS>				usage = static_cast<E_USAGE_FLAGS>(0);
+			// TODO: @achal sharing mode and queue family lists shouldn't be in ICPUImage's creation params!
+			E_SHARING_MODE								sharingMode = ESM_CONCURRENT;
+			uint32_t									queueFamilyIndexCount = 0u;
+			const uint32_t*								queueFamilyIndices = nullptr;
 			E_IMAGE_LAYOUT								initialLayout = EIL_UNDEFINED;
 			bool operator==(const SCreationParams& rhs) const
 			{
