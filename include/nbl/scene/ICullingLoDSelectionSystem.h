@@ -27,6 +27,11 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 		struct DispatchIndirectParams : nbl_glsl_culling_lod_selection_dispatch_indirect_params_t
 		{
 		};
+		struct InstanceToCull
+		{
+			uint32_t instanceGUID;
+			uint32_t lodTableID;
+		};
 
 		//
 		static core::smart_refctd_ptr<video::IGPUBuffer> createDispatchIndirectBuffer(video::IUtilities* utils, video::IGPUQueue* queue)
@@ -159,12 +164,9 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 		static inline core::smart_refctd_ptr<video::IGPUDescriptorSet> createInputDescriptorSet(
 			video::ILogicalDevice* device, video::IDescriptorPool* pool,
 			core::smart_refctd_ptr<const video::IGPUDescriptorSetLayout>&& layout,
-			const asset::SBufferRange<video::IGPUBuffer>& dispatchIndirect,
+			const asset::SBufferBinding<video::IGPUBuffer>& dispatchIndirect,
 			const asset::SBufferRange<video::IGPUBuffer>& instanceList,
-			const asset::SBufferRange<video::IGPUBuffer>& lodDrawCallOffsets,
-			const asset::SBufferRange<video::IGPUBuffer>& lodDrawCallCount,
-			const asset::SBufferRange<video::IGPUBuffer>& pvsInstanceDraws,
-			const asset::SBufferRange<video::IGPUBuffer>& prefixSumScratch
+			const ScratchBufferRanges& scratchBufferRanges
 		)
 		{
 			auto ds = device->createGPUDescriptorSet(pool,std::move(layout));
@@ -174,10 +176,10 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 				{
 					dispatchIndirect,
 					instanceList,
-					lodDrawCallOffsets,
-					lodDrawCallCount,
-					pvsInstanceDraws,
-					prefixSumScratch
+					scratchBufferRanges.lodDrawCallOffsets,
+					scratchBufferRanges.lodDrawCallCounts,
+					scratchBufferRanges.pvsInstanceDraws,
+					scratchBufferRanges.prefixSumScratch
 				};
 				for (auto i=0u; i<InputDescriptorBindingCount; i++)
 				{
@@ -238,21 +240,25 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 		struct Params
 		{
 			video::IGPUCommandBuffer* cmdbuf; // must already be in recording state
-			asset::SBufferBinding<const video::IGPUBuffer> indirectDispatchParams;
+			asset::SBufferBinding<video::IGPUBuffer> indirectDispatchParams;
 			core::smart_refctd_ptr<video::IGPUDescriptorSet> lodLibraryDS;
 			core::smart_refctd_ptr<video::IGPUDescriptorSet> transientInputDS;
 			core::smart_refctd_ptr<video::IGPUDescriptorSet> transientOutputDS;
 			core::smart_refctd_ptr<video::IGPUDescriptorSet> customDS;
 			uint32_t directInstanceCount; // set as 0u for indirect dispatch
 			// these are for the pipeline barriers
+			asset::SBufferRange<video::IGPUBuffer> instanceList;
 			ScratchBufferRanges scratchBufferRanges;
-			asset::SBufferRange<const video::IGPUBuffer> perInstanceRedirectAttribs;
+			asset::SBufferRange<video::IGPUBuffer> drawCalls;
+			asset::SBufferRange<video::IGPUBuffer> perViewPerInstance;
+			asset::SBufferRange<video::IGPUBuffer> perInstanceRedirectAttribs;
+			asset::SBufferRange<video::IGPUBuffer> drawCounts = {};
 		};
 		void processInstancesAndFillIndirectDraws(const Params& params)
 		{
 			auto cmdbuf = params.cmdbuf;
 			const auto queueFamilyIndex = cmdbuf->getPool()->getQueueFamilyIndex();
-			const asset::SBufferRange<const video::IGPUBuffer> indirectRange = {
+			const asset::SBufferRange<video::IGPUBuffer> indirectRange = {
 				params.indirectDispatchParams.offset,sizeof(DispatchIndirectParams),
 				params.indirectDispatchParams.buffer
 			};
@@ -267,7 +273,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 				barriers[i].dstQueueFamilyIndex = queueFamilyIndex;
 			}
 			auto setBarrierBuffer = [](
-				video::IGPUCommandBuffer::SBufferMemoryBarrier& barrier, const asset::SBufferRange<const video::IGPUBuffer>& range,
+				video::IGPUCommandBuffer::SBufferMemoryBarrier& barrier, const asset::SBufferRange<video::IGPUBuffer>& range,
 				core::bitflag<asset::E_ACCESS_FLAGS> srcAccessMask,
 				core::bitflag<asset::E_ACCESS_FLAGS> dstAccessMask//=asset::EAF_SHADER_READ_BIT
 			) -> void

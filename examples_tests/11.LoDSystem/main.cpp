@@ -46,8 +46,20 @@ int main()
 
 
     //
+    constexpr auto MaxPipelines = 2u;
+    constexpr auto MaxDrawCalls = 512u;
     constexpr auto MaxInstanceCount = 8u;
     constexpr auto MaxTotalDrawcallInstances = 2048u;
+    
+    core::smart_refctd_ptr<video::CDrawIndirectAllocator<>> drawIndirectAllocator;
+    {
+        video::IDrawIndirectAllocator::ImplicitBufferCreationParameters drawAllocatorParams;
+        drawAllocatorParams.device = logicalDevice.get();
+        drawAllocatorParams.maxDrawCommandStride = sizeof(asset::DrawElementsIndirectCommand_t);
+        drawAllocatorParams.drawCommandCapacity = MaxDrawCalls;
+        drawAllocatorParams.drawCountCapacity = MaxPipelines;
+        drawIndirectAllocator = video::CDrawIndirectAllocator<>::create(std::move(drawAllocatorParams));
+    }
 
     using lod_library_t = scene::ILevelOfDetailLibrary;
     //auto lodLibrary = lod_library_t::create();
@@ -84,28 +96,39 @@ int main()
 
         cullingParams.indirectDispatchParams = {0ull,culling_system_t::createDispatchIndirectBuffer(utilities.get(),queues[decltype(initOutput)::EQT_TRANSFER_UP])};
         // TODO: add the rest of the buffers
+        {
+            video::IGPUBuffer::SCreationParams params;
+            params.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
+            cullingParams.instanceList = {0ull,~0ull,logicalDevice->createDeviceLocalGPUBufferOnDedMem(params,sizeof(culling_system_t::InstanceToCull)*MaxInstanceCount)};
+        }
         cullingParams.scratchBufferRanges = culling_system_t::createScratchBuffer(logicalDevice.get(),MaxInstanceCount,MaxTotalDrawcallInstances);
+        cullingParams.drawCalls = drawIndirectAllocator->getDrawCommandMemoryBlock();
+        cullingParams.perViewPerInstance = {0ull,~0ull,culling_system_t::createPerViewPerInstanceDataBuffer<core::matrix4SIMD>(logicalDevice.get(),MaxTotalDrawcallInstances)}; // TODO: perView type
         cullingParams.perInstanceRedirectAttribs = {0ul,~0ull,culling_system_t::createInstanceRedirectBuffer(logicalDevice.get(),MaxTotalDrawcallInstances)};
+        const auto drawCountsBlock = drawIndirectAllocator->getDrawCountMemoryBlock();
+        if (drawCountsBlock)
+            cullingParams.drawCounts = *drawCountsBlock;
 
         cullingParams.lodLibraryDS = nullptr;
-#if 0
-        culling_system_t::createInputDescriptorSet(
+        cullingParams.transientInputDS = culling_system_t::createInputDescriptorSet(
             logicalDevice.get(),pool.get(),std::move(layouts[1]),
             cullingParams.indirectDispatchParams,
-            cullingParams.instanceList, // TODO: allocate
-            cullingParams.scratchBufferRanges.lodDrawCallOffsets,
-            cullingParams.scratchBufferRanges.lodDrawCallCounts,
-            cullingParams.scratchBufferRanges.pvsInstanceDraws, // use
-            cullingParams.scratchBufferRanges.prefixSumScratch
+            cullingParams.instanceList,
+            cullingParams.scratchBufferRanges
         );
         cullingParams.transientOutputDS = culling_system_t::createOutputDescriptorSet(
             logicalDevice.get(),pool.get(),std::move(layouts[2]),
-            drawCalls, // use TODO: allocate
-            perViewPerInstance, // TODO: allocate
-            cullingParams.perInstanceRedirectAttribs // use
+            cullingParams.drawCalls,
+            cullingParams.perViewPerInstance,
+            cullingParams.perInstanceRedirectAttribs, // TODO: use
+            cullingParams.drawCounts
         );
-#endif
         cullingParams.customDS = logicalDevice->createGPUDescriptorSet(pool.get(),std::move(layouts[3]));
+
+        cullingParams.indirectDispatchParams.buffer->setObjectDebugName("CullingIndirect");
+        cullingParams.drawCalls.buffer->setObjectDebugName("DrawCallPool");
+        cullingParams.scratchBufferRanges.pvsInstanceDraws.buffer->setObjectDebugName("PotentiallyVisibleDrawInstances");
+        cullingParams.perInstanceRedirectAttribs.buffer->setObjectDebugName("PerInstanceInputAttribs");
     }
 
 
@@ -199,13 +222,6 @@ int main()
     bakedCommandBuffer->begin(video::IGPUCommandBuffer::EU_RENDER_PASS_CONTINUE_BIT|video::IGPUCommandBuffer::EU_SIMULTANEOUS_USE_BIT);
     //
     {
-        video::IDrawIndirectAllocator::ImplicitBufferCreationParameters drawAllocatorParams;
-        drawAllocatorParams.device = logicalDevice.get();
-        drawAllocatorParams.maxDrawCommandStride = sizeof(asset::DrawElementsIndirectCommand_t);
-        drawAllocatorParams.drawCommandCapacity = 32u;
-        drawAllocatorParams.drawCountCapacity = 1u;
-        auto drawIndirectAllocator = video::CDrawIndirectAllocator<>::create(std::move(drawAllocatorParams));
-
         uint32_t maxInstancedDrawcalls = 0u;
         {
             auto* geometryCreator = assetManager->getGeometryCreator();

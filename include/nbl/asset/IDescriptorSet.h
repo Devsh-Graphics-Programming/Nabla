@@ -16,9 +16,7 @@
 #include "nbl/core/SRange.h"
 #include "nbl/asset/EImageLayout.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 //! Interface class for various Descriptor Set's resources
@@ -75,14 +73,14 @@ class IDescriptorSet : public virtual core::IReferenceCounted
 					memset(&buffer, 0, core::max<size_t>(sizeof(buffer), sizeof(image)));
 				}
 				template<typename BufferType>
-				SDescriptorInfo(const asset::SBufferBinding<BufferType>& binding)
+				SDescriptorInfo(const SBufferBinding<BufferType>& binding)
 				{
 					desc = binding.buffer;
 					buffer.offset = binding.offset;
-					buffer.size = SBufferBinding::WholeBuffer;
+					buffer.size = SBufferInfo::WholeBuffer;
 				}
 				template<typename BufferType>
-				SDescriptorInfo(const asset::SBufferRange<BufferType>& range)
+				SDescriptorInfo(const SBufferRange<BufferType>& range)
 				{
 					desc = range.buffer;
 					buffer.offset = range.offset;
@@ -204,7 +202,6 @@ class IEmulatedDescriptorSet
 
 }
 
-}
 }
 
 #endif
