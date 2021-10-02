@@ -5,7 +5,7 @@ layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_) in;
 #define NBL_GLSL_CULLING_LOD_SELECTION_INSTANCE_LIST_DESCRIPTOR_BINDING
 #define NBL_GLSL_CULLING_LOD_SELECTION_INSTANCE_DRAWCALL_OFFSETS_DESCRIPTOR_BINDING
 #define NBL_GLSL_CULLING_LOD_SELECTION_INSTANCE_DRAWCALL_EXCLUSIVE_COUNTS_DESCRIPTOR_BINDING
-#define NBL_GLSL_CULLING_LOD_SELECTION_PVS_INSTANCE_DRAWCALLS_DESCRIPTOR_QUALIFIERS restrict readonly
+#define NBL_GLSL_CULLING_LOD_SELECTION_PVS_INSTANCE_DRAWS_DESCRIPTOR_QUALIFIERS restrict readonly
 #include <nbl/builtin/glsl/culling_lod_selection/input_descriptor_set.glsl>
 
 #define NBL_GLSL_CULLING_LOD_SELECTION_DRAW_CALLS_DESCRIPTOR_QUALIFIERS restrict readonly
@@ -16,18 +16,19 @@ layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_) in;
 
 uint nbl_glsl_culling_lod_selection_getSortedDrawInstanceIndex(in uint unsortedDrawInstanceID)
 {
-    const uvec2 data = pvsInstanceDrawcalls.data[unsortedDrawInstanceID].xy;
+    const uvec2 data = pvsInstanceDraws.data[unsortedDrawInstanceID].xy;
     const uint drawBaseInstanceDWORDOffset = data[0];
     return nbl_glsl_culling_lod_selection_drawElementsGetBaseInstance(drawBaseInstanceDWORDOffset)+data[1];
 }
-uint nbl_glsl_culling_lod_selection_getDrawInstanceAttributes(in uint unsortedDrawInstanceID)
+uvec2 nbl_glsl_culling_lod_selection_getDrawInstanceAttributes(in uint unsortedDrawInstanceID)
 {
-    return pvsInstanceDrawcalls.data[unsortedDrawInstanceID].zw;
+    return pvsInstanceDraws.data[unsortedDrawInstanceID].zw;
 }
 
 void main()
 {
-    for (uint unsortedDrawInstanceID=gl_GlobalInvocationID.x; unsortedDrawInstanceID<; unsortedDrawInstanceID++)
+    const uint potentiallyVisibleInstanceCount = pvsInstanceDraws.count;
+    for (uint unsortedDrawInstanceID=gl_GlobalInvocationID.x; unsortedDrawInstanceID<potentiallyVisibleInstanceCount; unsortedDrawInstanceID++)
     {
         const uint instanceIndex = nbl_glsl_culling_lod_selection_getSortedDrawInstanceIndex(unsortedDrawInstanceID);
         perInstanceRedirectAttrs.data[instanceIndex] = nbl_glsl_culling_lod_selection_getDrawInstanceAttributes(unsortedDrawInstanceID);

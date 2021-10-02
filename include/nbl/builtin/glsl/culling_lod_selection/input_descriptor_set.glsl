@@ -6,6 +6,7 @@
 #define NBL_GLSL_CULLING_LOD_SELECTION_INPUT_DESCRIPTOR_SET 1
 #endif
 
+#include <nbl/builtin/glsl/utils/indirect_commands.glsl>
 #include <nbl/builtin/glsl/culling_lod_selection/dispatch_indirect_params.glsl>
 #ifndef NBL_GLSL_CULLING_LOD_SELECTION_DISPATCH_INDIRECT_DESCRIPTOR_BINDING
 #define NBL_GLSL_CULLING_LOD_SELECTION_DISPATCH_INDIRECT_DESCRIPTOR_BINDING 0
@@ -14,7 +15,7 @@ layout(
     binding = NBL_GLSL_CULLING_LOD_SELECTION_DISPATCH_INDIRECT_DESCRIPTOR_BINDING
 ) restrict coherent buffer DispatchIndirect
 {
-    nbl_glsl_culling_lod_selection_dispatch_indirect_params_t data[];
+    uint data[];
 } dispatchIndirect;
 #endif
 
@@ -58,6 +59,8 @@ layout(
     binding = NBL_GLSL_CULLING_LOD_SELECTION_PVS_INSTANCE_DRAWS_DESCRIPTOR_BINDING
 ) NBL_GLSL_CULLING_LOD_SELECTION_PVS_INSTANCE_DRAWS_DESCRIPTOR_QUALIFIERS buffer PVSInstanceDraws
 {
+    uint count;
+    uint padding[3];
     uvec4 data[]; // <drawBaseInstanceDWORDOffset,instanceID,instanceGUID,perViewPerInstanceID>
 } pvsInstanceDraws;
 #endif

@@ -65,6 +65,13 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/colorspace/OETF.glsl"
   "nbl/builtin/glsl/colorspace/decodeCIEXYZ.glsl"
   "nbl/builtin/glsl/colorspace/encodeCIEXYZ.glsl"
+  # Culling and LoD System
+  "nbl/builtin/glsl/culling_lod_selection/dispatch_indirect_params.glsl"
+  "nbl/builtin/glsl/culling_lod_selection/input_descriptor_set.glsl"
+  "nbl/builtin/glsl/culling_lod_selection/output_descriptor_set.glsl"
+  "nbl/builtin/glsl/culling_lod_selection/instance_cull_and_lod_select.comp"
+  "nbl/builtin/glsl/culling_lod_selection/instance_draw_cull.comp"
+  "nbl/builtin/glsl/culling_lod_selection/instance_ref_counting_sort_scatter.comp"
   # VK_FORMAT support
   "nbl/builtin/glsl/format/decode.glsl"
   "nbl/builtin/glsl/format/encode.glsl"

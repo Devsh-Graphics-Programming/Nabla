@@ -44,6 +44,42 @@ int main()
     auto cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
     auto utilities = std::move(initOutput.utilities);
     
+
+    //auto lodLibrary = scene::ILevelOfDetailLibrary::create();
+    auto lodLibraryDSLayout = scene::ILevelOfDetailLibrary::createDescriptorSetLayout(logicalDevice.get()); // TODO: scope better
+
+    core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> customCullingDSLayout; // TODO: scope better
+    {
+        // TODO: figure out what should be here
+        constexpr auto BindingCount = 1u;
+        video::IGPUDescriptorSetLayout::SBinding bindings[BindingCount];
+        for (auto i=0u; i<BindingCount; i++)
+        {
+            bindings[i].binding = i;
+            bindings[i].type = asset::EDT_STORAGE_BUFFER;
+            bindings[i].count = 1u;
+            bindings[i].stageFlags = asset::ISpecializedShader::ESS_COMPUTE;
+            bindings[i].samplers = nullptr;
+        }
+        customCullingDSLayout = logicalDevice->createGPUDescriptorSetLayout(bindings,bindings+BindingCount);
+    }
+    auto cullingSystem = core::make_smart_refctd_ptr<scene::ICullingLoDSelectionSystem>(logicalDevice.get(),core::smart_refctd_ptr(customCullingDSLayout));
+
+    core::smart_refctd_ptr<video::IGPUDescriptorSet> cullingDescriptorSets[4u];
+    {
+        auto inputDSLayout = scene::ICullingLoDSelectionSystem::createInputDescriptorSetLayout(logicalDevice.get());
+        auto outputDSLayout = scene::ICullingLoDSelectionSystem::createOutputDescriptorSetLayout(logicalDevice.get());
+        const video::IGPUDescriptorSetLayout* layouts[] = {lodLibraryDSLayout.get(),inputDSLayout.get(),outputDSLayout.get(),customCullingDSLayout.get()};
+        const core::SRange<const video::IGPUDescriptorSetLayout*> layoutRange = {layouts,layouts+sizeof(layouts)/sizeof(void*)};
+
+        auto pool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE,layoutRange.begin(),layoutRange.end());
+        logicalDevice->createGPUDescriptorSets(pool.get(),layoutRange,cullingDescriptorSets);
+    }
+    {
+        //
+    }
+
+
     core::smart_refctd_ptr<video::IGPUFence> gpuTransferFence;
     core::smart_refctd_ptr<video::IGPUFence> gpuComputeFence;
     nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
