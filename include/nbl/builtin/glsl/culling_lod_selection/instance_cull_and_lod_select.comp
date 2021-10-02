@@ -2,21 +2,22 @@
 layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_) in;
 
 
-uint nbl_glsl_culling_lod_selection_getInstanceCount();
+#define NBL_GLSL_CULLING_LOD_SELECTION_INSTANCE_DRAWCALL_OFFSETS_DESCRIPTOR_QUALIFIERS restrict writeonly
+#define NBL_GLSL_CULLING_LOD_SELECTION_INSTANCE_DRAWCALL_EXCLUSIVE_COUNTS_DESCRIPTOR_QUALIFIERS restrict writeonly
+#define NBL_GLSL_CULLING_LOD_SELECTION_PVS_INSTANCE_DRAWCALLS_DESCRIPTOR_BINDING
+#include <nbl/builtin/glsl/culling_lod_selection/input_descriptor_set.glsl>
+
+#define NBL_GLSL_CULLING_LOD_SELECTION_DRAW_CALLS_DESCRIPTOR_BINDING
+#define NBL_GLSL_CULLING_LOD_SELECTION_PER_VIEW_PER_INSTANCE_DESCRIPTOR_QUALIFIERS restrict writeonly
+#define NBL_GLSL_CULLING_LOD_SELECTION_PER_INSTANCE_REDIRECT_ATTRS_DESCRIPTOR_BINDING
+#define NBL_GLSL_CULLING_LOD_SELECTION_DRAW_CALL_COUNTS_DESCRIPTOR_BINDING
+#include <nbl/builtin/glsl/culling_lod_selection/output_descriptor_set.glsl>
 
 
-layout(set=X,binding=N) readonly restrict buffer Instances
-{
-#ifdef INDIRECT
-    uint count;
-#endif
-    uvec2 data[]; // <instanceGUID,lod_table_t>
-} instances; // input
-
-#ifdef INDIRECT
+#ifdef NBL_GLSL_CULLING_LOD_SELECTION_INDIRECT_INSTANCE_LIST
 uint nbl_glsl_culling_lod_selection_getInstanceCount()
 {
-    return instances.count;
+    return dispatchIndirect.instanceCount;
 }
 #else
 layout(push_constant) uniform PushConstants
@@ -26,35 +27,44 @@ layout(push_constant) uniform PushConstants
 
 uint nbl_glsl_culling_lod_selection_getInstanceCount()
 {
-    return instances.count;
+    return pc.count;
 }
 #endif
 
-
-layout(set=INTERMEDIATE,binding=0) writeonly restrict buffer LoDDrawcallOffsets
-{
-    uint data[];
-} lodDrawcallOffsets;
-layout(set=INTERMEDIATE,binding=1) restrict buffer LoDDrawcallExclusiveCounts
-{
-    uint data[];
-} lodDrawcallExclusiveCounts;
-
+void nbl_glsl_culling_lod_selection_initializePerViewPerInstanceData(out nbl_glsl_PerViewPerInstance_t data, in uint instanceID);
+void nbl_glsl_culling_lod_selection_finalizePerViewPerInstanceData(inout nbl_glsl_PerViewPerInstance_t data, in uint instanceID);
 
 void main()
 {
+    if (gl_GlobalInvocationID.x==0u)
+        dispatchIndirect.drawInstanceCountPrefixSum.groups_x = 0u;
+    else if (gl_GlobalInvocationID.x==4u)
+        dispatchIndirect.potentiallyVisibleDrawInstanceCount = 0u;
+
+    uint outIx = 0u;
     for (uint instanceID=gl_GlobalInvocationID.x; instanceID<nbl_glsl_culling_lod_selection_getInstanceCount(); instanceID++)
     {
-        // compute perview data
+        nbl_glsl_PerViewPerInstance_t perView;
+        nbl_glsl_culling_lod_selection_initializePerViewPerInstanceData(perView,instanceID);
         // cull lod_table_t
         // select lod_t
-        // cull it
+        // cull the lod_t
+        if (false)
+            continue;
+        nbl_glsl_culling_lod_selection_finalizePerViewPerInstanceData(perView,instanceID);
 
-        // output perview data
-        // get its drawcall offset
-        lodDrawcallOffsets.data[instanceID] = 0xdeadbeefu;
+        outIx = atomicAdd(dispatchIndirect.potentiallyVisibleInstanceCount,1u);
+
+        // TODO: get this stuff
+        const uint drawCallDWORDOffset = 0xdeadbeefu;
         const uint drawCallCount = 0x45u;
-        lodDrawcallExclusiveCounts.data[instanceID] = drawCallCount;
-        // prefix sum
+        perViewPerInstance.data[outIx] = perView;
+        lodDrawcallOffsets.data[outIx] = drawCallDWORDOffset;
+        lodDrawcallExclusiveCounts.data[outIx] = drawCallCount;
     }
+
+    const uint maxOutIx = nbl_glsl_workgroupAdd(outIx);
+    const uint dispatchGroupBound = min(maxOutIx/_NBL_GLSL_WORKGROUP_SIZE_+1u,0x45u);
+    if (gl_LocalInvocationIndex==0u)
+        atomicMax(dispatchIndirect.instanceDrawCull.groups_x,); 
 }

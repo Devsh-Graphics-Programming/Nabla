@@ -4,8 +4,12 @@
 struct nbl_glsl_culling_lod_selection_dispatch_indirect_params_t
 {
 	nbl_glsl_DispatchIndirectCommand_t instanceCullAndLoDSelect;
+	uint instanceCount;
+	nbl_glsl_DispatchIndirectCommand_t instanceDrawCountPrefixSum;
+	uint potentiallyVisibleInstanceCount;
 	nbl_glsl_DispatchIndirectCommand_t instanceDrawCull;
 	nbl_glsl_DispatchIndirectCommand_t drawInstanceCountPrefixSum;
+	uint potentiallyVisibleDrawInstanceCount;
 	nbl_glsl_DispatchIndirectCommand_t instanceRefCountingSortScatter;
 	nbl_glsl_DispatchIndirectCommand_t drawCompact;
 };

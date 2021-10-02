@@ -13,11 +13,6 @@
 namespace nbl::scene
 {
 
-// register many <renderpass_t,node_t,lod_table_t> to be rendered
-// TODO: Make LoDTable entries contain pointers to bindpose matrices and joint AABBs (culling of skinned models can only occur after LoD choice)
-// SPECIAL: when registering skeletons, allocate the registrations contiguously to get a free translation table for skinning
-// but reserve a per_view_data_t=<MVP,chosen_lod_t> for the output
-// keep in `sparse_vector` to make contiguous
 class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 {
 	public:
@@ -25,7 +20,9 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 
 		//
 		#define nbl_glsl_DispatchIndirectCommand_t asset::DispatchIndirectCommand_t
+		#define uint uint32_t
 		#include "nbl/builtin/glsl/culling_lod_selection/dispatch_indirect_params.glsl"
+		#undef uint
 		#undef nbl_glsl_DispatchIndirectCommand_t
 		struct DispatchIndirectParams : nbl_glsl_culling_lod_selection_dispatch_indirect_params_t
 		{
@@ -44,6 +41,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 		{
 			asset::SBufferRange<video::IGPUBuffer> lodDrawCallOffsets;
 			asset::SBufferRange<video::IGPUBuffer> lodDrawCallCounts;
+			asset::SBufferRange<video::IGPUBuffer> pvsInstanceDraws;
 			asset::SBufferRange<video::IGPUBuffer> prefixSumScratch;
 		};
 		static ScratchBufferRanges createScratchBuffer(
@@ -61,7 +59,9 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 				retval.lodDrawCallOffsets.offset = 0u;
 				retval.lodDrawCallCounts.offset = retval.lodDrawCallOffsets.size = core::alignUp(maxTotalInstances*sizeof(uint32_t),ssboAlignment);
 				retval.lodDrawCallCounts.size = retval.lodDrawCallOffsets.size;
-				retval.prefixSumScratch.offset = retval.lodDrawCallCounts.offset+retval.lodDrawCallCounts.size;
+				retval.pvsInstanceDraws.offset = retval.lodDrawCallCounts.offset+retval.lodDrawCallCounts.size;
+				retval.pvsInstanceDraws.size = core::alignUp(maxTotalDrawcallInstances*sizeof(uint32_t),ssboAlignment);
+				retval.prefixSumScratch.offset = retval.pvsInstanceDraws.offset+retval.pvsInstanceDraws.size;
 				{
 					video::CScanner::Parameters params;
 					auto schedulerParams = video::CScanner::SchedulerParameters(params,maxTotalDrawcallInstances,wg_size);
@@ -71,10 +71,12 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 			{
 				video::IGPUBuffer::SCreationParams params;
 				params.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
-				retval.lodDrawCallOffsets.buffer = logicalDevice->createDeviceLocalGPUBufferOnDedMem(params,retval.prefixSumScratch.offset+retval.prefixSumScratch.size);
+				retval.lodDrawCallOffsets.buffer = 
+				retval.lodDrawCallCounts.buffer =
+				retval.pvsInstanceDraws.buffer =
+				retval.prefixSumScratch.buffer =
+					logicalDevice->createDeviceLocalGPUBufferOnDedMem(params,retval.prefixSumScratch.offset+retval.prefixSumScratch.size);
 			}
-			retval.lodDrawCallCounts.buffer = retval.lodDrawCallOffsets.buffer;
-			retval.prefixSumScratch.buffer = retval.lodDrawCallCounts.buffer;
 			return retval;
 		}
 
@@ -100,7 +102,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 		}
 
 		//
-		static inline constexpr auto InputDescriptorBindingCount = 5u;
+		static inline constexpr auto InputDescriptorBindingCount = 6u;
 		static inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createInputDescriptorSetLayout(video::ILogicalDevice* device)
 		{
 			video::IGPUDescriptorSetLayout::SBinding bindings[InputDescriptorBindingCount];
@@ -145,6 +147,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 			const asset::SBufferRange<video::IGPUBuffer>& instanceList,
 			const asset::SBufferRange<video::IGPUBuffer>& lodDrawCallOffsets,
 			const asset::SBufferRange<video::IGPUBuffer>& lodDrawCallCount,
+			const asset::SBufferRange<video::IGPUBuffer>& pvsInstanceDraws,
 			const asset::SBufferRange<video::IGPUBuffer>& prefixSumScratch
 		)
 		{
@@ -157,6 +160,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 					instanceList,
 					lodDrawCallOffsets,
 					lodDrawCallCount,
+					pvsInstanceDraws,
 					prefixSumScratch
 				};
 				for (auto i=0u; i<InputDescriptorBindingCount; i++)
@@ -173,7 +177,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 			return ds;
 		}
 		//
-		static inline core::smart_refctd_ptr<video::IGPUDescriptorSet> createInputDescriptorSet(
+		static inline core::smart_refctd_ptr<video::IGPUDescriptorSet> createOutputDescriptorSet(
 			video::ILogicalDevice* device, video::IDescriptorPool* pool,
 			core::smart_refctd_ptr<const video::IGPUDescriptorSetLayout>&& layout,
 			const asset::SBufferRange<video::IGPUBuffer>& drawCalls,
