@@ -47,7 +47,7 @@ int main()
 
     //
     constexpr auto MaxPipelines = 2u;
-    constexpr auto MaxDrawCalls = 512u;
+    constexpr auto MaxDrawCalls = 2048u;
     constexpr auto MaxInstanceCount = 8u;
     constexpr auto MaxTotalDrawcallInstances = 2048u;
     
@@ -73,7 +73,7 @@ int main()
         {
             scene::ILevelOfDetailLibrary::createDescriptorSetLayout(logicalDevice.get()),
             culling_system_t::createInputDescriptorSetLayout(logicalDevice.get()),
-            culling_system_t::createOutputDescriptorSetLayout(logicalDevice.get()),
+            culling_system_t::createOutputDescriptorSetLayout(logicalDevice.get(),true),
             [&]() -> core::smart_refctd_ptr<video::IGPUDescriptorSetLayout>
             {
                 // TODO: figure out what should be here
@@ -120,7 +120,7 @@ int main()
             logicalDevice.get(),pool.get(),std::move(layouts[2]),
             cullingParams.drawCalls,
             cullingParams.perViewPerInstance,
-            cullingParams.perInstanceRedirectAttribs, // TODO: use
+            cullingParams.perInstanceRedirectAttribs,
             cullingParams.drawCounts
         );
         cullingParams.customDS = logicalDevice->createGPUDescriptorSet(pool.get(),std::move(layouts[3]));
@@ -216,104 +216,139 @@ int main()
     };
     core::vector<PotentiallyVisibleInstanceDraw> pvsContents(1u);
     auto& pvsCount = pvsContents[0].drawBaseInstanceDWORDOffset;
-    //
+
+
+    uint32_t multiDrawCommandRangeByteOffsets[MaxPipelines];
+    uint32_t multiDrawCommandMaxCounts[MaxPipelines] = { 0u };
+    uint32_t multiDrawCommandCounts[MaxPipelines];
+    video::IDrawIndirectAllocator::Allocation mdiAlloc;
+    mdiAlloc.count = 0u;
+    mdiAlloc.multiDrawCommandRangeByteOffsets = multiDrawCommandRangeByteOffsets;
+    mdiAlloc.multiDrawCommandMaxCounts = multiDrawCommandMaxCounts;
+    mdiAlloc.multiDrawCommandCounts = multiDrawCommandCounts;
+    mdiAlloc.setAllCommandStructSizesConstant(sizeof(asset::DrawElementsIndirectCommand_t));
+    core::vector<asset::DrawElementsIndirectCommand_t> drawCallData;
+
+    // TODO: decouple
     core::smart_refctd_ptr<video::IGPUCommandBuffer> bakedCommandBuffer;
-    logicalDevice->createCommandBuffers(commandPool.get(),video::IGPUCommandBuffer::EL_SECONDARY,1u,&bakedCommandBuffer);
-    bakedCommandBuffer->begin(video::IGPUCommandBuffer::EU_RENDER_PASS_CONTINUE_BIT|video::IGPUCommandBuffer::EU_SIMULTANEOUS_USE_BIT);
-    //
     {
-        uint32_t maxInstancedDrawcalls = 0u;
+        // TODO: turn into a lambda (so we can have multiple geometry types, sphere (multi lod, multi meshlet), cone (multi lod, single meshlet), cube (no lod), etc.)
+        const uint32_t pplnIndex = mdiAlloc.count++;
+        mdiAlloc.multiDrawCommandRangeByteOffsets[pplnIndex] = video::IDrawIndirectAllocator::invalid_draw_range_begin;
+        mdiAlloc.multiDrawCommandCounts[pplnIndex] = video::IDrawIndirectAllocator::invalid_draw_count_ix;
+
+        logicalDevice->createCommandBuffers(commandPool.get(),video::IGPUCommandBuffer::EL_SECONDARY,1u,&bakedCommandBuffer);
+        bakedCommandBuffer->begin(video::IGPUCommandBuffer::EU_RENDER_PASS_CONTINUE_BIT|video::IGPUCommandBuffer::EU_SIMULTANEOUS_USE_BIT);
+        //
         {
-            auto* geometryCreator = assetManager->getGeometryCreator();
-            auto* meshManipulator = assetManager->getMeshManipulator();
-            auto* qnc = meshManipulator->getQuantNormalCache();
-            //loading cache from file
-            const system::path cachePath = std::filesystem::current_path()/"../../tmp/normalCache101010.sse";
-            if (!qnc->loadCacheFromFile<asset::EF_A2B10G10R10_SNORM_PACK32>(system.get(),cachePath))
-                logger->log("%s",ILogger::ELL_ERROR,"Failed to load cache.");
-            auto tmp = 0;
-            core::vector<core::smart_refctd_ptr<ICPUMeshBuffer>> cpumeshes;
-            core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> cpupipeline;
-            for (uint32_t poly=4u; poly<=256; poly<<=1)
+
+            uint32_t maxInstancedDrawcalls = 0u;
             {
-                auto sphereData = geometryCreator->createSphereMesh(2.f,poly,poly,meshManipulator);
-                // we'll stick instance data refs in the last attribute binding
-                assert((sphereData.inputParams.enabledBindingFlags>>15u)==0u);
-
-                sphereData.inputParams.enabledAttribFlags |= 0x1u<<15;
-                sphereData.inputParams.enabledBindingFlags |= 0x1u<<15;
-                sphereData.inputParams.attributes[15].binding = 15u;
-                sphereData.inputParams.attributes[15].relativeOffset = 0u;
-                sphereData.inputParams.attributes[15].format = asset::EF_R32G32_UINT;
-                sphereData.inputParams.bindings[15].inputRate = asset::EVIR_PER_INSTANCE;
-                sphereData.inputParams.bindings[15].stride = asset::getTexelOrBlockBytesize(asset::EF_R32G32_UINT);
-
-                if (!cpupipeline)
+                auto* geometryCreator = assetManager->getGeometryCreator();
+                auto* meshManipulator = assetManager->getMeshManipulator();
+                auto* qnc = meshManipulator->getQuantNormalCache();
+                //loading cache from file
+                const system::path cachePath = std::filesystem::current_path()/"../../tmp/normalCache101010.sse";
+                if (!qnc->loadCacheFromFile<asset::EF_A2B10G10R10_SNORM_PACK32>(system.get(),cachePath))
+                    logger->log("%s",ILogger::ELL_ERROR,"Failed to load cache.");
+                auto tmp = 0;
+                core::vector<core::smart_refctd_ptr<ICPUMeshBuffer>> cpumeshes;
+                core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> cpupipeline;
+                for (uint32_t poly=4u; poly<=256; poly<<=1)
                 {
-                    auto pipelinelayout = core::make_smart_refctd_ptr<ICPUPipelineLayout>(nullptr,nullptr,nullptr,std::move(cpuPerViewDSLayout));
-                    cpupipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(std::move(pipelinelayout),&shaders->get(),&shaders->get()+2u,sphereData.inputParams,SBlendParams{},sphereData.assemblyParams,SRasterizationParams{});
-                }
-                constexpr auto indicesPerBatch = 1023u;
-                auto i = 0u;
-                for (; i<sphereData.indexCount; i+=indicesPerBatch)
-                {
-                    auto& mb = cpumeshes.emplace_back(
-                        core::make_smart_refctd_ptr<ICPUMeshBuffer>()
-                    );
-                    mb->setPipeline(core::smart_refctd_ptr(cpupipeline));
-                    for (auto j=0u; j<ICPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT; j++)
-                        mb->setVertexBufferBinding(asset::SBufferBinding(sphereData.bindings[j]),j);
-                    mb->setIndexType(sphereData.indexType);
-                    mb->setIndexCount(core::min(sphereData.indexCount-i,indicesPerBatch));
-                    auto indexBinding = sphereData.indexBuffer;
-                    switch (sphereData.indexType)
+                    auto sphereData = geometryCreator->createSphereMesh(2.f,poly,poly,meshManipulator);
+                    // we'll stick instance data refs in the last attribute binding
+                    assert((sphereData.inputParams.enabledBindingFlags>>15u)==0u);
+
+                    sphereData.inputParams.enabledAttribFlags |= 0x1u<<15;
+                    sphereData.inputParams.enabledBindingFlags |= 0x1u<<15;
+                    sphereData.inputParams.attributes[15].binding = 15u;
+                    sphereData.inputParams.attributes[15].relativeOffset = 0u;
+                    sphereData.inputParams.attributes[15].format = asset::EF_R32G32_UINT;
+                    sphereData.inputParams.bindings[15].inputRate = asset::EVIR_PER_INSTANCE;
+                    sphereData.inputParams.bindings[15].stride = asset::getTexelOrBlockBytesize(asset::EF_R32G32_UINT);
+
+                    if (!cpupipeline)
                     {
-                        case EIT_16BIT:
-                            indexBinding.offset += sizeof(uint16_t)*i;
-                            break;
-                        case EIT_32BIT:
-                            indexBinding.offset += sizeof(uint32_t)*i;
-                            break;
-                        default:
-                            assert(false);
-                            break;
+                        auto pipelinelayout = core::make_smart_refctd_ptr<ICPUPipelineLayout>(nullptr,nullptr,nullptr,std::move(cpuPerViewDSLayout));
+                        cpupipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(std::move(pipelinelayout),&shaders->get(),&shaders->get()+2u,sphereData.inputParams,SBlendParams{},sphereData.assemblyParams,SRasterizationParams{});
                     }
-                    mb->setIndexBufferBinding(std::move(indexBinding));
+                    constexpr auto indicesPerBatch = 1023u;
+                    auto i = 0u;
+                    for (; i<sphereData.indexCount; i+=indicesPerBatch)
+                    {
+                        auto& mb = cpumeshes.emplace_back(
+                            core::make_smart_refctd_ptr<ICPUMeshBuffer>()
+                        );
+                        mb->setPipeline(core::smart_refctd_ptr(cpupipeline));
+                        for (auto j=0u; j<ICPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT; j++)
+                            mb->setVertexBufferBinding(asset::SBufferBinding(sphereData.bindings[j]),j);
+                        mb->setIndexType(sphereData.indexType);
+                        mb->setIndexCount(core::min(sphereData.indexCount-i,indicesPerBatch));
+                        auto indexBinding = sphereData.indexBuffer;
+                        switch (sphereData.indexType)
+                        {
+                            case EIT_16BIT:
+                                indexBinding.offset += sizeof(uint16_t)*i;
+                                break;
+                            case EIT_32BIT:
+                                indexBinding.offset += sizeof(uint32_t)*i;
+                                break;
+                            default:
+                                assert(false);
+                                break;
+                        }
+                        mb->setIndexBufferBinding(std::move(indexBinding));
 
-                    meshManipulator->recalculateBoundingBox(mb.get());
-                    // TODO: undo this
-                    mb->setInstanceCount(1u);
-                    mb->setBaseInstance(cpumeshes.size()-1u);
+                        meshManipulator->recalculateBoundingBox(mb.get());
+                        // TODO: undo this
+                        mb->setInstanceCount(1u);
+                        mb->setBaseInstance(cpumeshes.size()-1u);
+
+#if 0
+                        drawCallData.emplace_back(
+                            mb->getIndexCount(),
+                            mb->getInstanceCount(),
+                            mb->getIndexBufferBinding().offset/sizeofIndex,
+                            mb->getBaseVertex(),
+                            mb->getBaseInstance()
+                        );
+#endif
+                        multiDrawCommandMaxCounts[pplnIndex]++;
+                    }
+                    maxInstancedDrawcalls = i*MaxInstanceCount;
+                    tmp++;
                 }
-                maxInstancedDrawcalls = i*MaxInstanceCount;
-                tmp++;
-            }
-            auto gpumeshes = cpu2gpu.getGPUObjectsFromAssets(cpumeshes.data(),cpumeshes.data()+cpumeshes.size(),cpu2gpuParams);
-            //! cache results -- speeds up mesh generation on second run
-            qnc->saveCacheToFile<asset::EF_A2B10G10R10_SNORM_PACK32>(system.get(),cachePath);
-            cpu2gpuParams.waitForCreationToComplete();
+                auto gpumeshes = cpu2gpu.getGPUObjectsFromAssets(cpumeshes.data(),cpumeshes.data()+cpumeshes.size(),cpu2gpuParams);
+                //! cache results -- speeds up mesh generation on second run
+                qnc->saveCacheToFile<asset::EF_A2B10G10R10_SNORM_PACK32>(system.get(),cachePath);
+                cpu2gpuParams.waitForCreationToComplete();
             
-            // TODO: refactor some more?
-            perInstancePointersScratch = culling_system_t::createInstanceRedirectBuffer(logicalDevice.get(),maxInstancedDrawcalls);
+                // TODO: refactor some more?
+                perInstancePointersScratch = culling_system_t::createInstanceRedirectBuffer(logicalDevice.get(),maxInstancedDrawcalls);
 
-            auto renderpassindependent = core::smart_refctd_ptr_dynamic_cast<video::IGPURenderpassIndependentPipeline>(assetManager->findGPUObject(cpupipeline.get()));
-            video::IGPUGraphicsPipeline::SCreationParams params;
-            params.renderpass = renderpass;
-            params.renderpassIndependent = renderpassindependent;
-            params.subpassIx = 0u;
-            auto pipeline = logicalDevice->createGPUGraphicsPipeline(nullptr,std::move(params));
-            bakedCommandBuffer->bindGraphicsPipeline(pipeline.get());
-            const video::IGPUDescriptorSet* descriptorSets[1] = {perViewDS.get()};
-            bakedCommandBuffer->bindDescriptorSets(EPBP_GRAPHICS,renderpassindependent->getLayout(),1u,1u,descriptorSets);
-            for (auto& mb : *gpumeshes)
-            {
-                mb->setVertexBufferBinding({0ull,perInstancePointersScratch},15);
-                bakedCommandBuffer->drawMeshBuffer(mb.get());
+                auto renderpassindependent = core::smart_refctd_ptr_dynamic_cast<video::IGPURenderpassIndependentPipeline>(assetManager->findGPUObject(cpupipeline.get()));
+                video::IGPUGraphicsPipeline::SCreationParams params;
+                params.renderpass = renderpass;
+                params.renderpassIndependent = renderpassindependent;
+                params.subpassIx = 0u;
+                auto pipeline = logicalDevice->createGPUGraphicsPipeline(nullptr,std::move(params));
+                bakedCommandBuffer->bindGraphicsPipeline(pipeline.get());
+                const video::IGPUDescriptorSet* descriptorSets[1] = {perViewDS.get()};
+                bakedCommandBuffer->bindDescriptorSets(EPBP_GRAPHICS,renderpassindependent->getLayout(),1u,1u,descriptorSets);
+                for (auto& mb : *gpumeshes)
+                {
+                    mb->setVertexBufferBinding({0ull,perInstancePointersScratch},15);
+                    bakedCommandBuffer->drawMeshBuffer(mb.get());
+                }
             }
         }
+        bakedCommandBuffer->end();
+
+        const bool success = drawIndirectAllocator->allocateMultiDraws(mdiAlloc);
+        assert(success);
+        // TODO: get rid of this
     }
-    bakedCommandBuffer->end();
-    // TODO: get rid of this
 
 
     CommonAPI::InputSystem::ChannelReader<IMouseEventChannel> mouse;
@@ -383,7 +418,7 @@ int main()
             commandBuffer->updateBuffer(perViewPerInstanceDataScratch.get(),0ull,perViewPerInstanceDataScratch->getSize(),data.data());
 
             cullingParams.cmdbuf = commandBuffer.get();
-            //cullingSystem->processInstancesAndFillIndirectDraws(cullingParams);
+            cullingSystem->processInstancesAndFillIndirectDraws(cullingParams);
         }
         
         // renderpass
