@@ -145,7 +145,7 @@ class CCustomAllocatorCPUBuffer;
     passing an object type for allocation and a pointer to allocated
     data for it's storage by ICPUBuffer.
 
-    So the need for the class existance is for common following tricks - among others creating an 
+    So the need for the class existence is for common following tricks - among others creating an 
     \bICPUBuffer\b over an already existing \bvoid*\b array without any \imemcpy\i or \itaking over the memory ownership\i.
     You can use it with a \bnull_allocator\b that adopts memory (it is a bit counter intuitive because \badopt = take\b ownership, 
     but a \inull allocator\i doesn't do anything, even free the memory, so you're all good).

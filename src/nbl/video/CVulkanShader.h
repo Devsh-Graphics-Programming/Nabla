@@ -10,10 +10,14 @@ class ILogicalDevice;
 class CVulkanShader : public IGPUShader
 {
 public:
-    CVulkanShader(core::smart_refctd_ptr<ILogicalDevice>&& dev,
+    CVulkanShader(
+        core::smart_refctd_ptr<ILogicalDevice>&& dev,
         core::smart_refctd_ptr<asset::ICPUBuffer>&& spirv,
+        const E_SHADER_STAGE stage,
+        std::string&& filepathHint,
         VkShaderModule vk_shaderModule)
-        : IGPUShader(std::move(dev)), m_spirv(std::move(spirv)), m_vkShaderModule(vk_shaderModule)
+        : IGPUShader(std::move(dev), stage, std::move(filepathHint)),
+        m_spirv(std::move(spirv)), m_vkShaderModule(vk_shaderModule)
     {}
 
     ~CVulkanShader();

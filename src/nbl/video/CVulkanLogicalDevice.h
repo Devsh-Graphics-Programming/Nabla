@@ -27,6 +27,8 @@
 #include "nbl/video/CVulkanBuffer.h"
 #include "nbl/video/CVulkanBufferView.h"
 #include "nbl/video/CVulkanForeignImage.h"
+#include "nbl/video/CVulkanGraphicsPipeline.h"
+#include "nbl/video/CVulkanRenderpassIndependentPipeline.h"
 #include "nbl/video/surface/CSurfaceVulkan.h"
 
 namespace nbl::video
@@ -580,7 +582,7 @@ public:
     core::smart_refctd_ptr<IGPUShader> createGPUShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader, std::string&& filepathHint) override
     {
         const char* entryPoint = "main";
-        const asset::ISpecializedShader::E_SHADER_STAGE shaderStage = asset::ISpecializedShader::ESS_UNKNOWN; // this NEEDS to have a #pragma shader_stage(<SHADER STAGE NAME>) atop shader source to work
+        const asset::IShader::E_SHADER_STAGE shaderStage = cpushader->getStage();
 
         const asset::ICPUBuffer* source = cpushader->getSPVorGLSL();
 
@@ -623,7 +625,7 @@ public:
         if (m_devf.vk.vkCreateShaderModule(m_vkdev, &vk_createInfo, nullptr, &vk_shaderModule) == VK_SUCCESS)
         {
             return core::make_smart_refctd_ptr<video::CVulkanShader>(
-                core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(spirv), vk_shaderModule);
+                core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(spirv), cpushader->getStage(), std::string(cpushader->getFilepathHint()), vk_shaderModule);
         }
         else
         {
@@ -1143,7 +1145,7 @@ protected:
             return nullptr;
 
         return core::make_smart_refctd_ptr<CVulkanSpecializedShader>(
-            core::smart_refctd_ptr<CVulkanLogicalDevice>(this), specInfo.shaderStage,
+            core::smart_refctd_ptr<CVulkanLogicalDevice>(this), _unspecialized->getStage(),
             core::smart_refctd_ptr<const CVulkanShader>(vulkanShader));
     }
 
@@ -1473,18 +1475,64 @@ protected:
         }
     }
 
-    core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> createGPURenderpassIndependentPipeline_impl(IGPUPipelineCache* _pipelineCache,
-        core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout, IGPUSpecializedShader* const* _shaders, IGPUSpecializedShader* const* _shadersEnd,
-        const asset::SVertexInputParams& _vertexInputParams, const asset::SBlendParams& _blendParams, const asset::SPrimitiveAssemblyParams& _primAsmParams,
+    core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> createGPURenderpassIndependentPipeline_impl(
+        IGPUPipelineCache* _pipelineCache,
+        core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
+        IGPUSpecializedShader* const* _shadersBegin, IGPUSpecializedShader* const* _shadersEnd,
+        const asset::SVertexInputParams& _vertexInputParams,
+        const asset::SBlendParams& _blendParams,
+        const asset::SPrimitiveAssemblyParams& _primAsmParams,
         const asset::SRasterizationParams& _rasterParams) override
     {
-        return nullptr;
+        IGPURenderpassIndependentPipeline::SCreationParams creationParams = {};
+        creationParams.layout = std::move(_layout);
+        const uint32_t shaderCount = std::distance(_shadersBegin, _shadersEnd);
+        for (uint32_t i = 0u; i < shaderCount; ++i)
+            creationParams.shaders[i] = core::smart_refctd_ptr<const IGPUSpecializedShader>(_shadersBegin[i]);
+        creationParams.vertexInput = _vertexInputParams;
+        creationParams.blend = _blendParams;
+        creationParams.primitiveAssembly = _primAsmParams;
+        creationParams.rasterization = _rasterParams;
+
+        core::SRange<const IGPURenderpassIndependentPipeline::SCreationParams> creationParamsRange(&creationParams, &creationParams + 1);
+
+        core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> result = nullptr;
+        createGPURenderpassIndependentPipelines_impl(_pipelineCache, creationParamsRange, &result);
+        return result;
     }
 
-    bool createGPURenderpassIndependentPipelines_impl(IGPUPipelineCache* pipelineCache, core::SRange<const IGPURenderpassIndependentPipeline::SCreationParams> createInfos,
+    bool createGPURenderpassIndependentPipelines_impl(IGPUPipelineCache* pipelineCache,
+        core::SRange<const IGPURenderpassIndependentPipeline::SCreationParams> createInfos,
         core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>* output) override
     {
-        return false;
+        if (pipelineCache && pipelineCache->getAPIType() != EAT_VULKAN)
+            return false;
+
+        auto creationParams = createInfos.begin();
+        for (size_t i = 0ull; i < createInfos.size(); ++i)
+        {
+            if (creationParams[i].layout->getAPIType() != EAT_VULKAN)
+                continue;
+
+            for (uint32_t ss = 0u; ss < IGPURenderpassIndependentPipeline::SHADER_STAGE_COUNT; ++ss)
+            {
+                auto shader = creationParams[i].shaders[ss];
+                if (shader && shader->getAPIType() != EAT_VULKAN)
+                    continue;
+            }
+
+            output[i] = core::make_smart_refctd_ptr<CVulkanRenderpassIndependentPipeline>(
+                core::smart_refctd_ptr<const CVulkanLogicalDevice>(this),
+                core::smart_refctd_ptr(creationParams[i].layout),
+                reinterpret_cast<IGPUSpecializedShader* const*>(&creationParams[i].shaders),
+                reinterpret_cast<IGPUSpecializedShader* const*>(&creationParams[i].shaders + IGPURenderpassIndependentPipeline::SHADER_STAGE_COUNT),
+                creationParams[i].vertexInput,
+                creationParams[i].blend,
+                creationParams[i].primitiveAssembly,
+                creationParams[i].rasterization);
+        }
+
+        return true;
     }
 
     core::smart_refctd_ptr<IGPUGraphicsPipeline> createGPUGraphicsPipeline_impl(IGPUPipelineCache* pipelineCache, IGPUGraphicsPipeline::SCreationParams&& params) override
@@ -1492,9 +1540,57 @@ protected:
         return nullptr;
     }
 
-    bool createGPUGraphicsPipelines_impl(IGPUPipelineCache* pipelineCache, core::SRange<const IGPUGraphicsPipeline::SCreationParams> params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output) override
+    bool createGPUGraphicsPipelines_impl(IGPUPipelineCache* pipelineCache,
+        core::SRange<const IGPUGraphicsPipeline::SCreationParams> params,
+        core::smart_refctd_ptr<IGPUGraphicsPipeline>* output) override
     {
-        return false;
+        constexpr uint32_t MAX_PIPELINE_COUNT = 100u;
+        assert(params.size() <= MAX_PIPELINE_COUNT);
+
+        const IGPUGraphicsPipeline::SCreationParams* creationParams = params.begin();
+
+        // creationParams->renderpassIndependent->
+
+        // core::smart_refctd_ptr<const renderpass_independent_t> renderpassIndependent;
+        // IImage::E_SAMPLE_COUNT_FLAGS rasterizationSamplesHint = IImage::ESCF_1_BIT;
+        // core::smart_refctd_ptr<RenderpassType> renderpass;
+        // uint32_t subpassIx = 0u;
+
+        // for (size_t i = 0ull; i < params.size(); ++i)
+        // {
+        //     if ((creationParams[i].layout->getAPIType() != EAT_VULKAN) ||
+        //         (creationParams[i].shader->getAPIType() != EAT_VULKAN))
+        //     {
+        //         return false;
+        //     }
+        // }
+
+        VkPipelineCache vk_pipelineCache = VK_NULL_HANDLE;
+        if (pipelineCache && pipelineCache->getAPIType() == EAT_VULKAN)
+            vk_pipelineCache = static_cast<const CVulkanPipelineCache*>(pipelineCache)->getInternalObject();
+
+        // VkGraphicsPipelineCreateInfo is a big struct I probably have to move this to heap
+        VkGraphicsPipelineCreateInfo vk_createInfos[MAX_PIPELINE_COUNT];
+        VkPipeline vk_pipelines[MAX_PIPELINE_COUNT];
+
+        if (m_devf.vk.vkCreateGraphicsPipelines(m_vkdev, vk_pipelineCache,
+            static_cast<uint32_t>(params.size()), vk_createInfos, nullptr, vk_pipelines) == VK_SUCCESS)
+        {
+            for (size_t i = 0ull; i < params.size(); ++i)
+            {
+                const auto createInfo = params.begin() + i;
+
+                // output[i] = core::make_smart_refctd_ptr<CVulkanGraphicsPipeline>(
+                //     core::smart_refctd_ptr<CVulkanLogicalDevice>(this),
+                //     core::smart_refctd_ptr(createInfo->layout),
+                //     core::smart_refctd_ptr(createInfo->shader), vk_pipelines[i]);
+            }
+            return true;
+        }
+        else
+        {
+            return false;
+        }
     }
 
 private:

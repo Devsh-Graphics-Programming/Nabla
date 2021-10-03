@@ -139,10 +139,10 @@ class CScanner final : public core::IReferenceCounted
 		{
 			assert(core::isPoT(wg_size));
 
-			const asset::SPushConstantRange pc_range = { asset::ISpecializedShader::ESS_COMPUTE,0u,sizeof(DefaultPushConstants) };
+			const asset::SPushConstantRange pc_range = { asset::IShader::ESS_COMPUTE,0u,sizeof(DefaultPushConstants) };
 			const IGPUDescriptorSetLayout::SBinding bindings[2] = {
-				{ 0u, asset::EDT_STORAGE_BUFFER, 1u, video::IGPUSpecializedShader::ESS_COMPUTE, nullptr }, // main buffer
-				{ 1u, asset::EDT_STORAGE_BUFFER, 1u, video::IGPUSpecializedShader::ESS_COMPUTE, nullptr } // scratch
+				{ 0u, asset::EDT_STORAGE_BUFFER, 1u, video::IGPUShader::ESS_COMPUTE, nullptr }, // main buffer
+				{ 1u, asset::EDT_STORAGE_BUFFER, 1u, video::IGPUShader::ESS_COMPUTE, nullptr } // scratch
 			};
 
 			m_ds_layout = m_device->createGPUDescriptorSetLayout(bindings,bindings+sizeof(bindings)/sizeof(IGPUDescriptorSetLayout::SBinding));
@@ -211,7 +211,7 @@ class CScanner final : public core::IReferenceCounted
 			const asset::E_PIPELINE_STAGE_FLAGS dstStageMask, const uint32_t dstBufferBarrierCount, const IGPUCommandBuffer::SBufferMemoryBarrier* dstBufferBarriers
 		)
 		{
-			cmdbuf->pushConstants(pipeline_layout,asset::ISpecializedShader::ESS_COMPUTE,0u,sizeof(DefaultPushConstants),&pushConstants);
+			cmdbuf->pushConstants(pipeline_layout,asset::IShader::ESS_COMPUTE,0u,sizeof(DefaultPushConstants),&pushConstants);
 			if (srcStageMask!=asset::E_PIPELINE_STAGE_FLAGS::EPSF_TOP_OF_PIPE_BIT&&srcBufferBarrierCount)
 				cmdbuf->pipelineBarrier(srcStageMask,asset::EPSF_COMPUTE_SHADER_BIT,asset::EDF_NONE,0u,nullptr,srcBufferBarrierCount,srcBufferBarriers,0u,nullptr);
 			cmdbuf->dispatch(dispatchInfo.wg_count,1u,1u);

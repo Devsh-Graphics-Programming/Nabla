@@ -43,20 +43,20 @@ class COpenGLComputePipeline : public IGPUComputePipeline, public IOpenGLPipelin
 	        core::smart_refctd_ptr<const COpenGLPipelineLayout> layout;
 	        std::atomic_uint32_t stageUpdateStamps[IGPUComputePipeline::SHADER_STAGE_COUNT] = { 0u };
 
-	        inline uint32_t getStamp(IGPUSpecializedShader::E_SHADER_STAGE _stage) const
+	        inline uint32_t getStamp(IGPUShader::E_SHADER_STAGE _stage) const
 	        {
-		        assert(_stage == IGPUSpecializedShader::ESS_COMPUTE);
+		        assert(_stage == IGPUShader::ESS_COMPUTE);
 		        return stageUpdateStamps[0u];
 	        }
 	        inline void incrementStamps(uint32_t _stages)
 	        {
-		        if (_stages & IGPUSpecializedShader::ESS_COMPUTE)
+		        if (_stages & IGPUShader::ESS_COMPUTE)
                     stageUpdateStamps[0u]++;
 	        }
         };
         inline void setUniformsImitatingPushConstants(IOpenGL_FunctionTable* gl, uint32_t _ctxID, const PushConstantsState& _pcState) const
         {
-            uint32_t stampValue = _pcState.getStamp(IGPUSpecializedShader::ESS_COMPUTE);
+            uint32_t stampValue = _pcState.getStamp(IGPUShader::ESS_COMPUTE);
             if (stampValue>m_lastUpdateStamp)
             {
                 auto uniforms = static_cast<COpenGLSpecializedShader*>(m_shader.get())->getUniforms();

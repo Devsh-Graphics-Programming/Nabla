@@ -103,7 +103,13 @@ class COpenGLSpecializedShader : public core::impl::ResolveAlignment<IGPUSpecial
 			return true;
 		}
 
-		COpenGLSpecializedShader(core::smart_refctd_ptr<ILogicalDevice>&& dev, uint32_t _GLSLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializedShader::SInfo& _specInfo, core::vector<SUniform>&& uniformList);
+		COpenGLSpecializedShader(
+			core::smart_refctd_ptr<ILogicalDevice>&& dev,
+			uint32_t _GLSLversion,
+			const asset::ICPUBuffer* _spirv,
+			const asset::ISpecializedShader::SInfo& _specInfo,
+			core::vector<SUniform>&& uniformList,
+			const asset::IShader::E_SHADER_STAGE stage);
 
 		inline GLenum getOpenGLStage() const { return m_GLstage; }
 

@@ -70,9 +70,9 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			auto createShader = [&system,&device](auto uniqueString) -> core::smart_refctd_ptr<video::IGPUSpecializedShader>
 			{
 				auto glsl = system->loadBuiltinData<decltype(uniqueString)>();
-				auto cpushader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl),asset::IShader::buffer_contains_glsl_t{});
+				auto cpushader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl),asset::IShader::buffer_contains_glsl_t{}, asset::IShader::ESS_COMPUTE, "????");
 				auto shader = device->createGPUShader(asset::IGLSLCompiler::createOverridenCopy(cpushader.get(),"#define _NBL_GLSL_WORKGROUP_SIZE_ %d\n",WorkgroupSize), "????");
-				return device->createGPUSpecializedShader(shader.get(),{nullptr,nullptr,"main",asset::ISpecializedShader::ESS_COMPUTE});
+				return device->createGPUSpecializedShader(shader.get(),{nullptr,nullptr,"main"});
 			};
 
 			auto updateRelativeSpec = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/transform_tree/relative_transform_update.comp")());
@@ -86,14 +86,14 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 				bnd[0].binding = 0u;
 				bnd[0].count = 1u;
 				bnd[0].type = asset::EDT_STORAGE_BUFFER;
-				bnd[0].stageFlags = video::IGPUSpecializedShader::ESS_COMPUTE;
+				bnd[0].stageFlags = video::IGPUShader::ESS_COMPUTE;
 				bnd[0].samplers = nullptr;
 				bnd[1] = bnd[0];
 				bnd[1].binding = 1u;
 				sharedDsLayout = device->createGPUDescriptorSetLayout(bnd,bnd+2);
 			}
-			asset::ISpecializedShader::E_SHADER_STAGE stageAccessFlags[ITransformTree::property_pool_t::PropertyCount];
-			std::fill_n(stageAccessFlags,ITransformTree::property_pool_t::PropertyCount,asset::ISpecializedShader::ESS_COMPUTE);
+			asset::IShader::E_SHADER_STAGE stageAccessFlags[ITransformTree::property_pool_t::PropertyCount];
+			std::fill_n(stageAccessFlags,ITransformTree::property_pool_t::PropertyCount,asset::IShader::ESS_COMPUTE);
 			auto poolLayout = ITransformTree::createDescriptorSetLayout(device.get(),stageAccessFlags);
 			
 			auto updateRelativeLayout = device->createGPUPipelineLayout(nullptr,nullptr,core::smart_refctd_ptr(poolLayout),core::smart_refctd_ptr(sharedDsLayout));

@@ -235,7 +235,7 @@ core::smart_refctd_dynamic_array<SPushConstantRange> CShaderIntrospector::create
             rngToPush.size += sizeof(uint32_t);
         else
         {
-            rngToPush.stageFlags = static_cast<ICPUSpecializedShader::E_SHADER_STAGE>(stageFlags);
+            rngToPush.stageFlags = static_cast<ICPUShader::E_SHADER_STAGE>(stageFlags);
             merged.push_back(rngToPush);
             stageFlags = 0u;
 
@@ -245,7 +245,7 @@ core::smart_refctd_dynamic_array<SPushConstantRange> CShaderIntrospector::create
     }
     if (stageFlags)
     {
-        rngToPush.stageFlags = static_cast<ICPUSpecializedShader::E_SHADER_STAGE>(stageFlags);
+        rngToPush.stageFlags = static_cast<ICPUShader::E_SHADER_STAGE>(stageFlags);
         merged.push_back(rngToPush);
     }
 
@@ -315,7 +315,7 @@ core::smart_refctd_ptr<ICPUDescriptorSetLayout> CShaderIntrospector::createAppro
 
         auto& introBnd = refIntro->descriptorSetBindings[_set][refIndex];
         binding.type = resType2descType(introBnd.type);
-        binding.stageFlags = static_cast<ICPUSpecializedShader::E_SHADER_STAGE>(stageFlags);
+        binding.stageFlags = static_cast<ICPUShader::E_SHADER_STAGE>(stageFlags);
         binding.count = introBnd.descriptorCount;
         if (introBnd.descCountIsSpecConstant)
         {
@@ -370,7 +370,7 @@ core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> CShaderIntrospector::c
 
     auto vs_introspection = introspections;
     for (auto shdr=_begin; shdr!=_end; shdr++,vs_introspection++)
-        if ((*shdr)->getStage()==ICPUSpecializedShader::ESS_VERTEX)
+        if ((*shdr)->getStage()==ICPUShader::ESS_VERTEX)
             break;
     if (vs_introspection==introspections+std::distance(_begin,_end))
         return nullptr;

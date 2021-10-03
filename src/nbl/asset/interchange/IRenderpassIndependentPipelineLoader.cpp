@@ -52,7 +52,7 @@ void IRenderpassIndependentPipelineLoader::initialize()
             semantic.descriptorSection.uniformBufferObject.set = 1u;
             semantic.descriptorSection.uniformBufferObject.relByteoffset = relOffsets[i];
             semantic.descriptorSection.uniformBufferObject.bytesize = sizes[i];
-            semantic.descriptorSection.shaderAccessFlags = ICPUSpecializedShader::ESS_VERTEX;
+            semantic.descriptorSection.shaderAccessFlags = ICPUShader::ESS_VERTEX;
         }
     }
 }

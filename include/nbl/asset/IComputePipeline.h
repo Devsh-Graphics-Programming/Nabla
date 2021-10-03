@@ -40,7 +40,7 @@ class IComputePipeline : public IPipeline<LayoutType>
 		) : IPipeline<LayoutType>(std::move(_layout)),
 			m_shader(std::move(_cs))
 		{
-            assert(m_shader->getStage() == ISpecializedShader::ESS_COMPUTE);
+            assert(m_shader->getStage() == IShader::ESS_COMPUTE);
         }
 
     protected:

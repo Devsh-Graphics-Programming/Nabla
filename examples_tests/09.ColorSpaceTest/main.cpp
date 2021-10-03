@@ -35,6 +35,7 @@ int main()
 	CommonAPI::SFeatureRequest<video::IAPIConnection::E_FEATURE> requiredInstanceFeatures = {};
 	requiredInstanceFeatures.count = 1u;
 	video::IAPIConnection::E_FEATURE requiredFeatures_Instance[] = { video::IAPIConnection::EF_SURFACE };
+	requiredInstanceFeatures.features = requiredFeatures_Instance;
 
 	CommonAPI::SFeatureRequest<video::IAPIConnection::E_FEATURE> optionalInstanceFeatures = {};
 
@@ -49,7 +50,7 @@ int main()
 	const video::ISurface::SFormat surfaceFormat(asset::EF_B8G8R8A8_UNORM, asset::ECP_COUNT, asset::EOTF_UNKNOWN);
 
     auto initOutput = CommonAPI::Init<WINDOW_WIDTH, WINDOW_HEIGHT, SC_IMG_COUNT>(
-		video::EAT_OPENGL,
+		video::EAT_VULKAN,
 		"09.ColorSpaceTest",
 		requiredInstanceFeatures,
 		optionalInstanceFeatures,
@@ -76,7 +77,7 @@ int main()
 	auto gpuComputeFence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
 
 	nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
-	// Not sure why we havet this
+	// Not sure why we have this
 #if 0
 	{
 		cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].fence = &gpuTransferFence;
@@ -118,7 +119,7 @@ int main()
         }
     };
 
-	nbl::video::IGPUDescriptorSetLayout::SBinding binding{ 0u, nbl::asset::EDT_COMBINED_IMAGE_SAMPLER, 1u, nbl::video::IGPUSpecializedShader::ESS_FRAGMENT, nullptr };
+	nbl::video::IGPUDescriptorSetLayout::SBinding binding{ 0u, nbl::asset::EDT_COMBINED_IMAGE_SAMPLER, 1u, nbl::video::IGPUShader::ESS_FRAGMENT, nullptr };
 	auto gpuDescriptorSetLayout3 = logicalDevice->createGPUDescriptorSetLayout(&binding, &binding + 1u);
 	auto gpuDescriptorPool = createDescriptorPool(1u); // per single texture
 	auto fstProtoPipeline = nbl::ext::FullScreenTriangle::createProtoPipeline(cpu2gpuParams);

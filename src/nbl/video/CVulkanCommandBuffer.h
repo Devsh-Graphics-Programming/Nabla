@@ -532,7 +532,7 @@ public:
         return true;
     }
 
-    bool pushConstants(const pipeline_layout_t* layout, core::bitflag<asset::ISpecializedShader::E_SHADER_STAGE> stageFlags, uint32_t offset, uint32_t size, const void* pValues) override
+    bool pushConstants(const pipeline_layout_t* layout, core::bitflag<asset::IShader::E_SHADER_STAGE> stageFlags, uint32_t offset, uint32_t size, const void* pValues) override
     {
         if (layout->getAPIType() != EAT_VULKAN)
             return false;

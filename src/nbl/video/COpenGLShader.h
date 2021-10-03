@@ -17,13 +17,28 @@ namespace nbl::video
 class COpenGLShader : public IGPUShader
 {
 	public:
-		COpenGLShader(core::smart_refctd_ptr<const ILogicalDevice>&& dev, core::smart_refctd_ptr<asset::ICPUBuffer>&& _spirv, std::string&& _filepathHint) : IGPUShader(std::move(dev)), m_code(std::move(_spirv)), m_containsGLSL(false), m_filepathHint(std::move(_filepathHint)){}
-		COpenGLShader(core::smart_refctd_ptr<const ILogicalDevice>&& dev, core::smart_refctd_ptr<asset::ICPUBuffer>&& _glsl, buffer_contains_glsl_t buffer_contains_glsl, std::string&& _filepathHint) : IGPUShader(std::move(dev)), m_code(std::move(_glsl)), m_containsGLSL(true), m_filepathHint(std::move(_filepathHint)){}
+		COpenGLShader(
+			core::smart_refctd_ptr<const ILogicalDevice>&& dev,
+			core::smart_refctd_ptr<asset::ICPUBuffer>&& _spirv,
+			const IShader::E_SHADER_STAGE _stage,
+			std::string&& _filepathHint)
+			: IGPUShader(std::move(dev), _stage, std::move(_filepathHint)),
+			m_code(std::move(_spirv)), m_containsGLSL(false)
+		{}
+
+		COpenGLShader(
+			core::smart_refctd_ptr<const ILogicalDevice>&& dev,
+			core::smart_refctd_ptr<asset::ICPUBuffer>&& _glsl,
+			buffer_contains_glsl_t buffer_contains_glsl,
+			const IShader::E_SHADER_STAGE _stage,
+			std::string&& _filepathHint)
+			: IGPUShader(std::move(dev), _stage, std::move(_filepathHint)),
+			m_code(std::move(_glsl)), m_containsGLSL(true)
+		{}
 
 		const asset::ICPUBuffer* getSPVorGLSL() const { return m_code.get(); };
 		const core::smart_refctd_ptr<asset::ICPUBuffer>& getSPVorGLSL_refctd() const { return m_code; };
 		bool containsGLSL() const { return m_containsGLSL; }
-		const std::string& getFilepathHint() const { return m_filepathHint; }
 
 		static inline void insertGLtoVKextensionsMapping(std::string& _glsl, const core::refctd_dynamic_array<std::string>* _exts)
 		{
@@ -148,7 +163,6 @@ R"(
 		//! Might be GLSL null-terminated string or SPIR-V bytecode (denoted by m_containsGLSL)
 		core::smart_refctd_ptr<asset::ICPUBuffer>	m_code;
 		const bool									m_containsGLSL;
-		std::string									m_filepathHint;
 };
 
 }

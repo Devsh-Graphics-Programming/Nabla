@@ -30,12 +30,32 @@ class ICPUShader : public IAsset, public IShader
 		virtual ~ICPUShader() = default;
 
     private:
-        ICPUShader(core::smart_refctd_ptr<ICPUBuffer>&& _code, bool _isGLSL) : m_code(std::move(_code)), m_containsGLSL(_isGLSL) {}
+        ICPUShader(core::smart_refctd_ptr<ICPUBuffer>&& _code, bool _isGLSL, const E_SHADER_STAGE stage, std::string&& filepathHint)
+			: IShader(stage, std::move(filepathHint)), m_code(std::move(_code)), m_containsGLSL(_isGLSL)
+		{}
 
 	public:
-        ICPUShader(core::smart_refctd_ptr<ICPUBuffer>&& _spirv) : ICPUShader(std::move(_spirv), false) {}
-        ICPUShader(core::smart_refctd_ptr<ICPUBuffer>&& _glsl, buffer_contains_glsl_t _buffer_contains_glsl) : ICPUShader(std::move(_glsl), true) {}
-		ICPUShader(const char* _glsl) : ICPUShader(core::make_smart_refctd_ptr<ICPUBuffer>(strlen(_glsl) + 1u), true)
+        ICPUShader(
+			core::smart_refctd_ptr<ICPUBuffer>&& _spirv,
+			const E_SHADER_STAGE stage,
+			std::string&& filepathHint)
+			: ICPUShader(std::move(_spirv), false, stage, std::move(filepathHint))
+		{}
+
+        ICPUShader(
+			core::smart_refctd_ptr<ICPUBuffer>&& _glsl,
+			buffer_contains_glsl_t _buffer_contains_glsl,
+			const E_SHADER_STAGE stage,
+			std::string&& filepathHint)
+			: ICPUShader(std::move(_glsl), true, stage, std::move(filepathHint))
+		{}
+
+		ICPUShader(
+			const char* _glsl,
+			const E_SHADER_STAGE stage,
+			std::string&& filepathHint)
+			: ICPUShader(core::make_smart_refctd_ptr<ICPUBuffer>(strlen(_glsl) + 1u), true, 
+				stage, std::move(filepathHint))
 		{
 			memcpy(m_code->getPointer(), _glsl, m_code->getSize());
 		}
@@ -51,7 +71,7 @@ class ICPUShader : public IAsset, public IShader
         core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
         {
             auto buf = (_depth > 0u && m_code) ? core::smart_refctd_ptr_static_cast<ICPUBuffer>(m_code->clone(_depth-1u)) : m_code;
-            auto cp = core::smart_refctd_ptr<ICPUShader>(new ICPUShader(std::move(buf), m_containsGLSL), core::dont_grab);
+            auto cp = core::smart_refctd_ptr<ICPUShader>(new ICPUShader(std::move(buf), m_containsGLSL, getStage(), std::string(getFilepathHint())), core::dont_grab);
             clone_common(cp.get());
 
             return cp;

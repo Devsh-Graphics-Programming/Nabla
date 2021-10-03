@@ -34,8 +34,33 @@ namespace asset
 class IShader : public virtual core::IReferenceCounted
 {
 	public:
+		enum E_SHADER_STAGE : uint32_t
+		{
+			ESS_VERTEX = 1 << 0,
+			ESS_TESSELATION_CONTROL = 1 << 1,
+			ESS_TESSELATION_EVALUATION = 1 << 2,
+			ESS_GEOMETRY = 1 << 3,
+			ESS_FRAGMENT = 1 << 4,
+			ESS_COMPUTE = 1 << 5,
+			ESS_TASK = 1 << 6,
+			ESS_MESH = 1 << 7,
+			ESS_RAYGEN = 1 << 8,
+			ESS_ANY_HIT = 1 << 9,
+			ESS_CLOSEST_HIT = 1 << 10,
+			ESS_MISS = 1 << 11,
+			ESS_INTERSECTION = 1 << 12,
+			ESS_CALLABLE = 1 << 13,
+			ESS_UNKNOWN = 0,
+			ESS_ALL_GRAPHICS = 0x1f,
+			ESS_ALL = 0xffffffff
+		};
+
 		struct buffer_contains_glsl_t {};
 		_NBL_STATIC_INLINE const buffer_contains_glsl_t buffer_contains_glsl = {};
+
+		IShader(const E_SHADER_STAGE shaderStage, std::string&& filepathHint)
+			: m_shaderStage(shaderStage), m_filepathHint(std::move(filepathHint))
+		{}
 
 		static inline void insertGLSLExtensionsDefines(std::string& _glsl, const core::refctd_dynamic_array<std::string>* _exts)
 		{
@@ -46,6 +71,10 @@ class IShader : public virtual core::IReferenceCounted
 
 			insertAfterVersionAndPragmaShaderStage(_glsl, insertion);
 		}
+
+		inline E_SHADER_STAGE getStage() const { return m_shaderStage; }
+
+		inline const std::string& getFilepathHint() const { return m_filepathHint; }
 
 protected:
 	static inline std::string genGLSLExtensionDefines(const core::refctd_dynamic_array<std::string>* _exts)
@@ -95,6 +124,10 @@ protected:
 
 		_glsl.insert(pos, _ins + "#line " + std::to_string(ln) + "\n");
 	}
+
+private:
+	const E_SHADER_STAGE m_shaderStage;
+	const std::string m_filepathHint;
 };
 
 }

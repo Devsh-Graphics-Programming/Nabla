@@ -10,7 +10,7 @@ IGPUSpecializedShader* CScanner::getDefaultSpecializedShader(const E_SCAN_TYPE s
 	{
 		auto system = m_device->getPhysicalDevice()->getSystem();
 		auto glsl = system->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/scan/default.comp")>();
-		auto cpushader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl),asset::ICPUShader::buffer_contains_glsl);
+		auto cpushader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl),asset::ICPUShader::buffer_contains_glsl, asset::IShader::ESS_COMPUTE, "nbl/builtin/glsl/scan/default.comp");
 		const char* storageType = nullptr;
 		switch (dataType)
 		{
@@ -35,7 +35,7 @@ IGPUSpecializedShader* CScanner::getDefaultSpecializedShader(const E_SCAN_TYPE s
 			), "nbl/builtin/glsl/scan/default.comp"
 		);
 		m_specialized_shaders[scanType][dataType][op] = m_device->createGPUSpecializedShader(
-			shader.get(),{ nullptr,nullptr,"main",asset::ISpecializedShader::ESS_COMPUTE }
+			shader.get(),{ nullptr,nullptr,"main" }
 		);
 	}
 	return m_specialized_shaders[scanType][dataType][op].get();

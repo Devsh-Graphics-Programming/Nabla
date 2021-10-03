@@ -100,7 +100,7 @@ class IRenderpassIndependentPipelineMetadata : public core::Interface
 				ET_PUSH_CONSTANT = 11
 			};
 			E_TYPE type;
-			ISpecializedShader::E_SHADER_STAGE shaderAccessFlags;
+			IShader::E_SHADER_STAGE shaderAccessFlags;
 			union
 			{
 				CombinedImageSampler	combinedImageSampler;
