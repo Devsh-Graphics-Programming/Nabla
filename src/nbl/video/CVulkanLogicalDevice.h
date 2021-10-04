@@ -598,7 +598,7 @@ public:
 
             core::smart_refctd_ptr<asset::ICPUShader> glslShader_woIncludes =
                 m_physicalDevice->getGLSLCompiler()->resolveIncludeDirectives(glsl.c_str(),
-                    shaderStage, filepathHint.c_str());
+                    shaderStage, cpushader->getFilepathHint().c_str());
 
             auto logger = m_physicalDevice->getDebugCallback()->getLogger();
 
