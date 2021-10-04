@@ -132,7 +132,6 @@ void addLoDTable(
         mdiAlloc.multiDrawCommandCountOffsets = &di.drawCountOffset;
         mdiAlloc.setAllCommandStructSizesConstant(di.drawCommandStride);
 
-        constexpr auto indicesPerBatch = 1023u;
         size_t indexSize;
         switch (gpumb->getIndexType())
         {
@@ -146,19 +145,14 @@ void addLoDTable(
                 assert(false);
                 break;
         }
-#if 0        
-                for (auto i=0u; i<sphereData.indexCount; i+=indicesPerBatch)
-                {
-                    mb->setIndexCount(core::min(sphereData.indexCount-i,indicesPerBatch));
-                    auto indexBinding = sphereData.indexBuffer;
-                    indexBinding.offset += indexSize*i;
-                }
-#endif
+        constexpr auto indicesPerBatch = 1023u;
+        const auto indexCount = gpumb->getIndexCount();
+        for (auto i=0u; i<indexCount; i+=indicesPerBatch)
         {
             drawcallsToUpload.drawCallData.emplace_back(
-                gpumb->getIndexCount(),
+                core::min(indexCount-i,indicesPerBatch),
                 1u, // TODO: undo
-                gpumb->getIndexBufferBinding().offset/indexSize,
+                gpumb->getIndexBufferBinding().offset/indexSize+i,
                 0u,
                 drawcallsToUpload.drawCallData.size() // TODO: undo
             );
@@ -171,6 +165,7 @@ void addLoDTable(
         const bool success = drawIndirectAllocator->allocateMultiDraws(mdiAlloc);
         assert(success);
         drawcallsToUpload.drawCountOffsets.emplace_back(di.drawCountOffset);
+        di.drawCountOffset *= sizeof(uint32_t);
         for (auto i=0u; i<di.drawMaxCount; i++)
             drawcallsToUpload.drawCallOffsets.emplace_back(di.drawCallOffset/di.drawCommandStride+i);
     }
