@@ -13,7 +13,7 @@ template<typename T>
 struct and_op
 {
 	using type_t = T;
-	static inline constexpr T IdentityElement = std::bit_cast<T>(~0ull);
+	static inline constexpr T IdentityElement = std::bit_cast<T,uint32_t>(~0ull);
 
 	inline T operator()(T left, T right) { return left & right; }
 	static inline constexpr bool runOPonFirst = false;
@@ -23,7 +23,7 @@ template<typename T>
 struct xor_op
 {
 	using type_t = T;
-	static inline const T IdentityElement = std::bit_cast<T>(0ull);
+	static inline const T IdentityElement = std::bit_cast<T,uint32_t>(0ull);
 
 	inline T operator()(T left, T right) { return left ^ right; }
 	static inline constexpr bool runOPonFirst = false;
@@ -33,7 +33,7 @@ template<typename T>
 struct or_op
 {
 	using type_t = T;
-	static inline const T IdentityElement = std::bit_cast<T>(0ull);
+	static inline const T IdentityElement = std::bit_cast<T,uint32_t>(0ull);
 
 	inline T operator()(T left, T right) { return left | right; }
 	static inline constexpr bool runOPonFirst = false;
@@ -188,93 +188,101 @@ constexpr uint32_t kBufferSize = (1u+BUFFER_DWORD_COUNT)*sizeof(uint32_t);
 
 //returns true if result matches
 template<template<class> class Arithmetic, template<class> class OP>
-bool validateResults(IUtilities* utils, IGPUCommandBuffer* cmdbuf, const uint32_t* inputData, const uint32_t workgroupSize, const uint32_t workgroupCount, video::IGPUBuffer* bufferToDownload)
+bool validateResults(ILogicalDevice* device, const uint32_t* inputData, const uint32_t workgroupSize, const uint32_t workgroupCount, video::IGPUBuffer* bufferToRead, system::ILogger* logger)
 {
-	bool success = false;
+	bool success = true;
 
-#if 0
-	constexpr uint64_t timeoutInNanoSeconds = 15000000000u;
-	const uint32_t alignment = sizeof(uint32_t);
-	auto downloadStagingArea = driver->getDefaultDownStreamingBuffer();
-	auto downBuffer = downloadStagingArea->getBuffer();
-
-
-
-	uint32_t address = std::remove_pointer<decltype(downloadStagingArea)>::type::invalid_address;
-	auto unallocatedSize = downloadStagingArea->multi_alloc(1u, &address, &kBufferSize, &alignment);
-	if (unallocatedSize)
+	auto mem = bufferToRead->getBoundMemory();
+	if (mem->getMappingCaps()&IDriverMemoryAllocation::EMCF_COHERENT)
 	{
-		logger->log("Could not download the buffer from the GPU!", ELL_ERROR);
-		return false;
+		IDriverMemoryAllocation::MappedMemoryRange rng = {mem,0u,kBufferSize};
+		device->invalidateMappedMemoryRanges(1u,&rng);
 	}
-	driver->copyBuffer(bufferToDownload, downBuffer, 0, address, kBufferSize);
 
-	auto downloadFence = driver->placeFence(true);
-	auto result = downloadFence->waitCPU(timeoutInNanoSeconds, true);
-	if (result != video::E_DRIVER_FENCE_RETVAL::EDFR_TIMEOUT_EXPIRED && result != video::E_DRIVER_FENCE_RETVAL::EDFR_FAIL)
+	auto dataFromBuffer = reinterpret_cast<uint32_t*>(mem->getMappedPointer());
+	const uint32_t subgroupSize = (*dataFromBuffer++);
+
+	// now check if the data obtained has valid values
+	uint32_t* tmp = new uint32_t[workgroupSize];
+	uint32_t* ballotInput = new uint32_t[workgroupSize];
+	for (uint32_t workgroupID=0u; success&&workgroupID<workgroupCount; workgroupID++)
 	{
-		success = true;
-
-		if (downloadStagingArea->needsManualFlushOrInvalidate())
-			driver->invalidateMappedMemoryRanges({ {downloadStagingArea->getBuffer()->getBoundMemory(),address,kBufferSize} });
-
-		auto dataFromBuffer = reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(downloadStagingArea->getBufferPointer())+address);
-		const uint32_t subgroupSize = (*dataFromBuffer++);
-
-		// now check if the data obtained has valid values
-		uint32_t* tmp = new uint32_t[workgroupSize];
-		uint32_t* ballotInput = new uint32_t[workgroupSize];
-		for (uint32_t workgroupID=0u; success&&workgroupID<workgroupCount; workgroupID++)
+		const auto workgroupOffset = workgroupID*workgroupSize;
+		if constexpr (std::is_same_v<OP<uint32_t>,ballot<uint32_t>>)
 		{
-			const auto workgroupOffset = workgroupID*workgroupSize;
-			if constexpr (std::is_same_v<OP<uint32_t>,ballot<uint32_t>>)
-			{
-				for (auto i=0u; i<workgroupSize; i++)
-					ballotInput[i] = inputData[i+workgroupOffset]&0x1u;
-				Arithmetic<OP<uint32_t>>()(tmp,ballotInput,workgroupSize,subgroupSize);
-			}
-			else
-				Arithmetic<OP<uint32_t>>()(tmp,inputData+workgroupOffset,workgroupSize,subgroupSize);
-			for (uint32_t localInvocationIndex=0u; localInvocationIndex<workgroupSize; localInvocationIndex++)
-			if (tmp[localInvocationIndex]!=dataFromBuffer[workgroupOffset+localInvocationIndex])
-			{
-				logger->log("Failed test #" + std::to_string(workgroupSize) + " (" + Arithmetic<OP<uint32_t>>::name + ")  (" + OP<uint32_t>::name + ") Expected "+ std::to_string(tmp[localInvocationIndex])+ " got " + std::to_string(dataFromBuffer[workgroupOffset + localInvocationIndex]), ELL_ERROR);
-				success = false;
-				break;
-			}
+			for (auto i=0u; i<workgroupSize; i++)
+				ballotInput[i] = inputData[i+workgroupOffset]&0x1u;
+			Arithmetic<OP<uint32_t>>()(tmp,ballotInput,workgroupSize,subgroupSize);
 		}
-		delete[] ballotInput;
-		delete[] tmp;
+		else
+			Arithmetic<OP<uint32_t>>()(tmp,inputData+workgroupOffset,workgroupSize,subgroupSize);
+		for (uint32_t localInvocationIndex=0u; localInvocationIndex<workgroupSize; localInvocationIndex++)
+		if (tmp[localInvocationIndex]!=dataFromBuffer[workgroupOffset+localInvocationIndex])
+		{
+			logger->log(
+				"Failed test #%d  (%s)  (%s) Expected %s got %s",system::ILogger::ELL_ERROR,
+				workgroupSize,Arithmetic<OP<uint32_t>>::name,OP<uint32_t>::name,
+				std::to_string(tmp[localInvocationIndex]),std::to_string(dataFromBuffer[workgroupOffset+localInvocationIndex])
+			);
+			success = false;
+			break;
+		}
 	}
-	else
-		logger->log("Could not download the buffer from the GPU, fence not signalled!", ELL_ERROR);
+	delete[] ballotInput;
+	delete[] tmp;
 
-	downloadStagingArea->multi_free(1u, &address, &kBufferSize, nullptr);
-#endif
 	return success;
 }
 
+constexpr const auto outputBufferCount = 8u;
+
 template<template<class> class Arithmetic>
-bool runTest(IUtilities* utils, IGPUCommandBuffer* cmdbuf, IGPUComputePipeline* pipeline, const IGPUDescriptorSet* ds, const uint32_t* inputData, const uint32_t workgroupSize, core::smart_refctd_ptr<IGPUBuffer>* const buffers, bool is_workgroup_test = false)
+bool runTest(
+	ILogicalDevice* device, IGPUQueue* queue, IGPUFence* reusableFence, IGPUCommandBuffer* cmdbuf, IGPUComputePipeline* pipeline, const IGPUDescriptorSet* ds,
+	const uint32_t* inputData, const uint32_t workgroupSize, core::smart_refctd_ptr<IGPUBuffer>* const buffers, system::ILogger* logger, bool is_workgroup_test = false)
 {
-	cmdbuf->begin(0u);
+	// TODO: overlap dispatches with memory readbacks (requires multiple copies of `buffers`)
+
+	cmdbuf->begin(IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
 	cmdbuf->bindComputePipeline(pipeline);
 	cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,pipeline->getLayout(),0u,1u,&ds,nullptr);
 	const uint32_t workgroupCount = BUFFER_DWORD_COUNT/workgroupSize;
 	cmdbuf->dispatch(workgroupCount,1,1);
-	//video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_BUFFER_UPDATE_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT);
-	//cmdbuf->pipelineBarrier();
+	IGPUCommandBuffer::SBufferMemoryBarrier memoryBarrier[outputBufferCount];
+	for (auto i=0u; i<outputBufferCount; i++)
+	{
+		memoryBarrier[i].barrier.srcAccessMask = EAF_SHADER_WRITE_BIT;
+		memoryBarrier[i].barrier.dstAccessMask = static_cast<asset::E_ACCESS_FLAGS>(EAF_SHADER_WRITE_BIT|EAF_HOST_READ_BIT);
+		memoryBarrier[i].srcQueueFamilyIndex = cmdbuf->getQueueFamilyIndex();
+		memoryBarrier[i].dstQueueFamilyIndex = cmdbuf->getQueueFamilyIndex();
+		memoryBarrier[i].buffer = buffers[i];
+		memoryBarrier[i].offset = 0u;
+		memoryBarrier[i].size = kBufferSize;
+	}
+	cmdbuf->pipelineBarrier(
+		asset::EPSF_COMPUTE_SHADER_BIT,asset::EPSF_COMPUTE_SHADER_BIT|asset::EPSF_HOST_BIT,asset::EDF_NONE,
+		0u,nullptr,outputBufferCount,memoryBarrier,0u,nullptr
+	);
+	cmdbuf->end();
+
+	IGPUQueue::SSubmitInfo submit = {};
+	submit.commandBufferCount = 1u;
+	submit.commandBuffers = &cmdbuf;
+	queue->submit(1u,&submit,reusableFence);
+	device->blockForFences(1u,&reusableFence);
+	device->resetFences(1u,&reusableFence);
+
 	//check results 
-	bool passed = validateResults<Arithmetic,and_op>(utils,cmdbuf, inputData, workgroupSize, workgroupCount, buffers[0].get());
-	passed = validateResults<Arithmetic,xor_op>(utils,cmdbuf, inputData, workgroupSize, workgroupCount, buffers[1].get())&&passed;
-	passed = validateResults<Arithmetic,or_op>(utils,cmdbuf, inputData, workgroupSize, workgroupCount, buffers[2].get())&&passed;
-	passed = validateResults<Arithmetic,add_op>(utils,cmdbuf, inputData, workgroupSize, workgroupCount, buffers[3].get())&&passed;
-	passed = validateResults<Arithmetic,mul_op>(utils,cmdbuf, inputData, workgroupSize, workgroupCount, buffers[4].get())&&passed;
-	passed = validateResults<Arithmetic,min_op>(utils,cmdbuf, inputData, workgroupSize, workgroupCount, buffers[5].get())&&passed;
-	passed = validateResults<Arithmetic,max_op>(utils,cmdbuf, inputData, workgroupSize, workgroupCount, buffers[6].get())&&passed;
+	bool passed = validateResults<Arithmetic,and_op>(device, inputData, workgroupSize, workgroupCount, buffers[0].get(),logger);
+	passed = validateResults<Arithmetic,xor_op>(device, inputData, workgroupSize, workgroupCount, buffers[1].get(),logger)&&passed;
+	passed = validateResults<Arithmetic,or_op>(device, inputData, workgroupSize, workgroupCount, buffers[2].get(),logger)&&passed;
+	passed = validateResults<Arithmetic,add_op>(device, inputData, workgroupSize, workgroupCount, buffers[3].get(),logger)&&passed;
+	passed = validateResults<Arithmetic,mul_op>(device, inputData, workgroupSize, workgroupCount, buffers[4].get(),logger)&&passed;
+	passed = validateResults<Arithmetic,min_op>(device, inputData, workgroupSize, workgroupCount, buffers[5].get(),logger)&&passed;
+	passed = validateResults<Arithmetic,max_op>(device, inputData, workgroupSize, workgroupCount, buffers[6].get(),logger)&&passed;
 	if(is_workgroup_test)
 	{
-		passed = validateResults<Arithmetic,ballot>(utils,cmdbuf, inputData, workgroupSize, workgroupCount, buffers[7].get()) && passed;
+		passed = validateResults<Arithmetic,ballot>(device, inputData, workgroupSize, workgroupCount, buffers[7].get(),logger) && passed;
 	}
 
 	return passed;
@@ -314,12 +322,25 @@ int main()
 	auto gpuinputDataBuffer = utilities->createFilledDeviceLocalGPUBufferOnDedMem(queues[decltype(initOutput)::EQT_TRANSFER_UP],kBufferSize,inputData);
 	
 	//create 8 buffers.
-	constexpr const auto outputBufferCount = 8u;
 	constexpr const auto totalBufferCount = outputBufferCount+1u;
 
 	core::smart_refctd_ptr<IGPUBuffer> buffers[outputBufferCount];
 	for (auto i=0; i<outputBufferCount; i++)
-		buffers[i] = logicalDevice->createDeviceLocalGPUBufferOnDedMem(kBufferSize);
+	{
+		IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+		reqs.vulkanReqs.memoryTypeBits = ~0u;
+		reqs.vulkanReqs.alignment = 256u;
+		reqs.vulkanReqs.size = kBufferSize;
+		reqs.sharingMode = ESM_CONCURRENT;
+		reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+		reqs.mappingCapability = IDriverMemoryAllocation::EMCAF_READ;
+		buffers[i] = logicalDevice->createGPUBufferOnDedMem(reqs);
+		IDriverMemoryAllocation::MappedMemoryRange mem;
+		mem.memory = buffers[i]->getBoundMemory();
+		mem.offset = 0u;
+		mem.length = kBufferSize;
+		logicalDevice->mapMemory(mem,IDriverMemoryAllocation::EMCAF_READ);
+	}
 
 	IGPUDescriptorSetLayout::SBinding binding[totalBufferCount];
 	for (uint32_t i=0u; i<totalBufferCount; i++)
@@ -380,6 +401,7 @@ int main()
 	uint32_t totalFailCount = 0;
 	const auto ds = descriptorSet.get();
 	auto computeQueue = initOutput.queues[decltype(initOutput)::EQT_COMPUTE];
+	auto fence = logicalDevice->createFence(IGPUFence::ECF_UNSIGNALED);
 	auto cmdPool = logicalDevice->createCommandPool(computeQueue->getFamilyIndex(),IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
 	core::smart_refctd_ptr<IGPUCommandBuffer> cmdbuf;
 	logicalDevice->createCommandBuffers(cmdPool.get(),IGPUCommandBuffer::EL_PRIMARY,1u,&cmdbuf);
@@ -392,12 +414,12 @@ int main()
 		bool passed = true;
 
 		const video::IGPUDescriptorSet* ds = descriptorSet.get();
-		passed = runTest<emulatedSubgroupReduction>(utilities.get(),cmdbuf.get(),pipelines[0u].get(),descriptorSet.get(),inputData,workgroupSize,buffers)&&passed;
-		passed = runTest<emulatedSubgroupScanExclusive>(utilities.get(),cmdbuf.get(),pipelines[1u].get(),descriptorSet.get(),inputData,workgroupSize,buffers)&&passed;
-		passed = runTest<emulatedSubgroupScanInclusive>(utilities.get(),cmdbuf.get(),pipelines[2u].get(),descriptorSet.get(),inputData,workgroupSize,buffers)&&passed;
-		passed = runTest<emulatedWorkgroupReduction>(utilities.get(),cmdbuf.get(),pipelines[3u].get(),descriptorSet.get(),inputData,workgroupSize,buffers,true)&&passed;
-		passed = runTest<emulatedWorkgroupScanExclusive>(utilities.get(),cmdbuf.get(),pipelines[4u].get(),descriptorSet.get(),inputData,workgroupSize,buffers,true)&&passed;
-		passed = runTest<emulatedWorkgroupScanInclusive>(utilities.get(),cmdbuf.get(),pipelines[5u].get(),descriptorSet.get(),inputData,workgroupSize,buffers,true)&&passed;
+		passed = runTest<emulatedSubgroupReduction>(logicalDevice.get(),computeQueue,fence.get(),cmdbuf.get(),pipelines[0u].get(),descriptorSet.get(),inputData,workgroupSize,buffers,logger.get())&&passed;
+		passed = runTest<emulatedSubgroupScanExclusive>(logicalDevice.get(),computeQueue,fence.get(),cmdbuf.get(),pipelines[1u].get(),descriptorSet.get(),inputData,workgroupSize,buffers,logger.get())&&passed;
+		passed = runTest<emulatedSubgroupScanInclusive>(logicalDevice.get(),computeQueue,fence.get(),cmdbuf.get(),pipelines[2u].get(),descriptorSet.get(),inputData,workgroupSize,buffers,logger.get())&&passed;
+		passed = runTest<emulatedWorkgroupReduction>(logicalDevice.get(),computeQueue,fence.get(),cmdbuf.get(),pipelines[3u].get(),descriptorSet.get(),inputData,workgroupSize,buffers,logger.get(),true)&&passed;
+		passed = runTest<emulatedWorkgroupScanExclusive>(logicalDevice.get(),computeQueue,fence.get(),cmdbuf.get(),pipelines[4u].get(),descriptorSet.get(),inputData,workgroupSize,buffers,logger.get(),true)&&passed;
+		passed = runTest<emulatedWorkgroupScanInclusive>(logicalDevice.get(),computeQueue,fence.get(),cmdbuf.get(),pipelines[5u].get(),descriptorSet.get(),inputData,workgroupSize,buffers,logger.get(),true)&&passed;
 
 		if (passed)
 			logger->log("Passed test #%d",system::ILogger::ELL_INFO,workgroupSize);

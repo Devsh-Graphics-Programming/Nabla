@@ -130,12 +130,20 @@ int main(int argc, char** argv)
 	{
 		using pool_type = std::remove_reference_t<decltype(retval)>::pointee;
 		asset::SBufferRange<video::IGPUBuffer> blocks[pool_type::PropertyCount];
+
+		video::IGPUBuffer::SCreationParams creationParams;
+		creationParams.usage = asset::IBuffer::E_USAGE_FLAGS::EUF_STORAGE_BUFFER_BIT;
+		creationParams.sharingMode = asset::E_SHARING_MODE::ESM_CONCURRENT;
+		creationParams.queueFamilyIndices = 0u;
+		creationParams.queueFamilyIndices = nullptr;
+
 		for (auto i=0u; i<pool_type::PropertyCount; i++)
 		{
 			auto& block = blocks[i];
 			block.offset = 0u;
 			block.size = pool_type::PropertySizes[i]*capacity;
-			block.buffer = device->createDeviceLocalGPUBufferOnDedMem(block.size);
+			creationParams.size = block.size;
+			block.buffer = device->createDeviceLocalGPUBufferOnDedMem(creationParams);
 		}
 		retval = pool_type::create(device.get(),blocks,capacity,contiguous);
 	};
@@ -670,7 +678,7 @@ int main(int argc, char** argv)
 				memBarrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
 				memBarrier.dstAccessMask = static_cast<asset::E_ACCESS_FLAGS>(asset::EAF_SHADER_READ_BIT|asset::EAF_VERTEX_ATTRIBUTE_READ_BIT);
 				cb->pipelineBarrier(
-					asset::EPSF_COMPUTE_SHADER_BIT,asset::EPSF_COMPUTE_SHADER_BIT|asset::EPSF_VERTEX_INPUT_BIT|asset::EPSF_VERTEX_SHADER_BIT,asset::EDF_NONE,
+					asset::EPSF_COMPUTE_SHADER_BIT,core::bitflag(asset::EPSF_COMPUTE_SHADER_BIT)|asset::EPSF_VERTEX_INPUT_BIT|asset::EPSF_VERTEX_SHADER_BIT,asset::EDF_NONE,
 					1u,&memBarrier,0u,nullptr,0u,nullptr
 				);
 			}			

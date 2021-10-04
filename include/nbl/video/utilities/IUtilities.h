@@ -8,6 +8,7 @@
 #include "nbl/video/ILogicalDevice.h"
 #include "nbl/video/alloc/StreamingTransientDataBuffer.h"
 #include "nbl/video/utilities/CPropertyPoolHandler.h"
+#include "nbl/video/utilities/CScanner.h"
 
 namespace nbl::video
 {
@@ -17,6 +18,7 @@ class IUtilities : public core::IReferenceCounted
     public:
         IUtilities(core::smart_refctd_ptr<ILogicalDevice>&& _device, size_t downstreamSize=0x4000000ull, size_t upstreamSize=0x4000000ull) : m_device(std::move(_device))
         {
+            const auto& limits = m_device->getPhysicalDevice()->getLimits();
             {
                 auto reqs = m_device->getDownStreamingMemoryReqs();
                 reqs.vulkanReqs.size = downstreamSize;
@@ -30,6 +32,10 @@ class IUtilities : public core::IReferenceCounted
                 m_defaultUploadBuffer = core::make_smart_refctd_ptr<StreamingTransientDataBufferMT<> >(m_device.get(), reqs);
             }
             m_propertyPoolHandler = core::make_smart_refctd_ptr<CPropertyPoolHandler>(core::smart_refctd_ptr(m_device));
+            // smaller workgroups fill occupancy gaps better, especially on new Nvidia GPUs, but we don't want too small workgroups on mobile
+            // TODO: investigate whether we need to clamp against 256u instead of 128u on mobile
+            const auto scan_workgroup_size = core::max(core::roundDownToPoT(limits.maxWorkgroupSize[0])>>1u,128u);
+            m_scanner = core::make_smart_refctd_ptr<CScanner>(core::smart_refctd_ptr(m_device),scan_workgroup_size);
         }
 
         //!
@@ -51,10 +57,17 @@ class IUtilities : public core::IReferenceCounted
             return m_propertyPoolHandler.get();
         }
 
+        //!
+        virtual CScanner* getDefaultScanner() const
+        {
+            return m_scanner.get();
+        }
+
         //! WARNING: This function blocks the CPU and stalls the GPU!
         inline core::smart_refctd_ptr<IGPUBuffer> createFilledDeviceLocalGPUBufferOnDedMem(IGPUQueue* queue, size_t size, const void* data)
 	    {
-		    auto retval = m_device->createDeviceLocalGPUBufferOnDedMem(size);
+            IGPUBuffer::SCreationParams params = {};
+		    auto retval = m_device->createDeviceLocalGPUBufferOnDedMem(params, size);
             updateBufferRangeViaStagingBuffer(queue,asset::SBufferRange<IGPUBuffer>{0u,size,retval},data);
 		    return retval;
 	    }
@@ -63,11 +76,44 @@ class IUtilities : public core::IReferenceCounted
         //! Remember to ensure a memory dependency between the command recorded here and any users (so fence wait, semaphore when submitting, pipeline barrier or event)
         inline core::smart_refctd_ptr<IGPUImage> createFilledDeviceLocalGPUImageOnDedMem(IGPUCommandBuffer* cmdbuf, IGPUImage::SCreationParams&& params, const IGPUBuffer* srcBuffer, uint32_t regionCount, const IGPUImage::SBufferCopy* pRegions)
         {
+            // Todo(achal): 
+            // dstImage's format should support VK_FORMAT_FEATURE_TRANSFER_DST_BIT
+
             const auto finalLayout = params.initialLayout;
-            params.initialLayout = asset::EIL_TRANSFER_DST_OPTIMAL; // TODO: @achal verify my layouts
+
+            if (!((params.usage & asset::IImage::EUF_TRANSFER_DST_BIT).value))
+                params.usage |= asset::IImage::EUF_TRANSFER_DST_BIT;
+
             auto retval = m_device->createDeviceLocalGPUImageOnDedMem(std::move(params));
+
             assert(cmdbuf->getState()==IGPUCommandBuffer::ES_RECORDING);
-            cmdbuf->copyBufferToImage(srcBuffer,retval.get(),finalLayout,regionCount,pRegions);
+
+            IGPUCommandBuffer::SImageMemoryBarrier barrier = {};
+            barrier.barrier.srcAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0);
+            barrier.barrier.dstAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
+            barrier.oldLayout = asset::EIL_UNDEFINED;
+            barrier.newLayout = asset::EIL_TRANSFER_DST_OPTIMAL;
+            barrier.srcQueueFamilyIndex = ~0u;
+            barrier.dstQueueFamilyIndex = ~0u;
+            barrier.image = retval;
+            barrier.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT; // need this from input, infact this family of functions would be more usable if we take in a SSubresourceRange to operate on
+            barrier.subresourceRange.baseArrayLayer = 0u;
+            barrier.subresourceRange.layerCount = retval->getCreationParameters().arrayLayers;
+            barrier.subresourceRange.baseMipLevel = 0u;
+            barrier.subresourceRange.levelCount = retval->getCreationParameters().mipLevels;
+            cmdbuf->pipelineBarrier(asset::EPSF_TOP_OF_PIPE_BIT, asset::EPSF_TRANSFER_BIT, asset::EDF_NONE, 0u, nullptr, 0u, nullptr, 1u, &barrier);
+
+            cmdbuf->copyBufferToImage(srcBuffer,retval.get(),asset::EIL_TRANSFER_DST_OPTIMAL,regionCount,pRegions);
+
+            if (finalLayout != asset::EIL_TRANSFER_DST_OPTIMAL)
+            {
+                barrier.barrier.srcAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
+                barrier.barrier.dstAccessMask = asset::EAF_TRANSFER_READ_BIT;
+                barrier.oldLayout = asset::EIL_TRANSFER_DST_OPTIMAL;
+                barrier.newLayout = finalLayout;
+                cmdbuf->pipelineBarrier(asset::EPSF_TRANSFER_BIT, asset::EPSF_TRANSFER_BIT, asset::EDF_NONE, 0u, nullptr, 0u, nullptr, 1u, &barrier);
+            }
+
             return retval;
         }
         //! Don't use this function in hot loops or to do batch updates, its merely a convenience for one-off uploads
@@ -95,6 +141,7 @@ class IUtilities : public core::IReferenceCounted
             submit.pWaitSemaphores = semaphoresToWaitBeforeExecution;
             submit.pWaitDstStageMask = stagesToWaitForPerSemaphore;
             queue->submit(1u,&submit,fence);
+            m_device->waitForFences(1u, &fence, false, 9999999999ull);
             return retval;
         }
         //! WARNING: This function blocks the CPU and stalls the GPU!
@@ -118,11 +165,43 @@ class IUtilities : public core::IReferenceCounted
         //! Remember to ensure a memory dependency between the command recorded here and any users (so fence wait, semaphore when submitting, pipeline barrier or event)
         inline core::smart_refctd_ptr<IGPUImage> createFilledDeviceLocalGPUImageOnDedMem(IGPUCommandBuffer* cmdbuf, IGPUImage::SCreationParams&& params, const IGPUImage* srcImage, uint32_t regionCount, const IGPUImage::SImageCopy* pRegions)
         {
+            // Todo(achal): srcImage's format should support VK_FORMAT_FEATURE_TRANSFER_SRC_BIT,
+            // dstImage's format should support VK_FORMAT_FEATURE_TRANSFER_DST_BIT
+
             const auto finalLayout = params.initialLayout;
-            params.initialLayout = asset::EIL_TRANSFER_DST_OPTIMAL; // TODO: @achal verify my layouts
+
+            if (!((params.usage & asset::IImage::EUF_TRANSFER_DST_BIT).value))
+                params.usage |= asset::IImage::EUF_TRANSFER_DST_BIT;
+
             auto retval = m_device->createDeviceLocalGPUImageOnDedMem(std::move(params));
+
             assert(cmdbuf->getState()==IGPUCommandBuffer::ES_RECORDING);
-            cmdbuf->copyImage(srcImage,asset::EIL_TRANSFER_SRC_OPTIMAL,retval.get(),finalLayout,regionCount,pRegions);
+
+            IGPUCommandBuffer::SImageMemoryBarrier barrier = {};
+            barrier.barrier.srcAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0);
+            barrier.barrier.dstAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
+            barrier.oldLayout = asset::EIL_UNDEFINED;
+            barrier.newLayout = asset::EIL_TRANSFER_DST_OPTIMAL;
+            barrier.srcQueueFamilyIndex = ~0u;
+            barrier.dstQueueFamilyIndex = ~0u;
+            barrier.image = retval;
+            barrier.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT; // need this from input, infact this family of functions would be more usable if we take in a SSubresourceRange to operate on
+            barrier.subresourceRange.baseArrayLayer = 0u;
+            barrier.subresourceRange.layerCount = retval->getCreationParameters().arrayLayers;
+            barrier.subresourceRange.baseMipLevel = 0u;
+            barrier.subresourceRange.levelCount = retval->getCreationParameters().mipLevels;
+            cmdbuf->pipelineBarrier(asset::EPSF_TOP_OF_PIPE_BIT, asset::EPSF_TRANSFER_BIT, asset::EDF_NONE, 0u, nullptr, 0u, nullptr, 1u, &barrier);
+
+            cmdbuf->copyImage(srcImage,asset::EIL_TRANSFER_SRC_OPTIMAL,retval.get(),asset::EIL_TRANSFER_DST_OPTIMAL,regionCount,pRegions);
+
+            if (finalLayout != asset::EIL_TRANSFER_DST_OPTIMAL)
+            {
+                barrier.barrier.srcAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
+                barrier.barrier.dstAccessMask = asset::EAF_TRANSFER_READ_BIT;
+                barrier.oldLayout = asset::EIL_TRANSFER_DST_OPTIMAL;
+                barrier.newLayout = finalLayout;
+                cmdbuf->pipelineBarrier(asset::EPSF_TRANSFER_BIT, asset::EPSF_TRANSFER_BIT, asset::EDF_NONE, 0u, nullptr, 0u, nullptr, 1u, &barrier);
+            }
             return retval;
         }
         //! Don't use this function in hot loops or to do batch updates, its merely a convenience for one-off uploads
@@ -150,6 +229,7 @@ class IUtilities : public core::IReferenceCounted
             submit.pWaitSemaphores = semaphoresToWaitBeforeExecution;
             submit.pWaitDstStageMask = stagesToWaitForPerSemaphore;
             queue->submit(1u,&submit,fence);
+            m_device->waitForFences(1u, &fence, false, 9999999999ull);
             return retval;
         }
         //! WARNING: This function blocks the CPU and stalls the GPU!
@@ -188,9 +268,14 @@ class IUtilities : public core::IReferenceCounted
             {
                 const void* dataPtr = reinterpret_cast<const uint8_t*>(data)+uploadedSize;
                 uint32_t localOffset = video::StreamingTransientDataBufferMT<>::invalid_address;
-                uint32_t alignment = 64u; // smallest mapping alignment capability
-                uint32_t subSize = static_cast<uint32_t>(core::min<uint32_t>(core::alignDown(m_defaultUploadBuffer.get()->max_size(), alignment), bufferRange.size-uploadedSize));
-                m_defaultUploadBuffer.get()->multi_place(std::chrono::high_resolution_clock::now()+std::chrono::microseconds(500u), 1u, (const void* const*)&dataPtr, &localOffset, &subSize, &alignment);
+                const uint32_t alignment = 256u; // TODO: change this to features.nonCoherentAtomiSize
+                const uint32_t subSize = static_cast<uint32_t>(core::min<uint64_t>(core::alignDown(m_defaultUploadBuffer.get()->max_size(),alignment), bufferRange.size-uploadedSize));
+                const uint32_t paddedSize = core::alignUp(subSize,alignment);
+                // cannot use `multi_place` because of the extra padding size we could have added
+                m_defaultUploadBuffer.get()->multi_alloc(std::chrono::high_resolution_clock::now()+std::chrono::microseconds(500u),1u,&localOffset,&paddedSize,&alignment);
+                // copy only the unpadded part
+                if (localOffset!=video::StreamingTransientDataBufferMT<>::invalid_address)
+                    memcpy(reinterpret_cast<uint8_t*>(m_defaultUploadBuffer->getBufferPointer())+localOffset,dataPtr,subSize);
 
                 // keep trying again
                 if (localOffset == video::StreamingTransientDataBufferMT<>::invalid_address)
@@ -207,7 +292,7 @@ class IUtilities : public core::IReferenceCounted
                     submit.pWaitSemaphores = semaphoresToWaitBeforeOverwrite;
                     submit.pWaitDstStageMask = stagesToWaitForPerSemaphore;
                     queue->submit(1u,&submit,fence);
-                    m_device->waitForFences(1u,&fence,false,9999999999ull);
+                    m_device->blockForFences(1u,&fence);
                     waitSemaphoreCount = 0u;
                     semaphoresToWaitBeforeOverwrite = nullptr;
                     stagesToWaitForPerSemaphore = nullptr;
@@ -222,7 +307,7 @@ class IUtilities : public core::IReferenceCounted
                 // some platforms expose non-coherent host-visible GPU memory, so writes need to be flushed explicitly
                 if (m_defaultUploadBuffer.get()->needsManualFlushOrInvalidate())
                 {
-                    IDriverMemoryAllocation::MappedMemoryRange flushRange(m_defaultUploadBuffer.get()->getBuffer()->getBoundMemory(),localOffset,subSize);
+                    IDriverMemoryAllocation::MappedMemoryRange flushRange(m_defaultUploadBuffer.get()->getBuffer()->getBoundMemory(),localOffset,paddedSize);
                     m_device->flushMappedMemoryRanges(1u,&flushRange);
                 }
                 // after we make sure writes are in GPU memory (visible to GPU) and not still in a cache, we can copy using the GPU to device-only memory
@@ -232,7 +317,7 @@ class IUtilities : public core::IReferenceCounted
                 copy.size = subSize;
                 cmdbuf->copyBuffer(m_defaultUploadBuffer.get()->getBuffer(),bufferRange.buffer.get(),1u,&copy);
                 // this doesn't actually free the memory, the memory is queued up to be freed only after the GPU fence/event is signalled
-                m_defaultUploadBuffer.get()->multi_free(1u,&localOffset,&subSize,core::smart_refctd_ptr<IGPUFence>(fence),&cmdbuf); // can queue with a reset but not yet pending fence, just fine
+                m_defaultUploadBuffer.get()->multi_free(1u,&localOffset,&paddedSize,core::smart_refctd_ptr<IGPUFence>(fence),&cmdbuf); // can queue with a reset but not yet pending fence, just fine
                 uploadedSize += subSize;
             }
         }
@@ -272,7 +357,7 @@ class IUtilities : public core::IReferenceCounted
             auto fence = m_device->createFence(static_cast<IGPUFence::E_CREATE_FLAGS>(0));
             updateBufferRangeViaStagingBuffer(fence.get(),queue,bufferRange,data,waitSemaphoreCount,semaphoresToWaitBeforeOverwrite,stagesToWaitForPerSemaphore,signalSemaphoreCount,semaphoresToSignal);
             auto* fenceptr = fence.get();
-            m_device->waitForFences(1u,&fenceptr,false,9999999999ull);
+            m_device->blockForFences(1u,&fenceptr);
         }
 
     protected:
@@ -282,6 +367,7 @@ class IUtilities : public core::IReferenceCounted
         core::smart_refctd_ptr<StreamingTransientDataBufferMT<> > m_defaultUploadBuffer;
 
         core::smart_refctd_ptr<CPropertyPoolHandler> m_propertyPoolHandler;
+        core::smart_refctd_ptr<CScanner> m_scanner;
 };
 
 }

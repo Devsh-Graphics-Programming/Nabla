@@ -1,8 +1,7 @@
 #define _NBL_STATIC_LIB_
 #include <nabla.h>
 
-#include "nbl/ext/RadixSort/RadixSort.h"
-#include "../../source/Nabla/COpenGLDriver.h"
+#include "../common/CommonAPI.h"
 
 #include <chrono>
 #include <random>
@@ -12,228 +11,191 @@ using namespace core;
 using namespace video;
 using namespace asset;
 
-using RadixSortClass = ext::RadixSort::RadixSort;
-using ScanClass = ext::RadixSort::ScanClass;
-
-#define WG_SIZE 256
-
-struct SortElement
-{
-	uint32_t key, data;
-
-	bool operator!= (const SortElement& other)
-	{
-		return (key != other.key) || (data != other.data);
-	}
-};
-
-struct SortElementKeyAccessor
-{
-	_NBL_STATIC_INLINE_CONSTEXPR size_t key_bit_count = 32ull;
-
-	template<auto bit_offset, auto radix_mask>
-	inline decltype(radix_mask) operator()(const SortElement& item) const
-	{
-		return static_cast<decltype(radix_mask)>(item.key >> static_cast<uint32_t>(bit_offset)) & radix_mask;
-	}
-};
-
-template <typename T>
-static T* DebugGPUBufferDownload(smart_refctd_ptr<IGPUBuffer> buffer_to_download, size_t buffer_size, IVideoDriver* driver)
-{
-	constexpr uint64_t timeout_ns = 15000000000u;
-	const uint32_t alignment = uint32_t(sizeof(T));
-	auto downloadStagingArea = driver->getDefaultDownStreamingBuffer();
-	auto downBuffer = downloadStagingArea->getBuffer();
-
-	bool success = false;
-
-	uint32_t array_size_32 = uint32_t(buffer_size);
-	uint32_t address = std::remove_pointer<decltype(downloadStagingArea)>::type::invalid_address;
-	auto unallocatedSize = downloadStagingArea->multi_alloc(1u, &address, &array_size_32, &alignment);
-	if (unallocatedSize)
-	{
-		os::Printer::log("Could not download the buffer from the GPU!", ELL_ERROR);
-		exit(420);
-	}
-
-	driver->copyBuffer(buffer_to_download.get(), downBuffer, 0, address, array_size_32);
-
-	auto downloadFence = driver->placeFence(true);
-	auto result = downloadFence->waitCPU(timeout_ns, true);
-
-	T* dataFromBuffer = nullptr;
-	if (result != video::E_DRIVER_FENCE_RETVAL::EDFR_TIMEOUT_EXPIRED && result != video::E_DRIVER_FENCE_RETVAL::EDFR_FAIL)
-	{
-		if (downloadStagingArea->needsManualFlushOrInvalidate())
-			driver->invalidateMappedMemoryRanges({ {downloadStagingArea->getBuffer()->getBoundMemory(),address,array_size_32} });
-
-		dataFromBuffer = reinterpret_cast<T*>(reinterpret_cast<uint8_t*>(downloadStagingArea->getBufferPointer()) + address);
-	}
-	else
-	{
-		os::Printer::log("Could not download the buffer from the GPU, fence not signalled!", ELL_ERROR);
-	}
-
-	downloadStagingArea->multi_free(1u, &address, &array_size_32, nullptr);
-
-	return dataFromBuffer;
-}
-
-template <typename T>
-static void DebugCompareGPUvsCPU(smart_refctd_ptr<IGPUBuffer> gpu_buffer, T* cpu_buffer, size_t buffer_size, IVideoDriver* driver)
-{
-	T* downloaded_buffer = DebugGPUBufferDownload<T>(gpu_buffer, buffer_size, driver);
-
-	size_t buffer_count = buffer_size / sizeof(T);
-
-	if (downloaded_buffer)
-	{
-		for (int i = 0; i < buffer_count; ++i)
-		{
-			if (downloaded_buffer[i] != cpu_buffer[i])
-				__debugbreak();
-		}
-
-		std::cout << "PASS" << std::endl;
-	}
-}
-
-static void RadixSort(IVideoDriver* driver, const SBufferRange<IGPUBuffer>& in_gpu_range,
-	core::smart_refctd_ptr<IGPUDescriptorSet>* ds_sort, const uint32_t ds_sort_count,
-	IGPUComputePipeline* histogram_pipeline, IGPUComputePipeline* scatter_pipeline,
-	IGPUDescriptorSet* ds_scan, IGPUComputePipeline* upsweep_pipeline, IGPUComputePipeline* downsweep_pipeline)
-{
-	const uint32_t total_scan_pass_count = RadixSortClass::buildParameters(in_gpu_range.size / sizeof(SortElement), WG_SIZE,
-		nullptr, nullptr, nullptr, nullptr);
-
-	RadixSortClass::Parameters_t sort_push_constants[RadixSortClass::PASS_COUNT];
-	RadixSortClass::DispatchInfo_t sort_dispatch_info;
-
-	const uint32_t upsweep_pass_count = (total_scan_pass_count / 2) + 1;
-	core::vector<ScanClass::Parameters_t> scan_push_constants(upsweep_pass_count);
-	core::vector<ScanClass::DispatchInfo_t> scan_dispatch_info(upsweep_pass_count);
-
-	RadixSortClass::buildParameters(in_gpu_range.size / sizeof(SortElement), WG_SIZE, sort_push_constants, &sort_dispatch_info,
-		scan_push_constants.data(), scan_dispatch_info.data());
-
-	SBufferRange<IGPUBuffer> scratch_gpu_range = { 0 };
-	scratch_gpu_range.size = in_gpu_range.size;
-	scratch_gpu_range.buffer = driver->createDeviceLocalGPUBufferOnDedMem(in_gpu_range.size);
-
-	const uint32_t histogram_count = sort_dispatch_info.wg_count[0] * RadixSortClass::BUCKETS_COUNT;
-	SBufferRange<IGPUBuffer> histogram_gpu_range = { 0 };
-	histogram_gpu_range.size = histogram_count * sizeof(uint32_t);
-	histogram_gpu_range.buffer = driver->createDeviceLocalGPUBufferOnDedMem(histogram_gpu_range.size);
-
-	RadixSortClass::updateDescriptorSet(ds_scan, &histogram_gpu_range, 1u, driver);
-	RadixSortClass::updateDescriptorSetsPingPong(ds_sort, in_gpu_range, scratch_gpu_range, driver);
-
-	core::smart_refctd_ptr<video::IQueryObject> time_query(driver->createElapsedTimeQuery());
-
-	std::cout << "GPU sort begin" << std::endl;
-
-	driver->beginQuery(time_query.get());
-	RadixSortClass::sort(histogram_pipeline, upsweep_pipeline, downsweep_pipeline, scatter_pipeline, ds_scan, ds_sort, scan_push_constants.data(),
-		sort_push_constants, scan_dispatch_info.data(), &sort_dispatch_info, total_scan_pass_count, upsweep_pass_count, driver);
-	driver->endQuery(time_query.get());
-
-	uint32_t time_taken;
-	time_query->getQueryResult(&time_taken);
-
-	std::cout << "GPU sort end\nTime taken: " << (double)time_taken / 1000000.0 << " ms" << std::endl;
-}
 
 int main()
 {
-	nbl::SIrrlichtCreationParameters params;
-	params.Bits = 24;
-	params.ZBufferBits = 24;
-	params.DriverType = video::EDT_OPENGL;
-	params.WindowSize = dimension2d<uint32_t>(512, 512);
-	params.Fullscreen = false;
-	params.Vsync = true;
-	params.Doublebuffer = true;
-	params.Stencilbuffer = false;
-	params.StreamingDownloadBufferSize = 0x10000000u; // 256MB download required
-	auto device = createDeviceEx(params);
+	auto initOutput = CommonAPI::Init(video::EAT_OPENGL,"Subgroup Arithmetic Test");
+	auto system = std::move(initOutput.system);
+    auto gl = std::move(initOutput.apiConnection);
+    auto logger = std::move(initOutput.logger);
+    auto gpuPhysicalDevice = std::move(initOutput.physicalDevice);
+    auto logicalDevice = std::move(initOutput.logicalDevice);
+    auto queues = std::move(initOutput.queues);
+    auto renderpass = std::move(initOutput.renderpass);
+    auto commandPool = std::move(initOutput.commandPool);
+    auto assetManager = std::move(initOutput.assetManager);
+    auto cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
+    auto utilities = std::move(initOutput.utilities);
 
-	if (!device)
-		return 1;
+    core::smart_refctd_ptr<IGPUFence> gpuTransferFence = nullptr;
+    core::smart_refctd_ptr<IGPUFence> gpuComputeFence = nullptr;
 
-	IVideoDriver* driver = device->getVideoDriver();
+    nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
+    {
+        cpu2gpuParams.perQueue[IGPUObjectFromAssetConverter::EQU_TRANSFER].fence = &gpuTransferFence;
+        cpu2gpuParams.perQueue[IGPUObjectFromAssetConverter::EQU_COMPUTE].fence = &gpuComputeFence;
+    }
 
-	io::IFileSystem* filesystem = device->getFileSystem();
-	asset::IAssetManager* am = device->getAssetManager();
+	// Create (an almost) 128MB input buffer
+	constexpr auto in_size = 128u<<20u;
+	constexpr auto in_count = in_size/sizeof(uint32_t)-23u;
 
-	// Create (an almost) 256MB input buffer
-	const size_t in_count = (1 << 25) - 23;
-	const size_t in_size = in_count * sizeof(SortElement);
+	logger->log("Input element count: %d",system::ILogger::ELL_PERFORMANCE,in_count);
 
-	std::cout << "Input element count: " << in_count << std::endl;
-
-	std::random_device random_device;
-	std::mt19937 generator(random_device());
-	std::uniform_int_distribution<uint32_t> distribution(0u, ~0u);
-
-	SortElement* in = new SortElement[in_count];
-	for (size_t i = 0u; i < in_count; ++i)
+	auto in = new uint32_t[in_count];
 	{
-		in[i].key = distribution(generator);
-		in[i].data = i;
+		std::random_device random_device;
+		std::mt19937 generator(random_device());
+		std::uniform_int_distribution<uint32_t> distribution(0u, ~0u);
+		for (auto i=0u; i<in_count; i++)
+			in[i] = distribution(generator);
 	}
 	
-	auto in_gpu = driver->createFilledDeviceLocalGPUBufferOnDedMem(in_size, in);
+	// Take (an almost) 64MB portion from it to scan
+	constexpr auto begin = in_count/4+110;
+	assert(((begin*sizeof(uint32_t))&(gpuPhysicalDevice->getLimits().SSBOAlignment-1u))==0u);
+	constexpr auto end = in_count*3/4-78;
+	assert(((end*sizeof(uint32_t))&(gpuPhysicalDevice->getLimits().SSBOAlignment-1u))==0u);
+	constexpr auto elementCount = end-begin;
 	
-	// Take (an almost) 64MB portion from it to sort
-	size_t begin = (1 << 23) + 112;
-	size_t end = (1 << 24) - 77;
+	SBufferRange<IGPUBuffer> in_gpu_range;
+	in_gpu_range.offset = begin*sizeof(uint32_t);
+	in_gpu_range.size = elementCount*sizeof(uint32_t);
+	in_gpu_range.buffer = utilities->createFilledDeviceLocalGPUBufferOnDedMem(queues[decltype(initOutput)::EQT_TRANSFER_UP],in_count*sizeof(uint32_t),in);
 	
-	assert((begin & (driver->getRequiredSSBOAlignment() - 1ull)) == 0ull);
-	
-	SBufferRange<IGPUBuffer> in_gpu_range = { 0 };
-	in_gpu_range.offset = begin * sizeof(SortElement);
-	in_gpu_range.size = (end - begin) * sizeof(SortElement);
-	in_gpu_range.buffer = in_gpu;
-	
-	auto sorter = core::make_smart_refctd_ptr<RadixSortClass>(driver, WG_SIZE);
-	
-	const uint32_t ds_sort_count = 2u;
-	core::smart_refctd_ptr<video::IGPUDescriptorSet> ds_sort[ds_sort_count];
-	for (uint32_t i = 0; i < ds_sort_count; ++i)
-		ds_sort[i] = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const video::IGPUDescriptorSetLayout>(sorter->getDefaultSortDescriptorSetLayout()));
-	auto ds_scan = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const video::IGPUDescriptorSetLayout>(sorter->getDefaultScanDescriptorSetLayout()));
+	const auto scanType = video::CScanner::EST_EXCLUSIVE;
+	auto scanner = utilities->getDefaultScanner();
+	auto scan_pipeline = scanner->getDefaultPipeline(scanType,CScanner::EDT_UINT,CScanner::EO_ADD);
 
-	auto histogram_pipeline = sorter->getDefaultHistogramPipeline();	
-	auto upsweep_pipeline = sorter->getDefaultUpsweepPipeline();
-	auto downsweep_pipeline = sorter->getDefaultDownsweepPipeline();
-	auto scatter_pipeline = sorter->getDefaultScatterPipeline();
+	CScanner::DefaultPushConstants scan_push_constants;
+	CScanner::DispatchInfo scan_dispatch_info;
+	scanner->buildParameters(elementCount,scan_push_constants,scan_dispatch_info);
 	
-	driver->beginScene(true);
-	RadixSort(driver, in_gpu_range, ds_sort, ds_sort_count, histogram_pipeline, scatter_pipeline, ds_scan.get(), upsweep_pipeline, downsweep_pipeline);
-	driver->endScene();
+	SBufferRange<IGPUBuffer> scratch_gpu_range;
+	{
+		scratch_gpu_range.offset = 0u;
+		scratch_gpu_range.size = scan_push_constants.scanParams.getScratchSize();
+		IGPUBuffer::SCreationParams params = {};
+		params.usage = IGPUBuffer::EUF_STORAGE_BUFFER_BIT;
+		scratch_gpu_range.buffer = logicalDevice->createDeviceLocalGPUBufferOnDedMem(params,scratch_gpu_range.size);
+	}
 
-	{	
-		std::cout << "CPU sort begin" << std::endl;
+	auto dsLayout = scanner->getDefaultDescriptorSetLayout();
+	auto dsPool = logicalDevice->createDescriptorPoolForDSLayouts(IDescriptorPool::ECF_NONE,&dsLayout,&dsLayout+1u);
+	auto ds = logicalDevice->createGPUDescriptorSet(dsPool.get(),core::smart_refctd_ptr<IGPUDescriptorSetLayout>(dsLayout));
+	scanner->updateDescriptorSet(ds.get(),in_gpu_range,scratch_gpu_range);
 
-		SortElement* in_data = new SortElement[in_count + (end - begin)];
-		memcpy(in_data, in, sizeof(SortElement) * in_count);
+	constexpr auto BenchmarkingRuns = 1u;
+	auto computeQueue = queues[decltype(initOutput)::EQT_COMPUTE];
+	core::smart_refctd_ptr<IGPUFence> lastFence;
+	// TODO: timestamp queries
+	//core::smart_refctd_ptr<> beginTimestamp[BenchmarkingRuns];
+	//core::smart_refctd_ptr<> endTimestamp[BenchmarkingRuns];
+	{
+		core::smart_refctd_ptr<IGPUCommandBuffer> cmdbuf;
+		{
+			auto cmdPool = logicalDevice->createCommandPool(computeQueue->getFamilyIndex(),IGPUCommandPool::ECF_NONE);
+			logicalDevice->createCommandBuffers(cmdPool.get(),IGPUCommandBuffer::EL_PRIMARY,1u,&cmdbuf);
+
+			// TODO: barriers
+			IGPUCommandBuffer::SBufferMemoryBarrier srcBufferBarrier;
+			IGPUCommandBuffer::SBufferMemoryBarrier dstBufferBarrier;
+
+			// TODO: begin and end query
+			cmdbuf->begin(IGPUCommandBuffer::EU_SIMULTANEOUS_USE_BIT);
+			cmdbuf->fillBuffer(scratch_gpu_range.buffer.get(),0u,sizeof(uint32_t)+scratch_gpu_range.size/2u,0u);
+			cmdbuf->bindComputePipeline(scan_pipeline);
+			auto pipeline_layout = scan_pipeline->getLayout();
+			cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,pipeline_layout,0u,1u,&ds.get());
+			scanner->dispatchHelper(
+				cmdbuf.get(),pipeline_layout,scan_push_constants,scan_dispatch_info,
+				static_cast<asset::E_PIPELINE_STAGE_FLAGS>(asset::EPSF_COMPUTE_SHADER_BIT|asset::EPSF_TRANSFER_BIT),1u,&srcBufferBarrier,
+				static_cast<asset::E_PIPELINE_STAGE_FLAGS>(asset::EPSF_COMPUTE_SHADER_BIT|asset::EPSF_TRANSFER_BIT),1u,&dstBufferBarrier
+			);
+			cmdbuf->end();
+		}
+		lastFence = logicalDevice->createFence(IGPUFence::ECF_UNSIGNALED);
+		IGPUQueue::SSubmitInfo submit = {};
+		submit.commandBufferCount = 1u;
+		submit.commandBuffers = &cmdbuf.get();
+		computeQueue->startCapture();
+		for (auto i=0u; i<BenchmarkingRuns; i++)
+			computeQueue->submit(1u,&submit,i!=(BenchmarkingRuns-1u) ? nullptr:lastFence.get());
+		computeQueue->endCapture();
+	}
+	// cpu counterpart
+	auto cpu_begin = in+begin;
+	for (auto i=0u; i<BenchmarkingRuns; i++)
+	{
+		logger->log("CPU scan begin",system::ILogger::ELL_PERFORMANCE);
 
 		auto start = std::chrono::high_resolution_clock::now();
-		SortElement* sorted_data = core::radix_sort(in_data + begin, in_data + in_count, end - begin, SortElementKeyAccessor());
+		switch (scanType)
+		{
+			case video::CScanner::EST_INCLUSIVE:
+				std::inclusive_scan(cpu_begin,in+end,cpu_begin);
+				break;
+			case video::CScanner::EST_EXCLUSIVE:
+				std::exclusive_scan(cpu_begin,in+end,cpu_begin,0u);
+				break;
+			default:
+				assert(false);
+				exit(0xdeadbeefu);
+				break;
+		}
 		auto stop = std::chrono::high_resolution_clock::now();
 
-		memcpy(in_data + begin, sorted_data, (end - begin) * sizeof(SortElement));
+		logger->log("CPU scan end. Time taken: %d us",system::ILogger::ELL_PERFORMANCE,std::chrono::duration_cast<std::chrono::microseconds>(stop-start).count());
+	}
+	
+	// wait for the gpu impl to complete
+	logicalDevice->blockForFences(1u,&lastFence.get());
 
-		std::cout << "CPU sort end\nTime taken: " << std::chrono::duration_cast<std::chrono::milliseconds>(stop - start).count() << " ms" << std::endl;
+	if (BenchmarkingRuns==1u)
+	{
+		IGPUBuffer::SCreationParams params = {};
+		params.usage = IGPUBuffer::EUF_TRANSFER_DST_BIT;
+		auto downloaded_buffer = logicalDevice->createDownStreamingGPUBufferOnDedMem(params,in_gpu_range.size);
+		{
+			core::smart_refctd_ptr<IGPUCommandBuffer> cmdbuf;
+			{
+				auto cmdPool = logicalDevice->createCommandPool(computeQueue->getFamilyIndex(),IGPUCommandPool::ECF_NONE);
+				logicalDevice->createCommandBuffers(cmdPool.get(),IGPUCommandBuffer::EL_PRIMARY,1u,&cmdbuf);
+			}
+			cmdbuf->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
+			asset::SBufferCopy region;
+			region.srcOffset = in_gpu_range.offset;
+			region.dstOffset = 0u;
+			region.size = in_gpu_range.size;
+			cmdbuf->copyBuffer(in_gpu_range.buffer.get(),downloaded_buffer.get(),1u,&region);
+			cmdbuf->end();
+			lastFence = logicalDevice->createFence(IGPUFence::ECF_UNSIGNALED);
+			IGPUQueue::SSubmitInfo submit = {};
+			submit.commandBufferCount = 1u;
+			submit.commandBuffers = &cmdbuf.get();
+			computeQueue->submit(1u,&submit,lastFence.get());
+			logicalDevice->blockForFences(1u,&lastFence.get());
+		}
 
-		std::cout << "Testing: ";
-		DebugCompareGPUvsCPU<SortElement>(in_gpu, in_data, in_size, driver);
-
-		delete[] in_data;
+		auto mem = const_cast<video::IDriverMemoryAllocation*>(downloaded_buffer->getBoundMemory());
+		{
+			video::IDriverMemoryAllocation::MappedMemoryRange range;
+			{
+				range.memory = mem;
+				range.offset = 0u;
+				range.length = in_gpu_range.size;
+			}
+			logicalDevice->mapMemory(range,video::IDriverMemoryAllocation::EMCAF_READ);
+		}
+		auto gpu_begin = reinterpret_cast<uint32_t*>(mem->getMappedPointer());
+		for (auto i=0u; i<elementCount; i++)
+		{
+			if (gpu_begin[i]!=cpu_begin[i])
+				_NBL_DEBUG_BREAK_IF(true);
+		}
+		logger->log("Result Comparison Test Passed",system::ILogger::ELL_PERFORMANCE);
 	}
 
 	delete[] in;
-
 	return 0;
 }

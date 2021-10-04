@@ -274,11 +274,13 @@ set(NBL_VIDEO_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/video/utilities/ICommandPoolCache.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/utilities/IPropertyPool.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/utilities/CPropertyPoolHandler.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/utilities/CScanner.cpp
 
 	${NBL_ROOT_PATH}/src/nbl/video/IAPIConnection.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IPhysicalDevice.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/ILogicalDevice.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IGPUFence.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/IDriverMemoryAllocation.cpp
 )
 set(NBL_SCENE_SOURCES
 # Junk to refactor
@@ -328,6 +330,9 @@ set(NABLA_SRCS_NORMAL
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanMemoryAllocation.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanBufferView.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanForeignImage.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanLogicalDevice.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanSampler.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanConnection.cpp
 
 
 	#opengl
@@ -374,6 +379,7 @@ endmacro()
 
 # TODO: Change all MACROS into FUNCTIONS (if possible, need to clarify variable scoping rules)
 macro(nbl_target_link_zlib _trgt)
+	add_dependencies(zlibstatic zlib_copy)
 	add_dependencies(${_trgt} zlibstatic)
 	target_link_libraries(${_trgt} INTERFACE zlibstatic)
 
@@ -382,7 +388,8 @@ macro(nbl_target_link_zlib _trgt)
 		$<$<CONFIG:Release>:${ZLIB_LIBRARY_RELEASE}>
 		$<$<CONFIG:RelWithDebInfo>:${ZLIB_LIBRARY_RELWITHDEBINFO}>
 	)
-	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/zlib)
+	
+	target_include_directories(${_trgt} PUBLIC $<TARGET_PROPERTY:zlibstatic,BINARY_DIR>/copy_source)
 endmacro()
 
 #Parallel hashmap
@@ -501,7 +508,7 @@ if(DEFINED ENV{VULKAN_SDK})
 	nbl_target_link_vulkan(Nabla)
 endif()
 nbl_target_link_openssl(Nabla)
-#nbl_target_link_zlib(Nabla)
+nbl_target_link_zlib(Nabla)
 nbl_target_link_shaderc(Nabla)
 nbl_target_link_libjpeg_turbo(Nabla)
 nbl_target_link_libpng(Nabla)

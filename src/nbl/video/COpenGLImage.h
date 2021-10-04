@@ -28,23 +28,27 @@ class COpenGLImage final : public IGPUImage, public IDriverMemoryAllocation
 	public:
 		//! constructor
 		COpenGLImage(core::smart_refctd_ptr<const ILogicalDevice>&& dev, IOpenGL_FunctionTable* gl, IGPUImage::SCreationParams&& _params) : IGPUImage(std::move(dev), std::move(_params)),
-			internalFormat(GL_INVALID_ENUM), target(GL_INVALID_ENUM), name(0u)
+			IDriverMemoryAllocation(getOriginDevice()), internalFormat(GL_INVALID_ENUM), target(GL_INVALID_ENUM), name(0u)
 		{
 			#ifdef OPENGL_LEAK_DEBUG
 				COpenGLExtensionHandler::textureLeaker.registerObj(this);
 			#endif // OPENGL_LEAK_DEBUG
 			internalFormat = getSizedOpenGLFormatFromOurFormat(gl, params.format);
+
 			GLsizei samples = params.samples;
 			switch (params.type) // TODO what about multisample targets?
 			{
 				case IGPUImage::ET_1D:
-					target = gl->TEXTURE_1D_ARRAY;
+					target = GL_TEXTURE_1D_ARRAY;
 					gl->extGlCreateTextures(target, 1, &name);
 					gl->extGlTextureStorage2D(	name, target, params.mipLevels, internalFormat,
 																	params.extent.width, params.arrayLayers);
 					break;
 				case IGPUImage::ET_2D:
-					target = samples>1 ? GL_TEXTURE_2D_MULTISAMPLE_ARRAY : GL_TEXTURE_2D_ARRAY;
+					if (params.flags & ECF_CUBE_COMPATIBLE_BIT)
+						target = GL_TEXTURE_CUBE_MAP_ARRAY;
+					else
+						target = samples>1 ? GL_TEXTURE_2D_MULTISAMPLE_ARRAY : GL_TEXTURE_2D_ARRAY;
 					gl->extGlCreateTextures(target, 1, &name);
 					if (samples == 1)
 						gl->extGlTextureStorage3D(name, target, params.mipLevels, internalFormat, params.extent.width, params.extent.height, params.arrayLayers);
@@ -62,6 +66,8 @@ class COpenGLImage final : public IGPUImage, public IDriverMemoryAllocation
 					break;
 			}
 		}
+
+		void setObjectDebugName(const char* label) const override;
 
 		//!
 		inline GLenum getOpenGLSizedFormat() const { return internalFormat; }
