@@ -81,7 +81,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 				retval.lodDrawCallCounts.offset = retval.lodDrawCallOffsets.size = core::alignUp(maxTotalInstances*sizeof(uint32_t),ssboAlignment);
 				retval.lodDrawCallCounts.size = retval.lodDrawCallOffsets.size;
 				retval.pvsInstanceDraws.offset = retval.lodDrawCallCounts.offset+retval.lodDrawCallCounts.size;
-				retval.pvsInstanceDraws.size = core::alignUp(maxTotalDrawcallInstances*sizeof(uint32_t),ssboAlignment);
+				retval.pvsInstanceDraws.size = core::alignUp(maxTotalDrawcallInstances*sizeof(uint32_t)*4u,ssboAlignment);
 				retval.prefixSumScratch.offset = retval.pvsInstanceDraws.offset+retval.pvsInstanceDraws.size;
 				{
 					video::CScanner::Parameters params;

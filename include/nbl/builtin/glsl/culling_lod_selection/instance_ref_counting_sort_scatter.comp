@@ -18,7 +18,7 @@ uint nbl_glsl_culling_lod_selection_getSortedDrawInstanceIndex(in uint unsortedD
 {
     const uvec2 data = pvsInstanceDraws.data[unsortedDrawInstanceID].xy;
     const uint drawBaseInstanceDWORDOffset = data[0];
-    return nbl_glsl_culling_lod_selection_drawElementsGetBaseInstance(drawBaseInstanceDWORDOffset)+data[1];
+    return nbl_glsl_culling_lod_selection_drawCallGetDWORD(drawBaseInstanceDWORDOffset)+data[1];
 }
 uvec2 nbl_glsl_culling_lod_selection_getDrawInstanceAttributes(in uint unsortedDrawInstanceID)
 {
