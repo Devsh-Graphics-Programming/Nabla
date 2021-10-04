@@ -532,7 +532,7 @@ public:
         return true;
     }
 
-    bool pushConstants(const pipeline_layout_t* layout, core::bitflag<asset::ISpecializedShader::E_SHADER_STAGE> stageFlags, uint32_t offset, uint32_t size, const void* pValues) override
+    bool pushConstants(const pipeline_layout_t* layout, core::bitflag<asset::IShader::E_SHADER_STAGE> stageFlags, uint32_t offset, uint32_t size, const void* pValues) override
     {
         if (layout->getAPIType() != EAT_VULKAN)
             return false;
@@ -587,10 +587,12 @@ public:
 private:
     void freeSpaceInCmdPool()
     {
-        if (m_cmdpool->getAPIType() == EAT_VULKAN)
+        if (m_cmdpool->getAPIType() == EAT_VULKAN && m_argListHead)
         {
             CVulkanCommandPool* vulkanCommandPool = static_cast<CVulkanCommandPool*>(m_cmdpool.get());
             vulkanCommandPool->free_all(m_argListHead);
+            m_argListHead = nullptr;
+            m_argListTail = nullptr;
         }
     }
 
@@ -606,8 +608,8 @@ private:
         return true;
     }
 
-    ArgumentReferenceSegment* m_argListHead = nullptr;
-    ArgumentReferenceSegment* m_argListTail = nullptr;
+    CVulkanCommandPool::ArgumentReferenceSegment* m_argListHead = nullptr;
+    CVulkanCommandPool::ArgumentReferenceSegment* m_argListTail = nullptr;
     VkCommandBuffer m_cmdbuf;
 };
 

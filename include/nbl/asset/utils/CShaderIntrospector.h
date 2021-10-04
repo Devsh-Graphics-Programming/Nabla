@@ -83,7 +83,7 @@ class CShaderIntrospector : public core::Uncopyable
 	public:
 		struct SIntrospectionParams
 		{
-			ISpecializedShader::E_SHADER_STAGE stage;
+			IShader::E_SHADER_STAGE stage;
 			std::string entryPoint;
 			core::smart_refctd_dynamic_array<std::string> GLSLextensions;
 			std::filesystem::path filePathHint;
@@ -152,7 +152,7 @@ class CShaderIntrospector : public core::Uncopyable
 		//
 		inline core::smart_refctd_ptr<ICPUComputePipeline> createApproximateComputePipelineFromIntrospection(ICPUSpecializedShader* shader, const std::string* _extensionsBegin, const std::string* _extensionsEnd)
 		{
-			if (shader->getStage() != ICPUSpecializedShader::ESS_COMPUTE)
+			if (shader->getStage() != IShader::ESS_COMPUTE)
 				return nullptr;
 
 			const CIntrospectionData* introspection = nullptr;

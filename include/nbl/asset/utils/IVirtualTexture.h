@@ -1018,7 +1018,7 @@ protected:
         auto fillBinding = [](auto& bnd, uint32_t _binding, uint32_t _count, core::smart_refctd_ptr<sampler_t>* _samplers) {
             bnd.binding = _binding;
             bnd.count = _count;
-            bnd.stageFlags = asset::ISpecializedShader::ESS_ALL;
+            bnd.stageFlags = asset::IShader::ESS_ALL;
             bnd.type = asset::EDT_COMBINED_IMAGE_SAMPLER;
             bnd.samplers = _samplers;
         };

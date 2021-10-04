@@ -318,7 +318,6 @@ public:
 		GetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 1, m_glfeatures.MaxComputeWGSize + 1);
 		GetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 2, m_glfeatures.MaxComputeWGSize + 2);
 
-
 		GetIntegerv(GL_MAX_ARRAY_TEXTURE_LAYERS, &num);
 		m_glfeatures.MaxArrayTextureLayers = num;
 
@@ -436,7 +435,7 @@ public:
 			m_limits.maxWorkgroupSize[2] = m_glfeatures.MaxComputeWGSize[2];
 
 			m_limits.subgroupSize = 0u;
-			m_limits.subgroupOpsShaderStages = static_cast<asset::ISpecializedShader::E_SHADER_STAGE>(0u);
+			m_limits.subgroupOpsShaderStages = static_cast<asset::IShader::E_SHADER_STAGE>(0u);
 			
 			m_limits.nonCoherentAtomSize = 256ull;
 
@@ -448,17 +447,17 @@ public:
 				GLint subgroupOpsStages = 0;
 				GetIntegerv(GL_SUBGROUP_SUPPORTED_STAGES_KHR, &subgroupOpsStages);
 				if (subgroupOpsStages & GL_VERTEX_SHADER_BIT)
-					m_limits.subgroupOpsShaderStages |= asset::ISpecializedShader::ESS_VERTEX;
+					m_limits.subgroupOpsShaderStages |= asset::IShader::ESS_VERTEX;
 				if (subgroupOpsStages & GL_TESS_CONTROL_SHADER_BIT)
-					m_limits.subgroupOpsShaderStages |= asset::ISpecializedShader::ESS_TESSELATION_CONTROL;
+					m_limits.subgroupOpsShaderStages |= asset::IShader::ESS_TESSELATION_CONTROL;
 				if (subgroupOpsStages & GL_TESS_EVALUATION_SHADER_BIT)
-					m_limits.subgroupOpsShaderStages |= asset::ISpecializedShader::ESS_TESSELATION_EVALUATION;
+					m_limits.subgroupOpsShaderStages |= asset::IShader::ESS_TESSELATION_EVALUATION;
 				if (subgroupOpsStages & GL_GEOMETRY_SHADER_BIT)
-					m_limits.subgroupOpsShaderStages |= asset::ISpecializedShader::ESS_GEOMETRY;
+					m_limits.subgroupOpsShaderStages |= asset::IShader::ESS_GEOMETRY;
 				if (subgroupOpsStages & GL_FRAGMENT_SHADER_BIT)
-					m_limits.subgroupOpsShaderStages |= asset::ISpecializedShader::ESS_FRAGMENT;
+					m_limits.subgroupOpsShaderStages |= asset::IShader::ESS_FRAGMENT;
 				if (subgroupOpsStages & GL_COMPUTE_SHADER_BIT)
-					m_limits.subgroupOpsShaderStages |= asset::ISpecializedShader::ESS_COMPUTE;
+					m_limits.subgroupOpsShaderStages |= asset::IShader::ESS_COMPUTE;
 			}
 		}
 

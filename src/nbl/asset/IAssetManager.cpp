@@ -205,49 +205,49 @@ void IAssetManager::insertBuiltinAssets()
 	{
 		//
 		auto buildInGLSLShader = [&](	core::smart_refctd_ptr<asset::ICPUBuffer>&& data,
-									asset::ISpecializedShader::E_SHADER_STAGE type,
+									asset::IShader::E_SHADER_STAGE type,
 									std::initializer_list<const char*> paths) -> void
 		{
-			auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(data),asset::ICPUShader::buffer_contains_glsl);
-			auto shader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecializedShader), asset::ISpecializedShader::SInfo({}, nullptr, "main", type));
+			auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(data),asset::ICPUShader::buffer_contains_glsl, type, "????");
+			auto shader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecializedShader), asset::ISpecializedShader::SInfo({}, nullptr, "main"));
 			for (auto& path : paths)
 				addBuiltInToCaches(std::move(shader), path);
 		};
 		auto fileSystem = getSystem();
 
 		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/specialized_shader/fullscreentriangle.vert")>(),
-			asset::ISpecializedShader::ESS_VERTEX,
+			asset::IShader::ESS_VERTEX,
 			{
                 "nbl/builtin/specialized_shader/fullscreentriangle.vert"
             });
 		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/lambertian/singletexture/specialized_shader.vert")>(),
-			asset::ISpecializedShader::ESS_VERTEX,
+			asset::IShader::ESS_VERTEX,
 			{
                 "nbl/builtin/material/lambertian/singletexture/specialized_shader.vert",
                 "nbl/builtin/material/debug/vertex_uv/specialized_shader.vert"
             });
 		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/lambertian/singletexture/specialized_shader.frag")>(), // it somehow adds an extra "tt" raw string to the end of the returned value, beware
-			asset::ISpecializedShader::ESS_FRAGMENT, 
+			asset::IShader::ESS_FRAGMENT, 
 			{
                 "nbl/builtin/material/lambertian/singletexture/specialized_shader.frag"
             });
 
 		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_normal/specialized_shader.vert")>(),
-			asset::ISpecializedShader::ESS_VERTEX,
+			asset::IShader::ESS_VERTEX,
 			{
                 "nbl/builtin/material/debug/vertex_normal/specialized_shader.vert"});
 		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_color/specialized_shader.vert")>(),
-			asset::ISpecializedShader::ESS_VERTEX,
+			asset::IShader::ESS_VERTEX,
 			{
                 "nbl/builtin/material/debug/vertex_color/specialized_shader.vert"
             });
 		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_uv/specialized_shader.frag")>(),
-			asset::ISpecializedShader::ESS_FRAGMENT,
+			asset::IShader::ESS_FRAGMENT,
 			{   
                 "nbl/builtin/material/debug/vertex_uv/specialized_shader.frag"
             });
 		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_normal/specialized_shader.frag")>(),
-			asset::ISpecializedShader::ESS_FRAGMENT,
+			asset::IShader::ESS_FRAGMENT,
 			{
                 "nbl/builtin/material/debug/vertex_normal/specialized_shader.frag",
                 "nbl/builtin/material/debug/vertex_color/specialized_shader.frag"
@@ -261,7 +261,7 @@ void IAssetManager::insertBuiltinAssets()
     asset::ICPUDescriptorSetLayout::SBinding binding1;
     binding1.count = 1u;
     binding1.binding = 0u;
-    binding1.stageFlags = static_cast<asset::ICPUSpecializedShader::E_SHADER_STAGE>(asset::ICPUSpecializedShader::ESS_VERTEX | asset::ICPUSpecializedShader::ESS_FRAGMENT);
+    binding1.stageFlags = static_cast<asset::ICPUShader::E_SHADER_STAGE>(asset::ICPUShader::ESS_VERTEX | asset::ICPUShader::ESS_FRAGMENT);
     binding1.type = asset::EDT_UNIFORM_BUFFER;
 
     auto ds1Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&binding1, &binding1 + 1);
@@ -275,14 +275,14 @@ void IAssetManager::insertBuiltinAssets()
     binding3.binding = 0u;
     binding3.type = EDT_COMBINED_IMAGE_SAMPLER;
     binding3.count = 1u;
-    binding3.stageFlags = static_cast<asset::ICPUSpecializedShader::E_SHADER_STAGE>(asset::ICPUSpecializedShader::ESS_FRAGMENT);
+    binding3.stageFlags = static_cast<asset::ICPUShader::E_SHADER_STAGE>(asset::ICPUShader::ESS_FRAGMENT);
     binding3.samplers = nullptr;
 
     auto ds3Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&binding3, &binding3 + 1);
     addBuiltInToCaches(ds3Layout, "nbl/builtin/material/lambertian/singletexture/descriptor_set_layout/3"); // TODO find everything what has been using it so far
 
 	constexpr uint32_t pcCount = 1u;
-	asset::SPushConstantRange pcRanges[pcCount] = {asset::ISpecializedShader::ESS_VERTEX,0u,sizeof(core::matrix4SIMD)};
+	asset::SPushConstantRange pcRanges[pcCount] = {asset::IShader::ESS_VERTEX,0u,sizeof(core::matrix4SIMD)};
 	auto pLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(
 			pcRanges,pcRanges+pcCount,
 			nullptr, core::smart_refctd_ptr(ds1Layout),nullptr, core::smart_refctd_ptr(ds3Layout)
@@ -373,7 +373,7 @@ void IAssetManager::insertBuiltinAssets()
         bnd.count = 1u;
         bnd.binding = 0u;
         //maybe even ESS_ALL_GRAPHICS?
-        bnd.stageFlags = static_cast<asset::ICPUSpecializedShader::E_SHADER_STAGE>(asset::ICPUSpecializedShader::ESS_VERTEX | asset::ICPUSpecializedShader::ESS_FRAGMENT);
+        bnd.stageFlags = static_cast<asset::ICPUShader::E_SHADER_STAGE>(asset::ICPUShader::ESS_VERTEX | asset::ICPUShader::ESS_FRAGMENT);
         bnd.type = asset::EDT_UNIFORM_BUFFER;
         defaultDs1Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&bnd, &bnd+1);
         //it's intentionally added to cache later, see comments below, dont touch this order of insertions
@@ -402,7 +402,7 @@ void IAssetManager::insertBuiltinAssets()
         asset::ICPUDescriptorSetLayout::SBinding bnd;
         bnd.count = 1u;
         bnd.binding = 0u;
-        bnd.stageFlags = static_cast<asset::ICPUSpecializedShader::E_SHADER_STAGE>(asset::ICPUSpecializedShader::ESS_VERTEX | asset::ICPUSpecializedShader::ESS_FRAGMENT);
+        bnd.stageFlags = static_cast<asset::ICPUShader::E_SHADER_STAGE>(asset::ICPUShader::ESS_VERTEX | asset::ICPUShader::ESS_FRAGMENT);
         bnd.type = asset::EDT_UNIFORM_BUFFER;
         auto ds1Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&bnd, &bnd + 1);
 

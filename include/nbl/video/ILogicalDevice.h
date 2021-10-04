@@ -33,6 +33,20 @@ class IPhysicalDevice;
 class ILogicalDevice : public core::IReferenceCounted
 {
     public:
+        enum E_FEATURE
+        {
+            EF_SWAPCHAIN = 0,
+            EF_DEFERRED_HOST_OPERATIONS,
+            EF_BUFFER_DEVICE_ADDRESS,
+            EF_DESCRIPTOR_INDEXING,
+            EF_ACCELERATION_STRUCTURE,
+            EF_SHADER_FLOAT_CONTROLS,
+            EF_SPIRV_1_4,
+            EF_RAY_TRACING_PIPELINE,
+            EF_RAY_QUERY,
+            EF_COUNT
+        };
+
         struct SQueueCreationParams
         {
             IGPUQueue::E_CREATE_FLAGS flags;
@@ -44,10 +58,10 @@ class ILogicalDevice : public core::IReferenceCounted
         {
             uint32_t queueParamsCount;
             const SQueueCreationParams* queueParams;
-            // ???:
-            //uint32_t enabledExtensionCount;
-            //const char* const* ppEnabledExtensionNames;
-            //const VkPhysicalDeviceFeatures* pEnabledFeatures;
+            uint32_t requiredFeatureCount;
+            E_FEATURE* requiredFeatures;
+            uint32_t optionalFeatureCount;
+            E_FEATURE* optionalFeatures;
         };
 
         struct SDescriptorSetCreationParams
@@ -307,7 +321,8 @@ class ILogicalDevice : public core::IReferenceCounted
         //! Low level function used to implement the above, use with caution
         virtual core::smart_refctd_ptr<IGPUBuffer> createGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& creationParams, const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData = false) { return nullptr; }
 
-        virtual core::smart_refctd_ptr<IGPUShader> createGPUShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader) = 0;
+        // Todo(achal): Get rid of filepathHint param it is already in ICPUShader
+        virtual core::smart_refctd_ptr<IGPUShader> createGPUShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader, std::string&& filepathHint) = 0;
 
         core::smart_refctd_ptr<IGPUSpecializedShader> createGPUSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo, const asset::ISPIRVOptimizer* _spvopt = nullptr)
         {

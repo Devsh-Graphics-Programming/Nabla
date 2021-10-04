@@ -17,8 +17,24 @@ namespace nbl::video
 class COpenGLShader : public IGPUShader
 {
 	public:
-		COpenGLShader(core::smart_refctd_ptr<const ILogicalDevice>&& dev, core::smart_refctd_ptr<asset::ICPUBuffer>&& _spirv) : IGPUShader(std::move(dev)), m_code(std::move(_spirv)), m_containsGLSL(false) {}
-		COpenGLShader(core::smart_refctd_ptr<const ILogicalDevice>&& dev, core::smart_refctd_ptr<asset::ICPUBuffer>&& _glsl, buffer_contains_glsl_t buffer_contains_glsl) : IGPUShader(std::move(dev)), m_code(std::move(_glsl)), m_containsGLSL(true) {}
+		COpenGLShader(
+			core::smart_refctd_ptr<const ILogicalDevice>&& dev,
+			core::smart_refctd_ptr<asset::ICPUBuffer>&& _spirv,
+			const IShader::E_SHADER_STAGE _stage,
+			std::string&& _filepathHint)
+			: IGPUShader(std::move(dev), _stage, std::move(_filepathHint)),
+			m_code(std::move(_spirv)), m_containsGLSL(false)
+		{}
+
+		COpenGLShader(
+			core::smart_refctd_ptr<const ILogicalDevice>&& dev,
+			core::smart_refctd_ptr<asset::ICPUBuffer>&& _glsl,
+			buffer_contains_glsl_t buffer_contains_glsl,
+			const IShader::E_SHADER_STAGE _stage,
+			std::string&& _filepathHint)
+			: IGPUShader(std::move(dev), _stage, std::move(_filepathHint)),
+			m_code(std::move(_glsl)), m_containsGLSL(true)
+		{}
 
 		const asset::ICPUBuffer* getSPVorGLSL() const { return m_code.get(); };
 		const core::smart_refctd_ptr<asset::ICPUBuffer>& getSPVorGLSL_refctd() const { return m_code; };

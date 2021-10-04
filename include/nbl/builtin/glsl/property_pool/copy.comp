@@ -1,4 +1,5 @@
 #version 440 core
+#pragma shader_stage(compute)
 layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_) in;
 
 #include "nbl/builtin/glsl/property_pool/transfer.glsl"

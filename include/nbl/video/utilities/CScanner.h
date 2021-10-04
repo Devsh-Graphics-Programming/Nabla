@@ -14,6 +14,7 @@ namespace nbl::video
 {
 
 #include "nbl/builtin/glsl/scan/parameters_struct.glsl"
+#include "nbl/builtin/glsl/scan/default_scheduler.glsl"
 static_assert(NBL_BUILTIN_MAX_SCAN_LEVELS&0x1,"NBL_BUILTIN_MAX_SCAN_LEVELS must be odd!");
 
 //
@@ -55,10 +56,7 @@ class CScanner final : public core::IReferenceCounted
 			Parameters()
 			{
 				std::fill_n(elementCount,MaxScanLevels,0u);
-				std::fill_n(finishedFlagOffset,MaxScanLevels-1,0u);
 				std::fill_n(temporaryStorageOffset,MaxScanLevels/2-1,0u);
-				std::fill_n(lastWorkgroupDependentCount,MaxScanLevels/2,1u);
-				std::fill_n(cumulativeWorkgroupCount,MaxScanLevels,0u);
 			}
 			Parameters(const uint32_t _elementCount, const uint32_t wg_size=DefaultWorkGroupSize) : Parameters()
 			{
@@ -71,20 +69,8 @@ class CScanner final : public core::IReferenceCounted
 					elementCount[++topLevel] = (elementCount[topLevel]-1u)/wg_size+1u;
 				std::reverse_copy(elementCount,elementCount+topLevel,elementCount+topLevel+1u);
 				
-
-				std::copy_n(elementCount+1u,topLevel,cumulativeWorkgroupCount);
-				cumulativeWorkgroupCount[topLevel] = 1u;
-
-				for (auto i=0u; i<topLevel; i++)
-					lastWorkgroupDependentCount[i] = cumulativeWorkgroupCount[i]-(cumulativeWorkgroupCount[i+1u]-1u)*wg_size;
-				std::reverse_copy(cumulativeWorkgroupCount,cumulativeWorkgroupCount+topLevel,cumulativeWorkgroupCount+topLevel+1u);
-
-				std::copy_n(cumulativeWorkgroupCount+1u,topLevel,finishedFlagOffset);
-				std::copy_n(cumulativeWorkgroupCount+topLevel,topLevel,finishedFlagOffset+topLevel);
-				std::copy_n(cumulativeWorkgroupCount,topLevel,temporaryStorageOffset);
-				std::exclusive_scan(finishedFlagOffset,temporaryStorageOffset+MaxScanLevels/2-1u,finishedFlagOffset,0u);
-
-				std::inclusive_scan(cumulativeWorkgroupCount,cumulativeWorkgroupCount+MaxScanLevels,cumulativeWorkgroupCount);
+				std::copy_n(elementCount+1u,topLevel,temporaryStorageOffset);
+				std::exclusive_scan(temporaryStorageOffset,temporaryStorageOffset+sizeof(temporaryStorageOffset)/sizeof(uint32_t),temporaryStorageOffset,0u);
 			}
 
 			inline uint32_t getScratchSize(uint32_t ssboAlignment=256u)
@@ -94,6 +80,43 @@ class CScanner final : public core::IReferenceCounted
 				uint_count += elementCount[topLevel]; // and its size
 				return core::roundUp<uint32_t>(uint_count*sizeof(uint32_t),ssboAlignment);
 			}
+		};
+		struct SchedulerParameters : nbl_glsl_scan_DefaultSchedulerParameters_t
+		{
+			SchedulerParameters()
+			{
+				std::fill_n(finishedFlagOffset,Parameters::MaxScanLevels-1,0u);
+				std::fill_n(lastWorkgroupDependentCount,Parameters::MaxScanLevels/2,1u);
+				std::fill_n(cumulativeWorkgroupCount,Parameters::MaxScanLevels,0u);
+			}
+			SchedulerParameters(Parameters& outScanParams, const uint32_t _elementCount, const uint32_t wg_size=DefaultWorkGroupSize) : SchedulerParameters()
+			{
+				outScanParams = Parameters(_elementCount,wg_size);
+				const auto topLevel = outScanParams.topLevel;
+
+				std::copy_n(outScanParams.elementCount+1u,topLevel,cumulativeWorkgroupCount);
+				cumulativeWorkgroupCount[topLevel] = 1u;
+
+				for (auto i=0u; i<topLevel; i++)
+					lastWorkgroupDependentCount[i] = cumulativeWorkgroupCount[i]-(cumulativeWorkgroupCount[i+1u]-1u)*wg_size;
+				std::reverse_copy(cumulativeWorkgroupCount,cumulativeWorkgroupCount+topLevel,cumulativeWorkgroupCount+topLevel+1u);
+
+				std::copy_n(cumulativeWorkgroupCount+1u,topLevel,finishedFlagOffset);
+				std::copy_n(cumulativeWorkgroupCount+topLevel,topLevel,finishedFlagOffset+topLevel);
+
+				const auto finishedFlagCount = sizeof(finishedFlagOffset)/sizeof(uint32_t);
+				const auto finishedFlagsSize = std::accumulate(finishedFlagOffset,finishedFlagOffset+finishedFlagCount,0u);
+				std::exclusive_scan(finishedFlagOffset,finishedFlagOffset+finishedFlagCount,finishedFlagOffset,0u);
+				for (auto i=0u; i<sizeof(Parameters::temporaryStorageOffset)/sizeof(uint32_t); i++)
+					outScanParams.temporaryStorageOffset[i] += finishedFlagsSize;
+					
+				std::inclusive_scan(cumulativeWorkgroupCount,cumulativeWorkgroupCount+Parameters::MaxScanLevels,cumulativeWorkgroupCount);
+			}
+		};
+		struct DefaultPushConstants
+		{
+			Parameters scanParams;
+			SchedulerParameters schedulerParams;
 		};
 		struct DispatchInfo
 		{
@@ -116,10 +139,10 @@ class CScanner final : public core::IReferenceCounted
 		{
 			assert(core::isPoT(wg_size));
 
-			const asset::SPushConstantRange pc_range = { asset::ISpecializedShader::ESS_COMPUTE,0u,sizeof(Parameters) };
+			const asset::SPushConstantRange pc_range = { asset::IShader::ESS_COMPUTE,0u,sizeof(DefaultPushConstants) };
 			const IGPUDescriptorSetLayout::SBinding bindings[2] = {
-				{ 0u, asset::EDT_STORAGE_BUFFER, 1u, video::IGPUSpecializedShader::ESS_COMPUTE, nullptr }, // main buffer
-				{ 1u, asset::EDT_STORAGE_BUFFER, 1u, video::IGPUSpecializedShader::ESS_COMPUTE, nullptr } // scratch
+				{ 0u, asset::EDT_STORAGE_BUFFER, 1u, video::IGPUShader::ESS_COMPUTE, nullptr }, // main buffer
+				{ 1u, asset::EDT_STORAGE_BUFFER, 1u, video::IGPUShader::ESS_COMPUTE, nullptr } // scratch
 			};
 
 			m_ds_layout = m_device->createGPUDescriptorSetLayout(bindings,bindings+sizeof(bindings)/sizeof(IGPUDescriptorSetLayout::SBinding));
@@ -148,9 +171,9 @@ class CScanner final : public core::IReferenceCounted
 		}
 
 		//
-		inline void buildParameters(const uint32_t elementCount, Parameters& pushConstants, DispatchInfo& dispatchInfo)
+		inline void buildParameters(const uint32_t elementCount, DefaultPushConstants& pushConstants, DispatchInfo& dispatchInfo)
 		{
-			pushConstants = Parameters(elementCount,m_wg_size);
+			pushConstants.schedulerParams = SchedulerParameters(pushConstants.scanParams,elementCount,m_wg_size);
 			dispatchInfo = DispatchInfo(elementCount,m_wg_size);
 		}
 
@@ -183,12 +206,12 @@ class CScanner final : public core::IReferenceCounted
 
 		// Half and sizeof(uint32_t) of the scratch buffer need to be cleared to 0s
 		static inline void dispatchHelper(
-			IGPUCommandBuffer* cmdbuf, const video::IGPUPipelineLayout* pipeline_layout, const Parameters& params, const DispatchInfo& dispatchInfo,
+			IGPUCommandBuffer* cmdbuf, const video::IGPUPipelineLayout* pipeline_layout, const DefaultPushConstants& pushConstants, const DispatchInfo& dispatchInfo,
 			const asset::E_PIPELINE_STAGE_FLAGS srcStageMask, const uint32_t srcBufferBarrierCount, const IGPUCommandBuffer::SBufferMemoryBarrier* srcBufferBarriers,
 			const asset::E_PIPELINE_STAGE_FLAGS dstStageMask, const uint32_t dstBufferBarrierCount, const IGPUCommandBuffer::SBufferMemoryBarrier* dstBufferBarriers
 		)
 		{
-			cmdbuf->pushConstants(pipeline_layout,asset::ISpecializedShader::ESS_COMPUTE,0u,sizeof(Parameters),&params);
+			cmdbuf->pushConstants(pipeline_layout,asset::IShader::ESS_COMPUTE,0u,sizeof(DefaultPushConstants),&pushConstants);
 			if (srcStageMask!=asset::E_PIPELINE_STAGE_FLAGS::EPSF_TOP_OF_PIPE_BIT&&srcBufferBarrierCount)
 				cmdbuf->pipelineBarrier(srcStageMask,asset::EPSF_COMPUTE_SHADER_BIT,asset::EDF_NONE,0u,nullptr,srcBufferBarrierCount,srcBufferBarriers,0u,nullptr);
 			cmdbuf->dispatch(dispatchInfo.wg_count,1u,1u);

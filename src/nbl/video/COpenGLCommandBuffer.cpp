@@ -974,9 +974,9 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
                     updtRng.offset = c.offset;
                     updtRng.size = c.size;
 
-                    if (c.stageFlags.value & asset::ISpecializedShader::ESS_ALL_GRAPHICS)
+                    if (c.stageFlags.value & asset::IShader::ESS_ALL_GRAPHICS)
                         ctxlocal->pushConstants<asset::EPBP_GRAPHICS>(static_cast<const COpenGLPipelineLayout*>(c.layout.get()), c.stageFlags.value, c.offset, c.size, c.values);
-                    if (c.stageFlags.value & asset::ISpecializedShader::ESS_COMPUTE)
+                    if (c.stageFlags.value & asset::IShader::ESS_COMPUTE)
                         ctxlocal->pushConstants<asset::EPBP_COMPUTE>(static_cast<const COpenGLPipelineLayout*>(c.layout.get()), c.stageFlags.value, c.offset, c.size, c.values);
                 }
             }

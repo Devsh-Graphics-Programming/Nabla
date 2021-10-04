@@ -739,14 +739,14 @@ protected:
 
             auto shaders = core::SRange<const IGPUSpecializedShader*>(shaders_array, shaders_array+shaderCount);
             auto vsIsPresent = [&shaders]() -> bool {
-                return std::find_if(shaders.begin(), shaders.end(), [](const IGPUSpecializedShader* shdr) {return shdr->getStage() == asset::ISpecializedShader::ESS_VERTEX; }) != shaders.end();
+                return std::find_if(shaders.begin(), shaders.end(), [](const IGPUSpecializedShader* shdr) {return shdr->getStage() == asset::IShader::ESS_VERTEX; }) != shaders.end();
             };
 
-            asset::ISpecializedShader::E_SHADER_STAGE lastVertexLikeStage = asset::ISpecializedShader::ESS_VERTEX;
+            asset::IShader::E_SHADER_STAGE lastVertexLikeStage = asset::IShader::ESS_VERTEX;
             for (uint32_t i = 0u; i < shaders.size(); ++i)
             {
                 auto stage = shaders.begin()[shaders.size()-1u-i]->getStage();
-                if (stage != asset::ISpecializedShader::ESS_FRAGMENT)
+                if (stage != asset::IShader::ESS_FRAGMENT)
                 {
                     lastVertexLikeStage = stage;
                     break;
@@ -815,7 +815,7 @@ protected:
         {
             if (!params.layout || !params.shader)
                 return nullptr;
-            if (params.shader->getStage() != asset::ISpecializedShader::ESS_COMPUTE)
+            if (params.shader->getStage() != asset::IShader::ESS_COMPUTE)
                 return nullptr;
 
             GLuint GLname = 0u;

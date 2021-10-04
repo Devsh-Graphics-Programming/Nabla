@@ -23,26 +23,25 @@ SAssetBundle CGLSLLoader::loadAsset(system::IFile* _file, const IAssetLoader::SA
 	reinterpret_cast<char*>(source)[len] = 0;
 
 
-
-	auto shader = core::make_smart_refctd_ptr<ICPUShader>(reinterpret_cast<char*>(source));
-	_NBL_ALIGNED_FREE(source);
-
 	const auto filename = _file->getFileName();
 	//! TODO: Actually invoke the GLSL compiler to decode our type from any `#pragma`s
 	std::filesystem::path extension = filename.extension();
 
 
-	core::unordered_map<std::string,ISpecializedShader::E_SHADER_STAGE> typeFromExt =	{	
-																							{".vert",ISpecializedShader::ESS_VERTEX},
-																							{".tesc",ISpecializedShader::ESS_TESSELATION_CONTROL},
-																							{".tese",ISpecializedShader::ESS_TESSELATION_EVALUATION},
-																							{".geom",ISpecializedShader::ESS_GEOMETRY},
-																							{".frag",ISpecializedShader::ESS_FRAGMENT},
-																							{".comp",ISpecializedShader::ESS_COMPUTE}
+	core::unordered_map<std::string,IShader::E_SHADER_STAGE> typeFromExt =	{	
+																							{".vert",IShader::ESS_VERTEX},
+																							{".tesc",IShader::ESS_TESSELATION_CONTROL},
+																							{".tese",IShader::ESS_TESSELATION_EVALUATION},
+																							{".geom",IShader::ESS_GEOMETRY},
+																							{".frag",IShader::ESS_FRAGMENT},
+																							{".comp",IShader::ESS_COMPUTE}
 																						};
 	auto found = typeFromExt.find(extension.string());
 	if (found==typeFromExt.end())
 		return {};
 
-	return SAssetBundle(nullptr,{ core::make_smart_refctd_ptr<ICPUSpecializedShader>(std::move(shader),ISpecializedShader::SInfo({},nullptr,"main",found->second,filename.string())) });
+	auto shader = core::make_smart_refctd_ptr<ICPUShader>(reinterpret_cast<char*>(source), found->second, filename.string());
+	_NBL_ALIGNED_FREE(source);
+
+	return SAssetBundle(nullptr,{ core::make_smart_refctd_ptr<ICPUSpecializedShader>(std::move(shader),ISpecializedShader::SInfo({},nullptr,"main")) });
 } 

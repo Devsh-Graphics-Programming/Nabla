@@ -44,7 +44,7 @@ class ITransformTree : public virtual core::IReferenceCounted
 		static inline constexpr uint32_t recomputed_stamp_prop_ix = 4u;
 
 		// useful for everyone
-		static inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createDescriptorSetLayout(video::ILogicalDevice* device, asset::ISpecializedShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
+		static inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createDescriptorSetLayout(video::ILogicalDevice* device, asset::IShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
 		{
 			video::IGPUDescriptorSetLayout::SBinding bindings[property_pool_t::PropertyCount];
 			for (auto i=0u; i<property_pool_t::PropertyCount; i++)
@@ -52,7 +52,7 @@ class ITransformTree : public virtual core::IReferenceCounted
 				bindings[i].binding = i;
 				bindings[i].type = asset::E_DESCRIPTOR_TYPE::EDT_STORAGE_BUFFER;
 				bindings[i].count = 1u;
-				bindings[i].stageFlags = stageAccessFlags ? stageAccessFlags[i]:asset::ISpecializedShader::ESS_ALL;
+				bindings[i].stageFlags = stageAccessFlags ? stageAccessFlags[i]:asset::IShader::ESS_ALL;
 				bindings[i].samplers = nullptr;
 			}
 			return device->createGPUDescriptorSetLayout(bindings,bindings+property_pool_t::PropertyCount);

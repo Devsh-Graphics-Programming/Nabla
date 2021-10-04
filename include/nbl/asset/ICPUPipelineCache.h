@@ -50,7 +50,7 @@ public:
 			uint32_t binding;
 			E_DESCRIPTOR_TYPE type;
 			uint32_t count;
-			asset::ISpecializedShader::E_SHADER_STAGE stageFlags;
+			asset::IShader::E_SHADER_STAGE stageFlags;
 			//TODO currently IDescriptorSetLayout::isIdentificallyDefined() compares just pointers of immutable samplers
 			//which is not really of any use when COpenGLPipelineCache is created (and so are created pipeline layouts needed for comparing compatibility) from CPU pipeline cache
 			//so how i see this, is that the only way it's gonna work, is to rework isIdentificallyDefined() to compare sampler params instead of pointers
@@ -66,7 +66,7 @@ public:
 			} PACK_STRUCT;
 
 			char entryPoint[128];
-			asset::ISpecializedShader::E_SHADER_STAGE shaderStage;
+			asset::IShader::E_SHADER_STAGE shaderStage;
 			uint32_t entryCnt;
 		} PACK_STRUCT;
 

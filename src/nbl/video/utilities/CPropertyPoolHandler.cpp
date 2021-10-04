@@ -10,7 +10,7 @@ CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice
 {
 	auto system = m_device->getPhysicalDevice()->getSystem();
 	auto glsl = system->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/property_pool/copy.comp")>();
-	auto cpushader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl), asset::ICPUShader::buffer_contains_glsl);
+	auto cpushader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl), asset::ICPUShader::buffer_contains_glsl, asset::IShader::ESS_COMPUTE, "????");
 	
 	const auto& deviceLimits = m_device->getPhysicalDevice()->getLimits();
 	const auto maxSSBO = core::min<uint32_t>(deviceLimits.maxPerStageSSBOs,MaxPropertyTransfers);
@@ -25,8 +25,8 @@ CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice
 		std::fill_n(m_alignments,maxStreamingAllocations,core::max(deviceLimits.SSBOAlignment,256u/*TODO: deviceLimits.nonCoherentAtomSize*/));
 	}
 
-	auto shader = m_device->createGPUShader(asset::IGLSLCompiler::createOverridenCopy(cpushader.get(),"#define _NBL_GLSL_WORKGROUP_SIZE_ %d\n#define NBL_BUILTIN_MAX_PROPERTIES_PER_COPY %d\n",IdealWorkGroupSize,m_maxPropertiesPerPass));
-	auto specshader = m_device->createGPUSpecializedShader(shader.get(),{nullptr,nullptr,"main",asset::ISpecializedShader::ESS_COMPUTE});
+	auto shader = m_device->createGPUShader(asset::IGLSLCompiler::createOverridenCopy(cpushader.get(),"#define _NBL_GLSL_WORKGROUP_SIZE_ %d\n#define NBL_BUILTIN_MAX_PROPERTIES_PER_COPY %d\n",IdealWorkGroupSize,m_maxPropertiesPerPass), "????");
+	auto specshader = m_device->createGPUSpecializedShader(shader.get(),{nullptr,nullptr,"main"});
 	
 	IGPUDescriptorSetLayout::SBinding bindings[3];
 	for (auto j=0; j<3; j++)
@@ -34,7 +34,7 @@ CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice
 		bindings[j].binding = j;
 		bindings[j].type = asset::EDT_STORAGE_BUFFER;
 		bindings[j].count = j ? m_maxPropertiesPerPass:1u;
-		bindings[j].stageFlags = asset::ISpecializedShader::ESS_COMPUTE;
+		bindings[j].stageFlags = asset::IShader::ESS_COMPUTE;
 		bindings[j].samplers = nullptr;
 	}
 	auto dsLayout = m_device->createGPUDescriptorSetLayout(bindings,bindings+3);

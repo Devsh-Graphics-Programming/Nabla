@@ -4,7 +4,6 @@
 #include <algorithm>
 
 #include "nbl/video/ILogicalDevice.h"
-// Todo(achal): I should probably consider putting some defintions in CVulkanLogicalDevice.cpp
 #include "nbl/video/CVulkanCommon.h"
 #include "nbl/video/CVulkanDeviceFunctionTable.h"
 #include "nbl/video/CVulkanSwapchain.h"
@@ -28,6 +27,8 @@
 #include "nbl/video/CVulkanBuffer.h"
 #include "nbl/video/CVulkanBufferView.h"
 #include "nbl/video/CVulkanForeignImage.h"
+#include "nbl/video/CVulkanGraphicsPipeline.h"
+#include "nbl/video/CVulkanRenderpassIndependentPipeline.h"
 #include "nbl/video/surface/CSurfaceVulkan.h"
 
 namespace nbl::video
@@ -578,73 +579,61 @@ public:
         return gpuBuffer;
     }
         
-    core::smart_refctd_ptr<IGPUShader> createGPUShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader) override
+    core::smart_refctd_ptr<IGPUShader> createGPUShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader, std::string&& filepathHint) override
     {
+        const char* entryPoint = "main";
+        const asset::IShader::E_SHADER_STAGE shaderStage = cpushader->getStage();
+
         const asset::ICPUBuffer* source = cpushader->getSPVorGLSL();
-        core::smart_refctd_ptr<asset::ICPUBuffer> clone =
+
+        core::smart_refctd_ptr<asset::ICPUBuffer> spirv =
             core::smart_refctd_ptr_static_cast<asset::ICPUBuffer>(source->clone(1u));
+
         if (cpushader->containsGLSL())
         {
-            return core::make_smart_refctd_ptr<CVulkanShader>(
-                core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(clone),
-                IGPUShader::buffer_contains_glsl);
+            const char* begin = static_cast<const char*>(source->getPointer());
+            const char* end = begin + source->getSize();
+
+            std::string glsl(begin, end);
+
+            core::smart_refctd_ptr<asset::ICPUShader> glslShader_woIncludes =
+                m_physicalDevice->getGLSLCompiler()->resolveIncludeDirectives(glsl.c_str(),
+                    shaderStage, filepathHint.c_str());
+
+            auto logger = m_physicalDevice->getDebugCallback()->getLogger();
+
+            spirv = m_physicalDevice->getGLSLCompiler()->compileSPIRVFromGLSL(
+                reinterpret_cast<const char*>(glslShader_woIncludes->getSPVorGLSL()->getPointer()),
+                shaderStage,
+                entryPoint,
+                filepathHint.c_str(),
+                true,
+                nullptr,
+                logger);
         }
-        else
+
+        if (!spirv)
+            return nullptr;
+
+        VkShaderModuleCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO };
+        vk_createInfo.pNext = nullptr;
+        vk_createInfo.flags = static_cast<VkShaderModuleCreateFlags>(0u); // reserved for future use by Vulkan
+        vk_createInfo.codeSize = spirv->getSize();
+        vk_createInfo.pCode = static_cast<const uint32_t*>(spirv->getPointer());
+        
+        VkShaderModule vk_shaderModule;
+        if (m_devf.vk.vkCreateShaderModule(m_vkdev, &vk_createInfo, nullptr, &vk_shaderModule) == VK_SUCCESS)
         {
-            return core::make_smart_refctd_ptr<CVulkanShader>(core::smart_refctd_ptr<CVulkanLogicalDevice>(this),
-                std::move(clone));
-        }
-    }
-
-    core::smart_refctd_ptr<IGPUImage> createGPUImage(asset::IImage::SCreationParams&& params) override
-    {
-        VkImageCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
-        vk_createInfo.pNext = nullptr; // there are a lot of extensions
-        vk_createInfo.flags = static_cast<VkImageCreateFlags>(params.flags);
-        vk_createInfo.imageType = static_cast<VkImageType>(params.type);
-        vk_createInfo.format = getVkFormatFromFormat(params.format);
-        vk_createInfo.extent = { params.extent.width, params.extent.height, params.extent.depth };
-        vk_createInfo.mipLevels = params.mipLevels;
-        vk_createInfo.arrayLayers = params.arrayLayers;
-        vk_createInfo.samples = static_cast<VkSampleCountFlagBits>(params.samples);
-        vk_createInfo.tiling = static_cast<VkImageTiling>(params.tiling);
-        vk_createInfo.usage = static_cast<VkImageUsageFlags>(params.usage.value);
-        vk_createInfo.sharingMode = static_cast<VkSharingMode>(params.sharingMode);
-        vk_createInfo.queueFamilyIndexCount = params.queueFamilyIndexCount;
-        vk_createInfo.pQueueFamilyIndices = params.queueFamilyIndices;
-        vk_createInfo.initialLayout = static_cast<VkImageLayout>(params.initialLayout);
-
-        VkImage vk_image;
-        if (m_devf.vk.vkCreateImage(m_vkdev, &vk_createInfo, nullptr, &vk_image) == VK_SUCCESS)
-        {
-            VkImageMemoryRequirementsInfo2 vk_memReqsInfo = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_REQUIREMENTS_INFO_2 };
-            vk_memReqsInfo.pNext = nullptr;
-            vk_memReqsInfo.image = vk_image;
-
-            VkMemoryDedicatedRequirements vk_memDedReqs = { VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS };
-            VkMemoryRequirements2 vk_memReqs = { VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2 };
-            vk_memReqs.pNext = &vk_memDedReqs;
-
-            m_devf.vk.vkGetImageMemoryRequirements2(m_vkdev, &vk_memReqsInfo, &vk_memReqs);
-
-            IDriverMemoryBacked::SDriverMemoryRequirements imageMemReqs = {};
-            imageMemReqs.vulkanReqs.alignment = vk_memReqs.memoryRequirements.alignment;
-            imageMemReqs.vulkanReqs.size = vk_memReqs.memoryRequirements.size;
-            imageMemReqs.vulkanReqs.memoryTypeBits = vk_memReqs.memoryRequirements.memoryTypeBits;
-            imageMemReqs.memoryHeapLocation = 0u; // doesn't matter, would get overwritten during memory allocation for this resource anyway
-            imageMemReqs.mappingCapability = 0u; // doesn't matter, would get overwritten during memory allocation for this resource anyway
-            imageMemReqs.prefersDedicatedAllocation = vk_memDedReqs.prefersDedicatedAllocation;
-            imageMemReqs.requiresDedicatedAllocation = vk_memDedReqs.requiresDedicatedAllocation;
-
-            return core::make_smart_refctd_ptr<CVulkanImage>(
-                core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(params),
-                vk_image, imageMemReqs);
+            return core::make_smart_refctd_ptr<video::CVulkanShader>(
+                core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(spirv), cpushader->getStage(), std::string(cpushader->getFilepathHint()), vk_shaderModule);
         }
         else
         {
             return nullptr;
         }
     }
+
+    core::smart_refctd_ptr<IGPUImage> createGPUImage(asset::IImage::SCreationParams&& params) override;
 
     bool bindImageMemory(uint32_t bindInfoCount, const SBindImageMemoryInfo* pBindInfos) override
     {
@@ -921,6 +910,118 @@ public:
         m_devf.vk.vkUnmapMemory(m_vkdev, vk_deviceMemory);
     }
 
+    // At the moment this NEEDS requiredCount to be zero for the root call. We can fix this
+    // by introducing a `offset` param which might make the code a little bit more verbose,
+    // since it the function is not used very frequently I think its fine.
+    static void getRequiredFeatures(const E_FEATURE feature, uint32_t& requiredCount, E_FEATURE* required)
+    {
+        switch (feature)
+        {
+        case EF_SWAPCHAIN:
+        {
+            required[requiredCount++] = EF_SWAPCHAIN;
+        } break;
+
+        case EF_DEFERRED_HOST_OPERATIONS:
+        {
+            required[requiredCount++] = EF_DEFERRED_HOST_OPERATIONS;
+        } break;
+
+        case EF_BUFFER_DEVICE_ADDRESS:
+        {
+            required[requiredCount++] = EF_BUFFER_DEVICE_ADDRESS;
+        } break;
+
+        case EF_DESCRIPTOR_INDEXING:
+        {
+            required[requiredCount++] = EF_DESCRIPTOR_INDEXING;
+        } break;
+
+        case EF_SHADER_FLOAT_CONTROLS:
+        {
+            required[requiredCount++] = EF_SHADER_FLOAT_CONTROLS;
+        } break;
+
+        case EF_SPIRV_1_4:
+        {
+            required[requiredCount++] = EF_SPIRV_1_4;
+
+            const uint32_t requiredForThisCount = 1u;
+            E_FEATURE requiredForThis[requiredForThisCount] = { EF_SHADER_FLOAT_CONTROLS };
+
+            for (uint32_t i = 0u; i < requiredForThisCount; ++i)
+                getRequiredFeatures(requiredForThis[i], requiredCount, required);
+        } break;
+
+        case EF_ACCELERATION_STRUCTURE:
+        {
+            required[requiredCount++] = EF_ACCELERATION_STRUCTURE;
+
+            const uint32_t requiredForThisCount = 3u;
+            E_FEATURE requiredForThis[requiredForThisCount] = { EF_DESCRIPTOR_INDEXING,
+                EF_BUFFER_DEVICE_ADDRESS,
+                EF_DEFERRED_HOST_OPERATIONS
+            };
+
+            for (uint32_t i = 0u; i < requiredForThisCount; ++i)
+                getRequiredFeatures(requiredForThis[i], requiredCount, required);
+        } break;
+
+        case EF_RAY_TRACING_PIPELINE:
+        {
+            required[requiredCount++] = EF_RAY_TRACING_PIPELINE;
+
+            const uint32_t requiredForThisCount = 2u;
+            E_FEATURE requiredForThis[requiredForThisCount] = { EF_ACCELERATION_STRUCTURE, EF_SPIRV_1_4 };
+
+            for (uint32_t i = 0u; i < requiredForThisCount; ++i)
+                getRequiredFeatures(requiredForThis[i], requiredCount, required);
+        } break;
+
+        case EF_RAY_QUERY:
+        {
+            required[requiredCount++] = EF_RAY_QUERY;
+
+            const uint32_t requiredForThisCount = 2u;
+            E_FEATURE requiredForThis[requiredForThisCount] = { EF_ACCELERATION_STRUCTURE, EF_SPIRV_1_4 };
+
+            for (uint32_t i = 0u; i < requiredForThisCount; ++i)
+                getRequiredFeatures(requiredForThis[i], requiredCount, required);
+        } break;
+
+        default:
+            break;
+        }
+    };
+
+    static inline const char* getVulkanExtensionName(const E_FEATURE feature)
+    {
+        switch (feature)
+        {
+        case EF_SWAPCHAIN:
+            return VK_KHR_SWAPCHAIN_EXTENSION_NAME;
+        case EF_DEFERRED_HOST_OPERATIONS:
+            return VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME;
+        case EF_BUFFER_DEVICE_ADDRESS:
+            return VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME;
+        case EF_DESCRIPTOR_INDEXING:
+            return VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME;
+        case EF_ACCELERATION_STRUCTURE:
+            return VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME;
+        case EF_SHADER_FLOAT_CONTROLS:
+            return VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME;
+        case EF_SPIRV_1_4:
+            return VK_KHR_SPIRV_1_4_EXTENSION_NAME;
+        case EF_RAY_TRACING_PIPELINE:
+            return VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME;
+        case EF_RAY_QUERY:
+            return VK_KHR_RAY_QUERY_EXTENSION_NAME;
+        default:
+            assert(!"Extension unavailable");
+            return "";
+        }
+    }
+
     const CVulkanDeviceFunctionTable* getFunctionTable() const { return &m_devf; }
 
     VkDevice getInternalObject() const { return m_vkdev; }
@@ -980,39 +1081,14 @@ protected:
         }
     }
 
-    // Todo(achal): For some reason this is not printing shader errors to console
     core::smart_refctd_ptr<IGPUSpecializedShader> createGPUSpecializedShader_impl(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& specInfo, const asset::ISPIRVOptimizer* spvopt) override
     {
         if (_unspecialized->getAPIType() != EAT_VULKAN)
             return nullptr;
 
-        const CVulkanShader* unspecializedShader = static_cast<const CVulkanShader*>(_unspecialized);
+        const CVulkanShader* vulkanShader = static_cast<const CVulkanShader*>(_unspecialized);
 
-        const std::string& entryPoint = specInfo.entryPoint;
-        const asset::ISpecializedShader::E_SHADER_STAGE shaderStage = specInfo.shaderStage;
-
-        core::smart_refctd_ptr<asset::ICPUBuffer> spirv = nullptr;
-        if (unspecializedShader->containsGLSL())
-        {
-            const char* begin = reinterpret_cast<const char*>(unspecializedShader->getSPVorGLSL()->getPointer());
-            const char* end = begin + unspecializedShader->getSPVorGLSL()->getSize();
-            std::string glsl(begin, end);
-            core::smart_refctd_ptr<asset::ICPUShader> glslShader_woIncludes =
-                m_physicalDevice->getGLSLCompiler()->resolveIncludeDirectives(glsl.c_str(),
-                    shaderStage, specInfo.m_filePathHint.string().c_str());
-
-            spirv = m_physicalDevice->getGLSLCompiler()->compileSPIRVFromGLSL(
-                reinterpret_cast<const char*>(glslShader_woIncludes->getSPVorGLSL()->getPointer()),
-                shaderStage, entryPoint.c_str(), specInfo.m_filePathHint.string().c_str());
-        }
-        else
-        {
-            spirv = unspecializedShader->getSPVorGLSL_refctd();
-        }
-
-        // Should just do this check in ISPIRVOptimizer::optimize
-        if (!spirv)
-            return nullptr;
+        auto spirv = core::smart_refctd_ptr<const asset::ICPUBuffer>(static_cast<const CVulkanShader*>(_unspecialized)->getSPV());
 
         if (spvopt)
             spirv = spvopt->optimize(spirv.get(), m_physicalDevice->getDebugCallback()->getLogger());
@@ -1020,22 +1096,9 @@ protected:
         if (!spirv)
             return nullptr;
 
-        VkShaderModuleCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO };
-        vk_createInfo.pNext = nullptr;
-        vk_createInfo.flags = static_cast<VkShaderModuleCreateFlags>(0); // reserved for future use by Vulkan
-        vk_createInfo.codeSize = spirv->getSize();
-        vk_createInfo.pCode = reinterpret_cast<const uint32_t*>(spirv->getPointer());
-
-        VkShaderModule vk_shaderModule;
-        if (m_devf.vk.vkCreateShaderModule(m_vkdev, &vk_createInfo, nullptr, &vk_shaderModule) == VK_SUCCESS)
-        {
-            return core::make_smart_refctd_ptr<video::CVulkanSpecializedShader>(
-                core::smart_refctd_ptr<CVulkanLogicalDevice>(this), vk_shaderModule, shaderStage);
-        }
-        else
-        {
-            return nullptr;
-        }
+        return core::make_smart_refctd_ptr<CVulkanSpecializedShader>(
+            core::smart_refctd_ptr<CVulkanLogicalDevice>(this), _unspecialized->getStage(),
+            core::smart_refctd_ptr<const CVulkanShader>(vulkanShader));
     }
 
     core::smart_refctd_ptr<IGPUBufferView> createGPUBufferView_impl(IGPUBuffer* _underlying, asset::E_FORMAT _fmt, size_t _offset = 0ull, size_t _size = IGPUBufferView::whole_buffer) override
@@ -1296,6 +1359,7 @@ protected:
             vk_pipelineCache = static_cast<const CVulkanPipelineCache*>(pipelineCache)->getInternalObject();
 
         VkPipelineShaderStageCreateInfo vk_shaderStageCreateInfos[MAX_PIPELINE_COUNT];
+        VkSpecializationInfo vk_specializationInfos[MAX_PIPELINE_COUNT];
 
         VkComputePipelineCreateInfo vk_createInfos[MAX_PIPELINE_COUNT];
         for (size_t i = 0ull; i < createInfos.size(); ++i)
@@ -1314,10 +1378,19 @@ protected:
 
             vk_shaderStageCreateInfos[i].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
             vk_shaderStageCreateInfos[i].pNext = nullptr; // pNext must be NULL or a pointer to a valid instance of VkPipelineShaderStageRequiredSubgroupSizeCreateInfoEXT
-            vk_shaderStageCreateInfos[i].flags = 0; // currently there is no way to get this in the API https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/VkPipelineShaderStageCreateFlagBits.html
+            vk_shaderStageCreateInfos[i].flags = 0;
             vk_shaderStageCreateInfos[i].stage = static_cast<VkShaderStageFlagBits>(specShader->getStage());
             vk_shaderStageCreateInfos[i].module = specShader->getInternalObject();
-            vk_shaderStageCreateInfos[i].pName = "main"; // Probably want to change the API of IGPUSpecializedShader to have something like getEntryPointName like theres getStage
+            vk_shaderStageCreateInfos[i].pName = "main";
+#if 0
+            {
+                // specShader->get
+                vk_specializationInfos[i].mapEntryCount = ;
+                vk_specializationInfos[i].pMapEntries = ;
+                vk_specializationInfos[i].dataSize = ;
+                vk_specializationInfos[i].pData = ;
+            }
+#endif
             vk_shaderStageCreateInfos[i].pSpecializationInfo = nullptr; // Todo(achal): Should we have a asset::ISpecializedShader::SInfo member in CVulkanSpecializedShader, otherwise I don't know how I'm gonna get the values required for VkSpecializationInfo https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/VkSpecializationInfo.html
 
             vk_createInfos[i].stage = vk_shaderStageCreateInfos[i];
@@ -1354,18 +1427,70 @@ protected:
         }
     }
 
-    core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> createGPURenderpassIndependentPipeline_impl(IGPUPipelineCache* _pipelineCache,
-        core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout, IGPUSpecializedShader* const* _shaders, IGPUSpecializedShader* const* _shadersEnd,
-        const asset::SVertexInputParams& _vertexInputParams, const asset::SBlendParams& _blendParams, const asset::SPrimitiveAssemblyParams& _primAsmParams,
+    core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> createGPURenderpassIndependentPipeline_impl(
+        IGPUPipelineCache* _pipelineCache,
+        core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
+        IGPUSpecializedShader* const* _shadersBegin, IGPUSpecializedShader* const* _shadersEnd,
+        const asset::SVertexInputParams& _vertexInputParams,
+        const asset::SBlendParams& _blendParams,
+        const asset::SPrimitiveAssemblyParams& _primAsmParams,
         const asset::SRasterizationParams& _rasterParams) override
     {
-        return nullptr;
+        IGPURenderpassIndependentPipeline::SCreationParams creationParams = {};
+        creationParams.layout = std::move(_layout);
+        const uint32_t shaderCount = std::distance(_shadersBegin, _shadersEnd);
+        for (uint32_t i = 0u; i < shaderCount; ++i)
+            creationParams.shaders[i] = core::smart_refctd_ptr<const IGPUSpecializedShader>(_shadersBegin[i]);
+        creationParams.vertexInput = _vertexInputParams;
+        creationParams.blend = _blendParams;
+        creationParams.primitiveAssembly = _primAsmParams;
+        creationParams.rasterization = _rasterParams;
+
+        core::SRange<const IGPURenderpassIndependentPipeline::SCreationParams> creationParamsRange(&creationParams, &creationParams + 1);
+
+        core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> result = nullptr;
+        createGPURenderpassIndependentPipelines_impl(_pipelineCache, creationParamsRange, &result);
+        return result;
     }
 
-    bool createGPURenderpassIndependentPipelines_impl(IGPUPipelineCache* pipelineCache, core::SRange<const IGPURenderpassIndependentPipeline::SCreationParams> createInfos,
+    bool createGPURenderpassIndependentPipelines_impl(IGPUPipelineCache* pipelineCache,
+        core::SRange<const IGPURenderpassIndependentPipeline::SCreationParams> createInfos,
         core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>* output) override
     {
-        return false;
+        if (pipelineCache && pipelineCache->getAPIType() != EAT_VULKAN)
+            return false;
+
+        auto creationParams = createInfos.begin();
+        for (size_t i = 0ull; i < createInfos.size(); ++i)
+        {
+            if (creationParams[i].layout->getAPIType() != EAT_VULKAN)
+                continue;
+
+            uint32_t shaderCount = 0u;
+            for (uint32_t ss = 0u; ss < IGPURenderpassIndependentPipeline::SHADER_STAGE_COUNT; ++ss)
+            {
+                auto shader = creationParams[i].shaders[ss];
+                if (shader)
+                {
+                    if (shader->getAPIType() != EAT_VULKAN)
+                        continue;
+
+                    ++shaderCount;
+                }
+            }
+            
+            output[i] = core::make_smart_refctd_ptr<CVulkanRenderpassIndependentPipeline>(
+                core::smart_refctd_ptr<const CVulkanLogicalDevice>(this),
+                core::smart_refctd_ptr(creationParams[i].layout),
+                reinterpret_cast<IGPUSpecializedShader* const*>(creationParams[i].shaders),
+                reinterpret_cast<IGPUSpecializedShader* const*>(creationParams[i].shaders) + shaderCount,
+                creationParams[i].vertexInput,
+                creationParams[i].blend,
+                creationParams[i].primitiveAssembly,
+                creationParams[i].rasterization);
+        }
+
+        return true;
     }
 
     core::smart_refctd_ptr<IGPUGraphicsPipeline> createGPUGraphicsPipeline_impl(IGPUPipelineCache* pipelineCache, IGPUGraphicsPipeline::SCreationParams&& params) override
@@ -1373,9 +1498,57 @@ protected:
         return nullptr;
     }
 
-    bool createGPUGraphicsPipelines_impl(IGPUPipelineCache* pipelineCache, core::SRange<const IGPUGraphicsPipeline::SCreationParams> params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output) override
+    bool createGPUGraphicsPipelines_impl(IGPUPipelineCache* pipelineCache,
+        core::SRange<const IGPUGraphicsPipeline::SCreationParams> params,
+        core::smart_refctd_ptr<IGPUGraphicsPipeline>* output) override
     {
-        return false;
+        constexpr uint32_t MAX_PIPELINE_COUNT = 100u;
+        assert(params.size() <= MAX_PIPELINE_COUNT);
+
+        const IGPUGraphicsPipeline::SCreationParams* creationParams = params.begin();
+
+        // creationParams->renderpassIndependent->
+
+        // core::smart_refctd_ptr<const renderpass_independent_t> renderpassIndependent;
+        // IImage::E_SAMPLE_COUNT_FLAGS rasterizationSamplesHint = IImage::ESCF_1_BIT;
+        // core::smart_refctd_ptr<RenderpassType> renderpass;
+        // uint32_t subpassIx = 0u;
+
+        // for (size_t i = 0ull; i < params.size(); ++i)
+        // {
+        //     if ((creationParams[i].layout->getAPIType() != EAT_VULKAN) ||
+        //         (creationParams[i].shader->getAPIType() != EAT_VULKAN))
+        //     {
+        //         return false;
+        //     }
+        // }
+
+        VkPipelineCache vk_pipelineCache = VK_NULL_HANDLE;
+        if (pipelineCache && pipelineCache->getAPIType() == EAT_VULKAN)
+            vk_pipelineCache = static_cast<const CVulkanPipelineCache*>(pipelineCache)->getInternalObject();
+
+        // VkGraphicsPipelineCreateInfo is a big struct I probably have to move this to heap
+        VkGraphicsPipelineCreateInfo vk_createInfos[MAX_PIPELINE_COUNT];
+        VkPipeline vk_pipelines[MAX_PIPELINE_COUNT];
+
+        if (m_devf.vk.vkCreateGraphicsPipelines(m_vkdev, vk_pipelineCache,
+            static_cast<uint32_t>(params.size()), vk_createInfos, nullptr, vk_pipelines) == VK_SUCCESS)
+        {
+            for (size_t i = 0ull; i < params.size(); ++i)
+            {
+                const auto createInfo = params.begin() + i;
+
+                // output[i] = core::make_smart_refctd_ptr<CVulkanGraphicsPipeline>(
+                //     core::smart_refctd_ptr<CVulkanLogicalDevice>(this),
+                //     core::smart_refctd_ptr(createInfo->layout),
+                //     core::smart_refctd_ptr(createInfo->shader), vk_pipelines[i]);
+            }
+            return true;
+        }
+        else
+        {
+            return false;
+        }
     }
 
 private:
