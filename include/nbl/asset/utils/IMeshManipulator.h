@@ -609,7 +609,27 @@ class IMeshManipulator : public virtual core::IReferenceCounted
 				params.primitiveType = _newPrimitiveType;
 			}
 		}
-
+#if 0 // TODO: Later
+		//! Orders meshbuffers according to a predicate
+		/**
+		@param _begin non-const iterator to beginning of meshbuffer range
+		@param _end non-const iterator to ending of meshbuffer range
+		*/
+		struct DefaultMeshBufferOrder
+		{
+			public:
+				template<typename T>
+				inline bool operator()(const T& lhs, const T& rhs) const
+				{
+					return false;
+				}
+		};
+		template<typename Iterator, typename mesh_buffer_order_t=DefaultMeshBufferOrder>
+		static inline void sortMeshBuffers(Iterator _begin, Iterator _end, mesh_buffer_order_t&& order=DefaultMeshBufferOrder())
+		{
+			std::sort(_begin,_end,std::move(order));
+		}
+#endif
 		//! Get amount of polygons in mesh.
 		/** \param meshbuffer Input mesh
 		\param Outputted Number of polygons in mesh, if successful.
