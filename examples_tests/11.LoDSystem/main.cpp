@@ -15,6 +15,18 @@ using namespace core;
 using namespace system;
 using namespace asset;
 
+struct LoDTableAddResult
+{
+    // TODO: get rid of this
+    core::vector<core::smart_refctd_ptr<video::IGPUMeshBuffer>> mbs;
+};
+struct DrawcallsToUpload
+{
+    core::vector<uint32_t> drawCallOffsets;
+    core::vector<uint32_t> drawCountOffsets;
+    core::vector<asset::DrawElementsIndirectCommand_t> drawCallData;
+    core::vector<uint32_t> drawCountData;
+};
 enum E_GEOM_TYPE
 {
     EGT_CUBE,
@@ -22,13 +34,17 @@ enum E_GEOM_TYPE
     EGT_CONE
 };
 template<E_GEOM_TYPE geom, uint32_t LoDLevels>
-auto addLoDTable(
+LoDTableAddResult addLoDTable(
     IAssetManager* assetManager, core::smart_refctd_ptr<ICPUDescriptorSetLayout>&& cpuPerViewDSLayout,
     const core::smart_refctd_ptr<ICPUSpecializedShader>* shaders,
     nbl::video::IGPUObjectFromAssetConverter& cpu2gpu,
     nbl::video::IGPUObjectFromAssetConverter::SParams& cpu2gpuParams,
+    video::CDrawIndirectAllocator<>* drawIndirectAllocator,
+    DrawcallsToUpload& drawcallsToUpload,
+    core::vector<video::CSubpassKiln::DrawcallInfo>& drawcallInfos,
     const SBufferRange<video::IGPUBuffer>& perInstanceRedirectAttribs,
-    const core::smart_refctd_ptr<video::IGPURenderpass>& renderpass
+    const core::smart_refctd_ptr<video::IGPURenderpass>& renderpass,
+    const core::smart_refctd_ptr<video::IGPUDescriptorSet>& perViewDS
 )
 {
     constexpr auto perInstanceRedirectAttrID = 15u;
@@ -84,43 +100,81 @@ auto addLoDTable(
 
         poly <<= 1u;
     }
-#if 0
-            {
-                constexpr auto indicesPerBatch = 1023u;
-                auto i = 0u;
-                for (; i<sphereData.indexCount; i+=indicesPerBatch)
+    auto gpumeshes = cpu2gpu.getGPUObjectsFromAssets(cpumeshes,cpumeshes+LoDLevels,cpu2gpuParams);
+
+    core::smart_refctd_ptr<video::IGPUGraphicsPipeline> pipeline;
+    {
+        video::IGPUGraphicsPipeline::SCreationParams params;
+        params.renderpass = renderpass;
+        params.renderpassIndependent = core::smart_refctd_ptr_dynamic_cast<video::IGPURenderpassIndependentPipeline>(assetManager->findGPUObject(cpupipeline.get()));
+        params.subpassIx = 0u;
+        pipeline = cpu2gpuParams.device->createGPUGraphicsPipeline(nullptr,std::move(params));
+    }
+    
+    LoDTableAddResult retval;
+
+    auto drawcallInfosOutIx = drawcallInfos.size();
+    drawcallInfos.resize(drawcallInfos.size()+gpumeshes->size());
+    for (auto gpumb : *gpumeshes)
+    {
+        auto& di = drawcallInfos[drawcallInfosOutIx];
+        memcpy(di.pushConstantData,gpumb->getPushConstantsDataPtr(),video::IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE);
+        di.pipeline = pipeline;
+        std::fill_n(di.descriptorSets,video::IGPUPipelineLayout::DESCRIPTOR_SET_COUNT,nullptr);
+        di.descriptorSets[1] = perViewDS;
+        di.indexType = gpumb->getIndexType();
+        std::copy_n(gpumb->getVertexBufferBindings(),perInstanceRedirectAttrID,di.vertexBufferBindings);
+        di.vertexBufferBindings[perInstanceRedirectAttrID] = {perInstanceRedirectAttribs.offset,perInstanceRedirectAttribs.buffer};
+        di.indexBufferBinding = gpumb->getIndexBufferBinding().buffer;
+        di.drawCommandStride = sizeof(asset::DrawElementsIndirectCommand_t);
+        di.drawCountOffset = video::IDrawIndirectAllocator::invalid_draw_count_ix;
+        di.drawCallOffset = video::IDrawIndirectAllocator::invalid_draw_range_begin;
+        di.drawMaxCount = 0u;
+
+        video::IDrawIndirectAllocator::Allocation mdiAlloc;
+        mdiAlloc.count = 1u;
+        mdiAlloc.multiDrawCommandRangeByteOffsets = &di.drawCallOffset;
+        mdiAlloc.multiDrawCommandMaxCounts = &di.drawMaxCount;
+        mdiAlloc.multiDrawCommandCountOffsets = &di.drawMaxCount;
+        mdiAlloc.setAllCommandStructSizesConstant(di.drawCommandStride);
+
+        constexpr auto indicesPerBatch = 1023u;
+        size_t indexSize;
+        switch (gpumb->getIndexType())
+        {
+            case EIT_16BIT:
+                indexSize = sizeof(uint16_t);
+                break;
+            case EIT_32BIT:
+                indexSize = sizeof(uint32_t);
+                break;
+            default:
+                assert(false);
+                break;
+        }
+#if 0        
+                for (auto i=0u; i<sphereData.indexCount; i+=indicesPerBatch)
                 {
                     mb->setIndexCount(core::min(sphereData.indexCount-i,indicesPerBatch));
                     auto indexBinding = sphereData.indexBuffer;
-                    switch (sphereData.indexType)
-                    {
-                        case EIT_16BIT:
-                            indexBinding.offset += sizeof(uint16_t)*i;
-                            break;
-                        case EIT_32BIT:
-                            indexBinding.offset += sizeof(uint32_t)*i;
-                            break;
-                        default:
-                            assert(false);
-                            break;
-                    }
-
-
+                    indexBinding.offset += indexSize*i;
                 }
-                maxInstancedDrawcalls = i*MaxInstanceCount;
-            }
 #endif
-    auto gpumeshes = cpu2gpu.getGPUObjectsFromAssets(cpumeshes,cpumeshes+LoDLevels,cpu2gpuParams);
-    std::pair<core::smart_refctd_ptr<video::IGPUGraphicsPipeline>,core::vector<core::smart_refctd_ptr<video::IGPUMeshBuffer>>> retval;
-    for (auto gpumb : *gpumeshes)
-    {
         {
-            auto& mb = retval.second.emplace_back();
+            SBufferBinding<video::IGPUBuffer> indexBinding = {gpumb->getIndexBufferBinding().offset,gpumb->getIndexBufferBinding().buffer};
+            drawcallsToUpload.drawCallData.emplace_back(
+                gpumb->getIndexCount(),
+                1u, // TODO: undo
+                indexBinding.offset/indexSize,
+                0u,
+                drawcallsToUpload.drawCallData.size() // TODO: undo
+            );
+            di.drawMaxCount++;
+
+            auto& mb = retval.mbs.emplace_back();
             mb = core::make_smart_refctd_ptr<video::IGPUMeshBuffer>();
-            mb->setPipeline(core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline>(const_cast<video::IGPURenderpassIndependentPipeline*>(gpumb->getPipeline())));
             mb->setIndexType(gpumb->getIndexType());
             mb->setIndexCount(gpumb->getIndexCount());
-            SBufferBinding<video::IGPUBuffer> indexBinding = {gpumb->getIndexBufferBinding().offset,gpumb->getIndexBufferBinding().buffer};
             mb->setIndexBufferBinding(std::move(indexBinding));
             for (auto j=0u; j<video::IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT; j++)
             {
@@ -128,20 +182,20 @@ auto addLoDTable(
                 mb->setVertexBufferBinding(std::move(vertexBinding),j);
             }
             mb->setVertexBufferBinding({perInstanceRedirectAttribs.offset,perInstanceRedirectAttribs.buffer},perInstanceRedirectAttrID);
+
             // TODO
             //IMeshManipulator::recalculateBoundingBox(mb.get());
 
             // TODO: undo this
             mb->setInstanceCount(1u);
-            mb->setBaseInstance(retval.second.size()-1u);
+            mb->setBaseInstance(retval.mbs.size()-1u);
         }
-    }
-    {
-        video::IGPUGraphicsPipeline::SCreationParams params;
-        params.renderpass = renderpass;
-        params.renderpassIndependent = core::smart_refctd_ptr_dynamic_cast<video::IGPURenderpassIndependentPipeline>(assetManager->findGPUObject(cpupipeline.get()));
-        params.subpassIx = 0u;
-        retval.first = cpu2gpuParams.device->createGPUGraphicsPipeline(nullptr,std::move(params));
+        drawcallsToUpload.drawCountData.emplace_back(di.drawMaxCount); // TODO: figure out compaction
+        const bool success = drawIndirectAllocator->allocateMultiDraws(mdiAlloc);
+        assert(success);
+        drawcallsToUpload.drawCountOffsets.emplace_back(di.drawCountOffset);
+        for (auto i=0u; i<di.drawMaxCount; i++)
+            drawcallsToUpload.drawCallOffsets.emplace_back(di.drawCallOffset/di.drawCommandStride+i);
     }
     cpu2gpuParams.waitForCreationToComplete();
     return retval;
@@ -348,26 +402,12 @@ int main()
     core::vector<PotentiallyVisibleInstanceDraw> pvsContents(1u);
     auto& pvsCount = pvsContents[0].drawBaseInstanceDWORDOffset;
 
-
-    uint32_t multiDrawCommandRangeByteOffsets[MaxPipelines];
-    uint32_t multiDrawCommandMaxCounts[MaxPipelines] = { 0u };
-    uint32_t multiDrawCommandCounts[MaxPipelines];
-    video::IDrawIndirectAllocator::Allocation mdiAlloc;
-    mdiAlloc.count = 0u;
-    mdiAlloc.multiDrawCommandRangeByteOffsets = multiDrawCommandRangeByteOffsets;
-    mdiAlloc.multiDrawCommandMaxCounts = multiDrawCommandMaxCounts;
-    mdiAlloc.multiDrawCommandCounts = multiDrawCommandCounts;
-    mdiAlloc.setAllCommandStructSizesConstant(sizeof(asset::DrawElementsIndirectCommand_t));
-    core::vector<asset::DrawElementsIndirectCommand_t> drawCallData;
+    DrawcallsToUpload drawcallsToUpload;
+    video::CSubpassKiln kiln;
 
     // TODO: decouple
     core::smart_refctd_ptr<video::IGPUCommandBuffer> bakedCommandBuffer;
     {
-        // TODO: turn into a lambda (so we can have multiple geometry types, sphere (multi lod, multi meshlet), cone (multi lod, single meshlet), cube (no lod), etc.)
-        const uint32_t pplnIndex = mdiAlloc.count++;
-        mdiAlloc.multiDrawCommandRangeByteOffsets[pplnIndex] = video::IDrawIndirectAllocator::invalid_draw_range_begin;
-        mdiAlloc.multiDrawCommandCounts[pplnIndex] = video::IDrawIndirectAllocator::invalid_draw_count_ix;
-
         logicalDevice->createCommandBuffers(commandPool.get(),video::IGPUCommandBuffer::EL_SECONDARY,1u,&bakedCommandBuffer);
         bakedCommandBuffer->begin(video::IGPUCommandBuffer::EU_RENDER_PASS_CONTINUE_BIT|video::IGPUCommandBuffer::EU_SIMULTANEOUS_USE_BIT);
         //
@@ -380,34 +420,64 @@ int main()
 
             auto retval = addLoDTable<EGT_SPHERE,7>(
                 assetManager.get(),core::smart_refctd_ptr(cpuPerViewDSLayout),shaders,
-                cpu2gpu,cpu2gpuParams,cullingParams.perInstanceRedirectAttribs,renderpass
+                cpu2gpu,cpu2gpuParams,drawIndirectAllocator.get(),drawcallsToUpload,
+                kiln.getDrawcallMetadataVector(),cullingParams.perInstanceRedirectAttribs,renderpass,perViewDS
             );
-#if 0
-                    drawCallData.emplace_back(
-                        mb->getIndexCount(),
-                        mb->getInstanceCount(),
-                        mb->getIndexBufferBinding().offset/sizeofIndex,
-                        mb->getBaseVertex(),
-                        mb->getBaseInstance()
-                    );
-                    multiDrawCommandMaxCounts[pplnIndex]++;
-#endif
+
             //! cache results -- speeds up mesh generation on second run
             qnc->saveCacheToFile<asset::EF_A2B10G10R10_SNORM_PACK32>(system.get(),cachePath);
+            
+            // do the transfer of drawcall structs
+            {
+                video::CPropertyPoolHandler::TransferRequest requests[2u];
+                for (auto i=0u; i<2u; i++)
+                {
+                    requests[i].flags = video::CPropertyPoolHandler::TransferRequest::EF_NONE;
+                    requests[i].srcAddresses = nullptr; // iota 0,1,2,3,4,etc.
+                    requests[i].device2device = false;
+                }
+                requests[0].memblock = drawIndirectAllocator->getDrawCommandMemoryBlock();
+                requests[0].elementSize = sizeof(asset::DrawElementsIndirectCommand_t);
+                requests[0].elementCount = drawcallsToUpload.drawCallOffsets.size();
+                requests[0].dstAddresses = drawcallsToUpload.drawCallOffsets.data();
+                requests[0].source = drawcallsToUpload.drawCallData.data();
+                auto requestCount = 1u;
+                if (drawIndirectAllocator->getDrawCountMemoryBlock())
+                {
+                    requests[1].memblock = *drawIndirectAllocator->getDrawCountMemoryBlock();
+                    requests[1].elementSize = sizeof(uint32_t);
+                    requests[1].elementCount = drawcallsToUpload.drawCountOffsets.size();
+                    requests[1].dstAddresses = drawcallsToUpload.drawCountOffsets.data();
+                    requests[1].source = drawcallsToUpload.drawCountData.data();
+                    requestCount++;
+                }
+
+                core::smart_refctd_ptr<video::IGPUCommandBuffer> tferCmdBuf;
+                logicalDevice->createCommandBuffers(commandPool.get(),video::IGPUCommandBuffer::EL_PRIMARY,1u,&tferCmdBuf);
+                auto fence = logicalDevice->createFence(video::IGPUFence::ECF_UNSIGNALED);
+                tferCmdBuf->begin(0u); // TODO some one time submit bit or something
+                utilities->getDefaultPropertyPoolHandler()->transferProperties(utilities->getDefaultUpStreamingBuffer(),nullptr,tferCmdBuf.get(),fence.get(),requests,requests+requestCount,logger.get());
+                tferCmdBuf->end();
+                {
+                    video::IGPUQueue::SSubmitInfo submit = {}; // intializes all semaphore stuff to 0 and nullptr
+                    submit.commandBufferCount = 1u;
+                    submit.commandBuffers = &tferCmdBuf.get();
+                    queues[decltype(initOutput)::EQT_TRANSFER_UP]->submit(1u,&submit,fence.get());
+                }
+                logicalDevice->blockForFences(1u,&fence.get());
+            }
+
 
             // TODO: refactor
-            bakedCommandBuffer->bindGraphicsPipeline(retval.first.get());
-            auto layout = retval.first->getRenderpassIndependentPipeline()->getLayout();
+            const auto pipeline = kiln.getDrawcallMetadataVector().front().pipeline;
+            bakedCommandBuffer->bindGraphicsPipeline(pipeline.get());
+            auto layout = pipeline->getRenderpassIndependentPipeline()->getLayout();
             const video::IGPUDescriptorSet* descriptorSets[1] = {perViewDS.get()};
             bakedCommandBuffer->bindDescriptorSets(EPBP_GRAPHICS,layout,1u,1u,descriptorSets);
-            for (auto& mb : retval.second)
+            for (auto& mb : retval.mbs)
                 bakedCommandBuffer->drawMeshBuffer(mb.get());
         }
         bakedCommandBuffer->end();
-
-        const bool success = drawIndirectAllocator->allocateMultiDraws(mdiAlloc);
-        assert(success);
-        // TODO: get rid of this
     }
 
 
