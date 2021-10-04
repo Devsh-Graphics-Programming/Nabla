@@ -579,7 +579,7 @@ public:
         return gpuBuffer;
     }
         
-    core::smart_refctd_ptr<IGPUShader> createGPUShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader, std::string&& filepathHint) override
+    core::smart_refctd_ptr<IGPUShader> createGPUShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader) override
     {
         const char* entryPoint = "main";
         const asset::IShader::E_SHADER_STAGE shaderStage = cpushader->getStage();
@@ -596,17 +596,17 @@ public:
 
             std::string glsl(begin, end);
 
+            auto logger = m_physicalDevice->getDebugCallback()->getLogger();
+
             core::smart_refctd_ptr<asset::ICPUShader> glslShader_woIncludes =
                 m_physicalDevice->getGLSLCompiler()->resolveIncludeDirectives(glsl.c_str(),
-                    shaderStage, filepathHint.c_str());
-
-            auto logger = m_physicalDevice->getDebugCallback()->getLogger();
+                    shaderStage, cpushader->getFilepathHint().c_str(), 4u, logger);
 
             spirv = m_physicalDevice->getGLSLCompiler()->compileSPIRVFromGLSL(
                 reinterpret_cast<const char*>(glslShader_woIncludes->getSPVorGLSL()->getPointer()),
                 shaderStage,
                 entryPoint,
-                filepathHint.c_str(),
+                cpushader->getFilepathHint().c_str(),
                 true,
                 nullptr,
                 logger);

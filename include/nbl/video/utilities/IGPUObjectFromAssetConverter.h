@@ -1456,7 +1456,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUShader** const _begin
 
     for (ptrdiff_t i = 0u; i < assetCount; ++i)
     {
-        res->operator[](i) = _params.device->createGPUShader(core::smart_refctd_ptr<asset::ICPUShader>(const_cast<asset::ICPUShader*>(_begin[i])), "????");
+        res->operator[](i) = _params.device->createGPUShader(core::smart_refctd_ptr<asset::ICPUShader>(const_cast<asset::ICPUShader*>(_begin[i])));
     }
 
     return res;
