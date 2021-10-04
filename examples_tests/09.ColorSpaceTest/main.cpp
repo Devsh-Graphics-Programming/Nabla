@@ -199,11 +199,17 @@ int main()
 					{
 						case nbl::asset::IAsset::ET_IMAGE:
 						{
-							nbl::asset::ICPUImageView::SCreationParams viewParams;
+							// Since this is ColorSpaceTest
+							const asset::IImage::E_ASPECT_FLAGS aspectMask = asset::IImage::EAF_COLOR_BIT;
+
+							nbl::asset::ICPUImageView::SCreationParams viewParams = {};
 							viewParams.flags = static_cast<decltype(viewParams.flags)>(0u);
 							viewParams.image = core::smart_refctd_ptr_static_cast<asset::ICPUImage>(asset);
+							const auto newUsageFlags = viewParams.image->getImageUsageFlags() | asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_SAMPLED_BIT;
+							viewParams.image->setImageUsageFlags(newUsageFlags);
 							viewParams.format = viewParams.image->getCreationParameters().format;
 							viewParams.viewType = decltype(viewParams.viewType)::ET_2D;
+							viewParams.subresourceRange.aspectMask = aspectMask;
 							viewParams.subresourceRange.baseArrayLayer = 0u;
 							viewParams.subresourceRange.layerCount = 1u;
 							viewParams.subresourceRange.baseMipLevel = 0u;
@@ -273,10 +279,13 @@ int main()
 	auto gpuImageViews = cpu2gpu.getGPUObjectsFromAssets(cpuImageViews.data(), cpuImageViews.data() + cpuImageViews.size(), cpu2gpuParams);
 	cpu2gpuParams.waitForCreationToComplete(false);
 
+	auto size_ = gpuImageViews->size();
+	auto cpuImageViewsSize = cpuImageViews.size();
+	auto gpuImageView = gpuImageViews->begin()[0];
+	auto cpuImageView = cpuImageViews.begin()[0];
+
 	if (!gpuImageViews || gpuImageViews->size() < cpuImageViews.size())
 		assert(false);
-
-	// cpu2gpuWaitForFences();
 
 	auto getCurrentGPURenderpassIndependentPipeline = [&](nbl::video::IGPUImageView* gpuImageView)
 	{
@@ -429,10 +438,13 @@ int main()
 	for (size_t i = 0; i < gpuImageViews->size(); ++i)
 	{
 		auto gpuImageView = (*gpuImageViews)[i];
-		auto& captionData = captionTexturesData[i];
+		if (gpuImageView)
+		{
+			auto& captionData = captionTexturesData[i];
 
-		bool status = presentImageOnTheScreen(nbl::core::smart_refctd_ptr(gpuImageView), captionData);
-		assert(status);
+			bool status = presentImageOnTheScreen(nbl::core::smart_refctd_ptr(gpuImageView), captionData);
+			assert(status);
+		}
 	}
 
 

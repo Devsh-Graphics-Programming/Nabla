@@ -183,4 +183,54 @@ bool CVulkanLogicalDevice::createCommandBuffers_impl(IGPUCommandPool* cmdPool, I
     }
 }
 
+core::smart_refctd_ptr<IGPUImage> CVulkanLogicalDevice::createGPUImage(asset::IImage::SCreationParams&& params)
+{
+    VkImageCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
+    vk_createInfo.pNext = nullptr; // there are a lot of extensions
+    vk_createInfo.flags = static_cast<VkImageCreateFlags>(params.flags);
+    vk_createInfo.imageType = static_cast<VkImageType>(params.type);
+    vk_createInfo.format = getVkFormatFromFormat(params.format);
+    vk_createInfo.extent = { params.extent.width, params.extent.height, params.extent.depth };
+    vk_createInfo.mipLevels = params.mipLevels;
+    vk_createInfo.arrayLayers = params.arrayLayers;
+    vk_createInfo.samples = static_cast<VkSampleCountFlagBits>(params.samples);
+    vk_createInfo.tiling = static_cast<VkImageTiling>(params.tiling);
+    vk_createInfo.usage = static_cast<VkImageUsageFlags>(params.usage.value);
+    vk_createInfo.sharingMode = static_cast<VkSharingMode>(params.sharingMode);
+    vk_createInfo.queueFamilyIndexCount = params.queueFamilyIndexCount;
+    vk_createInfo.pQueueFamilyIndices = params.queueFamilyIndices;
+    vk_createInfo.initialLayout = static_cast<VkImageLayout>(params.initialLayout);
+
+    VkImage vk_image;
+    if (m_devf.vk.vkCreateImage(m_vkdev, &vk_createInfo, nullptr, &vk_image) == VK_SUCCESS)
+    {
+        VkImageMemoryRequirementsInfo2 vk_memReqsInfo = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_REQUIREMENTS_INFO_2 };
+        vk_memReqsInfo.pNext = nullptr;
+        vk_memReqsInfo.image = vk_image;
+
+        VkMemoryDedicatedRequirements vk_memDedReqs = { VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS };
+        VkMemoryRequirements2 vk_memReqs = { VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2 };
+        vk_memReqs.pNext = &vk_memDedReqs;
+
+        m_devf.vk.vkGetImageMemoryRequirements2(m_vkdev, &vk_memReqsInfo, &vk_memReqs);
+
+        IDriverMemoryBacked::SDriverMemoryRequirements imageMemReqs = {};
+        imageMemReqs.vulkanReqs.alignment = vk_memReqs.memoryRequirements.alignment;
+        imageMemReqs.vulkanReqs.size = vk_memReqs.memoryRequirements.size;
+        imageMemReqs.vulkanReqs.memoryTypeBits = vk_memReqs.memoryRequirements.memoryTypeBits;
+        imageMemReqs.memoryHeapLocation = 0u; // doesn't matter, would get overwritten during memory allocation for this resource anyway
+        imageMemReqs.mappingCapability = 0u; // doesn't matter, would get overwritten during memory allocation for this resource anyway
+        imageMemReqs.prefersDedicatedAllocation = vk_memDedReqs.prefersDedicatedAllocation;
+        imageMemReqs.requiresDedicatedAllocation = vk_memDedReqs.requiresDedicatedAllocation;
+
+        return core::make_smart_refctd_ptr<CVulkanImage>(
+            core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(params),
+            vk_image, imageMemReqs);
+    }
+    else
+    {
+        return nullptr;
+    }
+}
+
 }

@@ -852,7 +852,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
 
     bool oneSubmitPerBatch = !needToGenMips || oneQueue;
 
-    auto & transfer_fence = _params.fences[EQU_TRANSFER]; 
+    auto& transfer_fence = _params.fences[EQU_TRANSFER]; 
     auto cmdbuf_transfer = _params.perQueue[EQU_TRANSFER].cmdbuf;
     auto cmdbuf_compute = _params.perQueue[EQU_COMPUTE].cmdbuf;
 
@@ -931,9 +931,31 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
             toTransferDst.subresourceRange.baseArrayLayer = 0u;
             toTransferDst.subresourceRange.layerCount = cpuimg->getCreationParameters().arrayLayers;
 
-            cmdbuf_transfer->pipelineBarrier(asset::EPSF_TRANSFER_BIT, asset::EPSF_TRANSFER_BIT, asset::EDF_NONE, 0u, nullptr, 1u, &barrier, 1u, &toTransferDst);
+            cmdbuf_transfer->pipelineBarrier(
+                asset::EPSF_TRANSFER_BIT,
+                asset::EPSF_TRANSFER_BIT,
+                asset::EDF_NONE,
+                0u, nullptr,
+                1u, &barrier,
+                1u, &toTransferDst);
 
-            cmdbuf_transfer->copyBufferToImage(buf.get(), img, asset::EIL_TRANSFER_DST_OPTIMAL, cpuimg->getRegions().size(), cpuimg->getRegions().begin());
+            // Note: cpuimg->getRegions() doesn't give correct values for this because they
+            // get set by the asset loader which doesn't have enough information about what
+            // kind of subresources will be created for this resource.
+            // For this function we want the entirety of ICPUImage converted to IGPUImage,
+            // so our SBufferCopy should reflect that
+            asset::IImage::SBufferCopy copyRegion = {};
+            copyRegion.bufferOffset = 0ull;
+            copyRegion.bufferRowLength = cpuimg->getCreationParameters().extent.width;
+            copyRegion.bufferImageHeight = 0u;
+            copyRegion.imageSubresource.aspectMask = asset::IImage::EAF_COLOR_BIT; // Todo(achal): all bits?
+            copyRegion.imageSubresource.mipLevel = 0u;
+            copyRegion.imageSubresource.baseArrayLayer = 0u;
+            copyRegion.imageSubresource.layerCount = 1u;
+            copyRegion.imageOffset = { 0u,0u,0u };
+            copyRegion.imageExtent = cpuimg->getCreationParameters().extent;
+
+            cmdbuf_transfer->copyBufferToImage(buf.get(), img, asset::EIL_TRANSFER_DST_OPTIMAL, 1u, &copyRegion);
         }
     };
     auto cmdComputeMip = [&](const asset::ICPUImage* cpuimg, IGPUImage* gpuimg, asset::E_IMAGE_LAYOUT newLayout) -> void
@@ -951,7 +973,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
         barrier.dstQueueFamilyIndex = ~0u;
         barrier.image = core::smart_refctd_ptr<video::IGPUImage>(gpuimg);
         // TODO this is probably wrong (especially in case of depth/stencil formats), but i think i can leave it like this since we'll never have any depth/stencil images loaded (right?)
-        barrier.subresourceRange.aspectMask = cpuimg->getRegions().begin()->imageSubresource.aspectMask; 
+        barrier.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT; // not hardcode
         barrier.subresourceRange.levelCount = 1u;
         barrier.subresourceRange.baseArrayLayer = 0u;
         barrier.subresourceRange.layerCount = cpuimg->getCreationParameters().arrayLayers;
@@ -1021,7 +1043,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
         if (!integerFmt)
             params.mipLevels = 1u + static_cast<uint32_t>(std::log2(static_cast<float>(core::max<uint32_t>(core::max<uint32_t>(params.extent.width, params.extent.height), params.extent.depth))));
 
-        if (cpuimg->getRegions().size() && !(cpuimg->getCreationParameters().usage.value & asset::IImage::EUF_TRANSFER_DST_BIT))
+        if (cpuimg->getRegions().size() && !(params.usage.value & asset::IImage::EUF_TRANSFER_DST_BIT))
             params.usage |= asset::IImage::EUF_TRANSFER_DST_BIT;
 
         if (needToCompMipsForThisImg(cpuimg))
@@ -1050,8 +1072,13 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
         {
             auto* cpuimg = *(it++);
             auto* gpuimg = (*res)[n+i].get();
-            cmdUpload(cpuimg, gpuimg);
+            // Creation of a GPU image (on Vulkan) can fail for several reasons, one of them, for
+            // example is unsupported formats
+            if (!gpuimg)
+                continue;
 
+            cmdUpload(cpuimg, gpuimg);
+            
             asset::E_IMAGE_LAYOUT newLayout;
             auto usage = gpuimg->getCreationParameters().usage.value;
             //constexpr auto UsageWriteMask = asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_DEPTH_STENCIL_ATTACHMENT_BIT | asset::IImage::EUF_FRAGMENT_DENSITY_MAP_BIT_EXT | asset::IImage::EUF_STORAGE_BIT;
@@ -1477,16 +1504,19 @@ inline created_gpu_object_array<asset::ICPUImageView> IGPUObjectFromAssetConvert
 
     for (ptrdiff_t i = 0; i < assetCount; ++i)
     {
-        const asset::ICPUImageView::SCreationParams& cpuparams = _begin[i]->getCreationParameters();
-        IGPUImageView::SCreationParams params;
-        memcpy(&params.components, &cpuparams.components, sizeof(params.components));
-        params.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(cpuparams.flags);
-        params.format = cpuparams.format;
-        params.subresourceRange = cpuparams.subresourceRange;
-        params.subresourceRange.levelCount = (*gpuDeps)[redirs[i]]->getCreationParameters().mipLevels - params.subresourceRange.baseMipLevel;
-        params.viewType = static_cast<IGPUImageView::E_TYPE>(cpuparams.viewType);
-        params.image = (*gpuDeps)[redirs[i]];
-        (*res)[i] = _params.device->createGPUImageView(std::move(params));
+        if (gpuDeps->begin()[redirs[i]])
+        {
+            const asset::ICPUImageView::SCreationParams& cpuparams = _begin[i]->getCreationParameters();
+            IGPUImageView::SCreationParams params;
+            memcpy(&params.components, &cpuparams.components, sizeof(params.components));
+            params.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(cpuparams.flags);
+            params.format = cpuparams.format;
+            params.subresourceRange = cpuparams.subresourceRange;
+            params.subresourceRange.levelCount = (*gpuDeps)[redirs[i]]->getCreationParameters().mipLevels - params.subresourceRange.baseMipLevel;
+            params.viewType = static_cast<IGPUImageView::E_TYPE>(cpuparams.viewType);
+            params.image = (*gpuDeps)[redirs[i]];
+            (*res)[i] = _params.device->createGPUImageView(std::move(params));
+        }
     }
 
     return res;
