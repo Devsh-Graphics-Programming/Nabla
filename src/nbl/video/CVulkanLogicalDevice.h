@@ -1514,18 +1514,24 @@ protected:
             if (creationParams[i].layout->getAPIType() != EAT_VULKAN)
                 continue;
 
+            uint32_t shaderCount = 0u;
             for (uint32_t ss = 0u; ss < IGPURenderpassIndependentPipeline::SHADER_STAGE_COUNT; ++ss)
             {
                 auto shader = creationParams[i].shaders[ss];
-                if (shader && shader->getAPIType() != EAT_VULKAN)
-                    continue;
-            }
+                if (shader)
+                {
+                    if (shader->getAPIType() != EAT_VULKAN)
+                        continue;
 
+                    ++shaderCount;
+                }
+            }
+            
             output[i] = core::make_smart_refctd_ptr<CVulkanRenderpassIndependentPipeline>(
                 core::smart_refctd_ptr<const CVulkanLogicalDevice>(this),
                 core::smart_refctd_ptr(creationParams[i].layout),
-                reinterpret_cast<IGPUSpecializedShader* const*>(&creationParams[i].shaders),
-                reinterpret_cast<IGPUSpecializedShader* const*>(&creationParams[i].shaders + IGPURenderpassIndependentPipeline::SHADER_STAGE_COUNT),
+                reinterpret_cast<IGPUSpecializedShader* const*>(creationParams[i].shaders),
+                reinterpret_cast<IGPUSpecializedShader* const*>(creationParams[i].shaders) + shaderCount,
                 creationParams[i].vertexInput,
                 creationParams[i].blend,
                 creationParams[i].primitiveAssembly,
