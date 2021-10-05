@@ -14,76 +14,150 @@ namespace nbl::scene
 class ILevelOfDetailLibrary : public virtual core::IReferenceCounted
 {
 	public:
+		using AddressAllocator = core::GeneralpurposeAddressAllocator<uint32_t>;
+		static inline constexpr auto invalid = AddressAllocator::invalid_address;
+		//
+		struct DefaultLoDChoiceParams
+		{
+			float distanceSqAtReferenceFoV;
+
+			inline bool operator<(const DefaultLoDChoiceParams& other) const
+			{
+				return distanceSqAtReferenceFoV<other.distanceSqAtReferenceFoV;
+			}
+		};
+		//
 		struct alignas(16) LoDTableInfo
 		{
 			float aabbMin[3]; 
 			uint32_t levelCount;
 			float aabbMax[3];
 			uint32_t levelInfoOffsets[1];
-		};
-		struct alignas(16) LoDInfo
-		{
-			float aabbMin[3];
-			uint32_t drawCallInfoCount; // only really need 30 bits for this
-			float aabbMax[3];
-			float distanceSqAtReferenceFoV; // TODO: template and assert alignof==alignof(uint32_t)
-			uint32_t drawCallInfoOffsets[1];
-		};
-		struct alignas(8) DrawCallInfo
-		{
-			uint32_t drawCallDWORDOffset; // only really need 27 bits for this
-			uint32_t aabbCount : 8u; // should probably make the bit allocation a function of max bone count
-			uint32_t aabbOffset : 24u; // could want to give 26 bits here
-		};
 
-		//
-		struct DefaultLoDParameters
-		{
-			float distanceSqAtReferenceFoV;
-
-			inline bool operator<(const DefaultLoDParameters& other) const
+			static inline uint32_t getSizeInUvec4(uint32_t levelCount)
 			{
-				return distanceSqAtReferenceFoV<other.distanceSqAtReferenceFoV;
+				return (offsetof(LoDTableInfo,levelInfoOffsets[0])+sizeof(uint32_t)*levelCount-1u)/alignof(LoDTableInfo)+1u;
 			}
 		};
-#if 0
-        static inline core::smart_refctd_ptr<ILevelOfDetailLibrary> create(core::smart_refctd_ptr<video::ILogicalDevice>&& _device, const uint32_t tableCapacity, const uint32_t lodCapacity, const uint32_t drawCallCapacity)
+		// TODO: later template<typename LoDChoiceParams=DefaultLoDChoiceParams>
+		using LoDChoiceParams = DefaultLoDChoiceParams;
+		struct alignas(16) LoDInfo
+		{
+			struct alignas(8) DrawcallInfo
+			{
+				public:
+					uint32_t drawcallDWORDOffset; // only really need 27 bits for this
+					// TODO: setter for the skinning AABBs
+				private:
+					uint32_t skinningAABBCountAndOffset;
+			};
+
+			static inline uint32_t getSizeInUvec4(uint32_t drawcallCount)
+			{
+				return (offsetof(LoDInfo,drawcallInfos[0])+sizeof(DrawcallInfo)*drawcallCount-1u)/alignof(LoDInfo)+1u;
+			}
+
+			float aabbMin[3];
+			uint16_t drawcallInfoCount;
+			// sum of all bone counts for all draws in this LoD
+			uint16_t totalDrawCallBoneCount;
+			float aabbMax[3];
+			LoDChoiceParams choiceParams;
+			DrawcallInfo drawcallInfos[1];
+			static_assert(alignof(LoDChoiceParams)==alignof(uint32_t));
+		};
+
+        static inline core::smart_refctd_ptr<ILevelOfDetailLibrary> create(core::smart_refctd_ptr<video::ILogicalDevice>&& _device, const uint32_t tableCapacity, const uint32_t lodCapacity, const uint32_t drawcallCapacity)
         {
-			const uint32_t tableBufferSize = tableCapacity*sizeof(LoDTableInfo)+core::roundUp<uint32_t>((lodCapacity-1u)/tableCapacity+1u,alignof(LoDTableInfo))*sizeof(uint32_t);
-			const uint32_t lodBufferSize = lodCapacity*sizeof(LoDInfo)+core::roundUp<uint32_t>((drawCallCapacity-1u)/lodCapacity+1u,alignof(LoDInfo))*sizeof(uint32_t);
-			if (true) // TODO: some checks and validation before creating?
+			assert(tableCapacity && lodCapacity && drawcallCapacity);
+			const uint32_t tableBufferSize = tableCapacity*sizeof(LoDTableInfo)+core::roundUp<uint32_t>((lodCapacity-1u)/tableCapacity,alignof(LoDTableInfo))*sizeof(uint32_t);
+			const uint32_t lodBufferSize = lodCapacity*sizeof(LoDInfo)+core::roundUp<uint32_t>((drawcallCapacity-1u)/lodCapacity,alignof(LoDInfo))*sizeof(uint32_t);
+
+			video::IGPUBuffer::SCreationParams params;
+			params.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
+			auto tableBuffer = _device->createDeviceLocalGPUBufferOnDedMem(params,tableBufferSize);
+			auto lodBuffer = _device->createDeviceLocalGPUBufferOnDedMem(params,lodBufferSize);
+			return create(std::move(_device),{0ull,tableBufferSize,tableBuffer},{0ull,lodBufferSize,lodBuffer});
+		}
+        static inline core::smart_refctd_ptr<ILevelOfDetailLibrary> create(core::smart_refctd_ptr<video::ILogicalDevice>&& _device, asset::SBufferRange<video::IGPUBuffer>&& _lodTableInfos, asset::SBufferRange<video::IGPUBuffer>&& _lodInfos)
+        {
+			if (!_lodTableInfos.isValid() || !_lodInfos.isValid())
 				return nullptr;
 
-			auto* lodl = new ILevelOfDetailLibrary(std::move(_device)/*,std::move(),std::move(),std::move()*/);
+			auto* lodl = new ILevelOfDetailLibrary(std::move(_device),std::move(_lodTableInfos),std::move(_lodInfos));
             return core::smart_refctd_ptr<ILevelOfDetailLibrary>(lodl,core::dont_grab);
         }
 
-		// TODO: register/deregister drawcalls/lods/tables
-		template<typename MeshIterator, typename CullParamsIterator>
-		struct RegisterLoDTable
+		//
+		struct Allocation
 		{
-			MeshIterator beginMeshes;
-			MeshIterator endMeshes;
-			CullParamsIterator beginCullParams;
+			uint32_t count;
+			// must point to an array initialized with `invalid`
+			uint32_t* tableUvec4Offsets;
+			const uint32_t* levelCounts;
+			struct LevelInfoAllocation
+			{
+				// must point to an array initialized with `invalid`
+				uint32_t* levelUvec4Offsets;
+				const uint32_t* drawcallCounts;
+			};
+			LevelInfoAllocation* levelAllocations;
 		};
-		template<typename MeshBufferIterator>
-		struct RegisterLoD
+		inline bool allocateLoDs(Allocation& params)
 		{
-			MeshBufferIterator beginMeshBuffers;
-			MeshBufferIterator endMeshBuffers;
-		};
+            for (auto i=0u; i<params.count; i++)
+            {
+                auto& tableOffset = params.tableUvec4Offsets[i];
+                if (tableOffset!=invalid)
+                    continue;
 
-		template<typename MeshBufferIterator>
-		draw_call_t registerDrawcalls(MeshBufferIterator begin, MeshBufferIterator end)
-		{
-			assert(false); // TODO
+				const auto levelCount = params.levelCounts[i];
+				tableOffset = m_lodTableAllocator.alloc_addr(LoDTableInfo::getSizeInUvec4(levelCount),1u);
+                if (tableOffset==invalid)
+                    return false;
+				for (auto j=0u; j<levelCount; j++)
+				{
+					auto& levelAlloc = params.levelAllocations[i];
+					auto& lodOffset = levelAlloc.levelUvec4Offsets[j];
+					if (lodOffset!=invalid)
+						continue;
+
+					lodOffset = m_lodInfoAllocator.alloc_addr(LoDInfo::getSizeInUvec4(levelAlloc.drawcallCounts[j]),1u);
+					if (lodOffset==invalid)
+						return false;
+				}
+            }
+			return true;
 		}
-		template<typename MeshBufferIterator>
-		draw_call_t deregisterDrawcalls(MeshBufferIterator begin, MeshBufferIterator end)
+		//
+		inline void freeLoDs(const Allocation& params)
 		{
-			assert(false); // TODO
+            for (auto i=0u; i<params.count; i++)
+            {
+                auto& tableOffset = params.tableUvec4Offsets[i];
+                if (tableOffset==invalid)
+                    continue;
+
+				const auto levelCount = params.levelCounts[i];
+				m_lodTableAllocator.free_addr(tableOffset,LoDTableInfo::getSizeInUvec4(levelCount));
+				for (auto j=0u; j<levelCount; j++)
+				{
+					auto& levelAlloc = params.levelAllocations[i];
+					auto& lodOffset = levelAlloc.levelUvec4Offsets[j];
+					if (lodOffset==invalid)
+						continue;
+					
+					m_lodInfoAllocator.free_addr(lodOffset,LoDInfo::getSizeInUvec4(levelAlloc.drawcallCounts[j]));
+				}
+            }
 		}
-#endif
+		//
+		inline void clear()
+		{
+			m_lodTableAllocator.reset();
+			m_lodInfoAllocator.reset();
+		}
+
 		//
 		static inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createDescriptorSetLayout(video::ILogicalDevice* device)
 		{
@@ -114,13 +188,9 @@ class ILevelOfDetailLibrary : public virtual core::IReferenceCounted
 			return m_lodInfos;
 		}
 
-		inline const auto& getAABBBinding() const
-		{
-			return m_aabbs;
-		}
-
 	protected:
-		ILevelOfDetailLibrary(core::smart_refctd_ptr<video::ILogicalDevice>&& _device) : m_device(std::move(_device))
+		ILevelOfDetailLibrary(core::smart_refctd_ptr<video::ILogicalDevice>&& _device, asset::SBufferRange<video::IGPUBuffer>&& _lodTableInfos, asset::SBufferRange<video::IGPUBuffer>&& _lodInfos)
+			: m_device(std::move(_device)), m_lodTableInfos(std::move(_lodTableInfos)), m_lodInfos(std::move(_lodInfos))
 		{
 			auto layout = createDescriptorSetLayout(m_device.get());
 			auto pool = m_device->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE,&layout.get(),&layout.get()+1u);
@@ -130,8 +200,7 @@ class ILevelOfDetailLibrary : public virtual core::IReferenceCounted
 				video::IGPUDescriptorSet::SDescriptorInfo infos[DescriptorBindingCount] =
 				{
 					m_lodTableInfos,
-					m_lodInfos,
-					m_aabbs
+					m_lodInfos
 				};
 				for (auto i=0u; i<DescriptorBindingCount; i++)
 				{
@@ -150,11 +219,13 @@ class ILevelOfDetailLibrary : public virtual core::IReferenceCounted
 			// everything drops itself automatically
 		}
 
-		static inline constexpr auto DescriptorBindingCount = 3u;
+		static inline constexpr auto DescriptorBindingCount = 2u;
 
+		AddressAllocator m_lodTableAllocator,m_lodInfoAllocator;
 		core::smart_refctd_ptr<video::ILogicalDevice> m_device;
+		asset::SBufferRange<video::IGPUBuffer> m_lodTableInfos,m_lodInfos;
+		void* m_allocatorReserved;
 		core::smart_refctd_ptr<video::IGPUDescriptorSet> m_ds;
-		asset::SBufferRange<video::IGPUBuffer> m_lodTableInfos,m_lodInfos,m_aabbs;
 };
 
 
