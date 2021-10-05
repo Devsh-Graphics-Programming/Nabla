@@ -14,7 +14,7 @@ template<typename LoDChoiceParams=ILevelOfDetailLibrary::DefaultLoDChoiceParams,
 class CLevelOfDetailLibrary : public ILevelOfDetailLibrary
 {
 	public:
-		struct alignas(16) LoDInfo
+		struct NBL_FORCE_EBO LoDInfo : LoDInfoAlignBase
 		{
 			static inline uint32_t getSizeInUvec4(uint32_t drawcallCount)
 			{

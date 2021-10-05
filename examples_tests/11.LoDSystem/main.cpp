@@ -17,12 +17,16 @@ using namespace system;
 using namespace asset;
 
 
-struct DrawcallsToUpload
+struct LoDLibraryData
 {
     core::vector<uint32_t> drawCallOffsets;
     core::vector<uint32_t> drawCountOffsets;
     core::vector<asset::DrawElementsIndirectCommand_t> drawCallData;
     core::vector<uint32_t> drawCountData;
+    core::vector<uint32_t> lodInfoDstUvec4s;
+    core::vector<uint32_t> lodTableDstUvec4s;
+    core::vector<scene::ILevelOfDetailLibrary::LoDInfoAlignBase> lodInfoData;
+    core::vector<scene::ILevelOfDetailLibrary::LodTableInfoAlignBase> lodTableData;
 };
 enum E_GEOM_TYPE
 {
@@ -36,8 +40,8 @@ void addLoDTable(
     const core::smart_refctd_ptr<ICPUSpecializedShader>* shaders,
     nbl::video::IGPUObjectFromAssetConverter& cpu2gpu,
     nbl::video::IGPUObjectFromAssetConverter::SParams& cpu2gpuParams,
+    LoDLibraryData& lodLibraryData,
     video::CDrawIndirectAllocator<>* drawIndirectAllocator,
-    DrawcallsToUpload& drawcallsToUpload,
     scene::ILevelOfDetailLibrary::Allocation& lodTables,
     core::vector<video::CSubpassKiln::DrawcallInfo>& drawcallInfos,
     const SBufferRange<video::IGPUBuffer>& perInstanceRedirectAttribs,
@@ -160,7 +164,7 @@ void addLoDTable(
         const auto indexCount = gpumb->getIndexCount();
         for (auto i=0u; i<indexCount; i+=indicesPerBatch)
         {
-            drawcallsToUpload.drawCallData.emplace_back(
+            lodLibraryData.drawCallData.emplace_back(
                 core::min(indexCount-i,indicesPerBatch),
                 1u, // TODO: undo
                 gpumb->getIndexBufferBinding().offset/indexSize+i,
@@ -172,13 +176,13 @@ void addLoDTable(
             // TODO
             //IMeshManipulator::recalculateBoundingBox(mb.get());
         }
-        drawcallsToUpload.drawCountData.emplace_back(di.drawMaxCount);
+        lodLibraryData.drawCountData.emplace_back(di.drawMaxCount);
         const bool success = drawIndirectAllocator->allocateMultiDraws(mdiAlloc);
         assert(success);
-        drawcallsToUpload.drawCountOffsets.emplace_back(di.drawCountOffset);
+        lodLibraryData.drawCountOffsets.emplace_back(di.drawCountOffset);
         di.drawCountOffset *= sizeof(uint32_t);
         for (auto i=0u; i<di.drawMaxCount; i++)
-            drawcallsToUpload.drawCallOffsets.emplace_back(di.drawCallOffset/di.drawCommandStride+i);
+            lodLibraryData.drawCallOffsets.emplace_back(di.drawCallOffset/di.drawCommandStride+i);
 
         const_cast<uint32_t*>(lodTables.levelAllocations[lodTables.count].drawcallCounts)[lod] = di.drawMaxCount;
     }
@@ -414,7 +418,7 @@ int main()
     {
         video::CSubpassKiln kiln;
         {
-            DrawcallsToUpload drawcallsToUpload;
+            LoDLibraryData lodLibraryData;
             // create all the LoDs of drawables
             {
                 auto* qnc = assetManager->getMeshManipulator()->getQuantNormalCache();
@@ -424,17 +428,22 @@ int main()
                     logger->log("%s", ILogger::ELL_ERROR, "Failed to load cache.");
 
                 addLoDTable<EGT_SPHERE,7>(
-                    assetManager.get(),core::smart_refctd_ptr(cpuPerViewDSLayout),shaders,
-                    cpu2gpu,cpu2gpuParams,drawIndirectAllocator.get(),drawcallsToUpload,
-                    lodTables,
-                    kiln.getDrawcallMetadataVector(),cullingParams.perInstanceRedirectAttribs,renderpass,perViewDS
+                    assetManager.get(),core::smart_refctd_ptr(cpuPerViewDSLayout),shaders,cpu2gpu,cpu2gpuParams,
+                    lodLibraryData,drawIndirectAllocator.get(),lodTables,kiln.getDrawcallMetadataVector(),
+                    cullingParams.perInstanceRedirectAttribs,renderpass,perViewDS
                 );
 
                 //! cache results -- speeds up mesh generation on second run
                 qnc->saveCacheToFile<asset::EF_A2B10G10R10_SNORM_PACK32>(system.get(), cachePath);
             }
+            // upload LoD Table
             const bool success = lodLibrary->allocateLoDs(lodTables);
             assert(success);
+            {
+                //const auto lodTablesToUploadEnd = lodTables.fillTableLevelOffsets(lodTablesToUpload.data(),nullptr);
+            }
+
+
             for (auto i=0u; i<kiln.getDrawcallMetadataVector().size(); i++)
             {
                 const auto& info = kiln.getDrawcallMetadataVector()[i];
@@ -453,7 +462,7 @@ int main()
             range.size = pvsContents.size()*sizeof(PotentiallyVisibleInstanceDraw);
             utilities->updateBufferRangeViaStagingBuffer(queues[decltype(initOutput)::EQT_TRANSFER_UP],range,pvsContents.data());
             // do the transfer of drawcall structs
-            cullingParams.drawcallCount = drawcallsToUpload.drawCallOffsets.size();
+            cullingParams.drawcallCount = lodLibraryData.drawCallOffsets.size();
             {
                 video::CPropertyPoolHandler::TransferRequest requests[2u];
                 for (auto i=0u; i<2u; i++)
@@ -465,16 +474,16 @@ int main()
                 requests[0].memblock = drawIndirectAllocator->getDrawCommandMemoryBlock();
                 requests[0].elementSize = sizeof(asset::DrawElementsIndirectCommand_t);
                 requests[0].elementCount = cullingParams.drawcallCount;
-                requests[0].dstAddresses = drawcallsToUpload.drawCallOffsets.data();
-                requests[0].source = drawcallsToUpload.drawCallData.data();
+                requests[0].dstAddresses = lodLibraryData.drawCallOffsets.data();
+                requests[0].source = lodLibraryData.drawCallData.data();
                 auto requestCount = 1u;
                 if (drawIndirectAllocator->getDrawCountMemoryBlock())
                 {
                     requests[1].memblock = *drawIndirectAllocator->getDrawCountMemoryBlock();
                     requests[1].elementSize = sizeof(uint32_t);
-                    requests[1].elementCount = drawcallsToUpload.drawCountOffsets.size();
-                    requests[1].dstAddresses = drawcallsToUpload.drawCountOffsets.data();
-                    requests[1].source = drawcallsToUpload.drawCountData.data();
+                    requests[1].elementCount = lodLibraryData.drawCountOffsets.size();
+                    requests[1].dstAddresses = lodLibraryData.drawCountOffsets.data();
+                    requests[1].source = lodLibraryData.drawCountData.data();
                     requestCount++;
                 }
 
@@ -493,15 +502,15 @@ int main()
                 logicalDevice->blockForFences(1u,&fence.get());
             }
             //
-            std::for_each(drawcallsToUpload.drawCallOffsets.begin(),drawcallsToUpload.drawCallOffsets.end(),[](uint32_t& off){off*=sizeof(asset::DrawElementsIndirectCommand_t)/sizeof(uint32_t);});
+            std::for_each(lodLibraryData.drawCallOffsets.begin(),lodLibraryData.drawCallOffsets.end(),[](uint32_t& off){off*=sizeof(asset::DrawElementsIndirectCommand_t)/sizeof(uint32_t);});
             cullingParams.transientInputDS = culling_system_t::createInputDescriptorSet(
                 logicalDevice.get(),cullingDSPool.get(),
                 culling_system_t::createInputDescriptorSetLayout(logicalDevice.get()),
                 cullingParams.indirectDispatchParams,
                 cullingParams.instanceList,
                 cullingParams.scratchBufferRanges,
-                {0ull,~0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(queues[decltype(initOutput)::EQT_TRANSFER_UP],cullingParams.drawcallCount*sizeof(uint32_t),drawcallsToUpload.drawCallOffsets.data())},
-                {0ull,~0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(queues[decltype(initOutput)::EQT_TRANSFER_UP],drawcallsToUpload.drawCountOffsets.size()*sizeof(uint32_t),drawcallsToUpload.drawCountOffsets.data())}
+                {0ull,~0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(queues[decltype(initOutput)::EQT_TRANSFER_UP],cullingParams.drawcallCount*sizeof(uint32_t),lodLibraryData.drawCallOffsets.data())},
+                {0ull,~0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(queues[decltype(initOutput)::EQT_TRANSFER_UP],lodLibraryData.drawCountOffsets.size()*sizeof(uint32_t),lodLibraryData.drawCountOffsets.data())}
             );
         }
         // prerecord the secondary cmdbuffer
@@ -661,7 +670,7 @@ int main2()
     core::smart_refctd_ptr<video::IGPUBuffer> globalIndexBuffer,perDrawDataSSBO,indirectDrawSSBO,perInstanceDataSSBO;
 
     
-    core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> gpuDrawDirectPipeline,gpuDrawIndirectPipeline;
+    core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> gpuDrawIndirectPipeline;
 	{
         DrawElementsIndirectCommand_t indirectDrawData[kInstanceCount];
 
@@ -699,7 +708,6 @@ int main2()
         }
         
         //
-        gpuDrawDirectPipeline = driver->getGPUObjectsFromAssets(&cpuDrawDirectPipeline.get(),&cpuDrawDirectPipeline.get()+1)->operator[](0);
         gpuDrawIndirectPipeline = driver->getGPUObjectsFromAssets(&cpuDrawIndirectPipeline.get(),&cpuDrawIndirectPipeline.get()+1)->operator[](0);
 
         std::uniform_real_distribution<float> dist3D(0.f,400.f);
@@ -735,7 +743,6 @@ int main2()
 	perDrawDataSSBO = driver->createDeviceLocalGPUBufferOnDedMem(perDrawData->bytesize());
     
     // TODO: get rid of the `const_cast`s
-    auto drawDirectLayout = const_cast<video::IGPUPipelineLayout*>(gpuDrawDirectPipeline->getLayout());
     auto drawIndirectLayout = const_cast<video::IGPUPipelineLayout*>(gpuDrawIndirectPipeline->getLayout());
     auto cullLayout = const_cast<video::IGPUPipelineLayout*>(gpuCullPipeline->getLayout());
     auto drawDirectDescriptorLayout = const_cast<video::IGPUDescriptorSetLayout*>(drawDirectLayout->getDescriptorSetLayout(1));
@@ -781,9 +788,6 @@ int main2()
 
 
         
-        core::matrix3x4SIMD normalMatrix;
-        camera->getViewMatrix().getSub3x3InverseTranspose(normalMatrix);
-        if (useDrawIndirect)
         {
             CullShaderData_t pc;
             pc.viewProjMatrix = camera->getConcatenatedMatrix();

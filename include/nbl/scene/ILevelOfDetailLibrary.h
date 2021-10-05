@@ -26,17 +26,24 @@ class ILevelOfDetailLibrary : public virtual core::IReferenceCounted
 			}
 		};
 		//
-		struct alignas(16) LoDTableInfo
+		struct NBL_FORCE_EBO alignas(16) LoDInfoAlignBase
 		{
-			float aabbMin[3]; 
-			uint32_t levelCount;
-			float aabbMax[3];
-			uint32_t levelInfoOffsets[1];
-
+		};
+		//
+		struct NBL_FORCE_EBO alignas(16) LodTableInfoAlignBase
+		{
+		};
+		struct NBL_FORCE_EBO LoDTableInfo : LodTableInfoAlignBase
+		{
 			static inline uint32_t getSizeInUvec4(uint32_t levelCount)
 			{
 				return (offsetof(LoDTableInfo,levelInfoOffsets[0])+sizeof(uint32_t)*levelCount-1u)/alignof(LoDTableInfo)+1u;
 			}
+
+			float aabbMin[3]; 
+			uint32_t levelCount;
+			float aabbMax[3];
+			uint32_t levelInfoOffsets[1];
 		};
 		struct alignas(8) DrawcallInfo
 		{
@@ -78,6 +85,33 @@ class ILevelOfDetailLibrary : public virtual core::IReferenceCounted
 				const uint32_t* drawcallCounts = nullptr;
 			};
 			LevelInfoAllocation* levelAllocations;
+
+			// TODO: come up with a better name?
+			inline LodTableInfoAlignBase* transferHelper(uint32_t* const dstUvec4Addresses, LodTableInfoAlignBase* const tableBegin, const core::aabbox3df* tableAABBs) const
+			{
+				auto dstUvec4AddressesIt = dstUvec4Addresses;
+				auto tablePtr = tableBegin;
+				for (auto i=0u; i<count; i++)
+				{
+					const auto uvec4Count = LoDTableInfo::getSizeInUvec4(levelCounts[i]);
+					if (dstUvec4Addresses)
+					for (auto j=0u; j<uvec4Count; j++)
+						*(dstUvec4AddressesIt++) = tableUvec4Offsets[i]+j;
+					if (tableBegin)
+					{
+						LoDTableInfo* table = static_cast<LoDTableInfo*>(tablePtr);
+						if (tableAABBs)
+						{
+							std::copy_n(&tableAABBs[i].MinEdge.X,3u,table->aabbMin);
+							std::copy_n(&tableAABBs[i].MaxEdge.X,3u,table->aabbMax);
+						}
+						table->levelCount = levelCounts[i];
+						std::copy_n(levelAllocations[i].levelUvec4Offsets,table->levelCount,table->levelInfoOffsets);
+					}
+					tablePtr += uvec4Count;
+				}
+				return tablePtr;
+			}
 		};
 		template<typename LoDInfo>
 		inline bool allocateLoDs(Allocation& params)
