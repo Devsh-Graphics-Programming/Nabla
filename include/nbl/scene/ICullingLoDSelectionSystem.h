@@ -57,7 +57,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
             return utils->createFilledDeviceLocalGPUBufferOnDedMem(queue,sizeof(contents),&contents);
 		}
 
-		//
+		// These buffer ranges can be safely discarded or reused after `processInstancesAndFillIndirectDraws` completes
 		struct ScratchBufferRanges
 		{
 			asset::SBufferRange<video::IGPUBuffer> lodDrawCallOffsets;
@@ -101,7 +101,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 			return retval;
 		}
 
-		// Per-View Per-Instance buffer holds at least an MVP matrix
+		// Per-View Per-Instance buffer should hold at least an MVP matrix
 		template<typename PerViewPerInstanceDataType>
 		static core::smart_refctd_ptr<video::IGPUBuffer> createPerViewPerInstanceDataBuffer(video::ILogicalDevice* logicalDevice, const uint32_t maxTotalDrawcallInstances)
 		{
@@ -122,10 +122,14 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
             return logicalDevice->createDeviceLocalGPUBufferOnDedMem(params,sizeof(uint32_t)*2u*maxTotalDrawcallInstances);
 		}
 
+
 		//
-		static inline constexpr auto InputDescriptorBindingCount = 6u;
-		static inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createInputDescriptorSetLayout(video::ILogicalDevice* device)
+		static inline constexpr auto InputDescriptorBindingCount = 8u;
+		static inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createInputDescriptorSetLayout(video::ILogicalDevice* device, bool withMDICounts=false)
 		{
+			withMDICounts &= device->getPhysicalDevice()->getFeatures().multiDrawIndirect;
+			withMDICounts &= device->getPhysicalDevice()->getFeatures().drawIndirectCount;
+
 			video::IGPUDescriptorSetLayout::SBinding bindings[InputDescriptorBindingCount];
 			for (auto i=0u; i<InputDescriptorBindingCount; i++)
 			{
@@ -135,6 +139,10 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 				bindings[i].stageFlags = asset::ISpecializedShader::ESS_COMPUTE;
 				bindings[i].samplers = nullptr;
 			}
+
+			uint32_t count = InputDescriptorBindingCount;
+			if (!withMDICounts)
+				count--;
 			return device->createGPUDescriptorSetLayout(bindings,bindings+InputDescriptorBindingCount);
 		}
 		//
@@ -160,15 +168,19 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 			return device->createGPUDescriptorSetLayout(bindings,bindings+count);
 		}
 
+
 		//
 		static inline core::smart_refctd_ptr<video::IGPUDescriptorSet> createInputDescriptorSet(
 			video::ILogicalDevice* device, video::IDescriptorPool* pool,
 			core::smart_refctd_ptr<const video::IGPUDescriptorSetLayout>&& layout,
 			const asset::SBufferBinding<video::IGPUBuffer>& dispatchIndirect,
 			const asset::SBufferRange<video::IGPUBuffer>& instanceList,
-			const ScratchBufferRanges& scratchBufferRanges
+			const ScratchBufferRanges& scratchBufferRanges,
+			const asset::SBufferRange<video::IGPUBuffer>& drawcallsToScan,
+			const asset::SBufferRange<video::IGPUBuffer>& drawCountsToScan={}
 		)
 		{
+			auto _layout = layout.get();
 			auto ds = device->createGPUDescriptorSet(pool,std::move(layout));
 			{
 				video::IGPUDescriptorSet::SWriteDescriptorSet writes[InputDescriptorBindingCount];
@@ -179,7 +191,9 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 					scratchBufferRanges.lodDrawCallOffsets,
 					scratchBufferRanges.lodDrawCallCounts,
 					scratchBufferRanges.pvsInstanceDraws,
-					scratchBufferRanges.prefixSumScratch
+					scratchBufferRanges.prefixSumScratch,
+					drawcallsToScan,
+					drawCountsToScan
 				};
 				for (auto i=0u; i<InputDescriptorBindingCount; i++)
 				{
@@ -190,7 +204,14 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 					writes[i].descriptorType = asset::EDT_STORAGE_BUFFER;
 					writes[i].info = infos+i;
 				}
-				device->updateDescriptorSets(InputDescriptorBindingCount,writes,0u,nullptr);
+				uint32_t count = InputDescriptorBindingCount;
+				if (_layout->getBindings().size()==InputDescriptorBindingCount)
+				{
+					assert(drawCountsToScan.buffer && drawCountsToScan.size!=0ull);
+				}
+				else
+					count--;
+				device->updateDescriptorSets(count,writes,0u,nullptr);
 			}
 			return ds;
 		}

@@ -155,6 +155,7 @@ void addLoDTable(
                 gpumb->getIndexBufferBinding().offset/indexSize+i,
                 0u,
                 drawcallsToUpload.drawCallData.size() // TODO: undo
+                //0xdeadbeefu // set to garbage to test the prefix sum
             );
             di.drawMaxCount++;
 
@@ -224,6 +225,7 @@ int main()
     using culling_system_t = scene::ICullingLoDSelectionSystem;
     core::smart_refctd_ptr<culling_system_t> cullingSystem;
     culling_system_t::Params cullingParams;
+    core::smart_refctd_ptr<video::IDescriptorPool> cullingDSPool;
     {
         constexpr auto LayoutCount = 4u;
         core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> layouts[LayoutCount] =
@@ -234,7 +236,7 @@ int main()
             [&]() -> core::smart_refctd_ptr<video::IGPUDescriptorSetLayout>
             {
                 // TODO: figure out what should be here
-                constexpr auto BindingCount = 1u;
+                constexpr auto BindingCount = 2u;
                 video::IGPUDescriptorSetLayout::SBinding bindings[BindingCount];
                 for (auto i=0u; i<BindingCount; i++)
                 {
@@ -247,7 +249,7 @@ int main()
                 return logicalDevice->createGPUDescriptorSetLayout(bindings,bindings+BindingCount);
             }()
         };
-        auto pool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE,&layouts->get(),&layouts->get()+LayoutCount);
+        cullingDSPool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE,&layouts->get(),&layouts->get()+LayoutCount);
         
         cullingSystem = core::make_smart_refctd_ptr<culling_system_t>(logicalDevice.get(),core::smart_refctd_ptr(layouts[3]));
 
@@ -267,20 +269,14 @@ int main()
             cullingParams.drawCounts = *drawCountsBlock;
 
         cullingParams.lodLibraryDS = nullptr;
-        cullingParams.transientInputDS = culling_system_t::createInputDescriptorSet(
-            logicalDevice.get(),pool.get(),std::move(layouts[1]),
-            cullingParams.indirectDispatchParams,
-            cullingParams.instanceList,
-            cullingParams.scratchBufferRanges
-        );
         cullingParams.transientOutputDS = culling_system_t::createOutputDescriptorSet(
-            logicalDevice.get(),pool.get(),std::move(layouts[2]),
+            logicalDevice.get(),cullingDSPool.get(),std::move(layouts[2]),
             cullingParams.drawCalls,
             cullingParams.perViewPerInstance,
             cullingParams.perInstanceRedirectAttribs,
             cullingParams.drawCounts
         );
-        cullingParams.customDS = logicalDevice->createGPUDescriptorSet(pool.get(),std::move(layouts[3]));
+        cullingParams.customDS = logicalDevice->createGPUDescriptorSet(cullingDSPool.get(),std::move(layouts[3]));
 
         cullingParams.indirectDispatchParams.buffer->setObjectDebugName("CullingIndirect");
         cullingParams.drawCalls.buffer->setObjectDebugName("DrawCallPool");
@@ -387,7 +383,7 @@ int main()
                 if (!qnc->loadCacheFromFile<asset::EF_A2B10G10R10_SNORM_PACK32>(system.get(), cachePath))
                     logger->log("%s", ILogger::ELL_ERROR, "Failed to load cache.");
 
-                addLoDTable<EGT_SPHERE, 7>(
+                addLoDTable<EGT_SPHERE,7>(
                     assetManager.get(), core::smart_refctd_ptr(cpuPerViewDSLayout), shaders,
                     cpu2gpu, cpu2gpuParams, drawIndirectAllocator.get(), drawcallsToUpload,
                     kiln.getDrawcallMetadataVector(), cullingParams.perInstanceRedirectAttribs, renderpass, perViewDS
@@ -452,6 +448,17 @@ int main()
                 }
                 logicalDevice->blockForFences(1u,&fence.get());
             }
+            //
+            std::for_each(drawcallsToUpload.drawCallOffsets.begin(),drawcallsToUpload.drawCallOffsets.end(),[](uint32_t& off){off*=sizeof(asset::DrawElementsIndirectCommand_t)/sizeof(uint32_t);});
+            cullingParams.transientInputDS = culling_system_t::createInputDescriptorSet(
+                logicalDevice.get(),cullingDSPool.get(),
+                culling_system_t::createInputDescriptorSetLayout(logicalDevice.get()),
+                cullingParams.indirectDispatchParams,
+                cullingParams.instanceList,
+                cullingParams.scratchBufferRanges,
+                {0ull,~0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(queues[decltype(initOutput)::EQT_TRANSFER_UP],drawcallsToUpload.drawCallOffsets.size()*sizeof(uint32_t),drawcallsToUpload.drawCallOffsets.data())},
+                {0ull,~0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(queues[decltype(initOutput)::EQT_TRANSFER_UP],drawcallsToUpload.drawCountOffsets.size()*sizeof(uint32_t),drawcallsToUpload.drawCountOffsets.data())}
+            );
         }
         // prerecord the secondary cmdbuffer
         {
