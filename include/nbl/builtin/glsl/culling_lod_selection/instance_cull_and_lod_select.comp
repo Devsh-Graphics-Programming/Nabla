@@ -4,7 +4,9 @@ layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_) in;
 
 #define NBL_GLSL_CULLING_LOD_SELECTION_INSTANCE_DRAWCALL_OFFSETS_DESCRIPTOR_QUALIFIERS restrict writeonly
 #define NBL_GLSL_CULLING_LOD_SELECTION_INSTANCE_DRAWCALL_EXCLUSIVE_COUNTS_DESCRIPTOR_QUALIFIERS restrict writeonly
-#define NBL_GLSL_CULLING_LOD_SELECTION_PVS_INSTANCE_DRAWCALLS_DESCRIPTOR_BINDING
+#define NBL_GLSL_CULLING_LOD_SELECTION_PVS_INSTANCE_DRAWS_DESCRIPTOR_BINDING
+#define NBL_GLSL_CULLING_LOD_SELECTION_DRAWCALLS_TO_SCAN_DESCRIPTOR_BINDING
+#define NBL_GLSL_CULLING_LOD_SELECTION_DRAW_COUNTS_TO_SCAN_DESCRIPTOR_BINDING
 #include <nbl/builtin/glsl/culling_lod_selection/input_descriptor_set.glsl>
 
 #define NBL_GLSL_CULLING_LOD_SELECTION_DRAW_CALLS_DESCRIPTOR_BINDING
@@ -17,7 +19,7 @@ layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_) in;
 #ifdef NBL_GLSL_CULLING_LOD_SELECTION_INDIRECT_INSTANCE_LIST
 uint nbl_glsl_culling_lod_selection_getInstanceCount()
 {
-    return dispatchIndirect.instanceCount;
+    return instanceList.count;
 }
 #else
 layout(push_constant) uniform PushConstants
@@ -31,11 +33,12 @@ uint nbl_glsl_culling_lod_selection_getInstanceCount()
 }
 #endif
 
-void nbl_glsl_culling_lod_selection_initializePerViewPerInstanceData(out nbl_glsl_PerViewPerInstance_t data, in uint instanceID);
-void nbl_glsl_culling_lod_selection_finalizePerViewPerInstanceData(inout nbl_glsl_PerViewPerInstance_t data, in uint instanceID);
+void nbl_glsl_culling_lod_selection_initializePerViewPerInstanceData(out nbl_glsl_PerViewPerInstance_t data, in uint instanceID) {} // TODO
+void nbl_glsl_culling_lod_selection_finalizePerViewPerInstanceData(inout nbl_glsl_PerViewPerInstance_t data, in uint instanceID) {} // TODO
 
 void main()
 {
+#if 0
     if (gl_GlobalInvocationID.x==0u)
         dispatchIndirect.drawInstanceCountPrefixSum.groups_x = 0u;
     else if (gl_GlobalInvocationID.x==4u)
@@ -66,5 +69,6 @@ void main()
     const uint maxOutIx = nbl_glsl_workgroupAdd(outIx);
     const uint dispatchGroupBound = min(maxOutIx/_NBL_GLSL_WORKGROUP_SIZE_+1u,0x45u);
     if (gl_LocalInvocationIndex==0u)
-        atomicMax(dispatchIndirect.instanceDrawCull.groups_x,); 
+        atomicMax(dispatchIndirect.instanceDrawCull.groups_x,);
+#endif
 }

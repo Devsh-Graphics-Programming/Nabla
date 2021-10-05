@@ -358,7 +358,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 			{
 				setBarrierBuffer(barriers[1],params.drawCalls,rwAccessMask,indirectAccessMask);
 				setBarrierBuffer(barriers[2],params.scratchBufferRanges.prefixSumScratch,rwAccessMask,wAccessMask);
-				cmdbuf->pipelineBarrier(internalStageFlags,internalStageFlags,asset::EDF_NONE,0u,nullptr,3u,barriers,0u,nullptr);
+				cmdbuf->pipelineBarrier(internalStageFlags,internalStageFlags,asset::EDF_NONE,0u,nullptr,2u,barriers+1u,0u,nullptr);
 			}
 
 			cmdbuf->bindComputePipeline(instanceRefCountingSortScatter.get());
@@ -429,8 +429,17 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 				);
 				return device->createGPUSpecializedShader(shader.get(),{nullptr,nullptr,"main",asset::ISpecializedShader::ESS_COMPUTE});
 			};
-			//directInstanceCullAndLoDSelect = device->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(directInstanceCullAndLoDSelectLayout),loadShader());
-			//indirectInstanceCullAndLoDSelect = device->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(indirectInstanceCullAndLoDSelectLayout),loadShader());
+			directInstanceCullAndLoDSelect = device->createGPUComputePipeline(
+				nullptr,core::smart_refctd_ptr(directInstanceCullAndLoDSelectLayout),
+				overrideShader(getShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/culling_lod_selection/instance_cull_and_lod_select.comp")()),extraSource)
+			);
+			indirectInstanceCullAndLoDSelect = device->createGPUComputePipeline(
+				nullptr,core::smart_refctd_ptr(indirectInstanceCullAndLoDSelectLayout),
+				overrideShader(
+					getShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/culling_lod_selection/instance_cull_and_lod_select.comp")()),
+					extraSource+"\n#define NBL_GLSL_CULLING_LOD_SELECTION_INDIRECT_INSTANCE_LIST\n"
+				)
+			);
 			instanceDrawCull = device->createGPUComputePipeline(
 				nullptr,core::smart_refctd_ptr(indirectInstanceCullAndLoDSelectLayout),
 				overrideShader(getShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/culling_lod_selection/instance_draw_cull.comp")()),extraSource)
