@@ -49,10 +49,8 @@ uint nbl_glsl_scan_getPaddedData(
 			}
 			else
 			{
-#				if _NBL_GLSL_SCAN_TYPE_==_NBL_GLSL_SCAN_TYPE_EXCLUSIVE_
 				offset--;
 				if (notFirstInvocationInGroup)
-#				endif
 					data += nbl_glsl_culling_lod_selection_drawCallGetInstanceCount(drawcallsToScan.dwordOffsets[offset]);
 			}
 		}

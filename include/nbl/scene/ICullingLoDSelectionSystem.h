@@ -265,7 +265,6 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 			core::smart_refctd_ptr<video::IGPUDescriptorSet> transientInputDS;
 			core::smart_refctd_ptr<video::IGPUDescriptorSet> transientOutputDS;
 			core::smart_refctd_ptr<video::IGPUDescriptorSet> customDS;
-			uint32_t directInstanceCount; // set as 0u for indirect dispatch
 			// these are for the pipeline barriers
 			asset::SBufferRange<video::IGPUBuffer> instanceList;
 			ScratchBufferRanges scratchBufferRanges;
@@ -273,6 +272,8 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 			asset::SBufferRange<video::IGPUBuffer> perViewPerInstance;
 			asset::SBufferRange<video::IGPUBuffer> perInstanceRedirectAttribs;
 			asset::SBufferRange<video::IGPUBuffer> drawCounts = {};
+			uint32_t drawcallCount;
+			uint32_t directInstanceCount; // set as 0u for indirect dispatch
 		};
 		void processInstancesAndFillIndirectDraws(const Params& params)
 		{
@@ -347,12 +348,11 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 			{
 				video::CScanner::DispatchInfo dispatchInfo;
 				{
-					const auto drawCount = (params.drawCalls.size!=~0u ? params.drawCalls.size:params.drawCalls.buffer->getSize())/sizeof(uint32_t);
 					video::CScanner::DefaultPushConstants pushConstants;
-					m_scanner->buildParameters(drawCount,pushConstants,dispatchInfo);
+					m_scanner->buildParameters(params.drawcallCount,pushConstants,dispatchInfo);
 					cmdbuf->pushConstants(instanceRefCountingSortPipelineLayout.get(),asset::ISpecializedShader::ESS_COMPUTE,0u,sizeof(pushConstants),&pushConstants);
 				}
-				//cmdbuf->dispatch(dispatchInfo.wg_count,1u,1u);
+				cmdbuf->dispatch(dispatchInfo.wg_count,1u,1u);
 			}
 			{
 				setBarrierBuffer(barriers[1],params.drawCalls,rwAccessMask,indirectAccessMask);

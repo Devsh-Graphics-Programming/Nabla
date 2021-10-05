@@ -154,8 +154,7 @@ void addLoDTable(
                 1u, // TODO: undo
                 gpumb->getIndexBufferBinding().offset/indexSize+i,
                 0u,
-                drawcallsToUpload.drawCallData.size() // TODO: undo
-                //0xdeadbeefu // set to garbage to test the prefix sum
+                0xdeadbeefu // set to garbage to test the prefix sum
             );
             di.drawMaxCount++;
 
@@ -410,6 +409,7 @@ int main()
             range.size = pvsContents.size()*sizeof(PotentiallyVisibleInstanceDraw);
             utilities->updateBufferRangeViaStagingBuffer(queues[decltype(initOutput)::EQT_TRANSFER_UP],range,pvsContents.data());
             // do the transfer of drawcall structs
+            cullingParams.drawcallCount = drawcallsToUpload.drawCallOffsets.size();
             {
                 video::CPropertyPoolHandler::TransferRequest requests[2u];
                 for (auto i=0u; i<2u; i++)
@@ -420,7 +420,7 @@ int main()
                 }
                 requests[0].memblock = drawIndirectAllocator->getDrawCommandMemoryBlock();
                 requests[0].elementSize = sizeof(asset::DrawElementsIndirectCommand_t);
-                requests[0].elementCount = drawcallsToUpload.drawCallOffsets.size();
+                requests[0].elementCount = cullingParams.drawcallCount;
                 requests[0].dstAddresses = drawcallsToUpload.drawCallOffsets.data();
                 requests[0].source = drawcallsToUpload.drawCallData.data();
                 auto requestCount = 1u;
@@ -456,7 +456,7 @@ int main()
                 cullingParams.indirectDispatchParams,
                 cullingParams.instanceList,
                 cullingParams.scratchBufferRanges,
-                {0ull,~0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(queues[decltype(initOutput)::EQT_TRANSFER_UP],drawcallsToUpload.drawCallOffsets.size()*sizeof(uint32_t),drawcallsToUpload.drawCallOffsets.data())},
+                {0ull,~0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(queues[decltype(initOutput)::EQT_TRANSFER_UP],cullingParams.drawcallCount*sizeof(uint32_t),drawcallsToUpload.drawCallOffsets.data())},
                 {0ull,~0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(queues[decltype(initOutput)::EQT_TRANSFER_UP],drawcallsToUpload.drawCountOffsets.size()*sizeof(uint32_t),drawcallsToUpload.drawCountOffsets.data())}
             );
         }
