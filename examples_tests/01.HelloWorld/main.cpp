@@ -11,6 +11,9 @@ nothing fancy, just to show that Irrlicht links fine
 #include <cstdio>
 #include <nabla.h>
 
+#include "../common/Camera.hpp"
+#include "../common/CommonAPI.h"
+
 #if defined(_NBL_PLATFORM_WINDOWS_)
 #	include <nbl/system/CColoredStdoutLoggerWin32.h>
 #endif // TODO more platforms
@@ -94,55 +97,86 @@ public:
 	bool m_gotWindowClosedMsg = false;
 };
 
-static core::smart_refctd_ptr<system::ISystem> createSystem()
+class HelloWorldApp : public ApplicationBase
 {
-	core::smart_refctd_ptr<system::ISystemCaller> caller = nullptr;
+	static constexpr uint32_t WIN_W = 800u;
+	static constexpr uint32_t WIN_H = 600u;
+	static constexpr uint32_t MAX_SWAPCHAIN_IMAGE_COUNT = 8u;
+	static constexpr uint32_t FRAMES_IN_FLIGHT = 2u;
+
+public:
+	struct Nabla : IUserData
+	{
+		nbl::core::smart_refctd_ptr<nbl::ui::IWindow> window;
+		core::smart_refctd_ptr<video::ILogicalDevice> device;
+		core::smart_refctd_ptr<video::ISwapchain> swapchain;
+		core::smart_refctd_ptr<video::IGPURenderpass> renderPass;
+		video::IGPUQueue* graphicsQueue;
+		video::IGPUQueue* presentQueue;
+
+		core::smart_refctd_ptr<video::IGPUSemaphore> acquireSemaphores[FRAMES_IN_FLIGHT];
+		core::smart_refctd_ptr<video::IGPUSemaphore> releaseSemaphores[FRAMES_IN_FLIGHT];
+		core::smart_refctd_ptr<video::IGPUFence> frameFences[FRAMES_IN_FLIGHT];
+
+		core::smart_refctd_ptr<DemoEventCallback> eventCallback;
+
+		uint32_t currentFrameIndex = 0u;
+
+		core::smart_refctd_ptr<video::IGPUCommandBuffer> commandBuffers[MAX_SWAPCHAIN_IMAGE_COUNT];
+
+		static core::smart_refctd_ptr<system::ISystem> createSystem()
+		{
+			core::smart_refctd_ptr<system::ISystemCaller> caller = nullptr;
 #ifdef _NBL_PLATFORM_WINDOWS_
-	caller = core::make_smart_refctd_ptr<nbl::system::CSystemCallerWin32>();
+			caller = core::make_smart_refctd_ptr<nbl::system::CSystemCallerWin32>();
 #endif
-	return make_smart_refctd_ptr<system::ISystem>(std::move(caller));
-}
+			return make_smart_refctd_ptr<system::ISystem>(std::move(caller));
+		}
 
-int main()
-{
-	const char* APP_NAME = "01.HelloWorld";
-	constexpr uint32_t WIN_W = 800u;
-	constexpr uint32_t WIN_H = 600u;
-	constexpr uint32_t MAX_SWAPCHAIN_IMAGE_COUNT = 8u;
-	constexpr uint32_t FRAMES_IN_FLIGHT = 2u;
+		void setWindow(core::smart_refctd_ptr<nbl::ui::IWindow>&& wnd) override
+		{
+			window = std::move(wnd);
+		}
+	};
+	APP_CONSTRUCTOR(HelloWorldApp)
 
-	auto system = createSystem();
-	auto logger = core::make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>();
-	auto winManager = core::make_smart_refctd_ptr<nbl::ui::CWindowManagerWin32>();
-	auto eventCallback = core::make_smart_refctd_ptr<DemoEventCallback>();
+	void onAppInitialized_impl(void* data) override
+	{
+		Nabla* engine = static_cast<Nabla*>(data);
+		const char* APP_NAME = "01.HelloWorld";
 
-	nbl::ui::IWindow::SCreationParams params;
-	params.callback = nullptr;
-	params.width = WIN_W;
-	params.height = WIN_H;
-	params.x = 100;
-	params.y = 100;
-	params.system = core::smart_refctd_ptr(system);
-	params.flags = nbl::ui::IWindow::ECF_NONE;
-	params.windowCaption = APP_NAME;
-	params.callback = eventCallback;
-	auto window = winManager->createWindow(std::move(params));
+		auto system = Nabla::createSystem();
+		auto logger = core::make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>();
+		auto winManager = core::make_smart_refctd_ptr<nbl::ui::CWindowManagerWin32>();
+		engine->eventCallback = core::make_smart_refctd_ptr<DemoEventCallback>();
 
-	std::cout <<
-		R"(
+		nbl::ui::IWindow::SCreationParams params;
+		params.callback = nullptr;
+		params.width = WIN_W;
+		params.height = WIN_H;
+		params.x = 100;
+		params.y = 100;
+		params.system = core::smart_refctd_ptr(system);
+		params.flags = nbl::ui::IWindow::ECF_NONE;
+		params.windowCaption = APP_NAME;
+		params.callback = engine->eventCallback;
+		auto window = winManager->createWindow(std::move(params));
+
+		std::cout <<
+			R"(
 Choose Graphics API:
 0) Vulkan
 1) OpenGL
 2) OpenGL ES
 )" << std::endl;
 
-	int apiType;
-	std::cin >> apiType;
+		int apiType;
+		std::cin >> apiType;
 
-	core::smart_refctd_ptr<video::IAPIConnection> api = nullptr;
-	core::smart_refctd_ptr<video::ISurface> surface = nullptr;
-	switch (apiType)
-	{
+		core::smart_refctd_ptr<video::IAPIConnection> api = nullptr;
+		core::smart_refctd_ptr<video::ISurface> surface = nullptr;
+		switch (apiType)
+		{
 		case 0:
 		{
 			api = video::CVulkanConnection::create(core::smart_refctd_ptr(system), 0, APP_NAME, true);
@@ -169,277 +203,278 @@ Choose Graphics API:
 				core::smart_refctd_ptr<video::COpenGLESConnection>(static_cast<video::COpenGLESConnection*>(api.get())),
 				core::smart_refctd_ptr<ui::IWindowWin32>(static_cast<ui::IWindowWin32*>(window.get())));
 		} break;
-	}
-	assert(api);
+		}
+		assert(api);
 
-	auto gpus = api->getPhysicalDevices();
-	assert(!gpus.empty());
-	
-	// Find a suitable gpu
-	uint32_t graphicsFamilyIndex(~0u);
-	uint32_t presentFamilyIndex(~0u);
+		auto gpus = api->getPhysicalDevices();
+		assert(!gpus.empty());
 
-	// Todo(achal): Probably want to put these into some struct
-	uint32_t minSwapchainImageCount(~0u);
-	nbl::video::ISurface::SFormat surfaceFormat;
-	nbl::video::ISurface::E_PRESENT_MODE presentMode;
-	// nbl::video::ISurface::E_SURFACE_TRANSFORM_FLAGS preTransform; // Todo(achal)
-	nbl::asset::E_SHARING_MODE imageSharingMode;
-	VkExtent2D swapchainExtent;
+		// Find a suitable gpu
+		uint32_t graphicsFamilyIndex(~0u);
+		uint32_t presentFamilyIndex(~0u);
 
-	// Todo(achal): Look at this:
-	// https://github.com/Devsh-Graphics-Programming/Nabla/blob/6bd5061abe0a2020142efda827269ea6c07f0f2f/examples_tests/common/CommonAPI.h
+		// Todo(achal): Probably want to put these into some struct
+		uint32_t minSwapchainImageCount(~0u);
+		nbl::video::ISurface::SFormat surfaceFormat;
+		nbl::video::ISurface::E_PRESENT_MODE presentMode;
+		// nbl::video::ISurface::E_SURFACE_TRANSFORM_FLAGS preTransform; // Todo(achal)
+		nbl::asset::E_SHARING_MODE imageSharingMode;
+		VkExtent2D swapchainExtent;
 
-	video::IPhysicalDevice* gpu = nullptr;
-	for (size_t i = 0ull; i < gpus.size(); ++i)
-	{
-		gpu = gpus.begin()[i];
+		// Todo(achal): Look at this:
+		// https://github.com/Devsh-Graphics-Programming/Nabla/blob/6bd5061abe0a2020142efda827269ea6c07f0f2f/examples_tests/common/CommonAPI.h
 
-		bool isGPUSuitable = false;
-
-		// Todo(achal): Abstract out
-		// Find required queue family indices
+		video::IPhysicalDevice* gpu = nullptr;
+		for (size_t i = 0ull; i < gpus.size(); ++i)
 		{
-			const auto& queueFamilyProperties = gpu->getQueueFamilyProperties();
+			gpu = gpus.begin()[i];
 
-			for (uint32_t familyIndex = 0u; familyIndex < queueFamilyProperties.size(); ++familyIndex)
+			bool isGPUSuitable = false;
+
+			// Todo(achal): Abstract out
+			// Find required queue family indices
 			{
-				const auto& familyProperty = queueFamilyProperties.begin() + familyIndex;
+				const auto& queueFamilyProperties = gpu->getQueueFamilyProperties();
 
-				if ((familyProperty->queueFlags & video::IPhysicalDevice::E_QUEUE_FLAGS::EQF_GRAPHICS_BIT).value)
-					graphicsFamilyIndex = familyIndex;
-
-				if (surface->isSupportedForPhysicalDevice(gpu, familyIndex))
-					presentFamilyIndex = familyIndex;
-
-				if ((graphicsFamilyIndex != ~0u) && (presentFamilyIndex != ~0u))
+				for (uint32_t familyIndex = 0u; familyIndex < queueFamilyProperties.size(); ++familyIndex)
 				{
-					isGPUSuitable = true;
-					break;
+					const auto& familyProperty = queueFamilyProperties.begin() + familyIndex;
+
+					if ((familyProperty->queueFlags & video::IPhysicalDevice::E_QUEUE_FLAGS::EQF_GRAPHICS_BIT).value)
+						graphicsFamilyIndex = familyIndex;
+
+					if (surface->isSupportedForPhysicalDevice(gpu, familyIndex))
+						presentFamilyIndex = familyIndex;
+
+					if ((graphicsFamilyIndex != ~0u) && (presentFamilyIndex != ~0u))
+					{
+						isGPUSuitable = true;
+						break;
+					}
 				}
 			}
+
+			// Since our workload is not headless compute, a swapchain is mandatory
+			if (!gpu->isSwapchainSupported())
+				isGPUSuitable = false;
+
+			// Todo(achal): Abstract it out
+			// Check if the surface is adequate
+			{
+				uint32_t surfaceFormatCount;
+				surface->getAvailableFormatsForPhysicalDevice(gpu, surfaceFormatCount, nullptr);
+				std::vector<video::ISurface::SFormat> surfaceFormats(surfaceFormatCount);
+				surface->getAvailableFormatsForPhysicalDevice(gpu, surfaceFormatCount, surfaceFormats.data());
+
+				video::ISurface::E_PRESENT_MODE availablePresentModes =
+					surface->getAvailablePresentModesForPhysicalDevice(gpu);
+
+				video::ISurface::SCapabilities surfaceCapabilities = {};
+				if (!surface->getSurfaceCapabilitiesForPhysicalDevice(gpu, surfaceCapabilities))
+					isGPUSuitable = false;
+
+				printf("Min swapchain image count: %d\n", surfaceCapabilities.minImageCount);
+				printf("Max swapchain image count: %d\n", surfaceCapabilities.maxImageCount);
+
+				if ((surfaceFormats.empty()) || (availablePresentModes == video::ISurface::EPM_UNKNOWN))
+					isGPUSuitable = false;
+
+				// Todo(achal): Probably a more sophisticated way to choose these
+				minSwapchainImageCount = core::min(surfaceCapabilities.minImageCount + 1u, MAX_SWAPCHAIN_IMAGE_COUNT);
+				if ((surfaceCapabilities.maxImageCount != 0u) && (minSwapchainImageCount > surfaceCapabilities.maxImageCount))
+					minSwapchainImageCount = surfaceCapabilities.maxImageCount;
+
+				surfaceFormat = surfaceFormats[0];
+				presentMode = static_cast<video::ISurface::E_PRESENT_MODE>(availablePresentModes & (1 << 0));
+				// preTransform = static_cast<nbl::video::ISurface::E_SURFACE_TRANSFORM_FLAGS>(surfaceCapabilities.currentTransform);
+				swapchainExtent = surfaceCapabilities.currentExtent;
+			}
+
+			if (isGPUSuitable) // find the first suitable GPU
+				break;
 		}
+		assert((graphicsFamilyIndex != ~0u) && (presentFamilyIndex != ~0u));
 
-		// Since our workload is not headless compute, a swapchain is mandatory
-		if (!gpu->isSwapchainSupported())
-			isGPUSuitable = false;
-
-		// Todo(achal): Abstract it out
-		// Check if the surface is adequate
+		video::ILogicalDevice::SCreationParams deviceCreationParams;
+		if (graphicsFamilyIndex == presentFamilyIndex)
 		{
-			uint32_t surfaceFormatCount;
-			surface->getAvailableFormatsForPhysicalDevice(gpu, surfaceFormatCount, nullptr);
-			std::vector<video::ISurface::SFormat> surfaceFormats(surfaceFormatCount);
-			surface->getAvailableFormatsForPhysicalDevice(gpu, surfaceFormatCount, surfaceFormats.data());
-
-			video::ISurface::E_PRESENT_MODE availablePresentModes =
-				surface->getAvailablePresentModesForPhysicalDevice(gpu);
-
-			video::ISurface::SCapabilities surfaceCapabilities = {};
-			if (!surface->getSurfaceCapabilitiesForPhysicalDevice(gpu, surfaceCapabilities))
-				isGPUSuitable = false;
-
-			printf("Min swapchain image count: %d\n", surfaceCapabilities.minImageCount);
-			printf("Max swapchain image count: %d\n", surfaceCapabilities.maxImageCount);
-
-			if ((surfaceFormats.empty()) || (availablePresentModes == video::ISurface::EPM_UNKNOWN))
-				isGPUSuitable = false;
-
-			// Todo(achal): Probably a more sophisticated way to choose these
-			minSwapchainImageCount = core::min(surfaceCapabilities.minImageCount + 1u, MAX_SWAPCHAIN_IMAGE_COUNT);
-			if ((surfaceCapabilities.maxImageCount != 0u) && (minSwapchainImageCount > surfaceCapabilities.maxImageCount))
-				minSwapchainImageCount = surfaceCapabilities.maxImageCount;
-
-			surfaceFormat = surfaceFormats[0];
-			presentMode = static_cast<video::ISurface::E_PRESENT_MODE>(availablePresentModes & (1 << 0));
-			// preTransform = static_cast<nbl::video::ISurface::E_SURFACE_TRANSFORM_FLAGS>(surfaceCapabilities.currentTransform);
-			swapchainExtent = surfaceCapabilities.currentExtent;
+			deviceCreationParams.queueParamsCount = 1u;
+			imageSharingMode = asset::ESM_EXCLUSIVE;
+		}
+		else
+		{
+			deviceCreationParams.queueParamsCount = 2u;
+			imageSharingMode = asset::ESM_CONCURRENT;
 		}
 
-		if (isGPUSuitable) // find the first suitable GPU
-			break;
-	}
-	assert((graphicsFamilyIndex != ~0u) && (presentFamilyIndex != ~0u));
+		std::vector<uint32_t> queueFamilyIndices(deviceCreationParams.queueParamsCount);
+		{
+			const uint32_t temp[] = { graphicsFamilyIndex, presentFamilyIndex };
+			for (uint32_t i = 0u; i < deviceCreationParams.queueParamsCount; ++i)
+				queueFamilyIndices[i] = temp[i];
+		}
 
-	video::ILogicalDevice::SCreationParams deviceCreationParams;
-	if (graphicsFamilyIndex == presentFamilyIndex)
-	{
-		deviceCreationParams.queueParamsCount = 1u;
-		imageSharingMode = asset::ESM_EXCLUSIVE;
-	}
-	else
-	{
-		deviceCreationParams.queueParamsCount = 2u;
-		imageSharingMode = asset::ESM_CONCURRENT;
-	}
-
-	std::vector<uint32_t> queueFamilyIndices(deviceCreationParams.queueParamsCount);
-	{
-		const uint32_t temp[] = { graphicsFamilyIndex, presentFamilyIndex };
+		const float priority = video::IGPUQueue::DEFAULT_QUEUE_PRIORITY;
+		std::vector<video::ILogicalDevice::SQueueCreationParams> queueCreationParams(deviceCreationParams.queueParamsCount);
 		for (uint32_t i = 0u; i < deviceCreationParams.queueParamsCount; ++i)
-			queueFamilyIndices[i] = temp[i];
-	}
-
-	const float priority = video::IGPUQueue::DEFAULT_QUEUE_PRIORITY;
-	std::vector<video::ILogicalDevice::SQueueCreationParams> queueCreationParams(deviceCreationParams.queueParamsCount);
-	for (uint32_t i = 0u; i < deviceCreationParams.queueParamsCount; ++i)
-	{
-		queueCreationParams[i].familyIndex = queueFamilyIndices[i];
-		queueCreationParams[i].count = 1u;
-		queueCreationParams[i].flags = static_cast<video::IGPUQueue::E_CREATE_FLAGS>(0);
-		queueCreationParams[i].priorities = &priority;
-	}
-	deviceCreationParams.queueParams = queueCreationParams.data();
-
-	core::smart_refctd_ptr<video::ILogicalDevice> device = gpu->createLogicalDevice(std::move(deviceCreationParams));
-
-	video::IGPUQueue* graphicsQueue = device->getQueue(graphicsFamilyIndex, 0u);
-	video::IGPUQueue* presentQueue = device->getQueue(presentFamilyIndex, 0u);
-
-	nbl::video::ISwapchain::SCreationParams sc_params = {};
-	sc_params.surface = surface;
-	sc_params.minImageCount = minSwapchainImageCount;
-	sc_params.surfaceFormat = surfaceFormat;
-	sc_params.presentMode = presentMode;
-	sc_params.width = WIN_W;
-	sc_params.height = WIN_H;
-	sc_params.queueFamilyIndexCount = static_cast<uint32_t>(queueFamilyIndices.size());
-	sc_params.queueFamilyIndices = queueFamilyIndices.data();
-	sc_params.imageSharingMode = imageSharingMode;
-	// sc_params.preTransform = preTransform;
-	sc_params.imageUsage = asset::IImage::EUF_COLOR_ATTACHMENT_BIT;
-	sc_params.oldSwapchain = nullptr;
-
-	core::smart_refctd_ptr<video::ISwapchain> swapchain = device->createSwapchain(std::move(sc_params));
-
-	// Create render pass
-	video::IGPURenderpass::SCreationParams::SAttachmentDescription attachmentDescription = {};
-	attachmentDescription.format = surfaceFormat.format; // this should be same as the imageview used for this attachment
-	attachmentDescription.samples = asset::IImage::ESCF_1_BIT;
-	attachmentDescription.loadOp = video::IGPURenderpass::ELO_CLEAR; // when the first subpass begins with this attachment, clear its color and depth components
-	attachmentDescription.storeOp = video::IGPURenderpass::ESO_STORE; // when the last subpass ends with this attachment, store its results
-	attachmentDescription.initialLayout = asset::EIL_UNDEFINED;
-	attachmentDescription.finalLayout = asset::EIL_PRESENT_SRC_KHR;
-
-	video::IGPURenderpass::SCreationParams::SSubpassDescription subpassDescription = {};
-	subpassDescription.flags = video::IGPURenderpass::ESDF_NONE;
-	subpassDescription.pipelineBindPoint = asset::EPBP_GRAPHICS;
-	subpassDescription.inputAttachmentCount = 0u;
-	subpassDescription.inputAttachments = nullptr;
-
-	video::IGPURenderpass::SCreationParams::SSubpassDescription::SAttachmentRef colorAttRef;
-	{
-		colorAttRef.attachment = 0u;
-		colorAttRef.layout = asset::EIL_COLOR_ATTACHMENT_OPTIMAL;
-	}
-	subpassDescription.colorAttachmentCount = 1u;
-	subpassDescription.colorAttachments = &colorAttRef;
-	subpassDescription.resolveAttachments = nullptr;
-	subpassDescription.depthStencilAttachment = nullptr;
-	subpassDescription.preserveAttachmentCount = 0u;
-	subpassDescription.preserveAttachments = nullptr;
-
-	video::IGPURenderpass::SCreationParams renderPassParams;
-	renderPassParams.attachmentCount = 1u;
-	renderPassParams.attachments = &attachmentDescription;
-	renderPassParams.dependencies = nullptr;
-	renderPassParams.dependencyCount = 0u;
-	renderPassParams.subpasses = &subpassDescription;
-	renderPassParams.subpassCount = 1u;
-
-	core::smart_refctd_ptr<video::IGPURenderpass> renderPass = device->createGPURenderpass(renderPassParams);
-
-	const auto swapchainImages = swapchain->getImages();
-	const uint32_t swapchainImageCount = swapchain->getImageCount();
-
-	core::smart_refctd_ptr<video::IGPUFramebuffer> fbos[MAX_SWAPCHAIN_IMAGE_COUNT];
-	for (uint32_t i = 0u; i < swapchainImageCount; ++i)
-	{
-		auto img = swapchainImages.begin()[i];
-		core::smart_refctd_ptr<video::IGPUImageView> imageView;
 		{
-			video::IGPUImageView::SCreationParams viewParams;
-			viewParams.format = img->getCreationParameters().format;
-			viewParams.viewType = asset::IImageView<video::IGPUImage>::ET_2D;
-			viewParams.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
-			viewParams.subresourceRange.baseMipLevel = 0u;
-			viewParams.subresourceRange.levelCount = 1u;
-			viewParams.subresourceRange.baseArrayLayer = 0u;
-			viewParams.subresourceRange.layerCount = 1u;
-			viewParams.image = std::move(img);
+			queueCreationParams[i].familyIndex = queueFamilyIndices[i];
+			queueCreationParams[i].count = 1u;
+			queueCreationParams[i].flags = static_cast<video::IGPUQueue::E_CREATE_FLAGS>(0);
+			queueCreationParams[i].priorities = &priority;
+		}
+		deviceCreationParams.queueParams = queueCreationParams.data();
 
-			imageView = device->createGPUImageView(std::move(viewParams));
-			assert(imageView);
+		engine->device = gpu->createLogicalDevice(std::move(deviceCreationParams));
+
+		engine->graphicsQueue = engine->device->getQueue(graphicsFamilyIndex, 0u);
+		engine->presentQueue = engine->device->getQueue(presentFamilyIndex, 0u);
+
+		nbl::video::ISwapchain::SCreationParams sc_params = {};
+		sc_params.surface = surface;
+		sc_params.minImageCount = minSwapchainImageCount;
+		sc_params.surfaceFormat = surfaceFormat;
+		sc_params.presentMode = presentMode;
+		sc_params.width = WIN_W;
+		sc_params.height = WIN_H;
+		sc_params.queueFamilyIndexCount = static_cast<uint32_t>(queueFamilyIndices.size());
+		sc_params.queueFamilyIndices = queueFamilyIndices.data();
+		sc_params.imageSharingMode = imageSharingMode;
+		// sc_params.preTransform = preTransform;
+		sc_params.imageUsage = asset::IImage::EUF_COLOR_ATTACHMENT_BIT;
+		sc_params.oldSwapchain = nullptr;
+
+		engine->swapchain = engine->device->createSwapchain(std::move(sc_params));
+
+		// Create render pass
+		video::IGPURenderpass::SCreationParams::SAttachmentDescription attachmentDescription = {};
+		attachmentDescription.format = surfaceFormat.format; // this should be same as the imageview used for this attachment
+		attachmentDescription.samples = asset::IImage::ESCF_1_BIT;
+		attachmentDescription.loadOp = video::IGPURenderpass::ELO_CLEAR; // when the first subpass begins with this attachment, clear its color and depth components
+		attachmentDescription.storeOp = video::IGPURenderpass::ESO_STORE; // when the last subpass ends with this attachment, store its results
+		attachmentDescription.initialLayout = asset::EIL_UNDEFINED;
+		attachmentDescription.finalLayout = asset::EIL_PRESENT_SRC_KHR;
+
+		video::IGPURenderpass::SCreationParams::SSubpassDescription subpassDescription = {};
+		subpassDescription.flags = video::IGPURenderpass::ESDF_NONE;
+		subpassDescription.pipelineBindPoint = asset::EPBP_GRAPHICS;
+		subpassDescription.inputAttachmentCount = 0u;
+		subpassDescription.inputAttachments = nullptr;
+
+		video::IGPURenderpass::SCreationParams::SSubpassDescription::SAttachmentRef colorAttRef;
+		{
+			colorAttRef.attachment = 0u;
+			colorAttRef.layout = asset::EIL_COLOR_ATTACHMENT_OPTIMAL;
+		}
+		subpassDescription.colorAttachmentCount = 1u;
+		subpassDescription.colorAttachments = &colorAttRef;
+		subpassDescription.resolveAttachments = nullptr;
+		subpassDescription.depthStencilAttachment = nullptr;
+		subpassDescription.preserveAttachmentCount = 0u;
+		subpassDescription.preserveAttachments = nullptr;
+
+		video::IGPURenderpass::SCreationParams renderPassParams;
+		renderPassParams.attachmentCount = 1u;
+		renderPassParams.attachments = &attachmentDescription;
+		renderPassParams.dependencies = nullptr;
+		renderPassParams.dependencyCount = 0u;
+		renderPassParams.subpasses = &subpassDescription;
+		renderPassParams.subpassCount = 1u;
+
+		engine->renderPass = engine->device->createGPURenderpass(renderPassParams);
+
+		const auto swapchainImages = engine->swapchain->getImages();
+		const uint32_t swapchainImageCount = engine->swapchain->getImageCount();
+
+		core::smart_refctd_ptr<video::IGPUFramebuffer> fbos[MAX_SWAPCHAIN_IMAGE_COUNT];
+		for (uint32_t i = 0u; i < swapchainImageCount; ++i)
+		{
+			auto img = swapchainImages.begin()[i];
+			core::smart_refctd_ptr<video::IGPUImageView> imageView;
+			{
+				video::IGPUImageView::SCreationParams viewParams;
+				viewParams.format = img->getCreationParameters().format;
+				viewParams.viewType = asset::IImageView<video::IGPUImage>::ET_2D;
+				viewParams.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
+				viewParams.subresourceRange.baseMipLevel = 0u;
+				viewParams.subresourceRange.levelCount = 1u;
+				viewParams.subresourceRange.baseArrayLayer = 0u;
+				viewParams.subresourceRange.layerCount = 1u;
+				viewParams.image = std::move(img);
+
+				imageView = engine->device->createGPUImageView(std::move(viewParams));
+				assert(imageView);
+			}
+
+			video::IGPUFramebuffer::SCreationParams fbParams;
+			fbParams.width = WIN_W;
+			fbParams.height = WIN_H;
+			fbParams.layers = 1u;
+			fbParams.renderpass = engine->renderPass;
+			fbParams.flags = static_cast<video::IGPUFramebuffer::E_CREATE_FLAGS>(0);
+			fbParams.attachmentCount = engine->renderPass->getAttachments().size();
+			fbParams.attachments = &imageView;
+
+			fbos[i] = engine->device->createGPUFramebuffer(std::move(fbParams));
 		}
 
-		video::IGPUFramebuffer::SCreationParams fbParams;
-		fbParams.width = WIN_W;
-		fbParams.height = WIN_H;
-		fbParams.layers = 1u;
-		fbParams.renderpass = renderPass;
-		fbParams.flags = static_cast<video::IGPUFramebuffer::E_CREATE_FLAGS>(0);
-		fbParams.attachmentCount = renderPass->getAttachments().size();
-		fbParams.attachments = &imageView;
+		for (uint32_t i = 0u; i < FRAMES_IN_FLIGHT; ++i)
+		{
+			engine->acquireSemaphores[i] = engine->device->createSemaphore();
+			engine->releaseSemaphores[i] = engine->device->createSemaphore();
+			engine->frameFences[i] = engine->device->createFence(video::IGPUFence::E_CREATE_FLAGS::ECF_SIGNALED_BIT);
+		}
 
-		fbos[i] = device->createGPUFramebuffer(std::move(fbParams));
+		core::smart_refctd_ptr<video::IGPUCommandPool> commandPool =
+			engine->device->createCommandPool(graphicsFamilyIndex, video::IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
+
+		engine->device->createCommandBuffers(commandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY,
+			swapchainImageCount, engine->commandBuffers);
+
+		asset::SClearValue clearColor = { 1.f, 0.f, 0.f, 1.f };
+
+		// Record commands in commandBuffers here
+		for (uint32_t i = 0u; i < swapchainImageCount; ++i)
+		{
+			engine->commandBuffers[i]->begin(0u);
+
+			video::IGPUCommandBuffer::SRenderpassBeginInfo beginInfo = {};
+			beginInfo.renderpass = engine->renderPass;
+			beginInfo.framebuffer = fbos[i];
+			beginInfo.renderArea.offset = { 0, 0 };
+			beginInfo.renderArea.extent = swapchainExtent;
+			beginInfo.clearValueCount = 1u;
+			beginInfo.clearValues = &clearColor;
+			engine->commandBuffers[i]->beginRenderPass(&beginInfo, asset::ESC_INLINE);
+
+			// Do nothing
+
+			engine->commandBuffers[i]->endRenderPass();
+			engine->commandBuffers[i]->end();
+		}
 	}
 
-	core::smart_refctd_ptr<video::IGPUSemaphore> acquireSemaphores[FRAMES_IN_FLIGHT];
-	core::smart_refctd_ptr<video::IGPUSemaphore> releaseSemaphores[FRAMES_IN_FLIGHT];
-	core::smart_refctd_ptr<video::IGPUFence> frameFences[FRAMES_IN_FLIGHT];
-
-	for (uint32_t i = 0u; i < FRAMES_IN_FLIGHT; ++i)
+	void onAppTerminated_impl(void* data) override
 	{
-		acquireSemaphores[i] = device->createSemaphore();
-		releaseSemaphores[i] = device->createSemaphore();
-		frameFences[i] = device->createFence(video::IGPUFence::E_CREATE_FLAGS::ECF_SIGNALED_BIT);
+		Nabla* engine = static_cast<Nabla*>(data);
+		engine->device->waitIdle();
 	}
 
-	core::smart_refctd_ptr<video::IGPUCommandPool> commandPool =
-		device->createCommandPool(graphicsFamilyIndex, video::IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
-
-	core::smart_refctd_ptr<video::IGPUCommandBuffer> commandBuffers[MAX_SWAPCHAIN_IMAGE_COUNT];
-	device->createCommandBuffers(commandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY,
-		swapchainImageCount, commandBuffers);
-
-	asset::SClearValue clearColor = { 1.f, 0.f, 0.f, 1.f };
-
-	// Record commands in commandBuffers here
-	for (uint32_t i = 0u; i < swapchainImageCount; ++i)
+	void workLoopBody(void* data) override
 	{
-		commandBuffers[i]->begin(0u);
+		Nabla* engine = static_cast<Nabla*>(data);
 
-		video::IGPUCommandBuffer::SRenderpassBeginInfo beginInfo = {};
-		beginInfo.renderpass = renderPass;
-		beginInfo.framebuffer = fbos[i];
-		beginInfo.renderArea.offset = { 0, 0 };
-		beginInfo.renderArea.extent = swapchainExtent;
-		beginInfo.clearValueCount = 1u;
-		beginInfo.clearValues = &clearColor;
-		commandBuffers[i]->beginRenderPass(&beginInfo, asset::ESC_INLINE);
+		video::IGPUSemaphore* acquireSemaphore = engine->acquireSemaphores[engine->currentFrameIndex].get();
+		video::IGPUSemaphore* releaseSemaphore = engine->releaseSemaphores[engine->currentFrameIndex].get();
+		video::IGPUFence* fence = engine->frameFences[engine->currentFrameIndex].get();
 
-		// Do nothing
-
-		commandBuffers[i]->endRenderPass();
-		commandBuffers[i]->end();
-	}
-
-	video::ISwapchain* rawPointerToSwapchain = swapchain.get();
-
-	uint32_t currentFrameIndex = 0u;
-	while (!eventCallback->m_gotWindowClosedMsg)
-	{
-		video::IGPUSemaphore* acquireSemaphore = acquireSemaphores[currentFrameIndex].get();
-		video::IGPUSemaphore* releaseSemaphore = releaseSemaphores[currentFrameIndex].get();
-		video::IGPUFence* fence = frameFences[currentFrameIndex].get();
-
-		device->waitForFences(1u, &fence, true, ~0ull);
+		engine->device->waitForFences(1u, &fence, true, ~0ull);
 
 		uint32_t imageIndex;
-		swapchain->acquireNextImage(~0ull, acquireSemaphores[currentFrameIndex].get(), nullptr,
+		engine->swapchain->acquireNextImage(~0ull, engine->acquireSemaphores[engine->currentFrameIndex].get(), nullptr,
 			&imageIndex);
 
-		device->resetFences(1u, &fence);
+		engine->device->resetFences(1u, &fence);
 
 		asset::E_PIPELINE_STAGE_FLAGS waitDstStageFlags = asset::E_PIPELINE_STAGE_FLAGS::EPSF_COLOR_ATTACHMENT_OUTPUT_BIT;
 
@@ -450,23 +485,28 @@ Choose Graphics API:
 		submitInfo.signalSemaphoreCount = 1u;
 		submitInfo.pSignalSemaphores = &releaseSemaphore;
 		submitInfo.commandBufferCount = 1u;
-		submitInfo.commandBuffers = &commandBuffers[imageIndex].get();
+		submitInfo.commandBuffers = &engine->commandBuffers[imageIndex].get();
 
-		graphicsQueue->submit(1u, &submitInfo, fence);
+		engine->graphicsQueue->submit(1u, &submitInfo, fence);
 
 		video::IGPUQueue::SPresentInfo presentInfo;
 		presentInfo.waitSemaphoreCount = 1u;
 		presentInfo.waitSemaphores = &releaseSemaphore;
 		presentInfo.swapchainCount = 1u;
+		video::ISwapchain* rawPointerToSwapchain = engine->swapchain.get();
 		presentInfo.swapchains = &rawPointerToSwapchain;
 		presentInfo.imgIndices = &imageIndex;
 
-		presentQueue->present(presentInfo);
+		engine->presentQueue->present(presentInfo);
 
-		currentFrameIndex = (currentFrameIndex + 1) % FRAMES_IN_FLIGHT;
+		engine->currentFrameIndex = (engine->currentFrameIndex + 1) % FRAMES_IN_FLIGHT;
 	}
 
-	device->waitIdle();
-    
-	return 0;
-}
+	bool keepRunning(void* params) override
+	{
+		Nabla* engine = static_cast<Nabla*>(params);
+		return !engine->eventCallback->m_gotWindowClosedMsg;
+	}
+};
+
+NBL_COMMON_API_MAIN(HelloWorldApp, HelloWorldApp::Nabla)
