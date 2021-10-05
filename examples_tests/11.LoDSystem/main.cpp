@@ -250,7 +250,7 @@ int main()
         };
         cullingDSPool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE,&layouts->get(),&layouts->get()+LayoutCount);
         
-        cullingSystem = core::make_smart_refctd_ptr<culling_system_t>(utilities.get(),core::smart_refctd_ptr(layouts[3]));
+        cullingSystem = core::make_smart_refctd_ptr<culling_system_t>(utilities.get(),core::smart_refctd_ptr(layouts[3]),"\n#define nbl_glsl_PerViewPerInstance_t mat4\n");
 
         cullingParams.indirectDispatchParams = {0ull,culling_system_t::createDispatchIndirectBuffer(utilities.get(),queues[decltype(initOutput)::EQT_TRANSFER_UP])};
         // TODO: add the rest of the buffers

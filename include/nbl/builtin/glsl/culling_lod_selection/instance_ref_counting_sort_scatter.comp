@@ -39,6 +39,9 @@ layout(push_constant) uniform PushConstants
 
 void main()
 {
+//    if (gl_GlobalInvocationID.x==0u)
+//        dispatchIndirect.data[] = 0u;
+
     const uint lastScratchDWORDToClear = pc.scanParams.temporaryStorageOffset[0];
     for (uint dword=gl_GlobalInvocationID.x; dword<=lastScratchDWORDToClear; dword+=_NBL_GLSL_WORKGROUP_SIZE_)
         scanScratch.data[dword] = 0u;
