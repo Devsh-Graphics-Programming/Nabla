@@ -520,6 +520,7 @@ class IRenderpassIndependentPipeline : public IPipeline<LayoutType>
 
 		inline const SpecShaderType* getShaderAtStage(IShader::E_SHADER_STAGE _stage) const { return m_shaders[core::findLSB<uint32_t>(_stage)].get(); }
 		inline const SpecShaderType* getShaderAtIndex(uint32_t _ix) const { return m_shaders[_ix].get(); }
+        inline const core::smart_refctd_ptr<SpecShaderType>* getShaders() const { return reinterpret_cast<const core::smart_refctd_ptr<SpecShaderType>*>(m_shaders); }
 
 		inline const SBlendParams& getBlendParams() const { return m_blendParams; }
 		inline const SPrimitiveAssemblyParams& getPrimitiveAssemblyParams() const { return m_primAsmParams; }

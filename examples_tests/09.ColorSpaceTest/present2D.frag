@@ -6,7 +6,8 @@
 
 // vertex shader is provided by the fullScreenTriangle extension
 
-layout(set = 3, binding = 0) uniform sampler2D tex0;
+layout(set = 0, binding = 0) uniform sampler2D tex0;
+// layout(set = 3, binding = 0) uniform sampler2D tex0;
 
 layout(location = 0) in vec2 TexCoord;
 

@@ -1493,63 +1493,9 @@ protected:
         return true;
     }
 
-    core::smart_refctd_ptr<IGPUGraphicsPipeline> createGPUGraphicsPipeline_impl(IGPUPipelineCache* pipelineCache, IGPUGraphicsPipeline::SCreationParams&& params) override
-    {
-        return nullptr;
-    }
+    core::smart_refctd_ptr<IGPUGraphicsPipeline> createGPUGraphicsPipeline_impl(IGPUPipelineCache* pipelineCache, IGPUGraphicsPipeline::SCreationParams&& params);
 
-    bool createGPUGraphicsPipelines_impl(IGPUPipelineCache* pipelineCache,
-        core::SRange<const IGPUGraphicsPipeline::SCreationParams> params,
-        core::smart_refctd_ptr<IGPUGraphicsPipeline>* output) override
-    {
-        constexpr uint32_t MAX_PIPELINE_COUNT = 100u;
-        assert(params.size() <= MAX_PIPELINE_COUNT);
-
-        const IGPUGraphicsPipeline::SCreationParams* creationParams = params.begin();
-
-        // creationParams->renderpassIndependent->
-
-        // core::smart_refctd_ptr<const renderpass_independent_t> renderpassIndependent;
-        // IImage::E_SAMPLE_COUNT_FLAGS rasterizationSamplesHint = IImage::ESCF_1_BIT;
-        // core::smart_refctd_ptr<RenderpassType> renderpass;
-        // uint32_t subpassIx = 0u;
-
-        // for (size_t i = 0ull; i < params.size(); ++i)
-        // {
-        //     if ((creationParams[i].layout->getAPIType() != EAT_VULKAN) ||
-        //         (creationParams[i].shader->getAPIType() != EAT_VULKAN))
-        //     {
-        //         return false;
-        //     }
-        // }
-
-        VkPipelineCache vk_pipelineCache = VK_NULL_HANDLE;
-        if (pipelineCache && pipelineCache->getAPIType() == EAT_VULKAN)
-            vk_pipelineCache = static_cast<const CVulkanPipelineCache*>(pipelineCache)->getInternalObject();
-
-        // VkGraphicsPipelineCreateInfo is a big struct I probably have to move this to heap
-        VkGraphicsPipelineCreateInfo vk_createInfos[MAX_PIPELINE_COUNT];
-        VkPipeline vk_pipelines[MAX_PIPELINE_COUNT];
-
-        if (m_devf.vk.vkCreateGraphicsPipelines(m_vkdev, vk_pipelineCache,
-            static_cast<uint32_t>(params.size()), vk_createInfos, nullptr, vk_pipelines) == VK_SUCCESS)
-        {
-            for (size_t i = 0ull; i < params.size(); ++i)
-            {
-                const auto createInfo = params.begin() + i;
-
-                // output[i] = core::make_smart_refctd_ptr<CVulkanGraphicsPipeline>(
-                //     core::smart_refctd_ptr<CVulkanLogicalDevice>(this),
-                //     core::smart_refctd_ptr(createInfo->layout),
-                //     core::smart_refctd_ptr(createInfo->shader), vk_pipelines[i]);
-            }
-            return true;
-        }
-        else
-        {
-            return false;
-        }
-    }
+    bool createGPUGraphicsPipelines_impl(IGPUPipelineCache* pipelineCache, core::SRange<const IGPUGraphicsPipeline::SCreationParams> params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output) override;
 
 private:
     inline void getVkMappedMemoryRanges(VkMappedMemoryRange* outRanges, const IDriverMemoryAllocation::MappedMemoryRange* inRangeBegin, const IDriverMemoryAllocation::MappedMemoryRange* inRangeEnd)

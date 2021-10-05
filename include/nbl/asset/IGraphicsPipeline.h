@@ -22,6 +22,7 @@ public:
         IImage::E_SAMPLE_COUNT_FLAGS rasterizationSamplesHint = IImage::ESCF_1_BIT;
         core::smart_refctd_ptr<RenderpassType> renderpass;
         uint32_t subpassIx = 0u;
+        core::bitflag<ICPURenderpassIndependentPipeline::E_PIPELINE_CREATION> createFlags;
     };
 
     static bool validate(const SCreationParams& params)

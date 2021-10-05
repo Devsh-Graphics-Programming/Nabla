@@ -78,19 +78,40 @@ public:
 
     virtual bool bindIndexBuffer(const buffer_t* buffer, size_t offset, asset::E_INDEX_TYPE indexType) override
     {
-        return false;
+        if (!buffer || (buffer->getAPIType() != EAT_VULKAN))
+            return false;
+
+        const core::smart_refctd_ptr<const core::IReferenceCounted> tmp[1] = { core::smart_refctd_ptr<const IGPUBuffer>(buffer) };
+        if (!saveReferencesToResources(tmp, tmp + 1))
+            return false;
+
+        assert(indexType < asset::EIT_UNKNOWN);
+
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+
+        vk->vk.vkCmdBindIndexBuffer(
+            m_cmdbuf,
+            static_cast<const CVulkanBuffer*>(buffer)->getInternalObject(),
+            static_cast<VkDeviceSize>(offset),
+            static_cast<VkIndexType>(indexType));
+
+        return true;
     }
 
     bool draw(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex,
         uint32_t firstInstance) override
     {
-        return false;
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdDraw(m_cmdbuf, vertexCount, instanceCount, firstVertex, firstInstance);
+        return true;
     }
 
     bool drawIndexed(uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex,
         int32_t vertexOffset, uint32_t firstInstance) override
     {
-        return false;
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdDrawIndexed(m_cmdbuf, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
+        return true;
     }
 
     bool drawIndirect(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) override
@@ -116,10 +137,25 @@ public:
         return false;
     }
 
-    bool setViewport(uint32_t firstViewport, uint32_t viewportCount,
-        const asset::SViewport* pViewports) override
+    bool setViewport(uint32_t firstViewport, uint32_t viewportCount, const asset::SViewport* pViewports) override
     {
-        return false;
+        constexpr uint32_t MAX_VIEWPORT_COUNT = (1u << 12) / sizeof(VkViewport);
+        assert(viewportCount <= MAX_VIEWPORT_COUNT);
+
+        VkViewport vk_viewports[MAX_VIEWPORT_COUNT];
+        for (uint32_t i = 0u; i < viewportCount; ++i)
+        {
+            vk_viewports[i].x = pViewports[i].x;
+            vk_viewports[i].y = pViewports[i].y;
+            vk_viewports[i].width = pViewports[i].width;
+            vk_viewports[i].height = pViewports[i].height;
+            vk_viewports[i].minDepth = pViewports[i].minDepth;
+            vk_viewports[i].maxDepth = pViewports[i].maxDepth;
+        }
+
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdSetViewport(m_cmdbuf, firstViewport, viewportCount, vk_viewports);
+        return true;
     }
 
     bool setLineWidth(float lineWidth) override
@@ -272,7 +308,28 @@ public:
 
     bool bindVertexBuffers(uint32_t firstBinding, uint32_t bindingCount, const buffer_t* const *const pBuffers, const size_t* pOffsets) override
     {
-        return false;
+        constexpr uint32_t MAX_BUFFER_COUNT = 16u;
+        assert(bindingCount <= MAX_BUFFER_COUNT);
+
+        VkBuffer vk_buffers[MAX_BUFFER_COUNT];
+        VkDeviceSize vk_offsets[MAX_BUFFER_COUNT];
+        core::smart_refctd_ptr<const core::IReferenceCounted> tmp[MAX_BUFFER_COUNT];
+        for (uint32_t i = 0u; i < bindingCount; ++i)
+        {
+            if (!pBuffers[i] || (pBuffers[i]->getAPIType() != EAT_VULKAN))
+                return false;
+
+            vk_buffers[i] = static_cast<const CVulkanBuffer*>(pBuffers[i])->getInternalObject();
+            vk_offsets[i] = static_cast<VkDeviceSize>(pOffsets[i]);
+            tmp[i] = core::smart_refctd_ptr<const IGPUBuffer>(pBuffers[i]);
+        }
+
+        if (!saveReferencesToResources(tmp, tmp + bindingCount))
+            return false;
+
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdBindVertexBuffers(m_cmdbuf, firstBinding, bindingCount, vk_buffers, vk_offsets);
+        return true;
     }
 
     bool setScissor(uint32_t firstScissor, uint32_t scissorCount, const VkRect2D* pScissors) override
@@ -472,7 +529,18 @@ public:
     //those two instead of bindPipeline(E_PIPELINE_BIND_POINT, pipeline)
     bool bindGraphicsPipeline(const graphics_pipeline_t* pipeline) override
     {
-        return false;
+        if (pipeline->getAPIType() != EAT_VULKAN)
+            return false;
+
+        const core::smart_refctd_ptr<const core::IReferenceCounted> tmp[] = { core::smart_refctd_ptr<const graphics_pipeline_t>(pipeline) };
+        if (!saveReferencesToResources(tmp, tmp + 1))
+            return false;
+
+        VkPipeline vk_pipeline = static_cast<const CVulkanGraphicsPipeline*>(pipeline)->getInternalObject();
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdBindPipeline(m_cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, vk_pipeline);
+
+        return true;
     }
 
     bool bindComputePipeline(const compute_pipeline_t* pipeline) override
