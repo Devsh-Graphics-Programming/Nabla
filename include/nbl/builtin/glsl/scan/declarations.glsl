@@ -12,7 +12,7 @@ nbl_glsl_scan_Parameters_t nbl_glsl_scan_getParameters();
 
 
 #ifndef _NBL_GLSL_SCAN_STORAGE_TYPE_
-#error "_NBL_GLSL_SCAN_STORAGE_TYPE needs to be defined to any of uint/int/float"
+#error "_NBL_GLSL_SCAN_STORAGE_TYPE_ needs to be defined to any of uint/int/float"
 #endif
 
 #ifndef nbl_glsl_scan_Storage_t

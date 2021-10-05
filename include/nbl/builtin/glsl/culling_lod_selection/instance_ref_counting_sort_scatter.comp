@@ -6,6 +6,8 @@ layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_) in;
 #define NBL_GLSL_CULLING_LOD_SELECTION_INSTANCE_DRAWCALL_OFFSETS_DESCRIPTOR_BINDING
 #define NBL_GLSL_CULLING_LOD_SELECTION_INSTANCE_DRAWCALL_EXCLUSIVE_COUNTS_DESCRIPTOR_BINDING
 #define NBL_GLSL_CULLING_LOD_SELECTION_PVS_INSTANCE_DRAWS_DESCRIPTOR_QUALIFIERS restrict readonly
+// dont pull the scan scratch descriptor (we'll use our own decl for clearing)
+#define _NBL_GLSL_SCAN_DESCRIPTORS_INCLUDED_
 #include <nbl/builtin/glsl/culling_lod_selection/input_descriptor_set.glsl>
 
 #define NBL_GLSL_CULLING_LOD_SELECTION_DRAW_CALLS_DESCRIPTOR_QUALIFIERS restrict readonly
@@ -25,10 +27,24 @@ uvec2 nbl_glsl_culling_lod_selection_getDrawInstanceAttributes(in uint unsortedD
     return pvsInstanceDraws.data[unsortedDrawInstanceID].zw;
 }
 
+layout(set=_NBL_GLSL_SCAN_DESCRIPTOR_SET_DEFINED_,binding=_NBL_GLSL_SCAN_SCRATCH_BINDING_DEFINED_) restrict writeonly buffer ScanScratchBuffer
+{
+    uint data[];
+} scanScratch;
+#include <nbl/builtin/glsl/scan/parameters_struct.glsl>
+layout(push_constant) uniform PushConstants
+{
+	nbl_glsl_scan_Parameters_t scanParams;
+} pc;
+
 void main()
 {
+    const uint lastScratchDWORDToClear = pc.scanParams.temporaryStorageOffset[0];
+    for (uint dword=gl_GlobalInvocationID.x; dword<=lastScratchDWORDToClear; dword+=_NBL_GLSL_WORKGROUP_SIZE_)
+        scanScratch.data[dword] = 0u;
+
     const uint potentiallyVisibleInstanceCount = pvsInstanceDraws.count;
-    for (uint unsortedDrawInstanceID=gl_GlobalInvocationID.x; unsortedDrawInstanceID<potentiallyVisibleInstanceCount; unsortedDrawInstanceID++)
+    for (uint unsortedDrawInstanceID=gl_GlobalInvocationID.x; unsortedDrawInstanceID<potentiallyVisibleInstanceCount; unsortedDrawInstanceID+=_NBL_GLSL_WORKGROUP_SIZE_)
     {
         const uint instanceIndex = nbl_glsl_culling_lod_selection_getSortedDrawInstanceIndex(unsortedDrawInstanceID);
         perInstanceRedirectAttrs.data[instanceIndex] = nbl_glsl_culling_lod_selection_getDrawInstanceAttributes(unsortedDrawInstanceID);

@@ -2,9 +2,6 @@
 #define _NBL_GLSL_SCAN_DESCRIPTORS_INCLUDED_
 
 
-#include <nbl/builtin/glsl/scan/declarations.glsl>
-
-
 #ifndef _NBL_GLSL_SCAN_DESCRIPTOR_SET_DEFINED_
 #define _NBL_GLSL_SCAN_DESCRIPTOR_SET_DEFINED_ 0
 #endif
@@ -13,6 +10,7 @@
 #ifndef _NBL_GLSL_SCAN_INPUT_BINDING_DEFINED_
 #define _NBL_GLSL_SCAN_INPUT_BINDING_DEFINED_ 0
 #endif
+#include <nbl/builtin/glsl/scan/declarations.glsl>
 layout(set=_NBL_GLSL_SCAN_DESCRIPTOR_SET_DEFINED_, binding=_NBL_GLSL_SCAN_INPUT_BINDING_DEFINED_, std430) restrict buffer ScanBuffer
 {
 	nbl_glsl_scan_Storage_t data[];
@@ -34,6 +32,7 @@ layout(set=_NBL_GLSL_SCAN_DESCRIPTOR_SET_DEFINED_, binding=_NBL_GLSL_SCAN_SCRATC
 
 
 #ifndef _NBL_GLSL_SCAN_GET_PADDED_DATA_DEFINED_
+#include <nbl/builtin/glsl/scan/declarations.glsl>
 nbl_glsl_scan_Storage_t nbl_glsl_scan_getPaddedData(
 	in uint levelInvocationIndex,
 	in uint localWorkgroupIndex,
@@ -87,6 +86,7 @@ nbl_glsl_scan_Storage_t nbl_glsl_scan_getPaddedData(
 #endif
 
 #ifndef _NBL_GLSL_SCAN_SET_DATA_DEFINED_
+#include <nbl/builtin/glsl/scan/declarations.glsl>
 void nbl_glsl_scan_setData(
 	in nbl_glsl_scan_Storage_t data,
 	in uint levelInvocationIndex,

@@ -156,7 +156,19 @@ class CScanner final : public core::IReferenceCounted
 		inline auto getDefaultPipelineLayout() const { return m_pipeline_layout.get(); }
 
 		//
-		IGPUSpecializedShader* getDefaultSpecializedShader(const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op);
+		asset::ICPUShader* getDefaultShader(const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op);
+		//
+		inline IGPUSpecializedShader* getDefaultSpecializedShader(const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op)
+		{
+			if (!m_specialized_shaders[scanType][dataType][op])
+			{
+				auto gpushader = m_device->createGPUShader(core::smart_refctd_ptr<asset::ICPUShader>(getDefaultShader(scanType,dataType,op)));
+				m_specialized_shaders[scanType][dataType][op] = m_device->createGPUSpecializedShader(
+					gpushader.get(),{nullptr,nullptr,"main",asset::ISpecializedShader::ESS_COMPUTE,"nbl/builtin/glsl/scan/default.comp"}
+				);
+			}
+			return m_specialized_shaders[scanType][dataType][op].get();
+		}
 
 		//
 		inline auto getDefaultPipeline(const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op)
@@ -228,6 +240,7 @@ class CScanner final : public core::IReferenceCounted
 		core::smart_refctd_ptr<ILogicalDevice> m_device;
 		core::smart_refctd_ptr<IGPUDescriptorSetLayout> m_ds_layout;
 		core::smart_refctd_ptr<IGPUPipelineLayout> m_pipeline_layout;
+		core::smart_refctd_ptr<asset::ICPUShader> m_shaders[EST_COUNT][EDT_COUNT][EO_COUNT];
 		core::smart_refctd_ptr<IGPUSpecializedShader> m_specialized_shaders[EST_COUNT][EDT_COUNT][EO_COUNT];
 		core::smart_refctd_ptr<IGPUComputePipeline> m_pipelines[EST_COUNT][EDT_COUNT][EO_COUNT];
 		const uint32_t m_wg_size;

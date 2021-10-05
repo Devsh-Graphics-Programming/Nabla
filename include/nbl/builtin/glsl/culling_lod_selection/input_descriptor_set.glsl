@@ -65,8 +65,20 @@ layout(
 } pvsInstanceDraws;
 #endif
 
-// TODO
-//#include <nbl/builtin/glsl/scan/decriptors.glsl>
+// override the scan descriptors a bit
+#ifndef _NBL_GLSL_SCAN_DESCRIPTOR_SET_DEFINED_
+#define _NBL_GLSL_SCAN_DESCRIPTOR_SET_DEFINED_ NBL_GLSL_CULLING_LOD_SELECTION_INPUT_DESCRIPTOR_SET
+#endif
+// we provide our own scan data
+#define _NBL_GLSL_SCAN_INPUT_DESCRIPTOR_DEFINED_
+// rearrange scratch binding a bit
+#ifndef _NBL_GLSL_SCAN_SCRATCH_BINDING_DEFINED_
+#define _NBL_GLSL_SCAN_SCRATCH_BINDING_DEFINED_ 5
+#endif
+// we will define these ourselves, but differently for different scans
+#define _NBL_GLSL_SCAN_GET_PADDED_DATA_DEFINED_
+#define _NBL_GLSL_SCAN_SET_DATA_DEFINED_
+#include <nbl/builtin/glsl/scan/descriptors.glsl>
 
 #ifndef NBL_GLSL_CULLING_LOD_SELECTION_DRAWCALLS_TO_SCAN_DESCRIPTOR_BINDING
 #define NBL_GLSL_CULLING_LOD_SELECTION_DRAWCALLS_TO_SCAN_DESCRIPTOR_BINDING 6
@@ -75,10 +87,11 @@ layout(
     binding = NBL_GLSL_CULLING_LOD_SELECTION_DRAWCALLS_TO_SCAN_DESCRIPTOR_BINDING
 ) restrict readonly buffer DrawcallsToScan
 {
-    uint data[];
+    uint dwordOffsets[];
 } drawcallsToScan;
 #endif
 
+// TODO: do we even need this?
 #ifndef NBL_GLSL_CULLING_LOD_SELECTION_DRAW_COUNTS_TO_SCAN_DESCRIPTOR_BINDING
 #define NBL_GLSL_CULLING_LOD_SELECTION_DRAW_COUNTS_TO_SCAN_DESCRIPTOR_BINDING 7
 layout(

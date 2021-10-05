@@ -20,6 +20,11 @@ uint nbl_glsl_culling_lod_selection_drawCallGetDWORD(in uint DWORDOffset)
 {
     return drawCalls.data[DWORDOffset];
 }
+
+uint nbl_glsl_culling_lod_selection_drawCallGetInstanceCount(in uint drawCallDWORDOffset)
+{
+    return nbl_glsl_culling_lod_selection_drawCallGetDWORD(drawCallDWORDOffset+1u);
+}
 uint nbl_glsl_culling_lod_selection_drawArraysGetBaseInstance(in uint drawCallDWORDOffset)
 {
     return nbl_glsl_culling_lod_selection_drawCallGetDWORD(drawCallDWORDOffset+3u);
