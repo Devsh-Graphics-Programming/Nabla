@@ -4,6 +4,7 @@
 
 #define _NBL_STATIC_LIB_
 #include <nabla.h>
+#include "nbl/scene/CLevelOfDetailLibrary.h"
 #include "nbl/scene/ICullingLoDSelectionSystem.h"
 
 #include "../common/Camera.hpp"
@@ -37,12 +38,18 @@ void addLoDTable(
     nbl::video::IGPUObjectFromAssetConverter::SParams& cpu2gpuParams,
     video::CDrawIndirectAllocator<>* drawIndirectAllocator,
     DrawcallsToUpload& drawcallsToUpload,
+    scene::ILevelOfDetailLibrary::Allocation& lodTables,
     core::vector<video::CSubpassKiln::DrawcallInfo>& drawcallInfos,
     const SBufferRange<video::IGPUBuffer>& perInstanceRedirectAttribs,
     const core::smart_refctd_ptr<video::IGPURenderpass>& renderpass,
     const core::smart_refctd_ptr<video::IGPUDescriptorSet>& perViewDS
 )
 {
+    lodTables.tableUvec4Offsets[lodTables.count] = scene::ILevelOfDetailLibrary::invalid;
+    const_cast<uint32_t*>(lodTables.levelCounts)[lodTables.count] = LoDLevels;
+    lodTables.levelAllocations[lodTables.count].levelUvec4Offsets = new uint32_t[LoDLevels];
+    lodTables.levelAllocations[lodTables.count].drawcallCounts = new uint32_t[LoDLevels];
+
     constexpr auto perInstanceRedirectAttrID = 15u;
     auto* const geometryCreator = assetManager->getGeometryCreator();
     auto* const meshManipulator = assetManager->getMeshManipulator();
@@ -51,6 +58,8 @@ void addLoDTable(
     core::smart_refctd_ptr<ICPUMeshBuffer> cpumeshes[LoDLevels];
     for (uint32_t poly=4u,lod=0u; lod<LoDLevels; lod++)
     {
+        lodTables.levelAllocations[lodTables.count].levelUvec4Offsets[lod] = scene::ILevelOfDetailLibrary::invalid;
+
         IGeometryCreator::return_type geomData;
         switch (geom)
         {
@@ -109,8 +118,10 @@ void addLoDTable(
 
     auto drawcallInfosOutIx = drawcallInfos.size();
     drawcallInfos.resize(drawcallInfos.size()+gpumeshes->size());
-    for (auto gpumb : *gpumeshes)
+    for (auto lod=0u; lod<gpumeshes->size(); lod++)
     {
+        auto gpumb = gpumeshes->operator[](lod);
+
         auto& di = drawcallInfos[drawcallInfosOutIx++];
         memcpy(di.pushConstantData,gpumb->getPushConstantsDataPtr(),video::IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE);
         di.pipeline = pipeline;
@@ -168,7 +179,10 @@ void addLoDTable(
         di.drawCountOffset *= sizeof(uint32_t);
         for (auto i=0u; i<di.drawMaxCount; i++)
             drawcallsToUpload.drawCallOffsets.emplace_back(di.drawCallOffset/di.drawCommandStride+i);
+
+        const_cast<uint32_t*>(lodTables.levelAllocations[lodTables.count].drawcallCounts)[lod] = di.drawMaxCount;
     }
+    lodTables.count++;
     cpu2gpuParams.waitForCreationToComplete();
 }
 
@@ -202,12 +216,20 @@ int main()
     auto utilities = std::move(initOutput.utilities);
 
 
-    //
+    // lod table entries
+    constexpr auto MaxDrawables = 5u;
+    // all the lod infos from all lod entries
+    constexpr auto MaxTotalLoDs = 8u*MaxDrawables;
+    // how many contiguous ranges of drawcalls with explicit draw counts
     constexpr auto MaxMDIs = 16u;
+    // how many drawcalls (meshlets)
     constexpr auto MaxDrawCalls = 2048u;
+    // how many instances
     constexpr auto MaxInstanceCount = 8u;
+    // maximum visible instances of a drawcalll
     constexpr auto MaxTotalDrawcallInstances = 2048u;
     
+    // Drawcall Allocator
     core::smart_refctd_ptr<video::CDrawIndirectAllocator<>> drawIndirectAllocator;
     {
         video::IDrawIndirectAllocator::ImplicitBufferCreationParameters drawAllocatorParams;
@@ -218,9 +240,15 @@ int main()
         drawIndirectAllocator = video::CDrawIndirectAllocator<>::create(std::move(drawAllocatorParams));
     }
 
-    using lod_library_t = scene::ILevelOfDetailLibrary;
-    //auto lodLibrary = lod_library_t::create();
+    // LoD Library
+    using lod_library_t = scene::CLevelOfDetailLibrary<>;
+    auto lodLibrary = lod_library_t::create({logicalDevice.get(),MaxDrawables,MaxTotalLoDs,MaxDrawCalls});
+    {
+        lodLibrary->getLodTableInfoBinding().buffer->setObjectDebugName("LoD Table");
+        lodLibrary->getLoDInfoBinding().buffer->setObjectDebugName("LoD Infos");
+    }
 
+    // Culling System
     using culling_system_t = scene::ICullingLoDSelectionSystem;
     core::smart_refctd_ptr<culling_system_t> cullingSystem;
     culling_system_t::Params cullingParams;
@@ -267,7 +295,7 @@ int main()
         if (drawCountsBlock)
             cullingParams.drawCounts = *drawCountsBlock;
 
-        cullingParams.lodLibraryDS = nullptr;
+        cullingParams.lodLibraryDS = core::smart_refctd_ptr<video::IGPUDescriptorSet>(lodLibrary->getDescriptorSet());
         cullingParams.transientOutputDS = culling_system_t::createOutputDescriptorSet(
             logicalDevice.get(),cullingDSPool.get(),std::move(layouts[2]),
             cullingParams.drawCalls,
@@ -368,7 +396,20 @@ int main()
         uint32_t perViewPerInstanceID;
     };
     core::vector<PotentiallyVisibleInstanceDraw> pvsContents(1u);
+    
+    //
+    lod_library_t::Allocation lodTables = {};
+    uint32_t lodTableOffsets[MaxDrawables] = {0u};
+    uint32_t lodLevelCounts[MaxDrawables] = {0u};
+    lod_library_t::Allocation::LevelInfoAllocation lodLevelAllocations[MaxDrawables] = {};
+    {
+        lodTables.count = 0u;
+        lodTables.tableUvec4Offsets = lodTableOffsets;
+        lodTables.levelCounts = lodLevelCounts;
+        lodTables.levelAllocations = lodLevelAllocations;
+    }
 
+    //
     core::smart_refctd_ptr<video::IGPUCommandBuffer> bakedCommandBuffer;
     {
         video::CSubpassKiln kiln;
@@ -383,14 +424,17 @@ int main()
                     logger->log("%s", ILogger::ELL_ERROR, "Failed to load cache.");
 
                 addLoDTable<EGT_SPHERE,7>(
-                    assetManager.get(), core::smart_refctd_ptr(cpuPerViewDSLayout), shaders,
-                    cpu2gpu, cpu2gpuParams, drawIndirectAllocator.get(), drawcallsToUpload,
-                    kiln.getDrawcallMetadataVector(), cullingParams.perInstanceRedirectAttribs, renderpass, perViewDS
+                    assetManager.get(),core::smart_refctd_ptr(cpuPerViewDSLayout),shaders,
+                    cpu2gpu,cpu2gpuParams,drawIndirectAllocator.get(),drawcallsToUpload,
+                    lodTables,
+                    kiln.getDrawcallMetadataVector(),cullingParams.perInstanceRedirectAttribs,renderpass,perViewDS
                 );
 
                 //! cache results -- speeds up mesh generation on second run
                 qnc->saveCacheToFile<asset::EF_A2B10G10R10_SNORM_PACK32>(system.get(), cachePath);
             }
+            const bool success = lodLibrary->allocateLoDs(lodTables);
+            assert(success);
             for (auto i=0u; i<kiln.getDrawcallMetadataVector().size(); i++)
             {
                 const auto& info = kiln.getDrawcallMetadataVector()[i];
@@ -581,6 +625,17 @@ int main()
         CommonAPI::Submit(logicalDevice.get(), swapchain.get(), commandBuffer.get(), queues[decltype(initOutput)::EQT_GRAPHICS], imageAcquire[resourceIx].get(), renderFinished[resourceIx].get(), fence.get());
         CommonAPI::Present(logicalDevice.get(), swapchain.get(), queues[decltype(initOutput)::EQT_GRAPHICS], renderFinished[resourceIx].get(), acquiredNextFBO);
     }
+
+    lodLibrary->freeLoDs(lodTables);
+    for (auto i=0u; i<lodTables.count; i++)
+    {
+        const auto& levelAlloc = lodTables.levelAllocations[i];
+        if (levelAlloc.levelUvec4Offsets)
+            delete[] levelAlloc.levelUvec4Offsets;
+        if (levelAlloc.drawcallCounts)
+            delete[] levelAlloc.drawcallCounts;
+    }
+    drawIndirectAllocator->clear();
 
     const auto& fboCreationParams = fbos[acquiredNextFBO]->getCreationParameters();
     auto gpuSourceImageView = fboCreationParams.attachments[0];
