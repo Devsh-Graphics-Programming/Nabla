@@ -325,6 +325,7 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
 
             IAssetLoader::SAssetLoadParams params(_params);
             bool not_exist = !std::filesystem::exists(filePath);
+
             /*if (not_exist && !m_system->isArchiveAlias(_params.workingDirectory))
             {
                 filePath = _filePath;

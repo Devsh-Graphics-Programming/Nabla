@@ -2,7 +2,7 @@
 #define __NBL_C_SURFACE_VULKAN_H_INCLUDED__
 
 #include "nbl/video/surface/ISurface.h"
-
+#include "nbl/ui/IWindowAndroid.h"
 namespace nbl::video
 {
 
@@ -42,8 +42,13 @@ public:
     VkSurfaceKHR m_vkSurfaceKHR = VK_NULL_HANDLE;
 };
 
+#ifdef _NBL_PLATFORM_WINDOWS_
 using CSurfaceVulkanWin32 = CSurfaceVulkan<ui::IWindowWin32>;
-
+#elif defined _NBL_PLATFORM_LINUX_
+using CSurfaceVulkanX11 = CSurfaceVulkan<ui::IWindowX11>;
+#elif defined _NBL_PLATFORM_ANDROID_
+using CSurfaceVulkanAndroid = CSurfaceVulkan<ui::IWindowAndroid>;
+#endif
 }
 
 #endif

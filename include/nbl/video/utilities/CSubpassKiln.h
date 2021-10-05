@@ -182,13 +182,13 @@ class CSubpassKiln
             assert(cmdbuf&&renderpass&&subpassIndex<renderpass->getSubpasses().size()&&drawIndirectBuffer);
             if (m_needsSorting!=draw_call_order_t::typeID)
             {
-                std::sort(m_drawCallMetadataStorage.begin(),m_drawCallMetadataStorage.end(),draw_call_order_t::less());
+                std::sort(m_drawCallMetadataStorage.begin(),m_drawCallMetadataStorage.end(), typename draw_call_order_t::less());
                 m_needsSorting = draw_call_order_t::typeID;
             }
 
             const SearchObject searchObj = {renderpass,subpassIndex};
-            const auto begin = std::lower_bound(m_drawCallMetadataStorage.begin(),m_drawCallMetadataStorage.end(),searchObj,draw_call_order_t::renderpass_subpass_comp());
-            const auto end = std::upper_bound(m_drawCallMetadataStorage.begin(),m_drawCallMetadataStorage.end(),searchObj,draw_call_order_t::renderpass_subpass_comp());
+            const auto begin = std::lower_bound(m_drawCallMetadataStorage.begin(),m_drawCallMetadataStorage.end(),searchObj, typename draw_call_order_t::renderpass_subpass_comp());
+            const auto end = std::upper_bound(m_drawCallMetadataStorage.begin(),m_drawCallMetadataStorage.end(),searchObj, typename draw_call_order_t::renderpass_subpass_comp());
             if (begin==end)
                 return;
 

@@ -15,6 +15,7 @@ core::smart_refctd_ptr<CSurfaceVulkan<Window>> CSurfaceVulkan<Window>::create(
     if (!api || !window)
         return nullptr;
 
+#ifdef _NBL_PLATFORM_WINDOWS_    
     // This needs to know what ui::IWindowWin32 is! Won't work on other platforms!
     if constexpr (std::is_same_v<Window, ui::IWindowWin32>)
     {
@@ -35,6 +36,11 @@ core::smart_refctd_ptr<CSurfaceVulkan<Window>> CSurfaceVulkan<Window>::create(
             return nullptr;
         }
     }
+#else
+return nullptr;
+#endif    
+
+    
 }
 
 template <typename Window>
@@ -174,6 +180,7 @@ bool CSurfaceVulkan<Window>::getSurfaceCapabilitiesForPhysicalDevice(const IPhys
     return true;
 }
 
+#ifdef _NBL_PLATFORM_WINDOWS_
 template class CSurfaceVulkan<ui::IWindowWin32>;
-
+#endif
 }

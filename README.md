@@ -210,9 +210,11 @@ After dealing with *CUDA* installing just install *Optix SKD*.
 
 The first step is to install Android Studio and Java 8. When done, extract NDK r22b into *Android SDK root directory* usually located at `C:/Users/<your_user>/AppData/Local/AndroidSdk`. If you however can't find it, open Android Studio and go to **File** and **Project Structure** that will show you where your Android SDKs are installed.
 
-Now you can begin CMake generating. On Android Build there is an extra optional Ninja generator available. Before configuring you need to specify toolchain file for cross-compiling by passing path to `android.toolchain.cmake`. You can find it in NDK directory in `build/cmake/android.toolchain.cmake` and according to example of Android SDK root directory path it should look entirely like `C:/Users/<your_user>/AppData/Local/AndroidSdk/android-ndk-r22b/build/cmake/android.toolchain.cmake`.
+Now you can begin CMake generating. On Android Build there is an extra optional Ninja generator available. *Important note is that Nabla Android Build has been performed and tested so far on Windows as cross compile OS with **ninja** generator and on Linux as cross compile OS with **makefile** and **ninja** generators.* Before configuring you need to specify toolchain file for cross-compiling by passing path to `android.toolchain.cmake`. You can find it in NDK directory in `build/cmake/android.toolchain.cmake` and according to example of Android SDK root directory path it should look entirely like `C:/Users/<your_user>/AppData/Local/AndroidSdk/android-ndk-r22b/build/cmake/android.toolchain.cmake`.
 
 Having Nabla generated you need to enter build directory, launch the terminal and type `cmake --build . --target Nabla -j4 -v` or if you want build android sample example you would type `cmake --build . --target android_sample_apk -j4 -v`. The android sample example produces *.apk* file you can use for debugging and profiling.
+
+**Note:** each example provided by the engine builds as an executable with non-cross builds and with target of a name called *"a_target"*, in following example above it would be *"android_sample"*. When building cross-compile for android **to produce the APK file you need to add *"_apk"* postfix to the "*a_target"***, because "*a_target*" gets built then as a library.
 
 #### Chrome Book upload
 
