@@ -5,6 +5,8 @@
 #ifndef _BRDF_SPECULAR_FRESNEL_FRESNEL_INCLUDED_
 #define _BRDF_SPECULAR_FRESNEL_FRESNEL_INCLUDED_
 
+#include "nbl/builtin/glsl/math/functions.glsl"
+
 // only works for implied IoR==1.333....
 vec3 nbl_glsl_fresnel_schlick(in vec3 F0, in float VdotH)
 {

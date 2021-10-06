@@ -30,7 +30,7 @@ struct alignas(16) uvec4 {
 class FFT final : public core::IReferenceCounted
 {
 	public:
-		struct Parameters_t alignas(16) : nbl_glsl_ext_FFT_Parameters_t
+		struct alignas(16) Parameters_t : nbl_glsl_ext_FFT_Parameters_t
 		{
 			inline uint getLog2FFTSize()
 			{
