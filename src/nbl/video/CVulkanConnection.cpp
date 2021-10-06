@@ -153,7 +153,7 @@ namespace nbl::video
                 continue;
         }
 
-        const size_t totalFeatureCount = logger ? selectedFeatureSet.size() + 1ull : selectedFeatureSet.size();
+        const size_t totalFeatureCount = selectedFeatureSet.size() + 1ull;
         core::vector<const char*> selectedFeatures(totalFeatureCount);
         uint32_t k = 0u;
         for (const auto& feature : selectedFeatureSet)
