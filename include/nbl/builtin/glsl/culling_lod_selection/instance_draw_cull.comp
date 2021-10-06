@@ -7,7 +7,7 @@ layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_) in;
 
 #define NBL_GLSL_CULLING_LOD_SELECTION_INSTANCE_LIST_DESCRIPTOR_BINDING
 #define NBL_GLSL_CULLING_LOD_SELECTION_INSTANCE_LOD_INFO_UVEC4_OFFSETS_DESCRIPTOR_QUALIFIERS restrict readonly
-#define NBL_GLSL_CULLING_LOD_SELECTION_INSTANCE_DRAWCALL_EXCLUSIVE_COUNTS_DESCRIPTOR_QUALIFIERS restrict readonly
+#define NBL_GLSL_CULLING_LOD_SELECTION_INSTANCE_DRAWCALL_INCLUSIVE_COUNTS_DESCRIPTOR_QUALIFIERS restrict readonly
 #define NBL_GLSL_CULLING_LOD_SELECTION_PVS_INSTANCE_DRAWS_DESCRIPTOR_QUALIFIERS restrict
 #define NBL_GLSL_CULLING_LOD_SELECTION_DRAWCALLS_TO_SCAN_DESCRIPTOR_BINDING
 #define NBL_GLSL_CULLING_LOD_SELECTION_DRAW_COUNTS_TO_SCAN_DESCRIPTOR_BINDING
@@ -22,21 +22,23 @@ layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_) in;
 
 void main()
 {
-    const uint totalInstanceCount = lodDrawcallExclusiveCounts.count;
-    const uint drawInstanceCount = lodDrawcallExclusiveCounts.data[totalInstanceCount-1u];
+    const uint totalInstanceCount = lodDrawcallInclusiveCounts.count;
+    const uint drawInstanceCount = lodDrawcallInclusiveCounts.data[totalInstanceCount-1u];
     for (uint drawInstanceIndex=gl_GlobalInvocationID.x; drawInstanceIndex<drawInstanceCount; drawInstanceIndex+=_NBL_GLSL_WORKGROUP_SIZE_)
     {
-        uint pvInstanceID = 1u;
+        uint pvInstanceID = 0u;
         for (; pvInstanceID<totalInstanceCount; pvInstanceID++)
-        if (lodDrawcallExclusiveCounts.data[pvInstanceID]>drawInstanceIndex)
+        if (lodDrawcallInclusiveCounts.data[pvInstanceID]>drawInstanceIndex)
             break;
-        pvInstanceID--;
-        // TODO: upper_bound in lodDrawcallExclusiveCounts.data
-        //const uint pvInstanceID = upper_bound(drawInstanceIndex)-1u;
+        // TODO: upper_bound in lodDrawcallInclusiveCounts.data
+        //const uint pvInstanceID = upper_bound(drawInstanceIndex);
+        uint drawInstanceID = drawInstanceIndex;
+        if (bool(pvInstanceID))
+            drawInstanceID -= lodDrawcallInclusiveCounts.data[pvInstanceID-1u];
         const uint drawcallDWORDOffsetAndFlag = nbl_glsl_lod_library_getDrawCallDWORDOffset(
             lodInfoUvec4Offsets.data[pvInstanceID],
             NBL_GLSL_CULLING_LOD_SELECTION_LOD_INFO_DRAWCALL_LIST_OFFSET,
-            drawInstanceIndex-lodDrawcallExclusiveCounts.data[pvInstanceID]
+            drawInstanceID
         );
         // get AABB
         //const nbl_glsl_AABB_t aabb = ;

@@ -18,6 +18,9 @@ using namespace asset;
 
 using lod_library_t = scene::CLevelOfDetailLibrary<>;
 
+// TODO: kill this
+core::vector<uint32_t> lodInfoUvec4Offsets = {};
+
 struct LoDLibraryData
 {
     core::vector<uint32_t> drawCallOffsetsIn20ByteStrides;
@@ -220,6 +223,7 @@ void addLoDTable(
         {
             const auto drawcallCount = lodLevelAllocations[0].drawcallCounts[lod];
             const auto offset = lodLevelAllocations[0].levelUvec4Offsets[lod];
+            lodInfoUvec4Offsets.push_back(offset); // TODO: kill this
             for (auto i=0u; i<lod_library_t::LoDInfo::getSizeInUvec4(drawcallCount); i++)
                 lodLibraryData.lodInfoDstUvec4s.push_back(offset+i);
         }
@@ -423,16 +427,6 @@ int main()
         }
     }
 
-    //TODO: delete this
-    struct PotentiallyVisibleInstanceDraw
-    {
-        uint32_t drawBaseInstanceDWORDOffset;
-        uint32_t instanceID;
-        uint32_t instanceGUID;
-        uint32_t perViewPerInstanceID;
-    };
-    core::vector<PotentiallyVisibleInstanceDraw> pvsContents(1u);
-
     std::random_device rd;
     std::mt19937 randGen(rd());
     //
@@ -526,6 +520,28 @@ int main()
             }
 
             // TODO: kill this
+            core::vector<uint32_t> lodDrawCallCounts(1u,7u);
+            for (auto i=0u; i<lodDrawCallCounts[0]; i++)
+            {
+                const auto& info = kiln.getDrawcallMetadataVector()[i];
+                lodDrawCallCounts.push_back(info.drawMaxCount);
+            }
+            std::inclusive_scan(lodDrawCallCounts.begin()+1u,lodDrawCallCounts.end(),lodDrawCallCounts.begin()+1u);
+            auto range = cullingParams.scratchBufferRanges.lodDrawCallCounts;
+            range.size = lodDrawCallCounts.size()*sizeof(uint32_t);
+            utilities->updateBufferRangeViaStagingBuffer(queues[decltype(initOutput)::EQT_TRANSFER_UP],range,lodDrawCallCounts.data());
+            range = cullingParams.scratchBufferRanges.lodInfoUvec4Offsets;
+            range.size = lodInfoUvec4Offsets.size()*sizeof(uint32_t);
+            utilities->updateBufferRangeViaStagingBuffer(queues[decltype(initOutput)::EQT_TRANSFER_UP],range,lodInfoUvec4Offsets.data());
+            // TODO: this first
+            struct PotentiallyVisibleInstanceDraw
+            {
+                uint32_t drawBaseInstanceDWORDOffset;
+                uint32_t instanceID;
+                uint32_t instanceGUID;
+                uint32_t perViewPerInstanceID;
+            };
+            core::vector<PotentiallyVisibleInstanceDraw> pvsContents(1u);
             for (auto i=0u; i<kiln.getDrawcallMetadataVector().size(); i++)
             {
                 const auto& info = kiln.getDrawcallMetadataVector()[i];
@@ -541,7 +557,7 @@ int main()
             }
             pvsContents[0].drawBaseInstanceDWORDOffset = pvsContents.size()-1u;
             std::shuffle(pvsContents.begin()+1u,pvsContents.end(),randGen);
-            auto range = cullingParams.scratchBufferRanges.pvsInstanceDraws;
+            range = cullingParams.scratchBufferRanges.pvsInstanceDraws;
             range.size = pvsContents.size()*sizeof(PotentiallyVisibleInstanceDraw);
             utilities->updateBufferRangeViaStagingBuffer(queues[decltype(initOutput)::EQT_TRANSFER_UP],range,pvsContents.data());
         }
