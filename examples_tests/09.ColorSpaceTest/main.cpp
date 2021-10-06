@@ -46,8 +46,8 @@ int main()
 
 	CommonAPI::SFeatureRequest< video::ILogicalDevice::E_FEATURE> optionalDeviceFeatures = {};
 
-	const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_STORAGE_BIT);
-	const video::ISurface::SFormat surfaceFormat(asset::EF_R8G8B8A8_SRGB, asset::ECP_COUNT, asset::EOTF_UNKNOWN);
+	const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT);
+	const video::ISurface::SFormat surfaceFormat(asset::EF_B8G8R8A8_SRGB, asset::ECP_COUNT, asset::EOTF_UNKNOWN);
 
     auto initOutput = CommonAPI::Init<WINDOW_WIDTH, WINDOW_HEIGHT, SC_IMG_COUNT>(
 		video::EAT_VULKAN,
@@ -367,8 +367,6 @@ int main()
 
 		auto startPoint = std::chrono::high_resolution_clock::now();
 
-		constexpr uint64_t MAX_TIMEOUT = 99999999999999ull;
-
 		uint32_t currentFrameIndex = 0u;
 		uint32_t imageIndex;
 		for (;;)
@@ -409,23 +407,21 @@ int main()
 
 		logicalDevice->waitIdle();
 
-#if 0
+#if 1
 		const auto& fboCreationParams = fbos[imageIndex]->getCreationParameters();
 		auto gpuSourceImageView = fboCreationParams.attachments[0];
 
 		const std::string writePath = "screenShot_" + captionData.name + ".png";
 
-		bool status = ext::ScreenShot::createScreenShot(
+		return ext::ScreenShot::createScreenShot(
 			logicalDevice.get(),
 			queues[decltype(initOutput)::EQT_TRANSFER_UP],
 			nullptr,
 			gpuSourceImageView.get(),
 			assetManager.get(),
-			writePath);
-
-		return status;
+			writePath,
+			asset::EIL_PRESENT_SRC_KHR);
 #endif
-		return true;
 	};
 
 	for (size_t i = 0; i < gpuImageViews->size(); ++i)

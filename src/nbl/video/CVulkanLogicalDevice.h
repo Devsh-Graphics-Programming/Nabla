@@ -888,11 +888,13 @@ public:
             return nullptr;
 
         VkMemoryMapFlags vk_memoryMapFlags = 0; // reserved for future use, by Vulkan
-        VkDeviceMemory vk_memory = static_cast<const CVulkanMemoryAllocation*>(memory.memory)->getInternalObject();
+        auto vulkanMemory = static_cast<CVulkanMemoryAllocation*>(memory.memory);
+        VkDeviceMemory vk_memory = vulkanMemory->getInternalObject();
         void* mappedPtr;
         if (m_devf.vk.vkMapMemory(m_vkdev, vk_memory, static_cast<VkDeviceSize>(memory.offset),
             static_cast<VkDeviceSize>(memory.length), vk_memoryMapFlags, &mappedPtr) == VK_SUCCESS)
         {
+            vulkanMemory->setMembersPostMap(mappedPtr, memory.range, accessHint);
             return mappedPtr;
         }
         else

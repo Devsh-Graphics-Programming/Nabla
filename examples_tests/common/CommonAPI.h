@@ -928,7 +928,7 @@ public:
 						break;
 					}
 				}
-				else if(hasMatchingColorspace)
+				else if (hasMatchingColorspace)
 				{
 					// format with matching eotf and colorspace, but with wider bitdepth is an acceptable substitute
 					uint32_t supportedFormatChannelCount = getFormatChannelCount(supportedFormat.format);
