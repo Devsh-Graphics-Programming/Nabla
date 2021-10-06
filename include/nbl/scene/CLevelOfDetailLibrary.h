@@ -52,7 +52,9 @@ class CLevelOfDetailLibrary : public ILevelOfDetailLibrary
 				video::IGPUBuffer::SCreationParams bufferParams;
 				bufferParams.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
 				explicitParams.lodTableInfoBuffer = {0ull,tableBufferSize,params.device->createDeviceLocalGPUBufferOnDedMem(bufferParams,tableBufferSize)};
+				explicitParams.lodTableInfoBuffer.buffer->setObjectDebugName("LoD Table Infos");
 				explicitParams.lodInfoBuffer = {0ull,lodBufferSize,params.device->createDeviceLocalGPUBufferOnDedMem(bufferParams,lodBufferSize)};
+				explicitParams.lodInfoBuffer.buffer->setObjectDebugName("LoD Infos");
 			}
 			return create(std::move(explicitParams),std::move(_alloc));
 		}

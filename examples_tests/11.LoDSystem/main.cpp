@@ -43,18 +43,13 @@ void addLoDTable(
     nbl::video::IGPUObjectFromAssetConverter::SParams& cpu2gpuParams,
     LoDLibraryData& lodLibraryData,
     video::CDrawIndirectAllocator<>* drawIndirectAllocator,
-    scene::ILevelOfDetailLibrary::Allocation& lodTables,
+    lod_library_t* lodLibrary,
     core::vector<video::CSubpassKiln::DrawcallInfo>& drawcallInfos,
     const SBufferRange<video::IGPUBuffer>& perInstanceRedirectAttribs,
     const core::smart_refctd_ptr<video::IGPURenderpass>& renderpass,
     const core::smart_refctd_ptr<video::IGPUDescriptorSet>& perViewDS
 )
 {
-    lodTables.tableUvec4Offsets[lodTables.count] = scene::ILevelOfDetailLibrary::invalid;
-    const_cast<uint32_t*>(lodTables.levelCounts)[lodTables.count] = LoDLevels;
-    lodTables.levelAllocations[lodTables.count].levelUvec4Offsets = new uint32_t[LoDLevels];
-    lodTables.levelAllocations[lodTables.count].drawcallCounts = new uint32_t[LoDLevels];
-
     constexpr auto perInstanceRedirectAttrID = 15u;
     auto* const geometryCreator = assetManager->getGeometryCreator();
     auto* const meshManipulator = assetManager->getMeshManipulator();
@@ -63,8 +58,6 @@ void addLoDTable(
     core::smart_refctd_ptr<ICPUMeshBuffer> cpumeshes[LoDLevels];
     for (uint32_t poly=4u,lod=0u; lod<LoDLevels; lod++)
     {
-        lodTables.levelAllocations[lodTables.count].levelUvec4Offsets[lod] = scene::ILevelOfDetailLibrary::invalid;
-
         IGeometryCreator::return_type geomData;
         switch (geom)
         {
@@ -123,6 +116,7 @@ void addLoDTable(
 
     auto drawcallInfosOutIx = drawcallInfos.size();
     drawcallInfos.resize(drawcallInfos.size()+gpumeshes->size());
+	core::aabbox3df aabb(FLT_MAX,FLT_MAX,FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX);
     for (auto lod=0u; lod<gpumeshes->size(); lod++)
     {
         auto gpumb = gpumeshes->operator[](lod);
@@ -152,8 +146,10 @@ void addLoDTable(
         const auto indexCount = gpumb->getIndexCount();
         const auto batchCount = (indexCount-1u)/indicesPerBatch+1u;
         //
+        const auto& mbAABB = cpumeshes[lod]->getBoundingBox();
+        aabb.addInternalBox(mbAABB);
         auto& lodInfo = lodLibraryData.lodInfoData.emplace_back(batchCount);
-        lodInfo = lod_library_t::LoDInfo(batchCount,{3.f*exp2f(lod<<1)},cpumeshes[lod]->getBoundingBox());
+        lodInfo = lod_library_t::LoDInfo(batchCount,{3.f*exp2f(lod<<1)},mbAABB);
         //
         size_t indexSize;
         switch (gpumb->getIndexType())
@@ -196,9 +192,29 @@ void addLoDTable(
             lodLibraryData.drawCallOffsetsIn20ByteStrides.emplace_back(di.drawCallOffset/di.drawCommandStride+i);
             lodInfo.drawcallInfos[i].drawcallDWORDOffset = (di.drawCallOffset+i*di.drawCommandStride)/sizeof(uint32_t);
         }
-        const_cast<uint32_t*>(lodTables.levelAllocations[lodTables.count].drawcallCounts)[lod] = di.drawMaxCount;
     }
-    lodTables.count++;
+    auto& lodTable = lodLibraryData.lodTableData.emplace_back(LoDLevels);
+    lodTable = scene::ILevelOfDetailLibrary::LoDTableInfo(LoDLevels,aabb);
+    std::fill_n(lodTable.levelInfoOffsets,LoDLevels,scene::ILevelOfDetailLibrary::invalid);
+    {
+        lod_library_t::Allocation::LevelInfoAllocation lodLevelAllocations[1] =
+        {
+            lodTable.levelInfoOffsets,
+            lodLibraryData.drawCountData.data()+lodLibraryData.drawCountData.size()-LoDLevels
+        };
+        uint32_t lodTableOffsets[1u] = {scene::ILevelOfDetailLibrary::invalid};
+        const uint32_t lodLevelCounts[1u] = {LoDLevels};
+        //
+        lod_library_t::Allocation alloc = {};
+        {
+            alloc.count = 1u;
+            alloc.tableUvec4Offsets = lodTableOffsets;
+            alloc.levelCounts = lodLevelCounts;
+            alloc.levelAllocations = lodLevelAllocations;
+        }
+        const bool success = lodLibrary->allocateLoDs(alloc);
+        assert(success);
+    }
     cpu2gpuParams.waitForCreationToComplete();
 }
 
@@ -258,10 +274,6 @@ int main()
 
     // LoD Library
     auto lodLibrary = lod_library_t::create({logicalDevice.get(),MaxDrawables,MaxTotalLoDs,MaxDrawCalls});
-    {
-        lodLibrary->getLodTableInfoBinding().buffer->setObjectDebugName("LoD Table");
-        lodLibrary->getLoDInfoBinding().buffer->setObjectDebugName("LoD Infos");
-    }
 
     // Culling System
     using culling_system_t = scene::ICullingLoDSelectionSystem;
@@ -411,18 +423,6 @@ int main()
         uint32_t perViewPerInstanceID;
     };
     core::vector<PotentiallyVisibleInstanceDraw> pvsContents(1u);
-    
-    //
-    lod_library_t::Allocation lodTables = {};
-    uint32_t lodTableOffsets[MaxDrawables] = {0u};
-    uint32_t lodLevelCounts[MaxDrawables] = {0u};
-    lod_library_t::Allocation::LevelInfoAllocation lodLevelAllocations[MaxDrawables] = {};
-    {
-        lodTables.count = 0u;
-        lodTables.tableUvec4Offsets = lodTableOffsets;
-        lodTables.levelCounts = lodLevelCounts;
-        lodTables.levelAllocations = lodLevelAllocations;
-    }
 
     //
     core::smart_refctd_ptr<video::IGPUCommandBuffer> bakedCommandBuffer;
@@ -440,18 +440,12 @@ int main()
 
                 addLoDTable<EGT_SPHERE,7>(
                     assetManager.get(),core::smart_refctd_ptr(cpuPerViewDSLayout),shaders,cpu2gpu,cpu2gpuParams,
-                    lodLibraryData,drawIndirectAllocator.get(),lodTables,kiln.getDrawcallMetadataVector(),
+                    lodLibraryData,drawIndirectAllocator.get(),lodLibrary.get(),kiln.getDrawcallMetadataVector(),
                     cullingParams.perInstanceRedirectAttribs,renderpass,perViewDS
                 );
 
                 //! cache results -- speeds up mesh generation on second run
                 qnc->saveCacheToFile<asset::EF_A2B10G10R10_SNORM_PACK32>(system.get(), cachePath);
-            }
-            // upload LoD Table
-            const bool success = lodLibrary->allocateLoDs(lodTables);
-            assert(success);
-            {
-                //const auto lodTablesToUploadEnd = lodTables.fillTableLevelOffsets(lodTablesToUpload.data(),nullptr);
             }
 
 
@@ -650,15 +644,7 @@ int main()
         CommonAPI::Present(logicalDevice.get(), swapchain.get(), queues[decltype(initOutput)::EQT_GRAPHICS], renderFinished[resourceIx].get(), acquiredNextFBO);
     }
 
-    lodLibrary->freeLoDs(lodTables);
-    for (auto i=0u; i<lodTables.count; i++)
-    {
-        const auto& levelAlloc = lodTables.levelAllocations[i];
-        if (levelAlloc.levelUvec4Offsets)
-            delete[] levelAlloc.levelUvec4Offsets;
-        if (levelAlloc.drawcallCounts)
-            delete[] levelAlloc.drawcallCounts;
-    }
+    lodLibrary->clear();
     drawIndirectAllocator->clear();
 
     const auto& fboCreationParams = fbos[acquiredNextFBO]->getCreationParameters();

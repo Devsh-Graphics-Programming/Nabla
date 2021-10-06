@@ -60,6 +60,13 @@ class ILevelOfDetailLibrary : public virtual core::IReferenceCounted
 		//
 		struct NBL_FORCE_EBO LoDTableInfo : AlignBase
 		{
+			LoDTableInfo() : levelCount(0u) {}
+			LoDTableInfo(const uint32_t lodLevelCount, const core::aabbox3df& aabb) : levelCount(lodLevelCount)
+			{
+				std::copy_n(&aabb.MinEdge.X,3u,aabbMin);
+				std::copy_n(&aabb.MaxEdge.X,3u,aabbMax);
+			}
+
 			static inline uint32_t getSizeInUvec4(uint32_t levelCount)
 			{
 				return (offsetof(LoDTableInfo,levelInfoOffsets[0])+sizeof(uint32_t)*levelCount-1u)/alignof(LoDTableInfo)+1u;
