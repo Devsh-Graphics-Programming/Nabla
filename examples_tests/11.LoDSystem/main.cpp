@@ -16,17 +16,18 @@ using namespace core;
 using namespace system;
 using namespace asset;
 
+using lod_library_t = scene::CLevelOfDetailLibrary<>;
 
 struct LoDLibraryData
 {
-    core::vector<uint32_t> drawCallOffsets;
+    core::vector<uint32_t> drawCallOffsetsIn20ByteStrides;
     core::vector<uint32_t> drawCountOffsets;
     core::vector<asset::DrawElementsIndirectCommand_t> drawCallData;
     core::vector<uint32_t> drawCountData;
     core::vector<uint32_t> lodInfoDstUvec4s;
     core::vector<uint32_t> lodTableDstUvec4s;
-    core::vector<scene::ILevelOfDetailLibrary::LoDInfoAlignBase> lodInfoData;
-    core::vector<scene::ILevelOfDetailLibrary::LodTableInfoAlignBase> lodTableData;
+    scene::ILevelOfDetailLibrary::InfoContainerAdaptor<lod_library_t::LoDInfo> lodInfoData;
+    scene::ILevelOfDetailLibrary::InfoContainerAdaptor<scene::ILevelOfDetailLibrary::LoDTableInfo> lodTableData;
 };
 enum E_GEOM_TYPE
 {
@@ -147,6 +148,13 @@ void addLoDTable(
         mdiAlloc.multiDrawCommandCountOffsets = &di.drawCountOffset;
         mdiAlloc.setAllCommandStructSizesConstant(di.drawCommandStride);
 
+        constexpr auto indicesPerBatch = 1023u;
+        const auto indexCount = gpumb->getIndexCount();
+        const auto batchCount = (indexCount-1u)/indicesPerBatch+1u;
+        //
+        auto& lodInfo = lodLibraryData.lodInfoData.emplace_back(batchCount);
+        lodInfo = lod_library_t::LoDInfo(batchCount,{3.f*exp2f(lod<<1)},cpumeshes[lod]->getBoundingBox());
+        //
         size_t indexSize;
         switch (gpumb->getIndexType())
         {
@@ -160,11 +168,9 @@ void addLoDTable(
                 assert(false);
                 break;
         }
-        constexpr auto indicesPerBatch = 1023u;
-        const auto indexCount = gpumb->getIndexCount();
         for (auto i=0u; i<indexCount; i+=indicesPerBatch)
         {
-            lodLibraryData.drawCallData.emplace_back(
+            const auto& drawCallData = lodLibraryData.drawCallData.emplace_back(
                 core::min(indexCount-i,indicesPerBatch),
                 1u, // TODO: undo
                 gpumb->getIndexBufferBinding().offset/indexSize+i,
@@ -172,18 +178,24 @@ void addLoDTable(
                 0xdeadbeefu // set to garbage to test the prefix sum
             );
             di.drawMaxCount++;
-
-            // TODO
-            //IMeshManipulator::recalculateBoundingBox(mb.get());
+            /* TODO
+            const aabb = IMeshManipulator::calculateBoundingBox(
+                cpumeshes[lod].get(),nullptr,drawCallData.count,
+                reinterpret_cast<const uint8_t*>(cpumeshes[lod]->getIndices())+i*indexSize
+            );
+            */
         }
         lodLibraryData.drawCountData.emplace_back(di.drawMaxCount);
+        
         const bool success = drawIndirectAllocator->allocateMultiDraws(mdiAlloc);
         assert(success);
         lodLibraryData.drawCountOffsets.emplace_back(di.drawCountOffset);
         di.drawCountOffset *= sizeof(uint32_t);
         for (auto i=0u; i<di.drawMaxCount; i++)
-            lodLibraryData.drawCallOffsets.emplace_back(di.drawCallOffset/di.drawCommandStride+i);
-
+        {
+            lodLibraryData.drawCallOffsetsIn20ByteStrides.emplace_back(di.drawCallOffset/di.drawCommandStride+i);
+            lodInfo.drawcallInfos[i].drawcallDWORDOffset = (di.drawCallOffset+i*di.drawCommandStride)/sizeof(uint32_t);
+        }
         const_cast<uint32_t*>(lodTables.levelAllocations[lodTables.count].drawcallCounts)[lod] = di.drawMaxCount;
     }
     lodTables.count++;
@@ -245,7 +257,6 @@ int main()
     }
 
     // LoD Library
-    using lod_library_t = scene::CLevelOfDetailLibrary<>;
     auto lodLibrary = lod_library_t::create({logicalDevice.get(),MaxDrawables,MaxTotalLoDs,MaxDrawCalls});
     {
         lodLibrary->getLodTableInfoBinding().buffer->setObjectDebugName("LoD Table");
@@ -462,7 +473,7 @@ int main()
             range.size = pvsContents.size()*sizeof(PotentiallyVisibleInstanceDraw);
             utilities->updateBufferRangeViaStagingBuffer(queues[decltype(initOutput)::EQT_TRANSFER_UP],range,pvsContents.data());
             // do the transfer of drawcall structs
-            cullingParams.drawcallCount = lodLibraryData.drawCallOffsets.size();
+            cullingParams.drawcallCount = lodLibraryData.drawCallData.size();
             {
                 video::CPropertyPoolHandler::TransferRequest requests[2u];
                 for (auto i=0u; i<2u; i++)
@@ -474,7 +485,7 @@ int main()
                 requests[0].memblock = drawIndirectAllocator->getDrawCommandMemoryBlock();
                 requests[0].elementSize = sizeof(asset::DrawElementsIndirectCommand_t);
                 requests[0].elementCount = cullingParams.drawcallCount;
-                requests[0].dstAddresses = lodLibraryData.drawCallOffsets.data();
+                requests[0].dstAddresses = lodLibraryData.drawCallOffsetsIn20ByteStrides.data();
                 requests[0].source = lodLibraryData.drawCallData.data();
                 auto requestCount = 1u;
                 if (drawIndirectAllocator->getDrawCountMemoryBlock())
@@ -502,16 +513,20 @@ int main()
                 logicalDevice->blockForFences(1u,&fence.get());
             }
             //
-            std::for_each(lodLibraryData.drawCallOffsets.begin(),lodLibraryData.drawCallOffsets.end(),[](uint32_t& off){off*=sizeof(asset::DrawElementsIndirectCommand_t)/sizeof(uint32_t);});
-            cullingParams.transientInputDS = culling_system_t::createInputDescriptorSet(
-                logicalDevice.get(),cullingDSPool.get(),
-                culling_system_t::createInputDescriptorSetLayout(logicalDevice.get()),
-                cullingParams.indirectDispatchParams,
-                cullingParams.instanceList,
-                cullingParams.scratchBufferRanges,
-                {0ull,~0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(queues[decltype(initOutput)::EQT_TRANSFER_UP],cullingParams.drawcallCount*sizeof(uint32_t),lodLibraryData.drawCallOffsets.data())},
-                {0ull,~0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(queues[decltype(initOutput)::EQT_TRANSFER_UP],lodLibraryData.drawCountOffsets.size()*sizeof(uint32_t),lodLibraryData.drawCountOffsets.data())}
-            );
+            {
+                auto& drawCallOffsetsInDWORDs = lodLibraryData.drawCallOffsetsIn20ByteStrides;
+                for (auto i=0u; i<cullingParams.drawcallCount; i++)
+                    drawCallOffsetsInDWORDs[i] = lodLibraryData.drawCallOffsetsIn20ByteStrides[i]*sizeof(asset::DrawElementsIndirectCommand_t)/sizeof(uint32_t);
+                cullingParams.transientInputDS = culling_system_t::createInputDescriptorSet(
+                    logicalDevice.get(),cullingDSPool.get(),
+                    culling_system_t::createInputDescriptorSetLayout(logicalDevice.get()),
+                    cullingParams.indirectDispatchParams,
+                    cullingParams.instanceList,
+                    cullingParams.scratchBufferRanges,
+                    {0ull,~0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(queues[decltype(initOutput)::EQT_TRANSFER_UP],cullingParams.drawcallCount*sizeof(uint32_t),drawCallOffsetsInDWORDs.data())},
+                    {0ull,~0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(queues[decltype(initOutput)::EQT_TRANSFER_UP],lodLibraryData.drawCountOffsets.size()*sizeof(uint32_t),lodLibraryData.drawCountOffsets.data())}
+                );
+            }
         }
         // prerecord the secondary cmdbuffer
         {

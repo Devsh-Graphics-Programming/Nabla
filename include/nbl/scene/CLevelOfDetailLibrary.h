@@ -14,8 +14,16 @@ template<typename LoDChoiceParams=ILevelOfDetailLibrary::DefaultLoDChoiceParams,
 class CLevelOfDetailLibrary : public ILevelOfDetailLibrary
 {
 	public:
-		struct NBL_FORCE_EBO LoDInfo : LoDInfoAlignBase
+		struct NBL_FORCE_EBO LoDInfo : AlignBase
 		{
+			LoDInfo() : drawcallInfoCount(0u), totalDrawcallBoneCount(0u), choiceParams() {}
+			LoDInfo(const uint16_t drawcallCount, const LoDChoiceParams& _choiceParams, const core::aabbox3df& aabb)
+				: drawcallInfoCount(drawcallCount), totalDrawcallBoneCount(0u), choiceParams(_choiceParams)
+			{
+				std::copy_n(&aabb.MinEdge.X,3u,aabbMin);
+				std::copy_n(&aabb.MaxEdge.X,3u,aabbMax);
+			}
+
 			static inline uint32_t getSizeInUvec4(uint32_t drawcallCount)
 			{
 				return (offsetof(LoDInfo,drawcallInfos[0])+sizeof(DrawcallInfo)*drawcallCount-1u)/alignof(LoDInfo)+1u;
@@ -24,7 +32,7 @@ class CLevelOfDetailLibrary : public ILevelOfDetailLibrary
 			float aabbMin[3];
 			uint16_t drawcallInfoCount;
 			// sum of all bone counts for all draws in this LoD
-			uint16_t totalDrawCallBoneCount;
+			uint16_t totalDrawcallBoneCount;
 			float aabbMax[3];
 			LoDChoiceParams choiceParams;
 			DrawcallInfo drawcallInfos[1];

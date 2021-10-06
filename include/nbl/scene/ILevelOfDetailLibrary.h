@@ -26,14 +26,39 @@ class ILevelOfDetailLibrary : public virtual core::IReferenceCounted
 			}
 		};
 		//
-		struct NBL_FORCE_EBO alignas(16) LoDInfoAlignBase
+		struct NBL_FORCE_EBO alignas(16) AlignBase
 		{
+		};
+		template<typename InfoType, template<class...> class container=core::vector>
+		class InfoContainerAdaptor
+		{
+				static_assert(std::is_base_of_v<AlignBase,InfoType>);
+				container<AlignBase> storage;
+			
+			public:
+				inline void reserve(const uint32_t alignmentUnits)
+				{
+					storage.reserve(alignmentUnits);
+				}
+				inline InfoType& emplace_back(const uint32_t variableEntryCount)
+				{
+					const auto oldEnd = storage.size();
+					const auto infoSize = InfoType::getSizeInUvec4(variableEntryCount);
+					storage.resize(oldEnd+infoSize);
+					return static_cast<InfoType&>(*(storage.begin()+oldEnd));
+				}
+				//
+				inline AlignBase* data()
+				{
+					return storage.data();
+				}
+				inline const AlignBase* data() const
+				{
+					return storage.data();
+				}
 		};
 		//
-		struct NBL_FORCE_EBO alignas(16) LodTableInfoAlignBase
-		{
-		};
-		struct NBL_FORCE_EBO LoDTableInfo : LodTableInfoAlignBase
+		struct NBL_FORCE_EBO LoDTableInfo : AlignBase
 		{
 			static inline uint32_t getSizeInUvec4(uint32_t levelCount)
 			{
@@ -51,7 +76,7 @@ class ILevelOfDetailLibrary : public virtual core::IReferenceCounted
 				uint32_t drawcallDWORDOffset; // only really need 27 bits for this
 				// TODO: setter for the skinning AABBs
 			private:
-				uint32_t skinningAABBCountAndOffset;
+				uint32_t skinningAABBCountAndOffset = 0u;
 		};
 
 		//
@@ -87,7 +112,7 @@ class ILevelOfDetailLibrary : public virtual core::IReferenceCounted
 			LevelInfoAllocation* levelAllocations;
 
 			// TODO: come up with a better name?
-			inline LodTableInfoAlignBase* transferHelper(uint32_t* const dstUvec4Addresses, LodTableInfoAlignBase* const tableBegin, const core::aabbox3df* tableAABBs) const
+			inline AlignBase* transferHelper(uint32_t* const dstUvec4Addresses, LoDTableInfo* const tableBegin, const core::aabbox3df* tableAABBs) const
 			{
 				auto dstUvec4AddressesIt = dstUvec4Addresses;
 				auto tablePtr = tableBegin;
