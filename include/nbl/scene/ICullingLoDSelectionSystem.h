@@ -75,10 +75,10 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 				const auto ssboAlignment = limits.SSBOAlignment;
 
 				retval.lodInfoUvec4Offsets.offset = 0u;
-				retval.lodDrawCallCounts.offset = retval.lodInfoUvec4Offsets.size = core::alignUp(maxTotalInstances*sizeof(uint32_t),ssboAlignment);
-				retval.lodDrawCallCounts.size = retval.lodInfoUvec4Offsets.size;
+				retval.lodDrawCallCounts.offset = retval.lodInfoUvec4Offsets.size = core::alignUp((maxTotalInstances+1u)*sizeof(uint32_t),ssboAlignment);
+				retval.lodDrawCallCounts.size = core::alignUp(maxTotalInstances*sizeof(uint32_t),ssboAlignment);
 				retval.pvsInstanceDraws.offset = retval.lodDrawCallCounts.offset+retval.lodDrawCallCounts.size;
-				retval.pvsInstanceDraws.size = core::alignUp(maxTotalDrawcallInstances*sizeof(uint32_t)*4u,ssboAlignment);
+				retval.pvsInstanceDraws.size = core::alignUp((maxTotalDrawcallInstances+1u)*sizeof(uint32_t)*4u,ssboAlignment);
 				retval.prefixSumScratch.offset = retval.pvsInstanceDraws.offset+retval.pvsInstanceDraws.size;
 				{
 					video::CScanner::Parameters params;
@@ -94,6 +94,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 				retval.pvsInstanceDraws.buffer =
 				retval.prefixSumScratch.buffer =
 					logicalDevice->createDeviceLocalGPUBufferOnDedMem(params,retval.prefixSumScratch.offset+retval.prefixSumScratch.size);
+				retval.lodInfoUvec4Offsets.buffer->setObjectDebugName("Culling Scratch Buffer");
 			}
 			return retval;
 		}
@@ -311,34 +312,33 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 			auto srcStageFlags = core::bitflag(asset::EPSF_COMPUTE_SHADER_BIT);
 			if (params.directInstanceCount)
 			{
-				//cmdbuf->bindComputePipeline(directInstanceCullAndLoDSelect.get());
+				cmdbuf->bindComputePipeline(directInstanceCullAndLoDSelect.get());
 				cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,directInstanceCullAndLoDSelectLayout.get(),0u,4u,&params.lodLibraryDS.get());
-				//cmdbuf->dispatch(,1u,1u); TODO
+				cmdbuf->dispatch(1u,1u,1u); // TODO: dispatch size
 				cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,indirectInstanceCullAndLoDSelectLayout.get(),0u,4u,&params.lodLibraryDS.get());
 			}
 			else
 			{
 				srcStageFlags |= asset::EPSF_DRAW_INDIRECT_BIT;
-				//cmdbuf->bindComputePipeline(indirectInstanceCullAndLoDSelect.get());
+				cmdbuf->bindComputePipeline(indirectInstanceCullAndLoDSelect.get());
 				cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,indirectInstanceCullAndLoDSelectLayout.get(),0u,4u,&params.lodLibraryDS.get());
-				//cmdbuf->dispatchIndirect(indirectRange.buffer.get(),indirectRange.offset+offsetof(DispatchIndirectParams,instanceCullAndLoDSelect));
+				cmdbuf->dispatchIndirect(indirectRange.buffer.get(),indirectRange.offset+offsetof(DispatchIndirectParams,instanceCullAndLoDSelect));
 			}
-#if 0
 			{
-				setBarrierBuffer(barriers[1],params.lodInfoUvec4Offsets,core::bitflag(asset::EAF_SHADER_WRITE_BIT),core::bitflag(asset::EAF_SHADER_READ_BIT));
-				setBarrierBuffer(barriers[2],params.lodDrawCallCount,rwAccessMask,core::bitflag(asset::EAF_SHADER_READ_BIT));
-				setBarrierBuffer(barriers[3],params.prefixSumScratch,rwAccessMask,rwAccessMask);
+				setBarrierBuffer(barriers[1],params.drawCalls,wAccessMask,rwAccessMask);
+				//setBarrierBuffer(barriers[2],params.prefixSumScratch,wAccessMask,rwAccessMask);
+				setBarrierBuffer(barriers[2],params.scratchBufferRanges.lodInfoUvec4Offsets,wAccessMask,core::bitflag(asset::EAF_SHADER_READ_BIT));
+				setBarrierBuffer(barriers[3],params.scratchBufferRanges.lodDrawCallCounts,rwAccessMask,core::bitflag(asset::EAF_SHADER_READ_BIT));
 				// TODO: perViewData
-				cmdbuf->pipelineBarrier(srcStageFlags,internalStageFlags,asset::EDF_NONE,0u,nullptr,5u,barriers,0u,nullptr);
+				cmdbuf->pipelineBarrier(srcStageFlags,internalStageFlags,asset::EDF_NONE,0u,nullptr,4u,barriers,0u,nullptr);
 			}
-#endif
 
 			cmdbuf->bindComputePipeline(instanceDrawCull.get());
-			//cmdbuf->dispatchIndirect(indirectRange.buffer.get(),indirectRange.offset+offsetof(DispatchIndirectParams,instanceDrawCull));
+			cmdbuf->dispatchIndirect(indirectRange.buffer.get(),indirectRange.offset+offsetof(DispatchIndirectParams,instanceDrawCull));
 			{
-				//setBarrierBuffer(barriers[1],params.drawCalls,rwAccessMask,rwAccessMask);
-				//setBarrierBuffer(barriers[2],params.unorderedDrawCalls,rwAccessMask,core::bitflag(asset::EAF_SHADER_READ_BIT));
-				//cmdbuf->pipelineBarrier(internalStageFlags,internalStageFlags,asset::EDF_NONE,0u,nullptr,3u,barriers,0u,nullptr);
+				setBarrierBuffer(barriers[1],params.drawCalls,rwAccessMask,rwAccessMask);
+				setBarrierBuffer(barriers[2],params.scratchBufferRanges.pvsInstanceDraws,rwAccessMask,core::bitflag(asset::EAF_SHADER_READ_BIT));
+				cmdbuf->pipelineBarrier(internalStageFlags,internalStageFlags,asset::EDF_NONE,0u,nullptr,3u,barriers,0u,nullptr);
 			}
 
 			cmdbuf->bindComputePipeline(drawInstanceCountPrefixSum.get());
@@ -355,7 +355,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 			{
 				setBarrierBuffer(barriers[1],params.drawCalls,rwAccessMask,indirectAccessMask);
 				setBarrierBuffer(barriers[2],params.scratchBufferRanges.prefixSumScratch,rwAccessMask,wAccessMask);
-				cmdbuf->pipelineBarrier(internalStageFlags,internalStageFlags,asset::EDF_NONE,0u,nullptr,2u,barriers+1u,0u,nullptr);
+				cmdbuf->pipelineBarrier(internalStageFlags,internalStageFlags,asset::EDF_NONE,0u,nullptr,3u,barriers,0u,nullptr);
 			}
 
 			cmdbuf->bindComputePipeline(instanceRefCountingSortScatter.get());

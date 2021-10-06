@@ -171,7 +171,7 @@ void addLoDTable(
         {
             const auto& drawCallData = lodLibraryData.drawCallData.emplace_back(
                 core::min(indexCount-i,indicesPerBatch),
-                1u, // TODO: undo
+                0u,
                 gpumb->getIndexBufferBinding().offset/indexSize+i,
                 0u,
                 0xdeadbeefu // set to garbage to test the prefix sum
@@ -347,7 +347,6 @@ int main()
 
         cullingParams.indirectDispatchParams.buffer->setObjectDebugName("CullingIndirect");
         cullingParams.drawCalls.buffer->setObjectDebugName("DrawCallPool");
-        cullingParams.scratchBufferRanges.pvsInstanceDraws.buffer->setObjectDebugName("PotentiallyVisibleDrawInstances");
         cullingParams.perInstanceRedirectAttribs.buffer->setObjectDebugName("PerInstanceInputAttribs");
         if (cullingParams.drawCounts.buffer)
             cullingParams.drawCounts.buffer->setObjectDebugName("DrawCountPool");
@@ -533,33 +532,6 @@ int main()
             range = cullingParams.scratchBufferRanges.lodInfoUvec4Offsets;
             range.size = lodInfoUvec4Offsets.size()*sizeof(uint32_t);
             utilities->updateBufferRangeViaStagingBuffer(queues[decltype(initOutput)::EQT_TRANSFER_UP],range,lodInfoUvec4Offsets.data());
-            // TODO: this first
-            struct PotentiallyVisibleInstanceDraw
-            {
-                uint32_t drawBaseInstanceDWORDOffset;
-                uint32_t instanceID;
-                uint32_t instanceGUID;
-                uint32_t perViewPerInstanceID;
-            };
-            core::vector<PotentiallyVisibleInstanceDraw> pvsContents(1u);
-            for (auto i=0u; i<kiln.getDrawcallMetadataVector().size(); i++)
-            {
-                const auto& info = kiln.getDrawcallMetadataVector()[i];
-                for (auto j=0u; j<info.drawMaxCount; j++)
-                {
-                    pvsContents.emplace_back(
-                        (info.drawCallOffset+sizeof(DrawElementsIndirectCommand_t)*j)/sizeof(uint32_t)+4u,
-                        0u,
-                        0xdeadbeefu,
-                        i
-                    );
-                }
-            }
-            pvsContents[0].drawBaseInstanceDWORDOffset = pvsContents.size()-1u;
-            std::shuffle(pvsContents.begin()+1u,pvsContents.end(),randGen);
-            range = cullingParams.scratchBufferRanges.pvsInstanceDraws;
-            range.size = pvsContents.size()*sizeof(PotentiallyVisibleInstanceDraw);
-            utilities->updateBufferRangeViaStagingBuffer(queues[decltype(initOutput)::EQT_TRANSFER_UP],range,pvsContents.data());
         }
         // prerecord the secondary cmdbuffer
         {

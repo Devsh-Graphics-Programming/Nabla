@@ -15,8 +15,8 @@ layout(
     binding = NBL_GLSL_CULLING_LOD_SELECTION_DISPATCH_INDIRECT_DESCRIPTOR_BINDING
 ) restrict coherent buffer DispatchIndirect
 {
-    uint data[];
-} dispatchIndirect;
+    nbl_glsl_culling_lod_selection_dispatch_indirect_params_t dispatchIndirect;
+};
 #endif
 
 #ifndef NBL_GLSL_CULLING_LOD_SELECTION_INSTANCE_LIST_DESCRIPTOR_BINDING

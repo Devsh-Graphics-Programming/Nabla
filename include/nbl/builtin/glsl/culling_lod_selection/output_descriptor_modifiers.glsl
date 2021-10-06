@@ -13,6 +13,10 @@ void nbl_glsl_culling_lod_selection_drawCallSetDWORD(in uint DWORDOffset, in uin
 {
     drawCalls.data[DWORDOffset] = value;
 }
+void nbl_glsl_culling_lod_selection_drawCallSetInstanceCount(in uint drawCallDWORDOffset, in uint instanceCount)
+{
+    drawCalls.data[drawCallDWORDOffset+1u] = instanceCount;
+}
 void nbl_glsl_culling_lod_selection_drawArraysSetBaseInstance(in uint drawCallDWORDOffset, in uint baseInstance)
 {
     drawCalls.data[drawCallDWORDOffset+3u] = baseInstance;

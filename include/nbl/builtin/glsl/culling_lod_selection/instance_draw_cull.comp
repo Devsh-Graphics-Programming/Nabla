@@ -3,7 +3,7 @@ layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_) in;
 
 #include <nbl/builtin/glsl/lod_library/descriptor_set.glsl>
 #include <nbl/builtin/glsl/lod_library/structs.glsl>
-#define NBL_GLSL_CULLING_LOD_SELECTION_LOD_INFO_DRAWCALL_LIST_OFFSET (NBL_GLSL_LOD_LIBRARY_LOD_INFO_BASE_SIZE+NBL_GLSL_LOD_LIBRARY_DEFAULT_LOD_CHOICE_PARAMS_SIZE)
+#define NBL_GLSL_CULLING_LOD_SELECTION_LOD_INFO_DRAWCALL_LIST_DWORD_OFFSET ((NBL_GLSL_LOD_LIBRARY_LOD_INFO_BASE_SIZE+NBL_GLSL_LOD_LIBRARY_DEFAULT_LOD_CHOICE_PARAMS_SIZE)>>2)
 
 #define NBL_GLSL_CULLING_LOD_SELECTION_INSTANCE_LIST_DESCRIPTOR_BINDING
 #define NBL_GLSL_CULLING_LOD_SELECTION_INSTANCE_LOD_INFO_UVEC4_OFFSETS_DESCRIPTOR_QUALIFIERS restrict readonly
@@ -44,7 +44,7 @@ void main()
             drawInstanceID -= lodDrawcallInclusiveCounts.data[pvInstanceID-1u];
         const uint drawcallDWORDOffsetAndFlag = nbl_glsl_lod_library_getDrawCallDWORDOffset(
             lodInfoUvec4Offsets.data[pvInstanceID],
-            NBL_GLSL_CULLING_LOD_SELECTION_LOD_INFO_DRAWCALL_LIST_OFFSET,
+            NBL_GLSL_CULLING_LOD_SELECTION_LOD_INFO_DRAWCALL_LIST_DWORD_OFFSET,
             drawInstanceID
         );
         // get AABB
@@ -58,9 +58,7 @@ void main()
             const uint instanceID = nbl_glsl_culling_lod_selection_drawCallInstanceCountIncr(drawcallDWORDOffset);
             
             const uint baseInstanceDWORDOffset = drawcallDWORDOffset+4u-(drawcallDWORDOffsetAndFlag>>31);
-            pvsInstanceDraws.data[appendIx] = uvec4(baseInstanceDWORDOffset,instanceID,/*TODO: instanceGUID,perViewPerInstanceID*/0xdeadbeefu,0xdeadbeefu);
-            if (appendIx==0u)
-                nbl_glsl_culling_lod_selection_drawCallSetDWORD(baseInstanceDWORDOffset,0u);
+            pvsInstanceDraws.data[appendIx] = uvec4(baseInstanceDWORDOffset,instanceID,/*TODO: instanceGUID,perViewPerInstanceID*/0xdeadbeefu,pvInstanceID);
         }
     }
 }
