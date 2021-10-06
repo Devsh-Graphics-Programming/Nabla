@@ -16,7 +16,7 @@ void CVulkanFence::setObjectDebugName(const char* label) const
 {
     IBackendObject::setObjectDebugName(label);
 
-	// TODO: Check for VK_EXT_debug_marker support
+	if(vkSetDebugUtilsObjectNameEXT == 0) return;
 
     const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
 	VkDebugUtilsObjectNameInfoEXT nameInfo = {VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT, nullptr};

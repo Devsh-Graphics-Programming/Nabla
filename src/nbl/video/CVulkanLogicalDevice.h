@@ -596,7 +596,7 @@ public:
 
             std::string glsl(begin, end);
 
-            auto logger = m_physicalDevice->getDebugCallback()->getLogger();
+            auto logger = (m_physicalDevice->getDebugCallback()) ? m_physicalDevice->getDebugCallback()->getLogger() : nullptr;
 
             core::smart_refctd_ptr<asset::ICPUShader> glslShader_woIncludes =
                 m_physicalDevice->getGLSLCompiler()->resolveIncludeDirectives(glsl.c_str(),

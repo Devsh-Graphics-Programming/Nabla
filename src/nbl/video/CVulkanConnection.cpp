@@ -158,8 +158,7 @@ namespace nbl::video
         uint32_t k = 0u;
         for (const auto& feature : selectedFeatureSet)
             selectedFeatures[k++] = feature.c_str();
-        if (logger)
-            selectedFeatures[k++] = VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
+        selectedFeatures[k++] = VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
 
         std::unique_ptr<CVulkanDebugCallback> debugCallback = nullptr;
         VkDebugUtilsMessengerCreateInfoEXT debugMessengerCreateInfo = { VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT };
