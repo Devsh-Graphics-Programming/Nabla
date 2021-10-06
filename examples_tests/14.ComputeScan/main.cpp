@@ -11,10 +11,10 @@ using namespace core;
 using namespace video;
 using namespace asset;
 
-
 int main()
 {
-	auto initOutput = CommonAPI::Init(video::EAT_OPENGL,"Subgroup Arithmetic Test");
+	CommonAPI::InitOutput<0> initOutput;
+	CommonAPI::Init(initOutput,video::EAT_OPENGL,"Subgroup Arithmetic Test");
 	auto system = std::move(initOutput.system);
     auto gl = std::move(initOutput.apiConnection);
     auto logger = std::move(initOutput.logger);
