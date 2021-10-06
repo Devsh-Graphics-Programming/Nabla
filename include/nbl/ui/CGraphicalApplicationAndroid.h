@@ -11,6 +11,7 @@ namespace nbl::ui
 		struct SGraphicalContext : SContext
 		{
 			core::smart_refctd_ptr<nbl::ui::IWindow> window;
+			core::smart_refctd_ptr<nbl::system::ISystem> ISystem;
 		};
 		CGraphicalApplicationAndroid(android_app* app, const system::path& cwd) : system::CApplicationAndroid(app, cwd) {}
 	private:

@@ -11,6 +11,10 @@
 #include "nbl/system/IFile.h"
 #include "nbl/system/CFileView.h"
 
+#ifdef _NBL_PLATFORM_ANDROID_
+#include <android_native_app_glue.h>
+#endif
+
 #include "nbl/asset/ICPUBuffer.h" // this is a horrible no-no (circular dependency), `ISystem::loadBuiltinData` should return some other type (probably an `IFile` which is mapped for reading)
 
 namespace nbl::system
@@ -43,7 +47,7 @@ public:
 protected:
     virtual core::smart_refctd_ptr<IFile> createFile_impl(core::smart_refctd_ptr<ISystem>&& sys, const std::filesystem::path& filename, core::bitflag<IFile::E_CREATE_FLAGS> flags) = 0;
 };
-class ISystem final : public core::IReferenceCounted
+class ISystem : public core::IReferenceCounted
 {
     friend class IFile;
     friend class ISystemCaller;
@@ -199,6 +203,7 @@ public:
         if (*p.string().rbegin() == '/') p = p.string().substr(0, p.string().size() - 1);
         return !m_cachedPathAliases.findRange(p).empty();
     }
+
 private:
     // TODO: files shall have public read/write methods, and these should be protected, then the `IFile` implementations should call these behind the scenes via a friendship
     bool readFile(future<size_t>& future, IFile* file, void* buffer, size_t offset, size_t size)
