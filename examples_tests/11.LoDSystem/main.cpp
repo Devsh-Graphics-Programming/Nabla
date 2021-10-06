@@ -214,6 +214,15 @@ void addLoDTable(
         }
         const bool success = lodLibrary->allocateLoDs(alloc);
         assert(success);
+        for (auto i=0u; i<scene::ILevelOfDetailLibrary::LoDTableInfo::getSizeInUvec4(LoDLevels); i++)
+            lodLibraryData.lodTableDstUvec4s.push_back(lodTableOffsets[0]+i);
+        for (auto lod=0u; lod<LoDLevels; lod++)
+        {
+            const auto drawcallCount = lodLevelAllocations[0].drawcallCounts[lod];
+            const auto offset = lodLevelAllocations[0].levelUvec4Offsets[lod];
+            for (auto i=0u; i<lod_library_t::LoDInfo::getSizeInUvec4(drawcallCount); i++)
+                lodLibraryData.lodInfoDstUvec4s.push_back(offset+i);
+        }
     }
     cpu2gpuParams.waitForCreationToComplete();
 }
