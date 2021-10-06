@@ -80,6 +80,9 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/format/constants.glsl"
   # asset loaders (mostly for pipelines)
   "nbl/builtin/glsl/loader/mtl/common.glsl"
+  # LoD Library
+  "nbl/builtin/glsl/lod_library/structs.glsl"
+  "nbl/builtin/glsl/lod_library/descriptor_set.glsl"
   # math and limits
   "nbl/builtin/glsl/math/constants.glsl"
   "nbl/builtin/glsl/math/complex.glsl"

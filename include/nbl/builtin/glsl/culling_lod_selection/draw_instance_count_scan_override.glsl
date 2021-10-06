@@ -8,7 +8,7 @@
 // disable stuff we dont use
 #define NBL_GLSL_CULLING_LOD_SELECTION_DISPATCH_INDIRECT_DESCRIPTOR_BINDING
 #define NBL_GLSL_CULLING_LOD_SELECTION_INSTANCE_LIST_DESCRIPTOR_BINDING
-#define NBL_GLSL_CULLING_LOD_SELECTION_INSTANCE_DRAWCALL_OFFSETS_DESCRIPTOR_BINDING
+#define NBL_GLSL_CULLING_LOD_SELECTION_INSTANCE_LOD_INFO_UVEC4_OFFSETS_DESCRIPTOR_BINDING
 #define NBL_GLSL_CULLING_LOD_SELECTION_INSTANCE_DRAWCALL_EXCLUSIVE_COUNTS_DESCRIPTOR_BINDING
 #define NBL_GLSL_CULLING_LOD_SELECTION_PVS_INSTANCE_DRAWS_DESCRIPTOR_BINDING
 #define NBL_GLSL_CULLING_LOD_SELECTION_DRAW_COUNTS_TO_SCAN_DESCRIPTOR_BINDING
@@ -100,7 +100,7 @@ void nbl_glsl_scan_setData(
 		{
 			const uint drawcallDWORDOffset = drawcallsToScan.dwordOffsets[levelInvocationIndex];
 			if (bool(drawcallDWORDOffset&0x80000000u))
-				nbl_glsl_culling_lod_selection_drawArraysSetBaseInstance(drawcallDWORDOffset,data);
+				nbl_glsl_culling_lod_selection_drawArraysSetBaseInstance(drawcallDWORDOffset&0x7fffffffu,data);
 			else
 				nbl_glsl_culling_lod_selection_drawElementsSetBaseInstance(drawcallDWORDOffset,data);
 		}

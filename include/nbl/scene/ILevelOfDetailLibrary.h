@@ -69,13 +69,13 @@ class ILevelOfDetailLibrary : public virtual core::IReferenceCounted
 
 			static inline uint32_t getSizeInUvec4(uint32_t levelCount)
 			{
-				return (offsetof(LoDTableInfo,levelInfoOffsets[0])+sizeof(uint32_t)*levelCount-1u)/alignof(LoDTableInfo)+1u;
+				return (offsetof(LoDTableInfo,leveInfoUvec4Offsets[0])+sizeof(uint32_t)*levelCount-1u)/alignof(LoDTableInfo)+1u;
 			}
 
 			float aabbMin[3]; 
 			uint32_t levelCount;
 			float aabbMax[3];
-			uint32_t levelInfoOffsets[1];
+			uint32_t leveInfoUvec4Offsets[1]; // the array isnt really 1-sized, its `levelCount` entries
 		};
 		struct alignas(8) DrawcallInfo
 		{

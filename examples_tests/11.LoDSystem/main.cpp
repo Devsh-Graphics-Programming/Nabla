@@ -195,11 +195,11 @@ void addLoDTable(
     }
     auto& lodTable = lodLibraryData.lodTableData.emplace_back(LoDLevels);
     lodTable = scene::ILevelOfDetailLibrary::LoDTableInfo(LoDLevels,aabb);
-    std::fill_n(lodTable.levelInfoOffsets,LoDLevels,scene::ILevelOfDetailLibrary::invalid);
+    std::fill_n(lodTable.leveInfoUvec4Offsets,LoDLevels,scene::ILevelOfDetailLibrary::invalid);
     {
         lod_library_t::Allocation::LevelInfoAllocation lodLevelAllocations[1] =
         {
-            lodTable.levelInfoOffsets,
+            lodTable.leveInfoUvec4Offsets,
             lodLibraryData.drawCountData.data()+lodLibraryData.drawCountData.size()-LoDLevels
         };
         uint32_t lodTableOffsets[1u] = {scene::ILevelOfDetailLibrary::invalid};
@@ -433,6 +433,8 @@ int main()
     };
     core::vector<PotentiallyVisibleInstanceDraw> pvsContents(1u);
 
+    std::random_device rd;
+    std::mt19937 randGen(rd());
     //
     core::smart_refctd_ptr<video::IGPUCommandBuffer> bakedCommandBuffer;
     {
@@ -538,6 +540,7 @@ int main()
                 }
             }
             pvsContents[0].drawBaseInstanceDWORDOffset = pvsContents.size()-1u;
+            std::shuffle(pvsContents.begin()+1u,pvsContents.end(),randGen);
             auto range = cullingParams.scratchBufferRanges.pvsInstanceDraws;
             range.size = pvsContents.size()*sizeof(PotentiallyVisibleInstanceDraw);
             utilities->updateBufferRangeViaStagingBuffer(queues[decltype(initOutput)::EQT_TRANSFER_UP],range,pvsContents.data());
