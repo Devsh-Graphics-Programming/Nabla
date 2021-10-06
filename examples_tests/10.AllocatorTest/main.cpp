@@ -351,10 +351,11 @@ int main()
 	constexpr uint32_t WIN_H = 720;
 	constexpr uint32_t SC_IMG_COUNT = 3u;
 
-	auto initOutp = CommonAPI::Init<WIN_W, WIN_H, SC_IMG_COUNT>(video::EAT_OPENGL, "Compute Shader");
-	auto win = initOutp.window;
-	auto gl = initOutp.apiConnection;
-	auto surface = initOutp.surface;
+	CommonAPI::InitOutput<SC_IMG_COUNT> initOutput;
+	CommonAPI::Init<WIN_W, WIN_H, SC_IMG_COUNT>(initOutput, video::EAT_OPENGL, "Compute Shader");
+	auto win = initOutput.window;
+	auto gl = initOutput.apiConnection;
+	auto surface = initOutput.surface;
 
 	size_t allocSize = 128;
 
