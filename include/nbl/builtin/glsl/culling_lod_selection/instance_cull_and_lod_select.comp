@@ -40,9 +40,7 @@ void main()
 {
 #if 0
     if (gl_GlobalInvocationID.x==0u)
-        dispatchIndirect.drawInstanceCountPrefixSum.groups_x = 0u;
-    else if (gl_GlobalInvocationID.x==4u)
-        dispatchIndirect.potentiallyVisibleDrawInstanceCount = 0u;
+        dispatchIndirect.instanceRefCountingSortScatter.num_groups_x = 0u;
 
     uint outIx = 0u;
     for (uint instanceID=gl_GlobalInvocationID.x; instanceID<nbl_glsl_culling_lod_selection_getInstanceCount(); instanceID++)

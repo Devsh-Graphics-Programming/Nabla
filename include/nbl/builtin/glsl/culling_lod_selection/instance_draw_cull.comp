@@ -22,6 +22,13 @@ layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_) in;
 
 void main()
 {
+    if (gl_GlobalInvocationID.x==0u)
+    {
+        dispatchIndirect.instanceDrawCountPrefixSum.num_groups_x = 1u;
+        // TODO: move this clear to the prefix sum shader
+        dispatchIndirect.instanceCullAndLoDSelect.num_groups_x = 1u;
+    }
+
     const uint totalInstanceCount = lodDrawcallInclusiveCounts.count;
     const uint drawInstanceCount = lodDrawcallInclusiveCounts.data[totalInstanceCount-1u];
     for (uint drawInstanceIndex=gl_GlobalInvocationID.x; drawInstanceIndex<drawInstanceCount; drawInstanceIndex+=_NBL_GLSL_WORKGROUP_SIZE_)

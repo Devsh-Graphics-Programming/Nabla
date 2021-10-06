@@ -39,7 +39,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 			DispatchIndirectParams contents;
 			auto setWorkgroups = [](asset::DispatchIndirectCommand_t& cmd)
 			{
-				cmd.num_groups_x = 0u;
+				cmd.num_groups_x = 1u;
 				cmd.num_groups_y = 1u;
 				cmd.num_groups_z = 1u;
 			};
@@ -48,9 +48,6 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 			setWorkgroups(contents.instanceDrawCull);
 			setWorkgroups(contents.instanceRefCountingSortScatter);
 			setWorkgroups(contents.drawCompact);
-			// TODO: get rid of this
-			contents.instanceDrawCull.num_groups_x = 2u;
-			contents.instanceRefCountingSortScatter.num_groups_x = 2u;
 
             video::IGPUBuffer::SCreationParams params;
             params.usage = core::bitflag(asset::IBuffer::EUF_STORAGE_BUFFER_BIT)|asset::IBuffer::EUF_INDIRECT_BUFFER_BIT;
