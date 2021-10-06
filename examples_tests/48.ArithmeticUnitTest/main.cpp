@@ -260,7 +260,7 @@ bool runTest(
 		memoryBarrier[i].size = kBufferSize;
 	}
 	cmdbuf->pipelineBarrier(
-		asset::EPSF_COMPUTE_SHADER_BIT,asset::EPSF_COMPUTE_SHADER_BIT|asset::EPSF_HOST_BIT,asset::EDF_NONE,
+		asset::EPSF_COMPUTE_SHADER_BIT, core::bitflag(asset::EPSF_COMPUTE_SHADER_BIT)|asset::EPSF_HOST_BIT,asset::EDF_NONE,
 		0u,nullptr,outputBufferCount,memoryBarrier,0u,nullptr
 	);
 	cmdbuf->end();
@@ -288,150 +288,215 @@ bool runTest(
 	return passed;
 }
 
-int main()
+// APP
+
+class ArithmeticUnitTestApp : public ApplicationBase
 {
-	auto initOutput = CommonAPI::Init(video::EAT_OPENGL,"Subgroup Arithmetic Test");
-	auto system = std::move(initOutput.system);
-    auto gl = std::move(initOutput.apiConnection);
-    auto logger = std::move(initOutput.logger);
-    auto gpuPhysicalDevice = std::move(initOutput.physicalDevice);
-    auto logicalDevice = std::move(initOutput.logicalDevice);
-    auto queues = std::move(initOutput.queues);
-    auto renderpass = std::move(initOutput.renderpass);
-    auto commandPool = std::move(initOutput.commandPool);
-    auto assetManager = std::move(initOutput.assetManager);
-    auto cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
-    auto utilities = std::move(initOutput.utilities);
 
-    core::smart_refctd_ptr<IGPUFence> gpuTransferFence = nullptr;
-    core::smart_refctd_ptr<IGPUFence> gpuComputeFence = nullptr;
-
-    nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
-    {
-        cpu2gpuParams.perQueue[IGPUObjectFromAssetConverter::EQU_TRANSFER].fence = &gpuTransferFence;
-        cpu2gpuParams.perQueue[IGPUObjectFromAssetConverter::EQU_COMPUTE].fence = &gpuComputeFence;
-    }
-
-	uint32_t* inputData = new uint32_t[BUFFER_DWORD_COUNT];
+public:
+	struct Nabla : IUserData
 	{
-		std::mt19937 randGenerator(std::time(0));
-		for (uint32_t i = 0u; i < BUFFER_DWORD_COUNT; i++)
-			inputData[i] = randGenerator();
-	}
+		nbl::core::smart_refctd_ptr<nbl::ui::IWindowManager> windowManager;
+		nbl::core::smart_refctd_ptr<nbl::ui::IWindow> window;
+		nbl::core::smart_refctd_ptr<CommonAPI::CommonAPIEventCallback> windowCb;
+		nbl::core::smart_refctd_ptr<nbl::video::IAPIConnection> gl;
+		nbl::core::smart_refctd_ptr<nbl::video::ISurface> surface;
+		nbl::core::smart_refctd_ptr<nbl::video::IUtilities> utilities;
+		nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice> logicalDevice;
+		nbl::video::IPhysicalDevice* gpuPhysicalDevice;
+		std::array<nbl::video::IGPUQueue*, CommonAPI::InitOutput<0u>::EQT_COUNT> queues = { nullptr, nullptr, nullptr };
+		nbl::video::IGPUQueue* computeQueue = nullptr;
+		nbl::core::smart_refctd_ptr<nbl::video::ISwapchain> swapchain;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpass> renderpass;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandPool> commandPool;
+		nbl::core::smart_refctd_ptr<nbl::system::ISystem> system;
+		nbl::core::smart_refctd_ptr<nbl::asset::IAssetManager> assetManager;
+		nbl::video::IGPUObjectFromAssetConverter::SParams cpu2gpuParams;
+		nbl::core::smart_refctd_ptr<nbl::system::ILogger> logger;
+		nbl::core::smart_refctd_ptr<CommonAPI::InputSystem> inputSystem;
 
-	auto gpuinputDataBuffer = utilities->createFilledDeviceLocalGPUBufferOnDedMem(queues[decltype(initOutput)::EQT_TRANSFER_UP],kBufferSize,inputData);
-	
-	//create 8 buffers.
-	constexpr const auto totalBufferCount = outputBufferCount+1u;
+		nbl::core::smart_refctd_ptr<video::IGPUFence> gpuTransferFence;
+		nbl::core::smart_refctd_ptr<video::IGPUFence> gpuComputeFence;
+		nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
 
-	core::smart_refctd_ptr<IGPUBuffer> buffers[outputBufferCount];
-	for (auto i=0; i<outputBufferCount; i++)
-	{
-		IDriverMemoryBacked::SDriverMemoryRequirements reqs;
-		reqs.vulkanReqs.memoryTypeBits = ~0u;
-		reqs.vulkanReqs.alignment = 256u;
-		reqs.vulkanReqs.size = kBufferSize;
-		reqs.sharingMode = ESM_CONCURRENT;
-		reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
-		reqs.mappingCapability = IDriverMemoryAllocation::EMCAF_READ;
-		buffers[i] = logicalDevice->createGPUBufferOnDedMem(reqs);
-		IDriverMemoryAllocation::MappedMemoryRange mem;
-		mem.memory = buffers[i]->getBoundMemory();
-		mem.offset = 0u;
-		mem.length = kBufferSize;
-		logicalDevice->mapMemory(mem,IDriverMemoryAllocation::EMCAF_READ);
-	}
+		core::smart_refctd_ptr<ICPUSpecializedShader> shaderGLSL[6u];
+		static constexpr uint64_t kTestTypeCount = sizeof(shaderGLSL) / sizeof(const void*);
 
-	IGPUDescriptorSetLayout::SBinding binding[totalBufferCount];
-	for (uint32_t i=0u; i<totalBufferCount; i++)
-		binding[i] = { i,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr };
-	auto gpuDSLayout = logicalDevice->createGPUDescriptorSetLayout(binding,binding+totalBufferCount);
+		uint32_t workgroupSize = 1u;
+		core::smart_refctd_ptr<IGPUPipelineLayout> pipelineLayout;
+		core::smart_refctd_ptr<IGPUDescriptorSet> descriptorSet;
+		uint32_t* inputData;
+		core::smart_refctd_ptr<IGPUBuffer> buffers[outputBufferCount];
+		core::smart_refctd_ptr<IGPUCommandBuffer> cmdbuf;
+		core::smart_refctd_ptr<IGPUFence> fence;
 
-	constexpr uint32_t pushconstantSize = 8u*totalBufferCount;
-	SPushConstantRange pcRange[1] = { IGPUSpecializedShader::ESS_COMPUTE,0u,pushconstantSize };
-	auto pipelineLayout = logicalDevice->createGPUPipelineLayout(pcRange,pcRange+pushconstantSize,core::smart_refctd_ptr(gpuDSLayout));
+		//max workgroup size is hardcoded to 1024
+		uint32_t totalFailCount = 0;
 
-	auto descPool = logicalDevice->createDescriptorPoolForDSLayouts(IDescriptorPool::ECF_NONE,&gpuDSLayout.get(),&gpuDSLayout.get()+1u);
-	auto descriptorSet = logicalDevice->createGPUDescriptorSet(descPool.get(),core::smart_refctd_ptr(gpuDSLayout));
-	{
-		IGPUDescriptorSet::SDescriptorInfo infos[totalBufferCount];
-		infos[0].desc = gpuinputDataBuffer;
-		infos[0].buffer = { 0u,kBufferSize };
-		for (uint32_t i=1u; i<=outputBufferCount; i++)
+		auto getGPUShader(const ICPUSpecializedShader* shader, uint32_t wg_count)
 		{
-			infos[i].desc = buffers[i-1];
-			infos[i].buffer = { 0u,kBufferSize };
+			auto overridenUnspecialized = IGLSLCompiler::createOverridenCopy(shader->getUnspecialized(), "#define _NBL_GLSL_WORKGROUP_SIZE_ %d\n", wg_count);
+			ISpecializedShader::SInfo specInfo = shader->getSpecializationInfo();
+			auto cs = core::make_smart_refctd_ptr<ICPUSpecializedShader>(std::move(overridenUnspecialized), std::move(specInfo));
+			return cpu2gpu.getGPUObjectsFromAssets(&cs, &cs + 1, cpu2gpuParams)->front();
+			// no need to wait on fences because its only a shader create, does not result in the filling of image or buffers
+		};
 
+		void setWindow(core::smart_refctd_ptr<nbl::ui::IWindow>&& wnd) override
+		{
+			window = std::move(wnd);
 		}
-		IGPUDescriptorSet::SWriteDescriptorSet writes[totalBufferCount];
-		for (uint32_t i=0u; i<totalBufferCount; i++)
-			writes[i] = { descriptorSet.get(),i,0u,1u,EDT_STORAGE_BUFFER,infos+i };
-		logicalDevice->updateDescriptorSets(totalBufferCount,writes,0u,nullptr);
+	};
+
+	APP_CONSTRUCTOR(ArithmeticUnitTestApp)
+
+	void onAppInitialized_impl(void* data) override
+	{
+		Nabla* engine = static_cast<Nabla*>(data);
+
+		CommonAPI::InitOutput<0u> initOutput;
+		CommonAPI::Init(initOutput, video::EAT_OPENGL, "Subgroup Arithmetic Test");
+		engine->system = std::move(initOutput.system);
+		engine->gl = std::move(initOutput.apiConnection);
+		engine->logger = std::move(initOutput.logger);
+		engine->gpuPhysicalDevice = std::move(initOutput.physicalDevice);
+		engine->logicalDevice = std::move(initOutput.logicalDevice);
+		engine->queues = std::move(initOutput.queues);
+		engine->renderpass = std::move(initOutput.renderpass);
+		engine->commandPool = std::move(initOutput.commandPool);
+		engine->assetManager = std::move(initOutput.assetManager);
+		engine->cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
+		engine->utilities = std::move(initOutput.utilities);
+
+		{
+			engine->cpu2gpuParams.perQueue[IGPUObjectFromAssetConverter::EQU_TRANSFER].fence = &engine->gpuTransferFence;
+			engine->cpu2gpuParams.perQueue[IGPUObjectFromAssetConverter::EQU_COMPUTE].fence = &engine->gpuComputeFence;
+		}
+
+		engine->inputData = new uint32_t[BUFFER_DWORD_COUNT];
+		{
+			std::mt19937 randGenerator(std::time(0));
+			for (uint32_t i = 0u; i < BUFFER_DWORD_COUNT; i++)
+				engine->inputData[i] = randGenerator();
+		}
+
+		auto gpuinputDataBuffer = engine->utilities->createFilledDeviceLocalGPUBufferOnDedMem(engine->queues[decltype(initOutput)::EQT_TRANSFER_UP], kBufferSize, engine->inputData);
+
+		constexpr const auto totalBufferCount = outputBufferCount + 1u;
+
+		for (auto i = 0; i < outputBufferCount; i++)
+		{
+			IGPUBuffer::SCreationParams creationParams;
+			creationParams.sharingMode = ESM_CONCURRENT;
+
+			IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+			reqs.vulkanReqs.memoryTypeBits = ~0u;
+			reqs.vulkanReqs.alignment = 256u;
+			reqs.vulkanReqs.size = kBufferSize;
+			reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+			reqs.mappingCapability = IDriverMemoryAllocation::EMCAF_READ;
+			engine->buffers[i] = engine->logicalDevice->createGPUBufferOnDedMem(creationParams, reqs, true);
+			IDriverMemoryAllocation::MappedMemoryRange mem;
+			mem.memory = engine->buffers[i]->getBoundMemory();
+			mem.offset = 0u;
+			mem.length = kBufferSize;
+			engine->logicalDevice->mapMemory(mem, IDriverMemoryAllocation::EMCAF_READ);
+		}
+
+		IGPUDescriptorSetLayout::SBinding binding[totalBufferCount];
+		for (uint32_t i = 0u; i < totalBufferCount; i++)
+			binding[i] = { i,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr };
+		auto gpuDSLayout = engine->logicalDevice->createGPUDescriptorSetLayout(binding, binding + totalBufferCount);
+
+		constexpr uint32_t pushconstantSize = 8u * totalBufferCount;
+		SPushConstantRange pcRange[1] = { IGPUSpecializedShader::ESS_COMPUTE,0u,pushconstantSize };
+		engine->pipelineLayout = engine->logicalDevice->createGPUPipelineLayout(pcRange, pcRange + pushconstantSize, core::smart_refctd_ptr(gpuDSLayout));
+
+		auto descPool = engine->logicalDevice->createDescriptorPoolForDSLayouts(IDescriptorPool::ECF_NONE, &gpuDSLayout.get(), &gpuDSLayout.get() + 1u);
+		engine->descriptorSet = engine->logicalDevice->createGPUDescriptorSet(descPool.get(), core::smart_refctd_ptr(gpuDSLayout));
+		{
+			IGPUDescriptorSet::SDescriptorInfo infos[totalBufferCount];
+			infos[0].desc = gpuinputDataBuffer;
+			infos[0].buffer = { 0u,kBufferSize };
+			for (uint32_t i = 1u; i <= outputBufferCount; i++)
+			{
+				infos[i].desc = engine->buffers[i - 1];
+				infos[i].buffer = { 0u,kBufferSize };
+
+			}
+			IGPUDescriptorSet::SWriteDescriptorSet writes[totalBufferCount];
+			for (uint32_t i = 0u; i < totalBufferCount; i++)
+				writes[i] = { engine->descriptorSet.get(),i,0u,1u,EDT_STORAGE_BUFFER,infos + i };
+			engine->logicalDevice->updateDescriptorSets(totalBufferCount, writes, 0u, nullptr);
+		}
+
+		auto getShaderGLSL = [&](const char* filePath) -> auto
+		{
+			IAssetLoader::SAssetLoadParams lparams;
+			lparams.workingDirectory = std::filesystem::current_path();
+			auto bundle = engine->assetManager->getAsset(filePath, lparams);
+			assert(!bundle.getContents().empty() && bundle.getAssetType() == IAsset::ET_SPECIALIZED_SHADER);
+			return core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(*bundle.getContents().begin());
+		};
+
+		engine->shaderGLSL[0] = getShaderGLSL("../testSubgroupReduce.comp");
+		engine->shaderGLSL[1] = getShaderGLSL("../testSubgroupExclusive.comp");
+		engine->shaderGLSL[2] = getShaderGLSL("../testSubgroupInclusive.comp");
+		engine->shaderGLSL[3] = getShaderGLSL("../testWorkgroupReduce.comp");
+		engine->shaderGLSL[4] = getShaderGLSL("../testWorkgroupExclusive.comp");
+		engine->shaderGLSL[5] = getShaderGLSL("../testWorkgroupInclusive.comp");
+
+		
+		engine->computeQueue = initOutput.queues[CommonAPI::InitOutput<1>::EQT_COMPUTE];
+		engine->fence = engine->logicalDevice->createFence(IGPUFence::ECF_UNSIGNALED);
+		auto cmdPool = engine->logicalDevice->createCommandPool(engine->computeQueue->getFamilyIndex(), IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
+		engine->logicalDevice->createCommandBuffers(cmdPool.get(), IGPUCommandBuffer::EL_PRIMARY, 1u, &engine->cmdbuf);
 	}
 
-	auto getShaderGLSL = [&](const char* filePath) -> auto
+	void onAppTerminated_impl(void* data) override
 	{
-		IAssetLoader::SAssetLoadParams lparams;
-		lparams.workingDirectory = std::filesystem::current_path();
-		auto bundle = assetManager->getAsset(filePath,lparams);
-		assert(!bundle.getContents().empty() && bundle.getAssetType()==IAsset::ET_SPECIALIZED_SHADER);
-		return core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(*bundle.getContents().begin());
-	};
-	core::smart_refctd_ptr<ICPUSpecializedShader> shaderGLSL[] =
-	{
-		getShaderGLSL("../testSubgroupReduce.comp"),
-		getShaderGLSL("../testSubgroupExclusive.comp"),
-		getShaderGLSL("../testSubgroupInclusive.comp"),
-		getShaderGLSL("../testWorkgroupReduce.comp"),
-		getShaderGLSL("../testWorkgroupExclusive.comp"),
-		getShaderGLSL("../testWorkgroupInclusive.comp")
-	};
-	constexpr auto kTestTypeCount = sizeof(shaderGLSL)/sizeof(const void*);
+		Nabla* engine = static_cast<Nabla*>(data);
 
-	auto getGPUShader = [&](const ICPUSpecializedShader* shader, uint32_t wg_count) -> auto
-	{
-		auto overridenUnspecialized = IGLSLCompiler::createOverridenCopy(shader->getUnspecialized(),"#define _NBL_GLSL_WORKGROUP_SIZE_ %d\n",wg_count);
-		ISpecializedShader::SInfo specInfo = shader->getSpecializationInfo();
-		auto cs = core::make_smart_refctd_ptr<ICPUSpecializedShader>(std::move(overridenUnspecialized),std::move(specInfo));
-		return cpu2gpu.getGPUObjectsFromAssets(&cs,&cs+1,cpu2gpuParams)->front();
-		// no need to wait on fences because its only a shader create, does not result in the filling of image or buffers
-	};
+		engine->logger->log("==========Result==========", system::ILogger::ELL_INFO);
+		engine->logger->log("Fail Count: %d", system::ILogger::ELL_INFO, engine->totalFailCount);
+		delete[] engine->inputData;
+	}
 
-	//max workgroup size is hardcoded to 1024
-	uint32_t totalFailCount = 0;
-	const auto ds = descriptorSet.get();
-	auto computeQueue = initOutput.queues[decltype(initOutput)::EQT_COMPUTE];
-	auto fence = logicalDevice->createFence(IGPUFence::ECF_UNSIGNALED);
-	auto cmdPool = logicalDevice->createCommandPool(computeQueue->getFamilyIndex(),IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
-	core::smart_refctd_ptr<IGPUCommandBuffer> cmdbuf;
-	logicalDevice->createCommandBuffers(cmdPool.get(),IGPUCommandBuffer::EL_PRIMARY,1u,&cmdbuf);
-	for (uint32_t workgroupSize=1u; workgroupSize<=1024u; workgroupSize++)
+	void workLoopBody(void* data) override
 	{
-		core::smart_refctd_ptr<IGPUComputePipeline> pipelines[kTestTypeCount];
-		for (uint32_t i=0u; i<kTestTypeCount; i++)
-			pipelines[i] = logicalDevice->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(pipelineLayout),std::move(getGPUShader(shaderGLSL[i].get(),workgroupSize)));
+		Nabla* engine = static_cast<Nabla*>(data);
+
+		core::smart_refctd_ptr<IGPUComputePipeline> pipelines[Nabla::kTestTypeCount];
+		for (uint32_t i = 0u; i < Nabla::kTestTypeCount; i++)
+			pipelines[i] = engine->logicalDevice->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(engine->pipelineLayout), std::move(engine->getGPUShader(engine->shaderGLSL[i].get(), engine->workgroupSize)));
 
 		bool passed = true;
 
-		const video::IGPUDescriptorSet* ds = descriptorSet.get();
-		passed = runTest<emulatedSubgroupReduction>(logicalDevice.get(),computeQueue,fence.get(),cmdbuf.get(),pipelines[0u].get(),descriptorSet.get(),inputData,workgroupSize,buffers,logger.get())&&passed;
-		passed = runTest<emulatedSubgroupScanExclusive>(logicalDevice.get(),computeQueue,fence.get(),cmdbuf.get(),pipelines[1u].get(),descriptorSet.get(),inputData,workgroupSize,buffers,logger.get())&&passed;
-		passed = runTest<emulatedSubgroupScanInclusive>(logicalDevice.get(),computeQueue,fence.get(),cmdbuf.get(),pipelines[2u].get(),descriptorSet.get(),inputData,workgroupSize,buffers,logger.get())&&passed;
-		passed = runTest<emulatedWorkgroupReduction>(logicalDevice.get(),computeQueue,fence.get(),cmdbuf.get(),pipelines[3u].get(),descriptorSet.get(),inputData,workgroupSize,buffers,logger.get(),true)&&passed;
-		passed = runTest<emulatedWorkgroupScanExclusive>(logicalDevice.get(),computeQueue,fence.get(),cmdbuf.get(),pipelines[4u].get(),descriptorSet.get(),inputData,workgroupSize,buffers,logger.get(),true)&&passed;
-		passed = runTest<emulatedWorkgroupScanInclusive>(logicalDevice.get(),computeQueue,fence.get(),cmdbuf.get(),pipelines[5u].get(),descriptorSet.get(),inputData,workgroupSize,buffers,logger.get(),true)&&passed;
+		const video::IGPUDescriptorSet* ds = engine->descriptorSet.get();
+		passed = runTest<emulatedSubgroupReduction>(engine->logicalDevice.get(), engine->computeQueue, engine->fence.get(), engine->cmdbuf.get(), pipelines[0u].get(), engine->descriptorSet.get(), engine->inputData, engine->workgroupSize, engine->buffers, engine->logger.get()) && passed;
+		passed = runTest<emulatedSubgroupScanExclusive>(engine->logicalDevice.get(), engine->computeQueue, engine->fence.get(), engine->cmdbuf.get(), pipelines[1u].get(), engine->descriptorSet.get(), engine->inputData, engine->workgroupSize, engine->buffers, engine->logger.get()) && passed;
+		passed = runTest<emulatedSubgroupScanInclusive>(engine->logicalDevice.get(), engine->computeQueue, engine->fence.get(), engine->cmdbuf.get(), pipelines[2u].get(), engine->descriptorSet.get(), engine->inputData, engine->workgroupSize, engine->buffers, engine->logger.get()) && passed;
+		passed = runTest<emulatedWorkgroupReduction>(engine->logicalDevice.get(), engine->computeQueue, engine->fence.get(), engine->cmdbuf.get(), pipelines[3u].get(), engine->descriptorSet.get(), engine->inputData, engine->workgroupSize, engine->buffers, engine->logger.get(), true) && passed;
+		passed = runTest<emulatedWorkgroupScanExclusive>(engine->logicalDevice.get(), engine->computeQueue, engine->fence.get(), engine->cmdbuf.get(), pipelines[4u].get(), engine->descriptorSet.get(), engine->inputData, engine->workgroupSize, engine->buffers, engine->logger.get(), true) && passed;
+		passed = runTest<emulatedWorkgroupScanInclusive>(engine->logicalDevice.get(), engine->computeQueue, engine->fence.get(), engine->cmdbuf.get(), pipelines[5u].get(), engine->descriptorSet.get(), engine->inputData, engine->workgroupSize, engine->buffers, engine->logger.get(), true) && passed;
 
 		if (passed)
-			logger->log("Passed test #%d",system::ILogger::ELL_INFO,workgroupSize);
+			engine->logger->log("Passed test #%d", system::ILogger::ELL_INFO, engine->workgroupSize);
 		else
 		{
-			totalFailCount++;
-			logger->log("Failed test #%d",system::ILogger::ELL_ERROR,workgroupSize);
+			engine->totalFailCount++;
+			engine->logger->log("Failed test #%d", system::ILogger::ELL_ERROR, engine->workgroupSize);
 		}
-	}
-	logger->log("==========Result==========",system::ILogger::ELL_INFO);
-	logger->log("Fail Count: %d",system::ILogger::ELL_INFO,totalFailCount);
-	delete [] inputData;
 
-	return 0;
-}
+		engine->workgroupSize++;
+	}
+
+	bool keepRunning(void* params) override
+	{
+		Nabla* engine = static_cast<Nabla*>(params);
+		return engine->workgroupSize <= 1024u;
+	}
+
+};
+
+NBL_COMMON_API_MAIN(ArithmeticUnitTestApp, ArithmeticUnitTestApp::Nabla)
