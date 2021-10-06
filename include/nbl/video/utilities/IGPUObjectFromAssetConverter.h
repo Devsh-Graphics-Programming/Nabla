@@ -980,6 +980,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
         computeCmdbuf->bindDescriptorSets();
         computeCmdbuf->pushConstants();
         computeCmdbuf->dispatch();*/
+
         if (cpuimg->getCreationParameters().mipLevels == gpuimg->getCreationParameters().mipLevels)
             return;
 
@@ -1003,6 +1004,14 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
         blitRegion.dstSubresource.baseArrayLayer = barrier.subresourceRange.baseArrayLayer;
         blitRegion.dstSubresource.layerCount = barrier.subresourceRange.layerCount;
         blitRegion.dstOffsets[0] = { 0, 0, 0 };
+
+        asset::E_PIPELINE_STAGE_FLAGS finalStageMask;
+        if (newLayout == asset::EIL_GENERAL)
+            finalStageMask = asset::EPSF_COMPUTE_SHADER_BIT;
+        else if (newLayout == asset::EIL_SHADER_READ_ONLY_OPTIMAL)
+            finalStageMask = asset::EPSF_FRAGMENT_SHADER_BIT; // this layout could mean other pipeline stage flags as well, probably should get this from the user
+        else
+            assert(false);
 
         // Compute mips
         auto mipsize = cpuimg->getMipSize(cpuimg->getCreationParameters().mipLevels);
@@ -1038,13 +1047,29 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
             barrier.oldLayout = asset::EIL_TRANSFER_SRC_OPTIMAL;
             barrier.newLayout = newLayout;
 
-            cmdbuf_transfer->pipelineBarrier(asset::EPSF_TRANSFER_BIT, asset::EPSF_COMPUTE_SHADER_BIT, static_cast<asset::E_DEPENDENCY_FLAGS>(0u), 0u, nullptr,
-                0u, nullptr, 1u, &barrier);
+            cmdbuf_transfer->pipelineBarrier(
+                asset::EPSF_TRANSFER_BIT,
+                finalStageMask,
+                static_cast<asset::E_DEPENDENCY_FLAGS>(0u),
+                0u, nullptr,
+                0u, nullptr,
+                1u, &barrier);
 
             if (mipWidth > 1u) mipWidth /= 2u;
             if (mipHeight > 1u) mipHeight /= 2u;
             if (mipDepth > 1u) mipDepth /= 2u;
         }
+
+        // Transition the last mip level to correct layout
+        barrier.subresourceRange.baseMipLevel = gpuimg->getCreationParameters().mipLevels - 1u;
+        barrier.oldLayout = asset::EIL_TRANSFER_DST_OPTIMAL;
+        cmdbuf_transfer->pipelineBarrier(
+            asset::EPSF_TRANSFER_BIT,
+            finalStageMask,
+            static_cast<asset::E_DEPENDENCY_FLAGS>(0u),
+            0u, nullptr,
+            0u, nullptr,
+            1u, &barrier);
     };
 
     for (ptrdiff_t i = 0u; i < assetCount; ++i)
@@ -1097,7 +1122,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
             asset::E_IMAGE_LAYOUT newLayout;
             auto usage = gpuimg->getCreationParameters().usage.value;
             //constexpr auto UsageWriteMask = asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_DEPTH_STENCIL_ATTACHMENT_BIT | asset::IImage::EUF_FRAGMENT_DENSITY_MAP_BIT_EXT | asset::IImage::EUF_STORAGE_BIT;
-            if (!needToCompMipsForThisImg(cpuimg) && (usage & asset::IImage::EUF_SAMPLED_BIT))
+            if (usage & asset::IImage::EUF_SAMPLED_BIT)
                 newLayout = asset::EIL_SHADER_READ_ONLY_OPTIMAL;
             else
                 newLayout = asset::EIL_GENERAL;
@@ -1471,7 +1496,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUShader** const _begin
 
     for (ptrdiff_t i = 0u; i < assetCount; ++i)
     {
-        res->operator[](i) = _params.device->createGPUShader(core::smart_refctd_ptr<asset::ICPUShader>(const_cast<asset::ICPUShader*>(_begin[i])), "????");
+        res->operator[](i) = _params.device->createGPUShader(core::smart_refctd_ptr<asset::ICPUShader>(const_cast<asset::ICPUShader*>(_begin[i])));
     }
 
     return res;

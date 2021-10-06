@@ -32,7 +32,7 @@ IGPUSpecializedShader* CScanner::getDefaultSpecializedShader(const E_SCAN_TYPE s
 				cpushader.get(),
 				"#define _NBL_GLSL_WORKGROUP_SIZE_ %d\n#define _NBL_GLSL_SCAN_TYPE_ %d\n#define _NBL_GLSL_SCAN_STORAGE_TYPE_ %s\n#define _NBL_GLSL_SCAN_BIN_OP_ %d\n",
 				m_wg_size,uint32_t(scanType),storageType,uint32_t(op)
-			), "nbl/builtin/glsl/scan/default.comp"
+			)
 		);
 		m_specialized_shaders[scanType][dataType][op] = m_device->createGPUSpecializedShader(
 			shader.get(),{ nullptr,nullptr,"main" }

@@ -106,14 +106,14 @@ int main()
 		bindings[0].binding = 0u;
 		bindings[0].type = asset::EDT_STORAGE_IMAGE;
 		bindings[0].count = 1u;
-		bindings[0].stageFlags = asset::ISpecializedShader::ESS_COMPUTE;
+		bindings[0].stageFlags = asset::IShader::ESS_COMPUTE;
 		bindings[0].samplers = nullptr;
 
 		// ubo
 		bindings[1].binding = 1u;
 		bindings[1].type = asset::EDT_STORAGE_IMAGE;
 		bindings[1].count = 1u;
-		bindings[1].stageFlags = asset::ISpecializedShader::ESS_COMPUTE;
+		bindings[1].stageFlags = asset::IShader::ESS_COMPUTE;
 		bindings[1].samplers = nullptr;
 	}
 	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> dsLayout =
@@ -278,7 +278,7 @@ int main()
 	}
 
 	asset::SPushConstantRange pcRange = {};
-	pcRange.stageFlags = asset::ISpecializedShader::ESS_COMPUTE;
+	pcRange.stageFlags = asset::IShader::ESS_COMPUTE;
 	pcRange.offset = 0u;
 	pcRange.size = 2*sizeof(uint32_t);
 	core::smart_refctd_ptr<video::IGPUPipelineLayout> pipelineLayout =

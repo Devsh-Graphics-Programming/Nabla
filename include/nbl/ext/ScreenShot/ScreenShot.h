@@ -41,11 +41,12 @@ inline core::smart_refctd_ptr<asset::ICPUImageView> createScreenShot(video::ILog
 		auto extent = gpuImage->getMipSize();
 		video::IGPUImage::SBufferCopy pRegions[1u] = { {0u,extent.x,extent.y,{static_cast<asset::IImage::E_ASPECT_FLAGS>(0u),0,0u,1u},{0u,0u,0u},{extent.x,extent.y,extent.z}} };
 
-		video::IGPUBuffer::SCreationParams unused = {};
+		video::IGPUBuffer::SCreationParams bufferCreationParams = {};
+		bufferCreationParams.usage = asset::IBuffer::EUF_TRANSFER_DST_BIT;
 
 		auto deviceLocalGPUMemoryReqs = logicalDevice->getDownStreamingMemoryReqs();
 		deviceLocalGPUMemoryReqs.vulkanReqs.size = extent.x*extent.y*extent.z*asset::getTexelOrBlockBytesize(fetchedGpuImageParams.format);
-		gpuTexelBuffer = logicalDevice->createGPUBufferOnDedMem(unused, deviceLocalGPUMemoryReqs, true);
+		gpuTexelBuffer = logicalDevice->createGPUBufferOnDedMem(bufferCreationParams, deviceLocalGPUMemoryReqs, true);
 
 		// TODO: after Vulkan comes, pay attention to the image layout
 		gpuCommandBuffer->copyImageToBuffer(gpuImage.get(),asset::EIL_GENERAL,gpuTexelBuffer.get(),1,pRegions);
@@ -59,19 +60,15 @@ inline core::smart_refctd_ptr<asset::ICPUImageView> createScreenShot(video::ILog
 	info.commandBuffers = &gpuCommandBuffer.get();
 	info.pSignalSemaphores = nullptr;
 	info.signalSemaphoreCount = 0u;
-	info.pWaitSemaphores = &semaphore;
-	info.waitSemaphoreCount = 1u;
+	info.pWaitSemaphores = nullptr;
+	info.waitSemaphoreCount = 0u;
 	auto stageflags = asset::EPSF_ALL_COMMANDS_BIT; // assume the image we're trying to download could be touched by anything before (host manipulation is implicitly visibile because of submit's guarantees)
 	info.pWaitDstStageMask = &stageflags;
 	queue->submit(1u, &info, fence.get());
 
-	video::IGPUFence::E_STATUS waitStatus = video::IGPUFence::ES_NOT_READY;
-	while (waitStatus!=video::IGPUFence::ES_SUCCESS)
-	{
-		waitStatus = logicalDevice->waitForFences(1u, &fence.get(), false, 999999999ull);
-		if (waitStatus==video::IGPUFence::ES_ERROR)
-			return nullptr;
-	}
+	auto retval = logicalDevice->waitForFences(1u, &fence.get(), true, ~0ull);
+	if (retval != video::IGPUFence::ES_SUCCESS)
+		return nullptr;
 
 	core::smart_refctd_ptr<asset::ICPUImageView> cpuImageView;
 	{

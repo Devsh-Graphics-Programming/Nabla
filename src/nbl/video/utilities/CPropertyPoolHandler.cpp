@@ -25,7 +25,7 @@ CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice
 		std::fill_n(m_alignments,maxStreamingAllocations,core::max(deviceLimits.SSBOAlignment,256u/*TODO: deviceLimits.nonCoherentAtomSize*/));
 	}
 
-	auto shader = m_device->createGPUShader(asset::IGLSLCompiler::createOverridenCopy(cpushader.get(),"#define _NBL_GLSL_WORKGROUP_SIZE_ %d\n#define NBL_BUILTIN_MAX_PROPERTIES_PER_COPY %d\n",IdealWorkGroupSize,m_maxPropertiesPerPass), "????");
+	auto shader = m_device->createGPUShader(asset::IGLSLCompiler::createOverridenCopy(cpushader.get(),"#define _NBL_GLSL_WORKGROUP_SIZE_ %d\n#define NBL_BUILTIN_MAX_PROPERTIES_PER_COPY %d\n",IdealWorkGroupSize,m_maxPropertiesPerPass));
 	auto specshader = m_device->createGPUSpecializedShader(shader.get(),{nullptr,nullptr,"main"});
 	
 	IGPUDescriptorSetLayout::SBinding bindings[3];
