@@ -456,30 +456,12 @@ int main()
                 //! cache results -- speeds up mesh generation on second run
                 qnc->saveCacheToFile<asset::EF_A2B10G10R10_SNORM_PACK32>(system.get(), cachePath);
             }
-
-
-            for (auto i=0u; i<kiln.getDrawcallMetadataVector().size(); i++)
-            {
-                const auto& info = kiln.getDrawcallMetadataVector()[i];
-                for (auto j=0u; j<info.drawMaxCount; j++)
-                {
-                    pvsContents.emplace_back(
-                        (info.drawCallOffset+sizeof(DrawElementsIndirectCommand_t)*j)/sizeof(uint32_t)+4u,
-                        0u,
-                        0xdeadbeefu,
-                        i
-                    );
-                }
-            }
-            pvsContents[0].drawBaseInstanceDWORDOffset = pvsContents.size()-1u;
-            auto range = cullingParams.scratchBufferRanges.pvsInstanceDraws;
-            range.size = pvsContents.size()*sizeof(PotentiallyVisibleInstanceDraw);
-            utilities->updateBufferRangeViaStagingBuffer(queues[decltype(initOutput)::EQT_TRANSFER_UP],range,pvsContents.data());
-            // do the transfer of drawcall structs
             cullingParams.drawcallCount = lodLibraryData.drawCallData.size();
+            // do the transfer of drawcall and LoD data
             {
-                video::CPropertyPoolHandler::TransferRequest requests[2u];
-                for (auto i=0u; i<2u; i++)
+                constexpr auto MaxTransfers = 4u;
+                video::CPropertyPoolHandler::TransferRequest requests[MaxTransfers];
+                for (auto i=0u; i<MaxTransfers; i++)
                 {
                     requests[i].flags = video::CPropertyPoolHandler::TransferRequest::EF_NONE;
                     requests[i].srcAddresses = nullptr; // iota 0,1,2,3,4,etc.
@@ -490,14 +472,24 @@ int main()
                 requests[0].elementCount = cullingParams.drawcallCount;
                 requests[0].dstAddresses = lodLibraryData.drawCallOffsetsIn20ByteStrides.data();
                 requests[0].source = lodLibraryData.drawCallData.data();
-                auto requestCount = 1u;
+                requests[1].memblock = lodLibrary->getLoDInfoBinding();
+                requests[1].elementSize = sizeof(scene::ILevelOfDetailLibrary::AlignBase);
+                requests[1].elementCount = lodLibraryData.lodInfoDstUvec4s.size();
+                requests[1].dstAddresses = lodLibraryData.lodInfoDstUvec4s.data();
+                requests[1].source = lodLibraryData.lodInfoData.data();
+                requests[2].memblock = lodLibrary->getLodTableInfoBinding();
+                requests[2].elementSize = sizeof(scene::ILevelOfDetailLibrary::AlignBase);
+                requests[2].elementCount = lodLibraryData.lodTableDstUvec4s.size();
+                requests[2].dstAddresses = lodLibraryData.lodTableDstUvec4s.data();
+                requests[2].source = lodLibraryData.lodTableData.data();
+                auto requestCount = 3u;
                 if (drawIndirectAllocator->getDrawCountMemoryBlock())
                 {
-                    requests[1].memblock = *drawIndirectAllocator->getDrawCountMemoryBlock();
-                    requests[1].elementSize = sizeof(uint32_t);
-                    requests[1].elementCount = lodLibraryData.drawCountOffsets.size();
-                    requests[1].dstAddresses = lodLibraryData.drawCountOffsets.data();
-                    requests[1].source = lodLibraryData.drawCountData.data();
+                    requests[requestCount].memblock = *drawIndirectAllocator->getDrawCountMemoryBlock();
+                    requests[requestCount].elementSize = sizeof(uint32_t);
+                    requests[requestCount].elementCount = lodLibraryData.drawCountOffsets.size();
+                    requests[requestCount].dstAddresses = lodLibraryData.drawCountOffsets.data();
+                    requests[requestCount].source = lodLibraryData.drawCountData.data();
                     requestCount++;
                 }
 
@@ -515,7 +507,7 @@ int main()
                 }
                 logicalDevice->blockForFences(1u,&fence.get());
             }
-            //
+            // set up the remaining descriptor sets of the culling system
             {
                 auto& drawCallOffsetsInDWORDs = lodLibraryData.drawCallOffsetsIn20ByteStrides;
                 for (auto i=0u; i<cullingParams.drawcallCount; i++)
@@ -530,6 +522,25 @@ int main()
                     {0ull,~0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(queues[decltype(initOutput)::EQT_TRANSFER_UP],lodLibraryData.drawCountOffsets.size()*sizeof(uint32_t),lodLibraryData.drawCountOffsets.data())}
                 );
             }
+
+            // TODO: kill this
+            for (auto i=0u; i<kiln.getDrawcallMetadataVector().size(); i++)
+            {
+                const auto& info = kiln.getDrawcallMetadataVector()[i];
+                for (auto j=0u; j<info.drawMaxCount; j++)
+                {
+                    pvsContents.emplace_back(
+                        (info.drawCallOffset+sizeof(DrawElementsIndirectCommand_t)*j)/sizeof(uint32_t)+4u,
+                        0u,
+                        0xdeadbeefu,
+                        i
+                    );
+                }
+            }
+            pvsContents[0].drawBaseInstanceDWORDOffset = pvsContents.size()-1u;
+            auto range = cullingParams.scratchBufferRanges.pvsInstanceDraws;
+            range.size = pvsContents.size()*sizeof(PotentiallyVisibleInstanceDraw);
+            utilities->updateBufferRangeViaStagingBuffer(queues[decltype(initOutput)::EQT_TRANSFER_UP],range,pvsContents.data());
         }
         // prerecord the secondary cmdbuffer
         {
