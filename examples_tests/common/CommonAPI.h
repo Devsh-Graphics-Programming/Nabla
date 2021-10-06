@@ -586,7 +586,7 @@ public:
 	static void main(int argc, char** argv)
 	{
 #ifndef _NBL_PLATFORM_ANDROID_
-		system::path CWD = nbl::system::path(argv[0]).parent_path().generic_string() + "/";
+		nbl::system::path CWD = nbl::system::path(argv[0]).parent_path().generic_string() + "/";
 		AppClassName app(CWD);
 		UserDataType usrData{};
 		app.onAppInitialized(&usrData);
