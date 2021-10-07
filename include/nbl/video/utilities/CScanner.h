@@ -56,7 +56,7 @@ class CScanner final : public core::IReferenceCounted
 			Parameters()
 			{
 				std::fill_n(elementCount,MaxScanLevels,0u);
-				std::fill_n(temporaryStorageOffset,MaxScanLevels/2-1,0u);
+				std::fill_n(temporaryStorageOffset,MaxScanLevels/2,0u);
 			}
 			Parameters(const uint32_t _elementCount, const uint32_t wg_size=DefaultWorkGroupSize) : Parameters()
 			{
@@ -76,7 +76,7 @@ class CScanner final : public core::IReferenceCounted
 			inline uint32_t getScratchSize(uint32_t ssboAlignment=256u)
 			{
 				uint32_t uint_count = 1u; // workgroup enumerator
-				uint_count += temporaryStorageOffset[MaxScanLevels/2u-2u]; // last scratch offset
+				uint_count += temporaryStorageOffset[MaxScanLevels/2u-1u]; // last scratch offset
 				uint_count += elementCount[topLevel]; // and its size
 				return core::roundUp<uint32_t>(uint_count*sizeof(uint32_t),ssboAlignment);
 			}
