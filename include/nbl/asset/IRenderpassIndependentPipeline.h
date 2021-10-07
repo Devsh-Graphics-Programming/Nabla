@@ -17,11 +17,20 @@
 #include "nbl/asset/IPipeline.h"
 #include "nbl/asset/IImage.h"
 
+#define VK_NO_PROTOTYPES
+#include <vulkan/vulkan.h>
 
 namespace nbl
 {
 namespace asset
 {
+
+struct SViewport
+{
+    float x, y;
+    float width, height;
+    float minDepth, maxDepth;
+};
 
 enum E_PRIMITIVE_TOPOLOGY : uint8_t
 {
@@ -213,7 +222,7 @@ struct SRasterizationParams
 		stencilTestEnable = false;
 	}
 
-    uint8_t viewportCount = 1u;
+    uint8_t viewportCount = 1u; // doesn't belong here
     E_POLYGON_MODE polygonMode = EPM_FILL;
     E_FACE_CULL_MODE faceCullingMode = EFCM_BACK_BIT;
 	E_COMPARE_OP depthCompareOp = ECO_GREATER;
@@ -262,6 +271,14 @@ struct SRasterizationParams
     }
 } PACK_STRUCT;
 static_assert(sizeof(SRasterizationParams)==4u*sizeof(uint8_t) + 3u*sizeof(uint32_t) + 3u*sizeof(float) + 2u*sizeof(SStencilOpParams) + sizeof(uint16_t), "Unexpected size!");
+
+struct SViewportParams
+{
+    uint8_t viewportCount = 1u;
+    SViewport viewport;
+    uint8_t scissorCount = 1u;
+    VkRect2D scissor;
+};
 
 enum E_LOGIC_OP : uint8_t
 {
@@ -520,7 +537,6 @@ class IRenderpassIndependentPipeline : public IPipeline<LayoutType>
 
 		inline const SpecShaderType* getShaderAtStage(IShader::E_SHADER_STAGE _stage) const { return m_shaders[core::findLSB<uint32_t>(_stage)].get(); }
 		inline const SpecShaderType* getShaderAtIndex(uint32_t _ix) const { return m_shaders[_ix].get(); }
-        inline const core::smart_refctd_ptr<SpecShaderType>* getShaders() const { return reinterpret_cast<const core::smart_refctd_ptr<SpecShaderType>*>(m_shaders); }
 
 		inline const SBlendParams& getBlendParams() const { return m_blendParams; }
 		inline const SPrimitiveAssemblyParams& getPrimitiveAssemblyParams() const { return m_primAsmParams; }

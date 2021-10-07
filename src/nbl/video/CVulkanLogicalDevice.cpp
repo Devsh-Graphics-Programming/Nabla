@@ -251,50 +251,45 @@ bool CVulkanLogicalDevice::createGPUGraphicsPipelines_impl(
 {
     IGPUGraphicsPipeline::SCreationParams* creationParams = const_cast<IGPUGraphicsPipeline::SCreationParams*>(params.begin());
 
-    // core::smart_refctd_ptr<const renderpass_independent_t> renderpassIndependent;
-    // IImage::E_SAMPLE_COUNT_FLAGS rasterizationSamplesHint = IImage::ESCF_1_BIT;
-    // core::smart_refctd_ptr<RenderpassType> renderpass;
-    // uint32_t subpassIx = 0u;
-
-    // for (size_t i = 0ull; i < params.size(); ++i)
-    // {
-    //     if ((creationParams[i].layout->getAPIType() != EAT_VULKAN) ||
-    //         (creationParams[i].shader->getAPIType() != EAT_VULKAN))
-    //     {
-    //         return false;
-    //     }
-    // }
-
     VkPipelineCache vk_pipelineCache = VK_NULL_HANDLE;
     if (pipelineCache && pipelineCache->getAPIType() == EAT_VULKAN)
         vk_pipelineCache = static_cast<const CVulkanPipelineCache*>(pipelineCache)->getInternalObject();
 
+    // Shader stages
     uint32_t totalShaderStageCount = 0u;
     core::vector<VkPipelineShaderStageCreateInfo> vk_shaderStages(params.size() * IGPURenderpassIndependentPipeline::SHADER_STAGE_COUNT);
+
+    // Vertex input
+    uint32_t vertexBindingDescriptionCount_total = 0u;
+    core::vector<VkVertexInputBindingDescription> vk_vertexBindingDescriptions(params.size() * asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT);
+    uint32_t vertexAttribDescriptionCount_total = 0u;
+    core::vector<VkVertexInputAttributeDescription> vk_vertexAttribDescriptions(params.size() * asset::SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT);
     core::vector<VkPipelineVertexInputStateCreateInfo> vk_vertexInputStates(params.size());
+
+    // Input Assembly
     core::vector<VkPipelineInputAssemblyStateCreateInfo> vk_inputAssemblyStates(params.size());
 
-    VkViewport vk_viewport = {};
-    vk_viewport.x = 0.0f;
-    vk_viewport.y = 0.0f;
-    vk_viewport.width = (float)1280; // Todo(achal)
-    vk_viewport.height = (float)720; // Todo(achal)
-    vk_viewport.minDepth = 0.0f;
-    vk_viewport.maxDepth = 1.0f;
-
-    VkRect2D vk_scissor = {};
-    vk_scissor.offset = { 0, 0 };
-    vk_scissor.extent = { 1280u,720u }; // Todo(achal)
-    // Todo(achal): Each of these could have multiple viewports and multiple scissors
+    // Viewport State
+    uint32_t maxViewportCount = params.size(); // 1 per pipeline
+    uint32_t maxScissorCount = params.size(); // 1 per pipeline
+    // On a side note: m_physicalDevice->getFeatures are supported features not enabled features!
+    // if (<some way to get enabled device features>.multiViewport)
+    // {
+    //     maxViewportCount = m_physicalDevice->getLimits().maxViewports * params.size();
+    //     maxScissorCount = m_physicalDevice->getLimits().maxViewports * params.size();
+    // }
+    uint32_t viewportCount_total = 0u;
+    uint32_t scissorCount_total = 0u;
+    core::vector<VkViewport> vk_viewports(maxViewportCount);
+    core::vector<VkRect2D> vk_scissors(maxScissorCount);
     core::vector<VkPipelineViewportStateCreateInfo> vk_viewportStates(params.size());
 
     core::vector<VkPipelineRasterizationStateCreateInfo> vk_rasterizationStates(params.size());
+
     core::vector<VkPipelineMultisampleStateCreateInfo> vk_multisampleStates(params.size());
 
-    VkPipelineColorBlendAttachmentState vk_colorBlendAttachmentState = {};
-    vk_colorBlendAttachmentState.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-    vk_colorBlendAttachmentState.blendEnable = VK_FALSE;
-    // Each of these could have multiple VkPipelineColorBlendAttachmentStates
+    uint32_t colorBlendAttachmentCount_total = 0u;
+    core::vector<VkPipelineColorBlendAttachmentState> vk_colorBlendAttachmentStates(params.size() * asset::SBlendParams::MAX_COLOR_ATTACHMENT_COUNT);
     core::vector<VkPipelineColorBlendStateCreateInfo> vk_colorBlendStates(params.size());
 
     core::vector<VkGraphicsPipelineCreateInfo> vk_createInfos(params.size());
@@ -332,62 +327,192 @@ bool CVulkanLogicalDevice::createGPUGraphicsPipelines_impl(
         totalShaderStageCount += shaderStageCount;
 
         // Vertex Input
-        vk_vertexInputStates[i].sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-        vk_vertexInputStates[i].pNext = nullptr;
-        vk_vertexInputStates[i].flags = 0u;
-        // Todo(achal):
-        vk_vertexInputStates[i].vertexBindingDescriptionCount = 0u;
-        vk_vertexInputStates[i].vertexAttributeDescriptionCount = 0u;
+        {
+            vk_vertexInputStates[i].sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+            vk_vertexInputStates[i].pNext = nullptr;
+            vk_vertexInputStates[i].flags = 0u;
 
+            const auto& vertexInputParams = rpIndie->getVertexInputParams();
+
+            // Fill up vertex binding descriptions
+            uint32_t offset = vertexBindingDescriptionCount_total;
+            uint32_t vertexBindingDescriptionCount = 0u;
+
+            for (uint32_t b = 0u; b < asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; ++b)
+            {
+                if (vertexInputParams.enabledBindingFlags & (1 << b))
+                {
+                    auto& bndDesc = vk_vertexBindingDescriptions[offset + vertexBindingDescriptionCount++];
+
+                    bndDesc.binding = b;
+                    bndDesc.stride = vertexInputParams.bindings[b].stride;
+                    bndDesc.inputRate = static_cast<VkVertexInputRate>(vertexInputParams.bindings[b].inputRate);
+                }
+            }
+            vk_vertexInputStates[i].vertexBindingDescriptionCount = vertexBindingDescriptionCount;
+            vk_vertexInputStates[i].pVertexBindingDescriptions = vk_vertexBindingDescriptions.data() + offset;
+            vertexBindingDescriptionCount_total += vertexBindingDescriptionCount;
+
+            // Fill up vertex attribute descriptions
+            offset = vertexAttribDescriptionCount_total;
+            uint32_t vertexAttribDescriptionCount = 0u;
+
+            for (uint32_t l = 0u; l < asset::SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT; ++l)
+            {
+                if (vertexInputParams.enabledAttribFlags & (1 << l))
+                {
+                    auto& attribDesc = vk_vertexAttribDescriptions[offset + vertexAttribDescriptionCount++];
+
+                    attribDesc.location = l;
+                    attribDesc.binding = vertexInputParams.attributes[l].binding;
+                    attribDesc.format = getVkFormatFromFormat(static_cast<asset::E_FORMAT>(vertexInputParams.attributes[l].format));
+                    attribDesc.offset = vertexInputParams.attributes[l].relativeOffset;
+                }
+            }
+            vk_vertexInputStates[i].vertexAttributeDescriptionCount = vertexAttribDescriptionCount;
+            vk_vertexInputStates[i].pVertexAttributeDescriptions = vk_vertexAttribDescriptions.data() + offset;
+            vertexAttribDescriptionCount_total += vertexAttribDescriptionCount;
+        }
         vk_createInfos[i].pVertexInputState = &vk_vertexInputStates[i];
 
         // Input Assembly
-        vk_inputAssemblyStates[i].sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-        vk_inputAssemblyStates[i].topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-        vk_inputAssemblyStates[i].primitiveRestartEnable = VK_FALSE;
+        {
+            const auto& primAssParams = rpIndie->getPrimitiveAssemblyParams();
+
+            vk_inputAssemblyStates[i].sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+            vk_inputAssemblyStates[i].pNext = nullptr;
+            vk_inputAssemblyStates[i].flags = 0u; // reserved for future use by Vulkan
+            vk_inputAssemblyStates[i].topology = static_cast<VkPrimitiveTopology>(primAssParams.primitiveType);
+            vk_inputAssemblyStates[i].primitiveRestartEnable = primAssParams.primitiveRestartEnable;
+        }
         vk_createInfos[i].pInputAssemblyState = &vk_inputAssemblyStates[i];
 
         // Tesselation
         vk_createInfos[i].pTessellationState = nullptr;
 
-        // Viewport
-        vk_viewportStates[i].sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-        vk_viewportStates[i].viewportCount = 1;
-        vk_viewportStates[i].pViewports = &vk_viewport;
-        vk_viewportStates[i].scissorCount = 1;
-        vk_viewportStates[i].pScissors = &vk_scissor;
+        // Viewport State
+        {
+            const auto& viewportParams = creationParams[i].viewportParams;
+
+            vk_viewportStates[i].sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+            vk_viewportStates[i].pNext = nullptr;
+            vk_viewportStates[i].flags = 0u;
+
+            // Viewports
+            {
+                assert(viewportParams.viewportCount == viewportParams.scissorCount);
+
+                uint32_t viewportCount = viewportParams.viewportCount;
+                assert(viewportCount <= 1u);
+                // if (viewportCount > 1u)
+                //     assert((<some way to get enabled device features>.multiViewport>.multiViewport)
+                //         && (viewportCount <= m_physicalDevice->getLimits().maxViewports));
+
+                uint32_t offset = viewportCount_total;
+                memcpy(vk_viewports.data() + offset, &viewportParams.viewport, viewportCount * sizeof(asset::SViewport));
+                viewportCount_total += viewportCount;
+
+                vk_viewportStates[i].viewportCount = viewportCount;
+                vk_viewportStates[i].pViewports = vk_viewports.data() + offset;
+            }
+
+            // Scissors
+            {
+                uint32_t scissorCount = viewportParams.scissorCount;
+                assert(scissorCount <= 1u);
+                // if (scissorCount > 1)
+                //     assert((<some way to get enabled device features>.multiViewport>.multiViewport)
+                //         && (scissorCount <= m_physicalDevice->getLimits().maxViewports));
+
+                uint32_t offset = scissorCount_total;
+                memcpy(vk_scissors.data() + offset, &viewportParams.scissor, scissorCount * sizeof(VkRect2D));
+                scissorCount_total += scissorCount;
+
+                vk_viewportStates[i].scissorCount = scissorCount;
+                vk_viewportStates[i].pScissors = vk_scissors.data() + offset;
+            }
+        }
         vk_createInfos[i].pViewportState = &vk_viewportStates[i];
 
         // Rasterization
-        vk_rasterizationStates[i].sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-        vk_rasterizationStates[i].depthClampEnable = VK_FALSE;
-        vk_rasterizationStates[i].rasterizerDiscardEnable = VK_FALSE;
-        vk_rasterizationStates[i].polygonMode = VK_POLYGON_MODE_FILL;
-        vk_rasterizationStates[i].lineWidth = 1.0f;
-        vk_rasterizationStates[i].cullMode = VK_CULL_MODE_BACK_BIT;
-        vk_rasterizationStates[i].frontFace = VK_FRONT_FACE_CLOCKWISE;
-        vk_rasterizationStates[i].depthBiasEnable = VK_FALSE;
+        {
+            const auto& rasterizationParams = rpIndie->getRasterizationParams();
+
+            vk_rasterizationStates[i].sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+            vk_rasterizationStates[i].pNext = nullptr;
+            vk_rasterizationStates[i].flags = 0u;
+            vk_rasterizationStates[i].depthClampEnable = rasterizationParams.depthClampEnable;
+            vk_rasterizationStates[i].rasterizerDiscardEnable = rasterizationParams.rasterizerDiscard;
+            vk_rasterizationStates[i].polygonMode = static_cast<VkPolygonMode>(rasterizationParams.polygonMode);
+            vk_rasterizationStates[i].cullMode = static_cast<VkCullModeFlags>(rasterizationParams.faceCullingMode);
+            vk_rasterizationStates[i].frontFace = rasterizationParams.frontFaceIsCCW ? VK_FRONT_FACE_COUNTER_CLOCKWISE : VK_FRONT_FACE_CLOCKWISE;
+            vk_rasterizationStates[i].depthBiasEnable = rasterizationParams.depthBiasEnable;
+            vk_rasterizationStates[i].depthBiasConstantFactor = rasterizationParams.depthBiasConstantFactor;
+            vk_rasterizationStates[i].depthBiasClamp = 0.f;
+            vk_rasterizationStates[i].depthBiasSlopeFactor = rasterizationParams.depthBiasSlopeFactor;
+            vk_rasterizationStates[i].lineWidth = 1.f;
+        }
         vk_createInfos[i].pRasterizationState = &vk_rasterizationStates[i];
 
         // Multisampling
-        vk_multisampleStates[i].sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-        vk_multisampleStates[i].sampleShadingEnable = VK_FALSE;
-        vk_multisampleStates[i].rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+        {
+            const auto& rasterizationParams = rpIndie->getRasterizationParams();
+
+            vk_multisampleStates[i].sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+            vk_multisampleStates[i].pNext = nullptr;
+            vk_multisampleStates[i].flags = 0u;
+            vk_multisampleStates[i].rasterizationSamples = static_cast<VkSampleCountFlagBits>(rasterizationParams.rasterizationSamplesHint);            
+            vk_multisampleStates[i].sampleShadingEnable = rasterizationParams.sampleShadingEnable;
+            vk_multisampleStates[i].minSampleShading = rasterizationParams.minSampleShading;
+            vk_multisampleStates[i].pSampleMask = rasterizationParams.sampleMask;
+            vk_multisampleStates[i].alphaToCoverageEnable = rasterizationParams.alphaToCoverageEnable;
+            vk_multisampleStates[i].alphaToOneEnable = rasterizationParams.alphaToOneEnable;
+        }
         vk_createInfos[i].pMultisampleState = &vk_multisampleStates[i];
 
         // Depth-stencil
         vk_createInfos[i].pDepthStencilState = nullptr;
 
         // Color blend
-        vk_colorBlendStates[i].sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-        vk_colorBlendStates[i].logicOpEnable = VK_FALSE;
-        vk_colorBlendStates[i].logicOp = VK_LOGIC_OP_COPY;
-        vk_colorBlendStates[i].attachmentCount = 1;
-        vk_colorBlendStates[i].pAttachments = &vk_colorBlendAttachmentState;
-        vk_colorBlendStates[i].blendConstants[0] = 0.0f;
-        vk_colorBlendStates[i].blendConstants[1] = 0.0f;
-        vk_colorBlendStates[i].blendConstants[2] = 0.0f;
-        vk_colorBlendStates[i].blendConstants[3] = 0.0f;
+        {
+            const auto& blendParams = rpIndie->getBlendParams();
+            
+            uint32_t offset = colorBlendAttachmentCount_total;
+
+            uint32_t colorBlendAttachmentCount = 0u;
+            for (uint32_t as = 0u; as < asset::SBlendParams::MAX_COLOR_ATTACHMENT_COUNT; ++as)
+            {
+                const auto& attBlendParams = blendParams.blendParams[as];
+                if (attBlendParams.attachmentEnabled)
+                {
+                    auto& attBlendState = vk_colorBlendAttachmentStates[offset + colorBlendAttachmentCount++];
+
+                    attBlendState.blendEnable = attBlendParams.blendEnable;
+                    attBlendState.srcColorBlendFactor = static_cast<VkBlendFactor>(attBlendParams.srcColorFactor);
+                    attBlendState.dstColorBlendFactor = static_cast<VkBlendFactor>(attBlendParams.dstColorFactor);
+                    assert(attBlendParams.colorBlendOp <= asset::EBO_MAX);
+                    attBlendState.colorBlendOp = static_cast<VkBlendOp>(attBlendParams.colorBlendOp);
+                    attBlendState.srcAlphaBlendFactor = static_cast<VkBlendFactor>(attBlendParams.srcAlphaFactor);
+                    attBlendState.dstAlphaBlendFactor = static_cast<VkBlendFactor>(attBlendParams.dstAlphaFactor);
+                    assert(attBlendParams.alphaBlendOp <= asset::EBO_MAX);
+                    attBlendState.alphaBlendOp = static_cast<VkBlendOp>(attBlendParams.alphaBlendOp);
+                    attBlendState.colorWriteMask = static_cast<VkColorComponentFlags>(attBlendParams.colorWriteMask);
+                }
+            }
+            colorBlendAttachmentCount_total += colorBlendAttachmentCount;
+
+            vk_colorBlendStates[i].sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+            vk_colorBlendStates[i].pNext = nullptr;
+            vk_colorBlendStates[i].flags = 0u;
+            vk_colorBlendStates[i].logicOpEnable = blendParams.logicOpEnable;
+            vk_colorBlendStates[i].logicOp = static_cast<VkLogicOp>(blendParams.logicOp);
+            vk_colorBlendStates[i].attachmentCount = colorBlendAttachmentCount;
+            vk_colorBlendStates[i].pAttachments = vk_colorBlendAttachmentStates.data() + offset;
+            vk_colorBlendStates[i].blendConstants[0] = 0.0f;
+            vk_colorBlendStates[i].blendConstants[1] = 0.0f;
+            vk_colorBlendStates[i].blendConstants[2] = 0.0f;
+            vk_colorBlendStates[i].blendConstants[3] = 0.0f;
+        }
         vk_createInfos[i].pColorBlendState = &vk_colorBlendStates[i];
 
         // Dynamic state
@@ -395,9 +520,9 @@ bool CVulkanLogicalDevice::createGPUGraphicsPipelines_impl(
 
         vk_createInfos[i].layout = static_cast<const CVulkanPipelineLayout*>(rpIndie->getLayout())->getInternalObject();
         vk_createInfos[i].renderPass = static_cast<const CVulkanRenderpass*>(creationParams[i].renderpass.get())->getInternalObject();
-        vk_createInfos[i].subpass = 0u; // Todo(achal)
-        vk_createInfos[i].basePipelineHandle = VK_NULL_HANDLE; // Todo(achal): I think there isn't even any way to get this right now
-        vk_createInfos[i].basePipelineIndex = 0u; // Todo(achal) : I think there isn't even any way to get this right now
+        vk_createInfos[i].subpass = creationParams[i].subpassIx;
+        vk_createInfos[i].basePipelineHandle = VK_NULL_HANDLE;
+        vk_createInfos[i].basePipelineIndex = 0u;
     }
 
     core::vector<VkPipeline> vk_pipelines(params.size());
