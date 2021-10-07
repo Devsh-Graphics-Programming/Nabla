@@ -519,8 +519,8 @@ int main()
             }
 
             // TODO: kill this
-            core::vector<uint32_t> lodDrawCallCounts(1u,7u);
-            for (auto i=0u; i<lodDrawCallCounts[0]; i++)
+            core::vector<uint32_t> lodDrawCallCounts(1u,0xdeadbeefu);
+            for (auto i=0u; i<7u; i++)
             {
                 const auto& info = kiln.getDrawcallMetadataVector()[i];
                 lodDrawCallCounts.push_back(info.drawMaxCount);

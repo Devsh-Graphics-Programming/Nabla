@@ -28,8 +28,8 @@ nbl_glsl_scan_Parameters_t nbl_glsl_scan_getParameters()
 #define _NBL_GLSL_SCAN_GET_PARAMETERS_DEFINED_
 #endif
 
-#ifndef _NBL_GLSL_MAIN_DEFINED_
-void main()
+#ifndef _NBL_GLSL_SCAN_MAIN_DEFINED_
+void nbl_glsl_scan_main()
 {
 	const nbl_glsl_scan_DefaultSchedulerParameters_t schedulerParams = pc.schedulerParams;
 	const uint topLevel = nbl_glsl_scan_getParameters().topLevel;
@@ -44,6 +44,14 @@ void main()
 
 		nbl_glsl_scan_scheduler_markComplete(schedulerParams,topLevel,treeLevel,localWorkgroupIndex);
 	}
+}
+#define _NBL_GLSL_SCAN_MAIN_DEFINED_
+#endif
+
+#ifndef _NBL_GLSL_MAIN_DEFINED_
+void main()
+{
+	nbl_glsl_scan_main();
 }
 #define _NBL_GLSL_MAIN_DEFINED_
 #endif

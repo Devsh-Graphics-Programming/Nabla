@@ -27,7 +27,7 @@ layout(
 ) restrict readonly buffer InstanceList
 {
 #ifdef NBL_GLSL_CULLING_LOD_SELECTION_INDIRECT_INSTANCE_LIST
-    uint count;
+    uint count; // cleared outside the LoD system (also a future TODO to test it)
 #endif
     uvec2 data[]; // <instanceGUID,lod_table_t>
 } instanceList;
@@ -51,7 +51,7 @@ layout(
     binding = NBL_GLSL_CULLING_LOD_SELECTION_INSTANCE_DRAWCALL_INCLUSIVE_COUNTS_DESCRIPTOR_BINDING
 ) NBL_GLSL_CULLING_LOD_SELECTION_INSTANCE_DRAWCALL_INCLUSIVE_COUNTS_DESCRIPTOR_QUALIFIERS buffer LoDDrawcallInclusiveCounts
 {
-    uint totalInstanceCountAfterCull;
+    uint totalInstanceCountAfterCull; // cleared by scatter
     uint lodDrawcallInclusiveCounts[];
 };
 #endif
@@ -63,7 +63,7 @@ layout(
     binding = NBL_GLSL_CULLING_LOD_SELECTION_PVS_INSTANCE_DRAWS_DESCRIPTOR_BINDING
 ) NBL_GLSL_CULLING_LOD_SELECTION_PVS_INSTANCE_DRAWS_DESCRIPTOR_QUALIFIERS buffer PVSInstanceDraws
 {
-    uint count;
+    uint count; // cleared by LoD selection
     uint padding[3];
     uvec4 data[]; // <drawBaseInstanceDWORDOffset,instanceID,instanceGUID,perViewPerInstanceID>
 } pvsInstanceDraws;

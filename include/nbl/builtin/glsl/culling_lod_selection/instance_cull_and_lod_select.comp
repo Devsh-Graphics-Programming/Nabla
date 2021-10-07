@@ -46,10 +46,10 @@ void main()
     for (uint drawID=gl_GlobalInvocationID.x; drawID<drawcallsToScan.dwordOffsets.length(); drawID+=_NBL_GLSL_WORKGROUP_SIZE_)
         nbl_glsl_culling_lod_selection_drawCallSetInstanceCount(drawcallsToScan.dwordOffsets[drawID],0u);
         
-#if 0
     uint outIx = 0u;
-    for (uint instanceID=gl_GlobalInvocationID.x; instanceID<nbl_glsl_culling_lod_selection_getInstanceCount(); instanceID+=_NBL_GLSL_WORKGROUP_SIZE_+)
+    for (uint instanceID=gl_GlobalInvocationID.x; instanceID<nbl_glsl_culling_lod_selection_getInstanceCount(); instanceID+=_NBL_GLSL_WORKGROUP_SIZE_)
     {
+#if 0
         nbl_glsl_PerViewPerInstance_t perView;
         nbl_glsl_culling_lod_selection_initializePerViewPerInstanceData(perView,instanceID);
         // cull lod_table_t
@@ -67,8 +67,10 @@ void main()
         perViewPerInstance.data[outIx] = perView;
         lodDrawcallOffsets.data[outIx] = drawCallDWORDOffset;
         lodDrawcallInclusiveCounts.data[outIx] = drawCallCount;
+#endif
     }
-
+    
+#if 0
     const uint maxOutIx = nbl_glsl_workgroupAdd(outIx);
     const uint dispatchGroupBound = min(maxOutIx/_NBL_GLSL_WORKGROUP_SIZE_+1u,0x45u);
     if (gl_LocalInvocationIndex==0u)
