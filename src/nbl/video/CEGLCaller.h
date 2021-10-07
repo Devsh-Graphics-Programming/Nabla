@@ -58,7 +58,8 @@ class CEGLCaller final
     eglGetPlatformDisplay,\
     eglCreatePlatformWindowSurface,\
     eglCreatePlatformPixmapSurface,\
-    eglWaitSync
+    eglWaitSync,\
+    eglGetPlatformDependentHandles
 
 #define NBL_IMPL_DECLARE_EGL_FUNC_PTRS(...)\
     NBL_FOREACH(NBL_SYSTEM_DECLARE_DYNLIB_FUNCPTR,__VA_ARGS__);
