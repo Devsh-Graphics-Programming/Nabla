@@ -124,6 +124,10 @@ public:
         {
             window = std::move(wnd);
         }
+        void setSystem(core::smart_refctd_ptr<nbl::system::ISystem>&& s) override
+        {
+            system = std::move(s);
+        }
     };
     APP_CONSTRUCTOR(MeshLoadersApp)
     void onAppInitialized_impl(void* data) override
