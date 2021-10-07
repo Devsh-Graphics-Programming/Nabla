@@ -137,6 +137,10 @@ public:
         {
             window = std::move(wnd);
         }
+        void setSystem(core::smart_refctd_ptr<nbl::system::ISystem>&& system) override
+        {
+            system = std::move(system);
+        }
     };
     APP_CONSTRUCTOR(OITSampleApp)
     void onAppInitialized_impl(void* data) override

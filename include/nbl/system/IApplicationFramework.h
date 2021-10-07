@@ -8,8 +8,9 @@ namespace nbl::system
 	public:
         struct IUserData
         {
-            //The function is required because there on android we create a window at the very beginning
+            //The function is required because there on android we create a window/system at the very beginning
             virtual void setWindow(core::smart_refctd_ptr<nbl::ui::IWindow>&& window) = 0;
+            virtual void setSystem(core::smart_refctd_ptr<nbl::system::ISystem>&& system) = 0;
         };
         IApplicationFramework(const system::path& _cwd) : CWDOnStartup(_cwd)
 		{

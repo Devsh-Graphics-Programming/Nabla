@@ -8,6 +8,9 @@
 #elif defined(_NBL_PLATFORM_ANDROID_)
 #	include <nbl/system/CStdoutLoggerAndroid.h>
 #endif
+#include "nbl/system/CSystemAndroid.h"
+#include "nbl/system/CSystemLinux.h"
+#include "nbl/system/CSystemWin32.h"
 // TODO: make these include themselves via `nabla.h`
 
 //***** Application framework macros ******
@@ -603,8 +606,8 @@ public:
 		using namespace nbl;
 		using namespace nbl::video;
 
-		result.system = createSystem();
 #ifdef _NBL_PLATFORM_WINDOWS_
+		result.system = createSystem();
 		result.logger = core::make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>(); // we should let user choose it?
 #elif defined(_NBL_PLATFORM_ANDROID_)
 		result.logger = core::make_smart_refctd_ptr<system::CStdoutLoggerAndroid>(); // we should let user choose it?

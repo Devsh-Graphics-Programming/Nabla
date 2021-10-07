@@ -10,10 +10,9 @@
 #include "nbl/system/IFileArchive.h"
 #include "nbl/system/IFile.h"
 #include "nbl/system/CFileView.h"
+#include "nbl/core/util/bitflag.h"
 
-#ifdef _NBL_PLATFORM_ANDROID_
-#include <android_native_app_glue.h>
-#endif
+
 
 #include "nbl/asset/ICPUBuffer.h" // this is a horrible no-no (circular dependency), `ISystem::loadBuiltinData` should return some other type (probably an `IFile` which is mapped for reading)
 
@@ -204,6 +203,8 @@ public:
         return !m_cachedPathAliases.findRange(p).empty();
     }
 
+protected:
+    virtual core::smart_refctd_ptr<IFile> openFileOpt_impl(const system::path& path, core::bitflag<IFile::E_CREATE_FLAGS> flags) { return nullptr; }
 private:
     // TODO: files shall have public read/write methods, and these should be protected, then the `IFile` implementations should call these behind the scenes via a friendship
     bool readFile(future<size_t>& future, IFile* file, void* buffer, size_t offset, size_t size)

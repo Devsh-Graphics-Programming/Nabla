@@ -4,6 +4,17 @@
 #include "nbl/system/ISystem.h"
 namespace nbl::system
 {
+	class CSystemLinux : public ISystem
+	{
+
+	};
+}
+#endif
+
+#if defined(_NBL_PLATFORM_LINUX_) || defined(_NBL_PLATFORM_ANDROID_)
+
+namespace nbl::system
+{
     class CSystemCallerPOSIX final : public ISystemCaller
     {
     protected:
@@ -15,10 +26,6 @@ namespace nbl::system
             assert(false); // TODO: posix files (hopefully won't need those on android yet)
         }
     };
-	class CSystemLinux : public ISystem
-	{
-
-	};
 }
 #endif
 #endif

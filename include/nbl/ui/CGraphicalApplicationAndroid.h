@@ -2,6 +2,8 @@
 #define _NBL_UI_C_GRAPHICAL_APPLICATION_ANDROID_H_INCLUDED_
 #ifdef _NBL_PLATFORM_ANDROID_
 #include "nbl/system/CApplicationAndroid.h"
+#include "nbl/system/CSystemAndroid.h"
+#include "nbl/system/CSystemLinux.h"
 
 namespace nbl::ui
 {
@@ -11,7 +13,7 @@ namespace nbl::ui
 		struct SGraphicalContext : SContext
 		{
 			core::smart_refctd_ptr<nbl::ui::IWindow> window;
-			core::smart_refctd_ptr<nbl::system::ISystem> ISystem;
+			core::smart_refctd_ptr<nbl::system::ISystem> system;
 		};
 		CGraphicalApplicationAndroid(android_app* app, const system::path& cwd) : system::CApplicationAndroid(app, cwd) {}
 	private:
@@ -54,7 +56,9 @@ namespace nbl::ui
     nbl::ui::IWindow::SCreationParams params;\
     params.callback = nullptr;\
     auto wnd = wndManager->createWindow(std::move(params));\
-	engine.setWindow(nbl::core::smart_refctd_ptr(wnd));\
+	auto system = core::make_smart_refctd_ptr<nbl::system::CSystemAndroid>(core::make_smart_refctd_ptr<nbl::system::CSystemCallerPOSIX>(), app->activity);\
+	engine.setWindow(std::move(wnd));\
+	engine.setSystem(std::move(system));\
     ctx.window = core::smart_refctd_ptr(wnd);\
     if (app->savedState != nullptr) {\
         ctx.state = (nbl::system::CApplicationAndroid::SSavedState*)app->savedState;\

@@ -8,13 +8,9 @@ namespace nbl::system
     {
         if (flags.value & IFile::ECF_READ)
         {
-#ifdef _NBL_PLATFORM_ANDROID_
-            {
-                IFileArchive::SOpenFileParams params{ filename, filename, "" };
-                auto asset = sys->androidAssetArchive->readFile(params);
-                if (asset.get() != nullptr) return asset;
-            }
-#endif
+            auto f = sys->openFileOpt_impl(filename, flags);
+            if (f.get() != nullptr) return f;
+            
             auto a = sys->getFileFromArchive(filename);
             if (a.get() != nullptr) return a;
         }
