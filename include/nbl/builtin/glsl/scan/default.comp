@@ -29,9 +29,8 @@ nbl_glsl_scan_Parameters_t nbl_glsl_scan_getParameters()
 #endif
 
 #ifndef _NBL_GLSL_SCAN_MAIN_DEFINED_
-void nbl_glsl_scan_main()
+void nbl_glsl_scan_main(in nbl_glsl_scan_DefaultSchedulerParameters_t schedulerParams)
 {
-	const nbl_glsl_scan_DefaultSchedulerParameters_t schedulerParams = pc.schedulerParams;
 	const uint topLevel = nbl_glsl_scan_getParameters().topLevel;
 	// persistent workgroups
 	while (true)
@@ -51,7 +50,8 @@ void nbl_glsl_scan_main()
 #ifndef _NBL_GLSL_MAIN_DEFINED_
 void main()
 {
-	nbl_glsl_scan_main();
+	const nbl_glsl_scan_DefaultSchedulerParameters_t schedulerParams = pc.schedulerParams;
+	nbl_glsl_scan_main(schedulerParams);
 }
 #define _NBL_GLSL_MAIN_DEFINED_
 #endif
