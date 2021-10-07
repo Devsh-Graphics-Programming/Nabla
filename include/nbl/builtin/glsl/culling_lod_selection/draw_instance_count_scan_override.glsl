@@ -20,52 +20,47 @@
 #define NBL_GLSL_CULLING_LOD_SELECTION_DRAW_CALL_COUNTS_DESCRIPTOR_BINDING
 #include <nbl/builtin/glsl/culling_lod_selection/output_descriptor_modifiers.glsl>
 
-uint nbl_glsl_scan_getPaddedData(
+void nbl_glsl_scan_getData(
+	inout nbl_glsl_scan_Storage_t data,
 	in uint levelInvocationIndex,
 	in uint localWorkgroupIndex,
 	in uint treeLevel,
-	in bool inRange,
-	in uint identity
+	in uint pseudoLevel
 )
 {
 	const nbl_glsl_scan_Parameters_t params = nbl_glsl_scan_getParameters();
-	uint data = identity;
-	if (inRange)
-	{
-		uint offset = levelInvocationIndex;
-		if (treeLevel>params.topLevel)
-		{
-			const uint lastLevel = params.topLevel<<1u;
-			const bool notFirstInvocationInGroup = gl_LocalInvocationIndex!=0u;
-			const uint pseudoLevel = lastLevel-treeLevel;
-			if (bool(localWorkgroupIndex) && gl_LocalInvocationIndex==0u)
-				data = scanScratch.data[localWorkgroupIndex+params.temporaryStorageOffset[pseudoLevel]];
 
-			if (treeLevel!=lastLevel)
-			{
-				offset += params.temporaryStorageOffset[pseudoLevel-1u];
-				if (notFirstInvocationInGroup)
-					data = scanScratch.data[offset-1u];
-			}
-			else
-			{
-				offset--;
-				if (notFirstInvocationInGroup)
-					data += nbl_glsl_culling_lod_selection_drawCallGetInstanceCount(drawcallsToScan.dwordOffsets[offset]);
-			}
+	uint offset = levelInvocationIndex;
+	const bool notFirstOrLastLevel = bool(pseudoLevel);
+	if (notFirstOrLastLevel)
+		offset += params.temporaryStorageOffset[pseudoLevel-1u];
+
+	// TODO: optimize the branches some more :D
+	if (pseudoLevel!=treeLevel) // downsweep
+	{
+		const bool notFirstInvocationInGroup = gl_LocalInvocationIndex!=0u;
+		if (bool(localWorkgroupIndex) && gl_LocalInvocationIndex==0u)
+			data = scanScratch.data[localWorkgroupIndex+params.temporaryStorageOffset[pseudoLevel]];
+
+		if (notFirstOrLastLevel)
+		{
+			if (notFirstInvocationInGroup)
+				data = scanScratch.data[offset-1u];
 		}
 		else
 		{
-			if (bool(treeLevel))
-			{
-				offset += params.temporaryStorageOffset[treeLevel-1u];
-				data = scanScratch.data[offset];
-			}
-			else
-				data = nbl_glsl_culling_lod_selection_drawCallGetInstanceCount(drawcallsToScan.dwordOffsets[offset]);
+			offset--;
+			if (notFirstInvocationInGroup)
+				data += nbl_glsl_culling_lod_selection_drawCallGetInstanceCount(drawcallsToScan.dwordOffsets[offset]);
 		}
 	}
-	return data;
+	else
+	{
+		if (notFirstOrLastLevel)
+			data = scanScratch.data[offset];
+		else
+			data = nbl_glsl_culling_lod_selection_drawCallGetInstanceCount(drawcallsToScan.dwordOffsets[offset]);
+	}
 }
 
 void nbl_glsl_scan_setData(
@@ -73,6 +68,7 @@ void nbl_glsl_scan_setData(
 	in uint levelInvocationIndex,
 	in uint localWorkgroupIndex,
 	in uint treeLevel,
+	in uint pseudoLevel,
 	in bool inRange
 )
 {
@@ -85,14 +81,8 @@ void nbl_glsl_scan_setData(
 	}
 	else if (inRange)
 	{
-		const uint lastLevel = params.topLevel<<1u;
-		if (treeLevel!=lastLevel)
+		if (bool(pseudoLevel))
 		{
-			uint pseudoLevel;
-			if (treeLevel!=params.topLevel)
-				pseudoLevel = lastLevel-treeLevel;
-			else
-				pseudoLevel = treeLevel;
 			const uint offset = params.temporaryStorageOffset[pseudoLevel-1u];
 			scanScratch.data[levelInvocationIndex+offset] = data;
 		}

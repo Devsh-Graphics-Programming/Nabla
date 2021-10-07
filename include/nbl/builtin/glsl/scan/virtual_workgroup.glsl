@@ -11,8 +11,12 @@ void nbl_glsl_scan_virtualWorkgroup(in uint treeLevel, in uint localWorkgroupInd
 {
 	const nbl_glsl_scan_Parameters_t params = nbl_glsl_scan_getParameters();
 	const uint levelInvocationIndex = localWorkgroupIndex*_NBL_GLSL_WORKGROUP_SIZE_+gl_LocalInvocationIndex;
-	const bool inRange = levelInvocationIndex<params.elementCount[treeLevel];
 	const bool lastInvocationInGroup = gl_LocalInvocationIndex==(_NBL_GLSL_WORKGROUP_SIZE_-1);
+	
+	const uint lastLevel = params.topLevel<<1u;
+	const uint pseudoLevel = treeLevel>params.topLevel ? (lastLevel-treeLevel):treeLevel;
+
+	const bool inRange = levelInvocationIndex<params.elementCount[pseudoLevel];
 	
 #	ifndef _NBL_GLSL_SCAN_BIN_OP_
 #		error "_NBL_GLSL_SCAN_BIN_OP_ must be defined!"
@@ -54,7 +58,9 @@ void nbl_glsl_scan_virtualWorkgroup(in uint treeLevel, in uint localWorkgroupInd
 #	else
 #		error "_NBL_GLSL_SCAN_BIN_OP_ invalid value!"
 #	endif
-	nbl_glsl_scan_Storage_t data = nbl_glsl_scan_getPaddedData(levelInvocationIndex,localWorkgroupIndex,treeLevel,inRange,IDENTITY);
+	nbl_glsl_scan_Storage_t data = IDENTITY;
+	if (inRange)
+		nbl_glsl_scan_getData(data,levelInvocationIndex,localWorkgroupIndex,treeLevel,pseudoLevel);
 
 	if (treeLevel<params.topLevel)
 		data = REDUCTION(data);
@@ -63,7 +69,7 @@ void nbl_glsl_scan_virtualWorkgroup(in uint treeLevel, in uint localWorkgroupInd
 	else
 		data = INCLUSIVE(data);
 	
-	nbl_glsl_scan_setData(data,levelInvocationIndex,localWorkgroupIndex,treeLevel,inRange);
+	nbl_glsl_scan_setData(data,levelInvocationIndex,localWorkgroupIndex,treeLevel,pseudoLevel,inRange);
 #	undef REDUCTION
 #	undef EXCLUSIVE
 #	undef INCLUSIVE

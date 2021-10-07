@@ -55,7 +55,7 @@ class CScanner final : public core::IReferenceCounted
 
 			Parameters()
 			{
-				std::fill_n(elementCount,MaxScanLevels,0u);
+				std::fill_n(elementCount,MaxScanLevels/2+1,0u);
 				std::fill_n(temporaryStorageOffset,MaxScanLevels/2,0u);
 			}
 			Parameters(const uint32_t _elementCount, const uint32_t wg_size=DefaultWorkGroupSize) : Parameters()
@@ -67,7 +67,6 @@ class CScanner final : public core::IReferenceCounted
 				elementCount[0u] = _elementCount;
 				for (topLevel=0u; elementCount[topLevel]>wg_size;)
 					elementCount[++topLevel] = (elementCount[topLevel]-1u)/wg_size+1u;
-				std::reverse_copy(elementCount,elementCount+topLevel,elementCount+topLevel+1u);
 				
 				std::copy_n(elementCount+1u,topLevel,temporaryStorageOffset);
 				std::exclusive_scan(temporaryStorageOffset,temporaryStorageOffset+sizeof(temporaryStorageOffset)/sizeof(uint32_t),temporaryStorageOffset,0u);

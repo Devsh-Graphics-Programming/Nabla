@@ -10,7 +10,7 @@
 struct nbl_glsl_scan_Parameters_t
 {
 	uint topLevel;
-	uint elementCount[NBL_BUILTIN_MAX_SCAN_LEVELS];
+	uint elementCount[NBL_BUILTIN_MAX_SCAN_LEVELS/2+1];
 	uint temporaryStorageOffset[NBL_BUILTIN_MAX_SCAN_LEVELS/2];
 };
 #ifdef __cplusplus
