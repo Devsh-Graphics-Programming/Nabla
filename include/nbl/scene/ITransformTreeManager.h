@@ -139,16 +139,29 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			const ITransformTree::relative_transform_t* relativeTransforms = nullptr;
 			system::logger_opt_ptr logger = nullptr;
 		};
+		// nodes must be initialized with invalid_node
+		inline bool allocateNodes(ITransformTree* tt, ITransformTree::node_t* outNodes_begin, ITransformTree::node_t* outNodes_end)
+		{
+			const uint32_t out_count = outNodes_end - outNodes_begin;
+			auto* pool = tt->getNodePropertyPool();
+
+			if (out_count > pool->getFree())
+				return false;
+
+			pool->allocateProperties(outNodes_begin, outNodes_end);
+
+			return true;
+		}
 		inline bool addNodes(const AllocationRequest& request, const std::chrono::steady_clock::time_point& maxWaitPoint=video::GPUEventWrapper::default_wait())
 		{
 			if (!request.poolHandler || !request.upBuff || !request.cmdbuf || !request.fence || !request.tree)
 				return false;
 
-			auto* pool = request.tree->getNodePropertyPool();
-			if (request.outNodes.size()>pool->getFree())
+			if (!allocateNodes(request.tree, request.outNodes.begin(), request.outNodes.end()))
 				return false;
 
-			pool->allocateProperties(request.outNodes.begin(),request.outNodes.end());
+			auto* pool = request.tree->getNodePropertyPool();
+
 			const core::matrix3x4SIMD IdentityTransform;
 
 			constexpr auto TransferCount = 4u;
