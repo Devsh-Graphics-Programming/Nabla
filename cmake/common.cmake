@@ -352,6 +352,53 @@ function(nbl_android_create_apk _TARGET)
 		COMMAND ${ANDROID_BUILD_TOOLS}/zipalign -f 4 ${TARGET_NAME}-unaligned.apk ${APK_FILE_NAME}
 		COMMAND ${ANDROID_BUILD_TOOLS}/apksigner sign --ks ${KEYSTORE_FILE} --ks-pass pass:android --key-pass pass:android --ks-key-alias ${KEY_ENTRY_ALIAS} ${APK_FILE_NAME}
 		COMMAND ${CMAKE_COMMAND} -E copy ${APK_FILE_NAME} ${APK_FILE}
+		 
+		VERBATIM
+	)
+endfunction()
+
+function(nbl_android_create_media_storage_apk)
+	set(TARGET_NAME android_media_storage)
+	string(MAKE_C_IDENTIFIER ${TARGET_NAME} TARGET_NAME_IDENTIFIER)
+
+	set(APK_FILE_NAME ${TARGET_NAME}.apk)
+	set(APK_FILE ${CMAKE_CURRENT_BINARY_DIR}/media_storage/bin/${APK_FILE_NAME})
+
+	add_custom_target(${TARGET_NAME}_apk ALL DEPENDS ${APK_FILE})
+
+	string(SUBSTRING
+		"${ANDROID_APK_TARGET_ID}"
+		8  # length of "android-"
+		-1 # take remainder
+		TARGET_ANDROID_API_LEVEL
+	)
+	set(PACKAGE_NAME "eu.devsh.${TARGET_NAME_IDENTIFIER}")
+	set(APP_NAME ${TARGET_NAME_IDENTIFIER})
+
+	configure_file(${NBL_ROOT_PATH}/android/AndroidManifest.xml ${CMAKE_CURRENT_BINARY_DIR}/AndroidManifest.xml)
+
+	# need to sign the apk in order for android device not to refuse it
+	set(KEYSTORE_FILE ${CMAKE_CURRENT_BINARY_DIR}/debug.keystore)
+	set(KEY_ENTRY_ALIAS ${TARGET_NAME_IDENTIFIER}_apk_key)
+	add_custom_command(
+		OUTPUT ${KEYSTORE_FILE}
+		WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+		COMMAND ${ANDROID_JAVA_BIN}/keytool -genkey -keystore ${KEYSTORE_FILE} -storepass android -alias ${KEY_ENTRY_ALIAS} -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=, OU=, O=, L=, S=, C="
+	)
+	
+	add_custom_command(
+		OUTPUT ${APK_FILE}
+		DEPENDS ${KEYSTORE_FILE}
+		DEPENDS ${NBL_ROOT_PATH}/android/AndroidManifest.xml
+		DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/AndroidManifest.xml
+		WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+		COMMENT "Creating ${APK_FILE_NAME} ..."
+		COMMAND ${ANDROID_BUILD_TOOLS}/aapt package -f -m -J src -M AndroidManifest.xml -I ${ANDROID_JAR}
+		COMMAND ${ANDROID_BUILD_TOOLS}/aapt package -f -M AndroidManifest.xml -I ${ANDROID_JAR} -F ${TARGET_NAME}-unaligned.apk ${CMAKE_CURRENT_SOURCE_DIR}/media
+		COMMAND ${ANDROID_BUILD_TOOLS}/zipalign -f 4 ${TARGET_NAME}-unaligned.apk ${APK_FILE_NAME}
+		COMMAND ${ANDROID_BUILD_TOOLS}/apksigner sign --ks ${KEYSTORE_FILE} --ks-pass pass:android --key-pass pass:android --ks-key-alias ${KEY_ENTRY_ALIAS} ${APK_FILE_NAME}
+		COMMAND ${CMAKE_COMMAND} -E copy ${APK_FILE_NAME} ${APK_FILE}
+		 
 		VERBATIM
 	)
 endfunction()
