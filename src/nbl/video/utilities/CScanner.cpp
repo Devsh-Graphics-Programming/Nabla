@@ -9,7 +9,7 @@ asset::ICPUShader* CScanner::getDefaultShader(const E_SCAN_TYPE scanType, const 
 	if (!m_shaders[scanType][dataType][op])
 	{
 		auto system = m_device->getPhysicalDevice()->getSystem();
-		auto glsl = system->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/scan/default.comp")>();
+		auto glsl = system->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/scan/indirect.comp")>();
 		auto cpushader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl),asset::ICPUShader::buffer_contains_glsl);
 		const char* storageType = nullptr;
 		switch (dataType)

@@ -55,7 +55,7 @@ class CScanner final : public core::IReferenceCounted
 
 			Parameters()
 			{
-				std::fill_n(elementCount,MaxScanLevels/2+1,0u);
+				std::fill_n(lastElement,MaxScanLevels/2+1,0u);
 				std::fill_n(temporaryStorageOffset,MaxScanLevels/2,0u);
 			}
 			Parameters(const uint32_t _elementCount, const uint32_t wg_size=DefaultWorkGroupSize) : Parameters()
@@ -64,11 +64,10 @@ class CScanner final : public core::IReferenceCounted
 				const auto maxReductionLog2 = core::findMSB(wg_size)*(MaxScanLevels/2u+1u);
 				assert(maxReductionLog2>=32u||((_elementCount-1u)>>maxReductionLog2)==0u && "Can't scan this many elements with such small workgroups!");
 
-				elementCount[0u] = _elementCount;
-				for (topLevel=0u; elementCount[topLevel]>wg_size;)
-					elementCount[++topLevel] = (elementCount[topLevel]-1u)/wg_size+1u;
+				lastElement[0u] = _elementCount-1u;
+				for (topLevel=0u; lastElement[topLevel]>=wg_size;)
+					temporaryStorageOffset[topLevel-1u] = lastElement[++topLevel] = lastElement[topLevel]/wg_size;
 				
-				std::copy_n(elementCount+1u,topLevel,temporaryStorageOffset);
 				std::exclusive_scan(temporaryStorageOffset,temporaryStorageOffset+sizeof(temporaryStorageOffset)/sizeof(uint32_t),temporaryStorageOffset,0u);
 			}
 
@@ -76,7 +75,7 @@ class CScanner final : public core::IReferenceCounted
 			{
 				uint32_t uint_count = 1u; // workgroup enumerator
 				uint_count += temporaryStorageOffset[MaxScanLevels/2u-1u]; // last scratch offset
-				uint_count += elementCount[topLevel]; // and its size
+				uint_count += lastElement[topLevel]+1u; // and its size
 				return core::roundUp<uint32_t>(uint_count*sizeof(uint32_t),ssboAlignment);
 			}
 		};
@@ -85,7 +84,6 @@ class CScanner final : public core::IReferenceCounted
 			SchedulerParameters()
 			{
 				std::fill_n(finishedFlagOffset,Parameters::MaxScanLevels-1,0u);
-				std::fill_n(lastWorkgroupDependentCount,Parameters::MaxScanLevels/2,1u);
 				std::fill_n(cumulativeWorkgroupCount,Parameters::MaxScanLevels,0u);
 			}
 			SchedulerParameters(Parameters& outScanParams, const uint32_t _elementCount, const uint32_t wg_size=DefaultWorkGroupSize) : SchedulerParameters()
@@ -93,11 +91,9 @@ class CScanner final : public core::IReferenceCounted
 				outScanParams = Parameters(_elementCount,wg_size);
 				const auto topLevel = outScanParams.topLevel;
 
-				std::copy_n(outScanParams.elementCount+1u,topLevel,cumulativeWorkgroupCount);
-				cumulativeWorkgroupCount[topLevel] = 1u;
-
-				for (auto i=0u; i<topLevel; i++)
-					lastWorkgroupDependentCount[i] = cumulativeWorkgroupCount[i]-(cumulativeWorkgroupCount[i+1u]-1u)*wg_size;
+				std::copy_n(outScanParams.lastElement+1u,topLevel,cumulativeWorkgroupCount);
+				for (auto i=0u; i<=topLevel; i++)
+					cumulativeWorkgroupCount[i] += 1u;
 				std::reverse_copy(cumulativeWorkgroupCount,cumulativeWorkgroupCount+topLevel,cumulativeWorkgroupCount+topLevel+1u);
 
 				std::copy_n(cumulativeWorkgroupCount+1u,topLevel,finishedFlagOffset);
@@ -163,7 +159,7 @@ class CScanner final : public core::IReferenceCounted
 			{
 				auto gpushader = m_device->createGPUShader(core::smart_refctd_ptr<asset::ICPUShader>(getDefaultShader(scanType,dataType,op)));
 				m_specialized_shaders[scanType][dataType][op] = m_device->createGPUSpecializedShader(
-					gpushader.get(),{nullptr,nullptr,"main",asset::ISpecializedShader::ESS_COMPUTE,"nbl/builtin/glsl/scan/default.comp"}
+					gpushader.get(),{nullptr,nullptr,"main",asset::ISpecializedShader::ESS_COMPUTE,"nbl/builtin/glsl/scan/direct.comp"}
 				);
 			}
 			return m_specialized_shaders[scanType][dataType][op].get();

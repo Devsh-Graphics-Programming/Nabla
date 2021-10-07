@@ -1,0 +1,38 @@
+#version 460 core
+
+#ifndef _NBL_GLSL_WORKGROUP_SIZE_
+#define _NBL_GLSL_WORKGROUP_SIZE_ 256
+#endif
+layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_) in;
+
+
+#include <nbl/builtin/glsl/scan/descriptors.glsl>
+#include <nbl/builtin/glsl/scan/virtual_workgroup.glsl>
+#include <nbl/builtin/glsl/scan/default_scheduler.glsl>
+
+
+#ifndef _NBL_GLSL_SCAN_PUSH_CONSTANTS_DEFINED_
+layout(push_constant) uniform PushConstants
+{
+	nbl_glsl_scan_Parameters_t scanParams;
+	nbl_glsl_scan_DefaultSchedulerParameters_t schedulerParams;
+} pc;
+#define _NBL_GLSL_SCAN_PUSH_CONSTANTS_DEFINED_
+#endif
+
+#ifndef _NBL_GLSL_SCAN_GET_PARAMETERS_DEFINED_
+nbl_glsl_scan_Parameters_t nbl_glsl_scan_getParameters()
+{
+	return pc.scanParams;
+}
+#define _NBL_GLSL_SCAN_GET_PARAMETERS_DEFINED_
+#endif
+
+#ifndef _NBL_GLSL_MAIN_DEFINED_
+void main()
+{
+	const nbl_glsl_scan_DefaultSchedulerParameters_t schedulerParams = pc.schedulerParams;
+	nbl_glsl_scan_main(schedulerParams);
+}
+#define _NBL_GLSL_MAIN_DEFINED_
+#endif

@@ -110,10 +110,11 @@ set(nbl_resources_to_embed
   #"nbl/builtin/glsl/sampling/spherical_rectangle.glsl"
   "nbl/builtin/glsl/sampling/spherical_triangle.glsl"
   # global exclusive scan
-  "nbl/builtin/glsl/scan/default.comp"
+  "nbl/builtin/glsl/scan/direct.comp"
   "nbl/builtin/glsl/scan/declarations.glsl"
   "nbl/builtin/glsl/scan/descriptors.glsl"
   "nbl/builtin/glsl/scan/default_scheduler.glsl"
+  "nbl/builtin/glsl/scan/indirect.comp"
   "nbl/builtin/glsl/scan/parameters_struct.glsl"
   "nbl/builtin/glsl/scan/virtual_workgroup.glsl"
   # scene

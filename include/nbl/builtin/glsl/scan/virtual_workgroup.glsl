@@ -16,7 +16,7 @@ void nbl_glsl_scan_virtualWorkgroup(in uint treeLevel, in uint localWorkgroupInd
 	const uint lastLevel = params.topLevel<<1u;
 	const uint pseudoLevel = treeLevel>params.topLevel ? (lastLevel-treeLevel):treeLevel;
 
-	const bool inRange = levelInvocationIndex<params.elementCount[pseudoLevel];
+	const bool inRange = levelInvocationIndex<=params.lastElement[pseudoLevel];
 	
 #	ifndef _NBL_GLSL_SCAN_BIN_OP_
 #		error "_NBL_GLSL_SCAN_BIN_OP_ must be defined!"
@@ -75,5 +75,26 @@ void nbl_glsl_scan_virtualWorkgroup(in uint treeLevel, in uint localWorkgroupInd
 #	undef INCLUSIVE
 #	undef IDENTITY
 }
+
+#ifndef _NBL_GLSL_SCAN_MAIN_DEFINED_
+#include <nbl/builtin/glsl/scan/default_scheduler.glsl>
+void nbl_glsl_scan_main(in nbl_glsl_scan_DefaultSchedulerParameters_t schedulerParams)
+{
+	const uint topLevel = nbl_glsl_scan_getParameters().topLevel;
+	// persistent workgroups
+	while (true)
+	{
+		uint treeLevel,localWorkgroupIndex;
+		if (nbl_glsl_scan_scheduler_getWork(schedulerParams,topLevel,treeLevel,localWorkgroupIndex))
+			return;
+
+		nbl_glsl_scan_virtualWorkgroup(treeLevel,localWorkgroupIndex);
+
+		nbl_glsl_scan_scheduler_markComplete(schedulerParams,topLevel,treeLevel,localWorkgroupIndex);
+	}
+}
+#define _NBL_GLSL_SCAN_MAIN_DEFINED_
+#endif
+
 
 #endif
