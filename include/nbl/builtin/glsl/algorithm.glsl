@@ -1,7 +1,7 @@
 #ifndef _NBL_BUILTIN_GLSL_ALGORITHM_INCLUDED_
 #define _NBL_BUILTIN_GLSL_ALGORITHM_INCLUDED_
 
-#include "nbl/builtin/glsl/macros.h"
+#include <nbl/builtin/glsl/macros.glsl>
 
 
 #define NBL_GLSL_DECLARE_LOWER_BOUND_COMP(ARRAY_NAME,TYPE,COMP) NBL_GLSL_CONCATENATE4(uint lower_bound_,ARRAY_NAME,_,NBL_GLSL_LESS)(uint begin, in uint end, in TYPE value);
@@ -18,7 +18,7 @@ NBL_GLSL_CONCATENATE2(uint upper_bound_,ARRAY_NAME)(uint begin, in uint end, in 
 
 #define NBL_GLSL_DEFINE_BOUND_COMP_IMPL(FUNC_NAME,ARRAY_NAME,TYPE,COMP) NBL_GLSL_CONCATENATE4(uint FUNC_NAME,ARRAY_NAME,_,COMP)(uint begin, in uint end, in TYPE value) \
 { \
-	const uint len = end-begin; \
+	uint len = end-begin; \
 	if (NBL_GLSL_IS_NOT_POT(len)) \
 	{ \
 		const uint newLen = 0x1u<<findMSB(len); \
@@ -26,7 +26,7 @@ NBL_GLSL_CONCATENATE2(uint upper_bound_,ARRAY_NAME)(uint begin, in uint end, in 
 		begin = COMP(NBL_GLSL_EVAL(ARRAY_NAME)[newLen],value) ? diff:0u; \
 		len = newLen; \
 	} \
-	while (len) \
+	while (len!=0u) \
 	{
 
 

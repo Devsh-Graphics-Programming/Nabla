@@ -51,9 +51,9 @@ layout(
     binding = NBL_GLSL_CULLING_LOD_SELECTION_INSTANCE_DRAWCALL_INCLUSIVE_COUNTS_DESCRIPTOR_BINDING
 ) NBL_GLSL_CULLING_LOD_SELECTION_INSTANCE_DRAWCALL_INCLUSIVE_COUNTS_DESCRIPTOR_QUALIFIERS buffer LoDDrawcallInclusiveCounts
 {
-    uint count;
-    uint data[];
-} lodDrawcallInclusiveCounts;
+    uint totalInstanceCountAfterCull;
+    uint lodDrawcallInclusiveCounts[];
+};
 #endif
 
 #ifndef NBL_GLSL_CULLING_LOD_SELECTION_PVS_INSTANCE_DRAWS_DESCRIPTOR_BINDING
