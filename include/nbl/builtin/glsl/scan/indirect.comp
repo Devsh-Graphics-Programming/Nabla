@@ -6,23 +6,9 @@
 #endif
 layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_) in;
 
-
-// TODO specify
-#define _NBL_GLSL_WORKGROUP_SIZE_LOG2_ 9
-
 #include <nbl/builtin/glsl/scan/descriptors.glsl>
 #include <nbl/builtin/glsl/scan/virtual_workgroup.glsl>
 #include <nbl/builtin/glsl/scan/default_scheduler.glsl>
-
-// TODO: remove
-#ifndef _NBL_GLSL_SCAN_PUSH_CONSTANTS_DEFINED_
-layout(push_constant) uniform PushConstants
-{
-	nbl_glsl_scan_Parameters_t scanParams;
-	nbl_glsl_scan_DefaultSchedulerParameters_t schedulerParams;
-} pc;
-#define _NBL_GLSL_SCAN_PUSH_CONSTANTS_DEFINED_
-#endif
 
 #ifndef _NBL_GLSL_SCAN_GET_PARAMETERS_DEFINED_
 nbl_glsl_scan_Parameters_t scanParams;
@@ -33,12 +19,14 @@ nbl_glsl_scan_Parameters_t nbl_glsl_scan_getParameters()
 #define _NBL_GLSL_SCAN_GET_PARAMETERS_DEFINED_
 #endif
 
+uint nbl_glsl_scan_getIndirectElementCount();
+
 #ifndef _NBL_GLSL_MAIN_DEFINED_
 void main()
 {
 	nbl_glsl_scan_DefaultSchedulerParameters_t schedulerParams;
 
-	nbl_glsl_scan_scheduler_computeParameters(pc.scanParams.lastElement[0]+1u,scanParams,schedulerParams);
+	nbl_glsl_scan_scheduler_computeParameters(nbl_glsl_scan_getIndirectElementCount(),scanParams,schedulerParams);
 
 	nbl_glsl_scan_main(schedulerParams);
 }

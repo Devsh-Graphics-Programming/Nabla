@@ -150,8 +150,19 @@ class CScanner final : public core::IReferenceCounted
 		//
 		inline auto getDefaultPipelineLayout() const { return m_pipeline_layout.get(); }
 
+		// You need to override this shader with your own defintion of `nbl_glsl_scan_getIndirectElementCount` for it to even compile, so we always give you a new shader
+		core::smart_refctd_ptr<asset::ICPUShader> getIndirectShader(const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op) const
+		{
+			return createShader(true,scanType,dataType,op);
+		}
+
 		//
-		asset::ICPUShader* getDefaultShader(const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op);
+		inline asset::ICPUShader* getDefaultShader(const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op)
+		{
+			if (!m_shaders[scanType][dataType][op])
+				m_shaders[scanType][dataType][op] = createShader(false,scanType,dataType,op);
+			return m_shaders[scanType][dataType][op].get();
+		}
 		//
 		inline IGPUSpecializedShader* getDefaultSpecializedShader(const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op)
 		{
@@ -231,6 +242,9 @@ class CScanner final : public core::IReferenceCounted
 		{
 			// all drop themselves automatically
 		}
+
+		core::smart_refctd_ptr<asset::ICPUShader> createShader(const bool indirect, const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op) const;
+
 
 		core::smart_refctd_ptr<ILogicalDevice> m_device;
 		core::smart_refctd_ptr<IGPUDescriptorSetLayout> m_ds_layout;
