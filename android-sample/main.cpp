@@ -65,6 +65,10 @@ struct nabla : IApplicationFramework::IUserData {
 	{
 		window = std::move(wnd);
 	}
+	void setSystem(core::smart_refctd_ptr<nbl::system::ISystem>&& s) override
+	{
+		system = std::move(s);
+	}
 };
 
 
@@ -98,7 +102,7 @@ static int engine_init_display(nabla* engine) {
 	q_params.flags = static_cast<video::IGPUQueue::E_CREATE_FLAGS>(0);
 	float priority[4] = {1.f,1.f,1.f,1.f};
 	q_params.priorities = priority;
-	dev_params.queueCreateInfos = &q_params;
+	//dev_params.queueCreateInfos = &q_params;
 	engine->dev = engine->gpu->createLogicalDevice(dev_params);
 
     auto device = engine->dev;
@@ -291,7 +295,8 @@ void main()
 		
 		auto mreqs = device->getDeviceLocalGPUMemoryReqs();
 		mreqs.vulkanReqs.size = sizeof(vertices);
-		engine->buffer = device->createGPUBufferOnDedMem(mreqs, true);
+		video::IGPUBuffer::SCreationParams params;
+		engine->buffer = device->createGPUBufferOnDedMem(params, mreqs);
 		assert(engine->buffer);
         auto buffer = engine->buffer;
 
@@ -320,7 +325,7 @@ void main()
 		bufMemBarrier.buffer = buffer;
 		bufMemBarrier.barrier.srcAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
 		bufMemBarrier.barrier.dstAccessMask = asset::EAF_VERTEX_ATTRIBUTE_READ_BIT;
-		cb->pipelineBarrier(asset::EPSF_TRANSFER_BIT, asset::EPSF_VERTEX_INPUT_BIT, 0, 0u, nullptr, 1u, &bufMemBarrier, 0u, nullptr);
+		cb->pipelineBarrier(asset::EPSF_TRANSFER_BIT, asset::EPSF_VERTEX_INPUT_BIT, asset::EDF_NONE, 0u, nullptr, 1u, &bufMemBarrier, 0u, nullptr);
 
 		cb->end();
 		
