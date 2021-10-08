@@ -52,6 +52,7 @@ namespace nbl::system
         }
         static void handleCommand(android_app* app, int32_t cmd) {
             auto* framework = ((SContext*)app->userData)->framework;
+            framework->handleCommand_impl(app, cmd);
             auto* usrData = (SContext*)app->userData;
             switch (cmd) {
             case APP_CMD_SAVE_STATE:
@@ -72,7 +73,6 @@ namespace nbl::system
             default:
                 break;
             }
-            framework->handleCommand_impl(app, cmd);
         }
         virtual void handleCommand_impl(android_app* data, int32_t cmd) {}
 
@@ -88,7 +88,9 @@ namespace nbl::system
             int events;
             bool keepPolling = true;
         public:
-            CEventPoller(android_app* _app, CApplicationAndroid* _framework) : app(_app), framework(_framework) { }
+            CEventPoller(android_app* _app, CApplicationAndroid* _framework) : app(_app), framework(_framework) {
+                start();
+            }
         protected:
             void init() {
                 looper = ALooper_prepare(0); // prepare the looper to poll in the current thread

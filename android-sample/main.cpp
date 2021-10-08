@@ -81,12 +81,12 @@ static int engine_init_display(nabla* engine) {
 	logger.log("Test here");
 
     // initialize OpenGL ES and EGL
-    engine->system = core::make_smart_refctd_ptr<system::ISystem>(nullptr);
+    //engine->system = core::make_smart_refctd_ptr<system::ISystem>(nullptr);
 
     video::COpenGLDebugCallback cb;
-    engine->api = video::COpenGLConnection::create(core::smart_refctd_ptr<system::ISystem>(engine->system), 0, "android-sample", std::move(cb));
+    engine->api = video::COpenGLESConnection::create(core::smart_refctd_ptr<system::ISystem>(engine->system), 0, "android-sample", std::move(cb));
 
-    auto surface = video::CSurfaceGLAndroid::create<video::EAT_OPENGL>(core::smart_refctd_ptr<video::COpenGLConnection>((video::COpenGLConnection*)engine->api.get()),core::smart_refctd_ptr<nbl::ui::IWindowAndroid>(static_cast<nbl::ui::CWindowAndroid*>(engine->window.get())));
+    auto surface = video::CSurfaceGLAndroid::create<video::EAT_OPENGL_ES>(core::smart_refctd_ptr<video::COpenGLESConnection>((video::COpenGLESConnection*)engine->api.get()),core::smart_refctd_ptr<nbl::ui::IWindowAndroid>(static_cast<nbl::ui::CWindowAndroid*>(engine->window.get())));
 
     auto gpus = engine->api->getPhysicalDevices();
 	assert(!gpus.empty());
@@ -96,13 +96,14 @@ static int engine_init_display(nabla* engine) {
     
     video::ILogicalDevice::SCreationParams dev_params;
 	dev_params.queueParamsCount = 1u;
+	
 	video::ILogicalDevice::SQueueCreationParams q_params;
 	q_params.familyIndex = 0u;
 	q_params.count = 1u;//4u;
 	q_params.flags = static_cast<video::IGPUQueue::E_CREATE_FLAGS>(0);
 	float priority[4] = {1.f,1.f,1.f,1.f};
 	q_params.priorities = priority;
-	//dev_params.queueCreateInfos = &q_params;
+	dev_params.queueParams = &q_params;
 	engine->dev = engine->gpu->createLogicalDevice(dev_params);
 
     auto device = engine->dev;
