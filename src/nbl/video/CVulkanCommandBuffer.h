@@ -3,8 +3,6 @@
 
 #include "nbl/video/IGPUCommandBuffer.h"
 
-// Todo(achal): I think I a lot of them could be made forward declarations if I introduce
-// a CVulkanCommandBuffer.cpp
 #include "nbl/video/CVulkanBuffer.h"
 #include "nbl/video/CVulkanImage.h"
 #include "nbl/video/CVulkanComputePipeline.h"
@@ -116,24 +114,29 @@ public:
 
     bool drawIndirect(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) override
     {
+        _NBL_TODO();
         return false;
     }
     bool drawIndexedIndirect(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) override
     {
+        _NBL_TODO();
         return false;
     }
 
     bool drawIndirectCount(const buffer_t* buffer, size_t offset, const buffer_t* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride) override
     {
+        _NBL_TODO();
         return false;
     }
     bool drawIndexedIndirectCount(const buffer_t* buffer, size_t offset, const buffer_t* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride) override
     {
+        _NBL_TODO();
         return false;
     }
 
     bool drawMeshBuffer(const nbl::video::IGPUMeshBuffer* meshBuffer) override
     {
+        _NBL_TODO();
         return false;
     }
 
@@ -160,16 +163,19 @@ public:
 
     bool setLineWidth(float lineWidth) override
     {
+        _NBL_TODO();
         return false;
     }
 
     bool setDepthBias(float depthBiasConstantFactor, float depthBiasClamp, float depthBiasSlopeFactor) override
     {
+        _NBL_TODO();
         return false;
     }
 
     bool setBlendConstants(const float blendConstants[4]) override
     {
+        _NBL_TODO();
         return false;
     }
 
@@ -205,6 +211,7 @@ public:
 
     bool copyImage(const image_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, image_t* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SImageCopy* pRegions) override
     {
+        _NBL_TODO();
         return false;
     }
 
@@ -347,6 +354,7 @@ public:
 
     bool resolveImage(const image_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, image_t* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageResolve* pRegions) override
     {
+        _NBL_TODO();
         return false;
     }
 
@@ -378,26 +386,31 @@ public:
 
     bool setScissor(uint32_t firstScissor, uint32_t scissorCount, const VkRect2D* pScissors) override
     {
+        _NBL_TODO();
         return false;
     }
 
     bool setDepthBounds(float minDepthBounds, float maxDepthBounds) override
     {
+        _NBL_TODO();
         return false;
     }
 
     bool setStencilCompareMask(asset::E_STENCIL_FACE_FLAGS faceMask, uint32_t compareMask) override
     {
+        _NBL_TODO();
         return false;
     }
 
     bool setStencilWriteMask(asset::E_STENCIL_FACE_FLAGS faceMask, uint32_t writeMask) override
     {
+        _NBL_TODO();
         return false;
     }
 
     bool setStencilReference(asset::E_STENCIL_FACE_FLAGS faceMask, uint32_t reference) override
     {
+        _NBL_TODO();
         return false;
     }
 
@@ -411,26 +424,31 @@ public:
 
     bool dispatchIndirect(const buffer_t* buffer, size_t offset) override
     {
+        _NBL_TODO();
         return false;
     }
 
     bool dispatchBase(uint32_t baseGroupX, uint32_t baseGroupY, uint32_t baseGroupZ, uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ) override
     {
+        _NBL_TODO();
         return false;
     }
 
     bool setEvent(event_t* event, const SDependencyInfo& depInfo) override
     {
+        _NBL_TODO();
         return false;
     }
 
     bool resetEvent(event_t* event, asset::E_PIPELINE_STAGE_FLAGS stageMask) override
     {
+        _NBL_TODO();
         return false;
     }
 
     bool waitEvents(uint32_t eventCount, event_t*const *const pEvents, const SDependencyInfo* depInfos) override
     {
+        _NBL_TODO();
         return false;
     }
 
@@ -527,11 +545,7 @@ public:
         for (uint32_t i = 0u; i < pRenderPassBegin->clearValueCount; ++i)
         {
             for (uint32_t k = 0u; k < 4u; ++k)
-            {
-                vk_clearValues[i].color.float32[k] = pRenderPassBegin->clearValues[i].color.float32[k];
-                vk_clearValues[i].color.int32[k] = pRenderPassBegin->clearValues[i].color.int32[k];
                 vk_clearValues[i].color.uint32[k] = pRenderPassBegin->clearValues[i].color.uint32[k];
-            }
 
             vk_clearValues[i].depthStencil.depth = pRenderPassBegin->clearValues[i].depthStencil.depth;
             vk_clearValues[i].depthStencil.stencil = pRenderPassBegin->clearValues[i].depthStencil.stencil;
@@ -553,7 +567,9 @@ public:
 
     bool nextSubpass(asset::E_SUBPASS_CONTENTS contents) override
     {
-        return false;
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdNextSubpass(m_cmdbuf, static_cast<VkSubpassContents>(contents));
+        return true;
     }
 
     bool endRenderPass() override
@@ -565,9 +581,10 @@ public:
 
     bool setDeviceMask(uint32_t deviceMask) override
     {
-        // m_deviceMask = deviceMask;
-        // return true;
-        return false;
+        m_deviceMask = deviceMask;
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdSetDeviceMask(m_cmdbuf, deviceMask);
+        return true;
     }
 
     //those two instead of bindPipeline(E_PIPELINE_BIND_POINT, pipeline)
@@ -666,31 +683,164 @@ public:
 
     bool clearColorImage(image_t* image, asset::E_IMAGE_LAYOUT imageLayout, const asset::SClearColorValue* pColor, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges) override
     {
-        return false;
+        if (!image || image->getAPIType() != EAT_VULKAN)
+            return false;
+
+        const core::smart_refctd_ptr<const core::IReferenceCounted> tmp[] = { core::smart_refctd_ptr<const core::IReferenceCounted>(image) };
+        if (!saveReferencesToResources(tmp, tmp + 1))
+            return false;
+
+        VkClearColorValue vk_clearColorValue;
+        for (uint32_t k = 0u; k < 4u; ++k)
+            vk_clearColorValue.uint32[k] = pColor->uint32[k];
+
+        constexpr uint32_t MAX_COUNT = (1u << 12) / sizeof(VkImageSubresourceRange);
+        assert(rangeCount <= MAX_COUNT);
+        VkImageSubresourceRange vk_ranges[MAX_COUNT];
+
+        for (uint32_t i = 0u; i < rangeCount; ++i)
+        {
+            vk_ranges[i].aspectMask = static_cast<VkImageAspectFlags>(pRanges[i].aspectMask);
+            vk_ranges[i].baseMipLevel = pRanges[i].baseMipLevel;
+            vk_ranges[i].levelCount = pRanges[i].layerCount;
+            vk_ranges[i].baseArrayLayer = pRanges[i].baseArrayLayer;
+            vk_ranges[i].layerCount = pRanges[i].layerCount;
+        }
+
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdClearColorImage(
+            m_cmdbuf,
+            static_cast<const CVulkanImage*>(image)->getInternalObject(),
+            static_cast<VkImageLayout>(imageLayout),
+            &vk_clearColorValue,
+            rangeCount,
+            vk_ranges);
+
+        return true;
     }
 
     bool clearDepthStencilImage(image_t* image, asset::E_IMAGE_LAYOUT imageLayout, const asset::SClearDepthStencilValue* pDepthStencil, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges) override
     {
-        return false;
+        if (!image || image->getAPIType() != EAT_VULKAN)
+            return false;
+
+        const core::smart_refctd_ptr<const core::IReferenceCounted> tmp[] = { core::smart_refctd_ptr<const core::IReferenceCounted>(image) };
+        if (!saveReferencesToResources(tmp, tmp + 1))
+            return false;
+
+        VkClearDepthStencilValue vk_clearDepthStencilValue = { pDepthStencil[0].depth, pDepthStencil[0].stencil };
+
+        constexpr uint32_t MAX_COUNT = (1u << 12) / sizeof(VkImageSubresourceRange);
+        assert(rangeCount <= MAX_COUNT);
+        VkImageSubresourceRange vk_ranges[MAX_COUNT];
+
+        for (uint32_t i = 0u; i < rangeCount; ++i)
+        {
+            vk_ranges[i].aspectMask = static_cast<VkImageAspectFlags>(pRanges[i].aspectMask);
+            vk_ranges[i].baseMipLevel = pRanges[i].baseMipLevel;
+            vk_ranges[i].levelCount = pRanges[i].layerCount;
+            vk_ranges[i].baseArrayLayer = pRanges[i].baseArrayLayer;
+            vk_ranges[i].layerCount = pRanges[i].layerCount;
+        }
+
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdClearDepthStencilImage(
+            m_cmdbuf,
+            static_cast<const CVulkanImage*>(image)->getInternalObject(),
+            static_cast<VkImageLayout>(imageLayout),
+            &vk_clearDepthStencilValue,
+            rangeCount,
+            vk_ranges);
+        
+        return true;
     }
 
     bool clearAttachments(uint32_t attachmentCount, const asset::SClearAttachment* pAttachments, uint32_t rectCount, const asset::SClearRect* pRects) override
     {
-        return false;
+        constexpr uint32_t MAX_ATTACHMENT_COUNT = 8u;
+        assert(attachmentCount <= MAX_ATTACHMENT_COUNT);
+        VkClearAttachment vk_clearAttachments[MAX_ATTACHMENT_COUNT];
+
+        constexpr uint32_t MAX_REGION_PER_ATTACHMENT_COUNT = ((1u << 12) - sizeof(vk_clearAttachments)) / sizeof(VkClearRect);
+        assert(rectCount <= MAX_REGION_PER_ATTACHMENT_COUNT);
+        VkClearRect vk_clearRects[MAX_REGION_PER_ATTACHMENT_COUNT];
+
+        for (uint32_t i = 0u; i < attachmentCount; ++i)
+        {
+            vk_clearAttachments[i].aspectMask = static_cast<VkImageAspectFlags>(pAttachments[i].aspectMask);
+            vk_clearAttachments[i].colorAttachment = pAttachments[i].colorAttachment;
+
+            auto& vk_clearValue = vk_clearAttachments[i].clearValue;
+            const auto& clearValue = pAttachments[i].clearValue;
+
+            for (uint32_t k = 0u; k < 4u; ++k)
+                vk_clearValue.color.uint32[k] = clearValue.color.uint32[k];
+
+            vk_clearValue.depthStencil.depth = clearValue.depthStencil.depth;
+            vk_clearValue.depthStencil.stencil = clearValue.depthStencil.stencil;
+        }
+
+        for (uint32_t i = 0u; i < rectCount; ++i)
+        {
+            vk_clearRects[i].rect = pRects[i].rect;
+            vk_clearRects[i].baseArrayLayer = pRects[i].baseArrayLayer;
+            vk_clearRects[i].layerCount = pRects[i].layerCount;
+        }
+
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdClearAttachments(
+            m_cmdbuf,
+            attachmentCount,
+            vk_clearAttachments,
+            rectCount,
+            vk_clearRects);
+
+        return true;
     }
 
     bool fillBuffer(buffer_t* dstBuffer, size_t dstOffset, size_t size, uint32_t data) override
     {
-        return false;
+        if (!dstBuffer || dstBuffer->getAPIType() != EAT_VULKAN)
+            return false;
+
+        const core::smart_refctd_ptr<const core::IReferenceCounted> tmp[] = { core::smart_refctd_ptr<const core::IReferenceCounted>(dstBuffer) };
+        if (!saveReferencesToResources(tmp, tmp + 1))
+            return false;
+
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdFillBuffer(
+            m_cmdbuf,
+            static_cast<const CVulkanBuffer*>(dstBuffer)->getInternalObject(),
+            static_cast<VkDeviceSize>(dstOffset),
+            static_cast<VkDeviceSize>(size),
+            data);
+
+        return true;
     }
 
     bool updateBuffer(buffer_t* dstBuffer, size_t dstOffset, size_t dataSize, const void* pData) override
     {
-        return false;
+        if (!dstBuffer || dstBuffer->getAPIType() != EAT_VULKAN)
+            return false;
+
+        const core::smart_refctd_ptr<const core::IReferenceCounted> tmp[] = { core::smart_refctd_ptr<const core::IReferenceCounted>(dstBuffer) };
+        if (!saveReferencesToResources(tmp, tmp + 1))
+            return false;
+
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdUpdateBuffer(
+            m_cmdbuf,
+            static_cast<const CVulkanBuffer*>(dstBuffer)->getInternalObject(),
+            static_cast<VkDeviceSize>(dstOffset),
+            static_cast<VkDeviceSize>(dataSize),
+            pData);
+
+        return true;
     }
 
     bool regenerateMipmaps(image_view_t* imgview) override
     {
+        _NBL_TODO();
         return false;
     }
 

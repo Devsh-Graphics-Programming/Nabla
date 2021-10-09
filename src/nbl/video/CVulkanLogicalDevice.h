@@ -162,25 +162,10 @@ public:
         }
     }
             
-    core::smart_refctd_ptr<IGPUEvent> createEvent(IGPUEvent::E_CREATE_FLAGS flags) override
-    {
-        return nullptr;
-    };
-            
-    IGPUEvent::E_STATUS getEventStatus(const IGPUEvent* _event) override
-    {
-        return IGPUEvent::E_STATUS::ES_FAILURE;
-    }
-            
-    IGPUEvent::E_STATUS resetEvent(IGPUEvent* _event) override
-    {
-        return IGPUEvent::E_STATUS::ES_FAILURE;
-    }
-            
-    IGPUEvent::E_STATUS setEvent(IGPUEvent* _event) override
-    {
-        return IGPUEvent::E_STATUS::ES_FAILURE;
-    }
+    core::smart_refctd_ptr<IGPUEvent> createEvent(IGPUEvent::E_CREATE_FLAGS flags) override;
+    IGPUEvent::E_STATUS getEventStatus(const IGPUEvent* _event) override;
+    IGPUEvent::E_STATUS resetEvent(IGPUEvent* _event) override;
+    IGPUEvent::E_STATUS setEvent(IGPUEvent* _event) override;
             
     core::smart_refctd_ptr<IGPUFence> createFence(IGPUFence::E_CREATE_FLAGS flags) override
     {
@@ -1085,6 +1070,9 @@ protected:
 
     core::smart_refctd_ptr<IGPUSpecializedShader> createGPUSpecializedShader_impl(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& specInfo, const asset::ISPIRVOptimizer* spvopt) override
     {
+        assert(!specInfo.m_backingBuffer);
+        assert(!specInfo.m_entries);
+
         if (_unspecialized->getAPIType() != EAT_VULKAN)
             return nullptr;
 

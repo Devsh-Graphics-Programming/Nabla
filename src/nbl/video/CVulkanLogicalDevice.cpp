@@ -2,9 +2,66 @@
 
 #include "nbl/video/CVulkanPhysicalDevice.h"
 #include "nbl/video/CVulkanCommandBuffer.h"
+#include "nbl/video/CVulkanEvent.h"
 
 namespace nbl::video
 {
+
+core::smart_refctd_ptr<IGPUEvent> CVulkanLogicalDevice::createEvent(IGPUEvent::E_CREATE_FLAGS flags)
+{
+    VkEventCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_EVENT_CREATE_INFO };
+    vk_createInfo.pNext = nullptr;
+    vk_createInfo.flags = static_cast<VkEventCreateFlags>(flags);
+
+    VkEvent vk_event;
+    if (m_devf.vk.vkCreateEvent(m_vkdev, &vk_createInfo, nullptr, &vk_event) == VK_SUCCESS)
+        return core::make_smart_refctd_ptr<CVulkanEvent>(
+            core::smart_refctd_ptr<const CVulkanLogicalDevice>(this), flags, vk_event);
+    else
+        return nullptr;
+};
+
+IGPUEvent::E_STATUS CVulkanLogicalDevice::getEventStatus(const IGPUEvent* _event)
+{
+    if (!_event || _event->getAPIType() != EAT_VULKAN)
+        return IGPUEvent::E_STATUS::ES_FAILURE;
+
+    VkEvent vk_event = static_cast<const CVulkanEvent*>(_event)->getInternalObject();
+    VkResult retval = m_devf.vk.vkGetEventStatus(m_vkdev, vk_event);
+    switch (retval)
+    {
+    case VK_EVENT_SET:
+        return IGPUEvent::ES_SET;
+    case VK_EVENT_RESET:
+        return IGPUEvent::ES_RESET;
+    default:
+        return IGPUEvent::ES_FAILURE;
+    }
+}
+
+IGPUEvent::E_STATUS CVulkanLogicalDevice::resetEvent(IGPUEvent* _event)
+{
+    if (!_event || _event->getAPIType() != EAT_VULKAN)
+        return IGPUEvent::E_STATUS::ES_FAILURE;
+
+    VkEvent vk_event = static_cast<const CVulkanEvent*>(_event)->getInternalObject();
+    if (m_devf.vk.vkResetEvent(m_vkdev, vk_event) == VK_SUCCESS)
+        return IGPUEvent::ES_RESET; // weird return value alert!
+    else
+        return IGPUEvent::ES_FAILURE;
+}
+
+IGPUEvent::E_STATUS CVulkanLogicalDevice::setEvent(IGPUEvent* _event)
+{
+    if (!_event || _event->getAPIType() != EAT_VULKAN)
+        return IGPUEvent::E_STATUS::ES_FAILURE;
+
+    VkEvent vk_event = static_cast<const CVulkanEvent*>(_event)->getInternalObject();
+    if (m_devf.vk.vkSetEvent(m_vkdev, vk_event) == VK_SUCCESS)
+        return IGPUEvent::ES_SET; // weird return value alert!
+    else
+        return IGPUEvent::ES_FAILURE;
+}
 
 core::smart_refctd_ptr<IDriverMemoryAllocation> CVulkanLogicalDevice::allocateDeviceLocalMemory(
     const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs)
