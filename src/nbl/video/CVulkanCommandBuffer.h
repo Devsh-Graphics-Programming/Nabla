@@ -9,6 +9,7 @@
 #include "nbl/video/CVulkanPipelineLayout.h"
 #include "nbl/video/CVulkanDescriptorSet.h"
 #include "nbl/video/CVulkanLogicalDevice.h"
+#include "nbl/video/CVulkanEvent.h"
 
 #include <volk.h>
 
@@ -114,24 +115,102 @@ public:
 
     bool drawIndirect(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) override
     {
-        _NBL_TODO();
-        return false;
+        if (!buffer || buffer->getAPIType() != EAT_VULKAN)
+            return false;
+
+        const core::smart_refctd_ptr<const core::IReferenceCounted> tmp[1] = {
+            core::smart_refctd_ptr<const IGPUBuffer>(buffer) };
+
+        if (!saveReferencesToResources(tmp, tmp + 1))
+            return false;
+
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdDrawIndirect(
+            m_cmdbuf,
+            static_cast<const CVulkanBuffer*>(buffer)->getInternalObject(),
+            static_cast<VkDeviceSize>(offset),
+            drawCount,
+            stride);
+
+        return true;
     }
+
     bool drawIndexedIndirect(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) override
     {
-        _NBL_TODO();
-        return false;
+        if (!buffer || buffer->getAPIType() != EAT_VULKAN)
+            return false;
+
+        const core::smart_refctd_ptr<const core::IReferenceCounted> tmp[1] = {
+            core::smart_refctd_ptr<const IGPUBuffer>(buffer) };
+
+        if (!saveReferencesToResources(tmp, tmp + 1))
+            return false;
+
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdDrawIndexedIndirect(
+            m_cmdbuf,
+            static_cast<const CVulkanBuffer*>(buffer)->getInternalObject(),
+            static_cast<VkDeviceSize>(offset),
+            drawCount,
+            stride);
+
+        return true;
     }
 
     bool drawIndirectCount(const buffer_t* buffer, size_t offset, const buffer_t* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride) override
     {
-        _NBL_TODO();
-        return false;
+        if (!buffer || buffer->getAPIType() != EAT_VULKAN)
+            return false;
+
+        if (!countBuffer || countBuffer->getAPIType() != EAT_VULKAN)
+            return false;
+
+        const core::smart_refctd_ptr<const core::IReferenceCounted> tmp[2] = {
+            core::smart_refctd_ptr<const IGPUBuffer>(buffer),
+            core::smart_refctd_ptr<const IGPUBuffer>(countBuffer) };
+
+        if (!saveReferencesToResources(tmp, tmp + 2))
+            return false;
+
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdDrawIndirectCount(
+            m_cmdbuf,
+            static_cast<const CVulkanBuffer*>(buffer)->getInternalObject(),
+            static_cast<VkDeviceSize>(offset),
+            static_cast<const CVulkanBuffer*>(countBuffer)->getInternalObject(),
+            static_cast<VkDeviceSize>(countBufferOffset),
+            maxDrawCount,
+            stride);
+
+        return true;
     }
+
     bool drawIndexedIndirectCount(const buffer_t* buffer, size_t offset, const buffer_t* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride) override
     {
-        _NBL_TODO();
-        return false;
+        if (!buffer || buffer->getAPIType() != EAT_VULKAN)
+            return false;
+
+        if (!countBuffer || countBuffer->getAPIType() != EAT_VULKAN)
+            return false;
+
+        const core::smart_refctd_ptr<const core::IReferenceCounted> tmp[2] = {
+            core::smart_refctd_ptr<const IGPUBuffer>(buffer),
+            core::smart_refctd_ptr<const IGPUBuffer>(countBuffer) };
+
+        if (!saveReferencesToResources(tmp, tmp + 2))
+            return false;
+
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdDrawIndexedIndirectCount(
+            m_cmdbuf,
+            static_cast<const CVulkanBuffer*>(buffer)->getInternalObject(),
+            static_cast<VkDeviceSize>(offset),
+            static_cast<const CVulkanBuffer*>(countBuffer)->getInternalObject(),
+            static_cast<VkDeviceSize>(countBufferOffset),
+            maxDrawCount,
+            stride);
+        
+        return true;
     }
 
     bool drawMeshBuffer(const nbl::video::IGPUMeshBuffer* meshBuffer) override
@@ -163,32 +242,38 @@ public:
 
     bool setLineWidth(float lineWidth) override
     {
-        _NBL_TODO();
-        return false;
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdSetLineWidth(m_cmdbuf, lineWidth);
+        return true;
     }
 
     bool setDepthBias(float depthBiasConstantFactor, float depthBiasClamp, float depthBiasSlopeFactor) override
     {
-        _NBL_TODO();
-        return false;
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdSetDepthBias(m_cmdbuf, depthBiasConstantFactor, depthBiasClamp, depthBiasSlopeFactor);
+        return true;
     }
 
     bool setBlendConstants(const float blendConstants[4]) override
     {
-        _NBL_TODO();
-        return false;
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdSetBlendConstants(m_cmdbuf, blendConstants);
+        return true;
     }
 
     bool copyBuffer(const buffer_t* srcBuffer, buffer_t* dstBuffer, uint32_t regionCount, const asset::SBufferCopy* pRegions) override
     {
+        if (!srcBuffer || srcBuffer->getAPIType() != EAT_VULKAN)
+            return false;
+
+        if (!dstBuffer || dstBuffer->getAPIType() != EAT_VULKAN)
+            return false;
+
         const core::smart_refctd_ptr<const core::IReferenceCounted> tmp[2] = {
             core::smart_refctd_ptr<const IGPUBuffer>(srcBuffer),
             core::smart_refctd_ptr<const IGPUBuffer>(dstBuffer) };
 
         if (!saveReferencesToResources(tmp, tmp + 2))
-            return false;
-
-        if ((srcBuffer->getAPIType() != EAT_VULKAN) || (dstBuffer->getAPIType() != EAT_VULKAN))
             return false;
 
         VkBuffer vk_srcBuffer = static_cast<const CVulkanBuffer*>(srcBuffer)->getInternalObject();
@@ -211,8 +296,53 @@ public:
 
     bool copyImage(const image_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, image_t* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SImageCopy* pRegions) override
     {
-        _NBL_TODO();
-        return false;
+        if (!srcImage || srcImage->getAPIType() != EAT_VULKAN)
+            return false;
+
+        if (!dstImage || dstImage->getAPIType() != EAT_VULKAN)
+            return false;
+
+        core::smart_refctd_ptr<const core::IReferenceCounted> tmp[2] = {
+            core::smart_refctd_ptr<const IGPUImage>(srcImage),
+            core::smart_refctd_ptr<const IGPUImage>(dstImage) };
+
+        if (!saveReferencesToResources(tmp, tmp + 2))
+            return false;
+
+        constexpr uint32_t MAX_COUNT = (1u << 12) / sizeof(VkImageCopy);
+        assert(regionCount <= MAX_COUNT);
+
+        VkImageCopy vk_regions[MAX_COUNT];
+        for (uint32_t i = 0u; i < regionCount; ++i)
+        {
+            vk_regions[i].srcSubresource.aspectMask = static_cast<VkImageAspectFlags>(pRegions[i].srcSubresource.aspectMask);
+            vk_regions[i].srcSubresource.baseArrayLayer = pRegions[i].srcSubresource.baseArrayLayer;
+            vk_regions[i].srcSubresource.layerCount = pRegions[i].srcSubresource.layerCount;
+            vk_regions[i].srcSubresource.mipLevel = pRegions[i].srcSubresource.mipLevel;
+
+            vk_regions[i].srcOffset = { static_cast<int32_t>(pRegions[i].srcOffset.x), static_cast<int32_t>(pRegions[i].srcOffset.y), static_cast<int32_t>(pRegions[i].srcOffset.z) };
+
+            vk_regions[i].dstSubresource.aspectMask = static_cast<VkImageAspectFlags>(pRegions[i].dstSubresource.aspectMask);
+            vk_regions[i].dstSubresource.baseArrayLayer = pRegions[i].dstSubresource.baseArrayLayer;
+            vk_regions[i].dstSubresource.layerCount = pRegions[i].dstSubresource.layerCount;
+            vk_regions[i].dstSubresource.mipLevel = pRegions[i].dstSubresource.mipLevel;
+
+            vk_regions[i].dstOffset = { static_cast<int32_t>(pRegions[i].dstOffset.x), static_cast<int32_t>(pRegions[i].dstOffset.y), static_cast<int32_t>(pRegions[i].dstOffset.z) };
+
+            vk_regions[i].extent = { pRegions[i].extent.width, pRegions[i].extent.height, pRegions[i].extent.depth };
+        }
+
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdCopyImage(
+            m_cmdbuf,
+            static_cast<const CVulkanImage*>(srcImage)->getInternalObject(),
+            static_cast<VkImageLayout>(srcImageLayout),
+            static_cast<const CVulkanImage*>(dstImage)->getInternalObject(),
+            static_cast<VkImageLayout>(dstImageLayout),
+            regionCount,
+            vk_regions);
+
+        return true;
     }
 
     bool copyBufferToImage(const buffer_t* srcBuffer, image_t* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions) override
@@ -354,8 +484,53 @@ public:
 
     bool resolveImage(const image_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, image_t* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageResolve* pRegions) override
     {
-        _NBL_TODO();
-        return false;
+        if (!srcImage || srcImage->getAPIType() != EAT_VULKAN)
+            return false;
+
+        if (!dstImage || dstImage->getAPIType() != EAT_VULKAN)
+            return false;
+
+        core::smart_refctd_ptr<const core::IReferenceCounted> tmp[2] = {
+            core::smart_refctd_ptr<const IGPUImage>(srcImage),
+            core::smart_refctd_ptr<const IGPUImage>(dstImage) };
+
+        if (!saveReferencesToResources(tmp, tmp + 2))
+            return false;
+
+        constexpr uint32_t MAX_COUNT = (1u << 12) / sizeof(VkImageResolve);
+        assert(regionCount <= MAX_COUNT);
+
+        VkImageResolve vk_regions[MAX_COUNT];
+        for (uint32_t i = 0u; i < regionCount; ++i)
+        {
+            vk_regions[i].srcSubresource.aspectMask = static_cast<VkImageAspectFlags>(pRegions[i].srcSubresource.aspectMask);
+            vk_regions[i].srcSubresource.baseArrayLayer = pRegions[i].srcSubresource.baseArrayLayer;
+            vk_regions[i].srcSubresource.layerCount = pRegions[i].srcSubresource.layerCount;
+            vk_regions[i].srcSubresource.mipLevel = pRegions[i].srcSubresource.mipLevel;
+
+            vk_regions[i].srcOffset = { static_cast<int32_t>(pRegions[i].srcOffset.x), static_cast<int32_t>(pRegions[i].srcOffset.y), static_cast<int32_t>(pRegions[i].srcOffset.z) };
+
+            vk_regions[i].dstSubresource.aspectMask = static_cast<VkImageAspectFlags>(pRegions[i].dstSubresource.aspectMask);
+            vk_regions[i].dstSubresource.baseArrayLayer = pRegions[i].dstSubresource.baseArrayLayer;
+            vk_regions[i].dstSubresource.layerCount = pRegions[i].dstSubresource.layerCount;
+            vk_regions[i].dstSubresource.mipLevel = pRegions[i].dstSubresource.mipLevel;
+
+            vk_regions[i].dstOffset = { static_cast<int32_t>(pRegions[i].dstOffset.x), static_cast<int32_t>(pRegions[i].dstOffset.y), static_cast<int32_t>(pRegions[i].dstOffset.z) };
+
+            vk_regions[i].extent = { pRegions[i].extent.width, pRegions[i].extent.height, pRegions[i].extent.depth };
+        }
+
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdResolveImage(
+            m_cmdbuf,
+            static_cast<const CVulkanImage*>(srcImage)->getInternalObject(),
+            static_cast<VkImageLayout>(srcImageLayout),
+            static_cast<const CVulkanImage*>(dstImage)->getInternalObject(),
+            static_cast<VkImageLayout>(dstImageLayout),
+            regionCount,
+            vk_regions);
+
+        return true;
     }
 
     bool bindVertexBuffers(uint32_t firstBinding, uint32_t bindingCount, const buffer_t* const *const pBuffers, const size_t* pOffsets) override
@@ -386,32 +561,37 @@ public:
 
     bool setScissor(uint32_t firstScissor, uint32_t scissorCount, const VkRect2D* pScissors) override
     {
-        _NBL_TODO();
-        return false;
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdSetScissor(m_cmdbuf, firstScissor, scissorCount, pScissors);
+        return true;
     }
 
     bool setDepthBounds(float minDepthBounds, float maxDepthBounds) override
     {
-        _NBL_TODO();
-        return false;
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdSetDepthBounds(m_cmdbuf, minDepthBounds, maxDepthBounds);
+        return true;
     }
 
     bool setStencilCompareMask(asset::E_STENCIL_FACE_FLAGS faceMask, uint32_t compareMask) override
     {
-        _NBL_TODO();
-        return false;
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdSetStencilCompareMask(m_cmdbuf, static_cast<VkStencilFaceFlags>(faceMask), compareMask);
+        return true;
     }
 
     bool setStencilWriteMask(asset::E_STENCIL_FACE_FLAGS faceMask, uint32_t writeMask) override
     {
-        _NBL_TODO();
-        return false;
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdSetStencilWriteMask(m_cmdbuf, static_cast<VkStencilFaceFlags>(faceMask), writeMask);
+        return true;
     }
 
     bool setStencilReference(asset::E_STENCIL_FACE_FLAGS faceMask, uint32_t reference) override
     {
-        _NBL_TODO();
-        return false;
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdSetStencilReference(m_cmdbuf, static_cast<VkStencilFaceFlags>(faceMask), reference);
+        return true;
     }
 
     // Doesn't really require the return value here
@@ -424,32 +604,164 @@ public:
 
     bool dispatchIndirect(const buffer_t* buffer, size_t offset) override
     {
-        _NBL_TODO();
-        return false;
+        if (!buffer || buffer->getAPIType() != EAT_VULKAN)
+            return false;
+
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdDispatchIndirect(
+            m_cmdbuf,
+            static_cast<const CVulkanBuffer*>(buffer)->getInternalObject(),
+            static_cast<VkDeviceSize>(offset));
+
+        return true;
     }
 
     bool dispatchBase(uint32_t baseGroupX, uint32_t baseGroupY, uint32_t baseGroupZ, uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ) override
     {
-        _NBL_TODO();
-        return false;
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdDispatchBase(m_cmdbuf, baseGroupX, baseGroupY, baseGroupZ, groupCountX, groupCountY, groupCountZ);
+        return true;
     }
 
     bool setEvent(event_t* event, const SDependencyInfo& depInfo) override
     {
-        _NBL_TODO();
-        return false;
+        if (!event || event->getAPIType() != EAT_VULKAN)
+            return false;
+
+        core::smart_refctd_ptr<const core::IReferenceCounted> tmp[] = { core::smart_refctd_ptr<const core::IReferenceCounted>(event) };
+        if (!saveReferencesToResources(tmp, tmp + 1))
+            return false;
+        
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdSetEvent(
+            m_cmdbuf,
+            static_cast<const CVulkanEvent*>(event)->getInternalObject(),
+            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT); // No way to get this! SDependencyInfo is unused
+
+        return true;
     }
 
     bool resetEvent(event_t* event, asset::E_PIPELINE_STAGE_FLAGS stageMask) override
     {
-        _NBL_TODO();
-        return false;
+        if (!event || event->getAPIType() != EAT_VULKAN)
+            return false;
+
+        core::smart_refctd_ptr<const core::IReferenceCounted> tmp[] = { core::smart_refctd_ptr<const core::IReferenceCounted>(event) };
+        if (!saveReferencesToResources(tmp, tmp + 1))
+            return false;
+
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdResetEvent(
+            m_cmdbuf,
+            static_cast<const CVulkanEvent*>(event)->getInternalObject(),
+            static_cast<VkPipelineStageFlags>(stageMask));
+
+        return true;
     }
 
     bool waitEvents(uint32_t eventCount, event_t*const *const pEvents, const SDependencyInfo* depInfos) override
     {
-        _NBL_TODO();
-        return false;
+        constexpr uint32_t MAX_EVENT_COUNT = (1u << 12) / sizeof(VkEvent);
+        assert(eventCount <= MAX_EVENT_COUNT);
+
+        constexpr uint32_t MAX_BARRIER_COUNT = 100u;
+        assert(depInfos->memBarrierCount <= MAX_BARRIER_COUNT);
+        assert(depInfos->bufBarrierCount <= MAX_BARRIER_COUNT);
+        assert(depInfos->imgBarrierCount <= MAX_BARRIER_COUNT);
+
+        uint32_t totalResourceCount = 0u;
+        core::smart_refctd_ptr<const core::IReferenceCounted> tmp[2 * MAX_BARRIER_COUNT + MAX_EVENT_COUNT];
+        {
+            uint32_t offset = totalResourceCount;
+            uint32_t resourceCount = 0u;
+            for (; resourceCount < depInfos->bufBarrierCount; ++resourceCount)
+                tmp[offset + resourceCount] = depInfos->bufBarriers[resourceCount].buffer;
+            totalResourceCount += resourceCount;
+        }
+        {
+            uint32_t offset = totalResourceCount;
+            uint32_t resourceCount = 0u;
+            for (; resourceCount < depInfos->imgBarrierCount; ++resourceCount)
+                tmp[offset + resourceCount] = depInfos->imgBarriers[resourceCount].image;
+            totalResourceCount += resourceCount;
+        }
+        {
+            uint32_t offset = totalResourceCount;
+            uint32_t resourceCount = 0u;
+            for (; resourceCount < eventCount; ++resourceCount)
+                tmp[offset + resourceCount] = core::smart_refctd_ptr<const core::IReferenceCounted>(pEvents[resourceCount]);
+            totalResourceCount += resourceCount;
+        }
+
+        if (!saveReferencesToResources(tmp, tmp + totalResourceCount))
+            return false;
+
+        VkEvent vk_events[MAX_EVENT_COUNT];
+        for (uint32_t i = 0u; i < eventCount; ++i)
+        {
+            if (pEvents[i]->getAPIType() != EAT_VULKAN)
+                continue;
+
+            vk_events[i] = static_cast<const CVulkanEvent*>(pEvents[i])->getInternalObject();
+        }
+
+        VkMemoryBarrier vk_memoryBarriers[MAX_BARRIER_COUNT];
+        for (uint32_t i = 0u; i < depInfos->memBarrierCount; ++i)
+        {
+            vk_memoryBarriers[i] = { VK_STRUCTURE_TYPE_MEMORY_BARRIER };
+            vk_memoryBarriers[i].pNext = nullptr; // must be NULL
+            vk_memoryBarriers[i].srcAccessMask = static_cast<VkAccessFlags>(depInfos->memBarriers[i].srcAccessMask);
+            vk_memoryBarriers[i].dstAccessMask = static_cast<VkAccessFlags>(depInfos->memBarriers[i].dstAccessMask);
+        }
+
+        VkBufferMemoryBarrier vk_bufferMemoryBarriers[MAX_BARRIER_COUNT];
+        for (uint32_t i = 0u; i < depInfos->bufBarrierCount; ++i)
+        {
+            vk_bufferMemoryBarriers[i].sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+            vk_bufferMemoryBarriers[i].pNext = nullptr; // must be NULL
+            vk_bufferMemoryBarriers[i].srcAccessMask = static_cast<VkAccessFlags>(depInfos->bufBarriers[i].barrier.srcAccessMask);
+            vk_bufferMemoryBarriers[i].dstAccessMask = static_cast<VkAccessFlags>(depInfos->bufBarriers[i].barrier.dstAccessMask);
+            vk_bufferMemoryBarriers[i].srcQueueFamilyIndex = depInfos->bufBarriers[i].srcQueueFamilyIndex;
+            vk_bufferMemoryBarriers[i].dstQueueFamilyIndex = depInfos->bufBarriers[i].dstQueueFamilyIndex;
+            vk_bufferMemoryBarriers[i].buffer = static_cast<const CVulkanBuffer*>(depInfos->bufBarriers[i].buffer.get())->getInternalObject();
+            vk_bufferMemoryBarriers[i].offset = depInfos->bufBarriers[i].offset;
+            vk_bufferMemoryBarriers[i].size = depInfos->bufBarriers[i].size;
+        }
+
+        VkImageMemoryBarrier vk_imageMemoryBarriers[MAX_BARRIER_COUNT];
+        for (uint32_t i = 0u; i < depInfos->imgBarrierCount; ++i)
+        {
+            vk_imageMemoryBarriers[i].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+            vk_imageMemoryBarriers[i].pNext = nullptr; // pNext must be NULL or a pointer to a valid instance of VkSampleLocationsInfoEXT
+            vk_imageMemoryBarriers[i].srcAccessMask = static_cast<VkAccessFlags>(depInfos->imgBarriers[i].barrier.srcAccessMask);
+            vk_imageMemoryBarriers[i].dstAccessMask = static_cast<VkAccessFlags>(depInfos->imgBarriers[i].barrier.dstAccessMask);
+            vk_imageMemoryBarriers[i].oldLayout = static_cast<VkImageLayout>(depInfos->imgBarriers[i].oldLayout);
+            vk_imageMemoryBarriers[i].newLayout = static_cast<VkImageLayout>(depInfos->imgBarriers[i].newLayout);
+            vk_imageMemoryBarriers[i].srcQueueFamilyIndex = depInfos->imgBarriers[i].srcQueueFamilyIndex;
+            vk_imageMemoryBarriers[i].dstQueueFamilyIndex = depInfos->imgBarriers[i].dstQueueFamilyIndex;
+            vk_imageMemoryBarriers[i].image = static_cast<const CVulkanImage*>(depInfos->imgBarriers[i].image.get())->getInternalObject();
+            vk_imageMemoryBarriers[i].subresourceRange.aspectMask = static_cast<VkImageAspectFlags>(depInfos->imgBarriers[i].subresourceRange.aspectMask);
+            vk_imageMemoryBarriers[i].subresourceRange.baseMipLevel = depInfos->imgBarriers[i].subresourceRange.baseMipLevel;
+            vk_imageMemoryBarriers[i].subresourceRange.levelCount = depInfos->imgBarriers[i].subresourceRange.levelCount;
+            vk_imageMemoryBarriers[i].subresourceRange.baseArrayLayer = depInfos->imgBarriers[i].subresourceRange.baseArrayLayer;
+            vk_imageMemoryBarriers[i].subresourceRange.layerCount = depInfos->imgBarriers[i].subresourceRange.layerCount;
+        }
+
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdWaitEvents(
+            m_cmdbuf,
+            eventCount,
+            vk_events,
+            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // No way to get this!
+            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // No way to get this!
+            depInfos->memBarrierCount,
+            vk_memoryBarriers,
+            depInfos->bufBarrierCount,
+            vk_bufferMemoryBarriers,
+            depInfos->imgBarrierCount,
+            vk_imageMemoryBarriers);
+
+        return true;
     }
 
     bool pipelineBarrier(core::bitflag<asset::E_PIPELINE_STAGE_FLAGS> srcStageMask,
