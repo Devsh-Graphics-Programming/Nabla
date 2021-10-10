@@ -42,7 +42,7 @@ int main()
 	const asset::E_FORMAT depthFormat = asset::EF_UNKNOWN;
 
 	auto initOutp = CommonAPI::Init<WIN_W, WIN_H, SC_IMG_COUNT>(
-		video::EAT_OPENGL,
+		video::EAT_VULKAN,
 		"29.SpecializationConstants",
 		requiredInstanceFeatures,
 		optionalInstanceFeatures,
@@ -159,13 +159,13 @@ int main()
 		(*entries)[3] = { 3u,offsetof(SpecConstants,vel_buf_ix),sizeof(int32_t) };
 		(*entries)[4] = { buf_count_specID,offsetof(SpecConstants,buf_count),sizeof(int32_t) };
 
-		// specInfo = asset::IShader::SInfo(std::move(entries), std::move(backbuf), "main", asset::IShader::ESS_COMPUTE, "../particles.comp");
 		specInfo = asset::ISpecializedShader::SInfo(std::move(entries), std::move(backbuf), "main");
 	}
 
 	auto compute = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(computeUnspec), std::move(specInfo));
 
-	auto computePipeline = introspector.createApproximateComputePipelineFromIntrospection(compute.get(), glslExts->begin(), glslExts->end());
+	// auto computePipeline = introspector.createApproximateComputePipelineFromIntrospection(compute.get(), glslExts->begin(), glslExts->end());
+	auto computePipeline = introspector.createApproximateComputePipelineFromIntrospection(compute.get(), nullptr, nullptr);
 	auto computeLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(nullptr,nullptr,core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(computePipeline->getLayout()->getDescriptorSetLayout(0)));
 	computePipeline->setLayout(core::smart_refctd_ptr(computeLayout));
 

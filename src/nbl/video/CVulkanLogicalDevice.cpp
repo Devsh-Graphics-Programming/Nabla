@@ -313,8 +313,13 @@ bool CVulkanLogicalDevice::createGPUGraphicsPipelines_impl(
         vk_pipelineCache = static_cast<const CVulkanPipelineCache*>(pipelineCache)->getInternalObject();
 
     // Shader stages
-    uint32_t totalShaderStageCount = 0u;
+    uint32_t shaderStageCount_total = 0u;
     core::vector<VkPipelineShaderStageCreateInfo> vk_shaderStages(params.size() * IGPURenderpassIndependentPipeline::SHADER_STAGE_COUNT);
+    uint32_t specInfoCount_total = 0u;
+    core::vector<VkSpecializationInfo> vk_specInfos(vk_shaderStages.size());
+    constexpr uint32_t MAX_MAP_ENTRIES_PER_SHADER = 100u;
+    uint32_t mapEntryCount_total = 0u;
+    core::vector<VkSpecializationMapEntry> vk_mapEntries(vk_specInfos.size()*MAX_MAP_ENTRIES_PER_SHADER);
 
     // Vertex input
     uint32_t vertexBindingDescriptionCount_total = 0u;
@@ -362,26 +367,51 @@ bool CVulkanLogicalDevice::createGPUGraphicsPipelines_impl(
         for (uint32_t ss = 0u; ss < IGPURenderpassIndependentPipeline::SHADER_STAGE_COUNT; ++ss)
         {
             const IGPUSpecializedShader* shader = rpIndie->getShaderAtIndex(ss);
-            if (shader)
-            {
-                if (shader->getAPIType() == EAT_VULKAN)
-                {
-                    auto& vk_shaderStage = vk_shaderStages[totalShaderStageCount + shaderStageCount];
-                    vk_shaderStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-                    vk_shaderStage.pNext = nullptr;
-                    vk_shaderStage.flags = 0u;
-                    vk_shaderStage.stage = static_cast<VkShaderStageFlagBits>(shader->getStage());
-                    vk_shaderStage.module = static_cast<const CVulkanSpecializedShader*>(shader)->getInternalObject();
-                    vk_shaderStage.pName = "main";
-                    vk_shaderStage.pSpecializationInfo = nullptr; // Todo(achal): Seems like there is no way to specify these right now
+            if (!shader || shader->getAPIType() != EAT_VULKAN)
+                continue;
 
-                    ++shaderStageCount;
+            const auto* vulkanSpecShader = static_cast<const CVulkanSpecializedShader*>(shader);
+
+            auto& vk_shaderStage = vk_shaderStages[shaderStageCount_total + shaderStageCount];
+
+            vk_shaderStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+            vk_shaderStage.pNext = nullptr;
+            vk_shaderStage.flags = 0u;
+            vk_shaderStage.stage = static_cast<VkShaderStageFlagBits>(shader->getStage());
+            vk_shaderStage.module = vulkanSpecShader->getInternalObject();
+            vk_shaderStage.pName = "main";
+
+            const auto& shaderSpecInfo = vulkanSpecShader->getSpecInfo();
+
+            if (shaderSpecInfo.m_backingBuffer && shaderSpecInfo.m_entries)
+            {
+                for (uint32_t me = 0u; me < shaderSpecInfo.m_entries->size(); ++me)
+                {
+                    const auto entry = shaderSpecInfo.m_entries->begin() + me;
+
+                    vk_mapEntries[mapEntryCount_total + me].constantID = entry->specConstID;
+                    vk_mapEntries[mapEntryCount_total + me].offset = entry->offset;
+                    vk_mapEntries[mapEntryCount_total + me].size = entry->size;
                 }
+
+                vk_specInfos[specInfoCount_total].mapEntryCount = static_cast<uint32_t>(shaderSpecInfo.m_entries->size());
+                vk_specInfos[specInfoCount_total].pMapEntries = vk_mapEntries.data() + mapEntryCount_total;
+                mapEntryCount_total += vk_specInfos[specInfoCount_total].mapEntryCount;
+                vk_specInfos[specInfoCount_total].dataSize = shaderSpecInfo.m_backingBuffer->getSize();
+                vk_specInfos[specInfoCount_total].pData = shaderSpecInfo.m_backingBuffer->getPointer();
+
+                vk_shaderStage.pSpecializationInfo = vk_specInfos.data() + specInfoCount_total++;
             }
+            else
+            {
+                vk_shaderStage.pSpecializationInfo = nullptr;
+            }
+
+            ++shaderStageCount;
         }
         vk_createInfos[i].stageCount = shaderStageCount;
-        vk_createInfos[i].pStages = vk_shaderStages.data() + totalShaderStageCount;
-        totalShaderStageCount += shaderStageCount;
+        vk_createInfos[i].pStages = vk_shaderStages.data() + shaderStageCount_total;
+        shaderStageCount_total += shaderStageCount;
 
         // Vertex Input
         {
