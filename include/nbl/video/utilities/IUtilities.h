@@ -410,7 +410,8 @@ class IUtilities : public core::IReferenceCounted
             auto* cmdpool = cmdbuf->getPool();
             assert(cmdpool->getCreationFlags()&IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
             assert(cmdpool->getQueueFamilyIndex()==queue->getFamilyIndex());
-
+            
+            auto texelBlockInfo = dstImage->getTexelBlockInfo();
             auto queueFamProps = m_device->getPhysicalDevice()->getQueueFamilyProperties().begin()[0];
             auto minImageTransferGranularity = queueFamProps.minImageTransferGranularity;
             
@@ -423,10 +424,47 @@ class IUtilities : public core::IReferenceCounted
             uint32_t currentDepthInLayer = 0u;
             uint32_t currentLayerInRegion = 0u;
             uint32_t currentRegion = 0u;
+            
+            // bufferOffsetAlignment: TODO
+                // [ ] If Depth/Stencil -> must be multiple of 4
+                // [ ] If multi-planar -> bufferOffset must be a multiple of the element size of the compatible format for the aspectMask of imagesubresource
+                // [ ] If Queue doesn't support GRAPHICS_BIT and COMPUTE_BIT ->  must be multiple of 4
+                // [x] bufferOffset must be a multiple of texel block size in bytes
+            const uint32_t bufferOffsetAlignment = texelBlockInfo.getBlockByteSize();
 
             while (currentRegion < regions.size())
             {
-                const size_t memoryNeededForRemainingRegions = 0u;
+                size_t memoryNeededForRemainingRegions = 0ull;
+                for(uint32_t i = currentRegion; i < regions.size(); ++i)
+                {
+                    auto region = regions.begin()[i];
+                    auto blockStridesDim = region.getBlockStrides(texelBlockInfo);
+                    auto bufferRowLengthInBlocks = blockStridesDim[0];
+                    auto bufferImageHeightInBlocks = blockStridesDim[1];
+                    auto blockByteSize = texelBlockInfo.getBlockByteSize();
+
+                    core::alignUp(memoryNeededForRemainingRegions, bufferOffsetAlignment);
+
+                    auto alignedImageExtentInBlocks = texelBlockInfo.convertTexelsToBlocks(region.imageExtent);
+                    auto alignedImageExtentBlockStridesInBytes = texelBlockInfo.convert3DBlockStridesTo1DByteStrides(alignedImageExtentInBlocks);
+                    if(i == currentRegion)
+                    {
+                        auto remainingBlocksInRow = alignedImageExtentInBlocks[0] - currentBlockInRow;
+                        auto remainingRowsInDepth = alignedImageExtentInBlocks[1] - currentRowInDepth;
+                        auto remainingDepthsInLayer = alignedImageExtentInBlocks[2] - currentDepthInLayer;
+                        auto remainingLayersInRegion = region.imageSubresource.layerCount - currentLayerInRegion;
+
+                        memoryNeededForRemainingRegions += alignedImageExtentBlockStridesInBytes[0] * remainingBlocksInRow;     // = blockByteSize * remainingBlocksInRow
+                        memoryNeededForRemainingRegions += alignedImageExtentBlockStridesInBytes[1] * remainingRowsInDepth;     // = blockByteSize * alignedImageExtentInBlocks.x * remainingRowsInDepth
+                        memoryNeededForRemainingRegions += alignedImageExtentBlockStridesInBytes[2] * remainingDepthsInLayer;   // = blockByteSize * alignedImageExtentInBlocks.x * alignedImageExtentInBlocks.y * remainingDepthsInLayer
+                        memoryNeededForRemainingRegions += alignedImageExtentBlockStridesInBytes[3] * remainingLayersInRegion;  // = blockByteSize * alignedImageExtentInBlocks.x * alignedImageExtentInBlocks.y * alignedImageExtentInBlocks.z * remainingLayersInRegion
+                    }
+                    else
+                    {
+                        memoryNeededForRemainingRegions += alignedImageExtentBlockStridesInBytes[3] * region.imageSubresource.layerCount; // = blockByteSize * alignedImageExtentInBlocks.x * alignedImageExtentInBlocks.y * alignedImageExtentInBlocks.z * region.imageSubresource.layerCount
+                    }
+                }
+
                 uint32_t localOffset = video::StreamingTransientDataBufferMT<>::invalid_address;
                 const uint32_t alignment = static_cast<uint32_t>(limits.nonCoherentAtomSize);
                 const uint32_t subSize = static_cast<uint32_t>(core::min<uint64_t>(core::alignDown(m_defaultUploadBuffer.get()->max_size(), alignment), memoryNeededForRemainingRegions));
