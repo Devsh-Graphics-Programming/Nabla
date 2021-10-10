@@ -5,6 +5,7 @@
 #include "nbl/asset/utils/ISPIRVOptimizer.h"
 
 #include "nbl/video/IGPUBuffer.h"
+#include "nbl/video/IGPUImage.h"
 #include "nbl/video/ILogicalDevice.h"
 #include "nbl/video/alloc/StreamingTransientDataBuffer.h"
 #include "nbl/video/utilities/CPropertyPoolHandler.h"
@@ -65,12 +66,12 @@ class IUtilities : public core::IReferenceCounted
 
         //! WARNING: This function blocks the CPU and stalls the GPU!
         inline core::smart_refctd_ptr<IGPUBuffer> createFilledDeviceLocalGPUBufferOnDedMem(IGPUQueue* queue, size_t size, const void* data)
-	    {
+        {
             IGPUBuffer::SCreationParams params = {};
-		    auto retval = m_device->createDeviceLocalGPUBufferOnDedMem(params, size);
+            auto retval = m_device->createDeviceLocalGPUBufferOnDedMem(params, size);
             updateBufferRangeViaStagingBuffer(queue,asset::SBufferRange<IGPUBuffer>{0u,size,retval},data);
-		    return retval;
-	    }
+            return retval;
+        }
 
         // TODO: Some utility in ILogical Device that can upload the image via the streaming buffer just from the regions without creating a whole intermediate huge GPU Buffer
         //! Remember to ensure a memory dependency between the command recorded here and any users (so fence wait, semaphore when submitting, pipeline barrier or event)
@@ -279,7 +280,11 @@ class IUtilities : public core::IReferenceCounted
             m_device->waitForFences(1u,&fenceptr,false,9999999999ull);
             return retval;
         }
-
+        
+        // --------------
+        // updateBufferRangeViaStagingBuffer
+        // --------------
+        
         //! Remember to ensure a memory dependency between the command recorded here and any users (so fence wait, semaphore when submitting, pipeline barrier or event)
         // `cmdbuf` needs to be already begun and from a pool that allows for resetting commandbuffers individually
         // `fence` needs to be in unsignalled state
@@ -387,6 +392,125 @@ class IUtilities : public core::IReferenceCounted
         {
             auto fence = m_device->createFence(static_cast<IGPUFence::E_CREATE_FLAGS>(0));
             updateBufferRangeViaStagingBuffer(fence.get(),queue,bufferRange,data,waitSemaphoreCount,semaphoresToWaitBeforeOverwrite,stagesToWaitForPerSemaphore,signalSemaphoreCount,semaphoresToSignal);
+            auto* fenceptr = fence.get();
+            m_device->blockForFences(1u,&fenceptr);
+        }
+        
+
+        // --------------
+        // updateImageViaStagingBuffer
+        // --------------
+
+        inline void updateImageViaStagingBuffer(
+            IGPUCommandBuffer* cmdbuf, IGPUFence* fence, IGPUQueue* queue,
+            core::smart_refctd_ptr<asset::ICPUBuffer> srcBuffer, core::SRange<const asset::IImage::SBufferCopy> regions, core::smart_refctd_ptr<IGPUImage> dstImage,
+            uint32_t& waitSemaphoreCount, IGPUSemaphore*const * &semaphoresToWaitBeforeOverwrite, const asset::E_PIPELINE_STAGE_FLAGS* &stagesToWaitForPerSemaphore
+        ) {
+            const auto& limits = m_device->getPhysicalDevice()->getLimits();
+            auto* cmdpool = cmdbuf->getPool();
+            assert(cmdpool->getCreationFlags()&IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
+            assert(cmdpool->getQueueFamilyIndex()==queue->getFamilyIndex());
+
+            auto queueFamProps = m_device->getPhysicalDevice()->getQueueFamilyProperties().begin()[0];
+            auto minImageTransferGranularity = queueFamProps.minImageTransferGranularity;
+            
+            // Queues supporting graphics and/or compute operations must report (1,1,1) in minImageTransferGranularity, meaning that there are no additional restrictions on the granularity of image transfer operations for these queues.
+            // Other queues supporting image transfer operations are only required to support whole mip level transfers, thus minImageTransferGranularity for queues belonging to such queue families may be (0,0,0)
+            bool canTransferMipLevelsPartially = !(minImageTransferGranularity.width == 0 && minImageTransferGranularity.height == 0 && minImageTransferGranularity.depth == 0);
+
+            uint32_t currentBlockInRow = 0u;
+            uint32_t currentRowInDepth = 0u;
+            uint32_t currentDepthInLayer = 0u;
+            uint32_t currentLayerInRegion = 0u;
+            uint32_t currentRegion = 0u;
+
+            while (currentRegion < regions.size())
+            {
+                const size_t memoryNeededForRemainingRegions = 0u;
+                uint32_t localOffset = video::StreamingTransientDataBufferMT<>::invalid_address;
+                const uint32_t alignment = static_cast<uint32_t>(limits.nonCoherentAtomSize);
+                const uint32_t subSize = static_cast<uint32_t>(core::min<uint64_t>(core::alignDown(m_defaultUploadBuffer.get()->max_size(), alignment), memoryNeededForRemainingRegions));
+                const uint32_t uploadBufferSize = core::alignUp(subSize, alignment);
+                // cannot use `multi_place` because of the extra padding size we could have added
+                m_defaultUploadBuffer.get()->multi_alloc(std::chrono::high_resolution_clock::now()+std::chrono::microseconds(500u), 1u, &localOffset, &uploadBufferSize, &alignment);
+
+                // keep trying again
+                if (localOffset == video::StreamingTransientDataBufferMT<>::invalid_address)
+                {
+                    // but first sumbit the already buffered up copies
+                    cmdbuf->end();
+                    IGPUQueue::SSubmitInfo submit;
+                    submit.commandBufferCount = 1u;
+                    submit.commandBuffers = &cmdbuf;
+                    submit.signalSemaphoreCount = 0u;
+                    submit.pSignalSemaphores = nullptr;
+                    assert(!waitSemaphoreCount || semaphoresToWaitBeforeOverwrite && stagesToWaitForPerSemaphore);
+                    submit.waitSemaphoreCount = waitSemaphoreCount;
+                    submit.pWaitSemaphores = semaphoresToWaitBeforeOverwrite;
+                    submit.pWaitDstStageMask = stagesToWaitForPerSemaphore;
+                    queue->submit(1u, &submit, fence);
+                    m_device->blockForFences(1u, &fence);
+                    waitSemaphoreCount = 0u;
+                    semaphoresToWaitBeforeOverwrite = nullptr;
+                    stagesToWaitForPerSemaphore = nullptr;
+                    // before resetting we need poll all events in the allocator's deferred free list
+                    m_defaultUploadBuffer->cull_frees();
+                    // we can reset the fence and commandbuffer because we fully wait for the GPU to finish here
+                    m_device->resetFences(1u, &fence);
+                    cmdbuf->reset(IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
+                    cmdbuf->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
+                    continue;
+                }
+                else
+                {
+                    // Start CmdCopying Regions and Copying Data to m_defaultUploadBuffer
+                }
+
+                // some platforms expose non-coherent host-visible GPU memory, so writes need to be flushed explicitly
+                if (m_defaultUploadBuffer.get()->needsManualFlushOrInvalidate()) {
+                    IDriverMemoryAllocation::MappedMemoryRange flushRange(m_defaultUploadBuffer.get()->getBuffer()->getBoundMemory(), localOffset, uploadBufferSize);
+                    m_device->flushMappedMemoryRanges(1u, &flushRange);
+                }
+
+                // this doesn't actually free the memory, the memory is queued up to be freed only after the GPU fence/event is signalled
+                m_defaultUploadBuffer.get()->multi_free(1u, &localOffset, &uploadBufferSize, core::smart_refctd_ptr<IGPUFence>(fence), &cmdbuf); // can queue with a reset but not yet pending fence, just fine
+            }
+        }
+        inline void updateImageViaStagingBuffer(
+            IGPUFence* fence, IGPUQueue* queue,
+            core::smart_refctd_ptr<asset::ICPUBuffer> srcBuffer, core::SRange<const asset::IImage::SBufferCopy> regions, core::smart_refctd_ptr<IGPUImage> dstImage,
+            uint32_t waitSemaphoreCount=0u, IGPUSemaphore* const* semaphoresToWaitBeforeOverwrite=nullptr, const asset::E_PIPELINE_STAGE_FLAGS* stagesToWaitForPerSemaphore=nullptr,
+            const uint32_t signalSemaphoreCount=0u, IGPUSemaphore* const* semaphoresToSignal=nullptr
+        )
+        {
+            core::smart_refctd_ptr<IGPUCommandPool> pool = m_device->createCommandPool(queue->getFamilyIndex(),IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
+            core::smart_refctd_ptr<IGPUCommandBuffer> cmdbuf;
+            m_device->createCommandBuffers(pool.get(),IGPUCommandBuffer::EL_PRIMARY,1u,&cmdbuf);
+            assert(cmdbuf);
+            cmdbuf->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
+            updateImageViaStagingBuffer(cmdbuf.get(),fence,queue,srcBuffer,regions,dstImage,waitSemaphoreCount,semaphoresToWaitBeforeOverwrite,stagesToWaitForPerSemaphore);
+            cmdbuf->end();
+            IGPUQueue::SSubmitInfo submit;
+            submit.commandBufferCount = 1u;
+            submit.commandBuffers = &cmdbuf.get();
+            submit.signalSemaphoreCount = signalSemaphoreCount;
+            submit.pSignalSemaphores = semaphoresToSignal;
+            assert(!waitSemaphoreCount || semaphoresToWaitBeforeOverwrite && stagesToWaitForPerSemaphore);
+            submit.waitSemaphoreCount = waitSemaphoreCount;
+            submit.pWaitSemaphores = semaphoresToWaitBeforeOverwrite;
+            submit.pWaitDstStageMask = stagesToWaitForPerSemaphore;
+            queue->submit(1u,&submit,fence);
+        }
+        //! WARNING: This function blocks and stalls the GPU!
+        inline void updateImageViaStagingBuffer(
+            IGPUQueue* queue,
+            core::smart_refctd_ptr<asset::ICPUBuffer> srcBuffer, core::SRange<const asset::IImage::SBufferCopy> regions, core::smart_refctd_ptr<IGPUImage> dstImage,
+            uint32_t waitSemaphoreCount=0u, IGPUSemaphore* const* semaphoresToWaitBeforeOverwrite=nullptr, const asset::E_PIPELINE_STAGE_FLAGS* stagesToWaitForPerSemaphore=nullptr,
+            const uint32_t signalSemaphoreCount=0u, IGPUSemaphore* const* semaphoresToSignal=nullptr
+        )
+        {
+            auto fence = m_device->createFence(static_cast<IGPUFence::E_CREATE_FLAGS>(0));
+            updateImageViaStagingBuffer(fence.get(),queue,srcBuffer,regions,dstImage,waitSemaphoreCount,semaphoresToWaitBeforeOverwrite,stagesToWaitForPerSemaphore,signalSemaphoreCount,semaphoresToSignal);
             auto* fenceptr = fence.get();
             m_device->blockForFences(1u,&fenceptr);
         }
