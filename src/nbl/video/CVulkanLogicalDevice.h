@@ -525,7 +525,11 @@ public:
             bufferMemoryReqs.requiresDedicatedAllocation = vk_dedicatedMemoryRequirements.requiresDedicatedAllocation;
 
             return core::make_smart_refctd_ptr<CVulkanBuffer>(
-                core::smart_refctd_ptr<CVulkanLogicalDevice>(this), bufferMemoryReqs, canModifySubData, vk_buffer);
+                core::smart_refctd_ptr<CVulkanLogicalDevice>(this),
+                bufferMemoryReqs,
+                canModifySubData,
+                vk_createInfo.size,
+                vk_buffer);
         }
         else
         {
