@@ -261,7 +261,8 @@ int main()
 	auto fs = createSpecShader("../particles.frag", asset::IShader::ESS_FRAGMENT);
 
 	asset::ICPUSpecializedShader* shaders[2] = { vs.get(),fs.get() };
-	auto pipeline = introspector.createApproximateRenderpassIndependentPipelineFromIntrospection(shaders,shaders+2,glslExts->begin(),glslExts->end());
+	// auto pipeline = introspector.createApproximateRenderpassIndependentPipelineFromIntrospection(shaders,shaders+2,glslExts->begin(),glslExts->end());
+	auto pipeline = introspector.createApproximateRenderpassIndependentPipelineFromIntrospection(shaders,shaders+2,nullptr,nullptr);
 	{
 		auto& vtxParams = pipeline->getVertexInputParams();
 		vtxParams.attributes[0].binding = 0u;
