@@ -54,6 +54,7 @@ int main()
 		true);
 
 	auto win = std::move(initOutp.window);
+	auto windowCb = std::move(initOutp.windowCb);
 	auto api = std::move(initOutp.apiConnection);
 	auto surface = std::move(initOutp.surface);
 	auto device = std::move(initOutp.logicalDevice);
@@ -326,6 +327,7 @@ int main()
 	
 	core::smart_refctd_ptr<video::IGPUCommandBuffer> cmdbuf[FRAMES_IN_FLIGHT];
 	device->createCommandBuffers(cmdpool.get(),video::IGPUCommandBuffer::EL_PRIMARY,FRAMES_IN_FLIGHT,cmdbuf);
+
 	core::smart_refctd_ptr<video::IGPUFence> frameComplete[FRAMES_IN_FLIGHT] = { nullptr };
 	core::smart_refctd_ptr<video::IGPUSemaphore> imageAcquire[FRAMES_IN_FLIGHT] = { nullptr };
 	core::smart_refctd_ptr<video::IGPUSemaphore> renderFinished[FRAMES_IN_FLIGHT] = { nullptr };
@@ -334,18 +336,24 @@ int main()
 		imageAcquire[i] = device->createSemaphore();
 		renderFinished[i] = device->createSemaphore();
 	}
+
 	// render loop
-	for (uint32_t i = 0u; i < FRAME_COUNT; ++i)
+	uint32_t i = 0u;
+	while (windowCb->isWindowOpen())
 	{
-		const auto resourceIx = i%FRAMES_IN_FLIGHT;
+		const auto resourceIx = i++%FRAMES_IN_FLIGHT;
 		auto& cb = cmdbuf[resourceIx];
 		auto& fence = frameComplete[resourceIx];
 		if (fence)
-		while (device->waitForFences(1u,&fence.get(),false,MAX_TIMEOUT)==video::IGPUFence::ES_TIMEOUT)
 		{
+			auto retval = device->waitForFences(1u, &fence.get(), false, MAX_TIMEOUT);
+			assert(retval == video::IGPUFence::ES_TIMEOUT || retval == video::IGPUFence::ES_SUCCESS);
+			device->resetFences(1u, &fence.get());
 		}
 		else
+		{
 			fence = device->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
+		}
 
 		// safe to proceed
 		cb->begin(0);
@@ -427,9 +435,24 @@ int main()
 		cb->endRenderPass();
 		cb->end();
 
-		CommonAPI::Submit(device.get(), sc.get(), cb.get(), queue, imageAcquire[resourceIx].get(), renderFinished[resourceIx].get(), fence.get());
-		CommonAPI::Present(device.get(), sc.get(), queue, renderFinished[resourceIx].get(), imgnum);
+		CommonAPI::Submit(
+			device.get(),
+			sc.get(),
+			cb.get(),
+			queue,
+			imageAcquire[resourceIx].get(),
+			renderFinished[resourceIx].get(),
+			fence.get());
+
+		CommonAPI::Present(
+			device.get(),
+			sc.get(),
+			queue,
+			renderFinished[resourceIx].get(),
+			imgnum);
 	}
+
+	device->waitIdle();
 
 	return 0;
 }
