@@ -305,20 +305,6 @@ int main()
 			nbl::video::IGPUGraphicsPipeline::SCreationParams graphicsPipelineParams = {};
 			graphicsPipelineParams.renderpassIndependent = core::smart_refctd_ptr<nbl::video::IGPURenderpassIndependentPipeline>(const_cast<video::IGPURenderpassIndependentPipeline*>(currentGpuRenderpassIndependentPipeline.get()));
 			graphicsPipelineParams.renderpass = core::smart_refctd_ptr(renderpass);
-			graphicsPipelineParams.viewportParams.viewportCount = 1u;
-			
-			auto& viewport = graphicsPipelineParams.viewportParams.viewport;
-			viewport.minDepth = 1.f;
-			viewport.maxDepth = 0.f;
-			viewport.x = 0u;
-			viewport.y = 0u;
-			viewport.width = WINDOW_WIDTH;
-			viewport.height = WINDOW_HEIGHT;
-
-			graphicsPipelineParams.viewportParams.scissorCount = 1u;
-			auto& scissor = graphicsPipelineParams.viewportParams.scissor;
-			scissor.offset = { 0, 0 };
-			scissor.extent = { WINDOW_WIDTH, WINDOW_HEIGHT };
 
 			gpuGraphicsPipeline = logicalDevice->createGPUGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
 		}
@@ -344,6 +330,21 @@ int main()
 		for (uint32_t i = 0u; i < swapchainImageCount; ++i)
 		{
 			commandBuffers[i]->begin(0);
+
+			asset::SViewport viewport;
+			viewport.minDepth = 1.f;
+			viewport.maxDepth = 0.f;
+			viewport.x = 0u;
+			viewport.y = 0u;
+			viewport.width = WINDOW_WIDTH;
+			viewport.height = WINDOW_HEIGHT;
+			commandBuffers[i]->setViewport(0u, 1u, &viewport);
+
+			VkRect2D scissor;
+			scissor.offset = { 0, 0 };
+			scissor.extent = { WINDOW_WIDTH, WINDOW_HEIGHT };
+			
+			commandBuffers[i]->setScissor(0u, 1u, &scissor);
 
 			nbl::video::IGPUCommandBuffer::SRenderpassBeginInfo beginInfo;
 			{

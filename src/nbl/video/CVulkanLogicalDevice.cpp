@@ -331,19 +331,6 @@ bool CVulkanLogicalDevice::createGPUGraphicsPipelines_impl(
     // Input Assembly
     core::vector<VkPipelineInputAssemblyStateCreateInfo> vk_inputAssemblyStates(params.size());
 
-    // Viewport State
-    uint32_t maxViewportCount = params.size(); // 1 per pipeline
-    uint32_t maxScissorCount = params.size(); // 1 per pipeline
-    // On a side note: m_physicalDevice->getFeatures are supported features not enabled features!
-    // if (<some way to get enabled device features>.multiViewport)
-    // {
-    //     maxViewportCount = m_physicalDevice->getLimits().maxViewports * params.size();
-    //     maxScissorCount = m_physicalDevice->getLimits().maxViewports * params.size();
-    // }
-    uint32_t viewportCount_total = 0u;
-    uint32_t scissorCount_total = 0u;
-    core::vector<VkViewport> vk_viewports(maxViewportCount);
-    core::vector<VkRect2D> vk_scissors(maxScissorCount);
     core::vector<VkPipelineViewportStateCreateInfo> vk_viewportStates(params.size());
 
     core::vector<VkPipelineRasterizationStateCreateInfo> vk_rasterizationStates(params.size());
@@ -353,6 +340,14 @@ bool CVulkanLogicalDevice::createGPUGraphicsPipelines_impl(
     uint32_t colorBlendAttachmentCount_total = 0u;
     core::vector<VkPipelineColorBlendAttachmentState> vk_colorBlendAttachmentStates(params.size() * asset::SBlendParams::MAX_COLOR_ATTACHMENT_COUNT);
     core::vector<VkPipelineColorBlendStateCreateInfo> vk_colorBlendStates(params.size());
+
+    constexpr uint32_t DYNAMIC_STATE_COUNT = 2u;
+    VkDynamicState vk_dynamicStates[DYNAMIC_STATE_COUNT] = { VK_DYNAMIC_STATE_VIEWPORT , VK_DYNAMIC_STATE_SCISSOR };
+    VkPipelineDynamicStateCreateInfo vk_dynamicStateCreateInfo = { VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO };
+    vk_dynamicStateCreateInfo.pNext = nullptr;
+    vk_dynamicStateCreateInfo.flags = 0u;
+    vk_dynamicStateCreateInfo.dynamicStateCount = DYNAMIC_STATE_COUNT;
+    vk_dynamicStateCreateInfo.pDynamicStates = vk_dynamicStates;
 
     core::vector<VkGraphicsPipelineCreateInfo> vk_createInfos(params.size());
     for (size_t i = 0ull; i < params.size(); ++i)
@@ -479,45 +474,15 @@ bool CVulkanLogicalDevice::createGPUGraphicsPipelines_impl(
 
         // Viewport State
         {
-            const auto& viewportParams = creationParams[i].viewportParams;
+            const uint32_t viewportCount = rpIndie->getRasterizationParams().viewportCount;
 
             vk_viewportStates[i].sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
             vk_viewportStates[i].pNext = nullptr;
             vk_viewportStates[i].flags = 0u;
-
-            // Viewports
-            {
-                assert(viewportParams.viewportCount == viewportParams.scissorCount);
-
-                uint32_t viewportCount = viewportParams.viewportCount;
-                assert(viewportCount <= 1u);
-                // if (viewportCount > 1u)
-                //     assert((<some way to get enabled device features>.multiViewport>.multiViewport)
-                //         && (viewportCount <= m_physicalDevice->getLimits().maxViewports));
-
-                uint32_t offset = viewportCount_total;
-                memcpy(vk_viewports.data() + offset, &viewportParams.viewport, viewportCount * sizeof(asset::SViewport));
-                viewportCount_total += viewportCount;
-
-                vk_viewportStates[i].viewportCount = viewportCount;
-                vk_viewportStates[i].pViewports = vk_viewports.data() + offset;
-            }
-
-            // Scissors
-            {
-                uint32_t scissorCount = viewportParams.scissorCount;
-                assert(scissorCount <= 1u);
-                // if (scissorCount > 1)
-                //     assert((<some way to get enabled device features>.multiViewport>.multiViewport)
-                //         && (scissorCount <= m_physicalDevice->getLimits().maxViewports));
-
-                uint32_t offset = scissorCount_total;
-                memcpy(vk_scissors.data() + offset, &viewportParams.scissor, scissorCount * sizeof(VkRect2D));
-                scissorCount_total += scissorCount;
-
-                vk_viewportStates[i].scissorCount = scissorCount;
-                vk_viewportStates[i].pScissors = vk_scissors.data() + offset;
-            }
+            vk_viewportStates[i].viewportCount = viewportCount;
+            vk_viewportStates[i].pViewports = nullptr; // ignored
+            vk_viewportStates[i].scissorCount = viewportCount; // must be identical to viewport count unless VK_DYNAMIC_STATE_VIEWPORT_WITH_COUNT_EXT or VK_DYNAMIC_STATE_SCISSOR_WITH_COUNT_EXT are used
+            vk_viewportStates[i].pScissors = nullptr; // ignored
         }
         vk_createInfos[i].pViewportState = &vk_viewportStates[i];
 
@@ -603,7 +568,7 @@ bool CVulkanLogicalDevice::createGPUGraphicsPipelines_impl(
         vk_createInfos[i].pColorBlendState = &vk_colorBlendStates[i];
 
         // Dynamic state
-        vk_createInfos[i].pDynamicState = nullptr;
+        vk_createInfos[i].pDynamicState = &vk_dynamicStateCreateInfo;
 
         vk_createInfos[i].layout = static_cast<const CVulkanPipelineLayout*>(rpIndie->getLayout())->getInternalObject();
         vk_createInfos[i].renderPass = static_cast<const CVulkanRenderpass*>(creationParams[i].renderpass.get())->getInternalObject();

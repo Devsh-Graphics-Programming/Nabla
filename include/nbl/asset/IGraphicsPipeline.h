@@ -23,7 +23,6 @@ public:
         core::smart_refctd_ptr<RenderpassType> renderpass;
         uint32_t subpassIx = 0u;
         core::bitflag<ICPURenderpassIndependentPipeline::E_PIPELINE_CREATION> createFlags;
-        SViewportParams viewportParams;
     };
 
     static bool validate(const SCreationParams& params)

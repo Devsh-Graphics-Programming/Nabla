@@ -286,17 +286,6 @@ int main()
 	gp_params.renderpassIndependent = core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline>(rpIndependentPipeline);
 	gp_params.subpassIx = 0u;
 
-	auto& vp = gp_params.viewportParams.viewport;
-	vp.minDepth = 1.f;
-	vp.maxDepth = 0.f;
-	vp.x = 0u;
-	vp.y = 0u;
-	vp.width = WIN_W;
-	vp.height = WIN_H;
-	auto& scissor = gp_params.viewportParams.scissor;
-	scissor.offset = { 0, 0};
-	scissor.extent = { WIN_W, WIN_H };
-
 	auto graphicsPipeline = device->createGPUGraphicsPipeline(nullptr, std::move(gp_params));
 
 	constexpr uint32_t GRAPHICS_SET = 0u;

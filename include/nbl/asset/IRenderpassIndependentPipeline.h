@@ -222,7 +222,7 @@ struct SRasterizationParams
 		stencilTestEnable = false;
 	}
 
-    uint8_t viewportCount = 1u; // doesn't belong here
+    uint8_t viewportCount = 1u;
     E_POLYGON_MODE polygonMode = EPM_FILL;
     E_FACE_CULL_MODE faceCullingMode = EFCM_BACK_BIT;
 	E_COMPARE_OP depthCompareOp = ECO_GREATER;
@@ -271,14 +271,6 @@ struct SRasterizationParams
     }
 } PACK_STRUCT;
 static_assert(sizeof(SRasterizationParams)==4u*sizeof(uint8_t) + 3u*sizeof(uint32_t) + 3u*sizeof(float) + 2u*sizeof(SStencilOpParams) + sizeof(uint16_t), "Unexpected size!");
-
-struct SViewportParams
-{
-    uint8_t viewportCount = 1u;
-    SViewport viewport;
-    uint8_t scissorCount = 1u;
-    VkRect2D scissor;
-};
 
 enum E_LOGIC_OP : uint8_t
 {
