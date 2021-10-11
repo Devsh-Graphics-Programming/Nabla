@@ -21,7 +21,6 @@
 #include <cstdlib>
 #include <cstring>
 //#include <jni.h>
-#include "../common/CommonAPI.h"
 
 #include <cerrno>
 #include <cassert>
@@ -29,6 +28,7 @@
 #include <nbl/ui/CWindowAndroid.h>
 #include <nbl/ui/CWindowManagerAndroid.h>
 #include <nbl/ui/CGraphicalApplicationAndroid.h>
+#include "../common/CommonAPI.h"
 
 //#include <EGL/egl.h>
 //#include <GLES/gl.h>

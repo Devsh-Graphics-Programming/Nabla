@@ -717,7 +717,7 @@ public:
 #elif defined(_NBL_PLATFORM_ANDROID_)
 		result.logger = core::make_smart_refctd_ptr<system::CStdoutLoggerAndroid>(); // we should let user choose it?
 #endif
-		result.inputSystem = make_smart_refctd_ptr<InputSystem>(system::logger_opt_smart_ptr(core::smart_refctd_ptr(result.logger)));
+		result.inputSystem = nbl::core::make_smart_refctd_ptr<InputSystem>(system::logger_opt_smart_ptr(core::smart_refctd_ptr(result.logger)));
 		result.windowCb = nbl::core::make_smart_refctd_ptr<EventCallback>(core::smart_refctd_ptr(result.inputSystem), system::logger_opt_smart_ptr(core::smart_refctd_ptr(result.logger)));
 
 #ifndef _NBL_PLATFORM_ANDROID_
