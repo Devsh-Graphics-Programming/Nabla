@@ -419,9 +419,13 @@ class IUtilities : public core::IReferenceCounted
             // Other queues supporting image transfer operations are only required to support whole mip level transfers, thus minImageTransferGranularity for queues belonging to such queue families may be (0,0,0)
             bool canTransferMipLevelsPartially = !(minImageTransferGranularity.width == 0 && minImageTransferGranularity.height == 0 && minImageTransferGranularity.depth == 0);
 
+            // Block Offsets 
+            // (1 blockInRow = texelBlockDimensions.x texels)
+            // (1 rowInSlice = texelBlockDimensions.y texel rows)
+            // (1 sliceInLayer = texelBlockDimensions.z texel depths)
             uint32_t currentBlockInRow = 0u;
-            uint32_t currentRowInDepth = 0u;
-            uint32_t currentDepthInLayer = 0u;
+            uint32_t currentRowInSlice = 0u;
+            uint32_t currentSliceInLayer = 0u;
             uint32_t currentLayerInRegion = 0u;
             uint32_t currentRegion = 0u;
             
@@ -435,28 +439,24 @@ class IUtilities : public core::IReferenceCounted
             while (currentRegion < regions.size())
             {
                 size_t memoryNeededForRemainingRegions = 0ull;
-                for(uint32_t i = currentRegion; i < regions.size(); ++i)
+                for (uint32_t i = currentRegion; i < regions.size(); ++i)
                 {
-                    auto region = regions.begin()[i];
-                    auto blockStridesDim = region.getBlockStrides(texelBlockInfo);
-                    auto bufferRowLengthInBlocks = blockStridesDim[0];
-                    auto bufferImageHeightInBlocks = blockStridesDim[1];
-                    auto blockByteSize = texelBlockInfo.getBlockByteSize();
-
-                    core::alignUp(memoryNeededForRemainingRegions, bufferOffsetAlignment);
-
-                    auto alignedImageExtentInBlocks = texelBlockInfo.convertTexelsToBlocks(region.imageExtent);
+                    memoryNeededForRemainingRegions = core::alignUp(memoryNeededForRemainingRegions, bufferOffsetAlignment);
+                    
+                    const asset::IImage::SBufferCopy & region = regions[i];
+                    auto alignedImageExtentInBlocks = texelBlockInfo.convertTexelsToBlocks(core::vector3du32_SIMD(region.imageExtent.width, region.imageExtent.height, region.imageExtent.depth));
                     auto alignedImageExtentBlockStridesInBytes = texelBlockInfo.convert3DBlockStridesTo1DByteStrides(alignedImageExtentInBlocks);
                     if(i == currentRegion)
                     {
-                        auto remainingBlocksInRow = alignedImageExtentInBlocks[0] - currentBlockInRow;
-                        auto remainingRowsInDepth = alignedImageExtentInBlocks[1] - currentRowInDepth;
-                        auto remainingDepthsInLayer = alignedImageExtentInBlocks[2] - currentDepthInLayer;
+                        auto remainingBlocksInRow = alignedImageExtentInBlocks.x - currentBlockInRow;
+                        auto remainingRowsInSlice = alignedImageExtentInBlocks.y - currentRowInSlice;
+                        auto remainingSlicesInLayer = alignedImageExtentInBlocks.z - currentSliceInLayer;
                         auto remainingLayersInRegion = region.imageSubresource.layerCount - currentLayerInRegion;
 
+                        // dot(alignedImageExtentBlockStridesInBytes, vec4(remainingBlocksInRow, remainingRowsInSlice, remainingSlicesInLayer, remainingLayersInRegion))
                         memoryNeededForRemainingRegions += alignedImageExtentBlockStridesInBytes[0] * remainingBlocksInRow;     // = blockByteSize * remainingBlocksInRow
-                        memoryNeededForRemainingRegions += alignedImageExtentBlockStridesInBytes[1] * remainingRowsInDepth;     // = blockByteSize * alignedImageExtentInBlocks.x * remainingRowsInDepth
-                        memoryNeededForRemainingRegions += alignedImageExtentBlockStridesInBytes[2] * remainingDepthsInLayer;   // = blockByteSize * alignedImageExtentInBlocks.x * alignedImageExtentInBlocks.y * remainingDepthsInLayer
+                        memoryNeededForRemainingRegions += alignedImageExtentBlockStridesInBytes[1] * remainingRowsInSlice;     // = blockByteSize * alignedImageExtentInBlocks.x * remainingRowsInSlice
+                        memoryNeededForRemainingRegions += alignedImageExtentBlockStridesInBytes[2] * remainingSlicesInLayer;   // = blockByteSize * alignedImageExtentInBlocks.x * alignedImageExtentInBlocks.y * remainingSlicesInLayer
                         memoryNeededForRemainingRegions += alignedImageExtentBlockStridesInBytes[3] * remainingLayersInRegion;  // = blockByteSize * alignedImageExtentInBlocks.x * alignedImageExtentInBlocks.y * alignedImageExtentInBlocks.z * remainingLayersInRegion
                     }
                     else
@@ -502,6 +502,183 @@ class IUtilities : public core::IReferenceCounted
                 else
                 {
                     // Start CmdCopying Regions and Copying Data to m_defaultUploadBuffer
+                    uint32_t currentUploadBufferOffset = localOffset;
+                    uint32_t availableUploadBufferMemory = uploadBufferSize - currentUploadBufferOffset;
+                    auto addToCurrentUploadBufferOffset = [&](uint32_t size) -> uint32_t 
+                    {
+                        currentUploadBufferOffset += size;
+                        currentUploadBufferOffset = core::alignUp(currentUploadBufferOffset, bufferOffsetAlignment);
+                        availableUploadBufferMemory = uploadBufferSize - currentUploadBufferOffset;
+                    };
+
+                    for (uint32_t i = currentRegion; i < regions.size(); ++i)
+                    {
+                        const asset::IImage::SBufferCopy & region = regions[i];
+
+                        auto subresourceSize = dstImage->getMipSize(region.imageSubresource.mipLevel);
+                        auto subresourceSizeInBlocks = texelBlockInfo.convertTexelsToBlocks(subresourceSize);
+                        
+                        auto alignedImageExtentInBlocks = texelBlockInfo.convertTexelsToBlocks(core::vector3du32_SIMD(region.imageExtent.width, region.imageExtent.height, region.imageExtent.depth));
+                        auto alignedImageExtentBlockStridesInBytes = texelBlockInfo.convert3DBlockStridesTo1DByteStrides(alignedImageExtentInBlocks);
+                        // (BAD_USAGE ALERT): if region.imageExtent is NOT correctly aligned then region.imageExtent MUST be equal to subresourceSize
+                        bool isWidthAligned = region.imageExtent == core::alignUp();
+
+                        // region <-> region.imageSubresource.layerCount <-> alignedImageExtentInBlocks.z <-> alignedImageExtentInBlocks.y <-> alignedImageExtentInBlocks.x
+                        auto updateCurrentOffsets = [&]() -> void
+                        {
+                            if(currentBlockInRow >= alignedImageExtentInBlocks.x)
+                                currentRowInSlice++;
+                            if(currentRowInSlice >= alignedImageExtentInBlocks.y)
+                                currentSliceInLayer++;
+                            if(currentSliceInLayer >= alignedImageExtentInBlocks.z)
+                                currentLayerInRegion++;
+                            if(currentLayerInRegion >= region.imageSubresource.layerCount) 
+                                currentRegion++;
+                        };
+
+                        auto tryFillRow = [&]() -> bool
+                        {
+                            bool ret = false;
+                            // C: There is remaining slices left in layer -> Copy Blocks
+                            uint32_t eachBlockNeededMemory = alignedImageExtentBlockStridesInBytes[0]; // = blockByteSize
+                            uint32_t uploadableBlocks = availableUploadBufferMemory / eachBlockNeededMemory;
+                            uint32_t remainingBlocks = alignedImageExtentInBlocks.x - currentBlockInRow;
+                            uploadableBlocks = core::min(uploadableBlocks, remainingBlocks);
+                            if(uploadableBlocks + currentBlockInRow < subresourceSizeInBlocks.x)
+                                uploadableBlocks = core::alignDown(uploadableBlocks, minImageTransferGranularity.width);
+
+                            if(uploadableBlocks > 0)
+                            {
+                                // Copy some regions from ICPUBuffer to UploadBuffer
+                                // Record Copy of FULL Blocks: TODO
+                                // addToCurrentUploadBufferOffset(1024);
+                                currentBlockInRow += uploadableBlocks;
+                                updateCurrentOffsets();
+                                ret = true;
+                            }
+                            return ret;
+                        };
+                        
+                        auto tryFillSlice = [&]() -> bool
+                        {
+                            bool ret = false;
+                            // B: There is remaining slices left in layer -> Copy Rows
+                            uint32_t eachRowNeededMemory = alignedImageExtentBlockStridesInBytes[1]; // = blockByteSize * alignedImageExtentInBlocks.x
+                            uint32_t uploadableRows = availableUploadBufferMemory / eachRowNeededMemory;
+                            uint32_t remainingRows = alignedImageExtentInBlocks.y - currentRowInSlice;
+                            uploadableRows = core::min(uploadableRows, remainingRows);
+                            if(uploadableRows + currentRowInSlice < subresourceSizeInBlocks.y)
+                                uploadableRows = core::alignDown(uploadableRows, minImageTransferGranularity.height);
+
+                            if(uploadableRows > 0)
+                            {
+                                // Copy some regions from ICPUBuffer to UploadBuffer
+                                // Record Copy of FULL Rows: TODO
+                                // addToCurrentUploadBufferOffset(1024);
+                                currentRowInSlice += uploadableRows;
+                                updateCurrentOffsets();
+                                ret = true;
+                            }
+
+                            
+                            if(currentRowInSlice < alignedImageExtentInBlocks.z)
+                            {
+                                bool filledAnyBlocksInRow = tryFillRow();
+                                if(filledAnyBlocksInRow)
+                                    ret = true;
+                            }
+
+                            return ret;
+                        };
+                        
+                        auto tryFillLayer = [&]() -> bool
+                        {
+                            bool ret = false;
+                            // A: There is remaining layers left in region -> Copy Slices (Depths)
+                            uint32_t eachSliceNeededMemory = alignedImageExtentBlockStridesInBytes[2]; // = blockByteSize * alignedImageExtentInBlocks.x * alignedImageExtentInBlocks.y
+                            uint32_t uploadableSlices = availableUploadBufferMemory / eachSliceNeededMemory;
+                            uint32_t remainingSlices = alignedImageExtentInBlocks.z - currentSliceInLayer;
+                            uploadableSlices = core::min(uploadableSlices, remainingSlices);
+                            if(uploadableSlices + currentSliceInLayer < subresourceSizeInBlocks.z)
+                                uploadableSlices = core::alignDown(uploadableSlices, minImageTransferGranularity.depth);
+
+                            if(uploadableSlices > 0)
+                            {
+                                // Copy some regions from ICPUBuffer to UploadBuffer
+                                // Record Copy of FULL Slices: TODO
+                                // addToCurrentUploadBufferOffset(1024);
+                                currentSliceInLayer += uploadableSlices;
+                                updateCurrentOffsets();
+                                ret = true;
+                            }
+                            
+                            if(currentSliceInLayer < alignedImageExtentInBlocks.z)
+                            {
+                                bool filledAnyRowsOrBlocksInSlice = tryFillSlice();
+                                if(filledAnyRowsOrBlockInSlice)
+                                    ret = true;
+                            }
+
+                            return ret;
+                        };
+
+                        auto tryFillRegion = [&]() -> bool
+                        {
+                            bool ret = false;
+                            uint32_t eachLayerNeededMemory = alignedImageExtentBlockStridesInBytes[3]; // = blockByteSize * alignedImageExtentInBlocks.x * alignedImageExtentInBlocks.y * alignedImageExtentInBlocks.z
+                            uint32_t uploadableArrayLayers = availableUploadBufferMemory / eachLayerNeededMemory;
+                            uint32_t remainingLayers = region.imageSubresource.layerCount - currentLayerInRegion;
+                            uploadableArrayLayers = core::min(uploadableArrayLayers, remainingLayers);
+
+                            if(uploadableArrayLayers > 0)
+                            {
+                                // Copy some regions from ICPUBuffer to UploadBuffer
+                                // Record Copy of FULL Layers: TODO
+                                // addToCurrentUploadBufferOffset(1024);
+                                currentLayerInRegion += uploadableArrayLayers;
+                                updateCurrentOffsets();
+                                ret = true;
+                            }
+
+                            // currentLayerInRegion is respective to region.imageSubresource.baseArrayLayer so It's not in the calculations until the cmdCopy.
+                            if(currentLayerInRegion < region.imageSubresource.layerCount)
+                            {
+                                bool filledAnySlicesOrRowsOrBlocksInLayer = tryFillLayer();
+                                if(filledAnySlicesOrRowsOrBlocksInLayer)
+                                    ret = true;
+                            }
+                            return ret;
+                        };
+
+                         // There is remaining blocks in row that needs copying
+                        if (currentBlockInRow > 0)
+                        {
+                            bool success = tryFillRow();
+                            assert(success && "uploadBufferSize is not enough to support even the smallest possible transferable units to image");
+                        }
+
+                        // There is remaining rows in slice that needs copying
+                        if (currentBlockInRow == 0 && currentRowInSlice > 0)
+                        {
+                            bool success = tryFillSlice();
+                            assert(success && "uploadBufferSize is not enough to support even the smallest possible transferable units to image");
+                        }
+
+                         // There is remaining slices in layer that needs copying
+                        if (currentBlockInRow == 0 && currentRowInSlice == 0 && currentSliceInLayer > 0)
+                        {
+                            bool success = tryFillLayer();
+                            assert(success && "uploadBufferSize is not enough to support even the smallest possible transferable units to image");
+                        }
+                        
+                         // There is remaining layers in region that needs copying
+                        auto remainingLayersInRegion = region.imageSubresource.layerCount - currentLayerInRegion;
+                        if(currentBlockInRow == 0 && currentRowInSlice == 0 && currentSliceInLayer == 0 && remainingLayersInRegion > 0)
+                        {
+                            bool success = tryFillRegion();
+                            assert(success && "uploadBufferSize is not enough to support even the smallest possible transferable units to image");
+                        }
+                    }
                 }
 
                 // some platforms expose non-coherent host-visible GPU memory, so writes need to be flushed explicitly
