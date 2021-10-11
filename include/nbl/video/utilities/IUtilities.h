@@ -412,6 +412,7 @@ class IUtilities : public core::IReferenceCounted
             assert(cmdpool->getQueueFamilyIndex()==queue->getFamilyIndex());
             
             auto texelBlockInfo = dstImage->getTexelBlockInfo();
+            auto texelBlockDim = texelBlockInfo.getDimension();
             auto queueFamProps = m_device->getPhysicalDevice()->getQueueFamilyProperties().begin()[0];
             auto minImageTransferGranularity = queueFamProps.minImageTransferGranularity;
             
@@ -518,10 +519,27 @@ class IUtilities : public core::IReferenceCounted
                         auto subresourceSize = dstImage->getMipSize(region.imageSubresource.mipLevel);
                         auto subresourceSizeInBlocks = texelBlockInfo.convertTexelsToBlocks(subresourceSize);
                         
-                        auto alignedImageExtentInBlocks = texelBlockInfo.convertTexelsToBlocks(core::vector3du32_SIMD(region.imageExtent.width, region.imageExtent.height, region.imageExtent.depth));
+                        auto imageExtent = core::vector3du32_SIMD(region.imageExtent.width, region.imageExtent.height, region.imageExtent.depth);
+                        auto alignedImageExtentInBlocks = texelBlockInfo.convertTexelsToBlocks(imageExtent);
                         auto alignedImageExtentBlockStridesInBytes = texelBlockInfo.convert3DBlockStridesTo1DByteStrides(alignedImageExtentInBlocks);
-                        // (BAD_USAGE ALERT): if region.imageExtent is NOT correctly aligned then region.imageExtent MUST be equal to subresourceSize
-                        bool isWidthAligned = region.imageExtent == core::alignUp();
+
+
+                        // Validate Region
+
+                        // canTransferMipLevelsPartially
+                        if(!canTransferMipLevelsPartially)
+                        {
+                            assert(region.imageOffset.x == 0 && region.imageOffset.y == 0 && region.imageOffset.z == 0);
+                            assert(region.imageExtent.x == subresourceSize.x && region.imageExtent.y == subresourceSize.y && region.imageExtent.z == subresourceSize.z);
+                        }
+
+                        // if region.imageExtent is NOT correctly aligned then (region.imageOffset + region.imageExtent) MUST be equal to subresourceSize
+                        bool isImageExtentValid = 
+                            (region.imageExtent.x == core::alignUp(region.imageExtent.x, minImageTransferGranularity.x * texelBlockDim.x) || (region.imageOffset.x + region.imageExtent.x == subresourceSize.x)) && 
+                            (region.imageExtent.y == core::alignUp(region.imageExtent.y, minImageTransferGranularity.y * texelBlockDim.y) || (region.imageOffset.y + region.imageExtent.y == subresourceSize.y)) &&
+                            (region.imageExtent.z == core::alignUp(region.imageExtent.z, minImageTransferGranularity.z * texelBlockDim.z) || (region.imageOffset.z + region.imageExtent.z == subresourceSize.z)));
+                            
+                        assert(isImageExtentValid);
 
                         // region <-> region.imageSubresource.layerCount <-> alignedImageExtentInBlocks.z <-> alignedImageExtentInBlocks.y <-> alignedImageExtentInBlocks.x
                         auto updateCurrentOffsets = [&]() -> void
@@ -641,7 +659,7 @@ class IUtilities : public core::IReferenceCounted
                             }
 
                             // currentLayerInRegion is respective to region.imageSubresource.baseArrayLayer so It's not in the calculations until the cmdCopy.
-                            if(currentLayerInRegion < region.imageSubresource.layerCount)
+                            if(currentLayerInRegion < region.imageSubresource.layerCount && canTransferMipLevelsPartially)
                             {
                                 bool filledAnySlicesOrRowsOrBlocksInLayer = tryFillLayer();
                                 if(filledAnySlicesOrRowsOrBlocksInLayer)
@@ -653,6 +671,7 @@ class IUtilities : public core::IReferenceCounted
                          // There is remaining blocks in row that needs copying
                         if (currentBlockInRow > 0)
                         {
+                            assert(canTransferMipLevelsPartially);
                             bool success = tryFillRow();
                             assert(success && "uploadBufferSize is not enough to support even the smallest possible transferable units to image");
                         }
@@ -660,6 +679,7 @@ class IUtilities : public core::IReferenceCounted
                         // There is remaining rows in slice that needs copying
                         if (currentBlockInRow == 0 && currentRowInSlice > 0)
                         {
+                            assert(canTransferMipLevelsPartially);
                             bool success = tryFillSlice();
                             assert(success && "uploadBufferSize is not enough to support even the smallest possible transferable units to image");
                         }
@@ -667,6 +687,7 @@ class IUtilities : public core::IReferenceCounted
                          // There is remaining slices in layer that needs copying
                         if (currentBlockInRow == 0 && currentRowInSlice == 0 && currentSliceInLayer > 0)
                         {
+                            assert(canTransferMipLevelsPartially);
                             bool success = tryFillLayer();
                             assert(success && "uploadBufferSize is not enough to support even the smallest possible transferable units to image");
                         }
