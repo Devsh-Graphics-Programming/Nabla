@@ -327,15 +327,6 @@ void main()
 
 		cb->begin(video::IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
 
-		asset::SViewport vp;
-		vp.minDepth = 1.f;
-		vp.maxDepth = 0.f;
-		vp.x = 0u;
-		vp.y = 0u;
-		vp.width = win_w;
-		vp.height = win_h;
-		cb->setViewport(0u, 1u, &vp);
-
 		cb->updateBuffer(buffer.get(), 0u, sizeof(vertices), vertices);
 
 		video::IGPUCommandBuffer::SBufferMemoryBarrier bufMemBarrier;
@@ -370,6 +361,15 @@ void main()
 
 		cb->begin(0);
 		
+		asset::SViewport vp;
+		vp.minDepth = 1.f;
+		vp.maxDepth = 0.f;
+		vp.x = 0u;
+		vp.y = 0u;
+		vp.width = win_w;
+		vp.height = win_h;
+		cb->setViewport(0u, 1u, &vp);
+
 		auto* buf = engine->buffer.get();
 		size_t offset = 0u;
 		cb->bindVertexBuffers(0u, 1u, &buf, &offset);
