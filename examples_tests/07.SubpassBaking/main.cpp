@@ -130,6 +130,10 @@ public:
         {
             system = std::move(s);
         }
+        nbl::ui::IWindow* getWindow() override
+        {
+            return window;
+        }
     };
     APP_CONSTRUCTOR(SubpassBakingApp)
     void onAppInitialized_impl(void* data) override

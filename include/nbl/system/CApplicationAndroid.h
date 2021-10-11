@@ -58,7 +58,7 @@ namespace nbl::system
             case APP_CMD_SAVE_STATE:
                 // The system has asked us to save our current state.  Do so.
                 usrData->state = (SSavedState*)malloc(sizeof(SSavedState));
-                *((SSavedState*)app->savedState) = *usrData->state;
+                (app->savedState) = usrData->state;
                 app->savedStateSize = sizeof(SSavedState);
                 framework->onStateSaved(app);
                 break;

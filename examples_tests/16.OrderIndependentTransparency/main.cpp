@@ -137,6 +137,10 @@ public:
         {
             window = std::move(wnd);
         }
+        nbl::ui::IWindow* getWindow() override
+        {
+            return window.get();
+        }
         void setSystem(core::smart_refctd_ptr<nbl::system::ISystem>&& system) override
         {
             system = std::move(system);

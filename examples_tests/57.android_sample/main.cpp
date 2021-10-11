@@ -20,7 +20,9 @@
 #include <memory>
 #include <cstdlib>
 #include <cstring>
-#include <jni.h>
+//#include <jni.h>
+#include "../common/CommonAPI.h"
+
 #include <cerrno>
 #include <cassert>
 #include <nabla.h>
@@ -44,9 +46,6 @@ using namespace core;
 static constexpr uint32_t SC_IMG_COUNT = 3u;
 
 struct nabla : IApplicationFramework::IUserData {
-    ASensorManager* sensorManager;
-    const ASensor* accelerometerSensor;
-    ASensorEventQueue* sensorEventQueue;
 
 	system::logger_opt_smart_ptr logger = nullptr;
     core::smart_refctd_ptr<ui::IWindow> window;
@@ -69,6 +68,10 @@ struct nabla : IApplicationFramework::IUserData {
 	{
 		system = std::move(s);
 	}
+	nbl::ui::IWindow* getWindow() override
+	{
+		return window.get();
+	}
 };
 
 
@@ -86,22 +89,39 @@ static int engine_init_display(nabla* engine) {
     video::COpenGLDebugCallback cb;
     engine->api = video::COpenGLESConnection::create(core::smart_refctd_ptr<system::ISystem>(engine->system), 0, "android-sample", std::move(cb));
 
+#ifdef _NBL_PLATFORM_ANDROID_
     auto surface = video::CSurfaceGLAndroid::create<video::EAT_OPENGL_ES>(core::smart_refctd_ptr<video::COpenGLESConnection>((video::COpenGLESConnection*)engine->api.get()),core::smart_refctd_ptr<nbl::ui::IWindowAndroid>(static_cast<nbl::ui::CWindowAndroid*>(engine->window.get())));
+#else
+	auto windowManager = core::make_smart_refctd_ptr<nbl::ui::CWindowManagerWin32>();
+	auto windowCb = nbl::core::make_smart_refctd_ptr<nbl::ui::IWindow::IEventCallback>();
+	nbl::ui::IWindow::SCreationParams windowsCreationParams;
+	windowsCreationParams.width = 1280;
+	windowsCreationParams.height = 720;
+	windowsCreationParams.x = 64u;
+	windowsCreationParams.y = 64u;
+	windowsCreationParams.system = core::smart_refctd_ptr(engine->system);
+	windowsCreationParams.flags = nbl::ui::IWindow::ECF_NONE;
+	windowsCreationParams.windowCaption = "AndroidSample";
+	windowsCreationParams.callback = windowCb;
 
+	engine->window = windowManager->createWindow(std::move(windowsCreationParams));
+	auto surface = video::CSurfaceGLWin32::create<video::EAT_OPENGL_ES>(core::smart_refctd_ptr<nbl::video::COpenGLESConnection>((video::COpenGLESConnection*)engine->api.get()), core::smart_refctd_ptr<ui::IWindowWin32>(static_cast<ui::IWindowWin32*>(engine->window.get())));
+
+#endif
     auto gpus = engine->api->getPhysicalDevices();
 	assert(!gpus.empty());
     engine->gpu = gpus.begin()[0];
 
-    assert(surface->isSupported(engine->gpu.get(), 0u));
+    //assert(surface->isSupported(engine->gpu.get(), 0u));
     
     video::ILogicalDevice::SCreationParams dev_params;
 	dev_params.queueParamsCount = 1u;
 	
 	video::ILogicalDevice::SQueueCreationParams q_params;
 	q_params.familyIndex = 0u;
-	q_params.count = 1u;//4u;
+	q_params.count = 1u;
 	q_params.flags = static_cast<video::IGPUQueue::E_CREATE_FLAGS>(0);
-	float priority[4] = {1.f,1.f,1.f,1.f};
+	float priority[1] = {1.f};
 	q_params.priorities = priority;
 	dev_params.queueParams = &q_params;
 	engine->dev = engine->gpu->createLogicalDevice(dev_params);
@@ -388,10 +408,11 @@ static void engine_draw_frame(nabla* engine) {
 
     constexpr uint64_t MAX_TIMEOUT = 99999999999999ull; //ns
 
-    auto img_acq_sem = engine->dev->createSemaphore();
+    auto* queue = engine->dev->getQueue(0u, 0u);
+
+	auto img_acq_sem = engine->dev->createSemaphore();
     auto render_finished_sem = engine->dev->createSemaphore();
 
-    auto* queue = engine->dev->getQueue(0u, 0u);
 
     uint32_t imgnum = 0u;
     engine->sc->acquireNextImage(MAX_TIMEOUT, img_acq_sem.get(), nullptr, &imgnum);
@@ -448,70 +469,69 @@ static void engine_term_display(nabla* engine) {
     engine->api = nullptr;
     engine->window = nullptr;
 }
+///*/
+///*
+// * AcquireASensorManagerInstance(void)
+// *    Workaround ASensorManager_getInstance() deprecation false alarm
+// *    for Android-N and before, when compiling with NDK-r15
+// */
+//#include <dlfcn.h>
+//ASensorManager* AcquireASensorManagerInstance(android_app* app) {
+//
+//  if(!app)
+//    return nullptr;
+//
+//  typedef ASensorManager *(*PF_GETINSTANCEFORPACKAGE)(const char *name);
+//  void* androidHandle = dlopen("libandroid.so", RTLD_NOW);
+//  auto getInstanceForPackageFunc = (PF_GETINSTANCEFORPACKAGE)
+//      dlsym(androidHandle, "ASensorManager_getInstanceForPackage");
+//  if (getInstanceForPackageFunc) {
+//    JNIEnv* env = nullptr;
+//    app->activity->vm->AttachCurrentThread(&env, nullptr);
+//
+//    jclass android_content_Context = env->GetObjectClass(app->activity->clazz);
+//    jmethodID midGetPackageName = env->GetMethodID(android_content_Context,
+//                                                   "getPackageName",
+//                                                   "()Ljava/lang/String;");
+//    auto packageName= (jstring)env->CallObjectMethod(app->activity->clazz,
+//                                                        midGetPackageName);
+//
+//    const char *nativePackageName = env->GetStringUTFChars(packageName, nullptr);
+//    ASensorManager* mgr = getInstanceForPackageFunc(nativePackageName);
+//    env->ReleaseStringUTFChars(packageName, nativePackageName);
+//    app->activity->vm->DetachCurrentThread();
+//    if (mgr) {
+//      dlclose(androidHandle);
+//      return mgr;
+//    }
+//  }
+//
+//  typedef ASensorManager *(*PF_GETINSTANCE)();
+//  auto getInstanceFunc = (PF_GETINSTANCE)
+//      dlsym(androidHandle, "ASensorManager_getInstance");
+//  // by all means at this point, ASensorManager_getInstance should be available
+//  assert(getInstanceFunc);
+//  dlclose(androidHandle);
+//
+//  return getInstanceFunc();
+//}
 
-/*
- * AcquireASensorManagerInstance(void)
- *    Workaround ASensorManager_getInstance() deprecation false alarm
- *    for Android-N and before, when compiling with NDK-r15
- */
-#include <dlfcn.h>
-ASensorManager* AcquireASensorManagerInstance(android_app* app) {
 
-  if(!app)
-    return nullptr;
-
-  typedef ASensorManager *(*PF_GETINSTANCEFORPACKAGE)(const char *name);
-  void* androidHandle = dlopen("libandroid.so", RTLD_NOW);
-  auto getInstanceForPackageFunc = (PF_GETINSTANCEFORPACKAGE)
-      dlsym(androidHandle, "ASensorManager_getInstanceForPackage");
-  if (getInstanceForPackageFunc) {
-    JNIEnv* env = nullptr;
-    app->activity->vm->AttachCurrentThread(&env, nullptr);
-
-    jclass android_content_Context = env->GetObjectClass(app->activity->clazz);
-    jmethodID midGetPackageName = env->GetMethodID(android_content_Context,
-                                                   "getPackageName",
-                                                   "()Ljava/lang/String;");
-    auto packageName= (jstring)env->CallObjectMethod(app->activity->clazz,
-                                                        midGetPackageName);
-
-    const char *nativePackageName = env->GetStringUTFChars(packageName, nullptr);
-    ASensorManager* mgr = getInstanceForPackageFunc(nativePackageName);
-    env->ReleaseStringUTFChars(packageName, nativePackageName);
-    app->activity->vm->DetachCurrentThread();
-    if (mgr) {
-      dlclose(androidHandle);
-      return mgr;
-    }
-  }
-
-  typedef ASensorManager *(*PF_GETINSTANCE)();
-  auto getInstanceFunc = (PF_GETINSTANCE)
-      dlsym(androidHandle, "ASensorManager_getInstance");
-  // by all means at this point, ASensorManager_getInstance should be available
-  assert(getInstanceFunc);
-  dlclose(androidHandle);
-
-  return getInstanceFunc();
-}
-
-
-class SampleApp : public nbl::ui::CGraphicalApplicationAndroid
+class SampleApp : public ApplicationBase
 {
-    using base_t = nbl::ui::CGraphicalApplicationAndroid;
-    void onStateSaved_impl(android_app* app) override
-    {
-
-    }
+    using base_t = ApplicationBase;
+    //void onStateSaved_impl(android_app* app) override
+    //{
+	//
+    //}
     void onAppInitialized_impl(void* data) override
     {
         nabla* engine = (nabla*)data;
         engine_init_display(engine);
-        engine_draw_frame(engine);
     }
 public:
-    SampleApp(android_app* app, const system::path& cwd) : base_t(app, cwd) {}
-    void onAppTerminated_impl(void* data) override
+	APP_CONSTRUCTOR(SampleApp)
+	void onAppTerminated_impl(void* data) override
     {
         nabla* engine = (nabla*)data;
         engine_term_display(engine);
@@ -532,4 +552,8 @@ class DemoEventCallback : public nbl::ui::IWindow::IEventCallback
 
 };
 
+#ifdef _NBL_PLATFORM_ANDROID_
 NBL_ANDROID_MAIN_FUNC(SampleApp, nabla, DemoEventCallback)
+#else
+NBL_COMMON_API_MAIN(SampleApp, nabla)
+#endif

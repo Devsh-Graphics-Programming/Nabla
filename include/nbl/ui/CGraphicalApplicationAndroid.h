@@ -29,19 +29,23 @@ namespace nbl::ui
 			}
 			case APP_CMD_TERM_WINDOW:
 			{
-				auto wnd = ((SGraphicalContext*)app->userData)->window;
+				auto& wnd = ((SGraphicalContext*)app->userData)->window;
 				auto eventCallback = wnd->getEventCallback();
 				(void)eventCallback->onWindowClosed(wnd.get());
 				break;
 			}
 			case APP_CMD_WINDOW_RESIZED:
 			{
-				auto wnd = ((SGraphicalContext*)app->userData)->window;
-				auto eventCallback = wnd->getEventCallback();
-
 				int width = ANativeWindow_getWidth(app->window);
 				int height = ANativeWindow_getHeight(app->window);
-				(void)eventCallback->onWindowResized(wnd.get(), width, height);
+				auto& wnd = ((SGraphicalContext*)app->userData)->window;
+				SGraphicalContext* usrdata = (SGraphicalContext*)app->userData;
+				if (wnd.get() != nullptr)
+				{
+					auto eventCallback = wnd->getEventCallback();
+					(void)eventCallback->onWindowResized(wnd.get(), width, height);
+				}
+				
 				break;
 			}
 			}
@@ -68,7 +72,7 @@ namespace nbl::ui
 			android_poll_source* source;
 			int ident;
 			int events;
-			while (framework->keepRunning(app)) {
+			while (framework->keepRunning(&engine)) {
 				while ((ident = ALooper_pollAll(0, nullptr, &events, (void**)&source)) >= 0)
 				{
 					if (source != nullptr) {
@@ -79,8 +83,8 @@ namespace nbl::ui
 						return;
 					}
 				}
-					if (app->window != nullptr)
-						framework->workLoopBody(app); 
+				if (app->window != nullptr  && engine.getWindow() != nullptr)
+					framework->workLoopBody(&engine); 
 			}
 		}
 	};
