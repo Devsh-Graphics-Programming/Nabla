@@ -403,9 +403,9 @@ class IUtilities : public core::IReferenceCounted
 
         inline void updateImageViaStagingBuffer(
             IGPUCommandBuffer* cmdbuf, IGPUFence* fence, IGPUQueue* queue,
-            core::smart_refctd_ptr<asset::ICPUBuffer> srcBuffer, core::SRange<const asset::IImage::SBufferCopy> regions, core::smart_refctd_ptr<IGPUImage> dstImage,
-            uint32_t& waitSemaphoreCount, IGPUSemaphore*const * &semaphoresToWaitBeforeOverwrite, const asset::E_PIPELINE_STAGE_FLAGS* &stagesToWaitForPerSemaphore
-        ) {
+            core::smart_refctd_ptr<asset::ICPUBuffer> srcBuffer, core::SRange<const asset::IImage::SBufferCopy> regions, core::smart_refctd_ptr<IGPUImage> dstImage, asset::E_IMAGE_LAYOUT dstImageLayout,
+            uint32_t& waitSemaphoreCount, IGPUSemaphore*const * &semaphoresToWaitBeforeOverwrite, const asset::E_PIPELINE_STAGE_FLAGS* &stagesToWaitForPerSemaphore)
+        {
             const auto& limits = m_device->getPhysicalDevice()->getLimits();
             auto* cmdpool = cmdbuf->getPool();
             assert(cmdpool->getCreationFlags()&IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
@@ -413,7 +413,7 @@ class IUtilities : public core::IReferenceCounted
             
             auto texelBlockInfo = dstImage->getTexelBlockInfo();
             auto texelBlockDim = texelBlockInfo.getDimension();
-            auto queueFamProps = m_device->getPhysicalDevice()->getQueueFamilyProperties().begin()[0];
+            auto queueFamProps = m_device->getPhysicalDevice()->getQueueFamilyProperties()[0];
             auto minImageTransferGranularity = queueFamProps.minImageTransferGranularity;
             
             // Queues supporting graphics and/or compute operations must report (1,1,1) in minImageTransferGranularity, meaning that there are no additional restrictions on the granularity of image transfer operations for these queues.
@@ -503,14 +503,25 @@ class IUtilities : public core::IReferenceCounted
                 else
                 {
                     // Start CmdCopying Regions and Copying Data to m_defaultUploadBuffer
-                    uint32_t currentUploadBufferOffset = localOffset;
-                    uint32_t availableUploadBufferMemory = uploadBufferSize - currentUploadBufferOffset;
-                    auto addToCurrentUploadBufferOffset = [&](uint32_t size) -> uint32_t 
+                    uint32_t currentUploadBufferOffset = 0u;
+                    uint32_t availableUploadBufferMemory = 0u;
+                    auto addToCurrentUploadBufferOffset = [&](uint32_t size) -> bool 
                     {
                         currentUploadBufferOffset += size;
                         currentUploadBufferOffset = core::alignUp(currentUploadBufferOffset, bufferOffsetAlignment);
-                        availableUploadBufferMemory = uploadBufferSize - currentUploadBufferOffset;
+                        if(currentUploadBufferOffset - localOffset <= uploadBufferSize)
+                        {
+                            availableUploadBufferMemory = uploadBufferSize - (currentUploadBufferOffset - localOffset);
+                            return true;
+                        }
+                        else
+                            return false;
                     };
+
+                    // currentUploadBufferOffset = localOffset
+                    // currentUploadBufferOffset = alignUp(currentUploadBufferOffset, bufferOffsetAlignment)
+                    // availableUploadBufferMemory = uploadBufferSize
+                    addToCurrentUploadBufferOffset(localOffset);
 
                     for (uint32_t i = currentRegion; i < regions.size(); ++i)
                     {
@@ -523,7 +534,6 @@ class IUtilities : public core::IReferenceCounted
                         auto alignedImageExtentInBlocks = texelBlockInfo.convertTexelsToBlocks(imageExtent);
                         auto alignedImageExtentBlockStridesInBytes = texelBlockInfo.convert3DBlockStridesTo1DByteStrides(alignedImageExtentInBlocks);
 
-
                         // Validate Region
 
                         // canTransferMipLevelsPartially
@@ -535,9 +545,9 @@ class IUtilities : public core::IReferenceCounted
 
                         // if region.imageExtent is NOT correctly aligned then (region.imageOffset + region.imageExtent) MUST be equal to subresourceSize
                         bool isImageExtentValid = 
-                            (region.imageExtent.x == core::alignUp(region.imageExtent.x, minImageTransferGranularity.x * texelBlockDim.x) || (region.imageOffset.x + region.imageExtent.x == subresourceSize.x)) && 
-                            (region.imageExtent.y == core::alignUp(region.imageExtent.y, minImageTransferGranularity.y * texelBlockDim.y) || (region.imageOffset.y + region.imageExtent.y == subresourceSize.y)) &&
-                            (region.imageExtent.z == core::alignUp(region.imageExtent.z, minImageTransferGranularity.z * texelBlockDim.z) || (region.imageOffset.z + region.imageExtent.z == subresourceSize.z)));
+                            (region.imageExtent.width  == core::alignUp(region.imageExtent.width , minImageTransferGranularity.width  * texelBlockDim.x) || (region.imageOffset.x + region.imageExtent.width   == subresourceSize.x)) && 
+                            (region.imageExtent.height == core::alignUp(region.imageExtent.height, minImageTransferGranularity.height * texelBlockDim.y) || (region.imageOffset.y + region.imageExtent.height  == subresourceSize.y)) &&
+                            (region.imageExtent.depth  == core::alignUp(region.imageExtent.depth , minImageTransferGranularity.depth  * texelBlockDim.z) || (region.imageOffset.z + region.imageExtent.depth   == subresourceSize.z));
                             
                         assert(isImageExtentValid);
 
@@ -567,13 +577,33 @@ class IUtilities : public core::IReferenceCounted
 
                             if(uploadableBlocks > 0)
                             {
-                                // Copy some regions from ICPUBuffer to UploadBuffer
-                                // Record Copy of FULL Blocks: TODO
-                                // addToCurrentUploadBufferOffset(1024);
+
+                                // Copy some regions from ICPUBuffer to UploadBuffer: TODO
+                                
+                                asset::IImage::SBufferCopy bufferCopy;
+                                bufferCopy.bufferOffset = currentUploadBufferOffset;
+                                bufferCopy.bufferRowLength = alignedImageExtentInBlocks.x * texelBlockDim.x;
+                                bufferCopy.bufferImageHeight = alignedImageExtentInBlocks.y * texelBlockDim.y;
+                                bufferCopy.imageSubresource.aspectMask = region.imageSubresource.aspectMask;
+                                bufferCopy.imageSubresource.mipLevel = region.imageSubresource.baseArrayLayer;
+                                bufferCopy.imageSubresource.baseArrayLayer += currentLayerInRegion;
+                                bufferCopy.imageOffset.x = currentBlockInRow * texelBlockDim.x;
+                                bufferCopy.imageOffset.y = currentRowInSlice * texelBlockDim.y;
+                                bufferCopy.imageOffset.z = currentSliceInLayer * texelBlockDim.z;
+                                bufferCopy.imageExtent.width = uploadableBlocks * texelBlockDim.x;
+                                bufferCopy.imageExtent.height = 1u * texelBlockDim.y;
+                                bufferCopy.imageExtent.depth = 1u * texelBlockDim.z;
+                                bufferCopy.imageSubresource.layerCount = 1u;
+                                // cmdbuf->copyBufferToImage(m_defaultUploadBuffer.get()->getBuffer(), dstImage.get(), dstImageLayout, 1u, &bufferCopy);
+
+                                addToCurrentUploadBufferOffset(eachBlockNeededMemory * uploadableBlocks);
+
                                 currentBlockInRow += uploadableBlocks;
-                                updateCurrentOffsets();
                                 ret = true;
                             }
+
+                            updateCurrentOffsets();
+
                             return ret;
                         };
                         
@@ -590,14 +620,29 @@ class IUtilities : public core::IReferenceCounted
 
                             if(uploadableRows > 0)
                             {
-                                // Copy some regions from ICPUBuffer to UploadBuffer
-                                // Record Copy of FULL Rows: TODO
-                                // addToCurrentUploadBufferOffset(1024);
+                                // Copy some regions from ICPUBuffer to UploadBuffer: TODO
+
+                                asset::IImage::SBufferCopy bufferCopy;
+                                bufferCopy.bufferOffset = currentUploadBufferOffset;
+                                bufferCopy.bufferRowLength = alignedImageExtentInBlocks.x * texelBlockDim.x;
+                                bufferCopy.bufferImageHeight = alignedImageExtentInBlocks.y * texelBlockDim.y;
+                                bufferCopy.imageSubresource.aspectMask = region.imageSubresource.aspectMask;
+                                bufferCopy.imageSubresource.mipLevel = region.imageSubresource.mipLevel;
+                                bufferCopy.imageSubresource.baseArrayLayer = region.imageSubresource.baseArrayLayer + currentLayerInRegion;
+                                bufferCopy.imageOffset.x = 0u; assert(currentBlockInRow == 0);
+                                bufferCopy.imageOffset.y = currentRowInSlice * texelBlockDim.y;
+                                bufferCopy.imageOffset.z = currentSliceInLayer * texelBlockDim.z;
+                                bufferCopy.imageExtent.width = alignedImageExtentInBlocks.x * texelBlockDim.x;
+                                bufferCopy.imageExtent.height = uploadableRows * texelBlockDim.y;
+                                bufferCopy.imageExtent.depth = 1u * texelBlockDim.z;
+                                bufferCopy.imageSubresource.layerCount = 1u;
+                                // cmdbuf->copyBufferToImage(m_defaultUploadBuffer.get()->getBuffer(), dstImage.get(), dstImageLayout, 1u, &bufferCopy);
+
+                                addToCurrentUploadBufferOffset(eachRowNeededMemory * uploadableRows);
+
                                 currentRowInSlice += uploadableRows;
-                                updateCurrentOffsets();
                                 ret = true;
                             }
-
                             
                             if(currentRowInSlice < alignedImageExtentInBlocks.z)
                             {
@@ -605,6 +650,8 @@ class IUtilities : public core::IReferenceCounted
                                 if(filledAnyBlocksInRow)
                                     ret = true;
                             }
+                            
+                            updateCurrentOffsets();
 
                             return ret;
                         };
@@ -622,20 +669,38 @@ class IUtilities : public core::IReferenceCounted
 
                             if(uploadableSlices > 0)
                             {
-                                // Copy some regions from ICPUBuffer to UploadBuffer
-                                // Record Copy of FULL Slices: TODO
-                                // addToCurrentUploadBufferOffset(1024);
+                                // Copy some regions from ICPUBuffer to UploadBuffer: TODO
+                                
+                                asset::IImage::SBufferCopy bufferCopy;
+                                bufferCopy.bufferOffset = currentUploadBufferOffset;
+                                bufferCopy.bufferRowLength = alignedImageExtentInBlocks.x * texelBlockDim.x;
+                                bufferCopy.bufferImageHeight = alignedImageExtentInBlocks.y * texelBlockDim.y;
+                                bufferCopy.imageSubresource.aspectMask = region.imageSubresource.aspectMask;
+                                bufferCopy.imageSubresource.mipLevel = region.imageSubresource.mipLevel;
+                                bufferCopy.imageSubresource.baseArrayLayer = region.imageSubresource.baseArrayLayer + currentLayerInRegion;
+                                bufferCopy.imageOffset.x = 0u; assert(currentBlockInRow == 0);
+                                bufferCopy.imageOffset.y = 0u; assert(currentRowInSlice == 0);
+                                bufferCopy.imageOffset.z = currentSliceInLayer * texelBlockDim.z;
+                                bufferCopy.imageExtent.width = alignedImageExtentInBlocks.x * texelBlockDim.x;
+                                bufferCopy.imageExtent.height = alignedImageExtentInBlocks.y * texelBlockDim.y;
+                                bufferCopy.imageExtent.depth = uploadableSlices * texelBlockDim.z;
+                                bufferCopy.imageSubresource.layerCount = 1u;
+                                // cmdbuf->copyBufferToImage(m_defaultUploadBuffer.get()->getBuffer(), dstImage.get(), dstImageLayout, 1u, &bufferCopy);
+
+                                addToCurrentUploadBufferOffset(eachSliceNeededMemory * uploadableSlices);
+
                                 currentSliceInLayer += uploadableSlices;
-                                updateCurrentOffsets();
                                 ret = true;
                             }
                             
                             if(currentSliceInLayer < alignedImageExtentInBlocks.z)
                             {
                                 bool filledAnyRowsOrBlocksInSlice = tryFillSlice();
-                                if(filledAnyRowsOrBlockInSlice)
+                                if(filledAnyRowsOrBlocksInSlice)
                                     ret = true;
                             }
+                            
+                            updateCurrentOffsets();
 
                             return ret;
                         };
@@ -651,10 +716,26 @@ class IUtilities : public core::IReferenceCounted
                             if(uploadableArrayLayers > 0)
                             {
                                 // Copy some regions from ICPUBuffer to UploadBuffer
-                                // Record Copy of FULL Layers: TODO
-                                // addToCurrentUploadBufferOffset(1024);
+                                
+                                asset::IImage::SBufferCopy bufferCopy;
+                                bufferCopy.bufferOffset = currentUploadBufferOffset;
+                                bufferCopy.bufferRowLength = alignedImageExtentInBlocks.x * texelBlockDim.x;
+                                bufferCopy.bufferImageHeight = alignedImageExtentInBlocks.y * texelBlockDim.y;
+                                bufferCopy.imageSubresource.aspectMask = region.imageSubresource.aspectMask;
+                                bufferCopy.imageSubresource.mipLevel = region.imageSubresource.mipLevel;
+                                bufferCopy.imageSubresource.baseArrayLayer = region.imageSubresource.baseArrayLayer + currentLayerInRegion;
+                                bufferCopy.imageOffset.x = 0u; assert(currentBlockInRow == 0);
+                                bufferCopy.imageOffset.y = 0u; assert(currentRowInSlice == 0);
+                                bufferCopy.imageOffset.z = 0u; assert(currentSliceInLayer == 0);
+                                bufferCopy.imageExtent.width = alignedImageExtentInBlocks.x * texelBlockDim.x;
+                                bufferCopy.imageExtent.height = alignedImageExtentInBlocks.y * texelBlockDim.y;
+                                bufferCopy.imageExtent.depth = alignedImageExtentInBlocks.z * texelBlockDim.z;
+                                bufferCopy.imageSubresource.layerCount = uploadableArrayLayers;
+                                // cmdbuf->copyBufferToImage(m_defaultUploadBuffer.get()->getBuffer(), dstImage.get(), dstImageLayout, 1u, &bufferCopy);
+
+                                addToCurrentUploadBufferOffset(eachLayerNeededMemory * uploadableArrayLayers);
+
                                 currentLayerInRegion += uploadableArrayLayers;
-                                updateCurrentOffsets();
                                 ret = true;
                             }
 
@@ -665,6 +746,9 @@ class IUtilities : public core::IReferenceCounted
                                 if(filledAnySlicesOrRowsOrBlocksInLayer)
                                     ret = true;
                             }
+                            
+                            updateCurrentOffsets();
+
                             return ret;
                         };
 
@@ -712,9 +796,10 @@ class IUtilities : public core::IReferenceCounted
                 m_defaultUploadBuffer.get()->multi_free(1u, &localOffset, &uploadBufferSize, core::smart_refctd_ptr<IGPUFence>(fence), &cmdbuf); // can queue with a reset but not yet pending fence, just fine
             }
         }
+
         inline void updateImageViaStagingBuffer(
             IGPUFence* fence, IGPUQueue* queue,
-            core::smart_refctd_ptr<asset::ICPUBuffer> srcBuffer, core::SRange<const asset::IImage::SBufferCopy> regions, core::smart_refctd_ptr<IGPUImage> dstImage,
+            core::smart_refctd_ptr<asset::ICPUBuffer> srcBuffer, core::SRange<const asset::IImage::SBufferCopy> regions, core::smart_refctd_ptr<IGPUImage> dstImage, asset::E_IMAGE_LAYOUT dstImageLayout,
             uint32_t waitSemaphoreCount=0u, IGPUSemaphore* const* semaphoresToWaitBeforeOverwrite=nullptr, const asset::E_PIPELINE_STAGE_FLAGS* stagesToWaitForPerSemaphore=nullptr,
             const uint32_t signalSemaphoreCount=0u, IGPUSemaphore* const* semaphoresToSignal=nullptr
         )
@@ -724,7 +809,7 @@ class IUtilities : public core::IReferenceCounted
             m_device->createCommandBuffers(pool.get(),IGPUCommandBuffer::EL_PRIMARY,1u,&cmdbuf);
             assert(cmdbuf);
             cmdbuf->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
-            updateImageViaStagingBuffer(cmdbuf.get(),fence,queue,srcBuffer,regions,dstImage,waitSemaphoreCount,semaphoresToWaitBeforeOverwrite,stagesToWaitForPerSemaphore);
+            updateImageViaStagingBuffer(cmdbuf.get(),fence,queue,srcBuffer,regions,dstImage,dstImageLayout,waitSemaphoreCount,semaphoresToWaitBeforeOverwrite,stagesToWaitForPerSemaphore);
             cmdbuf->end();
             IGPUQueue::SSubmitInfo submit;
             submit.commandBufferCount = 1u;
@@ -740,13 +825,13 @@ class IUtilities : public core::IReferenceCounted
         //! WARNING: This function blocks and stalls the GPU!
         inline void updateImageViaStagingBuffer(
             IGPUQueue* queue,
-            core::smart_refctd_ptr<asset::ICPUBuffer> srcBuffer, core::SRange<const asset::IImage::SBufferCopy> regions, core::smart_refctd_ptr<IGPUImage> dstImage,
+            core::smart_refctd_ptr<asset::ICPUBuffer> srcBuffer, core::SRange<const asset::IImage::SBufferCopy> regions, core::smart_refctd_ptr<IGPUImage> dstImage, asset::E_IMAGE_LAYOUT dstImageLayout,
             uint32_t waitSemaphoreCount=0u, IGPUSemaphore* const* semaphoresToWaitBeforeOverwrite=nullptr, const asset::E_PIPELINE_STAGE_FLAGS* stagesToWaitForPerSemaphore=nullptr,
             const uint32_t signalSemaphoreCount=0u, IGPUSemaphore* const* semaphoresToSignal=nullptr
         )
         {
             auto fence = m_device->createFence(static_cast<IGPUFence::E_CREATE_FLAGS>(0));
-            updateImageViaStagingBuffer(fence.get(),queue,srcBuffer,regions,dstImage,waitSemaphoreCount,semaphoresToWaitBeforeOverwrite,stagesToWaitForPerSemaphore,signalSemaphoreCount,semaphoresToSignal);
+            updateImageViaStagingBuffer(fence.get(),queue,srcBuffer,regions,dstImage,dstImageLayout,waitSemaphoreCount,semaphoresToWaitBeforeOverwrite,stagesToWaitForPerSemaphore,signalSemaphoreCount,semaphoresToSignal);
             auto* fenceptr = fence.get();
             m_device->blockForFences(1u,&fenceptr);
         }
