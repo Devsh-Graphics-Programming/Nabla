@@ -523,6 +523,8 @@ class IUtilities : public core::IReferenceCounted
                     // availableUploadBufferMemory = uploadBufferSize
                     addToCurrentUploadBufferOffset(localOffset);
 
+                    bool anyTransferRecorded = false;
+
                     for (uint32_t i = currentRegion; i < regions.size(); ++i)
                     {
                         const asset::IImage::SBufferCopy & region = regions[i];
@@ -535,14 +537,12 @@ class IUtilities : public core::IReferenceCounted
                         auto alignedImageExtentBlockStridesInBytes = texelBlockInfo.convert3DBlockStridesTo1DByteStrides(alignedImageExtentInBlocks);
 
                         // Validate Region
-
                         // canTransferMipLevelsPartially
                         if(!canTransferMipLevelsPartially)
                         {
                             assert(region.imageOffset.x == 0 && region.imageOffset.y == 0 && region.imageOffset.z == 0);
                             assert(region.imageExtent.x == subresourceSize.x && region.imageExtent.y == subresourceSize.y && region.imageExtent.z == subresourceSize.z);
                         }
-
                         // if region.imageExtent is NOT correctly aligned then (region.imageOffset + region.imageExtent) MUST be equal to subresourceSize
                         bool isImageExtentValid = 
                             (region.imageExtent.width  == core::alignUp(region.imageExtent.width , minImageTransferGranularity.width  * texelBlockDim.x) || (region.imageOffset.x + region.imageExtent.width   == subresourceSize.x)) && 
@@ -554,14 +554,29 @@ class IUtilities : public core::IReferenceCounted
                         // region <-> region.imageSubresource.layerCount <-> alignedImageExtentInBlocks.z <-> alignedImageExtentInBlocks.y <-> alignedImageExtentInBlocks.x
                         auto updateCurrentOffsets = [&]() -> void
                         {
-                            if(currentBlockInRow >= alignedImageExtentInBlocks.x)
+                            if(currentBlockInRow >= alignedImageExtentInBlocks.x) 
+                            {
+                                currentBlockInRow = 0u;
                                 currentRowInSlice++;
+                            }
                             if(currentRowInSlice >= alignedImageExtentInBlocks.y)
+                            {
+                                assert(currentBlockInRow == 0);
+                                currentRowInSlice = 0u;
                                 currentSliceInLayer++;
+                            }
                             if(currentSliceInLayer >= alignedImageExtentInBlocks.z)
+                            {
+                                assert(currentBlockInRow == 0 && currentRowInSlice == 0);
+                                currentSliceInLayer = 0u;
                                 currentLayerInRegion++;
+                            }
                             if(currentLayerInRegion >= region.imageSubresource.layerCount) 
+                            {
+                                assert(currentBlockInRow == 0 && currentRowInSlice == 0 && currentSliceInLayer == 0);
+                                currentLayerInRegion = 0u; 
                                 currentRegion++;
+                            }
                         };
 
                         auto tryFillRow = [&]() -> bool
@@ -577,7 +592,6 @@ class IUtilities : public core::IReferenceCounted
 
                             if(uploadableBlocks > 0)
                             {
-
                                 // Copy some regions from ICPUBuffer to UploadBuffer: TODO
                                 
                                 asset::IImage::SBufferCopy bufferCopy;
@@ -752,38 +766,49 @@ class IUtilities : public core::IReferenceCounted
                             return ret;
                         };
 
-                         // There is remaining blocks in row that needs copying
-                        if (currentBlockInRow > 0)
-                        {
-                            assert(canTransferMipLevelsPartially);
-                            bool success = tryFillRow();
-                            assert(success && "uploadBufferSize is not enough to support even the smallest possible transferable units to image");
-                        }
-
-                        // There is remaining rows in slice that needs copying
-                        if (currentBlockInRow == 0 && currentRowInSlice > 0)
-                        {
-                            assert(canTransferMipLevelsPartially);
-                            bool success = tryFillSlice();
-                            assert(success && "uploadBufferSize is not enough to support even the smallest possible transferable units to image");
-                        }
-
-                         // There is remaining slices in layer that needs copying
-                        if (currentBlockInRow == 0 && currentRowInSlice == 0 && currentSliceInLayer > 0)
-                        {
-                            assert(canTransferMipLevelsPartially);
-                            bool success = tryFillLayer();
-                            assert(success && "uploadBufferSize is not enough to support even the smallest possible transferable units to image");
-                        }
-                        
                          // There is remaining layers in region that needs copying
                         auto remainingLayersInRegion = region.imageSubresource.layerCount - currentLayerInRegion;
                         if(currentBlockInRow == 0 && currentRowInSlice == 0 && currentSliceInLayer == 0 && remainingLayersInRegion > 0)
                         {
                             bool success = tryFillRegion();
-                            assert(success && "uploadBufferSize is not enough to support even the smallest possible transferable units to image");
+                            if(success)
+                                anyTransferRecorded = true;
+                            else
+                                break; // not enough mem -> break
+                        }
+                        // There is remaining slices in layer that needs copying
+                        else if (currentBlockInRow == 0 && currentRowInSlice == 0 && currentSliceInLayer > 0)
+                        {
+                            assert(canTransferMipLevelsPartially);
+                            bool success = tryFillLayer();
+                            if(success)
+                                anyTransferRecorded = true;
+                            else
+                                break; // not enough mem -> break
+                        }
+                        // There is remaining rows in slice that needs copying
+                        else if (currentBlockInRow == 0 && currentRowInSlice > 0)
+                        {
+                            assert(canTransferMipLevelsPartially);
+                            bool success = tryFillSlice();
+                            if(success)
+                                anyTransferRecorded = true;
+                            else
+                                break; // not enough mem -> break
+                        }
+                        // There is remaining blocks in row that needs copying
+                        else if (currentBlockInRow > 0)
+                        {
+                            assert(canTransferMipLevelsPartially);
+                            bool success = tryFillRow();
+                            if(success)
+                                anyTransferRecorded = true;
+                            else
+                                break; // not enough mem -> break
                         }
                     }
+
+                    assert(anyTransferRecorded && "uploadBufferSize is not enough to support the smallest possible transferable units to image, may be caused if your queueFam's minImageTransferGranularity is large or equal to <0,0,0>.")
                 }
 
                 // some platforms expose non-coherent host-visible GPU memory, so writes need to be flushed explicitly
