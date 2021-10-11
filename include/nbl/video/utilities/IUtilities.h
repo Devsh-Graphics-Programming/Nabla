@@ -524,6 +524,7 @@ class IUtilities : public core::IReferenceCounted
                     addToCurrentUploadBufferOffset(localOffset);
 
                     bool anyTransferRecorded = false;
+                    core::vector<asset::IImage::SBufferCopy> regionsToCopy;
 
                     for (uint32_t i = currentRegion; i < regions.size(); ++i)
                     {
@@ -608,7 +609,7 @@ class IUtilities : public core::IReferenceCounted
                                 bufferCopy.imageExtent.height = 1u * texelBlockDim.y;
                                 bufferCopy.imageExtent.depth = 1u * texelBlockDim.z;
                                 bufferCopy.imageSubresource.layerCount = 1u;
-                                // cmdbuf->copyBufferToImage(m_defaultUploadBuffer.get()->getBuffer(), dstImage.get(), dstImageLayout, 1u, &bufferCopy);
+                                regionsToCopy.push_back(bufferCopy);
 
                                 addToCurrentUploadBufferOffset(eachBlockNeededMemory * uploadableBlocks);
 
@@ -650,7 +651,7 @@ class IUtilities : public core::IReferenceCounted
                                 bufferCopy.imageExtent.height = uploadableRows * texelBlockDim.y;
                                 bufferCopy.imageExtent.depth = 1u * texelBlockDim.z;
                                 bufferCopy.imageSubresource.layerCount = 1u;
-                                // cmdbuf->copyBufferToImage(m_defaultUploadBuffer.get()->getBuffer(), dstImage.get(), dstImageLayout, 1u, &bufferCopy);
+                                regionsToCopy.push_back(bufferCopy);
 
                                 addToCurrentUploadBufferOffset(eachRowNeededMemory * uploadableRows);
 
@@ -699,7 +700,7 @@ class IUtilities : public core::IReferenceCounted
                                 bufferCopy.imageExtent.height = alignedImageExtentInBlocks.y * texelBlockDim.y;
                                 bufferCopy.imageExtent.depth = uploadableSlices * texelBlockDim.z;
                                 bufferCopy.imageSubresource.layerCount = 1u;
-                                // cmdbuf->copyBufferToImage(m_defaultUploadBuffer.get()->getBuffer(), dstImage.get(), dstImageLayout, 1u, &bufferCopy);
+                                regionsToCopy.push_back(bufferCopy);
 
                                 addToCurrentUploadBufferOffset(eachSliceNeededMemory * uploadableSlices);
 
@@ -745,7 +746,7 @@ class IUtilities : public core::IReferenceCounted
                                 bufferCopy.imageExtent.height = alignedImageExtentInBlocks.y * texelBlockDim.y;
                                 bufferCopy.imageExtent.depth = alignedImageExtentInBlocks.z * texelBlockDim.z;
                                 bufferCopy.imageSubresource.layerCount = uploadableArrayLayers;
-                                // cmdbuf->copyBufferToImage(m_defaultUploadBuffer.get()->getBuffer(), dstImage.get(), dstImageLayout, 1u, &bufferCopy);
+                                regionsToCopy.push_back(bufferCopy);
 
                                 addToCurrentUploadBufferOffset(eachLayerNeededMemory * uploadableArrayLayers);
 
@@ -808,7 +809,13 @@ class IUtilities : public core::IReferenceCounted
                         }
                     }
 
-                    assert(anyTransferRecorded && "uploadBufferSize is not enough to support the smallest possible transferable units to image, may be caused if your queueFam's minImageTransferGranularity is large or equal to <0,0,0>.")
+                    if(!regionsToCopy.empty())
+                    {
+                        cmdbuf->copyBufferToImage(m_defaultUploadBuffer.get()->getBuffer(), dstImage.get(), dstImageLayout, regionsToCopy.size(), regionsToCopy.data());
+                    }
+
+
+                    assert(anyTransferRecorded && "uploadBufferSize is not enough to support the smallest possible transferable units to image, may be caused if your queueFam's minImageTransferGranularity is large or equal to <0,0,0>.");
                 }
 
                 // some platforms expose non-coherent host-visible GPU memory, so writes need to be flushed explicitly
