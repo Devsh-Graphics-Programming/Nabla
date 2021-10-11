@@ -317,7 +317,7 @@ void main()
 		auto mreqs = device->getDeviceLocalGPUMemoryReqs();
 		mreqs.vulkanReqs.size = sizeof(vertices);
 		video::IGPUBuffer::SCreationParams params;
-		engine->buffer = device->createGPUBufferOnDedMem(params, mreqs);
+		engine->buffer = device->createGPUBufferOnDedMem(params, mreqs, true);
 		assert(engine->buffer);
         auto buffer = engine->buffer;
 
