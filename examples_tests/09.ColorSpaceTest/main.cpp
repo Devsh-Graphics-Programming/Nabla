@@ -76,6 +76,12 @@ int main()
 	auto cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
 	auto utilities = std::move(initOutput.utilities);
 
+	core::smart_refctd_ptr<video::IGPUSemaphore> transferSemaphore;
+	core::smart_refctd_ptr<video::IGPUSemaphore> computeSemaphore;
+	cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].semaphore = &transferSemaphore;
+	cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].semaphore = &computeSemaphore;
+
+
 	nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
 
     auto createDescriptorPool = [&](const uint32_t textureCount)
@@ -158,27 +164,21 @@ int main()
 					nbl::asset::IAssetLoader::SAssetLoadParams loadParams(0ull, nullptr, cachingFlags);
 					auto cpuTextureBundle = assetManager->getAsset(pathToTexture, loadParams);
 					auto cpuTextureContents = cpuTextureBundle.getContents();
-					{
-						bool status = !cpuTextureContents.empty();
-						assert(status);
-					}
 
-					if (cpuTextureContents.begin() == cpuTextureContents.end())
-						assert(false); // cannot perform test in this scenario
-
+					bool status = !cpuTextureContents.empty();
+					assert(status);
+                    
+					// Since this is ColorSpaceTest
+					const asset::IImage::E_ASPECT_FLAGS aspectMask = asset::IImage::EAF_COLOR_BIT;
+					auto imageUsageFlagsToAdd = core::bitflag<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT) | asset::IImage::EUF_SAMPLED_BIT;
 					auto asset = *cpuTextureContents.begin();
 					switch (asset->getAssetType())
 					{
 						case nbl::asset::IAsset::ET_IMAGE:
 						{
-							// Since this is ColorSpaceTest
-							const asset::IImage::E_ASPECT_FLAGS aspectMask = asset::IImage::EAF_COLOR_BIT;
-
 							nbl::asset::ICPUImageView::SCreationParams viewParams = {};
 							viewParams.flags = static_cast<decltype(viewParams.flags)>(0u);
 							viewParams.image = core::smart_refctd_ptr_static_cast<asset::ICPUImage>(asset);
-							const auto newUsageFlags = viewParams.image->getImageUsageFlags() | asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_SAMPLED_BIT;
-							viewParams.image->setImageUsageFlags(newUsageFlags);
 							viewParams.format = viewParams.image->getCreationParameters().format;
 							viewParams.viewType = decltype(viewParams.viewType)::ET_2D;
 							viewParams.subresourceRange.aspectMask = aspectMask;
@@ -200,6 +200,8 @@ int main()
 							assert(false); // in that case provided asset is wrong
 						}
 					}
+
+					newCpuImageViewTexture->getCreationParameters().image->addImageUsageFlags(asset::IImage::EUF_SAMPLED_BIT);
 
 					std::filesystem::path filename, extension;
 					core::splitFilename(pathToTexture.c_str(), nullptr, &filename, &extension);
@@ -246,9 +248,9 @@ int main()
 
 	cpu2gpuParams.perQueue[video::IGPUObjectFromAssetConverter::EQU_TRANSFER].cmdbuf = transferCmdBuffer;
 	cpu2gpuParams.perQueue[video::IGPUObjectFromAssetConverter::EQU_COMPUTE].cmdbuf = computeCmdBuffer;
-	
+
 	cpu2gpuParams.beginCommandBuffers();
-	auto gpuImageViews = cpu2gpu.getGPUObjectsFromAssets(cpuImageViews.data(), cpuImageViews.data() + cpuImageViews.size(), cpu2gpuParams);
+    auto gpuImageViews = cpu2gpu.getGPUObjectsFromAssets(cpuImageViews.data(), cpuImageViews.data() + cpuImageViews.size(), cpu2gpuParams);
 	cpu2gpuParams.waitForCreationToComplete(false);
 
 	if (!gpuImageViews || gpuImageViews->size() < cpuImageViews.size())
