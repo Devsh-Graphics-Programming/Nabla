@@ -411,7 +411,7 @@ class IUtilities : public core::IReferenceCounted
             assert(cmdpool->getCreationFlags()&IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
             assert(cmdpool->getQueueFamilyIndex()==queue->getFamilyIndex());
             
-            auto texelBlockInfo = dstImage->getTexelBlockInfo();
+            auto texelBlockInfo = asset::TexelBlockInfo(dstImage->getCreationParameters().format);
             auto texelBlockDim = texelBlockInfo.getDimension();
             auto queueFamProps = m_device->getPhysicalDevice()->getQueueFamilyProperties()[0];
             auto minImageTransferGranularity = queueFamProps.minImageTransferGranularity;
