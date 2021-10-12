@@ -26,8 +26,8 @@ struct NBL_CAPTION_DATA_TO_DISPLAY
 
 int main()
 {
-    constexpr uint32_t WINDOW_WIDTH = 1280;
-    constexpr uint32_t WINDOW_HEIGHT = 720;
+    constexpr uint32_t WINDOW_WIDTH = 512u;
+    constexpr uint32_t WINDOW_HEIGHT = 512u;
 	constexpr uint32_t SC_IMG_COUNT = 3u;
 	constexpr uint32_t FRAMES_IN_FLIGHT = 2u;
 	// static_assert(FRAMES_IN_FLIGHT > SC_IMG_COUNT);
@@ -46,8 +46,8 @@ int main()
 
 	CommonAPI::SFeatureRequest< video::ILogicalDevice::E_FEATURE> optionalDeviceFeatures = {};
 
-	const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_STORAGE_BIT);
-	const video::ISurface::SFormat surfaceFormat(asset::EF_R8G8B8A8_SRGB, asset::ECP_COUNT, asset::EOTF_UNKNOWN);
+	const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT);
+	const video::ISurface::SFormat surfaceFormat(asset::EF_B8G8R8A8_SRGB, asset::ECP_COUNT, asset::EOTF_UNKNOWN);
 
     auto initOutput = CommonAPI::Init<WINDOW_WIDTH, WINDOW_HEIGHT, SC_IMG_COUNT>(
 		video::EAT_VULKAN,
@@ -340,6 +340,12 @@ int main()
 			viewport.height = WINDOW_HEIGHT;
 			commandBuffers[i]->setViewport(0u, 1u, &viewport);
 
+			VkRect2D scissor;
+			scissor.offset = { 0, 0 };
+			scissor.extent = { WINDOW_WIDTH, WINDOW_HEIGHT };
+			
+			commandBuffers[i]->setScissor(0u, 1u, &scissor);
+
 			nbl::video::IGPUCommandBuffer::SRenderpassBeginInfo beginInfo;
 			{
 				VkRect2D area;
@@ -366,8 +372,6 @@ int main()
 		}
 
 		auto startPoint = std::chrono::high_resolution_clock::now();
-
-		constexpr uint64_t MAX_TIMEOUT = 99999999999999ull;
 
 		uint32_t currentFrameIndex = 0u;
 		uint32_t imageIndex;
@@ -409,23 +413,19 @@ int main()
 
 		logicalDevice->waitIdle();
 
-#if 0
 		const auto& fboCreationParams = fbos[imageIndex]->getCreationParameters();
 		auto gpuSourceImageView = fboCreationParams.attachments[0];
 
 		const std::string writePath = "screenShot_" + captionData.name + ".png";
 
-		bool status = ext::ScreenShot::createScreenShot(
+		return ext::ScreenShot::createScreenShot(
 			logicalDevice.get(),
 			queues[decltype(initOutput)::EQT_TRANSFER_UP],
 			nullptr,
 			gpuSourceImageView.get(),
 			assetManager.get(),
-			writePath);
-
-		return status;
-#endif
-		return true;
+			writePath,
+			asset::EIL_PRESENT_SRC_KHR);
 	};
 
 	for (size_t i = 0; i < gpuImageViews->size(); ++i)

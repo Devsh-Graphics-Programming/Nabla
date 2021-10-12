@@ -76,6 +76,8 @@ class COpenGLBuffer final : public IGPUBuffer, public IDriverMemoryAllocation
         //! Whether the allocation was made for a specific resource and is supposed to only be bound to that resource.
         inline bool isDedicated() const override { return true; }
 
+        inline uint64_t getBufferSize() const override { return getSize(); }
+
     protected:
         static std::atomic_uint32_t s_reallocCounter;
 

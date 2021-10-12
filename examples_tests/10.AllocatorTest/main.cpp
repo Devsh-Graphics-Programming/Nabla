@@ -292,7 +292,6 @@ void AllocatorHandler<core::LinearAddressAllocator<uint32_t>>::randFreeAllocated
 
 int main()
 {
-
 	// Allocator test
 	{
 		{
@@ -351,10 +350,31 @@ int main()
 	constexpr uint32_t WIN_H = 720;
 	constexpr uint32_t SC_IMG_COUNT = 3u;
 
-	auto initOutp = CommonAPI::Init<WIN_W, WIN_H, SC_IMG_COUNT>(video::EAT_OPENGL, "Compute Shader");
-	auto win = initOutp.window;
-	auto gl = initOutp.apiConnection;
-	auto surface = initOutp.surface;
+	CommonAPI::SFeatureRequest<video::IAPIConnection::E_FEATURE> requiredInstanceFeatures = {};
+
+	CommonAPI::SFeatureRequest<video::IAPIConnection::E_FEATURE> optionalInstanceFeatures = {};
+	optionalInstanceFeatures.count = 1u;
+	video::IAPIConnection::E_FEATURE optionalFeatures_Instance[] = { video::IAPIConnection::EF_SURFACE };
+	optionalInstanceFeatures.features = optionalFeatures_Instance;
+
+	CommonAPI::SFeatureRequest<video::ILogicalDevice::E_FEATURE> requiredDeviceFeatures = {};
+
+	CommonAPI::SFeatureRequest< video::ILogicalDevice::E_FEATURE> optionalDeviceFeatures = {};
+	optionalDeviceFeatures.count = 1u;
+	video::ILogicalDevice::E_FEATURE optionalFeatures_Device[] = { video::ILogicalDevice::EF_SWAPCHAIN };
+	optionalDeviceFeatures.features = optionalFeatures_Device;
+
+	auto initOutp = CommonAPI::Init<WIN_W, WIN_H, SC_IMG_COUNT>(
+		video::EAT_VULKAN,
+		"10.AllocatorTest",
+		requiredInstanceFeatures,
+		optionalInstanceFeatures,
+		requiredDeviceFeatures,
+		optionalDeviceFeatures,
+		asset::IImage::EUF_COLOR_ATTACHMENT_BIT);
+
+	auto win = std::move(initOutp.window);
+	auto winCb = std::move(initOutp.windowCb);
 
 	size_t allocSize = 128;
 
@@ -365,9 +385,7 @@ int main()
 	std::uniform_int_distribution<uint32_t> allocsPerFrame(kMinAllocs, kMaxAllocs);
 	std::uniform_int_distribution<uint32_t> size(1, 1024 * 1024);
 	std::uniform_int_distribution<uint32_t> alignment(1, 128);
-	constexpr uint32_t FRAME_COUNT = 500000u;
-	constexpr uint64_t MAX_TIMEOUT = 99999999999999ull; //ns
-	for (uint32_t i = 0u; i < FRAME_COUNT; ++i)
+	while (winCb->isWindowOpen())
 	{
 		auto allocsThisFrame = allocsPerFrame(mt);
 		uint32_t outAddr[kMaxAllocs];

@@ -6,7 +6,7 @@
 #include <nabla.h>
 
 #include "../common/CommonAPI.h"
-#include "CFileSystem.h"
+// #include "CFileSystem.h"
 using namespace nbl;
 using namespace core;
 
@@ -23,9 +23,39 @@ int main()
 	constexpr uint32_t FRAMES_IN_FLIGHT = 5u;
 	static_assert(FRAMES_IN_FLIGHT>SC_IMG_COUNT);
 
-	auto initOutp = CommonAPI::Init<WIN_W, WIN_H, SC_IMG_COUNT>(video::EAT_OPENGL, "Specialization constants");
+	CommonAPI::SFeatureRequest<video::IAPIConnection::E_FEATURE> requiredInstanceFeatures = {};
+	requiredInstanceFeatures.count = 1u;
+	video::IAPIConnection::E_FEATURE requiredFeatures_Instance[] = { video::IAPIConnection::EF_SURFACE };
+	requiredInstanceFeatures.features = requiredFeatures_Instance;
+
+	CommonAPI::SFeatureRequest<video::IAPIConnection::E_FEATURE> optionalInstanceFeatures = {};
+
+	CommonAPI::SFeatureRequest<video::ILogicalDevice::E_FEATURE> requiredDeviceFeatures = {};
+	requiredDeviceFeatures.count = 1u;
+	video::ILogicalDevice::E_FEATURE requiredFeatures_Device[] = { video::ILogicalDevice::EF_SWAPCHAIN };
+	requiredDeviceFeatures.features = requiredFeatures_Device;
+
+	CommonAPI::SFeatureRequest< video::ILogicalDevice::E_FEATURE> optionalDeviceFeatures = {};
+
+	const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_STORAGE_BIT);
+	const video::ISurface::SFormat surfaceFormat(asset::EF_B8G8R8A8_UNORM, asset::ECP_COUNT, asset::EOTF_UNKNOWN);
+	const asset::E_FORMAT depthFormat = asset::EF_UNKNOWN;
+
+	auto initOutp = CommonAPI::Init<WIN_W, WIN_H, SC_IMG_COUNT>(
+		video::EAT_VULKAN,
+		"29.SpecializationConstants",
+		requiredInstanceFeatures,
+		optionalInstanceFeatures,
+		requiredDeviceFeatures,
+		optionalDeviceFeatures,
+		swapchainImageUsage,
+		surfaceFormat,
+		depthFormat,
+		true);
+
 	auto win = std::move(initOutp.window);
-	auto gl = std::move(initOutp.apiConnection);
+	auto windowCb = std::move(initOutp.windowCb);
+	auto api = std::move(initOutp.apiConnection);
 	auto surface = std::move(initOutp.surface);
 	auto device = std::move(initOutp.logicalDevice);
 	auto gpu = std::move(initOutp.physicalDevice);
@@ -34,6 +64,10 @@ int main()
 	auto renderpass = std::move(initOutp.renderpass);
 	auto fbo = std::move(initOutp.fbo);
 	auto cmdpool = std::move(initOutp.commandPool);
+	auto assetManager = std::move(initOutp.assetManager);
+	auto filesystem = std::move(initOutp.system);
+	auto cpu2gpuParams = std::move(initOutp.cpu2gpuParams);
+	auto utils = std::move(initOutp.utilities);
 
 	video::IDescriptorPool::SDescriptorPoolSize poolSize[2];
 	poolSize[0].count = 1;
@@ -43,8 +77,6 @@ int main()
 
 	auto dscPool = device->createDescriptorPool(video::IDescriptorPool::ECF_FREE_DESCRIPTOR_SET_BIT, 2, 2, poolSize);
 
-	auto filesystem = core::make_smart_refctd_ptr<io::CFileSystem>("");
-	auto am = core::make_smart_refctd_ptr<asset::IAssetManager>(std::move(filesystem));
 	video::IGPUObjectFromAssetConverter CPU2GPU;
 	core::vectorSIMDf cameraPosition(0, 0, -10);
 	matrix4SIMD proj = matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(core::radians(90), float(WIN_W) / WIN_H, 0.01, 100);
@@ -53,23 +85,41 @@ int main()
 	auto camFront = view[2];
 
 	auto glslExts = device->getSupportedGLSLExtensions();
-	asset::CShaderIntrospector introspector(am->getGLSLCompiler());
+	asset::CShaderIntrospector introspector(assetManager->getGLSLCompiler());
 
-	core::smart_refctd_ptr<asset::ICPUShader> computeUnspec;
+	const char* pathToCompShader = "../particles.comp";
+	core::smart_refctd_ptr<asset::ICPUShader> computeUnspec = nullptr;
 	{
-		auto file = am->getFileSystem()->createAndOpenFile("../particles.comp");
-		computeUnspec = am->getGLSLCompiler()->resolveIncludeDirectives(file, asset::ISpecializedShader::ESS_COMPUTE, file->getFileName().c_str());
+		auto csBundle = assetManager->getAsset(pathToCompShader, {});
+		auto csContents = csBundle.getContents();
+		if (csContents.empty())
+			assert(false);
+
+		asset::ICPUSpecializedShader* csSpec = static_cast<nbl::asset::ICPUSpecializedShader*>(csContents.begin()->get());
+		computeUnspec = core::smart_refctd_ptr<asset::ICPUShader>(csSpec->getUnspecialized());
+		computeUnspec = assetManager->getGLSLCompiler()->resolveIncludeDirectives(
+			(const char*)computeUnspec->getSPVorGLSL()->getPointer(), asset::IShader::ESS_COMPUTE, pathToCompShader);
+	}
+
+#if 0
+	{
+
+		auto file = filesystem->createAndOpenFile("../particles.comp");
+		computeUnspec = assetManager->getGLSLCompiler()->resolveIncludeDirectives(file, asset::IShader::ESS_COMPUTE, file->getFileName().c_str());
 		file->drop();
 	}
+#endif
+
 	const asset::CIntrospectionData* introspection = nullptr;
 	{
 		asset::CShaderIntrospector::SIntrospectionParams params;
 		params.entryPoint = "main";
 		params.filePathHint = "../particles.comp";
 		params.GLSLextensions = glslExts;
-		params.stage = asset::ISpecializedShader::ESS_COMPUTE;
+		params.stage = asset::IShader::ESS_COMPUTE;
 		introspection = introspector.introspect(computeUnspec.get(), params);
 	}
+
 	constexpr uint32_t COMPUTE_SET = 0u;
 	constexpr uint32_t PARTICLE_BUF_BINDING = 0u;
 	constexpr uint32_t COMPUTE_DATA_UBO_BINDING = 1u;
@@ -110,28 +160,22 @@ int main()
 		(*entries)[3] = { 3u,offsetof(SpecConstants,vel_buf_ix),sizeof(int32_t) };
 		(*entries)[4] = { buf_count_specID,offsetof(SpecConstants,buf_count),sizeof(int32_t) };
 
-		specInfo = asset::ISpecializedShader::SInfo(std::move(entries), std::move(backbuf), "main", asset::ISpecializedShader::ESS_COMPUTE, "../particles.comp");
+		specInfo = asset::ISpecializedShader::SInfo(std::move(entries), std::move(backbuf), "main");
 	}
+
 	auto compute = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(computeUnspec), std::move(specInfo));
 
-	auto computePipeline = introspector.createApproximateComputePipelineFromIntrospection(compute.get(), glslExts->begin(), glslExts->end());
+	// auto computePipeline = introspector.createApproximateComputePipelineFromIntrospection(compute.get(), glslExts->begin(), glslExts->end());
+	auto computePipeline = introspector.createApproximateComputePipelineFromIntrospection(compute.get(), nullptr, nullptr);
 	auto computeLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(nullptr,nullptr,core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(computePipeline->getLayout()->getDescriptorSetLayout(0)));
 	computePipeline->setLayout(core::smart_refctd_ptr(computeLayout));
 
-	// TODO: move to CommonAPI
-	video::IGPUObjectFromAssetConverter::SParams cpu2gpuParams;
-	cpu2gpuParams.assetManager = am.get();
-	cpu2gpuParams.device = device.get();
-	cpu2gpuParams.perQueue[video::IGPUObjectFromAssetConverter::EQU_TRANSFER].queue = queue;
-	cpu2gpuParams.perQueue[video::IGPUObjectFromAssetConverter::EQU_COMPUTE].queue = queue;
-	cpu2gpuParams.finalQueueFamIx = queue->getFamilyIndex();
-	cpu2gpuParams.sharingMode = asset::ESM_CONCURRENT;
-	cpu2gpuParams.limits = gpu->getLimits();
-	cpu2gpuParams.assetManager = am.get();
+	// cpu2gpuParams.sharingMode = asset::ESM_CONCURRENT; // Why concurrent?
+
+	// These conversions don't require command buffers
 	core::smart_refctd_ptr<video::IGPUComputePipeline> gpuComputePipeline = CPU2GPU.getGPUObjectsFromAssets(&computePipeline.get(), &computePipeline.get() + 1, cpu2gpuParams)->front();
 	auto* ds0layoutCompute = computeLayout->getDescriptorSetLayout(0);
 	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> gpuDs0layoutCompute = CPU2GPU.getGPUObjectsFromAssets(&ds0layoutCompute,&ds0layoutCompute+1,cpu2gpuParams)->front();
-
 
 	UBOCompute uboComputeData;
 
@@ -143,18 +187,23 @@ int main()
 				particlePos.push_back(core::vector3df_SIMD(i, j, k) * 0.5f);
 
 	constexpr size_t BUF_SZ = 4ull * sizeof(float) * PARTICLE_COUNT;
-	auto gpuParticleBuf = device->createDeviceLocalGPUBufferOnDedMem(2ull * BUF_SZ);
+	video::IGPUBuffer::SCreationParams bufferCreationParams = {};
+	bufferCreationParams.usage = static_cast<asset::IBuffer::E_USAGE_FLAGS>(asset::IBuffer::EUF_TRANSFER_DST_BIT | asset::IBuffer::EUF_STORAGE_BUFFER_BIT | asset::IBuffer::EUF_VERTEX_BUFFER_BIT);
+	auto gpuParticleBuf = device->createDeviceLocalGPUBufferOnDedMem(bufferCreationParams, 2ull * BUF_SZ);
 	asset::SBufferRange<video::IGPUBuffer> range;
 	range.buffer = gpuParticleBuf;
 	range.offset = POS_BUF_IX * BUF_SZ;
 	range.size = BUF_SZ;
-	device->updateBufferRangeViaStagingBuffer(queue, range, particlePos.data());
+	utils->updateBufferRangeViaStagingBuffer(queue, range, particlePos.data());
 	particlePos.clear();
 
 	auto devLocalReqs = device->getDeviceLocalGPUMemoryReqs();
 
 	devLocalReqs.vulkanReqs.size = core::roundUp(sizeof(UBOCompute), 64ull);
-	auto gpuUboCompute = device->createGPUBufferOnDedMem(devLocalReqs, true);
+
+	video::IGPUBuffer::SCreationParams uboComputeCreationParams = {};
+	uboComputeCreationParams.usage = static_cast<asset::IBuffer::E_USAGE_FLAGS>(asset::IBuffer::EUF_UNIFORM_BUFFER_BIT | asset::IBuffer::EUF_TRANSFER_DST_BIT);
+	auto gpuUboCompute = device->createGPUBufferOnDedMem(uboComputeCreationParams, devLocalReqs, true);
 	auto gpuds0Compute = device->createGPUDescriptorSet(dscPool.get(), std::move(gpuDs0layoutCompute));
 	{
 		video::IGPUDescriptorSet::SDescriptorInfo i[3];
@@ -179,7 +228,7 @@ int main()
 		i[1].buffer.size = BUF_SZ;
 		i[2].desc = gpuUboCompute;
 		i[2].buffer.offset = 0ull;
-		i[2].buffer.size = gpuUboCompute->getSize();
+		i[2].buffer.size = gpuUboCompute->getBufferSize();
 
 		device->updateDescriptorSets(2u, w, 0u, nullptr);
 	}
@@ -191,18 +240,30 @@ int main()
 	//meshbuffer->setIndexCount(PARTICLE_COUNT);
 	//meshbuffer->setIndexType(asset::EIT_UNKNOWN);
 
-	auto createSpecShader = [&](const char* filepath, asset::ISpecializedShader::E_SHADER_STAGE stage) {
+	auto createSpecShader = [&](const char* filepath, asset::IShader::E_SHADER_STAGE stage)
+	{
+		auto shaderBundle = assetManager->getAsset(filepath, {});
+		auto shaderContents = shaderBundle.getContents();
+		if (shaderContents.empty())
+			assert(false);
+
+		return core::smart_refctd_ptr<asset::ICPUSpecializedShader>(static_cast<nbl::asset::ICPUSpecializedShader*>(shaderContents.begin()->get()));
+#if 0
+		
 		auto file = am->getFileSystem()->createAndOpenFile(filepath);
 		auto unspec = am->getGLSLCompiler()->resolveIncludeDirectives(file, stage, file->getFileName().c_str());
 
 		asset::ISpecializedShader::SInfo info(nullptr, nullptr, "main", stage, file->getFileName().c_str());
 		file->drop();
 		return core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspec), std::move(info));
+#endif
 	};
-	auto vs = createSpecShader("../particles.vert", asset::ISpecializedShader::ESS_VERTEX);
-	auto fs = createSpecShader("../particles.frag", asset::ISpecializedShader::ESS_FRAGMENT);
-	asset::ICPUSpecializedShader* shaders[2]{ vs.get(),fs.get() };
-	auto pipeline = introspector.createApproximateRenderpassIndependentPipelineFromIntrospection(shaders,shaders+2,glslExts->begin(),glslExts->end());
+	auto vs = createSpecShader("../particles.vert", asset::IShader::ESS_VERTEX);
+	auto fs = createSpecShader("../particles.frag", asset::IShader::ESS_FRAGMENT);
+
+	asset::ICPUSpecializedShader* shaders[2] = { vs.get(),fs.get() };
+	// auto pipeline = introspector.createApproximateRenderpassIndependentPipelineFromIntrospection(shaders,shaders+2,glslExts->begin(),glslExts->end());
+	auto pipeline = introspector.createApproximateRenderpassIndependentPipelineFromIntrospection(shaders,shaders+2,nullptr,nullptr);
 	{
 		auto& vtxParams = pipeline->getVertexInputParams();
 		vtxParams.attributes[0].binding = 0u;
@@ -212,6 +273,12 @@ int main()
 		vtxParams.bindings[0].stride = 4u * sizeof(float);
 
 		pipeline->getPrimitiveAssemblyParams().primitiveType = asset::EPT_POINT_LIST;
+
+		auto& blendParams = pipeline->getBlendParams();
+		blendParams.logicOpEnable = false;
+		blendParams.logicOp = nbl::asset::ELO_NO_OP;
+		for (size_t i = 0ull; i < nbl::asset::SBlendParams::MAX_COLOR_ATTACHMENT_COUNT; i++)
+			blendParams.blendParams[i].attachmentEnabled = (i == 0ull);
 	}
 	auto gfxLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(nullptr,nullptr,core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(pipeline->getLayout()->getDescriptorSetLayout(0)));
 	pipeline->setLayout(core::smart_refctd_ptr(gfxLayout));
@@ -233,7 +300,9 @@ int main()
 	constexpr uint32_t GRAPHICS_DATA_UBO_BINDING = 0u;
 	asset::SBasicViewParameters viewParams;
 	devLocalReqs.vulkanReqs.size = sizeof(viewParams);
-	auto gpuUboGraphics = device->createGPUBufferOnDedMem(devLocalReqs, true);
+	video::IGPUBuffer::SCreationParams gfxUboCreationParams = {};
+	gfxUboCreationParams.usage = static_cast<asset::IBuffer::E_USAGE_FLAGS>(asset::IBuffer::EUF_UNIFORM_BUFFER_BIT | asset::IBuffer::EUF_TRANSFER_DST_BIT);
+	auto gpuUboGraphics = device->createGPUBufferOnDedMem(gfxUboCreationParams, devLocalReqs, true);
 	{
 		video::IGPUDescriptorSet::SWriteDescriptorSet w;
 		video::IGPUDescriptorSet::SDescriptorInfo i;
@@ -245,7 +314,7 @@ int main()
 		w.info = &i;
 		i.desc = gpuUboGraphics;
 		i.buffer.offset = 0u;
-		i.buffer.size = gpuUboGraphics->getSize();
+		i.buffer.size = gpuUboGraphics->getBufferSize();
 
 		device->updateDescriptorSets(1u, &w, 0u, nullptr);
 	}
@@ -258,6 +327,7 @@ int main()
 	
 	core::smart_refctd_ptr<video::IGPUCommandBuffer> cmdbuf[FRAMES_IN_FLIGHT];
 	device->createCommandBuffers(cmdpool.get(),video::IGPUCommandBuffer::EL_PRIMARY,FRAMES_IN_FLIGHT,cmdbuf);
+
 	core::smart_refctd_ptr<video::IGPUFence> frameComplete[FRAMES_IN_FLIGHT] = { nullptr };
 	core::smart_refctd_ptr<video::IGPUSemaphore> imageAcquire[FRAMES_IN_FLIGHT] = { nullptr };
 	core::smart_refctd_ptr<video::IGPUSemaphore> renderFinished[FRAMES_IN_FLIGHT] = { nullptr };
@@ -266,18 +336,24 @@ int main()
 		imageAcquire[i] = device->createSemaphore();
 		renderFinished[i] = device->createSemaphore();
 	}
+
 	// render loop
-	for (uint32_t i = 0u; i < FRAME_COUNT; ++i)
+	uint32_t i = 0u;
+	while (windowCb->isWindowOpen())
 	{
-		const auto resourceIx = i%FRAMES_IN_FLIGHT;
+		const auto resourceIx = i++%FRAMES_IN_FLIGHT;
 		auto& cb = cmdbuf[resourceIx];
 		auto& fence = frameComplete[resourceIx];
 		if (fence)
-		while (device->waitForFences(1u,&fence.get(),false,MAX_TIMEOUT)==video::IGPUFence::ES_TIMEOUT)
 		{
+			auto retval = device->waitForFences(1u, &fence.get(), false, MAX_TIMEOUT);
+			assert(retval == video::IGPUFence::ES_TIMEOUT || retval == video::IGPUFence::ES_SUCCESS);
+			device->resetFences(1u, &fence.get());
 		}
 		else
+		{
 			fence = device->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
+		}
 
 		// safe to proceed
 		cb->begin(0);
@@ -303,7 +379,13 @@ int main()
 		asset::SMemoryBarrier memBarrier;
 		memBarrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
 		memBarrier.dstAccessMask = asset::EAF_VERTEX_ATTRIBUTE_READ_BIT;
-		cb->pipelineBarrier(asset::EPSF_COMPUTE_SHADER_BIT, asset::EPSF_VERTEX_INPUT_BIT, 0, 1, &memBarrier, 0, nullptr, 0, nullptr);
+		cb->pipelineBarrier(
+			asset::EPSF_COMPUTE_SHADER_BIT,
+			asset::EPSF_VERTEX_INPUT_BIT,
+			static_cast<asset::E_DEPENDENCY_FLAGS>(0u),
+			1, &memBarrier,
+			0, nullptr,
+			0, nullptr);
 
 		{
 			memcpy(viewParams.MVP,&viewProj,sizeof(viewProj));
@@ -318,6 +400,11 @@ int main()
 			vp.width = WIN_W;
 			vp.height = WIN_H;
 			cb->setViewport(0u, 1u, &vp);
+
+			VkRect2D scissor;
+			scissor.offset = { 0, 0 };
+			scissor.extent = { WIN_W, WIN_H };
+			cb->setScissor(0u, 1u, &scissor);
 		}
 		// renderpass 
 		uint32_t imgnum = 0u;
@@ -325,7 +412,6 @@ int main()
 		{
 			video::IGPUCommandBuffer::SRenderpassBeginInfo info;
 			asset::SClearValue clear;
-			asset::VkRect2D area;
 			clear.color.float32[0] = 0.f;
 			clear.color.float32[1] = 0.f;
 			clear.color.float32[2] = 0.f;
@@ -349,9 +435,24 @@ int main()
 		cb->endRenderPass();
 		cb->end();
 
-		CommonAPI::Submit(device.get(), sc.get(), cb.get(), queue, imageAcquire[resourceIx].get(), renderFinished[resourceIx].get(), fence.get());
-		CommonAPI::Present(device.get(), sc.get(), queue, renderFinished[resourceIx].get(), imgnum);
+		CommonAPI::Submit(
+			device.get(),
+			sc.get(),
+			cb.get(),
+			queue,
+			imageAcquire[resourceIx].get(),
+			renderFinished[resourceIx].get(),
+			fence.get());
+
+		CommonAPI::Present(
+			device.get(),
+			sc.get(),
+			queue,
+			renderFinished[resourceIx].get(),
+			imgnum);
 	}
+
+	device->waitIdle();
 
 	return 0;
 }

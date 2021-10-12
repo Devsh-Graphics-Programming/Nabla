@@ -13,14 +13,19 @@ public:
     CVulkanSpecializedShader(
         core::smart_refctd_ptr<ILogicalDevice>&& dev,
         asset::IShader::E_SHADER_STAGE shaderStage, 
-        core::smart_refctd_ptr<const CVulkanShader>&& unspecShader)
-        : IGPUSpecializedShader(std::move(dev), shaderStage), m_unspecShader(std::move(unspecShader))
+        core::smart_refctd_ptr<const CVulkanShader>&& unspecShader,
+        const asset::ISpecializedShader::SInfo& specInfo)
+        : IGPUSpecializedShader(std::move(dev), shaderStage),
+        m_unspecShader(std::move(unspecShader)), m_specInfo(specInfo)
     {}
 
     inline VkShaderModule getInternalObject() const { return m_unspecShader->getInternalObject(); }
 
+    inline const asset::ISpecializedShader::SInfo& getSpecInfo() const { return m_specInfo; }
+
 private:
     core::smart_refctd_ptr<const CVulkanShader> m_unspecShader;
+    asset::ISpecializedShader::SInfo m_specInfo;
 };
 
 }
