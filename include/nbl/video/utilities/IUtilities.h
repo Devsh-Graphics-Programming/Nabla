@@ -445,6 +445,32 @@ class IUtilities : public core::IReferenceCounted
                     memoryNeededForRemainingRegions = core::alignUp(memoryNeededForRemainingRegions, bufferOffsetAlignment);
                     
                     const asset::IImage::SBufferCopy & region = regions[i];
+                    
+                    auto subresourceSize = dstImage->getMipSize(region.imageSubresource.mipLevel);
+
+                    // Validate Region
+                    // canTransferMipLevelsPartially
+                    if(!canTransferMipLevelsPartially)
+                    {
+                        assert(region.imageOffset.x == 0 && region.imageOffset.y == 0 && region.imageOffset.z == 0);
+                        assert(region.imageExtent.x == subresourceSize.x && region.imageExtent.y == subresourceSize.y && region.imageExtent.z == subresourceSize.z);
+                    }
+
+                    // region.imageOffset.{xyz} should be multiple of minImageTransferGranularity.{xyz} scaled up by block size
+                    bool isImageOffsetValid =
+                        region.imageOffset.x == core::alignUp(region.imageOffset.x, minImageTransferGranularity.width  * texelBlockDim.x) &&
+                        region.imageOffset.y == core::alignUp(region.imageOffset.y, minImageTransferGranularity.height  * texelBlockDim.y) &&
+                        region.imageOffset.z == core::alignUp(region.imageOffset.z, minImageTransferGranularity.depth  * texelBlockDim.z);
+                    assert(isImageOffsetValid);
+
+                    // region.imageExtent.{xyz} should be multiple of minImageTransferGranularity.{xyz} scaled up by block size,
+                    // OR ELSE (region.imageOffset.{x/y/z} + region.imageExtent.{width/height/depth}) MUST be equal to subresource{Width,Height,Depth}
+                    bool isImageExtentValid = 
+                        (region.imageExtent.width  == core::alignUp(region.imageExtent.width , minImageTransferGranularity.width  * texelBlockDim.x) || (region.imageOffset.x + region.imageExtent.width   == subresourceSize.x)) && 
+                        (region.imageExtent.height == core::alignUp(region.imageExtent.height, minImageTransferGranularity.height * texelBlockDim.y) || (region.imageOffset.y + region.imageExtent.height  == subresourceSize.y)) &&
+                        (region.imageExtent.depth  == core::alignUp(region.imageExtent.depth , minImageTransferGranularity.depth  * texelBlockDim.z) || (region.imageOffset.z + region.imageExtent.depth   == subresourceSize.z));
+                    assert(isImageExtentValid);
+
                     auto alignedImageExtentInBlocks = texelBlockInfo.convertTexelsToBlocks(core::vector3du32_SIMD(region.imageExtent.width, region.imageExtent.height, region.imageExtent.depth));
                     auto alignedImageExtentBlockStridesInBytes = texelBlockInfo.convert3DBlockStridesTo1DByteStrides(alignedImageExtentInBlocks);
                     if(i == currentRegion)
@@ -456,13 +482,13 @@ class IUtilities : public core::IReferenceCounted
 
                         // dot(alignedImageExtentBlockStridesInBytes, vec4(remainingBlocksInRow, remainingRowsInSlice, remainingSlicesInLayer, remainingLayersInRegion))
                         memoryNeededForRemainingRegions += alignedImageExtentBlockStridesInBytes[0] * remainingBlocksInRow;     // = blockByteSize * remainingBlocksInRow
-                        memoryNeededForRemainingRegions += alignedImageExtentBlockStridesInBytes[1] * remainingRowsInSlice;     // = blockByteSize * alignedImageExtentInBlocks.x * remainingRowsInSlice
-                        memoryNeededForRemainingRegions += alignedImageExtentBlockStridesInBytes[2] * remainingSlicesInLayer;   // = blockByteSize * alignedImageExtentInBlocks.x * alignedImageExtentInBlocks.y * remainingSlicesInLayer
-                        memoryNeededForRemainingRegions += alignedImageExtentBlockStridesInBytes[3] * remainingLayersInRegion;  // = blockByteSize * alignedImageExtentInBlocks.x * alignedImageExtentInBlocks.y * alignedImageExtentInBlocks.z * remainingLayersInRegion
+                        memoryNeededForRemainingRegions += alignedImageExtentBlockStridesInBytes[1] * remainingRowsInSlice;     // = blockByteSize * imageExtentInBlocks.x * remainingRowsInSlice
+                        memoryNeededForRemainingRegions += alignedImageExtentBlockStridesInBytes[2] * remainingSlicesInLayer;   // = blockByteSize * imageExtentInBlocks.x * imageExtentInBlocks.y * remainingSlicesInLayer
+                        memoryNeededForRemainingRegions += alignedImageExtentBlockStridesInBytes[3] * remainingLayersInRegion;  // = blockByteSize * imageExtentInBlocks.x * imageExtentInBlocks.y * imageExtentInBlocks.z * remainingLayersInRegion
                     }
                     else
                     {
-                        memoryNeededForRemainingRegions += alignedImageExtentBlockStridesInBytes[3] * region.imageSubresource.layerCount; // = blockByteSize * alignedImageExtentInBlocks.x * alignedImageExtentInBlocks.y * alignedImageExtentInBlocks.z * region.imageSubresource.layerCount
+                        memoryNeededForRemainingRegions += alignedImageExtentBlockStridesInBytes[3] * region.imageSubresource.layerCount; // = blockByteSize * imageExtentInBlocks.x * imageExtentInBlocks.y * imageExtentInBlocks.z * region.imageSubresource.layerCount
                     }
                 }
 
@@ -532,41 +558,36 @@ class IUtilities : public core::IReferenceCounted
 
                         auto subresourceSize = dstImage->getMipSize(region.imageSubresource.mipLevel);
                         auto subresourceSizeInBlocks = texelBlockInfo.convertTexelsToBlocks(subresourceSize);
-                        
+
+                        // regionBlockStrides = <BufferRowLengthInBlocks, BufferImageHeightInBlocks, ImageDepthInBlocks>
+                        auto regionBlockStrides = region.getBlockStrides(texelBlockInfo);
+                        // regionBlockStridesInBytes = <BlockByteSize,
+                        //                              BlockBytesSize * BufferRowLengthInBlocks,
+                        //                              BlockBytesSize * BufferRowLengthInBlocks * BufferImageHeightInBlocks,
+                        //                              BlockBytesSize * BufferRowLengthInBlocks * BufferImageHeightInBlocks * ImageDepthInBlocks>
+                        auto regionBlockStridesInBytes = texelBlockInfo.convert3DBlockStridesTo1DByteStrides(regionBlockStrides);
+
                         auto imageExtent = core::vector3du32_SIMD(region.imageExtent.width, region.imageExtent.height, region.imageExtent.depth);
-                        auto alignedImageExtentInBlocks = texelBlockInfo.convertTexelsToBlocks(imageExtent);
-                        auto alignedImageExtentBlockStridesInBytes = texelBlockInfo.convert3DBlockStridesTo1DByteStrides(alignedImageExtentInBlocks);
+                        auto imageOffset = core::vector3du32_SIMD(region.imageOffset.x, region.imageOffset.y, region.imageOffset.z);
+                        auto imageOffsetInBlocks = texelBlockInfo.convertTexelsToBlocks(imageOffset);
+                        auto imageExtentInBlocks = texelBlockInfo.convertTexelsToBlocks(imageExtent);
+                        auto alignedImageExtentBlockStridesInBytes = texelBlockInfo.convert3DBlockStridesTo1DByteStrides(imageExtentInBlocks);
 
-                        // Validate Region
-                        // canTransferMipLevelsPartially
-                        if(!canTransferMipLevelsPartially)
-                        {
-                            assert(region.imageOffset.x == 0 && region.imageOffset.y == 0 && region.imageOffset.z == 0);
-                            assert(region.imageExtent.x == subresourceSize.x && region.imageExtent.y == subresourceSize.y && region.imageExtent.z == subresourceSize.z);
-                        }
-                        // if region.imageExtent is NOT correctly aligned then (region.imageOffset + region.imageExtent) MUST be equal to subresourceSize
-                        bool isImageExtentValid = 
-                            (region.imageExtent.width  == core::alignUp(region.imageExtent.width , minImageTransferGranularity.width  * texelBlockDim.x) || (region.imageOffset.x + region.imageExtent.width   == subresourceSize.x)) && 
-                            (region.imageExtent.height == core::alignUp(region.imageExtent.height, minImageTransferGranularity.height * texelBlockDim.y) || (region.imageOffset.y + region.imageExtent.height  == subresourceSize.y)) &&
-                            (region.imageExtent.depth  == core::alignUp(region.imageExtent.depth , minImageTransferGranularity.depth  * texelBlockDim.z) || (region.imageOffset.z + region.imageExtent.depth   == subresourceSize.z));
-                            
-                        assert(isImageExtentValid);
-
-                        // region <-> region.imageSubresource.layerCount <-> alignedImageExtentInBlocks.z <-> alignedImageExtentInBlocks.y <-> alignedImageExtentInBlocks.x
+                        // region <-> region.imageSubresource.layerCount <-> imageExtentInBlocks.z <-> imageExtentInBlocks.y <-> imageExtentInBlocks.x
                         auto updateCurrentOffsets = [&]() -> void
                         {
-                            if(currentBlockInRow >= alignedImageExtentInBlocks.x) 
+                            if(currentBlockInRow >= imageExtentInBlocks.x) 
                             {
                                 currentBlockInRow = 0u;
                                 currentRowInSlice++;
                             }
-                            if(currentRowInSlice >= alignedImageExtentInBlocks.y)
+                            if(currentRowInSlice >= imageExtentInBlocks.y)
                             {
                                 assert(currentBlockInRow == 0);
                                 currentRowInSlice = 0u;
                                 currentSliceInLayer++;
                             }
-                            if(currentSliceInLayer >= alignedImageExtentInBlocks.z)
+                            if(currentSliceInLayer >= imageExtentInBlocks.z)
                             {
                                 assert(currentBlockInRow == 0 && currentRowInSlice == 0);
                                 currentSliceInLayer = 0u;
@@ -579,26 +600,36 @@ class IUtilities : public core::IReferenceCounted
                                 currentRegion++;
                             }
                         };
+                        
+                        uint32_t eachBlockNeededMemory = alignedImageExtentBlockStridesInBytes[0];  // = blockByteSize
+                        uint32_t eachRowNeededMemory = alignedImageExtentBlockStridesInBytes[1];    // = blockByteSize * imageExtentInBlocks.x
+                        uint32_t eachSliceNeededMemory = alignedImageExtentBlockStridesInBytes[2];  // = blockByteSize * imageExtentInBlocks.x * imageExtentInBlocks.y
+                        uint32_t eachLayerNeededMemory = alignedImageExtentBlockStridesInBytes[3];  // = blockByteSize * imageExtentInBlocks.x * imageExtentInBlocks.y * imageExtentInBlocks.z
 
                         auto tryFillRow = [&]() -> bool
                         {
                             bool ret = false;
                             // C: There is remaining slices left in layer -> Copy Blocks
-                            uint32_t eachBlockNeededMemory = alignedImageExtentBlockStridesInBytes[0]; // = blockByteSize
                             uint32_t uploadableBlocks = availableUploadBufferMemory / eachBlockNeededMemory;
-                            uint32_t remainingBlocks = alignedImageExtentInBlocks.x - currentBlockInRow;
+                            uint32_t remainingBlocks = imageExtentInBlocks.x - currentBlockInRow;
                             uploadableBlocks = core::min(uploadableBlocks, remainingBlocks);
                             if(uploadableBlocks + currentBlockInRow < subresourceSizeInBlocks.x)
                                 uploadableBlocks = core::alignDown(uploadableBlocks, minImageTransferGranularity.width);
 
                             if(uploadableBlocks > 0)
                             {
-                                // Copy some regions from ICPUBuffer to UploadBuffer: TODO
-                                
+                                uint32_t blocksToUploadMemorySize = eachBlockNeededMemory * uploadableBlocks;
+                                auto imageOffsetInCPUBuffer = core::vector3du32_SIMD(imageOffsetInBlocks.x + currentBlockInRow, imageOffsetInBlocks.y + currentRowInSlice, imageOffsetInBlocks.z + currentSliceInLayer, currentLayerInRegion);
+                                uint64_t offsetInCPUBuffer = region.bufferOffset + core::dot(imageOffsetInCPUBuffer, regionBlockStridesInBytes)[0];
+                                uint64_t offsetInUploadBuffer = currentUploadBufferOffset;
+                                memcpy( reinterpret_cast<uint8_t*>(m_defaultUploadBuffer->getBufferPointer())+offsetInUploadBuffer,
+                                        reinterpret_cast<uint8_t*>(srcBuffer->getPointer())+offsetInCPUBuffer,
+                                        blocksToUploadMemorySize);
+
                                 asset::IImage::SBufferCopy bufferCopy;
                                 bufferCopy.bufferOffset = currentUploadBufferOffset;
-                                bufferCopy.bufferRowLength = alignedImageExtentInBlocks.x * texelBlockDim.x;
-                                bufferCopy.bufferImageHeight = alignedImageExtentInBlocks.y * texelBlockDim.y;
+                                bufferCopy.bufferRowLength = imageExtentInBlocks.x * texelBlockDim.x;
+                                bufferCopy.bufferImageHeight = imageExtentInBlocks.y * texelBlockDim.y;
                                 bufferCopy.imageSubresource.aspectMask = region.imageSubresource.aspectMask;
                                 bufferCopy.imageSubresource.mipLevel = region.imageSubresource.baseArrayLayer;
                                 bufferCopy.imageSubresource.baseArrayLayer += currentLayerInRegion;
@@ -611,7 +642,7 @@ class IUtilities : public core::IReferenceCounted
                                 bufferCopy.imageSubresource.layerCount = 1u;
                                 regionsToCopy.push_back(bufferCopy);
 
-                                addToCurrentUploadBufferOffset(eachBlockNeededMemory * uploadableBlocks);
+                                addToCurrentUploadBufferOffset(blocksToUploadMemorySize);
 
                                 currentBlockInRow += uploadableBlocks;
                                 ret = true;
@@ -626,40 +657,65 @@ class IUtilities : public core::IReferenceCounted
                         {
                             bool ret = false;
                             // B: There is remaining slices left in layer -> Copy Rows
-                            uint32_t eachRowNeededMemory = alignedImageExtentBlockStridesInBytes[1]; // = blockByteSize * alignedImageExtentInBlocks.x
                             uint32_t uploadableRows = availableUploadBufferMemory / eachRowNeededMemory;
-                            uint32_t remainingRows = alignedImageExtentInBlocks.y - currentRowInSlice;
+                            uint32_t remainingRows = imageExtentInBlocks.y - currentRowInSlice;
                             uploadableRows = core::min(uploadableRows, remainingRows);
                             if(uploadableRows + currentRowInSlice < subresourceSizeInBlocks.y)
                                 uploadableRows = core::alignDown(uploadableRows, minImageTransferGranularity.height);
 
                             if(uploadableRows > 0)
                             {
-                                // Copy some regions from ICPUBuffer to UploadBuffer: TODO
+                                uint32_t rowsToUploadMemorySize = eachRowNeededMemory * uploadableRows;
+                                
+                                if(regionBlockStrides.x != imageExtentInBlocks.x)
+                                {
+                                    // Can't copy all rows at once, there is padding, copy row by row
+                                    for(uint32_t y = 0; y < uploadableRows; ++y)
+                                    {
+                                        auto imageOffsetInCPUBuffer = core::vector3du32_SIMD(imageOffsetInBlocks.x, imageOffsetInBlocks.y + currentRowInSlice + y, imageOffsetInBlocks.z + currentSliceInLayer, currentLayerInRegion);
+                                        uint64_t offsetInCPUBuffer = region.bufferOffset + core::dot(imageOffsetInCPUBuffer, regionBlockStridesInBytes)[0];
+                                        uint64_t offsetInUploadBuffer = currentUploadBufferOffset + y*eachRowNeededMemory;
+                                        memcpy( reinterpret_cast<uint8_t*>(m_defaultUploadBuffer->getBufferPointer())+offsetInUploadBuffer,
+                                                reinterpret_cast<uint8_t*>(srcBuffer->getPointer())+offsetInCPUBuffer,
+                                                eachRowNeededMemory);
+                                    }
+                                }
+                                else
+                                {
+                                    // We can copy all rows at once, because imageExtent is fit to rowLength
+                                    assert(imageOffsetInBlocks.x == 0);
+                                    auto imageOffsetInCPUBuffer = core::vector3du32_SIMD(0u, imageOffsetInBlocks.y + currentRowInSlice, imageOffsetInBlocks.z + currentSliceInLayer, currentLayerInRegion);
+                                    uint64_t offsetInCPUBuffer = region.bufferOffset + core::dot(imageOffsetInCPUBuffer, regionBlockStridesInBytes)[0];
+                                    uint64_t offsetInUploadBuffer = currentUploadBufferOffset;
+                                    memcpy( reinterpret_cast<uint8_t*>(m_defaultUploadBuffer->getBufferPointer())+offsetInUploadBuffer,
+                                            reinterpret_cast<uint8_t*>(srcBuffer->getPointer())+offsetInCPUBuffer,
+                                            rowsToUploadMemorySize);
+                                }
+
 
                                 asset::IImage::SBufferCopy bufferCopy;
                                 bufferCopy.bufferOffset = currentUploadBufferOffset;
-                                bufferCopy.bufferRowLength = alignedImageExtentInBlocks.x * texelBlockDim.x;
-                                bufferCopy.bufferImageHeight = alignedImageExtentInBlocks.y * texelBlockDim.y;
+                                bufferCopy.bufferRowLength = imageExtentInBlocks.x * texelBlockDim.x;
+                                bufferCopy.bufferImageHeight = imageExtentInBlocks.y * texelBlockDim.y;
                                 bufferCopy.imageSubresource.aspectMask = region.imageSubresource.aspectMask;
                                 bufferCopy.imageSubresource.mipLevel = region.imageSubresource.mipLevel;
                                 bufferCopy.imageSubresource.baseArrayLayer = region.imageSubresource.baseArrayLayer + currentLayerInRegion;
                                 bufferCopy.imageOffset.x = 0u; assert(currentBlockInRow == 0);
                                 bufferCopy.imageOffset.y = currentRowInSlice * texelBlockDim.y;
                                 bufferCopy.imageOffset.z = currentSliceInLayer * texelBlockDim.z;
-                                bufferCopy.imageExtent.width = alignedImageExtentInBlocks.x * texelBlockDim.x;
+                                bufferCopy.imageExtent.width = imageExtentInBlocks.x * texelBlockDim.x;
                                 bufferCopy.imageExtent.height = uploadableRows * texelBlockDim.y;
                                 bufferCopy.imageExtent.depth = 1u * texelBlockDim.z;
                                 bufferCopy.imageSubresource.layerCount = 1u;
                                 regionsToCopy.push_back(bufferCopy);
 
-                                addToCurrentUploadBufferOffset(eachRowNeededMemory * uploadableRows);
+                                addToCurrentUploadBufferOffset(rowsToUploadMemorySize);
 
                                 currentRowInSlice += uploadableRows;
                                 ret = true;
                             }
                             
-                            if(currentRowInSlice < alignedImageExtentInBlocks.z)
+                            if(currentRowInSlice < imageExtentInBlocks.z)
                             {
                                 bool filledAnyBlocksInRow = tryFillRow();
                                 if(filledAnyBlocksInRow)
@@ -675,40 +731,82 @@ class IUtilities : public core::IReferenceCounted
                         {
                             bool ret = false;
                             // A: There is remaining layers left in region -> Copy Slices (Depths)
-                            uint32_t eachSliceNeededMemory = alignedImageExtentBlockStridesInBytes[2]; // = blockByteSize * alignedImageExtentInBlocks.x * alignedImageExtentInBlocks.y
                             uint32_t uploadableSlices = availableUploadBufferMemory / eachSliceNeededMemory;
-                            uint32_t remainingSlices = alignedImageExtentInBlocks.z - currentSliceInLayer;
+                            uint32_t remainingSlices = imageExtentInBlocks.z - currentSliceInLayer;
                             uploadableSlices = core::min(uploadableSlices, remainingSlices);
                             if(uploadableSlices + currentSliceInLayer < subresourceSizeInBlocks.z)
                                 uploadableSlices = core::alignDown(uploadableSlices, minImageTransferGranularity.depth);
 
                             if(uploadableSlices > 0)
                             {
-                                // Copy some regions from ICPUBuffer to UploadBuffer: TODO
+                                uint32_t slicesToUploadMemorySize = eachSliceNeededMemory * uploadableSlices;
+
+                                if(regionBlockStrides.x != imageExtentInBlocks.x)
+                                {
+                                    // Can't copy all rows at once, there is more padding at the end of rows, copy row by row:
+                                    for(uint32_t z = 0; z < uploadableSlices; ++z)
+                                    {
+                                        for(uint32_t y = 0; y < imageExtentInBlocks.y; ++y)
+                                        {
+                                            auto imageOffsetInCPUBuffer = core::vector3du32_SIMD(imageOffsetInBlocks.x, imageOffsetInBlocks.y + y, imageOffsetInBlocks.z + currentSliceInLayer + z, currentLayerInRegion);
+                                            uint64_t offsetInCPUBuffer = region.bufferOffset + core::dot(imageOffsetInCPUBuffer, regionBlockStridesInBytes)[0];
+                                            uint64_t offsetInUploadBuffer = currentUploadBufferOffset + z * eachSliceNeededMemory + y * eachRowNeededMemory;
+                                            memcpy( reinterpret_cast<uint8_t*>(m_defaultUploadBuffer->getBufferPointer())+offsetInUploadBuffer,
+                                                    reinterpret_cast<uint8_t*>(srcBuffer->getPointer())+offsetInCPUBuffer,
+                                                    eachRowNeededMemory);
+                                        }
+                                    }
+                                }
+                                else if (regionBlockStrides.y != imageExtentInBlocks.y)
+                                {
+                                    assert(imageOffsetInBlocks.x == 0u);
+                                    // Can't copy all slices at once, there is more padding at the end of slices, copy slice by slice
+                                    for(uint32_t z = 0; z < uploadableSlices; ++z)
+                                    {
+                                        auto imageOffsetInCPUBuffer = core::vector3du32_SIMD(0u, imageOffsetInBlocks.y, imageOffsetInBlocks.z + currentSliceInLayer + z, currentLayerInRegion);
+                                        uint64_t offsetInCPUBuffer = region.bufferOffset + core::dot(imageOffsetInCPUBuffer, regionBlockStridesInBytes)[0];
+                                        uint64_t offsetInUploadBuffer = currentUploadBufferOffset + z * eachSliceNeededMemory;
+                                        memcpy( reinterpret_cast<uint8_t*>(m_defaultUploadBuffer->getBufferPointer())+offsetInUploadBuffer,
+                                                reinterpret_cast<uint8_t*>(srcBuffer->getPointer())+offsetInCPUBuffer,
+                                                eachSliceNeededMemory);
+                                    }
+                                }
+                                else
+                                {
+                                    // We can copy all arrays and slices at once, because imageExtent is fit to bufferRowLength and bufferImageHeight
+                                    assert(imageOffsetInBlocks.x == 0u);
+                                    assert(imageOffsetInBlocks.y == 0u);
+                                    auto imageOffsetInCPUBuffer = core::vector3du32_SIMD(0u, 0u, imageOffsetInBlocks.z + currentSliceInLayer, currentLayerInRegion);
+                                    uint64_t offsetInCPUBuffer = region.bufferOffset + core::dot(imageOffsetInCPUBuffer, regionBlockStridesInBytes)[0];
+                                    uint64_t offsetInUploadBuffer = currentUploadBufferOffset;
+                                    memcpy( reinterpret_cast<uint8_t*>(m_defaultUploadBuffer->getBufferPointer())+offsetInUploadBuffer,
+                                            reinterpret_cast<uint8_t*>(srcBuffer->getPointer())+offsetInCPUBuffer,
+                                            slicesToUploadMemorySize);
+                                }
                                 
                                 asset::IImage::SBufferCopy bufferCopy;
                                 bufferCopy.bufferOffset = currentUploadBufferOffset;
-                                bufferCopy.bufferRowLength = alignedImageExtentInBlocks.x * texelBlockDim.x;
-                                bufferCopy.bufferImageHeight = alignedImageExtentInBlocks.y * texelBlockDim.y;
+                                bufferCopy.bufferRowLength = imageExtentInBlocks.x * texelBlockDim.x;
+                                bufferCopy.bufferImageHeight = imageExtentInBlocks.y * texelBlockDim.y;
                                 bufferCopy.imageSubresource.aspectMask = region.imageSubresource.aspectMask;
                                 bufferCopy.imageSubresource.mipLevel = region.imageSubresource.mipLevel;
                                 bufferCopy.imageSubresource.baseArrayLayer = region.imageSubresource.baseArrayLayer + currentLayerInRegion;
                                 bufferCopy.imageOffset.x = 0u; assert(currentBlockInRow == 0);
                                 bufferCopy.imageOffset.y = 0u; assert(currentRowInSlice == 0);
                                 bufferCopy.imageOffset.z = currentSliceInLayer * texelBlockDim.z;
-                                bufferCopy.imageExtent.width = alignedImageExtentInBlocks.x * texelBlockDim.x;
-                                bufferCopy.imageExtent.height = alignedImageExtentInBlocks.y * texelBlockDim.y;
+                                bufferCopy.imageExtent.width = imageExtentInBlocks.x * texelBlockDim.x;
+                                bufferCopy.imageExtent.height = imageExtentInBlocks.y * texelBlockDim.y;
                                 bufferCopy.imageExtent.depth = uploadableSlices * texelBlockDim.z;
                                 bufferCopy.imageSubresource.layerCount = 1u;
                                 regionsToCopy.push_back(bufferCopy);
 
-                                addToCurrentUploadBufferOffset(eachSliceNeededMemory * uploadableSlices);
+                                addToCurrentUploadBufferOffset(slicesToUploadMemorySize);
 
                                 currentSliceInLayer += uploadableSlices;
                                 ret = true;
                             }
                             
-                            if(currentSliceInLayer < alignedImageExtentInBlocks.z)
+                            if(currentSliceInLayer < imageExtentInBlocks.z)
                             {
                                 bool filledAnyRowsOrBlocksInSlice = tryFillSlice();
                                 if(filledAnyRowsOrBlocksInSlice)
@@ -723,32 +821,81 @@ class IUtilities : public core::IReferenceCounted
                         auto tryFillRegion = [&]() -> bool
                         {
                             bool ret = false;
-                            uint32_t eachLayerNeededMemory = alignedImageExtentBlockStridesInBytes[3]; // = blockByteSize * alignedImageExtentInBlocks.x * alignedImageExtentInBlocks.y * alignedImageExtentInBlocks.z
                             uint32_t uploadableArrayLayers = availableUploadBufferMemory / eachLayerNeededMemory;
                             uint32_t remainingLayers = region.imageSubresource.layerCount - currentLayerInRegion;
                             uploadableArrayLayers = core::min(uploadableArrayLayers, remainingLayers);
 
                             if(uploadableArrayLayers > 0)
                             {
-                                // Copy some regions from ICPUBuffer to UploadBuffer
+                                uint32_t layersToUploadMemorySize = eachLayerNeededMemory * uploadableArrayLayers;
+
+                                if(regionBlockStrides.x != imageExtentInBlocks.x)
+                                {
+                                    // Can't copy all rows at once, there is more padding at the end of rows, copy row by row:
+                                    for(uint32_t layer = 0; layer < uploadableArrayLayers; ++layer)
+                                    {
+                                        for(uint32_t z = 0; z < imageExtentInBlocks.z; ++z)
+                                        {
+                                            for(uint32_t y = 0; y < imageExtentInBlocks.y; ++y)
+                                            {
+                                                auto imageOffsetInCPUBuffer = core::vector3du32_SIMD(imageOffsetInBlocks.x, imageOffsetInBlocks.y + y, imageOffsetInBlocks.z + z, currentLayerInRegion + layer);
+                                                uint64_t offsetInCPUBuffer = region.bufferOffset + core::dot(imageOffsetInCPUBuffer, regionBlockStridesInBytes)[0];
+                                                uint64_t offsetInUploadBuffer = currentUploadBufferOffset + layer * eachLayerNeededMemory + z * eachSliceNeededMemory + y * eachRowNeededMemory;
+                                                memcpy( reinterpret_cast<uint8_t*>(m_defaultUploadBuffer->getBufferPointer())+offsetInUploadBuffer,
+                                                        reinterpret_cast<uint8_t*>(srcBuffer->getPointer())+offsetInCPUBuffer,
+                                                        eachRowNeededMemory);
+                                            }
+                                        }
+                                    }
+                                }
+                                else if (regionBlockStrides.y != imageExtentInBlocks.y)
+                                {
+                                    assert(imageOffsetInBlocks.x == 0u);
+                                    // Can't copy all slices at once, there is more padding at the end of slices, copy slice by slice
+                                    
+                                    for(uint32_t layer = 0; layer < uploadableArrayLayers; ++layer)
+                                    {
+                                        for(uint32_t z = 0; z < imageExtentInBlocks.z; ++z)
+                                        {
+                                            auto imageOffsetInCPUBuffer = core::vector3du32_SIMD(0u, imageOffsetInBlocks.y, imageOffsetInBlocks.z + z, currentLayerInRegion + layer);
+                                            uint64_t offsetInCPUBuffer = region.bufferOffset + core::dot(imageOffsetInCPUBuffer, regionBlockStridesInBytes)[0];
+                                            uint64_t offsetInUploadBuffer = currentUploadBufferOffset + layer * eachLayerNeededMemory + z * eachSliceNeededMemory;
+                                            memcpy( reinterpret_cast<uint8_t*>(m_defaultUploadBuffer->getBufferPointer())+offsetInUploadBuffer,
+                                                    reinterpret_cast<uint8_t*>(srcBuffer->getPointer())+offsetInCPUBuffer,
+                                                    eachSliceNeededMemory);
+                                        }
+                                    }
+                                }
+                                else
+                                {
+                                    // We can copy all arrays and slices at once, because imageExtent is fit to bufferRowLength and bufferImageHeight
+                                    assert(imageOffsetInBlocks.x == 0u);
+                                    assert(imageOffsetInBlocks.y == 0u);
+                                    auto imageOffsetInCPUBuffer = core::vector3du32_SIMD(0u, 0u, imageOffsetInBlocks.z, currentLayerInRegion);
+                                    uint64_t offsetInCPUBuffer = region.bufferOffset + core::dot(imageOffsetInCPUBuffer, regionBlockStridesInBytes)[0];
+                                    uint64_t offsetInUploadBuffer = currentUploadBufferOffset;
+                                    memcpy( reinterpret_cast<uint8_t*>(m_defaultUploadBuffer->getBufferPointer())+offsetInUploadBuffer,
+                                            reinterpret_cast<uint8_t*>(srcBuffer->getPointer())+offsetInCPUBuffer,
+                                            layersToUploadMemorySize);
+                                }
                                 
                                 asset::IImage::SBufferCopy bufferCopy;
                                 bufferCopy.bufferOffset = currentUploadBufferOffset;
-                                bufferCopy.bufferRowLength = alignedImageExtentInBlocks.x * texelBlockDim.x;
-                                bufferCopy.bufferImageHeight = alignedImageExtentInBlocks.y * texelBlockDim.y;
+                                bufferCopy.bufferRowLength = imageExtentInBlocks.x * texelBlockDim.x;
+                                bufferCopy.bufferImageHeight = imageExtentInBlocks.y * texelBlockDim.y;
                                 bufferCopy.imageSubresource.aspectMask = region.imageSubresource.aspectMask;
                                 bufferCopy.imageSubresource.mipLevel = region.imageSubresource.mipLevel;
                                 bufferCopy.imageSubresource.baseArrayLayer = region.imageSubresource.baseArrayLayer + currentLayerInRegion;
                                 bufferCopy.imageOffset.x = 0u; assert(currentBlockInRow == 0);
                                 bufferCopy.imageOffset.y = 0u; assert(currentRowInSlice == 0);
                                 bufferCopy.imageOffset.z = 0u; assert(currentSliceInLayer == 0);
-                                bufferCopy.imageExtent.width = alignedImageExtentInBlocks.x * texelBlockDim.x;
-                                bufferCopy.imageExtent.height = alignedImageExtentInBlocks.y * texelBlockDim.y;
-                                bufferCopy.imageExtent.depth = alignedImageExtentInBlocks.z * texelBlockDim.z;
+                                bufferCopy.imageExtent.width = imageExtentInBlocks.x * texelBlockDim.x;
+                                bufferCopy.imageExtent.height = imageExtentInBlocks.y * texelBlockDim.y;
+                                bufferCopy.imageExtent.depth = imageExtentInBlocks.z * texelBlockDim.z;
                                 bufferCopy.imageSubresource.layerCount = uploadableArrayLayers;
                                 regionsToCopy.push_back(bufferCopy);
 
-                                addToCurrentUploadBufferOffset(eachLayerNeededMemory * uploadableArrayLayers);
+                                addToCurrentUploadBufferOffset(layersToUploadMemorySize);
 
                                 currentLayerInRegion += uploadableArrayLayers;
                                 ret = true;
