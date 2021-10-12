@@ -6,7 +6,8 @@
 
 // vertex shader is provided by the fullScreenTriangle extension
 
-layout(set = 3, binding = 0) uniform samplerCube tex0;
+layout(set = 0, binding = 0) uniform samplerCube tex0;
+// layout(set = 3, binding = 0) uniform samplerCube tex0;
 
 layout(location = 0) in vec2 TexCoord;
 
@@ -14,5 +15,5 @@ layout(location = 0) out vec4 pixelColor;
 
 void main()
 {
-    pixelColor = texture(tex0, vec3(TexCoord.x, TexCoord.y, 1.0));
+    pixelColor = texture(tex0, vec3(TexCoord.x, TexCoord.y, 0.0));
 }
