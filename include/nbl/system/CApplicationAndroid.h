@@ -28,9 +28,9 @@ namespace nbl::system
         };
         struct SContext
         {
-            SSavedState* state;
             CApplicationAndroid* framework;
             void* userData;
+            SSavedState state;
         };
     public:
         CApplicationAndroid(android_app* params, system::path CWD) : IApplicationFramework(CWD),  eventPoller(params, this)
@@ -42,10 +42,11 @@ namespace nbl::system
 
         static int32_t handleInput(android_app* app, AInputEvent* event) {
             auto* framework = ((SContext*)app->userData)->framework;
+            framework->handleInput_impl(app, event);
             SContext* engine = (SContext*)app->userData;
             if (AInputEvent_getType(event) == AINPUT_EVENT_TYPE_MOTION) {
-                engine->state->x = AMotionEvent_getX(event, 0);
-                engine->state->y = AMotionEvent_getY(event, 0);
+                engine->state.x = AMotionEvent_getX(event, 0);
+                engine->state.y = AMotionEvent_getY(event, 0);
                 return 1;
             }
             return 0;
@@ -57,8 +58,8 @@ namespace nbl::system
             switch (cmd) {
             case APP_CMD_SAVE_STATE:
                 // The system has asked us to save our current state.  Do so.
-                usrData->state = (SSavedState*)malloc(sizeof(SSavedState));
-                (app->savedState) = usrData->state;
+                //usrData->state = (SSavedState*)malloc(sizeof(SSavedState));
+                (app->savedState) = &usrData->state;
                 app->savedStateSize = sizeof(SSavedState);
                 framework->onStateSaved(app);
                 break;
@@ -75,6 +76,7 @@ namespace nbl::system
             }
         }
         virtual void handleCommand_impl(android_app* data, int32_t cmd) {}
+        virtual void handleInput_impl(android_app* data, AInputEvent* event) {}
 
         class CEventPoller : public  system::IThreadHandler<CEventPoller>
         {
