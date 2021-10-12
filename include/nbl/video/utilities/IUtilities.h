@@ -576,7 +576,7 @@ class IUtilities : public core::IReferenceCounted
                     core::vector<asset::IImage::SBufferCopy> regionsToCopy;
 
                     // Worst case iterations: remaining blocks --> remaining rows --> remaining slices --> full layers
-                    constexpr uint32_t maxIterations = regions.size() * 4u; 
+                    const uint32_t maxIterations = regions.size() * 4u; 
                     for (uint32_t d = 0u; d < maxIterations && currentRegion < regions.size(); ++d)
                     {
                         const asset::IImage::SBufferCopy & region = regions[currentRegion];
