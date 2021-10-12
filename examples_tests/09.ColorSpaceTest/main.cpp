@@ -49,13 +49,14 @@ int main()
 	const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT);
 	const video::ISurface::SFormat surfaceFormat(asset::EF_B8G8R8A8_SRGB, asset::ECP_COUNT, asset::EOTF_UNKNOWN);
 
-    auto initOutput = CommonAPI::Init<WINDOW_WIDTH, WINDOW_HEIGHT, SC_IMG_COUNT>(
+    auto initOutput = CommonAPI::Init(
 		video::EAT_VULKAN,
 		"09.ColorSpaceTest",
 		requiredInstanceFeatures,
 		optionalInstanceFeatures,
 		requiredDeviceFeatures,
 		optionalDeviceFeatures,
+        WINDOW_WIDTH, WINDOW_HEIGHT, SC_IMG_COUNT,
 		swapchainImageUsage,
 		surfaceFormat);
 
@@ -68,7 +69,9 @@ int main()
     auto swapchain = std::move(initOutput.swapchain);
     auto renderpass = std::move(initOutput.renderpass);
     auto fbos = std::move(initOutput.fbo);
-    auto commandPool = std::move(initOutput.commandPool);
+	auto graphicsCommandPool = std::move(initOutput.commandPools[CommonAPI::InitOutput::EQT_GRAPHICS]);
+	auto computeCommandPool = std::move(initOutput.commandPools[CommonAPI::InitOutput::EQT_COMPUTE]);
+    auto commandPool = graphicsCommandPool;
     auto assetManager = std::move(initOutput.assetManager);
 	auto cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
 	auto utilities = std::move(initOutput.utilities);
@@ -396,7 +399,7 @@ int main()
 				logicalDevice.get(),
 				swapchain.get(),
 				commandBuffers[imageIndex].get(),
-				queues[CommonAPI::InitOutput<SC_IMG_COUNT>::EQT_GRAPHICS],
+				queues[CommonAPI::InitOutput::EQT_GRAPHICS],
 				acquireSemaphore_frame,
 				releaseSemaphore_frame,
 				fence_frame);
@@ -404,7 +407,7 @@ int main()
 			CommonAPI::Present(
 				logicalDevice.get(),
 				swapchain.get(),
-				queues[CommonAPI::InitOutput<SC_IMG_COUNT>::EQT_GRAPHICS],
+				queues[CommonAPI::InitOutput::EQT_GRAPHICS],
 				releaseSemaphore_frame,
 				imageIndex);
 
