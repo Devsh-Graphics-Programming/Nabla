@@ -162,25 +162,10 @@ public:
         }
     }
             
-    core::smart_refctd_ptr<IGPUEvent> createEvent(IGPUEvent::E_CREATE_FLAGS flags) override
-    {
-        return nullptr;
-    };
-            
-    IGPUEvent::E_STATUS getEventStatus(const IGPUEvent* _event) override
-    {
-        return IGPUEvent::E_STATUS::ES_FAILURE;
-    }
-            
-    IGPUEvent::E_STATUS resetEvent(IGPUEvent* _event) override
-    {
-        return IGPUEvent::E_STATUS::ES_FAILURE;
-    }
-            
-    IGPUEvent::E_STATUS setEvent(IGPUEvent* _event) override
-    {
-        return IGPUEvent::E_STATUS::ES_FAILURE;
-    }
+    core::smart_refctd_ptr<IGPUEvent> createEvent(IGPUEvent::E_CREATE_FLAGS flags) override;
+    IGPUEvent::E_STATUS getEventStatus(const IGPUEvent* _event) override;
+    IGPUEvent::E_STATUS resetEvent(IGPUEvent* _event) override;
+    IGPUEvent::E_STATUS setEvent(IGPUEvent* _event) override;
             
     core::smart_refctd_ptr<IGPUFence> createFence(IGPUFence::E_CREATE_FLAGS flags) override
     {
@@ -540,7 +525,11 @@ public:
             bufferMemoryReqs.requiresDedicatedAllocation = vk_dedicatedMemoryRequirements.requiresDedicatedAllocation;
 
             return core::make_smart_refctd_ptr<CVulkanBuffer>(
-                core::smart_refctd_ptr<CVulkanLogicalDevice>(this), bufferMemoryReqs, canModifySubData, vk_buffer);
+                core::smart_refctd_ptr<CVulkanLogicalDevice>(this),
+                bufferMemoryReqs,
+                canModifySubData,
+                vk_createInfo.size,
+                vk_buffer);
         }
         else
         {
@@ -888,11 +877,13 @@ public:
             return nullptr;
 
         VkMemoryMapFlags vk_memoryMapFlags = 0; // reserved for future use, by Vulkan
-        VkDeviceMemory vk_memory = static_cast<const CVulkanMemoryAllocation*>(memory.memory)->getInternalObject();
+        auto vulkanMemory = static_cast<CVulkanMemoryAllocation*>(memory.memory);
+        VkDeviceMemory vk_memory = vulkanMemory->getInternalObject();
         void* mappedPtr;
         if (m_devf.vk.vkMapMemory(m_vkdev, vk_memory, static_cast<VkDeviceSize>(memory.offset),
             static_cast<VkDeviceSize>(memory.length), vk_memoryMapFlags, &mappedPtr) == VK_SUCCESS)
         {
+            vulkanMemory->setMembersPostMap(mappedPtr, memory.range, accessHint);
             return mappedPtr;
         }
         else
@@ -1081,7 +1072,10 @@ protected:
         }
     }
 
-    core::smart_refctd_ptr<IGPUSpecializedShader> createGPUSpecializedShader_impl(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& specInfo, const asset::ISPIRVOptimizer* spvopt) override
+    core::smart_refctd_ptr<IGPUSpecializedShader> createGPUSpecializedShader_impl(
+        const IGPUShader* _unspecialized,
+        const asset::ISpecializedShader::SInfo& specInfo,
+        const asset::ISPIRVOptimizer* spvopt) override
     {
         if (_unspecialized->getAPIType() != EAT_VULKAN)
             return nullptr;
@@ -1098,7 +1092,7 @@ protected:
 
         return core::make_smart_refctd_ptr<CVulkanSpecializedShader>(
             core::smart_refctd_ptr<CVulkanLogicalDevice>(this), _unspecialized->getStage(),
-            core::smart_refctd_ptr<const CVulkanShader>(vulkanShader));
+            core::smart_refctd_ptr<const CVulkanShader>(vulkanShader), specInfo);
     }
 
     core::smart_refctd_ptr<IGPUBufferView> createGPUBufferView_impl(IGPUBuffer* _underlying, asset::E_FORMAT _fmt, size_t _offset = 0ull, size_t _size = IGPUBufferView::whole_buffer) override
@@ -1254,9 +1248,12 @@ protected:
         }
     }
 
-    core::smart_refctd_ptr<IGPUPipelineLayout> createGPUPipelineLayout_impl(const asset::SPushConstantRange* const _pcRangesBegin = nullptr,
-        const asset::SPushConstantRange* const _pcRangesEnd = nullptr, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& layout0 = nullptr,
-        core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& layout1 = nullptr, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& layout2 = nullptr,
+    core::smart_refctd_ptr<IGPUPipelineLayout> createGPUPipelineLayout_impl(
+        const asset::SPushConstantRange* const _pcRangesBegin = nullptr,
+        const asset::SPushConstantRange* const _pcRangesEnd = nullptr,
+        core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& layout0 = nullptr,
+        core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& layout1 = nullptr,
+        core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& layout2 = nullptr,
         core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& layout3 = nullptr) override
     {
         constexpr uint32_t MAX_PC_RANGE_COUNT = 100u;
@@ -1341,7 +1338,6 @@ protected:
         core::smart_refctd_ptr<IGPUComputePipeline>* output) override
     {
         constexpr uint32_t MAX_PIPELINE_COUNT = 100u;
-
         assert(createInfos.size() <= MAX_PIPELINE_COUNT);
 
         const IGPUComputePipeline::SCreationParams* creationParams = createInfos.begin();
@@ -1360,6 +1356,9 @@ protected:
 
         VkPipelineShaderStageCreateInfo vk_shaderStageCreateInfos[MAX_PIPELINE_COUNT];
         VkSpecializationInfo vk_specializationInfos[MAX_PIPELINE_COUNT];
+        constexpr uint32_t MAX_SPEC_CONSTANTS_PER_PIPELINE = 100u;
+        uint32_t mapEntryCount_total = 0u;
+        VkSpecializationMapEntry vk_mapEntries[MAX_PIPELINE_COUNT * MAX_SPEC_CONSTANTS_PER_PIPELINE];
 
         VkComputePipelineCreateInfo vk_createInfos[MAX_PIPELINE_COUNT];
         for (size_t i = 0ull; i < createInfos.size(); ++i)
@@ -1373,8 +1372,7 @@ protected:
             if (createInfo->shader->getAPIType() != EAT_VULKAN)
                 continue;
 
-            const CVulkanSpecializedShader* specShader
-                = static_cast<const CVulkanSpecializedShader*>(createInfo->shader.get());
+            const auto* specShader = static_cast<const CVulkanSpecializedShader*>(createInfo->shader.get());
 
             vk_shaderStageCreateInfos[i].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
             vk_shaderStageCreateInfos[i].pNext = nullptr; // pNext must be NULL or a pointer to a valid instance of VkPipelineShaderStageRequiredSubgroupSizeCreateInfoEXT
@@ -1382,16 +1380,31 @@ protected:
             vk_shaderStageCreateInfos[i].stage = static_cast<VkShaderStageFlagBits>(specShader->getStage());
             vk_shaderStageCreateInfos[i].module = specShader->getInternalObject();
             vk_shaderStageCreateInfos[i].pName = "main";
-#if 0
+            if (specShader->getSpecInfo().m_entries && specShader->getSpecInfo().m_backingBuffer)
             {
-                // specShader->get
-                vk_specializationInfos[i].mapEntryCount = ;
-                vk_specializationInfos[i].pMapEntries = ;
-                vk_specializationInfos[i].dataSize = ;
-                vk_specializationInfos[i].pData = ;
+                uint32_t offset = mapEntryCount_total;
+                assert(specShader->getSpecInfo().m_entries->size() <= MAX_SPEC_CONSTANTS_PER_PIPELINE);
+
+                for (size_t s = 0ull; s < specShader->getSpecInfo().m_entries->size(); ++s)
+                {
+                    const auto entry = specShader->getSpecInfo().m_entries->begin() + s;
+                    vk_mapEntries[offset + s].constantID = entry->specConstID;
+                    vk_mapEntries[offset + s].offset = entry->offset;
+                    vk_mapEntries[offset + s].size = entry->size;
+                }
+                mapEntryCount_total += specShader->getSpecInfo().m_entries->size();
+
+                vk_specializationInfos[i].mapEntryCount = static_cast<uint32_t>(specShader->getSpecInfo().m_entries->size());
+                vk_specializationInfos[i].pMapEntries = vk_mapEntries + offset;
+                vk_specializationInfos[i].dataSize = specShader->getSpecInfo().m_backingBuffer->getSize();
+                vk_specializationInfos[i].pData = specShader->getSpecInfo().m_backingBuffer->getPointer();
+
+                vk_shaderStageCreateInfos[i].pSpecializationInfo = &vk_specializationInfos[i];
             }
-#endif
-            vk_shaderStageCreateInfos[i].pSpecializationInfo = nullptr; // Todo(achal): Should we have a asset::ISpecializedShader::SInfo member in CVulkanSpecializedShader, otherwise I don't know how I'm gonna get the values required for VkSpecializationInfo https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/VkSpecializationInfo.html
+            else
+            {
+                vk_shaderStageCreateInfos[i].pSpecializationInfo = nullptr;
+            }
 
             vk_createInfos[i].stage = vk_shaderStageCreateInfos[i];
 

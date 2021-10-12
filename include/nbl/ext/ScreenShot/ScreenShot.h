@@ -16,7 +16,12 @@ namespace nbl::ext::ScreenShot
 	TODO: Add support for downloading a region of a specific subresource
 */
 
-inline core::smart_refctd_ptr<asset::ICPUImageView> createScreenShot(video::ILogicalDevice* logicalDevice, video::IGPUQueue* queue, video::IGPUSemaphore* semaphore, const video::IGPUImageView* gpuImageView)
+inline core::smart_refctd_ptr<asset::ICPUImageView> createScreenShot(
+	video::ILogicalDevice* logicalDevice,
+	video::IGPUQueue* queue,
+	video::IGPUSemaphore* semaphore,
+	const video::IGPUImageView* gpuImageView,
+	const asset::E_IMAGE_LAYOUT imageLayout)
 {
 	assert(logicalDevice->getPhysicalDevice()->getQueueFamilyProperties().begin()[queue->getFamilyIndex()].queueFlags.value&video::IPhysicalDevice::EQF_TRANSFER_BIT);
 
@@ -39,7 +44,15 @@ inline core::smart_refctd_ptr<asset::ICPUImageView> createScreenShot(video::ILog
 	gpuCommandBuffer->begin(video::IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
 	{
 		auto extent = gpuImage->getMipSize();
-		video::IGPUImage::SBufferCopy pRegions[1u] = { {0u,extent.x,extent.y,{static_cast<asset::IImage::E_ASPECT_FLAGS>(0u),0,0u,1u},{0u,0u,0u},{extent.x,extent.y,extent.z}} };
+
+		const uint32_t mipLevelToScreenshot = fetchedImageViewParmas.subresourceRange.baseMipLevel;
+
+		video::IGPUImage::SBufferCopy region = {};
+		region.imageSubresource.aspectMask = fetchedImageViewParmas.subresourceRange.aspectMask; 
+		region.imageSubresource.mipLevel = mipLevelToScreenshot;
+		region.imageSubresource.baseArrayLayer = fetchedImageViewParmas.subresourceRange.baseArrayLayer;
+		region.imageSubresource.layerCount = fetchedImageViewParmas.subresourceRange.layerCount;
+		region.imageExtent = { extent.x, extent.y, extent.z };
 
 		video::IGPUBuffer::SCreationParams bufferCreationParams = {};
 		bufferCreationParams.usage = asset::IBuffer::EUF_TRANSFER_DST_BIT;
@@ -48,8 +61,28 @@ inline core::smart_refctd_ptr<asset::ICPUImageView> createScreenShot(video::ILog
 		deviceLocalGPUMemoryReqs.vulkanReqs.size = extent.x*extent.y*extent.z*asset::getTexelOrBlockBytesize(fetchedGpuImageParams.format);
 		gpuTexelBuffer = logicalDevice->createGPUBufferOnDedMem(bufferCreationParams, deviceLocalGPUMemoryReqs, true);
 
-		// TODO: after Vulkan comes, pay attention to the image layout
-		gpuCommandBuffer->copyImageToBuffer(gpuImage.get(),asset::EIL_GENERAL,gpuTexelBuffer.get(),1,pRegions);
+		video::IGPUCommandBuffer::SImageMemoryBarrier toTransferSrc = {};
+		toTransferSrc.barrier.srcAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0u);
+		toTransferSrc.barrier.dstAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
+		toTransferSrc.oldLayout = imageLayout;
+		toTransferSrc.newLayout = asset::EIL_TRANSFER_SRC_OPTIMAL;
+		toTransferSrc.srcQueueFamilyIndex = ~0u;
+		toTransferSrc.dstQueueFamilyIndex = ~0u;
+		toTransferSrc.image = gpuImage;
+		toTransferSrc.subresourceRange.aspectMask = fetchedImageViewParmas.subresourceRange.aspectMask;
+		toTransferSrc.subresourceRange.baseMipLevel = mipLevelToScreenshot;
+		toTransferSrc.subresourceRange.levelCount = 1u;
+		toTransferSrc.subresourceRange.baseArrayLayer = fetchedImageViewParmas.subresourceRange.baseArrayLayer;
+		toTransferSrc.subresourceRange.layerCount = fetchedImageViewParmas.subresourceRange.layerCount;
+		gpuCommandBuffer->pipelineBarrier(
+			asset::EPSF_TOP_OF_PIPE_BIT,
+			asset::EPSF_TRANSFER_BIT,
+			static_cast<asset::E_DEPENDENCY_FLAGS>(0u),
+			0u, nullptr,
+			0u, nullptr,
+			1u, &toTransferSrc);
+
+		gpuCommandBuffer->copyImageToBuffer(gpuImage.get(),asset::EIL_TRANSFER_SRC_OPTIMAL,gpuTexelBuffer.get(),1,&region);
 	}
 	gpuCommandBuffer->end();
 
@@ -119,17 +152,17 @@ inline core::smart_refctd_ptr<asset::ICPUImageView> createScreenShot(video::ILog
 	return cpuImageView;
 }
 
-inline bool createScreenShot(video::ILogicalDevice* logicalDevice, video::IGPUQueue* queue, video::IGPUSemaphore* semaphore, const video::IGPUImageView* gpuImageView, asset::IAssetManager* assetManager, system::IFile* outFile)
+inline bool createScreenShot(video::ILogicalDevice* logicalDevice, video::IGPUQueue* queue, video::IGPUSemaphore* semaphore, const video::IGPUImageView* gpuImageView, asset::IAssetManager* assetManager, system::IFile* outFile, const asset::E_IMAGE_LAYOUT imageLayout)
 {
 	assert(outFile->getFlags()&system::IFile::ECF_WRITE);
-	auto cpuImageView = createScreenShot(logicalDevice,queue,semaphore,gpuImageView);
+	auto cpuImageView = createScreenShot(logicalDevice,queue,semaphore,gpuImageView,imageLayout);
 	asset::IAssetWriter::SAssetWriteParams writeParams(cpuImageView.get());
 	return assetManager->writeAsset(outFile,writeParams);
 }
 
-inline bool createScreenShot(video::ILogicalDevice* logicalDevice, video::IGPUQueue* queue, video::IGPUSemaphore* semaphore, const video::IGPUImageView* gpuImageView, asset::IAssetManager* assetManager, const std::filesystem::path& filename)
+inline bool createScreenShot(video::ILogicalDevice* logicalDevice, video::IGPUQueue* queue, video::IGPUSemaphore* semaphore, const video::IGPUImageView* gpuImageView, asset::IAssetManager* assetManager, const std::filesystem::path& filename, const asset::E_IMAGE_LAYOUT imageLayout)
 {
-	auto cpuImageView = createScreenShot(logicalDevice,queue,semaphore,gpuImageView);
+	auto cpuImageView = createScreenShot(logicalDevice,queue,semaphore,gpuImageView,imageLayout);
 	asset::IAssetWriter::SAssetWriteParams writeParams(cpuImageView.get());
 	return assetManager->writeAsset(filename.string(),writeParams); // TODO: Use std::filesystem::path
 }

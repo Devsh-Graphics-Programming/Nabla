@@ -38,6 +38,11 @@ class IGPUBuffer : public asset::IBuffer, public IDriverMemoryBacked, public IBa
         //! Get usable buffer byte size.
         inline const uint64_t& getSize() const {return cachedMemoryReqs.vulkanReqs.size;}
 
+        // Workaround: IGPUBuffer::getSize returns size of the associated memory.
+        // Under Vulkan, it could be the case that size_of_buffer != size_of_its_memory.
+        // The actual size of buffer is wanted, for example, in VkDescriptorBufferInfo::range
+        inline virtual uint64_t getBufferSize() const = 0;
+
         //! Whether calling updateSubRange will produce any effects.
         virtual bool canUpdateSubRange() const = 0;
 };

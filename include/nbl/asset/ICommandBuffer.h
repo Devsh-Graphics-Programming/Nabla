@@ -40,12 +40,6 @@ struct SImageResolve
     asset::VkOffset3D dstOffset;
     asset::VkExtent3D extent;
 };
-struct SViewport
-{
-    float x, y;
-    float width, height;
-    float minDepth, maxDepth;
-};
 
 struct SMemoryBarrier
 {
