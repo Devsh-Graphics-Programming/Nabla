@@ -552,9 +552,11 @@ class IUtilities : public core::IReferenceCounted
                     bool anyTransferRecorded = false;
                     core::vector<asset::IImage::SBufferCopy> regionsToCopy;
 
-                    for (uint32_t i = currentRegion; i < regions.size(); ++i)
+                    
+                    constexpr uint32_t maxIterations = 4u; // Worst case: remaining blocks --> remaining rows --> remaining slices --> full layers
+                    for (uint32_t d = 0u; d < maxIterations && currentRegion < regions.size(); ++d)
                     {
-                        const asset::IImage::SBufferCopy & region = regions[i];
+                        const asset::IImage::SBufferCopy & region = regions[currentRegion];
 
                         auto subresourceSize = dstImage->getMipSize(region.imageSubresource.mipLevel);
                         auto subresourceSizeInBlocks = texelBlockInfo.convertTexelsToBlocks(subresourceSize);
@@ -960,7 +962,6 @@ class IUtilities : public core::IReferenceCounted
                     {
                         cmdbuf->copyBufferToImage(m_defaultUploadBuffer.get()->getBuffer(), dstImage.get(), dstImageLayout, regionsToCopy.size(), regionsToCopy.data());
                     }
-
 
                     assert(anyTransferRecorded && "uploadBufferSize is not enough to support the smallest possible transferable units to image, may be caused if your queueFam's minImageTransferGranularity is large or equal to <0,0,0>.");
                 }
