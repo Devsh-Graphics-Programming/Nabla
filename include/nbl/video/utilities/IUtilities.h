@@ -403,7 +403,7 @@ class IUtilities : public core::IReferenceCounted
 
         inline void updateImageViaStagingBuffer(
             IGPUCommandBuffer* cmdbuf, IGPUFence* fence, IGPUQueue* queue,
-            core::smart_refctd_ptr<asset::ICPUBuffer> srcBuffer, core::SRange<const asset::IImage::SBufferCopy> regions, core::smart_refctd_ptr<IGPUImage> dstImage, asset::E_IMAGE_LAYOUT dstImageLayout,
+            asset::ICPUBuffer const* srcBuffer, const core::SRange<const asset::IImage::SBufferCopy>& regions, video::IGPUImage* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout,
             uint32_t& waitSemaphoreCount, IGPUSemaphore*const * &semaphoresToWaitBeforeOverwrite, const asset::E_PIPELINE_STAGE_FLAGS* &stagesToWaitForPerSemaphore)
         {
             const auto& limits = m_device->getPhysicalDevice()->getLimits();
@@ -448,12 +448,14 @@ class IUtilities : public core::IReferenceCounted
                     
                     auto subresourceSize = dstImage->getMipSize(region.imageSubresource.mipLevel);
 
+                    assert(static_cast<uint32_t>(region.imageSubresource.aspectMask) != 0u);
+                    assert(core::isPoT(static_cast<uint32_t>(region.imageSubresource.aspectMask)) && "region.aspectMask should only have a single bit set.");
                     // Validate Region
                     // canTransferMipLevelsPartially
                     if(!canTransferMipLevelsPartially)
                     {
                         assert(region.imageOffset.x == 0 && region.imageOffset.y == 0 && region.imageOffset.z == 0);
-                        assert(region.imageExtent.x == subresourceSize.x && region.imageExtent.y == subresourceSize.y && region.imageExtent.z == subresourceSize.z);
+                        assert(region.imageExtent.width == subresourceSize.x && region.imageExtent.height == subresourceSize.y && region.imageExtent.depth == subresourceSize.z);
                     }
 
                     // region.imageOffset.{xyz} should be multiple of minImageTransferGranularity.{xyz} scaled up by block size
@@ -472,7 +474,7 @@ class IUtilities : public core::IReferenceCounted
                     assert(isImageExtentValid);
 
                     auto alignedImageExtentInBlocks = texelBlockInfo.convertTexelsToBlocks(core::vector3du32_SIMD(region.imageExtent.width, region.imageExtent.height, region.imageExtent.depth));
-                    auto alignedImageExtentBlockStridesInBytes = texelBlockInfo.convert3DBlockStridesTo1DByteStrides(alignedImageExtentInBlocks);
+                    auto imageExtentBlockStridesInBytes = texelBlockInfo.convert3DBlockStridesTo1DByteStrides(alignedImageExtentInBlocks);
                     if(i == currentRegion)
                     {
                         auto remainingBlocksInRow = alignedImageExtentInBlocks.x - currentBlockInRow;
@@ -480,15 +482,36 @@ class IUtilities : public core::IReferenceCounted
                         auto remainingSlicesInLayer = alignedImageExtentInBlocks.z - currentSliceInLayer;
                         auto remainingLayersInRegion = region.imageSubresource.layerCount - currentLayerInRegion;
 
-                        // dot(alignedImageExtentBlockStridesInBytes, vec4(remainingBlocksInRow, remainingRowsInSlice, remainingSlicesInLayer, remainingLayersInRegion))
-                        memoryNeededForRemainingRegions += alignedImageExtentBlockStridesInBytes[0] * remainingBlocksInRow;     // = blockByteSize * remainingBlocksInRow
-                        memoryNeededForRemainingRegions += alignedImageExtentBlockStridesInBytes[1] * remainingRowsInSlice;     // = blockByteSize * imageExtentInBlocks.x * remainingRowsInSlice
-                        memoryNeededForRemainingRegions += alignedImageExtentBlockStridesInBytes[2] * remainingSlicesInLayer;   // = blockByteSize * imageExtentInBlocks.x * imageExtentInBlocks.y * remainingSlicesInLayer
-                        memoryNeededForRemainingRegions += alignedImageExtentBlockStridesInBytes[3] * remainingLayersInRegion;  // = blockByteSize * imageExtentInBlocks.x * imageExtentInBlocks.y * imageExtentInBlocks.z * remainingLayersInRegion
+                        if(currentBlockInRow == 0 && currentRowInSlice == 0 && currentSliceInLayer == 0 && remainingLayersInRegion > 0)
+                            memoryNeededForRemainingRegions += imageExtentBlockStridesInBytes[3] * remainingLayersInRegion;
+                        else if (currentBlockInRow == 0 && currentRowInSlice == 0 && currentSliceInLayer > 0)
+                        {
+                            memoryNeededForRemainingRegions += imageExtentBlockStridesInBytes[2] * remainingSlicesInLayer;
+                            if(remainingLayersInRegion > 1u)
+                                memoryNeededForRemainingRegions += imageExtentBlockStridesInBytes[3] * (remainingLayersInRegion - 1u);
+                        }
+                        else if (currentBlockInRow == 0 && currentRowInSlice > 0)
+                        {
+                            memoryNeededForRemainingRegions += imageExtentBlockStridesInBytes[1] * remainingRowsInSlice;
+                            if(remainingSlicesInLayer > 1u)
+                                memoryNeededForRemainingRegions += imageExtentBlockStridesInBytes[2] * (remainingSlicesInLayer - 1u);
+                            if(remainingLayersInRegion > 1u)
+                                memoryNeededForRemainingRegions += imageExtentBlockStridesInBytes[3] * (remainingLayersInRegion - 1u);
+                        }
+                        else if (currentBlockInRow > 0)
+                        {
+                            memoryNeededForRemainingRegions += imageExtentBlockStridesInBytes[0] * remainingBlocksInRow;
+                            if(remainingRowsInSlice > 1u)
+                                memoryNeededForRemainingRegions += imageExtentBlockStridesInBytes[1] * (remainingRowsInSlice - 1u);
+                            if(remainingSlicesInLayer > 1u)
+                                memoryNeededForRemainingRegions += imageExtentBlockStridesInBytes[2] * (remainingSlicesInLayer - 1u);
+                            if(remainingLayersInRegion > 1u)
+                                memoryNeededForRemainingRegions += imageExtentBlockStridesInBytes[3] * (remainingLayersInRegion - 1u);
+                        }
                     }
                     else
                     {
-                        memoryNeededForRemainingRegions += alignedImageExtentBlockStridesInBytes[3] * region.imageSubresource.layerCount; // = blockByteSize * imageExtentInBlocks.x * imageExtentInBlocks.y * imageExtentInBlocks.z * region.imageSubresource.layerCount
+                        memoryNeededForRemainingRegions += imageExtentBlockStridesInBytes[3] * region.imageSubresource.layerCount; // = blockByteSize * imageExtentInBlocks.x * imageExtentInBlocks.y * imageExtentInBlocks.z * region.imageSubresource.layerCount
                     }
                 }
 
@@ -625,7 +648,7 @@ class IUtilities : public core::IReferenceCounted
                                 uint64_t offsetInCPUBuffer = region.bufferOffset + core::dot(imageOffsetInCPUBuffer, regionBlockStridesInBytes)[0];
                                 uint64_t offsetInUploadBuffer = currentUploadBufferOffset;
                                 memcpy( reinterpret_cast<uint8_t*>(m_defaultUploadBuffer->getBufferPointer())+offsetInUploadBuffer,
-                                        reinterpret_cast<uint8_t*>(srcBuffer->getPointer())+offsetInCPUBuffer,
+                                        reinterpret_cast<uint8_t const*>(srcBuffer->getPointer())+offsetInCPUBuffer,
                                         blocksToUploadMemorySize);
 
                                 asset::IImage::SBufferCopy bufferCopy;
@@ -678,7 +701,7 @@ class IUtilities : public core::IReferenceCounted
                                         uint64_t offsetInCPUBuffer = region.bufferOffset + core::dot(imageOffsetInCPUBuffer, regionBlockStridesInBytes)[0];
                                         uint64_t offsetInUploadBuffer = currentUploadBufferOffset + y*eachRowNeededMemory;
                                         memcpy( reinterpret_cast<uint8_t*>(m_defaultUploadBuffer->getBufferPointer())+offsetInUploadBuffer,
-                                                reinterpret_cast<uint8_t*>(srcBuffer->getPointer())+offsetInCPUBuffer,
+                                                reinterpret_cast<uint8_t const*>(srcBuffer->getPointer())+offsetInCPUBuffer,
                                                 eachRowNeededMemory);
                                     }
                                 }
@@ -690,7 +713,7 @@ class IUtilities : public core::IReferenceCounted
                                     uint64_t offsetInCPUBuffer = region.bufferOffset + core::dot(imageOffsetInCPUBuffer, regionBlockStridesInBytes)[0];
                                     uint64_t offsetInUploadBuffer = currentUploadBufferOffset;
                                     memcpy( reinterpret_cast<uint8_t*>(m_defaultUploadBuffer->getBufferPointer())+offsetInUploadBuffer,
-                                            reinterpret_cast<uint8_t*>(srcBuffer->getPointer())+offsetInCPUBuffer,
+                                            reinterpret_cast<uint8_t const*>(srcBuffer->getPointer())+offsetInCPUBuffer,
                                             rowsToUploadMemorySize);
                                 }
 
@@ -754,7 +777,7 @@ class IUtilities : public core::IReferenceCounted
                                             uint64_t offsetInCPUBuffer = region.bufferOffset + core::dot(imageOffsetInCPUBuffer, regionBlockStridesInBytes)[0];
                                             uint64_t offsetInUploadBuffer = currentUploadBufferOffset + z * eachSliceNeededMemory + y * eachRowNeededMemory;
                                             memcpy( reinterpret_cast<uint8_t*>(m_defaultUploadBuffer->getBufferPointer())+offsetInUploadBuffer,
-                                                    reinterpret_cast<uint8_t*>(srcBuffer->getPointer())+offsetInCPUBuffer,
+                                                    reinterpret_cast<uint8_t const*>(srcBuffer->getPointer())+offsetInCPUBuffer,
                                                     eachRowNeededMemory);
                                         }
                                     }
@@ -769,7 +792,7 @@ class IUtilities : public core::IReferenceCounted
                                         uint64_t offsetInCPUBuffer = region.bufferOffset + core::dot(imageOffsetInCPUBuffer, regionBlockStridesInBytes)[0];
                                         uint64_t offsetInUploadBuffer = currentUploadBufferOffset + z * eachSliceNeededMemory;
                                         memcpy( reinterpret_cast<uint8_t*>(m_defaultUploadBuffer->getBufferPointer())+offsetInUploadBuffer,
-                                                reinterpret_cast<uint8_t*>(srcBuffer->getPointer())+offsetInCPUBuffer,
+                                                reinterpret_cast<uint8_t const*>(srcBuffer->getPointer())+offsetInCPUBuffer,
                                                 eachSliceNeededMemory);
                                     }
                                 }
@@ -782,7 +805,7 @@ class IUtilities : public core::IReferenceCounted
                                     uint64_t offsetInCPUBuffer = region.bufferOffset + core::dot(imageOffsetInCPUBuffer, regionBlockStridesInBytes)[0];
                                     uint64_t offsetInUploadBuffer = currentUploadBufferOffset;
                                     memcpy( reinterpret_cast<uint8_t*>(m_defaultUploadBuffer->getBufferPointer())+offsetInUploadBuffer,
-                                            reinterpret_cast<uint8_t*>(srcBuffer->getPointer())+offsetInCPUBuffer,
+                                            reinterpret_cast<uint8_t const*>(srcBuffer->getPointer())+offsetInCPUBuffer,
                                             slicesToUploadMemorySize);
                                 }
                                 
@@ -844,7 +867,7 @@ class IUtilities : public core::IReferenceCounted
                                                 uint64_t offsetInCPUBuffer = region.bufferOffset + core::dot(imageOffsetInCPUBuffer, regionBlockStridesInBytes)[0];
                                                 uint64_t offsetInUploadBuffer = currentUploadBufferOffset + layer * eachLayerNeededMemory + z * eachSliceNeededMemory + y * eachRowNeededMemory;
                                                 memcpy( reinterpret_cast<uint8_t*>(m_defaultUploadBuffer->getBufferPointer())+offsetInUploadBuffer,
-                                                        reinterpret_cast<uint8_t*>(srcBuffer->getPointer())+offsetInCPUBuffer,
+                                                        reinterpret_cast<uint8_t const*>(srcBuffer->getPointer())+offsetInCPUBuffer,
                                                         eachRowNeededMemory);
                                             }
                                         }
@@ -863,7 +886,7 @@ class IUtilities : public core::IReferenceCounted
                                             uint64_t offsetInCPUBuffer = region.bufferOffset + core::dot(imageOffsetInCPUBuffer, regionBlockStridesInBytes)[0];
                                             uint64_t offsetInUploadBuffer = currentUploadBufferOffset + layer * eachLayerNeededMemory + z * eachSliceNeededMemory;
                                             memcpy( reinterpret_cast<uint8_t*>(m_defaultUploadBuffer->getBufferPointer())+offsetInUploadBuffer,
-                                                    reinterpret_cast<uint8_t*>(srcBuffer->getPointer())+offsetInCPUBuffer,
+                                                    reinterpret_cast<uint8_t const*>(srcBuffer->getPointer())+offsetInCPUBuffer,
                                                     eachSliceNeededMemory);
                                         }
                                     }
@@ -877,7 +900,7 @@ class IUtilities : public core::IReferenceCounted
                                     uint64_t offsetInCPUBuffer = region.bufferOffset + core::dot(imageOffsetInCPUBuffer, regionBlockStridesInBytes)[0];
                                     uint64_t offsetInUploadBuffer = currentUploadBufferOffset;
                                     memcpy( reinterpret_cast<uint8_t*>(m_defaultUploadBuffer->getBufferPointer())+offsetInUploadBuffer,
-                                            reinterpret_cast<uint8_t*>(srcBuffer->getPointer())+offsetInCPUBuffer,
+                                            reinterpret_cast<uint8_t const*>(srcBuffer->getPointer())+offsetInCPUBuffer,
                                             layersToUploadMemorySize);
                                 }
                                 
@@ -960,7 +983,7 @@ class IUtilities : public core::IReferenceCounted
 
                     if(!regionsToCopy.empty())
                     {
-                        cmdbuf->copyBufferToImage(m_defaultUploadBuffer.get()->getBuffer(), dstImage.get(), dstImageLayout, regionsToCopy.size(), regionsToCopy.data());
+                        cmdbuf->copyBufferToImage(m_defaultUploadBuffer.get()->getBuffer(), dstImage, dstImageLayout, regionsToCopy.size(), regionsToCopy.data());
                     }
 
                     assert(anyTransferRecorded && "uploadBufferSize is not enough to support the smallest possible transferable units to image, may be caused if your queueFam's minImageTransferGranularity is large or equal to <0,0,0>.");
@@ -979,7 +1002,7 @@ class IUtilities : public core::IReferenceCounted
 
         inline void updateImageViaStagingBuffer(
             IGPUFence* fence, IGPUQueue* queue,
-            core::smart_refctd_ptr<asset::ICPUBuffer> srcBuffer, core::SRange<const asset::IImage::SBufferCopy> regions, core::smart_refctd_ptr<IGPUImage> dstImage, asset::E_IMAGE_LAYOUT dstImageLayout,
+            asset::ICPUBuffer const* srcBuffer, const core::SRange<const asset::IImage::SBufferCopy>& regions, video::IGPUImage* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout,
             uint32_t waitSemaphoreCount=0u, IGPUSemaphore* const* semaphoresToWaitBeforeOverwrite=nullptr, const asset::E_PIPELINE_STAGE_FLAGS* stagesToWaitForPerSemaphore=nullptr,
             const uint32_t signalSemaphoreCount=0u, IGPUSemaphore* const* semaphoresToSignal=nullptr
         )
@@ -1005,7 +1028,7 @@ class IUtilities : public core::IReferenceCounted
         //! WARNING: This function blocks and stalls the GPU!
         inline void updateImageViaStagingBuffer(
             IGPUQueue* queue,
-            core::smart_refctd_ptr<asset::ICPUBuffer> srcBuffer, core::SRange<const asset::IImage::SBufferCopy> regions, core::smart_refctd_ptr<IGPUImage> dstImage, asset::E_IMAGE_LAYOUT dstImageLayout,
+            asset::ICPUBuffer const* srcBuffer, const core::SRange<const asset::IImage::SBufferCopy>& regions, video::IGPUImage* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout,
             uint32_t waitSemaphoreCount=0u, IGPUSemaphore* const* semaphoresToWaitBeforeOverwrite=nullptr, const asset::E_PIPELINE_STAGE_FLAGS* stagesToWaitForPerSemaphore=nullptr,
             const uint32_t signalSemaphoreCount=0u, IGPUSemaphore* const* semaphoresToSignal=nullptr
         )
