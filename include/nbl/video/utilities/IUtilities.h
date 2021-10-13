@@ -661,9 +661,9 @@ class IUtilities : public core::IReferenceCounted
                                 bufferCopy.imageOffset.x = currentBlockInRow * texelBlockDim.x;
                                 bufferCopy.imageOffset.y = currentRowInSlice * texelBlockDim.y;
                                 bufferCopy.imageOffset.z = currentSliceInLayer * texelBlockDim.z;
-                                bufferCopy.imageExtent.width = uploadableBlocks * texelBlockDim.x;
-                                bufferCopy.imageExtent.height = 1u * texelBlockDim.y;
-                                bufferCopy.imageExtent.depth = 1u * texelBlockDim.z;
+                                bufferCopy.imageExtent.width    = core::min(uploadableBlocks * texelBlockDim.x, imageExtent.x);
+                                bufferCopy.imageExtent.height   = core::min(1u * texelBlockDim.y, imageExtent.y);
+                                bufferCopy.imageExtent.depth    = core::min(1u * texelBlockDim.z, imageExtent.z);
                                 bufferCopy.imageSubresource.layerCount = 1u;
                                 regionsToCopy.push_back(bufferCopy);
 
@@ -728,9 +728,9 @@ class IUtilities : public core::IReferenceCounted
                                 bufferCopy.imageOffset.x = 0u; assert(currentBlockInRow == 0);
                                 bufferCopy.imageOffset.y = currentRowInSlice * texelBlockDim.y;
                                 bufferCopy.imageOffset.z = currentSliceInLayer * texelBlockDim.z;
-                                bufferCopy.imageExtent.width = imageExtentInBlocks.x * texelBlockDim.x;
-                                bufferCopy.imageExtent.height = uploadableRows * texelBlockDim.y;
-                                bufferCopy.imageExtent.depth = 1u * texelBlockDim.z;
+                                bufferCopy.imageExtent.width    = imageExtent.x;
+                                bufferCopy.imageExtent.height   = core::min(uploadableRows * texelBlockDim.y, imageExtent.y);
+                                bufferCopy.imageExtent.depth    = core::min(1u * texelBlockDim.z, imageExtent.z);
                                 bufferCopy.imageSubresource.layerCount = 1u;
                                 regionsToCopy.push_back(bufferCopy);
 
@@ -819,9 +819,9 @@ class IUtilities : public core::IReferenceCounted
                                 bufferCopy.imageOffset.x = 0u; assert(currentBlockInRow == 0);
                                 bufferCopy.imageOffset.y = 0u; assert(currentRowInSlice == 0);
                                 bufferCopy.imageOffset.z = currentSliceInLayer * texelBlockDim.z;
-                                bufferCopy.imageExtent.width = imageExtentInBlocks.x * texelBlockDim.x;
-                                bufferCopy.imageExtent.height = imageExtentInBlocks.y * texelBlockDim.y;
-                                bufferCopy.imageExtent.depth = uploadableSlices * texelBlockDim.z;
+                                bufferCopy.imageExtent.width    = imageExtent.x;
+                                bufferCopy.imageExtent.height   = imageExtent.y;
+                                bufferCopy.imageExtent.depth    = core::min(uploadableSlices * texelBlockDim.z, imageExtent.z);
                                 bufferCopy.imageSubresource.layerCount = 1u;
                                 regionsToCopy.push_back(bufferCopy);
 
@@ -914,9 +914,9 @@ class IUtilities : public core::IReferenceCounted
                                 bufferCopy.imageOffset.x = 0u; assert(currentBlockInRow == 0);
                                 bufferCopy.imageOffset.y = 0u; assert(currentRowInSlice == 0);
                                 bufferCopy.imageOffset.z = 0u; assert(currentSliceInLayer == 0);
-                                bufferCopy.imageExtent.width = imageExtentInBlocks.x * texelBlockDim.x;
-                                bufferCopy.imageExtent.height = imageExtentInBlocks.y * texelBlockDim.y;
-                                bufferCopy.imageExtent.depth = imageExtentInBlocks.z * texelBlockDim.z;
+                                bufferCopy.imageExtent.width    = imageExtent.x;
+                                bufferCopy.imageExtent.height   = imageExtent.y;
+                                bufferCopy.imageExtent.depth    = imageExtent.z;
                                 bufferCopy.imageSubresource.layerCount = uploadableArrayLayers;
                                 regionsToCopy.push_back(bufferCopy);
 
