@@ -720,8 +720,14 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUMeshBuffer** _begin, 
     redirs_t pplnRedirs = eliminateDuplicatesAndGenRedirs(cpuPipelines);
 
     auto gpuBuffers = getGPUObjectsFromAssets<asset::ICPUBuffer>(cpuBuffers.data(), cpuBuffers.data()+cpuBuffers.size(), _params);
+    _params.waitForCreationToComplete(false); // Temporary Fixes until we figure what we're going to do with the whole cpu2gpu and fences and semaphore and submitting and all that.
+    _params.beginCommandBuffers();
     auto gpuSkeletons = getGPUObjectsFromAssets<asset::ICPUSkeleton>(cpuSkeletons.data(), cpuSkeletons.data()+cpuSkeletons.size(), _params);
+    _params.waitForCreationToComplete(false);
+    _params.beginCommandBuffers();
     auto gpuDescSets = getGPUObjectsFromAssets<asset::ICPUDescriptorSet>(cpuDescSets.data(), cpuDescSets.data()+cpuDescSets.size(), _params);
+    _params.waitForCreationToComplete(false);
+    _params.beginCommandBuffers();
     auto gpuPipelines = getGPUObjectsFromAssets<asset::ICPURenderpassIndependentPipeline>(cpuPipelines.data(), cpuPipelines.data()+cpuPipelines.size(), _params);
 
     size_t pplnIter = 0ull, dsIter = 0ull, skelIter = 0ull, bufIter = 0ull;
