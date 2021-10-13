@@ -182,14 +182,16 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
         inline bool setVertexBufferBinding(SBufferBinding<ICPUBuffer>&& bufferBinding, uint32_t bindingIndex)
         {
             assert(!isImmutable_debug());
-            bufferBinding.buffer->addUsageFlags(IBuffer::EUF_VERTEX_BUFFER_BIT);
+            if(bufferBinding.buffer)
+                bufferBinding.buffer->addUsageFlags(IBuffer::EUF_VERTEX_BUFFER_BIT);
             return base_t::setVertexBufferBinding(std::move(bufferBinding), bindingIndex);
         }
 
         inline void setIndexBufferBinding(SBufferBinding<ICPUBuffer>&& bufferBinding)
         {
             assert(!isImmutable_debug());
-            bufferBinding.buffer->addUsageFlags(IBuffer::EUF_INDEX_BUFFER_BIT);
+            if(bufferBinding.buffer)
+                bufferBinding.buffer->addUsageFlags(IBuffer::EUF_INDEX_BUFFER_BIT);
             return base_t::setIndexBufferBinding(std::move(bufferBinding));
         }
 
@@ -214,8 +216,10 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
         {
             assert(!isImmutable_debug());
             
-            _inverseBindPoseBufferBinding.buffer->addUsageFlags(IBuffer::EUF_STORAGE_BUFFER_BIT);
-            _jointAABBBufferBinding.buffer->addUsageFlags(IBuffer::EUF_STORAGE_BUFFER_BIT);
+            if(_inverseBindPoseBufferBinding.buffer)
+                _inverseBindPoseBufferBinding.buffer->addUsageFlags(IBuffer::EUF_STORAGE_BUFFER_BIT);
+            if(_jointAABBBufferBinding.buffer)
+                _jointAABBBufferBinding.buffer->addUsageFlags(IBuffer::EUF_STORAGE_BUFFER_BIT);
 
             return base_t::setSkin(std::move(_inverseBindPoseBufferBinding),std::move(_jointAABBBufferBinding),std::move(_skeleton),_maxJointsPerVx);
         }
