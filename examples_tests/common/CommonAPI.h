@@ -1202,11 +1202,10 @@ public:
 			}
 
 			bool presentModeSupported = (gpuInfo.availablePresentModes & requestedPresentMode) != 0;
-			assert(presentModeSupported);
 			if(!presentModeSupported) // fallback 
 			{
 				requestedPresentMode = nbl::video::ISurface::E_PRESENT_MODE::EPM_FIFO;
-				_NBL_DEBUG_BREAK_IF(true); // "Fallback: requested 'present mode' is not supported."
+				// _NBL_DEBUG_BREAK_IF(true); // "Fallback: requested 'present mode' is not supported."
 			}
 		}
 		else
