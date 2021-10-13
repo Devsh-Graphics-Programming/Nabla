@@ -79,18 +79,18 @@ struct nabla : IApplicationFramework::IUserData {
  * Initialize an EGL context for the current display.
  */
 static int engine_init_display(nabla* engine) {
-    //debug_break();
-	auto logger = engine->logger;
-	logger.log("Test here");
 
-    // initialize OpenGL ES and EGL
-    //engine->system = core::make_smart_refctd_ptr<system::ISystem>(nullptr);
-
-    video::COpenGLDebugCallback cb;
+#ifdef _NBL_PLATFORM_ANDROID_
+	engine->logger = system::logger_opt_smart_ptr(core::make_smart_refctd_ptr<CStdoutLoggerAndroid>(
+		core::bitflag(system::ILogger::ELL_DEBUG) | system::ILogger::ELL_ERROR | system::ILogger::ELL_INFO | system::ILogger::ELL_PERFORMANCE | system::ILogger::ELL_WARNING
+		));
+#endif
+    video::COpenGLDebugCallback cb(core::smart_refctd_ptr(engine->logger.get()));
     engine->api = video::COpenGLESConnection::create(core::smart_refctd_ptr<system::ISystem>(engine->system), 0, "android-sample", std::move(cb));
 
 #ifdef _NBL_PLATFORM_ANDROID_
     auto surface = video::CSurfaceGLAndroid::create<video::EAT_OPENGL_ES>(core::smart_refctd_ptr<video::COpenGLESConnection>((video::COpenGLESConnection*)engine->api.get()),core::smart_refctd_ptr<nbl::ui::IWindowAndroid>(static_cast<nbl::ui::CWindowAndroid*>(engine->window.get())));
+	((CommonAPI::CTemporaryEventCallback*)engine->window->getEventCallback())->setLogger(engine->logger);
 #else
 	auto windowManager = core::make_smart_refctd_ptr<nbl::ui::CWindowManagerWin32>();
 	auto windowCb = nbl::core::make_smart_refctd_ptr<nbl::ui::IWindow::IEventCallback>();
@@ -547,13 +547,9 @@ public:
 
 };
 
-class DemoEventCallback : public nbl::ui::IWindow::IEventCallback
-{
-
-};
 
 #ifdef _NBL_PLATFORM_ANDROID_
-NBL_ANDROID_MAIN_FUNC(SampleApp, nabla, DemoEventCallback)
+NBL_ANDROID_MAIN_FUNC(SampleApp, nabla, CommonAPI::CTemporaryEventCallback)
 #else
 NBL_COMMON_API_MAIN(SampleApp, nabla)
 #endif

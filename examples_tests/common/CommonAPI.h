@@ -220,13 +220,83 @@ public:
 			Channels<nbl::ui::IKeyboardEventChannel> m_keyboard;
 	};
 
-	class CommonAPIEventCallback : public nbl::ui::IWindow::IEventCallback
+	class ICommonAPIEventCallback : public nbl::ui::IWindow::IEventCallback
+	{
+	public:
+		virtual void setLogger(nbl::system::logger_opt_smart_ptr& logger) = 0;
+	};
+	class CTemporaryEventCallback : public ICommonAPIEventCallback
+	{
+		nbl::system::logger_opt_smart_ptr m_logger = nullptr;
+	public:
+		void setLogger(nbl::system::logger_opt_smart_ptr& logger) override
+		{
+			m_logger = logger;
+		}
+	private:
+		bool onWindowShown_impl() override
+		{
+			m_logger.log("Window Shown");
+			return true;
+		}
+		bool onWindowHidden_impl() override
+		{
+			m_logger.log("Window hidden");
+			return true;
+		}
+		bool onWindowMoved_impl(int32_t x, int32_t y) override
+		{
+			m_logger.log("Window window moved to { %d, %d }", nbl::system::ILogger::ELL_WARNING, x, y);
+			return true;
+		}
+		bool onWindowResized_impl(uint32_t w, uint32_t h) override
+		{
+			m_logger.log("Window resized to { %u, %u }", nbl::system::ILogger::ELL_DEBUG, w, h);
+			return true;
+		}
+		bool onWindowMinimized_impl() override
+		{
+			m_logger.log("Window minimized", nbl::system::ILogger::ELL_ERROR);
+			return true;
+		}
+		bool onWindowMaximized_impl() override
+		{
+			m_logger.log("Window maximized", nbl::system::ILogger::ELL_PERFORMANCE);
+			return true;
+		}
+		void onGainedMouseFocus_impl() override
+		{
+			m_logger.log("Window gained mouse focus", nbl::system::ILogger::ELL_INFO);
+		}
+		void onLostMouseFocus_impl() override
+		{
+			m_logger.log("Window lost mouse focus", nbl::system::ILogger::ELL_INFO);
+		}
+		void onGainedKeyboardFocus_impl() override
+		{
+			m_logger.log("Window gained keyboard focus", nbl::system::ILogger::ELL_INFO);
+		}
+		void onLostKeyboardFocus_impl() override
+		{
+			m_logger.log("Window lost keyboard focus", nbl::system::ILogger::ELL_INFO);
+		}
+
+		bool onWindowClosed_impl() override
+		{
+			m_logger.log("Window closed");
+			return true;
+		}
+	};
+	class CommonAPIEventCallback : public ICommonAPIEventCallback
 	{
 	public:
 		CommonAPIEventCallback(nbl::core::smart_refctd_ptr<InputSystem>&& inputSystem, nbl::system::logger_opt_smart_ptr&& logger) : m_inputSystem(std::move(inputSystem)), m_logger(std::move(logger)), m_gotWindowClosedMsg(false){}
 		
 		bool isWindowOpen() const {return !m_gotWindowClosedMsg;}
-
+		void setLogger(nbl::system::logger_opt_smart_ptr& logger) override
+		{
+			m_logger = logger;
+		}
 	private:
 		bool onWindowShown_impl() override
 		{
