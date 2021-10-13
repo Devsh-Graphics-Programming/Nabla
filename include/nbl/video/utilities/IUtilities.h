@@ -740,7 +740,7 @@ class IUtilities : public core::IReferenceCounted
                                 ret = true;
                             }
                             
-                            if(currentRowInSlice < imageExtentInBlocks.z)
+                            if(currentRowInSlice < imageExtentInBlocks.y)
                             {
                                 bool filledAnyBlocksInRow = tryFillRow();
                                 if(filledAnyBlocksInRow)
