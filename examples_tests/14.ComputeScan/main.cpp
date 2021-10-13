@@ -19,24 +19,24 @@ int main()
 	CommonAPI::SFeatureRequest<video::ILogicalDevice::E_FEATURE> requiredDeviceFeatures = {};
 	CommonAPI::SFeatureRequest< video::ILogicalDevice::E_FEATURE> optionalDeviceFeatures = {};
 
-	auto initOutput = CommonAPI::Init(video::EAT_OPENGL,"Subgroup Arithmetic Test", requiredInstanceFeatures, optionalInstanceFeatures, requiredDeviceFeatures, optionalDeviceFeatures);
+	auto initOutput = CommonAPI::Init(video::EAT_OPENGL, "Subgroup Arithmetic Test", requiredInstanceFeatures, optionalInstanceFeatures, requiredDeviceFeatures, optionalDeviceFeatures);
 	auto system = std::move(initOutput.system);
-    auto gl = std::move(initOutput.apiConnection);
-    auto logger = std::move(initOutput.logger);
-    auto gpuPhysicalDevice = std::move(initOutput.physicalDevice);
-    auto logicalDevice = std::move(initOutput.logicalDevice);
-    auto queues = std::move(initOutput.queues);
-    auto renderpass = std::move(initOutput.renderpass);
+	auto gl = std::move(initOutput.apiConnection);
+	auto logger = std::move(initOutput.logger);
+	auto gpuPhysicalDevice = std::move(initOutput.physicalDevice);
+	auto logicalDevice = std::move(initOutput.logicalDevice);
+	auto queues = std::move(initOutput.queues);
+	auto renderpass = std::move(initOutput.renderpass);
 	auto computeCommandPool = std::move(initOutput.commandPools[CommonAPI::InitOutput::EQT_COMPUTE]);
-    auto commandPool = computeCommandPool;
-    auto assetManager = std::move(initOutput.assetManager);
-    auto cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
-    auto utilities = std::move(initOutput.utilities);
+	auto commandPool = computeCommandPool;
+	auto assetManager = std::move(initOutput.assetManager);
+	auto cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
+	auto utilities = std::move(initOutput.utilities);
 
-    core::smart_refctd_ptr<IGPUFence> gpuTransferFence = nullptr;
-    core::smart_refctd_ptr<IGPUFence> gpuComputeFence = nullptr;
+	core::smart_refctd_ptr<IGPUFence> gpuTransferFence = nullptr;
+	core::smart_refctd_ptr<IGPUFence> gpuComputeFence = nullptr;
 
-    nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
+	nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
 
 	// Create (an almost) 128MB input buffer
 	constexpr auto in_size = 128u<<20u;

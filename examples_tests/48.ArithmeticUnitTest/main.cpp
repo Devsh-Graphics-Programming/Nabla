@@ -290,27 +290,29 @@ bool runTest(
 
 int main()
 {
-	auto initOutput = CommonAPI::Init(video::EAT_OPENGL,"Subgroup Arithmetic Test");
+	CommonAPI::SFeatureRequest<video::IAPIConnection::E_FEATURE> requiredInstanceFeatures = {};
+	CommonAPI::SFeatureRequest<video::IAPIConnection::E_FEATURE> optionalInstanceFeatures = {};
+	CommonAPI::SFeatureRequest<video::ILogicalDevice::E_FEATURE> requiredDeviceFeatures = {};
+	CommonAPI::SFeatureRequest< video::ILogicalDevice::E_FEATURE> optionalDeviceFeatures = {};
+
+	auto initOutput = CommonAPI::Init(video::EAT_OPENGL, "Subgroup Arithmetic Test", requiredInstanceFeatures, optionalInstanceFeatures, requiredDeviceFeatures, optionalDeviceFeatures);
 	auto system = std::move(initOutput.system);
-    auto gl = std::move(initOutput.apiConnection);
-    auto logger = std::move(initOutput.logger);
-    auto gpuPhysicalDevice = std::move(initOutput.physicalDevice);
-    auto logicalDevice = std::move(initOutput.logicalDevice);
-    auto queues = std::move(initOutput.queues);
-    auto renderpass = std::move(initOutput.renderpass);
-    auto commandPool = std::move(initOutput.commandPool);
-    auto assetManager = std::move(initOutput.assetManager);
-    auto cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
-    auto utilities = std::move(initOutput.utilities);
+	auto gl = std::move(initOutput.apiConnection);
+	auto logger = std::move(initOutput.logger);
+	auto gpuPhysicalDevice = std::move(initOutput.physicalDevice);
+	auto logicalDevice = std::move(initOutput.logicalDevice);
+	auto queues = std::move(initOutput.queues);
+	auto renderpass = std::move(initOutput.renderpass);
+	auto computeCommandPool = std::move(initOutput.commandPools[CommonAPI::InitOutput::EQT_COMPUTE]);
+	auto commandPool = computeCommandPool;
+	auto assetManager = std::move(initOutput.assetManager);
+	auto cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
+	auto utilities = std::move(initOutput.utilities);
 
-    core::smart_refctd_ptr<IGPUFence> gpuTransferFence = nullptr;
-    core::smart_refctd_ptr<IGPUFence> gpuComputeFence = nullptr;
+	core::smart_refctd_ptr<IGPUFence> gpuTransferFence = nullptr;
+	core::smart_refctd_ptr<IGPUFence> gpuComputeFence = nullptr;
 
-    nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
-    {
-        cpu2gpuParams.perQueue[IGPUObjectFromAssetConverter::EQU_TRANSFER].fence = &gpuTransferFence;
-        cpu2gpuParams.perQueue[IGPUObjectFromAssetConverter::EQU_COMPUTE].fence = &gpuComputeFence;
-    }
+	nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
 
 	uint32_t* inputData = new uint32_t[BUFFER_DWORD_COUNT];
 	{
@@ -348,11 +350,11 @@ int main()
 
 	IGPUDescriptorSetLayout::SBinding binding[totalBufferCount];
 	for (uint32_t i=0u; i<totalBufferCount; i++)
-		binding[i] = { i,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr };
+		binding[i] = { i,EDT_STORAGE_BUFFER,1u,IShader::ESS_COMPUTE,nullptr };
 	auto gpuDSLayout = logicalDevice->createGPUDescriptorSetLayout(binding,binding+totalBufferCount);
 
 	constexpr uint32_t pushconstantSize = 8u*totalBufferCount;
-	SPushConstantRange pcRange[1] = { IGPUSpecializedShader::ESS_COMPUTE,0u,pushconstantSize };
+	SPushConstantRange pcRange[1] = { IShader::ESS_COMPUTE,0u,pushconstantSize };
 	auto pipelineLayout = logicalDevice->createGPUPipelineLayout(pcRange,pcRange+pushconstantSize,core::smart_refctd_ptr(gpuDSLayout));
 
 	auto descPool = logicalDevice->createDescriptorPoolForDSLayouts(IDescriptorPool::ECF_NONE,&gpuDSLayout.get(),&gpuDSLayout.get()+1u);
