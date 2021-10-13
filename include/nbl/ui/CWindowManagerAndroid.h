@@ -21,7 +21,7 @@ namespace nbl::ui
 		~CWindowManagerAndroid() = default;
 		core::smart_refctd_ptr<IWindow> createWindow(IWindow::SCreationParams&& creationParams) override final
 		{
-			return core::make_smart_refctd_ptr<nbl::ui::CWindowAndroid>(m_app->window);
+			return core::make_smart_refctd_ptr<nbl::ui::CWindowAndroid>(std::move(creationParams), m_app->window);
 		}
         void destroyWindow(IWindow* wnd) override final
         { 

@@ -14,7 +14,7 @@ namespace nbl::ui
 class CWindowAndroid : public IWindowAndroid
 {
 public:
-    explicit CWindowAndroid(native_handle_t anw) : m_native(anw), IWindowAndroid(SCreationParams{})
+    explicit CWindowAndroid(SCreationParams&& params, native_handle_t anw) : m_native(anw), IWindowAndroid(std::move(params))
     {
         m_width = ANativeWindow_getWidth(anw);
         m_height = ANativeWindow_getHeight(anw);

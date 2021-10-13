@@ -28,7 +28,9 @@ namespace nbl::ui
 			{
 			case APP_CMD_INIT_WINDOW:
 			{
-				usrData->setWindow(core::make_smart_refctd_ptr<nbl::ui::CWindowAndroid>(app->window));
+				IWindow::SCreationParams params;
+				params.callback = core::smart_refctd_ptr(ctx->callback);
+				usrData->setWindow(ctx->wndManager->createWindow(std::move(params)));
 				break;
 			}
 			case APP_CMD_TERM_WINDOW:
