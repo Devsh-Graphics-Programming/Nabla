@@ -260,7 +260,7 @@ bool runTest(
 		memoryBarrier[i].size = kBufferSize;
 	}
 	cmdbuf->pipelineBarrier(
-		asset::EPSF_COMPUTE_SHADER_BIT,asset::EPSF_COMPUTE_SHADER_BIT|asset::EPSF_HOST_BIT,asset::EDF_NONE,
+		asset::EPSF_COMPUTE_SHADER_BIT,static_cast<asset::E_PIPELINE_STAGE_FLAGS>(asset::EPSF_COMPUTE_SHADER_BIT|asset::EPSF_HOST_BIT),asset::EDF_NONE,
 		0u,nullptr,outputBufferCount,memoryBarrier,0u,nullptr
 	);
 	cmdbuf->end();
@@ -327,14 +327,18 @@ int main()
 	core::smart_refctd_ptr<IGPUBuffer> buffers[outputBufferCount];
 	for (auto i=0; i<outputBufferCount; i++)
 	{
+		IGPUBuffer::SCreationParams params;
+		params.queueFamilyIndexCount = 0;
+		params.queueFamilyIndices = nullptr;
+		params.sharingMode = ESM_CONCURRENT;
+		params.usage = IGPUBuffer::EUF_STORAGE_BUFFER_BIT;
 		IDriverMemoryBacked::SDriverMemoryRequirements reqs;
 		reqs.vulkanReqs.memoryTypeBits = ~0u;
 		reqs.vulkanReqs.alignment = 256u;
 		reqs.vulkanReqs.size = kBufferSize;
-		reqs.sharingMode = ESM_CONCURRENT;
 		reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
 		reqs.mappingCapability = IDriverMemoryAllocation::EMCAF_READ;
-		buffers[i] = logicalDevice->createGPUBufferOnDedMem(reqs);
+		buffers[i] = logicalDevice->createGPUBufferOnDedMem(params,reqs);
 		IDriverMemoryAllocation::MappedMemoryRange mem;
 		mem.memory = buffers[i]->getBoundMemory();
 		mem.offset = 0u;
@@ -405,6 +409,7 @@ int main()
 	auto cmdPool = logicalDevice->createCommandPool(computeQueue->getFamilyIndex(),IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
 	core::smart_refctd_ptr<IGPUCommandBuffer> cmdbuf;
 	logicalDevice->createCommandBuffers(cmdPool.get(),IGPUCommandBuffer::EL_PRIMARY,1u,&cmdbuf);
+	computeQueue->startCapture();
 	for (uint32_t workgroupSize=1u; workgroupSize<=1024u; workgroupSize++)
 	{
 		core::smart_refctd_ptr<IGPUComputePipeline> pipelines[kTestTypeCount];
@@ -412,6 +417,7 @@ int main()
 			pipelines[i] = logicalDevice->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(pipelineLayout),std::move(getGPUShader(shaderGLSL[i].get(),workgroupSize)));
 
 		bool passed = true;
+
 
 		const video::IGPUDescriptorSet* ds = descriptorSet.get();
 		passed = runTest<emulatedSubgroupReduction>(logicalDevice.get(),computeQueue,fence.get(),cmdbuf.get(),pipelines[0u].get(),descriptorSet.get(),inputData,workgroupSize,buffers,logger.get())&&passed;
@@ -429,6 +435,7 @@ int main()
 			logger->log("Failed test #%d",system::ILogger::ELL_ERROR,workgroupSize);
 		}
 	}
+	computeQueue->endCapture();
 	logger->log("==========Result==========",system::ILogger::ELL_INFO);
 	logger->log("Fail Count: %d",system::ILogger::ELL_INFO,totalFailCount);
 	delete [] inputData;
