@@ -19,6 +19,8 @@ public:
 
     inline VkDescriptorSetLayout getInternalObject() const { return m_dsLayout; }
 
+    void setObjectDebugName(const char* label) const override;
+
 private:
     VkDescriptorSetLayout m_dsLayout;
 };

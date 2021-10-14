@@ -12,8 +12,8 @@ namespace nbl::video
 class CVulkanPhysicalDevice final : public IPhysicalDevice
 {
 public:
-    CVulkanPhysicalDevice(core::smart_refctd_ptr<system::ISystem>&& sys, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc, IAPIConnection* api, VkPhysicalDevice vk_physicalDevice)
-        : IPhysicalDevice(std::move(sys),std::move(glslc)), m_api(api), m_vkPhysicalDevice(vk_physicalDevice)
+    CVulkanPhysicalDevice(core::smart_refctd_ptr<system::ISystem>&& sys, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc, IAPIConnection* api, renderdoc_api_t* rdoc, VkPhysicalDevice vk_physicalDevice, VkInstance vk_instance)
+        : IPhysicalDevice(std::move(sys),std::move(glslc)), m_api(api), m_rdoc_api(rdoc), m_vkPhysicalDevice(vk_physicalDevice), m_vkInstance(vk_instance)
     {
         // Get Supported Extensions
         {
@@ -305,7 +305,7 @@ protected:
         VkDevice vk_device = VK_NULL_HANDLE;
         if (vkCreateDevice(m_vkPhysicalDevice, &vk_createInfo, nullptr, &vk_device) == VK_SUCCESS)
         {
-            return core::make_smart_refctd_ptr<CVulkanLogicalDevice>(core::smart_refctd_ptr<IAPIConnection>(m_api),this,vk_device,params);
+            return core::make_smart_refctd_ptr<CVulkanLogicalDevice>(core::smart_refctd_ptr<IAPIConnection>(m_api),m_rdoc_api,this,vk_device,m_vkInstance,params);
         }
         else
         {
@@ -320,6 +320,8 @@ protected:
 
 private:
     IAPIConnection* m_api; // purposefully not refcounted to avoid circular ref
+    renderdoc_api_t* m_rdoc_api;
+    VkInstance m_vkInstance;
     VkPhysicalDevice m_vkPhysicalDevice;
     core::unordered_set<std::string> m_availableFeatureSet;
 };

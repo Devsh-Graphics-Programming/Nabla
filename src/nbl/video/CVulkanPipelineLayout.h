@@ -27,6 +27,8 @@ public:
 
     inline VkPipelineLayout getInternalObject() const { return m_layout; }
 
+    void setObjectDebugName(const char* label) const override;
+
 private:
     VkPipelineLayout m_layout;
 

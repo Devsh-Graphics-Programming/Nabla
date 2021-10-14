@@ -22,6 +22,8 @@ public:
 
     VkRenderPass getInternalObject() const { return m_renderpass; }
 
+    void setObjectDebugName(const char* label) const override;
+
 private:
     VkRenderPass m_renderpass;
 };

@@ -21,6 +21,8 @@ public:
 
     VkSemaphore getInternalObject() const { return m_semaphore; }
 
+    void setObjectDebugName(const char* label) const override;
+
 private:
     VkSemaphore m_semaphore;
 };

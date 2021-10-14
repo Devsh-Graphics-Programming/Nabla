@@ -39,7 +39,7 @@ class CVulkanCommandBuffer;
 class CVulkanLogicalDevice final : public ILogicalDevice
 {
 public:
-    CVulkanLogicalDevice(core::smart_refctd_ptr<IAPIConnection>&& api, IPhysicalDevice* physicalDevice, VkDevice vkdev, const SCreationParams& params)
+    CVulkanLogicalDevice(core::smart_refctd_ptr<IAPIConnection>&& api, renderdoc_api_t* rdoc, IPhysicalDevice* physicalDevice, VkDevice vkdev, VkInstance vkinst, const SCreationParams& params)
         : ILogicalDevice(std::move(api),physicalDevice,params), m_vkdev(vkdev), m_devf(vkdev)
     {
         // create actual queue objects
@@ -58,7 +58,7 @@ public:
                 m_devf.vk.vkGetDeviceQueue(m_vkdev, famIx, j, &q);
                         
                 const uint32_t ix = offset + j;
-                (*m_queues)[ix] = new CThreadSafeGPUQueueAdapter(this, new CVulkanQueue(this, q, famIx, flags, priority));
+                (*m_queues)[ix] = new CThreadSafeGPUQueueAdapter(this, new CVulkanQueue(this, rdoc, vkinst, q, famIx, flags, priority));
             }
         }
     }
@@ -585,7 +585,7 @@ public:
 
             std::string glsl(begin, end);
 
-            auto logger = m_physicalDevice->getDebugCallback()->getLogger();
+            auto logger = (m_physicalDevice->getDebugCallback()) ? m_physicalDevice->getDebugCallback()->getLogger() : nullptr;
 
             core::smart_refctd_ptr<asset::ICPUShader> glslShader_woIncludes =
                 m_physicalDevice->getGLSLCompiler()->resolveIncludeDirectives(glsl.c_str(),

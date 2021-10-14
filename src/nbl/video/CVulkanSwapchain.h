@@ -25,6 +25,8 @@ public:
     inline VkSwapchainKHR getInternalObject() const { return m_vkSwapchainKHR; }
 
     E_ACQUIRE_IMAGE_RESULT acquireNextImage(uint64_t timeout, IGPUSemaphore* semaphore, IGPUFence* fence, uint32_t* out_imgIx) override;
+	
+    void setObjectDebugName(const char* label) const override;
 
 // Todo(achal): Remove
 // private:

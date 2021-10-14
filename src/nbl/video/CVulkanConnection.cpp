@@ -153,13 +153,12 @@ namespace nbl::video
                 continue;
         }
 
-        const size_t totalFeatureCount = logger ? selectedFeatureSet.size() + 1ull : selectedFeatureSet.size();
+        const size_t totalFeatureCount = selectedFeatureSet.size() + 1ull;
         core::vector<const char*> selectedFeatures(totalFeatureCount);
         uint32_t k = 0u;
         for (const auto& feature : selectedFeatureSet)
             selectedFeatures[k++] = feature.c_str();
-        if (logger)
-            selectedFeatures[k++] = VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
+        selectedFeatures[k++] = VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
 
         std::unique_ptr<CVulkanDebugCallback> debugCallback = nullptr;
         VkDebugUtilsMessengerCreateInfoEXT debugMessengerCreateInfo = { VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT };
@@ -232,7 +231,7 @@ namespace nbl::video
             physicalDevices.emplace_back(std::make_unique<CVulkanPhysicalDevice>(
                 core::smart_refctd_ptr(sys),
                 core::make_smart_refctd_ptr<asset::IGLSLCompiler>(sys.get()),
-                api.get(), vk_physicalDevices[i]
+                api.get(), api->m_rdoc_api, vk_physicalDevices[i], vk_instance
                 ));
         }
 

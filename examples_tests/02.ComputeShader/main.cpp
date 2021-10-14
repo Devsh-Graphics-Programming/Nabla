@@ -35,15 +35,18 @@ int main()
 	const video::ISurface::SFormat surfaceFormat(asset::EF_B8G8R8A8_UNORM, asset::ECP_COUNT, asset::EOTF_UNKNOWN);
 
 	// This creates FBOs with swapchain images but I don't really need them
-	auto initResult = CommonAPI::Init<WIN_W, WIN_H, SWAPCHAIN_IMAGE_COUNT>(
+	auto initResult = CommonAPI::Init(
 		video::EAT_OPENGL,
 		"02.ComputeShader",
 		requiredInstanceFeatures,
 		optionalInstanceFeatures,
 		requiredDeviceFeatures,
 		optionalDeviceFeatures,
+		WIN_W, WIN_H, SWAPCHAIN_IMAGE_COUNT,
 		swapchainImageUsage,
 		surfaceFormat);
+
+	auto computeCommandPool = std::move(initResult.commandPools[CommonAPI::InitOutput::EQT_COMPUTE]);
 
 #if 0
 	// Todo(achal): Pending bug investigation, when both API connections are created at
@@ -93,7 +96,7 @@ int main()
 	assert(specializedShader);
 
 	core::smart_refctd_ptr<video::IGPUCommandBuffer> commandBuffers[MAX_SWAPCHAIN_IMAGE_COUNT];
-	initResult.logicalDevice->createCommandBuffers(initResult.commandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY,
+	initResult.logicalDevice->createCommandBuffers(computeCommandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY,
 		swapchainImageCount, commandBuffers);
 
 	const uint32_t bindingCount = 2u;
@@ -213,15 +216,6 @@ int main()
 		inImage_CPU->setBufferAndRegions(core::smart_refctd_ptr<asset::ICPUBuffer>(imagePixels), imageRegions);
 	}
 #endif	
-
-	core::smart_refctd_ptr<video::IGPUCommandBuffer> transferCmdBuffer;
-	core::smart_refctd_ptr<video::IGPUCommandBuffer> computeCmdBuffer;
-
-	initResult.logicalDevice->createCommandBuffers(initResult.commandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY, 1u, &transferCmdBuffer);
-	initResult.logicalDevice->createCommandBuffers(initResult.commandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY, 1u, &computeCmdBuffer);
-
-	initResult.cpu2gpuParams.perQueue[video::IGPUObjectFromAssetConverter::EQU_TRANSFER].cmdbuf = transferCmdBuffer;
-	initResult.cpu2gpuParams.perQueue[video::IGPUObjectFromAssetConverter::EQU_COMPUTE].cmdbuf = computeCmdBuffer;
 
 	initResult.cpu2gpuParams.beginCommandBuffers();
 	auto inImage = CPU2GPU.getGPUObjectsFromAssets(&inImage_CPU, &inImage_CPU + 1, initResult.cpu2gpuParams);
@@ -381,7 +375,7 @@ int main()
 		CommonAPI::Present(
 			initResult.logicalDevice.get(),
 			initResult.swapchain.get(),
-			initResult.queues[CommonAPI::InitOutput<MAX_SWAPCHAIN_IMAGE_COUNT>::EQT_COMPUTE],
+			initResult.queues[CommonAPI::InitOutput::EQT_COMPUTE],
 			releaseSemaphore_frame, imageIndex);
 
 		currentFrameIndex = (currentFrameIndex + 1) % FRAMES_IN_FLIGHT;

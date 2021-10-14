@@ -82,9 +82,9 @@ class IUtilities : public core::IReferenceCounted
             {
                 const auto reqFormatFeature = asset::EFF_TRANSFER_DST_BIT;
                 const auto& formatProps = srcBuffer->getOriginDevice()->getPhysicalDevice()->getFormatProperties(params.format);
-                if ((params.tiling == asset::IImage::ET_OPTIMAL) && (formatProps.optimalTilingFeatures & reqFormatFeature).value)
+                if ((params.tiling == asset::IImage::ET_OPTIMAL) && (formatProps.optimalTilingFeatures & reqFormatFeature).value == 0)
                     return nullptr;
-                if ((params.tiling == asset::IImage::ET_LINEAR) && (formatProps.linearTilingFeatures & reqFormatFeature).value)
+                if ((params.tiling == asset::IImage::ET_LINEAR) && (formatProps.linearTilingFeatures & reqFormatFeature).value == 0)
                     return nullptr;
             }
 
@@ -183,9 +183,9 @@ class IUtilities : public core::IReferenceCounted
                 {
                     const auto& formatProps = physicalDevice->getFormatProperties(params.format);
 
-                    if ((params.tiling == asset::IImage::ET_OPTIMAL) && (formatProps.optimalTilingFeatures & reqFormatFeature).value)
+                    if ((params.tiling == asset::IImage::ET_OPTIMAL) && (formatProps.optimalTilingFeatures & reqFormatFeature).value == 0)
                         return false;
-                    if ((params.tiling == asset::IImage::ET_LINEAR) && (formatProps.linearTilingFeatures & reqFormatFeature).value)
+                    if ((params.tiling == asset::IImage::ET_LINEAR) && (formatProps.linearTilingFeatures & reqFormatFeature).value == 0)
                         return false;
 
                     return true;

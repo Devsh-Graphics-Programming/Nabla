@@ -22,6 +22,8 @@ public:
 
     inline VkFramebuffer getInternalObject() const { return m_vkfbo; }
 
+    void setObjectDebugName(const char* label) const override;
+
 private:
     VkFramebuffer m_vkfbo;
 };

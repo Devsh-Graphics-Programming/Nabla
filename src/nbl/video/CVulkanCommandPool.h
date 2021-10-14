@@ -74,6 +74,8 @@ public:
     VkCommandPool getInternalObject() const { return m_vkCommandPool; }
 
     ~CVulkanCommandPool();
+	
+    void setObjectDebugName(const char* label) const override;
 
 private:
     VkCommandPool m_vkCommandPool;

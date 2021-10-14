@@ -36,7 +36,7 @@ void main()
 	vec4 lcpos = vPos;
 	lcpos.xyz *= vCol.a; // color's alpha has encoded scale
 	vec4 worldPos = vec4(dot(tpose[0], lcpos), dot(tpose[1], lcpos), dot(tpose[2], lcpos), 1.0);
-    vec4 pos = PushConstants.viewProj*worldPos;
+	vec4 pos = PushConstants.viewProj*worldPos;
 	gl_Position = pos;
 	Color = vCol.xyz;
 
@@ -56,18 +56,18 @@ layout(location = 0) out vec4 pixelColor;
 
 void main()
 {
-    vec3 normal = normalize(Normal);
+	vec3 normal = normalize(Normal);
 
-    float ambient = 0.2;
-    float diffuse = 0.8;
-    float cos_theta_term = max(dot(normal,vec3(3.0,5.0,-4.0)),0.0);
+	float ambient = 0.2;
+	float diffuse = 0.8;
+	float cos_theta_term = max(dot(normal,vec3(3.0,5.0,-4.0)),0.0);
 
-    float fresnel = 0.0; //not going to implement yet, not important
-    float specular = 0.0;///pow(max(dot(halfVector,normal),0.0),shininess);
+	float fresnel = 0.0; //not going to implement yet, not important
+	float specular = 0.0;///pow(max(dot(halfVector,normal),0.0),shininess);
 
-    const float sunPower = 3.14156*0.3;
+	const float sunPower = 3.14156*0.3;
 
-    pixelColor = vec4(Color, 1)*sunPower*(ambient+mix(diffuse,specular,fresnel)*cos_theta_term/3.14159);
+	pixelColor = vec4(Color, 1)*sunPower*(ambient+mix(diffuse,specular,fresnel)*cos_theta_term/3.14159);
 }
 )===";
 
@@ -135,33 +135,63 @@ int main()
 {
 	constexpr uint32_t WIN_W = 1280;
 	constexpr uint32_t WIN_H = 720;
-    constexpr uint32_t FBO_COUNT = 1u;
+	constexpr uint32_t FBO_COUNT = 1u;
 	constexpr uint32_t FRAMES_IN_FLIGHT = 5u;
 	static_assert(FRAMES_IN_FLIGHT>FBO_COUNT);
+	
+	CommonAPI::SFeatureRequest<video::IAPIConnection::E_FEATURE> requiredInstanceFeatures = {};
+	requiredInstanceFeatures.count = 1u;
+	video::IAPIConnection::E_FEATURE requiredFeatures_Instance[] = { video::IAPIConnection::EF_SURFACE };
+	requiredInstanceFeatures.features = requiredFeatures_Instance;
 
-	auto initOutput = CommonAPI::Init<WIN_W, WIN_H, FBO_COUNT>(video::EAT_OPENGL, "Solar System Transformations", asset::EF_D32_SFLOAT);
+	CommonAPI::SFeatureRequest<video::IAPIConnection::E_FEATURE> optionalInstanceFeatures = {};
+
+	CommonAPI::SFeatureRequest<video::ILogicalDevice::E_FEATURE> requiredDeviceFeatures = {};
+	requiredDeviceFeatures.count = 1u;
+	video::ILogicalDevice::E_FEATURE requiredFeatures_Device[] = { video::ILogicalDevice::EF_SWAPCHAIN };
+	requiredDeviceFeatures.features = requiredFeatures_Device;
+
+	CommonAPI::SFeatureRequest< video::ILogicalDevice::E_FEATURE> optionalDeviceFeatures = {};
+
+	const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT);
+	const video::ISurface::SFormat surfaceFormat(asset::EF_B8G8R8A8_SRGB, asset::ECP_COUNT, asset::EOTF_UNKNOWN);
+
+	auto initOutput = CommonAPI::Init(
+		video::EAT_OPENGL,
+		"Solar System Transformations",
+		requiredInstanceFeatures,
+		optionalInstanceFeatures,
+		requiredDeviceFeatures,
+		optionalDeviceFeatures,
+		WIN_W, WIN_H, FBO_COUNT,
+		swapchainImageUsage,
+		surfaceFormat,
+		asset::EF_D32_SFLOAT);
+
 	auto system = std::move(initOutput.system);
-    auto window = std::move(initOutput.window);
-    auto windowCb = std::move(initOutput.windowCb);
-    auto gl = std::move(initOutput.apiConnection);
-    auto surface = std::move(initOutput.surface);
-    auto gpuPhysicalDevice = std::move(initOutput.physicalDevice);
-    auto device = std::move(initOutput.logicalDevice);
-    auto queues = std::move(initOutput.queues);
-    auto graphicsQueue = queues[decltype(initOutput)::EQT_GRAPHICS];
-    auto transferUpQueue = queues[decltype(initOutput)::EQT_TRANSFER_UP];
-    auto swapchain = std::move(initOutput.swapchain);
-    auto renderpass = std::move(initOutput.renderpass);
-    auto fbo = std::move(initOutput.fbo[0]);
-    auto commandPool = std::move(initOutput.commandPool);
-    auto assetManager = std::move(initOutput.assetManager);
-    auto cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
+	auto window = std::move(initOutput.window);
+	auto windowCb = std::move(initOutput.windowCb);
+	auto gl = std::move(initOutput.apiConnection);
+	auto surface = std::move(initOutput.surface);
+	auto gpuPhysicalDevice = std::move(initOutput.physicalDevice);
+	auto device = std::move(initOutput.logicalDevice);
+	auto queues = std::move(initOutput.queues);
+	auto graphicsQueue = queues[decltype(initOutput)::EQT_GRAPHICS];
+	auto transferUpQueue = queues[decltype(initOutput)::EQT_TRANSFER_UP];
+	auto swapchain = std::move(initOutput.swapchain);
+	auto renderpass = std::move(initOutput.renderpass);
+	auto fbo = std::move(initOutput.fbo[0]);
+	auto graphicsCommandPool = std::move(initOutput.commandPools[CommonAPI::InitOutput::EQT_GRAPHICS]);
+	auto computeCommandPool = std::move(initOutput.commandPools[CommonAPI::InitOutput::EQT_COMPUTE]);
+    auto commandPool = graphicsCommandPool;
+	auto assetManager = std::move(initOutput.assetManager);
+	auto cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
 	auto utils = std::move(initOutput.utilities);
 
-    nbl::video::IGPUObjectFromAssetConverter CPU2GPU;
+	nbl::video::IGPUObjectFromAssetConverter CPU2GPU;
 	
-    core::smart_refctd_ptr<nbl::video::IGPUCommandBuffer> cmdbuf[FRAMES_IN_FLIGHT];
-    device->createCommandBuffers(commandPool.get(), nbl::video::IGPUCommandBuffer::EL_PRIMARY, FRAMES_IN_FLIGHT, cmdbuf);
+	core::smart_refctd_ptr<nbl::video::IGPUCommandBuffer> cmdbuf[FRAMES_IN_FLIGHT];
+	device->createCommandBuffers(commandPool.get(), nbl::video::IGPUCommandBuffer::EL_PRIMARY, FRAMES_IN_FLIGHT, cmdbuf);
 
 	constexpr uint32_t ObjectCount = 11u;
 	constexpr uint32_t PropertyCount = 5u;
@@ -459,18 +489,18 @@ int main()
 
 	// Creating CPU Shaders 
 
-	auto createCPUSpecializedShaderFromSource = [=](const char* source, asset::ISpecializedShader::E_SHADER_STAGE stage) -> core::smart_refctd_ptr<asset::ICPUSpecializedShader>
+	auto createCPUSpecializedShaderFromSource = [=](const char* source, asset::IShader::E_SHADER_STAGE stage) -> core::smart_refctd_ptr<asset::ICPUSpecializedShader>
 	{
 		auto unspec = assetManager->getGLSLCompiler()->createSPIRVFromGLSL(source, stage, "main", "runtimeID", nullptr, true, nullptr, initOutput.logger.get());
 		if (!unspec)
 			return nullptr;
 
-		asset::ISpecializedShader::SInfo info(nullptr, nullptr, "main", stage, "");
+		asset::ISpecializedShader::SInfo info(nullptr, nullptr, "main");
 		return core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspec), std::move(info));
 	};
 
-	auto vs = createCPUSpecializedShaderFromSource(vertexSource,asset::ISpecializedShader::ESS_VERTEX);
-	auto fs = createCPUSpecializedShaderFromSource(fragmentSource,asset::ISpecializedShader::ESS_FRAGMENT);
+	auto vs = createCPUSpecializedShaderFromSource(vertexSource,asset::IShader::ESS_VERTEX);
+	auto fs = createCPUSpecializedShaderFromSource(fragmentSource,asset::IShader::ESS_FRAGMENT);
 	asset::ICPUSpecializedShader* shaders[2]{ vs.get(), fs.get() };
 	
 	auto cpuMeshPlanets = createMeshBufferFromGeomCreatorReturnType(sphereGeom, assetManager.get(), shaders, shaders+2);
@@ -481,7 +511,7 @@ int main()
 		bnd.binding = 0u;
 		bnd.count = 1u;
 		bnd.samplers = nullptr;
-		bnd.stageFlags = video::IGPUSpecializedShader::ESS_VERTEX;
+		bnd.stageFlags = asset::IShader::ESS_VERTEX;
 		bnd.type = asset::EDT_STORAGE_BUFFER;
 
 		cpu_gfxDsl0 = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&bnd,&bnd+1);
@@ -541,7 +571,7 @@ int main()
 			vtxinputParams.enabledBindingFlags |= 0x1u << ColorBindingNum;
 		}
 
-		asset::SPushConstantRange range[1] = { asset::ISpecializedShader::ESS_VERTEX,0u,sizeof(core::matrix4SIMD) };
+		asset::SPushConstantRange range[1] = { asset::IShader::ESS_VERTEX,0u,sizeof(core::matrix4SIMD) };
 		auto gfxLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(range,range+1u,core::smart_refctd_ptr(cpu_gfxDsl0));
 		pipeline->setLayout(core::smart_refctd_ptr(gfxLayout));
 
@@ -550,11 +580,12 @@ int main()
 		asset::SBufferBinding<video::IGPUBuffer> colorBufBinding;
 		colorBufBinding.offset = colorBufferOffset;
 		colorBufBinding.buffer = colorBuffer;
-
+        
+		cpu2gpuParams.beginCommandBuffers();
 		ret.gpuMesh = CPU2GPU.getGPUObjectsFromAssets(&cpuMesh, &cpuMesh + 1,cpu2gpuParams)->front();
 		ret.gpuMesh->setVertexBufferBinding(std::move(colorBufBinding), ColorBindingNum);
 		ret.gpuMesh->setInstanceCount(numInstances);
-
+		cpu2gpuParams.waitForCreationToComplete(false);
 
 		video::IGPUGraphicsPipeline::SCreationParams gp_params;
 		gp_params.rasterizationSamplesHint = asset::IImage::ESCF_1_BIT;
@@ -835,7 +866,7 @@ int main()
 				auto & gpuObject = gpuObjects[i];
 
 				cb->bindGraphicsPipeline(gpuObject.graphicsPipeline.get());
-				cb->pushConstants(gpuObject.graphicsPipeline->getRenderpassIndependentPipeline()->getLayout(), asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD), viewProj.pointer());
+				cb->pushConstants(gpuObject.graphicsPipeline->getRenderpassIndependentPipeline()->getLayout(), asset::IShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD), viewProj.pointer());
 				cb->bindDescriptorSets(asset::EPBP_GRAPHICS, gpuObject.graphicsPipeline->getRenderpassIndependentPipeline()->getLayout(), 0u, 1u, &gfxDs0.get());
 				cb->drawMeshBuffer(gpuObject.gpuMesh.get());
 			}

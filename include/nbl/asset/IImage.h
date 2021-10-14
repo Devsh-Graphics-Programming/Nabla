@@ -123,6 +123,7 @@ class IImage : public IDescriptor
 		};
 		enum E_USAGE_FLAGS : uint32_t
 		{
+            EUF_NONE = 0x00000000,
 			EUF_TRANSFER_SRC_BIT = 0x00000001,
 			EUF_TRANSFER_DST_BIT = 0x00000002,
 			EUF_SAMPLED_BIT = 0x00000004,

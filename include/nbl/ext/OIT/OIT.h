@@ -100,7 +100,7 @@ namespace nbl::ext::OIT
             resolve_glsl += "#define NBL_GLSL_VIS_IMAGE_BINDING " + std::to_string(visBnd) + "\n";
             resolve_glsl += "#include <nbl/builtin/glsl/ext/OIT/resolve.frag>\n";
 
-            auto cpushader = core::make_smart_refctd_ptr<asset::ICPUShader>(resolve_glsl.c_str());
+            auto cpushader = core::make_smart_refctd_ptr<asset::ICPUShader>(resolve_glsl.c_str(), asset::IShader::ESS_FRAGMENT, "oit_resolve.frag");
             auto shader = dev->createGPUShader(std::move(cpushader));
             if (!shader)
                 return false;
@@ -126,8 +126,6 @@ namespace nbl::ext::OIT
 
             asset::ISpecializedShader::SInfo info;
             info.entryPoint = "main";
-            info.m_filePathHint = "oit_resolve.frag";
-            info.shaderStage = asset::ISpecializedShader::ESS_FRAGMENT;
             info.m_backingBuffer = nullptr;
             info.m_entries = nullptr;
             m_proto_pipeline.fs = dev->createGPUSpecializedShader(shader.get(), info);
@@ -152,7 +150,7 @@ namespace nbl::ext::OIT
                 bnd.binding = b[i];
                 bnd.count = 1u;
                 bnd.samplers = nullptr;
-                bnd.stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
+                bnd.stageFlags = asset::IShader::ESS_FRAGMENT;
                 bnd.type = asset::EDT_STORAGE_IMAGE;
             }
 
