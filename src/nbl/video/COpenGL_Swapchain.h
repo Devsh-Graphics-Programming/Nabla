@@ -159,7 +159,6 @@ private:
             m_dbgCb(_dbgCb)
         {
             assert(images.size() <= MaxImages);
-            m_texViews = core::vector<GLuint>(images.size());
             _egl->call.peglBindAPI(FunctionTableType::EGL_API_TYPE);
 
             const EGLint surface_attributes[] = {
@@ -228,18 +227,16 @@ private:
             new (state_ptr) SThreadHandlerInternalState(egl,features,core::smart_refctd_ptr<system::ILogger>(m_dbgCb->getLogger()));
             auto& gl = state_ptr[0];
 
-            if (gl.isGLES())
+            static_cast<IOpenGL_FunctionTable&>(gl).glTexture.pglGenTextures(images.size(), m_texViews.data());
+            for (int i = 0; i < images.size(); i++)
             {
-                static_cast<IOpenGL_FunctionTable&>(gl).glTexture.pglGenTextures(m_texViews.size(), m_texViews.data());
-                for (int i = 0; i < images.size(); i++)
-                {
-                    auto& img = images.begin()[i];
-                    GLuint texture = m_texViews[i];
-                    GLuint origtexture = static_cast<COpenGLImage*>(img.get())->getOpenGLName();
-                    GLenum target = static_cast<COpenGLImage*>(img.get())->getOpenGLTarget();
-                    static_cast<IOpenGL_FunctionTable&>(gl).extGlTextureView(texture, target, origtexture, GL_TEXTURE_2D, 0, 1, 0, 1);
-                }
+                auto& img = images.begin()[i];
+                GLuint texture = m_texViews[i];
+                GLuint origtexture = static_cast<COpenGLImage*>(img.get())->getOpenGLName();
+                GLenum format = static_cast<COpenGLImage*>(img.get())->getOpenGLSizedFormat();
+                static_cast<IOpenGL_FunctionTable&>(gl).extGlTextureView(texture, GL_TEXTURE_2D, origtexture, format, 0, 1, 0, 1);
             }
+            
             #ifdef _NBL_DEBUG
             gl.glGeneral.pglEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
             // TODO: debug message control (to exclude callback spam)
@@ -257,14 +254,7 @@ private:
 
                 GLuint glimg = static_cast<COpenGLImage*>(img.get())->getOpenGLName();
                 GLenum target = static_cast<COpenGLImage*>(img.get())->getOpenGLTarget();
-                if (target == GL_TEXTURE_2D_ARRAY && gl.isGLES())
-                {
-                    gl.extGlNamedFramebufferTexture(fbo, GL_COLOR_ATTACHMENT0, glimg, 0, target);
-                }
-                else
-                {
-                    gl.extGlNamedFramebufferTexture(m_texViews[i], GL_COLOR_ATTACHMENT0, glimg, 0, target);
-                }
+                gl.extGlNamedFramebufferTexture(fbo, GL_COLOR_ATTACHMENT0, m_texViews[i], 0, target);
                 GLenum drawbuffer0 = GL_COLOR_ATTACHMENT0;
                 gl.extGlNamedFramebufferDrawBuffers(fbo, 1, &drawbuffer0);
 
@@ -302,9 +292,8 @@ private:
 
         void exit(SThreadHandlerInternalState* gl)
         {
-            if (gl->isGLES())
-                gl->glTexture.pglDeleteTextures(m_texViews.size(), m_texViews.data());
             gl->glFramebuffer.pglDeleteFramebuffers(images.size(), fbos);
+            gl->glTexture.pglDeleteTextures(images.size(), m_texViews.data());
             gl->glGeneral.pglFinish();
 
             gl->~SThreadHandlerInternalState();
@@ -329,7 +318,7 @@ private:
         GLuint fbos[MaxImages]{};
         core::smart_refctd_ptr<COpenGLSync> syncs[MaxImages];
         COpenGLDebugCallback* m_dbgCb;
-        core::vector<GLuint> m_texViews;
+        std::array<GLuint, MaxImages> m_texViews;
         struct SRequest {
             SRequest() { sems.reserve(50); }
 
