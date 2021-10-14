@@ -20,47 +20,38 @@
 #include <memory>
 #include <cstdlib>
 #include <cstring>
-#include <jni.h>
+//#include <jni.h>
+
 #include <cerrno>
 #include <cassert>
 #include <nabla.h>
 #include <nbl/ui/CWindowAndroid.h>
+#include <nbl/ui/CWindowManagerAndroid.h>
+#include <nbl/ui/CGraphicalApplicationAndroid.h>
+#include "../common/CommonAPI.h"
 
 //#include <EGL/egl.h>
 //#include <GLES/gl.h>
 
-#include <android/sensor.h>
-#include <android/log.h>
-#include <android_native_app_glue.h>
 //#include "debugbreak.h"
 
-#define LOGI(...) ((void)__android_log_print(ANDROID_LOG_INFO, "native-activity", __VA_ARGS__))
-#define LOGW(...) ((void)__android_log_print(ANDROID_LOG_WARN, "native-activity", __VA_ARGS__))
 
 using namespace nbl;
+using namespace video;
+using namespace system;
+using namespace asset;
+using namespace core;
+
 
 static constexpr uint32_t SC_IMG_COUNT = 3u;
 
-/**
- * Our saved state data.
- */
-struct saved_state {
-    float angle;
-    int32_t x;
-    int32_t y;
-};
+struct nabla : IApplicationFramework::IUserData {
 
-struct nabla {
-    struct android_app* app;
-
-    ASensorManager* sensorManager;
-    const ASensor* accelerometerSensor;
-    ASensorEventQueue* sensorEventQueue;
-
+	system::logger_opt_smart_ptr logger = nullptr;
     core::smart_refctd_ptr<ui::IWindow> window;
     core::smart_refctd_ptr<system::ISystem> system;
     core::smart_refctd_ptr<video::IAPIConnection> api;
-    core::smart_refctd_ptr<video::IPhysicalDevice> gpu;
+    IPhysicalDevice* gpu;
     core::smart_refctd_ptr<video::ILogicalDevice> dev;
     core::smart_refctd_ptr<video::ISwapchain> sc;
     core::smart_refctd_ptr<video::IGPURenderpass> renderpass;
@@ -68,38 +59,71 @@ struct nabla {
     core::smart_refctd_ptr<video::IGPUGraphicsPipeline> pipeline;
     core::smart_refctd_ptr<video::IGPUBuffer> buffer;
     core::smart_refctd_ptr<video::IGPUCommandBuffer> cmdbuf[SC_IMG_COUNT];
-
-    struct saved_state state;
+	
+	void setWindow(core::smart_refctd_ptr<nbl::ui::IWindow>&& wnd) override
+	{
+		window = std::move(wnd);
+	}
+	void setSystem(core::smart_refctd_ptr<nbl::system::ISystem>&& s) override
+	{
+		system = std::move(s);
+	}
+	nbl::ui::IWindow* getWindow() override
+	{
+		return window.get();
+	}
 };
+
 
 /**
  * Initialize an EGL context for the current display.
  */
-static int engine_init_display(struct nabla* engine) {
-    //debug_break();
-    // initialize OpenGL ES and EGL
-    engine->system = core::make_smart_refctd_ptr<system::ISystem>(nullptr);
-    engine->window = core::make_smart_refctd_ptr<ui::CWindowAndroid>(engine->app->window);
+static int engine_init_display(nabla* engine) {
 
-    engine->api = video::IAPIConnection::create(core::smart_refctd_ptr<system::ISystem>(engine->system), video::EAT_OPENGL_ES, 0, "android-sample", /*&dbgcb*/nullptr);
+#ifdef _NBL_PLATFORM_ANDROID_
+	engine->logger = system::logger_opt_smart_ptr(core::make_smart_refctd_ptr<CStdoutLoggerAndroid>(
+		core::bitflag(system::ILogger::ELL_DEBUG) | system::ILogger::ELL_ERROR | system::ILogger::ELL_INFO | system::ILogger::ELL_PERFORMANCE | system::ILogger::ELL_WARNING
+		));
+#endif
+    video::COpenGLDebugCallback cb(core::smart_refctd_ptr(engine->logger.get()));
+    engine->api = video::COpenGLESConnection::create(core::smart_refctd_ptr<system::ISystem>(engine->system), 0, "android-sample", std::move(cb));
 
-    auto surface = engine->api->createSurface(engine->window.get());
+#ifdef _NBL_PLATFORM_ANDROID_
+    auto surface = video::CSurfaceGLAndroid::create<video::EAT_OPENGL_ES>(core::smart_refctd_ptr<video::COpenGLESConnection>((video::COpenGLESConnection*)engine->api.get()),core::smart_refctd_ptr<nbl::ui::IWindowAndroid>(static_cast<nbl::ui::CWindowAndroid*>(engine->window.get())));
+	((CommonAPI::CTemporaryEventCallback*)engine->window->getEventCallback())->setLogger(engine->logger);
+#else
+	auto windowManager = core::make_smart_refctd_ptr<nbl::ui::CWindowManagerWin32>();
+	auto windowCb = nbl::core::make_smart_refctd_ptr<nbl::ui::IWindow::IEventCallback>();
+	nbl::ui::IWindow::SCreationParams windowsCreationParams;
+	windowsCreationParams.width = 1280;
+	windowsCreationParams.height = 720;
+	windowsCreationParams.x = 64u;
+	windowsCreationParams.y = 64u;
+	windowsCreationParams.system = core::smart_refctd_ptr(engine->system);
+	windowsCreationParams.flags = nbl::ui::IWindow::ECF_NONE;
+	windowsCreationParams.windowCaption = "AndroidSample";
+	windowsCreationParams.callback = windowCb;
 
+	engine->window = windowManager->createWindow(std::move(windowsCreationParams));
+	auto surface = video::CSurfaceGLWin32::create<video::EAT_OPENGL_ES>(core::smart_refctd_ptr<nbl::video::COpenGLESConnection>((video::COpenGLESConnection*)engine->api.get()), core::smart_refctd_ptr<ui::IWindowWin32>(static_cast<ui::IWindowWin32*>(engine->window.get())));
+
+#endif
     auto gpus = engine->api->getPhysicalDevices();
 	assert(!gpus.empty());
     engine->gpu = gpus.begin()[0];
 
-    assert(surface->isSupported(engine->gpu.get(), 0u));
+    //assert(surface->isSupported(engine->gpu.get(), 0u));
     
     video::ILogicalDevice::SCreationParams dev_params;
 	dev_params.queueParamsCount = 1u;
+	
 	video::ILogicalDevice::SQueueCreationParams q_params;
 	q_params.familyIndex = 0u;
-	q_params.count = 1u;//4u;
+	q_params.count = 1u;
 	q_params.flags = static_cast<video::IGPUQueue::E_CREATE_FLAGS>(0);
-	float priority[4] = {1.f,1.f,1.f,1.f};
+	float priority[1] = {1.f};
 	q_params.priorities = priority;
-	dev_params.queueCreateInfos = &q_params;
+	dev_params.queueParams = &q_params;
 	engine->dev = engine->gpu->createLogicalDevice(dev_params);
 
     auto device = engine->dev;
@@ -292,7 +316,8 @@ void main()
 		
 		auto mreqs = device->getDeviceLocalGPUMemoryReqs();
 		mreqs.vulkanReqs.size = sizeof(vertices);
-		engine->buffer = device->createGPUBufferOnDedMem(mreqs, true);
+		video::IGPUBuffer::SCreationParams params;
+		engine->buffer = device->createGPUBufferOnDedMem(params, mreqs, true);
 		assert(engine->buffer);
         auto buffer = engine->buffer;
 
@@ -301,15 +326,6 @@ void main()
 		assert(cb);
 
 		cb->begin(video::IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
-
-		asset::SViewport vp;
-		vp.minDepth = 1.f;
-		vp.maxDepth = 0.f;
-		vp.x = 0u;
-		vp.y = 0u;
-		vp.width = win_w;
-		vp.height = win_h;
-		cb->setViewport(0u, 1u, &vp);
 
 		cb->updateBuffer(buffer.get(), 0u, sizeof(vertices), vertices);
 
@@ -321,7 +337,7 @@ void main()
 		bufMemBarrier.buffer = buffer;
 		bufMemBarrier.barrier.srcAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
 		bufMemBarrier.barrier.dstAccessMask = asset::EAF_VERTEX_ATTRIBUTE_READ_BIT;
-		cb->pipelineBarrier(asset::EPSF_TRANSFER_BIT, asset::EPSF_VERTEX_INPUT_BIT, 0, 0u, nullptr, 1u, &bufMemBarrier, 0u, nullptr);
+		cb->pipelineBarrier(asset::EPSF_TRANSFER_BIT, asset::EPSF_VERTEX_INPUT_BIT, asset::EDF_NONE, 0u, nullptr, 1u, &bufMemBarrier, 0u, nullptr);
 
 		cb->end();
 		
@@ -345,13 +361,22 @@ void main()
 
 		cb->begin(0);
 		
+		asset::SViewport vp;
+		vp.minDepth = 1.f;
+		vp.maxDepth = 0.f;
+		vp.x = 0u;
+		vp.y = 0u;
+		vp.width = win_w;
+		vp.height = win_h;
+		cb->setViewport(0u, 1u, &vp);
+
 		auto* buf = engine->buffer.get();
 		size_t offset = 0u;
 		cb->bindVertexBuffers(0u, 1u, &buf, &offset);
 		cb->bindGraphicsPipeline(engine->pipeline.get());
 		video::IGPUCommandBuffer::SRenderpassBeginInfo info;
 		asset::SClearValue clear;
-		asset::VkRect2D area;
+		VkRect2D area;
 		area.offset = { 0, 0 };
 		area.extent = { win_w, win_h };
 		clear.color.float32[0] = 0.f;
@@ -376,17 +401,18 @@ void main()
 /**
  * Just the current frame in the display.
  */
-static void engine_draw_frame(struct nabla* engine) {
+static void engine_draw_frame(nabla* engine) {
     if (!engine->dev) {
         return;
     }
 
     constexpr uint64_t MAX_TIMEOUT = 99999999999999ull; //ns
 
-    auto img_acq_sem = engine->dev->createSemaphore();
+    auto* queue = engine->dev->getQueue(0u, 0u);
+
+	auto img_acq_sem = engine->dev->createSemaphore();
     auto render_finished_sem = engine->dev->createSemaphore();
 
-    auto* queue = engine->dev->getQueue(0u, 0u);
 
     uint32_t imgnum = 0u;
     engine->sc->acquireNextImage(MAX_TIMEOUT, img_acq_sem.get(), nullptr, &imgnum);
@@ -425,7 +451,7 @@ static void engine_draw_frame(struct nabla* engine) {
 /**
  * Tear down the EGL context currently associated with the display.
  */
-static void engine_term_display(struct nabla* engine) {
+static void engine_term_display(nabla* engine) {
     //debug_break();
 
     engine->dev->waitIdle();
@@ -443,201 +469,87 @@ static void engine_term_display(struct nabla* engine) {
     engine->api = nullptr;
     engine->window = nullptr;
 }
+///*/
+///*
+// * AcquireASensorManagerInstance(void)
+// *    Workaround ASensorManager_getInstance() deprecation false alarm
+// *    for Android-N and before, when compiling with NDK-r15
+// */
+//#include <dlfcn.h>
+//ASensorManager* AcquireASensorManagerInstance(android_app* app) {
+//
+//  if(!app)
+//    return nullptr;
+//
+//  typedef ASensorManager *(*PF_GETINSTANCEFORPACKAGE)(const char *name);
+//  void* androidHandle = dlopen("libandroid.so", RTLD_NOW);
+//  auto getInstanceForPackageFunc = (PF_GETINSTANCEFORPACKAGE)
+//      dlsym(androidHandle, "ASensorManager_getInstanceForPackage");
+//  if (getInstanceForPackageFunc) {
+//    JNIEnv* env = nullptr;
+//    app->activity->vm->AttachCurrentThread(&env, nullptr);
+//
+//    jclass android_content_Context = env->GetObjectClass(app->activity->clazz);
+//    jmethodID midGetPackageName = env->GetMethodID(android_content_Context,
+//                                                   "getPackageName",
+//                                                   "()Ljava/lang/String;");
+//    auto packageName= (jstring)env->CallObjectMethod(app->activity->clazz,
+//                                                        midGetPackageName);
+//
+//    const char *nativePackageName = env->GetStringUTFChars(packageName, nullptr);
+//    ASensorManager* mgr = getInstanceForPackageFunc(nativePackageName);
+//    env->ReleaseStringUTFChars(packageName, nativePackageName);
+//    app->activity->vm->DetachCurrentThread();
+//    if (mgr) {
+//      dlclose(androidHandle);
+//      return mgr;
+//    }
+//  }
+//
+//  typedef ASensorManager *(*PF_GETINSTANCE)();
+//  auto getInstanceFunc = (PF_GETINSTANCE)
+//      dlsym(androidHandle, "ASensorManager_getInstance");
+//  // by all means at this point, ASensorManager_getInstance should be available
+//  assert(getInstanceFunc);
+//  dlclose(androidHandle);
+//
+//  return getInstanceFunc();
+//}
 
-/**
- * Process the next input event.
- */
-static int32_t engine_handle_input(struct android_app* app, AInputEvent* event) {
-    nabla* engine = (struct nabla*)app->userData;
-    if (AInputEvent_getType(event) == AINPUT_EVENT_TYPE_MOTION) {
-        engine->state.x = AMotionEvent_getX(event, 0);
-        engine->state.y = AMotionEvent_getY(event, 0);
-        return 1;
+
+class SampleApp : public ApplicationBase
+{
+    using base_t = ApplicationBase;
+    //void onStateSaved_impl(android_app* app) override
+    //{
+	//
+    //}
+    void onAppInitialized_impl(void* data) override
+    {
+        nabla* engine = (nabla*)data;
+        engine_init_display(engine);
     }
-    return 0;
-}
-
-/**
- * Process the next main command.
- */
-static void engine_handle_cmd(struct android_app* app, int32_t cmd) {
-    //debug_break();
-    auto* engine = (struct nabla*)app->userData;
-    switch (cmd) {
-        case APP_CMD_SAVE_STATE:
-            // The system has asked us to save our current state.  Do so.
-            engine->app->savedState = malloc(sizeof(struct saved_state));
-            *((struct saved_state*)engine->app->savedState) = engine->state;
-            engine->app->savedStateSize = sizeof(struct saved_state);
-            break;
-        case APP_CMD_INIT_WINDOW:
-            //debug_break();
-            // The window is being shown, get it ready.
-            if (engine->app->window != nullptr) {
-                engine_init_display(engine);
-                engine_draw_frame(engine);
-            }
-            break;
-        case APP_CMD_TERM_WINDOW:
-            // The window is being hidden or closed, clean it up.
-            engine_term_display(engine);
-            break;
-        /*
-        case APP_CMD_GAINED_FOCUS:
-            // When our app gains focus, we start monitoring the accelerometer.
-            if (engine->accelerometerSensor != nullptr) {
-                ASensorEventQueue_enableSensor(engine->sensorEventQueue,
-                                               engine->accelerometerSensor);
-                // We'd like to get 60 events per second (in us).
-                ASensorEventQueue_setEventRate(engine->sensorEventQueue,
-                                               engine->accelerometerSensor,
-                                               (1000L/60)*1000);
-            }
-            break;
-        case APP_CMD_LOST_FOCUS:
-            // When our app loses focus, we stop monitoring the accelerometer.
-            // This is to avoid consuming battery while not being used.
-            if (engine->accelerometerSensor != nullptr) {
-                ASensorEventQueue_disableSensor(engine->sensorEventQueue,
-                                                engine->accelerometerSensor);
-            }
-            // Also stop animating.
-            engine->animating = 0;
-            engine_draw_frame(engine);
-            break;
-        */
-        default:
-            break;
+public:
+	APP_CONSTRUCTOR(SampleApp)
+	void onAppTerminated_impl(void* data) override
+    {
+        nabla* engine = (nabla*)data;
+        engine_term_display(engine);
     }
-}
-
-/*
- * AcquireASensorManagerInstance(void)
- *    Workaround ASensorManager_getInstance() deprecation false alarm
- *    for Android-N and before, when compiling with NDK-r15
- */
-#include <dlfcn.h>
-ASensorManager* AcquireASensorManagerInstance(android_app* app) {
-
-  if(!app)
-    return nullptr;
-
-  typedef ASensorManager *(*PF_GETINSTANCEFORPACKAGE)(const char *name);
-  void* androidHandle = dlopen("libandroid.so", RTLD_NOW);
-  auto getInstanceForPackageFunc = (PF_GETINSTANCEFORPACKAGE)
-      dlsym(androidHandle, "ASensorManager_getInstanceForPackage");
-  if (getInstanceForPackageFunc) {
-    JNIEnv* env = nullptr;
-    app->activity->vm->AttachCurrentThread(&env, nullptr);
-
-    jclass android_content_Context = env->GetObjectClass(app->activity->clazz);
-    jmethodID midGetPackageName = env->GetMethodID(android_content_Context,
-                                                   "getPackageName",
-                                                   "()Ljava/lang/String;");
-    auto packageName= (jstring)env->CallObjectMethod(app->activity->clazz,
-                                                        midGetPackageName);
-
-    const char *nativePackageName = env->GetStringUTFChars(packageName, nullptr);
-    ASensorManager* mgr = getInstanceForPackageFunc(nativePackageName);
-    env->ReleaseStringUTFChars(packageName, nativePackageName);
-    app->activity->vm->DetachCurrentThread();
-    if (mgr) {
-      dlclose(androidHandle);
-      return mgr;
+    void workLoopBody(void* params) override
+    {
+		engine_draw_frame((nabla*)params);
     }
-  }
+	bool keepRunning(void* params) override
+	{
+		return true;
+	}
 
-  typedef ASensorManager *(*PF_GETINSTANCE)();
-  auto getInstanceFunc = (PF_GETINSTANCE)
-      dlsym(androidHandle, "ASensorManager_getInstance");
-  // by all means at this point, ASensorManager_getInstance should be available
-  assert(getInstanceFunc);
-  dlclose(androidHandle);
-
-  return getInstanceFunc();
-}
+};
 
 
-/**
- * This is the main entry point of a native application that is using
- * android_native_app_glue.  It runs in its own thread, with its own
- * event loop for receiving input events and doing other things.
- */
-void android_main(struct android_app* state) {
-    struct nabla engine{};
-
-    state->userData = &engine;
-    state->onAppCmd = engine_handle_cmd;
-    state->onInputEvent = engine_handle_input;
-    engine.app = state;
-
-    //debug_break();
-
-    LOGI("Entered main!");
-
-/*
-    // Prepare to monitor accelerometer
-    engine.sensorManager = AcquireASensorManagerInstance(state);
-    engine.accelerometerSensor = ASensorManager_getDefaultSensor(
-                                        engine.sensorManager,
-                                        ASENSOR_TYPE_ACCELEROMETER);
-    engine.sensorEventQueue = ASensorManager_createEventQueue(
-                                    engine.sensorManager,
-                                    state->looper, LOOPER_ID_USER,
-                                    nullptr, nullptr);
-*/
-
-    if (state->savedState != nullptr) {
-        // We are starting with a previous saved state; restore from it.
-        engine.state = *(struct saved_state*)state->savedState;
-    }
-
-    // loop waiting for stuff to do.
-
-    while (true) {
-        // Read all pending events.
-        int ident;
-        int events;
-        struct android_poll_source* source;
-
-        LOGI("Entered main loop iteration!");
-        //debug_break();
-
-        // If not animating, we will block forever waiting for events.
-        // If animating, we loop until all events are read, then continue
-        // to draw the next frame of animation.
-        while ((ident = ALooper_pollAll(0, nullptr, &events, (void**)&source)) >= 0) {
-
-            LOGI("Entered poll loop iteration!");
-
-            // Process this event.
-            if (source != nullptr) {
-                source->process(state, source);
-            }
-
-            // If a sensor has data, process it now.
-            /*
-            if (ident == LOOPER_ID_USER) {
-                if (engine.accelerometerSensor != nullptr) {
-                    ASensorEvent event;
-                    while (ASensorEventQueue_getEvents(engine.sensorEventQueue,
-                                                       &event, 1) > 0) {
-                        LOGI("accelerometer: x=%f y=%f z=%f",
-                             event.acceleration.x, event.acceleration.y,
-                             event.acceleration.z);
-                    }
-                }
-            }
-            */
-
-            // Check if we are exiting.
-            if (state->destroyRequested != 0) {
-                engine_term_display(&engine);
-                return;
-            }
-        }
-
-        engine_draw_frame(&engine);
-    }
-}
-//END_INCLUDE(all)
+#ifdef _NBL_PLATFORM_ANDROID_
+NBL_ANDROID_MAIN_FUNC(SampleApp, nabla, CommonAPI::CTemporaryEventCallback)
+#else
+NBL_COMMON_API_MAIN(SampleApp, nabla)
+#endif

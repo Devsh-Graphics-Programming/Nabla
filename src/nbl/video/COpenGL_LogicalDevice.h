@@ -92,7 +92,7 @@ public:
                 (*m_queues)[ix] = new CThreadSafeGPUQueueAdapter
                 (
                     this,
-                    new QueueType(this, rdoc, _egl, m_glfeatures, ctxid, glctx.ctx,
+                    (IGPUQueue*)new QueueType(this, rdoc, _egl, m_glfeatures, ctxid, glctx.ctx,
                         glctx.pbuffer, famIx, flags, priority,
                         static_cast<COpenGLDebugCallback*>(physicalDevice->getDebugCallback()))
                 );

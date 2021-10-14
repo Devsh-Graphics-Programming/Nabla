@@ -21,7 +21,7 @@ namespace nbl::video
 template <typename LogicalDeviceType>
 class IOpenGL_PhysicalDeviceBase : public IPhysicalDevice
 {
-    using function_table_t = LogicalDeviceType::FunctionTableType;
+    using function_table_t = typename LogicalDeviceType::FunctionTableType;
     static inline constexpr EGLint EGL_API_TYPE = function_table_t::EGL_API_TYPE;
     static inline constexpr bool IsGLES = (EGL_API_TYPE == EGL_OPENGL_ES_API);
 

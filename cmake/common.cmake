@@ -81,7 +81,7 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 	nbl_adjust_definitions() # macro defined in root CMakeLists
 	add_definitions(-D_NBL_PCH_IGNORE_PRIVATE_HEADERS)
 
-	set_target_properties(${EXECUTABLE_NAME} PROPERTIES DEBUG_POSTFIX _d)
+	set_target_properties(${EXECUTABLE_NAME} PROPERTIES DEBUG_POSTFIX "")
 	set_target_properties(${EXECUTABLE_NAME} PROPERTIES RELWITHDEBINFO_POSTFIX _rwdi)
 	set_target_properties(${EXECUTABLE_NAME}
 		PROPERTIES
@@ -197,7 +197,7 @@ macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUD
 	nbl_adjust_flags() # macro defined in root CMakeLists
 	nbl_adjust_definitions() # macro defined in root CMakeLists
 
-	set_target_properties(${LIB_NAME} PROPERTIES DEBUG_POSTFIX _d)
+	set_target_properties(${LIB_NAME} PROPERTIES DEBUG_POSTFIX "")
 	set_target_properties(${LIB_NAME} PROPERTIES RELWITHDEBINFO_POSTFIX _rwdb)
 	set_target_properties(${LIB_NAME}
 		PROPERTIES
