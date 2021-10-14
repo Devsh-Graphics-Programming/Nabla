@@ -251,10 +251,7 @@ private:
             {
                 GLuint fbo = fbos[i];
                 auto& img = images.begin()[i];
-
-                GLuint glimg = static_cast<COpenGLImage*>(img.get())->getOpenGLName();
-                GLenum target = static_cast<COpenGLImage*>(img.get())->getOpenGLTarget();
-                gl.extGlNamedFramebufferTexture(fbo, GL_COLOR_ATTACHMENT0, m_texViews[i], 0, target);
+                gl.extGlNamedFramebufferTexture(fbo, GL_COLOR_ATTACHMENT0, m_texViews[i], 0, GL_TEXTURE_2D);
                 GLenum drawbuffer0 = GL_COLOR_ATTACHMENT0;
                 gl.extGlNamedFramebufferDrawBuffers(fbo, 1, &drawbuffer0);
 
