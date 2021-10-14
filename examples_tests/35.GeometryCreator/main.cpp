@@ -18,7 +18,7 @@ using namespace core;
 	Uncomment for more detailed logging
 */
 
-// #define NBL_MORE_LOGS
+#define NBL_MORE_LOGS
 
 #include "nbl/nblpack.h"
 struct GPUObject
@@ -51,7 +51,53 @@ struct Objects
 const char* vertexSource = R"===(
 #version 430 core
 layout(location = 0) in vec4 vPos;
+layout(location = 1) in vec4 vColor;
+layout(location = 2) in vec2 vUv;
 layout(location = 3) in vec3 vNormal;
+
+#include <nbl/builtin/glsl/utils/common.glsl>
+#include <nbl/builtin/glsl/utils/transform.glsl>
+
+layout( push_constant, row_major ) uniform Block {
+	mat4 modelViewProj;
+} PushConstants;
+
+layout(location = 0) out vec3 Color; //per vertex output color, will be interpolated across the triangle
+
+void main()
+{
+    gl_Position = PushConstants.modelViewProj*vPos;
+    Color = vNormal*0.5+vec3(0.5);
+}
+)===";
+
+const char* vertexSource_cone = R"===(
+#version 430 core
+layout(location = 0) in vec4 vPos;
+layout(location = 1) in vec4 vColor;
+layout(location = 2) in vec3 vNormal;
+
+#include <nbl/builtin/glsl/utils/common.glsl>
+#include <nbl/builtin/glsl/utils/transform.glsl>
+
+layout( push_constant, row_major ) uniform Block {
+	mat4 modelViewProj;
+} PushConstants;
+
+layout(location = 0) out vec3 Color; //per vertex output color, will be interpolated across the triangle
+
+void main()
+{
+    gl_Position = PushConstants.modelViewProj*vPos;
+    Color = vNormal*0.5+vec3(0.5);
+}
+)===";
+
+const char* vertexSource_ico = R"===(
+#version 430 core
+layout(location = 0) in vec4 vPos;
+layout(location = 1) in vec3 vNormal;
+layout(location = 2) in vec2 vUv;
 
 #include <nbl/builtin/glsl/utils/common.glsl>
 #include <nbl/builtin/glsl/utils/transform.glsl>
@@ -90,9 +136,38 @@ int main()
 	constexpr uint32_t FRAMES_IN_FLIGHT = 5u;
 	static_assert(FRAMES_IN_FLIGHT > SC_IMG_COUNT);
 
-	auto initOutput = CommonAPI::Init<WIN_W, WIN_H, SC_IMG_COUNT>(video::EAT_OPENGL, "GeometryCreator", nbl::asset::EF_D32_SFLOAT);
+	CommonAPI::SFeatureRequest<video::IAPIConnection::E_FEATURE> requiredInstanceFeatures = {};
+	requiredInstanceFeatures.count = 1u;
+	video::IAPIConnection::E_FEATURE requiredFeatures_Instance[] = { video::IAPIConnection::EF_SURFACE };
+	requiredInstanceFeatures.features = requiredFeatures_Instance;
+
+	CommonAPI::SFeatureRequest<video::IAPIConnection::E_FEATURE> optionalInstanceFeatures = {};
+
+	CommonAPI::SFeatureRequest<video::ILogicalDevice::E_FEATURE> requiredDeviceFeatures = {};
+	requiredDeviceFeatures.count = 1u;
+	video::ILogicalDevice::E_FEATURE requiredFeatures_Device[] = { video::ILogicalDevice::EF_SWAPCHAIN };
+	requiredDeviceFeatures.features = requiredFeatures_Device;
+
+	CommonAPI::SFeatureRequest< video::ILogicalDevice::E_FEATURE> optionalDeviceFeatures = {};
+
+	const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT);
+	const video::ISurface::SFormat surfaceFormat(asset::EF_B8G8R8A8_SRGB, asset::ECP_COUNT, asset::EOTF_UNKNOWN);
+
+	auto initOutput = CommonAPI::Init<WIN_W, WIN_H, SC_IMG_COUNT>(
+		video::EAT_VULKAN,
+		"35.GeometryCreator",
+		requiredInstanceFeatures,
+		optionalInstanceFeatures,
+		requiredDeviceFeatures,
+		optionalDeviceFeatures,
+		swapchainImageUsage,
+		surfaceFormat);
+
 	auto window = std::move(initOutput.window);
-	auto gl = std::move(initOutput.apiConnection);
+	auto windowCb = std::move(initOutput.windowCb);
+	auto logger = std::move(initOutput.logger);
+	auto inputSystem = std::move(initOutput.inputSystem);
+	auto api = std::move(initOutput.apiConnection);
 	auto surface = std::move(initOutput.surface);
 	auto gpuPhysicalDevice = std::move(initOutput.physicalDevice);
 	auto logicalDevice = std::move(initOutput.logicalDevice);
@@ -102,44 +177,9 @@ int main()
 	auto fbos = std::move(initOutput.fbo);
 	auto commandPool = std::move(initOutput.commandPool);
 	auto assetManager = std::move(initOutput.assetManager);
-	auto logger = std::move(initOutput.logger);
-	auto inputSystem = std::move(initOutput.inputSystem);
-	auto windowCallback = std::move(initOutput.windowCb);
 	auto cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
 	auto utilities = std::move(initOutput.utilities);
 
-	auto gpuTransferFence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
-	auto gpuComputeFence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
-
-	nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
-	{
-		cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].fence = &gpuTransferFence;
-		cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].fence = &gpuComputeFence;
-	}
-
-	auto cpu2gpuWaitForFences = [&]() -> void
-	{
-		video::IGPUFence::E_STATUS waitStatus = video::IGPUFence::ES_NOT_READY;
-		while (waitStatus != video::IGPUFence::ES_SUCCESS)
-		{
-			waitStatus = logicalDevice->waitForFences(1u, &gpuTransferFence.get(), false, 999999999ull);
-			if (waitStatus == video::IGPUFence::ES_ERROR)
-				assert(false);
-			else if (waitStatus == video::IGPUFence::ES_TIMEOUT)
-				break;
-		}
-
-		waitStatus = video::IGPUFence::ES_NOT_READY;
-		while (waitStatus != video::IGPUFence::ES_SUCCESS)
-		{
-			waitStatus = logicalDevice->waitForFences(1u, &gpuComputeFence.get(), false, 999999999ull);
-			if (waitStatus == video::IGPUFence::ES_ERROR)
-				assert(false);
-			else if (waitStatus == video::IGPUFence::ES_TIMEOUT)
-				break;
-		}
-	};
-	
 	auto geometryCreator = assetManager->getGeometryCreator();
 	auto cubeGeometry = geometryCreator->createCubeMesh(vector3df(2,2,2));
 	auto sphereGeometry = geometryCreator->createSphereMesh(2, 16, 16);
@@ -150,17 +190,18 @@ int main()
 	auto arrowGeometry = geometryCreator->createArrowMesh();
 	auto icosphereGeometry = geometryCreator->createIcoSphere(1, 3, true);
 
-	auto createGPUSpecializedShaderFromSource = [=](const char* source, asset::ISpecializedShader::E_SHADER_STAGE stage) -> core::smart_refctd_ptr<video::IGPUSpecializedShader>
+
+	auto createGPUSpecializedShaderFromSource = [=](const char* source, asset::IShader::E_SHADER_STAGE stage) -> core::smart_refctd_ptr<video::IGPUSpecializedShader>
 	{
-		auto spirv = assetManager->getGLSLCompiler()->createSPIRVFromGLSL(source, stage, "main", "runtimeID");
+		auto spirv = assetManager->getGLSLCompiler()->createSPIRVFromGLSL(source, stage, "main", "runtimeID", nullptr, true, nullptr, logger.get());
 		if (!spirv)
 			return nullptr;
 
 		auto gpuUnspecializedShader = logicalDevice->createGPUShader(std::move(spirv));
-		return logicalDevice->createGPUSpecializedShader(gpuUnspecializedShader.get(), { nullptr, nullptr, "main", stage });
+		return logicalDevice->createGPUSpecializedShader(gpuUnspecializedShader.get(), { nullptr, nullptr, "main" });
 	};
 
-	auto createGPUSpecializedShaderFromSourceWithIncludes = [&](const char* source, asset::ISpecializedShader::E_SHADER_STAGE stage, const char* origFilepath)
+	auto createGPUSpecializedShaderFromSourceWithIncludes = [&](const char* source, asset::IShader::E_SHADER_STAGE stage, const char* origFilepath)
 	{
 		auto resolved_includes = assetManager->getGLSLCompiler()->resolveIncludeDirectives(source, stage, origFilepath);
 		return createGPUSpecializedShaderFromSource(reinterpret_cast<const char*>(resolved_includes->getSPVorGLSL()->getPointer()), stage);
@@ -168,29 +209,80 @@ int main()
 
 	core::smart_refctd_ptr<video::IGPUSpecializedShader> gpuShaders[2] =
 	{
-		createGPUSpecializedShaderFromSourceWithIncludes(vertexSource,asset::ISpecializedShader::ESS_VERTEX, "shader.vert"),
-		createGPUSpecializedShaderFromSource(fragmentSource,asset::ISpecializedShader::ESS_FRAGMENT)
+		createGPUSpecializedShaderFromSourceWithIncludes(vertexSource,asset::IShader::ESS_VERTEX, "shader.vert"),
+		createGPUSpecializedShaderFromSource(fragmentSource,asset::IShader::ESS_FRAGMENT)
 	};
 	auto gpuShadersRaw = reinterpret_cast<video::IGPUSpecializedShader**>(gpuShaders);
 
-	auto createGPUMeshBufferAndItsPipeline = [&](asset::IGeometryCreator::return_type& geometryObject) -> GPUObject
+	core::smart_refctd_ptr<video::IGPUSpecializedShader> gpuShaders_cone[2] =
 	{
-		asset::SBlendParams blendParams; 
+		createGPUSpecializedShaderFromSourceWithIncludes(vertexSource_cone, asset::IShader::ESS_VERTEX, "shader_cone.vert"),
+		gpuShaders[1]
+	};
+	auto gpuShadersRaw_cone = reinterpret_cast<video::IGPUSpecializedShader**>(gpuShaders_cone);
+
+	core::smart_refctd_ptr<video::IGPUSpecializedShader> gpuShaders_ico[2] =
+	{
+		createGPUSpecializedShaderFromSourceWithIncludes(vertexSource_ico, asset::IShader::ESS_VERTEX, "shader_ico.vert"),
+		gpuShaders[1]
+	};
+	auto gpuShadersRaw_ico = reinterpret_cast<video::IGPUSpecializedShader**>(gpuShaders_ico);
+
+	auto createGPUMeshBufferAndItsPipeline = [&](asset::IGeometryCreator::return_type& geometryObject, Objects::E_OBJECT_INDEX object) -> GPUObject
+	{
+		asset::SBlendParams blendParams;
+		blendParams.logicOpEnable = false;
+		blendParams.logicOp = nbl::asset::ELO_NO_OP;
+		for (size_t i = 0ull; i < nbl::asset::SBlendParams::MAX_COLOR_ATTACHMENT_COUNT; i++)
+			blendParams.blendParams[i].attachmentEnabled = (i == 0ull);
+
 		asset::SRasterizationParams rasterParams;
 		rasterParams.faceCullingMode = asset::EFCM_NONE;
 
-		asset::SPushConstantRange range[1] = { asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD) };
-		auto gpuRenderpassIndependentPipeline = logicalDevice->createGPURenderpassIndependentPipeline
-		(
-			nullptr, 
-			logicalDevice->createGPUPipelineLayout(range, range + 1u, nullptr, nullptr, nullptr, nullptr),
-			gpuShadersRaw, 
-			gpuShadersRaw + sizeof(gpuShaders) / sizeof(core::smart_refctd_ptr<video::IGPUSpecializedShader>),
-			geometryObject.inputParams, 
-			blendParams, 
-			geometryObject.assemblyParams, 
-			rasterParams
-		);
+		asset::SPushConstantRange range[1] = { asset::IShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD) };
+		core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> gpuRenderpassIndependentPipeline = nullptr;
+		if (object == Objects::E_CONE)
+		{
+			gpuRenderpassIndependentPipeline = logicalDevice->createGPURenderpassIndependentPipeline
+			(
+				nullptr,
+				logicalDevice->createGPUPipelineLayout(range, range + 1u, nullptr, nullptr, nullptr, nullptr),
+				gpuShadersRaw_cone,
+				gpuShadersRaw_cone + sizeof(gpuShaders_cone) / sizeof(core::smart_refctd_ptr<video::IGPUSpecializedShader>),
+				geometryObject.inputParams,
+				blendParams,
+				geometryObject.assemblyParams,
+				rasterParams
+			);
+		}
+		else if (object == Objects::E_ICOSPHERE)
+		{
+			gpuRenderpassIndependentPipeline = logicalDevice->createGPURenderpassIndependentPipeline
+			(
+				nullptr,
+				logicalDevice->createGPUPipelineLayout(range, range + 1u, nullptr, nullptr, nullptr, nullptr),
+				gpuShadersRaw_ico,
+				gpuShadersRaw_ico + sizeof(gpuShaders_ico) / sizeof(core::smart_refctd_ptr<video::IGPUSpecializedShader>),
+				geometryObject.inputParams,
+				blendParams,
+				geometryObject.assemblyParams,
+				rasterParams
+			);
+		}
+		else
+		{
+			gpuRenderpassIndependentPipeline = logicalDevice->createGPURenderpassIndependentPipeline
+			(
+				nullptr, 
+				logicalDevice->createGPUPipelineLayout(range, range + 1u, nullptr, nullptr, nullptr, nullptr),
+				gpuShadersRaw, 
+				gpuShadersRaw + sizeof(gpuShaders) / sizeof(core::smart_refctd_ptr<video::IGPUSpecializedShader>),
+				geometryObject.inputParams, 
+				blendParams, 
+				geometryObject.assemblyParams, 
+				rasterParams
+			);
+		}
 
 		constexpr auto MAX_ATTR_BUF_BINDING_COUNT = video::IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT;
 		constexpr auto MAX_DATA_BUFFERS = MAX_ATTR_BUF_BINDING_COUNT + 1;
@@ -200,19 +292,36 @@ int main()
 		{
 			auto buf = geometryObject.bindings[i].buffer.get();
 			if (buf)
+			{
+				const auto newUsageFlags = buf->getUsageFlags() | asset::IBuffer::EUF_VERTEX_BUFFER_BIT;
+				buf->setUsageFlags(newUsageFlags);
 				cpubuffers.push_back(buf);
+			}
 		}
 		auto cpuindexbuffer = geometryObject.indexBuffer.buffer.get();
 		if (cpuindexbuffer)
-			cpubuffers.push_back(cpuindexbuffer);
-
-		auto gpubuffers = cpu2gpu.getGPUObjectsFromAssets(cpubuffers.data(), cpubuffers.data() + cpubuffers.size(), cpu2gpuParams);
 		{
-			if (!gpubuffers || gpubuffers->size() < 1u)
-				assert(false);
-
-			cpu2gpuWaitForFences();
+			const auto newUsageFlags = cpuindexbuffer->getUsageFlags() | asset::IBuffer::EUF_INDEX_BUFFER_BIT;
+			cpuindexbuffer->setUsageFlags(newUsageFlags);
+			cpubuffers.push_back(cpuindexbuffer);
 		}
+
+		video::IGPUObjectFromAssetConverter cpu2gpu;
+
+		core::smart_refctd_ptr<video::IGPUCommandBuffer> transferCmdBuffer;
+		core::smart_refctd_ptr<video::IGPUCommandBuffer> computeCmdBuffer;
+
+		logicalDevice->createCommandBuffers(commandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY, 1u, &transferCmdBuffer);
+		logicalDevice->createCommandBuffers(commandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY, 1u, &computeCmdBuffer);
+
+		cpu2gpuParams.perQueue[video::IGPUObjectFromAssetConverter::EQU_TRANSFER].cmdbuf = transferCmdBuffer;
+		cpu2gpuParams.perQueue[video::IGPUObjectFromAssetConverter::EQU_COMPUTE].cmdbuf = computeCmdBuffer;
+
+		cpu2gpuParams.beginCommandBuffers();
+		auto gpubuffers = cpu2gpu.getGPUObjectsFromAssets(cpubuffers.data(), cpubuffers.data() + cpubuffers.size(), cpu2gpuParams);
+		cpu2gpuParams.waitForCreationToComplete(false);
+		if (!gpubuffers || gpubuffers->size() < 1u)
+			assert(false);
 
 		asset::SBufferBinding<video::IGPUBuffer> bindings[MAX_DATA_BUFFERS];
 		for (auto i=0,j=0; i < MAX_ATTR_BUF_BINDING_COUNT; i++)
@@ -246,14 +355,14 @@ int main()
 		return { mb, gpuGraphicsPipeline };
 	};
 
-	auto gpuCube = createGPUMeshBufferAndItsPipeline(cubeGeometry);
-	auto gpuSphere = createGPUMeshBufferAndItsPipeline(sphereGeometry);
-	auto gpuCylinder = createGPUMeshBufferAndItsPipeline(cylinderGeometry);
-	auto gpuRectangle = createGPUMeshBufferAndItsPipeline(rectangleGeometry);
-	auto gpuDisk = createGPUMeshBufferAndItsPipeline(diskGeometry);
-	auto gpuCone = createGPUMeshBufferAndItsPipeline(coneGeometry);
-	auto gpuArrow = createGPUMeshBufferAndItsPipeline(arrowGeometry);
-	auto gpuIcosphere = createGPUMeshBufferAndItsPipeline(icosphereGeometry);
+	auto gpuCube = createGPUMeshBufferAndItsPipeline(cubeGeometry, Objects::E_CUBE);
+	auto gpuSphere = createGPUMeshBufferAndItsPipeline(sphereGeometry, Objects::E_SPHERE);
+	auto gpuCylinder = createGPUMeshBufferAndItsPipeline(cylinderGeometry, Objects::E_CYLINDER);
+	auto gpuRectangle = createGPUMeshBufferAndItsPipeline(rectangleGeometry, Objects::E_RECTANGLE);
+	auto gpuDisk = createGPUMeshBufferAndItsPipeline(diskGeometry, Objects::E_DISK);
+	auto gpuCone = createGPUMeshBufferAndItsPipeline(coneGeometry, Objects::E_CONE);
+	auto gpuArrow = createGPUMeshBufferAndItsPipeline(arrowGeometry, Objects::E_ARROW);
+	auto gpuIcosphere = createGPUMeshBufferAndItsPipeline(icosphereGeometry, Objects::E_ICOSPHERE);
 
 	Objects cpuGpuObjects =
 	{
@@ -300,7 +409,7 @@ int main()
 	uint32_t acquiredNextFBO = {};
 	auto resourceIx = -1;
 
-	while(windowCallback->isWindowOpen())
+	while(windowCb->isWindowOpen())
 	{
 		++resourceIx;
 		if (resourceIx >= FRAMES_IN_FLIGHT)
@@ -310,7 +419,10 @@ int main()
 		auto& fence = frameComplete[resourceIx];
 
 		if (fence)
+		{
 			while (logicalDevice->waitForFences(1u, &fence.get(), false, MAX_TIMEOUT) == video::IGPUFence::ES_TIMEOUT) {}
+			logicalDevice->resetFences(1u, &fence.get());
+		}
 		else
 			fence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
 
@@ -362,9 +474,14 @@ int main()
 		viewport.height = WIN_H;
 		commandBuffer->setViewport(0u, 1u, &viewport);
 
+		VkRect2D scissor;
+		scissor.offset = { 0, 0 };
+		scissor.extent = { WIN_W,WIN_H };
+		commandBuffer->setScissor(0u, 1u, &scissor);
+
 		swapchain->acquireNextImage(MAX_TIMEOUT, imageAcquire[resourceIx].get(), nullptr, &acquiredNextFBO);
 
-		nbl::video::IGPUCommandBuffer::SRenderpassBeginInfo beginInfo;
+		video::IGPUCommandBuffer::SRenderpassBeginInfo beginInfo;
 		{
 			VkRect2D area;
 			area.offset = { 0,0 };
@@ -398,7 +515,7 @@ int main()
 			auto* gpuGraphicsPipeline = gpuObject.gpuGraphicsPipeline.get();
 
 			commandBuffer->bindGraphicsPipeline(gpuGraphicsPipeline);
-			commandBuffer->pushConstants(gpuGraphicsPipeline->getRenderpassIndependentPipeline()->getLayout(), video::IGPUSpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD), mvp.pointer());
+			commandBuffer->pushConstants(gpuGraphicsPipeline->getRenderpassIndependentPipeline()->getLayout(), video::IGPUShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD), mvp.pointer());
 			commandBuffer->drawMeshBuffer(gpuObject.gpuMeshbBuffer.get());
 		}
 
@@ -409,10 +526,21 @@ int main()
 		CommonAPI::Present(logicalDevice.get(), swapchain.get(), queues[decltype(initOutput)::EQT_GRAPHICS], renderFinished[resourceIx].get(), acquiredNextFBO);
 	}
 
+	logicalDevice->waitIdle();
+
 	const auto& fboCreationParams = fbos[acquiredNextFBO]->getCreationParameters();
 	auto gpuSourceImageView = fboCreationParams.attachments[0];
 
-	bool status = ext::ScreenShot::createScreenShot(logicalDevice.get(), queues[decltype(initOutput)::EQT_TRANSFER_UP], renderFinished[resourceIx].get(), gpuSourceImageView.get(), assetManager.get(), "ScreenShot.png");
+	bool status = ext::ScreenShot::createScreenShot(
+		logicalDevice.get(),
+		queues[decltype(initOutput)::EQT_TRANSFER_UP],
+		renderFinished[resourceIx].get(),
+		gpuSourceImageView.get(),
+		assetManager.get(),
+		"ScreenShot.png",
+		asset::EIL_PRESENT_SRC_KHR,
+		static_cast<asset::E_ACCESS_FLAGS>(0u));
+
 	assert(status);
 
 	return 0;

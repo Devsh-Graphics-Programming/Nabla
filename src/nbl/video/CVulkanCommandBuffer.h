@@ -215,8 +215,50 @@ public:
 
     bool drawMeshBuffer(const nbl::video::IGPUMeshBuffer* meshBuffer) override
     {
-        _NBL_TODO();
-        return false;
+        if (!meshBuffer || !meshBuffer->getInstanceCount())
+            return false;
+
+        const auto* pipeline = meshBuffer->getPipeline();
+        const auto bindingFlags = pipeline->getVertexInputParams().enabledBindingFlags;
+        auto vertexBufferBindings = meshBuffer->getVertexBufferBindings();
+        auto indexBufferBinding = meshBuffer->getIndexBufferBinding();
+        const auto indexType = meshBuffer->getIndexType();
+
+        const video::IGPUBuffer* gpuBufferBindings[asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT];
+        {
+            for (size_t i = 0; i < nbl::asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; ++i)
+                gpuBufferBindings[i] = vertexBufferBindings[i].buffer.get();
+        }
+
+        size_t bufferBindingsOffsets[asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT];
+        {
+            for (size_t i = 0; i < asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; ++i)
+                bufferBindingsOffsets[i] = vertexBufferBindings[i].offset;
+        }
+
+        bindVertexBuffers(0, asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT, gpuBufferBindings, bufferBindingsOffsets);
+        bindIndexBuffer(indexBufferBinding.buffer.get(), indexBufferBinding.offset, indexType);
+
+        const bool isIndexed = indexType != asset::EIT_UNKNOWN;
+
+        const size_t instanceCount = meshBuffer->getInstanceCount();
+        const size_t firstInstance = meshBuffer->getBaseInstance();
+        const size_t firstVertex = meshBuffer->getBaseVertex();
+
+        if (isIndexed)
+        {
+            const size_t& indexCount = meshBuffer->getIndexCount();
+            const size_t firstIndex = 0; // I don't think we have utility telling us this one
+            const size_t& vertexOffset = firstVertex;
+
+            return drawIndexed(indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
+        }
+        else
+        {
+            const size_t& vertexCount = meshBuffer->getIndexCount();
+
+            return draw(vertexCount, instanceCount, firstVertex, firstInstance);
+        }
     }
 
     bool setViewport(uint32_t firstViewport, uint32_t viewportCount, const asset::SViewport* pViewports) override
@@ -541,21 +583,24 @@ public:
         VkBuffer vk_buffers[MAX_BUFFER_COUNT];
         VkDeviceSize vk_offsets[MAX_BUFFER_COUNT];
         core::smart_refctd_ptr<const core::IReferenceCounted> tmp[MAX_BUFFER_COUNT];
+        uint32_t actualBindingCount = 0u;
         for (uint32_t i = 0u; i < bindingCount; ++i)
         {
             if (!pBuffers[i] || (pBuffers[i]->getAPIType() != EAT_VULKAN))
-                return false;
+                continue;
 
             vk_buffers[i] = static_cast<const CVulkanBuffer*>(pBuffers[i])->getInternalObject();
             vk_offsets[i] = static_cast<VkDeviceSize>(pOffsets[i]);
             tmp[i] = core::smart_refctd_ptr<const IGPUBuffer>(pBuffers[i]);
+
+            ++actualBindingCount;
         }
 
-        if (!saveReferencesToResources(tmp, tmp + bindingCount))
+        if (!saveReferencesToResources(tmp, tmp + actualBindingCount))
             return false;
 
         const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
-        vk->vk.vkCmdBindVertexBuffers(m_cmdbuf, firstBinding, bindingCount, vk_buffers, vk_offsets);
+        vk->vk.vkCmdBindVertexBuffers(m_cmdbuf, firstBinding, actualBindingCount, vk_buffers, vk_offsets);
         return true;
     }
 
