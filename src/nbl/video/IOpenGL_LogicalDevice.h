@@ -118,7 +118,7 @@ namespace impl
             static inline constexpr E_REQUEST_TYPE type = rt;
             using retval_t = void;
             
-            GLuint glnames[MaxGlNamesForSingleObject];
+            GLuint glnames[COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT*MaxGlNamesForSingleObject];
             uint32_t count;
         };
         struct SRequestSyncDestroy

@@ -442,8 +442,10 @@ public:
     }
     void destroySpecializedShaders(core::smart_refctd_dynamic_array<IOpenGLPipelineBase::SShaderProgram>&& programs) override final
     {
+        constexpr auto MaxCount = COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT*MaxGlNamesForSingleObject;
+
         const auto count = programs->size();
-        assert(count<=MaxGlNamesForSingleObject);
+        assert(count<=MaxCount);
 
         SRequest_Destroy<ERT_PROGRAM_DESTROY> params;
         params.count = 0u;
