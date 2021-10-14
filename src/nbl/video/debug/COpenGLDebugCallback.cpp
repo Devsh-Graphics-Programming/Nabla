@@ -45,4 +45,5 @@ void COpenGLDebugCallback::defaultCallback(GLenum _source, GLenum _type, GLuint 
             break;
     }
     cb->getLogger()->log("%s",static_cast<system::ILogger::E_LOG_LEVEL>(level),_message);
+    // __debugbreak();
 }

@@ -849,7 +849,8 @@ public:
 	}
 
 	template<class EventCallback = CommonAPIEventCallback>
-	static InitOutput Init(
+	static void Init(
+		InitOutput& result,
 		nbl::video::E_API_TYPE api_type,
 		const std::string_view app_name,
 		const SFeatureRequest<nbl::video::IAPIConnection::E_FEATURE>& requiredInstanceFeatures,
@@ -865,7 +866,6 @@ public:
 	{
 		using namespace nbl;
 		using namespace nbl::video;
-		InitOutput result = {};
 
 		bool headlessCompute = (swapchainImageUsage == asset::IImage::E_USAGE_FLAGS::EUF_NONE || sc_image_count <= 0u || window_width <= 0u || window_height <= 0u);
 
@@ -877,13 +877,13 @@ public:
 #elif defined(_NBL_PLATFORM_ANDROID_)
 		result.logger = core::make_smart_refctd_ptr<system::CStdoutLoggerAndroid>(logLevelMask); // we should let user choose it?
 #endif
-		result.inputSystem = core::make_smart_refctd_ptr<InputSystem>(system::logger_opt_smart_ptr(result.logger));
+		result.inputSystem = core::make_smart_refctd_ptr<InputSystem>(system::logger_opt_smart_ptr(core::smart_refctd_ptr(result.logger)));
 
 		if(!headlessCompute)
 		{
 #ifndef _NBL_PLATFORM_ANDROID_
 			auto windowManager = core::make_smart_refctd_ptr<nbl::ui::CWindowManagerWin32>(); // should we store it in result?
-			result.windowCb = core::make_smart_refctd_ptr<EventCallback>(core::smart_refctd_ptr(result.inputSystem), system::logger_opt_smart_ptr(result.logger));
+			result.windowCb = core::make_smart_refctd_ptr<EventCallback>(core::smart_refctd_ptr(result.inputSystem), system::logger_opt_smart_ptr(core::smart_refctd_ptr(result.logger)));
 
 			nbl::ui::IWindow::SCreationParams windowsCreationParams;
 			windowsCreationParams.width = window_width;
@@ -902,7 +902,16 @@ public:
 		}
 		if (api_type == EAT_VULKAN) 
 		{
-			auto _apiConnection = video::CVulkanConnection::create(core::smart_refctd_ptr(result.system), 0, app_name.data(), requiredInstanceFeatures.count, requiredInstanceFeatures.features, optionalInstanceFeatures.count, optionalInstanceFeatures.features, result.logger, true);
+			auto _apiConnection = video::CVulkanConnection::create(
+				core::smart_refctd_ptr(result.system),
+				0,
+				app_name.data(),
+				requiredInstanceFeatures.count,
+				requiredInstanceFeatures.features,
+				optionalInstanceFeatures.count,
+				optionalInstanceFeatures.features,
+				core::smart_refctd_ptr(result.logger),
+				true);
 #ifdef _NBL_PLATFORM_WINDOWS_
 			result.surface = video::CSurfaceVulkanWin32::create(core::smart_refctd_ptr(_apiConnection), core::smart_refctd_ptr<ui::IWindowWin32>(static_cast<ui::IWindowWin32*>(result.window.get())));
 #elif defined(_NBL_PLATFORM_ANDROID_)
@@ -1124,6 +1133,7 @@ public:
 		dev_params.requiredFeatures = requiredDeviceFeatures.features;
 		dev_params.optionalFeatureCount = optionalDeviceFeatures.count;
 		dev_params.optionalFeatures = optionalDeviceFeatures.features;
+		result.logicalDevice = gpu->createLogicalDevice(dev_params);
 
 		result.utilities = core::make_smart_refctd_ptr<video::IUtilities>(core::smart_refctd_ptr(result.logicalDevice));
 
@@ -1228,8 +1238,6 @@ public:
 	
 		result.cpu2gpuParams.perQueue[IGPUObjectFromAssetConverter::EQU_TRANSFER].cmdbuf = transferCmdBuffer;
 		result.cpu2gpuParams.perQueue[IGPUObjectFromAssetConverter::EQU_COMPUTE].cmdbuf = computeCmdBuffer;
-
-		return result;
 	}
 
 	static nbl::core::smart_refctd_ptr<nbl::video::ISwapchain> createSwapchain(
