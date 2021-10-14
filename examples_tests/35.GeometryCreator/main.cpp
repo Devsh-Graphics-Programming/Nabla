@@ -153,13 +153,16 @@ int main()
 	const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT);
 	const video::ISurface::SFormat surfaceFormat(asset::EF_B8G8R8A8_SRGB, asset::ECP_COUNT, asset::EOTF_UNKNOWN);
 
-	auto initOutput = CommonAPI::Init<WIN_W, WIN_H, SC_IMG_COUNT>(
+	auto initOutput = CommonAPI::Init(
 		video::EAT_VULKAN,
 		"35.GeometryCreator",
 		requiredInstanceFeatures,
 		optionalInstanceFeatures,
 		requiredDeviceFeatures,
 		optionalDeviceFeatures,
+		WIN_W,
+		WIN_H,
+		SC_IMG_COUNT,
 		swapchainImageUsage,
 		surfaceFormat);
 
@@ -175,7 +178,7 @@ int main()
 	auto swapchain = std::move(initOutput.swapchain);
 	auto renderpass = std::move(initOutput.renderpass);
 	auto fbos = std::move(initOutput.fbo);
-	auto commandPool = std::move(initOutput.commandPool);
+	auto commandPools = std::move(initOutput.commandPools);
 	auto assetManager = std::move(initOutput.assetManager);
 	auto cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
 	auto utilities = std::move(initOutput.utilities);
@@ -311,8 +314,8 @@ int main()
 		core::smart_refctd_ptr<video::IGPUCommandBuffer> transferCmdBuffer;
 		core::smart_refctd_ptr<video::IGPUCommandBuffer> computeCmdBuffer;
 
-		logicalDevice->createCommandBuffers(commandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY, 1u, &transferCmdBuffer);
-		logicalDevice->createCommandBuffers(commandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY, 1u, &computeCmdBuffer);
+		logicalDevice->createCommandBuffers(commandPools[CommonAPI::InitOutput::EQT_TRANSFER_UP].get(), video::IGPUCommandBuffer::EL_PRIMARY, 1u, &transferCmdBuffer);
+		logicalDevice->createCommandBuffers(commandPools[CommonAPI::InitOutput::EQT_COMPUTE].get(), video::IGPUCommandBuffer::EL_PRIMARY, 1u, &computeCmdBuffer);
 
 		cpu2gpuParams.perQueue[video::IGPUObjectFromAssetConverter::EQU_TRANSFER].cmdbuf = transferCmdBuffer;
 		cpu2gpuParams.perQueue[video::IGPUObjectFromAssetConverter::EQU_COMPUTE].cmdbuf = computeCmdBuffer;
@@ -393,7 +396,7 @@ int main()
 		dtList[i] = 0.0;
 
 	core::smart_refctd_ptr<video::IGPUCommandBuffer> commandBuffers[FRAMES_IN_FLIGHT];
-	logicalDevice->createCommandBuffers(commandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY, FRAMES_IN_FLIGHT, commandBuffers);
+	logicalDevice->createCommandBuffers(commandPools[CommonAPI::InitOutput::EQT_GRAPHICS].get(), video::IGPUCommandBuffer::EL_PRIMARY, FRAMES_IN_FLIGHT, commandBuffers);
 
 	core::smart_refctd_ptr<video::IGPUFence> frameComplete[FRAMES_IN_FLIGHT] = { nullptr };
 	core::smart_refctd_ptr<video::IGPUSemaphore> imageAcquire[FRAMES_IN_FLIGHT] = { nullptr };
