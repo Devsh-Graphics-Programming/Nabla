@@ -24,7 +24,6 @@ namespace nbl::video
 class IPhysicalDevice : public core::Interface, public core::Unmovable
 {
 public:
-    // Probably should rename this to SProperties?
     struct SLimits
     {
         uint32_t UBOAlignment;

@@ -12,10 +12,9 @@ class CVulkanSpecializedShader : public IGPUSpecializedShader
 public:
     CVulkanSpecializedShader(
         core::smart_refctd_ptr<ILogicalDevice>&& dev,
-        asset::IShader::E_SHADER_STAGE shaderStage, 
         core::smart_refctd_ptr<const CVulkanShader>&& unspecShader,
         const asset::ISpecializedShader::SInfo& specInfo)
-        : IGPUSpecializedShader(std::move(dev), shaderStage),
+        : IGPUSpecializedShader(std::move(dev), unspecShader->getStage()),
         m_unspecShader(std::move(unspecShader)), m_specInfo(specInfo)
     {}
 

@@ -254,4 +254,25 @@ namespace nbl::video
     }
 
     IDebugCallback* CVulkanConnection::getDebugCallback() const { return m_debugCallback.get(); }
+
+    void CVulkanConnection::getVulkanExtensionNamesFromFeature(const IAPIConnection::E_FEATURE feature, uint32_t& extNameCount, const char** extNames)
+    {
+        extNameCount = 0u;
+
+        switch (feature)
+        {
+        case IAPIConnection::EF_SURFACE:
+        {
+            extNames[extNameCount++] = VK_KHR_SURFACE_EXTENSION_NAME;
+#if defined(_NBL_PLATFORM_WINDOWS_)
+            extNames[extNameCount++] = VK_KHR_WIN32_SURFACE_EXTENSION_NAME;
+#endif
+        } break;
+
+        default:
+            break;
+        }
+
+        assert(extNameCount <= 8u); // it is rare that any feature will spawn more than 8 "variations" (usually due to OS-specific stuff), consequently the caller might only provide enough memory to write <= 8 of them
+    }
 }

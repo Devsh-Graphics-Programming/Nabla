@@ -37,8 +37,11 @@ SAssetBundle CGLSLLoader::loadAsset(system::IFile* _file, const IAssetLoader::SA
 																							{".comp",IShader::ESS_COMPUTE}
 																						};
 	auto found = typeFromExt.find(extension.string());
-	if (found==typeFromExt.end())
+	if (found == typeFromExt.end())
+	{
+		_NBL_ALIGNED_FREE(source);
 		return {};
+	}
 
 	auto shader = core::make_smart_refctd_ptr<ICPUShader>(reinterpret_cast<char*>(source), found->second, filename.string());
 	_NBL_ALIGNED_FREE(source);

@@ -1091,7 +1091,7 @@ protected:
             return nullptr;
 
         return core::make_smart_refctd_ptr<CVulkanSpecializedShader>(
-            core::smart_refctd_ptr<CVulkanLogicalDevice>(this), _unspecialized->getStage(),
+            core::smart_refctd_ptr<CVulkanLogicalDevice>(this),
             core::smart_refctd_ptr<const CVulkanShader>(vulkanShader), specInfo);
     }
 
