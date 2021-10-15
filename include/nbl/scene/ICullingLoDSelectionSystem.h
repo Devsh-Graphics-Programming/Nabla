@@ -283,8 +283,6 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 				params.indirectDispatchParams.buffer
 			};
 
-			const auto internalStageFlags = core::bitflag(asset::EPSF_DRAW_INDIRECT_BIT)|asset::EPSF_COMPUTE_SHADER_BIT;
-
 			constexpr auto MaxBufferBarriers = 5u;
 			video::IGPUCommandBuffer::SBufferMemoryBarrier barriers[MaxBufferBarriers];
 			for (auto i=0u; i<MaxBufferBarriers; i++)
@@ -307,9 +305,13 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 			const auto wAccessMask = core::bitflag(asset::EAF_SHADER_WRITE_BIT);
 			const auto rwAccessMask = core::bitflag(asset::EAF_SHADER_READ_BIT)|wAccessMask;
 			const auto indirectAccessMask = core::bitflag(asset::EAF_INDIRECT_COMMAND_READ_BIT)|rwAccessMask;
+			{
+				setBarrierBuffer(barriers[0],params.drawCalls,indirectAccessMask,wAccessMask);
+				cmdbuf->pipelineBarrier(asset::EPSF_DRAW_INDIRECT_BIT,asset::EPSF_COMPUTE_SHADER_BIT,asset::EDF_NONE,0u,nullptr,1u,barriers,0u,nullptr);
+			}
 			setBarrierBuffer(barriers[0],indirectRange,indirectAccessMask,indirectAccessMask);
-
-			auto srcStageFlags = core::bitflag(asset::EPSF_COMPUTE_SHADER_BIT);
+			
+			const auto internalStageFlags = core::bitflag(asset::EPSF_DRAW_INDIRECT_BIT)|asset::EPSF_COMPUTE_SHADER_BIT;
 			if (params.directInstanceCount)
 			{
 				cmdbuf->bindComputePipeline(directInstanceCullAndLoDSelect.get());
@@ -319,33 +321,34 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 			}
 			else
 			{
-				srcStageFlags |= asset::EPSF_DRAW_INDIRECT_BIT;
 				cmdbuf->bindComputePipeline(indirectInstanceCullAndLoDSelect.get());
 				cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,indirectInstanceCullAndLoDSelectLayout.get(),0u,4u,&params.lodLibraryDS.get());
 				cmdbuf->dispatchIndirect(indirectRange.buffer.get(),indirectRange.offset+offsetof(DispatchIndirectParams,instanceCullAndLoDSelect));
 			}
 			{
 				setBarrierBuffer(barriers[1],params.drawCalls,wAccessMask,rwAccessMask);
-				//setBarrierBuffer(barriers[2],params.prefixSumScratch,wAccessMask,rwAccessMask);
-				setBarrierBuffer(barriers[2],params.scratchBufferRanges.lodInfoUvec4Offsets,wAccessMask,core::bitflag(asset::EAF_SHADER_READ_BIT));
-				setBarrierBuffer(barriers[3],params.scratchBufferRanges.lodDrawCallCounts,rwAccessMask,core::bitflag(asset::EAF_SHADER_READ_BIT));
-				// TODO: perViewData
-				cmdbuf->pipelineBarrier(srcStageFlags,internalStageFlags,asset::EDF_NONE,0u,nullptr,4u,barriers,0u,nullptr);
+				setBarrierBuffer(barriers[2],params.scratchBufferRanges.lodInfoUvec4Offsets,wAccessMask,asset::EAF_SHADER_READ_BIT);
+				setBarrierBuffer(barriers[3],params.scratchBufferRanges.pvsInstanceDraws,rwAccessMask,rwAccessMask);
+				setBarrierBuffer(barriers[4],params.scratchBufferRanges.lodDrawCallCounts,rwAccessMask,rwAccessMask);
+				setBarrierBuffer(barriers[5],params.perViewPerInstance,wAccessMask,asset::EAF_SHADER_READ_BIT);
+				cmdbuf->pipelineBarrier(asset::EPSF_COMPUTE_SHADER_BIT,internalStageFlags,asset::EDF_NONE,0u,nullptr,6u,barriers,0u,nullptr);
 			}
 
 			cmdbuf->bindComputePipeline(instanceDrawCountPrefixSum.get());
 			cmdbuf->dispatchIndirect(indirectRange.buffer.get(),indirectRange.offset+offsetof(DispatchIndirectParams,instanceDrawCountPrefixSum));
 			{
 				setBarrierBuffer(barriers[1],params.scratchBufferRanges.lodDrawCallCounts,rwAccessMask,rwAccessMask);
-				cmdbuf->pipelineBarrier(internalStageFlags,internalStageFlags,asset::EDF_NONE,0u,nullptr,2u,barriers,0u,nullptr);
+				setBarrierBuffer(barriers[2],params.scratchBufferRanges.prefixSumScratch,rwAccessMask,rwAccessMask);
+				cmdbuf->pipelineBarrier(internalStageFlags,internalStageFlags,asset::EDF_NONE,0u,nullptr,3u,barriers,0u,nullptr);
 			}
 
 			cmdbuf->bindComputePipeline(instanceDrawCull.get());
 			cmdbuf->dispatchIndirect(indirectRange.buffer.get(),indirectRange.offset+offsetof(DispatchIndirectParams,instanceDrawCull));
 			{
-				setBarrierBuffer(barriers[1],params.drawCalls,rwAccessMask,rwAccessMask);
-				setBarrierBuffer(barriers[2],params.scratchBufferRanges.pvsInstanceDraws,rwAccessMask,core::bitflag(asset::EAF_SHADER_READ_BIT));
-				cmdbuf->pipelineBarrier(internalStageFlags,internalStageFlags,asset::EDF_NONE,0u,nullptr,3u,barriers,0u,nullptr);
+				setBarrierBuffer(barriers[1],params.scratchBufferRanges.prefixSumScratch,rwAccessMask,rwAccessMask);
+				setBarrierBuffer(barriers[2],params.drawCalls,rwAccessMask,rwAccessMask);
+				setBarrierBuffer(barriers[3],params.scratchBufferRanges.pvsInstanceDraws,rwAccessMask,rwAccessMask);
+				cmdbuf->pipelineBarrier(internalStageFlags,internalStageFlags,asset::EDF_NONE,0u,nullptr,4u,barriers,0u,nullptr);
 			}
 
 			cmdbuf->bindComputePipeline(drawInstanceCountPrefixSum.get());
@@ -361,7 +364,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 			}
 			{
 				setBarrierBuffer(barriers[1],params.drawCalls,rwAccessMask,indirectAccessMask);
-				setBarrierBuffer(barriers[2],params.scratchBufferRanges.prefixSumScratch,rwAccessMask,wAccessMask);
+				setBarrierBuffer(barriers[2],params.scratchBufferRanges.prefixSumScratch,rwAccessMask,rwAccessMask);
 				cmdbuf->pipelineBarrier(internalStageFlags,internalStageFlags,asset::EDF_NONE,0u,nullptr,3u,barriers,0u,nullptr);
 			}
 
@@ -369,8 +372,8 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 			cmdbuf->dispatchIndirect(indirectRange.buffer.get(),indirectRange.offset+offsetof(DispatchIndirectParams,instanceRefCountingSortScatter));
 			{
 				setBarrierBuffer(barriers[1],params.scratchBufferRanges.lodDrawCallCounts,wAccessMask,rwAccessMask);
-				setBarrierBuffer(barriers[2],params.scratchBufferRanges.prefixSumScratch,wAccessMask,rwAccessMask);
-				setBarrierBuffer(barriers[3],params.perInstanceRedirectAttribs,wAccessMask,wAccessMask|asset::EAF_VERTEX_ATTRIBUTE_READ_BIT);
+				setBarrierBuffer(barriers[2],params.scratchBufferRanges.prefixSumScratch,rwAccessMask,rwAccessMask);
+				setBarrierBuffer(barriers[3],params.perInstanceRedirectAttribs,wAccessMask,asset::EAF_VERTEX_ATTRIBUTE_READ_BIT);
 				cmdbuf->pipelineBarrier(internalStageFlags,internalStageFlags|asset::EPSF_VERTEX_INPUT_BIT,asset::EDF_NONE,0u,nullptr,4u,barriers,0u,nullptr);
 			}
 #if 0
