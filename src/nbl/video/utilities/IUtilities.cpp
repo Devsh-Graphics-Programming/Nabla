@@ -265,8 +265,8 @@ void IUtilities::updateImageViaStagingBuffer(
                         bufferCopy.bufferRowLength = imageExtentInBlocks.x * texelBlockDim.x;
                         bufferCopy.bufferImageHeight = imageExtentInBlocks.y * texelBlockDim.y;
                         bufferCopy.imageSubresource.aspectMask = region.imageSubresource.aspectMask;
-                        bufferCopy.imageSubresource.mipLevel = region.imageSubresource.baseArrayLayer;
-                        bufferCopy.imageSubresource.baseArrayLayer += currentLayerInRegion;
+                        bufferCopy.imageSubresource.mipLevel = region.imageSubresource.mipLevel;
+                        bufferCopy.imageSubresource.baseArrayLayer = region.imageSubresource.baseArrayLayer + currentLayerInRegion;
                         bufferCopy.imageOffset.x = region.imageOffset.x + currentBlockInRow * texelBlockDim.x;
                         bufferCopy.imageOffset.y = region.imageOffset.y + currentRowInSlice * texelBlockDim.y;
                         bufferCopy.imageOffset.z = region.imageOffset.z + currentSliceInLayer * texelBlockDim.z;
