@@ -258,7 +258,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 		//
 		inline const video::IGPUPipelineLayout* getInstanceCullAndLoDSelectLayout() const
 		{
-			return instanceCullAndLoDSelectLayout.get();
+			return m_instanceCullAndLoDSelectLayout.get();
 		}
 
 		//
@@ -318,8 +318,8 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 			setBarrierBuffer(barriers[0],indirectRange,indirectAccessMask,indirectAccessMask);
 			
 			const auto internalStageFlags = core::bitflag(asset::EPSF_DRAW_INDIRECT_BIT)|asset::EPSF_COMPUTE_SHADER_BIT;
-			cmdbuf->bindComputePipeline(instanceCullAndLoDSelect.get());
-			cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,instanceCullAndLoDSelectLayout.get(),0u,4u,&params.lodLibraryDS.get());
+			cmdbuf->bindComputePipeline(m_instanceCullAndLoDSelect.get());
+			cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,m_instanceCullAndLoDSelectLayout.get(),0u,4u,&params.lodLibraryDS.get());
 			if (params.directInstanceCount)
 			{
 				cmdbuf->dispatch(1u,1u,1u); // TODO: dispatch size
@@ -335,8 +335,8 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 				cmdbuf->pipelineBarrier(asset::EPSF_COMPUTE_SHADER_BIT,internalStageFlags,asset::EDF_NONE,0u,nullptr,6u,barriers,0u,nullptr);
 			}
 
-			cmdbuf->bindComputePipeline(instanceDrawCountPrefixSum.get());
-			cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,instanceDrawCullLayout.get(),0u,4u,&params.lodLibraryDS.get());
+			cmdbuf->bindComputePipeline(m_instanceDrawCountPrefixSum.get());
+			cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,m_instanceDrawCullLayout.get(),0u,4u,&params.lodLibraryDS.get());
 			cmdbuf->dispatchIndirect(indirectRange.buffer.get(),indirectRange.offset+offsetof(DispatchIndirectParams,instanceDrawCountPrefixSum));
 			{
 				setBarrierBuffer(barriers[1],params.scratchBufferRanges.lodDrawCallCounts,rwAccessMask,rwAccessMask);
@@ -344,12 +344,12 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 				cmdbuf->pipelineBarrier(internalStageFlags,internalStageFlags,asset::EDF_NONE,0u,nullptr,3u,barriers,0u,nullptr);
 			}
 
-			cmdbuf->bindComputePipeline(instanceDrawCull.get());
+			cmdbuf->bindComputePipeline(m_instanceDrawCull.get());
 			{
 				const auto maxTotalDrawcallInstances = params.scratchBufferRanges.pvsInstanceDraws.size/(sizeof(uint32_t)*4u)-1u;
 				video::CScanner::Parameters scanParams;
 				auto schedulerParams = video::CScanner::SchedulerParameters(scanParams,maxTotalDrawcallInstances);
-				cmdbuf->pushConstants(instanceDrawCullLayout.get(),asset::ISpecializedShader::ESS_COMPUTE,0u,sizeof(uint32_t),scanParams.temporaryStorageOffset);
+				cmdbuf->pushConstants(m_instanceDrawCullLayout.get(),asset::ISpecializedShader::ESS_COMPUTE,0u,sizeof(uint32_t),scanParams.temporaryStorageOffset);
 			}
 			cmdbuf->dispatchIndirect(indirectRange.buffer.get(),indirectRange.offset+offsetof(DispatchIndirectParams,instanceDrawCull));
 			{
@@ -359,14 +359,14 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 				cmdbuf->pipelineBarrier(internalStageFlags,internalStageFlags,asset::EDF_NONE,0u,nullptr,4u,barriers,0u,nullptr);
 			}
 
-			cmdbuf->bindComputePipeline(drawInstanceCountPrefixSum.get());
-			cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,instanceRefCountingSortPipelineLayout.get(),1u,2u,&params.transientInputDS.get());
+			cmdbuf->bindComputePipeline(m_drawInstanceCountPrefixSum.get());
+			cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,m_instanceRefCountingSortPipelineLayout.get(),1u,2u,&params.transientInputDS.get());
 			{
 				video::CScanner::DispatchInfo dispatchInfo;
 				{
 					video::CScanner::DefaultPushConstants pushConstants;
 					m_scanner->buildParameters(params.drawcallCount,pushConstants,dispatchInfo);
-					cmdbuf->pushConstants(instanceRefCountingSortPipelineLayout.get(),asset::ISpecializedShader::ESS_COMPUTE,0u,sizeof(pushConstants),&pushConstants);
+					cmdbuf->pushConstants(m_instanceRefCountingSortPipelineLayout.get(),asset::ISpecializedShader::ESS_COMPUTE,0u,sizeof(pushConstants),&pushConstants);
 				}
 				cmdbuf->dispatch(dispatchInfo.wg_count,1u,1u);
 			}
@@ -376,7 +376,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 				cmdbuf->pipelineBarrier(internalStageFlags,internalStageFlags,asset::EDF_NONE,0u,nullptr,3u,barriers,0u,nullptr);
 			}
 
-			cmdbuf->bindComputePipeline(instanceRefCountingSortScatter.get());
+			cmdbuf->bindComputePipeline(m_instanceRefCountingSortScatter.get());
 			cmdbuf->dispatchIndirect(indirectRange.buffer.get(),indirectRange.offset+offsetof(DispatchIndirectParams,instanceRefCountingSortScatter));
 			{
 				setBarrierBuffer(barriers[1],params.scratchBufferRanges.lodDrawCallCounts,wAccessMask,rwAccessMask);
@@ -395,110 +395,133 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 #			endif
 		}
 
-	//protected:
-		// `extraSource` must contain the definition of a data type `nbl_glsl_PerViewPerInstance_t` and 4 functions
-		// (see "nbl/builtin/glsl/culling_lod_selection/instance_cull_and_lod_select.comp" for details) 
-		ICullingLoDSelectionSystem(
-			video::IUtilities* utils, const asset::SPushConstantRange* customPCBegin, const asset::SPushConstantRange* customPCEnd,
-			core::smart_refctd_ptr<video::IGPUDescriptorSetLayout>&& customDSLayout, const system::path& cwd,
-			std::string&& extraSource, uint32_t wg_size=DefaultWorkGroupSize)
+		// `perViewPerInstanceDefinition` must contain the definition of a data type `nbl_glsl_PerViewPerInstance_t` 
+		// and `cullAndLoDSelectFuncDefinitions` must define the 4 functions used by
+		// "nbl/builtin/glsl/culling_lod_selection/instance_cull_and_lod_select.comp"
+		static core::smart_refctd_ptr<ICullingLoDSelectionSystem> create(
+			core::smart_refctd_ptr<video::CScanner>&& _scanner,
+			const asset::SPushConstantRange* cullAndLoDSelectPCBegin, const asset::SPushConstantRange* cullAndLoDSelectPCEnd,
+			core::smart_refctd_ptr<video::IGPUDescriptorSetLayout>&& customExtraDSLayout,
+			const system::path& cwdForShaderCompilation, const std::string& perViewPerInstanceDefinition, const std::string& cullAndLoDSelectFuncDefinitions,
+			uint32_t wg_size=DefaultWorkGroupSize
+		)
 		{
-			auto device = utils->getLogicalDevice();
+			auto device = _scanner->getDevice();
 
 			auto lodLibraryDSLayout = ILevelOfDetailLibrary::createDescriptorSetLayout(device);
 			auto transientInputDSLayout = createInputDescriptorSetLayout(device);
 			auto transientOutputDSLayout = createOutputDescriptorSetLayout(device);
+			if (!lodLibraryDSLayout || !transientInputDSLayout || !transientOutputDSLayout)
+				return nullptr;
 
-			instanceCullAndLoDSelectLayout = device->createGPUPipelineLayout(
-				customPCBegin,customPCEnd,
+			auto instanceCullAndLoDSelectLayout = device->createGPUPipelineLayout(
+				cullAndLoDSelectPCBegin,cullAndLoDSelectPCEnd,
 				core::smart_refctd_ptr(lodLibraryDSLayout),
 				core::smart_refctd_ptr(transientInputDSLayout),
 				core::smart_refctd_ptr(transientOutputDSLayout),
-				core::smart_refctd_ptr(customDSLayout)
+				std::move(customExtraDSLayout)
 			);
 			const asset::SPushConstantRange singleUintRange = {asset::ISpecializedShader::ESS_COMPUTE,0u,sizeof(uint32_t)};
-			instanceDrawCullLayout = device->createGPUPipelineLayout(
+			auto instanceDrawCullLayout = device->createGPUPipelineLayout(
 				&singleUintRange,&singleUintRange+1u,
 				core::smart_refctd_ptr(lodLibraryDSLayout),
 				core::smart_refctd_ptr(transientInputDSLayout),
 				core::smart_refctd_ptr(transientOutputDSLayout)
 			);
-			m_scanner = core::smart_refctd_ptr<video::CScanner>(utils->getDefaultScanner());
-			auto instanceRefCountingSortPushConstants = m_scanner->getDefaultPipelineLayout()->getPushConstantRanges();
-			instanceRefCountingSortPipelineLayout = device->createGPUPipelineLayout(
+			auto instanceRefCountingSortPushConstants = _scanner->getDefaultPipelineLayout()->getPushConstantRanges();
+			auto instanceRefCountingSortPipelineLayout = device->createGPUPipelineLayout(
 				instanceRefCountingSortPushConstants.begin(),instanceRefCountingSortPushConstants.end(),
 				nullptr,
 				core::smart_refctd_ptr(transientInputDSLayout),
 				core::smart_refctd_ptr(transientOutputDSLayout)
 			);
-			
+			if (!instanceCullAndLoDSelectLayout || !instanceDrawCullLayout || !instanceRefCountingSortPipelineLayout)
+				return nullptr;
 
+			if (wg_size==0u || core::isNPoT(wg_size))
+				return nullptr;
 			const std::string workgroupSizeDef = "\n#define _NBL_GLSL_WORKGROUP_SIZE_ "+std::to_string(wg_size)+"\n";
-			extraSource = workgroupSizeDef+extraSource;
-
-
-			auto getShader = [device](auto uniqueString) -> std::pair<core::smart_refctd_ptr<asset::ICPUShader>,const char*>
+			
+			using shader_source_and_path = std::pair<core::smart_refctd_ptr<asset::ICPUShader>,system::path>;
+			auto getShader = [device](auto uniqueString) -> shader_source_and_path
 			{
 				auto system = device->getPhysicalDevice()->getSystem();
 				auto glsl = system->loadBuiltinData<decltype(uniqueString)>();
 				return {core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl),asset::IShader::buffer_contains_glsl_t{}),decltype(uniqueString)::value};
 			};
-			auto overrideShader = [device,this](std::pair<core::smart_refctd_ptr<asset::ICPUShader>,const char*>&& baseShader, const std::string& additionalCode)
+			auto overrideShader = [device,&cwdForShaderCompilation](shader_source_and_path&& baseShader, const std::string& additionalCode)
 			{
 				auto shader =  device->createGPUShader(
 					asset::IGLSLCompiler::createOverridenCopy(baseShader.first.get(),"\n%s\n",additionalCode.c_str())
 				);
-				return device->createGPUSpecializedShader(shader.get(),{nullptr,nullptr,"main",asset::ISpecializedShader::ESS_COMPUTE,baseShader.second});
+				auto& path = baseShader.second;
+				path = cwdForShaderCompilation/path.filename();
+				return device->createGPUSpecializedShader(shader.get(),{nullptr,nullptr,"main",asset::ISpecializedShader::ESS_COMPUTE,path});
 			};
-
+			
 			auto firstShader = getShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/culling_lod_selection/instance_cull_and_lod_select.comp")());
-			auto tmp = (cwd/"instance_cull_and_lod_select.comp").string();
-			firstShader.second = tmp.c_str();
-			instanceCullAndLoDSelect = device->createGPUComputePipeline(
+			auto instanceCullAndLoDSelect = device->createGPUComputePipeline(
 				nullptr,core::smart_refctd_ptr(instanceCullAndLoDSelectLayout),
-				overrideShader(std::move(firstShader),extraSource)
+				overrideShader(std::move(firstShader),workgroupSizeDef+perViewPerInstanceDefinition+cullAndLoDSelectFuncDefinitions)
 			);
-
-			instanceDrawCountPrefixSum = device->createGPUComputePipeline(
+			auto instanceDrawCountPrefixSum = device->createGPUComputePipeline(
 				nullptr,core::smart_refctd_ptr(instanceDrawCullLayout),
 				overrideShader(
 					{
-						m_scanner->getIndirectShader(video::CScanner::EST_INCLUSIVE,video::CScanner::EDT_UINT,video::CScanner::EO_ADD),
+						_scanner->getIndirectShader(video::CScanner::EST_INCLUSIVE,video::CScanner::EDT_UINT,video::CScanner::EO_ADD),
 						"ICullingLodSelectionSystem::instanceDrawCountPrefixSum"
 					},
 					"\n#include <nbl/builtin/glsl/culling_lod_selection/instance_draw_count_scan_override.glsl>\n"
 				)
 			);
-
-			extraSource = workgroupSizeDef + "\n#define nbl_glsl_PerViewPerInstance_t mat4\n"; // TODO: remove!
-			instanceDrawCull = device->createGPUComputePipeline(
+			
+			auto instanceDrawCull = device->createGPUComputePipeline(
 				nullptr,core::smart_refctd_ptr(instanceDrawCullLayout),
-				overrideShader(getShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/culling_lod_selection/instance_draw_cull.comp")()),extraSource)
+				overrideShader(getShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/culling_lod_selection/instance_draw_cull.comp")()),workgroupSizeDef+perViewPerInstanceDefinition)
 			);
 
-			drawInstanceCountPrefixSum = device->createGPUComputePipeline(
+			auto drawInstanceCountPrefixSum = device->createGPUComputePipeline(
 				nullptr,core::smart_refctd_ptr(instanceRefCountingSortPipelineLayout),
 				overrideShader(
 					{
-						core::smart_refctd_ptr<asset::ICPUShader>(m_scanner->getDefaultShader(video::CScanner::EST_EXCLUSIVE,video::CScanner::EDT_UINT,video::CScanner::EO_ADD)),
+						core::smart_refctd_ptr<asset::ICPUShader>(_scanner->getDefaultShader(video::CScanner::EST_EXCLUSIVE,video::CScanner::EDT_UINT,video::CScanner::EO_ADD)),
 						"ICullingLodSelectionSystem::drawInstanceCountPrefixSum"
 					},
 					"\n#include <nbl/builtin/glsl/culling_lod_selection/draw_instance_count_scan_override.glsl>\n"
 				)
 			);
-			instanceRefCountingSortScatter = device->createGPUComputePipeline(
+			auto instanceRefCountingSortScatter = device->createGPUComputePipeline(
 				nullptr,core::smart_refctd_ptr(instanceRefCountingSortPipelineLayout),
 				overrideShader(getShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/culling_lod_selection/instance_ref_counting_sort_scatter.comp")()),workgroupSizeDef)
 			);
-			//drawCompact = device->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(sharedPipelineLayout),loadShader());
+
+			//auto drawCompact = ?;
+
+			if (!instanceCullAndLoDSelect || !instanceDrawCountPrefixSum || !instanceDrawCull || !drawInstanceCountPrefixSum || !instanceRefCountingSortScatter)// || !drawCompact)
+				return nullptr;
+
+			return core::smart_refctd_ptr<ICullingLoDSelectionSystem>(new ICullingLoDSelectionSystem(
+				std::move(_scanner),std::move(instanceCullAndLoDSelectLayout),std::move(instanceDrawCullLayout),std::move(instanceRefCountingSortPipelineLayout),
+				std::move(instanceCullAndLoDSelect),std::move(instanceDrawCountPrefixSum),std::move(instanceDrawCull),std::move(drawInstanceCountPrefixSum),std::move(instanceRefCountingSortScatter)
+			),core::dont_grab);
 		}
+
 	protected:
+		ICullingLoDSelectionSystem(
+			core::smart_refctd_ptr<video::CScanner>&& _scanner,
+			core::smart_refctd_ptr<video::IGPUPipelineLayout>&& _instanceCullAndLoDSelectLayout, core::smart_refctd_ptr<video::IGPUPipelineLayout>&& _instanceDrawCullLayout, core::smart_refctd_ptr<video::IGPUPipelineLayout>&& _instanceRefCountingSortPipelineLayout,
+			core::smart_refctd_ptr<video::IGPUComputePipeline>&& instanceCullAndLoDSelect, core::smart_refctd_ptr<video::IGPUComputePipeline>&& _instanceDrawCountPrefixSum, core::smart_refctd_ptr<video::IGPUComputePipeline>&& _instanceDrawCull,
+			core::smart_refctd_ptr<video::IGPUComputePipeline>&& _drawInstanceCountPrefixSum, core::smart_refctd_ptr<video::IGPUComputePipeline>&& _instanceRefCountingSortScatter)
+			:	m_scanner(std::move(_scanner)), m_instanceCullAndLoDSelectLayout(std::move(_instanceCullAndLoDSelectLayout)), m_instanceDrawCullLayout(std::move(_instanceDrawCullLayout)), m_instanceRefCountingSortPipelineLayout(std::move(_instanceRefCountingSortPipelineLayout)),
+				m_instanceCullAndLoDSelect(std::move(instanceCullAndLoDSelect)), m_instanceDrawCountPrefixSum(std::move(_instanceDrawCountPrefixSum)), m_instanceDrawCull(std::move(_instanceDrawCull)),
+				m_drawInstanceCountPrefixSum(std::move(_drawInstanceCountPrefixSum)), m_instanceRefCountingSortScatter(std::move(_instanceRefCountingSortScatter))//, m_drawCompact(std::move(_drawCompact))
+		{
+		}
 
 		core::smart_refctd_ptr<video::CScanner> m_scanner;
-		core::smart_refctd_ptr<video::IGPUPipelineLayout> instanceCullAndLoDSelectLayout,instanceDrawCullLayout,instanceRefCountingSortPipelineLayout;
-		core::smart_refctd_ptr<video::IGPUComputePipeline> instanceCullAndLoDSelect;
-		core::smart_refctd_ptr<video::IGPUComputePipeline> instanceDrawCountPrefixSum,instanceDrawCull;
-		core::smart_refctd_ptr<video::IGPUComputePipeline> drawInstanceCountPrefixSum,instanceRefCountingSortScatter,drawCompact;
+		core::smart_refctd_ptr<video::IGPUPipelineLayout> m_instanceCullAndLoDSelectLayout,m_instanceDrawCullLayout,m_instanceRefCountingSortPipelineLayout;
+		core::smart_refctd_ptr<video::IGPUComputePipeline> m_instanceCullAndLoDSelect,m_instanceDrawCountPrefixSum,m_instanceDrawCull;
+		core::smart_refctd_ptr<video::IGPUComputePipeline> m_drawInstanceCountPrefixSum,m_instanceRefCountingSortScatter,m_drawCompact;
 };
 
 

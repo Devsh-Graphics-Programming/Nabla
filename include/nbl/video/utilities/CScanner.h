@@ -237,6 +237,8 @@ class CScanner final : public core::IReferenceCounted
 				cmdbuf->pipelineBarrier(asset::EPSF_COMPUTE_SHADER_BIT,dstStageMask,asset::EDF_NONE,0u,nullptr,dstBufferBarrierCount,dstBufferBarriers,0u,nullptr);
 		}
 
+		inline ILogicalDevice* getDevice() const {return m_device.get();}
+
     protected:
 		~CScanner()
 		{

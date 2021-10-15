@@ -315,9 +315,9 @@ int main()
         cullingDSPool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE,&layouts->get(),&layouts->get()+LayoutCount);
         
 		const asset::SPushConstantRange range = {asset::ISpecializedShader::ESS_COMPUTE,0u,sizeof(core::matrix4SIMD)+sizeof(uint32_t)};
-        cullingSystem = core::make_smart_refctd_ptr<culling_system_t>(
-            utilities.get(),&range,&range+1u,core::smart_refctd_ptr(layouts[3]),std::filesystem::current_path(),
-            "\n#include \"../per_view_per_instance_struct.glsl\"\n#include \"../cull_overrides.glsl\"\n"
+        cullingSystem = culling_system_t::create(
+            core::smart_refctd_ptr<video::CScanner>(utilities->getDefaultScanner()),&range,&range+1u,core::smart_refctd_ptr(layouts[3]),
+            std::filesystem::current_path(),"\n#include \"../per_view_per_instance_struct.glsl\"\n","\n#include \"../cull_overrides.glsl\"\n"
         );
 
         cullingParams.indirectDispatchParams = {0ull,culling_system_t::createDispatchIndirectBuffer(utilities.get(),queues[decltype(initOutput)::EQT_TRANSFER_UP])};
