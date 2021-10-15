@@ -384,20 +384,6 @@ int main()
 
 
 
-
-
-    // TODO: refactor
-    core::smart_refctd_ptr<video::IGPUBuffer> perViewPerInstanceDataScratch;
-    {
-        video::IGPUBuffer::SCreationParams params;
-        params.usage = core::bitflag(asset::IBuffer::EUF_STORAGE_BUFFER_BIT);
-        perViewPerInstanceDataScratch = logicalDevice->createDeviceLocalGPUBufferOnDedMem(params,sizeof(core::matrix4SIMD)*MaxInstanceCount);
-        auto mreqs = logicalDevice->getDeviceLocalGPUMemoryReqs();
-        mreqs.vulkanReqs.size = sizeof(core::matrix4SIMD)*MaxInstanceCount;
-        perViewPerInstanceDataScratch = logicalDevice->createGPUBufferOnDedMem(params,mreqs,true);
-    }
-
-
     core::smart_refctd_ptr<video::IGPUDescriptorSet> perViewDS;
     core::smart_refctd_ptr<ICPUDescriptorSetLayout> cpuPerViewDSLayout;
     {
@@ -429,7 +415,7 @@ int main()
                 writes[i].info = infos+i;
             }
             writes[0].descriptorType = EDT_STORAGE_BUFFER;
-            infos[0].desc = perViewPerInstanceDataScratch;
+            infos[0].desc = cullingParams.perViewPerInstance.buffer;
             infos[0].buffer = {0u,video::IGPUDescriptorSet::SDescriptorInfo::SBufferInfo::WholeBuffer};
             logicalDevice->updateDescriptorSets(BindingCount,writes,0u,nullptr);
         }
@@ -593,17 +579,8 @@ int main()
             camera.endInputProcessing(nextPresentationTimestamp);
         }
 
-        // update camera, TODO: redo
+        // cull, choose LoDs, and fill our draw indirects
         {
-            const auto& viewProjectionMatrix = camera.getConcatenatedMatrix();
-            std::array<core::matrix4SIMD,8u> data;
-            for (auto i=0; i<data.size(); i++)
-            {
-                data[i].setTranslation(core::vectorSIMDf(0.f,i,0.f)*6.f);
-                data[i] = core::concatenateBFollowedByA(viewProjectionMatrix,data[i]);
-            }
-            commandBuffer->updateBuffer(perViewPerInstanceDataScratch.get(),0ull,perViewPerInstanceDataScratch->getSize(),data.data());
-
             const auto* layout = cullingSystem->getInstanceCullAndLoDSelectLayout();
             commandBuffer->pushConstants(layout,asset::ISpecializedShader::ESS_COMPUTE,0u,sizeof(core::matrix4SIMD),camera.getConcatenatedMatrix().pointer());
             commandBuffer->pushConstants(layout,asset::ISpecializedShader::ESS_COMPUTE,sizeof(core::matrix4SIMD),sizeof(uint32_t),&cullingParams.directInstanceCount);
@@ -665,9 +642,6 @@ int main()
 }
 
 #if 0
-int main2()
-{
-
     refctd_dynamic_array<ModelData_t>* dummy0 = nullptr;
     refctd_dynamic_array<DrawData_t>* dummy1;
     
@@ -790,29 +764,5 @@ int main2()
         writes[2].dstSet = cullDescriptorSet.get();
         driver->updateDescriptorSets(BindingCount,writes,0u,nullptr);
     }
-    
-
-
-
-
-
-        
-        {
-            CullShaderData_t pc;
-            pc.viewProjMatrix = camera->getConcatenatedMatrix();
-            pc.viewInverseTransposeMatrix = normalMatrix;
-            pc.maxDrawCount = kInstanceCount;
-            pc.cull = doCulling ? 1u:0u;
-
-            driver->bindComputePipeline(gpuCullPipeline.get());
-            driver->bindDescriptorSets(video::EPBP_COMPUTE, gpuCullPipeline->getLayout(), 1u, 1u, &cullDescriptorSet.get(), nullptr);
-            driver->pushConstants(gpuCullPipeline->getLayout(), asset::ICPUSpecializedShader::ESS_COMPUTE, 0u, sizeof(CullShaderData_t), &pc);
-            driver->dispatch((kInstanceCount+kCullWorkgroupSize-1)/kCullWorkgroupSize,1u,1u);
-            video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT|GL_COMMAND_BARRIER_BIT);
-
-            driver->bindGraphicsPipeline(gpuDrawIndirectPipeline.get());
-            driver->bindDescriptorSets(video::EPBP_GRAPHICS, gpuDrawIndirectPipeline->getLayout(), 1u, 1u, &drawIndirectDescriptorSet.get(), nullptr);
-            driver->drawIndexedIndirect(globalVertexBindings,asset::EPT_TRIANGLE_LIST,asset::EIT_32BIT, globalIndexBuffer.get(),indirectDrawSSBO.get(),0,kInstanceCount,sizeof(DrawElementsIndirectCommand_t));
-        }
 
 #endif

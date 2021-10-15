@@ -62,7 +62,7 @@ void main()
         lodInfoUvec4Offsets.data[outIx] = lodInfoUvec4Offset;
         // we write this out, because of cache coherency and dependent loads in the prefix sum (has to do 2x load of independent, vs. 2x load of 2-long chain)
         lodDrawcallInclusiveCounts[outIx] = nbl_glsl_lod_library_Info_getDrawcallInfoCount(lodInfoUvec4Offset);
-        // TODO: perViewPerInstance.data[outIx] = perView;
+        perViewPerInstance.data[outIx] = perView;
     }
     
     // TODO: compute the indirect dispatch size

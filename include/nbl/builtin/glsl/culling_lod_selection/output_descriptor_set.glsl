@@ -40,7 +40,7 @@ uint nbl_glsl_culling_lod_selection_drawElementsGetBaseInstance(in uint drawCall
 #ifndef nbl_glsl_PerViewPerInstance_t
 #error "nbl_glsl_PerViewPerInstance_t must be defined!"
 #endif
-layout(
+layout(row_major,
     set = NBL_GLSL_CULLING_LOD_SELECTION_OUTPUT_DESCRIPTOR_SET,
     binding = NBL_GLSL_CULLING_LOD_SELECTION_PER_VIEW_PER_INSTANCE_DESCRIPTOR_BINDING
 ) NBL_GLSL_CULLING_LOD_SELECTION_PER_VIEW_PER_INSTANCE_DESCRIPTOR_QUALIFIERS buffer PerViewPerInstance

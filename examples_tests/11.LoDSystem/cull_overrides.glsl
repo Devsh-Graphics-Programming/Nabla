@@ -2,7 +2,7 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-layout(push_constant) uniform PushConstants
+layout(push_constant, row_major) uniform PushConstants
 {
     mat4 viewProjMat;
     uint cullableInstanceCount;
