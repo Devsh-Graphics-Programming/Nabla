@@ -517,11 +517,9 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 				m_drawInstanceCountPrefixSum(std::move(_drawInstanceCountPrefixSum)), m_instanceRefCountingSortScatter(std::move(_instanceRefCountingSortScatter))//, m_drawCompact(std::move(_drawCompact))
 		{
 		}
-
-		struct PotentiallyVisisbleInstanceDraw // : nbl_glsl_culling_lod_selection_PotentiallyVisibleInstanceDraw_t
-		{
-			uint32_t data[3]; //TODO: remove
-		};
+		
+		#include "nbl/builtin/glsl/culling_lod_selection/potentially_visible_instance_draw_struct.glsl"
+		using PotentiallyVisisbleInstanceDraw = nbl_glsl_culling_lod_selection_PotentiallyVisibleInstanceDraw_t;
 
 		core::smart_refctd_ptr<video::CScanner> m_scanner;
 		core::smart_refctd_ptr<video::IGPUPipelineLayout> m_instanceCullAndLoDSelectLayout,m_instanceDrawCullLayout,m_instanceRefCountingSortPipelineLayout;

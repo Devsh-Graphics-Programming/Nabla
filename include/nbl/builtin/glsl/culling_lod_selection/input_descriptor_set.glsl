@@ -53,12 +53,7 @@ layout(
 };
 #endif
 
-struct nbl_glsl_culling_lod_selection_PotentiallyVisibleInstanceDraw_t
-{
-    uint perViewPerInstanceID;
-    uint drawBaseInstanceDWORDOffset;
-    uint instanceID;
-}; // TODO: move
+#include <nbl/builtin/glsl/culling_lod_selection/potentially_visible_instance_draw_struct.glsl>
 #ifndef NBL_GLSL_CULLING_LOD_SELECTION_PVS_INSTANCE_DRAWS_DESCRIPTOR_BINDING
 #define NBL_GLSL_CULLING_LOD_SELECTION_PVS_INSTANCE_DRAWS_DESCRIPTOR_BINDING 4
 layout(

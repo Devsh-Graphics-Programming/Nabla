@@ -73,6 +73,7 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/culling_lod_selection/instance_draw_count_scan_override.glsl"
   "nbl/builtin/glsl/culling_lod_selection/instance_draw_cull.comp"
   "nbl/builtin/glsl/culling_lod_selection/instance_ref_counting_sort_scatter.comp"
+  "nbl/builtin/glsl/culling_lod_selection/potentially_visible_instance_draw_struct.glsl"
   "nbl/builtin/glsl/culling_lod_selection/output_descriptor_modifiers.glsl"
   "nbl/builtin/glsl/culling_lod_selection/output_descriptor_set.glsl"
   # VK_FORMAT support

@@ -229,6 +229,8 @@ void addLoDTable(
 
 #include <random>
 
+#include "per_view_per_instance_struct.glsl"
+
 int main()
 {
 	constexpr uint32_t WIN_W = 1280;
@@ -338,7 +340,7 @@ int main()
         }
         cullingParams.scratchBufferRanges = culling_system_t::createScratchBuffer(logicalDevice.get(),MaxInstanceCount,MaxTotalDrawcallInstances);
         cullingParams.drawCalls = drawIndirectAllocator->getDrawCommandMemoryBlock();
-        cullingParams.perViewPerInstance = {0ull,~0ull,culling_system_t::createPerViewPerInstanceDataBuffer<core::matrix4SIMD>(logicalDevice.get(),MaxTotalDrawcallInstances)}; // TODO: perView type
+        cullingParams.perViewPerInstance = {0ull,~0ull,culling_system_t::createPerViewPerInstanceDataBuffer<PerViewPerInstance_t>(logicalDevice.get(),MaxTotalDrawcallInstances)};
         cullingParams.perInstanceRedirectAttribs = {0ul,~0ull,culling_system_t::createInstanceRedirectBuffer(logicalDevice.get(),MaxTotalDrawcallInstances)};
         const auto drawCountsBlock = drawIndirectAllocator->getDrawCountMemoryBlock();
         if (drawCountsBlock)
