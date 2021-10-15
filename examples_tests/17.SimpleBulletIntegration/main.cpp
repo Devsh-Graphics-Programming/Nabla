@@ -72,15 +72,43 @@ int main(int argc, char** argv)
 	constexpr uint32_t FBO_COUNT = 2u;
 	constexpr uint32_t FRAMES_IN_FLIGHT = 5u;
 	static_assert(FRAMES_IN_FLIGHT>FBO_COUNT);
+	
+	CommonAPI::SFeatureRequest<video::IAPIConnection::E_FEATURE> requiredInstanceFeatures = {};
+	requiredInstanceFeatures.count = 1u;
+	video::IAPIConnection::E_FEATURE requiredFeatures_Instance[] = { video::IAPIConnection::EF_SURFACE };
+	requiredInstanceFeatures.features = requiredFeatures_Instance;
 
-	auto initOutput = CommonAPI::Init<WIN_W, WIN_H, FBO_COUNT>(video::EAT_OPENGL, "Physics Simulation", asset::EF_D32_SFLOAT);
+	CommonAPI::SFeatureRequest<video::IAPIConnection::E_FEATURE> optionalInstanceFeatures = {};
+
+	CommonAPI::SFeatureRequest<video::ILogicalDevice::E_FEATURE> requiredDeviceFeatures = {};
+	requiredDeviceFeatures.count = 1u;
+	video::ILogicalDevice::E_FEATURE requiredFeatures_Device[] = { video::ILogicalDevice::EF_SWAPCHAIN };
+	requiredDeviceFeatures.features = requiredFeatures_Device;
+
+	CommonAPI::SFeatureRequest< video::ILogicalDevice::E_FEATURE> optionalDeviceFeatures = {};
+
+	const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT);
+	const video::ISurface::SFormat surfaceFormat(asset::EF_B8G8R8A8_SRGB, asset::ECP_COUNT, asset::EOTF_UNKNOWN);
+
+	auto initOutput = CommonAPI::Init(
+		video::EAT_OPENGL,
+		"Physics Simulation",
+		requiredInstanceFeatures,
+		optionalInstanceFeatures,
+		requiredDeviceFeatures,
+		optionalDeviceFeatures,
+		WIN_W, WIN_H, FBO_COUNT,
+		swapchainImageUsage,
+		surfaceFormat,
+		asset::EF_D32_SFLOAT);
+
 	auto system = std::move(initOutput.system);
 	auto window = std::move(initOutput.window);
 	auto windowCb = std::move(initOutput.windowCb);
 	auto gl = std::move(initOutput.apiConnection);
 	auto surface = std::move(initOutput.surface);
 	auto gpuPhysicalDevice = std::move(initOutput.physicalDevice);
-    
+	
 	auto device = std::move(initOutput.logicalDevice);
 	auto utilities = std::move(initOutput.utilities);
 	auto queues = std::move(initOutput.queues);
@@ -90,21 +118,21 @@ int main(int argc, char** argv)
 	auto swapchain = std::move(initOutput.swapchain);
 	auto renderpass = std::move(initOutput.renderpass);
 	auto fbo = std::move(initOutput.fbo);
-	auto commandPool = std::move(initOutput.commandPool);
+	auto graphicsCommandPool = std::move(initOutput.commandPools[CommonAPI::InitOutput::EQT_GRAPHICS]);
+	auto computeCommandPool = std::move(initOutput.commandPools[CommonAPI::InitOutput::EQT_COMPUTE]);
 	auto assetManager = std::move(initOutput.assetManager);
 	auto cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
 	auto logger = std::move(initOutput.logger);
 	auto inputSystem = std::move(initOutput.inputSystem);
 
-	// TODO: roll into CommonAPI
 	core::smart_refctd_ptr<video::IGPUFence> frameComplete[FRAMES_IN_FLIGHT] = { nullptr };
-	auto computeCommandPool = device->createCommandPool(computeQueue->getFamilyIndex(),video::IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
+	
+	auto commandPool = computeCommandPool;
 
 	// property transfer cmdbuffers
 	core::smart_refctd_ptr<video::IGPUCommandBuffer> propXferCmdbuf[FRAMES_IN_FLIGHT];
 	device->createCommandBuffers(computeCommandPool.get(),video::IGPUCommandBuffer::EL_PRIMARY,FRAMES_IN_FLIGHT,propXferCmdbuf);
 	
-
 	// Physics Setup
 	auto world = ext::Bullet3::CPhysicsWorld::create();
 	world->getWorld()->setGravity(btVector3(0, -5, 0));
@@ -142,8 +170,7 @@ int main(int argc, char** argv)
 			auto& block = blocks[i];
 			block.offset = 0u;
 			block.size = pool_type::PropertySizes[i]*capacity;
-			creationParams.size = block.size;
-			block.buffer = device->createDeviceLocalGPUBufferOnDedMem(creationParams);
+			block.buffer = device->createDeviceLocalGPUBufferOnDedMem(creationParams, block.size);
 		}
 		retval = pool_type::create(device.get(),blocks,capacity,contiguous);
 	};
@@ -361,12 +388,12 @@ int main(int argc, char** argv)
 				bindings[i].binding = i;
 				bindings[i].type = asset::EDT_STORAGE_BUFFER;
 				bindings[i].count = 1u;
-				bindings[i].stageFlags = asset::ISpecializedShader::ESS_VERTEX;
+				bindings[i].stageFlags = asset::IShader::ESS_VERTEX;
 				bindings[i].samplers = nullptr;
 			}
 			auto dsLayout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(bindings,bindings+GLOBAL_DS_COUNT);
 		
-			asset::SPushConstantRange range[1] = { asset::ISpecializedShader::ESS_VERTEX,0u,sizeof(core::matrix4SIMD) };
+			asset::SPushConstantRange range[1] = { asset::IShader::ESS_VERTEX,0u,sizeof(core::matrix4SIMD) };
 			cpuLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(range,range+1u,std::move(dsLayout));
 		}
 		gpuLayout = CPU2GPU.getGPUObjectsFromAssets(&cpuLayout.get(),&cpuLayout.get()+1,cpu2gpuParams)->front();
@@ -405,7 +432,7 @@ int main(int argc, char** argv)
 	auto coneGeom = geometryCreator->createConeMesh(0.5f, 1.0f, 32);
 
 	// Creating CPU Shaders 
-	auto createCPUSpecializedShaderFromSource = [=](const char* path, asset::ISpecializedShader::E_SHADER_STAGE stage) -> core::smart_refctd_ptr<asset::ICPUSpecializedShader>
+	auto createCPUSpecializedShaderFromSource = [=](const char* path, asset::IShader::E_SHADER_STAGE stage) -> core::smart_refctd_ptr<asset::ICPUSpecializedShader>
 	{
 		auto cwd = system::path(argv[0]).parent_path();
 
@@ -420,8 +447,8 @@ int main(int argc, char** argv)
 		return core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(*spec.begin());
 	};
 
-	auto vs = createCPUSpecializedShaderFromSource("../mesh.vert",asset::ISpecializedShader::ESS_VERTEX);
-	auto fs = createCPUSpecializedShaderFromSource("../mesh.frag", asset::ISpecializedShader::ESS_FRAGMENT);
+	auto vs = createCPUSpecializedShaderFromSource("../mesh.vert",asset::IShader::ESS_VERTEX);
+	auto fs = createCPUSpecializedShaderFromSource("../mesh.frag", asset::IShader::ESS_FRAGMENT);
 	asset::ICPUSpecializedShader* shaders[2]{ vs.get(), fs.get() };
 	
 	auto dummyPplnLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>();
@@ -490,8 +517,8 @@ int main(int argc, char** argv)
 		#endif
 
 		asset::ICPUSpecializedShader* cpuShaders[2] = {
-			pipeline->getShaderAtStage(asset::ISpecializedShader::ESS_VERTEX),
-			pipeline->getShaderAtStage(asset::ISpecializedShader::ESS_FRAGMENT)
+			pipeline->getShaderAtStage(asset::IShader::ESS_VERTEX),
+			pipeline->getShaderAtStage(asset::IShader::ESS_FRAGMENT)
 		};
 		cpuMesh->setPipeline(core::make_smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline>(
 			core::smart_refctd_ptr(cpuLayout),&cpuShaders[0],&cpuShaders[0]+2,
@@ -714,7 +741,7 @@ int main(int argc, char** argv)
 				auto & gpuObject = gpuObjects[i];
 
 				cb->bindGraphicsPipeline(gpuObject.graphicsPipeline.get());
-				cb->pushConstants(gpuObject.graphicsPipeline->getRenderpassIndependentPipeline()->getLayout(), asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD), viewProj.pointer());
+				cb->pushConstants(gpuObject.graphicsPipeline->getRenderpassIndependentPipeline()->getLayout(), asset::IShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD), viewProj.pointer());
 				gpuObject.gpuMesh->setInstanceCount(gpuObject.pool->getAllocated());
 				cb->drawMeshBuffer(gpuObject.gpuMesh.get());
 			}

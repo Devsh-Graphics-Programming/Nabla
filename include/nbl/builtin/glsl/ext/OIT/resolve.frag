@@ -15,6 +15,9 @@ void main()
     vis = imageLoad(g_vis, coord).rg;
 #endif
 
+	// set all nodes as invalid
+	imageStore(g_vis, coord, vec4(1.0));
+
 	// we don't insert nodes with alpha == 0
 	if (vis.x==1.0)
 		discard;
@@ -39,9 +42,6 @@ void main()
 	fragcolor += unpackUnorm4x8(color[3]).rgb*v;
 	v *= vis[3];
 #endif
-
-	// set all nodes as invalid
-	imageStore(g_vis, coord, vec4(1.0));
 
 	OutColor = vec4(fragcolor,v);
 }
