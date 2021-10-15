@@ -376,14 +376,15 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 				setBarrierBuffer(barriers[3],params.perInstanceRedirectAttribs,wAccessMask,asset::EAF_VERTEX_ATTRIBUTE_READ_BIT);
 				cmdbuf->pipelineBarrier(internalStageFlags,internalStageFlags|asset::EPSF_VERTEX_INPUT_BIT,asset::EDF_NONE,0u,nullptr,4u,barriers,0u,nullptr);
 			}
-#if 0
+
+#			if 0
 			// drawcall compaction
 			if (params.transientOutputDS->getLayout()->getBindings().size()==OutputDescriptorBindingCount)
 			{
 				cmdbuf->bindComputePipeline(drawCompact.get());
 				cmdbuf->dispatchIndirect(indirectRange.buffer.get(),indirectRange.offset+offsetof(DispatchIndirectParams,drawCompact));
 			}
-#endif
+#			endif
 		}
 
 	//protected:

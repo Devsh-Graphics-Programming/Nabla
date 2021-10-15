@@ -34,7 +34,8 @@ nbl_glsl_scan_DefaultSchedulerParameters_t nbl_glsl_scan_getSchedulerParameters(
 #ifndef _NBL_GLSL_MAIN_DEFINED_
 void main()
 {
-	nbl_glsl_scan_main();
+	if (bool(nbl_glsl_scan_getIndirectElementCount()))
+		nbl_glsl_scan_main();
 }
 #define _NBL_GLSL_MAIN_DEFINED_
 #endif

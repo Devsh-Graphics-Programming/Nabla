@@ -97,7 +97,8 @@ void main()
 	if (gl_GlobalInvocationID.x==0u)
 		dispatchIndirect.instanceCullAndLoDSelect.num_groups_x = 1u;
 
-	nbl_glsl_scan_main();
+	if (bool(nbl_glsl_scan_getIndirectElementCount()))
+		nbl_glsl_scan_main();
 }
 #define _NBL_GLSL_MAIN_DEFINED_
 
