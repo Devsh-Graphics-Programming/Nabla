@@ -519,13 +519,12 @@ int main()
             }
 
             // TODO: kill this
-            core::vector<uint32_t> lodDrawCallCounts(1u,0xdeadbeefu);
+            core::vector<uint32_t> lodDrawCallCounts(1u,7u);
             for (auto i=0u; i<7u; i++)
             {
                 const auto& info = kiln.getDrawcallMetadataVector()[i];
                 lodDrawCallCounts.push_back(info.drawMaxCount);
             }
-            std::inclusive_scan(lodDrawCallCounts.begin()+1u,lodDrawCallCounts.end(),lodDrawCallCounts.begin()+1u);
             auto range = cullingParams.scratchBufferRanges.lodDrawCallCounts;
             range.size = lodDrawCallCounts.size()*sizeof(uint32_t);
             utilities->updateBufferRangeViaStagingBuffer(queues[decltype(initOutput)::EQT_TRANSFER_UP],range,lodDrawCallCounts.data());

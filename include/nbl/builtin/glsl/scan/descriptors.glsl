@@ -62,11 +62,11 @@ void nbl_glsl_scan_getData(
 		}
 		else
 		{
-#				if _NBL_GLSL_SCAN_TYPE_==_NBL_GLSL_SCAN_TYPE_EXCLUSIVE_
-			offset--;
-			if (notFirstInvocationInGroup)
-#				endif
-				data += scanBuffer.data[offset];
+#			if _NBL_GLSL_SCAN_TYPE_==_NBL_GLSL_SCAN_TYPE_EXCLUSIVE_
+				offset--;
+				if (notFirstInvocationInGroup)
+#			endif
+					data += scanBuffer.data[offset];
 		}
 	}
 	else

@@ -70,6 +70,7 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/culling_lod_selection/draw_instance_count_scan_override.glsl"
   "nbl/builtin/glsl/culling_lod_selection/input_descriptor_set.glsl"
   "nbl/builtin/glsl/culling_lod_selection/instance_cull_and_lod_select.comp"
+  "nbl/builtin/glsl/culling_lod_selection/instance_draw_count_scan_override.glsl"
   "nbl/builtin/glsl/culling_lod_selection/instance_draw_cull.comp"
   "nbl/builtin/glsl/culling_lod_selection/instance_ref_counting_sort_scatter.comp"
   "nbl/builtin/glsl/culling_lod_selection/output_descriptor_modifiers.glsl"

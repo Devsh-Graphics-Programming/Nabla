@@ -333,8 +333,8 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 				cmdbuf->pipelineBarrier(srcStageFlags,internalStageFlags,asset::EDF_NONE,0u,nullptr,4u,barriers,0u,nullptr);
 			}
 
-			//cmdbuf->bindComputePipeline(instanceDrawCountPrefixSum.get());
-			//cmdbuf->dispatchIndirect(indirectRange.buffer.get(),indirectRange.offset+offsetof(DispatchIndirectParams,instanceDrawCountPrefixSum));
+			cmdbuf->bindComputePipeline(instanceDrawCountPrefixSum.get());
+			cmdbuf->dispatchIndirect(indirectRange.buffer.get(),indirectRange.offset+offsetof(DispatchIndirectParams,instanceDrawCountPrefixSum));
 			{
 				setBarrierBuffer(barriers[1],params.scratchBufferRanges.lodDrawCallCounts,rwAccessMask,rwAccessMask);
 				cmdbuf->pipelineBarrier(internalStageFlags,internalStageFlags,asset::EDF_NONE,0u,nullptr,2u,barriers,0u,nullptr);
@@ -422,7 +422,6 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 			extraSource = workgroupSizeDef+extraSource;
 
 
-			auto baseScanShader = core::smart_refctd_ptr<asset::ICPUShader>(m_scanner->getDefaultShader(video::CScanner::EST_EXCLUSIVE,video::CScanner::EDT_UINT,video::CScanner::EO_ADD));
 			auto getShader = [device](auto uniqueString) -> std::pair<core::smart_refctd_ptr<asset::ICPUShader>,const char*>
 			{
 				auto system = device->getPhysicalDevice()->getSystem();
@@ -448,12 +447,18 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 					extraSource+"\n#define NBL_GLSL_CULLING_LOD_SELECTION_INDIRECT_INSTANCE_LIST\n"
 				)
 			);
-/*
+
 			instanceDrawCountPrefixSum = device->createGPUComputePipeline(
 				nullptr,core::smart_refctd_ptr(indirectInstanceCullAndLoDSelectLayout),
-				overrideShader(baseScanShader,"\n#include <nbl/builtin/glsl/culling_lod_selection/draw_instance_count_scan_override.glsl>\n")
+				overrideShader(
+					{
+						m_scanner->getIndirectShader(video::CScanner::EST_INCLUSIVE,video::CScanner::EDT_UINT,video::CScanner::EO_ADD),
+						"ICullingLodSelectionSystem::instanceDrawCountPrefixSum"
+					},
+					"\n#include <nbl/builtin/glsl/culling_lod_selection/instance_draw_count_scan_override.glsl>\n"
+				)
 			);
-*/
+
 			instanceDrawCull = device->createGPUComputePipeline(
 				nullptr,core::smart_refctd_ptr(indirectInstanceCullAndLoDSelectLayout),
 				overrideShader(getShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/culling_lod_selection/instance_draw_cull.comp")()),extraSource)
@@ -461,7 +466,13 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 
 			drawInstanceCountPrefixSum = device->createGPUComputePipeline(
 				nullptr,core::smart_refctd_ptr(instanceRefCountingSortPipelineLayout),
-				overrideShader({baseScanShader,"ICullingLodSelectionSystem::drawInstanceCountPrefixSum"},"\n#include <nbl/builtin/glsl/culling_lod_selection/draw_instance_count_scan_override.glsl>\n")
+				overrideShader(
+					{
+						core::smart_refctd_ptr<asset::ICPUShader>(m_scanner->getDefaultShader(video::CScanner::EST_EXCLUSIVE,video::CScanner::EDT_UINT,video::CScanner::EO_ADD)),
+						"ICullingLodSelectionSystem::drawInstanceCountPrefixSum"
+					},
+					"\n#include <nbl/builtin/glsl/culling_lod_selection/draw_instance_count_scan_override.glsl>\n"
+				)
 			);
 			instanceRefCountingSortScatter = device->createGPUComputePipeline(
 				nullptr,core::smart_refctd_ptr(instanceRefCountingSortPipelineLayout),
