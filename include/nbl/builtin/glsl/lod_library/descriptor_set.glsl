@@ -63,16 +63,29 @@ uint nbl_glsl_lod_library_Info_getTotalBoneCount(in uint lodInfoUvec4Offset)
     const uint offsetof_drawcallInfoCountAndTotalBoneCount = 3u;
     return lodInfos.data[lodInfoDWORDOffset+offsetof_drawcallInfoCountAndTotalBoneCount]>>16u;
 }
-/*
+
 mat2x3 nbl_glsl_lod_library_Info_getAABB(in uint lodInfoUvec4Offset)
 {
+    const uint lodInfoDWORDOffset = lodInfoUvec4Offset<<2u;
+    const uint offsetof_aabbMax = 4u;
     return mat2x3(
+        vec3(
+            uintBitsToFloat(lodInfos.data[lodInfoDWORDOffset+0u]),
+            uintBitsToFloat(lodInfos.data[lodInfoDWORDOffset+1u]),
+            uintBitsToFloat(lodInfos.data[lodInfoDWORDOffset+2u])
+        ),
+        vec3(
+            uintBitsToFloat(lodInfos.data[lodInfoDWORDOffset+offsetof_aabbMax+0u]),
+            uintBitsToFloat(lodInfos.data[lodInfoDWORDOffset+offsetof_aabbMax+1u]),
+            uintBitsToFloat(lodInfos.data[lodInfoDWORDOffset+offsetof_aabbMax+2u])
+        )
     );
 }
-*/
-uint nbl_glsl_lod_library_getDrawCallDWORDOffset(in uint lodInfoUvec4Offset, in uint offsetofDWORDFirstDrawcallInfo, in uint drawcallID)
+
+uint nbl_glsl_lod_library_Info_getDrawCallDWORDOffset(in uint lodInfoUvec4Offset, in uint offsetofDWORDFirstDrawcallInfo, in uint drawcallID)
 {
-    return lodInfos.data[(lodInfoUvec4Offset<<2u)+offsetofDWORDFirstDrawcallInfo+(drawcallID<<1u)];
+    const uint lodInfoDWORDOffset = lodInfoUvec4Offset<<2u;
+    return lodInfos.data[lodInfoDWORDOffset+offsetofDWORDFirstDrawcallInfo+(drawcallID<<1u)];
 }
 #endif
 

@@ -314,7 +314,11 @@ int main()
         };
         cullingDSPool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE,&layouts->get(),&layouts->get()+LayoutCount);
         
-        cullingSystem = core::make_smart_refctd_ptr<culling_system_t>(utilities.get(),core::smart_refctd_ptr(layouts[3]),"\nstruct PerViewPerInstance_t\n{\nmat4 mvp;\n};\n#define nbl_glsl_PerViewPerInstance_t PerViewPerInstance_t\n");
+		const asset::SPushConstantRange range = {asset::ISpecializedShader::ESS_COMPUTE,0u,sizeof(core::matrix4SIMD)+sizeof(uint32_t)};
+        cullingSystem = core::make_smart_refctd_ptr<culling_system_t>(
+            utilities.get(),&range,&range+1u,core::smart_refctd_ptr(layouts[3]),std::filesystem::current_path(),
+            "\n#include \"../per_view_per_instance_struct.glsl\"\n#include \"../cull_overrides.glsl\"\n"
+        );
 
         cullingParams.indirectDispatchParams = {0ull,culling_system_t::createDispatchIndirectBuffer(utilities.get(),queues[decltype(initOutput)::EQT_TRANSFER_UP])};
         {
@@ -326,10 +330,11 @@ int main()
                 instance.instanceGUID = i; // TODO: do this better
                 instance.lodTableUvec4Offset = 0u; // TODO: should be `lodTableDstUvec4s[0]`
             }
+            cullingParams.directInstanceCount = instanceList.size();
 
             video::IGPUBuffer::SCreationParams params;
             params.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
-            cullingParams.instanceList = {0ull,~0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(queues[decltype(initOutput)::EQT_TRANSFER_UP],sizeof(culling_system_t::InstanceToCull)*instanceList.size(),instanceList.data())};
+            cullingParams.instanceList = {0ull,~0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(queues[decltype(initOutput)::EQT_TRANSFER_UP],sizeof(culling_system_t::InstanceToCull)*MaxInstanceCount,instanceList.data())};
         }
         cullingParams.scratchBufferRanges = culling_system_t::createScratchBuffer(logicalDevice.get(),MaxInstanceCount,MaxTotalDrawcallInstances);
         cullingParams.drawCalls = drawIndirectAllocator->getDrawCommandMemoryBlock();
@@ -599,6 +604,9 @@ int main()
             }
             commandBuffer->updateBuffer(perViewPerInstanceDataScratch.get(),0ull,perViewPerInstanceDataScratch->getSize(),data.data());
 
+            const auto* layout = cullingSystem->getInstanceCullAndLoDSelectLayout();
+            commandBuffer->pushConstants(layout,asset::ISpecializedShader::ESS_COMPUTE,0u,sizeof(core::matrix4SIMD),camera.getConcatenatedMatrix().pointer());
+            commandBuffer->pushConstants(layout,asset::ISpecializedShader::ESS_COMPUTE,sizeof(core::matrix4SIMD),sizeof(uint32_t),&cullingParams.directInstanceCount);
             cullingParams.cmdbuf = commandBuffer.get();
             cullingSystem->processInstancesAndFillIndirectDraws(cullingParams);
         }
