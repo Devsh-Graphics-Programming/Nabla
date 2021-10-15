@@ -57,7 +57,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 		// These buffer ranges can be safely discarded or reused after `processInstancesAndFillIndirectDraws` completes
 		struct ScratchBufferRanges
 		{
-			asset::SBufferRange<video::IGPUBuffer> lodInfoUvec4Offsets;
+			asset::SBufferRange<video::IGPUBuffer> pvsInstances;
 			asset::SBufferRange<video::IGPUBuffer> lodDrawCallCounts;
 			asset::SBufferRange<video::IGPUBuffer> pvsInstanceDraws;
 			asset::SBufferRange<video::IGPUBuffer> prefixSumScratch;
@@ -74,11 +74,11 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 				const auto& limits = logicalDevice->getPhysicalDevice()->getLimits();
 				const auto ssboAlignment = limits.SSBOAlignment;
 
-				retval.lodInfoUvec4Offsets.offset = 0u;
-				retval.lodDrawCallCounts.offset = retval.lodInfoUvec4Offsets.size = core::alignUp((maxTotalInstances+1u)*sizeof(uint32_t),ssboAlignment);
-				retval.lodDrawCallCounts.size = core::alignUp(maxTotalInstances*sizeof(uint32_t),ssboAlignment);
+				retval.pvsInstances.offset = 0u;
+				retval.lodDrawCallCounts.offset = retval.pvsInstances.size = core::alignUp(maxTotalInstances*2u*sizeof(uint32_t),ssboAlignment);
+				retval.lodDrawCallCounts.size = core::alignUp((maxTotalInstances+1u)*sizeof(uint32_t),ssboAlignment);
 				retval.pvsInstanceDraws.offset = retval.lodDrawCallCounts.offset+retval.lodDrawCallCounts.size;
-				retval.pvsInstanceDraws.size = core::alignUp((maxTotalDrawcallInstances+1u)*sizeof(uint32_t)*4u,ssboAlignment);
+				retval.pvsInstanceDraws.size = core::alignUp(sizeof(uint32_t)+maxTotalDrawcallInstances*sizeof(PotentiallyVisisbleInstanceDraw),ssboAlignment);
 				retval.prefixSumScratch.offset = retval.pvsInstanceDraws.offset+retval.pvsInstanceDraws.size;
 				{
 					video::CScanner::Parameters params;
@@ -89,12 +89,12 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 			{
 				video::IGPUBuffer::SCreationParams params;
 				params.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
-				retval.lodInfoUvec4Offsets.buffer = 
+				retval.pvsInstances.buffer =
 				retval.lodDrawCallCounts.buffer =
 				retval.pvsInstanceDraws.buffer =
 				retval.prefixSumScratch.buffer =
 					logicalDevice->createDeviceLocalGPUBufferOnDedMem(params,retval.prefixSumScratch.offset+retval.prefixSumScratch.size);
-				retval.lodInfoUvec4Offsets.buffer->setObjectDebugName("Culling Scratch Buffer");
+				retval.pvsInstances.buffer->setObjectDebugName("Culling Scratch Buffer");
 			}
 			return retval;
 		}
@@ -186,7 +186,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 				{
 					dispatchIndirect,
 					instanceList,
-					scratchBufferRanges.lodInfoUvec4Offsets,
+					scratchBufferRanges.pvsInstances,
 					scratchBufferRanges.lodDrawCallCounts,
 					scratchBufferRanges.pvsInstanceDraws,
 					scratchBufferRanges.prefixSumScratch,
@@ -328,7 +328,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 				cmdbuf->dispatchIndirect(indirectRange.buffer.get(),indirectRange.offset+offsetof(DispatchIndirectParams,instanceCullAndLoDSelect));
 			{
 				setBarrierBuffer(barriers[1],params.drawCalls,wAccessMask,rwAccessMask);
-				setBarrierBuffer(barriers[2],params.scratchBufferRanges.lodInfoUvec4Offsets,wAccessMask,asset::EAF_SHADER_READ_BIT);
+				setBarrierBuffer(barriers[2],params.scratchBufferRanges.pvsInstances,wAccessMask,asset::EAF_SHADER_READ_BIT);
 				setBarrierBuffer(barriers[3],params.scratchBufferRanges.pvsInstanceDraws,rwAccessMask,rwAccessMask);
 				setBarrierBuffer(barriers[4],params.scratchBufferRanges.lodDrawCallCounts,rwAccessMask,rwAccessMask);
 				setBarrierBuffer(barriers[5],params.perViewPerInstance,wAccessMask,asset::EAF_SHADER_READ_BIT);
@@ -346,7 +346,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 
 			cmdbuf->bindComputePipeline(m_instanceDrawCull.get());
 			{
-				const auto maxTotalDrawcallInstances = params.scratchBufferRanges.pvsInstanceDraws.size/(sizeof(uint32_t)*4u)-1u;
+				const auto maxTotalDrawcallInstances = (params.scratchBufferRanges.pvsInstanceDraws.size-sizeof(uint32_t))/sizeof(PotentiallyVisisbleInstanceDraw);
 				video::CScanner::Parameters scanParams;
 				auto schedulerParams = video::CScanner::SchedulerParameters(scanParams,maxTotalDrawcallInstances);
 				cmdbuf->pushConstants(m_instanceDrawCullLayout.get(),asset::ISpecializedShader::ESS_COMPUTE,0u,sizeof(uint32_t),scanParams.temporaryStorageOffset);
@@ -517,6 +517,11 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 				m_drawInstanceCountPrefixSum(std::move(_drawInstanceCountPrefixSum)), m_instanceRefCountingSortScatter(std::move(_instanceRefCountingSortScatter))//, m_drawCompact(std::move(_drawCompact))
 		{
 		}
+
+		struct PotentiallyVisisbleInstanceDraw // : nbl_glsl_culling_lod_selection_PotentiallyVisibleInstanceDraw_t
+		{
+			uint32_t data[3]; //TODO: remove
+		};
 
 		core::smart_refctd_ptr<video::CScanner> m_scanner;
 		core::smart_refctd_ptr<video::IGPUPipelineLayout> m_instanceCullAndLoDSelectLayout,m_instanceDrawCullLayout,m_instanceRefCountingSortPipelineLayout;

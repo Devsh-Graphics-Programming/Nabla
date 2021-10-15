@@ -3,7 +3,7 @@ layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_) in;
 
 
 #define NBL_GLSL_CULLING_LOD_SELECTION_INSTANCE_LIST_DESCRIPTOR_BINDING
-#define NBL_GLSL_CULLING_LOD_SELECTION_INSTANCE_LOD_INFO_UVEC4_OFFSETS_DESCRIPTOR_BINDING
+#define NBL_GLSL_CULLING_LOD_SELECTION_INSTANCE_PVS_INSTANCES_DESCRIPTOR_QUALIFIERS restrict readonly
 #define NBL_GLSL_CULLING_LOD_SELECTION_INSTANCE_DRAWCALL_INCLUSIVE_COUNTS_DESCRIPTOR_QUALIFIERS restrict writeonly
 #define NBL_GLSL_CULLING_LOD_SELECTION_PVS_INSTANCE_DRAWS_DESCRIPTOR_QUALIFIERS restrict readonly
 // dont pull the scan scratch descriptor (we'll use our own decl for clearing)
@@ -20,17 +20,6 @@ layout(set=_NBL_GLSL_SCAN_DESCRIPTOR_SET_DEFINED_,binding=_NBL_GLSL_SCAN_SCRATCH
 #include <nbl/builtin/glsl/culling_lod_selection/output_descriptor_set.glsl>
 
 
-uint nbl_glsl_culling_lod_selection_getSortedDrawInstanceIndex(in uint unsortedDrawInstanceID)
-{
-    const uvec2 data = pvsInstanceDraws.data[unsortedDrawInstanceID].xy;
-    const uint drawBaseInstanceDWORDOffset = data[0];
-    return nbl_glsl_culling_lod_selection_drawCallGetDWORD(drawBaseInstanceDWORDOffset)+data[1];
-}
-uvec2 nbl_glsl_culling_lod_selection_getDrawInstanceAttributes(in uint unsortedDrawInstanceID)
-{
-    return pvsInstanceDraws.data[unsortedDrawInstanceID].zw;
-}
-
 #include <nbl/builtin/glsl/scan/parameters_struct.glsl>
 layout(push_constant) uniform PushConstants
 {
@@ -40,7 +29,7 @@ layout(push_constant) uniform PushConstants
 void main()
 {
     if (gl_GlobalInvocationID.x==0u)
-        dispatchIndirect.instanceDrawCull.num_groups_x = 1u;
+        dispatchIndirect.instanceDrawCull.num_groups_x = 1u; // just reset it speculatively
     else if (gl_GlobalInvocationID.x==1u)
         totalInstanceCountAfterCull = 0u;
 
@@ -51,7 +40,11 @@ void main()
     const uint potentiallyVisibleInstanceCount = pvsInstanceDraws.count;
     for (uint unsortedDrawInstanceID=gl_GlobalInvocationID.x; unsortedDrawInstanceID<potentiallyVisibleInstanceCount; unsortedDrawInstanceID+=_NBL_GLSL_WORKGROUP_SIZE_)
     {
-        const uint instanceIndex = nbl_glsl_culling_lod_selection_getSortedDrawInstanceIndex(unsortedDrawInstanceID);
-        perInstanceRedirectAttrs.data[instanceIndex] = nbl_glsl_culling_lod_selection_getDrawInstanceAttributes(unsortedDrawInstanceID);
+        const uint perViewPerInstanceID = pvsInstanceDraws.data[unsortedDrawInstanceID].perViewPerInstanceID;
+        const uint drawBaseInstanceDWORDOffset = pvsInstanceDraws.data[unsortedDrawInstanceID].drawBaseInstanceDWORDOffset;
+        const uint instanceID = pvsInstanceDraws.data[unsortedDrawInstanceID].instanceID;
+
+        const uint instanceIndex = nbl_glsl_culling_lod_selection_drawCallGetDWORD(drawBaseInstanceDWORDOffset)+instanceID;
+        perInstanceRedirectAttrs.data[instanceIndex] = uvec2(pvsInstances.data[perViewPerInstanceID][0],perViewPerInstanceID);
     }
 }
