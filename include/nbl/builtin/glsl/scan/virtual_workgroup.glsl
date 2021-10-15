@@ -83,8 +83,10 @@ void nbl_glsl_scan_virtualWorkgroup(in uint treeLevel, in uint localWorkgroupInd
 
 #ifndef _NBL_GLSL_SCAN_MAIN_DEFINED_
 #include <nbl/builtin/glsl/scan/default_scheduler.glsl>
-void nbl_glsl_scan_main(in nbl_glsl_scan_DefaultSchedulerParameters_t schedulerParams)
+nbl_glsl_scan_DefaultSchedulerParameters_t nbl_glsl_scan_getSchedulerParameters();
+void nbl_glsl_scan_main()
 {
+	const nbl_glsl_scan_DefaultSchedulerParameters_t schedulerParams = nbl_glsl_scan_getSchedulerParameters();
 	const uint topLevel = nbl_glsl_scan_getParameters().topLevel;
 	// persistent workgroups
 	while (true)

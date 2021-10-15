@@ -519,16 +519,7 @@ int main()
             }
 
             // TODO: kill this
-            core::vector<uint32_t> lodDrawCallCounts(1u,7u);
-            for (auto i=0u; i<7u; i++)
-            {
-                const auto& info = kiln.getDrawcallMetadataVector()[i];
-                lodDrawCallCounts.push_back(info.drawMaxCount);
-            }
-            auto range = cullingParams.scratchBufferRanges.lodDrawCallCounts;
-            range.size = lodDrawCallCounts.size()*sizeof(uint32_t);
-            utilities->updateBufferRangeViaStagingBuffer(queues[decltype(initOutput)::EQT_TRANSFER_UP],range,lodDrawCallCounts.data());
-            range = cullingParams.scratchBufferRanges.lodInfoUvec4Offsets;
+            auto range = cullingParams.scratchBufferRanges.lodInfoUvec4Offsets;
             range.size = lodInfoUvec4Offsets.size()*sizeof(uint32_t);
             utilities->updateBufferRangeViaStagingBuffer(queues[decltype(initOutput)::EQT_TRANSFER_UP],range,lodInfoUvec4Offsets.data());
         }

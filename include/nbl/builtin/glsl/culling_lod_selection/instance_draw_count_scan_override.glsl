@@ -6,7 +6,7 @@
 #include <nbl/builtin/glsl/scan/declarations.glsl>
 
 // disable stuff we dont use
-#define NBL_GLSL_CULLING_LOD_SELECTION_DISPATCH_INDIRECT_DESCRIPTOR_BINDING
+#define NBL_GLSL_CULLING_LOD_SELECTION_DISPATCH_INDIRECT_DESCRIPTOR_QUALIFIERS restrict writeonly
 #define NBL_GLSL_CULLING_LOD_SELECTION_INSTANCE_LIST_DESCRIPTOR_BINDING
 #define NBL_GLSL_CULLING_LOD_SELECTION_INSTANCE_LOD_INFO_UVEC4_OFFSETS_DESCRIPTOR_BINDING
 #define NBL_GLSL_CULLING_LOD_SELECTION_INSTANCE_DRAWCALL_INCLUSIVE_COUNTS_DESCRIPTOR_QUALIFIERS restrict
@@ -90,5 +90,15 @@ void nbl_glsl_scan_setData(
 	}
 }
 
+//
+void nbl_glsl_scan_main();
+void main()
+{
+	if (gl_GlobalInvocationID.x==0u)
+		dispatchIndirect.instanceCullAndLoDSelect.num_groups_x = 1u;
+
+	nbl_glsl_scan_main();
+}
+#define _NBL_GLSL_MAIN_DEFINED_
 
 #endif

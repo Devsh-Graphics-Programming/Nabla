@@ -31,11 +31,7 @@ NBL_GLSL_DEFINE_UPPER_BOUND(lodDrawcallInclusiveCounts,uint)
 void main()
 {
     if (gl_GlobalInvocationID.x==0u)
-    {
         dispatchIndirect.instanceDrawCountPrefixSum.num_groups_x = 1u;
-        // TODO: move this clear to the prefix sum shader
-        dispatchIndirect.instanceCullAndLoDSelect.num_groups_x = 1u;
-    }
     
     const uint lastScratchDWORDToClear = 2u; // TODO: pass this via push constants
     for (uint dword=gl_GlobalInvocationID.x; dword<=lastScratchDWORDToClear; dword+=_NBL_GLSL_WORKGROUP_SIZE_)

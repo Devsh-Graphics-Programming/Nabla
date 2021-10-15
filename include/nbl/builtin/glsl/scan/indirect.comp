@@ -21,14 +21,20 @@ nbl_glsl_scan_Parameters_t nbl_glsl_scan_getParameters()
 
 uint nbl_glsl_scan_getIndirectElementCount();
 
+#ifndef _NBL_GLSL_SCAN_GET_SCHEDULER_PARAMETERS_DEFINED_
+nbl_glsl_scan_DefaultSchedulerParameters_t schedulerParams;
+nbl_glsl_scan_DefaultSchedulerParameters_t nbl_glsl_scan_getSchedulerParameters()
+{
+	nbl_glsl_scan_scheduler_computeParameters(nbl_glsl_scan_getIndirectElementCount(),scanParams,schedulerParams);
+	return schedulerParams;
+}
+#define _NBL_GLSL_SCAN_GET_SCHEDULER_PARAMETERS_DEFINED_
+#endif
+
 #ifndef _NBL_GLSL_MAIN_DEFINED_
 void main()
 {
-	nbl_glsl_scan_DefaultSchedulerParameters_t schedulerParams;
-
-	nbl_glsl_scan_scheduler_computeParameters(nbl_glsl_scan_getIndirectElementCount(),scanParams,schedulerParams);
-
-	nbl_glsl_scan_main(schedulerParams);
+	nbl_glsl_scan_main();
 }
 #define _NBL_GLSL_MAIN_DEFINED_
 #endif

@@ -361,17 +361,17 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 			}
 			{
 				setBarrierBuffer(barriers[1],params.drawCalls,rwAccessMask,indirectAccessMask);
-				setBarrierBuffer(barriers[2],params.scratchBufferRanges.lodDrawCallCounts,wAccessMask,rwAccessMask);
-				setBarrierBuffer(barriers[3],params.scratchBufferRanges.prefixSumScratch,rwAccessMask,wAccessMask);
-				cmdbuf->pipelineBarrier(internalStageFlags,internalStageFlags,asset::EDF_NONE,0u,nullptr,4u,barriers,0u,nullptr);
+				setBarrierBuffer(barriers[2],params.scratchBufferRanges.prefixSumScratch,rwAccessMask,wAccessMask);
+				cmdbuf->pipelineBarrier(internalStageFlags,internalStageFlags,asset::EDF_NONE,0u,nullptr,3u,barriers,0u,nullptr);
 			}
 
 			cmdbuf->bindComputePipeline(instanceRefCountingSortScatter.get());
 			cmdbuf->dispatchIndirect(indirectRange.buffer.get(),indirectRange.offset+offsetof(DispatchIndirectParams,instanceRefCountingSortScatter));
 			{
-				setBarrierBuffer(barriers[1],params.perInstanceRedirectAttribs,wAccessMask,wAccessMask|asset::EAF_VERTEX_ATTRIBUTE_READ_BIT);
+				setBarrierBuffer(barriers[1],params.scratchBufferRanges.lodDrawCallCounts,wAccessMask,rwAccessMask);
 				setBarrierBuffer(barriers[2],params.scratchBufferRanges.prefixSumScratch,wAccessMask,rwAccessMask);
-				cmdbuf->pipelineBarrier(internalStageFlags,internalStageFlags|asset::EPSF_VERTEX_INPUT_BIT,asset::EDF_NONE,0u,nullptr,3u,barriers,0u,nullptr);
+				setBarrierBuffer(barriers[3],params.perInstanceRedirectAttribs,wAccessMask,wAccessMask|asset::EAF_VERTEX_ATTRIBUTE_READ_BIT);
+				cmdbuf->pipelineBarrier(internalStageFlags,internalStageFlags|asset::EPSF_VERTEX_INPUT_BIT,asset::EDF_NONE,0u,nullptr,4u,barriers,0u,nullptr);
 			}
 #if 0
 			// drawcall compaction
