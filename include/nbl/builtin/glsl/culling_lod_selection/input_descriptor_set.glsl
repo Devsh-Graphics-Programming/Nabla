@@ -26,7 +26,7 @@ layout(
     binding = NBL_GLSL_CULLING_LOD_SELECTION_INSTANCE_LIST_DESCRIPTOR_BINDING
 ) restrict readonly buffer InstanceList
 {
-    uvec2 data[]; // <instanceGUID,lod_table_t>
+    uvec2 data[]; // <instanceGUID,lod_table_t offset>
 } instanceList;
 #endif
 

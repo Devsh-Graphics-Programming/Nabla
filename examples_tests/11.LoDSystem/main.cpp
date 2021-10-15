@@ -18,9 +18,6 @@ using namespace asset;
 
 using lod_library_t = scene::CLevelOfDetailLibrary<>;
 
-// TODO: kill this
-core::vector<uint32_t> lodInfoUvec4Offsets = {};
-
 struct LoDLibraryData
 {
     core::vector<uint32_t> drawCallOffsetsIn20ByteStrides;
@@ -223,7 +220,6 @@ void addLoDTable(
         {
             const auto drawcallCount = lodLevelAllocations[0].drawcallCounts[lod];
             const auto offset = lodLevelAllocations[0].levelUvec4Offsets[lod];
-            lodInfoUvec4Offsets.push_back(offset); // TODO: kill this
             for (auto i=0u; i<lod_library_t::LoDInfo::getSizeInUvec4(drawcallCount); i++)
                 lodLibraryData.lodInfoDstUvec4s.push_back(offset+i);
         }
@@ -321,11 +317,19 @@ int main()
         cullingSystem = core::make_smart_refctd_ptr<culling_system_t>(utilities.get(),core::smart_refctd_ptr(layouts[3]),"\nstruct PerViewPerInstance_t\n{\nmat4 mvp;\n};\n#define nbl_glsl_PerViewPerInstance_t PerViewPerInstance_t\n");
 
         cullingParams.indirectDispatchParams = {0ull,culling_system_t::createDispatchIndirectBuffer(utilities.get(),queues[decltype(initOutput)::EQT_TRANSFER_UP])};
-        // TODO: add the rest of the buffers
         {
+            // set up the instance list
+            core::vector<culling_system_t::InstanceToCull> instanceList; instanceList.reserve(MaxInstanceCount);
+            for (auto i=0u; i<7u; i++)
+            {
+                auto& instance = instanceList.emplace_back();
+                instance.instanceGUID = i; // TODO: do this better
+                instance.lodTableUvec4Offset = 0u; // TODO: should be `lodTableDstUvec4s[0]`
+            }
+
             video::IGPUBuffer::SCreationParams params;
             params.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
-            cullingParams.instanceList = {0ull,~0ull,logicalDevice->createDeviceLocalGPUBufferOnDedMem(params,sizeof(culling_system_t::InstanceToCull)*MaxInstanceCount)};
+            cullingParams.instanceList = {0ull,~0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(queues[decltype(initOutput)::EQT_TRANSFER_UP],sizeof(culling_system_t::InstanceToCull)*instanceList.size(),instanceList.data())};
         }
         cullingParams.scratchBufferRanges = culling_system_t::createScratchBuffer(logicalDevice.get(),MaxInstanceCount,MaxTotalDrawcallInstances);
         cullingParams.drawCalls = drawIndirectAllocator->getDrawCommandMemoryBlock();
@@ -517,11 +521,6 @@ int main()
                     {0ull,~0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(queues[decltype(initOutput)::EQT_TRANSFER_UP],lodLibraryData.drawCountOffsets.size()*sizeof(uint32_t),lodLibraryData.drawCountOffsets.data())}
                 );
             }
-
-            // TODO: kill this
-            auto range = cullingParams.scratchBufferRanges.lodInfoUvec4Offsets;
-            range.size = lodInfoUvec4Offsets.size()*sizeof(uint32_t);
-            utilities->updateBufferRangeViaStagingBuffer(queues[decltype(initOutput)::EQT_TRANSFER_UP],range,lodInfoUvec4Offsets.data());
         }
         // prerecord the secondary cmdbuffer
         {
