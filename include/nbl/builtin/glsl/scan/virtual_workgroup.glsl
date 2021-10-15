@@ -62,12 +62,17 @@ void nbl_glsl_scan_virtualWorkgroup(in uint treeLevel, in uint localWorkgroupInd
 	if (inRange)
 		nbl_glsl_scan_getData(data,levelInvocationIndex,localWorkgroupIndex,treeLevel,pseudoLevel);
 
+	// TODO: rething exclusive vs inclusive scans and data loading in the future
 	if (treeLevel<params.topLevel)
 		data = REDUCTION(data);
-	else if (treeLevel==params.topLevel)
-		data = EXCLUSIVE(data);
-	else
+#if _NBL_GLSL_SCAN_TYPE_==_NBL_GLSL_SCAN_TYPE_INCLUSIVE_
+	else if (params.topLevel==0u)
 		data = INCLUSIVE(data);
+#endif
+	else if (treeLevel!=params.topLevel)
+		data = INCLUSIVE(data);
+	else
+		data = EXCLUSIVE(data);
 	
 	nbl_glsl_scan_setData(data,levelInvocationIndex,localWorkgroupIndex,treeLevel,pseudoLevel,inRange);
 #	undef REDUCTION
