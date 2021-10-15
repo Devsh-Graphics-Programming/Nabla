@@ -17,7 +17,7 @@ void IUtilities::updateImageViaStagingBuffer(
     auto texelBlockDim = texelBlockInfo.getDimension();
     auto queueFamProps = m_device->getPhysicalDevice()->getQueueFamilyProperties()[0];
     auto minImageTransferGranularity = queueFamProps.minImageTransferGranularity;
-            
+
     // Queues supporting graphics and/or compute operations must report (1,1,1) in minImageTransferGranularity, meaning that there are no additional restrictions on the granularity of image transfer operations for these queues.
     // Other queues supporting image transfer operations are only required to support whole mip level transfers, thus minImageTransferGranularity for queues belonging to such queue families may be (0,0,0)
     bool canTransferMipLevelsPartially = !(minImageTransferGranularity.width == 0 && minImageTransferGranularity.height == 0 && minImageTransferGranularity.depth == 0);
@@ -61,19 +61,26 @@ void IUtilities::updateImageViaStagingBuffer(
             }
 
             // region.imageOffset.{xyz} should be multiple of minImageTransferGranularity.{xyz} scaled up by block size
-            bool isImageOffsetValid =
+            bool isImageOffsetAlignmentValid =
                 region.imageOffset.x == core::alignUp(region.imageOffset.x, minImageTransferGranularity.width  * texelBlockDim.x) &&
                 region.imageOffset.y == core::alignUp(region.imageOffset.y, minImageTransferGranularity.height  * texelBlockDim.y) &&
                 region.imageOffset.z == core::alignUp(region.imageOffset.z, minImageTransferGranularity.depth  * texelBlockDim.z);
-            assert(isImageOffsetValid);
+            assert(isImageOffsetAlignmentValid);
 
             // region.imageExtent.{xyz} should be multiple of minImageTransferGranularity.{xyz} scaled up by block size,
             // OR ELSE (region.imageOffset.{x/y/z} + region.imageExtent.{width/height/depth}) MUST be equal to subresource{Width,Height,Depth}
-            bool isImageExtentValid = 
+            bool isImageExtentAlignmentValid = 
                 (region.imageExtent.width  == core::alignUp(region.imageExtent.width , minImageTransferGranularity.width  * texelBlockDim.x) || (region.imageOffset.x + region.imageExtent.width   == subresourceSize.x)) && 
                 (region.imageExtent.height == core::alignUp(region.imageExtent.height, minImageTransferGranularity.height * texelBlockDim.y) || (region.imageOffset.y + region.imageExtent.height  == subresourceSize.y)) &&
                 (region.imageExtent.depth  == core::alignUp(region.imageExtent.depth , minImageTransferGranularity.depth  * texelBlockDim.z) || (region.imageOffset.z + region.imageExtent.depth   == subresourceSize.z));
-            assert(isImageExtentValid);
+            assert(isImageExtentAlignmentValid);
+
+            bool isImageExtentAndOffsetValid = 
+                (region.imageExtent.width + region.imageOffset.x <= subresourceSize.x) &&
+                (region.imageExtent.height + region.imageOffset.y <= subresourceSize.y) &&
+                (region.imageExtent.depth + region.imageOffset.z <= subresourceSize.z);
+            assert(isImageExtentAndOffsetValid);
+
 
             auto alignedImageExtentInBlocks = texelBlockInfo.convertTexelsToBlocks(core::vector3du32_SIMD(region.imageExtent.width, region.imageExtent.height, region.imageExtent.depth));
             auto imageExtentBlockStridesInBytes = texelBlockInfo.convert3DBlockStridesTo1DByteStrides(alignedImageExtentInBlocks);
