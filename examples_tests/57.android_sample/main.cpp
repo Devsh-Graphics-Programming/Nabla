@@ -84,7 +84,12 @@ static int engine_init_display(nabla* engine) {
 	engine->logger = system::logger_opt_smart_ptr(core::make_smart_refctd_ptr<CStdoutLoggerAndroid>(
 		core::bitflag(system::ILogger::ELL_DEBUG) | system::ILogger::ELL_ERROR | system::ILogger::ELL_INFO | system::ILogger::ELL_PERFORMANCE | system::ILogger::ELL_WARNING
 		));
+#else
+	engine->logger = system::logger_opt_smart_ptr(core::make_smart_refctd_ptr<CColoredStdoutLoggerWin32>(
+		core::bitflag(system::ILogger::ELL_DEBUG) | system::ILogger::ELL_ERROR | system::ILogger::ELL_INFO | system::ILogger::ELL_PERFORMANCE | system::ILogger::ELL_WARNING
+		));
 #endif
+
     video::COpenGLDebugCallback cb(core::smart_refctd_ptr(engine->logger.get()));
     engine->api = video::COpenGLESConnection::create(core::smart_refctd_ptr<system::ISystem>(engine->system), 0, "android-sample", std::move(cb));
 
@@ -93,7 +98,8 @@ static int engine_init_display(nabla* engine) {
 	((CommonAPI::CTemporaryEventCallback*)engine->window->getEventCallback())->setLogger(engine->logger);
 #else
 	auto windowManager = core::make_smart_refctd_ptr<nbl::ui::CWindowManagerWin32>();
-	auto windowCb = nbl::core::make_smart_refctd_ptr<nbl::ui::IWindow::IEventCallback>();
+	auto windowCb = nbl::core::make_smart_refctd_ptr<CommonAPI::CTemporaryEventCallback>();
+	windowCb->setLogger(engine->logger);
 	nbl::ui::IWindow::SCreationParams windowsCreationParams;
 	windowsCreationParams.width = 1280;
 	windowsCreationParams.height = 720;
