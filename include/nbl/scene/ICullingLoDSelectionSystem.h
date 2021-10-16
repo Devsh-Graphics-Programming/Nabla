@@ -446,7 +446,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 			auto getShader = [device](auto uniqueString) -> shader_source_and_path
 			{
 				auto system = device->getPhysicalDevice()->getSystem();
-				auto glsl = system->loadBuiltinData<decltype(uniqueString)>();
+				auto glsl = system->loadBuiltinData<decltype(uniqueString)>(); 
 				return {core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl),asset::IShader::buffer_contains_glsl_t{}),decltype(uniqueString)::value};
 			};
 			auto overrideShader = [device,&cwdForShaderCompilation](shader_source_and_path&& baseShader, const std::string& additionalCode)

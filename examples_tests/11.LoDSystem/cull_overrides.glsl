@@ -2,16 +2,20 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
+#include "common.glsl"
 layout(push_constant, row_major) uniform PushConstants
 {
-    mat4 viewProjMat;
-    uint cullableInstanceCount;
+    CullPushConstants_t data;
 } pc;
 
 uint nbl_glsl_culling_lod_selection_getInstanceCount()
 {
-    return pc.cullableInstanceCount;
+    return pc.data.instanceCount;
 }
+
+// some globals to pass state around
+float distanceSq;
+uint lodID;
 
 void nbl_glsl_culling_lod_selection_initializePerViewPerInstanceData(out nbl_glsl_PerViewPerInstance_t pvpi, in uint instanceGUID)
 {
@@ -20,22 +24,32 @@ void nbl_glsl_culling_lod_selection_initializePerViewPerInstanceData(out nbl_gls
     world[1] = vec4(0.f, 1.f, 0.f, 0.f);
     world[2] = vec4(0.f, 0.f, 1.f, 0.f);
     world[3] = vec4(0.f, float(instanceGUID) * 6.f, 0.f, 1.f);
-    pvpi.mvp = pc.viewProjMat*world;
+
+    const vec3 toCam = pc.data.camPos-world[3].xyz;
+    distanceSq = dot(toCam,toCam);
+
+    pvpi.mvp = pc.data.viewProjMat*world;
 }
 
 uint nbl_glsl_lod_library_Table_getLoDUvec4Offset(in uint lodTableUvec4Offset, in uint lodID);
+#include <nbl/builtin/glsl/lod_library/structs.glsl>
+nbl_glsl_lod_library_DefaultLoDChoiceParams nbl_glsl_lod_library_DefaultInfo_getLoDChoiceParams(in uint lodInfoUvec4Offset);
 uint nbl_glsl_culling_lod_selection_chooseLoD(in uint lodTableUvec4Offset, in uint lodCount)
 {
-    for (uint lodID=0u; lodID<lodCount; lodID++)
+    uint lodInfoUvec4Offset = 0xffffffffu;
+    for (lodID=0u; lodID<lodCount; lodID++)
     {
-        const uint lodInfoUvec4Offset = nbl_glsl_lod_library_Table_getLoDUvec4Offset(lodTableUvec4Offset,lodID);
-        if (lodID==gl_LocalInvocationIndex) // TODO: choose LoD properly
-            return lodInfoUvec4Offset;
+        const uint nextLoD = nbl_glsl_lod_library_Table_getLoDUvec4Offset(lodTableUvec4Offset,lodID);
+        const float threshold = nbl_glsl_lod_library_DefaultInfo_getLoDChoiceParams(nextLoD).distanceSqAtReferenceFoV;
+        if (distanceSq>threshold*pc.data.fovDilationFactor)
+            break;
+        lodInfoUvec4Offset = nextLoD;
     }
-    return lodCount;
+    return lodInfoUvec4Offset;
 }
 
 void nbl_glsl_culling_lod_selection_finalizePerViewPerInstanceData(inout nbl_glsl_PerViewPerInstance_t pvpi, in uint instanceGUID)
 {
-    // we could do stuff here like computing normal matrices, etc.
+    pvpi.lod = lodID-1u;
+    // we could compute and store more stuff, like normal matrix, etc.
 }

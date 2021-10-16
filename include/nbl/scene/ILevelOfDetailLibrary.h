@@ -24,6 +24,13 @@ class ILevelOfDetailLibrary : public virtual core::IReferenceCounted
 			{
 				return distanceSqAtReferenceFoV<other.distanceSqAtReferenceFoV;
 			}
+
+			static inline float getFoVDilationFactor(const core::matrix4SIMD& proj)
+			{
+				if (proj.rows[3].w!=0.f)
+					return core::nan<float>();
+				return abs(proj.rows[0].x*proj.rows[1].y-proj.rows[0].y*proj.rows[1].x)/dot(proj.rows[3],proj.rows[3]).x;
+			}
 		};
 		//
 		struct NBL_FORCE_EBO alignas(16) AlignBase

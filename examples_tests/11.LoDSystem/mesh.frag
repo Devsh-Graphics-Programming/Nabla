@@ -8,15 +8,14 @@ layout(location = 1) in flat uint LoD;
 
 layout(location = 0) out vec4 pixelColor;
 
-const vec3 kLoDColors[8] = vec3[8](
-	vec3(0.f,0.f,0.f),
-	vec3(0.5f,0.f,0.f),
-	vec3(1.f,0.f,0.f),
-	vec3(1.f,0.5f,0.f),
-	vec3(0.f,0.5f,0.f),
-	vec3(0.f,1.f,0.f),
+const vec3 kLoDColors[7] = vec3[7](
+	vec3(0.f,0.f,1.f),
 	vec3(0.f,1.f,1.f),
-	vec3(0.f,0.f,1.f)
+	vec3(0.f,1.f,0.f),
+	vec3(0.f,0.5f,0.f),
+	vec3(1.f,0.5f,0.f),
+	vec3(1.f,0.f,0.f),
+	vec3(0.5f,0.f,0.f)
 );
 
 void main()

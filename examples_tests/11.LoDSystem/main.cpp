@@ -33,7 +33,8 @@ enum E_GEOM_TYPE
 {
     EGT_CUBE,
     EGT_SPHERE,
-    EGT_CONE
+    EGT_CONE,
+    EGT_COUNT
 };
 template<E_GEOM_TYPE geom, uint32_t LoDLevels>
 void addLoDTable(
@@ -150,12 +151,17 @@ void addLoDTable(
         const auto& mbAABB = cpumeshes[lod]->getBoundingBox();
         aabb.addInternalBox(mbAABB);
         auto& lodInfo = lodLibraryData.lodInfoData.emplace_back(batchCount);
-        lodInfo = lod_library_t::LoDInfo(batchCount,{9000000.f/exp2f(lod<<1)},mbAABB);
-        if (lod && !lodInfo.isValid(prevInfo))
+        if (lod)
         {
-            assert(false && "THE LEVEL OF DETAIL CHOICE PARAMS NEED TO BE MONOTONICALLY DECREASING");
-            exit(0x45u);
+            lodInfo = lod_library_t::LoDInfo(batchCount,{250000.f/exp2f(lod<<1)},mbAABB);
+            if (!lodInfo.isValid(prevInfo))
+            {
+                assert(false && "THE LEVEL OF DETAIL CHOICE PARAMS NEED TO BE MONOTONICALLY DECREASING");
+                exit(0x45u);
+            }
         }
+        else
+            lodInfo = lod_library_t::LoDInfo(batchCount,{3240000.f},mbAABB);
         prevInfo = lodInfo;
         //
         size_t indexSize;
@@ -236,7 +242,7 @@ void addLoDTable(
 
 #include <random>
 
-#include "per_view_per_instance_struct.glsl"
+#include "common.glsl"
 
 int main()
 {
@@ -267,17 +273,17 @@ int main()
 
 
     // lod table entries
-    constexpr auto MaxDrawables = 5u;
+    constexpr auto MaxDrawables = EGT_COUNT;
     // all the lod infos from all lod entries
     constexpr auto MaxTotalLoDs = 8u*MaxDrawables;
     // how many contiguous ranges of drawcalls with explicit draw counts
     constexpr auto MaxMDIs = 16u;
     // how many drawcalls (meshlets)
-    constexpr auto MaxDrawCalls = 2048u;
+    constexpr auto MaxDrawCalls = 1024u;
     // how many instances
     constexpr auto MaxInstanceCount = 8u;
-    // maximum visible instances of a drawcalll
-    constexpr auto MaxTotalDrawcallInstances = 2048u;
+    // maximum visible instances of a drawcall (should be a sum of MaxLoDDrawcalls[t]*MaxInstances[t] where t iterates over all LoD Tables)
+    constexpr auto MaxTotalDrawcallInstances = MaxDrawCalls*MaxInstanceCount;
     
     // Drawcall Allocator
     core::smart_refctd_ptr<video::CDrawIndirectAllocator<>> drawIndirectAllocator;
@@ -323,10 +329,10 @@ int main()
         };
         cullingDSPool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE,&layouts->get(),&layouts->get()+LayoutCount);
         
-		const asset::SPushConstantRange range = {asset::ISpecializedShader::ESS_COMPUTE,0u,sizeof(core::matrix4SIMD)+sizeof(uint32_t)};
+		const asset::SPushConstantRange range = {asset::ISpecializedShader::ESS_COMPUTE,0u,sizeof(CullPushConstants_t)};
         cullingSystem = culling_system_t::create(
             core::smart_refctd_ptr<video::CScanner>(utilities->getDefaultScanner()),&range,&range+1u,core::smart_refctd_ptr(layouts[3]),
-            std::filesystem::current_path(),"\n#include \"../per_view_per_instance_struct.glsl\"\n","\n#include \"../cull_overrides.glsl\"\n"
+            std::filesystem::current_path(),"\n#include \"../common.glsl\"\n","\n#include \"../cull_overrides.glsl\"\n"
         );
 
         cullingParams.indirectDispatchParams = {0ull,culling_system_t::createDispatchIndirectBuffer(utilities.get(),queues[decltype(initOutput)::EQT_TRANSFER_UP])};
@@ -591,8 +597,14 @@ int main()
         // cull, choose LoDs, and fill our draw indirects
         {
             const auto* layout = cullingSystem->getInstanceCullAndLoDSelectLayout();
-            commandBuffer->pushConstants(layout,asset::ISpecializedShader::ESS_COMPUTE,0u,sizeof(core::matrix4SIMD),camera.getConcatenatedMatrix().pointer());
-            commandBuffer->pushConstants(layout,asset::ISpecializedShader::ESS_COMPUTE,sizeof(core::matrix4SIMD),sizeof(uint32_t),&cullingParams.directInstanceCount);
+            CullPushConstants_t cullPushConstants;
+            cullPushConstants.viewProjMat = camera.getConcatenatedMatrix();
+            std::copy_n(camera.getPosition().pointer,3u,cullPushConstants.camPos.comp);
+            // TODO: cache these two
+            cullPushConstants.fovDilationFactor = decltype(lod_library_t::LoDInfo::choiceParams)::getFoVDilationFactor(projectionMatrix);
+            cullPushConstants.fovDilationFactor *= float(window->getWidth()*window->getHeight())/float(1280u*720u); // dilate by resolution as well, because the LoD distances were tweaked @ 720p
+            cullPushConstants.instanceCount = cullingParams.directInstanceCount;
+            commandBuffer->pushConstants(layout,asset::ISpecializedShader::ESS_COMPUTE,0u,sizeof(cullPushConstants),&cullPushConstants);
             cullingParams.cmdbuf = commandBuffer.get();
             cullingSystem->processInstancesAndFillIndirectDraws(cullingParams);
         }
