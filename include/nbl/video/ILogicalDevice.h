@@ -313,7 +313,11 @@ class ILogicalDevice : public core::IReferenceCounted
         {
             if (!_unspecialized->wasCreatedBy(this))
                 return nullptr;
-            return createGPUSpecializedShader_impl(_unspecialized, _specInfo, _spvopt);
+            auto retval =  createGPUSpecializedShader_impl(_unspecialized, _specInfo, _spvopt);
+            const auto path = _specInfo.m_filePathHint.string();
+            if (retval && !path.empty())
+                retval->setObjectDebugName(path.c_str());
+            return retval;
         }
 
         //! Create a BufferView, to a shader; a fake 1D texture with no interpolation (@see ICPUBufferView)
@@ -459,7 +463,11 @@ class ILogicalDevice : public core::IReferenceCounted
                 return nullptr;
             if (!_shader->wasCreatedBy(this))
                 return nullptr;
-            return createGPUComputePipeline_impl(_pipelineCache, std::move(_layout), std::move(_shader));
+            const char* debugName = _shader->getObjectDebugName();
+            auto retval = createGPUComputePipeline_impl(_pipelineCache, std::move(_layout), std::move(_shader));
+            if (retval && debugName[0])
+                retval->setObjectDebugName(debugName);
+            return retval;
         }
 
         bool createGPUComputePipelines(

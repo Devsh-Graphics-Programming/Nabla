@@ -680,7 +680,10 @@ protected:
             {
                 auto& p = std::get<SRequestSetDebugName>(req.params_variant);
 
-                gl.extGlObjectLabel(p.id, p.object, p.len, p.label);
+                if (p.len)
+                    gl.extGlObjectLabel(p.id, p.object, p.len, p.label);
+                else
+                    gl.extGlObjectLabel(p.id, p.object, 0u, nullptr); // remove debug name
             }
                 break;
             case ERT_CTX_MAKE_CURRENT:
