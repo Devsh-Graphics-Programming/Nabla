@@ -284,7 +284,11 @@ int main()
     constexpr auto MaxInstanceCount = 8u;
     // maximum visible instances of a drawcall (should be a sum of MaxLoDDrawcalls[t]*MaxInstances[t] where t iterates over all LoD Tables)
     constexpr auto MaxTotalDrawcallInstances = MaxDrawCalls*MaxInstanceCount;
-    
+
+    auto ttm = scene::ITransformTreeManager::create(core::smart_refctd_ptr(logicalDevice));
+    // Transform Tree
+    auto tt = scene::ITransformTree::create(logicalDevice.get(),MaxInstanceCount);
+
     // Drawcall Allocator
     core::smart_refctd_ptr<video::CDrawIndirectAllocator<>> drawIndirectAllocator;
     {
@@ -307,6 +311,7 @@ int main()
     core::smart_refctd_ptr<video::IDescriptorPool> cullingDSPool;
     
     CullPushConstants_t cullPushConstants;
+    cullPushConstants.instanceCount = 0u;
     {
         constexpr auto LayoutCount = 4u;
         core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> layouts[LayoutCount] =
@@ -340,19 +345,9 @@ int main()
 
         cullingParams.indirectDispatchParams = {0ull,culling_system_t::createDispatchIndirectBuffer(utilities.get(),queues[decltype(initOutput)::EQT_TRANSFER_UP])};
         {
-            // set up the instance list
-            core::vector<culling_system_t::InstanceToCull> instanceList; instanceList.reserve(MaxInstanceCount);
-            for (auto i=0u; i<7u; i++)
-            {
-                auto& instance = instanceList.emplace_back();
-                instance.instanceGUID = i; // TODO: do this better
-                instance.lodTableUvec4Offset = 0u; // TODO: should be `lodTableDstUvec4s[0]`
-            }
-            cullPushConstants.instanceCount = instanceList.size();
-
             video::IGPUBuffer::SCreationParams params;
             params.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
-            cullingParams.instanceList = {0ull,~0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(queues[decltype(initOutput)::EQT_TRANSFER_UP],sizeof(culling_system_t::InstanceToCull)*MaxInstanceCount,instanceList.data())};
+            cullingParams.instanceList = {0ull,~0ull,logicalDevice->createDeviceLocalGPUBufferOnDedMem(params,sizeof(culling_system_t::InstanceToCull)*MaxInstanceCount)};
         }
         cullingParams.scratchBufferRanges = culling_system_t::createScratchBuffer(logicalDevice.get(),MaxInstanceCount,MaxTotalDrawcallInstances);
         cullingParams.drawCalls = drawIndirectAllocator->getDrawCommandMemoryBlock();
@@ -440,14 +435,14 @@ int main()
         }
     }
 
-    std::random_device rd;
-    std::mt19937 randGen(rd());
+    std::mt19937 randGen(0x45454545u);
     //
     core::smart_refctd_ptr<video::IGPUCommandBuffer> bakedCommandBuffer;
     {
         video::CSubpassKiln kiln;
         {
             LoDLibraryData lodLibraryData;
+            uint32_t lodTables[EGT_COUNT];
             // create all the LoDs of drawables
             {
                 auto* qnc = assetManager->getMeshManipulator()->getQuantNormalCache();
@@ -456,15 +451,45 @@ int main()
                 if (!qnc->loadCacheFromFile<asset::EF_A2B10G10R10_SNORM_PACK32>(system.get(), cachePath))
                     logger->log("%s", ILogger::ELL_ERROR, "Failed to load cache.");
 
+                size_t lodTableIx = lodLibraryData.lodTableDstUvec4s.size();
                 addLoDTable<EGT_SPHERE,7>(
                     assetManager.get(),core::smart_refctd_ptr(cpuPerViewDSLayout),shaders,cpu2gpu,cpu2gpuParams,
                     lodLibraryData,drawIndirectAllocator.get(),lodLibrary.get(),kiln.getDrawcallMetadataVector(),
                     cullingParams.perInstanceRedirectAttribs,renderpass,perViewDS
                 );
+                lodTables[EGT_SPHERE] = lodLibraryData.lodTableDstUvec4s[lodTableIx];
 
                 //! cache results -- speeds up mesh generation on second run
                 qnc->saveCacheToFile<asset::EF_A2B10G10R10_SNORM_PACK32>(system.get(), cachePath);
             }
+
+            // set up the instance list
+            {
+                /*
+                scene::ITransformTreeManager::AllocationRequest request;
+                request.poolHandler = utilities->getDefaultPropertyPoolHandler();
+                request.upBuff = utilities->getDefaultUpStreamingBuffer();
+                request.cmdbuf = nullptr;
+                request.fence = nullptr;
+                request.tree = tt.get();
+                request.outNodes = {};
+                request.parents = nullptr;
+                request.relativeTransforms = relativeTransforms.data();
+                request.logger = logger.get();
+                ttm->addNodes(request);
+                */
+                core::vector<culling_system_t::InstanceToCull> instanceList; instanceList.reserve(MaxInstanceCount);
+                for (auto i=0u; i<7u; i++)
+                {
+                    auto& instance = instanceList.emplace_back();
+                    instance.instanceGUID = i; // TODO: do this better
+                    instance.lodTableUvec4Offset = lodTables[EGT_SPHERE];
+                }
+                utilities->updateBufferRangeViaStagingBuffer(queues[decltype(initOutput)::EQT_TRANSFER_UP],{0u,instanceList.size()*sizeof(culling_system_t::InstanceToCull),cullingParams.instanceList.buffer},instanceList.data());
+
+                cullPushConstants.instanceCount += instanceList.size();
+            }
+
             cullingParams.drawcallCount = lodLibraryData.drawCallData.size();
             // do the transfer of drawcall and LoD data
             {
