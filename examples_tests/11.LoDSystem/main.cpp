@@ -462,68 +462,77 @@ int main()
                 //! cache results -- speeds up mesh generation on second run
                 qnc->saveCacheToFile<asset::EF_A2B10G10R10_SNORM_PACK32>(system.get(), cachePath);
             }
-
+            constexpr auto MaxTransfers = 8u;
+            video::CPropertyPoolHandler::TransferRequest transferRequests[MaxTransfers];
             // set up the instance list
+            constexpr auto TTMTransfers = scene::ITransformTreeManager::TransferCount+1u;
+            core::vector<scene::ITransformTree::node_t> instanceGUIDs(7u,scene::ITransformTree::invalid_node);
+            core::vector<core::matrix3x4SIMD> instanceTransforms(7u);
+            for (auto& tform : instanceTransforms)
             {
-                /*
-                scene::ITransformTreeManager::AllocationRequest request;
-                request.poolHandler = utilities->getDefaultPropertyPoolHandler();
-                request.upBuff = utilities->getDefaultUpStreamingBuffer();
-                request.cmdbuf = nullptr;
-                request.fence = nullptr;
+                core::vectorSIMDf t(0.f,float(&tform-instanceTransforms.data())*6.f,0.f);
+                tform.setTranslation(t);
+            }
+            {
+                tt->allocateNodes({instanceGUIDs.data(),instanceGUIDs.data()+instanceGUIDs.size()});
+
+                scene::ITransformTreeManager::TransferRequest request;
                 request.tree = tt.get();
-                request.outNodes = {};
                 request.parents = nullptr;
-                request.relativeTransforms = relativeTransforms.data();
-                request.logger = logger.get();
-                ttm->addNodes(request);
-                */
-                core::vector<culling_system_t::InstanceToCull> instanceList; instanceList.reserve(MaxInstanceCount);
-                for (auto i=0u; i<7u; i++)
+                request.relativeTransforms = instanceTransforms.data();
+                request.nodes = {instanceGUIDs.data(),instanceGUIDs.data()+instanceGUIDs.size()};
+                ttm->setupTransfers(request,transferRequests);
+                
+                core::vector<culling_system_t::InstanceToCull> instanceList; instanceList.reserve(instanceGUIDs.size());
+                for (auto instanceGUID : instanceGUIDs)
                 {
                     auto& instance = instanceList.emplace_back();
-                    instance.instanceGUID = i; // TODO: do this better
+                    instance.instanceGUID = instanceGUID;
                     instance.lodTableUvec4Offset = lodTables[EGT_SPHERE];
                 }
                 utilities->updateBufferRangeViaStagingBuffer(queues[decltype(initOutput)::EQT_TRANSFER_UP],{0u,instanceList.size()*sizeof(culling_system_t::InstanceToCull),cullingParams.instanceList.buffer},instanceList.data());
 
                 cullPushConstants.instanceCount += instanceList.size();
             }
-
+            // I cannot be bothered to run a proper node global transform update dispatch in this example
+            {
+                transferRequests[4] = transferRequests[1];
+                const auto* ctt = tt.get(); // fight compiler, hard
+                const video::IPropertyPool* pool = ctt->getNodePropertyPool();
+                transferRequests->setFromPool(const_cast<video::IPropertyPool*>(pool),scene::ITransformTree::global_transform_prop_ix);
+            }
             cullingParams.drawcallCount = lodLibraryData.drawCallData.size();
             // do the transfer of drawcall and LoD data
             {
-                constexpr auto MaxTransfers = 4u;
-                video::CPropertyPoolHandler::TransferRequest requests[MaxTransfers];
-                for (auto i=0u; i<MaxTransfers; i++)
+                for (auto i=TTMTransfers; i<MaxTransfers; i++)
                 {
-                    requests[i].flags = video::CPropertyPoolHandler::TransferRequest::EF_NONE;
-                    requests[i].srcAddresses = nullptr; // iota 0,1,2,3,4,etc.
-                    requests[i].device2device = false;
+                    transferRequests[i].flags = video::CPropertyPoolHandler::TransferRequest::EF_NONE;
+                    transferRequests[i].srcAddresses = nullptr; // iota 0,1,2,3,4,etc.
+                    transferRequests[i].device2device = false;
                 }
-                requests[0].memblock = drawIndirectAllocator->getDrawCommandMemoryBlock();
-                requests[0].elementSize = sizeof(asset::DrawElementsIndirectCommand_t);
-                requests[0].elementCount = cullingParams.drawcallCount;
-                requests[0].dstAddresses = lodLibraryData.drawCallOffsetsIn20ByteStrides.data();
-                requests[0].source = lodLibraryData.drawCallData.data();
-                requests[1].memblock = lodLibrary->getLoDInfoBinding();
-                requests[1].elementSize = sizeof(scene::ILevelOfDetailLibrary::AlignBase);
-                requests[1].elementCount = lodLibraryData.lodInfoDstUvec4s.size();
-                requests[1].dstAddresses = lodLibraryData.lodInfoDstUvec4s.data();
-                requests[1].source = lodLibraryData.lodInfoData.data();
-                requests[2].memblock = lodLibrary->getLodTableInfoBinding();
-                requests[2].elementSize = sizeof(scene::ILevelOfDetailLibrary::AlignBase);
-                requests[2].elementCount = lodLibraryData.lodTableDstUvec4s.size();
-                requests[2].dstAddresses = lodLibraryData.lodTableDstUvec4s.data();
-                requests[2].source = lodLibraryData.lodTableData.data();
-                auto requestCount = 3u;
+                transferRequests[TTMTransfers+0].memblock = drawIndirectAllocator->getDrawCommandMemoryBlock();
+                transferRequests[TTMTransfers+0].elementSize = sizeof(asset::DrawElementsIndirectCommand_t);
+                transferRequests[TTMTransfers+0].elementCount = cullingParams.drawcallCount;
+                transferRequests[TTMTransfers+0].dstAddresses = lodLibraryData.drawCallOffsetsIn20ByteStrides.data();
+                transferRequests[TTMTransfers+0].source = lodLibraryData.drawCallData.data();
+                transferRequests[TTMTransfers+1].memblock = lodLibrary->getLoDInfoBinding();
+                transferRequests[TTMTransfers+1].elementSize = sizeof(scene::ILevelOfDetailLibrary::AlignBase);
+                transferRequests[TTMTransfers+1].elementCount = lodLibraryData.lodInfoDstUvec4s.size();
+                transferRequests[TTMTransfers+1].dstAddresses = lodLibraryData.lodInfoDstUvec4s.data();
+                transferRequests[TTMTransfers+1].source = lodLibraryData.lodInfoData.data();
+                transferRequests[TTMTransfers+2].memblock = lodLibrary->getLodTableInfoBinding();
+                transferRequests[TTMTransfers+2].elementSize = sizeof(scene::ILevelOfDetailLibrary::AlignBase);
+                transferRequests[TTMTransfers+2].elementCount = lodLibraryData.lodTableDstUvec4s.size();
+                transferRequests[TTMTransfers+2].dstAddresses = lodLibraryData.lodTableDstUvec4s.data();
+                transferRequests[TTMTransfers+2].source = lodLibraryData.lodTableData.data();
+                auto requestCount = TTMTransfers+3u;
                 if (drawIndirectAllocator->getDrawCountMemoryBlock())
                 {
-                    requests[requestCount].memblock = *drawIndirectAllocator->getDrawCountMemoryBlock();
-                    requests[requestCount].elementSize = sizeof(uint32_t);
-                    requests[requestCount].elementCount = lodLibraryData.drawCountOffsets.size();
-                    requests[requestCount].dstAddresses = lodLibraryData.drawCountOffsets.data();
-                    requests[requestCount].source = lodLibraryData.drawCountData.data();
+                    transferRequests[requestCount].memblock = *drawIndirectAllocator->getDrawCountMemoryBlock();
+                    transferRequests[requestCount].elementSize = sizeof(uint32_t);
+                    transferRequests[requestCount].elementCount = lodLibraryData.drawCountOffsets.size();
+                    transferRequests[requestCount].dstAddresses = lodLibraryData.drawCountOffsets.data();
+                    transferRequests[requestCount].source = lodLibraryData.drawCountData.data();
                     requestCount++;
                 }
 
@@ -531,7 +540,7 @@ int main()
                 logicalDevice->createCommandBuffers(commandPool.get(),video::IGPUCommandBuffer::EL_PRIMARY,1u,&tferCmdBuf);
                 auto fence = logicalDevice->createFence(video::IGPUFence::ECF_UNSIGNALED);
                 tferCmdBuf->begin(0u); // TODO some one time submit bit or something
-                utilities->getDefaultPropertyPoolHandler()->transferProperties(utilities->getDefaultUpStreamingBuffer(),nullptr,tferCmdBuf.get(),fence.get(),requests,requests+requestCount,logger.get());
+                utilities->getDefaultPropertyPoolHandler()->transferProperties(utilities->getDefaultUpStreamingBuffer(),nullptr,tferCmdBuf.get(),fence.get(),transferRequests,transferRequests+requestCount,logger.get());
                 tferCmdBuf->end();
                 {
                     video::IGPUQueue::SSubmitInfo submit = {}; // intializes all semaphore stuff to 0 and nullptr
@@ -628,6 +637,14 @@ int main()
             camera.endInputProcessing(nextPresentationTimestamp);
         }
 
+        // CBA to actually update transforms (in case something were to move)
+        /*{
+            scene::ITransformTreeManager::GlobalTransformUpdateParams params;
+            params.cmdbuf = commandBuffer.get();
+            params.
+            params.nodeIDs = ;
+            ttm->recomputeGlobalTransforms(params);
+        }*/
         // cull, choose LoDs, and fill our draw indirects
         {
             const auto* layout = cullingSystem->getInstanceCullAndLoDSelectLayout();

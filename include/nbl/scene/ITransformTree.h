@@ -116,6 +116,15 @@ class ITransformTree : public virtual core::IReferenceCounted
 			return m_nodeStorage->getPropertyMemoryBlock(global_transform_prop_ix);
 		}
 
+		// nodes array must be initialized with invalid_node
+		inline bool allocateNodes(const core::SRange<ITransformTree::node_t>& outNodes)
+		{
+			if (outNodes.size()>m_nodeStorage->getFree())
+				return false;
+
+			return m_nodeStorage->allocateProperties(outNodes.begin(),outNodes.end());
+		}
+
 		// This removes all nodes in the hierarchy, if you want to remove individual nodes, use `ITransformTreeManager::removeNodes`
 		inline void clearNodes()
 		{
@@ -160,6 +169,11 @@ class ITransformTree : public virtual core::IReferenceCounted
 		ITransformTree(core::smart_refctd_ptr<property_pool_t>&& _nodeStorage, core::smart_refctd_ptr<video::IGPUDescriptorSet>&& _transformHierarchyDS)
 			: m_nodeStorage(std::move(_nodeStorage)), m_transformHierarchyDS(std::move(_transformHierarchyDS))
 		{
+			m_nodeStorage->getPropertyMemoryBlock(parent_prop_ix).buffer->setObjectDebugName("ITransformTree::parent_t");
+			m_nodeStorage->getPropertyMemoryBlock(relative_transform_prop_ix).buffer->setObjectDebugName("ITransformTree::relative_transform_t");
+			m_nodeStorage->getPropertyMemoryBlock(modified_stamp_prop_ix).buffer->setObjectDebugName("ITransformTree::modified_stamp_t");
+			m_nodeStorage->getPropertyMemoryBlock(global_transform_prop_ix).buffer->setObjectDebugName("ITransformTree::global_transform_t");
+			m_nodeStorage->getPropertyMemoryBlock(recomputed_stamp_prop_ix).buffer->setObjectDebugName("ITransformTree::recomputed_stamp_t");
 		}
 		~ITransformTree()
 		{

@@ -124,53 +124,32 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
             return core::smart_refctd_ptr<ITransformTreeManager>(ttm,core::dont_grab);
         }
 
+		static inline constexpr uint32_t TransferCount = 4u;
 		//
-		struct AllocationRequest
+		struct TransferRequestBase
 		{
-			video::CPropertyPoolHandler* poolHandler;
-			video::StreamingTransientDataBufferMT<>* upBuff;
-			// must be in recording state
-			video::IGPUCommandBuffer* cmdbuf;
-			video::IGPUFence* fence;
 			ITransformTree* tree;
-			core::SRange<ITransformTree::node_t> outNodes = { nullptr, nullptr };
 			// if null we set these properties to defaults (no parent and identity transform)
 			const ITransformTree::parent_t* parents = nullptr;
 			const ITransformTree::relative_transform_t* relativeTransforms = nullptr;
-			system::logger_opt_ptr logger = nullptr;
 		};
-		// nodes must be initialized with invalid_node
-		inline bool allocateNodes(ITransformTree* tt, ITransformTree::node_t* outNodes_begin, ITransformTree::node_t* outNodes_end)
+		struct TransferRequest : TransferRequestBase
 		{
-			const uint32_t out_count = outNodes_end - outNodes_begin;
-			auto* pool = tt->getNodePropertyPool();
-
-			if (out_count > pool->getFree())
-				return false;
-
-			pool->allocateProperties(outNodes_begin, outNodes_end);
-
-			return true;
-		}
-		inline bool addNodes(const AllocationRequest& request, const std::chrono::steady_clock::time_point& maxWaitPoint=video::GPUEventWrapper::default_wait())
+			core::SRange<const ITransformTree::node_t> nodes = { nullptr, nullptr };
+		};
+		inline bool setupTransfers(const TransferRequest& request, video::CPropertyPoolHandler::TransferRequest* transfers)
 		{
-			if (!request.poolHandler || !request.upBuff || !request.cmdbuf || !request.fence || !request.tree)
+			if (!request.tree)
 				return false;
 
-			if (!allocateNodes(request.tree, request.outNodes.begin(), request.outNodes.end()))
-				return false;
-
+			static const core::matrix3x4SIMD IdentityTransform;
 			auto* pool = request.tree->getNodePropertyPool();
 
-			const core::matrix3x4SIMD IdentityTransform;
-
-			constexpr auto TransferCount = 4u;
-			video::CPropertyPoolHandler::TransferRequest transfers[TransferCount];
 			for (auto i=0u; i<TransferCount; i++)
 			{
-				transfers[i].elementCount = request.outNodes.size();
+				transfers[i].elementCount = request.nodes.size();
 				transfers[i].srcAddresses = nullptr;
-				transfers[i].dstAddresses = request.outNodes.begin();
+				transfers[i].dstAddresses = request.nodes.begin();
 				transfers[i].device2device = false;
 			}
 			transfers[0].setFromPool(pool,ITransformTree::parent_prop_ix);
@@ -185,6 +164,36 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			transfers[3].setFromPool(pool,ITransformTree::recomputed_stamp_prop_ix);
 			transfers[3].flags = video::CPropertyPoolHandler::TransferRequest::EF_FILL;
 			transfers[3].source = &ITransformTree::initial_recomputed_timestamp;
+			return true;
+		}
+		//
+		struct AdditionRequest : TransferRequestBase
+		{
+			video::CPropertyPoolHandler* poolHandler;
+			video::StreamingTransientDataBufferMT<>* upBuff;
+			// if the `outNodes` have values not equal to `invalid_node` then we treat them as already allocated
+			// (this allows you to split allocation of nodes from setting up the transfers)
+			core::SRange<ITransformTree::node_t> outNodes = {nullptr,nullptr};
+			// must be in recording state
+			video::IGPUCommandBuffer* cmdbuf;
+			video::IGPUFence* fence;
+			system::logger_opt_ptr logger = nullptr;
+		};
+		inline bool addNodes(const AdditionRequest& request, const std::chrono::steady_clock::time_point& maxWaitPoint=video::GPUEventWrapper::default_wait())
+		{
+			if (!request.poolHandler || !request.upBuff || !request.cmdbuf || !request.fence || !request.tree)
+				return false;
+
+			if (!request.tree->allocateNodes(request.outNodes))
+				return false;
+
+			video::CPropertyPoolHandler::TransferRequest transfers[TransferCount];
+			TransferRequest req;
+			static_cast<TransferRequestBase&>(req) = request;
+			req.nodes = {request.outNodes.begin(),request.outNodes.end()};
+			if (!setupTransfers(req,transfers))
+				return false;
+
 			return request.poolHandler->transferProperties(request.upBuff,nullptr,request.cmdbuf,request.fence,transfers,transfers+TransferCount,request.logger,maxWaitPoint).transferSuccess;
 		}
 		// TODO: utility for adding skeleton node instances, etc.
