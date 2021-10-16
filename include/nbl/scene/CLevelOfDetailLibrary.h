@@ -24,6 +24,11 @@ class CLevelOfDetailLibrary : public ILevelOfDetailLibrary
 				std::copy_n(&aabb.MaxEdge.X,3u,aabbMax);
 			}
 
+			inline bool isValid(const LoDInfo& previous) const
+			{
+				return choiceParams<previous.choiceParams;
+			}
+
 			static inline uint32_t getSizeInUvec4(uint32_t drawcallCount)
 			{
 				return (offsetof(LoDInfo,drawcallInfos[0])+sizeof(DrawcallInfo)*drawcallCount-1u)/alignof(LoDInfo)+1u;

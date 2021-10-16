@@ -21,6 +21,7 @@ struct nbl_glsl_lod_library_DefaultLoDChoiceParams
 	float distanceSqAtReferenceFoV;
 };
 #define NBL_GLSL_LOD_LIBRARY_DEFAULT_LOD_CHOICE_PARAMS_SIZE 4
+#define NBL_GLSL_CULLING_LOD_SELECTION_LOD_INFO_DRAWCALL_LIST_DWORD_OFFSET ((NBL_GLSL_LOD_LIBRARY_LOD_INFO_BASE_SIZE+NBL_GLSL_LOD_LIBRARY_DEFAULT_LOD_CHOICE_PARAMS_SIZE)>>2)
 
 /*
 #ifdef nbl_glsl_lod_library_LoDChoiceParams_t

@@ -3,7 +3,6 @@ layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_) in;
 
 #include <nbl/builtin/glsl/lod_library/descriptor_set.glsl>
 #include <nbl/builtin/glsl/lod_library/structs.glsl>
-#define NBL_GLSL_CULLING_LOD_SELECTION_LOD_INFO_DRAWCALL_LIST_DWORD_OFFSET ((NBL_GLSL_LOD_LIBRARY_LOD_INFO_BASE_SIZE+NBL_GLSL_LOD_LIBRARY_DEFAULT_LOD_CHOICE_PARAMS_SIZE)>>2)
 
 #define NBL_GLSL_CULLING_LOD_SELECTION_INSTANCE_LIST_DESCRIPTOR_BINDING
 #define NBL_GLSL_CULLING_LOD_SELECTION_INSTANCE_PVS_INSTANCES_DESCRIPTOR_QUALIFIERS restrict readonly
@@ -47,14 +46,13 @@ void main()
     {
         // TODO: implement via https://moderngpu.github.io/sortedsearch.html, find the upper and lower bounds of the workgroup, then go to town with sorted search
         const uint pvInstanceID = upper_bound_lodDrawcallInclusiveCounts_NBL_GLSL_LESS(0u,totalInstanceCount,drawInstanceIndex);
-
         const uint lodInfoUvec4Offset = pvsInstances.data[pvInstanceID][1];
+
         uint drawInstanceID = drawInstanceIndex;
         if (bool(pvInstanceID))
             drawInstanceID -= lodDrawcallInclusiveCounts[pvInstanceID-1u];
-        const uint drawcallDWORDOffsetAndFlag = nbl_glsl_lod_library_Info_getDrawCallDWORDOffset(
-            lodInfoUvec4Offset,NBL_GLSL_CULLING_LOD_SELECTION_LOD_INFO_DRAWCALL_LIST_DWORD_OFFSET,drawInstanceID
-        );
+
+        const uint drawcallDWORDOffsetAndFlag = nbl_glsl_lod_library_DefaultInfo_getDrawCallDWORDOffset(lodInfoUvec4Offset,drawInstanceID);
         // get AABB
         //const nbl_glsl_AABB_t aabb = Draw_getAABB();
         // cull

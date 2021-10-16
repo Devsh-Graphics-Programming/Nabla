@@ -117,6 +117,7 @@ void addLoDTable(
     auto drawcallInfosOutIx = drawcallInfos.size();
     drawcallInfos.resize(drawcallInfos.size()+gpumeshes->size());
 	core::aabbox3df aabb(FLT_MAX,FLT_MAX,FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX);
+    lod_library_t::LoDInfo prevInfo;
     for (auto lod=0u; lod<gpumeshes->size(); lod++)
     {
         auto gpumb = gpumeshes->operator[](lod);
@@ -149,7 +150,13 @@ void addLoDTable(
         const auto& mbAABB = cpumeshes[lod]->getBoundingBox();
         aabb.addInternalBox(mbAABB);
         auto& lodInfo = lodLibraryData.lodInfoData.emplace_back(batchCount);
-        lodInfo = lod_library_t::LoDInfo(batchCount,{3.f*exp2f(lod<<1)},mbAABB);
+        lodInfo = lod_library_t::LoDInfo(batchCount,{9000000.f/exp2f(lod<<1)},mbAABB);
+        if (lod && !lodInfo.isValid(prevInfo))
+        {
+            assert(false && "THE LEVEL OF DETAIL CHOICE PARAMS NEED TO BE MONOTONICALLY DECREASING");
+            exit(0x45u);
+        }
+        prevInfo = lodInfo;
         //
         size_t indexSize;
         switch (gpumb->getIndexType())

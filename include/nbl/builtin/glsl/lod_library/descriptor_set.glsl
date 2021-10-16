@@ -87,6 +87,22 @@ uint nbl_glsl_lod_library_Info_getDrawCallDWORDOffset(in uint lodInfoUvec4Offset
     const uint lodInfoDWORDOffset = lodInfoUvec4Offset<<2u;
     return lodInfos.data[lodInfoDWORDOffset+offsetofDWORDFirstDrawcallInfo+(drawcallID<<1u)];
 }
+
+
+#include <nbl/builtin/glsl/lod_library/structs.glsl>
+nbl_glsl_lod_library_DefaultLoDChoiceParams nbl_glsl_lod_library_DefaultInfo_getLoDChoiceParams(in uint lodInfoUvec4Offset)
+{
+    const uint lodInfoDWORDOffset = lodInfoUvec4Offset<<2u;
+    const uint offsetof_lodChoiceParams = NBL_GLSL_LOD_LIBRARY_LOD_INFO_BASE_SIZE>>2u;
+    return nbl_glsl_lod_library_DefaultLoDChoiceParams(uintBitsToFloat(lodInfos.data[lodInfoDWORDOffset+offsetof_lodChoiceParams]));
+}
+
+uint nbl_glsl_lod_library_DefaultInfo_getDrawCallDWORDOffset(in uint lodInfoUvec4Offset, in uint drawcallID)
+{
+    return nbl_glsl_lod_library_Info_getDrawCallDWORDOffset(
+        lodInfoUvec4Offset,NBL_GLSL_CULLING_LOD_SELECTION_LOD_INFO_DRAWCALL_LIST_DWORD_OFFSET,drawcallID
+    );
+}
 #endif
 
 
