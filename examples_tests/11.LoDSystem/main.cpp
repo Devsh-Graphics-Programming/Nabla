@@ -322,7 +322,7 @@ int main()
             [&]() -> core::smart_refctd_ptr<video::IGPUDescriptorSetLayout>
             {
                 // TODO: figure out what should be here
-                constexpr auto BindingCount = 2u;
+                constexpr auto BindingCount = 1u;
                 video::IGPUDescriptorSetLayout::SBinding bindings[BindingCount];
                 for (auto i=0u; i<BindingCount; i++)
                 {
@@ -366,6 +366,17 @@ int main()
             cullingParams.drawCounts
         );
         cullingParams.customDS = logicalDevice->createGPUDescriptorSet(cullingDSPool.get(),std::move(layouts[3]));
+        {
+            video::IGPUDescriptorSet::SWriteDescriptorSet write;
+            video::IGPUDescriptorSet::SDescriptorInfo info(tt->getGlobalTransformationBufferRange());
+            write.dstSet = cullingParams.customDS.get();
+            write.binding = 0u;
+            write.arrayElement = 0u;
+            write.count = 1u;
+            write.descriptorType = EDT_STORAGE_BUFFER;
+            write.info = &info;
+            logicalDevice->updateDescriptorSets(1u,&write,0u,nullptr);
+        }
 
         cullingParams.indirectDispatchParams.buffer->setObjectDebugName("CullingIndirect");
         cullingParams.drawCalls.buffer->setObjectDebugName("DrawCallPool");
@@ -435,7 +446,8 @@ int main()
         }
     }
 
-    std::mt19937 randGen(0x45454545u);
+    std::mt19937 mt(0x45454545u);
+    std::uniform_real_distribution<float> posDist(-40.f,40.f);
     //
     core::smart_refctd_ptr<video::IGPUCommandBuffer> bakedCommandBuffer;
     {
@@ -462,7 +474,7 @@ int main()
                 //! cache results -- speeds up mesh generation on second run
                 qnc->saveCacheToFile<asset::EF_A2B10G10R10_SNORM_PACK32>(system.get(), cachePath);
             }
-            constexpr auto MaxTransfers = 8u;
+            constexpr auto MaxTransfers = 9u;
             video::CPropertyPoolHandler::TransferRequest transferRequests[MaxTransfers];
             // set up the instance list
             constexpr auto TTMTransfers = scene::ITransformTreeManager::TransferCount+1u;
@@ -470,8 +482,8 @@ int main()
             core::vector<core::matrix3x4SIMD> instanceTransforms(7u);
             for (auto& tform : instanceTransforms)
             {
-                core::vectorSIMDf t(0.f,float(&tform-instanceTransforms.data())*6.f,0.f);
-                tform.setTranslation(t);
+                //tform.setRotation(core::quaternion()); // TODO
+                tform.setTranslation(core::vectorSIMDf(posDist(mt),posDist(mt),posDist(mt)));
             }
             {
                 tt->allocateNodes({instanceGUIDs.data(),instanceGUIDs.data()+instanceGUIDs.size()});
@@ -499,7 +511,7 @@ int main()
                 transferRequests[4] = transferRequests[1];
                 const auto* ctt = tt.get(); // fight compiler, hard
                 const video::IPropertyPool* pool = ctt->getNodePropertyPool();
-                transferRequests->setFromPool(const_cast<video::IPropertyPool*>(pool),scene::ITransformTree::global_transform_prop_ix);
+                transferRequests[4].setFromPool(const_cast<video::IPropertyPool*>(pool),scene::ITransformTree::global_transform_prop_ix);
             }
             cullingParams.drawcallCount = lodLibraryData.drawCallData.size();
             // do the transfer of drawcall and LoD data
@@ -709,56 +721,8 @@ int main()
 }
 
 #if 0
-    refctd_dynamic_array<ModelData_t>* dummy0 = nullptr;
-    refctd_dynamic_array<DrawData_t>* dummy1;
-    
-    auto instanceData = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ModelData_t>>(kInstanceCount);
-    auto mbuff = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<core::smart_refctd_ptr<video::IGPUMeshBuffer> > >(kInstanceCount);
-    
-    //
-    SBufferBinding<video::IGPUBuffer> globalVertexBindings[SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT];
-    core::smart_refctd_ptr<video::IGPUBuffer> globalIndexBuffer,perDrawDataSSBO,indirectDrawSSBO,perInstanceDataSSBO;
 
     
-    core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> gpuDrawIndirectPipeline;
-	{
-        DrawElementsIndirectCommand_t indirectDrawData[kInstanceCount];
-
-        {
-            size_t vertexSize = 0;
-            std::vector<uint8_t> vertexData;
-            std::vector<uint32_t> indexData;
-
-            std::uniform_int_distribution<uint32_t> dist(16, 4*1024);
-            for (size_t i=0; i<kInstanceCount; i++)
-            {
-                float poly = sqrtf(dist(mt))+0.5f;
-
-                //
-                indirectDrawData[i].count = sphereData.indexCount;
-                indirectDrawData[i].instanceCount = 1;
-                indirectDrawData[i].firstIndex = indexData.size();
-                indirectDrawData[i].baseVertex = vertexData.size()/vertexSize;
-                indirectDrawData[i].baseInstance = 0;
-
-                //
-                auto vdata = reinterpret_cast<const uint8_t*>(databuf->buffer->getPointer());
-                vertexData.insert(vertexData.end(),vdata,vdata+vdatasize);
-
-                auto idata = reinterpret_cast<const uint32_t*>(sphereData.indexBuffer.buffer->getPointer());
-                indexData.insert(indexData.end(),idata,idata+sphereData.indexCount);
-            }
-            indirectDrawSSBO = driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(indirectDrawData), indirectDrawData);
-            
-            globalIndexBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(indexData.size()*sizeof(uint32_t),indexData.data());
-            indexData.clear();
-
-            globalVertexBindings[0] = { 0u,driver->createFilledDeviceLocalGPUBufferOnDedMem(vertexData.size(),vertexData.data()) };
-            vertexData.clear();
-        }
-        
-        //
-        gpuDrawIndirectPipeline = driver->getGPUObjectsFromAssets(&cpuDrawIndirectPipeline.get(),&cpuDrawIndirectPipeline.get()+1)->operator[](0);
 
         std::uniform_real_distribution<float> dist3D(0.f,400.f);
         for (size_t i=0; i<kInstanceCount; i++)
@@ -787,7 +751,10 @@ int main()
         }
 
         perInstanceDataSSBO = driver->createFilledDeviceLocalGPUBufferOnDedMem(instanceData->bytesize(),instanceData->data());
-	}
+
+
+
+
     
 	auto perDrawData = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<DrawData_t>>(kInstanceCount);
 	perDrawDataSSBO = driver->createDeviceLocalGPUBufferOnDedMem(perDrawData->bytesize());

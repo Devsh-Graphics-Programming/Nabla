@@ -17,18 +17,24 @@ uint nbl_glsl_culling_lod_selection_getInstanceCount()
 float distanceSq;
 uint lodID;
 
+#define NBL_GLSL_TRANSFORM_TREE_POOL_DESCRIPTOR_SET 3
+#define NBL_GLSL_TRANSFORM_TREE_POOL_NODE_GLOBAL_TRANSFORM_DESCRIPTOR_BINDING 0
+// disable what we dont use
+#define NBL_GLSL_TRANSFORM_TREE_POOL_NODE_PARENT_DESCRIPTOR_DECLARED
+#define NBL_GLSL_TRANSFORM_TREE_POOL_NODE_RELATIVE_TRANSFORM_DESCRIPTOR_DECLARED
+#define NBL_GLSL_TRANSFORM_TREE_POOL_NODE_MODIFIED_TIMESTAMP_DESCRIPTOR_DECLARED
+#define NBL_GLSL_TRANSFORM_TREE_POOL_NODE_RECOMPUTED_TIMESTAMP_DESCRIPTOR_DECLARED
+#include <nbl/builtin/glsl/transform_tree/pool_descriptor_set.glsl>
+
+#include <nbl/builtin/glsl/utils/transform.glsl>
 void nbl_glsl_culling_lod_selection_initializePerViewPerInstanceData(out nbl_glsl_PerViewPerInstance_t pvpi, in uint instanceGUID)
 {
-    mat4 world; // TODO: Use TT
-    world[0] = vec4(1.f, 0.f, 0.f, 0.f);
-    world[1] = vec4(0.f, 1.f, 0.f, 0.f);
-    world[2] = vec4(0.f, 0.f, 1.f, 0.f);
-    world[3] = vec4(0.f, float(instanceGUID) * 6.f, 0.f, 1.f);
+    const mat4x3 world = nodeGlobalTransforms.data[instanceGUID];
 
-    const vec3 toCam = pc.data.camPos-world[3].xyz;
+    const vec3 toCam = pc.data.camPos-world[3];
     distanceSq = dot(toCam,toCam);
 
-    pvpi.mvp = pc.data.viewProjMat*world;
+    pvpi.mvp = nbl_glsl_pseudoMul4x4with4x3(pc.data.viewProjMat,world);
 }
 
 uint nbl_glsl_lod_library_Table_getLoDUvec4Offset(in uint lodTableUvec4Offset, in uint lodID);
