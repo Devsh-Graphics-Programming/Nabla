@@ -11,8 +11,12 @@ void nbl_glsl_scan_virtualWorkgroup(in uint treeLevel, in uint localWorkgroupInd
 {
 	const nbl_glsl_scan_Parameters_t params = nbl_glsl_scan_getParameters();
 	const uint levelInvocationIndex = localWorkgroupIndex*_NBL_GLSL_WORKGROUP_SIZE_+gl_LocalInvocationIndex;
-	const bool inRange = levelInvocationIndex<params.elementCount[treeLevel];
 	const bool lastInvocationInGroup = gl_LocalInvocationIndex==(_NBL_GLSL_WORKGROUP_SIZE_-1);
+	
+	const uint lastLevel = params.topLevel<<1u;
+	const uint pseudoLevel = treeLevel>params.topLevel ? (lastLevel-treeLevel):treeLevel;
+
+	const bool inRange = levelInvocationIndex<=params.lastElement[pseudoLevel];
 	
 #	ifndef _NBL_GLSL_SCAN_BIN_OP_
 #		error "_NBL_GLSL_SCAN_BIN_OP_ must be defined!"
@@ -54,20 +58,50 @@ void nbl_glsl_scan_virtualWorkgroup(in uint treeLevel, in uint localWorkgroupInd
 #	else
 #		error "_NBL_GLSL_SCAN_BIN_OP_ invalid value!"
 #	endif
-	nbl_glsl_scan_Storage_t data = nbl_glsl_scan_getPaddedData(levelInvocationIndex,localWorkgroupIndex,treeLevel,inRange,IDENTITY);
+	nbl_glsl_scan_Storage_t data = IDENTITY;
+	if (inRange)
+		nbl_glsl_scan_getData(data,levelInvocationIndex,localWorkgroupIndex,treeLevel,pseudoLevel);
 
+	// TODO: rething exclusive vs inclusive scans and data loading in the future
 	if (treeLevel<params.topLevel)
 		data = REDUCTION(data);
-	else if (treeLevel==params.topLevel)
-		data = EXCLUSIVE(data);
-	else
+#if _NBL_GLSL_SCAN_TYPE_==_NBL_GLSL_SCAN_TYPE_INCLUSIVE_
+	else if (params.topLevel==0u)
 		data = INCLUSIVE(data);
+#endif
+	else if (treeLevel!=params.topLevel)
+		data = INCLUSIVE(data);
+	else
+		data = EXCLUSIVE(data);
 	
-	nbl_glsl_scan_setData(data,levelInvocationIndex,localWorkgroupIndex,treeLevel,inRange);
+	nbl_glsl_scan_setData(data,levelInvocationIndex,localWorkgroupIndex,treeLevel,pseudoLevel,inRange);
 #	undef REDUCTION
 #	undef EXCLUSIVE
 #	undef INCLUSIVE
 #	undef IDENTITY
 }
+
+#ifndef _NBL_GLSL_SCAN_MAIN_DEFINED_
+#include <nbl/builtin/glsl/scan/default_scheduler.glsl>
+nbl_glsl_scan_DefaultSchedulerParameters_t nbl_glsl_scan_getSchedulerParameters();
+void nbl_glsl_scan_main()
+{
+	const nbl_glsl_scan_DefaultSchedulerParameters_t schedulerParams = nbl_glsl_scan_getSchedulerParameters();
+	const uint topLevel = nbl_glsl_scan_getParameters().topLevel;
+	// persistent workgroups
+	while (true)
+	{
+		uint treeLevel,localWorkgroupIndex;
+		if (nbl_glsl_scan_scheduler_getWork(schedulerParams,topLevel,treeLevel,localWorkgroupIndex))
+			return;
+
+		nbl_glsl_scan_virtualWorkgroup(treeLevel,localWorkgroupIndex);
+
+		nbl_glsl_scan_scheduler_markComplete(schedulerParams,topLevel,treeLevel,localWorkgroupIndex);
+	}
+}
+#define _NBL_GLSL_SCAN_MAIN_DEFINED_
+#endif
+
 
 #endif

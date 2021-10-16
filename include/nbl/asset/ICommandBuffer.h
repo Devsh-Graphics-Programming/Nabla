@@ -49,8 +49,8 @@ struct SViewport
 
 struct SMemoryBarrier
 {
-    asset::E_ACCESS_FLAGS srcAccessMask;
-    asset::E_ACCESS_FLAGS dstAccessMask;
+    core::bitflag<asset::E_ACCESS_FLAGS> srcAccessMask;
+    core::bitflag<asset::E_ACCESS_FLAGS> dstAccessMask;
 };
 
 union SClearColorValue

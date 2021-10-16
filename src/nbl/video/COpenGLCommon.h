@@ -174,9 +174,9 @@ struct SOpenGLBarrierHelper
 			for (uint32_t i=0u; i<AccessBitCount; ++i)
 			{
 				const auto flag = 0x1u<<i;
-				if (barrier.srcAccessMask&flag)
+				if (barrier.srcAccessMask.value&flag)
 					srcBarrier |= srcBits[i];
-				if (barrier.dstAccessMask&flag)
+				if (barrier.dstAccessMask.value&flag)
 					dstBarrier |= dstBits[i];
 			}
 

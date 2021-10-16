@@ -61,7 +61,7 @@ struct SBufferRange
 {
 	bool isValid() const
 	{
-		return buffer && (offset+size<=buffer->getSize());
+		return buffer && size && (offset+size<=buffer->getSize());
 	}
 
 	size_t offset = 0ull;
