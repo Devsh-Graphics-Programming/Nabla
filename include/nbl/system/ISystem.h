@@ -343,6 +343,45 @@ public:
     {
 
     }
+
+    static inline bool getSystemMemory(uint32_t* Total, uint32_t* Avail)
+    {
+        #if defined(_NBL_PLATFORM_WINDOWS_) && !defined (_NBL_XBOX_PLATFORM_)
+        MEMORYSTATUS MemoryStatus;
+        MemoryStatus.dwLength = sizeof(MEMORYSTATUS);
+
+        GlobalMemoryStatus(&MemoryStatus);
+
+        if (Total)
+            *Total = (uint32_t)(MemoryStatus.dwTotalPhys >> 10);
+        if (Avail)
+            *Avail = (uint32_t)(MemoryStatus.dwAvailPhys >> 10);
+
+        return true;
+
+        #elif defined(_NBL_PLATFORM_LINUX_) && !defined(__FreeBSD__)
+        #if defined(_SC_PHYS_PAGES) && defined(_SC_AVPHYS_PAGES)
+        long ps = sysconf(_SC_PAGESIZE);
+        long pp = sysconf(_SC_PHYS_PAGES);
+        long ap = sysconf(_SC_AVPHYS_PAGES);
+
+        if ((ps == -1) || (pp == -1) || (ap == -1))
+            return false;
+
+        if (Total)
+            *Total = (uint32_t)((ps * (long long)pp) >> 10);
+        if (Avail)
+            *Avail = (uint32_t)((ps * (long long)ap) >> 10);
+        return true;
+        #else
+        // TODO: implement for non-availablity of symbols/features
+        return false;
+        #endif
+        #else
+        // TODO: implement for OSX
+        return false;
+        #endif
+    }
 };
 
 template<typename T>
