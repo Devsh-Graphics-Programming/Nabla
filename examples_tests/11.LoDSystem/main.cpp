@@ -289,9 +289,9 @@ int main()
     // how many drawcalls (meshlets)
     constexpr auto MaxDrawCalls = 1024u;
     // how many instances
-    constexpr auto MaxInstanceCount = 8u;
+    constexpr auto MaxInstanceCount = 1u<<14u;
     // maximum visible instances of a drawcall (should be a sum of MaxLoDDrawcalls[t]*MaxInstances[t] where t iterates over all LoD Tables)
-    constexpr auto MaxTotalDrawcallInstances = MaxDrawCalls*MaxInstanceCount;
+    constexpr auto MaxTotalDrawcallInstances = MaxDrawCalls*MaxInstanceCount; // TODO: bound this differently
 
     auto ttm = scene::ITransformTreeManager::create(core::smart_refctd_ptr(logicalDevice));
     // Transform Tree
@@ -457,7 +457,7 @@ int main()
 
     std::mt19937 mt(0x45454545u);
     std::uniform_real_distribution<float> rotationDist(0,2.f*core::PI<float>());
-    std::uniform_real_distribution<float> posDist(-20.f,20.f);
+    std::uniform_real_distribution<float> posDist(-100.f,100.f);
     //
     core::smart_refctd_ptr<video::IGPUCommandBuffer> bakedCommandBuffer;
     {
@@ -491,8 +491,11 @@ int main()
             video::CPropertyPoolHandler::TransferRequest transferRequests[MaxTransfers];
             // set up the instance list
             constexpr auto TTMTransfers = scene::ITransformTreeManager::TransferCount+1u;
-            core::vector<scene::ITransformTree::node_t> instanceGUIDs(7u,scene::ITransformTree::invalid_node);
-            core::vector<core::matrix3x4SIMD> instanceTransforms(7u);
+            core::vector<scene::ITransformTree::node_t> instanceGUIDs(
+                std::uniform_int_distribution<uint32_t>(MaxInstanceCount>>1u,MaxInstanceCount)(mt), // Instance Count
+                scene::ITransformTree::invalid_node
+            );
+            core::vector<core::matrix3x4SIMD> instanceTransforms(instanceGUIDs.size());
             for (auto& tform : instanceTransforms)
             {
                 tform.setRotation(core::quaternion(rotationDist(mt),rotationDist(mt),rotationDist(mt)));
@@ -513,7 +516,7 @@ int main()
                 {
                     auto& instance = instanceList.emplace_back();
                     instance.instanceGUID = instanceGUID;
-                    instance.lodTableUvec4Offset = lodTables[EGT_SPHERE];
+                    instance.lodTableUvec4Offset = lodTables[EGT_SPHERE]; // TODO: randomize drawable type a bit
                 }
                 utilities->updateBufferRangeViaStagingBuffer(queues[decltype(initOutput)::EQT_TRANSFER_UP],{0u,instanceList.size()*sizeof(culling_system_t::InstanceToCull),cullingParams.instanceList.buffer},instanceList.data());
 
