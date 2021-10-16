@@ -44,9 +44,9 @@ class ITransformTree : public virtual core::IReferenceCounted
 		static inline constexpr uint32_t recomputed_stamp_prop_ix = 4u;
 
 		// useful for everyone
-		static inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createDescriptorSetLayout(video::ILogicalDevice* device, asset::ISpecializedShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
+		template<typename BindingType>
+		static inline void fillDescriptorLayoutBindings(BindingType* bindings, asset::ISpecializedShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
 		{
-			video::IGPUDescriptorSetLayout::SBinding bindings[property_pool_t::PropertyCount];
 			for (auto i=0u; i<property_pool_t::PropertyCount; i++)
 			{
 				bindings[i].binding = i;
@@ -55,6 +55,17 @@ class ITransformTree : public virtual core::IReferenceCounted
 				bindings[i].stageFlags = stageAccessFlags ? stageAccessFlags[i]:asset::ISpecializedShader::ESS_ALL;
 				bindings[i].samplers = nullptr;
 			}
+		}
+		static inline core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> createDescriptorSetLayout(asset::ISpecializedShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
+		{
+			asset::ICPUDescriptorSetLayout::SBinding bindings[property_pool_t::PropertyCount];
+			fillDescriptorLayoutBindings(bindings,stageAccessFlags);
+			return core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(bindings,bindings+property_pool_t::PropertyCount);
+		}
+		static inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createDescriptorSetLayout(video::ILogicalDevice* device, asset::ISpecializedShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
+		{
+			video::IGPUDescriptorSetLayout::SBinding bindings[property_pool_t::PropertyCount];
+			fillDescriptorLayoutBindings(bindings,stageAccessFlags);
 			return device->createGPUDescriptorSetLayout(bindings,bindings+property_pool_t::PropertyCount);
 		}
 

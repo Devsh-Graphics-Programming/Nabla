@@ -38,7 +38,9 @@ enum E_GEOM_TYPE
 };
 template<E_GEOM_TYPE geom, uint32_t LoDLevels>
 void addLoDTable(
-    IAssetManager* assetManager, core::smart_refctd_ptr<ICPUDescriptorSetLayout>&& cpuPerViewDSLayout,
+    IAssetManager* assetManager,
+    const core::smart_refctd_ptr<ICPUDescriptorSetLayout>& cpuTransformTreeDSLayout,
+    const core::smart_refctd_ptr<ICPUDescriptorSetLayout>& cpuPerViewDSLayout,
     const core::smart_refctd_ptr<ICPUSpecializedShader>* shaders,
     nbl::video::IGPUObjectFromAssetConverter& cpu2gpu,
     nbl::video::IGPUObjectFromAssetConverter::SParams& cpu2gpuParams,
@@ -48,6 +50,7 @@ void addLoDTable(
     core::vector<video::CSubpassKiln::DrawcallInfo>& drawcallInfos,
     const SBufferRange<video::IGPUBuffer>& perInstanceRedirectAttribs,
     const core::smart_refctd_ptr<video::IGPURenderpass>& renderpass,
+    const core::smart_refctd_ptr<video::IGPUDescriptorSet>& transformTreeDS,
     const core::smart_refctd_ptr<video::IGPUDescriptorSet>& perViewDS
 )
 {
@@ -88,7 +91,11 @@ void addLoDTable(
 
         if (!cpupipeline)
         {
-            auto pipelinelayout = core::make_smart_refctd_ptr<ICPUPipelineLayout>(nullptr,nullptr,nullptr,std::move(cpuPerViewDSLayout));
+            auto pipelinelayout = core::make_smart_refctd_ptr<ICPUPipelineLayout>(
+                nullptr,nullptr,
+                core::smart_refctd_ptr(cpuTransformTreeDSLayout),
+                core::smart_refctd_ptr(cpuPerViewDSLayout)
+            );
             cpupipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(
                 std::move(pipelinelayout),&shaders->get(),&shaders->get()+2u,
                 geomData.inputParams,SBlendParams{},geomData.assemblyParams,SRasterizationParams{}
@@ -127,6 +134,7 @@ void addLoDTable(
         memcpy(di.pushConstantData,gpumb->getPushConstantsDataPtr(),video::IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE);
         di.pipeline = pipeline;
         std::fill_n(di.descriptorSets,video::IGPUPipelineLayout::DESCRIPTOR_SET_COUNT,nullptr);
+        di.descriptorSets[0] = transformTreeDS;
         di.descriptorSets[1] = perViewDS;
         di.indexType = gpumb->getIndexType();
         std::copy_n(gpumb->getVertexBufferBindings(),perInstanceRedirectAttrID,di.vertexBufferBindings);
@@ -383,6 +391,7 @@ int main()
         cullingParams.perInstanceRedirectAttribs.buffer->setObjectDebugName("PerInstanceInputAttribs");
         if (cullingParams.drawCounts.buffer)
             cullingParams.drawCounts.buffer->setObjectDebugName("DrawCountPool");
+        cullingParams.perViewPerInstance.buffer->setObjectDebugName("DrawcallInstanceRedirects");
         cullingParams.indirectInstanceCull = false;
     }
 
@@ -447,7 +456,8 @@ int main()
     }
 
     std::mt19937 mt(0x45454545u);
-    std::uniform_real_distribution<float> posDist(-40.f,40.f);
+    std::uniform_real_distribution<float> rotationDist(0,2.f*core::PI<float>());
+    std::uniform_real_distribution<float> posDist(-20.f,20.f);
     //
     core::smart_refctd_ptr<video::IGPUCommandBuffer> bakedCommandBuffer;
     {
@@ -463,11 +473,14 @@ int main()
                 if (!qnc->loadCacheFromFile<asset::EF_A2B10G10R10_SNORM_PACK32>(system.get(), cachePath))
                     logger->log("%s", ILogger::ELL_ERROR, "Failed to load cache.");
 
+                // cba to set up another DS Layout with exactly 1 shader storage buffer
+                auto cpuTransformTreeDSLayout = cpuPerViewDSLayout;
+
                 size_t lodTableIx = lodLibraryData.lodTableDstUvec4s.size();
                 addLoDTable<EGT_SPHERE,7>(
-                    assetManager.get(),core::smart_refctd_ptr(cpuPerViewDSLayout),shaders,cpu2gpu,cpu2gpuParams,
+                    assetManager.get(),cpuTransformTreeDSLayout,cpuPerViewDSLayout,shaders,cpu2gpu,cpu2gpuParams,
                     lodLibraryData,drawIndirectAllocator.get(),lodLibrary.get(),kiln.getDrawcallMetadataVector(),
-                    cullingParams.perInstanceRedirectAttribs,renderpass,perViewDS
+                    cullingParams.perInstanceRedirectAttribs,renderpass,cullingParams.customDS,perViewDS
                 );
                 lodTables[EGT_SPHERE] = lodLibraryData.lodTableDstUvec4s[lodTableIx];
 
@@ -482,7 +495,7 @@ int main()
             core::vector<core::matrix3x4SIMD> instanceTransforms(7u);
             for (auto& tform : instanceTransforms)
             {
-                //tform.setRotation(core::quaternion()); // TODO
+                tform.setRotation(core::quaternion(rotationDist(mt),rotationDist(mt),rotationDist(mt)));
                 tform.setTranslation(core::vectorSIMDf(posDist(mt),posDist(mt),posDist(mt)));
             }
             {
