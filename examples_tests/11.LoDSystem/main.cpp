@@ -153,7 +153,7 @@ void addLoDTable(
         auto& lodInfo = lodLibraryData.lodInfoData.emplace_back(batchCount);
         if (lod)
         {
-            lodInfo = lod_library_t::LoDInfo(batchCount,{250000.f/exp2f(lod<<1)},mbAABB);
+            lodInfo = lod_library_t::LoDInfo(batchCount,{90000.f/exp2f(lod<<1)},mbAABB);
             if (!lodInfo.isValid(prevInfo))
             {
                 assert(false && "THE LEVEL OF DETAIL CHOICE PARAMS NEED TO BE MONOTONICALLY DECREASING");
@@ -161,7 +161,7 @@ void addLoDTable(
             }
         }
         else
-            lodInfo = lod_library_t::LoDInfo(batchCount,{3240000.f},mbAABB);
+            lodInfo = lod_library_t::LoDInfo(batchCount,{2250000.f},mbAABB);
         prevInfo = lodInfo;
         //
         size_t indexSize;
@@ -246,8 +246,8 @@ void addLoDTable(
 
 int main()
 {
-	constexpr uint32_t WIN_W = 1280;
-	constexpr uint32_t WIN_H = 720;
+	constexpr uint32_t WIN_W = 1600;
+	constexpr uint32_t WIN_H = 900;
     constexpr uint32_t FBO_COUNT = 1u;
 	constexpr uint32_t FRAMES_IN_FLIGHT = 5u;
 	static_assert(FRAMES_IN_FLIGHT>FBO_COUNT);
@@ -302,8 +302,11 @@ int main()
     // Culling System
     using culling_system_t = scene::ICullingLoDSelectionSystem;
     core::smart_refctd_ptr<culling_system_t> cullingSystem;
+
     culling_system_t::Params cullingParams;
     core::smart_refctd_ptr<video::IDescriptorPool> cullingDSPool;
+    
+    CullPushConstants_t cullPushConstants;
     {
         constexpr auto LayoutCount = 4u;
         core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> layouts[LayoutCount] =
@@ -345,7 +348,7 @@ int main()
                 instance.instanceGUID = i; // TODO: do this better
                 instance.lodTableUvec4Offset = 0u; // TODO: should be `lodTableDstUvec4s[0]`
             }
-            cullingParams.directInstanceCount = instanceList.size();
+            cullPushConstants.instanceCount = instanceList.size();
 
             video::IGPUBuffer::SCreationParams params;
             params.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
@@ -374,6 +377,7 @@ int main()
         cullingParams.perInstanceRedirectAttribs.buffer->setObjectDebugName("PerInstanceInputAttribs");
         if (cullingParams.drawCounts.buffer)
             cullingParams.drawCounts.buffer->setObjectDebugName("DrawCountPool");
+        cullingParams.indirectInstanceCull = false;
     }
 
 
@@ -544,6 +548,11 @@ int main()
 
     core::vectorSIMDf cameraPosition(0, 5, -10);
     matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60), float(WIN_W) / WIN_H, 2.f, 4000.f);
+    {
+        cullPushConstants.fovDilationFactor = decltype(lod_library_t::LoDInfo::choiceParams)::getFoVDilationFactor(projectionMatrix);
+        // dilate by resolution as well, because the LoD distances were tweaked @ 720p
+        cullPushConstants.fovDilationFactor *= float(window->getWidth()*window->getHeight())/float(1280u*720u);
+    }
     Camera camera = Camera(cameraPosition, core::vectorSIMDf(0, 0, 0), projectionMatrix, 2.f, 1.f);
     
     video::CDumbPresentationOracle oracle;
@@ -597,13 +606,8 @@ int main()
         // cull, choose LoDs, and fill our draw indirects
         {
             const auto* layout = cullingSystem->getInstanceCullAndLoDSelectLayout();
-            CullPushConstants_t cullPushConstants;
             cullPushConstants.viewProjMat = camera.getConcatenatedMatrix();
             std::copy_n(camera.getPosition().pointer,3u,cullPushConstants.camPos.comp);
-            // TODO: cache these two
-            cullPushConstants.fovDilationFactor = decltype(lod_library_t::LoDInfo::choiceParams)::getFoVDilationFactor(projectionMatrix);
-            cullPushConstants.fovDilationFactor *= float(window->getWidth()*window->getHeight())/float(1280u*720u); // dilate by resolution as well, because the LoD distances were tweaked @ 720p
-            cullPushConstants.instanceCount = cullingParams.directInstanceCount;
             commandBuffer->pushConstants(layout,asset::ISpecializedShader::ESS_COMPUTE,0u,sizeof(cullPushConstants),&cullPushConstants);
             cullingParams.cmdbuf = commandBuffer.get();
             cullingSystem->processInstancesAndFillIndirectDraws(cullingParams);

@@ -278,7 +278,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 			asset::SBufferRange<video::IGPUBuffer> perInstanceRedirectAttribs;
 			asset::SBufferRange<video::IGPUBuffer> drawCounts = {};
 			uint32_t drawcallCount : 26;
-			uint32_t directInstanceCount; // set as 0u for indirect dispatch (TODO, as bool)
+			uint32_t indirectInstanceCull : 1;
 		};
 		void processInstancesAndFillIndirectDraws(const Params& params)
 		{
@@ -320,12 +320,12 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 			const auto internalStageFlags = core::bitflag(asset::EPSF_DRAW_INDIRECT_BIT)|asset::EPSF_COMPUTE_SHADER_BIT;
 			cmdbuf->bindComputePipeline(m_instanceCullAndLoDSelect.get());
 			cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,m_instanceCullAndLoDSelectLayout.get(),0u,4u,&params.lodLibraryDS.get());
-			if (params.directInstanceCount)
+			if (params.indirectInstanceCull)
+				cmdbuf->dispatchIndirect(indirectRange.buffer.get(),indirectRange.offset+offsetof(DispatchIndirectParams,instanceCullAndLoDSelect));
+			else
 			{
 				cmdbuf->dispatch(1u,1u,1u); // TODO: dispatch size
 			}
-			else
-				cmdbuf->dispatchIndirect(indirectRange.buffer.get(),indirectRange.offset+offsetof(DispatchIndirectParams,instanceCullAndLoDSelect));
 			{
 				setBarrierBuffer(barriers[1],params.drawCalls,wAccessMask,rwAccessMask);
 				setBarrierBuffer(barriers[2],params.scratchBufferRanges.pvsInstances,wAccessMask,asset::EAF_SHADER_READ_BIT);
