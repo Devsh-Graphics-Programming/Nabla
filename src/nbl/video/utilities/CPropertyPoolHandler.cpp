@@ -381,7 +381,7 @@ uint32_t CPropertyPoolHandler::TransferDescriptorSetCache::acquireSet(
 	auto device = handler->getDevice();
 
 	const auto maxPropertiesPerPass = handler->getMaxPropertiesPerTransferDispatch();
-	IGPUDescriptorSet::SDescriptorInfo infos[MaxPropertyTransfers*2u+1u];
+	IGPUDescriptorSet::SDescriptorInfo infos[MaxPropertyTransfers * 2u + 1u] = { };
 	infos[0].desc = core::smart_refctd_ptr<asset::IDescriptor>(upBuff);
 	infos[0].buffer = { *(uploadAddresses++),firstSSBOSize };
 	auto* inDescInfo = infos+1;
@@ -426,15 +426,18 @@ uint32_t CPropertyPoolHandler::TransferDescriptorSetCache::acquireSet(
 			outDescInfo[i].buffer = {memblock.offset,memblock.size};
 		}
 	}
+
 	IGPUDescriptorSet::SWriteDescriptorSet writes[3u];
 	for (auto i=0u; i<3u; i++)
 	{
 		writes[i].dstSet = set;
 		writes[i].binding = i;
 		writes[i].arrayElement = 0u;
-		writes[i].count = i ? propertyCount:1u;
+		// writes[i].count = i ? propertyCount:1u;
+		writes[i].count = i ? handler->m_maxPropertiesPerPass:1u;
 		writes[i].descriptorType = asset::EDT_STORAGE_BUFFER;
-		writes[i].info = i ? (writes[i-1u].info+writes[i-1u].count):infos;
+		// writes[i].info = i ? (writes[i-1u].info+writes[i-1u].count):infos;
+		writes[i].info = i ? (writes[i-1u].info+propertyCount):infos;
 	}
 	device->updateDescriptorSets(3u,writes,0u,nullptr);
 

@@ -583,24 +583,47 @@ public:
         VkBuffer vk_buffers[MAX_BUFFER_COUNT];
         VkDeviceSize vk_offsets[MAX_BUFFER_COUNT];
         core::smart_refctd_ptr<const core::IReferenceCounted> tmp[MAX_BUFFER_COUNT];
+
         uint32_t actualBindingCount = 0u;
+        VkBuffer dummyBuffer = VK_NULL_HANDLE;
         for (uint32_t i = 0u; i < bindingCount; ++i)
         {
             if (!pBuffers[i] || (pBuffers[i]->getAPIType() != EAT_VULKAN))
-                continue;
+            {
+                // continue;
+                vk_buffers[i] = dummyBuffer;
+                vk_offsets[i] = 0;
+            }
+            else
+            {
+                VkBuffer vk_buffer = static_cast<const CVulkanBuffer*>(pBuffers[i])->getInternalObject();
+                if (dummyBuffer == VK_NULL_HANDLE)
+                    dummyBuffer = vk_buffer;
 
-            vk_buffers[i] = static_cast<const CVulkanBuffer*>(pBuffers[i])->getInternalObject();
-            vk_offsets[i] = static_cast<VkDeviceSize>(pOffsets[i]);
-            tmp[i] = core::smart_refctd_ptr<const IGPUBuffer>(pBuffers[i]);
+                vk_buffers[i] = vk_buffer;
+                vk_offsets[i] = static_cast<VkDeviceSize>(pOffsets[i]);
 
-            ++actualBindingCount;
+                tmp[actualBindingCount] = core::smart_refctd_ptr<const IGPUBuffer>(pBuffers[i]);
+                ++actualBindingCount;
+            }
+        }
+        for (uint32_t i = 0u; i < bindingCount; ++i)
+        {
+            if (vk_buffers[i] == VK_NULL_HANDLE)
+                vk_buffers[i] = dummyBuffer;
         }
 
         if (!saveReferencesToResources(tmp, tmp + actualBindingCount))
             return false;
 
         const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
-        vk->vk.vkCmdBindVertexBuffers(m_cmdbuf, firstBinding, actualBindingCount, vk_buffers, vk_offsets);
+        // vk->vk.vkCmdBindVertexBuffers(m_cmdbuf, firstBinding, actualBindingCount, vk_buffers, vk_offsets);
+        vk->vk.vkCmdBindVertexBuffers(
+            m_cmdbuf,
+            firstBinding,
+            bindingCount,
+            vk_buffers,
+            vk_offsets);
         return true;
     }
 

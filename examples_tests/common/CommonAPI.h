@@ -1191,7 +1191,7 @@ public:
 			asset::E_FORMAT swapChainFormat = result.swapchain->getCreationParameters().surfaceFormat.format;
 			result.renderpass = createRenderpass(result.logicalDevice, swapChainFormat, depthFormat);
 
-			result.fbo = createFBOWithSwapchainImages(sc_image_count, window_width, window_height, result.logicalDevice, result.swapchain, result.renderpass, depthFormat);
+			result.fbo = createFBOWithSwapchainImages(result.swapchain->getImageCount(), window_width, window_height, result.logicalDevice, result.swapchain, result.renderpass, depthFormat);
 		}
 
 		for(uint32_t i = 0; i < InitOutput::EQT_COUNT; ++i)

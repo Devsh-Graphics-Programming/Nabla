@@ -40,14 +40,18 @@ class CPropertyPool final : public IPropertyPool
         }
 
         // easy dont care creation
-        static inline core::smart_refctd_ptr<this_t> create(ILogicalDevice* device, const uint32_t capacity, const bool contiguous = false)
+        static inline core::smart_refctd_ptr<this_t> create(
+            ILogicalDevice* device,
+            const uint32_t capacity,
+            const bool contiguous = false,
+            const core::bitflag<IGPUBuffer::E_USAGE_FLAGS> usage = IGPUBuffer::EUF_STORAGE_BUFFER_BIT)
         {
             asset::SBufferRange<video::IGPUBuffer> blocks[PropertyCount];
             video::IGPUBuffer::SCreationParams params;
             params.queueFamilyIndexCount = 0u;
             params.queueFamilyIndices = nullptr;
-            params.sharingMode = asset::ESM_CONCURRENT;
-            //params.usage = // should be user-provided probably
+            params.sharingMode = asset::ESM_EXCLUSIVE;
+            params.usage = usage;
             auto mreqs = device->getDeviceLocalGPUMemoryReqs();
             for (auto i = 0u; i < PropertyCount; i++)
             {
