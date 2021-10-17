@@ -457,7 +457,7 @@ int main()
 
     std::mt19937 mt(0x45454545u);
     std::uniform_real_distribution<float> rotationDist(0,2.f*core::PI<float>());
-    std::uniform_real_distribution<float> posDist(-100.f,100.f);
+    std::uniform_real_distribution<float> posDist(-400.f,400.f);
     //
     core::smart_refctd_ptr<video::IGPUCommandBuffer> bakedCommandBuffer;
     {

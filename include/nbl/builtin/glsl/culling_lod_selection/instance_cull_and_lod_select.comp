@@ -24,6 +24,7 @@ uint nbl_glsl_culling_lod_selection_chooseLoD(in uint lodTableUvec4Offset, in ui
 void nbl_glsl_culling_lod_selection_finalizePerViewPerInstanceData(inout nbl_glsl_PerViewPerInstance_t pvpi, in uint instanceGUID);
 
 
+#include <nbl/builtin/glsl/utils/culling.glsl>
 void main()
 {
     if (gl_GlobalInvocationID.x==0u)
@@ -46,16 +47,16 @@ void main()
         nbl_glsl_culling_lod_selection_initializePerViewPerInstanceData(perView,instanceGUID);
         // cull lod_table_t
         const mat2x3 tableAABB =  nbl_glsl_lod_library_Table_getAABB(lodTableUvec4Offset);
-        if (false) // TODO
+        if (nbl_glsl_fastCullAABBvsFrustum(perView.mvp,tableAABB))
             continue;
         // select lod_t
         const uint lodCount = nbl_glsl_lod_library_Table_getLoDCount(lodTableUvec4Offset);
         uint lodInfoUvec4Offset = nbl_glsl_culling_lod_selection_chooseLoD(lodTableUvec4Offset,lodCount);
         // cull the lod_t
         const mat2x3 lodAABB = nbl_glsl_lod_library_Info_getAABB(lodInfoUvec4Offset);
-        if (lodInfoUvec4Offset==0xffffffffu || false) // TODO: check LoD AABB
+        if (lodInfoUvec4Offset==0xffffffffu || nbl_glsl_fastCullAABBvsFrustum(perView.mvp,lodAABB))
             continue;
-        outIx = atomicAdd(totalInstanceCountAfterCull,1u);
+        outIx = atomicAdd(totalInstanceCountAfterCull,1u); 
         nbl_glsl_culling_lod_selection_finalizePerViewPerInstanceData(perView,instanceGUID);
         
         pvsInstances.data[outIx] = uvec2(instanceGUID,lodInfoUvec4Offset);
