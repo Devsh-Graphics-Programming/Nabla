@@ -54,7 +54,7 @@ void main()
         uint lodInfoUvec4Offset = nbl_glsl_culling_lod_selection_chooseLoD(lodTableUvec4Offset,lodCount);
         // cull the lod_t
         const mat2x3 lodAABB = nbl_glsl_lod_library_Info_getAABB(lodInfoUvec4Offset);
-        if (lodInfoUvec4Offset==0xffffffffu || nbl_glsl_fastCullAABBvsFrustum(perView.mvp,lodAABB))
+        if (lodInfoUvec4Offset==0xffffffffu || nbl_glsl_fastCullAABBvsFrustum(perView.mvp,lodAABB)) // TODO: is there any point to a LoD level having its own AABB?
             continue;
         outIx = atomicAdd(totalInstanceCountAfterCull,1u); 
         nbl_glsl_culling_lod_selection_finalizePerViewPerInstanceData(perView,instanceGUID);

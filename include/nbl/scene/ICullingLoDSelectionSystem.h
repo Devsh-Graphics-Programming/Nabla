@@ -65,7 +65,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 		static ScratchBufferRanges createScratchBuffer(
 			video::ILogicalDevice* logicalDevice,
 			const uint32_t maxTotalInstances,
-			const uint32_t maxTotalDrawcallInstances,
+			const uint32_t maxTotalVisibleDrawcallInstances,
 			const uint32_t wg_size=DefaultWorkGroupSize
 		)
 		{
@@ -78,11 +78,11 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 				retval.lodDrawCallCounts.offset = retval.pvsInstances.size = core::alignUp(maxTotalInstances*2u*sizeof(uint32_t),ssboAlignment);
 				retval.lodDrawCallCounts.size = core::alignUp((maxTotalInstances+1u)*sizeof(uint32_t),ssboAlignment);
 				retval.pvsInstanceDraws.offset = retval.lodDrawCallCounts.offset+retval.lodDrawCallCounts.size;
-				retval.pvsInstanceDraws.size = core::alignUp(sizeof(uint32_t)+maxTotalDrawcallInstances*sizeof(PotentiallyVisisbleInstanceDraw),ssboAlignment);
+				retval.pvsInstanceDraws.size = core::alignUp(sizeof(uint32_t)+maxTotalVisibleDrawcallInstances*sizeof(PotentiallyVisisbleInstanceDraw),ssboAlignment);
 				retval.prefixSumScratch.offset = retval.pvsInstanceDraws.offset+retval.pvsInstanceDraws.size;
 				{
 					video::CScanner::Parameters params;
-					auto schedulerParams = video::CScanner::SchedulerParameters(params,maxTotalDrawcallInstances);
+					auto schedulerParams = video::CScanner::SchedulerParameters(params,maxTotalVisibleDrawcallInstances);
 					retval.prefixSumScratch.size = params.getScratchSize(ssboAlignment);
 				}
 			}
@@ -101,23 +101,23 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 
 		// Per-View Per-Instance buffer should hold at least an MVP matrix
 		template<typename PerViewPerInstanceDataType>
-		static core::smart_refctd_ptr<video::IGPUBuffer> createPerViewPerInstanceDataBuffer(video::ILogicalDevice* logicalDevice, const uint32_t maxTotalDrawcallInstances)
+		static core::smart_refctd_ptr<video::IGPUBuffer> createPerViewPerInstanceDataBuffer(video::ILogicalDevice* logicalDevice, const uint32_t maxTotalInstances)
 		{
-			return createPerViewPerInstanceDataBuffer(logicalDevice,maxTotalDrawcallInstances,sizeof(PerViewPerInstanceDataType));
+			return createPerViewPerInstanceDataBuffer(logicalDevice,maxTotalInstances,sizeof(PerViewPerInstanceDataType));
 		}
-		static core::smart_refctd_ptr<video::IGPUBuffer> createPerViewPerInstanceDataBuffer(video::ILogicalDevice* logicalDevice, const uint32_t maxTotalDrawcallInstances, const uint32_t perViewPerInstanceDataSize)
+		static core::smart_refctd_ptr<video::IGPUBuffer> createPerViewPerInstanceDataBuffer(video::ILogicalDevice* logicalDevice, const uint32_t maxTotalInstances, const uint32_t perViewPerInstanceDataSize)
 		{
             video::IGPUBuffer::SCreationParams params;
 			params.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
-            return logicalDevice->createDeviceLocalGPUBufferOnDedMem(params,perViewPerInstanceDataSize*maxTotalDrawcallInstances);
+            return logicalDevice->createDeviceLocalGPUBufferOnDedMem(params,perViewPerInstanceDataSize*maxTotalInstances);
 		}
 
 		// Instance Redirect buffer holds a `uvec2` of `{instanceGUID,perViewPerInstanceDataID}` for each instace of a drawcall
-		static core::smart_refctd_ptr<video::IGPUBuffer> createInstanceRedirectBuffer(video::ILogicalDevice* logicalDevice, const uint32_t maxTotalDrawcallInstances)
+		static core::smart_refctd_ptr<video::IGPUBuffer> createInstanceRedirectBuffer(video::ILogicalDevice* logicalDevice, const uint32_t maxTotalVisibleDrawcallInstances)
 		{
             video::IGPUBuffer::SCreationParams params;
             params.usage = core::bitflag(asset::IBuffer::EUF_STORAGE_BUFFER_BIT)|asset::IBuffer::EUF_VERTEX_BUFFER_BIT;
-            return logicalDevice->createDeviceLocalGPUBufferOnDedMem(params,sizeof(uint32_t)*2u*maxTotalDrawcallInstances);
+            return logicalDevice->createDeviceLocalGPUBufferOnDedMem(params,sizeof(uint32_t)*2u*maxTotalVisibleDrawcallInstances);
 		}
 
 
@@ -346,9 +346,9 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 
 			cmdbuf->bindComputePipeline(m_instanceDrawCull.get());
 			{
-				const auto maxTotalDrawcallInstances = (params.scratchBufferRanges.pvsInstanceDraws.size-sizeof(uint32_t))/sizeof(PotentiallyVisisbleInstanceDraw);
+				const auto maxTotalVisibleDrawcallInstances = (params.scratchBufferRanges.pvsInstanceDraws.size-sizeof(uint32_t))/sizeof(PotentiallyVisisbleInstanceDraw);
 				video::CScanner::Parameters scanParams;
-				auto schedulerParams = video::CScanner::SchedulerParameters(scanParams,maxTotalDrawcallInstances);
+				auto schedulerParams = video::CScanner::SchedulerParameters(scanParams,maxTotalVisibleDrawcallInstances);
 				cmdbuf->pushConstants(m_instanceDrawCullLayout.get(),asset::ISpecializedShader::ESS_COMPUTE,0u,sizeof(uint32_t),scanParams.temporaryStorageOffset);
 			}
 			cmdbuf->dispatchIndirect(indirectRange.buffer.get(),indirectRange.offset+offsetof(DispatchIndirectParams,instanceDrawCull));
