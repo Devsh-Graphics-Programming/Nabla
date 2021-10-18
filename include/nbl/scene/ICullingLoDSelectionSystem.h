@@ -134,7 +134,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 				bindings[i].binding = i;
 				bindings[i].type = asset::EDT_STORAGE_BUFFER;
 				bindings[i].count = 1u;
-				bindings[i].stageFlags = asset::ISpecializedShader::ESS_COMPUTE;
+				bindings[i].stageFlags = asset::IShader::ESS_COMPUTE;
 				bindings[i].samplers = nullptr;
 			}
 
@@ -156,7 +156,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 				bindings[i].binding = i;
 				bindings[i].type = asset::EDT_STORAGE_BUFFER;
 				bindings[i].count = 1u;
-				bindings[i].stageFlags = asset::ISpecializedShader::ESS_COMPUTE;
+				bindings[i].stageFlags = asset::IShader::ESS_COMPUTE;
 				bindings[i].samplers = nullptr;
 			}
 
@@ -349,7 +349,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 				const auto maxTotalDrawcallInstances = (params.scratchBufferRanges.pvsInstanceDraws.size-sizeof(uint32_t))/sizeof(PotentiallyVisisbleInstanceDraw);
 				video::CScanner::Parameters scanParams;
 				auto schedulerParams = video::CScanner::SchedulerParameters(scanParams,maxTotalDrawcallInstances);
-				cmdbuf->pushConstants(m_instanceDrawCullLayout.get(),asset::ISpecializedShader::ESS_COMPUTE,0u,sizeof(uint32_t),scanParams.temporaryStorageOffset);
+				cmdbuf->pushConstants(m_instanceDrawCullLayout.get(),asset::IShader::ESS_COMPUTE,0u,sizeof(uint32_t),scanParams.temporaryStorageOffset);
 			}
 			cmdbuf->dispatchIndirect(indirectRange.buffer.get(),indirectRange.offset+offsetof(DispatchIndirectParams,instanceDrawCull));
 			{
@@ -366,7 +366,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 				{
 					video::CScanner::DefaultPushConstants pushConstants;
 					m_scanner->buildParameters(params.drawcallCount,pushConstants,dispatchInfo);
-					cmdbuf->pushConstants(m_instanceRefCountingSortPipelineLayout.get(),asset::ISpecializedShader::ESS_COMPUTE,0u,sizeof(pushConstants),&pushConstants);
+					cmdbuf->pushConstants(m_instanceRefCountingSortPipelineLayout.get(),asset::IShader::ESS_COMPUTE,0u,sizeof(pushConstants),&pushConstants);
 				}
 				cmdbuf->dispatch(dispatchInfo.wg_count,1u,1u);
 			}
@@ -421,7 +421,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 				core::smart_refctd_ptr(transientOutputDSLayout),
 				std::move(customExtraDSLayout)
 			);
-			const asset::SPushConstantRange singleUintRange = {asset::ISpecializedShader::ESS_COMPUTE,0u,sizeof(uint32_t)};
+			const asset::SPushConstantRange singleUintRange = {asset::IShader::ESS_COMPUTE,0u,sizeof(uint32_t)};
 			auto instanceDrawCullLayout = device->createGPUPipelineLayout(
 				&singleUintRange,&singleUintRange+1u,
 				core::smart_refctd_ptr(lodLibraryDSLayout),
@@ -456,7 +456,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 				);
 				auto& path = baseShader.second;
 				path = cwdForShaderCompilation/path.filename();
-				return device->createGPUSpecializedShader(shader.get(),{nullptr,nullptr,"main",asset::ISpecializedShader::ESS_COMPUTE,path});
+				return device->createGPUSpecializedShader(shader.get(),{nullptr,nullptr,"main",asset::IShader::ESS_COMPUTE,path});
 			};
 			
 			auto firstShader = getShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/culling_lod_selection/instance_cull_and_lod_select.comp")());

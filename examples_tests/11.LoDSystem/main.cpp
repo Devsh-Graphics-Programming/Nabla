@@ -251,8 +251,37 @@ int main()
     constexpr uint32_t FBO_COUNT = 1u;
 	constexpr uint32_t FRAMES_IN_FLIGHT = 5u;
 	static_assert(FRAMES_IN_FLIGHT>FBO_COUNT);
+    
+    CommonAPI::SFeatureRequest<video::IAPIConnection::E_FEATURE> requiredInstanceFeatures = {};
+    requiredInstanceFeatures.count = 1u;
+    video::IAPIConnection::E_FEATURE requiredFeatures_Instance[] = { video::IAPIConnection::EF_SURFACE };
+    requiredInstanceFeatures.features = requiredFeatures_Instance;
 
-	auto initOutput = CommonAPI::Init<WIN_W, WIN_H, FBO_COUNT>(video::EAT_OPENGL, "Level of Detail System", asset::EF_D32_SFLOAT);
+    CommonAPI::SFeatureRequest<video::IAPIConnection::E_FEATURE> optionalInstanceFeatures = {};
+
+    CommonAPI::SFeatureRequest<video::ILogicalDevice::E_FEATURE> requiredDeviceFeatures = {};
+    requiredDeviceFeatures.count = 1u;
+    video::ILogicalDevice::E_FEATURE requiredFeatures_Device[] = { video::ILogicalDevice::EF_SWAPCHAIN };
+    requiredDeviceFeatures.features = requiredFeatures_Device;
+
+    CommonAPI::SFeatureRequest< video::ILogicalDevice::E_FEATURE> optionalDeviceFeatures = {};
+
+    
+    const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT);
+    const video::ISurface::SFormat surfaceFormat(asset::EF_B8G8R8A8_SRGB, asset::ECP_COUNT, asset::EOTF_UNKNOWN);
+
+    auto initOutput = CommonAPI::Init(
+        video::EAT_OPENGL,
+        "Level of Detail System",
+        requiredInstanceFeatures,
+        optionalInstanceFeatures,
+        requiredDeviceFeatures,
+        optionalDeviceFeatures,
+        WIN_W, WIN_H, FBO_COUNT,
+        swapchainImageUsage,
+        surfaceFormat,
+        EF_D32_SFLOAT);
+
     auto window = std::move(initOutput.window);
     auto gl = std::move(initOutput.apiConnection);
     auto surface = std::move(initOutput.surface);
@@ -262,7 +291,9 @@ int main()
     auto swapchain = std::move(initOutput.swapchain);
     auto renderpass = std::move(initOutput.renderpass);
     auto fbos = std::move(initOutput.fbo);
-    auto commandPool = std::move(initOutput.commandPool);
+	auto graphicsCommandPool = std::move(initOutput.commandPools[CommonAPI::InitOutput::EQT_GRAPHICS]);
+	auto computeCommandPool = std::move(initOutput.commandPools[CommonAPI::InitOutput::EQT_COMPUTE]);
+    auto commandPool = graphicsCommandPool;
     auto assetManager = std::move(initOutput.assetManager);
     auto logger = std::move(initOutput.logger);
     auto inputSystem = std::move(initOutput.inputSystem);
@@ -329,7 +360,7 @@ int main()
                     bindings[i].binding = i;
                     bindings[i].type = asset::EDT_STORAGE_BUFFER;
                     bindings[i].count = 1u;
-                    bindings[i].stageFlags = asset::ISpecializedShader::ESS_COMPUTE;
+                    bindings[i].stageFlags = asset::IShader::ESS_COMPUTE;
                     bindings[i].samplers = nullptr;
                 }
                 return logicalDevice->createGPUDescriptorSetLayout(bindings,bindings+BindingCount);
@@ -337,7 +368,7 @@ int main()
         };
         cullingDSPool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE,&layouts->get(),&layouts->get()+LayoutCount);
         
-		const asset::SPushConstantRange range = {asset::ISpecializedShader::ESS_COMPUTE,0u,sizeof(CullPushConstants_t)};
+		const asset::SPushConstantRange range = {asset::IShader::ESS_COMPUTE,0u,sizeof(CullPushConstants_t)};
         cullingSystem = culling_system_t::create(
             core::smart_refctd_ptr<video::CScanner>(utilities->getDefaultScanner()),&range,&range+1u,core::smart_refctd_ptr(layouts[3]),
             std::filesystem::current_path(),"\n#include \"../common.glsl\"\n","\n#include \"../cull_overrides.glsl\"\n"
@@ -375,14 +406,7 @@ int main()
         cullingParams.indirectInstanceCull = false;
     }
 
-
-    core::smart_refctd_ptr<video::IGPUFence> gpuTransferFence;
-    core::smart_refctd_ptr<video::IGPUFence> gpuComputeFence;
     nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
-    {
-        cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].fence = &gpuTransferFence;
-        cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].fence = &gpuComputeFence;
-    }
 
     core::smart_refctd_ptr<ICPUSpecializedShader> shaders[2];
     {
@@ -407,7 +431,7 @@ int main()
         {
             cpuBindings[i].binding = i;
             cpuBindings[i].count = 1u;
-            cpuBindings[i].stageFlags = ISpecializedShader::ESS_VERTEX;
+            cpuBindings[i].stageFlags = IShader::ESS_VERTEX;
             cpuBindings[i].samplers = nullptr;
         }
         cpuBindings[0].type = EDT_STORAGE_BUFFER;
@@ -633,7 +657,7 @@ int main()
             const auto* layout = cullingSystem->getInstanceCullAndLoDSelectLayout();
             cullPushConstants.viewProjMat = camera.getConcatenatedMatrix();
             std::copy_n(camera.getPosition().pointer,3u,cullPushConstants.camPos.comp);
-            commandBuffer->pushConstants(layout,asset::ISpecializedShader::ESS_COMPUTE,0u,sizeof(cullPushConstants),&cullPushConstants);
+            commandBuffer->pushConstants(layout,asset::IShader::ESS_COMPUTE,0u,sizeof(cullPushConstants),&cullPushConstants);
             cullingParams.cmdbuf = commandBuffer.get();
             cullingSystem->processInstancesAndFillIndirectDraws(cullingParams);
         }
@@ -685,7 +709,7 @@ int main()
     const auto& fboCreationParams = fbos[acquiredNextFBO]->getCreationParameters();
     auto gpuSourceImageView = fboCreationParams.attachments[0];
 
-    bool status = ext::ScreenShot::createScreenShot(logicalDevice.get(), queues[decltype(initOutput)::EQT_TRANSFER_DOWN], renderFinished[resourceIx].get(), gpuSourceImageView.get(), assetManager.get(), "ScreenShot.png");
+    bool status = ext::ScreenShot::createScreenShot(logicalDevice.get(), queues[decltype(initOutput)::EQT_TRANSFER_DOWN], renderFinished[resourceIx].get(), gpuSourceImageView.get(), assetManager.get(), "ScreenShot.png", asset::EIL_PRESENT_SRC_KHR);
     assert(status);
 
     return 0;

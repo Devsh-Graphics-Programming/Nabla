@@ -191,7 +191,7 @@ class ILevelOfDetailLibrary : public virtual core::IReferenceCounted
 				bindings[i].binding = i;
 				bindings[i].type = asset::EDT_STORAGE_BUFFER;
 				bindings[i].count = 1u;
-				bindings[i].stageFlags = asset::ISpecializedShader::ESS_COMPUTE;
+				bindings[i].stageFlags = asset::IShader::ESS_COMPUTE;
 				bindings[i].samplers = nullptr;
 			}
 			return device->createGPUDescriptorSetLayout(bindings,bindings+DescriptorBindingCount);
