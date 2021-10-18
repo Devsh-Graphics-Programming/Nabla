@@ -710,8 +710,8 @@ public:
         {
             vk_memoryBarriers[i] = { VK_STRUCTURE_TYPE_MEMORY_BARRIER };
             vk_memoryBarriers[i].pNext = nullptr; // must be NULL
-            vk_memoryBarriers[i].srcAccessMask = static_cast<VkAccessFlags>(depInfos->memBarriers[i].srcAccessMask);
-            vk_memoryBarriers[i].dstAccessMask = static_cast<VkAccessFlags>(depInfos->memBarriers[i].dstAccessMask);
+            vk_memoryBarriers[i].srcAccessMask = static_cast<VkAccessFlags>(depInfos->memBarriers[i].srcAccessMask.value);
+            vk_memoryBarriers[i].dstAccessMask = static_cast<VkAccessFlags>(depInfos->memBarriers[i].dstAccessMask.value);
         }
 
         VkBufferMemoryBarrier vk_bufferMemoryBarriers[MAX_BARRIER_COUNT];
@@ -719,8 +719,8 @@ public:
         {
             vk_bufferMemoryBarriers[i].sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
             vk_bufferMemoryBarriers[i].pNext = nullptr; // must be NULL
-            vk_bufferMemoryBarriers[i].srcAccessMask = static_cast<VkAccessFlags>(depInfos->bufBarriers[i].barrier.srcAccessMask);
-            vk_bufferMemoryBarriers[i].dstAccessMask = static_cast<VkAccessFlags>(depInfos->bufBarriers[i].barrier.dstAccessMask);
+            vk_bufferMemoryBarriers[i].srcAccessMask = static_cast<VkAccessFlags>(depInfos->bufBarriers[i].barrier.srcAccessMask.value);
+            vk_bufferMemoryBarriers[i].dstAccessMask = static_cast<VkAccessFlags>(depInfos->bufBarriers[i].barrier.dstAccessMask.value);
             vk_bufferMemoryBarriers[i].srcQueueFamilyIndex = depInfos->bufBarriers[i].srcQueueFamilyIndex;
             vk_bufferMemoryBarriers[i].dstQueueFamilyIndex = depInfos->bufBarriers[i].dstQueueFamilyIndex;
             vk_bufferMemoryBarriers[i].buffer = static_cast<const CVulkanBuffer*>(depInfos->bufBarriers[i].buffer.get())->getInternalObject();
@@ -733,8 +733,8 @@ public:
         {
             vk_imageMemoryBarriers[i].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
             vk_imageMemoryBarriers[i].pNext = nullptr; // pNext must be NULL or a pointer to a valid instance of VkSampleLocationsInfoEXT
-            vk_imageMemoryBarriers[i].srcAccessMask = static_cast<VkAccessFlags>(depInfos->imgBarriers[i].barrier.srcAccessMask);
-            vk_imageMemoryBarriers[i].dstAccessMask = static_cast<VkAccessFlags>(depInfos->imgBarriers[i].barrier.dstAccessMask);
+            vk_imageMemoryBarriers[i].srcAccessMask = static_cast<VkAccessFlags>(depInfos->imgBarriers[i].barrier.srcAccessMask.value);
+            vk_imageMemoryBarriers[i].dstAccessMask = static_cast<VkAccessFlags>(depInfos->imgBarriers[i].barrier.dstAccessMask.value);
             vk_imageMemoryBarriers[i].oldLayout = static_cast<VkImageLayout>(depInfos->imgBarriers[i].oldLayout);
             vk_imageMemoryBarriers[i].newLayout = static_cast<VkImageLayout>(depInfos->imgBarriers[i].newLayout);
             vk_imageMemoryBarriers[i].srcQueueFamilyIndex = depInfos->imgBarriers[i].srcQueueFamilyIndex;
@@ -797,8 +797,8 @@ public:
         {
             vk_memoryBarriers[i] = { VK_STRUCTURE_TYPE_MEMORY_BARRIER };
             vk_memoryBarriers[i].pNext = nullptr; // must be NULL
-            vk_memoryBarriers[i].srcAccessMask = static_cast<VkAccessFlags>(pMemoryBarriers[i].srcAccessMask);
-            vk_memoryBarriers[i].dstAccessMask = static_cast<VkAccessFlags>(pMemoryBarriers[i].dstAccessMask);
+            vk_memoryBarriers[i].srcAccessMask = static_cast<VkAccessFlags>(pMemoryBarriers[i].srcAccessMask.value);
+            vk_memoryBarriers[i].dstAccessMask = static_cast<VkAccessFlags>(pMemoryBarriers[i].dstAccessMask.value);
         }
 
         VkBufferMemoryBarrier vk_bufferMemoryBarriers[MAX_BARRIER_COUNT];
@@ -806,8 +806,8 @@ public:
         {
             vk_bufferMemoryBarriers[i].sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
             vk_bufferMemoryBarriers[i].pNext = nullptr; // must be NULL
-            vk_bufferMemoryBarriers[i].srcAccessMask = static_cast<VkAccessFlags>(pBufferMemoryBarriers[i].barrier.srcAccessMask);
-            vk_bufferMemoryBarriers[i].dstAccessMask = static_cast<VkAccessFlags>(pBufferMemoryBarriers[i].barrier.dstAccessMask);
+            vk_bufferMemoryBarriers[i].srcAccessMask = static_cast<VkAccessFlags>(pBufferMemoryBarriers[i].barrier.srcAccessMask.value);
+            vk_bufferMemoryBarriers[i].dstAccessMask = static_cast<VkAccessFlags>(pBufferMemoryBarriers[i].barrier.dstAccessMask.value);
             vk_bufferMemoryBarriers[i].srcQueueFamilyIndex = pBufferMemoryBarriers[i].srcQueueFamilyIndex;
             vk_bufferMemoryBarriers[i].dstQueueFamilyIndex = pBufferMemoryBarriers[i].dstQueueFamilyIndex;
             vk_bufferMemoryBarriers[i].buffer = static_cast<const CVulkanBuffer*>(pBufferMemoryBarriers[i].buffer.get())->getInternalObject();
@@ -820,8 +820,8 @@ public:
         {
             vk_imageMemoryBarriers[i].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
             vk_imageMemoryBarriers[i].pNext = nullptr; // pNext must be NULL or a pointer to a valid instance of VkSampleLocationsInfoEXT
-            vk_imageMemoryBarriers[i].srcAccessMask = static_cast<VkAccessFlags>(pImageMemoryBarriers[i].barrier.srcAccessMask);
-            vk_imageMemoryBarriers[i].dstAccessMask = static_cast<VkAccessFlags>(pImageMemoryBarriers[i].barrier.dstAccessMask);
+            vk_imageMemoryBarriers[i].srcAccessMask = static_cast<VkAccessFlags>(pImageMemoryBarriers[i].barrier.srcAccessMask.value);
+            vk_imageMemoryBarriers[i].dstAccessMask = static_cast<VkAccessFlags>(pImageMemoryBarriers[i].barrier.dstAccessMask.value);
             vk_imageMemoryBarriers[i].oldLayout = static_cast<VkImageLayout>(pImageMemoryBarriers[i].oldLayout);
             vk_imageMemoryBarriers[i].newLayout = static_cast<VkImageLayout>(pImageMemoryBarriers[i].newLayout);
             vk_imageMemoryBarriers[i].srcQueueFamilyIndex = pImageMemoryBarriers[i].srcQueueFamilyIndex;

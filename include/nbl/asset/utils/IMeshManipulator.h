@@ -353,7 +353,11 @@ class IMeshManipulator : public virtual core::IReferenceCounted
 		}
 
 		//! Calculates bounding box of the meshbuffer
-		static inline core::aabbox3df calculateBoundingBox(const ICPUMeshBuffer* meshbuffer, core::aabbox3df* outJointAABBs=nullptr)
+		static inline core::aabbox3df calculateBoundingBox(
+			const ICPUMeshBuffer* meshbuffer, core::aabbox3df* outJointAABBs=nullptr,
+			uint32_t indexCountOverride=0u, const void* indexBufferOverride=nullptr,
+			E_INDEX_TYPE indexTypeOverride=static_cast<E_INDEX_TYPE>(~0u)
+		)
 		{
 			core::aabbox3df aabb(FLT_MAX,FLT_MAX,FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX);
 			if (!meshbuffer->getPipeline())
@@ -370,7 +374,9 @@ class IMeshManipulator : public virtual core::IReferenceCounted
 			for (auto i=0u; i<meshbuffer->getSkeleton()->getJointCount(); i++)
 				outJointAABBs[i] = aabb;
 
-			auto impl = [meshbuffer,&aabb,skeleton](const auto* indexPtr, auto* jointAABBs) -> void
+			if (indexCountOverride==0u)
+				indexCountOverride = meshbuffer->getIndexCount();
+			auto impl = [meshbuffer,&aabb,skeleton,indexCountOverride](const auto* indexPtr, auto* jointAABBs) -> void
 			{
 				const uint32_t jointCount = skeleton ? skeleton->getJointCount():0u;
 				const auto jointIDAttr = meshbuffer->getJointIDAttributeIx();
@@ -379,7 +385,7 @@ class IMeshManipulator : public virtual core::IReferenceCounted
 				const uint32_t maxWeights = skeleton ? getFormatChannelCount(meshbuffer->getAttribFormat(jointWeightAttrId)):0u;
 				const auto* inverseBindPoses = meshbuffer->getInverseBindPoses();
 
-				for (uint32_t j=0u; j<meshbuffer->getIndexCount(); j++)
+				for (uint32_t j=0u; j<indexCountOverride; j++)
 				{
 					uint32_t ix;
 					if constexpr (std::is_void_v<std::remove_pointer_t<decltype(indexPtr)>>)
@@ -415,21 +421,24 @@ class IMeshManipulator : public virtual core::IReferenceCounted
 				}
 			};
 
-			const void* indices = meshbuffer->getIndices();
+			if (!indexBufferOverride)
+				indexBufferOverride = meshbuffer->getIndices();
+			if (indexTypeOverride>EIT_UNKNOWN)
+				indexTypeOverride = meshbuffer->getIndexType();
 			void* void_null = nullptr;
-			switch (meshbuffer->getIndexType())
+			switch (indexTypeOverride)
 			{
 				case EIT_32BIT:
 					if (computeJointAABBs)
-						impl(reinterpret_cast<const uint32_t*>(indices),outJointAABBs);
+						impl(reinterpret_cast<const uint32_t*>(indexBufferOverride),outJointAABBs);
 					else
-						impl(reinterpret_cast<const uint32_t*>(indices),void_null);
+						impl(reinterpret_cast<const uint32_t*>(indexBufferOverride),void_null);
 					break;
 				case EIT_16BIT:
 					if (computeJointAABBs)
-						impl(reinterpret_cast<const uint16_t*>(indices),outJointAABBs);
+						impl(reinterpret_cast<const uint16_t*>(indexBufferOverride),outJointAABBs);
 					else
-						impl(reinterpret_cast<const uint16_t*>(indices),void_null);
+						impl(reinterpret_cast<const uint16_t*>(indexBufferOverride),void_null);
 					break;
 				default:
 					if (computeJointAABBs)
@@ -609,7 +618,27 @@ class IMeshManipulator : public virtual core::IReferenceCounted
 				params.primitiveType = _newPrimitiveType;
 			}
 		}
-
+#if 0 // TODO: Later
+		//! Orders meshbuffers according to a predicate
+		/**
+		@param _begin non-const iterator to beginning of meshbuffer range
+		@param _end non-const iterator to ending of meshbuffer range
+		*/
+		struct DefaultMeshBufferOrder
+		{
+			public:
+				template<typename T>
+				inline bool operator()(const T& lhs, const T& rhs) const
+				{
+					return false;
+				}
+		};
+		template<typename Iterator, typename mesh_buffer_order_t=DefaultMeshBufferOrder>
+		static inline void sortMeshBuffers(Iterator _begin, Iterator _end, mesh_buffer_order_t&& order=DefaultMeshBufferOrder())
+		{
+			std::sort(_begin,_end,std::move(order));
+		}
+#endif
 		//! Get amount of polygons in mesh.
 		/** \param meshbuffer Input mesh
 		\param Outputted Number of polygons in mesh, if successful.

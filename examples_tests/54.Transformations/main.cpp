@@ -238,7 +238,7 @@ int main()
 	propBufs[4].offset = offset_recompStamp;
 	propBufs[4].size = recompStampPropSz*ObjectCount;
 
-	auto tt = scene::ITransformTree::create(device.get(), propBufs, ObjectCount, true);
+	auto tt = scene::ITransformTree::create(device.get(), propBufs, ObjectCount, true); // WTF!? Why a contiguous Pool for a TT !?
 	auto ttm = scene::ITransformTreeManager::create(core::smart_refctd_ptr(device));
 
 	auto ppHandler = core::make_smart_refctd_ptr<video::CPropertyPoolHandler>(core::smart_refctd_ptr(device));

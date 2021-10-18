@@ -86,10 +86,10 @@ int main(int argc, char** argv)
 
     core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> cpu_ds2layout;
     {
-        asset::ICPUDescriptorSetLayout::SBinding bnd[ext::OIT::COIT::BindingCount];
-        oit.getDSLayoutBindings<asset::ICPUDescriptorSetLayout>(bnd);
+        asset::ICPUDescriptorSetLayout::SBinding bnd[ext::OIT::COIT::MaxImgBindingCount];
+        const auto bindingCount = oit.getDSLayoutBindings<asset::ICPUDescriptorSetLayout>(bnd);
 
-        cpu_ds2layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(bnd, bnd+ext::OIT::COIT::BindingCount);
+        cpu_ds2layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(bnd,bnd+bindingCount);
     }
     core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> ds2layout;
     {
@@ -102,12 +102,12 @@ int main(int argc, char** argv)
     {
         ds2 = logicalDevice->createGPUDescriptorSet(ds2pool.get(), core::smart_refctd_ptr(ds2layout));
 
-        video::IGPUDescriptorSet::SDescriptorInfo info[ext::OIT::COIT::BindingCount];
-        video::IGPUDescriptorSet::SWriteDescriptorSet w[ext::OIT::COIT::BindingCount];
+        video::IGPUDescriptorSet::SDescriptorInfo info[ext::OIT::COIT::MaxImgBindingCount];
+        video::IGPUDescriptorSet::SWriteDescriptorSet w[ext::OIT::COIT::MaxImgBindingCount];
         
-        oit.getDSWrites(w, info, ds2.get());
+        const auto writeCount = oit.getDSWrites(w, info, ds2.get());
 
-        logicalDevice->updateDescriptorSets(3u, w, 0u, nullptr);
+        logicalDevice->updateDescriptorSets(writeCount, w, 0u, nullptr);
     }
 
     core::smart_refctd_ptr<video::IGPUGraphicsPipeline> oit_resolve_ppln;

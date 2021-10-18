@@ -30,9 +30,9 @@ class CPropertyPool final : public IPropertyPool
         static inline uint32_t calcApproximateCapacity(const asset::SBufferRange<IGPUBuffer>* _memoryBlocks)
         {
             size_t capacity = ~0ull;
-            for (auto i=1u; i<PropertyCount; i++)
+            for (auto i=0u; i<PropertyCount; i++)
             {
-                const auto bufcap = _memoryBlocks[0].size/PropertySizes[0];
+                const auto bufcap = _memoryBlocks[i].size/PropertySizes[i];
                 if (bufcap<capacity)
                     capacity = bufcap;
             }
