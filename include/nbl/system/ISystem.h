@@ -13,6 +13,10 @@
 
 #include "nbl/asset/ICPUBuffer.h" // this is a horrible no-no (circular dependency), `ISystem::loadBuiltinData` should return some other type (probably an `IFile` which is mapped for reading)
 
+#if defined(_NBL_PLATFORM_LINUX_)
+#include <sys/sysinfo.h>
+#endif
+
 namespace nbl::system
 {
 class ISystemCaller : public core::IReferenceCounted // why does `ISystemCaller` need to be public?
@@ -344,43 +348,39 @@ public:
 
     }
 
-    static inline bool getSystemMemory(uint32_t* Total, uint32_t* Avail)
+    struct SystemMemory
     {
-        #if defined(_NBL_PLATFORM_WINDOWS_) && !defined (_NBL_XBOX_PLATFORM_)
-        MEMORYSTATUS MemoryStatus;
-        MemoryStatus.dwLength = sizeof(MEMORYSTATUS);
+        uint32_t totalMemory = {};
+        uint32_t availableMemory = {};
+    };
 
-        GlobalMemoryStatus(&MemoryStatus);
+    static inline SystemMemory getSystemMemory()
+    {
+        SystemMemory systemMemory;
 
-        if (Total)
-            *Total = (uint32_t)(MemoryStatus.dwTotalPhys >> 10);
-        if (Avail)
-            *Avail = (uint32_t)(MemoryStatus.dwAvailPhys >> 10);
+        #if defined(_NBL_PLATFORM_WINDOWS_)
+        MEMORYSTATUS memoryStatus;
+        memoryStatus.dwLength = sizeof(MEMORYSTATUS);
 
-        return true;
+        GlobalMemoryStatus(&memoryStatus);
 
-        #elif defined(_NBL_PLATFORM_LINUX_) && !defined(__FreeBSD__)
+        systemMemory.totalMemory = (uint32_t)(memoryStatus.dwTotalPhys >> 10);
+        systemMemory.availableMemory = (uint32_t)(memoryStatus.dwAvailPhys >> 10);
+        #elif defined(_NBL_PLATFORM_LINUX_)
         #if defined(_SC_PHYS_PAGES) && defined(_SC_AVPHYS_PAGES)
-        long ps = sysconf(_SC_PAGESIZE);
-        long pp = sysconf(_SC_PHYS_PAGES);
-        long ap = sysconf(_SC_AVPHYS_PAGES);
+        sysinfo linuxSystemInfo;
+        assert(sysinfo(&linuxSystemInfo));
 
-        if ((ps == -1) || (pp == -1) || (ap == -1))
-            return false;
-
-        if (Total)
-            *Total = (uint32_t)((ps * (long long)pp) >> 10);
-        if (Avail)
-            *Avail = (uint32_t)((ps * (long long)ap) >> 10);
-        return true;
-        #else
-        // TODO: implement for non-availablity of symbols/features
-        return false;
+        systemMemory.totalMemory = linuxSystemInfo.totalram;
+        systemMemory.availableMemory = linuxSystemInfo.freeram;
         #endif
-        #else
+        #elif defined(_NBL_PLATFORM_ANDROID_)
+        // @sadiuk TODO
+        #elif defined(_NBL_PLATFORM_OSX_) 
         // TODO: implement for OSX
-        return false;
         #endif
+
+        return systemMemory;
     }
 };
 

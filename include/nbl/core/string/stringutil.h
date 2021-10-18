@@ -213,40 +213,6 @@ namespace core
 		return 0;
 	}
 
-
-	std::string WStringToUTF8String(const std::wstring& inString)
-	{
-		std::string utf8line;
-		utf8line.reserve(inString.length());
-
-		utf8::unchecked::utf16to8(inString.begin(), inString.end(), std::back_inserter(utf8line));
-		return utf8line;
-	}
-
-	std::wstring UTF8StringToWString(const std::string& inString)
-	{
-		std::string::const_iterator end_it = utf8::find_invalid(inString.begin(), inString.end());
-
-		std::wstring utf16line;
-		utf16line.reserve(end_it - inString.begin());
-		utf8::unchecked::utf8to16(inString.begin(), end_it, std::back_inserter(utf16line));
-
-		return utf16line;
-	}
-
-	std::wstring UTF8StringToWString(const std::string& inString, uint32_t inReplacementforInvalid)
-	{
-		std::string replacedStr;
-		replacedStr.reserve(inString.size());
-		utf8::unchecked::replace_invalid(inString.begin(), inString.end(), std::back_inserter(replacedStr), inReplacementforInvalid);
-
-		std::wstring utf16line;
-		utf16line.reserve(replacedStr.length());
-		utf8::unchecked::utf8to16(replacedStr.begin(), replacedStr.end(), std::back_inserter(utf16line));
-
-		return utf16line;
-	}
-
 	// ----------- some basic quite often used string functions -----------------
 
 	inline int32_t isFileExtension(const std::filesystem::path& filename, const std::initializer_list<std::string_view>& extensions)
