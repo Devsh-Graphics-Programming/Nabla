@@ -166,7 +166,7 @@ void addLoDTable(
         auto& lodInfo = lodLibraryData.lodInfoData.emplace_back(batchCount);
         if (lod)
         {
-            lodInfo = lod_library_t::LoDInfo(batchCount,{90000.f/exp2f(lod<<1)},mbAABB);
+            lodInfo = lod_library_t::LoDInfo(batchCount,{129600.f/exp2f(lod<<1)},mbAABB);
             if (!lodInfo.isValid(prevInfo))
             {
                 assert(false && "THE LEVEL OF DETAIL CHOICE PARAMS NEED TO BE MONOTONICALLY DECREASING");

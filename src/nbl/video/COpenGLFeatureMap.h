@@ -536,8 +536,6 @@ public:
 	"GL_OES_viewport_array",
 	"GL_OES_draw_elements_base_vertex"
 };
-	//extra extension name that is reported as supported when irrbaw app is running in renderdoc
-	_NBL_STATIC_INLINE_CONSTEXPR const char* RUNNING_IN_RENDERDOC_EXTENSION_NAME = "GL_NBL_RUNNING_IN_RENDERDOC";
 	enum EOpenGLFeatures {
 		NBL_3DFX_multisample = 0,
 		NBL_3DFX_tbuffer,

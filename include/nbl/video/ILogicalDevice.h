@@ -124,8 +124,6 @@ class ILogicalDevice : public core::IReferenceCounted
             return true;
         }
 
-        virtual const core::smart_refctd_dynamic_array<std::string> getSupportedGLSLExtensions() const = 0;
-
         bool createCommandBuffers(IGPUCommandPool* _cmdPool, IGPUCommandBuffer::E_LEVEL _level, uint32_t _count, core::smart_refctd_ptr<IGPUCommandBuffer>* _outCmdBufs)
         {
             if (!_cmdPool->wasCreatedBy(this))
