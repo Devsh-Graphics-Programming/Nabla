@@ -186,14 +186,16 @@ class ICPUImage final : public IImage, public IAsset
 
 		inline bool setImageUsageFlags(core::bitflag<E_USAGE_FLAGS> usage)
 		{
-			assert(!isImmutable_debug());
+			if(isImmutable_debug())
+				return ((params.usage & usage) == usage);
 			params.usage = usage;
 			return true;
 		}
 
 		inline bool addImageUsageFlags(core::bitflag<E_USAGE_FLAGS> usage)
 		{
-			assert(!isImmutable_debug());
+			if(isImmutable_debug())
+				return ((params.usage & usage) == usage);
 			params.usage |= usage;
 			return true;
 		}
