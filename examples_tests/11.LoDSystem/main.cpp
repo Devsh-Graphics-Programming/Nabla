@@ -33,7 +33,7 @@ enum E_GEOM_TYPE
 {
     EGT_CUBE,
     EGT_SPHERE,
-    EGT_CONE,
+    EGT_CYLINDER,
     EGT_COUNT
 };
 template<E_GEOM_TYPE geom, uint32_t LoDLevels>
@@ -71,8 +71,8 @@ void addLoDTable(
             case EGT_SPHERE:
                 geomData = geometryCreator->createSphereMesh(2.f,poly,poly,meshManipulator);
                 break;
-            case EGT_CONE:
-                geomData = geometryCreator->createConeMesh(2.f,2.f,poly,0x0u,0x0u,0.f,meshManipulator);
+            case EGT_CYLINDER:
+                geomData = geometryCreator->createCylinderMesh(1.f,4.f,poly,0x0u,meshManipulator);
                 break;
             default:
                 assert(false);
@@ -96,9 +96,12 @@ void addLoDTable(
                 core::smart_refctd_ptr(cpuTransformTreeDSLayout),
                 core::smart_refctd_ptr(cpuPerViewDSLayout)
             );
+            SRasterizationParams rasterParams = {};
+            if (geom==EGT_CYLINDER)
+                rasterParams.faceCullingMode = asset::EFCM_NONE;
             cpupipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(
                 std::move(pipelinelayout),&shaders->get(),&shaders->get()+2u,
-                geomData.inputParams,SBlendParams{},geomData.assemblyParams,SRasterizationParams{}
+                geomData.inputParams,SBlendParams{},geomData.assemblyParams,rasterParams
             );
         }
         cpumeshes[lod] = core::make_smart_refctd_ptr<ICPUMeshBuffer>();
@@ -461,6 +464,7 @@ int main()
     }
 
     std::mt19937 mt(0x45454545u);
+    std::uniform_int_distribution<uint32_t> typeDist(0,EGT_COUNT-1u);
     std::uniform_real_distribution<float> rotationDist(0,2.f*core::PI<float>());
     std::uniform_real_distribution<float> posDist(-800.f,800.f);
     //
@@ -481,13 +485,28 @@ int main()
                 // cba to set up another DS Layout with exactly 1 shader storage buffer
                 auto cpuTransformTreeDSLayout = cpuPerViewDSLayout;
 
+                // populating `lodTables` is a bit messy, I know
                 size_t lodTableIx = lodLibraryData.lodTableDstUvec4s.size();
+                addLoDTable<EGT_CUBE,1>(
+                    assetManager.get(),cpuTransformTreeDSLayout,cpuPerViewDSLayout,shaders,cpu2gpu,cpu2gpuParams,
+                    lodLibraryData,drawIndirectAllocator.get(),lodLibrary.get(),kiln.getDrawcallMetadataVector(),
+                    cullingParams.perInstanceRedirectAttribs,renderpass,cullingParams.customDS,perViewDS
+                );
+                lodTables[EGT_CUBE] = lodLibraryData.lodTableDstUvec4s[lodTableIx];
+                lodTableIx = lodLibraryData.lodTableDstUvec4s.size();
                 addLoDTable<EGT_SPHERE,7>(
                     assetManager.get(),cpuTransformTreeDSLayout,cpuPerViewDSLayout,shaders,cpu2gpu,cpu2gpuParams,
                     lodLibraryData,drawIndirectAllocator.get(),lodLibrary.get(),kiln.getDrawcallMetadataVector(),
                     cullingParams.perInstanceRedirectAttribs,renderpass,cullingParams.customDS,perViewDS
                 );
                 lodTables[EGT_SPHERE] = lodLibraryData.lodTableDstUvec4s[lodTableIx];
+                lodTableIx = lodLibraryData.lodTableDstUvec4s.size();
+                addLoDTable<EGT_CYLINDER,6>(
+                    assetManager.get(),cpuTransformTreeDSLayout,cpuPerViewDSLayout,shaders,cpu2gpu,cpu2gpuParams,
+                    lodLibraryData,drawIndirectAllocator.get(),lodLibrary.get(),kiln.getDrawcallMetadataVector(),
+                    cullingParams.perInstanceRedirectAttribs,renderpass,cullingParams.customDS,perViewDS
+                );
+                lodTables[EGT_CYLINDER] = lodLibraryData.lodTableDstUvec4s[lodTableIx];
 
                 //! cache results -- speeds up mesh generation on second run
                 qnc->saveCacheToFile<asset::EF_A2B10G10R10_SNORM_PACK32>(system.get(), cachePath);
@@ -521,7 +540,7 @@ int main()
                 {
                     auto& instance = instanceList.emplace_back();
                     instance.instanceGUID = instanceGUID;
-                    instance.lodTableUvec4Offset = lodTables[EGT_SPHERE]; // TODO: randomize drawable type a bit
+                    instance.lodTableUvec4Offset = lodTables[typeDist(mt)];
                 }
                 utilities->updateBufferRangeViaStagingBuffer(queues[decltype(initOutput)::EQT_TRANSFER_UP],{0u,instanceList.size()*sizeof(culling_system_t::InstanceToCull),cullingParams.instanceList.buffer},instanceList.data());
 

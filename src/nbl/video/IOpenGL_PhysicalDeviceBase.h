@@ -438,7 +438,7 @@ public:
 
 			// TODO: get this from OpenCL interop, or just a GPU Device & Vendor ID table
 			GetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS,reinterpret_cast<int32_t*>(&m_limits.maxOptimallyResidentWorkgroupInvocations));
-			m_limits.maxOptimallyResidentWorkgroupInvocations = core::min(m_limits.maxOptimallyResidentWorkgroupInvocations,512u);
+			m_limits.maxOptimallyResidentWorkgroupInvocations = core::min(core::roundDownToPoT(m_limits.maxOptimallyResidentWorkgroupInvocations),512u);
 			constexpr auto beefyGPUWorkgroupMaxOccupancy = 256u; // TODO: find a way to query and report this somehow, persistent threads are very useful!
 			m_limits.maxResidentInvocations = beefyGPUWorkgroupMaxOccupancy*m_limits.maxOptimallyResidentWorkgroupInvocations;
 
