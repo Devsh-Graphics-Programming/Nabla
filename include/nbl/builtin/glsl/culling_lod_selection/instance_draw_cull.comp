@@ -35,14 +35,16 @@ layout(push_constant) uniform PushConstants
 void main()
 {
     if (gl_GlobalInvocationID.x==0u)
-        dispatchIndirect.instanceDrawCountPrefixSum.num_groups_x = 1u;
+        dispatchIndirect.instanceDrawCountPrefixSum.num_groups_x = 256u;
     
-    for (uint dword=gl_GlobalInvocationID.x; dword<=pc.lastScratchDWORDToClear; dword+=_NBL_GLSL_WORKGROUP_SIZE_)
+    const uint dispatchSize = gl_WorkGroupSize[0]*_NBL_GLSL_WORKGROUP_SIZE_;
+
+    for (uint dword=gl_GlobalInvocationID.x; dword<=pc.lastScratchDWORDToClear; dword+=dispatchSize)
         scanScratch.data[dword] = 0u;
         
     const uint totalInstanceCount = totalInstanceCountAfterCull;
     const uint drawInstanceCount = lodDrawcallInclusiveCounts[totalInstanceCount-1u];
-    for (uint drawInstanceIndex=gl_GlobalInvocationID.x; drawInstanceIndex<drawInstanceCount; drawInstanceIndex+=_NBL_GLSL_WORKGROUP_SIZE_)
+    for (uint drawInstanceIndex=gl_GlobalInvocationID.x; drawInstanceIndex<drawInstanceCount; drawInstanceIndex+=dispatchSize)
     {
         // TODO: implement via https://moderngpu.github.io/sortedsearch.html, find the upper and lower bounds of the workgroup, then go to town with sorted search
         const uint pvInstanceID = upper_bound_lodDrawcallInclusiveCounts_NBL_GLSL_LESS(0u,totalInstanceCount,drawInstanceIndex);
