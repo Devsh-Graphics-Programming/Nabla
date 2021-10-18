@@ -247,7 +247,7 @@ void IUtilities::updateImageViaStagingBuffer(
                     uint32_t uploadableBlocks = availableUploadBufferMemory / eachBlockNeededMemory;
                     uint32_t remainingBlocks = imageExtentInBlocks.x - currentBlockInRow;
                     uploadableBlocks = core::min(uploadableBlocks, remainingBlocks);
-                    if(uploadableBlocks > 0 && minImageTransferGranularity.width > 1u && uploadableBlocks + currentBlockInRow < subresourceSizeInBlocks.x)
+                    if(uploadableBlocks > 0 && minImageTransferGranularity.width > 1u && (imageOffsetInBlocks.x + currentBlockInRow + uploadableBlocks) < subresourceSizeInBlocks.x)
                         uploadableBlocks = core::alignDown(uploadableBlocks, minImageTransferGranularity.width);
 
                     if(uploadableBlocks > 0)
@@ -294,7 +294,7 @@ void IUtilities::updateImageViaStagingBuffer(
                     uint32_t uploadableRows = availableUploadBufferMemory / eachRowNeededMemory;
                     uint32_t remainingRows = imageExtentInBlocks.y - currentRowInSlice;
                     uploadableRows = core::min(uploadableRows, remainingRows);
-                    if(uploadableRows > 0 && minImageTransferGranularity.height > 1u && uploadableRows + currentRowInSlice < subresourceSizeInBlocks.y)
+                    if(uploadableRows > 0 && minImageTransferGranularity.height > 1u && (imageOffsetInBlocks.y + currentRowInSlice + uploadableRows) < subresourceSizeInBlocks.y)
                         uploadableRows = core::alignDown(uploadableRows, minImageTransferGranularity.height);
 
                     if(uploadableRows > 0)
@@ -368,7 +368,7 @@ void IUtilities::updateImageViaStagingBuffer(
                     uint32_t uploadableSlices = availableUploadBufferMemory / eachSliceNeededMemory;
                     uint32_t remainingSlices = imageExtentInBlocks.z - currentSliceInLayer;
                     uploadableSlices = core::min(uploadableSlices, remainingSlices);
-                    if(uploadableSlices > 0 && minImageTransferGranularity.depth > 1u && uploadableSlices + currentSliceInLayer < subresourceSizeInBlocks.z)
+                    if(uploadableSlices > 0 && minImageTransferGranularity.depth > 1u && (imageOffsetInBlocks.z + currentSliceInLayer + uploadableSlices) < subresourceSizeInBlocks.z)
                         uploadableSlices = core::alignDown(uploadableSlices, minImageTransferGranularity.depth);
 
                     if(uploadableSlices > 0)
