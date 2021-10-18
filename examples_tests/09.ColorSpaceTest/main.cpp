@@ -96,7 +96,7 @@ int main()
     };
 
 	nbl::video::IGPUDescriptorSetLayout::SBinding binding{ 0u, nbl::asset::EDT_COMBINED_IMAGE_SAMPLER, 1u, nbl::video::IGPUShader::ESS_FRAGMENT, nullptr };
-	auto gpuDescriptorSetLayout3 = logicalDevice->createGPUDescriptorSetLayout(&binding, &binding + 1u);
+	auto gpuDescriptorSetLayout = logicalDevice->createGPUDescriptorSetLayout(&binding, &binding + 1u);
 	auto gpuDescriptorPool = createDescriptorPool(1u); // per single texture
 	auto fstProtoPipeline = nbl::ext::FullScreenTriangle::createProtoPipeline(cpu2gpuParams);
 	
@@ -138,7 +138,7 @@ int main()
 			gpuFragmentShader = (*gpu_array)[0];
 		}
 
-		auto gpuPipelineLayout = logicalDevice->createGPUPipelineLayout(nullptr, nullptr, nullptr, nullptr, nullptr, core::smart_refctd_ptr(gpuDescriptorSetLayout3));
+		auto gpuPipelineLayout = logicalDevice->createGPUPipelineLayout(nullptr, nullptr, core::smart_refctd_ptr(gpuDescriptorSetLayout), nullptr, nullptr, nullptr);
 		return ext::FullScreenTriangle::createRenderpassIndependentPipeline(logicalDevice.get(), fstProtoPipeline, std::move(gpuFragmentShader), std::move(gpuPipelineLayout));
 	};
 
@@ -284,7 +284,7 @@ int main()
 
 	auto presentImageOnTheScreen = [&](nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> gpuImageView, const NBL_CAPTION_DATA_TO_DISPLAY& captionData)
 	{
-		auto ds = logicalDevice->createGPUDescriptorSet(gpuDescriptorPool.get(), nbl::core::smart_refctd_ptr(gpuDescriptorSetLayout3));
+		auto ds = logicalDevice->createGPUDescriptorSet(gpuDescriptorPool.get(), nbl::core::smart_refctd_ptr(gpuDescriptorSetLayout));
 
 		nbl::video::IGPUDescriptorSet::SDescriptorInfo info;
 		{
