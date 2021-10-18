@@ -38,6 +38,8 @@ void IUtilities::updateImageViaStagingBuffer(
         // [ ] If Queue doesn't support GRAPHICS_BIT and COMPUTE_BIT ->  must be multiple of 4
         // [x] bufferOffset must be a multiple of texel block size in bytes
     const uint32_t bufferOffsetAlignment = texelBlockInfo.getBlockByteSize();
+    // TODO: bufferOffsetAlignment may not be PoT, blockSize can be 6 or 3 bytes for example
+    assert(core::is_alignment(bufferOffsetAlignment));
 
     while (currentRegion < regions.size())
     {
@@ -62,17 +64,17 @@ void IUtilities::updateImageViaStagingBuffer(
 
             // region.imageOffset.{xyz} should be multiple of minImageTransferGranularity.{xyz} scaled up by block size
             bool isImageOffsetAlignmentValid =
-                region.imageOffset.x == core::alignUp(region.imageOffset.x, minImageTransferGranularity.width  * texelBlockDim.x) &&
-                region.imageOffset.y == core::alignUp(region.imageOffset.y, minImageTransferGranularity.height  * texelBlockDim.y) &&
-                region.imageOffset.z == core::alignUp(region.imageOffset.z, minImageTransferGranularity.depth  * texelBlockDim.z);
+                (region.imageOffset.x % (minImageTransferGranularity.width  * texelBlockDim.x) == 0) &&
+                (region.imageOffset.y % (minImageTransferGranularity.height * texelBlockDim.y) == 0) &&
+                (region.imageOffset.z % (minImageTransferGranularity.depth  * texelBlockDim.z) == 0);
             assert(isImageOffsetAlignmentValid);
 
             // region.imageExtent.{xyz} should be multiple of minImageTransferGranularity.{xyz} scaled up by block size,
             // OR ELSE (region.imageOffset.{x/y/z} + region.imageExtent.{width/height/depth}) MUST be equal to subresource{Width,Height,Depth}
             bool isImageExtentAlignmentValid = 
-                (region.imageExtent.width  == core::alignUp(region.imageExtent.width , minImageTransferGranularity.width  * texelBlockDim.x) || (region.imageOffset.x + region.imageExtent.width   == subresourceSize.x)) && 
-                (region.imageExtent.height == core::alignUp(region.imageExtent.height, minImageTransferGranularity.height * texelBlockDim.y) || (region.imageOffset.y + region.imageExtent.height  == subresourceSize.y)) &&
-                (region.imageExtent.depth  == core::alignUp(region.imageExtent.depth , minImageTransferGranularity.depth  * texelBlockDim.z) || (region.imageOffset.z + region.imageExtent.depth   == subresourceSize.z));
+                (region.imageExtent.width  % (minImageTransferGranularity.width  * texelBlockDim.x) == 0 || (region.imageOffset.x + region.imageExtent.width   == subresourceSize.x)) && 
+                (region.imageExtent.height % (minImageTransferGranularity.height * texelBlockDim.y) == 0 || (region.imageOffset.y + region.imageExtent.height  == subresourceSize.y)) &&
+                (region.imageExtent.depth  % (minImageTransferGranularity.depth  * texelBlockDim.z) == 0 || (region.imageOffset.z + region.imageExtent.depth   == subresourceSize.z));
             assert(isImageExtentAlignmentValid);
 
             bool isImageExtentAndOffsetValid = 
