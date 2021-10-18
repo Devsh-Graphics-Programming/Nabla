@@ -1,4 +1,5 @@
 #include "nbl/video/utilities/IUtilities.h"
+#include <numeric>
 
 namespace nbl::video
 {
@@ -32,13 +33,23 @@ void IUtilities::updateImageViaStagingBuffer(
     uint32_t currentLayerInRegion = 0u;
     uint32_t currentRegion = 0u;
             
-    // bufferOffsetAlignment: TODO
-        // [ ] If Depth/Stencil -> must be multiple of 4
+    // bufferOffsetAlignment:
+        // [x] If Depth/Stencil -> must be multiple of 4
         // [ ] If multi-planar -> bufferOffset must be a multiple of the element size of the compatible format for the aspectMask of imagesubresource
-        // [ ] If Queue doesn't support GRAPHICS_BIT and COMPUTE_BIT ->  must be multiple of 4
+        // [x] If Queue doesn't support GRAPHICS_BIT or COMPUTE_BIT ->  must be multiple of 4
         // [x] bufferOffset must be a multiple of texel block size in bytes
-    const uint32_t bufferOffsetAlignment = texelBlockInfo.getBlockByteSize();
-    // TODO: bufferOffsetAlignment may not be PoT, blockSize can be 6 or 3 bytes for example
+    uint32_t bufferOffsetAlignment = texelBlockInfo.getBlockByteSize();
+    if(asset::isDepthOrStencilFormat(dstImage->getCreationParameters().format))
+        bufferOffsetAlignment = std::lcm(bufferOffsetAlignment, 4u);
+
+    bool queueSupportsCompute = (queueFamProps.queueFlags & IPhysicalDevice::EQF_COMPUTE_BIT).value != 0;
+    bool queueSupportsGraphics = (queueFamProps.queueFlags & IPhysicalDevice::EQF_GRAPHICS_BIT).value != 0;
+    if((queueSupportsGraphics || queueSupportsCompute) == false)
+        bufferOffsetAlignment = std::lcm(bufferOffsetAlignment, 4u);
+
+    // TODO: Need to have a function to get equivalent format of the specific plane of this format (in aspectMask)
+    // if(asset::isPlanarFormat(dstImage->getCreationParameters().format))
+
     assert(core::is_alignment(bufferOffsetAlignment));
 
     while (currentRegion < regions.size())
