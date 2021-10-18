@@ -1202,7 +1202,6 @@ public:
 			}
 
 			bool presentModeSupported = (gpuInfo.availablePresentModes & requestedPresentMode) != 0;
-			assert(presentModeSupported);
 			if(!presentModeSupported) // fallback 
 			{
 				requestedPresentMode = nbl::video::ISurface::E_PRESENT_MODE::EPM_FIFO;

@@ -20,11 +20,11 @@ namespace nbl
 {
 namespace asset
 {
-	//! An enum for the color format of textures used by the Nabla.
+    //! An enum for the color format of textures used by the Nabla.
     // @Crisspl it would be dandy if the values (or at least ordering) of our enums matched vulkan's
-	/** A color format specifies how color information is stored. */
-	enum E_FORMAT : uint32_t
-	{
+    /** A color format specifies how color information is stored. */
+    enum E_FORMAT : uint32_t
+    {
         //! Vulkan
         EF_R4G4_UNORM_PACK8 = 1,
         EF_R4G4B4A4_UNORM_PACK16,
@@ -230,9 +230,9 @@ namespace asset
         EF_G8_B8R8_2PLANE_422_UNORM,
         EF_G8_B8_R8_3PLANE_444_UNORM,
 
-		//! Unknown color format:
-		EF_UNKNOWN
-	};
+        //! Unknown color format:
+        EF_UNKNOWN
+    };
 
     enum E_FORMAT_CLASS : uint32_t
     {
@@ -1846,10 +1846,10 @@ namespace asset
                 @see convertTexelsToBlocks
             */
 
-			inline auto convertTexelsToBlocks(const core::vector3du32_SIMD& coord) const
-			{
-				return (coord+maxCoord)/dimension;
-			}
+            inline auto convertTexelsToBlocks(const core::vector3du32_SIMD& coord) const
+            {
+                return (coord+maxCoord)/dimension;
+            }
 
             //! It converts input texels strides to compute multiples of block sizes
             /*
@@ -1896,17 +1896,19 @@ namespace asset
 
             inline const auto& getDimension() const { return dimension; }
 
+            inline const auto& getBlockByteSize() const { return blockByteSize; }
+
         private:
             core::vector3du32_SIMD dimension;
             core::vector3du32_SIMD maxCoord;
             uint32_t blockByteSize;
     };
 
-	inline core::rational<uint32_t> getBytesPerPixel(asset::E_FORMAT _fmt)
-	{
-		auto dims = getBlockDimensions(_fmt);
-		return { getTexelOrBlockBytesize(_fmt), dims[0]*dims[1]*dims[2] };
-	}
+    inline core::rational<uint32_t> getBytesPerPixel(asset::E_FORMAT _fmt)
+    {
+        auto dims = getBlockDimensions(_fmt);
+        return { getTexelOrBlockBytesize(_fmt), dims[0]*dims[1]*dims[2] };
+    }
 
     template<asset::E_FORMAT cf>
     constexpr bool isSignedFormat()

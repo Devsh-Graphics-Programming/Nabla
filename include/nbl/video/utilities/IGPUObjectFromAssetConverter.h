@@ -914,16 +914,48 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
         submit_transfer.pWaitSemaphores = nullptr;
         submit_transfer.pWaitDstStageMask = nullptr;
     }
-    auto cmdUpload = [&](const asset::ICPUImage* cpuimg, IGPUImage* img) -> void {
+    auto cmdUpload = [&](const asset::ICPUImage* cpuimg, IGPUImage* img) -> void
+    {
+#define USE_NEW_IMAGE_UPLOAD_UTL2
+
+#if defined(USE_NEW_IMAGE_UPLOAD_UTL)
+            IGPUCommandBuffer::SImageMemoryBarrier toTransferDst = {};
+            toTransferDst.barrier.srcAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0u);
+            toTransferDst.barrier.dstAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
+            toTransferDst.oldLayout = asset::EIL_UNDEFINED;
+            toTransferDst.newLayout = asset::EIL_TRANSFER_DST_OPTIMAL;
+            toTransferDst.srcQueueFamilyIndex = transferFamIx;
+            toTransferDst.dstQueueFamilyIndex = transferFamIx;
+            toTransferDst.image = core::smart_refctd_ptr<video::IGPUImage>(img);
+            toTransferDst.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT; // this probably shoudn't be hardcoded
+            toTransferDst.subresourceRange.baseMipLevel = 0u;
+            toTransferDst.subresourceRange.levelCount = img->getCreationParameters().mipLevels;
+            toTransferDst.subresourceRange.baseArrayLayer = 0u;
+            toTransferDst.subresourceRange.layerCount = cpuimg->getCreationParameters().arrayLayers;
+
+            cmdbuf_transfer->pipelineBarrier(
+                asset::EPSF_TRANSFER_BIT,
+                asset::EPSF_TRANSFER_BIT,
+                asset::EDF_NONE,
+                0u, nullptr,
+                0u, nullptr,
+                1u, &toTransferDst);
+            
+            auto regions = cpuimg->getRegions();
+            _params.utilities->updateImageViaStagingBuffer(
+                cmdbuf_transfer.get(), transfer_fence.get(), _params.perQueue[EQU_TRANSFER].queue,
+                cpuimg->getBuffer(), regions, img, asset::EIL_TRANSFER_DST_OPTIMAL,
+                submit_transfer.waitSemaphoreCount,submit_transfer.pWaitSemaphores,submit_transfer.pWaitDstStageMask);
+#else
         if (auto found = img2gpubuf.find(cpuimg); found != img2gpubuf.end())
         {
             auto buf = found->second;
-            assert(buf->getSize() == cpuimg->getBuffer()->getSize());
+            // assert(buf->getSize() == cpuimg->getBuffer()->getSize());
 
             asset::SBufferRange<IGPUBuffer> bufrng;
             bufrng.buffer = buf;
             bufrng.offset = 0u;
-            bufrng.size = buf->getSize();
+            bufrng.size = cpuimg->getBuffer()->getSize();
 
             _params.utilities->updateBufferRangeViaStagingBuffer(
                 cmdbuf_transfer.get(),transfer_fence.get(),_params.perQueue[EQU_TRANSFER].queue,bufrng,cpuimg->getBuffer()->getPointer(),
@@ -978,6 +1010,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
 
             cmdbuf_transfer->copyBufferToImage(buf.get(), img, asset::EIL_TRANSFER_DST_OPTIMAL, 1u, &copyRegion);
         }
+#endif
     };
     auto cmdComputeMip = [&](const asset::ICPUImage* cpuimg, IGPUImage* gpuimg, asset::E_IMAGE_LAYOUT newLayout) -> void
     {

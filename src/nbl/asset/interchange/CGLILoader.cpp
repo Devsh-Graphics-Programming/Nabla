@@ -153,6 +153,7 @@ namespace nbl
 					region->imageExtent.depth = texture.extent(regionIndex).z;
 					region->bufferRowLength = region->imageExtent.width;
 					region->bufferImageHeight = 0u;
+					region->imageSubresource.aspectMask = IImage::E_ASPECT_FLAGS::EAF_COLOR_BIT;
 					region->imageSubresource.mipLevel = regionIndex;
 					region->imageSubresource.layerCount = imageInfo.arrayLayers;
 					region->imageSubresource.baseArrayLayer = 0;
@@ -211,6 +212,7 @@ namespace nbl
 			imageViewInfo.viewType = imageViewType;
 			imageViewInfo.components = format.second;
 			imageViewInfo.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
+			imageViewInfo.subresourceRange.aspectMask = IImage::E_ASPECT_FLAGS::EAF_COLOR_BIT;
 			imageViewInfo.subresourceRange.baseArrayLayer = 0u;
 			imageViewInfo.subresourceRange.baseMipLevel = 0u;
 			imageViewInfo.subresourceRange.layerCount = imageInfo.arrayLayers;
