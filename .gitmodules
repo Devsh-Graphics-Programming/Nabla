@@ -7,7 +7,7 @@
 [submodule "3rdparty/glslang"]
 	path = 3rdparty/glslang
 	url = https://github.com/devshgraphicsprogramming/glslang.git
-	branch = master
+	branch = nabla
 [submodule "3rdparty/shaderc"]
 	path = 3rdparty/shaderc
 	url = https://github.com/google/shaderc.git
