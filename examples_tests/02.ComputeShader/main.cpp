@@ -6,7 +6,7 @@
 // Temporary
 #define VK_NO_PROTOTYPES
 #include "vulkan/vulkan.h"
-#include "../../src/nbl/video/CVulkanConnection.h"
+#include "nbl/video/CVulkanConnection.h"
 #include "../../src/nbl/video/CVulkanCommon.h"
 
 #include <nbl/ui/CWindowManagerWin32.h>

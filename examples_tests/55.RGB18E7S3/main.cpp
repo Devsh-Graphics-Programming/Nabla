@@ -44,7 +44,8 @@ int main()
 {
     constexpr std::string_view APP_NAME = "RGB18E7S3 utility test";
 
-	auto initOutput = CommonAPI::Init(video::EAT_OPENGL, APP_NAME.data());
+    CommonAPI::InitOutput<3u> initOutput;
+    CommonAPI::Init<0u, 0u, 3u>(initOutput, video::EAT_OPENGL, APP_NAME, nbl::asset::EF_D32_SFLOAT);
 	auto system = std::move(initOutput.system);
     auto gl = std::move(initOutput.apiConnection);
     auto logger = std::move(initOutput.logger);
@@ -134,7 +135,7 @@ int main()
     ssboMemoryReqs.mappingCapability = video::IDriverMemoryAllocation::EMCAF_READ_AND_WRITE;
 
     video::IGPUBuffer::SCreationParams ssboCreationParams;
-    ssboCreationParams.size = sizeof(SShaderStorageBufferObject);
+    //ssboCreationParams.size = sizeof(SShaderStorageBufferObject);
     ssboCreationParams.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
     ssboCreationParams.sharingMode = asset::E_SHARING_MODE::ESM_CONCURRENT;
     ssboCreationParams.queueFamilyIndexCount = 0u;

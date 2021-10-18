@@ -931,6 +931,7 @@ int main(int argc, char** argv)
 				mbIdx++;
 
 				commandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS, gpuRenderpassIndependentPipeline->getLayout(), 0u, 3u, ds, nullptr);
+				commandBuffer->pushConstants(pipeline->getLayout(), video::IGPUSpecializedShader::ESS_VERTEX | video::IGPUSpecializedShader::ESS_FRAGMENT, 0u, sizeof(float), mb->getPushConstantsDataPtr());
 
 				commandBuffer->drawMeshBuffer(mb);
 			}
