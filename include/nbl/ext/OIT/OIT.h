@@ -104,7 +104,7 @@ class COIT
             resolve_glsl += "#define NBL_GLSL_VIS_IMAGE_BINDING " + std::to_string(visBnd) + "\n";
             resolve_glsl += "#include <nbl/builtin/glsl/ext/OIT/resolve.frag>\n";
 
-            const bool hasInterlock = false; // TODO: @Erfan dev->getPhysicalDevice()->getLimits().fragmentShaderInterlock;
+            const bool hasInterlock = dev->getPhysicalDevice()->getFeatures().fragmentShaderPixelInterlock; // TODO: @Erfan dev->getPhysicalDevice()->getLimits().fragmentShaderInterlock;
             if (hasInterlock)
                 m_images.spinlock = nullptr;
             else

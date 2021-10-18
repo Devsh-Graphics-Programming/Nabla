@@ -122,6 +122,11 @@ public:
         bool rayTracingPipelineShaderGroupHandleCaptureReplayMixed = false;
         bool rayTracingPipelineTraceRaysIndirect = false;
         bool rayTraversalPrimitiveCulling = false;
+
+        // Fragment Shader Interlock
+        bool fragmentShaderSampleInterlock = false;
+        bool fragmentShaderPixelInterlock = false;
+        bool fragmentShaderShadingRateInterlock = false;
     };
 
     struct SMemoryProperties

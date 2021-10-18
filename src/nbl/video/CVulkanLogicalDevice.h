@@ -979,6 +979,11 @@ public:
             for (uint32_t i = 0u; i < requiredForThisCount; ++i)
                 getRequiredFeatures(requiredForThis[i], requiredCount, required);
         } break;
+        
+        case EF_FRAGMENT_SHADER_INTERLOCK:
+        {
+            required[requiredCount++] = EF_FRAGMENT_SHADER_INTERLOCK;
+        } break;
 
         default:
             break;
@@ -1007,6 +1012,8 @@ public:
             return VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME;
         case EF_RAY_QUERY:
             return VK_KHR_RAY_QUERY_EXTENSION_NAME;
+        case EF_FRAGMENT_SHADER_INTERLOCK:
+            return VK_EXT_FRAGMENT_SHADER_INTERLOCK_EXTENSION_NAME;
         default:
             assert(!"Extension unavailable");
             return "";
