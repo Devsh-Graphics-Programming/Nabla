@@ -447,16 +447,18 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 			{
 				auto system = device->getPhysicalDevice()->getSystem();
 				auto glsl = system->loadBuiltinData<decltype(uniqueString)>(); 
-				return {core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl),asset::IShader::buffer_contains_glsl_t{}),decltype(uniqueString)::value};
+				return {core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl),asset::IShader::buffer_contains_glsl_t{}, asset::IShader::ESS_COMPUTE, ""),decltype(uniqueString)::value};
 			};
 			auto overrideShader = [device,&cwdForShaderCompilation](shader_source_and_path&& baseShader, const std::string& additionalCode)
 			{
+				auto& path = baseShader.second;
+				path = cwdForShaderCompilation / path.filename();
+				baseShader.first->setFilePathHint(path.string());
+				baseShader.first->setShaderStage(asset::IShader::ESS_COMPUTE);
 				auto shader =  device->createGPUShader(
 					asset::IGLSLCompiler::createOverridenCopy(baseShader.first.get(),"\n%s\n",additionalCode.c_str())
 				);
-				auto& path = baseShader.second;
-				path = cwdForShaderCompilation/path.filename();
-				return device->createGPUSpecializedShader(shader.get(),{nullptr,nullptr,"main",asset::IShader::ESS_COMPUTE,path});
+				return device->createGPUSpecializedShader(shader.get(),{nullptr,nullptr,"main"});
 			};
 			
 			auto firstShader = getShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/culling_lod_selection/instance_cull_and_lod_select.comp")());
