@@ -477,7 +477,8 @@ public:
         std::fill(m_addrsArray->begin(), m_addrsArray->end(), IVTResidentStorage::phys_pg_addr_alctr_t::invalid_address);
 
         auto* const bufptr = reinterpret_cast<uint8_t*>(m_pageTable->getBuffer()->getPointer());
-        for (uint32_t i=0u; i<core::max(_addr.maxMip,1u); ++i)
+        auto levelCount = core::max(_addr.maxMip,1u);
+        for (uint32_t i=0u; i<levelCount; ++i)
         {
             const uint32_t w = neededPageCountForSide(extent.width, i);
             const uint32_t h = neededPageCountForSide(extent.height, i);
