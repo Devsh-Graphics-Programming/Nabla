@@ -428,16 +428,16 @@ uint32_t CPropertyPoolHandler::TransferDescriptorSetCache::acquireSet(
 	}
 
 	IGPUDescriptorSet::SWriteDescriptorSet writes[3u];
+	uint32_t info_offset = 0u;
 	for (auto i=0u; i<3u; i++)
 	{
 		writes[i].dstSet = set;
 		writes[i].binding = i;
 		writes[i].arrayElement = 0u;
-		// writes[i].count = i ? propertyCount:1u;
 		writes[i].count = i ? handler->m_maxPropertiesPerPass:1u;
 		writes[i].descriptorType = asset::EDT_STORAGE_BUFFER;
-		// writes[i].info = i ? (writes[i-1u].info+writes[i-1u].count):infos;
-		writes[i].info = i ? (writes[i-1u].info+propertyCount):infos;
+		writes[i].info = i ? (writes[i-1u].info+info_offset):infos;
+		info_offset = i ? propertyCount : 1u;
 	}
 	device->updateDescriptorSets(3u,writes,0u,nullptr);
 
