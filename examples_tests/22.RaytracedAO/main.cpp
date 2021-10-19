@@ -116,7 +116,8 @@ int main()
 	// TODO: Move into renderer?
 	bool rightHandedCamera = true;
 	float moveSpeed = core::nan<float>();
-	auto camera = smgr->addCameraSceneNode(nullptr);
+	auto camera = smgr->addCameraSceneNodeModifiedMaya(nullptr, -400.0f, 20.0f, 200.0f, -1, 2.0f, 1.0f, false, true);
+
 	auto isOkSensorType = [](const ext::MitsubaLoader::CElementSensor& sensor) -> bool {
 		return sensor.type == ext::MitsubaLoader::CElementSensor::Type::PERSPECTIVE || sensor.type == ext::MitsubaLoader::CElementSensor::Type::THINLENS;
 	};
@@ -267,23 +268,6 @@ int main()
 	
 
 	auto extent = renderer->getSceneBound().getExtent();
-	// want dynamic camera or not?
-	if (true)
-	{
-		core::vector3df_SIMD ptu[] = {core::vectorSIMDf().set(camera->getPosition()),camera->getTarget(),camera->getUpVector()};
-		auto proj = camera->getProjectionMatrix();
-
-		if (core::isnan(moveSpeed))
-			moveSpeed = core::min(extent.X,extent.Y,extent.Z)*0.0001f;
-		camera = smgr->addCameraSceneNodeFPS(nullptr,80.f,moveSpeed);
-		camera->setPosition(ptu[0].getAsVector3df());
-		camera->setTarget(ptu[1].getAsVector3df());
-		camera->setUpVector(ptu[2]);
-		camera->setProjectionMatrix(proj);
-
-		device->getCursorControl()->setVisible(false);
-	}
-
 	smgr->setActiveCamera(camera);
 
 

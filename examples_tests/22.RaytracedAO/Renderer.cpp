@@ -1096,7 +1096,7 @@ void Renderer::deinit()
 #endif
 
 	if (m_tonemapOutput)
-		ext::ScreenShot::createScreenShot(m_driver,m_assetManager,m_tonemapOutput.get(),"tonemapped.png",asset::EF_R8G8B8_SRGB);
+		ext::ScreenShot::createScreenShot(m_driver,m_assetManager,m_tonemapOutput.get(),"tonemapped.exr",asset::EF_R32G32B32A32_SFLOAT);
 	if (m_visibilityBuffer)
 	{
 		m_driver->removeFrameBuffer(m_visibilityBuffer);
