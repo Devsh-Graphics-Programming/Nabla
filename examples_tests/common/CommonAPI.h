@@ -17,12 +17,12 @@
 #ifdef _NBL_PLATFORM_ANDROID_
 using ApplicationBase = nbl::ui::CGraphicalApplicationAndroid;
 #define APP_CONSTRUCTOR(type) type(android_app* app, nbl::system::path cwd) : nbl::ui::CGraphicalApplicationAndroid(app, cwd) {}
-#define NBL_COMMON_API_MAIN(android_app_class, user_data_type) NBL_ANDROID_MAIN_FUNC(android_app_class, user_data_type, CommonAPI::CommonAPIEventCallback)
+#define NBL_COMMON_API_MAIN(android_app_class) NBL_ANDROID_MAIN_FUNC(android_app_class, CommonAPI::CommonAPIEventCallback)
 #else
 using ApplicationBase = nbl::system::IApplicationFramework;
 #define APP_CONSTRUCTOR(type) type(nbl::system::path cwd) : nbl::system::IApplicationFramework(cwd) {}
-#define NBL_COMMON_API_MAIN(android_app_class, user_data_type) int main(int argc, char** argv){\
-CommonAPI::main<android_app_class, user_data_type>(argc, argv);\
+#define NBL_COMMON_API_MAIN(android_app_class) int main(int argc, char** argv){\
+CommonAPI::main<android_app_class>(argc, argv);\
 }
 #endif
 
@@ -655,19 +655,18 @@ public:
 		nbl::core::smart_refctd_ptr<InputSystem> inputSystem;
 	};
 
-	template<typename AppClassName, typename UserDataType>
+	template<typename AppClassName>
 	static void main(int argc, char** argv)
 	{
 #ifndef _NBL_PLATFORM_ANDROID_
 		nbl::system::path CWD = nbl::system::path(argv[0]).parent_path().generic_string() + "/";
 		AppClassName app(CWD);
-		UserDataType usrData{};
-		app.onAppInitialized(&usrData);
-		while (app.keepRunning(&usrData))
+		app.onAppInitialized();
+		while (app.keepRunning())
 		{
-			app.workLoopBody(&usrData);
+			app.workLoopBody();
 		}
-		app.onAppTerminated(&usrData);
+		app.onAppTerminated();
 #endif
 	}
 

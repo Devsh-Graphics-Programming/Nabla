@@ -64,12 +64,12 @@ namespace nbl::system
                 framework->onStateSaved(app);
                 break;
             case APP_CMD_INIT_WINDOW:
-                framework->onAppInitialized(usrData->userData);
-                framework->workLoopBody(usrData->userData);
+                framework->onAppInitialized();
+                framework->workLoopBody();
                 break;
             case APP_CMD_TERM_WINDOW:
                 // The window is being hidden or closed, clean it up.
-                framework->onAppTerminated(usrData->userData);
+                framework->onAppTerminated();
                 break;
             default:
                 break;
@@ -108,7 +108,7 @@ namespace nbl::system
                     }
                     if (app->destroyRequested != 0)
                     {
-                        framework->onAppTerminated(app);
+                        framework->onAppTerminated();
                     }
                 }
                 else keepPolling = false;
