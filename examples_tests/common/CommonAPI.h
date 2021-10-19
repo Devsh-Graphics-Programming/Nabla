@@ -20,7 +20,7 @@ using ApplicationBase = nbl::ui::CGraphicalApplicationAndroid;
 #define NBL_COMMON_API_MAIN(android_app_class, user_data_type) NBL_ANDROID_MAIN_FUNC(android_app_class, user_data_type, CommonAPI::CommonAPIEventCallback)
 #else
 using ApplicationBase = nbl::system::IApplicationFramework;
-#define APP_CONSTRUCTOR(type) type(nbl::system::path cwd) : nbl::system::IApplicationFramework(cwd) {}
+#define APP_CONSTRUCTOR(type) type(nbl::system::path cwd) : nbl::system::IApplicationFramework(cwd) {__debugbreak();}
 #define NBL_COMMON_API_MAIN(android_app_class, user_data_type) int main(int argc, char** argv){\
 CommonAPI::main<android_app_class, user_data_type>(argc, argv);\
 }
@@ -837,14 +837,14 @@ public:
 	{
 #ifndef _NBL_PLATFORM_ANDROID_
 		nbl::system::path CWD = nbl::system::path(argv[0]).parent_path().generic_string() + "/";
-		AppClassName app(CWD);
+		auto app = nbl::core::template make_smart_refctd_ptr<AppClassName>(CWD);
 		UserDataType usrData{};
-		app.onAppInitialized(&usrData);
-		while (app.keepRunning(&usrData))
+		app->onAppInitialized(&usrData);
+		while (app->keepRunning(&usrData))
 		{
-			app.workLoopBody(&usrData);
+			app->workLoopBody(&usrData);
 		}
-		app.onAppTerminated(&usrData);
+		app->onAppTerminated(&usrData);
 #endif
 	}
 
