@@ -310,6 +310,7 @@ public:
         core::smart_refctd_ptr<video::IGPUDescriptorSet> gpuds0;
         core::smart_refctd_ptr<video::IGPUDescriptorSet> gpuds1;
         core::smart_refctd_ptr<video::IGPUDescriptorSet> gpuds2;
+        uint32_t ds1UboBinding = 0u;
         core::smart_refctd_ptr<video::IGPUBuffer> gpuubo;
         core::smart_refctd_ptr<video::IGPUMesh> gpumesh;
 
@@ -521,7 +522,7 @@ APP_CONSTRUCTOR(MeshLoadersApp)
             vt->commit(cm.addr, cm.texture.get(), cm.subresource, cm.uwrap, cm.vwrap, cm.border);
         }
 
-        auto gpuvt = core::make_smart_refctd_ptr<video::IGPUVirtualTexture>(engine->logicalDevice.get(), engine->queues, vt.get());
+        auto gpuvt = core::make_smart_refctd_ptr<video::IGPUVirtualTexture>(engine->logicalDevice.get(), engine->gpuTransferFence.get(), engine->queues[CommonAPI::InitOutput<1>::EQT_TRANSFER_UP], vt.get());
 
         core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> gpuds0layout;
         {
@@ -550,18 +551,17 @@ APP_CONSTRUCTOR(MeshLoadersApp)
         //so we can create just one DS
 
         asset::ICPUDescriptorSetLayout* ds1layout = mesh_raw->getMeshBuffers().begin()[0]->getPipeline()->getLayout()->getDescriptorSetLayout(1u);
-        uint32_t ds1UboBinding = 0u;
         for (const auto& bnd : ds1layout->getBindings())
             if (bnd.type == asset::EDT_UNIFORM_BUFFER)
             {
-                ds1UboBinding = bnd.binding;
+                engine->ds1UboBinding = bnd.binding;
                 break;
             }
 
         size_t neededDS1UBOsz = 0ull;
         {
             for (const auto& shdrIn : engine->pipelineMetadata->m_inputSemantics)
-                if (shdrIn.descriptorSection.type == asset::IRenderpassIndependentPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER && shdrIn.descriptorSection.uniformBufferObject.set == 1u && shdrIn.descriptorSection.uniformBufferObject.binding == ds1UboBinding)
+                if (shdrIn.descriptorSection.type == asset::IRenderpassIndependentPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER && shdrIn.descriptorSection.uniformBufferObject.set == 1u && shdrIn.descriptorSection.uniformBufferObject.binding == engine->ds1UboBinding)
                     neededDS1UBOsz = std::max<size_t>(neededDS1UBOsz, shdrIn.descriptorSection.uniformBufferObject.relByteoffset + shdrIn.descriptorSection.uniformBufferObject.bytesize);
         }
 
@@ -589,7 +589,7 @@ APP_CONSTRUCTOR(MeshLoadersApp)
         {
             video::IGPUDescriptorSet::SWriteDescriptorSet write;
             write.dstSet = engine->gpuds1.get();
-            write.binding = ds1UboBinding;
+            write.binding = engine->ds1UboBinding;
             write.count = 1u;
             write.arrayElement = 0u;
             write.descriptorType = asset::EDT_UNIFORM_BUFFER;
@@ -625,15 +625,8 @@ APP_CONSTRUCTOR(MeshLoadersApp)
 
         engine->gpuds2 = engine->logicalDevice->createGPUDescriptorSet(descriptorPoolDs2.get(), std::move(gpu_ds2layout));
         {
-            core::smart_refctd_ptr<video::IGPUBuffer> buffer; // = engine->logicalDevice->createFilledDeviceLocalGPUBufferOnDedMem(engine->queues, sizeof(video::IGPUVirtualTexture::SPrecomputedData), &gpuvt->getPrecomputedData());
-            {
-                core::smart_refctd_ptr<asset::ICPUBuffer> cpuBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(video::IGPUVirtualTexture::SPrecomputedData), &gpuvt->getPrecomputedData());
-
-                auto gpu_array = engine->cpu2gpu.getGPUObjectsFromAssets(&cpuBuffer.get(), &cpuBuffer.get() + 1u, engine->cpu2gpuParams);
-                engine->cpu2gpuParams.waitForCreationToComplete();
-
-                buffer = (*gpu_array)[0];
-            }
+            core::smart_refctd_ptr<video::IUtilities> utilities = core::make_smart_refctd_ptr<video::IUtilities>(core::smart_refctd_ptr(engine->logicalDevice));
+            core::smart_refctd_ptr<video::IGPUBuffer> buffer = utilities->createFilledDeviceLocalGPUBufferOnDedMem(engine->queues[CommonAPI::InitOutput<1>::EQT_TRANSFER_UP], sizeof(video::IGPUVirtualTexture::SPrecomputedData), &gpuvt->getPrecomputedData());
 
             {
                 std::array<video::IGPUDescriptorSet::SWriteDescriptorSet, 1> write;
@@ -715,7 +708,7 @@ APP_CONSTRUCTOR(MeshLoadersApp)
         core::vector<uint8_t> uboData(engine->gpuubo->getSize());
         for (const auto& shdrIn : engine->pipelineMetadata->m_inputSemantics)
         {
-            if (shdrIn.descriptorSection.type == asset::IRenderpassIndependentPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER && shdrIn.descriptorSection.uniformBufferObject.set == 1u && shdrIn.descriptorSection.uniformBufferObject.binding == ds1UboBinding)
+            if (shdrIn.descriptorSection.type == asset::IRenderpassIndependentPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER && shdrIn.descriptorSection.uniformBufferObject.set == 1u && shdrIn.descriptorSection.uniformBufferObject.binding == engine->ds1UboBinding)
             {
                 switch (shdrIn.type)
                 {
