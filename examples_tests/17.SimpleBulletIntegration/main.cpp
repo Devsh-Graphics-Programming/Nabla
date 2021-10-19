@@ -489,14 +489,6 @@ public:
 		auto sphereGeom = geometryCreator->createSphereMesh(0.5f);
 		auto coneGeom = geometryCreator->createConeMesh(0.5f, 1.0f, 32);
 
-		constexpr auto POS_ATTRIBUTE = 0;
-		constexpr auto NORMAL_ATTRIBUTE = 3;
-		const uint16_t enabledAttribFlags = (0x1u << POS_ATTRIBUTE) | (0x1u << NORMAL_ATTRIBUTE);
-		cubeGeom.inputParams.enabledAttribFlags = enabledAttribFlags;
-		cylinderGeom.inputParams.enabledAttribFlags = enabledAttribFlags;
-		sphereGeom.inputParams.enabledAttribFlags = enabledAttribFlags;
-		coneGeom.inputParams.enabledAttribFlags = (0x1u << 0) | (0x1u << 2);
-
 		// Creating CPU Shaders 
 		auto createCPUSpecializedShaderFromSource = [=](const char* path, asset::IShader::E_SHADER_STAGE stage) -> core::smart_refctd_ptr<asset::ICPUSpecializedShader>
 		{
@@ -521,10 +513,11 @@ public:
 			const BulletSampleApp::E_OBJECT object)
 		{
 			uint32_t pos_attrib_location = 0u;
-			uint32_t normal_attrib_location = 3u;
-			if (object == BulletSampleApp::E_CONE)
-				normal_attrib_location = 2u;
+			uint32_t normal_attrib_location = object == BulletSampleApp::E_CONE ? 2u : 3u;
 			assert((pos_attrib_location != 15u && normal_attrib_location != 15u) && "This attribute location is used for instance IDs!");
+
+			const uint16_t enabledAttribFlags = (0x1u << pos_attrib_location) | (0x1u << normal_attrib_location);
+			_data.inputParams.enabledAttribFlags = enabledAttribFlags;
 
 			auto revamped_vs = asset::IGLSLCompiler::createOverridenCopy(
 				vs->getUnspecialized(),
@@ -555,7 +548,7 @@ public:
 			mb->setIndexType(_data.indexType);
 			mb->setBoundingBox(_data.bbox);
 			mb->setPipeline(std::move(pipeline));
-			mb->setNormalAttributeIx(NORMAL_ATTRIBUTE);
+			mb->setNormalAttributeIx(normal_attrib_location);
 
 			return mb;
 
