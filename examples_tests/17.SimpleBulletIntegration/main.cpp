@@ -79,6 +79,15 @@ public:
 	static constexpr uint64_t MAX_TIMEOUT = 99999999999999ull;
 	static constexpr uint32_t TransformPropertyID = 1u;
 
+	enum E_OBJECT
+	{
+		E_CUBE = 0,
+		E_CYLINDER,
+		E_SPHERE,
+		E_CONE,
+		E_COUNT
+	};
+
 	struct AppUserData : IUserData
 	{
 		core::smart_refctd_ptr<nbl::ui::IWindowManager> windowManager;
@@ -267,12 +276,12 @@ public:
 		createPropertyPoolWithMemory(appData->m_cubes,20u,true);
 		createPropertyPoolWithMemory(appData->m_cylinders,20u,true);
 		createPropertyPoolWithMemory(appData->m_spheres,20u,true);
-		// createPropertyPoolWithMemory(appData->m_cones,10u,true);
+		createPropertyPoolWithMemory(appData->m_cones,10u,true);
 		// global object data pool
-		// const uint32_t MaxSingleType = core::max(core::max(appData->m_cubes->getCapacity(),appData->m_cylinders->getCapacity()),core::max(appData->m_spheres->getCapacity(),appData->m_cones->getCapacity()));
-		const uint32_t MaxSingleType = core::max(core::max(appData->m_cubes->getCapacity(), appData->m_cylinders->getCapacity()), appData->m_spheres->getCapacity());
-		// const uint32_t MaxNumObjects = appData->m_cubes->getCapacity()+appData->m_cylinders->getCapacity()+appData->m_spheres->getCapacity()+appData->m_cones->getCapacity();
-		const uint32_t MaxNumObjects = appData->m_cubes->getCapacity() + appData->m_cylinders->getCapacity() + appData->m_spheres->getCapacity();/* +appData->m_cones->getCapacity();*/
+		const uint32_t MaxSingleType = core::max(core::max(appData->m_cubes->getCapacity(),appData->m_cylinders->getCapacity()),core::max(appData->m_spheres->getCapacity(),appData->m_cones->getCapacity()));
+		// const uint32_t MaxSingleType = core::max(core::max(appData->m_cubes->getCapacity(), appData->m_cylinders->getCapacity()), appData->m_spheres->getCapacity());
+		const uint32_t MaxNumObjects = appData->m_cubes->getCapacity()+appData->m_cylinders->getCapacity()+appData->m_spheres->getCapacity()+appData->m_cones->getCapacity();
+		// const uint32_t MaxNumObjects = appData->m_cubes->getCapacity() + appData->m_cylinders->getCapacity() + appData->m_spheres->getCapacity();/* +appData->m_cones->getCapacity();*/
 		createPropertyPoolWithMemory(appData->m_objectPool,MaxNumObjects);
 
 		// Physics
@@ -308,17 +317,16 @@ public:
 			rigidBodyData.inertia = ext::Bullet3::frombtVec3(inertia);
 			return rigidBodyData;
 		}();
-
-		// appData->m_coneRigidBodyData = [appData]()
-		// {
-		// 	ext::Bullet3::CPhysicsWorld::RigidBodyData rigidBodyData;
-		// 	rigidBodyData.mass = 1.0f;
-		// 	rigidBodyData.shape = appData->m_world->createbtObject<btConeShape>(0.5, 1.0);
-		// 	btVector3 inertia;
-		// 	rigidBodyData.shape->calculateLocalInertia(rigidBodyData.mass, inertia);
-		// 	rigidBodyData.inertia = ext::Bullet3::frombtVec3(inertia);
-		// 	return rigidBodyData;
-		// }();
+		appData->m_coneRigidBodyData = [appData]()
+		{
+			ext::Bullet3::CPhysicsWorld::RigidBodyData rigidBodyData;
+			rigidBodyData.mass = 1.0f;
+			rigidBodyData.shape = appData->m_world->createbtObject<btConeShape>(0.5, 1.0);
+			btVector3 inertia;
+			rigidBodyData.shape->calculateLocalInertia(rigidBodyData.mass, inertia);
+			rigidBodyData.inertia = ext::Bullet3::frombtVec3(inertia);
+			return rigidBodyData;
+		}();
 
 		// kept state
 		uint32_t totalSpawned = 0u;
@@ -398,10 +406,10 @@ public:
 		{
 			addShapes(std::move(fence), cmdbuf, appData->m_sphereRigidBodyData, appData->m_spheres.get(), count);
 		};
-		// auto addCones = [&](video::IGPUFence* fence, video::IGPUCommandBuffer* cmdbuf, const uint32_t count)
-		// {
-		// 	addShapes(std::move(fence), cmdbuf, appData->m_coneRigidBodyData, appData->m_cones.get(), count, core::matrix3x4SIMD().setTranslation(core::vector3df_SIMD(0.f, -0.5f, 0.f)));
-		// };
+		auto addCones = [&](video::IGPUFence* fence, video::IGPUCommandBuffer* cmdbuf, const uint32_t count)
+		{
+			addShapes(std::move(fence), cmdbuf, appData->m_coneRigidBodyData, appData->m_cones.get(), count, core::matrix3x4SIMD().setTranslation(core::vector3df_SIMD(0.f, -0.5f, 0.f)));
+		};
 
 		// setup scene
 		{
@@ -412,7 +420,7 @@ public:
 			addCubes(fence.get(), cmdbuf, 20u);
 			addCylinders(fence.get(), cmdbuf, 20u);
 			addSpheres(fence.get(), cmdbuf, 20u);
-			// addCones(fence.get(), cmdbuf, 10u);
+			addCones(fence.get(), cmdbuf, 10u);
 			cmdbuf->end();
 
 			video::IGPUQueue::SSubmitInfo submit;
@@ -479,7 +487,7 @@ public:
 		auto cubeGeom = geometryCreator->createCubeMesh(core::vector3df(1.0f, 1.0f, 1.0f));
 		auto cylinderGeom = geometryCreator->createCylinderMesh(0.5f, 0.5f, 20);
 		auto sphereGeom = geometryCreator->createSphereMesh(0.5f);
-		// auto coneGeom = geometryCreator->createConeMesh(0.5f, 1.0f, 32);
+		auto coneGeom = geometryCreator->createConeMesh(0.5f, 1.0f, 32);
 
 		constexpr auto POS_ATTRIBUTE = 0;
 		constexpr auto NORMAL_ATTRIBUTE = 3;
@@ -487,7 +495,7 @@ public:
 		cubeGeom.inputParams.enabledAttribFlags = enabledAttribFlags;
 		cylinderGeom.inputParams.enabledAttribFlags = enabledAttribFlags;
 		sphereGeom.inputParams.enabledAttribFlags = enabledAttribFlags;
-		// coneGeom.inputParams.enabledAttribFlags = enabledAttribFlags;
+		coneGeom.inputParams.enabledAttribFlags = (0x1u << 0) | (0x1u << 2);
 
 		// Creating CPU Shaders 
 		auto createCPUSpecializedShaderFromSource = [=](const char* path, asset::IShader::E_SHADER_STAGE stage) -> core::smart_refctd_ptr<asset::ICPUSpecializedShader>
@@ -505,27 +513,43 @@ public:
 
 		auto vs = createCPUSpecializedShaderFromSource("../mesh.vert", asset::IShader::ESS_VERTEX);
 		auto fs = createCPUSpecializedShaderFromSource("../mesh.frag", asset::IShader::ESS_FRAGMENT);
-		asset::ICPUSpecializedShader* shaders[2]{ vs.get(), fs.get() };
 
 		auto dummyPplnLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>();
-		auto createMeshBufferFromGeomCreatorReturnType = [&dummyPplnLayout](
+		auto createMeshBufferFromGeomCreatorReturnType = [&dummyPplnLayout,&vs,&fs,appData](
 			asset::IGeometryCreator::return_type& _data,
 			asset::IAssetManager* _manager,
-			asset::ICPUSpecializedShader** _shadersBegin, asset::ICPUSpecializedShader** _shadersEnd)
+			const BulletSampleApp::E_OBJECT object)
 		{
+			uint32_t pos_attrib_location = 0u;
+			uint32_t normal_attrib_location = 3u;
+			if (object == BulletSampleApp::E_CONE)
+				normal_attrib_location = 2u;
+			assert((pos_attrib_location != 15u && normal_attrib_location != 15u) && "This attribute location is used for instance IDs!");
+
+			auto revamped_vs = asset::IGLSLCompiler::createOverridenCopy(
+				vs->getUnspecialized(),
+				"#define _NBL_ATTRIB_POS_LOCATION_ %d\n"
+				"#define _NBL_ATTRIB_NORMAL_LOCATION_ %d\n", pos_attrib_location, normal_attrib_location);
+
+			asset::ICPUSpecializedShader::SInfo specInfo = { nullptr, nullptr, "main" };
+			const auto revamped_vs_spec = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(
+				std::move(revamped_vs),
+				std::move(specInfo));
+
+			asset::ICPUSpecializedShader* shaders[2] = { revamped_vs_spec.get(), fs.get() };
+
 			//creating pipeline just to forward vtx and primitive params
 			auto pipeline = core::make_smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline>(
-				core::smart_refctd_ptr(dummyPplnLayout), _shadersBegin, _shadersEnd,
+				core::smart_refctd_ptr(dummyPplnLayout),
+				shaders, shaders + 2,
 				_data.inputParams,
 				asset::SBlendParams(),
 				_data.assemblyParams,
-				asset::SRasterizationParams()
-				);
+				asset::SRasterizationParams());
 
 			auto mb = core::make_smart_refctd_ptr<asset::ICPUMeshBuffer>(
 				nullptr, nullptr,
-				_data.bindings, std::move(_data.indexBuffer)
-				);
+				_data.bindings, std::move(_data.indexBuffer));
 
 			mb->setIndexCount(_data.indexCount);
 			mb->setIndexType(_data.indexType);
@@ -536,10 +560,11 @@ public:
 			return mb;
 
 		};
-		auto cpuMeshCube = createMeshBufferFromGeomCreatorReturnType(cubeGeom, appData->assetManager.get(), shaders, shaders + 2);
-		auto cpuMeshCylinder = createMeshBufferFromGeomCreatorReturnType(cylinderGeom, appData->assetManager.get(), shaders, shaders + 2);
-		auto cpuMeshSphere = createMeshBufferFromGeomCreatorReturnType(sphereGeom, appData->assetManager.get(), shaders, shaders + 2);
-		// auto cpuMeshCone = createMeshBufferFromGeomCreatorReturnType(coneGeom, appData->assetManager.get(), shaders, shaders + 2);
+
+		auto cpuMeshCube = createMeshBufferFromGeomCreatorReturnType(cubeGeom, appData->assetManager.get(), BulletSampleApp::E_CUBE);
+		auto cpuMeshCylinder = createMeshBufferFromGeomCreatorReturnType(cylinderGeom, appData->assetManager.get(), BulletSampleApp::E_CYLINDER);
+		auto cpuMeshSphere = createMeshBufferFromGeomCreatorReturnType(sphereGeom, appData->assetManager.get(), BulletSampleApp::E_SPHERE);
+		auto cpuMeshCone = createMeshBufferFromGeomCreatorReturnType(coneGeom, appData->assetManager.get(), BulletSampleApp::E_CONE);
 		dummyPplnLayout = nullptr;
 		
 		// Create GPU Objects (IGPUMeshBuffer + GraphicsPipeline)
@@ -605,7 +630,7 @@ public:
 		appData->m_gpuObjects.emplace_back(createGPUObject(appData->m_cubes.get(), cpuMeshCube.get()));
 		appData->m_gpuObjects.emplace_back(createGPUObject(appData->m_cylinders.get(), cpuMeshCylinder.get(), asset::EFCM_NONE));
 		appData->m_gpuObjects.emplace_back(createGPUObject(appData->m_spheres.get(), cpuMeshSphere.get()));
-		// appData->m_gpuObjects.emplace_back(createGPUObject(appData->m_cones.get(), cpuMeshCone.get(), asset::EFCM_NONE));
+		appData->m_gpuObjects.emplace_back(createGPUObject(appData->m_cones.get(), cpuMeshCone.get(), asset::EFCM_NONE));
 
 		//
 		appData->m_lastTime = std::chrono::system_clock::now();
@@ -639,13 +664,13 @@ public:
 
 		deleteBasedOnPhysicsPredicate(appData, nullptr, nullptr, appData->m_cylinders.get(), alwaysTrue);
 		deleteBasedOnPhysicsPredicate(appData, nullptr, nullptr, appData->m_spheres.get(), alwaysTrue);
-		// deleteBasedOnPhysicsPredicate(appData, nullptr, nullptr, appData->m_cones.get(), alwaysTrue);
+		deleteBasedOnPhysicsPredicate(appData, nullptr, nullptr, appData->m_cones.get(), alwaysTrue);
 		deleteBasedOnPhysicsPredicate(appData, nullptr, nullptr, appData->m_cubes.get(), alwaysTrue);
 
 		appData->m_world->deletebtObject(appData->m_cubeRigidBodyData.shape);
 		appData->m_world->deletebtObject(appData->m_cylinderRigidBodyData.shape);
 		appData->m_world->deletebtObject(appData->m_sphereRigidBodyData.shape);
-		// appData->m_world->deletebtObject(appData->m_coneRigidBodyData.shape);
+		appData->m_world->deletebtObject(appData->m_coneRigidBodyData.shape);
 	}
 
 	void workLoopBody(void* data) override
@@ -759,7 +784,7 @@ public:
 				motionState->getWorldTransform(tform);
 				return tform.getOrigin().getY() < -128.f;
 			};
-			// deleteBasedOnPhysicsPredicate(appData, fence.get(), cb.get(), appData->m_cones.get(), falledFromMap);
+			deleteBasedOnPhysicsPredicate(appData, fence.get(), cb.get(), appData->m_cones.get(), falledFromMap);
 			deleteBasedOnPhysicsPredicate(appData, fence.get(), cb.get(), appData->m_cubes.get(), falledFromMap);
 			deleteBasedOnPhysicsPredicate(appData, fence.get(), cb.get(), appData->m_spheres.get(), falledFromMap);
 			deleteBasedOnPhysicsPredicate(appData, fence.get(), cb.get(), appData->m_cylinders.get(), falledFromMap);
