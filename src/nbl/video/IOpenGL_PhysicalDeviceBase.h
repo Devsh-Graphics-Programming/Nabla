@@ -351,6 +351,7 @@ public:
 		GetIntegerv(GL_MAX_DRAW_BUFFERS, &num);
 		m_glfeatures.MaxMultipleRenderTargets = static_cast<uint8_t>(num);
 
+		// TODO: move this to IPhysicalDevice::SFeatures
 		const bool runningInRenderDoc = (m_rdoc_api != nullptr);
 		m_glfeatures.runningInRenderDoc = runningInRenderDoc;
 
@@ -364,7 +365,7 @@ public:
 			m_features.multiDrawIndirect = IsGLES ? m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_multi_draw_indirect) : true;
 			m_features.drawIndirectCount = IsGLES ? false : (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_indirect_parameters) || m_glfeatures.Version >= 460u);
 
-			// TODO: handle ARB, EXT, NVidia and AMD extensions which can be used to spoof
+			// TODO: @achal handle ARB, EXT, NVidia and AMD extensions which can be used to spoof
 			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_KHR_shader_subgroup))
 			{
 				GLboolean subgroupQuadAllStages = GL_FALSE;
@@ -434,6 +435,13 @@ public:
 			m_limits.maxWorkgroupSize[1] = m_glfeatures.MaxComputeWGSize[1];
 			m_limits.maxWorkgroupSize[2] = m_glfeatures.MaxComputeWGSize[2];
 
+			// TODO: get this from OpenCL interop, or just a GPU Device & Vendor ID table
+			GetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS,reinterpret_cast<int32_t*>(&m_limits.maxOptimallyResidentWorkgroupInvocations));
+			m_limits.maxOptimallyResidentWorkgroupInvocations = core::min(core::roundDownToPoT(m_limits.maxOptimallyResidentWorkgroupInvocations),512u);
+			constexpr auto beefyGPUWorkgroupMaxOccupancy = 256u; // TODO: find a way to query and report this somehow, persistent threads are very useful!
+			m_limits.maxResidentInvocations = beefyGPUWorkgroupMaxOccupancy*m_limits.maxOptimallyResidentWorkgroupInvocations;
+
+			// TODO: better subgroup exposal
 			m_limits.subgroupSize = 0u;
 			m_limits.subgroupOpsShaderStages = static_cast<asset::IShader::E_SHADER_STAGE>(0u);
 			
@@ -460,7 +468,23 @@ public:
 					m_limits.subgroupOpsShaderStages |= asset::IShader::ESS_COMPUTE;
 			}
 		}
-
+		
+		std::ostringstream pool;
+        addCommonGLSLDefines(pool,runningInRenderDoc);
+		{
+			std::string define;
+			for (size_t j=0ull; j<std::extent<decltype(COpenGLFeatureMap::m_GLSLExtensions)>::value; ++j)
+			{
+				auto nativeGLExtension = COpenGLFeatureMap::m_GLSLExtensions[j];
+				if (m_glfeatures.isFeatureAvailable(nativeGLExtension))
+				{
+					define = "NBL_IMPL_";
+					define += COpenGLFeatureMap::OpenGLFeatureStrings[nativeGLExtension];
+					addGLSLDefineToPool(pool,define.c_str());
+				}
+			}
+		}
+        finalizeGLSLDefinePool(std::move(pool));
 
 		// we dont need this any more
 		m_egl.call.peglMakeCurrent(m_egl.display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);

@@ -1,4 +1,4 @@
-#version 430 core
+#version 450 core
 
 layout (location = 2) in vec3 Normal;
 layout (location = 3) in vec2 UV;
@@ -23,9 +23,5 @@ void main()
 	float myvis = 1.0-fragcolor.a;
 	uint mycolor = packUnorm4x8(vec4(fragcolor.rgb*fragcolor.a,0.0));
 
-    beginInvocationInterlockARB();
-
-	nbl_glsl_oit_insert_node(coord, mydepth, myvis, mycolor);
-
-	endInvocationInterlockARB();
+	NBL_GLSL_OIT_CRITICAL_SECTION(nbl_glsl_oit_insert_node(coord, mydepth, myvis, mycolor));
 }

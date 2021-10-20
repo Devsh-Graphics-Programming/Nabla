@@ -18,9 +18,7 @@ namespace spirv_cross
     struct SPIRType;
 }
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 //! Interface class for Unspecialized Shaders
@@ -58,79 +56,56 @@ class IShader : public virtual core::IReferenceCounted
 		struct buffer_contains_glsl_t {};
 		_NBL_STATIC_INLINE const buffer_contains_glsl_t buffer_contains_glsl = {};
 
-		IShader(const E_SHADER_STAGE shaderStage, std::string&& filepathHint)
-			: m_shaderStage(shaderStage), m_filepathHint(std::move(filepathHint))
-		{}
-
-		static inline void insertGLSLExtensionsDefines(std::string& _glsl, const core::refctd_dynamic_array<std::string>* _exts)
+		static inline void insertDefines(std::string& _glsl, const core::SRange<const char* const>& _defines)
 		{
-            if (!_exts)
+            if (_defines.empty())
                 return;
 
-			const std::string insertion = genGLSLExtensionDefines(_exts);
-
-			insertAfterVersionAndPragmaShaderStage(_glsl, insertion);
-		}
-
-		inline E_SHADER_STAGE getStage() const { return m_shaderStage; }
-
-		inline const std::string& getFilepathHint() const { return m_filepathHint; }
-
-protected:
-	static inline std::string genGLSLExtensionDefines(const core::refctd_dynamic_array<std::string>* _exts)
-	{
-		std::string insertion = "\n";
-		for (const std::string& ext : (*_exts))
-		{
-			std::string str;
-			//str += "#ifndef " + ext + "\n";
-			str += "\t#define NBL_IMPL_" + ext + "\n";
-			//str += "#endif //" + ext + "\n";
-
-			insertion += str;
-		}
-
-		return insertion;
-	}
-	static inline void insertAfterVersionAndPragmaShaderStage(std::string& _glsl, const std::string& _ins)
-	{
-		auto findLineJustAfterVersionOrPragmaShaderStageDirective = [&_glsl] () -> size_t
-		{
-			size_t hashPos = _glsl.find_first_of('#');
-			if (hashPos >= _glsl.length())
-				return _glsl.npos;
-			if (_glsl.compare(hashPos, 8, "#version"))
-				return _glsl.npos;
-
-			size_t searchPos = hashPos + 8ull;
-
-			size_t hashPos2 = _glsl.find_first_of('#', hashPos + 8ull);
-			if (hashPos2 < _glsl.length())
+			std::ostringstream insertion;
+			for (auto def : _defines)
 			{
-				char pragma_stage_str[] = "#pragma shader_stage";
-				if (_glsl.compare(hashPos2, sizeof(pragma_stage_str) - 1ull, pragma_stage_str) == 0)
-					searchPos = hashPos2 + sizeof(pragma_stage_str) - 1ull;
+				insertion << "#define "<<def<<"\n";
 			}
-			size_t nlPos = _glsl.find_first_of('\n', searchPos);
+			insertAfterVersionAndPragmaShaderStage(_glsl,std::move(insertion));
+		}
 
-			return (nlPos >= _glsl.length()) ? _glsl.npos : nlPos + 1ull;
-		};
+	// TODO: can make it protected again AFTER we get rid of `COpenGLShader::k_openGL2VulkanExtensionMap`
+	//protected:
+		static inline void insertAfterVersionAndPragmaShaderStage(std::string& _glsl, std::ostringstream&& _ins)
+		{
+			auto findLineJustAfterVersionOrPragmaShaderStageDirective = [&_glsl] () -> size_t
+			{
+				size_t hashPos = _glsl.find_first_of('#');
+				if (hashPos >= _glsl.length())
+					return _glsl.npos;
+				if (_glsl.compare(hashPos, 8, "#version"))
+					return _glsl.npos;
 
-		const size_t pos = findLineJustAfterVersionOrPragmaShaderStageDirective();
-		if (pos == _glsl.npos)
-			return;
+				size_t searchPos = hashPos + 8ull;
 
-		const size_t ln = std::count(_glsl.begin(), _glsl.begin() + pos, '\n') + 1;//+1 to count from 1
+				size_t hashPos2 = _glsl.find_first_of('#', hashPos + 8ull);
+				if (hashPos2 < _glsl.length())
+				{
+					char pragma_stage_str[] = "#pragma shader_stage";
+					if (_glsl.compare(hashPos2, sizeof(pragma_stage_str) - 1ull, pragma_stage_str) == 0)
+						searchPos = hashPos2 + sizeof(pragma_stage_str) - 1ull;
+				}
+				size_t nlPos = _glsl.find_first_of('\n', searchPos);
 
-		_glsl.insert(pos, _ins + "#line " + std::to_string(ln) + "\n");
-	}
+				return (nlPos >= _glsl.length()) ? _glsl.npos : nlPos + 1ull;
+			};
 
-private:
-	const E_SHADER_STAGE m_shaderStage;
-	const std::string m_filepathHint;
+			const size_t pos = findLineJustAfterVersionOrPragmaShaderStageDirective();
+			if (pos == _glsl.npos)
+				return;
+
+			const size_t ln = std::count(_glsl.begin(), _glsl.begin() + pos, '\n') + 1;//+1 to count from 1
+
+			_ins << "#line "<<std::to_string(ln)<<"\n";
+			_glsl.insert(pos,_ins.str());
+		}
 };
 
-}
 }
 
 #endif

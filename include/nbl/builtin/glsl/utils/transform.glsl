@@ -30,4 +30,28 @@ mat4 nbl_glsl_pseudoMul4x4with4x3(in mat4 proj, in mat4x3 tform)
     return result;
 }
 
+// useful for fast computation of a Normal Matrix (you just need to remember to normalize the transformed normal because of the missing divide by the determinant)
+mat3 nbl_glsl_sub3x3TransposeCofactors(in mat3 sub3x3)
+{
+    return mat3(
+        cross(sub3x3[1],sub3x3[2]),
+        cross(sub3x3[2],sub3x3[0]),
+        cross(sub3x3[0],sub3x3[1])
+    );
+}
+// returns a signflip mask
+uint nbl_glsl_sub3x3TransposeCofactors(in mat3 sub3x3, out mat3 sub3x3TransposeCofactors)
+{
+    sub3x3TransposeCofactors = nbl_glsl_sub3x3TransposeCofactors(sub3x3);
+    return floatBitsToUint(dot(sub3x3[0],sub3x3TransposeCofactors[0]))&0x80000000u;
+}
+
+// use this if you anticipate flipped/mirrored models
+vec3 nbl_glsl_fastNormalTransform(in uint signFlipMask, in mat3 sub3x3TransposeCofactors, in vec3 normal)
+{
+    vec3 tmp = sub3x3TransposeCofactors*normal;
+    const float tmpLenRcp = inversesqrt(dot(tmp,tmp));
+    return tmp*uintBitsToFloat(floatBitsToUint(tmpLenRcp)^signFlipMask);
+}
+
 #endif

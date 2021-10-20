@@ -1,3 +1,6 @@
+#ifndef _NBL_GLSL_OIT_GLSL_RESOLVE_FRAG_
+#define _NBL_GLSL_OIT_GLSL_RESOLVE_FRAG_
+
 #include <nbl/builtin/glsl/ext/OIT/oit.glsl>
 
 layout (location = 0) out vec4 OutColor;
@@ -45,3 +48,5 @@ void main()
 
 	OutColor = vec4(fragcolor,v);
 }
+
+#endif

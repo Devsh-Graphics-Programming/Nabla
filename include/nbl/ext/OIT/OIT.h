@@ -7,24 +7,28 @@
 
 namespace nbl::ext::OIT
 {
-    class COIT
-    {
+
+class COIT
+{
     public:
         static inline constexpr auto ColorImageFormat = NBL_GLSL_OIT_IMG_FORMAT_COLOR;
         static inline constexpr auto DepthImageFormat = NBL_GLSL_OIT_IMG_FORMAT_DEPTH;
         static inline constexpr auto VisImageFormat   = NBL_GLSL_OIT_IMG_FORMAT_VIS;
+        static inline constexpr auto SpinlockImageFormat   = asset::EF_R32_UINT;
 
-        static inline constexpr uint32_t BindingCount = 3u;
-        static inline constexpr uint32_t DefaultSetNum          = 2u;
-        static inline constexpr uint32_t DefaultColorImgBinding = 0u;
-        static inline constexpr uint32_t DefaultDepthImgBinding = 1u;
-        static inline constexpr uint32_t DefaultVisImgBinding   = 2u;
+        static inline constexpr uint32_t DefaultSetNum          = NBL_GLSL_OIT_SET_NUM;
+        static inline constexpr uint32_t DefaultColorImgBinding = NBL_GLSL_COLOR_IMAGE_BINDING;
+        static inline constexpr uint32_t DefaultDepthImgBinding = NBL_GLSL_DEPTH_IMAGE_BINDING;
+        static inline constexpr uint32_t DefaultVisImgBinding   = NBL_GLSL_VIS_IMAGE_BINDING;
+        static inline constexpr uint32_t DefaultSpinlockImgBinding   = NBL_GLSL_SPINLOCK_IMAGE_BINDING;
+        static inline constexpr uint32_t MaxImgBindingCount   = 4u;
 
         struct images_t
         {
             core::smart_refctd_ptr<video::IGPUImageView> color;
             core::smart_refctd_ptr<video::IGPUImageView> depth;
             core::smart_refctd_ptr<video::IGPUImageView> vis;
+            core::smart_refctd_ptr<video::IGPUImageView> spinlock;
         };
 
         struct proto_pipeline_t
@@ -100,7 +104,13 @@ namespace nbl::ext::OIT
             resolve_glsl += "#define NBL_GLSL_VIS_IMAGE_BINDING " + std::to_string(visBnd) + "\n";
             resolve_glsl += "#include <nbl/builtin/glsl/ext/OIT/resolve.frag>\n";
 
-            auto cpushader = core::make_smart_refctd_ptr<asset::ICPUShader>(resolve_glsl.c_str(), asset::IShader::ESS_FRAGMENT, "oit_resolve.frag");
+            const bool hasInterlock = false; // TODO: @Erfan dev->getPhysicalDevice()->getLimits().fragmentShaderInterlock;
+            if (hasInterlock)
+                m_images.spinlock = nullptr;
+            else
+                m_images.spinlock = createOITImage(SpinlockImageFormat);
+
+            auto cpushader = core::make_smart_refctd_ptr<asset::ICPUShader>(resolve_glsl.c_str());
             auto shader = dev->createGPUShader(std::move(cpushader));
             if (!shader)
                 return false;
@@ -136,15 +146,16 @@ namespace nbl::ext::OIT
         }
 
         template <typename DSLType>
-        uint32_t getDSLayoutBindings(typename DSLType::SBinding* _out_bindings,
-            uint32_t _colorBinding = DefaultColorImgBinding, uint32_t _depthBinding = DefaultDepthImgBinding, uint32_t _visBinding = DefaultVisImgBinding
+        uint32_t getDSLayoutBindings(DSLType::SBinding* _out_bindings,
+            uint32_t _colorBinding = DefaultColorImgBinding, uint32_t _depthBinding = DefaultDepthImgBinding, uint32_t _visBinding = DefaultVisImgBinding, uint32_t _spinlockBinding = DefaultSpinlockImgBinding
         ) const
         {
+            const uint32_t bindingCount = m_images.spinlock ? MaxImgBindingCount:(MaxImgBindingCount-1u);
             if (!_out_bindings)
-                return BindingCount;
+                return bindingCount;
 
-            const uint32_t b[BindingCount]{ _colorBinding, _depthBinding, _visBinding };
-            for (uint32_t i = 0u; i < BindingCount; ++i)
+            const uint32_t b[MaxImgBindingCount]{ _colorBinding,_depthBinding,_visBinding,_spinlockBinding };
+            for (uint32_t i = 0u; i < bindingCount; ++i)
             {
                 auto& bnd = _out_bindings[i];
                 bnd.binding = b[i];
@@ -154,18 +165,19 @@ namespace nbl::ext::OIT
                 bnd.type = asset::EDT_STORAGE_IMAGE;
             }
 
-            return BindingCount;
+            return bindingCount;
         }
         uint32_t getDSWrites(video::IGPUDescriptorSet::SWriteDescriptorSet* _out_writes, video::IGPUDescriptorSet::SDescriptorInfo* _out_infos, video::IGPUDescriptorSet* dstset,
-            uint32_t _colorBinding = DefaultColorImgBinding, uint32_t _depthBinding = DefaultDepthImgBinding, uint32_t _visBinding = DefaultVisImgBinding
+            uint32_t _colorBinding = DefaultColorImgBinding, uint32_t _depthBinding = DefaultDepthImgBinding, uint32_t _visBinding = DefaultVisImgBinding, uint32_t _spinlockBinding = DefaultSpinlockImgBinding
         ) const
         {
+            const uint32_t bindingCount = m_images.spinlock ? MaxImgBindingCount:(MaxImgBindingCount-1u);
             if (!_out_writes || !_out_infos)
-                return BindingCount;
+                return bindingCount;
 
-            const uint32_t b[BindingCount]{ _colorBinding, _depthBinding, _visBinding };
-            core::smart_refctd_ptr<video::IGPUImageView> images[BindingCount]{ m_images.color, m_images.depth, m_images.vis };
-            for (uint32_t i = 0u; i < BindingCount; ++i)
+            const uint32_t b[MaxImgBindingCount]{ _colorBinding, _depthBinding, _visBinding, _spinlockBinding };
+            core::smart_refctd_ptr<video::IGPUImageView> images[MaxImgBindingCount]{ m_images.color, m_images.depth, m_images.vis, m_images.spinlock };
+            for (uint32_t i = 0u; i < bindingCount; ++i)
             {
                 auto& w = _out_writes[i];
                 auto& info = _out_infos[i];
@@ -182,15 +194,17 @@ namespace nbl::ext::OIT
                 info.image.imageLayout = asset::EIL_GENERAL; // TODO for Vulkan
             }
 
-            return BindingCount;
+            return bindingCount;
         }
 
-        core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createDSLayout(video::ILogicalDevice* dev, uint32_t _colorBinding = DefaultColorImgBinding, uint32_t _depthBinding = DefaultDepthImgBinding, uint32_t _visBinding = DefaultVisImgBinding) const
+        core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createDSLayout(video::ILogicalDevice* dev,
+            uint32_t _colorBinding = DefaultColorImgBinding, uint32_t _depthBinding = DefaultDepthImgBinding, uint32_t _visBinding = DefaultVisImgBinding, uint32_t _spinlockBinding = DefaultSpinlockImgBinding
+        ) const
         {
-            video::IGPUDescriptorSetLayout::SBinding b[BindingCount];
-            getDSLayoutBindings<video::IGPUDescriptorSetLayout>(b, _colorBinding, _depthBinding, _visBinding);
+            video::IGPUDescriptorSetLayout::SBinding b[MaxImgBindingCount];
+            const auto bindingCount = getDSLayoutBindings<video::IGPUDescriptorSetLayout>(b, _colorBinding, _depthBinding, _visBinding, _spinlockBinding);
 
-            return dev->createGPUDescriptorSetLayout(b, b + BindingCount);
+            return dev->createGPUDescriptorSetLayout(b,b+bindingCount);
         }
 
         // should be required in first frame only
@@ -204,13 +218,19 @@ namespace nbl::ext::OIT
             asset::IImage::SSubresourceRange subres = m_images.vis->getCreationParameters().subresourceRange;
             cmdbuf->clearColorImage(m_images.vis->getCreationParameters().image.get(), asset::EIL_UNDEFINED, &clearval, 1u, &subres);
 
+            if (m_images.spinlock)
+            {
+                clearval.uint32[0] = 0u;
+                subres = m_images.spinlock->getCreationParameters().subresourceRange;
+                cmdbuf->clearColorImage(m_images.spinlock->getCreationParameters().image.get(), asset::EIL_UNDEFINED, &clearval, 1u, &subres);
+            }
             // TODO barrier?
         }
 
         void barrierBetweenPasses(video::IGPUCommandBuffer* cmdbuf, uint32_t qfam) const
         {
-            video::IGPUCommandBuffer::SImageMemoryBarrier imgbarrier[BindingCount];
-            for (uint32_t i = 0u; i < BindingCount; ++i)
+            video::IGPUCommandBuffer::SImageMemoryBarrier imgbarrier[MaxImgBindingCount];
+            for (uint32_t i = 0u; i < MaxImgBindingCount; ++i)
             {
                 imgbarrier[i].barrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
                 imgbarrier[i].barrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
@@ -225,8 +245,14 @@ namespace nbl::ext::OIT
             imgbarrier[1].subresourceRange = m_images.depth->getCreationParameters().subresourceRange;
             imgbarrier[2].image = m_images.vis->getCreationParameters().image;
             imgbarrier[2].subresourceRange = m_images.vis->getCreationParameters().subresourceRange;
+            if (m_images.spinlock)
+            {
+                imgbarrier[3].image = m_images.spinlock->getCreationParameters().image;
+                imgbarrier[3].subresourceRange = m_images.spinlock->getCreationParameters().subresourceRange;
+            }
 
-            cmdbuf->pipelineBarrier(asset::EPSF_FRAGMENT_SHADER_BIT, asset::EPSF_FRAGMENT_SHADER_BIT, asset::EDF_NONE, 0u, nullptr, 0u, nullptr, BindingCount, imgbarrier);
+            const uint32_t bindingCount = m_images.spinlock ? MaxImgBindingCount:(MaxImgBindingCount-1u);
+            cmdbuf->pipelineBarrier(asset::EPSF_FRAGMENT_SHADER_BIT, asset::EPSF_FRAGMENT_SHADER_BIT, asset::EDF_BY_REGION_BIT, 0u, nullptr, 0u, nullptr, bindingCount, imgbarrier);
         }
 
         void resolvePass(video::IGPUCommandBuffer* cmdbuf, video::IGPUGraphicsPipeline* gfx, video::IGPUDescriptorSet* ds, uint32_t set = DefaultSetNum)

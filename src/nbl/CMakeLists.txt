@@ -267,6 +267,7 @@ set(NBL_VIDEO_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/video/alloc/StreamingGPUBufferAllocator.cpp
 	
 # Shaders
+	${NBL_ROOT_PATH}/src/nbl/video/COpenGLShader.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLSpecializedShader.cpp
 
 # Utilities

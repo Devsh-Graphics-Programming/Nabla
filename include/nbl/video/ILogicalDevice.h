@@ -138,8 +138,6 @@ class ILogicalDevice : public core::IReferenceCounted
             return true;
         }
 
-        virtual const core::smart_refctd_dynamic_array<std::string> getSupportedGLSLExtensions() const = 0;
-
         bool createCommandBuffers(IGPUCommandPool* _cmdPool, IGPUCommandBuffer::E_LEVEL _level, uint32_t _count, core::smart_refctd_ptr<IGPUCommandBuffer>* _outCmdBufs)
         {
             if (!_cmdPool->wasCreatedBy(this))
@@ -327,7 +325,11 @@ class ILogicalDevice : public core::IReferenceCounted
         {
             if (!_unspecialized->wasCreatedBy(this))
                 return nullptr;
-            return createGPUSpecializedShader_impl(_unspecialized, _specInfo, _spvopt);
+            auto retval =  createGPUSpecializedShader_impl(_unspecialized, _specInfo, _spvopt);
+            const auto path = _specInfo.m_filePathHint.string();
+            if (retval && !path.empty())
+                retval->setObjectDebugName(path.c_str());
+            return retval;
         }
 
         //! Create a BufferView, to a shader; a fake 1D texture with no interpolation (@see ICPUBufferView)
@@ -404,12 +406,12 @@ class ILogicalDevice : public core::IReferenceCounted
             return dsPool;
         }
 
-        void createGPUDescriptorSets(IDescriptorPool* pool, uint32_t count, const IGPUDescriptorSetLayout** _layouts, core::smart_refctd_ptr<IGPUDescriptorSet>* output)
+        void createGPUDescriptorSets(IDescriptorPool* pool, uint32_t count, const IGPUDescriptorSetLayout* const* _layouts, core::smart_refctd_ptr<IGPUDescriptorSet>* output)
         {
-            core::SRange<const IGPUDescriptorSetLayout*> layouts{ _layouts, _layouts + count };
+            core::SRange<const IGPUDescriptorSetLayout* const> layouts{ _layouts, _layouts + count };
             createGPUDescriptorSets(pool, layouts, output);
         }
-        void createGPUDescriptorSets(IDescriptorPool* pool, core::SRange<const IGPUDescriptorSetLayout*> layouts, core::smart_refctd_ptr<IGPUDescriptorSet>* output)
+        void createGPUDescriptorSets(IDescriptorPool* pool, core::SRange<const IGPUDescriptorSetLayout* const> layouts, core::smart_refctd_ptr<IGPUDescriptorSet>* output)
         {
             uint32_t i = 0u;
             for (const IGPUDescriptorSetLayout* layout_ : layouts)
@@ -473,7 +475,11 @@ class ILogicalDevice : public core::IReferenceCounted
                 return nullptr;
             if (!_shader->wasCreatedBy(this))
                 return nullptr;
-            return createGPUComputePipeline_impl(_pipelineCache, std::move(_layout), std::move(_shader));
+            const char* debugName = _shader->getObjectDebugName();
+            auto retval = createGPUComputePipeline_impl(_pipelineCache, std::move(_layout), std::move(_shader));
+            if (retval && debugName[0])
+                retval->setObjectDebugName(debugName);
+            return retval;
         }
 
         bool createGPUComputePipelines(
