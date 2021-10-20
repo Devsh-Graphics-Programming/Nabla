@@ -46,7 +46,7 @@ namespace nbl::system
 		}
 		void threadsafeLog_impl(const std::string_view& fmt, E_LOG_LEVEL logLevel, va_list args) override
 		{
-			(void)__android_log_print(getNativeLogLevel(logLevel), "Nabla Engine", fmt.data(), args);
+			(void)__android_log_print(getNativeLogLevel(logLevel), "Nabla Engine", "%s", constructLogString(fmt, logLevel, args).c_str());
 		}
 	};
 }
