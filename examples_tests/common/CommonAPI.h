@@ -838,13 +838,12 @@ public:
 #ifndef _NBL_PLATFORM_ANDROID_
 		nbl::system::path CWD = nbl::system::path(argv[0]).parent_path().generic_string() + "/";
 		auto app = nbl::core::template make_smart_refctd_ptr<AppClassName>(CWD);
-		UserDataType usrData{};
-		app->onAppInitialized(&usrData);
-		while (app->keepRunning(&usrData))
+		app->onAppInitialized();
+		while (app->keepRunning())
 		{
-			app->workLoopBody(&usrData);
+			app->workLoopBody();
 		}
-		app->onAppTerminated(&usrData);
+		app->onAppTerminated();
 #endif
 	}
 

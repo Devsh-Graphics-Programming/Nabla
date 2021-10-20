@@ -41,19 +41,17 @@ public:
     nbl::core::smart_refctd_ptr<nbl::video::IUtilities> utilities;
     nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice> logicalDevice;
     nbl::video::IPhysicalDevice* physicalDevice;
-    std::array<nbl::video::IGPUQueue*, CommonAPI::InitOutput<SC_IMG_COUNT>::EQT_COUNT> queues = { nullptr, nullptr, nullptr, nullptr };
+    std::array<video::IGPUQueue*, CommonAPI::InitOutput::MaxQueuesCount> queues;
     nbl::core::smart_refctd_ptr<nbl::video::ISwapchain> swapchain;
     nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpass> renderpass;
-    std::array<nbl::core::smart_refctd_ptr<nbl::video::IGPUFramebuffer>, SC_IMG_COUNT> fbo;
-    nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandPool> commandPool; // TODO: Multibuffer and reset the commandpools
+    std::array<nbl::core::smart_refctd_ptr<nbl::video::IGPUFramebuffer>, CommonAPI::InitOutput::MaxSwapChainImageCount> fbo;
+    std::array<nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandPool>, CommonAPI::InitOutput::MaxQueuesCount> commandPools; // TODO: Multibuffer and reset the commandpools
     nbl::core::smart_refctd_ptr<nbl::system::ISystem> system;
     nbl::core::smart_refctd_ptr<nbl::asset::IAssetManager> assetManager;
     nbl::video::IGPUObjectFromAssetConverter::SParams cpu2gpuParams;
     nbl::core::smart_refctd_ptr<nbl::system::ILogger> logger;
     nbl::core::smart_refctd_ptr<CommonAPI::InputSystem> inputSystem;
 
-    nbl::core::smart_refctd_ptr<video::IGPUFence> gpuTransferFence;
-    nbl::core::smart_refctd_ptr<video::IGPUFence> gpuComputeFence;
     nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
 
     core::smart_refctd_ptr<video::IDescriptorPool> descriptorPool;
@@ -98,28 +96,6 @@ public:
     double time_sum = 0;
     double dtList[NBL_FRAMES_TO_AVERAGE] = {};
 
-    void cpu2gpuWaitForFences()
-    {
-        video::IGPUFence::E_STATUS waitStatus = video::IGPUFence::ES_NOT_READY;
-        while (waitStatus != video::IGPUFence::ES_SUCCESS)
-        {
-            waitStatus = logicalDevice->waitForFences(1u, &gpuTransferFence.get(), false, 999999999ull);
-            if (waitStatus == video::IGPUFence::ES_ERROR)
-                assert(false);
-            else if (waitStatus == video::IGPUFence::ES_TIMEOUT)
-                break;
-        }
-
-        waitStatus = video::IGPUFence::ES_NOT_READY;
-        while (waitStatus != video::IGPUFence::ES_SUCCESS)
-        {
-            waitStatus = logicalDevice->waitForFences(1u, &gpuComputeFence.get(), false, 999999999ull);
-            if (waitStatus == video::IGPUFence::ES_ERROR)
-                assert(false);
-            else if (waitStatus == video::IGPUFence::ES_TIMEOUT)
-                break;
-        }
-    }
     auto createDescriptorPool(const uint32_t textureCount)
     {
         constexpr uint32_t maxItemCount = 256u;
@@ -164,9 +140,8 @@ public:
         const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT);
         const video::ISurface::SFormat surfaceFormat(asset::EF_B8G8R8A8_SRGB, asset::ECP_COUNT, asset::EOTF_UNKNOWN);
 
-        nabla* engine = (nabla*)data;
         CommonAPI::InitOutput initOutput;
-        initOutput.window = core::smart_refctd_ptr(engine->window);
+        initOutput.window = core::smart_refctd_ptr(window);
         CommonAPI::Init(
             initOutput,
             video::EAT_OPENGL,
@@ -182,25 +157,25 @@ public:
             surfaceFormat,
             nbl::asset::EF_D32_SFLOAT);
 
-        engine->window = std::move(initOutput.window);
-        engine->windowCb = std::move(initOutput.windowCb);
-        engine->apiConnection = std::move(initOutput.apiConnection);
-        engine->surface = std::move(initOutput.surface);
-        engine->utilities = std::move(initOutput.utilities);
-        engine->logicalDevice = std::move(initOutput.logicalDevice);
-        engine->physicalDevice = initOutput.physicalDevice;
-        engine->queues = std::move(initOutput.queues);
-        engine->swapchain = std::move(initOutput.swapchain);
-        engine->renderpass = std::move(initOutput.renderpass);
-        engine->fbo = std::move(initOutput.fbo);
-        engine->commandPools = std::move(initOutput.commandPools);
-        engine->system = std::move(initOutput.system);
-        engine->assetManager = std::move(initOutput.assetManager);
-        engine->cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
-        engine->logger = std::move(initOutput.logger);
-        engine->inputSystem = std::move(initOutput.inputSystem);
+        window = std::move(initOutput.window);
+        windowCb = std::move(initOutput.windowCb);
+        apiConnection = std::move(initOutput.apiConnection);
+        surface = std::move(initOutput.surface);
+        utilities = std::move(initOutput.utilities);
+        logicalDevice = std::move(initOutput.logicalDevice);
+        physicalDevice = initOutput.physicalDevice;
+        queues = std::move(initOutput.queues);
+        swapchain = std::move(initOutput.swapchain);
+        renderpass = std::move(initOutput.renderpass);
+        fbo = std::move(initOutput.fbo);
+        commandPools = std::move(initOutput.commandPools);
+        system = std::move(initOutput.system);
+        assetManager = std::move(initOutput.assetManager);
+        cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
+        logger = std::move(initOutput.logger);
+        inputSystem = std::move(initOutput.inputSystem);
 
-        bool oit_init = engine->oit.initialize(engine->logicalDevice.get(), WIN_W, WIN_H, engine->cpu2gpuParams);
+        bool oit_init = oit.initialize(logicalDevice.get(), WIN_W, WIN_H, cpu2gpuParams);
         assert(oit_init);
 
         core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> cpu_ds2layout;
@@ -385,23 +360,23 @@ public:
             logicalDevice->updateDescriptorSets(1u, &write, 0u, nullptr);
         }
         {
-            engine->cpu2gpuParams.beginCommandBuffers();
-            auto gpu_array = cpu2gpu.getGPUObjectsFromAssets(transparentMeshes.data(), transparentMeshes.data() + transparentMeshes.size(), engine->cpu2gpuParams);
-            engine->cpu2gpuParams.waitForCreationToComplete(true);
+            cpu2gpuParams.beginCommandBuffers();
+            auto gpu_array = cpu2gpu.getGPUObjectsFromAssets(transparentMeshes.data(), transparentMeshes.data() + transparentMeshes.size(), cpu2gpuParams);
+            cpu2gpuParams.waitForCreationToComplete(true);
             
             if (!gpu_array || gpu_array->size() < 1u || !(*gpu_array)[0])
                 assert(false);
             for (auto& mb : *gpu_array)
-                engine->gpu_transMeshes.push_back(mb);
+                gpu_transMeshes.push_back(mb);
             
-            engine->cpu2gpuParams.beginCommandBuffers();
-            gpu_array = cpu2gpu.getGPUObjectsFromAssets(opaqueMeshes.data(), opaqueMeshes.data() + opaqueMeshes.size(), engine->cpu2gpuParams);
-            engine->cpu2gpuParams.waitForCreationToComplete(true);
+            cpu2gpuParams.beginCommandBuffers();
+            gpu_array = cpu2gpu.getGPUObjectsFromAssets(opaqueMeshes.data(), opaqueMeshes.data() + opaqueMeshes.size(), cpu2gpuParams);
+            cpu2gpuParams.waitForCreationToComplete(true);
 
             if (!gpu_array || gpu_array->size() < 1u || !(*gpu_array)[0])
                 assert(false);
             for (auto& mb : *gpu_array)
-                engine->gpu_opaqueMeshes.push_back(mb);
+                gpu_opaqueMeshes.push_back(mb);
 
             gpu_allMeshes.insert(gpu_allMeshes.begin(), gpu_transMeshes.begin(), gpu_transMeshes.end());
             gpu_allMeshes.insert(gpu_allMeshes.begin(), gpu_opaqueMeshes.begin(), gpu_opaqueMeshes.end());
@@ -435,7 +410,7 @@ public:
         for (size_t i = 0ull; i < NBL_FRAMES_TO_AVERAGE; ++i)
             dtList[i] = 0.0;
 
-        engine->logicalDevice->createCommandBuffers(engine->commandPools[CommonAPI::InitOutput::EQT_GRAPHICS].get(), video::IGPUCommandBuffer::EL_PRIMARY, FRAMES_IN_FLIGHT, engine->commandBuffers);
+        logicalDevice->createCommandBuffers(commandPools[CommonAPI::InitOutput::EQT_GRAPHICS].get(), video::IGPUCommandBuffer::EL_PRIMARY, FRAMES_IN_FLIGHT, commandBuffers);
 
         for (uint32_t i = 0u; i < FRAMES_IN_FLIGHT; i++)
         {
@@ -451,11 +426,11 @@ public:
         auto gpuSourceImageView = fboCreationParams.attachments[0];
 
         bool status = ext::ScreenShot::createScreenShot(
-            engine->logicalDevice.get(), 
-            engine->queues[CommonAPI::InitOutput::EQT_TRANSFER_UP], 
-            engine->renderFinished[engine->resourceIx].get(),
+            logicalDevice.get(), 
+            queues[CommonAPI::InitOutput::EQT_TRANSFER_UP], 
+            renderFinished[resourceIx].get(),
             gpuSourceImageView.get(),
-            engine->assetManager.get(),
+            assetManager.get(),
             "ScreenShot.png",
             asset::EIL_PRESENT_SRC_KHR,
             static_cast<asset::E_ACCESS_FLAGS>(0u));
@@ -629,13 +604,13 @@ public:
         }
 
         // mem barriers on OIT images
-        engine->oit.barrierBetweenPasses(commandBuffer.get(), engine->queues[CommonAPI::InitOutput::EQT_GRAPHICS]->getFamilyIndex());
+        oit.barrierBetweenPasses(commandBuffer.get(), queues[CommonAPI::InitOutput::EQT_GRAPHICS]->getFamilyIndex());
 
         //OIT resolve
         oit.resolvePass(commandBuffer.get(), oit_resolve_ppln.get(), ds2.get(), 2u);
 
         // mem barrier on OIT vis image (written at the end of resolve pass)
-        engine->oit.barrierAfterResolve(commandBuffer.get(), engine->queues[CommonAPI::InitOutput::EQT_GRAPHICS]->getFamilyIndex());
+        oit.barrierAfterResolve(commandBuffer.get(), queues[CommonAPI::InitOutput::EQT_GRAPHICS]->getFamilyIndex());
 
         commandBuffer->endRenderPass();
         commandBuffer->end();
@@ -643,15 +618,15 @@ public:
         CommonAPI::Submit(logicalDevice.get(), 
             swapchain.get(),
             commandBuffer.get(),
-            engine->queues[CommonAPI::InitOutput::EQT_GRAPHICS],
-            engine->imageAcquire[engine->resourceIx].get(), 
-            engine->renderFinished[engine->resourceIx].get(),
+            queues[CommonAPI::InitOutput::EQT_GRAPHICS],
+            imageAcquire[resourceIx].get(), 
+            renderFinished[resourceIx].get(),
             fence.get());
-        CommonAPI::Present(engine->logicalDevice.get(),
-            engine->swapchain.get(), 
-            engine->queues[CommonAPI::InitOutput::EQT_GRAPHICS], 
-            engine->renderFinished[engine->resourceIx].get(), 
-            engine->acquiredNextFBO);
+        CommonAPI::Present(logicalDevice.get(),
+            swapchain.get(), 
+            queues[CommonAPI::InitOutput::EQT_GRAPHICS], 
+            renderFinished[resourceIx].get(), 
+            acquiredNextFBO);
 
         frameNum++;
     }
