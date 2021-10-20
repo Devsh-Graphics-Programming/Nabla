@@ -299,7 +299,7 @@ int main()
     // how many instances
     constexpr auto MaxInstanceCount = 1u<<19u; // TODO: figure out what prevents me from jacking up the instance count to 1M
     // maximum visible instances of a drawcall (should be a sum of MaxLoDDrawcalls[t]*MaxInstances[t] where t iterates over all LoD Tables)
-    constexpr auto MaxTotalVisibleDrawcallInstances = 1u<<18u; // This is literally my worst case guess of how many batch-draw-instances there will be on screen at the same time
+    constexpr auto MaxTotalVisibleDrawcallInstances = 1u<<19u; // This is literally my worst case guess of how many batch-draw-instances there will be on screen at the same time
 
     auto ttm = scene::ITransformTreeManager::create(core::smart_refctd_ptr(logicalDevice));
     // Transform Tree

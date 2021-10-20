@@ -124,7 +124,9 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/scene/keyframe.glsl"
   "nbl/builtin/glsl/scene/node.glsl"
   # shapes
-  #"nbl/builtin/glsl/shapes/rectangle.glsl" 
+  "nbl/builtin/glsl/shapes/aabb.glsl"
+  "nbl/builtin/glsl/shapes/frustum.glsl"
+  #"nbl/builtin/glsl/shapes/rectangle.glsl"
   "nbl/builtin/glsl/shapes/triangle.glsl"
   # subgroup emulation
   "nbl/builtin/glsl/subgroup/shared_arithmetic_portability.glsl"

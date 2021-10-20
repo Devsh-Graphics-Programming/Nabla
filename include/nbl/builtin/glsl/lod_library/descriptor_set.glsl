@@ -1,6 +1,11 @@
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
 #ifndef _NBL_GLSL_LOD_LIBRARY_DESCRIPTOR_SET_GLSL_INCLUDED_
 #define _NBL_GLSL_LOD_LIBRARY_DESCRIPTOR_SET_GLSL_INCLUDED_
 
+#include <nbl/builtin/glsl/shapes/aabb.glsl>
 
 #ifndef NBL_GLSL_LOD_LIBRARY_DESCRIPTOR_SET
 #define NBL_GLSL_LOD_LIBRARY_DESCRIPTOR_SET 0
@@ -27,10 +32,10 @@ uint nbl_glsl_lod_library_Table_getLoDCount(in uint lodTableUvec4Offset)
     const uint offsetofLevelCount = 3u;
     return lodTables.data[lodTableUvec4Offset][offsetofLevelCount];
 }
-mat2x3 nbl_glsl_lod_library_Table_getAABB(in uint lodTableUvec4Offset)
+nbl_glsl_shapes_AABB_t nbl_glsl_lod_library_Table_getAABB(in uint lodTableUvec4Offset)
 {
     const uint uvec4OffsetofMaxAABB = 1u;
-    return mat2x3(uintBitsToFloat(lodTables.data[lodTableUvec4Offset].xyz),uintBitsToFloat(lodTables.data[lodTableUvec4Offset+uvec4OffsetofMaxAABB].xyz));
+    return nbl_glsl_shapes_AABB_t(uintBitsToFloat(lodTables.data[lodTableUvec4Offset].xyz),uintBitsToFloat(lodTables.data[lodTableUvec4Offset+uvec4OffsetofMaxAABB].xyz));
 }
 uint nbl_glsl_lod_library_Table_getLoDUvec4Offset(in uint lodTableUvec4Offset, in uint lodID)
 {
@@ -70,11 +75,11 @@ uint nbl_glsl_lod_library_Info_getTotalBoneCount(in uint lodInfoUvec4Offset)
     return lodInfos.data[lodInfoDWORDOffset+offsetof_drawcallInfoCountAndTotalBoneCount]>>16u;
 }
 
-mat2x3 nbl_glsl_lod_library_Info_getAABB(in uint lodInfoUvec4Offset)
+nbl_glsl_shapes_AABB_t nbl_glsl_lod_library_Info_getAABB(in uint lodInfoUvec4Offset)
 {
     const uint lodInfoDWORDOffset = lodInfoUvec4Offset<<2u;
     const uint offsetof_aabbMax = 4u;
-    return mat2x3(
+    return nbl_glsl_shapes_AABB_t(
         vec3(
             uintBitsToFloat(lodInfos.data[lodInfoDWORDOffset+0u]),
             uintBitsToFloat(lodInfos.data[lodInfoDWORDOffset+1u]),
