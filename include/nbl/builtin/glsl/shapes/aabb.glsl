@@ -27,4 +27,11 @@ float nbl_glsl_shapes_AABB_getVolume(in nbl_glsl_shapes_AABB_t aabb)
     return extent.x*extent.y*extent.z;
 }
 
+
+// returns the corner of the AABB which has the most positive dot product
+vec3 nbl_glsl_shapes_AABB_getFarthestPointInFront(in nbl_glsl_shapes_AABB_t aabb, in vec3 plane)
+{
+    return mix(aabb.maxVx,aabb.minVx,lessThan(plane,vec3(0.f)));
+}
+
 #endif

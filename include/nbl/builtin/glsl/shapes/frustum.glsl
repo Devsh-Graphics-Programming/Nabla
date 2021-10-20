@@ -36,7 +36,7 @@ nbl_glsl_shapes_Frustum_t nbl_glsl_shapes_Frustum_extract(in mat4 proj)
 // gives false negatives
 bool nbl_glsl_shapes_Frustum_fastestDoesNotIntersectAABB(in nbl_glsl_shapes_Frustum_t frust, in nbl_glsl_shapes_AABB_t aabb)
 {
-#define getClosestDP(R) (dot(mix(aabb.maxVx,aabb.minVx,lessThan(R.xyz,vec3(0.f)) ),R.xyz)+R.w)
+#define getClosestDP(R) (dot(nbl_glsl_shapes_AABB_getFarthestPointInFront(aabb,R.xyz),R.xyz)+R.w)
     if (getClosestDP(frust.minPlanes[0])<=0.f)
         return true;
     if (getClosestDP(frust.minPlanes[1])<=0.f)

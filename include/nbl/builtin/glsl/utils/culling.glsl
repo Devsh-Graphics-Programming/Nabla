@@ -28,8 +28,8 @@ bool nbl_glsl_fastFrustumCullAABB(in mat4 proj, in mat4 invProj, in nbl_glsl_sha
     return nbl_glsl_shapes_Frustum_fastestDoesNotIntersectAABB(boxInvFrustum,ndc);
 }
 
-// perfect Separating Axis Theorem
-/* Needed for Clustered/Tiled Lighting
+// perfect Separating Axis Theorem, needed for Clustered/Tiled Lighting
+// TODO: needs actual TESTING!
 bool nbl_glsl_preciseFrustumCullAABB(in mat4 proj, in mat4 invProj, in nbl_glsl_shapes_AABB_t aabb)
 {
     const nbl_glsl_shapes_Frustum_t viewFrust = nbl_glsl_shapes_Frustum_extract(proj);
@@ -43,8 +43,6 @@ bool nbl_glsl_preciseFrustumCullAABB(in mat4 proj, in mat4 invProj, in nbl_glsl_
     if (nbl_glsl_shapes_Frustum_fastestDoesNotIntersectAABB(boxInvFrustum,ndc))
         return true;
 
-    // TODO: extract all 8 vertices of the frustum given invProj
-    vec3 vertices[8];
     vec3 edges[12];
     edges[ 0] = cross(viewFrust.minPlanes[0].xyz,viewFrust.minPlanes[1].xyz);
     edges[ 1] = cross(viewFrust.minPlanes[0].xyz,viewFrust.minPlanes[2].xyz);
@@ -60,55 +58,56 @@ bool nbl_glsl_preciseFrustumCullAABB(in mat4 proj, in mat4 invProj, in nbl_glsl_
     edges[11] = cross(viewFrust.minPlanes[2].xyz,viewFrust.maxPlanes[1].xyz);
     for (int i=0; i<12; i++)
     {
+#define getClosestDP(R) (dot(nbl_glsl_shapes_AABB_getFarthestPointInFront(ndc,R.xyz),R.xyz)+R.w)
         // cross(e_0,edges[i])
         {
             const vec2 normal = vec2(-edges[i].z,edges[i].y);
             const bvec2 negMask = lessThan(normal,vec2(0.f));
-#define getDP(V) dot(V.yz,normal)
+            const vec4 planeBase = normal.x*invProj[1]+normal.y*invProj[2];
+            
             const float minAABB = dot(mix(aabb.minVx.yz,aabb.maxVx.yz,negMask),normal);
-            for (int j=1; j<8; j++)
-            if (getDP(vertices[j])<=minAABB)
+            const vec4 minPlane = planeBase-invProj[3]*minAABB;
+            if (getClosestDP(minPlane)<=0.f)
                 return true;
             const float maxAABB = dot(mix(aabb.maxVx.yz,aabb.minVx.yz,negMask),normal);
-            for (int j=1; j<8; j++)
-            if (maxAABB<=getDP(vertices[j]))
+            const vec4 maxPlane = invProj[3]*maxAABB-planeBase;
+            if (getClosestDP(maxPlane)<=0.f)
                 return true;
-#undef getDP
         }
         // cross(e_1,edges[i])
         {
             const vec2 normal = vec2(-edges[i].x,edges[i].z);
             const bvec2 negMask = lessThan(normal,vec2(0.f));
-#define getDP(V) dot(V.xz,normal)
+            const vec4 planeBase = normal.x*invProj[0]+normal.y*invProj[2];
+
             const float minAABB = dot(mix(aabb.minVx.xz,aabb.maxVx.xz,negMask),normal);
-            for (int j=1; j<8; j++)
-            if (getDP(vertices[j])<=minAABB)
+            const vec4 minPlane = planeBase-invProj[3]*minAABB;
+            if (getClosestDP(minPlane)<=0.f)
                 return true;
             const float maxAABB = dot(mix(aabb.maxVx.xz,aabb.minVx.xz,negMask),normal);
-            for (int j=1; j<8; j++)
-            if (maxAABB<=getDP(vertices[j]))
+            const vec4 maxPlane = invProj[3]*maxAABB-planeBase;
+            if (getClosestDP(maxPlane)<=0.f)
                 return true;
-#undef getDP
         }
         // cross(e_2,edges[i])
         {
             const vec2 normal = vec2(-edges[i].y,edges[i].x);
             const bvec2 negMask = lessThan(normal,vec2(0.f));
-#define getDP(V) dot(V.xy,normal)
+            const vec4 planeBase = normal.x*invProj[0]+normal.y*invProj[1];
+
             const float minAABB = dot(mix(aabb.minVx.xy,aabb.maxVx.xy,negMask),normal);
-            for (int j=1; j<8; j++)
-            if (getDP(vertices[j])<=minAABB)
+            const vec4 minPlane = planeBase-invProj[3]*minAABB;
+            if (getClosestDP(minPlane)<=0.f)
                 return true;
             const float maxAABB = dot(mix(aabb.maxVx.xy,aabb.minVx.xy,negMask),normal);
-            for (int j=1; j<8; j++)
-            if (maxAABB<=getDP(vertices[j]))
+            const vec4 maxPlane = invProj[3]*maxAABB-planeBase;
+            if (getClosestDP(maxPlane)<=0.f)
                 return true;
-#undef getDP
         }
+#undef getClosestDP
     }
     return false;
 }
-*/
 
 // TODO: Other culls useful for clustered lighting
 // - Sphere vs Frustum
