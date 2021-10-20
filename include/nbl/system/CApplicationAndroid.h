@@ -43,12 +43,6 @@ namespace nbl::system
         static int32_t handleInput(android_app* app, AInputEvent* event) {
             auto* framework = ((SContext*)app->userData)->framework;
             framework->handleInput_impl(app, event);
-            SContext* engine = (SContext*)app->userData;
-            if (AInputEvent_getType(event) == AINPUT_EVENT_TYPE_MOTION) {
-                engine->state.x = AMotionEvent_getX(event, 0);
-                engine->state.y = AMotionEvent_getY(event, 0);
-                return 1;
-            }
             return 0;
         }
         static void handleCommand(android_app* app, int32_t cmd) {
@@ -66,10 +60,6 @@ namespace nbl::system
             case APP_CMD_INIT_WINDOW:
                 framework->onAppInitialized();
                 framework->workLoopBody();
-                break;
-            case APP_CMD_TERM_WINDOW:
-                // The window is being hidden or closed, clean it up.
-                framework->onAppTerminated();
                 break;
             default:
                 break;

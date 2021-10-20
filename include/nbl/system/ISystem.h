@@ -194,15 +194,6 @@ public:
         return true;
     }
 
-    bool isArchiveAlias(const system::path& path)
-    {
-        if (path.empty())
-            return false;
-        auto p = path;
-        if (*p.string().rbegin() == '/') p = p.string().substr(0, p.string().size() - 1);
-        return !m_cachedPathAliases.findRange(p).empty();
-    }
-
 protected:
     virtual core::smart_refctd_ptr<IFile> openFileOpt_impl(const system::path& path, core::bitflag<IFile::E_CREATE_FLAGS> flags) { return nullptr; }
 private:

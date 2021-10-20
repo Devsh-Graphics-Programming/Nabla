@@ -59,7 +59,7 @@ public:
 class IFileArchive : public core::IReferenceCounted
 {
 	// Can be just the size of heap allocator, they're equal in size anyway 
-	static constexpr size_t SIZEOF_INNER_ARCHIVE_FILE = sizeof(CInnerArchiveFile<CPlainHeapAllocator>);
+	static constexpr inline size_t SIZEOF_INNER_ARCHIVE_FILE = sizeof(CInnerArchiveFile<CPlainHeapAllocator>);
 protected:
 	enum E_ALLOCATOR_TYPE
 	{

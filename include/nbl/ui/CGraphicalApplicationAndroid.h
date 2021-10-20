@@ -146,17 +146,6 @@ namespace nbl::ui
 				}
 				break;
 			}
-			case APP_CMD_CONTENT_RECT_CHANGED:
-			{
-				auto* wnd = getWindow();
-				if (wnd != nullptr)
-				{
-					auto eventCallback = wnd->getEventCallback();
-					(void)eventCallback->onGainedMouseFocus(wnd);
-					(void)eventCallback->onGainedKeyboardFocus(wnd);
-				}
-				break;
-			}
 			}
 		}
 			static E_KEY_CODE getNablaKeyCodeFromNative(int32_t nativeKeyCode)

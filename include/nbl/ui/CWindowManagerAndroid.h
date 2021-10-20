@@ -14,14 +14,21 @@ namespace nbl::ui
 	class CWindowManagerAndroid : public IWindowManager
 	{
 		android_app* m_app;
+		std::atomic_flag windowIsCreated;
 	public:
 		CWindowManagerAndroid(android_app* app) : m_app(app) 
         {
+			windowIsCreated.clear();
         }
 		~CWindowManagerAndroid() = default;
 		core::smart_refctd_ptr<IWindow> createWindow(IWindow::SCreationParams&& creationParams) override final
 		{
-			return core::make_smart_refctd_ptr<nbl::ui::CWindowAndroid>(std::move(creationParams), m_app->window);
+			bool createdBefore = windowIsCreated.test_and_set();
+			if (!createdBefore)
+			{
+				return core::make_smart_refctd_ptr<nbl::ui::CWindowAndroid>(std::move(creationParams), m_app->window);
+			}
+			return nullptr;
 		}
         void destroyWindow(IWindow* wnd) override final
         { 

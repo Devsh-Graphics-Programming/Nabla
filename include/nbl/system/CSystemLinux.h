@@ -10,22 +10,4 @@ namespace nbl::system
 	};
 }
 #endif
-
-#if defined(_NBL_PLATFORM_LINUX_) || defined(_NBL_PLATFORM_ANDROID_)
-
-namespace nbl::system
-{
-    class CSystemCallerPOSIX final : public ISystemCaller
-    {
-    protected:
-        ~CSystemCallerPOSIX() override = default;
-
-    public:
-        core::smart_refctd_ptr<IFile> createFile_impl(core::smart_refctd_ptr<ISystem>&& sys, const std::filesystem::path& filename, core::bitflag<IFile::E_CREATE_FLAGS> flags) override final
-        {
-            assert(false); // TODO: posix files (hopefully won't need those on android yet)
-        }
-    };
-}
-#endif
 #endif
