@@ -56,6 +56,14 @@ class IShader : public virtual core::IReferenceCounted
 		struct buffer_contains_glsl_t {};
 		_NBL_STATIC_INLINE const buffer_contains_glsl_t buffer_contains_glsl = {};
 
+		IShader(const E_SHADER_STAGE shaderStage, std::string&& filepathHint)
+			: m_shaderStage(shaderStage), m_filepathHint(std::move(filepathHint))
+		{}
+
+		inline E_SHADER_STAGE getStage() const { return m_shaderStage; }
+
+		inline const std::string& getFilepathHint() const { return m_filepathHint; }
+
 		static inline void insertDefines(std::string& _glsl, const core::SRange<const char* const>& _defines)
 		{
             if (_defines.empty())
@@ -104,6 +112,10 @@ class IShader : public virtual core::IReferenceCounted
 			_ins << "#line "<<std::to_string(ln)<<"\n";
 			_glsl.insert(pos,_ins.str());
 		}
+
+private:
+	const E_SHADER_STAGE m_shaderStage;
+	const std::string m_filepathHint;
 };
 
 }

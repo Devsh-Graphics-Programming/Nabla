@@ -8,10 +8,6 @@ using namespace nbl::core;
 using namespace nbl::asset;
 using namespace nbl::video;
 
-//
-COpenGLShader::COpenGLShader(smart_refctd_ptr<const ILogicalDevice>&& dev, smart_refctd_ptr<ICPUBuffer>&& _spirv) : IGPUShader(std::move(dev)), m_code(std::move(_spirv)), m_containsGLSL(false) {}
-COpenGLShader::COpenGLShader(smart_refctd_ptr<const ILogicalDevice>&& dev, smart_refctd_ptr<ICPUBuffer>&& _glsl, buffer_contains_glsl_t buffer_contains_glsl) : IGPUShader(std::move(dev)), m_code(std::move(_glsl)), m_containsGLSL(true) {}
-
 // TODO: deduce the following in COpenGLPhysicalDevice from the OpenGL extension presence, and then add the defines as standardy from IPhysicalDevice : addCommonGLSLDefines() instead
 // The subgroup stuff is a bit hard cause we made up "extra" extensions such as `NBL_GL_KHR_shader_subgroup_ballot_inverse_ballot_bit_count` (probably best to expose as extra features)
 const char* COpenGLShader::k_openGL2VulkanExtensionMap = R"(

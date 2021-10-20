@@ -89,7 +89,7 @@ class CShaderIntrospector : public core::Uncopyable
 		};
 		struct SIntrospectionParamsOld : SIntrospectionParams
 		{
-			ISpecializedShader::E_SHADER_STAGE stage;
+			IShader::E_SHADER_STAGE stage;
 			std::filesystem::path filePathHint;
 		};
 
@@ -97,7 +97,7 @@ class CShaderIntrospector : public core::Uncopyable
 		CShaderIntrospector(const IGLSLCompiler* _glslcomp) : m_glslCompiler(_glslcomp) {}
 
 		//
-		const CIntrospectionData* introspect(const ICPUShader* _shader, const SIntrospectionParamsOld& _params);
+		const CIntrospectionData* introspect(const ICPUShader* _shader, const SIntrospectionParams& _params);
 
 		//
 		std::pair<bool/*is shadow sampler*/, IImageView<ICPUImage>::E_TYPE> getImageInfoFromIntrospection(uint32_t set, uint32_t binding, const core::SRange<const ICPUSpecializedShader* const>& _shaders, const core::SRange<const char* const>& _extraDefines);
@@ -130,11 +130,7 @@ class CShaderIntrospector : public core::Uncopyable
 		//
 		inline core::smart_refctd_ptr<ICPUComputePipeline> createApproximateComputePipelineFromIntrospection(ICPUSpecializedShader* shader, const core::SRange<const char* const>& _extraDefines)
 		{
-<<<<<<< HEAD
 			if (shader->getStage() != IShader::ESS_COMPUTE)
-=======
-			if (shader->getStage()!=ICPUSpecializedShader::ESS_COMPUTE)
->>>>>>> origin/lod_system
 				return nullptr;
 
 			const core::SRange<const ICPUSpecializedShader* const> shaders = {&shader,&shader+1};
@@ -160,7 +156,7 @@ class CShaderIntrospector : public core::Uncopyable
 		_NBL_STATIC_INLINE_CONSTEXPR size_t MAX_STAGE_COUNT = 14ull;
 		bool introspectAllShaders(const CIntrospectionData** introspection, const core::SRange<const ICPUSpecializedShader* const>& _shaders, const core::SRange<const char* const>& _extraDefines);
 
-		core::smart_refctd_ptr<CIntrospectionData> doIntrospection(spirv_cross::Compiler& _comp, const SIntrospectionParamsOld& _ep) const;
+		core::smart_refctd_ptr<CIntrospectionData> doIntrospection(spirv_cross::Compiler& _comp, const SIntrospectionParams& _ep, const IShader::E_SHADER_STAGE stage) const;
 		void shaderMemBlockIntrospection(spirv_cross::Compiler& _comp, impl::SShaderMemoryBlock& _res, uint32_t _blockBaseTypeID, uint32_t _varID, const mapId2SpecConst_t& _sortedId2sconst) const;
 		size_t calcBytesizeforType(spirv_cross::Compiler& _comp, const spirv_cross::SPIRType& _type) const;
 

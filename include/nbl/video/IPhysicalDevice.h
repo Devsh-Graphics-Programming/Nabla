@@ -66,7 +66,29 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
 
             // TODO: move the subgroupOps bitflag to `SFeatures`
             // Also isn't there a separate bitflag per subgroup op type?
-            core::bitflag<asset::ISpecializedShader::E_SHADER_STAGE> subgroupOpsShaderStages;
+            core::bitflag<asset::IShader::E_SHADER_STAGE> subgroupOpsShaderStages;
+
+            uint64_t nonCoherentAtomSize;
+
+            // AccelerationStructure
+            uint64_t           maxGeometryCount;
+            uint64_t           maxInstanceCount;
+            uint64_t           maxPrimitiveCount;
+            uint32_t           maxPerStageDescriptorAccelerationStructures;
+            uint32_t           maxPerStageDescriptorUpdateAfterBindAccelerationStructures;
+            uint32_t           maxDescriptorSetAccelerationStructures;
+            uint32_t           maxDescriptorSetUpdateAfterBindAccelerationStructures;
+            uint32_t           minAccelerationStructureScratchOffsetAlignment;
+
+            // RayTracingPipeline
+            uint32_t           shaderGroupHandleSize;
+            uint32_t           maxRayRecursionDepth;
+            uint32_t           maxShaderGroupStride;
+            uint32_t           shaderGroupBaseAlignment;
+            uint32_t           shaderGroupHandleCaptureReplaySize;
+            uint32_t           maxRayDispatchInvocationCount;
+            uint32_t           shaderGroupHandleAlignment;
+            uint32_t           maxRayHitAttributeSize;
         };
 
         struct SFeatures
@@ -90,12 +112,23 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
             bool shaderSubgroupQuadAllStages = false;
             bool drawIndirectCount = false;
             bool multiDrawIndirect = false;
+
+            // RayQuery
             bool rayQuery = false;
+
+            // AccelerationStructure
             bool accelerationStructure = false;
             bool accelerationStructureCaptureReplay = false;
             bool accelerationStructureIndirectBuild = false;
             bool accelerationStructureHostCommands = false;
             bool descriptorBindingAccelerationStructureUpdateAfterBind = false;
+
+            // RayTracingPipeline
+            bool rayTracingPipeline = false;
+            bool rayTracingPipelineShaderGroupHandleCaptureReplay = false;
+            bool rayTracingPipelineShaderGroupHandleCaptureReplayMixed = false;
+            bool rayTracingPipelineTraceRaysIndirect = false;
+            bool rayTraversalPrimitiveCulling = false;
         };
 
         struct SMemoryProperties
@@ -104,6 +137,13 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
             VkMemoryType    memoryTypes[VK_MAX_MEMORY_TYPES];
             uint32_t        memoryHeapCount;
             VkMemoryHeap    memoryHeaps[VK_MAX_MEMORY_HEAPS];
+        };
+
+        struct SFormatProperties
+        {
+            core::bitflag<asset::E_FORMAT_FEATURE> linearTilingFeatures;
+            core::bitflag<asset::E_FORMAT_FEATURE> optimalTilingFeatures;
+            core::bitflag<asset::E_FORMAT_FEATURE> bufferFeatures;
         };
 
         enum E_QUEUE_FLAGS : uint32_t
@@ -158,6 +198,8 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
         }
 
         virtual E_API_TYPE getAPIType() const = 0;
+
+        virtual SFormatProperties getFormatProperties(asset::E_FORMAT format) const = 0;
 
     protected:
         IPhysicalDevice(core::smart_refctd_ptr<system::ISystem>&& s, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc);

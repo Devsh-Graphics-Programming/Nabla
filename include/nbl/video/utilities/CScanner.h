@@ -170,8 +170,8 @@ class CScanner final : public core::IReferenceCounted
 			{
 				auto gpushader = m_device->createGPUShader(core::smart_refctd_ptr<asset::ICPUShader>(getDefaultShader(scanType,dataType,op)));
 				m_specialized_shaders[scanType][dataType][op] = m_device->createGPUSpecializedShader(
-					gpushader.get(),{nullptr,nullptr,"main",asset::ISpecializedShader::ESS_COMPUTE,"nbl/builtin/glsl/scan/direct.comp"}
-				);
+					gpushader.get(),{nullptr,nullptr,"main"});
+				// , asset::IShader::ESS_COMPUTE, "nbl/builtin/glsl/scan/direct.comp"
 			}
 			return m_specialized_shaders[scanType][dataType][op].get();
 		}

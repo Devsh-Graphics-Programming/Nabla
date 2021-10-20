@@ -326,7 +326,7 @@ class ILogicalDevice : public core::IReferenceCounted
             if (!_unspecialized->wasCreatedBy(this))
                 return nullptr;
             auto retval =  createGPUSpecializedShader_impl(_unspecialized, _specInfo, _spvopt);
-            const auto path = _specInfo.m_filePathHint.string();
+            const auto path = _unspecialized->getFilepathHint();
             if (retval && !path.empty())
                 retval->setObjectDebugName(path.c_str());
             return retval;

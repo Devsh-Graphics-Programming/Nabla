@@ -66,7 +66,7 @@ E_FORMAT spvImageFormat2E_FORMAT(spv::ImageFormat _imgfmt)
 }
 }//anonymous ns
 
-const CIntrospectionData* CShaderIntrospector::introspect(const ICPUShader* _shader, const SIntrospectionParamsOld& _params)
+const CIntrospectionData* CShaderIntrospector::introspect(const ICPUShader* _shader, const SIntrospectionParams& _params)
 {
     if (!_shader)
         return nullptr;
@@ -90,7 +90,7 @@ const CIntrospectionData* CShaderIntrospector::introspect(const ICPUShader* _sha
     {
         const ICPUBuffer* spv = _spvshader->getSPVorGLSL();
         spirv_cross::Compiler comp(reinterpret_cast<const uint32_t*>(spv->getPointer()), spv->getSize()/4u);
-        auto introspection = doIntrospection(comp,_params);
+        auto introspection = doIntrospection(comp,_params,_shader->getStage());
         // cache introspection
 		Key key = {
 			_params.entryPoint,
@@ -107,12 +107,12 @@ const CIntrospectionData* CShaderIntrospector::introspect(const ICPUShader* _sha
         auto end = begin+_shader->getSPVorGLSL()->getSize();
         std::string glsl(begin,end);
         ICPUShader::insertDefines(glsl,_params.extraDefines);
-        auto glslShader_woIncludes = m_glslCompiler->resolveIncludeDirectives(glsl.c_str(), _params.stage, _params.filePathHint.string().c_str());
+        auto glslShader_woIncludes = m_glslCompiler->resolveIncludeDirectives(glsl.c_str(), _shader->getStage(), _shader->getFilepathHint().c_str());
         auto spvShader = m_glslCompiler->createSPIRVFromGLSL(
             reinterpret_cast<const char*>(glslShader_woIncludes->getSPVorGLSL()->getPointer()),
-            _params.stage,
+            glslShader_woIncludes->getStage(),
             _params.entryPoint,
-            _params.filePathHint.string().c_str()
+            glslShader_woIncludes->getFilepathHint().c_str()
         );
         if (!spvShader)
             return nullptr;
@@ -129,7 +129,7 @@ bool CShaderIntrospector::introspectAllShaders(const CIntrospectionData** intros
     for (auto shader : _shaders)
     {
         const auto& specInfo = shader->getSpecializationInfo();
-        *it = introspect(shader->getUnspecialized(),{specInfo.entryPoint.c_str(),_extraDefines,shader->getStage(),specInfo.m_filePathHint});
+        *it = introspect(shader->getUnspecialized(),{specInfo.entryPoint.c_str(),_extraDefines});
         if (!*it)
             return false;
     }
@@ -375,14 +375,9 @@ core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> CShaderIntrospector::c
         return nullptr;
 
     auto vs_introspection = introspections;
-<<<<<<< HEAD
-    for (auto shdr=_begin; shdr!=_end; shdr++,vs_introspection++)
-        if ((*shdr)->getStage()==ICPUShader::ESS_VERTEX)
-=======
     for (auto shader : _shaders)
     {
-        if (shader->getStage()==ICPUSpecializedShader::ESS_VERTEX)
->>>>>>> origin/lod_system
+        if (shader->getStage()==ICPUShader::ESS_VERTEX)
             break;
         vs_introspection++;
     }
@@ -466,9 +461,10 @@ static IImageView<ICPUImage>::E_TYPE spvcrossImageType2ImageView(const spirv_cro
     return viewType[_type.dim*2u + _type.arrayed];
 }
 
-core::smart_refctd_ptr<CIntrospectionData> CShaderIntrospector::doIntrospection(spirv_cross::Compiler& _comp, const SIntrospectionParamsOld& _ep) const
+core::smart_refctd_ptr<CIntrospectionData> CShaderIntrospector::doIntrospection(
+    spirv_cross::Compiler& _comp, const SIntrospectionParams& _ep, const IShader::E_SHADER_STAGE shaderStage) const
 {
-    spv::ExecutionModel stage = ESS2spvExecModel(_ep.stage);
+    spv::ExecutionModel stage = ESS2spvExecModel(shaderStage);
     if (stage == spv::ExecutionModelMax)
         return nullptr;
 

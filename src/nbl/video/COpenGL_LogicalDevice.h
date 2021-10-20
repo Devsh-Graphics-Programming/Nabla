@@ -522,7 +522,7 @@ protected:
             std::string glsl(begin,end);
             asset::IShader::insertAfterVersionAndPragmaShaderStage(glsl,std::ostringstream()<<COpenGLShader::k_openGL2VulkanExtensionMap); // TODO: remove this eventually
             asset::IShader::insertDefines(glsl,m_physicalDevice->getExtraGLSLDefines());
-            auto glslShader_woIncludes = m_physicalDevice->getGLSLCompiler()->resolveIncludeDirectives(glsl.c_str(), stage, _specInfo.m_filePathHint.string().c_str(), 4u, getLogger());
+            auto glslShader_woIncludes = m_physicalDevice->getGLSLCompiler()->resolveIncludeDirectives(glsl.c_str(), stage, glUnspec->getFilepathHint().c_str(), 4u, getLogger());
             spirv = m_physicalDevice->getGLSLCompiler()->compileSPIRVFromGLSL(
                 reinterpret_cast<const char*>(glslShader_woIncludes->getSPVorGLSL()->getPointer()),
                 stage,
@@ -549,11 +549,7 @@ protected:
 
         auto spvCPUShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(spirv), stage, std::string(_unspecialized->getFilepathHint()));
 
-<<<<<<< HEAD
-        asset::CShaderIntrospector::SIntrospectionParams introspectionParams{ stage, _specInfo.entryPoint, getSupportedGLSLExtensions(), glUnspec->getFilepathHint() };
-=======
-        asset::CShaderIntrospector::SIntrospectionParamsOld introspectionParams{_specInfo.entryPoint.c_str(),m_physicalDevice->getExtraGLSLDefines(),_specInfo.shaderStage,_specInfo.m_filePathHint};
->>>>>>> origin/lod_system
+        asset::CShaderIntrospector::SIntrospectionParams introspectionParams{_specInfo.entryPoint.c_str(),m_physicalDevice->getExtraGLSLDefines()};
         asset::CShaderIntrospector introspector(m_physicalDevice->getGLSLCompiler()); // TODO: shouldn't the introspection be cached for all calls to `createGPUSpecializedShader` (or somehow embedded into the OpenGL pipeline cache?)
         const asset::CIntrospectionData* introspection = introspector.introspect(spvCPUShader.get(), introspectionParams);
         if (!introspection)
