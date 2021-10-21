@@ -54,7 +54,7 @@ class IGLSLEmbeddedIncludeLoader : public IBuiltinIncludeLoader
 			auto data = s->loadBuiltinData(path);
 			if (!data)
 				return "";
-			auto begin = reinterpret_cast<const char*>(data->getPointer());
+			auto begin = reinterpret_cast<const char*>(data->getMappedPointer());
 			auto end = begin + data->getSize();
 			return std::string(begin, end);
 		}

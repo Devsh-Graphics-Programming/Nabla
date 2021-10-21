@@ -33,7 +33,7 @@ CGraphicsPipelineLoaderMTL::CGraphicsPipelineLoaderMTL(IAssetManager* _am, core:
     auto registerShader = [&](auto constexprStringType, ICPUSpecializedShader::E_SHADER_STAGE stage) -> void
     {
         auto data = m_assetMgr->getSystem()->loadBuiltinData<decltype(constexprStringType)>();
-        auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(data), asset::ICPUShader::buffer_contains_glsl);
+        auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>((char*)data->getMappedPointer());
         
         ICPUSpecializedShader::SInfo specInfo(
             {}, nullptr, "main", stage,

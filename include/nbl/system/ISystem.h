@@ -12,10 +12,6 @@
 #include "nbl/system/CFileView.h"
 #include "nbl/core/util/bitflag.h"
 
-
-
-#include "nbl/asset/ICPUBuffer.h" // this is a horrible no-no (circular dependency), `ISystem::loadBuiltinData` should return some other type (probably an `IFile` which is mapped for reading)
-
 namespace nbl::system
 {
 class ISystemCaller : public core::IReferenceCounted // why does `ISystemCaller` need to be public?
@@ -227,15 +223,15 @@ private:
     core::smart_refctd_ptr<IFile> getFileFromArchive(const system::path& path);
 
 public:
-    inline core::smart_refctd_ptr<asset::ICPUBuffer> loadBuiltinData(const std::string& builtinPath)
+    inline core::smart_refctd_ptr<IFile> loadBuiltinData(const std::string& builtinPath)
     {
 #ifdef _NBL_EMBED_BUILTIN_RESOURCES_
         std::pair<const uint8_t*, size_t> found = nbl::builtin::get_resource_runtime(builtinPath);
         if (found.first && found.second)
         {
-            auto returnValue = core::make_smart_refctd_ptr<asset::ICPUBuffer>(found.second);
-            memcpy(returnValue->getPointer(), found.first, returnValue->getSize());
-            return returnValue;
+            auto fileView = core::make_smart_refctd_ptr<CFileView<VirtualAllocator>>(core::smart_refctd_ptr<ISystem>(this), builtinPath, core::bitflag<IFile::E_CREATE_FLAGS>(IFile::ECF_READ) | IFile::ECF_WRITE, found.second);
+            fileView->write_impl(found.first, 0, found.second);
+            return fileView;
         }
         return nullptr;
 #else
@@ -247,28 +243,27 @@ public:
         else
             path = builtinResourceDirectory + builtinPath;
 
-        auto file = this->createAndOpenFile(path.c_str());
-        if (file)
+        future_t<core::smart_refctd_ptr<IFile>> fut;
+        createFile(future, path.c_str(), core::bitflag<IFile::E_CREATE_FLAGS>(IFile::ECF_READ) :: IFile::ECF_MAPPABLE);
+        auto file = fut.get();
+        if (file.get())
         {
-            auto retval = core::make_smart_refctd_ptr<asset::ICPUBuffer>(file->getSize());
-            file->read(retval->getPointer(), file->getSize());
-            file->drop();
-            return retval;
+            return file;
         }
         return nullptr;
 #endif
     }
     //! Compile time resource ID
     template<typename StringUniqueType>
-    inline core::smart_refctd_ptr<asset::ICPUBuffer> loadBuiltinData()
+    inline core::smart_refctd_ptr<IFile> loadBuiltinData()
     {
 #ifdef _NBL_EMBED_BUILTIN_RESOURCES_
         std::pair<const uint8_t*, size_t> found = nbl::builtin::get_resource<StringUniqueType>();
         if (found.first && found.second)
         {
-            auto returnValue = core::make_smart_refctd_ptr<asset::ICPUBuffer>(found.second);
-            memcpy(returnValue->getPointer(), found.first, returnValue->getSize());
-            return returnValue;
+            auto fileView = core::make_smart_refctd_ptr<CFileView<VirtualAllocator>>(core::smart_refctd_ptr<ISystem>(this), "", core::bitflag<IFile::E_CREATE_FLAGS>(IFile::ECF_READ) | IFile::ECF_WRITE, found.second);
+            fileView->write_impl(found.first, 0, found.second);
+            return fileView;
         }
         return nullptr;
 #else

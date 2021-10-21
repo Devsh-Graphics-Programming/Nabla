@@ -10,7 +10,7 @@ CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice
 {
 	auto system = m_device->getPhysicalDevice()->getSystem();
 	auto glsl = system->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/property_pool/copy.comp")>();
-	auto cpushader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl), asset::ICPUShader::buffer_contains_glsl);
+	auto cpushader = core::make_smart_refctd_ptr<asset::ICPUShader>((char*)glsl->getMappedPointer());
 	
 	const auto& deviceLimits = m_device->getPhysicalDevice()->getLimits();
 	const auto maxSSBO = core::min<uint32_t>(deviceLimits.maxPerStageSSBOs,MaxPropertyTransfers);
