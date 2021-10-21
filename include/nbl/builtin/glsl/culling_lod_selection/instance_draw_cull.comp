@@ -36,6 +36,17 @@ layout(push_constant) uniform PushConstants
     uint lastScratchDWORDToClear;
 } pc;
 
+#include <nbl/builtin/glsl/utils/culling.glsl>
+mat4 nbl_glsl_culling_lod_selection_getMVP(in uint pvInstanceID)
+{
+    return perViewPerInstance.data[pvInstanceID].mvp;
+}
+mat4 nbl_glsl_culling_lod_selection_getInverseMVP(in uint pvInstanceID)
+{
+    const uint instanceGUID = pvsInstances.data[pvInstanceID][0];
+    return inverse(nbl_glsl_culling_lod_selection_getMVP(pvInstanceID)); // TODO
+}
+
 void main()
 {
     if (gl_GlobalInvocationID.x==0u)
@@ -59,21 +70,21 @@ void main()
             drawInstanceID -= lodDrawcallInclusiveCounts[pvInstanceID-1u];
 
         const uint drawcallDWORDOffsetAndFlag = nbl_glsl_lod_library_DefaultInfo_getDrawCallDWORDOffset(lodInfoUvec4Offset,drawInstanceID);
-        // get AABB
-        //const nbl_glsl_AABB_t aabb = Draw_getAABB();
-        // cull
-        bool visible = true;
-        if (visible)
-        {
-            const uint appendIx = atomicAdd(pvsInstanceDraws.count,1u);
-            const uint drawcallDWORDOffset = drawcallDWORDOffsetAndFlag&0x7fffffffu;
-            const uint instanceID = nbl_glsl_culling_lod_selection_drawCallInstanceCountIncr(drawcallDWORDOffset);
-            
-            const uint baseInstanceDWORDOffset = drawcallDWORDOffset+4u-(drawcallDWORDOffsetAndFlag>>31);
+        // get AABB and cull
+        const nbl_glsl_shapes_AABB_t aabb = nbl_glsl_shapes_AABB_t(vec3(-5.f),vec3(5.f));// TODO: Draw_getAABB();
+        const mat4 mvp = nbl_glsl_culling_lod_selection_getMVP(pvInstanceID);
+        const mat4 inv_mvp = nbl_glsl_culling_lod_selection_getInverseMVP(pvInstanceID);
+        if (nbl_glsl_fastFrustumCullAABB(mvp,inv_mvp,aabb))
+            continue;
 
-            pvsInstanceDraws.data[appendIx].perViewPerInstanceID = pvInstanceID;
-            pvsInstanceDraws.data[appendIx].drawBaseInstanceDWORDOffset = baseInstanceDWORDOffset;
-            pvsInstanceDraws.data[appendIx].instanceID = instanceID;
-        }
+        const uint appendIx = atomicAdd(pvsInstanceDraws.count,1u);
+        const uint drawcallDWORDOffset = drawcallDWORDOffsetAndFlag&0x7fffffffu;
+        const uint instanceID = nbl_glsl_culling_lod_selection_drawCallInstanceCountIncr(drawcallDWORDOffset);
+            
+        const uint baseInstanceDWORDOffset = drawcallDWORDOffset+4u-(drawcallDWORDOffsetAndFlag>>31);
+
+        pvsInstanceDraws.data[appendIx].perViewPerInstanceID = pvInstanceID;
+        pvsInstanceDraws.data[appendIx].drawBaseInstanceDWORDOffset = baseInstanceDWORDOffset;
+        pvsInstanceDraws.data[appendIx].instanceID = instanceID;
     }
 }
