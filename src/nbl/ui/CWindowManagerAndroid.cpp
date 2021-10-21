@@ -1,3 +1,4 @@
+#ifdef _NBL_PLATFORM_ANDROID_
 #include "nbl/ui/CWindowManagerAndroid.h"
 #include "nbl/ui/CGraphicalApplicationAndroid.h"
 
@@ -237,3 +238,4 @@ namespace nbl::ui
 		return nablaKeyCode;
 	}
 }
+#endif

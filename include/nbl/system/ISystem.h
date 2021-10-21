@@ -155,7 +155,7 @@ private:
     } m_loaders;
 
     core::CMultiObjectCache<system::path, core::smart_refctd_ptr<IFileArchive>> m_cachedArchiveFiles;
-    core::CMultiObjectCache<system::path, system::path> m_cachedPathAliases;
+    //core::CMultiObjectCache<system::path, system::path> m_cachedPathAliases;
     CAsyncQueue m_dispatcher;
 
 public:
@@ -271,30 +271,6 @@ public:
 #endif
     }
 
-    system::path getRealPath(const system::path& _path)
-    {
-        auto path = _path.parent_path();
-        bool isPathAlias = !std::filesystem::exists(_path);
-        if (!isPathAlias) return _path;
-        system::path realPath;
-        system::path temp;
-        while (!path.empty()) // going up the directory tree
-        {
-            auto a = m_cachedPathAliases.findRange(path);
-            if (a.empty())
-            {
-                temp = path.filename().generic_string() + "/" + temp.generic_string();
-                path = path.parent_path();
-                continue;
-            }
-            realPath = a.begin()->second;
-            path = path.parent_path();
-        }
-        realPath += "/" + temp.generic_string();
-        realPath += _path.filename();
-        return realPath;
-    }
-
     //! Warning: blocking call
     core::smart_refctd_ptr<IFileArchive> openFileArchive(const std::filesystem::path& filename, const std::string_view& password = "")
     {
@@ -328,7 +304,7 @@ public:
         m_cachedArchiveFiles.insert(path, std::move(archive));
         if (!pathAlias.empty())
         {
-            m_cachedPathAliases.insert(pathAlias, path);
+            m_cachedArchiveFiles.insert(pathAlias, std::move(archive));
         }
     }
     void unmount(const IFileArchive* archive, const system::path& pathAlias)
