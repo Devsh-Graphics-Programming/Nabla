@@ -313,7 +313,9 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 			const auto indirectAccessMask = core::bitflag(asset::EAF_INDIRECT_COMMAND_READ_BIT)|rwAccessMask;
 			{
 				setBarrierBuffer(barriers[0],params.drawCalls,indirectAccessMask,wAccessMask);
-				cmdbuf->pipelineBarrier(asset::EPSF_DRAW_INDIRECT_BIT,asset::EPSF_COMPUTE_SHADER_BIT,asset::EDF_NONE,0u,nullptr,1u,barriers,0u,nullptr);
+				setBarrierBuffer(barriers[1],params.perViewPerInstance,asset::EAF_SHADER_READ_BIT,wAccessMask);
+				setBarrierBuffer(barriers[2],params.perInstanceRedirectAttribs,asset::EAF_VERTEX_ATTRIBUTE_READ_BIT,wAccessMask);
+				cmdbuf->pipelineBarrier(asset::EPSF_FRAGMENT_SHADER_BIT,asset::EPSF_COMPUTE_SHADER_BIT,asset::EDF_NONE,0u,nullptr,3u,barriers,0u,nullptr);
 			}
 			setBarrierBuffer(barriers[0],indirectRange,indirectAccessMask,indirectAccessMask);
 			
