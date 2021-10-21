@@ -43,8 +43,8 @@ mat4 nbl_glsl_culling_lod_selection_getMVP(in uint pvInstanceID)
 }
 mat4 nbl_glsl_culling_lod_selection_getInverseMVP(in uint pvInstanceID)
 {
-    const uint instanceGUID = pvsInstances.data[pvInstanceID][0];
-    return inverse(nbl_glsl_culling_lod_selection_getMVP(pvInstanceID)); // TODO
+    // this should actually be faster than loading an extra 4x3 matrix, inverting it and multiplying it with a 4x4
+    return inverse(nbl_glsl_culling_lod_selection_getMVP(pvInstanceID));
 }
 
 void main()
@@ -52,7 +52,7 @@ void main()
     if (gl_GlobalInvocationID.x==0u)
         dispatchIndirect.instanceDrawCountPrefixSum.num_groups_x = 256u;
     
-    const uint dispatchSize = gl_WorkGroupSize[0]*_NBL_GLSL_WORKGROUP_SIZE_;
+    const uint dispatchSize = gl_NumWorkGroups[0]*_NBL_GLSL_WORKGROUP_SIZE_;
 
     for (uint dword=gl_GlobalInvocationID.x; dword<=pc.lastScratchDWORDToClear; dword+=dispatchSize)
         scanScratch.data[dword] = 0u;
@@ -74,8 +74,8 @@ void main()
         const nbl_glsl_shapes_AABB_t aabb = nbl_glsl_shapes_AABB_t(vec3(-5.f),vec3(5.f));// TODO: Draw_getAABB();
         const mat4 mvp = nbl_glsl_culling_lod_selection_getMVP(pvInstanceID);
         const mat4 inv_mvp = nbl_glsl_culling_lod_selection_getInverseMVP(pvInstanceID);
-        if (nbl_glsl_fastFrustumCullAABB(mvp,inv_mvp,aabb))
-            continue;
+        //if (nbl_glsl_fastFrustumCullAABB(mvp,inv_mvp,aabb))
+            //continue;
 
         const uint appendIx = atomicAdd(pvsInstanceDraws.count,1u);
         const uint drawcallDWORDOffset = drawcallDWORDOffsetAndFlag&0x7fffffffu;

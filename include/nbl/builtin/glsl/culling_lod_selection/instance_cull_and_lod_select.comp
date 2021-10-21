@@ -36,7 +36,7 @@ void main()
     else if (gl_GlobalInvocationID.x==1u)
         pvsInstanceDraws.count = 0u;
         
-    const uint dispatchSize = gl_WorkGroupSize[0]*_NBL_GLSL_WORKGROUP_SIZE_;
+    const uint dispatchSize = gl_NumWorkGroups[0]*_NBL_GLSL_WORKGROUP_SIZE_;
 
     // TODO: in the future make the drawcalls to scan be dynamic and indirect
     // clear the instance counts to 0
@@ -54,35 +54,9 @@ void main()
         nbl_glsl_culling_lod_selection_initializePerViewPerInstanceData(perView,instanceGUID);
         
         // cull
-        //const nbl_glsl_shapes_AABB_t tableAABB = nbl_glsl_lod_library_Table_getAABB(lodTableUvec4Offset);
-        
-        const mat4x3 world = nodeGlobalTransforms.data[instanceGUID];
-        vec3 vertices[8];
-        vertices[0] = nbl_glsl_pseudoMul3x4with3x1(world,vec3(-5.f,-5.f,-5.f));
-        vertices[1] = nbl_glsl_pseudoMul3x4with3x1(world,vec3( 5.f,-5.f,-5.f));
-        vertices[2] = nbl_glsl_pseudoMul3x4with3x1(world,vec3(-5.f, 5.f,-5.f));
-        vertices[3] = nbl_glsl_pseudoMul3x4with3x1(world,vec3( 5.f, 5.f,-5.f));
-        vertices[4] = nbl_glsl_pseudoMul3x4with3x1(world,vec3(-5.f,-5.f, 5.f));
-        vertices[5] = nbl_glsl_pseudoMul3x4with3x1(world,vec3( 5.f,-5.f, 5.f));
-        vertices[6] = nbl_glsl_pseudoMul3x4with3x1(world,vec3(-5.f, 5.f, 5.f));
-        vertices[7] = nbl_glsl_pseudoMul3x4with3x1(world,vec3( 5.f, 5.f, 5.f));
-        uint culled = 63u;
-        for (int i=0; i<8; i++)
-        {
-            const vec4 tmp = nbl_glsl_pseudoMul4x4with3x1(pc.data.viewProjMat,vertices[i]);
-            if (tmp.x+tmp.w > 0.f)
-                culled &= 62u;
-            if (tmp.y+tmp.w > 0.f)
-                culled &= 61u;
-            if (tmp.z > 0.f)
-                culled &= 59u;
-            if (tmp.x-tmp.w < 0.f)
-                culled &= 55u;
-            if (tmp.y-tmp.w < 0.f)
-                culled &= 47u;
-            if (tmp.z-tmp.w < 1.f)
-                culled &= 31u;
-        }
+        const nbl_glsl_shapes_AABB_t tableAABB = nbl_glsl_lod_library_Table_getAABB(lodTableUvec4Offset);
+        if (nbl_glsl_fastestFrustumCullAABB(perView.mvp,tableAABB))
+            continue;
 
         // select lod_t
         const uint lodCount = nbl_glsl_lod_library_Table_getLoDCount(lodTableUvec4Offset);

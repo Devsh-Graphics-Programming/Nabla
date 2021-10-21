@@ -37,7 +37,7 @@ void main()
     else if (gl_GlobalInvocationID.x==1u)
         totalInstanceCountAfterCull = 0u;
 
-    const uint dispatchSize = gl_WorkGroupSize[0]*_NBL_GLSL_WORKGROUP_SIZE_;
+    const uint dispatchSize = gl_NumWorkGroups[0]*_NBL_GLSL_WORKGROUP_SIZE_;
 
     const uint lastScratchDWORDToClear = pc.scanParams.temporaryStorageOffset[0];
     for (uint dword=gl_GlobalInvocationID.x; dword<=lastScratchDWORDToClear; dword+=dispatchSize)
