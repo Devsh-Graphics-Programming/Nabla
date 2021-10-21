@@ -29,7 +29,6 @@ bool nbl_glsl_fastFrustumCullAABB(in mat4 proj, in mat4 invProj, in nbl_glsl_sha
 }
 
 // perfect Separating Axis Theorem, needed for Clustered/Tiled Lighting
-// TODO: needs actual TESTING!
 bool nbl_glsl_preciseFrustumCullAABB(in mat4 proj, in mat4 invProj, in nbl_glsl_shapes_AABB_t aabb)
 {
     const nbl_glsl_shapes_Frustum_t viewFrust = nbl_glsl_shapes_Frustum_extract(proj);
@@ -59,6 +58,7 @@ bool nbl_glsl_preciseFrustumCullAABB(in mat4 proj, in mat4 invProj, in nbl_glsl_
     for (int i=0; i<12; i++)
     {
 #define getClosestDP(R) (dot(nbl_glsl_shapes_AABB_getFarthestPointInFront(ndc,R.xyz),R.xyz)+R.w)
+        /* TODO: These are buggy!
         // cross(e_0,edges[i])
         {
             const vec2 normal = vec2(-edges[i].z,edges[i].y);
@@ -88,7 +88,7 @@ bool nbl_glsl_preciseFrustumCullAABB(in mat4 proj, in mat4 invProj, in nbl_glsl_
             const vec4 maxPlane = invProj[3]*maxAABB-planeBase;
             if (getClosestDP(maxPlane)<=0.f)
                 return true;
-        }
+        } the last one is probably buggy too*/
         // cross(e_2,edges[i])
         {
             const vec2 normal = vec2(-edges[i].y,edges[i].x);
