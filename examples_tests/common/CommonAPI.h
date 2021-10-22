@@ -3,24 +3,30 @@
 #include "nbl/system/IApplicationFramework.h"
 #include "nbl/ui/CGraphicalApplicationAndroid.h"
 #include "nbl/ui/CWindowManagerAndroid.h"
+#include "nbl/ui/IGraphicalApplicationFramework.h"
 #if defined(_NBL_PLATFORM_WINDOWS_)
-#	include <nbl/system/CColoredStdoutLoggerWin32.h>
+#include <nbl/system/CColoredStdoutLoggerWin32.h>
 #elif defined(_NBL_PLATFORM_ANDROID_)
-#	include <nbl/system/CStdoutLoggerAndroid.h>
+#include <nbl/system/CStdoutLoggerAndroid.h>
 #endif
 #include "nbl/system/CSystemAndroid.h"
 #include "nbl/system/CSystemLinux.h"
 #include "nbl/system/CSystemWin32.h"
 // TODO: make these include themselves via `nabla.h`
 
+class GraphicalApplication : public nbl::system::IApplicationFramework, public nbl::ui::IGraphicalApplicationFramework
+{
+public:
+	GraphicalApplication(const system::path& _cwd) : nbl::system::IApplicationFramework(_cwd) {}
+};
 //***** Application framework macros ******
 #ifdef _NBL_PLATFORM_ANDROID_
 using ApplicationBase = nbl::ui::CGraphicalApplicationAndroid;
 #define APP_CONSTRUCTOR(type) type(android_app* app, nbl::system::path cwd) : nbl::ui::CGraphicalApplicationAndroid(app, cwd) {}
 #define NBL_COMMON_API_MAIN(android_app_class) NBL_ANDROID_MAIN_FUNC(android_app_class, CommonAPI::CommonAPIEventCallback)
 #else
-using ApplicationBase = nbl::system::IApplicationFramework;
-#define APP_CONSTRUCTOR(type) type(nbl::system::path cwd) : nbl::system::IApplicationFramework(cwd) {}
+using ApplicationBase = GraphicalApplication;
+#define APP_CONSTRUCTOR(type) type(nbl::system::path cwd) : GraphicalApplication(cwd) {}
 #define NBL_COMMON_API_MAIN(android_app_class) int main(int argc, char** argv){\
 CommonAPI::main<android_app_class>(argc, argv);\
 }

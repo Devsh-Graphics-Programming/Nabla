@@ -5,12 +5,12 @@
 #include "nbl/system/CSystemAndroid.h"
 #include "nbl/system/CSystemLinux.h"
 #include "nbl/system/CSystemCallerPOSIX.h"
-
+#include "nbl/ui/IGraphicalApplicationFramework.h"
 #include "nbl/ui/IWindow.h"
 
 namespace nbl::ui
 {
-	class CGraphicalApplicationAndroid : public system::CApplicationAndroid
+	class CGraphicalApplicationAndroid : public system::CApplicationAndroid, public ui::IGraphicalApplicationFramework
 	{
 	public:
 		struct SGraphicalContext : SContext
