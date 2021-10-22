@@ -134,7 +134,7 @@ class CCustomAllocatorCPUBuffer;
 template<typename Allocator>
 class CCustomAllocatorCPUBuffer<Allocator, true> : public ICPUBuffer
 {
-		static_assert(sizeof(Allocator::value_type) == 1u, "Allocator::value_type must be of size 1");
+		static_assert(sizeof(typename Allocator::value_type) == 1u, "Allocator::value_type must be of size 1");
 	protected:
 		Allocator m_allocator;
 
