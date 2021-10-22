@@ -24,7 +24,7 @@ struct LoDLibraryData
     core::vector<uint32_t> drawCountOffsets;
     core::vector<asset::DrawElementsIndirectCommand_t> drawCallData;
     core::vector<uint32_t> drawCountData;
-    core::vector<uint32_t> lodInfoDstUvec4s;
+    core::vector<uint32_t> lodInfoDstUvec2s;
     core::vector<uint32_t> lodTableDstUvec4s;
     scene::ILevelOfDetailLibrary::InfoContainerAdaptor<lod_library_t::LoDInfo> lodInfoData;
     scene::ILevelOfDetailLibrary::InfoContainerAdaptor<scene::ILevelOfDetailLibrary::LoDTableInfo> lodTableData;
@@ -169,7 +169,7 @@ void addLoDTable(
         auto& lodInfo = lodLibraryData.lodInfoData.emplace_back(batchCount);
         if (lod)
         {
-            lodInfo = lod_library_t::LoDInfo(batchCount,{129600.f/exp2f(lod<<1)},mbAABB);
+            lodInfo = lod_library_t::LoDInfo(batchCount,{129600.f/exp2f(lod<<1)});
             if (!lodInfo.isValid(prevInfo))
             {
                 assert(false && "THE LEVEL OF DETAIL CHOICE PARAMS NEED TO BE MONOTONICALLY DECREASING");
@@ -177,7 +177,7 @@ void addLoDTable(
             }
         }
         else
-            lodInfo = lod_library_t::LoDInfo(batchCount,{2250000.f},mbAABB);
+            lodInfo = lod_library_t::LoDInfo(batchCount,{2250000.f});
         prevInfo = lodInfo;
         //
         size_t indexSize;
@@ -224,11 +224,11 @@ void addLoDTable(
     }
     auto& lodTable = lodLibraryData.lodTableData.emplace_back(LoDLevels);
     lodTable = scene::ILevelOfDetailLibrary::LoDTableInfo(LoDLevels,aabb);
-    std::fill_n(lodTable.leveInfoUvec4Offsets,LoDLevels,scene::ILevelOfDetailLibrary::invalid);
+    std::fill_n(lodTable.leveInfoUvec2Offsets,LoDLevels,scene::ILevelOfDetailLibrary::invalid);
     {
         lod_library_t::Allocation::LevelInfoAllocation lodLevelAllocations[1] =
         {
-            lodTable.leveInfoUvec4Offsets,
+            lodTable.leveInfoUvec2Offsets,
             lodLibraryData.drawCountData.data()+lodLibraryData.drawCountData.size()-LoDLevels
         };
         uint32_t lodTableOffsets[1u] = {scene::ILevelOfDetailLibrary::invalid};
@@ -243,14 +243,14 @@ void addLoDTable(
         }
         const bool success = lodLibrary->allocateLoDs(alloc);
         assert(success);
-        for (auto i=0u; i<scene::ILevelOfDetailLibrary::LoDTableInfo::getSizeInUvec4(LoDLevels); i++)
+        for (auto i=0u; i<scene::ILevelOfDetailLibrary::LoDTableInfo::getSizeInAlignmentUnits(LoDLevels); i++)
             lodLibraryData.lodTableDstUvec4s.push_back(lodTableOffsets[0]+i);
         for (auto lod=0u; lod<LoDLevels; lod++)
         {
             const auto drawcallCount = lodLevelAllocations[0].drawcallCounts[lod];
-            const auto offset = lodLevelAllocations[0].levelUvec4Offsets[lod];
-            for (auto i=0u; i<lod_library_t::LoDInfo::getSizeInUvec4(drawcallCount); i++)
-                lodLibraryData.lodInfoDstUvec4s.push_back(offset+i);
+            const auto offset = lodLevelAllocations[0].levelUvec2Offsets[lod];
+            for (auto i=0u; i<lod_library_t::LoDInfo::getSizeInAlignmentUnits(drawcallCount); i++)
+                lodLibraryData.lodInfoDstUvec2s.push_back(offset+i);
         }
     }
     cpu2gpuParams.waitForCreationToComplete();
@@ -568,12 +568,12 @@ int main()
                 transferRequests[TTMTransfers+0].dstAddresses = lodLibraryData.drawCallOffsetsIn20ByteStrides.data();
                 transferRequests[TTMTransfers+0].source = lodLibraryData.drawCallData.data();
                 transferRequests[TTMTransfers+1].memblock = lodLibrary->getLoDInfoBinding();
-                transferRequests[TTMTransfers+1].elementSize = sizeof(scene::ILevelOfDetailLibrary::AlignBase);
-                transferRequests[TTMTransfers+1].elementCount = lodLibraryData.lodInfoDstUvec4s.size();
-                transferRequests[TTMTransfers+1].dstAddresses = lodLibraryData.lodInfoDstUvec4s.data();
+                transferRequests[TTMTransfers+1].elementSize = alignof(lod_library_t::LoDInfo);
+                transferRequests[TTMTransfers+1].elementCount = lodLibraryData.lodInfoDstUvec2s.size();
+                transferRequests[TTMTransfers+1].dstAddresses = lodLibraryData.lodInfoDstUvec2s.data();
                 transferRequests[TTMTransfers+1].source = lodLibraryData.lodInfoData.data();
                 transferRequests[TTMTransfers+2].memblock = lodLibrary->getLodTableInfoBinding();
-                transferRequests[TTMTransfers+2].elementSize = sizeof(scene::ILevelOfDetailLibrary::AlignBase);
+                transferRequests[TTMTransfers+2].elementSize = alignof(scene::ILevelOfDetailLibrary::LoDTableInfo);
                 transferRequests[TTMTransfers+2].elementCount = lodLibraryData.lodTableDstUvec4s.size();
                 transferRequests[TTMTransfers+2].dstAddresses = lodLibraryData.lodTableDstUvec4s.data();
                 transferRequests[TTMTransfers+2].source = lodLibraryData.lodTableData.data();
@@ -759,84 +759,3 @@ int main()
 
     return 0;
 }
-
-#if 0
-
-    
-
-        std::uniform_real_distribution<float> dist3D(0.f,400.f);
-        for (size_t i=0; i<kInstanceCount; i++)
-        {
-            auto& meshbuffer = mbuff->operator[](i);
-            meshbuffer = core::make_smart_refctd_ptr<video::IGPUMeshBuffer>(
-                core::smart_refctd_ptr(gpuDrawDirectPipeline),
-                nullptr,
-                globalVertexBindings,
-                SBufferBinding<video::IGPUBuffer>{indirectDrawData[i].firstIndex*sizeof(uint32_t),core::smart_refctd_ptr(globalIndexBuffer)}
-            );
-
-            meshbuffer->setBaseVertex(indirectDrawData[i].baseVertex);
-            meshbuffer->setIndexCount(indirectDrawData[i].count);
-            meshbuffer->setIndexType(asset::EIT_32BIT);
-
-            auto& instance = instanceData->operator[](i);
-            meshbuffer->setBoundingBox({instance.bbox[0].getAsVector3df(),instance.bbox[1].getAsVector3df()});
-
-            {
-                float scale = dist3D(mt)*0.0025f+1.f;
-                instance.worldMatrix.setScale(core::vectorSIMDf(scale,scale,scale));
-            }
-            instance.worldMatrix.setTranslation(core::vectorSIMDf(dist3D(mt),dist3D(mt),dist3D(mt)));
-            instance.worldMatrix.getSub3x3InverseTranspose(instance.normalMatrix);
-        }
-
-        perInstanceDataSSBO = driver->createFilledDeviceLocalGPUBufferOnDedMem(instanceData->bytesize(),instanceData->data());
-
-
-
-
-    
-	auto perDrawData = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<DrawData_t>>(kInstanceCount);
-	perDrawDataSSBO = driver->createDeviceLocalGPUBufferOnDedMem(perDrawData->bytesize());
-    
-    // TODO: get rid of the `const_cast`s
-    auto drawIndirectLayout = const_cast<video::IGPUPipelineLayout*>(gpuDrawIndirectPipeline->getLayout());
-    auto cullLayout = const_cast<video::IGPUPipelineLayout*>(gpuCullPipeline->getLayout());
-    auto drawDirectDescriptorLayout = const_cast<video::IGPUDescriptorSetLayout*>(drawDirectLayout->getDescriptorSetLayout(1));
-    auto drawIndirectDescriptorLayout = const_cast<video::IGPUDescriptorSetLayout*>(drawIndirectLayout->getDescriptorSetLayout(1));
-    auto cullDescriptorLayout = const_cast<video::IGPUDescriptorSetLayout*>(cullLayout->getDescriptorSetLayout(1));
-    auto drawDirectDescriptorSet = driver->createGPUDescriptorSet(core::smart_refctd_ptr<video::IGPUDescriptorSetLayout>(drawDirectDescriptorLayout));
-    auto drawIndirectDescriptorSet = driver->createGPUDescriptorSet(core::smart_refctd_ptr<video::IGPUDescriptorSetLayout>(drawIndirectDescriptorLayout));
-    auto cullDescriptorSet = driver->createGPUDescriptorSet(core::smart_refctd_ptr<video::IGPUDescriptorSetLayout>(cullDescriptorLayout));
-    {
-        constexpr auto BindingCount = 3u;
-        video::IGPUDescriptorSet::SWriteDescriptorSet writes[BindingCount];
-        video::IGPUDescriptorSet::SDescriptorInfo infos[BindingCount];
-        for (auto i=0; i<BindingCount; i++)
-        {
-            writes[i].binding = i;
-            writes[i].arrayElement = 0u;
-            writes[i].count = 1u;
-            writes[i].descriptorType = asset::EDT_STORAGE_BUFFER;
-            writes[i].info = infos+i;
-        }
-        infos[0].desc = perDrawDataSSBO;
-        infos[0].buffer = { 0u,perDrawDataSSBO->getSize() };
-        infos[1].desc = indirectDrawSSBO;
-        infos[1].buffer = { 0u,indirectDrawSSBO->getSize() };
-        infos[2].desc = perInstanceDataSSBO;
-        infos[2].buffer = { 0u,perInstanceDataSSBO->getSize() };
-
-        writes[0].dstSet = drawDirectDescriptorSet.get();
-        driver->updateDescriptorSets(1u,writes,0u,nullptr);
-
-        writes[0].dstSet = drawIndirectDescriptorSet.get();
-        driver->updateDescriptorSets(1u,writes,0u,nullptr);
-
-        writes[0].dstSet = cullDescriptorSet.get();
-        writes[1].dstSet = cullDescriptorSet.get();
-        writes[2].dstSet = cullDescriptorSet.get();
-        driver->updateDescriptorSets(BindingCount,writes,0u,nullptr);
-    }
-
-#endif

@@ -14,14 +14,11 @@ template<typename LoDChoiceParams=ILevelOfDetailLibrary::DefaultLoDChoiceParams,
 class CLevelOfDetailLibrary : public ILevelOfDetailLibrary
 {
 	public:
-		struct NBL_FORCE_EBO LoDInfo : AlignBase
+		struct alignas(DrawcallInfo) LoDInfo : LoDInfoBase
 		{
-			LoDInfo() : drawcallInfoCount(0u), totalDrawcallBoneCount(0u), choiceParams() {}
-			LoDInfo(const uint16_t drawcallCount, const LoDChoiceParams& _choiceParams, const core::aabbox3df& aabb)
-				: drawcallInfoCount(drawcallCount), totalDrawcallBoneCount(0u), choiceParams(_choiceParams)
+			LoDInfo() : LoDInfoBase(), choiceParams() {}
+			LoDInfo(const uint16_t drawcallCount, const LoDChoiceParams& _choiceParams) : LoDInfoBase(drawcallCount), choiceParams(_choiceParams)
 			{
-				std::copy_n(&aabb.MinEdge.X,3u,aabbMin);
-				std::copy_n(&aabb.MaxEdge.X,3u,aabbMax);
 			}
 
 			inline bool isValid(const LoDInfo& previous) const
@@ -29,16 +26,11 @@ class CLevelOfDetailLibrary : public ILevelOfDetailLibrary
 				return choiceParams<previous.choiceParams;
 			}
 
-			static inline uint32_t getSizeInUvec4(uint32_t drawcallCount)
+			static inline uint32_t getSizeInAlignmentUnits(uint32_t drawcallCount)
 			{
-				return (offsetof(LoDInfo,drawcallInfos[0])+sizeof(DrawcallInfo)*drawcallCount-1u)/alignof(LoDInfo)+1u;
+				return (offsetof(LoDInfo,drawcallInfos[0]))/alignof(DrawcallInfo)+drawcallCount;
 			}
 
-			float aabbMin[3];
-			uint16_t drawcallInfoCount;
-			// sum of all bone counts for all draws in this LoD
-			uint16_t totalDrawcallBoneCount;
-			float aabbMax[3];
 			LoDChoiceParams choiceParams;
 			DrawcallInfo drawcallInfos[1];
 			static_assert(alignof(LoDChoiceParams)==alignof(uint32_t));
@@ -106,11 +98,11 @@ class CLevelOfDetailLibrary : public ILevelOfDetailLibrary
 
 		static inline uint32_t maxInfoCapacity(const uint64_t lodBufferSize)
 		{
-			return lodBufferSize/alignof(LoDInfo);
+			return lodBufferSize/sizeof(LoDInfo);
 		}
         static inline size_t computeReservedSize(const uint64_t tableBufferSize, const uint64_t lodBufferSize)
         {
-            return computeTableReservedSize(tableBufferSize)+core::roundUp(AddressAllocator::reserved_size(1u,maxInfoCapacity(lodBufferSize),1u),16u);
+            return computeTableReservedSize(tableBufferSize)+core::roundUp(AddressAllocator::reserved_size(1u,maxInfoCapacity(lodBufferSize),1u),_NBL_SIMD_ALIGNMENT);
         }
 
 		allocator<uint8_t> m_alloc;

@@ -32,17 +32,14 @@ class ILevelOfDetailLibrary : public virtual core::IReferenceCounted
 				return abs(proj.rows[0].x*proj.rows[1].y-proj.rows[0].y*proj.rows[1].x)/dot(proj.rows[3],proj.rows[3]).x;
 			}
 		};
-		//
-		struct NBL_FORCE_EBO alignas(16) AlignBase
-		{
-		};
 		template<typename InfoType, template<class...> class container=core::vector>
 		class InfoContainerAdaptor
-		{
-				static_assert(std::is_base_of_v<AlignBase,InfoType>);
-				container<AlignBase> storage;
-			
+		{			
 			public:
+				struct NBL_FORCE_EBO alignas(InfoType) AlignBase
+				{
+				};
+
 				inline void reserve(const uint32_t alignmentUnits)
 				{
 					storage.reserve(alignmentUnits);
@@ -50,9 +47,9 @@ class ILevelOfDetailLibrary : public virtual core::IReferenceCounted
 				inline InfoType& emplace_back(const uint32_t variableEntryCount)
 				{
 					const auto oldEnd = storage.size();
-					const auto infoSize = InfoType::getSizeInUvec4(variableEntryCount);
+					const auto infoSize = InfoType::getSizeInAlignmentUnits(variableEntryCount);
 					storage.resize(oldEnd+infoSize);
-					return static_cast<InfoType&>(*(storage.begin()+oldEnd));
+					return *reinterpret_cast<InfoType*>(storage.data()+oldEnd);
 				}
 				//
 				inline AlignBase* data()
@@ -63,9 +60,12 @@ class ILevelOfDetailLibrary : public virtual core::IReferenceCounted
 				{
 					return storage.data();
 				}
+
+			private:
+				container<AlignBase> storage;
 		};
 		//
-		struct NBL_FORCE_EBO LoDTableInfo : AlignBase
+		struct alignas(16) LoDTableInfo
 		{
 			LoDTableInfo() : levelCount(0u) {}
 			LoDTableInfo(const uint32_t lodLevelCount, const core::aabbox3df& aabb) : levelCount(lodLevelCount)
@@ -74,15 +74,24 @@ class ILevelOfDetailLibrary : public virtual core::IReferenceCounted
 				std::copy_n(&aabb.MaxEdge.X,3u,aabbMax);
 			}
 
-			static inline uint32_t getSizeInUvec4(uint32_t levelCount)
+			static inline uint32_t getSizeInAlignmentUnits(uint32_t levelCount)
 			{
-				return (offsetof(LoDTableInfo,leveInfoUvec4Offsets[0])+sizeof(uint32_t)*levelCount-1u)/alignof(LoDTableInfo)+1u;
+				return (offsetof(LoDTableInfo,leveInfoUvec2Offsets[0])+sizeof(uint32_t)*levelCount-1u)/alignof(LoDTableInfo)+1u;
 			}
 
 			float aabbMin[3]; 
 			uint32_t levelCount;
 			float aabbMax[3];
-			uint32_t leveInfoUvec4Offsets[1]; // the array isnt really 1-sized, its `levelCount` entries
+			uint32_t leveInfoUvec2Offsets[1]; // the array isnt really 1-sized, its `levelCount` entries
+		};
+		struct LoDInfoBase
+		{
+			LoDInfoBase() : drawcallInfoCount(0u),totalDrawcallBoneCount(0u) {}
+			LoDInfoBase(const uint16_t drawcallCount) : drawcallInfoCount(drawcallCount),totalDrawcallBoneCount(0u) {}
+
+			uint16_t drawcallInfoCount;
+			// sum of all bone counts for all draws in this LoD
+			uint16_t totalDrawcallBoneCount;
 		};
 		struct alignas(8) DrawcallInfo
 		{
@@ -120,7 +129,7 @@ class ILevelOfDetailLibrary : public virtual core::IReferenceCounted
 			struct LevelInfoAllocation
 			{
 				// must point to an array initialized with `invalid`
-				uint32_t* levelUvec4Offsets = nullptr;
+				uint32_t* levelUvec2Offsets = nullptr;
 				const uint32_t* drawcallCounts = nullptr;
 			};
 			LevelInfoAllocation* levelAllocations;
@@ -135,17 +144,17 @@ class ILevelOfDetailLibrary : public virtual core::IReferenceCounted
                     continue;
 
 				const auto levelCount = params.levelCounts[i];
-				tableOffset = m_lodTableAllocator.alloc_addr(LoDTableInfo::getSizeInUvec4(levelCount),1u);
+				tableOffset = m_lodTableAllocator.alloc_addr(LoDTableInfo::getSizeInAlignmentUnits(levelCount),1u);
                 if (tableOffset==invalid)
                     return false;
 				auto& levelAlloc = params.levelAllocations[i];
 				for (auto j=0u; j<levelCount; j++)
 				{
-					auto& lodOffset = levelAlloc.levelUvec4Offsets[j];
+					auto& lodOffset = levelAlloc.levelUvec2Offsets[j];
 					if (lodOffset!=invalid)
 						continue;
 
-					lodOffset = m_lodInfoAllocator.alloc_addr(LoDInfo::getSizeInUvec4(levelAlloc.drawcallCounts[j]),1u);
+					lodOffset = m_lodInfoAllocator.alloc_addr(LoDInfo::getSizeInAlignmentUnits(levelAlloc.drawcallCounts[j]),1u);
 					if (lodOffset==invalid)
 						return false;
 				}
@@ -162,15 +171,15 @@ class ILevelOfDetailLibrary : public virtual core::IReferenceCounted
                     continue;
 
 				const auto levelCount = params.levelCounts[i];
-				m_lodTableAllocator.free_addr(tableOffset,LoDTableInfo::getSizeInUvec4(levelCount));
+				m_lodTableAllocator.free_addr(tableOffset,LoDTableInfo::getSizeInAlignmentUnits(levelCount));
 				auto& levelAlloc = params.levelAllocations[i];
 				for (auto j=0u; j<levelCount; j++)
 				{
-					auto& lodOffset = levelAlloc.levelUvec4Offsets[j];
+					auto& lodOffset = levelAlloc.levelUvec2Offsets[j];
 					if (lodOffset==invalid)
 						continue;
 					
-					m_lodInfoAllocator.free_addr(lodOffset,LoDInfo::getSizeInUvec4(levelAlloc.drawcallCounts[j]));
+					m_lodInfoAllocator.free_addr(lodOffset,LoDInfo::getSizeInAlignmentUnits(levelAlloc.drawcallCounts[j]));
 				}
             }
 		}
@@ -250,7 +259,7 @@ class ILevelOfDetailLibrary : public virtual core::IReferenceCounted
 		}
         static inline size_t computeTableReservedSize(const uint64_t tableBufferSize)
         {
-			return core::roundUp(AddressAllocator::reserved_size(1u,maxTableCapacity(tableBufferSize),1u),16u);
+			return core::roundUp(AddressAllocator::reserved_size(1u,maxTableCapacity(tableBufferSize),1u),_NBL_SIMD_ALIGNMENT);
         }
 
 
