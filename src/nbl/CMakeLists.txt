@@ -178,6 +178,7 @@ set(NBL_CORE_SOURCES
 set(NBL_SYSTEM_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/system/IFile.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/CFileWin32.cpp
+	${NBL_ROOT_PATH}/src/nbl/system/CFilePOSIX.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/ILogger.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/CArchiveLoaderZip.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/CArchiveLoaderTar.cpp

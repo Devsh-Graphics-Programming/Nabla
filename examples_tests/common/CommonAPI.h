@@ -17,7 +17,7 @@
 class GraphicalApplication : public nbl::system::IApplicationFramework, public nbl::ui::IGraphicalApplicationFramework
 {
 public:
-	GraphicalApplication(const system::path& _cwd) : nbl::system::IApplicationFramework(_cwd) {}
+	GraphicalApplication(const nbl::system::path& _cwd) : nbl::system::IApplicationFramework(_cwd) {}
 };
 //***** Application framework macros ******
 #ifdef _NBL_PLATFORM_ANDROID_
