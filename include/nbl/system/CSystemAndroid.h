@@ -10,11 +10,10 @@ namespace nbl::system
 	class CSystemAndroid final : public ISystem
 	{
 		ANativeActivity* nativeActivity = nullptr;
-		AAssetManager* assetManager = nullptr;
 		core::smart_refctd_ptr<IFileArchive> androidAssetArchive = nullptr;
 	public:
 		CSystemAndroid(core::smart_refctd_ptr<ISystemCaller>&& caller, ANativeActivity* activity) :
-			ISystem(std::move(caller)), nativeActivity(activity), assetManager(activity->assetManager)
+			ISystem(std::move(caller)), nativeActivity(activity)
 		{
 			androidAssetArchive = make_smart_refctd_ptr<CAPKResourcesArchive>(
 				core::smart_refctd_ptr<ISystem>(this),
