@@ -155,6 +155,11 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 }")
 		file(WRITE "${PROJECT_BINARY_DIR}/.vscode/tasks.json" ${VSCODE_TASKS_JSON})
 	endif()
+	if(NBL_BUILD_ANDROID)
+		# https://github.com/android-ndk/ndk/issues/381
+		target_link_options(${EXECUTABLE_NAME} PRIVATE -u ANativeActivity_onCreate)
+		nbl_android_create_apk(${EXECUTABLE_NAME})
+	endif()
 endmacro()
 
 macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUDES LIB_OPTIONS DEF_OPTIONS)
