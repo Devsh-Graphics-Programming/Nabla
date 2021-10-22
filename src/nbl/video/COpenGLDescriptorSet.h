@@ -7,14 +7,12 @@
 
 #include "nbl/video/IGPUDescriptorSet.h"
 #include "nbl/macros.h"
-#include "COpenGLExtensionHandler.h"
 #include "COpenGLBuffer.h"
 #include "COpenGLBufferView.h"
 #include "COpenGLImage.h"
 #include "COpenGLImageView.h"
 #include "nbl/video/COpenGLSampler.h"
 
-#ifdef _NBL_COMPILE_WITH_OPENGL_
 namespace nbl
 {
 namespace video
@@ -36,10 +34,12 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 			{
 				GLuint* textures = nullptr;
 				GLuint* samplers = nullptr;
+				GLenum* targets = nullptr;
 			};
 			struct SMultibindTextureImages
 			{
 				GLuint* textures = nullptr;
+				GLenum* formats = nullptr;
 			};
         
 			SMultibindBuffers ubos;
@@ -101,6 +101,9 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 			std::fill(m_sizes->begin(), m_sizes->end(), ~0u);
 			m_dynOffsetIxs = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint32_t> >(m_offsets->size());
 			std::fill(m_dynOffsetIxs->begin(), m_dynOffsetIxs->end(), 0u);
+			m_targetsAndFormats = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<GLenum> >(textureCount + imageCount);
+			std::fill(m_targetsAndFormats->begin(), m_targetsAndFormats->begin()+textureCount, GL_TEXTURE_2D);
+			std::fill(m_targetsAndFormats->begin()+textureCount, m_targetsAndFormats->end(), GL_R8);
 			
 			const size_t uboNamesOffset = 0ull;
 			const size_t ssboNamesOffset = uboCount;
@@ -121,7 +124,9 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 			setBufMultibindParams(m_multibindParams.ssbos, ssboNamesOffset, ssboBufOffset);
 			m_multibindParams.textures.textures = (*m_names).data() + texNamesOffset;
 			m_multibindParams.textures.samplers = (*m_names).data() + samplerNamesOffset;
+			m_multibindParams.textures.targets = (*m_targetsAndFormats).data();
 			m_multibindParams.textureImages.textures = (*m_names).data() + imagNamesOffset;
+			m_multibindParams.textureImages.formats = (*m_targetsAndFormats).data() + textureCount;
 
 			// set up dynamic offset redirects
 			uint32_t dyn_offset_iter = 0u;
@@ -301,7 +306,9 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 			}
 			else if (descriptorType==asset::EDT_COMBINED_IMAGE_SAMPLER)
 			{
-				m_multibindParams.textures.textures[offset] = static_cast<COpenGLImageView*>(info.desc.get())->getOpenGLName();
+				auto* glimgview = static_cast<COpenGLImageView*>(info.desc.get());
+
+				m_multibindParams.textures.textures[offset] = glimgview->getOpenGLName();
 
 				auto layoutBindings = m_layout->getBindings();
 				auto layoutBinding = std::lower_bound(layoutBindings.begin(), layoutBindings.end(),
@@ -310,6 +317,7 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 				m_multibindParams.textures.samplers[offset] = layoutBinding->samplers ? //take immutable sampler if present
 						static_cast<COpenGLSampler*>(layoutBinding->samplers[local_iter].get())->getOpenGLName() :
 						static_cast<COpenGLSampler*>(info.image.sampler.get())->getOpenGLName();
+				// m_multibindParams.textures.targets[offset] = glimgview->getOpenGLTarget();
 			}
 			else if (descriptorType==asset::EDT_UNIFORM_TEXEL_BUFFER)
 			{
@@ -317,9 +325,19 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 				m_multibindParams.textures.samplers[offset] = 0u;//no sampler for samplerBuffer descriptor
 			}
 			else if (descriptorType==asset::EDT_STORAGE_IMAGE)
-				m_multibindParams.textureImages.textures[offset] = static_cast<COpenGLImageView*>(info.desc.get())->getOpenGLName();
+			{
+				auto* glimgview = static_cast<COpenGLImageView*>(info.desc.get());
+
+				m_multibindParams.textureImages.textures[offset] = glimgview->getOpenGLName();
+				m_multibindParams.textureImages.formats[offset] = glimgview->getInternalFormat();
+			}
 			else if (descriptorType==asset::EDT_STORAGE_TEXEL_BUFFER)
-				m_multibindParams.textureImages.textures[offset] = static_cast<COpenGLBufferView*>(info.desc.get())->getOpenGLName();
+			{
+				auto* glbufview = static_cast<COpenGLBufferView*>(info.desc.get());
+
+				m_multibindParams.textureImages.textures[offset] = glbufview->getOpenGLName();
+				m_multibindParams.textureImages.formats[offset] = glbufview->getInternalFormat();
+			}
 		}
 
 		SMultibindParams m_multibindParams;
@@ -330,11 +348,11 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 		core::smart_refctd_dynamic_array<GLuint> m_names;
 		core::smart_refctd_dynamic_array<GLintptr> m_offsets;
 		core::smart_refctd_dynamic_array<GLsizeiptr> m_sizes;
+		core::smart_refctd_dynamic_array<GLenum> m_targetsAndFormats;
 		core::smart_refctd_dynamic_array<uint32_t> m_dynOffsetIxs;
 };
 
 }
 }
-#endif
 
 #endif
