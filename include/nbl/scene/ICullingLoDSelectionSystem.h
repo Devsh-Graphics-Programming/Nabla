@@ -37,7 +37,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 			DispatchIndirectParams contents;
 			auto setWorkgroups = [](asset::DispatchIndirectCommand_t& cmd)
 			{
-				cmd.num_groups_x = 256u;
+				cmd.num_groups_x = 1u;
 				cmd.num_groups_y = 1u;
 				cmd.num_groups_z = 1u;
 			};

@@ -47,16 +47,18 @@ mat4 nbl_glsl_culling_lod_selection_getInverseMVP(in uint pvInstanceID)
     return inverse(nbl_glsl_culling_lod_selection_getMVP(pvInstanceID));
 }
 
+#include <nbl/builtin/glsl/workgroup/arithmetic.glsl>
 void main()
-{
+{    
     if (gl_GlobalInvocationID.x==0u)
-        dispatchIndirect.instanceDrawCountPrefixSum.num_groups_x = 256u;
-    
+        dispatchIndirect.instanceCullAndLoDSelect.num_groups_x = 1u;
+
     const uint dispatchSize = gl_NumWorkGroups[0]*_NBL_GLSL_WORKGROUP_SIZE_;
 
     for (uint dword=gl_GlobalInvocationID.x; dword<=pc.lastScratchDWORDToClear; dword+=dispatchSize)
         scanScratch.data[dword] = 0u;
         
+    uint outIx = 0u;
     const uint totalInstanceCount = totalInstanceCountAfterCull;
     const uint drawInstanceCount = lodDrawcallInclusiveCounts[totalInstanceCount-1u];
     for (uint drawInstanceIndex=gl_GlobalInvocationID.x; drawInstanceIndex<drawInstanceCount; drawInstanceIndex+=dispatchSize)
@@ -77,14 +79,24 @@ void main()
             continue;
             
         const uint drawcallDWORDOffsetAndFlag = nbl_glsl_lod_library_DefaultInfo_getDrawCallDWORDOffset(lodInfoUvec2Offset,drawInstanceID);
-        const uint appendIx = atomicAdd(pvsInstanceDraws.count,1u);
+        outIx = atomicAdd(pvsInstanceDraws.count,1u);
         const uint drawcallDWORDOffset = drawcallDWORDOffsetAndFlag&0x7fffffffu;
         const uint instanceID = nbl_glsl_culling_lod_selection_drawCallInstanceCountIncr(drawcallDWORDOffset);
             
         const uint baseInstanceDWORDOffset = drawcallDWORDOffset+4u-(drawcallDWORDOffsetAndFlag>>31);
 
-        pvsInstanceDraws.data[appendIx].perViewPerInstanceID = pvInstanceID;
-        pvsInstanceDraws.data[appendIx].drawBaseInstanceDWORDOffset = baseInstanceDWORDOffset;
-        pvsInstanceDraws.data[appendIx].instanceID = instanceID;
+        pvsInstanceDraws.data[outIx].perViewPerInstanceID = pvInstanceID;
+        pvsInstanceDraws.data[outIx].drawBaseInstanceDWORDOffset = baseInstanceDWORDOffset;
+        pvsInstanceDraws.data[outIx].instanceID = instanceID;
+    }
+    
+    // set up workgroup counts for next dispatch
+    const uint maxOutIx = nbl_glsl_workgroupMax(outIx);
+    if (gl_LocalInvocationIndex==0u)
+    {
+        const uint instanceRefCountingSortWorkgroupLowerBound = nbl_glsl_utils_computeOptimalPersistentWorkgroupDispatchSize(
+            maxOutIx+1u,_NBL_GLSL_CULLING_LOD_SELECTION_SCAN_WORKGROUP_SIZE_
+        );
+        atomicMax(dispatchIndirect.instanceRefCountingSortScatter.num_groups_x,instanceRefCountingSortWorkgroupLowerBound);
     }
 }
