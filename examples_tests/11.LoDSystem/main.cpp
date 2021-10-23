@@ -372,7 +372,7 @@ int main()
             params.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
             cullingParams.instanceList = {0ull,~0ull,logicalDevice->createDeviceLocalGPUBufferOnDedMem(params,sizeof(culling_system_t::InstanceToCull)*MaxInstanceCount)};
         }
-        cullingParams.scratchBufferRanges = culling_system_t::createScratchBuffer(logicalDevice.get(),MaxInstanceCount,MaxTotalVisibleDrawcallInstances);
+        cullingParams.scratchBufferRanges = culling_system_t::createScratchBuffer(utilities->getDefaultScanner(),MaxInstanceCount,MaxTotalVisibleDrawcallInstances);
         cullingParams.drawCalls = drawIndirectAllocator->getDrawCommandMemoryBlock();
         cullingParams.perViewPerInstance = {0ull,~0ull,culling_system_t::createPerViewPerInstanceDataBuffer<PerViewPerInstance_t>(logicalDevice.get(),MaxInstanceCount)};
         cullingParams.perInstanceRedirectAttribs = {0ul,~0ull,culling_system_t::createInstanceRedirectBuffer(logicalDevice.get(),MaxTotalVisibleDrawcallInstances)};

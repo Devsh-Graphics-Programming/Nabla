@@ -67,6 +67,18 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
             // TODO: move the subgroupOps bitflag to `SFeatures`
             // Also isn't there a separate bitflag per subgroup op type?
             core::bitflag<asset::ISpecializedShader::E_SHADER_STAGE> subgroupOpsShaderStages;
+
+            // utility functions
+            // In the cases where the workgroups synchronise with each other such as work DAGs (i.e. `CScanner`),
+            // `workgroupSpinningProtection` is meant to protect against launching a dispatch so wide that
+            // a workgroup of the next cut of the DAG spins for an extended time to wait on a workgroup from a previous one.
+            inline uint32_t computeOptimalPersistentWorkgroupDispatchSize(const uint64_t elementCount, const uint32_t workgroupSize, const uint32_t workgroupSpinningProtection=1u) const
+            {
+				assert(elementCount!=0ull && "Input element count can't be 0!");
+                const uint64_t infinitelyWideDeviceWGCount = (elementCount-1ull)/(static_cast<uint64_t>(workgroupSize)*static_cast<uint64_t>(workgroupSpinningProtection))+1ull;
+                const uint32_t maxResidentWorkgroups = maxResidentInvocations/workgroupSize;
+                return static_cast<uint32_t>(core::min<uint64_t>(infinitelyWideDeviceWGCount,maxResidentWorkgroups));
+            }
         };
 
         struct SFeatures
