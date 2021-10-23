@@ -51,7 +51,7 @@ void nbl_glsl_scan_scheduler_computeParameters(in uint elementCount, out nbl_gls
 			_schedulerParams.finishedFlagOffset[3] = _schedulerParams.finishedFlagOffset[1]+2u;
 			//
 			_scanParams.temporaryStorageOffset[0] = _schedulerParams.finishedFlagOffset[3]+WorkgroupCount(1);
-			_scanParams.temporaryStorageOffset[1] = _scanParams.temporaryStorageOffset[0]+WorkgroupCount(1);
+			_scanParams.temporaryStorageOffset[1] = _scanParams.temporaryStorageOffset[0]+WorkgroupCount(0);
 			break;
 		case 3u:
 			_schedulerParams.cumulativeWorkgroupCount[1] = _schedulerParams.cumulativeWorkgroupCount[0]+WorkgroupCount(1);
@@ -69,8 +69,8 @@ void nbl_glsl_scan_scheduler_computeParameters(in uint elementCount, out nbl_gls
 			_schedulerParams.finishedFlagOffset[5] = _schedulerParams.finishedFlagOffset[4]+WorkgroupCount(2);
 			//
 			_scanParams.temporaryStorageOffset[0] = _schedulerParams.finishedFlagOffset[5]+WorkgroupCount(1);
-			_scanParams.temporaryStorageOffset[1] = _scanParams.temporaryStorageOffset[0]+WorkgroupCount(1);
-			_scanParams.temporaryStorageOffset[2] = _scanParams.temporaryStorageOffset[1]+WorkgroupCount(2);
+			_scanParams.temporaryStorageOffset[1] = _scanParams.temporaryStorageOffset[0]+WorkgroupCount(0);
+			_scanParams.temporaryStorageOffset[2] = _scanParams.temporaryStorageOffset[1]+WorkgroupCount(1);
 			break;
 		default:
 			break;
