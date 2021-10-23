@@ -94,10 +94,14 @@ void nbl_glsl_scan_setData(
 void nbl_glsl_scan_main();
 void main()
 {
+	const uint pvsInstanceCount = nbl_glsl_scan_getIndirectElementCount();
+
 	if (gl_GlobalInvocationID.x==0u)
 		dispatchIndirect.instanceCullAndLoDSelect.num_groups_x = 1u;
+	else if (gl_GlobalInvocationID.x==1u)
+		dispatchIndirect.instanceDrawCull.num_groups_x = max(1u,nbl_glsl_utils_computeOptimalPersistentWorkgroupDispatchSize(pvsInstanceCount,_NBL_GLSL_CULLING_LOD_SELECTION_CULL_WORKGROUP_SIZE_));
 
-	if (bool(nbl_glsl_scan_getIndirectElementCount()))
+	if (bool(pvsInstanceCount))
 		nbl_glsl_scan_main();
 }
 #define _NBL_GLSL_MAIN_DEFINED_

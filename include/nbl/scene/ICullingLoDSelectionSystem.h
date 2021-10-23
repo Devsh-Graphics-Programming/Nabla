@@ -445,8 +445,6 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 				workgroupSize = device->getPhysicalDevice()->getLimits().maxOptimallyResidentWorkgroupInvocations;
 			else if (core::isNPoT(workgroupSize))
 				return nullptr;
-			const std::string workgroupSizeDef = "\n#define _NBL_GLSL_WORKGROUP_SIZE_ "+std::to_string(workgroupSize)+"\n"+
-				"\n#define _NBL_GLSL_CULLING_LOD_SELECTION_SCAN_WORKGROUP_SIZE_ "+std::to_string(_scanner->getWorkgroupSize())+"\n";
 			
 			using shader_source_and_path = std::pair<core::smart_refctd_ptr<asset::ICPUShader>,system::path>;
 			auto getShader = [device](auto uniqueString) -> shader_source_and_path
@@ -455,8 +453,11 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 				auto glsl = system->loadBuiltinData<decltype(uniqueString)>(); 
 				return {core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl),asset::IShader::buffer_contains_glsl_t{}),decltype(uniqueString)::value};
 			};
-			auto overrideShader = [device,&cwdForShaderCompilation](shader_source_and_path&& baseShader, const std::string& additionalCode)
+			auto overrideShader = [device,&cwdForShaderCompilation,workgroupSize,_scanner](shader_source_and_path&& baseShader, std::string additionalCode)
 			{
+				additionalCode = "\n#define _NBL_GLSL_CULLING_LOD_SELECTION_CULL_WORKGROUP_SIZE_ "+std::to_string(workgroupSize)+"\n"+
+					"\n#define _NBL_GLSL_CULLING_LOD_SELECTION_SCAN_WORKGROUP_SIZE_ "+std::to_string(_scanner->getWorkgroupSize())+"\n"+
+					additionalCode;
 				auto shader =  device->createGPUShader(
 					asset::IGLSLCompiler::createOverridenCopy(baseShader.first.get(),"\n%s\n",additionalCode.c_str())
 				);
@@ -464,6 +465,8 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 				path = cwdForShaderCompilation/path.filename();
 				return device->createGPUSpecializedShader(shader.get(),{nullptr,nullptr,"main",asset::ISpecializedShader::ESS_COMPUTE,path});
 			};
+
+			const std::string workgroupSizeDef = "\n#define _NBL_GLSL_WORKGROUP_SIZE_ _NBL_GLSL_CULLING_LOD_SELECTION_CULL_WORKGROUP_SIZE_\n";
 			
 			auto firstShader = getShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/culling_lod_selection/instance_cull_and_lod_select.comp")());
 			auto instanceCullAndLoDSelect = device->createGPUComputePipeline(

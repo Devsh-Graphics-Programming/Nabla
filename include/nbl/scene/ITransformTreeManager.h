@@ -390,7 +390,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			if (params.dispatchIndirect.buffer)
 				cmdbuf->dispatchIndirect(params.dispatchIndirect.buffer,params.dispatchIndirect.offset);
 			else
-				cmdbuf->dispatch((params.dispatchDirect.nodeCount-1u)/WorkgroupSize+1u,1u,1u); // TODO: @Przemog would really like that dispatch factorization function
+				cmdbuf->dispatch((params.dispatchDirect.nodeCount-1u)/WorkgroupSize+1u,1u,1u); // TODO: Use persistent workgroups (do while doing animations)
 				
 
 			// we always add our own stage and access flags, simply to have up to date data available for the next time we run the shader

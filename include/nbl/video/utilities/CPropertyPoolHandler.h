@@ -17,7 +17,6 @@ namespace nbl::video
 {
 
 #include "nbl/builtin/glsl/property_pool/transfer.glsl"
-static_assert(NBL_BUILTIN_PROPERTY_POOL_TRANSFER_T_SIZE==sizeof(nbl_glsl_property_pool_transfer_t));
 static_assert(NBL_BUILTIN_PROPERTY_POOL_INVALID==IPropertyPool::invalid);
 
 // property pool factory is externally synchronized
@@ -237,7 +236,6 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 			// pipelines drop themselves automatically
 		}
 
-		static inline constexpr auto IdealWorkGroupSize = 256u;
 		static inline constexpr auto MaxPropertyTransfers = 512u;
 		static inline constexpr auto DescriptorCacheSize = 128u;
 
