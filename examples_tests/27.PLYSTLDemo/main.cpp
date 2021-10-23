@@ -194,7 +194,6 @@ int main()
 		ubomemreq.vulkanReqs.size = uboDS1ByteSize;
 
 		video::IGPUBuffer::SCreationParams creationParams;
-		creationParams.size = uboDS1ByteSize;
 		creationParams.usage = asset::IBuffer::E_USAGE_FLAGS::EUF_UNIFORM_BUFFER_BIT;
 		creationParams.sharingMode = asset::E_SHARING_MODE::ESM_EXCLUSIVE;
 		creationParams.queueFamilyIndices = 0u;

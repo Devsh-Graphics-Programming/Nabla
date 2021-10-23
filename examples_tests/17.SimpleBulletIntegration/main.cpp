@@ -142,8 +142,7 @@ int main(int argc, char** argv)
 			auto& block = blocks[i];
 			block.offset = 0u;
 			block.size = pool_type::PropertySizes[i]*capacity;
-			creationParams.size = block.size;
-			block.buffer = device->createDeviceLocalGPUBufferOnDedMem(creationParams);
+			block.buffer = device->createDeviceLocalGPUBufferOnDedMem(creationParams,block.size);
 		}
 		retval = pool_type::create(device.get(),blocks,capacity,contiguous);
 	};
