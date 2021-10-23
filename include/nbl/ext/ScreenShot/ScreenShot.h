@@ -150,9 +150,27 @@ namespace nbl
 
 				auto destinationBoundMemory = destinationBuffer->getBoundMemory();
 				destinationBoundMemory->mapMemoryRange(video::IDriverMemoryAllocation::EMCAF_READ, { 0u, memoryRequirements.vulkanReqs.size });
-				auto texelBuffer = core::make_smart_refctd_ptr<asset::CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t>>>(memoryRequirements.vulkanReqs.size, destinationBoundMemory->getMappedPointer(), core::adopt_memory);
 
-				image->setBufferAndRegions(std::move(texelBuffer), regions);
+				auto correctedScreenShotTexelBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(memoryRequirements.vulkanReqs.size);
+				bool flipImage = true;
+				if(flipImage)
+				{
+					auto extent = gpuImage->getMipSize(0u);
+					uint32_t rowByteSize = extent.x * asset::getTexelOrBlockBytesize(gpuImage->getCreationParameters().format);
+					for(uint32_t y = 0; y < extent.y; ++y)
+					{
+						uint32_t flipped_y = extent.y - y - 1;
+						memcpy(reinterpret_cast<uint8_t*>(correctedScreenShotTexelBuffer->getPointer()) + rowByteSize * y, reinterpret_cast<uint8_t*>(destinationBoundMemory->getMappedPointer()) + rowByteSize * flipped_y, rowByteSize);
+					}
+				}
+				else
+				{
+					memcpy(correctedScreenShotTexelBuffer->getPointer(), destinationBoundMemory->getMappedPointer(), memoryRequirements.vulkanReqs.size);
+				}
+
+				destinationBoundMemory->unmapMemory();
+
+				image->setBufferAndRegions(std::move(correctedScreenShotTexelBuffer), regions);
 				
 				while (mapPointerGetterFence->waitCPU(1000ull, mapPointerGetterFence->canDeferredFlush()) == video::EDFR_TIMEOUT_EXPIRED) {}
 
@@ -231,7 +249,6 @@ namespace nbl
 				if (!status)
 					status = tryToWrite(imageView.get());
 
-				destinationBoundMemory->unmapMemory();
 				return status;
 
 			}
