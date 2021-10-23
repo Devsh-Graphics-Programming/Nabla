@@ -18,8 +18,14 @@
 using namespace nbl;
 using namespace core;
 
-int main()
+int main(int argc, char** argv)
 {
+	std::string filePath = "";
+    // Usage: ./raytracedao Mitsuba_XML_file_or_ZIP
+	if( argc >= 2 ) {
+	  filePath = argv[1];
+	}
+
 	// create device with full flexibility over creation parameters
 	// you can add more parameters if desired, check nbl::SIrrlichtCreationParameters
 	nbl::SIrrlichtCreationParameters params;
@@ -49,15 +55,20 @@ int main()
 		am->addAssetLoader(std::move(serializedLoader));
 		am->addAssetLoader(std::move(mitsubaLoader));
 
-		//std::string filePath = "../../media/mitsuba/daily_pt.xml";
-		std::string filePath = "../../media/mitsuba/staircase2.zip";
 	//#define MITSUBA_LOADER_TESTS
 	#ifndef MITSUBA_LOADER_TESTS
-		pfd::message("Choose file to load", "Choose mitsuba XML file to load or ZIP containing an XML. \nIf you cancel or choosen file fails to load, simple scene will be loaded.", pfd::choice::ok);
-		pfd::open_file file("Choose XML or ZIP file", "../../media/mitsuba", { "ZIP files (.zip)", "*.zip", "XML files (.xml)", "*.xml"});
-		if (!file.result().empty())
-			filePath = file.result()[0];
+		if(filePath.empty())
+		{
+			pfd::message("Choose file to load", "Choose mitsuba XML file to load or ZIP containing an XML. \nIf you cancel or choosen file fails to load, simple scene will be loaded.", pfd::choice::ok);
+			pfd::open_file file("Choose XML or ZIP file", "../../media/mitsuba", { "ZIP files (.zip)", "*.zip", "XML files (.xml)", "*.xml"});
+			if (!file.result().empty())
+				filePath = file.result()[0];
+		}
 	#endif
+
+		if(filePath.empty())
+			filePath = "../../media/mitsuba/staircase2.zip";
+
 		if (core::hasFileExtension(io::path(filePath.c_str()), "zip", "ZIP"))
 		{
 			io::IFileArchive* arch = nullptr;
