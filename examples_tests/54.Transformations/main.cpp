@@ -229,12 +229,17 @@ int main()
 	instancesData.resize(NumInstances);
 	solarSystemObjectsData.resize(NumInstances);
 
-	nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandBuffer> cmdbuf_nodes;
-	device->createCommandBuffers(commandPool.get(), nbl::video::IGPUCommandBuffer::EL_PRIMARY, 1u, &cmdbuf_nodes);
-	auto fence_nodes = device->createFence(static_cast<nbl::video::IGPUFence::E_CREATE_FLAGS>(0));
+	// allocate node handles from the transform tree
+	core::vector<scene::ITransformTree::node_t> tmp_nodes(NumInstances, scene::ITransformTree::invalid_node);
+	{
+		bool success = tt->allocateNodes({tmp_nodes.data(),tmp_nodes.data()+tmp_nodes.size()});
+		if (!success)
+			exit(-1);
+		auto objectIt = solarSystemObjectsData.begin();
+		for (auto nodeID : tmp_nodes)
+			(objectIt++)->node = nodeID;
+	}
 
-	cmdbuf_nodes->begin(0);
-	
 	// Sun
 	uint32_t constexpr sunIndex = 0u;
 	instancesData[sunIndex].color = core::vector3df_SIMD(0.8f, 1.0f, 0.1f);
@@ -243,42 +248,12 @@ int main()
 	solarSystemObjectsData[sunIndex].zRotationSpeed = 0.0f;
 	solarSystemObjectsData[sunIndex].scale = 5.0f;
 	solarSystemObjectsData[sunIndex].initialRelativePosition = core::vector3df_SIMD(0.0f, 0.0f, 0.0f);
-
-	scene::ITransformTree::node_t parent_node = scene::ITransformTree::invalid_node;
-	{
-		scene::ITransformTreeManager::AllocationRequest parent_req;
-		parent_req.cmdbuf = cmdbuf_nodes.get();
-		parent_req.fence = fence_nodes.get();
-		auto tform = solarSystemObjectsData[sunIndex].getTform();
-		parent_req.relativeTransforms = &tform;
-		parent_req.outNodes = { &parent_node, &parent_node + 1 };
-		parent_req.parents = nullptr; //allocating root node
-		parent_req.poolHandler = ppHandler.get();
-		parent_req.tree = tt.get();
-		parent_req.upBuff = utils->getDefaultUpStreamingBuffer();
-		parent_req.logger = initOutput.logger.get();
-		ttm->addNodes(parent_req);
-		cmdbuf_nodes->end();
-
-		auto* q = device->getQueue(0u, 0u);
-		video::IGPUQueue::SSubmitInfo submit;
-		submit.commandBufferCount = 1u;
-		submit.commandBuffers = &cmdbuf_nodes.get();
-		q->submit(1u, &submit, fence_nodes.get());
-	}
-
-	auto waitres = device->waitForFences(1u, &fence_nodes.get(), false, 999999999ull);
-	assert(waitres == video::IGPUFence::ES_SUCCESS);
-
-	cmdbuf_nodes->reset(video::IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
-	device->resetFences(1u, &fence_nodes.get());
-
-	solarSystemObjectsData[sunIndex].node = parent_node;
+	const auto sun_node = solarSystemObjectsData[sunIndex].node;
 	
 	// Mercury
 	uint32_t constexpr mercuryIndex = 1u;
 	instancesData[mercuryIndex].color = core::vector3df_SIMD(0.7f, 0.3f, 0.1f);
-	solarSystemObjectsData[mercuryIndex].parentIndex = parent_node;
+	solarSystemObjectsData[mercuryIndex].parentIndex = sun_node;
 	solarSystemObjectsData[mercuryIndex].yRotationSpeed = 0.5f;
 	solarSystemObjectsData[mercuryIndex].zRotationSpeed = 0.0f;
 	solarSystemObjectsData[mercuryIndex].scale = 0.5f;
@@ -287,7 +262,7 @@ int main()
 	// Venus
 	uint32_t constexpr venusIndex = 2u;
 	instancesData[venusIndex].color = core::vector3df_SIMD(0.8f, 0.6f, 0.1f);
-	solarSystemObjectsData[venusIndex].parentIndex = parent_node;
+	solarSystemObjectsData[venusIndex].parentIndex = sun_node;
 	solarSystemObjectsData[venusIndex].yRotationSpeed = 0.8f;
 	solarSystemObjectsData[venusIndex].zRotationSpeed = 0.0f;
 	solarSystemObjectsData[venusIndex].scale = 1.0f;
@@ -296,16 +271,25 @@ int main()
 	// Earth
 	uint32_t constexpr earthIndex = 3u;
 	instancesData[earthIndex].color = core::vector3df_SIMD(0.1f, 0.4f, 0.8f);
-	solarSystemObjectsData[earthIndex].parentIndex = parent_node;
+	solarSystemObjectsData[earthIndex].parentIndex = sun_node;
 	solarSystemObjectsData[earthIndex].yRotationSpeed = 1.0f;
 	solarSystemObjectsData[earthIndex].zRotationSpeed = 0.0f;
 	solarSystemObjectsData[earthIndex].scale = 2.0f;
 	solarSystemObjectsData[earthIndex].initialRelativePosition = core::vector3df_SIMD(12.0f, 0.0f, 0.0f);
+
+	// Moon
+	uint32_t constexpr moonIndex = 10u;
+	instancesData[moonIndex].color = core::vector3df_SIMD(0.3f, 0.2f, 0.25f);
+	solarSystemObjectsData[moonIndex].parentIndex = solarSystemObjectsData[earthIndex].node;
+	solarSystemObjectsData[moonIndex].yRotationSpeed = 2.2f;
+	solarSystemObjectsData[moonIndex].zRotationSpeed = 0.f;
+	solarSystemObjectsData[moonIndex].scale = 0.4f;
+	solarSystemObjectsData[moonIndex].initialRelativePosition = core::vector3df_SIMD(2.5f, 0.0f, 0.0f);
 	
 	// Mars
 	uint32_t constexpr marsIndex = 4u;
 	instancesData[marsIndex].color = core::vector3df_SIMD(0.9f, 0.3f, 0.1f);
-	solarSystemObjectsData[marsIndex].parentIndex = parent_node;
+	solarSystemObjectsData[marsIndex].parentIndex = sun_node;
 	solarSystemObjectsData[marsIndex].yRotationSpeed = 2.0f;
 	solarSystemObjectsData[marsIndex].zRotationSpeed = 0.0f;
 	solarSystemObjectsData[marsIndex].scale = 1.5f;
@@ -314,7 +298,7 @@ int main()
 	// Jupiter
 	uint32_t constexpr jupiterIndex = 5u;
 	instancesData[jupiterIndex].color = core::vector3df_SIMD(0.6f, 0.4f, 0.4f);
-	solarSystemObjectsData[jupiterIndex].parentIndex = parent_node;
+	solarSystemObjectsData[jupiterIndex].parentIndex = sun_node;
 	solarSystemObjectsData[jupiterIndex].yRotationSpeed = 11.0f;
 	solarSystemObjectsData[jupiterIndex].zRotationSpeed = 0.0f;
 	solarSystemObjectsData[jupiterIndex].scale = 4.0f;
@@ -323,7 +307,7 @@ int main()
 	// Saturn
 	uint32_t constexpr saturnIndex = 6u;
 	instancesData[saturnIndex].color = core::vector3df_SIMD(0.7f, 0.7f, 0.5f);
-	solarSystemObjectsData[saturnIndex].parentIndex = parent_node;
+	solarSystemObjectsData[saturnIndex].parentIndex = sun_node;
 	solarSystemObjectsData[saturnIndex].yRotationSpeed = 30.0f;
 	solarSystemObjectsData[saturnIndex].zRotationSpeed = 0.0f;
 	solarSystemObjectsData[saturnIndex].scale = 3.0f;
@@ -332,7 +316,7 @@ int main()
 	// Uranus
 	uint32_t constexpr uranusIndex = 7u;
 	instancesData[uranusIndex].color = core::vector3df_SIMD(0.4f, 0.4f, 0.6f);
-	solarSystemObjectsData[uranusIndex].parentIndex = parent_node;
+	solarSystemObjectsData[uranusIndex].parentIndex = sun_node;
 	solarSystemObjectsData[uranusIndex].yRotationSpeed = 40.0f;
 	solarSystemObjectsData[uranusIndex].zRotationSpeed = 0.0f;
 	solarSystemObjectsData[uranusIndex].scale = 3.5f;
@@ -341,7 +325,7 @@ int main()
 	// Neptune
 	uint32_t constexpr neptuneIndex = 8u;
 	instancesData[neptuneIndex].color = core::vector3df_SIMD(0.5f, 0.2f, 0.9f);
-	solarSystemObjectsData[neptuneIndex].parentIndex = parent_node;
+	solarSystemObjectsData[neptuneIndex].parentIndex = sun_node;
 	solarSystemObjectsData[neptuneIndex].yRotationSpeed = 50.0f;
 	solarSystemObjectsData[neptuneIndex].zRotationSpeed = 0.0f;
 	solarSystemObjectsData[neptuneIndex].scale = 4.0f;
@@ -350,102 +334,62 @@ int main()
 	// Pluto 
 	uint32_t constexpr plutoIndex = 9u;
 	instancesData[plutoIndex].color = core::vector3df_SIMD(0.7f, 0.5f, 0.5f);
-	solarSystemObjectsData[plutoIndex].parentIndex = parent_node;
+	solarSystemObjectsData[plutoIndex].parentIndex = sun_node;
 	solarSystemObjectsData[plutoIndex].yRotationSpeed = 1.0f;
 	solarSystemObjectsData[plutoIndex].zRotationSpeed = 0.0f;
 	solarSystemObjectsData[plutoIndex].scale = 0.5f;
 	solarSystemObjectsData[plutoIndex].initialRelativePosition = core::vector3df_SIMD(36.0f, 0.0f, 0.0f);
 
-	cmdbuf_nodes->begin(0);
-
-	// -2u because w/o sun and moon
-	std::array<scene::ITransformTree::node_t, NumSolarSystemObjects - 2u> childNodes;
-	std::fill_n(childNodes.begin(), childNodes.size(), scene::ITransformTree::invalid_node);
-
+	// upload data
 	{
-		core::matrix3x4SIMD tforms[childNodes.size()];
-		scene::ITransformTree::node_t parents[childNodes.size()];
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandBuffer> cmdbuf_nodes;
+		device->createCommandBuffers(commandPool.get(),nbl::video::IGPUCommandBuffer::EL_PRIMARY,1u,&cmdbuf_nodes);
 
-		for (uint32_t i = 0u; i < childNodes.size(); ++i)
+		auto fence_nodes = device->createFence(static_cast<nbl::video::IGPUFence::E_CREATE_FLAGS>(0));
+
+		core::vector<scene::ITransformTree::node_t> tmp_parents(NumInstances);
+		core::vector<core::matrix3x4SIMD> tmp_transforms(NumInstances);
+		for (auto i=0u; i<NumInstances; i++)
 		{
-			tforms[i] = solarSystemObjectsData[mercuryIndex + i].getTform();
-			parents[i] = parent_node;
+			tmp_parents[i] = solarSystemObjectsData[i].parentIndex;
+			tmp_transforms[i] = solarSystemObjectsData[i].getTform();
 		}
 
-		scene::ITransformTreeManager::AllocationRequest req;
-		req.cmdbuf = cmdbuf_nodes.get();
-		req.fence = fence_nodes.get();
-		req.relativeTransforms = tforms;
-		req.outNodes = { childNodes.data(), childNodes.data() + childNodes.size() };
-		req.parents = parents;
-		req.poolHandler = ppHandler.get();
-		req.tree = tt.get();
-		req.upBuff = utils->getDefaultUpStreamingBuffer();
-		req.logger = initOutput.logger.get();
-		ttm->addNodes(req);
-		cmdbuf_nodes->end();
+		//
+		{
+			video::CPropertyPoolHandler::TransferRequest transfers[scene::ITransformTreeManager::TransferCount];
 
-		auto* q = device->getQueue(0u, 0u);
-		video::IGPUQueue::SSubmitInfo submit;
-		submit.commandBufferCount = 1u;
-		submit.commandBuffers = &cmdbuf_nodes.get();
-		q->submit(1u, &submit, fence_nodes.get());
+			{
+				scene::ITransformTreeManager::TransferRequest req;
+				req.tree = tt.get();
+				req.parents = tmp_parents.data();
+				req.relativeTransforms = tmp_transforms.data();
+				req.nodes = {tmp_nodes.data(),tmp_nodes.data()+tmp_nodes.size()};
+				ttm->setupTransfers(req,transfers);
+			}
+
+			cmdbuf_nodes->begin(0);
+			utils->getDefaultPropertyPoolHandler()->transferProperties(
+				utils->getDefaultUpStreamingBuffer(),nullptr,cmdbuf_nodes.get(),fence_nodes.get(),
+				transfers,transfers+scene::ITransformTreeManager::TransferCount,initOutput.logger.get()
+			);
+			cmdbuf_nodes->end();
+		}
+
+		// submit
+		{
+			auto* q = device->getQueue(commandPool->getQueueFamilyIndex(),0u);
+			video::IGPUQueue::SSubmitInfo submit;
+			submit.commandBufferCount = 1u;
+			submit.commandBuffers = &cmdbuf_nodes.get();
+			q->submit(1u,&submit,fence_nodes.get());
+		}
+
+		// wait
+		const bool success = device->blockForFences(1u,&fence_nodes.get());
+		if (!success)
+			exit(-3);
 	}
-
-	waitres = device->waitForFences(1u, &fence_nodes.get(), false, 999999999ull);
-	assert(waitres == video::IGPUFence::ES_SUCCESS);
-
-	cmdbuf_nodes->reset(video::IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
-	device->resetFences(1u, &fence_nodes.get());
-
-	for (uint32_t i = 0u; i < childNodes.size(); ++i)
-		solarSystemObjectsData[mercuryIndex + i].node = childNodes[i];
-
-	cmdbuf_nodes->begin(0);
-	
-	const auto earth_node = childNodes[earthIndex - mercuryIndex];
-
-	// Moon
-	uint32_t constexpr moonIndex = 10u;
-	instancesData[moonIndex].color = core::vector3df_SIMD(0.3f, 0.2f, 0.25f);
-	solarSystemObjectsData[moonIndex].parentIndex = earth_node;
-	solarSystemObjectsData[moonIndex].yRotationSpeed = 2.2f;
-	solarSystemObjectsData[moonIndex].zRotationSpeed = 0.f;
-	solarSystemObjectsData[moonIndex].scale = 0.4f;
-	solarSystemObjectsData[moonIndex].initialRelativePosition = core::vector3df_SIMD(2.5f, 0.0f, 0.0f);
-
-	scene::ITransformTree::node_t moon_node = scene::ITransformTree::invalid_node;
-	{
-
-		scene::ITransformTreeManager::AllocationRequest req;
-		req.cmdbuf = cmdbuf_nodes.get();
-		req.fence = fence_nodes.get();
-		auto tform = solarSystemObjectsData[sunIndex].getTform();
-		req.relativeTransforms = &tform;
-		req.outNodes = { &moon_node, &moon_node + 1 };
-		req.parents = &earth_node;
-		req.poolHandler = ppHandler.get();
-		req.tree = tt.get();
-		req.upBuff = utils->getDefaultUpStreamingBuffer();
-		req.logger = initOutput.logger.get();
-		ttm->addNodes(req);
-		cmdbuf_nodes->end();
-
-		auto* q = device->getQueue(0u, 0u);
-		video::IGPUQueue::SSubmitInfo submit;
-		submit.commandBufferCount = 1u;
-		submit.commandBuffers = &cmdbuf_nodes.get();
-		q->submit(1u, &submit, fence_nodes.get());
-	}
-	
-
-	waitres = device->waitForFences(1u, &fence_nodes.get(), false, 999999999ull);
-	assert(waitres == video::IGPUFence::ES_SUCCESS);
-
-	cmdbuf_nodes->reset(video::IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
-	device->resetFences(1u, &fence_nodes.get());
-
-	solarSystemObjectsData[moonIndex].node = moon_node;
 
 	// Geom Create
 	auto geometryCreator = assetManager->getGeometryCreator();
