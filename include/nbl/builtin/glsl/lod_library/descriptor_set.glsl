@@ -35,7 +35,10 @@ uint nbl_glsl_lod_library_Table_getLoDCount(in uint lodTableUvec4Offset)
 nbl_glsl_shapes_AABB_t nbl_glsl_lod_library_Table_getAABB(in uint lodTableUvec4Offset)
 {
     const uint uvec4OffsetofMaxAABB = 1u;
-    return nbl_glsl_shapes_AABB_t(uintBitsToFloat(lodTables.data[lodTableUvec4Offset].xyz),uintBitsToFloat(lodTables.data[lodTableUvec4Offset+uvec4OffsetofMaxAABB].xyz));
+    return nbl_glsl_shapes_AABB_t(
+        uintBitsToFloat(lodTables.data[lodTableUvec4Offset].xyz),
+        uintBitsToFloat(lodTables.data[lodTableUvec4Offset+uvec4OffsetofMaxAABB].xyz)
+    );
 }
 uint nbl_glsl_lod_library_Table_getLoDUvec2Offset(in uint lodTableUvec4Offset, in uint lodID)
 {
@@ -73,13 +76,26 @@ uint nbl_glsl_lod_library_Info_getTotalBoneCount(in uint lodInfoUvec2Offset)
     return bitfieldExtract(lodInfos.data[lodInfoUvec2Offset][0],bitoffset_totalBoneCount,16);
 }
 
+#include <nbl/builtin/glsl/lod_library/structs.glsl>
+#include <nbl/builtin/glsl/format/decode.glsl>
+nbl_glsl_shapes_AABB_t nbl_glsl_lod_library_Info_getAABB(in uint lodInfoUvec2Offset, in uint offsetofUvec2FirstDrawcallInfo, in uint drawcallID)
+{
+    const uint uvec2OffsetofMinAABB = 0u;
+    const uint uvec2OffsetofMaxAABB = 1u;
+    const uint offset = lodInfoUvec2Offset+offsetofUvec2FirstDrawcallInfo+drawcallID*NBL_GLSL_LOD_LIBRARY_DRAWCALL_INFO_UVEC2_SIZE;
+    return nbl_glsl_shapes_AABB_t(
+        nbl_glsl_decodeRGB18E7S3(lodInfos.data[offset+uvec2OffsetofMinAABB]),
+        nbl_glsl_decodeRGB18E7S3(lodInfos.data[offset+uvec2OffsetofMaxAABB])
+    );
+}
 uint nbl_glsl_lod_library_Info_getDrawCallDWORDOffset(in uint lodInfoUvec2Offset, in uint offsetofUvec2FirstDrawcallInfo, in uint drawcallID)
 {
-    return lodInfos.data[lodInfoUvec2Offset+offsetofUvec2FirstDrawcallInfo+drawcallID][0];
+    const uint uvec2OffsetofDrawcallDWORDOffset = 2u;
+    const uint offset = lodInfoUvec2Offset+offsetofUvec2FirstDrawcallInfo+drawcallID*NBL_GLSL_LOD_LIBRARY_DRAWCALL_INFO_UVEC2_SIZE;
+    return lodInfos.data[offset+uvec2OffsetofDrawcallDWORDOffset][0];
 }
 
 
-#include <nbl/builtin/glsl/lod_library/structs.glsl>
 nbl_glsl_lod_library_DefaultLoDChoiceParams nbl_glsl_lod_library_DefaultInfo_getLoDChoiceParams(in uint lodInfoUvec2Offset)
 {
     const uint offsetofUvec2_lodChoiceParams = NBL_GLSL_LOD_LIBRARY_LOD_INFO_BASE_SIZE>>3u;
@@ -88,10 +104,16 @@ nbl_glsl_lod_library_DefaultLoDChoiceParams nbl_glsl_lod_library_DefaultInfo_get
     ));
 }
 
-uint nbl_glsl_lod_library_DefaultInfo_getDrawCallDWORDOffset(in uint lodInfoUvec4Offset, in uint drawcallID)
+nbl_glsl_shapes_AABB_t nbl_glsl_lod_library_DefaultInfo_getAABB(in uint lodInfoUvec2Offset, in uint drawcallID)
+{
+    return nbl_glsl_lod_library_Info_getAABB(
+        lodInfoUvec2Offset,NBL_GLSL_CULLING_LOD_SELECTION_LOD_INFO_DRAWCALL_LIST_UVEC2_OFFSET,drawcallID
+    );
+}
+uint nbl_glsl_lod_library_DefaultInfo_getDrawCallDWORDOffset(in uint lodInfoUvec2Offset, in uint drawcallID)
 {
     return nbl_glsl_lod_library_Info_getDrawCallDWORDOffset(
-        lodInfoUvec4Offset,NBL_GLSL_CULLING_LOD_SELECTION_LOD_INFO_DRAWCALL_LIST_UVEC2_OFFSET,drawcallID
+        lodInfoUvec2Offset,NBL_GLSL_CULLING_LOD_SELECTION_LOD_INFO_DRAWCALL_LIST_UVEC2_OFFSET,drawcallID
     );
 }
 #endif

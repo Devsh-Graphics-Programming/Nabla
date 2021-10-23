@@ -95,6 +95,8 @@ class ILevelOfDetailLibrary : public virtual core::IReferenceCounted
 		};
 		struct alignas(8) DrawcallInfo
 		{
+				uint64_t aabbMinRGB18E7S3;
+				uint64_t aabbMaxRGB18E7S3;
 			public:
 				uint32_t drawcallDWORDOffset; // only really need 27 bits for this
 				// TODO: setter for the skinning AABBs

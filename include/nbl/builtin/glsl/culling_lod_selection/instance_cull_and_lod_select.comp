@@ -60,17 +60,17 @@ void main()
 
         // select lod_t
         const uint lodCount = nbl_glsl_lod_library_Table_getLoDCount(lodTableUvec4Offset);
-        uint lodInfoUvec4Offset = nbl_glsl_culling_lod_selection_chooseLoD(lodTableUvec4Offset,lodCount);
-        if (lodInfoUvec4Offset==0xffffffffu)
+        uint lodInfoUvec2Offset = nbl_glsl_culling_lod_selection_chooseLoD(lodTableUvec4Offset,lodCount);
+        if (lodInfoUvec2Offset==0xffffffffu)
             continue;
 
         //
         outIx = atomicAdd(totalInstanceCountAfterCull,1u); 
         nbl_glsl_culling_lod_selection_finalizePerViewPerInstanceData(perView,instanceGUID);
         
-        pvsInstances.data[outIx] = uvec2(instanceGUID,lodInfoUvec4Offset);
+        pvsInstances.data[outIx] = uvec2(instanceGUID,lodInfoUvec2Offset);
         // we write this out, because of cache coherency and dependent loads in the prefix sum (has to do 2x load of independent, vs. 2x load of 2-long chain)
-        lodDrawcallInclusiveCounts[outIx] = nbl_glsl_lod_library_Info_getDrawcallInfoCount(lodInfoUvec4Offset);
+        lodDrawcallInclusiveCounts[outIx] = nbl_glsl_lod_library_Info_getDrawcallInfoCount(lodInfoUvec2Offset);
         perViewPerInstance.data[outIx] = perView;
     }
     

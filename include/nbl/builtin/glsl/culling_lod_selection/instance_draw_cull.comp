@@ -63,20 +63,20 @@ void main()
     {
         // TODO: implement via https://moderngpu.github.io/sortedsearch.html, find the upper and lower bounds of the workgroup, then go to town with sorted search
         const uint pvInstanceID = upper_bound_lodDrawcallInclusiveCounts_NBL_GLSL_LESS(0u,totalInstanceCount,drawInstanceIndex);
-        const uint lodInfoUvec4Offset = pvsInstances.data[pvInstanceID][1];
+        const uint lodInfoUvec2Offset = pvsInstances.data[pvInstanceID][1];
 
         uint drawInstanceID = drawInstanceIndex;
         if (bool(pvInstanceID))
             drawInstanceID -= lodDrawcallInclusiveCounts[pvInstanceID-1u];
 
-        const uint drawcallDWORDOffsetAndFlag = nbl_glsl_lod_library_DefaultInfo_getDrawCallDWORDOffset(lodInfoUvec4Offset,drawInstanceID);
         // get AABB and cull
-        const nbl_glsl_shapes_AABB_t aabb = nbl_glsl_shapes_AABB_t(vec3(-5.f),vec3(5.f));// TODO: Draw_getAABB();
+        const nbl_glsl_shapes_AABB_t aabb = nbl_glsl_lod_library_DefaultInfo_getAABB(lodInfoUvec2Offset,drawInstanceID);
         const mat4 mvp = nbl_glsl_culling_lod_selection_getMVP(pvInstanceID);
         const mat4 inv_mvp = nbl_glsl_culling_lod_selection_getInverseMVP(pvInstanceID);
         //if (nbl_glsl_fastFrustumCullAABB(mvp,inv_mvp,aabb))
             //continue;
-
+            
+        const uint drawcallDWORDOffsetAndFlag = nbl_glsl_lod_library_DefaultInfo_getDrawCallDWORDOffset(lodInfoUvec2Offset,drawInstanceID);
         const uint appendIx = atomicAdd(pvsInstanceDraws.count,1u);
         const uint drawcallDWORDOffset = drawcallDWORDOffsetAndFlag&0x7fffffffu;
         const uint instanceID = nbl_glsl_culling_lod_selection_drawCallInstanceCountIncr(drawcallDWORDOffset);

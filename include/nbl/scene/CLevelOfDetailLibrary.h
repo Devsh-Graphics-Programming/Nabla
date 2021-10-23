@@ -28,7 +28,7 @@ class CLevelOfDetailLibrary : public ILevelOfDetailLibrary
 
 			static inline uint32_t getSizeInAlignmentUnits(uint32_t drawcallCount)
 			{
-				return (offsetof(LoDInfo,drawcallInfos[0]))/alignof(DrawcallInfo)+drawcallCount;
+				return (offsetof(LoDInfo,drawcallInfos[0])+sizeof(DrawcallInfo)*drawcallCount)/alignof(DrawcallInfo);
 			}
 
 			LoDChoiceParams choiceParams;

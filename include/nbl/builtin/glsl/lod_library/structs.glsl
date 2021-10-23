@@ -4,9 +4,13 @@
 
 struct nbl_glsl_lod_library_DrawcallInfo
 {
+	uvec2 aabbMinRGB18E7S3;
+	uvec2 aabbMaxRGB18E7S3;
 	uint drawcallDWORDOffset;
 	uint skinningAABBCountAndOffset; // TODO: review
 };
+#define NBL_GLSL_LOD_LIBRARY_DRAWCALL_INFO_SIZE 24
+#define NBL_GLSL_LOD_LIBRARY_DRAWCALL_INFO_UVEC2_SIZE (NBL_GLSL_LOD_LIBRARY_DRAWCALL_INFO_SIZE>>3)
 
 struct nbl_glsl_lod_library_LoDInfoBase
 {
