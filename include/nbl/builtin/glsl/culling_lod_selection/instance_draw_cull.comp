@@ -73,8 +73,8 @@ void main()
         const nbl_glsl_shapes_AABB_t aabb = nbl_glsl_lod_library_DefaultInfo_getAABB(lodInfoUvec2Offset,drawInstanceID);
         const mat4 mvp = nbl_glsl_culling_lod_selection_getMVP(pvInstanceID);
         const mat4 inv_mvp = nbl_glsl_culling_lod_selection_getInverseMVP(pvInstanceID);
-        //if (nbl_glsl_fastFrustumCullAABB(mvp,inv_mvp,aabb))
-            //continue;
+        if (nbl_glsl_fastFrustumCullAABB(mvp,inv_mvp,aabb))
+            continue;
             
         const uint drawcallDWORDOffsetAndFlag = nbl_glsl_lod_library_DefaultInfo_getDrawCallDWORDOffset(lodInfoUvec2Offset,drawInstanceID);
         const uint appendIx = atomicAdd(pvsInstanceDraws.count,1u);

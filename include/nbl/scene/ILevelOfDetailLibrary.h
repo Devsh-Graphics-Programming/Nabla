@@ -6,6 +6,7 @@
 #define __NBL_SCENE_I_LEVEL_OF_DETAIL_LIBRARY_H_INCLUDED__
 
 #include "nbl/video/ILogicalDevice.h"
+#include "nbl/video/utilities/IDrawIndirectAllocator.h"
 
 namespace nbl::scene
 {
@@ -68,6 +69,11 @@ class ILevelOfDetailLibrary : public virtual core::IReferenceCounted
 		struct alignas(16) LoDTableInfo
 		{
 			LoDTableInfo() : levelCount(0u) {}
+			LoDTableInfo(const uint32_t lodLevelCount) : levelCount(lodLevelCount)
+			{
+				std::fill_n(aabbMin,3u,FLT_MAX);
+				std::fill_n(aabbMax,3u,-FLT_MAX);
+			}
 			LoDTableInfo(const uint32_t lodLevelCount, const core::aabbox3df& aabb) : levelCount(lodLevelCount)
 			{
 				std::copy_n(&aabb.MinEdge.X,3u,aabbMin);
@@ -95,13 +101,27 @@ class ILevelOfDetailLibrary : public virtual core::IReferenceCounted
 		};
 		struct alignas(8) DrawcallInfo
 		{
+			public:
+				DrawcallInfo()
+					:	aabbMinRGB18E7S3(0x1fffFFFFffffFFFFull),aabbMaxRGB18E7S3(0xffffFFFFffffFFFFull),
+						drawcallDWORDOffset(video::IDrawIndirectAllocator::invalid_draw_range_begin)
+				{
+				}
+				DrawcallInfo(const uint32_t _drawcallDWORDOffset)
+					:	aabbMinRGB18E7S3(0x1fffFFFFffffFFFFull),aabbMaxRGB18E7S3(0xffffFFFFffffFFFFull),
+						drawcallDWORDOffset(_drawcallDWORDOffset)
+				{
+				}
+				DrawcallInfo(const uint32_t _drawcallDWORDOffset, const core::aabbox3df& aabb) : drawcallDWORDOffset(_drawcallDWORDOffset)
+				{
+					aabbMinRGB18E7S3 = core::rgb32f_to_rgb18e7s3<core::ERD_DOWN>(&aabb.MinEdge.X);
+					aabbMaxRGB18E7S3 = core::rgb32f_to_rgb18e7s3<core::ERD_UP>(&aabb.MaxEdge.X);
+				}
+			private:
 				uint64_t aabbMinRGB18E7S3;
 				uint64_t aabbMaxRGB18E7S3;
-			public:
 				uint32_t drawcallDWORDOffset; // only really need 27 bits for this
-				// TODO: setter for the skinning AABBs
-			private:
-				uint32_t skinningAABBCountAndOffset = 0u;
+				uint32_t skinningAABBCountAndOffset = 0u; // TODO
 		};
 
 		//

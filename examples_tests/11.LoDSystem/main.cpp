@@ -42,7 +42,6 @@ void addLoDTable(
     const core::smart_refctd_ptr<ICPUDescriptorSetLayout>& cpuTransformTreeDSLayout,
     const core::smart_refctd_ptr<ICPUDescriptorSetLayout>& cpuPerViewDSLayout,
     const core::smart_refctd_ptr<ICPUSpecializedShader>* shaders,
-    nbl::video::IGPUObjectFromAssetConverter& cpu2gpu,
     nbl::video::IGPUObjectFromAssetConverter::SParams& cpu2gpuParams,
     LoDLibraryData& lodLibraryData,
     video::CDrawIndirectAllocator<>* drawIndirectAllocator,
@@ -114,7 +113,7 @@ void addLoDTable(
 
         poly <<= 1u;
     }
-    auto gpumeshes = cpu2gpu.getGPUObjectsFromAssets(cpumeshes,cpumeshes+LoDLevels,cpu2gpuParams);
+    auto gpumeshes = video::CAssetPreservingGPUObjectFromAssetConverter().getGPUObjectsFromAssets(cpumeshes,cpumeshes+LoDLevels,cpu2gpuParams);
 
     core::smart_refctd_ptr<video::IGPUGraphicsPipeline> pipeline;
     {
@@ -162,10 +161,15 @@ void addLoDTable(
         // if the culling system was to be used together with occlusion culling, we could use smaller batch sizes
         constexpr auto indicesPerBatch = 3u<<12u;
         const auto indexCount = gpumb->getIndexCount();
-        const auto batchCount = (indexCount-1u)/indicesPerBatch+1u;
+        const auto batchCount = di.drawMaxCount = (indexCount-1u)/indicesPerBatch+1u;
+        lodLibraryData.drawCountData.emplace_back(di.drawMaxCount);
+        
+        const bool success = drawIndirectAllocator->allocateMultiDraws(mdiAlloc);
+        assert(success);
+        lodLibraryData.drawCountOffsets.emplace_back(di.drawCountOffset);
+        di.drawCountOffset *= sizeof(uint32_t);
+
         //
-        const auto& mbAABB = cpumeshes[lod]->getBoundingBox();
-        aabb.addInternalBox(mbAABB);
         auto& lodInfo = lodLibraryData.lodInfoData.emplace_back(batchCount);
         if (lod)
         {
@@ -193,7 +197,8 @@ void addLoDTable(
                 assert(false);
                 break;
         }
-        for (auto i=0u; i<indexCount; i+=indicesPerBatch)
+        auto batchID = 0u;
+        for (auto i=0u; i<indexCount; i+=indicesPerBatch,batchID++)
         {
             const auto& drawCallData = lodLibraryData.drawCallData.emplace_back(
                 core::min(indexCount-i,indicesPerBatch),
@@ -202,24 +207,26 @@ void addLoDTable(
                 0u,
                 0xdeadbeefu // set to garbage to test the prefix sum
             );
-            di.drawMaxCount++;
-            /* TODO
-            const aabb = IMeshManipulator::calculateBoundingBox(
-                cpumeshes[lod].get(),nullptr,drawCallData.count,
-                reinterpret_cast<const uint8_t*>(cpumeshes[lod]->getIndices())+i*indexSize
+            lodLibraryData.drawCallOffsetsIn20ByteStrides.emplace_back(di.drawCallOffset/di.drawCommandStride+batchID);
+
+            core::aabbox3df batchAABB;
+            {
+                // temporarily change the base vertex and index count to make AABB computation easier
+                auto mb = cpumeshes[lod].get();
+                auto oldBinding = mb->getIndexBufferBinding();
+                const auto oldIndexCount = mb->getIndexCount();
+                mb->setIndexBufferBinding({oldBinding.offset+i*indexSize,oldBinding.buffer});
+                mb->setIndexCount(drawCallData.count);
+                batchAABB = IMeshManipulator::calculateBoundingBox(mb);
+                mb->setIndexCount(oldIndexCount);
+                mb->setIndexBufferBinding(std::move(oldBinding));
+            }
+            aabb.addInternalBox(batchAABB);
+
+            const uint32_t drawCallDWORDOffset = (di.drawCallOffset+batchID*di.drawCommandStride)/sizeof(uint32_t);
+            lodInfo.drawcallInfos[batchID] = scene::ILevelOfDetailLibrary::DrawcallInfo(
+                drawCallDWORDOffset,batchAABB
             );
-            */
-        }
-        lodLibraryData.drawCountData.emplace_back(di.drawMaxCount);
-        
-        const bool success = drawIndirectAllocator->allocateMultiDraws(mdiAlloc);
-        assert(success);
-        lodLibraryData.drawCountOffsets.emplace_back(di.drawCountOffset);
-        di.drawCountOffset *= sizeof(uint32_t);
-        for (auto i=0u; i<di.drawMaxCount; i++)
-        {
-            lodLibraryData.drawCallOffsetsIn20ByteStrides.emplace_back(di.drawCallOffset/di.drawCommandStride+i);
-            lodInfo.drawcallInfos[i].drawcallDWORDOffset = (di.drawCallOffset+i*di.drawCommandStride)/sizeof(uint32_t);
         }
     }
     auto& lodTable = lodLibraryData.lodTableData.emplace_back(LoDLevels);
@@ -406,7 +413,6 @@ int main()
 
     core::smart_refctd_ptr<video::IGPUFence> gpuTransferFence;
     core::smart_refctd_ptr<video::IGPUFence> gpuComputeFence;
-    nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
     {
         cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].fence = &gpuTransferFence;
         cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].fence = &gpuComputeFence;
@@ -488,21 +494,21 @@ int main()
                 // populating `lodTables` is a bit messy, I know
                 size_t lodTableIx = lodLibraryData.lodTableDstUvec4s.size();
                 addLoDTable<EGT_CUBE,1>(
-                    assetManager.get(),cpuTransformTreeDSLayout,cpuPerViewDSLayout,shaders,cpu2gpu,cpu2gpuParams,
+                    assetManager.get(),cpuTransformTreeDSLayout,cpuPerViewDSLayout,shaders,cpu2gpuParams,
                     lodLibraryData,drawIndirectAllocator.get(),lodLibrary.get(),kiln.getDrawcallMetadataVector(),
                     cullingParams.perInstanceRedirectAttribs,renderpass,cullingParams.customDS,perViewDS
                 );
                 lodTables[EGT_CUBE] = lodLibraryData.lodTableDstUvec4s[lodTableIx];
                 lodTableIx = lodLibraryData.lodTableDstUvec4s.size();
                 addLoDTable<EGT_SPHERE,7>(
-                    assetManager.get(),cpuTransformTreeDSLayout,cpuPerViewDSLayout,shaders,cpu2gpu,cpu2gpuParams,
+                    assetManager.get(),cpuTransformTreeDSLayout,cpuPerViewDSLayout,shaders,cpu2gpuParams,
                     lodLibraryData,drawIndirectAllocator.get(),lodLibrary.get(),kiln.getDrawcallMetadataVector(),
                     cullingParams.perInstanceRedirectAttribs,renderpass,cullingParams.customDS,perViewDS
                 );
                 lodTables[EGT_SPHERE] = lodLibraryData.lodTableDstUvec4s[lodTableIx];
                 lodTableIx = lodLibraryData.lodTableDstUvec4s.size();
                 addLoDTable<EGT_CYLINDER,6>(
-                    assetManager.get(),cpuTransformTreeDSLayout,cpuPerViewDSLayout,shaders,cpu2gpu,cpu2gpuParams,
+                    assetManager.get(),cpuTransformTreeDSLayout,cpuPerViewDSLayout,shaders,cpu2gpuParams,
                     lodLibraryData,drawIndirectAllocator.get(),lodLibrary.get(),kiln.getDrawcallMetadataVector(),
                     cullingParams.perInstanceRedirectAttribs,renderpass,cullingParams.customDS,perViewDS
                 );

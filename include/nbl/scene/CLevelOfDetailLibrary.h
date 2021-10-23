@@ -40,7 +40,7 @@ class CLevelOfDetailLibrary : public ILevelOfDetailLibrary
         {
 			assert(params.tableCapacity && params.lodCapacity && params.drawcallCapacity);
 			const uint32_t tableBufferSize = params.tableCapacity*(sizeof(LoDTableInfo)+(params.lodCapacity-1u)/params.tableCapacity*sizeof(uint32_t)+alignof(LoDTableInfo));
-			const uint32_t lodBufferSize = params.lodCapacity*(sizeof(LoDInfo)+(params.drawcallCapacity-1u)/params.lodCapacity*sizeof(uint32_t)+alignof(LoDInfo));
+			const uint32_t lodBufferSize = params.lodCapacity*(sizeof(LoDInfo)+(params.drawcallCapacity-1u)/params.lodCapacity*sizeof(DrawcallInfo)+alignof(LoDInfo));
 
 			ExplicitBufferCreationParameters explicitParams;
 			{
