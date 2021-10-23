@@ -25,6 +25,9 @@ void nbl_glsl_oit_insert_node(in ivec2 coord, in uint mydepth, in float myvis, i
 	nbl_glsl_oit_color_nodes_t color;
 	nbl_glsl_oit_depth_nodes_t depth;
 	nbl_glsl_oit_vis_nodes_t vis;
+
+	memoryBarrierImage();
+
 #if NBL_GLSL_OIT_NODE_COUNT==4
     depth = imageLoad(g_depth, coord);
     vis = imageLoad(g_vis, coord);
@@ -86,6 +89,8 @@ void nbl_glsl_oit_insert_node(in ivec2 coord, in uint mydepth, in float myvis, i
 	imageStore(g_depth, coord, uvec4(depth, 0u, 0u));
 	imageStore(g_vis, coord, vec4(vis, 0.0, 0.0));
 #endif
+
+	memoryBarrierImage();
 }
 
 #endif //_NBL_GLSL_OIT_INSERT_NODE_GLSL_INCLUDED_
