@@ -860,15 +860,15 @@ public:
         vk_createInfo.addressModeV = getVkAddressModeFromTexClamp(static_cast<asset::ISampler::E_TEXTURE_CLAMP>(_params.TextureWrapV));
         vk_createInfo.addressModeW = getVkAddressModeFromTexClamp(static_cast<asset::ISampler::E_TEXTURE_CLAMP>(_params.TextureWrapW));
         vk_createInfo.mipLodBias = _params.LodBias;
-        vk_createInfo.anisotropyEnable = _params.AnisotropicFilter; // Todo(achal): Verify
-        vk_createInfo.maxAnisotropy = std::log2(_params.AnisotropicFilter); // Todo(achal): Verify
+        vk_createInfo.maxAnisotropy = std::exp2(_params.AnisotropicFilter); // Todo(achal): Verify
+        vk_createInfo.anisotropyEnable = VK_FALSE; // vk_createInfo.maxAnisotropy < 1.f ? VK_FALSE : VK_TRUE; // Todo(achal): Verify. Also this needs to take into account if the anistropic sampling feature is enabled
         vk_createInfo.compareEnable = _params.CompareEnable;
         vk_createInfo.compareOp = static_cast<VkCompareOp>(_params.CompareFunc);
         vk_createInfo.minLod = _params.MinLod;
         vk_createInfo.maxLod = _params.MaxLod;
         assert(_params.BorderColor < asset::ISampler::ETBC_COUNT);
         vk_createInfo.borderColor = static_cast<VkBorderColor>(_params.BorderColor);
-        vk_createInfo.unnormalizedCoordinates = VK_FALSE; // Todo(achal): Verify
+        vk_createInfo.unnormalizedCoordinates = VK_FALSE;
 
         VkSampler vk_sampler;
         if (m_devf.vk.vkCreateSampler(m_vkdev, &vk_createInfo, nullptr, &vk_sampler) == VK_SUCCESS)
@@ -1276,17 +1276,21 @@ protected:
         core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& layout3 = nullptr) override
     {
         constexpr uint32_t MAX_PC_RANGE_COUNT = 100u;
-        constexpr uint32_t MAX_DESCRIPTOR_SET_LAYOUT_COUNT = 4u;
+
+        core::smart_refctd_ptr<IGPUDescriptorSetLayout> dummyDSLayout = nullptr;
+        if (!layout0 || !layout1 || !layout2 || !layout3)
+            dummyDSLayout = createGPUDescriptorSetLayout_impl(nullptr, nullptr);
 
         const core::smart_refctd_ptr<IGPUDescriptorSetLayout> tmp[] = { layout0, layout1, layout2,
             layout3 };
 
-        VkDescriptorSetLayout vk_dsLayouts[MAX_DESCRIPTOR_SET_LAYOUT_COUNT];
-        uint32_t dsLayoutCount = 0u;
-        for (uint32_t i = 0u; i < MAX_DESCRIPTOR_SET_LAYOUT_COUNT; ++i)
+        VkDescriptorSetLayout vk_dsLayouts[asset::ICPUPipelineLayout::DESCRIPTOR_SET_COUNT];
+        for (uint32_t i = 0u; i < asset::ICPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
         {
             if (tmp[i] && (tmp[i]->getAPIType() == EAT_VULKAN))
-                vk_dsLayouts[dsLayoutCount++] = static_cast<const CVulkanDescriptorSetLayout*>(tmp[i].get())->getInternalObject();
+                vk_dsLayouts[i] = static_cast<const CVulkanDescriptorSetLayout*>(tmp[i].get())->getInternalObject();
+            else
+                vk_dsLayouts[i] = static_cast<const CVulkanDescriptorSetLayout*>(dummyDSLayout.get())->getInternalObject();
         }
 
         const auto pcRangeCount = std::distance(_pcRangesBegin, _pcRangesEnd);
@@ -1304,7 +1308,7 @@ protected:
         VkPipelineLayoutCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
         vk_createInfo.pNext = nullptr; // pNext must be NULL
         vk_createInfo.flags = static_cast<VkPipelineLayoutCreateFlags>(0); // flags must be 0
-        vk_createInfo.setLayoutCount = dsLayoutCount;
+        vk_createInfo.setLayoutCount = asset::ICPUPipelineLayout::DESCRIPTOR_SET_COUNT;
         vk_createInfo.pSetLayouts = vk_dsLayouts;
         vk_createInfo.pushConstantRangeCount = pcRangeCount;
         vk_createInfo.pPushConstantRanges = vk_pushConstantRanges;
