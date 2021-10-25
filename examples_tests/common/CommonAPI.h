@@ -17,16 +17,25 @@
 class GraphicalApplication : public nbl::system::IApplicationFramework, public nbl::ui::IGraphicalApplicationFramework
 {
 public:
-	GraphicalApplication(const nbl::system::path& _cwd) : nbl::system::IApplicationFramework(_cwd) {}
+	GraphicalApplication(const std::filesystem::path& _localInputCWD,
+		const std::filesystem::path& _localOutputCWD,
+		const std::filesystem::path& _sharedInputCWD,
+		const std::filesystem::path& _sharedOutputCWD) : nbl::system::IApplicationFramework(_localInputCWD, _localOutputCWD, _sharedInputCWD, _sharedOutputCWD) {}
 };
 //***** Application framework macros ******
 #ifdef _NBL_PLATFORM_ANDROID_
 using ApplicationBase = nbl::ui::CGraphicalApplicationAndroid;
-#define APP_CONSTRUCTOR(type) type(android_app* app, nbl::system::path cwd) : nbl::ui::CGraphicalApplicationAndroid(app, cwd) {}
+#define APP_CONSTRUCTOR(type) type(android_app* app, const system::path& _localInputCWD,\
+const system::path& _localOutputCWD,\
+const system::path& _sharedInputCWD,\
+const system::path& _sharedOutputCWD) : nbl::ui::CGraphicalApplicationAndroid(app, _localInputCWD, _localOutputCWD, _sharedInputCWD, _sharedOutputCWD) {}
 #define NBL_COMMON_API_MAIN(android_app_class) NBL_ANDROID_MAIN_FUNC(android_app_class, CommonAPI::CommonAPIEventCallback)
 #else
 using ApplicationBase = GraphicalApplication;
-#define APP_CONSTRUCTOR(type) type(nbl::system::path cwd) : GraphicalApplication(cwd) {}
+#define APP_CONSTRUCTOR(type) type(const system::path& _localInputCWD,\
+const system::path& _localOutputCWD,\
+const system::path& _sharedInputCWD,\
+const system::path& _sharedOutputCWD) : GraphicalApplication(_localInputCWD, _localOutputCWD, _sharedInputCWD, _sharedOutputCWD) {}
 #define NBL_COMMON_API_MAIN(android_app_class) int main(int argc, char** argv){\
 CommonAPI::main<android_app_class>(argc, argv);\
 }
@@ -682,7 +691,11 @@ public:
 	{
 #ifndef _NBL_PLATFORM_ANDROID_
 		nbl::system::path CWD = nbl::system::path(argv[0]).parent_path().generic_string() + "/";
-		AppClassName app(CWD);
+		nbl::system::path localInputCWD = CWD / "../../media/";
+		nbl::system::path localOutputCWD = CWD / "../../media/";;
+		nbl::system::path sharedInputCWD = CWD / "../";
+		nbl::system::path sharedOutputCWD = CWD;
+		AppClassName app(localInputCWD, localOutputCWD, sharedInputCWD, sharedOutputCWD);
 		app.onAppInitialized();
 		while (app.keepRunning())
 		{

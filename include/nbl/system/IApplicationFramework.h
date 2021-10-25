@@ -7,7 +7,12 @@ namespace nbl::system
 	{
 	public:
         virtual void setSystem(core::smart_refctd_ptr<nbl::system::ISystem>&& system) = 0;
-        IApplicationFramework(const system::path& _cwd) : CWDOnStartup(_cwd)
+        IApplicationFramework(
+            const system::path& _localInputCWD, 
+            const system::path& _localOutputCWD, 
+            const system::path& _sharedInputCWD, 
+            const system::path& _sharedOutputCWD) : 
+            localInputCWD(_localInputCWD), localOutputCWD(_localOutputCWD), sharedInputCWD(_sharedInputCWD), sharedOutputCWD(_sharedOutputCWD)
 		{
 
 		}
@@ -25,7 +30,7 @@ namespace nbl::system
         virtual void onAppInitialized_impl() {}
         virtual void onAppTerminated_impl() {}
     protected:
-        system::path CWDOnStartup;
+        system::path localInputCWD, localOutputCWD, sharedInputCWD, sharedOutputCWD;
     };
 }
 

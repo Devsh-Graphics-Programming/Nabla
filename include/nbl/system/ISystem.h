@@ -139,6 +139,7 @@ private:
         core::smart_refctd_ptr<ISystemCaller> m_caller;
     };
 
+protected:
     struct Loaders {
         core::vector<core::smart_refctd_ptr<IArchiveLoader> > vector;
         //! The key is file extension
@@ -190,8 +191,6 @@ public:
         return true;
     }
 
-protected:
-    virtual core::smart_refctd_ptr<IFile> openFileOpt_impl(const system::path& path, core::bitflag<IFile::E_CREATE_FLAGS> flags) { return nullptr; }
 private:
     // TODO: files shall have public read/write methods, and these should be protected, then the `IFile` implementations should call these behind the scenes via a friendship
     bool readFile(future<size_t>& future, IFile* file, void* buffer, size_t offset, size_t size)

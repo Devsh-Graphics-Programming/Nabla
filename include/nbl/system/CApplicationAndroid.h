@@ -33,7 +33,11 @@ namespace nbl::system
             SSavedState state;
         };
     public:
-        CApplicationAndroid(android_app* params, system::path CWD) : IApplicationFramework(CWD),  eventPoller(params, this)
+        CApplicationAndroid(android_app* params,
+            const system::path& _localInputCWD,
+            const system::path& _localOutputCWD,
+            const system::path& _sharedInputCWD,
+            const system::path& _sharedOutputCWD) : IApplicationFramework(_localInputCWD, _localOutputCWD, _sharedInputCWD, _sharedOutputCWD),  eventPoller(params, this)
         {
             params->onAppCmd = handleCommand;
             params->onInputEvent = handleInput;

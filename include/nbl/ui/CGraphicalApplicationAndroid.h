@@ -7,6 +7,8 @@
 #include "nbl/system/CSystemCallerPOSIX.h"
 #include "nbl/ui/IGraphicalApplicationFramework.h"
 #include "nbl/ui/IWindow.h"
+#include "nbl/ui/CWindowManagerAndroid.h"
+#include <jni.h>
 
 namespace nbl::ui
 {
@@ -19,7 +21,11 @@ namespace nbl::ui
 			core::smart_refctd_ptr<CWindowManagerAndroid> wndManager;
 			core::smart_refctd_ptr<IWindow::IEventCallback> callback;
 		};
-		CGraphicalApplicationAndroid(android_app* app, const system::path& cwd) : system::CApplicationAndroid(app, cwd) {}
+		CGraphicalApplicationAndroid(android_app* app, 
+			const system::path& _localInputCWD,
+			const system::path& _localOutputCWD,
+			const system::path& _sharedInputCWD,
+			const system::path& _sharedOutputCWD) : system::CApplicationAndroid(app, _localInputCWD, _localOutputCWD, _sharedInputCWD, _sharedOutputCWD) {}
 	private:
 		void handleInput_impl(android_app* app, AInputEvent* event) override
 		{
@@ -31,21 +37,28 @@ namespace nbl::ui
 			auto* ctx = (SGraphicalContext*)app->userData;
 			ctx->wndManager->handleCommand_impl(app, cmd);
 		}
+		static system::path getSharedResourcesPath(JNIEnv* env);
 		public:
 			template<typename android_app_class, typename window_event_callback, typename ... EventCallbackArgs>
 			static void androidMain(android_app * app, EventCallbackArgs... args)
 			{
-				system::path CWD = std::filesystem::current_path().generic_string();
+				JNIEnv* env;
+				app->activity->vm->AttachCurrentThread(&env, nullptr);
+				system::path sharedInputCWD = getSharedResourcesPath(env);
+				system::path APKResourcesPath = app->activity->internalDataPath;
+				system::path sharedOutputCWD = getSharedResourcesPath(env);
+				system::path privateOutputCWD = system::path(app->activity->internalDataPath) / "out";
+
 				nbl::ui::CGraphicalApplicationAndroid::SGraphicalContext ctx{};
 				app->userData = &ctx;
-				auto framework = nbl::core::make_smart_refctd_ptr<android_app_class>(app, CWD);
+				auto framework = nbl::core::make_smart_refctd_ptr<android_app_class>(app, APKResourcesPath, privateOutputCWD, sharedInputCWD, sharedOutputCWD);
 				auto eventCallback = nbl::core::make_smart_refctd_ptr<window_event_callback>(std::forward<EventCallbackArgs>(args)...);
 				auto wndManager = nbl::core::make_smart_refctd_ptr<nbl::ui::CWindowManagerAndroid>(app);
 				ctx.wndManager = core::smart_refctd_ptr(wndManager);
 				ctx.callback = core::smart_refctd_ptr(eventCallback);
 				nbl::ui::IWindow::SCreationParams params;
 				params.callback = nullptr;
-				auto system = core::make_smart_refctd_ptr<nbl::system::CSystemAndroid>(core::make_smart_refctd_ptr<nbl::system::CSystemCallerPOSIX>(), app->activity);
+				auto system = core::make_smart_refctd_ptr<nbl::system::CSystemAndroid>(core::make_smart_refctd_ptr<nbl::system::CSystemCallerPOSIX>(), app->activity, APKResourcesPath);
 				framework->setSystem(std::move(system));
 				if (app->savedState != nullptr) {
 					ctx.state = *(nbl::system::CApplicationAndroid::SSavedState*)app->savedState;
