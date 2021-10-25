@@ -1,4 +1,5 @@
 #include <numeric>
+#include <filesystem>
 
 #include "Renderer.h"
 
@@ -1095,8 +1096,6 @@ void Renderer::deinit()
 	m_denoiserOutput = {};
 #endif
 
-	if (m_tonemapOutput)
-		ext::ScreenShot::createScreenShot(m_driver,m_assetManager,m_tonemapOutput.get(),"tonemapped.exr",asset::EF_R32G32B32A32_SFLOAT);
 	if (m_visibilityBuffer)
 	{
 		m_driver->removeFrameBuffer(m_visibilityBuffer);
@@ -1166,6 +1165,25 @@ void Renderer::deinit()
 	for (auto shape : rrShapes)
 		rr->DeleteShape(shape);
 	rrShapes.clear();
+}
+
+void Renderer::takeAndSaveScreenShot(const std::string& screenShotName, const std::filesystem::path& screenshotFolderPath)
+{
+	auto commandQueue = m_rrManager->getCLCommandQueue();
+	ocl::COpenCLHandler::ocl.pclFinish(commandQueue);
+
+	glFinish();
+
+	auto finalFile = (screenshotFolderPath / (screenShotName + ".exr").c_str());
+
+	if(!std::filesystem::is_directory(screenshotFolderPath))
+	{
+		std::cout << "ScreenShot Directorty (" << screenshotFolderPath.string().c_str() << ") does not exist, Creating Directory..." << std::endl;
+		std::filesystem::create_directory(screenshotFolderPath);
+	}
+
+	if (m_tonemapOutput)
+		ext::ScreenShot::createScreenShot(m_driver,m_assetManager,m_tonemapOutput.get(),finalFile.string(),asset::EF_R32G32B32A32_SFLOAT);
 }
 
 // one day it will just work like that

@@ -6,6 +6,7 @@
 #include <nabla.h>
 
 #include <chrono>
+#include <filesystem>
 
 #include "../common/QToQuitEventReceiver.h"
 
@@ -20,11 +21,15 @@ using namespace core;
 
 int main(int argc, char** argv)
 {
-	std::string filePath = "";
-    // Usage: ./raytracedao Mitsuba_XML_file_or_ZIP
-	if( argc >= 2 ) {
-	  filePath = argv[1];
-	}
+	std::string filePath = "../../media/mitsuba/staircase2.zip"; // zip or xml
+	std::string extraPath = "scene.xml"; // xml in zip
+	std::string screenshotFolderPath = "C:\\Users\\Erfan\\ScreenShots";
+	bool shouldTerminate = true;
+
+	// if( argc >= 2 ) {
+	//   filePath = argv[1];
+	// }
+
 
 	// create device with full flexibility over creation parameters
 	// you can add more parameters if desired, check nbl::SIrrlichtCreationParameters
@@ -55,8 +60,6 @@ int main(int argc, char** argv)
 		am->addAssetLoader(std::move(serializedLoader));
 		am->addAssetLoader(std::move(mitsubaLoader));
 
-	//#define MITSUBA_LOADER_TESTS
-	#ifndef MITSUBA_LOADER_TESTS
 		if(filePath.empty())
 		{
 			pfd::message("Choose file to load", "Choose mitsuba XML file to load or ZIP containing an XML. \nIf you cancel or choosen file fails to load, simple scene will be loaded.", pfd::choice::ok);
@@ -64,7 +67,6 @@ int main(int argc, char** argv)
 			if (!file.result().empty())
 				filePath = file.result()[0];
 		}
-	#endif
 
 		if(filePath.empty())
 			filePath = "../../media/mitsuba/staircase2.zip";
@@ -90,20 +92,41 @@ int main(int argc, char** argv)
 				if (files.size() == 0u)
 					return 4;
 
-				std::cout << "Choose File (0-" << files.size() - 1ull << "):" << std::endl;
-				for (auto i = 0u; i < files.size(); i++)
-					std::cout << i << ": " << files[i].FullName.c_str() << std::endl;
-				uint32_t chosen = 0;
-		#ifndef MITSUBA_LOADER_TESTS
-				std::cin >> chosen;
-		#endif
-				if (chosen >= files.size())
-					chosen = 0u;
+				if(extraPath.empty())
+				{
+					std::cout << "Choose File (0-" << files.size() - 1ull << "):" << std::endl;
+					for (auto i = 0u; i < files.size(); i++)
+						std::cout << i << ": " << files[i].FullName.c_str() << std::endl;
+					uint32_t chosen = 0;
 
-				filePath = files[chosen].FullName.c_str();
+					std::cin >> chosen;
+
+					if (chosen >= files.size())
+						chosen = 0u;
+
+					filePath = files[chosen].FullName.c_str();
+				}
+				else
+				{
+					bool found = false;
+					for (auto it=files.begin(); it!=files.end(); it++)
+					{
+						if(extraPath == std::string(it->Name.c_str()))
+						{
+							found = true;
+							filePath = it->FullName.c_str();
+							break;
+						}
+					}
+
+					if(!found) {
+						std::cout << "Cannot find requested file (" << extraPath.c_str() << ") in zip (" << filePath << ")" << std::endl;
+						return 4;
+					}
+				}
 			}
 		}
-
+		
 		asset::CQuantNormalCache* qnc = am->getMeshManipulator()->getQuantNormalCache();
 
 		//! read cache results -- speeds up mesh generation
@@ -127,6 +150,8 @@ int main(int argc, char** argv)
 	// TODO: Move into renderer?
 	bool rightHandedCamera = true;
 	float moveSpeed = core::nan<float>();
+	uint32_t sensorSamplesNeeded = 0u;
+
 	auto camera = smgr->addCameraSceneNodeModifiedMaya(nullptr, -400.0f, 20.0f, 200.0f, -1, 2.0f, 1.0f, false, true);
 
 	auto isOkSensorType = [](const ext::MitsubaLoader::CElementSensor& sensor) -> bool {
@@ -136,6 +161,8 @@ int main(int argc, char** argv)
 	{
 		const auto& sensor = globalMeta->m_global.m_sensors.front();
 		const auto& film = sensor.film;
+
+		sensorSamplesNeeded = sensor.sampler.sampleCount;
 
 		// need to extract individual components
 		{
@@ -299,6 +326,9 @@ int main(int argc, char** argv)
 
 		driver->endScene();
 
+		if(shouldTerminate && renderer->getTotalSamplesPerPixelComputed() >= sensorSamplesNeeded)
+			break;
+
 		// display frames per second in window title
 		uint64_t time = device->getTimer()->getRealTime();
 		if (time - lastFPSTime > 1000)
@@ -313,6 +343,7 @@ int main(int argc, char** argv)
 			lastFPSTime = time;
 		}
 	}
+	renderer->takeAndSaveScreenShot("tonemapped", screenshotFolderPath);
 	renderer->deinit();
 	renderer = nullptr;
 

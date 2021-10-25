@@ -34,12 +34,19 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 
 		void deinit();
 
+		void takeAndSaveScreenShot(const std::string& screenShotName, const std::filesystem::path& screenshotFolderPath = "");
+
 		void render(nbl::ITimer* timer);
 
 		auto* getColorBuffer() { return m_colorBuffer; }
 
 		const auto& getSceneBound() const { return m_sceneBound; }
-
+		
+		uint64_t getTotalSamplesPerPixelComputed() const
+		{
+			const auto framesDispatched = static_cast<uint64_t>(m_framesDispatched);
+			return framesDispatched*m_staticViewData.samplesPerPixelPerDispatch;
+		}
 		uint64_t getTotalSamplesComputed() const
 		{
 			const auto samplesPerDispatch = static_cast<uint64_t>(m_staticViewData.samplesPerPixelPerDispatch*m_staticViewData.imageDimensions.x*m_staticViewData.imageDimensions.y);
