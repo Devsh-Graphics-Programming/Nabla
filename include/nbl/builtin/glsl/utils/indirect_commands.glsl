@@ -32,7 +32,7 @@ struct nbl_glsl_DispatchIndirectCommand_t
 
 uint nbl_glsl_utils_computeOptimalPersistentWorkgroupDispatchSize(in uint elementCount, in uint workgroupSize, in uint workgroupSpinningProtection)
 {
-    const uint infinitelyWideDeviceWGCount = (elementCount-1u)/(workgroupSize*workgroupSpinningProtection);
+    const uint infinitelyWideDeviceWGCount = (elementCount-1u)/(workgroupSize*workgroupSpinningProtection)+1u;
     return min(infinitelyWideDeviceWGCount,NBL_LIMIT_MAX_RESIDENT_INVOCATIONS/NBL_LIMIT_MAX_OPTIMALLY_RESIDENT_WORKGROUP_INVOCATIONS);
 }
 uint nbl_glsl_utils_computeOptimalPersistentWorkgroupDispatchSize(in uint elementCount, in uint workgroupSize)
