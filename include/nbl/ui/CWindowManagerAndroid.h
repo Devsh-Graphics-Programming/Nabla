@@ -37,37 +37,6 @@ namespace nbl::ui
 		void handleCommand_impl(android_app* app, int32_t cmd);
 		static E_KEY_CODE getNablaKeyCodeFromNative(int32_t nativeKeyCode);
 
-		core::map<uint32_t, core::smart_refctd_ptr<IMouseEventChannel>> m_mouseEventChannels;
-		core::map<uint32_t, core::smart_refctd_ptr<IKeyboardEventChannel>> m_keyboardEventChannels;
-		bool addMouseEventChannel(uint32_t deviceId, const core::smart_refctd_ptr<IMouseEventChannel>& channel)
-		{
-			if (m_mouseEventChannels.find(deviceId) == m_mouseEventChannels.end())
-			{
-				m_mouseEventChannels.emplace(deviceId, channel);
-				return true;
-			}
-			return false;
-		}
-		bool addKeyboardEventChannel(uint32_t deviceId, const core::smart_refctd_ptr<IKeyboardEventChannel>& channel)
-		{
-			if (m_keyboardEventChannels.find(deviceId) == m_keyboardEventChannels.end())
-			{
-				m_keyboardEventChannels.emplace(deviceId, channel);
-				return true;
-			}
-			return false;
-		}
-		IMouseEventChannel* getMouseEventChannel(uint32_t deviceId)
-		{
-			auto ch = m_mouseEventChannels.find(deviceId);
-			return m_mouseEventChannels.find(deviceId)->second.get();
-		}
-
-		IKeyboardEventChannel* getKeyboardEventChannel(uint32_t deviceId)
-		{
-			auto ch = m_keyboardEventChannels.find(deviceId);
-			return m_keyboardEventChannels.find(deviceId)->second.get();
-		}
 	};
 }
 

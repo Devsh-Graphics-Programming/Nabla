@@ -286,6 +286,22 @@ public:
 		{
 			m_logger.log("Window lost keyboard focus", nbl::system::ILogger::ELL_INFO);
 		}
+		void onMouseConnected_impl(nbl::core::smart_refctd_ptr<nbl::ui::IMouseEventChannel>&& mch) override
+		{
+			m_logger.log("A mouse has been connected", nbl::system::ILogger::ELL_INFO);
+		}
+		void onMouseDisconnected_impl(nbl::ui::IMouseEventChannel* mch) override
+		{
+			m_logger.log("A mouse has been disconnected", nbl::system::ILogger::ELL_INFO);
+		}
+		void onKeyboardConnected_impl(nbl::core::smart_refctd_ptr<nbl::ui::IKeyboardEventChannel>&& kbch) override
+		{
+			m_logger.log("A keyboard has been connected", nbl::system::ILogger::ELL_INFO);
+		}
+		void onKeyboardDisconnected_impl(nbl::ui::IKeyboardEventChannel* kbch) override
+		{
+			m_logger.log("A keyboard has been disconnected", nbl::system::ILogger::ELL_INFO);
+		}
 
 		bool onWindowClosed_impl() override
 		{

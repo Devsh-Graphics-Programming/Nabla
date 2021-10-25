@@ -6,11 +6,13 @@ namespace nbl::ui
 {
 	void CWindowManagerAndroid::handleInput_impl(android_app* app, AInputEvent* event)
 	{
+		constexpr uint32_t CIRCULAR_BUFFER_CAPACITY = 256;
 		auto* ctx = (CGraphicalApplicationAndroid::SGraphicalContext*)app->userData;
-		auto framework = (CGraphicalApplicationAndroid*)ctx->userData;
-		auto* wnd = framework->getWindow();
+		auto framework = (CGraphicalApplicationAndroid*)ctx->framework;
+		auto* wnd = (CWindowAndroid*)framework->getWindow();
 		if (wnd != nullptr)
 		{
+			auto eventCallback = wnd->getEventCallback();
 			if (AInputEvent_getType(event) == AINPUT_EVENT_TYPE_KEY)
 			{
 				int32_t keyVal = AKeyEvent_getKeyCode(event);
@@ -34,6 +36,14 @@ namespace nbl::ui
 				kbEvent.action = nblAction;
 				kbEvent.keyCode = kc;
 				kbEvent.window = wnd;
+				if (!wnd->hasKeyboardEventChannel(deviceId))
+				{
+					auto channel = core::make_smart_refctd_ptr<IKeyboardEventChannel>(CIRCULAR_BUFFER_CAPACITY);
+					if (wnd->addKeyboardEventChannel(deviceId, core::smart_refctd_ptr<IKeyboardEventChannel>(channel)))
+						eventCallback->onKeyboardConnected(wnd, std::move(channel));
+				}
+				auto* inputChannel = wnd->getKeyboardEventChannel(deviceId);
+				inputChannel->pushIntoBackground(std::move(kbEvent));
 			}
 			else if (AInputEvent_getType(event) == AINPUT_EVENT_TYPE_MOTION)
 			{
@@ -70,13 +80,21 @@ namespace nbl::ui
 					mouseEvent.scrollEvent.verticalScroll = AMotionEvent_getAxisValue(event, AMOTION_EVENT_AXIS_VSCROLL, 0);
 					mouseEvent.scrollEvent.horizontalScroll = AMotionEvent_getAxisValue(event, AMOTION_EVENT_AXIS_HSCROLL, 0);
 				}
+				if (!wnd->hasMouseEventChannel(deviceId))
+				{
+					auto channel = core::make_smart_refctd_ptr<IMouseEventChannel>(CIRCULAR_BUFFER_CAPACITY);
+					if (wnd->addMouseEventChannel(deviceId, core::smart_refctd_ptr<IMouseEventChannel>(channel)))
+						eventCallback->onMouseConnected(wnd, std::move(channel));
+				}
+				auto* inputChannel = wnd->getMouseEventChannel(deviceId);
+				inputChannel->pushIntoBackground(std::move(mouseEvent));
 			}
 		}
 	}
 	void CWindowManagerAndroid::handleCommand_impl(android_app* app, int32_t cmd)
 	{
 		auto* ctx = (CGraphicalApplicationAndroid::SGraphicalContext*)app->userData;
-		auto framework = (CGraphicalApplicationAndroid*)ctx->userData;
+		auto framework = (CGraphicalApplicationAndroid*)ctx->framework;
 		switch (cmd)
 		{
 		case APP_CMD_INIT_WINDOW:
