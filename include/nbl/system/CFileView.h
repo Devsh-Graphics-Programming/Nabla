@@ -24,7 +24,7 @@ public:
 	}
 	~CFileView()
 	{
-		allocator.dealloc(m_buffer);
+		allocator.dealloc(m_buffer, m_size);
 	}
 	virtual const std::filesystem::path& getFileName() const override
 	{
