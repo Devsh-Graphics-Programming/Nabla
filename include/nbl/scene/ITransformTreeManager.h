@@ -205,6 +205,97 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			tree->getNodePropertyPool()->freeProperties(begin,end);
 		}
 
+
+		//
+		struct SBarrierSuggestion
+		{
+			static inline constexpr uint32_t MaxBufferCount = 6u;
+
+			//
+			enum E_FLAG
+			{
+				// basic
+				EF_PRE_RELATIVE_TFORM_UPDATE = 0x1u,
+				EF_POST_RELATIVE_TFORM_UPDATE = 0x2u,
+				EF_PRE_GLOBAL_TFORM_RECOMPUTE = 0x4u,
+				EF_POST_GLOBAL_TFORM_RECOMPUTE = 0x8u,
+				// if you plan to run recompute right after update
+				EF_INBETWEEN_RLEATIVE_UPDATE_AND_GLOBAL_RECOMPUTE = EF_POST_RELATIVE_TFORM_UPDATE|EF_PRE_GLOBAL_TFORM_RECOMPUTE,
+				// if you're planning to run the fused recompute and update kernel
+				EF_PRE_UPDATE_AND_RECOMPUTE = EF_PRE_RELATIVE_TFORM_UPDATE|EF_PRE_GLOBAL_TFORM_RECOMPUTE,
+				EF_POST_UPDATE_AND_RECOMPUTE = EF_POST_RELATIVE_TFORM_UPDATE|EF_POST_GLOBAL_TFORM_RECOMPUTE,
+			};
+
+			core::bitflag<asset::E_PIPELINE_STAGE_FLAGS> srcStageMask = static_cast<asset::E_PIPELINE_STAGE_FLAGS>(0u);
+			core::bitflag<asset::E_PIPELINE_STAGE_FLAGS> dstStageMask = static_cast<asset::E_PIPELINE_STAGE_FLAGS>(0u);
+			asset::SMemoryBarrier requestRanges = {};
+			asset::SMemoryBarrier modificationRequests = {};
+			asset::SMemoryBarrier relativeTransforms = {};
+			asset::SMemoryBarrier modifiedTimestamps = {};
+			asset::SMemoryBarrier globalTransforms = {};
+			asset::SMemoryBarrier recomputedTimestamps = {};
+		};
+		//
+		static inline SBarrierSuggestion barrierHelper(const SBarrierSuggestion::E_FLAG type)
+		{
+			const auto rwAccessMask = core::bitflag(asset::EAF_SHADER_READ_BIT)|asset::EAF_SHADER_WRITE_BIT;
+
+			SBarrierSuggestion barrier;
+			if (type&SBarrierSuggestion::EF_PRE_RELATIVE_TFORM_UPDATE)
+			{
+				// we're mostly concerned about stuff writing to buffer update reads from 
+				barrier.dstStageMask |= asset::EPSF_COMPUTE_SHADER_BIT;
+				barrier.requestRanges.dstAccessMask |= asset::EAF_SHADER_READ_BIT;
+				barrier.modificationRequests.dstAccessMask |= asset::EAF_SHADER_READ_BIT;
+				// the case of update stepping on its own toes is handled by the POST case
+			}
+			if (type&SBarrierSuggestion::EF_POST_RELATIVE_TFORM_UPDATE)
+			{
+				// we're mostly concerned about relative tform update overwriting itself
+				barrier.srcStageMask |= asset::EPSF_COMPUTE_SHADER_BIT;
+				barrier.dstStageMask |= asset::EPSF_COMPUTE_SHADER_BIT;
+				// we also need to barrier against any future update to the inputs overstepping our reading
+				barrier.requestRanges.srcAccessMask |= asset::EAF_SHADER_READ_BIT;
+				barrier.modificationRequests.srcAccessMask |= asset::EAF_SHADER_READ_BIT;
+				// relative transform can be pre-post multiplied or entirely erased, we're not in charge of that
+				// need to also worry about update<->update loop, so both masks are R/W
+				barrier.relativeTransforms.srcAccessMask |= rwAccessMask;
+				barrier.relativeTransforms.dstAccessMask |= rwAccessMask;
+				// we will only overwrite
+				barrier.modifiedTimestamps.srcAccessMask |= asset::EAF_SHADER_WRITE_BIT;
+				// modified timestamp will be written by previous update, but also has to be read by recompute later
+				barrier.modifiedTimestamps.dstAccessMask |= rwAccessMask;
+				// we don't touch anything else
+			}
+			if (type&SBarrierSuggestion::EF_PRE_GLOBAL_TFORM_RECOMPUTE)
+			{
+				// we're mostly concerned about relative transform update not being finished before global transform recompute runs 
+				barrier.srcStageMask |= asset::EPSF_COMPUTE_SHADER_BIT;
+				barrier.dstStageMask |= asset::EPSF_COMPUTE_SHADER_BIT;
+				barrier.relativeTransforms.srcAccessMask |= rwAccessMask;
+				barrier.relativeTransforms.dstAccessMask |= asset::EAF_SHADER_READ_BIT;
+				barrier.modifiedTimestamps.srcAccessMask |= asset::EAF_SHADER_WRITE_BIT;
+				barrier.modifiedTimestamps.dstAccessMask |= asset::EAF_SHADER_READ_BIT;
+			}
+			if (type&SBarrierSuggestion::EF_POST_GLOBAL_TFORM_RECOMPUTE)
+			{
+				// we're mostly concerned about global tform recompute overwriting itself
+				barrier.srcStageMask |= asset::EPSF_COMPUTE_SHADER_BIT;
+				barrier.dstStageMask |= asset::EPSF_COMPUTE_SHADER_BIT;
+				// and future local update overwritng the inputs before recompute is done reading
+				barrier.relativeTransforms.srcAccessMask |= asset::EAF_SHADER_READ_BIT;
+				barrier.relativeTransforms.dstAccessMask |= rwAccessMask;
+				barrier.modifiedTimestamps.srcAccessMask |= asset::EAF_SHADER_READ_BIT;
+				barrier.modifiedTimestamps.dstAccessMask |= asset::EAF_SHADER_WRITE_BIT;
+				// global transforms and recompute timestamps can be both read and written
+				barrier.globalTransforms.srcAccessMask |= rwAccessMask;
+				barrier.globalTransforms.dstAccessMask |= rwAccessMask;
+				barrier.recomputedTimestamps.srcAccessMask |= rwAccessMask;
+				barrier.recomputedTimestamps.dstAccessMask |= rwAccessMask;
+			}
+			return barrier;
+		}
+
 		//
 		using ModificationRequestRange = nbl_glsl_transform_tree_modification_request_range_t;
 		struct ParamsBase
@@ -213,6 +304,22 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			{
 				dispatchIndirect.buffer = nullptr;
 				dispatchDirect.nodeCount = 0u;
+			}
+
+			inline ParamsBase& operator=(const ParamsBase& other)
+			{
+				cmdbuf = other.cmdbuf;
+				fence = other.fence;
+				tree = other.tree;
+				if (other.dispatchIndirect.buffer)
+					dispatchIndirect = other.dispatchIndirect;
+				else
+				{
+					dispatchIndirect.buffer = nullptr;
+					dispatchDirect.nodeCount = other.dispatchDirect.nodeCount;
+				}
+				logger = other.logger;
+				return *this;
 			}
 
 			video::IGPUCommandBuffer* cmdbuf; // must already be in recording state
@@ -234,14 +341,6 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 						uint32_t nodeCount;
 				} dispatchDirect;
 			};
-			struct BarrierParams
-			{
-				// TODO: what to set queue family indices to if we don't plan on a transfer by default?
-				uint32_t srcQueueFamilyIndex;
-				uint32_t dstQueueFamilyIndex;
-				asset::E_PIPELINE_STAGE_FLAGS dstStages = asset::EPSF_ALL_COMMANDS_BIT;
-				asset::E_ACCESS_FLAGS dstAccessMask = asset::EAF_ALL_ACCESSES_BIT_DEVSH;
-			} finalBarrier = {};
 			system::logger_opt_ptr logger = nullptr;
 		};
 
@@ -269,19 +368,6 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		inline bool recomputeGlobalTransforms(const GlobalTransformUpdateParams& params)
 		{
 			return soleUpdateOrFusedRecompute_impl<1u>(m_recomputePipeline.get(),params,{params.nodeIDs});
-		}
-
-		//
-		struct RelativeTransformUpdateAndGlobalTransformUpdateParams : LocalTransformUpdateParams
-		{
-			// first uint in the buffer tells us how many nodes to update we have
-			asset::SBufferRange<video::IGPUBuffer> nodeIDs;
-		};
-		inline bool updateAndRecomputeTransforms(const RelativeTransformUpdateAndGlobalTransformUpdateParams& params)
-		{
-			// TODO: after BaW, for now just use `updateLocalTransforms` and `recomputeGlobalTransforms` in order
-			assert(false);
-			return false;// commonDispatch(m_updateAndRecomputePipeline.get(), params, video::IDescriptorSetCache::invalid_index);
 		}
 
 		static inline constexpr uint32_t WorkgroupSize = 256u;
@@ -375,55 +461,17 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			}
 			const video::IGPUDescriptorSet* descSets[] = { params.tree->getNodePropertyDescriptorSet(),tempDS };
 			cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,pipeline->getLayout(),0u,2u,descSets,nullptr);
-
-			lastDispatch(pipeline,params);
-
-			m_dsCache->releaseSet(m_device.get(),core::smart_refctd_ptr<video::IGPUFence>(params.fence),dsix);
-			return true;
-		}
-
-		void lastDispatch(const video::IGPUComputePipeline* pipeline, const ParamsBase& params)
-		{
-			auto* cmdbuf = params.cmdbuf;
-			cmdbuf->bindComputePipeline(pipeline);
 			
+			cmdbuf->bindComputePipeline(pipeline);
 			if (params.dispatchIndirect.buffer)
 				cmdbuf->dispatchIndirect(params.dispatchIndirect.buffer,params.dispatchIndirect.offset);
 			else
+			{
 				cmdbuf->dispatch((params.dispatchDirect.nodeCount-1u)/WorkgroupSize+1u,1u,1u); // TODO: Use persistent workgroups (do while doing animations)
-				
+			}
 
-			// we always add our own stage and access flags, simply to have up to date data available for the next time we run the shader
-			uint32_t barrierCount = 0u;
-			video::IGPUCommandBuffer::SBufferMemoryBarrier bufferBarriers[ITransformTree::property_pool_t::PropertyCount-1u];
-			auto setUpBarrier = [&](uint32_t prop_ix)
-			{
-				auto& bufBarrier = bufferBarriers[barrierCount++];
-				bufBarrier.barrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
-				bufBarrier.barrier.dstAccessMask = static_cast<asset::E_ACCESS_FLAGS>(params.finalBarrier.dstAccessMask|asset::EAF_SHADER_READ_BIT|asset::EAF_SHADER_WRITE_BIT);
-				bufBarrier.srcQueueFamilyIndex = params.finalBarrier.srcQueueFamilyIndex;
-				bufBarrier.dstQueueFamilyIndex = params.finalBarrier.dstQueueFamilyIndex;
-				const auto& block = params.tree->getNodePropertyPool()->getPropertyMemoryBlock(prop_ix);
-				bufBarrier.buffer = block.buffer;
-				bufBarrier.offset = block.offset;
-				bufBarrier.size = block.size;
-			};
-			// update is being done
-			if (pipeline!=m_recomputePipeline.get())
-			{
-				setUpBarrier(ITransformTree::relative_transform_prop_ix);
-				setUpBarrier(ITransformTree::modified_stamp_prop_ix);
-			}
-			// recomputation is being done
-			if (pipeline!=m_updatePipeline.get())
-			{
-				setUpBarrier(ITransformTree::global_transform_prop_ix);
-				setUpBarrier(ITransformTree::recomputed_stamp_prop_ix);
-			}
-			cmdbuf->pipelineBarrier(
-				asset::EPSF_COMPUTE_SHADER_BIT,core::bitflag<asset::E_PIPELINE_STAGE_FLAGS>(params.finalBarrier.dstStages)|asset::EPSF_COMPUTE_SHADER_BIT,
-				asset::EDF_NONE,0u,nullptr,barrierCount,bufferBarriers,0u,nullptr
-			);
+			m_dsCache->releaseSet(m_device.get(),core::smart_refctd_ptr<video::IGPUFence>(params.fence),dsix);
+			return true;
 		}
 
 		core::smart_refctd_ptr<video::ILogicalDevice> m_device;

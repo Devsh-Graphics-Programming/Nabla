@@ -578,16 +578,13 @@ int main()
 	while(windowCb->isWindowOpen())
 	{
 		resourceIx++;
-		if(resourceIx >= FRAMES_IN_FLIGHT) {
+		if(resourceIx >= FRAMES_IN_FLIGHT)
 			resourceIx = 0;
-		}
 
 		auto& cb = cmdbuf[resourceIx];
 		auto& fence = frameComplete[resourceIx];
 		if (fence)
-		while (device->waitForFences(1u,&fence.get(),false,MAX_TIMEOUT)==video::IGPUFence::ES_TIMEOUT)
-		{
-		}
+			device->blockForFences(1u,&fence.get());
 		else
 			fence = device->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
 
@@ -600,40 +597,35 @@ int main()
 		// safe to proceed
 		cb->begin(0);
 
-
-		// update `modRangesBuf`
+		// we don't wait on anything because we do everything on the same queue
+		uint32_t waitSemaphoreCount = 0u;
+		const asset::E_PIPELINE_STAGE_FLAGS* waitStages = nullptr;
+		video::IGPUSemaphore* const* waitSems = nullptr;
+			
+		// queue update to `modRangesBuf`
 		{
-#include "nbl/nblpack.h"
 			struct SSBO
 			{
 				uint32_t rangecount;
-				uint32_t reqcnt;
 				scene::ITransformTreeManager::ModificationRequestRange ranges[ObjectCount];
-			}PACK_STRUCT;
-#include "nbl/nblunpack.h"
-			uint8_t data[sizeof(SSBO)];
-			SSBO* ssbo = reinterpret_cast<SSBO*>(&data[0]);
-			ssbo->rangecount = ObjectCount;
-			ssbo->reqcnt = ObjectCount;
+			};
+			static_assert(offsetof(SSBO, ranges) == sizeof(uint32_t));
+			SSBO requestRanges;
+			requestRanges.rangecount = ObjectCount;
 			for (uint32_t i = 0u; i < ObjectCount; ++i)
 			{
 				auto& obj = solarSystemObjectsData[i];
-				ssbo->ranges[i].nodeID = obj.node;
-				ssbo->ranges[i].requestsBegin = i;
-				ssbo->ranges[i].requestsEnd = i + 1u;
-				ssbo->ranges[i].newTimestamp = timestamp;
+				requestRanges.ranges[i].nodeID = obj.node;
+				requestRanges.ranges[i].requestsBegin = i;
+				requestRanges.ranges[i].requestsEnd = i+1u;
+				requestRanges.ranges[i].newTimestamp = timestamp;
 			}
 
 			asset::SBufferRange<video::IGPUBuffer> bufrng;
 			bufrng.buffer = modRangesBuf;
 			bufrng.offset = 0;
 			bufrng.size = modRangesBuf->getSize();
-
-
-			uint32_t waitSemaphoreCount = 0u;
-			const asset::E_PIPELINE_STAGE_FLAGS* waitStages = nullptr;
-			video::IGPUSemaphore* const* waitSems = nullptr;
-			utils->updateBufferRangeViaStagingBuffer(cb.get(), fence.get(), device->getQueue(0,0), bufrng, ssbo, waitSemaphoreCount, waitSems, waitStages);
+			utils->updateBufferRangeViaStagingBuffer(cb.get(),fence.get(),graphicsQueue,bufrng,&requestRanges,waitSemaphoreCount,waitSems,waitStages);
 		}
 
 		// update `relTformModsBuf`
@@ -665,28 +657,88 @@ int main()
 			bufrng.offset = 0;
 			bufrng.size = relTformModsBuf->getSize();
 
-			uint32_t waitSemaphoreCount = 0u;
-			const asset::E_PIPELINE_STAGE_FLAGS* waitStages = nullptr;
-			video::IGPUSemaphore* const* waitSems = nullptr;
-			utils->updateBufferRangeViaStagingBuffer(cb.get(), fence.get(), device->getQueue(0, 0), bufrng, reqs.data(), waitSemaphoreCount, waitSems, waitStages);
+			utils->updateBufferRangeViaStagingBuffer(cb.get(),fence.get(),graphicsQueue,bufrng,reqs.data(),waitSemaphoreCount,waitSems,waitStages);
 		}
 
-		// barrier after buffer upload, before TTM updates
+		// Update instances transforms 
 		{
-			video::IGPUCommandBuffer::SBufferMemoryBarrier barrier[2];
-			barrier[0].buffer = modRangesBuf;
-			barrier[0].offset = 0;
-			barrier[0].size = modRangesBuf->getSize();
-			barrier[0].dstQueueFamilyIndex = 0u;
-			barrier[0].srcQueueFamilyIndex = 0u;
-			barrier[0].barrier.srcAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
-			barrier[0].barrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
-			barrier[1] = barrier[0];
-			barrier[1].buffer = relTformModsBuf;
-			barrier[1].offset = 0;
-			barrier[1].size = relTformModsBuf->getSize();
+			// buffers to barrier w.r.t. updates
+			video::IGPUCommandBuffer::SBufferMemoryBarrier barriers[scene::ITransformTreeManager::SBarrierSuggestion::MaxBufferCount];
+			auto setBufferBarrier = [&barriers,cb](const uint32_t ix, const asset::SBufferRange<video::IGPUBuffer>& range, const asset::SMemoryBarrier& barrier)
+			{
+				barriers[ix].barrier = barrier;
+				barriers[ix].dstQueueFamilyIndex = barriers[ix].srcQueueFamilyIndex = cb->getQueueFamilyIndex();
+				barriers[ix].buffer = range.buffer;
+				barriers[ix].offset = range.offset;
+				barriers[ix].size = range.size;
+			};
+			
+			const core::bitflag<asset::E_PIPELINE_STAGE_FLAGS> renderingStages = asset::EPSF_VERTEX_SHADER_BIT;
+			const core::bitflag<asset::E_ACCESS_FLAGS> renderingAccesses = asset::EAF_SHADER_READ_BIT;
 
-			cb->pipelineBarrier(asset::EPSF_COMPUTE_SHADER_BIT, asset::EPSF_VERTEX_SHADER_BIT, static_cast<asset::E_DEPENDENCY_FLAGS>(0), 0u, nullptr, 2u, barrier, 0u, nullptr);
+			scene::ITransformTreeManager::ParamsBase baseParams;
+			baseParams.cmdbuf = cb.get();
+			baseParams.tree = tt.get();
+			baseParams.fence = fence.get();
+			baseParams.dispatchIndirect.buffer = nullptr;
+			baseParams.dispatchDirect.nodeCount = ObjectCount;
+			baseParams.logger = initOutput.logger.get();
+
+			// compilers are too dumb to figure out const correctness (there's also a TODO in `core::smart_refctd_ptr`)
+			const scene::ITransformTree* ptt = tt.get();
+			const video::IPropertyPool* node_pp = ptt->getNodePropertyPool();
+			//
+			{
+				auto sugg = scene::ITransformTreeManager::barrierHelper(scene::ITransformTreeManager::SBarrierSuggestion::EF_PRE_RELATIVE_TFORM_UPDATE);
+				sugg.srcStageMask |= asset::EPSF_TRANSFER_BIT; // barrier after buffer upload, before TTM updates (so TTM update CS gets properly written data)
+				sugg.requestRanges.srcAccessMask |= asset::EAF_TRANSFER_WRITE_BIT;
+				sugg.modificationRequests.srcAccessMask |= asset::EAF_TRANSFER_WRITE_BIT;
+				uint32_t barrierCount = 0u;
+				setBufferBarrier(barrierCount++,{0ull,modRangesBuf->getSize(),modRangesBuf},sugg.requestRanges);
+				setBufferBarrier(barrierCount++,{0ull,relTformModsBuf->getSize(),relTformModsBuf},sugg.modificationRequests);
+				cb->pipelineBarrier(sugg.srcStageMask,sugg.dstStageMask,asset::EDF_NONE,0u,nullptr,barrierCount,barriers,0u,nullptr);
+			}
+			//
+			{
+				scene::ITransformTreeManager::LocalTransformUpdateParams lcparams;
+				static_cast<scene::ITransformTreeManager::ParamsBase&>(lcparams) = baseParams;
+				lcparams.modificationRequests = asset::SBufferBinding<video::IGPUBuffer>{ 0ull, relTformModsBuf };
+				lcparams.requestRanges = asset::SBufferBinding<video::IGPUBuffer>{ 0ull, modRangesBuf };
+				ttm->updateLocalTransforms(lcparams);
+			}
+			// barrier between TTM update and TTM recompute
+			{
+				auto sugg = scene::ITransformTreeManager::barrierHelper(scene::ITransformTreeManager::SBarrierSuggestion::EF_INBETWEEN_RLEATIVE_UPDATE_AND_GLOBAL_RECOMPUTE);
+				sugg.srcStageMask |= renderingStages; // also Rendering and TTM recompute
+				sugg.globalTransforms.srcAccessMask |= asset::EAF_SHADER_READ_BIT;
+				sugg.dstStageMask |= asset::EPSF_TRANSFER_BIT; // as well as TTM update and Transfer
+				sugg.requestRanges.dstAccessMask |= asset::EAF_TRANSFER_WRITE_BIT;
+				sugg.modificationRequests.dstAccessMask |= asset::EAF_TRANSFER_WRITE_BIT;
+				uint32_t barrierCount = 0u;
+				setBufferBarrier(barrierCount++,{0ull,modRangesBuf->getSize(),modRangesBuf},sugg.requestRanges);
+				setBufferBarrier(barrierCount++,{0ull,relTformModsBuf->getSize(),relTformModsBuf},sugg.modificationRequests);
+				setBufferBarrier(barrierCount++,node_pp->getPropertyMemoryBlock(scene::ITransformTree::relative_transform_prop_ix),sugg.relativeTransforms);
+				setBufferBarrier(barrierCount++,node_pp->getPropertyMemoryBlock(scene::ITransformTree::modified_stamp_prop_ix),sugg.modifiedTimestamps);
+				cb->pipelineBarrier(sugg.srcStageMask,sugg.dstStageMask,asset::EDF_NONE,0u,nullptr,barrierCount,barriers,0u,nullptr);
+			}
+			//
+			{
+				scene::ITransformTreeManager::GlobalTransformUpdateParams gparams;
+				static_cast<scene::ITransformTreeManager::ParamsBase&>(gparams) = baseParams;
+				gparams.nodeIDs = { 0ull,nodeIdsBuf };
+				ttm->recomputeGlobalTransforms(gparams);
+			}
+			// barrier between TTM recompute and TTM recompute+update 
+			{
+				auto sugg = scene::ITransformTreeManager::barrierHelper(scene::ITransformTreeManager::SBarrierSuggestion::EF_POST_GLOBAL_TFORM_RECOMPUTE);
+				sugg.dstStageMask |= renderingStages; // also also TTM recompute and rendering shader (to read the global transforms)
+				uint32_t barrierCount = 0u;
+				setBufferBarrier(barrierCount++,node_pp->getPropertyMemoryBlock(scene::ITransformTree::relative_transform_prop_ix),sugg.relativeTransforms);
+				setBufferBarrier(barrierCount++,node_pp->getPropertyMemoryBlock(scene::ITransformTree::modified_stamp_prop_ix),sugg.modifiedTimestamps);
+				setBufferBarrier(barrierCount++,node_pp->getPropertyMemoryBlock(scene::ITransformTree::global_transform_prop_ix),sugg.globalTransforms);
+				setBufferBarrier(barrierCount++,node_pp->getPropertyMemoryBlock(scene::ITransformTree::recomputed_stamp_prop_ix),sugg.recomputedTimestamps);
+				cb->pipelineBarrier(sugg.srcStageMask,sugg.dstStageMask,asset::EDF_NONE,0u,nullptr,barrierCount,barriers,0u,nullptr);
+			}
 		}
 
 		{
@@ -699,9 +751,7 @@ int main()
 			vp.height = WIN_H;
 			cb->setViewport(0u, 1u, &vp);
 		}
-		// renderpass 
-		uint32_t imgnum = 0u;
-		swapchain->acquireNextImage(MAX_TIMEOUT,imageAcquire[resourceIx].get(),nullptr,&imgnum);
+		// begin renderpass
 		{
 			video::IGPUCommandBuffer::SRenderpassBeginInfo info;
 			asset::SClearValue clearValues[2] ={};
@@ -722,60 +772,12 @@ int main()
 			info.renderArea.extent = { WIN_W, WIN_H };
 			cb->beginRenderPass(&info,asset::ESC_INLINE);
 		}
-		// Update instances buffer 
-		{
-			{
-				scene::ITransformTreeManager::LocalTransformUpdateParams lcparams;
-				lcparams.cmdbuf = cb.get();
-				lcparams.tree = tt.get();
-				lcparams.fence = fence.get();
-				lcparams.dispatchDirect.nodeCount = ObjectCount; //???
-				lcparams.finalBarrier.dstStages = asset::EPSF_COMPUTE_SHADER_BIT;
-				lcparams.finalBarrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
-				lcparams.finalBarrier.dstQueueFamilyIndex = 0u;
-				lcparams.finalBarrier.srcQueueFamilyIndex = 0u;
-				lcparams.modificationRequests = asset::SBufferBinding<video::IGPUBuffer>{ 0ull, relTformModsBuf };
-				lcparams.requestRanges = asset::SBufferBinding<video::IGPUBuffer>{ 0ull, modRangesBuf };
-				lcparams.dispatchIndirect.buffer = nullptr;
-				ttm->updateLocalTransforms(lcparams);
-			}
-			{
-				scene::ITransformTreeManager::GlobalTransformUpdateParams gparams;
-				gparams.cmdbuf = cb.get();
-				gparams.tree = tt.get();
-				gparams.fence = fence.get();
-				gparams.dispatchDirect.nodeCount = ObjectCount; //???
-				gparams.dispatchIndirect.buffer = nullptr;
-				gparams.finalBarrier.dstStages = asset::EPSF_VERTEX_SHADER_BIT;
-				gparams.finalBarrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
-				gparams.finalBarrier.dstQueueFamilyIndex = 0u;
-				gparams.finalBarrier.srcQueueFamilyIndex = 0u;
-				gparams.nodeIDs = { 0ull,nodeIdsBuf };
-
-				ttm->recomputeGlobalTransforms(gparams);
-			}
-		}
-
-		// pipeline barrier after tform updates done by TTM
-		// commented-out, done by TTM
-		/* {
-			video::IGPUCommandBuffer::SBufferMemoryBarrier barrier;
-			barrier.buffer = propBufs[GlobalTformPropNum].buffer;
-			barrier.offset = propBufs[GlobalTformPropNum].offset;
-			barrier.size = propBufs[GlobalTformPropNum].size;
-			barrier.dstQueueFamilyIndex = 0u;
-			barrier.srcQueueFamilyIndex = 0u;
-			barrier.barrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
-			barrier.barrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
-
-			cb->pipelineBarrier(asset::EPSF_COMPUTE_SHADER_BIT, asset::EPSF_VERTEX_SHADER_BIT, 0, 0u, nullptr, 1u, &barrier, 0u, nullptr);
-		}*/
-
 		// draw
 		{
 			assert(gpuObjects.size() == 1ull);
 			// Draw Stuff 
-			for(uint32_t i = 0; i < gpuObjects.size(); ++i) {
+			for(uint32_t i = 0; i < gpuObjects.size(); ++i)
+			{
 				auto & gpuObject = gpuObjects[i];
 
 				cb->bindGraphicsPipeline(gpuObject.graphicsPipeline.get());
@@ -787,6 +789,9 @@ int main()
 		cb->endRenderPass();
 		cb->end();
 		
+		// acquires and presents 
+		uint32_t imgnum = 0u;
+		swapchain->acquireNextImage(MAX_TIMEOUT,imageAcquire[resourceIx].get(),nullptr,&imgnum);
 		CommonAPI::Submit(device.get(), swapchain.get(), cb.get(), graphicsQueue, imageAcquire[resourceIx].get(), renderFinished[resourceIx].get(), fence.get());
 		CommonAPI::Present(device.get(), swapchain.get(), graphicsQueue, renderFinished[resourceIx].get(), imgnum);
 		
