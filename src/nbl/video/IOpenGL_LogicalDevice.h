@@ -69,7 +69,6 @@ namespace impl
             ERT_IMAGE_CREATE,
             ERT_IMAGE_VIEW_CREATE,
             ERT_SWAPCHAIN_CREATE,
-            ERT_EVENT_CREATE,
             ERT_FENCE_CREATE,
             ERT_SAMPLER_CREATE,
             ERT_RENDERPASS_INDEPENDENT_PIPELINE_CREATE,
@@ -77,10 +76,6 @@ namespace impl
             //ERT_GRAPHICS_PIPELINE_CREATE,
 
             // non-create requests
-            ERT_GET_EVENT_STATUS,
-            ERT_RESET_EVENT,
-            ERT_SET_EVENT,
-            ERT_RESET_FENCES,
             ERT_WAIT_FOR_FENCES,
             ERT_GET_FENCE_STATUS,
             ERT_FLUSH_MAPPED_MEMORY_RANGES,
@@ -104,10 +99,11 @@ namespace impl
         }
         constexpr static inline bool isCreationRequest(E_REQUEST_TYPE rt)
         {
-            return !isDestroyRequest(rt) && (rt < ERT_GET_EVENT_STATUS);
+            return !isDestroyRequest(rt) && rt<=ERT_COMPUTE_PIPELINE_CREATE;
         }
         constexpr static inline bool isWaitlessRequest(E_REQUEST_TYPE rt)
         {
+            //return rt!=ERT_WAIT_FOR_FENCES && rt!=ERT_GET_FENCE_STATUS && rt!=ERT_MAP_BUFFER_RANGE && rt!=ERT_SET_DEBUG_NAME && rt!=ERT_CTX_MAKE_CURRENT && rt!=ERT_WAIT_IDLE;
             return isDestroyRequest(rt) || rt==ERT_INVALIDATE_MAPPED_MEMORY_RANGES || rt==ERT_UNMAP_BUFFER;
         }
 
@@ -127,11 +123,6 @@ namespace impl
             using retval_t = void;
 
             GLsync glsync;
-        };
-        struct SRequestEventCreate
-        {
-            static inline constexpr E_REQUEST_TYPE type = ERT_EVENT_CREATE;
-            using retval_t = core::smart_refctd_ptr<IGPUEvent>;
         };
         struct SRequestFenceCreate
         {
@@ -195,30 +186,6 @@ namespace impl
         //
         // Non-create requests:
         //
-        struct SRequestGetEventStatus
-        {
-            static inline constexpr E_REQUEST_TYPE type = ERT_GET_EVENT_STATUS;
-            using retval_t = IGPUEvent::E_STATUS;
-            const IGPUEvent* event;
-        };
-        struct SRequestResetEvent
-        {
-            static inline constexpr E_REQUEST_TYPE type = ERT_RESET_EVENT;
-            using retval_t = IGPUEvent::E_STATUS;
-            IGPUEvent* event;
-        };
-        struct SRequestSetEvent
-        {
-            static inline constexpr E_REQUEST_TYPE type = ERT_SET_EVENT;
-            using retval_t = IGPUEvent::E_STATUS;
-            IGPUEvent* event;
-        };
-        struct SRequestResetFences
-        {
-            static inline constexpr E_REQUEST_TYPE type = ERT_RESET_FENCES;
-            using retval_t = void;
-            core::SRange<core::smart_refctd_ptr<IGPUFence>> fences = { nullptr, nullptr };
-        };
         struct SRequestWaitForFences
         {
             static inline constexpr E_REQUEST_TYPE type = ERT_WAIT_FOR_FENCES;
@@ -288,17 +255,6 @@ namespace impl
     };
 
 /*
-    template <>
-    size_t IOpenGL_LogicalDeviceBase::SRequestBase<IOpenGL_LogicalDeviceBase::SRequestResetFences>::neededMemorySize(const SRequestResetFences& x)
-    {
-        return x.fences.size() * sizeof(core::smart_refctd_ptr<IGPUFence>);
-    }
-    template <>
-    void IOpenGL_LogicalDeviceBase::SRequestBase<IOpenGL_LogicalDeviceBase::SRequestResetFences>::copyContentsToOwnedMemory(SRequestResetFences& x, void* mem)
-    {
-
-    }
-
     template <>
     size_t IOpenGL_LogicalDeviceBase::SRequestBase<IOpenGL_LogicalDeviceBase::SRequestFlushMappedMemoryRanges>::neededMemorySize(const SRequestFlushMappedMemoryRanges& x)
     { 
@@ -382,7 +338,6 @@ protected:
     struct SRequest : public system::impl::IAsyncQueueDispatcherBase::request_base_t
     {
         using params_variant_t = std::variant<
-            SRequestEventCreate,
             SRequestFenceCreate,
             SRequestBufferCreate,
             SRequestBufferViewCreate,
@@ -399,10 +354,6 @@ protected:
             SRequest_Destroy<ERT_PROGRAM_DESTROY>,
             SRequestSyncDestroy,
 
-            SRequestGetEventStatus,
-            SRequestResetEvent,
-            SRequestSetEvent,
-            SRequestResetFences,
             SRequestWaitForFences,
             SRequestGetFenceStatus,
             SRequestFlushMappedMemoryRanges,

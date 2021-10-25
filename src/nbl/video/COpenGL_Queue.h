@@ -204,16 +204,6 @@ class COpenGL_Queue final : public IGPUQueue
                         barrierBits |= SOpenGLBarrierHelper(gl.features).pipelineStageFlagsToMemoryBarrierBits(asset::EPSF_BOTTOM_OF_PIPE_BIT,submit.pWaitDstStageMask[i]);
                     }
 
-#ifdef DEBUGGING_BAW
-                    bool rdc_capturing = false;
-                    if (g_rdoc_api && g_rdoc_start_capture)
-                    {
-                        g_rdoc_api->StartFrameCapture(NULL, NULL);
-                        rdc_capturing = g_rdoc_start_capture;
-                        g_rdoc_start_capture = false;
-                    }
-#endif
-
                     for (uint32_t i = 0; i < submit.waitSemaphoreCount; ++i)
                     {
                         IGPUSemaphore* sem = submit.pWaitSemaphores[i].get();
@@ -238,11 +228,6 @@ class COpenGL_Queue final : public IGPUQueue
                     }
                     else // need to flush, otherwise OpenGL goes gaslighting the user with wrong error messages
                         gl.glGeneral.pglFlush();
-
-#ifdef DEBUGGING_BAW
-                    if (g_rdoc_api && rdc_capturing)
-                    	g_rdoc_api->EndFrameCapture(NULL, NULL);
-#endif
                 }
                 break;
                 case ERT_DESTROY_FRAMEBUFFER:

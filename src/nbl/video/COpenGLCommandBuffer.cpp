@@ -649,7 +649,6 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
             case impl::ECT_COPY_BUFFER:
             {
                 auto& c = cmd.get<impl::ECT_COPY_BUFFER>();
-                // TODO flush some state? -- not needed i think
                 GLuint readb = static_cast<const COpenGLBuffer*>(c.srcBuffer.get())->getOpenGLName();
                 GLuint writeb = static_cast<COpenGLBuffer*>(c.dstBuffer.get())->getOpenGLName();
                 for (uint32_t i = 0u; i < c.regionCount; ++i)
@@ -662,7 +661,6 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
             case impl::ECT_COPY_IMAGE:
             {
                 auto& c = cmd.get<impl::ECT_COPY_IMAGE>();
-                // TODO flush some state? -- not needed i think
                 IGPUImage* dstImage = c.dstImage.get();
                 const IGPUImage* srcImage = c.srcImage.get();
                 if (!dstImage->validateCopies(c.regions, c.regions + c.regionCount, srcImage))
@@ -829,7 +827,7 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
                 auto& c = cmd.get<impl::ECT_SET_EVENT>();
                 //https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/vkCmdSetEvent2KHR.html
                 // A memory dependency is defined between the event signal operation and commands that occur earlier in submission order.
-                //gl->glSync.pglMemoryBarrier(c.barrierBits);
+                //gl->glSync.pglMemoryBarrier(c.barrierBits); @Crisspl?
             }
             break;
             case impl::ECT_RESET_EVENT:
