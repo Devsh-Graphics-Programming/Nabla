@@ -577,6 +577,11 @@ int main()
 	uint32_t timestamp = 1u;
 	while(windowCb->isWindowOpen())
 	{
+		// TODO: this is weird AF
+		// no idea why I need to wait on previous submit to finish before I overwrite my modification ranges WITH LITERALLY THE SAME DATA
+		if (frameComplete[resourceIx])
+			device->blockForFences(1u, &frameComplete[resourceIx].get());
+
 		resourceIx++;
 		if(resourceIx >= FRAMES_IN_FLIGHT)
 			resourceIx = 0;
@@ -593,6 +598,8 @@ int main()
 		lastTime = now;
 		
 		timestamp++;
+
+		graphicsQueue->startCapture();
 
 		// safe to proceed
 		cb->begin(0);
@@ -793,6 +800,7 @@ int main()
 		uint32_t imgnum = 0u;
 		swapchain->acquireNextImage(MAX_TIMEOUT,imageAcquire[resourceIx].get(),nullptr,&imgnum);
 		CommonAPI::Submit(device.get(), swapchain.get(), cb.get(), graphicsQueue, imageAcquire[resourceIx].get(), renderFinished[resourceIx].get(), fence.get());
+		graphicsQueue->endCapture();
 		CommonAPI::Present(device.get(), swapchain.get(), graphicsQueue, renderFinished[resourceIx].get(), imgnum);
 		
 	}
