@@ -1,5 +1,5 @@
 #version 440 core
-layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_) in;
+layout(local_size_x=NBL_LIMIT_MAX_OPTIMALLY_RESIDENT_WORKGROUP_INVOCATIONS) in;
 
 #define NBL_GLSL_TRANSFORM_TREE_POOL_NODE_RECOMPUTED_TIMESTAMP_DESCRIPTOR_QUALIFIERS coherent restrict
 #define NBL_GLSL_TRANSFORM_TREE_POOL_NODE_GLOBAL_TRANSFORM_DESCRIPTOR_QUALIFIERS coherent restrict
@@ -58,32 +58,34 @@ void nbl_glsl_transform_tree_globalTransformUpdate_child(inout mat4x3 accumulate
 
 void main()
 {
-    if (gl_GlobalInvocationID.x>=nodesToUpdate.count)
-        return;
-
     // in the future, maybe put it in shared mem or something
 #define NBL_GLSL_TRANSFORM_TREE_STACK_SIZE (NBL_GLSL_TRANSFORM_TREE_MAX_DEPTH-1)
     uint stack[NBL_GLSL_TRANSFORM_TREE_STACK_SIZE];
-    int stackPtr = 0;
 
-    uint rootNode = nodesToUpdate.data[gl_GlobalInvocationID.x];
-    uint parent = nodeParents.data[rootNode];
-    for (int i=0; i<NBL_GLSL_TRANSFORM_TREE_STACK_SIZE && parent!=NBL_GLSL_PROPERTY_POOL_INVALID; i++)
+    const uint dispatchSize = NBL_LIMIT_MAX_OPTIMALLY_RESIDENT_WORKGROUP_INVOCATIONS*gl_NumWorkGroups[0];
+    for (uint nodeID=gl_GlobalInvocationID.x; nodeID<nodesToUpdate.count; nodeID+=dispatchSize)
     {
-        stack[stackPtr++] = rootNode;
-        rootNode = parent;
-        parent = nodeParents.data[rootNode]; 
-    }
+        int stackPtr = 0;
+
+        uint rootNode = nodesToUpdate.data[nodeID];
+        uint parent = nodeParents.data[rootNode];
+        for (int i=0; i<NBL_GLSL_TRANSFORM_TREE_STACK_SIZE && parent!=NBL_GLSL_PROPERTY_POOL_INVALID; i++)
+        {
+            stack[stackPtr++] = rootNode;
+            rootNode = parent;
+            parent = nodeParents.data[rootNode]; 
+        }
    
-    //
-    mat4x3 accumulatedTransform = nbl_glsl_transform_tree_globalTransformUpdate_root(rootNode);
-    for (int i=0; i<NBL_GLSL_TRANSFORM_TREE_STACK_SIZE && bool(stackPtr--); i++)
-    {
-        // barriers are needed to ensure the timestamp and global transform writes are made visible
-        // **in the correct order** (global transform must be visible before timestamp) every time we check them.
-        // This ensures that if the timestamp matches, the global transform is safe to read (contains updated values).
-        memoryBarrierBuffer();
-        nbl_glsl_transform_tree_globalTransformUpdate_child(accumulatedTransform,stack[stackPtr]);
-    }
+        //
+        mat4x3 accumulatedTransform = nbl_glsl_transform_tree_globalTransformUpdate_root(rootNode);
+        for (int i=0; i<NBL_GLSL_TRANSFORM_TREE_STACK_SIZE && bool(stackPtr--); i++)
 #undef NBL_GLSL_TRANSFORM_TREE_STACK_SIZE
+        {
+            // barriers are needed to ensure the timestamp and global transform writes are made visible
+            // **in the correct order** (global transform must be visible before timestamp) every time we check them.
+            // This ensures that if the timestamp matches, the global transform is safe to read (contains updated values).
+            memoryBarrierBuffer();
+            nbl_glsl_transform_tree_globalTransformUpdate_child(accumulatedTransform,stack[stackPtr]);
+        }
+    }
 }

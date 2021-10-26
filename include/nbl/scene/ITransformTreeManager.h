@@ -70,8 +70,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			auto createShader = [&system,&device](auto uniqueString) -> core::smart_refctd_ptr<video::IGPUSpecializedShader>
 			{
 				auto glsl = system->loadBuiltinData<decltype(uniqueString)>();
-				auto cpushader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl),asset::IShader::buffer_contains_glsl_t{});
-				auto shader = device->createGPUShader(asset::IGLSLCompiler::createOverridenCopy(cpushader.get(),"#define _NBL_GLSL_WORKGROUP_SIZE_ %d\n",WorkgroupSize));
+				auto shader = device->createGPUShader(core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl),asset::IShader::buffer_contains_glsl_t{}));
 				return device->createGPUSpecializedShader(shader.get(),{nullptr,nullptr,"main",asset::ISpecializedShader::ESS_COMPUTE});
 			};
 
@@ -370,8 +369,6 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			return soleUpdateOrFusedRecompute_impl<1u>(m_recomputePipeline.get(),params,{params.nodeIDs});
 		}
 
-		static inline constexpr uint32_t WorkgroupSize = 256u;
-
 	protected:
 		static inline constexpr auto DescriptorCacheSize = 16u;
 		// TODO: investigate using Push Descriptors for this
@@ -417,7 +414,8 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		) : m_device(std::move(_device)), m_dsCache(std::move(_dsCache)),
 			m_updatePipeline(std::move(_updatePipeline)),
 			m_recomputePipeline(std::move(_recomputePipeline)),
-			m_updateAndRecomputePipeline(std::move(_updateAndRecomputePipeline))
+			m_updateAndRecomputePipeline(std::move(_updateAndRecomputePipeline)),
+			m_workgroupSize(m_device->getPhysicalDevice()->getLimits().maxOptimallyResidentWorkgroupInvocations)
 		{
 		}
 		~ITransformTreeManager()
@@ -467,7 +465,8 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 				cmdbuf->dispatchIndirect(params.dispatchIndirect.buffer,params.dispatchIndirect.offset);
 			else
 			{
-				cmdbuf->dispatch((params.dispatchDirect.nodeCount-1u)/WorkgroupSize+1u,1u,1u); // TODO: Use persistent workgroups (do while doing animations)
+				const auto& limits = m_device->getPhysicalDevice()->getLimits();
+				cmdbuf->dispatch(limits.computeOptimalPersistentWorkgroupDispatchSize(params.dispatchDirect.nodeCount,m_workgroupSize),1u,1u);
 			}
 
 			m_dsCache->releaseSet(m_device.get(),core::smart_refctd_ptr<video::IGPUFence>(params.fence),dsix);
@@ -477,6 +476,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		core::smart_refctd_ptr<video::ILogicalDevice> m_device;
 		core::smart_refctd_ptr<video::IDescriptorSetCache> m_dsCache;
 		core::smart_refctd_ptr<video::IGPUComputePipeline> m_updatePipeline,m_recomputePipeline,m_updateAndRecomputePipeline;
+		const uint32_t m_workgroupSize;
 };
 
 } // end namespace nbl::scene
