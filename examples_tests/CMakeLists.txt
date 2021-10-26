@@ -2,6 +2,10 @@
 # This file is part of the "Nabla Engine".
 # For conditions of distribution and use, see copyright notice in nabla.h
 
+if(NBL_BUILD_ANDROID)
+	nbl_android_create_media_storage_apk()
+endif()
+
 add_subdirectory(01.HelloWorld EXCLUDE_FROM_ALL)
 add_subdirectory(02.ComputeShader EXCLUDE_FROM_ALL)
 add_subdirectory(03.GPU_Mesh EXCLUDE_FROM_ALL)
