@@ -302,7 +302,8 @@ function(nbl_android_create_apk _TARGET)
 
 	set(APK_FILE_NAME ${TARGET_NAME}.apk)
 	set(APK_FILE ${CMAKE_CURRENT_SOURCE_DIR}/bin/$<CONFIG>/${APK_FILE_NAME})
-
+	set(ASSET_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/assets)
+	
 	add_custom_target(${TARGET_NAME}_apk ALL DEPENDS ${APK_FILE})
 
 	string(SUBSTRING
@@ -340,16 +341,20 @@ function(nbl_android_create_apk _TARGET)
 		WORKING_DIRECTORY ${NBL_GEN_DIRECTORY}/$<CONFIG>
 		COMMENT "Creating ${APK_FILE_NAME} ..."
 		COMMAND ${CMAKE_COMMAND} -E make_directory libs/lib/x86_64
+		COMMAND ${CMAKE_COMMAND} -E make_directory assets
 		#COMMAND ${CMAKE_COMMAND} -E make_directory obj
 		#COMMAND ${CMAKE_COMMAND} -E make_directory bin
 		COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${_TARGET}> libs/lib/x86_64/$<TARGET_FILE_NAME:${_TARGET}>
+		COMMAND ${CMAKE_COMMAND} -E copy ${ASSET_SOURCE_DIR} assets
 		COMMAND ${ANDROID_BUILD_TOOLS}/aapt package -f -m -J src -M AndroidManifest.xml -I ${ANDROID_JAR} # -S res
 		#COMMAND ${ANDROID_JAVA_BIN}/javac -d ./obj -source 1.7 -target 1.7 -bootclasspath ${ANDROID_JAVA_RT_JAR} -classpath "${ANDROID_JAR}:obj" # -sourcepath src src/eu/devsh/${TARGET_NAME}/Loader.java
 		#COMMAND ${ANDROID_BUILD_TOOLS}/dx --dex --output=bin/classes.dex ./obj
-		COMMAND ${ANDROID_BUILD_TOOLS}/aapt package -f -M AndroidManifest.xml -I ${ANDROID_JAR} -F ${TARGET_NAME}-unaligned.apk libs # bin --version-code SOME-VERSION-CODE -S res
+		COMMAND ${ANDROID_BUILD_TOOLS}/aapt package -f -M AndroidManifest.xml -A assets -I ${ANDROID_JAR} -F ${TARGET_NAME}-unaligned.apk libs # bin --version-code SOME-VERSION-CODE -S res
+		#COMMAND ${ANDROID_BUILD_TOOLS}/aapt add ${TARGET_NAME}-unaligned.apk test.txt # bin --version-code SOME-VERSION-CODE -S res
 		COMMAND ${ANDROID_BUILD_TOOLS}/zipalign -f 4 ${TARGET_NAME}-unaligned.apk ${APK_FILE_NAME}
 		COMMAND ${ANDROID_BUILD_TOOLS}/apksigner sign --ks ${KEYSTORE_FILE} --ks-pass pass:android --key-pass pass:android --ks-key-alias ${KEY_ENTRY_ALIAS} ${APK_FILE_NAME}
 		COMMAND ${CMAKE_COMMAND} -E copy ${APK_FILE_NAME} ${APK_FILE}
+		COMMAND ${CMAKE_COMMAND} -E rm -rf assets
 		VERBATIM
 	)
 endfunction()
