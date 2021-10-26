@@ -44,5 +44,6 @@ void COpenGLDebugCallback::defaultCallback(GLenum _source, GLenum _type, GLuint 
             level |= system::ILogger::ELL_DEBUG;
             break;
     }
+    level = 1 << core::findMSB(uint32_t(level));
     cb->getLogger()->log("%s",static_cast<system::ILogger::E_LOG_LEVEL>(level),_message);
 }

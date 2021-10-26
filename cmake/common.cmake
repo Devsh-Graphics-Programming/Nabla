@@ -155,6 +155,11 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 }")
 		file(WRITE "${PROJECT_BINARY_DIR}/.vscode/tasks.json" ${VSCODE_TASKS_JSON})
 	endif()
+	if(NBL_BUILD_ANDROID)
+		# https://github.com/android-ndk/ndk/issues/381
+		target_link_options(${EXECUTABLE_NAME} PRIVATE -u ANativeActivity_onCreate)
+		nbl_android_create_apk(${EXECUTABLE_NAME})
+	endif()
 endmacro()
 
 macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUDES LIB_OPTIONS DEF_OPTIONS)
@@ -197,7 +202,7 @@ macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUD
 	nbl_adjust_flags() # macro defined in root CMakeLists
 	nbl_adjust_definitions() # macro defined in root CMakeLists
 
-	set_target_properties(${LIB_NAME} PROPERTIES DEBUG_POSTFIX _d)
+	set_target_properties(${LIB_NAME} PROPERTIES DEBUG_POSTFIX "")
 	set_target_properties(${LIB_NAME} PROPERTIES RELWITHDEBINFO_POSTFIX _rwdb)
 	set_target_properties(${LIB_NAME}
 		PROPERTIES
@@ -296,18 +301,10 @@ function(nbl_android_create_apk _TARGET)
 	string(MAKE_C_IDENTIFIER ${TARGET_NAME} TARGET_NAME_IDENTIFIER)
 
 	set(APK_FILE_NAME ${TARGET_NAME}.apk)
-	set(APK_FILE ${CMAKE_CURRENT_SOURCE_DIR}/bin/${APK_FILE_NAME})
-
+	set(APK_FILE ${CMAKE_CURRENT_SOURCE_DIR}/bin/$<CONFIG>/${APK_FILE_NAME})
+	set(ASSET_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/assets)
+	
 	add_custom_target(${TARGET_NAME}_apk ALL DEPENDS ${APK_FILE})
-
-	get_target_property(SO_NAME ${_TARGET} OUTPUT_NAME)
-	if (NOT SO_NAME)
-		get_target_property(_DEBUG_POSTFIX ${_TARGET} DEBUG_POSTFIX)
-		if (NOT _DEBUG_POSTFIX)
-			set(_DEBUG_POSTFIX ${CMAKE_DEBUG_POSTFIX})
-		endif()
-		set(SO_NAME ${TARGET_NAME}${_DEBUG_POSTFIX})
-	endif()
 
 	string(SUBSTRING
 		"${ANDROID_APK_TARGET_ID}"
@@ -315,44 +312,49 @@ function(nbl_android_create_apk _TARGET)
 		-1 # take remainder
 		TARGET_ANDROID_API_LEVEL
 	)
-	set(PACKAGE_NAME "eu.devsh.${TARGET_NAME_IDENTIFIER}")
-	set(APP_NAME ${TARGET_NAME_IDENTIFIER})
-	set(NATIVE_LIB_NAME ${SO_NAME})
-
-	#configure_file(${CMAKE_SOURCE_DIR}/android/Loader.java ${CMAKE_CURRENT_BINARY_DIR}/src/eu/devsh/${TARGET_NAME}/Loader.java)
-	configure_file(${CMAKE_SOURCE_DIR}/android/AndroidManifest.xml ${CMAKE_CURRENT_BINARY_DIR}/AndroidManifest.xml)
-	# configure_file(android/icon.png ${CMAKE_CURRENT_BINARY_DIR}/res/drawable/icon.png COPYONLY)
-
+	
+	get_filename_component(NBL_GEN_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}" ABSOLUTE)
+	set(NBL_ANDROID_MANIFEST_FILE ${NBL_GEN_DIRECTORY}/$<CONFIG>/AndroidManifest.xml)
+	
+	add_custom_command(
+		OUTPUT "${NBL_ANDROID_MANIFEST_FILE}" 
+		COMMAND ${CMAKE_COMMAND} -DNBL_ROOT_PATH:PATH=${NBL_ROOT_PATH} -DNBL_CONFIGURATION:STRING=$<CONFIG> -DNBL_GEN_DIRECTORY:PATH=${NBL_GEN_DIRECTORY} -DTARGET_ANDROID_API_LEVEL:STRING=${TARGET_ANDROID_API_LEVEL} -DSO_NAME:STRING=${_TARGET} -DTARGET_NAME_IDENTIFIER:STRING=${TARGET_NAME_IDENTIFIER} -P ${NBL_ROOT_PATH}/cmake/scripts/nbl/nablaAndroidManifest.cmake #! for some reason CMake fails for OUTPUT_NAME generator expression
+		COMMENT "Launching AndroidManifest.xml generation script!"
+		VERBATIM
+	)
+	
 	# need to sign the apk in order for android device not to refuse it
-	set(KEYSTORE_FILE ${CMAKE_CURRENT_BINARY_DIR}/debug.keystore)
+	set(KEYSTORE_FILE ${NBL_GEN_DIRECTORY}/$<CONFIG>/debug.keystore)
 	set(KEY_ENTRY_ALIAS ${TARGET_NAME_IDENTIFIER}_apk_key)
 	add_custom_command(
 		OUTPUT ${KEYSTORE_FILE}
-		WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+		WORKING_DIRECTORY ${NBL_GEN_DIRECTORY}/$<CONFIG>
 		COMMAND ${ANDROID_JAVA_BIN}/keytool -genkey -keystore ${KEYSTORE_FILE} -storepass android -alias ${KEY_ENTRY_ALIAS} -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=, OU=, O=, L=, S=, C="
 	)
 	
 	add_custom_command(
 		OUTPUT ${APK_FILE}
 		DEPENDS ${_TARGET}
+		DEPENDS ${NBL_ANDROID_MANIFEST_FILE}
 		DEPENDS ${KEYSTORE_FILE}
-		DEPENDS ${CMAKE_SOURCE_DIR}/android/AndroidManifest.xml
-		DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/AndroidManifest.xml
 		#DEPENDS ${CMAKE_SOURCE_DIR}/android/Loader.java
-		WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+		WORKING_DIRECTORY ${NBL_GEN_DIRECTORY}/$<CONFIG>
 		COMMENT "Creating ${APK_FILE_NAME} ..."
 		COMMAND ${CMAKE_COMMAND} -E make_directory libs/lib/x86_64
+		COMMAND ${CMAKE_COMMAND} -E make_directory assets
 		#COMMAND ${CMAKE_COMMAND} -E make_directory obj
 		#COMMAND ${CMAKE_COMMAND} -E make_directory bin
 		COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${_TARGET}> libs/lib/x86_64/$<TARGET_FILE_NAME:${_TARGET}>
+		COMMAND ${CMAKE_COMMAND} -E copy ${ASSET_SOURCE_DIR} assets
 		COMMAND ${ANDROID_BUILD_TOOLS}/aapt package -f -m -J src -M AndroidManifest.xml -I ${ANDROID_JAR} # -S res
 		#COMMAND ${ANDROID_JAVA_BIN}/javac -d ./obj -source 1.7 -target 1.7 -bootclasspath ${ANDROID_JAVA_RT_JAR} -classpath "${ANDROID_JAR}:obj" # -sourcepath src src/eu/devsh/${TARGET_NAME}/Loader.java
 		#COMMAND ${ANDROID_BUILD_TOOLS}/dx --dex --output=bin/classes.dex ./obj
-		COMMAND ${ANDROID_BUILD_TOOLS}/aapt package -f -M AndroidManifest.xml -I ${ANDROID_JAR} -F ${TARGET_NAME}-unaligned.apk libs # bin --version-code SOME-VERSION-CODE -S res
+		COMMAND ${ANDROID_BUILD_TOOLS}/aapt package -f -M AndroidManifest.xml -A assets -I ${ANDROID_JAR} -F ${TARGET_NAME}-unaligned.apk libs # bin --version-code SOME-VERSION-CODE -S res
+		#COMMAND ${ANDROID_BUILD_TOOLS}/aapt add ${TARGET_NAME}-unaligned.apk test.txt # bin --version-code SOME-VERSION-CODE -S res
 		COMMAND ${ANDROID_BUILD_TOOLS}/zipalign -f 4 ${TARGET_NAME}-unaligned.apk ${APK_FILE_NAME}
 		COMMAND ${ANDROID_BUILD_TOOLS}/apksigner sign --ks ${KEYSTORE_FILE} --ks-pass pass:android --key-pass pass:android --ks-key-alias ${KEY_ENTRY_ALIAS} ${APK_FILE_NAME}
 		COMMAND ${CMAKE_COMMAND} -E copy ${APK_FILE_NAME} ${APK_FILE}
-		 
+    COMMAND ${CMAKE_COMMAND} -E rm -rf assets
 		VERBATIM
 	)
 endfunction()
@@ -398,7 +400,6 @@ function(nbl_android_create_media_storage_apk)
 		COMMAND ${ANDROID_BUILD_TOOLS}/zipalign -f 4 ${TARGET_NAME}-unaligned.apk ${APK_FILE_NAME}
 		COMMAND ${ANDROID_BUILD_TOOLS}/apksigner sign --ks ${KEYSTORE_FILE} --ks-pass pass:android --key-pass pass:android --ks-key-alias ${KEY_ENTRY_ALIAS} ${APK_FILE_NAME}
 		COMMAND ${CMAKE_COMMAND} -E copy ${APK_FILE_NAME} ${APK_FILE}
-		 
 		VERBATIM
 	)
 endfunction()

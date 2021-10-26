@@ -10,24 +10,18 @@ namespace nbl::system
 	class CSystemAndroid final : public ISystem
 	{
 		ANativeActivity* nativeActivity = nullptr;
-		AAssetManager* assetManager = nullptr;
 		core::smart_refctd_ptr<IFileArchive> androidAssetArchive = nullptr;
 	public:
-		CSystemAndroid(core::smart_refctd_ptr<ISystemCaller>&& caller, ANativeActivity* activity) :
-			ISystem(std::move(caller)), nativeActivity(activity), assetManager(activity->assetManager)
+		CSystemAndroid(core::smart_refctd_ptr<ISystemCaller>&& caller, ANativeActivity* activity, const system::path& APKResourcesPath) :
+			ISystem(std::move(caller)), nativeActivity(activity)
 		{
-			androidAssetArchive = make_smart_refctd_ptr<CAPKResourcesArchive>(
+			auto archive = core::make_smart_refctd_ptr<CAPKResourcesArchive>(
 				core::smart_refctd_ptr<ISystem>(this),
 				nullptr, 
 				activity->assetManager
 			);
-		}
-		
-		core::smart_refctd_ptr<IFile> openFileOpt_impl(const system::path& filename, core::bitflag<IFile::E_CREATE_FLAGS> flags) override
-		{
-			IFileArchive::SOpenFileParams params{ filename, filename, "" };
-			auto asset = androidAssetArchive->readFile(params);
-			return asset;
+			m_cachedArchiveFiles.insert(APKResourcesPath, std::move(archive));
+
 		}
 	};
 }

@@ -4,8 +4,3 @@ if(NOT RES)
 endif()
 
 nbl_create_executable_project("" "" "" "")
-
-if(NBL_BUILD_ANDROID)
-	target_link_options(meshloaders PRIVATE -u ANativeActivity_onCreate)
-	nbl_android_create_apk(meshloaders)
-endif()

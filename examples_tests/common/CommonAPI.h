@@ -3,26 +3,41 @@
 #include "nbl/system/IApplicationFramework.h"
 #include "nbl/ui/CGraphicalApplicationAndroid.h"
 #include "nbl/ui/CWindowManagerAndroid.h"
+#include "nbl/ui/IGraphicalApplicationFramework.h"
 #if defined(_NBL_PLATFORM_WINDOWS_)
-#	include <nbl/system/CColoredStdoutLoggerWin32.h>
+#include <nbl/system/CColoredStdoutLoggerWin32.h>
 #elif defined(_NBL_PLATFORM_ANDROID_)
-#	include <nbl/system/CStdoutLoggerAndroid.h>
+#include <nbl/system/CStdoutLoggerAndroid.h>
 #endif
 #include "nbl/system/CSystemAndroid.h"
 #include "nbl/system/CSystemLinux.h"
 #include "nbl/system/CSystemWin32.h"
 // TODO: make these include themselves via `nabla.h`
 
+class GraphicalApplication : public nbl::system::IApplicationFramework, public nbl::ui::IGraphicalApplicationFramework
+{
+public:
+	GraphicalApplication(const std::filesystem::path& _localInputCWD,
+		const std::filesystem::path& _localOutputCWD,
+		const std::filesystem::path& _sharedInputCWD,
+		const std::filesystem::path& _sharedOutputCWD) : nbl::system::IApplicationFramework(_localInputCWD, _localOutputCWD, _sharedInputCWD, _sharedOutputCWD) {}
+};
 //***** Application framework macros ******
 #ifdef _NBL_PLATFORM_ANDROID_
 using ApplicationBase = nbl::ui::CGraphicalApplicationAndroid;
-#define APP_CONSTRUCTOR(type) type(android_app* app, nbl::system::path cwd) : nbl::ui::CGraphicalApplicationAndroid(app, cwd) {}
-#define NBL_COMMON_API_MAIN(android_app_class, user_data_type) NBL_ANDROID_MAIN_FUNC(android_app_class, user_data_type, CommonAPI::CommonAPIEventCallback)
+#define APP_CONSTRUCTOR(type) type(android_app* app, const system::path& _localInputCWD,\
+const system::path& _localOutputCWD,\
+const system::path& _sharedInputCWD,\
+const system::path& _sharedOutputCWD) : nbl::ui::CGraphicalApplicationAndroid(app, _localInputCWD, _localOutputCWD, _sharedInputCWD, _sharedOutputCWD) {}
+#define NBL_COMMON_API_MAIN(android_app_class) NBL_ANDROID_MAIN_FUNC(android_app_class, CommonAPI::CommonAPIEventCallback)
 #else
-using ApplicationBase = nbl::system::IApplicationFramework;
-#define APP_CONSTRUCTOR(type) type(nbl::system::path cwd) : nbl::system::IApplicationFramework(cwd) {}
-#define NBL_COMMON_API_MAIN(android_app_class, user_data_type) int main(int argc, char** argv){\
-CommonAPI::main<android_app_class, user_data_type>(argc, argv);\
+using ApplicationBase = GraphicalApplication;
+#define APP_CONSTRUCTOR(type) type(const system::path& _localInputCWD,\
+const system::path& _localOutputCWD,\
+const system::path& _sharedInputCWD,\
+const system::path& _sharedOutputCWD) : GraphicalApplication(_localInputCWD, _localOutputCWD, _sharedInputCWD, _sharedOutputCWD) {}
+#define NBL_COMMON_API_MAIN(android_app_class) int main(int argc, char** argv){\
+CommonAPI::main<android_app_class>(argc, argv);\
 }
 #endif
 
@@ -220,13 +235,103 @@ public:
 			Channels<nbl::ui::IKeyboardEventChannel> m_keyboard;
 	};
 
-	class CommonAPIEventCallback : public nbl::ui::IWindow::IEventCallback
+	class ICommonAPIEventCallback : public nbl::ui::IWindow::IEventCallback
+	{
+	public:
+		virtual void setLogger(nbl::system::logger_opt_smart_ptr& logger) = 0;
+	};
+	class CTemporaryEventCallback : public ICommonAPIEventCallback
+	{
+		nbl::system::logger_opt_smart_ptr m_logger = nullptr;
+	public:
+		void setLogger(nbl::system::logger_opt_smart_ptr& logger) override
+		{
+			m_logger = logger;
+		}
+	private:
+		bool onWindowShown_impl() override
+		{
+			m_logger.log("Window Shown");
+			return true;
+		}
+		bool onWindowHidden_impl() override
+		{
+			m_logger.log("Window hidden");
+			return true;
+		}
+		bool onWindowMoved_impl(int32_t x, int32_t y) override
+		{
+			m_logger.log("Window window moved to { %d, %d }", nbl::system::ILogger::ELL_WARNING, x, y);
+			return true;
+		}
+		bool onWindowResized_impl(uint32_t w, uint32_t h) override
+		{
+			m_logger.log("Window resized to { %u, %u }", nbl::system::ILogger::ELL_DEBUG, w, h);
+			return true;
+		}
+		bool onWindowMinimized_impl() override
+		{
+			m_logger.log("Window minimized", nbl::system::ILogger::ELL_ERROR);
+			return true;
+		}
+		bool onWindowMaximized_impl() override
+		{
+			m_logger.log("Window maximized", nbl::system::ILogger::ELL_PERFORMANCE);
+			return true;
+		}
+		void onGainedMouseFocus_impl() override
+		{
+			m_logger.log("Window gained mouse focus", nbl::system::ILogger::ELL_INFO);
+		}
+		void onLostMouseFocus_impl() override
+		{
+			m_logger.log("Window lost mouse focus", nbl::system::ILogger::ELL_INFO);
+		}
+		void onGainedKeyboardFocus_impl() override
+		{
+			m_logger.log("Window gained keyboard focus", nbl::system::ILogger::ELL_INFO);
+		}
+		void onLostKeyboardFocus_impl() override
+		{
+			m_logger.log("Window lost keyboard focus", nbl::system::ILogger::ELL_INFO);
+		}
+		void onMouseConnected_impl(nbl::core::smart_refctd_ptr<nbl::ui::IMouseEventChannel>&& mch) override
+		{
+			m_logger.log("A mouse has been connected", nbl::system::ILogger::ELL_INFO);
+		}
+		void onMouseDisconnected_impl(nbl::ui::IMouseEventChannel* mch) override
+		{
+			m_logger.log("A mouse has been disconnected", nbl::system::ILogger::ELL_INFO);
+		}
+		void onKeyboardConnected_impl(nbl::core::smart_refctd_ptr<nbl::ui::IKeyboardEventChannel>&& kbch) override
+		{
+			m_logger.log("A keyboard has been connected", nbl::system::ILogger::ELL_INFO);
+		}
+		void onKeyboardDisconnected_impl(nbl::ui::IKeyboardEventChannel* kbch) override
+		{
+			m_logger.log("A keyboard has been disconnected", nbl::system::ILogger::ELL_INFO);
+		}
+
+		bool onWindowClosed_impl() override
+		{
+			m_logger.log("Window closed");
+			return true;
+		}
+	};
+	class CommonAPIEventCallback : public ICommonAPIEventCallback
 	{
 	public:
 		CommonAPIEventCallback(nbl::core::smart_refctd_ptr<InputSystem>&& inputSystem, nbl::system::logger_opt_smart_ptr&& logger) : m_inputSystem(std::move(inputSystem)), m_logger(std::move(logger)), m_gotWindowClosedMsg(false){}
-		
+		CommonAPIEventCallback() {}
 		bool isWindowOpen() const {return !m_gotWindowClosedMsg;}
-
+		void setLogger(nbl::system::logger_opt_smart_ptr& logger) override
+		{
+			m_logger = logger;
+		}
+		void setInputSystem(nbl::core::smart_refctd_ptr<InputSystem>&& inputSystem)
+		{
+			m_inputSystem = std::move(inputSystem);
+		}
 	private:
 		bool onWindowShown_impl() override
 		{
@@ -304,8 +409,8 @@ public:
 		}
 
 	private:
-		nbl::core::smart_refctd_ptr<InputSystem> m_inputSystem;
-		nbl::system::logger_opt_smart_ptr m_logger;
+		nbl::core::smart_refctd_ptr<InputSystem> m_inputSystem = nullptr;
+		nbl::system::logger_opt_smart_ptr m_logger = nullptr;
 		bool m_gotWindowClosedMsg;
 	};
 
@@ -585,19 +690,22 @@ public:
 		nbl::core::smart_refctd_ptr<InputSystem> inputSystem;
 	};
 
-	template<typename AppClassName, typename UserDataType>
+	template<typename AppClassName>
 	static void main(int argc, char** argv)
 	{
 #ifndef _NBL_PLATFORM_ANDROID_
-		system::path CWD = nbl::system::path(argv[0]).parent_path().generic_string() + "/";
-		AppClassName app(CWD);
-		UserDataType usrData{};
-		app.onAppInitialized(&usrData);
-		while (app.keepRunning(&usrData))
+		nbl::system::path CWD = nbl::system::path(argv[0]).parent_path().generic_string() + "/";
+		nbl::system::path sharedInputCWD = CWD / "../../media/";
+		nbl::system::path sharedOutputCWD = CWD / "../../media/";;
+		nbl::system::path localInputCWD = CWD / "../";
+		nbl::system::path localOutputCWD = CWD;
+		AppClassName app(localInputCWD, localOutputCWD, sharedInputCWD, sharedOutputCWD);
+		app.onAppInitialized();
+		while (app.keepRunning())
 		{
-			app.workLoopBody(&usrData);
+			app.workLoopBody();
 		}
-		app.onAppTerminated(&usrData);
+		app.onAppTerminated();
 #endif
 	}
 
@@ -717,10 +825,10 @@ public:
 #elif defined(_NBL_PLATFORM_ANDROID_)
 		result.logger = core::make_smart_refctd_ptr<system::CStdoutLoggerAndroid>(); // we should let user choose it?
 #endif
-		result.inputSystem = make_smart_refctd_ptr<InputSystem>(system::logger_opt_smart_ptr(core::smart_refctd_ptr(result.logger)));
-		result.windowCb = nbl::core::make_smart_refctd_ptr<EventCallback>(core::smart_refctd_ptr(result.inputSystem), system::logger_opt_smart_ptr(core::smart_refctd_ptr(result.logger)));
+		result.inputSystem = nbl::core::make_smart_refctd_ptr<InputSystem>(system::logger_opt_smart_ptr(core::smart_refctd_ptr(result.logger)));
 
 #ifndef _NBL_PLATFORM_ANDROID_
+		result.windowCb = nbl::core::make_smart_refctd_ptr<EventCallback>(core::smart_refctd_ptr(result.inputSystem), system::logger_opt_smart_ptr(core::smart_refctd_ptr(result.logger)));
 		nbl::ui::IWindow::SCreationParams windowsCreationParams;
 		windowsCreationParams.width = window_width;
 		windowsCreationParams.height = window_height;
@@ -732,6 +840,8 @@ public:
 		windowsCreationParams.callback = result.windowCb;
 		
 		result.window = windowManager->createWindow(std::move(windowsCreationParams));
+		result.windowCb = core::smart_refctd_ptr<IEventCallback>(window->getEventCallback());
+		result.windowCb->setInputSystem(core::smart_refctd_ptr(result.inputSystem));
 #else
 		result.window->setEventCallback(core::smart_refctd_ptr(result.windowCb));
 #endif
