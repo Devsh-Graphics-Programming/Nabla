@@ -12,6 +12,7 @@
 
 #include "../3rdparty/portable-file-dialogs/portable-file-dialogs.h"
 #include "nbl/ext/MitsubaLoader/CMitsubaLoader.h"
+#include "CommandLineHandler.hpp"
 
 #include "Renderer.h"
 
@@ -21,15 +22,31 @@ using namespace core;
 
 int main(int argc, char** argv)
 {
-	std::string filePath = "../../media/mitsuba/staircase2.zip"; // zip or xml
-	std::string extraPath = "scene.xml"; // xml in zip
-	std::string screenshotFolderPath = "C:\\Users\\Erfan\\ScreenShots";
-	bool shouldTerminate = true;
+	std::vector<std::string> arguments;
+	if (argc>1)
+	{
+		for (auto i = 1ul; i < argc; ++i)
+			arguments.emplace_back(argv[i]);
+	}
 
-	// if( argc >= 2 ) {
-	//   filePath = argv[1];
-	// }
-
+#ifdef TEST_ARGS
+	arguments = std::vector<std::string> { 
+		"-SCENE",
+		"../../media/mitsuba/staircase2.zip",
+		"scene.xml",
+		"-TERMINATE",
+		"-SCREENSHOT_OUTPUT_FOLDER",
+		"\"C:\\Nabla-Screen-Shots\""
+	};
+#endif
+	
+	CommandLineHandler cmdHandler = CommandLineHandler(arguments);
+	
+	auto sceneDir = cmdHandler.getSceneDirectory();
+	std::string filePath = (sceneDir.size() >= 1) ? sceneDir[0] : ""; // zip or xml
+	std::string extraPath = (sceneDir.size() >= 2) ? sceneDir[1] : "";; // xml in zip
+	std::string outputScreenshotsFolderPath = cmdHandler.getOutputScreenshotsFolderPath();
+	bool shouldTerminate = cmdHandler.getTerminate();
 
 	// create device with full flexibility over creation parameters
 	// you can add more parameters if desired, check nbl::SIrrlichtCreationParameters
@@ -45,7 +62,7 @@ int main(int argc, char** argv)
 	auto device = createDeviceEx(params);
 	if (!device)
 		return 1; // could not create selected driver.
-
+	
 	//
 	asset::SAssetBundle meshes;
 	core::smart_refctd_ptr<const ext::MitsubaLoader::CMitsubaMetadata> globalMeta;
@@ -94,17 +111,27 @@ int main(int argc, char** argv)
 
 				if(extraPath.empty())
 				{
-					std::cout << "Choose File (0-" << files.size() - 1ull << "):" << std::endl;
-					for (auto i = 0u; i < files.size(); i++)
-						std::cout << i << ": " << files[i].FullName.c_str() << std::endl;
 					uint32_t chosen = 0;
 
-					std::cin >> chosen;
+					// Don't ask for choosing file when there is only 1 available
+					if(files.size() > 1)
+					{
+						std::cout << "Choose File (0-" << files.size() - 1ull << "):" << std::endl;
+						for (auto i = 0u; i < files.size(); i++)
+							std::cout << i << ": " << files[i].FullName.c_str() << std::endl;
 
-					if (chosen >= files.size())
-						chosen = 0u;
+						std::cin >> chosen;
+
+						if (chosen >= files.size())
+							chosen = 0u;
+					}
+					else if(files.size() >= 0)
+					{
+						std::cout << "The only available XML in zip Selected." << std::endl;
+					}
 
 					filePath = files[chosen].FullName.c_str();
+					std::cout << "Selected XML File: "<< files[chosen].Name.c_str() << std::endl;
 				}
 				else
 				{
@@ -343,7 +370,7 @@ int main(int argc, char** argv)
 			lastFPSTime = time;
 		}
 	}
-	renderer->takeAndSaveScreenShot("tonemapped", screenshotFolderPath);
+	renderer->takeAndSaveScreenShot("tonemapped", outputScreenshotsFolderPath);
 	renderer->deinit();
 	renderer = nullptr;
 

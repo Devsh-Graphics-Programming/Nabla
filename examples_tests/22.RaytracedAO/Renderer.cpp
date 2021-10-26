@@ -1176,10 +1176,10 @@ void Renderer::takeAndSaveScreenShot(const std::string& screenShotName, const st
 
 	auto finalFile = (screenshotFolderPath / (screenShotName + ".exr").c_str());
 
-	if(!std::filesystem::is_directory(screenshotFolderPath))
+	if(!screenshotFolderPath.empty() && !std::filesystem::is_directory(screenshotFolderPath))
 	{
-		std::cout << "ScreenShot Directorty (" << screenshotFolderPath.string().c_str() << ") does not exist, Creating Directory..." << std::endl;
-		std::filesystem::create_directory(screenshotFolderPath);
+		std::cout << "ScreenShot Directorty (" << screenshotFolderPath.string().c_str() << ") does not exist, Defaulting to executable folder" << std::endl;
+		finalFile = std::filesystem::path(screenShotName + ".exr");
 	}
 
 	if (m_tonemapOutput)
