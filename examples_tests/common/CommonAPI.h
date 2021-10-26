@@ -322,11 +322,15 @@ public:
 	{
 	public:
 		CommonAPIEventCallback(nbl::core::smart_refctd_ptr<InputSystem>&& inputSystem, nbl::system::logger_opt_smart_ptr&& logger) : m_inputSystem(std::move(inputSystem)), m_logger(std::move(logger)), m_gotWindowClosedMsg(false){}
-		
+		CommonAPIEventCallback() {}
 		bool isWindowOpen() const {return !m_gotWindowClosedMsg;}
 		void setLogger(nbl::system::logger_opt_smart_ptr& logger) override
 		{
 			m_logger = logger;
+		}
+		void setInputSystem(nbl::core::smart_refctd_ptr<InputSystem>&& inputSystem)
+		{
+			m_inputSystem = std::move(inputSystem);
 		}
 	private:
 		bool onWindowShown_impl() override
@@ -405,8 +409,8 @@ public:
 		}
 
 	private:
-		nbl::core::smart_refctd_ptr<InputSystem> m_inputSystem;
-		nbl::system::logger_opt_smart_ptr m_logger;
+		nbl::core::smart_refctd_ptr<InputSystem> m_inputSystem = nullptr;
+		nbl::system::logger_opt_smart_ptr m_logger = nullptr;
 		bool m_gotWindowClosedMsg;
 	};
 
@@ -691,10 +695,10 @@ public:
 	{
 #ifndef _NBL_PLATFORM_ANDROID_
 		nbl::system::path CWD = nbl::system::path(argv[0]).parent_path().generic_string() + "/";
-		nbl::system::path localInputCWD = CWD / "../../media/";
-		nbl::system::path localOutputCWD = CWD / "../../media/";;
-		nbl::system::path sharedInputCWD = CWD / "../";
-		nbl::system::path sharedOutputCWD = CWD;
+		nbl::system::path sharedInputCWD = CWD / "../../media/";
+		nbl::system::path sharedOutputCWD = CWD / "../../media/";;
+		nbl::system::path localInputCWD = CWD / "../";
+		nbl::system::path localOutputCWD = CWD;
 		AppClassName app(localInputCWD, localOutputCWD, sharedInputCWD, sharedOutputCWD);
 		app.onAppInitialized();
 		while (app.keepRunning())
@@ -822,9 +826,9 @@ public:
 		result.logger = core::make_smart_refctd_ptr<system::CStdoutLoggerAndroid>(); // we should let user choose it?
 #endif
 		result.inputSystem = nbl::core::make_smart_refctd_ptr<InputSystem>(system::logger_opt_smart_ptr(core::smart_refctd_ptr(result.logger)));
-		result.windowCb = nbl::core::make_smart_refctd_ptr<EventCallback>(core::smart_refctd_ptr(result.inputSystem), system::logger_opt_smart_ptr(core::smart_refctd_ptr(result.logger)));
 
 #ifndef _NBL_PLATFORM_ANDROID_
+		result.windowCb = nbl::core::make_smart_refctd_ptr<EventCallback>(core::smart_refctd_ptr(result.inputSystem), system::logger_opt_smart_ptr(core::smart_refctd_ptr(result.logger)));
 		nbl::ui::IWindow::SCreationParams windowsCreationParams;
 		windowsCreationParams.width = window_width;
 		windowsCreationParams.height = window_height;
@@ -836,6 +840,8 @@ public:
 		windowsCreationParams.callback = result.windowCb;
 		
 		result.window = windowManager->createWindow(std::move(windowsCreationParams));
+		result.windowCb = core::smart_refctd_ptr<IEventCallback>(window->getEventCallback());
+		result.windowCb->setInputSystem(core::smart_refctd_ptr(result.inputSystem));
 #else
 		result.window->setEventCallback(core::smart_refctd_ptr(result.windowCb));
 #endif

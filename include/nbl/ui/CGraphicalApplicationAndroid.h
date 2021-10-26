@@ -9,7 +9,7 @@
 #include "nbl/ui/IWindow.h"
 #include "nbl/ui/CWindowManagerAndroid.h"
 #include <jni.h>
-
+#include <fstream>
 namespace nbl::ui
 {
 	class CGraphicalApplicationAndroid : public system::CApplicationAndroid, public ui::IGraphicalApplicationFramework
@@ -45,9 +45,34 @@ namespace nbl::ui
 				JNIEnv* env;
 				app->activity->vm->AttachCurrentThread(&env, nullptr);
 				system::path sharedInputCWD = getSharedResourcesPath(env);
-				system::path APKResourcesPath = app->activity->internalDataPath;
-				system::path sharedOutputCWD = getSharedResourcesPath(env);
-				system::path privateOutputCWD = system::path(app->activity->internalDataPath) / "out";
+				system::path APKResourcesPath = "asset"; // an archive alias to recognize this path as an apk resource
+				system::path sharedOutputCWD = app->activity->externalDataPath;
+				system::path privateOutputCWD = system::path(app->activity->internalDataPath);
+
+
+				std::ofstream ofs(privateOutputCWD / "out.txt");
+				assert(ofs.is_open());
+				ofs << "Hello";
+				ofs.close();
+
+				std::ifstream ifs(privateOutputCWD / "out.txt");
+				std::string someData;
+				assert(ifs.is_open());
+				ifs >> someData;
+				ifs.close();
+				auto mgr = app->activity->assetManager;
+				AAssetDir* assetDir = AAssetManager_openDir(mgr, "");
+				const char* filename = (const char*)NULL;
+				while ((filename = AAssetDir_getNextFileName(assetDir)) != NULL) {
+					AAsset* asset = AAssetManager_open(mgr, filename, AASSET_MODE_STREAMING);
+					char buf[BUFSIZ];
+					int nb_read = 0;
+					FILE* out = fopen(filename, "w");
+					while ((nb_read = AAsset_read(asset, buf, BUFSIZ)) > 0)
+						fwrite(buf, nb_read, 1, out);
+					fclose(out);
+					AAsset_close(asset);
+				}
 
 				nbl::ui::CGraphicalApplicationAndroid::SGraphicalContext ctx{};
 				app->userData = &ctx;
