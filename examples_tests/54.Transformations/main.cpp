@@ -577,11 +577,6 @@ int main()
 	uint32_t timestamp = 1u;
 	while(windowCb->isWindowOpen())
 	{
-		// TODO: this is weird AF
-		// no idea why I need to wait on previous submit to finish before I overwrite my modification ranges WITH LITERALLY THE SAME DATA
-		if (frameComplete[resourceIx])
-			device->blockForFences(1u, &frameComplete[resourceIx].get());
-
 		resourceIx++;
 		if(resourceIx >= FRAMES_IN_FLIGHT)
 			resourceIx = 0;
@@ -613,12 +608,17 @@ int main()
 		{
 			struct SSBO
 			{
-				uint32_t rangecount;
+				uint32_t rangeCount;
+				// OpenGL drivers (even Nvidia) have some bugs and can sporadically completely
+				// forget about memory or execution barriers between `glCopyBufferSubData` and compute dispatches
+				// as well as modify memory to bogus values even though you're always copying the same data to the same location
+				uint32_t maxRangeLength;
 				scene::ITransformTreeManager::ModificationRequestRange ranges[ObjectCount];
 			};
-			static_assert(offsetof(SSBO, ranges) == sizeof(uint32_t));
+			static_assert(offsetof(SSBO, ranges) == sizeof(uint32_t)*2ull);
 			SSBO requestRanges;
-			requestRanges.rangecount = ObjectCount;
+			requestRanges.rangeCount = ObjectCount;
+			requestRanges.maxRangeLength = 1u;
 			for (uint32_t i = 0u; i < ObjectCount; ++i)
 			{
 				auto& obj = solarSystemObjectsData[i];
