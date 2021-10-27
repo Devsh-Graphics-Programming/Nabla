@@ -175,6 +175,8 @@ int main(int argc, char** argv)
 
 	struct SensorData
 	{
+		int32_t width = 0u;
+		int32_t height = 0u;
 		bool rightHandedCamera = true;
 		uint32_t samplesNeeded = 0u;
 		float moveSpeed = core::nan<float>();
@@ -271,6 +273,8 @@ int main(int argc, char** argv)
 		float realFoVDegrees;
 		auto width = film.cropWidth;
 		auto height = film.cropHeight;
+		outSensorData.width = width;
+		outSensorData.height = height;
 		float aspectRatio = float(width) / float(height);
 		auto convertFromXFoV = [=](float fov) -> float
 		{
