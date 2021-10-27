@@ -14,4 +14,6 @@ struct nbl_glsl_property_pool_transfer_t
 
 #define NBL_BUILTIN_PROPERTY_POOL_INVALID 0xdeadbeef
 
+#define NBL_BUILTIN_PROPERTY_POOL_MAX_PROPERTIES_PER_DISPATCH 128
+
 #endif

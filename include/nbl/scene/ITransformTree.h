@@ -138,36 +138,34 @@ class ITransformTree : public virtual core::IReferenceCounted
 
 		//
 		[[nodiscard]] inline bool copyGlobalTransforms(
-			video::CPropertyPoolHandler* pphandler, video::StreamingTransientDataBufferMT<>* const upIndexBuff, video::IGPUBuffer* dest, const uint64_t destOffset,
-			video::IGPUCommandBuffer* const cmdbuf, video::IGPUFence* const fence, const node_t* const nodesBegin, const node_t* const nodesEnd, system::logger_opt_ptr logger,
-			const std::chrono::high_resolution_clock::time_point maxWaitPoint=std::chrono::high_resolution_clock::now()+std::chrono::microseconds(500u))
+			video::CPropertyPoolHandler* pphandler, video::IGPUCommandBuffer* const cmdbuf, video::IGPUFence* const fence,
+			const asset::SBufferBinding<video::IGPUBuffer>& scratch, const asset::SBufferRange<video::IGPUBuffer>& nodes,
+			const asset::SBufferBinding<video::IGPUBuffer>& srcTransforms, system::logger_opt_ptr logger
+		)
 		{
 			video::CPropertyPoolHandler::TransferRequest request;
 			request.setFromPool(m_nodeStorage.get(),global_transform_prop_ix);
 			request.flags = video::CPropertyPoolHandler::TransferRequest::EF_NONE;
-			request.elementCount = nodesEnd - nodesBegin;
-			request.srcAddresses = nodesBegin;
-			request.dstAddresses = nullptr;
-			request.buffer = dest;
-			request.offset = destOffset;
-			return pphandler->transferProperties(upIndexBuff, nullptr, cmdbuf, fence, &request, &request + 1u, logger, maxWaitPoint).transferSuccess;
+			request.elementCount = nodes.size/sizeof(scene::ITransformTree::node_t);
+			request.srcAddressesOffset = 0u;
+			request.buffer = srcTransforms;
+			return pphandler->transferProperties(cmdbuf,fence,scratch,{nodes.offset,nodes.buffer},&request,&request+1u,logger);
 		}
 
 		//
-		[[nodiscard]] inline auto downloadGlobalTransforms(
-			video::CPropertyPoolHandler* pphandler, video::StreamingTransientDataBufferMT<>* const upIndexBuff, video::StreamingTransientDataBufferMT<>* const downBuff,
-			video::IGPUCommandBuffer* const cmdbuf, video::IGPUFence* const fence, const node_t* const nodesBegin, const node_t* const nodesEnd, system::logger_opt_ptr logger,
-			const std::chrono::high_resolution_clock::time_point maxWaitPoint=std::chrono::high_resolution_clock::now()+std::chrono::microseconds(500u))
+		[[nodiscard]] inline bool downloadGlobalTransforms(
+			video::CPropertyPoolHandler* pphandler, video::IGPUCommandBuffer* const cmdbuf, video::IGPUFence* const fence,
+			const asset::SBufferBinding<video::IGPUBuffer>& scratch, const asset::SBufferRange<video::IGPUBuffer>& nodes,
+			const asset::SBufferBinding<video::IGPUBuffer>& dstTransforms, system::logger_opt_ptr logger
+		)
 		{
 			video::CPropertyPoolHandler::TransferRequest request;
 			request.setFromPool(m_nodeStorage.get(),global_transform_prop_ix);
-			request.flags = video::CPropertyPoolHandler::TransferRequest::EF_NONE;
-			request.elementCount = nodesEnd-nodesBegin;
-			request.srcAddresses = nodesBegin;
-			request.dstAddresses = nullptr;
-			request.device2device = false;
-			request.source = nullptr;
-			return pphandler->transferProperties(upIndexBuff,downBuff,cmdbuf,fence,&request,&request+1u,logger,maxWaitPoint);
+			request.flags = video::CPropertyPoolHandler::TransferRequest::EF_DOWNLOAD;
+			request.elementCount = nodes.size/sizeof(scene::ITransformTree::node_t);
+			request.srcAddressesOffset = 0u;
+			request.buffer = dstTransforms;
+			return pphandler->transferProperties(cmdbuf,fence,scratch,{nodes.offset,nodes.buffer},&request,&request+1u,logger);
 		}
 
 	protected:

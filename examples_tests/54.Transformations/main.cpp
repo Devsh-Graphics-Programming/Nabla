@@ -192,7 +192,7 @@ int main()
 	ssboCreationParams.queueFamilyIndexCount = 0u;
 	ssboCreationParams.queueFamilyIndices = nullptr;
 
-	auto ssbo_buf = device->createDeviceLocalGPUBufferOnDedMem(ssboCreationParams, ssboSz);
+	auto ssbo_buf = device->createDeviceLocalGPUBufferOnDedMem(ssboCreationParams,ssboSz);
 
 	asset::SBufferRange<video::IGPUBuffer> propBufs[PropertyCount];
 	for (uint32_t i = 0u; i < PropertyCount; ++i)
@@ -209,7 +209,7 @@ int main()
 	propBufs[4].size = recompStampPropSz*ObjectCount;
 
 	auto tt = scene::ITransformTree::create(device.get(), propBufs, ObjectCount, true); // WTF!? Why a contiguous Pool for a TT !?
-	auto ttm = scene::ITransformTreeManager::create(core::smart_refctd_ptr(device));
+	auto ttm = scene::ITransformTreeManager::create(utils.get(),transferUpQueue);
 
 	auto ppHandler = core::make_smart_refctd_ptr<video::CPropertyPoolHandler>(core::smart_refctd_ptr(device));
 
@@ -342,35 +342,43 @@ int main()
 
 	// upload data
 	{
+		auto* q = device->getQueue(commandPool->getQueueFamilyIndex(),0u);
+
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandBuffer> cmdbuf_nodes;
 		device->createCommandBuffers(commandPool.get(),nbl::video::IGPUCommandBuffer::EL_PRIMARY,1u,&cmdbuf_nodes);
 
 		auto fence_nodes = device->createFence(static_cast<nbl::video::IGPUFence::E_CREATE_FLAGS>(0));
 
-		core::vector<scene::ITransformTree::node_t> tmp_parents(NumInstances);
-		core::vector<core::matrix3x4SIMD> tmp_transforms(NumInstances);
+		core::vector<scene::ITransformTree::parent_t> tmp_parents(NumInstances);
+		core::vector<scene::ITransformTree::relative_transform_t> tmp_transforms(NumInstances);
 		for (auto i=0u; i<NumInstances; i++)
 		{
 			tmp_parents[i] = solarSystemObjectsData[i].parentIndex;
 			tmp_transforms[i] = solarSystemObjectsData[i].getTform();
 		}
+		auto tmp_node_buf = utils->createFilledDeviceLocalGPUBufferOnDedMem(q,sizeof(scene::ITransformTree::node_t)*NumInstances,tmp_nodes.data());
+		auto tmp_parent_buf = utils->createFilledDeviceLocalGPUBufferOnDedMem(q,sizeof(scene::ITransformTree::parent_t)*NumInstances,tmp_parents.data());
+		auto tmp_transform_buf = utils->createFilledDeviceLocalGPUBufferOnDedMem(q,sizeof(scene::ITransformTree::relative_transform_t)*NumInstances,tmp_transforms.data());
 
 		//
+		video::IGPUBuffer::SCreationParams scratchParams;
+		scratchParams.usage = core::bitflag(video::IGPUBuffer::EUF_TRANSFER_DST_BIT)|video::IGPUBuffer::EUF_STORAGE_BUFFER_BIT;
+		asset::SBufferBinding<video::IGPUBuffer> scratch = {0ull,device->createDeviceLocalGPUBufferOnDedMem(scratchParams,utils->getDefaultPropertyPoolHandler()->getMaxScratchSize())};
 		{
 			video::CPropertyPoolHandler::TransferRequest transfers[scene::ITransformTreeManager::TransferCount];
 
 			{
 				scene::ITransformTreeManager::TransferRequest req;
 				req.tree = tt.get();
-				req.parents = tmp_parents.data();
-				req.relativeTransforms = tmp_transforms.data();
-				req.nodes = {tmp_nodes.data(),tmp_nodes.data()+tmp_nodes.size()};
+				req.parents = {0ull,tmp_parent_buf};
+				req.relativeTransforms = {0ull,tmp_transform_buf};
+				req.nodes = {0ull,tmp_node_buf->getSize(),tmp_node_buf};
 				ttm->setupTransfers(req,transfers);
 			}
 
 			cmdbuf_nodes->begin(0);
 			utils->getDefaultPropertyPoolHandler()->transferProperties(
-				utils->getDefaultUpStreamingBuffer(),nullptr,cmdbuf_nodes.get(),fence_nodes.get(),
+				cmdbuf_nodes.get(),fence_nodes.get(),scratch,{0ull,tmp_node_buf},
 				transfers,transfers+scene::ITransformTreeManager::TransferCount,initOutput.logger.get()
 			);
 			cmdbuf_nodes->end();
@@ -378,7 +386,6 @@ int main()
 
 		// submit
 		{
-			auto* q = device->getQueue(commandPool->getQueueFamilyIndex(),0u);
 			video::IGPUQueue::SSubmitInfo submit;
 			submit.commandBufferCount = 1u;
 			submit.commandBuffers = &cmdbuf_nodes.get();

@@ -64,8 +64,9 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		};
 
 		// creation
-        static inline core::smart_refctd_ptr<ITransformTreeManager> create(core::smart_refctd_ptr<video::ILogicalDevice>&& device)
+        static inline core::smart_refctd_ptr<ITransformTreeManager> create(video::IUtilities* utils, video::IGPUQueue* uploadQueue)
         {
+			auto device = utils->getLogicalDevice();
 			auto system = device->getPhysicalDevice()->getSystem();
 			auto createShader = [&system,&device](auto uniqueString) -> core::smart_refctd_ptr<video::IGPUSpecializedShader>
 			{
@@ -78,6 +79,17 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			auto recomputeGlobalSpec = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/transform_tree/global_transform_update.comp")());
 			if (!updateRelativeSpec || !recomputeGlobalSpec)
 				return nullptr;
+
+			const auto& limits = device->getPhysicalDevice()->getLimits();
+			core::vector<uint8_t> tmp(getDefaultValueBufferOffset(limits,~0u));
+			uint8_t* fillData = tmp.data();
+			{
+				*reinterpret_cast<ITransformTree::parent_t*>(fillData+getDefaultValueBufferOffset(limits,ITransformTree::parent_prop_ix)) = ITransformTree::invalid_node;
+				*reinterpret_cast<ITransformTree::relative_transform_t*>(fillData+getDefaultValueBufferOffset(limits,ITransformTree::relative_transform_prop_ix)) = core::matrix3x4SIMD();
+				*reinterpret_cast<ITransformTree::modified_stamp_t*>(fillData+getDefaultValueBufferOffset(limits,ITransformTree::modified_stamp_prop_ix)) = ITransformTree::initial_modified_timestamp;
+				*reinterpret_cast<ITransformTree::recomputed_stamp_t*>(fillData+getDefaultValueBufferOffset(limits,ITransformTree::recomputed_stamp_prop_ix)) = ITransformTree::initial_recomputed_timestamp;
+			}
+			auto defaultFillValues = utils->createFilledDeviceLocalGPUBufferOnDedMem(uploadQueue,tmp.size(),fillData);
 
 			core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> sharedDsLayout;
 			{
@@ -93,7 +105,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			}
 			asset::ISpecializedShader::E_SHADER_STAGE stageAccessFlags[ITransformTree::property_pool_t::PropertyCount];
 			std::fill_n(stageAccessFlags,ITransformTree::property_pool_t::PropertyCount,asset::ISpecializedShader::ESS_COMPUTE);
-			auto poolLayout = ITransformTree::createDescriptorSetLayout(device.get(),stageAccessFlags);
+			auto poolLayout = ITransformTree::createDescriptorSetLayout(device,stageAccessFlags);
 			
 			auto updateRelativeLayout = device->createGPUPipelineLayout(nullptr,nullptr,core::smart_refctd_ptr(poolLayout),core::smart_refctd_ptr(sharedDsLayout));
 			auto recomputeGlobalLayout = device->createGPUPipelineLayout(nullptr,nullptr,core::smart_refctd_ptr(poolLayout),core::smart_refctd_ptr(sharedDsLayout));
@@ -112,13 +124,12 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 				&sharedDsLayout.get(),&sharedDsLayout.get()+1u,
 				&DescriptorCacheSize
 			);
-			auto descCache = core::make_smart_refctd_ptr<DescriptorSetCache>(device.get(),std::move(descPool),std::move(sharedDsLayout));
+			auto descCache = core::make_smart_refctd_ptr<DescriptorSetCache>(device,std::move(descPool),std::move(sharedDsLayout));
 
 			auto* ttm = new ITransformTreeManager(
-				std::move(device),std::move(descCache),
-				std::move(updateRelativePpln),
-				std::move(recomputeGlobalPpln),
-				std::move(updateAndRecomputePpln)
+				core::smart_refctd_ptr<video::ILogicalDevice>(device),std::move(descCache),
+				std::move(updateRelativePpln),std::move(recomputeGlobalPpln),std::move(updateAndRecomputePpln),
+				std::move(defaultFillValues)
 			);
             return core::smart_refctd_ptr<ITransformTreeManager>(ttm,core::dont_grab);
         }
@@ -128,41 +139,39 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		struct TransferRequestBase
 		{
 			ITransformTree* tree;
-			// if null we set these properties to defaults (no parent and identity transform)
-			const ITransformTree::parent_t* parents = nullptr;
-			const ITransformTree::relative_transform_t* relativeTransforms = nullptr;
+			// if not present we set these properties to defaults (no parent and identity transform)
+			asset::SBufferBinding<video::IGPUBuffer> parents = {};
+			asset::SBufferBinding<video::IGPUBuffer> relativeTransforms = {};
 		};
 		struct TransferRequest : TransferRequestBase
 		{
-			core::SRange<const ITransformTree::node_t> nodes = { nullptr, nullptr };
+			asset::SBufferRange<video::IGPUBuffer> nodes = {};
 		};
 		inline bool setupTransfers(const TransferRequest& request, video::CPropertyPoolHandler::TransferRequest* transfers)
 		{
 			if (!request.tree)
 				return false;
 
-			static const core::matrix3x4SIMD IdentityTransform;
 			auto* pool = request.tree->getNodePropertyPool();
 
 			for (auto i=0u; i<TransferCount; i++)
 			{
-				transfers[i].elementCount = request.nodes.size();
-				transfers[i].srcAddresses = nullptr;
-				transfers[i].dstAddresses = request.nodes.begin();
-				transfers[i].device2device = false;
+				transfers[i].elementCount = request.nodes.size/sizeof(ITransformTree::node_t);
+				transfers[i].srcAddressesOffset = video::IPropertyPool::invalid;
+				transfers[i].dstAddressesOffset = request.nodes.offset;
 			}
 			transfers[0].setFromPool(pool,ITransformTree::parent_prop_ix);
-			transfers[0].flags = request.parents ? video::CPropertyPoolHandler::TransferRequest::EF_NONE:video::CPropertyPoolHandler::TransferRequest::EF_FILL;
-			transfers[0].source = request.parents ? request.parents:&ITransformTree::invalid_node;
+			transfers[0].flags = request.parents.buffer ? video::CPropertyPoolHandler::TransferRequest::EF_NONE:video::CPropertyPoolHandler::TransferRequest::EF_FILL;
+			transfers[0].buffer = request.parents.buffer ? request.parents:getDefaultValueBufferBinding(ITransformTree::parent_prop_ix);
 			transfers[1].setFromPool(pool,ITransformTree::relative_transform_prop_ix);
-			transfers[1].flags = request.relativeTransforms ? video::CPropertyPoolHandler::TransferRequest::EF_NONE:video::CPropertyPoolHandler::TransferRequest::EF_FILL;
-			transfers[1].source = request.relativeTransforms ? request.relativeTransforms:&IdentityTransform;
+			transfers[1].flags = request.relativeTransforms.buffer ? video::CPropertyPoolHandler::TransferRequest::EF_NONE:video::CPropertyPoolHandler::TransferRequest::EF_FILL;
+			transfers[1].buffer = request.relativeTransforms.buffer ? request.relativeTransforms:getDefaultValueBufferBinding(ITransformTree::relative_transform_prop_ix);
 			transfers[2].setFromPool(pool,ITransformTree::modified_stamp_prop_ix);
 			transfers[2].flags = video::CPropertyPoolHandler::TransferRequest::EF_FILL;
-			transfers[2].source = &ITransformTree::initial_modified_timestamp;
+			transfers[2].buffer = getDefaultValueBufferBinding(ITransformTree::modified_stamp_prop_ix);
 			transfers[3].setFromPool(pool,ITransformTree::recomputed_stamp_prop_ix);
 			transfers[3].flags = video::CPropertyPoolHandler::TransferRequest::EF_FILL;
-			transfers[3].source = &ITransformTree::initial_recomputed_timestamp;
+			transfers[3].buffer = getDefaultValueBufferBinding(ITransformTree::recomputed_stamp_prop_ix);
 			return true;
 		}
 		//
@@ -178,10 +187,14 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			video::IGPUFence* fence;
 			system::logger_opt_ptr logger = nullptr;
 		};
+#if 0
 		inline bool addNodes(const AdditionRequest& request, const std::chrono::steady_clock::time_point& maxWaitPoint=video::GPUEventWrapper::default_wait())
 		{
-			if (!request.poolHandler || !request.upBuff || !request.cmdbuf || !request.fence || !request.tree)
+			if (!request.tree || !request.poolHandler || !request.upBuff || !request.outNodes.begin() || !request.cmdbuf || !request.fence)
 				return false;
+			if (request.outNodes.empty())
+				return true;
+			assert(request.outNodes.begin()<request.outNodes.end());
 
 			if (!request.tree->allocateNodes(request.outNodes))
 				return false;
@@ -195,6 +208,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 
 			return request.poolHandler->transferProperties(request.upBuff,nullptr,request.cmdbuf,request.fence,transfers,transfers+TransferCount,request.logger,maxWaitPoint).transferSuccess;
 		}
+#endif
 		// TODO: utility for adding skeleton node instances, etc.
 		 
 		//
@@ -370,7 +384,28 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		}
 
 	protected:
-		static inline constexpr auto DescriptorCacheSize = 16u;
+		static inline uint64_t getDefaultValueBufferOffset(const video::IPhysicalDevice::SLimits& limits, uint32_t prop_ix)
+		{
+			uint64_t offset = 0u;
+			const uint64_t ssboOffsetAlignment = limits.SSBOAlignment;
+			if (prop_ix!=ITransformTree::relative_transform_prop_ix)
+			{
+				offset = core::roundUp(offset+sizeof(ITransformTree::relative_transform_t),ssboOffsetAlignment);
+				if (prop_ix!=ITransformTree::parent_prop_ix)
+				{
+					offset = core::roundUp(offset+sizeof(ITransformTree::parent_t),ssboOffsetAlignment);
+					if (prop_ix!=ITransformTree::modified_stamp_prop_ix)
+					{
+						offset = core::roundUp(offset+sizeof(ITransformTree::modified_stamp_t),ssboOffsetAlignment);
+						if (prop_ix!=ITransformTree::recomputed_stamp_prop_ix)
+							return core::roundUp(offset+sizeof(ITransformTree::recomputed_stamp_t),ssboOffsetAlignment);
+					}
+				}
+			}
+			return offset;
+		}
+
+		static inline constexpr auto DescriptorCacheSize = 32u;
 		// TODO: investigate using Push Descriptors for this
 		class DescriptorSetCache : public video::IDescriptorSetCache
 		{
@@ -410,17 +445,25 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			core::smart_refctd_ptr<DescriptorSetCache>&& _dsCache,
 			core::smart_refctd_ptr<video::IGPUComputePipeline>&& _updatePipeline,
 			core::smart_refctd_ptr<video::IGPUComputePipeline>&& _recomputePipeline,
-			core::smart_refctd_ptr<video::IGPUComputePipeline>&& _updateAndRecomputePipeline
+			core::smart_refctd_ptr<video::IGPUComputePipeline>&& _updateAndRecomputePipeline,
+			core::smart_refctd_ptr<video::IGPUBuffer>&& _defaultFillValues
 		) : m_device(std::move(_device)), m_dsCache(std::move(_dsCache)),
 			m_updatePipeline(std::move(_updatePipeline)),
 			m_recomputePipeline(std::move(_recomputePipeline)),
 			m_updateAndRecomputePipeline(std::move(_updateAndRecomputePipeline)),
+			m_defaultFillValues(std::move(_defaultFillValues)),
 			m_workgroupSize(m_device->getPhysicalDevice()->getLimits().maxOptimallyResidentWorkgroupInvocations)
 		{
 		}
 		~ITransformTreeManager()
 		{
 			// everything drops itself automatically
+		}
+		
+		inline asset::SBufferBinding<video::IGPUBuffer> getDefaultValueBufferBinding(uint32_t prop_ix) const
+		{
+			const auto& limits = m_device->getPhysicalDevice()->getLimits();
+			return {getDefaultValueBufferOffset(limits,prop_ix),m_defaultFillValues};
 		}
 		
 		template<uint32_t N>
@@ -476,6 +519,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		core::smart_refctd_ptr<video::ILogicalDevice> m_device;
 		core::smart_refctd_ptr<video::IDescriptorSetCache> m_dsCache;
 		core::smart_refctd_ptr<video::IGPUComputePipeline> m_updatePipeline,m_recomputePipeline,m_updateAndRecomputePipeline;
+		core::smart_refctd_ptr<video::IGPUBuffer> m_defaultFillValues;
 		const uint32_t m_workgroupSize;
 };
 

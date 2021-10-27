@@ -3,21 +3,22 @@ layout(local_size_x=NBL_LIMIT_MAX_OPTIMALLY_RESIDENT_WORKGROUP_INVOCATIONS) in;
 
 #include "nbl/builtin/glsl/property_pool/transfer.glsl"
 
-#define NBL_BUILTIN_MAX_PROPERTIES_PER_COPY ((NBL_LIMIT_MAX_PER_STAGE_SSBO_COUNT-1)/2)
-
-layout(set=0,binding=0) readonly restrict buffer Addresses
+layout(set=0,binding=0) readonly restrict buffer TransferData
 {
-    nbl_glsl_property_pool_transfer_t transferData[NBL_BUILTIN_MAX_PROPERTIES_PER_COPY];
+    nbl_glsl_property_pool_transfer_t transferData[];
+};
+layout(set=0,binding=1) readonly restrict buffer Addresses
+{
     uint addresses[];
 };
-layout(set=0,binding=1) readonly buffer InData
+layout(set=0,binding=2) readonly restrict buffer InData
 {
     uint data[];
-} inBuff[NBL_BUILTIN_MAX_PROPERTIES_PER_COPY];
-layout(set=0,binding=2) writeonly buffer OutData
+} inBuff[NBL_BUILTIN_MAX_PROPERTIES_PER_PASS];
+layout(set=0,binding=3) writeonly restrict buffer OutData
 {
     uint data[];
-} outBuff[NBL_BUILTIN_MAX_PROPERTIES_PER_COPY];
+} outBuff[NBL_BUILTIN_MAX_PROPERTIES_PER_PASS];
 
 
 
