@@ -158,7 +158,17 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 	if(NBL_BUILD_ANDROID)
 		# https://github.com/android-ndk/ndk/issues/381
 		target_link_options(${EXECUTABLE_NAME} PRIVATE -u ANativeActivity_onCreate)
-		nbl_android_create_apk(${EXECUTABLE_NAME})
+		set (variadic_args ${ARGN})
+		list(LENGTH variadic_args variadic_count)
+		if (${variadic_count} GREATER 0)
+			list(GET variadic_args 0 optional_arg)
+			set(ASSET_SOURCE_DIR ${optional_arg})
+			#message(FATAL_ERROR  "the path ${optional_arg} doesn't exist")     
+			nbl_android_create_apk(${EXECUTABLE_NAME} ${ASSET_SOURCE_DIR})
+		else()
+			nbl_android_create_apk(${EXECUTABLE_NAME})
+		endif ()
+		
 	endif()
 endmacro()
 
@@ -295,14 +305,26 @@ function(nbl_install_config_header _CONF_HDR_NAME)
 	install(FILES ${file_relWithDebInfo} DESTINATION relwithdebinfo/include CONFIGURATIONS RelWithDebInfo)
 endfunction()
 
-function(nbl_android_create_apk _TARGET)
+macro(nbl_android_create_apk _TARGET)
 	get_target_property(TARGET_NAME ${_TARGET} NAME)
 	# TARGET_NAME_IDENTIFIER is identifier that can be used in code
 	string(MAKE_C_IDENTIFIER ${TARGET_NAME} TARGET_NAME_IDENTIFIER)
 
 	set(APK_FILE_NAME ${TARGET_NAME}.apk)
 	set(APK_FILE ${CMAKE_CURRENT_SOURCE_DIR}/bin/$<CONFIG>/${APK_FILE_NAME})
-	set(ASSET_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/assets)
+	
+	set (variadic_args ${ARGN})
+    
+    # Did we get any optional args?
+    list(LENGTH variadic_args variadic_count)
+    if (${variadic_count} GREATER 0)
+        list(GET variadic_args 0 optional_arg)
+        set(ASSET_SOURCE_DIR ${optional_arg})
+		#message(FATAL_ERROR  "the path ${optional_arg} doesn't exist")     
+	else()
+		set(ASSET_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/assets)
+    endif ()
+	
 	
 	add_custom_target(${TARGET_NAME}_apk ALL DEPENDS ${APK_FILE})
 
@@ -332,32 +354,47 @@ function(nbl_android_create_apk _TARGET)
 		COMMAND ${ANDROID_JAVA_BIN}/keytool -genkey -keystore ${KEYSTORE_FILE} -storepass android -alias ${KEY_ENTRY_ALIAS} -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=, OU=, O=, L=, S=, C="
 	)
 	
+	if(NOT EXISTS ${ASSET_SOURCE_DIR})
+	#message(SEND_ERROR      "the path ${ASSET_SOURCE_DIR} doesn't exist")
 	add_custom_command(
 		OUTPUT ${APK_FILE}
 		DEPENDS ${_TARGET}
 		DEPENDS ${NBL_ANDROID_MANIFEST_FILE}
 		DEPENDS ${KEYSTORE_FILE}
-		#DEPENDS ${CMAKE_SOURCE_DIR}/android/Loader.java
+		WORKING_DIRECTORY ${NBL_GEN_DIRECTORY}/$<CONFIG>
+		COMMENT "Creating ${APK_FILE_NAME} ..."
+		COMMAND ${CMAKE_COMMAND} -E make_directory libs/lib/x86_64
+		COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${_TARGET}> libs/lib/x86_64/$<TARGET_FILE_NAME:${_TARGET}>
+		COMMAND ${ANDROID_BUILD_TOOLS}/aapt package -f -m -J src -M AndroidManifest.xml -I ${ANDROID_JAR}
+		COMMAND ${ANDROID_BUILD_TOOLS}/aapt package -f -M AndroidManifest.xml -I ${ANDROID_JAR} -F ${TARGET_NAME}-unaligned.apk libs
+		COMMAND ${ANDROID_BUILD_TOOLS}/zipalign -f 4 ${TARGET_NAME}-unaligned.apk ${APK_FILE_NAME}
+		COMMAND ${ANDROID_BUILD_TOOLS}/apksigner sign --ks ${KEYSTORE_FILE} --ks-pass pass:android --key-pass pass:android --ks-key-alias ${KEY_ENTRY_ALIAS} ${APK_FILE_NAME}
+		COMMAND ${CMAKE_COMMAND} -E copy ${APK_FILE_NAME} ${APK_FILE}
+		VERBATIM
+	)
+	else()
+	add_custom_command(
+		OUTPUT ${APK_FILE}
+		DEPENDS ${_TARGET}
+		DEPENDS ${NBL_ANDROID_MANIFEST_FILE}
+		DEPENDS ${KEYSTORE_FILE}
 		WORKING_DIRECTORY ${NBL_GEN_DIRECTORY}/$<CONFIG>
 		COMMENT "Creating ${APK_FILE_NAME} ..."
 		COMMAND ${CMAKE_COMMAND} -E make_directory libs/lib/x86_64
 		COMMAND ${CMAKE_COMMAND} -E make_directory assets
-		#COMMAND ${CMAKE_COMMAND} -E make_directory obj
-		#COMMAND ${CMAKE_COMMAND} -E make_directory bin
 		COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${_TARGET}> libs/lib/x86_64/$<TARGET_FILE_NAME:${_TARGET}>
-		COMMAND ${CMAKE_COMMAND} -E copy ${ASSET_SOURCE_DIR} assets
-		COMMAND ${ANDROID_BUILD_TOOLS}/aapt package -f -m -J src -M AndroidManifest.xml -I ${ANDROID_JAR} # -S res
-		#COMMAND ${ANDROID_JAVA_BIN}/javac -d ./obj -source 1.7 -target 1.7 -bootclasspath ${ANDROID_JAVA_RT_JAR} -classpath "${ANDROID_JAR}:obj" # -sourcepath src src/eu/devsh/${TARGET_NAME}/Loader.java
-		#COMMAND ${ANDROID_BUILD_TOOLS}/dx --dex --output=bin/classes.dex ./obj
-		COMMAND ${ANDROID_BUILD_TOOLS}/aapt package -f -M AndroidManifest.xml -A assets -I ${ANDROID_JAR} -F ${TARGET_NAME}-unaligned.apk libs # bin --version-code SOME-VERSION-CODE -S res
-		#COMMAND ${ANDROID_BUILD_TOOLS}/aapt add ${TARGET_NAME}-unaligned.apk test.txt # bin --version-code SOME-VERSION-CODE -S res
+		COMMAND ${CMAKE_COMMAND} -E copy_directory ${ASSET_SOURCE_DIR} assets
+		COMMAND ${ANDROID_BUILD_TOOLS}/aapt package -f -m -J src -M AndroidManifest.xml -I ${ANDROID_JAR}
+		COMMAND ${ANDROID_BUILD_TOOLS}/aapt package -f -M AndroidManifest.xml -A assets -I ${ANDROID_JAR} -F ${TARGET_NAME}-unaligned.apk libs
 		COMMAND ${ANDROID_BUILD_TOOLS}/zipalign -f 4 ${TARGET_NAME}-unaligned.apk ${APK_FILE_NAME}
 		COMMAND ${ANDROID_BUILD_TOOLS}/apksigner sign --ks ${KEYSTORE_FILE} --ks-pass pass:android --key-pass pass:android --ks-key-alias ${KEY_ENTRY_ALIAS} ${APK_FILE_NAME}
 		COMMAND ${CMAKE_COMMAND} -E copy ${APK_FILE_NAME} ${APK_FILE}
-    COMMAND ${CMAKE_COMMAND} -E rm -rf assets
+		COMMAND ${CMAKE_COMMAND} -E rm -rf assets
 		VERBATIM
 	)
-endfunction()
+	endif()
+endmacro()
+
 
 function(nbl_android_create_media_storage_apk)
 	set(TARGET_NAME android_media_storage)
