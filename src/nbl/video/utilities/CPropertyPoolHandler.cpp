@@ -163,9 +163,9 @@ bool CPropertyPoolHandler::transferProperties(
 
 bool CPropertyPoolHandler::transferProperties(
 	StreamingTransientDataBufferMT<>* const upBuff, IGPUCommandBuffer* const cmdbuf, IGPUFence* const fence, IGPUQueue* queue,
-	UpStreamingRequest* const requestsBegin, UpStreamingRequest* const requestsEnd, system::logger_opt_ptr logger,
+	const asset::SBufferBinding<video::IGPUBuffer>& scratch, UpStreamingRequest* const requestsBegin, UpStreamingRequest* const requestsEnd,
 	uint32_t& waitSemaphoreCount, IGPUSemaphore* const*& semaphoresToWaitBeforeOverwrite, const asset::E_PIPELINE_STAGE_FLAGS*& stagesToWaitForPerSemaphore,
-	const std::chrono::high_resolution_clock::time_point& maxWaitPoint
+	system::logger_opt_ptr logger, const std::chrono::high_resolution_clock::time_point& maxWaitPoint
 )
 {
 	if (requestsBegin==requestsEnd)
@@ -174,29 +174,13 @@ bool CPropertyPoolHandler::transferProperties(
 	// somewhat decent attempt at packing
 	std::sort(requestsBegin,requestsEnd,[](const UpStreamingRequest& rhs, const UpStreamingRequest& lhs)->bool{return rhs.elementCount*rhs.elementSize<lhs.elementCount*lhs.elementSize;});
 
-	// TODO: take a regular buffer for scratch
-	constexpr auto invalid_address = std::remove_reference_t<decltype(upBuff->getAllocator())>::invalid_address;
-	// allocate the reusable scratch
-	auto scratchAddr = invalid_address;
-	const uint32_t scratchSize = sizeof(nbl_glsl_property_pool_transfer_t)*m_maxPropertiesPerPass;
-	if (upBuff->multi_alloc(maxWaitPoint,1u,&scratchAddr,&scratchSize,m_alignments)!=0u)
-	{
-		logger.log("CPropertyPoolHandler: Failed to allocate `nbl_glsl_property_pool_transfer_t`!",system::ILogger::ELL_ERROR);
-		return false;
-	}
-	const auto uploadBuffer = upBuff->getBuffer();
-	const asset::SBufferBinding<video::IGPUBuffer> scratch = {scratchAddr,core::smart_refctd_ptr<video::IGPUBuffer>(uploadBuffer)};
-	
-	//
-	const auto totalProps = std::distance(requestsBegin,requestsEnd);
-	const auto fullPasses = totalProps/m_maxPropertiesPerPass;
-	auto requests = requestsBegin;
-
 	//
 	uint8_t* const upBuffPtr = reinterpret_cast<uint8_t*>(upBuff->getBufferPointer());
 	TransferRequest xfers[MaxPropertiesPerDispatch];
+	const asset::SBufferBinding<video::IGPUBuffer> uploadBuffer = {0ull,core::smart_refctd_ptr<video::IGPUBuffer>(upBuff->getBuffer())};
 	auto attempt = [&](const uint32_t baseDWORDs, const uint32_t remainingDWORDs, const UpStreamingRequest* localRequests, uint32_t propertiesThisPass) -> uint32_t
 	{
+		constexpr auto invalid_address = std::remove_reference_t<decltype(upBuff->getAllocator())>::invalid_address;
 		// TODO: redo
 		uint32_t doneDWORDs = core::min(upBuff->max_size()/propertiesThisPass,remainingDWORDs);
 
@@ -204,7 +188,7 @@ bool CPropertyPoolHandler::transferProperties(
 		// TODO: adjust `propertiesThisPass`
 
 		// no pipeline barriers necessary because write and optional flush happens before submit, and memory allocation is reclaimed after fence signal
-		return transferProperties(cmdbuf,fence,scratch,{},xfers,xfers+propertiesThisPass,logger) ? doneDWORDs:0u;
+		return transferProperties(cmdbuf,fence,scratch,uploadBuffer,xfers,xfers+propertiesThisPass,logger) ? doneDWORDs:0u;
 	};
 	auto submit = [&]() -> void
 	{
@@ -251,6 +235,9 @@ bool CPropertyPoolHandler::transferProperties(
 	};
 
 	bool success = true;
+	auto requests = requestsBegin;
+	const auto totalProps = std::distance(requestsBegin,requestsEnd);
+	const auto fullPasses = totalProps/m_maxPropertiesPerPass;
 	// transfer as many properties at once as possible
 	for (uint32_t i=0; i<fullPasses; i++)
 	{
@@ -262,11 +249,6 @@ bool CPropertyPoolHandler::transferProperties(
 	if (leftOverProps)
 		success = copyPass(requests,leftOverProps)&&success;
 	
-	// free the scratch
-	if (success)
-		upBuff->multi_free(1u,&scratchAddr,&scratchSize,core::smart_refctd_ptr<IGPUFence>(fence),&cmdbuf);
-	else
-		upBuff->multi_free(1u,&scratchAddr,&scratchSize);
 	return success;
 #if 0
 			uint32_t upAllocations = 1u;

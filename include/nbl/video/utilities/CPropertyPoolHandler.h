@@ -173,9 +173,9 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 		// `requests` will be consumed (destructively processed)
 		[[nodiscard]] bool transferProperties(
 			StreamingTransientDataBufferMT<>* const upBuff, IGPUCommandBuffer* const cmdbuf, IGPUFence* const fence, IGPUQueue* queue,
-			UpStreamingRequest* const requestsBegin, UpStreamingRequest* const requestsEnd,system::logger_opt_ptr logger,
+			const asset::SBufferBinding<video::IGPUBuffer>& scratch, UpStreamingRequest* const requestsBegin, UpStreamingRequest* const requestsEnd,
 			uint32_t& waitSemaphoreCount, IGPUSemaphore* const*& semaphoresToWaitBeforeOverwrite, const asset::E_PIPELINE_STAGE_FLAGS*& stagesToWaitForPerSemaphore,
-			const std::chrono::high_resolution_clock::time_point& maxWaitPoint=std::chrono::high_resolution_clock::now()+std::chrono::microseconds(500u)
+			system::logger_opt_ptr logger, const std::chrono::high_resolution_clock::time_point& maxWaitPoint=std::chrono::high_resolution_clock::now()+std::chrono::microseconds(500u)
 		);
 
 		// utility to help you fill out the tail move scatter request after the free, properly, returns if you actually need to transfer anything
