@@ -279,11 +279,12 @@ int main()
 
 	video::IGPUBuffer::SCreationParams gpuUBOCreationParams;
 	gpuUBOCreationParams.usage = asset::IBuffer::E_USAGE_FLAGS::EUF_UNIFORM_BUFFER_BIT;
+	gpuUBOCreationParams.canUpdateSubRange = true;
 	gpuUBOCreationParams.sharingMode = asset::E_SHARING_MODE::ESM_CONCURRENT;
 	gpuUBOCreationParams.queueFamilyIndexCount = 0u;
 	gpuUBOCreationParams.queueFamilyIndices = nullptr;
 
-	auto gpuUBO = logicalDevice->createGPUBufferOnDedMem(gpuUBOCreationParams, dev_local_reqs, true);
+	auto gpuUBO = logicalDevice->createGPUBufferOnDedMem(gpuUBOCreationParams, dev_local_reqs);
 
 	auto gpuGDescriptorSet1 = logicalDevice->createGPUDescriptorSet(gpuGDescriptorPool.get(), gpuGDs1Layout);
 	{

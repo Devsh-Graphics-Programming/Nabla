@@ -41,7 +41,6 @@ if (NBL_BUILD_MITSUBA_LOADER AND NBL_BUILD_OPTIX)
 	#add_subdirectory(28.OptiXPathTracing EXCLUDE_FROM_ALL)
 endif()
 add_subdirectory(29.SpecializationConstants EXCLUDE_FROM_ALL)
-add_subdirectory(31.SkinningDataBenchmark EXCLUDE_FROM_ALL)
 add_subdirectory(32.MultiThreadedRefCounting EXCLUDE_FROM_ALL) # TODO: @Anastazluk make this into example 04
 add_subdirectory(33.Draw3DLine EXCLUDE_FROM_ALL)
 add_subdirectory(34.LRUCacheUnitTest EXCLUDE_FROM_ALL)
