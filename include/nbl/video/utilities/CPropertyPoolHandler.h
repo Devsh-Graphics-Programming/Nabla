@@ -93,7 +93,8 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 		[[nodiscard]] bool transferProperties(
 			IGPUCommandBuffer* const cmdbuf, IGPUFence* const fence,
 			const asset::SBufferBinding<video::IGPUBuffer>& scratch, const asset::SBufferBinding<video::IGPUBuffer>& addresses,
-			const TransferRequest* const requestsBegin, const TransferRequest* const requestsEnd, system::logger_opt_ptr logger
+			const TransferRequest* const requestsBegin, const TransferRequest* const requestsEnd,
+			system::logger_opt_ptr logger, const uint32_t baseDWORD=0u
 		);
 
 		//

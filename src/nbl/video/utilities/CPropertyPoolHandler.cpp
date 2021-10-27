@@ -40,7 +40,9 @@ CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice
 	// TODO: if we decide to invalidate all cmdbuffs used for updates (make them non reusable), then we can use the ECF_NONE flag
 	auto descPool = m_device->createDescriptorPoolForDSLayouts(IDescriptorPool::ECF_UPDATE_AFTER_BIND_BIT,&dsLayout.get(),&dsLayout.get()+1u,&CPropertyPoolHandler::DescriptorCacheSize);
 	m_dsCache = core::make_smart_refctd_ptr<TransferDescriptorSetCache>(m_device.get(),std::move(descPool),core::smart_refctd_ptr(dsLayout));
-	auto layout = m_device->createGPUPipelineLayout(nullptr,nullptr,std::move(dsLayout));
+	
+	const asset::SPushConstantRange baseDWORD = {asset::ISpecializedShader::ESS_COMPUTE,0u,sizeof(uint32_t)};
+	auto layout = m_device->createGPUPipelineLayout(&baseDWORD,&baseDWORD+1u,std::move(dsLayout));
 	m_pipeline = m_device->createGPUComputePipeline(nullptr,std::move(layout),std::move(specshader));
 }
 
@@ -48,7 +50,8 @@ CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice
 bool CPropertyPoolHandler::transferProperties(
 	IGPUCommandBuffer* const cmdbuf, IGPUFence* const fence,
 	const asset::SBufferBinding<video::IGPUBuffer>& scratch, const asset::SBufferBinding<video::IGPUBuffer>& addresses,
-	const TransferRequest* const requestsBegin, const TransferRequest* const requestsEnd, system::logger_opt_ptr logger
+	const TransferRequest* const requestsBegin, const TransferRequest* const requestsEnd,
+	system::logger_opt_ptr logger, const uint32_t baseDWORD
 )
 {
 	if (requestsBegin==requestsEnd)
@@ -128,9 +131,11 @@ bool CPropertyPoolHandler::transferProperties(
 		auto set = m_dsCache->getSet(setIx);
 		cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,m_pipeline->getLayout(),0u,1u,&set,nullptr);
 		// dispatch
+		cmdbuf->pushConstants(m_pipeline->getLayout(),asset::ISpecializedShader::ESS_COMPUTE,0u,sizeof(baseDWORD),&baseDWORD);
 		{
 			const auto& limits = m_device->getPhysicalDevice()->getLimits();
-			cmdbuf->dispatch(limits.computeOptimalPersistentWorkgroupDispatchSize(maxDWORDs,limits.maxOptimallyResidentWorkgroupInvocations),propertiesThisPass,1u);
+			const auto invocationCoarseness = limits.maxOptimallyResidentWorkgroupInvocations*propertiesThisPass;
+			cmdbuf->dispatch(limits.computeOptimalPersistentWorkgroupDispatchSize(maxDWORDs-baseDWORD,invocationCoarseness),propertiesThisPass,1u);
 		}
 		{
 			buffBarrier.barrier.srcAccessMask = asset::EAF_SHADER_READ_BIT;
@@ -169,6 +174,7 @@ bool CPropertyPoolHandler::transferProperties(
 	// somewhat decent attempt at packing
 	std::sort(requestsBegin,requestsEnd,[](const UpStreamingRequest& rhs, const UpStreamingRequest& lhs)->bool{return rhs.elementCount*rhs.elementSize<lhs.elementCount*lhs.elementSize;});
 
+	// TODO: take a regular buffer for scratch
 	constexpr auto invalid_address = std::remove_reference_t<decltype(upBuff->getAllocator())>::invalid_address;
 	// allocate the reusable scratch
 	auto scratchAddr = invalid_address;

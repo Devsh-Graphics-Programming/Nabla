@@ -20,7 +20,10 @@ layout(set=0,binding=3) writeonly restrict buffer OutData
     uint data[];
 } outBuff[NBL_BUILTIN_MAX_PROPERTIES_PER_PASS];
 
-
+layout(push_constant) uniform PushConstants
+{
+    uint baseDWORD;
+} pc;
 
 void main()
 {
@@ -32,7 +35,7 @@ void main()
     
     const uint DWORDs = transfer.elementCount*propDWORDs;
     const uint dispatchSize = gl_NumWorkGroups[0]*NBL_LIMIT_MAX_OPTIMALLY_RESIDENT_WORKGROUP_INVOCATIONS;
-    for (uint virtualInvocationIndex=gl_GlobalInvocationID.x; virtualInvocationIndex<DWORDs; virtualInvocationIndex+=dispatchSize)
+    for (uint virtualInvocationIndex=gl_GlobalInvocationID.x+pc.baseDWORD; virtualInvocationIndex<DWORDs; virtualInvocationIndex+=dispatchSize)
     {
         const uint index = virtualInvocationIndex/propDWORDs;
         
