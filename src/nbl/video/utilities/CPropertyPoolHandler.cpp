@@ -17,17 +17,15 @@ CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice
 	auto gpushader = m_device->createGPUShader(asset::IGLSLCompiler::createOverridenCopy(cpushader.get(),"\n#define NBL_BUILTIN_MAX_PROPERTIES_PER_PASS %d\n",m_maxPropertiesPerPass));
 	auto specshader = m_device->createGPUSpecializedShader(gpushader.get(),{nullptr,nullptr,"main",asset::ISpecializedShader::ESS_COMPUTE});
 
-	// TODO: redo
-#if 0
-	const auto maxStreamingAllocations = 2u*m_maxPropertiesPerPass+1u;
+	const auto maxStreamingAllocations = 2u*m_maxPropertiesPerPass+2u;
 	{
-		m_tmpAddressRanges = reinterpret_cast<AddressUploadRange*>(malloc((sizeof(AddressUploadRange)+sizeof(uint32_t)*3u)*maxStreamingAllocations));
-		m_tmpAddresses = reinterpret_cast<uint32_t*>(m_tmpAddressRanges+maxStreamingAllocations);
+		//m_tmpAddressRanges = reinterpret_cast<AddressUploadRange*>(malloc((sizeof(AddressUploadRange)+sizeof(uint32_t)*3u)*maxStreamingAllocations));
+		//m_tmpAddresses = reinterpret_cast<uint32_t*>(m_tmpAddressRanges+maxStreamingAllocations);
+		m_tmpAddresses = reinterpret_cast<uint32_t*>(malloc(sizeof(uint32_t)*3u*maxStreamingAllocations));
 		m_tmpSizes = reinterpret_cast<uint32_t*>(m_tmpAddresses+maxStreamingAllocations);
 		m_alignments = reinterpret_cast<uint32_t*>(m_tmpSizes+maxStreamingAllocations);
 		std::fill_n(m_alignments,maxStreamingAllocations,core::max(deviceLimits.SSBOAlignment,256u/*TODO: deviceLimits.nonCoherentAtomSize*/));
 	}
-#endif
 	
 	IGPUDescriptorSetLayout::SBinding bindings[4];
 	for (auto j=0; j<4; j++)
@@ -158,44 +156,120 @@ bool CPropertyPoolHandler::transferProperties(
 		return copyPass(requests,leftOverProps)&&result;
 }
 
-#if 0
-CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties(
-	StreamingTransientDataBufferMT<>* const upBuff, StreamingTransientDataBufferMT<>* const downBuff, IGPUCommandBuffer* const cmdbuf,
-	IGPUFence* const fence, const TransferRequest* const requestsBegin, const TransferRequest* const requestsEnd, system::logger_opt_ptr logger,
-	const std::chrono::high_resolution_clock::time_point maxWaitPoint
+bool CPropertyPoolHandler::transferProperties(
+	StreamingTransientDataBufferMT<>* const upBuff, IGPUCommandBuffer* const cmdbuf, IGPUFence* const fence, IGPUQueue* queue,
+	UpStreamingRequest* const requestsBegin, UpStreamingRequest* const requestsEnd, system::logger_opt_ptr logger,
+	uint32_t& waitSemaphoreCount, IGPUSemaphore* const*& semaphoresToWaitBeforeOverwrite, const asset::E_PIPELINE_STAGE_FLAGS*& stagesToWaitForPerSemaphore,
+	const std::chrono::high_resolution_clock::time_point& maxWaitPoint
 )
 {
+	if (requestsBegin==requestsEnd)
+		return true;
+
+	// somewhat decent attempt at packing
+	std::sort(requestsBegin,requestsEnd,[](const UpStreamingRequest& rhs, const UpStreamingRequest& lhs)->bool{return rhs.elementCount*rhs.elementSize<lhs.elementCount*lhs.elementSize;});
+
+	constexpr auto invalid_address = std::remove_reference_t<decltype(upBuff->getAllocator())>::invalid_address;
+	// allocate the reusable scratch
+	auto scratchAddr = invalid_address;
+	const uint32_t scratchSize = sizeof(nbl_glsl_property_pool_transfer_t)*m_maxPropertiesPerPass;
+	if (upBuff->multi_alloc(maxWaitPoint,1u,&scratchAddr,&scratchSize,m_alignments)!=0u)
+	{
+		logger.log("CPropertyPoolHandler: Failed to allocate `nbl_glsl_property_pool_transfer_t`!",system::ILogger::ELL_ERROR);
+		return false;
+	}
+	const auto uploadBuffer = upBuff->getBuffer();
+	const asset::SBufferBinding<video::IGPUBuffer> scratch = {scratchAddr,core::smart_refctd_ptr<video::IGPUBuffer>(uploadBuffer)};
+	
+	//
 	const auto totalProps = std::distance(requestsBegin,requestsEnd);
+	const auto fullPasses = totalProps/m_maxPropertiesPerPass;
+	auto requests = requestsBegin;
 
-	transfer_result_t result =
+	//
+	uint8_t* const upBuffPtr = reinterpret_cast<uint8_t*>(upBuff->getBufferPointer());
+	TransferRequest xfers[MaxPropertiesPerDispatch];
+	auto attempt = [&](const uint32_t baseDWORDs, const uint32_t remainingDWORDs, const UpStreamingRequest* localRequests, uint32_t propertiesThisPass) -> uint32_t
 	{
-		download_future_t(
-			core::smart_refctd_ptr(m_device),
-			core::smart_refctd_ptr<StreamingTransientDataBufferMT<>>(upBuff),
-			core::smart_refctd_ptr<IGPUFence>(fence),
-			totalProps
-		),true
+		// TODO: redo
+		uint32_t doneDWORDs = core::min(upBuff->max_size()/propertiesThisPass,remainingDWORDs);
+
+		// TODO: fill xfers and addresses
+		// TODO: adjust `propertiesThisPass`
+
+		// no pipeline barriers necessary because write and optional flush happens before submit, and memory allocation is reclaimed after fence signal
+		return transferProperties(cmdbuf,fence,scratch,{},xfers,xfers+propertiesThisPass,logger) ? doneDWORDs:0u;
 	};
-	if (totalProps!=0u)
+	auto submit = [&]() -> void
 	{
-		const auto fullPasses = totalProps/m_maxPropertiesPerPass;
-
-		constexpr auto invalid_address = std::remove_reference_t<decltype(upBuff->getAllocator())>::invalid_address;
-		uint8_t* upBuffPtr = reinterpret_cast<uint8_t*>(upBuff->getBufferPointer());
-				
-		auto copyPass = [&](const TransferRequest* localRequests, uint32_t propertiesThisPass) -> bool
+		IGPUQueue::SSubmitInfo submit;
+		submit.commandBufferCount = 1u;
+		submit.commandBuffers = &cmdbuf;
+		submit.signalSemaphoreCount = 0u;
+		submit.pSignalSemaphores = nullptr;
+		assert(!waitSemaphoreCount || semaphoresToWaitBeforeOverwrite && stagesToWaitForPerSemaphore);
+		submit.waitSemaphoreCount = waitSemaphoreCount;
+		submit.pWaitSemaphores = semaphoresToWaitBeforeOverwrite;
+		submit.pWaitDstStageMask = stagesToWaitForPerSemaphore;
+		queue->submit(1u,&submit,fence);
+		m_device->blockForFences(1u,&fence);
+		waitSemaphoreCount = 0u;
+		semaphoresToWaitBeforeOverwrite = nullptr;
+		stagesToWaitForPerSemaphore = nullptr;
+		// before resetting we need poll all events in the allocator's deferred free list
+		upBuff->cull_frees();
+		// we can reset the fence and commandbuffer because we fully wait for the GPU to finish here
+		m_device->resetFences(1u,&fence);
+		cmdbuf->reset(IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
+		cmdbuf->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
+	};
+	auto copyPass = [&](const UpStreamingRequest* localRequests, uint32_t propertiesThisPass) -> bool
+	{
+		// figure out how much work we have to do
+		uint32_t maxDWORDs = 0u;
+		for (uint32_t i=0; i<propertiesThisPass; i++)
 		{
+			const auto& request = localRequests[i];
+			const auto elementsByteSize = request.elementCount*request.elementSize;
+			maxDWORDs = core::max<uint32_t>(elementsByteSize/sizeof(uint32_t),maxDWORDs);
+		}
+		// do the transfers
+		for (uint32_t doneDWORDs=0u; doneDWORDs<maxDWORDs;)
+		{
+			doneDWORDs += attempt(doneDWORDs,maxDWORDs-doneDWORDs,localRequests,propertiesThisPass);
+			// need to try another chunk, need to submit
+			if (doneDWORDs!=maxDWORDs)
+				submit();
+		}
+		return true; // TODO: figure out better return val
+	};
+
+	bool success = true;
+	// transfer as many properties at once as possible
+	for (uint32_t i=0; i<fullPasses; i++)
+	{
+		success = copyPass(requests,m_maxPropertiesPerPass)&&success;
+		requests += m_maxPropertiesPerPass;
+	}
+
+	const auto leftOverProps = totalProps-fullPasses*m_maxPropertiesPerPass;
+	if (leftOverProps)
+		success = copyPass(requests,leftOverProps)&&success;
+	
+	// free the scratch
+	if (success)
+		upBuff->multi_free(1u,&scratchAddr,&scratchSize,core::smart_refctd_ptr<IGPUFence>(fence),&cmdbuf);
+	else
+		upBuff->multi_free(1u,&scratchAddr,&scratchSize);
+	return success;
+#if 0
 			uint32_t upAllocations = 1u;
-			uint32_t downAllocations = 0u;
 			for (uint32_t i=0u; i<propertiesThisPass; i++)
 			{
 				const auto& request = localRequests[i];
 				if (request.device2device)
 					continue;
 
-				if (request.isDownload())
-					downAllocations++;
-				else
 					upAllocations++;
 			}
 
@@ -203,7 +277,6 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties
 			uint32_t* const downAddresses = m_tmpAddresses+upAllocations;
 			uint32_t* const downSizes = m_tmpSizes+upAllocations;
 
-			uint32_t maxDWORDs = 0u;
 			uint32_t slabCount = 0u;
 			auto SlabComparator = [](auto lhs, auto rhs) -> bool
 			{
@@ -225,14 +298,9 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties
 						assert(false);
 						return false;
 					}
-					const auto elementsByteSize = request.elementCount*request.elementSize;
-					maxDWORDs = core::max<uint32_t>(elementsByteSize/sizeof(uint32_t),maxDWORDs);
 					//
 					if (!request.device2device)
 					{
-						if (request.isDownload())
-							*(downSizesIt++) = elementsByteSize;
-						else
 							*(upSizesIt++) = request.getSourceElementCount()*request.elementSize;
 					}
 					//
@@ -283,14 +351,6 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties
 			bool retval = true; // success
 			std::fill(m_tmpAddresses,m_tmpAddresses+propertiesThisPass+1u,invalid_address);
 			std::fill(downAddresses,downAddresses+propertiesThisPass,invalid_address);
-			auto freeUpAllocOnFail = core::makeRAIIExiter([&]()->void
-			{ 
-				if (!retval)
-				{
-					upBuff->multi_free(upAllocations,m_tmpAddresses,m_tmpSizes);
-					upBuff->multi_free(downAllocations,downAddresses,downSizes);
-				}
-			});
 			{
 				for (auto i=0u; i<upAllocations; i++)
 					m_tmpSizes[i] = core::roundUp(m_tmpSizes[i],m_alignments[i]);
@@ -367,64 +427,20 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties
 				// flush if needed
 				if (upBuff->needsManualFlushOrInvalidate())
 					m_device->flushMappedMemoryRanges(upAllocations,flushRanges);
-
-
-				if (downAllocations)
-				{
-					for (auto i=0u; i<downAllocations; i++)
-						downSizes[i] = core::roundUp(downSizes[i],m_alignments[i]);
-					const auto unallocatedBytes = downBuff->multi_alloc(maxWaitPoint,downAllocations,downAddresses,downSizes,m_alignments);
-					if (!(retval=unallocatedBytes==0u))
-					{
-						logger.log("CPropertyPoolHandler: Timed out during downstream staging allocation, failed to allocate %d bytes!",system::ILogger::ELL_ERROR,unallocatedBytes);
-						return retval;
-					}
-				}
 			}
 
-			// update desc sets
-			auto setIx = m_dsCache->acquireSet(this,upBuff->getBuffer(),downBuff ? downBuff->getBuffer():nullptr,localRequests,propertiesThisPass,m_tmpSizes[0],m_tmpAddresses,downAddresses);
-			if (!(retval=setIx!=IDescriptorSetCache::invalid_index))
-			{
-				logger.log("CPropertyPoolHandler: Failed to acquire descriptor set!",system::ILogger::ELL_ERROR);
-				return retval;
-			}
 
-			cmdbuf->bindComputePipeline(m_pipeline.get());
-			// bind desc sets
-			auto set = m_dsCache->getSet(setIx);
-			cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,m_pipeline->getLayout(),0u,1u,&set,nullptr);
-			// dispatch
-			const auto& limits = m_device->getPhysicalDevice()->getLimits();
-			cmdbuf->dispatch(limits.computeOptimalPersistentWorkgroupDispatchSize(maxDWORDs,limits.maxOptimallyResidentWorkgroupInvocations),propertiesThisPass,1u);
 
-			// deferred release resources
-			m_dsCache->releaseSet(m_device.get(),core::smart_refctd_ptr<IGPUFence>(fence),setIx);
+
+
+
 			// dont drop the cmdbuffer until the transfer is complete
 			auto cmdbuffs = reinterpret_cast<const IGPUCommandBuffer**>(m_tmpAddressRanges);
 			cmdbuffs[0] = cmdbuf;
 			std::fill_n(cmdbuffs+1u,upAllocations-1u,nullptr);
 			upBuff->multi_free(upAllocations,m_tmpAddresses,m_tmpSizes,core::smart_refctd_ptr<IGPUFence>(fence),cmdbuffs);
-			result.download.push(downAllocations,downAddresses,downSizes);
-
-			return retval;
-		};
-
-		
-		auto requests = requestsBegin;
-		for (uint32_t i=0; i<fullPasses; i++)
-		{
-			result.transferSuccess = copyPass(requests,m_maxPropertiesPerPass)&&result.transferSuccess;
-			requests += m_maxPropertiesPerPass;
-		}
-
-		const auto leftOverProps = totalProps-fullPasses*m_maxPropertiesPerPass;
-		if (leftOverProps)
-			result.transferSuccess = copyPass(requests,leftOverProps)&&result.transferSuccess;
-	}
-	return result;
-}
 #endif
+}
 
 uint32_t CPropertyPoolHandler::TransferDescriptorSetCache::acquireSet(
 	CPropertyPoolHandler* handler, const asset::SBufferBinding<video::IGPUBuffer>& scratch, const asset::SBufferBinding<video::IGPUBuffer>& addresses,

@@ -89,38 +89,93 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 			uint32_t srcAddressesOffset = IPropertyPool::invalid;
 			uint32_t dstAddressesOffset = IPropertyPool::invalid;
 		};
-
 		// Fence must be not pending yet, `cmdbuf` must be already in recording state.
 		[[nodiscard]] bool transferProperties(
 			IGPUCommandBuffer* const cmdbuf, IGPUFence* const fence,
 			const asset::SBufferBinding<video::IGPUBuffer>& scratch, const asset::SBufferBinding<video::IGPUBuffer>& addresses,
 			const TransferRequest* const requestsBegin, const TransferRequest* const requestsEnd, system::logger_opt_ptr logger
 		);
-#if 0
-			union
+
+		//
+		struct UpStreamingRequest
+		{
+			struct Data
 			{
-				// device
-				struct
+				Data()
 				{
-					IGPUBuffer* buffer; // must be null for a host transfer
-					uint64_t offset;
-				};
-				// host
-				struct
+					data = nullptr;
+					device2device = false;
+				}
+				~Data()
 				{
-					uint64_t device2device;
-					const void* source;
+					buffer.~SBufferBinding();
+				}
+
+				inline Data& operator=(const Data& other)
+				{
+					if (device2device)
+					{
+						buffer.~SBufferBinding();
+						data = nullptr;
+						device2device = false;
+					}
+					buffer = other.buffer;
+					return *this;
+				}
+
+				union
+				{
+					// device
+					asset::SBufferBinding<video::IGPUBuffer> buffer;
+					// host
+					struct
+					{
+						const void* data;
+						uint64_t device2device;
+					};
 				};
 			};
-		};
 
-		// Fence must be not pending yet, `cmdbuf` must be already in recording state.
+			//
+			inline UpStreamingRequest(const UpStreamingRequest& other)
+			{
+				operator=(other);
+			}
+			//
+			inline UpStreamingRequest& operator=(const UpStreamingRequest& other)
+			{
+				destination = other.destination;
+				elementSize = other.elementSize;
+				elementCount = other.elementCount;
+				source = other.source;
+				srcAddresses = other.srcAddresses;
+				dstAddresses = other.dstAddresses;
+				return *this;
+			}
+
+			//
+			inline void setFromPool(const IPropertyPool* pool, const uint16_t propertyID)
+			{
+				destination = pool->getPropertyMemoryBlock(propertyID);
+				elementSize = pool->getPropertySize(propertyID);
+			}
+
+			asset::SBufferRange<IGPUBuffer> destination = {};
+			uint16_t elementSize = 0u;
+			uint32_t elementCount = 0u;
+			Data source = {};
+			// can be invalid, if invalid, treated like an implicit {0,1,2,3,...} iota view
+			Data srcAddresses = {};
+			Data dstAddresses = {};
+		};
+		// Fence must be not pending yet, `cmdbuf` must be already in recording state and be resettable.
+		// `requests` will be consumed (destructively processed)
 		[[nodiscard]] bool transferProperties(
-			StreamingTransientDataBufferMT<>* const upBuff, StreamingTransientDataBufferMT<>* const downBuff, IGPUCommandBuffer* const cmdbuf,
-			IGPUFence* const fence, const TransferRequest* const requestsBegin, const TransferRequest* const requestsEnd,system::logger_opt_ptr logger,
-			const std::chrono::high_resolution_clock::time_point maxWaitPoint=std::chrono::high_resolution_clock::now()+std::chrono::microseconds(500u)
+			StreamingTransientDataBufferMT<>* const upBuff, IGPUCommandBuffer* const cmdbuf, IGPUFence* const fence, IGPUQueue* queue,
+			UpStreamingRequest* const requestsBegin, UpStreamingRequest* const requestsEnd,system::logger_opt_ptr logger,
+			uint32_t& waitSemaphoreCount, IGPUSemaphore* const*& semaphoresToWaitBeforeOverwrite, const asset::E_PIPELINE_STAGE_FLAGS*& stagesToWaitForPerSemaphore,
+			const std::chrono::high_resolution_clock::time_point& maxWaitPoint=std::chrono::high_resolution_clock::now()+std::chrono::microseconds(500u)
 		);
-#endif
 
 		// utility to help you fill out the tail move scatter request after the free, properly, returns if you actually need to transfer anything
 		static inline bool freeProperties(IPropertyPool* pool, TransferRequest* requests, const uint32_t* indicesBegin, const uint32_t* indicesEnd, uint32_t* srcAddresses, uint32_t* dstAddresses)
@@ -185,8 +240,8 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 			uint32_t destOff;
 		};
 		AddressUploadRange* m_tmpAddressRanges;
-		uint32_t* m_tmpAddresses, * m_tmpSizes, * m_alignments;
 #endif
+		uint32_t* m_tmpAddresses, *m_tmpSizes, *m_alignments;
 };
 
 

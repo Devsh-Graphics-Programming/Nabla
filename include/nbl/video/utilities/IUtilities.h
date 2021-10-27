@@ -264,6 +264,7 @@ class IUtilities : public core::IReferenceCounted
             assert(cmdpool->getCreationFlags()&IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
             assert(cmdpool->getQueueFamilyIndex()==queue->getFamilyIndex());
 
+            // no pipeline barriers necessary because write and optional flush happens before submit, and memory allocation is reclaimed after fence signal
             for (size_t uploadedSize=0ull; uploadedSize<bufferRange.size;)
             {
                 const void* dataPtr = reinterpret_cast<const uint8_t*>(data)+uploadedSize;
