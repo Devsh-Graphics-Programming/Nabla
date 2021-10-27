@@ -152,11 +152,12 @@ int main(int argc, char** argv)
 
     video::IGPUBuffer::SCreationParams gpuuboCreationParams;
     gpuuboCreationParams.usage = asset::IBuffer::EUF_UNIFORM_BUFFER_BIT;
+    gpuuboCreationParams.canUpdateSubRange = true;
     gpuuboCreationParams.sharingMode = asset::E_SHARING_MODE::ESM_CONCURRENT;
     gpuuboCreationParams.queueFamilyIndexCount = 0u;
     gpuuboCreationParams.queueFamilyIndices = nullptr;
 
-    auto gpuubo = logicalDevice->createGPUBufferOnDedMem(gpuuboCreationParams,ubomemreq,true);
+    auto gpuubo = logicalDevice->createGPUBufferOnDedMem(gpuuboCreationParams,ubomemreq);
     auto gpuds1 = logicalDevice->createGPUDescriptorSet(descriptorPool.get(), std::move(gpuds1layout));
     {
         video::IGPUDescriptorSet::SWriteDescriptorSet write;
