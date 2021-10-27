@@ -361,7 +361,8 @@ int main()
 		auto tmp_transform_buf = utils->createFilledDeviceLocalGPUBufferOnDedMem(q,sizeof(scene::ITransformTree::relative_transform_t)*NumInstances,tmp_transforms.data());
 
 		//
-		video::IGPUBuffer::SCreationParams scratchParams;
+		video::IGPUBuffer::SCreationParams scratchParams = {};
+		scratchParams.canUpdateSubRange = true;
 		scratchParams.usage = core::bitflag(video::IGPUBuffer::EUF_TRANSFER_DST_BIT)|video::IGPUBuffer::EUF_STORAGE_BUFFER_BIT;
 		asset::SBufferBinding<video::IGPUBuffer> scratch = {0ull,device->createDeviceLocalGPUBufferOnDedMem(scratchParams,utils->getDefaultPropertyPoolHandler()->getMaxScratchSize())};
 		{
