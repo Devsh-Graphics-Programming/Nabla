@@ -14,6 +14,7 @@
 #include "nbl/ext/MitsubaLoader/CMitsubaLoader.h"
 #include "CommandLineHandler.hpp"
 
+#include "CSceneNodeAnimatorCameraModifiedMaya.h"
 #include "Renderer.h"
 
 
@@ -204,7 +205,7 @@ int main(int argc, char** argv)
 			auto up = tpose.rows[1];
 			core::vectorSIMDf view = tpose.rows[2];
 			auto target = view+pos;
-
+			
 			camera->setTarget(target.getAsVector3df());
 			if (core::dot(core::normalize(core::cross(camera->getUpVector(),view)),core::cross(up,view)).x<0.99f)
 				camera->setUpVector(up);
@@ -278,10 +279,13 @@ int main(int argc, char** argv)
 		camera->setNearValue(20.f);
 		camera->setFarValue(5000.f);
 	}
-
+	
+	auto modifiedMayaAnim = reinterpret_cast<scene::CSceneNodeAnimatorCameraModifiedMaya*>(camera->getAnimators()[0]);
+	core::vectorSIMDf cameraPos; cameraPos.set(camera->getPosition());
+	core::vectorSIMDf cameraTarget; cameraTarget.set(camera->getTarget());
+	modifiedMayaAnim->setZoomAndRotationBasedOnTargetAndPosition(cameraPos, cameraTarget);
 
 	auto driver = device->getVideoDriver();
-
 
 	core::smart_refctd_ptr<Renderer> renderer = core::make_smart_refctd_ptr<Renderer>(driver,device->getAssetManager(),smgr);
 	constexpr uint32_t MaxSamples = MAX_ACCUMULATED_SAMPLES;
@@ -330,11 +334,9 @@ int main(int argc, char** argv)
 
 	renderer->init(meshes, std::move(sampleSequence));
 	meshes = {}; // free memory
-	
 
 	auto extent = renderer->getSceneBound().getExtent();
 	smgr->setActiveCamera(camera);
-
 
 	QToQuitEventReceiver receiver;
 	device->setEventReceiver(&receiver);
@@ -345,7 +347,11 @@ int main(int argc, char** argv)
 	{
 		driver->beginScene(false, false);
 
+		std::cout << "Camera Position Before Render: (" << camera->getPosition().X << "," << camera->getPosition().Y << "," << camera->getPosition().Z << ")" << std::endl;
+		std::cout << "Target Before Render: (" << camera->getTarget().X << "," << camera->getTarget().Y << "," << camera->getTarget().Z << ")" << std::endl;
 		renderer->render(device->getTimer());
+		std::cout << "Camera Position After Render: (" << camera->getPosition().X << "," << camera->getPosition().Y << "," << camera->getPosition().Z << ")" << std::endl;
+		std::cout << "Target After Render: (" << camera->getTarget().X << "," << camera->getTarget().Y << "," << camera->getTarget().Z << ")" << std::endl;
 
 		auto oldVP = driver->getViewPort();
 		driver->blitRenderTargets(renderer->getColorBuffer(),nullptr,false,false,{},{},true);

@@ -39,7 +39,6 @@ CSceneNodeAnimatorCameraModifiedMaya::CSceneNodeAnimatorCameraModifiedMaya(gui::
 	allKeysUp();
 }
 
-
 //! destructor
 CSceneNodeAnimatorCameraModifiedMaya::~CSceneNodeAnimatorCameraModifiedMaya()
 {
@@ -47,6 +46,33 @@ CSceneNodeAnimatorCameraModifiedMaya::~CSceneNodeAnimatorCameraModifiedMaya()
 		CursorControl->drop();
 }
 
+
+void CSceneNodeAnimatorCameraModifiedMaya::setZoomAndRotationBasedOnTargetAndPosition(const core::vectorSIMDf& position, const core::vectorSIMDf& target)
+{
+	core::vectorSIMDf relativeTarget = position - target;
+	// core::vector3df relativeRotation = relativeTarget.getAsVector3df().getHorizontalAngle();
+	float angleX = 0.0f;
+	float angleY = 0.0f;
+
+	const double tmp = core::degrees(atan2((double)relativeTarget.z, (double)relativeTarget.x));
+	angleX = tmp;
+	if (angleX < 0)
+		angleX += 360;
+	if (angleX >= 360)
+		angleX -= 360;
+
+	const double z1 = core::sqrt(relativeTarget.x*relativeTarget.x + relativeTarget.z*relativeTarget.z);
+	angleY = (core::degrees(atan2((double)relativeTarget.y, (double)z1)) - 0.0);
+	if (angleY < 0)
+		angleY += 360;
+	if (angleY >= 360)
+		angleY -= 360;
+
+	CurrentZoom = core::sqrt(core::dot(relativeTarget, relativeTarget)[0]); 
+	OldTarget = target;
+	RotX = 360-angleX;
+	RotY = angleY;
+}
 
 //! It is possible to send mouse and key events to the camera. Most cameras
 //! may ignore this input, but camera scene nodes which are created for
@@ -286,7 +312,7 @@ void CSceneNodeAnimatorCameraModifiedMaya::animateNode(IDummyTransformationScene
 	position.X = CurrentZoom + target.X;
 	position.Y = target.Y;
 	position.Z = target.Z;
-
+	
 	position.rotateXYByRAD(core::radians(nRotY), target);
 	position.rotateXZByRAD(-core::radians(nRotX), target);
 

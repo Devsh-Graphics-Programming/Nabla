@@ -82,6 +82,8 @@ namespace nbl
 			//! Enable/disable zooming when right button is pressed
 			virtual void toggleZoomWithRightButton() override;
 
+			void setZoomAndRotationBasedOnTargetAndPosition(const core::vectorSIMDf& position, const core::vectorSIMDf& target);
+
 		private:
 			void allKeysUp();
 			void animate();
