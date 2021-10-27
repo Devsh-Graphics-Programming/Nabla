@@ -223,13 +223,13 @@ public:
         return core::make_smart_refctd_ptr<IDescriptorPool>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this),maxSets);
     }
 
-    core::smart_refctd_ptr<IGPUBuffer> createGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& unused, const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData = false) override
+    core::smart_refctd_ptr<IGPUBuffer> createGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& params, const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs) override
     {
-        SRequestBufferCreate params;
-        params.mreqs = initialMreqs;
-        params.canModifySubdata = canModifySubData;
+        SRequestBufferCreate reqParams;
+        reqParams.mreqs = initialMreqs;
+        reqParams.cachedCreationParams = params;
         core::smart_refctd_ptr<IGPUBuffer> output;
-        auto& req = m_threadHandler.request(std::move(params), &output);
+        auto& req = m_threadHandler.request(std::move(reqParams),&output);
         m_masterContextCallsInvoked++;
         m_threadHandler.template waitForRequestCompletion<SRequestBufferCreate>(req);
 

@@ -135,7 +135,7 @@ namespace impl
             static inline constexpr E_REQUEST_TYPE type = ERT_BUFFER_CREATE;
             using retval_t = core::smart_refctd_ptr<IGPUBuffer>;
             IDriverMemoryBacked::SDriverMemoryRequirements mreqs;
-            bool canModifySubdata;
+            IGPUBuffer::SCachedCreationParams cachedCreationParams;
         };
         struct SRequestBufferViewCreate
         {
@@ -522,7 +522,7 @@ protected:
             {
                 auto& p = std::get<SRequestBufferCreate>(req.params_variant);
                 core::smart_refctd_ptr<IGPUBuffer>* pretval = reinterpret_cast<core::smart_refctd_ptr<IGPUBuffer>*>(req.pretval);
-                pretval[0] = core::make_smart_refctd_ptr<COpenGLBuffer>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device), &gl, p.mreqs, p.canModifySubdata);
+                pretval[0] = core::make_smart_refctd_ptr<COpenGLBuffer>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device), &gl, p.mreqs, p.cachedCreationParams);
             }
                 break;
             case ERT_BUFFER_VIEW_CREATE:

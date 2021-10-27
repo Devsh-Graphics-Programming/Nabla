@@ -33,13 +33,13 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
         }
 
         //! Non-allocating constructor for CCustormAllocatorCPUBuffer derivative
-        ICPUBuffer(size_t sizeInBytes, void* dat) : size(dat ? sizeInBytes : 0), data(dat), usage(EUF_TRANSFER_DST_BIT)
+        ICPUBuffer(size_t sizeInBytes, void* dat) : size(dat ? sizeInBytes : 0), data(dat)
         {}
     public:
 		//! Constructor.
 		/** @param sizeInBytes Size in bytes. If `dat` argument is present, it denotes size of data pointed by `dat`, otherwise - size of data to be allocated.
 		*/
-        ICPUBuffer(size_t sizeInBytes) : size(0), usage(EUF_TRANSFER_DST_BIT)
+        ICPUBuffer(size_t sizeInBytes) : size(0)
         {
 			data = _NBL_ALIGNED_MALLOC(sizeInBytes,_NBL_SIMD_ALIGNMENT);
             if (!data)
@@ -76,15 +76,10 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
         virtual size_t conservativeSizeEstimate() const override { return getSize(); }
 
         //! Returns size in bytes.
-        virtual const uint64_t& getSize() const override {return size;}
+        virtual uint64_t getSize() const override {return size;}
 
 		//! Returns pointer to data.
-        /** WARNING: RESIZE will invalidate pointer.
-		*/
         virtual const void* getPointer() const {return data;}
-		//! Returns pointer to data.
-		/** WARNING: RESIZE will invalidate pointer.
-		*/
         virtual void* getPointer() 
         { 
             assert(!isImmutable_debug());
@@ -104,18 +99,24 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
 		{
 			return usage;
 		}
-
 		inline bool setUsageFlags(core::bitflag<E_USAGE_FLAGS> _usage)
 		{
 			assert(!isImmutable_debug());
 			usage = _usage;
 			return true;
 		}
-
 		inline bool addUsageFlags(core::bitflag<E_USAGE_FLAGS> _usage)
 		{
 			assert(!isImmutable_debug());
 			usage |= _usage;
+			return true;
+		}
+        
+		inline bool getCanUpdateSubRange() const {return canUpdateSubRange;}
+		inline bool setCanUpdateSubRange(const bool _canUpdateSubRange)
+		{
+			assert(!isImmutable_debug());
+            canUpdateSubRange = _canUpdateSubRange;
 			return true;
 		}
 
@@ -127,10 +128,14 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
             if (willBeRestoredFrom(_other))
                 std::swap(data, other->data);
         }
-        
-        core::bitflag<E_USAGE_FLAGS> usage = EUF_TRANSFER_DST_BIT;
+
         uint64_t size;
         void* data;
+        // this is a bit weird, but makes sense because the usages are for the IGPUBuffer that will be created from the data stored here
+        core::bitflag<E_USAGE_FLAGS> usage = EUF_TRANSFER_DST_BIT;
+        // whether `IGPUCommandBuffer::updateBuffer` can be used
+        // TODO: in the new CPU2GPU converter make sure to ||= this value for all buffers
+        bool canUpdateSubRange = false;
 };
 
 template<

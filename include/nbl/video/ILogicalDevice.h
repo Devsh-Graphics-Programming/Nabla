@@ -251,7 +251,7 @@ class ILogicalDevice : public core::IReferenceCounted
         //! Utility wrapper for the pointer based func
         virtual void invalidateMappedMemoryRanges(core::SRange<const video::IDriverMemoryAllocation::MappedMemoryRange> ranges) = 0;
 
-        virtual core::smart_refctd_ptr<IGPUBuffer> createGPUBuffer(const IGPUBuffer::SCreationParams& creationParams, const size_t size, const bool canModifySubData = false) { return nullptr; }
+        virtual core::smart_refctd_ptr<IGPUBuffer> createGPUBuffer(const IGPUBuffer::SCreationParams& creationParams, const size_t size) { return nullptr; }
 
         //! Binds memory allocation to provide the backing for the resource.
         /** Available only on Vulkan, in OpenGL all resources create their own memory implicitly,
@@ -267,7 +267,7 @@ class ILogicalDevice : public core::IReferenceCounted
         {
             auto reqs = getDeviceLocalGPUMemoryReqs();
             reqs.vulkanReqs.size = size;
-            return this->createGPUBufferOnDedMem(params, reqs, false);
+            return this->createGPUBufferOnDedMem(params, reqs);
         }
 
         //! Creates the buffer, allocates memory dedicated memory and binds it at once.
@@ -275,7 +275,7 @@ class ILogicalDevice : public core::IReferenceCounted
         {
             auto reqs = getSpilloverGPUMemoryReqs();
             reqs.vulkanReqs.size = size;
-            return this->createGPUBufferOnDedMem(params, reqs, false);
+            return this->createGPUBufferOnDedMem(params, reqs);
         }
 
         //! Creates the buffer, allocates memory dedicated memory and binds it at once.
@@ -283,7 +283,7 @@ class ILogicalDevice : public core::IReferenceCounted
         {
             auto reqs = getUpStreamingMemoryReqs();
             reqs.vulkanReqs.size = size;
-            return this->createGPUBufferOnDedMem(params, reqs, false);
+            return this->createGPUBufferOnDedMem(params, reqs);
         }
 
         //! Creates the buffer, allocates memory dedicated memory and binds it at once.
@@ -291,7 +291,7 @@ class ILogicalDevice : public core::IReferenceCounted
         {
             auto reqs = getDownStreamingMemoryReqs();
             reqs.vulkanReqs.size = size;
-            return this->createGPUBufferOnDedMem(params, reqs, false);
+            return this->createGPUBufferOnDedMem(params, reqs);
         }
 
         //! Creates the buffer, allocates memory dedicated memory and binds it at once.
@@ -299,11 +299,11 @@ class ILogicalDevice : public core::IReferenceCounted
         {
             auto reqs = getCPUSideGPUVisibleGPUMemoryReqs();
             reqs.vulkanReqs.size = size;
-            return this->createGPUBufferOnDedMem(params, reqs, false);
+            return this->createGPUBufferOnDedMem(params, reqs);
         }
 
         //! Low level function used to implement the above, use with caution
-        virtual core::smart_refctd_ptr<IGPUBuffer> createGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& creationParams, const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData = false) { return nullptr; }
+        virtual core::smart_refctd_ptr<IGPUBuffer> createGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& creationParams, const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs) { return nullptr; }
 
         virtual core::smart_refctd_ptr<IGPUShader> createGPUShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader) = 0;
 

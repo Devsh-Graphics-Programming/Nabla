@@ -55,7 +55,7 @@ bool CPropertyPoolHandler::transferProperties(
 {
 	if (requestsBegin==requestsEnd)
 		return true;
-	if (!scratch.buffer || !scratch.buffer->canUpdateSubRange())
+	if (!scratch.buffer || !scratch.buffer->getCachedCreationParams().canUpdateSubRange)
 	{
 		logger.log("CPropertyPoolHandler: Need a valid scratch buffer which can have updates staged from the commandbuffer!",system::ILogger::ELL_ERROR);
 		return false;
