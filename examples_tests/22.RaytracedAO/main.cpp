@@ -173,18 +173,172 @@ int main(int argc, char** argv)
 			return 3;
 	}
 
+	struct SensorData
+	{
+		bool rightHandedCamera = true;
+		uint32_t samplesNeeded = 0u;
+		float moveSpeed = core::nan<float>();
+		scene::ICameraSceneNode * staticCamera;
+		scene::ICameraSceneNode * interactiveCamera;
+	};
+
 	auto smgr = device->getSceneManager();
-
-	// TODO: Move into renderer?
-	bool rightHandedCamera = true;
-	float moveSpeed = core::nan<float>();
-	uint32_t sensorSamplesNeeded = 0u;
-
-	auto camera = smgr->addCameraSceneNodeModifiedMaya(nullptr, -400.0f, 20.0f, 200.0f, -1, 2.0f, 1.0f, false, true);
 
 	auto isOkSensorType = [](const ext::MitsubaLoader::CElementSensor& sensor) -> bool {
 		return sensor.type == ext::MitsubaLoader::CElementSensor::Type::PERSPECTIVE || sensor.type == ext::MitsubaLoader::CElementSensor::Type::THINLENS;
 	};
+
+	auto sensorCount = globalMeta->m_global.m_sensors.size();
+
+	std::vector<SensorData> sensors = std::vector<SensorData>(sensorCount);
+
+	std::cout << "Total number of Sensors = " << sensorCount << std::endl;
+
+	if(sensorCount <= 0)
+	{
+		std::cout << "[ERROR] No Sensors found." << std::endl;
+		assert(false);
+		return 5; // return code?
+	}
+
+	for(uint32_t s = 0u; s < sensorCount; ++s)
+	{
+		std::cout << "Sensors[" << s << "] = " << std::endl;
+		const auto& sensor = globalMeta->m_global.m_sensors[s];
+		const auto& film = sensor.film;
+		auto & outSensorData = sensors[s];
+
+		if(!isOkSensorType(sensor))
+		{
+			std::cout << "\tSensor(" << s <<  ") Type is not valid" << std::endl;
+			continue;
+		}
+		
+		outSensorData.samplesNeeded = sensor.sampler.sampleCount;
+		outSensorData.staticCamera = smgr->addCameraSceneNode(nullptr); 
+		outSensorData.interactiveCamera = smgr->addCameraSceneNodeModifiedMaya(nullptr, -400.0f, 20.0f, 200.0f, -1, 2.0f, 1.0f, false, true);
+		auto & staticCamera = outSensorData.staticCamera;
+		auto & interactiveCamera = outSensorData.interactiveCamera;
+
+		// need to extract individual components
+		{
+			auto relativeTransform = sensor.transform.matrix.extractSub3x4();
+			if (relativeTransform.getPseudoDeterminant().x < 0.f)
+				outSensorData.rightHandedCamera = false;
+			else
+				outSensorData.rightHandedCamera = true;
+			
+			std::cout << "\t IsRightHanded=" << ((outSensorData.rightHandedCamera) ? "TRUE" : "FALSE") << std::endl;
+
+			auto pos = relativeTransform.getTranslation();
+			staticCamera->setPosition(pos.getAsVector3df());
+			
+			std::cout << "\t Camera Position = <" << pos.x << "," << pos.y << "," << pos.z << ">" << std::endl;
+
+			auto tpose = core::transpose(sensor.transform.matrix);
+
+			auto up = tpose.rows[1];
+			core::vectorSIMDf view = tpose.rows[2];
+			auto target = view+pos;
+			staticCamera->setTarget(target.getAsVector3df());
+
+			std::cout << "\t Camera Target = <" << target.x << "," << target.y << "," << target.z << ">" << std::endl;
+
+			if (core::dot(core::normalize(core::cross(staticCamera->getUpVector(),view)),core::cross(up,view)).x<0.99f)
+				staticCamera->setUpVector(up);
+		}
+		
+		const ext::MitsubaLoader::CElementSensor::PerspectivePinhole* persp = nullptr;
+		switch (sensor.type)
+		{
+			case ext::MitsubaLoader::CElementSensor::Type::PERSPECTIVE:
+				persp = &sensor.perspective;
+				std::cout << "\t Type = PERSPECTIVE" << std::endl;
+				break;
+			case ext::MitsubaLoader::CElementSensor::Type::THINLENS:
+				persp = &sensor.thinlens;
+				std::cout << "\t Type = THINLENS" << std::endl;
+				break;
+			default:
+				assert(false);
+				break;
+		}
+
+
+		outSensorData.moveSpeed = persp->moveSpeed;
+		std::cout << "\t Camera Move Speed = " << outSensorData.moveSpeed << std::endl;
+
+		float realFoVDegrees;
+		auto width = film.cropWidth;
+		auto height = film.cropHeight;
+		float aspectRatio = float(width) / float(height);
+		auto convertFromXFoV = [=](float fov) -> float
+		{
+			float aspectX = tan(core::radians(fov)*0.5f);
+			return core::degrees(atan(aspectX/aspectRatio)*2.f);
+		};
+
+		switch (persp->fovAxis)
+		{
+			case ext::MitsubaLoader::CElementSensor::PerspectivePinhole::FOVAxis::X:
+				realFoVDegrees = convertFromXFoV(persp->fov);
+				break;
+			case ext::MitsubaLoader::CElementSensor::PerspectivePinhole::FOVAxis::Y:
+				realFoVDegrees = persp->fov;
+				break;
+			case ext::MitsubaLoader::CElementSensor::PerspectivePinhole::FOVAxis::DIAGONAL:
+				{
+					float aspectDiag = tan(core::radians(persp->fov)*0.5f);
+					float aspectY = aspectDiag/core::sqrt(1.f+aspectRatio*aspectRatio);
+					realFoVDegrees = core::degrees(atan(aspectY)*2.f);
+				}
+				break;
+			case ext::MitsubaLoader::CElementSensor::PerspectivePinhole::FOVAxis::SMALLER:
+				if (width < height)
+					realFoVDegrees = convertFromXFoV(persp->fov);
+				else
+					realFoVDegrees = persp->fov;
+				break;
+			case ext::MitsubaLoader::CElementSensor::PerspectivePinhole::FOVAxis::LARGER:
+				if (width < height)
+					realFoVDegrees = persp->fov;
+				else
+					realFoVDegrees = convertFromXFoV(persp->fov);
+				break;
+			default:
+				realFoVDegrees = NAN;
+				assert(false);
+				break;
+		}
+
+		// TODO: apply the crop offset
+		assert(film.cropOffsetX==0 && film.cropOffsetY==0);
+		float nearClip = core::max(persp->nearClip, persp->farClip * 0.0001);
+		if (outSensorData.rightHandedCamera)
+			staticCamera->setProjectionMatrix(core::matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(core::radians(realFoVDegrees), aspectRatio, nearClip, persp->farClip));
+		else
+			staticCamera->setProjectionMatrix(core::matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(realFoVDegrees), aspectRatio, nearClip, persp->farClip));
+
+		core::vectorSIMDf cameraTarget = staticCamera->getTarget();
+		core::vector3df cameraTargetVec3f(cameraTarget.x, cameraTarget.y, cameraTarget.z); // I have to do this because of inconsistencies in using vectorSIMDf and vector3df in code most places.
+
+		interactiveCamera->setPosition(staticCamera->getPosition());
+		interactiveCamera->setTarget(cameraTargetVec3f);
+		interactiveCamera->setUpVector(staticCamera->getUpVector());
+		interactiveCamera->setLeftHanded(staticCamera->getLeftHanded());
+		interactiveCamera->setProjectionMatrix(staticCamera->getProjectionMatrix());
+		
+		core::vectorSIMDf cameraPos; cameraPos.set(staticCamera->getPosition());
+		auto modifiedMayaAnim = reinterpret_cast<scene::CSceneNodeAnimatorCameraModifiedMaya*>(interactiveCamera->getAnimators()[0]);
+		modifiedMayaAnim->setZoomAndRotationBasedOnTargetAndPosition(cameraPos, cameraTarget);
+	}
+	
+	auto camera = smgr->addCameraSceneNodeModifiedMaya(nullptr, -400.0f, 20.0f, 200.0f, -1, 2.0f, 1.0f, false, true);
+	
+	bool rightHandedCamera = true;
+	float moveSpeed = core::nan<float>();
+	uint32_t sensorSamplesNeeded = 0u;
+
 	if (globalMeta->m_global.m_sensors.size() && isOkSensorType(globalMeta->m_global.m_sensors.front()))
 	{
 		const auto& sensor = globalMeta->m_global.m_sensors.front();
@@ -280,11 +434,6 @@ int main(int argc, char** argv)
 		camera->setFarValue(5000.f);
 	}
 	
-	auto modifiedMayaAnim = reinterpret_cast<scene::CSceneNodeAnimatorCameraModifiedMaya*>(camera->getAnimators()[0]);
-	core::vectorSIMDf cameraPos; cameraPos.set(camera->getPosition());
-	core::vectorSIMDf cameraTarget; cameraTarget.set(camera->getTarget());
-	modifiedMayaAnim->setZoomAndRotationBasedOnTargetAndPosition(cameraPos, cameraTarget);
-
 	auto driver = device->getVideoDriver();
 
 	core::smart_refctd_ptr<Renderer> renderer = core::make_smart_refctd_ptr<Renderer>(driver,device->getAssetManager(),smgr);
