@@ -9,6 +9,7 @@
 #include "nbl/asset/IBuffer.h"
 #include "nbl/asset/IDescriptor.h"
 
+#include "nbl/asset/ECommonEnums.h"
 #include "nbl/video/decl/IBackendObject.h"
 #include "nbl/video/IDriverMemoryBacked.h"
 
@@ -26,8 +27,21 @@ class IGPUBuffer : public asset::IBuffer, public IDriverMemoryBacked, public IBa
         IGPUBuffer(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const IDriverMemoryBacked::SDriverMemoryRequirements& reqs) : IDriverMemoryBacked(reqs), IBackendObject(std::move(dev)) {}
 
     public:
+		struct SCreationParams
+		{
+			core::bitflag<E_USAGE_FLAGS> usage = EUF_NONE;
+			asset::E_SHARING_MODE sharingMode = asset::ESM_EXCLUSIVE;
+			uint32_t queueFamilyIndexCount = 0u;
+			const uint32_t* queueFamilyIndices = nullptr;
+		};
+
         //! Get usable buffer byte size.
         inline const uint64_t& getSize() const {return cachedMemoryReqs.vulkanReqs.size;}
+
+        // Workaround: IGPUBuffer::getSize returns size of the associated memory.
+        // Under Vulkan, it could be the case that size_of_buffer != size_of_its_memory.
+        // The actual size of buffer is wanted, for example, in VkDescriptorBufferInfo::range
+        inline virtual uint64_t getBufferSize() const = 0;
 
         //! Whether calling updateSubRange will produce any effects.
         virtual bool canUpdateSubRange() const = 0;

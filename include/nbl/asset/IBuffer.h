@@ -32,15 +32,6 @@ class IBuffer : public core::IBuffer, public IDescriptor
             EUF_INDIRECT_BUFFER_BIT = 0x00000100
         };
 
-        // TODO: @achal boot this to IGPUBuffer (but add `core::bitflag<E_USAGE_FLAGS> m_usage` along with getters,setter and adders to ICPU)
-        struct SCreationParams
-        {
-            core::bitflag<E_USAGE_FLAGS> usage = EUF_NONE;
-            E_SHARING_MODE sharingMode = ESM_CONCURRENT;
-            uint32_t queueFamilyIndexCount = 0u;
-            const uint32_t* queueFamilyIndices = nullptr;
-        };
-
 	protected:
 		IBuffer() = default;
 		virtual ~IBuffer() = default;

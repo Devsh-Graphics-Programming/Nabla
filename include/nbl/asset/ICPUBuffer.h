@@ -33,13 +33,13 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
         }
 
         //! Non-allocating constructor for CCustormAllocatorCPUBuffer derivative
-        ICPUBuffer(size_t sizeInBytes, void* dat) : size(dat ? sizeInBytes : 0), data(dat)
+        ICPUBuffer(size_t sizeInBytes, void* dat) : size(dat ? sizeInBytes : 0), data(dat), usage(EUF_TRANSFER_DST_BIT)
         {}
     public:
 		//! Constructor.
 		/** @param sizeInBytes Size in bytes. If `dat` argument is present, it denotes size of data pointed by `dat`, otherwise - size of data to be allocated.
 		*/
-        ICPUBuffer(size_t sizeInBytes) : size(0)
+        ICPUBuffer(size_t sizeInBytes) : size(0), usage(EUF_TRANSFER_DST_BIT)
         {
 			data = _NBL_ALIGNED_MALLOC(sizeInBytes,_NBL_SIMD_ALIGNMENT);
             if (!data)
@@ -99,6 +99,25 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
 
             return true;
         }
+        
+		inline core::bitflag<E_USAGE_FLAGS> getUsageFlags() const
+		{
+			return usage;
+		}
+
+		inline bool setUsageFlags(core::bitflag<E_USAGE_FLAGS> _usage)
+		{
+			assert(!isImmutable_debug());
+			usage = _usage;
+			return true;
+		}
+
+		inline bool addUsageFlags(core::bitflag<E_USAGE_FLAGS> _usage)
+		{
+			assert(!isImmutable_debug());
+			usage |= _usage;
+			return true;
+		}
 
     protected:
         void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
@@ -108,7 +127,8 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
             if (willBeRestoredFrom(_other))
                 std::swap(data, other->data);
         }
-
+        
+        core::bitflag<E_USAGE_FLAGS> usage = EUF_TRANSFER_DST_BIT;
         uint64_t size;
         void* data;
 };
@@ -125,7 +145,7 @@ class CCustomAllocatorCPUBuffer;
     passing an object type for allocation and a pointer to allocated
     data for it's storage by ICPUBuffer.
 
-    So the need for the class existance is for common following tricks - among others creating an 
+    So the need for the class existence is for common following tricks - among others creating an 
     \bICPUBuffer\b over an already existing \bvoid*\b array without any \imemcpy\i or \itaking over the memory ownership\i.
     You can use it with a \bnull_allocator\b that adopts memory (it is a bit counter intuitive because \badopt = take\b ownership, 
     but a \inull allocator\i doesn't do anything, even free the memory, so you're all good).
