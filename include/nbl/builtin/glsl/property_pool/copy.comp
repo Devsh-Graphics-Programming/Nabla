@@ -23,6 +23,7 @@ layout(set=0,binding=3) writeonly buffer OutData
 layout(push_constant) uniform PushConstants
 {
     uint baseDWORD;
+    uint endDWORD;
 } pc;
 
 void main()
@@ -33,7 +34,7 @@ void main()
     const int flagsBitOffset = 32-NBL_BUILTIN_PROPERTY_POOL_TRANSFER_EF_BIT_COUNT;
 	const uint propDWORDs = uint(bitfieldExtract(transfer.propertyDWORDsize_flags,0,flagsBitOffset));
     
-    const uint DWORDs = transfer.elementCount*propDWORDs;
+    const uint DWORDs = min(transfer.elementCount*propDWORDs,pc.endDWORD);
     const uint dispatchSize = gl_NumWorkGroups[0]*NBL_LIMIT_MAX_OPTIMALLY_RESIDENT_WORKGROUP_INVOCATIONS;
     for (uint virtualInvocationIndex=gl_GlobalInvocationID.x+pc.baseDWORD; virtualInvocationIndex<DWORDs; virtualInvocationIndex+=dispatchSize)
     {

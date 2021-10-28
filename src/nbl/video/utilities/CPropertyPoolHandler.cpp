@@ -35,7 +35,7 @@ CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice
 	auto descPool = m_device->createDescriptorPoolForDSLayouts(IDescriptorPool::ECF_UPDATE_AFTER_BIND_BIT,&dsLayout.get(),&dsLayout.get()+1u,&CPropertyPoolHandler::DescriptorCacheSize);
 	m_dsCache = core::make_smart_refctd_ptr<TransferDescriptorSetCache>(m_device.get(),std::move(descPool),core::smart_refctd_ptr(dsLayout));
 	
-	const asset::SPushConstantRange baseDWORD = {asset::ISpecializedShader::ESS_COMPUTE,0u,sizeof(uint32_t)};
+	const asset::SPushConstantRange baseDWORD = {asset::ISpecializedShader::ESS_COMPUTE,0u,sizeof(uint32_t)*2u};
 	auto layout = m_device->createGPUPipelineLayout(&baseDWORD,&baseDWORD+1u,std::move(dsLayout));
 	m_pipeline = m_device->createGPUComputePipeline(nullptr,std::move(layout),std::move(specshader));
 }
@@ -125,8 +125,11 @@ bool CPropertyPoolHandler::transferProperties(
 		// bind desc sets
 		auto set = m_dsCache->getSet(setIx);
 		cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,m_pipeline->getLayout(),0u,1u,&set,nullptr);
+		{
+			const uint32_t data[] = {baseDWORD,endDWORD};
+			cmdbuf->pushConstants(m_pipeline->getLayout(),asset::ISpecializedShader::ESS_COMPUTE,0u,sizeof(data),data);
+		}
 		// dispatch
-		cmdbuf->pushConstants(m_pipeline->getLayout(),asset::ISpecializedShader::ESS_COMPUTE,0u,sizeof(baseDWORD),&baseDWORD); // TODO: base and end/max needed
 		{
 			const auto& limits = m_device->getPhysicalDevice()->getLimits();
 			const auto invocationCoarseness = limits.maxOptimallyResidentWorkgroupInvocations*propertiesThisPass;
