@@ -864,23 +864,9 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
         params.usage = core::bitflag(video::IGPUBuffer::EUF_TRANSFER_SRC_BIT) | video::IGPUBuffer::EUF_TRANSFER_DST_BIT;
         const auto& cpuimgParams = cpuimg->getCreationParameters();
 
-        asset::TexelBlockInfo info(cpuimgParams.format);
-
-        size_t bufferSize = 0ull;
-        for (auto r = cpuimg->getRegions().begin(); r != cpuimg->getRegions().end(); ++r)
-        {
-            auto mipLevel = static_cast<uint32_t>(std::distance(cpuimg->getRegions().begin(), r));
-            auto localExtent = cpuimg->getMipSize(mipLevel);
-            auto levelSize = info.roundToBlockSize(localExtent);
-
-            const auto memSize = (levelSize[0] * levelSize[1] * levelSize[2] * cpuimgParams.arrayLayers) * cpuimg->getBytesPerPixel();
-            assert(memSize.getNumerator() % memSize.getDenominator()==0u);
-            bufferSize += memSize.getIntegerApprox();
-        }
         const size_t size = cpuimg->getBuffer()->getSize();
 
-        // auto gpubuf = _params.device->createDeviceLocalGPUBufferOnDedMem(params, size);
-        auto gpubuf = _params.device->createDeviceLocalGPUBufferOnDedMem(params, bufferSize);
+        auto gpubuf = _params.device->createDeviceLocalGPUBufferOnDedMem(params, size);
         img2gpubuf.insert({ cpuimg, std::move(gpubuf) });
 
         const auto format = cpuimg->getCreationParameters().format;
@@ -935,13 +921,12 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
         if (auto found = img2gpubuf.find(cpuimg); found != img2gpubuf.end())
         {
             auto buf = found->second;
-            // Since cpuimg can have a promoted format, the following assert may not always hold
-            // assert(buf->getSize() == cpuimg->getBuffer()->getSize());
+            assert(buf->getBufferSize() == cpuimg->getBuffer()->getSize());
 
             asset::SBufferRange<IGPUBuffer> bufrng;
             bufrng.buffer = buf;
             bufrng.offset = 0u;
-            bufrng.size = cpuimg->getBuffer()->getSize(); // buf->getSize();
+            bufrng.size = buf->getBufferSize();
 
             _params.utilities->updateBufferRangeViaStagingBuffer(
                 cmdbuf_transfer.get(),transfer_fence.get(),_params.perQueue[EQU_TRANSFER].queue,bufrng,cpuimg->getBuffer()->getPointer(),
@@ -1553,26 +1538,12 @@ inline created_gpu_object_array<asset::ICPUImageView> IGPUObjectFromAssetConvert
     const auto assetCount = std::distance(_begin, _end);
     auto res = core::make_refctd_dynamic_array<created_gpu_object_array<asset::ICPUImageView> >(assetCount);
 
-#if 0
-    core::vector<core::smart_refctd_ptr<asset::ICPUImage>> promotedImages(assetCount, nullptr);
-    for (uint32_t i = 0u; i < assetCount; ++i)
-    {
-        const auto& currImageView = _begin[i];
-        if (currImageView->getCreationParameters().image->getCreationParameters().format == asset::EF_R8G8B8_SRGB)
-        {
-            const auto promotedFormat = asset::EF_R8G8B8A8_SRGB;
-            asset::IImage::SCreationParams creationParams = currImageView->getCreationParameters().image->getCreationParameters();
-            creationParams.format = promotedFormat;
-            promotedImages[i] = core::make_smart_refctd_ptr<asset::ICPUImage>(std::move(creationParams));
-            const auto imageBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>();
-            promotedImages[i]->setBufferAndRegions();
-        }
-        else
-        {
-            promotedImages[i] = currImageView->getCreationParameters().image;
-        }
-    }
-#endif
+    asset::CConvertFormatImageFilter promoteFormatFilter;
+    asset::CConvertFormatImageFilter<>::state_type filterState = {};
+    filterState.inBaseLayer = 0u;
+    filterState.inOffset = { 0, 0, 0 };
+    filterState.outBaseLayer = 0u;
+    filterState.outOffset = { 0, 0, 0 };
 
     core::vector<asset::ICPUImage*> cpuDeps;
     cpuDeps.reserve(res->size());
@@ -1586,11 +1557,84 @@ inline created_gpu_object_array<asset::ICPUImageView> IGPUObjectFromAssetConvert
 
     core::vector<size_t> redirs = eliminateDuplicatesAndGenRedirs(cpuDeps);
 
-    for (auto& cpuimg : cpuDeps)
+    core::vector<core::smart_refctd_ptr<asset::ICPUImage>> promotedImages(cpuDeps.size(), nullptr); // not tightly packed, this is temp storage, these really need to stay alive until their GPU counterparts are created
+    for (size_t i = 0ull; i < cpuDeps.size(); ++i)
     {
-        if (cpuimg->getCreationParameters().format == asset::EF_R8G8B8_SRGB)
+        const asset::ICPUImage::SCreationParams& imageCreationParams = cpuDeps[i]->getCreationParameters();
+
+        core::bitflag<asset::E_FORMAT_FEATURE> requiredFormatFeatures = static_cast<asset::E_FORMAT_FEATURE>(asset::EFF_TRANSFER_DST_BIT | asset::EFF_BLIT_SRC_BIT | asset::EFF_BLIT_DST_BIT);
+
+        const core::bitflag<asset::IImage::E_USAGE_FLAGS> imageUsageFlags = cpuDeps[i]->getImageUsageFlags();
+        if ((imageUsageFlags & asset::IImage::EUF_TRANSFER_SRC_BIT).value)
+            requiredFormatFeatures |= asset::EFF_TRANSFER_SRC_BIT;
+        if ((imageUsageFlags & asset::IImage::EUF_SAMPLED_BIT).value)
+            requiredFormatFeatures |= asset::EFF_SAMPLED_IMAGE_BIT;
+        if ((imageUsageFlags & asset::IImage::EUF_STORAGE_BIT).value)
+            requiredFormatFeatures |= asset::EFF_STORAGE_IMAGE_BIT;
+        if ((imageUsageFlags & asset::IImage::EUF_COLOR_ATTACHMENT_BIT).value)
+            requiredFormatFeatures |= asset::EFF_COLOR_ATTACHMENT_BIT;
+        if ((imageUsageFlags & asset::IImage::EUF_DEPTH_STENCIL_ATTACHMENT_BIT).value)
+            requiredFormatFeatures |= asset::EFF_DEPTH_STENCIL_ATTACHMENT_BIT;
+
+        const auto format = imageCreationParams.format;
+        const auto& formatProps = _params.utilities->getLogicalDevice()->getPhysicalDevice()->getFormatProperties(format);
+        bool formatSupported = false;
+        if (imageCreationParams.tiling == asset::IImage::ET_OPTIMAL)
         {
-            cpuimg->setImageFormat(asset::EF_R8G8B8A8_SRGB);
+            if ((formatProps.optimalTilingFeatures & requiredFormatFeatures).value == requiredFormatFeatures.value)
+                formatSupported = true;
+        }
+        else
+        {
+            if ((formatProps.linearTilingFeatures & requiredFormatFeatures).value == requiredFormatFeatures.value)
+                formatSupported = true;
+        }
+
+        if (!formatSupported)
+        {
+            // promote
+            assert((format == asset::EF_R8G8B8_SRGB) && "Don't know how to promote other formats!");
+
+            const asset::E_FORMAT promotedFormat = asset::EF_R8G8B8A8_SRGB;
+            {
+                asset::ICPUImage::SCreationParams creationParams = imageCreationParams;
+                creationParams.format = promotedFormat;
+                promotedImages[i] = asset::ICPUImage::create(std::move(creationParams));
+
+                asset::TexelBlockInfo info(promotedFormat);
+
+                size_t bufferSize = 0ull;
+                auto inImageRegions = cpuDeps[i]->getRegions();
+                for (auto r = cpuDeps[i]->getRegions().begin(); r != cpuDeps[i]->getRegions().end(); ++r)
+                {
+                    auto mipLevel = static_cast<uint32_t>(std::distance(cpuDeps[i]->getRegions().begin(), r));
+                    auto localExtent = cpuDeps[i]->getMipSize(mipLevel);
+                    auto levelSize = info.roundToBlockSize(localExtent);
+
+                    const auto memSize = (levelSize[0] * levelSize[1] * levelSize[2] * imageCreationParams.arrayLayers) * asset::getBytesPerPixel(promotedFormat);
+                    assert(memSize.getNumerator() % memSize.getDenominator() == 0u);
+                    bufferSize += memSize.getIntegerApprox();
+                }
+                core::smart_refctd_ptr<asset::ICPUBuffer> promotedImageBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(bufferSize);
+                promotedImages[i]->setBufferAndRegions(std::move(promotedImageBuffer), cpuDeps[i]->getRegionArray());
+            }
+            assert(promotedImages[i]);
+
+            filterState.extent = imageCreationParams.extent;
+            filterState.inImage = cpuDeps[i];
+            filterState.layerCount = imageCreationParams.arrayLayers;
+            filterState.outImage = promotedImages[i].get();
+
+            for (uint32_t level = 0u; level < imageCreationParams.mipLevels; ++level)
+            {
+                filterState.inMipLevel = level;
+                filterState.outMipLevel = level;
+
+                bool filterSuccess = promoteFormatFilter.execute(&filterState);
+                assert(filterSuccess);
+            }
+
+            cpuDeps[i] = promotedImages[i].get();
         }
     }
         
@@ -1605,7 +1649,7 @@ inline created_gpu_object_array<asset::ICPUImageView> IGPUObjectFromAssetConvert
             params.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(cpuparams.flags);
             params.image = (*gpuDeps)[redirs[i]];
             params.viewType = static_cast<IGPUImageView::E_TYPE>(cpuparams.viewType);
-            params.format = params.image->getCreationParameters().format; // cpuparams.format;
+            params.format = params.image->getCreationParameters().format;
             memcpy(&params.components, &cpuparams.components, sizeof(params.components));
             params.subresourceRange = cpuparams.subresourceRange;
             params.subresourceRange.levelCount = (*gpuDeps)[redirs[i]]->getCreationParameters().mipLevels - params.subresourceRange.baseMipLevel;

@@ -199,12 +199,6 @@ class ICPUImage final : public IImage, public IAsset
 			return true;
 		}
 
-		// CPU images can have their formats changed (promoted)
-		inline void setImageFormat(const E_FORMAT newFormat)
-		{
-			params.format = newFormat;
-		}
-
 		bool canBeRestoredFrom(const IAsset* _other) const override
 		{
 			auto* other = static_cast<const ICPUImage*>(_other);

@@ -114,7 +114,7 @@ struct SOpenGLState
         GLuint stencilWriteMask_front = ~static_cast<GLuint>(0);
         GLuint stencilWriteMask_back = ~static_cast<GLuint>(0);
         GLenum depthFunc = GL_LESS;
-        GLenum frontFace = GL_CCW;
+        GLenum frontFace = GL_CW;
         GLboolean depthClampEnable = GL_FALSE;
         GLboolean rasterizerDiscardEnable = GL_FALSE;
         GLboolean polygonOffsetEnable = GL_FALSE;

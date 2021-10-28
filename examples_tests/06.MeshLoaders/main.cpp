@@ -249,24 +249,39 @@ public:
             for (size_t i = 0ull; i < meshRaw->getMeshBuffers().size(); ++i)
             {
                 auto& meshBuffer = meshRaw->getMeshBuffers().begin()[i];
-                asset::ICPUDescriptorSet* ds = meshBuffer->getAttachedDescriptorSet();
 
+                for (size_t i = 0ull; i < nbl::asset::SBlendParams::MAX_COLOR_ATTACHMENT_COUNT; i++)
+                    meshBuffer->getPipeline()->getBlendParams().blendParams[i].attachmentEnabled = (i == 0ull);
+
+                meshBuffer->getPipeline()->getRasterizationParams().frontFaceIsCCW = false;
+
+                // TODO: This should come in set by the loader
+                asset::ICPUDescriptorSet* ds = meshBuffer->getAttachedDescriptorSet();
                 for (uint32_t j = 0u; j < ds->getMaxDescriptorBindingIndex(); ++j)
                 {
                     const size_t arrayElementCount = ds->getDescriptors(j).size();
                     for (size_t k = 0ull; k < arrayElementCount; ++k)
                     {
-                        // Assuming all images are only relevant for there color aspect
                         auto& currentDescriptor = ds->getDescriptors(j).begin()[k].desc;
                         if (currentDescriptor->getTypeCategory() == asset::IDescriptor::EC_IMAGE)
                         {
-                            static_cast<asset::ICPUImageView*>(currentDescriptor.get())->setAspectFlags(asset::IImage::EAF_COLOR_BIT);
+                            asset::ICPUImageView* cpuImageView = static_cast<asset::ICPUImageView*>(currentDescriptor.get());
+                            const asset::E_FORMAT cpuImageViewFormat = cpuImageView->getCreationParameters().format;
+
+                            asset::IImage::E_ASPECT_FLAGS aspectFlags = asset::IImage::EAF_COLOR_BIT;
+                            if (isDepthOrStencilFormat(cpuImageViewFormat) && !isDepthOnlyFormat(cpuImageViewFormat))
+                            {
+                                if (isStencilOnlyFormat(cpuImageViewFormat))
+                                    aspectFlags = asset::IImage::EAF_STENCIL_BIT;
+                                else
+                                    aspectFlags = asset::IImage::EAF_DEPTH_BIT;
+                            }
+
+                            cpuImageView->setAspectFlags(aspectFlags);
                         }
                     }
                 }
             }
-
-
 
             cpu2gpuParams.beginCommandBuffers();
             auto gpu_array = cpu2gpu.getGPUObjectsFromAssets(&meshRaw, &meshRaw + 1, cpu2gpuParams);
@@ -282,9 +297,6 @@ public:
             for (size_t i = 0; i < gpumesh->getMeshBuffers().size(); ++i)
             {
                 auto gpuIndependentPipeline = gpumesh->getMeshBuffers().begin()[i]->getPipeline();
-                auto& blendParams_mutable = const_cast<asset::SBlendParams&>(gpuIndependentPipeline->getBlendParams());
-                for (size_t i = 0ull; i < nbl::asset::SBlendParams::MAX_COLOR_ATTACHMENT_COUNT; i++)
-                    blendParams_mutable.blendParams[i].attachmentEnabled = (i == 0ull);
 
                 nbl::video::IGPUGraphicsPipeline::SCreationParams graphicsPipelineParams;
                 graphicsPipelineParams.renderpassIndependent = core::smart_refctd_ptr<nbl::video::IGPURenderpassIndependentPipeline>(const_cast<video::IGPURenderpassIndependentPipeline*>(gpuIndependentPipeline));

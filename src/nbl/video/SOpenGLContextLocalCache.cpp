@@ -54,7 +54,9 @@ void SOpenGLContextLocalCache::updateNextState_pipelineAndRaster(const IGPUGraph
     }
 
     raster_dst.depthFunc = getGLcmpFunc(raster_src.depthCompareOp);
-    raster_dst.frontFace = raster_src.frontFaceIsCCW ? GL_CCW : GL_CW;
+    // We do glClipControl(GL_UPPER_LEFT, GL_ZERO_TO_ONE) which has the effect of
+    // flipping the winding order
+    raster_dst.frontFace = raster_src.frontFaceIsCCW ? GL_CW : GL_CCW;
     raster_dst.depthClampEnable = raster_src.depthClampEnable;
     raster_dst.rasterizerDiscardEnable = raster_src.rasterizerDiscard;
 
