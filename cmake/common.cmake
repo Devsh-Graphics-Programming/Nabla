@@ -325,7 +325,6 @@ macro(nbl_android_create_apk _TARGET)
 		set(ASSET_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/assets)
     endif ()
 	
-	
 	add_custom_target(${TARGET_NAME}_apk ALL DEPENDS ${APK_FILE})
 
 	string(SUBSTRING
@@ -337,8 +336,9 @@ macro(nbl_android_create_apk _TARGET)
 	
 	get_filename_component(NBL_GEN_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}" ABSOLUTE)
 	set(NBL_ANDROID_MANIFEST_FILE ${NBL_GEN_DIRECTORY}/$<CONFIG>/AndroidManifest.xml)
-	set(NBL_ANDROID_LOADER_JAVA ${NBL_GEN_DIRECTORY}/$<CONFIG>/Loader.java)
+	set(NBL_ANDROID_LOADER_JAVA ${NBL_GEN_DIRECTORY}/src/eu/devsh/${TARGET_NAME}/$<CONFIG>/Loader.java)
 	
+	# AndroidManifest.xml
 	add_custom_command(
 		OUTPUT "${NBL_ANDROID_MANIFEST_FILE}" 
 		COMMAND ${CMAKE_COMMAND} -DNBL_ROOT_PATH:PATH=${NBL_ROOT_PATH} -DNBL_CONFIGURATION:STRING=$<CONFIG> -DNBL_GEN_DIRECTORY:PATH=${NBL_GEN_DIRECTORY} -DTARGET_ANDROID_API_LEVEL:STRING=${TARGET_ANDROID_API_LEVEL} -DSO_NAME:STRING=${_TARGET} -DTARGET_NAME_IDENTIFIER:STRING=${TARGET_NAME_IDENTIFIER} -P ${NBL_ROOT_PATH}/cmake/scripts/nbl/nablaAndroidManifest.cmake #! for some reason CMake fails for OUTPUT_NAME generator expression
@@ -346,13 +346,13 @@ macro(nbl_android_create_apk _TARGET)
 		VERBATIM
 	)
 	
+	# Loader.java
 	add_custom_command(
 		OUTPUT "${NBL_ANDROID_LOADER_JAVA}" 
-		COMMAND ${CMAKE_COMMAND} -DNBL_ROOT_PATH:PATH=${NBL_ROOT_PATH} -DNBL_CONFIGURATION:STRING=$<CONFIG> -DNBL_GEN_DIRECTORY:PATH=${NBL_GEN_DIRECTORY} -DTARGET_ANDROID_API_LEVEL:STRING=${TARGET_ANDROID_API_LEVEL} -DSO_NAME:STRING=${_TARGET} -DTARGET_NAME_IDENTIFIER:STRING=${TARGET_NAME_IDENTIFIER} -P ${NBL_ROOT_PATH}/cmake/scripts/nbl/nablaLoaderJava.cmake #! for some reason CMake fails for OUTPUT_NAME generator expression
-		COMMENT "Launching AndroidManifest.xml generation script!"
+		COMMAND ${CMAKE_COMMAND} -DNBL_ROOT_PATH:PATH=${NBL_ROOT_PATH} -DNBL_CONFIGURATION:STRING=$<CONFIG> -DNBL_GEN_DIRECTORY:PATH=${NBL_GEN_DIRECTORY}/src/eu/devsh/${TARGET_NAME} -DSO_NAME:STRING=${_TARGET} -DTARGET_NAME_IDENTIFIER:STRING=${TARGET_NAME_IDENTIFIER} -P ${NBL_ROOT_PATH}/cmake/scripts/nbl/nablaLoaderJava.cmake
+		COMMENT "Launching Loader.java generation script!"
 		VERBATIM
 	)
-	#message(SEND_ERROR "${NBL_ANDROID_MANIFEST_FILE}")
 	
 	# need to sign the apk in order for android device not to refuse it
 	set(KEYSTORE_FILE ${NBL_GEN_DIRECTORY}/$<CONFIG>/debug.keystore)
@@ -363,47 +363,51 @@ macro(nbl_android_create_apk _TARGET)
 		COMMAND ${ANDROID_JAVA_BIN}/keytool -genkey -keystore ${KEYSTORE_FILE} -storepass android -alias ${KEY_ENTRY_ALIAS} -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=, OU=, O=, L=, S=, C="
 	)
 	
-	if(NOT EXISTS ${ASSET_SOURCE_DIR})
-	#message(SEND_ERROR      "the path ${ASSET_SOURCE_DIR} doesn't exist")
-	add_custom_command(
+	if(EXISTS ${ASSET_SOURCE_DIR})
+		add_custom_command(
 		OUTPUT ${APK_FILE}
 		DEPENDS ${_TARGET}
 		DEPENDS ${NBL_ANDROID_MANIFEST_FILE}
 		DEPENDS ${KEYSTORE_FILE}
-		DEPENDS ${CMAKE_SOURCE_DIR}/android/Loader.java
+		DEPENDS ${NBL_ROOT_PATH}/android/Loader.java
 		WORKING_DIRECTORY ${NBL_GEN_DIRECTORY}/$<CONFIG>
 		COMMENT "Creating ${APK_FILE_NAME} ..."
 		COMMAND ${CMAKE_COMMAND} -E make_directory libs/lib/x86_64
-		COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${_TARGET}> libs/lib/x86_64/$<TARGET_FILE_NAME:${_TARGET}>
-		
-		COMMAND ${ANDROID_BUILD_TOOLS}/aapt package -f -m -J src -M AndroidManifest.xml -I ${ANDROID_JAR}
-		COMMAND ${ANDROID_BUILD_TOOLS}/aapt package -f -M AndroidManifest.xml -I ${ANDROID_JAR} -F ${TARGET_NAME}-unaligned.apk libs
-		COMMAND ${ANDROID_BUILD_TOOLS}/zipalign -f 4 ${TARGET_NAME}-unaligned.apk ${APK_FILE_NAME}
-		COMMAND ${ANDROID_BUILD_TOOLS}/apksigner sign --ks ${KEYSTORE_FILE} --ks-pass pass:android --key-pass pass:android --ks-key-alias ${KEY_ENTRY_ALIAS} ${APK_FILE_NAME}
-		COMMAND ${CMAKE_COMMAND} -E copy ${APK_FILE_NAME} ${APK_FILE}
-		VERBATIM
-	)
-	else()
-	add_custom_command(
-		OUTPUT ${APK_FILE}
-		DEPENDS ${_TARGET}
-		DEPENDS ${NBL_ANDROID_MANIFEST_FILE}
-		DEPENDS ${KEYSTORE_FILE}
-		DEPENDS ${CMAKE_SOURCE_DIR}/android/Loader.java
-		WORKING_DIRECTORY ${NBL_GEN_DIRECTORY}/$<CONFIG>
-		COMMENT "Creating ${APK_FILE_NAME} ..."
-		COMMAND ${CMAKE_COMMAND} -E make_directory libs/lib/x86_64
+		COMMAND ${CMAKE_COMMAND} -E make_directory obj
+		COMMAND ${CMAKE_COMMAND} -E make_directory bin
 		COMMAND ${CMAKE_COMMAND} -E make_directory assets
 		COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${_TARGET}> libs/lib/x86_64/$<TARGET_FILE_NAME:${_TARGET}>
 		COMMAND ${CMAKE_COMMAND} -E copy_directory ${ASSET_SOURCE_DIR} assets
 		COMMAND ${ANDROID_BUILD_TOOLS}/aapt package -f -m -J src -M AndroidManifest.xml -I ${ANDROID_JAR}
-		COMMAND ${ANDROID_JAVA_BIN}/javac -d ./obj -source 1.7 -target 1.7 -bootclasspath ${ANDROID_JAVA_RT_JAR} -classpath "${ANDROID_JAR}:obj" #-sourcepath src ${NBL_ANDROID_LOADER_JAVA}
+		COMMAND ${ANDROID_JAVA_BIN}/javac -d ./obj -source 1.7 -target 1.7 -bootclasspath ${ANDROID_JAVA_RT_JAR} -classpath "${ANDROID_JAR}:obj" -sourcepath src ${NBL_ANDROID_LOADER_JAVA}
 		COMMAND ${ANDROID_BUILD_TOOLS}/dx --dex --output=bin/classes.dex ./obj
 		COMMAND ${ANDROID_BUILD_TOOLS}/aapt package -f -M AndroidManifest.xml -A assets -I ${ANDROID_JAR} -F ${TARGET_NAME}-unaligned.apk libs
 		COMMAND ${ANDROID_BUILD_TOOLS}/zipalign -f 4 ${TARGET_NAME}-unaligned.apk ${APK_FILE_NAME}
 		COMMAND ${ANDROID_BUILD_TOOLS}/apksigner sign --ks ${KEYSTORE_FILE} --ks-pass pass:android --key-pass pass:android --ks-key-alias ${KEY_ENTRY_ALIAS} ${APK_FILE_NAME}
 		COMMAND ${CMAKE_COMMAND} -E copy ${APK_FILE_NAME} ${APK_FILE}
 		COMMAND ${CMAKE_COMMAND} -E rm -rf assets
+		VERBATIM
+	)
+	else()
+		add_custom_command(
+		OUTPUT ${APK_FILE}
+		DEPENDS ${_TARGET}
+		DEPENDS ${NBL_ANDROID_MANIFEST_FILE}
+		DEPENDS ${KEYSTORE_FILE}
+		DEPENDS ${NBL_ROOT_PATH}/android/Loader.java
+		WORKING_DIRECTORY ${NBL_GEN_DIRECTORY}/$<CONFIG>
+		COMMENT "Creating ${APK_FILE_NAME} ..."
+		COMMAND ${CMAKE_COMMAND} -E make_directory libs/lib/x86_64
+		COMMAND ${CMAKE_COMMAND} -E make_directory obj
+		COMMAND ${CMAKE_COMMAND} -E make_directory bin
+		COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${_TARGET}> libs/lib/x86_64/$<TARGET_FILE_NAME:${_TARGET}>
+		COMMAND ${ANDROID_BUILD_TOOLS}/aapt package -f -m -J src -M AndroidManifest.xml -I ${ANDROID_JAR}
+		COMMAND ${ANDROID_JAVA_BIN}/javac -d ./obj -source 1.7 -target 1.7 -bootclasspath ${ANDROID_JAVA_RT_JAR} -classpath "${ANDROID_JAR}:obj" -sourcepath src ${NBL_ANDROID_LOADER_JAVA}
+		COMMAND ${ANDROID_BUILD_TOOLS}/dx --dex --output=bin/classes.dex ./obj
+		COMMAND ${ANDROID_BUILD_TOOLS}/aapt package -f -M AndroidManifest.xml -I ${ANDROID_JAR} -F ${TARGET_NAME}-unaligned.apk libs
+		COMMAND ${ANDROID_BUILD_TOOLS}/zipalign -f 4 ${TARGET_NAME}-unaligned.apk ${APK_FILE_NAME}
+		COMMAND ${ANDROID_BUILD_TOOLS}/apksigner sign --ks ${KEYSTORE_FILE} --ks-pass pass:android --key-pass pass:android --ks-key-alias ${KEY_ENTRY_ALIAS} ${APK_FILE_NAME}
+		COMMAND ${CMAKE_COMMAND} -E copy ${APK_FILE_NAME} ${APK_FILE}
 		VERBATIM
 	)
 	endif()
