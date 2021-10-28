@@ -22,14 +22,24 @@ public class Loader extends android.app.NativeActivity
         if(Build.VERSION.SDK_INT < Build.VERSION_CODES.M)
             return;
 
-        String[] permission = new String[1];
+        String[] permission = new String[2];
         if (Build.VERSION.SDK_INT < 30 /*Build.VERSION_CODES.R*/) {
             permission[0] = android.Manifest.permission.WRITE_EXTERNAL_STORAGE;
-
-            requestPermissions(permission, 1);
+            permission[1] = android.Manifest.permission.READ_EXTERNAL_STORAGE;
+			
+            requestPermissions(permission, 2);
 
             // Request is asynchronous, so prevent connection to server until permissions granted.
             while(checkSelfPermission(permission[0])
+                != android.content.pm.PackageManager.PERMISSION_GRANTED)
+            {
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    break;
+                }
+            }
+			while(checkSelfPermission(permission[1])
                 != android.content.pm.PackageManager.PERMISSION_GRANTED)
             {
                 try {

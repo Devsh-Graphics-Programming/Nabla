@@ -5,6 +5,7 @@
   <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="@TARGET_ANDROID_API_LEVEL@"/>
 
   <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>
+  <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
   <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
   <!-- <uses-permission android:name="android.permission.INTERNET" /> -->
 
@@ -17,6 +18,7 @@
     android:label="@APP_NAME@" 
     android:hasCode="false"
     android:isGame="true"
+	android:requestLegacyExternalStorage="true"
   >
     <activity 
       android:name="android.app.NativeActivity" 
