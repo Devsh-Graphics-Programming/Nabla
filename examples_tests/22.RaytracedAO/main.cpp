@@ -49,7 +49,8 @@ int main(int argc, char** argv)
 	std::string outputScreenshotsFolderPath = cmdHandler.getOutputScreenshotsFolderPath();
 	bool shouldTerminate = cmdHandler.getTerminate(); // skip interaction with window and take screenshots only
 	bool takeScreenShots = true;
-	
+	std::string mainFileName; // std::filesystem::path(filePath).filename().string();
+
 	// create device with full flexibility over creation parameters
 	// you can add more parameters if desired, check nbl::SIrrlichtCreationParameters
 	nbl::SIrrlichtCreationParameters params;
@@ -89,6 +90,9 @@ int main(int argc, char** argv)
 
 		if(filePath.empty())
 			filePath = "../../media/mitsuba/staircase2.zip";
+		
+		mainFileName = std::filesystem::path(filePath).filename().string();
+		mainFileName = mainFileName.substr(0u, mainFileName.find_first_of('.')); 
 
 		if (core::hasFileExtension(io::path(filePath.c_str()), "zip", "ZIP"))
 		{
@@ -183,6 +187,7 @@ int main(int argc, char** argv)
 		float moveSpeed = core::nan<float>();
 		scene::ICameraSceneNode * staticCamera;
 		scene::ICameraSceneNode * interactiveCamera;
+		std::string outputFileName = "";
 	};
 
 	auto smgr = device->getSceneManager();
@@ -342,14 +347,11 @@ int main(int argc, char** argv)
 	
 	bool rightHandedCamera = true;
 	float moveSpeed = core::nan<float>();
-	uint32_t sensorSamplesNeeded = 0u;
 
 	if (globalMeta->m_global.m_sensors.size() && isOkSensorType(globalMeta->m_global.m_sensors.front()))
 	{
 		const auto& sensor = globalMeta->m_global.m_sensors.front();
 		const auto& film = sensor.film;
-
-		sensorSamplesNeeded = sensor.sampler.sampleCount;
 
 		// need to extract individual components
 		{
@@ -489,13 +491,15 @@ int main(int argc, char** argv)
 	renderer->initSceneResources(meshes);
 	meshes = {}; // free memory
 
+	uint32_t activeSensor = 0u; // that outputs to current window when not in TERMIANTE mode.
+
 	auto extent = renderer->getSceneBound().getExtent();
-	smgr->setActiveCamera(camera);
+	smgr->setActiveCamera(sensors[activeSensor].interactiveCamera);
 
 	QToQuitEventReceiver receiver;
 	device->setEventReceiver(&receiver);
 
-	renderer->initScreenSizedResources(sensors[0].width, sensors[0].height, std::move(sampleSequence));
+	renderer->initScreenSizedResources(sensors[activeSensor].width, sensors[activeSensor].height, std::move(sampleSequence));
 
 	uint64_t lastFPSTime = 0;
 	auto start = std::chrono::steady_clock::now();
@@ -503,11 +507,7 @@ int main(int argc, char** argv)
 	{
 		driver->beginScene(false, false);
 
-		std::cout << "Camera Position Before Render: (" << camera->getPosition().X << "," << camera->getPosition().Y << "," << camera->getPosition().Z << ")" << std::endl;
-		std::cout << "Target Before Render: (" << camera->getTarget().X << "," << camera->getTarget().Y << "," << camera->getTarget().Z << ")" << std::endl;
 		renderer->render(device->getTimer());
-		std::cout << "Camera Position After Render: (" << camera->getPosition().X << "," << camera->getPosition().Y << "," << camera->getPosition().Z << ")" << std::endl;
-		std::cout << "Target After Render: (" << camera->getTarget().X << "," << camera->getTarget().Y << "," << camera->getTarget().Z << ")" << std::endl;
 
 		auto oldVP = driver->getViewPort();
 		driver->blitRenderTargets(renderer->getColorBuffer(),nullptr,false,false,{},{},true);
@@ -515,7 +515,7 @@ int main(int argc, char** argv)
 
 		driver->endScene();
 
-		if(shouldTerminate && renderer->getTotalSamplesPerPixelComputed() >= sensorSamplesNeeded)
+		if(shouldTerminate && renderer->getTotalSamplesPerPixelComputed() >= sensors[activeSensor].samplesNeeded)
 			break;
 
 		// display frames per second in window title
@@ -532,9 +532,54 @@ int main(int argc, char** argv)
 			lastFPSTime = time;
 		}
 	}
-
-	renderer->takeAndSaveScreenShot("tonemapped", outputScreenshotsFolderPath);
+	
+	renderer->takeAndSaveScreenShot("LastView_" + mainFileName + "_Sensor_" + std::to_string(activeSensor), outputScreenshotsFolderPath);
 	renderer->deinitScreenSizedResources();
+
+	for(uint32_t s = 0u; s < sensors.size(); ++s)
+	{
+		const auto& sensorData = sensors[s];
+		
+		std::cout << "-- Rendering  " << filePath << " (Sensor=" << s << ") to file..." << std::endl;
+		smgr->setActiveCamera(sensorData.staticCamera);
+
+		renderer->initScreenSizedResources(sensors[0].width, sensors[0].height, std::move(sampleSequence));
+
+		const uint32_t samplesPerPixelPerDispatch = renderer->getSamplesPerPixelPerDispatch();
+		const uint32_t maxNeededIterations = (sensorData.samplesNeeded + samplesPerPixelPerDispatch - 1) / samplesPerPixelPerDispatch;
+		
+		uint32_t itr = 0u;
+		bool takenEnoughSamples = false;
+
+		while(!takenEnoughSamples)
+		{
+			if(itr >= maxNeededIterations)
+				std::cout << "[ERROR] Samples taken (" << renderer->getTotalSamplesPerPixelComputed() << ") must've exceeded samples needed for Sensor (" << sensorData.samplesNeeded << ") by now; something is wrong." << std::endl;
+
+			driver->beginScene(false, false);
+			renderer->render(device->getTimer());
+			auto oldVP = driver->getViewPort();
+			driver->blitRenderTargets(renderer->getColorBuffer(),nullptr,false,false,{},{},true);
+			driver->setViewPort(oldVP);
+
+			driver->endScene();
+			
+			if(renderer->getTotalSamplesPerPixelComputed() >= sensorData.samplesNeeded)
+				takenEnoughSamples = true;
+			
+			itr++;
+		}
+
+		auto screenshotFileNameWithoutExtension = sensorData.outputFileName;
+		if (screenshotFileNameWithoutExtension.empty())
+			screenshotFileNameWithoutExtension = "ScreenShot_" + mainFileName + "_Sensor_" + std::to_string(s);
+		
+		std::cout << "-- Rendered Successfully: " << filePath << " (Sensor=" << s << ") to file (" << screenshotFileNameWithoutExtension << ")." << std::endl;
+
+		renderer->takeAndSaveScreenShot(screenshotFileNameWithoutExtension, outputScreenshotsFolderPath);
+		renderer->deinitScreenSizedResources();
+	}
+
 	renderer->deinitSceneResources();
 	renderer = nullptr;
 

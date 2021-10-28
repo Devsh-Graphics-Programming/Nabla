@@ -837,12 +837,12 @@ void Renderer::deinitSceneResources()
 	m_rasterInstanceDataDS = nullptr;
 	m_globalBackendDataDS = nullptr;
 
-	m_cullPipeline = nullptr;
-	m_raygenPipeline = nullptr;
-	m_closestHitPipeline = nullptr;
-	m_resolvePipeline = nullptr;
-
 	m_perCameraRasterDS = nullptr;
+	
+	m_cullPipelineLayout = nullptr;
+	m_raygenPipelineLayout = nullptr;
+	m_closestHitPipelineLayout = nullptr;
+	m_resolvePipelineLayout = nullptr;
 
 	m_cullWorkGroups = 0u;
 	m_cullPushConstants = {core::matrix4SIMD(),1.f,0u,0u,0u};
@@ -923,16 +923,16 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, core::s
 		).close();
 	
 		// cull
-		m_cullPipeline = m_driver->createGPUComputePipeline(nullptr,std::move(m_cullPipelineLayout),gpuSpecializedShaderFromFile(m_assetManager,m_driver,"../cull.comp"));
+		m_cullPipeline = m_driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(m_cullPipelineLayout),gpuSpecializedShaderFromFile(m_assetManager,m_driver,"../cull.comp"));
 
 		// raygen
-		m_raygenPipeline = m_driver->createGPUComputePipeline(nullptr,std::move(m_raygenPipelineLayout),gpuSpecializedShaderFromFile(m_assetManager,m_driver,"../raygen.comp"));
+		m_raygenPipeline = m_driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(m_raygenPipelineLayout),gpuSpecializedShaderFromFile(m_assetManager,m_driver,"../raygen.comp"));
 
 		// closest hit
-		m_closestHitPipeline = m_driver->createGPUComputePipeline(nullptr,std::move(m_closestHitPipelineLayout),gpuSpecializedShaderFromFile(m_assetManager,m_driver,"../closestHit.comp"));
+		m_closestHitPipeline = m_driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(m_closestHitPipelineLayout),gpuSpecializedShaderFromFile(m_assetManager,m_driver,"../closestHit.comp"));
 
 		// resolve
-		m_resolvePipeline = m_driver->createGPUComputePipeline(nullptr,std::move(m_resolvePipelineLayout),gpuSpecializedShaderFromFile(m_assetManager,m_driver,m_useDenoiser ? "../resolveForDenoiser.comp":"../resolve.comp"));
+		m_resolvePipeline = m_driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(m_resolvePipelineLayout),gpuSpecializedShaderFromFile(m_assetManager,m_driver,m_useDenoiser ? "../resolveForDenoiser.comp":"../resolve.comp"));
 	}
 
 	auto setBufferInfo = [&](IGPUDescriptorSet::SDescriptorInfo* info, const core::smart_refctd_ptr<IGPUBuffer>& buffer) -> void
@@ -1202,11 +1202,17 @@ void Renderer::deinitScreenSizedResources()
 
 	m_raygenWorkGroups[0] = m_raygenWorkGroups[1] = 0u;
 	
+	m_cullPipeline = nullptr;
+	m_raygenPipeline = nullptr;
+	m_closestHitPipeline = nullptr;
+	m_resolvePipeline = nullptr;
+
 	m_staticViewData = {{0.f,0.f,0.f},0u,{0u,0u},0u,0u};
 	m_totalRaysCast = 0ull;
 	m_rcpPixelSize = {0.f,0.f};
 	m_framesDispatched = 0u;
 	std::fill_n(m_prevView.pointer(),12u,0.f);
+	m_prevCamTform = nbl::core::matrix4x3();
 }
 
 
