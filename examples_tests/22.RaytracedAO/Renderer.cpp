@@ -188,7 +188,7 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 
 Renderer::~Renderer()
 {
-	deinit();
+	deinitSceneResources();
 }
 
 
@@ -200,9 +200,9 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 
 	// get primary (texture and material) global DS
 	InitializationData retval;
-	retval.globalMeta = meshes.getMetadata()->selfCast<const ext::MitsubaLoader::CMitsubaMetadata>();
-	assert(retval.globalMeta);
-	auto* _globalBackendDataDS = retval.globalMeta->m_global.m_ds0.get();
+	m_globalMeta  = meshes.getMetadata()->selfCast<const ext::MitsubaLoader::CMitsubaMetadata>();
+	assert(m_globalMeta );
+	auto* _globalBackendDataDS = m_globalMeta ->m_global.m_ds0.get();
 
 	auto* instanceDataDescPtr = _globalBackendDataDS->getDescriptors(5u).begin();
 	assert(instanceDataDescPtr->desc->getTypeCategory()==IDescriptor::EC_BUFFER);
@@ -363,7 +363,7 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 					for (const auto& asset : contents)
 					{
 						auto cpumesh = static_cast<asset::ICPUMesh*>(asset.get());
-						const auto* meta = retval.globalMeta->getAssetSpecificMetadata(cpumesh);
+						const auto* meta = m_globalMeta ->getAssetSpecificMetadata(cpumesh);
 						const auto& instanceData = meta->m_instances;
 						const auto& instanceAuxData = meta->m_instanceAuxData;
 
@@ -569,7 +569,7 @@ void Renderer::initSceneNonAreaLights(Renderer::InitializationData& initData)
 {
 	core::vectorSIMDf _envmapBaseColor;
 	_envmapBaseColor.set(0.f,0.f,0.f,1.f);
-	for (const auto& emitter : initData.globalMeta->m_global.m_emitters)
+	for (const auto& emitter : m_globalMeta->m_global.m_emitters)
 	{
 		float weight = 0.f;
 		switch (emitter.type)
@@ -713,11 +713,10 @@ bool extractIntegratorInfo(const ext::MitsubaLoader::CElementIntegrator& integra
 }
 
 // TODO: be able to fail
-void Renderer::init(const SAssetBundle& meshes,	core::smart_refctd_ptr<ICPUBuffer>&& sampleSequence)
+void Renderer::initSceneResources(SAssetBundle& meshes)
 {
-	deinit();
+	deinitSceneResources();
 
-	core::smart_refctd_ptr<IGPUImageView> visibilityBuffer;
 	// set up Descriptor Sets
 	{
 		// captures m_globalBackendDataDS, creates m_indirectDrawBuffers, sets up m_mdiDrawCalls ranges
@@ -727,93 +726,25 @@ void Renderer::init(const SAssetBundle& meshes,	core::smart_refctd_ptr<ICPUBuffe
 			initSceneNonAreaLights(initData);
 			finalizeScene(initData);
 		}
-		
-		// figure out the renderable size
-		{
-			m_staticViewData.imageDimensions = {m_driver->getScreenSize().Width,m_driver->getScreenSize().Height};
-			const auto& sensors = initData.globalMeta->m_global.m_sensors;
-			if (sensors.size())
-			{
-				// just grab the first sensor
-				const auto& sensor = sensors.front();
-				const auto& film = sensor.film;
-				assert(film.cropOffsetX == 0);
-				assert(film.cropOffsetY == 0);
-				m_staticViewData.imageDimensions = {static_cast<uint32_t>(film.cropWidth),static_cast<uint32_t>(film.cropHeight)};
-			}
-			m_rcpPixelSize = { 2.f/float(m_staticViewData.imageDimensions.x),-2.f/float(m_staticViewData.imageDimensions.y) };
-		}
-
-		// figure out dispatch sizes
-		m_raygenWorkGroups[0] = (m_staticViewData.imageDimensions.x-1u)/WORKGROUP_DIM+1u;
-		m_raygenWorkGroups[1] = (m_staticViewData.imageDimensions.y-1u)/WORKGROUP_DIM+1u;
-
-		const auto renderPixelCount = m_staticViewData.imageDimensions.x*m_staticViewData.imageDimensions.y;
-		// figure out how much Samples Per Pixel Per Dispatch we can afford
-		size_t raygenBufferSize=0u,intersectionBufferSize=0u;
-		{
-			uint32_t bxdfSamples=1u,maxNEESamples=1u;
-			const bool success = extractIntegratorInfo(initData.globalMeta->m_global.m_integrator,bxdfSamples,maxNEESamples);
-			assert(success && "unsupported integrator type");
-
-			uint32_t _maxRaysPerDispatch = 0u;
-			auto setRayBufferSizes = [&bxdfSamples,&maxNEESamples,renderPixelCount,this,&_maxRaysPerDispatch,&raygenBufferSize,&intersectionBufferSize](uint32_t sampleMultiplier) -> void
-			{
-				m_staticViewData.samplesPerPixelPerDispatch = (bxdfSamples+maxNEESamples)*sampleMultiplier;
-				const size_t minimumSampleCountPerDispatch = static_cast<size_t>(renderPixelCount)*m_staticViewData.samplesPerPixelPerDispatch;
-				_maxRaysPerDispatch = static_cast<uint32_t>(minimumSampleCountPerDispatch);
-				const auto doubleBufferSampleCountPerDispatch = minimumSampleCountPerDispatch*2ull;
-
-				raygenBufferSize = doubleBufferSampleCountPerDispatch*sizeof(::RadeonRays::ray);
-				intersectionBufferSize = doubleBufferSampleCountPerDispatch*sizeof(::RadeonRays::Intersection);
-			};
-			// see how much we can bump the sample count per raster pass
-			{
-				uint32_t sampleMultiplier = 0u;
-				const auto maxSSBOSize = core::min(m_driver->getMaxSSBOSize(),256u<<20);
-				while (raygenBufferSize<=maxSSBOSize && intersectionBufferSize<=maxSSBOSize) // for AMD && _maxRaysPerDispatch*WORKGROUP_SIZE<=64<<10))
-					setRayBufferSizes(++sampleMultiplier);
-				if (sampleMultiplier==1u)
-				{
-					bxdfSamples = 1u;
-					maxNEESamples = 1u;
-					setRayBufferSizes(sampleMultiplier);
-				}
-				printf("Using %d samples\n",m_staticViewData.samplesPerPixelPerDispatch);
-			}
-		}
-
-		// create out screen-sized textures
-		m_accumulation = createScreenSizedTexture(EF_R32G32_UINT,m_staticViewData.samplesPerPixelPerDispatch);
-		m_tonemapOutput = createScreenSizedTexture(EF_A2B10G10R10_UNORM_PACK32);
 
 		//
 		{
 			// i know what I'm doing
 			auto globalBackendDataDSLayout = core::smart_refctd_ptr<IGPUDescriptorSetLayout>(const_cast<IGPUDescriptorSetLayout*>(m_globalBackendDataDS->getLayout()));
+			
+			for (auto i=0u; i<2u; i++)
+				m_commonRaytracingDS[i] = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_commonRaytracingDSLayout));
 
 			// cull
 			{
 				SPushConstantRange range{ISpecializedShader::ESS_COMPUTE,0u,sizeof(CullShaderData_t)};
-				auto _cullPipelineLayout = m_driver->createGPUPipelineLayout(&range,&range+1u,core::smart_refctd_ptr(globalBackendDataDSLayout),core::smart_refctd_ptr(m_cullDSLayout),nullptr,nullptr);
-				m_cullPipeline = m_driver->createGPUComputePipeline(nullptr,std::move(_cullPipelineLayout),gpuSpecializedShaderFromFile(m_assetManager,m_driver,"../cull.comp"));
+				m_cullPipelineLayout = m_driver->createGPUPipelineLayout(&range,&range+1u,core::smart_refctd_ptr(globalBackendDataDSLayout),core::smart_refctd_ptr(m_cullDSLayout),nullptr,nullptr);
 			}
 
-			for (auto i=0u; i<2u; i++)
-				m_commonRaytracingDS[i] = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_commonRaytracingDSLayout));
-
 			SPushConstantRange raytracingCommonPCRange{ISpecializedShader::ESS_COMPUTE,0u,sizeof(RaytraceShaderCommonData_t)};
-			(std::ofstream("runtime_defines.glsl")
-				<< "#define _NBL_EXT_MITSUBA_LOADER_VT_STORAGE_VIEW_COUNT " << initData.globalMeta->m_global.getVTStorageViewCount() << "\n"
-				<< initData.globalMeta->m_global.m_materialCompilerGLSL_declarations
-				<< "#define MAX_PATH_DEPTH " << m_maxDepth << "\n"
-				<< "#ifndef MAX_RAYS_GENERATED\n"
-				<< "#	define MAX_RAYS_GENERATED " << m_staticViewData.samplesPerPixelPerDispatch << "\n"
-				<< "#endif\n"
-			).close();
 			// raygen
 			{
-				auto _raygenPipelineLayout = m_driver->createGPUPipelineLayout(
+				m_raygenPipelineLayout = m_driver->createGPUPipelineLayout(
 					&raytracingCommonPCRange,&raytracingCommonPCRange+1u,
 					core::smart_refctd_ptr(globalBackendDataDSLayout),
 					core::smart_refctd_ptr(m_additionalGlobalDSLayout),
@@ -821,38 +752,29 @@ void Renderer::init(const SAssetBundle& meshes,	core::smart_refctd_ptr<ICPUBuffe
 					core::smart_refctd_ptr(m_raygenDSLayout)
 				);
 
-				m_raygenPipeline = m_driver->createGPUComputePipeline(nullptr,std::move(_raygenPipelineLayout),gpuSpecializedShaderFromFile(m_assetManager,m_driver,"../raygen.comp"));
-
 				m_raygenDS = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_raygenDSLayout));
 			}
+
 			// closest hit
 			{
-				auto _closestHitPipelineLayout = m_driver->createGPUPipelineLayout(
+				m_closestHitPipelineLayout = m_driver->createGPUPipelineLayout(
 					&raytracingCommonPCRange,&raytracingCommonPCRange+1u,
 					core::smart_refctd_ptr(globalBackendDataDSLayout),
 					core::smart_refctd_ptr(m_additionalGlobalDSLayout),
 					core::smart_refctd_ptr(m_commonRaytracingDSLayout),
 					core::smart_refctd_ptr(m_closestHitDSLayout)
 				);
-				m_closestHitPipeline = m_driver->createGPUComputePipeline(nullptr,std::move(_closestHitPipelineLayout),gpuSpecializedShaderFromFile(m_assetManager,m_driver,"../closestHit.comp"));
 				
 				for (auto i=0u; i<2u; i++)
 					m_closestHitDS[i] = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_closestHitDSLayout));
 			}
+
 			// resolve
 			{
-				auto _resolvePipelineLayout = m_driver->createGPUPipelineLayout(nullptr,nullptr,core::smart_refctd_ptr(m_resolveDSLayout));
-				m_resolvePipeline = m_driver->createGPUComputePipeline(nullptr,std::move(_resolvePipelineLayout),gpuSpecializedShaderFromFile(m_assetManager,m_driver,m_useDenoiser ? "../resolveForDenoiser.comp":"../resolve.comp"));
-
+				m_resolvePipelineLayout = m_driver->createGPUPipelineLayout(nullptr,nullptr,core::smart_refctd_ptr(m_resolveDSLayout));
 				m_resolveDS = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_resolveDSLayout));
 			}
-
-
-			//
-			constexpr uint32_t descriptorUpdates = 5;
-			constexpr uint32_t descriptorUpdateCounts[descriptorUpdates] = {2u,6u,2u,2u,3u};
-			constexpr uint32_t descriptorUpdateMaxCount = *std::max_element(descriptorUpdateCounts,descriptorUpdateCounts+descriptorUpdates);
-
+			
 			//
 			auto setBufferInfo = [&](IGPUDescriptorSet::SDescriptorInfo* info, const core::smart_refctd_ptr<IGPUBuffer>& buffer) -> void
 			{
@@ -866,34 +788,9 @@ void Renderer::init(const SAssetBundle& meshes,	core::smart_refctd_ptr<ICPUBuffe
 				setBufferInfo(info,core::smart_refctd_ptr(buf));
 				return buf;
 			};
-			auto createFilledBufferAndSetUpInfoFromStruct = [createFilledBufferAndSetUpInfo](IGPUDescriptorSet::SDescriptorInfo* info, const auto& _struct)
-			{
-				return createFilledBufferAndSetUpInfo(info,sizeof(_struct),&_struct);
-			};
 			auto createFilledBufferAndSetUpInfoFromVector = [createFilledBufferAndSetUpInfo](IGPUDescriptorSet::SDescriptorInfo* info, const auto& vector)
 			{
 				return createFilledBufferAndSetUpInfo(info,vector.size()*sizeof(decltype(*vector.data())),vector.data());
-			};
-			auto setImageInfo = [](IGPUDescriptorSet::SDescriptorInfo* info, const asset::E_IMAGE_LAYOUT imageLayout, core::smart_refctd_ptr<IGPUImageView>&& imageView) -> void
-			{
-				info->image.imageLayout = imageLayout;
-				info->image.sampler = nullptr; // storage image dont have samplers, and the combined sampler image views we have all use immutable samplers
-				info->desc = std::move(imageView);
-			};
-			auto createEmptyInteropBufferAndSetUpInfo = [&](IGPUDescriptorSet::SDescriptorInfo* info, InteropBuffer& interopBuffer, size_t size) -> void
-			{
-				if (static_cast<COpenGLDriver*>(m_driver)->runningInRenderdoc()) // makes Renderdoc capture the modifications done by OpenCL
-				{
-					interopBuffer.buffer = m_driver->createUpStreamingGPUBufferOnDedMem(size);
-					//interopBuffer.buffer->getBoundMemory()->mapMemoryRange(IDriverMemoryAllocation::EMCAF_WRITE,{0u,size})
-				}
-				else
-					interopBuffer.buffer = m_driver->createDeviceLocalGPUBufferOnDedMem(size);
-				interopBuffer.asRRBuffer = m_rrManager->linkBuffer(interopBuffer.buffer.get(), CL_MEM_READ_ONLY);
-
-				info->buffer.size = size;
-				info->buffer.offset = 0u;
-				info->desc = core::smart_refctd_ptr(interopBuffer.buffer);
 			};
 			auto setDstSetAndDescTypesOnWrites = [](IGPUDescriptorSet* dstSet, IGPUDescriptorSet::SWriteDescriptorSet* writes, IGPUDescriptorSet::SDescriptorInfo* _infos, const std::initializer_list<asset::E_DESCRIPTOR_TYPE>& list, uint32_t baseBinding=0u)
 			{
@@ -908,9 +805,11 @@ void Renderer::init(const SAssetBundle& meshes,	core::smart_refctd_ptr<ICPUBuffe
 					writes[i].info = _infos+i;
 				}
 			};
+			
+			constexpr uint32_t MaxDescritorUpdates = 2u;
+			IGPUDescriptorSet::SDescriptorInfo infos[MaxDescritorUpdates];
+			IGPUDescriptorSet::SWriteDescriptorSet writes[MaxDescritorUpdates];
 
-			IGPUDescriptorSet::SDescriptorInfo infos[descriptorUpdateMaxCount];
-			IGPUDescriptorSet::SWriteDescriptorSet writes[descriptorUpdateMaxCount];
 			// set up rest of m_additionalGlobalDS
 			{
 				createFilledBufferAndSetUpInfoFromVector(infos+0,initData.lightCDF);
@@ -918,104 +817,283 @@ void Renderer::init(const SAssetBundle& meshes,	core::smart_refctd_ptr<ICPUBuffe
 
 				setDstSetAndDescTypesOnWrites(m_additionalGlobalDS.get(),writes,infos,{EDT_STORAGE_BUFFER,EDT_STORAGE_BUFFER},3u);
 			}
-			m_driver->updateDescriptorSets(descriptorUpdateCounts[0],writes,0u,nullptr);
-
-			// set up m_commonRaytracingDS
-			core::smart_refctd_ptr<IGPUBuffer> _staticViewDataBuffer;
-			{
-				_staticViewDataBuffer = createFilledBufferAndSetUpInfoFromStruct(infos+0,m_staticViewData);
-				{
-					constexpr auto ScrambleStateChannels = 2u;
-					auto tmpBuff = m_driver->createCPUSideGPUVisibleGPUBufferOnDedMem(sizeof(uint32_t)*ScrambleStateChannels*renderPixelCount);
-					// generate (maybe let's improve the scramble key beginning distribution)
-					{
-						core::RandomSampler rng(0xbadc0ffeu);
-						auto it = reinterpret_cast<uint32_t*>(tmpBuff->getBoundMemory()->mapMemoryRange(
-							IDriverMemoryAllocation::EMCAF_WRITE,
-							IDriverMemoryAllocation::MemoryRange(0u,tmpBuff->getSize())
-						));
-						for (auto end=it+ScrambleStateChannels*renderPixelCount; it!=end; it++)
-							*it = rng.nextSample();
-						tmpBuff->getBoundMemory()->unmapMemory();
-					}
-					// upload
-					IGPUImage::SBufferCopy region;
-					//region.imageSubresource.aspectMask = ;
-					region.imageSubresource.baseArrayLayer = 1u;
-					region.imageSubresource.layerCount = 1u;
-					region.imageExtent = {m_staticViewData.imageDimensions.x,m_staticViewData.imageDimensions.y,1u};
-					auto scrambleKeys = createScreenSizedTexture(EF_R32G32_UINT,2u);
-					m_driver->copyBufferToImage(tmpBuff.get(),scrambleKeys->getCreationParameters().image.get(),1u,&region);
-					setImageInfo(infos+1,asset::EIL_GENERAL,std::move(scrambleKeys));
-				}
-				{
-					// TODO: maybe use the sample limit in the future to stop a converged render
-					const auto maxSamples = sampleSequence->getSize()/(sizeof(uint32_t)*MaxDimensions);
-					assert(maxSamples==MAX_ACCUMULATED_SAMPLES);
-					// upload sequence to GPU (TODO: clip its size to the dimensions we'll actually use)
-					auto gpubuf = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(sampleSequence->getSize(),sampleSequence->getPointer());
-					infos[2].desc = m_driver->createGPUBufferView(gpubuf.get(),asset::EF_R32G32B32_UINT); // TODO: maybe try to pack into 64bits?
-				}
-				setImageInfo(infos+3,asset::EIL_GENERAL,core::smart_refctd_ptr(m_accumulation));
-				createEmptyInteropBufferAndSetUpInfo(infos+4,m_rayBuffer[0],raygenBufferSize);
-				setBufferInfo(infos+5,m_rayCountBuffer);
-
-				setDstSetAndDescTypesOnWrites(m_commonRaytracingDS[0].get(),writes,infos,{
-					EDT_UNIFORM_BUFFER,
-					EDT_STORAGE_IMAGE,
-					EDT_UNIFORM_TEXEL_BUFFER,
-					EDT_STORAGE_IMAGE,
-					EDT_STORAGE_BUFFER,
-					EDT_STORAGE_BUFFER
-				});
-				m_driver->updateDescriptorSets(descriptorUpdateCounts[1],writes,0u,nullptr);
-				// set up second DS
-				createEmptyInteropBufferAndSetUpInfo(infos+4,m_rayBuffer[1],raygenBufferSize);
-				for (auto i=0u; i<descriptorUpdateCounts[1]; i++)
-					writes[i].dstSet = m_commonRaytracingDS[1].get();
-				m_driver->updateDescriptorSets(descriptorUpdateCounts[1],writes,0u,nullptr);
-			}
-			initData = {}; // reclaim some memory
-			// set up m_raygenDS
-			{
-				visibilityBuffer = createScreenSizedTexture(EF_R32G32B32A32_UINT);
-				setImageInfo(infos+0,asset::EIL_SHADER_READ_ONLY_OPTIMAL,core::smart_refctd_ptr(visibilityBuffer));
-
-				setDstSetAndDescTypesOnWrites(m_raygenDS.get(),writes,infos,{EDT_COMBINED_IMAGE_SAMPLER});
-			}
-			m_driver->updateDescriptorSets(descriptorUpdateCounts[2],writes,0u,nullptr);
-			// set up m_closestHitDS
-			for (auto i=0u; i<2u; i++)
-			{
-				const auto other = i^0x1u;
-				infos[0u].desc = m_rayBuffer[other].buffer;
-				infos[0u].buffer.offset = 0u;
-				infos[0u].buffer.size = m_rayBuffer[other].buffer->getSize();
-				createEmptyInteropBufferAndSetUpInfo(infos+1,m_intersectionBuffer[other],intersectionBufferSize);
-
-				setDstSetAndDescTypesOnWrites(m_closestHitDS[i].get(),writes,infos,{EDT_STORAGE_BUFFER,EDT_STORAGE_BUFFER});
-				m_driver->updateDescriptorSets(descriptorUpdateCounts[3],writes,0u,nullptr);
-			}
-			initData = {}; // reclaim some memory
-			// set up m_resolveDS
-			{
-				infos[0].buffer = {0u,_staticViewDataBuffer->getSize()};
-				infos[0].desc = std::move(_staticViewDataBuffer);
-				setImageInfo(infos+1,asset::EIL_GENERAL,core::smart_refctd_ptr(m_accumulation));
-				core::smart_refctd_ptr<IGPUImageView> tonemapOutputStorageView;
-				{
-					IGPUImageView::SCreationParams viewparams = m_tonemapOutput->getCreationParameters();
-					viewparams.format = EF_R32_UINT;
-					tonemapOutputStorageView = m_driver->createGPUImageView(std::move(viewparams));
-				}
-				setImageInfo(infos+2,asset::EIL_GENERAL,std::move(tonemapOutputStorageView));
-				
-				setDstSetAndDescTypesOnWrites(m_resolveDS.get(),writes,infos,{EDT_UNIFORM_BUFFER,EDT_COMBINED_IMAGE_SAMPLER,EDT_STORAGE_IMAGE});
-			}
-			m_driver->updateDescriptorSets(descriptorUpdateCounts[4],writes,0u,nullptr);
+			m_driver->updateDescriptorSets(2u,writes,0u,nullptr);
 		}
 	}
+}
 
+void Renderer::deinitSceneResources()
+{
+	auto commandQueue = m_rrManager->getCLCommandQueue();
+	ocl::COpenCLHandler::ocl.pclFinish(commandQueue);
+
+	glFinish();
+
+	m_resolveDS = nullptr;
+	m_closestHitDS[0] = m_closestHitDS[1] = nullptr;
+	m_raygenDS = nullptr;
+	m_commonRaytracingDS[0] = m_commonRaytracingDS[1] = nullptr;
+	m_additionalGlobalDS = nullptr;
+	m_rasterInstanceDataDS = nullptr;
+	m_globalBackendDataDS = nullptr;
+
+	m_cullPipeline = nullptr;
+	m_raygenPipeline = nullptr;
+	m_closestHitPipeline = nullptr;
+	m_resolvePipeline = nullptr;
+
+	m_perCameraRasterDS = nullptr;
+
+	m_cullWorkGroups = 0u;
+	m_cullPushConstants = {core::matrix4SIMD(),1.f,0u,0u,0u};
+	m_cullDS = nullptr;
+	m_mdiDrawCalls.clear();
+	m_indirectDrawBuffers[1] = m_indirectDrawBuffers[0] = nullptr;
+	m_indexBuffer = nullptr;
+
+	m_raytraceCommonData = {vec3(),0,0,0,0u};
+	m_sceneBound = core::aabbox3df(FLT_MAX, FLT_MAX, FLT_MAX, -FLT_MAX, -FLT_MAX, -FLT_MAX);
+
+	auto rr = m_rrManager->getRadeonRaysAPI();
+	rr->DetachAll();
+	for (auto instance : rrInstances)
+	{
+		rr->DeleteShape(instance);
+	}
+	rrInstances.clear();
+
+	for (auto shape : rrShapes)
+		rr->DeleteShape(shape);
+	rrShapes.clear();
+}
+
+void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, core::smart_refctd_ptr<ICPUBuffer>&& sampleSequence)
+{
+	m_staticViewData.imageDimensions = {width, height};
+	m_rcpPixelSize = { 2.f/float(m_staticViewData.imageDimensions.x),-2.f/float(m_staticViewData.imageDimensions.y) };
+
+	// figure out dispatch sizes
+	m_raygenWorkGroups[0] = (m_staticViewData.imageDimensions.x-1u)/WORKGROUP_DIM+1u;
+	m_raygenWorkGroups[1] = (m_staticViewData.imageDimensions.y-1u)/WORKGROUP_DIM+1u;
+
+	const auto renderPixelCount = m_staticViewData.imageDimensions.x*m_staticViewData.imageDimensions.y;
+	// figure out how much Samples Per Pixel Per Dispatch we can afford
+	size_t raygenBufferSize=0u,intersectionBufferSize=0u;
+	{
+		uint32_t bxdfSamples=1u,maxNEESamples=1u;
+		const bool success = extractIntegratorInfo(m_globalMeta->m_global.m_integrator,bxdfSamples,maxNEESamples);
+		assert(success && "unsupported integrator type");
+
+		uint32_t _maxRaysPerDispatch = 0u;
+		auto setRayBufferSizes = [&bxdfSamples,&maxNEESamples,renderPixelCount,this,&_maxRaysPerDispatch,&raygenBufferSize,&intersectionBufferSize](uint32_t sampleMultiplier) -> void
+		{
+			m_staticViewData.samplesPerPixelPerDispatch = (bxdfSamples+maxNEESamples)*sampleMultiplier;
+			const size_t minimumSampleCountPerDispatch = static_cast<size_t>(renderPixelCount)*m_staticViewData.samplesPerPixelPerDispatch;
+			_maxRaysPerDispatch = static_cast<uint32_t>(minimumSampleCountPerDispatch);
+			const auto doubleBufferSampleCountPerDispatch = minimumSampleCountPerDispatch*2ull;
+
+			raygenBufferSize = doubleBufferSampleCountPerDispatch*sizeof(::RadeonRays::ray);
+			intersectionBufferSize = doubleBufferSampleCountPerDispatch*sizeof(::RadeonRays::Intersection);
+		};
+		// see how much we can bump the sample count per raster pass
+		{
+			uint32_t sampleMultiplier = 0u;
+			const auto maxSSBOSize = core::min(m_driver->getMaxSSBOSize(),256u<<20);
+			while (raygenBufferSize<=maxSSBOSize && intersectionBufferSize<=maxSSBOSize) // for AMD && _maxRaysPerDispatch*WORKGROUP_SIZE<=64<<10))
+				setRayBufferSizes(++sampleMultiplier);
+			if (sampleMultiplier==1u)
+			{
+				bxdfSamples = 1u;
+				maxNEESamples = 1u;
+				setRayBufferSizes(sampleMultiplier);
+			}
+			printf("Using %d samples (per pixel) per dispatch\n",m_staticViewData.samplesPerPixelPerDispatch);
+		}
+	}
+	
+	// we have to recompile some shaders and runtime_defines.glsl changes
+	{
+		(std::ofstream("runtime_defines.glsl")
+			<< "#define _NBL_EXT_MITSUBA_LOADER_VT_STORAGE_VIEW_COUNT " << m_globalMeta->m_global.getVTStorageViewCount() << "\n"
+			<< m_globalMeta->m_global.m_materialCompilerGLSL_declarations
+			<< "#define MAX_PATH_DEPTH " << m_maxDepth << "\n"
+			<< "#ifndef MAX_RAYS_GENERATED\n"
+			<< "#	define MAX_RAYS_GENERATED " << m_staticViewData.samplesPerPixelPerDispatch << "\n"
+			<< "#endif\n"
+		).close();
+	
+		// cull
+		m_cullPipeline = m_driver->createGPUComputePipeline(nullptr,std::move(m_cullPipelineLayout),gpuSpecializedShaderFromFile(m_assetManager,m_driver,"../cull.comp"));
+
+		// raygen
+		m_raygenPipeline = m_driver->createGPUComputePipeline(nullptr,std::move(m_raygenPipelineLayout),gpuSpecializedShaderFromFile(m_assetManager,m_driver,"../raygen.comp"));
+
+		// closest hit
+		m_closestHitPipeline = m_driver->createGPUComputePipeline(nullptr,std::move(m_closestHitPipelineLayout),gpuSpecializedShaderFromFile(m_assetManager,m_driver,"../closestHit.comp"));
+
+		// resolve
+		m_resolvePipeline = m_driver->createGPUComputePipeline(nullptr,std::move(m_resolvePipelineLayout),gpuSpecializedShaderFromFile(m_assetManager,m_driver,m_useDenoiser ? "../resolveForDenoiser.comp":"../resolve.comp"));
+	}
+
+	auto setBufferInfo = [&](IGPUDescriptorSet::SDescriptorInfo* info, const core::smart_refctd_ptr<IGPUBuffer>& buffer) -> void
+	{
+		info->buffer.size = buffer->getSize();
+		info->buffer.offset = 0u;
+		info->desc = core::smart_refctd_ptr(buffer);
+	};
+
+	auto createFilledBufferAndSetUpInfo = [&](IGPUDescriptorSet::SDescriptorInfo* info, size_t size, const void* data)
+	{
+		auto buf = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(size,data);
+		setBufferInfo(info,core::smart_refctd_ptr(buf));
+		return buf;
+	};
+	auto createFilledBufferAndSetUpInfoFromStruct = [createFilledBufferAndSetUpInfo](IGPUDescriptorSet::SDescriptorInfo* info, const auto& _struct)
+	{
+		return createFilledBufferAndSetUpInfo(info,sizeof(_struct),&_struct);
+	};
+	auto createFilledBufferAndSetUpInfoFromVector = [createFilledBufferAndSetUpInfo](IGPUDescriptorSet::SDescriptorInfo* info, const auto& vector)
+	{
+		return createFilledBufferAndSetUpInfo(info,vector.size()*sizeof(decltype(*vector.data())),vector.data());
+	};
+	auto setImageInfo = [](IGPUDescriptorSet::SDescriptorInfo* info, const asset::E_IMAGE_LAYOUT imageLayout, core::smart_refctd_ptr<IGPUImageView>&& imageView) -> void
+	{
+		info->image.imageLayout = imageLayout;
+		info->image.sampler = nullptr; // storage image dont have samplers, and the combined sampler image views we have all use immutable samplers
+		info->desc = std::move(imageView);
+	};
+	auto createEmptyInteropBufferAndSetUpInfo = [&](IGPUDescriptorSet::SDescriptorInfo* info, InteropBuffer& interopBuffer, size_t size) -> void
+	{
+		if (static_cast<COpenGLDriver*>(m_driver)->runningInRenderdoc()) // makes Renderdoc capture the modifications done by OpenCL
+		{
+			interopBuffer.buffer = m_driver->createUpStreamingGPUBufferOnDedMem(size);
+			//interopBuffer.buffer->getBoundMemory()->mapMemoryRange(IDriverMemoryAllocation::EMCAF_WRITE,{0u,size})
+		}
+		else
+			interopBuffer.buffer = m_driver->createDeviceLocalGPUBufferOnDedMem(size);
+		interopBuffer.asRRBuffer = m_rrManager->linkBuffer(interopBuffer.buffer.get(), CL_MEM_READ_ONLY);
+
+		info->buffer.size = size;
+		info->buffer.offset = 0u;
+		info->desc = core::smart_refctd_ptr(interopBuffer.buffer);
+	};
+	auto setDstSetAndDescTypesOnWrites = [](IGPUDescriptorSet* dstSet, IGPUDescriptorSet::SWriteDescriptorSet* writes, IGPUDescriptorSet::SDescriptorInfo* _infos, const std::initializer_list<asset::E_DESCRIPTOR_TYPE>& list, uint32_t baseBinding=0u)
+	{
+		auto typeIt = list.begin();
+		for (auto i=0u; i<list.size(); i++)
+		{
+			writes[i].dstSet = dstSet;
+			writes[i].binding = baseBinding+i;
+			writes[i].arrayElement = 0u;
+			writes[i].count = 1u;
+			writes[i].descriptorType = *(typeIt++);
+			writes[i].info = _infos+i;
+		}
+	};
+
+	// create out screen-sized textures
+	m_accumulation = createScreenSizedTexture(EF_R32G32_UINT,m_staticViewData.samplesPerPixelPerDispatch);
+	m_tonemapOutput = createScreenSizedTexture(EF_A2B10G10R10_UNORM_PACK32);
+
+	constexpr uint32_t MaxDescritorUpdates = 8u;
+	IGPUDescriptorSet::SDescriptorInfo infos[MaxDescritorUpdates];
+	IGPUDescriptorSet::SWriteDescriptorSet writes[MaxDescritorUpdates];
+
+	// set up m_commonRaytracingDS
+	core::smart_refctd_ptr<IGPUBuffer> _staticViewDataBuffer;
+	{
+		_staticViewDataBuffer = createFilledBufferAndSetUpInfoFromStruct(infos+0,m_staticViewData);
+		{
+			constexpr auto ScrambleStateChannels = 2u;
+			auto tmpBuff = m_driver->createCPUSideGPUVisibleGPUBufferOnDedMem(sizeof(uint32_t)*ScrambleStateChannels*renderPixelCount);
+			// generate (maybe let's improve the scramble key beginning distribution)
+			{
+				core::RandomSampler rng(0xbadc0ffeu);
+				auto it = reinterpret_cast<uint32_t*>(tmpBuff->getBoundMemory()->mapMemoryRange(
+					IDriverMemoryAllocation::EMCAF_WRITE,
+					IDriverMemoryAllocation::MemoryRange(0u,tmpBuff->getSize())
+				));
+				for (auto end=it+ScrambleStateChannels*renderPixelCount; it!=end; it++)
+					*it = rng.nextSample();
+				tmpBuff->getBoundMemory()->unmapMemory();
+			}
+			// upload
+			IGPUImage::SBufferCopy region;
+			//region.imageSubresource.aspectMask = ;
+			region.imageSubresource.baseArrayLayer = 1u;
+			region.imageSubresource.layerCount = 1u;
+			region.imageExtent = {m_staticViewData.imageDimensions.x,m_staticViewData.imageDimensions.y,1u};
+			auto scrambleKeys = createScreenSizedTexture(EF_R32G32_UINT,2u);
+			m_driver->copyBufferToImage(tmpBuff.get(),scrambleKeys->getCreationParameters().image.get(),1u,&region);
+			setImageInfo(infos+1,asset::EIL_GENERAL,std::move(scrambleKeys));
+		}
+		{
+			// TODO: maybe use the sample limit in the future to stop a converged render
+			const auto maxSamples = sampleSequence->getSize()/(sizeof(uint32_t)*MaxDimensions);
+			assert(maxSamples==MAX_ACCUMULATED_SAMPLES);
+			// upload sequence to GPU (TODO: clip its size to the dimensions we'll actually use)
+			auto gpubuf = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(sampleSequence->getSize(),sampleSequence->getPointer());
+			infos[2].desc = m_driver->createGPUBufferView(gpubuf.get(),asset::EF_R32G32B32_UINT); // TODO: maybe try to pack into 64bits?
+		}
+		setImageInfo(infos+3,asset::EIL_GENERAL,core::smart_refctd_ptr(m_accumulation));
+		createEmptyInteropBufferAndSetUpInfo(infos+4,m_rayBuffer[0],raygenBufferSize);
+		setBufferInfo(infos+5,m_rayCountBuffer);
+
+		constexpr auto descriptorUpdateCount = 6u;
+		setDstSetAndDescTypesOnWrites(m_commonRaytracingDS[0].get(),writes,infos,{
+			EDT_UNIFORM_BUFFER,
+			EDT_STORAGE_IMAGE,
+			EDT_UNIFORM_TEXEL_BUFFER,
+			EDT_STORAGE_IMAGE,
+			EDT_STORAGE_BUFFER,
+			EDT_STORAGE_BUFFER
+		});
+		m_driver->updateDescriptorSets(descriptorUpdateCount,writes,0u,nullptr);
+		// set up second DS
+		createEmptyInteropBufferAndSetUpInfo(infos+4,m_rayBuffer[1],raygenBufferSize);
+		for (auto i=0u; i<descriptorUpdateCount; i++)
+			writes[i].dstSet = m_commonRaytracingDS[1].get();
+		m_driver->updateDescriptorSets(descriptorUpdateCount,writes,0u,nullptr);
+	}
+
+	// set up m_raygenDS
+	core::smart_refctd_ptr<IGPUImageView> visibilityBuffer = createScreenSizedTexture(EF_R32G32B32A32_UINT);
+	{
+		setImageInfo(infos+0,asset::EIL_SHADER_READ_ONLY_OPTIMAL,core::smart_refctd_ptr(visibilityBuffer));
+
+		setDstSetAndDescTypesOnWrites(m_raygenDS.get(),writes,infos,{EDT_COMBINED_IMAGE_SAMPLER});
+	}
+	m_driver->updateDescriptorSets(2u,writes,0u,nullptr);
+
+	// set up m_closestHitDS
+	for (auto i=0u; i<2u; i++)
+	{
+		const auto other = i^0x1u;
+		infos[0u].desc = m_rayBuffer[other].buffer;
+		infos[0u].buffer.offset = 0u;
+		infos[0u].buffer.size = m_rayBuffer[other].buffer->getSize();
+		createEmptyInteropBufferAndSetUpInfo(infos+1,m_intersectionBuffer[other],intersectionBufferSize);
+
+		setDstSetAndDescTypesOnWrites(m_closestHitDS[i].get(),writes,infos,{EDT_STORAGE_BUFFER,EDT_STORAGE_BUFFER});
+		m_driver->updateDescriptorSets(2u,writes,0u,nullptr);
+	}
+
+	// set up m_resolveDS
+	{
+		infos[0].buffer = {0u,_staticViewDataBuffer->getSize()};
+		infos[0].desc = std::move(_staticViewDataBuffer);
+		setImageInfo(infos+1,asset::EIL_GENERAL,core::smart_refctd_ptr(m_accumulation));
+		core::smart_refctd_ptr<IGPUImageView> tonemapOutputStorageView;
+		{
+			IGPUImageView::SCreationParams viewparams = m_tonemapOutput->getCreationParameters();
+			viewparams.format = EF_R32_UINT;
+			tonemapOutputStorageView = m_driver->createGPUImageView(std::move(viewparams));
+		}
+		setImageInfo(infos+2,asset::EIL_GENERAL,std::move(tonemapOutputStorageView));
+				
+		setDstSetAndDescTypesOnWrites(m_resolveDS.get(),writes,infos,{EDT_UNIFORM_BUFFER,EDT_COMBINED_IMAGE_SAMPLER,EDT_STORAGE_IMAGE});
+	}
+	m_driver->updateDescriptorSets(3u,writes,0u,nullptr);
 
 	m_visibilityBuffer = m_driver->addFrameBuffer();
 	m_visibilityBuffer->attach(EFAP_DEPTH_ATTACHMENT,createScreenSizedTexture(EF_D32_SFLOAT));
@@ -1075,14 +1153,13 @@ void Renderer::init(const SAssetBundle& meshes,	core::smart_refctd_ptr<ICPUBuffe
 #endif
 }
 
-
-void Renderer::deinit()
+void Renderer::deinitScreenSizedResources()
 {
 	auto commandQueue = m_rrManager->getCLCommandQueue();
 	ocl::COpenCLHandler::ocl.pclFinish(commandQueue);
 
 	glFinish();
-
+	
 #ifdef _NBL_BUILD_OPTIX_
 	if (m_cudaStream)
 		cuda::CCUDAHandler::cuda.pcuStreamSynchronize(m_cudaStream);
@@ -1095,7 +1172,7 @@ void Renderer::deinit()
 	m_denoiserInputs[EDI_NORMAL] = {};
 	m_denoiserOutput = {};
 #endif
-
+	
 	if (m_visibilityBuffer)
 	{
 		m_driver->removeFrameBuffer(m_visibilityBuffer);
@@ -1124,48 +1201,14 @@ void Renderer::deinit()
 	}
 
 	m_raygenWorkGroups[0] = m_raygenWorkGroups[1] = 0u;
-	m_resolveDS = nullptr;
-	m_closestHitDS[0] = m_closestHitDS[1] = nullptr;
-	m_raygenDS = nullptr;
-	m_commonRaytracingDS[0] = m_commonRaytracingDS[1] = nullptr;
-	m_additionalGlobalDS = nullptr;
-	m_rasterInstanceDataDS = nullptr;
-	m_globalBackendDataDS = nullptr;
-
-	m_cullPipeline = nullptr;
-	m_raygenPipeline = nullptr;
-	m_closestHitPipeline = nullptr;
-	m_resolvePipeline = nullptr;
-
-	m_perCameraRasterDS = nullptr;
-
-	m_cullWorkGroups = 0u;
-	m_cullPushConstants = {core::matrix4SIMD(),1.f,0u,0u,0u};
-	m_cullDS = nullptr;
-	m_mdiDrawCalls.clear();
-	m_indirectDrawBuffers[1] = m_indirectDrawBuffers[0] = nullptr;
-	m_indexBuffer = nullptr;
-
-	m_raytraceCommonData = {vec3(),0,0,0,0u};
+	
 	m_staticViewData = {{0.f,0.f,0.f},0u,{0u,0u},0u,0u};
 	m_totalRaysCast = 0ull;
 	m_rcpPixelSize = {0.f,0.f};
 	m_framesDispatched = 0u;
 	std::fill_n(m_prevView.pointer(),12u,0.f);
-	m_sceneBound = core::aabbox3df(FLT_MAX, FLT_MAX, FLT_MAX, -FLT_MAX, -FLT_MAX, -FLT_MAX);
-
-	auto rr = m_rrManager->getRadeonRaysAPI();
-	rr->DetachAll();
-	for (auto instance : rrInstances)
-	{
-		rr->DeleteShape(instance);
-	}
-	rrInstances.clear();
-
-	for (auto shape : rrShapes)
-		rr->DeleteShape(shape);
-	rrShapes.clear();
 }
+
 
 void Renderer::takeAndSaveScreenShot(const std::string& screenShotName, const std::filesystem::path& screenshotFolderPath)
 {

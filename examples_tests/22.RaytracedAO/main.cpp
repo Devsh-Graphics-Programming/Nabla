@@ -47,8 +47,9 @@ int main(int argc, char** argv)
 	std::string filePath = (sceneDir.size() >= 1) ? sceneDir[0] : ""; // zip or xml
 	std::string extraPath = (sceneDir.size() >= 2) ? sceneDir[1] : "";; // xml in zip
 	std::string outputScreenshotsFolderPath = cmdHandler.getOutputScreenshotsFolderPath();
-	bool shouldTerminate = cmdHandler.getTerminate();
-
+	bool shouldTerminate = cmdHandler.getTerminate(); // skip interaction with window and take screenshots only
+	bool takeScreenShots = true;
+	
 	// create device with full flexibility over creation parameters
 	// you can add more parameters if desired, check nbl::SIrrlichtCreationParameters
 	nbl::SIrrlichtCreationParameters params;
@@ -485,7 +486,7 @@ int main(int argc, char** argv)
 		}
 	}
 
-	renderer->init(meshes, std::move(sampleSequence));
+	renderer->initSceneResources(meshes);
 	meshes = {}; // free memory
 
 	auto extent = renderer->getSceneBound().getExtent();
@@ -493,6 +494,8 @@ int main(int argc, char** argv)
 
 	QToQuitEventReceiver receiver;
 	device->setEventReceiver(&receiver);
+
+	renderer->initScreenSizedResources(sensors[0].width, sensors[0].height, std::move(sampleSequence));
 
 	uint64_t lastFPSTime = 0;
 	auto start = std::chrono::steady_clock::now();
@@ -529,8 +532,10 @@ int main(int argc, char** argv)
 			lastFPSTime = time;
 		}
 	}
+
 	renderer->takeAndSaveScreenShot("tonemapped", outputScreenshotsFolderPath);
-	renderer->deinit();
+	renderer->deinitScreenSizedResources();
+	renderer->deinitSceneResources();
 	renderer = nullptr;
 
 	return 0;

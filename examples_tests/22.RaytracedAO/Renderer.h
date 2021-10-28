@@ -30,9 +30,13 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 
 		Renderer(nbl::video::IVideoDriver* _driver, nbl::asset::IAssetManager* _assetManager, nbl::scene::ISceneManager* _smgr, bool useDenoiser = true);
 
-		void init(const nbl::asset::SAssetBundle& meshes, nbl::core::smart_refctd_ptr<nbl::asset::ICPUBuffer>&& sampleSequence);
+		void initSceneResources(nbl::asset::SAssetBundle& meshes);
 
-		void deinit();
+		void deinitSceneResources();
+		
+		void initScreenSizedResources(uint32_t width, uint32_t height, nbl::core::smart_refctd_ptr<nbl::asset::ICPUBuffer>&& sampleSequence);
+
+		void deinitScreenSizedResources();
 
 		void takeAndSaveScreenShot(const std::string& screenShotName, const std::filesystem::path& screenshotFolderPath = "");
 
@@ -42,6 +46,10 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 
 		const auto& getSceneBound() const { return m_sceneBound; }
 		
+		uint64_t getSamplesPerPixelPerDispatch() const
+		{
+			return m_staticViewData.samplesPerPixelPerDispatch;
+		}
 		uint64_t getTotalSamplesPerPixelComputed() const
 		{
 			const auto framesDispatched = static_cast<uint64_t>(m_framesDispatched);
@@ -74,7 +82,7 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 
 		struct InitializationData
 		{
-			InitializationData() : lights(),lightCDF(),globalMeta(nullptr) {}
+			InitializationData() : lights(),lightCDF() {}
 			InitializationData(InitializationData&& other) : InitializationData()
 			{
 				operator=(std::move(other));
@@ -85,7 +93,6 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 			{
 				lights = std::move(other.lights);
 				lightCDF = std::move(other.lightCDF);
-				globalMeta = other.globalMeta;
 				return *this;
 			}
 
@@ -95,7 +102,6 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 				nbl::core::vector<float> lightPDF;
 				nbl::core::vector<uint32_t> lightCDF;
 			};
-			const nbl::ext::MitsubaLoader::CMitsubaMetadata* globalMeta = nullptr;
 		};
 		InitializationData initSceneObjects(const nbl::asset::SAssetBundle& meshes);
 		void initSceneNonAreaLights(InitializationData& initData);
@@ -107,6 +113,8 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		//
 		uint32_t traceBounce(uint32_t raycount);
 
+		//
+		const nbl::ext::MitsubaLoader::CMitsubaMetadata* m_globalMeta = nullptr;
 
 		// "constants"
 		bool m_useDenoiser;
@@ -132,6 +140,11 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSetLayout> m_rasterInstanceDataDSLayout,m_additionalGlobalDSLayout,m_commonRaytracingDSLayout;
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSetLayout> m_raygenDSLayout,m_closestHitDSLayout,m_resolveDSLayout;
 		nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpassIndependentPipeline> m_visibilityBufferFillPipeline;
+
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUPipelineLayout> m_cullPipelineLayout;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUPipelineLayout> m_raygenPipelineLayout;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUPipelineLayout> m_closestHitPipelineLayout;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUPipelineLayout> m_resolvePipelineLayout;
 
 
 		// scene specific data
