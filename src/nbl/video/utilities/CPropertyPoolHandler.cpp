@@ -156,7 +156,9 @@ bool CPropertyPoolHandler::transferProperties(
 
 	const auto leftOverProps = totalProps-fullPasses*m_maxPropertiesPerPass;
 	if (leftOverProps)
-		return copyPass(requests,leftOverProps)&&result;
+		result = copyPass(requests,leftOverProps)&&result;
+
+	return result;
 }
 
 uint32_t CPropertyPoolHandler::transferProperties(
@@ -172,16 +174,7 @@ uint32_t CPropertyPoolHandler::transferProperties(
 	// somewhat decent attempt at packing
 	std::sort(requests,requests+requestCount,[](const UpStreamingRequest& rhs, const UpStreamingRequest& lhs)->bool{return rhs.getElementDWORDs()<lhs.getElementDWORDs();});
 
-	// TODO: slab sort
-	struct AddressUploadRange
-	{
-		AddressUploadRange() : source{ nullptr,nullptr }, destOff(0xdeadbeefu) {}
-
-		core::SRange<const uint32_t> source;
-		uint32_t destOff;
-	};
-
-
+	//
 	struct CumulativeHistogram
 	{
 		uint32_t dwordCount[MaxPropertiesPerDispatch+1u];
@@ -206,9 +199,11 @@ uint32_t CPropertyPoolHandler::transferProperties(
 		}
 	} cmHist;
 	cmHist.dwordCount[0] = 0u;
+
 	//
 	TransferRequest xfers[MaxPropertiesPerDispatch];
-	uint8_t* const upBuffPtr = reinterpret_cast<uint8_t*>(upBuff->getBufferPointer());
+	uint8_t* const upBuffPtr8 = reinterpret_cast<uint8_t*>(upBuff->getBufferPointer());
+	uint32_t* const upBuffPtr32 = reinterpret_cast<uint32_t*>(upBuff->getBufferPointer());
 	const asset::SBufferBinding<video::IGPUBuffer> uploadBuffer = {0ull,core::smart_refctd_ptr<video::IGPUBuffer>(upBuff->getBuffer())};
 	auto attempt = [&](const uint32_t baseDWORDs, const uint32_t remainingDWORDs, UpStreamingRequest* &localRequests, uint32_t& propertiesThisPass) -> uint32_t
 	{
@@ -222,26 +217,34 @@ uint32_t CPropertyPoolHandler::transferProperties(
 		if (propertiesThisPass==0u)
 			return 0u;
 
-		// TODO: compute the histogram
-		// 1 invocation transfers 1 DWORD
-		uint32_t bytesPerInvocation = 0u;
-		cmHist.memoryConsumed[0u] = 0u;/*
+		// compute the memory histogram
+		cmHist.memoryConsumed[0u] = 0u;
 		for (auto i=0u; i<propertiesThisPass; i++)
 		{
-			const auto& request = localRequests[i];
-			// needs DWORDs to allocate for source data
-			if (!request.source.device2device)
-				bytesPerInvocation += sizeof(uint32_t);
-			// needs DWORDs to allocate for indices
-			if (!request.addresses.device2device)
+			const auto endDWORD = localRequests[i].getElementDWORDs();
+			const auto dwordCount = cmHist.dwordCount[i+1] = endDWORD-baseDWORDs;
+			assert(dwordCount>=cmHist.dwordCount[i]);
+
+			if (localRequests[i].fill && localRequests[i].srcAddresses)
+				cmHist.memoryConsumed[0u] += sizeof(uint32_t);
+
+			auto& memConsumed = cmHist.memoryConsumed[i+1] = 0u;
+			for (auto j=0; j<propertiesThisPass; j++)
 			{
-				if (request.addresses.srcData)
-					cmHist.memoryConsumed[request.fill ? 0u:69u] += sizeof(uint32_t);
-				if (request.addresses.dstData)
-					cmHist.memoryConsumed[] += sizeof(uint32_t);
+				const auto& request = localRequests[j];
+				if (request.getElementDWORDs()<endDWORD)
+					continue;
+
+				if (!request.source.device2device)
+					memConsumed += dwordCount*sizeof(uint32_t);
+				
+				const auto indexConsumption = (request.getElementsToSkip(endDWORD+request.elementSize-1u)-request.getElementsToSkip(baseDWORDs))*sizeof(uint32_t);
+				if (!request.fill && request.srcAddresses)
+					memConsumed += indexConsumption;
+				if (request.dstAddresses)
+					memConsumed += indexConsumption;
 			}
 		}
-		*/
 
         const uint32_t freeSpace = static_cast<uint32_t>(core::alignDown(upBuff->max_size(),m_alignment));
 		const uint32_t worstCasePadding = m_alignment*propertiesThisPass-propertiesThisPass;
@@ -256,8 +259,10 @@ uint32_t CPropertyPoolHandler::transferProperties(
 		upBuff->multi_alloc(maxWaitPoint,1u,&addr,&paddedSize,&m_alignment);
 		if (addr!=invalid_address)
 		{
-			// TODO: fill xfers and addresses
+			const auto endDWORD = baseDWORDs+doneDWORDs;
+
 			uint32_t offset = addr;
+			// source data
 			for (auto i=0u; i<propertiesThisPass; i++)
 			{
 				const auto& request = localRequests[i];
@@ -274,16 +279,48 @@ uint32_t CPropertyPoolHandler::transferProperties(
 					transfer.buffer = uploadBuffer;
 					transfer.buffer.offset = offset;
 					// copy
-					const auto bytesize = transfer.getSourceElementCount()*transfer.elementSize;
-					memcpy(upBuffPtr+offset,request.source.data,bytesize);
+					const auto sizeDWORDs = request.getElementDWORDs()-baseDWORDs;
+					const auto bytesize = sizeDWORDs*sizeof(uint32_t);
+					memcpy(upBuffPtr8+offset,reinterpret_cast<const uint32_t*>(request.source.data)+baseDWORDs,bytesize);
 					// advance
 					offset = core::alignUp(offset+bytesize,m_alignment);
 				}
-				// if valid, fill them later				
-				transfer.srcAddressesOffset = request.srcAddresses ? 0u:IPropertyPool::invalid;
-				transfer.dstAddressesOffset = request.dstAddresses ? 0u:IPropertyPool::invalid;
 			}
-			
+			// addresses
+			offset /= sizeof(uint32_t);
+			for (auto i=0u; i<propertiesThisPass; i++)
+			{
+				const auto& request = localRequests[i];
+				auto& transfer = xfers[i];
+				
+				const auto firstIndex = request.getElementsToSkip(baseDWORDs);
+				const auto indexCount = request.getElementsToSkip(endDWORD+request.elementSize-1u)-firstIndex;
+				const auto indexConsumption = indexCount*sizeof(uint32_t);
+				if (request.srcAddresses)
+				{
+					if (request.fill)
+					{
+						memcpy(upBuffPtr32+offset,request.srcAddresses,sizeof(uint32_t));
+						transfer.srcAddressesOffset = offset++;
+					}
+					else
+					{
+						memcpy(upBuffPtr32+offset,request.srcAddresses+firstIndex,indexConsumption);
+						transfer.srcAddressesOffset = offset;
+						offset += indexCount;
+					}
+				}
+				else
+					transfer.srcAddressesOffset = IPropertyPool::invalid;
+				if (request.dstAddresses)
+				{
+					memcpy(upBuffPtr32+offset,request.dstAddresses+firstIndex,indexConsumption);
+					transfer.dstAddressesOffset = offset;
+					offset += indexCount;
+				}
+				else
+					transfer.dstAddressesOffset = IPropertyPool::invalid;
+			}
 			// flush if needed
 			if (upBuff->needsManualFlushOrInvalidate())
 			{
@@ -293,7 +330,7 @@ uint32_t CPropertyPoolHandler::transferProperties(
 				m_device->flushMappedMemoryRanges(1u,&flushRange);
 			}
 			// no pipeline barriers necessary because write and optional flush happens before submit, and memory allocation is reclaimed after fence signal
-			if (true)// TODO: transferProperties(cmdbuf,fence,scratch,uploadBuffer,xfers,xfers+propertiesThisPass,logger)) with base and max DWORD
+			if (transferProperties(cmdbuf,fence,scratch,uploadBuffer,xfers,xfers+propertiesThisPass,logger,baseDWORDs,endDWORD))
 			{
 				upBuff->multi_free(1u,&addr,&paddedSize,core::smart_refctd_ptr<IGPUFence>(fence),&cmdbuf);
 				return doneDWORDs;
@@ -375,156 +412,6 @@ uint32_t CPropertyPoolHandler::transferProperties(
 		return copyPass(requests,leftOverProps);
 	
 	return 0u;
-#if 0
-			uint32_t slabCount = 0u;
-			auto SlabComparator = [](auto lhs, auto rhs) -> bool
-			{
-				return lhs.source.begin()<rhs.source.begin();
-			};
-			// figure out the sizes to allocate
-			{
-				m_tmpSizes[0u] = sizeof(nbl_glsl_property_pool_transfer_t)*m_maxPropertiesPerPass;
-
-				uint32_t addressListCount = 0u;
-				uint32_t* upSizesIt = upSizes;
-				uint32_t* downSizesIt = downSizes;
-				for (uint32_t i=0; i<propertiesThisPass; i++)
-				{
-					const auto& request = localRequests[i];
-					if (request.elementSize%sizeof(uint32_t))
-					{
-						logger.log("CPropertyPoolHandler::TransferRequest::elementSize (was %d) must be aligned to 4 bytes!",system::ILogger::ELL_ERROR,request.elementSize);
-						assert(false);
-						return false;
-					}
-					//
-					if (!request.device2device)
-					{
-							*(upSizesIt++) = request.getSourceElementCount()*request.elementSize;
-					}
-					//
-					if (request.srcAddresses)
-					{
-						m_tmpAddressRanges[addressListCount].source = {request.srcAddresses,request.srcAddresses+request.getSourceElementCount()};
-						m_tmpAddressRanges[addressListCount++].destOff = 0u;
-					}
-					if (request.dstAddresses)
-					{
-						m_tmpAddressRanges[addressListCount].source = {request.dstAddresses,request.dstAddresses+request.elementCount};
-						m_tmpAddressRanges[addressListCount++].destOff = 0u;
-					}
-				}
-
-				// find slabs = contiguous or repeated ranges of redirection addresses (reduce duplication)
-				{
-					std::sort(m_tmpAddressRanges,m_tmpAddressRanges+addressListCount,SlabComparator);
-
-					uint32_t addressOffset = 0u;
-					auto oit = m_tmpAddressRanges;
-					for (auto i=1u; i<addressListCount; i++)
-					{
-						const auto& inRange = m_tmpAddressRanges[i];
-
-						// check for discontinuity
-						auto& outRange = *oit;
-						// if two requests have different contiguous pools, they'll have different redirects, so cant merge duplicate address ranges
-						if (inRange.source.begin()>outRange.source.end())
-						{
-							addressOffset += outRange.source.size();
-							// begin a new slab
-							oit++;
-							*oit = inRange;
-							oit->destOff = addressOffset;
-						}
-						else
-							outRange.source = {outRange.source.begin(),inRange.source.end()};
-					}
-					// note the size of the last slab
-					addressOffset += oit->source.size();
-					slabCount = std::distance(m_tmpAddressRanges,++oit);
-
-					m_tmpSizes[0u] += addressOffset*sizeof(uint32_t);
-				}
-			}
-			// allocate address list and upload/allocate data
-			bool retval = true; // success
-			std::fill(m_tmpAddresses,m_tmpAddresses+propertiesThisPass+1u,invalid_address);
-			std::fill(downAddresses,downAddresses+propertiesThisPass,invalid_address);
-			{
-				for (auto i=0u; i<upAllocations; i++)
-					m_tmpSizes[i] = core::roundUp(m_tmpSizes[i],m_alignments[i]);
-				// TODO: handle overflow (chunk the updates with `max_size()` on the upload and download allocators)
-				const auto unallocatedBytes = upBuff->multi_alloc(maxWaitPoint,upAllocations,m_tmpAddresses,m_tmpSizes,m_alignments);
-				if (!(retval=unallocatedBytes==0u))
-				{
-					logger.log("CPropertyPoolHandler: Timed out during upstream staging allocation, failed to allocate %d bytes!",system::ILogger::ELL_ERROR,unallocatedBytes);
-					return retval;
-				}
-			}
-			// allocate and write
-			{
-				IDriverMemoryAllocation::MappedMemoryRange flushRanges[MaxPropertyTransfers+1u];
-				flushRanges[0].memory = upBuff->getBuffer()->getBoundMemory();
-				flushRanges[0].range = {m_tmpAddresses[0],m_tmpSizes[0]};
-
-				uint32_t* addressBufferPtr = reinterpret_cast<uint32_t*>(upBuffPtr+m_tmpAddresses[0u]);
-				// write header
-				auto remapAddressList = [&](const uint32_t* originalRange) -> uint32_t
-				{
-					if (!originalRange)
-						return IPropertyPool::invalid;
-
-					// find the slab
-					AddressUploadRange dummy;
-					dummy.source = {originalRange,nullptr};
-					dummy.destOff = 0xdeadbeefu;
-					auto aboveOrEqual = std::lower_bound(m_tmpAddressRanges,m_tmpAddressRanges+slabCount,dummy,SlabComparator);
-					auto containing = aboveOrEqual->source.begin()!=originalRange ? (aboveOrEqual-1):aboveOrEqual;
-					//
-					return containing->destOff+(originalRange-containing->source.begin());
-				};
-				for (uint32_t i=0; i<propertiesThisPass; i++)
-				{
-					const auto& request = localRequests[i];
-
-					auto& transfer = reinterpret_cast<nbl_glsl_property_pool_transfer_t*>(addressBufferPtr)[i];
-					transfer.propertyDWORDsize_flags = request.elementSize/sizeof(uint32_t);
-					transfer.propertyDWORDsize_flags |= uint32_t(request.flags)<<(32-TransferRequest::EF_BIT_COUNT);
-					transfer.elementCount = request.elementCount;
-					//
-					transfer.srcIndexOffset = remapAddressList(request.srcAddresses);
-					transfer.dstIndexOffset = remapAddressList(request.dstAddresses);
-				}
-				addressBufferPtr += (sizeof(nbl_glsl_property_pool_transfer_t)/sizeof(uint32_t))*m_maxPropertiesPerPass;
-				// write the addresses
-				for (auto i=0u; i<slabCount; i++)
-				{
-					const auto& range = m_tmpAddressRanges[i];
-					std::copy(range.source.begin(),range.source.end(),addressBufferPtr);
-					addressBufferPtr += range.source.size();
-				}
-	
-				// upload
-				auto flushRangesIt = flushRanges+1u;
-				auto upAddrIt = m_tmpAddresses+1u;
-				uint32_t* upSizesIt = upSizes;
-				for (uint32_t i=0u; i<propertiesThisPass; i++)
-				{
-					const auto& request = localRequests[i];
-					if (request.device2device || request.isDownload())
-						continue;
-
-					const auto addr = *(upAddrIt++);
-				
-					*flushRangesIt = flushRanges[0];
-					(flushRangesIt++)->range = {addr,*(upSizesIt++)};
-
-					assert(addr!=invalid_address);
-					memcpy(upBuffPtr+addr,request.source,request.getSourceElementCount()*request.elementSize);
-				}
-
-			}
-#endif
 }
 
 uint32_t CPropertyPoolHandler::TransferDescriptorSetCache::acquireSet(

@@ -133,6 +133,13 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 				return uint32_t(elementSize/sizeof(uint32_t))*elementCount;
 			}
 
+			//
+			inline uint32_t getElementsToSkip(const uint32_t baseDWORD) const
+			{
+				return core::min(baseDWORD/uint32_t(elementSize/sizeof(uint32_t)),elementCount);
+			}
+
+
 			asset::SBufferRange<IGPUBuffer> destination = {};
 			bool fill = false;
 			uint16_t elementSize = 0u;
@@ -164,8 +171,8 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 				};
 			} source;
 			// can be nullptr, if null, treated like an implicit {0,1,2,3,...} iota view
-			const void* srcAddresses = nullptr;
-			const void* dstAddresses = nullptr;
+			const uint32_t* srcAddresses = nullptr;
+			const uint32_t* dstAddresses = nullptr;
 		};
 		// Fence must be not pending yet, `cmdbuf` must be already in recording state and be resettable.
 		// `requests` will be consumed (destructively processed by sorting) and incremented by however many requests were fully processed
