@@ -121,7 +121,7 @@ public:
         video::ILogicalDevice::E_FEATURE requiredFeatures_Device[] = { video::ILogicalDevice::EF_SWAPCHAIN };
         requiredDeviceFeatures.features = requiredFeatures_Device;
 
-        CommonAPI::SFeatureRequest< video::ILogicalDevice::E_FEATURE> optionalDeviceFeatures = {};
+        CommonAPI::SFeatureRequest<video::ILogicalDevice::E_FEATURE> optionalDeviceFeatures = {};
 
         const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT);
         const video::ISurface::SFormat surfaceFormat(asset::EF_B8G8R8A8_SRGB, asset::ECP_COUNT, asset::EOTF_UNKNOWN);
