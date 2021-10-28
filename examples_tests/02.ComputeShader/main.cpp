@@ -210,11 +210,11 @@ public:
 		}
 		
 		// Uncomment once the KTX loader works
+#if 0
 		constexpr auto cachingFlags = static_cast<asset::IAssetLoader::E_CACHING_FLAGS>(
 			asset::IAssetLoader::ECF_DONT_CACHE_REFERENCES & asset::IAssetLoader::ECF_DONT_CACHE_TOP_LEVEL);
 
-		const char* pathToImage = "../../media/color_space_test/kueken7_rgba8_unorm.ktx";
-		// const char* pathToImage = "../../media/color_space_test/R8G8B8_1.jpg";
+		const char* pathToImage = "../../media/GLI/kueken7_rgba8_unorm.ktx";
 
 		asset::IAssetLoader::SAssetLoadParams loadParams(0ull, nullptr, cachingFlags);
 		auto cpuImageBundle = assetManager->getAsset(pathToImage, loadParams);
@@ -224,11 +224,10 @@ public:
 			logger->log("Failed to read image at path %s", nbl::system::ILogger::ELL_ERROR, pathToImage);
 			exit(-1);
 		}
-		__debugbreak();
-#if 0
-
 		auto cpuImage = core::smart_refctd_ptr_static_cast<asset::ICPUImage>(*cpuImageContents.begin());
-#else
+		__debugbreak();
+#endif
+
 		const uint32_t imageWidth = WIN_W;
 		const uint32_t imageHeight = WIN_H;
 		const uint32_t imageChannelCount = 4u;
@@ -286,7 +285,6 @@ public:
 			inImage_CPU = asset::ICPUImage::create(std::move(creationParams));
 			inImage_CPU->setBufferAndRegions(core::smart_refctd_ptr<asset::ICPUBuffer>(imagePixels), imageRegions);
 		}
-#endif	
 
 		cpu2gpuParams.beginCommandBuffers();
 		auto inImage = CPU2GPU.getGPUObjectsFromAssets(&inImage_CPU, &inImage_CPU + 1, cpu2gpuParams);
