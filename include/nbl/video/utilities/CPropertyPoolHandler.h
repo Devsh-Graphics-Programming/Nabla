@@ -94,12 +94,15 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 			IGPUCommandBuffer* const cmdbuf, IGPUFence* const fence,
 			const asset::SBufferBinding<video::IGPUBuffer>& scratch, const asset::SBufferBinding<video::IGPUBuffer>& addresses,
 			const TransferRequest* const requestsBegin, const TransferRequest* const requestsEnd,
-			system::logger_opt_ptr logger, const uint32_t baseDWORD=0u
+			system::logger_opt_ptr logger, const uint32_t baseDWORD=0u, const uint32_t endDWORD=~0ull
 		);
 
 		//
 		struct UpStreamingRequest
 		{
+			inline UpStreamingRequest()
+			{
+			}
 			//
 			inline UpStreamingRequest(const UpStreamingRequest& other)
 			{
@@ -111,23 +114,9 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 				destination = other.destination;
 				elementSize = other.elementSize;
 				elementCount = other.elementCount;
-				if (source.device2device)
-				{
-					source.buffer.~SBufferBinding();
-					source.data = nullptr;
-					source.device2device = false;
-				}
 				source.buffer = other.source.buffer;
-				if (addresses.device2device)
-				{
-					addresses.buffer.~smart_refctd_ptr();
-					addresses.srcData = nullptr;
-					addresses.dstData = nullptr;
-					addresses.device2device = false;
-				}
-				addresses.srcOffset = other.addresses.srcOffset;
-				addresses.dstOffset = other.addresses.dstOffset;
-				addresses.buffer = other.addresses.buffer;
+				srcAddresses = other.srcAddresses;
+				dstAddresses = other.dstAddresses;
 				return *this;
 			}
 
@@ -160,6 +149,11 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 					buffer.~SBufferBinding();
 				}
 
+				inline Source& operator=(const Source& other)
+				{
+					buffer = other.buffer;
+				}
+
 				// device
 				asset::SBufferBinding<video::IGPUBuffer> buffer;
 				// host
@@ -169,35 +163,9 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 					uint64_t device2device;
 				};
 			} source;
-			// can be invalid, if invalid, treated like an implicit {0,1,2,3,...} iota view
-			union Addresses
-			{
-				Addresses()
-				{
-					srcData = nullptr;
-					dstData = nullptr;
-					device2device = false;
-				}
-				~Addresses()
-				{
-					buffer.~smart_refctd_ptr();
-				}
-
-				// device
-				struct
-				{
-					uint64_t srcOffset;
-					uint64_t dstOffset;
-					core::smart_refctd_ptr<video::IGPUBuffer> buffer;
-				};
-				// host
-				struct
-				{
-					const void* srcData;
-					const void* dstData;
-					uint64_t device2device;
-				};
-			} addresses;
+			// can be nullptr, if null, treated like an implicit {0,1,2,3,...} iota view
+			const void* srcAddresses = nullptr;
+			const void* dstAddresses = nullptr;
 		};
 		// Fence must be not pending yet, `cmdbuf` must be already in recording state and be resettable.
 		// `requests` will be consumed (destructively processed by sorting) and incremented by however many requests were fully processed
@@ -210,37 +178,28 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 		);
 
 		// utility to help you fill out the tail move scatter request after the free, properly, returns if you actually need to transfer anything
-		static inline bool freeProperties(IPropertyPool* pool, TransferRequest* requests, const uint32_t* indicesBegin, const uint32_t* indicesEnd, uint32_t* srcAddresses, uint32_t* dstAddresses)
+		static inline bool freeProperties(IPropertyPool* pool, UpStreamingRequest* requests, const uint32_t* indicesBegin, const uint32_t* indicesEnd, uint32_t* srcAddresses, uint32_t* dstAddresses)
 		{
 			const auto oldHead = pool->getAllocated();
 			const auto transferCount = pool->freeProperties(indicesBegin,indicesEnd,srcAddresses,dstAddresses);
 			if (transferCount)
 			{
-#if 0
 				for (auto i=0u; i<pool->getPropertyCount(); i++)
 				{
 					requests[i].setFromPool(pool,i);
-					requests[i].flags = TransferRequest::EF_NONE;
+					requests[i].fill = false;
 					requests[i].elementCount = transferCount;
+					requests[i].source.buffer = {requests[i].destination.offset,requests[i].destination.buffer}; // copy from self to self
 					requests[i].srcAddresses = srcAddresses;
 					requests[i].dstAddresses = dstAddresses;
-					requests[i].buffer = pool->getPropertyMemoryBlock(i).buffer.get();
-					requests[i].offset = pool->getPropertyMemoryBlock(i).offset;
 				}
-#endif
 				return true;
 			}
 			return false;
 		}
 
     protected:
-		~CPropertyPoolHandler()
-		{
-#if 0
-			free(m_tmpAddressRanges);
-#endif
-			// pipelines drop themselves automatically
-		}
+		~CPropertyPoolHandler() {}
 
 		static inline constexpr auto MaxPropertiesPerDispatch = NBL_BUILTIN_PROPERTY_POOL_MAX_PROPERTIES_PER_DISPATCH;
 		static inline constexpr auto DescriptorCacheSize = 128u;
@@ -264,16 +223,6 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 
 		uint16_t m_maxPropertiesPerPass;
 		uint32_t m_alignment;
-#if 0
-		struct AddressUploadRange
-		{
-			AddressUploadRange() : source{ nullptr,nullptr }, destOff(0xdeadbeefu) {}
-
-			core::SRange<const uint32_t> source;
-			uint32_t destOff;
-		};
-		AddressUploadRange* m_tmpAddressRanges;
-#endif
 };
 
 

@@ -11,11 +11,11 @@ layout(set=0,binding=1) readonly restrict buffer Addresses
 {
     uint addresses[];
 };
-layout(set=0,binding=2) readonly restrict buffer InData
+layout(set=0,binding=2) readonly buffer InData
 {
     uint data[];
 } inBuff[NBL_BUILTIN_MAX_PROPERTIES_PER_PASS];
-layout(set=0,binding=3) writeonly restrict buffer OutData
+layout(set=0,binding=3) writeonly buffer OutData
 {
     uint data[];
 } outBuff[NBL_BUILTIN_MAX_PROPERTIES_PER_PASS];

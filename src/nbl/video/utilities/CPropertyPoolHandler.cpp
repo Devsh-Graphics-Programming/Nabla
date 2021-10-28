@@ -45,7 +45,7 @@ bool CPropertyPoolHandler::transferProperties(
 	IGPUCommandBuffer* const cmdbuf, IGPUFence* const fence,
 	const asset::SBufferBinding<video::IGPUBuffer>& scratch, const asset::SBufferBinding<video::IGPUBuffer>& addresses,
 	const TransferRequest* const requestsBegin, const TransferRequest* const requestsEnd,
-	system::logger_opt_ptr logger, const uint32_t baseDWORD
+	system::logger_opt_ptr logger, const uint32_t baseDWORD, const uint32_t endDWORD
 )
 {
 	if (requestsBegin==requestsEnd)
@@ -85,6 +85,7 @@ bool CPropertyPoolHandler::transferProperties(
 			const auto elementsByteSize = request.elementCount*request.elementSize;
 			maxDWORDs = core::max<uint32_t>(elementsByteSize/sizeof(uint32_t),maxDWORDs);
 		}
+		maxDWORDs = core::min(maxDWORDs,endDWORD);
 		if (maxDWORDs==0u)
 			return false;
 		
@@ -125,7 +126,7 @@ bool CPropertyPoolHandler::transferProperties(
 		auto set = m_dsCache->getSet(setIx);
 		cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,m_pipeline->getLayout(),0u,1u,&set,nullptr);
 		// dispatch
-		cmdbuf->pushConstants(m_pipeline->getLayout(),asset::ISpecializedShader::ESS_COMPUTE,0u,sizeof(baseDWORD),&baseDWORD);
+		cmdbuf->pushConstants(m_pipeline->getLayout(),asset::ISpecializedShader::ESS_COMPUTE,0u,sizeof(baseDWORD),&baseDWORD); // TODO: base and end/max needed
 		{
 			const auto& limits = m_device->getPhysicalDevice()->getLimits();
 			const auto invocationCoarseness = limits.maxOptimallyResidentWorkgroupInvocations*propertiesThisPass;
@@ -167,6 +168,16 @@ uint32_t CPropertyPoolHandler::transferProperties(
 
 	// somewhat decent attempt at packing
 	std::sort(requests,requests+requestCount,[](const UpStreamingRequest& rhs, const UpStreamingRequest& lhs)->bool{return rhs.getElementDWORDs()<lhs.getElementDWORDs();});
+
+	// TODO: slab sort
+	struct AddressUploadRange
+	{
+		AddressUploadRange() : source{ nullptr,nullptr }, destOff(0xdeadbeefu) {}
+
+		core::SRange<const uint32_t> source;
+		uint32_t destOff;
+	};
+
 
 	struct CumulativeHistogram
 	{
@@ -243,7 +254,7 @@ uint32_t CPropertyPoolHandler::transferProperties(
 		if (addr!=invalid_address)
 		{
 			// TODO: fill xfers and addresses
-			uint32_t offset = 0u;
+			uint32_t offset = addr;
 			for (auto i=0u; i<propertiesThisPass; i++)
 			{
 				const auto& request = localRequests[i];
@@ -252,18 +263,22 @@ uint32_t CPropertyPoolHandler::transferProperties(
 				transfer.flags = request.fill ? TransferRequest::EF_FILL:TransferRequest::EF_NONE;
 				transfer.elementSize = request.elementSize;
 				transfer.elementCount = request.elementCount;
-				transfer.buffer = uploadBuffer;
-				transfer.buffer.offset = offset;
-				if (request.addresses.srcData)
-					transfer.srcAddressesOffset = 0x45u;
-				else
-					transfer.srcAddressesOffset = IPropertyPool::invalid;
-				if (request.addresses.srcData)
-					transfer.dstAddressesOffset = 0x45u;
-				else
-					transfer.dstAddressesOffset = IPropertyPool::invalid;
 
-				offset += transfer.getSourceElementCount()*transfer.elementSize;
+				if (request.source.device2device)
+					transfer.buffer = request.source.buffer;
+				else
+				{
+					transfer.buffer = uploadBuffer;
+					transfer.buffer.offset = offset;
+					// copy
+					const auto bytesize = transfer.getSourceElementCount()*transfer.elementSize;
+					memcpy(upBuffPtr+offset,request.source.data,bytesize);
+					// advance
+					offset = core::alignUp(offset+bytesize,m_alignment);
+				}
+				// if valid, fill them later				
+				transfer.srcAddressesOffset = request.srcAddresses ? 0u:IPropertyPool::invalid;
+				transfer.dstAddressesOffset = request.dstAddresses ? 0u:IPropertyPool::invalid;
 			}
 			
 			// flush if needed

@@ -135,17 +135,17 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
         }
 
 		static inline constexpr uint32_t TransferCount = 4u;
-		//
-		struct TransferRequestBase
+		struct RequestBase
 		{
 			ITransformTree* tree;
+		};
+		//
+		struct TransferRequest : RequestBase
+		{
+			asset::SBufferRange<video::IGPUBuffer> nodes = {};
 			// if not present we set these properties to defaults (no parent and identity transform)
 			asset::SBufferBinding<video::IGPUBuffer> parents = {};
 			asset::SBufferBinding<video::IGPUBuffer> relativeTransforms = {};
-		};
-		struct TransferRequest : TransferRequestBase
-		{
-			asset::SBufferRange<video::IGPUBuffer> nodes = {};
 		};
 		inline bool setupTransfers(const TransferRequest& request, video::CPropertyPoolHandler::TransferRequest* transfers)
 		{
@@ -174,21 +174,82 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			transfers[3].buffer = getDefaultValueBufferBinding(ITransformTree::recomputed_stamp_prop_ix);
 			return true;
 		}
+		
 		//
-		struct AdditionRequest : TransferRequestBase
+		struct UpstreamRequestBase : RequestBase
 		{
-			video::CPropertyPoolHandler* poolHandler;
-			video::StreamingTransientDataBufferMT<>* upBuff;
+			video::CPropertyPoolHandler::UpStreamingRequest::Source parents = {};
+			video::CPropertyPoolHandler::UpStreamingRequest::Source relativeTransforms = {};
+		};
+		struct UpstreamRequest : UpstreamRequestBase
+		{
+			core::SRange<const ITransformTree::node_t> nodes = {nullptr,nullptr};
+		};
+		inline bool setupTransfers(const UpstreamRequest& request, video::CPropertyPoolHandler::UpStreamingRequest* upstreams)
+		{
+			if (!request.tree)
+				return false;
+			if (request.nodes.empty())
+				return true;
+
+			auto* pool = request.tree->getNodePropertyPool();
+
+			for (auto i=0u; i<TransferCount; i++)
+			{
+				upstreams[i].elementCount = request.nodes.size();
+				upstreams[i].srcAddresses = nullptr;
+				upstreams[i].dstAddresses = request.nodes.begin();
+			}
+			upstreams[0].setFromPool(pool,ITransformTree::parent_prop_ix);
+			if (request.parents.device2device || request.parents.data)
+			{
+				upstreams[0].fill = false;
+				upstreams[0].source = request.parents;
+			}
+			else
+			{
+				upstreams[0].fill = true;
+				upstreams[0].source.buffer = getDefaultValueBufferBinding(ITransformTree::parent_prop_ix);
+			}
+			upstreams[1].setFromPool(pool,ITransformTree::relative_transform_prop_ix);
+			if (request.relativeTransforms.device2device || request.relativeTransforms.data)
+			{
+				upstreams[1].fill = false;
+				upstreams[1].source = request.relativeTransforms;
+			}
+			else
+			{
+				upstreams[1].fill = true;
+				upstreams[1].source.buffer = getDefaultValueBufferBinding(ITransformTree::relative_transform_prop_ix);
+			}
+			upstreams[2].setFromPool(pool,ITransformTree::modified_stamp_prop_ix);
+			upstreams[2].fill = true;
+			upstreams[2].source.buffer = getDefaultValueBufferBinding(ITransformTree::modified_stamp_prop_ix);
+			upstreams[3].setFromPool(pool,ITransformTree::recomputed_stamp_prop_ix);
+			upstreams[3].fill = true;
+			upstreams[3].source.buffer = getDefaultValueBufferBinding(ITransformTree::recomputed_stamp_prop_ix);
+			return true;
+		}
+		//
+		struct AdditionRequest : UpstreamRequestBase
+		{
 			// if the `outNodes` have values not equal to `invalid_node` then we treat them as already allocated
 			// (this allows you to split allocation of nodes from setting up the transfers)
 			core::SRange<ITransformTree::node_t> outNodes = {nullptr,nullptr};
 			// must be in recording state
 			video::IGPUCommandBuffer* cmdbuf;
 			video::IGPUFence* fence;
+			asset::SBufferBinding<video::IGPUBuffer> scratch;
+			video::StreamingTransientDataBufferMT<>* upBuff;
+			video::CPropertyPoolHandler* poolHandler;
+			video::IGPUQueue* queue;
 			system::logger_opt_ptr logger = nullptr;
 		};
-#if 0
-		inline bool addNodes(const AdditionRequest& request, const std::chrono::steady_clock::time_point& maxWaitPoint=video::GPUEventWrapper::default_wait())
+		inline uint32_t addNodes(
+			const AdditionRequest& request, uint32_t& waitSemaphoreCount,
+			video::IGPUSemaphore* const*& semaphoresToWaitBeforeOverwrite,
+			const asset::E_PIPELINE_STAGE_FLAGS*& stagesToWaitForPerSemaphore, 
+			const std::chrono::steady_clock::time_point& maxWaitPoint=video::GPUEventWrapper::default_wait())
 		{
 			if (!request.tree || !request.poolHandler || !request.upBuff || !request.outNodes.begin() || !request.cmdbuf || !request.fence)
 				return false;
@@ -199,16 +260,19 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			if (!request.tree->allocateNodes(request.outNodes))
 				return false;
 
-			video::CPropertyPoolHandler::TransferRequest transfers[TransferCount];
-			TransferRequest req;
-			static_cast<TransferRequestBase&>(req) = request;
+			video::CPropertyPoolHandler::UpStreamingRequest upstreams[TransferCount];
+			UpstreamRequest req;
+			static_cast<UpstreamRequestBase&>(req) = request;
 			req.nodes = {request.outNodes.begin(),request.outNodes.end()};
-			if (!setupTransfers(req,transfers))
+			if (!setupTransfers(req,upstreams))
 				return false;
 
-			return request.poolHandler->transferProperties(request.upBuff,nullptr,request.cmdbuf,request.fence,transfers,transfers+TransferCount,request.logger,maxWaitPoint).transferSuccess;
+			auto upstreamsPtr = upstreams;
+			return request.poolHandler->transferProperties(
+				request.upBuff,request.cmdbuf,request.fence,request.queue,request.scratch,upstreamsPtr,TransferCount,
+				waitSemaphoreCount,semaphoresToWaitBeforeOverwrite,stagesToWaitForPerSemaphore,request.logger,maxWaitPoint
+			);
 		}
-#endif
 		// TODO: utility for adding skeleton node instances, etc.
 		 
 		//
