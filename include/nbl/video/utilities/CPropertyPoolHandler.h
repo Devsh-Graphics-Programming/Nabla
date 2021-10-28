@@ -100,43 +100,6 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 		//
 		struct UpStreamingRequest
 		{
-			struct Data
-			{
-				Data()
-				{
-					data = nullptr;
-					device2device = false;
-				}
-				~Data()
-				{
-					buffer.~SBufferBinding();
-				}
-
-				inline Data& operator=(const Data& other)
-				{
-					if (device2device)
-					{
-						buffer.~SBufferBinding();
-						data = nullptr;
-						device2device = false;
-					}
-					buffer = other.buffer;
-					return *this;
-				}
-
-				union
-				{
-					// device
-					asset::SBufferBinding<video::IGPUBuffer> buffer;
-					// host
-					struct
-					{
-						const void* data;
-						uint64_t device2device;
-					};
-				};
-			};
-
 			//
 			inline UpStreamingRequest(const UpStreamingRequest& other)
 			{
@@ -148,9 +111,23 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 				destination = other.destination;
 				elementSize = other.elementSize;
 				elementCount = other.elementCount;
-				source = other.source;
-				srcAddresses = other.srcAddresses;
-				dstAddresses = other.dstAddresses;
+				if (source.device2device)
+				{
+					source.buffer.~SBufferBinding();
+					source.data = nullptr;
+					source.device2device = false;
+				}
+				source.buffer = other.source.buffer;
+				if (addresses.device2device)
+				{
+					addresses.buffer.~smart_refctd_ptr();
+					addresses.srcData = nullptr;
+					addresses.dstData = nullptr;
+					addresses.device2device = false;
+				}
+				addresses.srcOffset = other.addresses.srcOffset;
+				addresses.dstOffset = other.addresses.dstOffset;
+				addresses.buffer = other.addresses.buffer;
 				return *this;
 			}
 
@@ -161,19 +138,73 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 				elementSize = pool->getPropertySize(propertyID);
 			}
 
+			//
+			inline uint32_t getElementDWORDs() const
+			{
+				return uint32_t(elementSize/sizeof(uint32_t))*elementCount;
+			}
+
 			asset::SBufferRange<IGPUBuffer> destination = {};
+			bool fill = false;
 			uint16_t elementSize = 0u;
 			uint32_t elementCount = 0u;
-			Data source = {};
+			union Source
+			{
+				Source()
+				{
+					data = nullptr;
+					device2device = false;
+				}
+				~Source()
+				{
+					buffer.~SBufferBinding();
+				}
+
+				// device
+				asset::SBufferBinding<video::IGPUBuffer> buffer;
+				// host
+				struct
+				{
+					const void* data;
+					uint64_t device2device;
+				};
+			} source;
 			// can be invalid, if invalid, treated like an implicit {0,1,2,3,...} iota view
-			Data srcAddresses = {};
-			Data dstAddresses = {};
+			union Addresses
+			{
+				Addresses()
+				{
+					srcData = nullptr;
+					dstData = nullptr;
+					device2device = false;
+				}
+				~Addresses()
+				{
+					buffer.~smart_refctd_ptr();
+				}
+
+				// device
+				struct
+				{
+					uint64_t srcOffset;
+					uint64_t dstOffset;
+					core::smart_refctd_ptr<video::IGPUBuffer> buffer;
+				};
+				// host
+				struct
+				{
+					const void* srcData;
+					const void* dstData;
+					uint64_t device2device;
+				};
+			} addresses;
 		};
 		// Fence must be not pending yet, `cmdbuf` must be already in recording state and be resettable.
-		// `requests` will be consumed (destructively processed)
-		[[nodiscard]] bool transferProperties(
+		// `requests` will be consumed (destructively processed by sorting) and incremented by however many requests were fully processed
+		// return value tells you how many DWORDs are remaining in the new first batch pointed to by `requests`
+		[[nodiscard]] uint32_t transferProperties(
 			StreamingTransientDataBufferMT<>* const upBuff, IGPUCommandBuffer* const cmdbuf, IGPUFence* const fence, IGPUQueue* queue,
-			const asset::SBufferBinding<video::IGPUBuffer>& scratch, UpStreamingRequest* const requestsBegin, UpStreamingRequest* const requestsEnd,
+			const asset::SBufferBinding<video::IGPUBuffer>& scratch, UpStreamingRequest*& requests, const uint32_t requestCount,
 			uint32_t& waitSemaphoreCount, IGPUSemaphore* const*& semaphoresToWaitBeforeOverwrite, const asset::E_PIPELINE_STAGE_FLAGS*& stagesToWaitForPerSemaphore,
 			system::logger_opt_ptr logger, const std::chrono::high_resolution_clock::time_point& maxWaitPoint=std::chrono::high_resolution_clock::now()+std::chrono::microseconds(500u)
 		);
@@ -232,6 +263,7 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 		core::smart_refctd_ptr<TransferDescriptorSetCache> m_dsCache;
 
 		uint16_t m_maxPropertiesPerPass;
+		uint32_t m_alignment;
 #if 0
 		struct AddressUploadRange
 		{
@@ -242,7 +274,6 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 		};
 		AddressUploadRange* m_tmpAddressRanges;
 #endif
-		uint32_t* m_tmpAddresses, *m_tmpSizes, *m_alignments;
 };
 
 

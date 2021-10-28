@@ -10,6 +10,7 @@ CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice
 {
 	const auto& deviceLimits = m_device->getPhysicalDevice()->getLimits();
 	m_maxPropertiesPerPass = core::min<uint32_t>((deviceLimits.maxPerStageSSBOs-2u)/2u,MaxPropertiesPerDispatch);
+	m_alignment = core::max(deviceLimits.SSBOAlignment,256u/*TODO: deviceLimits.nonCoherentAtomSize*/);
 
 	auto system = m_device->getPhysicalDevice()->getSystem();
 	auto glsl = system->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/property_pool/copy.comp")>();
@@ -18,14 +19,7 @@ CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice
 	auto specshader = m_device->createGPUSpecializedShader(gpushader.get(),{nullptr,nullptr,"main",asset::ISpecializedShader::ESS_COMPUTE});
 
 	const auto maxStreamingAllocations = 2u*m_maxPropertiesPerPass+2u;
-	{
-		//m_tmpAddressRanges = reinterpret_cast<AddressUploadRange*>(malloc((sizeof(AddressUploadRange)+sizeof(uint32_t)*3u)*maxStreamingAllocations));
-		//m_tmpAddresses = reinterpret_cast<uint32_t*>(m_tmpAddressRanges+maxStreamingAllocations);
-		m_tmpAddresses = reinterpret_cast<uint32_t*>(malloc(sizeof(uint32_t)*3u*maxStreamingAllocations));
-		m_tmpSizes = reinterpret_cast<uint32_t*>(m_tmpAddresses+maxStreamingAllocations);
-		m_alignments = reinterpret_cast<uint32_t*>(m_tmpSizes+maxStreamingAllocations);
-		std::fill_n(m_alignments,maxStreamingAllocations,core::max(deviceLimits.SSBOAlignment,256u/*TODO: deviceLimits.nonCoherentAtomSize*/));
-	}
+	//m_tmpAddressRanges = reinterpret_cast<AddressUploadRange*>(malloc((sizeof(AddressUploadRange)+sizeof(uint32_t)*3u)*maxStreamingAllocations));
 	
 	IGPUDescriptorSetLayout::SBinding bindings[4];
 	for (auto j=0; j<4; j++)
@@ -161,34 +155,88 @@ bool CPropertyPoolHandler::transferProperties(
 		return copyPass(requests,leftOverProps)&&result;
 }
 
-bool CPropertyPoolHandler::transferProperties(
+uint32_t CPropertyPoolHandler::transferProperties(
 	StreamingTransientDataBufferMT<>* const upBuff, IGPUCommandBuffer* const cmdbuf, IGPUFence* const fence, IGPUQueue* queue,
-	const asset::SBufferBinding<video::IGPUBuffer>& scratch, UpStreamingRequest* const requestsBegin, UpStreamingRequest* const requestsEnd,
+	const asset::SBufferBinding<video::IGPUBuffer>& scratch, UpStreamingRequest* &requests, const uint32_t requestCount,
 	uint32_t& waitSemaphoreCount, IGPUSemaphore* const*& semaphoresToWaitBeforeOverwrite, const asset::E_PIPELINE_STAGE_FLAGS*& stagesToWaitForPerSemaphore,
 	system::logger_opt_ptr logger, const std::chrono::high_resolution_clock::time_point& maxWaitPoint
 )
 {
-	if (requestsBegin==requestsEnd)
-		return true;
+	if (!requestCount)
+		return 0u;
 
 	// somewhat decent attempt at packing
-	std::sort(requestsBegin,requestsEnd,[](const UpStreamingRequest& rhs, const UpStreamingRequest& lhs)->bool{return rhs.elementCount*rhs.elementSize<lhs.elementCount*lhs.elementSize;});
+	std::sort(requests,requests+requestCount,[](const UpStreamingRequest& rhs, const UpStreamingRequest& lhs)->bool{return rhs.getElementDWORDs()<lhs.getElementDWORDs();});
 
 	//
-	uint8_t* const upBuffPtr = reinterpret_cast<uint8_t*>(upBuff->getBufferPointer());
 	TransferRequest xfers[MaxPropertiesPerDispatch];
+	uint8_t* const upBuffPtr = reinterpret_cast<uint8_t*>(upBuff->getBufferPointer());
 	const asset::SBufferBinding<video::IGPUBuffer> uploadBuffer = {0ull,core::smart_refctd_ptr<video::IGPUBuffer>(upBuff->getBuffer())};
-	auto attempt = [&](const uint32_t baseDWORDs, const uint32_t remainingDWORDs, const UpStreamingRequest* localRequests, uint32_t propertiesThisPass) -> uint32_t
+	auto attempt = [&](const uint32_t baseDWORDs, const uint32_t remainingDWORDs, UpStreamingRequest* &localRequests, uint32_t& propertiesThisPass) -> uint32_t
 	{
+		// skip requests that won't participate
+		while (propertiesThisPass && localRequests->getElementDWORDs()<=baseDWORDs)
+		{
+			localRequests++;
+			propertiesThisPass++;
+		}
+		// nothing to do
+		if (propertiesThisPass==0u)
+			return 0u;
+		/*
+		// 1 invocation transfers 1 DWORD
+		uint32_t bytesPerInvocation = 0u;
+		for (auto i=0u; i<propertiesThisPass; i++)
+		{
+			const auto& request = localRequests[i];
+			// needs DWORDs to allocate for source data
+			if (!request.source.device2device)
+				bytesPerInvocation += sizeof(uint32_t);
+			// needs DWORDs to allocate for indices
+			if (!request.addresses.device2device)
+			{
+				bytesPerInvocation += sizeof(uint32_t);
+				if (!request.fill)
+					bytesPerInvocation += sizeof(uint32_t);
+			}
+		}
+        const uint32_t paddedSize = static_cast<uint32_t>(core::min<uint64_t>(
+			core::alignDown(upBuff->max_size(),m_alignment),
+			core::alignUp(remainingDWORDs*bytesPerInvocation,m_alignment)
+		));
+		const uint32_t doneDWORDs = core::min(paddedSize/bytesPerInvocation,remainingDWORDs);
+
 		constexpr auto invalid_address = std::remove_reference_t<decltype(upBuff->getAllocator())>::invalid_address;
-		// TODO: redo
-		uint32_t doneDWORDs = core::min(upBuff->max_size()/propertiesThisPass,remainingDWORDs);
-
-		// TODO: fill xfers and addresses
-		// TODO: adjust `propertiesThisPass`
-
-		// no pipeline barriers necessary because write and optional flush happens before submit, and memory allocation is reclaimed after fence signal
-		return transferProperties(cmdbuf,fence,scratch,uploadBuffer,xfers,xfers+propertiesThisPass,logger) ? doneDWORDs:0u;
+		auto addr = invalid_address;
+		upBuff->multi_alloc(maxWaitPoint,1u,&addr,&paddedSize,&m_alignment);
+		if (addr!=invalid_address)
+		{
+			// TODO: fill xfers and addresses
+			for (auto i=0u; i<propertiesThisPass; i++)
+			{
+				const auto& request = localRequests[i];
+				auto& transfer = xfers[i];
+				transfer.memblock = request.destination;
+				transfer.flags = request.fill ? TransferRequest::EF_FILL:TransferRequest::EF_NONE;
+			}
+			
+			// flush if needed
+			if (upBuff->needsManualFlushOrInvalidate())
+			{
+				IDriverMemoryAllocation::MappedMemoryRange flushRange;
+				flushRange.memory = uploadBuffer.buffer->getBoundMemory();
+				flushRange.range = {addr,paddedSize};
+				m_device->flushMappedMemoryRanges(1u,&flushRange);
+			}
+			// no pipeline barriers necessary because write and optional flush happens before submit, and memory allocation is reclaimed after fence signal
+			if (transferProperties(cmdbuf,fence,scratch,uploadBuffer,xfers,xfers+propertiesThisPass,logger))
+			{
+				upBuff->multi_free(1u,&addr,&paddedSize,core::smart_refctd_ptr<IGPUFence>(fence),&cmdbuf);
+				return doneDWORDs;
+			}
+			upBuff->multi_free(1u,&addr,&paddedSize);
+		}*/
+		return 0u;
 	};
 	auto submit = [&]() -> void
 	{
@@ -213,43 +261,56 @@ bool CPropertyPoolHandler::transferProperties(
 		cmdbuf->reset(IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
 		cmdbuf->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
 	};
-	auto copyPass = [&](const UpStreamingRequest* localRequests, uint32_t propertiesThisPass) -> bool
+	// return remaining DWORDs
+	auto copyPass = [&](UpStreamingRequest* &localRequests, uint32_t propertiesThisPass) -> uint32_t
 	{
+		const auto localRequestsEnd = localRequests+propertiesThisPass;
 		// figure out how much work we have to do
 		uint32_t maxDWORDs = 0u;
 		for (uint32_t i=0; i<propertiesThisPass; i++)
 		{
 			const auto& request = localRequests[i];
-			const auto elementsByteSize = request.elementCount*request.elementSize;
-			maxDWORDs = core::max<uint32_t>(elementsByteSize/sizeof(uint32_t),maxDWORDs);
+			maxDWORDs = core::max<uint32_t>(request.getElementDWORDs(),maxDWORDs);
 		}
 		// do the transfers
-		for (uint32_t doneDWORDs=0u; doneDWORDs<maxDWORDs;)
+		uint32_t doneDWORDs=0u;
+		for (uint32_t submitDWORDs=~0u; doneDWORDs<maxDWORDs;)
 		{
-			doneDWORDs += attempt(doneDWORDs,maxDWORDs-doneDWORDs,localRequests,propertiesThisPass);
-			// need to try another chunk, need to submit
-			if (doneDWORDs!=maxDWORDs)
-				submit();
+			const auto thisDWORDs = attempt(doneDWORDs,maxDWORDs-doneDWORDs,localRequests,propertiesThisPass);
+			if (thisDWORDs==0u)
+			{
+				if (submitDWORDs)
+				{
+					submit();
+					submitDWORDs = 0u;
+					continue; // try again
+				}
+				else // second fail in a row
+					break;
+			}
+			submitDWORDs += thisDWORDs;
+			doneDWORDs += thisDWORDs;
 		}
-		return true; // TODO: figure out better return val
+		if (doneDWORDs!=maxDWORDs)
+			return maxDWORDs-doneDWORDs;
+		requests = localRequestsEnd;
+		return 0u;
 	};
 
-	bool success = true;
-	auto requests = requestsBegin;
-	const auto totalProps = std::distance(requestsBegin,requestsEnd);
-	const auto fullPasses = totalProps/m_maxPropertiesPerPass;
+	const auto fullPasses = requestCount/m_maxPropertiesPerPass;
 	// transfer as many properties at once as possible
 	for (uint32_t i=0; i<fullPasses; i++)
 	{
-		success = copyPass(requests,m_maxPropertiesPerPass)&&success;
-		requests += m_maxPropertiesPerPass;
+		const auto remainingDWORDs = copyPass(requests,m_maxPropertiesPerPass);
+		if (remainingDWORDs)
+			return remainingDWORDs;
 	}
 
-	const auto leftOverProps = totalProps-fullPasses*m_maxPropertiesPerPass;
+	const auto leftOverProps = requestCount-fullPasses*m_maxPropertiesPerPass;
 	if (leftOverProps)
-		success = copyPass(requests,leftOverProps)&&success;
+		return copyPass(requests,leftOverProps);
 	
-	return success;
+	return 0u;
 #if 0
 			uint32_t upAllocations = 1u;
 			for (uint32_t i=0u; i<propertiesThisPass; i++)
@@ -412,21 +473,7 @@ bool CPropertyPoolHandler::transferProperties(
 					memcpy(upBuffPtr+addr,request.source,request.getSourceElementCount()*request.elementSize);
 				}
 
-				// flush if needed
-				if (upBuff->needsManualFlushOrInvalidate())
-					m_device->flushMappedMemoryRanges(upAllocations,flushRanges);
 			}
-
-
-
-
-
-
-			// dont drop the cmdbuffer until the transfer is complete
-			auto cmdbuffs = reinterpret_cast<const IGPUCommandBuffer**>(m_tmpAddressRanges);
-			cmdbuffs[0] = cmdbuf;
-			std::fill_n(cmdbuffs+1u,upAllocations-1u,nullptr);
-			upBuff->multi_free(upAllocations,m_tmpAddresses,m_tmpSizes,core::smart_refctd_ptr<IGPUFence>(fence),cmdbuffs);
 #endif
 }
 
