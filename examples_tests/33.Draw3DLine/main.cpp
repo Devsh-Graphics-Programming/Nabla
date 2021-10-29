@@ -8,111 +8,179 @@
 #include "nbl/ext/DebugDraw/CDraw3DLine.h"
 #include "../common/CommonAPI.h"
 
-
 using namespace nbl;
 using namespace core;
 
-int main()
+class Draw3DLineSampleApp : public ApplicationBase
 {
-	constexpr uint32_t WIN_W = 1280;
-	constexpr uint32_t WIN_H = 720;
-	constexpr uint32_t SC_IMG_COUNT = 3u;
-	constexpr uint32_t FRAMES_IN_FLIGHT = 2u;
+	constexpr static uint32_t WIN_W = 1280;
+	constexpr static uint32_t WIN_H = 720;
+	constexpr static uint32_t SC_IMG_COUNT = 3u;
+	constexpr static uint32_t FRAMES_IN_FLIGHT = 5u;
+	static constexpr uint64_t MAX_TIMEOUT = 99999999999999ull;
+	static_assert(FRAMES_IN_FLIGHT > SC_IMG_COUNT);
 
-	CommonAPI::SFeatureRequest<video::IAPIConnection::E_FEATURE> requiredInstanceFeatures = {};
-	requiredInstanceFeatures.count = 1u;
-	video::IAPIConnection::E_FEATURE requiredFeatures_Instance[] = { video::IAPIConnection::EF_SURFACE };
-	requiredInstanceFeatures.features = requiredFeatures_Instance;
+	core::smart_refctd_ptr<nbl::ui::IWindow> win;
+	core::smart_refctd_ptr<CommonAPI::CommonAPIEventCallback> windowCb;
+	core::smart_refctd_ptr<nbl::video::IAPIConnection> api;
+	core::smart_refctd_ptr<nbl::video::ISurface> surface;
+	core::smart_refctd_ptr<nbl::video::ILogicalDevice> device;
+	video::IPhysicalDevice* gpu;
+	std::array<video::IGPUQueue*, CommonAPI::InitOutput::MaxQueuesCount> queues;
+	core::smart_refctd_ptr<nbl::video::ISwapchain> sc;
+	core::smart_refctd_ptr<nbl::video::IGPURenderpass> renderpass;
+	std::array<nbl::core::smart_refctd_ptr<nbl::video::IGPUFramebuffer>, CommonAPI::InitOutput::MaxSwapChainImageCount> fbo;
+	std::array<nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandPool>, CommonAPI::InitOutput::MaxQueuesCount> commandPools;
+	core::smart_refctd_ptr<nbl::asset::IAssetManager> assetManager;
+	core::smart_refctd_ptr<nbl::system::ISystem> filesystem;
+	video::IGPUObjectFromAssetConverter::SParams cpu2gpuParams;
+	core::smart_refctd_ptr<nbl::video::IUtilities> utils;
 
-	CommonAPI::SFeatureRequest<video::IAPIConnection::E_FEATURE> optionalInstanceFeatures = {};
+	int32_t m_resourceIx = -1;
 
-	CommonAPI::SFeatureRequest<video::ILogicalDevice::E_FEATURE> requiredDeviceFeatures = {};
-	requiredDeviceFeatures.count = 1u;
-	video::ILogicalDevice::E_FEATURE requiredFeatures_Device[] = { video::ILogicalDevice::EF_SWAPCHAIN };
-	requiredDeviceFeatures.features = requiredFeatures_Device;
+	core::smart_refctd_ptr<ext::DebugDraw::CDraw3DLine> m_draw3DLine;
+	core::smart_refctd_ptr<video::IGPUGraphicsPipeline> m_pipeline;
 
-	CommonAPI::SFeatureRequest< video::ILogicalDevice::E_FEATURE> optionalDeviceFeatures = {};
+	core::smart_refctd_ptr<video::IGPUCommandBuffer> m_cmdbufs[FRAMES_IN_FLIGHT];
+	core::smart_refctd_ptr<video::IGPUFence> m_frameComplete[FRAMES_IN_FLIGHT] = { nullptr };
+	core::smart_refctd_ptr<video::IGPUSemaphore> m_imageAcquired[FRAMES_IN_FLIGHT] = { nullptr };
+	core::smart_refctd_ptr<video::IGPUSemaphore> m_renderFinished[FRAMES_IN_FLIGHT] = { nullptr };
 
-	const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_STORAGE_BIT);
-	const video::ISurface::SFormat surfaceFormat(asset::EF_B8G8R8A8_UNORM, asset::ECP_COUNT, asset::EOTF_UNKNOWN);
-	const asset::E_FORMAT depthFormat = asset::EF_UNKNOWN;
-
-	auto initOutp = CommonAPI::Init<WIN_W, WIN_H, SC_IMG_COUNT>(
-		video::EAT_VULKAN,
-		"33.Draw3DLine",
-		requiredInstanceFeatures,
-		optionalInstanceFeatures,
-		requiredDeviceFeatures,
-		optionalDeviceFeatures,
-		swapchainImageUsage,
-		surfaceFormat,
-		depthFormat,
-		true);
-
-	auto win = std::move(initOutp.window);
-	auto windowCb = std::move(initOutp.windowCb);
-	auto api = std::move(initOutp.apiConnection);
-	auto surface = std::move(initOutp.surface);
-	auto device = std::move(initOutp.logicalDevice);
-	auto gpu = std::move(initOutp.physicalDevice);
-	auto queue = std::move(initOutp.queues[decltype(initOutp)::EQT_GRAPHICS]);
-	auto sc = std::move(initOutp.swapchain);
-	auto renderpass = std::move(initOutp.renderpass);
-	auto fbo = std::move(initOutp.fbo);
-	auto cmdpool = std::move(initOutp.commandPool);
-	auto assetManager = std::move(initOutp.assetManager);
-	auto filesystem = std::move(initOutp.system);
-	auto cpu2gpuParams = std::move(initOutp.cpu2gpuParams);
-	auto utils = std::move(initOutp.utilities);
-
-	auto draw3DLine = ext::DebugDraw::CDraw3DLine::create(device);
-
-	core::vector<std::pair<ext::DebugDraw::S3DLineVertex, ext::DebugDraw::S3DLineVertex>> lines;
-
-	for (int i = 0; i < 100; ++i)
+public:
+	void setWindow(core::smart_refctd_ptr<nbl::ui::IWindow>&& wnd) override
 	{
-		lines.push_back({
+		win = std::move(wnd);
+	}
+	nbl::ui::IWindow* getWindow() override
+	{
+		return win.get();
+	}
+	void setSystem(core::smart_refctd_ptr<nbl::system::ISystem>&& system) override
+	{
+		system = std::move(system);
+	}
+
+	APP_CONSTRUCTOR(Draw3DLineSampleApp);
+
+	void onAppInitialized_impl() override
+	{
+		CommonAPI::SFeatureRequest<video::IAPIConnection::E_FEATURE> requiredInstanceFeatures = {};
+		requiredInstanceFeatures.count = 1u;
+		video::IAPIConnection::E_FEATURE requiredFeatures_Instance[] = { video::IAPIConnection::EF_SURFACE };
+		requiredInstanceFeatures.features = requiredFeatures_Instance;
+
+		CommonAPI::SFeatureRequest<video::IAPIConnection::E_FEATURE> optionalInstanceFeatures = {};
+
+		CommonAPI::SFeatureRequest<video::ILogicalDevice::E_FEATURE> requiredDeviceFeatures = {};
+		requiredDeviceFeatures.count = 1u;
+		video::ILogicalDevice::E_FEATURE requiredFeatures_Device[] = { video::ILogicalDevice::EF_SWAPCHAIN };
+		requiredDeviceFeatures.features = requiredFeatures_Device;
+
+		CommonAPI::SFeatureRequest< video::ILogicalDevice::E_FEATURE> optionalDeviceFeatures = {};
+
+		const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_STORAGE_BIT);
+		const video::ISurface::SFormat surfaceFormat(asset::EF_B8G8R8A8_UNORM, asset::ECP_COUNT, asset::EOTF_UNKNOWN);
+		const asset::E_FORMAT depthFormat = asset::EF_UNKNOWN;
+
+		CommonAPI::InitOutput initOutp;
+		initOutp.window = core::smart_refctd_ptr(win);
+		CommonAPI::Init(
+			initOutp,
+			video::EAT_OPENGL,
+			"33.Draw3DLine",
+			requiredInstanceFeatures,
+			optionalInstanceFeatures,
+			requiredDeviceFeatures,
+			optionalDeviceFeatures,
+			WIN_W, WIN_H, SC_IMG_COUNT,
+			swapchainImageUsage,
+			surfaceFormat,
+			depthFormat);
+
+		win = std::move(initOutp.window);
+		windowCb = std::move(initOutp.windowCb);
+		api = std::move(initOutp.apiConnection);
+		surface = std::move(initOutp.surface);
+		device = std::move(initOutp.logicalDevice);
+		gpu = std::move(initOutp.physicalDevice);
+		queues = std::move(initOutp.queues);
+		sc = std::move(initOutp.swapchain);
+		renderpass = std::move(initOutp.renderpass);
+		fbo = std::move(initOutp.fbo);
+		commandPools = std::move(initOutp.commandPools);
+		assetManager = std::move(initOutp.assetManager);
+		filesystem = std::move(initOutp.system);
+		cpu2gpuParams = std::move(initOutp.cpu2gpuParams);
+		utils = std::move(initOutp.utilities);
+
+		m_draw3DLine = ext::DebugDraw::CDraw3DLine::create(device);
+
+		core::vector<std::pair<ext::DebugDraw::S3DLineVertex, ext::DebugDraw::S3DLineVertex>> lines;
+
+		for (int i = 0; i < 100; ++i)
 		{
-			{ 0.f, 0.f, 0.f },     // start origin
-			{ 1.f, 0.f, 0.f, 1.f } // start color
-		}, {
-			{ i % 2 ? float(i) : float(-i), 50.f, 10.f}, // end origin
-			{ 1.f, 0.f, 0.f, 1.f }         // end color
+			lines.push_back({
+			{
+				{ 0.f, 0.f, 0.f },     // start origin
+				{ 1.f, 0.f, 0.f, 1.f } // start color
+			}, {
+				{ i % 2 ? float(i) : float(-i), 50.f, 10.f}, // end origin
+				{ 1.f, 0.f, 0.f, 1.f }         // end color
+			}
+				});
 		}
-			});
+
+		matrix4SIMD proj = matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(core::radians(90), float(WIN_W) / WIN_H, 0.01, 100);
+		matrix3x4SIMD view = matrix3x4SIMD::buildCameraLookAtMatrixRH(core::vectorSIMDf(0, 0, -10), core::vectorSIMDf(0, 0, 0), core::vectorSIMDf(0, 1, 0));
+		auto viewProj = matrix4SIMD::concatenateBFollowedByA(proj, matrix4SIMD(view));
+		
+		m_draw3DLine->setData(viewProj, lines);
+		core::smart_refctd_ptr<video::IGPUFence> fence;
+		m_draw3DLine->updateVertexBuffer(utils.get(), queues[CommonAPI::InitOutput::EQT_GRAPHICS], &fence);
+		device->waitForFences(1, const_cast<video::IGPUFence**>(&fence.get()), false, MAX_TIMEOUT);
+
+		{
+			auto* rpIndependentPipeline = m_draw3DLine->getRenderpassIndependentPipeline();
+			video::IGPUGraphicsPipeline::SCreationParams gp_params;
+			gp_params.rasterizationSamplesHint = asset::IImage::ESCF_1_BIT;
+			gp_params.renderpass = core::smart_refctd_ptr<video::IGPURenderpass>(renderpass);
+			gp_params.renderpassIndependent = core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline>(rpIndependentPipeline);
+			gp_params.subpassIx = 0u;
+
+			m_pipeline = device->createGPUGraphicsPipeline(nullptr, std::move(gp_params));
+		}
+
+		device->createCommandBuffers(commandPools[CommonAPI::InitOutput::EQT_GRAPHICS].get(), video::IGPUCommandBuffer::EL_PRIMARY, FRAMES_IN_FLIGHT, m_cmdbufs);
+
+		for (uint32_t i = 0u; i < FRAMES_IN_FLIGHT; i++)
+		{
+			m_imageAcquired[i] = device->createSemaphore();
+			m_renderFinished[i] = device->createSemaphore();
+		}
 	}
 
-	constexpr uint64_t MAX_TIMEOUT = 99999999999999ull; //ns
-	matrix4SIMD proj = matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(core::radians(90), float(WIN_W) / WIN_H, 0.01, 100);
-	matrix3x4SIMD view = matrix3x4SIMD::buildCameraLookAtMatrixRH(core::vectorSIMDf(0, 0, -10), core::vectorSIMDf(0, 0, 0), core::vectorSIMDf(0, 1, 0));
-	auto viewProj = matrix4SIMD::concatenateBFollowedByA(proj, matrix4SIMD(view));
-	core::smart_refctd_ptr<video::IGPUGraphicsPipeline> pipeline;
-	draw3DLine->setData(viewProj, lines);
-	core::smart_refctd_ptr<video::IGPUFence> fence;
-	draw3DLine->updateVertexBuffer(utils.get(), queue, &fence);
-	device->waitForFences(1, const_cast<video::IGPUFence**>(&fence.get()), false, MAX_TIMEOUT);
-
+	void onAppTerminated_impl() override
 	{
-		auto* rpIndependentPipeline = draw3DLine->getRenderpassIndependentPipeline();
-		video::IGPUGraphicsPipeline::SCreationParams gp_params;
-		gp_params.rasterizationSamplesHint = asset::IImage::ESCF_1_BIT;
-		gp_params.renderpass = core::smart_refctd_ptr<video::IGPURenderpass>(renderpass);
-		gp_params.renderpassIndependent = core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline>(rpIndependentPipeline);
-		gp_params.subpassIx = 0u;
-
-		pipeline = device->createGPUGraphicsPipeline(nullptr, std::move(gp_params));
+		device->waitIdle();
 	}
 
-	// Command buffers
-	const uint32_t swapchainImageCount = sc->getImageCount();
-	assert(swapchainImageCount <= SC_IMG_COUNT);
-	core::smart_refctd_ptr<video::IGPUCommandBuffer> cmdbufs[SC_IMG_COUNT];
-	device->createCommandBuffers(cmdpool.get(), video::IGPUCommandBuffer::EL_PRIMARY, swapchainImageCount, cmdbufs);
-
-	for (uint32_t i = 0u; i < swapchainImageCount; ++i)
+	void workLoopBody() override
 	{
-		auto& cb = cmdbufs[i];
-		auto& fb = fbo[i];
+		m_resourceIx++;
+		if (m_resourceIx >= FRAMES_IN_FLIGHT)
+			m_resourceIx = 0;
+
+		auto& cb = m_cmdbufs[m_resourceIx];
+		auto& fence = m_frameComplete[m_resourceIx];
+		if (fence)
+		{
+			while (device->waitForFences(1u, &fence.get(), false, MAX_TIMEOUT) == video::IGPUFence::ES_TIMEOUT)
+			{
+			}
+			device->resetFences(1u, &fence.get());
+		}
+		else
+			fence = device->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
 
 		cb->begin(0);
 
@@ -130,6 +198,10 @@ int main()
 		scissor.extent = { WIN_W, WIN_H };
 		cb->setScissor(0u, 1u, &scissor);
 
+		// acquire image 
+		uint32_t imgnum = 0u;
+		sc->acquireNextImage(MAX_TIMEOUT, m_imageAcquired[m_resourceIx].get(), nullptr, &imgnum);
+
 		size_t offset = 0u;
 		video::IGPUCommandBuffer::SRenderpassBeginInfo info;
 		asset::SClearValue clear;
@@ -141,67 +213,39 @@ int main()
 		clear.color.float32[2] = 1.f;
 		clear.color.float32[3] = 1.f;
 		info.renderpass = renderpass;
-		info.framebuffer = fb;
+		info.framebuffer = fbo[imgnum];
 		info.clearValueCount = 1u;
 		info.clearValues = &clear;
 		info.renderArea = area;
 		cb->beginRenderPass(&info, asset::ESC_INLINE);
-		draw3DLine->recordToCommandBuffer(cb.get(), pipeline.get());
+		m_draw3DLine->recordToCommandBuffer(cb.get(), m_pipeline.get());
 		cb->endRenderPass();
 
 		cb->end();
+
+		CommonAPI::Submit(
+			device.get(),
+			sc.get(),
+			m_cmdbufs[m_resourceIx].get(),
+			queues[CommonAPI::InitOutput::EQT_GRAPHICS],
+			m_imageAcquired[m_resourceIx].get(),
+			m_renderFinished[m_resourceIx].get(),
+			fence.get());
+
+		CommonAPI::Present(
+			device.get(),
+			sc.get(),
+			queues[CommonAPI::InitOutput::EQT_GRAPHICS],
+			m_renderFinished[m_resourceIx].get(),
+			imgnum);
 	}
 
-	// Sync primitives
-	core::smart_refctd_ptr<video::IGPUFence> frameFences[FRAMES_IN_FLIGHT] = { nullptr };
-	core::smart_refctd_ptr<video::IGPUSemaphore> acquireSemaphores[FRAMES_IN_FLIGHT] = { nullptr };
-	core::smart_refctd_ptr<video::IGPUSemaphore> releaseSemaphores[FRAMES_IN_FLIGHT] = { nullptr };
-
-	for (uint32_t i = 0u; i < FRAMES_IN_FLIGHT; i++)
+	bool keepRunning() override
 	{
-		acquireSemaphores[i] = device->createSemaphore();
-		releaseSemaphores[i] = device->createSemaphore();
-		frameFences[i] = device->createFence(video::IGPUFence::E_CREATE_FLAGS::ECF_SIGNALED_BIT);
+		return windowCb->isWindowOpen();
 	}
+};
 
-	uint32_t currentFrameIndex = 0u;
-	while (windowCb->isWindowOpen())
-	{
-		video::IGPUSemaphore* acquireSemaphore_frame = acquireSemaphores[currentFrameIndex].get();
-		video::IGPUSemaphore* releaseSemaphore_frame = releaseSemaphores[currentFrameIndex].get();
-		video::IGPUFence* fence_frame = frameFences[currentFrameIndex].get();
+NBL_COMMON_API_MAIN(Draw3DLineSampleApp)
 
-		video::IGPUFence::E_STATUS retval = device->waitForFences(1u, &fence_frame, true, ~0ull);
-		assert(retval == video::IGPUFence::ES_SUCCESS);
-
-		uint32_t imgnum = 0u;
-		auto acquireStatus = sc->acquireNextImage(MAX_TIMEOUT, acquireSemaphore_frame, nullptr, &imgnum);
-
-		if (acquireStatus == video::ISwapchain::EAIR_SUCCESS)
-		{
-			device->resetFences(1u, &fence_frame);
-
-			CommonAPI::Submit(
-				device.get(),
-				sc.get(),
-				cmdbufs[imgnum].get(),
-				queue,
-				acquireSemaphore_frame,
-				releaseSemaphore_frame,
-				fence_frame);
-
-			CommonAPI::Present(
-				device.get(),
-				sc.get(),
-				queue,
-				releaseSemaphore_frame,
-				imgnum);
-
-			currentFrameIndex = (currentFrameIndex + 1) % FRAMES_IN_FLIGHT;
-		}
-	}
-
-	device->waitIdle();
-
-	return 0;
-}
+extern "C" {  _declspec(dllexport) DWORD NvOptimusEnablement = 0x00000001; }

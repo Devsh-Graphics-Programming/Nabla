@@ -25,7 +25,6 @@ class SpecializationConstantsSampleApp : public ApplicationBase
 	static constexpr uint64_t MAX_TIMEOUT = 99999999999999ull;
 	static_assert(FRAMES_IN_FLIGHT > SC_IMG_COUNT);
 
-	core::smart_refctd_ptr<nbl::ui::IWindowManager> windowManager;
 	core::smart_refctd_ptr<nbl::ui::IWindow> win;
 	core::smart_refctd_ptr<CommonAPI::CommonAPIEventCallback> windowCb;
 	core::smart_refctd_ptr<nbl::video::IAPIConnection> api;
