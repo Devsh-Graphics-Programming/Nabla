@@ -292,6 +292,8 @@ void AllocatorHandler<core::LinearAddressAllocator<uint32_t>>::randFreeAllocated
 
 class AllocatorTestSampleApp : public ApplicationBase
 {
+	core::smart_refctd_ptr<nbl::system::ISystem> system;
+
 public:
 	void setWindow(core::smart_refctd_ptr<nbl::ui::IWindow>&& wnd) override
 	{
