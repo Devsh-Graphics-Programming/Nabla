@@ -87,11 +87,6 @@ class CShaderIntrospector : public core::Uncopyable
 			// if the Shader is already compiled to SPV, it will ignore this member
 			core::SRange<const char* const> extraDefines;
 		};
-		struct SIntrospectionParamsOld : SIntrospectionParams
-		{
-			IShader::E_SHADER_STAGE stage;
-			std::filesystem::path filePathHint;
-		};
 
 		//In the future there's also going list of enabled extensions
 		CShaderIntrospector(const IGLSLCompiler* _glslcomp) : m_glslCompiler(_glslcomp) {}

@@ -130,7 +130,7 @@ bool CShaderIntrospector::introspectAllShaders(const CIntrospectionData** intros
     {
         const auto& specInfo = shader->getSpecializationInfo();
         *it = introspect(shader->getUnspecialized(),{specInfo.entryPoint.c_str(),_extraDefines});
-        if (!*it)
+        if (!*it++)
             return false;
     }
     return true;
@@ -312,6 +312,7 @@ core::smart_refctd_ptr<ICPUDescriptorSetLayout> CShaderIntrospector::createAppro
                         stageFlags |= shader->getStage();
                         refIndex = (*checkedDescsCntIt)++;
                         refIntro = *introspectionIt;
+                        refShader = shader;
                     }
                 }
                 introspectionIt++;
