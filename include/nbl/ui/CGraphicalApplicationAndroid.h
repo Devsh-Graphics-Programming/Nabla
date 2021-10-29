@@ -44,19 +44,21 @@ namespace nbl::ui
 			{
 				JNIEnv* env;
 				app->activity->vm->AttachCurrentThread(&env, nullptr);
-				system::path sharedInputCWD = getSharedResourcesPath(env);
+				system::path sharedInputCWD = system::path(app->activity->externalDataPath).parent_path().parent_path() / "eu.devsh.mediaunpackingonandroid/files/media";
 				system::path APKResourcesPath = "asset"; // an archive alias to recognize this path as an apk resource
-				system::path sharedOutputCWD = app->activity->externalDataPath;
+				system::path sharedOutputCWD = system::path(app->activity->externalDataPath).parent_path().parent_path();
 				system::path privateOutputCWD = system::path(app->activity->internalDataPath);
 
 
-				std::ofstream ofs(privateOutputCWD / "out.txt");
-				assert(ofs.is_open());
-				ofs << "Hello";
-				ofs.close();
+				//std::ofstream ofs(privateOutputCWD / "out.txt");
+				//assert(ofs.is_open());
+				//ofs << "Hello";
+				//ofs.close();
 
-				std::ifstream ifs(privateOutputCWD / "out.txt");
+				/*FILE* f = fopen((sharedInputCWD / "dwarf.jpg").string().c_str(), "r");
+				std::ifstream ifs(sharedInputCWD / "dwarf.jpg");
 				std::string someData;
+				bool ex = std::filesystem::exists(sharedInputCWD / "dwarf.jpg");
 				assert(ifs.is_open());
 				ifs >> someData;
 				ifs.close();
@@ -72,7 +74,7 @@ namespace nbl::ui
 						fwrite(buf, nb_read, 1, out);
 					fclose(out);
 					AAsset_close(asset);
-				}
+				}*/
 
 				nbl::ui::CGraphicalApplicationAndroid::SGraphicalContext ctx{};
 				app->userData = &ctx;

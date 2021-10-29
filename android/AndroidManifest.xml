@@ -16,12 +16,11 @@
   <application 
     android:debuggable="true" 
     android:label="@APP_NAME@" 
-    android:hasCode="false"
+    android:hasCode="true"
     android:isGame="true"
-	android:requestLegacyExternalStorage="true"
   >
     <activity 
-      android:name="android.app.NativeActivity" 
+      android:name=".Loader" 
       android:label="@APP_NAME@"
       android:screenOrientation="landscape" 
       android:configChanges="orientation|keyboardHidden"

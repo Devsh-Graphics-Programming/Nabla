@@ -9,7 +9,7 @@ public class Loader extends android.app.NativeActivity
 {
     /* load our native library */
     static {
-        System.loadLibrary("@SO_NAME@");
+        System.loadLibrary("@NATIVE_LIB_NAME@");
     }
 
     @Override

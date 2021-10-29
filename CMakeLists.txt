@@ -259,7 +259,7 @@ set(LLVM_USE_CRT_DEBUG MTd CACHE STRING "Nabla developer note: No idea what subf
 set(LLVM_USE_CRT_RELEASE MT CACHE STRING "Nabla developer note: No idea what subfolder provides this")
 
 if(NOT CMAKE_BUILD_TYPE)
-	set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type: Debug or Release" FORCE)
+	set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type: Debug or Release" FORCE)
 endif()
 
 if (DEFINED ENV{NUMBER_OF_PROCESSORS})
