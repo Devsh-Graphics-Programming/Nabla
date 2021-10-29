@@ -70,5 +70,4 @@ endif()
 set(NBL_INPUT_ANDROID_MANIFEST_FILE ${NBL_ROOT_PATH}/android/AndroidManifest.xml)
 set(NBL_OUTPUT_ANDROID_MANIFEST_FILE ${NBL_GEN_DIRECTORY}/${NBL_CONFIGURATION}/AndroidManifest.xml)
 
-configure_file(${NBL_ROOT_PATH}/android/Loader.java C:/dev/work/Nabla-vs/examples_tests/06.MeshLoaders/Debug/Debug/Loader.java)
 configure_file("${NBL_INPUT_ANDROID_MANIFEST_FILE}" "${NBL_OUTPUT_ANDROID_MANIFEST_FILE}")
