@@ -21,6 +21,67 @@
 using namespace nbl;
 using namespace core;
 
+class RaytracerExampleEventReceiver : public nbl::IEventReceiver
+{
+	public:
+		RaytracerExampleEventReceiver() : running(true)
+		{
+		}
+
+		bool OnEvent(const nbl::SEvent& event)
+		{
+			if (event.EventType == nbl::EET_KEY_INPUT_EVENT && !event.KeyInput.PressedDown)
+			{
+				switch (event.KeyInput.Key)
+				{
+					case ResetKey:
+						resetViewKeyPressed = true;
+						break;
+					case NextKey:
+						nextKeyPressed = true;
+						break;
+					case PreviousKey:
+						previousKeyPressed = true;
+						break;
+					case QuitKey: // switch wire frame mode
+						running = false;
+						return true;
+					default:
+						break;
+				}
+			}
+
+			return false;
+		}
+
+		inline bool keepOpen() const { return running; }
+		
+		inline bool isResetViewPressed() const { return resetViewKeyPressed; }
+		
+		inline bool isNextPressed() const { return nextKeyPressed; }
+
+		inline bool isPreviousPressed() const { return previousKeyPressed; }
+
+		inline void resetKeys()
+		{
+			resetViewKeyPressed = false;
+			nextKeyPressed = false;
+			previousKeyPressed = false;
+		}
+
+	private:
+		static constexpr nbl::EKEY_CODE QuitKey = nbl::KEY_KEY_Q;
+		static constexpr nbl::EKEY_CODE ResetKey = nbl::KEY_HOME;
+		static constexpr nbl::EKEY_CODE NextKey = nbl::KEY_PRIOR; // PAGE_UP
+		static constexpr nbl::EKEY_CODE PreviousKey = nbl::KEY_NEXT; // PAGE_DOWN
+
+		bool running = false;
+		bool resetViewKeyPressed = false;
+		bool nextKeyPressed = false;
+		bool previousKeyPressed = false;
+
+};
+
 int main(int argc, char** argv)
 {
 	std::vector<std::string> arguments;
@@ -188,6 +249,22 @@ int main(int argc, char** argv)
 		scene::ICameraSceneNode * staticCamera;
 		scene::ICameraSceneNode * interactiveCamera;
 		std::string outputFileName = "";
+
+		void resetInteractiveCamera()
+		{
+			core::vectorSIMDf cameraTarget = staticCamera->getTarget();
+			core::vector3df cameraTargetVec3f(cameraTarget.x, cameraTarget.y, cameraTarget.z); // I have to do this because of inconsistencies in using vectorSIMDf and vector3df in code most places.
+
+			interactiveCamera->setPosition(staticCamera->getPosition());
+			interactiveCamera->setTarget(cameraTargetVec3f);
+			interactiveCamera->setUpVector(staticCamera->getUpVector());
+			interactiveCamera->setLeftHanded(staticCamera->getLeftHanded());
+			interactiveCamera->setProjectionMatrix(staticCamera->getProjectionMatrix());
+		
+			core::vectorSIMDf cameraPos; cameraPos.set(staticCamera->getPosition());
+			auto modifiedMayaAnim = reinterpret_cast<scene::CSceneNodeAnimatorCameraModifiedMaya*>(interactiveCamera->getAnimators()[0]);
+			modifiedMayaAnim->setZoomAndRotationBasedOnTargetAndPosition(cameraPos, cameraTarget);
+		}
 	};
 
 	auto smgr = device->getSceneManager();
@@ -196,30 +273,25 @@ int main(int argc, char** argv)
 		return sensor.type == ext::MitsubaLoader::CElementSensor::Type::PERSPECTIVE || sensor.type == ext::MitsubaLoader::CElementSensor::Type::THINLENS;
 	};
 
-	auto sensorCount = globalMeta->m_global.m_sensors.size();
+	std::vector<SensorData> sensors = std::vector<SensorData>(globalMeta->m_global.m_sensors.size());
 
-	std::vector<SensorData> sensors = std::vector<SensorData>(sensorCount);
+	std::cout << "Total number of Sensors = " << sensors.size() << std::endl;
 
-	std::cout << "Total number of Sensors = " << sensorCount << std::endl;
-
-	if(sensorCount <= 0)
+	if(sensors.empty())
 	{
 		std::cout << "[ERROR] No Sensors found." << std::endl;
 		assert(false);
 		return 5; // return code?
 	}
 
-	for(uint32_t s = 0u; s < sensorCount; ++s)
+	auto extractSensorData = [&](SensorData & outSensorData, const ext::MitsubaLoader::CElementSensor& sensor) -> bool
 	{
-		std::cout << "Sensors[" << s << "] = " << std::endl;
-		const auto& sensor = globalMeta->m_global.m_sensors[s];
 		const auto& film = sensor.film;
-		auto & outSensorData = sensors[s];
 
 		if(!isOkSensorType(sensor))
 		{
-			std::cout << "\tSensor(" << s <<  ") Type is not valid" << std::endl;
-			continue;
+			std::cout << "\tSensor Type is not valid" << std::endl;
+			return false;
 		}
 		
 		outSensorData.samplesNeeded = sensor.sampler.sampleCount;
@@ -271,7 +343,6 @@ int main(int argc, char** argv)
 				assert(false);
 				break;
 		}
-
 
 		outSensorData.moveSpeed = persp->moveSpeed;
 		std::cout << "\t Camera Move Speed = " << outSensorData.moveSpeed << std::endl;
@@ -329,118 +400,27 @@ int main(int argc, char** argv)
 		else
 			staticCamera->setProjectionMatrix(core::matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(realFoVDegrees), aspectRatio, nearClip, persp->farClip));
 
-		core::vectorSIMDf cameraTarget = staticCamera->getTarget();
-		core::vector3df cameraTargetVec3f(cameraTarget.x, cameraTarget.y, cameraTarget.z); // I have to do this because of inconsistencies in using vectorSIMDf and vector3df in code most places.
+		outSensorData.resetInteractiveCamera();
+		return true;
+	};
 
-		interactiveCamera->setPosition(staticCamera->getPosition());
-		interactiveCamera->setTarget(cameraTargetVec3f);
-		interactiveCamera->setUpVector(staticCamera->getUpVector());
-		interactiveCamera->setLeftHanded(staticCamera->getLeftHanded());
-		interactiveCamera->setProjectionMatrix(staticCamera->getProjectionMatrix());
-		
-		core::vectorSIMDf cameraPos; cameraPos.set(staticCamera->getPosition());
-		auto modifiedMayaAnim = reinterpret_cast<scene::CSceneNodeAnimatorCameraModifiedMaya*>(interactiveCamera->getAnimators()[0]);
-		modifiedMayaAnim->setZoomAndRotationBasedOnTargetAndPosition(cameraPos, cameraTarget);
-	}
-	
-	auto camera = smgr->addCameraSceneNodeModifiedMaya(nullptr, -400.0f, 20.0f, 200.0f, -1, 2.0f, 1.0f, false, true);
-	
-	bool rightHandedCamera = true;
-	float moveSpeed = core::nan<float>();
-
-	if (globalMeta->m_global.m_sensors.size() && isOkSensorType(globalMeta->m_global.m_sensors.front()))
+	for(uint32_t s = 0u; s < sensors.size(); ++s)
 	{
-		const auto& sensor = globalMeta->m_global.m_sensors.front();
-		const auto& film = sensor.film;
-
-		// need to extract individual components
-		{
-			auto relativeTransform = sensor.transform.matrix.extractSub3x4();
-			if (relativeTransform.getPseudoDeterminant().x < 0.f)
-				rightHandedCamera = false;
-
-			auto pos = relativeTransform.getTranslation();
-			camera->setPosition(pos.getAsVector3df());
-
-			auto tpose = core::transpose(sensor.transform.matrix);
-			auto up = tpose.rows[1];
-			core::vectorSIMDf view = tpose.rows[2];
-			auto target = view+pos;
-			
-			camera->setTarget(target.getAsVector3df());
-			if (core::dot(core::normalize(core::cross(camera->getUpVector(),view)),core::cross(up,view)).x<0.99f)
-				camera->setUpVector(up);
-		}
-
-		const ext::MitsubaLoader::CElementSensor::PerspectivePinhole* persp = nullptr;
-		switch (sensor.type)
-		{
-			case ext::MitsubaLoader::CElementSensor::Type::PERSPECTIVE:
-				persp = &sensor.perspective;
-				break;
-			case ext::MitsubaLoader::CElementSensor::Type::THINLENS:
-				persp = &sensor.thinlens;
-				break;
-			default:
-				assert(false);
-				break;
-		}
-		float realFoVDegrees;
-		auto width = film.cropWidth;
-		auto height = film.cropHeight;
-		float aspectRatio = float(width) / float(height);
-		auto convertFromXFoV = [=](float fov) -> float
-		{
-			float aspectX = tan(core::radians(fov)*0.5f);
-			return core::degrees(atan(aspectX/aspectRatio)*2.f);
-		};
-		switch (persp->fovAxis)
-		{
-			case ext::MitsubaLoader::CElementSensor::PerspectivePinhole::FOVAxis::X:
-				realFoVDegrees = convertFromXFoV(persp->fov);
-				break;
-			case ext::MitsubaLoader::CElementSensor::PerspectivePinhole::FOVAxis::Y:
-				realFoVDegrees = persp->fov;
-				break;
-			case ext::MitsubaLoader::CElementSensor::PerspectivePinhole::FOVAxis::DIAGONAL:
-				{
-					float aspectDiag = tan(core::radians(persp->fov)*0.5f);
-					float aspectY = aspectDiag/core::sqrt(1.f+aspectRatio*aspectRatio);
-					realFoVDegrees = core::degrees(atan(aspectY)*2.f);
-				}
-				break;
-			case ext::MitsubaLoader::CElementSensor::PerspectivePinhole::FOVAxis::SMALLER:
-				if (width < height)
-					realFoVDegrees = convertFromXFoV(persp->fov);
-				else
-					realFoVDegrees = persp->fov;
-				break;
-			case ext::MitsubaLoader::CElementSensor::PerspectivePinhole::FOVAxis::LARGER:
-				if (width < height)
-					realFoVDegrees = persp->fov;
-				else
-					realFoVDegrees = convertFromXFoV(persp->fov);
-				break;
-			default:
-				realFoVDegrees = NAN;
-				assert(false);
-				break;
-		}
-		// TODO: apply the crop offset
-		assert(film.cropOffsetX==0 && film.cropOffsetY==0);
-		float nearClip = core::max(persp->nearClip, persp->farClip * 0.0001);
-		if (rightHandedCamera)
-			camera->setProjectionMatrix(core::matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(core::radians(realFoVDegrees), aspectRatio, nearClip, persp->farClip));
-		else
-			camera->setProjectionMatrix(core::matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(realFoVDegrees), aspectRatio, nearClip, persp->farClip));
-		moveSpeed = persp->moveSpeed;
+		std::cout << "Sensors[" << s << "] = " << std::endl;
+		const auto& sensor = globalMeta->m_global.m_sensors[s];
+		auto & outSensorData = sensors[s];
+		extractSensorData(outSensorData, sensor);
 	}
-	else
-	{
-		camera->setNearValue(20.f);
-		camera->setFarValue(5000.f);
-	}
-	
+
+#if INJECT_TEST_SENSOR
+	std::cout << "New Injected Sensors[0] = " << std::endl;
+	SensorData newSensor = {};
+	extractSensorData(newSensor, globalMeta->m_global.m_sensors[0]);
+	newSensor.staticCamera->setPosition(core::vector3df(0.0f,0.0f,0.0f));
+	newSensor.resetInteractiveCamera();
+	sensors.push_back(newSensor);
+#endif
+
 	auto driver = device->getVideoDriver();
 
 	core::smart_refctd_ptr<Renderer> renderer = core::make_smart_refctd_ptr<Renderer>(driver,device->getAssetManager(),smgr);
@@ -491,50 +471,86 @@ int main(int argc, char** argv)
 	renderer->initSceneResources(meshes);
 	meshes = {}; // free memory
 
-	uint32_t activeSensor = 0u; // that outputs to current window when not in TERMIANTE mode.
-
-	auto extent = renderer->getSceneBound().getExtent();
-	smgr->setActiveCamera(sensors[activeSensor].interactiveCamera);
-
-	QToQuitEventReceiver receiver;
-	device->setEventReceiver(&receiver);
-
-	renderer->initScreenSizedResources(sensors[activeSensor].width, sensors[activeSensor].height, std::move(sampleSequence));
-
-	uint64_t lastFPSTime = 0;
-	auto start = std::chrono::steady_clock::now();
-	while (device->run() && receiver.keepOpen())
+	if(!shouldTerminate)
 	{
-		driver->beginScene(false, false);
+		int activeSensor = -1; // that outputs to current window when not in TERMIANTE mode.
 
-		renderer->render(device->getTimer());
-
-		auto oldVP = driver->getViewPort();
-		driver->blitRenderTargets(renderer->getColorBuffer(),nullptr,false,false,{},{},true);
-		driver->setViewPort(oldVP);
-
-		driver->endScene();
-
-		if(shouldTerminate && renderer->getTotalSamplesPerPixelComputed() >= sensors[activeSensor].samplesNeeded)
-			break;
-
-		// display frames per second in window title
-		uint64_t time = device->getTimer()->getRealTime();
-		if (time - lastFPSTime > 1000)
+		auto setActiveSensor = [&](int index) 
 		{
-			std::wostringstream str;
-			auto samples = renderer->getTotalSamplesComputed();
-			auto rays = renderer->getTotalRaysCast();
-			str << L"Raytraced Shadows Demo - Nabla Engine   MegaSamples: " << samples/1000000ull << "   MRay/s: "
-				<< double(rays)/double(std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-start).count());
+			if(index >= 0 && index < sensors.size())
+			{
+				bool needsReinit = (activeSensor == -1) || (sensors[activeSensor].width != sensors[index].width) || (sensors[activeSensor].height != sensors[index].height); // should be >= or != ?
+				activeSensor = index;
 
-			device->setWindowCaption(str.str());
-			lastFPSTime = time;
+				if(needsReinit)
+				{
+					renderer->deinitScreenSizedResources();
+					renderer->initScreenSizedResources(sensors[activeSensor].width, sensors[activeSensor].height, std::move(sampleSequence));
+				}
+
+				smgr->setActiveCamera(sensors[activeSensor].interactiveCamera);
+				std::cout << "Active Sensor = " << activeSensor << std::endl;
+			}
+		};
+
+		setActiveSensor(0);
+
+		RaytracerExampleEventReceiver receiver;
+		device->setEventReceiver(&receiver);
+
+		uint64_t lastFPSTime = 0;
+		auto start = std::chrono::steady_clock::now();
+		while (device->run() && receiver.keepOpen())
+		{
+			// Handle Inputs
+			{
+				if(receiver.isResetViewPressed())
+				{
+					sensors[activeSensor].resetInteractiveCamera();
+					std::cout << "Interactive Camera Position and Target has been Reset." << std::endl;
+				}
+				if(receiver.isNextPressed())
+				{
+					setActiveSensor(activeSensor + 1);
+				}
+				if(receiver.isPreviousPressed())
+				{
+					setActiveSensor(activeSensor - 1);
+				}
+				receiver.resetKeys();
+			}
+
+			driver->beginScene(false, false);
+
+			renderer->render(device->getTimer());
+
+			auto oldVP = driver->getViewPort();
+			driver->blitRenderTargets(renderer->getColorBuffer(),nullptr,false,false,{},{},true);
+			driver->setViewPort(oldVP);
+
+			driver->endScene();
+
+			// display frames per second in window title
+			uint64_t time = device->getTimer()->getRealTime();
+			if (time - lastFPSTime > 1000)
+			{
+				std::wostringstream str;
+				auto samples = renderer->getTotalSamplesComputed();
+				auto rays = renderer->getTotalRaysCast();
+				str << L"Raytraced Shadows Demo - Nabla Engine   MegaSamples: " << samples/1000000ull << "   MRay/s: "
+					<< double(rays)/double(std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-start).count());
+
+				device->setWindowCaption(str.str());
+				lastFPSTime = time;
+			}
 		}
-	}
 	
-	renderer->takeAndSaveScreenShot("LastView_" + mainFileName + "_Sensor_" + std::to_string(activeSensor), outputScreenshotsFolderPath);
-	renderer->deinitScreenSizedResources();
+		renderer->takeAndSaveScreenShot("LastView_" + mainFileName + "_Sensor_" + std::to_string(activeSensor), outputScreenshotsFolderPath);
+		renderer->deinitScreenSizedResources();
+	}
+
+	int32_t prevWidth = 0;
+	int32_t prevHeight = 0;
 
 	for(uint32_t s = 0u; s < sensors.size(); ++s)
 	{
@@ -543,7 +559,15 @@ int main(int argc, char** argv)
 		std::cout << "-- Rendering  " << filePath << " (Sensor=" << s << ") to file..." << std::endl;
 		smgr->setActiveCamera(sensorData.staticCamera);
 
-		renderer->initScreenSizedResources(sensors[0].width, sensors[0].height, std::move(sampleSequence));
+		bool needsReinit = (prevWidth != sensorData.width) || (prevHeight != sensorData.height); // >= or !=
+		prevWidth = sensorData.width;
+		prevHeight = sensorData.height;
+
+		if(needsReinit)
+		{
+			renderer->deinitScreenSizedResources();
+			renderer->initScreenSizedResources(sensorData.width, sensorData.height, std::move(sampleSequence));
+		}
 
 		const uint32_t samplesPerPixelPerDispatch = renderer->getSamplesPerPixelPerDispatch();
 		const uint32_t maxNeededIterations = (sensorData.samplesNeeded + samplesPerPixelPerDispatch - 1) / samplesPerPixelPerDispatch;
@@ -577,7 +601,6 @@ int main(int argc, char** argv)
 		std::cout << "-- Rendered Successfully: " << filePath << " (Sensor=" << s << ") to file (" << screenshotFileNameWithoutExtension << ")." << std::endl;
 
 		renderer->takeAndSaveScreenShot(screenshotFileNameWithoutExtension, outputScreenshotsFolderPath);
-		renderer->deinitScreenSizedResources();
 	}
 
 	renderer->deinitSceneResources();
