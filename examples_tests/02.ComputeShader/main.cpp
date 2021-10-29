@@ -45,6 +45,7 @@ class ComputeShaderSampleApp : public ApplicationBase
 	core::smart_refctd_ptr<video::IGPUComputePipeline> m_pipeline = nullptr;
 	core::vector<core::smart_refctd_ptr<video::IGPUDescriptorSet>> m_descriptorSets;
 
+	// These can be removed after descriptor lifetime tracking
 	core::vector<core::smart_refctd_ptr<video::IGPUImageView>> m_swapchainImageViews;
 	core::smart_refctd_ptr<video::IGPUImageView> m_inImageView;
 
