@@ -853,6 +853,8 @@ void Renderer::deinitSceneResources()
 
 	m_raytraceCommonData = {vec3(),0,0,0,0u};
 	m_sceneBound = core::aabbox3df(FLT_MAX, FLT_MAX, FLT_MAX, -FLT_MAX, -FLT_MAX, -FLT_MAX);
+	
+	m_staticViewData = {{0.f,0.f,0.f},0u,{0u,0u},0u,0u};
 
 	auto rr = m_rrManager->getRadeonRaysAPI();
 	rr->DetachAll();
@@ -1207,7 +1209,8 @@ void Renderer::deinitScreenSizedResources()
 	m_closestHitPipeline = nullptr;
 	m_resolvePipeline = nullptr;
 
-	m_staticViewData = {{0.f,0.f,0.f},0u,{0u,0u},0u,0u};
+	m_staticViewData.imageDimensions = {0u, 0u};
+	m_staticViewData.samplesPerPixelPerDispatch = 0u;
 	m_totalRaysCast = 0ull;
 	m_rcpPixelSize = {0.f,0.f};
 	m_framesDispatched = 0u;
@@ -1215,6 +1218,13 @@ void Renderer::deinitScreenSizedResources()
 	m_prevCamTform = nbl::core::matrix4x3();
 }
 
+void Renderer::resetSampleAndFrameCounters()
+{
+	m_totalRaysCast = 0ull;
+	m_framesDispatched = 0u;
+	std::fill_n(m_prevView.pointer(),12u,0.f);
+	m_prevCamTform = nbl::core::matrix4x3();
+}
 
 void Renderer::takeAndSaveScreenShot(const std::string& screenShotName, const std::filesystem::path& screenshotFolderPath)
 {
@@ -1355,7 +1365,6 @@ void Renderer::render(nbl::ITimer* timer)
 		m_driver->bindDescriptorSets(EPBP_COMPUTE,m_resolvePipeline->getLayout(),0u,1u,&m_resolveDS.get(),nullptr);
 		m_driver->bindComputePipeline(m_resolvePipeline.get());
 		m_driver->dispatch(m_raygenWorkGroups[0],m_raygenWorkGroups[1],1);
-
 		COpenGLExtensionHandler::pGlMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT|GL_SHADER_IMAGE_ACCESS_BARRIER_BIT
 	#ifndef _NBL_BUILD_OPTIX_
 			|GL_FRAMEBUFFER_BARRIER_BIT|GL_TEXTURE_UPDATE_BARRIER_BIT

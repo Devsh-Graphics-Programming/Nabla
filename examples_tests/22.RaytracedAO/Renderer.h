@@ -38,6 +38,8 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 
 		void deinitScreenSizedResources();
 
+		void resetSampleAndFrameCounters();
+
 		void takeAndSaveScreenShot(const std::string& screenShotName, const std::filesystem::path& screenshotFolderPath = "");
 
 		void render(nbl::ITimer* timer);

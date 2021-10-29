@@ -293,12 +293,14 @@ int main(int argc, char** argv)
 			std::cout << "\tSensor Type is not valid" << std::endl;
 			return false;
 		}
-		
+
 		outSensorData.samplesNeeded = sensor.sampler.sampleCount;
 		outSensorData.staticCamera = smgr->addCameraSceneNode(nullptr); 
 		outSensorData.interactiveCamera = smgr->addCameraSceneNodeModifiedMaya(nullptr, -400.0f, 20.0f, 200.0f, -1, 2.0f, 1.0f, false, true);
 		auto & staticCamera = outSensorData.staticCamera;
 		auto & interactiveCamera = outSensorData.interactiveCamera;
+		
+		std::cout << "\t SamplesPerPixelNeeded = " << outSensorData.samplesNeeded << std::endl;
 
 		// need to extract individual components
 		{
@@ -416,9 +418,17 @@ int main(int argc, char** argv)
 	std::cout << "New Injected Sensors[0] = " << std::endl;
 	SensorData newSensor = {};
 	extractSensorData(newSensor, globalMeta->m_global.m_sensors[0]);
-	newSensor.staticCamera->setPosition(core::vector3df(0.0f,0.0f,0.0f));
+	newSensor.staticCamera->setPosition(core::vector3df(0.0f,2.0f,0.0f));
+	newSensor.staticCamera->setTarget(core::vector3df(-0.900177f, 2.0f, -0.435524f));
+	core::vectorSIMDf UpVector(0.0f, 1.0f, 0.0f);
+	newSensor.staticCamera->setUpVector(UpVector);
+	newSensor.staticCamera->render(); // It's not actually "render" :| It's basically recomputeViewMatrix ;
+	
 	newSensor.resetInteractiveCamera();
 	sensors.push_back(newSensor);
+
+	sensors[0].samplesNeeded = 4u;
+	sensors[1].samplesNeeded = 4u;
 #endif
 
 	auto driver = device->getVideoDriver();
@@ -482,6 +492,7 @@ int main(int argc, char** argv)
 				bool needsReinit = (activeSensor == -1) || (sensors[activeSensor].width != sensors[index].width) || (sensors[activeSensor].height != sensors[index].height); // should be >= or != ?
 				activeSensor = index;
 
+				renderer->resetSampleAndFrameCounters();
 				if(needsReinit)
 				{
 					renderer->deinitScreenSizedResources();
@@ -521,7 +532,7 @@ int main(int argc, char** argv)
 			}
 
 			driver->beginScene(false, false);
-
+			
 			renderer->render(device->getTimer());
 
 			auto oldVP = driver->getViewPort();
@@ -556,18 +567,20 @@ int main(int argc, char** argv)
 	{
 		const auto& sensorData = sensors[s];
 		
-		std::cout << "-- Rendering  " << filePath << " (Sensor=" << s << ") to file..." << std::endl;
-		smgr->setActiveCamera(sensorData.staticCamera);
+		std::cout << "-- Rendering  " << filePath << ", Sensor = " << s << " to file." << std::endl;
 
 		bool needsReinit = (prevWidth != sensorData.width) || (prevHeight != sensorData.height); // >= or !=
 		prevWidth = sensorData.width;
 		prevHeight = sensorData.height;
-
+		
+		renderer->resetSampleAndFrameCounters(); // so that renderer->getTotalSamplesPerPixelComputed is 0 at the very beginning
 		if(needsReinit)
 		{
 			renderer->deinitScreenSizedResources();
 			renderer->initScreenSizedResources(sensorData.width, sensorData.height, std::move(sampleSequence));
 		}
+		
+		smgr->setActiveCamera(sensorData.staticCamera);
 
 		const uint32_t samplesPerPixelPerDispatch = renderer->getSamplesPerPixelPerDispatch();
 		const uint32_t maxNeededIterations = (sensorData.samplesNeeded + samplesPerPixelPerDispatch - 1) / samplesPerPixelPerDispatch;
