@@ -116,6 +116,7 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 			inline UpStreamingRequest& operator=(const UpStreamingRequest& other)
 			{
 				destination = other.destination;
+				fill = other.fill;
 				elementSize = other.elementSize;
 				elementCount = other.elementCount;
 				source.buffer = other.source.buffer;
@@ -163,6 +164,7 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 				inline Source& operator=(const Source& other)
 				{
 					buffer = other.buffer;
+					return *this;
 				}
 
 				// device

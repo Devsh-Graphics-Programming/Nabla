@@ -606,8 +606,6 @@ int main()
 		
 		timestamp++;
 
-		graphicsQueue->startCapture();
-
 		// safe to proceed
 		cb->begin(0);
 
@@ -812,7 +810,6 @@ int main()
 		uint32_t imgnum = 0u;
 		swapchain->acquireNextImage(MAX_TIMEOUT,imageAcquire[resourceIx].get(),nullptr,&imgnum);
 		CommonAPI::Submit(device.get(), swapchain.get(), cb.get(), graphicsQueue, imageAcquire[resourceIx].get(), renderFinished[resourceIx].get(), fence.get());
-		graphicsQueue->endCapture();
 		CommonAPI::Present(device.get(), swapchain.get(), graphicsQueue, renderFinished[resourceIx].get(), imgnum);
 		
 	}

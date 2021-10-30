@@ -211,7 +211,7 @@ uint32_t CPropertyPoolHandler::transferProperties(
 		while (propertiesThisPass && localRequests->getElementDWORDs()<=baseDWORDs)
 		{
 			localRequests++;
-			propertiesThisPass++;
+			propertiesThisPass--;
 		}
 		// nothing to do
 		if (propertiesThisPass==0u)
@@ -322,6 +322,7 @@ uint32_t CPropertyPoolHandler::transferProperties(
 				else
 					transfer.dstAddressesOffset = IPropertyPool::invalid;
 			}
+			assert(offset*sizeof(uint32_t)<=paddedSize+addr);
 			// flush if needed
 			if (upBuff->needsManualFlushOrInvalidate())
 			{

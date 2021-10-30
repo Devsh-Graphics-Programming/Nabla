@@ -294,6 +294,7 @@ int main()
     auto cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
     auto utilities = std::move(initOutput.utilities);
 
+    auto transferUpQueue = queues[decltype(initOutput)::EQT_TRANSFER_UP];
 
     // lod table entries
     constexpr auto MaxDrawables = EGT_COUNT;
@@ -308,9 +309,11 @@ int main()
     // maximum visible instances of a drawcall (should be a sum of MaxLoDDrawcalls[t]*MaxInstances[t] where t iterates over all LoD Tables)
     constexpr auto MaxTotalVisibleDrawcallInstances = MaxInstanceCount+(MaxInstanceCount>>8u); // This is literally my worst case guess of how many batch-draw-instances there will be on screen at the same time
 
-    auto ttm = scene::ITransformTreeManager::create(core::smart_refctd_ptr(logicalDevice));
+    auto ttm = scene::ITransformTreeManager::create(utilities.get(),transferUpQueue);
     // Transform Tree
     auto tt = scene::ITransformTree::create(logicalDevice.get(),MaxInstanceCount);
+    const auto* ctt = tt.get(); // fight compiler, hard
+    const video::IPropertyPool* nodePP = ctt->getNodePropertyPool();
 
     // Drawcall Allocator
     core::smart_refctd_ptr<video::CDrawIndirectAllocator<>> drawIndirectAllocator;
@@ -366,7 +369,7 @@ int main()
             std::filesystem::current_path(),"\n#include \"../common.glsl\"\n","\n#include \"../cull_overrides.glsl\"\n"
         );
 
-        cullingParams.indirectDispatchParams = {0ull,culling_system_t::createDispatchIndirectBuffer(utilities.get(),queues[decltype(initOutput)::EQT_TRANSFER_UP])};
+        cullingParams.indirectDispatchParams = {0ull,culling_system_t::createDispatchIndirectBuffer(utilities.get(),transferUpQueue)};
         {
             video::IGPUBuffer::SCreationParams params;
             params.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
@@ -391,7 +394,7 @@ int main()
         cullingParams.customDS = logicalDevice->createGPUDescriptorSet(cullingDSPool.get(),std::move(layouts[3]));
         {
             video::IGPUDescriptorSet::SWriteDescriptorSet write;
-            video::IGPUDescriptorSet::SDescriptorInfo info(tt->getGlobalTransformationBufferRange());
+            video::IGPUDescriptorSet::SDescriptorInfo info(nodePP->getPropertyMemoryBlock(scene::ITransformTree::global_transform_prop_ix));
             write.dstSet = cullingParams.customDS.get();
             write.binding = 0u;
             write.arrayElement = 0u;
@@ -518,7 +521,7 @@ int main()
                 qnc->saveCacheToFile<asset::EF_A2B10G10R10_SNORM_PACK32>(system.get(), cachePath);
             }
             constexpr auto MaxTransfers = 9u;
-            video::CPropertyPoolHandler::TransferRequest transferRequests[MaxTransfers];
+            video::CPropertyPoolHandler::UpStreamingRequest upstreamRequests[MaxTransfers];
             // set up the instance list
             constexpr auto TTMTransfers = scene::ITransformTreeManager::TransferCount+1u;
             core::vector<scene::ITransformTree::node_t> instanceGUIDs(
@@ -534,12 +537,13 @@ int main()
             {
                 tt->allocateNodes({instanceGUIDs.data(),instanceGUIDs.data()+instanceGUIDs.size()});
 
-                scene::ITransformTreeManager::TransferRequest request;
+                scene::ITransformTreeManager::UpstreamRequest request;
                 request.tree = tt.get();
-                request.parents = nullptr;
-                request.relativeTransforms = instanceTransforms.data();
+                request.parents = {}; // no parents
+                request.relativeTransforms.device2device;
+                request.relativeTransforms.data = instanceTransforms.data();
                 request.nodes = {instanceGUIDs.data(),instanceGUIDs.data()+instanceGUIDs.size()};
-                ttm->setupTransfers(request,transferRequests);
+                ttm->setupTransfers(request,upstreamRequests);
                 
                 core::vector<culling_system_t::InstanceToCull> instanceList; instanceList.reserve(instanceGUIDs.size());
                 for (auto instanceGUID : instanceGUIDs)
@@ -548,49 +552,47 @@ int main()
                     instance.instanceGUID = instanceGUID;
                     instance.lodTableUvec4Offset = lodTables[typeDist(mt)];
                 }
-                utilities->updateBufferRangeViaStagingBuffer(queues[decltype(initOutput)::EQT_TRANSFER_UP],{0u,instanceList.size()*sizeof(culling_system_t::InstanceToCull),cullingParams.instanceList.buffer},instanceList.data());
+                utilities->updateBufferRangeViaStagingBuffer(transferUpQueue,{0u,instanceList.size()*sizeof(culling_system_t::InstanceToCull),cullingParams.instanceList.buffer},instanceList.data());
 
                 cullPushConstants.instanceCount += instanceList.size();
             }
             // I cannot be bothered to run a proper node global transform update dispatch in this example
             {
-                transferRequests[4] = transferRequests[1];
-                const auto* ctt = tt.get(); // fight compiler, hard
-                const video::IPropertyPool* pool = ctt->getNodePropertyPool();
-                transferRequests[4].setFromPool(const_cast<video::IPropertyPool*>(pool),scene::ITransformTree::global_transform_prop_ix);
+                upstreamRequests[4] = upstreamRequests[1];
+                upstreamRequests[4].setFromPool(const_cast<video::IPropertyPool*>(nodePP),scene::ITransformTree::global_transform_prop_ix);
             }
             cullingParams.drawcallCount = lodLibraryData.drawCallData.size();
             // do the transfer of drawcall and LoD data
             {
                 for (auto i=TTMTransfers; i<MaxTransfers; i++)
                 {
-                    transferRequests[i].flags = video::CPropertyPoolHandler::TransferRequest::EF_NONE;
-                    transferRequests[i].srcAddresses = nullptr; // iota 0,1,2,3,4,etc.
-                    transferRequests[i].device2device = false;
+                    upstreamRequests[i].fill = false;
+                    upstreamRequests[i].source.device2device = false;
+                    upstreamRequests[i].srcAddresses = nullptr; // iota 0,1,2,3,4,etc.
                 }
-                transferRequests[TTMTransfers+0].memblock = drawIndirectAllocator->getDrawCommandMemoryBlock();
-                transferRequests[TTMTransfers+0].elementSize = sizeof(asset::DrawElementsIndirectCommand_t);
-                transferRequests[TTMTransfers+0].elementCount = cullingParams.drawcallCount;
-                transferRequests[TTMTransfers+0].dstAddresses = lodLibraryData.drawCallOffsetsIn20ByteStrides.data();
-                transferRequests[TTMTransfers+0].source = lodLibraryData.drawCallData.data();
-                transferRequests[TTMTransfers+1].memblock = lodLibrary->getLoDInfoBinding();
-                transferRequests[TTMTransfers+1].elementSize = alignof(lod_library_t::LoDInfo);
-                transferRequests[TTMTransfers+1].elementCount = lodLibraryData.lodInfoDstUvec2s.size();
-                transferRequests[TTMTransfers+1].dstAddresses = lodLibraryData.lodInfoDstUvec2s.data();
-                transferRequests[TTMTransfers+1].source = lodLibraryData.lodInfoData.data();
-                transferRequests[TTMTransfers+2].memblock = lodLibrary->getLodTableInfoBinding();
-                transferRequests[TTMTransfers+2].elementSize = alignof(scene::ILevelOfDetailLibrary::LoDTableInfo);
-                transferRequests[TTMTransfers+2].elementCount = lodLibraryData.lodTableDstUvec4s.size();
-                transferRequests[TTMTransfers+2].dstAddresses = lodLibraryData.lodTableDstUvec4s.data();
-                transferRequests[TTMTransfers+2].source = lodLibraryData.lodTableData.data();
+                upstreamRequests[TTMTransfers+0].destination = drawIndirectAllocator->getDrawCommandMemoryBlock();
+                upstreamRequests[TTMTransfers+0].elementSize = sizeof(asset::DrawElementsIndirectCommand_t);
+                upstreamRequests[TTMTransfers+0].elementCount = cullingParams.drawcallCount;
+                upstreamRequests[TTMTransfers+0].source.data = lodLibraryData.drawCallData.data();
+                upstreamRequests[TTMTransfers+0].dstAddresses = lodLibraryData.drawCallOffsetsIn20ByteStrides.data();
+                upstreamRequests[TTMTransfers+1].destination = lodLibrary->getLoDInfoBinding();
+                upstreamRequests[TTMTransfers+1].elementSize = alignof(lod_library_t::LoDInfo);
+                upstreamRequests[TTMTransfers+1].elementCount = lodLibraryData.lodInfoDstUvec2s.size();
+                upstreamRequests[TTMTransfers+1].source.data = lodLibraryData.lodInfoData.data();
+                upstreamRequests[TTMTransfers+1].dstAddresses = lodLibraryData.lodInfoDstUvec2s.data();
+                upstreamRequests[TTMTransfers+2].destination = lodLibrary->getLodTableInfoBinding();
+                upstreamRequests[TTMTransfers+2].elementSize = alignof(scene::ILevelOfDetailLibrary::LoDTableInfo);
+                upstreamRequests[TTMTransfers+2].elementCount = lodLibraryData.lodTableDstUvec4s.size();
+                upstreamRequests[TTMTransfers+2].source.data = lodLibraryData.lodTableData.data();
+                upstreamRequests[TTMTransfers+2].dstAddresses = lodLibraryData.lodTableDstUvec4s.data();
                 auto requestCount = TTMTransfers+3u;
                 if (drawIndirectAllocator->getDrawCountMemoryBlock())
                 {
-                    transferRequests[requestCount].memblock = *drawIndirectAllocator->getDrawCountMemoryBlock();
-                    transferRequests[requestCount].elementSize = sizeof(uint32_t);
-                    transferRequests[requestCount].elementCount = lodLibraryData.drawCountOffsets.size();
-                    transferRequests[requestCount].dstAddresses = lodLibraryData.drawCountOffsets.data();
-                    transferRequests[requestCount].source = lodLibraryData.drawCountData.data();
+                    upstreamRequests[requestCount].destination = *drawIndirectAllocator->getDrawCountMemoryBlock();
+                    upstreamRequests[requestCount].elementSize = sizeof(uint32_t);
+                    upstreamRequests[requestCount].elementCount = lodLibraryData.drawCountOffsets.size();
+                    upstreamRequests[requestCount].source.data = lodLibraryData.drawCountData.data();
+                    upstreamRequests[requestCount].dstAddresses = lodLibraryData.drawCountOffsets.data();
                     requestCount++;
                 }
 
@@ -598,13 +600,32 @@ int main()
                 logicalDevice->createCommandBuffers(commandPool.get(),video::IGPUCommandBuffer::EL_PRIMARY,1u,&tferCmdBuf);
                 auto fence = logicalDevice->createFence(video::IGPUFence::ECF_UNSIGNALED);
                 tferCmdBuf->begin(0u); // TODO some one time submit bit or something
-                utilities->getDefaultPropertyPoolHandler()->transferProperties(utilities->getDefaultUpStreamingBuffer(),nullptr,tferCmdBuf.get(),fence.get(),transferRequests,transferRequests+requestCount,logger.get());
+                {
+                    auto ppHandler = utilities->getDefaultPropertyPoolHandler();
+                    asset::SBufferBinding<video::IGPUBuffer> scratch;
+                    {
+                        video::IGPUBuffer::SCreationParams scratchParams = {};
+		                scratchParams.canUpdateSubRange = true;
+		                scratchParams.usage = core::bitflag(video::IGPUBuffer::EUF_TRANSFER_DST_BIT)|video::IGPUBuffer::EUF_STORAGE_BUFFER_BIT;
+		                scratch = {0ull,logicalDevice->createDeviceLocalGPUBufferOnDedMem(scratchParams,ppHandler->getMaxScratchSize())};
+		                scratch.buffer->setObjectDebugName("Scratch Buffer");
+                    }
+                    auto* pRequests = upstreamRequests;
+                    uint32_t waitSemaphoreCount = 0u;
+                    video::IGPUSemaphore* const* waitSemaphores = nullptr;
+                    const asset::E_PIPELINE_STAGE_FLAGS* waitStages = nullptr;
+                    ppHandler->transferProperties(
+                        utilities->getDefaultUpStreamingBuffer(), tferCmdBuf.get(),fence.get(),transferUpQueue,scratch,
+                        pRequests,requestCount,waitSemaphoreCount,waitSemaphores,waitStages,
+                        logger.get(),std::chrono::high_resolution_clock::time_point::max() // must finish
+                    );
+                }
                 tferCmdBuf->end();
                 {
                     video::IGPUQueue::SSubmitInfo submit = {}; // intializes all semaphore stuff to 0 and nullptr
                     submit.commandBufferCount = 1u;
                     submit.commandBuffers = &tferCmdBuf.get();
-                    queues[decltype(initOutput)::EQT_TRANSFER_UP]->submit(1u,&submit,fence.get());
+                    transferUpQueue->submit(1u,&submit,fence.get());
                 }
                 logicalDevice->blockForFences(1u,&fence.get());
             }
@@ -619,8 +640,8 @@ int main()
                     cullingParams.indirectDispatchParams,
                     cullingParams.instanceList,
                     cullingParams.scratchBufferRanges,
-                    {0ull,~0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(queues[decltype(initOutput)::EQT_TRANSFER_UP],cullingParams.drawcallCount*sizeof(uint32_t),drawCallOffsetsInDWORDs.data())},
-                    {0ull,~0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(queues[decltype(initOutput)::EQT_TRANSFER_UP],lodLibraryData.drawCountOffsets.size()*sizeof(uint32_t),lodLibraryData.drawCountOffsets.data())}
+                    {0ull,~0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(transferUpQueue,cullingParams.drawcallCount*sizeof(uint32_t),drawCallOffsetsInDWORDs.data())},
+                    {0ull,~0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(transferUpQueue,lodLibraryData.drawCountOffsets.size()*sizeof(uint32_t),lodLibraryData.drawCountOffsets.data())}
                 );
             }
         }
