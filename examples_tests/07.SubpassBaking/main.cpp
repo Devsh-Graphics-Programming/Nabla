@@ -280,7 +280,7 @@ int main(int argc, char** argv)
                 ppHandler->transferProperties(
                     utilities->getDefaultUpStreamingBuffer(),tferCmdBuf.get(),fence.get(),upQueue,
                     scratch,pRequest,1u,waitSemaphoreCount,waitSemaphores,waitStages,
-                    logger.get()
+                    logger.get(),std::chrono::high_resolution_clock::time_point::max() // wait forever if necessary, need initialization to finish
                 );
             }
             tferCmdBuf->end();
