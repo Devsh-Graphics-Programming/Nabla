@@ -188,7 +188,7 @@ uint32_t CPropertyPoolHandler::transferProperties(
 			const auto lower_ix = upper_ix-1u;
 			uint32_t DWORDs = dwordCount[lower_ix];
 			const uint32_t baseMemory = memoryConsumed[lower_ix];
-			if (upper_ix<=MaxPropertiesPerDispatch) // can't do all of them
+			if (upper_ix<=propertiesThisPass) // can't do all of them
 			{
 				const uint32_t bytesPerDWORD = (memoryConsumed[upper_ix]-baseMemory)/(dwordCount[upper_ix]-DWORDs);
 				DWORDs += (allocSize-baseMemory)/bytesPerDWORD;
@@ -342,6 +342,7 @@ uint32_t CPropertyPoolHandler::transferProperties(
 	};
 	auto submit = [&]() -> void
 	{
+		cmdbuf->end();
 		IGPUQueue::SSubmitInfo submit;
 		submit.commandBufferCount = 1u;
 		submit.commandBuffers = &cmdbuf;

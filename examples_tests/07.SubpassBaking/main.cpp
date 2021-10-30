@@ -117,11 +117,12 @@ int main(int argc, char** argv)
 
         video::IGPUBuffer::SCreationParams cameraUBOCreationParams;
         cameraUBOCreationParams.usage = asset::IBuffer::EUF_UNIFORM_BUFFER_BIT;
+        cameraUBOCreationParams.canUpdateSubRange = true;
         cameraUBOCreationParams.sharingMode = asset::E_SHARING_MODE::ESM_EXCLUSIVE;
         cameraUBOCreationParams.queueFamilyIndexCount = 0u;
         cameraUBOCreationParams.queueFamilyIndices = nullptr;
 
-        cameraUBO = logicalDevice->createGPUBufferOnDedMem(cameraUBOCreationParams,ubomemreq,true);
+        cameraUBO = logicalDevice->createGPUBufferOnDedMem(cameraUBOCreationParams,ubomemreq);
         perCameraDescSet = logicalDevice->createGPUDescriptorSet(descriptorPool.get(),std::move(gpuds1layout));
         {
             video::IGPUDescriptorSet::SWriteDescriptorSet write;
@@ -245,28 +246,49 @@ int main(int argc, char** argv)
         }
         // do the transfer of drawcall structs
         {
-            video::CPropertyPoolHandler::TransferRequest request;
-            request.memblock = drawAllocator->getDrawCommandMemoryBlock();
-            request.flags = decltype(request)::EF_NONE;
+            video::CPropertyPoolHandler::UpStreamingRequest request;
+            request.destination = drawAllocator->getDrawCommandMemoryBlock();
+            request.fill = false;
             request.elementSize = sizeof(asset::DrawElementsIndirectCommand_t);
             request.elementCount = drawCallCount;
+            request.source.device2device = false;
+            request.source.data = drawCallData;
             request.srcAddresses = nullptr; // iota 0,1,2,3,4,etc.
-            std::for_each_n(allocation.multiDrawCommandRangeByteOffsets,request.elementCount,[=](auto& handle){handle/=request.elementSize;});
             request.dstAddresses = allocation.multiDrawCommandRangeByteOffsets;
-            request.device2device = false;
-            request.source = drawCallData;
+            std::for_each_n(allocation.multiDrawCommandRangeByteOffsets,request.elementCount,[&](auto& handle){handle/=request.elementSize;});
 
+            auto upQueue = queues[decltype(initOutput)::EQT_TRANSFER_UP];
             auto fence = logicalDevice->createFence(video::IGPUFence::ECF_UNSIGNALED);
             core::smart_refctd_ptr<video::IGPUCommandBuffer> tferCmdBuf;
             logicalDevice->createCommandBuffers(commandPool.get(),video::IGPUCommandBuffer::EL_PRIMARY,1u,&tferCmdBuf);
             tferCmdBuf->begin(0u); // TODO some one time submit bit or something
-            utilities->getDefaultPropertyPoolHandler()->transferProperties(utilities->getDefaultUpStreamingBuffer(),nullptr,tferCmdBuf.get(),fence.get(),&request,&request+1u,logger.get());
+            {
+                auto* ppHandler = utilities->getDefaultPropertyPoolHandler();
+                // if we did multiple transfers, we'd reuse the scratch
+                asset::SBufferBinding<video::IGPUBuffer> scratch;
+                {
+                    video::IGPUBuffer::SCreationParams scratchParams = {};
+		            scratchParams.canUpdateSubRange = true;
+		            scratchParams.usage = core::bitflag(video::IGPUBuffer::EUF_TRANSFER_DST_BIT)|video::IGPUBuffer::EUF_STORAGE_BUFFER_BIT;
+		            scratch = {0ull,logicalDevice->createDeviceLocalGPUBufferOnDedMem(scratchParams,ppHandler->getMaxScratchSize())};
+		            scratch.buffer->setObjectDebugName("Scratch Buffer");
+                }
+                auto* pRequest = &request;
+                uint32_t waitSemaphoreCount = 0u;
+                video::IGPUSemaphore* const* waitSemaphores = nullptr;
+                const asset::E_PIPELINE_STAGE_FLAGS* waitStages = nullptr;
+                ppHandler->transferProperties(
+                    utilities->getDefaultUpStreamingBuffer(),tferCmdBuf.get(),fence.get(),upQueue,
+                    scratch,pRequest,1u,waitSemaphoreCount,waitSemaphores,waitStages,
+                    logger.get()
+                );
+            }
             tferCmdBuf->end();
             {
                 video::IGPUQueue::SSubmitInfo submit = {}; // intializes all semaphore stuff to 0 and nullptr
                 submit.commandBufferCount = 1u;
                 submit.commandBuffers = &tferCmdBuf.get();
-                queues[decltype(initOutput)::EQT_TRANSFER_UP]->submit(1u,&submit,fence.get());
+                upQueue->submit(1u,&submit,fence.get());
             }
             logicalDevice->blockForFences(1u,&fence.get());
         }
