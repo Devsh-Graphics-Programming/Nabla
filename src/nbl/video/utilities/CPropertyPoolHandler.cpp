@@ -174,7 +174,7 @@ uint32_t CPropertyPoolHandler::transferProperties(
 	// somewhat decent attempt at packing
 	std::sort(requests,requests+requestCount,[](const UpStreamingRequest& rhs, const UpStreamingRequest& lhs)->bool{return rhs.getElementDWORDs()<lhs.getElementDWORDs();});
 
-	//
+	// TODO: upper_bound-1 over a custom range/iterator (do a binary search over total memory consumption)
 	struct CumulativeHistogram
 	{
 		uint32_t dwordCount[MaxPropertiesPerDispatch+1u];
@@ -190,7 +190,7 @@ uint32_t CPropertyPoolHandler::transferProperties(
 			const uint32_t baseMemory = memoryConsumed[lower_ix];
 			if (upper_ix<=propertiesThisPass) // can't do all of them
 			{
-				const uint32_t bytesPerDWORD = (memoryConsumed[upper_ix]-baseMemory)/(dwordCount[upper_ix]-DWORDs);
+				const uint32_t bytesPerDWORD = (memoryConsumed[upper_ix]-baseMemory-1u)/(dwordCount[upper_ix]-DWORDs)+1u;
 				DWORDs += (allocSize-baseMemory)/bytesPerDWORD;
 			}
 			else
@@ -233,13 +233,12 @@ uint32_t CPropertyPoolHandler::transferProperties(
 			for (auto j=0; j<propertiesThisPass; j++)
 			{
 				const auto& request = localRequests[j];
-				if (request.getElementDWORDs()<endDWORD)
-					continue;
+				const auto partialDWORDs = core::min(request.getElementDWORDs(),endDWORD);
 
 				if (!request.source.device2device)
-					memConsumed += dwordCount*sizeof(uint32_t);
+					memConsumed += (partialDWORDs-baseDWORDs)*sizeof(uint32_t);
 				
-				const auto indexConsumption = (request.getElementsToSkip(endDWORD+request.elementSize-1u)-request.getElementsToSkip(baseDWORDs))*sizeof(uint32_t);
+				const auto indexConsumption = (request.getElementsToSkip(partialDWORDs+request.elementSize-1u)-request.getElementsToSkip(baseDWORDs))*sizeof(uint32_t);
 				if (!request.fill && request.srcAddresses)
 					memConsumed += indexConsumption;
 				if (request.dstAddresses)
@@ -257,7 +256,10 @@ uint32_t CPropertyPoolHandler::transferProperties(
 		
 		constexpr auto invalid_address = std::remove_reference_t<decltype(upBuff->getAllocator())>::invalid_address;
 		auto addr = invalid_address;
-		upBuff->multi_alloc(maxWaitPoint,1u,&addr,&paddedSize,&m_alignment);
+		const auto submitWaitPoint = std::chrono::high_resolution_clock::now()+std::chrono::microseconds(250u);
+		if (submitWaitPoint>maxWaitPoint)
+			return 0u; // timed out
+		upBuff->multi_alloc(submitWaitPoint,1u,&addr,&paddedSize,&m_alignment);
 		if (addr!=invalid_address)
 		{
 			const auto endDWORD = baseDWORDs+doneDWORDs;
@@ -280,7 +282,7 @@ uint32_t CPropertyPoolHandler::transferProperties(
 					transfer.buffer = uploadBuffer;
 					transfer.buffer.offset = offset;
 					// copy
-					const auto sizeDWORDs = request.getElementDWORDs()-baseDWORDs;
+					const auto sizeDWORDs = core::min(request.getElementDWORDs(),endDWORD)-baseDWORDs;
 					const auto bytesize = sizeDWORDs*sizeof(uint32_t);
 					memcpy(upBuffPtr8+offset,reinterpret_cast<const uint32_t*>(request.source.data)+baseDWORDs,bytesize);
 					// advance

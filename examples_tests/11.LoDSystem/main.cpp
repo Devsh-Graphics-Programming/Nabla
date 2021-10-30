@@ -305,7 +305,7 @@ int main()
     // how many drawcalls (meshlets)
     constexpr auto MaxDrawCalls = 256u;
     // how many instances
-    constexpr auto MaxInstanceCount = 1u<<19u; // TODO: figure out what prevents me from jacking up the instance count to 1M
+    constexpr auto MaxInstanceCount = 1677721u; // absolute max for Intel HD Graphics on Windows (to keep within 128MB SSBO limit)
     // maximum visible instances of a drawcall (should be a sum of MaxLoDDrawcalls[t]*MaxInstances[t] where t iterates over all LoD Tables)
     constexpr auto MaxTotalVisibleDrawcallInstances = MaxInstanceCount+(MaxInstanceCount>>8u); // This is literally my worst case guess of how many batch-draw-instances there will be on screen at the same time
 
@@ -475,7 +475,7 @@ int main()
     std::mt19937 mt(0x45454545u);
     std::uniform_int_distribution<uint32_t> typeDist(0,EGT_COUNT-1u);
     std::uniform_real_distribution<float> rotationDist(0,2.f*core::PI<float>());
-    std::uniform_real_distribution<float> posDist(-800.f,800.f);
+    std::uniform_real_distribution<float> posDist(-1200.f,1200.f);
     //
     core::smart_refctd_ptr<video::IGPUCommandBuffer> bakedCommandBuffer;
     {
