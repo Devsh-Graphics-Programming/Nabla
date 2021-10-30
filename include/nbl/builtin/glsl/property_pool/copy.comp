@@ -30,19 +30,26 @@ void main()
 {
     const uint propID = gl_WorkGroupID.y;
     const nbl_glsl_property_pool_transfer_t transfer = transferData[propID];
-
+    // process transfer settings
     const int flagsBitOffset = 32-NBL_BUILTIN_PROPERTY_POOL_TRANSFER_EF_BIT_COUNT;
 	const uint propDWORDs = uint(bitfieldExtract(transfer.propertyDWORDsize_flags,0,flagsBitOffset));
-    
+    const bool fill = bool(transfer.propertyDWORDsize_flags&(NBL_BUILTIN_PROPERTY_POOL_TRANSFER_EF_SRC_FILL<<flagsBitOffset));
+    const bool srcAddressNotIOTA = transfer.srcIndexOffset!=NBL_BUILTIN_PROPERTY_POOL_INVALID;
+    const bool dstAddressNotIOTA = transfer.dstIndexOffset!=NBL_BUILTIN_PROPERTY_POOL_INVALID;
+    //
+    const uint indicesToSkip = pc.baseDWORD/propDWORDs;
+    const uint srcIndexOffset = fill ? transfer.srcIndexOffset:(transfer.srcIndexOffset-indicesToSkip);
+    const uint dstIndexOffset = transfer.dstIndexOffset-indicesToSkip;
+    // set up loop
     const uint DWORDs = min(transfer.elementCount*propDWORDs,pc.endDWORD);
     const uint dispatchSize = gl_NumWorkGroups[0]*NBL_LIMIT_MAX_OPTIMALLY_RESIDENT_WORKGROUP_INVOCATIONS;
     for (uint virtualInvocationIndex=gl_GlobalInvocationID.x+pc.baseDWORD; virtualInvocationIndex<DWORDs; virtualInvocationIndex+=dispatchSize)
     {
         const uint index = virtualInvocationIndex/propDWORDs;
         
-        const uint srcIndex = bool(transfer.propertyDWORDsize_flags&(NBL_BUILTIN_PROPERTY_POOL_TRANSFER_EF_SRC_FILL<<flagsBitOffset)) ? 0u:index;
-        const uint srcAddress = transfer.srcIndexOffset!=NBL_BUILTIN_PROPERTY_POOL_INVALID ? addresses[srcIndex+transfer.srcIndexOffset]:srcIndex;
-        const uint dstAddress = transfer.dstIndexOffset!=NBL_BUILTIN_PROPERTY_POOL_INVALID ? addresses[index+transfer.dstIndexOffset]:index;
+        const uint srcIndex =  fill ? 0u:index;
+        const uint srcAddress = srcAddressNotIOTA ? addresses[srcIndex+srcIndexOffset]:srcIndex;
+        const uint dstAddress = dstAddressNotIOTA ? addresses[index+dstIndexOffset]:index;
 	    // its equivalent to `addresses[index]*propDWORDs+virtualInvocationIndex%propDWORDs`
 	    const uint srcDWORD = (srcAddress-index)*propDWORDs+virtualInvocationIndex;
 	    const uint dstDWORD = (dstAddress-index)*propDWORDs+virtualInvocationIndex;

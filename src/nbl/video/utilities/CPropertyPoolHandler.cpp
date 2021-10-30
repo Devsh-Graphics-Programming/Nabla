@@ -218,6 +218,7 @@ uint32_t CPropertyPoolHandler::transferProperties(
 			return 0u;
 
 		// compute the memory histogram
+		// TODO: optimize by uploading overlapping index ranges just once
 		cmHist.memoryConsumed[0u] = 0u;
 		for (auto i=0u; i<propertiesThisPass; i++)
 		{
@@ -298,15 +299,15 @@ uint32_t CPropertyPoolHandler::transferProperties(
 				const auto indexConsumption = indexCount*sizeof(uint32_t);
 				if (request.srcAddresses)
 				{
+					transfer.srcAddressesOffset = offset;
 					if (request.fill)
 					{
 						memcpy(upBuffPtr32+offset,request.srcAddresses,sizeof(uint32_t));
-						transfer.srcAddressesOffset = offset++;
+						++offset;
 					}
 					else
 					{
 						memcpy(upBuffPtr32+offset,request.srcAddresses+firstIndex,indexConsumption);
-						transfer.srcAddressesOffset = offset;
 						offset += indexCount;
 					}
 				}
