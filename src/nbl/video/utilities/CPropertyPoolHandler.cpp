@@ -173,32 +173,125 @@ uint32_t CPropertyPoolHandler::transferProperties(
 
 	// somewhat decent attempt at packing
 	std::sort(requests,requests+requestCount,[](const UpStreamingRequest& rhs, const UpStreamingRequest& lhs)->bool{return rhs.getElementDWORDs()<lhs.getElementDWORDs();});
+	
+    class MemoryUsageIterator
+    {
+			const UpStreamingRequest* localRequests;
+			uint32_t propertiesThisPass;
+			uint32_t baseDWORDs;
+			uint32_t dwordCount;
+			uint32_t memoryConsumed;
+		public:
+			using value_type = uint32_t;
+			//using pointer = type*;
+			//using reference = type&;
+			using difference_type = int64_t;
+			using iterator_category = std::random_access_iterator_tag;
 
-	// TODO: upper_bound-1 over a custom range/iterator (do a binary search over total memory consumption)
-	struct CumulativeHistogram
-	{
-		uint32_t dwordCount[MaxPropertiesPerDispatch+1u];
-		uint32_t memoryConsumed[MaxPropertiesPerDispatch+1u];
-
-		inline uint32_t computeDWORDsToTransfer(const uint32_t propertiesThisPass, uint32_t& allocSize)
-		{
-			const auto upper_ix = std::distance(memoryConsumed,std::upper_bound(memoryConsumed,memoryConsumed+propertiesThisPass+1,allocSize));
-			if (upper_ix==0u) // not enough memory to do anything
-				return 0u;
-			const auto lower_ix = upper_ix-1u;
-			uint32_t DWORDs = dwordCount[lower_ix];
-			const uint32_t baseMemory = memoryConsumed[lower_ix];
-			if (upper_ix<=propertiesThisPass) // can't do all of them
+			MemoryUsageIterator(const UpStreamingRequest* _localRequests, const uint32_t _propertiesThisPass, const uint32_t _baseDWORDs, const uint32_t _dwordCount)
+				: localRequests(_localRequests), propertiesThisPass(_propertiesThisPass), baseDWORDs(_baseDWORDs), dwordCount(_dwordCount), memoryConsumed(0u)
 			{
-				const uint32_t bytesPerDWORD = (memoryConsumed[upper_ix]-baseMemory-1u)/(dwordCount[upper_ix]-DWORDs)+1u;
-				DWORDs += (allocSize-baseMemory)/bytesPerDWORD;
+				bool end = true;
+
+				const auto cumulativeDWORDs = dwordCount+baseDWORDs;
+				for (auto j=0; j<propertiesThisPass; j++)
+				{
+					const auto& request = localRequests[j];
+					auto endDWORD = request.getElementDWORDs();
+					if (cumulativeDWORDs<=endDWORD)
+					{
+						endDWORD = cumulativeDWORDs;
+						end = false;
+					}
+
+					if (!request.source.device2device)
+						memoryConsumed += (endDWORD-baseDWORDs)*sizeof(uint32_t);
+				
+					const auto indexConsumption = (request.getElementsToSkip(endDWORD+request.elementSize-1u)-request.getElementsToSkip(baseDWORDs))*sizeof(uint32_t);
+					if (request.srcAddresses)
+						memoryConsumed += request.fill ? sizeof(uint32_t):indexConsumption;
+					if (request.dstAddresses)
+						memoryConsumed += indexConsumption;
+				}
+
+				if (end)
+					memoryConsumed = ~0u;
 			}
-			else
-				allocSize = baseMemory;
-			return DWORDs;
-		}
-	} cmHist;
-	cmHist.dwordCount[0] = 0u;
+
+			MemoryUsageIterator operator+(difference_type n) const
+			{
+				return MemoryUsageIterator(localRequests,propertiesThisPass,baseDWORDs,dwordCount+static_cast<uint32_t>(n));
+			}
+			MemoryUsageIterator& operator+=(difference_type n)
+			{
+				return operator=(operator+(n));
+			}
+			MemoryUsageIterator operator-(difference_type n) const
+			{
+				return operator+(-n);
+			}
+			MemoryUsageIterator& operator-=(difference_type n)
+			{
+				return operator+=(-n);
+			}
+			difference_type operator-(const MemoryUsageIterator& rhs) const
+			{
+				return static_cast<difference_type>(dwordCount-rhs.dwordCount);
+			}
+			MemoryUsageIterator& operator++()
+			{
+				return operator+=(1);
+			}
+			MemoryUsageIterator operator++(int)
+			{
+				auto cp = *this;
+				++(*this);
+				return cp;
+			}
+			MemoryUsageIterator& operator--()
+			{
+				return operator-=(1);
+			}
+			MemoryUsageIterator operator--(int)
+			{
+				auto cp = *this;
+				--(*this);
+				return cp;
+			}
+
+			value_type operator*() const
+			{
+				return memoryConsumed;
+			}
+
+			bool operator==(const MemoryUsageIterator& rhs) const
+			{
+				return dwordCount==rhs.dwordCount;
+			}
+			bool operator!=(const MemoryUsageIterator& rhs) const
+			{
+				return dwordCount!=rhs.dwordCount;
+			}
+			bool operator<(const MemoryUsageIterator& rhs) const
+			{
+				return this->operator-(rhs) > 0;
+			}
+			bool operator>(const MemoryUsageIterator& rhs) const
+			{
+				return rhs < (*this);
+			}
+			bool operator>=(const MemoryUsageIterator& rhs) const
+			{
+				return !(this->operator<(rhs));
+			}
+			bool operator<=(const MemoryUsageIterator& rhs) const
+			{
+				return !(this->operator>(rhs));
+			}
+	};
+
+	//
+	const auto& limits = m_device->getPhysicalDevice()->getLimits();
 
 	//
 	TransferRequest xfers[MaxPropertiesPerDispatch];
@@ -217,41 +310,29 @@ uint32_t CPropertyPoolHandler::transferProperties(
 		if (propertiesThisPass==0u)
 			return 0u;
 
-		// compute the memory histogram
-		// TODO: optimize by uploading overlapping index ranges just once
-		cmHist.memoryConsumed[0u] = 0u;
-		for (auto i=0u; i<propertiesThisPass; i++)
-		{
-			const auto endDWORD = localRequests[i].getElementDWORDs();
-			const auto dwordCount = cmHist.dwordCount[i+1] = endDWORD-baseDWORDs;
-			assert(dwordCount>=cmHist.dwordCount[i]);
-
-			if (localRequests[i].fill && localRequests[i].srcAddresses)
-				cmHist.memoryConsumed[0u] += sizeof(uint32_t);
-
-			auto& memConsumed = cmHist.memoryConsumed[i+1] = 0u;
-			for (auto j=0; j<propertiesThisPass; j++)
-			{
-				const auto& request = localRequests[j];
-				const auto partialDWORDs = core::min(request.getElementDWORDs(),endDWORD);
-
-				if (!request.source.device2device)
-					memConsumed += (partialDWORDs-baseDWORDs)*sizeof(uint32_t);
-				
-				const auto indexConsumption = (request.getElementsToSkip(partialDWORDs+request.elementSize-1u)-request.getElementsToSkip(baseDWORDs))*sizeof(uint32_t);
-				if (!request.fill && request.srcAddresses)
-					memConsumed += indexConsumption;
-				if (request.dstAddresses)
-					memConsumed += indexConsumption;
-			}
-		}
-
         const uint32_t freeSpace = static_cast<uint32_t>(core::alignDown(upBuff->max_size(),m_alignment));
 		const uint32_t worstCasePadding = m_alignment*propertiesThisPass-propertiesThisPass;
 		if (freeSpace<=worstCasePadding)
 			return 0u;
 		auto paddedSize = freeSpace-worstCasePadding;
-		const uint32_t doneDWORDs = cmHist.computeDWORDsToTransfer(propertiesThisPass,paddedSize);
+		uint32_t doneDWORDs;
+		{
+			const auto begin = MemoryUsageIterator(localRequests,propertiesThisPass,baseDWORDs,0u);
+			doneDWORDs = std::distance(
+				begin,
+				std::upper_bound(
+					begin,
+					MemoryUsageIterator(localRequests,propertiesThisPass,baseDWORDs,remainingDWORDs+1u),
+					paddedSize
+				)
+			);
+			if (doneDWORDs==0u)
+				return 0u;
+			--doneDWORDs;
+			// prevent micro dispatches
+			if (doneDWORDs!=remainingDWORDs && doneDWORDs<limits.maxResidentInvocations)
+				return 0u;
+		}
 		paddedSize += worstCasePadding;
 		
 		constexpr auto invalid_address = std::remove_reference_t<decltype(upBuff->getAllocator())>::invalid_address;
