@@ -357,14 +357,18 @@ int main()
 			tmp_transforms[i] = solarSystemObjectsData[i].getTform();
 		}
 		auto tmp_node_buf = utils->createFilledDeviceLocalGPUBufferOnDedMem(q,sizeof(scene::ITransformTree::node_t)*NumInstances,tmp_nodes.data());
+		tmp_node_buf->setObjectDebugName("Temporary Nodes");
 		auto tmp_parent_buf = utils->createFilledDeviceLocalGPUBufferOnDedMem(q,sizeof(scene::ITransformTree::parent_t)*NumInstances,tmp_parents.data());
+		tmp_parent_buf->setObjectDebugName("Temporary Parents");
 		auto tmp_transform_buf = utils->createFilledDeviceLocalGPUBufferOnDedMem(q,sizeof(scene::ITransformTree::relative_transform_t)*NumInstances,tmp_transforms.data());
+		tmp_transform_buf->setObjectDebugName("Temporary Transforms");
 
 		//
 		video::IGPUBuffer::SCreationParams scratchParams = {};
 		scratchParams.canUpdateSubRange = true;
 		scratchParams.usage = core::bitflag(video::IGPUBuffer::EUF_TRANSFER_DST_BIT)|video::IGPUBuffer::EUF_STORAGE_BUFFER_BIT;
 		asset::SBufferBinding<video::IGPUBuffer> scratch = {0ull,device->createDeviceLocalGPUBufferOnDedMem(scratchParams,utils->getDefaultPropertyPoolHandler()->getMaxScratchSize())};
+		scratch.buffer->setObjectDebugName("Scratch Buffer");
 		{
 			video::CPropertyPoolHandler::TransferRequest transfers[scene::ITransformTreeManager::TransferCount];
 

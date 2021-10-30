@@ -16,7 +16,11 @@
 namespace nbl::video
 {
 
+#define int int32_t
+#define uint uint32_t
 #include "nbl/builtin/glsl/property_pool/transfer.glsl"
+#undef uint
+#undef int
 static_assert(NBL_BUILTIN_PROPERTY_POOL_INVALID==IPropertyPool::invalid);
 
 // property pool factory is externally synchronized

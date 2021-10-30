@@ -434,7 +434,7 @@ uint32_t CPropertyPoolHandler::TransferDescriptorSetCache::acquireSet(
 	infos[0].buffer.size = sizeof(nbl_glsl_property_pool_transfer_t)*propertyCount;
 	infos[1].assign(addresses,asset::EDT_STORAGE_BUFFER);
 	auto* inDescInfo = infos+2;
-	auto* outDescInfo = infos+2+propertyCount;
+	auto* outDescInfo = infos+2+maxPropertiesPerPass;
 	for (uint32_t i=0u; i<propertyCount; i++)
 	{
 		const auto& request = requests[i];
@@ -468,10 +468,16 @@ uint32_t CPropertyPoolHandler::TransferDescriptorSetCache::acquireSet(
 		writes[i].dstSet = set;
 		writes[i].binding = i;
 		writes[i].arrayElement = 0u;
-		writes[i].count = i<2u ? 1u:propertyCount;
 		writes[i].descriptorType = asset::EDT_STORAGE_BUFFER;
-		writes[i].info = i ? (writes[i-1u].info+writes[i-1u].count):infos;
 	}
+	writes[0].count = 1u;
+	writes[0].info = infos;
+	writes[1].count = 1u;
+	writes[1].info = infos+1u;
+	writes[2].count = maxPropertiesPerPass;
+	writes[2].info = inDescInfo;
+	writes[3].count = maxPropertiesPerPass;
+	writes[3].info = outDescInfo;
 	device->updateDescriptorSets(4u,writes,0u,nullptr);
 
 	return retval;

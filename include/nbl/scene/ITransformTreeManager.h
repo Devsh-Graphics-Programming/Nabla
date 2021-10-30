@@ -90,6 +90,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 				*reinterpret_cast<ITransformTree::recomputed_stamp_t*>(fillData+getDefaultValueBufferOffset(limits,ITransformTree::recomputed_stamp_prop_ix)) = ITransformTree::initial_recomputed_timestamp;
 			}
 			auto defaultFillValues = utils->createFilledDeviceLocalGPUBufferOnDedMem(uploadQueue,tmp.size(),fillData);
+			defaultFillValues->setObjectDebugName("ITransformTreeManager::m_defaultFillValues");
 
 			core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> sharedDsLayout;
 			{
