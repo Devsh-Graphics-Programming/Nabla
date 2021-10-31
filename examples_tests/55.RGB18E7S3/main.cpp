@@ -134,13 +134,13 @@ int main()
     ssboMemoryReqs.mappingCapability = video::IDriverMemoryAllocation::EMCAF_READ_AND_WRITE;
 
     video::IGPUBuffer::SCreationParams ssboCreationParams;
-    ssboCreationParams.size = sizeof(SShaderStorageBufferObject);
     ssboCreationParams.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
+    ssboCreationParams.canUpdateSubRange = true;
     ssboCreationParams.sharingMode = asset::E_SHARING_MODE::ESM_CONCURRENT;
     ssboCreationParams.queueFamilyIndexCount = 0u;
     ssboCreationParams.queueFamilyIndices = nullptr;
 
-    auto gpuDownloadSSBOmapped = logicalDevice->createGPUBufferOnDedMem(ssboCreationParams, ssboMemoryReqs, true);
+    auto gpuDownloadSSBOmapped = logicalDevice->createGPUBufferOnDedMem(ssboCreationParams,ssboMemoryReqs);
 
     video::IGPUDescriptorSetLayout::SBinding gpuBindingsLayout[ES_COUNT] =
     {

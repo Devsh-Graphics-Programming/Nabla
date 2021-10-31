@@ -89,6 +89,7 @@ class smart_refctd_ptr
 		bool drop() = delete;
 		bool drop() const = delete;
 
+		// TODO: const correctness on the access operators (std::enable_if)
 		inline I_REFERENCE_COUNTED* const& get() const { return ptr; }
 
 		inline I_REFERENCE_COUNTED* operator->() const { return ptr; }

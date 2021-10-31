@@ -7,7 +7,7 @@
 namespace nbl::video
 {
 
-void COpenGLBuffer::destroyGLBufferObjectWrapper()
+COpenGLBuffer::~COpenGLBuffer()
 {
     if (BufferName == 0u)
         return;

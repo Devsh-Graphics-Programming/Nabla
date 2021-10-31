@@ -625,7 +625,7 @@ public:
 
 		if(ret == ~0u)
 		{
-			_NBL_DEBUG_BREAK_IF(true);
+			//_NBL_DEBUG_BREAK_IF(true);
 			ret = 0;
 		}
 
@@ -1202,27 +1202,27 @@ public:
 		return fbo;
 	}
 
+	static constexpr inline nbl::asset::E_PIPELINE_STAGE_FLAGS DefaultSubmitWaitStage = nbl::asset::EPSF_COLOR_ATTACHMENT_OUTPUT_BIT;
 	static void Submit(nbl::video::ILogicalDevice* device,
 		nbl::video::ISwapchain* sc,
 		nbl::video::IGPUCommandBuffer* cmdbuf,
 		nbl::video::IGPUQueue* queue,
-		nbl::video::IGPUSemaphore* imgAcqSemaphore,
-		nbl::video::IGPUSemaphore* renderFinishedSemaphore,
-		nbl::video::IGPUFence* fence=nullptr)
+		nbl::video::IGPUSemaphore* const waitSemaphore, // usually the image acquire semaphore
+		nbl::video::IGPUSemaphore* const renderFinishedSemaphore,
+		nbl::video::IGPUFence* fence=nullptr,
+		const nbl::core::bitflag<nbl::asset::E_PIPELINE_STAGE_FLAGS> waitDstStageMask=DefaultSubmitWaitStage // only matters if `waitSemaphore` not null
+	)
 	{
 		using namespace nbl;
 		video::IGPUQueue::SSubmitInfo submit;
 		{
 			submit.commandBufferCount = 1u;
 			submit.commandBuffers = &cmdbuf;
-			video::IGPUSemaphore* signalsem = renderFinishedSemaphore;
-			submit.signalSemaphoreCount = imgAcqSemaphore ? 1u:0u;
-			submit.pSignalSemaphores = &signalsem;
-			video::IGPUSemaphore* waitsem = imgAcqSemaphore;
-			asset::E_PIPELINE_STAGE_FLAGS dstWait = asset::EPSF_COLOR_ATTACHMENT_OUTPUT_BIT;
-			submit.waitSemaphoreCount = 1u;
-			submit.pWaitSemaphores = &waitsem;
-			submit.pWaitDstStageMask = &dstWait;
+			submit.waitSemaphoreCount = waitSemaphore ? 1u:0u;
+			submit.pWaitSemaphores = &waitSemaphore;
+			submit.pWaitDstStageMask = &waitDstStageMask.value;
+			submit.signalSemaphoreCount = renderFinishedSemaphore ? 1u:0u;
+			submit.pSignalSemaphores = &renderFinishedSemaphore;
 
 			queue->submit(1u,&submit,fence);
 		}
@@ -1231,7 +1231,7 @@ public:
 	static void Present(nbl::video::ILogicalDevice* device,
 		nbl::video::ISwapchain* sc,
 		nbl::video::IGPUQueue* queue,
-		nbl::video::IGPUSemaphore* renderFinishedSemaphore,
+		nbl::video::IGPUSemaphore* waitSemaphore, // usually the render finished semaphore
 		uint32_t imageNum)
 	{
 		using namespace nbl;
@@ -1241,9 +1241,8 @@ public:
 			present.imgIndices = &imageNum;
 			video::ISwapchain* swapchain = sc;
 			present.swapchains = &swapchain;
-			video::IGPUSemaphore* waitsem = renderFinishedSemaphore;
-			present.waitSemaphoreCount = 1u;
-			present.waitSemaphores = &waitsem;
+			present.waitSemaphoreCount = waitSemaphore ? 1u:0u;
+			present.waitSemaphores = &waitSemaphore;
 
 			queue->present(present);
 		}

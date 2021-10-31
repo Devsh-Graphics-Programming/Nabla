@@ -192,7 +192,7 @@ int main()
 	ssboCreationParams.queueFamilyIndexCount = 0u;
 	ssboCreationParams.queueFamilyIndices = nullptr;
 
-	auto ssbo_buf = device->createDeviceLocalGPUBufferOnDedMem(ssboCreationParams, ssboSz);
+	auto ssbo_buf = device->createDeviceLocalGPUBufferOnDedMem(ssboCreationParams,ssboSz);
 
 	asset::SBufferRange<video::IGPUBuffer> propBufs[PropertyCount];
 	for (uint32_t i = 0u; i < PropertyCount; ++i)
@@ -208,8 +208,8 @@ int main()
 	propBufs[4].offset = offset_recompStamp;
 	propBufs[4].size = recompStampPropSz*ObjectCount;
 
-	auto tt = scene::ITransformTree::create(device.get(), propBufs, ObjectCount, true);
-	auto ttm = scene::ITransformTreeManager::create(core::smart_refctd_ptr(device));
+	auto tt = scene::ITransformTree::create(device.get(), propBufs, ObjectCount, true); // WTF!? Why a contiguous Pool for a TT !?
+	auto ttm = scene::ITransformTreeManager::create(utils.get(),transferUpQueue);
 
 	auto ppHandler = core::make_smart_refctd_ptr<video::CPropertyPoolHandler>(core::smart_refctd_ptr(device));
 
@@ -229,12 +229,17 @@ int main()
 	instancesData.resize(NumInstances);
 	solarSystemObjectsData.resize(NumInstances);
 
-	nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandBuffer> cmdbuf_nodes;
-	device->createCommandBuffers(commandPool.get(), nbl::video::IGPUCommandBuffer::EL_PRIMARY, 1u, &cmdbuf_nodes);
-	auto fence_nodes = device->createFence(static_cast<nbl::video::IGPUFence::E_CREATE_FLAGS>(0));
+	// allocate node handles from the transform tree
+	core::vector<scene::ITransformTree::node_t> tmp_nodes(NumInstances, scene::ITransformTree::invalid_node);
+	{
+		bool success = tt->allocateNodes({tmp_nodes.data(),tmp_nodes.data()+tmp_nodes.size()});
+		if (!success)
+			exit(-1);
+		auto objectIt = solarSystemObjectsData.begin();
+		for (auto nodeID : tmp_nodes)
+			(objectIt++)->node = nodeID;
+	}
 
-	cmdbuf_nodes->begin(0);
-	
 	// Sun
 	uint32_t constexpr sunIndex = 0u;
 	instancesData[sunIndex].color = core::vector3df_SIMD(0.8f, 1.0f, 0.1f);
@@ -243,42 +248,12 @@ int main()
 	solarSystemObjectsData[sunIndex].zRotationSpeed = 0.0f;
 	solarSystemObjectsData[sunIndex].scale = 5.0f;
 	solarSystemObjectsData[sunIndex].initialRelativePosition = core::vector3df_SIMD(0.0f, 0.0f, 0.0f);
-
-	scene::ITransformTree::node_t parent_node = scene::ITransformTree::invalid_node;
-	{
-		scene::ITransformTreeManager::AllocationRequest parent_req;
-		parent_req.cmdbuf = cmdbuf_nodes.get();
-		parent_req.fence = fence_nodes.get();
-		auto tform = solarSystemObjectsData[sunIndex].getTform();
-		parent_req.relativeTransforms = &tform;
-		parent_req.outNodes = { &parent_node, &parent_node + 1 };
-		parent_req.parents = nullptr; //allocating root node
-		parent_req.poolHandler = ppHandler.get();
-		parent_req.tree = tt.get();
-		parent_req.upBuff = utils->getDefaultUpStreamingBuffer();
-		parent_req.logger = initOutput.logger.get();
-		ttm->addNodes(parent_req);
-		cmdbuf_nodes->end();
-
-		auto* q = device->getQueue(0u, 0u);
-		video::IGPUQueue::SSubmitInfo submit;
-		submit.commandBufferCount = 1u;
-		submit.commandBuffers = &cmdbuf_nodes.get();
-		q->submit(1u, &submit, fence_nodes.get());
-	}
-
-	auto waitres = device->waitForFences(1u, &fence_nodes.get(), false, 999999999ull);
-	assert(waitres == video::IGPUFence::ES_SUCCESS);
-
-	cmdbuf_nodes->reset(video::IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
-	device->resetFences(1u, &fence_nodes.get());
-
-	solarSystemObjectsData[sunIndex].node = parent_node;
+	const auto sun_node = solarSystemObjectsData[sunIndex].node;
 	
 	// Mercury
 	uint32_t constexpr mercuryIndex = 1u;
 	instancesData[mercuryIndex].color = core::vector3df_SIMD(0.7f, 0.3f, 0.1f);
-	solarSystemObjectsData[mercuryIndex].parentIndex = parent_node;
+	solarSystemObjectsData[mercuryIndex].parentIndex = sun_node;
 	solarSystemObjectsData[mercuryIndex].yRotationSpeed = 0.5f;
 	solarSystemObjectsData[mercuryIndex].zRotationSpeed = 0.0f;
 	solarSystemObjectsData[mercuryIndex].scale = 0.5f;
@@ -287,7 +262,7 @@ int main()
 	// Venus
 	uint32_t constexpr venusIndex = 2u;
 	instancesData[venusIndex].color = core::vector3df_SIMD(0.8f, 0.6f, 0.1f);
-	solarSystemObjectsData[venusIndex].parentIndex = parent_node;
+	solarSystemObjectsData[venusIndex].parentIndex = sun_node;
 	solarSystemObjectsData[venusIndex].yRotationSpeed = 0.8f;
 	solarSystemObjectsData[venusIndex].zRotationSpeed = 0.0f;
 	solarSystemObjectsData[venusIndex].scale = 1.0f;
@@ -296,16 +271,25 @@ int main()
 	// Earth
 	uint32_t constexpr earthIndex = 3u;
 	instancesData[earthIndex].color = core::vector3df_SIMD(0.1f, 0.4f, 0.8f);
-	solarSystemObjectsData[earthIndex].parentIndex = parent_node;
+	solarSystemObjectsData[earthIndex].parentIndex = sun_node;
 	solarSystemObjectsData[earthIndex].yRotationSpeed = 1.0f;
 	solarSystemObjectsData[earthIndex].zRotationSpeed = 0.0f;
 	solarSystemObjectsData[earthIndex].scale = 2.0f;
 	solarSystemObjectsData[earthIndex].initialRelativePosition = core::vector3df_SIMD(12.0f, 0.0f, 0.0f);
+
+	// Moon
+	uint32_t constexpr moonIndex = 10u;
+	instancesData[moonIndex].color = core::vector3df_SIMD(0.3f, 0.2f, 0.25f);
+	solarSystemObjectsData[moonIndex].parentIndex = solarSystemObjectsData[earthIndex].node;
+	solarSystemObjectsData[moonIndex].yRotationSpeed = 2.2f;
+	solarSystemObjectsData[moonIndex].zRotationSpeed = 0.f;
+	solarSystemObjectsData[moonIndex].scale = 0.4f;
+	solarSystemObjectsData[moonIndex].initialRelativePosition = core::vector3df_SIMD(2.5f, 0.0f, 0.0f);
 	
 	// Mars
 	uint32_t constexpr marsIndex = 4u;
 	instancesData[marsIndex].color = core::vector3df_SIMD(0.9f, 0.3f, 0.1f);
-	solarSystemObjectsData[marsIndex].parentIndex = parent_node;
+	solarSystemObjectsData[marsIndex].parentIndex = sun_node;
 	solarSystemObjectsData[marsIndex].yRotationSpeed = 2.0f;
 	solarSystemObjectsData[marsIndex].zRotationSpeed = 0.0f;
 	solarSystemObjectsData[marsIndex].scale = 1.5f;
@@ -314,7 +298,7 @@ int main()
 	// Jupiter
 	uint32_t constexpr jupiterIndex = 5u;
 	instancesData[jupiterIndex].color = core::vector3df_SIMD(0.6f, 0.4f, 0.4f);
-	solarSystemObjectsData[jupiterIndex].parentIndex = parent_node;
+	solarSystemObjectsData[jupiterIndex].parentIndex = sun_node;
 	solarSystemObjectsData[jupiterIndex].yRotationSpeed = 11.0f;
 	solarSystemObjectsData[jupiterIndex].zRotationSpeed = 0.0f;
 	solarSystemObjectsData[jupiterIndex].scale = 4.0f;
@@ -323,7 +307,7 @@ int main()
 	// Saturn
 	uint32_t constexpr saturnIndex = 6u;
 	instancesData[saturnIndex].color = core::vector3df_SIMD(0.7f, 0.7f, 0.5f);
-	solarSystemObjectsData[saturnIndex].parentIndex = parent_node;
+	solarSystemObjectsData[saturnIndex].parentIndex = sun_node;
 	solarSystemObjectsData[saturnIndex].yRotationSpeed = 30.0f;
 	solarSystemObjectsData[saturnIndex].zRotationSpeed = 0.0f;
 	solarSystemObjectsData[saturnIndex].scale = 3.0f;
@@ -332,7 +316,7 @@ int main()
 	// Uranus
 	uint32_t constexpr uranusIndex = 7u;
 	instancesData[uranusIndex].color = core::vector3df_SIMD(0.4f, 0.4f, 0.6f);
-	solarSystemObjectsData[uranusIndex].parentIndex = parent_node;
+	solarSystemObjectsData[uranusIndex].parentIndex = sun_node;
 	solarSystemObjectsData[uranusIndex].yRotationSpeed = 40.0f;
 	solarSystemObjectsData[uranusIndex].zRotationSpeed = 0.0f;
 	solarSystemObjectsData[uranusIndex].scale = 3.5f;
@@ -341,7 +325,7 @@ int main()
 	// Neptune
 	uint32_t constexpr neptuneIndex = 8u;
 	instancesData[neptuneIndex].color = core::vector3df_SIMD(0.5f, 0.2f, 0.9f);
-	solarSystemObjectsData[neptuneIndex].parentIndex = parent_node;
+	solarSystemObjectsData[neptuneIndex].parentIndex = sun_node;
 	solarSystemObjectsData[neptuneIndex].yRotationSpeed = 50.0f;
 	solarSystemObjectsData[neptuneIndex].zRotationSpeed = 0.0f;
 	solarSystemObjectsData[neptuneIndex].scale = 4.0f;
@@ -350,102 +334,74 @@ int main()
 	// Pluto 
 	uint32_t constexpr plutoIndex = 9u;
 	instancesData[plutoIndex].color = core::vector3df_SIMD(0.7f, 0.5f, 0.5f);
-	solarSystemObjectsData[plutoIndex].parentIndex = parent_node;
+	solarSystemObjectsData[plutoIndex].parentIndex = sun_node;
 	solarSystemObjectsData[plutoIndex].yRotationSpeed = 1.0f;
 	solarSystemObjectsData[plutoIndex].zRotationSpeed = 0.0f;
 	solarSystemObjectsData[plutoIndex].scale = 0.5f;
 	solarSystemObjectsData[plutoIndex].initialRelativePosition = core::vector3df_SIMD(36.0f, 0.0f, 0.0f);
 
-	cmdbuf_nodes->begin(0);
-
-	// -2u because w/o sun and moon
-	std::array<scene::ITransformTree::node_t, NumSolarSystemObjects - 2u> childNodes;
-	std::fill_n(childNodes.begin(), childNodes.size(), scene::ITransformTree::invalid_node);
-
+	// upload data
 	{
-		core::matrix3x4SIMD tforms[childNodes.size()];
-		scene::ITransformTree::node_t parents[childNodes.size()];
+		auto* q = device->getQueue(commandPool->getQueueFamilyIndex(),0u);
 
-		for (uint32_t i = 0u; i < childNodes.size(); ++i)
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandBuffer> cmdbuf_nodes;
+		device->createCommandBuffers(commandPool.get(),nbl::video::IGPUCommandBuffer::EL_PRIMARY,1u,&cmdbuf_nodes);
+
+		auto fence_nodes = device->createFence(static_cast<nbl::video::IGPUFence::E_CREATE_FLAGS>(0));
+
+		core::vector<scene::ITransformTree::parent_t> tmp_parents(NumInstances);
+		core::vector<scene::ITransformTree::relative_transform_t> tmp_transforms(NumInstances);
+		for (auto i=0u; i<NumInstances; i++)
 		{
-			tforms[i] = solarSystemObjectsData[mercuryIndex + i].getTform();
-			parents[i] = parent_node;
+			tmp_parents[i] = solarSystemObjectsData[i].parentIndex;
+			tmp_transforms[i] = solarSystemObjectsData[i].getTform();
+		}
+		auto tmp_node_buf = utils->createFilledDeviceLocalGPUBufferOnDedMem(q,sizeof(scene::ITransformTree::node_t)*NumInstances,tmp_nodes.data());
+		tmp_node_buf->setObjectDebugName("Temporary Nodes");
+		auto tmp_parent_buf = utils->createFilledDeviceLocalGPUBufferOnDedMem(q,sizeof(scene::ITransformTree::parent_t)*NumInstances,tmp_parents.data());
+		tmp_parent_buf->setObjectDebugName("Temporary Parents");
+		auto tmp_transform_buf = utils->createFilledDeviceLocalGPUBufferOnDedMem(q,sizeof(scene::ITransformTree::relative_transform_t)*NumInstances,tmp_transforms.data());
+		tmp_transform_buf->setObjectDebugName("Temporary Transforms");
+
+		//
+		video::IGPUBuffer::SCreationParams scratchParams = {};
+		scratchParams.canUpdateSubRange = true;
+		scratchParams.usage = core::bitflag(video::IGPUBuffer::EUF_TRANSFER_DST_BIT)|video::IGPUBuffer::EUF_STORAGE_BUFFER_BIT;
+		asset::SBufferBinding<video::IGPUBuffer> scratch = {0ull,device->createDeviceLocalGPUBufferOnDedMem(scratchParams,utils->getDefaultPropertyPoolHandler()->getMaxScratchSize())};
+		scratch.buffer->setObjectDebugName("Scratch Buffer");
+		{
+			video::CPropertyPoolHandler::TransferRequest transfers[scene::ITransformTreeManager::TransferCount];
+
+			{
+				scene::ITransformTreeManager::TransferRequest req;
+				req.tree = tt.get();
+				req.parents = {0ull,tmp_parent_buf};
+				req.relativeTransforms = {0ull,tmp_transform_buf};
+				req.nodes = {0ull,tmp_node_buf->getSize(),tmp_node_buf};
+				ttm->setupTransfers(req,transfers);
+			}
+
+			cmdbuf_nodes->begin(0);
+			utils->getDefaultPropertyPoolHandler()->transferProperties(
+				cmdbuf_nodes.get(),fence_nodes.get(),scratch,{0ull,tmp_node_buf},
+				transfers,transfers+scene::ITransformTreeManager::TransferCount,initOutput.logger.get()
+			);
+			cmdbuf_nodes->end();
 		}
 
-		scene::ITransformTreeManager::AllocationRequest req;
-		req.cmdbuf = cmdbuf_nodes.get();
-		req.fence = fence_nodes.get();
-		req.relativeTransforms = tforms;
-		req.outNodes = { childNodes.data(), childNodes.data() + childNodes.size() };
-		req.parents = parents;
-		req.poolHandler = ppHandler.get();
-		req.tree = tt.get();
-		req.upBuff = utils->getDefaultUpStreamingBuffer();
-		req.logger = initOutput.logger.get();
-		ttm->addNodes(req);
-		cmdbuf_nodes->end();
+		// submit
+		{
+			video::IGPUQueue::SSubmitInfo submit;
+			submit.commandBufferCount = 1u;
+			submit.commandBuffers = &cmdbuf_nodes.get();
+			q->submit(1u,&submit,fence_nodes.get());
+		}
 
-		auto* q = device->getQueue(0u, 0u);
-		video::IGPUQueue::SSubmitInfo submit;
-		submit.commandBufferCount = 1u;
-		submit.commandBuffers = &cmdbuf_nodes.get();
-		q->submit(1u, &submit, fence_nodes.get());
+		// wait
+		const bool success = device->blockForFences(1u,&fence_nodes.get());
+		if (!success)
+			exit(-3);
 	}
-
-	waitres = device->waitForFences(1u, &fence_nodes.get(), false, 999999999ull);
-	assert(waitres == video::IGPUFence::ES_SUCCESS);
-
-	cmdbuf_nodes->reset(video::IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
-	device->resetFences(1u, &fence_nodes.get());
-
-	for (uint32_t i = 0u; i < childNodes.size(); ++i)
-		solarSystemObjectsData[mercuryIndex + i].node = childNodes[i];
-
-	cmdbuf_nodes->begin(0);
-	
-	const auto earth_node = childNodes[earthIndex - mercuryIndex];
-
-	// Moon
-	uint32_t constexpr moonIndex = 10u;
-	instancesData[moonIndex].color = core::vector3df_SIMD(0.3f, 0.2f, 0.25f);
-	solarSystemObjectsData[moonIndex].parentIndex = earth_node;
-	solarSystemObjectsData[moonIndex].yRotationSpeed = 2.2f;
-	solarSystemObjectsData[moonIndex].zRotationSpeed = 0.f;
-	solarSystemObjectsData[moonIndex].scale = 0.4f;
-	solarSystemObjectsData[moonIndex].initialRelativePosition = core::vector3df_SIMD(2.5f, 0.0f, 0.0f);
-
-	scene::ITransformTree::node_t moon_node = scene::ITransformTree::invalid_node;
-	{
-
-		scene::ITransformTreeManager::AllocationRequest req;
-		req.cmdbuf = cmdbuf_nodes.get();
-		req.fence = fence_nodes.get();
-		auto tform = solarSystemObjectsData[sunIndex].getTform();
-		req.relativeTransforms = &tform;
-		req.outNodes = { &moon_node, &moon_node + 1 };
-		req.parents = &earth_node;
-		req.poolHandler = ppHandler.get();
-		req.tree = tt.get();
-		req.upBuff = utils->getDefaultUpStreamingBuffer();
-		req.logger = initOutput.logger.get();
-		ttm->addNodes(req);
-		cmdbuf_nodes->end();
-
-		auto* q = device->getQueue(0u, 0u);
-		video::IGPUQueue::SSubmitInfo submit;
-		submit.commandBufferCount = 1u;
-		submit.commandBuffers = &cmdbuf_nodes.get();
-		q->submit(1u, &submit, fence_nodes.get());
-	}
-	
-
-	waitres = device->waitForFences(1u, &fence_nodes.get(), false, 999999999ull);
-	assert(waitres == video::IGPUFence::ES_SUCCESS);
-
-	cmdbuf_nodes->reset(video::IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
-	device->resetFences(1u, &fence_nodes.get());
-
-	solarSystemObjectsData[moonIndex].node = moon_node;
 
 	// Geom Create
 	auto geometryCreator = assetManager->getGeometryCreator();
@@ -634,16 +590,13 @@ int main()
 	while(windowCb->isWindowOpen())
 	{
 		resourceIx++;
-		if(resourceIx >= FRAMES_IN_FLIGHT) {
+		if(resourceIx >= FRAMES_IN_FLIGHT)
 			resourceIx = 0;
-		}
 
 		auto& cb = cmdbuf[resourceIx];
 		auto& fence = frameComplete[resourceIx];
 		if (fence)
-		while (device->waitForFences(1u,&fence.get(),false,MAX_TIMEOUT)==video::IGPUFence::ES_TIMEOUT)
-		{
-		}
+			device->blockForFences(1u,&fence.get());
 		else
 			fence = device->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
 
@@ -656,40 +609,40 @@ int main()
 		// safe to proceed
 		cb->begin(0);
 
-
-		// update `modRangesBuf`
+		// we don't wait on anything because we do everything on the same queue
+		uint32_t waitSemaphoreCount = 0u;
+		const asset::E_PIPELINE_STAGE_FLAGS* waitStages = nullptr;
+		video::IGPUSemaphore* const* waitSems = nullptr;
+			
+		// queue update to `modRangesBuf`
 		{
-#include "nbl/nblpack.h"
 			struct SSBO
 			{
-				uint32_t rangecount;
-				uint32_t reqcnt;
+				uint32_t rangeCount;
+				// OpenGL drivers (even Nvidia) have some bugs and can sporadically completely
+				// forget about memory or execution barriers between `glCopyBufferSubData` and compute dispatches
+				// as well as modify memory to bogus values even though you're always copying the same data to the same location
+				uint32_t maxRangeLength;
 				scene::ITransformTreeManager::ModificationRequestRange ranges[ObjectCount];
-			}PACK_STRUCT;
-#include "nbl/nblunpack.h"
-			uint8_t data[sizeof(SSBO)];
-			SSBO* ssbo = reinterpret_cast<SSBO*>(&data[0]);
-			ssbo->rangecount = ObjectCount;
-			ssbo->reqcnt = ObjectCount;
+			};
+			static_assert(offsetof(SSBO, ranges) == sizeof(uint32_t)*2ull);
+			SSBO requestRanges;
+			requestRanges.rangeCount = ObjectCount;
+			requestRanges.maxRangeLength = 1u;
 			for (uint32_t i = 0u; i < ObjectCount; ++i)
 			{
 				auto& obj = solarSystemObjectsData[i];
-				ssbo->ranges[i].nodeID = obj.node;
-				ssbo->ranges[i].requestsBegin = i;
-				ssbo->ranges[i].requestsEnd = i + 1u;
-				ssbo->ranges[i].newTimestamp = timestamp;
+				requestRanges.ranges[i].nodeID = obj.node;
+				requestRanges.ranges[i].requestsBegin = i;
+				requestRanges.ranges[i].requestsEnd = i+1u;
+				requestRanges.ranges[i].newTimestamp = timestamp;
 			}
 
 			asset::SBufferRange<video::IGPUBuffer> bufrng;
 			bufrng.buffer = modRangesBuf;
 			bufrng.offset = 0;
 			bufrng.size = modRangesBuf->getSize();
-
-
-			uint32_t waitSemaphoreCount = 0u;
-			const asset::E_PIPELINE_STAGE_FLAGS* waitStages = nullptr;
-			video::IGPUSemaphore* const* waitSems = nullptr;
-			utils->updateBufferRangeViaStagingBuffer(cb.get(), fence.get(), device->getQueue(0,0), bufrng, ssbo, waitSemaphoreCount, waitSems, waitStages);
+			utils->updateBufferRangeViaStagingBuffer(cb.get(),fence.get(),graphicsQueue,bufrng,&requestRanges,waitSemaphoreCount,waitSems,waitStages);
 		}
 
 		// update `relTformModsBuf`
@@ -721,28 +674,88 @@ int main()
 			bufrng.offset = 0;
 			bufrng.size = relTformModsBuf->getSize();
 
-			uint32_t waitSemaphoreCount = 0u;
-			const asset::E_PIPELINE_STAGE_FLAGS* waitStages = nullptr;
-			video::IGPUSemaphore* const* waitSems = nullptr;
-			utils->updateBufferRangeViaStagingBuffer(cb.get(), fence.get(), device->getQueue(0, 0), bufrng, reqs.data(), waitSemaphoreCount, waitSems, waitStages);
+			utils->updateBufferRangeViaStagingBuffer(cb.get(),fence.get(),graphicsQueue,bufrng,reqs.data(),waitSemaphoreCount,waitSems,waitStages);
 		}
 
-		// barrier after buffer upload, before TTM updates
+		// Update instances transforms 
 		{
-			video::IGPUCommandBuffer::SBufferMemoryBarrier barrier[2];
-			barrier[0].buffer = modRangesBuf;
-			barrier[0].offset = 0;
-			barrier[0].size = modRangesBuf->getSize();
-			barrier[0].dstQueueFamilyIndex = 0u;
-			barrier[0].srcQueueFamilyIndex = 0u;
-			barrier[0].barrier.srcAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
-			barrier[0].barrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
-			barrier[1] = barrier[0];
-			barrier[1].buffer = relTformModsBuf;
-			barrier[1].offset = 0;
-			barrier[1].size = relTformModsBuf->getSize();
+			// buffers to barrier w.r.t. updates
+			video::IGPUCommandBuffer::SBufferMemoryBarrier barriers[scene::ITransformTreeManager::SBarrierSuggestion::MaxBufferCount];
+			auto setBufferBarrier = [&barriers,cb](const uint32_t ix, const asset::SBufferRange<video::IGPUBuffer>& range, const asset::SMemoryBarrier& barrier)
+			{
+				barriers[ix].barrier = barrier;
+				barriers[ix].dstQueueFamilyIndex = barriers[ix].srcQueueFamilyIndex = cb->getQueueFamilyIndex();
+				barriers[ix].buffer = range.buffer;
+				barriers[ix].offset = range.offset;
+				barriers[ix].size = range.size;
+			};
+			
+			const core::bitflag<asset::E_PIPELINE_STAGE_FLAGS> renderingStages = asset::EPSF_VERTEX_SHADER_BIT;
+			const core::bitflag<asset::E_ACCESS_FLAGS> renderingAccesses = asset::EAF_SHADER_READ_BIT;
 
-			cb->pipelineBarrier(asset::EPSF_COMPUTE_SHADER_BIT, asset::EPSF_VERTEX_SHADER_BIT, static_cast<asset::E_DEPENDENCY_FLAGS>(0), 0u, nullptr, 2u, barrier, 0u, nullptr);
+			scene::ITransformTreeManager::ParamsBase baseParams;
+			baseParams.cmdbuf = cb.get();
+			baseParams.tree = tt.get();
+			baseParams.fence = fence.get();
+			baseParams.dispatchIndirect.buffer = nullptr;
+			baseParams.dispatchDirect.nodeCount = ObjectCount;
+			baseParams.logger = initOutput.logger.get();
+
+			// compilers are too dumb to figure out const correctness (there's also a TODO in `core::smart_refctd_ptr`)
+			const scene::ITransformTree* ptt = tt.get();
+			const video::IPropertyPool* node_pp = ptt->getNodePropertyPool();
+			//
+			{
+				auto sugg = scene::ITransformTreeManager::barrierHelper(scene::ITransformTreeManager::SBarrierSuggestion::EF_PRE_RELATIVE_TFORM_UPDATE);
+				sugg.srcStageMask |= asset::EPSF_TRANSFER_BIT; // barrier after buffer upload, before TTM updates (so TTM update CS gets properly written data)
+				sugg.requestRanges.srcAccessMask |= asset::EAF_TRANSFER_WRITE_BIT;
+				sugg.modificationRequests.srcAccessMask |= asset::EAF_TRANSFER_WRITE_BIT;
+				uint32_t barrierCount = 0u;
+				setBufferBarrier(barrierCount++,{0ull,modRangesBuf->getSize(),modRangesBuf},sugg.requestRanges);
+				setBufferBarrier(barrierCount++,{0ull,relTformModsBuf->getSize(),relTformModsBuf},sugg.modificationRequests);
+				cb->pipelineBarrier(sugg.srcStageMask,sugg.dstStageMask,asset::EDF_NONE,0u,nullptr,barrierCount,barriers,0u,nullptr);
+			}
+			//
+			{
+				scene::ITransformTreeManager::LocalTransformUpdateParams lcparams;
+				static_cast<scene::ITransformTreeManager::ParamsBase&>(lcparams) = baseParams;
+				lcparams.modificationRequests = asset::SBufferBinding<video::IGPUBuffer>{ 0ull, relTformModsBuf };
+				lcparams.requestRanges = asset::SBufferBinding<video::IGPUBuffer>{ 0ull, modRangesBuf };
+				ttm->updateLocalTransforms(lcparams);
+			}
+			// barrier between TTM update and TTM recompute
+			{
+				auto sugg = scene::ITransformTreeManager::barrierHelper(scene::ITransformTreeManager::SBarrierSuggestion::EF_INBETWEEN_RLEATIVE_UPDATE_AND_GLOBAL_RECOMPUTE);
+				sugg.srcStageMask |= renderingStages; // also Rendering and TTM recompute
+				sugg.globalTransforms.srcAccessMask |= asset::EAF_SHADER_READ_BIT;
+				sugg.dstStageMask |= asset::EPSF_TRANSFER_BIT; // as well as TTM update and Transfer
+				sugg.requestRanges.dstAccessMask |= asset::EAF_TRANSFER_WRITE_BIT;
+				sugg.modificationRequests.dstAccessMask |= asset::EAF_TRANSFER_WRITE_BIT;
+				uint32_t barrierCount = 0u;
+				setBufferBarrier(barrierCount++,{0ull,modRangesBuf->getSize(),modRangesBuf},sugg.requestRanges);
+				setBufferBarrier(barrierCount++,{0ull,relTformModsBuf->getSize(),relTformModsBuf},sugg.modificationRequests);
+				setBufferBarrier(barrierCount++,node_pp->getPropertyMemoryBlock(scene::ITransformTree::relative_transform_prop_ix),sugg.relativeTransforms);
+				setBufferBarrier(barrierCount++,node_pp->getPropertyMemoryBlock(scene::ITransformTree::modified_stamp_prop_ix),sugg.modifiedTimestamps);
+				cb->pipelineBarrier(sugg.srcStageMask,sugg.dstStageMask,asset::EDF_NONE,0u,nullptr,barrierCount,barriers,0u,nullptr);
+			}
+			//
+			{
+				scene::ITransformTreeManager::GlobalTransformUpdateParams gparams;
+				static_cast<scene::ITransformTreeManager::ParamsBase&>(gparams) = baseParams;
+				gparams.nodeIDs = { 0ull,nodeIdsBuf };
+				ttm->recomputeGlobalTransforms(gparams);
+			}
+			// barrier between TTM recompute and TTM recompute+update 
+			{
+				auto sugg = scene::ITransformTreeManager::barrierHelper(scene::ITransformTreeManager::SBarrierSuggestion::EF_POST_GLOBAL_TFORM_RECOMPUTE);
+				sugg.dstStageMask |= renderingStages; // also also TTM recompute and rendering shader (to read the global transforms)
+				uint32_t barrierCount = 0u;
+				setBufferBarrier(barrierCount++,node_pp->getPropertyMemoryBlock(scene::ITransformTree::relative_transform_prop_ix),sugg.relativeTransforms);
+				setBufferBarrier(barrierCount++,node_pp->getPropertyMemoryBlock(scene::ITransformTree::modified_stamp_prop_ix),sugg.modifiedTimestamps);
+				setBufferBarrier(barrierCount++,node_pp->getPropertyMemoryBlock(scene::ITransformTree::global_transform_prop_ix),sugg.globalTransforms);
+				setBufferBarrier(barrierCount++,node_pp->getPropertyMemoryBlock(scene::ITransformTree::recomputed_stamp_prop_ix),sugg.recomputedTimestamps);
+				cb->pipelineBarrier(sugg.srcStageMask,sugg.dstStageMask,asset::EDF_NONE,0u,nullptr,barrierCount,barriers,0u,nullptr);
+			}
 		}
 
 		{
@@ -755,9 +768,7 @@ int main()
 			vp.height = WIN_H;
 			cb->setViewport(0u, 1u, &vp);
 		}
-		// renderpass 
-		uint32_t imgnum = 0u;
-		swapchain->acquireNextImage(MAX_TIMEOUT,imageAcquire[resourceIx].get(),nullptr,&imgnum);
+		// begin renderpass
 		{
 			video::IGPUCommandBuffer::SRenderpassBeginInfo info;
 			asset::SClearValue clearValues[2] ={};
@@ -778,60 +789,12 @@ int main()
 			info.renderArea.extent = { WIN_W, WIN_H };
 			cb->beginRenderPass(&info,asset::ESC_INLINE);
 		}
-		// Update instances buffer 
-		{
-			{
-				scene::ITransformTreeManager::LocalTransformUpdateParams lcparams;
-				lcparams.cmdbuf = cb.get();
-				lcparams.tree = tt.get();
-				lcparams.fence = fence.get();
-				lcparams.dispatchDirect.nodeCount = ObjectCount; //???
-				lcparams.finalBarrier.dstStages = asset::EPSF_COMPUTE_SHADER_BIT;
-				lcparams.finalBarrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
-				lcparams.finalBarrier.dstQueueFamilyIndex = 0u;
-				lcparams.finalBarrier.srcQueueFamilyIndex = 0u;
-				lcparams.modificationRequests = asset::SBufferBinding<video::IGPUBuffer>{ 0ull, relTformModsBuf };
-				lcparams.requestRanges = asset::SBufferBinding<video::IGPUBuffer>{ 0ull, modRangesBuf };
-				lcparams.dispatchIndirect.buffer = nullptr;
-				ttm->updateLocalTransforms(lcparams);
-			}
-			{
-				scene::ITransformTreeManager::GlobalTransformUpdateParams gparams;
-				gparams.cmdbuf = cb.get();
-				gparams.tree = tt.get();
-				gparams.fence = fence.get();
-				gparams.dispatchDirect.nodeCount = ObjectCount; //???
-				gparams.dispatchIndirect.buffer = nullptr;
-				gparams.finalBarrier.dstStages = asset::EPSF_VERTEX_SHADER_BIT;
-				gparams.finalBarrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
-				gparams.finalBarrier.dstQueueFamilyIndex = 0u;
-				gparams.finalBarrier.srcQueueFamilyIndex = 0u;
-				gparams.nodeIDs = { 0ull,nodeIdsBuf };
-
-				ttm->recomputeGlobalTransforms(gparams);
-			}
-		}
-
-		// pipeline barrier after tform updates done by TTM
-		// commented-out, done by TTM
-		/* {
-			video::IGPUCommandBuffer::SBufferMemoryBarrier barrier;
-			barrier.buffer = propBufs[GlobalTformPropNum].buffer;
-			barrier.offset = propBufs[GlobalTformPropNum].offset;
-			barrier.size = propBufs[GlobalTformPropNum].size;
-			barrier.dstQueueFamilyIndex = 0u;
-			barrier.srcQueueFamilyIndex = 0u;
-			barrier.barrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
-			barrier.barrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
-
-			cb->pipelineBarrier(asset::EPSF_COMPUTE_SHADER_BIT, asset::EPSF_VERTEX_SHADER_BIT, 0, 0u, nullptr, 1u, &barrier, 0u, nullptr);
-		}*/
-
 		// draw
 		{
 			assert(gpuObjects.size() == 1ull);
 			// Draw Stuff 
-			for(uint32_t i = 0; i < gpuObjects.size(); ++i) {
+			for(uint32_t i = 0; i < gpuObjects.size(); ++i)
+			{
 				auto & gpuObject = gpuObjects[i];
 
 				cb->bindGraphicsPipeline(gpuObject.graphicsPipeline.get());
@@ -843,6 +806,9 @@ int main()
 		cb->endRenderPass();
 		cb->end();
 		
+		// acquires and presents 
+		uint32_t imgnum = 0u;
+		swapchain->acquireNextImage(MAX_TIMEOUT,imageAcquire[resourceIx].get(),nullptr,&imgnum);
 		CommonAPI::Submit(device.get(), swapchain.get(), cb.get(), graphicsQueue, imageAcquire[resourceIx].get(), renderFinished[resourceIx].get(), fence.get());
 		CommonAPI::Present(device.get(), swapchain.get(), graphicsQueue, renderFinished[resourceIx].get(), imgnum);
 		

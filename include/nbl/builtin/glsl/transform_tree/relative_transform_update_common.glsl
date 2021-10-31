@@ -13,8 +13,12 @@ void nbl_glsl_transform_tree_relativeTransformUpdate_noStamp(in nbl_glsl_transfo
     if (nbl_glsl_transform_tree_relative_transform_modification_t_getType(relativeTransformModifications.data[requestRange.requestsBegin])!=_NBL_BUILTIN_TRANSFORM_TREE_RELATIVE_TRANSFORM_MODIFICATION_T_E_TYPE_OVERWRITE_)
         updatedTransform = nodeRelativeTransforms.data[requestRange.nodeID];
 
-    for (int i=requestRange.requestsBegin; i<requestRange.requestsEnd; i++)
-        updatedTransform = nbl_glsl_transform_tree_relative_transform_modification_t_apply(updatedTransform,relativeTransformModifications.data[i]);
+    // OpenGL drivers (even Nvidia) have some bugs and can sporadically completely
+    // forget about memory or execution barriers between `glCopyBufferSubData` and compute dispatches
+    // as well as modify memory to bogus values even though you're always copying the same data to the same location
+    const int length = min(requestRange.requestsEnd-requestRange.requestsBegin,relativeTransformModificationRequestRanges.maxRangeLength);
+    for (int i=0; i<length; i++)
+        updatedTransform = nbl_glsl_transform_tree_relative_transform_modification_t_apply(updatedTransform,relativeTransformModifications.data[requestRange.requestsBegin+i]);
 
     nodeRelativeTransforms.data[requestRange.nodeID] = updatedTransform;
 }

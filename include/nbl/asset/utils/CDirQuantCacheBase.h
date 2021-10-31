@@ -312,10 +312,10 @@ class CDirQuantCacheBase : public impl::CDirQuantCacheBase
 
 		//!
 		template<E_FORMAT CacheFormat>
-		inline bool loadCacheFromFile(nbl::system::ISystem* system, const std::string& path, bool replaceCurrentContents = false)
+		inline bool loadCacheFromFile(nbl::system::ISystem* system, const system::path& path, bool replaceCurrentContents = false)
 		{
 			system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
-			bool validInput = system->createFile(future, path, nbl::system::IFile::ECF_READ);
+			bool validInput = system->createFile(future,path,nbl::system::IFile::ECF_READ);
 
 			if (!validInput) 
 				return false;
@@ -361,7 +361,7 @@ class CDirQuantCacheBase : public impl::CDirQuantCacheBase
 
 		//!
 		template<E_FORMAT CacheFormat>
-		inline bool saveCacheToFile(nbl::system::ISystem* system, const std::string& path)
+		inline bool saveCacheToFile(nbl::system::ISystem* system, const system::path& path)
 		{
 			system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
 			bool validInput = system->createFile(future, path, nbl::system::IFile::ECF_WRITE);

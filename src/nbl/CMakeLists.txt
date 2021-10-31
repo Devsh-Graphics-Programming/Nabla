@@ -270,6 +270,7 @@ set(NBL_VIDEO_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/video/alloc/StreamingGPUBufferAllocator.cpp
 	
 # Shaders
+	${NBL_ROOT_PATH}/src/nbl/video/COpenGLShader.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLSpecializedShader.cpp
 
 # Utilities
@@ -335,6 +336,7 @@ set(NABLA_SRCS_NORMAL
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanForeignImage.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanLogicalDevice.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanSampler.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanConnection.cpp
 
 
 	#opengl

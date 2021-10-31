@@ -65,12 +65,26 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/colorspace/OETF.glsl"
   "nbl/builtin/glsl/colorspace/decodeCIEXYZ.glsl"
   "nbl/builtin/glsl/colorspace/encodeCIEXYZ.glsl"
+  # Culling and LoD System
+  "nbl/builtin/glsl/culling_lod_selection/dispatch_indirect_params.glsl"
+  "nbl/builtin/glsl/culling_lod_selection/draw_instance_count_scan_override.glsl"
+  "nbl/builtin/glsl/culling_lod_selection/input_descriptor_set.glsl"
+  "nbl/builtin/glsl/culling_lod_selection/instance_cull_and_lod_select.comp"
+  "nbl/builtin/glsl/culling_lod_selection/instance_draw_count_scan_override.glsl"
+  "nbl/builtin/glsl/culling_lod_selection/instance_draw_cull.comp"
+  "nbl/builtin/glsl/culling_lod_selection/instance_ref_counting_sort_scatter.comp"
+  "nbl/builtin/glsl/culling_lod_selection/potentially_visible_instance_draw_struct.glsl"
+  "nbl/builtin/glsl/culling_lod_selection/output_descriptor_modifiers.glsl"
+  "nbl/builtin/glsl/culling_lod_selection/output_descriptor_set.glsl"
   # VK_FORMAT support
   "nbl/builtin/glsl/format/decode.glsl"
   "nbl/builtin/glsl/format/encode.glsl"
   "nbl/builtin/glsl/format/constants.glsl"
   # asset loaders (mostly for pipelines)
   "nbl/builtin/glsl/loader/mtl/common.glsl"
+  # LoD Library
+  "nbl/builtin/glsl/lod_library/structs.glsl"
+  "nbl/builtin/glsl/lod_library/descriptor_set.glsl"
   # math and limits
   "nbl/builtin/glsl/math/constants.glsl"
   "nbl/builtin/glsl/math/complex.glsl"
@@ -98,10 +112,11 @@ set(nbl_resources_to_embed
   #"nbl/builtin/glsl/sampling/spherical_rectangle.glsl"
   "nbl/builtin/glsl/sampling/spherical_triangle.glsl"
   # global exclusive scan
-  "nbl/builtin/glsl/scan/default.comp"
+  "nbl/builtin/glsl/scan/direct.comp"
   "nbl/builtin/glsl/scan/declarations.glsl"
   "nbl/builtin/glsl/scan/descriptors.glsl"
   "nbl/builtin/glsl/scan/default_scheduler.glsl"
+  "nbl/builtin/glsl/scan/indirect.comp"
   "nbl/builtin/glsl/scan/parameters_struct.glsl"
   "nbl/builtin/glsl/scan/virtual_workgroup.glsl"
   # scene
@@ -109,7 +124,9 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/scene/keyframe.glsl"
   "nbl/builtin/glsl/scene/node.glsl"
   # shapes
-  #"nbl/builtin/glsl/shapes/rectangle.glsl" 
+  "nbl/builtin/glsl/shapes/aabb.glsl"
+  "nbl/builtin/glsl/shapes/frustum.glsl"
+  #"nbl/builtin/glsl/shapes/rectangle.glsl"
   "nbl/builtin/glsl/shapes/triangle.glsl"
   # subgroup emulation
   "nbl/builtin/glsl/subgroup/shared_arithmetic_portability.glsl"

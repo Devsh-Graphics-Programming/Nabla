@@ -6,7 +6,7 @@
 #define _NBL_VIDEO_C_SCANNER_H_INCLUDED_
 
 
-#include "nbl/video/IGPUCommandBuffer.h"
+#include "nbl/video/IPhysicalDevice.h"
 #include "nbl/video/utilities/IDescriptorSetCache.h"
 
 
@@ -20,9 +20,7 @@ static_assert(NBL_BUILTIN_MAX_SCAN_LEVELS&0x1,"NBL_BUILTIN_MAX_SCAN_LEVELS must 
 //
 class CScanner final : public core::IReferenceCounted
 {
-	public:
-		static inline constexpr uint32_t DefaultWorkGroupSize = 256u;
-		
+	public:		
 		enum E_SCAN_TYPE : uint8_t
 		{
 			 EST_INCLUSIVE = _NBL_GLSL_SCAN_TYPE_INCLUSIVE_,
@@ -55,29 +53,27 @@ class CScanner final : public core::IReferenceCounted
 
 			Parameters()
 			{
-				std::fill_n(elementCount,MaxScanLevels,0u);
-				std::fill_n(temporaryStorageOffset,MaxScanLevels/2-1,0u);
+				std::fill_n(lastElement,MaxScanLevels/2+1,0u);
+				std::fill_n(temporaryStorageOffset,MaxScanLevels/2,0u);
 			}
-			Parameters(const uint32_t _elementCount, const uint32_t wg_size=DefaultWorkGroupSize) : Parameters()
+			Parameters(const uint32_t _elementCount, const uint32_t workgroupSize) : Parameters()
 			{
 				assert(_elementCount!=0u && "Input element count can't be 0!");
-				const auto maxReductionLog2 = core::findMSB(wg_size)*(MaxScanLevels/2u+1u);
+				const auto maxReductionLog2 = core::findMSB(workgroupSize)*(MaxScanLevels/2u+1u);
 				assert(maxReductionLog2>=32u||((_elementCount-1u)>>maxReductionLog2)==0u && "Can't scan this many elements with such small workgroups!");
 
-				elementCount[0u] = _elementCount;
-				for (topLevel=0u; elementCount[topLevel]>wg_size;)
-					elementCount[++topLevel] = (elementCount[topLevel]-1u)/wg_size+1u;
-				std::reverse_copy(elementCount,elementCount+topLevel,elementCount+topLevel+1u);
+				lastElement[0u] = _elementCount-1u;
+				for (topLevel=0u; lastElement[topLevel]>=workgroupSize;)
+					temporaryStorageOffset[topLevel-1u] = lastElement[++topLevel] = lastElement[topLevel]/workgroupSize;
 				
-				std::copy_n(elementCount+1u,topLevel,temporaryStorageOffset);
 				std::exclusive_scan(temporaryStorageOffset,temporaryStorageOffset+sizeof(temporaryStorageOffset)/sizeof(uint32_t),temporaryStorageOffset,0u);
 			}
 
 			inline uint32_t getScratchSize(uint32_t ssboAlignment=256u)
 			{
 				uint32_t uint_count = 1u; // workgroup enumerator
-				uint_count += temporaryStorageOffset[MaxScanLevels/2u-2u]; // last scratch offset
-				uint_count += elementCount[topLevel]; // and its size
+				uint_count += temporaryStorageOffset[MaxScanLevels/2u-1u]; // last scratch offset
+				uint_count += lastElement[topLevel]+1u; // and its size
 				return core::roundUp<uint32_t>(uint_count*sizeof(uint32_t),ssboAlignment);
 			}
 		};
@@ -86,19 +82,16 @@ class CScanner final : public core::IReferenceCounted
 			SchedulerParameters()
 			{
 				std::fill_n(finishedFlagOffset,Parameters::MaxScanLevels-1,0u);
-				std::fill_n(lastWorkgroupDependentCount,Parameters::MaxScanLevels/2,1u);
 				std::fill_n(cumulativeWorkgroupCount,Parameters::MaxScanLevels,0u);
 			}
-			SchedulerParameters(Parameters& outScanParams, const uint32_t _elementCount, const uint32_t wg_size=DefaultWorkGroupSize) : SchedulerParameters()
+			SchedulerParameters(Parameters& outScanParams, const uint32_t _elementCount, const uint32_t workgroupSize) : SchedulerParameters()
 			{
-				outScanParams = Parameters(_elementCount,wg_size);
+				outScanParams = Parameters(_elementCount,workgroupSize);
 				const auto topLevel = outScanParams.topLevel;
 
-				std::copy_n(outScanParams.elementCount+1u,topLevel,cumulativeWorkgroupCount);
-				cumulativeWorkgroupCount[topLevel] = 1u;
-
-				for (auto i=0u; i<topLevel; i++)
-					lastWorkgroupDependentCount[i] = cumulativeWorkgroupCount[i]-(cumulativeWorkgroupCount[i+1u]-1u)*wg_size;
+				std::copy_n(outScanParams.lastElement+1u,topLevel,cumulativeWorkgroupCount);
+				for (auto i=0u; i<=topLevel; i++)
+					cumulativeWorkgroupCount[i] += 1u;
 				std::reverse_copy(cumulativeWorkgroupCount,cumulativeWorkgroupCount+topLevel,cumulativeWorkgroupCount+topLevel+1u);
 
 				std::copy_n(cumulativeWorkgroupCount+1u,topLevel,finishedFlagOffset);
@@ -123,21 +116,21 @@ class CScanner final : public core::IReferenceCounted
 			DispatchInfo() : wg_count(0u)
 			{
 			}
-			DispatchInfo(const uint32_t elementCount, const uint32_t wg_size=DefaultWorkGroupSize)
+			DispatchInfo(const IPhysicalDevice::SLimits& limits, const uint32_t elementCount, const uint32_t workgroupSize)
 			{
-				assert(elementCount!=0u && "Input element count can't be 0!");
 				constexpr auto workgroupSpinningProtection = 4u;
-				constexpr auto beefyGPUWorkgroupMaxOccupancy = 256u; // TODO: find a way to query and report this somehow, persistent threads are very useful!
-				wg_count = core::min<uint32_t>(beefyGPUWorkgroupMaxOccupancy,(elementCount-1u)/(wg_size*workgroupSpinningProtection)+1u);
+				wg_count = limits.computeOptimalPersistentWorkgroupDispatchSize(elementCount,workgroupSize,workgroupSpinningProtection);
 			}
 
 			uint32_t wg_count;
 		};
 
 		//
-		CScanner(core::smart_refctd_ptr<ILogicalDevice>&& device, const uint32_t wg_size=DefaultWorkGroupSize) : m_device(std::move(device)), m_wg_size(wg_size)
+		CScanner(core::smart_refctd_ptr<ILogicalDevice>&& device) : CScanner(std::move(device),core::roundDownToPoT(device->getPhysicalDevice()->getLimits().maxOptimallyResidentWorkgroupInvocations)) {}
+		//
+		CScanner(core::smart_refctd_ptr<ILogicalDevice>&& device, const uint32_t workgroupSize) : m_device(std::move(device)), m_workgroupSize(workgroupSize)
 		{
-			assert(core::isPoT(wg_size));
+			assert(core::isPoT(m_workgroupSize));
 
 			const asset::SPushConstantRange pc_range = { asset::ISpecializedShader::ESS_COMPUTE,0u,sizeof(DefaultPushConstants) };
 			const IGPUDescriptorSetLayout::SBinding bindings[2] = {
@@ -155,8 +148,31 @@ class CScanner final : public core::IReferenceCounted
 		//
 		inline auto getDefaultPipelineLayout() const { return m_pipeline_layout.get(); }
 
+		// You need to override this shader with your own defintion of `nbl_glsl_scan_getIndirectElementCount` for it to even compile, so we always give you a new shader
+		core::smart_refctd_ptr<asset::ICPUShader> getIndirectShader(const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op) const
+		{
+			return createShader(true,scanType,dataType,op);
+		}
+
 		//
-		IGPUSpecializedShader* getDefaultSpecializedShader(const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op);
+		inline asset::ICPUShader* getDefaultShader(const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op)
+		{
+			if (!m_shaders[scanType][dataType][op])
+				m_shaders[scanType][dataType][op] = createShader(false,scanType,dataType,op);
+			return m_shaders[scanType][dataType][op].get();
+		}
+		//
+		inline IGPUSpecializedShader* getDefaultSpecializedShader(const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op)
+		{
+			if (!m_specialized_shaders[scanType][dataType][op])
+			{
+				auto gpushader = m_device->createGPUShader(core::smart_refctd_ptr<asset::ICPUShader>(getDefaultShader(scanType,dataType,op)));
+				m_specialized_shaders[scanType][dataType][op] = m_device->createGPUSpecializedShader(
+					gpushader.get(),{nullptr,nullptr,"main",asset::ISpecializedShader::ESS_COMPUTE,"nbl/builtin/glsl/scan/direct.comp"}
+				);
+			}
+			return m_specialized_shaders[scanType][dataType][op].get();
+		}
 
 		//
 		inline auto getDefaultPipeline(const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op)
@@ -171,10 +187,13 @@ class CScanner final : public core::IReferenceCounted
 		}
 
 		//
+		inline uint32_t getWorkgroupSize() const {return m_workgroupSize;}
+
+		//
 		inline void buildParameters(const uint32_t elementCount, DefaultPushConstants& pushConstants, DispatchInfo& dispatchInfo)
 		{
-			pushConstants.schedulerParams = SchedulerParameters(pushConstants.scanParams,elementCount,m_wg_size);
-			dispatchInfo = DispatchInfo(elementCount,m_wg_size);
+			pushConstants.schedulerParams = SchedulerParameters(pushConstants.scanParams,elementCount,m_workgroupSize);
+			dispatchInfo = DispatchInfo(m_device->getPhysicalDevice()->getLimits(),elementCount,m_workgroupSize);
 		}
 
 		//
@@ -219,18 +238,24 @@ class CScanner final : public core::IReferenceCounted
 				cmdbuf->pipelineBarrier(asset::EPSF_COMPUTE_SHADER_BIT,dstStageMask,asset::EDF_NONE,0u,nullptr,dstBufferBarrierCount,dstBufferBarriers,0u,nullptr);
 		}
 
+		inline ILogicalDevice* getDevice() const {return m_device.get();}
+
     protected:
 		~CScanner()
 		{
 			// all drop themselves automatically
 		}
 
+		core::smart_refctd_ptr<asset::ICPUShader> createShader(const bool indirect, const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op) const;
+
+
 		core::smart_refctd_ptr<ILogicalDevice> m_device;
 		core::smart_refctd_ptr<IGPUDescriptorSetLayout> m_ds_layout;
 		core::smart_refctd_ptr<IGPUPipelineLayout> m_pipeline_layout;
+		core::smart_refctd_ptr<asset::ICPUShader> m_shaders[EST_COUNT][EDT_COUNT][EO_COUNT];
 		core::smart_refctd_ptr<IGPUSpecializedShader> m_specialized_shaders[EST_COUNT][EDT_COUNT][EO_COUNT];
 		core::smart_refctd_ptr<IGPUComputePipeline> m_pipelines[EST_COUNT][EDT_COUNT][EO_COUNT];
-		const uint32_t m_wg_size;
+		const uint32_t m_workgroupSize;
 };
 
 

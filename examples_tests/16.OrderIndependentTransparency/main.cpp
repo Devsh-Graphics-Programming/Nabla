@@ -84,6 +84,17 @@ public:
     core::vector<core::smart_refctd_ptr<video::IGPUMeshBuffer>> gpu_opaqueMeshes;
     core::vector<core::smart_refctd_ptr<video::IGPUMeshBuffer>> gpu_allMeshes;
     core::smart_refctd_ptr<video::IGPUDescriptorSet> ds2;
+    {
+        ds2 = logicalDevice->createGPUDescriptorSet(ds2pool.get(), core::smart_refctd_ptr(ds2layout));
+
+        video::IGPUDescriptorSet::SDescriptorInfo info[ext::OIT::COIT::MaxImgBindingCount];
+        video::IGPUDescriptorSet::SWriteDescriptorSet w[ext::OIT::COIT::MaxImgBindingCount];
+        
+        const auto writeCount = oit.getDSWrites(w, info, ds2.get());
+
+        logicalDevice->updateDescriptorSets(writeCount, w, 0u, nullptr);
+    }
+
     core::smart_refctd_ptr<video::IGPUGraphicsPipeline> oit_resolve_ppln;
     core::smart_refctd_ptr<video::IGPUGraphicsPipeline> oit_pass1_pipeline;
 

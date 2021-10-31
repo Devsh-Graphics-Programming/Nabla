@@ -51,16 +51,8 @@ class IDriverMemoryBacked : public virtual core::IReferenceCounted
             out.prefersDedicatedAllocation = a.prefersDedicatedAllocation|b.prefersDedicatedAllocation;
             out.requiresDedicatedAllocation = a.requiresDedicatedAllocation|b.requiresDedicatedAllocation;
 
-            //! Not on Vulkan, then OpenGL doesn't need more checks
-            if (a.vulkanReqs.alignment==0u&&b.vulkanReqs.alignment==0u)
-                return true;
-
-            //! On Vulkan and don't know is not an option [can be removed later]
+            //! On Vulkan and don't know is not an option [TODO]
             if (out.memoryHeapLocation==IDriverMemoryAllocation::ESMT_DONT_KNOW)
-                return false;
-
-            auto isPowerOfTwo = [] (const uint64_t& N) -> bool {return N && !(N & (N - 1ll));};
-            if (!isPowerOfTwo(a.vulkanReqs.alignment) || !isPowerOfTwo(b.vulkanReqs.alignment))
                 return false;
 
             out.vulkanReqs.size = std::max<uint32_t>(a.vulkanReqs.size,b.vulkanReqs.size);
