@@ -59,29 +59,29 @@ void addLoDTable(
 
     core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> cpupipeline;
     core::smart_refctd_ptr<ICPUMeshBuffer> cpumeshes[LoDLevels];
-    for (uint32_t poly=4u,lod=0u; lod<LoDLevels; lod++)
+    for (uint32_t poly = 4u, lod = 0u; lod < LoDLevels; lod++)
     {
         IGeometryCreator::return_type geomData;
         switch (geom)
         {
-            case EGT_CUBE:
-                geomData = geometryCreator->createCubeMesh(core::vector3df(2.f));
-                break;
-            case EGT_SPHERE:
-                geomData = geometryCreator->createSphereMesh(2.f,poly,poly,meshManipulator);
-                break;
-            case EGT_CYLINDER:
-                geomData = geometryCreator->createCylinderMesh(1.f,4.f,poly,0x0u,meshManipulator);
-                break;
-            default:
-                assert(false);
-                break;
+        case EGT_CUBE:
+            geomData = geometryCreator->createCubeMesh(core::vector3df(2.f));
+            break;
+        case EGT_SPHERE:
+            geomData = geometryCreator->createSphereMesh(2.f, poly, poly, meshManipulator);
+            break;
+        case EGT_CYLINDER:
+            geomData = geometryCreator->createCylinderMesh(1.f, 4.f, poly, 0x0u, meshManipulator);
+            break;
+        default:
+            assert(false);
+            break;
         }
         // we'll stick instance data refs in the last attribute binding
-        assert((geomData.inputParams.enabledBindingFlags>>perInstanceRedirectAttrID)==0u);
+        assert((geomData.inputParams.enabledBindingFlags >> perInstanceRedirectAttrID) == 0u);
 
-        geomData.inputParams.enabledAttribFlags |= 0x1u<<perInstanceRedirectAttrID;
-        geomData.inputParams.enabledBindingFlags |= 0x1u<<perInstanceRedirectAttrID;
+        geomData.inputParams.enabledAttribFlags |= 0x1u << perInstanceRedirectAttrID;
+        geomData.inputParams.enabledBindingFlags |= 0x1u << perInstanceRedirectAttrID;
         geomData.inputParams.attributes[perInstanceRedirectAttrID].binding = perInstanceRedirectAttrID;
         geomData.inputParams.attributes[perInstanceRedirectAttrID].relativeOffset = 0u;
         geomData.inputParams.attributes[perInstanceRedirectAttrID].format = asset::EF_R32G32_UINT;
@@ -91,29 +91,29 @@ void addLoDTable(
         if (!cpupipeline)
         {
             auto pipelinelayout = core::make_smart_refctd_ptr<ICPUPipelineLayout>(
-                nullptr,nullptr,
+                nullptr, nullptr,
                 core::smart_refctd_ptr(cpuTransformTreeDSLayout),
                 core::smart_refctd_ptr(cpuPerViewDSLayout)
-            );
+                );
             SRasterizationParams rasterParams = {};
-            if (geom==EGT_CYLINDER)
+            if (geom == EGT_CYLINDER)
                 rasterParams.faceCullingMode = asset::EFCM_NONE;
             cpupipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(
-                std::move(pipelinelayout),&shaders->get(),&shaders->get()+2u,
-                geomData.inputParams,SBlendParams{},geomData.assemblyParams,rasterParams
-            );
+                std::move(pipelinelayout), &shaders->get(), &shaders->get() + 2u,
+                geomData.inputParams, SBlendParams{}, geomData.assemblyParams, rasterParams
+                );
         }
         cpumeshes[lod] = core::make_smart_refctd_ptr<ICPUMeshBuffer>();
         cpumeshes[lod]->setPipeline(core::smart_refctd_ptr(cpupipeline));
         cpumeshes[lod]->setIndexType(geomData.indexType);
         cpumeshes[lod]->setIndexCount(geomData.indexCount);
         cpumeshes[lod]->setIndexBufferBinding(std::move(geomData.indexBuffer));
-        for (auto j=0u; j<ICPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT; j++)
-            cpumeshes[lod]->setVertexBufferBinding(asset::SBufferBinding(geomData.bindings[j]),j);
+        for (auto j = 0u; j < ICPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT; j++)
+            cpumeshes[lod]->setVertexBufferBinding(asset::SBufferBinding(geomData.bindings[j]), j);
 
         poly <<= 1u;
     }
-    auto gpumeshes = video::CAssetPreservingGPUObjectFromAssetConverter().getGPUObjectsFromAssets(cpumeshes,cpumeshes+LoDLevels,cpu2gpuParams);
+    auto gpumeshes = video::CAssetPreservingGPUObjectFromAssetConverter().getGPUObjectsFromAssets(cpumeshes, cpumeshes + LoDLevels, cpu2gpuParams);
 
     core::smart_refctd_ptr<video::IGPUGraphicsPipeline> pipeline;
     {
@@ -121,26 +121,26 @@ void addLoDTable(
         params.renderpass = renderpass;
         params.renderpassIndependent = core::smart_refctd_ptr_dynamic_cast<video::IGPURenderpassIndependentPipeline>(assetManager->findGPUObject(cpupipeline.get()));
         params.subpassIx = 0u;
-        pipeline = cpu2gpuParams.device->createGPUGraphicsPipeline(nullptr,std::move(params));
+        pipeline = cpu2gpuParams.device->createGPUGraphicsPipeline(nullptr, std::move(params));
     }
 
     auto drawcallInfosOutIx = drawcallInfos.size();
-    drawcallInfos.resize(drawcallInfos.size()+gpumeshes->size());
-	core::aabbox3df aabb(FLT_MAX,FLT_MAX,FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX);
+    drawcallInfos.resize(drawcallInfos.size() + gpumeshes->size());
+    core::aabbox3df aabb(FLT_MAX, FLT_MAX, FLT_MAX, -FLT_MAX, -FLT_MAX, -FLT_MAX);
     lod_library_t::LoDInfo prevInfo;
-    for (auto lod=0u; lod<gpumeshes->size(); lod++)
+    for (auto lod = 0u; lod < gpumeshes->size(); lod++)
     {
         auto gpumb = gpumeshes->operator[](lod);
 
         auto& di = drawcallInfos[drawcallInfosOutIx++];
-        memcpy(di.pushConstantData,gpumb->getPushConstantsDataPtr(),video::IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE);
+        memcpy(di.pushConstantData, gpumb->getPushConstantsDataPtr(), video::IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE);
         di.pipeline = pipeline;
-        std::fill_n(di.descriptorSets,video::IGPUPipelineLayout::DESCRIPTOR_SET_COUNT,nullptr);
+        std::fill_n(di.descriptorSets, video::IGPUPipelineLayout::DESCRIPTOR_SET_COUNT, nullptr);
         di.descriptorSets[0] = transformTreeDS;
         di.descriptorSets[1] = perViewDS;
         di.indexType = gpumb->getIndexType();
-        std::copy_n(gpumb->getVertexBufferBindings(),perInstanceRedirectAttrID,di.vertexBufferBindings);
-        di.vertexBufferBindings[perInstanceRedirectAttrID] = {perInstanceRedirectAttribs.offset,perInstanceRedirectAttribs.buffer};
+        std::copy_n(gpumb->getVertexBufferBindings(), perInstanceRedirectAttrID, di.vertexBufferBindings);
+        di.vertexBufferBindings[perInstanceRedirectAttrID] = { perInstanceRedirectAttribs.offset,perInstanceRedirectAttribs.buffer };
         di.indexBufferBinding = gpumb->getIndexBufferBinding().buffer;
         di.drawCommandStride = sizeof(asset::DrawElementsIndirectCommand_t);
         di.drawCountOffset = video::IDrawIndirectAllocator::invalid_draw_count_ix;
@@ -159,11 +159,11 @@ void addLoDTable(
         // we could probably use smaller batches if we implemented drawcall compaction
         // (we wouldn't pay for the extra drawcalls generated by batches that have no instances)
         // if the culling system was to be used together with occlusion culling, we could use smaller batch sizes
-        constexpr auto indicesPerBatch = 3u<<12u;
+        constexpr auto indicesPerBatch = 3u << 12u;
         const auto indexCount = gpumb->getIndexCount();
-        const auto batchCount = di.drawMaxCount = (indexCount-1u)/indicesPerBatch+1u;
+        const auto batchCount = di.drawMaxCount = (indexCount - 1u) / indicesPerBatch + 1u;
         lodLibraryData.drawCountData.emplace_back(di.drawMaxCount);
-        
+
         const bool success = drawIndirectAllocator->allocateMultiDraws(mdiAlloc);
         assert(success);
         lodLibraryData.drawCountOffsets.emplace_back(di.drawCountOffset);
@@ -173,7 +173,7 @@ void addLoDTable(
         auto& lodInfo = lodLibraryData.lodInfoData.emplace_back(batchCount);
         if (lod)
         {
-            lodInfo = lod_library_t::LoDInfo(batchCount,{129600.f/exp2f(lod<<1)});
+            lodInfo = lod_library_t::LoDInfo(batchCount, { 129600.f / exp2f(lod << 1) });
             if (!lodInfo.isValid(prevInfo))
             {
                 assert(false && "THE LEVEL OF DETAIL CHOICE PARAMS NEED TO BE MONOTONICALLY DECREASING");
@@ -181,33 +181,33 @@ void addLoDTable(
             }
         }
         else
-            lodInfo = lod_library_t::LoDInfo(batchCount,{2250000.f});
+            lodInfo = lod_library_t::LoDInfo(batchCount, { 2250000.f });
         prevInfo = lodInfo;
         //
         size_t indexSize;
         switch (gpumb->getIndexType())
         {
-            case EIT_16BIT:
-                indexSize = sizeof(uint16_t);
-                break;
-            case EIT_32BIT:
-                indexSize = sizeof(uint32_t);
-                break;
-            default:
-                assert(false);
-                break;
+        case EIT_16BIT:
+            indexSize = sizeof(uint16_t);
+            break;
+        case EIT_32BIT:
+            indexSize = sizeof(uint32_t);
+            break;
+        default:
+            assert(false);
+            break;
         }
         auto batchID = 0u;
-        for (auto i=0u; i<indexCount; i+=indicesPerBatch,batchID++)
+        for (auto i = 0u; i < indexCount; i += indicesPerBatch, batchID++)
         {
             const auto& drawCallData = lodLibraryData.drawCallData.emplace_back(
-                core::min(indexCount-i,indicesPerBatch),
+                core::min(indexCount - i, indicesPerBatch),
                 0u,
-                gpumb->getIndexBufferBinding().offset/indexSize+i,
+                gpumb->getIndexBufferBinding().offset / indexSize + i,
                 0u,
                 0xdeadbeefu // set to garbage to test the prefix sum
             );
-            lodLibraryData.drawCallOffsetsIn20ByteStrides.emplace_back(di.drawCallOffset/di.drawCommandStride+batchID);
+            lodLibraryData.drawCallOffsetsIn20ByteStrides.emplace_back(di.drawCallOffset / di.drawCommandStride + batchID);
 
             core::aabbox3df batchAABB;
             {
@@ -215,7 +215,7 @@ void addLoDTable(
                 auto mb = cpumeshes[lod].get();
                 auto oldBinding = mb->getIndexBufferBinding();
                 const auto oldIndexCount = mb->getIndexCount();
-                mb->setIndexBufferBinding({oldBinding.offset+i*indexSize,oldBinding.buffer});
+                mb->setIndexBufferBinding({ oldBinding.offset + i * indexSize,oldBinding.buffer });
                 mb->setIndexCount(drawCallData.count);
                 batchAABB = IMeshManipulator::calculateBoundingBox(mb);
                 mb->setIndexCount(oldIndexCount);
@@ -223,23 +223,23 @@ void addLoDTable(
             }
             aabb.addInternalBox(batchAABB);
 
-            const uint32_t drawCallDWORDOffset = (di.drawCallOffset+batchID*di.drawCommandStride)/sizeof(uint32_t);
+            const uint32_t drawCallDWORDOffset = (di.drawCallOffset + batchID * di.drawCommandStride) / sizeof(uint32_t);
             lodInfo.drawcallInfos[batchID] = scene::ILevelOfDetailLibrary::DrawcallInfo(
-                drawCallDWORDOffset,batchAABB
+                drawCallDWORDOffset, batchAABB
             );
         }
     }
     auto& lodTable = lodLibraryData.lodTableData.emplace_back(LoDLevels);
-    lodTable = scene::ILevelOfDetailLibrary::LoDTableInfo(LoDLevels,aabb);
-    std::fill_n(lodTable.leveInfoUvec2Offsets,LoDLevels,scene::ILevelOfDetailLibrary::invalid);
+    lodTable = scene::ILevelOfDetailLibrary::LoDTableInfo(LoDLevels, aabb);
+    std::fill_n(lodTable.leveInfoUvec2Offsets, LoDLevels, scene::ILevelOfDetailLibrary::invalid);
     {
         lod_library_t::Allocation::LevelInfoAllocation lodLevelAllocations[1] =
         {
             lodTable.leveInfoUvec2Offsets,
-            lodLibraryData.drawCountData.data()+lodLibraryData.drawCountData.size()-LoDLevels
+            lodLibraryData.drawCountData.data() + lodLibraryData.drawCountData.size() - LoDLevels
         };
-        uint32_t lodTableOffsets[1u] = {scene::ILevelOfDetailLibrary::invalid};
-        const uint32_t lodLevelCounts[1u] = {LoDLevels};
+        uint32_t lodTableOffsets[1u] = { scene::ILevelOfDetailLibrary::invalid };
+        const uint32_t lodLevelCounts[1u] = { LoDLevels };
         //
         lod_library_t::Allocation alloc = {};
         {
@@ -250,14 +250,14 @@ void addLoDTable(
         }
         const bool success = lodLibrary->allocateLoDs(alloc);
         assert(success);
-        for (auto i=0u; i<scene::ILevelOfDetailLibrary::LoDTableInfo::getSizeInAlignmentUnits(LoDLevels); i++)
-            lodLibraryData.lodTableDstUvec4s.push_back(lodTableOffsets[0]+i);
-        for (auto lod=0u; lod<LoDLevels; lod++)
+        for (auto i = 0u; i < scene::ILevelOfDetailLibrary::LoDTableInfo::getSizeInAlignmentUnits(LoDLevels); i++)
+            lodLibraryData.lodTableDstUvec4s.push_back(lodTableOffsets[0] + i);
+        for (auto lod = 0u; lod < LoDLevels; lod++)
         {
             const auto drawcallCount = lodLevelAllocations[0].drawcallCounts[lod];
             const auto offset = lodLevelAllocations[0].levelUvec2Offsets[lod];
-            for (auto i=0u; i<lod_library_t::LoDInfo::getSizeInAlignmentUnits(drawcallCount); i++)
-                lodLibraryData.lodInfoDstUvec2s.push_back(offset+i);
+            for (auto i = 0u; i < lod_library_t::LoDInfo::getSizeInAlignmentUnits(drawcallCount); i++)
+                lodLibraryData.lodInfoDstUvec2s.push_back(offset + i);
         }
     }
     cpu2gpuParams.waitForCreationToComplete();
@@ -269,13 +269,14 @@ void addLoDTable(
 
 int main()
 {
-	constexpr uint32_t WIN_W = 1600;
-	constexpr uint32_t WIN_H = 900;
+    constexpr uint32_t WIN_W = 1600;
+    constexpr uint32_t WIN_H = 900;
     constexpr uint32_t FBO_COUNT = 1u;
-	constexpr uint32_t FRAMES_IN_FLIGHT = 5u;
-	static_assert(FRAMES_IN_FLIGHT>FBO_COUNT);
+    constexpr uint32_t FRAMES_IN_FLIGHT = 5u;
+    static_assert(FRAMES_IN_FLIGHT > FBO_COUNT);
 
-	auto initOutput = CommonAPI::Init<WIN_W, WIN_H, FBO_COUNT>(video::EAT_OPENGL, "Level of Detail System", asset::EF_D32_SFLOAT);
+    CommonAPI::InitOutput<FBO_COUNT> initOutput;
+    CommonAPI::Init<WIN_W, WIN_H, FBO_COUNT>(initOutput, video::EAT_OPENGL, "Level of Detail System", asset::EF_D32_SFLOAT);
     auto window = std::move(initOutput.window);
     auto gl = std::move(initOutput.apiConnection);
     auto surface = std::move(initOutput.surface);
@@ -299,7 +300,7 @@ int main()
     // lod table entries
     constexpr auto MaxDrawables = EGT_COUNT;
     // all the lod infos from all lod entries
-    constexpr auto MaxTotalLoDs = 8u*MaxDrawables;
+    constexpr auto MaxTotalLoDs = 8u * MaxDrawables;
     // how many contiguous ranges of drawcalls with explicit draw counts
     constexpr auto MaxMDIs = 16u;
     // how many drawcalls (meshlets)
@@ -307,11 +308,11 @@ int main()
     // how many instances
     constexpr auto MaxInstanceCount = 1677721u; // absolute max for Intel HD Graphics on Windows (to keep within 128MB SSBO limit)
     // maximum visible instances of a drawcall (should be a sum of MaxLoDDrawcalls[t]*MaxInstances[t] where t iterates over all LoD Tables)
-    constexpr auto MaxTotalVisibleDrawcallInstances = MaxInstanceCount+(MaxInstanceCount>>8u); // This is literally my worst case guess of how many batch-draw-instances there will be on screen at the same time
+    constexpr auto MaxTotalVisibleDrawcallInstances = MaxInstanceCount + (MaxInstanceCount >> 8u); // This is literally my worst case guess of how many batch-draw-instances there will be on screen at the same time
 
-    auto ttm = scene::ITransformTreeManager::create(utilities.get(),transferUpQueue);
+    auto ttm = scene::ITransformTreeManager::create(utilities.get(), transferUpQueue);
     // Transform Tree
-    auto tt = scene::ITransformTree::create(logicalDevice.get(),MaxInstanceCount);
+    auto tt = scene::ITransformTree::create(logicalDevice.get(), MaxInstanceCount);
     const auto* ctt = tt.get(); // fight compiler, hard
     const video::IPropertyPool* nodePP = ctt->getNodePropertyPool();
 
@@ -327,7 +328,7 @@ int main()
     }
 
     // LoD Library
-    auto lodLibrary = lod_library_t::create({logicalDevice.get(),MaxDrawables,MaxTotalLoDs,MaxDrawCalls});
+    auto lodLibrary = lod_library_t::create({ logicalDevice.get(),MaxDrawables,MaxTotalLoDs,MaxDrawCalls });
 
     // Culling System
     using culling_system_t = scene::ICullingLoDSelectionSystem;
@@ -335,7 +336,7 @@ int main()
 
     culling_system_t::Params cullingParams;
     core::smart_refctd_ptr<video::IDescriptorPool> cullingDSPool;
-    
+
     CullPushConstants_t cullPushConstants;
     cullPushConstants.instanceCount = 0u;
     {
@@ -350,7 +351,7 @@ int main()
                 // TODO: figure out what should be here
                 constexpr auto BindingCount = 1u;
                 video::IGPUDescriptorSetLayout::SBinding bindings[BindingCount];
-                for (auto i=0u; i<BindingCount; i++)
+                for (auto i = 0u; i < BindingCount; i++)
                 {
                     bindings[i].binding = i;
                     bindings[i].type = asset::EDT_STORAGE_BUFFER;
@@ -358,40 +359,40 @@ int main()
                     bindings[i].stageFlags = asset::ISpecializedShader::ESS_COMPUTE;
                     bindings[i].samplers = nullptr;
                 }
-                return logicalDevice->createGPUDescriptorSetLayout(bindings,bindings+BindingCount);
+                return logicalDevice->createGPUDescriptorSetLayout(bindings,bindings + BindingCount);
             }()
         };
-        cullingDSPool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE,&layouts->get(),&layouts->get()+LayoutCount);
-        
-		const asset::SPushConstantRange range = {asset::ISpecializedShader::ESS_COMPUTE,0u,sizeof(CullPushConstants_t)};
+        cullingDSPool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE, &layouts->get(), &layouts->get() + LayoutCount);
+
+        const asset::SPushConstantRange range = { asset::ISpecializedShader::ESS_COMPUTE,0u,sizeof(CullPushConstants_t) };
         cullingSystem = culling_system_t::create(
-            core::smart_refctd_ptr<video::CScanner>(utilities->getDefaultScanner()),&range,&range+1u,core::smart_refctd_ptr(layouts[3]),
-            std::filesystem::current_path(),"\n#include \"../common.glsl\"\n","\n#include \"../cull_overrides.glsl\"\n"
+            core::smart_refctd_ptr<video::CScanner>(utilities->getDefaultScanner()), &range, &range + 1u, core::smart_refctd_ptr(layouts[3]),
+            std::filesystem::current_path(), "\n#include \"../common.glsl\"\n", "\n#include \"../cull_overrides.glsl\"\n"
         );
 
-        cullingParams.indirectDispatchParams = {0ull,culling_system_t::createDispatchIndirectBuffer(utilities.get(),transferUpQueue)};
+        cullingParams.indirectDispatchParams = { 0ull,culling_system_t::createDispatchIndirectBuffer(utilities.get(),transferUpQueue) };
         {
             video::IGPUBuffer::SCreationParams params;
             params.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
-            cullingParams.instanceList = {0ull,~0ull,logicalDevice->createDeviceLocalGPUBufferOnDedMem(params,sizeof(culling_system_t::InstanceToCull)*MaxInstanceCount)};
+            cullingParams.instanceList = { 0ull,~0ull,logicalDevice->createDeviceLocalGPUBufferOnDedMem(params,sizeof(culling_system_t::InstanceToCull) * MaxInstanceCount) };
         }
-        cullingParams.scratchBufferRanges = culling_system_t::createScratchBuffer(utilities->getDefaultScanner(),MaxInstanceCount,MaxTotalVisibleDrawcallInstances);
+        cullingParams.scratchBufferRanges = culling_system_t::createScratchBuffer(utilities->getDefaultScanner(), MaxInstanceCount, MaxTotalVisibleDrawcallInstances);
         cullingParams.drawCalls = drawIndirectAllocator->getDrawCommandMemoryBlock();
-        cullingParams.perViewPerInstance = {0ull,~0ull,culling_system_t::createPerViewPerInstanceDataBuffer<PerViewPerInstance_t>(logicalDevice.get(),MaxInstanceCount)};
-        cullingParams.perInstanceRedirectAttribs = {0ul,~0ull,culling_system_t::createInstanceRedirectBuffer(logicalDevice.get(),MaxTotalVisibleDrawcallInstances)};
+        cullingParams.perViewPerInstance = { 0ull,~0ull,culling_system_t::createPerViewPerInstanceDataBuffer<PerViewPerInstance_t>(logicalDevice.get(),MaxInstanceCount) };
+        cullingParams.perInstanceRedirectAttribs = { 0ul,~0ull,culling_system_t::createInstanceRedirectBuffer(logicalDevice.get(),MaxTotalVisibleDrawcallInstances) };
         const auto drawCountsBlock = drawIndirectAllocator->getDrawCountMemoryBlock();
         if (drawCountsBlock)
             cullingParams.drawCounts = *drawCountsBlock;
 
         cullingParams.lodLibraryDS = core::smart_refctd_ptr<video::IGPUDescriptorSet>(lodLibrary->getDescriptorSet());
         cullingParams.transientOutputDS = culling_system_t::createOutputDescriptorSet(
-            logicalDevice.get(),cullingDSPool.get(),std::move(layouts[2]),
+            logicalDevice.get(), cullingDSPool.get(), std::move(layouts[2]),
             cullingParams.drawCalls,
             cullingParams.perViewPerInstance,
             cullingParams.perInstanceRedirectAttribs,
             cullingParams.drawCounts
         );
-        cullingParams.customDS = logicalDevice->createGPUDescriptorSet(cullingDSPool.get(),std::move(layouts[3]));
+        cullingParams.customDS = logicalDevice->createGPUDescriptorSet(cullingDSPool.get(), std::move(layouts[3]));
         {
             video::IGPUDescriptorSet::SWriteDescriptorSet write;
             video::IGPUDescriptorSet::SDescriptorInfo info(nodePP->getPropertyMemoryBlock(scene::ITransformTree::global_transform_prop_ix));
@@ -401,7 +402,7 @@ int main()
             write.count = 1u;
             write.descriptorType = EDT_STORAGE_BUFFER;
             write.info = &info;
-            logicalDevice->updateDescriptorSets(1u,&write,0u,nullptr);
+            logicalDevice->updateDescriptorSets(1u, &write, 0u, nullptr);
         }
 
         cullingParams.indirectDispatchParams.buffer->setObjectDebugName("CullingIndirect");
@@ -431,7 +432,7 @@ int main()
         shaders[0] = IAsset::castDown<ICPUSpecializedShader>(*vertexShaderBundle.getContents().begin());
         shaders[1] = IAsset::castDown<ICPUSpecializedShader>(*fragShaderBundle.getContents().begin());
     }
-    
+
 
 
 
@@ -440,7 +441,7 @@ int main()
     {
         constexpr auto BindingCount = 1;
         ICPUDescriptorSetLayout::SBinding cpuBindings[BindingCount];
-        for (auto i=0; i<BindingCount; i++)
+        for (auto i = 0; i < BindingCount; i++)
         {
             cpuBindings[i].binding = i;
             cpuBindings[i].count = 1u;
@@ -448,34 +449,34 @@ int main()
             cpuBindings[i].samplers = nullptr;
         }
         cpuBindings[0].type = EDT_STORAGE_BUFFER;
-        cpuPerViewDSLayout = core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(cpuBindings,cpuBindings+BindingCount);
+        cpuPerViewDSLayout = core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(cpuBindings, cpuBindings + BindingCount);
 
         auto bindings = reinterpret_cast<video::IGPUDescriptorSetLayout::SBinding*>(cpuBindings);
-        auto perViewDSLayout = logicalDevice->createGPUDescriptorSetLayout(bindings,bindings+BindingCount);
-        auto dsPool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE,&perViewDSLayout.get(),&perViewDSLayout.get()+1u);
-        perViewDS = logicalDevice->createGPUDescriptorSet(dsPool.get(),std::move(perViewDSLayout));
+        auto perViewDSLayout = logicalDevice->createGPUDescriptorSetLayout(bindings, bindings + BindingCount);
+        auto dsPool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE, &perViewDSLayout.get(), &perViewDSLayout.get() + 1u);
+        perViewDS = logicalDevice->createGPUDescriptorSet(dsPool.get(), std::move(perViewDSLayout));
         {
             video::IGPUDescriptorSet::SWriteDescriptorSet writes[BindingCount];
             video::IGPUDescriptorSet::SDescriptorInfo infos[BindingCount];
-            for (auto i=0; i<BindingCount; i++)
+            for (auto i = 0; i < BindingCount; i++)
             {
                 writes[i].dstSet = perViewDS.get();
                 writes[i].binding = i;
                 writes[i].arrayElement = 0u;
                 writes[i].count = 1u;
-                writes[i].info = infos+i;
+                writes[i].info = infos + i;
             }
             writes[0].descriptorType = EDT_STORAGE_BUFFER;
             infos[0].desc = cullingParams.perViewPerInstance.buffer;
-            infos[0].buffer = {0u,video::IGPUDescriptorSet::SDescriptorInfo::SBufferInfo::WholeBuffer};
-            logicalDevice->updateDescriptorSets(BindingCount,writes,0u,nullptr);
+            infos[0].buffer = { 0u,video::IGPUDescriptorSet::SDescriptorInfo::SBufferInfo::WholeBuffer };
+            logicalDevice->updateDescriptorSets(BindingCount, writes, 0u, nullptr);
         }
     }
 
     std::mt19937 mt(0x45454545u);
-    std::uniform_int_distribution<uint32_t> typeDist(0,EGT_COUNT-1u);
-    std::uniform_real_distribution<float> rotationDist(0,2.f*core::PI<float>());
-    std::uniform_real_distribution<float> posDist(-1200.f,1200.f);
+    std::uniform_int_distribution<uint32_t> typeDist(0, EGT_COUNT - 1u);
+    std::uniform_real_distribution<float> rotationDist(0, 2.f * core::PI<float>());
+    std::uniform_real_distribution<float> posDist(-1200.f, 1200.f);
     //
     core::smart_refctd_ptr<video::IGPUCommandBuffer> bakedCommandBuffer;
     {
@@ -496,25 +497,25 @@ int main()
 
                 // populating `lodTables` is a bit messy, I know
                 size_t lodTableIx = lodLibraryData.lodTableDstUvec4s.size();
-                addLoDTable<EGT_CUBE,1>(
-                    assetManager.get(),cpuTransformTreeDSLayout,cpuPerViewDSLayout,shaders,cpu2gpuParams,
-                    lodLibraryData,drawIndirectAllocator.get(),lodLibrary.get(),kiln.getDrawcallMetadataVector(),
-                    cullingParams.perInstanceRedirectAttribs,renderpass,cullingParams.customDS,perViewDS
-                );
+                addLoDTable<EGT_CUBE, 1>(
+                    assetManager.get(), cpuTransformTreeDSLayout, cpuPerViewDSLayout, shaders, cpu2gpuParams,
+                    lodLibraryData, drawIndirectAllocator.get(), lodLibrary.get(), kiln.getDrawcallMetadataVector(),
+                    cullingParams.perInstanceRedirectAttribs, renderpass, cullingParams.customDS, perViewDS
+                    );
                 lodTables[EGT_CUBE] = lodLibraryData.lodTableDstUvec4s[lodTableIx];
                 lodTableIx = lodLibraryData.lodTableDstUvec4s.size();
-                addLoDTable<EGT_SPHERE,7>(
-                    assetManager.get(),cpuTransformTreeDSLayout,cpuPerViewDSLayout,shaders,cpu2gpuParams,
-                    lodLibraryData,drawIndirectAllocator.get(),lodLibrary.get(),kiln.getDrawcallMetadataVector(),
-                    cullingParams.perInstanceRedirectAttribs,renderpass,cullingParams.customDS,perViewDS
-                );
+                addLoDTable<EGT_SPHERE, 7>(
+                    assetManager.get(), cpuTransformTreeDSLayout, cpuPerViewDSLayout, shaders, cpu2gpuParams,
+                    lodLibraryData, drawIndirectAllocator.get(), lodLibrary.get(), kiln.getDrawcallMetadataVector(),
+                    cullingParams.perInstanceRedirectAttribs, renderpass, cullingParams.customDS, perViewDS
+                    );
                 lodTables[EGT_SPHERE] = lodLibraryData.lodTableDstUvec4s[lodTableIx];
                 lodTableIx = lodLibraryData.lodTableDstUvec4s.size();
-                addLoDTable<EGT_CYLINDER,6>(
-                    assetManager.get(),cpuTransformTreeDSLayout,cpuPerViewDSLayout,shaders,cpu2gpuParams,
-                    lodLibraryData,drawIndirectAllocator.get(),lodLibrary.get(),kiln.getDrawcallMetadataVector(),
-                    cullingParams.perInstanceRedirectAttribs,renderpass,cullingParams.customDS,perViewDS
-                );
+                addLoDTable<EGT_CYLINDER, 6>(
+                    assetManager.get(), cpuTransformTreeDSLayout, cpuPerViewDSLayout, shaders, cpu2gpuParams,
+                    lodLibraryData, drawIndirectAllocator.get(), lodLibrary.get(), kiln.getDrawcallMetadataVector(),
+                    cullingParams.perInstanceRedirectAttribs, renderpass, cullingParams.customDS, perViewDS
+                    );
                 lodTables[EGT_CYLINDER] = lodLibraryData.lodTableDstUvec4s[lodTableIx];
 
                 //! cache results -- speeds up mesh generation on second run
@@ -523,28 +524,28 @@ int main()
             constexpr auto MaxTransfers = 9u;
             video::CPropertyPoolHandler::UpStreamingRequest upstreamRequests[MaxTransfers];
             // set up the instance list
-            constexpr auto TTMTransfers = scene::ITransformTreeManager::TransferCount+1u;
+            constexpr auto TTMTransfers = scene::ITransformTreeManager::TransferCount + 1u;
             core::vector<scene::ITransformTree::node_t> instanceGUIDs(
-                std::uniform_int_distribution<uint32_t>(MaxInstanceCount>>1u,MaxInstanceCount)(mt), // Instance Count
+                std::uniform_int_distribution<uint32_t>(MaxInstanceCount >> 1u, MaxInstanceCount)(mt), // Instance Count
                 scene::ITransformTree::invalid_node
             );
             core::vector<core::matrix3x4SIMD> instanceTransforms(instanceGUIDs.size());
             for (auto& tform : instanceTransforms)
             {
-                tform.setRotation(core::quaternion(rotationDist(mt),rotationDist(mt),rotationDist(mt)));
-                tform.setTranslation(core::vectorSIMDf(posDist(mt),posDist(mt),posDist(mt)));
+                tform.setRotation(core::quaternion(rotationDist(mt), rotationDist(mt), rotationDist(mt)));
+                tform.setTranslation(core::vectorSIMDf(posDist(mt), posDist(mt), posDist(mt)));
             }
             {
-                tt->allocateNodes({instanceGUIDs.data(),instanceGUIDs.data()+instanceGUIDs.size()});
+                tt->allocateNodes({ instanceGUIDs.data(),instanceGUIDs.data() + instanceGUIDs.size() });
 
                 scene::ITransformTreeManager::UpstreamRequest request;
                 request.tree = tt.get();
                 request.parents = {}; // no parents
                 request.relativeTransforms.device2device;
                 request.relativeTransforms.data = instanceTransforms.data();
-                request.nodes = {instanceGUIDs.data(),instanceGUIDs.data()+instanceGUIDs.size()};
-                ttm->setupTransfers(request,upstreamRequests);
-                
+                request.nodes = { instanceGUIDs.data(),instanceGUIDs.data() + instanceGUIDs.size() };
+                ttm->setupTransfers(request, upstreamRequests);
+
                 core::vector<culling_system_t::InstanceToCull> instanceList; instanceList.reserve(instanceGUIDs.size());
                 for (auto instanceGUID : instanceGUIDs)
                 {
@@ -552,40 +553,40 @@ int main()
                     instance.instanceGUID = instanceGUID;
                     instance.lodTableUvec4Offset = lodTables[typeDist(mt)];
                 }
-                utilities->updateBufferRangeViaStagingBuffer(transferUpQueue,{0u,instanceList.size()*sizeof(culling_system_t::InstanceToCull),cullingParams.instanceList.buffer},instanceList.data());
+                utilities->updateBufferRangeViaStagingBuffer(transferUpQueue, { 0u,instanceList.size() * sizeof(culling_system_t::InstanceToCull),cullingParams.instanceList.buffer }, instanceList.data());
 
                 cullPushConstants.instanceCount += instanceList.size();
             }
             // I cannot be bothered to run a proper node global transform update dispatch in this example
             {
                 upstreamRequests[4] = upstreamRequests[1];
-                upstreamRequests[4].setFromPool(const_cast<video::IPropertyPool*>(nodePP),scene::ITransformTree::global_transform_prop_ix);
+                upstreamRequests[4].setFromPool(const_cast<video::IPropertyPool*>(nodePP), scene::ITransformTree::global_transform_prop_ix);
             }
             cullingParams.drawcallCount = lodLibraryData.drawCallData.size();
             // do the transfer of drawcall and LoD data
             {
-                for (auto i=TTMTransfers; i<MaxTransfers; i++)
+                for (auto i = TTMTransfers; i < MaxTransfers; i++)
                 {
                     upstreamRequests[i].fill = false;
                     upstreamRequests[i].source.device2device = false;
                     upstreamRequests[i].srcAddresses = nullptr; // iota 0,1,2,3,4,etc.
                 }
-                upstreamRequests[TTMTransfers+0].destination = drawIndirectAllocator->getDrawCommandMemoryBlock();
-                upstreamRequests[TTMTransfers+0].elementSize = sizeof(asset::DrawElementsIndirectCommand_t);
-                upstreamRequests[TTMTransfers+0].elementCount = cullingParams.drawcallCount;
-                upstreamRequests[TTMTransfers+0].source.data = lodLibraryData.drawCallData.data();
-                upstreamRequests[TTMTransfers+0].dstAddresses = lodLibraryData.drawCallOffsetsIn20ByteStrides.data();
-                upstreamRequests[TTMTransfers+1].destination = lodLibrary->getLoDInfoBinding();
-                upstreamRequests[TTMTransfers+1].elementSize = alignof(lod_library_t::LoDInfo);
-                upstreamRequests[TTMTransfers+1].elementCount = lodLibraryData.lodInfoDstUvec2s.size();
-                upstreamRequests[TTMTransfers+1].source.data = lodLibraryData.lodInfoData.data();
-                upstreamRequests[TTMTransfers+1].dstAddresses = lodLibraryData.lodInfoDstUvec2s.data();
-                upstreamRequests[TTMTransfers+2].destination = lodLibrary->getLodTableInfoBinding();
-                upstreamRequests[TTMTransfers+2].elementSize = alignof(scene::ILevelOfDetailLibrary::LoDTableInfo);
-                upstreamRequests[TTMTransfers+2].elementCount = lodLibraryData.lodTableDstUvec4s.size();
-                upstreamRequests[TTMTransfers+2].source.data = lodLibraryData.lodTableData.data();
-                upstreamRequests[TTMTransfers+2].dstAddresses = lodLibraryData.lodTableDstUvec4s.data();
-                auto requestCount = TTMTransfers+3u;
+                upstreamRequests[TTMTransfers + 0].destination = drawIndirectAllocator->getDrawCommandMemoryBlock();
+                upstreamRequests[TTMTransfers + 0].elementSize = sizeof(asset::DrawElementsIndirectCommand_t);
+                upstreamRequests[TTMTransfers + 0].elementCount = cullingParams.drawcallCount;
+                upstreamRequests[TTMTransfers + 0].source.data = lodLibraryData.drawCallData.data();
+                upstreamRequests[TTMTransfers + 0].dstAddresses = lodLibraryData.drawCallOffsetsIn20ByteStrides.data();
+                upstreamRequests[TTMTransfers + 1].destination = lodLibrary->getLoDInfoBinding();
+                upstreamRequests[TTMTransfers + 1].elementSize = alignof(lod_library_t::LoDInfo);
+                upstreamRequests[TTMTransfers + 1].elementCount = lodLibraryData.lodInfoDstUvec2s.size();
+                upstreamRequests[TTMTransfers + 1].source.data = lodLibraryData.lodInfoData.data();
+                upstreamRequests[TTMTransfers + 1].dstAddresses = lodLibraryData.lodInfoDstUvec2s.data();
+                upstreamRequests[TTMTransfers + 2].destination = lodLibrary->getLodTableInfoBinding();
+                upstreamRequests[TTMTransfers + 2].elementSize = alignof(scene::ILevelOfDetailLibrary::LoDTableInfo);
+                upstreamRequests[TTMTransfers + 2].elementCount = lodLibraryData.lodTableDstUvec4s.size();
+                upstreamRequests[TTMTransfers + 2].source.data = lodLibraryData.lodTableData.data();
+                upstreamRequests[TTMTransfers + 2].dstAddresses = lodLibraryData.lodTableDstUvec4s.data();
+                auto requestCount = TTMTransfers + 3u;
                 if (drawIndirectAllocator->getDrawCountMemoryBlock())
                 {
                     upstreamRequests[requestCount].destination = *drawIndirectAllocator->getDrawCountMemoryBlock();
@@ -597,7 +598,7 @@ int main()
                 }
 
                 core::smart_refctd_ptr<video::IGPUCommandBuffer> tferCmdBuf;
-                logicalDevice->createCommandBuffers(commandPool.get(),video::IGPUCommandBuffer::EL_PRIMARY,1u,&tferCmdBuf);
+                logicalDevice->createCommandBuffers(commandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY, 1u, &tferCmdBuf);
                 auto fence = logicalDevice->createFence(video::IGPUFence::ECF_UNSIGNALED);
                 tferCmdBuf->begin(0u); // TODO some one time submit bit or something
                 {
@@ -605,19 +606,19 @@ int main()
                     asset::SBufferBinding<video::IGPUBuffer> scratch;
                     {
                         video::IGPUBuffer::SCreationParams scratchParams = {};
-		                scratchParams.canUpdateSubRange = true;
-		                scratchParams.usage = core::bitflag(video::IGPUBuffer::EUF_TRANSFER_DST_BIT)|video::IGPUBuffer::EUF_STORAGE_BUFFER_BIT;
-		                scratch = {0ull,logicalDevice->createDeviceLocalGPUBufferOnDedMem(scratchParams,ppHandler->getMaxScratchSize())};
-		                scratch.buffer->setObjectDebugName("Scratch Buffer");
+                        scratchParams.canUpdateSubRange = true;
+                        scratchParams.usage = core::bitflag(video::IGPUBuffer::EUF_TRANSFER_DST_BIT) | video::IGPUBuffer::EUF_STORAGE_BUFFER_BIT;
+                        scratch = { 0ull,logicalDevice->createDeviceLocalGPUBufferOnDedMem(scratchParams,ppHandler->getMaxScratchSize()) };
+                        scratch.buffer->setObjectDebugName("Scratch Buffer");
                     }
                     auto* pRequests = upstreamRequests;
                     uint32_t waitSemaphoreCount = 0u;
                     video::IGPUSemaphore* const* waitSemaphores = nullptr;
                     const asset::E_PIPELINE_STAGE_FLAGS* waitStages = nullptr;
                     ppHandler->transferProperties(
-                        utilities->getDefaultUpStreamingBuffer(), tferCmdBuf.get(),fence.get(),transferUpQueue,scratch,
-                        pRequests,requestCount,waitSemaphoreCount,waitSemaphores,waitStages,
-                        logger.get(),std::chrono::high_resolution_clock::time_point::max() // must finish
+                        utilities->getDefaultUpStreamingBuffer(), tferCmdBuf.get(), fence.get(), transferUpQueue, scratch,
+                        pRequests, requestCount, waitSemaphoreCount, waitSemaphores, waitStages,
+                        logger.get(), std::chrono::high_resolution_clock::time_point::max() // must finish
                     );
                 }
                 tferCmdBuf->end();
@@ -625,32 +626,32 @@ int main()
                     video::IGPUQueue::SSubmitInfo submit = {}; // intializes all semaphore stuff to 0 and nullptr
                     submit.commandBufferCount = 1u;
                     submit.commandBuffers = &tferCmdBuf.get();
-                    transferUpQueue->submit(1u,&submit,fence.get());
+                    transferUpQueue->submit(1u, &submit, fence.get());
                 }
-                logicalDevice->blockForFences(1u,&fence.get());
+                logicalDevice->blockForFences(1u, &fence.get());
             }
             // set up the remaining descriptor sets of the culling system
             {
                 auto& drawCallOffsetsInDWORDs = lodLibraryData.drawCallOffsetsIn20ByteStrides;
-                for (auto i=0u; i<cullingParams.drawcallCount; i++)
-                    drawCallOffsetsInDWORDs[i] = lodLibraryData.drawCallOffsetsIn20ByteStrides[i]*sizeof(asset::DrawElementsIndirectCommand_t)/sizeof(uint32_t);
+                for (auto i = 0u; i < cullingParams.drawcallCount; i++)
+                    drawCallOffsetsInDWORDs[i] = lodLibraryData.drawCallOffsetsIn20ByteStrides[i] * sizeof(asset::DrawElementsIndirectCommand_t) / sizeof(uint32_t);
                 cullingParams.transientInputDS = culling_system_t::createInputDescriptorSet(
-                    logicalDevice.get(),cullingDSPool.get(),
+                    logicalDevice.get(), cullingDSPool.get(),
                     culling_system_t::createInputDescriptorSetLayout(logicalDevice.get()),
                     cullingParams.indirectDispatchParams,
                     cullingParams.instanceList,
                     cullingParams.scratchBufferRanges,
-                    {0ull,~0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(transferUpQueue,cullingParams.drawcallCount*sizeof(uint32_t),drawCallOffsetsInDWORDs.data())},
-                    {0ull,~0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(transferUpQueue,lodLibraryData.drawCountOffsets.size()*sizeof(uint32_t),lodLibraryData.drawCountOffsets.data())}
+                    { 0ull,~0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(transferUpQueue,cullingParams.drawcallCount * sizeof(uint32_t),drawCallOffsetsInDWORDs.data()) },
+                    { 0ull,~0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(transferUpQueue,lodLibraryData.drawCountOffsets.size() * sizeof(uint32_t),lodLibraryData.drawCountOffsets.data()) }
                 );
             }
         }
         // prerecord the secondary cmdbuffer
         {
-            logicalDevice->createCommandBuffers(commandPool.get(),video::IGPUCommandBuffer::EL_SECONDARY,1u,&bakedCommandBuffer);
-            bakedCommandBuffer->begin(video::IGPUCommandBuffer::EU_RENDER_PASS_CONTINUE_BIT|video::IGPUCommandBuffer::EU_SIMULTANEOUS_USE_BIT);
+            logicalDevice->createCommandBuffers(commandPool.get(), video::IGPUCommandBuffer::EL_SECONDARY, 1u, &bakedCommandBuffer);
+            bakedCommandBuffer->begin(video::IGPUCommandBuffer::EU_RENDER_PASS_CONTINUE_BIT | video::IGPUCommandBuffer::EU_SIMULTANEOUS_USE_BIT);
             // TODO: handle teh offsets
-            kiln.bake(bakedCommandBuffer.get(),renderpass.get(),0u,drawIndirectAllocator->getDrawCommandMemoryBlock().buffer.get(),drawIndirectAllocator->getDrawCountMemoryBlock()->buffer.get());
+            kiln.bake(bakedCommandBuffer.get(), renderpass.get(), 0u, drawIndirectAllocator->getDrawCommandMemoryBlock().buffer.get(), drawIndirectAllocator->getDrawCountMemoryBlock()->buffer.get());
             bakedCommandBuffer->end();
         }
     }
@@ -664,20 +665,20 @@ int main()
     {
         cullPushConstants.fovDilationFactor = decltype(lod_library_t::LoDInfo::choiceParams)::getFoVDilationFactor(projectionMatrix);
         // dilate by resolution as well, because the LoD distances were tweaked @ 720p
-        cullPushConstants.fovDilationFactor *= float(window->getWidth()*window->getHeight())/float(1280u*720u);
+        cullPushConstants.fovDilationFactor *= float(window->getWidth() * window->getHeight()) / float(1280u * 720u);
     }
     Camera camera = Camera(cameraPosition, core::vectorSIMDf(0, 0, 0), projectionMatrix, 2.f, 1.f);
-    
+
     video::CDumbPresentationOracle oracle;
     oracle.reportBeginFrameRecord();
 
     core::smart_refctd_ptr<video::IGPUCommandBuffer> commandBuffers[FRAMES_IN_FLIGHT];
-    logicalDevice->createCommandBuffers(commandPool.get(),video::IGPUCommandBuffer::EL_PRIMARY,FRAMES_IN_FLIGHT,commandBuffers);
+    logicalDevice->createCommandBuffers(commandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY, FRAMES_IN_FLIGHT, commandBuffers);
 
     core::smart_refctd_ptr<video::IGPUFence> frameComplete[FRAMES_IN_FLIGHT] = { nullptr };
     core::smart_refctd_ptr<video::IGPUSemaphore> imageAcquire[FRAMES_IN_FLIGHT] = { nullptr };
     core::smart_refctd_ptr<video::IGPUSemaphore> renderFinished[FRAMES_IN_FLIGHT] = { nullptr };
-    for (uint32_t i=0u; i<FRAMES_IN_FLIGHT; i++)
+    for (uint32_t i = 0u; i < FRAMES_IN_FLIGHT; i++)
     {
         imageAcquire[i] = logicalDevice->createSemaphore();
         renderFinished[i] = logicalDevice->createSemaphore();
@@ -685,16 +686,16 @@ int main()
 
     uint32_t acquiredNextFBO = {};
     auto resourceIx = -1;
-	while(windowCallback->isWindowOpen())
-	{
+    while (windowCallback->isWindowOpen())
+    {
         ++resourceIx;
         if (resourceIx >= FRAMES_IN_FLIGHT)
             resourceIx = 0;
-        
+
         auto& commandBuffer = commandBuffers[resourceIx];
         auto& fence = frameComplete[resourceIx];
         if (fence)
-            logicalDevice->blockForFences(1u,&fence.get());
+            logicalDevice->blockForFences(1u, &fence.get());
         else
             fence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
 
@@ -703,7 +704,7 @@ int main()
         commandBuffer->begin(0);
 
         // late latch input
-        const auto nextPresentationTimestamp = oracle.acquireNextImage(swapchain.get(),imageAcquire[resourceIx].get(),nullptr,&acquiredNextFBO);
+        const auto nextPresentationTimestamp = oracle.acquireNextImage(swapchain.get(), imageAcquire[resourceIx].get(), nullptr, &acquiredNextFBO);
 
         // input
         {
@@ -728,12 +729,12 @@ int main()
         {
             const auto* layout = cullingSystem->getInstanceCullAndLoDSelectLayout();
             cullPushConstants.viewProjMat = camera.getConcatenatedMatrix();
-            std::copy_n(camera.getPosition().pointer,3u,cullPushConstants.camPos.comp);
-            commandBuffer->pushConstants(layout,asset::ISpecializedShader::ESS_COMPUTE,0u,sizeof(cullPushConstants),&cullPushConstants);
+            std::copy_n(camera.getPosition().pointer, 3u, cullPushConstants.camPos.comp);
+            commandBuffer->pushConstants(layout, asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(cullPushConstants), &cullPushConstants);
             cullingParams.cmdbuf = commandBuffer.get();
             cullingSystem->processInstancesAndFillIndirectDraws(cullingParams);
         }
-        
+
         // renderpass
         {
             asset::SViewport viewport;
@@ -743,7 +744,7 @@ int main()
             viewport.y = 0u;
             viewport.width = WIN_W;
             viewport.height = WIN_H;
-            commandBuffer->setViewport(0u,1u,&viewport);
+            commandBuffer->setViewport(0u, 1u, &viewport);
 
             nbl::video::IGPUCommandBuffer::SRenderpassBeginInfo beginInfo;
             {
@@ -764,8 +765,8 @@ int main()
                 beginInfo.clearValues = clear;
             }
 
-            commandBuffer->beginRenderPass(&beginInfo,nbl::asset::ESC_INLINE);
-            commandBuffer->executeCommands(1u,&bakedCommandBuffer.get());
+            commandBuffer->beginRenderPass(&beginInfo, nbl::asset::ESC_INLINE);
+            commandBuffer->executeCommands(1u, &bakedCommandBuffer.get());
             commandBuffer->endRenderPass();
 
             commandBuffer->end();

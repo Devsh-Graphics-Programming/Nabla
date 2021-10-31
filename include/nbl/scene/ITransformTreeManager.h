@@ -70,7 +70,12 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			auto system = device->getPhysicalDevice()->getSystem();
 			auto createShader = [&system,&device](auto uniqueString) -> core::smart_refctd_ptr<video::IGPUSpecializedShader>
 			{
-				auto glsl = system->loadBuiltinData<decltype(uniqueString)>();
+				auto glslFile = system->loadBuiltinData<decltype(uniqueString)>();
+				core::smart_refctd_ptr<asset::ICPUBuffer> glsl;
+				{
+					glsl = core::make_smart_refctd_ptr<asset::ICPUBuffer>(glslFile->getSize());
+					memcpy(glsl->getPointer(), glslFile->getMappedPointer(), glsl->getSize());
+				}
 				auto shader = device->createGPUShader(core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl),asset::IShader::buffer_contains_glsl_t{}));
 				return device->createGPUSpecializedShader(shader.get(),{nullptr,nullptr,"main",asset::ISpecializedShader::ESS_COMPUTE});
 			};
