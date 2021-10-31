@@ -61,6 +61,8 @@ public:
                 (*m_queues)[ix] = new CThreadSafeGPUQueueAdapter(this, new CVulkanQueue(this, rdoc, vkinst, q, famIx, flags, priority));
             }
         }
+
+        m_dummyDSLayout = createGPUDescriptorSetLayout(nullptr, nullptr);
     }
             
     ~CVulkanLogicalDevice()
@@ -1277,20 +1279,20 @@ protected:
     {
         constexpr uint32_t MAX_PC_RANGE_COUNT = 100u;
 
-        core::smart_refctd_ptr<IGPUDescriptorSetLayout> dummyDSLayout = nullptr;
-        if (!layout0 || !layout1 || !layout2 || !layout3)
-            dummyDSLayout = createGPUDescriptorSetLayout_impl(nullptr, nullptr);
-
         const core::smart_refctd_ptr<IGPUDescriptorSetLayout> tmp[] = { layout0, layout1, layout2,
             layout3 };
 
         VkDescriptorSetLayout vk_dsLayouts[asset::ICPUPipelineLayout::DESCRIPTOR_SET_COUNT];
+        uint32_t setLayoutCount = 0u;
         for (uint32_t i = 0u; i < asset::ICPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
         {
             if (tmp[i] && (tmp[i]->getAPIType() == EAT_VULKAN))
+            {
                 vk_dsLayouts[i] = static_cast<const CVulkanDescriptorSetLayout*>(tmp[i].get())->getInternalObject();
+                setLayoutCount = i + 1;
+            }
             else
-                vk_dsLayouts[i] = static_cast<const CVulkanDescriptorSetLayout*>(dummyDSLayout.get())->getInternalObject();
+                vk_dsLayouts[i] = static_cast<const CVulkanDescriptorSetLayout*>(m_dummyDSLayout.get())->getInternalObject();
         }
 
         const auto pcRangeCount = std::distance(_pcRangesBegin, _pcRangesEnd);
@@ -1308,7 +1310,7 @@ protected:
         VkPipelineLayoutCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
         vk_createInfo.pNext = nullptr; // pNext must be NULL
         vk_createInfo.flags = static_cast<VkPipelineLayoutCreateFlags>(0); // flags must be 0
-        vk_createInfo.setLayoutCount = asset::ICPUPipelineLayout::DESCRIPTOR_SET_COUNT;
+        vk_createInfo.setLayoutCount = setLayoutCount;
         vk_createInfo.pSetLayouts = vk_dsLayouts;
         vk_createInfo.pushConstantRangeCount = pcRangeCount;
         vk_createInfo.pPushConstantRanges = vk_pushConstantRanges;
@@ -1554,6 +1556,7 @@ private:
 
     VkDevice m_vkdev;
     CVulkanDeviceFunctionTable m_devf;
+    core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> m_dummyDSLayout = nullptr;
 };
 
 }
