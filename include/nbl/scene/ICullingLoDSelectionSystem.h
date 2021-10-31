@@ -335,7 +335,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 				setBarrierBuffer(barriers[2],params.scratchBufferRanges.pvsInstanceDraws,rwAccessMask,rwAccessMask);
 				setBarrierBuffer(barriers[3],params.scratchBufferRanges.lodDrawCallCounts,rwAccessMask,rwAccessMask);
 				setBarrierBuffer(barriers[4],params.perViewPerInstance,wAccessMask,asset::EAF_SHADER_READ_BIT);
-				cmdbuf->pipelineBarrier(asset::EPSF_COMPUTE_SHADER_BIT,internalStageFlags,asset::EDF_NONE,0u,nullptr,6u,barriers,0u,nullptr);
+				cmdbuf->pipelineBarrier(asset::EPSF_COMPUTE_SHADER_BIT,internalStageFlags,asset::EDF_NONE,0u,nullptr, MaxBufferBarriers,barriers,0u,nullptr);
 			}
 
 			cmdbuf->bindComputePipeline(m_instanceDrawCountPrefixSum.get());
