@@ -13,27 +13,16 @@ CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice
 	m_alignment = core::max(deviceLimits.SSBOAlignment,256u/*TODO: deviceLimits.nonCoherentAtomSize*/);
 
 	auto system = m_device->getPhysicalDevice()->getSystem();
-	auto glsl = system->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/property_pool/copy.comp")>();
-
-	auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(glsl->getSize());
-	memcpy(buffer->getPointer(), glsl->getMappedPointer(), glsl->getSize());
-	auto cpushader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(buffer), asset::IShader::buffer_contains_glsl_t{});
-	
-	const auto& deviceLimits = m_device->getPhysicalDevice()->getLimits();
-	const auto maxSSBO = core::min<uint32_t>(deviceLimits.maxPerStageSSBOs,MaxPropertyTransfers);
-	m_maxPropertiesPerPass = (maxSSBO-1u)/2u;
-	
-	const auto maxStreamingAllocations = 2u*m_maxPropertiesPerPass+1u;
+	core::smart_refctd_ptr<asset::ICPUBuffer> glsl;
 	{
-		m_tmpAddressRanges = reinterpret_cast<AddressUploadRange*>(malloc((sizeof(AddressUploadRange)+sizeof(uint32_t)*3u)*maxStreamingAllocations));
-		m_tmpAddresses = reinterpret_cast<uint32_t*>(m_tmpAddressRanges+maxStreamingAllocations);
-		m_tmpSizes = reinterpret_cast<uint32_t*>(m_tmpAddresses+maxStreamingAllocations);
-		m_alignments = reinterpret_cast<uint32_t*>(m_tmpSizes+maxStreamingAllocations);
-		std::fill_n(m_alignments,maxStreamingAllocations,core::max(deviceLimits.SSBOAlignment,256u/*TODO: deviceLimits.nonCoherentAtomSize*/));
+		auto glslFile = system->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/property_pool/copy.comp")>();
+		glsl = core::make_smart_refctd_ptr<asset::ICPUBuffer>(glslFile->getSize());
+		memcpy(glsl->getPointer(), glslFile->getMappedPointer(), glsl->getSize());
 	}
 
-	auto gpushader = m_device->createGPUShader(asset::IGLSLCompiler::createOverridenCopy(cpushader.get(),"\n#define NBL_BUILTIN_MAX_PROPERTIES_PER_PASS %d\n",m_maxPropertiesPerPass));
-	auto specshader = m_device->createGPUSpecializedShader(gpushader.get(),{nullptr,nullptr,"main",asset::ISpecializedShader::ESS_COMPUTE});
+	auto cpushader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl), asset::ICPUShader::buffer_contains_glsl);
+	auto gpushader = m_device->createGPUShader(asset::IGLSLCompiler::createOverridenCopy(cpushader.get(), "\n#define NBL_BUILTIN_MAX_PROPERTIES_PER_PASS %d\n", m_maxPropertiesPerPass));
+	auto specshader = m_device->createGPUSpecializedShader(gpushader.get(), { nullptr,nullptr,"main",asset::ISpecializedShader::ESS_COMPUTE });
 
 	const auto maxStreamingAllocations = 2u*m_maxPropertiesPerPass+2u;
 	//m_tmpAddressRanges = reinterpret_cast<AddressUploadRange*>(malloc((sizeof(AddressUploadRange)+sizeof(uint32_t)*3u)*maxStreamingAllocations));
