@@ -284,7 +284,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 				params.indirectDispatchParams.buffer
 			};
 
-			constexpr auto MaxBufferBarriers = 5u;
+			constexpr auto MaxBufferBarriers = 6u;
 			video::IGPUCommandBuffer::SBufferMemoryBarrier barriers[MaxBufferBarriers];
 			for (auto i=0u; i<MaxBufferBarriers; i++)
 			{

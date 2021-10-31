@@ -446,7 +446,7 @@ uint32_t CPropertyPoolHandler::transferProperties(
 		stagesToWaitForPerSemaphore = nullptr;
 		// before resetting we need poll all events in the allocator's deferred free list
 		upBuff->cull_frees();
-		//m_dsCache->poll_all(); // TODO: figure out the Release mode crashes and run ASAN
+		//m_dsCache->poll_all(); // TODO: figure out what goes wrong with descriptor set reclaiming
 		// we can reset the fence and commandbuffer because we fully wait for the GPU to finish here
 		m_device->resetFences(1u,&fence);
 		cmdbuf->reset(IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
