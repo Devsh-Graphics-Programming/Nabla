@@ -63,6 +63,7 @@ bool CPropertyPoolHandler::transferProperties(
 	const auto fullPasses = totalProps/m_maxPropertiesPerPass;
 				
 	nbl_glsl_property_pool_transfer_t transferData[MaxPropertiesPerDispatch];
+	// TODO: factor out this function to be directly used in the streaming transfer, also split out the validation and allow it to use a pre-acquired descriptor set
 	auto copyPass = [&](const TransferRequest* localRequests, uint32_t propertiesThisPass) -> bool
 	{
 		const auto scratchSize = sizeof(nbl_glsl_property_pool_transfer_t)*propertiesThisPass;
@@ -86,10 +87,12 @@ bool CPropertyPoolHandler::transferProperties(
 			maxDWORDs = core::max<uint32_t>(elementsByteSize/sizeof(uint32_t),maxDWORDs);
 		}
 		maxDWORDs = core::min(maxDWORDs,endDWORD);
-		if (maxDWORDs==0u)
-			return false;
+		if (maxDWORDs<=baseDWORD)
+			return true;
 		
 		// update desc sets (TODO: handle acquire failure, by using push descriptors!)
+		// TODO: acquire the set just once for all streaming chunked dispatches (scratch, addresses, and destinations dont change)
+		// however this will require the usage of EDT_STORAGE_BUFFER_DYNAMIC for the source data bindings
 		auto setIx = m_dsCache->acquireSet(this,scratch,addresses,localRequests,propertiesThisPass);
 		if (setIx==IDescriptorSetCache::invalid_index)
 		{
@@ -443,6 +446,7 @@ uint32_t CPropertyPoolHandler::transferProperties(
 		stagesToWaitForPerSemaphore = nullptr;
 		// before resetting we need poll all events in the allocator's deferred free list
 		upBuff->cull_frees();
+		//m_dsCache->poll_all(); // TODO: figure out the Release mode crashes and run ASAN
 		// we can reset the fence and commandbuffer because we fully wait for the GPU to finish here
 		m_device->resetFences(1u,&fence);
 		cmdbuf->reset(IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
@@ -459,6 +463,9 @@ uint32_t CPropertyPoolHandler::transferProperties(
 			const auto& request = localRequests[i];
 			maxDWORDs = core::max<uint32_t>(request.getElementDWORDs(),maxDWORDs);
 		}
+		if (maxDWORDs==0u)
+			return 0u;
+		// TODO: acquire and update a descriptor set up front for all chunks (much faster than reacquire and update for every tiny chunk that transfers from same source to same destination)
 		// do the transfers
 		uint32_t doneDWORDs=0u;
 		for (uint32_t submitDWORDs=~0u; doneDWORDs<maxDWORDs;)
