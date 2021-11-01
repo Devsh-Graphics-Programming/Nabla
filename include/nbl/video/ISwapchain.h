@@ -28,14 +28,11 @@ class ISwapchain : public core::IReferenceCounted, public IBackendObject
             uint32_t arrayLayers = 1u;
             uint32_t queueFamilyIndexCount;
             const uint32_t* queueFamilyIndices;
-
             asset::IImage::E_USAGE_FLAGS imageUsage;
             asset::E_SHARING_MODE imageSharingMode;
-            // ISurface::E_SURFACE_TRANSFORM_FLAGS preTransform;
-
-            //VkCompositeAlphaFlagBitsKHR compositeAlpha;
-            //VkBool32 clipped;
-            core::smart_refctd_ptr<ISwapchain> oldSwapchain;
+            ISurface::E_SURFACE_TRANSFORM_FLAGS preTransform;
+            ISurface::E_COMPOSITE_ALPHA compositeAlpha;
+            core::smart_refctd_ptr<ISwapchain> oldSwapchain = nullptr;
         };
 
         enum E_ACQUIRE_IMAGE_RESULT

@@ -1362,6 +1362,8 @@ public:
 		sc_params.imageUsage = imageUsage;
 		sc_params.surface = surface;
 		sc_params.imageSharingMode = imageSharingMode;
+		sc_params.preTransform = video::ISurface::EST_IDENTITY_BIT;
+		sc_params.compositeAlpha = video::ISurface::ECA_OPAQUE_BIT;
 		sc_params.surfaceFormat = surfaceFormat;
 
 		return device->createSwapchain(std::move(sc_params));

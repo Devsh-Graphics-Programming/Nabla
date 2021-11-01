@@ -112,7 +112,8 @@ int main()
 	constexpr uint32_t FRAMES_IN_FLIGHT = 2u;
 
 	auto system = createSystem();
-	auto logger = core::make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>();
+	auto logLevelMask = core::bitflag(system::ILogger::ELL_DEBUG) | system::ILogger::ELL_PERFORMANCE | system::ILogger::ELL_WARNING | system::ILogger::ELL_ERROR;
+	auto logger = core::make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>(logLevelMask);
 	auto winManager = core::make_smart_refctd_ptr<nbl::ui::CWindowManagerWin32>();
 	auto eventCallback = core::make_smart_refctd_ptr<DemoEventCallback>();
 
@@ -127,6 +128,8 @@ int main()
 	params.windowCaption = APP_NAME;
 	params.callback = eventCallback;
 	auto window = winManager->createWindow(std::move(params));
+
+	video::IAPIConnection::E_FEATURE requiredFeatures_Instance[] = { video::IAPIConnection::EF_SURFACE };
 
 	std::cout <<
 		R"(
@@ -145,7 +148,14 @@ Choose Graphics API:
 	{
 		case 0:
 		{
-			api = video::CVulkanConnection::create(core::smart_refctd_ptr(system), 0, APP_NAME, true);
+			api = video::CVulkanConnection::create(
+				core::smart_refctd_ptr(system),
+				0,
+				APP_NAME,
+				1u, requiredFeatures_Instance,
+				0u, nullptr,
+				core::smart_refctd_ptr(logger),
+				true);
 
 			surface = video::CSurfaceVulkanWin32::create(
 				core::smart_refctd_ptr<video::CVulkanConnection>(static_cast<video::CVulkanConnection*>(api.get())),
@@ -181,10 +191,9 @@ Choose Graphics API:
 
 	// Todo(achal): Probably want to put these into some struct
 	uint32_t minSwapchainImageCount(~0u);
-	nbl::video::ISurface::SFormat surfaceFormat;
-	nbl::video::ISurface::E_PRESENT_MODE presentMode;
-	// nbl::video::ISurface::E_SURFACE_TRANSFORM_FLAGS preTransform; // Todo(achal)
-	nbl::asset::E_SHARING_MODE imageSharingMode;
+	video::ISurface::SFormat surfaceFormat;
+	video::ISurface::E_PRESENT_MODE presentMode;
+	asset::E_SHARING_MODE imageSharingMode;
 	VkExtent2D swapchainExtent;
 
 	// Todo(achal): Look at this:
@@ -252,7 +261,6 @@ Choose Graphics API:
 
 			surfaceFormat = surfaceFormats[0];
 			presentMode = static_cast<video::ISurface::E_PRESENT_MODE>(availablePresentModes & (1 << 0));
-			// preTransform = static_cast<nbl::video::ISurface::E_SURFACE_TRANSFORM_FLAGS>(surfaceCapabilities.currentTransform);
 			swapchainExtent = surfaceCapabilities.currentExtent;
 		}
 
@@ -261,7 +269,7 @@ Choose Graphics API:
 	}
 	assert((graphicsFamilyIndex != ~0u) && (presentFamilyIndex != ~0u));
 
-	video::ILogicalDevice::SCreationParams deviceCreationParams;
+	video::ILogicalDevice::SCreationParams deviceCreationParams = {};
 	if (graphicsFamilyIndex == presentFamilyIndex)
 	{
 		deviceCreationParams.queueParamsCount = 1u;
@@ -290,13 +298,16 @@ Choose Graphics API:
 		queueCreationParams[i].priorities = &priority;
 	}
 	deviceCreationParams.queueParams = queueCreationParams.data();
+	deviceCreationParams.requiredFeatureCount = 1u;
+	video::ILogicalDevice::E_FEATURE requiredFeatures_Device[] = { video::ILogicalDevice::EF_SWAPCHAIN };
+	deviceCreationParams.requiredFeatures = requiredFeatures_Device;
 
 	core::smart_refctd_ptr<video::ILogicalDevice> device = gpu->createLogicalDevice(std::move(deviceCreationParams));
 
 	video::IGPUQueue* graphicsQueue = device->getQueue(graphicsFamilyIndex, 0u);
 	video::IGPUQueue* presentQueue = device->getQueue(presentFamilyIndex, 0u);
 
-	nbl::video::ISwapchain::SCreationParams sc_params = {};
+	video::ISwapchain::SCreationParams sc_params = {};
 	sc_params.surface = surface;
 	sc_params.minImageCount = minSwapchainImageCount;
 	sc_params.surfaceFormat = surfaceFormat;
@@ -306,7 +317,8 @@ Choose Graphics API:
 	sc_params.queueFamilyIndexCount = static_cast<uint32_t>(queueFamilyIndices.size());
 	sc_params.queueFamilyIndices = queueFamilyIndices.data();
 	sc_params.imageSharingMode = imageSharingMode;
-	// sc_params.preTransform = preTransform;
+	sc_params.preTransform = video::ISurface::EST_IDENTITY_BIT;
+	sc_params.compositeAlpha = video::ISurface::ECA_OPAQUE_BIT;
 	sc_params.imageUsage = asset::IImage::EUF_COLOR_ATTACHMENT_BIT;
 	sc_params.oldSwapchain = nullptr;
 

@@ -107,11 +107,13 @@ public:
         vk_createInfo.imageSharingMode = static_cast<VkSharingMode>(params.imageSharingMode);
         vk_createInfo.queueFamilyIndexCount = params.queueFamilyIndexCount;
         vk_createInfo.pQueueFamilyIndices = params.queueFamilyIndices;
-        vk_createInfo.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR; // Todo(achal)     
-        vk_createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR; // Todo(achal)
+        vk_createInfo.preTransform = static_cast<VkSurfaceTransformFlagBitsKHR>(params.preTransform);
+        vk_createInfo.compositeAlpha = static_cast<VkCompositeAlphaFlagBitsKHR>(params.compositeAlpha);
         vk_createInfo.presentMode = vkPresentMode;
-        vk_createInfo.clipped = VK_TRUE;
-        vk_createInfo.oldSwapchain = VK_NULL_HANDLE; // Todo(achal)
+        vk_createInfo.clipped = VK_FALSE;
+        vk_createInfo.oldSwapchain = VK_NULL_HANDLE;
+        if (params.oldSwapchain && (params.oldSwapchain->getAPIType() == EAT_VULKAN))
+            vk_createInfo.oldSwapchain = static_cast<CVulkanSwapchain*>(params.oldSwapchain.get())->getInternalObject();
 
         VkSwapchainKHR vk_swapchain;
         if (m_devf.vk.vkCreateSwapchainKHR(m_vkdev, &vk_createInfo, nullptr, &vk_swapchain) != VK_SUCCESS)

@@ -82,7 +82,6 @@ void CSurfaceVulkan<Window>::getAvailableFormatsForPhysicalDevice(const IPhysica
     VkResult retval = vkGetPhysicalDeviceSurfaceFormatsKHR(vk_physicalDevice, m_vkSurfaceKHR,
         &formatCount, nullptr);
 
-    // Todo(achal): Would there be a need to handle VK_INCOMPLETE separately?
     if ((retval != VK_SUCCESS) && (retval != VK_INCOMPLETE))
     {
         formatCount = 0u;
@@ -96,7 +95,6 @@ void CSurfaceVulkan<Window>::getAvailableFormatsForPhysicalDevice(const IPhysica
     retval = vkGetPhysicalDeviceSurfaceFormatsKHR(vk_physicalDevice, m_vkSurfaceKHR,
         &formatCount, vk_formats);
 
-    // Todo(achal): Would there be a need to handle VK_INCOMPLETE separately?
     if ((retval != VK_SUCCESS) && (retval != VK_INCOMPLETE))
     {
         formatCount = 0u;
@@ -127,7 +125,6 @@ ISurface::E_PRESENT_MODE CSurfaceVulkan<Window>::getAvailablePresentModesForPhys
     VkResult retval = vkGetPhysicalDeviceSurfacePresentModesKHR(vk_physicalDevice, m_vkSurfaceKHR,
         &count, nullptr);
 
-    // Todo(achal): Would there be a need to handle VK_INCOMPLETE separately?
     if ((retval != VK_SUCCESS) && (retval != VK_INCOMPLETE))
         return result;
 
@@ -137,7 +134,6 @@ ISurface::E_PRESENT_MODE CSurfaceVulkan<Window>::getAvailablePresentModesForPhys
     retval = vkGetPhysicalDeviceSurfacePresentModesKHR(vk_physicalDevice, m_vkSurfaceKHR,
         &count, vk_presentModes);
 
-    // Todo(achal): Would there be a need to handle VK_INCOMPLETE separately?
     if ((retval != VK_SUCCESS) && (retval != VK_INCOMPLETE))
         return result;
 
@@ -168,10 +164,9 @@ bool CSurfaceVulkan<Window>::getSurfaceCapabilitiesForPhysicalDevice(const IPhys
     capabilities.minImageExtent = vk_surfaceCapabilities.minImageExtent;
     capabilities.maxImageExtent = vk_surfaceCapabilities.maxImageExtent;
     capabilities.maxImageArrayLayers = vk_surfaceCapabilities.maxImageArrayLayers;
-    // Todo(achal)
-    // VkSurfaceTransformFlagsKHR       supportedTransforms;
-    // VkSurfaceTransformFlagBitsKHR    currentTransform;
-    // VkCompositeAlphaFlagsKHR         supportedCompositeAlpha;
+    capabilities.supportedTransforms = static_cast<ISurface::E_SURFACE_TRANSFORM_FLAGS>(vk_surfaceCapabilities.supportedTransforms);
+    capabilities.currentTransform = static_cast<ISurface::E_SURFACE_TRANSFORM_FLAGS>(vk_surfaceCapabilities.currentTransform);
+    capabilities.supportedCompositeAlpha = static_cast<ISurface::E_COMPOSITE_ALPHA>(vk_surfaceCapabilities.supportedCompositeAlpha);
     capabilities.supportedUsageFlags = static_cast<asset::IImage::E_USAGE_FLAGS>(vk_surfaceCapabilities.supportedUsageFlags);
 
     return true;
