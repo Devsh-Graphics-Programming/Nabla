@@ -18,11 +18,11 @@ public:
 	}
 	CFileView(core::smart_refctd_ptr<ISystem>&& sys, const std::filesystem::path& _name, core::bitflag<E_CREATE_FLAGS> _flags, size_t fileSize) : IFile(std::move(sys),_flags | ECF_COHERENT | ECF_MAPPABLE), m_name(_name), m_size(fileSize)
 	{
-		m_buffer = (std::byte*)allocator.allocate(fileSize);
+		m_buffer = (std::byte*)allocator.alloc(fileSize);
 	}
 	~CFileView()
 	{
-		allocator.deallocate(m_buffer);
+		allocator.dealloc(m_buffer);
 	}
 	virtual const std::filesystem::path& getFileName() const override
 	{
