@@ -1242,7 +1242,7 @@ public:
 	static nbl::core::smart_refctd_ptr<nbl::video::ISwapchain> createSwapchain(
 		nbl::video::E_API_TYPE api_type,
 		const GPUInfo& gpuInfo,
-		uint32_t imageCount, uint32_t width, uint32_t height,
+		uint32_t& imageCount, uint32_t width, uint32_t height,
 		const nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice>& device,
 		const nbl::core::smart_refctd_ptr<nbl::video::ISurface>& surface,
 		nbl::asset::IImage::E_USAGE_FLAGS imageUsage, 
@@ -1366,7 +1366,10 @@ public:
 		sc_params.compositeAlpha = video::ISurface::ECA_OPAQUE_BIT;
 		sc_params.surfaceFormat = surfaceFormat;
 
-		return device->createSwapchain(std::move(sc_params));
+		auto swapchain = device->createSwapchain(std::move(sc_params));
+		imageCount = swapchain->getImageCount();
+
+		return swapchain;
 	}
 
 	static nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpass> createRenderpass(const nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice>& device, nbl::asset::E_FORMAT colorAttachmentFormat = nbl::asset::EF_UNKNOWN, nbl::asset::E_FORMAT depthFormat = nbl::asset::EF_UNKNOWN)

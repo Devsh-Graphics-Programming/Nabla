@@ -124,7 +124,7 @@ bool CVulkanQueue::present(const SPresentInfo& info)
         if (info.swapchains[i]->getAPIType() != EAT_VULKAN)
             return false;
 
-        vk_swapchains[i] = static_cast<const CVulkanSwapchain*>(info.swapchains[i])->m_vkSwapchainKHR;
+        vk_swapchains[i] = static_cast<const CVulkanSwapchain*>(info.swapchains[i])->getInternalObject();
     }
 
     VkPresentInfoKHR presentInfo = { VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };

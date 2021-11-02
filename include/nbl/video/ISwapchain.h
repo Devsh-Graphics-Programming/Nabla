@@ -67,9 +67,6 @@ class ISwapchain : public core::IReferenceCounted, public IBackendObject
             return result;
         }
 
-        // Only present for backwards compatibility with OpenGL backend
-        ISwapchain(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& params) : IBackendObject(std::move(dev)), m_params(std::move(params)) {}
-
         ISwapchain(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& params,
             images_array_t&& images)
             : IBackendObject(std::move(dev)), m_params(std::move(params)), m_images(std::move(images))

@@ -159,7 +159,7 @@ bool CSurfaceVulkan<Window>::getSurfaceCapabilitiesForPhysicalDevice(const IPhys
     }
 
     capabilities.minImageCount = vk_surfaceCapabilities.minImageCount;
-    capabilities.maxImageCount = vk_surfaceCapabilities.maxImageCount;
+    capabilities.maxImageCount = (vk_surfaceCapabilities.maxImageCount == 0u) ? ~0u : vk_surfaceCapabilities.maxImageCount;
     capabilities.currentExtent = vk_surfaceCapabilities.currentExtent;
     capabilities.minImageExtent = vk_surfaceCapabilities.minImageExtent;
     capabilities.maxImageExtent = vk_surfaceCapabilities.maxImageExtent;

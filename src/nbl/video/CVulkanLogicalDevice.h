@@ -83,7 +83,6 @@ public:
         VkSurfaceKHR vk_surface = static_cast<const CSurfaceVulkanWin32*>(params.surface.get())->getInternalObject();
 #endif
 
-
         VkPresentModeKHR vkPresentMode;
         if((params.presentMode & ISurface::E_PRESENT_MODE::EPM_IMMEDIATE) == ISurface::E_PRESENT_MODE::EPM_IMMEDIATE)
             vkPresentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
@@ -121,14 +120,14 @@ public:
 
         uint32_t imageCount;
         VkResult retval = m_devf.vk.vkGetSwapchainImagesKHR(m_vkdev, vk_swapchain, &imageCount, nullptr);
-        if ((retval != VK_SUCCESS) && (retval != VK_INCOMPLETE)) // Todo(achal): Would there be a need to handle VK_INCOMPLETE separately?
+        if ((retval != VK_SUCCESS) && (retval != VK_INCOMPLETE))
             return nullptr;
 
         assert(imageCount <= MAX_SWAPCHAIN_IMAGE_COUNT);
 
         VkImage vk_images[MAX_SWAPCHAIN_IMAGE_COUNT];
         retval = m_devf.vk.vkGetSwapchainImagesKHR(m_vkdev, vk_swapchain, &imageCount, vk_images);
-        if ((retval != VK_SUCCESS) && (retval != VK_INCOMPLETE)) // Todo(achal): Would there be a need to handle VK_INCOMPLETE separately?
+        if ((retval != VK_SUCCESS) && (retval != VK_INCOMPLETE))
             return nullptr;
 
         ISwapchain::images_array_t images = core::make_refctd_dynamic_array<ISwapchain::images_array_t>(imageCount);

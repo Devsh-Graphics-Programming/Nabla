@@ -125,13 +125,11 @@ protected:
         EGLContext _ctx,
         EGLConfig _config,
         COpenGLDebugCallback* _dbgCb
-    ) : ISwapchain(core::smart_refctd_ptr<const ILogicalDevice>(dev),std::move(params)),
+    ) : ISwapchain(core::smart_refctd_ptr<const ILogicalDevice>(dev),std::move(params),std::move(images)),
         m_threadHandler(
-            _egl,dev.get(),m_params.surface->getNativeWindowHandle(),m_params.presentMode,{images->begin(),images->end()},_features,_ctx,_config,_dbgCb
+            _egl,dev.get(),m_params.surface->getNativeWindowHandle(),m_params.presentMode,{m_images->begin(),m_images->end()},_features,_ctx,_config,_dbgCb
         )
-    {
-        m_images = std::move(images);
-    }
+    {}
 
 private:
     using SThreadHandlerInternalState = FunctionTableType;
