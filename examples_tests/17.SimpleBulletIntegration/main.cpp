@@ -287,21 +287,27 @@ int main(int argc, char** argv)
 	auto addCubes = [&](video::IGPUCommandBuffer* cmdbuf, video::IGPUFence* fence, video::IGPUQueue* queue, const uint32_t count)
 	{
 		addShapes(cmdbuf,fence,queue,cubeRigidBodyData,cubes.get(),count);
+		cubes->getPropertyMemoryBlock(0u).buffer->setObjectDebugName("Cube InstanceID to ObjectID");
 	};
 	auto addCylinders = [&](video::IGPUCommandBuffer* cmdbuf, video::IGPUFence* fence, video::IGPUQueue* queue, const uint32_t count)
 	{
 		addShapes(cmdbuf,fence,queue,cylinderRigidBodyData,cylinders.get(),count,core::matrix3x4SIMD().setRotation(core::quaternion(core::PI<float>()/2.f,0.f,0.f)));
+		cylinders->getPropertyMemoryBlock(0u).buffer->setObjectDebugName("Cylinder InstanceID to ObjectID");
 	};
 	auto addSpheres = [&](video::IGPUCommandBuffer* cmdbuf, video::IGPUFence* fence, video::IGPUQueue* queue, const uint32_t count)
 	{
 		addShapes(cmdbuf,fence,queue,sphereRigidBodyData,spheres.get(),count);
+		spheres->getPropertyMemoryBlock(0u).buffer->setObjectDebugName("Sphere InstanceID to ObjectID");
 	};
 	auto addCones = [&](video::IGPUCommandBuffer* cmdbuf, video::IGPUFence* fence, video::IGPUQueue* queue, const uint32_t count)
 	{
 		addShapes(cmdbuf,fence,queue,coneRigidBodyData,cones.get(),count,core::matrix3x4SIMD().setTranslation(core::vector3df_SIMD(0.f,-0.5f,0.f)));
+		cones->getPropertyMemoryBlock(0u).buffer->setObjectDebugName("Cone InstanceID to ObjectID");
 	};
-	//
-	auto deleteBasedOnPhysicsPredicate = [&](video::CPropertyPoolHandler::UpStreamingRequest* pContiguousEraseRequest, instance_redirect_property_pool_t* pool, auto pred) -> bool
+	// a bit of reuse
+	scratchObjectIDs.resize(objectPool->getAllocated());
+	scratchInstanceRedirects.resize(objectPool->getAllocated());
+	auto deleteBasedOnPhysicsPredicate = [&](uint32_t& instancesToMove, video::CPropertyPoolHandler::UpStreamingRequest* pContiguousEraseRequest, instance_redirect_property_pool_t* pool, auto pred) -> bool
 	{
 		core::vector<uint32_t> objects, instances;
 		for (auto& body : bodies)
@@ -320,11 +326,9 @@ int main(int argc, char** argv)
 		}
 		const auto count = objects.size();
 		objectPool->freeProperties(objects.data(),objects.data()+count);
-		// a bit of reuse
-		scratchObjectIDs.resize(count);
-		scratchInstanceRedirects.resize(count);
-		uint32_t* srcAddrScratch = scratchObjectIDs.data();
-		uint32_t* dstAddrScratch = scratchInstanceRedirects.data();
+		uint32_t* srcAddrScratch = scratchObjectIDs.data()+instancesToMove;
+		uint32_t* dstAddrScratch = scratchInstanceRedirects.data()+instancesToMove;
+		instancesToMove += count;
 		//
 		return video::CPropertyPoolHandler::freeProperties(pool,pContiguousEraseRequest,instances.data(),instances.data()+count,srcAddrScratch,dstAddrScratch);
 	};
@@ -625,23 +629,27 @@ int main(int argc, char** argv)
 		// safe to proceed
 		cb->begin(0);
 
-		{
-			asset::SViewport vp;
-			vp.minDepth = 1.f;
-			vp.maxDepth = 0.f;
-			vp.x = 0u;
-			vp.y = 0u;
-			vp.width = WIN_W;
-			vp.height = WIN_H;
-			cb->setViewport(0u, 1u, &vp);
-		}
 		// acquire image 
 		uint32_t imgnum = 0u;
 		swapchain->acquireNextImage(MAX_TIMEOUT,imageAcquire[resourceIx].get(),nullptr,&imgnum);
 		uint32_t waitSemaphoreCount = 1u;
 		video::IGPUSemaphore* const* semaphoresToWait = &imageAcquire[resourceIx].get();
 		// update sim and object state
+		bool rdocCaptureTriggered = false; // we want to capture the frames when objects get removed from the contiguous GPU ECS
 		{
+			const auto vertexAndComputeStageMasks = core::bitflag(asset::EPSF_COMPUTE_SHADER_BIT)|asset::EPSF_VERTEX_INPUT_BIT|asset::EPSF_VERTEX_SHADER_BIT;
+			// barrier from rendering to compute update
+			{
+				asset::SMemoryBarrier memBarrier; // cba to list the buffers one-by-one, but probably should
+				memBarrier.srcAccessMask = core::bitflag(asset::EAF_SHADER_READ_BIT)|asset::EAF_VERTEX_ATTRIBUTE_READ_BIT;
+				memBarrier.dstAccessMask = asset::EAF_SHADER_WRITE_BIT;
+				cb->pipelineBarrier(
+					vertexAndComputeStageMasks,asset::EPSF_COMPUTE_SHADER_BIT,asset::EDF_NONE,
+					1u,&memBarrier,0u,nullptr,0u,nullptr
+				);
+			}
+
+
 			asset::SMemoryBarrier memBarrier; // cba to list the buffers one-by-one, but probably should
 			memBarrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
 			memBarrier.dstAccessMask = core::bitflag(asset::EAF_SHADER_READ_BIT)|asset::EAF_SHADER_WRITE_BIT;
@@ -661,7 +669,7 @@ int main(int argc, char** argv)
 				request.dstAddresses = CInstancedMotionState::s_updateAddresses.data();
 				// TODO: why does the very first update set matrices to identity?
 				auto* pRequests = &request;
-				propertyPoolHandler->transferProperties( // its okay I discard the return value, I have no use to know whether any part of the update failed
+				const auto leftoverDWORDs = propertyPoolHandler->transferProperties(
 					utilities->getDefaultUpStreamingBuffer(),cb.get(),fence.get(),graphicsQueue,scratch,
 					pRequests,1u,waitSemaphoreCount,semaphoresToWait,stagesToWaitForPerSemaphore,logger.get()
 				);
@@ -670,65 +678,51 @@ int main(int argc, char** argv)
 			}
 			// erase, done after update to avoid having a situation where we update stuff we just erased (also erase moves data items around)
 			{
-				// TODO: optimize the erasure (1 erase transfer to rule them all)
+				uint32_t instancesToMove = 0u;
 				video::CPropertyPoolHandler::UpStreamingRequest contiguousEraseRequests[4];
-				auto fallenFromMap = [](CInstancedMotionState* motionState) -> bool
-				{
-					btTransform tform;
-					motionState->getWorldTransform(tform);
-					return tform.getOrigin().getY()<-128.f;
-				};
 				auto* pContiguousEraseRequest = contiguousEraseRequests;
-				if (deleteBasedOnPhysicsPredicate(pContiguousEraseRequest,cones.get(),fallenFromMap))
 				{
-					memBarrier.srcAccessMask |= asset::EAF_SHADER_READ_BIT;
-					propertyPoolHandler->transferProperties( // its okay I discard the return value, I have no use to know whether any part of the update failed
-						utilities->getDefaultUpStreamingBuffer(),cb.get(),fence.get(),graphicsQueue,scratch,
-						pContiguousEraseRequest,pContiguousEraseRequest-contiguousEraseRequests,
-						waitSemaphoreCount,semaphoresToWait,stagesToWaitForPerSemaphore,logger.get()
-					);
+					auto fallenFromMap = [](CInstancedMotionState* motionState) -> bool
+					{
+						btTransform tform;
+						motionState->getWorldTransform(tform);
+						return tform.getOrigin().getY()<-128.f;
+					};
+					if (deleteBasedOnPhysicsPredicate(instancesToMove,pContiguousEraseRequest,cones.get(),fallenFromMap))
+						pContiguousEraseRequest++;
+					if (deleteBasedOnPhysicsPredicate(instancesToMove,pContiguousEraseRequest,cubes.get(),fallenFromMap))
+						pContiguousEraseRequest++;
+					if (deleteBasedOnPhysicsPredicate(instancesToMove,pContiguousEraseRequest,spheres.get(),fallenFromMap))
+						pContiguousEraseRequest++;
+					if (deleteBasedOnPhysicsPredicate(instancesToMove,pContiguousEraseRequest,cylinders.get(),fallenFromMap))
+						pContiguousEraseRequest++;
 				}
-				if (deleteBasedOnPhysicsPredicate(pContiguousEraseRequest,cubes.get(),fallenFromMap))
+				// objects to erase
+				if (instancesToMove)
 				{
-					memBarrier.srcAccessMask |= asset::EAF_SHADER_READ_BIT;
-					propertyPoolHandler->transferProperties( // its okay I discard the return value, I have no use to know whether any part of the update failed
-						utilities->getDefaultUpStreamingBuffer(),cb.get(),fence.get(),graphicsQueue,scratch,
-						pContiguousEraseRequest,pContiguousEraseRequest-contiguousEraseRequests,
-						waitSemaphoreCount,semaphoresToWait,stagesToWaitForPerSemaphore,logger.get()
-					);
-				}
-				if (deleteBasedOnPhysicsPredicate(pContiguousEraseRequest,spheres.get(),fallenFromMap))
-				{
-					memBarrier.srcAccessMask |= asset::EAF_SHADER_READ_BIT;
-					propertyPoolHandler->transferProperties( // its okay I discard the return value, I have no use to know whether any part of the update failed
-						utilities->getDefaultUpStreamingBuffer(),cb.get(),fence.get(),graphicsQueue,scratch,
-						pContiguousEraseRequest,pContiguousEraseRequest-contiguousEraseRequests,
-						waitSemaphoreCount,semaphoresToWait,stagesToWaitForPerSemaphore,logger.get()
-					);
-				}
-				if (deleteBasedOnPhysicsPredicate(pContiguousEraseRequest,cylinders.get(),fallenFromMap))
-				{
-					memBarrier.srcAccessMask |= asset::EAF_SHADER_READ_BIT;
-					propertyPoolHandler->transferProperties( // its okay I discard the return value, I have no use to know whether any part of the update failed
-						utilities->getDefaultUpStreamingBuffer(),cb.get(),fence.get(),graphicsQueue,scratch,
-						pContiguousEraseRequest,pContiguousEraseRequest-contiguousEraseRequests,
-						waitSemaphoreCount,semaphoresToWait,stagesToWaitForPerSemaphore,logger.get()
-					);
-				}
-				// and from erase to anything else we need to flag that erase reads the memory too
-				if (memBarrier.srcAccessMask.value&asset::EAF_SHADER_READ_BIT)
-				{
+					rdocCaptureTriggered = true;
+					graphicsQueue->startCapture();
+
 					// ensure dependency from update to erase
 					cb->pipelineBarrier(
 						asset::EPSF_COMPUTE_SHADER_BIT,asset::EPSF_COMPUTE_SHADER_BIT,asset::EDF_NONE,
 						1u,&memBarrier,0u,nullptr,0u,nullptr
+					);
+					// and from erase to anything else we need to flag that erase reads the memory too
+					memBarrier.srcAccessMask |= asset::EAF_SHADER_READ_BIT;
+					
+					auto* pRequests = contiguousEraseRequests;
+					propertyPoolHandler->transferProperties( // its okay I discard the return value, I have no use to know whether any part of the update failed
+						utilities->getDefaultUpStreamingBuffer(),cb.get(),fence.get(),graphicsQueue,scratch,
+						pRequests,pContiguousEraseRequest-contiguousEraseRequests,
+						waitSemaphoreCount,semaphoresToWait,stagesToWaitForPerSemaphore,logger.get()
 					);
 				}
 			}
 			// last barrier is always to vertex and compute stages
 			memBarrier.dstAccessMask |= asset::EAF_VERTEX_ATTRIBUTE_READ_BIT;
 			cb->pipelineBarrier(
-					asset::EPSF_COMPUTE_SHADER_BIT,core::bitflag(asset::EPSF_COMPUTE_SHADER_BIT)|asset::EPSF_VERTEX_INPUT_BIT|asset::EPSF_VERTEX_SHADER_BIT,asset::EDF_NONE,
+					asset::EPSF_COMPUTE_SHADER_BIT,vertexAndComputeStageMasks,asset::EDF_NONE,
 				1u,&memBarrier,0u,nullptr,0u,nullptr
 			);
 		}
@@ -752,6 +746,17 @@ int main(int argc, char** argv)
 			info.renderArea.offset = { 0, 0 };
 			info.renderArea.extent = { WIN_W, WIN_H };
 			cb->beginRenderPass(&info,asset::ESC_INLINE);
+
+			{
+				asset::SViewport vp;
+				vp.minDepth = 1.f;
+				vp.maxDepth = 0.f;
+				vp.x = 0u;
+				vp.y = 0u;
+				vp.width = WIN_W;
+				vp.height = WIN_H;
+				cb->setViewport(0u, 1u, &vp);
+			}
 		}
 		// draw
 		cb->bindDescriptorSets(asset::EPBP_GRAPHICS,gpuLayout.get(),0u,1u,&globalDs.get());
@@ -772,6 +777,8 @@ int main(int argc, char** argv)
 		cb->end();
 		
 		CommonAPI::Submit(device.get(), swapchain.get(), cb.get(), graphicsQueue, semaphoresToWait ? semaphoresToWait[0]:nullptr, renderFinished[resourceIx].get(), fence.get());
+		if (rdocCaptureTriggered)
+			graphicsQueue->endCapture();
 		CommonAPI::Present(device.get(), swapchain.get(), graphicsQueue, renderFinished[resourceIx].get(), imgnum);
 		
 	}
@@ -782,10 +789,11 @@ int main(int argc, char** argv)
 	
 	{
 		auto alwaysTrue = [](auto dummy) -> bool {return true;};
-		deleteBasedOnPhysicsPredicate(nullptr,cylinders.get(),alwaysTrue);
-		deleteBasedOnPhysicsPredicate(nullptr,spheres.get(),alwaysTrue);
-		deleteBasedOnPhysicsPredicate(nullptr,cones.get(),alwaysTrue);
-		deleteBasedOnPhysicsPredicate(nullptr,cubes.get(),alwaysTrue);
+		uint32_t dummy = 0xdeadbeefu;
+		deleteBasedOnPhysicsPredicate(dummy,nullptr,cylinders.get(),alwaysTrue);
+		deleteBasedOnPhysicsPredicate(dummy,nullptr,spheres.get(),alwaysTrue);
+		deleteBasedOnPhysicsPredicate(dummy,nullptr,cones.get(),alwaysTrue);
+		deleteBasedOnPhysicsPredicate(dummy,nullptr,cubes.get(),alwaysTrue);
 	}
 
 	world->deletebtObject(cubeRigidBodyData.shape);
