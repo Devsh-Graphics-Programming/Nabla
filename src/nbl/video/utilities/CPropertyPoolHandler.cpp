@@ -352,7 +352,9 @@ uint32_t CPropertyPoolHandler::transferProperties(
 		constexpr auto invalid_address = std::remove_reference_t<decltype(upBuff->getAllocator())>::invalid_address;
 		auto addr = invalid_address;
 		const auto size = static_cast<uint32_t>(core::alignUp(memoryUsage.getUsage()+worstCasePadding,m_alignment));
-		upBuff->multi_alloc(maxWaitPoint,1u,&addr,&size,&m_alignment);
+		// because right now the GPUEventWrapper cant distinguish between placeholder fences and fences which will actually be signalled
+		auto waitUntil = std::min(video::GPUEventWrapper::default_wait(),maxWaitPoint);
+		upBuff->multi_alloc(waitUntil,1u,&addr,&size,&m_alignment);
 		if (addr!=invalid_address)
 		{
 			const auto endDWORD = baseDWORDs+doneDWORDs;
