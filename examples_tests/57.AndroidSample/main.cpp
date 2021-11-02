@@ -371,7 +371,8 @@ void main()
 			auto mreqs = device->getDeviceLocalGPUMemoryReqs();
 			mreqs.vulkanReqs.size = sizeof(vertices);
 			video::IGPUBuffer::SCreationParams params;
-			buffer = device->createGPUBufferOnDedMem(params, mreqs, true);
+			params.canUpdateSubRange = true;
+			buffer = device->createGPUBufferOnDedMem(params, mreqs);
 			assert(buffer);
 
 			core::smart_refctd_ptr<video::IGPUCommandBuffer> cb;

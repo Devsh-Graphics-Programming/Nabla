@@ -143,11 +143,7 @@ public:
 			return getFile_impl<CPlainHeapAllocator>(params, index);
 			break;
 		case EAT_VIRTUAL_ALLOC:
-		#ifdef _NBL_PLATFORM_WINDOWS_
-			return getFile_impl<CFileViewVirtualAllocatorWin32>(params, index); //TODO linux
-		#else
-			return nullptr; //TODO
-		#endif
+			return getFile_impl<VirtualAllocator>(params, index); //TODO linux
 			break;
 		}
 		assert(false);

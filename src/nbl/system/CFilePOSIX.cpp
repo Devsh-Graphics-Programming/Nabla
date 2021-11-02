@@ -15,25 +15,33 @@ namespace nbl::system
 		const char* name_c_str = m_filename.string().c_str();
 		int createFlags = O_LARGEFILE;
 		int mappingFlags;
-		if (_flags.value & ECF_WRITE)
-		{
-			createFlags |= O_CREAT;
-			createFlags |= O_WRONLY;
-			mappingFlags = PROT_WRITE;
-		}
-		else if (_flags.value & ECF_READ_WRITE)
+		if ((_flags.value & ECF_READ_WRITE) == ECF_READ_WRITE)
 		{
 			createFlags |= O_CREAT;
 			createFlags |= O_RDWR;
 			mappingFlags = PROT_WRITE | PROT_READ;
+		}
+		else if (_flags.value & ECF_WRITE)
+		{
+			createFlags |= O_CREAT;
+			createFlags |= O_WRONLY;
+			mappingFlags = PROT_WRITE;
 		}
 		else if (_flags.value & ECF_READ)
 		{
 			createFlags |= O_RDONLY;
 			mappingFlags = PROT_READ;
 		}
-		m_native = open(name_c_str, createFlags);
+		if ((m_flags & ECF_READ).value == ECF_READ)
+		{
+			if (std::filesystem::exists(m_filename))
+			{
+				m_native = open(name_c_str, createFlags);
+			}
+			else m_openedProperly = false;
+		}
 		m_openedProperly = m_native >= 0;
+		if(m_openedProperly)
 		{
 			struct stat sb;
 			if (stat(name_c_str, &sb) == -1) {
@@ -95,6 +103,7 @@ namespace nbl::system
 			lseek(m_native, offset, SEEK_SET);
 			::read(m_native, buffer, sizeToRead);
 		}
+		return sizeToRead;
 	}
 
 	size_t CFilePOSIX::write_impl(const void* buffer, size_t offset, size_t sizeToWrite)
@@ -108,6 +117,7 @@ namespace nbl::system
 			lseek(m_native, offset, SEEK_SET);
 			::write(m_native, buffer, sizeToWrite);
 		}
+		return sizeToWrite;
 	}
 
 }

@@ -696,7 +696,7 @@ public:
 #ifndef _NBL_PLATFORM_ANDROID_
 		nbl::system::path CWD = nbl::system::path(argv[0]).parent_path().generic_string() + "/";
 		nbl::system::path sharedInputCWD = CWD / "../../media/";
-		nbl::system::path sharedOutputCWD = CWD / "../../media/";;
+		nbl::system::path sharedOutputCWD = CWD / "../../tmp/";;
 		nbl::system::path localInputCWD = CWD / "../";
 		nbl::system::path localOutputCWD = CWD;
 		AppClassName app(localInputCWD, localOutputCWD, sharedInputCWD, sharedOutputCWD);
@@ -819,8 +819,8 @@ public:
 #ifndef _NBL_PLATFORM_ANDROID_
 		auto windowManager = core::make_smart_refctd_ptr<nbl::ui::CWindowManagerWin32>(); // should we store it in result?
 #endif
-		result.system = createSystem();
 #ifdef _NBL_PLATFORM_WINDOWS_
+		result.system = createSystem();
 		result.logger = core::make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>(); // we should let user choose it?
 #elif defined(_NBL_PLATFORM_ANDROID_)
 		result.logger = core::make_smart_refctd_ptr<system::CStdoutLoggerAndroid>(); // we should let user choose it?

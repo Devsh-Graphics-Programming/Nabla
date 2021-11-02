@@ -18,7 +18,15 @@ nbl::system::CFileWin32::CFileWin32(core::smart_refctd_ptr<ISystem>&& sys, const
 	
 	system::path p = m_filename;
 	if (p.is_absolute()) p.make_preferred(); // Replace "/" separators with "\"
-	m_native = CreateFile(p.string().data(), access, canOpenWhenOpened, &secAttribs, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+	if (std::bit_cast<uint32_t>(m_flags & ECF_READ))
+	{
+		m_native = CreateFile(p.string().data(), access, canOpenWhenOpened, &secAttribs, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+		if (m_native == INVALID_HANDLE_VALUE) m_openedProperly = false;
+	}
+	else
+	{
+		m_native = CreateFile(p.string().data(), access, canOpenWhenOpened, &secAttribs, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+	}
 	if (m_native != INVALID_HANDLE_VALUE) [[likely]] // let this idle here until c++20 :)
 	{
 		m_size = GetFileSize(m_native, nullptr);

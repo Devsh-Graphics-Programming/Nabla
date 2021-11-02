@@ -277,8 +277,8 @@ public:
         if (!createFile(future, filename, core::bitflag<IFile::E_CREATE_FLAGS>(IFile::ECF_READ) | IFile::ECF_MAPPABLE))
             return nullptr;
 
-        auto file = std::move(future.get());
-
+        auto file = future.get();
+        if (file.get() == nullptr) return nullptr;
         return openFileArchive(std::move(file), password);
     }
     core::smart_refctd_ptr<IFileArchive> openFileArchive(core::smart_refctd_ptr<IFile>&& file, const std::string_view& password = "")
