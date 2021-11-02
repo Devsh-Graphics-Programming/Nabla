@@ -48,7 +48,7 @@ static void png_cpexcept_error(png_structp png_ptr, png_const_charp msg)
 static void png_cpexcept_warn(png_structp png_ptr, png_const_charp msg)
 {
 	auto ctx = (CImageLoaderPng::SContext*)png_get_user_chunk_ptr(png_ptr);
-	ctx->logger.log("PNG warning %s", system::ILogger::ELL_WARNING, msg);
+	ctx->logger.log("PNG warning", system::ILogger::ELL_WARNING); // png loader prints stuff that android fails to process 
 }
 
 // PNG function for file reading

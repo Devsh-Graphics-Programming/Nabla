@@ -45,9 +45,11 @@ namespace impl
 {
     inline void* aligned_malloc(size_t size, size_t alignment)
     {
+        constexpr int MIN_ALIGN = sizeof(void*);
+        if (alignment < MIN_ALIGN) alignment = MIN_ALIGN;
         if (size == 0) return nullptr;
         void* p;
-        if (::posix_memalign(&p, alignment<alignof(std::max_align_t) ? alignof(std::max_align_t):alignment, size) != 0) p = nullptr;
+        if (::posix_memalign(&p, alignment>alignof(std::max_align_t) ? alignof(std::max_align_t):alignment, size) != 0) p = nullptr;
         return p;
     }
 }
