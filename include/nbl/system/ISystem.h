@@ -12,6 +12,10 @@
 #include "nbl/system/CFileView.h"
 #include "nbl/core/util/bitflag.h"
 
+#if defined(_NBL_PLATFORM_LINUX_)
+#include <sys/sysinfo.h>
+#endif
+
 namespace nbl::system
 {
 class ISystemCaller : public core::IReferenceCounted // why does `ISystemCaller` need to be public?
@@ -309,6 +313,41 @@ public:
     void unmount(const IFileArchive* archive, const system::path& pathAlias)
     {
 
+    }
+
+    struct SystemMemory
+    {
+        uint32_t totalMemory = {};
+        uint32_t availableMemory = {};
+    };
+
+    static inline SystemMemory getSystemMemory()
+    {
+        SystemMemory systemMemory;
+
+        #if defined(_NBL_PLATFORM_WINDOWS_)
+        MEMORYSTATUS memoryStatus;
+        memoryStatus.dwLength = sizeof(MEMORYSTATUS);
+
+        GlobalMemoryStatus(&memoryStatus);
+
+        systemMemory.totalMemory = (uint32_t)(memoryStatus.dwTotalPhys >> 10);
+        systemMemory.availableMemory = (uint32_t)(memoryStatus.dwAvailPhys >> 10);
+        #elif defined(_NBL_PLATFORM_LINUX_)
+        #if defined(_SC_PHYS_PAGES) && defined(_SC_AVPHYS_PAGES)
+        sysinfo linuxSystemInfo;
+        assert(sysinfo(&linuxSystemInfo));
+
+        systemMemory.totalMemory = linuxSystemInfo.totalram;
+        systemMemory.availableMemory = linuxSystemInfo.freeram;
+        #endif
+        #elif defined(_NBL_PLATFORM_ANDROID_)
+        // @sadiuk TODO
+        #elif defined(_NBL_PLATFORM_OSX_) 
+        // TODO: implement for OSX
+        #endif
+
+        return systemMemory;
     }
 };
 

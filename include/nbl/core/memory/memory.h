@@ -73,7 +73,7 @@ constexpr inline size_t alignUp(size_t value, size_t alignment)
 //! Down-rounding counterpart
 constexpr inline size_t alignDown(size_t value, size_t alignment)
 {
-    return (value - 1ull) & ~(alignment - 1ull);
+    return value & ~(alignment - 1ull);
 }
 
 //! Valid alignments are power of two

@@ -949,15 +949,17 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
 
                 for (uint32_t i = 0u; i < IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
                     if (!layouts[i])
-                        ctxlocal->nextState.descriptorsParams[pbp].descSets[i] = { nullptr, nullptr, nullptr };
+                        ctxlocal->nextState.descriptorsParams[pbp].descSets[i] = { nullptr, nullptr, nullptr, 0u }; // TODO: have a default constructor that makes sense and prevents us from screwing up
 
                 for (uint32_t i = 0u; i < c.dsCount; i++)
                 {
+                    auto glDS = static_cast<const COpenGLDescriptorSet*>(descriptorSets[i]);
                     ctxlocal->nextState.descriptorsParams[pbp].descSets[c.firstSet + i] =
                     {
                         core::smart_refctd_ptr<const COpenGLPipelineLayout>(static_cast<const COpenGLPipelineLayout*>(c.layout.get())),
-                        core::smart_refctd_ptr<const COpenGLDescriptorSet>(static_cast<const COpenGLDescriptorSet*>(descriptorSets[i])),
-                        c.dynamicOffsets
+                        core::smart_refctd_ptr<const COpenGLDescriptorSet>(glDS),
+                        c.dynamicOffsets,
+                        glDS->getRevision()
                     };
                 }
             }

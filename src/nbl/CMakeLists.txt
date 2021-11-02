@@ -381,6 +381,10 @@ macro(nbl_target_link_vulkan _trgt) # we don't want to link against library dire
 	target_include_directories(${_trgt} PUBLIC "$ENV{VULKAN_SDK}/include")
 endmacro()
 
+macro(nbl_target_link_utfcpp _trgt)
+	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/utfcpp/source)
+endmacro()
+
 # TODO: Change all MACROS into FUNCTIONS (if possible, need to clarify variable scoping rules)
 macro(nbl_target_link_zlib _trgt)
 	add_dependencies(zlibstatic zlib_copy)
@@ -531,6 +535,7 @@ if (NBL_COMPILE_WITH_SDL2)
 endif()
 nbl_target_link_volk(Nabla)
 nbl_target_link_EGL(Nabla)
+nbl_target_link_utfcpp(Nabla)
 
 #target_link_libraries(Nabla INTERFACE ${OPENGL_gl_LIBRARY})
 if (UNIX)

@@ -89,7 +89,7 @@ if(NBL_BUILD_ANDROID)
 	find_package(Java 1.8)
 	
 	if(DEFINED Java_JAVA_EXECUTABLE)
-		message(STATUS "Found Java executable!")
+		message(STATUS "Found Java executable!: ${Java_JAVA_EXECUTABLE}")
 	else()
 		message(FATAL_ERROR "Could not find java executable for Android build!")
 	endif()

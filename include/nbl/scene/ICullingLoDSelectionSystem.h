@@ -284,7 +284,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 				params.indirectDispatchParams.buffer
 			};
 
-			constexpr auto MaxBufferBarriers = 5u;
+			constexpr auto MaxBufferBarriers = 6u;
 			video::IGPUCommandBuffer::SBufferMemoryBarrier barriers[MaxBufferBarriers];
 			for (auto i=0u; i<MaxBufferBarriers; i++)
 			{
@@ -330,11 +330,11 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 				cmdbuf->dispatch(wgCount,1u,1u);
 			}
 			{
-				setBarrierBuffer(barriers[0],params.drawCalls,wAccessMask,rwAccessMask);
-				setBarrierBuffer(barriers[1],params.scratchBufferRanges.pvsInstances,wAccessMask,asset::EAF_SHADER_READ_BIT);
-				setBarrierBuffer(barriers[2],params.scratchBufferRanges.pvsInstanceDraws,rwAccessMask,rwAccessMask);
-				setBarrierBuffer(barriers[3],params.scratchBufferRanges.lodDrawCallCounts,rwAccessMask,rwAccessMask);
-				setBarrierBuffer(barriers[4],params.perViewPerInstance,wAccessMask,asset::EAF_SHADER_READ_BIT);
+				setBarrierBuffer(barriers[1],params.drawCalls,wAccessMask,rwAccessMask);
+				setBarrierBuffer(barriers[2],params.scratchBufferRanges.pvsInstances,wAccessMask,asset::EAF_SHADER_READ_BIT);
+				setBarrierBuffer(barriers[3],params.scratchBufferRanges.pvsInstanceDraws,rwAccessMask,rwAccessMask);
+				setBarrierBuffer(barriers[4],params.scratchBufferRanges.lodDrawCallCounts,rwAccessMask,rwAccessMask);
+				setBarrierBuffer(barriers[5],params.perViewPerInstance,wAccessMask,asset::EAF_SHADER_READ_BIT);
 				cmdbuf->pipelineBarrier(asset::EPSF_COMPUTE_SHADER_BIT,internalStageFlags,asset::EDF_NONE,0u,nullptr, MaxBufferBarriers,barriers,0u,nullptr);
 			}
 
