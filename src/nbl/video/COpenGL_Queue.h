@@ -388,18 +388,18 @@ class COpenGL_Queue final : public IGPUQueue
             return true;
         }
 
-        bool present(const SPresentInfo& info) override
+        E_PRESENT_RESULT present(const SPresentInfo& info) override
         {
             for (uint32_t i = 0u; i < info.waitSemaphoreCount; ++i)
             {
                 if (m_originDevice != info.waitSemaphores[i]->getOriginDevice())
-                    return false;
+                    return EPR_ERROR;
             }
 
             for (uint32_t i = 0u; i < info.swapchainCount; ++i)
             {
                 if (m_originDevice != info.swapchains[i]->getOriginDevice())
-                    return false;
+                    return EPR_ERROR;
             }
 
             using swapchain_t = COpenGL_Swapchain<FunctionTableType_>;
@@ -411,7 +411,7 @@ class COpenGL_Queue final : public IGPUQueue
                 retval &= sc->present(imgix, info.waitSemaphoreCount, info.waitSemaphores);
             }
 
-            return retval;
+            return retval ? EPR_SUCCESS : EPR_ERROR;
         }
 
         void destroyFramebuffer(COpenGLFramebuffer::hash_t fbohash)

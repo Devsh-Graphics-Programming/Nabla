@@ -118,7 +118,6 @@ class HelloWorldSampleApp : public system::IApplicationFramework
 	static constexpr uint64_t MAX_TIMEOUT = 99999999999999ull;
 	static_assert(FRAMES_IN_FLIGHT > SC_IMG_COUNT);
 
-	core::smart_refctd_ptr<nbl::ui::CWindowManagerWin32> windowManager;
 	core::smart_refctd_ptr<nbl::ui::IWindow> window;
 	core::smart_refctd_ptr<DemoEventCallback> windowCb;
 	core::smart_refctd_ptr<nbl::video::IAPIConnection> apiConnection;
@@ -166,20 +165,26 @@ public:
 		system = createSystem();
 		auto logLevelMask = core::bitflag(system::ILogger::ELL_DEBUG) | system::ILogger::ELL_PERFORMANCE | system::ILogger::ELL_WARNING | system::ILogger::ELL_ERROR;
 		logger = core::make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>(logLevelMask);
-		windowManager = core::make_smart_refctd_ptr<nbl::ui::CWindowManagerWin32>();
+
+#ifndef _NBL_PLATFORM_ANDROID_
+		auto windowManager = core::make_smart_refctd_ptr<nbl::ui::CWindowManagerWin32>();
 		windowCb = core::make_smart_refctd_ptr<DemoEventCallback>();
 
 		ui::IWindow::SCreationParams params;
-		params.callback = nullptr;
 		params.width = WIN_W;
 		params.height = WIN_H;
-		params.x = 100;
-		params.y = 100;
+		params.x = 64;
+		params.y = 64;
 		params.system = core::smart_refctd_ptr(system);
-		params.flags = nbl::ui::IWindow::ECF_NONE;
+		params.flags = ui::IWindow::ECF_NONE;
 		params.windowCaption = APP_NAME;
 		params.callback = windowCb;
+
 		window = windowManager->createWindow(std::move(params));
+#else
+		assert(window);
+		window->setEventCallback(core::smart_refctd_ptr(windowCb));
+#endif
 
 		video::IAPIConnection::E_FEATURE requiredFeatures_Instance[] = { video::IAPIConnection::EF_SURFACE };
 
@@ -229,11 +234,16 @@ Choose Graphics API:
 				core::smart_refctd_ptr<video::COpenGLESConnection>(static_cast<video::COpenGLESConnection*>(apiConnection.get())),
 				core::smart_refctd_ptr<ui::IWindowWin32>(static_cast<ui::IWindowWin32*>(window.get())));
 		} break;
+
+		default:
+			assert(false);
 		}
 		assert(apiConnection);
 
 		auto gpus = apiConnection->getPhysicalDevices();
 		assert(!gpus.empty());
+
+
 
 		// Find a suitable gpu
 		uint32_t graphicsFamilyIndex(~0u);

@@ -19,6 +19,13 @@ class IGPUQueue : public core::Interface, public core::Unmovable
             ECF_PROTECTED_BIT = 0x01
         };
 
+        enum E_PRESENT_RESULT
+        {
+            EPR_SUCCESS = 0,
+            EPR_SUBOPTIMAL = 1000001003,
+            EPR_ERROR // There are other types of errors as well for if they are ever required in the future
+        };
+
         struct SSubmitInfo
         {
             uint32_t waitSemaphoreCount = 0u;
@@ -53,7 +60,7 @@ class IGPUQueue : public core::Interface, public core::Unmovable
         virtual bool submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFence* _fence) = 0;
 
         //
-        virtual bool present(const SPresentInfo& info) = 0;
+        virtual E_PRESENT_RESULT present(const SPresentInfo& info) = 0;
 
         // getters
         float getPriority() const { return m_priority; }
