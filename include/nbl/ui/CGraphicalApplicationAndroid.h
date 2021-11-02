@@ -94,15 +94,17 @@ namespace nbl::ui
 				android_poll_source* source;
 				int ident;
 				int events;
+				while (framework->getWindow() == nullptr)
+				{
+					while ((ident = ALooper_pollAll(0, nullptr, &events, (void**)&source)) >= 0)
+					{
+					}
+				}
 				while (framework->keepRunning()) {
 					while ((ident = ALooper_pollAll(0, nullptr, &events, (void**)&source)) >= 0)
 					{
 						if (source != nullptr) {
 							source->process(app, source);
-						}
-						if (app->destroyRequested != 0) {
-							//todo
-							return;
 						}
 					}
 					if (app->window != nullptr && framework->getWindow() != nullptr)
