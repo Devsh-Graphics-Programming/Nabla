@@ -192,8 +192,8 @@ uint32_t CPropertyPoolHandler::transferProperties(
 			uint32_t memoryConsumed;
 		public:
 			using value_type = uint32_t;
-			//using pointer = type*;
-			//using reference = type&;
+			using pointer = uint32_t*;
+			using reference = uint32_t&;
 			using difference_type = int64_t;
 			using iterator_category = std::random_access_iterator_tag;
 

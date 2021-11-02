@@ -202,13 +202,14 @@ void addLoDTable(
         auto batchID = 0u;
         for (auto i = 0u; i < indexCount; i += indicesPerBatch, batchID++)
         {
-            const auto& drawCallData = lodLibraryData.drawCallData.emplace_back(
-                core::min(indexCount - i, indicesPerBatch),
-                0u,
-                gpumb->getIndexBufferBinding().offset / indexSize + i,
-                0u,
-                0xdeadbeefu // set to garbage to test the prefix sum
-            );
+            auto& drawCallData = lodLibraryData.drawCallData.emplace_back();
+
+            drawCallData.count = core::min(indexCount-i,indicesPerBatch);
+            drawCallData.instanceCount = 0u;
+            drawCallData.firstIndex = gpumb->getIndexBufferBinding().offset/indexSize+i;
+            drawCallData.baseVertex = 0u;
+            drawCallData.baseVertex = 0xdeadbeefu; // set to garbage to test the prefix sum
+           
             lodLibraryData.drawCallOffsetsIn20ByteStrides.emplace_back(di.drawCallOffset / di.drawCommandStride + batchID);
 
             core::aabbox3df batchAABB;
