@@ -340,10 +340,7 @@ uint32_t CPropertyPoolHandler::transferProperties(
 		
 		constexpr auto invalid_address = std::remove_reference_t<decltype(upBuff->getAllocator())>::invalid_address;
 		auto addr = invalid_address;
-		const auto submitWaitPoint = std::chrono::high_resolution_clock::now()+std::chrono::microseconds(250u);
-		if (submitWaitPoint>maxWaitPoint)
-			return 0u; // timed out
-		upBuff->multi_alloc(submitWaitPoint,1u,&addr,&paddedSize,&m_alignment);
+		upBuff->multi_alloc(maxWaitPoint,1u,&addr,&paddedSize,&m_alignment);
 		if (addr!=invalid_address)
 		{
 			const auto endDWORD = baseDWORDs+doneDWORDs;
