@@ -34,7 +34,7 @@ class CThreadSafeGPUQueueAdapter : public IGPUQueue
             return originalQueue->submit(_count, _submits, _fence);
         }
 
-        virtual E_PRESENT_RESULT present(const SPresentInfo& info) override
+        virtual ISwapchain::E_PRESENT_RESULT present(const SPresentInfo& info) override
         {
             std::lock_guard g(m);
             return originalQueue->present(info);

@@ -19,7 +19,7 @@ public:
 
     bool submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFence* _fence) override;
 
-    E_PRESENT_RESULT present(const SPresentInfo& info) override;
+    ISwapchain::E_PRESENT_RESULT present(const SPresentInfo& info) override;
 
     inline VkQueue getInternalObject() const { return m_vkQueue; }
 

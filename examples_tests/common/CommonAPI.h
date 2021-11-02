@@ -1380,7 +1380,7 @@ public:
 
 		video::IGPURenderpass::SCreationParams::SAttachmentDescription attachments[2];
 		attachments[0].initialLayout = asset::EIL_UNDEFINED;
-		attachments[0].finalLayout = asset::EIL_PRESENT_SRC_KHR;
+		attachments[0].finalLayout = asset::EIL_PRESENT_SRC;
 		attachments[0].format = colorAttachmentFormat;
 		attachments[0].samples = asset::IImage::ESCF_1_BIT;
 		attachments[0].loadOp = video::IGPURenderpass::ELO_CLEAR;

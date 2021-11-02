@@ -453,7 +453,11 @@ public:
         getVkMappedMemoryRanges(vk_memoryRanges, ranges.begin(), ranges.end());
         
         if (m_devf.vk.vkFlushMappedMemoryRanges(m_vkdev, memoryRangeCount, vk_memoryRanges) != VK_SUCCESS)
-            printf("flushMappedMemoryRanges failed\n");
+        {
+            auto logger = (m_physicalDevice->getDebugCallback()) ? m_physicalDevice->getDebugCallback()->getLogger() : nullptr;
+            if (logger)
+                logger->log("flushMappedMemoryRanges failed!", system::ILogger::ELL_ERROR);
+        }
     }
             
     // API needs to change, this could fail
@@ -468,7 +472,12 @@ public:
         getVkMappedMemoryRanges(vk_memoryRanges, ranges.begin(), ranges.end());
 
         if (m_devf.vk.vkInvalidateMappedMemoryRanges(m_vkdev, memoryRangeCount, vk_memoryRanges) != VK_SUCCESS)
-            printf("invalidateMappedMemoryRanges failed!\n");
+        {
+            auto logger = (m_physicalDevice->getDebugCallback()) ? m_physicalDevice->getDebugCallback()->getLogger() : nullptr;
+            if (logger)
+                logger->log("invalidateMappedMemoryRanges failed!", system::ILogger::ELL_ERROR);
+
+        }
     }
 
     bool bindBufferMemory(uint32_t bindInfoCount, const SBindBufferMemoryInfo* pBindInfos) override

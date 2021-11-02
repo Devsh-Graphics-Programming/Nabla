@@ -174,14 +174,12 @@ public:
 		const uint32_t bindingCount = 2u;
 		video::IGPUDescriptorSetLayout::SBinding bindings[bindingCount];
 		{
-			// image2D
 			bindings[0].binding = 0u;
 			bindings[0].type = asset::EDT_STORAGE_IMAGE;
 			bindings[0].count = 1u;
 			bindings[0].stageFlags = asset::IShader::ESS_COMPUTE;
 			bindings[0].samplers = nullptr;
 
-			// ubo
 			bindings[1].binding = 1u;
 			bindings[1].type = asset::EDT_STORAGE_IMAGE;
 			bindings[1].count = 1u;
@@ -421,7 +419,7 @@ public:
 		const uint32_t windowDim[2] = { window->getWidth(), window->getHeight() };
 
 		layoutTransBarrier.barrier.srcAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0);
-		layoutTransBarrier.barrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
+		layoutTransBarrier.barrier.dstAccessMask = asset::EAF_SHADER_WRITE_BIT;
 		layoutTransBarrier.oldLayout = asset::EIL_UNDEFINED;
 		layoutTransBarrier.newLayout = asset::EIL_GENERAL;
 		layoutTransBarrier.image = *(swapchain->getImages().begin() + imgnum);
@@ -447,7 +445,7 @@ public:
 		layoutTransBarrier.barrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
 		layoutTransBarrier.barrier.dstAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0);
 		layoutTransBarrier.oldLayout = asset::EIL_GENERAL;
-		layoutTransBarrier.newLayout = asset::EIL_PRESENT_SRC_KHR;
+		layoutTransBarrier.newLayout = asset::EIL_PRESENT_SRC;
 
 		cb->pipelineBarrier(
 			asset::EPSF_COMPUTE_SHADER_BIT,

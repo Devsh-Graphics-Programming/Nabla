@@ -28,18 +28,15 @@ public:
 
     IDebugCallback* getDebugCallback() const override;
 
-// Todo(achal): Remove
-// private:
-
-    explicit CVulkanConnection(VkInstance instance, std::unique_ptr<CVulkanDebugCallback>&& debugCallback,
+protected:
+    explicit CVulkanConnection(
+        VkInstance instance,
+        std::unique_ptr<CVulkanDebugCallback>&& debugCallback,
         VkDebugUtilsMessengerEXT vk_debugMessenger);
 
     virtual ~CVulkanConnection();
 
-    VkInstance m_vkInstance = VK_NULL_HANDLE;
-    VkDebugUtilsMessengerEXT m_vkDebugUtilsMessengerEXT = VK_NULL_HANDLE;
-    std::unique_ptr<CVulkanDebugCallback> m_debugCallback = nullptr; // this needs to live longer than VkDebugUtilsMessengerEXT handle above
-
+private:
     static inline bool getExtensionsForLayer(const char* layerName, uint32_t& extensionCount,
         VkExtensionProperties* extensions)
     {
@@ -58,6 +55,10 @@ public:
     }
 
     static void getVulkanExtensionNamesFromFeature(const IAPIConnection::E_FEATURE feature, uint32_t& extNameCount, const char** extNames);
+
+    VkInstance m_vkInstance = VK_NULL_HANDLE;
+    VkDebugUtilsMessengerEXT m_vkDebugUtilsMessengerEXT = VK_NULL_HANDLE;
+    std::unique_ptr<CVulkanDebugCallback> m_debugCallback = nullptr; // this needs to live longer than VkDebugUtilsMessengerEXT handle above
 };
 
 }

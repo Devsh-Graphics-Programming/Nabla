@@ -44,6 +44,13 @@ class ISwapchain : public core::IReferenceCounted, public IBackendObject
             EAIR_ERROR
         };
 
+        enum E_PRESENT_RESULT
+        {
+            EPR_SUCCESS = 0,
+            EPR_SUBOPTIMAL,
+            EPR_ERROR // There are other types of errors as well for if they are ever required in the future
+        };
+
         uint32_t getImageCount() const { return m_images->size(); }
         core::SRange<core::smart_refctd_ptr<IGPUImage>> getImages()
         {

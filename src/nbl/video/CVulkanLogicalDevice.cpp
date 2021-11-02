@@ -46,7 +46,7 @@ IGPUEvent::E_STATUS CVulkanLogicalDevice::resetEvent(IGPUEvent* _event)
 
     VkEvent vk_event = static_cast<const CVulkanEvent*>(_event)->getInternalObject();
     if (m_devf.vk.vkResetEvent(m_vkdev, vk_event) == VK_SUCCESS)
-        return IGPUEvent::ES_RESET; // weird return value alert!
+        return IGPUEvent::ES_RESET;
     else
         return IGPUEvent::ES_FAILURE;
 }
@@ -58,7 +58,7 @@ IGPUEvent::E_STATUS CVulkanLogicalDevice::setEvent(IGPUEvent* _event)
 
     VkEvent vk_event = static_cast<const CVulkanEvent*>(_event)->getInternalObject();
     if (m_devf.vk.vkSetEvent(m_vkdev, vk_event) == VK_SUCCESS)
-        return IGPUEvent::ES_SET; // weird return value alert!
+        return IGPUEvent::ES_SET;
     else
         return IGPUEvent::ES_FAILURE;
 }
@@ -99,9 +99,6 @@ core::smart_refctd_ptr<IDriverMemoryAllocation> CVulkanLogicalDevice::allocateSp
 core::smart_refctd_ptr<IDriverMemoryAllocation> CVulkanLogicalDevice::allocateUpStreamingMemory(
     const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs)
 {
-    if (getUpStreamingMemoryReqs().memoryHeapLocation != additionalReqs.memoryHeapLocation)
-        return nullptr;
-
     IDriverMemoryBacked::SDriverMemoryRequirements memoryReqs = getUpStreamingMemoryReqs();
     memoryReqs.vulkanReqs.alignment = core::max(memoryReqs.vulkanReqs.alignment, additionalReqs.vulkanReqs.alignment);
     memoryReqs.vulkanReqs.size = core::max(memoryReqs.vulkanReqs.size, additionalReqs.vulkanReqs.size);
@@ -117,9 +114,6 @@ core::smart_refctd_ptr<IDriverMemoryAllocation> CVulkanLogicalDevice::allocateUp
 core::smart_refctd_ptr<IDriverMemoryAllocation> CVulkanLogicalDevice::allocateDownStreamingMemory(
     const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs)
 {
-    if (getDownStreamingMemoryReqs().memoryHeapLocation != additionalReqs.memoryHeapLocation)
-        return nullptr;
-
     IDriverMemoryBacked::SDriverMemoryRequirements memoryReqs = getDownStreamingMemoryReqs();
     memoryReqs.vulkanReqs.alignment = core::max(memoryReqs.vulkanReqs.alignment, additionalReqs.vulkanReqs.alignment);
     memoryReqs.vulkanReqs.size = core::max(memoryReqs.vulkanReqs.size, additionalReqs.vulkanReqs.size);

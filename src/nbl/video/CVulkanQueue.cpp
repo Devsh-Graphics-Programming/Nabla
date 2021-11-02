@@ -103,7 +103,7 @@ bool CVulkanQueue::submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFenc
     return false;
 }
 
-IGPUQueue::E_PRESENT_RESULT CVulkanQueue::present(const SPresentInfo& info)
+ISwapchain::E_PRESENT_RESULT CVulkanQueue::present(const SPresentInfo& info)
 {
     auto* vk = static_cast<const CVulkanLogicalDevice*>(m_originDevice)->getFunctionTable();
 
@@ -112,7 +112,7 @@ IGPUQueue::E_PRESENT_RESULT CVulkanQueue::present(const SPresentInfo& info)
     for (uint32_t i = 0u; i < info.waitSemaphoreCount; ++i)
     {
         if (info.waitSemaphores[i]->getAPIType() != EAT_VULKAN)
-            return EPR_ERROR;
+            return ISwapchain::EPR_ERROR;
 
         vk_waitSemaphores[i] = static_cast<const CVulkanSemaphore*>(info.waitSemaphores[i])->getInternalObject();
     }
@@ -122,7 +122,7 @@ IGPUQueue::E_PRESENT_RESULT CVulkanQueue::present(const SPresentInfo& info)
     for (uint32_t i = 0u; i < info.swapchainCount; ++i)
     {
         if (info.swapchains[i]->getAPIType() != EAT_VULKAN)
-            return EPR_ERROR;
+            return ISwapchain::EPR_ERROR;
 
         vk_swapchains[i] = static_cast<const CVulkanSwapchain*>(info.swapchains[i])->getInternalObject();
     }
@@ -138,11 +138,11 @@ IGPUQueue::E_PRESENT_RESULT CVulkanQueue::present(const SPresentInfo& info)
     switch (retval)
     {
     case VK_SUCCESS:
-        return EPR_SUBOPTIMAL;
+        return ISwapchain::EPR_SUCCESS;
     case VK_SUBOPTIMAL_KHR:
-        return EPR_SUBOPTIMAL;
+        return ISwapchain::EPR_SUBOPTIMAL;
     default:
-        return EPR_ERROR;
+        return ISwapchain::EPR_ERROR;
     }
 }
 
