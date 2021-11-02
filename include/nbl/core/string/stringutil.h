@@ -11,7 +11,6 @@
 #include <cctype>
 #include "stddef.h"
 #include "string.h"
-#include "utf8.h"
 
 #include <nbl/system/path.h>
 
