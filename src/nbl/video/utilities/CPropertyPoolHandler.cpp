@@ -291,6 +291,11 @@ uint32_t CPropertyPoolHandler::transferProperties(
 			{
 				return !(this->operator>(rhs));
 			}
+
+			inline uint32_t getUsage() const
+			{
+				return memoryConsumed;
+			}
 	};
 
 	//
@@ -303,6 +308,7 @@ uint32_t CPropertyPoolHandler::transferProperties(
 	const asset::SBufferBinding<video::IGPUBuffer> uploadBuffer = {0ull,core::smart_refctd_ptr<video::IGPUBuffer>(upBuff->getBuffer())};
 	auto attempt = [&](const uint32_t baseDWORDs, const uint32_t remainingDWORDs, UpStreamingRequest* &localRequests, uint32_t& propertiesThisPass) -> uint32_t
 	{
+		assert(remainingDWORDs);
 		// skip requests that won't participate
 		while (propertiesThisPass && localRequests->getElementDWORDs()<=baseDWORDs)
 		{
@@ -312,15 +318,16 @@ uint32_t CPropertyPoolHandler::transferProperties(
 		// nothing to do
 		if (propertiesThisPass==0u)
 			return 0u;
-
-        const uint32_t freeSpace = static_cast<uint32_t>(core::alignDown(upBuff->max_size(),m_alignment));
+		
 		const uint32_t worstCasePadding = m_alignment*propertiesThisPass-propertiesThisPass;
-		if (freeSpace<=worstCasePadding)
+		const auto begin = MemoryUsageIterator(localRequests,propertiesThisPass,baseDWORDs,0u);
+		const uint32_t minimumMemoryNeeded = worstCasePadding+begin.getUsage();
+        const uint32_t freeSpace = static_cast<uint32_t>(core::alignDown(upBuff->max_size(),m_alignment));
+		if (freeSpace<minimumMemoryNeeded)
 			return 0u;
 		auto paddedSize = freeSpace-worstCasePadding;
 		uint32_t doneDWORDs;
 		{
-			const auto begin = MemoryUsageIterator(localRequests,propertiesThisPass,baseDWORDs,0u);
 			doneDWORDs = std::distance(
 				begin,
 				std::upper_bound(
@@ -329,8 +336,7 @@ uint32_t CPropertyPoolHandler::transferProperties(
 					paddedSize
 				)
 			);
-			if (doneDWORDs==0u)
-				return 0u;
+			assert(doneDWORDs);
 			--doneDWORDs;
 			// prevent micro dispatches
 			if (doneDWORDs!=remainingDWORDs && doneDWORDs<limits.maxResidentInvocations)
@@ -529,18 +535,16 @@ uint32_t CPropertyPoolHandler::TransferDescriptorSetCache::acquireSet(
 		const auto& request = requests[i];
 			
 		const auto& memblock = request.memblock;
-		const uint32_t transferPropertySize = request.elementCount*request.elementSize;
 
+		// no not attempt to bind sized ranges of the buffers, remember that the copies are indexed, so the reads and writes may be scattered
 		if (request.isDownload())
 		{
 			inDescInfo[i].assign(memblock,asset::EDT_STORAGE_BUFFER);
 			outDescInfo[i].assign(request.buffer,asset::EDT_STORAGE_BUFFER);
-			outDescInfo[i].buffer.size = transferPropertySize;
 		}
 		else
 		{
 			inDescInfo[i].assign(request.buffer,asset::EDT_STORAGE_BUFFER);
-			inDescInfo[i].buffer.size = transferPropertySize;
 			outDescInfo[i].assign(memblock,asset::EDT_STORAGE_BUFFER);
 		}
 	}
