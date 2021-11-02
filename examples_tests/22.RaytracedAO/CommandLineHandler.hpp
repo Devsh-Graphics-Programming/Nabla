@@ -46,7 +46,6 @@ constexpr uint32_t MaxRayTracerCommandLineArgs = 8;
 enum RaytracerExampleArguments
 {
 	REA_SCENE,
-	REA_SCREENSHOT_OUTPUT_FOLDER,
 	REA_TERMINATE,
 	REA_COUNT,
 };
@@ -63,11 +62,6 @@ class CommandLineHandler
 		{
 			return sceneDirectory;
 		}
-		
-		auto& getOutputScreenshotsFolderPath() const
-		{
-			return outputScreenshotsFolderPath;
-		}
 
 		auto& getTerminate() const
 		{
@@ -79,7 +73,6 @@ class CommandLineHandler
 		void initializeMatchingMap()
 		{
 			rawVariables[REA_SCENE];
-			rawVariables[REA_SCREENSHOT_OUTPUT_FOLDER];
 			rawVariables[REA_TERMINATE];
 		}
 
@@ -87,8 +80,6 @@ class CommandLineHandler
 		{
 			if (variableName == SCENE_VAR_NAME)
 				return REA_SCENE;
-			else if (variableName == SCREENSHOT_OUTPUT_FOLDER_VAR_NAME)
-				return REA_SCREENSHOT_OUTPUT_FOLDER;
 			else if (variableName == TERMINATE_VAR_NAME)
 				return REA_TERMINATE;
 			else
@@ -101,12 +92,6 @@ class CommandLineHandler
 		{
 			if(rawVariables[REA_SCENE].has_value())
 				sceneDirectory = rawVariables[REA_SCENE].value();
-			if(rawVariables[REA_SCREENSHOT_OUTPUT_FOLDER].has_value())
-			{
-				const auto& screenShotPathVector = rawVariables[REA_SCREENSHOT_OUTPUT_FOLDER].value();
-				if(screenShotPathVector.size())
-					outputScreenshotsFolderPath = screenShotPathVector[0];
-			}
 			if(rawVariables[REA_TERMINATE].has_value())
 				terminate = true;
 		}

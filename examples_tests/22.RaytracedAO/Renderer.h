@@ -2,7 +2,6 @@
 #define _RENDERER_INCLUDED_
 
 #include "nabla.h"
-
 #include "nbl/ext/RadeonRays/RadeonRays.h"
 // pesky leaking defines
 #undef PI
@@ -15,6 +14,8 @@
 #include "nbl/ext/OptiX/Manager.h"
 #endif
 
+#include <thread>
+#include <future>
 
 class Renderer : public nbl::core::IReferenceCounted, public nbl::core::InterfaceUnmovable
 {
@@ -40,7 +41,7 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 
 		void resetSampleAndFrameCounters();
 
-		void takeAndSaveScreenShot(const std::string& screenShotName, const std::filesystem::path& screenshotFolderPath = "");
+		void takeAndSaveScreenShot(const std::filesystem::path& screenshotFilePath);
 
 		void render(nbl::ITimer* timer);
 
@@ -147,7 +148,11 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUPipelineLayout> m_raygenPipelineLayout;
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUPipelineLayout> m_closestHitPipelineLayout;
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUPipelineLayout> m_resolvePipelineLayout;
-
+		
+		nbl::core::smart_refctd_ptr<IGPUSpecializedShader> m_cullGPUShader;
+		nbl::core::smart_refctd_ptr<IGPUSpecializedShader> m_raygenGPUShader;
+		nbl::core::smart_refctd_ptr<IGPUSpecializedShader> m_closestHitGPUShader;
+		nbl::core::smart_refctd_ptr<IGPUSpecializedShader> m_resolveGPUShader;
 
 		// scene specific data
 		nbl::core::vector<::RadeonRays::Shape*> rrShapes;
@@ -192,6 +197,8 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> m_accumulation,m_tonemapOutput;
 		nbl::video::IFrameBuffer* m_visibilityBuffer,* m_colorBuffer;
+
+		std::future<bool> compileShadersFuture;
 
 	#ifdef _NBL_BUILD_OPTIX_
 		nbl::core::smart_refctd_ptr<nbl::ext::OptiX::IDenoiser> m_denoiser;

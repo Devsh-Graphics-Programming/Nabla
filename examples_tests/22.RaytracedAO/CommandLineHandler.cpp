@@ -146,16 +146,6 @@ bool CommandLineHandler::validateParameters()
 			return false;
 		}
 	}
-	
-	if(rawVariables[REA_SCREENSHOT_OUTPUT_FOLDER].has_value())
-	{
-		auto screenshotOutputFolder = rawVariables[REA_SCREENSHOT_OUTPUT_FOLDER].value();
-		if(screenshotOutputFolder.empty())
-		{
-			logError("Expected at least one value for SCREENSHOT_OUTPUT_FOLDER");
-			return false;
-		}
-	}
 
 	return true;
 }

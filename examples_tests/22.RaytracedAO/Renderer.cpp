@@ -913,29 +913,32 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, core::s
 		}
 	}
 	
-	// we have to recompile some shaders and runtime_defines.glsl changes
-	{
-		(std::ofstream("runtime_defines.glsl")
-			<< "#define _NBL_EXT_MITSUBA_LOADER_VT_STORAGE_VIEW_COUNT " << m_globalMeta->m_global.getVTStorageViewCount() << "\n"
-			<< m_globalMeta->m_global.m_materialCompilerGLSL_declarations
-			<< "#define MAX_PATH_DEPTH " << m_maxDepth << "\n"
-			<< "#ifndef MAX_RAYS_GENERATED\n"
-			<< "#	define MAX_RAYS_GENERATED " << m_staticViewData.samplesPerPixelPerDispatch << "\n"
-			<< "#endif\n"
-		).close();
+	(std::ofstream("runtime_defines.glsl")
+		<< "#define _NBL_EXT_MITSUBA_LOADER_VT_STORAGE_VIEW_COUNT " << m_globalMeta->m_global.getVTStorageViewCount() << "\n"
+		<< m_globalMeta->m_global.m_materialCompilerGLSL_declarations
+		<< "#define MAX_PATH_DEPTH " << m_maxDepth << "\n"
+		<< "#ifndef MAX_RAYS_GENERATED\n"
+		<< "#	define MAX_RAYS_GENERATED " << m_staticViewData.samplesPerPixelPerDispatch << "\n"
+		<< "#endif\n"
+	).close();
 	
+	compileShadersFuture = std::async(std::launch::async, [&]()
+	{
 		// cull
-		m_cullPipeline = m_driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(m_cullPipelineLayout),gpuSpecializedShaderFromFile(m_assetManager,m_driver,"../cull.comp"));
+		m_cullGPUShader = gpuSpecializedShaderFromFile(m_assetManager,m_driver,"../cull.comp");
 
 		// raygen
-		m_raygenPipeline = m_driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(m_raygenPipelineLayout),gpuSpecializedShaderFromFile(m_assetManager,m_driver,"../raygen.comp"));
+		m_raygenGPUShader = gpuSpecializedShaderFromFile(m_assetManager,m_driver,"../raygen.comp");
 
 		// closest hit
-		m_closestHitPipeline = m_driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(m_closestHitPipelineLayout),gpuSpecializedShaderFromFile(m_assetManager,m_driver,"../closestHit.comp"));
+		m_closestHitGPUShader = gpuSpecializedShaderFromFile(m_assetManager,m_driver,"../closestHit.comp");
 
 		// resolve
-		m_resolvePipeline = m_driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(m_resolvePipelineLayout),gpuSpecializedShaderFromFile(m_assetManager,m_driver,m_useDenoiser ? "../resolveForDenoiser.comp":"../resolve.comp"));
-	}
+		m_resolveGPUShader = gpuSpecializedShaderFromFile(m_assetManager,m_driver,m_useDenoiser ? "../resolveForDenoiser.comp":"../resolve.comp");
+		
+		bool success = m_cullGPUShader && m_raygenGPUShader && m_closestHitGPUShader && m_resolveGPUShader;
+		return success;
+	});
 
 	auto setBufferInfo = [&](IGPUDescriptorSet::SDescriptorInfo* info, const core::smart_refctd_ptr<IGPUBuffer>& buffer) -> void
 	{
@@ -1226,23 +1229,18 @@ void Renderer::resetSampleAndFrameCounters()
 	m_prevCamTform = nbl::core::matrix4x3();
 }
 
-void Renderer::takeAndSaveScreenShot(const std::string& screenShotName, const std::filesystem::path& screenshotFolderPath)
+void Renderer::takeAndSaveScreenShot(const std::filesystem::path& screenshotFilePath)
 {
 	auto commandQueue = m_rrManager->getCLCommandQueue();
 	ocl::COpenCLHandler::ocl.pclFinish(commandQueue);
 
 	glFinish();
 
-	auto finalFile = (screenshotFolderPath / (screenShotName + ".exr").c_str());
-
-	if(!screenshotFolderPath.empty() && !std::filesystem::is_directory(screenshotFolderPath))
-	{
-		std::cout << "ScreenShot Directorty (" << screenshotFolderPath.string().c_str() << ") does not exist, Defaulting to executable folder" << std::endl;
-		finalFile = std::filesystem::path(screenShotName + ".exr");
-	}
+	// TODO: Deduce Format from CElementFilm (How?) -> Get format from input 
+	asset::E_FORMAT format = asset::EF_R32G32B32A32_SFLOAT;
 
 	if (m_tonemapOutput)
-		ext::ScreenShot::createScreenShot(m_driver,m_assetManager,m_tonemapOutput.get(),finalFile.string(),asset::EF_R32G32B32A32_SFLOAT);
+		ext::ScreenShot::createScreenShot(m_driver,m_assetManager,m_tonemapOutput.get(),screenshotFilePath.string(), format);
 }
 
 // one day it will just work like that
@@ -1288,6 +1286,23 @@ void Renderer::render(nbl::ITimer* timer)
 	}
 
 	// TODO: update positions and rr->Commit() if stuff starts to move
+
+	if(compileShadersFuture.valid())
+	{
+		bool compiledShaders = compileShadersFuture.get();
+		if(compiledShaders)
+		{
+			m_cullPipeline = m_driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(m_cullPipelineLayout), core::smart_refctd_ptr(m_cullGPUShader));
+			m_raygenPipeline = m_driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(m_raygenPipelineLayout), core::smart_refctd_ptr(m_raygenGPUShader));
+			m_closestHitPipeline = m_driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(m_closestHitPipelineLayout), core::smart_refctd_ptr(m_closestHitGPUShader));
+			m_resolvePipeline = m_driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(m_resolvePipelineLayout), core::smart_refctd_ptr(m_resolveGPUShader));
+			bool createPipelinesSuceess = m_cullPipeline && m_raygenPipeline && m_closestHitPipeline && m_resolvePipeline;
+			if(!createPipelinesSuceess)
+				std::cout << "Pipeline Compilation Failed." << std::endl;
+		}
+		else
+			std::cout << "Shader Compilation Failed." << std::endl;
+	}
 
 	// raster jittered frame
 	{

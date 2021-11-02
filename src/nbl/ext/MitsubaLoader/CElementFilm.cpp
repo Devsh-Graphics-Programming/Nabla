@@ -94,6 +94,7 @@ bool CElementFilm::addProperty(SNamedPropertyElement&& _property)
 		static const core::unordered_map<std::string, FileFormat, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> StringToType =
 		{
 			{"openexr",		OPENEXR},
+			{"png",			PNG},
 			{"rgbe",		RGBE},
 			{"pfm",			PFM},
 			{"matlab",		MATLAB},
@@ -227,7 +228,18 @@ bool CElementFilm::addProperty(SNamedPropertyElement&& _property)
 		memcpy(mfilm.variable,_property.svalue,len);
 		mfilm.variable[len] = 0;
 	};
+	auto setOutputFilePath = [&]() -> void
+	{
+		if (_property.type != SNamedPropertyElement::Type::STRING)
+		{
+			error = true;
+			return;
+		}
 
+		size_t len = std::min(strlen(_property.svalue),MaxPathLen);
+		memcpy(outputFilePath,_property.svalue,len);
+		outputFilePath[len] = 0;
+	};
 
 	const core::unordered_map<std::string, std::function<void()>, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> SetPropertyMap =
 	{
@@ -249,7 +261,8 @@ bool CElementFilm::addProperty(SNamedPropertyElement&& _property)
 		{"key",					setKey},
 		{"burn",				setBurn},
 		{"digits",				setDigits},
-		{"variable",			setVariable}
+		{"variable",			setVariable},
+		{"outputFilePath",		setOutputFilePath}
 	};
 
 	auto found = SetPropertyMap.find(_property.name);

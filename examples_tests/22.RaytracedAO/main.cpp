@@ -17,7 +17,6 @@
 #include "CSceneNodeAnimatorCameraModifiedMaya.h"
 #include "Renderer.h"
 
-
 using namespace nbl;
 using namespace core;
 
@@ -107,7 +106,6 @@ int main(int argc, char** argv)
 	auto sceneDir = cmdHandler.getSceneDirectory();
 	std::string filePath = (sceneDir.size() >= 1) ? sceneDir[0] : ""; // zip or xml
 	std::string extraPath = (sceneDir.size() >= 2) ? sceneDir[1] : "";; // xml in zip
-	std::string outputScreenshotsFolderPath = cmdHandler.getOutputScreenshotsFolderPath();
 	bool shouldTerminate = cmdHandler.getTerminate(); // skip interaction with window and take screenshots only
 	bool takeScreenShots = true;
 	std::string mainFileName; // std::filesystem::path(filePath).filename().string();
@@ -248,7 +246,8 @@ int main(int argc, char** argv)
 		float moveSpeed = core::nan<float>();
 		scene::ICameraSceneNode * staticCamera;
 		scene::ICameraSceneNode * interactiveCamera;
-		std::string outputFileName = "";
+		std::filesystem::path outputFilePath;
+		ext::MitsubaLoader::CElementFilm::FileFormat format;
 
 		void resetInteractiveCamera()
 		{
@@ -268,6 +267,28 @@ int main(int argc, char** argv)
 	};
 
 	auto smgr = device->getSceneManager();
+	
+	auto isFileExtensionCompatibleWithFormat = [](std::string extension, ext::MitsubaLoader::CElementFilm::FileFormat format) -> bool
+	{
+		if(extension.empty())
+			return false;
+
+		if(extension[0] == '.')
+			extension = extension.substr(1, extension.size());
+
+		// TODO: get the supported extensions from loaders(?)
+		using FileFormat = ext::MitsubaLoader::CElementFilm::FileFormat;
+		switch (format) {
+		case FileFormat::PNG:
+			return extension == "png";
+		case FileFormat::OPENEXR:
+			return extension == "exr";
+		case FileFormat::JPEG:
+			return extension == "jpg" || extension == "jpeg" || extension == "jpe" || extension == "jif" || extension == "jfif" || extension == "jfi";
+		default:
+			return false;
+		}
+	};
 
 	auto isOkSensorType = [](const ext::MitsubaLoader::CElementSensor& sensor) -> bool {
 		return sensor.type == ext::MitsubaLoader::CElementSensor::Type::PERSPECTIVE || sensor.type == ext::MitsubaLoader::CElementSensor::Type::THINLENS;
@@ -348,6 +369,13 @@ int main(int argc, char** argv)
 
 		outSensorData.moveSpeed = persp->moveSpeed;
 		std::cout << "\t Camera Move Speed = " << outSensorData.moveSpeed << std::endl;
+
+		outSensorData.outputFilePath = std::filesystem::path(film.outputFilePath);
+		
+		if(!isFileExtensionCompatibleWithFormat(outSensorData.outputFilePath.extension().string(), film.fileFormat))
+		{
+			std::cout << "[ERROR] film.outputFilePath's extension is not compatible with film.fileFormat" << std::endl;
+		}
 
 		float realFoVDegrees;
 		auto width = film.cropWidth;
@@ -556,7 +584,7 @@ int main(int argc, char** argv)
 			}
 		}
 	
-		renderer->takeAndSaveScreenShot("LastView_" + mainFileName + "_Sensor_" + std::to_string(activeSensor), outputScreenshotsFolderPath);
+		renderer->takeAndSaveScreenShot(std::filesystem::path("LastView_" + mainFileName + "_Sensor_" + std::to_string(activeSensor) + ".exr"));
 		renderer->deinitScreenSizedResources();
 	}
 
@@ -607,13 +635,13 @@ int main(int argc, char** argv)
 			itr++;
 		}
 
-		auto screenshotFileNameWithoutExtension = sensorData.outputFileName;
-		if (screenshotFileNameWithoutExtension.empty())
-			screenshotFileNameWithoutExtension = "ScreenShot_" + mainFileName + "_Sensor_" + std::to_string(s);
+		auto screenshotFilePath = sensorData.outputFilePath;
+		if (screenshotFilePath.empty())
+			screenshotFilePath = std::filesystem::path("ScreenShot_" + mainFileName + "_Sensor_" + std::to_string(s) + ".exr");
 		
-		std::cout << "-- Rendered Successfully: " << filePath << " (Sensor=" << s << ") to file (" << screenshotFileNameWithoutExtension << ")." << std::endl;
+		std::cout << "-- Rendered Successfully: " << filePath << " (Sensor=" << s << ") to file (" << screenshotFilePath.string() << ")." << std::endl;
 
-		renderer->takeAndSaveScreenShot(screenshotFileNameWithoutExtension, outputScreenshotsFolderPath);
+		renderer->takeAndSaveScreenShot(screenshotFilePath);
 	}
 
 	renderer->deinitSceneResources();
