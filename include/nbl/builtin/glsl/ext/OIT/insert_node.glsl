@@ -39,8 +39,8 @@ void nbl_glsl_oit_insert_node(in ivec2 coord, in uint mydepth, in float myvis, i
 	nbl_glsl_oit_bvec_t closerMask = greaterThanEqual(nbl_glsl_oit_uvec_t(mydepth),depth);
 	nbl_glsl_oit_vis_nodes_t maskedVis = mix(vis, nbl_glsl_oit_vis_nodes_t(1.0), closerMask);
 
-	if (maskedVis.x*maskedVis.y*maskedVis.z*maskedVis.w < 0.1)
-		discard;
+	//if (maskedVis.x*maskedVis.y*maskedVis.z*maskedVis.w < 0.1)
+		//discard;
 
 #if NBL_GLSL_OIT_NODE_COUNT==4
     color = imageLoad(g_color, coord);

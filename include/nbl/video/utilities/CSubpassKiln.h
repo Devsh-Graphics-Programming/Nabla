@@ -55,7 +55,7 @@ class CSubpassKiln
                 {
                     inline bool operator()(const DrawcallInfo& lhs, const DrawcallInfo& rhs) const
                     {
-                        return chainComparator<true,std::less>(lhs,rhs);
+                        return chainComparator<true,std::equal_to>(lhs,rhs);
                     }
                 };
                 struct renderpass_subpass_comp

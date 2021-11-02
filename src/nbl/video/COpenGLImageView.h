@@ -22,17 +22,15 @@ class COpenGLImageView final : public IGPUImageView
 		GLenum target;
 		GLenum internalFormat;
 	public:
-		_NBL_STATIC_INLINE_CONSTEXPR GLenum ViewTypeToGLenumTarget[IGPUImageView::ET_COUNT] = {
+		static inline constexpr GLenum ViewTypeToGLenumTarget[IGPUImageView::ET_COUNT] = {
 			GL_TEXTURE_1D,GL_TEXTURE_2D,GL_TEXTURE_3D,GL_TEXTURE_CUBE_MAP,GL_TEXTURE_1D_ARRAY,GL_TEXTURE_2D_ARRAY,GL_TEXTURE_CUBE_MAP_ARRAY
 		};
-		_NBL_STATIC_INLINE_CONSTEXPR GLenum ComponentMappingToGLenumSwizzle[IGPUImageView::SComponentMapping::ES_COUNT] = {GL_INVALID_ENUM,GL_ZERO,GL_ONE,GL_RED,GL_GREEN,GL_BLUE,GL_ALPHA};
+		static inline constexpr GLenum ComponentMappingToGLenumSwizzle[IGPUImageView::SComponentMapping::ES_COUNT] = {GL_INVALID_ENUM,GL_ZERO,GL_ONE,GL_RED,GL_GREEN,GL_BLUE,GL_ALPHA};
 
 		void setObjectDebugName(const char* label) const override;
 
 		GLenum getOpenGLTarget() const
 		{
-			auto viewtype = params.viewType;
-			GLenum target = ViewTypeToGLenumTarget[viewtype];
 			return target;
 		}
 
@@ -40,6 +38,19 @@ class COpenGLImageView final : public IGPUImageView
 			IGPUImageView(std::move(dev), std::move(_params)), name(0u), target(GL_INVALID_ENUM), internalFormat(GL_INVALID_ENUM)
 		{
 			target = ViewTypeToGLenumTarget[params.viewType];
+			if (params.image->getCreationParameters().samples>1u)
+			switch (target)
+			{
+				case GL_TEXTURE_2D:
+					target = GL_TEXTURE_2D_MULTISAMPLE;
+					break;
+				case GL_TEXTURE_2D_ARRAY:
+					target = GL_TEXTURE_2D_MULTISAMPLE_ARRAY;
+					break;
+				default:
+					target = GL_INVALID_ENUM;
+					break;
+			}
 			internalFormat = getSizedOpenGLFormatFromOurFormat(gl, params.format);
             assert(internalFormat != GL_INVALID_ENUM);
 
@@ -67,7 +78,6 @@ class COpenGLImageView final : public IGPUImageView
 		}
 
 		inline GLuint getOpenGLName() const { return name; }
-		inline GLenum getOpenGLTextureType() const {return target;}
 		inline GLenum getInternalFormat() const { return internalFormat; }
 };
 
