@@ -320,33 +320,33 @@ uint32_t CPropertyPoolHandler::transferProperties(
 			return 0u;
 		
 		const uint32_t worstCasePadding = m_alignment*propertiesThisPass-propertiesThisPass;
-		const auto begin = MemoryUsageIterator(localRequests,propertiesThisPass,baseDWORDs,0u);
-		const uint32_t minimumMemoryNeeded = worstCasePadding+begin.getUsage();
-        const uint32_t freeSpace = static_cast<uint32_t>(core::alignDown(upBuff->max_size(),m_alignment));
-		if (freeSpace<minimumMemoryNeeded)
-			return 0u;
-		auto paddedSize = freeSpace-worstCasePadding;
-		uint32_t doneDWORDs;
+		// prevent micro dispatches
+		const uint32_t minimumDWORDs = core::min(limits.maxResidentInvocations,remainingDWORDs);
+		auto memoryUsage = MemoryUsageIterator(localRequests,propertiesThisPass,baseDWORDs,minimumDWORDs);
+
+		uint32_t doneDWORDs = minimumDWORDs;
+		// can we do better? lets check.
 		{
-			doneDWORDs = std::distance(
-				begin,
-				std::upper_bound(
-					begin,
+			const uint32_t minimumMemoryNeeded = core::alignUp(memoryUsage.getUsage()+worstCasePadding,m_alignment);
+			const uint32_t freeSpace = static_cast<uint32_t>(core::alignDown(upBuff->max_size(),m_alignment));
+
+			if (freeSpace>minimumMemoryNeeded)
+			{
+				memoryUsage = std::upper_bound(
+					memoryUsage,
 					MemoryUsageIterator(localRequests,propertiesThisPass,baseDWORDs,remainingDWORDs+1u),
-					paddedSize
-				)
-			);
-			assert(doneDWORDs);
-			--doneDWORDs;
-			// prevent micro dispatches
-			if (doneDWORDs!=remainingDWORDs && doneDWORDs<limits.maxResidentInvocations)
-				return 0u;
+					freeSpace-worstCasePadding
+				);
+				memoryUsage--;
+				doneDWORDs = std::distance(MemoryUsageIterator(localRequests,propertiesThisPass,baseDWORDs,0u),memoryUsage);
+				assert(doneDWORDs>=minimumDWORDs);
+			}
 		}
-		paddedSize += worstCasePadding;
-		
+
 		constexpr auto invalid_address = std::remove_reference_t<decltype(upBuff->getAllocator())>::invalid_address;
 		auto addr = invalid_address;
-		upBuff->multi_alloc(maxWaitPoint,1u,&addr,&paddedSize,&m_alignment);
+		const auto size = static_cast<uint32_t>(core::alignUp(memoryUsage.getUsage()+worstCasePadding,m_alignment));
+		upBuff->multi_alloc(maxWaitPoint,1u,&addr,&size,&m_alignment);
 		if (addr!=invalid_address)
 		{
 			const auto endDWORD = baseDWORDs+doneDWORDs;
@@ -411,22 +411,22 @@ uint32_t CPropertyPoolHandler::transferProperties(
 				else
 					transfer.dstAddressesOffset = IPropertyPool::invalid;
 			}
-			assert(offset*sizeof(uint32_t)<=paddedSize+addr);
+			assert(offset*sizeof(uint32_t)<=size+addr);
 			// flush if needed
 			if (upBuff->needsManualFlushOrInvalidate())
 			{
 				IDriverMemoryAllocation::MappedMemoryRange flushRange;
 				flushRange.memory = uploadBuffer.buffer->getBoundMemory();
-				flushRange.range = {addr,paddedSize};
+				flushRange.range = {addr,size};
 				m_device->flushMappedMemoryRanges(1u,&flushRange);
 			}
 			// no pipeline barriers necessary because write and optional flush happens before submit, and memory allocation is reclaimed after fence signal
 			if (transferProperties(cmdbuf,fence,scratch,uploadBuffer,xfers,xfers+propertiesThisPass,logger,baseDWORDs,endDWORD))
 			{
-				upBuff->multi_free(1u,&addr,&paddedSize,core::smart_refctd_ptr<IGPUFence>(fence),&cmdbuf);
+				upBuff->multi_free(1u,&addr,&size,core::smart_refctd_ptr<IGPUFence>(fence),&cmdbuf);
 				return doneDWORDs;
 			}
-			upBuff->multi_free(1u,&addr,&paddedSize);
+			upBuff->multi_free(1u,&addr,&size);
 		}
 		return 0u;
 	};
