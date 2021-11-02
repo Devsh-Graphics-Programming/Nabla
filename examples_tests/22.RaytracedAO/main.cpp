@@ -247,7 +247,7 @@ int main(int argc, char** argv)
 		scene::ICameraSceneNode * staticCamera;
 		scene::ICameraSceneNode * interactiveCamera;
 		std::filesystem::path outputFilePath;
-		ext::MitsubaLoader::CElementFilm::FileFormat format;
+		ext::MitsubaLoader::CElementFilm::FileFormat fileFormat;
 
 		void resetInteractiveCamera()
 		{
@@ -268,6 +268,27 @@ int main(int argc, char** argv)
 
 	auto smgr = device->getSceneManager();
 	
+	// When outputFilePath isn't set in Film Element in Mitsuba, use this to find the extension string.
+	auto getFileExtensionFromFormat= [](ext::MitsubaLoader::CElementFilm::FileFormat format) -> std::string
+	{
+		std::string ret = "";
+		using FileFormat = ext::MitsubaLoader::CElementFilm::FileFormat;
+		switch (format) {
+		case FileFormat::PNG:
+			ret = ".png";
+			break;
+		case FileFormat::OPENEXR:
+			ret = ".exr";
+			break;
+		case FileFormat::JPEG:
+			ret = ".jpg";
+			break;
+		default: // TODO?
+			break;
+		}
+		return ret;
+	};
+
 	auto isFileExtensionCompatibleWithFormat = [](std::string extension, ext::MitsubaLoader::CElementFilm::FileFormat format) -> bool
 	{
 		if(extension.empty())
@@ -371,8 +392,8 @@ int main(int argc, char** argv)
 		std::cout << "\t Camera Move Speed = " << outSensorData.moveSpeed << std::endl;
 
 		outSensorData.outputFilePath = std::filesystem::path(film.outputFilePath);
-		
-		if(!isFileExtensionCompatibleWithFormat(outSensorData.outputFilePath.extension().string(), film.fileFormat))
+		outSensorData.fileFormat = film.fileFormat;
+		if(!isFileExtensionCompatibleWithFormat(outSensorData.outputFilePath.extension().string(), outSensorData.fileFormat))
 		{
 			std::cout << "[ERROR] film.outputFilePath's extension is not compatible with film.fileFormat" << std::endl;
 		}
@@ -583,8 +604,9 @@ int main(int argc, char** argv)
 				lastFPSTime = time;
 			}
 		}
-	
-		renderer->takeAndSaveScreenShot(std::filesystem::path("LastView_" + mainFileName + "_Sensor_" + std::to_string(activeSensor) + ".exr"));
+		
+		auto extensionStr = getFileExtensionFromFormat(sensors[activeSensor].fileFormat);
+		renderer->takeAndSaveScreenShot(std::filesystem::path("LastView_" + mainFileName + "_Sensor_" + std::to_string(activeSensor) + extensionStr));
 		renderer->deinitScreenSizedResources();
 	}
 
@@ -637,7 +659,10 @@ int main(int argc, char** argv)
 
 		auto screenshotFilePath = sensorData.outputFilePath;
 		if (screenshotFilePath.empty())
-			screenshotFilePath = std::filesystem::path("ScreenShot_" + mainFileName + "_Sensor_" + std::to_string(s) + ".exr");
+		{
+			auto extensionStr = getFileExtensionFromFormat(sensorData.fileFormat);
+			screenshotFilePath = std::filesystem::path("ScreenShot_" + mainFileName + "_Sensor_" + std::to_string(s) + extensionStr);
+		}
 		
 		std::cout << "-- Rendered Successfully: " << filePath << " (Sensor=" << s << ") to file (" << screenshotFilePath.string() << ")." << std::endl;
 
