@@ -265,10 +265,13 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 		inline uint32_t getDescriptorCountAtIndex(uint32_t index) const
 		{
 			const auto& info = m_bindingInfo->operator[](index);
-			if (index+1u!=m_bindingInfo->size())
-				return m_bindingInfo->operator[](index+1u).offset-info.offset;
+			if (index + 1u != m_bindingInfo->size())
+			{
+				const auto& info1 = m_bindingInfo->operator[](index + 1u);
+				return info1.offset - info.offset;
+			}
 			else
-				return m_descriptors->size()+1u-info.offset; // TODO: this +1 doesn't look right
+				return m_descriptors->size() - info.offset;
 		}
 
 		inline const SBindingInfo* getBindingInfo(uint32_t offset) const
