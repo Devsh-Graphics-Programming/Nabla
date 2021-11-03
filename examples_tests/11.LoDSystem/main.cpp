@@ -331,7 +331,7 @@ class LoDSystemApp : public ApplicationBase
             transferUpQueue = queues[decltype(initOutput)::EQT_TRANSFER_UP];
 
             ttm = scene::ITransformTreeManager::create(utilities.get(), transferUpQueue);
-            tt = scene::ITransformTree::create(logicalDevice.get(), MaxInstanceCount);
+            tt = scene::ITransformTree::create(logicalDevice.get(), core::smart_refctd_ptr(renderpass), MaxInstanceCount);
             const auto* ctt = tt.get(); // fight compiler, hard
             const video::IPropertyPool* nodePP = ctt->getNodePropertyPool();
 

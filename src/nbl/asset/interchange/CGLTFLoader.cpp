@@ -112,7 +112,7 @@ namespace nbl
 			#define NBL_COMPILE_WITH_SYSTEM_BUG // remove this after above fixed
 
 			#ifdef NBL_COMPILE_WITH_SYSTEM_BUG
-			if (_file->getFileName().string() == "missing_checkerboard_texture.png")
+			if (_file->getFileName().filename().string() == "missing_checkerboard_texture.png")
 				return false;
 			#endif // NBL_COMPILE_WITH_SYSTEM_BUG
 
@@ -1345,14 +1345,9 @@ namespace nbl
 									const asset::ICPUShader* unspecializedShader = cpuShader->getUnspecialized();
 									assert(unspecializedShader->containsGLSL());
 
-									auto begin = reinterpret_cast<const char*>(unspecializedShader->getSPVorGLSL()->getPointer());
-									auto end = begin + unspecializedShader->getSPVorGLSL()->getSize();
-									std::string glsl(begin, end);
-
-									std::string newGlslCode = NBL_SKINNING_OVERRIDE.data() + glsl;
-									auto newUnspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(newGlslCode.c_str());
-
+									auto newUnspecializedShader = IGLSLCompiler::createOverridenCopy(unspecializedShader, NBL_SKINNING_OVERRIDE.data(), 69);
 									auto specializedInfo = cpuShader->getSpecializationInfo();
+
 									return core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(newUnspecializedShader), std::move(specializedInfo));
 								};
 
