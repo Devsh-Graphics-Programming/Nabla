@@ -111,7 +111,7 @@ class IGLSLCompiler final : public core::IReferenceCounted
 				}
 			};
 			constexpr size_t templateArgsCount = sizeof...(Args);
-			size_t origLen = original ? original->conservativeSizeEstimate():0u;
+			size_t origLen = original ? original->getSPVorGLSL()->getSize():0u;
 			size_t formatArgsCharSize = (getMaxSize(args) + ...);
 			size_t formatSize = strlen(fmt);
 			// 2 is an average size of a format (% and a letter) in chars. 
