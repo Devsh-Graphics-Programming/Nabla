@@ -43,7 +43,7 @@ class COIT
 
         bool initialize(video::ILogicalDevice* dev, uint32_t w, uint32_t h,
             video::IGPUObjectFromAssetConverter::SParams& c2gparams,
-            uint32_t set = DefaultSetNum, uint32_t colorBnd = DefaultColorImgBinding, uint32_t depthBnd = DefaultDepthImgBinding, uint32_t visBnd = DefaultVisImgBinding)
+            uint32_t set = DefaultSetNum, uint32_t colorBnd = DefaultColorImgBinding, uint32_t depthBnd = DefaultDepthImgBinding, uint32_t visBnd = DefaultVisImgBinding, uint32_t spinlockBnd = DefaultSpinlockImgBinding)
         {
             auto createOITImage = [&dev,w,h](asset::E_FORMAT fmt) -> core::smart_refctd_ptr<video::IGPUImageView> {
                 core::smart_refctd_ptr<video::IGPUImage> img;
@@ -102,6 +102,7 @@ class COIT
             resolve_glsl += "#define NBL_GLSL_COLOR_IMAGE_BINDING " + std::to_string(colorBnd) + "\n";
             resolve_glsl += "#define NBL_GLSL_DEPTH_IMAGE_BINDING " + std::to_string(depthBnd) + "\n";
             resolve_glsl += "#define NBL_GLSL_VIS_IMAGE_BINDING " + std::to_string(visBnd) + "\n";
+            resolve_glsl += "#define NBL_GLSL_SPINLOCK_IMAGE_BINDING " + std::to_string(spinlockBnd) + "\n";
             resolve_glsl += "#include <nbl/builtin/glsl/ext/OIT/resolve.frag>\n";
 
             const bool hasInterlock = false; // TODO: @Erfan dev->getPhysicalDevice()->getLimits().fragmentShaderInterlock;
