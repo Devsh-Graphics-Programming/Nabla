@@ -21,7 +21,7 @@ SimpleGPUBufferAllocator::value_type SimpleGPUBufferAllocator::allocate(size_t b
     // This doesn't matter right now because updateBufferRangeViaStagingBuffer 
     // only makes use of upstreaming buffer which would be TRANSFER_SRC
     IGPUBuffer::SCreationParams creationParams = {};
-    creationParams.usage = IGPUBuffer::EUF_TRANSFER_SRC_BIT;
+    creationParams.usage = static_cast<asset::IBuffer::E_USAGE_FLAGS>(IGPUBuffer::EUF_TRANSFER_SRC_BIT | IGPUBuffer::EUF_STORAGE_BUFFER_BIT);
     creationParams.sharingMode = asset::ESM_EXCLUSIVE;
     creationParams.queueFamilyIndexCount = 0u;
     creationParams.queueFamilyIndices = nullptr;

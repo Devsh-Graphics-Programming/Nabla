@@ -103,7 +103,7 @@ bool CVulkanQueue::submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFenc
     return false;
 }
 
-bool CVulkanQueue::present(const SPresentInfo& info)
+ISwapchain::E_PRESENT_RESULT CVulkanQueue::present(const SPresentInfo& info)
 {
     auto* vk = static_cast<const CVulkanLogicalDevice*>(m_originDevice)->getFunctionTable();
 
@@ -112,7 +112,7 @@ bool CVulkanQueue::present(const SPresentInfo& info)
     for (uint32_t i = 0u; i < info.waitSemaphoreCount; ++i)
     {
         if (info.waitSemaphores[i]->getAPIType() != EAT_VULKAN)
-            return false;
+            return ISwapchain::EPR_ERROR;
 
         vk_waitSemaphores[i] = static_cast<const CVulkanSemaphore*>(info.waitSemaphores[i])->getInternalObject();
     }
@@ -122,9 +122,9 @@ bool CVulkanQueue::present(const SPresentInfo& info)
     for (uint32_t i = 0u; i < info.swapchainCount; ++i)
     {
         if (info.swapchains[i]->getAPIType() != EAT_VULKAN)
-            return false;
+            return ISwapchain::EPR_ERROR;
 
-        vk_swapchains[i] = static_cast<const CVulkanSwapchain*>(info.swapchains[i])->m_vkSwapchainKHR;
+        vk_swapchains[i] = static_cast<const CVulkanSwapchain*>(info.swapchains[i])->getInternalObject();
     }
 
     VkPresentInfoKHR presentInfo = { VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
@@ -134,15 +134,15 @@ bool CVulkanQueue::present(const SPresentInfo& info)
     presentInfo.pSwapchains = vk_swapchains;
     presentInfo.pImageIndices = info.imgIndices;
 
-    VkResult result = vk->vk.vkQueuePresentKHR(m_vkQueue, &presentInfo);
-
-    switch (result)
+    VkResult retval = vk->vk.vkQueuePresentKHR(m_vkQueue, &presentInfo);
+    switch (retval)
     {
     case VK_SUCCESS:
+        return ISwapchain::EPR_SUCCESS;
     case VK_SUBOPTIMAL_KHR:
-        return true;
+        return ISwapchain::EPR_SUBOPTIMAL;
     default:
-        return false;
+        return ISwapchain::EPR_ERROR;
     }
 }
 

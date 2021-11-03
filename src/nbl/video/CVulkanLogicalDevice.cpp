@@ -46,7 +46,7 @@ IGPUEvent::E_STATUS CVulkanLogicalDevice::resetEvent(IGPUEvent* _event)
 
     VkEvent vk_event = static_cast<const CVulkanEvent*>(_event)->getInternalObject();
     if (m_devf.vk.vkResetEvent(m_vkdev, vk_event) == VK_SUCCESS)
-        return IGPUEvent::ES_RESET; // weird return value alert!
+        return IGPUEvent::ES_RESET;
     else
         return IGPUEvent::ES_FAILURE;
 }
@@ -58,7 +58,7 @@ IGPUEvent::E_STATUS CVulkanLogicalDevice::setEvent(IGPUEvent* _event)
 
     VkEvent vk_event = static_cast<const CVulkanEvent*>(_event)->getInternalObject();
     if (m_devf.vk.vkSetEvent(m_vkdev, vk_event) == VK_SUCCESS)
-        return IGPUEvent::ES_SET; // weird return value alert!
+        return IGPUEvent::ES_SET;
     else
         return IGPUEvent::ES_FAILURE;
 }
@@ -99,9 +99,6 @@ core::smart_refctd_ptr<IDriverMemoryAllocation> CVulkanLogicalDevice::allocateSp
 core::smart_refctd_ptr<IDriverMemoryAllocation> CVulkanLogicalDevice::allocateUpStreamingMemory(
     const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs)
 {
-    if (getUpStreamingMemoryReqs().memoryHeapLocation != additionalReqs.memoryHeapLocation)
-        return nullptr;
-
     IDriverMemoryBacked::SDriverMemoryRequirements memoryReqs = getUpStreamingMemoryReqs();
     memoryReqs.vulkanReqs.alignment = core::max(memoryReqs.vulkanReqs.alignment, additionalReqs.vulkanReqs.alignment);
     memoryReqs.vulkanReqs.size = core::max(memoryReqs.vulkanReqs.size, additionalReqs.vulkanReqs.size);
@@ -117,9 +114,6 @@ core::smart_refctd_ptr<IDriverMemoryAllocation> CVulkanLogicalDevice::allocateUp
 core::smart_refctd_ptr<IDriverMemoryAllocation> CVulkanLogicalDevice::allocateDownStreamingMemory(
     const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs)
 {
-    if (getDownStreamingMemoryReqs().memoryHeapLocation != additionalReqs.memoryHeapLocation)
-        return nullptr;
-
     IDriverMemoryBacked::SDriverMemoryRequirements memoryReqs = getDownStreamingMemoryReqs();
     memoryReqs.vulkanReqs.alignment = core::max(memoryReqs.vulkanReqs.alignment, additionalReqs.vulkanReqs.alignment);
     memoryReqs.vulkanReqs.size = core::max(memoryReqs.vulkanReqs.size, additionalReqs.vulkanReqs.size);
@@ -337,6 +331,10 @@ bool CVulkanLogicalDevice::createGPUGraphicsPipelines_impl(
 
     core::vector<VkPipelineMultisampleStateCreateInfo> vk_multisampleStates(params.size());
 
+    core::vector<VkStencilOpState> vk_stencilFrontStates(params.size());
+    core::vector<VkStencilOpState> vk_stencilBackStates(params.size());
+    core::vector<VkPipelineDepthStencilStateCreateInfo> vk_depthStencilStates(params.size());
+
     uint32_t colorBlendAttachmentCount_total = 0u;
     core::vector<VkPipelineColorBlendAttachmentState> vk_colorBlendAttachmentStates(params.size() * asset::SBlendParams::MAX_COLOR_ATTACHMENT_COUNT);
     core::vector<VkPipelineColorBlendStateCreateInfo> vk_colorBlendStates(params.size());
@@ -523,7 +521,41 @@ bool CVulkanLogicalDevice::createGPUGraphicsPipelines_impl(
         vk_createInfos[i].pMultisampleState = &vk_multisampleStates[i];
 
         // Depth-stencil
-        vk_createInfos[i].pDepthStencilState = nullptr;
+        {
+            const auto& rasterParams = rpIndie->getRasterizationParams();
+
+            // Front stencil state
+            vk_stencilFrontStates[i].failOp = static_cast<VkStencilOp>(rasterParams.frontStencilOps.failOp);
+            vk_stencilFrontStates[i].passOp = static_cast<VkStencilOp>(rasterParams.frontStencilOps.passOp);
+            vk_stencilFrontStates[i].depthFailOp = static_cast<VkStencilOp>(rasterParams.frontStencilOps.depthFailOp);
+            vk_stencilFrontStates[i].compareOp = static_cast<VkCompareOp>(rasterParams.frontStencilOps.compareOp);
+            vk_stencilFrontStates[i].compareMask = 0xFFFFFFFF;
+            vk_stencilFrontStates[i].writeMask = rasterParams.frontStencilOps.writeMask;
+            vk_stencilFrontStates[i].reference = rasterParams.frontStencilOps.reference;
+
+            // Back stencil state
+            vk_stencilBackStates[i].failOp = static_cast<VkStencilOp>(rasterParams.backStencilOps.failOp);
+            vk_stencilBackStates[i].passOp = static_cast<VkStencilOp>(rasterParams.backStencilOps.passOp);
+            vk_stencilBackStates[i].depthFailOp = static_cast<VkStencilOp>(rasterParams.backStencilOps.depthFailOp);
+            vk_stencilBackStates[i].compareOp = static_cast<VkCompareOp>(rasterParams.backStencilOps.compareOp);
+            vk_stencilBackStates[i].compareMask = 0xFFFFFFFF;
+            vk_stencilBackStates[i].writeMask = rasterParams.backStencilOps.writeMask;
+            vk_stencilBackStates[i].reference = rasterParams.backStencilOps.reference;
+            
+            vk_depthStencilStates[i].sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+            vk_depthStencilStates[i].pNext = nullptr;
+            vk_depthStencilStates[i].flags = static_cast<VkPipelineDepthStencilStateCreateFlags>(0u);
+            vk_depthStencilStates[i].depthTestEnable = rasterParams.depthTestEnable;
+            vk_depthStencilStates[i].depthWriteEnable = rasterParams.depthWriteEnable;
+            vk_depthStencilStates[i].depthCompareOp = static_cast<VkCompareOp>(rasterParams.depthCompareOp);
+            vk_depthStencilStates[i].depthBoundsTestEnable = rasterParams.depthBoundsTestEnable;
+            vk_depthStencilStates[i].stencilTestEnable = rasterParams.stencilTestEnable;
+            vk_depthStencilStates[i].front = vk_stencilFrontStates[i];
+            vk_depthStencilStates[i].back = vk_stencilBackStates[i];
+            vk_depthStencilStates[i].minDepthBounds = 0.f;
+            vk_depthStencilStates[i].maxDepthBounds = 1.f;
+        }
+        vk_createInfos[i].pDepthStencilState = &vk_depthStencilStates[i];
 
         // Color blend
         {

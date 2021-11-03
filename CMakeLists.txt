@@ -85,7 +85,6 @@ if(NBL_BUILD_ANDROID)
 	set(_NBL_COMPILE_WITH_BAW_WRITER_ OFF CACHE BOOL "Off for Android purposes at the moment" FORCE)	# TODO - remove when BAW-v4 is done
 	set(_NBL_COMPILE_WITH_OBJ_LOADER_ OFF CACHE BOOL "Off for Android purposes at the moment" FORCE) 	# TODO - references BAW files, linker errors
 	set(NBL_BUILD_MITSUBA_LOADER OFF CACHE BOOL "Off for Android purposes at the moment" FORCE) 		# TODO - compile/linker errors
-	set(NBL_BUILD_EXAMPLES OFF CACHE BOOL "Off for Android purposes at the moment" FORCE)				# TODO - check it out
 	
 	find_package(Java 1.8)
 	
@@ -154,7 +153,7 @@ if(NBL_BUILD_ANDROID)
         unset(__buildTools)
     endif()
 	set(ANDROID_BUILD_TOOLS "${ANDROID_SDK_ROOT_PATH}/build-tools/${ANDROID_BUILD_TOOLS_VERSION}")
-	set(ANDROID_JAVA_BIN "${JAVA_HOME}/bin")
+	set(ANDROID_JAVA_BIN "${JAVA_HOME}")
 	set(ANDROID_JAVA_RT_JAR "${JAVA_HOME}/jre/lib/rt.jar")
 
 	set(ANDROID_APK_TARGET_ID "" CACHE STRING "The Target ID to build the APK for like 'android-99', use <android list targets> to choose another one.")
@@ -194,6 +193,10 @@ if(NBL_BUILD_ANDROID)
 endif()
 
 project(Nabla LANGUAGES CXX C)
+
+if(NBL_BUILD_ANDROID)
+	enable_language(ASM)
+endif()
 
 find_package(Vulkan)
 if (Vulkan_FOUND)
@@ -458,10 +461,12 @@ option(NBL_BUILD_DOCS "Enable building documentation?" OFF) # No one has doxygen
 set(THIRD_PARTY_SOURCE_DIR "${PROJECT_SOURCE_DIR}/3rdparty")
 set(THIRD_PARTY_BINARY_DIR "${PROJECT_BINARY_DIR}/3rdparty")
 
+if(NBL_UPDATE_GIT_SUBMODULE)
 execute_process(COMMAND git submodule init
 		WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
 execute_process(COMMAND git submodule sync --recursive
 		WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
+endif()
 add_subdirectory(${THIRD_PARTY_SOURCE_DIR})
 
 OPTION(NBL_EMBED_BUILTIN_RESOURCES "Embed built-in resources?" ON)
@@ -470,10 +475,6 @@ add_subdirectory(src/nbl) # Nabla code	|	Moved cmakelists.txt from source/Nabla 
 
 if(NBL_BUILD_TOOLS)
 	add_subdirectory(tools) # convert2BAW
-endif()
-
-if(ANDROID)
-add_subdirectory(android-sample EXCLUDE_FROM_ALL)
 endif()
 
 if(NBL_BUILD_EXAMPLES)

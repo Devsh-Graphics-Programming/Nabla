@@ -213,6 +213,13 @@ namespace nbl::video
                 return nullptr;
             }
 
+            if (physicalDeviceCount > MAX_PHYSICAL_DEVICE_COUNT)
+            {
+                if (debugCallback)
+                    LOG(debugCallback->getLogger(), "Too many physical devices (%d) found!", system::ILogger::ELL_ERROR, physicalDeviceCount);
+                return nullptr;
+            }
+
             vkEnumeratePhysicalDevices(vk_instance, &physicalDeviceCount, vk_physicalDevices);
         }
 
@@ -223,7 +230,8 @@ namespace nbl::video
                 return nullptr;
         }
 
-        auto api = core::make_smart_refctd_ptr<CVulkanConnection>(vk_instance, std::move(debugCallback), vk_debugMessenger);
+        CVulkanConnection* apiRaw = new CVulkanConnection(vk_instance, std::move(debugCallback), vk_debugMessenger);
+        core::smart_refctd_ptr<CVulkanConnection> api(apiRaw, core::dont_grab);
         auto& physicalDevices = api->m_physicalDevices;
         physicalDevices.reserve(physicalDeviceCount);
         for (uint32_t i = 0u; i < physicalDeviceCount; ++i)
@@ -238,7 +246,9 @@ namespace nbl::video
         return api;
     }
 
-    CVulkanConnection::CVulkanConnection(VkInstance instance, std::unique_ptr<CVulkanDebugCallback>&& debugCallback,
+    CVulkanConnection::CVulkanConnection(
+        VkInstance instance,
+        std::unique_ptr<CVulkanDebugCallback>&& debugCallback,
         VkDebugUtilsMessengerEXT vk_debugMessenger)
         : IAPIConnection(), m_vkInstance(instance), m_debugCallback(std::move(debugCallback)),
         m_vkDebugUtilsMessengerEXT(vk_debugMessenger)
@@ -253,4 +263,25 @@ namespace nbl::video
     }
 
     IDebugCallback* CVulkanConnection::getDebugCallback() const { return m_debugCallback.get(); }
+
+    void CVulkanConnection::getVulkanExtensionNamesFromFeature(const IAPIConnection::E_FEATURE feature, uint32_t& extNameCount, const char** extNames)
+    {
+        extNameCount = 0u;
+
+        switch (feature)
+        {
+        case IAPIConnection::EF_SURFACE:
+        {
+            extNames[extNameCount++] = VK_KHR_SURFACE_EXTENSION_NAME;
+#if defined(_NBL_PLATFORM_WINDOWS_)
+            extNames[extNameCount++] = VK_KHR_WIN32_SURFACE_EXTENSION_NAME;
+#endif
+        } break;
+
+        default:
+            break;
+        }
+
+        assert(extNameCount <= 8u); // it is rare that any feature will spawn more than 8 "variations" (usually due to OS-specific stuff), consequently the caller might only provide enough memory to write <= 8 of them
+    }
 }

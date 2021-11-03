@@ -1,5 +1,4 @@
 #version 440 core
-#pragma shader_stage(compute)
 layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_) in;
 
 #include "nbl/builtin/glsl/property_pool/transfer.glsl"
@@ -31,7 +30,7 @@ void main()
     const uint propID = gl_WorkGroupID.y;
     const nbl_glsl_property_pool_transfer_t transfer = getTransferData(propID);
 
-  const int flagsBitOffset = 32-NBL_BUILTIN_PROPERTY_POOL_TRANSFER_EF_BIT_COUNT;
+    const int flagsBitOffset = 32-NBL_BUILTIN_PROPERTY_POOL_TRANSFER_EF_BIT_COUNT;
 	const uint propDWORDs = uint(bitfieldExtract(transfer.propertyDWORDsize_flags,0,flagsBitOffset));
 
     const uint index = gl_GlobalInvocationID.x/propDWORDs;
@@ -42,7 +41,7 @@ void main()
     const uint srcAddress = transfer.srcIndexOffset!=NBL_BUILTIN_PROPERTY_POOL_INVALID ? addresses[srcIndex+transfer.srcIndexOffset]:srcIndex;
     const uint dstAddress = transfer.dstIndexOffset!=NBL_BUILTIN_PROPERTY_POOL_INVALID ? addresses[index+transfer.dstIndexOffset]:index;
 	// its equivalent to `addresses[index]*propDWORDs+gl_GlobalInvocationID.x%propDWORDs`
-	const uint srcDWORD = (srcAddress-srcIndex)*propDWORDs+gl_GlobalInvocationID.x;
+	const uint srcDWORD = (srcAddress-index)*propDWORDs+gl_GlobalInvocationID.x;
 	const uint dstDWORD = (dstAddress-index)*propDWORDs+gl_GlobalInvocationID.x;
     outBuff[propID].data[dstDWORD] = inBuff[propID].data[srcDWORD];
 }

@@ -6,13 +6,13 @@ layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_) in;
 #define NBL_GLSL_CULLING_LOD_SELECTION_INSTANCE_PVS_INSTANCES_DESCRIPTOR_QUALIFIERS restrict writeonly
 #define NBL_GLSL_CULLING_LOD_SELECTION_INSTANCE_DRAWCALL_INCLUSIVE_COUNTS_DESCRIPTOR_QUALIFIERS restrict writeonly
 #define NBL_GLSL_CULLING_LOD_SELECTION_PVS_INSTANCE_DRAWS_DESCRIPTOR_QUALIFIERS restrict writeonly
-#define NBL_GLSL_CULLING_LOD_SELECTION_DRAW_COUNTS_TO_SCAN_DESCRIPTOR_BINDING
+#define NBL_GLSL_CULLING_LOD_SELECTION_DRAW_COUNTS_TO_SCAN_DESCRIPTOR_DECLARED
 #include <nbl/builtin/glsl/culling_lod_selection/input_descriptor_set.glsl>
 
 #define NBL_GLSL_CULLING_LOD_SELECTION_PER_VIEW_PER_INSTANCE_DESCRIPTOR_QUALIFIERS restrict writeonly
-#define NBL_GLSL_CULLING_LOD_SELECTION_PER_INSTANCE_REDIRECT_ATTRS_DESCRIPTOR_BINDING
+#define NBL_GLSL_CULLING_LOD_SELECTION_PER_INSTANCE_REDIRECT_ATTRS_DESCRIPTOR_DECLARED
 #define NBL_GLSL_CULLING_LOD_SELECTION_DRAW_CALLS_DESCRIPTOR_QUALIFIERS restrict writeonly
-#define NBL_GLSL_CULLING_LOD_SELECTION_DRAW_CALL_COUNTS_DESCRIPTOR_BINDING
+#define NBL_GLSL_CULLING_LOD_SELECTION_DRAW_CALL_COUNTS_DESCRIPTOR_DECLARED
 #include <nbl/builtin/glsl/culling_lod_selection/output_descriptor_modifiers.glsl>
 
 
@@ -24,20 +24,23 @@ uint nbl_glsl_culling_lod_selection_chooseLoD(in uint lodTableUvec4Offset, in ui
 void nbl_glsl_culling_lod_selection_finalizePerViewPerInstanceData(inout nbl_glsl_PerViewPerInstance_t pvpi, in uint instanceGUID);
 
 
+#include <nbl/builtin/glsl/utils/culling.glsl>
 void main()
 {
     if (gl_GlobalInvocationID.x==0u)
-        dispatchIndirect.instanceRefCountingSortScatter.num_groups_x = 1u;
+        dispatchIndirect.instanceRefCountingSortScatter.num_groups_x = 256u;
     else if (gl_GlobalInvocationID.x==1u)
         pvsInstanceDraws.count = 0u;
+        
+    const uint dispatchSize = gl_WorkGroupSize[0]*_NBL_GLSL_WORKGROUP_SIZE_;
 
     // TODO: in the future make the drawcalls to scan be dynamic and indirect
     // clear the instance counts to 0
-    for (uint drawID=gl_GlobalInvocationID.x; drawID<drawcallsToScan.dwordOffsets.length(); drawID+=_NBL_GLSL_WORKGROUP_SIZE_)
+    for (uint drawID=gl_GlobalInvocationID.x; drawID<drawcallsToScan.dwordOffsets.length(); drawID+=dispatchSize)
         nbl_glsl_culling_lod_selection_drawCallSetInstanceCount(drawcallsToScan.dwordOffsets[drawID],0u);
         
     uint outIx = 0u;
-    for (uint instanceID=gl_GlobalInvocationID.x; instanceID<nbl_glsl_culling_lod_selection_getInstanceCount(); instanceID+=_NBL_GLSL_WORKGROUP_SIZE_)
+    for (uint instanceID=gl_GlobalInvocationID.x; instanceID<nbl_glsl_culling_lod_selection_getInstanceCount(); instanceID+=dispatchSize)
     {
         const uint instanceGUID = instanceList.data[instanceID][0u];
         const uint lodTableUvec4Offset = instanceList.data[instanceID][1u];
@@ -46,16 +49,16 @@ void main()
         nbl_glsl_culling_lod_selection_initializePerViewPerInstanceData(perView,instanceGUID);
         // cull lod_table_t
         const mat2x3 tableAABB =  nbl_glsl_lod_library_Table_getAABB(lodTableUvec4Offset);
-        if (false) // TODO
+        if (nbl_glsl_fastCullAABBvsFrustum(perView.mvp,tableAABB))
             continue;
         // select lod_t
         const uint lodCount = nbl_glsl_lod_library_Table_getLoDCount(lodTableUvec4Offset);
         uint lodInfoUvec4Offset = nbl_glsl_culling_lod_selection_chooseLoD(lodTableUvec4Offset,lodCount);
         // cull the lod_t
         const mat2x3 lodAABB = nbl_glsl_lod_library_Info_getAABB(lodInfoUvec4Offset);
-        if (lodInfoUvec4Offset==0xffffffffu || false) // TODO: check LoD AABB
+        if (lodInfoUvec4Offset==0xffffffffu || nbl_glsl_fastCullAABBvsFrustum(perView.mvp,lodAABB)) // TODO: is there any point to a LoD level having its own AABB?
             continue;
-        outIx = atomicAdd(totalInstanceCountAfterCull,1u);
+        outIx = atomicAdd(totalInstanceCountAfterCull,1u); 
         nbl_glsl_culling_lod_selection_finalizePerViewPerInstanceData(perView,instanceGUID);
         
         pvsInstances.data[outIx] = uvec2(instanceGUID,lodInfoUvec4Offset);

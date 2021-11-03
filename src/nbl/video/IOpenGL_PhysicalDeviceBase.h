@@ -21,7 +21,7 @@ namespace nbl::video
 template <typename LogicalDeviceType>
 class IOpenGL_PhysicalDeviceBase : public IPhysicalDevice
 {
-    using function_table_t = LogicalDeviceType::FunctionTableType;
+    using function_table_t = typename LogicalDeviceType::FunctionTableType;
     static inline constexpr EGLint EGL_API_TYPE = function_table_t::EGL_API_TYPE;
     static inline constexpr bool IsGLES = (EGL_API_TYPE == EGL_OPENGL_ES_API);
 
@@ -351,6 +351,7 @@ public:
 		GetIntegerv(GL_MAX_DRAW_BUFFERS, &num);
 		m_glfeatures.MaxMultipleRenderTargets = static_cast<uint8_t>(num);
 
+		// TODO: move this to IPhysicalDevice::SFeatures
 		const bool runningInRenderDoc = (m_rdoc_api != nullptr);
 		m_glfeatures.runningInRenderDoc = runningInRenderDoc;
 
@@ -364,7 +365,7 @@ public:
 			m_features.multiDrawIndirect = IsGLES ? m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_multi_draw_indirect) : true;
 			m_features.drawIndirectCount = IsGLES ? false : (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_indirect_parameters) || m_glfeatures.Version >= 460u);
 
-			// TODO: handle ARB, EXT, NVidia and AMD extensions which can be used to spoof
+			// TODO: @achal handle ARB, EXT, NVidia and AMD extensions which can be used to spoof
 			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_KHR_shader_subgroup))
 			{
 				GLboolean subgroupQuadAllStages = GL_FALSE;
@@ -442,6 +443,13 @@ public:
 			m_limits.maxWorkgroupSize[1] = m_glfeatures.MaxComputeWGSize[1];
 			m_limits.maxWorkgroupSize[2] = m_glfeatures.MaxComputeWGSize[2];
 
+			// TODO: get this from OpenCL interop, or just a GPU Device & Vendor ID table
+			GetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS,reinterpret_cast<int32_t*>(&m_limits.maxOptimallyResidentWorkgroupInvocations));
+			m_limits.maxOptimallyResidentWorkgroupInvocations = core::min(core::roundDownToPoT(m_limits.maxOptimallyResidentWorkgroupInvocations),512u);
+			constexpr auto beefyGPUWorkgroupMaxOccupancy = 256u; // TODO: find a way to query and report this somehow, persistent threads are very useful!
+			m_limits.maxResidentInvocations = beefyGPUWorkgroupMaxOccupancy*m_limits.maxOptimallyResidentWorkgroupInvocations;
+
+			// TODO: better subgroup exposal
 			m_limits.subgroupSize = 0u;
 			m_limits.subgroupOpsShaderStages = static_cast<asset::IShader::E_SHADER_STAGE>(0u);
 			
@@ -468,7 +476,23 @@ public:
 					m_limits.subgroupOpsShaderStages |= asset::IShader::ESS_COMPUTE;
 			}
 		}
-
+		
+		std::ostringstream pool;
+        addCommonGLSLDefines(pool,runningInRenderDoc);
+		{
+			std::string define;
+			for (size_t j=0ull; j<std::extent<decltype(COpenGLFeatureMap::m_GLSLExtensions)>::value; ++j)
+			{
+				auto nativeGLExtension = COpenGLFeatureMap::m_GLSLExtensions[j];
+				if (m_glfeatures.isFeatureAvailable(nativeGLExtension))
+				{
+					define = "NBL_IMPL_";
+					define += COpenGLFeatureMap::OpenGLFeatureStrings[nativeGLExtension];
+					addGLSLDefineToPool(pool,define.c_str());
+				}
+			}
+		}
+        finalizeGLSLDefinePool(std::move(pool));
 
 		// we dont need this any more
 		m_egl.call.peglMakeCurrent(m_egl.display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
@@ -483,10 +507,390 @@ public:
 
 	bool isSwapchainSupported() const override { return true; }
 
+	inline bool isAllowedTextureFormat(asset::E_FORMAT _fmt) const
+	{
+		using namespace asset;
+		// opengl spec section 8.5.1
+		switch (_fmt)
+		{
+			// formats checked as "Req. tex"
+		case EF_R8_UNORM:
+		case EF_R8_SNORM:
+		case EF_R16_UNORM:
+		case EF_R16_SNORM:
+		case EF_R8G8_UNORM:
+		case EF_R8G8_SNORM:
+		case EF_R16G16_UNORM:
+		case EF_R16G16_SNORM:
+		case EF_R8G8B8_UNORM:
+		case EF_R8G8B8_SNORM:
+		case EF_A1R5G5B5_UNORM_PACK16:
+		case EF_R8G8B8A8_SRGB:
+		case EF_A8B8G8R8_UNORM_PACK32:
+		case EF_A8B8G8R8_SNORM_PACK32:
+		case EF_A8B8G8R8_SRGB_PACK32:
+		case EF_R16_SFLOAT:
+		case EF_R16G16_SFLOAT:
+		case EF_R16G16B16_SFLOAT:
+		case EF_R16G16B16A16_SFLOAT:
+		case EF_R32_SFLOAT:
+		case EF_R32G32_SFLOAT:
+		case EF_R32G32B32_SFLOAT:
+		case EF_R32G32B32A32_SFLOAT:
+		case EF_B10G11R11_UFLOAT_PACK32:
+		case EF_E5B9G9R9_UFLOAT_PACK32:
+		case EF_A2B10G10R10_UNORM_PACK32:
+		case EF_A2B10G10R10_UINT_PACK32:
+		case EF_R16G16B16A16_UNORM:
+		case EF_R8_UINT:
+		case EF_R8_SINT:
+		case EF_R8G8_UINT:
+		case EF_R8G8_SINT:
+		case EF_R8G8B8_UINT:
+		case EF_R8G8B8_SINT:
+		case EF_R8G8B8A8_UNORM:
+		case EF_R8G8B8A8_SNORM:
+		case EF_R8G8B8A8_UINT:
+		case EF_R8G8B8A8_SINT:
+		case EF_B8G8R8A8_UINT:
+		case EF_R16_UINT:
+		case EF_R16_SINT:
+		case EF_R16G16_UINT:
+		case EF_R16G16_SINT:
+		case EF_R16G16B16_UINT:
+		case EF_R16G16B16_SINT:
+		case EF_R16G16B16A16_UINT:
+		case EF_R16G16B16A16_SINT:
+		case EF_R32_UINT:
+		case EF_R32_SINT:
+		case EF_R32G32_UINT:
+		case EF_R32G32_SINT:
+		case EF_R32G32B32_UINT:
+		case EF_R32G32B32_SINT:
+		case EF_R32G32B32A32_UINT:
+		case EF_R32G32B32A32_SINT:
+
+			// depth/stencil/depth+stencil formats checked as "Req. format"
+		case EF_D16_UNORM:
+		case EF_X8_D24_UNORM_PACK32:
+		case EF_D32_SFLOAT:
+		case EF_D24_UNORM_S8_UINT:
+		case EF_S8_UINT:
+
+			// specific compressed formats
+		case EF_BC6H_UFLOAT_BLOCK:
+		case EF_BC6H_SFLOAT_BLOCK:
+		case EF_BC7_UNORM_BLOCK:
+		case EF_BC7_SRGB_BLOCK:
+		case EF_ETC2_R8G8B8_UNORM_BLOCK:
+		case EF_ETC2_R8G8B8_SRGB_BLOCK:
+		case EF_ETC2_R8G8B8A1_UNORM_BLOCK:
+		case EF_ETC2_R8G8B8A1_SRGB_BLOCK:
+		case EF_ETC2_R8G8B8A8_UNORM_BLOCK:
+		case EF_ETC2_R8G8B8A8_SRGB_BLOCK:
+		case EF_EAC_R11_UNORM_BLOCK:
+		case EF_EAC_R11_SNORM_BLOCK:
+		case EF_EAC_R11G11_UNORM_BLOCK:
+		case EF_EAC_R11G11_SNORM_BLOCK:
+			return true;
+
+			// astc
+		case EF_ASTC_4x4_UNORM_BLOCK:
+		case EF_ASTC_5x4_UNORM_BLOCK:
+		case EF_ASTC_5x5_UNORM_BLOCK:
+		case EF_ASTC_6x5_UNORM_BLOCK:
+		case EF_ASTC_6x6_UNORM_BLOCK:
+		case EF_ASTC_8x5_UNORM_BLOCK:
+		case EF_ASTC_8x6_UNORM_BLOCK:
+		case EF_ASTC_8x8_UNORM_BLOCK:
+		case EF_ASTC_10x5_UNORM_BLOCK:
+		case EF_ASTC_10x6_UNORM_BLOCK:
+		case EF_ASTC_10x8_UNORM_BLOCK:
+		case EF_ASTC_10x10_UNORM_BLOCK:
+		case EF_ASTC_12x10_UNORM_BLOCK:
+		case EF_ASTC_12x12_UNORM_BLOCK:
+		case EF_ASTC_4x4_SRGB_BLOCK:
+		case EF_ASTC_5x4_SRGB_BLOCK:
+		case EF_ASTC_5x5_SRGB_BLOCK:
+		case EF_ASTC_6x5_SRGB_BLOCK:
+		case EF_ASTC_6x6_SRGB_BLOCK:
+		case EF_ASTC_8x5_SRGB_BLOCK:
+		case EF_ASTC_8x6_SRGB_BLOCK:
+		case EF_ASTC_8x8_SRGB_BLOCK:
+		case EF_ASTC_10x5_SRGB_BLOCK:
+		case EF_ASTC_10x6_SRGB_BLOCK:
+		case EF_ASTC_10x8_SRGB_BLOCK:
+		case EF_ASTC_10x10_SRGB_BLOCK:
+		case EF_ASTC_12x10_SRGB_BLOCK:
+		case EF_ASTC_12x12_SRGB_BLOCK:
+			return m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_KHR_texture_compression_astc_ldr);
+
+		default: return false;
+		}
+	}
+
+	inline bool isAllowedImageStoreFormat(asset::E_FORMAT _fmt) const
+	{
+		using namespace asset;
+		switch (_fmt)
+		{
+		case EF_R32G32B32A32_SFLOAT:
+		case EF_R16G16B16A16_SFLOAT:
+		case EF_R32G32_SFLOAT:
+		case EF_R16G16_SFLOAT:
+		case EF_B10G11R11_UFLOAT_PACK32:
+		case EF_R32_SFLOAT:
+		case EF_R16_SFLOAT:
+		case EF_R16G16B16A16_UNORM:
+		case EF_A2B10G10R10_UNORM_PACK32:
+		case EF_R8G8B8A8_UNORM:
+		case EF_R16G16_UNORM:
+		case EF_R8G8_UNORM:
+		case EF_R16_UNORM:
+		case EF_R8_UNORM:
+		case EF_R16G16B16A16_SNORM:
+		case EF_R8G8B8A8_SNORM:
+		case EF_R16G16_SNORM:
+		case EF_R8G8_SNORM:
+		case EF_R16_SNORM:
+		case EF_R32G32B32A32_UINT:
+		case EF_R16G16B16A16_UINT:
+		case EF_A2B10G10R10_UINT_PACK32:
+		case EF_R8G8B8A8_UINT:
+		case EF_R32G32_UINT:
+		case EF_R16G16_UINT:
+		case EF_R8G8_UINT:
+		case EF_R32_UINT:
+		case EF_R16_UINT:
+		case EF_R8_UINT:
+		case EF_R32G32B32A32_SINT:
+		case EF_R16G16B16A16_SINT:
+		case EF_R8G8B8A8_SINT:
+		case EF_R32G32_SINT:
+		case EF_R16G16_SINT:
+		case EF_R8G8_SINT:
+		case EF_R32_SINT:
+		case EF_R16_SINT:
+		case EF_R8_SINT:
+			return true;
+		default: return false;
+		}
+	}
+
+	inline bool isAllowedImageStoreAtomicFormat(asset::E_FORMAT format) const
+	{
+		switch (format)
+		{
+		case asset::EF_R32_SINT:
+		case asset::EF_R32_UINT:
+			return true;
+		default:
+			return false;
+		}
+	}
+
+	inline bool isAllowedBufferViewFormat(asset::E_FORMAT _fmt) const
+	{
+		using namespace asset;
+		switch (_fmt)
+		{
+		case EF_R8_UNORM: [[fallthrough]];
+		case EF_R16_UNORM: [[fallthrough]];
+		case EF_R16_SFLOAT: [[fallthrough]];
+		case EF_R32_SFLOAT: [[fallthrough]];
+		case EF_R8_SINT: [[fallthrough]];
+		case EF_R16_SINT: [[fallthrough]];
+		case EF_R32_SINT: [[fallthrough]];
+		case EF_R8_UINT: [[fallthrough]];
+		case EF_R16_UINT: [[fallthrough]];
+		case EF_R32_UINT: [[fallthrough]];
+		case EF_R8G8_UNORM: [[fallthrough]];
+		case EF_R16G16_UNORM: [[fallthrough]];
+		case EF_R16G16_SFLOAT: [[fallthrough]];
+		case EF_R32G32_SFLOAT: [[fallthrough]];
+		case EF_R8G8_SINT: [[fallthrough]];
+		case EF_R16G16_SINT: [[fallthrough]];
+		case EF_R32G32_SINT: [[fallthrough]];
+		case EF_R8G8_UINT: [[fallthrough]];
+		case EF_R16G16_UINT: [[fallthrough]];
+		case EF_R32G32_UINT: [[fallthrough]];
+		case EF_R32G32B32_SFLOAT: [[fallthrough]];
+		case EF_R32G32B32_SINT: [[fallthrough]];
+		case EF_R32G32B32_UINT: [[fallthrough]];
+		case EF_R8G8B8A8_UNORM: [[fallthrough]];
+		case EF_R16G16B16A16_UNORM: [[fallthrough]];
+		case EF_R16G16B16A16_SFLOAT: [[fallthrough]];
+		case EF_R32G32B32A32_SFLOAT: [[fallthrough]];
+		case EF_R8G8B8A8_SINT: [[fallthrough]];
+		case EF_R16G16B16A16_SINT: [[fallthrough]];
+		case EF_R32G32B32A32_SINT: [[fallthrough]];
+		case EF_R8G8B8A8_UINT: [[fallthrough]];
+		case EF_R16G16B16A16_UINT: [[fallthrough]];
+		case EF_R32G32B32A32_UINT:
+			return true;
+		default:
+			return false;
+		}
+	}
+
+	inline bool isAllowedVertexAttribFormat(asset::E_FORMAT _fmt) const
+	{
+		using namespace asset;
+		switch (_fmt)
+		{
+			// signed/unsigned byte
+		case EF_R8_UNORM:
+		case EF_R8_SNORM:
+		case EF_R8_UINT:
+		case EF_R8_SINT:
+		case EF_R8G8_UNORM:
+		case EF_R8G8_SNORM:
+		case EF_R8G8_UINT:
+		case EF_R8G8_SINT:
+		case EF_R8G8B8_UNORM:
+		case EF_R8G8B8_SNORM:
+		case EF_R8G8B8_UINT:
+		case EF_R8G8B8_SINT:
+		case EF_R8G8B8A8_UNORM:
+		case EF_R8G8B8A8_SNORM:
+		case EF_R8G8B8A8_UINT:
+		case EF_R8G8B8A8_SINT:
+		case EF_R8_USCALED:
+		case EF_R8_SSCALED:
+		case EF_R8G8_USCALED:
+		case EF_R8G8_SSCALED:
+		case EF_R8G8B8_USCALED:
+		case EF_R8G8B8_SSCALED:
+		case EF_R8G8B8A8_USCALED:
+		case EF_R8G8B8A8_SSCALED:
+			// unsigned byte BGRA (normalized only)
+		case EF_B8G8R8A8_UNORM:
+			// unsigned/signed short
+		case EF_R16_UNORM:
+		case EF_R16_SNORM:
+		case EF_R16_UINT:
+		case EF_R16_SINT:
+		case EF_R16G16_UNORM:
+		case EF_R16G16_SNORM:
+		case EF_R16G16_UINT:
+		case EF_R16G16_SINT:
+		case EF_R16G16B16_UNORM:
+		case EF_R16G16B16_SNORM:
+		case EF_R16G16B16_UINT:
+		case EF_R16G16B16_SINT:
+		case EF_R16G16B16A16_UNORM:
+		case EF_R16G16B16A16_SNORM:
+		case EF_R16G16B16A16_UINT:
+		case EF_R16G16B16A16_SINT:
+		case EF_R16_USCALED:
+		case EF_R16_SSCALED:
+		case EF_R16G16_USCALED:
+		case EF_R16G16_SSCALED:
+		case EF_R16G16B16_USCALED:
+		case EF_R16G16B16_SSCALED:
+		case EF_R16G16B16A16_USCALED:
+		case EF_R16G16B16A16_SSCALED:
+			// unsigned/signed int
+		case EF_R32_UINT:
+		case EF_R32_SINT:
+		case EF_R32G32_UINT:
+		case EF_R32G32_SINT:
+		case EF_R32G32B32_UINT:
+		case EF_R32G32B32_SINT:
+		case EF_R32G32B32A32_UINT:
+		case EF_R32G32B32A32_SINT:
+			// unsigned/signed rgb10a2 BGRA (normalized only)
+		case EF_A2R10G10B10_UNORM_PACK32:
+		case EF_A2R10G10B10_SNORM_PACK32:
+			// unsigned/signed rgb10a2
+		case EF_A2B10G10R10_UNORM_PACK32:
+		case EF_A2B10G10R10_SNORM_PACK32:
+		case EF_A2B10G10R10_UINT_PACK32:
+		case EF_A2B10G10R10_SINT_PACK32:
+		case EF_A2B10G10R10_SSCALED_PACK32:
+		case EF_A2B10G10R10_USCALED_PACK32:
+			// GL_UNSIGNED_INT_10F_11F_11F_REV
+		case EF_B10G11R11_UFLOAT_PACK32:
+			// half float
+		case EF_R16_SFLOAT:
+		case EF_R16G16_SFLOAT:
+		case EF_R16G16B16_SFLOAT:
+		case EF_R16G16B16A16_SFLOAT:
+			// float
+		case EF_R32_SFLOAT:
+		case EF_R32G32_SFLOAT:
+		case EF_R32G32B32_SFLOAT:
+		case EF_R32G32B32A32_SFLOAT:
+			// double
+		case EF_R64_SFLOAT:
+		case EF_R64G64_SFLOAT:
+		case EF_R64G64B64_SFLOAT:
+		case EF_R64G64B64A64_SFLOAT:
+			return true;
+		default: return false;
+		}
+	}
+
 	SFormatProperties getFormatProperties(asset::E_FORMAT format) const override
 	{
+		SFormatProperties result = {};
+		// EFF_DEPTH_STENCIL_ATTACHMENT_BIT = 0x00000200,
+		// EFF_BLIT_SRC_BIT = 0x00000400,
+		// EFF_BLIT_DST_BIT = 0x00000800,
+		// EFF_SAMPLED_IMAGE_FILTER_LINEAR_BIT = 0x00001000,
+		// EFF_TRANSFER_SRC_BIT = 0x00004000,
+		// EFF_TRANSFER_DST_BIT = 0x00008000,
+		// EFF_MIDPOINT_CHROMA_SAMPLES_BIT = 0x00020000,
+		// EFF_SAMPLED_IMAGE_YCBCR_CONVERSION_LINEAR_FILTER_BIT = 0x00040000,
+		// EFF_SAMPLED_IMAGE_YCBCR_CONVERSION_SEPARATE_RECONSTRUCTION_FILTER_BIT = 0x00080000,
+		// EFF_SAMPLED_IMAGE_YCBCR_CONVERSION_CHROMA_RECONSTRUCTION_EXPLICIT_BIT = 0x00100000,
+		// EFF_SAMPLED_IMAGE_YCBCR_CONVERSION_CHROMA_RECONSTRUCTION_EXPLICIT_FORCEABLE_BIT = 0x00200000,
+		// EFF_DISJOINT_BIT = 0x00400000,
+		// EFF_COSITED_CHROMA_SAMPLES_BIT = 0x00800000,
+		// EFF_SAMPLED_IMAGE_FILTER_MINMAX_BIT = 0x00010000,
+		// EFF_SAMPLED_IMAGE_FILTER_CUBIC_BIT_IMG = 0x00002000,
+		// EFF_ACCELERATION_STRUCTURE_VERTEX_BUFFER_BIT = 0x20000000,
+		// EFF_FRAGMENT_DENSITY_MAP_BIT = 0x01000000,
+		// EFF_FRAGMENT_SHADING_RATE_ATTACHMENT_BIT = 0x40000000,
+		
+		// result.optimalTilingFeatures = ;
+		// result.bufferFeatures = ;
+
+		if (isAllowedTextureFormat(format))
+			result.optimalTilingFeatures |= asset::EFF_SAMPLED_IMAGE_BIT;
+		if (isAllowedImageStoreFormat(format))
+		{
+			result.optimalTilingFeatures |= asset::EFF_STORAGE_IMAGE_BIT;
+			if (isAllowedImageStoreAtomicFormat(format))
+				result.optimalTilingFeatures |= asset::EFF_STORAGE_IMAGE_ATOMIC_BIT;
+		}
+		if (isAllowedBufferViewFormat(format))
+		{
+			result.optimalTilingFeatures |= asset::EFF_UNIFORM_TEXEL_BUFFER_BIT;
+			if (isAllowedImageStoreAtomicFormat(format))
+			{
+				result.optimalTilingFeatures |= asset::EFF_STORAGE_TEXEL_BUFFER_BIT;
+				result.optimalTilingFeatures |= asset::EFF_STORAGE_TEXEL_BUFFER_ATOMIC_BIT;
+			}
+		}
+		if (isAllowedVertexAttribFormat(format))
+			result.optimalTilingFeatures |= asset::EFF_VERTEX_BUFFER_BIT;
+
+		if (!asset::isBlockCompressionFormat(format))
+			result.optimalTilingFeatures |= asset::EFF_COLOR_ATTACHMENT_BIT;
+
+		if (asset::isFloatingPointFormat(format))
+			result.optimalTilingFeatures |= asset::EFF_COLOR_ATTACHMENT_BLEND_BIT;
+
+
+
 		_NBL_TODO();
-		return {};
+
+
+
+		result.linearTilingFeatures = result.optimalTilingFeatures;
+
+		return result;
 	}
 
 protected:

@@ -58,6 +58,29 @@ class ISurface : public core::IReferenceCounted
             EPM_UNKNOWN = 0
         };
 
+        enum E_SURFACE_TRANSFORM_FLAGS : uint32_t
+        {
+            EST_IDENTITY_BIT = 0x00000001,
+            EST_ROTATE_90_BIT = 0x00000002,
+            EST_ROTATE_180_BIT = 0x00000004,
+            EST_ROTATE_270_BIT = 0x00000008,
+            EST_HORIZONTAL_MIRROR_BIT = 0x00000010,
+            EST_HORIZONTAL_MIRROR_ROTATE_90_BIT = 0x00000020,
+            EST_HORIZONTAL_MIRROR_ROTATE_180_BIT = 0x00000040,
+            EST_HORIZONTAL_MIRROR_ROTATE_270_BIT = 0x00000080,
+            EST_INHERIT_BIT = 0x00000100,
+            EST_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF
+        };
+
+        enum E_COMPOSITE_ALPHA : uint32_t
+        {
+            ECA_OPAQUE_BIT = 0x00000001,
+            ECA_PRE_MULTIPLIED_BIT = 0x00000002,
+            ECA_POST_MULTIPLIED_BIT = 0x00000004,
+            ECA_INHERIT_BIT = 0x00000008,
+            ECA_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF
+        };
+
         struct SCapabilities
         {
             uint32_t minImageCount;
@@ -66,11 +89,10 @@ class ISurface : public core::IReferenceCounted
             VkExtent2D minImageExtent;
             VkExtent2D maxImageExtent;
             uint32_t maxImageArrayLayers;
-            // Todo(achal)
-            // VkSurfaceTransformFlagsKHR       supportedTransforms;
-            // VkSurfaceTransformFlagBitsKHR    currentTransform;
-            // VkCompositeAlphaFlagsKHR         supportedCompositeAlpha;
-            asset::IImage::E_USAGE_FLAGS supportedUsageFlags;
+            core::bitflag<E_SURFACE_TRANSFORM_FLAGS> supportedTransforms;
+            E_SURFACE_TRANSFORM_FLAGS currentTransform;
+            core::bitflag<E_COMPOSITE_ALPHA> supportedCompositeAlpha;
+            core::bitflag<asset::IImage::E_USAGE_FLAGS> supportedUsageFlags;
         };
 
         inline E_API_TYPE getAPIType() const { return m_api->getAPIType(); }

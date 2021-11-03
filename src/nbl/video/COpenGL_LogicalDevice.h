@@ -92,7 +92,7 @@ public:
                 (*m_queues)[ix] = new CThreadSafeGPUQueueAdapter
                 (
                     this,
-                    new QueueType(this, rdoc, _egl, m_glfeatures, ctxid, glctx.ctx,
+                    (IGPUQueue*)new QueueType(this, rdoc, _egl, m_glfeatures, ctxid, glctx.ctx,
                         glctx.pbuffer, famIx, flags, priority,
                         static_cast<COpenGLDebugCallback*>(physicalDevice->getDebugCallback()))
                 );
@@ -114,23 +114,6 @@ public:
 
         m_threadHandler.start();
         m_threadHandler.waitForInitComplete();
-
-        constexpr size_t GLSLcnt = std::extent<decltype(FeaturesType::m_GLSLExtensions)>::value;
-        if (!m_supportedGLSLExtsNames)
-        {
-            size_t cnt = 0ull;
-            for (size_t i = 0ull; i < GLSLcnt; ++i)
-                cnt += _features->isFeatureAvailable(_features->m_GLSLExtensions[i]);
-            if (_features->runningInRenderDoc)
-                ++cnt;
-            m_supportedGLSLExtsNames = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<std::string>>(cnt);
-            size_t i = 0ull;
-            for (size_t j = 0ull; j < GLSLcnt; ++j)
-                if (_features->isFeatureAvailable(_features->m_GLSLExtensions[j]))
-                    (*m_supportedGLSLExtsNames)[i++] = _features->OpenGLFeatureStrings[_features->m_GLSLExtensions[j]];
-            if (_features->runningInRenderDoc)
-                (*m_supportedGLSLExtsNames)[i] = _features->RUNNING_IN_RENDERDOC_EXTENSION_NAME;
-        }
     }
 
 
@@ -536,14 +519,10 @@ protected:
         {
             auto begin = reinterpret_cast<const char*>(glUnspec->getSPVorGLSL()->getPointer());
             auto end = begin + glUnspec->getSPVorGLSL()->getSize();
-            std::string glsl(begin, end);
-            COpenGLShader::insertGLtoVKextensionsMapping(glsl, getSupportedGLSLExtensions().get());
+            std::string glsl(begin,end);
+            asset::IShader::insertAfterVersionAndPragmaShaderStage(glsl,std::ostringstream()<<COpenGLShader::k_openGL2VulkanExtensionMap); // TODO: remove this eventually
+            asset::IShader::insertDefines(glsl,m_physicalDevice->getExtraGLSLDefines());
             auto glslShader_woIncludes = m_physicalDevice->getGLSLCompiler()->resolveIncludeDirectives(glsl.c_str(), stage, glUnspec->getFilepathHint().c_str(), 4u, getLogger());
-            //{
-                //auto fl = fopen("shader.glsl", "w");
-                //fwrite(glsl.c_str(), 1, glsl.size(), fl);
-                //fclose(fl);
-            //}
             spirv = m_physicalDevice->getGLSLCompiler()->compileSPIRVFromGLSL(
                 reinterpret_cast<const char*>(glslShader_woIncludes->getSPVorGLSL()->getPointer()),
                 stage,
@@ -570,7 +549,7 @@ protected:
 
         auto spvCPUShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(spirv), stage, std::string(_unspecialized->getFilepathHint()));
 
-        asset::CShaderIntrospector::SIntrospectionParams introspectionParams{ stage, _specInfo.entryPoint, getSupportedGLSLExtensions(), glUnspec->getFilepathHint() };
+        asset::CShaderIntrospector::SIntrospectionParams introspectionParams{_specInfo.entryPoint.c_str(),m_physicalDevice->getExtraGLSLDefines()};
         asset::CShaderIntrospector introspector(m_physicalDevice->getGLSLCompiler()); // TODO: shouldn't the introspection be cached for all calls to `createGPUSpecializedShader` (or somehow embedded into the OpenGL pipeline cache?)
         const asset::CIntrospectionData* introspection = introspector.introspect(spvCPUShader.get(), introspectionParams);
         if (!introspection)

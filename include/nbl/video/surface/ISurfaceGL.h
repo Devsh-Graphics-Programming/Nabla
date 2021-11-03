@@ -74,6 +74,9 @@ class CSurfaceGLImpl : public Base<Window>
             capabilities.minImageExtent = { 1u, 1u };
             capabilities.maxImageExtent = { this->getWidth(), this->getHeight() };
             capabilities.maxImageArrayLayers = 1u;
+            // capabilities.supportedTransforms = static_cast<ISurface::E_SURFACE_TRANSFORM_FLAGS>(vk_surfaceCapabilities.supportedTransforms);
+            // capabilities.currentTransform = static_cast<ISurface::E_SURFACE_TRANSFORM_FLAGS>(vk_surfaceCapabilities.currentTransform);
+            // capabilities.supportedCompositeAlpha = static_cast<ISurface::E_COMPOSITE_ALPHA>(vk_surfaceCapabilities.supportedCompositeAlpha);
             capabilities.supportedUsageFlags = static_cast<asset::IImage::E_USAGE_FLAGS>(0u);
 
             return true;
@@ -89,6 +92,7 @@ template <typename Window, typename CRTP>
 using CSurfaceNativeGL = CSurfaceGLImpl<Window, CSurfaceNative, CRTP>;
 
 // TODO: conditional defines
+#ifdef _NBL_PLATFORM_WINDOWS_
 using CSurfaceGLWin32 = CSurfaceGL<ui::IWindowWin32>;
 class CSurfaceNativeGLWin32 : public CSurfaceNativeGL<ui::IWindowWin32, CSurfaceNativeGLWin32>
 {
@@ -109,6 +113,12 @@ protected:
         return wr.top - wr.bottom;
     }
 };
+#elif defined(_NBL_PLATFORM_LINUX_)
+using CSurfaceGLX11 = CSurfaceGL<ui::IWindowX11>;
+#elif defined(_NBL_PLATFORM_ANDROID_)
+using CSurfaceGLAndroid = CSurfaceGL<ui::IWindowAndroid>;
+#endif
+
 
 //using CSurfaceGLAndroid = CSurfaceGL<ui::IWindowAndroid>;
 //using CSurfaceGLX11 = CSurfaceGL<ui::IWindowX11>;

@@ -175,8 +175,8 @@ class CScanner final : public core::IReferenceCounted
 				auto gpushader = m_device->createGPUShader(std::move(cpuShader));
 
 				m_specialized_shaders[scanType][dataType][op] = m_device->createGPUSpecializedShader(
-					gpushader.get(),{nullptr,nullptr,"main"}
-				);
+					gpushader.get(),{nullptr,nullptr,"main"});
+				// , asset::IShader::ESS_COMPUTE, "nbl/builtin/glsl/scan/direct.comp"
 			}
 			return m_specialized_shaders[scanType][dataType][op].get();
 		}

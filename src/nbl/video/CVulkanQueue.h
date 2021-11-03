@@ -19,9 +19,7 @@ public:
 
     bool submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFence* _fence) override;
 
-    // This API needs to change, we need more granularity than just saying if presentation
-    // failed or succeeded
-    bool present(const SPresentInfo& info) override;
+    ISwapchain::E_PRESENT_RESULT present(const SPresentInfo& info) override;
 
     inline VkQueue getInternalObject() const { return m_vkQueue; }
 

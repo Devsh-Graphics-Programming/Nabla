@@ -3,6 +3,7 @@
 
 #include "nbl/video/decl/IBackendObject.h"
 #include "nbl/video/IGPUCommandBuffer.h"
+#include "nbl/video/ISwapchain.h"
 
 namespace nbl::video
 {
@@ -53,7 +54,7 @@ class IGPUQueue : public core::Interface, public core::Unmovable
         virtual bool submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFence* _fence) = 0;
 
         //
-        virtual bool present(const SPresentInfo& info) = 0;
+        virtual ISwapchain::E_PRESENT_RESULT present(const SPresentInfo& info) = 0;
 
         // getters
         float getPriority() const { return m_priority; }

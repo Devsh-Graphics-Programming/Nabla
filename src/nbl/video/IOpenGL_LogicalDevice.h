@@ -937,16 +937,10 @@ protected:
 
 protected:
     const egl::CEGL* m_egl;
-    core::smart_refctd_dynamic_array<std::string> m_supportedGLSLExtsNames;
 
 public:
     IOpenGL_LogicalDevice(core::smart_refctd_ptr<IAPIConnection>&& api, IPhysicalDevice* physicalDevice, const SCreationParams& params, const egl::CEGL* _egl)
         : ILogicalDevice(std::move(api),physicalDevice,params), m_egl(_egl) {}
-
-    const core::smart_refctd_dynamic_array<std::string> getSupportedGLSLExtensions() const override
-    {
-        return m_supportedGLSLExtsNames;
-    }
 
     virtual void destroyFramebuffer(COpenGLFramebuffer::hash_t fbohash) = 0;
     virtual void destroyPipeline(COpenGLRenderpassIndependentPipeline* pipeline) = 0;

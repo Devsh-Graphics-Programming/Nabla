@@ -82,7 +82,8 @@ class IUtilities : public core::IReferenceCounted
             if (srcBuffer->getAPIType() == EAT_VULKAN)
             {
                 const auto reqFormatFeature = asset::EFF_TRANSFER_DST_BIT;
-                const auto& formatProps = srcBuffer->getOriginDevice()->getPhysicalDevice()->getFormatProperties(params.format);
+                
+                const auto& formatProps = m_device->getPhysicalDevice()->getFormatProperties(params.format);
                 if ((params.tiling == asset::IImage::ET_OPTIMAL) && (formatProps.optimalTilingFeatures & reqFormatFeature).value == 0)
                     return nullptr;
                 if ((params.tiling == asset::IImage::ET_LINEAR) && (formatProps.linearTilingFeatures & reqFormatFeature).value == 0)
@@ -179,7 +180,7 @@ class IUtilities : public core::IReferenceCounted
             // yet implemented on OpenGL
             if (srcImage->getAPIType() == EAT_VULKAN)
             {
-                const auto* physicalDevice = srcImage->getOriginDevice()->getPhysicalDevice();
+                const auto* physicalDevice = m_device->getPhysicalDevice();
                 const auto validateFormatFeature = [&params, physicalDevice](const auto format, const auto reqFormatFeature) -> bool
                 {
                     const auto& formatProps = physicalDevice->getFormatProperties(params.format);

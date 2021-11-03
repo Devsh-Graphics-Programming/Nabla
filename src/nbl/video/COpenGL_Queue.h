@@ -142,8 +142,9 @@ class COpenGL_Queue final : public IGPUQueue
                     //_NBL_DEBUG_BREAK_IF(mcres!=EGL_TRUE);
                 }
 
+#ifndef _NBL_PLATFORM_ANDROID_
                 egl->call.peglGetPlatformDependentHandles(&nativeHandles, egl->display, pbuffer, thisCtx);
-
+#endif
                 new (state_ptr) ThreadInternalStateType(egl,features,core::smart_refctd_ptr<system::ILogger>(m_dbgCb->getLogger()));
                 auto& gl = state_ptr->gl;
                 auto& ctxlocal = state_ptr->ctxlocal;
@@ -387,18 +388,18 @@ class COpenGL_Queue final : public IGPUQueue
             return true;
         }
 
-        bool present(const SPresentInfo& info) override
+        ISwapchain::E_PRESENT_RESULT present(const SPresentInfo& info) override
         {
             for (uint32_t i = 0u; i < info.waitSemaphoreCount; ++i)
             {
                 if (m_originDevice != info.waitSemaphores[i]->getOriginDevice())
-                    return false;
+                    return ISwapchain::EPR_ERROR;
             }
 
             for (uint32_t i = 0u; i < info.swapchainCount; ++i)
             {
                 if (m_originDevice != info.swapchains[i]->getOriginDevice())
-                    return false;
+                    return ISwapchain::EPR_ERROR;
             }
 
             using swapchain_t = COpenGL_Swapchain<FunctionTableType_>;
@@ -410,7 +411,7 @@ class COpenGL_Queue final : public IGPUQueue
                 retval &= sc->present(imgix, info.waitSemaphoreCount, info.waitSemaphores);
             }
 
-            return retval;
+            return retval ? ISwapchain::EPR_SUCCESS : ISwapchain::EPR_ERROR;
         }
 
         void destroyFramebuffer(COpenGLFramebuffer::hash_t fbohash)
