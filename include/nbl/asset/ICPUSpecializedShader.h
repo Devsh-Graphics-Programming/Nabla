@@ -96,10 +96,6 @@ class ICPUSpecializedShader : public IAsset, public ISpecializedShader
 			auto* other = static_cast<const ICPUSpecializedShader*>(_other);
 			if (m_specInfo.entryPoint != other->m_specInfo.entryPoint)
 				return false;
-			//if (m_specInfo.m_filePathHint != other->m_specInfo.m_filePathHint)
-			//	return false;
-			// if (m_specInfo.shaderStage != other->m_specInfo.shaderStage)
-			// 	return false;
 			if (!m_unspecialized->canBeRestoredFrom(other->m_unspecialized.get()))
 				return false;
 

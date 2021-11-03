@@ -64,8 +64,10 @@ class ICPUShader : public IAsset, public IShader
 		inline E_TYPE getAssetType() const override { return AssetType; }
 
 		size_t conservativeSizeEstimate() const override 
-		{ 
-			return m_code->getSize();
+		{
+			size_t estimate = m_code->getSize();
+			estimate += getFilepathHint().size();
+			return estimate;
 		}
 
         core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
@@ -92,6 +94,10 @@ class ICPUShader : public IAsset, public IShader
 		{
 			auto* other = static_cast<const ICPUShader*>(_other);
 			if (m_containsGLSL != other->m_containsGLSL)
+				return false;
+			if (getFilepathHint() != other->getFilepathHint())
+				return false;
+			if (getStage() != other->getStage())
 				return false;
 			if (!m_code->canBeRestoredFrom(other->m_code.get()))
 				return false;
