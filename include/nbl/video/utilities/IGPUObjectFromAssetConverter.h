@@ -958,7 +958,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
             asset::SBufferRange<IGPUBuffer> bufrng;
             bufrng.buffer = buf;
             bufrng.offset = 0u;
-            bufrng.size = buf->getBufferSize();
+            bufrng.size = cpuimg->getBuffer()->getSize();
 
             _params.utilities->updateBufferRangeViaStagingBuffer(
                 cmdbuf_transfer.get(),transfer_fence.get(),_params.perQueue[EQU_TRANSFER].queue,bufrng,cpuimg->getBuffer()->getPointer(),
@@ -1626,7 +1626,7 @@ inline created_gpu_object_array<asset::ICPUImageView> IGPUObjectFromAssetConvert
         if (!formatSupported)
         {
             // promote
-            assert((format == asset::EF_R8G8B8_SRGB) && "Don't know how to promote other formats!");
+            assert((format != asset::EF_R8G8B8_SRGB) && "Don't know how to promote other formats!");
 
             const asset::E_FORMAT promotedFormat = asset::EF_R8G8B8A8_SRGB;
             {
