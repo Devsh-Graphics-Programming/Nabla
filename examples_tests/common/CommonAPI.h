@@ -697,7 +697,7 @@ public:
 		nbl::system::path CWD = nbl::system::path(argv[0]).parent_path().generic_string() + "/";
 		nbl::system::path sharedInputCWD = CWD / "../../media/";
 		nbl::system::path sharedOutputCWD = CWD / "../../tmp/";;
-		nbl::system::path localInputCWD = CWD / "../";
+		nbl::system::path localInputCWD = CWD / "../assets";
 		nbl::system::path localOutputCWD = CWD;
 		AppClassName app(localInputCWD, localOutputCWD, sharedInputCWD, sharedOutputCWD);
 		app.onAppInitialized();

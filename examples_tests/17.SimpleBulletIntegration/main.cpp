@@ -171,9 +171,40 @@ public:
 	}
 
 	APP_CONSTRUCTOR(BulletSampleApp);
+	auto deleteBasedOnPhysicsPredicate(uint32_t& instancesToMove,
+		video::CPropertyPoolHandler::UpStreamingRequest* pContiguousEraseRequest,
+		instance_redirect_property_pool_t* pool,
+		auto pred)
+	{
+		core::vector<uint32_t> objects, instances;
+		for (auto& body : m_bodies)
+		{
+			if (!body)
+				continue;
+			auto* motionState = static_cast<CInstancedMotionState*>(body->getMotionState());
+			if (motionState->getInstancePool() != pool || !pred(motionState))
+				continue;
+
+			objects.emplace_back(motionState->getObjectID());
+			instances.emplace_back(motionState->getInstanceID());
+			m_world->unbindRigidBody(body);
+			m_world->deleteRigidBody(body);
+			body = nullptr;
+		}
+		const auto count = objects.size();
+		m_objectPool->freeProperties(objects.data(), objects.data() + count);
+		uint32_t* srcAddrScratch = m_scratchObjectIDs.data() + instancesToMove;
+		uint32_t* dstAddrScratch = m_scratchInstanceRedirects.data() + instancesToMove;
+		instancesToMove += count;
+		//
+		return video::CPropertyPoolHandler::freeProperties(pool, pContiguousEraseRequest, instances.data(), instances.data() + count, srcAddrScratch, dstAddrScratch);
+	};
 
 	void onAppInitialized_impl() override
 	{
+		constexpr auto a = sizeof(const nbl::core::vectorSIMDf&);
+		constexpr auto b = alignof(const nbl::core::vectorSIMDf&);
+
 		CommonAPI::InitOutput<SC_IMG_COUNT> initOutput;
 		CommonAPI::Init<WIN_W, WIN_H, SC_IMG_COUNT>(initOutput, video::EAT_OPENGL_ES, "Physics Simulation", asset::EF_D32_SFLOAT);
 
@@ -221,11 +252,12 @@ public:
 			m_world->bindRigidBody(m_basePlateBody);
 		}
 
+
 		// set up
 		propertyPoolHandler = utilities->getDefaultPropertyPoolHandler();
 		auto createPropertyPoolWithMemory = [this](auto& retval, uint32_t capacity, bool contiguous = false) -> void
 		{
-			using pool_type = std::remove_reference_t<decltype(retval)>::pointee;
+			using pool_type = typename std::remove_reference_t<decltype(retval)>::pointee;
 			asset::SBufferRange<video::IGPUBuffer> blocks[pool_type::PropertyCount];
 
 			video::IGPUBuffer::SCreationParams creationParams;
@@ -883,37 +915,6 @@ private:
 	//	if (needTransfer)
 	//		utilities->getDefaultPropertyPoolHandler()->transferProperties(utilities->getDefaultUpStreamingBuffer(), nullptr, cmdbuf, fence, m_transfers.data() + 2, m_transfers.data() + 3, logger.get());
 	//};
-
-	auto deleteBasedOnPhysicsPredicate(uint32_t& instancesToMove,
-		video::CPropertyPoolHandler::UpStreamingRequest* pContiguousEraseRequest,
-		instance_redirect_property_pool_t* pool, 
-		auto pred)
-	{
-		core::vector<uint32_t> objects, instances;
-		for (auto& body : m_bodies)
-		{
-			if (!body)
-				continue;
-			auto* motionState = static_cast<CInstancedMotionState*>(body->getMotionState());
-			if (motionState->getInstancePool() != pool || !pred(motionState))
-				continue;
-
-			objects.emplace_back(motionState->getObjectID());
-			instances.emplace_back(motionState->getInstanceID());
-			m_world->unbindRigidBody(body);
-			m_world->deleteRigidBody(body);
-			body = nullptr;
-		}
-		const auto count = objects.size();
-		m_objectPool->freeProperties(objects.data(), objects.data() + count);
-		uint32_t* srcAddrScratch = m_scratchObjectIDs.data() + instancesToMove;
-		uint32_t* dstAddrScratch = m_scratchInstanceRedirects.data() + instancesToMove;
-		instancesToMove += count;
-		//
-		return video::CPropertyPoolHandler::freeProperties(pool, pContiguousEraseRequest, instances.data(), instances.data() + count, srcAddrScratch, dstAddrScratch);
-	};
 };
 
-NBL_COMMON_API_MAIN(BulletSampleApp, BulletSampleApp::AppUserData)
-
-extern "C" {  _declspec(dllexport) DWORD NvOptimusEnablement = 0x00000001; }
+NBL_COMMON_API_MAIN(BulletSampleApp)
