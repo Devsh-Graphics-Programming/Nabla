@@ -1351,8 +1351,12 @@ namespace nbl
 									return core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(newUnspecializedShader), std::move(specializedInfo));
 								};
 
-								cpuShaders.first = std::move(getOverridenShader(cpuShaders.first));
-								cpuShaders.second = std::move(getOverridenShader(cpuShaders.second));
+								/*
+									@devshgraphicsprogramming leaving this for you
+								*/
+
+								//! cpuShaders.first = std::move(getOverridenShader(cpuShaders.first));
+								//! cpuShaders.second = std::move(getOverridenShader(cpuShaders.second));
 							}
 
 							return cpuShaders;
@@ -2524,6 +2528,8 @@ namespace nbl
 				Skinning buffers
 			*/
 
+			//! @devshgraphicsprogramming leaving it for you
+
 			auto getCpuDs0Layout = [&]() -> core::smart_refctd_ptr<ICPUDescriptorSetLayout>
 			{
 				if (isSkinned)
@@ -2706,9 +2712,6 @@ namespace nbl
 				return core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(cpuDS3Bindings->begin(), cpuDS3Bindings->end());
 			};
 
-			//! node global transforms, user should provide DS given skin data from mesh buffer
-			auto cpuDs0Layout = getCpuDs0Layout();
-
 			//! camera UBO DS
 			auto cpuDs1Layout = getDefaultAsset<ICPUDescriptorSetLayout, IAsset::ET_DESCRIPTOR_SET_LAYOUT>("nbl/builtin/descriptor_set_layout/basic_view_parameters", assetManager);		
 			
@@ -2724,7 +2727,7 @@ namespace nbl
 			pushConstantRange[0].offset = 0u;
 			pushConstantRange[0].size = sizeof(CGLTFPipelineMetadata::SGLTFMaterialParameters);
 
-			auto cpuPipelineLayout = core::make_smart_refctd_ptr<ICPUPipelineLayout>(pushConstantRange, pushConstantRange + PUSH_CONSTANTS_COUNT, std::move(cpuDs0Layout), std::move(cpuDs1Layout), nullptr, std::move(cpuDs3Layout));
+			auto cpuPipelineLayout = core::make_smart_refctd_ptr<ICPUPipelineLayout>(pushConstantRange, pushConstantRange + PUSH_CONSTANTS_COUNT, nullptr, std::move(cpuDs1Layout), nullptr, std::move(cpuDs3Layout));
 			return cpuPipelineLayout;
 		}
 		

@@ -242,7 +242,11 @@ int main()
 	auto uboMemoryReqs = logicalDevice->getDeviceLocalGPUMemoryReqs();
 	uboMemoryReqs.vulkanReqs.size = sizeof(SBasicViewParameters);
 
-	auto gpuubo = logicalDevice->createGPUBufferOnDedMem(video::IGPUBuffer::SCreationParams{}, uboMemoryReqs);
+	video::IGPUBuffer::SCreationParams uboBufferCreationParams;
+	uboBufferCreationParams.canUpdateSubRange = true;
+	uboBufferCreationParams.usage = core::bitflag(video::IGPUBuffer::EUF_TRANSFER_DST_BIT) | video::IGPUBuffer::EUF_UNIFORM_BUFFER_BIT;
+
+	auto gpuubo = logicalDevice->createGPUBufferOnDedMem(uboBufferCreationParams, uboMemoryReqs);
 	auto gpuUboDescriptorPool = createDescriptorPool(1u, EDT_UNIFORM_BUFFER);
 
 	auto gpuDescriptorSet1 = logicalDevice->createGPUDescriptorSet(gpuUboDescriptorPool.get(), core::smart_refctd_ptr(gpuDescriptorSet1Layout));

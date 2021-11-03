@@ -73,7 +73,7 @@ void main()
 {
     LocalPos = vPos;
 	
-#ifdef _NBL_SKINNING_ENABLED_
+#ifndef _NBL_SKINNING_ENABLED_ // @devshgraphicsprogramming leaving this for you, the loader won't set "_NBL_SKINNING_ENABLED_"
     gl_Position = nbl_glsl_pseudoMul4x4with3x1(CameraData.params.MVP, vPos);
     ViewPos = nbl_glsl_pseudoMul3x4with3x1(CameraData.params.MV, vPos);
 #else
