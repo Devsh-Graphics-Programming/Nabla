@@ -53,7 +53,8 @@ int main()
 	constexpr uint32_t FRAMES_IN_FLIGHT = 5u;
 	static_assert(FRAMES_IN_FLIGHT > SC_IMG_COUNT);
 
-	auto initOutput = CommonAPI::Init<WIN_W, WIN_H, SC_IMG_COUNT>(video::EAT_OPENGL, "glTF", nbl::asset::EF_D32_SFLOAT);
+	CommonAPI::InitOutput<SC_IMG_COUNT> initOutput;
+	CommonAPI::Init<WIN_W, WIN_H, SC_IMG_COUNT>(initOutput, video::EAT_OPENGL, "glTF", asset::EF_D32_SFLOAT);
 	auto window = std::move(initOutput.window);
 	auto gl = std::move(initOutput.apiConnection);
 	auto surface = std::move(initOutput.surface);
@@ -71,6 +72,8 @@ int main()
 	auto windowCallback = std::move(initOutput.windowCb);
 	auto utilities = std::move(initOutput.utilities);
 	auto cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
+
+	auto* transferUpQueue = queues[decltype(initOutput)::EQT_TRANSFER_UP];
 
 	auto gpuTransferFence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
 	auto gpuComputeFence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
@@ -178,7 +181,7 @@ int main()
 	propertyGPUBuffers[scene::ITransformTree::recomputed_stamp_prop_ix].size = recompStampPropSz * nodeCount;
 
 	auto transformTree = scene::ITransformTree::create(logicalDevice.get(), renderpass, propertyGPUBuffers, nodeCount, true);
-	auto transformTreeManager = scene::ITransformTreeManager::create(core::smart_refctd_ptr(logicalDevice));
+	auto transformTreeManager = scene::ITransformTreeManager::create(utilities.get(), transferUpQueue);
 	auto propertyPoolHandler = core::make_smart_refctd_ptr<video::CPropertyPoolHandler>(core::smart_refctd_ptr(logicalDevice));
 
 	nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandBuffer> cmdbuf_nodes;
@@ -239,7 +242,7 @@ int main()
 	auto uboMemoryReqs = logicalDevice->getDeviceLocalGPUMemoryReqs();
 	uboMemoryReqs.vulkanReqs.size = sizeof(SBasicViewParameters);
 
-	auto gpuubo = logicalDevice->createGPUBufferOnDedMem(video::IGPUBuffer::SCreationParams{}, uboMemoryReqs, true);
+	auto gpuubo = logicalDevice->createGPUBufferOnDedMem(video::IGPUBuffer::SCreationParams{}, uboMemoryReqs);
 	auto gpuUboDescriptorPool = createDescriptorPool(1u, EDT_UNIFORM_BUFFER);
 
 	auto gpuDescriptorSet1 = logicalDevice->createGPUDescriptorSet(gpuUboDescriptorPool.get(), core::smart_refctd_ptr(gpuDescriptorSet1Layout));

@@ -118,7 +118,12 @@ class ITransformTree : public virtual core::IReferenceCounted
 
 				auto createShader = [&system, &device](auto uniqueString, asset::ISpecializedShader::E_SHADER_STAGE type) -> core::smart_refctd_ptr<video::IGPUSpecializedShader>
 				{
-					auto glsl = system->loadBuiltinData<decltype(uniqueString)>();
+					auto glslFile = system->loadBuiltinData<decltype(uniqueString)>();
+					core::smart_refctd_ptr<asset::ICPUBuffer> glsl;
+					{
+						glsl = core::make_smart_refctd_ptr<asset::ICPUBuffer>(glslFile->getSize());
+						memcpy(glsl->getPointer(), glslFile->getMappedPointer(), glsl->getSize());
+					}
 					auto cpuShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl), asset::IShader::buffer_contains_glsl_t{});
 					auto gpuShader = device->createGPUShader(std::move(cpuShader));
 
@@ -282,7 +287,7 @@ class ITransformTree : public virtual core::IReferenceCounted
 				auto localGPUMemoryReqs = device->getDeviceLocalGPUMemoryReqs();
 				localGPUMemoryReqs.vulkanReqs.size = m_debugLiveAllocations.size() * sizeof(DebugNodeVtxInput);
 				localGPUMemoryReqs.mappingCapability = video::IDriverMemoryAllocation::EMCAF_READ_AND_WRITE;
-				m_debugLiveAllocationsGpuBuffer = std::move(device->createGPUBufferOnDedMem(video::IGPUBuffer::SCreationParams{}, localGPUMemoryReqs, true));
+				m_debugLiveAllocationsGpuBuffer = std::move(device->createGPUBufferOnDedMem(video::IGPUBuffer::SCreationParams{}, localGPUMemoryReqs));
 
 				commandBuffer->updateBuffer(m_debugLiveAllocationsGpuBuffer.get(), 0, m_debugLiveAllocationsGpuBuffer->getSize(), m_debugLiveAllocations.data());
 			}

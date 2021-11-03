@@ -316,8 +316,8 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 				let's assume it allocates "local" indicies in range [0, maxJoints-1]
 				covering indices range from glTF, also let's assume we have 1 instance
 			*/
-
-			pool->allocateProperties(request.outNodes.begin(), request.outNodes.end());
+			
+			/*pool->allocateProperties(request.outNodes.begin(), request.outNodes.end());
 			const core::matrix3x4SIMD IdentityTransform;
 
 			constexpr auto TransferCount = 4u;
@@ -345,7 +345,10 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			transfers[3].setFromPool(pool, ITransformTree::recomputed_stamp_prop_ix);
 			transfers[3].flags = video::CPropertyPoolHandler::TransferRequest::EF_FILL;
 			transfers[3].source = &ITransformTree::initial_recomputed_timestamp;
-			return request.poolHandler->transferProperties(request.upBuff, nullptr, request.cmdbuf, request.fence, transfers, transfers + TransferCount, request.logger, maxWaitPoint).transferSuccess;
+			return request.poolHandler->transferProperties(request.upBuff, nullptr, request.cmdbuf, request.fence, transfers, transfers + TransferCount, request.logger, maxWaitPoint).transferSuccess;*/
+			
+			
+			return false; //! Leaving it for @devshgraphicsprogramming
 		}
 
 
