@@ -340,6 +340,9 @@ int main()
 	core::smart_refctd_ptr<video::IGPUSemaphore> imageAcquire[FRAMES_IN_FLIGHT] = { nullptr };
 	core::smart_refctd_ptr<video::IGPUSemaphore> renderFinished[FRAMES_IN_FLIGHT] = { nullptr };
 
+	video::CDumbPresentationOracle oracle;
+	oracle.reportBeginFrameRecord();
+
 	for (uint32_t i = 0u; i < FRAMES_IN_FLIGHT; i++)
 	{
 		imageAcquire[i] = logicalDevice->createSemaphore();
@@ -360,48 +363,25 @@ int main()
 		auto& fence = frameComplete[resourceIx];
 
 		if (fence)
-			while (logicalDevice->waitForFences(1u, &fence.get(), false, MAX_TIMEOUT) == video::IGPUFence::ES_TIMEOUT) {}
+			logicalDevice->blockForFences(1u, &fence.get());
 		else
 			fence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
 
-		auto renderStart = std::chrono::system_clock::now();
-		const auto renderDt = std::chrono::duration_cast<std::chrono::milliseconds>(renderStart - lastTime).count();
-		lastTime = renderStart;
-		{ // Calculate Simple Moving Average for FrameTime
-			time_sum -= dtList[frame_count];
-			time_sum += renderDt;
-			dtList[frame_count] = renderDt;
-			frame_count++;
-			if (frame_count >= NBL_FRAMES_TO_AVERAGE)
-			{
-				frameDataFilled = true;
-				frame_count = 0;
-			}
+		commandBuffer->reset(nbl::video::IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
+		commandBuffer->begin(0);
 
-		}
-		const double averageFrameTime = frameDataFilled ? (time_sum / (double)NBL_FRAMES_TO_AVERAGE) : (time_sum / frame_count);
-
-		#ifdef NBL_MORE_LOGS
-				logger->log("renderDt = %f ------ averageFrameTime = %f", system::ILogger::ELL_INFO, renderDt, averageFrameTime);
-		#endif // NBL_MORE_LOGS
-
-		auto averageFrameTimeDuration = std::chrono::duration<double, std::milli>(averageFrameTime);
-		auto nextPresentationTime = renderStart + averageFrameTimeDuration;
-		auto nextPresentationTimeStamp = std::chrono::duration_cast<std::chrono::microseconds>(nextPresentationTime.time_since_epoch());
+		const auto nextPresentationTimestamp = oracle.acquireNextImage(swapchain.get(), imageAcquire[resourceIx].get(), nullptr, &acquiredNextFBO);
 
 		inputSystem->getDefaultMouse(&mouse);
 		inputSystem->getDefaultKeyboard(&keyboard);
 
-		camera.beginInputProcessing(nextPresentationTimeStamp);
+		camera.beginInputProcessing(nextPresentationTimestamp);
 		mouse.consumeEvents([&](const IMouseEventChannel::range_t& events) -> void { camera.mouseProcess(events); }, logger.get());
 		keyboard.consumeEvents([&](const IKeyboardEventChannel::range_t& events) -> void { camera.keyboardProcess(events); }, logger.get());
-		camera.endInputProcessing(nextPresentationTimeStamp);
+		camera.endInputProcessing(nextPresentationTimestamp);
 
 		const auto& viewMatrix = camera.getViewMatrix();
 		const auto& viewProjectionMatrix = camera.getConcatenatedMatrix();
-
-		commandBuffer->reset(nbl::video::IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
-		commandBuffer->begin(0);
 
 		asset::SViewport viewport;
 		viewport.minDepth = 1.f;
@@ -411,8 +391,6 @@ int main()
 		viewport.width = WIN_W;
 		viewport.height = WIN_H;
 		commandBuffer->setViewport(0u, 1u, &viewport);
-
-		swapchain->acquireNextImage(MAX_TIMEOUT, imageAcquire[resourceIx].get(), nullptr, &acquiredNextFBO);
 
 		nbl::video::IGPUCommandBuffer::SRenderpassBeginInfo beginInfo;
 		{
