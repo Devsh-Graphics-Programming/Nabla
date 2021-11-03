@@ -209,8 +209,6 @@ public:
 						
 						// Since this is ColorSpaceTest
 						const asset::IImage::E_ASPECT_FLAGS aspectMask = asset::IImage::EAF_COLOR_BIT;
-						auto imageUsageFlagsToAdd = core::bitflag<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT) | asset::IImage::EUF_SAMPLED_BIT;
-
 						auto asset = *cpuTextureContents.begin();
 						switch (asset->getAssetType())
 						{
@@ -240,6 +238,8 @@ public:
 							assert(false); // in that case provided asset is wrong
 						}
 						}
+						
+						newCpuImageViewTexture->getCreationParameters().image->addImageUsageFlags(asset::IImage::EUF_SAMPLED_BIT);
 
 						std::filesystem::path filename, extension;
 						core::splitFilename(pathToTexture.c_str(), nullptr, &filename, &extension);
@@ -278,8 +278,6 @@ public:
 				}
 			}
 		}
-
-		core::smart_refctd_ptr<video::IGPUCommandBuffer> transferCmdBuffer, computeCmdBuffer;
 
 		cpu2gpuParams.beginCommandBuffers();
 		auto gpuImageViews = cpu2gpu.getGPUObjectsFromAssets(cpuImageViews.data(), cpuImageViews.data() + cpuImageViews.size(), cpu2gpuParams);
