@@ -16,11 +16,15 @@
 
 class GraphicalApplication : public nbl::system::IApplicationFramework, public nbl::ui::IGraphicalApplicationFramework
 {
-public:
-	GraphicalApplication(const std::filesystem::path& _localInputCWD,
-		const std::filesystem::path& _localOutputCWD,
-		const std::filesystem::path& _sharedInputCWD,
-		const std::filesystem::path& _sharedOutputCWD) : nbl::system::IApplicationFramework(_localInputCWD, _localOutputCWD, _sharedInputCWD, _sharedOutputCWD) {}
+	protected:
+		~GraphicalApplication() {}
+	public:
+		GraphicalApplication(
+			const std::filesystem::path& _localInputCWD,
+			const std::filesystem::path& _localOutputCWD,
+			const std::filesystem::path& _sharedInputCWD,
+			const std::filesystem::path& _sharedOutputCWD
+		) : nbl::system::IApplicationFramework(_localInputCWD, _localOutputCWD, _sharedInputCWD, _sharedOutputCWD) {}
 };
 //***** Application framework macros ******
 #ifdef _NBL_PLATFORM_ANDROID_
@@ -235,6 +239,7 @@ public:
 			Channels<nbl::ui::IKeyboardEventChannel> m_keyboard;
 	};
 
+	// TODO: can you guys just use one callback!?
 	class ICommonAPIEventCallback : public nbl::ui::IWindow::IEventCallback
 	{
 	public:
@@ -699,13 +704,13 @@ public:
 		nbl::system::path sharedOutputCWD = CWD / "../../tmp/";;
 		nbl::system::path localInputCWD = CWD / "../";
 		nbl::system::path localOutputCWD = CWD;
-		AppClassName app(localInputCWD, localOutputCWD, sharedInputCWD, sharedOutputCWD);
-		app.onAppInitialized();
-		while (app.keepRunning())
+		auto app = core::make_smart_refctd_ptr<AppClassName>(localInputCWD, localOutputCWD, sharedInputCWD, sharedOutputCWD);
+		app->onAppInitialized();
+		while (app->keepRunning())
 		{
-			app.workLoopBody();
+			app->workLoopBody();
 		}
-		app.onAppTerminated();
+		app->onAppTerminated();
 #endif
 	}
 
