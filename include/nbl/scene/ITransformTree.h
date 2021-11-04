@@ -71,7 +71,7 @@ class ITransformTree : public virtual core::IReferenceCounted
 
 		// the creation is the same as that of a `video::CPropertyPool`
 		template<typename... Args>
-		static inline core::smart_refctd_ptr<ITransformTree> create(video::ILogicalDevice* device, core::smart_refctd_ptr<video::IGPURenderpass> gpuRenderpass, Args... args)
+		static inline core::smart_refctd_ptr<ITransformTree> create(video::ILogicalDevice* device, Args... args)
 		{
 			auto pool = property_pool_t::create(device,std::forward<Args>(args)...);
 			if (!pool)

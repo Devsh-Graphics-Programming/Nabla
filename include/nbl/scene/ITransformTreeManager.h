@@ -305,32 +305,47 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			return true;
 		}
 
+		struct AdditionRequestBase
+		{
+			public:
+				// must be in recording state
+				video::IGPUCommandBuffer* cmdbuf;
+				video::IGPUFence* fence;
+				asset::SBufferBinding<video::IGPUBuffer> scratch;
+				video::StreamingTransientDataBufferMT<>* upBuff;
+				video::CPropertyPoolHandler* poolHandler;
+				video::IGPUQueue* queue;
+				system::logger_opt_ptr logger = nullptr;
+
+			protected:
+				inline bool isValid() const
+				{
+					return cmdbuf && fence && scratch.isValid() && upBuff && poolHandler && queue;
+				}
+		};
 		//
-		struct AdditionRequest : UpstreamRequestBase
+		struct AdditionRequest : UpstreamRequestBase,AdditionRequestBase
 		{
 			// if the `outNodes` have values not equal to `invalid_node` then we treat them as already allocated
 			// (this allows you to split allocation of nodes from setting up the transfers)
 			core::SRange<ITransformTree::node_t> outNodes = {nullptr,nullptr};
-			// must be in recording state
-			video::IGPUCommandBuffer* cmdbuf;
-			video::IGPUFence* fence;
-			asset::SBufferBinding<video::IGPUBuffer> scratch;
-			video::StreamingTransientDataBufferMT<>* upBuff;
-			video::CPropertyPoolHandler* poolHandler;
-			video::IGPUQueue* queue;
-			system::logger_opt_ptr logger = nullptr;
+
+			inline bool isValid() const
+			{
+				return AdditionRequestBase::isValid() && outNodes.begin() && outNodes.begin()<=outNodes.end();
+			}
 		};
 		inline uint32_t addNodes(
 			const AdditionRequest& request, uint32_t& waitSemaphoreCount,
 			video::IGPUSemaphore* const*& semaphoresToWaitBeforeOverwrite,
 			const asset::E_PIPELINE_STAGE_FLAGS*& stagesToWaitForPerSemaphore, 
-			const std::chrono::steady_clock::time_point& maxWaitPoint=video::GPUEventWrapper::default_wait())
+			const std::chrono::steady_clock::time_point& maxWaitPoint=video::GPUEventWrapper::default_wait()
+		)
 		{
-			if (!request.tree || !request.poolHandler || !request.upBuff || !request.outNodes.begin() || !request.cmdbuf || !request.fence)
+			if (!request.isValid())
 				return false;
 			if (request.outNodes.empty())
 				return true;
-			assert(request.outNodes.begin()<request.outNodes.end());
 
 			if (!request.tree->allocateNodes(request.outNodes))
 				return false;
@@ -349,75 +364,107 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			);
 		}
 
-		struct SkeletonAllocationRequest
+		//
+		struct SkeletonAllocationRequest : RequestBase,AdditionRequestBase
 		{
-			video::CPropertyPoolHandler* poolHandler;
-			video::StreamingTransientDataBufferMT<>* upBuff;
-			video::IGPUCommandBuffer* cmdbuf; //! must be in recording state
-			video::IGPUFence* fence;
-			ITransformTree* tree;
-			core::SRange<ITransformTree::node_t> outNodes = { nullptr, nullptr };
+			core::SRange<const asset::ICPUSkeleton*> skeletons;
+			const uint32_t* instanceCounts;
+			// if the `outNodes` have values not equal to `invalid_node` then we treat them as already allocated
+			// (this allows you to split allocation of nodes from setting up the transfers)
+			ITransformTree::node_t* outNodes = nullptr;
+			void* propertyRepackingScratch;
 
-			struct Batch
+			inline bool isValid() const
 			{
-				const asset::ICPUSkeleton* skeleton;
-				uint32_t instanceCount = 0u;
-			};
-
-			Batch skeletonBatches;
-			system::logger_opt_ptr logger = nullptr;
-		};
-		
-		inline bool addSkeletonNodes(const SkeletonAllocationRequest& request, const std::chrono::steady_clock::time_point& maxWaitPoint = video::GPUEventWrapper::default_wait())
-		{
-			if (!request.poolHandler || !request.upBuff || !request.cmdbuf || !request.fence || !request.tree)
-				return false;
-
-			auto* pool = request.tree->getNodePropertyPool();
-			if (request.outNodes.size() > pool->getFree())
-				return false;
-
-			/*
-			*	TODO:
-			* 
-				for testing purposes
-				
-				let's assume it allocates "local" indicies in range [0, maxJoints-1]
-				covering indices range from glTF, also let's assume we have 1 instance
-			*/
-			
-			/*pool->allocateProperties(request.outNodes.begin(), request.outNodes.end());
-			const core::matrix3x4SIMD IdentityTransform;
-
-			constexpr auto TransferCount = 4u;
-			video::CPropertyPoolHandler::TransferRequest transfers[TransferCount];
-			for (auto i = 0u; i < TransferCount; i++)
-			{
-				transfers[i].elementCount = request.outNodes.size();
-				transfers[i].srcAddresses = nullptr;
-				transfers[i].dstAddresses = request.outNodes.begin();
-				transfers[i].device2device = false;
+				return AdditionRequestBase::isValid() && skeletons.begin() && skeletons.begin()<=skeletons.end() && instanceCounts && outNodes && propertyRepackingScratch;
 			}
 
-			const auto& parentJointIDBinding = request.skeletonBatches.skeleton->getParentJointIDBinding();
-			const auto& defaultTransformBinding = request.skeletonBatches.skeleton->getDefaultTransformBinding();
+			inline uint32_t computeNodeCount() const
+			{
+				uint32_t nodeCount = 0u;
+				auto instanceCountIt = instanceCounts;
+				for (auto skeleton : skeletons)
+				{
+					if (skeleton)
+						nodeCount += skeleton->getJointCount()*(*instanceCountIt);
+					instanceCountIt++;
+				}
+				return nodeCount;
+			}
 
-			transfers[0].setFromPool(pool, ITransformTree::parent_prop_ix);
-			transfers[0].flags = video::CPropertyPoolHandler::TransferRequest::EF_FILL;
-			transfers[0].source = parentJointIDBinding.buffer->getPointer();
-			transfers[1].setFromPool(pool, ITransformTree::relative_transform_prop_ix);
-			transfers[1].flags = video::CPropertyPoolHandler::TransferRequest::EF_FILL;
-			transfers[1].source = defaultTransformBinding.buffer->getPointer();
-			transfers[2].setFromPool(pool, ITransformTree::modified_stamp_prop_ix);
-			transfers[2].flags = video::CPropertyPoolHandler::TransferRequest::EF_FILL;
-			transfers[2].source = &ITransformTree::initial_modified_timestamp;
-			transfers[3].setFromPool(pool, ITransformTree::recomputed_stamp_prop_ix);
-			transfers[3].flags = video::CPropertyPoolHandler::TransferRequest::EF_FILL;
-			transfers[3].source = &ITransformTree::initial_recomputed_timestamp;
-			return request.poolHandler->transferProperties(request.upBuff, nullptr, request.cmdbuf, request.fence, transfers, transfers + TransferCount, request.logger, maxWaitPoint).transferSuccess;*/
-			
-			
-			return false; //! Leaving it for @devshgraphicsprogramming
+			static inline uint32_t calculatePropertyRepackingScratchSize(const uint32_t nodeCount)
+			{
+				return (sizeof(ITransformTree::node_t)+sizeof(ITransformTree::relative_transform_t))*nodeCount;
+			}
+			inline uint32_t computePropertyRepackingScratchSize() const
+			{
+				return (sizeof(ITransformTree::node_t)+sizeof(ITransformTree::relative_transform_t))*computeNodeCount();
+			}
+		};
+		inline bool addSkeletonNodes(
+			const SkeletonAllocationRequest& request, uint32_t& waitSemaphoreCount,
+			video::IGPUSemaphore* const*& semaphoresToWaitBeforeOverwrite,
+			const asset::E_PIPELINE_STAGE_FLAGS*& stagesToWaitForPerSemaphore, 
+			const std::chrono::steady_clock::time_point& maxWaitPoint=video::GPUEventWrapper::default_wait()
+		)
+		{
+			if (!request.isValid())
+				return false;
+
+			const uint32_t nodeCount = request.computeNodeCount();
+			if (nodeCount==0u)
+				return true;
+
+			if (!request.tree->allocateNodes({request.outNodes,request.outNodes+nodeCount}))
+				return false;
+
+			if (!core::is_aligned_to(request.propertyRepackingScratch,alignof(ITransformTree::relative_transform_t)))
+				return false;
+			auto transforms = reinterpret_cast<ITransformTree::relative_transform_t*>(request.propertyRepackingScratch);
+			auto parents = reinterpret_cast<ITransformTree::node_t*>(transforms+nodeCount);
+			{
+				auto parentsIt = parents;
+				auto transformIt = transforms;
+				auto instanceCountIt = request.instanceCounts;
+				uint32_t baseJointID = 0u;
+				for (auto skeleton : request.skeletons)
+				{
+					const auto instanceCount = *(instanceCountIt++);
+					const auto jointCount = skeleton->getJointCount();
+					for (auto instanceID=0u; instanceID<instanceCount; instanceID++)
+					{
+						for (auto jointID=0u; jointID<jointCount; jointID++)
+						{
+							uint32_t parentID = skeleton->getParentJointID(jointID);
+							if (parentID!=asset::ICPUSkeleton::invalid_joint_id)
+								parentID = request.outNodes[parentID+baseJointID];
+							else
+								parentID = ITransformTree::invalid_node;
+							*(parentsIt++) = parentID;
+							*(transformIt++) = skeleton->getDefaultTransformMatrix(jointID);
+						}
+						baseJointID += jointCount;
+					}
+				}
+			}
+
+			video::CPropertyPoolHandler::UpStreamingRequest upstreams[TransferCount];
+			UpstreamRequest req;
+			req.tree = request.tree;
+			req.nodes = {request.outNodes,request.outNodes+nodeCount};
+			req.parents.data = parents;
+			req.relativeTransforms.data = transforms;
+			if (!setupTransfers(req,upstreams))
+				return false;
+			// TODO: optimize
+			//upstreams[0].srcAddresses = ;
+			//upstreams[1].srcAddresses = ;
+
+			auto upstreamsPtr = upstreams;
+			return request.poolHandler->transferProperties(
+				request.upBuff,request.cmdbuf,request.fence,request.queue,request.scratch,upstreamsPtr,TransferCount,
+				waitSemaphoreCount,semaphoresToWaitBeforeOverwrite,stagesToWaitForPerSemaphore,request.logger,maxWaitPoint
+			);
 		}
 
 
