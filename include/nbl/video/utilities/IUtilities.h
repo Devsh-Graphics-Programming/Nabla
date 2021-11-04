@@ -297,6 +297,9 @@ class IUtilities : public core::IReferenceCounted
         )
         {
             const auto& limits = m_device->getPhysicalDevice()->getLimits();
+            const uint32_t memoryLowerBound = limits.maxResidentInvocations * sizeof(uint32_t);
+            const uint32_t alignment = static_cast<uint32_t>(limits.nonCoherentAtomSize);
+
             auto* cmdpool = cmdbuf->getPool();
             assert(cmdpool->getCreationFlags()&IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
             assert(cmdpool->getQueueFamilyIndex()==queue->getFamilyIndex());
@@ -305,15 +308,15 @@ class IUtilities : public core::IReferenceCounted
             {
                 const void* dataPtr = reinterpret_cast<const uint8_t*>(data)+uploadedSize;
                 uint32_t localOffset = video::StreamingTransientDataBufferMT<>::invalid_address;
-                const uint32_t alignment = static_cast<uint32_t>(limits.nonCoherentAtomSize);
-                const uint32_t subSize = static_cast<uint32_t>(core::min<uint64_t>(core::alignDown(m_defaultUploadBuffer.get()->max_size(),alignment), bufferRange.size-uploadedSize));
+
+                uint32_t subSize = static_cast<uint32_t>(core::min<uint64_t>(core::alignDown(m_defaultUploadBuffer.get()->max_size(),alignment), bufferRange.size-uploadedSize));
+                subSize = core::min(subSize, memoryLowerBound);
                 const uint32_t paddedSize = core::alignUp(subSize,alignment);
                 // cannot use `multi_place` because of the extra padding size we could have added
                 m_defaultUploadBuffer.get()->multi_alloc(std::chrono::high_resolution_clock::now()+std::chrono::microseconds(500u),1u,&localOffset,&paddedSize,&alignment);
                 // copy only the unpadded part
                 if (localOffset!=video::StreamingTransientDataBufferMT<>::invalid_address)
                     memcpy(reinterpret_cast<uint8_t*>(m_defaultUploadBuffer->getBufferPointer())+localOffset,dataPtr,subSize);
-
                 // keep trying again
                 if (localOffset == video::StreamingTransientDataBufferMT<>::invalid_address)
                 {

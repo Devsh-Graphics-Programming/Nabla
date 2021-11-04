@@ -10,6 +10,8 @@ void IUtilities::updateImageViaStagingBuffer(
     uint32_t& waitSemaphoreCount, IGPUSemaphore*const * &semaphoresToWaitBeforeOverwrite, const asset::E_PIPELINE_STAGE_FLAGS* &stagesToWaitForPerSemaphore)
 {
     const auto& limits = m_device->getPhysicalDevice()->getLimits();
+    const uint32_t allocationAlignment = static_cast<uint32_t>(limits.nonCoherentAtomSize);
+
     auto* cmdpool = cmdbuf->getPool();
     assert(cmdpool->getCreationFlags()&IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
     assert(cmdpool->getQueueFamilyIndex()==queue->getFamilyIndex());
@@ -51,6 +53,11 @@ void IUtilities::updateImageViaStagingBuffer(
     // if(asset::isPlanarFormat(dstImage->getCreationParameters().format))
 
     assert(core::is_alignment(bufferOffsetAlignment));
+    
+    // Assuming each thread can handle minImageTranferGranularitySize of texelBlocks:
+    const uint32_t maxResidentImageTransferSize = limits.maxResidentInvocations * texelBlockInfo.getBlockByteSize() * (minImageTransferGranularity.width * minImageTransferGranularity.height * minImageTransferGranularity.depth); 
+    // memoryLowerBound = max(maxResidentImageTransferSize, the largest rowPitch of regions); 
+    uint32_t memoryLowerBound = maxResidentImageTransferSize;
 
     while (currentRegion < regions.size())
     {
@@ -58,9 +65,9 @@ void IUtilities::updateImageViaStagingBuffer(
         for (uint32_t i = currentRegion; i < regions.size(); ++i)
         {
             memoryNeededForRemainingRegions = core::alignUp(memoryNeededForRemainingRegions, bufferOffsetAlignment);
-                    
+
             const asset::IImage::SBufferCopy & region = regions[i];
-                    
+
             auto subresourceSize = dstImage->getMipSize(region.imageSubresource.mipLevel);
 
             assert(static_cast<uint32_t>(region.imageSubresource.aspectMask) != 0u);
@@ -94,14 +101,16 @@ void IUtilities::updateImageViaStagingBuffer(
                 (region.imageExtent.depth + region.imageOffset.z <= subresourceSize.z);
             assert(isImageExtentAndOffsetValid);
 
+            auto imageExtent = core::vector3du32_SIMD(region.imageExtent.width, region.imageExtent.height, region.imageExtent.depth);
+            auto imageExtentInBlocks = texelBlockInfo.convertTexelsToBlocks(imageExtent);
+            auto imageExtentBlockStridesInBytes = texelBlockInfo.convert3DBlockStridesTo1DByteStrides(imageExtentInBlocks);
+            memoryLowerBound = core::max(memoryLowerBound, imageExtentBlockStridesInBytes[1]); // rowPitch = imageExtentBlockStridesInBytes[1]
 
-            auto alignedImageExtentInBlocks = texelBlockInfo.convertTexelsToBlocks(core::vector3du32_SIMD(region.imageExtent.width, region.imageExtent.height, region.imageExtent.depth));
-            auto imageExtentBlockStridesInBytes = texelBlockInfo.convert3DBlockStridesTo1DByteStrides(alignedImageExtentInBlocks);
             if(i == currentRegion)
             {
-                auto remainingBlocksInRow = alignedImageExtentInBlocks.x - currentBlockInRow;
-                auto remainingRowsInSlice = alignedImageExtentInBlocks.y - currentRowInSlice;
-                auto remainingSlicesInLayer = alignedImageExtentInBlocks.z - currentSliceInLayer;
+                auto remainingBlocksInRow = imageExtentInBlocks.x - currentBlockInRow;
+                auto remainingRowsInSlice = imageExtentInBlocks.y - currentRowInSlice;
+                auto remainingSlicesInLayer = imageExtentInBlocks.z - currentSliceInLayer;
                 auto remainingLayersInRegion = region.imageSubresource.layerCount - currentLayerInRegion;
 
                 if(currentBlockInRow == 0 && currentRowInSlice == 0 && currentSliceInLayer == 0 && remainingLayersInRegion > 0)
@@ -138,15 +147,23 @@ void IUtilities::updateImageViaStagingBuffer(
         }
 
         uint32_t localOffset = video::StreamingTransientDataBufferMT<>::invalid_address;
-        const uint32_t alignment = static_cast<uint32_t>(limits.nonCoherentAtomSize);
-        const uint32_t subSize = static_cast<uint32_t>(core::min<uint64_t>(core::alignDown(m_defaultUploadBuffer.get()->max_size(), alignment), memoryNeededForRemainingRegions));
-        const uint32_t uploadBufferSize = core::alignUp(subSize, alignment);
+        uint32_t subSize = static_cast<uint32_t>(core::min<uint64_t>(core::alignDown(m_defaultUploadBuffer.get()->max_size(), allocationAlignment), memoryNeededForRemainingRegions));
+        subSize = std::max(subSize, memoryLowerBound);
+        const uint32_t uploadBufferSize = core::alignUp(subSize, allocationAlignment);
         // cannot use `multi_place` because of the extra padding size we could have added
-        m_defaultUploadBuffer.get()->multi_alloc(std::chrono::high_resolution_clock::now()+std::chrono::microseconds(500u), 1u, &localOffset, &uploadBufferSize, &alignment);
+        m_defaultUploadBuffer.get()->multi_alloc(std::chrono::high_resolution_clock::now()+std::chrono::microseconds(500u), 1u, &localOffset, &uploadBufferSize, &allocationAlignment);
+        bool failedAllocation = (localOffset == video::StreamingTransientDataBufferMT<>::invalid_address);
 
         // keep trying again
-        if (localOffset == video::StreamingTransientDataBufferMT<>::invalid_address)
+        if (failedAllocation)
         {
+            if(currentRegion == 0 && currentLayerInRegion == 0 && currentSliceInLayer == 0 && currentRowInSlice == 0 && currentBlockInRow == 0)
+            {
+                // TODO: Log Failed Allocation and return false;
+                _NBL_DEBUG_BREAK_IF(false && "Failed Initial Allocation.");
+                break;
+            }
+
             // but first sumbit the already buffered up copies
             cmdbuf->end();
             IGPUQueue::SSubmitInfo submit;
@@ -218,7 +235,7 @@ void IUtilities::updateImageViaStagingBuffer(
                 auto imageOffset = core::vector3du32_SIMD(region.imageOffset.x, region.imageOffset.y, region.imageOffset.z);
                 auto imageOffsetInBlocks = texelBlockInfo.convertTexelsToBlocks(imageOffset);
                 auto imageExtentInBlocks = texelBlockInfo.convertTexelsToBlocks(imageExtent);
-                auto alignedImageExtentBlockStridesInBytes = texelBlockInfo.convert3DBlockStridesTo1DByteStrides(imageExtentInBlocks);
+                auto imageExtentBlockStridesInBytes = texelBlockInfo.convert3DBlockStridesTo1DByteStrides(imageExtentInBlocks);
 
                 // region <-> region.imageSubresource.layerCount <-> imageExtentInBlocks.z <-> imageExtentInBlocks.y <-> imageExtentInBlocks.x
                 auto updateCurrentOffsets = [&]() -> void
@@ -248,10 +265,10 @@ void IUtilities::updateImageViaStagingBuffer(
                     }
                 };
                         
-                uint32_t eachBlockNeededMemory = alignedImageExtentBlockStridesInBytes[0];  // = blockByteSize
-                uint32_t eachRowNeededMemory = alignedImageExtentBlockStridesInBytes[1];    // = blockByteSize * imageExtentInBlocks.x
-                uint32_t eachSliceNeededMemory = alignedImageExtentBlockStridesInBytes[2];  // = blockByteSize * imageExtentInBlocks.x * imageExtentInBlocks.y
-                uint32_t eachLayerNeededMemory = alignedImageExtentBlockStridesInBytes[3];  // = blockByteSize * imageExtentInBlocks.x * imageExtentInBlocks.y * imageExtentInBlocks.z
+                uint32_t eachBlockNeededMemory  = imageExtentBlockStridesInBytes[0];  // = blockByteSize
+                uint32_t eachRowNeededMemory    = imageExtentBlockStridesInBytes[1];  // = blockByteSize * imageExtentInBlocks.x
+                uint32_t eachSliceNeededMemory  = imageExtentBlockStridesInBytes[2];  // = blockByteSize * imageExtentInBlocks.x * imageExtentInBlocks.y
+                uint32_t eachLayerNeededMemory  = imageExtentBlockStridesInBytes[3];  // = blockByteSize * imageExtentInBlocks.x * imageExtentInBlocks.y * imageExtentInBlocks.z
 
                 auto tryFillRow = [&]() -> bool
                 {
@@ -609,12 +626,12 @@ void IUtilities::updateImageViaStagingBuffer(
             }
 
             assert(anyTransferRecorded && "uploadBufferSize is not enough to support the smallest possible transferable units to image, may be caused if your queueFam's minImageTransferGranularity is large or equal to <0,0,0>.");
-        }
-
-        // some platforms expose non-coherent host-visible GPU memory, so writes need to be flushed explicitly
-        if (m_defaultUploadBuffer.get()->needsManualFlushOrInvalidate()) {
-            IDriverMemoryAllocation::MappedMemoryRange flushRange(m_defaultUploadBuffer.get()->getBuffer()->getBoundMemory(), localOffset, uploadBufferSize);
-            m_device->flushMappedMemoryRanges(1u, &flushRange);
+            
+            // some platforms expose non-coherent host-visible GPU memory, so writes need to be flushed explicitly
+            if (m_defaultUploadBuffer.get()->needsManualFlushOrInvalidate()) {
+                IDriverMemoryAllocation::MappedMemoryRange flushRange(m_defaultUploadBuffer.get()->getBuffer()->getBoundMemory(), localOffset, uploadBufferSize);
+                m_device->flushMappedMemoryRanges(1u, &flushRange);
+            }
         }
 
         // this doesn't actually free the memory, the memory is queued up to be freed only after the GPU fence/event is signalled
