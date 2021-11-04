@@ -47,6 +47,8 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
             uint32_t maxTextures;
             uint32_t maxStorageImages;
 
+            uint64_t maxTextureSize;
+
             uint32_t maxDrawIndirectCount;
 
             float pointSizeRange[2];

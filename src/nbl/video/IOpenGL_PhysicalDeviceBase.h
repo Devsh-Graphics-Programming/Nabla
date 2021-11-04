@@ -416,6 +416,7 @@ public:
 			m_limits.maxUBOs = m_glfeatures.maxUBOBindings;
 			m_limits.maxTextures = m_glfeatures.maxTextureBindings;
 			m_limits.maxStorageImages = m_glfeatures.maxImageBindings;
+			GetInteger64v(GL_MAX_TEXTURE_SIZE, reinterpret_cast<GLint64*>(&m_limits.maxTextureSize));
 
 			GetFloatv(GL_POINT_SIZE_RANGE, m_limits.pointSizeRange);
 			GetFloatv(GL_ALIASED_LINE_WIDTH_RANGE, m_limits.lineWidthRange);
