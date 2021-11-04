@@ -51,16 +51,18 @@ void main()
 		const bvec3 mask = bvec3(gl_VertexIndex&0x1u,gl_VertexIndex&0x2u,gl_VertexIndex&0x4u);
 		pos = mix(aabb.minVx,aabb.maxVx,mask);
 
-		outColor = PushConstants.aabbColor.rgb;
+		outColor = pc.aabbColor.rgb;
 	}
 	else // render node-parent line
 	{
 		uint id = nodeID;
-		if (bool(gl_VertexIndex&0x1u)&&parent!=NBL_GLSL_PROPERTY_POOL_INVALID)
-			id = nodeParents.data[nodeID];
+		uint nodeParentID = nodeParents.data[nodeID];
+		
+		if (bool(gl_VertexIndex&0x1u)&&nodeParentID!=NBL_GLSL_PROPERTY_POOL_INVALID)
+			id = nodeParentID;
 		pos = nodeGlobalTransforms.data[id][3];
 
-		outColor = PushConstants.lineColor.rgb;
+		outColor = pc.lineColor.rgb;
 	}
 	gl_Position = nbl_glsl_pseudoMul4x4with3x1(pc.viewProj,pos);
 }
