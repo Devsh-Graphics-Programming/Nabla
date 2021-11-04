@@ -112,79 +112,7 @@ class ITransformTree : public virtual core::IReferenceCounted
 			device->updateDescriptorSets(property_pool_t::PropertyCount,writes,0u,nullptr);
 
 			auto* ttRaw = new ITransformTree(std::move(pool),std::move(ds));
-			auto transformTree = core::smart_refctd_ptr<ITransformTree>(ttRaw, core::dont_grab);
-			{
-				auto system = device->getPhysicalDevice()->getSystem();
-
-				auto createShader = [&system, &device](auto uniqueString, asset::ISpecializedShader::E_SHADER_STAGE type) -> core::smart_refctd_ptr<video::IGPUSpecializedShader>
-				{
-					auto glslFile = system->loadBuiltinData<decltype(uniqueString)>();
-					core::smart_refctd_ptr<asset::ICPUBuffer> glsl;
-					{
-						glsl = core::make_smart_refctd_ptr<asset::ICPUBuffer>(glslFile->getSize());
-						memcpy(glsl->getPointer(), glslFile->getMappedPointer(), glsl->getSize());
-					}
-					auto cpuShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl), asset::IShader::buffer_contains_glsl_t{});
-					auto gpuShader = device->createGPUShader(std::move(cpuShader));
-
-					return device->createGPUSpecializedShader(gpuShader.get(), {nullptr, nullptr, "main", type});
-				};
-
-				constexpr uint16_t SHADER_COUNT = 2u;
-				auto gpuDebugVertexShader = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/transform_tree/debug/debug_draw_node_line.vert")(), asset::ISpecializedShader::ESS_VERTEX);
-				auto gpuDebugFragmentShader = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/transform_tree/debug/debug_draw.frag")(), asset::ISpecializedShader::ESS_FRAGMENT);
-
-				if (!gpuDebugVertexShader || !gpuDebugFragmentShader)
-					return nullptr;
-
-				video::IGPUSpecializedShader* gpuShaders[] = {gpuDebugVertexShader.get(), gpuDebugFragmentShader.get()};
-
-				asset::SVertexInputParams vertexInputParams;
-				vertexInputParams.bindings[DEBUG_GLOBAL_NODE_ID_AND_SCALE_BINDING].inputRate = asset::EVIR_PER_INSTANCE;
-				vertexInputParams.bindings[DEBUG_GLOBAL_NODE_ID_AND_SCALE_BINDING].stride = sizeof(DebugNodeVtxInput);
-
-				vertexInputParams.attributes[DEBUG_GLOBAL_NODE_ID_ATTRIBUTE].binding = DEBUG_GLOBAL_NODE_ID_AND_SCALE_BINDING;
-				vertexInputParams.attributes[DEBUG_GLOBAL_NODE_ID_ATTRIBUTE].format = asset::EF_R32_UINT;
-				vertexInputParams.attributes[DEBUG_GLOBAL_NODE_ID_ATTRIBUTE].relativeOffset = offsetof(DebugNodeVtxInput, node);
-
-				vertexInputParams.attributes[DEBUG_SCALE_NODE_ATTRIBUTE].binding = DEBUG_GLOBAL_NODE_ID_AND_SCALE_BINDING;
-				vertexInputParams.attributes[DEBUG_SCALE_NODE_ATTRIBUTE].format = asset::EF_R32_SFLOAT;
-				vertexInputParams.attributes[DEBUG_SCALE_NODE_ATTRIBUTE].relativeOffset = offsetof(DebugNodeVtxInput, scale);
-
-				vertexInputParams.enabledBindingFlags |= 0x1u << DEBUG_GLOBAL_NODE_ID_AND_SCALE_BINDING;
-				vertexInputParams.enabledAttribFlags |= 0x1u << DEBUG_GLOBAL_NODE_ID_ATTRIBUTE | 0x1u << DEBUG_SCALE_NODE_ATTRIBUTE;
-
-				asset::SBlendParams blendParams;
-				asset::SPrimitiveAssemblyParams primitiveAssemblyParams;
-				primitiveAssemblyParams.primitiveType = asset::EPT_LINE_LIST;
-				asset::SRasterizationParams rasterizationParams;
-
-				asset::SPushConstantRange pcRange;
-				pcRange.offset = 0u;
-				pcRange.size = sizeof(DebugPushConstants);
-				pcRange.stageFlags = static_cast<asset::ISpecializedShader::E_SHADER_STAGE>(asset::ISpecializedShader::ESS_VERTEX);
-
-				auto gpuPipelineLayout = device->createGPUPipelineLayout(&pcRange, &pcRange + 1, core::smart_refctd_ptr(layout));
-				auto gpuRenderpassIndependentPipeline = device->createGPURenderpassIndependentPipeline(nullptr, std::move(gpuPipelineLayout), gpuShaders, gpuShaders + SHADER_COUNT, vertexInputParams, blendParams, primitiveAssemblyParams, rasterizationParams);
-				
-				if (!gpuRenderpassIndependentPipeline)
-					return nullptr;
-
-				transformTree->m_debugGpuRenderpassIndependentPipelineNode = std::move(gpuRenderpassIndependentPipeline);
-				transformTree->m_debugGpuRenderpass = core::smart_refctd_ptr(gpuRenderpass);
-				
-				core::smart_refctd_ptr<video::IGPUGraphicsPipeline> gpuGraphicsPipeline;
-				{
-					nbl::video::IGPUGraphicsPipeline::SCreationParams graphicsPipelineParams;
-					graphicsPipelineParams.renderpassIndependent = transformTree->m_debugGpuRenderpassIndependentPipelineNode;
-					graphicsPipelineParams.renderpass = core::smart_refctd_ptr(transformTree->m_debugGpuRenderpass);
-
-					auto gpuGraphicsPipeline = device->createGPUGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
-					transformTree->m_debugGpuPipelineNode = std::move(gpuGraphicsPipeline);
-				}
-			}
-
-			return transformTree;
+			return core::smart_refctd_ptr<ITransformTree>(ttRaw,core::dont_grab);
 		}
 		
 		//
@@ -240,89 +168,6 @@ class ITransformTree : public virtual core::IReferenceCounted
 			return pphandler->transferProperties(cmdbuf,fence,scratch,{nodes.offset,nodes.buffer},&request,&request+1u,logger);
 		}
 
-		#include "nbl/nblpack.h"
-		struct DebugNodeVtxInput
-		{
-			node_t node;
-			float scale;
-		} PACK_STRUCT;
-		#include "nbl/nblunpack.h"
-
-		#include "nbl/nblpack.h"
-		struct DebugPushConstants
-		{
-			core::matrix4SIMD viewProjectionMatrix;
-			core::vector4df_SIMD lineColor;
-			core::vector4df_SIMD aabbColor;
-			core::vector4df_SIMD minEdge;
-			core::vector4df_SIMD maxEdge;
-		} PACK_STRUCT;
-		#include "nbl/nblunpack.h"
-
-		inline void setDebugEnabledFlag(bool debugEnabled = true)
-		{
-			m_debugEnabled = debugEnabled;
-		}
-
-		inline void setDebugLiveAllocations(const core::vector<DebugNodeVtxInput>& nodes)
-		{
-			m_debugLiveAllocations = nodes;
-		}
-
-		void debugDraw(video::ILogicalDevice* device, video::IGPUCommandBuffer* commandBuffer, const DebugPushConstants& debugPushConstants)
-		{
-			if (!m_debugEnabled)
-				return;
-
-			if (m_debugLiveAllocationsGpuBuffer)
-			{
-				if (!m_debugLiveAllocationsGpuBuffer->getSize() || m_debugLiveAllocationsGpuBuffer->getSize() != m_debugLiveAllocations.size() * sizeof(DebugNodeVtxInput))
-					return;
-			}
-			else
-			{
-				if (!m_debugLiveAllocations.size())
-					return;
-
-				auto localGPUMemoryReqs = device->getDeviceLocalGPUMemoryReqs();
-				localGPUMemoryReqs.vulkanReqs.size = m_debugLiveAllocations.size() * sizeof(DebugNodeVtxInput);
-				localGPUMemoryReqs.mappingCapability = video::IDriverMemoryAllocation::EMCAF_READ_AND_WRITE;
-				m_debugLiveAllocationsGpuBuffer = std::move(device->createGPUBufferOnDedMem(video::IGPUBuffer::SCreationParams{}, localGPUMemoryReqs));
-
-				commandBuffer->updateBuffer(m_debugLiveAllocationsGpuBuffer.get(), 0, m_debugLiveAllocationsGpuBuffer->getSize(), m_debugLiveAllocations.data());
-			}
-			
-			#define LINE_VERTEX_COUNT 2u
-			#define BOX_VERTEX_COUNT 24u
-
-			_NBL_STATIC_INLINE_CONSTEXPR auto VERTEX_COUNT = LINE_VERTEX_COUNT + BOX_VERTEX_COUNT;
-			const size_t INSTANCE_COUNT = m_debugLiveAllocations.size();
-
-			const nbl::video::IGPUBuffer* gpuBufferBindings[nbl::asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT];
-			{
-				for (size_t i = 0; i < nbl::asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; ++i)
-					gpuBufferBindings[i] = nullptr;
-
-				gpuBufferBindings[DEBUG_GLOBAL_NODE_ID_AND_SCALE_BINDING] = m_debugLiveAllocationsGpuBuffer.get();
-			}
-
-			size_t bufferBindingsOffsets[nbl::asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT];
-			{
-				for (size_t i = 0; i < nbl::asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; ++i)
-					bufferBindingsOffsets[i] = 0;
-			}
-
-			commandBuffer->bindGraphicsPipeline(m_debugGpuPipelineNode.get());
-			const auto stage = core::bitflag(asset::ISpecializedShader::ESS_VERTEX) | core::bitflag(asset::ISpecializedShader::ESS_GEOMETRY);
-			commandBuffer->pushConstants(m_debugGpuRenderpassIndependentPipelineNode->getLayout(), stage, 0u, sizeof(DebugPushConstants), &debugPushConstants);
-			commandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS, m_debugGpuRenderpassIndependentPipelineNode->getLayout(), 0u, 1u, &m_transformHierarchyDS.get());
-
-			commandBuffer->bindVertexBuffers(0, nbl::asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT, gpuBufferBindings, bufferBindingsOffsets);
-			commandBuffer->bindIndexBuffer(nullptr, 0, nbl::asset::EIT_UNKNOWN);
-
-			commandBuffer->draw(VERTEX_COUNT, INSTANCE_COUNT, 0, 0);
-		}
-
 	protected:
 		ITransformTree(core::smart_refctd_ptr<property_pool_t>&& _nodeStorage, core::smart_refctd_ptr<video::IGPUDescriptorSet>&& _transformHierarchyDS)
 			: m_nodeStorage(std::move(_nodeStorage)), m_transformHierarchyDS(std::move(_transformHierarchyDS))
@@ -345,19 +190,6 @@ class ITransformTree : public virtual core::IReferenceCounted
 		core::smart_refctd_ptr<property_pool_t> m_nodeStorage;
 		core::smart_refctd_ptr<video::IGPUDescriptorSet> m_transformHierarchyDS;
 		// TODO: do we keep a contiguous `node_t` array in-case we want to shortcut to full tree reevaluation when the number of relative transform modification requests > totalNodes*ratio (or overflows the temporary buffer we've provided) ?
-	private:
-		bool m_debugEnabled = false;
-
-		_NBL_STATIC_INLINE_CONSTEXPR size_t DEBUG_GLOBAL_NODE_ID_AND_SCALE_BINDING = 15u;
-		_NBL_STATIC_INLINE_CONSTEXPR size_t DEBUG_GLOBAL_NODE_ID_ATTRIBUTE = 0u;
-		_NBL_STATIC_INLINE_CONSTEXPR size_t DEBUG_SCALE_NODE_ATTRIBUTE = 1u;
-
-		core::vector<DebugNodeVtxInput> m_debugLiveAllocations;
-		core::smart_refctd_ptr<video::IGPUBuffer> m_debugLiveAllocationsGpuBuffer;
-
-		core::smart_refctd_ptr<video::IGPUGraphicsPipeline> m_debugGpuPipelineNode;
-		core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> m_debugGpuRenderpassIndependentPipelineNode;
-		core::smart_refctd_ptr<video::IGPURenderpass> m_debugGpuRenderpass;
 };
 
 } // end namespace nbl::scene

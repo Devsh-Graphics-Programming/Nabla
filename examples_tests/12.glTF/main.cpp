@@ -91,6 +91,9 @@ class GLTFApp : public ApplicationBase
 			utilities = std::move(initOutput.utilities);
 
 			transferUpQueue = queues[decltype(initOutput)::EQT_TRANSFER_UP];
+			
+			auto transformTreeManager = scene::ITransformTreeManager::create(utilities.get(),transferUpQueue);
+
 
 			auto gpuTransferFence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
 			auto gpuComputeFence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
@@ -136,8 +139,8 @@ class GLTFApp : public ApplicationBase
 			};
 
 			asset::SAssetBundle meshes_bundle;
-			asset::ICPUDescriptorSetLayout* cpuDescriptorSetLayout1 = nullptr;
 			const asset::CGLTFMetadata* glTFMeta = nullptr;
+			asset::ICPUDescriptorSetLayout* cpuDescriptorSetLayout1 = nullptr;
 			{
 				asset::IAssetLoader::SAssetLoadParams loadingParams;
 
@@ -153,54 +156,22 @@ class GLTFApp : public ApplicationBase
 				cpuDescriptorSetLayout1 = firstCpuMesh->getMeshBuffers().begin()[0]->getPipeline()->getLayout()->getDescriptorSetLayout(1);
 				glTFMeta = meshes_bundle.getMetadata()->selfCast<asset::CGLTFMetadata>();
 			}
+			//const auto& nodeCount = xCpuMeshBuffer->getSkeleton()->getJointCount();
 
 			/*
 				Property Buffers for skinning
 			*/
+			constexpr uint32_t MaxNodeCount = 128u<<10u;
+			auto transformTree = scene::ITransformTree::create(logicalDevice.get(),renderpass,MaxNodeCount);
+
+
+
 
 			auto xCpuMeshBuffer = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(meshes_bundle.getContents().begin()[0])->getMeshBuffers().begin()[0];
 			const auto& nodeCount = xCpuMeshBuffer->getSkeleton()->getJointCount();
-			constexpr uint32_t PropertyCount = 5u;
 
-			constexpr size_t parentPropSz = sizeof(uint32_t);						// tt0->getNodePropertyPool()->getPropertySize(scene::ITransformTree::parent_prop_ix);
-			constexpr size_t relTformPropSz = sizeof(core::matrix3x4SIMD);			// tt0->getNodePropertyPool()->getPropertySize(scene::ITransformTree::relative_transform_prop_ix);
-			constexpr size_t modifStampPropSz = sizeof(uint32_t);					// tt0->getNodePropertyPool()->getPropertySize(scene::ITransformTree::modified_stamp_prop_ix);
-			constexpr size_t globalTformPropSz = sizeof(core::matrix3x4SIMD);		// tt0->getNodePropertyPool()->getPropertySize(scene::ITransformTree::global_transform_prop_ix);
-			constexpr size_t recompStampPropSz = sizeof(uint32_t);					// tt0->getNodePropertyPool()->getPropertySize(scene::ITransformTree::recomputed_stamp_prop_ix);
-
-			const size_t SSBOAlignment = gpuPhysicalDevice->getLimits().SSBOAlignment;
-			const size_t offset_parent = 0u;
-			const size_t offset_relTform = core::alignUp(offset_parent + parentPropSz * nodeCount, SSBOAlignment);
-			const size_t offset_modifStamp = core::alignUp(offset_relTform + relTformPropSz * nodeCount, SSBOAlignment);
-			const size_t offset_globalTform = core::alignUp(offset_modifStamp + modifStampPropSz * nodeCount, SSBOAlignment);
-			const size_t offset_recompStamp = core::alignUp(offset_globalTform + globalTformPropSz * nodeCount, SSBOAlignment);
-
-			const size_t gpuSSBOSize = offset_recompStamp + recompStampPropSz * nodeCount;
-			auto SSBOGPUBuffer = logicalDevice->createDeviceLocalGPUBufferOnDedMem(video::IGPUBuffer::SCreationParams{}, gpuSSBOSize);
-
-			asset::SBufferRange<video::IGPUBuffer> propertyGPUBuffers[PropertyCount];
-			for (uint32_t i = 0u; i < PropertyCount; ++i)
-				propertyGPUBuffers[i].buffer = SSBOGPUBuffer;
-
-			propertyGPUBuffers[scene::ITransformTree::parent_prop_ix].offset = offset_parent;
-			propertyGPUBuffers[scene::ITransformTree::parent_prop_ix].size = parentPropSz * nodeCount;
-
-			propertyGPUBuffers[scene::ITransformTree::relative_transform_prop_ix].offset = offset_relTform;
-			propertyGPUBuffers[scene::ITransformTree::relative_transform_prop_ix].size = relTformPropSz * nodeCount;
-
-			propertyGPUBuffers[scene::ITransformTree::modified_stamp_prop_ix].offset = offset_modifStamp;
-			propertyGPUBuffers[scene::ITransformTree::modified_stamp_prop_ix].size = modifStampPropSz * nodeCount;
-
-			propertyGPUBuffers[scene::ITransformTree::global_transform_prop_ix].offset = offset_globalTform;
-			propertyGPUBuffers[scene::ITransformTree::global_transform_prop_ix].size = globalTformPropSz * nodeCount;
-
-			propertyGPUBuffers[scene::ITransformTree::recomputed_stamp_prop_ix].offset = offset_recompStamp;
-			propertyGPUBuffers[scene::ITransformTree::recomputed_stamp_prop_ix].size = recompStampPropSz * nodeCount;
-
-			auto transformTree = scene::ITransformTree::create(logicalDevice.get(), renderpass, propertyGPUBuffers, nodeCount, true);
-			auto transformTreeManager = scene::ITransformTreeManager::create(utilities.get(), transferUpQueue);
 			auto propertyPoolHandler = core::make_smart_refctd_ptr<video::CPropertyPoolHandler>(core::smart_refctd_ptr(logicalDevice));
-
+#if 0
 			nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandBuffer> cmdbuf_nodes;
 			logicalDevice->createCommandBuffers(commandPool.get(), nbl::video::IGPUCommandBuffer::EL_PRIMARY, 1u, &cmdbuf_nodes);
 			auto fence_nodes = logicalDevice->createFence(static_cast<nbl::video::IGPUFence::E_CREATE_FLAGS>(0));
@@ -218,7 +189,7 @@ class GLTFApp : public ApplicationBase
 
 				skeletonAllocationRequest.outNodes = { nodes_t.data(), nodes_t.data() + nodes_t.size() };
 				skeletonAllocationRequest.poolHandler = propertyPoolHandler.get();
-				skeletonAllocationRequest.tree = transformTree.get();
+				skeletonAllocationRequest.tree = transformTree2.get();
 				skeletonAllocationRequest.upBuff = utilities->getDefaultUpStreamingBuffer();
 				skeletonAllocationRequest.logger = initOutput.logger.get();
 
@@ -240,7 +211,7 @@ class GLTFApp : public ApplicationBase
 
 			cmdbuf_nodes->reset(video::IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
 			logicalDevice->resetFences(1u, &fence_nodes.get());
-
+#endif
 			/*
 				We can safely assume that all meshes' mesh buffers loaded from glTF has the same DS1 layout
 				used for camera-specific data, so we can create just one DS.
@@ -352,8 +323,8 @@ class GLTFApp : public ApplicationBase
 
 			logicalDevice->createCommandBuffers(commandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY, FRAMES_IN_FLIGHT, commandBuffers);
 
+			//
 			oracle.reportBeginFrameRecord();
-
 			for (uint32_t i = 0u; i < FRAMES_IN_FLIGHT; i++)
 			{
 				imageAcquire[i] = logicalDevice->createSemaphore();
