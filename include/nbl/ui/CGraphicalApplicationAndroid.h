@@ -98,7 +98,19 @@ namespace nbl::ui
 				{
 					while ((ident = ALooper_pollAll(0, nullptr, &events, (void**)&source)) >= 0)
 					{
+						if (source != nullptr) {
+							source->process(app, source);
+						}
 					}
+				}
+				{
+					auto wnd = (CWindowAndroid*)framework->getWindow();
+					auto mouseChannel = core::make_smart_refctd_ptr<IMouseEventChannel>(CWindowAndroid::CIRCULAR_BUFFER_CAPACITY);
+					auto keyboardChannel = core::make_smart_refctd_ptr<IKeyboardEventChannel>(CWindowAndroid::CIRCULAR_BUFFER_CAPACITY);
+					if (wnd->addMouseEventChannel(0, core::smart_refctd_ptr<IMouseEventChannel>(mouseChannel)))
+						wnd->getEventCallback()->onMouseConnected(wnd, std::move(mouseChannel));
+					if (wnd->addKeyboardEventChannel(0, core::smart_refctd_ptr<IKeyboardEventChannel>(keyboardChannel)))
+						wnd->getEventCallback()->onKeyboardConnected(wnd, std::move(keyboardChannel));
 				}
 				while (framework->keepRunning()) {
 					while ((ident = ALooper_pollAll(0, nullptr, &events, (void**)&source)) >= 0)

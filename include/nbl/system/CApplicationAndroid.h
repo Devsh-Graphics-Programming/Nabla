@@ -63,7 +63,6 @@ namespace nbl::system
                 break;
             case APP_CMD_INIT_WINDOW:
                 framework->onAppInitialized();
-                framework->workLoopBody();
                 break;
             default:
                 break;

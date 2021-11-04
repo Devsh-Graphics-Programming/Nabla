@@ -6,7 +6,6 @@ namespace nbl::ui
 {
 	void CWindowManagerAndroid::handleInput_impl(android_app* app, AInputEvent* event)
 	{
-		constexpr uint32_t CIRCULAR_BUFFER_CAPACITY = 256;
 		auto* ctx = (CGraphicalApplicationAndroid::SGraphicalContext*)app->userData;
 		auto framework = (CGraphicalApplicationAndroid*)ctx->framework;
 		auto* wnd = (CWindowAndroid*)framework->getWindow();
@@ -72,6 +71,10 @@ namespace nbl::ui
 					mouseEvent.type = SMouseEvent::EET_CLICK;
 					mouseEvent.clickEvent.clickPosX = AMotionEvent_getX(event, 0);
 					mouseEvent.clickEvent.clickPosY = AMotionEvent_getY(event, 0);
+					auto rawx = AMotionEvent_getRawX(event, 0);
+					auto rawy = AMotionEvent_getRawY(event, 0);
+					auto x = AMotionEvent_getX(event, 0);
+					auto offset = AMotionEvent_getXOffset(event);
 					mouseEvent.clickEvent.action = SMouseEvent::SClickEvent::EA_RELEASED;
 				}
 				else if (action == AMOTION_EVENT_ACTION_SCROLL)
@@ -110,7 +113,8 @@ namespace nbl::ui
 			if (wnd != nullptr)
 			{
 				auto eventCallback = wnd->getEventCallback();
-				(void)eventCallback->onWindowClosed(wnd);
+				if (eventCallback)
+					(void)eventCallback->onWindowClosed(wnd);
 			}
 			break;
 		}
@@ -121,8 +125,10 @@ namespace nbl::ui
 			auto* wnd = framework->getWindow();
 			if (wnd != nullptr)
 			{
+
 				auto eventCallback = wnd->getEventCallback();
-				(void)eventCallback->onWindowResized(wnd, width, height);
+				if (eventCallback)
+					(void)eventCallback->onWindowResized(wnd, width, height);
 			}
 
 			break;
@@ -133,8 +139,11 @@ namespace nbl::ui
 			if (wnd != nullptr)
 			{
 				auto eventCallback = wnd->getEventCallback();
-				(void)eventCallback->onLostMouseFocus(wnd);
-				(void)eventCallback->onLostKeyboardFocus(wnd);
+				if (eventCallback)
+				{
+					(void)eventCallback->onLostMouseFocus(wnd);
+					(void)eventCallback->onLostKeyboardFocus(wnd);
+				}
 			}
 			break;
 		}
@@ -144,8 +153,11 @@ namespace nbl::ui
 			if (wnd != nullptr)
 			{
 				auto eventCallback = wnd->getEventCallback();
+				if (eventCallback)
+				{
 				(void)eventCallback->onGainedMouseFocus(wnd);
 				(void)eventCallback->onGainedKeyboardFocus(wnd);
+				}
 			}
 			break;
 		}

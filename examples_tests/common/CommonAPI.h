@@ -842,7 +842,9 @@ public:
 		result.window = windowManager->createWindow(std::move(windowsCreationParams));
 		result.windowCb->setInputSystem(core::smart_refctd_ptr(result.inputSystem));
 #else
-		result.window->setEventCallback(core::smart_refctd_ptr(result.windowCb));
+		result.windowCb = nbl::core::smart_refctd_ptr<EventCallback>((CommonAPIEventCallback*)result.window->getEventCallback());
+		result.windowCb->setInputSystem(core::smart_refctd_ptr(result.inputSystem));
+		//result.window->setEventCallback(core::smart_refctd_ptr(result.windowCb));
 #endif
 		if(api_type == EAT_VULKAN) 
 		{

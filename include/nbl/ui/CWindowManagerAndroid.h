@@ -15,6 +15,7 @@ namespace nbl::ui
 	{
 		android_app* m_app;
 		std::atomic_flag windowIsCreated;
+		constexpr static uint32_t CIRCULAR_BUFFER_CAPACITY = CWindowAndroid::CIRCULAR_BUFFER_CAPACITY;
 	public:
 		CWindowManagerAndroid(android_app* app) : m_app(app) 
         {
