@@ -368,37 +368,51 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		struct SkeletonAllocationRequest : RequestBase,AdditionRequestBase
 		{
 			core::SRange<const asset::ICPUSkeleton*> skeletons;
-			const uint32_t* instanceCounts;
+			// if nullptr then treated like a buffer of {1,1,...,1,1}, else needs to be same length as the skeleton range
+			const uint32_t* instanceCounts = nullptr;
+			// If you make the skeleton hierarchy have a real parent, you won't be able to share it amongst multiple instances of a mesh
+			// also in order to render with standard shaders you'll have to cancel out the model transform of the parent for the skinning matrices.
+			const ITransformTree::node_t*const * skeletonInstanceParents = nullptr;
+			// the following arrays need to be sized according to `StagingRequirements`
 			// if the `outNodes` have values not equal to `invalid_node` then we treat them as already allocated
 			// (this allows you to split allocation of nodes from setting up the transfers)
 			ITransformTree::node_t* outNodes = nullptr;
-			void* propertyRepackingScratch;
+			// scratch buffers are just required to be the set size, they can be filled with garbage
+			ITransformTree::node_t* parentScratch;
+			// must be non null if at least one skeleton has default transforms
+			ITransformTree::relative_transform_t* transformScratch = nullptr;
 
 			inline bool isValid() const
 			{
-				return AdditionRequestBase::isValid() && skeletons.begin() && skeletons.begin()<=skeletons.end() && instanceCounts && outNodes && propertyRepackingScratch;
+				return AdditionRequestBase::isValid() && skeletons.begin() && skeletons.begin()<=skeletons.end() && outNodes && parentScratch;
 			}
 
-			inline uint32_t computeNodeCount() const
+			struct StagingRequirements
 			{
-				uint32_t nodeCount = 0u;
+				uint32_t nodeCount;
+				uint32_t parentScratchSize;
+				uint32_t transformScratchSize;
+			};
+			inline StagingRequirements computeStagingRequirements() const
+			{
+				StagingRequirements reqs = {0u,0u,0u};
 				auto instanceCountIt = instanceCounts;
 				for (auto skeleton : skeletons)
 				{
 					if (skeleton)
-						nodeCount += skeleton->getJointCount()*(*instanceCountIt);
+					{
+						const uint32_t jointCount = skeleton->getJointCount();
+						const uint32_t jointInstanceCount = (*instanceCountIt)*jointCount;
+						reqs.nodeCount += jointInstanceCount;
+						reqs.parentScratchSize += sizeof(ITransformTree::node_t)*jointInstanceCount;
+						if (skeleton->getDefaultTransformBinding().buffer)
+							reqs.transformScratchSize += sizeof(ITransformTree::relative_transform_t)*jointCount;
+					}
 					instanceCountIt++;
 				}
-				return nodeCount;
-			}
-
-			static inline uint32_t calculatePropertyRepackingScratchSize(const uint32_t nodeCount)
-			{
-				return (sizeof(ITransformTree::node_t)+sizeof(ITransformTree::relative_transform_t))*nodeCount;
-			}
-			inline uint32_t computePropertyRepackingScratchSize() const
-			{
-				return (sizeof(ITransformTree::node_t)+sizeof(ITransformTree::relative_transform_t))*computeNodeCount();
+				if (reqs.transformScratchSize)
+					reqs.transformScratchSize += reqs.parentScratchSize*sizeof(uint32_t)/sizeof(ITransformTree::node_t);
+				return reqs;
 			}
 		};
 		inline bool addSkeletonNodes(
@@ -411,54 +425,63 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			if (!request.isValid())
 				return false;
 
-			const uint32_t nodeCount = request.computeNodeCount();
-			if (nodeCount==0u)
+			const auto staging = request.computeStagingRequirements();
+			if (staging.nodeCount==0u)
 				return true;
 
-			if (!request.tree->allocateNodes({request.outNodes,request.outNodes+nodeCount}))
+			if (!request.tree->allocateNodes({request.outNodes,request.outNodes+staging.nodeCount}))
 				return false;
 
-			if (!core::is_aligned_to(request.propertyRepackingScratch,alignof(ITransformTree::relative_transform_t)))
-				return false;
-			auto transforms = reinterpret_cast<ITransformTree::relative_transform_t*>(request.propertyRepackingScratch);
-			auto parents = reinterpret_cast<ITransformTree::node_t*>(transforms+nodeCount);
+			uint32_t* const srcTransformIndices = reinterpret_cast<uint32_t*>(request.transformScratch+staging.transformScratchSize/sizeof(ITransformTree::relative_transform_t));
 			{
-				auto parentsIt = parents;
-				auto transformIt = transforms;
 				auto instanceCountIt = request.instanceCounts;
-				uint32_t baseJointID = 0u;
+				auto skeletonInstanceParentsIt = request.skeletonInstanceParents;
+				auto parentsIt = request.parentScratch;
+				auto transformIt = request.transformScratch;
+				auto srcTransformIndicesIt = srcTransformIndices;
+				uint32_t baseJointInstance = 0u;
+				uint32_t baseJoint = 0u;
 				for (auto skeleton : request.skeletons)
 				{
-					const auto instanceCount = *(instanceCountIt++);
+					const auto instanceCount = request.instanceCounts ? (*(instanceCountIt++)):1u;
+					auto* const instanceParents = request.skeletonInstanceParents ? (*(skeletonInstanceParentsIt++)):nullptr;
+
 					const auto jointCount = skeleton->getJointCount();
+					auto instanceParentsIt = instanceParents;
 					for (auto instanceID=0u; instanceID<instanceCount; instanceID++)
 					{
 						for (auto jointID=0u; jointID<jointCount; jointID++)
 						{
 							uint32_t parentID = skeleton->getParentJointID(jointID);
 							if (parentID!=asset::ICPUSkeleton::invalid_joint_id)
-								parentID = request.outNodes[parentID+baseJointID];
+								parentID = request.outNodes[parentID+baseJointInstance];
 							else
-								parentID = ITransformTree::invalid_node;
+								parentID = instanceParents ? (*instanceParentsIt):ITransformTree::invalid_node;
 							*(parentsIt++) = parentID;
-							*(transformIt++) = skeleton->getDefaultTransformMatrix(jointID);
+
+							if (staging.transformScratchSize)
+								*(srcTransformIndicesIt++) = jointID+baseJoint;
 						}
-						baseJointID += jointCount;
+						baseJointInstance += jointCount;
 					}
+					if (skeleton->getDefaultTransformBinding().buffer)
+					for (auto jointID=0u; jointID<jointCount; jointID++)
+						*(transformIt++) = skeleton->getDefaultTransformMatrix(jointID);
+					baseJoint += jointCount;
 				}
 			}
 
 			video::CPropertyPoolHandler::UpStreamingRequest upstreams[TransferCount];
-			UpstreamRequest req;
+			UpstreamRequest req = {};
 			req.tree = request.tree;
-			req.nodes = {request.outNodes,request.outNodes+nodeCount};
-			req.parents.data = parents;
-			req.relativeTransforms.data = transforms;
+			req.nodes = {request.outNodes,request.outNodes+staging.nodeCount};
+			req.parents.data = request.parentScratch;
+			if (staging.transformScratchSize)
+				req.relativeTransforms.data = request.transformScratch;
 			if (!setupTransfers(req,upstreams))
 				return false;
-			// TODO: optimize
-			//upstreams[0].srcAddresses = ;
-			//upstreams[1].srcAddresses = ;
+			if (staging.transformScratchSize)
+				upstreams[1].srcAddresses = srcTransformIndices;
 
 			auto upstreamsPtr = upstreams;
 			return request.poolHandler->transferProperties(
