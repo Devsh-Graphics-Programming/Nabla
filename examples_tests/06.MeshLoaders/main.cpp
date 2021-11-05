@@ -79,7 +79,7 @@ public:
     uint32_t ds1UboBinding = 0;
     int resourceIx;
     uint32_t acquiredNextFBO = {};
-    std::chrono::system_clock::time_point lastTime;
+    std::chrono::steady_clock::time_point lastTime;
     bool frameDataFilled = false;
     size_t frame_count = 0ull;
     double time_sum = 0;
@@ -276,7 +276,7 @@ public:
         core::vectorSIMDf cameraPosition(0, 5, -10);
         matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60), float(WIN_W) / WIN_H, 0.1, 1000);
         camera = Camera(cameraPosition, core::vectorSIMDf(0, 0, 0), projectionMatrix, 10.f, 1.f);
-        lastTime = std::chrono::system_clock::now();
+        lastTime = std::chrono::steady_clock::now();
 
         for (size_t i = 0ull; i < NBL_FRAMES_TO_AVERAGE; ++i)
             dtList[i] = 0.0;
@@ -310,7 +310,7 @@ public:
         else
             fence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
 
-        auto renderStart = std::chrono::system_clock::now();
+        auto renderStart = std::chrono::steady_clock::now();
         const auto renderDt = std::chrono::duration_cast<std::chrono::milliseconds>(renderStart - lastTime).count();
         lastTime = renderStart;
         { // Calculate Simple Moving Average for FrameTime

@@ -109,7 +109,7 @@ namespace nbl::ui
 					auto keyboardChannel = core::make_smart_refctd_ptr<IKeyboardEventChannel>(CWindowAndroid::CIRCULAR_BUFFER_CAPACITY);
 					if (wnd->addMouseEventChannel(0, core::smart_refctd_ptr<IMouseEventChannel>(mouseChannel)))
 						wnd->getEventCallback()->onMouseConnected(wnd, std::move(mouseChannel));
-					if (wnd->addKeyboardEventChannel(0, core::smart_refctd_ptr<IKeyboardEventChannel>(keyboardChannel)))
+					if (wnd->addKeyboardEventChannel(2, core::smart_refctd_ptr<IKeyboardEventChannel>(keyboardChannel)))
 						wnd->getEventCallback()->onKeyboardConnected(wnd, std::move(keyboardChannel));
 				}
 				while (framework->keepRunning()) {

@@ -30,8 +30,11 @@ namespace nbl::ui
 					nblAction = SKeyboardEvent::ECA_RELEASED;
 					break;
 				}
-				std::chrono::microseconds nblTime = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::nanoseconds(eventTime));
-				SKeyboardEvent kbEvent(nblTime);
+				auto now = std::chrono::steady_clock::now();
+				auto now_ms = std::chrono::time_point_cast<std::chrono::microseconds>(now);
+				auto nblTimeTP = std::chrono::steady_clock::time_point(std::chrono::nanoseconds(eventTime));
+				auto nblTime = std::chrono::time_point_cast<std::chrono::microseconds>(nblTimeTP);
+				SKeyboardEvent kbEvent(nblTime.time_since_epoch());
 				kbEvent.action = nblAction;
 				kbEvent.keyCode = kc;
 				kbEvent.window = wnd;
@@ -53,11 +56,27 @@ namespace nbl::ui
 				std::chrono::microseconds nblTime = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::nanoseconds(eventTime));
 				SMouseEvent mouseEvent(nblTime);
 				mouseEvent.window = wnd;
+				const auto screenPosX = AMotionEvent_getRawX(event, 0);
+				const auto screenPosY = AMotionEvent_getRawY(event, 0);
+				auto relativeX = screenPosX;
+				auto relativeY = screenPosY;
+				if (!initialized)
+				{
+					lastCursorX = relativeX, lastCursorY = relativeY;
+					relativeX = relativeY = 0;
+					initialized = true;
+				}
+				else
+				{
+					relativeX = relativeX - lastCursorX;
+					relativeY = relativeY - lastCursorY;
+					lastCursorX = screenPosX, lastCursorY = screenPosY;
+				}
 				if (action == AMOTION_EVENT_ACTION_HOVER_MOVE || action == AMOTION_EVENT_ACTION_MOVE)
 				{
 					mouseEvent.type = SMouseEvent::EET_MOVEMENT;
-					mouseEvent.movementEvent.relativeMovementX = AMotionEvent_getHistoricalX(event, 0, 0);
-					mouseEvent.movementEvent.relativeMovementY = AMotionEvent_getHistoricalY(event, 0, 0);
+					mouseEvent.movementEvent.relativeMovementX = relativeX;
+					mouseEvent.movementEvent.relativeMovementY = relativeY;
 				}
 				else if (action == AMOTION_EVENT_ACTION_BUTTON_PRESS)
 				{
@@ -65,17 +84,15 @@ namespace nbl::ui
 					mouseEvent.clickEvent.clickPosX = AMotionEvent_getX(event, 0);
 					mouseEvent.clickEvent.clickPosY = AMotionEvent_getY(event, 0);
 					mouseEvent.clickEvent.action = SMouseEvent::SClickEvent::EA_PRESSED;
+					mouseEvent.clickEvent.mouseButton = E_MOUSE_BUTTON::EMB_LEFT_BUTTON;
 				}
 				else if (action == AMOTION_EVENT_ACTION_BUTTON_RELEASE)
 				{
 					mouseEvent.type = SMouseEvent::EET_CLICK;
 					mouseEvent.clickEvent.clickPosX = AMotionEvent_getX(event, 0);
 					mouseEvent.clickEvent.clickPosY = AMotionEvent_getY(event, 0);
-					auto rawx = AMotionEvent_getRawX(event, 0);
-					auto rawy = AMotionEvent_getRawY(event, 0);
-					auto x = AMotionEvent_getX(event, 0);
-					auto offset = AMotionEvent_getXOffset(event);
 					mouseEvent.clickEvent.action = SMouseEvent::SClickEvent::EA_RELEASED;
+					mouseEvent.clickEvent.mouseButton = E_MOUSE_BUTTON::EMB_LEFT_BUTTON;
 				}
 				else if (action == AMOTION_EVENT_ACTION_SCROLL)
 				{
