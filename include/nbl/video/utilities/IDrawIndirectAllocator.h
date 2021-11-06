@@ -151,7 +151,7 @@ class IDrawIndirectAllocator : public core::IReferenceCounted
                 
                 const uint32_t struct_size = params.getCommandStructSize(i);
                 assert(!(struct_size>m_maxDrawCommandStride));
-                m_drawAllocator.free_addr(params.count*struct_size,struct_size);
+                m_drawAllocator.free_addr(drawRange,params.multiDrawCommandMaxCounts[i]*struct_size);
             }
         }
 
