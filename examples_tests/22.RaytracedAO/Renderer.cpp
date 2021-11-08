@@ -810,14 +810,26 @@ void Renderer::initSceneResources(SAssetBundle& meshes)
 			IGPUDescriptorSet::SDescriptorInfo infos[MaxDescritorUpdates];
 			IGPUDescriptorSet::SWriteDescriptorSet writes[MaxDescritorUpdates];
 
+			size_t lightCDF_BufferSize = 0u;
+			size_t lights_BufferSize = 0u;
+
 			// set up rest of m_additionalGlobalDS
 			{
-				createFilledBufferAndSetUpInfoFromVector(infos+0,initData.lightCDF);
-				createFilledBufferAndSetUpInfoFromVector(infos+1,initData.lights);
-
+				auto lightCDFBuffer = createFilledBufferAndSetUpInfoFromVector(infos+0,initData.lightCDF);
+				auto lightsBuffer = createFilledBufferAndSetUpInfoFromVector(infos+1,initData.lights);
+				lightCDF_BufferSize = lightCDFBuffer->getSize();
+				lights_BufferSize = lightsBuffer->getSize();
 				setDstSetAndDescTypesOnWrites(m_additionalGlobalDS.get(),writes,infos,{EDT_STORAGE_BUFFER,EDT_STORAGE_BUFFER},3u);
 			}
 			m_driver->updateDescriptorSets(2u,writes,0u,nullptr);
+
+			std::cout << "\nScene Resources Initialized:" << std::endl;
+			std::cout << "\tlightCDF = " << lightCDF_BufferSize << " bytes" << std::endl;
+			std::cout << "\tlights = " << lights_BufferSize << " bytes" << std::endl;
+			std::cout << "\tindexBuffer = " << m_indexBuffer->getSize() << " bytes" << std::endl;
+			for (auto i=0u; i<2u; i++)
+				std::cout << "\tIndirect Draw Buffers[" << i << "] = " << m_indirectDrawBuffers[i]->getSize() << " bytes" << std::endl;
+			std::cout << std::endl;
 		}
 	}
 }
@@ -880,6 +892,7 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, core::s
 
 	const auto renderPixelCount = m_staticViewData.imageDimensions.x*m_staticViewData.imageDimensions.y;
 	// figure out how much Samples Per Pixel Per Dispatch we can afford
+	size_t scrambleBufferSize=0u;
 	size_t raygenBufferSize=0u,intersectionBufferSize=0u;
 	{
 		uint32_t bxdfSamples=1u,maxNEESamples=1u;
@@ -1006,8 +1019,10 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, core::s
 
 	// set up m_commonRaytracingDS
 	core::smart_refctd_ptr<IGPUBuffer> _staticViewDataBuffer;
+	size_t staticViewDataBufferSize=0u;
 	{
 		_staticViewDataBuffer = createFilledBufferAndSetUpInfoFromStruct(infos+0,m_staticViewData);
+		staticViewDataBufferSize = _staticViewDataBuffer->getSize();
 		{
 			constexpr auto ScrambleStateChannels = 2u;
 			auto tmpBuff = m_driver->createCPUSideGPUVisibleGPUBufferOnDedMem(sizeof(uint32_t)*ScrambleStateChannels*renderPixelCount);
@@ -1022,6 +1037,7 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, core::s
 					*it = rng.nextSample();
 				tmpBuff->getBoundMemory()->unmapMemory();
 			}
+			scrambleBufferSize = tmpBuff->getSize();
 			// upload
 			IGPUImage::SBufferCopy region;
 			//region.imageSubresource.aspectMask = ;
@@ -1107,6 +1123,16 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, core::s
 	m_colorBuffer = m_driver->addFrameBuffer();
 	m_colorBuffer->attach(EFAP_COLOR_ATTACHMENT0, core::smart_refctd_ptr(m_tonemapOutput));
 
+	std::cout << "\nScreen Sized Resources have been initialized (" << width << "x" << height << ")" << std::endl;
+	std::cout << "\tStaticViewData = " << staticViewDataBufferSize << " bytes" << std::endl;
+	std::cout << "\tScrambleBuffer = " << scrambleBufferSize << " bytes" << std::endl;
+	std::cout << "\tSampleSequence = " << sampleSequence->getSize() << " bytes" << std::endl;
+	std::cout << "\tRayCount Buffer = " << m_rayCountBuffer->getSize() << " bytes" << std::endl;
+	for (auto i=0u; i<2u; i++)
+		std::cout << "\tIntersection Buffer[" << i << "] = " << m_intersectionBuffer[i].buffer->getSize() << " bytes" << std::endl;
+	for (auto i=0u; i<2u; i++)
+		std::cout << "\tRay Buffer[" << i << "] = " << m_rayBuffer[i].buffer->getSize() << " bytes" << std::endl;
+	std::cout << std::endl;
 #ifdef _NBL_BUILD_OPTIX_
 	while (m_denoiser)
 	{
