@@ -704,6 +704,10 @@ public:
 		nbl::system::path localInputCWD = CWD / "../";
 		nbl::system::path localOutputCWD = CWD;
 		auto app = nbl::core::make_smart_refctd_ptr<AppClassName>(localInputCWD, localOutputCWD, sharedInputCWD, sharedOutputCWD);
+
+		for (size_t i = 0; i < argc; ++i)
+			app->argv.push_back(std::string(argv[i]));
+
 		app->onAppInitialized();
 		while (app->keepRunning())
 		{
