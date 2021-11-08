@@ -14,9 +14,11 @@ public:
         core::smart_refctd_ptr<ILogicalDevice>&& dev,
         core::smart_refctd_ptr<const CVulkanShader>&& unspecShader,
         const asset::ISpecializedShader::SInfo& specInfo)
-        : IGPUSpecializedShader(std::move(dev), unspecShader->getStage()),
+        : IGPUSpecializedShader(std::move(dev)),
         m_unspecShader(std::move(unspecShader)), m_specInfo(specInfo)
     {}
+
+    asset::IShader::E_SHADER_STAGE getStage() const override { return m_unspecShader->getStage(); }
 
     inline VkShaderModule getInternalObject() const { return m_unspecShader->getInternalObject(); }
 

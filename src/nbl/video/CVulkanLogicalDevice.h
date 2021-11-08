@@ -1039,7 +1039,7 @@ public:
         case EF_RAY_QUERY:
             return VK_KHR_RAY_QUERY_EXTENSION_NAME;
         default:
-            assert(!"Extension unavailable");
+            assert(!"Extension unknown");
             return "";
         }
     }

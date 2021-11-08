@@ -22,14 +22,12 @@ namespace nbl::video
 class IGPUSpecializedShader : public asset::ISpecializedShader, public IBackendObject
 {
 	public:
-		IGPUSpecializedShader(core::smart_refctd_ptr<const ILogicalDevice>&& dev, asset::IShader::E_SHADER_STAGE _stage) : IBackendObject(std::move(dev)), m_stage(_stage) {}
+		IGPUSpecializedShader(core::smart_refctd_ptr<const ILogicalDevice>&& dev) : IBackendObject(std::move(dev)) {}
 
-		asset::IShader::E_SHADER_STAGE getStage() const { return m_stage; }
+		virtual asset::IShader::E_SHADER_STAGE getStage() const = 0;
 
 	protected:
 		virtual ~IGPUSpecializedShader() = default;
-
-		const asset::IShader::E_SHADER_STAGE m_stage;
 };
 
 }

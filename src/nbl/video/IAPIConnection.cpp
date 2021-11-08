@@ -14,7 +14,7 @@ core::SRange<IPhysicalDevice* const> IAPIConnection::getPhysicalDevices() const
         reinterpret_cast<IPhysicalDevice* const*>(m_physicalDevices.data()) + m_physicalDevices.size());
 }
 
-core::SRange<IAPIConnection::E_FEATURE> IAPIConnection::getDependentFeatures(const E_FEATURE feature)
+core::SRange<const IAPIConnection::E_FEATURE> IAPIConnection::getDependentFeatures(const E_FEATURE feature)
 {
     switch (feature)
     {

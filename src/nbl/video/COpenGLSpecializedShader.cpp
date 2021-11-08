@@ -151,7 +151,8 @@ COpenGLSpecializedShader::COpenGLSpecializedShader(
 	const asset::ISpecializedShader::SInfo& _specInfo,
 	core::vector<SUniform>&& uniformList,
 	const asset::IShader::E_SHADER_STAGE stage)
-	: core::impl::ResolveAlignment<IGPUSpecializedShader, core::AllocationOverrideBase<128>>(std::move(dev),stage),
+	: core::impl::ResolveAlignment<IGPUSpecializedShader, core::AllocationOverrideBase<128>>(std::move(dev)),
+	m_stage(stage),
     m_GLstage(impl::ESS2GLenum(stage)),
 	m_specInfo(_specInfo),//TODO make it move()
 	m_spirv(core::smart_refctd_ptr<const asset::ICPUBuffer>(_spirv))

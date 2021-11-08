@@ -27,7 +27,7 @@ public:
 
     core::SRange<IPhysicalDevice* const> getPhysicalDevices() const;
 
-    static core::SRange<E_FEATURE> getDependentFeatures(const E_FEATURE feature);
+    static core::SRange<const E_FEATURE> getDependentFeatures(const E_FEATURE feature);
 
 protected:
     inline IAPIConnection() : m_physicalDevices(), m_rdoc_api(nullptr)

@@ -111,6 +111,7 @@ class COpenGLSpecializedShader : public core::impl::ResolveAlignment<IGPUSpecial
 			core::vector<SUniform>&& uniformList,
 			const asset::IShader::E_SHADER_STAGE stage);
 
+		asset::IShader::E_SHADER_STAGE getStage() const override { return m_stage; }
 		inline GLenum getOpenGLStage() const { return m_GLstage; }
 
 		std::pair<GLuint, SProgramBinary> compile(IOpenGL_FunctionTable* gl, bool needClipControlWorkaround, const COpenGLPipelineLayout* _layout, const spirv_cross::ParsedIR* _parsedSpirv, const system::logger_opt_ptr logger = nullptr) const;
@@ -127,6 +128,7 @@ class COpenGLSpecializedShader : public core::impl::ResolveAlignment<IGPUSpecial
 	private:
 		void gatherUniformLocations(IOpenGL_FunctionTable* gl, GLuint _GLname) const;
 
+		asset::IShader::E_SHADER_STAGE m_stage;
 		GLenum m_GLstage;
 
 		SInfo m_specInfo;
