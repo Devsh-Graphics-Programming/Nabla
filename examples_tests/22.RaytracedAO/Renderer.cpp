@@ -1204,6 +1204,8 @@ void Renderer::deinitScreenSizedResources()
 	m_denoiserOutput = {};
 #endif
 	
+	// unset the framebuffer (dangling smartpointer in state cache can prevent the framebuffer from being dropped until the next framebuffer set)
+	m_driver->setRenderTarget(nullptr,false);
 	if (m_visibilityBuffer)
 	{
 		m_driver->removeFrameBuffer(m_visibilityBuffer);
