@@ -16,24 +16,20 @@ constexpr std::string_view helpMessage = R"(
 
 Parameters:
 -SCENE=sceneMitsubaXMLPathOrZipAndXML
--SCREENSHOT_OUTPUT=exrScreenShotOutputFilePath
 -TERMINATE
 
 Description and usage: 
 
 -SCENE:
 	some/path extra/path which will make it skip the file choose dialog
-	
--SCREENSHOT_OUTPUT:
-	output folder path for exr screenshots
-	
+
 -TERMINATE:
 	which will make the app stop when the required amount of samples has been renderered (its in the Mitsuba Scene metadata) and obviously take screenshot when quitting
 	
 Example Usage :
-	raytracedao.exe -SCENE=../../media/kitchen.zip scene.xml -TERMINATE -SCREENSHOT_OUTPUT_FOLDER=C:\\Users\\UserName\\Documents\\My-ScreenShots
+	raytracedao.exe -SCENE=../../media/kitchen.zip scene.xml -TERMINATE
 Alternative:
-	raytracedao.exe -SCENE ../../media/kitchen.zip scene.xml -TERMINATE -SCREENSHOT_OUTPUT_FOLDER C:\\Users\\UserName\\Documents\\My-ScreenShots
+	raytracedao.exe -SCENE ../../media/kitchen.zip scene.xml -TERMINATE
 )";
  
 
