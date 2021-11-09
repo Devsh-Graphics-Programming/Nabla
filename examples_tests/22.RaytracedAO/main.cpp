@@ -229,12 +229,16 @@ int main(int argc, char** argv)
 		qnc->saveCacheToFile<asset::EF_A2B10G10R10_SNORM_PACK32>(fs, "../../tmp/normalCache101010.sse");
 		
 		auto contents = meshes.getContents();
-		if (!contents.size())
+		if (!contents.size()) {
+			std::cout << "[ERROR] Failed loading asset in " << filePath << ".";
 			return 2;
+		}
 
 		globalMeta = core::smart_refctd_ptr<const ext::MitsubaLoader::CMitsubaMetadata>(meshes.getMetadata()->selfCast<const ext::MitsubaLoader::CMitsubaMetadata>());
-		if (!globalMeta)
+		if (!globalMeta) {
+			std::cout << "[ERROR] Couldn't get global Meta";
 			return 3;
+		}
 	}
 
 	struct SensorData

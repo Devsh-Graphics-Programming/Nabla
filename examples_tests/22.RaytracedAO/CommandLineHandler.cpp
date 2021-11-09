@@ -41,12 +41,6 @@ CommandLineHandler::CommandLineHandler(const std::vector<std::string>& argv)
 			variablesHandle.end()
 		);
 
-		// remove double-quotes
-		for(auto& var : variablesHandle)
-		{
-			var.erase(std::remove(var.begin(), var.end(), '\"'), var.end());
-		}
-
 		return variablesHandle;
 	};
 
@@ -110,7 +104,8 @@ CommandLineHandler::CommandLineHandler(const std::vector<std::string>& argv)
 			if(endOfFetchedVariableName != std::string::npos)
 			{
 				auto value = rawFetchedCmdArgument.substr(endOfFetchedVariableName + 1);
-				std::vector<std::string> toAdd = getSerializedValues(value);
+				std::vector<std::string> toAdd;
+				toAdd.push_back(value);
 				rawVariables[arg].emplace(toAdd);
 			}
 			else
