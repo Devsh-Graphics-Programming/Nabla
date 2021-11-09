@@ -224,7 +224,7 @@ void ParserManager::onEnd(const Context& ctx, const char* _el)
 	if (!elements.empty())
 	{
 		IElement* parent = elements.top().first;
-		if (!parent->processChildData(element.first, element.second))
+		if (parent && !parent->processChildData(element.first, element.second))
 		{
 			if (element.first)
 				killParseWithError(ctx,element.first->getLogName() + " could not processChildData with name: " + element.second);
