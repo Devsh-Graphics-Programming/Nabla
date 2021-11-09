@@ -26,6 +26,8 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
     public:
         struct SLimits
         {
+            uint32_t apiVersion;
+
             uint32_t UBOAlignment;
             uint32_t SSBOAlignment;
             uint32_t bufferViewAlignment;

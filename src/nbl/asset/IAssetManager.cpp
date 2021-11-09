@@ -112,7 +112,7 @@ void IAssetManager::initializeMeshTools()
 {
 	m_meshManipulator = core::make_smart_refctd_ptr<CMeshManipulator>();
     m_geometryCreator = core::make_smart_refctd_ptr<CGeometryCreator>(m_meshManipulator.get());
-	m_glslCompiler = core::make_smart_refctd_ptr<IGLSLCompiler>(m_system.get());
+	m_glslCompiler = core::make_smart_refctd_ptr<IGLSLCompiler>(m_system.get(),asset::IGLSLCompiler::ESV_1_3); // Should we get the SPIRV version from connection/physical device because it could be different for different backends at the same time?
 }
 
 const IGeometryCreator* IAssetManager::getGeometryCreator() const

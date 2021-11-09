@@ -20,9 +20,10 @@ namespace asset
 {
 
 // static constexpr shaderc_spirv_version TARGET_SPIRV_VERSION = shaderc_spirv_version_1_5;
-static constexpr shaderc_spirv_version TARGET_SPIRV_VERSION = shaderc_spirv_version_1_3;
+// static constexpr shaderc_spirv_version TARGET_SPIRV_VERSION = shaderc_spirv_version_1_3;
 
-IGLSLCompiler::IGLSLCompiler(system::ISystem* _s) : m_inclHandler(core::make_smart_refctd_ptr<CIncludeHandler>(_s)), m_system(_s)
+IGLSLCompiler::IGLSLCompiler(system::ISystem* _s, E_SPIRV_VERSION targetSpirvVersion)
+    : m_inclHandler(core::make_smart_refctd_ptr<CIncludeHandler>(_s)), m_system(_s), m_targetSpirvVersion(targetSpirvVersion)
 {
     m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLVirtualTexturingBuiltinIncludeLoader>(_s));
 }
@@ -35,7 +36,8 @@ core::smart_refctd_ptr<ICPUBuffer> IGLSLCompiler::compileSPIRVFromGLSL(const cha
 
     shaderc::Compiler comp;
     shaderc::CompileOptions options;//default options
-    options.SetTargetSpirv(TARGET_SPIRV_VERSION);
+    assert(m_targetSpirvVersion < ESV_COUNT);
+    options.SetTargetSpirv(static_cast<shaderc_spirv_version>(m_targetSpirvVersion));
     const shaderc_shader_kind stage = _stage==IShader::ESS_UNKNOWN ? shaderc_glsl_infer_from_source : ESStoShadercEnum(_stage);
     const size_t glsl_len = strlen(_glslCode);
     if (_genDebugInfo)
@@ -237,7 +239,8 @@ core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::resolveIncludeDirectives(std::
     impl::disableAllDirectivesExceptIncludes(glslCode);//all "#", except those in "#include"/"#version"/"#pragma shader_stage(...)", replaced with `PREPROC_DIRECTIVE_DISABLER`
     shaderc::Compiler comp;
     shaderc::CompileOptions options;
-    options.SetTargetSpirv(TARGET_SPIRV_VERSION);
+    assert(m_targetSpirvVersion < ESV_COUNT);
+    options.SetTargetSpirv(static_cast<shaderc_spirv_version>(m_targetSpirvVersion));
     options.SetIncluder(std::make_unique<impl::Includer>(m_inclHandler.get(), m_system, _maxSelfInclusionCnt+1u));//custom #include handler
     const shaderc_shader_kind stage = _stage==IShader::ESS_UNKNOWN ? shaderc_glsl_infer_from_source : ESStoShadercEnum(_stage);
     auto res = comp.PreprocessGlsl(glslCode, stage, _originFilepath, options);

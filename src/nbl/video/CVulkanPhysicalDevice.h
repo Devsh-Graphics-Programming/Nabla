@@ -38,6 +38,7 @@ public:
             vkGetPhysicalDeviceProperties2(m_vkPhysicalDevice, &deviceProperties);
                     
             // TODO fill m_properties
+            m_limits.apiVersion = deviceProperties.properties.apiVersion;
                     
             m_limits.UBOAlignment = deviceProperties.properties.limits.minUniformBufferOffsetAlignment;
             m_limits.SSBOAlignment = deviceProperties.properties.limits.minStorageBufferOffsetAlignment;
@@ -99,6 +100,24 @@ public:
                 m_limits.maxRayHitAttributeSize = rayTracingPipelineProperties.maxRayHitAttributeSize;
             }
         }
+
+        asset::IGLSLCompiler::E_SPIRV_VERSION spirvVersion;
+        uint32_t minorVersion = VK_API_VERSION_MINOR(m_limits.apiVersion);
+        switch (minorVersion)
+        {
+        case 0:
+            spirvVersion = asset::IGLSLCompiler::ESV_1_0; break;
+        case 1:
+            spirvVersion = asset::IGLSLCompiler::ESV_1_3; break;
+        case 2:
+            spirvVersion = asset::IGLSLCompiler::ESV_1_5; break;
+        default:
+            assert(!"Invalid Vulkan minor version!");
+            spirvVersion = asset::IGLSLCompiler::ESV_1_3;
+            break;
+        }
+
+        m_GLSLCompiler->setTargetSpirvVersion(spirvVersion);
         
         // Get physical device's features
         VkPhysicalDeviceRayTracingPipelineFeaturesKHR rayTracingPipelineFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR };
@@ -242,6 +261,12 @@ protected:
         {
             if (!insertFeatureIfAvailable(params.optionalFeatures[i], selectedFeatureSet))
                 continue;
+        }
+
+        if (selectedFeatureSet.find(VK_KHR_SPIRV_1_4_EXTENSION_NAME) != selectedFeatureSet.end())
+        {
+            if (m_GLSLCompiler->getTargetSpirvVersion() < asset::IGLSLCompiler::ESV_1_4)
+                m_GLSLCompiler->setTargetSpirvVersion(asset::IGLSLCompiler::ESV_1_4);
         }
 
         core::vector<const char*> selectedFeatures(selectedFeatureSet.size());

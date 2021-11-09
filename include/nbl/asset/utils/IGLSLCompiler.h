@@ -22,16 +22,34 @@ namespace nbl::asset
 //! Will be derivative of IShaderGenerator, but we have to establish interface first
 class IGLSLCompiler final : public core::IReferenceCounted
 {
-		core::smart_refctd_ptr<IIncludeHandler> m_inclHandler;
-		system::ISystem* m_system;
-
 	public:
-		IGLSLCompiler(system::ISystem* _s);
+		enum E_SPIRV_VERSION
+		{
+			ESV_1_0 = 0x010000u,
+			ESV_1_1 = 0x010100u,
+			ESV_1_2 = 0x010200u,
+			ESV_1_3 = 0x010300u,
+			ESV_1_4 = 0x010400u,
+			ESV_1_5 = 0x010500u,
+			ESV_COUNT = 0xFFFFFFFFu
+		};
+
+		IGLSLCompiler(system::ISystem* _s, const E_SPIRV_VERSION targetSpirvVersion = ESV_1_3);
 
 		IIncludeHandler* getIncludeHandler() { return m_inclHandler.get(); }
 		const IIncludeHandler* getIncludeHandler() const { return m_inclHandler.get(); }
 
 		core::smart_refctd_ptr<ICPUBuffer> compileSPIRVFromGLSL(const char* _glslCode, IShader::E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, bool _genDebugInfo = true, std::string* _outAssembly = nullptr, system::logger_opt_ptr logger = nullptr) const;
+
+		inline E_SPIRV_VERSION getTargetSpirvVersion() const
+		{
+			return m_targetSpirvVersion;
+		}
+
+		inline void setTargetSpirvVersion(const E_SPIRV_VERSION targetSpirvVersion)
+		{
+			m_targetSpirvVersion = targetSpirvVersion;
+		}
 
 		/**
 		If _stage is ESS_UNKNOWN, then compiler will try to deduce shader stage from #pragma annotation, i.e.:
@@ -145,6 +163,11 @@ class IGLSLCompiler final : public core::IReferenceCounted
 
 			return nbl::core::make_smart_refctd_ptr<ICPUShader>(std::move(outBuffer), IShader::buffer_contains_glsl_t{}, original->getStage(), std::string(original->getFilepathHint()));
 		}
+
+	private:
+		core::smart_refctd_ptr<IIncludeHandler> m_inclHandler;
+		system::ISystem* m_system;
+		E_SPIRV_VERSION m_targetSpirvVersion;
 };
 
 }

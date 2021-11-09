@@ -19,8 +19,15 @@ public:
 		constexpr EGLint OPENGL_MINOR_WORST = 3;
 
 		auto initRes = createContext(&_egl,EGL_OPENGL_API,{OPENGL_MAJOR,OPENGL_MINOR_BEST},OPENGL_MINOR_WORST);
-		if (initRes.ctx==EGL_NO_CONTEXT || initRes.minor<OPENGL_MINOR_WORST) // TODO: delete context if minor is too low, right now its leaking
+		if (initRes.ctx==EGL_NO_CONTEXT)
 			return nullptr;
+
+		if (initRes.minor < OPENGL_MINOR_WORST)
+		{
+			_egl.call.peglDestroyContext(_egl.display, initRes.ctx);
+			return nullptr;
+		}
+
 
 		return new COpenGLPhysicalDevice(api,rdoc,std::move(s),std::move(_egl),std::move(dbgCb),initRes.config,initRes.ctx,initRes.major,initRes.minor);
 	}

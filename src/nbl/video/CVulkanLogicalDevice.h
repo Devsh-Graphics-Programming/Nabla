@@ -598,6 +598,7 @@ public:
             const char* end = begin + source->getSize();
 
             std::string glsl(begin, end);
+            asset::IShader::insertDefines(glsl, m_physicalDevice->getExtraGLSLDefines());
 
             auto logger = (m_physicalDevice->getDebugCallback()) ? m_physicalDevice->getDebugCallback()->getLogger() : nullptr;
 
