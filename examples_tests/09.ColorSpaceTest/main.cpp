@@ -206,20 +206,17 @@ public:
 
 						if (cpuTextureContents.begin() == cpuTextureContents.end())
 							assert(false); // cannot perform test in this scenario
-
+						
+						// Since this is ColorSpaceTest
+						const asset::IImage::E_ASPECT_FLAGS aspectMask = asset::IImage::EAF_COLOR_BIT;
 						auto asset = *cpuTextureContents.begin();
 						switch (asset->getAssetType())
 						{
 						case nbl::asset::IAsset::ET_IMAGE:
 						{
-							// Since this is ColorSpaceTest
-							const asset::IImage::E_ASPECT_FLAGS aspectMask = asset::IImage::EAF_COLOR_BIT;
-
 							nbl::asset::ICPUImageView::SCreationParams viewParams = {};
 							viewParams.flags = static_cast<decltype(viewParams.flags)>(0u);
 							viewParams.image = core::smart_refctd_ptr_static_cast<asset::ICPUImage>(asset);
-							const auto newUsageFlags = viewParams.image->getImageUsageFlags() | asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_SAMPLED_BIT;
-							viewParams.image->setImageUsageFlags(newUsageFlags);
 							viewParams.format = viewParams.image->getCreationParameters().format;
 							viewParams.viewType = decltype(viewParams.viewType)::ET_2D;
 							viewParams.subresourceRange.aspectMask = aspectMask;
@@ -241,6 +238,8 @@ public:
 							assert(false); // in that case provided asset is wrong
 						}
 						}
+						
+						newCpuImageViewTexture->getCreationParameters().image->addImageUsageFlags(asset::IImage::EUF_SAMPLED_BIT);
 
 						std::filesystem::path filename, extension;
 						core::splitFilename(pathToTexture.c_str(), nullptr, &filename, &extension);
@@ -279,8 +278,6 @@ public:
 				}
 			}
 		}
-
-		core::smart_refctd_ptr<video::IGPUCommandBuffer> transferCmdBuffer, computeCmdBuffer;
 
 		cpu2gpuParams.beginCommandBuffers();
 		auto gpuImageViews = cpu2gpu.getGPUObjectsFromAssets(cpuImageViews.data(), cpuImageViews.data() + cpuImageViews.size(), cpu2gpuParams);
@@ -462,7 +459,7 @@ public:
 				gpuSourceImageView.get(),
 				assetManager.get(),
 				writePath,
-				asset::EIL_PRESENT_SRC_KHR,
+				asset::EIL_PRESENT_SRC,
 				static_cast<asset::E_ACCESS_FLAGS>(0u));
 		};
 

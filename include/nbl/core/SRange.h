@@ -24,6 +24,7 @@ struct SRange
 		using iterator_type = IteratorType;
 		using const_iterator_type = ConstIteratorType;
 
+
 		inline SRange(const IteratorType& _beg, const IteratorType& _end) : m_begin(_beg), m_end(_end) {}
 		inline SRange(IteratorType&& _beg, IteratorType&& _end) : m_begin(std::move(_beg)), m_end(std::move(_end)) {}
 
@@ -34,7 +35,12 @@ struct SRange
 		inline typename std::enable_if<!std::is_same<Q,IteratorType>::value,ConstIteratorType>::type begin() const { return m_begin; }
 		template<class Q=ConstIteratorType>
 		inline typename std::enable_if<!std::is_same<Q,IteratorType>::value,ConstIteratorType>::type end() const { return m_end; }
-
+		
+		_NBL_STATIC_INLINE_CONSTEXPR bool is_const = std::is_const<T>::value;
+		inline const T&			operator[](size_t ix) const noexcept { return begin()[ix]; }
+		template<typename U=T, typename = typename std::enable_if<!is_const>::type>
+		inline T&				operator[](size_t ix) noexcept { return begin()[ix]; }
+		
 		inline size_t size() const {return std::distance(m_begin,m_end);}
 
 		inline bool empty() const { return m_begin==m_end; }

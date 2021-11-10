@@ -384,6 +384,14 @@ public:
 				m_features.shaderSubgroupClustered = (subgroup & GL_SUBGROUP_FEATURE_CLUSTERED_BIT_KHR);
 				m_features.shaderSubgroupQuad = (subgroup & GL_SUBGROUP_FEATURE_QUAD_BIT_KHR);
 			}
+
+			if(m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_fragment_shader_interlock))
+			{
+				// Can't check individualy (???)
+				m_features.fragmentShaderPixelInterlock = true;
+				m_features.fragmentShaderSampleInterlock = true;
+				m_features.fragmentShaderShadingRateInterlock = true;
+			}
 		}
 
 		// physical device limits

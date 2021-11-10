@@ -277,7 +277,7 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(system::IFile* _file, const asset
 
     auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(1u);
     ICPUImage::SBufferCopy& region = regions->front();
-    //region.imageSubresource.aspectMask = ...; //waits for Vulkan
+    region.imageSubresource.aspectMask = IImage::E_ASPECT_FLAGS::EAF_COLOR_BIT;
     region.imageSubresource.mipLevel = 0u;
     region.imageSubresource.baseArrayLayer = 0u;
     region.imageSubresource.layerCount = 1u;

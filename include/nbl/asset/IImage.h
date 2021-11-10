@@ -155,6 +155,9 @@ class IImage : public IDescriptor
 			inline bool					isValid() const
 			{
 				// TODO: more complex check of compatible aspects
+				// Image Extent must be a mutiple of texel block dims OR offset + extent = image subresourceDims
+ 				// bufferOffset must be multiple of the compressed texel block size in bytes (matters in IGPU?)
+				// If planar subresource aspectMask should be PLANE_{0,1,2}
 				if (false)
 					return false;
 

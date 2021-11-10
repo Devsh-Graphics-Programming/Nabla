@@ -129,7 +129,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 				bindings[i].binding = i;
 				bindings[i].type = asset::EDT_STORAGE_BUFFER;
 				bindings[i].count = 1u;
-				bindings[i].stageFlags = asset::ISpecializedShader::ESS_COMPUTE;
+				bindings[i].stageFlags = asset::IShader::ESS_COMPUTE;
 				bindings[i].samplers = nullptr;
 			}
 
@@ -151,7 +151,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 				bindings[i].binding = i;
 				bindings[i].type = asset::EDT_STORAGE_BUFFER;
 				bindings[i].count = 1u;
-				bindings[i].stageFlags = asset::ISpecializedShader::ESS_COMPUTE;
+				bindings[i].stageFlags = asset::IShader::ESS_COMPUTE;
 				bindings[i].samplers = nullptr;
 			}
 
@@ -369,7 +369,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 				{
 					video::CScanner::DefaultPushConstants pushConstants;
 					m_scanner->buildParameters(params.drawcallCount,pushConstants,dispatchInfo);
-					cmdbuf->pushConstants(m_instanceRefCountingSortPipelineLayout.get(),asset::ISpecializedShader::ESS_COMPUTE,0u,sizeof(pushConstants),&pushConstants);
+					cmdbuf->pushConstants(m_instanceRefCountingSortPipelineLayout.get(),asset::IShader::ESS_COMPUTE,0u,sizeof(pushConstants),&pushConstants);
 				}
 				cmdbuf->dispatch(dispatchInfo.wg_count,1u,1u);
 			}
@@ -424,7 +424,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 				core::smart_refctd_ptr(transientOutputDSLayout),
 				std::move(customExtraDSLayout)
 			);
-			const asset::SPushConstantRange singleUintRange = {asset::ISpecializedShader::ESS_COMPUTE,0u,sizeof(uint32_t)};
+			const asset::SPushConstantRange singleUintRange = {asset::IShader::ESS_COMPUTE,0u,sizeof(uint32_t)};
 			auto instanceDrawCullLayout = device->createGPUPipelineLayout(
 				&singleUintRange,&singleUintRange+1u,
 				core::smart_refctd_ptr(lodLibraryDSLayout),
@@ -450,26 +450,19 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 			auto getShader = [device](auto uniqueString) -> shader_source_and_path
 			{
 				auto system = device->getPhysicalDevice()->getSystem();
-				auto glslFile = system->loadBuiltinData<decltype(uniqueString)>(); 
-				core::smart_refctd_ptr<asset::ICPUBuffer> glsl;
-				{
-					glsl = core::make_smart_refctd_ptr<asset::ICPUBuffer>(glslFile->getSize());
-					memcpy(glsl->getPointer(), glslFile->getMappedPointer(), glsl->getSize());
-				}
-
-				return {core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl),asset::IShader::buffer_contains_glsl_t{}),decltype(uniqueString)::value};
+				auto glsl = system->loadBuiltinData<decltype(uniqueString)>(); 
+				return {core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl),asset::IShader::buffer_contains_glsl_t{}, asset::IShader::ESS_COMPUTE, ""),decltype(uniqueString)::value};
 			};
 			auto overrideShader = [device,&cwdForShaderCompilation,workgroupSize,_scanner](shader_source_and_path&& baseShader, std::string additionalCode)
 			{
-				additionalCode = "\n#define _NBL_GLSL_CULLING_LOD_SELECTION_CULL_WORKGROUP_SIZE_ "+std::to_string(workgroupSize)+"\n"+
-					"\n#define _NBL_GLSL_CULLING_LOD_SELECTION_SCAN_WORKGROUP_SIZE_ "+std::to_string(_scanner->getWorkgroupSize())+"\n"+
-					additionalCode;
+				auto& path = baseShader.second;
+				path = cwdForShaderCompilation / path.filename();
+				baseShader.first->setFilePathHint(path.string());
+				baseShader.first->setShaderStage(asset::IShader::ESS_COMPUTE);
 				auto shader =  device->createGPUShader(
 					asset::IGLSLCompiler::createOverridenCopy(baseShader.first.get(),"\n%s\n",additionalCode.c_str())
 				);
-				auto& path = baseShader.second;
-				path = cwdForShaderCompilation/path.filename();
-				return device->createGPUSpecializedShader(shader.get(),{nullptr,nullptr,"main",asset::ISpecializedShader::ESS_COMPUTE,path});
+				return device->createGPUSpecializedShader(shader.get(),{nullptr,nullptr,"main"});
 			};
 
 			const std::string workgroupSizeDef = "\n#define _NBL_GLSL_WORKGROUP_SIZE_ _NBL_GLSL_CULLING_LOD_SELECTION_CULL_WORKGROUP_SIZE_\n";

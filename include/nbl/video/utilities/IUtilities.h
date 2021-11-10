@@ -5,6 +5,7 @@
 #include "nbl/asset/utils/ISPIRVOptimizer.h"
 
 #include "nbl/video/IGPUBuffer.h"
+#include "nbl/video/IGPUImage.h"
 #include "nbl/video/ILogicalDevice.h"
 #include "nbl/video/alloc/StreamingTransientDataBuffer.h"
 #include "nbl/video/utilities/CPropertyPoolHandler.h"
@@ -65,12 +66,12 @@ class IUtilities : public core::IReferenceCounted
 
         //! WARNING: This function blocks the CPU and stalls the GPU!
         inline core::smart_refctd_ptr<IGPUBuffer> createFilledDeviceLocalGPUBufferOnDedMem(IGPUQueue* queue, size_t size, const void* data)
-	    {
+        {
             IGPUBuffer::SCreationParams params = {};
-		    auto retval = m_device->createDeviceLocalGPUBufferOnDedMem(params, size);
+            auto retval = m_device->createDeviceLocalGPUBufferOnDedMem(params, size);
             updateBufferRangeViaStagingBuffer(queue,asset::SBufferRange<IGPUBuffer>{0u,size,retval},data);
-		    return retval;
-	    }
+            return retval;
+        }
 
         // TODO: Some utility in ILogical Device that can upload the image via the streaming buffer just from the regions without creating a whole intermediate huge GPU Buffer
         //! Remember to ensure a memory dependency between the command recorded here and any users (so fence wait, semaphore when submitting, pipeline barrier or event)
@@ -280,7 +281,11 @@ class IUtilities : public core::IReferenceCounted
             m_device->waitForFences(1u,&fenceptr,false,9999999999ull);
             return retval;
         }
-
+        
+        // --------------
+        // updateBufferRangeViaStagingBuffer
+        // --------------
+        
         //! Remember to ensure a memory dependency between the command recorded here and any users (so fence wait, semaphore when submitting, pipeline barrier or event)
         // `cmdbuf` needs to be already begun and from a pool that allows for resetting commandbuffers individually
         // `fence` needs to be in unsignalled state
@@ -292,6 +297,9 @@ class IUtilities : public core::IReferenceCounted
         )
         {
             const auto& limits = m_device->getPhysicalDevice()->getLimits();
+            const uint32_t memoryLowerBound = limits.maxResidentInvocations * sizeof(uint32_t);
+            const uint32_t alignment = static_cast<uint32_t>(limits.nonCoherentAtomSize);
+
             auto* cmdpool = cmdbuf->getPool();
             assert(cmdpool->getCreationFlags()&IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
             assert(cmdpool->getQueueFamilyIndex()==queue->getFamilyIndex());
@@ -299,13 +307,12 @@ class IUtilities : public core::IReferenceCounted
             // no pipeline barriers necessary because write and optional flush happens before submit, and memory allocation is reclaimed after fence signal
             for (size_t uploadedSize=0ull; uploadedSize<bufferRange.size;)
             {
-                const uint32_t size = bufferRange.size-uploadedSize;
-                const uint32_t alignment = 256u; // TODO: change this to features.nonCoherentAtomiSize
-                const uint32_t paddedSize = static_cast<uint32_t>(core::min<uint64_t>(
-                    core::alignDown(m_defaultUploadBuffer.get()->max_size(),alignment),
-                    core::alignUp(size,alignment)
-                ));
-                const uint32_t subSize = core::min(paddedSize,size);
+                const void* dataPtr = reinterpret_cast<const uint8_t*>(data)+uploadedSize;
+                uint32_t localOffset = video::StreamingTransientDataBufferMT<>::invalid_address;
+
+                uint32_t subSize = static_cast<uint32_t>(core::min<uint64_t>(core::alignDown(m_defaultUploadBuffer.get()->max_size(),alignment), bufferRange.size-uploadedSize));
+                subSize = core::min(subSize, memoryLowerBound);
+                const uint32_t paddedSize = core::alignUp(subSize,alignment);
                 // cannot use `multi_place` because of the extra padding size we could have added
                 uint32_t localOffset = video::StreamingTransientDataBufferMT<>::invalid_address;
                 m_defaultUploadBuffer.get()->multi_alloc(std::chrono::high_resolution_clock::now()+std::chrono::microseconds(500u),1u,&localOffset,&paddedSize,&alignment);
@@ -314,8 +321,6 @@ class IUtilities : public core::IReferenceCounted
                 {
                     const void* dataPtr = reinterpret_cast<const uint8_t*>(data)+uploadedSize;
                     memcpy(reinterpret_cast<uint8_t*>(m_defaultUploadBuffer->getBufferPointer())+localOffset,dataPtr,subSize);
-                }
-
                 // keep trying again
                 if (localOffset == video::StreamingTransientDataBufferMT<>::invalid_address)
                 {
@@ -398,6 +403,31 @@ class IUtilities : public core::IReferenceCounted
             auto* fenceptr = fence.get();
             m_device->blockForFences(1u,&fenceptr);
         }
+        
+
+        // --------------
+        // updateImageViaStagingBuffer
+        // --------------
+
+        void updateImageViaStagingBuffer(
+            IGPUCommandBuffer* cmdbuf, IGPUFence* fence, IGPUQueue* queue,
+            asset::ICPUBuffer const* srcBuffer, const core::SRange<const asset::IImage::SBufferCopy>& regions, video::IGPUImage* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout,
+            uint32_t& waitSemaphoreCount, IGPUSemaphore*const * &semaphoresToWaitBeforeOverwrite, const asset::E_PIPELINE_STAGE_FLAGS* &stagesToWaitForPerSemaphore);
+
+        void updateImageViaStagingBuffer(
+            IGPUFence* fence, IGPUQueue* queue,
+            asset::ICPUBuffer const* srcBuffer, const core::SRange<const asset::IImage::SBufferCopy>& regions, video::IGPUImage* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout,
+            uint32_t waitSemaphoreCount=0u, IGPUSemaphore* const* semaphoresToWaitBeforeOverwrite=nullptr, const asset::E_PIPELINE_STAGE_FLAGS* stagesToWaitForPerSemaphore=nullptr,
+            const uint32_t signalSemaphoreCount=0u, IGPUSemaphore* const* semaphoresToSignal=nullptr
+        );
+
+        //! WARNING: This function blocks and stalls the GPU!
+        void updateImageViaStagingBuffer(
+            IGPUQueue* queue,
+            asset::ICPUBuffer const* srcBuffer, const core::SRange<const asset::IImage::SBufferCopy>& regions, video::IGPUImage* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout,
+            uint32_t waitSemaphoreCount=0u, IGPUSemaphore* const* semaphoresToWaitBeforeOverwrite=nullptr, const asset::E_PIPELINE_STAGE_FLAGS* stagesToWaitForPerSemaphore=nullptr,
+            const uint32_t signalSemaphoreCount=0u, IGPUSemaphore* const* semaphoresToSignal=nullptr
+        );
 
     protected:
         core::smart_refctd_ptr<ILogicalDevice> m_device;

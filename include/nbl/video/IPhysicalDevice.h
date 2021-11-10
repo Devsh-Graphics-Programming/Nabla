@@ -59,12 +59,12 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
 
             uint32_t maxWorkgroupSize[3];
             // its 1D because multidimensional workgroups are an illusion
-            uint32_t maxOptimallyResidentWorkgroupInvocations;
+            uint32_t maxOptimallyResidentWorkgroupInvocations = 0u;
 
             uint32_t subgroupSize;
 
             // These are maximum number of invocations you could expect to execute simultaneously on this device.
-            uint32_t maxResidentInvocations;
+            uint32_t maxResidentInvocations = 0u;
 
             // TODO: move the subgroupOps bitflag to `SFeatures`
             // Also isn't there a separate bitflag per subgroup op type?
@@ -145,6 +145,11 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
             bool rayTracingPipelineShaderGroupHandleCaptureReplayMixed = false;
             bool rayTracingPipelineTraceRaysIndirect = false;
             bool rayTraversalPrimitiveCulling = false;
+
+            // Fragment Shader Interlock
+            bool fragmentShaderSampleInterlock = false;
+            bool fragmentShaderPixelInterlock = false;
+            bool fragmentShaderShadingRateInterlock = false;
         };
 
         struct SMemoryProperties

@@ -376,7 +376,7 @@ namespace nbl
 						auto texelBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(image->getImageDataSizeInBytes());
 						auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(1u);
 						ICPUImage::SBufferCopy& region = regions->front();
-						region.imageSubresource.aspectMask = IImage::E_ASPECT_FLAGS::EAF_COLOR_BIT; // TODO(Erfan) ? Deduec or always EAF_COLOR_BIT?
+						region.imageSubresource.aspectMask = IImage::E_ASPECT_FLAGS::EAF_COLOR_BIT;
 						region.imageSubresource.mipLevel = 0u;
 						region.imageSubresource.baseArrayLayer = 0u;
 						region.imageSubresource.layerCount = 1u;

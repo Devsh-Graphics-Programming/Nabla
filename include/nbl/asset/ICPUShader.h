@@ -89,6 +89,20 @@ class ICPUShader : public IAsset, public IShader
 
 		const ICPUBuffer* getSPVorGLSL() const { return m_code.get(); };
 		bool containsGLSL() const { return m_containsGLSL; }
+		
+		bool setShaderStage(const E_SHADER_STAGE stage)
+		{
+			if(isImmutable_debug())
+				return m_shaderStage == stage;
+			m_shaderStage = stage;
+		}
+
+		bool setFilePathHint(std::string&& filepathHint)
+		{
+			if(isImmutable_debug())
+				return false;
+			m_filepathHint = std::move(filepathHint);
+		}
 
 		bool canBeRestoredFrom(const IAsset* _other) const override
 		{

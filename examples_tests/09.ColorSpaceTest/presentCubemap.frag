@@ -14,5 +14,5 @@ layout(location = 0) out vec4 pixelColor;
 
 void main()
 {
-    pixelColor = texture(tex0, vec3(TexCoord.x, TexCoord.y, 1.0));
+    pixelColor = texture(tex0, vec3(TexCoord.x, TexCoord.y, 0.0));
 }

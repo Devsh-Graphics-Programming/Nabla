@@ -44,6 +44,7 @@ class ILogicalDevice : public core::IReferenceCounted
             EF_SPIRV_1_4,
             EF_RAY_TRACING_PIPELINE,
             EF_RAY_QUERY,
+            EF_FRAGMENT_SHADER_INTERLOCK,
             EF_COUNT
         };
 

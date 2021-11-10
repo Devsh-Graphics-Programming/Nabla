@@ -113,9 +113,9 @@ class IShader : public virtual core::IReferenceCounted
 			_glsl.insert(pos,_ins.str());
 		}
 
-private:
-	const E_SHADER_STAGE m_shaderStage;
-	const std::string m_filepathHint;
+protected:
+	E_SHADER_STAGE m_shaderStage;
+	std::string m_filepathHint;
 };
 
 }
