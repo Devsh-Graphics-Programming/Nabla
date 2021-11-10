@@ -284,6 +284,7 @@ class COpenCLHandler
             ,clEnqueueWaitForEvents
             ,clEnqueueMarker
             ,clWaitForEvents
+            ,clReleaseMemObject
             ,clEnqueueAcquireGLObjects
             ,clEnqueueReleaseGLObjects
 		);

@@ -512,7 +512,7 @@ bool CElementBSDF::addProperty(SNamedPropertyElement&& _property)
 
 			if constexpr (std::is_same<state_type,MixtureBSDF>::value)
 			{
-				if (_property.type == SPropertyElementData::Type::STRING)
+				if (_property.type!=SPropertyElementData::Type::STRING)
 				{
 					error = true;
 					return;

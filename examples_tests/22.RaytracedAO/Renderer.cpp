@@ -552,7 +552,7 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 	// make a shortened version of the globalBackendDataDS
 	m_rasterInstanceDataDS = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_rasterInstanceDataDSLayout));
 	{
-		IGPUDescriptorSet::SCopyDescriptorSet copy;
+		IGPUDescriptorSet::SCopyDescriptorSet copy = {};
 		copy.dstSet = m_rasterInstanceDataDS.get();
 		copy.srcSet = m_globalBackendDataDS.get();
 		copy.srcBinding = 5u;
@@ -731,9 +731,6 @@ void Renderer::initSceneResources(SAssetBundle& meshes)
 		{
 			// i know what I'm doing
 			auto globalBackendDataDSLayout = core::smart_refctd_ptr<IGPUDescriptorSetLayout>(const_cast<IGPUDescriptorSetLayout*>(m_globalBackendDataDS->getLayout()));
-			
-			for (auto i=0u; i<2u; i++)
-				m_commonRaytracingDS[i] = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_commonRaytracingDSLayout));
 
 			// cull
 			{
@@ -764,9 +761,6 @@ void Renderer::initSceneResources(SAssetBundle& meshes)
 					core::smart_refctd_ptr(m_commonRaytracingDSLayout),
 					core::smart_refctd_ptr(m_closestHitDSLayout)
 				);
-				
-				for (auto i=0u; i<2u; i++)
-					m_closestHitDS[i] = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_closestHitDSLayout));
 			}
 
 			// resolve
@@ -842,9 +836,7 @@ void Renderer::deinitSceneResources()
 	glFinish();
 
 	m_resolveDS = nullptr;
-	m_closestHitDS[0] = m_closestHitDS[1] = nullptr;
 	m_raygenDS = nullptr;
-	m_commonRaytracingDS[0] = m_commonRaytracingDS[1] = nullptr;
 	m_additionalGlobalDS = nullptr;
 	m_rasterInstanceDataDS = nullptr;
 	m_globalBackendDataDS = nullptr;
@@ -919,7 +911,7 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, core::s
 			if (sampleMultiplier==1u)
 			{
 				bxdfSamples = 1u;
-				maxNEESamples = 1u;
+				maxNEESamples = 0u;
 				setRayBufferSizes(sampleMultiplier);
 			}
 			printf("Using %d samples (per pixel) per dispatch\n",m_staticViewData.samplesPerPixelPerDispatch);
@@ -1059,6 +1051,9 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, core::s
 		setImageInfo(infos+3,asset::EIL_GENERAL,core::smart_refctd_ptr(m_accumulation));
 		createEmptyInteropBufferAndSetUpInfo(infos+4,m_rayBuffer[0],raygenBufferSize);
 		setBufferInfo(infos+5,m_rayCountBuffer);
+			
+		for (auto i=0u; i<2u; i++)
+			m_commonRaytracingDS[i] = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_commonRaytracingDSLayout));
 
 		constexpr auto descriptorUpdateCount = 6u;
 		setDstSetAndDescTypesOnWrites(m_commonRaytracingDS[0].get(),writes,infos,{
@@ -1094,6 +1089,8 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, core::s
 		infos[0u].buffer.offset = 0u;
 		infos[0u].buffer.size = m_rayBuffer[other].buffer->getSize();
 		createEmptyInteropBufferAndSetUpInfo(infos+1,m_intersectionBuffer[other],intersectionBufferSize);
+				
+		m_closestHitDS[i] = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_closestHitDSLayout));
 
 		setDstSetAndDescTypesOnWrites(m_closestHitDS[i].get(),writes,infos,{EDT_STORAGE_BUFFER,EDT_STORAGE_BUFFER});
 		m_driver->updateDescriptorSets(2u,writes,0u,nullptr);
@@ -1203,7 +1200,14 @@ void Renderer::deinitScreenSizedResources()
 	m_denoiserInputs[EDI_NORMAL] = {};
 	m_denoiserOutput = {};
 #endif
+
+	// make sure descriptor sets dont dangle
+	//m_driver->bindDescriptorSets(video::EPBP_COMPUTE,nullptr,0u,4u,nullptr);
+	m_closestHitDS[0] = m_closestHitDS[1] = nullptr;
+	m_commonRaytracingDS[0] = m_commonRaytracingDS[1] = nullptr;
 	
+	// unset the framebuffer (dangling smartpointer in state cache can prevent the framebuffer from being dropped until the next framebuffer set)
+	m_driver->setRenderTarget(nullptr,false);
 	if (m_visibilityBuffer)
 	{
 		m_driver->removeFrameBuffer(m_visibilityBuffer);
@@ -1215,6 +1219,7 @@ void Renderer::deinitScreenSizedResources()
 		m_colorBuffer = nullptr;
 	}
 	m_accumulation = m_tonemapOutput = nullptr;
+	glFinish();
 	
 	// wait for OpenCL to finish
 	ocl::COpenCLHandler::ocl.pclFlush(commandQueue);
@@ -1223,8 +1228,7 @@ void Renderer::deinitScreenSizedResources()
 	{
 		auto deleteInteropBuffer = [&](InteropBuffer& buffer) -> void
 		{
-			if (buffer.asRRBuffer.first)
-				m_rrManager->deleteRRBuffer(buffer.asRRBuffer.first);
+			m_rrManager->unlinkBuffer(std::move(buffer.asRRBuffer));
 			buffer = {};
 		};
 		deleteInteropBuffer(m_intersectionBuffer[i]);
