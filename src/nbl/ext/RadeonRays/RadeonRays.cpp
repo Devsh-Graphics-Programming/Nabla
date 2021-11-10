@@ -73,6 +73,16 @@ std::pair<::RadeonRays::Buffer*,cl_mem> Manager::linkBuffer(const video::IGPUBuf
 	return {nullptr,nullptr};
 }
 
+void Manager::unlinkBuffer(std::pair<::RadeonRays::Buffer*,cl_mem>&& link)
+{
+	auto buffer = std::get<::RadeonRays::Buffer*>(link);
+	if (buffer)
+		rr->DeleteBuffer(buffer);
+	auto clbuff = std::get<cl_mem>(link);
+	if (clbuff)
+		clReleaseMemObject(clbuff);
+}
+
 void Manager::makeShape(core::unordered_map<const asset::ICPUMeshBuffer*,::RadeonRays::Shape*>& cpuCache, const asset::ICPUMeshBuffer* mb)
 {
 	auto found = cpuCache.find(mb);

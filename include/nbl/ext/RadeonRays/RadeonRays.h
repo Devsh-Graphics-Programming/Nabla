@@ -49,10 +49,7 @@ class Manager final : public core::IReferenceCounted
 
 		
 		std::pair<::RadeonRays::Buffer*,cl_mem> linkBuffer(const video::IGPUBuffer* buffer, cl_mem_flags access);
-		inline void deleteRRBuffer(::RadeonRays::Buffer* buffer)
-		{
-			rr->DeleteBuffer(buffer);
-		}
+		void unlinkBuffer(std::pair<::RadeonRays::Buffer*,cl_mem>&& link);
 
 
 		struct MeshBufferRRShapeCache
