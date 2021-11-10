@@ -2,10 +2,14 @@
 
 #include "nbl/system/CFileWin32.h"
 
-#define LODWORD(_qw)    ((DWORD)(_qw))
-#define HIDWORD(_qw)    ((DWORD)(((_qw) >> 32) & 0xffffffff))
+#ifndef LODWORD
+#	define LODWORD(_qw)    ((DWORD)(_qw))
+#endif
+#ifndef HIDWORD
+#	define HIDWORD(_qw)    ((DWORD)(((_qw) >> 32) & 0xffffffff))
+#endif
 
-nbl::system::CFileWin32::CFileWin32(core::smart_refctd_ptr<ISystem>&& sys, const std::filesystem::path& _filename, core::bitflag<E_CREATE_FLAGS> _flags) : base_t(std::move(sys), _flags), m_filename{ _filename }
+nbl::system::CFileWin32::CFileWin32(core::smart_refctd_ptr<ISystem>&& sys, const std::filesystem::path& _filename, core::bitflag<E_CREATE_FLAGS> _flags) : base_t(std::move(sys), std::move(_filename), _flags)
 {
 	SYSTEM_INFO info;
 	GetSystemInfo(&info);
@@ -16,8 +20,9 @@ nbl::system::CFileWin32::CFileWin32(core::smart_refctd_ptr<ISystem>&& sys, const
 	const bool canOpenWhenOpened = false;
 	SECURITY_ATTRIBUTES secAttribs{ sizeof(SECURITY_ATTRIBUTES), nullptr, FALSE };
 	
-	system::path p = m_filename;
-	if (p.is_absolute()) p.make_preferred(); // Replace "/" separators with "\"
+	system::path p = getFileName();
+	if (p.is_absolute()) 
+		p.make_preferred(); // Replace "/" separators with "\\"
 	m_native = CreateFile(p.string().data(), access, canOpenWhenOpened, &secAttribs, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
 	if (m_native != INVALID_HANDLE_VALUE) [[likely]] // let this idle here until c++20 :)
 	{
@@ -57,11 +62,6 @@ nbl::system::CFileWin32::~CFileWin32()
 size_t nbl::system::CFileWin32::getSize() const
 {
 	return m_size;
-}
-
-const std::filesystem::path& nbl::system::CFileWin32::getFileName() const
-{
-	return m_filename;
 }
 
 void* nbl::system::CFileWin32::getMappedPointer()

@@ -12,21 +12,19 @@ protected:
 	allocator_t allocator;
 	size_t m_size;
 public:
-	CFileView(CFileView<allocator_t>&& other) : IFile(std::move(other.m_system), other.m_flags), m_size(other.m_size), m_name(other.m_name), m_buffer(other.m_buffer) 
+	CFileView(CFileView<allocator_t>&& other) : IFile(std::move(other.m_system), path(other.getFileName()), other.m_flags), m_size(other.m_size), m_buffer(other.m_buffer) 
 	{
 		other.m_buffer = nullptr;
 	}
-	CFileView(core::smart_refctd_ptr<ISystem>&& sys, const std::filesystem::path& _name, core::bitflag<E_CREATE_FLAGS> _flags, size_t fileSize) : IFile(std::move(sys),_flags | ECF_COHERENT | ECF_MAPPABLE), m_name(_name), m_size(fileSize)
+	CFileView(core::smart_refctd_ptr<ISystem>&& sys, path&& _name, core::bitflag<E_CREATE_FLAGS> _flags, size_t fileSize) : 
+		IFile(std::move(sys), std::move(_name), _flags | ECF_COHERENT | ECF_MAPPABLE),
+		m_size(fileSize)
 	{
 		m_buffer = (std::byte*)allocator.alloc(fileSize);
 	}
 	~CFileView()
 	{
 		allocator.dealloc(m_buffer);
-	}
-	virtual const std::filesystem::path& getFileName() const override
-	{
-		return m_name;
 	}
 
 	void* getMappedPointer() override final { return m_buffer; }
@@ -57,7 +55,6 @@ protected:
 		return sizeToWrite;
 	}
 protected:
-	std::filesystem::path m_name;
 	std::byte* m_buffer;
 };
 
@@ -67,18 +64,14 @@ class CFileView<CNullAllocator> : public IFile
 {
 	size_t m_size;
 public:
-	CFileView(CFileView<CNullAllocator>&& other) : IFile(std::move(other.m_system), other.m_flags), m_size(other.m_size), m_name(other.m_name), m_buffer(other.m_buffer)
+	CFileView(CFileView<CNullAllocator>&& other) : IFile(std::move(other.m_system), path(other.getFileName()), other.m_flags), m_size(other.m_size), m_buffer(other.m_buffer)
 	{
 		other.m_buffer = nullptr;
 	}
-	CFileView(core::smart_refctd_ptr<ISystem>&& sys, const std::filesystem::path& _name, core::bitflag<E_CREATE_FLAGS> _flags, void* buffer, size_t fileSize) : IFile(std::move(sys), _flags | ECF_COHERENT | ECF_MAPPABLE), m_name(_name), m_size(fileSize), m_buffer((std::byte*)buffer)
+	CFileView(core::smart_refctd_ptr<ISystem>&& sys, path&& _name, core::bitflag<E_CREATE_FLAGS> _flags, void* buffer, size_t fileSize) : IFile(std::move(sys), std::move(_name), _flags | ECF_COHERENT | ECF_MAPPABLE), m_size(fileSize), m_buffer((std::byte*)buffer)
 	{
 	}
 	~CFileView() = default;
-	virtual const std::filesystem::path& getFileName() const override
-	{
-		return m_name;
-	}
 
 	void* getMappedPointer() override final { return m_buffer; }
 	const void* getMappedPointer() const override final { return m_buffer; }
@@ -108,7 +101,6 @@ protected:
 		return sizeToWrite;
 	}
 private:
-	std::filesystem::path m_name;
 	std::byte* m_buffer;
 };
 }

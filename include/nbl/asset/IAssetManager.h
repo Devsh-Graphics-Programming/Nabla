@@ -319,23 +319,18 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
         {
             IAssetLoader::SAssetLoadContext ctx(_params, nullptr);
 
-            
-            std::string filePath = (_params.workingDirectory / _filePath).generic_string();
+            const system::path filePath = (_params.workingDirectory / _filePath);
+            auto filePath_str = system::IFile::flattenFilename(filePath).generic_string();
 
             IAssetLoader::SAssetLoadParams params(_params);
-            bool not_exist = !std::filesystem::exists(filePath);
-            /*if (not_exist && !m_system->isArchiveAlias(_params.workingDirectory))
-            {
-                filePath = _filePath;
-                params.workingDirectory = system::path(_filePath).parent_path().string() + "/";
-            }*/
-            _override->getLoadFilename(filePath, ctx, _hierarchyLevel);
+
+            _override->getLoadFilename(filePath_str, ctx, _hierarchyLevel);
 
             system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
-            bool validInput = m_system->createFile(future, filePath, system::IFile::ECF_READ);
+            bool validInput = m_system->createFile(future, filePath_str, system::IFile::ECF_READ);
             if (!validInput) return SAssetBundle(0);
             core::smart_refctd_ptr<system::IFile> file = future.get();
-            SAssetBundle asset = getAssetInHierarchy_impl<RestoreWholeBundle>(file.get(), filePath, params, _hierarchyLevel, _override);
+            SAssetBundle asset = getAssetInHierarchy_impl<RestoreWholeBundle>(file.get(), filePath_str, params, _hierarchyLevel, _override);
 
             return asset;
         }
