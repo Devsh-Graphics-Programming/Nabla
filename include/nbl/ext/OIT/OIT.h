@@ -106,9 +106,12 @@ class COIT
             resolve_glsl += "#include <nbl/builtin/glsl/ext/OIT/resolve.frag>\n";
 
             const bool hasInterlock = false; // TODO: @Erfan dev->getPhysicalDevice()->getLimits().fragmentShaderInterlock;
+            // TODO bring back
+#if 0
             if (hasInterlock)
                 m_images.spinlock = nullptr;
             else
+#endif
                 m_images.spinlock = createOITImage(SpinlockImageFormat);
 
             auto cpushader = core::make_smart_refctd_ptr<asset::ICPUShader>(resolve_glsl.c_str());
