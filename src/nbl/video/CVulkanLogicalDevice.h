@@ -613,7 +613,8 @@ public:
                 cpushader->getFilepathHint().c_str(),
                 true,
                 nullptr,
-                logger);
+                logger,
+                m_physicalDevice->getLimits().spirvVersion);
         }
 
         if (!spirv)

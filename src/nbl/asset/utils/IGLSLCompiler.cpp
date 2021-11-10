@@ -19,16 +19,21 @@ using namespace system;
 namespace asset
 {
 
-// static constexpr shaderc_spirv_version TARGET_SPIRV_VERSION = shaderc_spirv_version_1_5;
-// static constexpr shaderc_spirv_version TARGET_SPIRV_VERSION = shaderc_spirv_version_1_3;
-
-IGLSLCompiler::IGLSLCompiler(system::ISystem* _s, E_SPIRV_VERSION targetSpirvVersion)
-    : m_inclHandler(core::make_smart_refctd_ptr<CIncludeHandler>(_s)), m_system(_s), m_targetSpirvVersion(targetSpirvVersion)
+IGLSLCompiler::IGLSLCompiler(system::ISystem* _s)
+    : m_inclHandler(core::make_smart_refctd_ptr<CIncludeHandler>(_s)), m_system(_s)
 {
     m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLVirtualTexturingBuiltinIncludeLoader>(_s));
 }
 
-core::smart_refctd_ptr<ICPUBuffer> IGLSLCompiler::compileSPIRVFromGLSL(const char* _glslCode, IShader::E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, bool _genDebugInfo, std::string* _outAssembly, system::logger_opt_ptr logger) const
+core::smart_refctd_ptr<ICPUBuffer> IGLSLCompiler::compileSPIRVFromGLSL(
+    const char* _glslCode,
+    IShader::E_SHADER_STAGE _stage,
+    const char* _entryPoint,
+    const char* _compilationId,
+    bool _genDebugInfo,
+    std::string* _outAssembly,
+    system::logger_opt_ptr logger,
+    const E_SPIRV_VERSION targetSpirvVersion) const
 {
     //shaderc requires entry point to be "main" in GLSL
     if (strcmp(_entryPoint, "main") != 0)
@@ -36,8 +41,8 @@ core::smart_refctd_ptr<ICPUBuffer> IGLSLCompiler::compileSPIRVFromGLSL(const cha
 
     shaderc::Compiler comp;
     shaderc::CompileOptions options;//default options
-    assert(m_targetSpirvVersion < ESV_COUNT);
-    options.SetTargetSpirv(static_cast<shaderc_spirv_version>(m_targetSpirvVersion));
+    assert(targetSpirvVersion < ESV_COUNT);
+    options.SetTargetSpirv(static_cast<shaderc_spirv_version>(targetSpirvVersion));
     const shaderc_shader_kind stage = _stage==IShader::ESS_UNKNOWN ? shaderc_glsl_infer_from_source : ESStoShadercEnum(_stage);
     const size_t glsl_len = strlen(_glslCode);
     if (_genDebugInfo)
@@ -65,9 +70,18 @@ core::smart_refctd_ptr<ICPUBuffer> IGLSLCompiler::compileSPIRVFromGLSL(const cha
 	return spirv;
 }
 
-core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::createSPIRVFromGLSL(const char* _glslCode, IShader::E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, const ISPIRVOptimizer* _opt, bool _genDebugInfo, std::string* _outAssembly, system::logger_opt_ptr logger) const
+core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::createSPIRVFromGLSL(
+    const char* _glslCode,
+    IShader::E_SHADER_STAGE _stage,
+    const char* _entryPoint,
+    const char* _compilationId,
+    const ISPIRVOptimizer* _opt,
+    bool _genDebugInfo,
+    std::string* _outAssembly,
+    system::logger_opt_ptr logger,
+    const E_SPIRV_VERSION targetSpirvVersion) const
 {
-    auto spirvBuffer = compileSPIRVFromGLSL(_glslCode,_stage,_entryPoint,_compilationId,_genDebugInfo,_outAssembly,logger);
+    auto spirvBuffer = compileSPIRVFromGLSL(_glslCode,_stage,_entryPoint,_compilationId,_genDebugInfo,_outAssembly,logger,targetSpirvVersion);
 	if (!spirvBuffer)
 		return nullptr;
     if (_opt)
@@ -77,14 +91,23 @@ core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::createSPIRVFromGLSL(const char
     return core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(spirvBuffer), _stage, "????");
 }
 
-core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::createSPIRVFromGLSL(system::IFile* _sourcefile, IShader::E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, const ISPIRVOptimizer* _opt, bool _genDebugInfo, std::string* _outAssembly, system::logger_opt_ptr logger) const
+core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::createSPIRVFromGLSL(
+    system::IFile* _sourcefile,
+    IShader::E_SHADER_STAGE _stage,
+    const char* _entryPoint,
+    const char* _compilationId,
+    const ISPIRVOptimizer* _opt,
+    bool _genDebugInfo,
+    std::string* _outAssembly,
+    system::logger_opt_ptr logger,
+    const E_SPIRV_VERSION targetSpirvVersion) const
 {
     size_t fileSize = _sourcefile->getSize();
     std::string glsl(fileSize, '\0');
     system::future<size_t> future;
    _sourcefile->read(future, glsl.data(), 0, fileSize);
     future.get();
-    return createSPIRVFromGLSL(glsl.c_str(), _stage, _entryPoint, _compilationId, _opt, _outAssembly);
+    return createSPIRVFromGLSL(glsl.c_str(), _stage, _entryPoint, _compilationId, _opt, _genDebugInfo, _outAssembly, logger, targetSpirvVersion);
 }
 
 namespace impl
@@ -234,13 +257,19 @@ namespace impl
     };
 }
 
-core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::resolveIncludeDirectives(std::string&& glslCode, IShader::E_SHADER_STAGE _stage, const char* _originFilepath, uint32_t _maxSelfInclusionCnt, system::logger_opt_ptr logger) const
+core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::resolveIncludeDirectives(
+    std::string&& glslCode,
+    IShader::E_SHADER_STAGE _stage,
+    const char* _originFilepath,
+    uint32_t _maxSelfInclusionCnt,
+    system::logger_opt_ptr logger,
+    const E_SPIRV_VERSION targetSpirvVersion) const
 {
     impl::disableAllDirectivesExceptIncludes(glslCode);//all "#", except those in "#include"/"#version"/"#pragma shader_stage(...)", replaced with `PREPROC_DIRECTIVE_DISABLER`
     shaderc::Compiler comp;
     shaderc::CompileOptions options;
-    assert(m_targetSpirvVersion < ESV_COUNT);
-    options.SetTargetSpirv(static_cast<shaderc_spirv_version>(m_targetSpirvVersion));
+    assert(targetSpirvVersion < ESV_COUNT);
+    options.SetTargetSpirv(static_cast<shaderc_spirv_version>(targetSpirvVersion));
     options.SetIncluder(std::make_unique<impl::Includer>(m_inclHandler.get(), m_system, _maxSelfInclusionCnt+1u));//custom #include handler
     const shaderc_shader_kind stage = _stage==IShader::ESS_UNKNOWN ? shaderc_glsl_infer_from_source : ESStoShadercEnum(_stage);
     auto res = comp.PreprocessGlsl(glslCode, stage, _originFilepath, options);
@@ -256,13 +285,19 @@ core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::resolveIncludeDirectives(std::
     return core::make_smart_refctd_ptr<ICPUShader>(res_str.c_str(), _stage, std::string(_originFilepath));
 }
 
-core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::resolveIncludeDirectives(system::IFile* _sourcefile, IShader::E_SHADER_STAGE _stage, const char* _originFilepath, uint32_t _maxSelfInclusionCnt, system::logger_opt_ptr logger) const
+core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::resolveIncludeDirectives(
+    system::IFile* _sourcefile,
+    IShader::E_SHADER_STAGE _stage,
+    const char* _originFilepath,
+    uint32_t _maxSelfInclusionCnt,
+    system::logger_opt_ptr logger,
+    const E_SPIRV_VERSION targetSpirvVersion) const
 {
     std::string glsl(_sourcefile->getSize(), '\0');
     system::future<size_t> future;
     _sourcefile->read(future, glsl.data(), 0, _sourcefile->getSize());
     future.get();
-    return resolveIncludeDirectives(std::move(glsl), _stage, _originFilepath, _maxSelfInclusionCnt, logger);
+    return resolveIncludeDirectives(std::move(glsl), _stage, _originFilepath, _maxSelfInclusionCnt, logger, targetSpirvVersion);
 }
 
 }}

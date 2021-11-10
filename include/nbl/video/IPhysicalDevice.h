@@ -26,8 +26,6 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
     public:
         struct SLimits
         {
-            uint32_t apiVersion;
-
             uint32_t UBOAlignment;
             uint32_t SSBOAlignment;
             uint32_t bufferViewAlignment;
@@ -73,6 +71,8 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
             core::bitflag<asset::IShader::E_SHADER_STAGE> subgroupOpsShaderStages;
 
             uint64_t nonCoherentAtomSize;
+
+            asset::IGLSLCompiler::E_SPIRV_VERSION spirvVersion;
 
             // AccelerationStructure
             uint64_t           maxGeometryCount;

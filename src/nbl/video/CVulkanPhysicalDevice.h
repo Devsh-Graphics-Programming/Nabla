@@ -38,7 +38,6 @@ public:
             vkGetPhysicalDeviceProperties2(m_vkPhysicalDevice, &deviceProperties);
                     
             // TODO fill m_properties
-            m_limits.apiVersion = deviceProperties.properties.apiVersion;
                     
             m_limits.UBOAlignment = deviceProperties.properties.limits.minUniformBufferOffsetAlignment;
             m_limits.SSBOAlignment = deviceProperties.properties.limits.minStorageBufferOffsetAlignment;
@@ -74,6 +73,20 @@ public:
 
             m_limits.nonCoherentAtomSize = deviceProperties.properties.limits.nonCoherentAtomSize;
 
+            switch (VK_API_VERSION_MINOR(deviceProperties.properties.apiVersion))
+            {
+            case 0:
+                m_limits.spirvVersion = asset::IGLSLCompiler::ESV_1_0; break;
+            case 1:
+                m_limits.spirvVersion = asset::IGLSLCompiler::ESV_1_3; break;
+            case 2:
+                m_limits.spirvVersion = asset::IGLSLCompiler::ESV_1_5; break;
+            default:
+                _NBL_DEBUG_BREAK_IF("Invalid Vulkan minor version!");
+                m_limits.spirvVersion = asset::IGLSLCompiler::ESV_1_3;
+                break;
+            }
+
             // AccelerationStructure
             if (m_availableFeatureSet.find(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME) != m_availableFeatureSet.end())
             {
@@ -100,24 +113,6 @@ public:
                 m_limits.maxRayHitAttributeSize = rayTracingPipelineProperties.maxRayHitAttributeSize;
             }
         }
-
-        asset::IGLSLCompiler::E_SPIRV_VERSION spirvVersion;
-        uint32_t minorVersion = VK_API_VERSION_MINOR(m_limits.apiVersion);
-        switch (minorVersion)
-        {
-        case 0:
-            spirvVersion = asset::IGLSLCompiler::ESV_1_0; break;
-        case 1:
-            spirvVersion = asset::IGLSLCompiler::ESV_1_3; break;
-        case 2:
-            spirvVersion = asset::IGLSLCompiler::ESV_1_5; break;
-        default:
-            assert(!"Invalid Vulkan minor version!");
-            spirvVersion = asset::IGLSLCompiler::ESV_1_3;
-            break;
-        }
-
-        m_GLSLCompiler->setTargetSpirvVersion(spirvVersion);
         
         // Get physical device's features
         VkPhysicalDeviceRayTracingPipelineFeaturesKHR rayTracingPipelineFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR };
@@ -263,10 +258,10 @@ protected:
                 continue;
         }
 
-        if (selectedFeatureSet.find(VK_KHR_SPIRV_1_4_EXTENSION_NAME) != selectedFeatureSet.end())
+        if (selectedFeatureSet.find(VK_KHR_SPIRV_1_4_EXTENSION_NAME) != selectedFeatureSet.end()
+            && (m_limits.spirvVersion < asset::IGLSLCompiler::ESV_1_4))
         {
-            if (m_GLSLCompiler->getTargetSpirvVersion() < asset::IGLSLCompiler::ESV_1_4)
-                m_GLSLCompiler->setTargetSpirvVersion(asset::IGLSLCompiler::ESV_1_4);
+            m_limits.spirvVersion = asset::IGLSLCompiler::ESV_1_4;
         }
 
         core::vector<const char*> selectedFeatures(selectedFeatureSet.size());

@@ -530,7 +530,8 @@ protected:
                 glUnspec->getFilepathHint().c_str(),
                 true,
                 nullptr,
-                getLogger()
+                getLogger(),
+                m_physicalDevice->getLimits().spirvVersion
             );
 
             if (!spirv)
