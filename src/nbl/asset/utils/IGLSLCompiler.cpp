@@ -87,8 +87,7 @@ core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::createSPIRVFromGLSL(
     if (_opt)
         spirvBuffer = _opt->optimize(spirvBuffer.get(),logger) ;
 
-    // Todo(achal): Not sure what to put as filepathHint? `_compilationId`?
-    return core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(spirvBuffer), _stage, "????");
+    return core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(spirvBuffer), _stage, _compilationId);
 }
 
 core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::createSPIRVFromGLSL(
