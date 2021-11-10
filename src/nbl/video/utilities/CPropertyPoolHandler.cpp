@@ -20,9 +20,9 @@ CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice
 		memcpy(glsl->getPointer(), glslFile->getMappedPointer(), glsl->getSize());
 	}
 
-	auto cpushader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl), asset::ICPUShader::buffer_contains_glsl);
+	auto cpushader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl), asset::ICPUShader::buffer_contains_glsl, asset::IShader::ESS_COMPUTE, "????");
 	auto gpushader = m_device->createGPUShader(asset::IGLSLCompiler::createOverridenCopy(cpushader.get(), "\n#define NBL_BUILTIN_MAX_PROPERTIES_PER_PASS %d\n", m_maxPropertiesPerPass));
-	auto specshader = m_device->createGPUSpecializedShader(gpushader.get(), { nullptr,nullptr,"main",asset::ISpecializedShader::ESS_COMPUTE });
+	auto specshader = m_device->createGPUSpecializedShader(gpushader.get(), { nullptr,nullptr,"main"});
 
 	const auto maxStreamingAllocations = 2u*m_maxPropertiesPerPass+2u;
 	//m_tmpAddressRanges = reinterpret_cast<AddressUploadRange*>(malloc((sizeof(AddressUploadRange)+sizeof(uint32_t)*3u)*maxStreamingAllocations));
@@ -33,7 +33,7 @@ CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice
 		bindings[j].binding = j;
 		bindings[j].type = asset::EDT_STORAGE_BUFFER;
 		bindings[j].count = j<2u ? 1u:m_maxPropertiesPerPass;
-		bindings[j].stageFlags = asset::ISpecializedShader::ESS_COMPUTE;
+		bindings[j].stageFlags = asset::IShader::ESS_COMPUTE;
 		bindings[j].samplers = nullptr;
 	}
 	auto dsLayout = m_device->createGPUDescriptorSetLayout(bindings,bindings+4);
@@ -41,7 +41,7 @@ CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice
 	auto descPool = m_device->createDescriptorPoolForDSLayouts(IDescriptorPool::ECF_UPDATE_AFTER_BIND_BIT,&dsLayout.get(),&dsLayout.get()+1u,&CPropertyPoolHandler::DescriptorCacheSize);
 	m_dsCache = core::make_smart_refctd_ptr<TransferDescriptorSetCache>(m_device.get(),std::move(descPool),core::smart_refctd_ptr(dsLayout));
 	
-	const asset::SPushConstantRange baseDWORD = {asset::ISpecializedShader::ESS_COMPUTE,0u,sizeof(uint32_t)*2u};
+	const asset::SPushConstantRange baseDWORD = {asset::IShader::ESS_COMPUTE,0u,sizeof(uint32_t)*2u};
 	auto layout = m_device->createGPUPipelineLayout(&baseDWORD,&baseDWORD+1u,std::move(dsLayout));
 	m_pipeline = m_device->createGPUComputePipeline(nullptr,std::move(layout),std::move(specshader));
 }
@@ -136,7 +136,7 @@ bool CPropertyPoolHandler::transferProperties(
 		cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,m_pipeline->getLayout(),0u,1u,&set,nullptr);
 		{
 			const uint32_t data[] = {baseDWORD,endDWORD};
-			cmdbuf->pushConstants(m_pipeline->getLayout(),asset::ISpecializedShader::ESS_COMPUTE,0u,sizeof(data),data);
+			cmdbuf->pushConstants(m_pipeline->getLayout(),asset::IShader::ESS_COMPUTE,0u,sizeof(data),data);
 		}
 		// dispatch
 		{

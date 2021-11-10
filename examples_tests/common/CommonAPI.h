@@ -1565,9 +1565,9 @@ public:
 			submit.commandBufferCount = 1u;
 			submit.commandBuffers = &cmdbuf;
 			video::IGPUSemaphore* signalsem = renderFinishedSemaphore;
-			submit.signalSemaphoreCount = imgAcqSemaphore ? 1u:0u;
+			submit.signalSemaphoreCount = waitSemaphore ? 1u:0u;
 			submit.pSignalSemaphores = &signalsem;
-			video::IGPUSemaphore* waitsem = imgAcqSemaphore;
+			video::IGPUSemaphore* waitsem = waitSemaphore;
 			asset::E_PIPELINE_STAGE_FLAGS dstWait = asset::EPSF_COLOR_ATTACHMENT_OUTPUT_BIT; // hardcoded like that?
 			submit.waitSemaphoreCount = 1u;
 			submit.pWaitSemaphores = &waitsem;

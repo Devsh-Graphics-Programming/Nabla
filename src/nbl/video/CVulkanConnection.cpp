@@ -183,7 +183,7 @@ namespace nbl::video
             applicationInfo.pApplicationName = appName;
             applicationInfo.applicationVersion = appVer;
             applicationInfo.pEngineName = "Nabla";
-            applicationInfo.apiVersion = VK_MAKE_VERSION(1, 1, 0);
+            applicationInfo.apiVersion = VK_MAKE_API_VERSION(0, 1, 1, 0);
             applicationInfo.engineVersion = NABLA_VERSION_INTEGER;
 
             VkInstanceCreateInfo createInfo = { VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO };

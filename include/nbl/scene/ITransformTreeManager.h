@@ -68,7 +68,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
         {
 			auto device = utils->getLogicalDevice();
 			auto system = device->getPhysicalDevice()->getSystem();
-			auto createShader = [&system,&device](auto uniqueString, asset::ISpecializedShader::E_SHADER_STAGE type=asset::ISpecializedShader::ESS_COMPUTE) -> core::smart_refctd_ptr<video::IGPUSpecializedShader>
+			auto createShader = [&system,&device](auto uniqueString, asset::IShader::E_SHADER_STAGE type=asset::IShader::ESS_COMPUTE) -> core::smart_refctd_ptr<video::IGPUSpecializedShader>
 			{
 				auto glslFile = system->loadBuiltinData<decltype(uniqueString)>();
 				core::smart_refctd_ptr<asset::ICPUBuffer> glsl;
@@ -76,15 +76,15 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 					glsl = core::make_smart_refctd_ptr<asset::ICPUBuffer>(glslFile->getSize());
 					memcpy(glsl->getPointer(), glslFile->getMappedPointer(), glsl->getSize());
 				}
-				auto shader = device->createGPUShader(core::make_smart_refctd_ptr<asset::ICPUShader>(core::smart_refctd_ptr(glsl),asset::IShader::buffer_contains_glsl_t{}));
-				return device->createGPUSpecializedShader(shader.get(),{nullptr,nullptr,"main",type });
+				auto shader = device->createGPUShader(core::make_smart_refctd_ptr<asset::ICPUShader>(core::smart_refctd_ptr(glsl),asset::IShader::buffer_contains_glsl_t{}, type, "????"));
+				return device->createGPUSpecializedShader(shader.get(),{nullptr,nullptr,"main"});
 			};
 
 			auto updateRelativeSpec = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/transform_tree/relative_transform_update.comp")());
 			auto recomputeGlobalSpec = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/transform_tree/global_transform_update.comp")());
 			// TODO: audit source code
-			auto debugDrawVertexSpec = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/transform_tree/debug.vert")(),asset::ISpecializedShader::ESS_VERTEX);
-			auto debugDrawFragmentSpec = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_normal/specialized_shader.frag")(),asset::ISpecializedShader::ESS_FRAGMENT);
+			auto debugDrawVertexSpec = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/transform_tree/debug.vert")(),asset::IShader::ESS_VERTEX);
+			auto debugDrawFragmentSpec = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_normal/specialized_shader.frag")(),asset::IShader::ESS_FRAGMENT);
 			if (!updateRelativeSpec || !recomputeGlobalSpec || !debugDrawVertexSpec || !debugDrawFragmentSpec)
 				return nullptr;
 
@@ -146,14 +146,14 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			}
 			asset::IShader::E_SHADER_STAGE stageAccessFlags[ITransformTree::property_pool_t::PropertyCount];
 			std::fill_n(stageAccessFlags,ITransformTree::property_pool_t::PropertyCount,asset::IShader::ESS_COMPUTE);
-			auto poolLayout = ITransformTree::createDescriptorSetLayout(device.get(),stageAccessFlags);
+			auto poolLayout = ITransformTree::createDescriptorSetLayout(device,stageAccessFlags);
 			
 			auto updateRelativeLayout = device->createGPUPipelineLayout(nullptr,nullptr,core::smart_refctd_ptr(poolLayout),core::smart_refctd_ptr(sharedDsLayout));
 			auto recomputeGlobalLayout = device->createGPUPipelineLayout(nullptr,nullptr,core::smart_refctd_ptr(poolLayout),core::smart_refctd_ptr(sharedDsLayout));
 			asset::SPushConstantRange pcRange;
 			pcRange.offset = 0u;
 			pcRange.size = sizeof(DebugPushConstants);
-			pcRange.stageFlags = asset::ISpecializedShader::ESS_VERTEX;
+			pcRange.stageFlags = asset::IShader::ESS_VERTEX;
 			auto debugDrawLayout = device->createGPUPipelineLayout(nullptr,nullptr,core::smart_refctd_ptr(poolLayout),core::smart_refctd_ptr(debugDrawDsLayout));
 
 			auto updateRelativePpln = device->createGPUComputePipeline(nullptr,std::move(updateRelativeLayout),std::move(updateRelativeSpec));
@@ -706,7 +706,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 				cmdbuf->bindVertexBuffers(DebugAABBIDBindingIndex,1u,&buffer,&offset);
 			}
 			cmdbuf->bindIndexBuffer(m_debugIndexBuffer.get(),0u,asset::EIT_16BIT);
-			cmdbuf->pushConstants(layout,asset::ISpecializedShader::ESS_VERTEX,0u,sizeof(DebugPushConstants),&pushConstants);
+			cmdbuf->pushConstants(layout,asset::IShader::ESS_VERTEX,0u,sizeof(DebugPushConstants),&pushConstants);
 			cmdbuf->drawIndexed(IndexCount,count,0u,0u,0u);
 		}
 

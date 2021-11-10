@@ -129,7 +129,6 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
                 std::swap(data, other->data);
         }
         
-        core::bitflag<E_USAGE_FLAGS> usage = EUF_TRANSFER_DST_BIT;
         uint64_t size;
         void* data;
         // this is a bit weird, but makes sense because the usages are for the IGPUBuffer that will be created from the data stored here

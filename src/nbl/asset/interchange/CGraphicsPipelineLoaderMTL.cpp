@@ -35,7 +35,13 @@ CGraphicsPipelineLoaderMTL::CGraphicsPipelineLoaderMTL(IAssetManager* _am, core:
         auto data = m_assetMgr->getSystem()->loadBuiltinData<decltype(constexprStringType)>();
         auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(data->getSize());
         memcpy(buffer->getPointer(), data->getMappedPointer(), data->getSize());
-        auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(buffer), asset::IShader::buffer_contains_glsl_t{});
+        auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(
+            std::move(buffer),
+            asset::IShader::buffer_contains_glsl_t{},
+            stage,
+            stage != ICPUShader::ESS_VERTEX
+            ? "?IrrlichtBAW PipelineLoaderMTL FragmentShader?"
+            : "?IrrlichtBAW PipelineLoaderMTL VertexShader?");
         
         ICPUSpecializedShader::SInfo specInfo({}, nullptr, "main");
 		auto shader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecializedShader),std::move(specInfo));

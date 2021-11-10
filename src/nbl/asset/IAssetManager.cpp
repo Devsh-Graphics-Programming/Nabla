@@ -221,13 +221,13 @@ void IAssetManager::insertBuiltinAssets()
 	{
 		//
 		auto buildInGLSLShader = [&](	core::smart_refctd_ptr<system::IFile>&& data,
-									asset::ISpecializedShader::E_SHADER_STAGE type,
+									asset::IShader::E_SHADER_STAGE type,
 									std::initializer_list<const char*> paths) -> void
 		{
             auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(data->getSize());
             memcpy(buffer->getPointer(), data->getMappedPointer(), data->getSize());
-            auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(buffer), asset::IShader::buffer_contains_glsl_t{});
-			auto shader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecializedShader), asset::ISpecializedShader::SInfo({}, nullptr, "main", type));
+            auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(buffer), asset::IShader::buffer_contains_glsl_t{}, type, paths.begin()[0]);
+			auto shader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecializedShader), asset::ISpecializedShader::SInfo({}, nullptr, "main"));
 			for (auto& path : paths)
 				addBuiltInToCaches(std::move(shader), path);
 		};

@@ -5,7 +5,6 @@ using namespace video;
 
 core::smart_refctd_ptr<asset::ICPUShader> CScanner::createShader(const bool indirect, const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op) const
 {
-
 	auto system = m_device->getPhysicalDevice()->getSystem();
 	core::smart_refctd_ptr<nbl::system::IFile> glsl;
 	{
@@ -16,7 +15,7 @@ core::smart_refctd_ptr<asset::ICPUShader> CScanner::createShader(const bool indi
 	}
 	auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(glsl->getSize());
 	memcpy(buffer->getPointer(), glsl->getMappedPointer(), glsl->getSize());
-	auto cpushader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(buffer), asset::IShader::buffer_contains_glsl_t{});
+	auto cpushader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(buffer), asset::IShader::buffer_contains_glsl_t{}, asset::IShader::ESS_COMPUTE, "????");
 	const char* storageType = nullptr;
 	switch (dataType)
 	{

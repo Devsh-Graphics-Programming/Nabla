@@ -922,12 +922,12 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
         if (auto found = img2gpubuf.find(cpuimg); found != img2gpubuf.end())
         {
             auto buf = found->second;
-            assert(buf->getBufferSize() == cpuimg->getBuffer()->getSize());
+            assert(buf->getSize() == cpuimg->getBuffer()->getSize());
 
             asset::SBufferRange<IGPUBuffer> bufrng;
             bufrng.buffer = buf;
             bufrng.offset = 0u;
-            bufrng.size = buf->getBufferSize();
+            bufrng.size = buf->getSize();
 
             _params.utilities->updateBufferRangeViaStagingBuffer(
                 cmdbuf_transfer.get(),transfer_fence.get(),_params.perQueue[EQU_TRANSFER].queue,bufrng,cpuimg->getBuffer()->getPointer(),

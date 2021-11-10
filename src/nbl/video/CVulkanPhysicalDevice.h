@@ -73,6 +73,8 @@ public:
 
             m_limits.nonCoherentAtomSize = deviceProperties.properties.limits.nonCoherentAtomSize;
 
+            m_limits.spirvVersion = asset::IGLSLCompiler::ESV_1_3;
+#if 0
             switch (VK_API_VERSION_MINOR(deviceProperties.properties.apiVersion))
             {
             case 0:
@@ -83,9 +85,9 @@ public:
                 m_limits.spirvVersion = asset::IGLSLCompiler::ESV_1_5; break;
             default:
                 _NBL_DEBUG_BREAK_IF("Invalid Vulkan minor version!");
-                m_limits.spirvVersion = asset::IGLSLCompiler::ESV_1_3;
                 break;
             }
+#endif
 
             // AccelerationStructure
             if (m_availableFeatureSet.find(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME) != m_availableFeatureSet.end())

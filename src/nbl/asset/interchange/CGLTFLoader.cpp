@@ -66,7 +66,7 @@ namespace nbl
 		CGLTFLoader::CGLTFLoader(asset::IAssetManager* _m_assetMgr) 
 			: IRenderpassIndependentPipelineLoader(_m_assetMgr), assetManager(_m_assetMgr)
 		{
-			auto registerShader = [&](auto constexprStringType, ICPUSpecializedShader::E_SHADER_STAGE stage) -> void
+			auto registerShader = [&](auto constexprStringType, ICPUShader::E_SHADER_STAGE stage) -> void
 			{
 				auto glslFile = assetManager->getSystem()->loadBuiltinData<decltype(constexprStringType)>();
 				core::smart_refctd_ptr<asset::ICPUBuffer> glsl;
@@ -74,9 +74,9 @@ namespace nbl
 					glsl = core::make_smart_refctd_ptr<asset::ICPUBuffer>(glslFile->getSize());
 					memcpy(glsl->getPointer(), glslFile->getMappedPointer(), glsl->getSize());
 				}
-				auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl), asset::ICPUShader::buffer_contains_glsl);
+				auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl), asset::ICPUShader::buffer_contains_glsl, stage, stage != ICPUShader::ESS_VERTEX ? "?IrrlichtBAW glTFLoader FragmentShader?" : "?IrrlichtBAW glTFLoader VertexShader?");
 
-				ICPUSpecializedShader::SInfo specInfo({}, nullptr, "main", stage, stage != ICPUSpecializedShader::ESS_VERTEX ? "?IrrlichtBAW glTFLoader FragmentShader?" : "?IrrlichtBAW glTFLoader VertexShader?");
+				ICPUSpecializedShader::SInfo specInfo({}, nullptr, "main");
 				auto cpuShader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecializedShader), std::move(specInfo));
 
 				auto insertShaderIntoCache = [&](const char* path)
@@ -89,13 +89,13 @@ namespace nbl
 				insertShaderIntoCache(decltype(constexprStringType)::value);
 			};
 
-			registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_UV_CACHE_KEY) {}, ICPUSpecializedShader::ESS_VERTEX);
-			registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_COLOR_CACHE_KEY) {}, ICPUSpecializedShader::ESS_VERTEX);
-			registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_NO_UV_COLOR_CACHE_KEY) {}, ICPUSpecializedShader::ESS_VERTEX);
+			registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_UV_CACHE_KEY) {}, ICPUShader::ESS_VERTEX);
+			registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_COLOR_CACHE_KEY) {}, ICPUShader::ESS_VERTEX);
+			registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_NO_UV_COLOR_CACHE_KEY) {}, ICPUShader::ESS_VERTEX);
 
-			registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_UV_CACHE_KEY) {}, ICPUSpecializedShader::ESS_FRAGMENT);
-			registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_COLOR_CACHE_KEY) {}, ICPUSpecializedShader::ESS_FRAGMENT);
-			registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_NO_UV_COLOR_CACHE_KEY) {}, ICPUSpecializedShader::ESS_FRAGMENT);
+			registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_UV_CACHE_KEY) {}, ICPUShader::ESS_FRAGMENT);
+			registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_COLOR_CACHE_KEY) {}, ICPUShader::ESS_FRAGMENT);
+			registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_NO_UV_COLOR_CACHE_KEY) {}, ICPUShader::ESS_FRAGMENT);
 		}
 
 		void CGLTFLoader::initialize()
@@ -2536,7 +2536,7 @@ namespace nbl
 				{
 					ICPUDescriptorSetLayout::SBinding cpuBufferBinding;
 					cpuBufferBinding.count = 1u;
-					cpuBufferBinding.stageFlags = ICPUSpecializedShader::ESS_VERTEX;
+					cpuBufferBinding.stageFlags = ICPUShader::ESS_VERTEX;
 					cpuBufferBinding.type = EDT_STORAGE_BUFFER;
 					cpuBufferBinding.binding = 0u;
 					cpuBufferBinding.samplers = nullptr;
@@ -2578,7 +2578,7 @@ namespace nbl
 				{
 					ICPUDescriptorSetLayout::SBinding cpuSamplerBinding;
 					cpuSamplerBinding.count = 1u;
-					cpuSamplerBinding.stageFlags = ICPUSpecializedShader::ESS_FRAGMENT;
+					cpuSamplerBinding.stageFlags = ICPUShader::ESS_FRAGMENT;
 					cpuSamplerBinding.type = EDT_COMBINED_IMAGE_SAMPLER;
 					std::fill(cpuDS3Bindings->begin(), cpuDS3Bindings->end(), cpuSamplerBinding);
 				}
@@ -2723,7 +2723,7 @@ namespace nbl
 
 			constexpr uint32_t PUSH_CONSTANTS_COUNT = 1u;
 			asset::SPushConstantRange pushConstantRange[PUSH_CONSTANTS_COUNT]; 
-			pushConstantRange[0].stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
+			pushConstantRange[0].stageFlags = asset::IShader::ESS_FRAGMENT;
 			pushConstantRange[0].offset = 0u;
 			pushConstantRange[0].size = sizeof(CGLTFPipelineMetadata::SGLTFMaterialParameters);
 

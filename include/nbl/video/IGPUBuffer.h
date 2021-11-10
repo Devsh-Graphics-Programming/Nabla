@@ -5,6 +5,7 @@
 #ifndef __NBL_I_GPU_BUFFER_H_INCLUDED__
 #define __NBL_I_GPU_BUFFER_H_INCLUDED__
 
+#include "nbl/core/util/bitflag.h"
 
 #include "nbl/asset/IBuffer.h"
 #include "nbl/asset/IDescriptor.h"

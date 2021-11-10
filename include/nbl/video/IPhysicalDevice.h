@@ -93,7 +93,6 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
             uint32_t           maxRayDispatchInvocationCount;
             uint32_t           shaderGroupHandleAlignment;
             uint32_t           maxRayHitAttributeSize;
-            core::bitflag<asset::ISpecializedShader::E_SHADER_STAGE> subgroupOpsShaderStages;
 
             // utility functions
             // In the cases where the workgroups synchronise with each other such as work DAGs (i.e. `CScanner`),
