@@ -911,7 +911,7 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, core::s
 			if (sampleMultiplier==1u)
 			{
 				bxdfSamples = 1u;
-				maxNEESamples = 1u;
+				maxNEESamples = 0u;
 				setRayBufferSizes(sampleMultiplier);
 			}
 			printf("Using %d samples (per pixel) per dispatch\n",m_staticViewData.samplesPerPixelPerDispatch);
