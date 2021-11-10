@@ -129,7 +129,7 @@ core::smart_refctd_ptr<asset::ICPUImage> nbl::asset::CDerivativeMapCreator::crea
 		switch (bytesPerChannel)
 		{
 		case 1u:
-			return asset::EF_R8G8_SNORM;
+			return asset::EF_R8G8_UNORM;
 		case 2u:
 			return asset::EF_R16G16_SNORM;
 		case 4u:
