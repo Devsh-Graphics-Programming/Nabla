@@ -208,8 +208,8 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 
 			assert(_copy.srcBinding<srcGLSet->m_bindingInfo->size());
 			assert(_copy.dstBinding<m_bindingInfo->size());
-			assert(_copy.srcArrayElement+_copy.count<srcGLSet->m_descriptors->size());
-			assert(_copy.dstArrayElement+_copy.count<m_descriptors->size());
+			assert(_copy.srcArrayElement+_copy.count<=srcGLSet->m_descriptors->size());
+			assert(_copy.dstArrayElement+_copy.count<=m_descriptors->size());
 			// The type of dstBinding within dstSet must be equal to the type of srcBinding within srcSet
 			const auto type = srcGLSet->m_bindingInfo->operator[](_copy.srcBinding).descriptorType;
 			assert(type==m_bindingInfo->operator[](_copy.dstBinding).descriptorType);
