@@ -135,7 +135,7 @@ class CElementFilm : public IElement
 		};
 
 		_NBL_STATIC_INLINE_CONSTEXPR size_t MaxPathLen = 256;
-		char outputFilePath[MaxPathLen+1];
+		char outputFilePath[MaxPathLen+1] = {0}; // intialize properly
 };
 
 
