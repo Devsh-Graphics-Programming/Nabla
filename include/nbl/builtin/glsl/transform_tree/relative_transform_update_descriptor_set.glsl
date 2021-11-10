@@ -21,7 +21,10 @@ layout(
 ) NBL_GLSL_TRANSFORM_TREE_RELATIVE_TRANSFORM_UPDATE_REQUEST_RANGES_DESCRIPTOR_QUALIFIERS buffer RelativeTransformModicicationRequestRanges
 {
     uint rangeCount;
-    uint requestCount;
+    // OpenGL drivers (even Nvidia) have some bugs and can sporadically completely
+    // forget about memory or execution barriers between `glCopyBufferSubData` and compute dispatches
+    // as well as modify memory to bogus values even though you're always copying the same data to the same location
+    int maxRangeLength;
     nbl_glsl_transform_tree_modification_request_range_t data[];
 } relativeTransformModificationRequestRanges;
 #endif

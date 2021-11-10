@@ -81,7 +81,7 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 	nbl_adjust_definitions() # macro defined in root CMakeLists
 	add_definitions(-D_NBL_PCH_IGNORE_PRIVATE_HEADERS)
 
-	set_target_properties(${EXECUTABLE_NAME} PROPERTIES DEBUG_POSTFIX "")
+	set_target_properties(${EXECUTABLE_NAME} PROPERTIES DEBUG_POSTFIX _d)
 	set_target_properties(${EXECUTABLE_NAME} PROPERTIES RELWITHDEBINFO_POSTFIX _rwdi)
 	set_target_properties(${EXECUTABLE_NAME}
 		PROPERTIES
@@ -154,6 +154,21 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
     ]
 }")
 		file(WRITE "${PROJECT_BINARY_DIR}/.vscode/tasks.json" ${VSCODE_TASKS_JSON})
+	endif()
+	if(NBL_BUILD_ANDROID)
+		# https://github.com/android-ndk/ndk/issues/381
+		target_link_options(${EXECUTABLE_NAME} PRIVATE -u ANativeActivity_onCreate)
+		set (variadic_args ${ARGN})
+		list(LENGTH variadic_args variadic_count)
+		if (${variadic_count} GREATER 0)
+			list(GET variadic_args 0 optional_arg)
+			set(ASSET_SOURCE_DIR ${optional_arg})
+			#message(FATAL_ERROR  "the path ${optional_arg} doesn't exist")     
+			nbl_android_create_apk(${EXECUTABLE_NAME} ${ASSET_SOURCE_DIR})
+		else()
+			nbl_android_create_apk(${EXECUTABLE_NAME})
+		endif ()
+		
 	endif()
 endmacro()
 
@@ -290,24 +305,136 @@ function(nbl_install_config_header _CONF_HDR_NAME)
 	install(FILES ${file_relWithDebInfo} DESTINATION relwithdebinfo/include CONFIGURATIONS RelWithDebInfo)
 endfunction()
 
-function(nbl_android_create_apk _TARGET)
+macro(nbl_android_create_apk _TARGET)
 	get_target_property(TARGET_NAME ${_TARGET} NAME)
 	# TARGET_NAME_IDENTIFIER is identifier that can be used in code
 	string(MAKE_C_IDENTIFIER ${TARGET_NAME} TARGET_NAME_IDENTIFIER)
 
 	set(APK_FILE_NAME ${TARGET_NAME}.apk)
-	set(APK_FILE ${CMAKE_CURRENT_SOURCE_DIR}/bin/${APK_FILE_NAME})
-
+	set(APK_FILE ${CMAKE_CURRENT_SOURCE_DIR}/bin/$<CONFIG>/${APK_FILE_NAME})
+	
+	set (variadic_args ${ARGN})
+    
+    # Did we get any optional args?
+    list(LENGTH variadic_args variadic_count)
+    if (${variadic_count} GREATER 0)
+        list(GET variadic_args 0 optional_arg)
+        set(ASSET_SOURCE_DIR ${optional_arg})
+		#message(FATAL_ERROR  "the path ${optional_arg} doesn't exist")     
+	else()
+		set(ASSET_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/assets)
+    endif ()
+	
 	add_custom_target(${TARGET_NAME}_apk ALL DEPENDS ${APK_FILE})
 
-	get_target_property(SO_NAME ${_TARGET} OUTPUT_NAME)
-	if (NOT SO_NAME)
-		get_target_property(_DEBUG_POSTFIX ${_TARGET} DEBUG_POSTFIX)
-		if (NOT _DEBUG_POSTFIX)
-			set(_DEBUG_POSTFIX ${CMAKE_DEBUG_POSTFIX})
-		endif()
-		set(SO_NAME ${TARGET_NAME}${_DEBUG_POSTFIX})
+	string(SUBSTRING
+		"${ANDROID_APK_TARGET_ID}"
+		8  # length of "android-"
+		-1 # take remainder
+		TARGET_ANDROID_API_LEVEL
+	)
+	
+	get_filename_component(NBL_GEN_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}" ABSOLUTE)
+	set(NBL_ANDROID_MANIFEST_FILE ${NBL_GEN_DIRECTORY}/$<CONFIG>/AndroidManifest.xml)
+	set(NBL_ANDROID_LOADER_JAVA ${NBL_GEN_DIRECTORY}/$<CONFIG>/src/eu/devsh/${TARGET_NAME}/Loader.java)
+	
+	# AndroidManifest.xml
+	add_custom_command(
+		OUTPUT "${NBL_ANDROID_MANIFEST_FILE}" 
+		COMMAND ${CMAKE_COMMAND} -DNBL_ROOT_PATH:PATH=${NBL_ROOT_PATH} -DNBL_CONFIGURATION:STRING=$<CONFIG> -DNBL_GEN_DIRECTORY:PATH=${NBL_GEN_DIRECTORY} -DTARGET_ANDROID_API_LEVEL:STRING=${TARGET_ANDROID_API_LEVEL} -DSO_NAME:STRING=${_TARGET} -DTARGET_NAME_IDENTIFIER:STRING=${TARGET_NAME_IDENTIFIER} -P ${NBL_ROOT_PATH}/cmake/scripts/nbl/nablaAndroidManifest.cmake #! for some reason CMake fails for OUTPUT_NAME generator expression
+		COMMENT "Launching AndroidManifest.xml generation script!"
+		VERBATIM
+	)
+		
+	# Loader.java
+	add_custom_command(
+		OUTPUT "${NBL_ANDROID_LOADER_JAVA}" 
+		COMMAND ${CMAKE_COMMAND} -DNBL_ROOT_PATH:PATH=${NBL_ROOT_PATH} -DNBL_CONFIGURATION:STRING=$<CONFIG> -DNBL_GEN_DIRECTORY:PATH=${NBL_GEN_DIRECTORY}/$<CONFIG>/src/eu/devsh/${TARGET_NAME} -DSO_NAME:STRING=${_TARGET} -DTARGET_NAME_IDENTIFIER:STRING=${TARGET_NAME_IDENTIFIER} -P ${NBL_ROOT_PATH}/cmake/scripts/nbl/nablaLoaderJava.cmake
+		COMMENT "Launching Loader.java generation script!"
+		VERBATIM
+	)
+	
+	# need to sign the apk in order for android device not to refuse it
+	set(KEYSTORE_FILE ${NBL_GEN_DIRECTORY}/$<CONFIG>/debug.keystore)
+	set(KEY_ENTRY_ALIAS ${TARGET_NAME_IDENTIFIER}_apk_key)
+	add_custom_command(
+		OUTPUT ${KEYSTORE_FILE}
+		WORKING_DIRECTORY ${NBL_GEN_DIRECTORY}/$<CONFIG>
+		COMMAND ${ANDROID_JAVA_BIN}/keytool -genkey -keystore ${KEYSTORE_FILE} -storepass android -alias ${KEY_ENTRY_ALIAS} -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=, OU=, O=, L=, S=, C="
+	)
+	set(D8_SCRIPT "${ANDROID_BUILD_TOOLS}/d8.bat")
+    if(NOT EXISTS ${D8_SCRIPT})
+        set(DEX_COMMAND ${ANDROID_BUILD_TOOLS}/dx --dex --output=bin/classes.dex ./obj)
+    else()
+        set(DEX_COMMAND ${D8_SCRIPT} --output ./bin/ ./obj/eu/devsh/${TARGET_NAME}/*.class)
+    endif()
+	#message(FATAL_ERROR "ANDROID_BUILD_TOOLS: ${ANDROID_BUILD_TOOLS}")
+	#message(FATAL_ERROR "ANDROID_ANDROID_JAR_LOCATION: ${ANDROID_ANDROID_JAR_LOCATION}")
+	#set(ANDROID_JAVA_RT_JAR "C:/Program Files (x86)/Java/jre1.8.0_301/lib/rt.jar")
+	#message(FATAL_ERROR "ANDROID_JAR: ${ANDROID_JAR}")
+	
+	if(EXISTS ${ASSET_SOURCE_DIR})
+		add_custom_command(
+		OUTPUT ${APK_FILE}
+		DEPENDS ${_TARGET}
+		DEPENDS ${NBL_ANDROID_MANIFEST_FILE}
+		DEPENDS ${NBL_ANDROID_LOADER_JAVA}
+		DEPENDS ${KEYSTORE_FILE}
+		DEPENDS ${NBL_ROOT_PATH}/android/Loader.java
+		WORKING_DIRECTORY ${NBL_GEN_DIRECTORY}/$<CONFIG>
+		COMMENT "Creating ${APK_FILE_NAME} ..."
+		COMMAND ${CMAKE_COMMAND} -E make_directory libs/lib/x86_64
+		COMMAND ${CMAKE_COMMAND} -E make_directory obj
+		COMMAND ${CMAKE_COMMAND} -E make_directory bin
+		COMMAND ${CMAKE_COMMAND} -E make_directory assets
+		COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${_TARGET}> libs/lib/x86_64/$<TARGET_FILE_NAME:${_TARGET}>
+		COMMAND ${CMAKE_COMMAND} -E copy_directory ${ASSET_SOURCE_DIR} assets
+		COMMAND ${ANDROID_BUILD_TOOLS}/aapt package -f -m -J src -M AndroidManifest.xml -I ${ANDROID_JAR}
+		COMMAND ${ANDROID_JAVA_BIN}/javac -d ./obj -source 1.7 -target 1.7 -bootclasspath ${ANDROID_JAVA_RT_JAR} -classpath "${ANDROID_JAR}" -sourcepath src ${NBL_ANDROID_LOADER_JAVA}
+		COMMAND ${DEX_COMMAND}
+		COMMAND ${ANDROID_BUILD_TOOLS}/aapt package -f -M AndroidManifest.xml -A assets -I ${ANDROID_JAR} -F ${TARGET_NAME}-unaligned.apk bin libs
+		COMMAND ${ANDROID_BUILD_TOOLS}/zipalign -f 4 ${TARGET_NAME}-unaligned.apk ${APK_FILE_NAME}
+		COMMAND ${ANDROID_BUILD_TOOLS}/apksigner sign --ks ${KEYSTORE_FILE} --ks-pass pass:android --key-pass pass:android --ks-key-alias ${KEY_ENTRY_ALIAS} ${APK_FILE_NAME}
+		COMMAND ${CMAKE_COMMAND} -E copy ${APK_FILE_NAME} ${APK_FILE}
+		COMMAND ${CMAKE_COMMAND} -E rm -rf assets
+		VERBATIM
+	)
+	else()
+		add_custom_command(
+		OUTPUT ${APK_FILE}
+		DEPENDS ${_TARGET}
+		DEPENDS ${NBL_ANDROID_MANIFEST_FILE}
+		DEPENDS ${NBL_ANDROID_LOADER_JAVA}
+		DEPENDS ${KEYSTORE_FILE}
+		DEPENDS ${NBL_ROOT_PATH}/android/Loader.java
+		WORKING_DIRECTORY ${NBL_GEN_DIRECTORY}/$<CONFIG>
+		COMMENT "Creating ${APK_FILE_NAME} ..."
+		COMMAND ${CMAKE_COMMAND} -E make_directory libs/lib/x86_64
+		COMMAND ${CMAKE_COMMAND} -E make_directory obj
+		COMMAND ${CMAKE_COMMAND} -E make_directory bin
+		COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${_TARGET}> libs/lib/x86_64/$<TARGET_FILE_NAME:${_TARGET}>
+		COMMAND ${ANDROID_BUILD_TOOLS}/aapt package -f -m -J src -M AndroidManifest.xml -I ${ANDROID_JAR}
+		COMMAND ${ANDROID_JAVA_BIN}/javac -d ./obj -source 1.7 -target 1.7 -bootclasspath ${ANDROID_JAVA_RT_JAR} -classpath "${ANDROID_JAR}" -sourcepath src ${NBL_ANDROID_LOADER_JAVA}
+		COMMAND ${DEX_COMMAND}
+		COMMAND ${ANDROID_BUILD_TOOLS}/dx --dex --output=bin/classes.dex ./obj
+		COMMAND ${ANDROID_BUILD_TOOLS}/aapt package -f -M AndroidManifest.xml -I ${ANDROID_JAR} -F ${TARGET_NAME}-unaligned.apk libs
+		COMMAND ${ANDROID_BUILD_TOOLS}/zipalign -f 4 ${TARGET_NAME}-unaligned.apk ${APK_FILE_NAME}
+		COMMAND ${ANDROID_BUILD_TOOLS}/apksigner sign --ks ${KEYSTORE_FILE} --ks-pass pass:android --key-pass pass:android --ks-key-alias ${KEY_ENTRY_ALIAS} ${APK_FILE_NAME}
+		COMMAND ${CMAKE_COMMAND} -E copy ${APK_FILE_NAME} ${APK_FILE}
+		VERBATIM
+	)
 	endif()
+endmacro()
+
+
+function(nbl_android_create_media_storage_apk)
+	set(TARGET_NAME android_media_storage)
+	string(MAKE_C_IDENTIFIER ${TARGET_NAME} TARGET_NAME_IDENTIFIER)
+
+	set(APK_FILE_NAME ${TARGET_NAME}.apk)
+	set(APK_FILE ${CMAKE_CURRENT_BINARY_DIR}/media_storage/bin/${APK_FILE_NAME})
+
+	add_custom_target(${TARGET_NAME}_apk ALL DEPENDS ${APK_FILE})
 
 	string(SUBSTRING
 		"${ANDROID_APK_TARGET_ID}"
@@ -317,43 +444,32 @@ function(nbl_android_create_apk _TARGET)
 	)
 	set(PACKAGE_NAME "eu.devsh.${TARGET_NAME_IDENTIFIER}")
 	set(APP_NAME ${TARGET_NAME_IDENTIFIER})
-	set(NATIVE_LIB_NAME ${SO_NAME})
 
-	#configure_file(${CMAKE_SOURCE_DIR}/android/Loader.java ${CMAKE_CURRENT_BINARY_DIR}/src/eu/devsh/${TARGET_NAME}/Loader.java)
-	configure_file(${CMAKE_SOURCE_DIR}/android/AndroidManifest.xml ${CMAKE_CURRENT_BINARY_DIR}/AndroidManifest.xml)
-	# configure_file(android/icon.png ${CMAKE_CURRENT_BINARY_DIR}/res/drawable/icon.png COPYONLY)
+	# configure_file(${NBL_ROOT_PATH}/android/AndroidManifest.xml ${CMAKE_CURRENT_BINARY_DIR}/AndroidManifest.xml)
 
-	# need to sign the apk in order for android device not to refuse it
-	set(KEYSTORE_FILE ${CMAKE_CURRENT_BINARY_DIR}/debug.keystore)
-	set(KEY_ENTRY_ALIAS ${TARGET_NAME_IDENTIFIER}_apk_key)
-	add_custom_command(
-		OUTPUT ${KEYSTORE_FILE}
-		WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-		COMMAND ${ANDROID_JAVA_BIN}/keytool -genkey -keystore ${KEYSTORE_FILE} -storepass android -alias ${KEY_ENTRY_ALIAS} -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=, OU=, O=, L=, S=, C="
-	)
+	# # need to sign the apk in order for android device not to refuse it
+	# set(KEYSTORE_FILE ${CMAKE_CURRENT_BINARY_DIR}/debug.keystore)
+	# set(KEY_ENTRY_ALIAS ${TARGET_NAME_IDENTIFIER}_apk_key)
+	# add_custom_command(
+		# OUTPUT ${KEYSTORE_FILE}
+		# WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+		# COMMAND ${ANDROID_JAVA_BIN}/keytool -genkey -keystore ${KEYSTORE_FILE} -storepass android -alias ${KEY_ENTRY_ALIAS} -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=, OU=, O=, L=, S=, C="
+	# )
 	
-	add_custom_command(
+	 add_custom_command(
 		OUTPUT ${APK_FILE}
-		DEPENDS ${_TARGET}
 		DEPENDS ${KEYSTORE_FILE}
-		DEPENDS ${CMAKE_SOURCE_DIR}/android/AndroidManifest.xml
+		DEPENDS ${NBL_ROOT_PATH}/android/AndroidManifest.xml
 		DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/AndroidManifest.xml
-		#DEPENDS ${CMAKE_SOURCE_DIR}/android/Loader.java
 		WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 		COMMENT "Creating ${APK_FILE_NAME} ..."
-		COMMAND ${CMAKE_COMMAND} -E make_directory libs/lib/x86_64
-		#COMMAND ${CMAKE_COMMAND} -E make_directory obj
-		#COMMAND ${CMAKE_COMMAND} -E make_directory bin
-		COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${_TARGET}> libs/lib/x86_64/$<TARGET_FILE_NAME:${_TARGET}>
-		COMMAND ${ANDROID_BUILD_TOOLS}/aapt package -f -m -J src -M AndroidManifest.xml -I ${ANDROID_JAR} # -S res
-		#COMMAND ${ANDROID_JAVA_BIN}/javac -d ./obj -source 1.7 -target 1.7 -bootclasspath ${ANDROID_JAVA_RT_JAR} -classpath "${ANDROID_JAR}:obj" # -sourcepath src src/eu/devsh/${TARGET_NAME}/Loader.java
-		#COMMAND ${ANDROID_BUILD_TOOLS}/dx --dex --output=bin/classes.dex ./obj
-		COMMAND ${ANDROID_BUILD_TOOLS}/aapt package -f -M AndroidManifest.xml -I ${ANDROID_JAR} -F ${TARGET_NAME}-unaligned.apk libs # bin --version-code SOME-VERSION-CODE -S res
+		COMMAND ${ANDROID_BUILD_TOOLS}/aapt package -f -m -J src -M AndroidManifest.xml -I ${ANDROID_JAR}
+		COMMAND ${ANDROID_BUILD_TOOLS}/aapt package -f -M AndroidManifest.xml -I ${ANDROID_JAR} -F ${TARGET_NAME}-unaligned.apk ${CMAKE_CURRENT_SOURCE_DIR}/media
 		COMMAND ${ANDROID_BUILD_TOOLS}/zipalign -f 4 ${TARGET_NAME}-unaligned.apk ${APK_FILE_NAME}
 		COMMAND ${ANDROID_BUILD_TOOLS}/apksigner sign --ks ${KEYSTORE_FILE} --ks-pass pass:android --key-pass pass:android --ks-key-alias ${KEY_ENTRY_ALIAS} ${APK_FILE_NAME}
 		COMMAND ${CMAKE_COMMAND} -E copy ${APK_FILE_NAME} ${APK_FILE}
 		VERBATIM
-	)
+	 )
 endfunction()
 
 # Start to track variables for change or adding.

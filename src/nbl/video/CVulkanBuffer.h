@@ -16,22 +16,14 @@ public:
     CVulkanBuffer(
         core::smart_refctd_ptr<ILogicalDevice>&& dev,
         const IDriverMemoryBacked::SDriverMemoryRequirements& reqs,
-        const bool canModifySubData,
-        const uint64_t bufferSize,
-        VkBuffer buffer)
-        : IGPUBuffer(std::move(dev), reqs), m_canModifySubData(canModifySubData), m_bufferSize(bufferSize), m_vkBuffer(buffer)
-    {}
+        const IGPUBuffer::SCachedCreationParams& cachedCreationParams, VkBuffer buffer
+    ) : IGPUBuffer(std::move(dev),reqs,cachedCreationParams), m_vkBuffer(buffer)
+    {
+    }
 
     ~CVulkanBuffer();
 
     inline VkBuffer getInternalObject() const { return m_vkBuffer; };
-
-    // Workaround: IGPUBuffer::getSize returns size of the associated memory.
-    // Under Vulkan, it could be the case that size_of_buffer != size_of_its_memory.
-    // The actual size of buffer is wanted, for example, in VkDescriptorBufferInfo::range
-    inline uint64_t getBufferSize() const override { return m_bufferSize; }
-
-    bool canUpdateSubRange() const override { return true; }
 
     IDriverMemoryAllocation* getBoundMemory() override
     {
@@ -59,7 +51,6 @@ public:
 private:
     core::smart_refctd_ptr<IDriverMemoryAllocation> m_memory = nullptr;
     uint64_t m_memBindingOffset;
-    const bool m_canModifySubData;
     VkBuffer m_vkBuffer;
     uint64_t m_bufferSize;
 };

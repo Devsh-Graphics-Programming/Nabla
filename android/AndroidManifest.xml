@@ -5,6 +5,7 @@
   <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="@TARGET_ANDROID_API_LEVEL@"/>
 
   <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>
+  <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
   <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
   <!-- <uses-permission android:name="android.permission.INTERNET" /> -->
 
@@ -15,11 +16,11 @@
   <application 
     android:debuggable="true" 
     android:label="@APP_NAME@" 
-    android:hasCode="false"
+    android:hasCode="true"
     android:isGame="true"
   >
     <activity 
-      android:name="android.app.NativeActivity" 
+      android:name=".Loader" 
       android:label="@APP_NAME@"
       android:screenOrientation="landscape" 
       android:configChanges="orientation|keyboardHidden"

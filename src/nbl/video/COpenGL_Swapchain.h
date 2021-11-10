@@ -148,7 +148,7 @@ private:
             EGLContext _ctx,
             EGLConfig _config,
             COpenGLDebugCallback* _dbgCb
-        ) : m_device(dev),
+        ) : m_device(dev), m_masterContextCallsWaited(0),
             egl(_egl),
             m_presentMode(presentMode),
             thisCtx(_ctx), surface(EGL_NO_SURFACE),
@@ -261,6 +261,8 @@ private:
                 syncs[i] = core::make_smart_refctd_ptr<COpenGLSync>();
                 syncs[i]->init(m_device, &gl, false);
             }
+
+            gl.glGeneral.pglFinish();
         }
 
         void work(typename base_t::lock_t& lock, typename base_t::internal_state_t& gl)
@@ -276,6 +278,9 @@ private:
                 core::smart_refctd_ptr<COpenGLSemaphore>& sem = request.sems[i];
                 sem->wait(&gl);
             }
+
+            // need to possibly wait for master context (image & view creation, etc.)
+            m_masterContextCallsWaited = m_device->waitOnMasterContext(gl,m_masterContextCallsWaited);
 
             gl.extGlBlitNamedFramebuffer(fbos[imgix], 0, 0, 0, w, h, 0, 0, w, h, GL_COLOR_BUFFER_BIT, GL_NEAREST);
             syncs[imgix] = core::make_smart_refctd_ptr<COpenGLSync>();
@@ -303,6 +308,7 @@ private:
 
     private:
         IOpenGL_LogicalDevice* m_device;
+        uint64_t m_masterContextCallsWaited;
 
 		const egl::CEGL* egl;
 		EGLContext thisCtx;

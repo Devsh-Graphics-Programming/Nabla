@@ -24,6 +24,15 @@ set(nbl_resources_to_embed
   "nbl/builtin/shader/loader/mtl/fragment_impl.glsl"
   "nbl/builtin/shader/loader/mtl/fragment_no_uv.frag"
   "nbl/builtin/shader/loader/mtl/fragment_uv.frag"
+  "nbl/builtin/shader/loader/gltf/common.glsl"
+  "nbl/builtin/shader/loader/gltf/vertex_impl.glsl"
+  "nbl/builtin/shader/loader/gltf/vertex_uv.vert"
+  "nbl/builtin/shader/loader/gltf/vertex_color.vert"
+  "nbl/builtin/shader/loader/gltf/vertex_no_uv_color.vert"
+  "nbl/builtin/shader/loader/gltf/fragment_impl.glsl"
+  "nbl/builtin/shader/loader/gltf/fragment_uv.frag"
+  "nbl/builtin/shader/loader/gltf/fragment_color.frag"
+  "nbl/builtin/shader/loader/gltf/fragment_no_uv_color.frag"
   "nbl/builtin/specialized_shader/fullscreentriangle.vert"
   "nbl/builtin/material/lambertian/singletexture/specialized_shader.vert"
   "nbl/builtin/material/lambertian/singletexture/specialized_shader.frag"
@@ -124,7 +133,9 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/scene/keyframe.glsl"
   "nbl/builtin/glsl/scene/node.glsl"
   # shapes
-  #"nbl/builtin/glsl/shapes/rectangle.glsl" 
+  "nbl/builtin/glsl/shapes/aabb.glsl"
+  "nbl/builtin/glsl/shapes/frustum.glsl"
+  #"nbl/builtin/glsl/shapes/rectangle.glsl"
   "nbl/builtin/glsl/shapes/triangle.glsl"
   # subgroup emulation
   "nbl/builtin/glsl/subgroup/shared_arithmetic_portability.glsl"
@@ -168,6 +179,7 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/transform_tree/relative_transform_update.comp"
   "nbl/builtin/glsl/transform_tree/relative_transform_update_common.glsl"
   "nbl/builtin/glsl/transform_tree/relative_transform_update_descriptor_set.glsl"
+  "nbl/builtin/glsl/transform_tree/debug.vert"
   # ext shouldn't be built into the engine, but there's no harm including some non-dynamic GLSL source to make life easier
   #"nbl/builtin/glsl/ext/.glsl"
   # radix sort

@@ -59,7 +59,7 @@ public:
         IOpenGL_LogicalDevice(std::move(api),physicalDevice,params,_egl),
         m_rdoc_api(rdoc),
         m_threadHandler(
-            this,_egl,_features,
+            this,&m_masterContextSync,&m_masterContextCallsReturned,_egl,_features,
             getTotalQueueCount(params),
             createWindowlessGLContext(FunctionTableType::EGL_API_TYPE,_egl,major,minor,config),
             static_cast<COpenGLDebugCallback*>(physicalDevice->getDebugCallback())
@@ -132,6 +132,7 @@ public:
         SRequestImageCreate req_params;
         req_params.params = std::move(params);
         auto& req = m_threadHandler.request(std::move(req_params), &retval);
+        m_masterContextCallsInvoked++;
         m_threadHandler.template waitForRequestCompletion<SRequestImageCreate>(req);
 
         return retval;
@@ -146,6 +147,7 @@ public:
         req_params.params = _params;
         req_params.is_gles = IsGLES;
         auto& req = m_threadHandler.template request<SRequestSamplerCreate>(std::move(req_params), &retval);
+        m_masterContextCallsInvoked++;
         m_threadHandler.template waitForRequestCompletion<SRequestSamplerCreate>(req);
 
         return retval;
@@ -221,13 +223,14 @@ public:
         return core::make_smart_refctd_ptr<IDescriptorPool>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this),maxSets);
     }
 
-    core::smart_refctd_ptr<IGPUBuffer> createGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& unused, const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData = false) override
+    core::smart_refctd_ptr<IGPUBuffer> createGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& params, const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs) override
     {
-        SRequestBufferCreate params;
-        params.mreqs = initialMreqs;
-        params.canModifySubdata = canModifySubData;
+        SRequestBufferCreate reqParams;
+        reqParams.mreqs = initialMreqs;
+        reqParams.cachedCreationParams = params;
         core::smart_refctd_ptr<IGPUBuffer> output;
-        auto& req = m_threadHandler.request(std::move(params), &output);
+        auto& req = m_threadHandler.request(std::move(reqParams),&output);
+        m_masterContextCallsInvoked++;
         m_threadHandler.template waitForRequestCompletion<SRequestBufferCreate>(req);
 
         return output;
@@ -332,6 +335,8 @@ public:
     {
         SRequestFlushMappedMemoryRanges req_params{ ranges };
         auto& req = m_threadHandler.request(std::move(req_params));
+        m_masterContextCallsInvoked++;
+        // TODO: if we actually copied the range parameter we wouldn't have to wait
         m_threadHandler.template waitForRequestCompletion<SRequestFlushMappedMemoryRanges>(req);
     }
 
@@ -339,6 +344,7 @@ public:
     {
         SRequestInvalidateMappedMemoryRanges req_params{ ranges };
         auto& req = m_threadHandler.request(std::move(req_params));
+        m_threadHandler.template waitForRequestCompletion<SRequestInvalidateMappedMemoryRanges>(req);
     }
 
     void* mapMemory(const IDriverMemoryAllocation::MappedMemoryRange& memory, IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAG access = IDriverMemoryAllocation::EMCAF_READ_AND_WRITE) override final
@@ -363,6 +369,7 @@ public:
 
         void* retval = nullptr;
         auto& req = m_threadHandler.request(std::move(req_params), &retval);
+        m_masterContextCallsInvoked++;
         m_threadHandler.template waitForRequestCompletion<SRequestMapBufferRange>(req);
 
         core::bitflag<IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAG> actualAccess = static_cast< IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAG>(0);
@@ -384,6 +391,7 @@ public:
         req_params.buf = core::smart_refctd_ptr<IDriverMemoryAllocation>(memory);
 
         auto& req = m_threadHandler.request(std::move(req_params));
+        m_masterContextCallsInvoked++;
 
         post_unmapMemory(memory);
     }
@@ -391,7 +399,7 @@ public:
     // TODO: remove from the engine, not thread safe (access to queues must be synchronized externally)
     void waitIdle() override
     {
-        // TODO: I think glFinish affects only the current context... you'd have to post a request for a glFinish for every single queue and swapchain as well.
+        // TODO: glFinish affects only the current context... you'd have to post a request for a glFinish for every single queue and swapchain as well.
         SRequestWaitIdle params;
         auto& req = m_threadHandler.request(std::move(params));
         m_threadHandler.template waitForRequestCompletion<SRequestWaitIdle>(req);
@@ -471,6 +479,7 @@ protected:
         SRequestMakeCurrent req_params;
         req_params.bind = true;
         auto& req = m_threadHandler.request(std::move(req_params));
+        //m_masterContextCallsInvoked++; should we?
         m_threadHandler.template waitForRequestCompletion<SRequestMakeCurrent>(req);
     }
     void unbindMasterContext()
@@ -478,6 +487,7 @@ protected:
         SRequestMakeCurrent req_params;
         req_params.bind = false;
         auto& req = m_threadHandler.request(std::move(req_params));
+        //m_masterContextCallsInvoked++; should we?
         m_threadHandler.template waitForRequestCompletion<SRequestMakeCurrent>(req);
     }
 
@@ -579,6 +589,7 @@ protected:
         req_params.size = _size;
         core::smart_refctd_ptr<IGPUBufferView> retval;
         auto& req = m_threadHandler.request(std::move(req_params), &retval);
+        m_masterContextCallsInvoked++;
         m_threadHandler.template waitForRequestCompletion<SRequestBufferViewCreate>(req);
         return retval;
     }
@@ -599,6 +610,7 @@ protected:
         SRequestImageViewCreate req_params;
         req_params.params = std::move(params);
         auto& req = m_threadHandler.request(std::move(req_params), &retval);
+        m_masterContextCallsInvoked++;
         m_threadHandler.template waitForRequestCompletion<SRequestImageViewCreate>(req);
 
         return retval;
@@ -641,6 +653,7 @@ protected:
         req_params.count = 1u;
         req_params.pipelineCache = _pipelineCache;
         auto& req = m_threadHandler.request(std::move(req_params), &retval);
+        m_masterContextCallsInvoked++;
         m_threadHandler.template waitForRequestCompletion<SRequestComputePipelineCreate>(req);
 
         return retval;
@@ -656,6 +669,7 @@ protected:
         req_params.count = createInfos.size();
         req_params.pipelineCache = pipelineCache;
         auto& req = m_threadHandler.request(std::move(req_params), output);
+        m_masterContextCallsInvoked++;
         m_threadHandler.template waitForRequestCompletion<SRequestComputePipelineCreate>(req);
 
         return true;
@@ -689,6 +703,7 @@ protected:
         req_params.count = 1u;
         req_params.pipelineCache = _pipelineCache;
         auto& req = m_threadHandler.request(std::move(req_params), &retval);
+        m_masterContextCallsInvoked++;
         m_threadHandler.template waitForRequestCompletion<SRequestRenderpassIndependentPipelineCreate>(req);
 
         return retval;
@@ -704,6 +719,7 @@ protected:
         req_params.count = createInfos.size();
         req_params.pipelineCache = pipelineCache;
         auto& req = m_threadHandler.request(std::move(req_params), output);
+        m_masterContextCallsInvoked++;
         m_threadHandler.template waitForRequestCompletion<SRequestRenderpassIndependentPipelineCreate>(req);
 
         return true;

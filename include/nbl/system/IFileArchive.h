@@ -59,7 +59,7 @@ public:
 class IFileArchive : public core::IReferenceCounted
 {
 	// Can be just the size of heap allocator, they're equal in size anyway 
-	static constexpr size_t SIZEOF_INNER_ARCHIVE_FILE = sizeof(CInnerArchiveFile<CPlainHeapAllocator>);
+	static constexpr inline size_t SIZEOF_INNER_ARCHIVE_FILE = sizeof(CInnerArchiveFile<CPlainHeapAllocator>);
 protected:
 	enum E_ALLOCATOR_TYPE
 	{
@@ -143,11 +143,7 @@ public:
 			return getFile_impl<CPlainHeapAllocator>(params, index);
 			break;
 		case EAT_VIRTUAL_ALLOC:
-		#ifdef _NBL_PLATFORM_WINDOWS_
-			return getFile_impl<CFileViewVirtualAllocatorWin32>(params, index); //TODO linux
-		#else
-			return nullptr; //TODO
-		#endif
+			return getFile_impl<VirtualAllocator>(params, index); //TODO linux
 			break;
 		}
 		assert(false);

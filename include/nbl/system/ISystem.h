@@ -12,9 +12,9 @@
 #include "nbl/system/CFileView.h"
 #include "nbl/core/util/bitflag.h"
 
-
-
-#include "nbl/asset/ICPUBuffer.h" // this is a horrible no-no (circular dependency), `ISystem::loadBuiltinData` should return some other type (probably an `IFile` which is mapped for reading)
+#if defined(_NBL_PLATFORM_LINUX_)
+#include <sys/sysinfo.h>
+#endif
 
 namespace nbl::system
 {
@@ -143,6 +143,7 @@ private:
         core::smart_refctd_ptr<ISystemCaller> m_caller;
     };
 
+protected:
     struct Loaders {
         core::vector<core::smart_refctd_ptr<IArchiveLoader> > vector;
         //! The key is file extension
@@ -159,7 +160,7 @@ private:
     } m_loaders;
 
     core::CMultiObjectCache<system::path, core::smart_refctd_ptr<IFileArchive>> m_cachedArchiveFiles;
-    core::CMultiObjectCache<system::path, system::path> m_cachedPathAliases;
+    //core::CMultiObjectCache<system::path, system::path> m_cachedPathAliases;
     CAsyncQueue m_dispatcher;
 
 public:
@@ -194,17 +195,6 @@ public:
         return true;
     }
 
-    bool isArchiveAlias(const system::path& path)
-    {
-        if (path.empty())
-            return false;
-        auto p = path;
-        if (*p.string().rbegin() == '/') p = p.string().substr(0, p.string().size() - 1);
-        return !m_cachedPathAliases.findRange(p).empty();
-    }
-
-protected:
-    virtual core::smart_refctd_ptr<IFile> openFileOpt_impl(const system::path& path, core::bitflag<IFile::E_CREATE_FLAGS> flags) { return nullptr; }
 private:
     // TODO: files shall have public read/write methods, and these should be protected, then the `IFile` implementations should call these behind the scenes via a friendship
     bool readFile(future<size_t>& future, IFile* file, void* buffer, size_t offset, size_t size)
@@ -236,15 +226,15 @@ private:
     core::smart_refctd_ptr<IFile> getFileFromArchive(const system::path& path);
 
 public:
-    inline core::smart_refctd_ptr<asset::ICPUBuffer> loadBuiltinData(const std::string& builtinPath)
+    inline core::smart_refctd_ptr<IFile> loadBuiltinData(const std::string& builtinPath)
     {
 #ifdef _NBL_EMBED_BUILTIN_RESOURCES_
         std::pair<const uint8_t*, size_t> found = nbl::builtin::get_resource_runtime(builtinPath);
         if (found.first && found.second)
         {
-            auto returnValue = core::make_smart_refctd_ptr<asset::ICPUBuffer>(found.second);
-            memcpy(returnValue->getPointer(), found.first, returnValue->getSize());
-            return returnValue;
+            auto fileView = core::make_smart_refctd_ptr<CFileView<VirtualAllocator>>(core::smart_refctd_ptr<ISystem>(this), builtinPath, core::bitflag<IFile::E_CREATE_FLAGS>(IFile::ECF_READ) | IFile::ECF_WRITE, found.second);
+            fileView->write_impl(found.first, 0, found.second);
+            return fileView;
         }
         return nullptr;
 #else
@@ -256,57 +246,32 @@ public:
         else
             path = builtinResourceDirectory + builtinPath;
 
-        auto file = this->createAndOpenFile(path.c_str());
-        if (file)
+        future_t<core::smart_refctd_ptr<IFile>> fut;
+        createFile(future, path.c_str(), core::bitflag<IFile::E_CREATE_FLAGS>(IFile::ECF_READ) :: IFile::ECF_MAPPABLE);
+        auto file = fut.get();
+        if (file.get())
         {
-            auto retval = core::make_smart_refctd_ptr<asset::ICPUBuffer>(file->getSize());
-            file->read(retval->getPointer(), file->getSize());
-            file->drop();
-            return retval;
+            return file;
         }
         return nullptr;
 #endif
     }
     //! Compile time resource ID
     template<typename StringUniqueType>
-    inline core::smart_refctd_ptr<asset::ICPUBuffer> loadBuiltinData()
+    inline core::smart_refctd_ptr<IFile> loadBuiltinData()
     {
 #ifdef _NBL_EMBED_BUILTIN_RESOURCES_
         std::pair<const uint8_t*, size_t> found = nbl::builtin::get_resource<StringUniqueType>();
         if (found.first && found.second)
         {
-            auto returnValue = core::make_smart_refctd_ptr<asset::ICPUBuffer>(found.second);
-            memcpy(returnValue->getPointer(), found.first, returnValue->getSize());
-            return returnValue;
+            auto fileView = core::make_smart_refctd_ptr<CFileView<VirtualAllocator>>(core::smart_refctd_ptr<ISystem>(this), "", core::bitflag<IFile::E_CREATE_FLAGS>(IFile::ECF_READ) | IFile::ECF_WRITE, found.second);
+            fileView->write_impl(found.first, 0, found.second);
+            return fileView;
         }
         return nullptr;
 #else
         return loadBuiltinData(StringUniqueType::value);
 #endif
-    }
-
-    system::path getRealPath(const system::path& _path)
-    {
-        auto path = _path.parent_path();
-        bool isPathAlias = !std::filesystem::exists(_path);
-        if (!isPathAlias) return _path;
-        system::path realPath;
-        system::path temp;
-        while (!path.empty()) // going up the directory tree
-        {
-            auto a = m_cachedPathAliases.findRange(path);
-            if (a.empty())
-            {
-                temp = path.filename().generic_string() + "/" + temp.generic_string();
-                path = path.parent_path();
-                continue;
-            }
-            realPath = a.begin()->second;
-            path = path.parent_path();
-        }
-        realPath += "/" + temp.generic_string();
-        realPath += _path.filename();
-        return realPath;
     }
 
     //! Warning: blocking call
@@ -316,8 +281,8 @@ public:
         if (!createFile(future, filename, core::bitflag<IFile::E_CREATE_FLAGS>(IFile::ECF_READ) | IFile::ECF_MAPPABLE))
             return nullptr;
 
-        auto file = std::move(future.get());
-
+        auto file = future.get();
+        if (file.get() == nullptr) return nullptr;
         return openFileArchive(std::move(file), password);
     }
     core::smart_refctd_ptr<IFileArchive> openFileArchive(core::smart_refctd_ptr<IFile>&& file, const std::string_view& password = "")
@@ -342,12 +307,47 @@ public:
         m_cachedArchiveFiles.insert(path, std::move(archive));
         if (!pathAlias.empty())
         {
-            m_cachedPathAliases.insert(pathAlias, path);
+            m_cachedArchiveFiles.insert(pathAlias, std::move(archive));
         }
     }
     void unmount(const IFileArchive* archive, const system::path& pathAlias)
     {
 
+    }
+
+    struct SystemMemory
+    {
+        uint32_t totalMemory = {};
+        uint32_t availableMemory = {};
+    };
+
+    static inline SystemMemory getSystemMemory()
+    {
+        SystemMemory systemMemory;
+
+        #if defined(_NBL_PLATFORM_WINDOWS_)
+        MEMORYSTATUS memoryStatus;
+        memoryStatus.dwLength = sizeof(MEMORYSTATUS);
+
+        GlobalMemoryStatus(&memoryStatus);
+
+        systemMemory.totalMemory = (uint32_t)(memoryStatus.dwTotalPhys >> 10);
+        systemMemory.availableMemory = (uint32_t)(memoryStatus.dwAvailPhys >> 10);
+        #elif defined(_NBL_PLATFORM_LINUX_)
+        #if defined(_SC_PHYS_PAGES) && defined(_SC_AVPHYS_PAGES)
+        sysinfo linuxSystemInfo;
+        assert(sysinfo(&linuxSystemInfo));
+
+        systemMemory.totalMemory = linuxSystemInfo.totalram;
+        systemMemory.availableMemory = linuxSystemInfo.freeram;
+        #endif
+        #elif defined(_NBL_PLATFORM_ANDROID_)
+        // @sadiuk TODO
+        #elif defined(_NBL_PLATFORM_OSX_) 
+        // TODO: implement for OSX
+        #endif
+
+        return systemMemory;
     }
 };
 

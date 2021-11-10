@@ -37,21 +37,21 @@ void nbl_glsl_culling_lod_selection_initializePerViewPerInstanceData(out nbl_gls
     pvpi.mvp = nbl_glsl_pseudoMul4x4with4x3(pc.data.viewProjMat,world);
 }
 
-uint nbl_glsl_lod_library_Table_getLoDUvec4Offset(in uint lodTableUvec4Offset, in uint lodID);
+uint nbl_glsl_lod_library_Table_getLoDUvec2Offset(in uint lodTableUvec4Offset, in uint lodID);
 #include <nbl/builtin/glsl/lod_library/structs.glsl>
-nbl_glsl_lod_library_DefaultLoDChoiceParams nbl_glsl_lod_library_DefaultInfo_getLoDChoiceParams(in uint lodInfoUvec4Offset);
+nbl_glsl_lod_library_DefaultLoDChoiceParams nbl_glsl_lod_library_DefaultInfo_getLoDChoiceParams(in uint lodInfoUvec2Offset);
 uint nbl_glsl_culling_lod_selection_chooseLoD(in uint lodTableUvec4Offset, in uint lodCount)
 {
-    uint lodInfoUvec4Offset = 0xffffffffu;
+    uint lodInfoUvec2Offset = 0xffffffffu;
     for (lodID=0u; lodID<lodCount; lodID++)
     {
-        const uint nextLoD = nbl_glsl_lod_library_Table_getLoDUvec4Offset(lodTableUvec4Offset,lodID);
+        const uint nextLoD = nbl_glsl_lod_library_Table_getLoDUvec2Offset(lodTableUvec4Offset,lodID);
         const float threshold = nbl_glsl_lod_library_DefaultInfo_getLoDChoiceParams(nextLoD).distanceSqAtReferenceFoV;
         if (distanceSq>threshold*pc.data.fovDilationFactor)
             break;
-        lodInfoUvec4Offset = nextLoD;
+        lodInfoUvec2Offset = nextLoD;
     }
-    return lodInfoUvec4Offset;
+    return lodInfoUvec2Offset;
 }
 
 void nbl_glsl_culling_lod_selection_finalizePerViewPerInstanceData(inout nbl_glsl_PerViewPerInstance_t pvpi, in uint instanceGUID)

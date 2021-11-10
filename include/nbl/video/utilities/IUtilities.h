@@ -296,18 +296,25 @@ class IUtilities : public core::IReferenceCounted
             assert(cmdpool->getCreationFlags()&IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
             assert(cmdpool->getQueueFamilyIndex()==queue->getFamilyIndex());
 
+            // no pipeline barriers necessary because write and optional flush happens before submit, and memory allocation is reclaimed after fence signal
             for (size_t uploadedSize=0ull; uploadedSize<bufferRange.size;)
             {
-                const void* dataPtr = reinterpret_cast<const uint8_t*>(data)+uploadedSize;
-                uint32_t localOffset = video::StreamingTransientDataBufferMT<>::invalid_address;
-                const uint32_t alignment = static_cast<uint32_t>(limits.nonCoherentAtomSize);
-                const uint32_t subSize = static_cast<uint32_t>(core::min<uint64_t>(core::alignDown(m_defaultUploadBuffer.get()->max_size(),alignment), bufferRange.size-uploadedSize));
-                const uint32_t paddedSize = core::alignUp(subSize,alignment);
+                const uint32_t size = bufferRange.size-uploadedSize;
+                const uint32_t alignment = 256u; // TODO: change this to features.nonCoherentAtomiSize
+                const uint32_t paddedSize = static_cast<uint32_t>(core::min<uint64_t>(
+                    core::alignDown(m_defaultUploadBuffer.get()->max_size(),alignment),
+                    core::alignUp(size,alignment)
+                ));
+                const uint32_t subSize = core::min(paddedSize,size);
                 // cannot use `multi_place` because of the extra padding size we could have added
+                uint32_t localOffset = video::StreamingTransientDataBufferMT<>::invalid_address;
                 m_defaultUploadBuffer.get()->multi_alloc(std::chrono::high_resolution_clock::now()+std::chrono::microseconds(500u),1u,&localOffset,&paddedSize,&alignment);
                 // copy only the unpadded part
                 if (localOffset!=video::StreamingTransientDataBufferMT<>::invalid_address)
+                {
+                    const void* dataPtr = reinterpret_cast<const uint8_t*>(data)+uploadedSize;
                     memcpy(reinterpret_cast<uint8_t*>(m_defaultUploadBuffer->getBufferPointer())+localOffset,dataPtr,subSize);
+                }
 
                 // keep trying again
                 if (localOffset == video::StreamingTransientDataBufferMT<>::invalid_address)

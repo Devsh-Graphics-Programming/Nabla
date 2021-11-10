@@ -140,7 +140,8 @@ count = (first_count.resname.count - std::max(0, static_cast<int32_t>(first_coun
             //if prev and curr pipeline layouts are compatible for set N, currState.set[N]==nextState.set[N] and the sets were bound with same dynamic offsets, then binding set N would be redundant
             if ((i < compatibilityLimit) &&
                 (effectivelyBoundDescriptors.descSets[i].set == nextState.descriptorsParams[_pbp].descSets[i].set) &&
-                (effectivelyBoundDescriptors.descSets[i].dynamicOffsets == nextState.descriptorsParams[_pbp].descSets[i].dynamicOffsets)
+                (effectivelyBoundDescriptors.descSets[i].dynamicOffsets == nextState.descriptorsParams[_pbp].descSets[i].dynamicOffsets) &&
+                (effectivelyBoundDescriptors.descSets[i].revision == nextState.descriptorsParams[_pbp].descSets[i].revision)
                 )
             {
                 continue;

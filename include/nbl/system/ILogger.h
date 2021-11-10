@@ -98,12 +98,13 @@ class ILogger : public core::IReferenceCounted
 			}
 
 			size_t newSize = vsnprintf(nullptr, 0, fmtString.data(), l);
-			std::string message(newSize, '\0'); 
-			vsprintf(message.data(), fmtString.data(), l);
+			std::string message(newSize, ' '); 
+			vsnprintf(message.data(), newSize, fmtString.data(), l);
 			
 			std::string out_str(timeStr.length() + messageTypeStr.length() + message.length() + 3, '\0');
 			sprintf(out_str.data(), "%s%s: %s\n", timeStr.data(), messageTypeStr.data(), message.data());
  			return out_str;
+			return "";
 		}
 		virtual std::wstring constructLogWstring(const std::wstring_view& fmtString, E_LOG_LEVEL logLevel, va_list l)
 		{

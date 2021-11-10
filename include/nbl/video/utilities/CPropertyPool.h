@@ -48,6 +48,7 @@ class CPropertyPool final : public IPropertyPool
         {
             asset::SBufferRange<video::IGPUBuffer> blocks[PropertyCount];
             video::IGPUBuffer::SCreationParams params;
+            params.canUpdateSubRange = false; // maybe user provide?
             params.queueFamilyIndexCount = 0u;
             params.queueFamilyIndices = nullptr;
             params.sharingMode = asset::ESM_EXCLUSIVE;
@@ -58,7 +59,7 @@ class CPropertyPool final : public IPropertyPool
                 blocks[i].offset = 0ull;
                 blocks[i].size = capacity * PropertySizes[i];
                 mreqs.vulkanReqs.size = blocks[i].size;
-                blocks[i].buffer = device->createGPUBufferOnDedMem(params, mreqs);
+                blocks[i].buffer = device->createGPUBufferOnDedMem(params,mreqs);
             }
             return create(device, blocks, capacity, contiguous, allocator<uint8_t>());
         }

@@ -8,6 +8,8 @@ namespace nbl::system
 template<typename allocator_t>
 class CFileView : public IFile
 {
+	// Need this friend to write to a fileView in ISystem::loadBuiltinData cause ISystem doesnt know about sustem::future_t
+	friend class ISystem;
 protected:
 	allocator_t allocator;
 	size_t m_size;
@@ -22,7 +24,7 @@ public:
 	}
 	~CFileView()
 	{
-		allocator.dealloc(m_buffer);
+		allocator.dealloc(m_buffer, m_size);
 	}
 	virtual const std::filesystem::path& getFileName() const override
 	{

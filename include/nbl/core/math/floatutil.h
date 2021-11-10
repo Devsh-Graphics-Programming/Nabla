@@ -30,7 +30,7 @@ class vectorSIMDf;
 class matrix3x4SIMD;
 class matrix4SIMD;
 
-//! Rounding error constant often used when comparing values.
+//! Rounding error constant often used when comparing values. (TODO: remove)
 template<typename T>
 NBL_FORCE_INLINE T ROUNDING_ERROR();
 template<>
@@ -189,6 +189,13 @@ NBL_FORCE_INLINE float FR(int32_t x)
 	return retval;
 }
 #endif
+
+enum E_ROUNDING_DIRECTION : int8_t
+{
+	ERD_DOWN = -1,
+	ERD_NEAREST = 0,
+	ERD_UP = 1
+};
 
 //! We compare the difference in ULP's (spacing between floating-point numbers, aka ULP=1 means there exists no float between).
 //\result true when numbers have a ULP <= maxUlpDiff AND have the same sign.
@@ -555,6 +562,7 @@ constexpr uint32_t MAX_RGB18E7S3_MANTISSA = RGB18E7S3_MANTISSA_VALUES - 1u;
 constexpr float MAX_RGB18E7S3 = static_cast<float>(MAX_RGB18E7S3_MANTISSA) / RGB18E7S3_MANTISSA_VALUES * (1LL << (MAX_RGB18E7S3_EXP - 32)) * (1LL << 32);
 [[maybe_unused]] constexpr float EPSILON_RGB18E7S3 = (1.f / RGB18E7S3_MANTISSA_VALUES) / (1LL << (RGB18E7S3_EXP_BIAS - 32)) / (1LL << 32);
 
+template<E_ROUNDING_DIRECTION rounding=ERD_NEAREST>
 inline uint64_t rgb32f_to_rgb18e7s3(const float _rgb[3])
 {
 	union rgb18e7s3 {
@@ -565,16 +573,16 @@ inline uint64_t rgb32f_to_rgb18e7s3(const float _rgb[3])
 			uint64_t b : 18;
 			uint64_t e : 7;
 			uint64_t s : 3;
-		} field;
+		} field; // TODO: @AnastazIuk YOU ABSOLUTELY CANNOT RELY ON BITFIELD DATA LAYOUT ACROSS COMPILERS!
 	};
 
 	auto clamp_rgb18e7s3 = [=](float x) -> float {
 		return std::max(0.f, std::min(x, MAX_RGB18E7S3));
 	};
 
-	const float r = clamp_rgb18e7s3(abs(_rgb[0]));
-	const float g = clamp_rgb18e7s3(abs(_rgb[1]));
-	const float b = clamp_rgb18e7s3(abs(_rgb[2]));
+	float r = clamp_rgb18e7s3(abs(_rgb[0]));
+	float g = clamp_rgb18e7s3(abs(_rgb[1]));
+	float b = clamp_rgb18e7s3(abs(_rgb[2]));
 
 	auto f32_exp = [](float x) -> int32_t { return ((reinterpret_cast<int32_t&>(x) >> 23) & 0xff) - 127; };
 
@@ -594,10 +602,40 @@ inline uint64_t rgb32f_to_rgb18e7s3(const float _rgb[3])
 	}
 	else
 		assert(maxm <= MAX_RGB18E7S3_MANTISSA);
+	
+	r /= denom;
+	g /= denom;
+	b /= denom;
 
-	int32_t rm = r / denom + 0.5;
-	int32_t gm = g / denom + 0.5;
-	int32_t bm = b / denom + 0.5;
+	const uint32_t signR = floatBitsToUint(float(_rgb[0]))&0x80000000u;
+	const uint32_t signG = floatBitsToUint(float(_rgb[1]))&0x80000000u;
+	const uint32_t signB = floatBitsToUint(float(_rgb[2]))&0x80000000u;
+
+	int32_t rm,gm,bm;
+	if constexpr(rounding==ERD_NEAREST)
+	{
+		const float absNear = 0.5f;
+		rm = r + absNear;
+		gm = g + absNear;
+		bm = b + absNear;
+	}
+	else
+	{
+		const float absDown = 0.f;
+		const float absUp = FR(0x3f7fffffu); // uintBitsToFloat
+		if constexpr(rounding==ERD_DOWN)
+		{
+			rm = r + (signR ? absUp:absDown);
+			gm = g + (signG ? absUp:absDown);
+			bm = b + (signB ? absUp:absDown);
+		}
+		else
+		{
+			rm = r + (signR ? absDown:absUp);
+			gm = g + (signG ? absDown:absUp);
+			bm = b + (signB ? absDown:absUp);
+		}
+	}
 
 	assert(rm <= static_cast<int32_t>(MAX_RGB18E7S3_MANTISSA));
 	assert(gm <= static_cast<int32_t>(MAX_RGB18E7S3_MANTISSA));
@@ -605,9 +643,8 @@ inline uint64_t rgb32f_to_rgb18e7s3(const float _rgb[3])
 	assert(rm >= 0);
 	assert(gm >= 0);
 	assert(bm >= 0);
-
-	const auto signMask = static_cast<uint8_t>(((floatBitsToUint(static_cast<float>(_rgb[0])) & 0x80000000u) >> 31u) | ((floatBitsToUint(static_cast<float>(_rgb[1])) & 0x80000000u) >> 30u) | ((floatBitsToUint(static_cast<float>(_rgb[2])) & 0x80000000u) >> 29u));
 	
+	const auto signMask = static_cast<uint8_t>((signR>>31u)|(signG>>30u)|(signB>>29u));
 	rgb18e7s3 returnValue;
 	returnValue.field.r = rm;
 	returnValue.field.g = gm;

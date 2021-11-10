@@ -43,8 +43,8 @@ struct SImageResolve
 
 struct SMemoryBarrier
 {
-    core::bitflag<asset::E_ACCESS_FLAGS> srcAccessMask;
-    core::bitflag<asset::E_ACCESS_FLAGS> dstAccessMask;
+    core::bitflag<asset::E_ACCESS_FLAGS> srcAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0u);
+    core::bitflag<asset::E_ACCESS_FLAGS> dstAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0u);
 };
 
 union SClearColorValue

@@ -105,7 +105,7 @@ class COpenGL_Queue final : public IGPUQueue
             CThreadHandler(const egl::CEGL* _egl, renderdoc_api_t* rdoc, IOpenGL_LogicalDevice* dev, const FeaturesType* _features, EGLContext _ctx, EGLSurface _pbuf, uint32_t _ctxid, COpenGLDebugCallback* _dbgCb) :
                 m_rdoc_api(rdoc),
                 egl(_egl),
-                m_device(dev),
+                m_device(dev), m_masterContextCallsWaited(0),
                 thisCtx(_ctx), pbuffer(_pbuf),
                 features(_features),
                 m_ctxid(_ctxid),
@@ -175,6 +175,8 @@ class COpenGL_Queue final : public IGPUQueue
                     gl.glGeneral.pglEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
                 }
 
+                gl.glGeneral.pglFinish();
+
                 // default values tracked by engine
                 ctxlocal.nextState.rasterParams.multisampleEnable = 0;
                 ctxlocal.nextState.rasterParams.depthFunc = GL_GEQUAL;
@@ -205,22 +207,15 @@ class COpenGL_Queue final : public IGPUQueue
                         barrierBits |= SOpenGLBarrierHelper(gl.features).pipelineStageFlagsToMemoryBarrierBits(asset::EPSF_BOTTOM_OF_PIPE_BIT,submit.pWaitDstStageMask[i]);
                     }
 
-#ifdef DEBUGGING_BAW
-                    bool rdc_capturing = false;
-                    if (g_rdoc_api && g_rdoc_start_capture)
-                    {
-                        g_rdoc_api->StartFrameCapture(NULL, NULL);
-                        rdc_capturing = g_rdoc_start_capture;
-                        g_rdoc_start_capture = false;
-                    }
-#endif
-
                     for (uint32_t i = 0; i < submit.waitSemaphoreCount; ++i)
                     {
                         IGPUSemaphore* sem = submit.pWaitSemaphores[i].get();
                         COpenGLSemaphore* glsem = static_cast<COpenGLSemaphore*>(sem);
                         glsem->wait(&gl);
                     }
+                    
+                    // need to possibly wait for master context (object creation, and buffer mapping and flushing)
+                    m_masterContextCallsWaited = m_device->waitOnMasterContext(gl,m_masterContextCallsWaited);
 
                     if (barrierBits)
                         gl.glSync.pglMemoryBarrier(barrierBits);
@@ -239,11 +234,6 @@ class COpenGL_Queue final : public IGPUQueue
                     }
                     else // need to flush, otherwise OpenGL goes gaslighting the user with wrong error messages
                         gl.glGeneral.pglFlush();
-
-#ifdef DEBUGGING_BAW
-                    if (g_rdoc_api && rdc_capturing)
-                    	g_rdoc_api->EndFrameCapture(NULL, NULL);
-#endif
                 }
                 break;
                 case ERT_DESTROY_FRAMEBUFFER:
@@ -283,6 +273,8 @@ class COpenGL_Queue final : public IGPUQueue
         private:
             const egl::CEGL* egl;
             IOpenGL_LogicalDevice* m_device;
+            uint64_t m_masterContextCallsWaited;
+
             EGLContext thisCtx;
             EGLSurface pbuffer;
             const FeaturesType* features;

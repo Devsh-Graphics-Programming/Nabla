@@ -89,7 +89,7 @@ if(NBL_BUILD_ANDROID)
 	find_package(Java 1.8)
 	
 	if(DEFINED Java_JAVA_EXECUTABLE)
-		message(STATUS "Found Java executable!")
+		message(STATUS "Found Java executable!: ${Java_JAVA_EXECUTABLE}")
 	else()
 		message(FATAL_ERROR "Could not find java executable for Android build!")
 	endif()
@@ -259,7 +259,7 @@ set(LLVM_USE_CRT_DEBUG MTd CACHE STRING "Nabla developer note: No idea what subf
 set(LLVM_USE_CRT_RELEASE MT CACHE STRING "Nabla developer note: No idea what subfolder provides this")
 
 if(NOT CMAKE_BUILD_TYPE)
-	set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type: Debug or Release" FORCE)
+	set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type: Debug or Release" FORCE)
 endif()
 
 if (DEFINED ENV{NUMBER_OF_PROCESSORS})

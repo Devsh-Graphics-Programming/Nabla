@@ -163,16 +163,16 @@ public:
 
         {
             auto* quantNormalCache = assetManager->getMeshManipulator()->getQuantNormalCache();
-            quantNormalCache->loadCacheFromFile<asset::EF_A2B10G10R10_SNORM_PACK32>(system.get(), "../../tmp/normalCache101010.sse");
+            quantNormalCache->loadCacheFromFile<asset::EF_A2B10G10R10_SNORM_PACK32>(system.get(), sharedOutputCWD / "normalCache101010.sse");
 
-            system::path archPath = CWDOnStartup / "../../media/sponza.zip";
+            system::path archPath = sharedInputCWD / "sponza.zip";
             auto arch = system->openFileArchive(archPath);
             // test no alias loading (TODO: fix loading from absolute paths)
             system->mount(std::move(arch));
             asset::IAssetLoader::SAssetLoadParams loadParams;
-            loadParams.workingDirectory = CWDOnStartup;
+            loadParams.workingDirectory = sharedInputCWD;
             loadParams.logger = logger.get();
-            auto meshes_bundle = assetManager->getAsset((CWDOnStartup / "../../media/sponza.zip/sponza.obj").string(), loadParams);
+            auto meshes_bundle = assetManager->getAsset((sharedInputCWD / "sponza.zip/sponza.obj").string(), loadParams);
             assert(!meshes_bundle.getContents().empty());
 
             metaOBJ = meshes_bundle.getMetadata()->selfCast<const asset::COBJMetadata>();
@@ -180,7 +180,7 @@ public:
             auto cpuMesh = meshes_bundle.getContents().begin()[0];
             meshRaw = static_cast<asset::ICPUMesh*>(cpuMesh.get());
 
-            quantNormalCache->saveCacheToFile<asset::EF_A2B10G10R10_SNORM_PACK32>(system.get(), "../../tmp/normalCache101010.sse");
+            quantNormalCache->saveCacheToFile<asset::EF_A2B10G10R10_SNORM_PACK32>(system.get(), sharedOutputCWD / "normalCache101010.sse");
         }
         // we can safely assume that all meshbuffers within mesh loaded from OBJ has same DS1 layout (used for camera-specific data)
         firstMeshBuffer = *meshRaw->getMeshBuffers().begin();
@@ -225,7 +225,7 @@ public:
         gpuuboCreationParams.queueFamilyIndexCount = 0u;
         gpuuboCreationParams.queueFamilyIndices = nullptr;
 
-        gpuubo = logicalDevice->createGPUBufferOnDedMem(gpuuboCreationParams,ubomemreq,true);
+        gpuubo = logicalDevice->createGPUBufferOnDedMem(gpuuboCreationParams,ubomemreq);
         gpuds1 = logicalDevice->createGPUDescriptorSet(descriptorPool.get(), std::move(gpuds1layout));
 
         {
@@ -499,7 +499,7 @@ public:
     }
     bool keepRunning() override
     {
-        return windowCb->isWindowOpen();
+        return true;// windowCb->isWindowOpen();
     }
 };
 

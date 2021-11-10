@@ -12,6 +12,7 @@
 
 #include "nbl/core/declarations.h"
 
+#include "nbl/builtin/cache/ICacheKeyCreator.h"
 #include "nbl/asset/format/EFormat.h"
 #include "nbl/asset/ISpecializedShader.h"
 #include "nbl/asset/IPipeline.h"
@@ -69,6 +70,11 @@ struct SVertexInputAttribParams
     uint32_t format : 8;//asset::E_FORMAT
     uint32_t relativeOffset : 13;//assuming max=2048
 
+    std::string to_string() const
+    {
+        return ICacheKeyCreator::getHexString(binding) + ICacheKeyCreator::getHexString(format) + ICacheKeyCreator::getHexString(relativeOffset);
+    }
+
     constexpr static size_t serializedSize() { return sizeof(uint32_t); }
 
     void serialize(void* mem) const
@@ -90,6 +96,11 @@ struct SVertexInputBindingParams
 
     uint32_t stride = 0u; // could have packed the stride and input rate together since there are limits on those
     E_VERTEX_INPUT_RATE inputRate = EVIR_PER_VERTEX;
+
+    std::string to_string() const
+    {
+        return ICacheKeyCreator::getHexString(stride) + ICacheKeyCreator::getHexString(inputRate);
+    }
 
     constexpr static size_t serializedSize() { return sizeof(SVertexInputBindingParams); }
 
@@ -119,6 +130,18 @@ struct SVertexInputParams
 	SVertexInputAttribParams attributes[MAX_VERTEX_ATTRIB_COUNT] = {};
     //! index in array denotes binding number
 	SVertexInputBindingParams bindings[MAX_ATTR_BUF_BINDING_COUNT] = {};
+
+    std::string to_string() const
+    {
+        std::string cacheKey;
+
+        cacheKey += ICacheKeyCreator::getHexString(enabledAttribFlags) + ICacheKeyCreator::getHexString(enabledBindingFlags);
+        for (uint32_t i = 0; i < MAX_VERTEX_ATTRIB_COUNT; ++i)
+            cacheKey += attributes[i].to_string();
+        for (uint32_t i = 0; i < MAX_ATTR_BUF_BINDING_COUNT; ++i)
+            cacheKey += bindings[i].to_string();
+        return cacheKey;
+    }
 
     static_assert(sizeof(enabledAttribFlags)*8 >= MAX_VERTEX_ATTRIB_COUNT, "Insufficient flag bits for number of supported attributes");
     static_assert(sizeof(enabledBindingFlags)*8 >= MAX_ATTR_BUF_BINDING_COUNT, "Insufficient flag bits for number of supported bindings");

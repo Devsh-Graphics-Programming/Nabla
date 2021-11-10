@@ -194,13 +194,13 @@ int main()
 		ubomemreq.vulkanReqs.size = uboDS1ByteSize;
 
 		video::IGPUBuffer::SCreationParams creationParams;
-		creationParams.size = uboDS1ByteSize;
 		creationParams.usage = asset::IBuffer::E_USAGE_FLAGS::EUF_UNIFORM_BUFFER_BIT;
+		creationParams.canUpdateSubRange = true;
 		creationParams.sharingMode = asset::E_SHARING_MODE::ESM_EXCLUSIVE;
 		creationParams.queueFamilyIndices = 0u;
 		creationParams.queueFamilyIndices = nullptr;
 
-		auto gpuubo = logicalDevice->createGPUBufferOnDedMem(creationParams, ubomemreq, true);
+		auto gpuubo = logicalDevice->createGPUBufferOnDedMem(creationParams, ubomemreq);
 		auto gpuds1 = logicalDevice->createGPUDescriptorSet(gpuUBODescriptorPool.get(), std::move(gpuds1layout));
 		{
 			video::IGPUDescriptorSet::SWriteDescriptorSet write;

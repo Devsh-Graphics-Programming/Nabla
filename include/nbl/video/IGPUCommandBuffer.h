@@ -84,7 +84,20 @@ protected:
     virtual ~IGPUCommandBuffer() = default;
 
     core::smart_refctd_ptr<IGPUCommandPool> m_cmdpool;
+    
 
+    inline bool validate_updateBuffer(IGPUBuffer* dstBuffer, size_t dstOffset, size_t dataSize, const void* pData)
+    {
+        if (!this->isCompatibleDevicewise(dstBuffer))
+            return false;
+        if ((dstOffset & 0x03ull) != 0ull)
+            return false;
+        if ((dataSize & 0x03ull) != 0ull)
+            return false;
+        if (dataSize > 65536ull)
+            return false;
+        return dstBuffer->getCachedCreationParams().canUpdateSubRange;
+    }
 
     static void bindDescriptorSets_generic(const IGPUPipelineLayout* _newLayout, uint32_t _first, uint32_t _count, const IGPUDescriptorSet* const* _descSets, const IGPUPipelineLayout** const _destPplnLayouts)
     {

@@ -18,21 +18,20 @@ namespace nbl::video
 class COpenGLBuffer final : public IGPUBuffer, public IDriverMemoryAllocation
 {
     protected:
-        virtual ~COpenGLBuffer()
-        {
-            destroyGLBufferObjectWrapper();
-        }
-
-        void destroyGLBufferObjectWrapper();
+        virtual ~COpenGLBuffer();
 
     public:
-        COpenGLBuffer(core::smart_refctd_ptr<const ILogicalDevice>&& dev, IOpenGL_FunctionTable* gl, const IDriverMemoryBacked::SDriverMemoryRequirements &mreqs, const bool& canModifySubData) : IGPUBuffer(std::move(dev),mreqs), IDriverMemoryAllocation(getOriginDevice()), BufferName(0), cachedFlags(0)
+        COpenGLBuffer(
+            core::smart_refctd_ptr<const ILogicalDevice>&& dev, IOpenGL_FunctionTable* gl,
+            const IDriverMemoryBacked::SDriverMemoryRequirements &mreqs,
+            const IGPUBuffer::SCachedCreationParams& cachedCreationParams
+        ) : IGPUBuffer(std::move(dev),mreqs,cachedCreationParams), IDriverMemoryAllocation(getOriginDevice()), BufferName(0), cachedFlags(0)
         {
             gl->extGlCreateBuffers(1,&BufferName);
             if (BufferName==0)
                 return;
 
-            cachedFlags =   (canModifySubData ? GL_DYNAMIC_STORAGE_BIT:0)|
+            cachedFlags =   (cachedCreationParams.canUpdateSubRange ? GL_DYNAMIC_STORAGE_BIT:0)|
                             (mreqs.memoryHeapLocation==IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL ? GL_CLIENT_STORAGE_BIT:0);
             if (mreqs.mappingCapability&IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ)
                 cachedFlags |= GL_MAP_PERSISTENT_BIT|GL_MAP_READ_BIT;
@@ -51,9 +50,6 @@ class COpenGLBuffer final : public IGPUBuffer, public IDriverMemoryAllocation
         //!
         inline GLbitfield getOpenGLStorageFlags() const { return cachedFlags; }
 
-        //!
-        inline bool canUpdateSubRange() const override {return cachedFlags&IOpenGL_FunctionTable::DYNAMIC_STORAGE_BIT;}
-
         //! Returns the allocation which is bound to the resource
         inline IDriverMemoryAllocation* getBoundMemory() override {return this;}
 
@@ -63,8 +59,7 @@ class COpenGLBuffer final : public IGPUBuffer, public IDriverMemoryAllocation
         //! Returns the offset in the allocation at which it is bound to the resource
         inline size_t getBoundMemoryOffset() const override {return 0ull;}
 
-
-        //!
+        //! on OpenGL the buffer is the allocation
         inline size_t getAllocationSize() const override {return IGPUBuffer::getSize();}
 
         //!
@@ -79,8 +74,6 @@ class COpenGLBuffer final : public IGPUBuffer, public IDriverMemoryAllocation
         inline uint64_t getBufferSize() const override { return getSize(); }
 
     protected:
-        static std::atomic_uint32_t s_reallocCounter;
-
         GLbitfield cachedFlags;
         GLuint BufferName;
 };
