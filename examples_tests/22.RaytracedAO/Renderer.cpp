@@ -1267,7 +1267,9 @@ void Renderer::takeAndSaveScreenShot(const std::filesystem::path& screenshotFile
 	glFinish();
 
 	// TODO: Deduce Format from CElementFilm (How?) -> Get format from input 
-	asset::E_FORMAT format = asset::EF_R32G32B32A32_SFLOAT;
+	// PNG (any other LDR format) => RGB8_SRGB (can be with alpha if you want)
+	// EXR => 16bit float
+	asset::E_FORMAT format = asset::EF_R16G16B16A16_SFLOAT;
 
 	if (m_tonemapOutput)
 		ext::ScreenShot::createScreenShot(m_driver,m_assetManager,m_tonemapOutput.get(),screenshotFilePath.string(), format);
