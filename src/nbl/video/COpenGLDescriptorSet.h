@@ -224,12 +224,13 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 				#ifdef _NBL_DEBUG
 					auto foundIn = getBindingInfo(input-srcGLSet->m_descriptors->begin());
 					auto foundOut = getBindingInfo(output-m_descriptors->begin());
-					assert(foundOut->descriptorType==foundOut->descriptorType);
+					assert(foundIn->descriptorType==foundOut->descriptorType);
 
-					auto inLayoutBinding = getLayoutBinding(foundIn-srcGLSet->m_bindingInfo->begin());
-					auto outLayoutBinding = getLayoutBinding(foundOut-m_bindingInfo->begin());
-					assert(outLayoutBinding->stageFlags==inLayoutBinding->stageFlags);
-					assert((!outLayoutBinding->samplers)==(!inLayoutBinding->samplers));
+					// TODO: fix this debug code
+					//auto inLayoutBinding = getLayoutBinding(foundIn-srcGLSet->m_bindingInfo->begin());
+					//auto outLayoutBinding = getLayoutBinding(foundOut-m_bindingInfo->begin());
+					//assert(outLayoutBinding->stageFlags==inLayoutBinding->stageFlags);
+					//assert((!outLayoutBinding->samplers)==(!inLayoutBinding->samplers));
 				#endif
 				output->assign(*input, type);
 				uint32_t localIx = _copy.dstArrayElement+i;
