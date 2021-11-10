@@ -98,10 +98,14 @@ int main(int argc, char* argv[])
 		arguments.reserve(PROPER_CMD_ARGUMENTS_AMOUNT);
 		arguments.emplace_back(argv[0]);
 		if (argc>1)
+		{
+			os::Printer::log("Guess input from Commandline arguments",ELL_INFORMATION);
 			for (auto i = 1ul; i < argc; ++i)
 				arguments.emplace_back(argv[i]);
+		}
 		else
 		{
+			os::Printer::log("No arguments provided, running demo mode from ../exampleInputArguments.txt", ELL_INFORMATION);
 			arguments.emplace_back("-batch");
 			arguments.emplace_back("../exampleInputArguments.txt");
 		}

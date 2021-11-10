@@ -15,9 +15,15 @@ CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetMan
 	auto startEntireTime = std::chrono::steady_clock::now();
 
 	if(argv.size()>=MANDATORY_CMD_ARGUMENTS_AMOUNT && argv.size()<=PROPER_CMD_ARGUMENTS_AMOUNT)
+	{
+		os::Printer::log("Confirm input from Commandline arguments", ELL_INFORMATION);
 		mode = CLM_CMD_LIST;
+	}
 	else if (argv.size()>=PROPER_BATCH_FILE_ARGUMENTS_AMOUNT)
+	{
+		os::Printer::log("Confirm input from Batch File arguments", ELL_INFORMATION);
 		mode = CLM_BATCH_INPUT;
+	}
 	else
 	{
 		mode = CLM_UNKNOWN;
