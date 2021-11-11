@@ -9,7 +9,7 @@
 #	define HIDWORD(_qw)    ((DWORD)(((_qw) >> 32) & 0xffffffff))
 #endif
 
-nbl::system::CFileWin32::CFileWin32(core::smart_refctd_ptr<ISystem>&& sys, const std::filesystem::path& _filename, core::bitflag<E_CREATE_FLAGS> _flags) : base_t(std::move(sys), std::move(_filename), _flags)
+nbl::system::CFileWin32::CFileWin32(core::smart_refctd_ptr<ISystem>&& sys, const std::filesystem::path& _filename, core::bitflag<E_CREATE_FLAGS> _flags) : base_t(std::move(sys), _filename, _flags)
 {
 	SYSTEM_INFO info;
 	GetSystemInfo(&info);

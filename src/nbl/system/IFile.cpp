@@ -7,7 +7,7 @@
 
 using namespace nbl::system;
 
-IFile::IFile(core::smart_refctd_ptr<ISystem>&& _system, path&& _filename, core::bitflag<E_CREATE_FLAGS> _flags) : 
+IFile::IFile(core::smart_refctd_ptr<ISystem>&& _system, const path& _filename, core::bitflag<E_CREATE_FLAGS> _flags) : 
 	m_system(std::move(_system)), 
 	m_flags(_flags),
 	m_filename(flattenFilename(_filename))
@@ -54,7 +54,7 @@ static std::string deletePathFromPath(const std::string& filename, int32_t pathc
 
 path IFile::flattenFilename(const path& p)
 {
-	const auto str = p.string();
+	auto str = p.string();
 	std::replace(str.begin(), str.end(), '\\', '/');
 
 	std::string dir;

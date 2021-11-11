@@ -58,7 +58,8 @@ public:
 //! The FileArchive manages archives and provides access to files inside them.
 class IFileArchive : public core::IReferenceCounted
 {
-	static constexpr size_t SIZEOF_INNER_ARCHIVE_FILE = std::max(sizeof(CInnerArchiveFile<CPlainHeapAllocator>), sizeof(CInnerArchiveFile<CFileViewVirtualAllocatorWin32>));
+	static inline constexpr size_t SIZEOF_INNER_ARCHIVE_FILE = std::max(sizeof(CInnerArchiveFile<CPlainHeapAllocator>), sizeof(CInnerArchiveFile<CFileViewVirtualAllocatorWin32>));
+	static inline constexpr size_t ALIGNOF_INNER_ARCHIVE_FILE = std::max(alignof(CInnerArchiveFile<CPlainHeapAllocator>), alignof(CInnerArchiveFile<CFileViewVirtualAllocatorWin32>));
 protected:
 	enum E_ALLOCATOR_TYPE
 	{

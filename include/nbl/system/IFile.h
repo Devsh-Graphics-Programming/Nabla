@@ -60,7 +60,7 @@ class IFile : public core::IReferenceCounted
 		virtual size_t write_impl(const void* buffer, size_t offset, size_t sizeToWrite) = 0;
 
 		// the ISystem is the factory, so this starys protected
-		explicit IFile(core::smart_refctd_ptr<ISystem>&& _system, path&& _filename, core::bitflag<E_CREATE_FLAGS> _flags);
+		explicit IFile(core::smart_refctd_ptr<ISystem>&& _system, const path& _filename, core::bitflag<E_CREATE_FLAGS> _flags);
 
 		core::smart_refctd_ptr<ISystem> m_system;
 		core::bitflag<E_CREATE_FLAGS> m_flags;
