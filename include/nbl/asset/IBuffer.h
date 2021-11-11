@@ -40,6 +40,11 @@ class IBuffer : public core::IBuffer, public IDescriptor
 template<class BufferType>
 struct SBufferBinding
 {
+	bool isValid() const
+	{
+		return buffer && (offset<buffer->getSize());
+	}
+
 	uint64_t offset = 0ull;
 	core::smart_refctd_ptr<BufferType> buffer = nullptr;
 

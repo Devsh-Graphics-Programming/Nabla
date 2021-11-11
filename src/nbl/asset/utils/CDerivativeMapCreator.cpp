@@ -123,7 +123,6 @@ class SeparateOutXAxisKernel : public asset::CFloatingPointSeparableImageFilterK
 core::smart_refctd_ptr<asset::ICPUImage> nbl::asset::CDerivativeMapCreator::createDerivativeMapFromHeightMap(asset::ICPUImage* _inImg, asset::ISampler::E_TEXTURE_CLAMP _uwrap, asset::ISampler::E_TEXTURE_CLAMP _vwrap, asset::ISampler::E_TEXTURE_BORDER_COLOR _borderColor)
 {
 	using namespace asset;
-
 	auto getRGformat = [](asset::E_FORMAT f) -> asset::E_FORMAT {
 		const uint32_t bytesPerChannel = (getBytesPerPixel(f) * core::rational(1, getFormatChannelCount(f))).getIntegerApprox();
 		switch (bytesPerChannel)
@@ -140,7 +139,6 @@ core::smart_refctd_ptr<asset::ICPUImage> nbl::asset::CDerivativeMapCreator::crea
 			return asset::EF_UNKNOWN;
 		}
 	};
-
 	using ReconstructionKernel = CGaussianImageFilterKernel<>; // or Mitchell
 	using DerivKernel_ = CDerivativeImageFilterKernel<ReconstructionKernel>;
 	using DerivKernel = MyKernel<DerivKernel_>;
@@ -227,6 +225,89 @@ core::smart_refctd_ptr<asset::ICPUImageView> CDerivativeMapCreator::createDeriva
 	params.image = std::move(img);
 
 	return asset::ICPUImageView::create(std::move(params));
+}
+
+core::smart_refctd_ptr<asset::ICPUImage> nbl::asset::CDerivativeMapCreator::createDerivativeMapFromNormalMap(asset::ICPUImage* _inImg)
+{
+	core::smart_refctd_ptr<ICPUImage> newDerivativeNormalMapImage;
+	{
+		bool status = _inImg->getCreationParameters().type == IImage::E_TYPE::ET_2D;
+
+		assert(status);
+	}
+
+	auto cpuImageNormalTexture = _inImg;
+	const auto referenceImageParams = cpuImageNormalTexture->getCreationParameters();
+	const auto referenceBuffer = cpuImageNormalTexture->getBuffer();
+	const auto referenceRegions = cpuImageNormalTexture->getRegions();
+	const auto* referenceRegion = referenceRegions.begin();
+
+	auto newImageParams = referenceImageParams;
+	newImageParams.format = getRGformat(referenceImageParams.format);
+
+	const uint32_t pitch = IImageAssetHandlerBase::calcPitchInBlocks(referenceImageParams.extent.width, asset::getTexelOrBlockBytesize(newImageParams.format));
+	core::smart_refctd_ptr<ICPUBuffer> newCpuBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(asset::getTexelOrBlockBytesize(newImageParams.format) * pitch * newImageParams.extent.height);
+
+	asset::ICPUImage::SBufferCopy region;
+	region.imageOffset = { 0,0,0 };
+	region.imageExtent = newImageParams.extent;
+	region.imageSubresource.baseArrayLayer = 0u;
+	region.imageSubresource.layerCount = 1u;
+	region.imageSubresource.mipLevel = 0u;
+	region.bufferRowLength = pitch;
+	region.bufferImageHeight = 0u;
+	region.bufferOffset = 0u;
+
+	newDerivativeNormalMapImage = ICPUImage::create(std::move(newImageParams));
+	newDerivativeNormalMapImage->setBufferAndRegions(std::move(newCpuBuffer), core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IImage::SBufferCopy>>(1ull, region));
+
+	using DerivativeNormalMapFilter = CNormalMapToDerivativeFilter<asset::DefaultSwizzle, asset::IdentityDither>;
+	DerivativeNormalMapFilter derivativeNormalFilter;
+	DerivativeNormalMapFilter::state_type state;
+
+	state.inImage = cpuImageNormalTexture;
+	state.outImage = newDerivativeNormalMapImage.get();
+	state.inOffset = { 0, 0, 0 };
+	state.inBaseLayer = 0;
+	state.outOffset = { 0, 0, 0 };
+	state.outBaseLayer = 0;
+	state.extent = { referenceImageParams.extent.width, referenceImageParams.extent.height, referenceImageParams.extent.depth };
+	state.layerCount = newDerivativeNormalMapImage->getCreationParameters().arrayLayers;
+
+	state.scratchMemoryByteSize = state.getRequiredScratchByteSize(state.layerCount, state.extent);
+	state.scratchMemory = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(state.scratchMemoryByteSize, 32));
+
+	state.inMipLevel = 0;
+	state.outMipLevel = 0;
+
+	bool status = derivativeNormalFilter.execute(&state);
+	_NBL_ALIGNED_FREE(state.scratchMemory);
+
+	if(!status)
+		return nullptr;
+
+	return core::smart_refctd_ptr<ICPUImage>(state.outImage);
+}
+
+core::smart_refctd_ptr<asset::ICPUImageView> nbl::asset::CDerivativeMapCreator::createDerivativeMapViewFromNormalMap(asset::ICPUImage* _inImg)
+{
+	auto cpuDerivativeImage = createDerivativeMapFromNormalMap(_inImg);
+
+	ICPUImageView::SCreationParams imageViewInfo;
+	imageViewInfo.image = core::smart_refctd_ptr(cpuDerivativeImage);
+
+	imageViewInfo.format = imageViewInfo.image->getCreationParameters().format;
+	imageViewInfo.viewType = decltype(imageViewInfo.viewType)::ET_2D;
+
+	imageViewInfo.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
+	imageViewInfo.subresourceRange.baseArrayLayer = 0u;
+	imageViewInfo.subresourceRange.baseMipLevel = 0u;
+	imageViewInfo.subresourceRange.layerCount = imageViewInfo.image->getCreationParameters().arrayLayers;
+	imageViewInfo.subresourceRange.levelCount = imageViewInfo.image->getCreationParameters().mipLevels;
+
+	auto imageView = ICPUImageView::create(std::move(imageViewInfo));
+
+	return imageView;
 }
 
 }

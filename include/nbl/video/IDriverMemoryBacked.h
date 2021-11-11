@@ -23,7 +23,7 @@ class IDriverMemoryBacked : public virtual core::IReferenceCounted
             VkMemoryRequirements vulkanReqs;
 
             uint32_t memoryHeapLocation             : 2; //IDriverMemoryAllocation::E_SOURCE_MEMORY_TYPE
-            uint32_t mappingCapability              : 4; //IDriverMemoryAllocation::E_MAPPING_CAPABILITY_FLAGS
+            uint32_t mappingCapability              : 4; //IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAG
             uint32_t prefersDedicatedAllocation     : 1; /// Used and valid only in Vulkan
             uint32_t requiresDedicatedAllocation    : 1; /// Used and valid only in Vulkan
         };

@@ -68,7 +68,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
         {
 			auto device = utils->getLogicalDevice();
 			auto system = device->getPhysicalDevice()->getSystem();
-			auto createShader = [&system,&device](auto uniqueString) -> core::smart_refctd_ptr<video::IGPUSpecializedShader>
+			auto createShader = [&system,&device](auto uniqueString, asset::ISpecializedShader::E_SHADER_STAGE type=asset::ISpecializedShader::ESS_COMPUTE) -> core::smart_refctd_ptr<video::IGPUSpecializedShader>
 			{
 				auto glslFile = system->loadBuiltinData<decltype(uniqueString)>();
 				core::smart_refctd_ptr<asset::ICPUBuffer> glsl;
@@ -76,13 +76,16 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 					glsl = core::make_smart_refctd_ptr<asset::ICPUBuffer>(glslFile->getSize());
 					memcpy(glsl->getPointer(), glslFile->getMappedPointer(), glsl->getSize());
 				}
-				auto shader = device->createGPUShader(core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl),asset::IShader::buffer_contains_glsl_t{}));
-				return device->createGPUSpecializedShader(shader.get(),{nullptr,nullptr,"main",asset::ISpecializedShader::ESS_COMPUTE});
+				auto shader = device->createGPUShader(core::make_smart_refctd_ptr<asset::ICPUShader>(core::smart_refctd_ptr(glsl),asset::IShader::buffer_contains_glsl_t{}));
+				return device->createGPUSpecializedShader(shader.get(),{nullptr,nullptr,"main",type });
 			};
 
 			auto updateRelativeSpec = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/transform_tree/relative_transform_update.comp")());
 			auto recomputeGlobalSpec = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/transform_tree/global_transform_update.comp")());
-			if (!updateRelativeSpec || !recomputeGlobalSpec)
+			// TODO: audit source code
+			auto debugDrawVertexSpec = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/transform_tree/debug.vert")(),asset::ISpecializedShader::ESS_VERTEX);
+			auto debugDrawFragmentSpec = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_normal/specialized_shader.frag")(),asset::ISpecializedShader::ESS_FRAGMENT);
+			if (!updateRelativeSpec || !recomputeGlobalSpec || !debugDrawVertexSpec || !debugDrawFragmentSpec)
 				return nullptr;
 
 			const auto& limits = device->getPhysicalDevice()->getLimits();
@@ -96,8 +99,39 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			}
 			auto defaultFillValues = utils->createFilledDeviceLocalGPUBufferOnDedMem(uploadQueue,tmp.size(),fillData);
 			defaultFillValues->setObjectDebugName("ITransformTreeManager::m_defaultFillValues");
+			tmp.resize(sizeof(uint16_t)*IndexCount);
+			uint16_t* debugIndices = reinterpret_cast<uint16_t*>(tmp.data());
+			{
+				debugIndices[0] = 0b000;
+				debugIndices[1] = 0b001;
+				debugIndices[2] = 0b001;
+				debugIndices[3] = 0b010;
+				debugIndices[4] = 0b010;
+				debugIndices[5] = 0b011;
+				debugIndices[6] = 0b011;
+				debugIndices[7] = 0b000;
+				debugIndices[8] = 0b000;
+				debugIndices[9] = 0b100;
+				debugIndices[10] = 0b001;
+				debugIndices[11] = 0b101;
+				debugIndices[12] = 0b010;
+				debugIndices[13] = 0b110;
+				debugIndices[14] = 0b011;
+				debugIndices[15] = 0b111;
+				debugIndices[16] = 0b100;
+				debugIndices[17] = 0b101;
+				debugIndices[18] = 0b101;
+				debugIndices[19] = 0b110;
+				debugIndices[20] = 0b110;
+				debugIndices[21] = 0b111;
+				debugIndices[22] = 0b111;
+				debugIndices[23] = 0b100;
+				debugIndices[24] = 8u;
+				debugIndices[25] = 9u;
+			}
+			auto debugIndexBuffer = utils->createFilledDeviceLocalGPUBufferOnDedMem(uploadQueue,tmp.size(),fillData);
 
-			core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> sharedDsLayout;
+			core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> sharedDsLayout,debugDrawDsLayout;
 			{
 				video::IGPUDescriptorSetLayout::SBinding bnd[2];
 				bnd[0].binding = 0u;
@@ -108,6 +142,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 				bnd[1] = bnd[0];
 				bnd[1].binding = 1u;
 				sharedDsLayout = device->createGPUDescriptorSetLayout(bnd,bnd+2);
+				debugDrawDsLayout = device->createGPUDescriptorSetLayout(bnd,bnd+1);
 			}
 			asset::ISpecializedShader::E_SHADER_STAGE stageAccessFlags[ITransformTree::property_pool_t::PropertyCount];
 			std::fill_n(stageAccessFlags,ITransformTree::property_pool_t::PropertyCount,asset::ISpecializedShader::ESS_COMPUTE);
@@ -115,10 +150,43 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			
 			auto updateRelativeLayout = device->createGPUPipelineLayout(nullptr,nullptr,core::smart_refctd_ptr(poolLayout),core::smart_refctd_ptr(sharedDsLayout));
 			auto recomputeGlobalLayout = device->createGPUPipelineLayout(nullptr,nullptr,core::smart_refctd_ptr(poolLayout),core::smart_refctd_ptr(sharedDsLayout));
+			asset::SPushConstantRange pcRange;
+			pcRange.offset = 0u;
+			pcRange.size = sizeof(DebugPushConstants);
+			pcRange.stageFlags = asset::ISpecializedShader::ESS_VERTEX;
+			auto debugDrawLayout = device->createGPUPipelineLayout(nullptr,nullptr,core::smart_refctd_ptr(poolLayout),core::smart_refctd_ptr(debugDrawDsLayout));
 
 			auto updateRelativePpln = device->createGPUComputePipeline(nullptr,std::move(updateRelativeLayout),std::move(updateRelativeSpec));
 			auto recomputeGlobalPpln = device->createGPUComputePipeline(nullptr,std::move(recomputeGlobalLayout),std::move(recomputeGlobalSpec));
-			if (!updateRelativePpln || !recomputeGlobalPpln)
+			core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> debugDrawIndepenedentPipeline;
+			{
+				asset::SVertexInputParams vertexInputParams = {};
+				vertexInputParams.bindings[DebugNodeIDBindingIndex].inputRate = asset::EVIR_PER_INSTANCE;
+				vertexInputParams.bindings[DebugNodeIDBindingIndex].stride = sizeof(uint32_t);
+				vertexInputParams.bindings[DebugAABBIDBindingIndex].inputRate = asset::EVIR_PER_INSTANCE;
+				vertexInputParams.bindings[DebugAABBIDBindingIndex].stride = sizeof(uint32_t);
+
+				vertexInputParams.attributes[DebugNodeIDAttributeIndex].binding = DebugNodeIDBindingIndex;
+				vertexInputParams.attributes[DebugNodeIDAttributeIndex].format = asset::EF_R32_UINT;
+				vertexInputParams.attributes[DebugAABBIDAttributeIndex].binding = DebugAABBIDBindingIndex;
+				vertexInputParams.attributes[DebugAABBIDAttributeIndex].format = asset::EF_R32_UINT;
+
+				vertexInputParams.enabledBindingFlags |= 0x1u<<DebugNodeIDBindingIndex;
+				vertexInputParams.enabledBindingFlags |= 0x1u<<DebugAABBIDBindingIndex;
+				vertexInputParams.enabledAttribFlags |= 0x1u<<DebugNodeIDAttributeIndex;
+				vertexInputParams.enabledAttribFlags |= 0x1u<<DebugAABBIDAttributeIndex;
+
+				asset::SBlendParams blendParams = {};
+				asset::SPrimitiveAssemblyParams primitiveAssemblyParams = {};
+				primitiveAssemblyParams.primitiveType = asset::EPT_LINE_LIST;
+				asset::SRasterizationParams rasterizationParams = {};
+
+				video::IGPUSpecializedShader* const debugDrawShaders[] = {debugDrawVertexSpec.get(),debugDrawFragmentSpec.get()};
+				debugDrawIndepenedentPipeline = device->createGPURenderpassIndependentPipeline(
+					nullptr,std::move(debugDrawLayout),debugDrawShaders,debugDrawShaders+2u,vertexInputParams,blendParams,primitiveAssemblyParams,rasterizationParams
+				);
+			}
+			if (!updateRelativePpln || !recomputeGlobalPpln || !debugDrawIndepenedentPipeline)
 				return nullptr;
 
 			// TODO: after BaW
@@ -134,8 +202,8 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 
 			auto* ttm = new ITransformTreeManager(
 				core::smart_refctd_ptr<video::ILogicalDevice>(device),std::move(descCache),
-				std::move(updateRelativePpln),std::move(recomputeGlobalPpln),std::move(updateAndRecomputePpln),
-				std::move(defaultFillValues)
+				std::move(updateRelativePpln),std::move(recomputeGlobalPpln),std::move(updateAndRecomputePpln),std::move(debugDrawIndepenedentPipeline),
+				std::move(defaultFillValues),std::move(debugIndexBuffer)
 			);
             return core::smart_refctd_ptr<ITransformTreeManager>(ttm,core::dont_grab);
         }
@@ -236,32 +304,48 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			upstreams[3].source.buffer = getDefaultValueBufferBinding(ITransformTree::recomputed_stamp_prop_ix);
 			return true;
 		}
+
+		struct AdditionRequestBase
+		{
+			public:
+				// must be in recording state
+				video::IGPUCommandBuffer* cmdbuf;
+				video::IGPUFence* fence;
+				asset::SBufferBinding<video::IGPUBuffer> scratch;
+				video::StreamingTransientDataBufferMT<>* upBuff;
+				video::CPropertyPoolHandler* poolHandler;
+				video::IGPUQueue* queue;
+				system::logger_opt_ptr logger = nullptr;
+
+			protected:
+				inline bool isValid() const
+				{
+					return cmdbuf && fence && scratch.isValid() && upBuff && poolHandler && queue;
+				}
+		};
 		//
-		struct AdditionRequest : UpstreamRequestBase
+		struct AdditionRequest : UpstreamRequestBase,AdditionRequestBase
 		{
 			// if the `outNodes` have values not equal to `invalid_node` then we treat them as already allocated
 			// (this allows you to split allocation of nodes from setting up the transfers)
 			core::SRange<ITransformTree::node_t> outNodes = {nullptr,nullptr};
-			// must be in recording state
-			video::IGPUCommandBuffer* cmdbuf;
-			video::IGPUFence* fence;
-			asset::SBufferBinding<video::IGPUBuffer> scratch;
-			video::StreamingTransientDataBufferMT<>* upBuff;
-			video::CPropertyPoolHandler* poolHandler;
-			video::IGPUQueue* queue;
-			system::logger_opt_ptr logger = nullptr;
+
+			inline bool isValid() const
+			{
+				return AdditionRequestBase::isValid() && outNodes.begin() && outNodes.begin()<=outNodes.end();
+			}
 		};
 		inline uint32_t addNodes(
 			const AdditionRequest& request, uint32_t& waitSemaphoreCount,
 			video::IGPUSemaphore* const*& semaphoresToWaitBeforeOverwrite,
 			const asset::E_PIPELINE_STAGE_FLAGS*& stagesToWaitForPerSemaphore, 
-			const std::chrono::steady_clock::time_point& maxWaitPoint=video::GPUEventWrapper::default_wait())
+			const std::chrono::steady_clock::time_point& maxWaitPoint=video::GPUEventWrapper::default_wait()
+		)
 		{
-			if (!request.tree || !request.poolHandler || !request.upBuff || !request.outNodes.begin() || !request.cmdbuf || !request.fence)
+			if (!request.isValid())
 				return false;
 			if (request.outNodes.empty())
 				return true;
-			assert(request.outNodes.begin()<request.outNodes.end());
 
 			if (!request.tree->allocateNodes(request.outNodes))
 				return false;
@@ -279,7 +363,134 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 				waitSemaphoreCount,semaphoresToWaitBeforeOverwrite,stagesToWaitForPerSemaphore,request.logger,maxWaitPoint
 			);
 		}
-		// TODO: utility for adding skeleton node instances, etc.
+
+		//
+		struct SkeletonAllocationRequest : RequestBase,AdditionRequestBase
+		{
+			core::SRange<const asset::ICPUSkeleton*> skeletons;
+			// if nullptr then treated like a buffer of {1,1,...,1,1}, else needs to be same length as the skeleton range
+			const uint32_t* instanceCounts = nullptr;
+			// If you make the skeleton hierarchy have a real parent, you won't be able to share it amongst multiple instances of a mesh
+			// also in order to render with standard shaders you'll have to cancel out the model transform of the parent for the skinning matrices.
+			const ITransformTree::node_t*const * skeletonInstanceParents = nullptr;
+			// the following arrays need to be sized according to `StagingRequirements`
+			// if the `outNodes` have values not equal to `invalid_node` then we treat them as already allocated
+			// (this allows you to split allocation of nodes from setting up the transfers)
+			ITransformTree::node_t* outNodes = nullptr;
+			// scratch buffers are just required to be the set size, they can be filled with garbage
+			ITransformTree::node_t* parentScratch;
+			// must be non null if at least one skeleton has default transforms
+			ITransformTree::relative_transform_t* transformScratch = nullptr;
+
+			inline bool isValid() const
+			{
+				return AdditionRequestBase::isValid() && skeletons.begin() && skeletons.begin()<=skeletons.end() && outNodes && parentScratch;
+			}
+
+			struct StagingRequirements
+			{
+				uint32_t nodeCount;
+				uint32_t parentScratchSize;
+				uint32_t transformScratchSize;
+			};
+			inline StagingRequirements computeStagingRequirements() const
+			{
+				StagingRequirements reqs = {0u,0u,0u};
+				auto instanceCountIt = instanceCounts;
+				for (auto skeleton : skeletons)
+				{
+					if (skeleton)
+					{
+						const uint32_t jointCount = skeleton->getJointCount();
+						const uint32_t jointInstanceCount = (*instanceCountIt)*jointCount;
+						reqs.nodeCount += jointInstanceCount;
+						reqs.parentScratchSize += sizeof(ITransformTree::node_t)*jointInstanceCount;
+						if (skeleton->getDefaultTransformBinding().buffer)
+							reqs.transformScratchSize += sizeof(ITransformTree::relative_transform_t)*jointCount;
+					}
+					instanceCountIt++;
+				}
+				if (reqs.transformScratchSize)
+					reqs.transformScratchSize += reqs.parentScratchSize*sizeof(uint32_t)/sizeof(ITransformTree::node_t);
+				return reqs;
+			}
+		};
+		inline bool addSkeletonNodes(
+			const SkeletonAllocationRequest& request, uint32_t& waitSemaphoreCount,
+			video::IGPUSemaphore* const*& semaphoresToWaitBeforeOverwrite,
+			const asset::E_PIPELINE_STAGE_FLAGS*& stagesToWaitForPerSemaphore, 
+			const std::chrono::steady_clock::time_point& maxWaitPoint=video::GPUEventWrapper::default_wait()
+		)
+		{
+			if (!request.isValid())
+				return false;
+
+			const auto staging = request.computeStagingRequirements();
+			if (staging.nodeCount==0u)
+				return true;
+
+			if (!request.tree->allocateNodes({request.outNodes,request.outNodes+staging.nodeCount}))
+				return false;
+
+			uint32_t* const srcTransformIndices = reinterpret_cast<uint32_t*>(request.transformScratch+staging.transformScratchSize/sizeof(ITransformTree::relative_transform_t));
+			{
+				auto instanceCountIt = request.instanceCounts;
+				auto skeletonInstanceParentsIt = request.skeletonInstanceParents;
+				auto parentsIt = request.parentScratch;
+				auto transformIt = request.transformScratch;
+				auto srcTransformIndicesIt = srcTransformIndices;
+				uint32_t baseJointInstance = 0u;
+				uint32_t baseJoint = 0u;
+				for (auto skeleton : request.skeletons)
+				{
+					const auto instanceCount = request.instanceCounts ? (*(instanceCountIt++)):1u;
+					auto* const instanceParents = request.skeletonInstanceParents ? (*(skeletonInstanceParentsIt++)):nullptr;
+
+					const auto jointCount = skeleton->getJointCount();
+					auto instanceParentsIt = instanceParents;
+					for (auto instanceID=0u; instanceID<instanceCount; instanceID++)
+					{
+						for (auto jointID=0u; jointID<jointCount; jointID++)
+						{
+							uint32_t parentID = skeleton->getParentJointID(jointID);
+							if (parentID!=asset::ICPUSkeleton::invalid_joint_id)
+								parentID = request.outNodes[parentID+baseJointInstance];
+							else
+								parentID = instanceParents ? (*instanceParentsIt):ITransformTree::invalid_node;
+							*(parentsIt++) = parentID;
+
+							if (staging.transformScratchSize)
+								*(srcTransformIndicesIt++) = jointID+baseJoint;
+						}
+						baseJointInstance += jointCount;
+					}
+					if (skeleton->getDefaultTransformBinding().buffer)
+					for (auto jointID=0u; jointID<jointCount; jointID++)
+						*(transformIt++) = skeleton->getDefaultTransformMatrix(jointID);
+					baseJoint += jointCount;
+				}
+			}
+
+			video::CPropertyPoolHandler::UpStreamingRequest upstreams[TransferCount];
+			UpstreamRequest req = {};
+			req.tree = request.tree;
+			req.nodes = {request.outNodes,request.outNodes+staging.nodeCount};
+			req.parents.data = request.parentScratch;
+			if (staging.transformScratchSize)
+				req.relativeTransforms.data = request.transformScratch;
+			if (!setupTransfers(req,upstreams))
+				return false;
+			if (staging.transformScratchSize)
+				upstreams[1].srcAddresses = srcTransformIndices;
+
+			auto upstreamsPtr = upstreams;
+			return request.poolHandler->transferProperties(
+				request.upBuff,request.cmdbuf,request.fence,request.queue,request.scratch,upstreamsPtr,TransferCount,
+				waitSemaphoreCount,semaphoresToWaitBeforeOverwrite,stagesToWaitForPerSemaphore,request.logger,maxWaitPoint
+			);
+		}
+
+
 		 
 		//
 		inline void removeNodes(ITransformTree* tree, const ITransformTree::node_t* begin, const ITransformTree::node_t* end)
@@ -453,6 +664,52 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			return soleUpdateOrFusedRecompute_impl<1u>(m_recomputePipeline.get(),params,{params.nodeIDs});
 		}
 
+
+		static inline constexpr uint32_t DebugNodeIDAttributeIndex = 14u;
+		static inline constexpr uint32_t DebugAABBIDAttributeIndex = 15u;
+		static inline constexpr uint32_t DebugNodeIDBindingIndex = DebugNodeIDAttributeIndex;
+		static inline constexpr uint32_t DebugAABBIDBindingIndex = DebugAABBIDAttributeIndex;
+		//
+		inline auto createDebugPipeline(core::smart_refctd_ptr<video::IGPURenderpass>&& renderpass)
+		{
+			nbl::video::IGPUGraphicsPipeline::SCreationParams graphicsPipelineParams;
+			graphicsPipelineParams.renderpassIndependent = m_debugDrawIndepenedentPipeline;
+			graphicsPipelineParams.renderpass = std::move(renderpass);
+			return m_device->createGPUGraphicsPipeline(nullptr,std::move(graphicsPipelineParams));
+		}
+
+		//
+		struct DebugPushConstants
+		{
+			core::matrix4SIMD viewProjectionMatrix;
+			core::vector4df_SIMD lineColor;
+			core::vector4df_SIMD aabbColor;
+		};
+		inline void debugDraw(
+			video::IGPUCommandBuffer* cmdbuf, const video::IGPUGraphicsPipeline* pipeline, const ITransformTree* tree, const video::IGPUDescriptorSet* aabb,
+			const asset::SBufferBinding<video::IGPUBuffer>& nodeID, const asset::SBufferBinding<video::IGPUBuffer>& aabbID,
+			const DebugPushConstants& pushConstants, const uint32_t count
+		)
+		{
+			auto layout = m_debugDrawIndepenedentPipeline->getLayout();
+			assert(pipeline->getRenderpassIndependentPipeline()->getLayout()==layout);
+
+			const video::IGPUDescriptorSet* sets[] = {tree->getNodePropertyDescriptorSet(),aabb};
+			cmdbuf->bindDescriptorSets(asset::EPBP_GRAPHICS,layout,0u,2u,sets);
+			cmdbuf->bindGraphicsPipeline(pipeline);
+			{
+				auto buffer = nodeID.buffer.get();
+				size_t offset = nodeID.offset;
+				cmdbuf->bindVertexBuffers(DebugNodeIDBindingIndex,1u,&buffer,&offset);
+				buffer = aabbID.buffer.get();
+				offset = aabbID.offset;
+				cmdbuf->bindVertexBuffers(DebugAABBIDBindingIndex,1u,&buffer,&offset);
+			}
+			cmdbuf->bindIndexBuffer(m_debugIndexBuffer.get(),0u,asset::EIT_16BIT);
+			cmdbuf->pushConstants(layout,asset::ISpecializedShader::ESS_VERTEX,0u,sizeof(DebugPushConstants),&pushConstants);
+			cmdbuf->drawIndexed(IndexCount,count,0u,0u,0u);
+		}
+
 	protected:
 		static inline uint64_t getDefaultValueBufferOffset(const video::IPhysicalDevice::SLimits& limits, uint32_t prop_ix)
 		{
@@ -516,12 +773,16 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			core::smart_refctd_ptr<video::IGPUComputePipeline>&& _updatePipeline,
 			core::smart_refctd_ptr<video::IGPUComputePipeline>&& _recomputePipeline,
 			core::smart_refctd_ptr<video::IGPUComputePipeline>&& _updateAndRecomputePipeline,
-			core::smart_refctd_ptr<video::IGPUBuffer>&& _defaultFillValues
+			core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline>&& _debugDrawIndepenedentPipeline,
+			core::smart_refctd_ptr<video::IGPUBuffer>&& _defaultFillValues,
+			core::smart_refctd_ptr<video::IGPUBuffer>&& _debugIndexBuffer
 		) : m_device(std::move(_device)), m_dsCache(std::move(_dsCache)),
 			m_updatePipeline(std::move(_updatePipeline)),
 			m_recomputePipeline(std::move(_recomputePipeline)),
 			m_updateAndRecomputePipeline(std::move(_updateAndRecomputePipeline)),
+			m_debugDrawIndepenedentPipeline(_debugDrawIndepenedentPipeline),
 			m_defaultFillValues(std::move(_defaultFillValues)),
+			m_debugIndexBuffer(std::move(_debugIndexBuffer)),
 			m_workgroupSize(m_device->getPhysicalDevice()->getLimits().maxOptimallyResidentWorkgroupInvocations)
 		{
 		}
@@ -591,6 +852,12 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		core::smart_refctd_ptr<video::IGPUComputePipeline> m_updatePipeline,m_recomputePipeline,m_updateAndRecomputePipeline;
 		core::smart_refctd_ptr<video::IGPUBuffer> m_defaultFillValues;
 		const uint32_t m_workgroupSize;
+
+		core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> m_debugDrawIndepenedentPipeline;
+		core::smart_refctd_ptr<video::IGPUBuffer> m_debugIndexBuffer;
+		constexpr static inline auto AABBIndices = 24u;
+		constexpr static inline auto LineIndices = 2u;
+		constexpr static inline auto IndexCount = AABBIndices+LineIndices;
 };
 
 } // end namespace nbl::scene

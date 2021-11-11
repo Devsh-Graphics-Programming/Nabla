@@ -93,7 +93,7 @@ class ITransformTree : public virtual core::IReferenceCounted
 			if (!layout)
 				return nullptr;
 
-			auto ds = device->createGPUDescriptorSet(dsp.get(),std::move(layout));
+			auto ds = device->createGPUDescriptorSet(dsp.get(), core::smart_refctd_ptr(layout));
 			if (!ds)
 				return nullptr;
 
@@ -111,8 +111,8 @@ class ITransformTree : public virtual core::IReferenceCounted
 			}
 			device->updateDescriptorSets(property_pool_t::PropertyCount,writes,0u,nullptr);
 
-			auto* tt = new ITransformTree(std::move(pool),std::move(ds));
-			return core::smart_refctd_ptr<ITransformTree>(tt,core::dont_grab);
+			auto* ttRaw = new ITransformTree(std::move(pool),std::move(ds));
+			return core::smart_refctd_ptr<ITransformTree>(ttRaw,core::dont_grab);
 		}
 		
 		//

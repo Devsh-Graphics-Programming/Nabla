@@ -208,7 +208,7 @@ void addLoDTable(
             drawCallData.instanceCount = 0u;
             drawCallData.firstIndex = gpumb->getIndexBufferBinding().offset/indexSize+i;
             drawCallData.baseVertex = 0u;
-            drawCallData.baseVertex = 0xdeadbeefu; // set to garbage to test the prefix sum
+            drawCallData.baseInstance = 0xdeadbeefu; // set to garbage to test the prefix sum
            
             lodLibraryData.drawCallOffsetsIn20ByteStrides.emplace_back(di.drawCallOffset / di.drawCommandStride + batchID);
 

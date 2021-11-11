@@ -1,6 +1,9 @@
 #ifndef _NBL_UI_I_GRAPHICAL_APPLICATION_FRAMEWORK_H_INCLUDED_
 #define _NBL_UI_I_GRAPHICAL_APPLICATION_FRAMEWORK_H_INCLUDED_
 
+#include <vector>
+#include <string>
+
 namespace nbl::ui
 {
 	class IGraphicalApplicationFramework
@@ -8,6 +11,8 @@ namespace nbl::ui
 	public:
 		virtual void setWindow(core::smart_refctd_ptr<nbl::ui::IWindow>&& window) = 0;
 		virtual nbl::ui::IWindow* getWindow() = 0;
+
+		std::vector<std::string> argv;
 	};
 }
 #endif
