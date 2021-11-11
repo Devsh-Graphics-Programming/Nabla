@@ -112,7 +112,7 @@ namespace nbl
 			#define NBL_COMPILE_WITH_SYSTEM_BUG // remove this after above fixed
 
 			#ifdef NBL_COMPILE_WITH_SYSTEM_BUG
-			if (_file->getFileName().filename().string() == "missing_checkerboard_texture.png")
+			if (_file->getFileName().filename().string() == "missing_checkerboard_texture.png" || _file->getFileName().filename().extension() != ".gltf")
 				return false;
 			#endif // NBL_COMPILE_WITH_SYSTEM_BUG
 
