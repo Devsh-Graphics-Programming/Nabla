@@ -1192,12 +1192,11 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
 
             if (needToCompMipsForThisImg(cpuimg))
             {
-                // This API check is temporary (or not?) since getFormatProperties is not
-                // yet implemented on OpenGL
+                // Todo(achal): Remove this API check once OpenGL(ES) does its format usage reporting correctly
                 if (_params.device->getAPIType() == EAT_VULKAN)
                 {
-                    const auto& formatProps = _params.device->getPhysicalDevice()->getFormatProperties(cpuimg->getCreationParameters().format);
-                    assert((formatProps.optimalTilingFeatures& asset::EFF_SAMPLED_IMAGE_FILTER_LINEAR_BIT).value); // for blits, can lift are polyphase compute
+                    assert(_params.device->getPhysicalDevice()->getImageFormatUsagesOptimal(cpuimg->getCreationParameters().format).sampledImage);
+                    assert(asset::isFloatingPointFormat(cpuimg->getCreationParameters().format) || asset::isNormalizedFormat(cpuimg->getCreationParameters().format)); // // for blits, can lift are polyphase compute
                 }
                 cmdComputeMip(cpuimg, gpuimg, newLayout);
             }
@@ -1620,30 +1619,34 @@ inline created_gpu_object_array<asset::ICPUImageView> IGPUObjectFromAssetConvert
 
         core::bitflag<asset::E_FORMAT_FEATURE> requiredFormatFeatures = static_cast<asset::E_FORMAT_FEATURE>(asset::EFF_TRANSFER_DST_BIT | asset::EFF_BLIT_SRC_BIT | asset::EFF_BLIT_DST_BIT);
 
+        IPhysicalDevice::SFormatImageUsage requiredFormatUsages = {};
+        requiredFormatUsages.transferDst = 1;
+        requiredFormatUsages.blitDst = 1;
+        requiredFormatUsages.blitSrc = 1;
+
         const core::bitflag<asset::IImage::E_USAGE_FLAGS> imageUsageFlags = cpuDeps[i]->getImageUsageFlags();
         if ((imageUsageFlags & asset::IImage::EUF_TRANSFER_SRC_BIT).value)
-            requiredFormatFeatures |= asset::EFF_TRANSFER_SRC_BIT;
+            requiredFormatUsages.transferSrc = 1;
         if ((imageUsageFlags & asset::IImage::EUF_SAMPLED_BIT).value)
-            requiredFormatFeatures |= asset::EFF_SAMPLED_IMAGE_BIT;
+            requiredFormatUsages.sampledImage = 1;
         if ((imageUsageFlags & asset::IImage::EUF_STORAGE_BIT).value)
-            requiredFormatFeatures |= asset::EFF_STORAGE_IMAGE_BIT;
+            requiredFormatUsages.storageImage = 1;
         if ((imageUsageFlags & asset::IImage::EUF_COLOR_ATTACHMENT_BIT).value)
-            requiredFormatFeatures |= asset::EFF_COLOR_ATTACHMENT_BIT;
+            requiredFormatUsages.attachment = 1;
         if ((imageUsageFlags & asset::IImage::EUF_DEPTH_STENCIL_ATTACHMENT_BIT).value)
-            requiredFormatFeatures |= asset::EFF_DEPTH_STENCIL_ATTACHMENT_BIT;
+            requiredFormatUsages.attachment = 1;
 
         const auto format = imageCreationParams.format;
-        const auto& formatProps = _params.utilities->getLogicalDevice()->getPhysicalDevice()->getFormatProperties(format);
         bool formatSupported = false;
         if (imageCreationParams.tiling == asset::IImage::ET_OPTIMAL)
         {
-            if ((formatProps.optimalTilingFeatures & requiredFormatFeatures).value == requiredFormatFeatures.value)
-                formatSupported = true;
+            const auto formatUsages = _params.utilities->getLogicalDevice()->getPhysicalDevice()->getImageFormatUsagesOptimal(format);
+            formatSupported = ((formatUsages & requiredFormatUsages) == requiredFormatUsages);
         }
         else
         {
-            if ((formatProps.linearTilingFeatures & requiredFormatFeatures).value == requiredFormatFeatures.value)
-                formatSupported = true;
+            const auto formatUsages = _params.utilities->getLogicalDevice()->getPhysicalDevice()->getImageFormatUsagesLinear(format);
+            formatSupported = ((formatUsages & requiredFormatUsages) == requiredFormatUsages);
         }
 
         if (!formatSupported)

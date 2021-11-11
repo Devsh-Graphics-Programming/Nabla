@@ -77,16 +77,11 @@ namespace nbl::video
         //! Remember to ensure a memory dependency between the command recorded here and any users (so fence wait, semaphore when submitting, pipeline barrier or event)
         inline core::smart_refctd_ptr<IGPUImage> createFilledDeviceLocalGPUImageOnDedMem(IGPUCommandBuffer* cmdbuf, IGPUImage::SCreationParams&& params, const IGPUBuffer* srcBuffer, uint32_t regionCount, const IGPUImage::SBufferCopy* pRegions)
         {
-            // This API check is temporary (or not?) since getFormatProperties is not
-            // yet implemented on OpenGL
+            // Todo(achal): Remove this API check once OpenGL(ES) does its format usage reporting correctly
             if (srcBuffer->getAPIType() == EAT_VULKAN)
             {
-                const auto reqFormatFeature = asset::EFF_TRANSFER_DST_BIT;
-
-                const auto& formatProps = m_device->getPhysicalDevice()->getFormatProperties(params.format);
-                if ((params.tiling == asset::IImage::ET_OPTIMAL) && (formatProps.optimalTilingFeatures & reqFormatFeature).value == 0)
-                    return nullptr;
-                if ((params.tiling == asset::IImage::ET_LINEAR) && (formatProps.linearTilingFeatures & reqFormatFeature).value == 0)
+                const auto& formatUsages = m_device->getPhysicalDevice()->getImageFormatUsagesOptimal(params.format);
+                if (!formatUsages.transferDst)
                     return nullptr;
             }
 
@@ -176,27 +171,26 @@ namespace nbl::video
         //! Remember to ensure a memory dependency between the command recorded here and any users (so fence wait, semaphore when submitting, pipeline barrier or event)
         inline core::smart_refctd_ptr<IGPUImage> createFilledDeviceLocalGPUImageOnDedMem(IGPUCommandBuffer* cmdbuf, IGPUImage::SCreationParams&& params, const IGPUImage* srcImage, uint32_t regionCount, const IGPUImage::SImageCopy* pRegions)
         {
-            // This API check is temporary (or not?) since getFormatProperties is not
-            // yet implemented on OpenGL
+            // Todo(achal): Remove this API check once OpenGL(ES) does its format usage reporting correctly
             if (srcImage->getAPIType() == EAT_VULKAN)
             {
-                const auto* physicalDevice = m_device->getPhysicalDevice();
-                const auto validateFormatFeature = [&params, physicalDevice](const auto format, const auto reqFormatFeature) -> bool
+                auto* physicalDevice = m_device->getPhysicalDevice();
+                const auto validateFormatFeature = [&params, physicalDevice](const auto format, const auto reqFormatUsages) -> bool
                 {
-                    const auto& formatProps = physicalDevice->getFormatProperties(params.format);
-
-                    if ((params.tiling == asset::IImage::ET_OPTIMAL) && (formatProps.optimalTilingFeatures & reqFormatFeature).value == 0)
-                        return false;
-                    if ((params.tiling == asset::IImage::ET_LINEAR) && (formatProps.linearTilingFeatures & reqFormatFeature).value == 0)
-                        return false;
-
-                    return true;
+                    if (params.tiling == asset::IImage::ET_OPTIMAL)
+                        return (physicalDevice->getImageFormatUsagesOptimal(params.format) & reqFormatUsages) == reqFormatUsages;
+                    else
+                        return (physicalDevice->getImageFormatUsagesLinear(params.format) & reqFormatUsages) == reqFormatUsages;
                 };
 
-                if (!validateFormatFeature(srcImage->getCreationParameters().format, asset::EFF_TRANSFER_SRC_BIT))
+                IPhysicalDevice::SFormatImageUsage requiredFormatUsage = {};
+                requiredFormatUsage.transferSrc = 1;
+                if (!validateFormatFeature(srcImage->getCreationParameters().format, requiredFormatUsage))
                     return nullptr;
 
-                if (!validateFormatFeature(params.format, asset::EFF_TRANSFER_DST_BIT))
+                requiredFormatUsage.transferSrc = 0;
+                requiredFormatUsage.transferDst = 1;
+                if (!validateFormatFeature(params.format, requiredFormatUsage))
                     return nullptr;
             }
 

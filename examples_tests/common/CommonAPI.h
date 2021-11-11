@@ -1309,13 +1309,11 @@ public:
 		if(api_type == nbl::video::EAT_VULKAN)
 		{
 			// Deduce format features from imageUsage param
-			core::bitflag<asset::E_FORMAT_FEATURE> requiredFormatFeatures = static_cast<asset::E_FORMAT_FEATURE>(0u);
+			video::IPhysicalDevice::SFormatImageUsage requiredFormatUsages = {};
 			if (imageUsage & asset::IImage::EUF_STORAGE_BIT)
-				requiredFormatFeatures |= asset::EFF_STORAGE_IMAGE_BIT;
+				requiredFormatUsages.storageImage = 1;
 			
-			const auto requestedFormatProps = device->getPhysicalDevice()->getFormatProperties(requestedSurfaceFormat.format);
-			const bool requestedFormatSupportsFeatures = ((requestedFormatProps.optimalTilingFeatures & requiredFormatFeatures).value == requiredFormatFeatures.value);
-			_NBL_DEBUG_BREAK_IF(requestedFormatSupportsFeatures == false); // requested format doesn't support requiredFormatFeatures for TILING_OPTIMAL
+			_NBL_DEBUG_BREAK_IF((device->getPhysicalDevice()->getImageFormatUsagesOptimal(requestedSurfaceFormat.format) & requiredFormatUsages) != requiredFormatUsages); // requested format doesn't support requiredFormatFeatures for TILING_OPTIMAL
 
 			uint32_t found_format_and_colorspace = ~0u;
 			uint32_t found_format = ~0u;
@@ -1326,8 +1324,8 @@ public:
 				const bool hasMatchingFormats = requestedSurfaceFormat.format == supportedFormat.format;
 				const bool hasMatchingColorspace = requestedSurfaceFormat.colorSpace.eotf == supportedFormat.colorSpace.eotf && requestedSurfaceFormat.colorSpace.primary == supportedFormat.colorSpace.primary;
 
-				const auto supportedFormatProps = device->getPhysicalDevice()->getFormatProperties(supportedFormat.format);
-				const bool supportedFormatSupportsFeatures = ((supportedFormatProps.optimalTilingFeatures & requiredFormatFeatures).value == requiredFormatFeatures.value);
+				const auto supportedFormatUsages = device->getPhysicalDevice()->getImageFormatUsagesOptimal(supportedFormat.format);
+				const bool supportedFormatSupportsFeatures = ((supportedFormatUsages & requiredFormatUsages) == requiredFormatUsages);
 
 				if(!supportedFormatSupportsFeatures)
 					continue;

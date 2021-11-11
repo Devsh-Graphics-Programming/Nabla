@@ -834,6 +834,28 @@ public:
 		}
 	}
 
+	const SFormatImageUsage& getImageFormatUsagesLinear(const asset::E_FORMAT format) override
+	{
+		// Todo(achal):
+		_NBL_TODO();
+		return SFormatImageUsage();
+	}
+
+	const SFormatImageUsage& getImageFormatUsagesOptimal(const asset::E_FORMAT format) override
+	{
+		// Todo(achal):
+		_NBL_TODO();
+		return SFormatImageUsage();
+	}
+
+	const SFormatBufferUsage& getBufferFormatUsages(const asset::E_FORMAT format) override
+	{
+		// Todo(achal):
+		_NBL_TODO();
+		return SFormatBufferUsage();
+	}
+
+#if 0
 	SFormatProperties getFormatProperties(asset::E_FORMAT format) const override
 	{
 		SFormatProperties result = {};
@@ -886,7 +908,7 @@ public:
 			result.optimalTilingFeatures |= asset::EFF_COLOR_ATTACHMENT_BLEND_BIT;
 
 
-
+		// Todo(achal):
 		_NBL_TODO();
 
 
@@ -895,6 +917,7 @@ public:
 
 		return result;
 	}
+#endif
 
 protected:
 	virtual ~IOpenGL_PhysicalDeviceBase()

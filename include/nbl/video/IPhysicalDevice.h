@@ -160,12 +160,139 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
             VkMemoryHeap    memoryHeaps[VK_MAX_MEMORY_HEAPS];
         };
 
-        struct SFormatProperties
+        struct SFormatBufferUsage
         {
-            core::bitflag<asset::E_FORMAT_FEATURE> linearTilingFeatures;
-            core::bitflag<asset::E_FORMAT_FEATURE> optimalTilingFeatures;
-            core::bitflag<asset::E_FORMAT_FEATURE> bufferFeatures;
+            uint8_t isInitialized : 1u;
+
+            uint8_t vertexAttribute : 1u; // vertexAtrtibute binding
+            uint8_t bufferView : 1u; // samplerBuffer
+            uint8_t storageBufferView : 1u; // imageBuffer
+            uint8_t storageBufferViewAtomic : 1u; // imageBuffer
+            uint8_t accelerationStructureVertex : 1u;
+
+            inline SFormatBufferUsage operator & (const SFormatBufferUsage& other) const
+            {
+                SFormatBufferUsage result;
+                result.vertexAttribute = vertexAttribute & other.vertexAttribute;
+                result.bufferView = bufferView & other.bufferView;
+                result.storageBufferView = storageBufferView & other.storageBufferView;
+                result.storageBufferViewAtomic = storageBufferViewAtomic & other.storageBufferViewAtomic;
+                result.accelerationStructureVertex = accelerationStructureVertex & other.accelerationStructureVertex;
+                return result;
+            }
+
+            inline SFormatBufferUsage operator | (const SFormatBufferUsage& other) const
+            {
+                SFormatBufferUsage result;
+                result.vertexAttribute = vertexAttribute | other.vertexAttribute;
+                result.bufferView = bufferView | other.bufferView;
+                result.storageBufferView = storageBufferView | other.storageBufferView;
+                result.storageBufferViewAtomic = storageBufferViewAtomic | other.storageBufferViewAtomic;
+                result.accelerationStructureVertex = accelerationStructureVertex | other.accelerationStructureVertex;
+                return result;
+            }
+
+            inline SFormatBufferUsage operator ^ (const SFormatBufferUsage& other) const
+            {
+                SFormatBufferUsage result;
+                result.vertexAttribute = vertexAttribute ^ other.vertexAttribute;
+                result.bufferView = bufferView ^ other.bufferView;
+                result.storageBufferView = storageBufferView ^ other.storageBufferView;
+                result.storageBufferViewAtomic = storageBufferViewAtomic ^ other.storageBufferViewAtomic;
+                result.accelerationStructureVertex = accelerationStructureVertex ^ other.accelerationStructureVertex;
+                return result;
+            }
+
+            inline bool operator == (const SFormatBufferUsage& other) const
+            {
+                return
+                    (vertexAttribute == other.vertexAttribute) &&
+                    (bufferView == other.bufferView) &&
+                    (storageBufferView == other.storageBufferView) &&
+                    (storageBufferViewAtomic == other.storageBufferViewAtomic) &&
+                    (accelerationStructureVertex == other.accelerationStructureVertex);
+            }
         };
+
+        struct SFormatImageUsage
+        {
+            uint8_t isInitialized : 1u;
+
+            uint16_t sampledImage : 1u; // samplerND
+            uint16_t storageImage : 1u; // imageND
+            uint16_t storageImageAtomic : 1u;
+            uint16_t attachment : 1u; // color, depth, stencil can be infferred from the format itself
+            uint16_t attachmentBlend : 1u;
+            uint16_t blitSrc : 1u;
+            uint16_t blitDst : 1u;
+            uint16_t transferSrc : 1u;
+            uint16_t transferDst : 1u;
+            uint16_t log2MaxSamples : 3u; // 0 means cant use as a multisample image format
+
+            inline SFormatImageUsage operator & (const SFormatImageUsage& other) const
+            {
+                SFormatImageUsage result;
+                result.sampledImage = sampledImage & other.sampledImage;
+                result.storageImage = storageImage & other.storageImage;
+                result.storageImageAtomic = storageImageAtomic & other.storageImageAtomic;
+                result.attachment = attachment & other.attachment;
+                result.attachmentBlend = attachmentBlend & other.attachmentBlend;
+                result.blitSrc = blitSrc & other.blitSrc;
+                result.blitDst = blitDst & other.blitDst;
+                result.transferSrc = transferSrc & other.transferSrc;
+                result.transferDst = transferDst & other.transferDst;
+                result.log2MaxSamples = log2MaxSamples & other.log2MaxSamples;
+                return result;
+            }
+
+            inline SFormatImageUsage operator | (const SFormatImageUsage& other) const
+            {
+                SFormatImageUsage result;
+                result.sampledImage = sampledImage | other.sampledImage;
+                result.storageImage = storageImage | other.storageImage;
+                result.storageImageAtomic = storageImageAtomic | other.storageImageAtomic;
+                result.attachment = attachment | other.attachment;
+                result.attachmentBlend = attachmentBlend | other.attachmentBlend;
+                result.blitSrc = blitSrc | other.blitSrc;
+                result.blitDst = blitDst | other.blitDst;
+                result.transferSrc = transferSrc | other.transferSrc;
+                result.transferDst = transferDst | other.transferDst;
+                result.log2MaxSamples = log2MaxSamples | other.log2MaxSamples;
+                return result;
+            }
+
+            inline SFormatImageUsage operator ^ (const SFormatImageUsage& other) const
+            {
+                SFormatImageUsage result;
+                result.sampledImage = sampledImage ^ other.sampledImage;
+                result.storageImage = storageImage ^ other.storageImage;
+                result.storageImageAtomic = storageImageAtomic ^ other.storageImageAtomic;
+                result.attachment = attachment ^ other.attachment;
+                result.attachmentBlend = attachmentBlend ^ other.attachmentBlend;
+                result.blitSrc = blitSrc ^ other.blitSrc;
+                result.blitDst = blitDst ^ other.blitDst;
+                result.transferSrc = transferSrc ^ other.transferSrc;
+                result.transferDst = transferDst ^ other.transferDst;
+                result.log2MaxSamples = log2MaxSamples ^ other.log2MaxSamples;
+                return result;
+            }
+
+            inline bool operator == (const SFormatImageUsage& other) const
+            {
+                return
+                    (sampledImage == other.sampledImage) &&
+                    (storageImage == other.storageImage) &&
+                    (storageImageAtomic == other.storageImageAtomic) &&
+                    (attachment == other.attachment) &&
+                    (attachmentBlend == other.attachmentBlend) &&
+                    (blitSrc == other.blitSrc) &&
+                    (blitDst == other.blitDst) &&
+                    (transferSrc == other.transferSrc) &&
+                    (transferDst == other.transferDst) &&
+                    (log2MaxSamples == other.log2MaxSamples);
+            }
+        };
+
 
         enum E_QUEUE_FLAGS : uint32_t
         {
@@ -220,7 +347,9 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
 
         virtual E_API_TYPE getAPIType() const = 0;
 
-        virtual SFormatProperties getFormatProperties(asset::E_FORMAT format) const = 0;
+        virtual const SFormatImageUsage& getImageFormatUsagesLinear(const asset::E_FORMAT format) = 0;
+        virtual const SFormatImageUsage& getImageFormatUsagesOptimal(const asset::E_FORMAT format) = 0;
+        virtual const SFormatBufferUsage& getBufferFormatUsages(const asset::E_FORMAT format) = 0;
 
     protected:
         IPhysicalDevice(core::smart_refctd_ptr<system::ISystem>&& s, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc);
@@ -257,7 +386,6 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
             }
         }
 
-
         core::smart_refctd_ptr<system::ISystem> m_system;
         core::smart_refctd_ptr<asset::IGLSLCompiler> m_GLSLCompiler;
 
@@ -266,6 +394,10 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
         SMemoryProperties m_memoryProperties;
         using qfam_props_array_t = core::smart_refctd_dynamic_array<SQueueFamilyProperties>;
         qfam_props_array_t m_qfamProperties;
+
+        SFormatImageUsage m_linearTilingUsages[asset::EF_UNKNOWN] = {};
+        SFormatImageUsage m_optimalTilingUsages[asset::EF_UNKNOWN] = {};
+        SFormatBufferUsage m_bufferUsages[asset::EF_UNKNOWN] = {};
 
         core::vector<char> m_GLSLDefineStringPool;
         core::vector<const char*> m_extraGLSLDefines;
