@@ -531,12 +531,18 @@ public:
 
             IDriverMemoryBacked::SDriverMemoryRequirements bufferMemoryReqs = {};
             bufferMemoryReqs.vulkanReqs.alignment = vk_memoryRequirements.memoryRequirements.alignment;
-            bufferMemoryReqs.vulkanReqs.size = size; // vk_memoryRequirements.memoryRequirements.size;
+            bufferMemoryReqs.vulkanReqs.size = vk_memoryRequirements.memoryRequirements.size;
             bufferMemoryReqs.vulkanReqs.memoryTypeBits = vk_memoryRequirements.memoryRequirements.memoryTypeBits;
             bufferMemoryReqs.memoryHeapLocation = 0u; // doesn't matter, would get overwritten during memory allocation for this resource anyway
             bufferMemoryReqs.mappingCapability = 0u; // doesn't matter, would get overwritten during memory allocation for this resource anyway
             bufferMemoryReqs.prefersDedicatedAllocation = vk_dedicatedMemoryRequirements.prefersDedicatedAllocation;
             bufferMemoryReqs.requiresDedicatedAllocation = vk_dedicatedMemoryRequirements.requiresDedicatedAllocation;
+
+            // 1. `size` should go in IGPUBuffer::SCreationParams
+            // 2. It should be returned by IGPUBuffer::getSize
+            // 3. The (optionally padded) memory size should then be
+            // returned by IDriverMemoryBacked::getMemoryReqs().vulkanReqs.size
+            const_cast<IGPUBuffer::SCreationParams&>(creationParams).declaredSize = size;
 
             return core::make_smart_refctd_ptr<CVulkanBuffer>(
                 core::smart_refctd_ptr<CVulkanLogicalDevice>(this), bufferMemoryReqs, creationParams, vk_buffer);

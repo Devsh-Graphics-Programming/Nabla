@@ -60,7 +60,7 @@ inline core::smart_refctd_ptr<asset::ICPUImageView> createScreenShot(
 
 		auto deviceLocalGPUMemoryReqs = logicalDevice->getDownStreamingMemoryReqs();
 		deviceLocalGPUMemoryReqs.vulkanReqs.size = extent.x*extent.y*extent.z*asset::getTexelOrBlockBytesize(fetchedGpuImageParams.format);
-		gpuTexelBuffer = logicalDevice->createGPUBufferOnDedMem(unused,deviceLocalGPUMemoryReqs);
+		gpuTexelBuffer = logicalDevice->createGPUBufferOnDedMem(bufferCreationParams,deviceLocalGPUMemoryReqs);
 
 		video::IGPUCommandBuffer::SImageMemoryBarrier barrier = {};
 		barrier.barrier.srcAccessMask = accessMask;

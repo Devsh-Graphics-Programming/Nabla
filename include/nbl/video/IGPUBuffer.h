@@ -30,6 +30,7 @@ class IGPUBuffer : public asset::IBuffer, public IDriverMemoryBacked, public IBa
 			core::bitflag<E_USAGE_FLAGS> usage = EUF_NONE;
 			bool canUpdateSubRange = false; // whether `IGPUCommandBuffer::updateBuffer` can be used on this buffer
 			asset::E_SHARING_MODE sharingMode = asset::ESM_EXCLUSIVE;
+			size_t declaredSize = 0ull;
 		};
 		struct SCreationParams : SCachedCreationParams
 		{

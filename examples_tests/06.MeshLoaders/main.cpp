@@ -255,6 +255,7 @@ public:
 
                 meshBuffer->getPipeline()->getRasterizationParams().frontFaceIsCCW = false;
 
+#if 1
                 // TODO: This should come in set by the loader
                 asset::ICPUDescriptorSet* ds = meshBuffer->getAttachedDescriptorSet();
                 for (uint32_t j = 0u; j < ds->getMaxDescriptorBindingIndex(); ++j)
@@ -281,6 +282,7 @@ public:
                         }
                     }
                 }
+#endif
             }
 
             cpu2gpuParams.beginCommandBuffers();
@@ -499,7 +501,7 @@ public:
     }
     bool keepRunning() override
     {
-        return true;// windowCb->isWindowOpen();
+        return windowCb->isWindowOpen();
     }
 };
 

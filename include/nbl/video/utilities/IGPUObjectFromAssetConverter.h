@@ -954,12 +954,12 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
         if (auto found = img2gpubuf.find(cpuimg); found != img2gpubuf.end())
         {
             auto buf = found->second;
-            assert(buf->getSize() == cpuimg->getBuffer()->getSize());
+            assert(buf->getCachedCreationParams().declaredSize == cpuimg->getBuffer()->getSize());
 
             asset::SBufferRange<IGPUBuffer> bufrng;
             bufrng.buffer = buf;
             bufrng.offset = 0u;
-            bufrng.size = cpuimg->getBuffer()->getSize();
+            bufrng.size = buf->getCachedCreationParams().declaredSize;
 
             _params.utilities->updateBufferRangeViaStagingBuffer(
                 cmdbuf_transfer.get(),transfer_fence.get(),_params.perQueue[EQU_TRANSFER].queue,bufrng,cpuimg->getBuffer()->getPointer(),
@@ -1618,7 +1618,7 @@ inline created_gpu_object_array<asset::ICPUImageView> IGPUObjectFromAssetConvert
     {
         const asset::ICPUImage::SCreationParams& imageCreationParams = cpuDeps[i]->getCreationParameters();
 
-        core::bitflag<asset::E_FORMAT_FEATURE> requiredFormatFeatures = static_cast<asset::E_FORMAT_FEATURE>(asset::EFF_TRANSFER_DST_BIT);
+        core::bitflag<asset::E_FORMAT_FEATURE> requiredFormatFeatures = static_cast<asset::E_FORMAT_FEATURE>(asset::EFF_TRANSFER_DST_BIT | asset::EFF_BLIT_SRC_BIT | asset::EFF_BLIT_DST_BIT);
 
         const core::bitflag<asset::IImage::E_USAGE_FLAGS> imageUsageFlags = cpuDeps[i]->getImageUsageFlags();
         if ((imageUsageFlags & asset::IImage::EUF_TRANSFER_SRC_BIT).value)
@@ -1649,7 +1649,7 @@ inline created_gpu_object_array<asset::ICPUImageView> IGPUObjectFromAssetConvert
         if (!formatSupported)
         {
             // promote
-            assert((format != asset::EF_R8G8B8_SRGB) && "Don't know how to promote other formats!");
+            assert((format == asset::EF_R8G8B8_SRGB) && "Don't know how to promote other formats!");
 
             const asset::E_FORMAT promotedFormat = asset::EF_R8G8B8A8_SRGB;
             {

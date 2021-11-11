@@ -116,7 +116,7 @@ public:
 		initOutp.window = core::smart_refctd_ptr(win);
 		CommonAPI::Init(
 			initOutp,
-			video::EAT_OPENGL,
+			video::EAT_VULKAN,
 			"29.SpecializationConstants",
 			requiredInstanceFeatures,
 			optionalInstanceFeatures,
@@ -249,7 +249,7 @@ public:
 
 		video::IGPUBuffer::SCreationParams uboComputeCreationParams = {};
 		uboComputeCreationParams.usage = static_cast<asset::IBuffer::E_USAGE_FLAGS>(asset::IBuffer::EUF_UNIFORM_BUFFER_BIT | asset::IBuffer::EUF_TRANSFER_DST_BIT);
-		auto gpuUboCompute = device->createGPUBufferOnDedMem(uboComputeCreationParams, devLocalReqs, true);
+		auto gpuUboCompute = device->createGPUBufferOnDedMem(uboComputeCreationParams, devLocalReqs);
 		m_gpuds0Compute = device->createGPUDescriptorSet(dscPool.get(), std::move(gpuDs0layoutCompute));
 		{
 			video::IGPUDescriptorSet::SDescriptorInfo i[3];
@@ -274,7 +274,7 @@ public:
 			i[1].buffer.size = BUF_SZ;
 			i[2].desc = gpuUboCompute;
 			i[2].buffer.offset = 0ull;
-			i[2].buffer.size = gpuUboCompute->getBufferSize();
+			i[2].buffer.size = gpuUboCompute->getCachedCreationParams().declaredSize;
 
 			device->updateDescriptorSets(2u, w, 0u, nullptr);
 		}
@@ -336,7 +336,7 @@ public:
 		devLocalReqs.vulkanReqs.size = sizeof(m_viewParams);
 		video::IGPUBuffer::SCreationParams gfxUboCreationParams = {};
 		gfxUboCreationParams.usage = static_cast<asset::IBuffer::E_USAGE_FLAGS>(asset::IBuffer::EUF_UNIFORM_BUFFER_BIT | asset::IBuffer::EUF_TRANSFER_DST_BIT);
-		auto gpuUboGraphics = device->createGPUBufferOnDedMem(gfxUboCreationParams, devLocalReqs, true);
+		auto gpuUboGraphics = device->createGPUBufferOnDedMem(gfxUboCreationParams, devLocalReqs);
 		{
 			video::IGPUDescriptorSet::SWriteDescriptorSet w;
 			video::IGPUDescriptorSet::SDescriptorInfo i;
@@ -348,7 +348,7 @@ public:
 			w.info = &i;
 			i.desc = gpuUboGraphics;
 			i.buffer.offset = 0u;
-			i.buffer.size = gpuUboGraphics->getBufferSize();
+			i.buffer.size = gpuUboGraphics->getCachedCreationParams().declaredSize; // gpuUboGraphics->getSize();
 
 			device->updateDescriptorSets(1u, &w, 0u, nullptr);
 		}

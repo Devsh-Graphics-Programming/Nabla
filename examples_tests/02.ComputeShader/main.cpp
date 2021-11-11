@@ -208,7 +208,7 @@ public:
 				core::smart_refctd_ptr(dsLayout));
 		}
 		
-		// Uncomment once the KTX loader works
+		// Todo(achal): Uncomment once the KTX loader works
 #if 0
 		constexpr auto cachingFlags = static_cast<asset::IAssetLoader::E_CACHING_FLAGS>(
 			asset::IAssetLoader::ECF_DONT_CACHE_REFERENCES & asset::IAssetLoader::ECF_DONT_CACHE_TOP_LEVEL);

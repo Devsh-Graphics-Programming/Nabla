@@ -1567,7 +1567,7 @@ public:
 			submit.signalSemaphoreCount = waitSemaphore ? 1u:0u;
 			submit.pSignalSemaphores = &signalsem;
 			video::IGPUSemaphore* waitsem = waitSemaphore;
-			asset::E_PIPELINE_STAGE_FLAGS dstWait = asset::EPSF_COLOR_ATTACHMENT_OUTPUT_BIT; // hardcoded like that?
+			asset::E_PIPELINE_STAGE_FLAGS dstWait = waitDstStageMask.value;
 			submit.waitSemaphoreCount = 1u;
 			submit.pWaitSemaphores = &waitsem;
 			submit.pWaitDstStageMask = &dstWait;
