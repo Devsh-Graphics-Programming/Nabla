@@ -667,6 +667,15 @@ CGraphicsPipelineLoaderMTL::image_views_set_t CGraphicsPipelineLoaderMTL::loadIm
         viewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
         viewParams.format = image->getCreationParameters().format;
         viewParams.viewType = viewType[isCubemap];
+        asset::IImage::E_ASPECT_FLAGS aspectFlags = asset::IImage::EAF_COLOR_BIT;
+        if (isDepthOrStencilFormat(viewParams.format) && !isDepthOnlyFormat(viewParams.format))
+        {
+            if (isStencilOnlyFormat(viewParams.format))
+                aspectFlags = asset::IImage::EAF_STENCIL_BIT;
+            else
+                aspectFlags = asset::IImage::EAF_DEPTH_BIT;
+        }
+        viewParams.subresourceRange.aspectMask = aspectFlags;
         viewParams.subresourceRange.baseArrayLayer = 0u;
         viewParams.subresourceRange.layerCount = layerCount[isCubemap];
         viewParams.subresourceRange.baseMipLevel = 0u;

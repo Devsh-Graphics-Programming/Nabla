@@ -375,6 +375,7 @@ void IAssetManager::insertBuiltinAssets()
         info.image = dummy2dImage;
         info.viewType = asset::IImageView<asset::ICPUImage>::ET_2D;
         info.flags = static_cast<asset::ICPUImageView::E_CREATE_FLAGS>(0u);
+        info.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
         info.subresourceRange.baseArrayLayer = 0u;
         info.subresourceRange.layerCount = 1u;
         info.subresourceRange.baseMipLevel = 0u;

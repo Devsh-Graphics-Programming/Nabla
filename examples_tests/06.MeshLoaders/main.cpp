@@ -254,35 +254,6 @@ public:
                     meshBuffer->getPipeline()->getBlendParams().blendParams[i].attachmentEnabled = (i == 0ull);
 
                 meshBuffer->getPipeline()->getRasterizationParams().frontFaceIsCCW = false;
-
-#if 1
-                // TODO: This should come in set by the loader
-                asset::ICPUDescriptorSet* ds = meshBuffer->getAttachedDescriptorSet();
-                for (uint32_t j = 0u; j < ds->getMaxDescriptorBindingIndex(); ++j)
-                {
-                    const size_t arrayElementCount = ds->getDescriptors(j).size();
-                    for (size_t k = 0ull; k < arrayElementCount; ++k)
-                    {
-                        auto& currentDescriptor = ds->getDescriptors(j).begin()[k].desc;
-                        if (currentDescriptor->getTypeCategory() == asset::IDescriptor::EC_IMAGE)
-                        {
-                            asset::ICPUImageView* cpuImageView = static_cast<asset::ICPUImageView*>(currentDescriptor.get());
-                            const asset::E_FORMAT cpuImageViewFormat = cpuImageView->getCreationParameters().format;
-
-                            asset::IImage::E_ASPECT_FLAGS aspectFlags = asset::IImage::EAF_COLOR_BIT;
-                            if (isDepthOrStencilFormat(cpuImageViewFormat) && !isDepthOnlyFormat(cpuImageViewFormat))
-                            {
-                                if (isStencilOnlyFormat(cpuImageViewFormat))
-                                    aspectFlags = asset::IImage::EAF_STENCIL_BIT;
-                                else
-                                    aspectFlags = asset::IImage::EAF_DEPTH_BIT;
-                            }
-
-                            cpuImageView->setAspectFlags(aspectFlags);
-                        }
-                    }
-                }
-#endif
             }
 
             cpu2gpuParams.beginCommandBuffers();
@@ -294,7 +265,6 @@ public:
             gpumesh = (*gpu_array)[0];
         }
 
-       
         {
             for (size_t i = 0; i < gpumesh->getMeshBuffers().size(); ++i)
             {
