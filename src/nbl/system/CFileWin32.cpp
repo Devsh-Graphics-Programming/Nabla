@@ -24,6 +24,7 @@ nbl::system::CFileWin32::CFileWin32(core::smart_refctd_ptr<ISystem>&& sys, const
 
 	if (p.is_absolute()) 
 		p.make_preferred(); // Replace "/" separators with "\"
+
 	if (std::bit_cast<uint32_t>(m_flags & ECF_READ))
 	{
 		m_native = CreateFileA(p.string().data(), access, canOpenWhenOpened, &secAttribs, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);

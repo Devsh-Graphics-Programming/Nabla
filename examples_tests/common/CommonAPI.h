@@ -701,7 +701,7 @@ public:
 		nbl::system::path CWD = nbl::system::path(argv[0]).parent_path().generic_string() + "/";
 		nbl::system::path sharedInputCWD = CWD / "../../media/";
 		nbl::system::path sharedOutputCWD = CWD / "../../tmp/";;
-		nbl::system::path localInputCWD = CWD / "../";
+		nbl::system::path localInputCWD = CWD / "../assets";
 		nbl::system::path localOutputCWD = CWD;
 		auto app = nbl::core::make_smart_refctd_ptr<AppClassName>(localInputCWD, localOutputCWD, sharedInputCWD, sharedOutputCWD);
 
@@ -850,7 +850,9 @@ public:
 		result.window = windowManager->createWindow(std::move(windowsCreationParams));
 		result.windowCb->setInputSystem(nbl::core::smart_refctd_ptr(result.inputSystem));
 #else
-		result.window->setEventCallback(core::smart_refctd_ptr(result.windowCb));
+		result.windowCb = nbl::core::smart_refctd_ptr<EventCallback>((CommonAPIEventCallback*)result.window->getEventCallback());
+		result.windowCb->setInputSystem(core::smart_refctd_ptr(result.inputSystem));
+		//result.window->setEventCallback(core::smart_refctd_ptr(result.windowCb));
 #endif
 		if(api_type == EAT_VULKAN) 
 		{

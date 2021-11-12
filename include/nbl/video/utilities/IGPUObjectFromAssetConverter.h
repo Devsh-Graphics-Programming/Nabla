@@ -901,67 +901,32 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
             return;
 
         video::IGPUCommandBuffer::SImageMemoryBarrier barrier = {};
-        barrier.srcQueueFamilyIndex = ~0u;
-        barrier.dstQueueFamilyIndex = ~0u;
+        barrier.srcQueueFamilyIndex = cmdbuf_transfer->getQueueFamilyIndex();
+        barrier.dstQueueFamilyIndex = cmdbuf_transfer->getQueueFamilyIndex();
         barrier.image = core::smart_refctd_ptr<video::IGPUImage>(gpuimg);
         // TODO this is probably wrong (especially in case of depth/stencil formats), but i think i can leave it like this since we'll never have any depth/stencil images loaded (right?)
-        barrier.subresourceRange.aspectMask = cpuimg->getRegions().begin()->imageSubresource.aspectMask; 
-        barrier.subresourceRange.levelCount = 1u;
+        barrier.subresourceRange.aspectMask = cpuimg->getRegions().begin()->imageSubresource.aspectMask;
+        barrier.subresourceRange.baseMipLevel = 0u;
+        barrier.subresourceRange.levelCount = cpuimg->getCreationParameters().mipLevels;
         barrier.subresourceRange.baseArrayLayer = 0u;
         barrier.subresourceRange.layerCount = cpuimg->getCreationParameters().arrayLayers;
+        barrier.barrier.srcAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
+        barrier.barrier.dstAccessMask = asset::EAF_TRANSFER_READ_BIT;
+        barrier.oldLayout = asset::EIL_TRANSFER_DST_OPTIMAL;
+        barrier.newLayout = asset::EIL_TRANSFER_SRC_OPTIMAL;
 
-        asset::SImageBlit blitRegion = {};
-        blitRegion.srcSubresource.aspectMask = barrier.subresourceRange.aspectMask;
-        blitRegion.srcSubresource.baseArrayLayer = barrier.subresourceRange.baseArrayLayer;
-        blitRegion.srcSubresource.layerCount = barrier.subresourceRange.layerCount;
-        blitRegion.srcOffsets[0] = { 0, 0, 0 };
+        cmdbuf_transfer->pipelineBarrier(asset::EPSF_TRANSFER_BIT, asset::EPSF_TRANSFER_BIT,
+            static_cast<asset::E_DEPENDENCY_FLAGS>(0u), 0u, nullptr, 0u, nullptr, 1u, &barrier);
 
-        blitRegion.dstSubresource.aspectMask = barrier.subresourceRange.aspectMask;
-        blitRegion.dstSubresource.baseArrayLayer = barrier.subresourceRange.baseArrayLayer;
-        blitRegion.dstSubresource.layerCount = barrier.subresourceRange.layerCount;
-        blitRegion.dstOffsets[0] = { 0, 0, 0 };
+        cmdbuf_transfer->regenerateMipmaps(gpuimg, barrier.subresourceRange.levelCount - 1u, barrier.subresourceRange.aspectMask);
 
-        // Compute mips
-        auto mipsize = cpuimg->getMipSize(cpuimg->getCreationParameters().mipLevels);
-        uint32_t mipWidth = mipsize.x;
-        uint32_t mipHeight = mipsize.y;
-        uint32_t mipDepth = mipsize.z;
-        for (uint32_t i = cpuimg->getCreationParameters().mipLevels; i < gpuimg->getCreationParameters().mipLevels; ++i)
-        {
-            const uint32_t srcLoD = i - 1u;
+        barrier.barrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
+        barrier.oldLayout = asset::EIL_TRANSFER_SRC_OPTIMAL;
+        barrier.newLayout = newLayout;
+        barrier.subresourceRange.levelCount = gpuimg->getCreationParameters().mipLevels;
 
-            barrier.barrier.srcAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
-            barrier.barrier.dstAccessMask = asset::EAF_TRANSFER_READ_BIT;
-            barrier.oldLayout = asset::EIL_TRANSFER_DST_OPTIMAL;
-            barrier.newLayout = asset::EIL_TRANSFER_SRC_OPTIMAL;
-            barrier.subresourceRange.baseMipLevel = srcLoD;
-
-            cmdbuf_transfer->pipelineBarrier(asset::EPSF_TRANSFER_BIT, asset::EPSF_TRANSFER_BIT,
-                static_cast<asset::E_DEPENDENCY_FLAGS>(0u), 0u, nullptr, 0u, nullptr, 1u, &barrier);
-
-            const auto srcMipSz = cpuimg->getMipSize(srcLoD);
-
-            blitRegion.srcSubresource.mipLevel = srcLoD;
-            blitRegion.srcOffsets[1] = { srcMipSz.x, srcMipSz.y, srcMipSz.z };
-
-            blitRegion.dstSubresource.mipLevel = i;
-            blitRegion.dstOffsets[1] = { mipWidth, mipHeight, mipDepth };
-
-            cmdbuf_transfer->blitImage(gpuimg, asset::EIL_TRANSFER_SRC_OPTIMAL, gpuimg,
-                asset::EIL_TRANSFER_DST_OPTIMAL, 1u, &blitRegion, asset::ISampler::ETF_LINEAR);
-
-            barrier.barrier.srcAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
-            barrier.barrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
-            barrier.oldLayout = asset::EIL_TRANSFER_SRC_OPTIMAL;
-            barrier.newLayout = newLayout;
-
-            cmdbuf_transfer->pipelineBarrier(asset::EPSF_TRANSFER_BIT, asset::EPSF_COMPUTE_SHADER_BIT, static_cast<asset::E_DEPENDENCY_FLAGS>(0u), 0u, nullptr,
-                0u, nullptr, 1u, &barrier);
-
-            if (mipWidth > 1u) mipWidth /= 2u;
-            if (mipHeight > 1u) mipHeight /= 2u;
-            if (mipDepth > 1u) mipDepth /= 2u;
-        }
+        // ?? why compute
+        cmdbuf_transfer->pipelineBarrier(asset::EPSF_TRANSFER_BIT, asset::EPSF_COMPUTE_SHADER_BIT, static_cast<asset::E_DEPENDENCY_FLAGS>(0u), 0u, nullptr, 0u, nullptr, 1u, &barrier);
     };
 
     for (ptrdiff_t i = 0u; i < assetCount; ++i)
