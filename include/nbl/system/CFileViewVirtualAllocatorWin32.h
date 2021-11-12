@@ -14,7 +14,7 @@ public:
 	{
 		return VirtualAlloc(nullptr, size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
 	}
-	bool dealloc(void* data) override
+	bool dealloc(void* data, size_t size) override
 	{
 		return VirtualFree(data, 0, MEM_RELEASE);
 	}

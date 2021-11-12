@@ -1141,15 +1141,7 @@ public:
     }
     bool updateBuffer(buffer_t* dstBuffer, size_t dstOffset, size_t dataSize, const void* pData) override
     {
-        if (!this->isCompatibleDevicewise(dstBuffer))
-            return false;
-        if ((dstOffset & 0x03ull) != 0ull)
-            return false;
-        if ((dataSize & 0x03ull) != 0ull)
-            return false;
-        if (dataSize > 65536ull)
-            return false;
-        if (!dstBuffer->canUpdateSubRange())
+        if (!IGPUCommandBuffer::validate_updateBuffer(dstBuffer,dstOffset,dataSize,pData))
             return false;
 
         SCmd<impl::ECT_UPDATE_BUFFER> cmd;

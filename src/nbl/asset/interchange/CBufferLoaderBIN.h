@@ -16,12 +16,11 @@ namespace asset
 //! Binaryloader capable of loading source code in binary format
 class CBufferLoaderBIN final : public asset::IAssetLoader
 {
-	core::smart_refctd_ptr<system::ISystem> m_system;
 	protected:
 		~CBufferLoaderBIN() = default;
 
 	public:
-		explicit CBufferLoaderBIN(core::smart_refctd_ptr<system::ISystem>&& sys) : m_system(std::move(sys)){}
+		CBufferLoaderBIN() {}
 		bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const override;
 
 		const char** getAssociatedFileExtensions() const override

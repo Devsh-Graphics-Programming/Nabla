@@ -142,8 +142,7 @@ int main(int argc, char** argv)
 			auto& block = blocks[i];
 			block.offset = 0u;
 			block.size = pool_type::PropertySizes[i]*capacity;
-			creationParams.size = block.size;
-			block.buffer = device->createDeviceLocalGPUBufferOnDedMem(creationParams);
+			block.buffer = device->createDeviceLocalGPUBufferOnDedMem(creationParams,block.size);
 		}
 		retval = pool_type::create(device.get(),blocks,capacity,contiguous);
 	};
@@ -212,17 +211,19 @@ int main(int argc, char** argv)
 	core::vector<uint32_t> scratchInstanceRedirects;
 	core::vector<core::vectorSIMDf> initialColor;
 	core::vector<core::matrix3x4SIMD> instanceTransforms;
-	std::array<video::CPropertyPoolHandler::TransferRequest,object_property_pool_t::PropertyCount+1> transfers;
-	for (auto i=0u; i<transfers.size(); i++)
-	{
-		transfers[i].flags = video::CPropertyPoolHandler::TransferRequest::EF_NONE;
-		transfers[i].device2device = false;
-		transfers[i].srcAddresses = nullptr;
-	}
+    asset::SBufferBinding<video::IGPUBuffer> scratch;
+    {
+        video::IGPUBuffer::SCreationParams scratchParams = {};
+		scratchParams.canUpdateSubRange = true;
+		scratchParams.usage = core::bitflag(video::IGPUBuffer::EUF_TRANSFER_DST_BIT)|video::IGPUBuffer::EUF_STORAGE_BUFFER_BIT;
+		scratch = {0ull,device->createDeviceLocalGPUBufferOnDedMem(scratchParams,propertyPoolHandler->getMaxScratchSize())};
+		scratch.buffer->setObjectDebugName("Scratch Buffer");
+    }
 	// add a shape
 	auto addShapes = [&](
-		video::IGPUFence* fence,
 		video::IGPUCommandBuffer* cmdbuf,
+		video::IGPUFence* fence,
+		video::IGPUQueue* queue,
 		ext::Bullet3::CPhysicsWorld::RigidBodyData rigidBodyData,
 		instance_redirect_property_pool_t* pool, const uint32_t count,
 		const core::matrix3x4SIMD& correction_mat=core::matrix3x4SIMD()
@@ -250,59 +251,63 @@ int main(int argc, char** argv)
 			auto& body = bodies[objectID] = world->createRigidBody(rigidBodyData);
 			world->bindRigidBody<CInstancedMotionState>(body,pool,objectID,scratchInstanceRedirects[i],rigidBodyData.trans,correction_mat);
 		}
+		std::array<video::CPropertyPoolHandler::UpStreamingRequest,object_property_pool_t::PropertyCount+1> upstreams;
 		for (auto i=0u; i<object_property_pool_t::PropertyCount; i++)
 		{
-			transfers[i].setFromPool(objectPool.get(),i);
-			transfers[i].elementCount = count;
-			transfers[i].dstAddresses = scratchObjectIDs.data();
+			upstreams[i].setFromPool(objectPool.get(),i);
+			upstreams[i].fill = false;
+			upstreams[i].elementCount = count;
+			upstreams[i].srcAddresses = nullptr; // iota
+			upstreams[i].dstAddresses = scratchObjectIDs.data();
+			upstreams[i].source.device2device = false;
 		}
-		transfers[0].source = initialColor.data();
-		transfers[1].source = instanceTransforms.data();
+		upstreams[0].source.data = initialColor.data();
+		upstreams[1].source.data = instanceTransforms.data();
 		//
-		transfers[2].setFromPool(pool,0u);
+		upstreams[2].setFromPool(pool,0u);
+		upstreams[2].fill = false;
+		upstreams[2].elementCount = count;
+		upstreams[2].srcAddresses = nullptr; // iota
 		pool->indicesToAddresses(scratchInstanceRedirects.begin(),scratchInstanceRedirects.end(),scratchInstanceRedirects.begin());
-		transfers[2].elementCount = count;
-		transfers[2].srcAddresses = nullptr;
-		transfers[2].dstAddresses = scratchInstanceRedirects.data();
-		transfers[2].device2device = false;
-		transfers[2].source = scratchObjectIDs.data();
+		upstreams[2].dstAddresses = scratchInstanceRedirects.data();
+		upstreams[2].source.device2device = false;
+		upstreams[2].source.data = scratchObjectIDs.data();
 		// set up the transfer/update
+		auto* pUpstreams = upstreams.data();
+		// because this is only used to setup the scene we dont need to sync with any other queue
+		uint32_t waitSemaphoreCount = 0u;
+		video::IGPUSemaphore* const* semaphoresToWaitBeforeOverwrite = nullptr;
+		const asset::E_PIPELINE_STAGE_FLAGS* stagesToWaitForPerSemaphore = nullptr;
 		propertyPoolHandler->transferProperties(
-			utilities->getDefaultUpStreamingBuffer(),utilities->getDefaultDownStreamingBuffer(),
-			cmdbuf,fence,transfers.data(),transfers.data()+transfers.size(),logger.get()
+			utilities->getDefaultUpStreamingBuffer(),cmdbuf,fence,queue,scratch,pUpstreams,upstreams.size(),
+			waitSemaphoreCount,semaphoresToWaitBeforeOverwrite,stagesToWaitForPerSemaphore,logger.get(),
+			std::chrono::high_resolution_clock::time_point::max() // need to add the stuff properly
 		);
 	};
-	auto addCubes = [&](video::IGPUFence* fence, video::IGPUCommandBuffer* cmdbuf, const uint32_t count)
+	auto addCubes = [&](video::IGPUCommandBuffer* cmdbuf, video::IGPUFence* fence, video::IGPUQueue* queue, const uint32_t count)
 	{
-		addShapes(std::move(fence),cmdbuf,cubeRigidBodyData,cubes.get(),count);
+		addShapes(cmdbuf,fence,queue,cubeRigidBodyData,cubes.get(),count);
+		cubes->getPropertyMemoryBlock(0u).buffer->setObjectDebugName("Cube InstanceID to ObjectID");
 	};
-	auto addCylinders = [&](video::IGPUFence* fence, video::IGPUCommandBuffer* cmdbuf, const uint32_t count)
+	auto addCylinders = [&](video::IGPUCommandBuffer* cmdbuf, video::IGPUFence* fence, video::IGPUQueue* queue, const uint32_t count)
 	{
-		addShapes(std::move(fence),cmdbuf,cylinderRigidBodyData,cylinders.get(),count,core::matrix3x4SIMD().setRotation(core::quaternion(core::PI<float>()/2.f,0.f,0.f)));
+		addShapes(cmdbuf,fence,queue,cylinderRigidBodyData,cylinders.get(),count,core::matrix3x4SIMD().setRotation(core::quaternion(core::PI<float>()/2.f,0.f,0.f)));
+		cylinders->getPropertyMemoryBlock(0u).buffer->setObjectDebugName("Cylinder InstanceID to ObjectID");
 	};
-	auto addSpheres = [&](video::IGPUFence* fence, video::IGPUCommandBuffer* cmdbuf, const uint32_t count)
+	auto addSpheres = [&](video::IGPUCommandBuffer* cmdbuf, video::IGPUFence* fence, video::IGPUQueue* queue, const uint32_t count)
 	{
-		addShapes(std::move(fence),cmdbuf,sphereRigidBodyData,spheres.get(),count);
+		addShapes(cmdbuf,fence,queue,sphereRigidBodyData,spheres.get(),count);
+		spheres->getPropertyMemoryBlock(0u).buffer->setObjectDebugName("Sphere InstanceID to ObjectID");
 	};
-	auto addCones = [&](video::IGPUFence* fence, video::IGPUCommandBuffer* cmdbuf, const uint32_t count)
+	auto addCones = [&](video::IGPUCommandBuffer* cmdbuf, video::IGPUFence* fence, video::IGPUQueue* queue, const uint32_t count)
 	{
-		addShapes(std::move(fence),cmdbuf,coneRigidBodyData,cones.get(),count,core::matrix3x4SIMD().setTranslation(core::vector3df_SIMD(0.f,-0.5f,0.f)));
+		addShapes(cmdbuf,fence,queue,coneRigidBodyData,cones.get(),count,core::matrix3x4SIMD().setTranslation(core::vector3df_SIMD(0.f,-0.5f,0.f)));
+		cones->getPropertyMemoryBlock(0u).buffer->setObjectDebugName("Cone InstanceID to ObjectID");
 	};
-	//
-	auto deleteShapes = [&](video::IGPUFence* fence, video::IGPUCommandBuffer* cmdbuf, instance_redirect_property_pool_t* pool, const uint32_t* objectsToDelete, const uint32_t* instanceRedirectsToDelete, const uint32_t count)
-	{
-		objectPool->freeProperties(objectsToDelete,objectsToDelete+count);
-		// a bit of reuse
-		scratchObjectIDs.resize(count);
-		scratchInstanceRedirects.resize(count);
-		uint32_t* srcAddrScratch = scratchObjectIDs.data();
-		uint32_t* dstAddrScratch = scratchInstanceRedirects.data();
-		//
-		const bool needTransfer = video::CPropertyPoolHandler::freeProperties(pool,transfers.data()+2u,instanceRedirectsToDelete,instanceRedirectsToDelete+count,srcAddrScratch,dstAddrScratch);
-		if (needTransfer)
-			propertyPoolHandler->transferProperties(utilities->getDefaultUpStreamingBuffer(),nullptr,cmdbuf,fence,transfers.data()+2,transfers.data()+3,logger.get());
-	};
-	auto deleteBasedOnPhysicsPredicate = [&](video::IGPUFence* fence, video::IGPUCommandBuffer* cmdbuf, instance_redirect_property_pool_t* pool, auto pred)
+	// a bit of reuse
+	scratchObjectIDs.resize(objectPool->getAllocated());
+	scratchInstanceRedirects.resize(objectPool->getAllocated());
+	auto deleteBasedOnPhysicsPredicate = [&](uint32_t& instancesToMove, video::CPropertyPoolHandler::UpStreamingRequest* pContiguousEraseRequest, instance_redirect_property_pool_t* pool, auto pred) -> bool
 	{
 		core::vector<uint32_t> objects, instances;
 		for (auto& body : bodies)
@@ -319,7 +324,13 @@ int main(int argc, char** argv)
 			world->deleteRigidBody(body);
 			body = nullptr;
 		}
-		deleteShapes(fence,cmdbuf,pool,objects.data(),instances.data(),objects.size());
+		const auto count = objects.size();
+		objectPool->freeProperties(objects.data(),objects.data()+count);
+		uint32_t* srcAddrScratch = scratchObjectIDs.data()+instancesToMove;
+		uint32_t* dstAddrScratch = scratchInstanceRedirects.data()+instancesToMove;
+		instancesToMove += count;
+		//
+		return video::CPropertyPoolHandler::freeProperties(pool,pContiguousEraseRequest,instances.data(),instances.data()+count,srcAddrScratch,dstAddrScratch);
 	};
 
 	// setup scene
@@ -328,10 +339,10 @@ int main(int argc, char** argv)
 		auto cmdbuf = propXferCmdbuf[FRAMES_IN_FLIGHT-1].get();
 
 		cmdbuf->begin(video::IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
-		addCubes(fence.get(),cmdbuf,20u);
-		addCylinders(fence.get(),cmdbuf,20u);
-		addSpheres(fence.get(),cmdbuf,20u);
-		addCones(fence.get(),cmdbuf,10u);
+		addCubes(cmdbuf,fence.get(),computeQueue,20u);
+		addCylinders(cmdbuf,fence.get(),computeQueue,20u);
+		addSpheres(cmdbuf,fence.get(),computeQueue,20u);
+		addCones(cmdbuf,fence.get(),computeQueue,10u);
 		cmdbuf->end();
 		
 		video::IGPUQueue::SSubmitInfo submit;
@@ -611,77 +622,109 @@ int main(int argc, char** argv)
 		auto& cb = cmdbuf[resourceIx];
 		auto& fence = frameComplete[resourceIx];
 		if (fence)
-		while (device->waitForFences(1u,&fence.get(),false,MAX_TIMEOUT)==video::IGPUFence::ES_TIMEOUT)
-		{
-		}
+			device->blockForFences(1u,&fence.get());
 		else
 			fence = device->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
 		
 		// safe to proceed
 		cb->begin(0);
 
-		{
-			asset::SViewport vp;
-			vp.minDepth = 1.f;
-			vp.maxDepth = 0.f;
-			vp.x = 0u;
-			vp.y = 0u;
-			vp.width = WIN_W;
-			vp.height = WIN_H;
-			cb->setViewport(0u, 1u, &vp);
-		}
 		// acquire image 
 		uint32_t imgnum = 0u;
 		swapchain->acquireNextImage(MAX_TIMEOUT,imageAcquire[resourceIx].get(),nullptr,&imgnum);
-		// Update instances buffer 
+		uint32_t waitSemaphoreCount = 1u;
+		video::IGPUSemaphore* const* semaphoresToWait = &imageAcquire[resourceIx].get();
+		// update sim and object state
+		bool rdocCaptureTriggered = false; // we want to capture the frames when objects get removed from the contiguous GPU ECS
 		{
-			// Update Physics (TODO: fixed timestep)
-			world->getWorld()->stepSimulation(dt);
-
-			video::CPropertyPoolHandler::TransferRequest request;
-			request.setFromPool(objectPool.get(),TransformPropertyID);
-			request.flags = video::CPropertyPoolHandler::TransferRequest::EF_NONE;
-			request.elementCount = CInstancedMotionState::s_updateAddresses.size();
-			request.srcAddresses = nullptr;
-			request.dstAddresses = CInstancedMotionState::s_updateAddresses.data();
-			request.device2device = false;
-			request.source = CInstancedMotionState::s_updateData.data();
-			// TODO: why does the very first update set matrices to identity?
-			auto result = propertyPoolHandler->transferProperties(utilities->getDefaultUpStreamingBuffer(),utilities->getDefaultDownStreamingBuffer(),cb.get(),fence.get(),&request,&request+1u,logger.get());
-			assert(result.transferSuccess);
-			// ensure dependency from transfer to any following transfers
+			const auto vertexAndComputeStageMasks = core::bitflag(asset::EPSF_COMPUTE_SHADER_BIT)|asset::EPSF_VERTEX_INPUT_BIT|asset::EPSF_VERTEX_SHADER_BIT;
+			// barrier from rendering to compute update
 			{
 				asset::SMemoryBarrier memBarrier; // cba to list the buffers one-by-one, but probably should
-				memBarrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
-				memBarrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
+				memBarrier.srcAccessMask = core::bitflag(asset::EAF_SHADER_READ_BIT)|asset::EAF_VERTEX_ATTRIBUTE_READ_BIT;
+				memBarrier.dstAccessMask = asset::EAF_SHADER_WRITE_BIT;
 				cb->pipelineBarrier(
-					asset::EPSF_COMPUTE_SHADER_BIT,asset::EPSF_COMPUTE_SHADER_BIT,asset::EDF_NONE,
+					vertexAndComputeStageMasks,asset::EPSF_COMPUTE_SHADER_BIT,asset::EDF_NONE,
 					1u,&memBarrier,0u,nullptr,0u,nullptr
 				);
 			}
-			CInstancedMotionState::s_updateAddresses.clear();
-			CInstancedMotionState::s_updateData.clear();
 
-			auto falledFromMap = [](CInstancedMotionState* motionState) -> bool
+
+			asset::SMemoryBarrier memBarrier; // cba to list the buffers one-by-one, but probably should
+			memBarrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
+			memBarrier.dstAccessMask = core::bitflag(asset::EAF_SHADER_READ_BIT)|asset::EAF_SHADER_WRITE_BIT;
+			const asset::E_PIPELINE_STAGE_FLAGS* stagesToWaitForPerSemaphore = &CommonAPI::DefaultSubmitWaitStage;
+			// Update instances buffer 
 			{
-				btTransform tform;
-				motionState->getWorldTransform(tform);
-				return tform.getOrigin().getY()<-128.f;
-			};
-			deleteBasedOnPhysicsPredicate(fence.get(),cb.get(),cones.get(),falledFromMap);
-			deleteBasedOnPhysicsPredicate(fence.get(),cb.get(),cubes.get(),falledFromMap);
-			deleteBasedOnPhysicsPredicate(fence.get(),cb.get(),spheres.get(),falledFromMap);
-			deleteBasedOnPhysicsPredicate(fence.get(),cb.get(),cylinders.get(),falledFromMap);
-			// ensure dependency from transfer to any following transfers and vertex shaders
-			{
-				asset::SMemoryBarrier memBarrier; // cba to list the buffers one-by-one, but probably should
-				memBarrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
-				memBarrier.dstAccessMask = static_cast<asset::E_ACCESS_FLAGS>(asset::EAF_SHADER_READ_BIT|asset::EAF_VERTEX_ATTRIBUTE_READ_BIT);
-				cb->pipelineBarrier(
-					asset::EPSF_COMPUTE_SHADER_BIT,core::bitflag(asset::EPSF_COMPUTE_SHADER_BIT)|asset::EPSF_VERTEX_INPUT_BIT|asset::EPSF_VERTEX_SHADER_BIT,asset::EDF_NONE,
-					1u,&memBarrier,0u,nullptr,0u,nullptr
+				// Update Physics (TODO: fixed timestep)
+				world->getWorld()->stepSimulation(dt);
+
+				video::CPropertyPoolHandler::UpStreamingRequest request;
+				request.setFromPool(objectPool.get(),TransformPropertyID);
+				request.fill = false;
+				request.elementCount = CInstancedMotionState::s_updateAddresses.size();
+				request.source.device2device = false;
+				request.source.data = CInstancedMotionState::s_updateData.data();
+				request.srcAddresses = nullptr;
+				request.dstAddresses = CInstancedMotionState::s_updateAddresses.data();
+				// TODO: why does the very first update set matrices to identity?
+				auto* pRequests = &request;
+				const auto leftoverDWORDs = propertyPoolHandler->transferProperties(
+					utilities->getDefaultUpStreamingBuffer(),cb.get(),fence.get(),graphicsQueue,scratch,
+					pRequests,1u,waitSemaphoreCount,semaphoresToWait,stagesToWaitForPerSemaphore,logger.get()
 				);
-			}			
+				CInstancedMotionState::s_updateAddresses.clear();
+				CInstancedMotionState::s_updateData.clear();
+			}
+			// erase, done after update to avoid having a situation where we update stuff we just erased (also erase moves data items around)
+			{
+				uint32_t instancesToMove = 0u;
+				video::CPropertyPoolHandler::UpStreamingRequest contiguousEraseRequests[4];
+				auto* pContiguousEraseRequest = contiguousEraseRequests;
+				{
+					auto fallenFromMap = [](CInstancedMotionState* motionState) -> bool
+					{
+						btTransform tform;
+						motionState->getWorldTransform(tform);
+						return tform.getOrigin().getY()<-128.f;
+					};
+					if (deleteBasedOnPhysicsPredicate(instancesToMove,pContiguousEraseRequest,cones.get(),fallenFromMap))
+						pContiguousEraseRequest++;
+					if (deleteBasedOnPhysicsPredicate(instancesToMove,pContiguousEraseRequest,cubes.get(),fallenFromMap))
+						pContiguousEraseRequest++;
+					if (deleteBasedOnPhysicsPredicate(instancesToMove,pContiguousEraseRequest,spheres.get(),fallenFromMap))
+						pContiguousEraseRequest++;
+					if (deleteBasedOnPhysicsPredicate(instancesToMove,pContiguousEraseRequest,cylinders.get(),fallenFromMap))
+						pContiguousEraseRequest++;
+				}
+				// objects to erase
+				if (instancesToMove)
+				{
+					rdocCaptureTriggered = true;
+					graphicsQueue->startCapture();
+
+					// ensure dependency from update to erase
+					cb->pipelineBarrier(
+						asset::EPSF_COMPUTE_SHADER_BIT,asset::EPSF_COMPUTE_SHADER_BIT,asset::EDF_NONE,
+						1u,&memBarrier,0u,nullptr,0u,nullptr
+					);
+					// and from erase to anything else we need to flag that erase reads the memory too
+					memBarrier.srcAccessMask |= asset::EAF_SHADER_READ_BIT;
+					
+					auto* pRequests = contiguousEraseRequests;
+					propertyPoolHandler->transferProperties( // its okay I discard the return value, I have no use to know whether any part of the update failed
+						utilities->getDefaultUpStreamingBuffer(),cb.get(),fence.get(),graphicsQueue,scratch,
+						pRequests,pContiguousEraseRequest-contiguousEraseRequests,
+						waitSemaphoreCount,semaphoresToWait,stagesToWaitForPerSemaphore,logger.get()
+					);
+				}
+			}
+			// last barrier is always to vertex and compute stages
+			memBarrier.dstAccessMask |= asset::EAF_VERTEX_ATTRIBUTE_READ_BIT;
+			cb->pipelineBarrier(
+					asset::EPSF_COMPUTE_SHADER_BIT,vertexAndComputeStageMasks,asset::EDF_NONE,
+				1u,&memBarrier,0u,nullptr,0u,nullptr
+			);
 		}
 		// renderpass
 		{
@@ -703,6 +746,17 @@ int main(int argc, char** argv)
 			info.renderArea.offset = { 0, 0 };
 			info.renderArea.extent = { WIN_W, WIN_H };
 			cb->beginRenderPass(&info,asset::ESC_INLINE);
+
+			{
+				asset::SViewport vp;
+				vp.minDepth = 1.f;
+				vp.maxDepth = 0.f;
+				vp.x = 0u;
+				vp.y = 0u;
+				vp.width = WIN_W;
+				vp.height = WIN_H;
+				cb->setViewport(0u, 1u, &vp);
+			}
 		}
 		// draw
 		cb->bindDescriptorSets(asset::EPBP_GRAPHICS,gpuLayout.get(),0u,1u,&globalDs.get());
@@ -722,7 +776,9 @@ int main(int argc, char** argv)
 		cb->endRenderPass();
 		cb->end();
 		
-		CommonAPI::Submit(device.get(), swapchain.get(), cb.get(), graphicsQueue, imageAcquire[resourceIx].get(), renderFinished[resourceIx].get(), fence.get());
+		CommonAPI::Submit(device.get(), swapchain.get(), cb.get(), graphicsQueue, semaphoresToWait ? semaphoresToWait[0]:nullptr, renderFinished[resourceIx].get(), fence.get());
+		if (rdocCaptureTriggered)
+			graphicsQueue->endCapture();
 		CommonAPI::Present(device.get(), swapchain.get(), graphicsQueue, renderFinished[resourceIx].get(), imgnum);
 		
 	}
@@ -731,11 +787,14 @@ int main(int argc, char** argv)
 	world->deleteRigidBody(basePlateBody);
 	world->deletebtObject(basePlateRigidBodyData.shape);
 	
-	auto alwaysTrue = [](auto dummy) -> bool {return true;};
-	deleteBasedOnPhysicsPredicate(nullptr,nullptr,cylinders.get(),alwaysTrue);
-	deleteBasedOnPhysicsPredicate(nullptr,nullptr,spheres.get(),alwaysTrue);
-	deleteBasedOnPhysicsPredicate(nullptr,nullptr,cones.get(),alwaysTrue);
-	deleteBasedOnPhysicsPredicate(nullptr,nullptr,cubes.get(),alwaysTrue);
+	{
+		auto alwaysTrue = [](auto dummy) -> bool {return true;};
+		uint32_t dummy = 0xdeadbeefu;
+		deleteBasedOnPhysicsPredicate(dummy,nullptr,cylinders.get(),alwaysTrue);
+		deleteBasedOnPhysicsPredicate(dummy,nullptr,spheres.get(),alwaysTrue);
+		deleteBasedOnPhysicsPredicate(dummy,nullptr,cones.get(),alwaysTrue);
+		deleteBasedOnPhysicsPredicate(dummy,nullptr,cubes.get(),alwaysTrue);
+	}
 
 	world->deletebtObject(cubeRigidBodyData.shape);
 	world->deletebtObject(cylinderRigidBodyData.shape);

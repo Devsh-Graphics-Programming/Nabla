@@ -36,6 +36,7 @@ struct SOpenGLState
         core::smart_refctd_ptr<const COpenGLPipelineLayout> pplnLayout;
         core::smart_refctd_ptr<const COpenGLDescriptorSet> set;
         core::smart_refctd_dynamic_array<uint32_t> dynamicOffsets;
+        uint64_t revision = 0u; // every time a descriptor set is modified, the revision number gets incremented, this is to detect that set has changed and we need to rebind
     };
 
     using SGraphicsPipelineHash = COpenGLRenderpassIndependentPipeline::SPipelineHash;

@@ -76,15 +76,10 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
         virtual size_t conservativeSizeEstimate() const override { return getSize(); }
 
         //! Returns size in bytes.
-        virtual const uint64_t& getSize() const override {return size;}
+        virtual uint64_t getSize() const override {return size;}
 
 		//! Returns pointer to data.
-        /** WARNING: RESIZE will invalidate pointer.
-		*/
         virtual const void* getPointer() const {return data;}
-		//! Returns pointer to data.
-		/** WARNING: RESIZE will invalidate pointer.
-		*/
         virtual void* getPointer() 
         { 
             assert(!isImmutable_debug());
@@ -99,6 +94,31 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
 
             return true;
         }
+        
+		inline core::bitflag<E_USAGE_FLAGS> getUsageFlags() const
+		{
+			return usage;
+		}
+		inline bool setUsageFlags(core::bitflag<E_USAGE_FLAGS> _usage)
+		{
+			assert(!isImmutable_debug());
+			usage = _usage;
+			return true;
+		}
+		inline bool addUsageFlags(core::bitflag<E_USAGE_FLAGS> _usage)
+		{
+			assert(!isImmutable_debug());
+			usage |= _usage;
+			return true;
+		}
+        
+		inline bool getCanUpdateSubRange() const {return canUpdateSubRange;}
+		inline bool setCanUpdateSubRange(const bool _canUpdateSubRange)
+		{
+			assert(!isImmutable_debug());
+            canUpdateSubRange = _canUpdateSubRange;
+			return true;
+		}
 
     protected:
         void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
@@ -111,6 +131,11 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
 
         uint64_t size;
         void* data;
+        // this is a bit weird, but makes sense because the usages are for the IGPUBuffer that will be created from the data stored here
+        core::bitflag<E_USAGE_FLAGS> usage = EUF_TRANSFER_DST_BIT;
+        // whether `IGPUCommandBuffer::updateBuffer` can be used
+        // TODO: in the new CPU2GPU converter make sure to ||= this value for all buffers
+        bool canUpdateSubRange = false;
 };
 
 template<
@@ -125,7 +150,7 @@ class CCustomAllocatorCPUBuffer;
     passing an object type for allocation and a pointer to allocated
     data for it's storage by ICPUBuffer.
 
-    So the need for the class existance is for common following tricks - among others creating an 
+    So the need for the class existence is for common following tricks - among others creating an 
     \bICPUBuffer\b over an already existing \bvoid*\b array without any \imemcpy\i or \itaking over the memory ownership\i.
     You can use it with a \bnull_allocator\b that adopts memory (it is a bit counter intuitive because \badopt = take\b ownership, 
     but a \inull allocator\i doesn't do anything, even free the memory, so you're all good).
@@ -134,7 +159,7 @@ class CCustomAllocatorCPUBuffer;
 template<typename Allocator>
 class CCustomAllocatorCPUBuffer<Allocator, true> : public ICPUBuffer
 {
-		static_assert(sizeof(Allocator::value_type) == 1u, "Allocator::value_type must be of size 1");
+		static_assert(sizeof(typename Allocator::value_type) == 1u, "Allocator::value_type must be of size 1");
 	protected:
 		Allocator m_allocator;
 

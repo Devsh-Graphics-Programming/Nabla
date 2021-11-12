@@ -2,6 +2,10 @@
 # This file is part of the "Nabla Engine".
 # For conditions of distribution and use, see copyright notice in nabla.h
 
+if(NBL_BUILD_ANDROID)
+	nbl_android_create_media_storage_apk()
+endif()
+
 add_subdirectory(01.HelloWorld EXCLUDE_FROM_ALL)
 add_subdirectory(02.ComputeShader EXCLUDE_FROM_ALL)
 add_subdirectory(03.GPU_Mesh EXCLUDE_FROM_ALL)
@@ -9,16 +13,16 @@ add_subdirectory(04.Keyframe EXCLUDE_FROM_ALL)
 add_subdirectory(05.NablaTutorialExample EXCLUDE_FROM_ALL)
 add_subdirectory(06.MeshLoaders EXCLUDE_FROM_ALL)
 add_subdirectory(07.SubpassBaking EXCLUDE_FROM_ALL)
-add_subdirectory(08.HardwareInstancing EXCLUDE_FROM_ALL)
+#add_subdirectory(08.UPFORGRABS EXCLUDE_FROM_ALL)
 add_subdirectory(09.ColorSpaceTest EXCLUDE_FROM_ALL)
 add_subdirectory(10.AllocatorTest EXCLUDE_FROM_ALL)
 add_subdirectory(11.LoDSystem EXCLUDE_FROM_ALL)
-#add_subdirectory(12.Splines EXCLUDE_FROM_ALL)
+add_subdirectory(12.glTF EXCLUDE_FROM_ALL)
 if (NBL_BUILD_CEGUI)
 	#add_subdirectory(13.BRDF_Explorer EXCLUDE_FROM_ALL)
 endif()
 add_subdirectory(14.ComputeScan EXCLUDE_FROM_ALL)
-#add_subdirectory(15.LayeredCubeMapShadows EXCLUDE_FROM_ALL) # Reserved for Erfan
+# 15 is reserved for Erfan
 add_subdirectory(16.OrderIndependentTransparency EXCLUDE_FROM_ALL)
 if (NBL_BUILD_BULLET)
 	add_subdirectory(17.SimpleBulletIntegration EXCLUDE_FROM_ALL) # Needs example 08 to come back first
@@ -41,7 +45,6 @@ if (NBL_BUILD_MITSUBA_LOADER AND NBL_BUILD_OPTIX)
 	#add_subdirectory(28.OptiXPathTracing EXCLUDE_FROM_ALL)
 endif()
 add_subdirectory(29.SpecializationConstants EXCLUDE_FROM_ALL)
-add_subdirectory(31.SkinningDataBenchmark EXCLUDE_FROM_ALL)
 add_subdirectory(32.MultiThreadedRefCounting EXCLUDE_FROM_ALL) # TODO: @Anastazluk make this into example 04
 add_subdirectory(33.Draw3DLine EXCLUDE_FROM_ALL)
 add_subdirectory(34.LRUCacheUnitTest EXCLUDE_FROM_ALL)
@@ -65,6 +68,10 @@ add_subdirectory(49.ComputeFFT EXCLUDE_FROM_ALL)
 add_subdirectory(50.NewAPITest EXCLUDE_FROM_ALL)
 add_subdirectory(51.RadixSort EXCLUDE_FROM_ALL)
 add_subdirectory(52.SystemTest EXCLUDE_FROM_ALL)
-add_subdirectory(53.ComputeShaders EXCLUDE_FROM_ALL) # todo change the number
+
+add_subdirectory(53.ComputeShaders EXCLUDE_FROM_ALL)
 add_subdirectory(54.Transformations EXCLUDE_FROM_ALL)
 add_subdirectory(55.RGB18E7S3 EXCLUDE_FROM_ALL)
+
+add_subdirectory(57.AndroidSample EXCLUDE_FROM_ALL)
+add_subdirectory(58.MediaUnpackingOnAndroid EXCLUDE_FROM_ALL)

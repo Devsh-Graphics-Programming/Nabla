@@ -60,6 +60,7 @@ class IFileArchive : public core::IReferenceCounted
 {
 	static inline constexpr size_t SIZEOF_INNER_ARCHIVE_FILE = std::max(sizeof(CInnerArchiveFile<CPlainHeapAllocator>), sizeof(CInnerArchiveFile<CFileViewVirtualAllocatorWin32>));
 	static inline constexpr size_t ALIGNOF_INNER_ARCHIVE_FILE = std::max(alignof(CInnerArchiveFile<CPlainHeapAllocator>), alignof(CInnerArchiveFile<CFileViewVirtualAllocatorWin32>));
+
 protected:
 	enum E_ALLOCATOR_TYPE
 	{
@@ -143,7 +144,7 @@ public:
 			return getFile_impl<CPlainHeapAllocator>(params, index);
 			break;
 		case EAT_VIRTUAL_ALLOC:
-			return getFile_impl<CFileViewVirtualAllocatorWin32>(params, index); //TODO linux
+			return getFile_impl<VirtualAllocator>(params, index); //TODO linux
 			break;
 		}
 		assert(false);

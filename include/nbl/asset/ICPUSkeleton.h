@@ -20,8 +20,12 @@ class ICPUSkeleton final : public ISkeleton<ICPUBuffer>, /*TODO: public BlobSeri
 
 		template<typename NameIterator>
 		inline ICPUSkeleton(SBufferBinding<ICPUBuffer>&& _parentJointIDsBinding, SBufferBinding<ICPUBuffer>&& _defaultTransforms, NameIterator begin, NameIterator end) :
-			base_t(std::move(_parentJointIDsBinding),std::move(_defaultTransforms),std::distance(begin,end))
+			base_t(std::move(_parentJointIDsBinding), std::move(_defaultTransforms), std::distance(begin, end))
 		{
+			if(_parentJointIDsBinding.buffer)
+				_parentJointIDsBinding.buffer->addUsageFlags(IBuffer::EUF_STORAGE_BUFFER_BIT);
+			if(_defaultTransforms.buffer)
+				_defaultTransforms.buffer->addUsageFlags(IBuffer::EUF_STORAGE_BUFFER_BIT);
 			base_t::setJointNames<NameIterator>(begin,end);
 		}
 		template<typename... Args>

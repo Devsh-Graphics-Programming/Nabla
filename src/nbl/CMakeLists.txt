@@ -118,6 +118,8 @@ option(_NBL_COMPILE_WITH_OPENEXR_LOADER_ "Compile with OpenEXR Loader" ON)
 option(_NBL_COMPILE_WITH_OPENEXR_WRITER_ "Compile with OpenEXR Writer" ON)
 option(_NBL_COMPILE_WITH_GLI_LOADER_ "Compile with GLI Loader" ON)
 option(_NBL_COMPILE_WITH_GLI_WRITER_ "Compile with GLI Writer" ON)
+option(_NBL_COMPILE_WITH_GLTF_LOADER_ "Compile with GLTF Loader" ON)
+option(_NBL_COMPILE_WITH_GLTF_WRITER_ "Compile with GLTF Writer" ON)
 
 nbl_get_conf_dir(NABLA_CONF_DIR_DEBUG Debug)
 nbl_get_conf_dir(NABLA_CONF_DIR_RELEASE Release)
@@ -178,6 +180,7 @@ set(NBL_CORE_SOURCES
 set(NBL_SYSTEM_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/system/IFile.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/CFileWin32.cpp
+	${NBL_ROOT_PATH}/src/nbl/system/CFilePOSIX.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/ILogger.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/CArchiveLoaderZip.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/CArchiveLoaderTar.cpp
@@ -190,6 +193,8 @@ set(NBL_UI_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/ui/CWindowWayland.cpp
 	${NBL_ROOT_PATH}/src/nbl/ui/CWaylandCaller.cpp
 	${NBL_ROOT_PATH}/src/nbl/ui/CCursorControlWin32.cpp
+	${NBL_ROOT_PATH}/src/nbl/ui/CWindowManagerAndroid.cpp
+	${NBL_ROOT_PATH}/src/nbl/ui/CGraphicalApplicationAndroid.cpp
 )
 set(NBL_ASSET_SOURCES	
 # Assets
@@ -223,11 +228,14 @@ set(NBL_ASSET_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CPLYMeshFileLoader.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CSTLMeshFileLoader.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CBufferLoaderBIN.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CGLTFLoader.cpp
 
 # Mesh writers
 #	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/CBAWMeshWriter.cpp
+
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CPLYMeshWriter.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CSTLMeshWriter.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CGLTFWriter.cpp
 
 # BaW Format
 #	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/TypedBlob.cpp
@@ -267,6 +275,7 @@ set(NBL_VIDEO_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/video/alloc/StreamingGPUBufferAllocator.cpp
 	
 # Shaders
+	${NBL_ROOT_PATH}/src/nbl/video/COpenGLShader.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLSpecializedShader.cpp
 
 # Utilities
@@ -377,6 +386,10 @@ macro(nbl_target_link_vulkan _trgt) # we don't want to link against library dire
 	target_include_directories(${_trgt} PUBLIC "$ENV{VULKAN_SDK}/include")
 endmacro()
 
+macro(nbl_target_link_utfcpp _trgt)
+	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/utfcpp/source)
+endmacro()
+
 # TODO: Change all MACROS into FUNCTIONS (if possible, need to clarify variable scoping rules)
 macro(nbl_target_link_zlib _trgt)
 	add_dependencies(zlibstatic zlib_copy)
@@ -471,6 +484,16 @@ macro(nbl_target_link_EGL _trgt)
 	target_link_libraries(${_trgt} PRIVATE egl)
 endmacro()
 
+# simdjson
+macro(nbl_target_link_simdjson _trgt)
+	add_dependencies(${_trgt} simdjson)
+	target_link_libraries(${_trgt} INTERFACE
+		simdjson
+	)
+	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/simdjson)
+	set_target_properties(simdjson PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endmacro()
+
 add_library(Nabla STATIC
 	${NABLA_SRCS_COMMON}
 	${NABLA_SRCS_NORMAL}
@@ -503,7 +526,9 @@ endif()
 #TODO maybe make a macro to do this (note: it's also used in common.cmake)
 set_property(TARGET Nabla PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
-add_dependencies(Nabla openssl_build)
+if(ANDROID AND NOT "${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Windows") # OpenSSL can't be built for Android platform using windows OS host
+	add_dependencies(Nabla openssl_build)
+endif()
 if(DEFINED ENV{VULKAN_SDK})
 	nbl_target_link_vulkan(Nabla)
 endif()
@@ -525,6 +550,7 @@ if (NBL_COMPILE_WITH_SDL2)
 endif()
 nbl_target_link_volk(Nabla)
 nbl_target_link_EGL(Nabla)
+nbl_target_link_simdjson(Nabla)
 
 #target_link_libraries(Nabla INTERFACE ${OPENGL_gl_LIBRARY})
 if (UNIX)
@@ -677,3 +703,5 @@ nbl_install_lib(SPIRV-Tools-opt)
 nbl_install_lib(OGLCompiler)
 nbl_install_lib(OSDependent)
 nbl_install_lib(zlibstatic)
+nbl_install_lib(simdjson)
+nbl_install_lib(volk)

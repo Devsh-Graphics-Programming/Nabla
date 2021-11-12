@@ -212,13 +212,6 @@ namespace core
 		return 0;
 	}
 
-
-	extern std::string WStringToUTF8String(const std::wstring& inString);
-
-	extern std::wstring UTF8StringToWString(const std::string& inString);
-
-	extern std::wstring UTF8StringToWString(const std::string& inString, uint32_t inReplacementforInvalid);
-
 	// ----------- some basic quite often used string functions -----------------
 
 	inline int32_t isFileExtension(const std::filesystem::path& filename, const std::initializer_list<std::string_view>& extensions)
