@@ -2,8 +2,8 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
-#ifndef __NBL_SCENE_I_TREE_TRANSFORM_MANAGER_H_INCLUDED__
-#define __NBL_SCENE_I_TREE_TRANSFORM_MANAGER_H_INCLUDED__
+#ifndef _NBL_SCENE_I_TREE_TRANSFORM_MANAGER_H_INCLUDED_
+#define _NBL_SCENE_I_TREE_TRANSFORM_MANAGER_H_INCLUDED_
 
 #include "nbl/core/declarations.h"
 #include "nbl/video/declarations.h"

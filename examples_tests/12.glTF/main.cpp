@@ -10,7 +10,9 @@
 #include "../common/Camera.hpp"
 #include "../common/CommonAPI.h"
 #include "nbl/ext/ScreenShot/ScreenShot.h"
+
 #include "nbl/asset/metadata/CGLTFMetadata.h"
+#include "nbl/scene/CSkinInstanceCache.h"
 
 using namespace nbl;
 using namespace asset;

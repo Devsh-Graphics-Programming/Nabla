@@ -2,8 +2,8 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
-#ifndef __NBL_SCENE_I_TRANSFORM_TREE_H_INCLUDED__
-#define __NBL_SCENE_I_TRANSFORM_TREE_H_INCLUDED__
+#ifndef _NBL_SCENE_I_TRANSFORM_TREE_H_INCLUDED_
+#define _NBL_SCENE_I_TRANSFORM_TREE_H_INCLUDED_
 
 #include "nbl/core/declarations.h"
 
@@ -93,7 +93,7 @@ class ITransformTree : public virtual core::IReferenceCounted
 			if (!layout)
 				return nullptr;
 
-			auto ds = device->createGPUDescriptorSet(dsp.get(), core::smart_refctd_ptr(layout));
+			auto ds = device->createGPUDescriptorSet(dsp.get(),std::move(layout));
 			if (!ds)
 				return nullptr;
 
