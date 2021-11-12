@@ -219,7 +219,7 @@ class TransformationApp : public ApplicationBase
 			propBufs[4].offset = offset_recompStamp;
 			propBufs[4].size = recompStampPropSz * ObjectCount;
 
-			tt = scene::ITransformTree::create(device.get(),propBufs,ObjectCount,true); // WTF!? Why a contiguous Pool for a TT !?
+			tt = scene::ITransformTreeWithoutNormalMatrices::create(device.get(),propBufs,ObjectCount,true); // WTF!? Why a contiguous Pool for a TT !?
 			ttm = scene::ITransformTreeManager::create(utils.get(), transferUpQueue);
 
 			if (!ttm.get())
