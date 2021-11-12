@@ -148,7 +148,7 @@ class COIT
         }
 
         template <typename DSLType>
-        uint32_t getDSLayoutBindings(DSLType::SBinding* _out_bindings,
+        uint32_t getDSLayoutBindings(typename DSLType::SBinding* _out_bindings,
             uint32_t _colorBinding = DefaultColorImgBinding, uint32_t _depthBinding = DefaultDepthImgBinding, uint32_t _visBinding = DefaultVisImgBinding, uint32_t _spinlockBinding = DefaultSpinlockImgBinding
         ) const
         {
