@@ -17,6 +17,9 @@
 #define NBL_GLSL_SPINLOCK_IMAGE_BINDING 3
 #endif
 
+// TODO remove later, this should be inserted into GLSL automatically by engine (or not if shader interlock ext not present)
+#define NBL_GL_ARB_fragment_shader_interlock
+
 #define NBL_GLSL_OIT_NODE_COUNT 4
 
 #if NBL_GLSL_OIT_NODE_COUNT==4

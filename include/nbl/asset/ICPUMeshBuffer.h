@@ -100,31 +100,39 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
 
         core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
         {
+            core::unordered_map<ICPUBuffer*, core::smart_refctd_ptr<ICPUBuffer>> buffers;
+            auto cloneBuf = [&buffers,_depth](ICPUBuffer* buf) -> core::smart_refctd_ptr<ICPUBuffer> {
+                if (!buf)
+                    return nullptr;
+                if (!_depth)
+                    return core::smart_refctd_ptr<ICPUBuffer>(buf);
+
+                auto found = buffers.find(buf);
+                if (found != buffers.end())
+                    return found->second;
+
+                auto cp = core::smart_refctd_ptr_static_cast<ICPUBuffer>(buf->clone(_depth-1u));
+                buffers.insert({ buf, cp });
+                return cp;
+            };
+
             auto cp = core::make_smart_refctd_ptr<ICPUMeshBuffer>();
             clone_common(cp.get());
 
             cp->boundingBox = boundingBox;
 
             cp->m_indexBufferBinding.offset = m_indexBufferBinding.offset;
-            cp->m_indexBufferBinding.buffer = (_depth > 0u && m_indexBufferBinding.buffer) ?
-                core::smart_refctd_ptr_static_cast<ICPUBuffer>(m_indexBufferBinding.buffer->clone(_depth - 1u)) :
-                m_indexBufferBinding.buffer;
+            cp->m_indexBufferBinding.buffer = cloneBuf(m_indexBufferBinding.buffer.get());
             for (uint32_t i = 0u; i < MAX_ATTR_BUF_BINDING_COUNT; ++i)
             {
                 cp->m_vertexBufferBindings[i].offset = m_vertexBufferBindings[i].offset;
-                cp->m_vertexBufferBindings[i].buffer = (_depth > 0u && m_vertexBufferBindings[i].buffer) ?
-                    core::smart_refctd_ptr_static_cast<ICPUBuffer>(m_vertexBufferBindings[i].buffer->clone(_depth - 1u)) :
-                    m_vertexBufferBindings[i].buffer;
+                cp->m_vertexBufferBindings[i].buffer = cloneBuf(m_vertexBufferBindings[i].buffer.get());
             }
 
             cp->m_inverseBindPoseBufferBinding.offset = m_inverseBindPoseBufferBinding.offset;
-            cp->m_inverseBindPoseBufferBinding.buffer = (_depth > 0u && m_inverseBindPoseBufferBinding.buffer) ?
-                core::smart_refctd_ptr_static_cast<ICPUBuffer>(m_inverseBindPoseBufferBinding.buffer->clone(_depth - 1u)) :
-                m_inverseBindPoseBufferBinding.buffer;
+            cp->m_inverseBindPoseBufferBinding.buffer = cloneBuf(m_inverseBindPoseBufferBinding.buffer.get());
             cp->m_jointAABBBufferBinding.offset = m_jointAABBBufferBinding.offset;
-            cp->m_jointAABBBufferBinding.buffer = (_depth > 0u && m_jointAABBBufferBinding.buffer) ?
-                core::smart_refctd_ptr_static_cast<ICPUBuffer>(m_jointAABBBufferBinding.buffer->clone(_depth - 1u)) :
-                m_jointAABBBufferBinding.buffer;
+            cp->m_jointAABBBufferBinding.buffer = cloneBuf(m_jointAABBBufferBinding.buffer.get()); 
             cp->m_skeleton = (_depth > 0u && m_skeleton) ? core::smart_refctd_ptr_static_cast<ICPUSkeleton>(m_skeleton->clone(_depth - 1u)) : m_skeleton;
             
             cp->m_descriptorSet = (_depth > 0u && m_descriptorSet) ? core::smart_refctd_ptr_static_cast<ICPUDescriptorSet>(m_descriptorSet->clone(_depth - 1u)) : m_descriptorSet;
