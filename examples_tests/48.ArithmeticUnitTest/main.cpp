@@ -445,11 +445,11 @@ public:
 			passed = runTest<emulatedWorkgroupScanInclusive>(logicalDevice.get(), computeQueue, fence.get(), cmdbuf.get(), pipelines[5u].get(), descriptorSet.get(), inputData, workgroupSize, buffers, logger.get(), true) && passed;
 
 			if (passed)
-				logger->log("Passed test #%d", system::ILogger::ELL_INFO, workgroupSize);
+				logger->log("Passed test #%u", system::ILogger::ELL_INFO, workgroupSize);
 			else
 			{
 				totalFailCount++;
-				logger->log("Failed test #%d", system::ILogger::ELL_ERROR, workgroupSize);
+				logger->log("Failed test #%u", system::ILogger::ELL_ERROR, workgroupSize);
 			}
 		}
 		computeQueue->endCapture();
@@ -458,7 +458,7 @@ public:
 	void onAppTerminated_impl() override
 	{
 		logger->log("==========Result==========", system::ILogger::ELL_INFO);
-		logger->log("Fail Count: %d", system::ILogger::ELL_INFO, totalFailCount);
+		logger->log("Fail Count: %u", system::ILogger::ELL_INFO, totalFailCount);
 		delete[] inputData;
 	}
 
