@@ -23,7 +23,12 @@ using namespace core;
 class RaytracerExampleEventReceiver : public nbl::IEventReceiver
 {
 	public:
-		RaytracerExampleEventReceiver() : running(true)
+		RaytracerExampleEventReceiver() 
+			: running(true)
+			, skipKeyPressed(false)
+			, resetViewKeyPressed(false)
+			, nextKeyPressed(false)
+			, previousKeyPressed(false)
 		{
 		}
 
@@ -42,6 +47,9 @@ class RaytracerExampleEventReceiver : public nbl::IEventReceiver
 					case PreviousKey:
 						previousKeyPressed = true;
 						break;
+					case SkipKey: // switch wire frame mode
+						skipKeyPressed = true;
+						break;
 					case QuitKey: // switch wire frame mode
 						running = false;
 						return true;
@@ -52,8 +60,10 @@ class RaytracerExampleEventReceiver : public nbl::IEventReceiver
 
 			return false;
 		}
-
+		
 		inline bool keepOpen() const { return running; }
+
+		inline bool isSkipKeyPressed() const { return skipKeyPressed; }
 		
 		inline bool isResetViewPressed() const { return resetViewKeyPressed; }
 		
@@ -63,6 +73,7 @@ class RaytracerExampleEventReceiver : public nbl::IEventReceiver
 
 		inline void resetKeys()
 		{
+			skipKeyPressed = false;
 			resetViewKeyPressed = false;
 			nextKeyPressed = false;
 			previousKeyPressed = false;
@@ -70,11 +81,13 @@ class RaytracerExampleEventReceiver : public nbl::IEventReceiver
 
 	private:
 		static constexpr nbl::EKEY_CODE QuitKey = nbl::KEY_KEY_Q;
+		static constexpr nbl::EKEY_CODE SkipKey = nbl::KEY_END;
 		static constexpr nbl::EKEY_CODE ResetKey = nbl::KEY_HOME;
 		static constexpr nbl::EKEY_CODE NextKey = nbl::KEY_PRIOR; // PAGE_UP
 		static constexpr nbl::EKEY_CODE PreviousKey = nbl::KEY_NEXT; // PAGE_DOWN
 
 		bool running = false;
+		bool skipKeyPressed = false;
 		bool resetViewKeyPressed = false;
 		bool nextKeyPressed = false;
 		bool previousKeyPressed = false;
@@ -106,7 +119,7 @@ int main(int argc, char** argv)
 	auto sceneDir = cmdHandler.getSceneDirectory();
 	std::string filePath = (sceneDir.size() >= 1) ? sceneDir[0] : ""; // zip or xml
 	std::string extraPath = (sceneDir.size() >= 2) ? sceneDir[1] : "";; // xml in zip
-	bool shouldTerminate = cmdHandler.getTerminate(); // skip interaction with window and take screenshots only
+	bool shouldTerminateAfterRenders = cmdHandler.getTerminate(); // skip interaction with window and take screenshots only
 	bool takeScreenShots = true;
 	std::string mainFileName; // std::filesystem::path(filePath).filename().string();
 
@@ -533,8 +546,74 @@ int main(int argc, char** argv)
 
 	renderer->initSceneResources(meshes);
 	meshes = {}; // free memory
+	
+	RaytracerExampleEventReceiver receiver;
+	device->setEventReceiver(&receiver);
 
-	if(!shouldTerminate)
+	// Render To file
+	int32_t prevWidth = 0;
+	int32_t prevHeight = 0;
+	for(uint32_t s = 0u; s < sensors.size(); ++s)
+	{
+		const auto& sensorData = sensors[s];
+		
+		printf("[INFO] Rendering %s - Sensor(%d) to file.\n", filePath.c_str(), s);
+
+		bool needsReinit = (prevWidth != sensorData.width) || (prevHeight != sensorData.height); // >= or !=
+		prevWidth = sensorData.width;
+		prevHeight = sensorData.height;
+		
+		renderer->resetSampleAndFrameCounters(); // so that renderer->getTotalSamplesPerPixelComputed is 0 at the very beginning
+		if(needsReinit)
+		{
+			renderer->deinitScreenSizedResources();
+			renderer->initScreenSizedResources(sensorData.width, sensorData.height, std::move(sampleSequence));
+		}
+		
+		smgr->setActiveCamera(sensorData.staticCamera);
+
+		const uint32_t samplesPerPixelPerDispatch = renderer->getSamplesPerPixelPerDispatch();
+		const uint32_t maxNeededIterations = (sensorData.samplesNeeded + samplesPerPixelPerDispatch - 1) / samplesPerPixelPerDispatch;
+		
+		uint32_t itr = 0u;
+		bool takenEnoughSamples = false;
+
+		while(!takenEnoughSamples && (device->run() && !receiver.isSkipKeyPressed() && receiver.keepOpen()))
+		{
+			if(itr >= maxNeededIterations)
+				std::cout << "[ERROR] Samples taken (" << renderer->getTotalSamplesPerPixelComputed() << ") must've exceeded samples needed for Sensor (" << sensorData.samplesNeeded << ") by now; something is wrong." << std::endl;
+
+			driver->beginScene(false, false);
+			renderer->render(device->getTimer());
+			auto oldVP = driver->getViewPort();
+			driver->blitRenderTargets(renderer->getColorBuffer(),nullptr,false,false,{},{},true);
+			driver->setViewPort(oldVP);
+
+			driver->endScene();
+			
+			if(renderer->getTotalSamplesPerPixelComputed() >= sensorData.samplesNeeded)
+				takenEnoughSamples = true;
+			
+			itr++;
+		}
+
+		auto screenshotFilePath = sensorData.outputFilePath;
+		if (screenshotFilePath.empty())
+		{
+			auto extensionStr = getFileExtensionFromFormat(sensorData.fileFormat);
+			screenshotFilePath = std::filesystem::path("ScreenShot_" + mainFileName + "_Sensor_" + std::to_string(s) + extensionStr);
+		}
+		
+		renderer->takeAndSaveScreenShot(screenshotFilePath);
+
+		int progress = float(renderer->getTotalSamplesPerPixelComputed())/float(sensorData.samplesNeeded) * 100;
+		printf("[INFO] Rendered Successfully - %d%% Progress = %u/%u SamplesPerPixel - FileName = %s. \n", progress, renderer->getTotalSamplesPerPixelComputed(), sensorData.samplesNeeded, screenshotFilePath.filename().string().c_str());
+
+		receiver.resetKeys();
+	}
+
+	// Interactive
+	if(!shouldTerminateAfterRenders && receiver.keepOpen())
 	{
 		int activeSensor = -1; // that outputs to current window when not in TERMIANTE mode.
 
@@ -558,9 +637,6 @@ int main(int argc, char** argv)
 		};
 
 		setActiveSensor(0);
-
-		RaytracerExampleEventReceiver receiver;
-		device->setEventReceiver(&receiver);
 
 		uint64_t lastFPSTime = 0;
 		auto start = std::chrono::steady_clock::now();
@@ -612,65 +688,6 @@ int main(int argc, char** argv)
 		auto extensionStr = getFileExtensionFromFormat(sensors[activeSensor].fileFormat);
 		renderer->takeAndSaveScreenShot(std::filesystem::path("LastView_" + mainFileName + "_Sensor_" + std::to_string(activeSensor) + extensionStr));
 		renderer->deinitScreenSizedResources();
-	}
-
-	int32_t prevWidth = 0;
-	int32_t prevHeight = 0;
-
-	for(uint32_t s = 0u; s < sensors.size(); ++s)
-	{
-		const auto& sensorData = sensors[s];
-		
-		std::cout << "-- Rendering  " << filePath << ", Sensor = " << s << " to file." << std::endl;
-
-		bool needsReinit = (prevWidth != sensorData.width) || (prevHeight != sensorData.height); // >= or !=
-		prevWidth = sensorData.width;
-		prevHeight = sensorData.height;
-		
-		renderer->resetSampleAndFrameCounters(); // so that renderer->getTotalSamplesPerPixelComputed is 0 at the very beginning
-		if(needsReinit)
-		{
-			renderer->deinitScreenSizedResources();
-			renderer->initScreenSizedResources(sensorData.width, sensorData.height, std::move(sampleSequence));
-		}
-		
-		smgr->setActiveCamera(sensorData.staticCamera);
-
-		const uint32_t samplesPerPixelPerDispatch = renderer->getSamplesPerPixelPerDispatch();
-		const uint32_t maxNeededIterations = (sensorData.samplesNeeded + samplesPerPixelPerDispatch - 1) / samplesPerPixelPerDispatch;
-		
-		uint32_t itr = 0u;
-		bool takenEnoughSamples = false;
-
-		while(!takenEnoughSamples)
-		{
-			if(itr >= maxNeededIterations)
-				std::cout << "[ERROR] Samples taken (" << renderer->getTotalSamplesPerPixelComputed() << ") must've exceeded samples needed for Sensor (" << sensorData.samplesNeeded << ") by now; something is wrong." << std::endl;
-
-			driver->beginScene(false, false);
-			renderer->render(device->getTimer());
-			auto oldVP = driver->getViewPort();
-			driver->blitRenderTargets(renderer->getColorBuffer(),nullptr,false,false,{},{},true);
-			driver->setViewPort(oldVP);
-
-			driver->endScene();
-			
-			if(renderer->getTotalSamplesPerPixelComputed() >= sensorData.samplesNeeded)
-				takenEnoughSamples = true;
-			
-			itr++;
-		}
-
-		auto screenshotFilePath = sensorData.outputFilePath;
-		if (screenshotFilePath.empty())
-		{
-			auto extensionStr = getFileExtensionFromFormat(sensorData.fileFormat);
-			screenshotFilePath = std::filesystem::path("ScreenShot_" + mainFileName + "_Sensor_" + std::to_string(s) + extensionStr);
-		}
-		
-		std::cout << "-- Rendered Successfully: " << filePath << " (Sensor=" << s << ") to file (" << screenshotFilePath.string() << ")." << std::endl;
-
-		renderer->takeAndSaveScreenShot(screenshotFilePath);
 	}
 
 	renderer->deinitSceneResources();
