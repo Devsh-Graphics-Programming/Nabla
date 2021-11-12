@@ -227,7 +227,7 @@ class ITransformTreeWithoutNormalMatrices : public ITransformTree
 		}
 		
 		//
-		static constexpr inline bool HasNormalMatrices = true;
+		static constexpr inline bool HasNormalMatrices = false;
 		inline bool hasNormalMatrices() const override {return false;}
 
 		//

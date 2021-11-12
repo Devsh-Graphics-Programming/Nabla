@@ -13,16 +13,21 @@ using namespace core;
 
 const char* vertexSource = R"===(
 #version 430 core
+
+#define NBL_GLSL_TRANSFORM_TREE_POOL_NODE_PARENT_DESCRIPTOR_DECLARED
+#define NBL_GLSL_TRANSFORM_TREE_POOL_NODE_RELATIVE_TRANSFORM_DESCRIPTOR_DECLARED
+#define NBL_GLSL_TRANSFORM_TREE_POOL_NODE_MODIFIED_TIMESTAMP_DESCRIPTOR_DECLARED
+#define NBL_GLSL_TRANSFORM_TREE_POOL_NODE_RECOMPUTED_TIMESTAMP_DESCRIPTOR_DECLARED
+#include "nbl/builtin/glsl/transform_tree/pool_descriptor_set.glsl"
+
 layout(location = 0) in vec3 vPos;
 layout(location = 3) in vec3 vNormal;
 layout(location = 4) in vec4 vCol;
-layout (set = 0, binding = 0, row_major) readonly buffer GlobalTforms
-{
-	mat4x3 data[];
-} globalTform;
+
 layout( push_constant, row_major ) uniform Block {
 	mat4 viewProj;
 } PushConstants;
+
 layout(location = 0) out vec3 Color;
 layout(location = 1) out vec3 Normal;
 
@@ -30,15 +35,15 @@ layout(location = 1) out vec3 Normal;
 void main()
 {
 	const vec3 lcpos = vPos*vCol.a; // color's alpha has encoded scale
-	const vec3 worldPos = nbl_glsl_pseudoMul3x4with3x1(globalTform.data[gl_InstanceIndex],lcpos);
+	const vec3 worldPos = nbl_glsl_pseudoMul3x4with3x1(nodeGlobalTransforms.data[gl_InstanceIndex],lcpos);
 
 	gl_Position = nbl_glsl_pseudoMul4x4with3x1(PushConstants.viewProj,worldPos);
 	Color = vCol.xyz;
 
-	mat3x4 tpose = transpose(globalTform.data[gl_InstanceIndex]);
+	mat3x4 tpose = transpose(nodeGlobalTransforms.data[gl_InstanceIndex]);
 	mat3x4 transposeWorldMat = tpose;
 	mat3 inverseTransposeWorld = inverse(mat3(transposeWorldMat));
-	Normal = inverseTransposeWorld * normalize(vNormal);
+	Normal = inverseTransposeWorld * normalize(vNormal); //nodeNormalMatrix.data[]
 }
 )===";
 
@@ -129,7 +134,6 @@ class TransformationApp : public ApplicationBase
 	static_assert(FRAMES_IN_FLIGHT > FBO_COUNT);
 
 	_NBL_STATIC_INLINE_CONSTEXPR uint32_t ObjectCount = 11u;
-	_NBL_STATIC_INLINE_CONSTEXPR uint32_t PropertyCount = 5u;
 
 	_NBL_STATIC_INLINE_CONSTEXPR uint32_t FRAME_COUNT = 500000u;
 	_NBL_STATIC_INLINE_CONSTEXPR uint64_t MAX_TIMEOUT = 99999999999999ull;
@@ -178,13 +182,13 @@ class TransformationApp : public ApplicationBase
 
 			nbl::video::IGPUObjectFromAssetConverter CPU2GPU;
 
-			//scene::ITransformTree* tt0; 
-			//assert(tt0->getNodePropertyPool()->getPropertyCount() == PropertyCount);
-			const size_t parentPropSz = sizeof(uint32_t);//tt0->getNodePropertyPool()->getPropertySize(scene::ITransformTree::parent_prop_ix);
-			const size_t relTformPropSz = sizeof(core::matrix3x4SIMD);//tt0->getNodePropertyPool()->getPropertySize(scene::ITransformTree::relative_transform_prop_ix);
-			const size_t modifStampPropSz = sizeof(uint32_t);//tt0->getNodePropertyPool()->getPropertySize(scene::ITransformTree::modified_stamp_prop_ix);
-			const size_t globalTformPropSz = sizeof(core::matrix3x4SIMD);//tt0->getNodePropertyPool()->getPropertySize(scene::ITransformTree::global_transform_prop_ix);
-			const size_t recompStampPropSz = sizeof(uint32_t);//tt0->getNodePropertyPool()->getPropertySize(scene::ITransformTree::recomputed_stamp_prop_ix);
+			using transform_tree_t = scene::ITransformTreeWithNormalMatrices;
+			const size_t parentPropSz = sizeof(transform_tree_t::parent_t);
+			const size_t relTformPropSz = sizeof(transform_tree_t::relative_transform_t);
+			const size_t modifStampPropSz = sizeof(transform_tree_t::modified_stamp_t);
+			const size_t globalTformPropSz = sizeof(transform_tree_t::global_transform_t);
+			const size_t recompStampPropSz = sizeof(transform_tree_t::recomputed_stamp_t);
+			const size_t normalMatrixPropSz = sizeof(transform_tree_t::normal_matrix_t);
 
 			constexpr uint32_t GlobalTformPropNum = 3u;
 
@@ -194,8 +198,9 @@ class TransformationApp : public ApplicationBase
 			const size_t offset_modifStamp = core::alignUp(offset_relTform + relTformPropSz * ObjectCount, SSBOAlignment);
 			const size_t offset_globalTform = core::alignUp(offset_modifStamp + modifStampPropSz * ObjectCount, SSBOAlignment);
 			const size_t offset_recompStamp = core::alignUp(offset_globalTform + globalTformPropSz * ObjectCount, SSBOAlignment);
+			const size_t offset_normalMatrix = core::alignUp(offset_recompStamp + recompStampPropSz * ObjectCount, SSBOAlignment);
 
-			const size_t ssboSz = offset_recompStamp + recompStampPropSz * ObjectCount;
+			const size_t ssboSz = offset_normalMatrix + normalMatrixPropSz * ObjectCount;
 
 			video::IGPUBuffer::SCreationParams ssboCreationParams;
 			ssboCreationParams.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
@@ -205,8 +210,8 @@ class TransformationApp : public ApplicationBase
 
 			auto ssbo_buf = device->createDeviceLocalGPUBufferOnDedMem(ssboCreationParams, ssboSz);
 
-			asset::SBufferRange<video::IGPUBuffer> propBufs[PropertyCount];
-			for (uint32_t i = 0u; i < PropertyCount; ++i)
+			asset::SBufferRange<video::IGPUBuffer> propBufs[transform_tree_t::property_pool_t::PropertyCount];
+			for (uint32_t i=0u; i<transform_tree_t::property_pool_t::PropertyCount; ++i)
 				propBufs[i].buffer = ssbo_buf;
 			propBufs[0].offset = offset_parent;
 			propBufs[0].size = parentPropSz * ObjectCount;
@@ -218,12 +223,16 @@ class TransformationApp : public ApplicationBase
 			propBufs[3].size = globalTformPropSz * ObjectCount;
 			propBufs[4].offset = offset_recompStamp;
 			propBufs[4].size = recompStampPropSz * ObjectCount;
+			propBufs[5].offset = offset_normalMatrix;
+			propBufs[5].size = normalMatrixPropSz * ObjectCount;
 
-			tt = scene::ITransformTreeWithoutNormalMatrices::create(device.get(),propBufs,ObjectCount,true); // WTF!? Why a contiguous Pool for a TT !?
+			tt = transform_tree_t::create(device.get(),propBufs,ObjectCount,true); // A contiguous Pool for a TT is unusually used because we index into with with `gl_InstanceIndex`.
 			ttm = scene::ITransformTreeManager::create(utils.get(), transferUpQueue);
 
 			if (!ttm.get())
 				return;
+
+			ttDS = tt->getNodePropertyDescriptorSet();
 
 			auto ppHandler = core::make_smart_refctd_ptr<video::CPropertyPoolHandler>(core::smart_refctd_ptr(device));
 
@@ -441,18 +450,6 @@ class TransformationApp : public ApplicationBase
 
 			auto cpuMeshPlanets = createMeshBufferFromGeomCreatorReturnType(sphereGeom, assetManager.get(), shaders, shaders + 2);
 
-			core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> cpu_gfxDsl0;
-			{
-				asset::ICPUDescriptorSetLayout::SBinding bnd;
-				bnd.binding = 0u;
-				bnd.count = 1u;
-				bnd.samplers = nullptr;
-				bnd.stageFlags = video::IGPUSpecializedShader::ESS_VERTEX;
-				bnd.type = asset::EDT_STORAGE_BUFFER;
-
-				cpu_gfxDsl0 = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&bnd, &bnd + 1);
-			}
-
 			constexpr size_t ColorBufSz = sizeof(core::vectorSIMDf) * ObjectCount;
 			video::IGPUBuffer::SCreationParams colorBufCreationParams;
 			colorBufCreationParams.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
@@ -508,7 +505,7 @@ class TransformationApp : public ApplicationBase
 					}
 
 					asset::SPushConstantRange range[1] = { asset::ISpecializedShader::ESS_VERTEX,0u,sizeof(core::matrix4SIMD) };
-					auto gfxLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(range, range + 1u, core::smart_refctd_ptr(cpu_gfxDsl0));
+					auto gfxLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(range,range+1u,scene::ITransformTreeWithNormalMatrices::createDescriptorSetLayout());
 					pipeline->setLayout(core::smart_refctd_ptr(gfxLayout));
 
 					core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> rpIndependentPipeline = CPU2GPU.getGPUObjectsFromAssets(&pipeline, &pipeline + 1, cpu2gpuParams)->front();
@@ -534,25 +531,6 @@ class TransformationApp : public ApplicationBase
 			};
 
 			gpuObjects.push_back(createGPUObject(cpuMeshPlanets.get(), NumSolarSystemObjects, 0ull, gpuColorBuf));
-
-			auto* gfxDsl0 = gpuObjects.back().gpuMesh->getPipeline()->getLayout()->getDescriptorSetLayout(0);
-			auto gfxDescPool = device->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE, &gfxDsl0, &gfxDsl0 + 1);
-			gfxDs0 = device->createGPUDescriptorSet(gfxDescPool.get(), core::smart_refctd_ptr<video::IGPUDescriptorSetLayout>(const_cast<video::IGPUDescriptorSetLayout*>(gfxDsl0)));
-			{
-				video::IGPUDescriptorSet::SDescriptorInfo info;
-				info.desc = propBufs[GlobalTformPropNum].buffer;
-				info.buffer.offset = propBufs[GlobalTformPropNum].offset;
-				info.buffer.size = propBufs[GlobalTformPropNum].size;
-				video::IGPUDescriptorSet::SWriteDescriptorSet w;
-				w.arrayElement = 0;
-				w.binding = 0;
-				w.count = 1;
-				w.descriptorType = asset::EDT_STORAGE_BUFFER;
-				w.dstSet = gfxDs0.get();
-				w.info = &info;
-
-				device->updateDescriptorSets(1u, &w, 0u, nullptr);
-			}
 
 			lastTime = std::chrono::high_resolution_clock::now();
 
@@ -699,7 +677,7 @@ class TransformationApp : public ApplicationBase
 
 				const core::bitflag<asset::E_PIPELINE_STAGE_FLAGS> renderingStages = asset::EPSF_VERTEX_SHADER_BIT;
 				const core::bitflag<asset::E_ACCESS_FLAGS> renderingAccesses = asset::EAF_SHADER_READ_BIT;
-
+				 
 				scene::ITransformTreeManager::ParamsBase baseParams;
 				baseParams.cmdbuf = cb.get();
 				baseParams.tree = tt.get();
@@ -806,7 +784,7 @@ class TransformationApp : public ApplicationBase
 
 					cb->bindGraphicsPipeline(gpuObject.graphicsPipeline.get());
 					cb->pushConstants(gpuObject.graphicsPipeline->getRenderpassIndependentPipeline()->getLayout(), asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD), viewProj.pointer());
-					cb->bindDescriptorSets(asset::EPBP_GRAPHICS, gpuObject.graphicsPipeline->getRenderpassIndependentPipeline()->getLayout(), 0u, 1u, &gfxDs0.get());
+					cb->bindDescriptorSets(asset::EPBP_GRAPHICS, gpuObject.graphicsPipeline->getRenderpassIndependentPipeline()->getLayout(), 0u, 1u, &ttDS);
 					cb->drawMeshBuffer(gpuObject.gpuMesh.get());
 				}
 			}
@@ -851,7 +829,7 @@ class TransformationApp : public ApplicationBase
 		core::smart_refctd_ptr<video::IGPUBuffer> modRangesBuf;
 		core::smart_refctd_ptr<video::IGPUBuffer> relTformModsBuf;
 		core::smart_refctd_ptr<video::IGPUBuffer> nodeIdsBuf;
-		core::smart_refctd_ptr<video::IGPUDescriptorSet> gfxDs0;
+		const video::IGPUDescriptorSet* ttDS;
 
 		core::smart_refctd_ptr<nbl::video::IGPUCommandBuffer> cmdbuf[FRAMES_IN_FLIGHT];
 		core::smart_refctd_ptr<video::IGPUFence> frameComplete[FRAMES_IN_FLIGHT] = { nullptr };

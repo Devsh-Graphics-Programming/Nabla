@@ -704,7 +704,9 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			};
 
 			auto updateRelativeSpec = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/transform_tree/relative_transform_update.comp")());
-			auto recomputeGlobalSpec = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/transform_tree/global_transform_update.comp")()); // TODO: override or differ
+			auto recomputeGlobalSpec = TransformTree::HasNormalMatrices ?
+				createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/transform_tree/global_transform_and_normal_matrix_update.comp")()):
+				createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/transform_tree/global_transform_update.comp")());
 			auto debugDrawVertexSpec = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/transform_tree/debug.vert")(),asset::ISpecializedShader::ESS_VERTEX);
 			auto debugDrawFragmentSpec = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_normal/specialized_shader.frag")(),asset::ISpecializedShader::ESS_FRAGMENT);
 
@@ -823,7 +825,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		template<class TransformTree>
 		inline Pipelines& choosePipelines()
 		{
-			return TransformTree::HasNormalMatrices() ? m_pipelinesWithNormalMatrices:m_pipelinesWithoutNormalMatrices;
+			return TransformTree::HasNormalMatrices ? m_pipelinesWithNormalMatrices:m_pipelinesWithoutNormalMatrices;
 		}
 		inline Pipelines& choosePipelines(const ITransformTree* tree)
 		{
