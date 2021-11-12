@@ -126,13 +126,7 @@ namespace nbl::ui
 		}
 		case APP_CMD_TERM_WINDOW:
 		{
-			auto* wnd = framework->getWindow();
-			if (wnd != nullptr)
-			{
-				auto eventCallback = wnd->getEventCallback();
-				if (eventCallback)
-					(void)eventCallback->onWindowClosed(wnd);
-			}
+			framework->setWindow(nullptr);
 			break;
 		}
 		case APP_CMD_WINDOW_RESIZED:
@@ -172,10 +166,20 @@ namespace nbl::ui
 				auto eventCallback = wnd->getEventCallback();
 				if (eventCallback)
 				{
-				(void)eventCallback->onGainedMouseFocus(wnd);
-				(void)eventCallback->onGainedKeyboardFocus(wnd);
+					(void)eventCallback->onGainedMouseFocus(wnd);
+					(void)eventCallback->onGainedKeyboardFocus(wnd);
 				}
 			}
+			break;
+		}
+		case APP_CMD_PAUSE:
+		{
+			framework->pause();
+			break;
+		}
+		case APP_CMD_RESUME:
+		{
+			framework->resume();
 			break;
 		}
 		}

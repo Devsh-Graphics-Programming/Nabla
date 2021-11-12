@@ -83,6 +83,7 @@ namespace nbl::ui
 				auto wndManager = nbl::core::make_smart_refctd_ptr<nbl::ui::CWindowManagerAndroid>(app);
 				ctx.wndManager = core::smart_refctd_ptr(wndManager);
 				ctx.callback = core::smart_refctd_ptr(eventCallback);
+				ctx.framework = framework.get();
 				nbl::ui::IWindow::SCreationParams params;
 				params.callback = nullptr;
 				auto caller = core::make_smart_refctd_ptr<nbl::system::CSystemCallerPOSIX>();
@@ -119,7 +120,7 @@ namespace nbl::ui
 							source->process(app, source);
 						}
 					}
-					if (app->window != nullptr && framework->getWindow() != nullptr)
+					if (app->window != nullptr && framework->getWindow() != nullptr && !framework->isPaused())
 						framework->workLoopBody();
 				}
 			}

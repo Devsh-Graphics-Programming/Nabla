@@ -21,7 +21,6 @@ namespace nbl::system
 		~CFilePOSIX();
 		// Inherited via IFile
 		virtual size_t getSize() const override;
-		virtual const std::filesystem::path& getFileName() const override;
 		virtual void* getMappedPointer() override;
 		virtual const void* getMappedPointer() const override;
 		bool isOpenedProperly() const { return m_openedProperly; }

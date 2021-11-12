@@ -19,8 +19,11 @@ namespace nbl::system
         }
     protected:
         virtual void onStateSaved_impl(android_app* params) {}
-
+        bool paused;
     public:
+        void pause() { paused = true; }
+        void resume() { paused = false; }
+        bool isPaused() const { return paused; }
         struct SSavedState {
             float angle;
             int32_t x;
