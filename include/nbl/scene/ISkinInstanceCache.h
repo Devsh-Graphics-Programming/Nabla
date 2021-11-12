@@ -101,7 +101,7 @@ class ISkinInstanceCache : public virtual core::IReferenceCounted
 			// self explanatory
 			const uint32_t* jointCountPerSkin;
 		};
-		inline bool allocate(Allocation& params)
+		inline bool allocate(const Allocation& params)
 		{
             for (auto i=0u; i<params.count; i++)
             {

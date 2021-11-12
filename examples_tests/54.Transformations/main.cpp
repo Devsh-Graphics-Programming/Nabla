@@ -13,7 +13,7 @@ using namespace core;
 
 const char* vertexSource = R"===(
 #version 430 core
-layout(location = 0) in vec4 vPos;
+layout(location = 0) in vec3 vPos;
 layout(location = 3) in vec3 vNormal;
 layout(location = 4) in vec4 vCol;
 layout (set = 0, binding = 0, row_major) readonly buffer GlobalTforms
@@ -25,16 +25,17 @@ layout( push_constant, row_major ) uniform Block {
 } PushConstants;
 layout(location = 0) out vec3 Color;
 layout(location = 1) out vec3 Normal;
+
+#include "nbl/builtin/glsl/utils/transform.glsl"
 void main()
 {
-	mat4x3 tform = globalTform.data[gl_InstanceIndex];
-	mat3x4 tpose = transpose(tform);
-	vec4 lcpos = vPos;
-	lcpos.xyz *= vCol.a; // color's alpha has encoded scale
-	vec4 worldPos = vec4(dot(tpose[0], lcpos), dot(tpose[1], lcpos), dot(tpose[2], lcpos), 1.0);
-    vec4 pos = PushConstants.viewProj*worldPos;
-	gl_Position = pos;
+	const vec3 lcpos = vPos*vCol.a; // color's alpha has encoded scale
+	const vec3 worldPos = nbl_glsl_pseudoMul3x4with3x1(globalTform.data[gl_InstanceIndex],lcpos);
+
+	gl_Position = nbl_glsl_pseudoMul4x4with3x1(PushConstants.viewProj,worldPos);
 	Color = vCol.xyz;
+
+	mat3x4 tpose = transpose(globalTform.data[gl_InstanceIndex]);
 	mat3x4 transposeWorldMat = tpose;
 	mat3 inverseTransposeWorld = inverse(mat3(transposeWorldMat));
 	Normal = inverseTransposeWorld * normalize(vNormal);
@@ -218,7 +219,7 @@ class TransformationApp : public ApplicationBase
 			propBufs[4].offset = offset_recompStamp;
 			propBufs[4].size = recompStampPropSz * ObjectCount;
 
-			tt = scene::ITransformTree::create(device.get(), core::smart_refctd_ptr(renderpass), propBufs, ObjectCount, true); // WTF!? Why a contiguous Pool for a TT !?
+			tt = scene::ITransformTree::create(device.get(),propBufs,ObjectCount,true); // WTF!? Why a contiguous Pool for a TT !?
 			ttm = scene::ITransformTreeManager::create(utils.get(), transferUpQueue);
 
 			if (!ttm.get())
@@ -423,9 +424,10 @@ class TransformationApp : public ApplicationBase
 
 			// Creating CPU Shaders 
 
-			auto createCPUSpecializedShaderFromSource = [=](const char* source, asset::ISpecializedShader::E_SHADER_STAGE stage) -> core::smart_refctd_ptr<asset::ICPUSpecializedShader>
+			auto createCPUSpecializedShaderFromSource = [=](std::string&& source, asset::ISpecializedShader::E_SHADER_STAGE stage) -> core::smart_refctd_ptr<asset::ICPUSpecializedShader>
 			{
-				auto unspec = assetManager->getGLSLCompiler()->createSPIRVFromGLSL(source, stage, "main", "runtimeID", nullptr, true, nullptr, initOutput.logger.get());
+				const std::string path = localInputCWD.string(); // TODO: make GLSL Compiler take `const system::path&` instead of cstrings
+				auto unspec = assetManager->getGLSLCompiler()->resolveIncludeDirectives(std::move(source),stage,path.c_str(),1u,initOutput.logger.get());
 				if (!unspec)
 					return nullptr;
 

@@ -13,7 +13,7 @@ vec3 nbl_glsl_pseudoMul3x4with3x1(in mat4x3 m, in vec3 v)
 {
     return m[0] * v.x + m[1] * v.y + m[2] * v.z + m[3];
 }
-mat4x3 nbl_glsl_pseudoMul4x3with4x3(in mat4x3 lhs, in mat4x3 rhs)
+mat4x3 nbl_glsl_pseudoMul4x3with4x3(in mat4x3 lhs, in mat4x3 rhs) // TODO: change name to 3x4with3x4
 {
     mat4x3 result;
     for (int i = 0; i < 4; i++)
