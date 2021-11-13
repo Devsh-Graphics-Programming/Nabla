@@ -32,6 +32,8 @@ layout(location = 0) out vec3 Color;
 layout(location = 1) out vec3 Normal;
 
 #include "nbl/builtin/glsl/utils/transform.glsl"
+#include "nbl/builtin/glsl/utils/normal_encode.glsl"
+#include "nbl/builtin/glsl/utils/normal_decode.glsl"
 void main()
 {
 	const vec3 lcpos = vPos*vCol.a; // color's alpha has encoded scale
@@ -40,10 +42,7 @@ void main()
 	gl_Position = nbl_glsl_pseudoMul4x4with3x1(PushConstants.viewProj,worldPos);
 	Color = vCol.xyz;
 
-	mat3x4 tpose = transpose(nodeGlobalTransforms.data[gl_InstanceIndex]);
-	mat3x4 transposeWorldMat = tpose;
-	mat3 inverseTransposeWorld = inverse(mat3(transposeWorldMat));
-	Normal = inverseTransposeWorld * normalize(vNormal); //nodeNormalMatrix.data[]
+	Normal = normalize(nbl_glsl_CompressedNormalMatrix_t_decode(nodeNormalMatrix.data[gl_InstanceIndex])*vNormal);
 }
 )===";
 

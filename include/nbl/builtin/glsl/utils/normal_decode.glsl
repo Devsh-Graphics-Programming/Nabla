@@ -8,8 +8,9 @@ mat3 nbl_glsl_CompressedNormalMatrix_t_decode(in nbl_glsl_CompressedNormalMatrix
 {
     mat3 m;
 
-    const uint firstComp = compr.data & uvec4(0x00030003u);
-    m[0].x = unpackSnorm2x16((lastComp[3]<<6u)|(lastComp[2]<<4u)|(lastComp[1]<<2u)|lastComp[0]).x;
+    const uvec4 bottomBits = compr.data & uvec4(0x00030003u);
+    const uint firstComp = (bottomBits[3]<<6u)|(bottomBits[2]<<4u)|(bottomBits[1]<<2u)|bottomBits[0];
+    m[0].x = unpackSnorm2x16((firstComp>>8u)|firstComp).x;
 
     const uvec4 remaining8Comp = compr.data & uvec4(0xFFFCFFFCu);
     m[0].yz = unpackSnorm2x16(remaining8Comp[0]);

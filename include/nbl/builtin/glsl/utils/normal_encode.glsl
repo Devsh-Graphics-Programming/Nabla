@@ -18,10 +18,12 @@ nbl_glsl_CompressedNormalMatrix_t nbl_glsl_CompressedNormalMatrix_t_encode(in ui
     compr.data &= uvec4(0xFFFCFFFCu);
     
     const uint firstComp = packSnorm2x16(vec2(m[0].x,0.f));
-    compr.data[0] |= firstComp & 0x00030003u;
-    compr.data[1] |= (firstComp>>2u) & 0x00030003u;
-    compr.data[2] |= (firstComp>>4u) & 0x00030003u;
-    compr.data[3] |= (firstComp>>6u) & 0x00030003u;
+	const uint firstCompParted = (firstComp<<8u)|firstComp;
+    // different mask is not a typo, important to trim this component to 14 bits as well, otherwise bias
+    compr.data.x |= (firstCompParted & 0x00030000u);
+    compr.data.y |= ((firstCompParted >> 2u) & 0x00030003u);
+    compr.data.z |= ((firstCompParted >> 4u) & 0x00030003u);
+    compr.data.w |= ((firstCompParted >> 6u) & 0x00030003u);
 
     return compr;
 }
