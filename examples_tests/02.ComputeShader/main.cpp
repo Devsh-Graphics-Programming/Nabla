@@ -88,7 +88,7 @@ public:
 		initOutput.window = core::smart_refctd_ptr(window);
 		CommonAPI::Init(
 			initOutput,
-			video::EAT_VULKAN,
+			video::EAT_OPENGL_ES,
 			"02.ComputeShader",
 			requiredInstanceFeatures,
 			optionalInstanceFeatures,
@@ -255,15 +255,13 @@ public:
 			creationParams.arrayLayers = 1u;
 			creationParams.samples = asset::IImage::ESCF_1_BIT;
 			creationParams.tiling = asset::IImage::ET_OPTIMAL;
-			// This API check is temporary (or not?) since getFormatProperties is not
-			// yet implemented on OpenGL
-			// (Or this check should belong inside the engine wherever image usages
-			// are validated?)
-			if (apiConnection->getAPIType() == video::EAT_VULKAN)
+			if (apiConnection->getAPIType() == video::EAT_VULKAN ||
+				apiConnection->getAPIType() == video::EAT_OPENGL_ES)
 			{
-				const auto& formatProps = physicalDevice->getFormatProperties(creationParams.format);
-				assert(formatProps.optimalTilingFeatures.operator&(asset::EFF_STORAGE_IMAGE_BIT).value);
-				assert(formatProps.optimalTilingFeatures.operator&(asset::EFF_SAMPLED_IMAGE_FILTER_LINEAR_BIT).value);
+				const auto& formatUsages = physicalDevice->getImageFormatUsagesOptimal(creationParams.format);
+				assert(formatUsages.storageImage);
+				assert(formatUsages.sampledImage);
+				assert(asset::isFloatingPointFormat(creationParams.format) || asset::isNormalizedFormat(creationParams.format));
 			}
 			creationParams.usage = core::bitflag(asset::IImage::EUF_STORAGE_BIT) | asset::IImage::EUF_TRANSFER_DST_BIT;
 			creationParams.sharingMode = asset::ESM_EXCLUSIVE;

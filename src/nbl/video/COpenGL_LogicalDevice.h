@@ -228,6 +228,7 @@ public:
         SRequestBufferCreate reqParams;
         reqParams.mreqs = initialMreqs;
         reqParams.cachedCreationParams = params;
+        reqParams.cachedCreationParams.declaredSize = initialMreqs.vulkanReqs.size;
         core::smart_refctd_ptr<IGPUBuffer> output;
         auto& req = m_threadHandler.request(std::move(reqParams),&output);
         m_masterContextCallsInvoked++;
