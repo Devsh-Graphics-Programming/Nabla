@@ -564,6 +564,11 @@ class TransformationApp : public ApplicationBase
 				bufrng.size = nodeIdsBuf->getSize();
 				utils->updateBufferRangeViaStagingBuffer(device->getQueue(0, 0), bufrng, countAndIds);
 			}
+
+			ttmDescriptorSets = ttm->createAllDescriptorSets(device.get());
+			ttm->updateUpdateLocalTransformsDescriptorSet(device.get(),ttmDescriptorSets.updateLocal.get(),{0ull,modRangesBuf},{0ull,relTformModsBuf});
+			ttm->updateRecomputeGlobalTransformsDescriptorSet(device.get(),ttmDescriptorSets.recomputeGlobal.get(),{0ull,nodeIdsBuf});
+			//ttm->updateDebugDrawDescriptorSet(device.get(),ttmDescriptorSets.debugDraw.get(),{}); // TODO
 		}
 
 		void onAppTerminated_impl() override
@@ -677,13 +682,13 @@ class TransformationApp : public ApplicationBase
 				const core::bitflag<asset::E_PIPELINE_STAGE_FLAGS> renderingStages = asset::EPSF_VERTEX_SHADER_BIT;
 				const core::bitflag<asset::E_ACCESS_FLAGS> renderingAccesses = asset::EAF_SHADER_READ_BIT;
 				 
-				scene::ITransformTreeManager::ParamsBase baseParams;
+				scene::ITransformTreeManager::BaseParams baseParams;
 				baseParams.cmdbuf = cb.get();
 				baseParams.tree = tt.get();
-				baseParams.fence = fence.get();
-				baseParams.dispatchIndirect.buffer = nullptr;
-				baseParams.dispatchDirect.nodeCount = ObjectCount;
 				baseParams.logger = initOutput.logger.get();
+				scene::ITransformTreeManager::DispatchParams dispatchParams;
+				dispatchParams.indirect.buffer = nullptr;
+				dispatchParams.direct.nodeCount = ObjectCount;
 
 				// compilers are too dumb to figure out const correctness (there's also a TODO in `core::smart_refctd_ptr`)
 				const scene::ITransformTree* ptt = tt.get();
@@ -699,14 +704,7 @@ class TransformationApp : public ApplicationBase
 					setBufferBarrier(barrierCount++, { 0ull,relTformModsBuf->getSize(),relTformModsBuf }, sugg.modificationRequests);
 					cb->pipelineBarrier(sugg.srcStageMask, sugg.dstStageMask, asset::EDF_NONE, 0u, nullptr, barrierCount, barriers, 0u, nullptr);
 				}
-				//
-				{
-					scene::ITransformTreeManager::LocalTransformUpdateParams lcparams;
-					static_cast<scene::ITransformTreeManager::ParamsBase&>(lcparams) = baseParams;
-					lcparams.modificationRequests = asset::SBufferBinding<video::IGPUBuffer>{ 0ull, relTformModsBuf };
-					lcparams.requestRanges = asset::SBufferBinding<video::IGPUBuffer>{ 0ull, modRangesBuf };
-					ttm->updateLocalTransforms(lcparams);
-				}
+				ttm->updateLocalTransforms(baseParams,dispatchParams,ttmDescriptorSets.updateLocal.get());
 				// barrier between TTM update and TTM recompute
 				{
 					auto sugg = scene::ITransformTreeManager::barrierHelper(scene::ITransformTreeManager::SBarrierSuggestion::EF_INBETWEEN_RLEATIVE_UPDATE_AND_GLOBAL_RECOMPUTE);
@@ -722,13 +720,7 @@ class TransformationApp : public ApplicationBase
 					setBufferBarrier(barrierCount++, node_pp->getPropertyMemoryBlock(scene::ITransformTree::modified_stamp_prop_ix), sugg.modifiedTimestamps);
 					cb->pipelineBarrier(sugg.srcStageMask, sugg.dstStageMask, asset::EDF_NONE, 0u, nullptr, barrierCount, barriers, 0u, nullptr);
 				}
-				//
-				{
-					scene::ITransformTreeManager::GlobalTransformUpdateParams gparams;
-					static_cast<scene::ITransformTreeManager::ParamsBase&>(gparams) = baseParams;
-					gparams.nodeIDs = { 0ull,nodeIdsBuf };
-					ttm->recomputeGlobalTransforms(gparams);
-				}
+				ttm->recomputeGlobalTransforms(baseParams,dispatchParams,ttmDescriptorSets.recomputeGlobal.get());
 				// barrier between TTM recompute and TTM recompute+update 
 				{
 					auto sugg = scene::ITransformTreeManager::barrierHelper(scene::ITransformTreeManager::SBarrierSuggestion::EF_POST_GLOBAL_TFORM_RECOMPUTE);
@@ -787,6 +779,7 @@ class TransformationApp : public ApplicationBase
 					cb->drawMeshBuffer(gpuObject.gpuMesh.get());
 				}
 			}
+			// TODO: debug draw
 			cb->endRenderPass();
 			cb->end();
 
@@ -829,6 +822,7 @@ class TransformationApp : public ApplicationBase
 		core::smart_refctd_ptr<video::IGPUBuffer> relTformModsBuf;
 		core::smart_refctd_ptr<video::IGPUBuffer> nodeIdsBuf;
 		const video::IGPUDescriptorSet* ttDS;
+		scene::ITransformTreeManager::DescriptorSets ttmDescriptorSets;
 
 		core::smart_refctd_ptr<nbl::video::IGPUCommandBuffer> cmdbuf[FRAMES_IN_FLIGHT];
 		core::smart_refctd_ptr<video::IGPUFence> frameComplete[FRAMES_IN_FLIGHT] = { nullptr };
