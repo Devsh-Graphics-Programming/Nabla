@@ -462,7 +462,9 @@ int main(int argc, char** argv)
 
 		// TODO: apply the crop offset
 		assert(film.cropOffsetX==0 && film.cropOffsetY==0);
-		float nearClip = core::max(persp->nearClip, persp->farClip * 0.0001);
+		float nearClip = persp->nearClip;
+		if(persp->farClip  > persp->nearClip * 10'000.0f)
+			std::cout << "[WARN] Depth Range is too big: nearClip = " << persp->nearClip << ", farClip = " << persp->farClip << std::endl;
 		if (outSensorData.rightHandedCamera)
 			staticCamera->setProjectionMatrix(core::matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(core::radians(realFoVDegrees), aspectRatio, nearClip, persp->farClip));
 		else
