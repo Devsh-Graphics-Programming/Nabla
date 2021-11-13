@@ -557,6 +557,9 @@ int main(int argc, char** argv)
 	int32_t prevHeight = 0;
 	for(uint32_t s = 0u; s < sensors.size(); ++s)
 	{
+		if(!receiver.keepOpen())
+			break;
+
 		const auto& sensorData = sensors[s];
 		
 		printf("[INFO] Rendering %s - Sensor(%d) to file.\n", filePath.c_str(), s);
