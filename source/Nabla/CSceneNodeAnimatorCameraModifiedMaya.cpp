@@ -215,7 +215,11 @@ void CSceneNodeAnimatorCameraModifiedMaya::animateNode(IDummyTransformationScene
 	core::vectorSIMDf tvectY = va->getFarLeftDown() - va->getFarRightDown();
 	if (camera->getUpVector().Y<0.f)
 		other *= -1.f;
-	tvectY = core::normalize(core::cross(tvectY,other));
+	
+	if(camera->getLeftHanded())
+		tvectY = core::normalize(core::cross(other, tvectY));
+	else
+		tvectY = core::normalize(core::cross(tvectY, other));
 
 			
 	if ((isMouseKeyDown(1) || isMouseKeyDown(2)) && !(StepZooming || Zooming))
@@ -232,7 +236,7 @@ void CSceneNodeAnimatorCameraModifiedMaya::animateNode(IDummyTransformationScene
 		}
 		else
 		{
-			translateTarget += tvectX * (TranslateStart.X - MousePos.X) * TranslateSpeed +
+			translateTarget += tvectX * (MousePos.X - TranslateStart.X) * TranslateSpeed +
 				tvectY * (TranslateStart.Y - MousePos.Y) * TranslateSpeed;
 			if (MouseShift != ShiftTranslating)
 			{
@@ -254,8 +258,7 @@ void CSceneNodeAnimatorCameraModifiedMaya::animateNode(IDummyTransformationScene
 	}
 	else if (Translating || ShiftTranslating)	// first event after releasing mouse-buttons
 	{
-				
-		translateTarget += tvectX * (TranslateStart.X - MousePos.X) * TranslateSpeed+
+		translateTarget += tvectX * (MousePos.X - TranslateStart.X) * TranslateSpeed+
 			tvectY * (TranslateStart.Y - MousePos.Y) * TranslateSpeed;
 		OldTarget = translateTarget;
 				
@@ -282,7 +285,7 @@ void CSceneNodeAnimatorCameraModifiedMaya::animateNode(IDummyTransformationScene
 		else
 		{
 			nRotX += getValueDependentOnHandOrientation((RotateStart.X - MousePos.X) * RotateSpeed);
-			nRotY += getValueDependentOnHandOrientation((RotateStart.Y - MousePos.Y) * RotateSpeed);
+			nRotY += getValueDependentOnHandOrientation((RotateStart.Y - MousePos.Y) * RotateSpeed) * (camera->getLeftHanded() ? -1.0f : +1.0f);
 		}
 	}
 	else
@@ -290,7 +293,7 @@ void CSceneNodeAnimatorCameraModifiedMaya::animateNode(IDummyTransformationScene
 		if (Rotating)
 		{
 			RotX += getValueDependentOnHandOrientation((RotateStart.X - MousePos.X) * RotateSpeed);
-			RotY += getValueDependentOnHandOrientation((RotateStart.Y - MousePos.Y) * RotateSpeed);
+			RotY += getValueDependentOnHandOrientation((RotateStart.Y - MousePos.Y) * RotateSpeed) * (camera->getLeftHanded() ? -1.0f : +1.0f);
 			nRotX = RotX;
 			nRotY = RotY;
 					
