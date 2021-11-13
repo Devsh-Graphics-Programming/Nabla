@@ -51,7 +51,7 @@ void addLoDTable(
     core::vector<video::CSubpassKiln::DrawcallInfo>& drawcallInfos,
     const SBufferRange<video::IGPUBuffer>& perInstanceRedirectAttribs,
     const core::smart_refctd_ptr<video::IGPURenderpass>& renderpass,
-    const core::smart_refctd_ptr<video::IGPUDescriptorSet>& transformTreeDS,
+    const video::IGPUDescriptorSet* transformTreeDS,
     const core::smart_refctd_ptr<video::IGPUDescriptorSet>& perViewDS
 )
 {
@@ -138,7 +138,7 @@ void addLoDTable(
         memcpy(di.pushConstantData, gpumb->getPushConstantsDataPtr(), video::IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE);
         di.pipeline = pipeline;
         std::fill_n(di.descriptorSets, video::IGPUPipelineLayout::DESCRIPTOR_SET_COUNT, nullptr);
-        di.descriptorSets[0] = transformTreeDS;
+        di.descriptorSets[0] = core::smart_refctd_ptr<const video::IGPUDescriptorSet>(transformTreeDS);
         di.descriptorSets[1] = perViewDS;
         di.indexType = gpumb->getIndexType();
         std::copy_n(gpumb->getVertexBufferBindings(), perInstanceRedirectAttrID, di.vertexBufferBindings);
@@ -331,7 +331,7 @@ class LoDSystemApp : public ApplicationBase
             transferUpQueue = queues[decltype(initOutput)::EQT_TRANSFER_UP];
 
             ttm = scene::ITransformTreeManager::create(utilities.get(), transferUpQueue);
-            tt = scene::ITransformTree::create(logicalDevice.get(), MaxInstanceCount);
+            tt = scene::ITransformTreeWithNormalMatrices::create(logicalDevice.get(), MaxInstanceCount);
             const auto* ctt = tt.get(); // fight compiler, hard
             const video::IPropertyPool* nodePP = ctt->getNodePropertyPool();
 
@@ -499,29 +499,29 @@ class LoDSystemApp : public ApplicationBase
                         if (!qnc->loadCacheFromFile<asset::EF_A2B10G10R10_SNORM_PACK32>(system.get(), cachePath))
                             logger->log("%s", ILogger::ELL_ERROR, "Failed to load cache.");
 
-                        // cba to set up another DS Layout with exactly 1 shader storage buffer
-                        auto cpuTransformTreeDSLayout = cpuPerViewDSLayout;
+                        //
+                        core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> cpuTransformTreeDSLayout = scene::ITransformTreeWithNormalMatrices::createDescriptorSetLayout();
 
                         // populating `lodTables` is a bit messy, I know
                         size_t lodTableIx = lodLibraryData.lodTableDstUvec4s.size();
                         addLoDTable<EGT_CUBE, 1>(
                             assetManager.get(), cpuTransformTreeDSLayout, cpuPerViewDSLayout, shaders, cpu2gpuParams,
                             lodLibraryData, drawIndirectAllocator.get(), lodLibrary.get(), kiln.getDrawcallMetadataVector(),
-                            cullingParams.perInstanceRedirectAttribs, renderpass, cullingParams.customDS, perViewDS
+                            cullingParams.perInstanceRedirectAttribs, renderpass, ctt->getNodePropertyDescriptorSet(), perViewDS
                             );
                         lodTables[EGT_CUBE] = lodLibraryData.lodTableDstUvec4s[lodTableIx];
                         lodTableIx = lodLibraryData.lodTableDstUvec4s.size();
                         addLoDTable<EGT_SPHERE, 7>(
                             assetManager.get(), cpuTransformTreeDSLayout, cpuPerViewDSLayout, shaders, cpu2gpuParams,
                             lodLibraryData, drawIndirectAllocator.get(), lodLibrary.get(), kiln.getDrawcallMetadataVector(),
-                            cullingParams.perInstanceRedirectAttribs, renderpass, cullingParams.customDS, perViewDS
+                            cullingParams.perInstanceRedirectAttribs, renderpass, ctt->getNodePropertyDescriptorSet(), perViewDS
                             );
                         lodTables[EGT_SPHERE] = lodLibraryData.lodTableDstUvec4s[lodTableIx];
                         lodTableIx = lodLibraryData.lodTableDstUvec4s.size();
                         addLoDTable<EGT_CYLINDER, 6>(
                             assetManager.get(), cpuTransformTreeDSLayout, cpuPerViewDSLayout, shaders, cpu2gpuParams,
                             lodLibraryData, drawIndirectAllocator.get(), lodLibrary.get(), kiln.getDrawcallMetadataVector(),
-                            cullingParams.perInstanceRedirectAttribs, renderpass, cullingParams.customDS, perViewDS
+                            cullingParams.perInstanceRedirectAttribs, renderpass, ctt->getNodePropertyDescriptorSet(), perViewDS
                             );
                         lodTables[EGT_CYLINDER] = lodLibraryData.lodTableDstUvec4s[lodTableIx];
 

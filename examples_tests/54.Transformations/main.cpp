@@ -238,7 +238,7 @@ class TransformationApp : public ApplicationBase
 			constexpr uint32_t NumSolarSystemObjects = ObjectCount;
 			constexpr uint32_t NumInstances = NumSolarSystemObjects;
 
-			// GPU data pool
+			// GPU data pool 
 			//auto propertyPool = video::CPropertyPool<core::allocator,InstanceData,SolarSystemObject>::create(device.get(),blocks,NumSolarSystemObjects);
 
 			// SolarSystemObject and InstanceData have 1-to-1 relationship

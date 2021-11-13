@@ -67,6 +67,26 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
         static inline core::smart_refctd_ptr<ITransformTreeManager> create(video::IUtilities* utils, video::IGPUQueue* uploadQueue)
         {
 			auto device = utils->getLogicalDevice();
+			auto system = device->getPhysicalDevice()->getSystem();
+			auto createShader = [&system,&device](auto uniqueString, asset::ISpecializedShader::E_SHADER_STAGE type=asset::ISpecializedShader::ESS_COMPUTE) -> core::smart_refctd_ptr<video::IGPUSpecializedShader>
+			{
+				auto glslFile = system->loadBuiltinData<decltype(uniqueString)>();
+				core::smart_refctd_ptr<asset::ICPUBuffer> glsl;
+				{
+					glsl = core::make_smart_refctd_ptr<asset::ICPUBuffer>(glslFile->getSize());
+					memcpy(glsl->getPointer(), glslFile->getMappedPointer(), glsl->getSize());
+				}
+				auto shader = device->createGPUShader(core::make_smart_refctd_ptr<asset::ICPUShader>(core::smart_refctd_ptr(glsl),asset::IShader::buffer_contains_glsl_t{}));
+				return device->createGPUSpecializedShader(shader.get(),{nullptr,nullptr,"main",type });
+			};
+
+			auto updateRelativeSpec = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/transform_tree/relative_transform_update.comp")());
+			auto recomputeGlobalSpec = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/transform_tree/global_transform_update.comp")());
+			auto recomputeGlobalAndNormalSpec = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/transform_tree/global_transform_and_normal_matrix_update.comp")());
+			auto debugDrawVertexSpec = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/transform_tree/debug.vert")(),asset::ISpecializedShader::ESS_VERTEX);
+			auto debugDrawFragmentSpec = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_normal/specialized_shader.frag")(),asset::ISpecializedShader::ESS_FRAGMENT);
+			if (!updateRelativeSpec || !recomputeGlobalSpec || !recomputeGlobalAndNormalSpec || !debugDrawVertexSpec || !debugDrawFragmentSpec)
+				return nullptr;
 
 			const auto& limits = device->getPhysicalDevice()->getLimits();
 			core::vector<uint8_t> tmp(getDefaultValueBufferOffset(limits,~0u));
@@ -125,8 +145,14 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 				debugDrawDsLayout = device->createGPUDescriptorSetLayout(bnd,bnd+1);
 			}
 
-			auto pipelinesWithoutNormalMatrices = createPipelines<ITransformTreeWithoutNormalMatrices>(device,sharedDsLayout,debugDrawDsLayout);
-			auto pipelinesWithNormalMatrices = createPipelines<ITransformTreeWithNormalMatrices>(device,sharedDsLayout,debugDrawDsLayout);
+			auto pipelinesWithoutNormalMatrices = createPipelines<ITransformTreeWithoutNormalMatrices>(
+				device,updateRelativeSpec,recomputeGlobalSpec,
+				debugDrawVertexSpec,debugDrawFragmentSpec,sharedDsLayout,debugDrawDsLayout
+			);
+			auto pipelinesWithNormalMatrices = createPipelines<ITransformTreeWithNormalMatrices>(
+				device,updateRelativeSpec,recomputeGlobalAndNormalSpec,
+				debugDrawVertexSpec,debugDrawFragmentSpec,sharedDsLayout,debugDrawDsLayout
+			);
 			if (!pipelinesWithoutNormalMatrices.isValid() || !pipelinesWithNormalMatrices.isValid())
 				return nullptr;
 			
@@ -686,34 +712,15 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		template<class TransformTree>
 		static inline Pipelines createPipelines(
 			video::ILogicalDevice* device,
+			const core::smart_refctd_ptr<video::IGPUSpecializedShader>& updateRelativeSpec,
+			const core::smart_refctd_ptr<video::IGPUSpecializedShader>& recomputeGlobalSpec,
+			const core::smart_refctd_ptr<video::IGPUSpecializedShader>& debugDrawVertexSpec,
+			const core::smart_refctd_ptr<video::IGPUSpecializedShader>& debugDrawFragmentSpec,
 			const core::smart_refctd_ptr<video::IGPUDescriptorSetLayout>& sharedDsLayout,
 			const core::smart_refctd_ptr<video::IGPUDescriptorSetLayout>& debugDrawDsLayout
 		)
 		{
-			auto system = device->getPhysicalDevice()->getSystem();
-			auto createShader = [&system,&device](auto uniqueString, asset::ISpecializedShader::E_SHADER_STAGE type=asset::ISpecializedShader::ESS_COMPUTE) -> core::smart_refctd_ptr<video::IGPUSpecializedShader>
-			{
-				auto glslFile = system->loadBuiltinData<decltype(uniqueString)>();
-				core::smart_refctd_ptr<asset::ICPUBuffer> glsl;
-				{
-					glsl = core::make_smart_refctd_ptr<asset::ICPUBuffer>(glslFile->getSize());
-					memcpy(glsl->getPointer(), glslFile->getMappedPointer(), glsl->getSize());
-				}
-				auto shader = device->createGPUShader(core::make_smart_refctd_ptr<asset::ICPUShader>(core::smart_refctd_ptr(glsl),asset::IShader::buffer_contains_glsl_t{}));
-				return device->createGPUSpecializedShader(shader.get(),{nullptr,nullptr,"main",type });
-			};
-
-			auto updateRelativeSpec = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/transform_tree/relative_transform_update.comp")());
-			auto recomputeGlobalSpec = TransformTree::HasNormalMatrices ?
-				createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/transform_tree/global_transform_and_normal_matrix_update.comp")()):
-				createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/transform_tree/global_transform_update.comp")());
-			auto debugDrawVertexSpec = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/transform_tree/debug.vert")(),asset::ISpecializedShader::ESS_VERTEX);
-			auto debugDrawFragmentSpec = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_normal/specialized_shader.frag")(),asset::ISpecializedShader::ESS_FRAGMENT);
-
 			Pipelines retval = {};
-			if (!updateRelativeSpec || !recomputeGlobalSpec || !debugDrawVertexSpec || !debugDrawFragmentSpec)
-				return retval;
-
 
 			asset::ISpecializedShader::E_SHADER_STAGE stageAccessFlags[TransformTree::property_pool_t::PropertyCount];
 			std::fill_n(stageAccessFlags, TransformTree::property_pool_t::PropertyCount,asset::ISpecializedShader::ESS_COMPUTE);
@@ -727,8 +734,8 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			pcRange.stageFlags = asset::ISpecializedShader::ESS_VERTEX;
 			auto debugDrawLayout = device->createGPUPipelineLayout(nullptr,nullptr,core::smart_refctd_ptr(poolLayout),core::smart_refctd_ptr(debugDrawDsLayout));
 
-			retval.updateRelative = device->createGPUComputePipeline(nullptr,std::move(updateRelativeLayout),std::move(updateRelativeSpec));
-			retval.recomputeGlobal = device->createGPUComputePipeline(nullptr,std::move(recomputeGlobalLayout),std::move(recomputeGlobalSpec));
+			retval.updateRelative = device->createGPUComputePipeline(nullptr,std::move(updateRelativeLayout),core::smart_refctd_ptr(updateRelativeSpec));
+			retval.recomputeGlobal = device->createGPUComputePipeline(nullptr,std::move(recomputeGlobalLayout),core::smart_refctd_ptr(recomputeGlobalSpec));
 			core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> debugDrawIndepenedentPipeline;
 			{
 				asset::SVertexInputParams vertexInputParams = {};

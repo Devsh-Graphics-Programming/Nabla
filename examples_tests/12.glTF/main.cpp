@@ -162,9 +162,9 @@ class GLTFApp : public ApplicationBase
 
 			/*
 				Property Buffers for skinning
-			*/
+			*/ 
 			constexpr uint32_t MaxNodeCount = 128u<<10u; // get ready for many many nodes
-			auto transformTree = scene::ITransformTree::create(logicalDevice.get(),MaxNodeCount);
+			auto transformTree = scene::ITransformTreeWithoutNormalMatrices::create(logicalDevice.get(),MaxNodeCount);
 			asset::SBufferRange<video::IGPUBuffer> debugAABBs;
 			{
 				video::IGPUBuffer::SCreationParams params = {};
