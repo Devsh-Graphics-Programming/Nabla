@@ -451,7 +451,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		//
 		struct SBarrierSuggestion
 		{
-			static inline constexpr uint32_t MaxBufferCount = 6u;
+			static inline constexpr uint32_t MaxBufferCount = 6u; // could be less?
 
 			//
 			enum E_FLAG
@@ -476,6 +476,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			asset::SMemoryBarrier modifiedTimestamps = {};
 			asset::SMemoryBarrier globalTransforms = {};
 			asset::SMemoryBarrier recomputedTimestamps = {};
+			asset::SMemoryBarrier normalMatrices = {};
 		};
 		//
 		static inline SBarrierSuggestion barrierHelper(const SBarrierSuggestion::E_FLAG type)
@@ -518,6 +519,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 				barrier.relativeTransforms.dstAccessMask |= asset::EAF_SHADER_READ_BIT;
 				barrier.modifiedTimestamps.srcAccessMask |= asset::EAF_SHADER_WRITE_BIT;
 				barrier.modifiedTimestamps.dstAccessMask |= asset::EAF_SHADER_READ_BIT;
+				// the case of update stepping on its own toes is handled by the POST case
 			}
 			if (type&SBarrierSuggestion::EF_POST_GLOBAL_TFORM_RECOMPUTE)
 			{
@@ -534,6 +536,9 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 				barrier.globalTransforms.dstAccessMask |= rwAccessMask;
 				barrier.recomputedTimestamps.srcAccessMask |= rwAccessMask;
 				barrier.recomputedTimestamps.dstAccessMask |= rwAccessMask;
+				// global tform recompute only writes these, but its reasonable to assume someone will read them inbetween
+				barrier.normalMatrices.srcAccessMask |= rwAccessMask;
+				barrier.normalMatrices.dstAccessMask |= rwAccessMask;
 			}
 			return barrier;
 		}

@@ -4,8 +4,6 @@
 
 #define _NBL_STATIC_LIB_
 #include <nabla.h>
-#include "nbl/scene/CLevelOfDetailLibrary.h"
-#include "nbl/scene/ICullingLoDSelectionSystem.h"
 
 #include "../common/Camera.hpp"
 #include "../common/CommonAPI.h"
@@ -330,10 +328,11 @@ class LoDSystemApp : public ApplicationBase
 
             transferUpQueue = queues[decltype(initOutput)::EQT_TRANSFER_UP];
 
-            ttm = scene::ITransformTreeManager::create(utilities.get(), transferUpQueue);
-            tt = scene::ITransformTreeWithNormalMatrices::create(logicalDevice.get(), MaxInstanceCount);
+            ttm = scene::ITransformTreeManager::create(utilities.get(),transferUpQueue);
+            tt = scene::ITransformTreeWithNormalMatrices::create(logicalDevice.get(),MaxInstanceCount);
             const auto* ctt = tt.get(); // fight compiler, hard
             const video::IPropertyPool* nodePP = ctt->getNodePropertyPool();
+            asset::SBufferRange<video::IGPUBuffer> nodeList;
 
             // Drawcall Allocator
             {
@@ -386,7 +385,10 @@ class LoDSystemApp : public ApplicationBase
                 {
                     video::IGPUBuffer::SCreationParams params;
                     params.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
-                    cullingParams.instanceList = { 0ull,~0ull,logicalDevice->createDeviceLocalGPUBufferOnDedMem(params,sizeof(culling_system_t::InstanceToCull) * MaxInstanceCount) };
+                    
+                    nodeList = {0ull,~0ull,logicalDevice->createDeviceLocalGPUBufferOnDedMem(params,sizeof(uint32_t)+sizeof(scene::ITransformTree::node_t)*MaxInstanceCount)};
+                    nodeList.buffer->setObjectDebugName("transformTreeNodeList");
+                    cullingParams.instanceList = {0ull,~0ull,logicalDevice->createDeviceLocalGPUBufferOnDedMem(params,sizeof(culling_system_t::InstanceToCull)*MaxInstanceCount)};
                 }
                 cullingParams.scratchBufferRanges = culling_system_t::createScratchBuffer(utilities->getDefaultScanner(), MaxInstanceCount, MaxTotalVisibleDrawcallInstances);
                 cullingParams.drawCalls = drawIndirectAllocator->getDrawCommandMemoryBlock();
@@ -482,6 +484,14 @@ class LoDSystemApp : public ApplicationBase
                 }
             }
 
+            // descset for global tform updates
+            {
+                auto layout = ttm->createRecomputeGlobalTransformsDescriptorSetLayout(logicalDevice.get());
+                auto pool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE,&layout.get(),&layout.get()+1u);
+                recomputeGlobalTransformsDS = logicalDevice->createGPUDescriptorSet(pool.get(),std::move(layout));
+                ttm->updateRecomputeGlobalTransformsDescriptorSet(logicalDevice.get(),recomputeGlobalTransformsDS.get(),{0ull,nodeList.buffer});
+            }
+
             std::mt19937 mt(0x45454545u);
             std::uniform_int_distribution<uint32_t> typeDist(0, EGT_COUNT - 1u);
             std::uniform_real_distribution<float> rotationDist(0, 2.f * core::PI<float>());
@@ -536,31 +546,36 @@ class LoDSystemApp : public ApplicationBase
                         std::uniform_int_distribution<uint32_t>(MaxInstanceCount >> 1u, MaxInstanceCount)(mt), // Instance Count
                         scene::ITransformTree::invalid_node
                     );
-                    core::vector<core::matrix3x4SIMD> instanceTransforms(instanceGUIDs.size());
+                    const uint32_t objectCount = instanceGUIDs.size();
+                    core::vector<core::matrix3x4SIMD> instanceTransforms(objectCount);
                     for (auto& tform : instanceTransforms)
                     {
                         tform.setRotation(core::quaternion(rotationDist(mt), rotationDist(mt), rotationDist(mt)));
                         tform.setTranslation(core::vectorSIMDf(posDist(mt), posDist(mt), posDist(mt)));
                     }
                     {
-                        tt->allocateNodes({ instanceGUIDs.data(),instanceGUIDs.data() + instanceGUIDs.size() });
+                        tt->allocateNodes({instanceGUIDs.data(),instanceGUIDs.data()+objectCount});
+
+                        utilities->updateBufferRangeViaStagingBuffer(transferUpQueue,{0u,sizeof(uint32_t),nodeList.buffer},&objectCount);
+                        utilities->updateBufferRangeViaStagingBuffer(transferUpQueue,{sizeof(uint32_t),objectCount*sizeof(scene::ITransformTree::node_t),nodeList.buffer},instanceGUIDs.data());
 
                         scene::ITransformTreeManager::UpstreamRequest request;
                         request.tree = tt.get();
                         request.parents = {}; // no parents
-                        request.relativeTransforms.device2device;
+                        request.relativeTransforms.device2device = false;
                         request.relativeTransforms.data = instanceTransforms.data();
-                        request.nodes = { instanceGUIDs.data(),instanceGUIDs.data() + instanceGUIDs.size() };
-                        ttm->setupTransfers(request, upstreamRequests);
+                        // TODO: make an `UpstreamRequest` which allows for sourcing the node list from GPUBuffer
+                        request.nodes = {instanceGUIDs.data(),instanceGUIDs.data()+objectCount};
+                        ttm->setupTransfers(request,upstreamRequests);
 
-                        core::vector<culling_system_t::InstanceToCull> instanceList; instanceList.reserve(instanceGUIDs.size());
+                        core::vector<culling_system_t::InstanceToCull> instanceList; instanceList.reserve(objectCount);
                         for (auto instanceGUID : instanceGUIDs)
                         {
                             auto& instance = instanceList.emplace_back();
                             instance.instanceGUID = instanceGUID;
                             instance.lodTableUvec4Offset = lodTables[typeDist(mt)];
                         }
-                        utilities->updateBufferRangeViaStagingBuffer(transferUpQueue, { 0u,instanceList.size() * sizeof(culling_system_t::InstanceToCull),cullingParams.instanceList.buffer }, instanceList.data());
+                        utilities->updateBufferRangeViaStagingBuffer(transferUpQueue, { 0u,instanceList.size()*sizeof(culling_system_t::InstanceToCull),cullingParams.instanceList.buffer }, instanceList.data());
 
                         cullPushConstants.instanceCount += instanceList.size();
                     }
@@ -725,14 +740,43 @@ class LoDSystemApp : public ApplicationBase
                 camera.endInputProcessing(nextPresentationTimestamp);
             }
 
-            // CBA to actually update transforms (in case something were to move)
-            /*{
-                scene::ITransformTreeManager::GlobalTransformUpdateParams params;
-                params.cmdbuf = commandBuffer.get();
-                params.
-                params.nodeIDs = ;
-                ttm->recomputeGlobalTransforms(params);
-            }*/
+            // update transforms
+            {
+                // buffers to barrier
+                video::IGPUCommandBuffer::SBufferMemoryBarrier barriers[scene::ITransformTreeManager::SBarrierSuggestion::MaxBufferCount];
+                auto setBufferBarrier = [&barriers,commandBuffer](const uint32_t ix, const asset::SBufferRange<video::IGPUBuffer>& range, const asset::SMemoryBarrier& barrier)
+                {
+                    barriers[ix].barrier = barrier;
+                    barriers[ix].dstQueueFamilyIndex = barriers[ix].srcQueueFamilyIndex = commandBuffer->getQueueFamilyIndex();
+                    barriers[ix].buffer = range.buffer;
+                    barriers[ix].offset = range.offset;
+                    barriers[ix].size = range.size;
+                };
+                
+				// not going to barrier between last frame culling and rendering and TTM recompute, because its not in the same submit
+				scene::ITransformTreeManager::BaseParams baseParams;
+				baseParams.cmdbuf = commandBuffer.get();
+				baseParams.tree = tt.get();
+				baseParams.logger = logger.get();
+				scene::ITransformTreeManager::DispatchParams dispatchParams;
+				dispatchParams.indirect.buffer = nullptr;
+				dispatchParams.direct.nodeCount = cullPushConstants.instanceCount;
+                ttm->recomputeGlobalTransforms(baseParams,dispatchParams,recomputeGlobalTransformsDS.get());
+				// barrier between TTM recompute and TTM recompute+culling system 
+                {
+                    const auto* ctt = tt.get();
+                    auto node_pp = ctt->getNodePropertyPool();
+
+                    auto sugg = scene::ITransformTreeManager::barrierHelper(scene::ITransformTreeManager::SBarrierSuggestion::EF_POST_GLOBAL_TFORM_RECOMPUTE);
+                    sugg.dstStageMask |= asset::EPSF_VERTEX_SHADER_BIT; // also rendering shader (to read the normal matrix transforms)
+                    uint32_t barrierCount = 0u;
+                    setBufferBarrier(barrierCount++,node_pp->getPropertyMemoryBlock(scene::ITransformTree::global_transform_prop_ix),sugg.globalTransforms);
+                    setBufferBarrier(barrierCount++,node_pp->getPropertyMemoryBlock(scene::ITransformTree::recomputed_stamp_prop_ix),sugg.recomputedTimestamps);
+                    setBufferBarrier(barrierCount++,node_pp->getPropertyMemoryBlock(scene::ITransformTreeWithNormalMatrices::normal_matrix_prop_ix),sugg.normalMatrices);
+                    commandBuffer->pipelineBarrier(sugg.srcStageMask,sugg.dstStageMask,asset::EDF_NONE,0u,nullptr,barrierCount,barriers,0u,nullptr);
+                }
+            }
+
             // cull, choose LoDs, and fill our draw indirects
             {
                 const auto* layout = cullingSystem->getInstanceCullAndLoDSelectLayout();
@@ -740,7 +784,7 @@ class LoDSystemApp : public ApplicationBase
                 std::copy_n(camera.getPosition().pointer, 3u, cullPushConstants.camPos.comp);
                 commandBuffer->pushConstants(layout, asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(cullPushConstants), &cullPushConstants);
                 cullingParams.cmdbuf = commandBuffer.get();
-                cullingSystem->processInstancesAndFillIndirectDraws(cullingParams);
+                cullingSystem->processInstancesAndFillIndirectDraws(cullingParams,cullPushConstants.instanceCount);
             }
 
             // renderpass
@@ -801,6 +845,7 @@ class LoDSystemApp : public ApplicationBase
         nbl::core::smart_refctd_ptr<nbl::video::ISwapchain> swapchain;
         nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpass> renderpass;
         std::array<nbl::core::smart_refctd_ptr<nbl::video::IGPUFramebuffer>, FBO_COUNT> fbos;
+
         nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandPool> commandPool; // TODO: Multibuffer and reset the commandpools
         nbl::core::smart_refctd_ptr<nbl::asset::IAssetManager> assetManager;
         nbl::core::smart_refctd_ptr<nbl::system::ILogger> logger;
@@ -813,6 +858,7 @@ class LoDSystemApp : public ApplicationBase
         nbl::video::IGPUQueue* transferUpQueue = nullptr;
         nbl::core::smart_refctd_ptr<nbl::scene::ITransformTreeManager> ttm;
         nbl::core::smart_refctd_ptr<nbl::scene::ITransformTree> tt;
+        nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSet> recomputeGlobalTransformsDS;
 
         Camera camera = Camera(vectorSIMDf(0, 0, 0), vectorSIMDf(0, 0, 0), matrix4SIMD());
         CommonAPI::InputSystem::ChannelReader<IMouseEventChannel> mouse;
