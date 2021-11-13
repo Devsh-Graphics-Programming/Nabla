@@ -56,9 +56,9 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 		struct ScratchBufferRanges
 		{
 			asset::SBufferRange<video::IGPUBuffer> pvsInstances;
-			asset::SBufferRange<video::IGPUBuffer> lodDrawCallCounts;
+			asset::SBufferRange<video::IGPUBuffer> lodDrawCallCounts; // must clear first DWORD to 0
 			asset::SBufferRange<video::IGPUBuffer> pvsInstanceDraws;
-			asset::SBufferRange<video::IGPUBuffer> prefixSumScratch;
+			asset::SBufferRange<video::IGPUBuffer> prefixSumScratch;  // clear a certain range to 0
 		};
 		static ScratchBufferRanges createScratchBuffer(video::CScanner* scanner, const uint32_t maxTotalInstances, const uint32_t maxTotalVisibleDrawcallInstances)
 		{
@@ -77,7 +77,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 				retval.prefixSumScratch.offset = retval.pvsInstanceDraws.offset+retval.pvsInstanceDraws.size;
 				{
 					video::CScanner::Parameters params;
-					auto schedulerParams = video::CScanner::SchedulerParameters(params,maxTotalVisibleDrawcallInstances,scanner->getWorkgroupSize());
+					auto schedulerParams = video::CScanner::SchedulerParameters(params,maxTotalInstances,scanner->getWorkgroupSize());
 					retval.prefixSumScratch.size = params.getScratchSize(ssboAlignment);
 				}
 			}
@@ -92,6 +92,20 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 				retval.pvsInstances.buffer->setObjectDebugName("Culling Scratch Buffer");
 			}
 			return retval;
+		}
+		// two buffers out of the scratch need to be pre-cleared to 0 at their starts to ensure atomics start counting from 0
+		// you only need to call this on startup, the culling system cleans up after itself (resets to 0)
+		inline void clearScratch(
+			video::IGPUCommandBuffer* cmdbuf,
+			const asset::SBufferRange<video::IGPUBuffer>& lodDrawCallCounts,
+			const asset::SBufferRange<video::IGPUBuffer>& prefixSumScratch
+		)
+		{
+			cmdbuf->fillBuffer(lodDrawCallCounts.buffer.get(),lodDrawCallCounts.offset,sizeof(uint32_t),0u);
+			// if we allow for more than 2^31 theoretical pool allocator entries AND SSBOs bigger than 2GB we might have to change this logic
+			static_assert(video::CScanner::Parameters::MaxScanLevels<=7u,"Max Scan Scheduling Hierarchy Tree Height has increased, logic needs update");
+			const uint32_t schedulerSizeBound = core::min(sizeof(uint32_t)<<20u,prefixSumScratch.size);
+			cmdbuf->fillBuffer(prefixSumScratch.buffer.get(),prefixSumScratch.offset,schedulerSizeBound,0u);
 		}
 
 		// Per-View Per-Instance buffer should hold at least an MVP matrix

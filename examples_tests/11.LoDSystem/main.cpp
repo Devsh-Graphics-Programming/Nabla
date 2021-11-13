@@ -538,10 +538,9 @@ class LoDSystemApp : public ApplicationBase
                         //! cache results -- speeds up mesh generation on second run
                         qnc->saveCacheToFile<asset::EF_A2B10G10R10_SNORM_PACK32>(system.get(), cachePath);
                     }
-                    constexpr auto MaxTransfers = 9u;
+                    constexpr auto MaxTransfers = 8u;
                     video::CPropertyPoolHandler::UpStreamingRequest upstreamRequests[MaxTransfers];
                     // set up the instance list
-                    constexpr auto TTMTransfers = scene::ITransformTreeManager::TransferCount + 1u;
                     core::vector<scene::ITransformTree::node_t> instanceGUIDs(
                         std::uniform_int_distribution<uint32_t>(MaxInstanceCount >> 1u, MaxInstanceCount)(mt), // Instance Count
                         scene::ITransformTree::invalid_node
@@ -579,15 +578,11 @@ class LoDSystemApp : public ApplicationBase
 
                         cullPushConstants.instanceCount += instanceList.size();
                     }
-                    // I cannot be bothered to run a proper node global transform update dispatch in this example
-                    {
-                        upstreamRequests[4] = upstreamRequests[1];
-                        upstreamRequests[4].setFromPool(const_cast<video::IPropertyPool*>(nodePP), scene::ITransformTree::global_transform_prop_ix);
-                    }
                     cullingParams.drawcallCount = lodLibraryData.drawCallData.size();
                     // do the transfer of drawcall and LoD data
                     {
-                        for (auto i = TTMTransfers; i < MaxTransfers; i++)
+                        constexpr auto TTMTransfers = scene::ITransformTreeManager::TransferCount;
+                        for (auto i=TTMTransfers; i<MaxTransfers; i++)
                         {
                             upstreamRequests[i].fill = false;
                             upstreamRequests[i].source.device2device = false;
@@ -643,6 +638,8 @@ class LoDSystemApp : public ApplicationBase
                                 logger.get(), std::chrono::high_resolution_clock::time_point::max() // must finish
                             );
                         }
+                        // also clear the scratch
+                        cullingSystem->clearScratch(tferCmdBuf.get(),cullingParams.scratchBufferRanges.lodDrawCallCounts,cullingParams.scratchBufferRanges.prefixSumScratch);
                         tferCmdBuf->end();
                         {
                             video::IGPUQueue::SSubmitInfo submit = {}; // intializes all semaphore stuff to 0 and nullptr
