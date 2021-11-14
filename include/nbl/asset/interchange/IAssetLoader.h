@@ -237,7 +237,7 @@ public:
 		{
 			// try compute absolute path
 			auto absolute = ctx.params.workingDirectory/inOutFilename;
-			if (std::filesystem::exists(absolute))
+			//if (std::filesystem::exists(absolute)) // TODO: out own function which checks filesystem and archives for file existance (without opening)
 			{
 				inOutFilename = absolute.string();
 				return;
