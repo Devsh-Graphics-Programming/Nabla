@@ -233,13 +233,13 @@ public:
         }
 
         //! Called before loading a file to determine the correct path (could be relative or absolute)
-        inline virtual void getLoadFilename(std::string& inOutFilename, const SAssetLoadContext& ctx, const uint32_t hierarchyLevel)
+        inline virtual void getLoadFilename(system::path& inOutFilename, const system::ISystem* sys,  const SAssetLoadContext& ctx, const uint32_t hierarchyLevel)
 		{
 			// try compute absolute path
 			auto absolute = ctx.params.workingDirectory/inOutFilename;
-			//if (std::filesystem::exists(absolute)) // TODO: out own function which checks filesystem and archives for file existance (without opening)
+			if (sys->exists(absolute,system::IFile::ECF_READ))
 			{
-				inOutFilename = absolute.string();
+				inOutFilename = absolute;
 				return;
 			}
 			// otherwise it was already absolute
