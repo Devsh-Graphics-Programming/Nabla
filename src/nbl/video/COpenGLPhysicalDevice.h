@@ -34,6 +34,28 @@ public:
 
 	E_API_TYPE getAPIType() const override { return EAT_OPENGL; }
 
+	const SFormatImageUsage& getImageFormatUsagesLinear(const asset::E_FORMAT format) override
+	{
+		// Todo(achal):
+		// This will fill 
+		_NBL_TODO();
+		return SFormatImageUsage();
+	}
+
+	const SFormatImageUsage& getImageFormatUsagesOptimal(const asset::E_FORMAT format) override
+	{
+		// Todo(achal):
+		_NBL_TODO();
+		return SFormatImageUsage();
+	}
+
+	const SFormatBufferUsage& getBufferFormatUsages(const asset::E_FORMAT format) override
+	{
+		// Todo(achal):
+		_NBL_TODO();
+		return SFormatBufferUsage();
+	}
+
 protected:
 	core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice_impl(const ILogicalDevice::SCreationParams& params) final override
 	{

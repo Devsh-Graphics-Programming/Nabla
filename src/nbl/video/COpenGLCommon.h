@@ -256,14 +256,14 @@ inline GLenum	getSizedOpenGLFormatFromOurFormat(IOpenGL_FunctionTable* gl, asset
 			return GL_R8;
 			break;
 		case EF_R8_SRGB:
-			if (!gl->getFeatures()->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_texture_sRGB_R8))
+			if (gl && !gl->getFeatures()->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_texture_sRGB_R8))
 				return GL_SR8_EXT;
 			break;
 		case EF_R8G8_UNORM:
 			return GL_RG8;
 			break;
 		case EF_R8G8_SRGB:
-			if (!gl->getFeatures()->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_texture_sRGB_RG8))
+			if (gl && !gl->getFeatures()->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_texture_sRGB_RG8))
 				return GL_SRG8_EXT;
 			break;
 		case EF_R8G8B8_UNORM:
