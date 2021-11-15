@@ -116,7 +116,7 @@ public:
 				channels.channels.push_back(std::move(channel));
 				
 				using namespace std::chrono;
-				auto timeStamp = duration_cast<microseconds>(system_clock::now().time_since_epoch());
+				auto timeStamp = duration_cast<microseconds>(steady_clock::now().time_since_epoch());
 				channels.timeStamps.push_back(timeStamp);
 
 				channels.added.notify_all();
@@ -159,7 +159,7 @@ public:
 
 				using namespace std::chrono;
 				constexpr long long DefaultChannelTimeoutInMicroSeconds = 100*1e3; // 100 mili-seconds
-				auto nowTimeStamp = duration_cast<microseconds>(system_clock::now().time_since_epoch());
+				auto nowTimeStamp = duration_cast<microseconds>(steady_clock::now().time_since_epoch());
 
 				// Update Timestamp of all channels
 				for(uint32_t ch = 0u; ch < channels.channels.size(); ++ch) {
