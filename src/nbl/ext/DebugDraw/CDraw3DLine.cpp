@@ -90,7 +90,7 @@ void CDraw3DLine::updateVertexBuffer(IUtilities* utilities, IGPUQueue* queue, co
 		creationParams.queueFamilyIndices = 0u;
 		creationParams.queueFamilyIndices = nullptr;
 
-		m_linesBuffer = m_device->createDeviceLocalGPUBufferOnDedMem(creationParams, minimalBuffSize);
+		m_linesBuffer = m_device->createDeviceLocalGPUBufferOnDedMem(creationParams,minimalBuffSize);
 	}
 	SBufferRange<IGPUBuffer> range;
 	range.buffer = m_linesBuffer;

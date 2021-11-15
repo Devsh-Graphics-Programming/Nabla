@@ -30,9 +30,9 @@ class CPropertyPool final : public IPropertyPool
         static inline uint32_t calcApproximateCapacity(const asset::SBufferRange<IGPUBuffer>* _memoryBlocks)
         {
             size_t capacity = ~0ull;
-            for (auto i=1u; i<PropertyCount; i++)
+            for (auto i=0u; i<PropertyCount; i++)
             {
-                const auto bufcap = _memoryBlocks[0].size/PropertySizes[0];
+                const auto bufcap = _memoryBlocks[i].size/PropertySizes[i];
                 if (bufcap<capacity)
                     capacity = bufcap;
             }
@@ -44,6 +44,7 @@ class CPropertyPool final : public IPropertyPool
         {
             asset::SBufferRange<video::IGPUBuffer> blocks[PropertyCount];
             video::IGPUBuffer::SCreationParams params;
+            params.canUpdateSubRange = false; // maybe user provide?
             params.queueFamilyIndexCount = 0u;
             params.queueFamilyIndices = nullptr;
             params.sharingMode = asset::ESM_CONCURRENT;
@@ -54,7 +55,7 @@ class CPropertyPool final : public IPropertyPool
                 blocks[i].offset = 0ull;
                 blocks[i].size = capacity * PropertySizes[i];
                 mreqs.vulkanReqs.size = blocks[i].size;
-                blocks[i].buffer = device->createGPUBufferOnDedMem(params, mreqs);
+                blocks[i].buffer = device->createGPUBufferOnDedMem(params,mreqs);
             }
             return create(device, blocks, capacity, contiguous, allocator<uint8_t>());
         }

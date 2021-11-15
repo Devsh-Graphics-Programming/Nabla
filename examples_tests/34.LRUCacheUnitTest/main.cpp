@@ -71,7 +71,7 @@ int main()
 	cache2.insert(++i, "key is 22");
 	cache2.insert(++i, "key is 23");
 	i = 111;
-	//cache2.print();
+	cache2.print(std::cout);
 
 
 	return 0;

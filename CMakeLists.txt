@@ -89,7 +89,7 @@ if(NBL_BUILD_ANDROID)
 	find_package(Java 1.8)
 	
 	if(DEFINED Java_JAVA_EXECUTABLE)
-		message(STATUS "Found Java executable!")
+		message(STATUS "Found Java executable!: ${Java_JAVA_EXECUTABLE}")
 	else()
 		message(FATAL_ERROR "Could not find java executable for Android build!")
 	endif()
@@ -153,7 +153,7 @@ if(NBL_BUILD_ANDROID)
         unset(__buildTools)
     endif()
 	set(ANDROID_BUILD_TOOLS "${ANDROID_SDK_ROOT_PATH}/build-tools/${ANDROID_BUILD_TOOLS_VERSION}")
-	set(ANDROID_JAVA_BIN "${JAVA_HOME}/bin")
+	set(ANDROID_JAVA_BIN "${JAVA_HOME}")
 	set(ANDROID_JAVA_RT_JAR "${JAVA_HOME}/jre/lib/rt.jar")
 
 	set(ANDROID_APK_TARGET_ID "" CACHE STRING "The Target ID to build the APK for like 'android-99', use <android list targets> to choose another one.")
@@ -259,7 +259,7 @@ set(LLVM_USE_CRT_DEBUG MTd CACHE STRING "Nabla developer note: No idea what subf
 set(LLVM_USE_CRT_RELEASE MT CACHE STRING "Nabla developer note: No idea what subfolder provides this")
 
 if(NOT CMAKE_BUILD_TYPE)
-	set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type: Debug or Release" FORCE)
+	set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type: Debug or Release" FORCE)
 endif()
 
 if (DEFINED ENV{NUMBER_OF_PROCESSORS})
@@ -475,10 +475,6 @@ add_subdirectory(src/nbl) # Nabla code	|	Moved cmakelists.txt from source/Nabla 
 
 if(NBL_BUILD_TOOLS)
 	add_subdirectory(tools) # convert2BAW
-endif()
-
-if(ANDROID)
-add_subdirectory(android-sample EXCLUDE_FROM_ALL)
 endif()
 
 if(NBL_BUILD_EXAMPLES)

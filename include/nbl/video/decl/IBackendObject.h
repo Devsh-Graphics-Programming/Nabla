@@ -29,11 +29,15 @@ class IBackendObject
         // to get useful debug messages and names in Renderdoc captures
         virtual void setObjectDebugName(const char* label) const 
         {
-#ifdef _NBL_DEBUG
-            size_t len = strlen(label);
-            assert(len <= MAX_DEBUG_NAME_LENGTH);
-#endif
-            strcpy(m_debugName, label);
+            char* out = m_debugName;
+            const char* end = m_debugName+MAX_DEBUG_NAME_LENGTH;
+
+            if (label)
+            for (const char* in=label; out!=end && *in; in++)
+                *(out++) = *in;
+
+            while (out!=end)
+                *(out++) = 0;
         }
 
         const char* getObjectDebugName() const { return m_debugName; }

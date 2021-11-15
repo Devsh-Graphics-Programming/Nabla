@@ -1,3 +1,6 @@
+#ifndef _NBL_GLSL_OIT_GLSL_RESOLVE_FRAG_
+#define _NBL_GLSL_OIT_GLSL_RESOLVE_FRAG_
+
 #include <nbl/builtin/glsl/ext/OIT/oit.glsl>
 
 layout (location = 0) out vec4 OutColor;
@@ -14,6 +17,9 @@ void main()
 #elif NBL_GLSL_OIT_NODE_COUNT==2
     vis = imageLoad(g_vis, coord).rg;
 #endif
+
+	// set all nodes as invalid
+	imageStore(g_vis, coord, vec4(1.0));
 
 	// we don't insert nodes with alpha == 0
 	if (vis.x==1.0)
@@ -40,8 +46,7 @@ void main()
 	v *= vis[3];
 #endif
 
-	// set all nodes as invalid
-	imageStore(g_vis, coord, vec4(1.0));
-
 	OutColor = vec4(fragcolor,v);
 }
+
+#endif

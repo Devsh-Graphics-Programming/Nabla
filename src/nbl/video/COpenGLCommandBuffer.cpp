@@ -649,7 +649,6 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
             case impl::ECT_COPY_BUFFER:
             {
                 auto& c = cmd.get<impl::ECT_COPY_BUFFER>();
-                // TODO flush some state? -- not needed i think
                 GLuint readb = static_cast<const COpenGLBuffer*>(c.srcBuffer.get())->getOpenGLName();
                 GLuint writeb = static_cast<COpenGLBuffer*>(c.dstBuffer.get())->getOpenGLName();
                 for (uint32_t i = 0u; i < c.regionCount; ++i)
@@ -662,7 +661,6 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
             case impl::ECT_COPY_IMAGE:
             {
                 auto& c = cmd.get<impl::ECT_COPY_IMAGE>();
-                // TODO flush some state? -- not needed i think
                 IGPUImage* dstImage = c.dstImage.get();
                 const IGPUImage* srcImage = c.srcImage.get();
                 if (!dstImage->validateCopies(c.regions, c.regions + c.regionCount, srcImage))
@@ -829,7 +827,7 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
                 auto& c = cmd.get<impl::ECT_SET_EVENT>();
                 //https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/vkCmdSetEvent2KHR.html
                 // A memory dependency is defined between the event signal operation and commands that occur earlier in submission order.
-                //gl->glSync.pglMemoryBarrier(c.barrierBits);
+                //gl->glSync.pglMemoryBarrier(c.barrierBits); @Crisspl?
             }
             break;
             case impl::ECT_RESET_EVENT:
@@ -951,15 +949,17 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
 
                 for (uint32_t i = 0u; i < IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
                     if (!layouts[i])
-                        ctxlocal->nextState.descriptorsParams[pbp].descSets[i] = { nullptr, nullptr, nullptr };
+                        ctxlocal->nextState.descriptorsParams[pbp].descSets[i] = { nullptr, nullptr, nullptr, 0u }; // TODO: have a default constructor that makes sense and prevents us from screwing up
 
                 for (uint32_t i = 0u; i < c.dsCount; i++)
                 {
+                    auto glDS = static_cast<const COpenGLDescriptorSet*>(descriptorSets[i]);
                     ctxlocal->nextState.descriptorsParams[pbp].descSets[c.firstSet + i] =
                     {
                         core::smart_refctd_ptr<const COpenGLPipelineLayout>(static_cast<const COpenGLPipelineLayout*>(c.layout.get())),
-                        core::smart_refctd_ptr<const COpenGLDescriptorSet>(static_cast<const COpenGLDescriptorSet*>(descriptorSets[i])),
-                        c.dynamicOffsets
+                        core::smart_refctd_ptr<const COpenGLDescriptorSet>(glDS),
+                        c.dynamicOffsets,
+                        glDS->getRevision()
                     };
                 }
             }

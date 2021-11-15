@@ -3,23 +3,45 @@
 #include "nbl/system/IApplicationFramework.h"
 #include "nbl/ui/CGraphicalApplicationAndroid.h"
 #include "nbl/ui/CWindowManagerAndroid.h"
+#include "nbl/ui/IGraphicalApplicationFramework.h"
 #if defined(_NBL_PLATFORM_WINDOWS_)
-#	include <nbl/system/CColoredStdoutLoggerWin32.h>
+#include <nbl/system/CColoredStdoutLoggerWin32.h>
 #elif defined(_NBL_PLATFORM_ANDROID_)
-#	include <nbl/system/CStdoutLoggerAndroid.h>
+#include <nbl/system/CStdoutLoggerAndroid.h>
 #endif
+#include "nbl/system/CSystemAndroid.h"
+#include "nbl/system/CSystemLinux.h"
+#include "nbl/system/CSystemWin32.h"
 // TODO: make these include themselves via `nabla.h`
 
+class GraphicalApplication : public nbl::system::IApplicationFramework, public nbl::ui::IGraphicalApplicationFramework
+{
+	protected:
+		~GraphicalApplication() {}
+	public:
+		GraphicalApplication(
+			const std::filesystem::path& _localInputCWD,
+			const std::filesystem::path& _localOutputCWD,
+			const std::filesystem::path& _sharedInputCWD,
+			const std::filesystem::path& _sharedOutputCWD
+		) : nbl::system::IApplicationFramework(_localInputCWD, _localOutputCWD, _sharedInputCWD, _sharedOutputCWD) {}
+};
 //***** Application framework macros ******
 #ifdef _NBL_PLATFORM_ANDROID_
 using ApplicationBase = nbl::ui::CGraphicalApplicationAndroid;
-#define APP_CONSTRUCTOR(type) type(android_app* app, nbl::system::path cwd) : nbl::ui::CGraphicalApplicationAndroid(app, cwd) {}
-#define NBL_COMMON_API_MAIN(android_app_class, user_data_type) NBL_ANDROID_MAIN_FUNC(android_app_class, user_data_type, CommonAPI::CommonAPIEventCallback)
+#define APP_CONSTRUCTOR(type) type(android_app* app, const nbl::system::path& _localInputCWD,\
+const nbl::system::path& _localOutputCWD,\
+const nbl::system::path& _sharedInputCWD,\
+const nbl::system::path& _sharedOutputCWD) : nbl::ui::CGraphicalApplicationAndroid(app, _localInputCWD, _localOutputCWD, _sharedInputCWD, _sharedOutputCWD) {}
+#define NBL_COMMON_API_MAIN(android_app_class) NBL_ANDROID_MAIN_FUNC(android_app_class, CommonAPI::CommonAPIEventCallback)
 #else
-using ApplicationBase = nbl::system::IApplicationFramework;
-#define APP_CONSTRUCTOR(type) type(nbl::system::path cwd) : nbl::system::IApplicationFramework(cwd) {}
-#define NBL_COMMON_API_MAIN(android_app_class, user_data_type) int main(int argc, char** argv){\
-CommonAPI::main<android_app_class, user_data_type>(argc, argv);\
+using ApplicationBase = GraphicalApplication;
+#define APP_CONSTRUCTOR(type) type(const nbl::system::path& _localInputCWD,\
+const nbl::system::path& _localOutputCWD,\
+const nbl::system::path& _sharedInputCWD,\
+const nbl::system::path& _sharedOutputCWD) : GraphicalApplication(_localInputCWD, _localOutputCWD, _sharedInputCWD, _sharedOutputCWD) {}
+#define NBL_COMMON_API_MAIN(android_app_class) int main(int argc, char** argv){\
+CommonAPI::main<android_app_class>(argc, argv);\
 }
 #endif
 
@@ -217,13 +239,104 @@ public:
 			Channels<nbl::ui::IKeyboardEventChannel> m_keyboard;
 	};
 
-	class CommonAPIEventCallback : public nbl::ui::IWindow::IEventCallback
+	// TODO: can you guys just use one callback!?
+	class ICommonAPIEventCallback : public nbl::ui::IWindow::IEventCallback
+	{
+	public:
+		virtual void setLogger(nbl::system::logger_opt_smart_ptr& logger) = 0;
+	};
+	class CTemporaryEventCallback : public ICommonAPIEventCallback
+	{
+		nbl::system::logger_opt_smart_ptr m_logger = nullptr;
+	public:
+		void setLogger(nbl::system::logger_opt_smart_ptr& logger) override
+		{
+			m_logger = logger;
+		}
+	private:
+		bool onWindowShown_impl() override
+		{
+			m_logger.log("Window Shown");
+			return true;
+		}
+		bool onWindowHidden_impl() override
+		{
+			m_logger.log("Window hidden");
+			return true;
+		}
+		bool onWindowMoved_impl(int32_t x, int32_t y) override
+		{
+			m_logger.log("Window window moved to { %d, %d }", nbl::system::ILogger::ELL_WARNING, x, y);
+			return true;
+		}
+		bool onWindowResized_impl(uint32_t w, uint32_t h) override
+		{
+			m_logger.log("Window resized to { %u, %u }", nbl::system::ILogger::ELL_DEBUG, w, h);
+			return true;
+		}
+		bool onWindowMinimized_impl() override
+		{
+			m_logger.log("Window minimized", nbl::system::ILogger::ELL_ERROR);
+			return true;
+		}
+		bool onWindowMaximized_impl() override
+		{
+			m_logger.log("Window maximized", nbl::system::ILogger::ELL_PERFORMANCE);
+			return true;
+		}
+		void onGainedMouseFocus_impl() override
+		{
+			m_logger.log("Window gained mouse focus", nbl::system::ILogger::ELL_INFO);
+		}
+		void onLostMouseFocus_impl() override
+		{
+			m_logger.log("Window lost mouse focus", nbl::system::ILogger::ELL_INFO);
+		}
+		void onGainedKeyboardFocus_impl() override
+		{
+			m_logger.log("Window gained keyboard focus", nbl::system::ILogger::ELL_INFO);
+		}
+		void onLostKeyboardFocus_impl() override
+		{
+			m_logger.log("Window lost keyboard focus", nbl::system::ILogger::ELL_INFO);
+		}
+		void onMouseConnected_impl(nbl::core::smart_refctd_ptr<nbl::ui::IMouseEventChannel>&& mch) override
+		{
+			m_logger.log("A mouse has been connected", nbl::system::ILogger::ELL_INFO);
+		}
+		void onMouseDisconnected_impl(nbl::ui::IMouseEventChannel* mch) override
+		{
+			m_logger.log("A mouse has been disconnected", nbl::system::ILogger::ELL_INFO);
+		}
+		void onKeyboardConnected_impl(nbl::core::smart_refctd_ptr<nbl::ui::IKeyboardEventChannel>&& kbch) override
+		{
+			m_logger.log("A keyboard has been connected", nbl::system::ILogger::ELL_INFO);
+		}
+		void onKeyboardDisconnected_impl(nbl::ui::IKeyboardEventChannel* kbch) override
+		{
+			m_logger.log("A keyboard has been disconnected", nbl::system::ILogger::ELL_INFO);
+		}
+
+		bool onWindowClosed_impl() override
+		{
+			m_logger.log("Window closed");
+			return true;
+		}
+	};
+	class CommonAPIEventCallback : public ICommonAPIEventCallback
 	{
 	public:
 		CommonAPIEventCallback(nbl::core::smart_refctd_ptr<InputSystem>&& inputSystem, nbl::system::logger_opt_smart_ptr&& logger) : m_inputSystem(std::move(inputSystem)), m_logger(std::move(logger)), m_gotWindowClosedMsg(false){}
-		
+		CommonAPIEventCallback() {}
 		bool isWindowOpen() const {return !m_gotWindowClosedMsg;}
-
+		void setLogger(nbl::system::logger_opt_smart_ptr& logger) override
+		{
+			m_logger = logger;
+		}
+		void setInputSystem(nbl::core::smart_refctd_ptr<InputSystem>&& inputSystem)
+		{
+			m_inputSystem = std::move(inputSystem);
+		}
 	private:
 		bool onWindowShown_impl() override
 		{
@@ -301,21 +414,20 @@ public:
 		}
 
 	private:
-		nbl::core::smart_refctd_ptr<InputSystem> m_inputSystem;
-		nbl::system::logger_opt_smart_ptr m_logger;
+		nbl::core::smart_refctd_ptr<InputSystem> m_inputSystem = nullptr;
+		nbl::system::logger_opt_smart_ptr m_logger = nullptr;
 		bool m_gotWindowClosedMsg;
 	};
 
 	static nbl::core::smart_refctd_ptr<nbl::system::ISystem> createSystem()
 	{
 		using namespace nbl;
-		using namespace core;
 		using namespace system;
-		smart_refctd_ptr<ISystemCaller> caller = nullptr;
+		nbl::core::smart_refctd_ptr<nbl::system::ISystemCaller> caller = nullptr;
 #ifdef _NBL_PLATFORM_WINDOWS_
-		caller = make_smart_refctd_ptr<nbl::system::CSystemCallerWin32>();
+		caller = nbl::core::make_smart_refctd_ptr<nbl::system::CSystemCallerWin32>();
 #endif
-		return make_smart_refctd_ptr<ISystem>(std::move(caller));
+		return nbl::core::make_smart_refctd_ptr<nbl::system::ISystem>(std::move(caller));
 	}
 	
 	struct QueueFamilyProps
@@ -461,7 +573,7 @@ public:
 			{
 				uint32_t surfaceFormatCount;
 				surface->getAvailableFormatsForPhysicalDevice(gpu, surfaceFormatCount, nullptr);
-				extractedInfo.availableSurfaceFormats = std::vector<video::ISurface::SFormat>(surfaceFormatCount);
+				extractedInfo.availableSurfaceFormats = std::vector<nbl::video::ISurface::SFormat>(surfaceFormatCount);
 				surface->getAvailableFormatsForPhysicalDevice(gpu, surfaceFormatCount, extractedInfo.availableSurfaceFormats.data());
 
 				extractedInfo.availablePresentModes = surface->getAvailablePresentModesForPhysicalDevice(gpu);
@@ -517,7 +629,7 @@ public:
 
 		if(ret == ~0u)
 		{
-			_NBL_DEBUG_BREAK_IF(true);
+			//_NBL_DEBUG_BREAK_IF(true);
 			ret = 0;
 		}
 
@@ -582,19 +694,26 @@ public:
 		nbl::core::smart_refctd_ptr<InputSystem> inputSystem;
 	};
 
-	template<typename AppClassName, typename UserDataType>
+	template<typename AppClassName>
 	static void main(int argc, char** argv)
 	{
 #ifndef _NBL_PLATFORM_ANDROID_
 		nbl::system::path CWD = nbl::system::path(argv[0]).parent_path().generic_string() + "/";
-		AppClassName app(CWD);
-		UserDataType usrData{};
-		app.onAppInitialized(&usrData);
-		while (app.keepRunning(&usrData))
+		nbl::system::path sharedInputCWD = CWD / "../../media/";
+		nbl::system::path sharedOutputCWD = CWD / "../../tmp/";;
+		nbl::system::path localInputCWD = CWD / "../";
+		nbl::system::path localOutputCWD = CWD;
+		auto app = nbl::core::make_smart_refctd_ptr<AppClassName>(localInputCWD, localOutputCWD, sharedInputCWD, sharedOutputCWD);
+
+		for (size_t i = 0; i < argc; ++i)
+			app->argv.push_back(std::string(argv[i]));
+
+		app->onAppInitialized();
+		while (app->keepRunning())
 		{
-			app.workLoopBody(&usrData);
+			app->workLoopBody();
 		}
-		app.onAppTerminated(&usrData);
+		app->onAppTerminated();
 #endif
 	}
 
@@ -603,25 +722,25 @@ public:
 		using namespace nbl;
 		using namespace nbl::video;
 
-		result.system = createSystem();
 #ifdef _NBL_PLATFORM_WINDOWS_
-		result.logger = core::make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>(); // we should let user choose it?
+		result.system = createSystem();
+		result.logger = nbl::core::make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>(); // we should let user choose it?
 #elif defined(_NBL_PLATFORM_ANDROID_)
-		result.logger = core::make_smart_refctd_ptr<system::CStdoutLoggerAndroid>(); // we should let user choose it?
+		result.logger = nbl::core::make_smart_refctd_ptr<system::CStdoutLoggerAndroid>(); // we should let user choose it?
 #endif
-		result.inputSystem = core::make_smart_refctd_ptr<InputSystem>(system::logger_opt_smart_ptr(core::smart_refctd_ptr(result.logger)));
+		result.inputSystem = nbl::core::make_smart_refctd_ptr<InputSystem>(system::logger_opt_smart_ptr(nbl::core::smart_refctd_ptr(result.logger)));
 
 		if(api_type == EAT_VULKAN) 
 		{
-			result.apiConnection = video::CVulkanConnection::create(core::smart_refctd_ptr(result.system), 0, app_name.data(), true);
+			result.apiConnection = nbl::video::CVulkanConnection::create(nbl::core::smart_refctd_ptr(result.system), 0, app_name.data(), true);
 		}
 		else if(api_type == EAT_OPENGL)
 		{
-			result.apiConnection = video::COpenGLConnection::create(core::smart_refctd_ptr(result.system), 0, app_name.data(), video::COpenGLDebugCallback(core::smart_refctd_ptr(result.logger)));
+			result.apiConnection = nbl::video::COpenGLConnection::create(nbl::core::smart_refctd_ptr(result.system), 0, app_name.data(), nbl::video::COpenGLDebugCallback(nbl::core::smart_refctd_ptr(result.logger)));
 		}
 		else if(api_type == EAT_OPENGL_ES)
 		{
-			result.apiConnection = video::COpenGLESConnection::create(core::smart_refctd_ptr(result.system), 0, app_name.data(), video::COpenGLDebugCallback(core::smart_refctd_ptr(result.logger)));
+			result.apiConnection = nbl::video::COpenGLESConnection::create(nbl::core::smart_refctd_ptr(result.system), 0, app_name.data(), nbl::video::COpenGLDebugCallback(nbl::core::smart_refctd_ptr(result.logger)));
 		}
 		else
 		{
@@ -638,7 +757,7 @@ public:
 
 		float queuePriority = 1.f;
 		constexpr uint32_t MaxQueueCount = 4;
-		video::ILogicalDevice::SQueueCreationParams qcp[MaxQueueCount] = {}; 
+		nbl::video::ILogicalDevice::SQueueCreationParams qcp[MaxQueueCount] = {}; 
 		
 		uint32_t actualQueueCount = 1;
 		uint32_t mainQueueFamilyIndex = QueueFamilyProps::InvalidIndex;
@@ -646,12 +765,12 @@ public:
 
 		qcp[0].familyIndex = mainQueueFamilyIndex;
 		qcp[0].count = 1u;
-		qcp[0].flags = static_cast<video::IGPUQueue::E_CREATE_FLAGS>(0);
+		qcp[0].flags = static_cast<nbl::video::IGPUQueue::E_CREATE_FLAGS>(0);
 		qcp[0].priorities = &queuePriority;
 
 		if(qcp[0].familyIndex != gpuInfo.queueFamilyProps.compute.index)
 		{
-			qcp[actualQueueCount].flags = static_cast<video::IGPUQueue::E_CREATE_FLAGS>(0);
+			qcp[actualQueueCount].flags = static_cast<nbl::video::IGPUQueue::E_CREATE_FLAGS>(0);
 			qcp[actualQueueCount].familyIndex = gpuInfo.queueFamilyProps.compute.index;
 			qcp[actualQueueCount].count = 1u;
 			qcp[actualQueueCount].priorities = &queuePriority;
@@ -659,19 +778,19 @@ public:
 		}
 		if(gpuInfo.queueFamilyProps.transfer.index != gpuInfo.queueFamilyProps.compute.index && gpuInfo.queueFamilyProps.transfer.index != gpuInfo.queueFamilyProps.graphics.index)
 		{
-			qcp[actualQueueCount].flags = static_cast<video::IGPUQueue::E_CREATE_FLAGS>(0);
+			qcp[actualQueueCount].flags = static_cast<nbl::video::IGPUQueue::E_CREATE_FLAGS>(0);
 			qcp[actualQueueCount].familyIndex = gpuInfo.queueFamilyProps.transfer.index;
 			qcp[actualQueueCount].count = 1u;
 			qcp[actualQueueCount].priorities = &queuePriority;
 			actualQueueCount++;
 		}
 
-		video::ILogicalDevice::SCreationParams dev_params;
+		nbl::video::ILogicalDevice::SCreationParams dev_params;
 		dev_params.queueParamsCount = actualQueueCount;
 		dev_params.queueParams = qcp;
 		result.logicalDevice = gpu->createLogicalDevice(dev_params);
 
-		result.utilities = core::make_smart_refctd_ptr<video::IUtilities>(core::smart_refctd_ptr(result.logicalDevice));
+		result.utilities = nbl::core::make_smart_refctd_ptr<nbl::video::IUtilities>(nbl::core::smart_refctd_ptr(result.logicalDevice));
 		
 		result.mainQueue = result.logicalDevice->getQueue(mainQueueFamilyIndex, 0);
 		result.queues[InitOutput<0>::EQT_COMPUTE] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.compute.index, 0);
@@ -684,7 +803,7 @@ public:
 		assert(result.commandPool);
 		result.physicalDevice = gpu;
 
-		result.assetManager = core::make_smart_refctd_ptr<nbl::asset::IAssetManager>(nbl::core::smart_refctd_ptr(result.system),nbl::core::smart_refctd_ptr<nbl::asset::IGLSLCompiler>(gpu->getGLSLCompiler())); // we should let user choose it?
+		result.assetManager = nbl::core::make_smart_refctd_ptr<nbl::asset::IAssetManager>(nbl::core::smart_refctd_ptr(result.system)); // we should let user choose it?
 
 		result.cpu2gpuParams.assetManager = result.assetManager.get();
 		result.cpu2gpuParams.device = result.logicalDevice.get();
@@ -706,59 +825,60 @@ public:
 
 		// TODO: Windows/Linux logger define switch
 #ifndef _NBL_PLATFORM_ANDROID_
-		auto windowManager = core::make_smart_refctd_ptr<nbl::ui::CWindowManagerWin32>(); // should we store it in result?
+		auto windowManager = nbl::core::make_smart_refctd_ptr<nbl::ui::CWindowManagerWin32>(); // should we store it in result?
 #endif
-		result.system = createSystem();
 #ifdef _NBL_PLATFORM_WINDOWS_
-		result.logger = core::make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>(); // we should let user choose it?
+		result.system = createSystem();
+		result.logger = nbl::core::make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>(); // we should let user choose it?
 #elif defined(_NBL_PLATFORM_ANDROID_)
-		result.logger = core::make_smart_refctd_ptr<system::CStdoutLoggerAndroid>(); // we should let user choose it?
+		result.logger = nbl::core::make_smart_refctd_ptr<system::CStdoutLoggerAndroid>(); // we should let user choose it?
 #endif
-		result.inputSystem = make_smart_refctd_ptr<InputSystem>(system::logger_opt_smart_ptr(core::smart_refctd_ptr(result.logger)));
-		result.windowCb = nbl::core::make_smart_refctd_ptr<EventCallback>(core::smart_refctd_ptr(result.inputSystem), system::logger_opt_smart_ptr(core::smart_refctd_ptr(result.logger)));
+		result.inputSystem = nbl::core::make_smart_refctd_ptr<InputSystem>(system::logger_opt_smart_ptr(nbl::core::smart_refctd_ptr(result.logger)));
 
 #ifndef _NBL_PLATFORM_ANDROID_
+		result.windowCb = nbl::core::make_smart_refctd_ptr<EventCallback>(nbl::core::smart_refctd_ptr(result.inputSystem), system::logger_opt_smart_ptr(nbl::core::smart_refctd_ptr(result.logger)));
 		nbl::ui::IWindow::SCreationParams windowsCreationParams;
 		windowsCreationParams.width = window_width;
 		windowsCreationParams.height = window_height;
 		windowsCreationParams.x = 64u;
 		windowsCreationParams.y = 64u;
-		windowsCreationParams.system = core::smart_refctd_ptr(result.system);
+		windowsCreationParams.system = nbl::core::smart_refctd_ptr(result.system);
 		windowsCreationParams.flags = nbl::ui::IWindow::ECF_NONE;
 		windowsCreationParams.windowCaption = app_name.data();
 		windowsCreationParams.callback = result.windowCb;
 		
 		result.window = windowManager->createWindow(std::move(windowsCreationParams));
+		result.windowCb->setInputSystem(nbl::core::smart_refctd_ptr(result.inputSystem));
 #else
 		result.window->setEventCallback(core::smart_refctd_ptr(result.windowCb));
 #endif
 		if(api_type == EAT_VULKAN) 
 		{
-			auto _apiConnection = video::CVulkanConnection::create(core::smart_refctd_ptr(result.system), 0, app_name.data(), true);
+			auto _apiConnection = nbl::video::CVulkanConnection::create(nbl::core::smart_refctd_ptr(result.system), 0, app_name.data(), true);
 #ifdef _NBL_PLATFORM_WINDOWS_
-			result.surface = video::CSurfaceVulkanWin32::create(core::smart_refctd_ptr(_apiConnection), core::smart_refctd_ptr<ui::IWindowWin32>(static_cast<ui::IWindowWin32*>(result.window.get())));
+			result.surface = nbl::video::CSurfaceVulkanWin32::create(nbl::core::smart_refctd_ptr(_apiConnection), nbl::core::smart_refctd_ptr<ui::IWindowWin32>(static_cast<ui::IWindowWin32*>(result.window.get())));
 #elif defined(_NBL_PLATFORM_ANDROID_)
-			////result.surface = video::CSurfaceVulkanAndroid::create(core::smart_refctd_ptr(_apiConnection), core::smart_refctd_ptr<ui::IWindowAndroid>(static_cast<ui::IWindowAndroid*>(result.window.get())));
+			////result.surface = nbl::video::CSurfaceVulkanAndroid::create(nbl::core::smart_refctd_ptr(_apiConnection), nbl::core::smart_refctd_ptr<ui::IWindowAndroid>(static_cast<ui::IWindowAndroid*>(result.window.get())));
 #endif
 			result.apiConnection = _apiConnection;
 		}
 		else if(api_type == EAT_OPENGL)
 		{
-			auto _apiConnection = video::COpenGLConnection::create(core::smart_refctd_ptr(result.system), 0, app_name.data(), video::COpenGLDebugCallback(core::smart_refctd_ptr(result.logger)));
+			auto _apiConnection = nbl::video::COpenGLConnection::create(nbl::core::smart_refctd_ptr(result.system), 0, app_name.data(), nbl::video::COpenGLDebugCallback(nbl::core::smart_refctd_ptr(result.logger)));
 #ifdef _NBL_PLATFORM_WINDOWS_
-			result.surface = video::CSurfaceGLWin32::create(core::smart_refctd_ptr(_apiConnection), core::smart_refctd_ptr<ui::IWindowWin32>(static_cast<ui::IWindowWin32*>(result.window.get())));
+			result.surface = nbl::video::CSurfaceGLWin32::create(nbl::core::smart_refctd_ptr(_apiConnection), nbl::core::smart_refctd_ptr<ui::IWindowWin32>(static_cast<ui::IWindowWin32*>(result.window.get())));
 #elif defined(_NBL_PLATFORM_ANDROID_)
-			result.surface = video::CSurfaceGLAndroid::create(core::smart_refctd_ptr(_apiConnection), core::smart_refctd_ptr<ui::IWindowAndroid>(static_cast<ui::IWindowAndroid*>(result.window.get())));
+			result.surface = nbl::video::CSurfaceGLAndroid::create(nbl::core::smart_refctd_ptr(_apiConnection), nbl::core::smart_refctd_ptr<ui::IWindowAndroid>(static_cast<ui::IWindowAndroid*>(result.window.get())));
 #endif
 			result.apiConnection = _apiConnection;
 		}
 		else if(api_type == EAT_OPENGL_ES)
 		{
-			auto _apiConnection = video::COpenGLESConnection::create(core::smart_refctd_ptr(result.system), 0, app_name.data(), video::COpenGLDebugCallback(core::smart_refctd_ptr(result.logger)));
+			auto _apiConnection = nbl::video::COpenGLESConnection::create(nbl::core::smart_refctd_ptr(result.system), 0, app_name.data(), nbl::video::COpenGLDebugCallback(nbl::core::smart_refctd_ptr(result.logger)));
 #ifdef _NBL_PLATFORM_WINDOWS_
-			result.surface = video::CSurfaceGLWin32::create(core::smart_refctd_ptr(_apiConnection), core::smart_refctd_ptr<ui::IWindowWin32>(static_cast<ui::IWindowWin32*>(result.window.get())));
+			result.surface = nbl::video::CSurfaceGLWin32::create(nbl::core::smart_refctd_ptr(_apiConnection), nbl::core::smart_refctd_ptr<ui::IWindowWin32>(static_cast<ui::IWindowWin32*>(result.window.get())));
 #elif defined(_NBL_PLATFORM_ANDROID_)
-			result.surface = video::CSurfaceGLAndroid::create(core::smart_refctd_ptr(_apiConnection), core::smart_refctd_ptr<ui::IWindowAndroid>(static_cast<ui::IWindowAndroid*>(result.window.get())));
+			result.surface = nbl::video::CSurfaceGLAndroid::create(nbl::core::smart_refctd_ptr(_apiConnection), nbl::core::smart_refctd_ptr<ui::IWindowAndroid>(static_cast<ui::IWindowAndroid*>(result.window.get())));
 #endif
 			result.apiConnection = _apiConnection;
 		}
@@ -776,7 +896,7 @@ public:
 
 		float queuePriority = 1.f;
 		constexpr uint32_t MaxQueueCount = 4;
-		video::ILogicalDevice::SQueueCreationParams qcp[MaxQueueCount] = {}; 
+		nbl::video::ILogicalDevice::SQueueCreationParams qcp[MaxQueueCount] = {}; 
 		
 		uint32_t actualQueueCount = 1;
 		uint32_t mainQueueFamilyIndex = QueueFamilyProps::InvalidIndex;
@@ -787,12 +907,12 @@ public:
 
 		qcp[0].familyIndex = mainQueueFamilyIndex;
 		qcp[0].count = 1u;
-		qcp[0].flags = static_cast<video::IGPUQueue::E_CREATE_FLAGS>(0);
+		qcp[0].flags = static_cast<nbl::video::IGPUQueue::E_CREATE_FLAGS>(0);
 		qcp[0].priorities = &queuePriority;
 
 		if(qcp[0].familyIndex != gpuInfo.queueFamilyProps.compute.index)
 		{
-			qcp[actualQueueCount].flags = static_cast<video::IGPUQueue::E_CREATE_FLAGS>(0);
+			qcp[actualQueueCount].flags = static_cast<nbl::video::IGPUQueue::E_CREATE_FLAGS>(0);
 			qcp[actualQueueCount].familyIndex = gpuInfo.queueFamilyProps.compute.index;
 			qcp[actualQueueCount].count = 1u;
 			qcp[actualQueueCount].priorities = &queuePriority;
@@ -800,7 +920,7 @@ public:
 		}
 		if(gpuInfo.queueFamilyProps.transfer.index != gpuInfo.queueFamilyProps.compute.index && gpuInfo.queueFamilyProps.transfer.index != gpuInfo.queueFamilyProps.graphics.index)
 		{
-			qcp[actualQueueCount].flags = static_cast<video::IGPUQueue::E_CREATE_FLAGS>(0);
+			qcp[actualQueueCount].flags = static_cast<nbl::video::IGPUQueue::E_CREATE_FLAGS>(0);
 			qcp[actualQueueCount].familyIndex = gpuInfo.queueFamilyProps.transfer.index;
 			qcp[actualQueueCount].count = 1u;
 			qcp[actualQueueCount].priorities = &queuePriority;
@@ -810,19 +930,19 @@ public:
 			gpuInfo.queueFamilyProps.present.index != gpuInfo.queueFamilyProps.graphics.index &&
 			gpuInfo.queueFamilyProps.present.index != gpuInfo.queueFamilyProps.transfer.index )
 		{
-			qcp[actualQueueCount].flags = static_cast<video::IGPUQueue::E_CREATE_FLAGS>(0);
+			qcp[actualQueueCount].flags = static_cast<nbl::video::IGPUQueue::E_CREATE_FLAGS>(0);
 			qcp[actualQueueCount].familyIndex = gpuInfo.queueFamilyProps.present.index;
 			qcp[actualQueueCount].count = 1u;
 			qcp[actualQueueCount].priorities = &queuePriority;
 			actualQueueCount++;
 		}
 
-		video::ILogicalDevice::SCreationParams dev_params;
+		nbl::video::ILogicalDevice::SCreationParams dev_params;
 		dev_params.queueParamsCount = actualQueueCount;
 		dev_params.queueParams = qcp;
 		result.logicalDevice = gpu->createLogicalDevice(dev_params);
 
-		result.utilities = core::make_smart_refctd_ptr<video::IUtilities>(core::smart_refctd_ptr(result.logicalDevice));
+		result.utilities = nbl::core::make_smart_refctd_ptr<nbl::video::IUtilities>(nbl::core::smart_refctd_ptr(result.logicalDevice));
 
 		result.mainQueue = result.logicalDevice->getQueue(mainQueueFamilyIndex, 0);
 		if(graphicsQueueEnable)
@@ -846,7 +966,7 @@ public:
 			requestedFormat.colorSpace.primary = asset::ECP_SRGB;
 		}
 
-		result.swapchain = createSwapchain(api_type, window_width, window_height, sc_image_count, result.logicalDevice, result.surface, video::ISurface::EPM_FIFO_RELAXED, requestedFormat, gpuInfo);
+		result.swapchain = createSwapchain(api_type, window_width, window_height, sc_image_count, result.logicalDevice, result.surface, nbl::video::ISurface::EPM_FIFO_RELAXED, requestedFormat, gpuInfo);
 		assert(result.swapchain);
 		
 		asset::E_FORMAT swapChainFormat = result.swapchain->getCreationParameters().surfaceFormat.format;
@@ -858,7 +978,7 @@ public:
 		assert(result.commandPool);
 		result.physicalDevice = gpu;
 
-		result.assetManager = core::make_smart_refctd_ptr<nbl::asset::IAssetManager>(nbl::core::smart_refctd_ptr(result.system), nbl::core::smart_refctd_ptr<nbl::asset::IGLSLCompiler>(gpu->getGLSLCompiler())); // we should let user choose it?
+		result.assetManager = nbl::core::make_smart_refctd_ptr<nbl::asset::IAssetManager>(nbl::core::smart_refctd_ptr(result.system)); // we should let user choose it?
 		
 		result.cpu2gpuParams.assetManager = result.assetManager.get();
 		result.cpu2gpuParams.device = result.logicalDevice.get();
@@ -901,7 +1021,7 @@ public:
 		
 		nbl::video::ISurface::SFormat surfaceFormat;
 
-		if(api_type == video::EAT_VULKAN)
+		if(api_type == nbl::video::EAT_VULKAN)
 		{
 			uint32_t found_format_and_colorspace = ~0u;
 			uint32_t found_format = ~0u;
@@ -948,7 +1068,7 @@ public:
 			surfaceFormat = requestedSurfaceFormat;
 		}
 
-		video::ISwapchain::SCreationParams sc_params = {};
+		nbl::video::ISwapchain::SCreationParams sc_params = {};
 		sc_params.width = width;
 		sc_params.height = height;
 		sc_params.arrayLayers = 1u;
@@ -967,30 +1087,30 @@ public:
 
 		bool useDepth = asset::isDepthOrStencilFormat(depthFormat);
 
-		video::IGPURenderpass::SCreationParams::SAttachmentDescription attachments[2];
+		nbl::video::IGPURenderpass::SCreationParams::SAttachmentDescription attachments[2];
 		attachments[0].initialLayout = asset::EIL_UNDEFINED;
 		attachments[0].finalLayout = asset::EIL_PRESENT_SRC_KHR;
 		attachments[0].format = colorAttachmentFormat;
 		attachments[0].samples = asset::IImage::ESCF_1_BIT;
-		attachments[0].loadOp = video::IGPURenderpass::ELO_CLEAR;
-		attachments[0].storeOp = video::IGPURenderpass::ESO_STORE;
+		attachments[0].loadOp = nbl::video::IGPURenderpass::ELO_CLEAR;
+		attachments[0].storeOp = nbl::video::IGPURenderpass::ESO_STORE;
 
 		attachments[1].initialLayout = asset::EIL_UNDEFINED;
 		attachments[1].finalLayout = asset::EIL_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 		attachments[1].format = depthFormat;
 		attachments[1].samples = asset::IImage::ESCF_1_BIT;
-		attachments[1].loadOp = video::IGPURenderpass::ELO_CLEAR;
-		attachments[1].storeOp = video::IGPURenderpass::ESO_STORE;
+		attachments[1].loadOp = nbl::video::IGPURenderpass::ELO_CLEAR;
+		attachments[1].storeOp = nbl::video::IGPURenderpass::ESO_STORE;
 
-		video::IGPURenderpass::SCreationParams::SSubpassDescription::SAttachmentRef colorAttRef;
+		nbl::video::IGPURenderpass::SCreationParams::SSubpassDescription::SAttachmentRef colorAttRef;
 		colorAttRef.attachment = 0u;
 		colorAttRef.layout = asset::EIL_COLOR_ATTACHMENT_OPTIMAL;
 
-		video::IGPURenderpass::SCreationParams::SSubpassDescription::SAttachmentRef depthStencilAttRef;
+		nbl::video::IGPURenderpass::SCreationParams::SSubpassDescription::SAttachmentRef depthStencilAttRef;
 		depthStencilAttRef.attachment = 1u;
 		depthStencilAttRef.layout = asset::EIL_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-		video::IGPURenderpass::SCreationParams::SSubpassDescription sp;
+		nbl::video::IGPURenderpass::SCreationParams::SSubpassDescription sp;
 		sp.pipelineBindPoint = asset::EPBP_GRAPHICS;
 		sp.colorAttachmentCount = 1u;
 		sp.colorAttachments = &colorAttRef;
@@ -999,14 +1119,14 @@ public:
 		} else {
 			sp.depthStencilAttachment = nullptr;
 		}
-		sp.flags = video::IGPURenderpass::ESDF_NONE;
+		sp.flags = nbl::video::IGPURenderpass::ESDF_NONE;
 		sp.inputAttachmentCount = 0u;
 		sp.inputAttachments = nullptr;
 		sp.preserveAttachmentCount = 0u;
 		sp.preserveAttachments = nullptr;
 		sp.resolveAttachments = nullptr;
 
-		video::IGPURenderpass::SCreationParams rp_params;
+		nbl::video::IGPURenderpass::SCreationParams rp_params;
 		rp_params.attachmentCount = (useDepth) ? 2u : 1u;
 		rp_params.attachments = attachments;
 		rp_params.dependencies = nullptr;
@@ -1025,18 +1145,18 @@ public:
 	{
 		using namespace nbl;
 		bool useDepth = asset::isDepthOrStencilFormat(depthFormat);
-		std::array<nbl::core::smart_refctd_ptr<video::IGPUFramebuffer>, imageCount> fbo;
+		std::array<nbl::core::smart_refctd_ptr<nbl::video::IGPUFramebuffer>, imageCount> fbo;
 		auto sc_images = swapchain->getImages();
 		assert(sc_images.size() == imageCount);
 		for (uint32_t i = 0u; i < imageCount; ++i)
 		{
-			core::smart_refctd_ptr<video::IGPUImageView> view[2] = {};
+			nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> view[2] = {};
 			
 			auto img = sc_images.begin()[i];
 			{
-				video::IGPUImageView::SCreationParams view_params;
+				nbl::video::IGPUImageView::SCreationParams view_params;
 				view_params.format = img->getCreationParameters().format;
-				view_params.viewType = asset::IImageView<video::IGPUImage>::ET_2D;
+				view_params.viewType = asset::IImageView<nbl::video::IGPUImage>::ET_2D;
 				view_params.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
 				view_params.subresourceRange.baseMipLevel = 0u;
 				view_params.subresourceRange.levelCount = 1u;
@@ -1049,7 +1169,7 @@ public:
 			}
 			
 			if(useDepth) {
-				video::IGPUImage::SCreationParams imgParams;
+				nbl::video::IGPUImage::SCreationParams imgParams;
 				imgParams.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0u);
 				imgParams.type = asset::IImage::ET_2D;
 				imgParams.format = depthFormat;
@@ -1058,11 +1178,11 @@ public:
 				imgParams.mipLevels = 1u;
 				imgParams.arrayLayers = 1u;
 				imgParams.samples = asset::IImage::ESCF_1_BIT;
-				core::smart_refctd_ptr<video::IGPUImage> depthImg = device->createDeviceLocalGPUImageOnDedMem(std::move(imgParams));
+				nbl::core::smart_refctd_ptr<nbl::video::IGPUImage> depthImg = device->createDeviceLocalGPUImageOnDedMem(std::move(imgParams));
 
-				video::IGPUImageView::SCreationParams view_params;
+				nbl::video::IGPUImageView::SCreationParams view_params;
 				view_params.format = depthFormat;
-				view_params.viewType = asset::IImageView<video::IGPUImage>::ET_2D;
+				view_params.viewType = asset::IImageView<nbl::video::IGPUImage>::ET_2D;
 				view_params.subresourceRange.aspectMask = asset::IImage::EAF_DEPTH_BIT;
 				view_params.subresourceRange.baseMipLevel = 0u;
 				view_params.subresourceRange.levelCount = 1u;
@@ -1074,12 +1194,12 @@ public:
 				assert(view[1]);
 			}
 
-			video::IGPUFramebuffer::SCreationParams fb_params;
+			nbl::video::IGPUFramebuffer::SCreationParams fb_params;
 			fb_params.width = width;
 			fb_params.height = height;
 			fb_params.layers = 1u;
 			fb_params.renderpass = renderpass;
-			fb_params.flags = static_cast<video::IGPUFramebuffer::E_CREATE_FLAGS>(0);
+			fb_params.flags = static_cast<nbl::video::IGPUFramebuffer::E_CREATE_FLAGS>(0);
 			fb_params.attachmentCount = (useDepth) ? 2u : 1u;
 			fb_params.attachments = view;
 
@@ -1089,27 +1209,27 @@ public:
 		return fbo;
 	}
 
+	static constexpr nbl::asset::E_PIPELINE_STAGE_FLAGS DefaultSubmitWaitStage = nbl::asset::EPSF_COLOR_ATTACHMENT_OUTPUT_BIT;
 	static void Submit(nbl::video::ILogicalDevice* device,
 		nbl::video::ISwapchain* sc,
 		nbl::video::IGPUCommandBuffer* cmdbuf,
 		nbl::video::IGPUQueue* queue,
-		nbl::video::IGPUSemaphore* imgAcqSemaphore,
-		nbl::video::IGPUSemaphore* renderFinishedSemaphore,
-		nbl::video::IGPUFence* fence=nullptr)
+		nbl::video::IGPUSemaphore* const waitSemaphore, // usually the image acquire semaphore
+		nbl::video::IGPUSemaphore* const renderFinishedSemaphore,
+		nbl::video::IGPUFence* fence=nullptr,
+		const nbl::core::bitflag<nbl::asset::E_PIPELINE_STAGE_FLAGS> waitDstStageMask=DefaultSubmitWaitStage // only matters if `waitSemaphore` not null
+	)
 	{
 		using namespace nbl;
-		video::IGPUQueue::SSubmitInfo submit;
+		nbl::video::IGPUQueue::SSubmitInfo submit;
 		{
 			submit.commandBufferCount = 1u;
 			submit.commandBuffers = &cmdbuf;
-			video::IGPUSemaphore* signalsem = renderFinishedSemaphore;
-			submit.signalSemaphoreCount = imgAcqSemaphore ? 1u:0u;
-			submit.pSignalSemaphores = &signalsem;
-			video::IGPUSemaphore* waitsem = imgAcqSemaphore;
-			asset::E_PIPELINE_STAGE_FLAGS dstWait = asset::EPSF_COLOR_ATTACHMENT_OUTPUT_BIT;
-			submit.waitSemaphoreCount = 1u;
-			submit.pWaitSemaphores = &waitsem;
-			submit.pWaitDstStageMask = &dstWait;
+			submit.waitSemaphoreCount = waitSemaphore ? 1u:0u;
+			submit.pWaitSemaphores = &waitSemaphore;
+			submit.pWaitDstStageMask = &waitDstStageMask.value;
+			submit.signalSemaphoreCount = renderFinishedSemaphore ? 1u:0u;
+			submit.pSignalSemaphores = &renderFinishedSemaphore;
 
 			queue->submit(1u,&submit,fence);
 		}
@@ -1118,19 +1238,18 @@ public:
 	static void Present(nbl::video::ILogicalDevice* device,
 		nbl::video::ISwapchain* sc,
 		nbl::video::IGPUQueue* queue,
-		nbl::video::IGPUSemaphore* renderFinishedSemaphore,
+		nbl::video::IGPUSemaphore* waitSemaphore, // usually the render finished semaphore
 		uint32_t imageNum)
 	{
 		using namespace nbl;
-		video::IGPUQueue::SPresentInfo present;
+		nbl::video::IGPUQueue::SPresentInfo present;
 		{
 			present.swapchainCount = 1u;
 			present.imgIndices = &imageNum;
-			video::ISwapchain* swapchain = sc;
+			nbl::video::ISwapchain* swapchain = sc;
 			present.swapchains = &swapchain;
-			video::IGPUSemaphore* waitsem = renderFinishedSemaphore;
-			present.waitSemaphoreCount = 1u;
-			present.waitSemaphores = &waitsem;
+			present.waitSemaphoreCount = waitSemaphore ? 1u:0u;
+			present.waitSemaphores = &waitSemaphore;
 
 			queue->present(present);
 		}

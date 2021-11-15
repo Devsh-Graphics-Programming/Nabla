@@ -9,9 +9,7 @@
 #include "nbl/asset/IPipeline.h"
 #include "nbl/asset/ISpecializedShader.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 //! Interface class for compute pipelines
@@ -49,7 +47,6 @@ class IComputePipeline : public IPipeline<LayoutType>
 		core::smart_refctd_ptr<SpecShaderType> m_shader;
 };
 
-}
 }
 
 

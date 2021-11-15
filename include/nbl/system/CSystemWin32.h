@@ -20,6 +20,11 @@ class CSystemCallerWin32 final : public ISystemCaller
         }
 };
 
+class CSystemWin32 : public ISystem
+{
+
+};
+
 }
 
 #endif

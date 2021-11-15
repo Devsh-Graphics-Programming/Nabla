@@ -707,16 +707,6 @@ public:
 		// safe to proceed
 		cb->begin(0);
 
-		{
-			asset::SViewport vp;
-			vp.minDepth = 1.f;
-			vp.maxDepth = 0.f;
-			vp.x = 0u;
-			vp.y = 0u;
-			vp.width = WIN_W;
-			vp.height = WIN_H;
-			cb->setViewport(0u, 1u, &vp);
-		}
 		// acquire image 
 		uint32_t imgnum = 0u;
 		engine->swapchain->acquireNextImage(MAX_TIMEOUT, engine->imageAcquire[engine->resourceIx].get(), nullptr, &imgnum);
@@ -739,15 +729,13 @@ public:
 			// ensure dependency from transfer to any following transfers
 			{
 				asset::SMemoryBarrier memBarrier; // cba to list the buffers one-by-one, but probably should
-				memBarrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
-				memBarrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
+				memBarrier.srcAccessMask = core::bitflag(asset::EAF_SHADER_READ_BIT)|asset::EAF_VERTEX_ATTRIBUTE_READ_BIT;
+				memBarrier.dstAccessMask = asset::EAF_SHADER_WRITE_BIT;
 				cb->pipelineBarrier(
 					asset::EPSF_COMPUTE_SHADER_BIT, asset::EPSF_COMPUTE_SHADER_BIT, asset::EDF_NONE,
 					1u, &memBarrier, 0u, nullptr, 0u, nullptr
 				);
 			}
-			CInstancedMotionState::s_updateAddresses.clear();
-			CInstancedMotionState::s_updateData.clear();
 
 			auto falledFromMap = [](CInstancedMotionState* motionState) -> bool
 			{

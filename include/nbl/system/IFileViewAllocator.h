@@ -10,7 +10,7 @@ namespace nbl::system
 	{
 	public:
 		virtual void* alloc(size_t size) = 0;
-		virtual bool dealloc(void* data) = 0;
+		virtual bool dealloc(void* data, size_t size) = 0;
 	};
 
 	class CPlainHeapAllocator : public IFileViewAllocator
@@ -20,7 +20,7 @@ namespace nbl::system
 		{
 			return malloc(size);
 		}
-		bool dealloc(void* data) override
+		bool dealloc(void* data, size_t size) override
 		{
 			free(data);
 			return true;
@@ -34,7 +34,7 @@ namespace nbl::system
 		{
 			return nullptr;
 		}
-		bool dealloc(void* data) override
+		bool dealloc(void* data, size_t size) override
 		{
 			return true;
 		}
@@ -44,7 +44,7 @@ namespace nbl::system
 	#include <nbl/system/CFileViewVirtualAllocatorWin32.h>
 		using VirtualAllocator = nbl::system::CFileViewVirtualAllocatorWin32;
 	#elif defined(_NBL_PLATFORM_LINUX_) || defined(_NBL_PLATFORM_ANDROID_)
-	#include <nbl/system/CFileViewVirtualAllocatorX11.h>
-		using VirtualAllocator = nbl::system::CFileViewVirtualAllocatorX11;
+	#include <nbl/system/CFileViewVirtualAllocatorPOSIX.h>
+		using VirtualAllocator = nbl::system::CFileViewVirtualAllocatorPOSIX;
 	#endif
 #endif

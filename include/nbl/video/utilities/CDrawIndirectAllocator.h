@@ -25,7 +25,7 @@ class CDrawIndirectAllocator final : public IDrawIndirectAllocator
                 return nullptr;
 
             const auto& features = params.device->getPhysicalDevice()->getFeatures();
-            if (features.drawIndirectCount)
+            if (!features.drawIndirectCount)
                 params.drawCountCapacity = 0;
             const auto& limits = params.device->getPhysicalDevice()->getLimits();
             
@@ -34,9 +34,6 @@ class CDrawIndirectAllocator final : public IDrawIndirectAllocator
             video::IGPUBuffer::SCreationParams creationParams;
             creationParams.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
             creationParams.usage |= asset::IBuffer::EUF_INDIRECT_BUFFER_BIT;
-            creationParams.sharingMode = asset::E_SHARING_MODE::ESM_CONCURRENT;
-            creationParams.queueFamilyIndexCount = 0u;
-            creationParams.queueFamilyIndices = nullptr;
 
             static_cast<CreationParametersBase&>(explicit_params) = std::move(params);
             explicit_params.drawCommandBuffer.offset = 0ull;
@@ -58,20 +55,20 @@ class CDrawIndirectAllocator final : public IDrawIndirectAllocator
 		static inline core::smart_refctd_ptr<this_t> create(ExplicitBufferCreationParameters&& params, allocator<uint8_t>&& alloc = allocator<uint8_t>())
 		{
             const auto drawCapacity = params.drawCommandBuffer.size/params.maxDrawCommandStride;
-            if (!params.device || !params.drawCommandBuffer.buffer || drawCapacity==0u)
+            if (!params.device || !params.drawCommandBuffer.isValid() || drawCapacity==0u)
                 return nullptr;
             
             auto drawCountPool = draw_count_pool_t::create(params.device,&params.drawCountBuffer);
             if (params.drawCountBuffer.size!=0u && !drawCountPool)
                 return nullptr;
 
-			const auto drawAllocatorReservedSize = DrawIndirectAddressAllocator::reserved_size(core::roundUpToPoT<uint32_t>(params.maxDrawCommandStride),params.drawCommandBuffer.size,params.maxDrawCommandStride);
+			const auto drawAllocatorReservedSize = computeReservedSize(params.drawCommandBuffer.size,params.maxDrawCommandStride);
 			auto drawAllocatorReserved = std::allocator_traits<allocator<uint8_t>>::allocate(alloc,drawAllocatorReservedSize);
 			if (!drawAllocatorReserved)
 				return nullptr;
 
 			auto* retval = new CDrawIndirectAllocator(std::move(drawCountPool),params.maxDrawCommandStride,std::move(params.drawCommandBuffer),drawAllocatorReserved,std::move(alloc));
-			if (!retval)
+			if (!retval) // TODO: redo this, allocate the memory for the object, if fail, then dealloc, we cannot free from a moved allocator
 				std::allocator_traits<allocator<uint8_t>>::deallocate(alloc,drawAllocatorReserved,drawAllocatorReservedSize);
 
             return core::smart_refctd_ptr<CDrawIndirectAllocator>(retval,core::dont_grab);
@@ -85,9 +82,13 @@ class CDrawIndirectAllocator final : public IDrawIndirectAllocator
         ~CDrawIndirectAllocator()
         {
             std::allocator_traits<allocator<uint8_t>>::deallocate(
-                m_alloc,reinterpret_cast<uint8_t*>(m_drawAllocatorReserved),
-                DrawIndirectAddressAllocator::reserved_size(m_maxDrawCommandStride,m_drawCommandBlock.size,m_maxDrawCommandStride)
+                m_alloc,reinterpret_cast<uint8_t*>(m_drawAllocatorReserved),computeReservedSize(m_drawCommandBlock.size,m_maxDrawCommandStride)
             );
+        }
+
+        static inline size_t computeReservedSize(const uint64_t bufferSize, const uint32_t maxStride)
+        {
+            return DrawIndirectAddressAllocator::reserved_size(core::roundUpToPoT(maxStride),bufferSize,maxStride);
         }
 
         allocator<uint8_t> m_alloc;

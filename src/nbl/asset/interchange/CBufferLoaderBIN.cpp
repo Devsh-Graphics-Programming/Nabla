@@ -16,7 +16,7 @@ namespace nbl
 			SContext ctx(_file->getSize());
 			ctx.file = _file;
 			system::future<size_t> read_future;
-			_file->read(read_future, ctx.sourceCodeBuffer->getPointer(), 0, _file->getSize());
+			ctx.file->read(read_future, ctx.sourceCodeBuffer->getPointer(), 0u, ctx.sourceCodeBuffer->getSize());
 			read_future.get();
 
 			return SAssetBundle(nullptr,{std::move(ctx.sourceCodeBuffer)});

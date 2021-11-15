@@ -99,7 +99,7 @@ class IDrawIndirectAllocator : public core::IReferenceCounted
                 const uint32_t* multiDrawCommandMaxCounts;
                 // optional, will not be written if `IDrawIndirectAllocator::supportsMultiDrawIndirectCount()` is false
                 // if set then must be initialized to `invalid_draw_count_ix`
-                uint32_t* multiDrawCommandCounts = nullptr;
+                uint32_t* multiDrawCommandCountOffsets = nullptr;
 
                 //
                 inline uint32_t getCommandStructSize(const uint32_t i) const
@@ -134,21 +134,15 @@ class IDrawIndirectAllocator : public core::IReferenceCounted
                     return false;
             }
             if (m_drawCountPool)
-                return m_drawCountPool->allocateProperties(params.multiDrawCommandCounts,params.multiDrawCommandCounts+params.count);
+                return m_drawCountPool->allocateProperties(params.multiDrawCommandCountOffsets,params.multiDrawCommandCountOffsets+params.count);
             return true;
-        }
-
-        // no direct getters for this pool because we dont want user to be able to mess around with the allocations
-        inline void setFromCountPoolOnTransfer(CPropertyPoolHandler::TransferRequest& partiallyFilledStruct) const
-        {
-            partiallyFilledStruct.setFromPool(m_drawCountPool.get(),0u);
         }
 
         //
         inline void freeMultiDraws(const Allocation& params)
         {
             if (m_drawCountPool)
-                m_drawCountPool->freeProperties(params.multiDrawCommandCounts,params.multiDrawCommandCounts+params.count);
+                m_drawCountPool->freeProperties(params.multiDrawCommandCountOffsets,params.multiDrawCommandCountOffsets+params.count);
             for (auto i=0u; i<params.count; i++)
             {
                 auto& drawRange = params.multiDrawCommandRangeByteOffsets[i];

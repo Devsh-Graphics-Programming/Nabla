@@ -39,6 +39,7 @@
 #ifdef _NBL_COMPILE_WITH_GLI_
 #cmakedefine _NBL_COMPILE_WITH_GLI_LOADER_
 #endif
+#cmakedefine _NBL_COMPILE_WITH_GLTF_LOADER_
 
 // writers
 #cmakedefine _NBL_COMPILE_WITH_STL_WRITER_
@@ -53,6 +54,7 @@
 #ifdef _NBL_COMPILE_WITH_GLI_
 #cmakedefine _NBL_COMPILE_WITH_GLI_WRITER_
 #endif
+#cmakedefine _NBL_COMPILE_WITH_GLTF_WRITER_
 
 // compute interop
 #cmakedefine _NBL_COMPILE_WITH_OPENCL_

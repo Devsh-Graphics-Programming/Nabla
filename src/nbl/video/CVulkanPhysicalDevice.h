@@ -88,7 +88,7 @@ public:
             m_features.multiDrawIndirect = features.multiDrawIndirect;
             m_features.multiViewport = features.multiViewport;
             m_features.vertexAttributeDouble = features.shaderFloat64;
-            m_features.dispatchBase = false; // Todo(achal): Umm.. what is this?
+            m_features.dispatchBase = false; // Todo(achal): Umm.. what is this? Whether you can call VkCmdDispatchBase with non zero base args
             m_features.shaderSubgroupBasic = subgroupProperties.supportedOperations & VK_SUBGROUP_FEATURE_BASIC_BIT;
             m_features.shaderSubgroupVote = subgroupProperties.supportedOperations & VK_SUBGROUP_FEATURE_VOTE_BIT;
             m_features.shaderSubgroupArithmetic = subgroupProperties.supportedOperations & VK_SUBGROUP_FEATURE_ARITHMETIC_BIT;
@@ -139,6 +139,10 @@ public:
             qf.timestampValidBits = vkqf.timestampValidBits;
             qf.minImageTransferGranularity = { vkqf.minImageTransferGranularity.width, vkqf.minImageTransferGranularity.height, vkqf.minImageTransferGranularity.depth };
         }
+
+        std::ostringstream pool;
+        addCommonGLSLDefines(pool,false/*TODO: @achal detect if RenderDoc is running*/);
+        finalizeGLSLDefinePool(std::move(pool));
     }
             
     inline VkPhysicalDevice getInternalObject() const { return m_vkPhysicalDevice; }

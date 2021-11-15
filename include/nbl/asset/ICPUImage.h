@@ -90,9 +90,8 @@ class ICPUImage final : public IImage, public IAsset
 		}
 		inline auto getRegionArray() const
 		{
-			using immutable_refctd_array_t = const core::refctd_dynamic_array<const IImage::SBufferCopy>;
-			assert(false); //TODO: the stuff below causes a compile error
-			return nullptr; //core::smart_refctd_ptr<immutable_refctd_array_t>(reinterpret_cast<immutable_refctd_array_t*>(regions.get()));
+			using immutable_refctd_array_t = core::refctd_dynamic_array<IImage::SBufferCopy>;
+			return core::smart_refctd_ptr<immutable_refctd_array_t>(reinterpret_cast<immutable_refctd_array_t*>(regions.get()));
 		}
 		inline auto getRegionArray() { return regions; }
 

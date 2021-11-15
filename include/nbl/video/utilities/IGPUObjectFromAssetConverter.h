@@ -450,6 +450,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUBuffer** const _begin
             return;
 
         IGPUBuffer::SCreationParams bufparams;
+        //bufparams.canUpdateSubData = //also needs to be sourced from somewhere
         bufparams.sharingMode = _params.sharingMode;
         //bufparams.usage = //this has to be sourced from somewhere..
         uint32_t qfams[2]{ _params.perQueue[EQU_TRANSFER].queue->getFamilyIndex(), _params.finalQueueFamIx };

@@ -20,11 +20,13 @@ SimpleGPUBufferAllocator::value_type SimpleGPUBufferAllocator::allocate(size_t b
     // Todo(achal): Need to get these values from the user somehow
     // This doesn't matter right now because updateBufferRangeViaStagingBuffer 
     // only makes use of upstreaming buffer which would be TRANSFER_SRC
+    // Devsh: Provide usage parameters in the Constructor of the allocator (see how I handle `canUpdateViaCmdBuff`)
     IGPUBuffer::SCreationParams creationParams = {};
+    creationParams.canUpdateSubRange = canUpdateViaCmdBuff;
     creationParams.usage = IGPUBuffer::EUF_TRANSFER_SRC_BIT;
     creationParams.sharingMode = asset::ESM_EXCLUSIVE;
     creationParams.queueFamilyIndexCount = 0u;
     creationParams.queueFamilyIndices = nullptr;
 
-    return mDriver->createGPUBufferOnDedMem(creationParams, reqs, canUpdateViaCmdBuff);
+    return mDriver->createGPUBufferOnDedMem(creationParams,reqs);
 }

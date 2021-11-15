@@ -48,8 +48,7 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 			SMultibindTextureImages textureImages;
 		};
 
-	public:
-		COpenGLDescriptorSet(core::smart_refctd_ptr<const ILogicalDevice>&& dev, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout) : IGPUDescriptorSet(std::move(dev), std::move(_layout)), asset::impl::IEmulatedDescriptorSet<const IGPUDescriptorSetLayout>(m_layout.get())
+		COpenGLDescriptorSet(core::smart_refctd_ptr<const ILogicalDevice>&& dev, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout) : IGPUDescriptorSet(std::move(dev), std::move(_layout)), asset::impl::IEmulatedDescriptorSet<const IGPUDescriptorSetLayout>(m_layout.get()), m_revision(0ull)
 		{
 			m_flatOffsets = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint32_t>>(m_bindingInfo->size());
 			uint32_t uboCount = 0u;//includes dynamics
@@ -198,6 +197,8 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 				uint32_t localIx = _write.arrayElement+i;
 				updateMultibindParams(type,*output,m_flatOffsets->operator[](_write.binding)+localIx,_write.binding,localIx);
 			}
+
+			m_revision++;
 		}
 		inline void copyDescriptorSet(const SCopyDescriptorSet& _copy)
 		{
@@ -235,6 +236,8 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 				uint32_t localIx = _copy.dstArrayElement+i;
 				updateMultibindParams(type,*output,m_flatOffsets->operator[](_copy.dstBinding)+localIx,_copy.dstBinding,localIx);
 			}
+
+			m_revision++;
 		}
 
 		inline const COpenGLBuffer* getUBO(uint32_t localIndex) const
@@ -249,6 +252,8 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 		}
 
 		inline const SMultibindParams& getMultibindParams() const { return m_multibindParams; }
+
+		inline uint64_t getRevision() const {return m_revision;}
 
 	protected:
 		inline SDescriptorInfo* getDescriptors(uint32_t index) 
@@ -265,10 +270,13 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 		inline uint32_t getDescriptorCountAtIndex(uint32_t index) const
 		{
 			const auto& info = m_bindingInfo->operator[](index);
-			if (index+1u!=m_bindingInfo->size())
-				return m_bindingInfo->operator[](index+1u).offset-info.offset;
+			if (index + 1u != m_bindingInfo->size())
+			{
+				const auto& info1 = m_bindingInfo->operator[](index + 1u);
+				return info1.offset - info.offset;
+			}
 			else
-				return m_descriptors->size()+1u-info.offset; // TODO: this +1 doesn't look right
+				return m_descriptors->size() - info.offset;
 		}
 
 		inline const SBindingInfo* getBindingInfo(uint32_t offset) const
@@ -350,6 +358,8 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 		core::smart_refctd_dynamic_array<GLsizeiptr> m_sizes;
 		core::smart_refctd_dynamic_array<GLenum> m_targetsAndFormats;
 		core::smart_refctd_dynamic_array<uint32_t> m_dynOffsetIxs;
+
+		uint64_t m_revision;
 };
 
 }

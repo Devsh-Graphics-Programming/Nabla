@@ -270,11 +270,6 @@ public:
         }
     }
             
-    const core::smart_refctd_dynamic_array<std::string> getSupportedGLSLExtensions() const override
-    {
-        return nullptr;
-    }
-            
     core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(uint32_t familyIndex, core::bitflag<IGPUCommandPool::E_CREATE_FLAGS> flags) override
     {
         VkCommandPoolCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
@@ -517,7 +512,7 @@ public:
         return !anyFailed;
     }
 
-    core::smart_refctd_ptr<IGPUBuffer> createGPUBuffer(const IGPUBuffer::SCreationParams& creationParams, const size_t size, const bool canModifySubData = false) override
+    core::smart_refctd_ptr<IGPUBuffer> createGPUBuffer(const IGPUBuffer::SCreationParams& creationParams, const size_t size) override
     {
         VkBufferCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
         vk_createInfo.pNext = nullptr; // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkBufferDeviceAddressCreateInfoEXT, VkBufferOpaqueCaptureAddressCreateInfo, VkDedicatedAllocationBufferCreateInfoNV, VkExternalMemoryBufferCreateInfo, VkVideoProfileKHR, or VkVideoProfilesKHR
@@ -550,7 +545,7 @@ public:
             bufferMemoryReqs.requiresDedicatedAllocation = vk_dedicatedMemoryRequirements.requiresDedicatedAllocation;
 
             return core::make_smart_refctd_ptr<CVulkanBuffer>(
-                core::smart_refctd_ptr<CVulkanLogicalDevice>(this), bufferMemoryReqs, canModifySubData, vk_buffer);
+                core::smart_refctd_ptr<CVulkanLogicalDevice>(this), bufferMemoryReqs, creationParams, vk_buffer);
         }
         else
         {
@@ -558,9 +553,9 @@ public:
         }
     }
 
-    core::smart_refctd_ptr<IGPUBuffer> createGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& creationParams, const IDriverMemoryBacked::SDriverMemoryRequirements& additionalMemoryReqs, const bool canModifySubData = false) override
+    core::smart_refctd_ptr<IGPUBuffer> createGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& creationParams, const IDriverMemoryBacked::SDriverMemoryRequirements& additionalMemoryReqs) override
     {
-        core::smart_refctd_ptr<IGPUBuffer> gpuBuffer = createGPUBuffer(creationParams, additionalMemoryReqs.vulkanReqs.size);
+        core::smart_refctd_ptr<IGPUBuffer> gpuBuffer = createGPUBuffer(creationParams,additionalMemoryReqs.vulkanReqs.size);
 
         if (!gpuBuffer)
             return nullptr;
