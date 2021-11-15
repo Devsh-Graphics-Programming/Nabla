@@ -173,6 +173,14 @@ public:
         uint32_t imgBarrierCount;
         const SImageMemoryBarrier* imgBarriers;
     };
+    struct SInheritanceInfo
+    {
+        core::smart_refctd_ptr<const renderpass_t> renderpass;
+        uint32_t subpass;
+        core::smart_refctd_ptr<const framebuffer_t> framebuffer;
+        bool occlusionQueryEnable;
+        core::bitflag<asset::E_QUERY_CONTROL_FLAGS> queryFlags;
+    };
 
     E_STATE getState() const { return m_state; }
 

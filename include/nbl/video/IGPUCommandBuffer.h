@@ -52,7 +52,7 @@ class IGPUCommandBuffer :
     >;
 
 public:
-    virtual void begin(uint32_t _flags) override
+    virtual bool begin(uint32_t _flags, const SInheritanceInfo* inheritanceInfo = nullptr)
     {
         asset::ICommandBuffer<
             IGPUBuffer,
@@ -71,6 +71,7 @@ public:
         {
             assert(m_state != ES_INITIAL);
         }
+        return true;
     }
 
     uint32_t getQueueFamilyIndex() const { return m_cmdpool->getQueueFamilyIndex(); }

@@ -23,7 +23,7 @@ SimpleGPUBufferAllocator::value_type SimpleGPUBufferAllocator::allocate(size_t b
     // Devsh: Provide usage parameters in the Constructor of the allocator (see how I handle `canUpdateViaCmdBuff`)
     IGPUBuffer::SCreationParams creationParams = {};
     creationParams.canUpdateSubRange = canUpdateViaCmdBuff;
-    creationParams.usage = IGPUBuffer::EUF_TRANSFER_SRC_BIT;
+    creationParams.usage = static_cast<IGPUBuffer::E_USAGE_FLAGS>(IGPUBuffer::EUF_TRANSFER_SRC_BIT | IGPUBuffer::EUF_STORAGE_BUFFER_BIT);
     creationParams.sharingMode = asset::ESM_EXCLUSIVE;
     creationParams.queueFamilyIndexCount = 0u;
     creationParams.queueFamilyIndices = nullptr;

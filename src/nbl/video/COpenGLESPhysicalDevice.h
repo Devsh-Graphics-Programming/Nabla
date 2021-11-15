@@ -64,6 +64,7 @@ public:
 			m_optimalTilingUsages[format].blitDst;
 		m_optimalTilingUsages[format].transferSrc = anyUsageFlagSet ? 1 : 0;
 		m_optimalTilingUsages[format].transferDst = anyUsageFlagSet ? 1 : 0;
+#if 0
 		{
 			auto GetInternalFormativ = reinterpret_cast<PFNGLGETINTERNALFORMATIVPROC>(m_egl.call.peglGetProcAddress("glGetInternalformativ"));
 
@@ -76,6 +77,7 @@ public:
 
 			m_optimalTilingUsages[format].log2MaxSamples = maxSamples ? std::log2(maxSamples) : 0;
 		}
+#endif
 
 		m_optimalTilingUsages[format].isInitialized = 1;
 

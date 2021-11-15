@@ -37,13 +37,40 @@ public:
         freeSpaceInCmdPool();
     }
 
-    // API needs to change, vkBeginCommandBuffer can fail
-    void begin(uint32_t recordingFlags) override
+    bool begin(uint32_t recordingFlags, const SInheritanceInfo* inheritanceInfo = nullptr) override
     {
         VkCommandBufferBeginInfo beginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
         beginInfo.pNext = nullptr; // pNext must be NULL or a pointer to a valid instance of VkDeviceGroupCommandBufferBeginInfo
         beginInfo.flags = static_cast<VkCommandBufferUsageFlags>(recordingFlags);
-        beginInfo.pInheritanceInfo = nullptr; // useful if it was a secondary command buffer
+
+        VkCommandBufferInheritanceInfo vk_inheritanceInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO };
+        if (inheritanceInfo)
+        {
+            core::smart_refctd_ptr<const core::IReferenceCounted> tmp[2] = { inheritanceInfo->renderpass, inheritanceInfo->framebuffer };
+
+            vk_inheritanceInfo.pNext = nullptr;
+            if (!inheritanceInfo->renderpass || inheritanceInfo->renderpass->getAPIType() != EAT_VULKAN || !inheritanceInfo->renderpass->isCompatibleDevicewise(this))
+                return false;
+
+            // if (!inheritanceInfo->framebuffer || inheritanceInfo->framebuffer->getAPIType() != EAT_VULKAN || !inheritanceInfo->framebuffer->isCompatibleDevicewise(this))
+            //     return false;
+
+            // if (!saveReferencesToResources(tmp, tmp + 2))
+            if (!saveReferencesToResources(tmp, tmp + 1))
+                return false;
+
+            vk_inheritanceInfo.renderPass = static_cast<const CVulkanRenderpass*>(inheritanceInfo->renderpass.get())->getInternalObject();
+            vk_inheritanceInfo.subpass = inheritanceInfo->subpass;
+            // Todo(achal):
+            // From the spec:
+            // Specifying the exact framebuffer that the secondary command buffer will be
+            // executed with may result in better performance at command buffer execution time.
+            vk_inheritanceInfo.framebuffer = VK_NULL_HANDLE; // static_cast<const CVulkanFramebuffer*>(inheritanceInfo->framebuffer.get())->getInternalObject();
+            vk_inheritanceInfo.occlusionQueryEnable = inheritanceInfo->occlusionQueryEnable;
+            vk_inheritanceInfo.queryFlags = static_cast<VkQueryControlFlags>(inheritanceInfo->queryFlags.value);
+            vk_inheritanceInfo.pipelineStatistics = static_cast<VkQueryPipelineStatisticFlags>(0u); // must be 0
+        }
+        beginInfo.pInheritanceInfo = inheritanceInfo ? &vk_inheritanceInfo : nullptr;
         
         const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
         VkResult retval = vk->vk.vkBeginCommandBuffer(m_cmdbuf, &beginInfo);
@@ -1022,7 +1049,7 @@ public:
         VkDescriptorSet vk_descriptorSets[MAX_DESCRIPTOR_SET_COUNT];
         for (uint32_t i = 0u; i < descriptorSetCount; ++i)
         {
-            if (pDescriptorSets[i]->getAPIType() == EAT_VULKAN)
+            if (pDescriptorSets[i] && pDescriptorSets[i]->getAPIType() == EAT_VULKAN)
                 vk_descriptorSets[i] = static_cast<const CVulkanDescriptorSet*>(pDescriptorSets[i])->getInternalObject();
         }
 
@@ -1035,8 +1062,38 @@ public:
         }
 
         const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
-        vk->vk.vkCmdBindDescriptorSets(m_cmdbuf, static_cast<VkPipelineBindPoint>(pipelineBindPoint),
-            vk_pipelineLayout, firstSet, descriptorSetCount, vk_descriptorSets, vk_dynamicOffsetCount, vk_dynamicOffsets);
+
+        // Will bind [first, last) with one call
+        uint32_t first = ~0u;
+        uint32_t last = ~0u;
+        for (uint32_t i = 0u; i < descriptorSetCount; ++i)
+        {
+            if (pDescriptorSets[i])
+            {
+                if (first == last)
+                {
+                    first = i;
+                    last = first + 1;
+                }
+                else
+                    ++last;
+
+                // Do a look ahead
+                if ((i + 1 > descriptorSetCount - 1) || !pDescriptorSets[i + 1])
+                {
+                    vk->vk.vkCmdBindDescriptorSets(
+                        m_cmdbuf,
+                        static_cast<VkPipelineBindPoint>(pipelineBindPoint),
+                        vk_pipelineLayout,
+                        firstSet+first, last - first, vk_descriptorSets+first, vk_dynamicOffsetCount, vk_dynamicOffsets);
+                    first = ~0u;
+                    last = ~0u;
+                }
+            }
+        }
+
+        // vk->vk.vkCmdBindDescriptorSets(m_cmdbuf, static_cast<VkPipelineBindPoint>(pipelineBindPoint),
+        //     vk_pipelineLayout, firstSet, descriptorSetCount, vk_descriptorSets, vk_dynamicOffsetCount, vk_dynamicOffsets);
 
         return true;
     }
@@ -1214,6 +1271,33 @@ public:
             static_cast<VkDeviceSize>(dstOffset),
             static_cast<VkDeviceSize>(dataSize),
             pData);
+
+        return true;
+    }
+
+    bool executeCommands(uint32_t count, cmdbuf_t* const* const cmdbufs) override
+    {
+        constexpr uint32_t MAX_COMMAND_BUFFER_COUNT = (1ull << 12)/sizeof(void*);
+        assert(count <= MAX_COMMAND_BUFFER_COUNT);
+
+        core::smart_refctd_ptr<const core::IReferenceCounted> tmp[MAX_COMMAND_BUFFER_COUNT] = {};
+        VkCommandBuffer vk_commandBuffers[MAX_COMMAND_BUFFER_COUNT];
+
+        for (uint32_t i = 0u; i < count; ++i)
+        {
+            if (!cmdbufs[i] || cmdbufs[i]->getAPIType() != EAT_VULKAN || cmdbufs[i]->getLevel() != EL_SECONDARY)
+                return false;
+
+            tmp[i] = core::smart_refctd_ptr<const IGPUCommandBuffer>(cmdbufs[i]);
+
+            vk_commandBuffers[i] = static_cast<const CVulkanCommandBuffer*>(cmdbufs[i])->getInternalObject();
+        }
+
+        if (!saveReferencesToResources(tmp, tmp + count))
+            return false;
+
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdExecuteCommands(m_cmdbuf, count, vk_commandBuffers);
 
         return true;
     }

@@ -954,13 +954,16 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
                 for (uint32_t i = 0u; i < c.dsCount; i++)
                 {
                     auto glDS = static_cast<const COpenGLDescriptorSet*>(descriptorSets[i]);
-                    ctxlocal->nextState.descriptorsParams[pbp].descSets[c.firstSet + i] =
+                    if (glDS)
                     {
-                        core::smart_refctd_ptr<const COpenGLPipelineLayout>(static_cast<const COpenGLPipelineLayout*>(c.layout.get())),
-                        core::smart_refctd_ptr<const COpenGLDescriptorSet>(glDS),
-                        c.dynamicOffsets,
-                        glDS->getRevision()
-                    };
+                        ctxlocal->nextState.descriptorsParams[pbp].descSets[c.firstSet + i] =
+                        {
+                            core::smart_refctd_ptr<const COpenGLPipelineLayout>(static_cast<const COpenGLPipelineLayout*>(c.layout.get())),
+                            core::smart_refctd_ptr<const COpenGLDescriptorSet>(glDS),
+                            c.dynamicOffsets,
+                            glDS->getRevision()
+                        };
+                    }
                 }
             }
             break;
