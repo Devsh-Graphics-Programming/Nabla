@@ -120,7 +120,7 @@ namespace nbl::ui
 							source->process(app, source);
 						}
 					}
-					if (app->window != nullptr && framework->getWindow() != nullptr && !framework->isPaused())
+					if (app->window != nullptr && framework->getWindow() != nullptr)
 						framework->workLoopBody();
 				}
 			}
