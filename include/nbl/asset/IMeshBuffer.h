@@ -9,14 +9,16 @@
 
 #include "nbl/asset/IRenderpassIndependentPipeline.h"
 #include "nbl/asset/ECommonEnums.h"
+
 #include <algorithm>
 
+#include "nbl/asset/ICPUSkeleton.h"
 namespace nbl
 {
 namespace asset
 {
 
-template <class BufferType, class DescSetType, class PipelineType, class SkeletonType>
+template <class BufferType, class DescSetType, class PipelineType>
 class IMeshBuffer : public virtual core::IReferenceCounted
 {
     public:
@@ -35,7 +37,7 @@ class IMeshBuffer : public virtual core::IReferenceCounted
 
         //! Skin
         SBufferBinding<BufferType> m_inverseBindPoseBufferBinding,m_jointAABBBufferBinding;
-        core::smart_refctd_ptr<SkeletonType> m_skeleton;
+        core::smart_refctd_ptr<ICPUSkeleton> m_skeleton;
 
         //! Descriptor set which goes to set=3
         core::smart_refctd_ptr<DescSetType> m_descriptorSet;
@@ -208,7 +210,7 @@ class IMeshBuffer : public virtual core::IReferenceCounted
         }
 
         //!
-        inline const SkeletonType* getSkeleton() const
+        inline const ICPUSkeleton* getSkeleton() const
         {
             return m_skeleton.get();
         }
@@ -231,7 +233,7 @@ class IMeshBuffer : public virtual core::IReferenceCounted
         virtual inline bool setSkin(
             SBufferBinding<BufferType>&& _inverseBindPoseBufferBinding,
             SBufferBinding<BufferType>&& _jointAABBBufferBinding,
-            core::smart_refctd_ptr<SkeletonType>&& _skeleton,
+            core::smart_refctd_ptr<ICPUSkeleton>&& _skeleton,
             const uint32_t _maxJointsPerVx
         )
         {

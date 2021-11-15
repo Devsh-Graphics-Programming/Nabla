@@ -315,21 +315,6 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		//
 		struct SkeletonAllocationRequest : RequestBase,AdditionRequestBase
 		{
-			core::SRange<const asset::ICPUSkeleton*> skeletons;
-			// if nullptr then treated like a buffer of {1,1,...,1,1}, else needs to be same length as the skeleton range
-			const uint32_t* instanceCounts = nullptr;
-			// If you make the skeleton hierarchy have a real parent, you won't be able to share it amongst multiple instances of a mesh
-			// also in order to render with standard shaders you'll have to cancel out the model transform of the parent for the skinning matrices.
-			const ITransformTree::node_t*const * skeletonInstanceParents = nullptr;
-			// the following arrays need to be sized according to `StagingRequirements`
-			// if the `outNodes` have values not equal to `invalid_node` then we treat them as already allocated
-			// (this allows you to split allocation of nodes from setting up the transfers)
-			ITransformTree::node_t* outNodes = nullptr;
-			// scratch buffers are just required to be the set size, they can be filled with garbage
-			ITransformTree::node_t* parentScratch;
-			// must be non null if at least one skeleton has default transforms
-			ITransformTree::relative_transform_t* transformScratch = nullptr;
-
 			inline bool isValid() const
 			{
 				return AdditionRequestBase::isValid() && skeletons.begin() && skeletons.begin()<=skeletons.end() && outNodes && parentScratch;
@@ -338,8 +323,8 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			struct StagingRequirements
 			{
 				uint32_t nodeCount;
-				uint32_t parentScratchSize;
-				uint32_t transformScratchSize;
+				uint32_t transformCount; // for internal usage only
+				uint32_t transformScratchCount;
 			};
 			inline StagingRequirements computeStagingRequirements() const
 			{
@@ -350,18 +335,35 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 					if (skeleton)
 					{
 						const uint32_t jointCount = skeleton->getJointCount();
-						const uint32_t jointInstanceCount = (*instanceCountIt)*jointCount;
+						const uint32_t jointInstanceCount = (instanceCounts ? (*instanceCountIt):1u)*jointCount;
 						reqs.nodeCount += jointInstanceCount;
-						reqs.parentScratchSize += sizeof(ITransformTree::node_t)*jointInstanceCount;
 						if (skeleton->getDefaultTransformBinding().buffer)
-							reqs.transformScratchSize += sizeof(ITransformTree::relative_transform_t)*jointCount;
+							reqs.transformCount += jointCount;
 					}
 					instanceCountIt++;
 				}
-				if (reqs.transformScratchSize)
-					reqs.transformScratchSize += reqs.parentScratchSize*sizeof(uint32_t)/sizeof(ITransformTree::node_t);
+				if (reqs.transformCount)
+				{
+					constexpr uint32_t kNodesInATransform = sizeof(ITransformTree::relative_transform_t)/sizeof(uint32_t);
+					reqs.transformScratchCount = reqs.transformCount+core::roundUp(reqs.nodeCount,kNodesInATransform);
+				}
 				return reqs;
 			}
+			
+			core::SRange<const asset::ICPUSkeleton*> skeletons = {nullptr,nullptr};
+			// if nullptr then treated like a buffer of {1,1,...,1,1}, else needs to be same length as the skeleton range
+			const uint32_t* instanceCounts = nullptr;
+			// If you make the skeleton hierarchy have a real parent, you won't be able to share it amongst multiple instances of a mesh
+			// also in order to render with standard shaders you'll have to cancel out the model transform of the parent for the skinning matrices.
+			const ITransformTree::node_t* const* skeletonInstanceParents = nullptr;
+			// the following arrays need to be sized according to `StagingRequirements`
+			// if the `outNodes` have values not equal to `invalid_node` then we treat them as already allocated
+			// (this allows you to split allocation of nodes from setting up the transfers)
+			ITransformTree::node_t* outNodes = nullptr;
+			// scratch buffers are just required to be the set size, they can be filled with garbage
+			ITransformTree::node_t* parentScratch;
+			// must be non null if at least one skeleton has default transforms
+			ITransformTree::relative_transform_t* transformScratch = nullptr;
 		};
 		inline bool addSkeletonNodes(
 			const SkeletonAllocationRequest& request, uint32_t& waitSemaphoreCount,
@@ -380,7 +382,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			if (!request.tree->allocateNodes({request.outNodes,request.outNodes+staging.nodeCount}))
 				return false;
 
-			uint32_t* const srcTransformIndices = reinterpret_cast<uint32_t*>(request.transformScratch+staging.transformScratchSize/sizeof(ITransformTree::relative_transform_t));
+			uint32_t* const srcTransformIndices = reinterpret_cast<uint32_t*>(request.transformScratch+staging.transformCount);
 			{
 				auto instanceCountIt = request.instanceCounts;
 				auto skeletonInstanceParentsIt = request.skeletonInstanceParents;
@@ -394,7 +396,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 					const auto instanceCount = request.instanceCounts ? (*(instanceCountIt++)):1u;
 					auto* const instanceParents = request.skeletonInstanceParents ? (*(skeletonInstanceParentsIt++)):nullptr;
 
-					const auto jointCount = skeleton->getJointCount();
+					const auto jointCount = skeleton ? skeleton->getJointCount():0u;
 					auto instanceParentsIt = instanceParents;
 					for (auto instanceID=0u; instanceID<instanceCount; instanceID++)
 					{
@@ -407,10 +409,11 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 								parentID = instanceParents ? (*instanceParentsIt):ITransformTree::invalid_node;
 							*(parentsIt++) = parentID;
 
-							if (staging.transformScratchSize)
+							if (staging.transformScratchCount)
 								*(srcTransformIndicesIt++) = jointID+baseJoint;
 						}
 						baseJointInstance += jointCount;
+						instanceParentsIt++;
 					}
 					if (skeleton->getDefaultTransformBinding().buffer)
 					for (auto jointID=0u; jointID<jointCount; jointID++)
@@ -424,11 +427,11 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			req.tree = request.tree;
 			req.nodes = {request.outNodes,request.outNodes+staging.nodeCount};
 			req.parents.data = request.parentScratch;
-			if (staging.transformScratchSize)
+			if (staging.transformCount)
 				req.relativeTransforms.data = request.transformScratch;
 			if (!setupTransfers(req,upstreams))
 				return false;
-			if (staging.transformScratchSize)
+			if (staging.transformCount)
 				upstreams[1].srcAddresses = srcTransformIndices;
 
 			auto upstreamsPtr = upstreams;

@@ -2,11 +2,10 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __NBL_ASSET_I_CPU_MESH_BUFFER_H_INCLUDED__
-#define __NBL_ASSET_I_CPU_MESH_BUFFER_H_INCLUDED__
+#ifndef _NBL_ASSET_I_CPU_MESH_BUFFER_H_INCLUDED_
+#define _NBL_ASSET_I_CPU_MESH_BUFFER_H_INCLUDED_
 
 #include "nbl/asset/IMeshBuffer.h"
-#include "nbl/asset/ICPUSkeleton.h"
 #include "nbl/asset/ICPUDescriptorSet.h"
 #include "nbl/asset/ICPURenderpassIndependentPipeline.h"
 #include "nbl/asset/bawformat/blobs/MeshBufferBlob.h"
@@ -14,9 +13,7 @@
 #include "nbl/asset/format/decodePixels.h"
 #include "nbl/asset/format/encodePixels.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 // TODO: This should probably go somewhere else, DEFINITELY SHOULD GO SOMEWHERE ELSE @Crisspl
@@ -58,9 +55,9 @@ namespace impl
     }
 }
 
-class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICPURenderpassIndependentPipeline,ICPUSkeleton>, public BlobSerializable, public IAsset
+class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICPURenderpassIndependentPipeline>, public BlobSerializable, public IAsset
 {
-        using base_t = IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICPURenderpassIndependentPipeline,ICPUSkeleton>;
+        using base_t = IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICPURenderpassIndependentPipeline>;
         // knowing the position attribute ID is important for AABB computations etc.
         uint32_t posAttrId : 5;
         uint32_t normalAttrId : 5;
@@ -768,6 +765,6 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
         }
 };
 
-}}
+}
 
 #endif
