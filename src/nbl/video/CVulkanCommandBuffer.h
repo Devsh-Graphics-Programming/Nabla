@@ -1064,6 +1064,7 @@ public:
         const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
 
         // Will bind [first, last) with one call
+        uint32_t bindCount = 0u;
         uint32_t first = ~0u;
         uint32_t last = ~0u;
         for (uint32_t i = 0u; i < descriptorSetCount; ++i)
@@ -1088,12 +1089,11 @@ public:
                         firstSet+first, last - first, vk_descriptorSets+first, vk_dynamicOffsetCount, vk_dynamicOffsets);
                     first = ~0u;
                     last = ~0u;
+                    ++bindCount;
                 }
             }
         }
-
-        // vk->vk.vkCmdBindDescriptorSets(m_cmdbuf, static_cast<VkPipelineBindPoint>(pipelineBindPoint),
-        //     vk_pipelineLayout, firstSet, descriptorSetCount, vk_descriptorSets, vk_dynamicOffsetCount, vk_dynamicOffsets);
+        assert(bindCount <= core::ceil(MAX_DESCRIPTOR_SET_COUNT / 2.f));
 
         return true;
     }
