@@ -119,6 +119,9 @@ namespace nbl::ui
 		{
 		case APP_CMD_INIT_WINDOW:
 		{
+			m_app = app;
+			windowIsCreated.clear();
+
 			IWindow::SCreationParams params;
 			params.callback = core::smart_refctd_ptr(ctx->callback);
 			framework->setWindow(ctx->wndManager->createWindow(std::move(params)));

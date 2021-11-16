@@ -22,10 +22,24 @@ namespace nbl::ui
 			core::smart_refctd_ptr<IWindow::IEventCallback> callback;
 		};
 		CGraphicalApplicationAndroid(android_app* app, 
+			JNIEnv* env,
 			const system::path& _localInputCWD,
 			const system::path& _localOutputCWD,
 			const system::path& _sharedInputCWD,
-			const system::path& _sharedOutputCWD) : system::CApplicationAndroid(app, _localInputCWD, _localOutputCWD, _sharedInputCWD, _sharedOutputCWD) {}
+			const system::path& _sharedOutputCWD) : system::CApplicationAndroid(app, env, _localInputCWD, _localOutputCWD, _sharedInputCWD, _sharedOutputCWD) {}
+
+		void dontLoseGLContextWhenMinimiized()
+		{
+			//auto context_object = m_app->activity->clazz;
+			//auto setPreserveEGLContextOnPause_method = m_env->GetMethodID(m_env->GetObjectClass(context_object), "setPreserveEGLContextOnPause", "()Landroid/opengl/GLSurfaceView;");
+			jclass _class = m_env->FindClass("android/opengl/GLES31Ext");
+			jmethodID mid = m_env->GetMethodID(_class, "<init>", "()V");
+			jobject obj = m_env->NewObject(_class, mid);
+
+			jclass cls = m_env->FindClass("android/opengl/GLSurfaceView");
+			jmethodID setPreserveEGLContextOnPause_method = m_env->GetMethodID(cls, "setPreserveEGLContextOnPause", "(Z)V");
+			m_env->CallVoidMethod(obj, mid, true);
+		}
 	private:
 		void handleInput_impl(android_app* app, AInputEvent* event) override
 		{
@@ -78,7 +92,7 @@ namespace nbl::ui
 
 				nbl::ui::CGraphicalApplicationAndroid::SGraphicalContext ctx{};
 				app->userData = &ctx;
-				auto framework = nbl::core::make_smart_refctd_ptr<android_app_class>(app, APKResourcesPath, privateOutputCWD, sharedInputCWD, sharedOutputCWD);
+				auto framework = nbl::core::make_smart_refctd_ptr<android_app_class>(app, env, APKResourcesPath, privateOutputCWD, sharedInputCWD, sharedOutputCWD);
 				auto eventCallback = nbl::core::make_smart_refctd_ptr<window_event_callback>(std::forward<EventCallbackArgs>(args)...);
 				auto wndManager = nbl::core::make_smart_refctd_ptr<nbl::ui::CWindowManagerAndroid>(app);
 				ctx.wndManager = core::smart_refctd_ptr(wndManager);
@@ -89,9 +103,9 @@ namespace nbl::ui
 				auto caller = core::make_smart_refctd_ptr<nbl::system::CSystemCallerPOSIX>();
 				auto system = core::make_smart_refctd_ptr<nbl::system::CSystemAndroid>(std::move(caller), app->activity, env, APKResourcesPath);
 				framework->setSystem(std::move(system));
-				if (app->savedState != nullptr) {
-					ctx.state = *(nbl::system::CApplicationAndroid::SSavedState*)app->savedState;
-				}
+				//if (app->savedState != nullptr) {
+				//	ctx.state = (nbl::system::CApplicationAndroid::SSavedState*)app->savedState;
+				//}
 				android_poll_source* source;
 				int ident;
 				int events;
@@ -104,6 +118,7 @@ namespace nbl::ui
 						}
 					}
 				}
+				framework->dontLoseGLContextWhenMinimiized();
 				{
 					auto wnd = (CWindowAndroid*)framework->getWindow();
 					auto mouseChannel = core::make_smart_refctd_ptr<IMouseEventChannel>(CWindowAndroid::CIRCULAR_BUFFER_CAPACITY);
@@ -113,14 +128,14 @@ namespace nbl::ui
 					if (wnd->addKeyboardEventChannel(2, core::smart_refctd_ptr<IKeyboardEventChannel>(keyboardChannel)))
 						wnd->getEventCallback()->onKeyboardConnected(wnd, std::move(keyboardChannel));
 				}
-				while (framework->keepRunning()) {
+				while (!app->destroyRequested && framework->keepRunning()) {
 					while ((ident = ALooper_pollAll(0, nullptr, &events, (void**)&source)) >= 0)
 					{
 						if (source != nullptr) {
 							source->process(app, source);
 						}
 					}
-					if (app->window != nullptr && framework->getWindow() != nullptr)
+					if (app->window != nullptr && framework->getWindow() != nullptr && !framework->isPaused())
 						framework->workLoopBody();
 				}
 			}
