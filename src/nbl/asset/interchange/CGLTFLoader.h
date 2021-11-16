@@ -44,12 +44,12 @@ namespace nbl
 
 				asset::SAssetBundle loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
-				_NBL_STATIC_INLINE std::string getPipelineCacheKey(const E_PRIMITIVE_TOPOLOGY& primitiveType, const SVertexInputParams& vertexInputParams)
+				static inline std::string getPipelineCacheKey(const E_PRIMITIVE_TOPOLOGY& primitiveType, const SVertexInputParams& vertexInputParams)
 				{
 					return "nbl/builtin/pipelines/loaders/glTF/" + std::to_string(primitiveType) + vertexInputParams.to_string();
 				}
 
-				_NBL_STATIC_INLINE std::string getSamplerCacheKey(const asset::ICPUSampler::SParams& params)
+				static inline std::string getSamplerCacheKey(const asset::ICPUSampler::SParams& params)
 				{
 					const std::size_t hash = std::hash<std::string_view>{}(std::string_view(reinterpret_cast<const char*>(&params), sizeof(params)));
 					return "nbl/builtin/samplers/loaders/glTF/" + std::to_string(hash);
@@ -238,18 +238,6 @@ namespace nbl
 							SGLTFT_MAT3,
 							SGLTFT_MAT4
 						};
-
-						std::optional<uint32_t> bufferView;
-						std::optional<uint32_t> byteOffset;
-						std::optional<uint32_t> componentType;
-						std::optional<bool> normalized;
-						std::optional<uint32_t> count;
-						std::optional<SGLTFType> type;
-						std::optional<std::vector<double>> max; // todo - common number types
-						std::optional<std::vector<double>> min; // todo - common number types
-						// TODO - sparse;
-						std::optional<std::string> name;
-
 						enum SCompomentType
 						{
 							SCT_BYTE = 5120,
@@ -259,6 +247,17 @@ namespace nbl
 							SCT_UNSIGNED_INT = 5125,
 							SCT_FLOAT = 5126
 						};
+
+						std::optional<uint32_t> bufferView;
+						std::optional<uint32_t> byteOffset;
+						std::optional<SCompomentType> componentType;
+						std::optional<bool> normalized;
+						std::optional<uint32_t> count;
+						std::optional<SGLTFType> type;
+						std::optional<std::vector<double>> max; // todo - common number types
+						std::optional<std::vector<double>> min; // todo - common number types
+						// TODO - sparse;
+						std::optional<std::string> name;
 
 						struct SType
 						{
@@ -286,6 +285,97 @@ namespace nbl
 								return false;
 
 							return true;
+						}
+
+						static inline E_FORMAT getFormat(SCompomentType componentType, SGLTFType type)
+						{
+							switch (componentType)
+							{
+								case SGLTF::SGLTFAccessor::SCT_BYTE:
+								{
+									if (type == SGLTF::SGLTFAccessor::SGLTFT_SCALAR)
+										return EF_R8_SINT;
+									else if (type == SGLTF::SGLTFAccessor::SGLTFT_VEC2)
+										return EF_R8G8_SINT;
+									else if (type == SGLTF::SGLTFAccessor::SGLTFT_VEC3)
+										return EF_R8G8B8_SINT;
+									else if (type == SGLTF::SGLTFAccessor::SGLTFT_VEC4)
+										return EF_R8G8B8A8_SINT;
+									else if (type == SGLTF::SGLTFAccessor::SGLTFT_MAT2)
+										return EF_R8G8B8A8_SINT;
+								} break;
+
+								case SGLTF::SGLTFAccessor::SCT_FLOAT:
+								{
+									if (type == SGLTF::SGLTFAccessor::SGLTFT_SCALAR)
+										return EF_R32_SFLOAT;
+									else if (type == SGLTF::SGLTFAccessor::SGLTFT_VEC2)
+										return EF_R32G32_SFLOAT;
+									else if (type == SGLTF::SGLTFAccessor::SGLTFT_VEC3)
+										return EF_R32G32B32_SFLOAT;
+									else if (type == SGLTF::SGLTFAccessor::SGLTFT_VEC4)
+										return EF_R32G32B32A32_SFLOAT;
+									else if (type == SGLTF::SGLTFAccessor::SGLTFT_MAT2)
+										return EF_R32G32B32A32_SFLOAT;
+								} break;
+
+								case SGLTF::SGLTFAccessor::SCT_SHORT:
+								{
+									if (type == SGLTF::SGLTFAccessor::SGLTFT_SCALAR)
+										return EF_R16_SINT;
+									else if (type == SGLTF::SGLTFAccessor::SGLTFT_VEC2)
+										return EF_R16G16_SINT;
+									else if (type == SGLTF::SGLTFAccessor::SGLTFT_VEC3)
+										return EF_R16G16B16_SINT;
+									else if (type == SGLTF::SGLTFAccessor::SGLTFT_VEC4)
+										return EF_R16G16B16A16_SINT;
+									else if (type == SGLTF::SGLTFAccessor::SGLTFT_MAT2)
+										return EF_R16G16B16A16_SINT;
+								} break;
+
+								case SGLTF::SGLTFAccessor::SCT_UNSIGNED_BYTE:
+								{
+									if (type == SGLTF::SGLTFAccessor::SGLTFT_SCALAR)
+										return EF_R8_UINT;
+									else if (type == SGLTF::SGLTFAccessor::SGLTFT_VEC2)
+										return EF_R8G8_UINT;
+									else if (type == SGLTF::SGLTFAccessor::SGLTFT_VEC3)
+										return EF_R8G8B8_UINT;
+									else if (type == SGLTF::SGLTFAccessor::SGLTFT_VEC4)
+										return EF_R8G8B8A8_UINT;
+									else if (type == SGLTF::SGLTFAccessor::SGLTFT_MAT2)
+										return EF_R8G8B8A8_UINT;
+								} break;
+
+								case SGLTF::SGLTFAccessor::SCT_UNSIGNED_INT:
+								{
+									if (type == SGLTF::SGLTFAccessor::SGLTFT_SCALAR)
+										return EF_R32_UINT;
+									else if (type == SGLTF::SGLTFAccessor::SGLTFT_VEC2)
+										return EF_R32G32_UINT;
+									else if (type == SGLTF::SGLTFAccessor::SGLTFT_VEC3)
+										return EF_R32G32B32_UINT;
+									else if (type == SGLTF::SGLTFAccessor::SGLTFT_VEC4)
+										return EF_R32G32B32A32_UINT;
+									else if (type == SGLTF::SGLTFAccessor::SGLTFT_MAT2)
+										return EF_R32G32B32A32_UINT;
+								} break;
+
+								case SGLTF::SGLTFAccessor::SCT_UNSIGNED_SHORT:
+								{
+									if (type == SGLTF::SGLTFAccessor::SGLTFT_SCALAR)
+										return EF_R16_UINT;
+									else if (type == SGLTF::SGLTFAccessor::SGLTFT_VEC2)
+										return EF_R16G16_UINT;
+									else if (type == SGLTF::SGLTFAccessor::SGLTFT_VEC3)
+										return EF_R16G16B16_UINT;
+									else if (type == SGLTF::SGLTFAccessor::SGLTFT_VEC4)
+										return EF_R16G16B16A16_UINT;
+									else if (type == SGLTF::SGLTFAccessor::SGLTFT_MAT2)
+										return EF_R16G16B16A16_UINT;
+								} break;
+							}
+							return EF_UNKNOWN;
 						}
 					};
 
@@ -586,7 +676,7 @@ namespace nbl
 
 					struct SGLTFSkin
 					{
-						_NBL_STATIC_INLINE_CONSTEXPR uint16_t MAX_JOINTS_REFERENCES = 256;
+						_NBL_STATIC_INLINE_CONSTEXPR uint16_t MAX_JOINTS_REFERENCES = 256; // TODO: can we up this to 1024 or 16k ?
 
 						std::optional<std::string> name;
 						std::optional<size_t> inverseBindMatrices;						//! The index of the accessor containing the floating-point 4x4 inverse-bind matrices. The default is that each matrix is a 4x4 identity matrix, which implies that inverse-bind matrices were pre-applied.

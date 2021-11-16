@@ -19,33 +19,6 @@ using namespace asset;
 using namespace video;
 using namespace core;
 
-/*
-	Uncomment for more detailed logging
-*/
-
-// #define NBL_MORE_LOGS
-
-#include "nbl/nblpack.h"
-struct GraphicsData
-{
-	struct Mesh
-	{
-		struct Resources
-		{
-			const IGPUMeshBuffer* gpuMeshBuffer;
-			core::smart_refctd_ptr<video::IGPUGraphicsPipeline> gpuGraphicsPipeline;
-			const IGPURenderpassIndependentPipeline* gpuRenderpassIndependentPipeline;
-			const asset::CGLTFPipelineMetadata* pipelineMetadata;
-		};
-
-		core::vector<Resources> resources;
-	};
-
-	core::vector<Mesh> meshes;
-
-} PACK_STRUCT;
-#include "nbl/nblunpack.h"
-
 class GLTFApp : public ApplicationBase
 {
 	_NBL_STATIC_INLINE_CONSTEXPR uint32_t WIN_W = 1280;
@@ -129,7 +102,7 @@ class GLTFApp : public ApplicationBase
 				}
 			};
 
-			auto createDescriptorPool = [&](const uint32_t amount, const E_DESCRIPTOR_TYPE type)
+			auto createDescriptorPool = [&](const uint32_t amount, const E_DESCRIPTOR_TYPE type) // TODO: review
 			{
 				constexpr uint32_t maxItemCount = 256u;
 				{
@@ -139,85 +112,184 @@ class GLTFApp : public ApplicationBase
 					return logicalDevice->createDescriptorPool(static_cast<nbl::video::IDescriptorPool::E_CREATE_FLAGS>(0), maxItemCount, 1u, &poolSize);
 				}
 			};
-
-			asset::SAssetBundle meshes_bundle;
-			const asset::CGLTFMetadata* glTFMeta = nullptr;
-			asset::ICPUDescriptorSetLayout* cpuDescriptorSetLayout1 = nullptr;
+			
+			core::set<asset::ICPUDescriptorSetLayout*> cpuDS1Layouts;
+			struct LoadedGLTF
 			{
-				asset::IAssetLoader::SAssetLoadParams loadingParams;
+				const asset::CGLTFMetadata* meta = nullptr;
+				core::vector<core::smart_refctd_ptr<asset::ICPUMeshBuffer>> meshbuffers;
+			};
+			core::vector<LoadedGLTF> models;
 
-				//meshes_bundle = assetManager->getAsset("../../../3rdparty/glTFSampleModels/2.0/Avocado/glTF/Avocado.gltf", loadingParams);
-				meshes_bundle = assetManager->getAsset("../../../3rdparty/glTFSampleModels/2.0/RiggedFigure/glTF/RiggedFigure.gltf", loadingParams);
+			auto loadRiggedGLTF = [&](const system::path& filename) -> void
+			{
+				auto resourcePath = sharedInputCWD / "../../3rdparty/glTFSampleModels/2.0/"; // TODO: fix up for Android
+
+				asset::IAssetLoader::SAssetLoadParams loadingParams = {};
+				auto meshes_bundle = assetManager->getAsset((resourcePath/filename).string(),loadingParams);
 				auto contents = meshes_bundle.getContents();
+				if (contents.empty())
+					return;
+
+				LoadedGLTF model;
+				model.meta = meshes_bundle.getMetadata()->selfCast<asset::CGLTFMetadata>();
+
+				for (const auto& asset : contents)
 				{
-					bool status = !contents.empty();
-					assert(status);
+					auto mesh = IAsset::castDown<ICPUMesh>(asset.get());
+					for (const auto& meshbuffer : mesh->getMeshBuffers())
+					{
+						cpuDS1Layouts.insert(meshbuffer->getPipeline()->getLayout()->getDescriptorSetLayout(1));
+						model.meshbuffers.emplace_back(meshbuffer);
+					}
+				}
+				models.push_back(std::move(model));
+			};
+// TODO: @AnastaZIuk these crash the loader!
+//			loadRiggedGLTF("AnimatedTriangle/glTF/AnimatedTriangle.gltf");
+//			loadRiggedGLTF("IridescentDishWithOlives/glTF/IridescentDishWithOlives.gltf");
+			loadRiggedGLTF("RiggedFigure/glTF/RiggedFigure.gltf");
+//			loadRiggedGLTF("RiggedSimple/glTF/RiggedSimple.gltf");
+//			loadRiggedGLTF("SimpleSkin/glTF/SimpleSkin.gltf");
+			// TODO: support playback of keyframe animations to nodes which don't have skinning
+			//loadRiggedGLTF("AnimatedCube/glTF/AnimatedCube.gltf");
+			//loadRiggedGLTF("BoxAnimated/glTF/BoxAnimated.gltf");
+			//loadRiggedGLTF("InterpolationTest/glTF/InterpolationTest.gltf");
+			// TODO: support node without skeleton or animations
+			//loadRiggedGLTF("FlightHelmet/glTF/FlightHelmet.gltf"); 
+			// TODO: nightmare case, handle in far future
+			//loadRiggedGLTF("RecursiveSkeletons/glTF/RecursiveSkeletons.gltf");
+			
+			// Transform Tree
+			constexpr uint32_t MaxNodeCount = 128u<<10u; // get ready for many many nodes
+			auto transformTree = scene::ITransformTreeWithNormalMatrices::create(logicalDevice.get(),MaxNodeCount);
+
+			auto ppHandler = utilities->getDefaultPropertyPoolHandler();
+			// transfer cmdbuf and fences
+			nbl::core::smart_refctd_ptr<nbl::video::IGPUFence> xferFence;
+			nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandBuffer> xferCmdbuf;
+			{
+				xferFence = logicalDevice->createFence(static_cast<nbl::video::IGPUFence::E_CREATE_FLAGS>(0));
+				logicalDevice->createCommandBuffers(commandPool.get(),nbl::video::IGPUCommandBuffer::EL_PRIMARY,1u,&xferCmdbuf);
+				xferCmdbuf->begin(0);
+			}
+			auto xferQueue = logicalDevice->getQueue(xferCmdbuf->getQueueFamilyIndex(),0u);
+			asset::SBufferBinding<video::IGPUBuffer> xferScratch;
+			{
+				video::IGPUBuffer::SCreationParams scratchParams = {};
+				scratchParams.canUpdateSubRange = true;
+				scratchParams.usage = core::bitflag(video::IGPUBuffer::EUF_TRANSFER_DST_BIT)|video::IGPUBuffer::EUF_STORAGE_BUFFER_BIT;
+				xferScratch = {0ull,logicalDevice->createDeviceLocalGPUBufferOnDedMem(scratchParams,ppHandler->getMaxScratchSize())};
+				xferScratch.buffer->setObjectDebugName("PropertyPoolHandler Scratch Buffer");
+			}
+
+			// add skeleton instances to transform tree
+			core::vector<const asset::ICPUSkeleton*> skeletons;
+			core::vector<uint32_t> skeletonInstanceCounts;
+			for (auto& model : models)
+			{
+				const asset::ICPUSkeleton* skeleton = nullptr;
+				for (const auto& meshbuffer : model.meshbuffers)
+				{
+					const auto mesh_skel = meshbuffer->getSkeleton();
+					if (!mesh_skel)
+					{
+						logger->log("A meshbuffer of a model with metadata ptr % p doesn't have a meshbuffer.",system::ILogger::ELL_WARNING,model.meta);
+						continue;
+					}
+					if (!skeleton)
+						skeleton = mesh_skel;
+					else if (mesh_skel!=skeleton)
+						logger->log("A meshbuffer of a model with metadata ptr %p has a different skeleton, possible loader bug.",system::ILogger::ELL_WARNING,model.meta);
+				}
+				if (skeleton)
+				{
+					skeletons.push_back(skeleton);
+					skeletonInstanceCounts.push_back(2u); // TODO: rand
+				}
+			}
+			// allocate skeleton nodes in TT
+			core::vector<scene::ITransformTree::node_t> allSkeletonNodes;
+			{
+				scene::ITransformTreeManager::SkeletonAllocationRequest skeletonAllocationRequest;
+				skeletonAllocationRequest.tree = transformTree.get();
+				skeletonAllocationRequest.cmdbuf = xferCmdbuf.get();
+				skeletonAllocationRequest.fence = xferFence.get();
+				skeletonAllocationRequest.scratch = xferScratch;
+				skeletonAllocationRequest.upBuff = utilities->getDefaultUpStreamingBuffer();
+				skeletonAllocationRequest.poolHandler = ppHandler;
+				skeletonAllocationRequest.queue = xferQueue;
+				skeletonAllocationRequest.logger = logger.get();
+				skeletonAllocationRequest.skeletons = {skeletons.data(),skeletons.data()+skeletons.size()};
+				skeletonAllocationRequest.instanceCounts = skeletonInstanceCounts.data();
+				skeletonAllocationRequest.skeletonInstanceParents = nullptr; // no parent so we can instance/duplicate the skeleton freely
+
+				auto stagingReqs = skeletonAllocationRequest.computeStagingRequirements();
+				allSkeletonNodes.resize(stagingReqs.nodeCount,scene::ITransformTree::invalid_node);
+				core::vector<scene::ITransformTree::node_t> parentScratch(stagingReqs.nodeCount);
+				core::vector<scene::ITransformTree::relative_transform_t> transformScratch(stagingReqs.transformScratchCount);
+
+				skeletonAllocationRequest.outNodes = allSkeletonNodes.data();
+				skeletonAllocationRequest.parentScratch = parentScratch.data();
+				skeletonAllocationRequest.transformScratch = transformScratch.data();
+
+				uint32_t waitSemaphoreCount = 0u;
+				video::IGPUSemaphore*const* waitSempahores = nullptr;
+				const asset::E_PIPELINE_STAGE_FLAGS* waitStages = nullptr;
+				transformTreeManager->addSkeletonNodes(skeletonAllocationRequest,waitSemaphoreCount,waitSempahores,waitStages);
+			}
+			/*
+			struct SkeletonInstance
+			{
+			public:
+				SkeletonInstance(const asset::ICPUSkeleton* _skeleton, const uint32_t _instanceCount)
+					: m_instanceNodes(_skeleton->getJointCount()* _instanceCount, scene::ITransformTree::invalid_node),
+					m_skeleton(_skeleton), m_instanceCount(_instanceCount), m_jointCount(_skeleton->getJointCount())
+				{
 				}
 
-				auto firstCpuMesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(contents.begin()[0]);
-				cpuDescriptorSetLayout1 = firstCpuMesh->getMeshBuffers().begin()[0]->getPipeline()->getLayout()->getDescriptorSetLayout(1);
-				glTFMeta = meshes_bundle.getMetadata()->selfCast<asset::CGLTFMetadata>();
+				inline scene::ITransformTree::node_t* getInstanceNodes(const uint32_t instanceID)
+				{
+					if (instanceID < m_instanceCount)
+						return m_instanceNodes.data() + m_jointCount * instanceID;
+					return nullptr;
+				}
+
+			private:
+				core::vector<scene::ITransformTree::node_t> m_instanceNodes;
+				const asset::ICPUSkeleton* m_skeleton;
+				uint32_t m_instanceCount;
+				uint32_t m_jointCount;
+			};
+			using skeleton_instance_nodes_t = core::vector<scene::ITransformTree::node_t>;
+			core::map<asset::ICPUSkeleton*, skeleton_instance_nodes_t> skeletonInstances;
+			*/
+
+			// transfer submit
+			{
+				xferCmdbuf->end();
+				{
+					video::IGPUQueue::SSubmitInfo submit;
+					submit.commandBufferCount = 1u;
+					submit.commandBuffers = &xferCmdbuf.get();
+					xferQueue->submit(1u,&submit,xferFence.get());
+				}
+				logicalDevice->blockForFences(1u,&xferFence.get());
+				logicalDevice->resetFences(1u,&xferFence.get());
 			}
-			//const auto& nodeCount = xCpuMeshBuffer->getSkeleton()->getJointCount();
+
+#if 0
 
 			/*
 				Property Buffers for skinning
-			*/ 
-			constexpr uint32_t MaxNodeCount = 128u<<10u; // get ready for many many nodes
-			auto transformTree = scene::ITransformTreeWithoutNormalMatrices::create(logicalDevice.get(),MaxNodeCount);
+			*/
 			asset::SBufferRange<video::IGPUBuffer> debugAABBs;
 			{
 				video::IGPUBuffer::SCreationParams params = {};
 				params.usage = video::IGPUBuffer::EUF_STORAGE_BUFFER_BIT;
-				debugAABBs.buffer = logicalDevice->createDeviceLocalGPUBufferOnDedMem(params,sizeof(core::aabbox3df)*MaxNodeCount);
+				debugAABBs.buffer = logicalDevice->createDeviceLocalGPUBufferOnDedMem(params, sizeof(core::aabbox3df) * MaxNodeCount);
 			}
 
-
-			auto xCpuMeshBuffer = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(meshes_bundle.getContents().begin()[0])->getMeshBuffers().begin()[0];
-			const auto& nodeCount = xCpuMeshBuffer->getSkeleton()->getJointCount();
-
-			auto propertyPoolHandler = core::make_smart_refctd_ptr<video::CPropertyPoolHandler>(core::smart_refctd_ptr(logicalDevice));
-#if 0
-			nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandBuffer> cmdbuf_nodes;
-			logicalDevice->createCommandBuffers(commandPool.get(), nbl::video::IGPUCommandBuffer::EL_PRIMARY, 1u, &cmdbuf_nodes);
-			auto fence_nodes = logicalDevice->createFence(static_cast<nbl::video::IGPUFence::E_CREATE_FLAGS>(0));
-
-			cmdbuf_nodes->begin(0);
-
-			auto* cpuSkeleton = xCpuMeshBuffer->getSkeleton();
-
-			core::vector<scene::ITransformTree::node_t> nodes_t(cpuSkeleton->getJointCount());
-			std::fill(std::begin(nodes_t), std::end(nodes_t), scene::ITransformTree::invalid_node);
-			{
-				scene::ITransformTreeManager::SkeletonAllocationRequest skeletonAllocationRequest;
-				skeletonAllocationRequest.cmdbuf = cmdbuf_nodes.get();
-				skeletonAllocationRequest.fence = fence_nodes.get();
-
-				skeletonAllocationRequest.outNodes = { nodes_t.data(), nodes_t.data() + nodes_t.size() };
-				skeletonAllocationRequest.poolHandler = propertyPoolHandler.get();
-				skeletonAllocationRequest.tree = transformTree2.get();
-				skeletonAllocationRequest.upBuff = utilities->getDefaultUpStreamingBuffer();
-				skeletonAllocationRequest.logger = initOutput.logger.get();
-
-				skeletonAllocationRequest.skeletonBatches.skeleton = cpuSkeleton;
-				skeletonAllocationRequest.skeletonBatches.instanceCount = 1;
-
-				transformTreeManager->addSkeletonNodes(skeletonAllocationRequest);
-				cmdbuf_nodes->end();
-
-				auto* queue = logicalDevice->getQueue(0u, 0u);
-				video::IGPUQueue::SSubmitInfo submit;
-				submit.commandBufferCount = 1u;
-				submit.commandBuffers = &cmdbuf_nodes.get();
-				queue->submit(1u, &submit, fence_nodes.get());
-			}
-
-			auto waitres = logicalDevice->waitForFences(1u, &fence_nodes.get(), false, 999999999ull);
-			assert(waitres == video::IGPUFence::ES_SUCCESS);
-
-			cmdbuf_nodes->reset(video::IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
-			logicalDevice->resetFences(1u, &fence_nodes.get());
-#endif
 			/*
 				We can safely assume that all meshes' mesh buffers loaded from glTF has the same DS1 layout
 				used for camera-specific data, so we can create just one DS.
@@ -313,21 +385,13 @@ class GLTFApp : public ApplicationBase
 					}
 				}
 			}
-
+#endif
 			core::vectorSIMDf cameraPosition(-0.5, 0, 0);
 			matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60), float(WIN_W) / WIN_H, 0.01f, 10000.0f);
 			camera = Camera(cameraPosition, core::vectorSIMDf(0, 0, 0), projectionMatrix, 0.04f, 1.f);
 			auto lastTime = std::chrono::system_clock::now();
 
-			constexpr size_t NBL_FRAMES_TO_AVERAGE = 100ull;
-			bool frameDataFilled = false;
-			size_t frame_count = 0ull;
-			double time_sum = 0;
-			double dtList[NBL_FRAMES_TO_AVERAGE] = {};
-			for (size_t i = 0ull; i < NBL_FRAMES_TO_AVERAGE; ++i)
-				dtList[i] = 0.0;
-
-			logicalDevice->createCommandBuffers(commandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY, FRAMES_IN_FLIGHT, commandBuffers);
+			logicalDevice->createCommandBuffers(commandPool.get(),video::IGPUCommandBuffer::EL_PRIMARY,FRAMES_IN_FLIGHT,commandBuffers);
 
 			//
 			oracle.reportBeginFrameRecord();
@@ -407,6 +471,9 @@ class GLTFApp : public ApplicationBase
 
 			commandBuffer->beginRenderPass(&beginInfo, nbl::asset::ESC_INLINE);
 
+
+
+#if 0
 			core::matrix3x4SIMD modelMatrix;
 			modelMatrix.setTranslation(nbl::core::vectorSIMDf(0, 0, 0, 0));
 			modelMatrix.setRotation(quaternion(0, 0, 0));
@@ -450,6 +517,9 @@ class GLTFApp : public ApplicationBase
 					commandBuffer->drawMeshBuffer(gpuMeshBuffer);
 				}
 			}
+#endif
+
+
 
 			commandBuffer->endRenderPass();
 			commandBuffer->end();
@@ -484,11 +554,6 @@ class GLTFApp : public ApplicationBase
 		nbl::core::smart_refctd_ptr<nbl::video::IUtilities> utilities;
 
 		nbl::video::IGPUQueue* transferUpQueue = nullptr;
-
-		GraphicsData graphicsData;
-		core::smart_refctd_ptr<video::IDescriptorPool> gpuUboDescriptorPool;
-		core::smart_refctd_ptr<video::IGPUBuffer> gpuubo;
-		core::smart_refctd_ptr<video::IGPUDescriptorSet> gpuDescriptorSet1;
 
 		Camera camera = Camera(vectorSIMDf(0, 0, 0), vectorSIMDf(0, 0, 0), matrix4SIMD());
 		CommonAPI::InputSystem::ChannelReader<IMouseEventChannel> mouse;

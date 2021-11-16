@@ -142,6 +142,7 @@ namespace nbl
 			/*
 				TODO: https://github.com/Devsh-Graphics-Programming/Nabla/pull/196#issuecomment-906469117
 				it doesn't work
+				@devsh Probably works now.
 			*/
 			SContext context(overrideAssetLoadParams, _file, _override, _hierarchyLevel);
 
@@ -190,7 +191,7 @@ namespace nbl
 								viewParams.subresourceRange.baseMipLevel = 0u;
 								viewParams.subresourceRange.levelCount = 1u;
 
-								cpuImageView = ICPUImageView::create(std::move(viewParams));
+								cpuImageView = ICPUImageView::create(std::move(viewParams)); // TODO: cache this image view
 							} break;
 
 							case IAsset::ET_IMAGE_VIEW:
@@ -210,6 +211,7 @@ namespace nbl
 						if (!glTFImage.mimeType.has_value() || !glTFImage.bufferView.has_value())
 							return {};
 						
+						_NBL_DEBUG_BREAK_IF(true);
 						return {}; // TODO FUTURE: load image where it's data is embeded in memory
 					}
 				}
@@ -221,6 +223,7 @@ namespace nbl
 				{
 					typedef std::remove_reference<decltype(glTFSampler)>::type SGLTFSampler;
 
+					// TODO: could we share this caching across all loaders?
 					ICPUSampler::SParams samplerParams;
 
 					switch (glTFSampler.magFilter)
@@ -352,9 +355,281 @@ namespace nbl
 					}
 				}
 			}
+			
+			core::smart_refctd_ptr<ICPUBuffer> vertexJointToSkeletonJoint;
+			// cache
+			struct MeshSkinPair
+			{
+				uint32_t mesh;
+				uint32_t skin;
+			};
+			core::unordered_set<MeshSkinPair> meshSkinPairs;
+			struct Skin
+			{
+				core::smart_refctd_ptr<ICPUSkeleton> skeleton = {};
+				SBufferRange<ICPUBuffer> translationTable = {};
+				SBufferRange<ICPUBuffer> inverseBindPose = {};
+				ICPUSkeleton::joint_id_t root = ICPUSkeleton::invalid_joint_id;
+			};
+			core::vector<Skin> skins(glTF.skins.size());
 
-			std::vector<std::vector<core::smart_refctd_ptr<asset::CGLTFPipelineMetadata>>> globalMetadataContainer; // TODO: to optimize in future
+			//
+			const uint32_t nodeCount = glTF.nodes.size();
+			struct SkeletonData
+			{
+				core::matrix3x4SIMD defaultNodeTransform; // _defaultTransforms
+				std::string glTFNodeName;
+
+				uint32_t skeletonID;
+				uint32_t localJointID; // in range [0, jointsSize - 1]
+				uint32_t localParentJointID; // for _parentJointIDsBinding 
+			};
+			core::vector<SkeletonData> skeletonNodes(nodeCount);
+			{
+				core::vector<core::smart_refctd_ptr<ICPUSkeleton>> skeletons;
+				core::vector<ICPUSkeleton::joint_id_t> globalParent(nodeCount,ICPUSkeleton::invalid_joint_id);
+				// first pass over the nodes
+				{
+					core::vector<uint32_t> skeletonJointCount;
+					// first flag parents and gather unique <mesh,skin> instances
+					{
+						for (uint32_t index=0u; index<nodeCount; ++index)
+						{
+							const auto& glTFnode = glTF.nodes[index];
+							for (auto child : glTFnode.children)
+								globalParent[child] = index;
+							skeletonNodes[index].defaultNodeTransform = glTFnode.transformation.matrix;
+							skeletonNodes[index].glTFNodeName = glTFnode.name.has_value() ? glTFnode.name.value():"NBL_IDENTITY";
+
+							const uint32_t meshID = glTFnode.mesh.has_value() ? glTFnode.mesh.value() : 0xdeadbeef;
+							if (meshID == 0xdeadbeef)
+								continue;
+
+							const uint32_t skinID = glTFnode.skin.has_value() ? glTFnode.skin.value() : 0xdeadbeef;
+							meshSkinPairs.insert({meshID,skinID});
+						}
+						// then figure out the remapping to ICPUSkeleton Nodes
+						core::stack<uint32_t> dfsTraversalStack;
+						for (uint32_t index=0u; index<nodeCount; ++index)
+						{
+							const auto& glTFnode = glTF.nodes[index];
+							if (globalParent[index]==ICPUSkeleton::invalid_joint_id)
+							{
+								const uint32_t skeletonID = skeletonNodes[index].skeletonID = skeletonJointCount.size();
+								uint32_t& jointID = skeletonJointCount.emplace_back() = 0u;
+								skeletonNodes[index].localJointID = jointID++;
+								skeletonNodes[index].localParentJointID = ICPUSkeleton::invalid_joint_id;
+								//
+								auto addNodeToSkeleton = [skeletonID,&jointID,&skeletonNodes,&globalParent](const uint32_t globalNodeID) -> void
+								{
+									skeletonNodes[globalNodeID].skeletonID = skeletonID;
+									skeletonNodes[globalNodeID].localJointID = jointID++;
+									skeletonNodes[globalNodeID].localParentJointID = skeletonNodes[globalParent[globalNodeID]].localJointID;
+								};
+								for (auto child : glTFnode.children)
+									dfsTraversalStack.push(child);
+								while (!dfsTraversalStack.empty())
+								{
+									const auto globalNodeID = dfsTraversalStack.top();
+									dfsTraversalStack.pop();
+									addNodeToSkeleton(globalNodeID);
+								}
+							}
+						}
+					}
+					// create skeletons
+					{
+						core::vector<uint32_t> skeletonJointCountPrefixSum;
+						skeletonJointCountPrefixSum.resize(skeletonJointCount.size());
+						// now create buffer for skeletons
+						SBufferBinding<ICPUBuffer> parentJointID = {0ull,core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(ICPUSkeleton::joint_id_t)*nodeCount)};
+						SBufferBinding<ICPUBuffer> defaultTransforms = {0ull,core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(core::matrix3x4SIMD)*nodeCount)};
+						core::vector<const char*> names(nodeCount);
+						// and fill them
+						{
+							std::exclusive_scan(skeletonJointCount.begin(),skeletonJointCount.end(),skeletonJointCountPrefixSum.begin(),0u);
+							auto pParentJointID = reinterpret_cast<ICPUSkeleton::joint_id_t*>(parentJointID.buffer->getPointer());
+							auto pDefaultTransforms = reinterpret_cast<core::matrix3x4SIMD*>(defaultTransforms.buffer->getPointer());
+							for (uint32_t index=0u; index<nodeCount; ++index)
+							{
+								const auto& skeletonNode = skeletonNodes[index];
+								const auto offset = skeletonJointCountPrefixSum[skeletonNode.skeletonID]+skeletonNode.localJointID;
+								pParentJointID[offset] = skeletonNode.localParentJointID;
+								pDefaultTransforms[offset] = skeletonNode.defaultNodeTransform;
+								names[offset] = skeletonNode.glTFNodeName.data();
+							}
+						}
+						for (auto i=0u; i<skeletonJointCount.size(); i++)
+						{
+							const auto offset = skeletonJointCountPrefixSum[i];
+							auto parentJointIDBinding = parentJointID;
+							auto defaultTransformsBinding = defaultTransforms;
+							parentJointIDBinding.offset = offset*sizeof(ICPUSkeleton::joint_id_t);
+							defaultTransformsBinding.offset = offset*sizeof(core::matrix3x4SIMD);
+							const char* const* namesPtr = names.data()+offset;
+							skeletons.emplace_back() = core::make_smart_refctd_ptr<ICPUSkeleton>(std::move(parentJointIDBinding),std::move(defaultTransformsBinding),namesPtr,namesPtr+skeletonJointCount[i]);
+						}
+					}
+				}
+			
+				// size vertexJointToSkeletonJoint
+				{
+					uint32_t totalSkinJointRefs = 0u;
+					for (const auto& skin : glTF.skins)
+						totalSkinJointRefs += skin.joints.size();
+					vertexJointToSkeletonJoint = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(ICPUSkeleton::joint_id_t)*totalSkinJointRefs);
+				}
+				// then go over skins
+				uint32_t skinJointRefCount = 0u;
+				for (auto index=0u; index<glTF.skins.size(); index++)
+				{
+					const auto& glTFSkin = glTF.skins[index];
+					const auto jointCount = glTFSkin.joints.size();
+					if (jointCount==0u)
+						continue;
+
+					// find LCM
+					core::unordered_map<uint32_t,uint32_t> commonAncestors;
+					// populate
+					{
+						uint32_t level = 0u;
+						for (uint32_t node=glTFSkin.joints[0]; globalParent[node]!=ICPUSkeleton::invalid_joint_id; node=globalParent[node])
+							commonAncestors.insert(node,level++);
+					}
+					// trim
+					for (const auto& joint : glTFSkin.joints)
+					{
+						// mark unvisited
+						for (auto& ancestor : commonAncestors)
+							ancestor.second = ~0u;
+						// visit
+						uint32_t level = 0u;
+						for (uint32_t node=joint; globalParent[node]!=ICPUSkeleton::invalid_joint_id; node=globalParent[node])
+						{
+							auto found = commonAncestors.find(node);
+							if (found!=commonAncestors.end())
+								found->second = level;
+							level++;
+						}
+						// remove unvisited
+						std::remove_if(commonAncestors.begin(),commonAncestors.end(),[](const auto& pval)->bool{return pval.second==~0u;});
+					}
+					// validate
+					if (commonAncestors.empty())
+					{
+						context.loadContext.params.logger.log("GLTF: INVALID SKIN, NO COMMON ANCESTORS!",system::ILogger::ELL_ERROR);
+						continue;
+					}
+				
+					// find pivot node
+					uint32_t globalRootNode;
+					if (glTFSkin.skeleton.has_value()) //! we can explicitly point skin root node
+					{
+						globalRootNode = glTFSkin.skeleton.value();
+						if (commonAncestors.find(globalRootNode)==commonAncestors.end())
+						{
+							context.loadContext.params.logger.log("GLTF: INVALID SKIN, EXPLICIT ROOT NOT IN COMMON ANCESTORS!", system::ILogger::ELL_ERROR);
+							continue;
+						}
+					}
+					else
+					{
+						uint32_t lowestLevel = ~0u;
+						for (const auto& ancestor : commonAncestors)
+						if (ancestor.second<lowestLevel)
+						{
+							globalRootNode = ancestor.first;
+							lowestLevel = ancestor.second;
+						}
+					}
+
+					//
+					auto skeleton = skeletons[skeletonNodes[globalRootNode].skeletonID];
+					skins[index].skeleton = skeleton;
+					skins[index].translationTable = {sizeof(ICPUSkeleton::joint_id_t)*skinJointRefCount,sizeof(ICPUSkeleton::joint_id_t)*jointCount,vertexJointToSkeletonJoint};
+					const auto bytesize = sizeof(core::matrix3x4SIMD)*jointCount;
+					skins[index].inverseBindPose = {0ull,bytesize,core::make_smart_refctd_ptr<ICPUBuffer>(bytesize)};
+					for (auto j=0u; j<jointCount; j++)
+					{
+						reinterpret_cast<ICPUSkeleton::joint_id_t*>(skins[index].translationTable.buffer->getPointer())[j+skinJointRefCount] = skeletonNodes[glTFSkin.joints[j]].localJointID;
+						// TODO: inverse Bind Pose
+						//glTFSkin.inverseBindMatrices
+					}
+					skins[index].root = skeletonNodes[globalRootNode].localJointID;
+
+					skinJointRefCount += jointCount;
+				}
+			}
+
 			core::vector<core::smart_refctd_ptr<ICPUMesh>> cpuMeshes;
+			{
+				// go over all meshes and create ICPUMeshes & ICPUMeshBuffers but without skins attached
+				core::vector<core::smart_refctd_ptr<ICPUMesh>> meshes;
+				// TODO: clean up the pipeline caching and metadata
+				// TODO: write push constant material directly to PushConstants, dont store in metadata (but struct can be there)
+				// TODO: maybe use some of CMeshManipulator to pick format for vertex weights and joint ID references
+
+				// go over unique <mesh,skin> pairs and make a cpuMesh
+				for (const auto& pair : meshSkinPairs)
+				{
+					auto& mesh = cpuMeshes.emplace_back() = meshes[pair.mesh]->clone(1u); // duplicate only mesh and meshbuffer
+					// has a skin
+					if (pair.skin!=0xdeadbeefu)
+					for (auto& meshbuffer : mesh->getMeshBufferVector())
+					{
+						// TODO: create joint AABB buffer binding (no point caching)
+						// TODO: compute joint AABBs
+						// TODO: set skin
+						//meshbuffer->setSkin();
+					}
+				}
+			}
+
+			// go over nodes one last time to record instances
+			struct Instance
+			{
+				const ICPUSkeleton* skeleton;
+				uint32_t skinTranslationTableOffset; // byteoffset into `vertexJointToSkeletonJoint`range
+				const ICPUMesh* mesh;
+				ICPUSkeleton::joint_id_t attachedToNode; // the node with the `mesh` and `skin` parameters
+			};
+			core::vector<Instance> instances;
+			for (uint32_t index=0u; index<nodeCount; ++index)
+			{
+				const auto& glTFnode = glTF.nodes[index];
+
+				const uint32_t meshID = glTFnode.mesh.has_value() ? glTFnode.mesh.value() : 0xdeadbeef;
+				if (meshID == 0xdeadbeef)
+					continue;
+
+				const uint32_t skinID = glTFnode.skin.has_value() ? glTFnode.skin.value() : 0xdeadbeef;
+
+				// record that as an instance 
+				auto found = meshSkinPairs.find({meshID,skinID});
+				assert(found!=meshSkinPairs.end());
+				auto& instance = instances.emplace_back();
+				if (skinID != 0xdeadbeefu) // has skin
+				{
+					instance.skeleton = skins[skinID].skeleton.get();
+					instance.skinTranslationTableOffset = skins[skinID].translationTable.offset;
+				}
+				else
+				{
+					instance.skeleton = nullptr;
+					instance.skinTranslationTableOffset = 0xdeadbeefu;
+				}
+				instance.mesh = cpuMeshes[std::distance(meshSkinPairs.begin(),found)].get();
+				instance.attachedToNode = skeletonNodes[index].localJointID;
+			}
+
+			// TODO: move `vertexJointToSkeletonJoint` into glTF global metadata so the memory is kept alive
+			// TODO: move `skeletons` into glTF global metadata so something refcounts them
+			// TODO: move `instances` into glTF global metadata so we can render scenes
+
+#if 0
+			// TODO: Just hashmap from ICPURenderpassIndependentPipeline to meta
+			//core::unordered_map<ICPURenderpassIndependentPipeline*,core::smart_refctd_ptr<asset::CGLTFPipelineMetadata>>
+			std::vector<std::vector<core::smart_refctd_ptr<asset::CGLTFPipelineMetadata>>> globalMetadataContainer; // TODO: to optimize in future
 			{
 				for (const auto& glTFMesh : glTF.meshes)
 				{
@@ -368,6 +643,7 @@ namespace nbl
 						auto cpuMeshBuffer = core::make_smart_refctd_ptr<ICPUMeshBuffer>();
 
 						cpuMeshBuffer->setPositionAttributeIx(SAttributes::POSITION_ATTRIBUTE_LAYOUT_ID);
+						// TODO: only set the attributes if they are present
 						cpuMeshBuffer->setNormalAttributeIx(SAttributes::NORMAL_ATTRIBUTE_LAYOUT_ID);
 						cpuMeshBuffer->setJointIDAttributeIx(SAttributes::JOINTS_ATTRIBUTE_LAYOUT_ID);
 						cpuMeshBuffer->setJointWeightAttributeIx(SAttributes::WEIGHTS_ATTRIBUTE_LAYOUT_ID);
@@ -405,121 +681,7 @@ namespace nbl
 
 						auto handleAccessor = [&](SGLTF::SGLTFAccessor& glTFAccessor, const std::optional<uint32_t> queryAttributeId = {}) -> bool
 						{
-							auto getFormat = [&](uint32_t componentType, SGLTF::SGLTFAccessor::SGLTFType type)
-							{
-								switch (componentType)
-								{
-									case SGLTF::SGLTFAccessor::SCT_BYTE:
-									{
-										if (type == SGLTF::SGLTFAccessor::SGLTFT_SCALAR)
-											return EF_R8_SINT;
-										else if (type == SGLTF::SGLTFAccessor::SGLTFT_VEC2)
-											return EF_R8G8_SINT;
-										else if (type == SGLTF::SGLTFAccessor::SGLTFT_VEC3)
-											return EF_R8G8B8_SINT;
-										else if (type == SGLTF::SGLTFAccessor::SGLTFT_VEC4)
-											return EF_R8G8B8A8_SINT;
-										else if (type == SGLTF::SGLTFAccessor::SGLTFT_MAT2)
-											return EF_R8G8B8A8_SINT;
-										else if (type == SGLTF::SGLTFAccessor::SGLTFT_MAT3)
-											return EF_UNKNOWN; // ?
-										else if (type == SGLTF::SGLTFAccessor::SGLTFT_MAT4)
-											return EF_UNKNOWN; // ?
-									} break;
-
-									case SGLTF::SGLTFAccessor::SCT_FLOAT:
-									{
-										if (type == SGLTF::SGLTFAccessor::SGLTFT_SCALAR)
-											return EF_R32_SFLOAT;
-										else if (type == SGLTF::SGLTFAccessor::SGLTFT_VEC2)
-											return EF_R32G32_SFLOAT;
-										else if (type == SGLTF::SGLTFAccessor::SGLTFT_VEC3)
-											return EF_R32G32B32_SFLOAT;
-										else if (type == SGLTF::SGLTFAccessor::SGLTFT_VEC4)
-											return EF_R32G32B32A32_SFLOAT;
-										else if (type == SGLTF::SGLTFAccessor::SGLTFT_MAT2)
-											return EF_R32G32B32A32_SFLOAT;
-										else if (type == SGLTF::SGLTFAccessor::SGLTFT_MAT3)
-											return EF_UNKNOWN; // ?
-										else if (type == SGLTF::SGLTFAccessor::SGLTFT_MAT4)
-											return EF_UNKNOWN; // ?
-									} break;
-
-									case SGLTF::SGLTFAccessor::SCT_SHORT:
-									{
-										if (type == SGLTF::SGLTFAccessor::SGLTFT_SCALAR)
-											return EF_R16_SINT;
-										else if (type == SGLTF::SGLTFAccessor::SGLTFT_VEC2)
-											return EF_R16G16_SINT;
-										else if (type == SGLTF::SGLTFAccessor::SGLTFT_VEC3)
-											return EF_R16G16B16_SINT;
-										else if (type == SGLTF::SGLTFAccessor::SGLTFT_VEC4)
-											return EF_R16G16B16A16_SINT;
-										else if (type == SGLTF::SGLTFAccessor::SGLTFT_MAT2)
-											return EF_R16G16B16A16_SINT;
-										else if (type == SGLTF::SGLTFAccessor::SGLTFT_MAT3)
-											return EF_UNKNOWN; // ?
-										else if (type == SGLTF::SGLTFAccessor::SGLTFT_MAT4)
-											return EF_UNKNOWN; // ?
-									} break;
-
-									case SGLTF::SGLTFAccessor::SCT_UNSIGNED_BYTE:
-									{
-										if (type == SGLTF::SGLTFAccessor::SGLTFT_SCALAR)
-											return EF_R8_UINT;
-										else if (type == SGLTF::SGLTFAccessor::SGLTFT_VEC2)
-											return EF_R8G8_UINT;
-										else if (type == SGLTF::SGLTFAccessor::SGLTFT_VEC3)
-											return EF_R8G8B8_UINT;
-										else if (type == SGLTF::SGLTFAccessor::SGLTFT_VEC4)
-											return EF_R8G8B8A8_UINT;
-										else if (type == SGLTF::SGLTFAccessor::SGLTFT_MAT2)
-											return EF_R8G8B8A8_UINT;
-										else if (type == SGLTF::SGLTFAccessor::SGLTFT_MAT3)
-											return EF_UNKNOWN; // ?
-										else if (type == SGLTF::SGLTFAccessor::SGLTFT_MAT4)
-											return EF_UNKNOWN; // ?
-									} break;
-
-									case SGLTF::SGLTFAccessor::SCT_UNSIGNED_INT:
-									{
-										if (type == SGLTF::SGLTFAccessor::SGLTFT_SCALAR)
-											return EF_R32_UINT;
-										else if (type == SGLTF::SGLTFAccessor::SGLTFT_VEC2)
-											return EF_R32G32_UINT;
-										else if (type == SGLTF::SGLTFAccessor::SGLTFT_VEC3)
-											return EF_R32G32B32_UINT;
-										else if (type == SGLTF::SGLTFAccessor::SGLTFT_VEC4)
-											return EF_R32G32B32A32_UINT;
-										else if (type == SGLTF::SGLTFAccessor::SGLTFT_MAT2)
-											return EF_R32G32B32A32_UINT;
-										else if (type == SGLTF::SGLTFAccessor::SGLTFT_MAT3)
-											return EF_UNKNOWN; // ?
-										else if (type == SGLTF::SGLTFAccessor::SGLTFT_MAT4)
-											return EF_UNKNOWN; // ?
-									} break;
-
-									case SGLTF::SGLTFAccessor::SCT_UNSIGNED_SHORT:
-									{
-										if (type == SGLTF::SGLTFAccessor::SGLTFT_SCALAR)
-											return EF_R16_UINT;
-										else if (type == SGLTF::SGLTFAccessor::SGLTFT_VEC2)
-											return EF_R16G16_UINT;
-										else if (type == SGLTF::SGLTFAccessor::SGLTFT_VEC3)
-											return EF_R16G16B16_UINT;
-										else if (type == SGLTF::SGLTFAccessor::SGLTFT_VEC4)
-											return EF_R16G16B16A16_UINT;
-										else if (type == SGLTF::SGLTFAccessor::SGLTFT_MAT2)
-											return EF_R16G16B16A16_UINT;
-										else if (type == SGLTF::SGLTFAccessor::SGLTFT_MAT3)
-											return EF_UNKNOWN; // ?
-										else if (type == SGLTF::SGLTFAccessor::SGLTFT_MAT4)
-											return EF_UNKNOWN; // ?
-									} break;
-								}
-							};
-
-							const E_FORMAT format = getFormat(glTFAccessor.componentType.value(), glTFAccessor.type.value());
+							const E_FORMAT format = SGLTF::SGLTFAccessor::getFormat(glTFAccessor.componentType.value(), glTFAccessor.type.value());
 							if (format == EF_UNKNOWN)
 							{
 								context.loadContext.params.logger.log("GLTF: COULD NOT SPECIFY NABLA FORMAT!", system::ILogger::ELL_WARNING);
@@ -677,6 +839,8 @@ namespace nbl
 									return {};
 								}
 
+								// TODO: also support EF_R10G10B10A2_UINT if there's only max 3 vertex weights
+								// you need to requantize (process) the vertex weights FIRST to know that
 								const asset::E_FORMAT jointsFormat = [&]()
 								{
 									if (glTFJointsXAccessor.componentType.value() == SGLTF::SGLTFAccessor::SCT_UNSIGNED_BYTE)
@@ -751,9 +915,9 @@ namespace nbl
 									if (glTFWeightsXAccessor.componentType.value() == SGLTF::SGLTFAccessor::SCT_FLOAT)
 										return EF_R32G32B32A32_SFLOAT;
 									else if (glTFWeightsXAccessor.componentType.value() == SGLTF::SGLTFAccessor::SCT_UNSIGNED_BYTE)
-										return EF_R8G8B8A8_UINT;
+										return EF_R8G8B8A8_UINT; // TODO: UNORM
 									else if (glTFWeightsXAccessor.componentType.value() == SGLTF::SGLTFAccessor::SCT_UNSIGNED_SHORT)
-										return EF_R16G16B16A16_UINT;
+										return EF_R16G16B16A16_UINT; // TODO: UNORM
 									else
 										EF_UNKNOWN;
 								}();
@@ -986,6 +1150,8 @@ namespace nbl
 												else if (std::is_same<WeightCompomentT, float>::value)
 													repackWeightsFormat = EF_R32G32_SFLOAT;
 											} break;
+
+											// TODO: what about the 3 joint case with less than 1024 joints?
 
 											default:
 											{
@@ -1303,6 +1469,7 @@ namespace nbl
 
 							skinningEnabled = true;
 						}
+						// TODO: set maxJointCount on the cpuMeshBuffer here
 
 						auto getShaders = [&](bool hasUV, bool hasColor, bool isSkinned) -> std::pair<core::smart_refctd_ptr<ICPUSpecializedShader>, core::smart_refctd_ptr<ICPUSpecializedShader>>
 						{
@@ -1329,6 +1496,9 @@ namespace nbl
 							else
 								cpuShaders = std::make_pair(loadShader(VERT_SHADER_NO_UV_COLOR_CACHE_KEY), loadShader(FRAG_SHADER_NO_UV_COLOR_CACHE_KEY));
 
+							// TODO: do not create overriden shaders on demand! This is unacceptable
+							// I dont want to have a new shader for every single pipeline just because its skinned
+							// you should create 2x the vertex shaders and register as global builtin in the loader's constructor
 							if (isSkinned)
 							{
 								constexpr std::string_view NBL_SKINNING_OVERRIDE = "#define _NBL_SKINNING_ENABLED_\n";
@@ -1356,7 +1526,7 @@ namespace nbl
 						};
 
 						core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> cpuPipeline;
-						const std::string& pipelineCacheKey = getPipelineCacheKey(primitiveTopology, vertexInputParams);
+						const std::string& pipelineCacheKey = getPipelineCacheKey(primitiveTopology, vertexInputParams); // TODO: add skinning boolean to the pipeline cache key
 						{
 							const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_RENDERPASS_INDEPENDENT_PIPELINE, (asset::IAsset::E_TYPE)0u };
 							auto pipeline_bundle = _override->findCachedAsset(pipelineCacheKey, types, context.loadContext, _hierarchyLevel + ICPUMesh::PIPELINE_HIERARCHYLEVELS_BELOW);
@@ -1364,9 +1534,11 @@ namespace nbl
 								cpuPipeline = core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(pipeline_bundle.getContents().begin()[0]);
 							else
 							{
-								CGLTFPipelineMetadata::SGLTFMaterialParameters pushConstants;
-								CGLTFPipelineMetadata::SGLTFSkinParameters skinParameters;
-								skinParameters.perVertexJointsAmount = maxJointsPerVertex;
+								// TODO: this needs a rewrite.
+								// The pushConstants dont influence pipeline creation, so they shouldn't be filled in pipeline creation
+								// also write them straight to meshbuffer's PC storage
+								auto& pushConstants = *reinterpret_cast<CGLTFPipelineMetadata::SGLTFMaterialParameters*>(cpuMeshBuffer->getPushConstantsDataPtr());
+								static_assert(sizeof(pushConstants)<=ICPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE,"glTF Material Parameter Struct too Large");
 
 								SMaterialDependencyData materialDependencyData;
 								const bool ds3lAvailableFlag = glTFprimitive.material.has_value();
@@ -1376,6 +1548,7 @@ namespace nbl
 								materialDependencyData.cpuTextures = &cpuTextures;
 
 								auto cpuPipelineLayout = makePipelineLayoutFromGLTF(context, pushConstants, materialDependencyData, skinningEnabled);
+								// TODO: specialized shaders should have a separate cache, so we dont get new specialized shaders for every pipeline
 								auto [cpuVertexShader, cpuFragmentShader] = getShaders(hasUV, hasColor, skinningEnabled);
 
 								if (!cpuVertexShader || !cpuFragmentShader)
@@ -1437,7 +1610,7 @@ namespace nbl
 											for (uint8_t i = 0; i < materialDependencyData.glTFMaterial->emissiveFactor.value().size(); ++i)
 												pushConstants.emissiveFactor[i] = materialDependencyData.glTFMaterial->emissiveFactor.value()[i];
 
-										glTFPipelineMetadata = core::make_smart_refctd_ptr<CGLTFPipelineMetadata>(pushConstants, skinParameters, core::smart_refctd_ptr(m_basicViewParamsSemantics));
+										glTFPipelineMetadata = core::make_smart_refctd_ptr<CGLTFPipelineMetadata>(core::smart_refctd_ptr(m_basicViewParamsSemantics));
 									}
 								}
 
@@ -1445,129 +1618,14 @@ namespace nbl
 								SAssetBundle pipelineBundle = SAssetBundle(core::smart_refctd_ptr(glTFPipelineMetadata), { cpuPipeline });
 
 								_override->insertAssetIntoCache(pipelineBundle, pipelineCacheKey, context.loadContext, _hierarchyLevel + ICPUMesh::PIPELINE_HIERARCHYLEVELS_BELOW);
-
-								cpuMeshBuffer->setPipeline(std::move(cpuPipeline));
-								cpuMesh->getMeshBufferVector().push_back(std::move(cpuMeshBuffer));
 							}
+							cpuMeshBuffer->setPipeline(std::move(cpuPipeline));
+							cpuMesh->getMeshBufferVector().push_back(std::move(cpuMeshBuffer));
 						}
 					}
 				}
 			}
 
-			// TODO: 1 ICPUSkeleton per glTF.nodes node without a parent
-
-			struct SkeletonData
-			{
-				struct HierarchyBuffer
-				{
-					std::string glTFNodeName;
-					uint32_t glTFGlobalNodeID;
-					core::matrix3x4SIMD defaultNodeTransform; // _defaultTransforms
-
-					uint32_t localJointID; // in range [0, jointsSize - 1]
-					uint32_t localParentJointID; // for _parentJointIDsBinding 
-				};
-
-				std::vector<HierarchyBuffer> hierarchyBuffer;
-
-				struct ToPass
-				{
-					SBufferBinding<ICPUBuffer> parentJointIDs;
-					SBufferBinding<ICPUBuffer> defaultTransforms;
-					std::vector<const char*> jointNames;
-				} toPass;
-			};
-
-			std::vector<SkeletonData> skeletons;
-
-			// TODO: figure out `skeleton` from LCA
-			if constexpr (false) // dont compile for now
-			{
-				//
-			}
-			for (size_t i = 0; i < glTF.skins.size(); ++i)
-			{
-				auto& skeleton = skeletons.emplace_back();
-
-				const auto& glTFSkin = glTF.skins[i];
-
-				for (size_t z = 0; z < glTFSkin.joints.size(); ++z)
-				{
-					const auto& nodeID = glTFSkin.joints[z];
-
-					auto& nodeHierarchyData = skeleton.hierarchyBuffer.emplace_back();
-					auto& glTFNode = glTF.nodes[nodeID];
-
-					nodeHierarchyData.glTFNodeName = glTFNode.name.has_value() ? glTFNode.name.value() : "NBL_IDENTITY";
-					nodeHierarchyData.glTFGlobalNodeID = nodeID;
-					nodeHierarchyData.defaultNodeTransform = glTFNode.transformation.matrix;
-					nodeHierarchyData.localJointID = z;
-				}
-				
-				if (glTFSkin.skeleton.has_value()) //! we can explicitly point skin root node
-				{
-					const size_t& rootNodeID = glTFSkin.skeleton.value();
-					auto rootIterator = std::find_if(std::begin(skeleton.hierarchyBuffer), std::end(skeleton.hierarchyBuffer), [rootNodeID](const auto& nodeHierarchyData) {return nodeHierarchyData.glTFGlobalNodeID == rootNodeID; });
-					assert(rootIterator != std::end(skeleton.hierarchyBuffer));
-
-					auto& root = *rootIterator;
-
-					typedef decltype(skeleton.hierarchyBuffer) HIERARCHY_BUFFER;
-					typedef decltype(glTF.nodes) GLTF_NODES;
-
-					auto setParents = [](SkeletonData::HierarchyBuffer& nodeHierarchyData, uint32_t localParentID, HIERARCHY_BUFFER& hierarchyBuffer, GLTF_NODES& glTFNodes) -> uint32_t
-					{
-						auto setParents_impl = [](SkeletonData::HierarchyBuffer& nodeHierarchyData, uint32_t localParentID, HIERARCHY_BUFFER& hierarchyBuffer, GLTF_NODES& glTFNodes, auto& impl) -> uint32_t
-						{
-							auto& glTFNode = glTFNodes[nodeHierarchyData.glTFGlobalNodeID];
-
-							if (glTFNode.children.size())
-							{
-								for (const auto& childID : glTFNode.children)
-								{
-									auto& glTFChildNode = glTFNodes[childID];
-
-									auto childIterator = std::find_if(std::begin(hierarchyBuffer), std::end(hierarchyBuffer), [childID](const auto& nodeHierarchyData) {return nodeHierarchyData.glTFGlobalNodeID == childID; });
-									assert(childIterator != std::end(hierarchyBuffer));
-
-									SkeletonData::HierarchyBuffer& childNodeHierarchyData = *childIterator;
-									childNodeHierarchyData.localParentJointID = impl(childNodeHierarchyData, nodeHierarchyData.localJointID, hierarchyBuffer, glTFNodes, impl);
-								}
-							}
-							else
-								return localParentID;
-
-							return localParentID;
-						};
-
-						return nodeHierarchyData.localParentJointID = setParents_impl(nodeHierarchyData, localParentID, hierarchyBuffer, glTFNodes, setParents_impl);
-					};
-
-					setParents(root, ICPUSkeleton::invalid_joint_id, skeleton.hierarchyBuffer, glTF.nodes);
-				}
-				else
-				{
-					// this needs a case-handle too!
-				}
-
-				skeleton.toPass.parentJointIDs.buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(uint32_t) * skeleton.hierarchyBuffer.size());
-				skeleton.toPass.parentJointIDs.offset = 0u;
-
-				skeleton.toPass.defaultTransforms.buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(core::matrix3x4SIMD) * skeleton.hierarchyBuffer.size());
-				skeleton.toPass.defaultTransforms.offset = 0u;
-
-				for (size_t x = 0; x < skeleton.hierarchyBuffer.size(); ++x)
-				{
-					const auto& nodeHierarchyData = skeleton.hierarchyBuffer[x];
-					skeleton.toPass.jointNames.push_back(nodeHierarchyData.glTFNodeName.c_str());
-
-					auto* parentJointID = reinterpret_cast<uint32_t*>(skeleton.toPass.parentJointIDs.buffer->getPointer()) + x;
-					*parentJointID = nodeHierarchyData.localParentJointID;
-
-					auto* defaultTransform = reinterpret_cast<core::matrix3x4SIMD*>(skeleton.toPass.defaultTransforms.buffer->getPointer()) + x;
-					*defaultTransform = nodeHierarchyData.defaultNodeTransform;
-				}
-			}
 
 			for (uint32_t index = 0; index < glTF.nodes.size(); ++index)
 			{
@@ -1667,7 +1725,7 @@ namespace nbl
 							const uint16_t jointIDAttributeIx = cpuMeshBuffer->getJointIDAttributeIx();
 							const auto* inverseBindPoseMatrices = reinterpret_cast<core::matrix3x4SIMD*>(reinterpret_cast<uint8_t*>(inverseBindPoseBufferBinding.buffer->getPointer()) + inverseBindPoseBufferBinding.offset);
 
-							auto createBoneBoundingBoxes = [&]<bool isIndexedT>()
+							auto createBoneBoundingBoxes = [&]<bool isIndexedT>() // TODO: use the IMeshManipulator method for this
 							{
 								for (size_t i = 0; i < cpuMeshBuffer->getIndexCount(); ++i)
 								{
@@ -1707,7 +1765,7 @@ namespace nbl
 						jointAABBBufferBinding.offset = 0u;
 					}
 
-					cpuMeshBuffer->setSkin(std::move(inverseBindPoseBufferBinding), std::move(jointAABBBufferBinding), std::move(skeleton), jointsPerVertex);
+					//cpuMeshBuffer->setSkin(std::move(inverseBindPoseBufferBinding), std::move(jointAABBBufferBinding), std::move(skeleton), jointsPerVertex);
 				}
 			}
 
@@ -1727,14 +1785,15 @@ namespace nbl
 						++count;
 				return count;
 			};
+#endif
 
-			core::smart_refctd_ptr<CGLTFMetadata> glTFPipelineMetadata = core::make_smart_refctd_ptr<CGLTFMetadata>(getGlobalPipelineCount());
-
+			core::smart_refctd_ptr<CGLTFMetadata> glTFPipelineMetadata;// = core::make_smart_refctd_ptr<CGLTFMetadata>(getGlobalPipelineCount());
+#if 0
 			for (size_t i = 0; i < globalMetadataContainer.size(); ++i) // TODO change it 
 				for (size_t z = 0; z < globalMetadataContainer[i].size(); ++z)
 					glTFPipelineMetadata->placeMeta(z, cpuMeshes[i]->getMeshBufferVector()[z]->getPipeline(), *globalMetadataContainer[i][z]); 
-
-			return SAssetBundle(core::smart_refctd_ptr(glTFPipelineMetadata), cpuMeshes);
+#endif
+			return SAssetBundle(std::move(glTFPipelineMetadata),cpuMeshes);
 		}
 
 		bool CGLTFLoader::loadAndGetGLTF(SGLTF& glTF, SContext& context)
@@ -2231,7 +2290,7 @@ namespace nbl
 						glTFAccessor.byteOffset = byteOffset.get_uint64().value();
 
 					if (componentType.error() != simdjson::error_code::NO_SUCH_FIELD)
-						glTFAccessor.componentType = componentType.get_uint64().value();
+						glTFAccessor.componentType = static_cast<SGLTF::SGLTFAccessor::SCompomentType>(componentType.get_uint64().value());
 
 					if (normalized.error() != simdjson::error_code::NO_SUCH_FIELD)
 						glTFAccessor.normalized = normalized.get_bool().value();
