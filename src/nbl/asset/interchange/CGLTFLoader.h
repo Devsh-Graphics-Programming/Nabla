@@ -44,6 +44,11 @@ namespace nbl
 
 				asset::SAssetBundle loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
+				static inline std::string getImageViewCacheKey(const std::string& uri)
+				{
+					return "nbl/builtin/image_views/loaders/glTF/" + uri;
+				}
+
 				static inline std::string getPipelineCacheKey(const E_PRIMITIVE_TOPOLOGY& primitiveType, const SVertexInputParams& vertexInputParams)
 				{
 					return "nbl/builtin/pipelines/loaders/glTF/" + std::to_string(primitiveType) + vertexInputParams.to_string();

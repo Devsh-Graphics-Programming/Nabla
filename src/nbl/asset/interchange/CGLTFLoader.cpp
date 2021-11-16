@@ -171,40 +171,52 @@ namespace nbl
 
 					if (glTFImage.uri.has_value())
 					{
-						auto image_bundle = assetManager->getAsset(glTFImage.uri.value(),context.loadContext.params);
-						if (image_bundle.getContents().empty())
-							return {};
+						const std::string cpuImageViewCacheKey = getImageViewCacheKey(glTFImage.uri.value());
 
-						auto cpuAsset = image_bundle.getContents().begin()[0];
-
-						switch (cpuAsset->getAssetType())
+						const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_IMAGE_VIEW, (asset::IAsset::E_TYPE)0u };
+						auto image_view_bundle = _override->findCachedAsset(cpuImageViewCacheKey, types, context.loadContext, _hierarchyLevel);
+						if (!image_view_bundle.getContents().empty())
+							cpuImageView = core::smart_refctd_ptr_static_cast<ICPUImageView>(image_view_bundle.getContents().begin()[0]);
+						else
 						{
-							case IAsset::ET_IMAGE:
-							{
-								ICPUImageView::SCreationParams viewParams;
-								viewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
-								viewParams.image = core::smart_refctd_ptr_static_cast<asset::ICPUImage>(cpuAsset);
-								viewParams.format = viewParams.image->getCreationParameters().format;
-								viewParams.viewType = IImageView<ICPUImage>::ET_2D;
-								viewParams.subresourceRange.baseArrayLayer = 0u;
-								viewParams.subresourceRange.layerCount = 1u;
-								viewParams.subresourceRange.baseMipLevel = 0u;
-								viewParams.subresourceRange.levelCount = 1u;
-
-								cpuImageView = ICPUImageView::create(std::move(viewParams)); // TODO: cache this image view
-							} break;
-
-							case IAsset::ET_IMAGE_VIEW:
-							{
-								cpuImageView = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(cpuAsset);
-							} break;
-
-							default:
-							{
-								context.loadContext.params.logger.log("GLTF: EXPECTED IMAGE ASSET TYPE!", system::ILogger::ELL_WARNING);
+							auto image_bundle = assetManager->getAsset(glTFImage.uri.value(), context.loadContext.params);
+							if (image_bundle.getContents().empty())
 								return {};
+
+							auto cpuAsset = image_bundle.getContents().begin()[0];
+
+							switch (cpuAsset->getAssetType())
+							{
+								case IAsset::ET_IMAGE:
+								{
+									ICPUImageView::SCreationParams viewParams;
+									viewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
+									viewParams.image = core::smart_refctd_ptr_static_cast<asset::ICPUImage>(cpuAsset);
+									viewParams.format = viewParams.image->getCreationParameters().format;
+									viewParams.viewType = IImageView<ICPUImage>::ET_2D;
+									viewParams.subresourceRange.baseArrayLayer = 0u;
+									viewParams.subresourceRange.layerCount = 1u;
+									viewParams.subresourceRange.baseMipLevel = 0u;
+									viewParams.subresourceRange.levelCount = 1u;
+
+									cpuImageView = ICPUImageView::create(std::move(viewParams)); // TODO: cache this image view
+								} break;
+
+								case IAsset::ET_IMAGE_VIEW:
+								{
+									cpuImageView = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(cpuAsset);
+								} break;
+
+								default:
+								{
+									context.loadContext.params.logger.log("GLTF: EXPECTED IMAGE ASSET TYPE!", system::ILogger::ELL_WARNING);
+									return {};
+								}
 							}
-						}
+
+							SAssetBundle samplerBundle = SAssetBundle(nullptr, { core::smart_refctd_ptr(cpuImageView) });
+							_override->insertAssetIntoCache(samplerBundle, cpuImageViewCacheKey, context.loadContext, _hierarchyLevel);
+						}	
 					}
 					else
 					{
@@ -549,11 +561,57 @@ namespace nbl
 					skins[index].translationTable = {sizeof(ICPUSkeleton::joint_id_t)*skinJointRefCount,sizeof(ICPUSkeleton::joint_id_t)*jointCount,vertexJointToSkeletonJoint};
 					const auto bytesize = sizeof(core::matrix3x4SIMD)*jointCount;
 					skins[index].inverseBindPose = {0ull,bytesize,core::make_smart_refctd_ptr<ICPUBuffer>(bytesize)};
-					for (auto j=0u; j<jointCount; j++)
+
+					const auto& accessorInverseBindMatricesID = glTFSkin.inverseBindMatrices.has_value() ? glTFSkin.inverseBindMatrices.value() : 0xdeadbeef;
 					{
-						reinterpret_cast<ICPUSkeleton::joint_id_t*>(skins[index].translationTable.buffer->getPointer())[j+skinJointRefCount] = skeletonNodes[glTFSkin.joints[j]].localJointID;
-						// TODO: inverse Bind Pose
-						//glTFSkin.inverseBindMatrices
+						if (accessorInverseBindMatricesID == 0xdeadbeef)
+						{
+							const core::matrix3x4SIMD identity;
+
+							auto* data = reinterpret_cast<core::matrix3x4SIMD*>(skins[index].inverseBindPose.buffer->getPointer());
+							auto* end = data + skins[index].inverseBindPose.buffer->getSize() / sizeof(core::matrix3x4SIMD);
+
+							std::fill(data, end, identity);
+						}
+						else
+						{
+							const auto& glTFAccessor = glTF.accessors[accessorInverseBindMatricesID];
+
+							if (!glTFAccessor.bufferView.has_value())
+							{
+								context.loadContext.params.logger.log("GLTF: NO BUFFER VIEW INDEX FOUND!", system::ILogger::ELL_WARNING);
+								return false;
+							}
+
+							const auto& bufferViewID = glTFAccessor.bufferView.value();
+							const auto& glTFBufferView = glTF.bufferViews[bufferViewID];
+
+							if (!glTFBufferView.buffer.has_value())
+							{
+								context.loadContext.params.logger.log("GLTF: NO BUFFER INDEX FOUND!", system::ILogger::ELL_WARNING);
+								return false;
+							}
+
+							const auto& bufferID = glTFBufferView.buffer.value();
+							auto cpuBuffer = cpuBuffers[bufferID];
+
+							const size_t globalIBPOffset = [&]()
+							{
+								const size_t bufferViewOffset = glTFBufferView.byteOffset.has_value() ? glTFBufferView.byteOffset.value() : 0u;
+								const size_t relativeAccessorOffset = glTFAccessor.byteOffset.has_value() ? glTFAccessor.byteOffset.value() : 0u;
+
+								return bufferViewOffset + relativeAccessorOffset;
+							}();
+
+							auto* inData = reinterpret_cast<core::matrix4SIMD*>(reinterpret_cast<uint8_t*>(cpuBuffer->getPointer()) + globalIBPOffset); //! glTF stores 4x4 IBP matrices
+							auto* outData = reinterpret_cast<core::matrix3x4SIMD*>(skins[index].inverseBindPose.buffer->getPointer());
+
+							for (uint32_t j = 0; j < jointCount; ++j)
+							{
+								reinterpret_cast<ICPUSkeleton::joint_id_t*>(skins[index].translationTable.buffer->getPointer())[j + skinJointRefCount] = skeletonNodes[glTFSkin.joints[j]].localJointID;
+								*(outData + j) = (inData + j)->extractSub3x4();
+							}	
+						}
 					}
 					skins[index].root = skeletonNodes[globalRootNode].localJointID;
 
@@ -573,15 +631,24 @@ namespace nbl
 				for (const auto& pair : meshSkinPairs)
 				{
 					auto& mesh = cpuMeshes.emplace_back() = meshes[pair.mesh]->clone(1u); // duplicate only mesh and meshbuffer
-					// has a skin
-					if (pair.skin!=0xdeadbeefu)
-					for (auto& meshbuffer : mesh->getMeshBufferVector())
-					{
-						// TODO: create joint AABB buffer binding (no point caching)
-						// TODO: compute joint AABBs
-						// TODO: set skin
-						//meshbuffer->setSkin();
-					}
+
+					if (pair.skin!=0xdeadbeefu) // has a skin
+						for (auto& meshbuffer : mesh->getMeshBufferVector())
+						{
+							auto& skin = skins[pair.skin];
+							const size_t jointCount = skin.skeleton->getJointCount();
+
+							SBufferBinding<ICPUBuffer> inverseBindPoseBinding;
+							inverseBindPoseBinding.buffer = core::smart_refctd_ptr(skin.inverseBindPose.buffer);
+							inverseBindPoseBinding.offset = skin.inverseBindPose.offset;
+
+							SBufferBinding<ICPUBuffer> jointAABBBufferBinding;
+							jointAABBBufferBinding.buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(jointCount * sizeof(core::aabbox3df));
+							jointAABBBufferBinding.offset = 0u;
+
+							nbl::asset::IMeshManipulator::calculateBoundingBox(meshbuffer.get(), reinterpret_cast<core::aabbox3df*>(jointAABBBufferBinding.buffer->getPointer()));
+							meshbuffer->setSkin(std::move(inverseBindPoseBinding), std::move(jointAABBBufferBinding), jointCount, 69); // TODO influence vertices
+						}
 				}
 			}
 
