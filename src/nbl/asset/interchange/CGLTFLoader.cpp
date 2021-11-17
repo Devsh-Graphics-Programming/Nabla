@@ -15,9 +15,19 @@
 #define VERT_SHADER_COLOR_CACHE_KEY "nbl/builtin/shader/loader/gltf/vertex_color.vert"
 #define VERT_SHADER_NO_UV_COLOR_CACHE_KEY "nbl/builtin/shader/loader/gltf/vertex_no_uv_color.vert"
 
+//! created and cached from above shaders
+#define VERT_SHADER_SKINNED_UV_CACHE_KEY "nbl/builtin/shader/loader/gltf/skinned/vertex_uv.vert"
+#define VERT_SHADER_SKINNED_COLOR_CACHE_KEY "nbl/builtin/shader/loader/gltf/skinned/vertex_color.vert"
+#define VERT_SHADER_SKINNED_NO_UV_COLOR_CACHE_KEY "nbl/builtin/shader/loader/gltf/skinned/vertex_no_uv_color.vert"
+
 #define FRAG_SHADER_UV_CACHE_KEY "nbl/builtin/shader/loader/gltf/fragment_uv.frag"
 #define FRAG_SHADER_COLOR_CACHE_KEY "nbl/builtin/shader/loader/gltf/fragment_color.frag"
 #define FRAG_SHADER_NO_UV_COLOR_CACHE_KEY "nbl/builtin/shader/loader/gltf/fragment_no_uv_color.frag"
+
+//! created and cached from above shaders
+#define FRAG_SHADER_SKINNED_UV_CACHE_KEY "nbl/builtin/shader/loader/gltf/skinned/fragment_uv.frag"
+#define FRAG_SHADER_SKINNED_COLOR_CACHE_KEY "nbl/builtin/shader/loader/gltf/skinned/fragment_color.frag"
+#define FRAG_SHADER_SKINNED_NO_UV_COLOR_CACHE_KEY "nbl/builtin/shader/loader/gltf/skinned/fragment_no_uv_color.frag"
 
 namespace nbl
 {
@@ -66,9 +76,9 @@ namespace nbl
 		CGLTFLoader::CGLTFLoader(asset::IAssetManager* _m_assetMgr) 
 			: IRenderpassIndependentPipelineLoader(_m_assetMgr), assetManager(_m_assetMgr)
 		{
-			auto registerShader = [&](auto constexprStringType, ICPUSpecializedShader::E_SHADER_STAGE stage) -> void
+			auto registerShader = [&](auto constexprStringTypeStatic, auto constexprStringTypeSkinned, ICPUSpecializedShader::E_SHADER_STAGE stage) -> void
 			{
-				auto glslFile = assetManager->getSystem()->loadBuiltinData<decltype(constexprStringType)>();
+				auto glslFile = assetManager->getSystem()->loadBuiltinData<decltype(constexprStringTypeStatic)>();
 				core::smart_refctd_ptr<asset::ICPUBuffer> glsl;
 				{
 					glsl = core::make_smart_refctd_ptr<asset::ICPUBuffer>(glslFile->getSize());
@@ -79,24 +89,44 @@ namespace nbl
 				ICPUSpecializedShader::SInfo specInfo({}, nullptr, "main", stage, stage != ICPUSpecializedShader::ESS_VERTEX ? "?Nabla glTFLoader FragmentShader?" : "?Nabla glTFLoader VertexShader?");
 				auto cpuShader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecializedShader), std::move(specInfo));
 
-				auto insertShaderIntoCache = [&](const char* path)
+				constexpr std::string_view NBL_SKINNING_OVERRIDE = "#define _NBL_SKINNING_ENABLED_\n";
+
+				auto getOverridenShader = [&]() -> core::smart_refctd_ptr<ICPUSpecializedShader>
 				{
-					asset::SAssetBundle bundle(nullptr, { cpuShader });
+					const asset::ICPUShader* unspecializedShader = cpuShader->getUnspecialized();
+					assert(unspecializedShader->containsGLSL());
+
+					auto newUnspecializedShader = IGLSLCompiler::createOverridenCopy(unspecializedShader, NBL_SKINNING_OVERRIDE.data(), 69);
+					auto specializedInfo = cpuShader->getSpecializationInfo();
+
+					return core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(newUnspecializedShader), std::move(specializedInfo));
+				};
+
+				auto cpuShaderSkinned = getOverridenShader();
+
+				auto insertShaderIntoCache = [&](const char* path, core::smart_refctd_ptr<asset::ICPUSpecializedShader> shader)
+				{
+					asset::SAssetBundle bundle(nullptr, { shader });
 					assetManager->changeAssetKey(bundle, path);
 					assetManager->insertAssetIntoCache(bundle);
 				};
 
-				insertShaderIntoCache(decltype(constexprStringType)::value);
+				insertShaderIntoCache(decltype(constexprStringTypeStatic)::value, cpuShader);
+				insertShaderIntoCache(decltype(constexprStringTypeSkinned)::value, cpuShaderSkinned);
 			};
 
-			// TODO: separate versions with/without skinning?
-			registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_UV_CACHE_KEY) {}, ICPUSpecializedShader::ESS_VERTEX);
-			registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_COLOR_CACHE_KEY) {}, ICPUSpecializedShader::ESS_VERTEX);
-			registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_NO_UV_COLOR_CACHE_KEY) {}, ICPUSpecializedShader::ESS_VERTEX);
+			/*
+				The lambda registers either static
+				and skinned version of the shader
+			*/
 
-			registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_UV_CACHE_KEY) {}, ICPUSpecializedShader::ESS_FRAGMENT);
-			registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_COLOR_CACHE_KEY) {}, ICPUSpecializedShader::ESS_FRAGMENT);
-			registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_NO_UV_COLOR_CACHE_KEY) {}, ICPUSpecializedShader::ESS_FRAGMENT);
+			registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_UV_CACHE_KEY) {}, NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_SKINNED_UV_CACHE_KEY) {}, ICPUSpecializedShader::ESS_VERTEX);
+			registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_COLOR_CACHE_KEY) {}, NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_SKINNED_COLOR_CACHE_KEY) {}, ICPUSpecializedShader::ESS_VERTEX);
+			registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_NO_UV_COLOR_CACHE_KEY) {}, NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_SKINNED_NO_UV_COLOR_CACHE_KEY) {}, ICPUSpecializedShader::ESS_VERTEX);
+
+			registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_UV_CACHE_KEY) {}, NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_SKINNED_UV_CACHE_KEY) {}, ICPUSpecializedShader::ESS_FRAGMENT);
+			registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_COLOR_CACHE_KEY) {}, NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_SKINNED_COLOR_CACHE_KEY) {}, ICPUSpecializedShader::ESS_FRAGMENT);
+			registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_NO_UV_COLOR_CACHE_KEY) {}, NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_SKINNED_NO_UV_COLOR_CACHE_KEY) {}, ICPUSpecializedShader::ESS_FRAGMENT);
 		}
 
 		void CGLTFLoader::initialize()
@@ -396,9 +426,9 @@ namespace nbl
 				uint32_t localJointID; // in range [0, jointsSize - 1]
 				uint32_t localParentJointID; // for _parentJointIDsBinding 
 			};
+			core::vector<core::smart_refctd_ptr<ICPUSkeleton>> skeletons;
 			core::vector<SkeletonData> skeletonNodes(nodeCount);
 			{
-				core::vector<core::smart_refctd_ptr<ICPUSkeleton>> skeletons;
 				core::vector<ICPUSkeleton::joint_id_t> globalParent(nodeCount,ICPUSkeleton::invalid_joint_id);
 				// first pass over the nodes
 				{
@@ -653,14 +683,8 @@ namespace nbl
 			}
 
 			// go over nodes one last time to record instances
-			struct Instance
-			{
-				const ICPUSkeleton* skeleton;
-				uint32_t skinTranslationTableOffset; // byteoffset into `vertexJointToSkeletonJoint`range
-				const ICPUMesh* mesh;
-				ICPUSkeleton::joint_id_t attachedToNode; // the node with the `mesh` and `skin` parameters
-			};
-			core::vector<Instance> instances;
+			
+			core::vector<CGLTFMetadata::Instance> instances;
 			for (uint32_t index=0u; index<nodeCount; ++index)
 			{
 				const auto& glTFnode = glTF.nodes[index];
@@ -689,18 +713,10 @@ namespace nbl
 				instance.attachedToNode = skeletonNodes[index].localJointID;
 			}
 
-			// TODO: move `vertexJointToSkeletonJoint` into glTF global metadata so the memory is kept alive
-			// TODO: move `skeletons` into glTF global metadata so something refcounts them
-			// TODO: move `instances` into glTF global metadata so we can render scenes
-
-#if 0
-			// TODO: Just hashmap from ICPURenderpassIndependentPipeline to meta
-			//core::unordered_map<ICPURenderpassIndependentPipeline*,core::smart_refctd_ptr<asset::CGLTFPipelineMetadata>>
-			std::vector<std::vector<core::smart_refctd_ptr<asset::CGLTFPipelineMetadata>>> globalMetadataContainer; // TODO: to optimize in future
+			core::unordered_map<ICPURenderpassIndependentPipeline*, core::smart_refctd_ptr<asset::CGLTFPipelineMetadata>> globalPipelineMetadataSet;
 			{
 				for (const auto& glTFMesh : glTF.meshes)
 				{
-					auto& globalPipelineMeta = globalMetadataContainer.emplace_back();
 					auto& cpuMesh = cpuMeshes.emplace_back() = core::make_smart_refctd_ptr<ICPUMesh>();
 
 					for (const auto& glTFprimitive : glTFMesh.primitives)
@@ -710,10 +726,6 @@ namespace nbl
 						auto cpuMeshBuffer = core::make_smart_refctd_ptr<ICPUMeshBuffer>();
 
 						cpuMeshBuffer->setPositionAttributeIx(SAttributes::POSITION_ATTRIBUTE_LAYOUT_ID);
-						// TODO: only set the attributes if they are present
-						cpuMeshBuffer->setNormalAttributeIx(SAttributes::NORMAL_ATTRIBUTE_LAYOUT_ID);
-						cpuMeshBuffer->setJointIDAttributeIx(SAttributes::JOINTS_ATTRIBUTE_LAYOUT_ID);
-						cpuMeshBuffer->setJointWeightAttributeIx(SAttributes::WEIGHTS_ATTRIBUTE_LAYOUT_ID);
 
 						auto getMode = [&](uint32_t modeValue) -> E_PRIMITIVE_TOPOLOGY
 						{
@@ -857,7 +869,8 @@ namespace nbl
 							const size_t accessorID = glTFprimitive.attributes.normal.value();
 
 							auto& glTFNormalAccessor = glTF.accessors[accessorID];
-							if (!handleAccessor(glTFNormalAccessor, cpuMeshBuffer->getNormalAttributeIx()))
+							cpuMeshBuffer->setNormalAttributeIx(SAttributes::NORMAL_ATTRIBUTE_LAYOUT_ID);
+							if (!handleAccessor(glTFNormalAccessor, SAttributes::NORMAL_ATTRIBUTE_LAYOUT_ID))
 								return {};
 						}
 
@@ -1530,8 +1543,11 @@ namespace nbl
 									vertexInputParams.attributes[attributeID].relativeOffset = 0;
 								};
 
-								setOverrideBufferBinding(overrideSkinningBuffers.jointsAttributes, cpuMeshBuffer->getJointIDAttributeIx());
-								setOverrideBufferBinding(overrideSkinningBuffers.weightsAttributes, cpuMeshBuffer->getJointWeightAttributeIx());
+								cpuMeshBuffer->setJointIDAttributeIx(SAttributes::JOINTS_ATTRIBUTE_LAYOUT_ID);
+								cpuMeshBuffer->setJointWeightAttributeIx(SAttributes::WEIGHTS_ATTRIBUTE_LAYOUT_ID);
+
+								setOverrideBufferBinding(overrideSkinningBuffers.jointsAttributes, SAttributes::JOINTS_ATTRIBUTE_LAYOUT_ID);
+								setOverrideBufferBinding(overrideSkinningBuffers.weightsAttributes, SAttributes::WEIGHTS_ATTRIBUTE_LAYOUT_ID);
 							}
 
 							skinningEnabled = true;
@@ -1556,44 +1572,30 @@ namespace nbl
 
 							std::pair<core::smart_refctd_ptr<ICPUSpecializedShader>, core::smart_refctd_ptr<ICPUSpecializedShader>> cpuShaders;
 
-							if (hasUV) // if both UV and Color defined - we use the UV
-								cpuShaders = std::make_pair(loadShader(VERT_SHADER_UV_CACHE_KEY), loadShader(FRAG_SHADER_UV_CACHE_KEY));
-							else if (hasColor)
-								cpuShaders = std::make_pair(loadShader(VERT_SHADER_COLOR_CACHE_KEY), loadShader(FRAG_SHADER_COLOR_CACHE_KEY));
-							else
-								cpuShaders = std::make_pair(loadShader(VERT_SHADER_NO_UV_COLOR_CACHE_KEY), loadShader(FRAG_SHADER_NO_UV_COLOR_CACHE_KEY));
-
-							// TODO: do not create overriden shaders on demand! This is unacceptable
-							// I dont want to have a new shader for every single pipeline just because its skinned
-							// you should create 2x the vertex shaders and register as global builtin in the loader's constructor
 							if (isSkinned)
 							{
-								constexpr std::string_view NBL_SKINNING_OVERRIDE = "#define _NBL_SKINNING_ENABLED_\n";
-
-								auto getOverridenShader = [&](core::smart_refctd_ptr<ICPUSpecializedShader> cpuShader) -> core::smart_refctd_ptr<ICPUSpecializedShader>
-								{
-									const asset::ICPUShader* unspecializedShader = cpuShader->getUnspecialized();
-									assert(unspecializedShader->containsGLSL());
-
-									auto newUnspecializedShader = IGLSLCompiler::createOverridenCopy(unspecializedShader, NBL_SKINNING_OVERRIDE.data(), 69);
-									auto specializedInfo = cpuShader->getSpecializationInfo();
-
-									return core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(newUnspecializedShader), std::move(specializedInfo));
-								};
-
-								/*
-									@devshgraphicsprogramming leaving this for you
-								*/
-
-								//! cpuShaders.first = std::move(getOverridenShader(cpuShaders.first));
-								//! cpuShaders.second = std::move(getOverridenShader(cpuShaders.second));
+								if (hasUV) // if both UV and Color defined - we use the UV
+									cpuShaders = std::make_pair(loadShader(VERT_SHADER_SKINNED_UV_CACHE_KEY), loadShader(FRAG_SHADER_SKINNED_UV_CACHE_KEY));
+								else if (hasColor)
+									cpuShaders = std::make_pair(loadShader(VERT_SHADER_SKINNED_COLOR_CACHE_KEY), loadShader(FRAG_SHADER_SKINNED_COLOR_CACHE_KEY));
+								else
+									cpuShaders = std::make_pair(loadShader(VERT_SHADER_SKINNED_NO_UV_COLOR_CACHE_KEY), loadShader(FRAG_SHADER_SKINNED_NO_UV_COLOR_CACHE_KEY));
+							}
+							else
+							{
+								if (hasUV) // if both UV and Color defined - we use the UV
+									cpuShaders = std::make_pair(loadShader(VERT_SHADER_UV_CACHE_KEY), loadShader(FRAG_SHADER_UV_CACHE_KEY));
+								else if (hasColor)
+									cpuShaders = std::make_pair(loadShader(VERT_SHADER_COLOR_CACHE_KEY), loadShader(FRAG_SHADER_COLOR_CACHE_KEY));
+								else
+									cpuShaders = std::make_pair(loadShader(VERT_SHADER_NO_UV_COLOR_CACHE_KEY), loadShader(FRAG_SHADER_NO_UV_COLOR_CACHE_KEY));
 							}
 
 							return cpuShaders;
 						};
 
 						core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> cpuPipeline;
-						const std::string& pipelineCacheKey = getPipelineCacheKey(primitiveTopology, vertexInputParams); // TODO: add skinning boolean to the pipeline cache key
+						const std::string& pipelineCacheKey = getPipelineCacheKey(primitiveTopology, vertexInputParams, skinningEnabled);
 						{
 							const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_RENDERPASS_INDEPENDENT_PIPELINE, (asset::IAsset::E_TYPE)0u };
 							auto pipeline_bundle = _override->findCachedAsset(pipelineCacheKey, types, context.loadContext, _hierarchyLevel + ICPUMesh::PIPELINE_HIERARCHYLEVELS_BELOW);
@@ -1681,7 +1683,7 @@ namespace nbl
 									}
 								}
 
-								globalPipelineMeta.push_back(core::smart_refctd_ptr(glTFPipelineMetadata));
+								globalPipelineMetadataSet[cpuPipeline.get()] = core::smart_refctd_ptr(glTFPipelineMetadata);
 								SAssetBundle pipelineBundle = SAssetBundle(core::smart_refctd_ptr(glTFPipelineMetadata), { cpuPipeline });
 
 								_override->insertAssetIntoCache(pipelineBundle, pipelineCacheKey, context.loadContext, _hierarchyLevel + ICPUMesh::PIPELINE_HIERARCHYLEVELS_BELOW);
@@ -1692,7 +1694,6 @@ namespace nbl
 					}
 				}
 			}
-
 
 			for (uint32_t index = 0; index < glTF.nodes.size(); ++index)
 			{
@@ -1716,7 +1717,6 @@ namespace nbl
 					auto cpuMeshBuffer = cpuMesh->getMeshBufferVector()[0];
 					const auto cpuPipeline = cpuMeshBuffer->getPipeline();
 					const auto pipelineCacheKey = getPipelineCacheKey(cpuPipeline->getPrimitiveAssemblyParams().primitiveType, cpuPipeline->getVertexInputParams());
-
 
 					const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_RENDERPASS_INDEPENDENT_PIPELINE, (asset::IAsset::E_TYPE)0u };
 					auto pipeline_bundle = _override->findCachedAsset(pipelineCacheKey, types, context.loadContext, context.hierarchyLevel + ICPUMesh::PIPELINE_HIERARCHYLEVELS_BELOW);
@@ -1836,31 +1836,25 @@ namespace nbl
 				}
 			}
 
-			/*
-			* 
-			*   TODO: IT MAY BE AN ISSUE VERY SOON!
-			* 
-				TODO: it needs hashes and better system for meta since gltf bundle may return more than one mesh
-				and each mesh may have more than one meshbuffer, so more meta as well
-			*/
-
-			auto getGlobalPipelineCount = [&]() // TODO change it
+			core::smart_refctd_ptr<CGLTFMetadata> glTFPipelineMetadata = core::make_smart_refctd_ptr<CGLTFMetadata>(globalPipelineMetadataSet.size());
 			{
-				size_t count = {};
-				for (auto& meshMeta : globalMetadataContainer)
-					for (auto& pipelineMeta : meshMeta)
-						++count;
-				return count;
-			};
-#endif
+				glTFPipelineMetadata->instances = instances;
+				glTFPipelineMetadata->skeletons = skeletons;
+				glTFPipelineMetadata->vertexJointToSkeletonJoint = vertexJointToSkeletonJoint;
 
-			core::smart_refctd_ptr<CGLTFMetadata> glTFPipelineMetadata;// = core::make_smart_refctd_ptr<CGLTFMetadata>(getGlobalPipelineCount());
-#if 0
-			for (size_t i = 0; i < globalMetadataContainer.size(); ++i) // TODO change it 
-				for (size_t z = 0; z < globalMetadataContainer[i].size(); ++z)
-					glTFPipelineMetadata->placeMeta(z, cpuMeshes[i]->getMeshBufferVector()[z]->getPipeline(), *globalMetadataContainer[i][z]); 
-#endif
-			return SAssetBundle(std::move(glTFPipelineMetadata),cpuMeshes);
+				auto & scene = glTFPipelineMetadata->scenes.emplace_back();
+				scene.count = glTFPipelineMetadata->instances.size();
+				scene.instanceIDs = core::make_smart_refctd_ptr<asset::ICPUBuffer>(scene.count * sizeof(CGLTFMetadata::INSTANCE_ID));
+				auto* instanceIDs = reinterpret_cast<CGLTFMetadata::INSTANCE_ID*>(scene.instanceIDs->getPointer());
+				
+				std::iota(instanceIDs, instanceIDs + scene.count, 0);
+
+				size_t i = {};
+				for (auto& meta : globalPipelineMetadataSet)
+					glTFPipelineMetadata->placeMeta(i++, meta.first, *meta.second);
+			}
+
+			return SAssetBundle(std::move(glTFPipelineMetadata), cpuMeshes);
 		}
 
 		bool CGLTFLoader::loadAndGetGLTF(SGLTF& glTF, SContext& context)

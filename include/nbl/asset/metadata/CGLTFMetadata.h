@@ -13,9 +13,6 @@ namespace nbl
 namespace asset
 {
 
-// TODO: struct Scene containing list of `ICPUSkeleton` in the scene (preferrably smartpointer)
-// TODO: constant vector of scenes
-// TODO: default scene index (larger than scenes.size() if no default given)
 class CGLTFMetadata final : public IAssetMetadata
 {
     public:
@@ -31,6 +28,29 @@ class CGLTFMetadata final : public IAssetMetadata
             return static_cast<const asset::CGLTFPipelineMetadata*>(found);
         }
 
+        using INSTANCE_ID = uint32_t;
+
+        struct Scene
+        {
+            core::smart_refctd_ptr<asset::ICPUBuffer> instanceIDs;
+            uint32_t count;
+        };
+
+        struct Instance
+        {
+            const ICPUSkeleton* skeleton;
+            uint32_t skinTranslationTableOffset; // byteoffset into `vertexJointToSkeletonJoint`range
+            const ICPUMesh* mesh;
+            ICPUSkeleton::joint_id_t attachedToNode; // the node with the `mesh` and `skin` parameters
+        };
+
+        core::vector<Scene> scenes;
+        uint32_t defaultSceneID = {};
+
+        core::smart_refctd_ptr<asset::ICPUBuffer> vertexJointToSkeletonJoint;
+        core::vector<core::smart_refctd_ptr<ICPUSkeleton>> skeletons;
+        core::vector<Instance> instances;
+
     private:
         meta_container_t<asset::CGLTFPipelineMetadata> m_metaStorage;
 
@@ -40,7 +60,6 @@ class CGLTFMetadata final : public IAssetMetadata
             auto& meta = m_metaStorage->operator[](offset);
 
             meta.m_inputSemantics = _meta.m_inputSemantics;
-            meta.m_materialParams = _meta.m_materialParams;
 
             IAssetMetadata::insertAssetSpecificMetadata(pipeline, &meta);
         }

@@ -49,9 +49,12 @@ namespace nbl
 					return "nbl/builtin/image_views/loaders/glTF/" + uri;
 				}
 
-				static inline std::string getPipelineCacheKey(const E_PRIMITIVE_TOPOLOGY& primitiveType, const SVertexInputParams& vertexInputParams)
+				static inline std::string getPipelineCacheKey(const E_PRIMITIVE_TOPOLOGY& primitiveType, const SVertexInputParams& vertexInputParams, bool skinned)
 				{
-					return "nbl/builtin/pipelines/loaders/glTF/" + std::to_string(primitiveType) + vertexInputParams.to_string();
+					if constexpr (skinned)
+						return "nbl/builtin/pipelines/loaders/glTF/skinned/" + std::to_string(primitiveType) + vertexInputParams.to_string();
+					else
+						return "nbl/builtin/pipelines/loaders/glTF/static/" + std::to_string(primitiveType) + vertexInputParams.to_string();
 				}
 
 				static inline std::string getSamplerCacheKey(const asset::ICPUSampler::SParams& params)
