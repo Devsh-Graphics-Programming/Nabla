@@ -29,6 +29,7 @@ namespace nbl::system
         void initialize() { initialized = true; }
         bool isInitialized() const { return initialized; }
         bool isPaused() const { return paused; }
+        android_app* getApp() { return m_app; }
         struct SSavedState {
             float angle;
             int32_t x;

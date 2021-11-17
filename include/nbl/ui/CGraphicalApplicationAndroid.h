@@ -28,18 +28,6 @@ namespace nbl::ui
 			const system::path& _sharedInputCWD,
 			const system::path& _sharedOutputCWD) : system::CApplicationAndroid(app, env, _localInputCWD, _localOutputCWD, _sharedInputCWD, _sharedOutputCWD) {}
 
-		void dontLoseGLContextWhenMinimiized()
-		{
-			//auto context_object = m_app->activity->clazz;
-			//auto setPreserveEGLContextOnPause_method = m_env->GetMethodID(m_env->GetObjectClass(context_object), "setPreserveEGLContextOnPause", "()Landroid/opengl/GLSurfaceView;");
-			jclass _class = m_env->FindClass("android/opengl/GLES31Ext");
-			jmethodID mid = m_env->GetMethodID(_class, "<init>", "()V");
-			jobject obj = m_env->NewObject(_class, mid);
-
-			jclass cls = m_env->FindClass("android/opengl/GLSurfaceView");
-			jmethodID setPreserveEGLContextOnPause_method = m_env->GetMethodID(cls, "setPreserveEGLContextOnPause", "(Z)V");
-			m_env->CallVoidMethod(obj, mid, true);
-		}
 	private:
 		void handleInput_impl(android_app* app, AInputEvent* event) override
 		{
@@ -118,7 +106,6 @@ namespace nbl::ui
 						}
 					}
 				}
-				framework->dontLoseGLContextWhenMinimiized();
 				{
 					auto wnd = (CWindowAndroid*)framework->getWindow();
 					auto mouseChannel = core::make_smart_refctd_ptr<IMouseEventChannel>(CWindowAndroid::CIRCULAR_BUFFER_CAPACITY);

@@ -130,6 +130,41 @@ public:
     {
         return window.get();
     }
+    video::IAPIConnection* getAPIConnection() override
+    {
+        return apiConnection.get();
+    }
+    video::ILogicalDevice* getLogicalDevice()  override
+    {
+        return logicalDevice.get();
+    }
+    video::IGPURenderpass* getRenderpass() override
+    {
+        return renderpass.get();
+    }
+    void setSurface(core::smart_refctd_ptr<video::ISurface>&& s) override
+    {
+        surface = std::move(s);
+    }
+    void setFBOs(std::vector<core::smart_refctd_ptr<video::IGPUFramebuffer>>& f) override
+    {
+        for (int i = 0; i < f.size(); i++)
+        {
+            fbo[i] = core::smart_refctd_ptr(f[i]);
+        }
+    }
+    void setSwapchain(core::smart_refctd_ptr<video::ISwapchain>&& s) override
+    {
+        swapchain = std::move(s);
+    }
+    uint32_t getSwapchainImageCount() override
+    {
+        return SC_IMG_COUNT;
+    }
+    virtual nbl::asset::E_FORMAT getDepthFormat() override
+    {
+        return nbl::asset::EF_D32_SFLOAT;
+    }
 
     APP_CONSTRUCTOR(MeshLoadersApp)
     void onAppInitialized_impl() override
