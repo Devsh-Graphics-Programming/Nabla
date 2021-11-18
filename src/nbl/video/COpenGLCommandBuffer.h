@@ -1043,18 +1043,45 @@ public:
     {
         if (!this->isCompatibleDevicewise(layout))
             return false;
-        for (uint32_t i=0u; i<descriptorSetCount; ++i)
-        if (pDescriptorSets[i] && !this->isCompatibleDevicewise(pDescriptorSets[i]))
-            return false;
-        SCmd<impl::ECT_BIND_DESCRIPTOR_SETS> cmd;
-        cmd.pipelineBindPoint = pipelineBindPoint;
-        cmd.layout = core::smart_refctd_ptr<const pipeline_layout_t>(layout);
-        cmd.firstSet = firstSet;
-        cmd.dsCount = descriptorSetCount;
-        for (uint32_t i = 0u; i < cmd.dsCount; ++i)
-            cmd.descriptorSets[i] = core::smart_refctd_ptr<const IGPUDescriptorSet>(pDescriptorSets[i]);
-        cmd.dynamicOffsets = std::move(dynamicOffsets);
-        pushCommand(std::move(cmd));
+        for (uint32_t i = 0u; i < descriptorSetCount; ++i)
+            if (pDescriptorSets[i] && !this->isCompatibleDevicewise(pDescriptorSets[i]))
+                return false;
+
+        // Will bind [first, last) with one call
+        uint32_t first = ~0u;
+        uint32_t last = ~0u;
+        for (uint32_t i = 0u; i < descriptorSetCount; ++i)
+        {
+            if (pDescriptorSets[i])
+            {
+                if (first == last)
+                {
+                    first = i;
+                    last = first + 1;
+                }
+                else
+                    ++last;
+
+                // Do a look ahead
+                if ((i + 1 > descriptorSetCount - 1) || !pDescriptorSets[i + 1])
+                {
+                    SCmd<impl::ECT_BIND_DESCRIPTOR_SETS> cmd;
+                    cmd.pipelineBindPoint = pipelineBindPoint;
+                    cmd.layout = core::smart_refctd_ptr<const pipeline_layout_t>(layout);
+                    cmd.firstSet = firstSet + first;
+                    cmd.dsCount = last - first;
+                    for (uint32_t b = 0u; b < cmd.dsCount; ++b)
+                        cmd.descriptorSets[b] = core::smart_refctd_ptr<const IGPUDescriptorSet>(pDescriptorSets[first + b]);
+                    cmd.dynamicOffsets = dynamicOffsets;
+
+                    pushCommand(std::move(cmd));
+
+                    first = ~0u;
+                    last = ~0u;
+                }
+            }
+        }
+
         return true;
     }
     bool pushConstants(const pipeline_layout_t* layout, core::bitflag<asset::ISpecializedShader::E_SHADER_STAGE> stageFlags, uint32_t offset, uint32_t size, const void* pValues) override
