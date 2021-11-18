@@ -9,27 +9,21 @@
 
 #include "nbl/asset/asset.h"
 #include "IGPUBuffer.h"
-#include "IGPUSkeleton.h"
 #include "IGPUDescriptorSet.h"
 #include "IGPURenderpassIndependentPipeline.h"
 
-namespace nbl
-{
-namespace video
+namespace nbl::video
 {
 
-class IGPUMeshBuffer final : public asset::IMeshBuffer<IGPUBuffer,IGPUDescriptorSet,IGPURenderpassIndependentPipeline,IGPUSkeleton>
+class IGPUMeshBuffer final : public asset::IMeshBuffer<IGPUBuffer,IGPUDescriptorSet,IGPURenderpassIndependentPipeline>
 {
-        using base_t = asset::IMeshBuffer<IGPUBuffer, IGPUDescriptorSet, IGPURenderpassIndependentPipeline, IGPUSkeleton>;
+        using base_t = asset::IMeshBuffer<IGPUBuffer,IGPUDescriptorSet,IGPURenderpassIndependentPipeline>;
 
     public:
         using base_t::base_t;
 };
 
-} // end namespace video
-} // end namespace nbl
-
-
+} // end namespace nbl::video
 
 #endif
 

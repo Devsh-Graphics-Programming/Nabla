@@ -2,8 +2,8 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
-#ifndef __NBL_SCENE_I_TREE_TRANSFORM_MANAGER_H_INCLUDED__
-#define __NBL_SCENE_I_TREE_TRANSFORM_MANAGER_H_INCLUDED__
+#ifndef _NBL_SCENE_I_TREE_TRANSFORM_MANAGER_H_INCLUDED_
+#define _NBL_SCENE_I_TREE_TRANSFORM_MANAGER_H_INCLUDED_
 
 #include "nbl/core/declarations.h"
 #include "nbl/video/declarations.h"
@@ -82,10 +82,10 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 
 			auto updateRelativeSpec = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/transform_tree/relative_transform_update.comp")());
 			auto recomputeGlobalSpec = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/transform_tree/global_transform_update.comp")());
-			// TODO: audit source code
+			auto recomputeGlobalAndNormalSpec = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/transform_tree/global_transform_and_normal_matrix_update.comp")());
 			auto debugDrawVertexSpec = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/transform_tree/debug.vert")(),asset::ISpecializedShader::ESS_VERTEX);
 			auto debugDrawFragmentSpec = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_normal/specialized_shader.frag")(),asset::ISpecializedShader::ESS_FRAGMENT);
-			if (!updateRelativeSpec || !recomputeGlobalSpec || !debugDrawVertexSpec || !debugDrawFragmentSpec)
+			if (!updateRelativeSpec || !recomputeGlobalSpec || !recomputeGlobalAndNormalSpec || !debugDrawVertexSpec || !debugDrawFragmentSpec)
 				return nullptr;
 
 			const auto& limits = device->getPhysicalDevice()->getLimits();
@@ -131,78 +131,26 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			}
 			auto debugIndexBuffer = utils->createFilledDeviceLocalGPUBufferOnDedMem(uploadQueue,tmp.size(),fillData);
 
-			core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> sharedDsLayout,debugDrawDsLayout;
-			{
-				video::IGPUDescriptorSetLayout::SBinding bnd[2];
-				bnd[0].binding = 0u;
-				bnd[0].count = 1u;
-				bnd[0].type = asset::EDT_STORAGE_BUFFER;
-				bnd[0].stageFlags = video::IGPUSpecializedShader::ESS_COMPUTE;
-				bnd[0].samplers = nullptr;
-				bnd[1] = bnd[0];
-				bnd[1].binding = 1u;
-				sharedDsLayout = device->createGPUDescriptorSetLayout(bnd,bnd+2);
-				debugDrawDsLayout = device->createGPUDescriptorSetLayout(bnd,bnd+1);
-			}
-			asset::ISpecializedShader::E_SHADER_STAGE stageAccessFlags[ITransformTree::property_pool_t::PropertyCount];
-			std::fill_n(stageAccessFlags,ITransformTree::property_pool_t::PropertyCount,asset::ISpecializedShader::ESS_COMPUTE);
-			auto poolLayout = ITransformTree::createDescriptorSetLayout(device,stageAccessFlags);
-			
-			auto updateRelativeLayout = device->createGPUPipelineLayout(nullptr,nullptr,core::smart_refctd_ptr(poolLayout),core::smart_refctd_ptr(sharedDsLayout));
-			auto recomputeGlobalLayout = device->createGPUPipelineLayout(nullptr,nullptr,core::smart_refctd_ptr(poolLayout),core::smart_refctd_ptr(sharedDsLayout));
-			asset::SPushConstantRange pcRange;
-			pcRange.offset = 0u;
-			pcRange.size = sizeof(DebugPushConstants);
-			pcRange.stageFlags = asset::ISpecializedShader::ESS_VERTEX;
-			auto debugDrawLayout = device->createGPUPipelineLayout(nullptr,nullptr,core::smart_refctd_ptr(poolLayout),core::smart_refctd_ptr(debugDrawDsLayout));
+			auto updateLocalDsLayout = createUpdateLocalTransformsDescriptorSetLayout(device);
+			auto recomputeGlobalDsLayout = createRecomputeGlobalTransformsDescriptorSetLayout(device);
+			auto debugDrawDsLayout = createDebugDrawDescriptorSetLayout(device);
 
-			auto updateRelativePpln = device->createGPUComputePipeline(nullptr,std::move(updateRelativeLayout),std::move(updateRelativeSpec));
-			auto recomputeGlobalPpln = device->createGPUComputePipeline(nullptr,std::move(recomputeGlobalLayout),std::move(recomputeGlobalSpec));
-			core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> debugDrawIndepenedentPipeline;
-			{
-				asset::SVertexInputParams vertexInputParams = {};
-				vertexInputParams.bindings[DebugNodeIDBindingIndex].inputRate = asset::EVIR_PER_INSTANCE;
-				vertexInputParams.bindings[DebugNodeIDBindingIndex].stride = sizeof(uint32_t);
-				vertexInputParams.bindings[DebugAABBIDBindingIndex].inputRate = asset::EVIR_PER_INSTANCE;
-				vertexInputParams.bindings[DebugAABBIDBindingIndex].stride = sizeof(uint32_t);
-
-				vertexInputParams.attributes[DebugNodeIDAttributeIndex].binding = DebugNodeIDBindingIndex;
-				vertexInputParams.attributes[DebugNodeIDAttributeIndex].format = asset::EF_R32_UINT;
-				vertexInputParams.attributes[DebugAABBIDAttributeIndex].binding = DebugAABBIDBindingIndex;
-				vertexInputParams.attributes[DebugAABBIDAttributeIndex].format = asset::EF_R32_UINT;
-
-				vertexInputParams.enabledBindingFlags |= 0x1u<<DebugNodeIDBindingIndex;
-				vertexInputParams.enabledBindingFlags |= 0x1u<<DebugAABBIDBindingIndex;
-				vertexInputParams.enabledAttribFlags |= 0x1u<<DebugNodeIDAttributeIndex;
-				vertexInputParams.enabledAttribFlags |= 0x1u<<DebugAABBIDAttributeIndex;
-
-				asset::SBlendParams blendParams = {};
-				asset::SPrimitiveAssemblyParams primitiveAssemblyParams = {};
-				primitiveAssemblyParams.primitiveType = asset::EPT_LINE_LIST;
-				asset::SRasterizationParams rasterizationParams = {};
-
-				video::IGPUSpecializedShader* const debugDrawShaders[] = {debugDrawVertexSpec.get(),debugDrawFragmentSpec.get()};
-				debugDrawIndepenedentPipeline = device->createGPURenderpassIndependentPipeline(
-					nullptr,std::move(debugDrawLayout),debugDrawShaders,debugDrawShaders+2u,vertexInputParams,blendParams,primitiveAssemblyParams,rasterizationParams
-				);
-			}
-			if (!updateRelativePpln || !recomputeGlobalPpln || !debugDrawIndepenedentPipeline)
+			auto pipelinesWithoutNormalMatrices = createPipelines<ITransformTreeWithoutNormalMatrices>(
+				device,updateRelativeSpec,recomputeGlobalSpec,
+				debugDrawVertexSpec,debugDrawFragmentSpec,
+				updateLocalDsLayout,recomputeGlobalDsLayout,debugDrawDsLayout
+			);
+			auto pipelinesWithNormalMatrices = createPipelines<ITransformTreeWithNormalMatrices>(
+				device,updateRelativeSpec,recomputeGlobalAndNormalSpec,
+				debugDrawVertexSpec,debugDrawFragmentSpec,
+				updateLocalDsLayout,recomputeGlobalDsLayout,debugDrawDsLayout
+			);
+			if (!pipelinesWithoutNormalMatrices.isValid() || !pipelinesWithNormalMatrices.isValid())
 				return nullptr;
 
-			// TODO: after BaW
-			core::smart_refctd_ptr<video::IGPUComputePipeline> updateAndRecomputePpln;
-			
-			// TODO: if we decide to invalidate all cmdbuffs used for updates (make them non reusable), then we can use the ECF_NONE flag
-			auto descPool = device->createDescriptorPoolForDSLayouts(
-				video::IDescriptorPool::ECF_UPDATE_AFTER_BIND_BIT,
-				&sharedDsLayout.get(),&sharedDsLayout.get()+1u,
-				&DescriptorCacheSize
-			);
-			auto descCache = core::make_smart_refctd_ptr<DescriptorSetCache>(device,std::move(descPool),std::move(sharedDsLayout));
-
 			auto* ttm = new ITransformTreeManager(
-				core::smart_refctd_ptr<video::ILogicalDevice>(device),std::move(descCache),
-				std::move(updateRelativePpln),std::move(recomputeGlobalPpln),std::move(updateAndRecomputePpln),std::move(debugDrawIndepenedentPipeline),
+				core::smart_refctd_ptr<video::ILogicalDevice>(device),
+				std::move(pipelinesWithoutNormalMatrices),std::move(pipelinesWithNormalMatrices),
 				std::move(defaultFillValues),std::move(debugIndexBuffer)
 			);
             return core::smart_refctd_ptr<ITransformTreeManager>(ttm,core::dont_grab);
@@ -226,7 +174,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			if (!request.tree)
 				return false;
 
-			auto* pool = request.tree->getNodePropertyPool();
+			const auto* pool = request.tree->getNodePropertyPool();
 
 			for (auto i=0u; i<TransferCount; i++)
 			{
@@ -266,7 +214,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			if (request.nodes.empty())
 				return true;
 
-			auto* pool = request.tree->getNodePropertyPool();
+			const auto* pool = request.tree->getNodePropertyPool();
 
 			for (auto i=0u; i<TransferCount; i++)
 			{
@@ -367,21 +315,6 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		//
 		struct SkeletonAllocationRequest : RequestBase,AdditionRequestBase
 		{
-			core::SRange<const asset::ICPUSkeleton*> skeletons;
-			// if nullptr then treated like a buffer of {1,1,...,1,1}, else needs to be same length as the skeleton range
-			const uint32_t* instanceCounts = nullptr;
-			// If you make the skeleton hierarchy have a real parent, you won't be able to share it amongst multiple instances of a mesh
-			// also in order to render with standard shaders you'll have to cancel out the model transform of the parent for the skinning matrices.
-			const ITransformTree::node_t*const * skeletonInstanceParents = nullptr;
-			// the following arrays need to be sized according to `StagingRequirements`
-			// if the `outNodes` have values not equal to `invalid_node` then we treat them as already allocated
-			// (this allows you to split allocation of nodes from setting up the transfers)
-			ITransformTree::node_t* outNodes = nullptr;
-			// scratch buffers are just required to be the set size, they can be filled with garbage
-			ITransformTree::node_t* parentScratch;
-			// must be non null if at least one skeleton has default transforms
-			ITransformTree::relative_transform_t* transformScratch = nullptr;
-
 			inline bool isValid() const
 			{
 				return AdditionRequestBase::isValid() && skeletons.begin() && skeletons.begin()<=skeletons.end() && outNodes && parentScratch;
@@ -390,8 +323,8 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			struct StagingRequirements
 			{
 				uint32_t nodeCount;
-				uint32_t parentScratchSize;
-				uint32_t transformScratchSize;
+				uint32_t transformCount; // for internal usage only
+				uint32_t transformScratchCount;
 			};
 			inline StagingRequirements computeStagingRequirements() const
 			{
@@ -402,18 +335,35 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 					if (skeleton)
 					{
 						const uint32_t jointCount = skeleton->getJointCount();
-						const uint32_t jointInstanceCount = (*instanceCountIt)*jointCount;
+						const uint32_t jointInstanceCount = (instanceCounts ? (*instanceCountIt):1u)*jointCount;
 						reqs.nodeCount += jointInstanceCount;
-						reqs.parentScratchSize += sizeof(ITransformTree::node_t)*jointInstanceCount;
 						if (skeleton->getDefaultTransformBinding().buffer)
-							reqs.transformScratchSize += sizeof(ITransformTree::relative_transform_t)*jointCount;
+							reqs.transformCount += jointCount;
 					}
 					instanceCountIt++;
 				}
-				if (reqs.transformScratchSize)
-					reqs.transformScratchSize += reqs.parentScratchSize*sizeof(uint32_t)/sizeof(ITransformTree::node_t);
+				if (reqs.transformCount)
+				{
+					constexpr uint32_t kNodesInATransform = sizeof(ITransformTree::relative_transform_t)/sizeof(uint32_t);
+					reqs.transformScratchCount = reqs.transformCount+core::roundUp(reqs.nodeCount,kNodesInATransform);
+				}
 				return reqs;
 			}
+			
+			core::SRange<const asset::ICPUSkeleton*> skeletons = {nullptr,nullptr};
+			// if nullptr then treated like a buffer of {1,1,...,1,1}, else needs to be same length as the skeleton range
+			const uint32_t* instanceCounts = nullptr;
+			// If you make the skeleton hierarchy have a real parent, you won't be able to share it amongst multiple instances of a mesh
+			// also in order to render with standard shaders you'll have to cancel out the model transform of the parent for the skinning matrices.
+			const ITransformTree::node_t* const* skeletonInstanceParents = nullptr;
+			// the following arrays need to be sized according to `StagingRequirements`
+			// if the `outNodes` have values not equal to `invalid_node` then we treat them as already allocated
+			// (this allows you to split allocation of nodes from setting up the transfers)
+			ITransformTree::node_t* outNodes = nullptr;
+			// scratch buffers are just required to be the set size, they can be filled with garbage
+			ITransformTree::node_t* parentScratch;
+			// must be non null if at least one skeleton has default transforms
+			ITransformTree::relative_transform_t* transformScratch = nullptr;
 		};
 		inline bool addSkeletonNodes(
 			const SkeletonAllocationRequest& request, uint32_t& waitSemaphoreCount,
@@ -432,7 +382,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			if (!request.tree->allocateNodes({request.outNodes,request.outNodes+staging.nodeCount}))
 				return false;
 
-			uint32_t* const srcTransformIndices = reinterpret_cast<uint32_t*>(request.transformScratch+staging.transformScratchSize/sizeof(ITransformTree::relative_transform_t));
+			uint32_t* const srcTransformIndices = reinterpret_cast<uint32_t*>(request.transformScratch+staging.transformCount);
 			{
 				auto instanceCountIt = request.instanceCounts;
 				auto skeletonInstanceParentsIt = request.skeletonInstanceParents;
@@ -446,7 +396,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 					const auto instanceCount = request.instanceCounts ? (*(instanceCountIt++)):1u;
 					auto* const instanceParents = request.skeletonInstanceParents ? (*(skeletonInstanceParentsIt++)):nullptr;
 
-					const auto jointCount = skeleton->getJointCount();
+					const auto jointCount = skeleton ? skeleton->getJointCount():0u;
 					auto instanceParentsIt = instanceParents;
 					for (auto instanceID=0u; instanceID<instanceCount; instanceID++)
 					{
@@ -459,10 +409,11 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 								parentID = instanceParents ? (*instanceParentsIt):ITransformTree::invalid_node;
 							*(parentsIt++) = parentID;
 
-							if (staging.transformScratchSize)
+							if (staging.transformScratchCount)
 								*(srcTransformIndicesIt++) = jointID+baseJoint;
 						}
 						baseJointInstance += jointCount;
+						instanceParentsIt++;
 					}
 					if (skeleton->getDefaultTransformBinding().buffer)
 					for (auto jointID=0u; jointID<jointCount; jointID++)
@@ -476,11 +427,11 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			req.tree = request.tree;
 			req.nodes = {request.outNodes,request.outNodes+staging.nodeCount};
 			req.parents.data = request.parentScratch;
-			if (staging.transformScratchSize)
+			if (staging.transformCount)
 				req.relativeTransforms.data = request.transformScratch;
 			if (!setupTransfers(req,upstreams))
 				return false;
-			if (staging.transformScratchSize)
+			if (staging.transformCount)
 				upstreams[1].srcAddresses = srcTransformIndices;
 
 			auto upstreamsPtr = upstreams;
@@ -503,7 +454,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		//
 		struct SBarrierSuggestion
 		{
-			static inline constexpr uint32_t MaxBufferCount = 6u;
+			static inline constexpr uint32_t MaxBufferCount = 6u; // could be less?
 
 			//
 			enum E_FLAG
@@ -528,6 +479,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			asset::SMemoryBarrier modifiedTimestamps = {};
 			asset::SMemoryBarrier globalTransforms = {};
 			asset::SMemoryBarrier recomputedTimestamps = {};
+			asset::SMemoryBarrier normalMatrices = {};
 		};
 		//
 		static inline SBarrierSuggestion barrierHelper(const SBarrierSuggestion::E_FLAG type)
@@ -570,6 +522,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 				barrier.relativeTransforms.dstAccessMask |= asset::EAF_SHADER_READ_BIT;
 				barrier.modifiedTimestamps.srcAccessMask |= asset::EAF_SHADER_WRITE_BIT;
 				barrier.modifiedTimestamps.dstAccessMask |= asset::EAF_SHADER_READ_BIT;
+				// the case of update stepping on its own toes is handled by the POST case
 			}
 			if (type&SBarrierSuggestion::EF_POST_GLOBAL_TFORM_RECOMPUTE)
 			{
@@ -586,82 +539,127 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 				barrier.globalTransforms.dstAccessMask |= rwAccessMask;
 				barrier.recomputedTimestamps.srcAccessMask |= rwAccessMask;
 				barrier.recomputedTimestamps.dstAccessMask |= rwAccessMask;
+				// global tform recompute only writes these, but its reasonable to assume someone will read them inbetween
+				barrier.normalMatrices.srcAccessMask |= rwAccessMask;
+				barrier.normalMatrices.dstAccessMask |= rwAccessMask;
 			}
 			return barrier;
 		}
 
 		//
-		using ModificationRequestRange = nbl_glsl_transform_tree_modification_request_range_t;
-		struct ParamsBase
+		struct BaseParams
 		{
-			ParamsBase()
+			BaseParams() = default;
+
+			inline BaseParams& operator=(const BaseParams& other) = default;
+
+			video::IGPUCommandBuffer* cmdbuf; // must already be in recording state
+			ITransformTree* tree;
+			system::logger_opt_ptr logger = nullptr;
+		};
+		//
+		union DispatchParams
+		{
+			DispatchParams()
 			{
-				dispatchIndirect.buffer = nullptr;
-				dispatchDirect.nodeCount = 0u;
+				indirect.buffer = nullptr;
+				direct.nodeCount = 0u;
 			}
 
-			inline ParamsBase& operator=(const ParamsBase& other)
+			inline DispatchParams& operator=(const DispatchParams& other)
 			{
-				cmdbuf = other.cmdbuf;
-				fence = other.fence;
-				tree = other.tree;
-				if (other.dispatchIndirect.buffer)
-					dispatchIndirect = other.dispatchIndirect;
+				if (other.indirect.buffer)
+					indirect = other.indirect;
 				else
 				{
-					dispatchIndirect.buffer = nullptr;
-					dispatchDirect.nodeCount = other.dispatchDirect.nodeCount;
+					indirect.buffer = nullptr;
+					direct.nodeCount = other.direct.nodeCount;
 				}
-				logger = other.logger;
 				return *this;
 			}
 
-			video::IGPUCommandBuffer* cmdbuf; // must already be in recording state
-			// for signalling when to drop a temporary descriptor set
-			video::IGPUFence* fence;
-			ITransformTree* tree;
-			union
+			struct
 			{
-				struct
-				{
-					video::IGPUBuffer* buffer;
-					uint64_t offset;
-				} dispatchIndirect;
-				struct
-				{
-					private:
-						uint64_t dummy;
-					public:
-						uint32_t nodeCount;
-				} dispatchDirect;
-			};
-			system::logger_opt_ptr logger = nullptr;
+				video::IGPUBuffer* buffer;
+				uint64_t offset;
+			} indirect;
+			struct
+			{
+				private:
+					uint64_t dummy;
+				public:
+					uint32_t nodeCount;
+			} direct;
 		};
-
+		
 		//
-		struct LocalTransformUpdateParams : ParamsBase
+		static inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createUpdateLocalTransformsDescriptorSetLayout(video::ILogicalDevice* device)
 		{
-			// first uint in the buffer tells us how many ModificationRequestRanges we have
-			// second uint in the buffer tells us how many total requests we have
-			// rest is filled wtih ModificationRequestRange
-			asset::SBufferBinding<video::IGPUBuffer> requestRanges;
-			// this one is filled with RelativeTransformModificationRequest
-			asset::SBufferBinding<video::IGPUBuffer> modificationRequests;
-		};
-		inline bool updateLocalTransforms(const LocalTransformUpdateParams& params)
+			return createDescriptorSetLayout<2u>(device);
+		}
+		// first uint in the `requestRanges` buffer tells us how many ModificationRequestRanges we have
+		// second uint in the `requestRanges` buffer tells us how many total requests we have
+		// rest is filled wtih ModificationRequestRange
+		using ModificationRequestRange = nbl_glsl_transform_tree_modification_request_range_t;
+		// `modificationRequests` is filled with RelativeTransformModificationRequest
+		static inline void updateUpdateLocalTransformsDescriptorSet(
+			video::ILogicalDevice* device, video::IGPUDescriptorSet* updateLocalTransformsDS, 
+			asset::SBufferBinding<video::IGPUBuffer>&& requestRanges,
+			asset::SBufferBinding<video::IGPUBuffer>&& modificationRequests
+		)
 		{
-			return soleUpdateOrFusedRecompute_impl<2u>(m_updatePipeline.get(),params,{params.requestRanges,params.modificationRequests});
+			updateDescriptorSet<2>(device,updateLocalTransformsDS,{std::move(requestRanges),std::move(modificationRequests)});
+		}
+		inline void updateLocalTransforms(const BaseParams& baseParams, const DispatchParams& dispatchParams, const video::IGPUDescriptorSet* updateLocalTransformsDS)
+		{
+			const auto updatePipeline = choosePipelines(baseParams.tree).updateRelative.get();
+
+			const video::IGPUDescriptorSet* descSets[] = {baseParams.tree->getNodePropertyDescriptorSet(),updateLocalTransformsDS};
+			baseParams.cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,updatePipeline->getLayout(),0u,2u,descSets,nullptr);
+			
+			baseParams.cmdbuf->bindComputePipeline(updatePipeline);
+			dispatch(baseParams.cmdbuf,dispatchParams);
 		}
 
 		//
-		struct GlobalTransformUpdateParams : ParamsBase
+		static inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createRecomputeGlobalTransformsDescriptorSetLayout(video::ILogicalDevice* device)
 		{
-			// first uint in the buffer tells us how many nodes to update we have
-			asset::SBufferBinding<video::IGPUBuffer> nodeIDs; // imo it should be SBufferRange
-		};
-		inline bool recomputeGlobalTransforms(const GlobalTransformUpdateParams& params)
+			return createDescriptorSetLayout<1u>(device);
+		}
+		// first uint in the `nodeID` buffer tells us how many nodes to update we have
+		static inline void updateRecomputeGlobalTransformsDescriptorSet(
+			video::ILogicalDevice* device, video::IGPUDescriptorSet* recomputeGlobalTransformsDS,
+			asset::SBufferBinding<video::IGPUBuffer>&& nodeID
+		)
 		{
-			return soleUpdateOrFusedRecompute_impl<1u>(m_recomputePipeline.get(),params,{params.nodeIDs});
+			updateDescriptorSet<1>(device,recomputeGlobalTransformsDS,{std::move(nodeID)});
+		}
+		inline void recomputeGlobalTransforms(const BaseParams& baseParams, const DispatchParams& dispatchParams, const video::IGPUDescriptorSet* recomputeGlobalTransformsDS)
+		{
+			const auto recomputePipeline = choosePipelines(baseParams.tree).recomputeGlobal.get();
+
+			const video::IGPUDescriptorSet* descSets[] = {baseParams.tree->getNodePropertyDescriptorSet(),recomputeGlobalTransformsDS};
+			baseParams.cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,recomputePipeline->getLayout(),0u,2u,descSets,nullptr);
+			
+			baseParams.cmdbuf->bindComputePipeline(recomputePipeline);
+			dispatch(baseParams.cmdbuf,dispatchParams);
+		}
+
+		// Note: Function signature subject to change
+		inline void updateLocalAndRecomputeGlobalTransforms(
+			const BaseParams& baseParams, const DispatchParams& updateDispatch, const DispatchParams& recomputeDispatch,
+			const video::IGPUDescriptorSet* updateLocalTransformsDS, const video::IGPUDescriptorSet* recomputeGlobalTransformsDS
+		)
+		{
+			const core::bitflag<asset::E_PIPELINE_STAGE_FLAGS> renderingStages = asset::EPSF_VERTEX_SHADER_BIT;
+			updateLocalTransforms(baseParams,updateDispatch,updateLocalTransformsDS);
+			{
+				asset::SMemoryBarrier memoryBarrier;
+				memoryBarrier.srcAccessMask = asset::EAF_ALL_BUFFER_ACCESSES_DEVSH;
+				memoryBarrier.dstAccessMask = asset::EAF_ALL_BUFFER_ACCESSES_DEVSH;
+				baseParams.cmdbuf->pipelineBarrier(asset::EPSF_BOTTOM_OF_PIPE_BIT,asset::EPSF_TOP_OF_PIPE_BIT,asset::EDF_NONE,1u,&memoryBarrier,0u,nullptr,0u,nullptr);
+			}
+			recomputeGlobalTransforms(baseParams,recomputeDispatch,recomputeGlobalTransformsDS);
 		}
 
 
@@ -670,15 +668,24 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		static inline constexpr uint32_t DebugNodeIDBindingIndex = DebugNodeIDAttributeIndex;
 		static inline constexpr uint32_t DebugAABBIDBindingIndex = DebugAABBIDAttributeIndex;
 		//
+		template<class TransformTree>
 		inline auto createDebugPipeline(core::smart_refctd_ptr<video::IGPURenderpass>&& renderpass)
 		{
 			nbl::video::IGPUGraphicsPipeline::SCreationParams graphicsPipelineParams;
-			graphicsPipelineParams.renderpassIndependent = m_debugDrawIndepenedentPipeline;
+			graphicsPipelineParams.renderpassIndependent = choosePipelines<TransformTree>().debugDraw;
 			graphicsPipelineParams.renderpass = std::move(renderpass);
 			return m_device->createGPUGraphicsPipeline(nullptr,std::move(graphicsPipelineParams));
 		}
 
 		//
+		static inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createDebugDrawDescriptorSetLayout(video::ILogicalDevice* device)
+		{
+			return createDescriptorSetLayout<1u>(device);
+		}
+		static inline void updateDebugDrawDescriptorSet(video::ILogicalDevice* device, video::IGPUDescriptorSet* debugDrawDS, asset::SBufferBinding<video::IGPUBuffer>&& aabbPool)
+		{
+			updateDescriptorSet<1>(device,debugDrawDS,{std::move(aabbPool)});
+		}
 		struct DebugPushConstants
 		{
 			core::matrix4SIMD viewProjectionMatrix;
@@ -686,15 +693,15 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			core::vector4df_SIMD aabbColor;
 		};
 		inline void debugDraw(
-			video::IGPUCommandBuffer* cmdbuf, const video::IGPUGraphicsPipeline* pipeline, const ITransformTree* tree, const video::IGPUDescriptorSet* aabb,
-			const asset::SBufferBinding<video::IGPUBuffer>& nodeID, const asset::SBufferBinding<video::IGPUBuffer>& aabbID,
+			video::IGPUCommandBuffer* cmdbuf, const video::IGPUGraphicsPipeline* pipeline, const ITransformTree* tree,
+			const video::IGPUDescriptorSet* debugDrawDS, const asset::SBufferBinding<video::IGPUBuffer>& nodeID, const asset::SBufferBinding<video::IGPUBuffer>& aabbID,
 			const DebugPushConstants& pushConstants, const uint32_t count
 		)
 		{
-			auto layout = m_debugDrawIndepenedentPipeline->getLayout();
+			auto layout = choosePipelines(tree).debugDraw->getLayout();
 			assert(pipeline->getRenderpassIndependentPipeline()->getLayout()==layout);
 
-			const video::IGPUDescriptorSet* sets[] = {tree->getNodePropertyDescriptorSet(),aabb};
+			const video::IGPUDescriptorSet* sets[] = {tree->getNodePropertyDescriptorSet(),debugDrawDS};
 			cmdbuf->bindDescriptorSets(asset::EPBP_GRAPHICS,layout,0u,2u,sets);
 			cmdbuf->bindGraphicsPipeline(pipeline);
 			{
@@ -710,6 +717,30 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			cmdbuf->drawIndexed(IndexCount,count,0u,0u,0u);
 		}
 
+		//
+		struct DescriptorSets
+		{
+			core::smart_refctd_ptr<video::IGPUDescriptorSet> updateLocal;
+			core::smart_refctd_ptr<video::IGPUDescriptorSet> recomputeGlobal;
+			core::smart_refctd_ptr<video::IGPUDescriptorSet> debugDraw;
+		};
+		DescriptorSets createAllDescriptorSets(video::ILogicalDevice* device)
+		{
+			core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> layouts[] =
+			{
+				createUpdateLocalTransformsDescriptorSetLayout(device),
+				createRecomputeGlobalTransformsDescriptorSetLayout(device),
+				createDebugDrawDescriptorSetLayout(device)
+			};
+
+			auto pool = device->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE,&layouts->get(),&layouts->get()+3u);
+
+			DescriptorSets descSets;
+			descSets.updateLocal = device->createGPUDescriptorSet(pool.get(),std::move(layouts[0]));
+			descSets.recomputeGlobal = device->createGPUDescriptorSet(pool.get(),std::move(layouts[1]));
+			descSets.debugDraw = device->createGPUDescriptorSet(pool.get(),std::move(layouts[2]));
+			return descSets;
+		}
 	protected:
 		static inline uint64_t getDefaultValueBufferOffset(const video::IPhysicalDevice::SLimits& limits, uint32_t prop_ix)
 		{
@@ -731,56 +762,88 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			}
 			return offset;
 		}
-
-		static inline constexpr auto DescriptorCacheSize = 32u;
-		// TODO: investigate using Push Descriptors for this
-		class DescriptorSetCache : public video::IDescriptorSetCache
+		struct Pipelines
 		{
-			public:
-				using IDescriptorSetCache::IDescriptorSetCache;
+			inline bool isValid() const
+			{
+				return updateRelative && recomputeGlobal && debugDraw;
+			}
 
-				static constexpr inline auto SharedBindingCount = 3u;
-
-				uint32_t acquireSet(video::ILogicalDevice* device, const asset::SBufferRange<video::IGPUBuffer>* buffers, uint32_t count)
-				{
-					auto retval = IDescriptorSetCache::acquireSet();
-					if (retval==IDescriptorSetCache::invalid_index)
-						return IDescriptorSetCache::invalid_index;
-					video::IGPUDescriptorSet* set = IDescriptorSetCache::getSet(retval);
-
-					video::IGPUDescriptorSet::SWriteDescriptorSet writes[SharedBindingCount];
-					video::IGPUDescriptorSet::SDescriptorInfo infos[SharedBindingCount];
-					for (auto i=0u; i<count; i++)
-					{
-						infos[i].desc = buffers[i].buffer;
-						infos[i].buffer.offset = buffers[i].offset;
-						infos[i].buffer.size = buffers[i].size;
-						writes[i].dstSet = set;
-						writes[i].binding = i;
-						writes[i].arrayElement = 0u;
-						writes[i].count = 1u;
-						writes[i].descriptorType = asset::EDT_STORAGE_BUFFER;
-						writes[i].info = infos+i;
-					}
-					device->updateDescriptorSets(count,writes,0u,nullptr);
-
-					return retval;
-				}
+			core::smart_refctd_ptr<video::IGPUComputePipeline> updateRelative;
+			core::smart_refctd_ptr<video::IGPUComputePipeline> recomputeGlobal;
+			// TODO: after BaW
+			// core::smart_refctd_ptr<video::IGPUComputePipeline> updateRelativeAndRecomputeGlobal;
+			core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> debugDraw;
 		};
+		template<class TransformTree>
+		static inline Pipelines createPipelines(
+			video::ILogicalDevice* device,
+			const core::smart_refctd_ptr<video::IGPUSpecializedShader>& updateRelativeSpec,
+			const core::smart_refctd_ptr<video::IGPUSpecializedShader>& recomputeGlobalSpec,
+			const core::smart_refctd_ptr<video::IGPUSpecializedShader>& debugDrawVertexSpec,
+			const core::smart_refctd_ptr<video::IGPUSpecializedShader>& debugDrawFragmentSpec,
+			const core::smart_refctd_ptr<video::IGPUDescriptorSetLayout>& updateLocalDsLayout,
+			const core::smart_refctd_ptr<video::IGPUDescriptorSetLayout>& recomputeGlobalDsLayout,
+			const core::smart_refctd_ptr<video::IGPUDescriptorSetLayout>& debugDrawDsLayout
+		)
+		{
+			Pipelines retval = {};
+
+			asset::ISpecializedShader::E_SHADER_STAGE stageAccessFlags[TransformTree::property_pool_t::PropertyCount];
+			std::fill_n(stageAccessFlags, TransformTree::property_pool_t::PropertyCount,asset::ISpecializedShader::ESS_COMPUTE);
+			auto poolLayout = TransformTree::createDescriptorSetLayout(device,stageAccessFlags);
+			
+			auto updateRelativeLayout = device->createGPUPipelineLayout(nullptr,nullptr,core::smart_refctd_ptr(poolLayout),core::smart_refctd_ptr(updateLocalDsLayout));
+			auto recomputeGlobalLayout = device->createGPUPipelineLayout(nullptr,nullptr,core::smart_refctd_ptr(poolLayout),core::smart_refctd_ptr(recomputeGlobalDsLayout));
+			asset::SPushConstantRange pcRange;
+			pcRange.offset = 0u;
+			pcRange.size = sizeof(DebugPushConstants);
+			pcRange.stageFlags = asset::ISpecializedShader::ESS_VERTEX;
+			auto debugDrawLayout = device->createGPUPipelineLayout(nullptr,nullptr,core::smart_refctd_ptr(poolLayout),core::smart_refctd_ptr(debugDrawDsLayout));
+
+			retval.updateRelative = device->createGPUComputePipeline(nullptr,std::move(updateRelativeLayout),core::smart_refctd_ptr(updateRelativeSpec));
+			retval.recomputeGlobal = device->createGPUComputePipeline(nullptr,std::move(recomputeGlobalLayout),core::smart_refctd_ptr(recomputeGlobalSpec));
+			core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> debugDrawIndepenedentPipeline;
+			{
+				asset::SVertexInputParams vertexInputParams = {};
+				vertexInputParams.bindings[DebugNodeIDBindingIndex].inputRate = asset::EVIR_PER_INSTANCE;
+				vertexInputParams.bindings[DebugNodeIDBindingIndex].stride = sizeof(uint32_t);
+				vertexInputParams.bindings[DebugAABBIDBindingIndex].inputRate = asset::EVIR_PER_INSTANCE;
+				vertexInputParams.bindings[DebugAABBIDBindingIndex].stride = sizeof(uint32_t);
+
+				vertexInputParams.attributes[DebugNodeIDAttributeIndex].binding = DebugNodeIDBindingIndex;
+				vertexInputParams.attributes[DebugNodeIDAttributeIndex].format = asset::EF_R32_UINT;
+				vertexInputParams.attributes[DebugAABBIDAttributeIndex].binding = DebugAABBIDBindingIndex;
+				vertexInputParams.attributes[DebugAABBIDAttributeIndex].format = asset::EF_R32_UINT;
+
+				vertexInputParams.enabledBindingFlags |= 0x1u<<DebugNodeIDBindingIndex;
+				vertexInputParams.enabledBindingFlags |= 0x1u<<DebugAABBIDBindingIndex;
+				vertexInputParams.enabledAttribFlags |= 0x1u<<DebugNodeIDAttributeIndex;
+				vertexInputParams.enabledAttribFlags |= 0x1u<<DebugAABBIDAttributeIndex;
+
+				asset::SBlendParams blendParams = {};
+				asset::SPrimitiveAssemblyParams primitiveAssemblyParams = {};
+				primitiveAssemblyParams.primitiveType = asset::EPT_LINE_LIST;
+				asset::SRasterizationParams rasterizationParams = {};
+
+				video::IGPUSpecializedShader* const debugDrawShaders[] = {debugDrawVertexSpec.get(),debugDrawFragmentSpec.get()};
+				retval.debugDraw = device->createGPURenderpassIndependentPipeline(
+					nullptr,std::move(debugDrawLayout),debugDrawShaders,debugDrawShaders+2u,vertexInputParams,blendParams,primitiveAssemblyParams,rasterizationParams
+				);
+			}
+
+			return retval;
+		}
+
+		//
 		ITransformTreeManager(
 			core::smart_refctd_ptr<video::ILogicalDevice>&& _device,
-			core::smart_refctd_ptr<DescriptorSetCache>&& _dsCache,
-			core::smart_refctd_ptr<video::IGPUComputePipeline>&& _updatePipeline,
-			core::smart_refctd_ptr<video::IGPUComputePipeline>&& _recomputePipeline,
-			core::smart_refctd_ptr<video::IGPUComputePipeline>&& _updateAndRecomputePipeline,
-			core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline>&& _debugDrawIndepenedentPipeline,
+			Pipelines&& _pipelinesWithoutNormalMatrices,
+			Pipelines&& _pipelinesWithNormalMatrices,
 			core::smart_refctd_ptr<video::IGPUBuffer>&& _defaultFillValues,
 			core::smart_refctd_ptr<video::IGPUBuffer>&& _debugIndexBuffer
-		) : m_device(std::move(_device)), m_dsCache(std::move(_dsCache)),
-			m_updatePipeline(std::move(_updatePipeline)),
-			m_recomputePipeline(std::move(_recomputePipeline)),
-			m_updateAndRecomputePipeline(std::move(_updateAndRecomputePipeline)),
-			m_debugDrawIndepenedentPipeline(_debugDrawIndepenedentPipeline),
+		) : m_device(std::move(_device)), m_pipelinesWithoutNormalMatrices(std::move(_pipelinesWithoutNormalMatrices)),
+			m_pipelinesWithNormalMatrices(std::move(_pipelinesWithNormalMatrices)),
 			m_defaultFillValues(std::move(_defaultFillValues)),
 			m_debugIndexBuffer(std::move(_debugIndexBuffer)),
 			m_workgroupSize(m_device->getPhysicalDevice()->getLimits().maxOptimallyResidentWorkgroupInvocations)
@@ -797,67 +860,77 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			return {getDefaultValueBufferOffset(limits,prop_ix),m_defaultFillValues};
 		}
 		
-		template<uint32_t N>
-		bool soleUpdateOrFusedRecompute_impl(const video::IGPUComputePipeline* pipeline, const ParamsBase& params, const std::array<asset::SBufferBinding<video::IGPUBuffer>,N>& bufferBindings)
+		template<class TransformTree>
+		inline Pipelines& choosePipelines()
 		{
-			auto* cmdbuf = params.cmdbuf;
-
-			auto dsix = m_dsCache->acquireSet();
-			if (dsix==video::IDescriptorSetCache::invalid_index)
-			{
-				params.logger.log("CPropertyPoolHandler: Failed to acquire descriptor set!",system::ILogger::ELL_ERROR);
-				return false;
-			}
-			video::IGPUDescriptorSet* tempDS = m_dsCache->getSet(dsix);
-			{
-				constexpr auto MaxBindingCount = 2u;
-
-				video::IGPUDescriptorSet::SDescriptorInfo info[MaxBindingCount];
-				for (auto i=0u; i<N; i++)
-				{
-					info[i].desc = bufferBindings[i].buffer;
-					info[i].buffer.offset = bufferBindings[i].offset;
-					info[i].buffer.size = video::IGPUDescriptorSet::SDescriptorInfo::SBufferInfo::WholeBuffer;
-				}
-				video::IGPUDescriptorSet::SWriteDescriptorSet w[MaxBindingCount];
-				for (auto i=0u; i<MaxBindingCount; i++)
-				{
-					w[i].arrayElement = 0u;
-					w[i].binding = i;
-					w[i].count = 1u;
-					w[i].descriptorType = asset::EDT_STORAGE_BUFFER;
-					w[i].info = info+std::min(i,N-1u);
-					w[i].dstSet = tempDS;
-				}
-				m_device->updateDescriptorSets(MaxBindingCount,w,0u,nullptr);
-			}
-			const video::IGPUDescriptorSet* descSets[] = { params.tree->getNodePropertyDescriptorSet(),tempDS };
-			cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,pipeline->getLayout(),0u,2u,descSets,nullptr);
-			
-			cmdbuf->bindComputePipeline(pipeline);
-			if (params.dispatchIndirect.buffer)
-				cmdbuf->dispatchIndirect(params.dispatchIndirect.buffer,params.dispatchIndirect.offset);
-			else
-			{
-				const auto& limits = m_device->getPhysicalDevice()->getLimits();
-				cmdbuf->dispatch(limits.computeOptimalPersistentWorkgroupDispatchSize(params.dispatchDirect.nodeCount,m_workgroupSize),1u,1u);
-			}
-
-			m_dsCache->releaseSet(m_device.get(),core::smart_refctd_ptr<video::IGPUFence>(params.fence),dsix);
-			return true;
+			return TransformTree::HasNormalMatrices ? m_pipelinesWithNormalMatrices:m_pipelinesWithoutNormalMatrices;
+		}
+		inline Pipelines& choosePipelines(const ITransformTree* tree)
+		{
+			return tree->hasNormalMatrices() ? m_pipelinesWithNormalMatrices:m_pipelinesWithoutNormalMatrices;
 		}
 
 		core::smart_refctd_ptr<video::ILogicalDevice> m_device;
-		core::smart_refctd_ptr<video::IDescriptorSetCache> m_dsCache;
-		core::smart_refctd_ptr<video::IGPUComputePipeline> m_updatePipeline,m_recomputePipeline,m_updateAndRecomputePipeline;
+		Pipelines m_pipelinesWithoutNormalMatrices;
+		Pipelines m_pipelinesWithNormalMatrices;
 		core::smart_refctd_ptr<video::IGPUBuffer> m_defaultFillValues;
 		const uint32_t m_workgroupSize;
 
-		core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> m_debugDrawIndepenedentPipeline;
 		core::smart_refctd_ptr<video::IGPUBuffer> m_debugIndexBuffer;
 		constexpr static inline auto AABBIndices = 24u;
 		constexpr static inline auto LineIndices = 2u;
 		constexpr static inline auto IndexCount = AABBIndices+LineIndices;
+
+	private:
+		template<uint32_t BindingCount>
+		static inline auto createDescriptorSetLayout(video::ILogicalDevice* device)
+		{
+			video::IGPUDescriptorSetLayout::SBinding bnd[BindingCount];
+			bnd[0].binding = 0u;
+			bnd[0].count = 1u;
+			bnd[0].type = asset::EDT_STORAGE_BUFFER;
+			bnd[0].stageFlags = video::IGPUSpecializedShader::ESS_COMPUTE;
+			bnd[0].samplers = nullptr;
+			for (auto i=1u; i<BindingCount; i++)
+			{
+				bnd[i] = bnd[i-1u];
+				bnd[i].binding = i;
+			}
+			return device->createGPUDescriptorSetLayout(bnd,bnd+BindingCount);
+		}
+		template<uint32_t BindingCount>
+		static inline void updateDescriptorSet(
+			video::ILogicalDevice* device, video::IGPUDescriptorSet* set,
+			std::array<asset::SBufferBinding<video::IGPUBuffer>,BindingCount>&& bufferBindings
+		)
+		{
+			video::IGPUDescriptorSet::SWriteDescriptorSet writes[BindingCount];
+			video::IGPUDescriptorSet::SDescriptorInfo infos[BindingCount];
+			for (auto i=0u; i<BindingCount; i++)
+			{
+				infos[i].desc = std::move(bufferBindings[i].buffer);
+				infos[i].buffer.offset = bufferBindings[i].offset;
+				infos[i].buffer.size = video::IGPUDescriptorSet::SDescriptorInfo::SBufferInfo::WholeBuffer;
+				writes[i].dstSet = set;
+				writes[i].binding = i;
+				writes[i].arrayElement = 0u;
+				writes[i].count = 1u;
+				writes[i].descriptorType = asset::EDT_STORAGE_BUFFER;
+				writes[i].info = infos+i;
+			}
+			device->updateDescriptorSets(BindingCount,writes,0u,nullptr);
+		}
+		
+		void dispatch(video::IGPUCommandBuffer* cmdbuf, const DispatchParams& dispatch)
+		{
+			if (dispatch.indirect.buffer)
+				cmdbuf->dispatchIndirect(dispatch.indirect.buffer,dispatch.indirect.offset);
+			else
+			{
+				const auto& limits = m_device->getPhysicalDevice()->getLimits();
+				cmdbuf->dispatch(limits.computeOptimalPersistentWorkgroupDispatchSize(dispatch.direct.nodeCount,m_workgroupSize),1u,1u);
+			}
+		}
 };
 
 } // end namespace nbl::scene

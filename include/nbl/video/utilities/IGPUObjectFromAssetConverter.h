@@ -182,7 +182,7 @@ class IGPUObjectFromAssetConverter
         inline virtual created_gpu_object_array<asset::ICPUComputePipeline>				    create(const asset::ICPUComputePipeline** const _begin, const asset::ICPUComputePipeline** const _end, const SParams& _params);
         inline virtual created_gpu_object_array<asset::ICPUSpecializedShader>	            create(const asset::ICPUSpecializedShader** const _begin, const asset::ICPUSpecializedShader** const _end, const SParams& _params);
         inline virtual created_gpu_object_array<asset::ICPUShader>				            create(const asset::ICPUShader** const _begin, const asset::ICPUShader** const _end, const SParams& _params);
-		inline virtual created_gpu_object_array<asset::ICPUSkeleton>			            create(const asset::ICPUSkeleton** const _begin, const asset::ICPUSkeleton** const _end, const SParams& _params);
+		//inline virtual created_gpu_object_array<asset::ICPUSkeleton>			            create(const asset::ICPUSkeleton** const _begin, const asset::ICPUSkeleton** const _end, const SParams& _params);
 		inline virtual created_gpu_object_array<asset::ICPUMeshBuffer>			            create(const asset::ICPUMeshBuffer** const _begin, const asset::ICPUMeshBuffer** const _end, const SParams& _params);
 		inline virtual created_gpu_object_array<asset::ICPUMesh>				            create(const asset::ICPUMesh** const _begin, const asset::ICPUMesh** const _end, const SParams& _params);
         inline virtual created_gpu_object_array<asset::ICPUBufferView>		                create(const asset::ICPUBufferView** const _begin, const asset::ICPUBufferView** const _end, const SParams& _params);
@@ -561,53 +561,7 @@ struct CustomBoneNameIterator
 };
 }
 
-auto IGPUObjectFromAssetConverter::create(const asset::ICPUSkeleton** _begin, const asset::ICPUSkeleton** _end, const SParams& _params) -> created_gpu_object_array<asset::ICPUSkeleton>
-{
-	const size_t assetCount = std::distance(_begin, _end);
-	auto res = core::make_refctd_dynamic_array<created_gpu_object_array<asset::ICPUSkeleton> >(assetCount);
 
-    core::vector<const asset::ICPUBuffer*> cpuBuffers;
-    cpuBuffers.reserve(assetCount*2u);
-
-    for (ptrdiff_t i=0u; i<assetCount; i++)
-    {
-        const asset::ICPUSkeleton* cpusk = _begin[i];
-        cpuBuffers.push_back(cpusk->getParentJointIDBinding().buffer.get());
-        if (const asset::ICPUBuffer* buf = cpusk->getDefaultTransformBinding().buffer.get())
-            cpuBuffers.push_back(buf);
-    }
-
-    using redirs_t = core::vector<size_t>;
-    redirs_t bufRedirs = eliminateDuplicatesAndGenRedirs(cpuBuffers);
-
-    auto gpuBuffers = getGPUObjectsFromAssets<asset::ICPUBuffer>(cpuBuffers.data(), cpuBuffers.data()+cpuBuffers.size(), _params);
-
-    size_t bufIter = 0ull;
-    for (ptrdiff_t i = 0u; i < assetCount; ++i)
-    {
-        const asset::ICPUSkeleton* cpusk = _begin[i];
-
-		asset::SBufferBinding<IGPUBuffer> parentJointIDBinding;
-        {
-            parentJointIDBinding.offset = cpusk->getParentJointIDBinding().offset;
-            auto& gpubuf = (*gpuBuffers)[bufRedirs[bufIter++]];
-            parentJointIDBinding.offset += gpubuf->getOffset();
-            parentJointIDBinding.buffer = core::smart_refctd_ptr<IGPUBuffer>(gpubuf->getBuffer());
-        }
-		asset::SBufferBinding<IGPUBuffer> defaultTransformBinding;
-        if (cpusk->getDefaultTransformBinding().buffer)
-        {
-            defaultTransformBinding.offset = cpusk->getDefaultTransformBinding().offset;
-            auto& gpubuf = (*gpuBuffers)[bufRedirs[bufIter++]];
-            defaultTransformBinding.offset += gpubuf->getOffset();
-            defaultTransformBinding.buffer = core::smart_refctd_ptr<IGPUBuffer>(gpubuf->getBuffer());
-        }
-
-        (*res)[i] = core::make_smart_refctd_ptr<IGPUSkeleton>(std::move(parentJointIDBinding),std::move(defaultTransformBinding),cpusk->getJointNameToIDMap());
-    }
-
-    return res;
-}
 auto IGPUObjectFromAssetConverter::create(const asset::ICPUMeshBuffer** _begin, const asset::ICPUMeshBuffer** _end, const SParams& _params) -> created_gpu_object_array<asset::ICPUMeshBuffer>
 {
 	const size_t assetCount = std::distance(_begin, _end);
@@ -615,8 +569,6 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUMeshBuffer** _begin, 
 
     core::vector<const asset::ICPUBuffer*> cpuBuffers;
     cpuBuffers.reserve(assetCount * (asset::ICPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT+1u));
-    core::vector<const asset::ICPUSkeleton*> cpuSkeletons;
-    cpuSkeletons.reserve(assetCount);
     core::vector<const asset::ICPUDescriptorSet*> cpuDescSets;
     cpuDescSets.reserve(assetCount);
     core::vector<const asset::ICPURenderpassIndependentPipeline*> cpuPipelines;
@@ -635,8 +587,6 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUMeshBuffer** _begin, 
             cpuBuffers.push_back(buf);
         if (const asset::ICPUBuffer* buf = cpumb->getJointAABBBufferBinding().buffer.get())
             cpuBuffers.push_back(buf);
-        if (cpumb->getSkeleton())
-            cpuSkeletons.push_back(cpumb->getSkeleton());
 
         for (size_t b = 0ull; b < asset::ICPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT; ++b)
         {
@@ -650,12 +600,10 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUMeshBuffer** _begin, 
     using redirs_t = core::vector<size_t>;
 
     redirs_t bufRedirs = eliminateDuplicatesAndGenRedirs(cpuBuffers);
-    redirs_t skelRedirs = eliminateDuplicatesAndGenRedirs(cpuSkeletons);
     redirs_t dsRedirs = eliminateDuplicatesAndGenRedirs(cpuDescSets);
     redirs_t pplnRedirs = eliminateDuplicatesAndGenRedirs(cpuPipelines);
 
     auto gpuBuffers = getGPUObjectsFromAssets<asset::ICPUBuffer>(cpuBuffers.data(), cpuBuffers.data()+cpuBuffers.size(), _params);
-    auto gpuSkeletons = getGPUObjectsFromAssets<asset::ICPUSkeleton>(cpuSkeletons.data(), cpuSkeletons.data()+cpuSkeletons.size(), _params);
     auto gpuDescSets = getGPUObjectsFromAssets<asset::ICPUDescriptorSet>(cpuDescSets.data(), cpuDescSets.data()+cpuDescSets.size(), _params);
     auto gpuPipelines = getGPUObjectsFromAssets<asset::ICPURenderpassIndependentPipeline>(cpuPipelines.data(), cpuPipelines.data()+cpuPipelines.size(), _params);
 
@@ -687,9 +635,6 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUMeshBuffer** _begin, 
             jointAABBBinding.offset += gpubuf->getOffset();
             jointAABBBinding.buffer = core::smart_refctd_ptr<IGPUBuffer>(gpubuf->getBuffer());
         }
-        IGPUSkeleton* gpuskel = nullptr;
-        if (cpumb->getSkeleton())
-            gpuskel = (*gpuSkeletons)[skelRedirs[skelIter++]].get();
 
         asset::SBufferBinding<IGPUBuffer> vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT];
         for (size_t b = 0ull; b < IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT; ++b)
@@ -714,11 +659,10 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUMeshBuffer** _begin, 
 
         core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> gpuppln_(gpuppln);
         core::smart_refctd_ptr<IGPUDescriptorSet> gpuds_(gpuds);
-        core::smart_refctd_ptr<IGPUSkeleton> gpuskel_(gpuskel);
         (*res)[i] = core::make_smart_refctd_ptr<IGPUMeshBuffer>(std::move(gpuppln_), std::move(gpuds_), vtxBindings, std::move(idxBinding));
         (*res)[i]->setBoundingBox(cpumb->getBoundingBox());
         memcpy((*res)[i]->getPushConstantsDataPtr(), _begin[i]->getPushConstantsDataPtr(), IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE);
-        (*res)[i]->setSkin(std::move(invBindPoseBinding),std::move(jointAABBBinding),std::move(gpuskel_),(core::min)(cpumb->getMaxJointsPerVertex(),cpumb->deduceMaxJointsPerVertex()));
+        //(*res)[i]->setSkin(std::move(invBindPoseBinding),std::move(jointAABBBinding),std::move(gpuskel_),(core::min)(cpumb->getMaxJointsPerVertex(),cpumb->deduceMaxJointsPerVertex()));
         (*res)[i]->setBaseInstance(_begin[i]->getBaseInstance());
         (*res)[i]->setBaseVertex(_begin[i]->getBaseVertex());
         (*res)[i]->setIndexCount(_begin[i]->getIndexCount());

@@ -147,6 +147,7 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/utils/indirect_commands.glsl"
   "nbl/builtin/glsl/utils/common.glsl"
   "nbl/builtin/glsl/utils/culling.glsl"
+  "nbl/builtin/glsl/utils/compressed_normal_matrix_t.glsl"
   "nbl/builtin/glsl/utils/normal_decode.glsl"
   "nbl/builtin/glsl/utils/normal_encode.glsl"
   "nbl/builtin/glsl/utils/transform.glsl"
@@ -172,6 +173,8 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/workgroup/vote.glsl"
   #transform_tree
   "nbl/builtin/glsl/transform_tree/global_transform_update.comp"
+  "nbl/builtin/glsl/transform_tree/global_transform_and_normal_matrix_update.comp"
+  "nbl/builtin/glsl/transform_tree/global_transform_update_common.glsl"
   "nbl/builtin/glsl/transform_tree/global_transform_update_descriptor_set.glsl"
   "nbl/builtin/glsl/transform_tree/modification_request_range.glsl"
   "nbl/builtin/glsl/transform_tree/pool_descriptor_set.glsl"
