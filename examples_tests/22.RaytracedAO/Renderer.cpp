@@ -808,14 +808,19 @@ void Renderer::initSceneResources(SAssetBundle& meshes)
 			size_t lights_BufferSize = 0u;
 
 			// set up rest of m_additionalGlobalDS
+			if(initData.lights.empty())
+			{
+				std::cout << "\n[ERROR] No supported lights found in the scene.";
+			}
+			else
 			{
 				auto lightCDFBuffer = createFilledBufferAndSetUpInfoFromVector(infos+0,initData.lightCDF);
 				auto lightsBuffer = createFilledBufferAndSetUpInfoFromVector(infos+1,initData.lights);
 				lightCDF_BufferSize = lightCDFBuffer->getSize();
 				lights_BufferSize = lightsBuffer->getSize();
 				setDstSetAndDescTypesOnWrites(m_additionalGlobalDS.get(),writes,infos,{EDT_STORAGE_BUFFER,EDT_STORAGE_BUFFER},3u);
+				m_driver->updateDescriptorSets(2u,writes,0u,nullptr);
 			}
-			m_driver->updateDescriptorSets(2u,writes,0u,nullptr);
 
 			std::cout << "\nScene Resources Initialized:" << std::endl;
 			std::cout << "\tlightCDF = " << lightCDF_BufferSize << " bytes" << std::endl;
