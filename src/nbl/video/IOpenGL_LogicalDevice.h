@@ -457,9 +457,9 @@ protected:
             auto* gl = state_ptr;
             if (logger)
             {
-                const char* vendor = gl->glGeneral.pglGetString(GL_VENDOR);
-                const char* renderer = gl->glGeneral.pglGetString(GL_RENDERER);
-                const char* version = gl->glGeneral.pglGetString(GL_VERSION);
+                const char* vendor = reinterpret_cast<const char*>(gl->glGeneral.pglGetString(GL_VENDOR));
+                const char* renderer = reinterpret_cast<const char*>(gl->glGeneral.pglGetString(GL_RENDERER));
+                const char* version = reinterpret_cast<const char*>(gl->glGeneral.pglGetString(GL_VERSION));
                 if constexpr (FunctionTableType::EGL_API_TYPE==EGL_OPENGL_API)
                     logger->log("Created OpenGL Logical Device. Vendor: %s Renderer: %s Version: %s",system::ILogger::ELL_INFO,vendor,renderer,version);
                 else if (FunctionTableType::EGL_API_TYPE==EGL_OPENGL_ES_API)
