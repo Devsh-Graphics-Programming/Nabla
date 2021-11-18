@@ -451,8 +451,20 @@ protected:
             EGLBoolean mcres = egl->call.peglMakeCurrent(egl->display, pbuffer, pbuffer, thisCtx);
             assert(mcres == EGL_TRUE);
 
-            new (state_ptr) FunctionTableType(egl,features,core::smart_refctd_ptr<system::ILogger>(m_dbgCb->getLogger()));
+            auto logger = m_dbgCb->getLogger();
+            new (state_ptr) FunctionTableType(egl,features,core::smart_refctd_ptr<system::ILogger>(logger));
+
             auto* gl = state_ptr;
+            if (logger)
+            {
+                const char* vendor = gl->glGeneral.pglGetString(GL_VENDOR);
+                const char* renderer = gl->glGeneral.pglGetString(GL_RENDERER);
+                const char* version = gl->glGeneral.pglGetString(GL_VERSION);
+                if constexpr (FunctionTableType::EGL_API_TYPE==EGL_OPENGL_API)
+                    logger->log("Created OpenGL Logical Device. Vendor: %s Renderer: %s Version: %s",system::ILogger::ELL_INFO,vendor,renderer,version);
+                else if (FunctionTableType::EGL_API_TYPE==EGL_OPENGL_ES_API)
+                    logger->log("Created OpenGL ES Logical Device. Vendor: %s Renderer: %s Version: %s",system::ILogger::ELL_INFO,vendor,renderer,version);
+            }
 
             #ifdef _NBL_DEBUG
             gl->glGeneral.pglEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
