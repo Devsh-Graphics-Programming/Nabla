@@ -6,6 +6,7 @@
 #define _NBL_VIDEO_C_SUBPASS_KILN_H_INCLUDED_
 
 
+#include "nbl/video/IGPUMeshBuffer.h"
 #include "nbl/video/utilities/IDrawIndirectAllocator.h"
 
 #include <functional>
