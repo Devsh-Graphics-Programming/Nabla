@@ -1347,7 +1347,7 @@ void Renderer::render(nbl::ITimer* timer)
 		const auto modifiedViewProj = [&](uint32_t frameID)
 		{
 			const float stddev = 0.5f;
-			const float* sample = AntiAliasingSequence[frameID];
+			const float* sample = AntiAliasingSequence[frameID%AntiAliasingSequenceLength];
 			const float phi = core::PI<float>()*(2.f*sample[1]-1.f);
 			const float sinPhi = sinf(phi);
 			const float cosPhi = cosf(phi);
@@ -1545,7 +1545,7 @@ uint32_t Renderer::traceBounce(uint32_t raycount)
 }
 
 
-const float Renderer::AntiAliasingSequence[4096][2] =
+const float Renderer::AntiAliasingSequence[Renderer::AntiAliasingSequenceLength][2] =
 {
 {0.229027962000000, 0.100901043000000},
 {0.934988661250000, 0.900492937500000},
