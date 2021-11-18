@@ -6,6 +6,7 @@
 #include <regex>
 
 #include "nbl/video/COpenGLFeatureMap.h"
+#include "nbl/video/SOpenGLContextLocalCache.h"
 
 #include "nbl/video/CEGL.h"
 
@@ -415,6 +416,8 @@ public:
 
 			m_limits.maxSSBOs = m_glfeatures.maxSSBOBindings;
 			m_limits.maxUBOs = m_glfeatures.maxUBOBindings;
+			m_limits.maxDynamicOffsetSSBOs = SOpenGLContextLocalCache::MaxDynamicOffsetSSBOs;
+			m_limits.maxDynamicOffsetUBOs = SOpenGLContextLocalCache::MaxDynamicOffsetUBOs;
 			m_limits.maxTextures = m_glfeatures.maxTextureBindings;
 			m_limits.maxStorageImages = m_glfeatures.maxImageBindings;
 

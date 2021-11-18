@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __NBL_ASSET_I_DESCRIPTOR_SET_H_INCLUDED__
-#define __NBL_ASSET_I_DESCRIPTOR_SET_H_INCLUDED__
+#ifndef _NBL_ASSET_I_DESCRIPTOR_SET_H_INCLUDED_
+#define _NBL_ASSET_I_DESCRIPTOR_SET_H_INCLUDED_
 
 #include <algorithm>
 
@@ -176,7 +176,8 @@ class IEmulatedDescriptorSet
 			}
 			
 			m_descriptors = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<typename IDescriptorSet<LayoutType>::SDescriptorInfo> >(descriptorCount);
-			// set up all offsets
+			// set up all offsets, reverse iteration important because "it is for filling gaps with offset of next binding"
+			// TODO: rewrite this whole constructor to initialize the `SBindingOffset::offset` to 0 and simply use `std::exclusive_scan` to set it all up
 			prevBinding = 0u;
 			for (auto it=m_bindingInfo->begin(); it!=m_bindingInfo->end(); it++)
 			{

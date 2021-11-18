@@ -1,11 +1,10 @@
-#ifndef __NBL_S_OPENGL_CONTEXT_LOCAL_CACHE_H_INCLUDED__
-#define __NBL_S_OPENGL_CONTEXT_LOCAL_CACHE_H_INCLUDED__
+#ifndef _NBL_S_OPENGL_CONTEXT_LOCAL_CACHE_H_INCLUDED_
+#define _NBL_S_OPENGL_CONTEXT_LOCAL_CACHE_H_INCLUDED_
 
 #include "nbl/video/SOpenGLState.h"
 #include "nbl/core/containers/LRUCache.h"
 
-namespace nbl {
-namespace video
+namespace nbl::video
 {
 
 namespace impl
@@ -52,6 +51,9 @@ struct SOpenGLContextLocalCache
         GLboolean depthWrite;
         GLboolean colorWrite[4];
     };
+
+    static inline constexpr uint32_t MaxDynamicOffsetSSBOs = 32u;
+    static inline constexpr uint32_t MaxDynamicOffsetUBOs = 32u;
 
     using vao_cache_t = core::LRUCache<SOpenGLState::SVAOCacheKey, GLuint, SOpenGLState::SVAOCacheKey::hash>;
     using pipeline_cache_t = core::LRUCache<SOpenGLState::SGraphicsPipelineHash, SPipelineCacheVal, SOpenGLState::SGraphicsPipelineHashFunc>;
@@ -336,7 +338,6 @@ private:
     }
 };
 
-}
 }
 
 #endif
