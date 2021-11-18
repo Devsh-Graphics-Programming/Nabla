@@ -702,12 +702,14 @@ namespace nbl
 				if (skinID != 0xdeadbeefu) // has skin
 				{
 					instance.skeleton = skins[skinID].skeleton.get();
-					instance.skinTranslationTableOffset = skins[skinID].translationTable.offset;
+					instance.skinTranslationTable.buffer = skins[skinID].translationTable.buffer;
+					instance.skinTranslationTable.offset = skins[skinID].translationTable.offset;
 				}
 				else
 				{
 					instance.skeleton = nullptr;
-					instance.skinTranslationTableOffset = 0xdeadbeefu;
+					instance.skinTranslationTable.buffer = nullptr;
+					instance.skinTranslationTable.offset = 0xdeadbeefu;
 				}
 				instance.mesh = cpuMeshes[std::distance(meshSkinPairs.begin(),found)].get();
 				instance.attachedToNode = skeletonNodes[index].localJointID;

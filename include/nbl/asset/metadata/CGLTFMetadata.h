@@ -32,24 +32,24 @@ class CGLTFMetadata final : public IAssetMetadata
 
         struct Scene
         {
-            core::smart_refctd_ptr<asset::ICPUBuffer> instanceIDs;
-            uint32_t count;
+            asset::SBufferRange<asset::ICPUBuffer> instanceIDs; // a range view into allInstanceIDs
         };
 
         struct Instance
         {
             const ICPUSkeleton* skeleton;
-            uint32_t skinTranslationTableOffset; // byteoffset into `vertexJointToSkeletonJoint`range
+            asset::SBufferBinding<asset::ICPUBuffer> skinTranslationTable;
             const ICPUMesh* mesh;
             ICPUSkeleton::joint_id_t attachedToNode; // the node with the `mesh` and `skin` parameters
         };
 
-        core::vector<Scene> scenes;
-        uint32_t defaultSceneID = {};
+        std::vector<Scene> scenes;
+        uint32_t defaultSceneID = 0xffFFffFFu;
 
-        core::smart_refctd_ptr<asset::ICPUBuffer> vertexJointToSkeletonJoint;
         core::vector<core::smart_refctd_ptr<ICPUSkeleton>> skeletons;
+
         core::vector<Instance> instances;
+        core::smart_refctd_ptr<asset::ICPUBuffer> allInstanceIDs;
 
     private:
         meta_container_t<asset::CGLTFPipelineMetadata> m_metaStorage;
