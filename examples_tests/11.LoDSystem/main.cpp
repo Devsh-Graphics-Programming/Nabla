@@ -670,7 +670,8 @@ class LoDSystemApp : public ApplicationBase
                     logicalDevice->createCommandBuffers(commandPool.get(), video::IGPUCommandBuffer::EL_SECONDARY, 1u, &bakedCommandBuffer);
                     bakedCommandBuffer->begin(video::IGPUCommandBuffer::EU_RENDER_PASS_CONTINUE_BIT | video::IGPUCommandBuffer::EU_SIMULTANEOUS_USE_BIT);
                     // TODO: handle teh offsets
-                    kiln.bake(bakedCommandBuffer.get(), renderpass.get(), 0u, drawIndirectAllocator->getDrawCommandMemoryBlock().buffer.get(), drawIndirectAllocator->getDrawCountMemoryBlock()->buffer.get());
+                    auto drawCountBlock = drawIndirectAllocator->getDrawCountMemoryBlock();
+                    kiln.bake(bakedCommandBuffer.get(), renderpass.get(), 0u, drawIndirectAllocator->getDrawCommandMemoryBlock().buffer.get(), drawIndirectAllocator->supportsMultiDrawIndirectCount() ? drawCountBlock->buffer.get():nullptr);
                     bakedCommandBuffer->end();
                 }
             }
