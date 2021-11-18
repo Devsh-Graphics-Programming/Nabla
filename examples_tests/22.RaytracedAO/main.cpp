@@ -165,6 +165,8 @@ int main(int argc, char** argv)
 		
 		mainFileName = std::filesystem::path(filePath).filename().string();
 		mainFileName = mainFileName.substr(0u, mainFileName.find_first_of('.')); 
+		
+		std::cout << "\nSelected File = " << filePath << "\n" << std::endl;
 
 		if (core::hasFileExtension(io::path(filePath.c_str()), "zip", "ZIP"))
 		{

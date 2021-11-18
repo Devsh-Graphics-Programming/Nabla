@@ -1,0 +1,3 @@
+; Here is my Commented line that batch file will skip
+; "relative/dir/from/bin/folder/to/scene.zip something.xml" OutputedFiletoDenoise
+"../../media/mitsuba/staircase2.zip scene.xml" ScreenShot_staircase2_Sensor_0.exr
