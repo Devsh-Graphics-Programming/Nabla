@@ -416,8 +416,8 @@ public:
 
 			m_limits.maxSSBOs = m_glfeatures.maxSSBOBindings;
 			m_limits.maxUBOs = m_glfeatures.maxUBOBindings;
-			m_limits.maxDynamicOffsetSSBOs = SOpenGLContextLocalCache::MaxDynamicOffsetSSBOs;
-			m_limits.maxDynamicOffsetUBOs = SOpenGLContextLocalCache::MaxDynamicOffsetUBOs;
+			m_limits.maxDynamicOffsetSSBOs = SOpenGLState::MaxDynamicOffsetSSBOs;
+			m_limits.maxDynamicOffsetUBOs = SOpenGLState::MaxDynamicOffsetUBOs;
 			m_limits.maxTextures = m_glfeatures.maxTextureBindings;
 			m_limits.maxStorageImages = m_glfeatures.maxImageBindings;
 

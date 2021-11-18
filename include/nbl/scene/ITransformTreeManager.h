@@ -639,7 +639,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			const auto recomputePipeline = choosePipelines(baseParams.tree).recomputeGlobal.get();
 
 			const video::IGPUDescriptorSet* descSets[] = {baseParams.tree->getNodePropertyDescriptorSet(),recomputeGlobalTransformsDS};
-			baseParams.cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,recomputePipeline->getLayout(),0u,2u,descSets,nullptr);
+			baseParams.cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,recomputePipeline->getLayout(),0u,2u,descSets);
 			
 			baseParams.cmdbuf->bindComputePipeline(recomputePipeline);
 			dispatch(baseParams.cmdbuf,dispatchParams);

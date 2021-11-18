@@ -52,9 +52,6 @@ struct SOpenGLContextLocalCache
         GLboolean colorWrite[4];
     };
 
-    static inline constexpr uint32_t MaxDynamicOffsetSSBOs = 32u;
-    static inline constexpr uint32_t MaxDynamicOffsetUBOs = 32u;
-
     using vao_cache_t = core::LRUCache<SOpenGLState::SVAOCacheKey, GLuint, SOpenGLState::SVAOCacheKey::hash>;
     using pipeline_cache_t = core::LRUCache<SOpenGLState::SGraphicsPipelineHash, SPipelineCacheVal, SOpenGLState::SGraphicsPipelineHashFunc>;
     using fbo_cache_t = core::LRUCache<SOpenGLState::SFBOHash, GLuint, SOpenGLState::SFBOHashFunc>;

@@ -256,7 +256,7 @@ class CSubpassKiln
                                 return unmodifiedSetCount;
                             }();
                             if (nonNullDSEnd!=unmodifiedSetCount)
-                                cmdbuf->bindDescriptorSets(asset::EPBP_GRAPHICS,currentLayout,unmodifiedSetCount,nonNullDSEnd-unmodifiedSetCount,&it->descriptorSets->get()+unmodifiedSetCount,nullptr); // TODO: support dynamic offsets later
+                                cmdbuf->bindDescriptorSets(asset::EPBP_GRAPHICS,currentLayout,unmodifiedSetCount,nonNullDSEnd-unmodifiedSetCount,&it->descriptorSets->get()+unmodifiedSetCount); // TODO: support dynamic offsets later
                             for (auto i=unmodifiedSetCount; i<nonNullDSEnd; i++)
                                 descriptorSets[i] = it->descriptorSets[i].get();
                             layout = currentLayout;

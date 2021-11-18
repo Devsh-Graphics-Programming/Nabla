@@ -6,9 +6,10 @@
 #include <variant>
 
 #include "nbl/video/IGPUCommandBuffer.h"
+#include "nbl/video/IGPUMeshBuffer.h"
+
 #include "nbl/video/IOpenGL_FunctionTable.h"
 #include "nbl/video/SOpenGLContextLocalCache.h"
-#include "nbl/video/IGPUMeshBuffer.h"
 #include "nbl/video/COpenGLCommandPool.h"
 
 namespace nbl::video
@@ -325,7 +326,9 @@ namespace impl
         uint32_t firstSet;
         uint32_t dsCount;
         core::smart_refctd_ptr<const IGPUDescriptorSet> descriptorSets[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT];
-        core::smart_refctd_dynamic_array<uint32_t> dynamicOffsets;
+        static inline constexpr uint32_t MaxDynamicOffsets = SOpenGLState::MaxDynamicOffsets*IGPUPipelineLayout::DESCRIPTOR_SET_COUNT;
+        uint32_t dynamicOffsets[MaxDynamicOffsets];
+        uint32_t dynamicOffsetCount;
 
         SCmd() = default;
         SCmd<ECT_BIND_DESCRIPTOR_SETS>& operator=(SCmd<ECT_BIND_DESCRIPTOR_SETS>&& rhs)
@@ -334,9 +337,8 @@ namespace impl
             layout = std::move(rhs.layout);
             firstSet = rhs.firstSet;
             dsCount = rhs.dsCount;
-            dynamicOffsets = std::move(dynamicOffsets);
-            for (uint32_t i = 0u; i < IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
-                descriptorSets[i] = std::move(rhs.descriptorSets[i]);
+            std::move(rhs.descriptorSets,rhs.descriptorSets+IGPUPipelineLayout::DESCRIPTOR_SET_COUNT,descriptorSets);
+            std::copy_n(rhs.dynamicOffsets,MaxDynamicOffsets,dynamicOffsets);
             return *this;
         }
         SCmd(SCmd<ECT_BIND_DESCRIPTOR_SETS>&& rhs)
@@ -614,7 +616,7 @@ public:
         return true;
     }
 
-    inline bool drawMeshBuffer(const nbl::video::IGPUMeshBuffer* meshBuffer) override
+    inline bool drawMeshBuffer(const IGPUMeshBuffer::base_t* meshBuffer) override
     {
         if (meshBuffer && !meshBuffer->getInstanceCount())
             return false;
@@ -1037,50 +1039,54 @@ public:
         return true;
     }
 
-    bool bindDescriptorSets(asset::E_PIPELINE_BIND_POINT pipelineBindPoint, const pipeline_layout_t* layout, uint32_t firstSet, uint32_t descriptorSetCount,
-        const descriptor_set_t*const *const pDescriptorSets, core::smart_refctd_dynamic_array<uint32_t> dynamicOffsets
+    bool bindDescriptorSets(
+        asset::E_PIPELINE_BIND_POINT pipelineBindPoint, const pipeline_layout_t* layout, uint32_t firstSet, uint32_t descriptorSetCount,
+        const descriptor_set_t*const *const pDescriptorSets, const uint32_t dynamicOffsetCount=0u, const uint32_t* dynamicOffsets=nullptr
     ) override
     {
         if (!this->isCompatibleDevicewise(layout))
             return false;
-        for (uint32_t i = 0u; i < descriptorSetCount; ++i)
+        for (uint32_t i=0u; i<descriptorSetCount; ++i)
             if (pDescriptorSets[i] && !this->isCompatibleDevicewise(pDescriptorSets[i]))
                 return false;
 
-        // Will bind [first, last) with one call
-        uint32_t first = ~0u;
-        uint32_t last = ~0u;
-        for (uint32_t i = 0u; i < descriptorSetCount; ++i)
+        // Will bind non-null [firstSet, dsCount) ranges with one call
+        SCmd<impl::ECT_BIND_DESCRIPTOR_SETS> cmd;
+        auto resetRange = [&cmd,pipelineBindPoint,layout](uint32_t newFirst) -> void
+        {
+            cmd.pipelineBindPoint = pipelineBindPoint;
+            cmd.layout = core::smart_refctd_ptr<const pipeline_layout_t>(layout);
+            cmd.firstSet = newFirst;
+            cmd.dsCount = 0u;
+            cmd.dynamicOffsetCount = 0u;
+        };
+        resetRange(firstSet);
+        auto dynamicOffsetsIt = dynamicOffsets;
+        for (auto i=0u; i<descriptorSetCount; ++i)
         {
             if (pDescriptorSets[i])
             {
-                if (first == last)
-                {
-                    first = i;
-                    last = first + 1;
-                }
-                else
-                    ++last;
-
-                // Do a look ahead
-                if ((i + 1 > descriptorSetCount - 1) || !pDescriptorSets[i + 1])
-                {
-                    SCmd<impl::ECT_BIND_DESCRIPTOR_SETS> cmd;
-                    cmd.pipelineBindPoint = pipelineBindPoint;
-                    cmd.layout = core::smart_refctd_ptr<const pipeline_layout_t>(layout);
-                    cmd.firstSet = firstSet + first;
-                    cmd.dsCount = last - first;
-                    for (uint32_t b = 0u; b < cmd.dsCount; ++b)
-                        cmd.descriptorSets[b] = core::smart_refctd_ptr<const IGPUDescriptorSet>(pDescriptorSets[first + b]);
-                    cmd.dynamicOffsets = dynamicOffsets;
-
-                    pushCommand(std::move(cmd));
-
-                    first = ~0u;
-                    last = ~0u;
-                }
+                cmd.descriptorSets[cmd.dsCount++] = core::smart_refctd_ptr<const IGPUDescriptorSet>(pDescriptorSets[i]);
+                const auto count = static_cast<const COpenGLDescriptorSet*>(pDescriptorSets[i])->getDynamicOffsetCount();
+                std::copy_n(dynamicOffsetsIt,count,cmd.dynamicOffsets+cmd.dynamicOffsetCount);
+                cmd.dynamicOffsetCount += count;
+                dynamicOffsetsIt += count;
+                continue;
             }
+            // submit range if had anything
+            if (cmd.dsCount)
+                pushCommand(std::move(cmd));
+            resetRange(firstSet+1u+i);
         }
+        // light error detection
+        if (dynamicOffsetsIt-dynamicOffsets!=dynamicOffsetCount)
+        {
+            m_logger.log("IGPUCommandBuffer::bindDescriptorSets failed, `dynamicOffsetCount` does not match the number of dynamic offsets required by the descriptor set layouts!",system::ILogger::ELL_ERROR);
+            return false;
+        }
+        // submit last range
+        if (cmd.dsCount)
+            pushCommand(std::move(cmd));
 
         return true;
     }
