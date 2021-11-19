@@ -295,8 +295,11 @@ public:
 		assert(core::is_alignment(m_glfeatures.reqUBOAlignment));
 		GetIntegerv(GL_SHADER_STORAGE_BUFFER_OFFSET_ALIGNMENT, &m_glfeatures.reqSSBOAlignment);
 		assert(core::is_alignment(m_glfeatures.reqSSBOAlignment));
+		// TODO: GLES has a problem with reporting this
 		GetIntegerv(GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT, &m_glfeatures.reqTBOAlignment);
-		assert(core::is_alignment(m_glfeatures.reqTBOAlignment));
+		if (!core::is_alignment(m_glfeatures.reqTBOAlignment))
+			m_glfeatures.reqTBOAlignment = 16u;
+		//assert(core::is_alignment(m_glfeatures.reqTBOAlignment)); 
 
 		GetInteger64v(GL_MAX_UNIFORM_BLOCK_SIZE, reinterpret_cast<GLint64*>(&m_glfeatures.maxUBOSize));
 		GetInteger64v(GL_MAX_SHADER_STORAGE_BLOCK_SIZE, reinterpret_cast<GLint64*>(&m_glfeatures.maxSSBOSize));

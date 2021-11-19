@@ -13,9 +13,17 @@ core::smart_refctd_ptr<COpenGL_Connection<API_TYPE>> COpenGL_Connection<API_TYPE
     core::smart_refctd_ptr<system::ISystem>&& sys, uint32_t appVer, const char* appName, COpenGLDebugCallback&& dbgCb
 )
 {
-    egl::CEGL egl;
+    auto cwdBackup = std::filesystem::current_path();
+    std::string eglLibraryName;
+    {
+        system::path eglPath = std::getenv("NBL_EGL_PATH");
+        std::filesystem::current_path(eglPath.parent_path());
+        eglLibraryName = eglPath.filename().string();
+    }
+    egl::CEGL egl(eglLibraryName.c_str());
     if (!egl.initialize())
         return nullptr;
+    std::filesystem::current_path(cwdBackup);
 
     auto retval = new COpenGL_Connection<API_TYPE>();
     std::unique_ptr<IPhysicalDevice> physicalDevice;

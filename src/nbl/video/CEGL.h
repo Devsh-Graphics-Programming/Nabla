@@ -10,6 +10,8 @@ namespace nbl::video::egl
 class CEGL
 {
     public:
+        CEGL(const char* eglOptionalPath) : call(eglOptionalPath) {}
+
         bool initialize()
         {
             if (display != EGL_NO_DISPLAY)
