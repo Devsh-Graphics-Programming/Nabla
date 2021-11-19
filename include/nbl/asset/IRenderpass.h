@@ -70,6 +70,8 @@ public:
 
         struct SSubpassDependency
         {
+            static constexpr uint32_t SUBPASS_EXTERNAL = ~0u;
+
             uint32_t srcSubpass;
             uint32_t dstSubpass;
             E_PIPELINE_STAGE_FLAGS srcStageMask;

@@ -47,6 +47,12 @@ class IGPURenderpassIndependentPipeline : public asset::IRenderpassIndependentPi
 			asset::SRasterizationParams rasterization;
 		};
 
+		inline void setShaderAtStage(asset::IShader::E_SHADER_STAGE _stage, IGPUSpecializedShader* _shdr)
+		{
+			assert(!isImmutable_debug());
+			m_shaders[core::findLSB<uint32_t>(_stage)] = core::smart_refctd_ptr<IGPUSpecializedShader>(_shdr);
+		}
+
 	protected:
 		virtual ~IGPURenderpassIndependentPipeline() = default;
 };
