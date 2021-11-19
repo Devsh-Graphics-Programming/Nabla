@@ -555,9 +555,11 @@ namespace nbl
 							level++;
 						}
 						// remove unvisited
-						for (auto it = commonAncestors.begin(); it != commonAncestors.end(); ++it)
+						for (auto it = commonAncestors.begin(); it != commonAncestors.end();)
 							if (it->second == ~0u)
 								commonAncestors.erase(it);
+							else
+								++it;
 					}
 					// validate
 					if (commonAncestors.empty())
