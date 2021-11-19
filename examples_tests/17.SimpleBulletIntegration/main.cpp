@@ -240,6 +240,8 @@ public:
 		constexpr auto b = alignof(const nbl::core::vectorSIMDf&);
 
 		CommonAPI::InitOutput<SC_IMG_COUNT> initOutput;
+		initOutput.system = core::smart_refctd_ptr(system);
+		initOutput.window = core::smart_refctd_ptr(window);
 		CommonAPI::Init<WIN_W, WIN_H, SC_IMG_COUNT>(initOutput, video::EAT_OPENGL_ES, "Physics Simulation", asset::EF_D32_SFLOAT);
 
 		system = std::move(initOutput.system);
