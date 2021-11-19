@@ -120,7 +120,7 @@ public:
 	int32_t m_resourceIx = -1;
 
 	double m_dt = 0.0;
-	std::chrono::system_clock::time_point m_lastTime;
+	std::chrono::steady_clock::time_point m_lastTime;
 	bool m_frameDataFilled = false;
 	size_t m_frame_count = 0ull;
 	double m_time_sum = 0.0;
@@ -169,7 +169,41 @@ public:
 	{
 		system = std::move(system);
 	}
-
+	video::IAPIConnection* getAPIConnection() override
+	{
+		return apiConnection.get();
+	}
+	video::ILogicalDevice* getLogicalDevice()  override
+	{
+		return logicalDevice.get();
+	}
+	video::IGPURenderpass* getRenderpass() override
+	{
+		return renderpass.get();
+	}
+	void setSurface(core::smart_refctd_ptr<video::ISurface>&& s) override
+	{
+		surface = std::move(s);
+	}
+	void setFBOs(std::vector<core::smart_refctd_ptr<video::IGPUFramebuffer>>& f) override
+	{
+		for (int i = 0; i < f.size(); i++)
+		{
+			fbo[i] = core::smart_refctd_ptr(f[i]);
+		}
+	}
+	void setSwapchain(core::smart_refctd_ptr<video::ISwapchain>&& s) override
+	{
+		swapchain = std::move(s);
+	}
+	uint32_t getSwapchainImageCount() override
+	{
+		return SC_IMG_COUNT;
+	}
+	virtual nbl::asset::E_FORMAT getDepthFormat() override
+	{
+		return nbl::asset::EF_D32_SFLOAT;
+	}
 	APP_CONSTRUCTOR(BulletSampleApp);
 	auto deleteBasedOnPhysicsPredicate(uint32_t& instancesToMove,
 		video::CPropertyPoolHandler::UpStreamingRequest* pContiguousEraseRequest,
@@ -290,7 +324,7 @@ public:
 		createPropertyPoolWithMemory(m_objectPool, MaxNumObjects);
 
 		// Physics
-		core::vector<btRigidBody*> bodies(MaxNumObjects, nullptr);
+		m_bodies.resize(MaxNumObjects, nullptr);
 		// Shapes RigidBody Data
 		m_cubeRigidBodyData = [this]()
 		{
@@ -375,7 +409,7 @@ public:
 				totalSpawned++;
 				// TODO: seems like `rigidBodyData.trans` is redundant to some matrices in the MotionStateBase
 				const auto objectID = scratchObjectIDs[i];
-				auto& body = bodies[objectID] = m_world->createRigidBody(rigidBodyData);
+				auto& body = m_bodies[objectID] = m_world->createRigidBody(rigidBodyData);
 				m_world->bindRigidBody<CInstancedMotionState>(body, pool, objectID, scratchInstanceRedirects[i], rigidBodyData.trans, correction_mat);
 			}
 			std::array<video::CPropertyPoolHandler::UpStreamingRequest, object_property_pool_t::PropertyCount + 1> upstreams;
@@ -632,7 +666,7 @@ public:
 
 
 		//
-		m_lastTime = std::chrono::system_clock::now();
+		m_lastTime = std::chrono::steady_clock::now();
 		constexpr uint64_t MAX_TIMEOUT = 99999999999999ull;
 
 		for (uint32_t i = 0u; i < FRAMES_IN_FLIGHT; i++)
@@ -663,14 +697,11 @@ public:
 
 	void onAppTerminated_impl() override
 	{
-		const auto& device = logicalDevice;
-		device->waitIdle();
-
 		m_world->unbindRigidBody(m_basePlateBody, false);
 		m_world->deleteRigidBody(m_basePlateBody);
 		m_world->deletebtObject(m_basePlateRigidBodyData.shape);
 
-		auto alwaysTrue = [](auto dummy) -> bool {return true; };
+		auto alwaysTrue = [](auto dummy) -> bool { return true; };
 
 		uint32_t dummy = 0xdeadbeefu;
 
@@ -693,7 +724,7 @@ public:
 		}
 
 		// Timing
-		auto renderStart = std::chrono::system_clock::now();
+		auto renderStart = std::chrono::steady_clock::now();
 		m_dt = std::chrono::duration_cast<std::chrono::milliseconds>(renderStart - m_lastTime).count();
 		m_lastTime = renderStart;
 

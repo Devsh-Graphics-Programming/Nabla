@@ -855,9 +855,9 @@ public:
 		return fbo;
 	}
 
+#ifdef _NBL_PLATFORM_ANDROID_
 	static void recreateSurface(nbl::ui::CGraphicalApplicationAndroid* framework)
 	{
-#ifdef _NBL_PLATFORM_ANDROID_
 		android_app* app = framework->getApp();
 		auto apiConnection = framework->getAPIConnection();
 		auto window = framework->getWindow();
@@ -901,8 +901,8 @@ public:
 			depthFormat);
 		framework->setSwapchain(std::move(swapchain));
 		framework->setFBOs(fbo);
-#endif
 	}
+#endif
 
 	template<uint32_t window_width, uint32_t window_height, uint32_t sc_image_count, class EventCallback = CommonAPIEventCallback>
 	static void Init(InitOutput<sc_image_count>& result, nbl::video::E_API_TYPE api_type, const std::string_view app_name, nbl::asset::E_FORMAT depthFormat = nbl::asset::EF_UNKNOWN, const bool graphicsQueueEnable = true)
