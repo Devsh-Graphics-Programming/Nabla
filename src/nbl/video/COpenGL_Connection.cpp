@@ -15,6 +15,7 @@ core::smart_refctd_ptr<COpenGL_Connection<API_TYPE>> COpenGL_Connection<API_TYPE
 {
     auto cwdBackup = std::filesystem::current_path();
     std::string eglLibraryName;
+    if (std::getenv("NBL_EGL_PATH"))
     {
         system::path eglPath = std::getenv("NBL_EGL_PATH");
         std::filesystem::current_path(eglPath.parent_path());

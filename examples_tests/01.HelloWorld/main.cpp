@@ -128,8 +128,6 @@ int main()
 	params.callback = eventCallback;
 	auto window = winManager->createWindow(std::move(params));
 
-	const char* tmp = std::getenv("NBL_EGL_PATH");
-	std::cout << tmp << std::endl;
 	std::cout <<
 		R"(
 Choose Graphics API:
