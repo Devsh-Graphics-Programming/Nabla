@@ -148,9 +148,9 @@ class GLTFApp : public ApplicationBase
 // TODO: @AnastaZIuk these crash the loader!
 //			loadRiggedGLTF("AnimatedTriangle/glTF/AnimatedTriangle.gltf");
 //			loadRiggedGLTF("IridescentDishWithOlives/glTF/IridescentDishWithOlives.gltf");
-			loadRiggedGLTF("RiggedFigure/glTF/RiggedFigure.gltf");
+			loadRiggedGLTF("RiggedFigure/glTF/RiggedFigure.gltf"); 
 //			loadRiggedGLTF("RiggedSimple/glTF/RiggedSimple.gltf");
-//			loadRiggedGLTF("SimpleSkin/glTF/SimpleSkin.gltf");
+			loadRiggedGLTF("SimpleSkin/glTF/SimpleSkin.gltf"); // see it @devshgraphicsprogramming
 			// TODO: support playback of keyframe animations to nodes which don't have skinning
 			//loadRiggedGLTF("AnimatedCube/glTF/AnimatedCube.gltf");
 			//loadRiggedGLTF("BoxAnimated/glTF/BoxAnimated.gltf");
