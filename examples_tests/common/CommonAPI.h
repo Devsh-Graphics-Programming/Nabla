@@ -1426,17 +1426,30 @@ public:
 //***** Application framework macros ******
 #ifdef _NBL_PLATFORM_ANDROID_
 using ApplicationBase = GraphicalApplication;
+using NonGraphicalApplicationBase = nbl::system::CApplicationAndroid;
 #define APP_CONSTRUCTOR(type) type(android_app* app, JNIEnv* env, const nbl::system::path& _localInputCWD,\
 const nbl::system::path& _localOutputCWD,\
 const nbl::system::path& _sharedInputCWD,\
-const nbl::system::path& _sharedOutputCWD) : GraphicalApplication(app, env, _localInputCWD, _localOutputCWD, _sharedInputCWD, _sharedOutputCWD) {}
+const nbl::system::path& _sharedOutputCWD) : ApplicationBase(app, env, _localInputCWD, _localOutputCWD, _sharedInputCWD, _sharedOutputCWD) {}
+
+#define NON_GRAPHICAL_APP_CONSTRUCTOR(type) type(android_app* app, JNIEnv* env, const nbl::system::path& _localInputCWD,\
+const nbl::system::path& _localOutputCWD,\
+const nbl::system::path& _sharedInputCWD,\
+const nbl::system::path& _sharedOutputCWD) : NonGraphicalApplicationBase(app, env, _localInputCWD, _localOutputCWD, _sharedInputCWD, _sharedOutputCWD) {}
+
 #define NBL_COMMON_API_MAIN(android_app_class) NBL_ANDROID_MAIN_FUNC(android_app_class, CommonAPI::CommonAPIEventCallback)
 #else
 using ApplicationBase = GraphicalApplication;
+using NonGraphicalApplicationBase = nbl::system::IApplicationFramework;
 #define APP_CONSTRUCTOR(type) type(const nbl::system::path& _localInputCWD,\
 const nbl::system::path& _localOutputCWD,\
 const nbl::system::path& _sharedInputCWD,\
-const nbl::system::path& _sharedOutputCWD) : GraphicalApplication(_localInputCWD, _localOutputCWD, _sharedInputCWD, _sharedOutputCWD) {}
+const nbl::system::path& _sharedOutputCWD) : ApplicationBase(_localInputCWD, _localOutputCWD, _sharedInputCWD, _sharedOutputCWD) {}
+
+#define NON_GRAPHICAL_APP_CONSTRUCTOR(type) type(const nbl::system::path& _localInputCWD,\
+const nbl::system::path& _localOutputCWD,\
+const nbl::system::path& _sharedInputCWD,\
+const nbl::system::path& _sharedOutputCWD) : NonGraphicalApplicationBase(_localInputCWD, _localOutputCWD, _sharedInputCWD, _sharedOutputCWD) {}
 #define NBL_COMMON_API_MAIN(android_app_class) int main(int argc, char** argv){\
 CommonAPI::main<android_app_class>(argc, argv);\
 }

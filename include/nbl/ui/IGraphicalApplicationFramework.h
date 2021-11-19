@@ -23,7 +23,6 @@ namespace nbl::ui
 		virtual nbl::asset::E_FORMAT getDepthFormat() = 0;
 
 		virtual void recreateSurface() = 0;
-		std::vector<std::string> argv;
 	};
 }
 #endif
