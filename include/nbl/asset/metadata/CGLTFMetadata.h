@@ -32,7 +32,7 @@ class CGLTFMetadata final : public IAssetMetadata
 
         struct Scene
         {
-            asset::SBufferRange<asset::ICPUBuffer> instanceIDs; // a range view into allInstanceIDs
+            asset::SBufferRange<asset::ICPUBuffer> instanceIDs;
         };
 
         struct Instance
@@ -47,9 +47,7 @@ class CGLTFMetadata final : public IAssetMetadata
         uint32_t defaultSceneID = 0xffFFffFFu;
 
         core::vector<core::smart_refctd_ptr<ICPUSkeleton>> skeletons;
-
         core::vector<Instance> instances;
-        core::smart_refctd_ptr<asset::ICPUBuffer> allInstanceIDs;
 
     private:
         meta_container_t<asset::CGLTFPipelineMetadata> m_metaStorage;

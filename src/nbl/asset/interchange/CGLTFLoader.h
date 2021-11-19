@@ -12,7 +12,7 @@
 #include "nbl/core/declarations.h"
 #include "nbl/asset/ICPUImageView.h"
 #include "nbl/asset/interchange/IAssetLoader.h"
-#include "nbl/asset/metadata/CGLTFPipelineMetadata.h"
+#include "nbl/asset/metadata/CGLTFMetadata.h"
 
 namespace nbl
 {
@@ -51,7 +51,7 @@ namespace nbl
 
 				static inline std::string getPipelineCacheKey(const E_PRIMITIVE_TOPOLOGY& primitiveType, const SVertexInputParams& vertexInputParams, bool skinned)
 				{
-					if constexpr (skinned)
+					if (skinned)
 						return "nbl/builtin/pipelines/loaders/glTF/skinned/" + std::to_string(primitiveType) + vertexInputParams.to_string();
 					else
 						return "nbl/builtin/pipelines/loaders/glTF/static/" + std::to_string(primitiveType) + vertexInputParams.to_string();
@@ -734,7 +734,7 @@ namespace nbl
 				};
 
 				bool loadAndGetGLTF(SGLTF& glTF, SContext& context);
-				core::smart_refctd_ptr<ICPUPipelineLayout> makePipelineLayoutFromGLTF(SContext& context, CGLTFPipelineMetadata::SGLTFMaterialParameters& pushConstants, SMaterialDependencyData& materialData, bool isSkinned);
+				core::smart_refctd_ptr<ICPUPipelineLayout> makePipelineLayoutFromGLTF(SContext& context, const asset::CGLTFPipelineMetadata::SGLTFMaterialParameters& pushConstants, SMaterialDependencyData& materialData, bool isSkinned);
 				core::smart_refctd_ptr<ICPUDescriptorSet> makeAndGetDS3set(std::array<core::smart_refctd_ptr<ICPUImageView>, SGLTF::SGLTFMaterial::EGT_COUNT>& cpuImageViews, core::smart_refctd_ptr<ICPUDescriptorSetLayout> cpuDescriptorSet3Layout);
 
 				asset::IAssetManager* const assetManager;
