@@ -40,38 +40,31 @@ std::pair<IFileArchive*,IFileArchive::SOpenFileParams> ISystem::findFileInArchiv
 
         for (auto& archive : archives)
         {
-            system::path realPath = std::filesystem::exists(path) ? system::path(std::filesystem::canonical(path).generic_string()) : path;
-            auto archives = m_cachedArchiveFiles.findRange(realPath);
-
-            for (auto& archive : archives)
+            auto relative = std::filesystem::relative(_path, path);
+            auto files = archive.second->getArchivedFiles();
+            auto itemToFind = IFileArchive::SFileListEntry{ relative, relative, 0 };
+            bool hasFile = std::binary_search(files.begin(), files.end(), itemToFind, [](const IFileArchive::SFileListEntry& l, const IFileArchive::SFileListEntry& r) { return l.fullName == r.fullName; });
+            auto f = archive.second->asFile();
+            if (f)
             {
-                auto relative = std::filesystem::relative(_path, path);
-                auto files = archive.second->getArchivedFiles();
-                auto itemToFind = IFileArchive::SFileListEntry{ relative, relative, 0 };
-                bool hasFile = std::binary_search(files.begin(), files.end(), itemToFind, [](const IFileArchive::SFileListEntry& l, const IFileArchive::SFileListEntry& r) { return l.fullName == r.fullName; });
-                auto f = archive.second->asFile();
-                if (f)
+                auto realPath = f->getFileName();
+                auto absolute = (realPath / relative).generic_string();
+                if (hasFile)
                 {
-                    auto realPath = f->getFileName();
-                    auto absolute = (realPath / relative).generic_string();
-                    if (hasFile)
-                    {
-                        auto f = archive.second->readFile({ relative, absolute, "" });
-                        if (f.get()) return f;
-                    }
-                }
-                else
-                {
-                    if (hasFile)
-                    {
-                        auto f = archive.second->readFile({ relative, _path, "" });
-                        if (f.get()) return f;
-                    }
+                    auto f = archive.second;// ->readFile({ relative, absolute, "" });
+                    return { f.get(),{relative,_path,""} };
                 }
             }
-            path = path.parent_path();
+            else
+            {
+                if (hasFile)
+                {
+                    auto f = archive.second;// ->readFile({ relative, _path, "" });
+                    return { f.get(),{relative,_path,""} };
+                }
+            }
         }
-        path = path.parent_path();
+            path = path.parent_path();
     }
     return {nullptr,{}};
 }
