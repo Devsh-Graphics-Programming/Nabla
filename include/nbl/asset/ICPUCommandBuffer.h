@@ -1,5 +1,5 @@
-#ifndef __NBL_I_CPU_COMMAND_BUFFER_H_INCLUDED__
-#define __NBL_I_CPU_COMMAND_BUFFER_H_INCLUDED__
+#ifndef _NBL_I_CPU_COMMAND_BUFFER_H_INCLUDED_
+#define _NBL_I_CPU_COMMAND_BUFFER_H_INCLUDED_
 
 #include "nbl/asset/ICommandBuffer.h"
 #include "nbl/asset/ICPUBuffer.h"
@@ -13,8 +13,7 @@
 #include "nbl/asset/ICPUDescriptorSet.h"
 #include "nbl/asset/ICPUPipelineLayout.h"
 
-namespace nbl {
-namespace asset
+namespace nbl::asset
 {
 
 class ICPUCommandBuffer final :
@@ -65,7 +64,6 @@ private:
     }
 };
 
-}
 }
 
 #endif

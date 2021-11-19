@@ -1,21 +1,21 @@
-#ifndef __NBL_I_GRAPHICS_PIPELINE_H_INCLUDED__
-#define __NBL_I_GRAPHICS_PIPELINE_H_INCLUDED__
+#ifndef _NBL_I_GRAPHICS_PIPELINE_H_INCLUDED_
+#define _NBL_I_GRAPHICS_PIPELINE_H_INCLUDED_
 
 #include "nbl/asset/IRenderpassIndependentPipeline.h"
 #include "nbl/asset/IRenderpass.h"
 
-namespace nbl {
-namespace asset
+namespace nbl::asset
 {
 
 template<typename RenderpassIndependentType, typename RenderpassType>
 class IGraphicsPipeline
 {
 protected:
-    using renderpass_independent_t = RenderpassIndependentType;
     using renderpass_t = RenderpassType;
 
 public:
+    using renderpass_independent_t = RenderpassIndependentType;
+
     struct SCreationParams
     {
         core::smart_refctd_ptr<const renderpass_independent_t> renderpassIndependent;
@@ -50,7 +50,6 @@ protected:
     SCreationParams m_params;
 };
 
-}
 }
 
 #endif

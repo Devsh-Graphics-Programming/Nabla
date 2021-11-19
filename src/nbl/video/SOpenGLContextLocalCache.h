@@ -1,11 +1,10 @@
-#ifndef __NBL_S_OPENGL_CONTEXT_LOCAL_CACHE_H_INCLUDED__
-#define __NBL_S_OPENGL_CONTEXT_LOCAL_CACHE_H_INCLUDED__
+#ifndef _NBL_S_OPENGL_CONTEXT_LOCAL_CACHE_H_INCLUDED_
+#define _NBL_S_OPENGL_CONTEXT_LOCAL_CACHE_H_INCLUDED_
 
 #include "nbl/video/SOpenGLState.h"
 #include "nbl/core/containers/LRUCache.h"
 
-namespace nbl {
-namespace video
+namespace nbl::video
 {
 
 namespace impl
@@ -336,7 +335,6 @@ private:
     }
 };
 
-}
 }
 
 #endif

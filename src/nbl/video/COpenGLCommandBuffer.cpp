@@ -947,21 +947,25 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
                     descriptorSets[i] = c.descriptorSets[i].get();
                 bindDescriptorSets_generic(c.layout.get(), c.firstSet, c.dsCount, descriptorSets, layouts);
 
-                for (uint32_t i = 0u; i < IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
+                for (uint32_t i=0u; i<IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
                     if (!layouts[i])
-                        ctxlocal->nextState.descriptorsParams[pbp].descSets[i] = { nullptr, nullptr, nullptr, 0u }; // TODO: have a default constructor that makes sense and prevents us from screwing up
+                        ctxlocal->nextState.descriptorsParams[pbp].descSets[i] = { nullptr, nullptr, {}, 0u }; // TODO: have a default constructor that makes sense and prevents us from screwing up
 
+                uint32_t offsetOfDynamicOffsets = 0u;
                 for (uint32_t i = 0u; i < c.dsCount; i++)
                 {
                     auto glDS = static_cast<const COpenGLDescriptorSet*>(descriptorSets[i]);
-                    ctxlocal->nextState.descriptorsParams[pbp].descSets[c.firstSet + i] =
-                    {
-                        core::smart_refctd_ptr<const COpenGLPipelineLayout>(static_cast<const COpenGLPipelineLayout*>(c.layout.get())),
-                        core::smart_refctd_ptr<const COpenGLDescriptorSet>(glDS),
-                        c.dynamicOffsets,
-                        glDS->getRevision()
-                    };
+                    const auto dynamicOffsetCount = glDS->getDynamicOffsetCount();
+
+                    auto& stateDS = ctxlocal->nextState.descriptorsParams[pbp].descSets[c.firstSet+i];
+                    stateDS.pplnLayout = core::smart_refctd_ptr<const COpenGLPipelineLayout>(static_cast<const COpenGLPipelineLayout*>(c.layout.get()));
+                    stateDS.set = core::smart_refctd_ptr<const COpenGLDescriptorSet>(glDS);
+                    std::copy_n(c.dynamicOffsets+offsetOfDynamicOffsets,dynamicOffsetCount,stateDS.dynamicOffsets);
+                    stateDS.revision = glDS->getRevision();
+
+                    offsetOfDynamicOffsets += dynamicOffsetCount;
                 }
+                assert(offsetOfDynamicOffsets==c.dynamicOffsetCount);
             }
             break;
             case impl::ECT_PUSH_CONSTANTS:

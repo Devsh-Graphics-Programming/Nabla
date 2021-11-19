@@ -222,6 +222,9 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
             auto file = _override->getLoadFile(_file, filename.string(), ctx, _hierarchyLevel);
 
             filename = file.get() ? file->getFileName() : std::filesystem::path(_supposedFilename);
+            // TODO: should we remove? (is a root absolute path working dir ever needed)
+            if (params.workingDirectory.empty())
+                params.workingDirectory = filename.parent_path();
 
             const uint64_t levelFlags = params.cacheFlags >> ((uint64_t)_hierarchyLevel * 2ull);
 
@@ -317,7 +320,7 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
         template <bool RestoreWholeBundle>
         SAssetBundle getAssetInHierarchy_impl(const std::string& _filePath, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
         {
-            IAssetLoader::SAssetLoadContext ctx(_params, nullptr);
+            system::path filePath = _filePath;
 
             const system::path filePath = (_params.workingDirectory / _filePath);
             auto filePath_str = system::IFile::flattenFilename(filePath).generic_string();
@@ -326,11 +329,14 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
             
             _override->getLoadFilename(filePath_str, ctx, _hierarchyLevel);
 
+
             system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
-            bool validInput = m_system->createFile(future, filePath_str, system::IFile::ECF_READ);
-            if (!validInput) return SAssetBundle(0);
+            bool validInput = m_system->createFile(future, filePath, system::IFile::ECF_READ);
+            if (!validInput)
+                return SAssetBundle(0);
+
             core::smart_refctd_ptr<system::IFile> file = future.get();
-            SAssetBundle asset = getAssetInHierarchy_impl<RestoreWholeBundle>(file.get(), filePath_str, params, _hierarchyLevel, _override);
+            SAssetBundle asset = getAssetInHierarchy_impl<RestoreWholeBundle>(file.get(), filePath.string(), ctx.params, _hierarchyLevel, _override);
 
             return asset;
         }

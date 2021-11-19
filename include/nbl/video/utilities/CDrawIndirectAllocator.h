@@ -31,7 +31,7 @@ class CDrawIndirectAllocator final : public IDrawIndirectAllocator
             
             ExplicitBufferCreationParameters explicit_params;
 
-            video::IGPUBuffer::SCreationParams creationParams;
+            video::IGPUBuffer::SCreationParams creationParams = {};
             creationParams.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
             creationParams.usage |= asset::IBuffer::EUF_INDIRECT_BUFFER_BIT;
 

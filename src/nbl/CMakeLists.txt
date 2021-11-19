@@ -292,15 +292,7 @@ set(NBL_VIDEO_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/video/IDriverMemoryAllocation.cpp
 )
 set(NBL_SCENE_SOURCES
-# Junk to refactor
-#${NBL_ROOT_PATH}/source/Nabla/CSkinnedMeshSceneNode.cpp
-#${NBL_ROOT_PATH}/source/Nabla/CCameraSceneNode.cpp
-#${NBL_ROOT_PATH}/source/Nabla/CSceneManager.cpp
-
-# Animators
-#	${NBL_ROOT_PATH}/source/Nabla/CSceneNodeAnimatorCameraFPS.cpp
-#	${NBL_ROOT_PATH}/source/Nabla/CSceneNodeAnimatorCameraMaya.cpp
-#	${NBL_ROOT_PATH}/source/Nabla/CSceneNodeAnimatorCameraModifiedMaya.cpp
+	${NBL_ROOT_PATH}/src/nbl/scene/ITransformTree.cpp
 )
 set(NABLA_SRCS_COMMON
 	${NBL_CORE_SOURCES}
@@ -704,3 +696,4 @@ nbl_install_lib(OGLCompiler)
 nbl_install_lib(OSDependent)
 nbl_install_lib(zlibstatic)
 nbl_install_lib(simdjson)
+nbl_install_lib(volk)
