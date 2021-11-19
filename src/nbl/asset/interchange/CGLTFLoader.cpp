@@ -534,7 +534,7 @@ namespace nbl
 						uint32_t level = 0u;
 						for (uint32_t node = glTFSkin.joints[0]; globalParent[node] != ICPUSkeleton::invalid_joint_id; node = globalParent[node])
 						{
-							commonAncestors.insert(node, level); // wtf we pass uint32_t and template dereferences this inside, ERROR!
+							commonAncestors.insert({ node, level });
 							++level;
 						}
 
@@ -555,7 +555,9 @@ namespace nbl
 							level++;
 						}
 						// remove unvisited
-						std::remove_if(commonAncestors.begin(),commonAncestors.end(),[](const auto& pval)->bool{return pval.second==~0u;}); // no operator = for std::pair, ERROR!
+						for (auto it = commonAncestors.begin(); it != commonAncestors.end(); ++it)
+							if (it->second == ~0u)
+								commonAncestors.erase(it);
 					}
 					// validate
 					if (commonAncestors.empty())
