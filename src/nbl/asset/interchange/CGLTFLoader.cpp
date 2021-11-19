@@ -1703,6 +1703,16 @@ namespace nbl
 				}
 			}
 
+			std::vector<std::vector<CGLTFMetadata::INSTANCE_ID>> sceneInstanceIDs(glTF.scenes.size());
+
+			auto getSceneIDANodeBelongsTo = [&](uint32_t nodeIx)
+			{
+				for (size_t i = 0; i < glTF.scenes.size(); ++i)
+					for (const auto& aNode : glTF.scenes[i].nodes)
+						if (aNode == nodeIx)
+							return i;
+			};
+
 			// go over nodes one last time to record instances
 			core::vector<CGLTFMetadata::Instance> instances;
 			for (uint32_t index=0u; index<nodeCount; ++index)
@@ -1720,7 +1730,13 @@ namespace nbl
 				// record that as an instance 
 				auto found = meshSkinPairs.find(*reinterpret_cast<uint64_t*>(&meshSkinPair));
 				assert(found!=meshSkinPairs.end());
+
+				const auto sceneID = getSceneIDANodeBelongsTo(index); // what how can I determine if instance x belongs to scene y, it won't find it always!
+				const auto instanceBeingCreatedID = instances.size();
+				sceneInstanceIDs[sceneID].push_back(instanceBeingCreatedID);
+
 				auto& instance = instances.emplace_back();
+				
 				if (skinID != 0xdeadbeefu) // has skin
 				{
 					instance.skeleton = skins[skinID].skeleton.get();
@@ -1737,25 +1753,27 @@ namespace nbl
 				instance.attachedToNode = skeletonNodes[index].localJointID;
 			}
 
-			core::smart_refctd_ptr<CGLTFMetadata> glTFPipelineMetadata = core::make_smart_refctd_ptr<CGLTFMetadata>(globalPipelineMetadataSet.size());
+			core::smart_refctd_ptr<CGLTFMetadata> glTFMetadata = core::make_smart_refctd_ptr<CGLTFMetadata>(globalPipelineMetadataSet.size());
 			{
-				glTFPipelineMetadata->instances = instances;
-				glTFPipelineMetadata->skeletons = skeletons;
+				if (glTF.defaultScene.has_value())
+					glTFMetadata->defaultSceneID = glTF.defaultScene.value();
 
-				const auto oneSceneInstancesCount = glTFPipelineMetadata->instances.size();
-				auto& scene = glTFPipelineMetadata->scenes.emplace_back();
-				scene.instanceIDs.buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(oneSceneInstancesCount * sizeof(CGLTFMetadata::INSTANCE_ID));
-				scene.instanceIDs.offset = 0;
-				auto* data = reinterpret_cast<CGLTFMetadata::INSTANCE_ID*>(scene.instanceIDs.buffer->getPointer());
-				
-				std::iota(data, data + oneSceneInstancesCount, 0);
+				glTFMetadata->instances = instances;
+				glTFMetadata->skeletons = skeletons;
+
+				for (auto& it : sceneInstanceIDs)
+				{
+					const auto aSceneInstanceCount = it.size();
+					auto& scene = glTFMetadata->scenes.emplace_back();
+					scene.instanceIDs = it;
+				}
 
 				size_t i = {};
 				for (auto& meta : globalPipelineMetadataSet)
-					glTFPipelineMetadata->placeMeta(i++, meta.first, *meta.second);
+					glTFMetadata->placeMeta(i++, meta.first, *meta.second);
 			}
 
-			return SAssetBundle(std::move(glTFPipelineMetadata), cpuMeshes);
+			return SAssetBundle(std::move(glTFMetadata), cpuMeshes);
 		}
 
 		bool CGLTFLoader::loadAndGetGLTF(SGLTF& glTF, SContext& context)
@@ -1795,6 +1813,23 @@ namespace nbl
 			const auto& textures = tweets.at_key("textures");
 			const auto& extensions = tweets.at_key("extensions");
 			const auto& extras = tweets.at_key("extras");
+
+			if (scene.error() != simdjson::error_code::NO_SUCH_FIELD)
+				glTF.defaultScene = scene.get_uint64();
+
+			if (scenes.error() != simdjson::error_code::NO_SUCH_FIELD)
+			{
+				const auto& jsonScenes = scenes.get_array();
+				for (const auto& jsonScene : jsonScenes)
+				{
+					auto& glTFScene = glTF.scenes.emplace_back();
+					const auto& nodes = jsonScene.at_key("nodes");
+
+					if(nodes.error() != simdjson::error_code::NO_SUCH_FIELD)
+						for (const auto& node : nodes.get_array())
+							glTFScene.nodes.push_back(node.get_uint64());
+				}
+			}
 
 			if (buffers.error() != simdjson::error_code::NO_SUCH_FIELD)
 			{

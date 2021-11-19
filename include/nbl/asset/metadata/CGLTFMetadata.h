@@ -32,7 +32,7 @@ class CGLTFMetadata final : public IAssetMetadata
 
         struct Scene
         {
-            asset::SBufferRange<asset::ICPUBuffer> instanceIDs;
+            std::vector<uint32_t> instanceIDs;
         };
 
         struct Instance

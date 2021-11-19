@@ -165,6 +165,11 @@ namespace nbl
 						}
 					};
 
+					struct SGLTFScene
+					{
+						std::vector<uint32_t> nodes;
+					};
+
 					/*
 						A node in the node hierarchy. A node can contain one mesh.
 						A node's transform places the mesh in the scene. A node can have either 
@@ -227,7 +232,6 @@ namespace nbl
 							return true;
 						}
 					};
-
 
 					/*
 						An accessor provides a typed view into a bufferView or a subset of a bufferView similar to
@@ -699,6 +703,8 @@ namespace nbl
 						indices to look up the objects in arrays 
 					*/
 					
+					std::optional<uint32_t> defaultScene;
+					std::vector<SGLTFScene> scenes;
 					std::vector<SGLTFMesh> meshes;
 					std::vector<SGLTFNode> nodes;
 					std::vector<SGLTFAccessor> accessors;
