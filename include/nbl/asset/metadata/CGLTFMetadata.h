@@ -28,12 +28,6 @@ class CGLTFMetadata final : public IAssetMetadata
             return static_cast<const asset::CGLTFPipelineMetadata*>(found);
         }
 
-        using INSTANCE_ID = uint32_t;
-
-        struct Scene
-        {
-            std::vector<uint32_t> instanceIDs;
-        };
 
         struct Instance
         {
@@ -42,12 +36,16 @@ class CGLTFMetadata final : public IAssetMetadata
             const ICPUMesh* mesh;
             ICPUSkeleton::joint_id_t attachedToNode; // the node with the `mesh` and `skin` parameters
         };
-
-        std::vector<Scene> scenes;
-        uint32_t defaultSceneID = 0xffFFffFFu;
+        core::vector<Instance> instances;
 
         core::vector<core::smart_refctd_ptr<ICPUSkeleton>> skeletons;
-        core::vector<Instance> instances;
+
+        struct Scene
+        {
+            core::vector<uint32_t> instanceIDs;
+        };
+        core::vector<Scene> scenes;
+        uint32_t defaultSceneID = 0xffFFffFFu;
 
     private:
         meta_container_t<asset::CGLTFPipelineMetadata> m_metaStorage;

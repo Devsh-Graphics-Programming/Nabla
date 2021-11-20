@@ -145,18 +145,19 @@ class GLTFApp : public ApplicationBase
 				}
 				models.push_back(std::move(model));
 			};
-// TODO: @AnastaZIuk these crash the loader!
-//			loadRiggedGLTF("AnimatedTriangle/glTF/AnimatedTriangle.gltf");
+			loadRiggedGLTF("AnimatedTriangle/glTF/AnimatedTriangle.gltf");
+// TODO: @AnastaZIuk this one crashes the loader!
 //			loadRiggedGLTF("IridescentDishWithOlives/glTF/IridescentDishWithOlives.gltf");
 			loadRiggedGLTF("RiggedFigure/glTF/RiggedFigure.gltf"); 
-//			loadRiggedGLTF("RiggedSimple/glTF/RiggedSimple.gltf");
+			loadRiggedGLTF("RiggedSimple/glTF/RiggedSimple.gltf");
 			loadRiggedGLTF("SimpleSkin/glTF/SimpleSkin.gltf"); // see it @devshgraphicsprogramming
 			// TODO: support playback of keyframe animations to nodes which don't have skinning
-			//loadRiggedGLTF("AnimatedCube/glTF/AnimatedCube.gltf");
-			//loadRiggedGLTF("BoxAnimated/glTF/BoxAnimated.gltf");
-			//loadRiggedGLTF("InterpolationTest/glTF/InterpolationTest.gltf");
+			loadRiggedGLTF("AnimatedCube/glTF/AnimatedCube.gltf");
+			loadRiggedGLTF("BoxAnimated/glTF/BoxAnimated.gltf");
+			loadRiggedGLTF("InterpolationTest/glTF/InterpolationTest.gltf");
 			// TODO: support node without skeleton or animations
-			//loadRiggedGLTF("FlightHelmet/glTF/FlightHelmet.gltf"); 
+// TODO: @AnastaZIuk this one crashes the loader!
+//			loadRiggedGLTF("FlightHelmet/glTF/FlightHelmet.gltf"); 
 			// TODO: nightmare case, handle in far future
 			//loadRiggedGLTF("RecursiveSkeletons/glTF/RecursiveSkeletons.gltf");
 			

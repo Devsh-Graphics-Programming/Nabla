@@ -234,7 +234,7 @@ namespace nbl
 
 								default:
 								{
-									context.loadContext.params.logger.log("GLTF: EXPECTED IMAGE ASSET TYPE!", system::ILogger::ELL_WARNING);
+									context.loadContext.params.logger.log("GLTF: EXPECTED IMAGE ASSET TYPE!",system::ILogger::ELL_ERROR);
 									return {};
 								}
 							}
@@ -259,98 +259,69 @@ namespace nbl
 			{
 				for (auto& glTFSampler : glTF.samplers)
 				{
-					typedef std::remove_reference<decltype(glTFSampler)>::type SGLTFSampler;
-
-					// TODO: could we share this caching across all loaders?
 					ICPUSampler::SParams samplerParams;
-
+					
+					typedef std::remove_reference<decltype(glTFSampler)>::type SGLTFSampler;
 					switch (glTFSampler.magFilter)
 					{
 						case SGLTFSampler::STP_NEAREST:
-						{
 							samplerParams.MaxFilter = ISampler::ETF_NEAREST;
-						} break;
-
+							break;
 						case SGLTFSampler::STP_LINEAR:
-						{
 							samplerParams.MaxFilter = ISampler::ETF_LINEAR;
-						} break;
+							break;
 					}
-
 					switch (glTFSampler.minFilter)
 					{
 						case SGLTFSampler::STP_NEAREST:
-						{
 							samplerParams.MinFilter = ISampler::ETF_NEAREST;
-						} break;
-
+							break;
 						case SGLTFSampler::STP_LINEAR:
-						{
 							samplerParams.MinFilter = ISampler::ETF_LINEAR;
-						} break;
-
+							break;
 						case SGLTFSampler::STP_NEAREST_MIPMAP_NEAREST:
-						{
 							samplerParams.MinFilter = ISampler::ETF_NEAREST;
 							samplerParams.MipmapMode = ISampler::ESMM_NEAREST;
-						} break;
-
+							break;
 						case SGLTFSampler::STP_LINEAR_MIPMAP_NEAREST:
-						{
 							samplerParams.MinFilter = ISampler::ETF_LINEAR;
 							samplerParams.MipmapMode = ISampler::ESMM_NEAREST;
-						} break;
-
+							break;
 						case SGLTFSampler::STP_NEAREST_MIPMAP_LINEAR:
-						{
 							samplerParams.MinFilter = ISampler::ETF_NEAREST;
 							samplerParams.MipmapMode = ISampler::ESMM_LINEAR;
-						} break;
-
+							break;
 						case SGLTFSampler::STP_LINEAR_MIPMAP_LINEAR:
-						{
 							samplerParams.MinFilter = ISampler::ETF_LINEAR;
 							samplerParams.MipmapMode = ISampler::ESMM_LINEAR;
-						} break;
+							break;
 					}
-					
 					switch (glTFSampler.wrapS)
 					{
 						case SGLTFSampler::STP_CLAMP_TO_EDGE:
-						{
 							samplerParams.TextureWrapU = ISampler::ETC_CLAMP_TO_EDGE;
-						} break;
-
+							break;
 						case SGLTFSampler::STP_MIRRORED_REPEAT:
-						{
 							samplerParams.TextureWrapU = ISampler::ETC_MIRROR;
-						} break;
-
+							break;
 						case SGLTFSampler::STP_REPEAT:
-						{
 							samplerParams.TextureWrapU = ISampler::ETC_REPEAT;
-						} break;
+							break;
 					}
-
 					switch (glTFSampler.wrapT)
 					{
 						case SGLTFSampler::STP_CLAMP_TO_EDGE:
-						{
 							samplerParams.TextureWrapV = ISampler::ETC_CLAMP_TO_EDGE;
-						} break;
-
+							break;
 						case SGLTFSampler::STP_MIRRORED_REPEAT:
-						{
 							samplerParams.TextureWrapV = ISampler::ETC_MIRROR;
-						} break;
-
+							break;
 						case SGLTFSampler::STP_REPEAT:
-						{
 							samplerParams.TextureWrapV = ISampler::ETC_REPEAT;
-						} break;
+							break;
 					}
 
-					const std::string cacheKey = getSamplerCacheKey(samplerParams);
+					const std::string cacheKey = genSamplerCacheKey(samplerParams);
 					cpuSamplers.push_back(cacheKey);
 
 					const auto samplerHierarchyLevel = _hierarchyLevel+ICPUMesh::SAMPLER_HIERARCHYLEVELS_BELOW;
@@ -380,7 +351,7 @@ namespace nbl
 				}
 			}
 			
-			core::smart_refctd_ptr<ICPUBuffer> vertexJointToSkeletonJoint;
+			core::smart_refctd_ptr<ICPUBuffer> vertexJointToSkeletonJoint,inverseBindPose;
 			// cache
 			struct MeshSkinPair
 			{
@@ -417,7 +388,9 @@ namespace nbl
 
 				uint32_t skeletonID;
 				uint32_t localJointID; // in range [0, jointsSize - 1]
-				uint32_t localParentJointID; // for _parentJointIDsBinding 
+				uint32_t localParentJointID; // for _parentJointIDsBinding
+
+				uint32_t instanceID;
 			};
 			core::vector<core::smart_refctd_ptr<ICPUSkeleton>> skeletons;
 			core::vector<SkeletonData> skeletonNodes(nodeCount);
@@ -513,6 +486,7 @@ namespace nbl
 					for (const auto& skin : glTF.skins)
 						totalSkinJointRefs += skin.joints.size();
 					vertexJointToSkeletonJoint = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(ICPUSkeleton::joint_id_t)*totalSkinJointRefs);
+					inverseBindPose = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(core::matrix3x4SIMD)*totalSkinJointRefs);
 				}
 				// then go over skins
 				uint32_t skinJointRefCount = 0u;
@@ -524,7 +498,7 @@ namespace nbl
 						continue;
 
 					// find LCM
-					std::unordered_map<uint32_t,uint32_t> commonAncestors;
+					core::unordered_map<uint32_t,uint32_t> commonAncestors;
 					// populate
 					for (uint32_t node=glTFSkin.joints[0]; node!=ICPUSkeleton::invalid_joint_id; node=globalParent[node])
 						commonAncestors.insert({node,0u});
@@ -582,65 +556,49 @@ namespace nbl
 					}
 
 					//
-					auto skeleton = skeletons[skeletonNodes[globalRootNode].skeletonID];
-					skins[index].skeleton = skeleton;
+					skins[index].skeleton = skeletons[skeletonNodes[globalRootNode].skeletonID];
 					skins[index].translationTable = {sizeof(ICPUSkeleton::joint_id_t)*skinJointRefCount,sizeof(ICPUSkeleton::joint_id_t)*jointCount,vertexJointToSkeletonJoint};
-					const auto bytesize = sizeof(core::matrix3x4SIMD)*jointCount;
-					skins[index].inverseBindPose = {0ull,bytesize,core::make_smart_refctd_ptr<ICPUBuffer>(bytesize)};
+					skins[index].inverseBindPose = {sizeof(core::matrix3x4SIMD)*skinJointRefCount,sizeof(core::matrix3x4SIMD)*jointCount,inverseBindPose};
 
+					auto translationTableIt = reinterpret_cast<ICPUSkeleton::joint_id_t*>(skins[index].translationTable.buffer->getPointer())+skinJointRefCount;
+					for (const auto& joint : glTFSkin.joints)
+						*(translationTableIt++) = skeletonNodes[joint].localJointID;
+
+					auto inverseBindPoseIt = reinterpret_cast<core::matrix3x4SIMD*>(skins[index].inverseBindPose.buffer->getPointer())+skinJointRefCount;
 					const auto& accessorInverseBindMatricesID = glTFSkin.inverseBindMatrices.has_value() ? glTFSkin.inverseBindMatrices.value() : 0xdeadbeef;
+					if (accessorInverseBindMatricesID!=0xdeadbeef)
 					{
-						if (accessorInverseBindMatricesID == 0xdeadbeef)
+						const auto& glTFAccessor = glTF.accessors[accessorInverseBindMatricesID];
+						if (!glTFAccessor.bufferView.has_value())
 						{
-							const core::matrix3x4SIMD identity;
-
-							auto* data = reinterpret_cast<core::matrix3x4SIMD*>(skins[index].inverseBindPose.buffer->getPointer());
-							auto* end = data + skins[index].inverseBindPose.buffer->getSize() / sizeof(core::matrix3x4SIMD);
-
-							std::fill(data, end, identity);
+							context.loadContext.params.logger.log("GLTF: NO BUFFER VIEW INDEX FOUND!",system::ILogger::ELL_ERROR);
+							return false;
 						}
-						else
+
+						const auto& glTFBufferView = glTF.bufferViews[glTFAccessor.bufferView.value()];
+						if (!glTFBufferView.buffer.has_value())
 						{
-							const auto& glTFAccessor = glTF.accessors[accessorInverseBindMatricesID];
-
-							if (!glTFAccessor.bufferView.has_value())
-							{
-								context.loadContext.params.logger.log("GLTF: NO BUFFER VIEW INDEX FOUND!", system::ILogger::ELL_WARNING);
-								return false;
-							}
-
-							const auto& bufferViewID = glTFAccessor.bufferView.value();
-							const auto& glTFBufferView = glTF.bufferViews[bufferViewID];
-
-							if (!glTFBufferView.buffer.has_value())
-							{
-								context.loadContext.params.logger.log("GLTF: NO BUFFER INDEX FOUND!", system::ILogger::ELL_WARNING);
-								return false;
-							}
-
-							const auto& bufferID = glTFBufferView.buffer.value();
-							auto cpuBuffer = cpuBuffers[bufferID];
-
-							const size_t globalIBPOffset = [&]()
-							{
-								const size_t bufferViewOffset = glTFBufferView.byteOffset.has_value() ? glTFBufferView.byteOffset.value() : 0u;
-								const size_t relativeAccessorOffset = glTFAccessor.byteOffset.has_value() ? glTFAccessor.byteOffset.value() : 0u;
-
-								return bufferViewOffset + relativeAccessorOffset;
-							}();
-
-							auto* inData = reinterpret_cast<core::matrix4SIMD*>(reinterpret_cast<uint8_t*>(cpuBuffer->getPointer()) + globalIBPOffset); //! glTF stores 4x4 IBP matrices
-							auto* outData = reinterpret_cast<core::matrix3x4SIMD*>(skins[index].inverseBindPose.buffer->getPointer());
-
-							for (uint32_t j = 0; j < jointCount; ++j)
-							{
-								reinterpret_cast<ICPUSkeleton::joint_id_t*>(skins[index].translationTable.buffer->getPointer())[j + skinJointRefCount] = skeletonNodes[glTFSkin.joints[j]].localJointID;
-								outData[j] = inData[j].extractSub3x4();
-							}	
+							context.loadContext.params.logger.log("GLTF: NO BUFFER INDEX FOUND!",system::ILogger::ELL_ERROR);
+							return false;
 						}
+
+						auto cpuBuffer = cpuBuffers[glTFBufferView.buffer.value()];
+						const size_t globalIBPOffset = [&]()
+						{
+							const size_t bufferViewOffset = glTFBufferView.byteOffset.has_value() ? glTFBufferView.byteOffset.value() : 0u;
+							const size_t relativeAccessorOffset = glTFAccessor.byteOffset.has_value() ? glTFAccessor.byteOffset.value() : 0u;
+
+							return bufferViewOffset + relativeAccessorOffset;
+						}();
+
+						auto* inData = reinterpret_cast<core::matrix4SIMD*>(reinterpret_cast<uint8_t*>(cpuBuffer->getPointer()) + globalIBPOffset); //! glTF stores 4x4 IBP matrices
+						for (uint32_t j=0u; j<jointCount; ++j)
+							inverseBindPoseIt[j] = inData[j].extractSub3x4();
 					}
-					skins[index].root = skeletonNodes[globalRootNode].localJointID;
+					else
+						std::fill_n(inverseBindPoseIt,jointCount,core::matrix3x4SIMD());
 
+					skins[index].root = skeletonNodes[globalRootNode].localJointID;
 					skinJointRefCount += jointCount;
 				}
 			}
@@ -702,7 +660,7 @@ namespace nbl
 								const E_FORMAT format = SGLTF::SGLTFAccessor::getFormat(glTFAccessor.componentType.value(), glTFAccessor.type.value());
 								if (format == EF_UNKNOWN)
 								{
-									context.loadContext.params.logger.log("GLTF: COULD NOT SPECIFY NABLA FORMAT!", system::ILogger::ELL_WARNING);
+									context.loadContext.params.logger.log("GLTF: COULD NOT SPECIFY NABLA FORMAT!",system::ILogger::ELL_ERROR);
 									return false;
 								}
 
@@ -799,7 +757,7 @@ namespace nbl
 							}
 							else
 							{
-								context.loadContext.params.logger.log("GLTF: COULD NOT DETECT POSITION ATTRIBUTE!", system::ILogger::ELL_WARNING);
+								context.loadContext.params.logger.log("GLTF: COULD NOT DETECT POSITION ATTRIBUTE!",system::ILogger::ELL_ERROR);
 								return false;
 							}
 
@@ -854,7 +812,7 @@ namespace nbl
 
 									if (glTFJointsXAccessor.type.value() != SGLTF::SGLTFAccessor::SGLTFT_VEC4)
 									{
-										context.loadContext.params.logger.log("GLTF: JOINTS ACCESSOR MUST HAVE VEC4 TYPE!", system::ILogger::ELL_WARNING);
+										context.loadContext.params.logger.log("GLTF: JOINTS ACCESSOR MUST HAVE VEC4 TYPE!",system::ILogger::ELL_ERROR);
 										return {};
 									}
 
@@ -872,13 +830,13 @@ namespace nbl
 
 									if (jointsFormat == EF_UNKNOWN)
 									{
-										context.loadContext.params.logger.log("GLTF: DETECTED JOINTS BUFFER WITH INVALID COMPONENT TYPE!", system::ILogger::ELL_WARNING);
+										context.loadContext.params.logger.log("GLTF: DETECTED JOINTS BUFFER WITH INVALID COMPONENT TYPE!",system::ILogger::ELL_ERROR);
 										return {};
 									}
 
 									if (!glTFJointsXAccessor.bufferView.has_value())
 									{
-										context.loadContext.params.logger.log("GLTF: NO BUFFER VIEW INDEX FOUND!", system::ILogger::ELL_WARNING);
+										context.loadContext.params.logger.log("GLTF: NO BUFFER VIEW INDEX FOUND!",system::ILogger::ELL_ERROR);
 										return {};
 									}
 
@@ -887,7 +845,7 @@ namespace nbl
 
 									if (!glTFBufferView.buffer.has_value())
 									{
-										context.loadContext.params.logger.log("GLTF: NO BUFFER INDEX FOUND!", system::ILogger::ELL_WARNING);
+										context.loadContext.params.logger.log("GLTF: NO BUFFER INDEX FOUND!",system::ILogger::ELL_ERROR);
 										return {};
 									}
 
@@ -925,7 +883,7 @@ namespace nbl
 
 									if (glTFWeightsXAccessor.type.value() != SGLTF::SGLTFAccessor::SGLTFT_VEC4)
 									{
-										context.loadContext.params.logger.log("GLTF: WEIGHTS ACCESSOR MUST HAVE VEC4 TYPE!", system::ILogger::ELL_WARNING);
+										context.loadContext.params.logger.log("GLTF: WEIGHTS ACCESSOR MUST HAVE VEC4 TYPE!",system::ILogger::ELL_ERROR);
 										return {};
 									}
 
@@ -943,13 +901,13 @@ namespace nbl
 
 									if (weightsFormat == EF_UNKNOWN)
 									{
-										context.loadContext.params.logger.log("GLTF: DETECTED WEIGHTS BUFFER WITH INVALID COMPONENT TYPE!", system::ILogger::ELL_WARNING);
+										context.loadContext.params.logger.log("GLTF: DETECTED WEIGHTS BUFFER WITH INVALID COMPONENT TYPE!",system::ILogger::ELL_ERROR);
 										return {};
 									}
 
 									if (!glTFWeightsXAccessor.bufferView.has_value())
 									{
-										context.loadContext.params.logger.log("GLTF: NO BUFFER VIEW INDEX FOUND!", system::ILogger::ELL_WARNING);
+										context.loadContext.params.logger.log("GLTF: NO BUFFER VIEW INDEX FOUND!",system::ILogger::ELL_ERROR);
 										return {};
 									}
 
@@ -958,7 +916,7 @@ namespace nbl
 
 									if (!glTFBufferView.buffer.has_value())
 									{
-										context.loadContext.params.logger.log("GLTF: NO BUFFER INDEX FOUND!", system::ILogger::ELL_WARNING);
+										context.loadContext.params.logger.log("GLTF: NO BUFFER INDEX FOUND!",system::ILogger::ELL_ERROR);
 										return {};
 									}
 
@@ -993,7 +951,7 @@ namespace nbl
 							{
 								if (overrideJointsReference.size() != overrideWeightsReference.size())
 								{
-									context.loadContext.params.logger.log("GLTF: JOINTS ATTRIBUTES VERTEX BUFFERS AMOUNT MUST BE EQUAL TO WEIGHTS ATTRIBUTES VERTEX BUFFERS AMOUNT!", system::ILogger::ELL_WARNING);
+									context.loadContext.params.logger.log("GLTF: JOINTS ATTRIBUTES VERTEX BUFFERS AMOUNT MUST BE EQUAL TO WEIGHTS ATTRIBUTES VERTEX BUFFERS AMOUNT!",system::ILogger::ELL_ERROR);
 									return {};
 								}
 
@@ -1001,13 +959,13 @@ namespace nbl
 								{
 									if (!std::equal(std::begin(overrideJointsReference) + 1, std::end(overrideJointsReference), std::begin(overrideJointsReference), [](const OverrideReference& lhs, const OverrideReference& rhs) { return lhs.format == rhs.format && lhs.accessor->count.value() == rhs.accessor->count.value(); }))
 									{
-										context.loadContext.params.logger.log("GLTF: JOINTS ATTRIBUTES VERTEX BUFFERS MUST NOT HAVE VARIOUS DATA TYPE OR LENGTH!", system::ILogger::ELL_WARNING);
+										context.loadContext.params.logger.log("GLTF: JOINTS ATTRIBUTES VERTEX BUFFERS MUST NOT HAVE VARIOUS DATA TYPE OR LENGTH!",system::ILogger::ELL_ERROR);
 										return {};
 									}
 
 									if (!std::equal(std::begin(overrideWeightsReference) + 1, std::end(overrideWeightsReference), std::begin(overrideWeightsReference), [](const OverrideReference& lhs, const OverrideReference& rhs) { return lhs.format == rhs.format && lhs.accessor->count.value() == rhs.accessor->count.value(); }))
 									{
-										context.loadContext.params.logger.log("GLTF: WEIGHTS ATTRIBUTES VERTEX BUFFERS MUST NOT HAVE VARIOUS DATA TYPE OR LENGTH!", system::ILogger::ELL_WARNING);
+										context.loadContext.params.logger.log("GLTF: WEIGHTS ATTRIBUTES VERTEX BUFFERS MUST NOT HAVE VARIOUS DATA TYPE OR LENGTH!",system::ILogger::ELL_ERROR);
 										return {};
 									}
 
@@ -1648,7 +1606,7 @@ namespace nbl
 
 									if (!cpuVertexShader || !cpuFragmentShader)
 									{
-										context.loadContext.params.logger.log("GLTF: COULD NOT LOAD SHADERS!", system::ILogger::ELL_WARNING);
+										context.loadContext.params.logger.log("GLTF: COULD NOT LOAD SHADERS!",system::ILogger::ELL_ERROR);
 										return false;
 									}
 
@@ -1697,16 +1655,6 @@ namespace nbl
 				}
 			}
 
-			std::vector<std::vector<CGLTFMetadata::INSTANCE_ID>> sceneInstanceIDs(glTF.scenes.size());
-
-			auto getSceneIDANodeBelongsTo = [&](uint32_t nodeIx)
-			{
-				for (size_t i = 0; i < glTF.scenes.size(); ++i)
-					for (const auto& aNode : glTF.scenes[i].nodes)
-						if (aNode == nodeIx)
-							return i;
-			};
-
 			// go over nodes one last time to record instances
 			core::vector<CGLTFMetadata::Instance> instances;
 			for (uint32_t index=0u; index<nodeCount; ++index)
@@ -1715,7 +1663,10 @@ namespace nbl
 
 				const uint32_t meshID = glTFnode.mesh.has_value() ? glTFnode.mesh.value() : 0xdeadbeef;
 				if (meshID == 0xdeadbeef)
+				{
+					skeletonNodes[index].instanceID = 0xdeadbeefu;
 					continue;
+				}
 
 				const uint32_t skinID = glTFnode.skin.has_value() ? glTFnode.skin.value() : 0xdeadbeef;
 
@@ -1723,12 +1674,8 @@ namespace nbl
 				auto found = meshSkinPairs.find({meshID,skinID});
 				assert(found!=meshSkinPairs.end());
 
-				const auto sceneID = getSceneIDANodeBelongsTo(index); // what how can I determine if instance x belongs to scene y, it won't find it always!
-				const auto instanceBeingCreatedID = instances.size();
-				sceneInstanceIDs[sceneID].push_back(instanceBeingCreatedID);
-
+				skeletonNodes[index].instanceID = instances.size();
 				auto& instance = instances.emplace_back();
-				
 				if (skinID != 0xdeadbeefu) // has skin
 				{
 					instance.skeleton = skins[skinID].skeleton.get();
@@ -1745,22 +1692,44 @@ namespace nbl
 				instance.attachedToNode = skeletonNodes[index].localJointID;
 			}
 
+			//
+			core::vector<CGLTFMetadata::Scene> scenes(glTF.scenes.size());
+			{
+				core::stack<uint32_t> dfsTraversalStack;
+				for (auto index=0u; index!=scenes.size(); index++)
+				{
+					auto& instanceIDs = scenes[index].instanceIDs;
+					auto addNodeToScene = [&glTF,&skeletonNodes,&dfsTraversalStack,&instanceIDs](const uint32_t globalNodeID) -> void
+					{
+						const auto instanceID = skeletonNodes[globalNodeID].instanceID;
+						if (instanceID!=ICPUSkeleton::invalid_joint_id)
+							instanceIDs.push_back(instanceID);
+						for (auto child : glTF.nodes[globalNodeID].children)
+							dfsTraversalStack.push(child);
+					};
+					for (auto node : glTF.scenes[index].nodes)
+					{
+						addNodeToScene(node);
+						while (!dfsTraversalStack.empty())
+						{
+							const auto globalNodeID = dfsTraversalStack.top();
+							dfsTraversalStack.pop();
+							addNodeToScene(globalNodeID);
+						}
+					}
+				}
+			}
+
 			core::smart_refctd_ptr<CGLTFMetadata> glTFMetadata = core::make_smart_refctd_ptr<CGLTFMetadata>(globalPipelineMetadataSet.size());
 			{
 				if (glTF.defaultScene.has_value())
 					glTFMetadata->defaultSceneID = glTF.defaultScene.value();
 
-				glTFMetadata->instances = instances;
-				glTFMetadata->skeletons = skeletons;
+				glTFMetadata->instances = std::move(instances);
+				glTFMetadata->skeletons = std::move(skeletons);
+				glTFMetadata->scenes = std::move(scenes);
 
-				for (auto& it : sceneInstanceIDs)
-				{
-					const auto aSceneInstanceCount = it.size();
-					auto& scene = glTFMetadata->scenes.emplace_back();
-					scene.instanceIDs = it;
-				}
-
-				size_t i = {};
+				uint32_t i = 0u;
 				for (auto& meta : globalPipelineMetadataSet)
 					glTFMetadata->placeMeta(i++, meta.first, *meta.second);
 			}
@@ -2169,7 +2138,7 @@ namespace nbl
 										gltfChannel.target.path = SGLTF::SGLTFAnimation::SGLTFChannel::SGLTFP_WEIGHTS;
 									else
 									{
-										context.loadContext.params.logger.log("GLTF: UNSUPPORTED TARGET PATH!", system::ILogger::ELL_WARNING);
+										context.loadContext.params.logger.log("GLTF: UNSUPPORTED TARGET PATH!",system::ILogger::ELL_ERROR);
 										return false;
 									}
 								}
@@ -2206,7 +2175,7 @@ namespace nbl
 									gltfSampler.interpolation = SGLTF::SGLTFAnimation::SGLTFSampler::SGLTFI_CUBICSPLINE;
 								else
 								{
-									context.loadContext.params.logger.log("GLTF: UNSUPPORTED INTERPOLATION!", system::ILogger::ELL_WARNING);
+									context.loadContext.params.logger.log("GLTF: UNSUPPORTED INTERPOLATION!",system::ILogger::ELL_ERROR);
 									return false;
 								}
 							}
@@ -2243,7 +2212,7 @@ namespace nbl
 
 					if (glTFSkin.joints.size() > SGLTF::SGLTFSkin::MAX_JOINTS_REFERENCES)
 					{
-						context.loadContext.params.logger.log("GLTF: DETECTED TOO MANY JOINTS REFERENCES!", system::ILogger::ELL_WARNING);
+						context.loadContext.params.logger.log("GLTF: DETECTED TOO MANY JOINTS REFERENCES!",system::ILogger::ELL_ERROR);
 						return false;
 					}
 
@@ -2307,7 +2276,7 @@ namespace nbl
 							glTFAccessor.type = SGLTF::SGLTFAccessor::SGLTFT_MAT4;
 						else
 						{
-							context.loadContext.params.logger.log("GLTF: DETECTED UNSUPPORTED TYPE!", system::ILogger::ELL_WARNING);
+							context.loadContext.params.logger.log("GLTF: DETECTED UNSUPPORTED TYPE!",system::ILogger::ELL_ERROR);
 							return false;
 						}
 					}
@@ -2354,7 +2323,7 @@ namespace nbl
 
 					if (primitives.error() == simdjson::error_code::NO_SUCH_FIELD)
 					{
-						context.loadContext.params.logger.log("GLTF: COULD NOT DETECT ANY PRIMITIVE!", system::ILogger::ELL_WARNING);
+						context.loadContext.params.logger.log("GLTF: COULD NOT DETECT ANY PRIMITIVE!",system::ILogger::ELL_ERROR);
 						return false;
 					}
 
@@ -2413,7 +2382,7 @@ namespace nbl
 								{
 									if (attributeMap.second >= 1u)
 									{
-										context.loadContext.params.logger.log("GLTF: LOADER DOESN'T SUPPORT MULTIPLE UV ATTRIBUTES!", system::ILogger::ELL_WARNING);
+										context.loadContext.params.logger.log("GLTF: LOADER DOESN'T SUPPORT MULTIPLE UV ATTRIBUTES!",system::ILogger::ELL_ERROR);
 										return false;
 									}
 
@@ -2423,7 +2392,7 @@ namespace nbl
 								{
 									if (attributeMap.second >= 1u)
 									{
-										context.loadContext.params.logger.log("GLTF: LOADER DOESN'T SUPPORT MULTIPLE COLOR ATTRIBUTES!", system::ILogger::ELL_WARNING);
+										context.loadContext.params.logger.log("GLTF: LOADER DOESN'T SUPPORT MULTIPLE COLOR ATTRIBUTES!",system::ILogger::ELL_ERROR);
 										return false;
 									}
 
@@ -2433,7 +2402,7 @@ namespace nbl
 								{
 									if (attributeMap.second >= glTFPrimitive.attributes.MAX_JOINTS_ATTRIBUTES)
 									{
-										context.loadContext.params.logger.log("GLTF: EXCEEDED 'MAX_JOINTS_ATTRIBUTES' FOR JOINTS ATTRIBUTES!", system::ILogger::ELL_WARNING);
+										context.loadContext.params.logger.log("GLTF: EXCEEDED 'MAX_JOINTS_ATTRIBUTES' FOR JOINTS ATTRIBUTES!",system::ILogger::ELL_ERROR);
 										return false;
 									}
 
@@ -2443,7 +2412,7 @@ namespace nbl
 								{
 									if (attributeMap.second >= glTFPrimitive.attributes.MAX_WEIGHTS_ATTRIBUTES)
 									{
-										context.loadContext.params.logger.log("GLTF: EXCEEDED 'MAX_WEIGHTS_ATTRIBUTES' FOR JOINTS ATTRIBUTES!", system::ILogger::ELL_WARNING);
+										context.loadContext.params.logger.log("GLTF: EXCEEDED 'MAX_WEIGHTS_ATTRIBUTES' FOR JOINTS ATTRIBUTES!",system::ILogger::ELL_ERROR);
 										return false;
 									}
 
@@ -2561,7 +2530,7 @@ namespace nbl
 
 					if (!handleTheGLTFTree()) //! TODO more validations in future for glTF objects
 					{
-						context.loadContext.params.logger.log("GLTF: NODE VALIDATION FAILED!", system::ILogger::ELL_WARNING);
+						context.loadContext.params.logger.log("GLTF: NODE VALIDATION FAILED!",system::ILogger::ELL_ERROR);
 						return false;
 					}
 				}

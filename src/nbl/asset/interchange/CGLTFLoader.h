@@ -55,12 +55,6 @@ class CGLTFLoader final : public IRenderpassIndependentPipelineLoader
 				return "nbl/builtin/pipelines/loaders/glTF/static/" + std::to_string(primitiveType) + vertexInputParams.to_string();
 		}
 
-		static inline std::string getSamplerCacheKey(const asset::ICPUSampler::SParams& params)
-		{
-			const std::size_t hash = std::hash<std::string_view>{}(std::string_view(reinterpret_cast<const char*>(&params), sizeof(params)));
-			return "nbl/builtin/samplers/loaders/glTF/" + std::to_string(hash);
-		}
-
 	private:
 
 		virtual void initialize() override;
