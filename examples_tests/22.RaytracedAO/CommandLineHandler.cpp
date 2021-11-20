@@ -26,6 +26,20 @@ CommandLineHandler::CommandLineHandler(const std::vector<std::string>& argv)
 	};
 
 	auto arguments = argv;
+	
+	auto ltrim = [](const std::string &s)
+	{
+		const std::string WHITESPACE = " \n\r\t\f\v";
+		size_t start = s.find_first_not_of(WHITESPACE);
+		return (start == std::string::npos) ? "" : s.substr(start);
+	};
+ 
+	auto rtrim = [](const std::string &s)
+	{
+		const std::string WHITESPACE = " \n\r\t\f\v";
+		size_t end = s.find_last_not_of(WHITESPACE);
+		return (end == std::string::npos) ? "" : s.substr(0, end + 1);
+	};
 
 	auto getSerializedValues = [&](const auto& variablesStream, const std::regex& separator=std::regex{"[[:s:]]"})
 	{
@@ -104,9 +118,33 @@ CommandLineHandler::CommandLineHandler(const std::vector<std::string>& argv)
 			if(endOfFetchedVariableName != std::string::npos)
 			{
 				auto value = rawFetchedCmdArgument.substr(endOfFetchedVariableName + 1);
-				std::vector<std::string> toAdd;
-				toAdd.push_back(value);
-				rawVariables[arg].emplace(toAdd);
+				auto zipExtensionPos = value.find(".zip");
+				if(zipExtensionPos == std::string::npos)
+					zipExtensionPos = value.find(".ZIP");
+
+				if(zipExtensionPos != std::string::npos)
+				{
+					auto endOfZip = zipExtensionPos + 4;
+					std::vector<std::string> toAdd;
+					// found .zip, add .zip path + the rest
+					auto zip = value.substr(0, endOfZip);
+					auto remaining = value.substr(endOfZip);
+					toAdd.push_back(zip);
+					if(!remaining.empty()) {
+						// remove starting spaces
+						remaining = ltrim(remaining);
+						toAdd.push_back(remaining);
+					}
+					rawVariables[arg].emplace(toAdd);
+				}
+				else
+				{
+					std::vector<std::string> toAdd;
+					// no .zip, push back all the variable to SCENE
+					toAdd.push_back(value);
+					rawVariables[arg].emplace(toAdd);
+				}
+
 			}
 			else
 			{

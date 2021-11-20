@@ -26,10 +26,11 @@ Description and usage:
 -TERMINATE:
 	which will make the app stop when the required amount of samples has been renderered (its in the Mitsuba Scene metadata) and obviously take screenshot when quitting
 	
-Example Usage :
+Example Usages :
 	raytracedao.exe -SCENE=../../media/kitchen.zip scene.xml -TERMINATE
-Alternative:
-	raytracedao.exe -SCENE ../../media/kitchen.zip scene.xml -TERMINATE
+	raytracedao.exe -SCENE="../../media/my good kitchen.zip" scene.xml -TERMINATE
+	raytracedao.exe -SCENE="../../media/my good kitchen.zip scene.xml" -TERMINATE
+	raytracedao.exe -SCENE="../../media/extraced folder/scene.xml" -TERMINATE
 )";
  
 
