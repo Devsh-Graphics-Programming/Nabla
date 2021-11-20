@@ -91,7 +91,7 @@ namespace nbl
 					const asset::ICPUShader* unspecializedShader = cpuShader->getUnspecialized();
 					assert(unspecializedShader->containsGLSL());
 
-					auto newUnspecializedShader = IGLSLCompiler::createOverridenCopy(unspecializedShader, NBL_SKINNING_OVERRIDE.data(), 69);
+					auto newUnspecializedShader = IGLSLCompiler::createOverridenCopy(unspecializedShader, NBL_SKINNING_OVERRIDE.data(), 0x45u);
 					auto specializedInfo = cpuShader->getSpecializationInfo();
 
 					return core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(newUnspecializedShader), std::move(specializedInfo));
@@ -175,12 +175,11 @@ namespace nbl
 			if(!loadAndGetGLTF(glTF, context))
 				return {};
 
-			// TODO: having validated and loaded glTF data we can use it to create pipelines and data
-
 			core::vector<core::smart_refctd_ptr<ICPUBuffer>> cpuBuffers;
 			for (auto& glTFBuffer : glTF.buffers)
 			{
-				auto buffer_bundle = assetManager->getAsset(glTFBuffer.uri.value(),context.loadContext.params);
+				// FarFuture TODO: handle buffer embedded in glTF
+				auto buffer_bundle = interm_getAssetInHierarchy(assetManager,glTFBuffer.uri.value(),context.loadContext.params,_hierarchyLevel+ICPUMesh::BUFFER_HIERARCHYLEVELS_BELOW,_override);
 				if (buffer_bundle.getContents().empty())
 					return {};
 
@@ -188,23 +187,24 @@ namespace nbl
 				cpuBuffers.emplace_back() = core::smart_refctd_ptr<ICPUBuffer>(cpuBuffer);
 			}
 
+			const auto imageViewHierarchyLevel = _hierarchyLevel+ICPUMesh::IMAGEVIEW_HIERARCHYLEVELS_BELOW;
 			core::vector<core::smart_refctd_ptr<ICPUImageView>> cpuImageViews;
 			{
 				for (auto& glTFImage : glTF.images)
 				{
 					auto& cpuImageView = cpuImageViews.emplace_back();
 
+					// FarFuture TODO: handle image embedded in glTF 
+					// TODO: factor this out to be common for all PipelineLoaders https://github.com/Devsh-Graphics-Programming/Nabla/issues/270
 					if (glTFImage.uri.has_value())
 					{
+						// TODO: THIS IS AN ABSOLUTELY WRONG CACHE PRE-PATH KEY TO USE!
 						const std::string cpuImageViewCacheKey = getImageViewCacheKey(glTFImage.uri.value());
 
-						const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_IMAGE_VIEW, (asset::IAsset::E_TYPE)0u };
-						auto image_view_bundle = _override->findCachedAsset(cpuImageViewCacheKey, types, context.loadContext, _hierarchyLevel);
-						if (!image_view_bundle.getContents().empty())
-							cpuImageView = core::smart_refctd_ptr_static_cast<ICPUImageView>(image_view_bundle.getContents().begin()[0]);
-						else
+						cpuImageView = _override->findDefaultAsset<ICPUImageView>(cpuImageViewCacheKey,context.loadContext,imageViewHierarchyLevel).first;
+						if (!cpuImageView)
 						{
-							auto image_bundle = assetManager->getAsset(glTFImage.uri.value(), context.loadContext.params);
+							auto image_bundle = interm_getAssetInHierarchy(assetManager,glTFImage.uri.value(),context.loadContext.params,imageViewHierarchyLevel,_override);
 							if (image_bundle.getContents().empty())
 								return {};
 
@@ -224,7 +224,7 @@ namespace nbl
 									viewParams.subresourceRange.baseMipLevel = 0u;
 									viewParams.subresourceRange.levelCount = 1u;
 
-									cpuImageView = ICPUImageView::create(std::move(viewParams)); // TODO: cache this image view
+									cpuImageView = ICPUImageView::create(std::move(viewParams));
 								} break;
 
 								case IAsset::ET_IMAGE_VIEW:
@@ -239,8 +239,9 @@ namespace nbl
 								}
 							}
 
+							// TODO: this is wrong, it adds a loaded image view (the second switch case) to the cache again, move this insertion to the first switch case
 							SAssetBundle samplerBundle = SAssetBundle(nullptr, { core::smart_refctd_ptr(cpuImageView) });
-							_override->insertAssetIntoCache(samplerBundle, cpuImageViewCacheKey, context.loadContext, _hierarchyLevel);
+							_override->insertAssetIntoCache(samplerBundle,cpuImageViewCacheKey,context.loadContext,imageViewHierarchyLevel);
 						}	
 					}
 					else
@@ -352,12 +353,11 @@ namespace nbl
 					const std::string cacheKey = getSamplerCacheKey(samplerParams);
 					cpuSamplers.push_back(cacheKey);
 
-					const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_SAMPLER, (asset::IAsset::E_TYPE)0u };
-					auto sampler_bundle = _override->findCachedAsset(cacheKey, types, context.loadContext, _hierarchyLevel /*TODO + what here?*/);
-					if (sampler_bundle.getContents().empty())
+					const auto samplerHierarchyLevel = _hierarchyLevel+ICPUMesh::SAMPLER_HIERARCHYLEVELS_BELOW;
+					if (!_override->findDefaultAsset<ICPUSampler>(cacheKey,context.loadContext,samplerHierarchyLevel).first)
 					{
 						SAssetBundle samplerBundle = SAssetBundle(nullptr, {core::make_smart_refctd_ptr<ICPUSampler>(std::move(samplerParams))});
-						_override->insertAssetIntoCache(samplerBundle, cacheKey, context.loadContext, _hierarchyLevel /*TODO + what here?*/);
+						_override->insertAssetIntoCache(samplerBundle, cacheKey, context.loadContext, samplerHierarchyLevel);
 					}
 				}
 			}
@@ -376,20 +376,7 @@ namespace nbl
 					if (glTFTexture.source.has_value())
 						cpuImageView = core::smart_refctd_ptr<ICPUImageView>(cpuImageViews[glTFTexture.source.value()]);
 					else
-					{
-						auto default_imageview_bundle = assetManager->getAsset("nbl/builtin/image_view/dummy2d", context.loadContext.params);
-						const bool status = !default_imageview_bundle.getContents().empty();
-						if (status)
-						{
-							auto cpuDummyImageView = core::smart_refctd_ptr_static_cast<ICPUImageView>(default_imageview_bundle.getContents().begin()[0]);
-							cpuImageView = core::smart_refctd_ptr<ICPUImageView>(cpuDummyImageView);
-						}
-						else
-						{
-							context.loadContext.params.logger.log("GLTF: COULD NOT LOAD BUILTIN DUMMY IMAGE VIEW!", system::ILogger::ELL_WARNING);
-							return {};
-						}
-					}
+						cpuImageView = _override->findDefaultAsset<ICPUImageView>("nbl/builtin/image_view/dummy2d",context.loadContext,imageViewHierarchyLevel).first;
 				}
 			}
 			
@@ -397,10 +384,21 @@ namespace nbl
 			// cache
 			struct MeshSkinPair
 			{
+				inline bool operator==(const MeshSkinPair& other) const = default;
+
 				uint32_t mesh;
 				uint32_t skin;
 			};
-			core::unordered_set<uint64_t> meshSkinPairs; //! MeshSkinPair casted to uint64_t
+			struct MeshSkinPairHash
+			{
+				inline size_t operator()(const MeshSkinPair& p) const
+				{
+					uint64_t val = p.skin;
+					val = (val<<32ull)|p.mesh;
+					return std::hash<uint64_t>()(val);
+				}
+			};
+			core::unordered_set<MeshSkinPair,MeshSkinPairHash> meshSkinPairs;
 			struct Skin
 			{
 				core::smart_refctd_ptr<ICPUSkeleton> skeleton = {};
@@ -443,30 +441,28 @@ namespace nbl
 								continue;
 
 							const uint32_t skinID = glTFnode.skin.has_value() ? glTFnode.skin.value() : 0xdeadbeef;
-							MeshSkinPair meshSkinPair = { meshID,skinID };
-
-							meshSkinPairs.insert(*reinterpret_cast<uint64_t*>(&meshSkinPair));
+							meshSkinPairs.insert({ meshID,skinID });
 						}
 						// then figure out the remapping to ICPUSkeleton Nodes
 						core::stack<uint32_t> dfsTraversalStack;
 						for (uint32_t index=0u; index<nodeCount; ++index)
 						{
-							const auto& glTFnode = glTF.nodes[index];
 							if (globalParent[index]==ICPUSkeleton::invalid_joint_id)
 							{
-								const uint32_t skeletonID = skeletonNodes[index].skeletonID = skeletonJointCount.size();
+								const uint32_t skeletonID = skeletonJointCount.size();
 								uint32_t& jointID = skeletonJointCount.emplace_back() = 0u;
-								skeletonNodes[index].localJointID = jointID++;
-								skeletonNodes[index].localParentJointID = ICPUSkeleton::invalid_joint_id;
 								//
-								auto addNodeToSkeleton = [skeletonID,&jointID,&skeletonNodes,&globalParent](const uint32_t globalNodeID) -> void
+								auto addNodeToSkeleton = [skeletonID,&jointID,&skeletonNodes,&globalParent,&glTF,&dfsTraversalStack](const uint32_t globalNodeID) -> void
 								{
+									const auto parent = globalParent[globalNodeID];
+
 									skeletonNodes[globalNodeID].skeletonID = skeletonID;
 									skeletonNodes[globalNodeID].localJointID = jointID++;
-									skeletonNodes[globalNodeID].localParentJointID = skeletonNodes[globalParent[globalNodeID]].localJointID;
+ 									skeletonNodes[globalNodeID].localParentJointID = parent!=ICPUSkeleton::invalid_joint_id ? skeletonNodes[parent].localJointID:ICPUSkeleton::invalid_joint_id;
+									for (auto child : glTF.nodes[globalNodeID].children)
+										dfsTraversalStack.push(child);
 								};
-								for (auto child : glTFnode.children)
-									dfsTraversalStack.push(child);
+								addNodeToSkeleton(index);
 								while (!dfsTraversalStack.empty())
 								{
 									const auto globalNodeID = dfsTraversalStack.top();
@@ -528,17 +524,10 @@ namespace nbl
 						continue;
 
 					// find LCM
-					core::unordered_map<uint32_t,uint32_t> commonAncestors;
+					std::unordered_map<uint32_t,uint32_t> commonAncestors;
 					// populate
-					{
-						uint32_t level = 0u;
-						for (uint32_t node = glTFSkin.joints[0]; globalParent[node] != ICPUSkeleton::invalid_joint_id; node = globalParent[node])
-						{
-							commonAncestors.insert({ node, level });
-							++level;
-						}
-
-					}
+					for (uint32_t node=glTFSkin.joints[0]; node!=ICPUSkeleton::invalid_joint_id; node=globalParent[node])
+						commonAncestors.insert({node,0u});
 					// trim
 					for (const auto& joint : glTFSkin.joints)
 					{
@@ -547,7 +536,7 @@ namespace nbl
 							ancestor.second = ~0u;
 						// visit
 						uint32_t level = 0u;
-						for (uint32_t node=joint; globalParent[node]!=ICPUSkeleton::invalid_joint_id; node=globalParent[node])
+						for (uint32_t node=joint; node!=ICPUSkeleton::invalid_joint_id; node=globalParent[node])
 						{
 							auto found = commonAncestors.find(node);
 							if (found!=commonAncestors.end())
@@ -555,11 +544,13 @@ namespace nbl
 							level++;
 						}
 						// remove unvisited
-						for (auto it = commonAncestors.begin(); it != commonAncestors.end();)
+						for (auto it=commonAncestors.begin(); it!=commonAncestors.end();)
+						{
 							if (it->second == ~0u)
-								commonAncestors.erase(it);
+								it = commonAncestors.erase(it);
 							else
 								++it;
+						}
 					}
 					// validate
 					if (commonAncestors.empty())
@@ -644,7 +635,7 @@ namespace nbl
 							for (uint32_t j = 0; j < jointCount; ++j)
 							{
 								reinterpret_cast<ICPUSkeleton::joint_id_t*>(skins[index].translationTable.buffer->getPointer())[j + skinJointRefCount] = skeletonNodes[glTFSkin.joints[j]].localJointID;
-								*(outData + j) = (inData + j)->extractSub3x4();
+								outData[j] = inData[j].extractSub3x4();
 							}	
 						}
 					}
@@ -676,21 +667,24 @@ namespace nbl
 							{
 								switch (modeValue)
 								{
-								case SGLTFPrimitive::SGLTFPT_POINTS:
-									return EPT_POINT_LIST;
-								case SGLTFPrimitive::SGLTFPT_LINES:
-									return EPT_LINE_LIST;
-								case SGLTFPrimitive::SGLTFPT_LINE_LOOP:
-									return EPT_LINE_LIST_WITH_ADJACENCY; // check it
-								case SGLTFPrimitive::SGLTFPT_LINE_STRIP:
-									return EPT_LINE_STRIP;
-								case SGLTFPrimitive::SGLTFPT_TRIANGLES:
-									return EPT_TRIANGLE_LIST;
-								case SGLTFPrimitive::SGLTFPT_TRIANGLE_STRIP:
-									return EPT_TRIANGLE_STRIP;
-								case SGLTFPrimitive::SGLTFPT_TRIANGLE_FAN:
-									return EPT_TRIANGLE_STRIP_WITH_ADJACENCY; // check it
+									case SGLTFPrimitive::SGLTFPT_POINTS:
+										return EPT_POINT_LIST;
+									case SGLTFPrimitive::SGLTFPT_LINES:
+										return EPT_LINE_LIST;
+									case SGLTFPrimitive::SGLTFPT_LINE_LOOP:
+										return EPT_LINE_LIST_WITH_ADJACENCY; // check it
+									case SGLTFPrimitive::SGLTFPT_LINE_STRIP:
+										return EPT_LINE_STRIP;
+									case SGLTFPrimitive::SGLTFPT_TRIANGLES:
+										return EPT_TRIANGLE_LIST;
+									case SGLTFPrimitive::SGLTFPT_TRIANGLE_STRIP:
+										return EPT_TRIANGLE_STRIP;
+									case SGLTFPrimitive::SGLTFPT_TRIANGLE_FAN:
+										return EPT_TRIANGLE_STRIP_WITH_ADJACENCY; // check it
+									default:
+										break;
 								}
+								return EPT_PATCH_LIST;
 							};
 
 							auto [hasUV, hasColor] = std::make_pair<bool, bool>(false, false);
@@ -1644,7 +1638,7 @@ namespace nbl
 							const std::string& pipelineCacheKey = getPipelineCacheKey(primitiveTopology, vertexInputParams, skinningEnabled);
 							{
 								const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_RENDERPASS_INDEPENDENT_PIPELINE, (asset::IAsset::E_TYPE)0u };
-								auto pipeline_bundle = _override->findCachedAsset(pipelineCacheKey, types, context.loadContext, _hierarchyLevel + ICPUMesh::PIPELINE_HIERARCHYLEVELS_BELOW);
+								auto pipeline_bundle = _override->findCachedAsset(pipelineCacheKey, types, context.loadContext, _hierarchyLevel+ICPUMesh::PIPELINE_HIERARCHYLEVELS_BELOW);
 								if (!pipeline_bundle.getContents().empty())
 									cpuPipeline = core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(pipeline_bundle.getContents().begin()[0]);
 								else
@@ -1667,7 +1661,7 @@ namespace nbl
 									globalPipelineMetadataSet[cpuPipeline.get()] = core::smart_refctd_ptr(glTFPipelineMetadata);
 									SAssetBundle pipelineBundle = SAssetBundle(core::smart_refctd_ptr(glTFPipelineMetadata), { cpuPipeline });
 
-									_override->insertAssetIntoCache(pipelineBundle, pipelineCacheKey, context.loadContext, _hierarchyLevel + ICPUMesh::PIPELINE_HIERARCHYLEVELS_BELOW);
+									_override->insertAssetIntoCache(pipelineBundle, pipelineCacheKey, context.loadContext, _hierarchyLevel+ICPUMesh::PIPELINE_HIERARCHYLEVELS_BELOW);
 								}
 								cpuMeshBuffer->setPipeline(std::move(cpuPipeline));
 								cpuMesh->getMeshBufferVector().push_back(std::move(cpuMeshBuffer));
@@ -1725,10 +1719,8 @@ namespace nbl
 
 				const uint32_t skinID = glTFnode.skin.has_value() ? glTFnode.skin.value() : 0xdeadbeef;
 
-				MeshSkinPair meshSkinPair = { meshID, skinID };
-			
 				// record that as an instance 
-				auto found = meshSkinPairs.find(*reinterpret_cast<uint64_t*>(&meshSkinPair));
+				auto found = meshSkinPairs.find({meshID,skinID});
 				assert(found!=meshSkinPairs.end());
 
 				const auto sceneID = getSceneIDANodeBelongsTo(index); // what how can I determine if instance x belongs to scene y, it won't find it always!

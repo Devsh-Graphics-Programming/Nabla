@@ -126,18 +126,18 @@ static core::smart_refctd_ptr<asset::ICPUMeshBuffer> createMeshBufferFromGeomCre
 
 class TransformationApp : public ApplicationBase
 {
-	_NBL_STATIC_INLINE_CONSTEXPR uint32_t WIN_W = 1280;
-	_NBL_STATIC_INLINE_CONSTEXPR uint32_t WIN_H = 720;
-	_NBL_STATIC_INLINE_CONSTEXPR uint32_t FBO_COUNT = 1u;
-	_NBL_STATIC_INLINE_CONSTEXPR uint32_t FRAMES_IN_FLIGHT = 5u;
-	static_assert(FRAMES_IN_FLIGHT > FBO_COUNT);
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t WIN_W = 1280;
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t WIN_H = 720;
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t FBO_COUNT = 1u;
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t FRAMES_IN_FLIGHT = 5u;
+		static_assert(FRAMES_IN_FLIGHT > FBO_COUNT);
 
-	_NBL_STATIC_INLINE_CONSTEXPR uint32_t ObjectCount = 11u;
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t ObjectCount = 11u;
 
-	_NBL_STATIC_INLINE_CONSTEXPR uint32_t FRAME_COUNT = 500000u;
-	_NBL_STATIC_INLINE_CONSTEXPR uint64_t MAX_TIMEOUT = 99999999999999ull;
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t FRAME_COUNT = 500000u;
+		_NBL_STATIC_INLINE_CONSTEXPR uint64_t MAX_TIMEOUT = 99999999999999ull;
 
-	_NBL_STATIC_INLINE_CONSTEXPR float SimulationSpeedScale = 0.03f; //! Instance Data
+		_NBL_STATIC_INLINE_CONSTEXPR float SimulationSpeedScale = 0.03f; //! Instance Data
 
 	public:
 		void setWindow(core::smart_refctd_ptr<nbl::ui::IWindow>&& wnd) override
