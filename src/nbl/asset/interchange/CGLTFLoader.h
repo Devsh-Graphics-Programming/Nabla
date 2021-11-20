@@ -12,7 +12,7 @@
 #include "nbl/core/declarations.h"
 #include "nbl/asset/ICPUImageView.h"
 #include "nbl/asset/interchange/IAssetLoader.h"
-#include "nbl/asset/metadata/CGLTFPipelineMetadata.h"
+#include "nbl/asset/metadata/CGLTFMetadata.h"
 
 namespace nbl
 {
@@ -44,9 +44,17 @@ namespace nbl
 
 				asset::SAssetBundle loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
-				static inline std::string getPipelineCacheKey(const E_PRIMITIVE_TOPOLOGY& primitiveType, const SVertexInputParams& vertexInputParams)
+				static inline std::string getImageViewCacheKey(const std::string& uri)
 				{
-					return "nbl/builtin/pipelines/loaders/glTF/" + std::to_string(primitiveType) + vertexInputParams.to_string();
+					return "nbl/builtin/image_views/loaders/glTF/" + uri;
+				}
+
+				static inline std::string getPipelineCacheKey(const E_PRIMITIVE_TOPOLOGY& primitiveType, const SVertexInputParams& vertexInputParams, bool skinned)
+				{
+					if (skinned)
+						return "nbl/builtin/pipelines/loaders/glTF/skinned/" + std::to_string(primitiveType) + vertexInputParams.to_string();
+					else
+						return "nbl/builtin/pipelines/loaders/glTF/static/" + std::to_string(primitiveType) + vertexInputParams.to_string();
 				}
 
 				static inline std::string getSamplerCacheKey(const asset::ICPUSampler::SParams& params)
@@ -157,6 +165,11 @@ namespace nbl
 						}
 					};
 
+					struct SGLTFScene
+					{
+						std::vector<uint32_t> nodes;
+					};
+
 					/*
 						A node in the node hierarchy. A node can contain one mesh.
 						A node's transform places the mesh in the scene. A node can have either 
@@ -219,7 +232,6 @@ namespace nbl
 							return true;
 						}
 					};
-
 
 					/*
 						An accessor provides a typed view into a bufferView or a subset of a bufferView similar to
@@ -691,6 +703,8 @@ namespace nbl
 						indices to look up the objects in arrays 
 					*/
 					
+					std::optional<uint32_t> defaultScene;
+					std::vector<SGLTFScene> scenes;
 					std::vector<SGLTFMesh> meshes;
 					std::vector<SGLTFNode> nodes;
 					std::vector<SGLTFAccessor> accessors;
@@ -726,7 +740,7 @@ namespace nbl
 				};
 
 				bool loadAndGetGLTF(SGLTF& glTF, SContext& context);
-				core::smart_refctd_ptr<ICPUPipelineLayout> makePipelineLayoutFromGLTF(SContext& context, CGLTFPipelineMetadata::SGLTFMaterialParameters& pushConstants, SMaterialDependencyData& materialData, bool isSkinned);
+				core::smart_refctd_ptr<ICPUPipelineLayout> makePipelineLayoutFromGLTF(SContext& context, const asset::CGLTFPipelineMetadata::SGLTFMaterialParameters& pushConstants, SMaterialDependencyData& materialData, bool isSkinned);
 				core::smart_refctd_ptr<ICPUDescriptorSet> makeAndGetDS3set(std::array<core::smart_refctd_ptr<ICPUImageView>, SGLTF::SGLTFMaterial::EGT_COUNT>& cpuImageViews, core::smart_refctd_ptr<ICPUDescriptorSetLayout> cpuDescriptorSet3Layout);
 
 				asset::IAssetManager* const assetManager;

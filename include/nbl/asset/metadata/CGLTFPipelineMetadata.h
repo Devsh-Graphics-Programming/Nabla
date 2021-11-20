@@ -6,7 +6,9 @@
 #include "nbl/asset/ICPUDescriptorSet.h"
 #include "nbl/asset/ICPUPipelineLayout.h"
 
-namespace nbl::asset
+namespace nbl
+{
+namespace asset
 {
 
 class CGLTFPipelineMetadata final : public IAssetMetadata, public IRenderpassIndependentPipelineMetadata
@@ -22,11 +24,9 @@ class CGLTFPipelineMetadata final : public IAssetMetadata, public IRenderpassInd
             EAM_BLEND = core::createBitmask({2})
         };
 
-        // TODO: this all actually fits in 128b of PushConstants
-        // TODO: you dont need to pack the script, alignas(16) and packing are mutually exclusive
         #include "nbl/nblpack.h"
         //! This struct is compliant with GLSL's std140 and std430 layouts
-        struct alignas(16) SGLTFMaterialParameters
+        struct SGLTFMaterialParameters
         {
             struct SPBRMetallicRoughness
             {
@@ -54,6 +54,8 @@ class CGLTFPipelineMetadata final : public IAssetMetadata, public IRenderpassInd
 
         } PACK_STRUCT;
         #include "nbl/nblunpack.h"
+
+        static_assert(sizeof(SGLTFMaterialParameters) <= asset::ICPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE);
             
         CGLTFPipelineMetadata(core::smart_refctd_dynamic_array<ShaderInputSemantic>&& _inputs)
             : IRenderpassIndependentPipelineMetadata(core::SRange<const IRenderpassIndependentPipelineMetadata::ShaderInputSemantic>(_inputs->begin(),_inputs->end())) {}
@@ -62,6 +64,7 @@ class CGLTFPipelineMetadata final : public IAssetMetadata, public IRenderpassInd
         const char* getLoaderName() const override { return loaderName; }
 };
 
+}
 }
 
 #endif // _NBL_C_GLTF_PIPELINE_METADATA_H_INCLUDED_

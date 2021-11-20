@@ -7,13 +7,18 @@
 #ifdef _NBL_COMPILE_WITH_GLTF_LOADER_
 
 #include "nbl/asset/utils/CDerivativeMapCreator.h"
-#include "nbl/asset/metadata/CGLTFMetadata.h"
 #include "simdjson/singleheader/simdjson.h"
 #include <algorithm>
+#include <execution>
 
 #define VERT_SHADER_UV_CACHE_KEY "nbl/builtin/shader/loader/gltf/vertex_uv.vert"
 #define VERT_SHADER_COLOR_CACHE_KEY "nbl/builtin/shader/loader/gltf/vertex_color.vert"
 #define VERT_SHADER_NO_UV_COLOR_CACHE_KEY "nbl/builtin/shader/loader/gltf/vertex_no_uv_color.vert"
+
+//! created and cached from above shaders
+#define VERT_SHADER_SKINNED_UV_CACHE_KEY "nbl/builtin/shader/loader/gltf/skinned/vertex_uv.vert"
+#define VERT_SHADER_SKINNED_COLOR_CACHE_KEY "nbl/builtin/shader/loader/gltf/skinned/vertex_color.vert"
+#define VERT_SHADER_SKINNED_NO_UV_COLOR_CACHE_KEY "nbl/builtin/shader/loader/gltf/skinned/vertex_no_uv_color.vert"
 
 #define FRAG_SHADER_UV_CACHE_KEY "nbl/builtin/shader/loader/gltf/fragment_uv.frag"
 #define FRAG_SHADER_COLOR_CACHE_KEY "nbl/builtin/shader/loader/gltf/fragment_color.frag"
@@ -66,9 +71,9 @@ namespace nbl
 		CGLTFLoader::CGLTFLoader(asset::IAssetManager* _m_assetMgr) 
 			: IRenderpassIndependentPipelineLoader(_m_assetMgr), assetManager(_m_assetMgr)
 		{
-			auto registerShader = [&](auto constexprStringType, ICPUSpecializedShader::E_SHADER_STAGE stage) -> void
+			auto registerShader = [&](auto constexprStringTypeStatic, auto constexprStringTypeSkinned, ICPUSpecializedShader::E_SHADER_STAGE stage) -> void
 			{
-				auto glslFile = assetManager->getSystem()->loadBuiltinData<decltype(constexprStringType)>();
+				auto glslFile = assetManager->getSystem()->loadBuiltinData<decltype(constexprStringTypeStatic)>();
 				core::smart_refctd_ptr<asset::ICPUBuffer> glsl;
 				{
 					glsl = core::make_smart_refctd_ptr<asset::ICPUBuffer>(glslFile->getSize());
@@ -79,24 +84,44 @@ namespace nbl
 				ICPUSpecializedShader::SInfo specInfo({}, nullptr, "main", stage, stage != ICPUSpecializedShader::ESS_VERTEX ? "?Nabla glTFLoader FragmentShader?" : "?Nabla glTFLoader VertexShader?");
 				auto cpuShader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecializedShader), std::move(specInfo));
 
-				auto insertShaderIntoCache = [&](const char* path)
+				constexpr std::string_view NBL_SKINNING_OVERRIDE = "#define _NBL_SKINNING_ENABLED_\n";
+
+				auto getOverridenShader = [&]() -> core::smart_refctd_ptr<ICPUSpecializedShader>
 				{
-					asset::SAssetBundle bundle(nullptr, { cpuShader });
+					const asset::ICPUShader* unspecializedShader = cpuShader->getUnspecialized();
+					assert(unspecializedShader->containsGLSL());
+
+					auto newUnspecializedShader = IGLSLCompiler::createOverridenCopy(unspecializedShader, NBL_SKINNING_OVERRIDE.data(), 69);
+					auto specializedInfo = cpuShader->getSpecializationInfo();
+
+					return core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(newUnspecializedShader), std::move(specializedInfo));
+				};
+
+				auto cpuShaderSkinned = getOverridenShader();
+
+				auto insertShaderIntoCache = [&](const char* path, core::smart_refctd_ptr<asset::ICPUSpecializedShader> shader)
+				{
+					asset::SAssetBundle bundle(nullptr, { shader });
 					assetManager->changeAssetKey(bundle, path);
 					assetManager->insertAssetIntoCache(bundle);
 				};
 
-				insertShaderIntoCache(decltype(constexprStringType)::value);
+				insertShaderIntoCache(decltype(constexprStringTypeStatic)::value, cpuShader);
+				insertShaderIntoCache(decltype(constexprStringTypeSkinned)::value, cpuShaderSkinned);
 			};
 
-			// TODO: separate versions with/without skinning?
-			registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_UV_CACHE_KEY) {}, ICPUSpecializedShader::ESS_VERTEX);
-			registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_COLOR_CACHE_KEY) {}, ICPUSpecializedShader::ESS_VERTEX);
-			registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_NO_UV_COLOR_CACHE_KEY) {}, ICPUSpecializedShader::ESS_VERTEX);
+			/*
+				The lambda registers either static
+				and skinned version of the shader
+			*/
 
-			registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_UV_CACHE_KEY) {}, ICPUSpecializedShader::ESS_FRAGMENT);
-			registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_COLOR_CACHE_KEY) {}, ICPUSpecializedShader::ESS_FRAGMENT);
-			registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_NO_UV_COLOR_CACHE_KEY) {}, ICPUSpecializedShader::ESS_FRAGMENT);
+			registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_UV_CACHE_KEY) {}, NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_SKINNED_UV_CACHE_KEY) {}, ICPUSpecializedShader::ESS_VERTEX);
+			registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_COLOR_CACHE_KEY) {}, NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_SKINNED_COLOR_CACHE_KEY) {}, ICPUSpecializedShader::ESS_VERTEX);
+			registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_NO_UV_COLOR_CACHE_KEY) {}, NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_SKINNED_NO_UV_COLOR_CACHE_KEY) {}, ICPUSpecializedShader::ESS_VERTEX);
+
+			registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_UV_CACHE_KEY) {}, NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_UV_CACHE_KEY) {}, ICPUSpecializedShader::ESS_FRAGMENT);
+			registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_COLOR_CACHE_KEY) {}, NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_COLOR_CACHE_KEY) {}, ICPUSpecializedShader::ESS_FRAGMENT);
+			registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_NO_UV_COLOR_CACHE_KEY) {}, NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_NO_UV_COLOR_CACHE_KEY) {}, ICPUSpecializedShader::ESS_FRAGMENT);
 		}
 
 		void CGLTFLoader::initialize()
@@ -171,40 +196,52 @@ namespace nbl
 
 					if (glTFImage.uri.has_value())
 					{
-						auto image_bundle = assetManager->getAsset(glTFImage.uri.value(),context.loadContext.params);
-						if (image_bundle.getContents().empty())
-							return {};
+						const std::string cpuImageViewCacheKey = getImageViewCacheKey(glTFImage.uri.value());
 
-						auto cpuAsset = image_bundle.getContents().begin()[0];
-
-						switch (cpuAsset->getAssetType())
+						const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_IMAGE_VIEW, (asset::IAsset::E_TYPE)0u };
+						auto image_view_bundle = _override->findCachedAsset(cpuImageViewCacheKey, types, context.loadContext, _hierarchyLevel);
+						if (!image_view_bundle.getContents().empty())
+							cpuImageView = core::smart_refctd_ptr_static_cast<ICPUImageView>(image_view_bundle.getContents().begin()[0]);
+						else
 						{
-							case IAsset::ET_IMAGE:
-							{
-								ICPUImageView::SCreationParams viewParams;
-								viewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
-								viewParams.image = core::smart_refctd_ptr_static_cast<asset::ICPUImage>(cpuAsset);
-								viewParams.format = viewParams.image->getCreationParameters().format;
-								viewParams.viewType = IImageView<ICPUImage>::ET_2D;
-								viewParams.subresourceRange.baseArrayLayer = 0u;
-								viewParams.subresourceRange.layerCount = 1u;
-								viewParams.subresourceRange.baseMipLevel = 0u;
-								viewParams.subresourceRange.levelCount = 1u;
-
-								cpuImageView = ICPUImageView::create(std::move(viewParams)); // TODO: cache this image view
-							} break;
-
-							case IAsset::ET_IMAGE_VIEW:
-							{
-								cpuImageView = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(cpuAsset);
-							} break;
-
-							default:
-							{
-								context.loadContext.params.logger.log("GLTF: EXPECTED IMAGE ASSET TYPE!", system::ILogger::ELL_WARNING);
+							auto image_bundle = assetManager->getAsset(glTFImage.uri.value(), context.loadContext.params);
+							if (image_bundle.getContents().empty())
 								return {};
+
+							auto cpuAsset = image_bundle.getContents().begin()[0];
+
+							switch (cpuAsset->getAssetType())
+							{
+								case IAsset::ET_IMAGE:
+								{
+									ICPUImageView::SCreationParams viewParams;
+									viewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
+									viewParams.image = core::smart_refctd_ptr_static_cast<asset::ICPUImage>(cpuAsset);
+									viewParams.format = viewParams.image->getCreationParameters().format;
+									viewParams.viewType = IImageView<ICPUImage>::ET_2D;
+									viewParams.subresourceRange.baseArrayLayer = 0u;
+									viewParams.subresourceRange.layerCount = 1u;
+									viewParams.subresourceRange.baseMipLevel = 0u;
+									viewParams.subresourceRange.levelCount = 1u;
+
+									cpuImageView = ICPUImageView::create(std::move(viewParams)); // TODO: cache this image view
+								} break;
+
+								case IAsset::ET_IMAGE_VIEW:
+								{
+									cpuImageView = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(cpuAsset);
+								} break;
+
+								default:
+								{
+									context.loadContext.params.logger.log("GLTF: EXPECTED IMAGE ASSET TYPE!", system::ILogger::ELL_WARNING);
+									return {};
+								}
 							}
-						}
+
+							SAssetBundle samplerBundle = SAssetBundle(nullptr, { core::smart_refctd_ptr(cpuImageView) });
+							_override->insertAssetIntoCache(samplerBundle, cpuImageViewCacheKey, context.loadContext, _hierarchyLevel);
+						}	
 					}
 					else
 					{
@@ -363,7 +400,7 @@ namespace nbl
 				uint32_t mesh;
 				uint32_t skin;
 			};
-			core::unordered_set<MeshSkinPair> meshSkinPairs;
+			core::unordered_set<uint64_t> meshSkinPairs; //! MeshSkinPair casted to uint64_t
 			struct Skin
 			{
 				core::smart_refctd_ptr<ICPUSkeleton> skeleton = {};
@@ -384,9 +421,9 @@ namespace nbl
 				uint32_t localJointID; // in range [0, jointsSize - 1]
 				uint32_t localParentJointID; // for _parentJointIDsBinding 
 			};
+			core::vector<core::smart_refctd_ptr<ICPUSkeleton>> skeletons;
 			core::vector<SkeletonData> skeletonNodes(nodeCount);
 			{
-				core::vector<core::smart_refctd_ptr<ICPUSkeleton>> skeletons;
 				core::vector<ICPUSkeleton::joint_id_t> globalParent(nodeCount,ICPUSkeleton::invalid_joint_id);
 				// first pass over the nodes
 				{
@@ -406,7 +443,9 @@ namespace nbl
 								continue;
 
 							const uint32_t skinID = glTFnode.skin.has_value() ? glTFnode.skin.value() : 0xdeadbeef;
-							meshSkinPairs.insert({meshID,skinID});
+							MeshSkinPair meshSkinPair = { meshID,skinID };
+
+							meshSkinPairs.insert(*reinterpret_cast<uint64_t*>(&meshSkinPair));
 						}
 						// then figure out the remapping to ICPUSkeleton Nodes
 						core::stack<uint32_t> dfsTraversalStack;
@@ -493,8 +532,12 @@ namespace nbl
 					// populate
 					{
 						uint32_t level = 0u;
-						for (uint32_t node=glTFSkin.joints[0]; globalParent[node]!=ICPUSkeleton::invalid_joint_id; node=globalParent[node])
-							commonAncestors.insert(node,level++);
+						for (uint32_t node = glTFSkin.joints[0]; globalParent[node] != ICPUSkeleton::invalid_joint_id; node = globalParent[node])
+						{
+							commonAncestors.insert({ node, level });
+							++level;
+						}
+
 					}
 					// trim
 					for (const auto& joint : glTFSkin.joints)
@@ -512,7 +555,11 @@ namespace nbl
 							level++;
 						}
 						// remove unvisited
-						std::remove_if(commonAncestors.begin(),commonAncestors.end(),[](const auto& pval)->bool{return pval.second==~0u;});
+						for (auto it = commonAncestors.begin(); it != commonAncestors.end();)
+							if (it->second == ~0u)
+								commonAncestors.erase(it);
+							else
+								++it;
 					}
 					// validate
 					if (commonAncestors.empty())
@@ -549,11 +596,57 @@ namespace nbl
 					skins[index].translationTable = {sizeof(ICPUSkeleton::joint_id_t)*skinJointRefCount,sizeof(ICPUSkeleton::joint_id_t)*jointCount,vertexJointToSkeletonJoint};
 					const auto bytesize = sizeof(core::matrix3x4SIMD)*jointCount;
 					skins[index].inverseBindPose = {0ull,bytesize,core::make_smart_refctd_ptr<ICPUBuffer>(bytesize)};
-					for (auto j=0u; j<jointCount; j++)
+
+					const auto& accessorInverseBindMatricesID = glTFSkin.inverseBindMatrices.has_value() ? glTFSkin.inverseBindMatrices.value() : 0xdeadbeef;
 					{
-						reinterpret_cast<ICPUSkeleton::joint_id_t*>(skins[index].translationTable.buffer->getPointer())[j+skinJointRefCount] = skeletonNodes[glTFSkin.joints[j]].localJointID;
-						// TODO: inverse Bind Pose
-						//glTFSkin.inverseBindMatrices
+						if (accessorInverseBindMatricesID == 0xdeadbeef)
+						{
+							const core::matrix3x4SIMD identity;
+
+							auto* data = reinterpret_cast<core::matrix3x4SIMD*>(skins[index].inverseBindPose.buffer->getPointer());
+							auto* end = data + skins[index].inverseBindPose.buffer->getSize() / sizeof(core::matrix3x4SIMD);
+
+							std::fill(data, end, identity);
+						}
+						else
+						{
+							const auto& glTFAccessor = glTF.accessors[accessorInverseBindMatricesID];
+
+							if (!glTFAccessor.bufferView.has_value())
+							{
+								context.loadContext.params.logger.log("GLTF: NO BUFFER VIEW INDEX FOUND!", system::ILogger::ELL_WARNING);
+								return false;
+							}
+
+							const auto& bufferViewID = glTFAccessor.bufferView.value();
+							const auto& glTFBufferView = glTF.bufferViews[bufferViewID];
+
+							if (!glTFBufferView.buffer.has_value())
+							{
+								context.loadContext.params.logger.log("GLTF: NO BUFFER INDEX FOUND!", system::ILogger::ELL_WARNING);
+								return false;
+							}
+
+							const auto& bufferID = glTFBufferView.buffer.value();
+							auto cpuBuffer = cpuBuffers[bufferID];
+
+							const size_t globalIBPOffset = [&]()
+							{
+								const size_t bufferViewOffset = glTFBufferView.byteOffset.has_value() ? glTFBufferView.byteOffset.value() : 0u;
+								const size_t relativeAccessorOffset = glTFAccessor.byteOffset.has_value() ? glTFAccessor.byteOffset.value() : 0u;
+
+								return bufferViewOffset + relativeAccessorOffset;
+							}();
+
+							auto* inData = reinterpret_cast<core::matrix4SIMD*>(reinterpret_cast<uint8_t*>(cpuBuffer->getPointer()) + globalIBPOffset); //! glTF stores 4x4 IBP matrices
+							auto* outData = reinterpret_cast<core::matrix3x4SIMD*>(skins[index].inverseBindPose.buffer->getPointer());
+
+							for (uint32_t j = 0; j < jointCount; ++j)
+							{
+								reinterpret_cast<ICPUSkeleton::joint_id_t*>(skins[index].translationTable.buffer->getPointer())[j + skinJointRefCount] = skeletonNodes[glTFSkin.joints[j]].localJointID;
+								*(outData + j) = (inData + j)->extractSub3x4();
+							}	
+						}
 					}
 					skins[index].root = skeletonNodes[globalRootNode].localJointID;
 
@@ -561,97 +654,28 @@ namespace nbl
 				}
 			}
 
+			core::unordered_map<ICPURenderpassIndependentPipeline*, core::smart_refctd_ptr<asset::CGLTFPipelineMetadata>> globalPipelineMetadataSet;
 			core::vector<core::smart_refctd_ptr<ICPUMesh>> cpuMeshes;
 			{
 				// go over all meshes and create ICPUMeshes & ICPUMeshBuffers but without skins attached
-				core::vector<core::smart_refctd_ptr<ICPUMesh>> meshes;
-				// TODO: clean up the pipeline caching and metadata
-				// TODO: write push constant material directly to PushConstants, dont store in metadata (but struct can be there)
-				// TODO: maybe use some of CMeshManipulator to pick format for vertex weights and joint ID references
-
-				// go over unique <mesh,skin> pairs and make a cpuMesh
-				for (const auto& pair : meshSkinPairs)
+				core::vector<core::smart_refctd_ptr<ICPUMesh>> meshesView;
 				{
-					auto& mesh = cpuMeshes.emplace_back() = meshes[pair.mesh]->clone(1u); // duplicate only mesh and meshbuffer
-					// has a skin
-					if (pair.skin!=0xdeadbeefu)
-					for (auto& meshbuffer : mesh->getMeshBufferVector())
+					for (const auto& glTFMesh : glTF.meshes)
 					{
-						// TODO: create joint AABB buffer binding (no point caching)
-						// TODO: compute joint AABBs
-						// TODO: set skin
-						//meshbuffer->setSkin();
-					}
-				}
-			}
+						auto& cpuMesh = meshesView.emplace_back() = core::make_smart_refctd_ptr<ICPUMesh>();
 
-			// go over nodes one last time to record instances
-			struct Instance
-			{
-				const ICPUSkeleton* skeleton;
-				uint32_t skinTranslationTableOffset; // byteoffset into `vertexJointToSkeletonJoint`range
-				const ICPUMesh* mesh;
-				ICPUSkeleton::joint_id_t attachedToNode; // the node with the `mesh` and `skin` parameters
-			};
-			core::vector<Instance> instances;
-			for (uint32_t index=0u; index<nodeCount; ++index)
-			{
-				const auto& glTFnode = glTF.nodes[index];
-
-				const uint32_t meshID = glTFnode.mesh.has_value() ? glTFnode.mesh.value() : 0xdeadbeef;
-				if (meshID == 0xdeadbeef)
-					continue;
-
-				const uint32_t skinID = glTFnode.skin.has_value() ? glTFnode.skin.value() : 0xdeadbeef;
-
-				// record that as an instance 
-				auto found = meshSkinPairs.find({meshID,skinID});
-				assert(found!=meshSkinPairs.end());
-				auto& instance = instances.emplace_back();
-				if (skinID != 0xdeadbeefu) // has skin
-				{
-					instance.skeleton = skins[skinID].skeleton.get();
-					instance.skinTranslationTableOffset = skins[skinID].translationTable.offset;
-				}
-				else
-				{
-					instance.skeleton = nullptr;
-					instance.skinTranslationTableOffset = 0xdeadbeefu;
-				}
-				instance.mesh = cpuMeshes[std::distance(meshSkinPairs.begin(),found)].get();
-				instance.attachedToNode = skeletonNodes[index].localJointID;
-			}
-
-			// TODO: move `vertexJointToSkeletonJoint` into glTF global metadata so the memory is kept alive
-			// TODO: move `skeletons` into glTF global metadata so something refcounts them
-			// TODO: move `instances` into glTF global metadata so we can render scenes
-
-#if 0
-			// TODO: Just hashmap from ICPURenderpassIndependentPipeline to meta
-			//core::unordered_map<ICPURenderpassIndependentPipeline*,core::smart_refctd_ptr<asset::CGLTFPipelineMetadata>>
-			std::vector<std::vector<core::smart_refctd_ptr<asset::CGLTFPipelineMetadata>>> globalMetadataContainer; // TODO: to optimize in future
-			{
-				for (const auto& glTFMesh : glTF.meshes)
-				{
-					auto& globalPipelineMeta = globalMetadataContainer.emplace_back();
-					auto& cpuMesh = cpuMeshes.emplace_back() = core::make_smart_refctd_ptr<ICPUMesh>();
-
-					for (const auto& glTFprimitive : glTFMesh.primitives)
-					{
-						typedef std::remove_reference<decltype(glTFprimitive)>::type SGLTFPrimitive;
-
-						auto cpuMeshBuffer = core::make_smart_refctd_ptr<ICPUMeshBuffer>();
-
-						cpuMeshBuffer->setPositionAttributeIx(SAttributes::POSITION_ATTRIBUTE_LAYOUT_ID);
-						// TODO: only set the attributes if they are present
-						cpuMeshBuffer->setNormalAttributeIx(SAttributes::NORMAL_ATTRIBUTE_LAYOUT_ID);
-						cpuMeshBuffer->setJointIDAttributeIx(SAttributes::JOINTS_ATTRIBUTE_LAYOUT_ID);
-						cpuMeshBuffer->setJointWeightAttributeIx(SAttributes::WEIGHTS_ATTRIBUTE_LAYOUT_ID);
-
-						auto getMode = [&](uint32_t modeValue) -> E_PRIMITIVE_TOPOLOGY
+						for (const auto& glTFprimitive : glTFMesh.primitives)
 						{
-							switch (modeValue)
+							typedef std::remove_reference<decltype(glTFprimitive)>::type SGLTFPrimitive;
+
+							auto cpuMeshBuffer = core::make_smart_refctd_ptr<ICPUMeshBuffer>();
+
+							cpuMeshBuffer->setPositionAttributeIx(SAttributes::POSITION_ATTRIBUTE_LAYOUT_ID);
+
+							auto getMode = [&](uint32_t modeValue) -> E_PRIMITIVE_TOPOLOGY
 							{
+								switch (modeValue)
+								{
 								case SGLTFPrimitive::SGLTFPT_POINTS:
 									return EPT_POINT_LIST;
 								case SGLTFPrimitive::SGLTFPT_LINES:
@@ -666,53 +690,53 @@ namespace nbl
 									return EPT_TRIANGLE_STRIP;
 								case SGLTFPrimitive::SGLTFPT_TRIANGLE_FAN:
 									return EPT_TRIANGLE_STRIP_WITH_ADJACENCY; // check it
-							}
-						};
+								}
+							};
 
-						auto [hasUV, hasColor] = std::make_pair<bool, bool>(false, false);
+							auto [hasUV, hasColor] = std::make_pair<bool, bool>(false, false);
 
-						using BufferViewReferencingBufferID = uint32_t;
-						std::unordered_map<BufferViewReferencingBufferID, core::smart_refctd_ptr<ICPUBuffer>> idReferenceBindingBuffers;
+							using BufferViewReferencingBufferID = uint32_t;
+							std::unordered_map<BufferViewReferencingBufferID, core::smart_refctd_ptr<ICPUBuffer>> idReferenceBindingBuffers;
 
-						SVertexInputParams vertexInputParams;
-						SBlendParams blendParams;
-						SPrimitiveAssemblyParams primitiveAssemblyParams;
-						SRasterizationParams rastarizationParmas;
+							SVertexInputParams vertexInputParams;
+							SBlendParams blendParams;
+							SPrimitiveAssemblyParams primitiveAssemblyParams;
+							SRasterizationParams rastarizationParmas;
 
-						auto handleAccessor = [&](SGLTF::SGLTFAccessor& glTFAccessor, const std::optional<uint32_t> queryAttributeId = {}) -> bool
-						{
-							const E_FORMAT format = SGLTF::SGLTFAccessor::getFormat(glTFAccessor.componentType.value(), glTFAccessor.type.value());
-							if (format == EF_UNKNOWN)
+							auto handleAccessor = [&](SGLTF::SGLTFAccessor& glTFAccessor, const std::optional<uint32_t> queryAttributeId = {}) -> bool
 							{
-								context.loadContext.params.logger.log("GLTF: COULD NOT SPECIFY NABLA FORMAT!", system::ILogger::ELL_WARNING);
-								return false;
-							}
-
-							auto& glTFbufferView = glTF.bufferViews[glTFAccessor.bufferView.value()];
-							const uint32_t attributeId = queryAttributeId.has_value() ? queryAttributeId.value() : 0xdeadbeef;
-							const uint32_t& bufferBindingId = attributeId; //! glTF exporters are sometimes retarded setting relativeOffset more than 2048, so we go with single binding per attribute
-
-							const uint32_t& bufferDataId = glTFbufferView.buffer.value();
-							const auto& globalOffsetInBufferBindingResource = glTFbufferView.byteOffset.has_value() ? glTFbufferView.byteOffset.value() : 0u;
-							const auto& relativeOffsetInBufferViewAttribute = glTFAccessor.byteOffset.has_value() ? glTFAccessor.byteOffset.value() : 0u;
-
-							typedef std::remove_reference<decltype(glTFbufferView)>::type SGLTFBufferView;
-
-							auto setBufferBinding = [&](uint32_t target) -> void
-							{
-								asset::SBufferBinding<ICPUBuffer> bufferBinding;
-								bufferBinding.offset = globalOffsetInBufferBindingResource + relativeOffsetInBufferViewAttribute;
-
-								idReferenceBindingBuffers[bufferDataId] = cpuBuffers[bufferDataId];
-								bufferBinding.buffer = idReferenceBindingBuffers[bufferDataId];
-
-								auto isDataInterleaved = [&]()
+								const E_FORMAT format = SGLTF::SGLTFAccessor::getFormat(glTFAccessor.componentType.value(), glTFAccessor.type.value());
+								if (format == EF_UNKNOWN)
 								{
-									return glTFbufferView.byteStride.has_value();
-								};
+									context.loadContext.params.logger.log("GLTF: COULD NOT SPECIFY NABLA FORMAT!", system::ILogger::ELL_WARNING);
+									return false;
+								}
 
-								switch (target)
+								auto& glTFbufferView = glTF.bufferViews[glTFAccessor.bufferView.value()];
+								const uint32_t attributeId = queryAttributeId.has_value() ? queryAttributeId.value() : 0xdeadbeef;
+								const uint32_t& bufferBindingId = attributeId; //! glTF exporters are sometimes retarded setting relativeOffset more than 2048, so we go with single binding per attribute
+
+								const uint32_t& bufferDataId = glTFbufferView.buffer.value();
+								const auto& globalOffsetInBufferBindingResource = glTFbufferView.byteOffset.has_value() ? glTFbufferView.byteOffset.value() : 0u;
+								const auto& relativeOffsetInBufferViewAttribute = glTFAccessor.byteOffset.has_value() ? glTFAccessor.byteOffset.value() : 0u;
+
+								typedef std::remove_reference<decltype(glTFbufferView)>::type SGLTFBufferView;
+
+								auto setBufferBinding = [&](uint32_t target) -> void
 								{
+									asset::SBufferBinding<ICPUBuffer> bufferBinding;
+									bufferBinding.offset = globalOffsetInBufferBindingResource + relativeOffsetInBufferViewAttribute;
+
+									idReferenceBindingBuffers[bufferDataId] = cpuBuffers[bufferDataId];
+									bufferBinding.buffer = idReferenceBindingBuffers[bufferDataId];
+
+									auto isDataInterleaved = [&]()
+									{
+										return glTFbufferView.byteStride.has_value();
+									};
+
+									switch (target)
+									{
 									case SGLTFBufferView::SGLTFT_ARRAY_BUFFER:
 									{
 										cpuMeshBuffer->setVertexBufferBinding(std::move(bufferBinding), bufferBindingId);
@@ -734,26 +758,26 @@ namespace nbl
 										bufferBinding.offset += relativeOffsetInBufferViewAttribute;
 										cpuMeshBuffer->setIndexBufferBinding(std::move(bufferBinding));
 									} break;
-								}
+									}
+								};
+
+								setBufferBinding(queryAttributeId.has_value() ? SGLTF::SGLTFBufferView::SGLTFT_ARRAY_BUFFER : SGLTF::SGLTFBufferView::SGLTFT_ELEMENT_ARRAY_BUFFER);
+								return true;
 							};
 
-							setBufferBinding(queryAttributeId.has_value() ? SGLTF::SGLTFBufferView::SGLTFT_ARRAY_BUFFER : SGLTF::SGLTFBufferView::SGLTFT_ELEMENT_ARRAY_BUFFER);
-							return true;
-						};
+							const E_PRIMITIVE_TOPOLOGY primitiveTopology = getMode(glTFprimitive.mode.value());
+							primitiveAssemblyParams.primitiveType = primitiveTopology;
 
-						const E_PRIMITIVE_TOPOLOGY primitiveTopology = getMode(glTFprimitive.mode.value());
-						primitiveAssemblyParams.primitiveType = primitiveTopology;
-
-						if (glTFprimitive.indices.has_value())
-						{
-							const size_t accessorID = glTFprimitive.indices.value();
-
-							auto& glTFIndexAccessor = glTF.accessors[accessorID];
-							if (!handleAccessor(glTFIndexAccessor))
-								return {};
-
-							switch (glTFIndexAccessor.componentType.value())
+							if (glTFprimitive.indices.has_value())
 							{
+								const size_t accessorID = glTFprimitive.indices.value();
+
+								auto& glTFIndexAccessor = glTF.accessors[accessorID];
+								if (!handleAccessor(glTFIndexAccessor))
+									return {};
+
+								switch (glTFIndexAccessor.componentType.value())
+								{
 								case SGLTF::SGLTFAccessor::SCT_UNSIGNED_SHORT:
 								{
 									cpuMeshBuffer->setIndexType(EIT_16BIT);
@@ -763,364 +787,365 @@ namespace nbl
 								{
 									cpuMeshBuffer->setIndexType(EIT_32BIT);
 								} break;
+								}
+
+								cpuMeshBuffer->setIndexCount(glTFIndexAccessor.count.value());
 							}
 
-							cpuMeshBuffer->setIndexCount(glTFIndexAccessor.count.value());
-						}
-
-						if (glTFprimitive.attributes.position.has_value())
-						{
-							const size_t accessorID = glTFprimitive.attributes.position.value();
-
-							auto& glTFPositionAccessor = glTF.accessors[accessorID];
-							if (!handleAccessor(glTFPositionAccessor, cpuMeshBuffer->getPositionAttributeIx()))
-								return {};
-
-							if (!glTFprimitive.indices.has_value())
-								cpuMeshBuffer->setIndexCount(glTFPositionAccessor.count.value());
-						}
-						else
-						{
-							context.loadContext.params.logger.log("GLTF: COULD NOT DETECT POSITION ATTRIBUTE!", system::ILogger::ELL_WARNING);
-							return false;
-						}
-							
-						if (glTFprimitive.attributes.normal.has_value())
-						{
-							const size_t accessorID = glTFprimitive.attributes.normal.value();
-
-							auto& glTFNormalAccessor = glTF.accessors[accessorID];
-							if (!handleAccessor(glTFNormalAccessor, cpuMeshBuffer->getNormalAttributeIx()))
-								return {};
-						}
-
-						if (glTFprimitive.attributes.texcoord.has_value())
-						{
-							const size_t accessorID = glTFprimitive.attributes.texcoord.value();
-
-							hasUV = true;
-							auto& glTFTexcoordXAccessor = glTF.accessors[accessorID];
-							if (!handleAccessor(glTFTexcoordXAccessor, SAttributes::UV_ATTRIBUTE_LAYOUT_ID))
-								return {};
-						}
-
-						if (glTFprimitive.attributes.color.has_value())
-						{
-							const size_t accessorID = glTFprimitive.attributes.color.value();
-
-							hasColor = true;
-							auto& glTFColorXAccessor = glTF.accessors[accessorID];
-							if (!handleAccessor(glTFColorXAccessor, SAttributes::COLOR_ATTRIBUTE_LAYOUT_ID))
-								return {};
-						}
-
-						struct OverrideReference
-						{
-							E_FORMAT format;
-							SGLTF::SGLTFAccessor* accessor;
-							asset::SBufferRange<asset::ICPUBuffer> bufferRange;
-							void* data; //! begin data with offset according to buffer range
-						};
-						
-						std::vector<OverrideReference> overrideJointsReference;
-						std::vector<OverrideReference> overrideWeightsReference;
-						
-						for (uint8_t i = 0; i < glTFprimitive.attributes.joints.size(); ++i)
-						{
-							if (glTFprimitive.attributes.joints[i].has_value())
+							if (glTFprimitive.attributes.position.has_value())
 							{
-								const size_t accessorID = glTFprimitive.attributes.joints[i].value();
+								const size_t accessorID = glTFprimitive.attributes.position.value();
 
-								auto& glTFJointsXAccessor = glTF.accessors[accessorID];
-
-								if (glTFJointsXAccessor.type.value() != SGLTF::SGLTFAccessor::SGLTFT_VEC4)
-								{
-									context.loadContext.params.logger.log("GLTF: JOINTS ACCESSOR MUST HAVE VEC4 TYPE!", system::ILogger::ELL_WARNING);
+								auto& glTFPositionAccessor = glTF.accessors[accessorID];
+								if (!handleAccessor(glTFPositionAccessor, cpuMeshBuffer->getPositionAttributeIx()))
 									return {};
-								}
 
-								// TODO: also support EF_R10G10B10A2_UINT if there's only max 3 vertex weights
-								// you need to requantize (process) the vertex weights FIRST to know that
-								const asset::E_FORMAT jointsFormat = [&]()
-								{
-									if (glTFJointsXAccessor.componentType.value() == SGLTF::SGLTFAccessor::SCT_UNSIGNED_BYTE)
-										return EF_R8G8B8A8_UINT;
-									else if (glTFJointsXAccessor.componentType.value() == SGLTF::SGLTFAccessor::SCT_UNSIGNED_SHORT)
-										return EF_R16G16B16A16_UINT;
-									else
-										EF_UNKNOWN;
-								}();
-
-								if (jointsFormat == EF_UNKNOWN)
-								{
-									context.loadContext.params.logger.log("GLTF: DETECTED JOINTS BUFFER WITH INVALID COMPONENT TYPE!", system::ILogger::ELL_WARNING);
-									return {};
-								}
-
-								if (!glTFJointsXAccessor.bufferView.has_value())
-								{
-									context.loadContext.params.logger.log("GLTF: NO BUFFER VIEW INDEX FOUND!", system::ILogger::ELL_WARNING);
-									return {};
-								}
-
-								const auto& bufferViewID = glTFJointsXAccessor.bufferView.value();
-								const auto& glTFBufferView = glTF.bufferViews[bufferViewID];
-
-								if (!glTFBufferView.buffer.has_value())
-								{
-									context.loadContext.params.logger.log("GLTF: NO BUFFER INDEX FOUND!", system::ILogger::ELL_WARNING);
-									return {};
-								}
-
-								const auto& bufferID = glTFBufferView.buffer.value();
-								auto cpuBuffer = cpuBuffers[bufferID];
-
-								const size_t globalOffset = [&]()
-								{
-									const size_t bufferViewOffset = glTFBufferView.byteOffset.has_value() ? glTFBufferView.byteOffset.value() : 0u;
-									const size_t relativeAccessorOffset = glTFJointsXAccessor.byteOffset.has_value() ? glTFJointsXAccessor.byteOffset.value() : 0u;
-
-									return bufferViewOffset + relativeAccessorOffset;
-								}();
-
-								auto& overrideRef = overrideJointsReference.emplace_back();
-								overrideRef.accessor = &glTFJointsXAccessor;
-								overrideRef.format = jointsFormat;
-
-								overrideRef.bufferRange.buffer = core::smart_refctd_ptr(cpuBuffer);
-								overrideRef.bufferRange.offset = globalOffset;
-								overrideRef.bufferRange.size = overrideRef.accessor->count.value() * asset::getTexelOrBlockBytesize(overrideRef.format);
-
-								auto* bufferData = reinterpret_cast<uint8_t*>(overrideRef.bufferRange.buffer->getPointer());
-								overrideRef.data = bufferData + overrideRef.bufferRange.offset;
+								if (!glTFprimitive.indices.has_value())
+									cpuMeshBuffer->setIndexCount(glTFPositionAccessor.count.value());
 							}
-						}
-
-						for (uint8_t i = 0; i < glTFprimitive.attributes.weights.size(); ++i)
-						{
-							if (glTFprimitive.attributes.weights[i].has_value())
+							else
 							{
-								const size_t accessorID = glTFprimitive.attributes.weights[i].value();
-
-								auto& glTFWeightsXAccessor = glTF.accessors[accessorID];
-
-								if (glTFWeightsXAccessor.type.value() != SGLTF::SGLTFAccessor::SGLTFT_VEC4)
-								{
-									context.loadContext.params.logger.log("GLTF: WEIGHTS ACCESSOR MUST HAVE VEC4 TYPE!", system::ILogger::ELL_WARNING);
-									return {};
-								}
-								
-								const asset::E_FORMAT weightsFormat = [&]()
-								{
-									if (glTFWeightsXAccessor.componentType.value() == SGLTF::SGLTFAccessor::SCT_FLOAT)
-										return EF_R32G32B32A32_SFLOAT;
-									else if (glTFWeightsXAccessor.componentType.value() == SGLTF::SGLTFAccessor::SCT_UNSIGNED_BYTE)
-										return EF_R8G8B8A8_UINT; // TODO: UNORM
-									else if (glTFWeightsXAccessor.componentType.value() == SGLTF::SGLTFAccessor::SCT_UNSIGNED_SHORT)
-										return EF_R16G16B16A16_UINT; // TODO: UNORM
-									else
-										EF_UNKNOWN;
-								}();
-
-								if (weightsFormat == EF_UNKNOWN)
-								{
-									context.loadContext.params.logger.log("GLTF: DETECTED WEIGHTS BUFFER WITH INVALID COMPONENT TYPE!", system::ILogger::ELL_WARNING);
-									return {};
-								}
-
-								if (!glTFWeightsXAccessor.bufferView.has_value())
-								{
-									context.loadContext.params.logger.log("GLTF: NO BUFFER VIEW INDEX FOUND!", system::ILogger::ELL_WARNING);
-									return {};
-								}
-
-								const auto& bufferViewID = glTFWeightsXAccessor.bufferView.value();
-								const auto& glTFBufferView = glTF.bufferViews[bufferViewID];
-
-								if (!glTFBufferView.buffer.has_value())
-								{
-									context.loadContext.params.logger.log("GLTF: NO BUFFER INDEX FOUND!", system::ILogger::ELL_WARNING);
-									return {};
-								}
-
-								const auto& bufferID = glTFBufferView.buffer.value();
-								auto cpuBuffer = cpuBuffers[bufferID];
-
-								const size_t globalOffset = [&]()
-								{
-									const size_t bufferViewOffset = glTFBufferView.byteOffset.has_value() ? glTFBufferView.byteOffset.value() : 0u;
-									const size_t relativeAccessorOffset = glTFWeightsXAccessor.byteOffset.has_value() ? glTFWeightsXAccessor.byteOffset.value() : 0u;
-
-									return bufferViewOffset + relativeAccessorOffset;
-								}();
-
-								auto& overrideRef = overrideWeightsReference.emplace_back();
-								overrideRef.accessor = &glTFWeightsXAccessor;
-								overrideRef.format = weightsFormat;
-
-								overrideRef.bufferRange.buffer = core::smart_refctd_ptr(cpuBuffer);
-								overrideRef.bufferRange.offset = globalOffset;
-								overrideRef.bufferRange.size = overrideRef.accessor->count.value() * asset::getTexelOrBlockBytesize(overrideRef.format);
-
-								auto* bufferData = reinterpret_cast<uint8_t*>(overrideRef.bufferRange.buffer->getPointer());
-								overrideRef.data = bufferData + overrideRef.bufferRange.offset;
-							}
-						}
-
-						uint32_t maxJointsPerVertex = 0xdeadbeef;
-						bool skinningEnabled = false;
-
-						if (overrideJointsReference.size() && overrideWeightsReference.size())
-						{
-							if (overrideJointsReference.size() != overrideWeightsReference.size())
-							{
-								context.loadContext.params.logger.log("GLTF: JOINTS ATTRIBUTES VERTEX BUFFERS AMOUNT MUST BE EQUAL TO WEIGHTS ATTRIBUTES VERTEX BUFFERS AMOUNT!", system::ILogger::ELL_WARNING);
-								return {};
-							}
-						
-							if (overrideJointsReference.size() > 1u || overrideWeightsReference.size() > 1u)
-							{
-								if (!std::equal(std::begin(overrideJointsReference) + 1, std::end(overrideJointsReference), std::begin(overrideJointsReference), [](const OverrideReference& lhs, const OverrideReference& rhs) { return lhs.format == rhs.format && lhs.accessor->count.value() == rhs.accessor->count.value(); }))
-								{
-									context.loadContext.params.logger.log("GLTF: JOINTS ATTRIBUTES VERTEX BUFFERS MUST NOT HAVE VARIOUS DATA TYPE OR LENGTH!", system::ILogger::ELL_WARNING);
-									return {};
-								}
-
-								if (!std::equal(std::begin(overrideWeightsReference) + 1, std::end(overrideWeightsReference), std::begin(overrideWeightsReference), [](const OverrideReference& lhs, const OverrideReference& rhs) { return lhs.format == rhs.format && lhs.accessor->count.value() == rhs.accessor->count.value(); }))
-								{
-									context.loadContext.params.logger.log("GLTF: WEIGHTS ATTRIBUTES VERTEX BUFFERS MUST NOT HAVE VARIOUS DATA TYPE OR LENGTH!", system::ILogger::ELL_WARNING);
-									return {};
-								}
-
-								/*
-									TODO: it is not enough, I should have checked if joints attribute buffers are the same
-									because if they are different then sorting weights is wrong.
-								*/
+								context.loadContext.params.logger.log("GLTF: COULD NOT DETECT POSITION ATTRIBUTE!", system::ILogger::ELL_WARNING);
+								return false;
 							}
 
-							struct OverrideSkinningBuffers
+							if (glTFprimitive.attributes.normal.has_value())
 							{
-								struct Override
-								{
-									core::smart_refctd_ptr<asset::ICPUBuffer> cpuBuffer;
-									E_FORMAT format;
-								};
+								const size_t accessorID = glTFprimitive.attributes.normal.value();
 
-								Override jointsAttributes;
-								Override weightsAttributes;
-							} overrideSkinningBuffers;
+								auto& glTFNormalAccessor = glTF.accessors[accessorID];
+								cpuMeshBuffer->setNormalAttributeIx(SAttributes::NORMAL_ATTRIBUTE_LAYOUT_ID);
+								if (!handleAccessor(glTFNormalAccessor, SAttributes::NORMAL_ATTRIBUTE_LAYOUT_ID))
+									return {};
+							}
+
+							if (glTFprimitive.attributes.texcoord.has_value())
 							{
-								const uint16_t overrideReferencesCount = overrideJointsReference.size(); //! doesn't matter if overrideJointsReference or overrideWeightsReference
-								const size_t vCommonOverrideAttributesCount = overrideJointsReference[0].accessor->count.value(); //! doesn't matter if overrideJointsReference or overrideWeightsReference
+								const size_t accessorID = glTFprimitive.attributes.texcoord.value();
 
-								const E_FORMAT vJointsFormat = overrideJointsReference[0].format;
-								const size_t vJointsTexelByteSize = asset::getTexelOrBlockBytesize(vJointsFormat);
+								hasUV = true;
+								auto& glTFTexcoordXAccessor = glTF.accessors[accessorID];
+								if (!handleAccessor(glTFTexcoordXAccessor, SAttributes::UV_ATTRIBUTE_LAYOUT_ID))
+									return {};
+							}
 
-								const E_FORMAT vWeightsFormat = overrideWeightsReference[0].format;
-								const size_t vWeightsTexelByteSize = asset::getTexelOrBlockBytesize(vWeightsFormat);
+							if (glTFprimitive.attributes.color.has_value())
+							{
+								const size_t accessorID = glTFprimitive.attributes.color.value();
 
-								core::smart_refctd_ptr<asset::ICPUBuffer> vOverrideJointsBuffer = nullptr;
-								core::smart_refctd_ptr<asset::ICPUBuffer> vOverrideWeightsBuffer = nullptr;
+								hasColor = true;
+								auto& glTFColorXAccessor = glTF.accessors[accessorID];
+								if (!handleAccessor(glTFColorXAccessor, SAttributes::COLOR_ATTRIBUTE_LAYOUT_ID))
+									return {};
+							}
 
-								auto createOverrideBuffers = [&]<typename JointComponentT, typename WeightCompomentT>() -> void
+							struct OverrideReference
+							{
+								E_FORMAT format;
+								SGLTF::SGLTFAccessor* accessor;
+								asset::SBufferRange<asset::ICPUBuffer> bufferRange;
+								void* data; //! begin data with offset according to buffer range
+							};
+
+							std::vector<OverrideReference> overrideJointsReference;
+							std::vector<OverrideReference> overrideWeightsReference;
+
+							for (uint8_t i = 0; i < glTFprimitive.attributes.joints.size(); ++i)
+							{
+								if (glTFprimitive.attributes.joints[i].has_value())
 								{
-									constexpr bool isValidJointComponentT = std::is_same<JointComponentT, uint8_t>::value || std::is_same<JointComponentT, uint16_t>::value;
-									constexpr bool isValidWeighComponentT = std::is_same<WeightCompomentT, uint8_t>::value || std::is_same<WeightCompomentT, uint16_t>::value || std::is_same<WeightCompomentT, float>::value;
-									static_assert(isValidJointComponentT && isValidWeighComponentT);
+									const size_t accessorID = glTFprimitive.attributes.joints[i].value();
 
-									vOverrideJointsBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(vCommonOverrideAttributesCount * vJointsTexelByteSize);
-									vOverrideWeightsBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(vCommonOverrideAttributesCount * vWeightsTexelByteSize);
+									auto& glTFJointsXAccessor = glTF.accessors[accessorID];
 
-									for (size_t vAttributeIx = 0; vAttributeIx < vCommonOverrideAttributesCount; ++vAttributeIx)
+									if (glTFJointsXAccessor.type.value() != SGLTF::SGLTFAccessor::SGLTFT_VEC4)
 									{
-										const size_t commonVJointsOffset = vAttributeIx * vJointsTexelByteSize;
-										const size_t commonVWeightsOffset = vAttributeIx * vWeightsTexelByteSize;
-
-										struct VertexInfluenceData
-										{
-											struct ComponentData
-											{
-												JointComponentT joint;
-												WeightCompomentT weight;
-											};
-
-											std::array<ComponentData, 4u> perVertexComponentsData;
-										};
-
-										std::vector<VertexInfluenceData> vertexInfluenceDataContainer;
-
-										for (uint16_t i = 0; i < overrideReferencesCount; ++i)
-										{
-											VertexInfluenceData& vertexInfluenceData = vertexInfluenceDataContainer.emplace_back();
-
-											auto* vJointsComponentDataRaw = reinterpret_cast<uint8_t*>(overrideJointsReference[i].data) + commonVJointsOffset;
-											auto* vWeightsComponentDataRaw = reinterpret_cast<uint8_t*>(overrideWeightsReference[i].data) + commonVWeightsOffset;
-
-											for (uint16_t i = 0; i < vertexInfluenceData.perVertexComponentsData.size(); ++i) //! iterate over single components
-											{
-												VertexInfluenceData::ComponentData& skinComponent = vertexInfluenceData.perVertexComponentsData[i];
-
-												JointComponentT* vJoint = reinterpret_cast<JointComponentT*>(vJointsComponentDataRaw) + i;
-												WeightCompomentT* vWeight = reinterpret_cast<WeightCompomentT*>(vWeightsComponentDataRaw) + i;
-
-												skinComponent.joint = *vJoint;
-												skinComponent.weight = *vWeight;
-											}
-										}
-
-										std::vector<VertexInfluenceData::ComponentData> skinComponentUnlimitedStream;
-										{
-											for(const auto& vertexInfluenceData : vertexInfluenceDataContainer)
-												for (const auto& skinComponent : vertexInfluenceData.perVertexComponentsData)
-												{
-													auto& data = skinComponentUnlimitedStream.emplace_back();
-
-													data.joint = skinComponent.joint;
-													data.weight = skinComponent.weight;
-												}
-										}
-
-										//! sort, cache and keep only biggest influencers
-										std::sort(std::begin(skinComponentUnlimitedStream), std::end(skinComponentUnlimitedStream), [&](const VertexInfluenceData::ComponentData& lhs, const VertexInfluenceData::ComponentData& rhs) { return lhs.weight < rhs.weight; });
-										{
-											auto iteratorEnd = skinComponentUnlimitedStream.begin() + (vertexInfluenceDataContainer.size() - 1u) * 4u;
-											if (skinComponentUnlimitedStream.begin() != iteratorEnd)
-												skinComponentUnlimitedStream.erase(skinComponentUnlimitedStream.begin(), iteratorEnd);
-
-											std::sort(std::begin(skinComponentUnlimitedStream), std::end(skinComponentUnlimitedStream), [&](const VertexInfluenceData::ComponentData& lhs, const VertexInfluenceData::ComponentData& rhs) { return lhs.joint < rhs.joint; });
-										}
-
-										auto* vOverrideJointsData = reinterpret_cast<uint8_t*>(vOverrideJointsBuffer->getPointer()) + commonVJointsOffset;
-										auto* vOverrideWeightsData = reinterpret_cast<uint8_t*>(vOverrideWeightsBuffer->getPointer()) + commonVWeightsOffset;
-
-										uint32_t validWeights = {};
-										for (uint16_t i = 0; i < 4u; ++i)
-										{
-											const auto& skinComponent = skinComponentUnlimitedStream[i];
-
-											JointComponentT* vOverrideJoint = reinterpret_cast<JointComponentT*>(vOverrideJointsData) + i;
-											WeightCompomentT* vOverrideWeight = reinterpret_cast<WeightCompomentT*>(vOverrideWeightsData) + i;
-
-											*vOverrideJoint = skinComponent.joint;
-											*vOverrideWeight = skinComponent.weight;
-
-											if (*vOverrideWeight != 0)
-												++validWeights;
-										}
-
-										maxJointsPerVertex = std::max(maxJointsPerVertex == 0xdeadbeef ? 0u : maxJointsPerVertex, validWeights);
+										context.loadContext.params.logger.log("GLTF: JOINTS ACCESSOR MUST HAVE VEC4 TYPE!", system::ILogger::ELL_WARNING);
+										return {};
 									}
 
-									using REPACK_JOINTS_FORMAT = E_FORMAT;
-									using REPACK_WEIGHTS_FORMAT = E_FORMAT;
-
-									auto getRepackFormats = [&]() -> std::pair<REPACK_JOINTS_FORMAT, REPACK_WEIGHTS_FORMAT>
+									// TODO: also support EF_R10G10B10A2_UINT if there's only max 3 vertex weights
+									// you need to requantize (process) the vertex weights FIRST to know that
+									const asset::E_FORMAT jointsFormat = [&]()
 									{
-										E_FORMAT repackJointsFormat = EF_UNKNOWN;
-										E_FORMAT repackWeightsFormat = EF_UNKNOWN;
+										if (glTFJointsXAccessor.componentType.value() == SGLTF::SGLTFAccessor::SCT_UNSIGNED_BYTE)
+											return EF_R8G8B8A8_UINT;
+										else if (glTFJointsXAccessor.componentType.value() == SGLTF::SGLTFAccessor::SCT_UNSIGNED_SHORT)
+											return EF_R16G16B16A16_UINT;
+										else
+											EF_UNKNOWN;
+									}();
 
-										switch (maxJointsPerVertex)
+									if (jointsFormat == EF_UNKNOWN)
+									{
+										context.loadContext.params.logger.log("GLTF: DETECTED JOINTS BUFFER WITH INVALID COMPONENT TYPE!", system::ILogger::ELL_WARNING);
+										return {};
+									}
+
+									if (!glTFJointsXAccessor.bufferView.has_value())
+									{
+										context.loadContext.params.logger.log("GLTF: NO BUFFER VIEW INDEX FOUND!", system::ILogger::ELL_WARNING);
+										return {};
+									}
+
+									const auto& bufferViewID = glTFJointsXAccessor.bufferView.value();
+									const auto& glTFBufferView = glTF.bufferViews[bufferViewID];
+
+									if (!glTFBufferView.buffer.has_value())
+									{
+										context.loadContext.params.logger.log("GLTF: NO BUFFER INDEX FOUND!", system::ILogger::ELL_WARNING);
+										return {};
+									}
+
+									const auto& bufferID = glTFBufferView.buffer.value();
+									auto cpuBuffer = cpuBuffers[bufferID];
+
+									const size_t globalOffset = [&]()
+									{
+										const size_t bufferViewOffset = glTFBufferView.byteOffset.has_value() ? glTFBufferView.byteOffset.value() : 0u;
+										const size_t relativeAccessorOffset = glTFJointsXAccessor.byteOffset.has_value() ? glTFJointsXAccessor.byteOffset.value() : 0u;
+
+										return bufferViewOffset + relativeAccessorOffset;
+									}();
+
+									auto& overrideRef = overrideJointsReference.emplace_back();
+									overrideRef.accessor = &glTFJointsXAccessor;
+									overrideRef.format = jointsFormat;
+
+									overrideRef.bufferRange.buffer = core::smart_refctd_ptr(cpuBuffer);
+									overrideRef.bufferRange.offset = globalOffset;
+									overrideRef.bufferRange.size = overrideRef.accessor->count.value() * asset::getTexelOrBlockBytesize(overrideRef.format);
+
+									auto* bufferData = reinterpret_cast<uint8_t*>(overrideRef.bufferRange.buffer->getPointer());
+									overrideRef.data = bufferData + overrideRef.bufferRange.offset;
+								}
+							}
+
+							for (uint8_t i = 0; i < glTFprimitive.attributes.weights.size(); ++i)
+							{
+								if (glTFprimitive.attributes.weights[i].has_value())
+								{
+									const size_t accessorID = glTFprimitive.attributes.weights[i].value();
+
+									auto& glTFWeightsXAccessor = glTF.accessors[accessorID];
+
+									if (glTFWeightsXAccessor.type.value() != SGLTF::SGLTFAccessor::SGLTFT_VEC4)
+									{
+										context.loadContext.params.logger.log("GLTF: WEIGHTS ACCESSOR MUST HAVE VEC4 TYPE!", system::ILogger::ELL_WARNING);
+										return {};
+									}
+
+									const asset::E_FORMAT weightsFormat = [&]()
+									{
+										if (glTFWeightsXAccessor.componentType.value() == SGLTF::SGLTFAccessor::SCT_FLOAT)
+											return EF_R32G32B32A32_SFLOAT;
+										else if (glTFWeightsXAccessor.componentType.value() == SGLTF::SGLTFAccessor::SCT_UNSIGNED_BYTE)
+											return EF_R8G8B8A8_UINT; // TODO: UNORM
+										else if (glTFWeightsXAccessor.componentType.value() == SGLTF::SGLTFAccessor::SCT_UNSIGNED_SHORT)
+											return EF_R16G16B16A16_UINT; // TODO: UNORM
+										else
+											EF_UNKNOWN;
+									}();
+
+									if (weightsFormat == EF_UNKNOWN)
+									{
+										context.loadContext.params.logger.log("GLTF: DETECTED WEIGHTS BUFFER WITH INVALID COMPONENT TYPE!", system::ILogger::ELL_WARNING);
+										return {};
+									}
+
+									if (!glTFWeightsXAccessor.bufferView.has_value())
+									{
+										context.loadContext.params.logger.log("GLTF: NO BUFFER VIEW INDEX FOUND!", system::ILogger::ELL_WARNING);
+										return {};
+									}
+
+									const auto& bufferViewID = glTFWeightsXAccessor.bufferView.value();
+									const auto& glTFBufferView = glTF.bufferViews[bufferViewID];
+
+									if (!glTFBufferView.buffer.has_value())
+									{
+										context.loadContext.params.logger.log("GLTF: NO BUFFER INDEX FOUND!", system::ILogger::ELL_WARNING);
+										return {};
+									}
+
+									const auto& bufferID = glTFBufferView.buffer.value();
+									auto cpuBuffer = cpuBuffers[bufferID];
+
+									const size_t globalOffset = [&]()
+									{
+										const size_t bufferViewOffset = glTFBufferView.byteOffset.has_value() ? glTFBufferView.byteOffset.value() : 0u;
+										const size_t relativeAccessorOffset = glTFWeightsXAccessor.byteOffset.has_value() ? glTFWeightsXAccessor.byteOffset.value() : 0u;
+
+										return bufferViewOffset + relativeAccessorOffset;
+									}();
+
+									auto& overrideRef = overrideWeightsReference.emplace_back();
+									overrideRef.accessor = &glTFWeightsXAccessor;
+									overrideRef.format = weightsFormat;
+
+									overrideRef.bufferRange.buffer = core::smart_refctd_ptr(cpuBuffer);
+									overrideRef.bufferRange.offset = globalOffset;
+									overrideRef.bufferRange.size = overrideRef.accessor->count.value() * asset::getTexelOrBlockBytesize(overrideRef.format);
+
+									auto* bufferData = reinterpret_cast<uint8_t*>(overrideRef.bufferRange.buffer->getPointer());
+									overrideRef.data = bufferData + overrideRef.bufferRange.offset;
+								}
+							}
+
+							uint32_t maxJointsPerVertex = 0xdeadbeef;
+							bool skinningEnabled = false;
+
+							if (overrideJointsReference.size() && overrideWeightsReference.size())
+							{
+								if (overrideJointsReference.size() != overrideWeightsReference.size())
+								{
+									context.loadContext.params.logger.log("GLTF: JOINTS ATTRIBUTES VERTEX BUFFERS AMOUNT MUST BE EQUAL TO WEIGHTS ATTRIBUTES VERTEX BUFFERS AMOUNT!", system::ILogger::ELL_WARNING);
+									return {};
+								}
+
+								if (overrideJointsReference.size() > 1u || overrideWeightsReference.size() > 1u)
+								{
+									if (!std::equal(std::begin(overrideJointsReference) + 1, std::end(overrideJointsReference), std::begin(overrideJointsReference), [](const OverrideReference& lhs, const OverrideReference& rhs) { return lhs.format == rhs.format && lhs.accessor->count.value() == rhs.accessor->count.value(); }))
+									{
+										context.loadContext.params.logger.log("GLTF: JOINTS ATTRIBUTES VERTEX BUFFERS MUST NOT HAVE VARIOUS DATA TYPE OR LENGTH!", system::ILogger::ELL_WARNING);
+										return {};
+									}
+
+									if (!std::equal(std::begin(overrideWeightsReference) + 1, std::end(overrideWeightsReference), std::begin(overrideWeightsReference), [](const OverrideReference& lhs, const OverrideReference& rhs) { return lhs.format == rhs.format && lhs.accessor->count.value() == rhs.accessor->count.value(); }))
+									{
+										context.loadContext.params.logger.log("GLTF: WEIGHTS ATTRIBUTES VERTEX BUFFERS MUST NOT HAVE VARIOUS DATA TYPE OR LENGTH!", system::ILogger::ELL_WARNING);
+										return {};
+									}
+
+									/*
+										TODO: it is not enough, I should have checked if joints attribute buffers are the same
+										because if they are different then sorting weights is wrong.
+									*/
+								}
+
+								struct OverrideSkinningBuffers
+								{
+									struct Override
+									{
+										core::smart_refctd_ptr<asset::ICPUBuffer> cpuBuffer;
+										E_FORMAT format;
+									};
+
+									Override jointsAttributes;
+									Override weightsAttributes;
+								} overrideSkinningBuffers;
+								{
+									const uint16_t overrideReferencesCount = overrideJointsReference.size(); //! doesn't matter if overrideJointsReference or overrideWeightsReference
+									const size_t vCommonOverrideAttributesCount = overrideJointsReference[0].accessor->count.value(); //! doesn't matter if overrideJointsReference or overrideWeightsReference
+
+									const E_FORMAT vJointsFormat = overrideJointsReference[0].format;
+									const size_t vJointsTexelByteSize = asset::getTexelOrBlockBytesize(vJointsFormat);
+
+									const E_FORMAT vWeightsFormat = overrideWeightsReference[0].format;
+									const size_t vWeightsTexelByteSize = asset::getTexelOrBlockBytesize(vWeightsFormat);
+
+									core::smart_refctd_ptr<asset::ICPUBuffer> vOverrideJointsBuffer = nullptr;
+									core::smart_refctd_ptr<asset::ICPUBuffer> vOverrideWeightsBuffer = nullptr;
+
+									auto createOverrideBuffers = [&]<typename JointComponentT, typename WeightCompomentT>() -> void
+									{
+										constexpr bool isValidJointComponentT = std::is_same<JointComponentT, uint8_t>::value || std::is_same<JointComponentT, uint16_t>::value;
+										constexpr bool isValidWeighComponentT = std::is_same<WeightCompomentT, uint8_t>::value || std::is_same<WeightCompomentT, uint16_t>::value || std::is_same<WeightCompomentT, float>::value;
+										static_assert(isValidJointComponentT && isValidWeighComponentT);
+
+										vOverrideJointsBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(vCommonOverrideAttributesCount * vJointsTexelByteSize);
+										vOverrideWeightsBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(vCommonOverrideAttributesCount * vWeightsTexelByteSize);
+
+										for (size_t vAttributeIx = 0; vAttributeIx < vCommonOverrideAttributesCount; ++vAttributeIx)
 										{
+											const size_t commonVJointsOffset = vAttributeIx * vJointsTexelByteSize;
+											const size_t commonVWeightsOffset = vAttributeIx * vWeightsTexelByteSize;
+
+											struct VertexInfluenceData
+											{
+												struct ComponentData
+												{
+													JointComponentT joint;
+													WeightCompomentT weight;
+												};
+
+												std::array<ComponentData, 4u> perVertexComponentsData;
+											};
+
+											std::vector<VertexInfluenceData> vertexInfluenceDataContainer;
+
+											for (uint16_t i = 0; i < overrideReferencesCount; ++i)
+											{
+												VertexInfluenceData& vertexInfluenceData = vertexInfluenceDataContainer.emplace_back();
+
+												auto* vJointsComponentDataRaw = reinterpret_cast<uint8_t*>(overrideJointsReference[i].data) + commonVJointsOffset;
+												auto* vWeightsComponentDataRaw = reinterpret_cast<uint8_t*>(overrideWeightsReference[i].data) + commonVWeightsOffset;
+
+												for (uint16_t i = 0; i < vertexInfluenceData.perVertexComponentsData.size(); ++i) //! iterate over single components
+												{
+													VertexInfluenceData::ComponentData& skinComponent = vertexInfluenceData.perVertexComponentsData[i];
+
+													JointComponentT* vJoint = reinterpret_cast<JointComponentT*>(vJointsComponentDataRaw) + i;
+													WeightCompomentT* vWeight = reinterpret_cast<WeightCompomentT*>(vWeightsComponentDataRaw) + i;
+
+													skinComponent.joint = *vJoint;
+													skinComponent.weight = *vWeight;
+												}
+											}
+
+											std::vector<VertexInfluenceData::ComponentData> skinComponentUnlimitedStream;
+											{
+												for (const auto& vertexInfluenceData : vertexInfluenceDataContainer)
+													for (const auto& skinComponent : vertexInfluenceData.perVertexComponentsData)
+													{
+														auto& data = skinComponentUnlimitedStream.emplace_back();
+
+														data.joint = skinComponent.joint;
+														data.weight = skinComponent.weight;
+													}
+											}
+
+											//! sort, cache and keep only biggest influencers
+											std::sort(std::begin(skinComponentUnlimitedStream), std::end(skinComponentUnlimitedStream), [&](const VertexInfluenceData::ComponentData& lhs, const VertexInfluenceData::ComponentData& rhs) { return lhs.weight < rhs.weight; });
+											{
+												auto iteratorEnd = skinComponentUnlimitedStream.begin() + (vertexInfluenceDataContainer.size() - 1u) * 4u;
+												if (skinComponentUnlimitedStream.begin() != iteratorEnd)
+													skinComponentUnlimitedStream.erase(skinComponentUnlimitedStream.begin(), iteratorEnd);
+
+												std::sort(std::begin(skinComponentUnlimitedStream), std::end(skinComponentUnlimitedStream), [&](const VertexInfluenceData::ComponentData& lhs, const VertexInfluenceData::ComponentData& rhs) { return lhs.joint < rhs.joint; });
+											}
+
+											auto* vOverrideJointsData = reinterpret_cast<uint8_t*>(vOverrideJointsBuffer->getPointer()) + commonVJointsOffset;
+											auto* vOverrideWeightsData = reinterpret_cast<uint8_t*>(vOverrideWeightsBuffer->getPointer()) + commonVWeightsOffset;
+
+											uint32_t validWeights = {};
+											for (uint16_t i = 0; i < 4u; ++i)
+											{
+												const auto& skinComponent = skinComponentUnlimitedStream[i];
+
+												JointComponentT* vOverrideJoint = reinterpret_cast<JointComponentT*>(vOverrideJointsData) + i;
+												WeightCompomentT* vOverrideWeight = reinterpret_cast<WeightCompomentT*>(vOverrideWeightsData) + i;
+
+												*vOverrideJoint = skinComponent.joint;
+												*vOverrideWeight = skinComponent.weight;
+
+												if (*vOverrideWeight != 0)
+													++validWeights;
+											}
+
+											maxJointsPerVertex = std::max(maxJointsPerVertex == 0xdeadbeef ? 0u : maxJointsPerVertex, validWeights);
+										}
+
+										using REPACK_JOINTS_FORMAT = E_FORMAT;
+										using REPACK_WEIGHTS_FORMAT = E_FORMAT;
+
+										auto getRepackFormats = [&]() -> std::pair<REPACK_JOINTS_FORMAT, REPACK_WEIGHTS_FORMAT>
+										{
+											E_FORMAT repackJointsFormat = EF_UNKNOWN;
+											E_FORMAT repackWeightsFormat = EF_UNKNOWN;
+
+											switch (maxJointsPerVertex)
+											{
 											case 1u:
 											{
 												if constexpr (std::is_same<JointComponentT, uint8_t>::value)
@@ -1167,139 +1192,139 @@ namespace nbl
 												else if (std::is_same<WeightCompomentT, float>::value)
 													repackWeightsFormat = EF_R32G32B32A32_SFLOAT;
 											} break; //! vertex formats need to be PoT
-										}
+											}
 
-										return std::make_pair(repackJointsFormat, repackWeightsFormat);
-									};
+											return std::make_pair(repackJointsFormat, repackWeightsFormat);
+										};
 
-									const auto [repackJointsFormat, repackWeightsFormat] = getRepackFormats();
-									{
-										const size_t repackJointsTexelByteSize = asset::getTexelOrBlockBytesize(repackJointsFormat);
-										const size_t repackWeightsTexelByteSize = asset::getTexelOrBlockBytesize(repackWeightsFormat);
+										const auto [repackJointsFormat, repackWeightsFormat] = getRepackFormats();
+										{
+											const size_t repackJointsTexelByteSize = asset::getTexelOrBlockBytesize(repackJointsFormat);
+											const size_t repackWeightsTexelByteSize = asset::getTexelOrBlockBytesize(repackWeightsFormat);
 
-										auto vOverrideRepackedJointsBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(vCommonOverrideAttributesCount * repackJointsTexelByteSize);
-										auto vOverrideRepackedWeightsBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(vCommonOverrideAttributesCount * repackWeightsTexelByteSize);
+											auto vOverrideRepackedJointsBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(vCommonOverrideAttributesCount * repackJointsTexelByteSize);
+											auto vOverrideRepackedWeightsBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(vCommonOverrideAttributesCount * repackWeightsTexelByteSize);
 
-										memset(vOverrideRepackedJointsBuffer->getPointer(), 0, vOverrideRepackedJointsBuffer->getSize());
-										memset(vOverrideRepackedWeightsBuffer->getPointer(), 0, vOverrideRepackedWeightsBuffer->getSize());
-										{ //! pack buffers and quantize weights buffer
+											memset(vOverrideRepackedJointsBuffer->getPointer(), 0, vOverrideRepackedJointsBuffer->getSize());
+											memset(vOverrideRepackedWeightsBuffer->getPointer(), 0, vOverrideRepackedWeightsBuffer->getSize());
+											{ //! pack buffers and quantize weights buffer
 
-											_NBL_STATIC_INLINE_CONSTEXPR uint16_t MAX_INFLUENCE_WEIGHTS_PER_VERTEX = 4;
+												_NBL_STATIC_INLINE_CONSTEXPR uint16_t MAX_INFLUENCE_WEIGHTS_PER_VERTEX = 4;
 
-											struct QuantRequest
-											{
-												QuantRequest()
+												struct QuantRequest
 												{
-													std::get<WEIGHT_ENCODING>(encodeData[0]) = WE_UNORM8;
-													std::get<E_FORMAT>(encodeData[0]) = EF_R8G8B8A8_UNORM;
-
-													std::get<WEIGHT_ENCODING>(encodeData[1]) = WE_UNORM16;
-													std::get<E_FORMAT>(encodeData[1]) = EF_R16G16B16A16_UNORM;
-
-													std::get<WEIGHT_ENCODING>(encodeData[2]) = WE_SFLOAT;
-													std::get<E_FORMAT>(encodeData[2]) = EF_R32G32B32A32_SFLOAT;	
-												}
-
-												using QUANT_BUFFER = uint8_t[32]; //! for entire weights glTF vec4 entry
-												using ERROR_TYPE = float; // for each weight component
-												using ERROR_BUFFER = ERROR_TYPE[MAX_INFLUENCE_WEIGHTS_PER_VERTEX]; //! abs(decode(encode(weight)) - weight)
-												std::array<std::tuple<WEIGHT_ENCODING, E_FORMAT, QUANT_BUFFER, ERROR_BUFFER>, WE_COUNT> encodeData;
-
-												struct BestWeightsFit
-												{
-													WEIGHT_ENCODING quantizeEncoding = WE_UNORM8;
-													ERROR_TYPE smallestError = FLT_MAX;
-												} bestWeightsFit;
-											} quantRequest;
-										
-											for (size_t vAttributeIx = 0; vAttributeIx < vCommonOverrideAttributesCount; ++vAttributeIx)
-											{
-												auto* unpackedJointsData = reinterpret_cast<JointComponentT*>(reinterpret_cast<uint8_t*>(vOverrideJointsBuffer->getPointer()) + vAttributeIx * vJointsTexelByteSize);
-												auto* unpackedWeightsData = reinterpret_cast<WeightCompomentT*>(reinterpret_cast<uint8_t*>(vOverrideWeightsBuffer->getPointer()) + vAttributeIx * vWeightsTexelByteSize);
-
-												auto* packedJointsData = reinterpret_cast<JointComponentT*>(reinterpret_cast<uint8_t*>(vOverrideRepackedJointsBuffer->getPointer()) + vAttributeIx * repackJointsTexelByteSize);
-												auto* packedWeightsData = reinterpret_cast<WeightCompomentT*>(reinterpret_cast<uint8_t*>(vOverrideRepackedWeightsBuffer->getPointer()) + vAttributeIx * repackWeightsTexelByteSize);
-
-												auto quantize = [&](const core::vectorSIMDf& input, void* data, const E_FORMAT requestQuantizeFormat)
-												{
-													return ICPUMeshBuffer::setAttribute(input, data, requestQuantizeFormat);
-												};
-
-												auto decodeQuant = [&](void* data, const E_FORMAT requestQuantizeFormat)
-												{
-													core::vectorSIMDf out;
-													ICPUMeshBuffer::getAttribute(out, data, requestQuantizeFormat);
-													return out;
-												};
-
-												core::vectorSIMDf packedWeightsStream; //! always go with full vectorSIMDf stream, weights being not used are leaved with default vector's compoment value and are not considered
-
-												for (uint16_t i = 0, vxSkinComponentOffset = 0; i < 4u; ++i) //! packing
-												{
-													if (unpackedWeightsData[i])
+													QuantRequest()
 													{
-														packedJointsData[vxSkinComponentOffset] = unpackedJointsData[i];
-														packedWeightsStream.pointer[i] = packedWeightsData[vxSkinComponentOffset] = unpackedWeightsData[i];
+														std::get<WEIGHT_ENCODING>(encodeData[0]) = WE_UNORM8;
+														std::get<E_FORMAT>(encodeData[0]) = EF_R8G8B8A8_UNORM;
 
-														++vxSkinComponentOffset;
-														assert(vxSkinComponentOffset <= maxJointsPerVertex);
+														std::get<WEIGHT_ENCODING>(encodeData[1]) = WE_UNORM16;
+														std::get<E_FORMAT>(encodeData[1]) = EF_R16G16B16A16_UNORM;
+
+														std::get<WEIGHT_ENCODING>(encodeData[2]) = WE_SFLOAT;
+														std::get<E_FORMAT>(encodeData[2]) = EF_R32G32B32A32_SFLOAT;
 													}
-												}
 
-												for(uint16_t i = 0; i < quantRequest.encodeData.size(); ++i) //! quantization test
-												{
-													auto& encode = quantRequest.encodeData[i];
-													auto* quantBuffer = std::get<QuantRequest::QUANT_BUFFER>(encode);
-													auto* errorBuffer = std::get<QuantRequest::ERROR_BUFFER>(encode);
-													const WEIGHT_ENCODING requestWeightEncoding = std::get<WEIGHT_ENCODING>(encode);
-													const E_FORMAT requestQuantFormat = std::get<E_FORMAT>(encode);
+													using QUANT_BUFFER = uint8_t[32]; //! for entire weights glTF vec4 entry
+													using ERROR_TYPE = float; // for each weight component
+													using ERROR_BUFFER = ERROR_TYPE[MAX_INFLUENCE_WEIGHTS_PER_VERTEX]; //! abs(decode(encode(weight)) - weight)
+													std::array<std::tuple<WEIGHT_ENCODING, E_FORMAT, QUANT_BUFFER, ERROR_BUFFER>, WE_COUNT> encodeData;
 
-													quantize(packedWeightsStream, quantBuffer, requestQuantFormat);
-													core::vectorSIMDf quantsDecoded = decodeQuant(quantBuffer, requestQuantFormat);
-
-													for (uint16_t i = 0; i < MAX_INFLUENCE_WEIGHTS_PER_VERTEX; ++i)
+													struct BestWeightsFit
 													{
-														const auto& weightInput = packedWeightsStream.pointer[i];
-														if (weightInput)
-														{
-															const QuantRequest::ERROR_TYPE& errorComponent = errorBuffer[i] = core::abs(quantsDecoded.pointer[i] - weightInput);
+														WEIGHT_ENCODING quantizeEncoding = WE_UNORM8;
+														ERROR_TYPE smallestError = FLT_MAX;
+													} bestWeightsFit;
+												} quantRequest;
 
-															if (errorComponent)
+												for (size_t vAttributeIx = 0; vAttributeIx < vCommonOverrideAttributesCount; ++vAttributeIx)
+												{
+													auto* unpackedJointsData = reinterpret_cast<JointComponentT*>(reinterpret_cast<uint8_t*>(vOverrideJointsBuffer->getPointer()) + vAttributeIx * vJointsTexelByteSize);
+													auto* unpackedWeightsData = reinterpret_cast<WeightCompomentT*>(reinterpret_cast<uint8_t*>(vOverrideWeightsBuffer->getPointer()) + vAttributeIx * vWeightsTexelByteSize);
+
+													auto* packedJointsData = reinterpret_cast<JointComponentT*>(reinterpret_cast<uint8_t*>(vOverrideRepackedJointsBuffer->getPointer()) + vAttributeIx * repackJointsTexelByteSize);
+													auto* packedWeightsData = reinterpret_cast<WeightCompomentT*>(reinterpret_cast<uint8_t*>(vOverrideRepackedWeightsBuffer->getPointer()) + vAttributeIx * repackWeightsTexelByteSize);
+
+													auto quantize = [&](const core::vectorSIMDf& input, void* data, const E_FORMAT requestQuantizeFormat)
+													{
+														return ICPUMeshBuffer::setAttribute(input, data, requestQuantizeFormat);
+													};
+
+													auto decodeQuant = [&](void* data, const E_FORMAT requestQuantizeFormat)
+													{
+														core::vectorSIMDf out;
+														ICPUMeshBuffer::getAttribute(out, data, requestQuantizeFormat);
+														return out;
+													};
+
+													core::vectorSIMDf packedWeightsStream; //! always go with full vectorSIMDf stream, weights being not used are leaved with default vector's compoment value and are not considered
+
+													for (uint16_t i = 0, vxSkinComponentOffset = 0; i < 4u; ++i) //! packing
+													{
+														if (unpackedWeightsData[i])
+														{
+															packedJointsData[vxSkinComponentOffset] = unpackedJointsData[i];
+															packedWeightsStream.pointer[i] = packedWeightsData[vxSkinComponentOffset] = unpackedWeightsData[i];
+
+															++vxSkinComponentOffset;
+															assert(vxSkinComponentOffset <= maxJointsPerVertex);
+														}
+													}
+
+													for (uint16_t i = 0; i < quantRequest.encodeData.size(); ++i) //! quantization test
+													{
+														auto& encode = quantRequest.encodeData[i];
+														auto* quantBuffer = std::get<QuantRequest::QUANT_BUFFER>(encode);
+														auto* errorBuffer = std::get<QuantRequest::ERROR_BUFFER>(encode);
+														const WEIGHT_ENCODING requestWeightEncoding = std::get<WEIGHT_ENCODING>(encode);
+														const E_FORMAT requestQuantFormat = std::get<E_FORMAT>(encode);
+
+														quantize(packedWeightsStream, quantBuffer, requestQuantFormat);
+														core::vectorSIMDf quantsDecoded = decodeQuant(quantBuffer, requestQuantFormat);
+
+														for (uint16_t i = 0; i < MAX_INFLUENCE_WEIGHTS_PER_VERTEX; ++i)
+														{
+															const auto& weightInput = packedWeightsStream.pointer[i];
+															if (weightInput)
 															{
-																if (errorComponent < quantRequest.bestWeightsFit.smallestError)
+																const QuantRequest::ERROR_TYPE& errorComponent = errorBuffer[i] = core::abs(quantsDecoded.pointer[i] - weightInput);
+
+																if (errorComponent)
 																{
-																	//! update request quantization format
-																	quantRequest.bestWeightsFit.smallestError = errorComponent;
-																	quantRequest.bestWeightsFit.quantizeEncoding = requestWeightEncoding;
+																	if (errorComponent < quantRequest.bestWeightsFit.smallestError)
+																	{
+																		//! update request quantization format
+																		quantRequest.bestWeightsFit.smallestError = errorComponent;
+																		quantRequest.bestWeightsFit.quantizeEncoding = requestWeightEncoding;
+																	}
 																}
 															}
 														}
 													}
 												}
-											}
 
-											auto getWeightsQuantizeFormat = [&]() -> E_FORMAT
-											{
-												switch (maxJointsPerVertex)
+												auto getWeightsQuantizeFormat = [&]() -> E_FORMAT
 												{
+													switch (maxJointsPerVertex)
+													{
 													case 1u:
 													{
 														switch (quantRequest.bestWeightsFit.quantizeEncoding)
 														{
-															case WE_UNORM8:
-															{
-																return EF_R8_UNORM;
-															} break;
+														case WE_UNORM8:
+														{
+															return EF_R8_UNORM;
+														} break;
 
-															case WE_UNORM16:
-															{
-																return EF_R16_UNORM;
-															} break;
+														case WE_UNORM16:
+														{
+															return EF_R16_UNORM;
+														} break;
 
-															case WE_SFLOAT:
-															{
-																return EF_R32_SFLOAT;
-															} break;
+														case WE_SFLOAT:
+														{
+															return EF_R32_SFLOAT;
+														} break;
 														}
 
 													} break;
@@ -1308,20 +1333,20 @@ namespace nbl
 													{
 														switch (quantRequest.bestWeightsFit.quantizeEncoding)
 														{
-															case WE_UNORM8:
-															{
-																return EF_R8G8_UNORM;
-															} break;
+														case WE_UNORM8:
+														{
+															return EF_R8G8_UNORM;
+														} break;
 
-															case WE_UNORM16:
-															{
-																return EF_R16G16_UNORM;
-															} break;
+														case WE_UNORM16:
+														{
+															return EF_R16G16_UNORM;
+														} break;
 
-															case WE_SFLOAT:
-															{
-																return EF_R32G32_SFLOAT;
-															} break;
+														case WE_SFLOAT:
+														{
+															return EF_R32G32_SFLOAT;
+														} break;
 														}
 													} break;
 
@@ -1329,85 +1354,85 @@ namespace nbl
 													{
 														switch (quantRequest.bestWeightsFit.quantizeEncoding)
 														{
-															case WE_UNORM8:
-															{
-																return EF_R8G8B8A8_UNORM;
-															} break;
+														case WE_UNORM8:
+														{
+															return EF_R8G8B8A8_UNORM;
+														} break;
 
-															case WE_UNORM16:
-															{
-																return EF_R16G16B16A16_UNORM;
-															} break;
+														case WE_UNORM16:
+														{
+															return EF_R16G16B16A16_UNORM;
+														} break;
 
-															case WE_SFLOAT:
-															{
-																return EF_R32G32B32A32_SFLOAT;
-															} break;
+														case WE_SFLOAT:
+														{
+															return EF_R32G32B32A32_SFLOAT;
+														} break;
 														}
 													} break;
-												}
-
-												return EF_UNKNOWN;
-											};
-
-											vOverrideJointsBuffer = std::move(vOverrideRepackedJointsBuffer);
-											overrideSkinningBuffers.jointsAttributes.cpuBuffer = std::move(vOverrideJointsBuffer);
-											overrideSkinningBuffers.jointsAttributes.format = repackJointsFormat;
-
-											const E_FORMAT weightsQuantizeFormat = getWeightsQuantizeFormat();
-											const size_t weightComponentsByteStride = asset::getTexelOrBlockBytesize(weightsQuantizeFormat);
-											assert(weightsQuantizeFormat != EF_UNKNOWN);
-											{
-												vOverrideWeightsBuffer = std::move(core::smart_refctd_ptr<asset::ICPUBuffer>()); //! free memory
-												auto vOverrideQuantizedWeightsBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(weightComponentsByteStride * vCommonOverrideAttributesCount);
-												{
-													for (size_t vAttributeIx = 0; vAttributeIx < vCommonOverrideAttributesCount; ++vAttributeIx)
-													{
-														const size_t quantizedVWeightsOffset = vAttributeIx * weightComponentsByteStride;
-														void* quantizedWeightsData = reinterpret_cast<uint8_t*>(vOverrideQuantizedWeightsBuffer->getPointer()) + quantizedVWeightsOffset;
-
-														core::vectorSIMDf packedWeightsStream; //! always go with full vectorSIMDf stream, weights being not used are leaved with default vector's compoment value and are not considered
-														auto* packedWeightsData = reinterpret_cast<WeightCompomentT*>(reinterpret_cast<uint8_t*>(vOverrideRepackedWeightsBuffer->getPointer()) + vAttributeIx * repackWeightsTexelByteSize);
-
-														for (uint16_t i = 0; i < maxJointsPerVertex; ++i)
-															packedWeightsStream.pointer[i] = packedWeightsData[i];
-														
-														ICPUMeshBuffer::setAttribute(packedWeightsStream, quantizedWeightsData, weightsQuantizeFormat); //! quantize
 													}
+
+													return EF_UNKNOWN;
+												};
+
+												vOverrideJointsBuffer = std::move(vOverrideRepackedJointsBuffer);
+												overrideSkinningBuffers.jointsAttributes.cpuBuffer = std::move(vOverrideJointsBuffer);
+												overrideSkinningBuffers.jointsAttributes.format = repackJointsFormat;
+
+												const E_FORMAT weightsQuantizeFormat = getWeightsQuantizeFormat();
+												const size_t weightComponentsByteStride = asset::getTexelOrBlockBytesize(weightsQuantizeFormat);
+												assert(weightsQuantizeFormat != EF_UNKNOWN);
+												{
+													vOverrideWeightsBuffer = std::move(core::smart_refctd_ptr<asset::ICPUBuffer>()); //! free memory
+													auto vOverrideQuantizedWeightsBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(weightComponentsByteStride * vCommonOverrideAttributesCount);
+													{
+														for (size_t vAttributeIx = 0; vAttributeIx < vCommonOverrideAttributesCount; ++vAttributeIx)
+														{
+															const size_t quantizedVWeightsOffset = vAttributeIx * weightComponentsByteStride;
+															void* quantizedWeightsData = reinterpret_cast<uint8_t*>(vOverrideQuantizedWeightsBuffer->getPointer()) + quantizedVWeightsOffset;
+
+															core::vectorSIMDf packedWeightsStream; //! always go with full vectorSIMDf stream, weights being not used are leaved with default vector's compoment value and are not considered
+															auto* packedWeightsData = reinterpret_cast<WeightCompomentT*>(reinterpret_cast<uint8_t*>(vOverrideRepackedWeightsBuffer->getPointer()) + vAttributeIx * repackWeightsTexelByteSize);
+
+															for (uint16_t i = 0; i < maxJointsPerVertex; ++i)
+																packedWeightsStream.pointer[i] = packedWeightsData[i];
+
+															ICPUMeshBuffer::setAttribute(packedWeightsStream, quantizedWeightsData, weightsQuantizeFormat); //! quantize
+														}
+													}
+
+													overrideSkinningBuffers.weightsAttributes.cpuBuffer = std::move(vOverrideQuantizedWeightsBuffer);
+													overrideSkinningBuffers.weightsAttributes.format = weightsQuantizeFormat;
 												}
-												
-												overrideSkinningBuffers.weightsAttributes.cpuBuffer = std::move(vOverrideQuantizedWeightsBuffer);
-												overrideSkinningBuffers.weightsAttributes.format = weightsQuantizeFormat;
 											}
 										}
-									}
-								};
+									};
 
-								switch (vJointsFormat)
-								{
+									switch (vJointsFormat)
+									{
 									case EF_R8G8B8A8_UINT:
 									{
 										using JointCompomentT = uint8_t;
 
 										switch (vWeightsFormat)
 										{
-											case EF_R32G32B32A32_SFLOAT:
-											{
-												using WeightCompomentT = float;
-												createOverrideBuffers.template operator() < JointCompomentT, WeightCompomentT > ();
-											} break;
+										case EF_R32G32B32A32_SFLOAT:
+										{
+											using WeightCompomentT = float;
+											createOverrideBuffers.template operator() < JointCompomentT, WeightCompomentT > ();
+										} break;
 
-											case EF_R8G8B8A8_UINT:
-											{
-												using WeightCompomentT = uint8_t;
-												createOverrideBuffers.template operator() < JointCompomentT, WeightCompomentT > ();
-											} break;
+										case EF_R8G8B8A8_UINT:
+										{
+											using WeightCompomentT = uint8_t;
+											createOverrideBuffers.template operator() < JointCompomentT, WeightCompomentT > ();
+										} break;
 
-											case EF_R16G16B16A16_UINT:
-											{
-												using WeightCompomentT = uint16_t;
-												createOverrideBuffers.template operator() < JointCompomentT, WeightCompomentT > ();
-											} break;
+										case EF_R16G16B16A16_UINT:
+										{
+											using WeightCompomentT = uint16_t;
+											createOverrideBuffers.template operator() < JointCompomentT, WeightCompomentT > ();
+										} break;
 										}
 									} break;
 
@@ -1417,23 +1442,23 @@ namespace nbl
 
 										switch (vWeightsFormat)
 										{
-											case EF_R32G32B32A32_SFLOAT:
-											{
-												using WeightCompomentT = float;
-												createOverrideBuffers.template operator() < JointCompomentT, WeightCompomentT > ();
-											} break;
+										case EF_R32G32B32A32_SFLOAT:
+										{
+											using WeightCompomentT = float;
+											createOverrideBuffers.template operator() < JointCompomentT, WeightCompomentT > ();
+										} break;
 
-											case EF_R8G8B8A8_UINT:
-											{
-												using WeightCompomentT = uint8_t;
-												createOverrideBuffers.template operator() < JointCompomentT, WeightCompomentT > ();
-											} break;
+										case EF_R8G8B8A8_UINT:
+										{
+											using WeightCompomentT = uint8_t;
+											createOverrideBuffers.template operator() < JointCompomentT, WeightCompomentT > ();
+										} break;
 
-											case EF_R16G16B16A16_UINT:
-											{
-												using WeightCompomentT = uint16_t;
-												createOverrideBuffers.template operator() < JointCompomentT, WeightCompomentT > ();
-											} break;
+										case EF_R16G16B16A16_UINT:
+										{
+											using WeightCompomentT = uint16_t;
+											createOverrideBuffers.template operator() < JointCompomentT, WeightCompomentT > ();
+										} break;
 										}
 									} break;
 
@@ -1441,359 +1466,314 @@ namespace nbl
 									{
 										assert(false); //! at this line probably impossible
 									} break;
+									}
+
+									auto setOverrideBufferBinding = [&](OverrideSkinningBuffers::Override& overrideData, uint16_t attributeID)
+									{
+										asset::SBufferBinding<ICPUBuffer> bufferBinding;
+										bufferBinding.buffer = core::smart_refctd_ptr(overrideData.cpuBuffer);
+										bufferBinding.offset = 0u;
+
+										const uint32_t bufferBindingId = attributeID;
+
+										cpuMeshBuffer->setVertexBufferBinding(std::move(bufferBinding), bufferBindingId);
+
+										vertexInputParams.enabledBindingFlags |= core::createBitmask({ bufferBindingId });
+										vertexInputParams.bindings[bufferBindingId].inputRate = EVIR_PER_VERTEX;
+										vertexInputParams.bindings[bufferBindingId].stride = asset::getTexelOrBlockBytesize(overrideData.format);
+
+										vertexInputParams.enabledAttribFlags |= core::createBitmask({ attributeID });
+										vertexInputParams.attributes[attributeID].binding = bufferBindingId;
+										vertexInputParams.attributes[attributeID].format = overrideData.format;
+										vertexInputParams.attributes[attributeID].relativeOffset = 0;
+									};
+
+									cpuMeshBuffer->setJointIDAttributeIx(SAttributes::JOINTS_ATTRIBUTE_LAYOUT_ID);
+									cpuMeshBuffer->setJointWeightAttributeIx(SAttributes::WEIGHTS_ATTRIBUTE_LAYOUT_ID);
+
+									setOverrideBufferBinding(overrideSkinningBuffers.jointsAttributes, SAttributes::JOINTS_ATTRIBUTE_LAYOUT_ID);
+									setOverrideBufferBinding(overrideSkinningBuffers.weightsAttributes, SAttributes::WEIGHTS_ATTRIBUTE_LAYOUT_ID);
 								}
 
-								auto setOverrideBufferBinding = [&](OverrideSkinningBuffers::Override& overrideData, uint16_t attributeID)
-								{
-									asset::SBufferBinding<ICPUBuffer> bufferBinding;
-									bufferBinding.buffer = core::smart_refctd_ptr(overrideData.cpuBuffer);
-									bufferBinding.offset = 0u;
-
-									const uint32_t bufferBindingId = attributeID;
-									
-									cpuMeshBuffer->setVertexBufferBinding(std::move(bufferBinding), bufferBindingId);
-
-									vertexInputParams.enabledBindingFlags |= core::createBitmask({ bufferBindingId });
-									vertexInputParams.bindings[bufferBindingId].inputRate = EVIR_PER_VERTEX;
-									vertexInputParams.bindings[bufferBindingId].stride = asset::getTexelOrBlockBytesize(overrideData.format);
-
-									vertexInputParams.enabledAttribFlags |= core::createBitmask({ attributeID });
-									vertexInputParams.attributes[attributeID].binding = bufferBindingId;
-									vertexInputParams.attributes[attributeID].format = overrideData.format;
-									vertexInputParams.attributes[attributeID].relativeOffset = 0;
-								};
-
-								setOverrideBufferBinding(overrideSkinningBuffers.jointsAttributes, cpuMeshBuffer->getJointIDAttributeIx());
-								setOverrideBufferBinding(overrideSkinningBuffers.weightsAttributes, cpuMeshBuffer->getJointWeightAttributeIx());
+								skinningEnabled = true;
 							}
 
-							skinningEnabled = true;
-						}
-						// TODO: set maxJointCount on the cpuMeshBuffer here
-
-						auto getShaders = [&](bool hasUV, bool hasColor, bool isSkinned) -> std::pair<core::smart_refctd_ptr<ICPUSpecializedShader>, core::smart_refctd_ptr<ICPUSpecializedShader>>
-						{
-							auto loadShader = [&](const std::string_view& cacheKey) -> core::smart_refctd_ptr<ICPUSpecializedShader>
+							auto getShaders = [&](bool hasUV, bool hasColor, bool isSkinned) -> std::pair<core::smart_refctd_ptr<ICPUSpecializedShader>, core::smart_refctd_ptr<ICPUSpecializedShader>>
 							{
-								size_t storageSz = 1ull;
-								asset::SAssetBundle bundle;
-								const IAsset::E_TYPE types[]{ IAsset::ET_SPECIALIZED_SHADER, static_cast<IAsset::E_TYPE>(0u) };
+								auto loadShader = [&](const std::string_view& cacheKey) -> core::smart_refctd_ptr<ICPUSpecializedShader>
+								{
+									size_t storageSz = 1ull;
+									asset::SAssetBundle bundle;
+									const IAsset::E_TYPE types[]{ IAsset::ET_SPECIALIZED_SHADER, static_cast<IAsset::E_TYPE>(0u) };
 
-								assetManager->findAssets(storageSz, &bundle, cacheKey.data(), types);
-								if (bundle.getContents().empty())
-									return nullptr;
-								auto assets = bundle.getContents();
+									assetManager->findAssets(storageSz, &bundle, cacheKey.data(), types);
+									if (bundle.getContents().empty())
+										return nullptr;
+									auto assets = bundle.getContents();
 
-								return core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(assets.begin()[0]);
+									return core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(assets.begin()[0]);
+								};
+
+								std::pair<core::smart_refctd_ptr<ICPUSpecializedShader>, core::smart_refctd_ptr<ICPUSpecializedShader>> cpuShaders;
+
+								if (isSkinned)
+								{
+									if (hasUV) // if both UV and Color defined - we use the UV
+										cpuShaders = std::make_pair(loadShader(VERT_SHADER_SKINNED_UV_CACHE_KEY), loadShader(FRAG_SHADER_UV_CACHE_KEY));
+									else if (hasColor)
+										cpuShaders = std::make_pair(loadShader(VERT_SHADER_SKINNED_COLOR_CACHE_KEY), loadShader(FRAG_SHADER_COLOR_CACHE_KEY));
+									else
+										cpuShaders = std::make_pair(loadShader(VERT_SHADER_SKINNED_NO_UV_COLOR_CACHE_KEY), loadShader(FRAG_SHADER_NO_UV_COLOR_CACHE_KEY));
+								}
+								else
+								{
+									if (hasUV) // if both UV and Color defined - we use the UV
+										cpuShaders = std::make_pair(loadShader(VERT_SHADER_UV_CACHE_KEY), loadShader(FRAG_SHADER_UV_CACHE_KEY));
+									else if (hasColor)
+										cpuShaders = std::make_pair(loadShader(VERT_SHADER_COLOR_CACHE_KEY), loadShader(FRAG_SHADER_COLOR_CACHE_KEY));
+									else
+										cpuShaders = std::make_pair(loadShader(VERT_SHADER_NO_UV_COLOR_CACHE_KEY), loadShader(FRAG_SHADER_NO_UV_COLOR_CACHE_KEY));
+								}
+
+								return cpuShaders;
 							};
 
-							std::pair<core::smart_refctd_ptr<ICPUSpecializedShader>, core::smart_refctd_ptr<ICPUSpecializedShader>> cpuShaders;
+							asset::CGLTFPipelineMetadata::SGLTFMaterialParameters pushConstants;
+							SMaterialDependencyData materialDependencyData;
+							const bool ds3lAvailableFlag = glTFprimitive.material.has_value();
 
-							if (hasUV) // if both UV and Color defined - we use the UV
-								cpuShaders = std::make_pair(loadShader(VERT_SHADER_UV_CACHE_KEY), loadShader(FRAG_SHADER_UV_CACHE_KEY));
-							else if (hasColor)
-								cpuShaders = std::make_pair(loadShader(VERT_SHADER_COLOR_CACHE_KEY), loadShader(FRAG_SHADER_COLOR_CACHE_KEY));
-							else
-								cpuShaders = std::make_pair(loadShader(VERT_SHADER_NO_UV_COLOR_CACHE_KEY), loadShader(FRAG_SHADER_NO_UV_COLOR_CACHE_KEY));
-
-							// TODO: do not create overriden shaders on demand! This is unacceptable
-							// I dont want to have a new shader for every single pipeline just because its skinned
-							// you should create 2x the vertex shaders and register as global builtin in the loader's constructor
-							if (isSkinned)
+							materialDependencyData.cpuMeshBuffer = cpuMeshBuffer.get();
+							materialDependencyData.glTFMaterial = ds3lAvailableFlag ? &glTF.materials[glTFprimitive.material.value()] : nullptr;
+							materialDependencyData.cpuTextures = &cpuTextures;
 							{
-								constexpr std::string_view NBL_SKINNING_OVERRIDE = "#define _NBL_SKINNING_ENABLED_\n";
-
-								auto getOverridenShader = [&](core::smart_refctd_ptr<ICPUSpecializedShader> cpuShader) -> core::smart_refctd_ptr<ICPUSpecializedShader>
+								if (materialDependencyData.glTFMaterial)
 								{
-									const asset::ICPUShader* unspecializedShader = cpuShader->getUnspecialized();
-									assert(unspecializedShader->containsGLSL());
-
-									auto newUnspecializedShader = IGLSLCompiler::createOverridenCopy(unspecializedShader, NBL_SKINNING_OVERRIDE.data(), 69);
-									auto specializedInfo = cpuShader->getSpecializationInfo();
-
-									return core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(newUnspecializedShader), std::move(specializedInfo));
-								};
-
-								/*
-									@devshgraphicsprogramming leaving this for you
-								*/
-
-								//! cpuShaders.first = std::move(getOverridenShader(cpuShaders.first));
-								//! cpuShaders.second = std::move(getOverridenShader(cpuShaders.second));
-							}
-
-							return cpuShaders;
-						};
-
-						core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> cpuPipeline;
-						const std::string& pipelineCacheKey = getPipelineCacheKey(primitiveTopology, vertexInputParams); // TODO: add skinning boolean to the pipeline cache key
-						{
-							const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_RENDERPASS_INDEPENDENT_PIPELINE, (asset::IAsset::E_TYPE)0u };
-							auto pipeline_bundle = _override->findCachedAsset(pipelineCacheKey, types, context.loadContext, _hierarchyLevel + ICPUMesh::PIPELINE_HIERARCHYLEVELS_BELOW);
-							if (!pipeline_bundle.getContents().empty())
-								cpuPipeline = core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(pipeline_bundle.getContents().begin()[0]);
-							else
-							{
-								// TODO: this needs a rewrite.
-								// The pushConstants dont influence pipeline creation, so they shouldn't be filled in pipeline creation
-								// also write them straight to meshbuffer's PC storage
-								auto& pushConstants = *reinterpret_cast<CGLTFPipelineMetadata::SGLTFMaterialParameters*>(cpuMeshBuffer->getPushConstantsDataPtr());
-								static_assert(sizeof(pushConstants)<=ICPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE,"glTF Material Parameter Struct too Large");
-
-								SMaterialDependencyData materialDependencyData;
-								const bool ds3lAvailableFlag = glTFprimitive.material.has_value();
-
-								materialDependencyData.cpuMeshBuffer = cpuMeshBuffer.get();
-								materialDependencyData.glTFMaterial = ds3lAvailableFlag ? &glTF.materials[glTFprimitive.material.value()] : nullptr;
-								materialDependencyData.cpuTextures = &cpuTextures;
-
-								auto cpuPipelineLayout = makePipelineLayoutFromGLTF(context, pushConstants, materialDependencyData, skinningEnabled);
-								// TODO: specialized shaders should have a separate cache, so we dont get new specialized shaders for every pipeline
-								auto [cpuVertexShader, cpuFragmentShader] = getShaders(hasUV, hasColor, skinningEnabled);
-
-								if (!cpuVertexShader || !cpuFragmentShader)
-								{
-									context.loadContext.params.logger.log("GLTF: COULD NOT LOAD SHADERS!", system::ILogger::ELL_WARNING);
-									return false;
-								}
-
-								cpuPipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(std::move(cpuPipelineLayout), nullptr, nullptr, vertexInputParams, blendParams, primitiveAssemblyParams, rastarizationParmas);
-								cpuPipeline->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_VERTEX_SHADER_IX, cpuVertexShader.get());
-								cpuPipeline->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_FRAGMENT_SHADER_IX, cpuFragmentShader.get());
-
-								core::smart_refctd_ptr<CGLTFPipelineMetadata> glTFPipelineMetadata;
-								{
-									if (ds3lAvailableFlag)
+									auto* glTFMaterial = materialDependencyData.glTFMaterial;
+									
+									if (glTFMaterial->pbrMetallicRoughness.has_value())
 									{
-										if (materialDependencyData.glTFMaterial->pbrMetallicRoughness.has_value())
+										auto& pbrMetallicRoughness = glTFMaterial->pbrMetallicRoughness.value();
 										{
-											auto& glTFMetallicRoughness = materialDependencyData.glTFMaterial->pbrMetallicRoughness.value();
+											if (pbrMetallicRoughness.baseColorTexture.has_value())
+											{
+												auto& baseColorTexture = pbrMetallicRoughness.baseColorTexture.value();
 
-											if (glTFMetallicRoughness.baseColorFactor.has_value())
-												for (uint8_t i = 0; i < glTFMetallicRoughness.baseColorFactor.value().size(); ++i)
-													pushConstants.metallicRoughness.baseColorFactor[i] = glTFMetallicRoughness.baseColorFactor.value()[i];
+												if (baseColorTexture.index.has_value())
+													pushConstants.availableTextures |= CGLTFPipelineMetadata::SGLTFMaterialParameters::EGT_BASE_COLOR_TEXTURE;
+											}
 
-											if (glTFMetallicRoughness.metallicFactor.has_value())
-												pushConstants.metallicRoughness.metallicFactor = glTFMetallicRoughness.metallicFactor.value();
+											if (pbrMetallicRoughness.baseColorFactor.has_value())
+												for (uint8_t i = 0; i < pbrMetallicRoughness.baseColorFactor.value().size(); ++i)
+													pushConstants.metallicRoughness.baseColorFactor[i] = pbrMetallicRoughness.baseColorFactor.value()[i];
 
-											if (glTFMetallicRoughness.roughnessFactor.has_value())
-												pushConstants.metallicRoughness.roughnessFactor = glTFMetallicRoughness.roughnessFactor.value();
+											if (pbrMetallicRoughness.metallicRoughnessTexture.has_value())
+											{
+												auto& metallicRoughnessTexture = pbrMetallicRoughness.metallicRoughnessTexture.value();
+
+												if (metallicRoughnessTexture.index.has_value())
+													pushConstants.availableTextures |= CGLTFPipelineMetadata::SGLTFMaterialParameters::EGT_METALLIC_ROUGHNESS_TEXTURE;
+											}
+
+											if (pbrMetallicRoughness.metallicFactor.has_value())
+												pushConstants.metallicRoughness.metallicFactor = pbrMetallicRoughness.metallicFactor.value();
+
+											if (pbrMetallicRoughness.roughnessFactor.has_value())
+												pushConstants.metallicRoughness.roughnessFactor = pbrMetallicRoughness.roughnessFactor.value();
 										}
+									}
 
-										if (materialDependencyData.glTFMaterial->alphaCutoff.has_value())
-											pushConstants.alphaCutoff = materialDependencyData.glTFMaterial->alphaCutoff.value();
+									if (glTFMaterial->normalTexture.has_value())
+									{
+										auto& normalTexture = glTFMaterial->normalTexture.value();
 
-										CGLTFLoader::SGLTF::SGLTFMaterial::E_ALPHA_MODE alphaModeStream = decltype(alphaModeStream)::EAM_OPAQUE;
+										if (normalTexture.index.has_value())
+											pushConstants.availableTextures |= CGLTFPipelineMetadata::SGLTFMaterialParameters::EGT_NORMAL_TEXTURE;
+									}
 
-										if (materialDependencyData.glTFMaterial->alphaMode.has_value())
-											alphaModeStream = materialDependencyData.glTFMaterial->alphaMode.value();
+									if (glTFMaterial->occlusionTexture.has_value())
+									{
+										auto& occlusionTexture = glTFMaterial->occlusionTexture.value();
 
-										switch (alphaModeStream)
-										{
+										if (occlusionTexture.index.has_value())
+											pushConstants.availableTextures |= CGLTFPipelineMetadata::SGLTFMaterialParameters::EGT_OCCLUSION_TEXTURE;
+									}
+
+									if (glTFMaterial->emissiveTexture.has_value())
+									{
+										auto& emissiveTexture = glTFMaterial->emissiveTexture.value();
+
+										if (emissiveTexture.index.has_value())
+											pushConstants.availableTextures |= CGLTFPipelineMetadata::SGLTFMaterialParameters::EGT_EMISSIVE_TEXTURE;
+									}
+
+									if (glTFMaterial ->alphaCutoff.has_value())
+										pushConstants.alphaCutoff = glTFMaterial->alphaCutoff.value();
+
+									CGLTFLoader::SGLTF::SGLTFMaterial::E_ALPHA_MODE alphaModeStream = decltype(alphaModeStream)::EAM_OPAQUE;
+
+									if (glTFMaterial->alphaMode.has_value())
+										alphaModeStream = glTFMaterial->alphaMode.value();
+
+									switch (alphaModeStream)
+									{
 										case decltype(alphaModeStream)::EAM_OPAQUE:
 										{
-											pushConstants.alphaMode = CGLTFPipelineMetadata::EAM_OPAQUE;
+											pushConstants.alphaMode = asset::CGLTFPipelineMetadata::EAM_OPAQUE;
 										} break;
 
 										case decltype(alphaModeStream)::EAM_MASK:
 										{
-											pushConstants.alphaMode = CGLTFPipelineMetadata::EAM_MASK;
+											pushConstants.alphaMode = asset::CGLTFPipelineMetadata::EAM_MASK;
 										} break;
 
 										case decltype(alphaModeStream)::EAM_BLEND:
 										{
-											pushConstants.alphaMode = CGLTFPipelineMetadata::EAM_BLEND;
+											pushConstants.alphaMode = asset::CGLTFPipelineMetadata::EAM_BLEND;
 										} break;
-										}
-
-										if (materialDependencyData.glTFMaterial->emissiveFactor.has_value())
-											for (uint8_t i = 0; i < materialDependencyData.glTFMaterial->emissiveFactor.value().size(); ++i)
-												pushConstants.emissiveFactor[i] = materialDependencyData.glTFMaterial->emissiveFactor.value()[i];
-
-										glTFPipelineMetadata = core::make_smart_refctd_ptr<CGLTFPipelineMetadata>(core::smart_refctd_ptr(m_basicViewParamsSemantics));
 									}
+
+									if (glTFMaterial->emissiveFactor.has_value())
+										for (uint8_t i = 0; i < materialDependencyData.glTFMaterial->emissiveFactor.value().size(); ++i)
+											pushConstants.emissiveFactor[i] = materialDependencyData.glTFMaterial->emissiveFactor.value()[i];
 								}
 
-								globalPipelineMeta.push_back(core::smart_refctd_ptr(glTFPipelineMetadata));
-								SAssetBundle pipelineBundle = SAssetBundle(core::smart_refctd_ptr(glTFPipelineMetadata), { cpuPipeline });
-
-								_override->insertAssetIntoCache(pipelineBundle, pipelineCacheKey, context.loadContext, _hierarchyLevel + ICPUMesh::PIPELINE_HIERARCHYLEVELS_BELOW);
+								memcpy(cpuMeshBuffer->getPushConstantsDataPtr(), &pushConstants, sizeof(pushConstants));
 							}
-							cpuMeshBuffer->setPipeline(std::move(cpuPipeline));
-							cpuMesh->getMeshBufferVector().push_back(std::move(cpuMeshBuffer));
+
+							core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> cpuPipeline;
+							const std::string& pipelineCacheKey = getPipelineCacheKey(primitiveTopology, vertexInputParams, skinningEnabled);
+							{
+								const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_RENDERPASS_INDEPENDENT_PIPELINE, (asset::IAsset::E_TYPE)0u };
+								auto pipeline_bundle = _override->findCachedAsset(pipelineCacheKey, types, context.loadContext, _hierarchyLevel + ICPUMesh::PIPELINE_HIERARCHYLEVELS_BELOW);
+								if (!pipeline_bundle.getContents().empty())
+									cpuPipeline = core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(pipeline_bundle.getContents().begin()[0]);
+								else
+								{
+									auto cpuPipelineLayout = makePipelineLayoutFromGLTF(context, pushConstants, materialDependencyData, skinningEnabled);
+									auto [cpuVertexShader, cpuFragmentShader] = getShaders(hasUV, hasColor, skinningEnabled);
+
+									if (!cpuVertexShader || !cpuFragmentShader)
+									{
+										context.loadContext.params.logger.log("GLTF: COULD NOT LOAD SHADERS!", system::ILogger::ELL_WARNING);
+										return false;
+									}
+
+									cpuPipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(std::move(cpuPipelineLayout), nullptr, nullptr, vertexInputParams, blendParams, primitiveAssemblyParams, rastarizationParmas);
+									cpuPipeline->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_VERTEX_SHADER_IX, cpuVertexShader.get());
+									cpuPipeline->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_FRAGMENT_SHADER_IX, cpuFragmentShader.get());
+
+									auto glTFPipelineMetadata = core::make_smart_refctd_ptr<CGLTFPipelineMetadata>(core::smart_refctd_ptr(m_basicViewParamsSemantics));
+									
+									globalPipelineMetadataSet[cpuPipeline.get()] = core::smart_refctd_ptr(glTFPipelineMetadata);
+									SAssetBundle pipelineBundle = SAssetBundle(core::smart_refctd_ptr(glTFPipelineMetadata), { cpuPipeline });
+
+									_override->insertAssetIntoCache(pipelineBundle, pipelineCacheKey, context.loadContext, _hierarchyLevel + ICPUMesh::PIPELINE_HIERARCHYLEVELS_BELOW);
+								}
+								cpuMeshBuffer->setPipeline(std::move(cpuPipeline));
+								cpuMesh->getMeshBufferVector().push_back(std::move(cpuMeshBuffer));
+							}
 						}
 					}
 				}
+
+				// go over unique <mesh,skin> pairs and make a cpuMesh
+				for (const auto& hash : meshSkinPairs)
+				{
+					const auto pair = static_cast<MeshSkinPair>(hash);
+
+					auto& mesh = cpuMeshes.emplace_back() = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(meshesView[pair.mesh]->clone(1u)); // duplicate only mesh and meshbuffer
+
+					if (pair.skin!=0xdeadbeefu) // has a skin
+						for (auto& meshbuffer : mesh->getMeshBufferVector())
+						{
+							auto& skin = skins[pair.skin];
+							const size_t jointCount = skin.skeleton->getJointCount();
+
+							SBufferBinding<ICPUBuffer> inverseBindPoseBinding;
+							inverseBindPoseBinding.buffer = core::smart_refctd_ptr(skin.inverseBindPose.buffer);
+							inverseBindPoseBinding.offset = skin.inverseBindPose.offset;
+
+							SBufferBinding<ICPUBuffer> jointAABBBufferBinding;
+							jointAABBBufferBinding.buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(jointCount * sizeof(core::aabbox3df));
+							jointAABBBufferBinding.offset = 0u;
+
+							nbl::asset::IMeshManipulator::calculateBoundingBox(meshbuffer.get(), reinterpret_cast<core::aabbox3df*>(jointAABBBufferBinding.buffer->getPointer()));
+							meshbuffer->setSkin(std::move(inverseBindPoseBinding), std::move(jointAABBBufferBinding), jointCount, meshbuffer->deduceMaxJointsPerVertex());
+						}
+				}
 			}
 
+			std::vector<std::vector<CGLTFMetadata::INSTANCE_ID>> sceneInstanceIDs(glTF.scenes.size());
 
-			for (uint32_t index = 0; index < glTF.nodes.size(); ++index)
+			auto getSceneIDANodeBelongsTo = [&](uint32_t nodeIx)
 			{
-				auto& glTFnode = glTF.nodes[index];
+				for (size_t i = 0; i < glTF.scenes.size(); ++i)
+					for (const auto& aNode : glTF.scenes[i].nodes)
+						if (aNode == nodeIx)
+							return i;
+			};
+
+			// go over nodes one last time to record instances
+			core::vector<CGLTFMetadata::Instance> instances;
+			for (uint32_t index=0u; index<nodeCount; ++index)
+			{
+				const auto& glTFnode = glTF.nodes[index];
 
 				const uint32_t meshID = glTFnode.mesh.has_value() ? glTFnode.mesh.value() : 0xdeadbeef;
+				if (meshID == 0xdeadbeef)
+					continue;
+
 				const uint32_t skinID = glTFnode.skin.has_value() ? glTFnode.skin.value() : 0xdeadbeef;
 
-				const bool skinDefined = meshID != 0xdeadbeef && skinID != 0xdeadbeef;
+				MeshSkinPair meshSkinPair = { meshID, skinID };
 			
-				if (skinDefined)
+				// record that as an instance 
+				auto found = meshSkinPairs.find(*reinterpret_cast<uint64_t*>(&meshSkinPair));
+				assert(found!=meshSkinPairs.end());
+
+				const auto sceneID = getSceneIDANodeBelongsTo(index); // what how can I determine if instance x belongs to scene y, it won't find it always!
+				const auto instanceBeingCreatedID = instances.size();
+				sceneInstanceIDs[sceneID].push_back(instanceBeingCreatedID);
+
+				auto& instance = instances.emplace_back();
+				
+				if (skinID != 0xdeadbeefu) // has skin
 				{
-					const auto& skeletonData = skeletons[skinID];
-
-					const auto& glTFSkin = glTF.skins[skinID];
-
-					const auto& accessorInverseBindMatricesID = glTFSkin.inverseBindMatrices.has_value() ? glTFSkin.inverseBindMatrices.value() : 0xdeadbeef;
-					const auto& glTFjointNodeIDs = glTFSkin.joints; 
-
-					auto cpuMesh = cpuMeshes[meshID];
-					auto cpuMeshBuffer = cpuMesh->getMeshBufferVector()[0];
-					const auto cpuPipeline = cpuMeshBuffer->getPipeline();
-					const auto pipelineCacheKey = getPipelineCacheKey(cpuPipeline->getPrimitiveAssemblyParams().primitiveType, cpuPipeline->getVertexInputParams());
-
-
-					const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_RENDERPASS_INDEPENDENT_PIPELINE, (asset::IAsset::E_TYPE)0u };
-					auto pipeline_bundle = _override->findCachedAsset(pipelineCacheKey, types, context.loadContext, context.hierarchyLevel + ICPUMesh::PIPELINE_HIERARCHYLEVELS_BELOW);
-					assert(!pipeline_bundle.getContents().empty());
-
-					const auto* pipelineMetadata = static_cast<const asset::CGLTFPipelineMetadata*>(pipeline_bundle.getMetadata());
-
-					const uint32_t jointsPerVertex = pipelineMetadata->m_skinParams.perVertexJointsAmount;
-					using bnd_t = asset::SBufferBinding<asset::ICPUBuffer>;
-					core::smart_refctd_ptr<ICPUSkeleton> skeleton = core::make_smart_refctd_ptr<ICPUSkeleton>(bnd_t(skeletonData.toPass.parentJointIDs), bnd_t(skeletonData.toPass.defaultTransforms), skeletonData.toPass.jointNames.begin(), skeletonData.toPass.jointNames.end());
-
-					SBufferBinding<ICPUBuffer> inverseBindPoseBufferBinding;
-					inverseBindPoseBufferBinding.buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(glTFjointNodeIDs.size() * sizeof(core::matrix3x4SIMD));
-					inverseBindPoseBufferBinding.offset = 0u;
-					{
-						if (accessorInverseBindMatricesID == 0xdeadbeef)
-						{
-							const core::matrix3x4SIMD identity;
-
-							auto* data = reinterpret_cast<core::matrix3x4SIMD*>(inverseBindPoseBufferBinding.buffer->getPointer());
-							auto* end = data + inverseBindPoseBufferBinding.buffer->getSize() / sizeof(core::matrix3x4SIMD);
-
-							std::fill(data, end, identity);
-						}
-						else
-						{
-							const auto& glTFAccessor = glTF.accessors[accessorInverseBindMatricesID];
-
-							if (!glTFAccessor.bufferView.has_value())
-							{
-								context.loadContext.params.logger.log("GLTF: NO BUFFER VIEW INDEX FOUND!", system::ILogger::ELL_WARNING);
-								return false;
-							}
-
-							const auto& bufferViewID = glTFAccessor.bufferView.value();
-							const auto& glTFBufferView = glTF.bufferViews[bufferViewID];
-
-							if (!glTFBufferView.buffer.has_value())
-							{
-								context.loadContext.params.logger.log("GLTF: NO BUFFER INDEX FOUND!", system::ILogger::ELL_WARNING);
-								return false;
-							}
-
-							const auto& bufferID = glTFBufferView.buffer.value();
-							auto cpuBuffer = cpuBuffers[bufferID];
-
-							const size_t globalIBPOffset = [&]()
-							{
-								const size_t bufferViewOffset = glTFBufferView.byteOffset.has_value() ? glTFBufferView.byteOffset.value() : 0u;
-								const size_t relativeAccessorOffset = glTFAccessor.byteOffset.has_value() ? glTFAccessor.byteOffset.value() : 0u;
-
-								return bufferViewOffset + relativeAccessorOffset;
-							}();
-
-							auto* inData = reinterpret_cast<core::matrix4SIMD*>(reinterpret_cast<uint8_t*>(cpuBuffer->getPointer()) + globalIBPOffset); //! glTF stores 4x4 IBP matrices
-							auto* outData = reinterpret_cast<core::matrix3x4SIMD*>(inverseBindPoseBufferBinding.buffer->getPointer());
-
-							for (uint32_t i = 0; i < glTFjointNodeIDs.size(); ++i)
-								*(outData + i) = (inData + i)->extractSub3x4();
-						}
-					}
-
-					SBufferBinding<ICPUBuffer> jointAABBBufferBinding;
-					{
-						std::vector<core::aabbox3df> jointBoundingBoxes(glTFjointNodeIDs.size());
-						{
-							struct JointVertexPair
-							{
-								core::vectorSIMDf vPosition;
-								core::vector4du32_SIMD vJoint;
-							} currentJointVertexPair;
-
-							const uint16_t jointIDAttributeIx = cpuMeshBuffer->getJointIDAttributeIx();
-							const auto* inverseBindPoseMatrices = reinterpret_cast<core::matrix3x4SIMD*>(reinterpret_cast<uint8_t*>(inverseBindPoseBufferBinding.buffer->getPointer()) + inverseBindPoseBufferBinding.offset);
-
-							auto createBoneBoundingBoxes = [&]<bool isIndexedT>() // TODO: use the IMeshManipulator method for this
-							{
-								for (size_t i = 0; i < cpuMeshBuffer->getIndexCount(); ++i)
-								{
-									if constexpr (isIndexedT)
-									{
-										const auto& vtxIndex = cpuMeshBuffer->getIndexValue(i);
-
-										currentJointVertexPair.vPosition = cpuMeshBuffer->getPosition(vtxIndex);
-										assert(cpuMeshBuffer->getAttribute(currentJointVertexPair.vJoint.pointer, jointIDAttributeIx, vtxIndex));
-									}
-									else
-									{
-										currentJointVertexPair.vPosition = cpuMeshBuffer->getPosition(i);
-										assert(cpuMeshBuffer->getAttribute(currentJointVertexPair.vJoint.pointer, jointIDAttributeIx, i));
-									}
-
-									auto updateBoundingBoxBuffers = [&](const uint32_t vtxJointID)
-									{
-										const auto& inverseBindPoseMatrix = inverseBindPoseMatrices[vtxJointID];
-										inverseBindPoseMatrix.transformVect(currentJointVertexPair.vPosition);
-										jointBoundingBoxes[vtxJointID].addInternalPoint(currentJointVertexPair.vPosition.getAsVector3df());
-									};
-
-									for (uint32_t z = 0; z < jointsPerVertex; ++z)
-										updateBoundingBoxBuffers(currentJointVertexPair.vJoint.pointer[z]);
-								}
-							};
-
-							if(cpuMeshBuffer->getIndexType() == asset::EIT_UNKNOWN)
-								createBoneBoundingBoxes.template operator() < false > ();
-							else
-								createBoneBoundingBoxes.template operator() < true > ();
-						}
-
-						jointAABBBufferBinding.buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(jointBoundingBoxes.size() * sizeof(core::aabbox3df));
-						memcpy(jointAABBBufferBinding.buffer->getPointer(), jointBoundingBoxes.data(), jointAABBBufferBinding.buffer->getSize());
-						jointAABBBufferBinding.offset = 0u;
-					}
-
-					//cpuMeshBuffer->setSkin(std::move(inverseBindPoseBufferBinding), std::move(jointAABBBufferBinding), std::move(skeleton), jointsPerVertex);
+					instance.skeleton = skins[skinID].skeleton.get();
+					instance.skinTranslationTable.buffer = skins[skinID].translationTable.buffer;
+					instance.skinTranslationTable.offset = skins[skinID].translationTable.offset;
 				}
+				else
+				{
+					instance.skeleton = nullptr;
+					instance.skinTranslationTable.buffer = nullptr;
+					instance.skinTranslationTable.offset = 0xdeadbeefu;
+				}
+				instance.mesh = cpuMeshes[std::distance(meshSkinPairs.begin(),found)].get();
+				instance.attachedToNode = skeletonNodes[index].localJointID;
 			}
 
-			/*
-			* 
-			*   TODO: IT MAY BE AN ISSUE VERY SOON!
-			* 
-				TODO: it needs hashes and better system for meta since gltf bundle may return more than one mesh
-				and each mesh may have more than one meshbuffer, so more meta as well
-			*/
-
-			auto getGlobalPipelineCount = [&]() // TODO change it
+			core::smart_refctd_ptr<CGLTFMetadata> glTFMetadata = core::make_smart_refctd_ptr<CGLTFMetadata>(globalPipelineMetadataSet.size());
 			{
-				size_t count = {};
-				for (auto& meshMeta : globalMetadataContainer)
-					for (auto& pipelineMeta : meshMeta)
-						++count;
-				return count;
-			};
-#endif
+				if (glTF.defaultScene.has_value())
+					glTFMetadata->defaultSceneID = glTF.defaultScene.value();
 
-			core::smart_refctd_ptr<CGLTFMetadata> glTFPipelineMetadata;// = core::make_smart_refctd_ptr<CGLTFMetadata>(getGlobalPipelineCount());
-#if 0
-			for (size_t i = 0; i < globalMetadataContainer.size(); ++i) // TODO change it 
-				for (size_t z = 0; z < globalMetadataContainer[i].size(); ++z)
-					glTFPipelineMetadata->placeMeta(z, cpuMeshes[i]->getMeshBufferVector()[z]->getPipeline(), *globalMetadataContainer[i][z]); 
-#endif
-			return SAssetBundle(std::move(glTFPipelineMetadata),cpuMeshes);
+				glTFMetadata->instances = instances;
+				glTFMetadata->skeletons = skeletons;
+
+				for (auto& it : sceneInstanceIDs)
+				{
+					const auto aSceneInstanceCount = it.size();
+					auto& scene = glTFMetadata->scenes.emplace_back();
+					scene.instanceIDs = it;
+				}
+
+				size_t i = {};
+				for (auto& meta : globalPipelineMetadataSet)
+					glTFMetadata->placeMeta(i++, meta.first, *meta.second);
+			}
+
+			return SAssetBundle(std::move(glTFMetadata), cpuMeshes);
 		}
 
 		bool CGLTFLoader::loadAndGetGLTF(SGLTF& glTF, SContext& context)
@@ -1833,6 +1813,23 @@ namespace nbl
 			const auto& textures = tweets.at_key("textures");
 			const auto& extensions = tweets.at_key("extensions");
 			const auto& extras = tweets.at_key("extras");
+
+			if (scene.error() != simdjson::error_code::NO_SUCH_FIELD)
+				glTF.defaultScene = scene.get_uint64();
+
+			if (scenes.error() != simdjson::error_code::NO_SUCH_FIELD)
+			{
+				const auto& jsonScenes = scenes.get_array();
+				for (const auto& jsonScene : jsonScenes)
+				{
+					auto& glTFScene = glTF.scenes.emplace_back();
+					const auto& nodes = jsonScene.at_key("nodes");
+
+					if(nodes.error() != simdjson::error_code::NO_SUCH_FIELD)
+						for (const auto& node : nodes.get_array())
+							glTFScene.nodes.push_back(node.get_uint64());
+				}
+			}
 
 			if (buffers.error() != simdjson::error_code::NO_SUCH_FIELD)
 			{
@@ -2581,14 +2578,8 @@ namespace nbl
 			return true;
 		}
 
-		core::smart_refctd_ptr<ICPUPipelineLayout> CGLTFLoader::makePipelineLayoutFromGLTF(SContext& context, CGLTFPipelineMetadata::SGLTFMaterialParameters& pushConstants, SMaterialDependencyData& materialData, bool isSkinned)
+		core::smart_refctd_ptr<ICPUPipelineLayout> CGLTFLoader::makePipelineLayoutFromGLTF(SContext& context, const asset::CGLTFPipelineMetadata::SGLTFMaterialParameters& pushConstants, SMaterialDependencyData& materialData, bool isSkinned)
 		{
-			/*
-				Skinning buffers
-			*/
-
-			//! @devshgraphicsprogramming leaving it for you
-
 			auto getCpuDs0Layout = [&]() -> core::smart_refctd_ptr<ICPUDescriptorSetLayout>
 			{
 				if (isSkinned)
@@ -2668,10 +2659,7 @@ namespace nbl
 								auto& baseColorTexture = pbrMetallicRoughness.baseColorTexture.value();
 
 								if (baseColorTexture.index.has_value())
-								{
 									fillAssets(baseColorTexture.index.value(), SGLTF::SGLTFMaterial::EGT_BASE_COLOR_TEXTURE);
-									pushConstants.availableTextures |= CGLTFPipelineMetadata::SGLTFMaterialParameters::EGT_BASE_COLOR_TEXTURE;
-								}
 									
 								/*
 									if (baseColorTexture.texCoord.has_value())
@@ -2686,10 +2674,7 @@ namespace nbl
 								auto& metallicRoughnessTexture = pbrMetallicRoughness.metallicRoughnessTexture.value();
 
 								if (metallicRoughnessTexture.index.has_value())
-								{
 									fillAssets(metallicRoughnessTexture.index.value(), SGLTF::SGLTFMaterial::EGT_METALLIC_ROUGHNESS_TEXTURE);
-									pushConstants.availableTextures |= CGLTFPipelineMetadata::SGLTFMaterialParameters::EGT_METALLIC_ROUGHNESS_TEXTURE;
-								}
 								
 								/*
 									if (metallicRoughnessTexture.texCoord.has_value())
@@ -2708,7 +2693,6 @@ namespace nbl
 						if (normalTexture.index.has_value())
 						{
 							fillAssets(normalTexture.index.value(), SGLTF::SGLTFMaterial::EGT_NORMAL_TEXTURE);
-							pushConstants.availableTextures |= CGLTFPipelineMetadata::SGLTFMaterialParameters::EGT_NORMAL_TEXTURE;
 
 							auto cpuNormalTexture = IMAGE_VIEWS[SGLTF::SGLTFMaterial::EGT_NORMAL_TEXTURE];
 							IMAGE_VIEWS[SGLTF::SGLTFMaterial::EGT_NORMAL_TEXTURE] = CDerivativeMapCreator::createDerivativeMapViewFromNormalMap(cpuNormalTexture->getCreationParameters().image.get());
@@ -2730,10 +2714,7 @@ namespace nbl
 						auto& occlusionTexture = material.glTFMaterial->occlusionTexture.value();
 
 						if (occlusionTexture.index.has_value())
-						{
 							fillAssets(occlusionTexture.index.value(), SGLTF::SGLTFMaterial::EGT_OCCLUSION_TEXTURE);
-							pushConstants.availableTextures |= CGLTFPipelineMetadata::SGLTFMaterialParameters::EGT_OCCLUSION_TEXTURE;
-						}
 						
 						/*
 							if (occlusionTexture.texCoord.has_value())
@@ -2748,10 +2729,7 @@ namespace nbl
 						auto& emissiveTexture = material.glTFMaterial->emissiveTexture.value();
 
 						if (emissiveTexture.index.has_value())
-						{
 							fillAssets(emissiveTexture.index.value(), SGLTF::SGLTFMaterial::EGT_EMISSIVE_TEXTURE);
-							pushConstants.availableTextures |= CGLTFPipelineMetadata::SGLTFMaterialParameters::EGT_EMISSIVE_TEXTURE;
-						}
 						
 						/*
 							if (emissiveTexture.texCoord.has_value())

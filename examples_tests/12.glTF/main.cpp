@@ -148,9 +148,9 @@ class GLTFApp : public ApplicationBase
 // TODO: @AnastaZIuk these crash the loader!
 //			loadRiggedGLTF("AnimatedTriangle/glTF/AnimatedTriangle.gltf");
 //			loadRiggedGLTF("IridescentDishWithOlives/glTF/IridescentDishWithOlives.gltf");
-			loadRiggedGLTF("RiggedFigure/glTF/RiggedFigure.gltf");
+			loadRiggedGLTF("RiggedFigure/glTF/RiggedFigure.gltf"); 
 //			loadRiggedGLTF("RiggedSimple/glTF/RiggedSimple.gltf");
-//			loadRiggedGLTF("SimpleSkin/glTF/SimpleSkin.gltf");
+			loadRiggedGLTF("SimpleSkin/glTF/SimpleSkin.gltf"); // see it @devshgraphicsprogramming
 			// TODO: support playback of keyframe animations to nodes which don't have skinning
 			//loadRiggedGLTF("AnimatedCube/glTF/AnimatedCube.gltf");
 			//loadRiggedGLTF("BoxAnimated/glTF/BoxAnimated.gltf");
@@ -160,6 +160,9 @@ class GLTFApp : public ApplicationBase
 			// TODO: nightmare case, handle in far future
 			//loadRiggedGLTF("RecursiveSkeletons/glTF/RecursiveSkeletons.gltf");
 			
+
+#if 0
+
 			// Transform Tree
 			constexpr uint32_t MaxNodeCount = 128u<<10u; // get ready for many many nodes
 			auto transformTree = scene::ITransformTreeWithNormalMatrices::create(logicalDevice.get(),MaxNodeCount);
@@ -400,6 +403,8 @@ class GLTFApp : public ApplicationBase
 				imageAcquire[i] = logicalDevice->createSemaphore();
 				renderFinished[i] = logicalDevice->createSemaphore();
 			}
+
+#endif
 		}
 
 		void onAppTerminated_impl() override
@@ -413,6 +418,8 @@ class GLTFApp : public ApplicationBase
 
 		void workLoopBody() override
 		{
+			exit(69);
+
 			++resourceIx;
 			if (resourceIx >= FRAMES_IN_FLIGHT)
 				resourceIx = 0;
