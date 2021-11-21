@@ -30,6 +30,7 @@ class CSummedAreaTableImageFilterBase
 				uint8_t*	scratchMemory = nullptr;										//!< memory covering all regions used for temporary filling within computation of sum values
 				size_t	scratchMemoryByteSize = {};											//!< required byte size for entire scratch memory
 				bool normalizeImageByTotalSATValues = false;								//!< after sum performation division will be performed for the entire image by the max sum values in (maxX, 0, z) depending on input image - needed for UNORM and SNORM
+				uint8_t axesToSum = 0u;														//!< which axes you want to sum; X: bit0, Y: bit1, Z: bit2
 
 				static inline size_t getRequiredScratchByteSize(const ICPUImage* inputImage, asset::VkExtent3D extent)
 				{
@@ -277,12 +278,16 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 						{
 							const auto position = core::vectorSIMDi32(0u, 0u, 0u, 0u);
 
+							const bool shouldSumX = (state->axesToSum >> 0) & 0x1u;
+							const bool shouldSumY = (state->axesToSum >> 1) & 0x1u;
+							const bool shouldSumZ = (state->axesToSum >> 2) & 0x1u;
+
 							return core::vector4du32_SIMD
 							(
-								readBlockPos.x > position.x,
-								readBlockPos.y > position.y,
-								readBlockPos.z > position.z,
-								readBlockPos.w > position.w
+								(readBlockPos.x > position.x) && (shouldSumX),
+								(readBlockPos.y > position.y) && (shouldSumY),
+								(readBlockPos.z > position.z) && (shouldSumZ),
+								(readBlockPos.w > position.w)
 							);
 						};
 
