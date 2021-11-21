@@ -1,4 +1,4 @@
-#ifndef __NBL_C_GLTF_PIPELINE_METADATA_H_INCLUDED__
+#ifndef _NBL_C_GLTF_PIPELINE_METADATA_H_INCLUDED_
 #define _NBL_C_GLTF_PIPELINE_METADATA_H_INCLUDED_
 
 #include "nbl/asset/metadata/IAssetMetadata.h"
@@ -6,12 +6,10 @@
 #include "nbl/asset/ICPUDescriptorSet.h"
 #include "nbl/asset/ICPUPipelineLayout.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
-class CGLTFPipelineMetadata final : public IAssetMetadata, public IRenderpassIndependentPipelineMetadata
+class CGLTFPipelineMetadata final : public IRenderpassIndependentPipelineMetadata
 {
     public:
         CGLTFPipelineMetadata() {}
@@ -24,21 +22,20 @@ class CGLTFPipelineMetadata final : public IAssetMetadata, public IRenderpassInd
             EAM_BLEND = core::createBitmask({2})
         };
 
-        #include "nbl/nblpack.h"
         //! This struct is compliant with GLSL's std140 and std430 layouts
-        struct SGLTFMaterialParameters
+        struct alignas(16) SGLTFMaterialParameters
         {
             struct SPBRMetallicRoughness
             {
-                core::vector4df_SIMD baseColorFactor = core::vector4df_SIMD(1.f, 1.f, 1.f, 1.f); // why is base color vec4, does it need alpha?
+                core::vector4df_SIMD baseColorFactor = core::vector4df_SIMD(1.f, 1.f, 1.f, 1.f); // TODO: why is base color vec4, does it need alpha?
                 float metallicFactor = 1.f;
                 float roughnessFactor = 1.f;
             };
 
             SPBRMetallicRoughness metallicRoughness;
             core::vector3df_SIMD emissiveFactor = core::vector3df_SIMD(0, 0, 0);
-            E_ALPHA_MODE alphaMode = EAM_OPAQUE;
-            float alphaCutoff = 0.5f; 
+            E_ALPHA_MODE alphaMode = EAM_OPAQUE; // TODO: This can be removed!
+            float alphaCutoff = 1.f; // should be 0.f for opaque, 0.5f for masked, 1.f/255.f for blend
 
             enum E_GLTF_TEXTURES : uint32_t
             {
@@ -52,19 +49,14 @@ class CGLTFPipelineMetadata final : public IAssetMetadata, public IRenderpassInd
 
             uint32_t availableTextures = 0;
 
-        } PACK_STRUCT;
-        #include "nbl/nblunpack.h"
+        };
 
         static_assert(sizeof(SGLTFMaterialParameters) <= asset::ICPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE);
             
         CGLTFPipelineMetadata(core::smart_refctd_dynamic_array<ShaderInputSemantic>&& _inputs)
             : IRenderpassIndependentPipelineMetadata(core::SRange<const IRenderpassIndependentPipelineMetadata::ShaderInputSemantic>(_inputs->begin(),_inputs->end())) {}
-
-        static inline constexpr const char* loaderName = "CGLTFLoader";
-        const char* getLoaderName() const override { return loaderName; }
 };
 
-}
 }
 
 #endif // _NBL_C_GLTF_PIPELINE_METADATA_H_INCLUDED_

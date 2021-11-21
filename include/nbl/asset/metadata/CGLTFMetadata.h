@@ -2,15 +2,13 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __NBL_ASSET_C_GLTF_METADATA_H_INCLUDED__
-#define __NBL_ASSET_C_GLTF_METADATA_H_INCLUDED__
+#ifndef _NBL_ASSET_C_GLTF_METADATA_H_INCLUDED_
+#define _NBL_ASSET_C_GLTF_METADATA_H_INCLUDED_
 
 #include "nbl/asset/metadata/IAssetMetadata.h"
 #include "nbl/asset/metadata/CGLTFPipelineMetadata.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 class CGLTFMetadata final : public IAssetMetadata
@@ -62,6 +60,5 @@ class CGLTFMetadata final : public IAssetMetadata
 };
 
 }
-}
 
-#endif // __NBL_ASSET_C_GLTF_METADATA_H_INCLUDED__
+#endif // _NBL_ASSET_C_GLTF_METADATA_H_INCLUDED_

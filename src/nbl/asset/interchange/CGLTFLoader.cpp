@@ -11,18 +11,6 @@
 #include <algorithm>
 #include <execution>
 
-#define VERT_SHADER_UV_CACHE_KEY "nbl/builtin/shader/loader/gltf/vertex_uv.vert"
-#define VERT_SHADER_COLOR_CACHE_KEY "nbl/builtin/shader/loader/gltf/vertex_color.vert"
-#define VERT_SHADER_NO_UV_COLOR_CACHE_KEY "nbl/builtin/shader/loader/gltf/vertex_no_uv_color.vert"
-
-//! created and cached from above shaders
-#define VERT_SHADER_SKINNED_UV_CACHE_KEY "nbl/builtin/shader/loader/gltf/skinned/vertex_uv.vert"
-#define VERT_SHADER_SKINNED_COLOR_CACHE_KEY "nbl/builtin/shader/loader/gltf/skinned/vertex_color.vert"
-#define VERT_SHADER_SKINNED_NO_UV_COLOR_CACHE_KEY "nbl/builtin/shader/loader/gltf/skinned/vertex_no_uv_color.vert"
-
-#define FRAG_SHADER_UV_CACHE_KEY "nbl/builtin/shader/loader/gltf/fragment_uv.frag"
-#define FRAG_SHADER_COLOR_CACHE_KEY "nbl/builtin/shader/loader/gltf/fragment_color.frag"
-#define FRAG_SHADER_NO_UV_COLOR_CACHE_KEY "nbl/builtin/shader/loader/gltf/fragment_no_uv_color.frag"
 
 namespace nbl
 {
@@ -35,22 +23,6 @@ namespace nbl
 			WE_SFLOAT,
 			WE_COUNT
 		};
-
-		template<typename AssetType, IAsset::E_TYPE assetType>
-		static core::smart_refctd_ptr<AssetType> getDefaultAsset(const char* _key, IAssetManager* _assetMgr)
-		{
-			size_t storageSz = 1ull;
-			asset::SAssetBundle bundle;
-			const IAsset::E_TYPE types[]{ assetType, static_cast<IAsset::E_TYPE>(0u) };
-
-			_assetMgr->findAssets(storageSz, &bundle, _key, types);
-			if (bundle.getContents().empty())
-				return nullptr;
-			auto assets = bundle.getContents();
-			//assert(assets.first != assets.second);
-
-			return core::smart_refctd_ptr_static_cast<AssetType>(assets.begin()[0]);
-		}
 
 		namespace SAttributes
 		{
@@ -71,57 +43,54 @@ namespace nbl
 		CGLTFLoader::CGLTFLoader(asset::IAssetManager* _m_assetMgr) 
 			: IRenderpassIndependentPipelineLoader(_m_assetMgr), assetManager(_m_assetMgr)
 		{
-			auto registerShader = [&](auto constexprStringTypeStatic, auto constexprStringTypeSkinned, ICPUSpecializedShader::E_SHADER_STAGE stage) -> void
+			auto registerShader = [&](auto constexprStringType, ICPUSpecializedShader::E_SHADER_STAGE stage, const char* extraDefine=nullptr) -> void
 			{
-				auto glslFile = assetManager->getSystem()->loadBuiltinData<decltype(constexprStringTypeStatic)>();
-				core::smart_refctd_ptr<asset::ICPUBuffer> glsl;
-				{
-					glsl = core::make_smart_refctd_ptr<asset::ICPUBuffer>(glslFile->getSize());
-					memcpy(glsl->getPointer(), glslFile->getMappedPointer(), glsl->getSize());
-				}
-				auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl), asset::ICPUShader::buffer_contains_glsl);
+				auto glslFile = assetManager->getSystem()->loadBuiltinData<decltype(constexprStringType)>();
+				auto glsl = core::make_smart_refctd_ptr<asset::ICPUBuffer>(glslFile->getSize());
+				memcpy(glsl->getPointer(),glslFile->getMappedPointer(),glsl->getSize());
 
-				ICPUSpecializedShader::SInfo specInfo({}, nullptr, "main", stage, stage != ICPUSpecializedShader::ESS_VERTEX ? "?Nabla glTFLoader FragmentShader?" : "?Nabla glTFLoader VertexShader?");
-				auto cpuShader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecializedShader), std::move(specInfo));
+				auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl),asset::ICPUShader::buffer_contains_glsl);
+				if (extraDefine)
+					unspecializedShader = IGLSLCompiler::createOverridenCopy(unspecializedShader.get(),"%s",extraDefine);
 
-				constexpr std::string_view NBL_SKINNING_OVERRIDE = "#define _NBL_SKINNING_ENABLED_\n";
+				ICPUSpecializedShader::SInfo specInfo({},nullptr,"main",stage,stage!=ICPUSpecializedShader::ESS_VERTEX ? "?Nabla glTFLoader FragmentShader?" : "?Nabla glTFLoader VertexShader?");
+				auto shader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecializedShader),std::move(specInfo));
 
-				auto getOverridenShader = [&]() -> core::smart_refctd_ptr<ICPUSpecializedShader>
-				{
-					const asset::ICPUShader* unspecializedShader = cpuShader->getUnspecialized();
-					assert(unspecializedShader->containsGLSL());
-
-					auto newUnspecializedShader = IGLSLCompiler::createOverridenCopy(unspecializedShader, NBL_SKINNING_OVERRIDE.data(), 0x45u);
-					auto specializedInfo = cpuShader->getSpecializationInfo();
-
-					return core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(newUnspecializedShader), std::move(specializedInfo));
-				};
-
-				auto cpuShaderSkinned = getOverridenShader();
-
-				auto insertShaderIntoCache = [&](const char* path, core::smart_refctd_ptr<asset::ICPUSpecializedShader> shader)
-				{
-					asset::SAssetBundle bundle(nullptr, { shader });
-					assetManager->changeAssetKey(bundle, path);
-					assetManager->insertAssetIntoCache(bundle);
-				};
-
-				insertShaderIntoCache(decltype(constexprStringTypeStatic)::value, cpuShader);
-				insertShaderIntoCache(decltype(constexprStringTypeSkinned)::value, cpuShaderSkinned);
+				SAssetBundle bundle(nullptr,{std::move(shader)});
+				assetManager->changeAssetKey(bundle,decltype(constexprStringType)::value);
+				assetManager->insertAssetIntoCache(bundle,IAsset::EM_IMMUTABLE);
 			};
 
 			/*
 				The lambda registers either static
 				and skinned version of the shader
 			*/
+			registerShader(VertexShaderUVCacheKey(),ICPUSpecializedShader::ESS_VERTEX);
+			registerShader(VertexShaderColorCacheKey(),ICPUSpecializedShader::ESS_VERTEX);
+			registerShader(VertexShaderNoUVColorCacheKey(),ICPUSpecializedShader::ESS_VERTEX);
 
-			registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_UV_CACHE_KEY) {}, NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_SKINNED_UV_CACHE_KEY) {}, ICPUSpecializedShader::ESS_VERTEX);
-			registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_COLOR_CACHE_KEY) {}, NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_SKINNED_COLOR_CACHE_KEY) {}, ICPUSpecializedShader::ESS_VERTEX);
-			registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_NO_UV_COLOR_CACHE_KEY) {}, NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_SKINNED_NO_UV_COLOR_CACHE_KEY) {}, ICPUSpecializedShader::ESS_VERTEX);
+			registerShader(VertexShaderSkinnedUVCacheKey(),ICPUSpecializedShader::ESS_VERTEX,"#define _NBL_SKINNING_ENABLED_\n");
+			registerShader(VertexShaderSkinnedColorCacheKey(),ICPUSpecializedShader::ESS_VERTEX,"#define _NBL_SKINNING_ENABLED_\n");
+			registerShader(VertexShaderSkinnedNoUVColorCacheKey(),ICPUSpecializedShader::ESS_VERTEX,"#define _NBL_SKINNING_ENABLED_\n");
 
-			registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_UV_CACHE_KEY) {}, NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_UV_CACHE_KEY) {}, ICPUSpecializedShader::ESS_FRAGMENT);
-			registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_COLOR_CACHE_KEY) {}, NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_COLOR_CACHE_KEY) {}, ICPUSpecializedShader::ESS_FRAGMENT);
-			registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_NO_UV_COLOR_CACHE_KEY) {}, NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_NO_UV_COLOR_CACHE_KEY) {}, ICPUSpecializedShader::ESS_FRAGMENT);
+			registerShader(FragmentShaderUVCacheKey(),ICPUSpecializedShader::ESS_FRAGMENT);
+			registerShader(FragmentShaderColorCacheKey(),ICPUSpecializedShader::ESS_FRAGMENT);
+			registerShader(FragmentShaderNoUVColorCacheKey(),ICPUSpecializedShader::ESS_FRAGMENT);
+
+			
+			//! texture DS
+			ICPUDescriptorSetLayout::SBinding combinedSamplerBindings[SGLTF::SGLTFMaterial::EGT_COUNT];
+			for (auto i=0u; i<SGLTF::SGLTFMaterial::EGT_COUNT; i++)
+			{
+				combinedSamplerBindings[i].binding = i;
+				combinedSamplerBindings[i].type = EDT_COMBINED_IMAGE_SAMPLER;
+				combinedSamplerBindings[i].count = 1u;
+				combinedSamplerBindings[i].stageFlags = ISpecializedShader::ESS_FRAGMENT;
+				combinedSamplerBindings[i].samplers = nullptr;
+			}
+			SAssetBundle bundle(nullptr,{core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(combinedSamplerBindings,combinedSamplerBindings+SGLTF::SGLTFMaterial::EGT_COUNT)});
+			assetManager->changeAssetKey(bundle,DescriptorSetLayoutCacheKey);
+			assetManager->insertAssetIntoCache(bundle,IAsset::EM_IMMUTABLE);
 		}
 
 		void CGLTFLoader::initialize()
@@ -254,14 +223,21 @@ namespace nbl
 					}
 				}
 			}
-
-			core::vector<SSamplerCacheKey> cpuSamplers;
+			
+			core::vector<std::pair<core::smart_refctd_ptr<ICPUImageView>,core::smart_refctd_ptr<ICPUSampler>>> cpuTextures;
+			const auto samplerHierarchyLevel = _hierarchyLevel+ICPUMesh::SAMPLER_HIERARCHYLEVELS_BELOW;
+			for (auto& glTFTexture : glTF.textures)
 			{
-				for (auto& glTFSampler : glTF.samplers)
+				auto& [imageView,sampler] = cpuTextures.emplace_back();
+				if (glTFTexture.source.has_value())
+					imageView = cpuImageViews[glTFTexture.source.value()];
+				else
+					imageView = _override->findDefaultAsset<ICPUImageView>("nbl/builtin/image_view/dummy2d",context.loadContext,imageViewHierarchyLevel).first;
+				if (glTFTexture.sampler.has_value())
 				{
 					ICPUSampler::SParams samplerParams;
-					
-					typedef std::remove_reference<decltype(glTFSampler)>::type SGLTFSampler;
+					using SGLTFSampler = SGLTF::SGLTFSampler;
+					const auto& glTFSampler = glTF.samplers[glTFTexture.sampler.value()];
 					switch (glTFSampler.magFilter)
 					{
 						case SGLTFSampler::STP_NEAREST:
@@ -320,35 +296,123 @@ namespace nbl
 							samplerParams.TextureWrapV = ISampler::ETC_REPEAT;
 							break;
 					}
-
-					const std::string cacheKey = genSamplerCacheKey(samplerParams);
-					cpuSamplers.push_back(cacheKey);
-
-					const auto samplerHierarchyLevel = _hierarchyLevel+ICPUMesh::SAMPLER_HIERARCHYLEVELS_BELOW;
-					if (!_override->findDefaultAsset<ICPUSampler>(cacheKey,context.loadContext,samplerHierarchyLevel).first)
-					{
-						SAssetBundle samplerBundle = SAssetBundle(nullptr, {core::make_smart_refctd_ptr<ICPUSampler>(std::move(samplerParams))});
-						_override->insertAssetIntoCache(samplerBundle, cacheKey, context.loadContext, samplerHierarchyLevel);
-					}
+					sampler = getSampler(std::move(samplerParams),context.loadContext,_override);
 				}
+				else
+					sampler = _override->findDefaultAsset<ICPUSampler>("nbl/builtin/sampler/default",context.loadContext,samplerHierarchyLevel).first;
 			}
 
-			STextures cpuTextures;
+			// materials
+			struct Material
 			{
-				for (auto& glTFTexture : glTF.textures)
+				CGLTFPipelineMetadata::SGLTFMaterialParameters pushConstants = {};
+				core::smart_refctd_ptr<ICPUDescriptorSet> descriptorSet;
+			};
+			/*
+				Assumes all supported textures are always present
+				since vulkan doesnt support bindings with no/null descriptor,
+				absent textures are filled with dummy 2D texture (while creating descriptor set)
+			*/
+			core::vector<Material> materials;
+			for (auto i=0u; i<glTF.materials.size(); i++)
+			{
+				const auto& glTFMaterial = glTF.materials[i];
+				auto& material = materials.emplace_back();
+	
+				material.descriptorSet = core::make_smart_refctd_ptr<asset::ICPUDescriptorSet>(getDescriptorSetLayout(context));
+				auto defaultImageView = _override->findDefaultAsset<ICPUImageView>("nbl/builtin/image_view/dummy2d",context.loadContext,0u).first;
+				auto defaultSampler = _override->findDefaultAsset<ICPUSampler>("nbl/builtin/sampler/default",context.loadContext,0u).first;
+				for (uint16_t i=0u; i<SGLTF::SGLTFMaterial::EGT_COUNT; ++i)
 				{
-					auto& [cpuImageView, samplerCacheKey] = cpuTextures.emplace_back();
-
-					if (glTFTexture.sampler.has_value())
-						samplerCacheKey = cpuSamplers[glTFTexture.sampler.value()];
-					else
-						samplerCacheKey = "nbl/builtin/sampler/default";
-
-					if (glTFTexture.source.has_value())
-						cpuImageView = core::smart_refctd_ptr<ICPUImageView>(cpuImageViews[glTFTexture.source.value()]);
-					else
-						cpuImageView = _override->findDefaultAsset<ICPUImageView>("nbl/builtin/image_view/dummy2d",context.loadContext,imageViewHierarchyLevel).first;
+					auto desc = material.descriptorSet->getDescriptors(i).begin();
+					desc->desc = defaultImageView;
+					desc->image.imageLayout = EIL_SHADER_READ_ONLY_OPTIMAL;
+					desc->image.sampler = defaultSampler;
 				}
+				auto setImage = [&cpuTextures,&material](uint32_t globalTextureIndex, SGLTF::SGLTFMaterial::E_GLTF_TEXTURES localTextureIndex)
+				{
+					const auto& [imageView,sampler] = cpuTextures[globalTextureIndex];
+
+					auto desc = material.descriptorSet->getDescriptors(localTextureIndex).begin();
+					desc->desc = imageView;
+					desc->image.sampler = sampler;
+				};
+
+				auto& pushConstants = material.pushConstants;
+				if (glTFMaterial.pbrMetallicRoughness.has_value())
+				{
+					auto& pbrMetallicRoughness = glTFMaterial.pbrMetallicRoughness.value();
+									
+					if (pbrMetallicRoughness.baseColorTexture.has_value() && pbrMetallicRoughness.baseColorTexture.value().index.has_value())
+					{
+						pushConstants.availableTextures |= CGLTFPipelineMetadata::SGLTFMaterialParameters::EGT_BASE_COLOR_TEXTURE;
+						setImage(pbrMetallicRoughness.baseColorTexture.value().index.value(),SGLTF::SGLTFMaterial::EGT_BASE_COLOR_TEXTURE);
+					}
+
+					if (pbrMetallicRoughness.baseColorFactor.has_value())
+					for (uint8_t i=0u; i<pbrMetallicRoughness.baseColorFactor.value().size(); ++i)
+						pushConstants.metallicRoughness.baseColorFactor[i] = pbrMetallicRoughness.baseColorFactor.value()[i];
+
+					if (pbrMetallicRoughness.metallicRoughnessTexture.has_value() && pbrMetallicRoughness.metallicRoughnessTexture.value().index.has_value())
+					{
+						pushConstants.availableTextures |= CGLTFPipelineMetadata::SGLTFMaterialParameters::EGT_METALLIC_ROUGHNESS_TEXTURE;
+						setImage(pbrMetallicRoughness.metallicRoughnessTexture.value().index.value(),SGLTF::SGLTFMaterial::EGT_METALLIC_ROUGHNESS_TEXTURE);
+					}
+	
+					if (pbrMetallicRoughness.metallicFactor.has_value())
+						pushConstants.metallicRoughness.metallicFactor = pbrMetallicRoughness.metallicFactor.value();
+
+					if (pbrMetallicRoughness.roughnessFactor.has_value())
+						pushConstants.metallicRoughness.roughnessFactor = pbrMetallicRoughness.roughnessFactor.value();
+				}
+				if (glTFMaterial.normalTexture.has_value() && glTFMaterial.normalTexture.value().index.has_value())
+				{
+					pushConstants.availableTextures |= CGLTFPipelineMetadata::SGLTFMaterialParameters::EGT_NORMAL_TEXTURE;
+					const auto normalTextureID = glTFMaterial.normalTexture.value().index.value();
+					// TODO: CACHE THIS FFS!!!
+					auto imageView = CDerivativeMapCreator::createDerivativeMapViewFromNormalMap(cpuTextures[normalTextureID].first->getCreationParameters().image.get());
+					auto& sampler = cpuTextures[normalTextureID].second;
+
+					auto desc = material.descriptorSet->getDescriptors(CGLTFPipelineMetadata::SGLTFMaterialParameters::EGT_NORMAL_TEXTURE).begin();
+					desc->desc = std::move(imageView);
+					desc->image.sampler = sampler;
+				}
+				if (glTFMaterial.occlusionTexture.has_value() && glTFMaterial.occlusionTexture.value().index.has_value())
+				{
+					pushConstants.availableTextures |= CGLTFPipelineMetadata::SGLTFMaterialParameters::EGT_OCCLUSION_TEXTURE;
+					setImage(glTFMaterial.occlusionTexture.value().index.value(),SGLTF::SGLTFMaterial::EGT_OCCLUSION_TEXTURE);
+				}
+				if (glTFMaterial.emissiveTexture.has_value() && glTFMaterial.emissiveTexture.value().index.has_value())
+				{
+					pushConstants.availableTextures |= CGLTFPipelineMetadata::SGLTFMaterialParameters::EGT_EMISSIVE_TEXTURE;
+					setImage(glTFMaterial.emissiveTexture.value().index.value(),SGLTF::SGLTFMaterial::EGT_EMISSIVE_TEXTURE);
+				}
+
+				// Far TODO: you only need alphaCutOff in the shader push constants (not blend modes)
+				pushConstants.alphaCutoff = 0.f;
+				if (glTFMaterial.alphaCutoff.has_value())
+					pushConstants.alphaCutoff = glTFMaterial.alphaCutoff.value();
+
+				// Far TODO: set the blend modes in the pipeline instead
+				CGLTFLoader::SGLTF::SGLTFMaterial::E_ALPHA_MODE alphaModeStream = decltype(alphaModeStream)::EAM_OPAQUE;
+				if (glTFMaterial.alphaMode.has_value())
+					alphaModeStream = glTFMaterial.alphaMode.value();
+				switch (alphaModeStream)
+				{
+					case decltype(alphaModeStream)::EAM_OPAQUE:
+						pushConstants.alphaMode = asset::CGLTFPipelineMetadata::EAM_OPAQUE;
+						break;
+					case decltype(alphaModeStream)::EAM_MASK:
+						pushConstants.alphaMode = asset::CGLTFPipelineMetadata::EAM_MASK;
+						break;
+					case decltype(alphaModeStream)::EAM_BLEND:
+						pushConstants.alphaMode = asset::CGLTFPipelineMetadata::EAM_BLEND;
+						break;
+				}
+
+				if (glTFMaterial.emissiveFactor.has_value())
+				for (uint8_t i=0u; i<glTFMaterial.emissiveFactor.value().size(); ++i)
+					pushConstants.emissiveFactor[i] = glTFMaterial.emissiveFactor.value()[i];
 			}
 			
 			core::smart_refctd_ptr<ICPUBuffer> vertexJointToSkeletonJoint,inverseBindPose;
@@ -603,7 +667,7 @@ namespace nbl
 				}
 			}
 
-			core::unordered_map<ICPURenderpassIndependentPipeline*, core::smart_refctd_ptr<asset::CGLTFPipelineMetadata>> globalPipelineMetadataSet;
+			core::unordered_set<ICPURenderpassIndependentPipeline*> pipelineSet;
 			core::vector<core::smart_refctd_ptr<ICPUMesh>> cpuMeshes;
 			{
 				// go over all meshes and create ICPUMeshes & ICPUMeshBuffers but without skins attached
@@ -618,42 +682,12 @@ namespace nbl
 							typedef std::remove_reference<decltype(glTFprimitive)>::type SGLTFPrimitive;
 
 							auto cpuMeshBuffer = core::make_smart_refctd_ptr<ICPUMeshBuffer>();
-
 							cpuMeshBuffer->setPositionAttributeIx(SAttributes::POSITION_ATTRIBUTE_LAYOUT_ID);
-
-							auto getMode = [&](uint32_t modeValue) -> E_PRIMITIVE_TOPOLOGY
-							{
-								switch (modeValue)
-								{
-									case SGLTFPrimitive::SGLTFPT_POINTS:
-										return EPT_POINT_LIST;
-									case SGLTFPrimitive::SGLTFPT_LINES:
-										return EPT_LINE_LIST;
-									case SGLTFPrimitive::SGLTFPT_LINE_LOOP:
-										return EPT_LINE_LIST_WITH_ADJACENCY; // check it
-									case SGLTFPrimitive::SGLTFPT_LINE_STRIP:
-										return EPT_LINE_STRIP;
-									case SGLTFPrimitive::SGLTFPT_TRIANGLES:
-										return EPT_TRIANGLE_LIST;
-									case SGLTFPrimitive::SGLTFPT_TRIANGLE_STRIP:
-										return EPT_TRIANGLE_STRIP;
-									case SGLTFPrimitive::SGLTFPT_TRIANGLE_FAN:
-										return EPT_TRIANGLE_STRIP_WITH_ADJACENCY; // check it
-									default:
-										break;
-								}
-								return EPT_PATCH_LIST;
-							};
-
-							auto [hasUV, hasColor] = std::make_pair<bool, bool>(false, false);
 
 							using BufferViewReferencingBufferID = uint32_t;
 							std::unordered_map<BufferViewReferencingBufferID, core::smart_refctd_ptr<ICPUBuffer>> idReferenceBindingBuffers;
 
 							SVertexInputParams vertexInputParams;
-							SBlendParams blendParams;
-							SPrimitiveAssemblyParams primitiveAssemblyParams;
-							SRasterizationParams rastarizationParmas;
 
 							auto handleAccessor = [&](SGLTF::SGLTFAccessor& glTFAccessor, const std::optional<uint32_t> queryAttributeId = {}) -> bool
 							{
@@ -717,8 +751,29 @@ namespace nbl
 								return true;
 							};
 
-							const E_PRIMITIVE_TOPOLOGY primitiveTopology = getMode(glTFprimitive.mode.value());
-							primitiveAssemblyParams.primitiveType = primitiveTopology;
+							const E_PRIMITIVE_TOPOLOGY primitiveTopology = [&](uint32_t modeValue) -> E_PRIMITIVE_TOPOLOGY
+							{
+								switch (modeValue)
+								{
+									case SGLTFPrimitive::SGLTFPT_POINTS:
+										return EPT_POINT_LIST;
+									case SGLTFPrimitive::SGLTFPT_LINES:
+										return EPT_LINE_LIST;
+									case SGLTFPrimitive::SGLTFPT_LINE_LOOP:
+										return EPT_LINE_LIST_WITH_ADJACENCY; // check it
+									case SGLTFPrimitive::SGLTFPT_LINE_STRIP:
+										return EPT_LINE_STRIP;
+									case SGLTFPrimitive::SGLTFPT_TRIANGLES:
+										return EPT_TRIANGLE_LIST;
+									case SGLTFPrimitive::SGLTFPT_TRIANGLE_STRIP:
+										return EPT_TRIANGLE_STRIP;
+									case SGLTFPrimitive::SGLTFPT_TRIANGLE_FAN:
+										return EPT_TRIANGLE_STRIP_WITH_ADJACENCY; // check it
+									default:
+										break;
+								}
+								return EPT_PATCH_LIST;
+							}(glTFprimitive.mode.value());
 
 							if (glTFprimitive.indices.has_value())
 							{
@@ -771,6 +826,7 @@ namespace nbl
 									return {};
 							}
 
+							bool hasUV = false;
 							if (glTFprimitive.attributes.texcoord.has_value())
 							{
 								const size_t accessorID = glTFprimitive.attributes.texcoord.value();
@@ -780,7 +836,7 @@ namespace nbl
 								if (!handleAccessor(glTFTexcoordXAccessor, SAttributes::UV_ATTRIBUTE_LAYOUT_ID))
 									return {};
 							}
-
+							bool hasColor = false;
 							if (glTFprimitive.attributes.color.has_value())
 							{
 								const size_t accessorID = glTFprimitive.attributes.color.value();
@@ -1450,180 +1506,17 @@ namespace nbl
 								skinningEnabled = true;
 							}
 
-							auto getShaders = [&](bool hasUV, bool hasColor, bool isSkinned) -> std::pair<core::smart_refctd_ptr<ICPUSpecializedShader>, core::smart_refctd_ptr<ICPUSpecializedShader>>
+							if (glTFprimitive.material.has_value())
 							{
-								auto loadShader = [&](const std::string_view& cacheKey) -> core::smart_refctd_ptr<ICPUSpecializedShader>
-								{
-									size_t storageSz = 1ull;
-									asset::SAssetBundle bundle;
-									const IAsset::E_TYPE types[]{ IAsset::ET_SPECIALIZED_SHADER, static_cast<IAsset::E_TYPE>(0u) };
-
-									assetManager->findAssets(storageSz, &bundle, cacheKey.data(), types);
-									if (bundle.getContents().empty())
-										return nullptr;
-									auto assets = bundle.getContents();
-
-									return core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(assets.begin()[0]);
-								};
-
-								std::pair<core::smart_refctd_ptr<ICPUSpecializedShader>, core::smart_refctd_ptr<ICPUSpecializedShader>> cpuShaders;
-
-								if (isSkinned)
-								{
-									if (hasUV) // if both UV and Color defined - we use the UV
-										cpuShaders = std::make_pair(loadShader(VERT_SHADER_SKINNED_UV_CACHE_KEY), loadShader(FRAG_SHADER_UV_CACHE_KEY));
-									else if (hasColor)
-										cpuShaders = std::make_pair(loadShader(VERT_SHADER_SKINNED_COLOR_CACHE_KEY), loadShader(FRAG_SHADER_COLOR_CACHE_KEY));
-									else
-										cpuShaders = std::make_pair(loadShader(VERT_SHADER_SKINNED_NO_UV_COLOR_CACHE_KEY), loadShader(FRAG_SHADER_NO_UV_COLOR_CACHE_KEY));
-								}
-								else
-								{
-									if (hasUV) // if both UV and Color defined - we use the UV
-										cpuShaders = std::make_pair(loadShader(VERT_SHADER_UV_CACHE_KEY), loadShader(FRAG_SHADER_UV_CACHE_KEY));
-									else if (hasColor)
-										cpuShaders = std::make_pair(loadShader(VERT_SHADER_COLOR_CACHE_KEY), loadShader(FRAG_SHADER_COLOR_CACHE_KEY));
-									else
-										cpuShaders = std::make_pair(loadShader(VERT_SHADER_NO_UV_COLOR_CACHE_KEY), loadShader(FRAG_SHADER_NO_UV_COLOR_CACHE_KEY));
-								}
-
-								return cpuShaders;
-							};
-
-							asset::CGLTFPipelineMetadata::SGLTFMaterialParameters pushConstants;
-							SMaterialDependencyData materialDependencyData;
-							const bool ds3lAvailableFlag = glTFprimitive.material.has_value();
-
-							materialDependencyData.cpuMeshBuffer = cpuMeshBuffer.get();
-							materialDependencyData.glTFMaterial = ds3lAvailableFlag ? &glTF.materials[glTFprimitive.material.value()] : nullptr;
-							materialDependencyData.cpuTextures = &cpuTextures;
-							{
-								if (materialDependencyData.glTFMaterial)
-								{
-									auto* glTFMaterial = materialDependencyData.glTFMaterial;
-									
-									if (glTFMaterial->pbrMetallicRoughness.has_value())
-									{
-										auto& pbrMetallicRoughness = glTFMaterial->pbrMetallicRoughness.value();
-										{
-											if (pbrMetallicRoughness.baseColorTexture.has_value())
-											{
-												auto& baseColorTexture = pbrMetallicRoughness.baseColorTexture.value();
-
-												if (baseColorTexture.index.has_value())
-													pushConstants.availableTextures |= CGLTFPipelineMetadata::SGLTFMaterialParameters::EGT_BASE_COLOR_TEXTURE;
-											}
-
-											if (pbrMetallicRoughness.baseColorFactor.has_value())
-												for (uint8_t i = 0; i < pbrMetallicRoughness.baseColorFactor.value().size(); ++i)
-													pushConstants.metallicRoughness.baseColorFactor[i] = pbrMetallicRoughness.baseColorFactor.value()[i];
-
-											if (pbrMetallicRoughness.metallicRoughnessTexture.has_value())
-											{
-												auto& metallicRoughnessTexture = pbrMetallicRoughness.metallicRoughnessTexture.value();
-
-												if (metallicRoughnessTexture.index.has_value())
-													pushConstants.availableTextures |= CGLTFPipelineMetadata::SGLTFMaterialParameters::EGT_METALLIC_ROUGHNESS_TEXTURE;
-											}
-
-											if (pbrMetallicRoughness.metallicFactor.has_value())
-												pushConstants.metallicRoughness.metallicFactor = pbrMetallicRoughness.metallicFactor.value();
-
-											if (pbrMetallicRoughness.roughnessFactor.has_value())
-												pushConstants.metallicRoughness.roughnessFactor = pbrMetallicRoughness.roughnessFactor.value();
-										}
-									}
-
-									if (glTFMaterial->normalTexture.has_value())
-									{
-										auto& normalTexture = glTFMaterial->normalTexture.value();
-
-										if (normalTexture.index.has_value())
-											pushConstants.availableTextures |= CGLTFPipelineMetadata::SGLTFMaterialParameters::EGT_NORMAL_TEXTURE;
-									}
-
-									if (glTFMaterial->occlusionTexture.has_value())
-									{
-										auto& occlusionTexture = glTFMaterial->occlusionTexture.value();
-
-										if (occlusionTexture.index.has_value())
-											pushConstants.availableTextures |= CGLTFPipelineMetadata::SGLTFMaterialParameters::EGT_OCCLUSION_TEXTURE;
-									}
-
-									if (glTFMaterial->emissiveTexture.has_value())
-									{
-										auto& emissiveTexture = glTFMaterial->emissiveTexture.value();
-
-										if (emissiveTexture.index.has_value())
-											pushConstants.availableTextures |= CGLTFPipelineMetadata::SGLTFMaterialParameters::EGT_EMISSIVE_TEXTURE;
-									}
-
-									if (glTFMaterial ->alphaCutoff.has_value())
-										pushConstants.alphaCutoff = glTFMaterial->alphaCutoff.value();
-
-									CGLTFLoader::SGLTF::SGLTFMaterial::E_ALPHA_MODE alphaModeStream = decltype(alphaModeStream)::EAM_OPAQUE;
-
-									if (glTFMaterial->alphaMode.has_value())
-										alphaModeStream = glTFMaterial->alphaMode.value();
-
-									switch (alphaModeStream)
-									{
-										case decltype(alphaModeStream)::EAM_OPAQUE:
-										{
-											pushConstants.alphaMode = asset::CGLTFPipelineMetadata::EAM_OPAQUE;
-										} break;
-
-										case decltype(alphaModeStream)::EAM_MASK:
-										{
-											pushConstants.alphaMode = asset::CGLTFPipelineMetadata::EAM_MASK;
-										} break;
-
-										case decltype(alphaModeStream)::EAM_BLEND:
-										{
-											pushConstants.alphaMode = asset::CGLTFPipelineMetadata::EAM_BLEND;
-										} break;
-									}
-
-									if (glTFMaterial->emissiveFactor.has_value())
-										for (uint8_t i = 0; i < materialDependencyData.glTFMaterial->emissiveFactor.value().size(); ++i)
-											pushConstants.emissiveFactor[i] = materialDependencyData.glTFMaterial->emissiveFactor.value()[i];
-								}
-
-								memcpy(cpuMeshBuffer->getPushConstantsDataPtr(), &pushConstants, sizeof(pushConstants));
+								const auto& material = materials[glTFprimitive.material.value()];
+								memcpy(cpuMeshBuffer->getPushConstantsDataPtr(),&material.pushConstants,sizeof(material.pushConstants));
+								cpuMeshBuffer->setAttachedDescriptorSet(core::smart_refctd_ptr(material.descriptorSet));
 							}
+							auto pipeline = getPipeline(context,primitiveTopology,vertexInputParams,skinningEnabled,hasUV,hasColor);
+							pipelineSet.insert(pipeline.get());
+							cpuMeshBuffer->setPipeline(std::move(pipeline));
 
-							core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> cpuPipeline;
-							const std::string& pipelineCacheKey = getPipelineCacheKey(primitiveTopology, vertexInputParams, skinningEnabled);
-							{
-								const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_RENDERPASS_INDEPENDENT_PIPELINE, (asset::IAsset::E_TYPE)0u };
-								auto pipeline_bundle = _override->findCachedAsset(pipelineCacheKey, types, context.loadContext, _hierarchyLevel+ICPUMesh::PIPELINE_HIERARCHYLEVELS_BELOW);
-								if (!pipeline_bundle.getContents().empty())
-									cpuPipeline = core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(pipeline_bundle.getContents().begin()[0]);
-								else
-								{
-									auto cpuPipelineLayout = makePipelineLayoutFromGLTF(context, pushConstants, materialDependencyData, skinningEnabled);
-									auto [cpuVertexShader, cpuFragmentShader] = getShaders(hasUV, hasColor, skinningEnabled);
-
-									if (!cpuVertexShader || !cpuFragmentShader)
-									{
-										context.loadContext.params.logger.log("GLTF: COULD NOT LOAD SHADERS!",system::ILogger::ELL_ERROR);
-										return false;
-									}
-
-									cpuPipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(std::move(cpuPipelineLayout), nullptr, nullptr, vertexInputParams, blendParams, primitiveAssemblyParams, rastarizationParmas);
-									cpuPipeline->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_VERTEX_SHADER_IX, cpuVertexShader.get());
-									cpuPipeline->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_FRAGMENT_SHADER_IX, cpuFragmentShader.get());
-
-									auto glTFPipelineMetadata = core::make_smart_refctd_ptr<CGLTFPipelineMetadata>(core::smart_refctd_ptr(m_basicViewParamsSemantics));
-									
-									globalPipelineMetadataSet[cpuPipeline.get()] = core::smart_refctd_ptr(glTFPipelineMetadata);
-									SAssetBundle pipelineBundle = SAssetBundle(core::smart_refctd_ptr(glTFPipelineMetadata), { cpuPipeline });
-
-									_override->insertAssetIntoCache(pipelineBundle, pipelineCacheKey, context.loadContext, _hierarchyLevel+ICPUMesh::PIPELINE_HIERARCHYLEVELS_BELOW);
-								}
-								cpuMeshBuffer->setPipeline(std::move(cpuPipeline));
-								cpuMesh->getMeshBufferVector().push_back(std::move(cpuMeshBuffer));
-							}
+							cpuMesh->getMeshBufferVector().push_back(std::move(cpuMeshBuffer));
 						}
 					}
 				}
@@ -1720,7 +1613,7 @@ namespace nbl
 				}
 			}
 
-			core::smart_refctd_ptr<CGLTFMetadata> glTFMetadata = core::make_smart_refctd_ptr<CGLTFMetadata>(globalPipelineMetadataSet.size());
+			core::smart_refctd_ptr<CGLTFMetadata> glTFMetadata = core::make_smart_refctd_ptr<CGLTFMetadata>(pipelineSet.size());
 			{
 				if (glTF.defaultScene.has_value())
 					glTFMetadata->defaultSceneID = glTF.defaultScene.value();
@@ -1730,8 +1623,8 @@ namespace nbl
 				glTFMetadata->scenes = std::move(scenes);
 
 				uint32_t i = 0u;
-				for (auto& meta : globalPipelineMetadataSet)
-					glTFMetadata->placeMeta(i++, meta.first, *meta.second);
+				for (auto& pipeline : pipelineSet)
+					glTFMetadata->placeMeta(i++,pipeline,{core::smart_refctd_ptr(m_basicViewParamsSemantics)});
 			}
 
 			return SAssetBundle(std::move(glTFMetadata), cpuMeshes);
@@ -2539,212 +2432,7 @@ namespace nbl
 			return true;
 		}
 
-		core::smart_refctd_ptr<ICPUPipelineLayout> CGLTFLoader::makePipelineLayoutFromGLTF(SContext& context, const asset::CGLTFPipelineMetadata::SGLTFMaterialParameters& pushConstants, SMaterialDependencyData& materialData, bool isSkinned)
-		{
-			auto getCpuDs0Layout = [&]() -> core::smart_refctd_ptr<ICPUDescriptorSetLayout>
-			{
-				if (isSkinned)
-				{
-					ICPUDescriptorSetLayout::SBinding cpuBufferBinding;
-					cpuBufferBinding.count = 1u;
-					cpuBufferBinding.stageFlags = ICPUSpecializedShader::ESS_VERTEX;
-					cpuBufferBinding.type = EDT_STORAGE_BUFFER;
-					cpuBufferBinding.binding = 0u;
-					cpuBufferBinding.samplers = nullptr;
-
-					return core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(&cpuBufferBinding, &cpuBufferBinding + 1);
-				}
-				else
-					return nullptr;
-			};
-
-			/*
-				Assumes all supported textures are always present
-				since vulkan doesnt support bindings with no/null descriptor,
-				absent textures are filled with dummy 2D texture (while creating descriptor set)
-			*/
-
-			std::array<core::smart_refctd_ptr<ICPUImageView>, SGLTF::SGLTFMaterial::EGT_COUNT> IMAGE_VIEWS;
-			{
-				auto default_imageview_bundle = assetManager->getAsset("nbl/builtin/image_view/dummy2d", context.loadContext.params);
-				const bool status = !default_imageview_bundle.getContents().empty();
-				assert(status);
-
-				auto cpuDummyImageView = core::smart_refctd_ptr_static_cast<ICPUImageView>(default_imageview_bundle.getContents().begin()[0]);
-				for(auto& imageView : IMAGE_VIEWS)
-					imageView = core::smart_refctd_ptr(cpuDummyImageView);
-			}
-
-			std::array<core::smart_refctd_ptr<ICPUSampler>, SGLTF::SGLTFMaterial::EGT_COUNT> SAMPLERS;
-			{
-				for (auto& sampler : SAMPLERS)
-					sampler = getDefaultAsset<ICPUSampler, IAsset::ET_SAMPLER>("nbl/builtin/sampler/default", assetManager);
-			}
-
-			auto getCpuDs3Layout = [&]() -> core::smart_refctd_ptr<ICPUDescriptorSetLayout>
-			{
-				//! Samplers
-				_NBL_STATIC_INLINE_CONSTEXPR size_t samplerBindingsAmount = SGLTF::SGLTFMaterial::EGT_COUNT;
-				auto cpuDS3Bindings = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUDescriptorSetLayout::SBinding>>(samplerBindingsAmount);
-				{
-					ICPUDescriptorSetLayout::SBinding cpuSamplerBinding;
-					cpuSamplerBinding.count = 1u;
-					cpuSamplerBinding.stageFlags = ICPUSpecializedShader::ESS_FRAGMENT;
-					cpuSamplerBinding.type = EDT_COMBINED_IMAGE_SAMPLER;
-					std::fill(cpuDS3Bindings->begin(), cpuDS3Bindings->end(), cpuSamplerBinding);
-				}
-
-				if (materialData.glTFMaterial)
-				{
-					auto& material = materialData;
-
-					auto fillAssets = [&](uint32_t globalTextureIndex, SGLTF::SGLTFMaterial::E_GLTF_TEXTURES localTextureIndex)
-					{
-						auto& [cpuImageView, cpuSamplerCacheKey] = (*material.cpuTextures)[globalTextureIndex];
-
-						IMAGE_VIEWS[localTextureIndex] = cpuImageView;
-
-						const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_SAMPLER, (asset::IAsset::E_TYPE)0u };
-						auto sampler_bundle = context.loaderOverride->findCachedAsset(cpuSamplerCacheKey, types, context.loadContext, context.hierarchyLevel /*TODO + what here?*/);
-
-						if (!sampler_bundle.getContents().empty())
-							SAMPLERS[localTextureIndex] = core::smart_refctd_ptr_static_cast<ICPUSampler>(sampler_bundle.getContents().begin()[0]);
-					};
-
-					if (material.glTFMaterial->pbrMetallicRoughness.has_value())
-					{
-						auto& pbrMetallicRoughness = material.glTFMaterial->pbrMetallicRoughness.value();
-						{
-							if (pbrMetallicRoughness.baseColorTexture.has_value())
-							{
-								auto& baseColorTexture = pbrMetallicRoughness.baseColorTexture.value();
-
-								if (baseColorTexture.index.has_value())
-									fillAssets(baseColorTexture.index.value(), SGLTF::SGLTFMaterial::EGT_BASE_COLOR_TEXTURE);
-									
-								/*
-									if (baseColorTexture.texCoord.has_value())
-									{
-										;// TODO: the default is 0, but in no-0 value is present it is a relation between UV attribute with unique ID which is texCoord ID, so UV_<texCoord>
-									}
-								*/
-							}
-
-							if (pbrMetallicRoughness.metallicRoughnessTexture.has_value())
-							{
-								auto& metallicRoughnessTexture = pbrMetallicRoughness.metallicRoughnessTexture.value();
-
-								if (metallicRoughnessTexture.index.has_value())
-									fillAssets(metallicRoughnessTexture.index.value(), SGLTF::SGLTFMaterial::EGT_METALLIC_ROUGHNESS_TEXTURE);
-								
-								/*
-									if (metallicRoughnessTexture.texCoord.has_value())
-									{
-										;// TODO: the default is 0, but in no-0 value is present it is a relation between UV attribute with unique ID which is texCoord ID, so UV_<texCoord>
-									}
-								*/
-							}
-						}
-					}
-
-					if (material.glTFMaterial->normalTexture.has_value())
-					{
-						auto& normalTexture = material.glTFMaterial->normalTexture.value();
-
-						if (normalTexture.index.has_value())
-						{
-							fillAssets(normalTexture.index.value(), SGLTF::SGLTFMaterial::EGT_NORMAL_TEXTURE);
-
-							auto cpuNormalTexture = IMAGE_VIEWS[SGLTF::SGLTFMaterial::EGT_NORMAL_TEXTURE];
-							IMAGE_VIEWS[SGLTF::SGLTFMaterial::EGT_NORMAL_TEXTURE] = CDerivativeMapCreator::createDerivativeMapViewFromNormalMap(cpuNormalTexture->getCreationParameters().image.get());
-							
-							// fetch from cpuDerivativeNormalTexture scale using meta
-							// const auto& absLayerScaleValues = state.getAbsoluteLayerScaleValue(0);
-
-							/*
-								if (normalTexture.texCoord.has_value())
-								{
-									;// TODO: the default is 0, but in no-0 value is present it is a relation between UV attribute with unique ID which is texCoord ID, so UV_<texCoord>
-								}
-							*/
-						}
-					}
-
-					if (material.glTFMaterial->occlusionTexture.has_value())
-					{
-						auto& occlusionTexture = material.glTFMaterial->occlusionTexture.value();
-
-						if (occlusionTexture.index.has_value())
-							fillAssets(occlusionTexture.index.value(), SGLTF::SGLTFMaterial::EGT_OCCLUSION_TEXTURE);
-						
-						/*
-							if (occlusionTexture.texCoord.has_value())
-							{
-								;// TODO: the default is 0, but in no-0 value is present it is a relation between UV attribute with unique ID which is texCoord ID, so UV_<texCoord>
-							}
-						*/
-					}
-
-					if (material.glTFMaterial->emissiveTexture.has_value())
-					{
-						auto& emissiveTexture = material.glTFMaterial->emissiveTexture.value();
-
-						if (emissiveTexture.index.has_value())
-							fillAssets(emissiveTexture.index.value(), SGLTF::SGLTFMaterial::EGT_EMISSIVE_TEXTURE);
-						
-						/*
-							if (emissiveTexture.texCoord.has_value())
-							{
-								;// TODO: the default is 0, but in no-0 value is present it is a relation between UV attribute with unique ID which is texCoord ID, so UV_<texCoord>
-							}
-						*/
-					}
-				}
-
-				for (uint32_t i = 0u; i < samplerBindingsAmount; ++i)
-				{
-					(*cpuDS3Bindings)[i].binding = i;
-					(*cpuDS3Bindings)[i].samplers = SAMPLERS.data() + i;
-				}
-
-				return core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(cpuDS3Bindings->begin(), cpuDS3Bindings->end());
-			};
-
-			//! camera UBO DS
-			auto cpuDs1Layout = getDefaultAsset<ICPUDescriptorSetLayout, IAsset::ET_DESCRIPTOR_SET_LAYOUT>("nbl/builtin/descriptor_set_layout/basic_view_parameters", assetManager);		
-			
-			//! samplers and skinMatrices DS
-			auto cpuDs3Layout = getCpuDs3Layout();
-			
-			auto cpuDescriptorSet3 = makeAndGetDS3set(IMAGE_VIEWS, cpuDs3Layout); 
-			materialData.cpuMeshBuffer->setAttachedDescriptorSet(std::move(cpuDescriptorSet3));
-
-			constexpr uint32_t PUSH_CONSTANTS_COUNT = 1u;
-			asset::SPushConstantRange pushConstantRange[PUSH_CONSTANTS_COUNT]; 
-			pushConstantRange[0].stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
-			pushConstantRange[0].offset = 0u;
-			pushConstantRange[0].size = sizeof(CGLTFPipelineMetadata::SGLTFMaterialParameters);
-
-			auto cpuPipelineLayout = core::make_smart_refctd_ptr<ICPUPipelineLayout>(pushConstantRange, pushConstantRange + PUSH_CONSTANTS_COUNT, nullptr, std::move(cpuDs1Layout), nullptr, std::move(cpuDs3Layout));
-			return cpuPipelineLayout;
-		}
-		
-		core::smart_refctd_ptr<ICPUDescriptorSet> CGLTFLoader::makeAndGetDS3set(std::array<core::smart_refctd_ptr<ICPUImageView>, SGLTF::SGLTFMaterial::EGT_COUNT>& cpuImageViews, core::smart_refctd_ptr<ICPUDescriptorSetLayout> cpuDescriptorSet3Layout)
-		{
-			auto cpuDescriptorSet3 = core::make_smart_refctd_ptr<asset::ICPUDescriptorSet>(core::smart_refctd_ptr<ICPUDescriptorSetLayout>(cpuDescriptorSet3Layout));
-			
-			for (uint16_t i = 0; i < SGLTF::SGLTFMaterial::EGT_COUNT; ++i)
-			{
-				auto cpuDescriptor = cpuDescriptorSet3->getDescriptors(i).begin();
-
-				cpuDescriptor->desc = cpuImageViews[i];
-				cpuDescriptor->image.imageLayout = EIL_UNDEFINED;
-				cpuDescriptor->image.sampler = nullptr; //! Not needed, immutable (in DescriptorSet layout) samplers are used
-			}
-
-			return cpuDescriptorSet3;
-		}
-	}
+}
 }
 
 #endif // _NBL_COMPILE_WITH_GLTF_LOADER_

@@ -31,18 +31,17 @@ class IRenderpassIndependentPipelineLoader : public IAssetLoader
 			const std::size_t hash = std::hash<std::string_view>{}(std::string_view(reinterpret_cast<const char*>(&params), sizeof(params)));
 			return "nbl/builtin/sampler/" + std::to_string(hash);
 		}
-		static inline core::smart_refctd_ptr<ICPUSampler> getSampler(asset::ICPUSampler::SParams&& params, const IAssetLoader::SAssetLoadContext& context, IAssetLoaderOverride* _override, const uint32_t _hierarchyLevel)
+		static inline core::smart_refctd_ptr<ICPUSampler> getSampler(asset::ICPUSampler::SParams&& params, const IAssetLoader::SAssetLoadContext& context, IAssetLoaderOverride* _override)
 		{
-			const auto samplerHierarchyLevel = _hierarchyLevel+ICPUMesh::SAMPLER_HIERARCHYLEVELS_BELOW;
 			const auto cacheKey = genSamplerCacheKey(params);
 			
-			auto found = _override->findDefaultAsset<ICPUSampler>(cacheKey,context,samplerHierarchyLevel).first;
+			auto found = _override->findDefaultAsset<ICPUSampler>(cacheKey,context,0u).first; // cached builtins have level 0
 			if (found)
 				return found;
 			
 			auto sampler = core::make_smart_refctd_ptr<ICPUSampler>(std::move(params));
 			SAssetBundle samplerBundle = SAssetBundle(nullptr,{sampler});
-			_override->insertAssetIntoCache(samplerBundle,cacheKey,context,samplerHierarchyLevel);
+			_override->insertAssetIntoCache(samplerBundle,cacheKey,context,0u); // cached builtins have level 0
 			return sampler;
 		}
 

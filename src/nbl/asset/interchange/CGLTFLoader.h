@@ -24,9 +24,6 @@ namespace nbl::asset
 */	
 class CGLTFLoader final : public IRenderpassIndependentPipelineLoader
 {
-	protected:
-		virtual ~CGLTFLoader() {}
-
 	public:
 		CGLTFLoader(asset::IAssetManager* _m_assetMgr);
 
@@ -40,28 +37,133 @@ class CGLTFLoader final : public IRenderpassIndependentPipelineLoader
 
 		uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_MESH; }
 
-		asset::SAssetBundle loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
+		asset::SAssetBundle loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
+		// TODO: THIS IS WRONG
 		static inline std::string getImageViewCacheKey(const std::string& uri)
 		{
 			return "nbl/builtin/image_views/loaders/glTF/" + uri;
 		}
 
-		static inline std::string getPipelineCacheKey(const E_PRIMITIVE_TOPOLOGY& primitiveType, const SVertexInputParams& vertexInputParams, bool skinned)
+	protected:
+		virtual ~CGLTFLoader() {}
+
+		struct SContext
 		{
-			if (skinned)
-				return "nbl/builtin/pipelines/loaders/glTF/skinned/" + std::to_string(primitiveType) + vertexInputParams.to_string();
-			else
-				return "nbl/builtin/pipelines/loaders/glTF/static/" + std::to_string(primitiveType) + vertexInputParams.to_string();
-		}
+			SContext(const SAssetLoadParams& _params, system::IFile* _mainFile, IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel) : loadContext(_params, _mainFile), loaderOverride(_override), hierarchyLevel(_hierarchyLevel) {}
+			~SContext() {}
+
+			SAssetLoadContext loadContext;
+			asset::IAssetLoader::IAssetLoaderOverride* loaderOverride;
+			uint32_t hierarchyLevel;
+		};
 
 	private:
-
 		virtual void initialize() override;
+		
 
-		using SSamplerCacheKey = std::string;
-		using SShaderDefinesCode = std::string;
-		using STextures = core::vector<std::pair<core::smart_refctd_ptr<ICPUImageView>, SSamplerCacheKey>>;
+		using VertexShaderUVCacheKey = NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/shader/loader/gltf/uv.vert");
+		using VertexShaderColorCacheKey = NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/shader/loader/gltf/color.vert");
+		using VertexShaderNoUVColorCacheKey = NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/shader/loader/gltf/no_uv_color.vert");
+
+		using VertexShaderSkinnedUVCacheKey = NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/shader/loader/gltf/uv.vert");
+		using VertexShaderSkinnedColorCacheKey = NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/shader/loader/gltf/color.vert");
+		using VertexShaderSkinnedNoUVColorCacheKey = NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/shader/loader/gltf/no_uv_color.vert");
+
+		using FragmentShaderUVCacheKey = NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/shader/loader/gltf/uv.frag");
+		using FragmentShaderColorCacheKey = NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/shader/loader/gltf/color.frag");
+		using FragmentShaderNoUVColorCacheKey = NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/shader/loader/gltf/no_uv_color.frag");
+
+		
+		static inline constexpr const char* DescriptorSetLayoutCacheKey = "nbl/builtin/descriptor_set_layout/loaders/glTF/3";
+		core::smart_refctd_ptr<ICPUDescriptorSetLayout> getDescriptorSetLayout(const SContext& context) const
+		{
+			return context.loaderOverride->findDefaultAsset<ICPUDescriptorSetLayout>(DescriptorSetLayoutCacheKey,context.loadContext,0u).first; // cached builtins have level 0
+		}
+
+		static inline std::string getPipelineLayoutCacheKey(const bool skinned)
+		{
+			if (skinned)
+				return "nbl/builtin/pipeline_layout/loaders/glTF/skinned";
+			else
+				return "nbl/builtin/pipeline_layout/loaders/glTF/static";
+		}
+		core::smart_refctd_ptr<ICPUPipelineLayout> getPipelineLayout(const SContext& context, const bool skinned) const
+		{
+			const std::string layoutCacheKey = getPipelineLayoutCacheKey(skinned);
+			auto layout = context.loaderOverride->findDefaultAsset<ICPUPipelineLayout>(layoutCacheKey,context.loadContext,0u).first; // cached builtins have level 0
+			if (layout)
+				return layout;
+
+			//! camera UBO DS
+			auto cpuDs1Layout = context.loaderOverride->findDefaultAsset<ICPUDescriptorSetLayout>("nbl/builtin/descriptor_set_layout/basic_view_parameters",context.loadContext,0u).first;
+
+			asset::SPushConstantRange pushConstantRange = {asset::ISpecializedShader::ESS_FRAGMENT,0u,sizeof(CGLTFPipelineMetadata::SGLTFMaterialParameters)};
+			layout = core::make_smart_refctd_ptr<ICPUPipelineLayout>(&pushConstantRange,&pushConstantRange+1u,nullptr,std::move(cpuDs1Layout),nullptr,getDescriptorSetLayout(context));
+
+			SAssetBundle bundle(nullptr,{layout}); // insert as immutable ?
+			context.loaderOverride->insertAssetIntoCache(bundle,layoutCacheKey,context.loadContext,0u); // cached builtins have level 0
+
+			return layout;
+		}
+
+		static inline std::string getPipelineCacheKey(const E_PRIMITIVE_TOPOLOGY& primitiveType, const SVertexInputParams& vertexInputParams, const bool skinned)
+		{
+			if (skinned)
+				return "nbl/builtin/pipeline/loaders/glTF/skinned/" + std::to_string(primitiveType) + vertexInputParams.to_string();
+			else
+				return "nbl/builtin/pipeline/loaders/glTF/static/" + std::to_string(primitiveType) + vertexInputParams.to_string();
+		}
+		core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> getPipeline(
+			const SContext& context, const E_PRIMITIVE_TOPOLOGY& primitiveType, const SVertexInputParams& vertexInputParams, const bool skinned, const bool hasUV, const bool hasColor
+		) const
+		{
+			const std::string pipelineCacheKey = getPipelineCacheKey(primitiveType,vertexInputParams,skinned);
+			auto pipeline = context.loaderOverride->findDefaultAsset<ICPURenderpassIndependentPipeline>(pipelineCacheKey,context.loadContext,0u).first; // cached builtins have level 0
+			if (pipeline)
+				return pipeline;
+
+			//auto cpuPipelineLayout = makePipelineLayoutFromGLTF(context, pushConstants, materialDependencyData, skinningEnabled);
+
+			SBlendParams blendParams = {};
+			SPrimitiveAssemblyParams primitiveAssemblyParams = {};
+			primitiveAssemblyParams.primitiveType = primitiveType;
+			SRasterizationParams rastarizationParams = {};
+			core::smart_refctd_ptr<ICPUSpecializedShader> shaders[2];
+			if (skinned)
+			{
+				if (hasUV) // if both UV and Color defined - we use the UV
+					shaders[0] = context.loaderOverride->findDefaultAsset<ICPUSpecializedShader>(VertexShaderUVCacheKey::value,context.loadContext,0u).first;
+				else if (hasColor)
+					shaders[0] = context.loaderOverride->findDefaultAsset<ICPUSpecializedShader>(VertexShaderColorCacheKey::value,context.loadContext,0u).first;
+				else
+					shaders[0] = context.loaderOverride->findDefaultAsset<ICPUSpecializedShader>(VertexShaderNoUVColorCacheKey::value,context.loadContext,0u).first;
+			}
+			else
+			{
+				if (hasUV) // if both UV and Color defined - we use the UV
+					shaders[0] = context.loaderOverride->findDefaultAsset<ICPUSpecializedShader>(VertexShaderSkinnedUVCacheKey::value,context.loadContext,0u).first;
+				else if (hasColor)
+					shaders[0] = context.loaderOverride->findDefaultAsset<ICPUSpecializedShader>(VertexShaderSkinnedColorCacheKey::value,context.loadContext,0u).first;
+				else
+					shaders[0] = context.loaderOverride->findDefaultAsset<ICPUSpecializedShader>(VertexShaderSkinnedNoUVColorCacheKey::value,context.loadContext,0u).first;
+			}
+			if (hasUV) // if both UV and Color defined - we use the UV
+				shaders[1] = context.loaderOverride->findDefaultAsset<ICPUSpecializedShader>(FragmentShaderUVCacheKey::value,context.loadContext,0u).first;
+			else if (hasColor)
+				shaders[1] = context.loaderOverride->findDefaultAsset<ICPUSpecializedShader>(FragmentShaderColorCacheKey::value,context.loadContext,0u).first;
+			else
+				shaders[1] = context.loaderOverride->findDefaultAsset<ICPUSpecializedShader>(FragmentShaderNoUVColorCacheKey::value,context.loadContext,0u).first;
+			pipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(getPipelineLayout(context,skinned),&shaders->get(),&shaders->get()+2u,vertexInputParams,blendParams,primitiveAssemblyParams,rastarizationParams);
+
+			auto meta = core::make_smart_refctd_ptr<CGLTFMetadata>(1u);
+			meta->placeMeta(0u,pipeline.get(),{core::smart_refctd_ptr(m_basicViewParamsSemantics)});
+
+			SAssetBundle bundle(std::move(meta),{pipeline}); // insert as immutable ?
+			context.loaderOverride->insertAssetIntoCache(bundle,pipelineCacheKey,context.loadContext,0u); // cached builtins have level 0
+
+			return pipeline;
+		}
 
 		struct CGLTFHeader
 		{
@@ -710,30 +812,7 @@ class CGLTFLoader final : public IRenderpassIndependentPipelineLoader
 			std::vector<SGLTFAnimation> animations;
 		};
 
-		struct SContext
-		{
-			SContext(const SAssetLoadParams& _params, system::IFile* _mainFile, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel) : loadContext(_params, _mainFile), loaderOverride(_override), hierarchyLevel(_hierarchyLevel) {}
-			~SContext() {}
-
-			SAssetLoadContext loadContext;
-			asset::IAssetLoader::IAssetLoaderOverride* loaderOverride;
-			uint32_t hierarchyLevel;
-		};
-
-		struct SMaterialDependencyData
-		{
-			SMaterialDependencyData() {}
-			~SMaterialDependencyData() {}
-
-			ICPUMeshBuffer* cpuMeshBuffer = nullptr;
-			SGLTF::SGLTFMaterial* glTFMaterial = nullptr;
-			STextures* cpuTextures = nullptr;
-			SShaderDefinesCode extraShaderDefinesCode; // TODO IN FUTURE
-		};
-
 		bool loadAndGetGLTF(SGLTF& glTF, SContext& context);
-		core::smart_refctd_ptr<ICPUPipelineLayout> makePipelineLayoutFromGLTF(SContext& context, const asset::CGLTFPipelineMetadata::SGLTFMaterialParameters& pushConstants, SMaterialDependencyData& materialData, bool isSkinned);
-		core::smart_refctd_ptr<ICPUDescriptorSet> makeAndGetDS3set(std::array<core::smart_refctd_ptr<ICPUImageView>, SGLTF::SGLTFMaterial::EGT_COUNT>& cpuImageViews, core::smart_refctd_ptr<ICPUDescriptorSetLayout> cpuDescriptorSet3Layout);
 
 		asset::IAssetManager* const assetManager;
 };
