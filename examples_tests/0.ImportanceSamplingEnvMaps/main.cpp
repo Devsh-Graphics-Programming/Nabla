@@ -4,10 +4,8 @@
 
 #define _NBL_STATIC_LIB_
 #include <nabla.h>
-#include "../../../include/nbl/asset/filters/CSummedAreaTableImageFilter.h"
 #include "nbl/ext/FullScreenTriangle/FullScreenTriangle.h"
 #include "nbl/ext/ScreenShot/ScreenShot.h"
-#include "glm/glm.hpp"
 #include "../common/QToQuitEventReceiver.h"
 
 using namespace nbl;
