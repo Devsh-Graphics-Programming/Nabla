@@ -124,7 +124,7 @@ bool CSceneNodeAnimatorCameraModifiedMaya::OnEvent(const SEvent& event)
 		if (!StepZooming && !Zooming)
 		{
 			StepZooming = true;
-			ZoomDelta = event.MouseInput.Wheel * ScrllZoomSpeed;
+			ZoomDelta = -1 * event.MouseInput.Wheel;
 		}
         break;
 	}
@@ -369,7 +369,7 @@ void CSceneNodeAnimatorCameraModifiedMaya::setZoomSpeed(float speed)
 //! Sets the zoom speed
 void CSceneNodeAnimatorCameraModifiedMaya::setStepZoomSpeed(float speed)
 {
-	ScrllZoomSpeed = speed;
+	ScrllZoomSpeed = -1.0f * speed;
 }
 
 //! Set the distance
@@ -402,7 +402,7 @@ float CSceneNodeAnimatorCameraModifiedMaya::getZoomSpeed() const
 //! Gets the step zoom speed
 float CSceneNodeAnimatorCameraModifiedMaya::getStepZoomSpeed() const
 {
-	return ScrllZoomSpeed;
+	return -1.0f * ScrllZoomSpeed;
 }
 
 //! Returns the current distance, i.e. orbit radius
