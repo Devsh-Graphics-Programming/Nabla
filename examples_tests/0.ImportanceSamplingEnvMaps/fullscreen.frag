@@ -18,6 +18,7 @@ layout(set = 3, binding = 3) uniform sampler2D phiPdfLUT;
 layout(set = 3, binding = 4) uniform sampler1D thetaLUT;
 
 #include <nbl/builtin/glsl/utils/common.glsl>
+#include <nbl/builtin/glsl/limits/numeric.glsl>
 
 layout(set = 1, binding = 0, row_major, std140) uniform UBO
 {
@@ -323,7 +324,7 @@ vec3 nbl_glsl_light_generate_and_pdf(out float pdf, out float newRayMaxT, in vec
     vec3 L = vec3(sinTheta*cosPhi, cosTheta, sinTheta*sinPhi);
 
     pdf = phiPdf.y;
-    newRayMaxT = FLT_MAX;
+    newRayMaxT = nbl_glsl_FLT_MAX;
     return L;
 }
 
@@ -426,7 +427,7 @@ vec3 nbl_glsl_bsdf_cos_remainder_and_pdf(out float pdf, in nbl_glsl_LightSample 
 
 int traceRay(inout float intersectionT, in vec3 origin, in vec3 direction)
 {
-    const bool anyHit = intersectionT != FLT_MAX;
+    const bool anyHit = intersectionT != nbl_glsl_FLT_MAX;
 
 	int objectID = -1;
 	for (int i=0; i<SPHERE_COUNT; i++)
@@ -531,7 +532,7 @@ bool closestHitProgram(in uint depth, in uint _sample, inout Ray_t ray, inout nb
                 const float oc = bsdfPdf*rcpChoiceProb;
                 neeContrib /= 1.0/oc+oc/(lightPdf*lightPdf); // MIS weight
 
-                if (bsdfPdf<FLT_MAX && getLuma(neeContrib)>lumaContributionThreshold && traceRay(t,intersection+nee_sample.L*t*getStartTolerance(depth),nee_sample.L)==-1)
+                if (bsdfPdf<nbl_glsl_FLT_MAX && getLuma(neeContrib)>lumaContributionThreshold && traceRay(t,intersection+nee_sample.L*t*getStartTolerance(depth),nee_sample.L)==-1)
                     ray._payload.accumulation += neeContrib;
             }
         }
@@ -662,7 +663,7 @@ void main()
             bool hit = true; bool rayAlive = true;
             for (int d=1; d<=MAX_DEPTH && hit && rayAlive; d+=2)
             {
-                ray._mutable.intersectionT = FLT_MAX;
+                ray._mutable.intersectionT = nbl_glsl_FLT_MAX;
                 ray._mutable.objectID = traceRay(ray._mutable.intersectionT,ray._immutable.origin,ray._immutable.direction);
                 hit = ray._mutable.objectID!=-1;
                 if (hit)
