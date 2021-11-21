@@ -255,6 +255,11 @@ int main(int argc, char** argv)
 			return 3;
 		}
 	}
+	
+	constexpr float DefaultRotateSpeed = 300.0f;
+	constexpr float DefaultZoomSpeed = 1.0f;
+	constexpr float DefaultMoveSpeed = 100.0f;
+	constexpr float DefaultSceneDiagonal = 50.0f; // reference for default zoom and move speed;
 
 	struct SensorData
 	{
@@ -263,10 +268,17 @@ int main(int argc, char** argv)
 		bool rightHandedCamera = true;
 		uint32_t samplesNeeded = 0u;
 		float moveSpeed = core::nan<float>();
+		float stepZoomSpeed = core::nan<float>();
+		float rotateSpeed = core::nan<float>();
 		scene::ICameraSceneNode * staticCamera;
 		scene::ICameraSceneNode * interactiveCamera;
 		std::filesystem::path outputFilePath;
 		ext::MitsubaLoader::CElementFilm::FileFormat fileFormat;
+
+		scene::CSceneNodeAnimatorCameraModifiedMaya* getInteractiveCameraAnimator()
+		{
+			return reinterpret_cast<scene::CSceneNodeAnimatorCameraModifiedMaya*>(interactiveCamera->getAnimators()[0]);
+		}
 
 		void resetInteractiveCamera()
 		{
@@ -280,7 +292,7 @@ int main(int argc, char** argv)
 			interactiveCamera->setProjectionMatrix(staticCamera->getProjectionMatrix());
 		
 			core::vectorSIMDf cameraPos; cameraPos.set(staticCamera->getPosition());
-			auto modifiedMayaAnim = reinterpret_cast<scene::CSceneNodeAnimatorCameraModifiedMaya*>(interactiveCamera->getAnimators()[0]);
+			auto modifiedMayaAnim = getInteractiveCameraAnimator();
 			modifiedMayaAnim->setZoomAndRotationBasedOnTargetAndPosition(cameraPos, cameraTarget);
 		}
 	};
@@ -357,9 +369,7 @@ int main(int argc, char** argv)
 
 		outSensorData.samplesNeeded = sensor.sampler.sampleCount;
 		outSensorData.staticCamera = smgr->addCameraSceneNode(nullptr); 
-		outSensorData.interactiveCamera = smgr->addCameraSceneNodeModifiedMaya(nullptr, -400.0f, 20.0f, 200.0f, -1, 2.0f, 1.0f, false, true);
 		auto & staticCamera = outSensorData.staticCamera;
-		auto & interactiveCamera = outSensorData.interactiveCamera;
 		
 		std::cout << "\t SamplesPerPixelNeeded = " << outSensorData.samplesNeeded << std::endl;
 
@@ -407,8 +417,31 @@ int main(int argc, char** argv)
 				break;
 		}
 
+		outSensorData.rotateSpeed = persp->rotateSpeed;
+		outSensorData.stepZoomSpeed = persp->zoomSpeed;
 		outSensorData.moveSpeed = persp->moveSpeed;
-		std::cout << "\t Camera Move Speed = " << outSensorData.moveSpeed << std::endl;
+
+		if(outSensorData.rotateSpeed == core::nan<float>())
+		{
+			outSensorData.rotateSpeed = DefaultRotateSpeed;
+			std::cout << "\t Camera Rotate Speed = " << outSensorData.rotateSpeed << " = [Default Value]" << std::endl;
+		}
+		else
+		{
+			std::cout << "\t Camera Rotate Speed = " << outSensorData.rotateSpeed << std::endl;
+		}
+
+		if(outSensorData.stepZoomSpeed == core::nan<float>())
+			std::cout << "\t Camera Step Zoom Speed = " << "[Value will be deduced from Scene Bounds] " << std::endl;
+		else
+			std::cout << "\t Camera Step Zoom Speed = " << outSensorData.stepZoomSpeed << std::endl;
+		
+		if(outSensorData.moveSpeed == core::nan<float>())
+			std::cout << "\t Camera Move Speed = " << "[Value will be deduced from Scene Bounds] " << std::endl;
+		else
+			std::cout << "\t Camera Move Speed = " << outSensorData.moveSpeed << std::endl;
+
+		outSensorData.interactiveCamera = smgr->addCameraSceneNodeModifiedMaya(nullptr, -1.0f * outSensorData.rotateSpeed, 50.0f, outSensorData.moveSpeed, -1, 2.0f, outSensorData.stepZoomSpeed, false, true);
 
 		outSensorData.outputFilePath = std::filesystem::path(film.outputFilePath);
 		outSensorData.fileFormat = film.fileFormat;
@@ -553,6 +586,36 @@ int main(int argc, char** argv)
 	
 	RaytracerExampleEventReceiver receiver;
 	device->setEventReceiver(&receiver);
+
+	// Deduce Move and Zoom Speeds if it is nan
+	auto sceneBoundsExtent = renderer->getSceneBound().getExtent();
+	auto sceneDiagonal = sceneBoundsExtent.getLength(); 
+
+	for(uint32_t s = 0u; s < sensors.size(); ++s)
+	{
+		auto& sensorData = sensors[s];
+
+		if(sensorData.stepZoomSpeed == core::nan<float>())
+		{
+			float newStepZoomSpeed = DefaultZoomSpeed * (sceneDiagonal / DefaultSceneDiagonal);
+			sensorData.stepZoomSpeed = newStepZoomSpeed;
+			sensorData.getInteractiveCameraAnimator()->setStepZoomSpeed(newStepZoomSpeed);
+			printf("[INFO] Sensor[%d] Camera Step Zoom Speed deduced from scene bounds = %f\n", s, newStepZoomSpeed);
+		}
+
+		if(sensorData.moveSpeed == core::nan<float>())
+		{
+			float newMoveSpeed = DefaultMoveSpeed * (sceneDiagonal / DefaultSceneDiagonal);
+			sensorData.moveSpeed = newMoveSpeed;
+			sensorData.getInteractiveCameraAnimator()->setMoveSpeed(newMoveSpeed);
+			printf("[INFO] Sensor[%d] Camera Move Speed deduced from scene bounds = %f\n", s, newMoveSpeed);
+		}
+		
+		assert(sensorData.getInteractiveCameraAnimator()->getRotateSpeed() != core::nan<float>());
+		assert(sensorData.getInteractiveCameraAnimator()->getStepZoomSpeed() != core::nan<float>());
+		assert(sensorData.getInteractiveCameraAnimator()->getMoveSpeed() != core::nan<float>());
+	}
+
 
 	// Render To file
 	int32_t prevWidth = 0;
