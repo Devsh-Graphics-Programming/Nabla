@@ -421,22 +421,20 @@ int main(int argc, char** argv)
 		outSensorData.stepZoomSpeed = persp->zoomSpeed;
 		outSensorData.moveSpeed = persp->moveSpeed;
 
-		if(outSensorData.rotateSpeed == core::nan<float>())
+		if(core::isnan<float>(outSensorData.rotateSpeed))
 		{
 			outSensorData.rotateSpeed = DefaultRotateSpeed;
 			std::cout << "\t Camera Rotate Speed = " << outSensorData.rotateSpeed << " = [Default Value]" << std::endl;
 		}
 		else
-		{
 			std::cout << "\t Camera Rotate Speed = " << outSensorData.rotateSpeed << std::endl;
-		}
 
-		if(outSensorData.stepZoomSpeed == core::nan<float>())
+		if(core::isnan<float>(outSensorData.stepZoomSpeed))
 			std::cout << "\t Camera Step Zoom Speed = " << "[Value will be deduced from Scene Bounds] " << std::endl;
 		else
 			std::cout << "\t Camera Step Zoom Speed = " << outSensorData.stepZoomSpeed << std::endl;
 		
-		if(outSensorData.moveSpeed == core::nan<float>())
+		if(core::isnan<float>(outSensorData.moveSpeed))
 			std::cout << "\t Camera Move Speed = " << "[Value will be deduced from Scene Bounds] " << std::endl;
 		else
 			std::cout << "\t Camera Move Speed = " << outSensorData.moveSpeed << std::endl;
@@ -595,7 +593,7 @@ int main(int argc, char** argv)
 	{
 		auto& sensorData = sensors[s];
 
-		if(sensorData.stepZoomSpeed == core::nan<float>())
+		if(core::isnan<float>(sensorData.stepZoomSpeed))
 		{
 			float newStepZoomSpeed = DefaultZoomSpeed * (sceneDiagonal / DefaultSceneDiagonal);
 			sensorData.stepZoomSpeed = newStepZoomSpeed;
@@ -603,7 +601,7 @@ int main(int argc, char** argv)
 			printf("[INFO] Sensor[%d] Camera Step Zoom Speed deduced from scene bounds = %f\n", s, newStepZoomSpeed);
 		}
 
-		if(sensorData.moveSpeed == core::nan<float>())
+		if(core::isnan<float>(sensorData.moveSpeed))
 		{
 			float newMoveSpeed = DefaultMoveSpeed * (sceneDiagonal / DefaultSceneDiagonal);
 			sensorData.moveSpeed = newMoveSpeed;
@@ -611,9 +609,9 @@ int main(int argc, char** argv)
 			printf("[INFO] Sensor[%d] Camera Move Speed deduced from scene bounds = %f\n", s, newMoveSpeed);
 		}
 		
-		assert(sensorData.getInteractiveCameraAnimator()->getRotateSpeed() != core::nan<float>());
-		assert(sensorData.getInteractiveCameraAnimator()->getStepZoomSpeed() != core::nan<float>());
-		assert(sensorData.getInteractiveCameraAnimator()->getMoveSpeed() != core::nan<float>());
+		assert(!core::isnan<float>(sensorData.getInteractiveCameraAnimator()->getRotateSpeed()));
+		assert(!core::isnan<float>(sensorData.getInteractiveCameraAnimator()->getStepZoomSpeed()));
+		assert(!core::isnan<float>(sensorData.getInteractiveCameraAnimator()->getMoveSpeed()));
 	}
 
 
