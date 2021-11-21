@@ -123,7 +123,22 @@ class SeparateOutXAxisKernel : public asset::CFloatingPointSeparableImageFilterK
 core::smart_refctd_ptr<asset::ICPUImage> nbl::asset::CDerivativeMapCreator::createDerivativeMapFromHeightMap(asset::ICPUImage* _inImg, asset::ISampler::E_TEXTURE_CLAMP _uwrap, asset::ISampler::E_TEXTURE_CLAMP _vwrap, asset::ISampler::E_TEXTURE_BORDER_COLOR _borderColor)
 {
 	using namespace asset;
-
+	auto getRGformat = [](asset::E_FORMAT f) -> asset::E_FORMAT {
+		const uint32_t bytesPerChannel = (getBytesPerPixel(f) * core::rational(1, getFormatChannelCount(f))).getIntegerApprox();
+		switch (bytesPerChannel)
+		{
+		case 1u:
+			return asset::EF_R8G8_UNORM;
+		case 2u:
+			return asset::EF_R16G16_SNORM;
+		case 4u:
+			return asset::EF_R32G32_SFLOAT;
+		case 8u:
+			return asset::EF_R64G64_SFLOAT;
+		default:
+			return asset::EF_UNKNOWN;
+		}
+	};
 	using ReconstructionKernel = CGaussianImageFilterKernel<>; // or Mitchell
 	using DerivKernel_ = CDerivativeImageFilterKernel<ReconstructionKernel>;
 	using DerivKernel = MyKernel<DerivKernel_>;

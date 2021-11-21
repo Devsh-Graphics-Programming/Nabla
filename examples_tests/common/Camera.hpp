@@ -193,7 +193,6 @@ public:
 					perActionDt[Keys::EKA_MOVE_FORWARD] += timeDiff; 
 					keysDown[Keys::EKA_MOVE_FORWARD] = true;
 				} else if(ev.action == ui::SKeyboardEvent::ECA_RELEASED) {
-					perActionDt[Keys::EKA_MOVE_FORWARD] -= timeDiff; 
 					keysDown[Keys::EKA_MOVE_FORWARD] = false;
 				}
 			}
@@ -203,7 +202,6 @@ public:
 					perActionDt[Keys::EKA_MOVE_BACKWARD] += timeDiff; 
 					keysDown[Keys::EKA_MOVE_BACKWARD] = true;
 				} else if(ev.action == ui::SKeyboardEvent::ECA_RELEASED) {
-					perActionDt[Keys::EKA_MOVE_BACKWARD] -= timeDiff; 
 					keysDown[Keys::EKA_MOVE_BACKWARD] = false;
 				}
 			}
@@ -213,7 +211,6 @@ public:
 					perActionDt[Keys::EKA_MOVE_LEFT] += timeDiff; 
 					keysDown[Keys::EKA_MOVE_LEFT] = true;
 				} else if(ev.action == ui::SKeyboardEvent::ECA_RELEASED) {
-					perActionDt[Keys::EKA_MOVE_LEFT] -= timeDiff; 
 					keysDown[Keys::EKA_MOVE_LEFT] = false;
 				}
 			}
@@ -223,7 +220,6 @@ public:
 					perActionDt[Keys::EKA_MOVE_RIGHT] += timeDiff; 
 					keysDown[Keys::EKA_MOVE_RIGHT] = true;
 				} else if(ev.action == ui::SKeyboardEvent::ECA_RELEASED) {
-					perActionDt[Keys::EKA_MOVE_RIGHT] -= timeDiff; 
 					keysDown[Keys::EKA_MOVE_RIGHT] = false;
 				}
 			}

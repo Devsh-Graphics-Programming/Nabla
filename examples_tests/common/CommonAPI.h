@@ -14,41 +14,7 @@
 #include "nbl/system/CSystemWin32.h"
 // TODO: make these include themselves via `nabla.h`
 
-class GraphicalApplication : public nbl::system::IApplicationFramework, public nbl::ui::IGraphicalApplicationFramework
-{
-	protected:
-		~GraphicalApplication() {}
-	public:
-		GraphicalApplication(
-			const std::filesystem::path& _localInputCWD,
-			const std::filesystem::path& _localOutputCWD,
-			const std::filesystem::path& _sharedInputCWD,
-			const std::filesystem::path& _sharedOutputCWD
-		) : nbl::system::IApplicationFramework(_localInputCWD, _localOutputCWD, _sharedInputCWD, _sharedOutputCWD) {}
-};
-//***** Application framework macros ******
-#ifdef _NBL_PLATFORM_ANDROID_
-using ApplicationBase = nbl::ui::CGraphicalApplicationAndroid;
-#define APP_CONSTRUCTOR(type) type(android_app* app, const nbl::system::path& _localInputCWD,\
-const nbl::system::path& _localOutputCWD,\
-const nbl::system::path& _sharedInputCWD,\
-const nbl::system::path& _sharedOutputCWD) : nbl::ui::CGraphicalApplicationAndroid(app, _localInputCWD, _localOutputCWD, _sharedInputCWD, _sharedOutputCWD) {}
-#define NBL_COMMON_API_MAIN(android_app_class) NBL_ANDROID_MAIN_FUNC(android_app_class, CommonAPI::CommonAPIEventCallback)
-#else
-using ApplicationBase = GraphicalApplication;
-#define APP_CONSTRUCTOR(type) type(const nbl::system::path& _localInputCWD,\
-const nbl::system::path& _localOutputCWD,\
-const nbl::system::path& _sharedInputCWD,\
-const nbl::system::path& _sharedOutputCWD) : GraphicalApplication(_localInputCWD, _localOutputCWD, _sharedInputCWD, _sharedOutputCWD) {}
-#define NBL_COMMON_API_MAIN(android_app_class) int main(int argc, char** argv){\
-CommonAPI::main<android_app_class>(argc, argv);\
-}
-#endif
 
-
-
-
-//***** Application framework macros ******
 
 
 class CommonAPI
@@ -116,7 +82,7 @@ public:
 				channels.channels.push_back(std::move(channel));
 				
 				using namespace std::chrono;
-				auto timeStamp = duration_cast<microseconds>(system_clock::now().time_since_epoch());
+				auto timeStamp = duration_cast<microseconds>(steady_clock::now().time_since_epoch());
 				channels.timeStamps.push_back(timeStamp);
 
 				channels.added.notify_all();
@@ -159,7 +125,7 @@ public:
 
 				using namespace std::chrono;
 				constexpr long long DefaultChannelTimeoutInMicroSeconds = 100*1e3; // 100 mili-seconds
-				auto nowTimeStamp = duration_cast<microseconds>(system_clock::now().time_since_epoch());
+				auto nowTimeStamp = duration_cast<microseconds>(steady_clock::now().time_since_epoch());
 
 				// Update Timestamp of all channels
 				for(uint32_t ch = 0u; ch < channels.channels.size(); ++ch) {
@@ -701,7 +667,7 @@ public:
 		nbl::system::path CWD = nbl::system::path(argv[0]).parent_path().generic_string() + "/";
 		nbl::system::path sharedInputCWD = CWD / "../../media/";
 		nbl::system::path sharedOutputCWD = CWD / "../../tmp/";;
-		nbl::system::path localInputCWD = CWD / "../";
+		nbl::system::path localInputCWD = CWD / "../assets";
 		nbl::system::path localOutputCWD = CWD;
 		auto app = nbl::core::make_smart_refctd_ptr<AppClassName>(localInputCWD, localOutputCWD, sharedInputCWD, sharedOutputCWD);
 
@@ -817,6 +783,127 @@ public:
 		result.cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].queue = result.queues[InitOutput<0>::EQT_COMPUTE];
 	}
 
+	static auto createFBOWithSwapchainImages(uint32_t imageCount, uint32_t width, uint32_t height,
+		const nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice>& device,
+		nbl::core::smart_refctd_ptr<nbl::video::ISwapchain> swapchain,
+		nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpass> renderpass,
+		nbl::asset::E_FORMAT depthFormat = nbl::asset::EF_UNKNOWN)->std::vector<nbl::core::smart_refctd_ptr<nbl::video::IGPUFramebuffer>>
+	{
+		using namespace nbl;
+		bool useDepth = asset::isDepthOrStencilFormat(depthFormat);
+		std::vector<nbl::core::smart_refctd_ptr<nbl::video::IGPUFramebuffer>> fbo(imageCount);
+		auto sc_images = swapchain->getImages();
+		assert(sc_images.size() == imageCount);
+		for (uint32_t i = 0u; i < imageCount; ++i)
+		{
+			nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> view[2] = {};
+
+			auto img = sc_images.begin()[i];
+			{
+				nbl::video::IGPUImageView::SCreationParams view_params;
+				view_params.format = img->getCreationParameters().format;
+				view_params.viewType = asset::IImageView<nbl::video::IGPUImage>::ET_2D;
+				view_params.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
+				view_params.subresourceRange.baseMipLevel = 0u;
+				view_params.subresourceRange.levelCount = 1u;
+				view_params.subresourceRange.baseArrayLayer = 0u;
+				view_params.subresourceRange.layerCount = 1u;
+				view_params.image = std::move(img);
+
+				view[0] = device->createGPUImageView(std::move(view_params));
+				assert(view[0]);
+			}
+
+			if (useDepth) {
+				nbl::video::IGPUImage::SCreationParams imgParams;
+				imgParams.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0u);
+				imgParams.type = asset::IImage::ET_2D;
+				imgParams.format = depthFormat;
+				imgParams.extent = { width, height, 1 };
+				imgParams.usage = asset::IImage::E_USAGE_FLAGS::EUF_DEPTH_STENCIL_ATTACHMENT_BIT;
+				imgParams.mipLevels = 1u;
+				imgParams.arrayLayers = 1u;
+				imgParams.samples = asset::IImage::ESCF_1_BIT;
+				nbl::core::smart_refctd_ptr<nbl::video::IGPUImage> depthImg = device->createDeviceLocalGPUImageOnDedMem(std::move(imgParams));
+
+				nbl::video::IGPUImageView::SCreationParams view_params;
+				view_params.format = depthFormat;
+				view_params.viewType = asset::IImageView<nbl::video::IGPUImage>::ET_2D;
+				view_params.subresourceRange.aspectMask = asset::IImage::EAF_DEPTH_BIT;
+				view_params.subresourceRange.baseMipLevel = 0u;
+				view_params.subresourceRange.levelCount = 1u;
+				view_params.subresourceRange.baseArrayLayer = 0u;
+				view_params.subresourceRange.layerCount = 1u;
+				view_params.image = std::move(depthImg);
+
+				view[1] = device->createGPUImageView(std::move(view_params));
+				assert(view[1]);
+			}
+
+			nbl::video::IGPUFramebuffer::SCreationParams fb_params;
+			fb_params.width = width;
+			fb_params.height = height;
+			fb_params.layers = 1u;
+			fb_params.renderpass = renderpass;
+			fb_params.flags = static_cast<nbl::video::IGPUFramebuffer::E_CREATE_FLAGS>(0);
+			fb_params.attachmentCount = (useDepth) ? 2u : 1u;
+			fb_params.attachments = view;
+
+			fbo[i] = device->createGPUFramebuffer(std::move(fb_params));
+			assert(fbo[i]);
+		}
+		return fbo;
+	}
+
+#ifdef _NBL_PLATFORM_ANDROID_
+	static void recreateSurface(nbl::ui::CGraphicalApplicationAndroid* framework)
+	{
+		android_app* app = framework->getApp();
+		auto apiConnection = framework->getAPIConnection();
+		auto window = framework->getWindow();
+		auto logicalDevice = framework->getLogicalDevice();
+		auto surface = nbl::video::CSurfaceGLAndroid::create(nbl::core::smart_refctd_ptr<video::COpenGLESConnection>((nbl::video::COpenGLESConnection*)apiConnection), nbl::core::smart_refctd_ptr<ui::IWindowAndroid>(static_cast<ui::IWindowAndroid*>(window)));
+		auto renderpass = framework->getRenderpass();
+		nbl::asset::E_FORMAT depthFormat = framework->getDepthFormat();
+		framework->setSurface(surface);
+		uint32_t width = ANativeWindow_getWidth(app->window);
+		uint32_t height = ANativeWindow_getHeight(app->window);
+		uint32_t scImageCount = framework->getSwapchainImageCount();
+		nbl::video::ISurface::SFormat requestedFormat;
+		
+		// Temporary to make previous examples work
+		requestedFormat.format = asset::EF_R8G8B8A8_SRGB;
+		requestedFormat.colorSpace.eotf = asset::EOTF_sRGB;
+		requestedFormat.colorSpace.primary = asset::ECP_SRGB;
+		
+		auto gpus = apiConnection->getPhysicalDevices();
+		assert(!gpus.empty());
+		auto extractedInfos = extractGPUInfos(gpus, surface);
+		auto suitableGPUIndex = findSuitableGPU(extractedInfos, true);
+		auto gpu = gpus.begin()[suitableGPUIndex];
+		const auto& gpuInfo = extractedInfos[suitableGPUIndex];
+		
+		auto swapchain = createSwapchain(nbl::video::EAT_OPENGL_ES,
+			width,
+			height,
+			scImageCount,
+			core::smart_refctd_ptr<nbl::video::ILogicalDevice>(logicalDevice),
+			surface,
+			nbl::video::ISurface::EPM_FIFO_RELAXED,
+			requestedFormat,
+			gpuInfo);
+		auto fbo = createFBOWithSwapchainImages(scImageCount, 
+			width, 
+			height, 
+			core::smart_refctd_ptr<nbl::video::ILogicalDevice>(logicalDevice), 
+			swapchain,
+			core::smart_refctd_ptr<nbl::video::IGPURenderpass>(renderpass),
+			depthFormat);
+		framework->setSwapchain(std::move(swapchain));
+		framework->setFBOs(fbo);
+	}
+#endif
+
 	template<uint32_t window_width, uint32_t window_height, uint32_t sc_image_count, class EventCallback = CommonAPIEventCallback>
 	static void Init(InitOutput<sc_image_count>& result, nbl::video::E_API_TYPE api_type, const std::string_view app_name, nbl::asset::E_FORMAT depthFormat = nbl::asset::EF_UNKNOWN, const bool graphicsQueueEnable = true)
 	{
@@ -850,7 +937,9 @@ public:
 		result.window = windowManager->createWindow(std::move(windowsCreationParams));
 		result.windowCb->setInputSystem(nbl::core::smart_refctd_ptr(result.inputSystem));
 #else
-		result.window->setEventCallback(core::smart_refctd_ptr(result.windowCb));
+		result.windowCb = nbl::core::smart_refctd_ptr<EventCallback>((CommonAPIEventCallback*)result.window->getEventCallback());
+		result.windowCb->setInputSystem(core::smart_refctd_ptr(result.inputSystem));
+		//result.window->setEventCallback(core::smart_refctd_ptr(result.windowCb));
 #endif
 		if(api_type == EAT_VULKAN) 
 		{
@@ -1137,6 +1226,8 @@ public:
 		return device->createGPURenderpass(rp_params);
 	}
 
+	
+
 	template<size_t imageCount, size_t width, size_t height>
 	static auto createFBOWithSwapchainImages(const nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice>& device,
 		nbl::core::smart_refctd_ptr<nbl::video::ISwapchain> swapchain,
@@ -1295,3 +1386,73 @@ public:
 		return -1;
 	}
 };
+
+
+#ifndef _NBL_PLATFORM_ANDROID_
+class GraphicalApplication : public nbl::system::IApplicationFramework, public nbl::ui::IGraphicalApplicationFramework
+{
+protected:
+	~GraphicalApplication() {}
+public:
+	GraphicalApplication(
+		const std::filesystem::path& _localInputCWD,
+		const std::filesystem::path& _localOutputCWD,
+		const std::filesystem::path& _sharedInputCWD,
+		const std::filesystem::path& _sharedOutputCWD
+	) : nbl::system::IApplicationFramework(_localInputCWD, _localOutputCWD, _sharedInputCWD, _sharedOutputCWD) {}
+	void recreateSurface() override
+	{
+	}
+};
+#else
+class GraphicalApplication : public nbl::ui::CGraphicalApplicationAndroid
+{
+protected:
+	~GraphicalApplication() {}
+public:
+	GraphicalApplication(
+		android_app* app, JNIEnv* env,
+		const std::filesystem::path& _localInputCWD,
+		const std::filesystem::path& _localOutputCWD,
+		const std::filesystem::path& _sharedInputCWD,
+		const std::filesystem::path& _sharedOutputCWD
+	) : nbl::ui::CGraphicalApplicationAndroid(app, env, _localInputCWD, _localOutputCWD, _sharedInputCWD, _sharedOutputCWD) {}
+	void recreateSurface() override
+	{
+		CommonAPI::recreateSurface(this);
+	}
+};
+#endif
+//***** Application framework macros ******
+#ifdef _NBL_PLATFORM_ANDROID_
+using ApplicationBase = GraphicalApplication;
+using NonGraphicalApplicationBase = nbl::system::CApplicationAndroid;
+#define APP_CONSTRUCTOR(type) type(android_app* app, JNIEnv* env, const nbl::system::path& _localInputCWD,\
+const nbl::system::path& _localOutputCWD,\
+const nbl::system::path& _sharedInputCWD,\
+const nbl::system::path& _sharedOutputCWD) : ApplicationBase(app, env, _localInputCWD, _localOutputCWD, _sharedInputCWD, _sharedOutputCWD) {}
+
+#define NON_GRAPHICAL_APP_CONSTRUCTOR(type) type(android_app* app, JNIEnv* env, const nbl::system::path& _localInputCWD,\
+const nbl::system::path& _localOutputCWD,\
+const nbl::system::path& _sharedInputCWD,\
+const nbl::system::path& _sharedOutputCWD) : NonGraphicalApplicationBase(app, env, _localInputCWD, _localOutputCWD, _sharedInputCWD, _sharedOutputCWD) {}
+
+#define NBL_COMMON_API_MAIN(android_app_class) NBL_ANDROID_MAIN_FUNC(android_app_class, CommonAPI::CommonAPIEventCallback)
+#else
+using ApplicationBase = GraphicalApplication;
+using NonGraphicalApplicationBase = nbl::system::IApplicationFramework;
+#define APP_CONSTRUCTOR(type) type(const nbl::system::path& _localInputCWD,\
+const nbl::system::path& _localOutputCWD,\
+const nbl::system::path& _sharedInputCWD,\
+const nbl::system::path& _sharedOutputCWD) : ApplicationBase(_localInputCWD, _localOutputCWD, _sharedInputCWD, _sharedOutputCWD) {}
+
+#define NON_GRAPHICAL_APP_CONSTRUCTOR(type) type(const nbl::system::path& _localInputCWD,\
+const nbl::system::path& _localOutputCWD,\
+const nbl::system::path& _sharedInputCWD,\
+const nbl::system::path& _sharedOutputCWD) : NonGraphicalApplicationBase(_localInputCWD, _localOutputCWD, _sharedInputCWD, _sharedOutputCWD) {}
+#define NBL_COMMON_API_MAIN(android_app_class) int main(int argc, char** argv){\
+CommonAPI::main<android_app_class>(argc, argv);\
+}
+#endif
+//***** Application framework macros ******
+

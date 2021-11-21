@@ -562,11 +562,6 @@ public:
         return false;
     }
 
-    bool regenerateMipmaps(image_view_t* imgview) override
-    {
-        return false;
-    }
-
     VkCommandBuffer getInternalObject() const { return m_cmdbuf; }
 
 private:
