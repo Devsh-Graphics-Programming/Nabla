@@ -21,15 +21,17 @@ nbl::system::CFileWin32::CFileWin32(core::smart_refctd_ptr<ISystem>&& sys, const
 	SECURITY_ATTRIBUTES secAttribs{ sizeof(SECURITY_ATTRIBUTES), nullptr, FALSE };
 	
 	system::path p = getFileName();
+
 	if (p.is_absolute()) p.make_preferred(); // Replace "/" separators with "\"
+  
 	if (std::bit_cast<uint32_t>(m_flags & ECF_READ))
 	{
-		m_native = CreateFile(p.string().data(), access, canOpenWhenOpened, &secAttribs, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+		m_native = CreateFileA(p.string().data(), access, canOpenWhenOpened, &secAttribs, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
 		if (m_native == INVALID_HANDLE_VALUE) m_openedProperly = false;
 	}
 	else
 	{
-		m_native = CreateFile(p.string().data(), access, canOpenWhenOpened, &secAttribs, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+		m_native = CreateFileA(p.string().data(), access, canOpenWhenOpened, &secAttribs, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
 	}
 
 	if (m_native != INVALID_HANDLE_VALUE) [[likely]] // let this idle here until c++20 :)
@@ -50,7 +52,7 @@ nbl::system::CFileWin32::CFileWin32(core::smart_refctd_ptr<ISystem>&& sys, const
 		For now it equals the size of a file so it'll work fine for archive reading, but if we try to
 		write outside those boungs, things will go bad.
 		*/
-		m_fileMappingObj = CreateFileMapping(m_native, nullptr, access, 0, 0, _filename.string().c_str()); 
+		m_fileMappingObj = CreateFileMappingA(m_native, nullptr, access, 0, 0, _filename.string().c_str()); 
 		m_openedProperly &= m_fileMappingObj != nullptr;
 	}
 	

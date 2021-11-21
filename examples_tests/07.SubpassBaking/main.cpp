@@ -48,6 +48,7 @@ public:
 
     nbl::core::smart_refctd_ptr<video::IGPUFence> gpuTransferFence;
     nbl::core::smart_refctd_ptr<video::IGPUFence> gpuComputeFence;
+    
     nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
 
     core::smart_refctd_ptr<video::IDescriptorPool> descriptorPool;

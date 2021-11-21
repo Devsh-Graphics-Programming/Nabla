@@ -323,7 +323,6 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
             auto filePath_str = system::IFile::flattenFilename(filePath).generic_string();
 
             IAssetLoader::SAssetLoadParams params(_params);
-            
             _override->getLoadFilename(filePath_str, ctx, _hierarchyLevel);
 
             system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;

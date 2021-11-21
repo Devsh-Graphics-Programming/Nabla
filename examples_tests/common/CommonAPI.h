@@ -1300,7 +1300,7 @@ public:
 		return fbo;
 	}
 
-	static constexpr inline nbl::asset::E_PIPELINE_STAGE_FLAGS DefaultSubmitWaitStage = nbl::asset::EPSF_COLOR_ATTACHMENT_OUTPUT_BIT;
+	static constexpr nbl::asset::E_PIPELINE_STAGE_FLAGS DefaultSubmitWaitStage = nbl::asset::EPSF_COLOR_ATTACHMENT_OUTPUT_BIT;
 	static void Submit(nbl::video::ILogicalDevice* device,
 		nbl::video::ISwapchain* sc,
 		nbl::video::IGPUCommandBuffer* cmdbuf,
