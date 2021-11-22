@@ -337,6 +337,7 @@ namespace impl
             layout = std::move(rhs.layout);
             firstSet = rhs.firstSet;
             dsCount = rhs.dsCount;
+            dynamicOffsetCount = rhs.dynamicOffsetCount;
             std::move(rhs.descriptorSets,rhs.descriptorSets+IGPUPipelineLayout::DESCRIPTOR_SET_COUNT,descriptorSets);
             std::copy_n(rhs.dynamicOffsets,MaxDynamicOffsets,dynamicOffsets);
             return *this;
