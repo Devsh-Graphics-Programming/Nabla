@@ -165,7 +165,7 @@ class GLTFApp : public ApplicationBase
 			
 
 			// Transform Tree
-			constexpr uint32_t MaxNodeCount = 128u<<10u; // get ready for many many nodes
+			constexpr uint32_t MaxNodeCount = 2u<<10u; // get ready for many many nodes
 			transformTree = scene::ITransformTreeWithNormalMatrices::create(logicalDevice.get(),MaxNodeCount);
 			{
 				auto debugDrawDSLayout = transformTreeManager->createDebugDrawDescriptorSetLayout(logicalDevice.get());
@@ -173,8 +173,13 @@ class GLTFApp : public ApplicationBase
 				auto pool = logicalDevice->createDescriptorPoolForDSLayouts(IDescriptorPool::ECF_NONE,pDebugDrawDSLayout,pDebugDrawDSLayout+1u);
 				debugDrawDS = logicalDevice->createGPUDescriptorSet(pool.get(),std::move(debugDrawDSLayout));
 				
-				
-				//transformTreeManager->updateDebugDrawDescriptorSet(logicalDevice.get(),debugDrawDS.get(),{0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(transferUpQueue,size,data)});
+				const core::aabbox3df defaultAABB(-1.f, -1.f, -1.f, 1.f, 1.f, 1.f);
+				core::vector<CompressedAABB> tmp(MaxNodeCount,defaultAABB);
+				transformTreeManager->updateDebugDrawDescriptorSet(
+					logicalDevice.get(),debugDrawDS.get(),{0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(
+						transferUpQueue,sizeof(CompressedAABB)*MaxNodeCount,tmp.data()
+					)}
+				);
 			}
 
 			auto ppHandler = utilities->getDefaultPropertyPoolHandler();
@@ -200,13 +205,13 @@ class GLTFApp : public ApplicationBase
 			// add skeleton instances to transform tree
 			core::vector<const asset::ICPUSkeleton*> skeletons;
 			core::vector<uint32_t> skeletonInstanceCounts;
+			for (const auto& model : models)
 			{
-				std::uniform_int_distribution<uint32_t> skeletonInstance(1,5);
-				for (const auto& model : models)
+				const auto instanceCount = std::uniform_int_distribution<uint32_t>(1,5)(mt);
 				for (const auto& skeleton : model.meta->skeletons)
 				{
 					skeletons.push_back(skeleton.get());
-					skeletonInstanceCounts.push_back(skeletonInstance(mt));
+					skeletonInstanceCounts.push_back(instanceCount);
 				}
 			}
 			// allocate skeleton nodes in TT
@@ -245,7 +250,7 @@ class GLTFApp : public ApplicationBase
 				params.usage = core::bitflag(IGPUBuffer::EUF_STORAGE_BUFFER_BIT)|IGPUBuffer::EUF_VERTEX_BUFFER_BIT;
 
 				totalJointCount = allSkeletonNodes.size();
-				allSkeletonNodesBinding = {0ull,logicalDevice->createDeviceLocalGPUBufferOnDedMem(params,sizeof(uint32_t)*totalJointCount)};
+				allSkeletonNodesBinding = {0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(transferUpQueue,sizeof(scene::ITransformTree::node_t)*allSkeletonNodes.size(),allSkeletonNodes.data())};
 				iotaBinding = {0ull,logicalDevice->createDeviceLocalGPUBufferOnDedMem(params,sizeof(uint32_t)*totalJointCount)};
 			}
 			/*

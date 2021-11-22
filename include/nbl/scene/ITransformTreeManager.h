@@ -102,13 +102,14 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			tmp.resize(sizeof(uint16_t)*IndexCount);
 			uint16_t* debugIndices = reinterpret_cast<uint16_t*>(tmp.data());
 			{
+				std::fill_n(debugIndices,24u,0u);
 				debugIndices[0] = 0b000;
 				debugIndices[1] = 0b001;
 				debugIndices[2] = 0b001;
-				debugIndices[3] = 0b010;
-				debugIndices[4] = 0b010;
-				debugIndices[5] = 0b011;
-				debugIndices[6] = 0b011;
+				debugIndices[3] = 0b011;
+				debugIndices[4] = 0b011;
+				debugIndices[5] = 0b010;
+				debugIndices[6] = 0b010;
 				debugIndices[7] = 0b000;
 				debugIndices[8] = 0b000;
 				debugIndices[9] = 0b100;
@@ -121,11 +122,11 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 				debugIndices[16] = 0b100;
 				debugIndices[17] = 0b101;
 				debugIndices[18] = 0b101;
-				debugIndices[19] = 0b110;
-				debugIndices[20] = 0b110;
-				debugIndices[21] = 0b111;
-				debugIndices[22] = 0b111;
-				debugIndices[23] = 0b100;
+				debugIndices[19] = 0b111;
+				debugIndices[20] = 0b100;
+				debugIndices[21] = 0b110;
+				debugIndices[22] = 0b110;
+				debugIndices[23] = 0b111;
 				debugIndices[24] = 8u;
 				debugIndices[25] = 9u;
 			}
