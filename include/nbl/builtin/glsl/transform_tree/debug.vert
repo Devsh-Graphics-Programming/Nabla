@@ -49,7 +49,7 @@ void main()
 		const nbl_glsl_shapes_AABB_t aabb = nbl_glsl_shapes_CompressedAABB_t_decompress(debugAABB.data[aabbID]);
 
 		const bvec3 mask = bvec3(gl_VertexIndex&0x1u,gl_VertexIndex&0x2u,gl_VertexIndex&0x4u);
-		pos = mix(aabb.minVx,aabb.maxVx,mask);
+		pos = nbl_glsl_pseudoMul3x4with3x1(nodeGlobalTransforms.data[nodeID],mix(aabb.minVx,aabb.maxVx,mask));
 
 		outColor = pc.aabbColor.rgb;
 	}

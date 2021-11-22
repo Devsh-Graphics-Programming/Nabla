@@ -147,16 +147,16 @@ class GLTFApp : public ApplicationBase
 				}
 				models.push_back(std::move(model));
 			};
-			loadRiggedGLTF("AnimatedTriangle/glTF/AnimatedTriangle.gltf");
+//			loadRiggedGLTF("AnimatedTriangle/glTF/AnimatedTriangle.gltf");
 // TODO: @AnastaZIuk this one crashes the loader!
 //			loadRiggedGLTF("IridescentDishWithOlives/glTF/IridescentDishWithOlives.gltf");
 			loadRiggedGLTF("RiggedFigure/glTF/RiggedFigure.gltf"); 
-			loadRiggedGLTF("RiggedSimple/glTF/RiggedSimple.gltf");
-			loadRiggedGLTF("SimpleSkin/glTF/SimpleSkin.gltf");
+//			loadRiggedGLTF("RiggedSimple/glTF/RiggedSimple.gltf");
+//			loadRiggedGLTF("SimpleSkin/glTF/SimpleSkin.gltf");
 			// TODO: support playback of keyframe animations to nodes which don't have skinning
-			loadRiggedGLTF("AnimatedCube/glTF/AnimatedCube.gltf");
-			loadRiggedGLTF("BoxAnimated/glTF/BoxAnimated.gltf");
-			loadRiggedGLTF("InterpolationTest/glTF/InterpolationTest.gltf");
+//			loadRiggedGLTF("AnimatedCube/glTF/AnimatedCube.gltf");
+//			loadRiggedGLTF("BoxAnimated/glTF/BoxAnimated.gltf");
+//			loadRiggedGLTF("InterpolationTest/glTF/InterpolationTest.gltf");
 			// TODO: support node without skeleton or animations
 // TODO: @AnastaZIuk this one crashes the loader!
 //			loadRiggedGLTF("FlightHelmet/glTF/FlightHelmet.gltf"); 
@@ -173,7 +173,7 @@ class GLTFApp : public ApplicationBase
 				auto pool = logicalDevice->createDescriptorPoolForDSLayouts(IDescriptorPool::ECF_NONE,pDebugDrawDSLayout,pDebugDrawDSLayout+1u);
 				debugDrawDS = logicalDevice->createGPUDescriptorSet(pool.get(),std::move(debugDrawDSLayout));
 				
-				const core::aabbox3df defaultAABB(-1.f, -1.f, -1.f, 1.f, 1.f, 1.f);
+				const core::aabbox3df defaultAABB(-0.01f,-0.01f,-0.01f,0.01f,0.01f,0.01f);
 				core::vector<CompressedAABB> tmp(MaxNodeCount,defaultAABB);
 				transformTreeManager->updateDebugDrawDescriptorSet(
 					logicalDevice.get(),debugDrawDS.get(),{0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(
@@ -202,12 +202,13 @@ class GLTFApp : public ApplicationBase
 			}
 
 			std::mt19937 mt(0x45454545u);
+			core::vector<uint32_t> modelInstanceCounts;
 			// add skeleton instances to transform tree
 			core::vector<const asset::ICPUSkeleton*> skeletons;
 			core::vector<uint32_t> skeletonInstanceCounts;
 			for (const auto& model : models)
 			{
-				const auto instanceCount = std::uniform_int_distribution<uint32_t>(1,5)(mt);
+				const auto instanceCount = modelInstanceCounts.emplace_back() = std::uniform_int_distribution<uint32_t>(1,5)(mt);
 				for (const auto& skeleton : model.meta->skeletons)
 				{
 					skeletons.push_back(skeleton.get());
@@ -250,35 +251,29 @@ class GLTFApp : public ApplicationBase
 				params.usage = core::bitflag(IGPUBuffer::EUF_STORAGE_BUFFER_BIT)|IGPUBuffer::EUF_VERTEX_BUFFER_BIT;
 
 				totalJointCount = allSkeletonNodes.size();
+				allSkeletonNodes.insert(allSkeletonNodes.begin(),totalJointCount);
 				allSkeletonNodesBinding = {0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(transferUpQueue,sizeof(scene::ITransformTree::node_t)*allSkeletonNodes.size(),allSkeletonNodes.data())};
 				iotaBinding = {0ull,logicalDevice->createDeviceLocalGPUBufferOnDedMem(params,sizeof(uint32_t)*totalJointCount)};
+
+				ttmDescriptorSets = transformTreeManager->createAllDescriptorSets(logicalDevice.get());
+				transformTreeManager->updateRecomputeGlobalTransformsDescriptorSet(logicalDevice.get(),ttmDescriptorSets.recomputeGlobal.get(),SBufferBinding(allSkeletonNodesBinding));
 			}
-			/*
-			struct SkeletonInstance
+			// one skinning cache entry per skeleton instance and meshbuffer
 			{
-			public:
-				SkeletonInstance(const asset::ICPUSkeleton* _skeleton, const uint32_t _instanceCount)
-					: m_instanceNodes(_skeleton->getJointCount()* _instanceCount, scene::ITransformTree::invalid_node),
-					m_skeleton(_skeleton), m_instanceCount(_instanceCount), m_jointCount(_skeleton->getJointCount())
+				//core::unordered_map<CGLTFMetadata,ISkinInstanceCache::skin_instance_t> cachedPairings;
+				auto instanceCountIt = modelInstanceCounts.begin();
+				for (const auto& model : models)
 				{
+					for (const auto& instance : model.meta->instances)
+					{
+						//instance.attachedToNode = ; // abuse
+					}
+					instanceCountIt++;
 				}
-
-				inline scene::ITransformTree::node_t* getInstanceNodes(const uint32_t instanceID)
-				{
-					if (instanceID < m_instanceCount)
-						return m_instanceNodes.data() + m_jointCount * instanceID;
-					return nullptr;
-				}
-
-			private:
-				core::vector<scene::ITransformTree::node_t> m_instanceNodes;
-				const asset::ICPUSkeleton* m_skeleton;
-				uint32_t m_instanceCount;
-				uint32_t m_jointCount;
-			};
-			using skeleton_instance_nodes_t = core::vector<scene::ITransformTree::node_t>;
-			core::map<asset::ICPUSkeleton*, skeleton_instance_nodes_t> skeletonInstances;
-			*/
+			}
+			// TODO: skin instance cache finish code
+			// TODO: skin instance cache manager update shader
+			// TODO: skin instance cache debug draw shader
 
 			// transfer submit
 			{
@@ -293,6 +288,12 @@ class GLTFApp : public ApplicationBase
 				//logicalDevice->resetFences(1u,&xferFence.get());
 			}
 
+			// TODO: vertex shader skinning override
+			// TODO: create the IGPUMeshes
+			// TODO: draw them all instanced
+			// TODO: use the LoD system!?
+
+			//Animation before or after draw?
 #if 0
 			/*
 				We can safely assume that all meshes' mesh buffers loaded from glTF has the same DS1 layout
@@ -445,6 +446,60 @@ class GLTFApp : public ApplicationBase
 			const auto& viewMatrix = camera.getViewMatrix();
 			const auto& viewProjectionMatrix = camera.getConcatenatedMatrix();
 
+			// Update node transforms 
+			{
+				// buffers to barrier w.r.t. updates
+				video::IGPUCommandBuffer::SBufferMemoryBarrier barriers[scene::ITransformTreeManager::SBarrierSuggestion::MaxBufferCount];
+				auto setBufferBarrier = [&barriers,commandBuffer](const uint32_t ix, const asset::SBufferRange<video::IGPUBuffer>& range, const asset::SMemoryBarrier& barrier)
+				{
+					barriers[ix].barrier = barrier;
+					barriers[ix].dstQueueFamilyIndex = barriers[ix].srcQueueFamilyIndex = commandBuffer->getQueueFamilyIndex();
+					barriers[ix].buffer = range.buffer;
+					barriers[ix].offset = range.offset;
+					barriers[ix].size = range.size;
+				};
+
+				const core::bitflag<asset::E_PIPELINE_STAGE_FLAGS> renderingStages = asset::EPSF_VERTEX_SHADER_BIT;
+				 
+				scene::ITransformTreeManager::BaseParams baseParams;
+				baseParams.cmdbuf = commandBuffer.get();
+				baseParams.tree = transformTree.get();
+				baseParams.logger = initOutput.logger.get();
+
+				// compilers are too dumb to figure out const correctness (there's also a TODO in `core::smart_refctd_ptr`)
+				const scene::ITransformTree* ptt = transformTree.get();
+				const video::IPropertyPool* node_pp = ptt->getNodePropertyPool();
+				/* tODO
+				{
+					auto sugg = scene::ITransformTreeManager::barrierHelper(scene::ITransformTreeManager::SBarrierSuggestion::EF_PRE_RELATIVE_TFORM_UPDATE);
+					sugg.srcStageMask |= asset::EPSF_TRANSFER_BIT; // barrier after buffer upload, before TTM updates (so TTM update CS gets properly written data)
+					sugg.requestRanges.srcAccessMask |= asset::EAF_TRANSFER_WRITE_BIT;
+					sugg.modificationRequests.srcAccessMask |= asset::EAF_TRANSFER_WRITE_BIT;
+					uint32_t barrierCount = 0u;
+					setBufferBarrier(barrierCount++, { 0ull,modRangesBuf->getSize(),modRangesBuf }, sugg.requestRanges);
+					setBufferBarrier(barrierCount++, { 0ull,relTformModsBuf->getSize(),relTformModsBuf }, sugg.modificationRequests);
+					commandBuffer->pipelineBarrier(sugg.srcStageMask, sugg.dstStageMask, asset::EDF_NONE, 0u, nullptr, barrierCount, barriers, 0u, nullptr);
+				}
+				transformTreeManager->updateLocalAndRecomputeGlobalTransforms(baseParams,update;
+				*/
+				scene::ITransformTreeManager::DispatchParams recomputeDispatch;
+				recomputeDispatch.indirect.buffer = nullptr;
+				recomputeDispatch.direct.nodeCount = totalJointCount;
+				transformTreeManager->recomputeGlobalTransforms(baseParams,recomputeDispatch,ttmDescriptorSets.recomputeGlobal.get());
+				// barrier between TTM recompute and TTM recompute+update 
+				{
+					auto sugg = scene::ITransformTreeManager::barrierHelper(scene::ITransformTreeManager::SBarrierSuggestion::EF_POST_GLOBAL_TFORM_RECOMPUTE);
+					sugg.dstStageMask |= renderingStages; // also also TTM recompute and rendering shader (to read the global transforms)
+					uint32_t barrierCount = 0u;
+					setBufferBarrier(barrierCount++, node_pp->getPropertyMemoryBlock(scene::ITransformTree::relative_transform_prop_ix), sugg.relativeTransforms);
+					setBufferBarrier(barrierCount++, node_pp->getPropertyMemoryBlock(scene::ITransformTree::modified_stamp_prop_ix), sugg.modifiedTimestamps);
+					setBufferBarrier(barrierCount++, node_pp->getPropertyMemoryBlock(scene::ITransformTree::global_transform_prop_ix), sugg.globalTransforms);
+					setBufferBarrier(barrierCount++, node_pp->getPropertyMemoryBlock(scene::ITransformTree::recomputed_stamp_prop_ix), sugg.recomputedTimestamps);
+					setBufferBarrier(barrierCount++, node_pp->getPropertyMemoryBlock(scene::ITransformTreeWithNormalMatrices::normal_matrix_prop_ix), sugg.normalMatrices);
+					commandBuffer->pipelineBarrier(sugg.srcStageMask, sugg.dstStageMask, asset::EDF_NONE, 0u, nullptr, barrierCount, barriers, 0u, nullptr);
+				}
+			}
+
 			asset::SViewport viewport;
 			viewport.minDepth = 1.f;
 			viewport.maxDepth = 0.f;
@@ -522,11 +577,17 @@ class GLTFApp : public ApplicationBase
 				}
 			}
 #endif
-			scene::ITransformTreeManager::DebugPushConstants pc;
-			pc.viewProjectionMatrix = viewProjectionMatrix;
-			pc.lineColor.set(0.f,1.f,0.f,1.f);
-			pc.aabbColor.set(1.f,0.f,0.f,1.f);
-			transformTreeManager->debugDraw(commandBuffer.get(),debugDrawPipeline.get(),transformTree.get(),debugDrawDS.get(),allSkeletonNodesBinding,iotaBinding,pc,totalJointCount);
+
+			{
+				auto nodeIDs = allSkeletonNodesBinding;
+				nodeIDs.offset = sizeof(uint32_t);
+
+				scene::ITransformTreeManager::DebugPushConstants pc;
+				pc.viewProjectionMatrix = viewProjectionMatrix;
+				pc.lineColor.set(0.f,1.f,0.f,1.f);
+				pc.aabbColor.set(1.f,0.f,0.f,1.f);
+				transformTreeManager->debugDraw(commandBuffer.get(),debugDrawPipeline.get(),transformTree.get(),debugDrawDS.get(),nodeIDs,iotaBinding,pc,totalJointCount);
+			}
 
 
 			commandBuffer->endRenderPass();
@@ -564,6 +625,7 @@ class GLTFApp : public ApplicationBase
 		nbl::video::IGPUQueue* transferUpQueue = nullptr;
 
 		core::smart_refctd_ptr<scene::ITransformTreeManager> transformTreeManager;
+		scene::ITransformTreeManager::DescriptorSets ttmDescriptorSets;
 		core::smart_refctd_ptr<IGPUGraphicsPipeline> debugDrawPipeline;
 		core::smart_refctd_ptr<scene::ITransformTreeWithNormalMatrices> transformTree;
 		core::smart_refctd_ptr<IGPUDescriptorSet> debugDrawDS;

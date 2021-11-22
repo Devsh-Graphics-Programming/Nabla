@@ -826,6 +826,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 				asset::SPrimitiveAssemblyParams primitiveAssemblyParams = {};
 				primitiveAssemblyParams.primitiveType = asset::EPT_LINE_LIST;
 				asset::SRasterizationParams rasterizationParams = {};
+				rasterizationParams.depthTestEnable = false;
 
 				video::IGPUSpecializedShader* const debugDrawShaders[] = {debugDrawVertexSpec.get(),debugDrawFragmentSpec.get()};
 				retval.debugDraw = device->createGPURenderpassIndependentPipeline(
