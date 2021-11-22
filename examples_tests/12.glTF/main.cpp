@@ -3,9 +3,11 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 
 #define _NBL_STATIC_LIB_
+#include <nabla.h>
+
 #include <iostream>
 #include <cstdio>
-#include <nabla.h>
+#include <random>
 
 #include "../common/Camera.hpp"
 #include "../common/CommonAPI.h"
@@ -162,8 +164,6 @@ class GLTFApp : public ApplicationBase
 			//loadRiggedGLTF("RecursiveSkeletons/glTF/RecursiveSkeletons.gltf");
 			
 
-#if 0
-
 			// Transform Tree
 			constexpr uint32_t MaxNodeCount = 128u<<10u; // get ready for many many nodes
 			auto transformTree = scene::ITransformTreeWithNormalMatrices::create(logicalDevice.get(),MaxNodeCount);
@@ -187,29 +187,17 @@ class GLTFApp : public ApplicationBase
 				xferScratch.buffer->setObjectDebugName("PropertyPoolHandler Scratch Buffer");
 			}
 
+			std::mt19937 mt(0x45454545u);
 			// add skeleton instances to transform tree
 			core::vector<const asset::ICPUSkeleton*> skeletons;
 			core::vector<uint32_t> skeletonInstanceCounts;
-			for (auto& model : models)
 			{
-				const asset::ICPUSkeleton* skeleton = nullptr;
-				for (const auto& meshbuffer : model.meshbuffers)
+				std::uniform_int_distribution<uint32_t> skeletonInstance(1,5);
+				for (const auto& model : models)
+				for (const auto& skeleton : model.meta->skeletons)
 				{
-					const auto mesh_skel = meshbuffer->getSkeleton();
-					if (!mesh_skel)
-					{
-						logger->log("A meshbuffer of a model with metadata ptr % p doesn't have a meshbuffer.",system::ILogger::ELL_WARNING,model.meta);
-						continue;
-					}
-					if (!skeleton)
-						skeleton = mesh_skel;
-					else if (mesh_skel!=skeleton)
-						logger->log("A meshbuffer of a model with metadata ptr %p has a different skeleton, possible loader bug.",system::ILogger::ELL_WARNING,model.meta);
-				}
-				if (skeleton)
-				{
-					skeletons.push_back(skeleton);
-					skeletonInstanceCounts.push_back(2u); // TODO: rand
+					skeletons.push_back(skeleton.get());
+					skeletonInstanceCounts.push_back(skeletonInstance(mt));
 				}
 			}
 			// allocate skeleton nodes in TT
@@ -279,7 +267,7 @@ class GLTFApp : public ApplicationBase
 					xferQueue->submit(1u,&submit,xferFence.get());
 				}
 				logicalDevice->blockForFences(1u,&xferFence.get());
-				logicalDevice->resetFences(1u,&xferFence.get());
+				//logicalDevice->resetFences(1u,&xferFence.get());
 			}
 
 #if 0
@@ -404,8 +392,6 @@ class GLTFApp : public ApplicationBase
 				imageAcquire[i] = logicalDevice->createSemaphore();
 				renderFinished[i] = logicalDevice->createSemaphore();
 			}
-
-#endif
 		}
 
 		void onAppTerminated_impl() override
@@ -419,8 +405,6 @@ class GLTFApp : public ApplicationBase
 
 		void workLoopBody() override
 		{
-			exit(69);
-
 			++resourceIx;
 			if (resourceIx >= FRAMES_IN_FLIGHT)
 				resourceIx = 0;
