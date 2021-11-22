@@ -100,17 +100,6 @@ namespace nbl
 		
 		bool CGLTFLoader::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const
 		{
-			/*
-				TODO: https://github.com/Devsh-Graphics-Programming/Nabla/pull/196#issuecomment-906426010
-			*/
-
-			#define NBL_COMPILE_WITH_SYSTEM_BUG // remove this after above fixed
-
-			#ifdef NBL_COMPILE_WITH_SYSTEM_BUG
-			if (_file->getFileName().filename().string() == "missing_checkerboard_texture.png" || _file->getFileName().filename().extension() != ".gltf")
-				return false;
-			#endif // NBL_COMPILE_WITH_SYSTEM_BUG
-
 			simdjson::dom::parser parser;
 
 			auto jsonBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(_file->getSize());
@@ -119,9 +108,17 @@ namespace nbl
 				_file->read(future, jsonBuffer->getPointer(), 0u, jsonBuffer->getSize());
 				future.get();
 			}
-			simdjson::dom::object tweets = parser.parse(reinterpret_cast<uint8_t*>(jsonBuffer->getPointer()), jsonBuffer->getSize());
-			simdjson::dom::element element;
 
+			simdjson::dom::object tweets;
+			auto error = parser.parse(reinterpret_cast<uint8_t*>(jsonBuffer->getPointer()), jsonBuffer->getSize()).get(tweets);
+#
+			if (error)
+			{
+				logger.log("Could not parse '" + _file->getFileName().string() + "' file!");
+				return false;
+			}
+
+			simdjson::dom::element element;
 			if (tweets.at_key("asset").get(element) == simdjson::error_code::SUCCESS)
 				if (element.at_key("version").get(element) == simdjson::error_code::SUCCESS)
 					return true;
