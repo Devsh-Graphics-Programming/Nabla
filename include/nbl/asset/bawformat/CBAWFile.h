@@ -14,9 +14,7 @@
 #include "nbl/asset/bawformat/blobs/MeshDataFormatBlob.h"
 #include "nbl/asset/bawformat/blobs/TexturePathBlob.h"
 #include "nbl/asset/bawformat/blobs/MeshBufferBlob.h"
-#include "nbl/asset/bawformat/blobs/SkinnedMeshBufferBlob.h"
 #include "nbl/asset/bawformat/blobs/MeshBlob.h"
-#include "nbl/asset/bawformat/blobs/SkinnedMeshBlob.h"
 
 namespace nbl
 {

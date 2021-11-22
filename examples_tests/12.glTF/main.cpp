@@ -69,8 +69,8 @@ class GLTFApp : public ApplicationBase
 
 			transferUpQueue = queues[decltype(initOutput)::EQT_TRANSFER_UP];
 			
-			auto transformTreeManager = scene::ITransformTreeManager::create(utilities.get(),transferUpQueue);
-
+			transformTreeManager = scene::ITransformTreeManager::create(utilities.get(),transferUpQueue);
+			debugDrawPipeline = transformTreeManager->createDebugPipeline<scene::ITransformTreeWithNormalMatrices>(core::smart_refctd_ptr(renderpass));
 
 			auto gpuTransferFence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
 			auto gpuComputeFence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
@@ -152,7 +152,7 @@ class GLTFApp : public ApplicationBase
 //			loadRiggedGLTF("IridescentDishWithOlives/glTF/IridescentDishWithOlives.gltf");
 			loadRiggedGLTF("RiggedFigure/glTF/RiggedFigure.gltf"); 
 			loadRiggedGLTF("RiggedSimple/glTF/RiggedSimple.gltf");
-			loadRiggedGLTF("SimpleSkin/glTF/SimpleSkin.gltf"); // see it @devshgraphicsprogramming
+			loadRiggedGLTF("SimpleSkin/glTF/SimpleSkin.gltf");
 			// TODO: support playback of keyframe animations to nodes which don't have skinning
 			loadRiggedGLTF("AnimatedCube/glTF/AnimatedCube.gltf");
 			loadRiggedGLTF("BoxAnimated/glTF/BoxAnimated.gltf");
@@ -166,7 +166,16 @@ class GLTFApp : public ApplicationBase
 
 			// Transform Tree
 			constexpr uint32_t MaxNodeCount = 128u<<10u; // get ready for many many nodes
-			auto transformTree = scene::ITransformTreeWithNormalMatrices::create(logicalDevice.get(),MaxNodeCount);
+			transformTree = scene::ITransformTreeWithNormalMatrices::create(logicalDevice.get(),MaxNodeCount);
+			{
+				auto debugDrawDSLayout = transformTreeManager->createDebugDrawDescriptorSetLayout(logicalDevice.get());
+				const auto* pDebugDrawDSLayout = &debugDrawDSLayout.get();
+				auto pool = logicalDevice->createDescriptorPoolForDSLayouts(IDescriptorPool::ECF_NONE,pDebugDrawDSLayout,pDebugDrawDSLayout+1u);
+				debugDrawDS = logicalDevice->createGPUDescriptorSet(pool.get(),std::move(debugDrawDSLayout));
+				
+				
+				//transformTreeManager->updateDebugDrawDescriptorSet(logicalDevice.get(),debugDrawDS.get(),{0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(transferUpQueue,size,data)});
+			}
 
 			auto ppHandler = utilities->getDefaultPropertyPoolHandler();
 			// transfer cmdbuf and fences
@@ -230,6 +239,15 @@ class GLTFApp : public ApplicationBase
 				const asset::E_PIPELINE_STAGE_FLAGS* waitStages = nullptr;
 				transformTreeManager->addSkeletonNodes(skeletonAllocationRequest,waitSemaphoreCount,waitSempahores,waitStages);
 			}
+			//temp
+			{
+				IGPUBuffer::SCreationParams params = {};
+				params.usage = core::bitflag(IGPUBuffer::EUF_STORAGE_BUFFER_BIT)|IGPUBuffer::EUF_VERTEX_BUFFER_BIT;
+
+				totalJointCount = allSkeletonNodes.size();
+				allSkeletonNodesBinding = {0ull,logicalDevice->createDeviceLocalGPUBufferOnDedMem(params,sizeof(uint32_t)*totalJointCount)};
+				iotaBinding = {0ull,logicalDevice->createDeviceLocalGPUBufferOnDedMem(params,sizeof(uint32_t)*totalJointCount)};
+			}
 			/*
 			struct SkeletonInstance
 			{
@@ -271,17 +289,6 @@ class GLTFApp : public ApplicationBase
 			}
 
 #if 0
-
-			/*
-				Property Buffers for skinning
-			*/
-			asset::SBufferRange<video::IGPUBuffer> debugAABBs;
-			{
-				video::IGPUBuffer::SCreationParams params = {};
-				params.usage = video::IGPUBuffer::EUF_STORAGE_BUFFER_BIT;
-				debugAABBs.buffer = logicalDevice->createDeviceLocalGPUBufferOnDedMem(params, sizeof(core::aabbox3df) * MaxNodeCount);
-			}
-
 			/*
 				We can safely assume that all meshes' mesh buffers loaded from glTF has the same DS1 layout
 				used for camera-specific data, so we can create just one DS.
@@ -510,7 +517,11 @@ class GLTFApp : public ApplicationBase
 				}
 			}
 #endif
-
+			scene::ITransformTreeManager::DebugPushConstants pc;
+			pc.viewProjectionMatrix = viewProjectionMatrix;
+			pc.lineColor.set(0.f,1.f,0.f,1.f);
+			pc.aabbColor.set(1.f,0.f,0.f,1.f);
+			transformTreeManager->debugDraw(commandBuffer.get(),debugDrawPipeline.get(),transformTree.get(),debugDrawDS.get(),allSkeletonNodesBinding,iotaBinding,pc,totalJointCount);
 
 
 			commandBuffer->endRenderPass();
@@ -546,6 +557,15 @@ class GLTFApp : public ApplicationBase
 		nbl::core::smart_refctd_ptr<nbl::video::IUtilities> utilities;
 
 		nbl::video::IGPUQueue* transferUpQueue = nullptr;
+
+		core::smart_refctd_ptr<scene::ITransformTreeManager> transformTreeManager;
+		core::smart_refctd_ptr<IGPUGraphicsPipeline> debugDrawPipeline;
+		core::smart_refctd_ptr<scene::ITransformTreeWithNormalMatrices> transformTree;
+		core::smart_refctd_ptr<IGPUDescriptorSet> debugDrawDS;
+		// temporary debug
+		uint32_t totalJointCount;
+		SBufferBinding<IGPUBuffer> allSkeletonNodesBinding;
+		SBufferBinding<IGPUBuffer> iotaBinding;
 
 		Camera camera = Camera(vectorSIMDf(0, 0, 0), vectorSIMDf(0, 0, 0), matrix4SIMD());
 		CommonAPI::InputSystem::ChannelReader<IMouseEventChannel> mouse;

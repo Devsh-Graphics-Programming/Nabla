@@ -952,7 +952,7 @@ namespace nbl
 										else if (glTFWeightsXAccessor.componentType.value() == SGLTF::SGLTFAccessor::SCT_UNSIGNED_SHORT)
 											return EF_R16G16B16A16_UINT; // TODO: UNORM
 										else
-											EF_UNKNOWN;
+											return EF_UNKNOWN;
 									}();
 
 									if (weightsFormat == EF_UNKNOWN)

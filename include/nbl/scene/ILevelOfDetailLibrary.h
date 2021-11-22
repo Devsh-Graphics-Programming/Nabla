@@ -102,24 +102,14 @@ class ILevelOfDetailLibrary : public virtual core::IReferenceCounted
 		struct alignas(8) DrawcallInfo
 		{
 			public:
-				DrawcallInfo()
-					:	aabbMinRGB18E7S3(0x1fffFFFFffffFFFFull),aabbMaxRGB18E7S3(0xffffFFFFffffFFFFull),
-						drawcallDWORDOffset(video::IDrawIndirectAllocator::invalid_draw_range_begin)
-				{
-				}
+				DrawcallInfo() : aabb(), drawcallDWORDOffset(video::IDrawIndirectAllocator::invalid_draw_range_begin) {}
 				DrawcallInfo(const uint32_t _drawcallDWORDOffset)
-					:	aabbMinRGB18E7S3(0x1fffFFFFffffFFFFull),aabbMaxRGB18E7S3(0xffffFFFFffffFFFFull),
-						drawcallDWORDOffset(_drawcallDWORDOffset)
-				{
-				}
-				DrawcallInfo(const uint32_t _drawcallDWORDOffset, const core::aabbox3df& aabb) : drawcallDWORDOffset(_drawcallDWORDOffset)
-				{
-					aabbMinRGB18E7S3 = core::rgb32f_to_rgb18e7s3<core::ERD_DOWN>(&aabb.MinEdge.X);
-					aabbMaxRGB18E7S3 = core::rgb32f_to_rgb18e7s3<core::ERD_UP>(&aabb.MaxEdge.X);
-				}
+					: aabb(), drawcallDWORDOffset(_drawcallDWORDOffset) {}
+				DrawcallInfo(const uint32_t _drawcallDWORDOffset, const core::aabbox3df& _aabb)
+					: aabb(_aabb), drawcallDWORDOffset(_drawcallDWORDOffset) {}
+
 			private:
-				uint64_t aabbMinRGB18E7S3;
-				uint64_t aabbMaxRGB18E7S3;
+				core::CompressedAABB aabb;
 				uint32_t drawcallDWORDOffset; // only really need 27 bits for this
 				uint32_t skinningAABBCountAndOffset = 0u; // TODO
 		};

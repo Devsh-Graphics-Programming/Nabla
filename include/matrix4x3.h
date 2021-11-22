@@ -2,18 +2,15 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __NBL_MATRIX_4X3_H_INCLUDED__
-#define __NBL_MATRIX_4X3_H_INCLUDED__
+#ifndef _NBL_MATRIX_4X3_H_INCLUDED_
+#define _NBL_MATRIX_4X3_H_INCLUDED_
 
 #include "vector3d.h"
 #include "vectorSIMD.h"
-#include "aabbox3d.h"
 #include "rect.h"
 
 
-namespace nbl
-{
-namespace core
+namespace nbl::core
 {
 
 
@@ -192,22 +189,6 @@ namespace core
 			inline void inverseTranslateVect( vector3df& vect ) const
 			{
 			    vect -= column[3];
-			}
-
-			//! Transforms a axis aligned bounding box
-			inline void transformBoxEx(core::aabbox3d<float>& box) const
-			{
-			    core::aabbox3df tmpBox;
-                tmpBox.MinEdge.X = column[0].X*(column[0].X<0.f ? box.MaxEdge.X:box.MinEdge.X)+column[1].X*(column[1].X<0.f ? box.MaxEdge.Y:box.MinEdge.Y)+column[2].X*(column[2].X<0.f ? box.MaxEdge.Z:box.MinEdge.Z);
-                tmpBox.MinEdge.Y = column[0].Y*(column[0].Y<0.f ? box.MaxEdge.X:box.MinEdge.X)+column[1].Y*(column[1].Y<0.f ? box.MaxEdge.Y:box.MinEdge.Y)+column[2].Y*(column[2].Y<0.f ? box.MaxEdge.Z:box.MinEdge.Z);
-                tmpBox.MinEdge.Z = column[0].Z*(column[0].Z<0.f ? box.MaxEdge.X:box.MinEdge.X)+column[1].Z*(column[1].Z<0.f ? box.MaxEdge.Y:box.MinEdge.Y)+column[2].Z*(column[2].Z<0.f ? box.MaxEdge.Z:box.MinEdge.Z);
-                tmpBox.MaxEdge.X = column[0].X*(column[0].X<0.f ? box.MinEdge.X:box.MaxEdge.X)+column[1].X*(column[1].X<0.f ? box.MinEdge.Y:box.MaxEdge.Y)+column[2].X*(column[2].X<0.f ? box.MinEdge.Z:box.MaxEdge.Z);
-                tmpBox.MaxEdge.Y = column[0].Y*(column[0].Y<0.f ? box.MinEdge.X:box.MaxEdge.X)+column[1].Y*(column[1].Y<0.f ? box.MinEdge.Y:box.MaxEdge.Y)+column[2].Y*(column[2].Y<0.f ? box.MinEdge.Z:box.MaxEdge.Z);
-                tmpBox.MaxEdge.Z = column[0].Z*(column[0].Z<0.f ? box.MinEdge.X:box.MaxEdge.X)+column[1].Z*(column[1].Z<0.f ? box.MinEdge.Y:box.MaxEdge.Y)+column[2].Z*(column[2].Z<0.f ? box.MinEdge.Z:box.MaxEdge.Z);
-                tmpBox.MinEdge += column[3];
-                tmpBox.MaxEdge += column[3];
-
-                box = tmpBox;
 			}
 
 
@@ -389,8 +370,7 @@ namespace core
         return tmpScale;
 	}
 
-} // end namespace core
-} // end namespace nbl
+} // end namespace nbl::core
 
 #endif
 

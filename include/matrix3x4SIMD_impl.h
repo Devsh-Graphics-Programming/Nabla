@@ -2,17 +2,15 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __NBL_MATRIX3X4SIMD_IMPL_H_INCLUDED__
-#define __NBL_MATRIX3X4SIMD_IMPL_H_INCLUDED__
+#ifndef _NBL_MATRIX3X4SIMD_IMPL_H_INCLUDED_
+#define _NBL_MATRIX3X4SIMD_IMPL_H_INCLUDED_
 
 #include "matrix3x4SIMD.h"
 #include "nbl/core/math/glslFunctions.tcc"
 
 #include "matrix4x3.h"
 
-namespace nbl
-{
-namespace core
+namespace nbl::core
 {
 
 
@@ -121,26 +119,6 @@ inline matrix3x4SIMD& matrix3x4SIMD::operator*=(float _scalar)
 	for (size_t i = 0u; i < VectorCount; ++i)
 		rows[i] *= _scalar;
 	return *this;
-}
-
-
-inline aabbox3df transformBoxEx(const aabbox3df& box, const matrix3x4SIMD& _mat)
-{
-	vectorSIMDf inMinPt(&box.MinEdge.X);
-	vectorSIMDf inMaxPt(box.MaxEdge.X, box.MaxEdge.Y, box.MaxEdge.Z); // TODO: after change to SSE aabbox3df
-	inMinPt.makeSafe3D();
-	inMaxPt.makeSafe3D();
-
-	auto c = transpose(matrix4SIMD(_mat));
-
-	const vectorSIMDf zero;
-	vectorSIMDf minPt = c.rows[0] * mix(inMinPt.xxxw(), inMaxPt.xxxw(), c.rows[0] < zero) + c.rows[1] * mix(inMinPt.yyyw(), inMaxPt.yyyw(), c.rows[1] < zero) + c.rows[2] * mix(inMinPt.zzzw(), inMaxPt.zzzw(), c.rows[2] < zero);
-	vectorSIMDf maxPt = c.rows[0] * mix(inMaxPt.xxxw(), inMinPt.xxxw(), c.rows[0] < zero) + c.rows[1] * mix(inMaxPt.yyyw(), inMinPt.yyyw(), c.rows[1] < zero) + c.rows[2] * mix(inMaxPt.zzzw(), inMinPt.zzzw(), c.rows[2] < zero);
-
-	minPt += c.rows[3];
-	maxPt += c.rows[3];
-
-	return aabbox3df(minPt.getAsVector3df(), maxPt.getAsVector3df());
 }
 
 #ifdef __NBL_COMPILE_WITH_SSE3
@@ -522,7 +500,6 @@ inline __m128d matrix3x4SIMD::doJob_d(const __m128d& _a0, const __m128d& _a1, co
 #error "no implementation"
 #endif
 
-}
 } // nbl::core
 
 #endif
