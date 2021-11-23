@@ -111,7 +111,7 @@ namespace nbl
 
 			simdjson::dom::object tweets;
 			auto error = parser.parse(reinterpret_cast<uint8_t*>(jsonBuffer->getPointer()), jsonBuffer->getSize()).get(tweets);
-#
+
 			if (error)
 			{
 				logger.log("Could not parse '" + _file->getFileName().string() + "' file!");
