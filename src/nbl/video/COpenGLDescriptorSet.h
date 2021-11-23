@@ -128,7 +128,7 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 			m_multibindParams.textureImages.formats = (*m_targetsAndFormats).data() + textureCount;
 
 			// set up dynamic offset redirects
-			uint32_t dyn_offset_iter = 0u;
+			m_dynamicOffsetCount = 0u;
 			auto uboDescIxIter = m_buffer2descIx->begin();
 			auto ssboDescIxIter = m_buffer2descIx->begin()+uboCount;
 			for (size_t i=0u; i<m_bindingInfo->size(); i++)
@@ -148,11 +148,11 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 						break;
 					case asset::EDT_UNIFORM_BUFFER_DYNAMIC:
 						*(uboDescIxIter++) = offset+j;
-						m_multibindParams.ubos.dynOffsetIxs[offset+j] = dyn_offset_iter++;
+						m_multibindParams.ubos.dynOffsetIxs[offset+j] = m_dynamicOffsetCount++;
 						break;
 					case asset::EDT_STORAGE_BUFFER_DYNAMIC:
 						*(ssboDescIxIter++) = offset+j;
-						m_multibindParams.ssbos.dynOffsetIxs[offset+j] = dyn_offset_iter++;
+						m_multibindParams.ssbos.dynOffsetIxs[offset+j] = m_dynamicOffsetCount++;
 						break;
 					default:
 						break;
@@ -255,6 +255,8 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 
 		inline uint64_t getRevision() const {return m_revision;}
 
+		inline uint32_t getDynamicOffsetCount() const {return m_dynamicOffsetCount;}
+
 	protected:
 		inline SDescriptorInfo* getDescriptors(uint32_t index) 
 		{ 
@@ -270,10 +272,13 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 		inline uint32_t getDescriptorCountAtIndex(uint32_t index) const
 		{
 			const auto& info = m_bindingInfo->operator[](index);
-			if (index+1u!=m_bindingInfo->size())
-				return m_bindingInfo->operator[](index+1u).offset-info.offset;
+			if (index + 1u != m_bindingInfo->size())
+			{
+				const auto& info1 = m_bindingInfo->operator[](index + 1u);
+				return info1.offset - info.offset;
+			}
 			else
-				return m_descriptors->size()+1u-info.offset; // TODO: this +1 doesn't look right
+				return m_descriptors->size() - info.offset;
 		}
 
 		inline const SBindingInfo* getBindingInfo(uint32_t offset) const
@@ -357,6 +362,7 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 		core::smart_refctd_dynamic_array<uint32_t> m_dynOffsetIxs;
 
 		uint64_t m_revision;
+		uint32_t m_dynamicOffsetCount;
 };
 
 }

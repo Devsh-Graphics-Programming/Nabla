@@ -11,10 +11,11 @@ template<typename RenderpassIndependentType, typename RenderpassType>
 class IGraphicsPipeline
 {
 protected:
-    using renderpass_independent_t = RenderpassIndependentType;
     using renderpass_t = RenderpassType;
 
 public:
+    using renderpass_independent_t = RenderpassIndependentType;
+
     struct SCreationParams
     {
         core::smart_refctd_ptr<const renderpass_independent_t> renderpassIndependent;

@@ -616,7 +616,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			const auto updatePipeline = choosePipelines(baseParams.tree).updateRelative.get();
 
 			const video::IGPUDescriptorSet* descSets[] = {baseParams.tree->getNodePropertyDescriptorSet(),updateLocalTransformsDS};
-			baseParams.cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,updatePipeline->getLayout(),0u,2u,descSets,nullptr);
+			baseParams.cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,updatePipeline->getLayout(),0u,2u,descSets);
 			
 			baseParams.cmdbuf->bindComputePipeline(updatePipeline);
 			dispatch(baseParams.cmdbuf,dispatchParams);
@@ -640,7 +640,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			const auto recomputePipeline = choosePipelines(baseParams.tree).recomputeGlobal.get();
 
 			const video::IGPUDescriptorSet* descSets[] = {baseParams.tree->getNodePropertyDescriptorSet(),recomputeGlobalTransformsDS};
-			baseParams.cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,recomputePipeline->getLayout(),0u,2u,descSets,nullptr);
+			baseParams.cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,recomputePipeline->getLayout(),0u,2u,descSets);
 			
 			baseParams.cmdbuf->bindComputePipeline(recomputePipeline);
 			dispatch(baseParams.cmdbuf,dispatchParams);
