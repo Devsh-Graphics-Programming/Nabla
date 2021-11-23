@@ -174,7 +174,7 @@ public:
         CommonAPI::InitOutput<SC_IMG_COUNT> initOutput;
         initOutput.window = core::smart_refctd_ptr(window);
         initOutput.system = core::smart_refctd_ptr(system);
-        CommonAPI::Init<WIN_W, WIN_H, SC_IMG_COUNT>(initOutput, video::EAT_OPENGL_ES, "MeshLoaders", nbl::asset::EF_D32_SFLOAT);
+        CommonAPI::Init<WIN_W, WIN_H, SC_IMG_COUNT>(initOutput, video::EAT_OPENGL, "MeshLoaders", nbl::asset::EF_D32_SFLOAT);
         window = std::move(initOutput.window);
         windowCb = std::move(initOutput.windowCb);
         apiConnection = std::move(initOutput.apiConnection);
