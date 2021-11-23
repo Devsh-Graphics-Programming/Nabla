@@ -13,6 +13,9 @@ namespace nbl
 namespace asset
 {
 
+// TODO: struct Scene containing list of `ICPUSkeleton` in the scene (preferrably smartpointer)
+// TODO: constant vector of scenes
+// TODO: default scene index (larger than scenes.size() if no default given)
 class CGLTFMetadata final : public IAssetMetadata
 {
     public:

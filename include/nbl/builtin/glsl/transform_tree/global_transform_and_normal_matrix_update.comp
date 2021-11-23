@@ -1,0 +1,9 @@
+#version 440 core
+#include "nbl/builtin/glsl/transform_tree/global_transform_update_common.glsl"
+
+void nbl_glsl_transform_tree_globalTransformUpdate_updateNormalMatrix(in uint nodeID, in mat4x3 globalTransform)
+{
+    mat3 sub3x3TransposeCofactors;
+    const uint signflip = nbl_glsl_sub3x3TransposeCofactors(mat3(globalTransform),sub3x3TransposeCofactors);
+    nodeNormalMatrix.data[nodeID] = nbl_glsl_CompressedNormalMatrix_t_encode(signflip,sub3x3TransposeCofactors);
+}
