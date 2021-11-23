@@ -592,7 +592,56 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 					uint32_t nodeCount;
 			} direct;
 		};
-		
+		private:
+			template<uint32_t BindingCount>
+			static inline auto createDescriptorSetLayout(video::ILogicalDevice* device)
+			{
+				video::IGPUDescriptorSetLayout::SBinding bnd[BindingCount];
+				bnd[0].binding = 0u;
+				bnd[0].count = 1u;
+				bnd[0].type = asset::EDT_STORAGE_BUFFER;
+				bnd[0].stageFlags = video::IGPUSpecializedShader::ESS_COMPUTE;
+				bnd[0].samplers = nullptr;
+				for (auto i = 1u; i < BindingCount; i++)
+				{
+					bnd[i] = bnd[i - 1u];
+					bnd[i].binding = i;
+				}
+				return device->createGPUDescriptorSetLayout(bnd, bnd + BindingCount);
+			}
+			template<uint32_t BindingCount>
+			static inline void updateDescriptorSet(
+				video::ILogicalDevice* device, video::IGPUDescriptorSet* set,
+				std::array<asset::SBufferBinding<video::IGPUBuffer>, BindingCount>&& bufferBindings
+			)
+			{
+				video::IGPUDescriptorSet::SWriteDescriptorSet writes[BindingCount];
+				video::IGPUDescriptorSet::SDescriptorInfo infos[BindingCount];
+				for (auto i = 0u; i < BindingCount; i++)
+				{
+					infos[i].desc = std::move(bufferBindings[i].buffer);
+					infos[i].buffer.offset = bufferBindings[i].offset;
+					infos[i].buffer.size = video::IGPUDescriptorSet::SDescriptorInfo::SBufferInfo::WholeBuffer;
+					writes[i].dstSet = set;
+					writes[i].binding = i;
+					writes[i].arrayElement = 0u;
+					writes[i].count = 1u;
+					writes[i].descriptorType = asset::EDT_STORAGE_BUFFER;
+					writes[i].info = infos + i;
+				}
+				device->updateDescriptorSets(BindingCount, writes, 0u, nullptr);
+			}
+
+			void dispatch(video::IGPUCommandBuffer* cmdbuf, const DispatchParams& dispatch)
+			{
+				if (dispatch.indirect.buffer)
+					cmdbuf->dispatchIndirect(dispatch.indirect.buffer, dispatch.indirect.offset);
+				else
+				{
+					const auto& limits = m_device->getPhysicalDevice()->getLimits();
+					cmdbuf->dispatch(limits.computeOptimalPersistentWorkgroupDispatchSize(dispatch.direct.nodeCount, m_workgroupSize), 1u, 1u);
+				}
+			}
 		//
 		static inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createUpdateLocalTransformsDescriptorSetLayout(video::ILogicalDevice* device)
 		{
@@ -883,56 +932,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		constexpr static inline auto LineIndices = 2u;
 		constexpr static inline auto IndexCount = AABBIndices+LineIndices;
 
-	private:
-		template<uint32_t BindingCount>
-		static inline auto createDescriptorSetLayout(video::ILogicalDevice* device)
-		{
-			video::IGPUDescriptorSetLayout::SBinding bnd[BindingCount];
-			bnd[0].binding = 0u;
-			bnd[0].count = 1u;
-			bnd[0].type = asset::EDT_STORAGE_BUFFER;
-			bnd[0].stageFlags = video::IGPUSpecializedShader::ESS_COMPUTE;
-			bnd[0].samplers = nullptr;
-			for (auto i=1u; i<BindingCount; i++)
-			{
-				bnd[i] = bnd[i-1u];
-				bnd[i].binding = i;
-			}
-			return device->createGPUDescriptorSetLayout(bnd,bnd+BindingCount);
-		}
-		template<uint32_t BindingCount>
-		static inline void updateDescriptorSet(
-			video::ILogicalDevice* device, video::IGPUDescriptorSet* set,
-			std::array<asset::SBufferBinding<video::IGPUBuffer>,BindingCount>&& bufferBindings
-		)
-		{
-			video::IGPUDescriptorSet::SWriteDescriptorSet writes[BindingCount];
-			video::IGPUDescriptorSet::SDescriptorInfo infos[BindingCount];
-			for (auto i=0u; i<BindingCount; i++)
-			{
-				infos[i].desc = std::move(bufferBindings[i].buffer);
-				infos[i].buffer.offset = bufferBindings[i].offset;
-				infos[i].buffer.size = video::IGPUDescriptorSet::SDescriptorInfo::SBufferInfo::WholeBuffer;
-				writes[i].dstSet = set;
-				writes[i].binding = i;
-				writes[i].arrayElement = 0u;
-				writes[i].count = 1u;
-				writes[i].descriptorType = asset::EDT_STORAGE_BUFFER;
-				writes[i].info = infos+i;
-			}
-			device->updateDescriptorSets(BindingCount,writes,0u,nullptr);
-		}
-		
-		void dispatch(video::IGPUCommandBuffer* cmdbuf, const DispatchParams& dispatch)
-		{
-			if (dispatch.indirect.buffer)
-				cmdbuf->dispatchIndirect(dispatch.indirect.buffer,dispatch.indirect.offset);
-			else
-			{
-				const auto& limits = m_device->getPhysicalDevice()->getLimits();
-				cmdbuf->dispatch(limits.computeOptimalPersistentWorkgroupDispatchSize(dispatch.direct.nodeCount,m_workgroupSize),1u,1u);
-			}
-		}
+
 };
 
 } // end namespace nbl::scene
