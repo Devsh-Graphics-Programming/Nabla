@@ -132,6 +132,41 @@ public:
     {
         return window.get();
     }
+    video::IAPIConnection* getAPIConnection() override
+    {
+        return apiConnection.get();
+    }
+    video::ILogicalDevice* getLogicalDevice()  override
+    {
+        return logicalDevice.get();
+    }
+    video::IGPURenderpass* getRenderpass() override
+    {
+        return renderpass.get();
+    }
+    void setSurface(core::smart_refctd_ptr<video::ISurface>&& s) override
+    {
+        surface = std::move(s);
+    }
+    void setFBOs(std::vector<core::smart_refctd_ptr<video::IGPUFramebuffer>>& f) override
+    {
+        for (int i = 0; i < f.size(); i++)
+        {
+            fbo[i] = core::smart_refctd_ptr(f[i]);
+        }
+    }
+    void setSwapchain(core::smart_refctd_ptr<video::ISwapchain>&& s) override
+    {
+        swapchain = std::move(s);
+    }
+    uint32_t getSwapchainImageCount() override
+    {
+        return SC_IMG_COUNT;
+    }
+    virtual nbl::asset::E_FORMAT getDepthFormat() override
+    {
+        return nbl::asset::EF_D32_SFLOAT;
+    }
 
     APP_CONSTRUCTOR(MeshLoadersApp)
     void onAppInitialized_impl() override
@@ -401,10 +436,10 @@ public:
             commandBuffer->bindGraphicsPipeline(gpuGraphicsPipeline.get());
 
             const video::IGPUDescriptorSet* gpuds1_ptr = gpuds1.get();
-            commandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS, gpuRenderpassIndependentPipeline->getLayout(), 1u, 1u, &gpuds1_ptr, nullptr);
+            commandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS, gpuRenderpassIndependentPipeline->getLayout(), 1u, 1u, &gpuds1_ptr);
             const video::IGPUDescriptorSet* gpuds3_ptr = gpuMeshBuffer->getAttachedDescriptorSet();
             if (gpuds3_ptr)
-                commandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS, gpuRenderpassIndependentPipeline->getLayout(), 3u, 1u, &gpuds3_ptr, nullptr);
+                commandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS, gpuRenderpassIndependentPipeline->getLayout(), 3u, 1u, &gpuds3_ptr);
             commandBuffer->pushConstants(gpuRenderpassIndependentPipeline->getLayout(), video::IGPUSpecializedShader::ESS_FRAGMENT, 0u, gpuMeshBuffer->MAX_PUSH_CONSTANT_BYTESIZE, gpuMeshBuffer->getPushConstantsDataPtr());
 
             commandBuffer->drawMeshBuffer(gpuMeshBuffer);

@@ -12,7 +12,6 @@ namespace nbl::system
 		using native_file_mapping_handle_t = void*;
 	private:
 		bool m_openedProperly = true;
-		std::filesystem::path m_filename;
 		size_t m_size = 0;
 		native_file_handle_t m_native = -1;
 		native_file_mapping_handle_t m_memoryMappedObj;

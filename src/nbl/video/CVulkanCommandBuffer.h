@@ -106,7 +106,7 @@ public:
         return false;
     }
 
-    bool drawMeshBuffer(const nbl::video::IGPUMeshBuffer* meshBuffer) override
+    bool drawMeshBuffer(const IGPUMeshBuffer::base_t* meshBuffer) override
     {
         return false;
     }
@@ -487,8 +487,9 @@ public:
     // E_PIPELINE_BIND_POINT needs to be in asset namespace or divide this into two functions (for graphics and compute)
     bool bindDescriptorSets(asset::E_PIPELINE_BIND_POINT pipelineBindPoint,
         const pipeline_layout_t* layout, uint32_t firstSet, uint32_t descriptorSetCount,
-        const descriptor_set_t* const* const pDescriptorSets,
-        core::smart_refctd_dynamic_array<uint32_t> dynamicOffsets = nullptr) override
+        const descriptor_set_t* const* const pDescriptorSets, 
+        const uint32_t dynamicOffsetCount=0u, const uint32_t* dynamicOffsets=nullptr
+    ) override
     {
         if (layout->getAPIType() != EAT_VULKAN)
             return false;
@@ -504,16 +505,10 @@ public:
                 vk_descriptorSets[i] = static_cast<const CVulkanDescriptorSet*>(pDescriptorSets[i])->getInternalObject();
         }
 
-        uint32_t vk_dynamicOffsetCount = 0u;
-        uint32_t* vk_dynamicOffsets = nullptr;
-        if (dynamicOffsets)
-        {
-            vk_dynamicOffsetCount = dynamicOffsets->size();
-            vk_dynamicOffsets = dynamicOffsets->begin();
-        }
-
-        vkCmdBindDescriptorSets(m_cmdbuf, static_cast<VkPipelineBindPoint>(pipelineBindPoint),
-            vk_pipelineLayout, firstSet, descriptorSetCount, vk_descriptorSets, vk_dynamicOffsetCount, vk_dynamicOffsets);
+        vkCmdBindDescriptorSets(
+            m_cmdbuf, static_cast<VkPipelineBindPoint>(pipelineBindPoint),
+            vk_pipelineLayout, firstSet, descriptorSetCount, vk_descriptorSets, dynamicOffsetCount, dynamicOffsets
+        );
 
         return true;
     }

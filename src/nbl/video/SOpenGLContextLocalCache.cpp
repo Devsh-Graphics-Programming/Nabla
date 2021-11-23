@@ -135,19 +135,20 @@ count = (first_count.resname.count - std::max(0, static_cast<int32_t>(first_coun
 #undef CLAMP_COUNT
             }
 
+            const auto* nextSet = nextState.descriptorsParams[_pbp].descSets[i].set.get();
+            const auto dynamicOffsetCount = nextSet ? nextSet->getDynamicOffsetCount():0u;
+            const auto nextStateDynamicOffsets = nextState.descriptorsParams[_pbp].descSets[i].dynamicOffsets;
             //if prev and curr pipeline layouts are compatible for set N, currState.set[N]==nextState.set[N] and the sets were bound with same dynamic offsets, then binding set N would be redundant
-            if ((i < compatibilityLimit) &&
-                (effectivelyBoundDescriptors.descSets[i].set == nextState.descriptorsParams[_pbp].descSets[i].set) &&
-                (effectivelyBoundDescriptors.descSets[i].dynamicOffsets == nextState.descriptorsParams[_pbp].descSets[i].dynamicOffsets) &&
-                (effectivelyBoundDescriptors.descSets[i].revision == nextState.descriptorsParams[_pbp].descSets[i].revision)
+            if (
+                    (i < compatibilityLimit) && (effectivelyBoundDescriptors.descSets[i].set.get() == nextSet) &&
+                    std::equal(nextStateDynamicOffsets,nextStateDynamicOffsets+dynamicOffsetCount,effectivelyBoundDescriptors.descSets[i].dynamicOffsets) &&
+                    (effectivelyBoundDescriptors.descSets[i].revision == nextState.descriptorsParams[_pbp].descSets[i].revision)
                 )
             {
                 continue;
             }
 
-            const auto multibind_params = nextState.descriptorsParams[_pbp].descSets[i].set ?
-                nextState.descriptorsParams[_pbp].descSets[i].set->getMultibindParams() :
-                COpenGLDescriptorSet::SMultibindParams{};//all nullptr
+            const auto multibind_params = nextSet ? nextSet->getMultibindParams():COpenGLDescriptorSet::SMultibindParams{}; // all nullptr if null set
 
             const GLsizei localStorageImageCount = newImgCount - first_count.textureImages.first;
             if (localStorageImageCount)
@@ -166,8 +167,6 @@ count = (first_count.resname.count - std::max(0, static_cast<int32_t>(first_coun
                 gl->extGlBindSamplers(first_count.textures.first, localTextureCount, multibind_params.textures.samplers);
             }
 
-            const bool nonNullSet = !!nextState.descriptorsParams[_pbp].descSets[i].set;
-            const bool useDynamicOffsets = !!nextState.descriptorsParams[_pbp].descSets[i].dynamicOffsets;
             //not entirely sure those MAXes are right
             constexpr size_t MAX_UBO_COUNT = 96ull;
             constexpr size_t MAX_SSBO_COUNT = 91ull;
@@ -178,39 +177,39 @@ count = (first_count.resname.count - std::max(0, static_cast<int32_t>(first_coun
             const GLsizei localSsboCount = newSsboCount - first_count.ssbos.first;//"local" as in this DS
             if (localSsboCount)
             {
-                if (nonNullSet)
+                if (nextSet)
                     for (GLsizei s = 0u; s < localSsboCount; ++s)
                     {
                         offsetsArray[s] = multibind_params.ssbos.offsets[s];
                         sizesArray[s] = multibind_params.ssbos.sizes[s];
                         //if it crashes below, it means that there are dynamic Buffer Objects in the DS, but the DS was bound with no (or not enough) dynamic offsets
                         //or for some weird reason (bug) descSets[i].set is nullptr, but descSets[i].dynamicOffsets is not
-                        if (useDynamicOffsets && multibind_params.ssbos.dynOffsetIxs[s] < nextState.descriptorsParams[_pbp].descSets[i].dynamicOffsets->size())
-                            offsetsArray[s] += nextState.descriptorsParams[_pbp].descSets[i].dynamicOffsets->operator[](multibind_params.ssbos.dynOffsetIxs[s]);
+                        if (multibind_params.ssbos.dynOffsetIxs[s] < dynamicOffsetCount)
+                            offsetsArray[s] += nextState.descriptorsParams[_pbp].descSets[i].dynamicOffsets[multibind_params.ssbos.dynOffsetIxs[s]];
                         if (sizesArray[s] == IGPUBufferView::whole_buffer)
-                            sizesArray[s] = nextState.descriptorsParams[_pbp].descSets[i].set->getSSBO(s)->getSize() - offsetsArray[s];
+                            sizesArray[s] = nextSet->getSSBO(s)->getSize() - offsetsArray[s];
                     }
                 assert(multibind_params.ssbos.buffers);
-                gl->extGlBindBuffersRange(GL_SHADER_STORAGE_BUFFER, first_count.ssbos.first, localSsboCount, multibind_params.ssbos.buffers, nonNullSet ? offsetsArray : nullptr, nonNullSet ? sizesArray : nullptr);
+                gl->extGlBindBuffersRange(GL_SHADER_STORAGE_BUFFER, first_count.ssbos.first, localSsboCount, multibind_params.ssbos.buffers, nextSet ? offsetsArray : nullptr, nextSet ? sizesArray : nullptr);
             }
 
             const GLsizei localUboCount = (newUboCount - first_count.ubos.first);//"local" as in this DS
             if (localUboCount)
             {
-                if (nonNullSet)
+                if (nextSet)
                     for (GLsizei s = 0u; s < localUboCount; ++s)
                     {
                         offsetsArray[s] = multibind_params.ubos.offsets[s];
                         sizesArray[s] = multibind_params.ubos.sizes[s];
                         //if it crashes below, it means that there are dynamic Buffer Objects in the DS, but the DS was bound with no (or not enough) dynamic offsets
                         //or for some weird reason (bug) descSets[i].set is nullptr, but descSets[i].dynamicOffsets is not
-                        if (useDynamicOffsets && multibind_params.ubos.dynOffsetIxs[s] < nextState.descriptorsParams[_pbp].descSets[i].dynamicOffsets->size())
-                            offsetsArray[s] += nextState.descriptorsParams[_pbp].descSets[i].dynamicOffsets->operator[](multibind_params.ubos.dynOffsetIxs[s]);
+                        if (multibind_params.ubos.dynOffsetIxs[s] < dynamicOffsetCount)
+                            offsetsArray[s] += nextState.descriptorsParams[_pbp].descSets[i].dynamicOffsets[multibind_params.ubos.dynOffsetIxs[s]];
                         if (sizesArray[s] == IGPUBufferView::whole_buffer)
-                            sizesArray[s] = nextState.descriptorsParams[_pbp].descSets[i].set->getUBO(s)->getSize() - offsetsArray[s];
+                            sizesArray[s] = nextSet->getUBO(s)->getSize() - offsetsArray[s];
                     }
                 assert(multibind_params.ubos.buffers);
-                gl->extGlBindBuffersRange(GL_UNIFORM_BUFFER, first_count.ubos.first, localUboCount, multibind_params.ubos.buffers, nonNullSet ? offsetsArray : nullptr, nonNullSet ? sizesArray : nullptr);
+                gl->extGlBindBuffersRange(GL_UNIFORM_BUFFER, first_count.ubos.first, localUboCount, multibind_params.ubos.buffers, nextSet ? offsetsArray : nullptr, nextSet ? sizesArray : nullptr);
             }
         }
 

@@ -19,11 +19,17 @@ namespace nbl::system
         }
     protected:
         virtual void onStateSaved_impl(android_app* params) {}
-        bool paused;
+        bool paused = false;
+        bool initialized = false;
+        android_app* m_app;
+        JNIEnv* m_env;
     public:
         void pause() { paused = true; }
         void resume() { paused = false; }
+        void initialize() { initialized = true; }
+        bool isInitialized() const { return initialized; }
         bool isPaused() const { return paused; }
+        android_app* getApp() { return m_app; }
         struct SSavedState {
             float angle;
             int32_t x;
@@ -33,14 +39,15 @@ namespace nbl::system
         {
             CApplicationAndroid* framework;
             void* userData;
-            SSavedState state;
+            SSavedState* state;
         };
     public:
         CApplicationAndroid(android_app* params,
+            JNIEnv* env,
             const system::path& _localInputCWD,
             const system::path& _localOutputCWD,
             const system::path& _sharedInputCWD,
-            const system::path& _sharedOutputCWD) : IApplicationFramework(_localInputCWD, _localOutputCWD, _sharedInputCWD, _sharedOutputCWD),  eventPoller(params, this)
+            const system::path& _sharedOutputCWD) : IApplicationFramework(_localInputCWD, _localOutputCWD, _sharedInputCWD, _sharedOutputCWD),  eventPoller(params, this), m_app(params), m_env(env)
         {
             params->onAppCmd = handleCommand;
             params->onInputEvent = handleInput;
@@ -60,12 +67,19 @@ namespace nbl::system
             case APP_CMD_SAVE_STATE:
                 // The system has asked us to save our current state.  Do so.
                 //usrData->state = (SSavedState*)malloc(sizeof(SSavedState));
-                (app->savedState) = &usrData->state;
-                app->savedStateSize = sizeof(SSavedState);
-                framework->onStateSaved(app);
+                //app->savedState = usrData->state;
+                //app->savedStateSize = sizeof(SSavedState);
+                //framework->onStateSaved(app);
                 break;
             case APP_CMD_INIT_WINDOW:
-                framework->onAppInitialized();
+            {
+                if (!framework->isInitialized())
+                {
+                    framework->onAppInitialized();
+                    framework->initialize();
+                }
+
+            }
                 break;
             default:
                 break;

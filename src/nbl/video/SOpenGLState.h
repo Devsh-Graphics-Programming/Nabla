@@ -1,5 +1,5 @@
-#ifndef __NBL_S_OPENGL_STATE_H_INCLUDED__
-#define __NBL_S_OPENGL_STATE_H_INCLUDED__
+#ifndef _NBL_S_OPENGL_STATE_H_INCLUDED_
+#define _NBL_S_OPENGL_STATE_H_INCLUDED_
 
 #include "nbl/core/IReferenceCounted.h"
 #include "COpenGLBuffer.h"
@@ -13,13 +13,15 @@
 #include <limits>
 #include <string_view>
 
-namespace nbl {
-namespace video
+namespace nbl::video
 {
 
 struct SOpenGLState
 {
     static inline constexpr uint32_t MAX_VIEWPORT_COUNT = 16u;
+    static inline constexpr uint32_t MaxDynamicOffsetSSBOs = 32u;
+    static inline constexpr uint32_t MaxDynamicOffsetUBOs = 32u;
+    static inline constexpr uint32_t MaxDynamicOffsets = MaxDynamicOffsetSSBOs+MaxDynamicOffsetUBOs;
 
     using buffer_binding_t = asset::SBufferBinding<const COpenGLBuffer>;
 
@@ -35,7 +37,7 @@ struct SOpenGLState
     struct SDescSetBnd {
         core::smart_refctd_ptr<const COpenGLPipelineLayout> pplnLayout;
         core::smart_refctd_ptr<const COpenGLDescriptorSet> set;
-        core::smart_refctd_dynamic_array<uint32_t> dynamicOffsets;
+        uint32_t dynamicOffsets[MaxDynamicOffsets];
         uint64_t revision = 0u; // every time a descriptor set is modified, the revision number gets incremented, this is to detect that set has changed and we need to rebind
     };
 
@@ -189,6 +191,6 @@ struct SOpenGLState
 };
 
 }
-}
+
 
 #endif

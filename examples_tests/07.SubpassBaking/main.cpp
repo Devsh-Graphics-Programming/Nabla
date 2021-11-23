@@ -23,7 +23,8 @@ int main(int argc, char** argv)
     constexpr uint32_t FRAMES_IN_FLIGHT = 5u;
     static_assert(FRAMES_IN_FLIGHT > SC_IMG_COUNT);
 
-    auto initOutput = CommonAPI::Init<WIN_W, WIN_H, SC_IMG_COUNT>(video::EAT_OPENGL, "MeshLoaders", nbl::asset::EF_D32_SFLOAT);
+    CommonAPI::InitOutput<SC_IMG_COUNT> initOutput;
+    CommonAPI::Init<WIN_W, WIN_H, SC_IMG_COUNT>(initOutput, video::EAT_OPENGL, "MeshLoaders", nbl::asset::EF_D32_SFLOAT);
     auto window = std::move(initOutput.window);
     auto gl = std::move(initOutput.apiConnection);
     auto surface = std::move(initOutput.surface);

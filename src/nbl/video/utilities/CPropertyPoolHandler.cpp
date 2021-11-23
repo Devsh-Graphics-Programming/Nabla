@@ -133,7 +133,7 @@ bool CPropertyPoolHandler::transferProperties(
 		cmdbuf->bindComputePipeline(m_pipeline.get());
 		// bind desc sets
 		auto set = m_dsCache->getSet(setIx);
-		cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,m_pipeline->getLayout(),0u,1u,&set,nullptr);
+		cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,m_pipeline->getLayout(),0u,1u,&set);
 		{
 			const uint32_t data[] = {baseDWORD,endDWORD};
 			cmdbuf->pushConstants(m_pipeline->getLayout(),asset::ISpecializedShader::ESS_COMPUTE,0u,sizeof(data),data);
