@@ -19,20 +19,20 @@ endfunction()
 
 set(nbl_resources_to_embed
   "nbl/builtin/shader/loader/mtl/vertex_impl.glsl"
-  "nbl/builtin/shader/loader/mtl/vertex_no_uv.vert"
-  "nbl/builtin/shader/loader/mtl/vertex_uv.vert"
+  "nbl/builtin/shader/loader/mtl/vertex_no_uv.vert" # TODO: remove naming tautology
+  "nbl/builtin/shader/loader/mtl/vertex_uv.vert" # TODO: remove naming tautology
   "nbl/builtin/shader/loader/mtl/fragment_impl.glsl"
-  "nbl/builtin/shader/loader/mtl/fragment_no_uv.frag"
-  "nbl/builtin/shader/loader/mtl/fragment_uv.frag"
+  "nbl/builtin/shader/loader/mtl/fragment_no_uv.frag" # TODO: remove naming tautology
+  "nbl/builtin/shader/loader/mtl/fragment_uv.frag" # TODO: remove naming tautology
   "nbl/builtin/shader/loader/gltf/common.glsl"
   "nbl/builtin/shader/loader/gltf/vertex_impl.glsl"
-  "nbl/builtin/shader/loader/gltf/vertex_uv.vert"
-  "nbl/builtin/shader/loader/gltf/vertex_color.vert"
-  "nbl/builtin/shader/loader/gltf/vertex_no_uv_color.vert"
+  "nbl/builtin/shader/loader/gltf/uv.vert"
+  "nbl/builtin/shader/loader/gltf/color.vert"
+  "nbl/builtin/shader/loader/gltf/no_uv_color.vert"
   "nbl/builtin/shader/loader/gltf/fragment_impl.glsl"
-  "nbl/builtin/shader/loader/gltf/fragment_uv.frag"
-  "nbl/builtin/shader/loader/gltf/fragment_color.frag"
-  "nbl/builtin/shader/loader/gltf/fragment_no_uv_color.frag"
+  "nbl/builtin/shader/loader/gltf/uv.frag"
+  "nbl/builtin/shader/loader/gltf/color.frag"
+  "nbl/builtin/shader/loader/gltf/no_uv_color.frag"
   "nbl/builtin/specialized_shader/fullscreentriangle.vert"
   "nbl/builtin/material/lambertian/singletexture/specialized_shader.vert"
   "nbl/builtin/material/lambertian/singletexture/specialized_shader.frag"

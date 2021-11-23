@@ -12,7 +12,7 @@ layout(location = 15) in uint aabbID;
 #define NBL_GLSL_TRANSFORM_TREE_DEBUG_DESCRIPTOR_SET 1
 #endif
 #ifndef NBL_GLSL_TRANSFORM_TREE_DEBUG_AABB_DESCRIPTOR_BINDING
-#define NBL_GLSL_TRANSFORM_TREE_DEBUG_AABB_DESCRIPTOR_BINDING 1
+#define NBL_GLSL_TRANSFORM_TREE_DEBUG_AABB_DESCRIPTOR_BINDING 0
 #endif
 #ifndef NBL_GLSL_TRANSFORM_TREE_DEBUG_AABB_DESCRIPTOR_QUALIFIERS
 #define NBL_GLSL_TRANSFORM_TREE_DEBUG_AABB_DESCRIPTOR_QUALIFIERS readonly restrict
@@ -24,7 +24,7 @@ layout(
     binding=NBL_GLSL_TRANSFORM_TREE_DEBUG_AABB_DESCRIPTOR_BINDING
 ) NBL_GLSL_TRANSFORM_TREE_DEBUG_AABB_DESCRIPTOR_QUALIFIERS buffer DebugAABB
 {
-    nbl_glsl_shapes_AABB_t data[];
+    nbl_glsl_shapes_CompressedAABB_t data[];
 } debugAABB;
 #endif
 
@@ -46,10 +46,10 @@ void main()
 	vec3 pos;
 	if(gl_VertexIndex<8u) // render box
 	{
-		const nbl_glsl_shapes_AABB_t aabb = debugAABB.data[aabbID];
+		const nbl_glsl_shapes_AABB_t aabb = nbl_glsl_shapes_CompressedAABB_t_decompress(debugAABB.data[aabbID]);
 
 		const bvec3 mask = bvec3(gl_VertexIndex&0x1u,gl_VertexIndex&0x2u,gl_VertexIndex&0x4u);
-		pos = mix(aabb.minVx,aabb.maxVx,mask);
+		pos = nbl_glsl_pseudoMul3x4with3x1(nodeGlobalTransforms.data[nodeID],mix(aabb.minVx,aabb.maxVx,mask));
 
 		outColor = pc.aabbColor.rgb;
 	}

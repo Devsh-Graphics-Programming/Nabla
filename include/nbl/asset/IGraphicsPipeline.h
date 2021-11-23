@@ -20,7 +20,7 @@ public:
     {
         core::smart_refctd_ptr<const renderpass_independent_t> renderpassIndependent;
         IImage::E_SAMPLE_COUNT_FLAGS rasterizationSamplesHint = IImage::ESCF_1_BIT;
-        core::smart_refctd_ptr<RenderpassType> renderpass;
+        core::smart_refctd_ptr<const RenderpassType> renderpass;
         uint32_t subpassIx = 0u;
     };
 

@@ -129,6 +129,8 @@ void IMeshManipulator::flipSurfaces(ICPUMeshBuffer* inbuffer)
 
 core::smart_refctd_ptr<ICPUMeshBuffer> CMeshManipulator::createMeshBufferFetchOptimized(const ICPUMeshBuffer* _inbuffer)
 {
+    #if 0
+
 	if (!_inbuffer)
 		return nullptr;
 
@@ -142,7 +144,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> CMeshManipulator::createMeshBufferFetchOp
     outbuffer->setSkin(
         SBufferBinding<ICPUBuffer>(reinterpret_cast<const SBufferBinding<ICPUBuffer>&>(_inbuffer->getInverseBindPoseBufferBinding())),
         SBufferBinding<ICPUBuffer>(reinterpret_cast<const SBufferBinding<ICPUBuffer>&>(_inbuffer->getJointAABBBufferBinding())),
-        core::smart_refctd_ptr<ICPUSkeleton>(const_cast<ICPUSkeleton*>(_inbuffer->getSkeleton())),
+        core::smart_refctd_ptr<ICPUSkeleton>(const_cast<ICPUSkeleton*>(_inbuffer->getSkeleton())), // TODO @devshgraphicsprogramming
         _inbuffer->getMaxJointsPerVertex()
     );
 
@@ -256,6 +258,10 @@ core::smart_refctd_ptr<ICPUMeshBuffer> CMeshManipulator::createMeshBufferFetchOp
 	_NBL_DEBUG_BREAK_IF(nextVert > vertexCount)
 
 	return outbuffer;
+
+    #endif
+
+    return nullptr;
 }
 
 //! Creates a copy of the mesh, which will only consist of unique primitives
@@ -621,6 +627,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createMeshBufferWelded(
 
 core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createOptimizedMeshBuffer(const ICPUMeshBuffer* _inbuffer, const SErrorMetric* _errMetric)
 {
+#if 0
 	if (!_inbuffer)
 		return nullptr;
     const auto oldPipeline = _inbuffer->getPipeline();
@@ -633,7 +640,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createOptimizedMeshBuff
     outbuffer->setSkin(
         SBufferBinding<ICPUBuffer>(reinterpret_cast<const SBufferBinding<ICPUBuffer>&>(_inbuffer->getInverseBindPoseBufferBinding())),
         SBufferBinding<ICPUBuffer>(reinterpret_cast<const SBufferBinding<ICPUBuffer>&>(_inbuffer->getJointAABBBufferBinding())),
-        core::smart_refctd_ptr<ICPUSkeleton>(const_cast<ICPUSkeleton*>(_inbuffer->getSkeleton())),
+        core::smart_refctd_ptr<ICPUSkeleton>(const_cast<ICPUSkeleton*>(_inbuffer->getSkeleton())), // @devshgraphicsprogramming
         _inbuffer->getMaxJointsPerVertex()
     );
 
@@ -768,6 +775,10 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createOptimizedMeshBuff
 	}
 
 	return outbuffer;
+
+#endif 
+
+    return nullptr;
 }
 
 void IMeshManipulator::requantizeMeshBuffer(ICPUMeshBuffer* _meshbuffer, const SErrorMetric* _errMetric)

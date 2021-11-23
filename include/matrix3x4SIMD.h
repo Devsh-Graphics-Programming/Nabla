@@ -8,9 +8,7 @@
 #include "vectorSIMD.h"
 #include "quaternion.h"
 
-namespace nbl
-{
-namespace core
+namespace nbl::core
 {
 
 class matrix4x3;
@@ -260,7 +258,6 @@ inline matrix3x4SIMD concatenateBFollowedByAPrecisely(const matrix3x4SIMD& _a, c
 }
 */
 
-}
 }
 
 #endif

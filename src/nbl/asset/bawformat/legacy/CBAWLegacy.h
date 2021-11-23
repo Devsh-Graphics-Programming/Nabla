@@ -11,6 +11,10 @@
 
 namespace nbl
 {
+namespace core
+{
+// TODO: dumbed down implementation of `aabbox3df`
+}
 namespace asset
 {
 
