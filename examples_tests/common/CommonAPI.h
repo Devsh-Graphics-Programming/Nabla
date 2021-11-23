@@ -1,5 +1,7 @@
 #define _NBL_STATIC_LIB_
 #include <nabla.h>
+
+// TODO: get these all included by the appropriate namespace headers!
 #include "nbl/system/IApplicationFramework.h"
 #include "nbl/ui/CGraphicalApplicationAndroid.h"
 #include "nbl/ui/CWindowManagerAndroid.h"

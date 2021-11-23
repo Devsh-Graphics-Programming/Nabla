@@ -49,6 +49,7 @@
 #include "nbl/core/math/colorutil.h"
 #include "nbl/core/math/rational.h"
 #include "nbl/core/math/plane3dSIMD.h"
+#include "nbl/core/math/matrixutil.h"
 // memory
 #include "nbl/core/memory/memory.h"
 #include "nbl/core/memory/new_delete.h"

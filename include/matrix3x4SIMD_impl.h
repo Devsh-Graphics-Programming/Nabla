@@ -8,14 +8,8 @@
 #include "matrix3x4SIMD.h"
 #include "nbl/core/math/glslFunctions.tcc"
 
-#include "matrix4x3.h"
-
 namespace nbl::core
 {
-
-
-
-
 
 // TODO: move to another implementation header
 inline quaternion::quaternion(const matrix3x4SIMD& m)
@@ -63,35 +57,6 @@ inline quaternion::quaternion(const matrix3x4SIMD& m)
 	}
 
 	*this = normalize(*this);
-}
-
-
-
-
-
-
-
-inline matrix3x4SIMD& matrix3x4SIMD::set(const matrix4x3& _retarded)
-{
-	core::matrix4SIMD c;
-	for (size_t i = 0u; i < VectorCount; ++i)
-		c.rows[i] = vectorSIMDf(&_retarded.getColumn(i).X);
-	*this = core::transpose(c).extractSub3x4();
-	for (size_t i = 0u; i < VectorCount; ++i)
-		rows[i][3] = (&_retarded.getColumn(3).X)[i];
-
-	return *this;
-}
-inline matrix4x3 matrix3x4SIMD::getAsRetardedIrrlichtMatrix() const
-{
-	auto c = core::transpose(core::matrix4SIMD(*this));
-
-	matrix4x3 ret;
-	for (size_t i = 0u; i < VectorCount; ++i)
-		_mm_storeu_ps(&ret.getColumn(i).X, c.rows[i].getAsRegister());
-	std::copy(c.rows[VectorCount].pointer, c.rows[VectorCount].pointer + VectorCount, &ret.getColumn(VectorCount).X);
-
-	return ret;
 }
 
 inline bool matrix3x4SIMD::operator!=(const matrix3x4SIMD& _other)
