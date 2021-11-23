@@ -323,11 +323,7 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
             IAssetLoader::SAssetLoadContext ctx(_params, nullptr);
             system::path filePath = _filePath;
 
-            //const system::path filePath = (_params.workingDirectory / _filePath);
-            //auto filePath_str = system::IFile::flattenFilename(filePath).generic_string();
-            
             _override->getLoadFilename(filePath, m_system.get(), ctx, _hierarchyLevel);
-
 
             system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
             bool validInput = m_system->createFile(future, filePath, system::IFile::ECF_READ);
