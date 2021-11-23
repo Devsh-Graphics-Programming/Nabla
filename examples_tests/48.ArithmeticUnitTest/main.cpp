@@ -287,27 +287,18 @@ bool runTest(
 	return passed;
 }
 
-class ArythmeticUnitTestApp : public ApplicationBase
+class ArythmeticUnitTestApp : public NonGraphicalApplicationBase
 {
 	using INIT_OUTPUT = CommonAPI::InitOutput<0>;
 
 public:
-	void setWindow(nbl::core::smart_refctd_ptr<nbl::ui::IWindow>&& wnd) override
-	{
-		//! the app doesn't provide on-window rendering
-	}
-
 	void setSystem(nbl::core::smart_refctd_ptr<nbl::system::ISystem>&& s) override
 	{
 		system = std::move(s);
 	}
 
-	nbl::ui::IWindow* getWindow() override
-	{
-		return nullptr;
-	}
 
-	APP_CONSTRUCTOR(ArythmeticUnitTestApp)
+	NON_GRAPHICAL_APP_CONSTRUCTOR(ArythmeticUnitTestApp)
 	void onAppInitialized_impl() override
 	{
 		INIT_OUTPUT initOutput;
