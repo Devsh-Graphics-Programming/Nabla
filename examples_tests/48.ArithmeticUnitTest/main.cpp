@@ -244,7 +244,7 @@ bool runTest(
 
 	cmdbuf->begin(IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
 	cmdbuf->bindComputePipeline(pipeline);
-	cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,pipeline->getLayout(),0u,1u,&ds,nullptr);
+	cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,pipeline->getLayout(),0u,1u,&ds);
 	const uint32_t workgroupCount = BUFFER_DWORD_COUNT/workgroupSize;
 	cmdbuf->dispatch(workgroupCount,1,1);
 	IGPUCommandBuffer::SBufferMemoryBarrier memoryBarrier[outputBufferCount];

@@ -73,7 +73,7 @@ class GLTFApp : public ApplicationBase
 		{
 			return SC_IMG_COUNT;
 		}
-		virtual nbl::asset::E_FORMAT getDepthFormat() override
+		nbl::asset::E_FORMAT getDepthFormat() override
 		{
 			return nbl::asset::EF_D32_SFLOAT;
 		}

@@ -185,7 +185,7 @@ public:
         CommonAPI::InitOutput<SC_IMG_COUNT> initOutput;
         initOutput.window = core::smart_refctd_ptr(window);
         initOutput.system = core::smart_refctd_ptr(system);
-        CommonAPI::Init<WIN_W, WIN_H, SC_IMG_COUNT>(initOutput, video::EAT_OPENGL_ES, "OITSample", nbl::asset::EF_D32_SFLOAT);
+        CommonAPI::Init<WIN_W, WIN_H, SC_IMG_COUNT>(initOutput, video::EAT_OPENGL, "OITSample", nbl::asset::EF_D32_SFLOAT);
         window = std::move(initOutput.window);
         windowCb = std::move(initOutput.windowCb);
         apiConnection = std::move(initOutput.apiConnection);
@@ -610,10 +610,10 @@ public:
             commandBuffer->bindGraphicsPipeline(gpuGraphicsPipeline.get());
 
             const video::IGPUDescriptorSet* gpuds1_ptr = gpuds1.get();
-            commandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS, gpuRenderpassIndependentPipeline->getLayout(), 1u, 1u, &gpuds1_ptr, nullptr);
+            commandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS, gpuRenderpassIndependentPipeline->getLayout(), 1u, 1u, &gpuds1_ptr);
             const video::IGPUDescriptorSet* gpuds3_ptr = gpuMeshBuffer->getAttachedDescriptorSet();
             if (gpuds3_ptr)
-                commandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS, gpuRenderpassIndependentPipeline->getLayout(), 3u, 1u, &gpuds3_ptr, nullptr);
+                commandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS, gpuRenderpassIndependentPipeline->getLayout(), 3u, 1u, &gpuds3_ptr);
             commandBuffer->pushConstants(gpuRenderpassIndependentPipeline->getLayout(), video::IGPUSpecializedShader::ESS_FRAGMENT, 0u, gpuMeshBuffer->MAX_PUSH_CONSTANT_BYTESIZE, gpuMeshBuffer->getPushConstantsDataPtr());
 
             commandBuffer->drawMeshBuffer(gpuMeshBuffer);
@@ -631,10 +631,10 @@ public:
 
             commandBuffer->bindGraphicsPipeline(oit_pass1_pipeline.get());
             const video::IGPUDescriptorSet* gpuds1_ptr = gpuds1.get();
-            commandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS, oit_pass1_pipeline->getRenderpassIndependentPipeline()->getLayout(), 1u, 1u, &gpuds1_ptr, nullptr);
+            commandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS, oit_pass1_pipeline->getRenderpassIndependentPipeline()->getLayout(), 1u, 1u, &gpuds1_ptr);
             commandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS, oit_pass1_pipeline->getRenderpassIndependentPipeline()->getLayout(), 2u, 1u, &ds2.get());
             if (gpuds3_ptr)
-                commandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS, oit_pass1_pipeline->getRenderpassIndependentPipeline()->getLayout(), 3u, 1u, &gpuds3_ptr, nullptr);
+                commandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS, oit_pass1_pipeline->getRenderpassIndependentPipeline()->getLayout(), 3u, 1u, &gpuds3_ptr);
 
             commandBuffer->drawMeshBuffer(gpuMeshBuffer);
         }
