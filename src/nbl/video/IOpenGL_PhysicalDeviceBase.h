@@ -300,6 +300,7 @@ public:
 		if (!core::is_alignment(m_glfeatures.reqTBOAlignment))
 			m_glfeatures.reqTBOAlignment = 16u;
 		//assert(core::is_alignment(m_glfeatures.reqTBOAlignment)); 
+		//m_glfeatures.reqSSBOAlignment = 64u; // uncomment to emulate chromebook
 
 		GetInteger64v(GL_MAX_UNIFORM_BLOCK_SIZE, reinterpret_cast<GLint64*>(&m_glfeatures.maxUBOSize));
 		GetInteger64v(GL_MAX_SHADER_STORAGE_BLOCK_SIZE, reinterpret_cast<GLint64*>(&m_glfeatures.maxSSBOSize));
