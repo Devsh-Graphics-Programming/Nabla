@@ -33,6 +33,7 @@ class IApplicationFramework : public core::IReferenceCounted
 
         virtual void workLoopBody() = 0;
         virtual bool keepRunning() = 0;
+        std::vector<std::string> argv;
 
     protected:
         ~IApplicationFramework() {}

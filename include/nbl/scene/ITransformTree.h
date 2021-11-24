@@ -43,7 +43,7 @@ class ITransformTree : public virtual core::IReferenceCounted
 		template<class TransformTree, typename BindingType>
 		static inline void fillDescriptorLayoutBindings(BindingType* bindings, asset::ISpecializedShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
 		{
-			using property_pool_t = TransformTree::property_pool_t;
+			using property_pool_t = typename TransformTree::property_pool_t;
 			for (auto i=0u; i<property_pool_t::PropertyCount; i++)
 			{
 				bindings[i].binding = i;
@@ -56,7 +56,7 @@ class ITransformTree : public virtual core::IReferenceCounted
 		template<class TransformTree>
 		static inline core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> createDescriptorSetLayout(asset::ISpecializedShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
 		{
-			using property_pool_t = TransformTree::property_pool_t;
+			using property_pool_t = typename TransformTree::property_pool_t;
 			asset::ICPUDescriptorSetLayout::SBinding bindings[property_pool_t::PropertyCount];
 			fillDescriptorLayoutBindings<TransformTree,asset::ICPUDescriptorSetLayout::SBinding>(bindings,stageAccessFlags);
 			return core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(bindings,bindings+property_pool_t::PropertyCount);
@@ -64,10 +64,11 @@ class ITransformTree : public virtual core::IReferenceCounted
 		template<class TransformTree>
 		static inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createDescriptorSetLayout(video::ILogicalDevice* device, asset::ISpecializedShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
 		{
-			using property_pool_t = TransformTree::property_pool_t;
+			using property_pool_t = typename TransformTree::property_pool_t;
 			video::IGPUDescriptorSetLayout::SBinding bindings[property_pool_t::PropertyCount];
 			fillDescriptorLayoutBindings<TransformTree,video::IGPUDescriptorSetLayout::SBinding>(bindings,stageAccessFlags);
-			return device->createGPUDescriptorSetLayout(bindings,bindings+property_pool_t::PropertyCount);
+			auto pCount = property_pool_t::PropertyCount;
+			return device->createGPUDescriptorSetLayout(bindings,bindings + pCount);
 		}
 		
 		//

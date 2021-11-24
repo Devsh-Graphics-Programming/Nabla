@@ -114,6 +114,7 @@ void SOpenGLContextLocalCache::flushState_descriptors(IOpenGL_FunctionTable* gl,
 
     int64_t newUboCount = 0u, newSsboCount = 0u, newTexCount = 0u, newImgCount = 0u;
     if (_currentLayout)
+    {
         for (uint32_t i = 0u; i < static_cast<int32_t>(IGPUPipelineLayout::DESCRIPTOR_SET_COUNT); ++i)
         {
             const auto& first_count = _currentLayout->getMultibindParamsForDescSet(i);
@@ -212,6 +213,7 @@ count = (first_count.resname.count - std::max(0, static_cast<int32_t>(first_coun
                 gl->extGlBindBuffersRange(GL_UNIFORM_BUFFER, first_count.ubos.first, localUboCount, multibind_params.ubos.buffers, nextSet ? offsetsArray : nullptr, nextSet ? sizesArray : nullptr);
             }
         }
+    }
 
     //unbind previous descriptors if needed (if bindings not replaced by new multibind calls)
     if (prevLayout)//if previous pipeline was nullptr, then no descriptors were bound
@@ -576,7 +578,7 @@ void SOpenGLContextLocalCache::flushStateGraphics(IOpenGL_FunctionTable* gl, uin
     }
     if (stateBits & GSB_DESCRIPTOR_SETS)
     {
-        const COpenGLPipelineLayout* currLayout = static_cast<const COpenGLPipelineLayout*>(currentState.pipeline.graphics.pipeline->getRenderpassIndependentPipeline()->getLayout());
+        const COpenGLPipelineLayout* currLayout = currentState.pipeline.graphics.pipeline ? static_cast<const COpenGLPipelineLayout*>(currentState.pipeline.graphics.pipeline->getRenderpassIndependentPipeline()->getLayout()) : nullptr;
         flushState_descriptors(gl, asset::EPBP_GRAPHICS, currLayout);
     }
     if ((stateBits & GSB_VAO_AND_VERTEX_INPUT) && currentState.pipeline.graphics.pipeline)
@@ -799,7 +801,7 @@ void SOpenGLContextLocalCache::flushStateCompute(IOpenGL_FunctionTable* gl, uint
     }
     if (stateBits & GSB_DESCRIPTOR_SETS)
     {
-        const COpenGLPipelineLayout* currLayout = static_cast<const COpenGLPipelineLayout*>(currentState.pipeline.compute.pipeline->getLayout());
+        const COpenGLPipelineLayout* currLayout = currentState.pipeline.compute.pipeline ? static_cast<const COpenGLPipelineLayout*>(currentState.pipeline.compute.pipeline->getLayout()) : nullptr;
         flushState_descriptors(gl, asset::EPBP_COMPUTE, currLayout);
     }
 }

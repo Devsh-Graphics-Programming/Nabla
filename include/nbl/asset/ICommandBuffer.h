@@ -309,7 +309,7 @@ public:
         return true;
     }
 
-    virtual bool regenerateMipmaps(image_view_t* imgview) = 0;
+    virtual bool regenerateMipmaps(image_t* imgview, uint32_t lastReadyMip, asset::IImage::E_ASPECT_FLAGS aspect) = 0;
 
 protected:
     ICommandBuffer(E_LEVEL lvl) : m_level(lvl) {}

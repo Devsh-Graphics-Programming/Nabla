@@ -46,13 +46,15 @@ public:
 	inline const core::matrix3x4SIMD & getViewMatrix() const {	return viewMatrix; }
 	inline const core::matrix4SIMD & getConcatenatedMatrix() const { return concatMatrix; }
 
-	inline void setProjectionMatrix(const core::matrix4SIMD& projection) {
+	inline void setProjectionMatrix(const core::matrix4SIMD& projection)
+	{
 		projMatrix = projection;
 		leftHanded = core::determinant(projMatrix) < 0.f;
 		concatMatrix = core::matrix4SIMD::concatenateBFollowedByAPrecisely(projMatrix, core::matrix4SIMD(viewMatrix));
 	}
 	
-	inline void setPosition(const core::vectorSIMDf& pos) {
+	inline void setPosition(const core::vectorSIMDf& pos)
+	{
 		position.set(pos);
 		recomputeViewMatrix();
 	}
@@ -193,7 +195,6 @@ public:
 					perActionDt[Keys::EKA_MOVE_FORWARD] += timeDiff; 
 					keysDown[Keys::EKA_MOVE_FORWARD] = true;
 				} else if(ev.action == ui::SKeyboardEvent::ECA_RELEASED) {
-					perActionDt[Keys::EKA_MOVE_FORWARD] -= timeDiff; 
 					keysDown[Keys::EKA_MOVE_FORWARD] = false;
 				}
 			}
@@ -203,7 +204,6 @@ public:
 					perActionDt[Keys::EKA_MOVE_BACKWARD] += timeDiff; 
 					keysDown[Keys::EKA_MOVE_BACKWARD] = true;
 				} else if(ev.action == ui::SKeyboardEvent::ECA_RELEASED) {
-					perActionDt[Keys::EKA_MOVE_BACKWARD] -= timeDiff; 
 					keysDown[Keys::EKA_MOVE_BACKWARD] = false;
 				}
 			}
@@ -213,7 +213,6 @@ public:
 					perActionDt[Keys::EKA_MOVE_LEFT] += timeDiff; 
 					keysDown[Keys::EKA_MOVE_LEFT] = true;
 				} else if(ev.action == ui::SKeyboardEvent::ECA_RELEASED) {
-					perActionDt[Keys::EKA_MOVE_LEFT] -= timeDiff; 
 					keysDown[Keys::EKA_MOVE_LEFT] = false;
 				}
 			}
@@ -223,66 +222,64 @@ public:
 					perActionDt[Keys::EKA_MOVE_RIGHT] += timeDiff; 
 					keysDown[Keys::EKA_MOVE_RIGHT] = true;
 				} else if(ev.action == ui::SKeyboardEvent::ECA_RELEASED) {
-					perActionDt[Keys::EKA_MOVE_RIGHT] -= timeDiff; 
 					keysDown[Keys::EKA_MOVE_RIGHT] = false;
 				}
 			}
 		}
 	}
 
-	void beginInputProcessing(std::chrono::microseconds _nextPresentationTimeStamp) {
+	void beginInputProcessing(std::chrono::microseconds _nextPresentationTimeStamp)
+	{
 		nextPresentationTimeStamp = _nextPresentationTimeStamp;
-
-		if(firstUpdate) {
-			lastVirtualUpTimeStamp = nextPresentationTimeStamp;
-			// Set Cursor to middle of the screen
-			firstUpdate = false;
-		}
-
 		return;
 	}
 	
-	void endInputProcessing(std::chrono::microseconds _nextPresentationTimeStamp) {
+	void endInputProcessing(std::chrono::microseconds _nextPresentationTimeStamp)
+	{
 		core::vectorSIMDf pos = getPosition();
 		core::vectorSIMDf localTarget = getTarget() - pos;
 
-		core::vectorSIMDf movedir = localTarget;
-		movedir.makeSafe3D();
-		movedir = core::normalize(movedir);
-
-		constexpr float MoveSpeedScale = 0.02f; 
-
-		pos += movedir * perActionDt[Keys::EKA_MOVE_FORWARD] * moveSpeed * MoveSpeedScale;
-
-		pos -= movedir * perActionDt[Keys::EKA_MOVE_BACKWARD] * moveSpeed * MoveSpeedScale;
-
-		// strafing
-		
-		// if upvector and vector to the target are the same, we have a
-		// problem. so solve this problem:
-		core::vectorSIMDf up = core::normalize(upVector);
-		core::vectorSIMDf cross = core::cross(localTarget, up);
-		bool upVectorNeedsChange = core::lengthsquared(cross)[0] == 0;
-		if (upVectorNeedsChange)
+		if (!firstUpdate)
 		{
-			up = core::normalize(backupUpVector);
+			core::vectorSIMDf movedir = localTarget;
+			movedir.makeSafe3D();
+			movedir = core::normalize(movedir);
+
+			constexpr float MoveSpeedScale = 0.02f; 
+
+			pos += movedir * perActionDt[Keys::EKA_MOVE_FORWARD] * moveSpeed * MoveSpeedScale;
+
+			pos -= movedir * perActionDt[Keys::EKA_MOVE_BACKWARD] * moveSpeed * MoveSpeedScale;
+
+			// strafing
+		
+			// if upvector and vector to the target are the same, we have a
+			// problem. so solve this problem:
+			core::vectorSIMDf up = core::normalize(upVector);
+			core::vectorSIMDf cross = core::cross(localTarget, up);
+			bool upVectorNeedsChange = core::lengthsquared(cross)[0] == 0;
+			if (upVectorNeedsChange)
+			{
+				up = core::normalize(backupUpVector);
+			}
+
+			core::vectorSIMDf strafevect = localTarget;
+			if (leftHanded)
+				strafevect = core::cross(strafevect, up);
+			else
+				strafevect = core::cross(up, strafevect);
+
+			strafevect = core::normalize(strafevect);
+
+			pos += strafevect * perActionDt[Keys::EKA_MOVE_LEFT] * moveSpeed * MoveSpeedScale;
+
+			pos -= strafevect * perActionDt[Keys::EKA_MOVE_RIGHT] * moveSpeed * MoveSpeedScale;
 		}
-
-		core::vectorSIMDf strafevect = localTarget;
-		if (leftHanded)
-			strafevect = core::cross(strafevect, up);
 		else
-			strafevect = core::cross(up, strafevect);
-
-		strafevect = core::normalize(strafevect);
-
-		pos += strafevect * perActionDt[Keys::EKA_MOVE_LEFT] * moveSpeed * MoveSpeedScale;
-
-		pos -= strafevect * perActionDt[Keys::EKA_MOVE_RIGHT] * moveSpeed * MoveSpeedScale;
+			firstUpdate = false;
 
 		setPosition(pos);
-
-		setTarget(localTarget + pos);
+		setTarget(localTarget+pos);
 
 		lastVirtualUpTimeStamp = nextPresentationTimeStamp;
 	}

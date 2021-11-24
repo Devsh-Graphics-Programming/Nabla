@@ -337,6 +337,7 @@ namespace impl
             layout = std::move(rhs.layout);
             firstSet = rhs.firstSet;
             dsCount = rhs.dsCount;
+            dynamicOffsetCount = rhs.dynamicOffsetCount;
             std::move(rhs.descriptorSets,rhs.descriptorSets+IGPUPipelineLayout::DESCRIPTOR_SET_COUNT,descriptorSets);
             std::copy_n(rhs.dynamicOffsets,MaxDynamicOffsets,dynamicOffsets);
             return *this;
@@ -399,7 +400,7 @@ namespace impl
     };
     _NBL_DEFINE_SCMD_SPEC(ECT_REGENERATE_MIPMAPS)
     {
-        core::smart_refctd_ptr<IGPUImageView> imgview;
+        core::smart_refctd_ptr<IGPUImage> imgview;
     };
 
 #undef _NBL_DEFINE_SCMD_SPEC
@@ -1206,10 +1207,10 @@ public:
         }
         return true;
     }
-    bool regenerateMipmaps(image_view_t* imgview) override
+    bool regenerateMipmaps(image_t* imgview, uint32_t lastReadyMip, asset::IImage::E_ASPECT_FLAGS aspect) override
     {
         SCmd<impl::ECT_REGENERATE_MIPMAPS> cmd;
-        cmd.imgview = core::smart_refctd_ptr<image_view_t>(imgview);
+        cmd.imgview = core::smart_refctd_ptr<image_t>(imgview);
 
         pushCommand(std::move(cmd));
 

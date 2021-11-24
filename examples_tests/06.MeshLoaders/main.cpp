@@ -79,11 +79,13 @@ public:
     uint32_t ds1UboBinding = 0;
     int resourceIx;
     uint32_t acquiredNextFBO = {};
-    std::chrono::system_clock::time_point lastTime;
+    std::chrono::steady_clock::time_point lastTime;
     bool frameDataFilled = false;
     size_t frame_count = 0ull;
     double time_sum = 0;
     double dtList[NBL_FRAMES_TO_AVERAGE] = {};
+
+    video::CDumbPresentationOracle oracle;
 
     void cpu2gpuWaitForFences()
     {
@@ -130,6 +132,41 @@ public:
     {
         return window.get();
     }
+    video::IAPIConnection* getAPIConnection() override
+    {
+        return apiConnection.get();
+    }
+    video::ILogicalDevice* getLogicalDevice()  override
+    {
+        return logicalDevice.get();
+    }
+    video::IGPURenderpass* getRenderpass() override
+    {
+        return renderpass.get();
+    }
+    void setSurface(core::smart_refctd_ptr<video::ISurface>&& s) override
+    {
+        surface = std::move(s);
+    }
+    void setFBOs(std::vector<core::smart_refctd_ptr<video::IGPUFramebuffer>>& f) override
+    {
+        for (int i = 0; i < f.size(); i++)
+        {
+            fbo[i] = core::smart_refctd_ptr(f[i]);
+        }
+    }
+    void setSwapchain(core::smart_refctd_ptr<video::ISwapchain>&& s) override
+    {
+        swapchain = std::move(s);
+    }
+    uint32_t getSwapchainImageCount() override
+    {
+        return SC_IMG_COUNT;
+    }
+    virtual nbl::asset::E_FORMAT getDepthFormat() override
+    {
+        return nbl::asset::EF_D32_SFLOAT;
+    }
 
     APP_CONSTRUCTOR(MeshLoadersApp)
     void onAppInitialized_impl() override
@@ -137,7 +174,7 @@ public:
         CommonAPI::InitOutput<SC_IMG_COUNT> initOutput;
         initOutput.window = core::smart_refctd_ptr(window);
         initOutput.system = core::smart_refctd_ptr(system);
-        CommonAPI::Init<WIN_W, WIN_H, SC_IMG_COUNT>(initOutput, video::EAT_OPENGL_ES, "MeshLoaders", nbl::asset::EF_D32_SFLOAT);
+        CommonAPI::Init<WIN_W, WIN_H, SC_IMG_COUNT>(initOutput, video::EAT_OPENGL, "MeshLoaders", nbl::asset::EF_D32_SFLOAT);
         window = std::move(initOutput.window);
         windowCb = std::move(initOutput.windowCb);
         apiConnection = std::move(initOutput.apiConnection);
@@ -255,7 +292,6 @@ public:
             cpu2gpuWaitForFences();
             gpumesh = (*gpu_array)[0];
         }
-
        
         {
             for (size_t i = 0; i < gpumesh->getMeshBuffers().size(); ++i)
@@ -271,16 +307,15 @@ public:
             }
         }
 
-        
-
         core::vectorSIMDf cameraPosition(0, 5, -10);
         matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60), float(WIN_W) / WIN_H, 0.1, 1000);
         camera = Camera(cameraPosition, core::vectorSIMDf(0, 0, 0), projectionMatrix, 10.f, 1.f);
-        lastTime = std::chrono::system_clock::now();
+        lastTime = std::chrono::steady_clock::now();
 
         for (size_t i = 0ull; i < NBL_FRAMES_TO_AVERAGE; ++i)
             dtList[i] = 0.0;
 
+        oracle.reportBeginFrameRecord();
         logicalDevice->createCommandBuffers(commandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY, FRAMES_IN_FLIGHT, commandBuffers);
 
         for (uint32_t i = 0u; i < FRAMES_IN_FLIGHT; i++)
@@ -304,50 +339,27 @@ public:
 
         auto& commandBuffer = commandBuffers[resourceIx];
         auto& fence = frameComplete[resourceIx];
-
         if (fence)
-            while (logicalDevice->waitForFences(1u, &fence.get(), false, MAX_TIMEOUT) == video::IGPUFence::ES_TIMEOUT) {}
+            logicalDevice->blockForFences(1u, &fence.get());
         else
             fence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
 
-        auto renderStart = std::chrono::system_clock::now();
-        const auto renderDt = std::chrono::duration_cast<std::chrono::milliseconds>(renderStart - lastTime).count();
-        lastTime = renderStart;
-        { // Calculate Simple Moving Average for FrameTime
-            time_sum -= dtList[frame_count];
-            time_sum += renderDt;
-            dtList[frame_count] = renderDt;
-            frame_count++;
-            if (frame_count >= NBL_FRAMES_TO_AVERAGE)
-            {
-                frameDataFilled = true;
-                frame_count = 0;
-            }
+        commandBuffer->reset(nbl::video::IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
+        commandBuffer->begin(0);
 
+        const auto nextPresentationTimestamp = oracle.acquireNextImage(swapchain.get(), imageAcquire[resourceIx].get(), nullptr, &acquiredNextFBO);
+        {
+            inputSystem->getDefaultMouse(&mouse);
+            inputSystem->getDefaultKeyboard(&keyboard);
+
+            camera.beginInputProcessing(nextPresentationTimestamp);
+            mouse.consumeEvents([&](const IMouseEventChannel::range_t& events) -> void { camera.mouseProcess(events); }, logger.get());
+            keyboard.consumeEvents([&](const IKeyboardEventChannel::range_t& events) -> void { camera.keyboardProcess(events); }, logger.get());
+            camera.endInputProcessing(nextPresentationTimestamp);
         }
-        const double averageFrameTime = frameDataFilled ? (time_sum / (double)NBL_FRAMES_TO_AVERAGE) : (time_sum / frame_count);
-
-#ifdef NBL_MORE_LOGS
-        logger->log("renderDt = %f ------ averageFrameTime = %f", system::ILogger::ELL_INFO, renderDt, averageFrameTime);
-#endif // NBL_MORE_LOGS
-
-        auto averageFrameTimeDuration = std::chrono::duration<double, std::milli>(averageFrameTime);
-        auto nextPresentationTime = renderStart + averageFrameTimeDuration;
-        auto nextPresentationTimeStamp = std::chrono::duration_cast<std::chrono::microseconds>(nextPresentationTime.time_since_epoch());
-
-        inputSystem->getDefaultMouse(&mouse);
-        inputSystem->getDefaultKeyboard(&keyboard);
-
-        camera.beginInputProcessing(nextPresentationTimeStamp);
-        mouse.consumeEvents([&](const IMouseEventChannel::range_t& events) -> void { camera.mouseProcess(events); }, logger.get());
-        keyboard.consumeEvents([&](const IKeyboardEventChannel::range_t& events) -> void { camera.keyboardProcess(events); }, logger.get());
-        camera.endInputProcessing(nextPresentationTimeStamp);
 
         const auto& viewMatrix = camera.getViewMatrix();
         const auto& viewProjectionMatrix = camera.getConcatenatedMatrix();
-
-        commandBuffer->reset(nbl::video::IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
-        commandBuffer->begin(0);
 
         asset::SViewport viewport;
         viewport.minDepth = 1.f;
@@ -424,10 +436,10 @@ public:
             commandBuffer->bindGraphicsPipeline(gpuGraphicsPipeline.get());
 
             const video::IGPUDescriptorSet* gpuds1_ptr = gpuds1.get();
-            commandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS, gpuRenderpassIndependentPipeline->getLayout(), 1u, 1u, &gpuds1_ptr, nullptr);
+            commandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS, gpuRenderpassIndependentPipeline->getLayout(), 1u, 1u, &gpuds1_ptr);
             const video::IGPUDescriptorSet* gpuds3_ptr = gpuMeshBuffer->getAttachedDescriptorSet();
             if (gpuds3_ptr)
-                commandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS, gpuRenderpassIndependentPipeline->getLayout(), 3u, 1u, &gpuds3_ptr, nullptr);
+                commandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS, gpuRenderpassIndependentPipeline->getLayout(), 3u, 1u, &gpuds3_ptr);
             commandBuffer->pushConstants(gpuRenderpassIndependentPipeline->getLayout(), video::IGPUSpecializedShader::ESS_FRAGMENT, 0u, gpuMeshBuffer->MAX_PUSH_CONSTANT_BYTESIZE, gpuMeshBuffer->getPushConstantsDataPtr());
 
             commandBuffer->drawMeshBuffer(gpuMeshBuffer);

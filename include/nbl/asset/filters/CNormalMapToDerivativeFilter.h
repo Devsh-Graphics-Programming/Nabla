@@ -174,7 +174,7 @@ class CNormalMapToDerivativeFilter : public CMatchedSizeInOutImageFilterCommon, 
 			const core::vector3du32_SIMD scratchByteStrides = TexelBlockInfo(asset::E_FORMAT::EF_R32G32_SFLOAT).convert3DTexelStridesTo1DByteStrides(state->extentLayerCount);
 			const auto scratchTexelByteSize = scratchByteStrides[0];
 
-			const auto&& [copyInBaseLayer, copyOutBaseLayer, copyLayerCount] = std::make_tuple(state->inBaseLayer, state->outBaseLayer, state->layerCount);
+			auto copyInBaseLayer = state->inBaseLayer, copyOutBaseLayer = state->outBaseLayer, copyLayerCount = state->layerCount;
 			state->layerCount = 1u;
 
 			auto resetState = [&]()
@@ -238,10 +238,10 @@ class CNormalMapToDerivativeFilter : public CMatchedSizeInOutImageFilterCommon, 
 				}
 
 				{
-					auto getScratchPixel = [&](core::vector4di32_SIMD readBlockPos) -> CNormalMapToDerivativeFilterBase<Swizzle, Dither>::Cthis::decodeType*
+					auto getScratchPixel = [&](core::vector4di32_SIMD readBlockPos) -> typename CNormalMapToDerivativeFilterBase<Swizzle, Dither>::Cthis::decodeType*
 					{
 						const size_t scratchOffset = asset::IImage::SBufferCopy::getLocalByteOffset(core::vector3du32_SIMD(readBlockPos.x, readBlockPos.y, readBlockPos.z, 0), scratchByteStrides); // TODO
-						return reinterpret_cast<CNormalMapToDerivativeFilterBase<Swizzle, Dither>::Cthis::decodeType*>(reinterpret_cast<uint8_t*>(state->scratchMemory) + scratchOffset);
+						return reinterpret_cast<typename CNormalMapToDerivativeFilterBase<Swizzle, Dither>::Cthis::decodeType*>(reinterpret_cast<uint8_t*>(state->scratchMemory) + scratchOffset);
 					};
 
 					auto normalizeScratch = [&](bool isSigned)
@@ -252,7 +252,7 @@ class CNormalMapToDerivativeFilter : public CMatchedSizeInOutImageFilterCommon, 
 								for (auto& x = localCoord[0] = 0u; x < state->extent.width; ++x)
 								{
 									const size_t scratchOffset = asset::IImage::SBufferCopy::getLocalByteOffset(localCoord, scratchByteStrides);
-									auto* entryScratchAdress = reinterpret_cast<CNormalMapToDerivativeFilterBase<Swizzle, Dither>::Cthis::decodeType*>(reinterpret_cast<uint8_t*>(state->scratchMemory) + scratchOffset);
+									auto* entryScratchAdress = reinterpret_cast<typename CNormalMapToDerivativeFilterBase<Swizzle, Dither>::Cthis::decodeType*>(reinterpret_cast<uint8_t*>(state->scratchMemory) + scratchOffset);
 
 									if (isSigned)
 										for (uint8_t channel = 0; channel < CNormalMapToDerivativeFilterBase<Swizzle, Dither>::Cthis::forcedScratchChannelAmount; ++channel)

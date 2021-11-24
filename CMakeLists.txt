@@ -7,7 +7,7 @@ cmake_minimum_required(VERSION 3.20)
 cmake_policy(SET CMP0072 OLD) #not yet, would need to get pointers to all OpenGL functions
 set(OpenGL_GL_PREFERENCE LEGACY)
 #cmake_policy(SET CMP )
-
+enable_language(ASM)
 option(NBL_BUILD_ANDROID "Build for Android?" OFF)
 
 if(DEFINED CMAKE_TOOLCHAIN_FILE) # TODO - validate paths due to CMake path-policy (errors when no path passed in)
@@ -83,7 +83,7 @@ if(NBL_BUILD_ANDROID)
 	set(_NBL_COMPILE_WITH_OPEN_EXR_ OFF CACHE BOOL "Off for Android purposes at the moment" FORCE) 		# TODO - check it out
 	set(_NBL_COMPILE_WITH_BAW_LOADER_ OFF CACHE BOOL "Off for Android purposes at the moment" FORCE)	# TODO - remove when BAW-v4 is done
 	set(_NBL_COMPILE_WITH_BAW_WRITER_ OFF CACHE BOOL "Off for Android purposes at the moment" FORCE)	# TODO - remove when BAW-v4 is done
-	set(_NBL_COMPILE_WITH_OBJ_LOADER_ OFF CACHE BOOL "Off for Android purposes at the moment" FORCE) 	# TODO - references BAW files, linker errors
+	set(_NBL_COMPILE_WITH_OBJ_LOADER_ ON CACHE BOOL "Off for Android purposes at the moment" FORCE)
 	set(NBL_BUILD_MITSUBA_LOADER OFF CACHE BOOL "Off for Android purposes at the moment" FORCE) 		# TODO - compile/linker errors
 	
 	find_package(Java 1.8)
