@@ -135,8 +135,21 @@ class IDescriptorSetLayout : public virtual core::IReferenceCounted
 				return !((*this == rhs));
 			}
 		};
+		
+		// utility functions
+		static inline void fillBindingsSameType(SBinding* bindings, uint32_t count, E_DESCRIPTOR_TYPE type, const uint32_t* counts=nullptr, asset::ISpecializedShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
+		{
+			for (auto i=0u; i<count; i++)
+			{
+				bindings[i].binding = i;
+				bindings[i].type = type;
+				bindings[i].count = counts ? counts[i]:1u;
+				bindings[i].stageFlags = stageAccessFlags ? stageAccessFlags[i]:asset::ISpecializedShader::ESS_ALL;
+				bindings[i].samplers = nullptr;
+			}
+		}
 
-	public:
+		//
 		IDescriptorSetLayout(const SBinding* const _begin, const SBinding* const _end) : 
 			m_bindings((_end-_begin) ? core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<SBinding>>(_end-_begin) : nullptr)
 		{

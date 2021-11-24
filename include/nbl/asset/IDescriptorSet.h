@@ -59,47 +59,64 @@ class IDescriptorSet : public virtual core::IReferenceCounted
 					SImageInfo image;
 				};
 
-				void assign(const SDescriptorInfo& _other, E_DESCRIPTOR_TYPE _type)
-				{
-					desc = _other.desc;
-					if (_type == EDT_COMBINED_IMAGE_SAMPLER || _type == EDT_STORAGE_IMAGE)
-						assign_img(_other);
-					else
-						assign_buf(_other);
-				}
-
 				SDescriptorInfo()
 				{
 					memset(&buffer, 0, core::max<size_t>(sizeof(buffer), sizeof(image)));
 				}
 				template<typename BufferType>
-				SDescriptorInfo(const SBufferBinding<BufferType>& binding)
+				SDescriptorInfo(const SBufferBinding<BufferType>& binding) : desc()
 				{
 					desc = binding.buffer;
 					buffer.offset = binding.offset;
 					buffer.size = SBufferInfo::WholeBuffer;
 				}
 				template<typename BufferType>
-				SDescriptorInfo(const SBufferRange<BufferType>& range)
+				SDescriptorInfo(const SBufferRange<BufferType>& range) : desc()
 				{
 					desc = range.buffer;
 					buffer.offset = range.offset;
 					buffer.size = range.size;
 				}
+				SDescriptorInfo(const SDescriptorInfo& other) : SDescriptorInfo()
+				{
+					operator=(other);
+				}
+				SDescriptorInfo(SDescriptorInfo&& other): SDescriptorInfo()
+				{
+					operator=(std::move(other));
+				}
 				~SDescriptorInfo()
 				{
 					if (desc && desc->getTypeCategory()==IDescriptor::EC_IMAGE)
-						image.sampler.~smart_refctd_ptr();
+						image.sampler = nullptr;
 				}
 
-			private:
-				void assign_buf(const SDescriptorInfo& other)
+				inline SDescriptorInfo& operator=(const SDescriptorInfo& other)
 				{
-					buffer = other.buffer;
+					if (desc && desc->getTypeCategory()==IDescriptor::EC_IMAGE)
+						image.sampler = nullptr;
+					desc = other.desc;
+					const auto type = desc->getTypeCategory();
+					if (type!=IDescriptor::EC_IMAGE)
+						buffer = other.buffer;
+					else
+						image = other.image;
+					return *this;
 				}
-				void assign_img(const SDescriptorInfo& other)
+				inline SDescriptorInfo& operator=(SDescriptorInfo&& other)
 				{
-					image = other.image;
+					if (desc && desc->getTypeCategory()==IDescriptor::EC_IMAGE)
+						image = {nullptr,EIL_UNDEFINED};
+					desc = std::move(other.desc);
+					if (desc)
+					{
+						const auto type = desc->getTypeCategory();
+						if (type!=IDescriptor::EC_IMAGE)
+							buffer = other.buffer;
+						else
+							image = other.image;
+					}
+					return *this;
 				}
 		};
 
