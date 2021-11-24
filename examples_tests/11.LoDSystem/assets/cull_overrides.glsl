@@ -2,7 +2,7 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#include "common.glsl"
+#include "asset/common.glsl"
 layout(push_constant, row_major) uniform PushConstants
 {
     CullPushConstants_t data;

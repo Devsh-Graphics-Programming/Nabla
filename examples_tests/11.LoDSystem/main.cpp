@@ -265,7 +265,7 @@ void addLoDTable(
 }
 
 #include <random>
-#include "common.glsl"
+#include "assets/common.glsl"
 
 class LoDSystemApp : public ApplicationBase
 {
@@ -336,12 +336,12 @@ class LoDSystemApp : public ApplicationBase
         {
             return nbl::asset::EF_D32_SFLOAT;
         }
-        APP_CONSTRUCTOR(LoDSystemApp)
+        APP_CONSTRUCTOR(LoDSystemApp) 
         void onAppInitialized_impl() override
         {
             initOutput.window = core::smart_refctd_ptr(window);
-
-            CommonAPI::Init<WIN_W, WIN_H, FBO_COUNT>(initOutput, video::EAT_OPENGL, "Level of Detail System", asset::EF_D32_SFLOAT);
+            initOutput.system = core::smart_refctd_ptr(system);
+            CommonAPI::Init<WIN_W, WIN_H, FBO_COUNT>(initOutput, video::EAT_OPENGL_ES, "Level of Detail System", asset::EF_D32_SFLOAT);
             window = std::move(initOutput.window);
             gl = std::move(initOutput.apiConnection);
             surface = std::move(initOutput.surface);
@@ -412,7 +412,7 @@ class LoDSystemApp : public ApplicationBase
                 const asset::SPushConstantRange range = { asset::ISpecializedShader::ESS_COMPUTE,0u,sizeof(CullPushConstants_t) };
                 cullingSystem = culling_system_t::create(
                     core::smart_refctd_ptr<video::CScanner>(utilities->getDefaultScanner()), &range, &range + 1u, core::smart_refctd_ptr(layouts[3]),
-                    std::filesystem::current_path(), "\n#include \"../common.glsl\"\n", "\n#include \"../cull_overrides.glsl\"\n"
+                    localInputCWD, "\n#include \"common.glsl\"\n", "\n#include \"cull_overrides.glsl\"\n"
                 );
 
                 cullingParams.indirectDispatchParams = { 0ull,culling_system_t::createDispatchIndirectBuffer(utilities.get(),transferUpQueue) };
@@ -473,10 +473,10 @@ class LoDSystemApp : public ApplicationBase
             core::smart_refctd_ptr<ICPUSpecializedShader> shaders[2];
             {
                 IAssetLoader::SAssetLoadParams lp;
-                lp.workingDirectory = std::filesystem::current_path();
+                lp.workingDirectory = localInputCWD;
                 lp.logger = logger.get();
-                auto vertexShaderBundle = assetManager->getAsset("../mesh.vert", lp);
-                auto fragShaderBundle = assetManager->getAsset("../mesh.frag", lp);
+                auto vertexShaderBundle = assetManager->getAsset("mesh.vert", lp);
+                auto fragShaderBundle = assetManager->getAsset("mesh.frag", lp);
                 shaders[0] = IAsset::castDown<ICPUSpecializedShader>(*vertexShaderBundle.getContents().begin());
                 shaders[1] = IAsset::castDown<ICPUSpecializedShader>(*fragShaderBundle.getContents().begin());
             }
@@ -539,9 +539,9 @@ class LoDSystemApp : public ApplicationBase
                     {
                         auto* qnc = assetManager->getMeshManipulator()->getQuantNormalCache();
                         //loading cache from file
-                        const system::path cachePath = std::filesystem::current_path() / "../../tmp/normalCache101010.sse";
+                        const system::path cachePath = sharedOutputCWD / "normalCache101010.sse";
                         if (!qnc->loadCacheFromFile<asset::EF_A2B10G10R10_SNORM_PACK32>(system.get(), cachePath))
-                            logger->log("%s", ILogger::ELL_ERROR, "Failed to load cache.");
+                            int a = 0;// logger->log("%s", ILogger::ELL_ERROR, "Couldn't load cache.");
 
                         //
                         core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> cpuTransformTreeDSLayout = scene::ITransformTreeWithNormalMatrices::createDescriptorSetLayout();
