@@ -193,7 +193,7 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 					assert(layoutBinding->stageFlags==stageFlags);
 					assert((!!layoutBinding->samplers)==usesImmutableSamplers);
 				#endif
-				output->assign(_write.info[i], type);
+				*output = _write.info[i];
 				uint32_t localIx = _write.arrayElement+i;
 				updateMultibindParams(type,*output,m_flatOffsets->operator[](_write.binding)+localIx,_write.binding,localIx);
 			}
@@ -232,7 +232,7 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 					assert(outLayoutBinding->stageFlags==inLayoutBinding->stageFlags);
 					assert((!outLayoutBinding->samplers)==(!inLayoutBinding->samplers));
 				#endif
-				output->assign(*input, type);
+				*output = *input;
 				uint32_t localIx = _copy.dstArrayElement+i;
 				updateMultibindParams(type,*output,m_flatOffsets->operator[](_copy.dstBinding)+localIx,_copy.dstBinding,localIx);
 			}
