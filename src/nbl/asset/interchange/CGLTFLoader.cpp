@@ -437,6 +437,7 @@ namespace nbl
 				SBufferRange<ICPUBuffer> translationTable = {};
 				SBufferRange<ICPUBuffer> inverseBindPose = {};
 				ICPUSkeleton::joint_id_t root = ICPUSkeleton::invalid_joint_id;
+				uint16_t jointCount;
 			};
 			core::vector<Skin> skins(glTF.skins.size());
 
@@ -620,6 +621,7 @@ namespace nbl
 					skins[index].skeleton = skeletons[skeletonNodes[globalRootNode].skeletonID];
 					skins[index].translationTable = {sizeof(ICPUSkeleton::joint_id_t)*skinJointRefCount,sizeof(ICPUSkeleton::joint_id_t)*jointCount,vertexJointToSkeletonJoint};
 					skins[index].inverseBindPose = {sizeof(core::matrix3x4SIMD)*skinJointRefCount,sizeof(core::matrix3x4SIMD)*jointCount,inverseBindPose};
+					skins[index].jointCount = jointCount;
 
 					auto translationTableIt = reinterpret_cast<ICPUSkeleton::joint_id_t*>(skins[index].translationTable.buffer->getPointer())+skinJointRefCount;
 					for (const auto& joint : glTFSkin.joints)
@@ -1528,18 +1530,19 @@ namespace nbl
 						for (auto& meshbuffer : mesh->getMeshBufferVector())
 						{
 							auto& skin = skins[pair.skin];
-							const size_t jointCount = skin.skeleton->getJointCount();
+							const size_t jointCount = skin.jointCount;
 
 							SBufferBinding<ICPUBuffer> inverseBindPoseBinding;
 							inverseBindPoseBinding.buffer = core::smart_refctd_ptr(skin.inverseBindPose.buffer);
 							inverseBindPoseBinding.offset = skin.inverseBindPose.offset;
 
 							SBufferBinding<ICPUBuffer> jointAABBBufferBinding;
-							jointAABBBufferBinding.buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(jointCount * sizeof(core::aabbox3df));
+							jointAABBBufferBinding.buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(jointCount*sizeof(core::aabbox3df));
 							jointAABBBufferBinding.offset = 0u;
 
-							nbl::asset::IMeshManipulator::calculateBoundingBox(meshbuffer.get(), reinterpret_cast<core::aabbox3df*>(jointAABBBufferBinding.buffer->getPointer()));
-							meshbuffer->setSkin(std::move(inverseBindPoseBinding), std::move(jointAABBBufferBinding), jointCount, meshbuffer->deduceMaxJointsPerVertex());
+							auto* aabbPtr = reinterpret_cast<core::aabbox3df*>(jointAABBBufferBinding.buffer->getPointer());
+							meshbuffer->setSkin(std::move(inverseBindPoseBinding),std::move(jointAABBBufferBinding),jointCount,meshbuffer->deduceMaxJointsPerVertex());
+							nbl::asset::IMeshManipulator::calculateBoundingBox(meshbuffer.get(),aabbPtr);
 						}
 				}
 			}

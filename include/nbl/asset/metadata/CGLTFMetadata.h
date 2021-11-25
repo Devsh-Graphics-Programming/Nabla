@@ -30,7 +30,7 @@ class CGLTFMetadata final : public IAssetMetadata
         struct Instance
         {
             const ICPUSkeleton* skeleton;
-            asset::SBufferBinding<asset::ICPUBuffer> skinTranslationTable;
+            asset::SBufferBinding<const asset::ICPUBuffer> skinTranslationTable;
             const ICPUMesh* mesh;
             ICPUSkeleton::joint_id_t attachedToNode; // the node with the `mesh` and `skin` parameters
         };
