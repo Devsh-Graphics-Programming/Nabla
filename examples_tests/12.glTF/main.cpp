@@ -301,7 +301,7 @@ class GLTFApp : public ApplicationBase
 					return std::hash<std::string_view>{}(std::string_view(reinterpret_cast<const char*>(&inverseBindPoseRange),sizeof(inverseBindPoseRange)));
 				}
 			};
-			core::unordered_map<asset::SBufferRange<const asset::ICPUBuffer>,uint32_t,InverseBindPoseRangeHash> inverseBindPoseRanges;
+			core::unordered_map<asset::SBufferRange<const asset::ICPUBuffer>,std::unique_ptr<uint32_t[]>,InverseBindPoseRangeHash> inverseBindPoseRanges;
 			struct Skin
 			{
 				const ICPUSkeleton* skeleton;
@@ -336,15 +336,19 @@ class GLTFApp : public ApplicationBase
 					//instance.attachedToNode 
 					for (const auto& meshbuffer : instance.mesh->getMeshBuffers())
 					{
+						const uint32_t jointCount = meshbuffer->getJointCount();
+						if (jointCount==0u)
+							continue;
+
 						asset::SBufferRange<const asset::ICPUBuffer> inverseBindPoseRange;
 						inverseBindPoseRange.offset = meshbuffer->getInverseBindPoseBufferBinding().offset;
-						inverseBindPoseRange.size = sizeof(scene::ISkinInstanceCache::inverse_bind_pose_t)*meshbuffer->getJointCount();
+						inverseBindPoseRange.size = sizeof(scene::ISkinInstanceCache::inverse_bind_pose_t)*jointCount;
 						inverseBindPoseRange.buffer = meshbuffer->getInverseBindPoseBufferBinding().buffer;
 						if (inverseBindPoseRange.buffer)
 						{
 							auto foundIBPR = inverseBindPoseRanges.find(inverseBindPoseRange);
 							if (foundIBPR==inverseBindPoseRanges.end())
-								inverseBindPoseRanges.insert({std::move(inverseBindPoseRange),video::IPropertyPool::invalid});
+								inverseBindPoseRanges.insert({std::move(inverseBindPoseRange),std::unique_ptr<uint32_t[]>(new uint32_t[jointCount])});
 						}
 
 						Skin skin = {instance.skeleton,instance.skinTranslationTable,meshbuffer->getInverseBindPoseBufferBinding()};
@@ -358,13 +362,39 @@ class GLTFApp : public ApplicationBase
 			}
 			// allocate an inverse bind pose for every inverseBindPose
 			{
-				// temporary debug
+				auto* ibpPool = skinInstanceCache->getInverseBindPosePool();
 				for (const auto& pair : inverseBindPoseRanges)
 				{
 					const auto& ibpr = pair.first;
 					const uint8_t* ptr = reinterpret_cast<const uint8_t*>(ibpr.buffer->getPointer())+ibpr.offset;
 					auto inverseBindPoseIt = reinterpret_cast<const scene::ISkinInstanceCache::inverse_bind_pose_t*>(ptr);
 					auto end = reinterpret_cast<const scene::ISkinInstanceCache::inverse_bind_pose_t*>(ptr+ibpr.size);
+					const auto jointCount = std::distance(inverseBindPoseIt,end);
+
+					//
+					uint32_t* ids = pair.second.get();
+					std::fill_n(ids,jointCount,video::IPropertyPool::invalid);
+					ibpPool->allocateProperties(ids,ids+jointCount);
+
+					video::CPropertyPoolHandler::UpStreamingRequest request = {};
+					request.setFromPool(ibpPool,scene::ISkinInstanceCache::inverse_bind_pose_prop_ix);
+					request.fill = false;
+					request.elementCount = jointCount;
+					request.source.data = inverseBindPoseIt;
+					request.source.device2device = false;
+					request.dstAddresses = ids;
+					request.srcAddresses = nullptr; //iota
+					auto* pRequest = &request;
+					uint32_t waitSemaphoreCount = 0u;
+					video::IGPUSemaphore* const* waitSempahores = nullptr;
+					const asset::E_PIPELINE_STAGE_FLAGS* waitStages = nullptr;
+					ppHandler->transferProperties(
+						utilities->getDefaultUpStreamingBuffer(),xferCmdbuf.get(),xferFence.get(),xferQueue,xferScratch,
+						pRequest,1u,waitSemaphoreCount,waitSempahores,waitStages,logger.get()
+					);
+
+					// temporary debug
+					printf("\nNEW BINDPOSE RANGE");
 					while (inverseBindPoseIt!=end)
 					{
 						printf("\n%f %f %f %f\n%f %f %f %f\n%f %f %f %f\n",
