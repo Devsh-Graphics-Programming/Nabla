@@ -237,22 +237,36 @@ class GLTFApp : public ApplicationBase
 			}
 
 			std::mt19937 mt(0x45454545u);
-			core::vector<uint32_t> modelInstanceCounts;
-			// add skeleton instances to transform tree
-			core::vector<const asset::ICPUSkeleton*> skeletons;
-			core::vector<uint32_t> skeletonInstanceCounts;
+			// three levels of instancing:
+			// - instancing within a model (mesh instances)
+			// - skeleton instancing (incl copying currently playing animations)
+			// - model instancing TODO
+			core::vector<uint32_t> modelInstanceCounts; // TODO rename
+			// add skeleton instances to transform tree (abuse the value as first an instance count, then to store the offset to the node handles TODO)
+			core::unordered_map<const asset::ICPUSkeleton*,uint32_t> skeletonInstances;
 			for (const auto& model : models)
 			{
 				const auto instanceCount = modelInstanceCounts.emplace_back() = std::uniform_int_distribution<uint32_t>(1,5)(mt);
 				for (const auto& skeleton : model.meta->skeletons)
 				{
-					skeletons.push_back(skeleton.get());
-					skeletonInstanceCounts.push_back(instanceCount);
+					auto found = skeletonInstances.find(skeleton.get());
+					if (found!=skeletonInstances.end())
+						found->second += instanceCount;
+					else
+						skeletonInstances.insert({skeleton.get(),instanceCount});
 				}
 			}
 			// allocate skeleton nodes in TT
 			core::vector<scene::ITransformTree::node_t> allSkeletonNodes;
 			{
+				core::vector<const ICPUSkeleton*> skeletons; skeletons.reserve(skeletonInstances.size());
+				core::vector<uint32_t> skeletonInstanceCounts; skeletonInstanceCounts.reserve(skeletonInstances.size());
+				for (const auto& pair : skeletonInstances)
+				{
+					skeletons.push_back(pair.first);
+					skeletonInstanceCounts.push_back(pair.second);
+				}
+
 				scene::ITransformTreeManager::SkeletonAllocationRequest skeletonAllocationRequest;
 				skeletonAllocationRequest.tree = transformTree.get();
 				skeletonAllocationRequest.cmdbuf = xferCmdbuf.get();
@@ -280,6 +294,91 @@ class GLTFApp : public ApplicationBase
 				const asset::E_PIPELINE_STAGE_FLAGS* waitStages = nullptr;
 				transformTreeManager->addSkeletonNodes(skeletonAllocationRequest,waitSemaphoreCount,waitSempahores,waitStages);
 			}
+			struct InverseBindPoseRangeHash
+			{
+				inline size_t operator()(const asset::SBufferRange<const asset::ICPUBuffer>& inverseBindPoseRange) const
+				{
+					return std::hash<std::string_view>{}(std::string_view(reinterpret_cast<const char*>(&inverseBindPoseRange),sizeof(inverseBindPoseRange)));
+				}
+			};
+			core::unordered_map<asset::SBufferRange<const asset::ICPUBuffer>,uint32_t,InverseBindPoseRangeHash> inverseBindPoseRanges;
+			struct Skin
+			{
+				const ICPUSkeleton* skeleton;
+				asset::SBufferBinding<const asset::ICPUBuffer> skinTranslationTable;
+				asset::SBufferBinding<const asset::ICPUBuffer> inverseBindPoses;
+
+				inline bool operator==(const Skin& other) const
+				{
+					return skeleton==other.skeleton && skinTranslationTable==other.skinTranslationTable && inverseBindPoses==other.inverseBindPoses;
+				}
+			};
+			struct SkinHash
+			{
+				inline size_t operator()(const Skin& skin) const
+				{
+					return std::hash<std::string_view>{}(std::string_view(reinterpret_cast<const char*>(&skin),sizeof(skin)));
+				}
+			};
+			core::unordered_map<Skin,uint32_t,SkinHash> skinInstances;
+			// pick a scene and flag all skin instances
+			for (auto i=0u; i<models.size(); i++)
+			{
+				const auto modelInstanceCount = modelInstanceCounts[i];
+				const auto* meta = models[i].meta;
+				// pick a scene
+				const auto& scenes = meta->scenes;
+				const auto sceneID = meta->defaultSceneID<scenes.size() ? meta->defaultSceneID:0u;
+				const auto& scene = scenes[sceneID];
+				for (const auto& instanceID : scene.instanceIDs)
+				{
+					const auto& instance = meta->instances[instanceID];
+					//instance.attachedToNode 
+					for (const auto& meshbuffer : instance.mesh->getMeshBuffers())
+					{
+						asset::SBufferRange<const asset::ICPUBuffer> inverseBindPoseRange;
+						inverseBindPoseRange.offset = meshbuffer->getInverseBindPoseBufferBinding().offset;
+						inverseBindPoseRange.size = sizeof(scene::ISkinInstanceCache::inverse_bind_pose_t)*meshbuffer->getJointCount();
+						inverseBindPoseRange.buffer = meshbuffer->getInverseBindPoseBufferBinding().buffer;
+						if (inverseBindPoseRange.buffer)
+						{
+							auto foundIBPR = inverseBindPoseRanges.find(inverseBindPoseRange);
+							if (foundIBPR==inverseBindPoseRanges.end())
+								inverseBindPoseRanges.insert({std::move(inverseBindPoseRange),video::IPropertyPool::invalid});
+						}
+
+						Skin skin = {instance.skeleton,instance.skinTranslationTable,meshbuffer->getInverseBindPoseBufferBinding()};
+						auto foundSkin = skinInstances.find(skin);
+						if (foundSkin!=skinInstances.end())
+							foundSkin->second += modelInstanceCount;
+						else
+							skinInstances.insert({std::move(skin),modelInstanceCount});
+					}
+				}
+			}
+			// allocate an inverse bind pose for every inverseBindPose
+			{
+				// temporary debug
+				for (const auto& pair : inverseBindPoseRanges)
+				{
+					const auto& ibpr = pair.first;
+					const uint8_t* ptr = reinterpret_cast<const uint8_t*>(ibpr.buffer->getPointer())+ibpr.offset;
+					auto inverseBindPoseIt = reinterpret_cast<const scene::ISkinInstanceCache::inverse_bind_pose_t*>(ptr);
+					auto end = reinterpret_cast<const scene::ISkinInstanceCache::inverse_bind_pose_t*>(ptr+ibpr.size);
+					while (inverseBindPoseIt!=end)
+					{
+						printf("\n%f %f %f %f\n%f %f %f %f\n%f %f %f %f\n",
+							inverseBindPoseIt->rows[0].x,inverseBindPoseIt->rows[0].y,inverseBindPoseIt->rows[0].z,inverseBindPoseIt->rows[0].w,
+							inverseBindPoseIt->rows[1].x,inverseBindPoseIt->rows[1].y,inverseBindPoseIt->rows[1].z,inverseBindPoseIt->rows[1].w,
+							inverseBindPoseIt->rows[2].x,inverseBindPoseIt->rows[2].y,inverseBindPoseIt->rows[2].z,inverseBindPoseIt->rows[2].w
+						);
+						inverseBindPoseIt++;
+					}
+				}
+			}
+			// allocate a skin cache entry for every skin instance
+			{
+			}
 			//temp
 			{
 				IGPUBuffer::SCreationParams params = {};
@@ -300,19 +399,6 @@ class GLTFApp : public ApplicationBase
 						transferUpQueue,sizeof(CompressedAABB)*MaxNodeCount,tmp.data()
 					)}
 				);
-			}
-			// one skinning cache entry per skeleton instance and meshbuffer
-			{
-				//core::unordered_map<CGLTFMetadata,ISkinInstanceCache::skin_instance_t> cachedPairings;
-				auto instanceCountIt = modelInstanceCounts.begin();
-				for (const auto& model : models)
-				{
-					for (const auto& instance : model.meta->instances)
-					{
-						//instance.attachedToNode = ; // abuse
-					}
-					instanceCountIt++;
-				}
 			}
 			// TODO: skin instance cache finish code
 			// TODO: skin instance cache manager update shader

@@ -55,10 +55,16 @@ struct SBufferBinding
 template<typename BufferType>
 struct SBufferRange
 {
-	bool isValid() const
+	inline bool isValid() const
 	{
 		return buffer && size && (offset+size<=buffer->getSize());
 	}
+
+	inline bool operator==(const SBufferRange<BufferType>& other) const
+	{
+		return offset==other.offset && size==other.size && buffer==other.buffer; 
+	}
+	inline bool operator!=(const SBufferRange<BufferType>& rhs) const { return !operator==(rhs); }
 
 	size_t offset = 0ull;
 	size_t size = 0ull;
