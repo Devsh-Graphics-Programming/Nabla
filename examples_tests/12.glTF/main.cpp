@@ -15,7 +15,7 @@
 
 // TODO: move
 #include "nbl/asset/metadata/CGLTFMetadata.h"
-//#include "nbl/scene/CSkinInstanceCache.h"
+#include "nbl/scene/CSkinInstanceCache.h"
 #include "nbl/scene/ISkinInstanceCacheManager.h"
 
 using namespace nbl;
@@ -206,6 +206,16 @@ class GLTFApp : public ApplicationBase
 			// Transform Tree
 			constexpr uint32_t MaxNodeCount = 2u<<10u; // get ready for many many nodes
 			transformTree = scene::ITransformTreeWithNormalMatrices::create(logicalDevice.get(),MaxNodeCount);
+
+			// Skinning Cache
+			{
+				scene::ISkinInstanceCache::ImplicitCreationParameters params;
+				params.device = logicalDevice.get();
+				params.associatedTransformTree = transformTree;
+				params.inverseBindPoseCapacity = 1u<<16u;
+				params.jointCapacity = 4u<<10u;
+				skinInstanceCache = scene::CSkinInstanceCache<>::create(std::move(params));
+			}
 
 			auto ppHandler = utilities->getDefaultPropertyPoolHandler();
 			// transfer cmdbuf and fences
@@ -662,6 +672,7 @@ class GLTFApp : public ApplicationBase
 		core::smart_refctd_ptr<IGPUGraphicsPipeline> ttDebugDrawPipeline;
 		scene::ITransformTreeManager::DescriptorSets ttmDescriptorSets;
 		// skin cache
+		core::smart_refctd_ptr<scene::ISkinInstanceCache> skinInstanceCache;
 		core::smart_refctd_ptr<scene::ISkinInstanceCacheManager> sicManager;
 		// temporary debug
 		core::smart_refctd_ptr<scene::ITransformTreeWithNormalMatrices> transformTree;

@@ -33,6 +33,8 @@ class ISkinInstanceCache : public virtual core::IReferenceCounted
 		static inline constexpr uint32_t recomputed_stamp_prop_ix = 2u;
 		static inline constexpr uint32_t inverse_bind_pose_offset_prop_ix = 3u;
 
+		// for the inverse bind pose pool
+		using inverse_bind_pose_t = core::matrix3x4SIMD;
 		static inline constexpr uint32_t inverse_bind_pose_prop_ix = 0u;
 		
 
@@ -68,38 +70,49 @@ class ISkinInstanceCache : public virtual core::IReferenceCounted
 			return device->createGPUDescriptorSetLayout(bindings,bindings+BindingCount);
 		}
 
-
-
-
-
-
-
-
-
-
 		//
         struct CreationParametersBase
         {
             video::ILogicalDevice* device;
+			core::smart_refctd_ptr<ITransformTree> associatedTransformTree;
             uint8_t minAllocSizeInJoints = 8u;
+
+		protected:
+			inline bool isValid() const
+			{
+				return device && associatedTransformTree &&	minAllocSizeInJoints!=0u;
+			}
         };
-        struct ImplicitBufferCreationParameters : CreationParametersBase
+        struct ImplicitCreationParameters : CreationParametersBase
         {
 			uint32_t jointCapacity;
+			uint32_t inverseBindPoseCapacity;
+
+			inline bool isValid() const
+			{
+				return CreationParametersBase::isValid() && jointCapacity!=0u;
+			}
         };
-        struct ExplicitBufferCreationParameters : CreationParametersBase
+        struct ExplicitCreationParameters : CreationParametersBase
         {
-			asset::SBufferRange<video::IGPUBuffer> skinningMatrixBuffer;
 			asset::SBufferRange<video::IGPUBuffer> jointNodeBuffer;
+			asset::SBufferRange<video::IGPUBuffer> skinningMatrixBuffer;
 			asset::SBufferRange<video::IGPUBuffer> recomputedTimestampBuffer;
+			asset::SBufferRange<video::IGPUBuffer> inverseBindPoseOffsetBuffer;
+			core::smart_refctd_ptr<video::IPropertyPool> inverseBindPosePool;
+
+			inline bool isValid() const
+			{
+				return CreationParametersBase::isValid() &&
+					jointNodeBuffer.isValid() &&
+					skinningMatrixBuffer.isValid() &&
+					recomputedTimestampBuffer.isValid() &&
+					inverseBindPoseOffsetBuffer.isValid() &&
+					inverseBindPosePool &&
+					inverseBindPosePool->getPropertyCount() >= 1u &&
+					inverseBindPosePool->getPropertySize(inverse_bind_pose_prop_ix) == sizeof(inverse_bind_pose_t);
+			}
         };
-
-
-
-
-
-
-
 
 		//
 		inline const video::IGPUDescriptorSet* getCacheDescriptorSet() const {return m_cacheDS.get();}
@@ -176,63 +189,7 @@ class ISkinInstanceCache : public virtual core::IReferenceCounted
 		{
 			m_skinAllocator.reset();
 		}
-#if 0
-		template<class TransformTree, typename... Args>
-		static inline bool create(
-			core::smart_refctd_ptr<typename TransformTree::property_pool_t>& outPool,
-			core::smart_refctd_ptr<video::IGPUDescriptorSet>& outPoolDS,
-			core::smart_refctd_ptr<video::IGPUDescriptorSet>& outRenderDS,
-			video::ILogicalDevice* device, Args... args
-		)
-		{
-			using property_pool_t = typename TransformTree::property_pool_t;
-			outPool = property_pool_t::create(device,std::forward<Args>(args)...);
-			if (!outPool)
-				return false;
 
-			video::IDescriptorPool::SDescriptorPoolSize size = {asset::E_DESCRIPTOR_TYPE::EDT_STORAGE_BUFFER,property_pool_t::PropertyCount+TransformTree::RenderDescriptorSetBindingCount};
-			auto dsp = device->createDescriptorPool(video::IDescriptorPool::ECF_NONE,1u,1u,&size);
-			if (!dsp)
-				return false;
-
-			video::IGPUDescriptorSet::SWriteDescriptorSet writes[property_pool_t::PropertyCount];
-			static_assert(TransformTree::RenderDescriptorSetBindingCount<=property_pool_t::PropertyCount);
-			for (auto i=0u; i<property_pool_t::PropertyCount; i++)
-			{
-				writes[i].binding = i;
-				writes[i].descriptorType = asset::E_DESCRIPTOR_TYPE::EDT_STORAGE_BUFFER;
-				writes[i].count = 1u;
-			}
-			auto poolLayout = createPoolDescriptorSetLayout<TransformTree>(device);
-			auto renderLayout = createRenderDescriptorSetLayout<TransformTree>(device);
-			if (!poolLayout || !renderLayout)
-				return false;
-
-			outPoolDS = device->createGPUDescriptorSet(dsp.get(),std::move(poolLayout));
-			outRenderDS = device->createGPUDescriptorSet(dsp.get(),std::move(renderLayout));
-			if (!outPoolDS || !outRenderDS)
-				return false;
-
-			using DescriptorInfo = video::IGPUDescriptorSet::SDescriptorInfo;
-			DescriptorInfo infos[property_pool_t::PropertyCount];
-			for (auto i=0u; i<property_pool_t::PropertyCount; i++)
-			{
-				writes[i].dstSet = outPoolDS.get();
-				writes[i].arrayElement = 0u;
-				writes[i].info = infos+i;
-
-				infos[i] = DescriptorInfo(outPool->getPropertyMemoryBlock(i));
-			}
-			device->updateDescriptorSets(property_pool_t::PropertyCount,writes,0u,nullptr);
-			for (auto i=0u; i<property_pool_t::PropertyCount; i++)
-				writes[i].dstSet = outRenderDS.get();
-			infos[0] = DescriptorInfo(outPool->getPropertyMemoryBlock(global_transform_prop_ix));
-			if (TransformTree::HasNormalMatrices)
-				infos[1] = DescriptorInfo(outPool->getPropertyMemoryBlock(TransformTree::normal_matrix_prop_ix));
-			device->updateDescriptorSets(TransformTree::RenderDescriptorSetBindingCount,writes,0u,nullptr);
-			return true;
-		}
-#endif
 	protected:
 		ISkinInstanceCache(
 			uint8_t minAllocSizeInJoints, const uint32_t capacity, void* _skinAllocatorReserved,

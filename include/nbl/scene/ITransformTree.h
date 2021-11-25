@@ -143,7 +143,7 @@ class ITransformTree : public virtual core::IReferenceCounted
 				return false;
 
 			video::IDescriptorPool::SDescriptorPoolSize size = {asset::E_DESCRIPTOR_TYPE::EDT_STORAGE_BUFFER,property_pool_t::PropertyCount+TransformTree::RenderDescriptorSetBindingCount};
-			auto dsp = device->createDescriptorPool(video::IDescriptorPool::ECF_NONE,1u,1u,&size);
+			auto dsp = device->createDescriptorPool(video::IDescriptorPool::ECF_NONE,2u,1u,&size);
 			if (!dsp)
 				return false;
 
