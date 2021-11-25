@@ -858,6 +858,7 @@ public:
 #ifdef _NBL_PLATFORM_ANDROID_
 	static void recreateSurface(nbl::ui::CGraphicalApplicationAndroid* framework)
 	{
+		using namespace nbl;
 		android_app* app = framework->getApp();
 		auto apiConnection = framework->getAPIConnection();
 		auto window = framework->getWindow();
