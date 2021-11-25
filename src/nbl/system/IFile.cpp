@@ -55,6 +55,7 @@ static std::string deletePathFromPath(const std::string& filename, int32_t pathc
 path IFile::flattenFilename(const path& p)
 {
 	if (p.empty()) return p;
+
 	auto str = p.string();
 	std::replace(str.begin(), str.end(), '\\', '/');
 
