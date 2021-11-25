@@ -22,19 +22,6 @@ namespace scene
         Lets think about GPU Boning:
 
 
-            3) To Obtain BBox for Instance
-                3a) Min/Max Blending on a 1D Texture Attached to FBO to which we write with GL_POINTS
-                3b) Min/Max Blending with atomics after "culling" don't write invisible bones
-                3c) Reverse Ping-pong to get child-inclusive bboxes
-                3d) During Instance Culling Pass read all N-bones per instance and get BBox that way (bad parallelism, more instances needed for GPU-saturation)
-
-
-            EVERY SINGLE BONE'S POSITION WOULD HAVE TO BE UPDATED if EJOUR_READ is ENABLED!!! AND READ BACK!!!
-
-
-            Given the picture we have here, GPU Boning is only a thing we want to consider if we're ever going to have 4096+ instances of the same LoD visible
-            (As of AMD Radeon R9 490X)
-
 
             Hypothetical GPU-Boning Implementation:
                 1a) Fill Buffer LMB with Bone's Local TformMatrices if EJUOR_CONTROL
