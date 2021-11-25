@@ -862,7 +862,7 @@ public:
 		auto apiConnection = framework->getAPIConnection();
 		auto window = framework->getWindow();
 		auto logicalDevice = framework->getLogicalDevice();
-		auto surface = nbl::video::CSurfaceGLAndroid::create(nbl::core::smart_refctd_ptr<video::COpenGLESConnection>((nbl::video::COpenGLESConnection*)apiConnection), nbl::core::smart_refctd_ptr<ui::IWindowAndroid>(static_cast<ui::IWindowAndroid*>(window)));
+		auto surface = nbl::video::CSurfaceGLAndroid::create(nbl::core::smart_refctd_ptr<nbl::video::COpenGLESConnection>((nbl::video::COpenGLESConnection*)apiConnection), nbl::core::smart_refctd_ptr<nbl::ui::IWindowAndroid>(static_cast<nbl::ui::IWindowAndroid*>(window)));
 		auto renderpass = framework->getRenderpass();
 		nbl::asset::E_FORMAT depthFormat = framework->getDepthFormat();
 		framework->setSurface(surface);
@@ -872,9 +872,9 @@ public:
 		nbl::video::ISurface::SFormat requestedFormat;
 		
 		// Temporary to make previous examples work
-		requestedFormat.format = asset::EF_R8G8B8A8_SRGB;
-		requestedFormat.colorSpace.eotf = asset::EOTF_sRGB;
-		requestedFormat.colorSpace.primary = asset::ECP_SRGB;
+		requestedFormat.format = nbl::asset::EF_R8G8B8A8_SRGB;
+		requestedFormat.colorSpace.eotf = nbl::asset::EOTF_sRGB;
+		requestedFormat.colorSpace.primary = nbl::asset::ECP_SRGB;
 		
 		auto gpus = apiConnection->getPhysicalDevices();
 		assert(!gpus.empty());
@@ -887,7 +887,7 @@ public:
 			width,
 			height,
 			scImageCount,
-			core::smart_refctd_ptr<nbl::video::ILogicalDevice>(logicalDevice),
+			nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice>(logicalDevice),
 			surface,
 			nbl::video::ISurface::EPM_FIFO_RELAXED,
 			requestedFormat,
@@ -895,9 +895,9 @@ public:
 		auto fbo = createFBOWithSwapchainImages(scImageCount, 
 			width, 
 			height, 
-			core::smart_refctd_ptr<nbl::video::ILogicalDevice>(logicalDevice), 
+			nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice>(logicalDevice), 
 			swapchain,
-			core::smart_refctd_ptr<nbl::video::IGPURenderpass>(renderpass),
+			nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpass>(renderpass),
 			depthFormat);
 		framework->setSwapchain(std::move(swapchain));
 		framework->setFBOs(fbo);
@@ -938,7 +938,7 @@ public:
 		result.windowCb->setInputSystem(nbl::core::smart_refctd_ptr(result.inputSystem));
 #else
 		result.windowCb = nbl::core::smart_refctd_ptr<EventCallback>((CommonAPIEventCallback*)result.window->getEventCallback());
-		result.windowCb->setInputSystem(core::smart_refctd_ptr(result.inputSystem));
+		result.windowCb->setInputSystem(nbl::core::smart_refctd_ptr(result.inputSystem));
 		//result.window->setEventCallback(core::smart_refctd_ptr(result.windowCb));
 #endif
 		if(api_type == EAT_VULKAN) 
@@ -957,7 +957,7 @@ public:
 #ifdef _NBL_PLATFORM_WINDOWS_
 			result.surface = nbl::video::CSurfaceGLWin32::create(nbl::core::smart_refctd_ptr(_apiConnection), nbl::core::smart_refctd_ptr<ui::IWindowWin32>(static_cast<ui::IWindowWin32*>(result.window.get())));
 #elif defined(_NBL_PLATFORM_ANDROID_)
-			result.surface = nbl::video::CSurfaceGLAndroid::create(nbl::core::smart_refctd_ptr(_apiConnection), nbl::core::smart_refctd_ptr<ui::IWindowAndroid>(static_cast<ui::IWindowAndroid*>(result.window.get())));
+			result.surface = nbl::video::CSurfaceGLAndroid::create(nbl::core::smart_refctd_ptr(_apiConnection), nbl::core::smart_refctd_ptr<nbl::ui::IWindowAndroid>(static_cast<nbl::ui::IWindowAndroid*>(result.window.get())));
 #endif
 			result.apiConnection = _apiConnection;
 		}
@@ -967,7 +967,7 @@ public:
 #ifdef _NBL_PLATFORM_WINDOWS_
 			result.surface = nbl::video::CSurfaceGLWin32::create(nbl::core::smart_refctd_ptr(_apiConnection), nbl::core::smart_refctd_ptr<ui::IWindowWin32>(static_cast<ui::IWindowWin32*>(result.window.get())));
 #elif defined(_NBL_PLATFORM_ANDROID_)
-			result.surface = nbl::video::CSurfaceGLAndroid::create(nbl::core::smart_refctd_ptr(_apiConnection), nbl::core::smart_refctd_ptr<ui::IWindowAndroid>(static_cast<ui::IWindowAndroid*>(result.window.get())));
+			result.surface = nbl::video::CSurfaceGLAndroid::create(nbl::core::smart_refctd_ptr(_apiConnection), nbl::core::smart_refctd_ptr<nbl::ui::IWindowAndroid>(static_cast<nbl::ui::IWindowAndroid*>(result.window.get())));
 #endif
 			result.apiConnection = _apiConnection;
 		}
