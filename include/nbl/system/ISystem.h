@@ -296,7 +296,7 @@ class ISystem : public core::IReferenceCounted
             std::pair<const uint8_t*, size_t> found = nbl::builtin::get_resource<StringUniqueType>();
             if (found.first && found.second)
             {
-                auto fileView = core::make_smart_refctd_ptr<CFileView<VirtualAllocator>>(core::smart_refctd_ptr<ISystem>(this), "", core::bitflag<IFile::E_CREATE_FLAGS>(IFile::ECF_READ) | IFile::ECF_WRITE, found.second);
+                auto fileView = core::make_smart_refctd_ptr<CFileView<VirtualAllocator>>(core::smart_refctd_ptr<ISystem>(this), StringUniqueType::value, core::bitflag<IFile::E_CREATE_FLAGS>(IFile::ECF_READ) | IFile::ECF_WRITE, found.second);
                 fileView->write_impl(found.first, 0, found.second);
                 return fileView;
             }
