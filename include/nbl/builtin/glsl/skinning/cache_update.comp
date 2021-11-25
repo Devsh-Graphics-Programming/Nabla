@@ -17,7 +17,7 @@ void main()
             uint inverseBindPoseOffset = inverseBindPoseOffsets.data[joint];
             mat4x3 globalTransform = nodeGlobalTransforms.data[parentNode];
             mat4x3 inverseBindPose = inverseBindPoses.data[inverseBindPoseOffset];
-            skinningTransforms.data[joint] = globalTransform*inverseBindPose;
+            skinningTransforms.data[joint] = nbl_glsl_pseudoMul4x3with4x3(globalTransform,inverseBindPose);
         }
     }
 }

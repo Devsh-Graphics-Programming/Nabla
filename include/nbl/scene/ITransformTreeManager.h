@@ -61,7 +61,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 				writes[i].arrayElement = 0u;
 				writes[i].count = 1u;
 				writes[i].descriptorType = asset::EDT_STORAGE_BUFFER;
-				writes[i].info = infos + i;
+				writes[i].info = infos+i;
 			}
 			device->updateDescriptorSets(BindingCount, writes, 0u, nullptr);
 		}
@@ -835,7 +835,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			pcRange.offset = 0u;
 			pcRange.size = sizeof(DebugPushConstants);
 			pcRange.stageFlags = asset::ISpecializedShader::ESS_VERTEX;
-			auto debugDrawLayout = device->createGPUPipelineLayout(nullptr,nullptr,core::smart_refctd_ptr(poolLayout),core::smart_refctd_ptr(debugDrawDsLayout));
+			auto debugDrawLayout = device->createGPUPipelineLayout(&pcRange,&pcRange+1u,core::smart_refctd_ptr(poolLayout),core::smart_refctd_ptr(debugDrawDsLayout));
 
 			retval.updateRelative = device->createGPUComputePipeline(nullptr,std::move(updateRelativeLayout),core::smart_refctd_ptr(updateRelativeSpec));
 			retval.recomputeGlobal = device->createGPUComputePipeline(nullptr,std::move(recomputeGlobalLayout),core::smart_refctd_ptr(recomputeGlobalSpec));

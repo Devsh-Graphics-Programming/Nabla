@@ -82,7 +82,7 @@ class ITransformTree : public virtual core::IReferenceCounted
 		inline const auto* getRenderDescriptorSet() const {return m_renderDS.get();}
 
 		// nodes array must be initialized with invalid_node
-		inline bool allocateNodes(const core::SRange<ITransformTree::node_t>& outNodes)
+		[[nodiscard]] inline bool allocateNodes(const core::SRange<ITransformTree::node_t>& outNodes)
 		{
 			if (outNodes.size()>getNodePropertyPool()->getFree())
 				return false;

@@ -13,8 +13,10 @@
 #include "../common/CommonAPI.h"
 #include "nbl/ext/ScreenShot/ScreenShot.h"
 
+// TODO: move
 #include "nbl/asset/metadata/CGLTFMetadata.h"
-#include "nbl/scene/CSkinInstanceCache.h"
+//#include "nbl/scene/CSkinInstanceCache.h"
+#include "nbl/scene/ISkinInstanceCacheManager.h"
 
 using namespace nbl;
 using namespace asset;
@@ -105,7 +107,9 @@ class GLTFApp : public ApplicationBase
 			transferUpQueue = queues[decltype(initOutput)::EQT_TRANSFER_UP];
 			
 			transformTreeManager = scene::ITransformTreeManager::create(utilities.get(),transferUpQueue);
-			debugDrawPipeline = transformTreeManager->createDebugPipeline<scene::ITransformTreeWithNormalMatrices>(core::smart_refctd_ptr(renderpass));
+			ttDebugDrawPipeline = transformTreeManager->createDebugPipeline<scene::ITransformTreeWithNormalMatrices>(core::smart_refctd_ptr(renderpass));
+
+			sicManager = scene::ISkinInstanceCacheManager::create(utilities.get(),transferUpQueue);
 
 			auto gpuTransferFence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
 			auto gpuComputeFence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
@@ -202,20 +206,6 @@ class GLTFApp : public ApplicationBase
 			// Transform Tree
 			constexpr uint32_t MaxNodeCount = 2u<<10u; // get ready for many many nodes
 			transformTree = scene::ITransformTreeWithNormalMatrices::create(logicalDevice.get(),MaxNodeCount);
-			{
-				auto debugDrawDSLayout = transformTreeManager->createDebugDrawDescriptorSetLayout(logicalDevice.get());
-				const auto* pDebugDrawDSLayout = &debugDrawDSLayout.get();
-				auto pool = logicalDevice->createDescriptorPoolForDSLayouts(IDescriptorPool::ECF_NONE,pDebugDrawDSLayout,pDebugDrawDSLayout+1u);
-				debugDrawDS = logicalDevice->createGPUDescriptorSet(pool.get(),std::move(debugDrawDSLayout));
-				
-				const core::aabbox3df defaultAABB(-0.01f,-0.01f,-0.01f,0.01f,0.01f,0.01f);
-				core::vector<CompressedAABB> tmp(MaxNodeCount,defaultAABB);
-				transformTreeManager->updateDebugDrawDescriptorSet(
-					logicalDevice.get(),debugDrawDS.get(),{0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(
-						transferUpQueue,sizeof(CompressedAABB)*MaxNodeCount,tmp.data()
-					)}
-				);
-			}
 
 			auto ppHandler = utilities->getDefaultPropertyPoolHandler();
 			// transfer cmdbuf and fences
@@ -292,6 +282,14 @@ class GLTFApp : public ApplicationBase
 
 				ttmDescriptorSets = transformTreeManager->createAllDescriptorSets(logicalDevice.get());
 				transformTreeManager->updateRecomputeGlobalTransformsDescriptorSet(logicalDevice.get(),ttmDescriptorSets.recomputeGlobal.get(),SBufferBinding(allSkeletonNodesBinding));
+				
+				const core::aabbox3df defaultAABB(-0.01f,-0.01f,-0.01f,0.01f,0.01f,0.01f);
+				core::vector<CompressedAABB> tmp(MaxNodeCount,defaultAABB);
+				transformTreeManager->updateDebugDrawDescriptorSet(
+					logicalDevice.get(),ttmDescriptorSets.debugDraw.get(),{0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(
+						transferUpQueue,sizeof(CompressedAABB)*MaxNodeCount,tmp.data()
+					)}
+				);
 			}
 			// one skinning cache entry per skeleton instance and meshbuffer
 			{
@@ -621,7 +619,7 @@ class GLTFApp : public ApplicationBase
 				pc.viewProjectionMatrix = viewProjectionMatrix;
 				pc.lineColor.set(0.f,1.f,0.f,1.f);
 				pc.aabbColor.set(1.f,0.f,0.f,1.f);
-				transformTreeManager->debugDraw(commandBuffer.get(),debugDrawPipeline.get(),transformTree.get(),debugDrawDS.get(),nodeIDs,iotaBinding,pc,totalJointCount);
+				transformTreeManager->debugDraw(commandBuffer.get(),ttDebugDrawPipeline.get(),transformTree.get(),ttmDescriptorSets.debugDraw.get(),nodeIDs,iotaBinding,pc,totalJointCount);
 			}
 
 
@@ -659,12 +657,14 @@ class GLTFApp : public ApplicationBase
 
 		nbl::video::IGPUQueue* transferUpQueue = nullptr;
 
+		// transform tree
 		core::smart_refctd_ptr<scene::ITransformTreeManager> transformTreeManager;
+		core::smart_refctd_ptr<IGPUGraphicsPipeline> ttDebugDrawPipeline;
 		scene::ITransformTreeManager::DescriptorSets ttmDescriptorSets;
-		core::smart_refctd_ptr<IGPUGraphicsPipeline> debugDrawPipeline;
-		core::smart_refctd_ptr<scene::ITransformTreeWithNormalMatrices> transformTree;
-		core::smart_refctd_ptr<IGPUDescriptorSet> debugDrawDS;
+		// skin cache
+		core::smart_refctd_ptr<scene::ISkinInstanceCacheManager> sicManager;
 		// temporary debug
+		core::smart_refctd_ptr<scene::ITransformTreeWithNormalMatrices> transformTree;
 		uint32_t totalJointCount;
 		SBufferBinding<IGPUBuffer> allSkeletonNodesBinding;
 		SBufferBinding<IGPUBuffer> iotaBinding;

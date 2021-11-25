@@ -13,14 +13,69 @@ namespace nbl::scene
 class ISkinInstanceCache : public virtual core::IReferenceCounted
 {
 	public:
-		// properties
-		using skinning_matrix_t = core::matrix3x4SIMD;
-		using joint_t = ITransformTree::node_t;
-		using recomputed_stamp_t = ITransformTree::recomputed_stamp_t;
-		// self
 		using skin_instance_t = uint32_t;
 		using AddressAllocator = core::GeneralpurposeAddressAllocator<skin_instance_t>;
-		static inline constexpr auto invalid = AddressAllocator::invalid_address;
+		static inline constexpr auto invalid_instance = AddressAllocator::invalid_address;
+
+		// main pseudo-pool properties
+		using joint_t = ITransformTree::node_t;
+		using skinning_matrix_t = core::matrix3x4SIMD;
+		using recomputed_stamp_t = ITransformTree::recomputed_stamp_t;
+		using inverse_bind_pose_offset_t = uint32_t;
+
+		// for correct intialization
+		static inline constexpr recomputed_stamp_t initial_recomputed_timestamp = 0xffffffffu;
+		static_assert(initial_recomputed_timestamp<ITransformTree::min_timestamp || initial_recomputed_timestamp>ITransformTree::max_timestamp);
+		static_assert(initial_recomputed_timestamp!=ITransformTree::initial_recomputed_timestamp);
+
+		static inline constexpr uint32_t joint_prop_ix = 0u;
+		static inline constexpr uint32_t skinning_matrix_prop_ix = 1u;
+		static inline constexpr uint32_t recomputed_stamp_prop_ix = 2u;
+		static inline constexpr uint32_t inverse_bind_pose_offset_prop_ix = 3u;
+
+		static inline constexpr uint32_t inverse_bind_pose_prop_ix = 0u;
+		
+
+		//
+		static inline constexpr uint32_t CacheDescriptorSetBindingCount = 7u;
+		static inline core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> createCacheDescriptorSetLayout(asset::ISpecializedShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
+		{
+			asset::ICPUDescriptorSetLayout::SBinding bindings[CacheDescriptorSetBindingCount];
+            asset::ICPUDescriptorSetLayout::fillBindingsSameType(bindings,CacheDescriptorSetBindingCount,asset::E_DESCRIPTOR_TYPE::EDT_STORAGE_BUFFER,nullptr,stageAccessFlags);
+			return core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(bindings,bindings+CacheDescriptorSetBindingCount);
+		}
+		static inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createCacheDescriptorSetLayout(video::ILogicalDevice* device, asset::ISpecializedShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
+		{
+			video::IGPUDescriptorSetLayout::SBinding bindings[CacheDescriptorSetBindingCount];
+			video::IGPUDescriptorSetLayout::fillBindingsSameType(bindings,CacheDescriptorSetBindingCount,asset::E_DESCRIPTOR_TYPE::EDT_STORAGE_BUFFER,nullptr,stageAccessFlags);
+			return device->createGPUDescriptorSetLayout(bindings,bindings+CacheDescriptorSetBindingCount);
+		}
+		//
+		template<class TransformTree>
+		static inline core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> createRenderDescriptorSetLayout(asset::ISpecializedShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
+		{
+			constexpr auto BindingCount = TransformTree::RenderDescriptorSetBindingCount+1u;
+			asset::ICPUDescriptorSetLayout::SBinding bindings[BindingCount];
+            asset::ICPUDescriptorSetLayout::fillBindingsSameType(bindings,BindingCount,asset::E_DESCRIPTOR_TYPE::EDT_STORAGE_BUFFER,nullptr,stageAccessFlags);
+			return core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(bindings,bindings+BindingCount);
+		}
+		template<class TransformTree>
+		static inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createRenderDescriptorSetLayout(video::ILogicalDevice* device, asset::ISpecializedShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
+		{
+			constexpr auto BindingCount = TransformTree::RenderDescriptorSetBindingCount+1u;
+			video::IGPUDescriptorSetLayout::SBinding bindings[BindingCount];
+			video::IGPUDescriptorSetLayout::fillBindingsSameType(bindings,BindingCount,asset::E_DESCRIPTOR_TYPE::EDT_STORAGE_BUFFER,nullptr,stageAccessFlags);
+			return device->createGPUDescriptorSetLayout(bindings,bindings+BindingCount);
+		}
+
+
+
+
+
+
+
+
+
 
 		//
         struct CreationParametersBase
@@ -39,43 +94,30 @@ class ISkinInstanceCache : public virtual core::IReferenceCounted
 			asset::SBufferRange<video::IGPUBuffer> recomputedTimestampBuffer;
         };
 
-		// useful for everyone
-		static inline constexpr uint32_t BufferCount = 3u;
-		static inline constexpr asset::ISpecializedShader::E_SHADER_STAGE DefaultDescriptorAccessFlags[BufferCount] = {
-			asset::ISpecializedShader::ESS_COMPUTE,asset::ISpecializedShader::ESS_COMPUTE,asset::ISpecializedShader::ESS_COMPUTE
-		};
-		template<typename BindingType>
-		static inline void fillDescriptorLayoutBindings(BindingType* bindings, const asset::ISpecializedShader::E_SHADER_STAGE* stageAccessFlags=DefaultDescriptorAccessFlags)
-		{
-			for (auto i=0u; i<BufferCount; i++)
-			{
-				bindings[i].binding = i;
-				bindings[i].type = asset::E_DESCRIPTOR_TYPE::EDT_STORAGE_BUFFER;
-				bindings[i].count = 1u;
-				bindings[i].stageFlags = stageAccessFlags ? stageAccessFlags[i]:asset::ISpecializedShader::ESS_ALL;
-				bindings[i].samplers = nullptr;
-			}
-		}
-		static inline core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> createDescriptorSetLayout(const asset::ISpecializedShader::E_SHADER_STAGE* stageAccessFlags=DefaultDescriptorAccessFlags)
-		{
-			asset::ICPUDescriptorSetLayout::SBinding bindings[BufferCount];
-			fillDescriptorLayoutBindings(bindings,stageAccessFlags);
-			return core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(bindings,bindings+BufferCount);
-		}
-		static inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createDescriptorSetLayout(video::ILogicalDevice* device, const asset::ISpecializedShader::E_SHADER_STAGE* stageAccessFlags=DefaultDescriptorAccessFlags)
-		{
-			video::IGPUDescriptorSetLayout::SBinding bindings[BufferCount];
-			fillDescriptorLayoutBindings(bindings,stageAccessFlags);
-			return device->createGPUDescriptorSetLayout(bindings,bindings+BufferCount);
-		}
+
+
+
+
+
+
 
 		//
-		inline const video::IGPUDescriptorSet* getDescriptorSet() const {return m_descriptorSet.get();}
+		inline const video::IGPUDescriptorSet* getCacheDescriptorSet() const {return m_cacheDS.get();}
+		inline const video::IGPUDescriptorSet* getRenderDescriptorSet() const {return m_renderDS.get();}
 
 		//
+		inline ITransformTree* getAssociatedTransformTree() { return m_tt.get(); }
+		inline const ITransformTree* getAssociatedTransformTree() const { return m_tt.get(); }
+		
+		//
+		inline auto* getInverseBindPosePool() { return m_inverseBindPosePool.get(); }
+		inline const auto* getInverseBindPosePool() const { return m_inverseBindPosePool.get(); }
+		
+		//
+		inline const auto& getJointNodeMemoryBlock() const { return m_jointNodeBlock; }
 		inline const auto& getSkinningMatrixMemoryBlock() const {return m_skinningMatrixBlock;}
-		inline const auto& getJointNodeMemoryBlock() const {return m_jointNodeBlock;}
 		inline const auto& getRecomputedTimestampMemoryBlock() const {return m_recomputedTimestampBlock;}
+		inline const auto& getInverseBindPoseOffsetMemoryBlock() const {return m_inverseBindPoseOffsetBlock;}
 
 		//
 		inline uint32_t getAllocatedSkinningMatrices() const
@@ -101,16 +143,16 @@ class ISkinInstanceCache : public virtual core::IReferenceCounted
 			// self explanatory
 			const uint32_t* jointCountPerSkin;
 		};
-		inline bool allocate(const Allocation& params)
+		[[nodiscard]] inline bool allocate(const Allocation& params)
 		{
             for (auto i=0u; i<params.count; i++)
             {
                 auto& skinInstance = params.skinInstances[i];
-                if (skinInstance!=invalid)
+                if (skinInstance!=invalid_instance)
                     continue;
 
 				skinInstance = m_skinAllocator.alloc_addr(params.jointCountPerSkin[i],1u);
-                if (skinInstance==invalid)
+                if (skinInstance==invalid_instance)
                     return false;
             }
 			return true;
@@ -121,36 +163,101 @@ class ISkinInstanceCache : public virtual core::IReferenceCounted
             for (auto i=0u; i<params.count; i++)
             {
                 auto& skinInstance = params.skinInstances[i];
-                if (skinInstance==invalid)
+                if (skinInstance==invalid_instance)
                     continue;
 
 				m_skinAllocator.free_addr(skinInstance,params.jointCountPerSkin[i]);
             }
 		}
+		// TODO: setup transfers, etc.
 
 		// This removes all cache entries
 		inline void clear()
 		{
 			m_skinAllocator.reset();
 		}
+#if 0
+		template<class TransformTree, typename... Args>
+		static inline bool create(
+			core::smart_refctd_ptr<typename TransformTree::property_pool_t>& outPool,
+			core::smart_refctd_ptr<video::IGPUDescriptorSet>& outPoolDS,
+			core::smart_refctd_ptr<video::IGPUDescriptorSet>& outRenderDS,
+			video::ILogicalDevice* device, Args... args
+		)
+		{
+			using property_pool_t = typename TransformTree::property_pool_t;
+			outPool = property_pool_t::create(device,std::forward<Args>(args)...);
+			if (!outPool)
+				return false;
 
+			video::IDescriptorPool::SDescriptorPoolSize size = {asset::E_DESCRIPTOR_TYPE::EDT_STORAGE_BUFFER,property_pool_t::PropertyCount+TransformTree::RenderDescriptorSetBindingCount};
+			auto dsp = device->createDescriptorPool(video::IDescriptorPool::ECF_NONE,1u,1u,&size);
+			if (!dsp)
+				return false;
+
+			video::IGPUDescriptorSet::SWriteDescriptorSet writes[property_pool_t::PropertyCount];
+			static_assert(TransformTree::RenderDescriptorSetBindingCount<=property_pool_t::PropertyCount);
+			for (auto i=0u; i<property_pool_t::PropertyCount; i++)
+			{
+				writes[i].binding = i;
+				writes[i].descriptorType = asset::E_DESCRIPTOR_TYPE::EDT_STORAGE_BUFFER;
+				writes[i].count = 1u;
+			}
+			auto poolLayout = createPoolDescriptorSetLayout<TransformTree>(device);
+			auto renderLayout = createRenderDescriptorSetLayout<TransformTree>(device);
+			if (!poolLayout || !renderLayout)
+				return false;
+
+			outPoolDS = device->createGPUDescriptorSet(dsp.get(),std::move(poolLayout));
+			outRenderDS = device->createGPUDescriptorSet(dsp.get(),std::move(renderLayout));
+			if (!outPoolDS || !outRenderDS)
+				return false;
+
+			using DescriptorInfo = video::IGPUDescriptorSet::SDescriptorInfo;
+			DescriptorInfo infos[property_pool_t::PropertyCount];
+			for (auto i=0u; i<property_pool_t::PropertyCount; i++)
+			{
+				writes[i].dstSet = outPoolDS.get();
+				writes[i].arrayElement = 0u;
+				writes[i].info = infos+i;
+
+				infos[i] = DescriptorInfo(outPool->getPropertyMemoryBlock(i));
+			}
+			device->updateDescriptorSets(property_pool_t::PropertyCount,writes,0u,nullptr);
+			for (auto i=0u; i<property_pool_t::PropertyCount; i++)
+				writes[i].dstSet = outRenderDS.get();
+			infos[0] = DescriptorInfo(outPool->getPropertyMemoryBlock(global_transform_prop_ix));
+			if (TransformTree::HasNormalMatrices)
+				infos[1] = DescriptorInfo(outPool->getPropertyMemoryBlock(TransformTree::normal_matrix_prop_ix));
+			device->updateDescriptorSets(TransformTree::RenderDescriptorSetBindingCount,writes,0u,nullptr);
+			return true;
+		}
+#endif
 	protected:
 		ISkinInstanceCache(
 			uint8_t minAllocSizeInJoints, const uint32_t capacity, void* _skinAllocatorReserved,
-			asset::SBufferRange<video::IGPUBuffer>&& _skinningMatrixBuffer,
 			asset::SBufferRange<video::IGPUBuffer>&& _jointNodeBuffer,
+			asset::SBufferRange<video::IGPUBuffer>&& _skinningMatrixBuffer,
 			asset::SBufferRange<video::IGPUBuffer>&& _recomputedTimestampBuffer,
-			core::smart_refctd_ptr<video::IGPUDescriptorSet>&& _descriptorSet
+			core::smart_refctd_ptr<ITransformTree>&& _tt,
+			asset::SBufferRange<video::IGPUBuffer>&& _inverseBindPoseOffsetBuffer,
+			core::smart_refctd_ptr<video::IPropertyPool>&& _inverseBindPosePool,
+			core::smart_refctd_ptr<video::IGPUDescriptorSet>&& _cacheDS,
+			core::smart_refctd_ptr<video::IGPUDescriptorSet>&& _renderDS
 		) : m_skinAllocator(_skinAllocatorReserved,0u,0u,1u,capacity,minAllocSizeInJoints),
 			m_skinAllocatorReserved(_skinAllocatorReserved),
-			m_skinningMatrixBlock({ _skinningMatrixBuffer.offset,sizeof(skinning_matrix_t)*capacity,std::move(_skinningMatrixBuffer.buffer)}),
 			m_jointNodeBlock({_jointNodeBuffer.offset,sizeof(joint_t)*capacity,std::move(_jointNodeBuffer.buffer)}),
+			m_skinningMatrixBlock({ _skinningMatrixBuffer.offset,sizeof(skinning_matrix_t)*capacity,std::move(_skinningMatrixBuffer.buffer)}),
 			m_recomputedTimestampBlock({_recomputedTimestampBuffer.offset,sizeof(recomputed_stamp_t)*capacity,std::move(_recomputedTimestampBuffer.buffer)}),
-			m_descriptorSet(std::move(_descriptorSet))
+			m_tt(std::move(_tt)),
+			m_inverseBindPoseOffsetBlock({_inverseBindPoseOffsetBuffer.offset,sizeof(inverse_bind_pose_offset_t)*capacity,std::move(_inverseBindPoseOffsetBuffer.buffer)}),
+			m_inverseBindPosePool(std::move(_inverseBindPosePool)), m_cacheDS(std::move(_cacheDS)), m_renderDS(std::move(_renderDS))
 		{
-			m_skinningMatrixBlock.buffer->setObjectDebugName("ISkinInstanceCache::skinning_matrix_t");
 			m_jointNodeBlock.buffer->setObjectDebugName("ISkinInstanceCache::joint_t");
+			m_skinningMatrixBlock.buffer->setObjectDebugName("ISkinInstanceCache::skinning_matrix_t");
 			m_recomputedTimestampBlock.buffer->setObjectDebugName("ISkinInstanceCache::recomputed_stamp_t");
+			m_inverseBindPoseOffsetBlock.buffer->setObjectDebugName("ISkinInstanceCache::inverse_bind_pose_offset_t");
+			m_inverseBindPosePool->getPropertyMemoryBlock(inverse_bind_pose_prop_ix).buffer->setObjectDebugName("ISkinInstanceCache::inverse_bind_pose_t");
 		}
 		virtual ~ISkinInstanceCache()
 		{
@@ -161,10 +268,13 @@ class ISkinInstanceCache : public virtual core::IReferenceCounted
 		
         AddressAllocator m_skinAllocator;
 		void* m_skinAllocatorReserved;
+		asset::SBufferRange<video::IGPUBuffer> m_jointNodeBlock;
         asset::SBufferRange<video::IGPUBuffer> m_skinningMatrixBlock;
-        asset::SBufferRange<video::IGPUBuffer> m_jointNodeBlock;
         asset::SBufferRange<video::IGPUBuffer> m_recomputedTimestampBlock;
-		core::smart_refctd_ptr<video::IGPUDescriptorSet> m_descriptorSet;
+		core::smart_refctd_ptr<ITransformTree> m_tt;
+        asset::SBufferRange<video::IGPUBuffer> m_inverseBindPoseOffsetBlock;
+		core::smart_refctd_ptr<video::IPropertyPool> m_inverseBindPosePool;
+		core::smart_refctd_ptr<video::IGPUDescriptorSet> m_cacheDS,m_renderDS;
 };
 
 } // end namespace nbl::scene
