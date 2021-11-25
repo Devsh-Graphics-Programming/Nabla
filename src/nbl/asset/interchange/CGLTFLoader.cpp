@@ -76,7 +76,7 @@ namespace nbl
 				}
 				auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl), asset::ICPUShader::buffer_contains_glsl);
 
-				ICPUSpecializedShader::SInfo specInfo({}, nullptr, "main", stage, stage != ICPUSpecializedShader::ESS_VERTEX ? "?IrrlichtBAW glTFLoader FragmentShader?" : "?IrrlichtBAW glTFLoader VertexShader?");
+				ICPUSpecializedShader::SInfo specInfo({}, nullptr, "main", stage, stage != ICPUSpecializedShader::ESS_VERTEX ? "?Nabla glTFLoader FragmentShader?" : "?Nabla glTFLoader VertexShader?");
 				auto cpuShader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecializedShader), std::move(specInfo));
 
 				auto insertShaderIntoCache = [&](const char* path)
@@ -89,6 +89,7 @@ namespace nbl
 				insertShaderIntoCache(decltype(constexprStringType)::value);
 			};
 
+			// TODO: separate versions with/without skinning?
 			registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_UV_CACHE_KEY) {}, ICPUSpecializedShader::ESS_VERTEX);
 			registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_COLOR_CACHE_KEY) {}, ICPUSpecializedShader::ESS_VERTEX);
 			registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_NO_UV_COLOR_CACHE_KEY) {}, ICPUSpecializedShader::ESS_VERTEX);
@@ -142,26 +143,18 @@ namespace nbl
 				TODO: https://github.com/Devsh-Graphics-Programming/Nabla/pull/196#issuecomment-906469117
 				it doesn't work
 			*/
-
-			const std::string relativeDirectory = _file->getFileName().parent_path().string() + "/";
-			//overrideAssetLoadParams.relativeDir = relativeDirectory.c_str();
 			SContext context(overrideAssetLoadParams, _file, _override, _hierarchyLevel);
 
 			SGLTF glTF;
 			if(!loadAndGetGLTF(glTF, context))
 				return {};
 
-			auto getURIAbsolutePath = [&](std::string uri) -> std::string
-			{
-				return relativeDirectory + uri;
-			};
-
 			// TODO: having validated and loaded glTF data we can use it to create pipelines and data
 
 			core::vector<core::smart_refctd_ptr<ICPUBuffer>> cpuBuffers;
 			for (auto& glTFBuffer : glTF.buffers)
 			{
-				auto buffer_bundle = assetManager->getAsset(getURIAbsolutePath(glTFBuffer.uri.value()), context.loadContext.params);
+				auto buffer_bundle = assetManager->getAsset(glTFBuffer.uri.value(),context.loadContext.params);
 				if (buffer_bundle.getContents().empty())
 					return {};
 
@@ -177,7 +170,7 @@ namespace nbl
 
 					if (glTFImage.uri.has_value())
 					{
-						auto image_bundle = assetManager->getAsset(getURIAbsolutePath(glTFImage.uri.value()), context.loadContext.params);
+						auto image_bundle = assetManager->getAsset(glTFImage.uri.value(),context.loadContext.params);
 						if (image_bundle.getContents().empty())
 							return {};
 
@@ -1461,6 +1454,8 @@ namespace nbl
 				}
 			}
 
+			// TODO: 1 ICPUSkeleton per glTF.nodes node without a parent
+
 			struct SkeletonData
 			{
 				struct HierarchyBuffer
@@ -1485,6 +1480,11 @@ namespace nbl
 
 			std::vector<SkeletonData> skeletons;
 
+			// TODO: figure out `skeleton` from LCA
+			if constexpr (false) // dont compile for now
+			{
+				//
+			}
 			for (size_t i = 0; i < glTF.skins.size(); ++i)
 			{
 				auto& skeleton = skeletons.emplace_back();
@@ -1543,7 +1543,7 @@ namespace nbl
 						return nodeHierarchyData.localParentJointID = setParents_impl(nodeHierarchyData, localParentID, hierarchyBuffer, glTFNodes, setParents_impl);
 					};
 
-					setParents(root, 0xdeadbeef, skeleton.hierarchyBuffer, glTF.nodes);
+					setParents(root, ICPUSkeleton::invalid_joint_id, skeleton.hierarchyBuffer, glTF.nodes);
 				}
 				else
 				{
