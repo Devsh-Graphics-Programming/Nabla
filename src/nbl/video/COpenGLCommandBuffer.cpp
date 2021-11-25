@@ -1110,9 +1110,9 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
             case impl::ECT_REGENERATE_MIPMAPS:
             {
                 auto& c = cmd.get<impl::ECT_REGENERATE_MIPMAPS>();
-                auto* glimgview = static_cast<COpenGLImageView*>(c.imgview.get());
+                auto* glimg = static_cast<COpenGLImage*>(c.imgview.get());
 
-                gl->extGlGenerateTextureMipmap(glimgview->getOpenGLName(), glimgview->getOpenGLTarget());
+                gl->extGlGenerateTextureMipmap(glimg->getOpenGLName(), glimg->getOpenGLTarget());
             }
             break;
             }

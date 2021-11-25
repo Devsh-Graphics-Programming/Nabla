@@ -6,7 +6,6 @@ namespace nbl::ui
 {
 	void CWindowManagerAndroid::handleInput_impl(android_app* app, AInputEvent* event)
 	{
-		constexpr uint32_t CIRCULAR_BUFFER_CAPACITY = 256;
 		auto* ctx = (CGraphicalApplicationAndroid::SGraphicalContext*)app->userData;
 		auto framework = (CGraphicalApplicationAndroid*)ctx->framework;
 		auto* wnd = (CWindowAndroid*)framework->getWindow();
@@ -31,8 +30,11 @@ namespace nbl::ui
 					nblAction = SKeyboardEvent::ECA_RELEASED;
 					break;
 				}
-				std::chrono::microseconds nblTime = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::nanoseconds(eventTime));
-				SKeyboardEvent kbEvent(nblTime);
+				auto now = std::chrono::steady_clock::now();
+				auto now_ms = std::chrono::time_point_cast<std::chrono::microseconds>(now);
+				auto nblTimeTP = std::chrono::steady_clock::time_point(std::chrono::nanoseconds(eventTime));
+				auto nblTime = std::chrono::time_point_cast<std::chrono::microseconds>(nblTimeTP);
+				SKeyboardEvent kbEvent(nblTime.time_since_epoch());
 				kbEvent.action = nblAction;
 				kbEvent.keyCode = kc;
 				kbEvent.window = wnd;
@@ -54,11 +56,27 @@ namespace nbl::ui
 				std::chrono::microseconds nblTime = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::nanoseconds(eventTime));
 				SMouseEvent mouseEvent(nblTime);
 				mouseEvent.window = wnd;
+				const auto screenPosX = AMotionEvent_getRawX(event, 0);
+				const auto screenPosY = AMotionEvent_getRawY(event, 0);
+				auto relativeX = screenPosX;
+				auto relativeY = screenPosY;
+				if (!initialized)
+				{
+					lastCursorX = relativeX, lastCursorY = relativeY;
+					relativeX = relativeY = 0;
+					initialized = true;
+				}
+				else
+				{
+					relativeX = relativeX - lastCursorX;
+					relativeY = relativeY - lastCursorY;
+					lastCursorX = screenPosX, lastCursorY = screenPosY;
+				}
 				if (action == AMOTION_EVENT_ACTION_HOVER_MOVE || action == AMOTION_EVENT_ACTION_MOVE)
 				{
 					mouseEvent.type = SMouseEvent::EET_MOVEMENT;
-					mouseEvent.movementEvent.relativeMovementX = AMotionEvent_getHistoricalX(event, 0, 0);
-					mouseEvent.movementEvent.relativeMovementY = AMotionEvent_getHistoricalY(event, 0, 0);
+					mouseEvent.movementEvent.relativeMovementX = relativeX;
+					mouseEvent.movementEvent.relativeMovementY = relativeY;
 				}
 				else if (action == AMOTION_EVENT_ACTION_BUTTON_PRESS)
 				{
@@ -66,6 +84,7 @@ namespace nbl::ui
 					mouseEvent.clickEvent.clickPosX = AMotionEvent_getX(event, 0);
 					mouseEvent.clickEvent.clickPosY = AMotionEvent_getY(event, 0);
 					mouseEvent.clickEvent.action = SMouseEvent::SClickEvent::EA_PRESSED;
+					mouseEvent.clickEvent.mouseButton = E_MOUSE_BUTTON::EMB_LEFT_BUTTON;
 				}
 				else if (action == AMOTION_EVENT_ACTION_BUTTON_RELEASE)
 				{
@@ -73,6 +92,7 @@ namespace nbl::ui
 					mouseEvent.clickEvent.clickPosX = AMotionEvent_getX(event, 0);
 					mouseEvent.clickEvent.clickPosY = AMotionEvent_getY(event, 0);
 					mouseEvent.clickEvent.action = SMouseEvent::SClickEvent::EA_RELEASED;
+					mouseEvent.clickEvent.mouseButton = E_MOUSE_BUTTON::EMB_LEFT_BUTTON;
 				}
 				else if (action == AMOTION_EVENT_ACTION_SCROLL)
 				{
@@ -99,19 +119,22 @@ namespace nbl::ui
 		{
 		case APP_CMD_INIT_WINDOW:
 		{
+			m_app = app;
+			bool windowWasCreatedBefore = windowIsCreated.test();
+			windowIsCreated.clear();
+
 			IWindow::SCreationParams params;
 			params.callback = core::smart_refctd_ptr(ctx->callback);
 			framework->setWindow(ctx->wndManager->createWindow(std::move(params)));
+
+			if(windowWasCreatedBefore)
+				framework->recreateSurface();
+
 			break;
 		}
 		case APP_CMD_TERM_WINDOW:
 		{
-			auto* wnd = framework->getWindow();
-			if (wnd != nullptr)
-			{
-				auto eventCallback = wnd->getEventCallback();
-				(void)eventCallback->onWindowClosed(wnd);
-			}
+			framework->setWindow(nullptr);
 			break;
 		}
 		case APP_CMD_WINDOW_RESIZED:
@@ -121,8 +144,10 @@ namespace nbl::ui
 			auto* wnd = framework->getWindow();
 			if (wnd != nullptr)
 			{
+
 				auto eventCallback = wnd->getEventCallback();
-				(void)eventCallback->onWindowResized(wnd, width, height);
+				if (eventCallback)
+					(void)eventCallback->onWindowResized(wnd, width, height);
 			}
 
 			break;
@@ -133,8 +158,11 @@ namespace nbl::ui
 			if (wnd != nullptr)
 			{
 				auto eventCallback = wnd->getEventCallback();
-				(void)eventCallback->onLostMouseFocus(wnd);
-				(void)eventCallback->onLostKeyboardFocus(wnd);
+				if (eventCallback)
+				{
+					(void)eventCallback->onLostMouseFocus(wnd);
+					(void)eventCallback->onLostKeyboardFocus(wnd);
+				}
 			}
 			break;
 		}
@@ -144,9 +172,22 @@ namespace nbl::ui
 			if (wnd != nullptr)
 			{
 				auto eventCallback = wnd->getEventCallback();
-				(void)eventCallback->onGainedMouseFocus(wnd);
-				(void)eventCallback->onGainedKeyboardFocus(wnd);
+				if (eventCallback)
+				{
+					(void)eventCallback->onGainedMouseFocus(wnd);
+					(void)eventCallback->onGainedKeyboardFocus(wnd);
+				}
 			}
+			break;
+		}
+		case APP_CMD_PAUSE:
+		{
+			framework->pause();
+			break;
+		}
+		case APP_CMD_RESUME:
+		{
+			framework->resume();
 			break;
 		}
 		}

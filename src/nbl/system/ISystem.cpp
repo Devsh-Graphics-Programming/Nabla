@@ -40,14 +40,37 @@ std::pair<IFileArchive*,IFileArchive::SOpenFileParams> ISystem::findFileInArchiv
 
         for (auto& archive : archives)
         {
-            realPath = archive.second->asFile()->getFileName();
-            auto relative = std::filesystem::relative(_path, path);
-            auto absolute = (realPath / relative).generic_string();
-            auto files = archive.second->getArchivedFiles();
-            // TODO: file list should be sorted by the path and you should be using a binary search !!!!!!
-            auto requiredFile = std::find_if(files.begin(), files.end(), [&relative](const IFileArchive::SFileListEntry& entry) { return entry.fullName == relative; });
-            if (requiredFile != files.end())
-                return {archive.second.get(),{relative,absolute,""}};
+            system::path realPath = std::filesystem::exists(path) ? system::path(std::filesystem::canonical(path).generic_string()) : path;
+            auto archives = m_cachedArchiveFiles.findRange(realPath);
+
+            for (auto& archive : archives)
+            {
+                auto relative = std::filesystem::relative(_path, path);
+                auto files = archive.second->getArchivedFiles();
+                auto itemToFind = IFileArchive::SFileListEntry{ relative, relative, 0 };
+                bool hasFile = std::binary_search(files.begin(), files.end(), itemToFind, [](const IFileArchive::SFileListEntry& l, const IFileArchive::SFileListEntry& r) { return l.fullName == r.fullName; });
+                auto f = archive.second->asFile();
+                if (f)
+                {
+                    auto realPath = f->getFileName();
+                    auto absolute = (realPath / relative).generic_string();
+                    // TODO: file list should be sorted by the path and you should be using a binary search !!!!!!
+                    if (hasFile)
+                    {
+                        auto f = archive.second->readFile({ relative, absolute, "" });
+                        if (f.get()) return f;
+                    }
+                }
+                else
+                {
+                    if (hasFile)
+                    {
+                        auto f = archive.second->readFile({ relative, _path, "" });
+                        if (f.get()) return f;
+                    }
+                }
+            }
+            path = path.parent_path();
         }
         path = path.parent_path();
     }

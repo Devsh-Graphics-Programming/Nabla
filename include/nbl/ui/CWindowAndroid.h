@@ -14,6 +14,7 @@ namespace nbl::ui
 class CWindowAndroid : public IWindowAndroid
 {
 public:
+	constexpr static uint32_t CIRCULAR_BUFFER_CAPACITY = 256;
     explicit CWindowAndroid(SCreationParams&& params, native_handle_t anw) : m_native(anw), IWindowAndroid(std::move(params))
     {
         m_width = ANativeWindow_getWidth(anw);

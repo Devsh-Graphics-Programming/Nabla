@@ -79,7 +79,7 @@ namespace nbl::ui
 	{
 		bool shouldCallDefProc = true;
 		using namespace std::chrono;
-		auto timestamp = duration_cast<microseconds > (system_clock::now().time_since_epoch());
+		auto timestamp = duration_cast<microseconds > (steady_clock::now().time_since_epoch());
 		CWindowWin32* window = reinterpret_cast<CWindowWin32*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
 		if (window == nullptr)
 		{

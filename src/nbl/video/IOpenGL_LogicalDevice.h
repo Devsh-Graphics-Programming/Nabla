@@ -761,11 +761,20 @@ protected:
                 }
             }
 
+            auto raster = params.rasterization;
+            if (gl.isGLES() && !gl.getFeatures()->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_clip_control))
+            {
+                if (raster.faceCullingMode == asset::EFCM_BACK_BIT)
+                    raster.faceCullingMode = asset::EFCM_FRONT_BIT;
+                else if (raster.faceCullingMode == asset::EFCM_FRONT_BIT)
+                    raster.faceCullingMode = asset::EFCM_BACK_BIT;
+            }
+
             return core::make_smart_refctd_ptr<COpenGLRenderpassIndependentPipeline>(
                 core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device), &gl,
                 std::move(layout),
                 shaders.begin(), shaders.end(),
-                params.vertexInput, params.blend, params.primitiveAssembly, params.rasterization,
+                params.vertexInput, params.blend, params.primitiveAssembly, raster,
                 getNameCountForSingleEngineObject(), 0u, GLnames, binaries
             );
         }
