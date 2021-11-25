@@ -43,13 +43,13 @@ namespace scene
 		virtual float getZoomSpeed() const = 0;
 
 		//! Returns the step zoom speed
-		virtual float getStepZoomSpeed() const = 0;
+		virtual float getStepZoomMultiplier() const = 0;
 
 		//! Set the zoom speed
 		virtual void setZoomSpeed(float zoomSpeed) = 0;
 
 		//! Set the zoom speed
-		virtual void setStepZoomSpeed(float stepZoomSpeed) = 0;
+		virtual void setStepZoomMultiplier(float stepZoomSpeed) = 0;
 
 		//! Returns the current distance, i.e. orbit radius
 		virtual float getDistance() const = 0;

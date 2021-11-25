@@ -19,11 +19,11 @@ namespace scene
 //! constructor
 CSceneNodeAnimatorCameraModifiedMaya::CSceneNodeAnimatorCameraModifiedMaya(gui::ICursorControl* cursor,
 	float rotateSpeed, float zoomSpeed, float translateSpeed, float distance,
-	float scrollZoomSpeed, bool zoomWithRMB)
+	float scrollZoomMultiplier, bool zoomWithRMB)
 	: CursorControl(cursor), OldCamera(0), MousePos(0.5f, 0.5f),
 	ZoomSpeed(zoomSpeed), RotateSpeed(rotateSpeed), TranslateSpeed(translateSpeed),
 	CurrentZoom(distance), RotX(0.0f), RotY(0.0f),
-	ZoomDelta(0.0f), ZoomWithRMB(zoomWithRMB), StepZooming(false), ScrllZoomSpeed(-scrollZoomSpeed),
+	ZoomDelta(0.0f), ZoomWithRMB(zoomWithRMB), StepZooming(false), ScrllZoomMultiplier(-scrollZoomMultiplier),
 	Zooming(false), Rotating(false), Moving(false), Translating(false), ShiftTranslating(false), MouseShift(false)
 {
 #ifdef _NBL_DEBUG
@@ -184,8 +184,9 @@ void CSceneNodeAnimatorCameraModifiedMaya::animateNode(IDummyTransformationScene
 	core::vectorSIMDf zoomTarget(0.0f, 0.0f, 0.0f);	// move target to allow further zooming
 	if (StepZooming || Zooming)
 	{
+		std::cout << "Current Zoom = " << CurrentZoom << " -- (Delta = " << ZoomDelta << ")" << std::endl;
 		if (StepZooming)
-			CurrentZoom -= ZoomDelta * ScrllZoomSpeed;
+			CurrentZoom = CurrentZoom * std::pow(-ScrllZoomMultiplier, ZoomDelta);
 		else
 			CurrentZoom += ZoomDelta * ZoomSpeed;
 
@@ -195,7 +196,7 @@ void CSceneNodeAnimatorCameraModifiedMaya::animateNode(IDummyTransformationScene
 			core::vectorSIMDf pos; pos.set(camera->getPosition());
 			zoomTarget = core::normalize(camera->getTarget() - pos);
 			zoomTarget *= (-CurrentZoom + minDistance);
-			CurrentZoom = 1.0f;
+			CurrentZoom = minDistance;
 		}
 		StepZooming = false;
 	}
@@ -367,9 +368,9 @@ void CSceneNodeAnimatorCameraModifiedMaya::setZoomSpeed(float speed)
 }
 
 //! Sets the zoom speed
-void CSceneNodeAnimatorCameraModifiedMaya::setStepZoomSpeed(float speed)
+void CSceneNodeAnimatorCameraModifiedMaya::setStepZoomMultiplier(float speed)
 {
-	ScrllZoomSpeed = -1.0f * speed;
+	ScrllZoomMultiplier = -1.0f * speed;
 }
 
 //! Set the distance
@@ -399,10 +400,10 @@ float CSceneNodeAnimatorCameraModifiedMaya::getZoomSpeed() const
 	return ZoomSpeed;
 }
 
-//! Gets the step zoom speed
-float CSceneNodeAnimatorCameraModifiedMaya::getStepZoomSpeed() const
+//! Gets the step zoom speed multiplier
+float CSceneNodeAnimatorCameraModifiedMaya::getStepZoomMultiplier() const
 {
-	return -1.0f * ScrllZoomSpeed;
+	return -1.0f * ScrllZoomMultiplier;
 }
 
 //! Returns the current distance, i.e. orbit radius

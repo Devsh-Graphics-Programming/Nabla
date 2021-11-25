@@ -430,16 +430,18 @@ int main(int argc, char** argv)
 			std::cout << "\t Camera Rotate Speed = " << outSensorData.rotateSpeed << std::endl;
 
 		if(core::isnan<float>(outSensorData.stepZoomSpeed))
-			std::cout << "\t Camera Step Zoom Speed = " << "[Value will be deduced from Scene Bounds] " << std::endl;
+			std::cout << "\t Camera Step Zoom Speed [Linear] = " << "[Value will be deduced from Scene Bounds] " << std::endl;
 		else
-			std::cout << "\t Camera Step Zoom Speed = " << outSensorData.stepZoomSpeed << std::endl;
+			std::cout << "\t Camera Step Zoom Speed [Linear] = " << outSensorData.stepZoomSpeed << std::endl;
 		
 		if(core::isnan<float>(outSensorData.moveSpeed))
 			std::cout << "\t Camera Move Speed = " << "[Value will be deduced from Scene Bounds] " << std::endl;
 		else
 			std::cout << "\t Camera Move Speed = " << outSensorData.moveSpeed << std::endl;
 
-		outSensorData.interactiveCamera = smgr->addCameraSceneNodeModifiedMaya(nullptr, -1.0f * outSensorData.rotateSpeed, 50.0f, outSensorData.moveSpeed, -1, 2.0f, outSensorData.stepZoomSpeed, false, true);
+		
+		float defaultZoomSpeedMultiplier = std::pow(DefaultSceneDiagonal, DefaultZoomSpeed / DefaultSceneDiagonal);
+		outSensorData.interactiveCamera = smgr->addCameraSceneNodeModifiedMaya(nullptr, -1.0f * outSensorData.rotateSpeed, 50.0f, outSensorData.moveSpeed, -1, 2.0f, defaultZoomSpeedMultiplier, false, true);
 
 		outSensorData.outputFilePath = std::filesystem::path(film.outputFilePath);
 		outSensorData.fileFormat = film.fileFormat;
@@ -592,13 +594,19 @@ int main(int argc, char** argv)
 	for(uint32_t s = 0u; s < sensors.size(); ++s)
 	{
 		auto& sensorData = sensors[s];
-
+		
+		float linearStepZoomSpeed = sensorData.stepZoomSpeed;
 		if(core::isnan<float>(sensorData.stepZoomSpeed))
 		{
-			float newStepZoomSpeed = DefaultZoomSpeed * (sceneDiagonal / DefaultSceneDiagonal);
-			sensorData.stepZoomSpeed = newStepZoomSpeed;
-			sensorData.getInteractiveCameraAnimator()->setStepZoomSpeed(newStepZoomSpeed);
-			printf("[INFO] Sensor[%d] Camera Step Zoom Speed deduced from scene bounds = %f\n", s, newStepZoomSpeed);
+			linearStepZoomSpeed = sceneDiagonal * (DefaultZoomSpeed / DefaultSceneDiagonal);
+		}
+
+		// Set Zoom Multiplier
+		{
+			float logarithmicZoomSpeed = std::pow(sceneDiagonal, linearStepZoomSpeed / sceneDiagonal);
+			sensorData.stepZoomSpeed =  logarithmicZoomSpeed;
+			sensorData.getInteractiveCameraAnimator()->setStepZoomMultiplier(logarithmicZoomSpeed);
+			printf("[INFO] Sensor[%d] Camera Step Zoom Speed deduced from scene bounds = %f [Linear], %f [Logarithmic] \n", s, linearStepZoomSpeed, logarithmicZoomSpeed);
 		}
 
 		if(core::isnan<float>(sensorData.moveSpeed))
