@@ -1,0 +1,23 @@
+#version 440 core
+layout(local_size_x=NBL_LIMIT_MAX_OPTIMALLY_RESIDENT_WORKGROUP_INVOCATIONS) in;
+
+#include <nbl/builtin/glsl/skinning/cache_descriptor_set.glsl>
+#include <nbl/builtin/glsl/skinning/update_descriptor_set.glsl>
+
+#include "nbl/builtin/glsl/utils/transform.glsl"
+void main()
+{
+    const uint dispatchSize = NBL_LIMIT_MAX_OPTIMALLY_RESIDENT_WORKGROUP_INVOCATIONS*gl_NumWorkGroups[0];
+    for (uint jointID=gl_GlobalInvocationID.x; jointID<jointsToUpdate.count; jointID+=dispatchSize)
+    {
+        uint joint = jointsToUpdate.data[jointID];
+        uint parentNode = jointNodes.data[joint];
+        if (skinningRecomputedTimestamps.data[joint]==nodeRecomputedTimestamp.data[parentNode])
+        {
+            uint inverseBindPoseOffset = inverseBindPoseOffsets.data[joint];
+            mat4x3 globalTransform = nodeGlobalTransforms.data[parentNode];
+            mat4x3 inverseBindPose = inverseBindPoses.data[inverseBindPoseOffset];
+            skinningTransforms.data[joint] = globalTransform*inverseBindPose;
+        }
+    }
+}

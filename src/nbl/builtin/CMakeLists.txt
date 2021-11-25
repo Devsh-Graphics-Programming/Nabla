@@ -137,6 +137,13 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/shapes/frustum.glsl"
   #"nbl/builtin/glsl/shapes/rectangle.glsl"
   "nbl/builtin/glsl/shapes/triangle.glsl"
+  # skinning
+  "nbl/builtin/glsl/skinning/cache_descriptor_set.glsl"
+  "nbl/builtin/glsl/skinning/cache_update.comp"
+  "nbl/builtin/glsl/skinning/debug.vert"
+  "nbl/builtin/glsl/skinning/linear.glsl"
+  "nbl/builtin/glsl/skinning/render_descriptor_set.glsl"
+  "nbl/builtin/glsl/skinning/update_descriptor_set.glsl"
   # subgroup emulation
   "nbl/builtin/glsl/subgroup/shared_arithmetic_portability.glsl"
   "nbl/builtin/glsl/subgroup/basic_portability.glsl"
