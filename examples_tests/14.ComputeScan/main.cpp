@@ -22,7 +22,7 @@ public:
 	{
 		CommonAPI::InitOutput<0> initOutput;
 		initOutput.system = core::smart_refctd_ptr(system);
-		CommonAPI::Init(initOutput, video::EAT_OPENGL, "Subgroup Arithmetic Test");
+		CommonAPI::Init(initOutput, video::EAT_OPENGL_ES, "Subgroup Arithmetic Test");
 		system = std::move(initOutput.system);
 		auto gl = std::move(initOutput.apiConnection);
 		auto logger = std::move(initOutput.logger);
@@ -214,9 +214,9 @@ public:
 	{
 		return false;
 	}
-	void setSystem(core::smart_refctd_ptr<nbl::system::ISystem>&& system) override
+	void setSystem(core::smart_refctd_ptr<nbl::system::ISystem>&& s) override
 	{
-		system = std::move(system);
+		system = std::move(s);
 	}
 };
 
