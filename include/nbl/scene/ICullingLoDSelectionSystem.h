@@ -353,7 +353,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 			}
 
 			cmdbuf->bindComputePipeline(m_instanceDrawCountPrefixSum.get());
-			cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,m_instanceDrawCullLayout.get(),0u,4u,&params.lodLibraryDS.get());
+			cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,m_instanceDrawCullLayout.get(),0u,3u,&params.lodLibraryDS.get());
 			cmdbuf->dispatchIndirect(indirectRange.buffer.get(),indirectRange.offset+offsetof(DispatchIndirectParams,instanceDrawCountPrefixSum));
 			{
 				setBarrierBuffer(barriers[1],params.scratchBufferRanges.lodDrawCallCounts,rwAccessMask,rwAccessMask);

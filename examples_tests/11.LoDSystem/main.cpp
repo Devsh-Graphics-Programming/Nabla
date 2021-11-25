@@ -390,7 +390,7 @@ class LoDSystemApp : public ApplicationBase
                 {
                     scene::ILevelOfDetailLibrary::createDescriptorSetLayout(logicalDevice.get()),
                     culling_system_t::createInputDescriptorSetLayout(logicalDevice.get()),
-                    culling_system_t::createOutputDescriptorSetLayout(logicalDevice.get(),true),
+                    culling_system_t::createOutputDescriptorSetLayout(logicalDevice.get()),
                     [&]() -> core::smart_refctd_ptr<video::IGPUDescriptorSetLayout>
                     {
                         // TODO: figure out what should be here
@@ -544,28 +544,28 @@ class LoDSystemApp : public ApplicationBase
                             logger->log("%s", ILogger::ELL_ERROR, "Failed to load cache.");
 
                         //
-                        core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> cpuTransformTreeDSLayout = scene::ITransformTreeWithNormalMatrices::createDescriptorSetLayout();
+                        core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> cpuTransformTreeDSLayout = scene::ITransformTreeWithNormalMatrices::createRenderDescriptorSetLayout();
 
                         // populating `lodTables` is a bit messy, I know
                         size_t lodTableIx = lodLibraryData.lodTableDstUvec4s.size();
                         addLoDTable<EGT_CUBE, 1>(
                             assetManager.get(), cpuTransformTreeDSLayout, cpuPerViewDSLayout, shaders, cpu2gpuParams,
                             lodLibraryData, drawIndirectAllocator.get(), lodLibrary.get(), kiln.getDrawcallMetadataVector(),
-                            cullingParams.perInstanceRedirectAttribs, renderpass, ctt->getNodePropertyDescriptorSet(), perViewDS
+                            cullingParams.perInstanceRedirectAttribs, renderpass, ctt->getRenderDescriptorSet(), perViewDS
                             );
                         lodTables[EGT_CUBE] = lodLibraryData.lodTableDstUvec4s[lodTableIx];
                         lodTableIx = lodLibraryData.lodTableDstUvec4s.size();
                         addLoDTable<EGT_SPHERE, 7>(
                             assetManager.get(), cpuTransformTreeDSLayout, cpuPerViewDSLayout, shaders, cpu2gpuParams,
                             lodLibraryData, drawIndirectAllocator.get(), lodLibrary.get(), kiln.getDrawcallMetadataVector(),
-                            cullingParams.perInstanceRedirectAttribs, renderpass, ctt->getNodePropertyDescriptorSet(), perViewDS
+                            cullingParams.perInstanceRedirectAttribs, renderpass, ctt->getRenderDescriptorSet(), perViewDS
                             );
                         lodTables[EGT_SPHERE] = lodLibraryData.lodTableDstUvec4s[lodTableIx];
                         lodTableIx = lodLibraryData.lodTableDstUvec4s.size();
                         addLoDTable<EGT_CYLINDER, 6>(
                             assetManager.get(), cpuTransformTreeDSLayout, cpuPerViewDSLayout, shaders, cpu2gpuParams,
                             lodLibraryData, drawIndirectAllocator.get(), lodLibrary.get(), kiln.getDrawcallMetadataVector(),
-                            cullingParams.perInstanceRedirectAttribs, renderpass, ctt->getNodePropertyDescriptorSet(), perViewDS
+                            cullingParams.perInstanceRedirectAttribs, renderpass, ctt->getRenderDescriptorSet(), perViewDS
                             );
                         lodTables[EGT_CYLINDER] = lodLibraryData.lodTableDstUvec4s[lodTableIx];
 
