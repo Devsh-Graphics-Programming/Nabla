@@ -17,30 +17,6 @@ namespace nbl
 namespace scene
 {
     class ISkinnedMeshSceneNode;
-    /*
-    LOCAL SPACE SKINNING:
-        Lets think about GPU Boning:
-
-
-
-            Hypothetical GPU-Boning Implementation:
-                1a) Fill Buffer LMB with Bone's Local TformMatrices if EJUOR_CONTROL
-                1b) Fill Buffer LMB by Compute/XFMFB/FBOPixelShader given a frame
-                IF HAS NON-GLOBAL SPACE BONES IN LEVELS DEEPER THAN 1:
-                    2) Write to section of Buffer A reading from Buffer LMB for second bone hierarchy level with START shader
-                IF HAS NON-GLOBAL SPACE BONES IN LEVELS DEEPER THAN 2:
-                    3) Write to section of Buffer B reading from Buffer A for third bone hierarchy level and so on pinponging between A and B with PASS shader
-                4) Write to Buffer A with UPDATE shader to calculate BBox and NormalMatrix , as well as join Buffer A and B together
-                    (not needed if spec allows same buffer read via TBO range and XFMFB range)
-                5) Get Instance-wide BBox Perform Instance Culling!!!
-
-            Since Local Skinning/Global Skinning switch is only available with Bones... GPU Boning always recomputes entire array!!!
-    GLOBAL SPACE SKINNING:
-        ONLY an OPTION with EBUM_READ or EBUM_CONTROL
-
-        Only Reduces to updating IBoneSceneNode(s) and copying their absolute transformations over to the Output Array
-        GPU_BONING useless, calculating the inverses and bboxes less expensive than the GL call unless THOUSANDS of instances
-    */
     //! SUPER-CONSTRAINT::::: ALL IAnimatedMeshSceneNodeInstanced LoD Meshes HAVE TO USE THE SAME CFinalBoneHierarchy!!
     /**     Or We need two separate classes, one which makes instances with bones, one that makes them without and these can use different bone hierarchies!
     **/
