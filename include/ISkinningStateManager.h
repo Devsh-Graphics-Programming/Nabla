@@ -20,31 +20,6 @@ namespace scene
     /*
     LOCAL SPACE SKINNING:
         Lets think about GPU Boning:
-            Need to calculate Hierarchy Positions Unless all Level 1+ bones use Global Skinning Space
-            Calculate by pingponging between buffer A and B, K times where K is the depth of the hierarchy of bones!
-			Or use Timothy Lottes hierarchy traversal trick, and recompute previous level if not ready yet!
-
-            INTERMEDIATE REPRESENTATION:
-            [{Instance0_J0,Instance1_J0, ... , Instance1_J0},{Instance0_J1,Instance1_J1, ... , InstanceN_J1}, ... ,{Instance0_JM,Instance1_JM, ... , InstanceN_JM}]
-
-            This would make it difficult/impossible to reference parent's data without queries if we were to start culling mid-bone update!!!!
-            Only Last Pass could possibly cull!
-
-            +++LAST PASS NEEDS TO REORDER BONE MAJOR ORDER INTO INSTANCE MAJOR!!
-                Unless Skinning Shader can take that huge stride into account!!!! (bad for cache anyway)
-
-
-            1) GPU calculated Final Bone Positions, hence Final BBox for each bone => Final BBox for Node
-            2) So either readback or culling performed on GPU => Write to constrained location SSBO
-                2a) Would need an additional compaction or index construction step to retrieve instance data (bones and stuff)
-                    This also requires the use of atomics to query the offsets and counts of instances for each instance-subtype (per meshes drawn with different materials)
-                    ALSO THE INSTANCE-SUBTYPES NEED TO BE IN CONTINUOUS BUFFERS!!! - GRANULE ALLOCATION SCREWED!!!
-                    Would effectively require a multi-granule buffer
-
-            This makes the use of one ISkinningStateManager for all instances of crap using sourceHierarchy, very impractical although the GPU instructions remain the same!
-            FIRST SOLVE THE ISSUE OF MANY IMeshSceneNodeInstanced(s) USING THE SAME GPU CULLING PROGRAM AND XFMFEEDBACK LAYOUT TAKING MULTIPLE GPU CALLS TO CULL
-
-            So the conclusion is that we need one ISkinningStateManager per IAnimatedSceneNode{Instanced}
 
 
             3) To Obtain BBox for Instance
