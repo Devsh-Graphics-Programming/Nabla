@@ -188,6 +188,27 @@ class IPropertyPool : public core::IReferenceCounted
         
         //
         static PropertyAddressAllocator::size_type getReservedSize(uint32_t capacity, bool contiguous=false);
+        
+		// useful for everyone
+		template<typename DescriptorSetLayoutType, uint32_t PropertyCount>
+		static inline void fillDescriptorLayoutBindings(DescriptorSetLayoutType::SBinding* bindings, asset::ISpecializedShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
+		{
+            DescriptorSetLayoutType::fillBindingsSameType(bindings,PropertyCount,asset::E_DESCRIPTOR_TYPE::EDT_STORAGE_BUFFER,nullptr,stageAccessFlags);
+		}
+        template<uint32_t PropertyCount>
+		static inline core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> createDescriptorSetLayout(asset::ISpecializedShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
+		{
+			asset::ICPUDescriptorSetLayout::SBinding bindings[PropertyCount];
+			fillDescriptorLayoutBindings<asset::ICPUDescriptorSetLayout,PropertyCount>(bindings,stageAccessFlags);
+			return core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(bindings,bindings+PropertyCount);
+		}
+        template<uint32_t PropertyCount>
+		static inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createDescriptorSetLayout(video::ILogicalDevice* device, asset::ISpecializedShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
+		{
+			IGPUDescriptorSetLayout::SBinding bindings[PropertyCount];
+			fillDescriptorLayoutBindings<IGPUDescriptorSetLayout,PropertyCount>(bindings,stageAccessFlags);
+			return device->createGPUDescriptorSetLayout(bindings,bindings+PropertyCount);
+		}
 
     protected:
         IPropertyPool(uint32_t capacity, void* reserved, bool contiguous=false);

@@ -132,7 +132,8 @@ class IDescriptorSetLayout : public virtual core::IReferenceCounted
 			}
 			bool operator!=(const SBinding& rhs) const
 			{
-				return !((*this == rhs));
+				const bool equal = operator==(rhs);
+				return !equal;
 			}
 		};
 		

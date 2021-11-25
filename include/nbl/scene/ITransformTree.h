@@ -39,46 +39,47 @@ class ITransformTree : public virtual core::IReferenceCounted
 		static inline constexpr uint32_t global_transform_prop_ix = 3u;
 		static inline constexpr uint32_t recomputed_stamp_prop_ix = 4u;
 
-		// useful for everyone
-		template<class TransformTree, typename BindingType>
-		static inline void fillDescriptorLayoutBindings(BindingType* bindings, asset::ISpecializedShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
+		//
+		template<class TransformTree>
+		static inline core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> createPoolDescriptorSetLayout(asset::ISpecializedShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
 		{
 			using property_pool_t = typename TransformTree::property_pool_t;
-			for (auto i=0u; i<property_pool_t::PropertyCount; i++)
-			{
-				bindings[i].binding = i;
-				bindings[i].type = asset::E_DESCRIPTOR_TYPE::EDT_STORAGE_BUFFER;
-				bindings[i].count = 1u;
-				bindings[i].stageFlags = stageAccessFlags ? stageAccessFlags[i]:asset::ISpecializedShader::ESS_ALL;
-				bindings[i].samplers = nullptr;
-			}
+			return property_pool_t::createDescriptorSetLayout(stageAccessFlags);
 		}
 		template<class TransformTree>
-		static inline core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> createDescriptorSetLayout(asset::ISpecializedShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
+		static inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createPoolDescriptorSetLayout(video::ILogicalDevice* device, asset::ISpecializedShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
 		{
 			using property_pool_t = typename TransformTree::property_pool_t;
-			asset::ICPUDescriptorSetLayout::SBinding bindings[property_pool_t::PropertyCount];
-			fillDescriptorLayoutBindings<TransformTree,asset::ICPUDescriptorSetLayout::SBinding>(bindings,stageAccessFlags);
-			return core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(bindings,bindings+property_pool_t::PropertyCount);
+			return property_pool_t::createDescriptorSetLayout(device,stageAccessFlags);
+		}
+		//
+		template<class TransformTree>
+		static inline core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> createRenderDescriptorSetLayout(asset::ISpecializedShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
+		{
+			asset::ICPUDescriptorSetLayout::SBinding bindings[TransformTree::RenderDescriptorSetBindingCount];
+            asset::ICPUDescriptorSetLayout::fillBindingsSameType(bindings,TransformTree::RenderDescriptorSetBindingCount,asset::E_DESCRIPTOR_TYPE::EDT_STORAGE_BUFFER,nullptr,stageAccessFlags);
+			return core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(bindings,bindings+TransformTree::RenderDescriptorSetBindingCount);
 		}
 		template<class TransformTree>
-		static inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createDescriptorSetLayout(video::ILogicalDevice* device, asset::ISpecializedShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
+		static inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createRenderDescriptorSetLayout(video::ILogicalDevice* device, asset::ISpecializedShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
 		{
-			using property_pool_t = typename TransformTree::property_pool_t;
-			video::IGPUDescriptorSetLayout::SBinding bindings[property_pool_t::PropertyCount];
-			fillDescriptorLayoutBindings<TransformTree,video::IGPUDescriptorSetLayout::SBinding>(bindings,stageAccessFlags);
-			auto pCount = property_pool_t::PropertyCount;
-			return device->createGPUDescriptorSetLayout(bindings,bindings + pCount);
+			video::IGPUDescriptorSetLayout::SBinding bindings[TransformTree::RenderDescriptorSetBindingCount];
+			video::IGPUDescriptorSetLayout::fillBindingsSameType(bindings,TransformTree::RenderDescriptorSetBindingCount,asset::E_DESCRIPTOR_TYPE::EDT_STORAGE_BUFFER,nullptr,stageAccessFlags);
+			return device->createGPUDescriptorSetLayout(bindings,bindings+TransformTree::RenderDescriptorSetBindingCount);
 		}
 		
 		//
 		virtual bool hasNormalMatrices() const =0;
+		virtual uint32_t getRenderDescriptorSetBindingCount() const =0;
 
 		//
 		virtual const video::IPropertyPool* getNodePropertyPool() const=0;
 
 		//
-		inline const auto* getNodePropertyDescriptorSet() const {return m_transformHierarchyDS.get();}
+		inline const auto* getNodePropertyPoolDescriptorSet() const {return m_transformHierarchyDS.get();}
+
+		//
+		inline const auto* getRenderDescriptorSet() const {return m_renderDS.get();}
 
 		// nodes array must be initialized with invalid_node
 		inline bool allocateNodes(const core::SRange<ITransformTree::node_t>& outNodes)
@@ -131,7 +132,8 @@ class ITransformTree : public virtual core::IReferenceCounted
 		template<class TransformTree, typename... Args>
 		static inline bool create(
 			core::smart_refctd_ptr<typename TransformTree::property_pool_t>& outPool,
-			core::smart_refctd_ptr<video::IGPUDescriptorSet>& outDS,
+			core::smart_refctd_ptr<video::IGPUDescriptorSet>& outPoolDS,
+			core::smart_refctd_ptr<video::IGPUDescriptorSet>& outRenderDS,
 			video::ILogicalDevice* device, Args... args
 		)
 		{
@@ -140,43 +142,51 @@ class ITransformTree : public virtual core::IReferenceCounted
 			if (!outPool)
 				return false;
 
-			video::IDescriptorPool::SDescriptorPoolSize size = {asset::E_DESCRIPTOR_TYPE::EDT_STORAGE_BUFFER,property_pool_t::PropertyCount};
+			video::IDescriptorPool::SDescriptorPoolSize size = {asset::E_DESCRIPTOR_TYPE::EDT_STORAGE_BUFFER,property_pool_t::PropertyCount+TransformTree::RenderDescriptorSetBindingCount};
 			auto dsp = device->createDescriptorPool(video::IDescriptorPool::ECF_NONE,1u,1u,&size);
 			if (!dsp)
 				return false;
 
 			video::IGPUDescriptorSet::SWriteDescriptorSet writes[property_pool_t::PropertyCount];
+			static_assert(TransformTree::RenderDescriptorSetBindingCount<=property_pool_t::PropertyCount);
 			for (auto i=0u; i<property_pool_t::PropertyCount; i++)
 			{
 				writes[i].binding = i;
 				writes[i].descriptorType = asset::E_DESCRIPTOR_TYPE::EDT_STORAGE_BUFFER;
 				writes[i].count = 1u;
 			}
-			auto layout = createDescriptorSetLayout<TransformTree>(device);
-			if (!layout)
+			auto poolLayout = createPoolDescriptorSetLayout<TransformTree>(device);
+			auto renderLayout = createRenderDescriptorSetLayout<TransformTree>(device);
+			if (!poolLayout || !renderLayout)
 				return false;
 
-			outDS = device->createGPUDescriptorSet(dsp.get(),std::move(layout));
-			if (!outDS)
+			outPoolDS = device->createGPUDescriptorSet(dsp.get(),std::move(poolLayout));
+			outRenderDS = device->createGPUDescriptorSet(dsp.get(),std::move(renderLayout));
+			if (!outPoolDS || !outRenderDS)
 				return false;
 
-			video::IGPUDescriptorSet::SDescriptorInfo infos[property_pool_t::PropertyCount];
+			using DescriptorInfo = video::IGPUDescriptorSet::SDescriptorInfo;
+			DescriptorInfo infos[property_pool_t::PropertyCount];
 			for (auto i=0u; i<property_pool_t::PropertyCount; i++)
 			{
-				writes[i].dstSet = outDS.get();
+				writes[i].dstSet = outPoolDS.get();
 				writes[i].arrayElement = 0u;
 				writes[i].info = infos+i;
 
-				const auto& block = outPool->getPropertyMemoryBlock(i);
-				infos[i].desc = block.buffer;
-				infos[i].buffer.offset = block.offset;
-				infos[i].buffer.size = block.size;
+				infos[i] = DescriptorInfo(outPool->getPropertyMemoryBlock(i));
 			}
 			device->updateDescriptorSets(property_pool_t::PropertyCount,writes,0u,nullptr);
+			for (auto i=0u; i<property_pool_t::PropertyCount; i++)
+				writes[i].dstSet = outRenderDS.get();
+			infos[0] = DescriptorInfo(outPool->getPropertyMemoryBlock(global_transform_prop_ix));
+			if (TransformTree::HasNormalMatrices)
+				infos[1] = DescriptorInfo(outPool->getPropertyMemoryBlock(TransformTree::normal_matrix_prop_ix));
+			device->updateDescriptorSets(TransformTree::RenderDescriptorSetBindingCount,writes,0u,nullptr);
 			return true;
 		}
 
-		ITransformTree(core::smart_refctd_ptr<video::IGPUDescriptorSet>&& _transformHierarchyDS) : m_transformHierarchyDS(std::move(_transformHierarchyDS)) {}
+		ITransformTree(core::smart_refctd_ptr<video::IGPUDescriptorSet>&& _transformHierarchyDS, core::smart_refctd_ptr<video::IGPUDescriptorSet>&& _renderDS)
+			: m_transformHierarchyDS(std::move(_transformHierarchyDS)), m_renderDS(std::move(_renderDS)) {}
 		virtual ~ITransformTree() =0;
 
 		friend class ITransformTreeManager;
@@ -186,7 +196,7 @@ class ITransformTree : public virtual core::IReferenceCounted
 		}
 
 		//
-		core::smart_refctd_ptr<video::IGPUDescriptorSet> m_transformHierarchyDS;
+		core::smart_refctd_ptr<video::IGPUDescriptorSet> m_transformHierarchyDS,m_renderDS;
 		// TODO: do we keep a contiguous `node_t` array in-case we want to shortcut to full tree reevaluation when the number of relative transform modification requests > totalNodes*ratio (or overflows the temporary buffer we've provided) ?
 };
 
@@ -199,19 +209,22 @@ class ITransformTreeWithoutNormalMatrices : public ITransformTree
 			global_transform_t,recomputed_stamp_t
 		>;
 
-		// useful for everyone
-		template<typename BindingType>
-		static inline void fillDescriptorLayoutBindings(BindingType* bindings, asset::ISpecializedShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
+		//
+		static inline core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> createPoolDescriptorSetLayout(asset::ISpecializedShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
 		{
-			return ITransformTree::fillDescriptorLayoutBindings<ITransformTreeWithoutNormalMatrices,BindingType>(bindings,stageAccessFlags);
+			return ITransformTree::createPoolDescriptorSetLayout<ITransformTreeWithoutNormalMatrices>(stageAccessFlags);
 		}
-		static inline core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> createDescriptorSetLayout(asset::ISpecializedShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
+		static inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createPoolDescriptorSetLayout(video::ILogicalDevice* device, asset::ISpecializedShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
 		{
-			return ITransformTree::createDescriptorSetLayout<ITransformTreeWithoutNormalMatrices>(stageAccessFlags);
+			return ITransformTree::createPoolDescriptorSetLayout<ITransformTreeWithoutNormalMatrices>(device,stageAccessFlags);
 		}
-		static inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createDescriptorSetLayout(video::ILogicalDevice* device, asset::ISpecializedShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
+		static inline core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> createRenderDescriptorSetLayout(asset::ISpecializedShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
 		{
-			return ITransformTree::createDescriptorSetLayout<ITransformTreeWithoutNormalMatrices>(device,stageAccessFlags);
+			return ITransformTree::createRenderDescriptorSetLayout<ITransformTreeWithoutNormalMatrices>(stageAccessFlags);
+		}
+		static inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createRenderDescriptorSetLayout(video::ILogicalDevice* device, asset::ISpecializedShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
+		{
+			return ITransformTree::createRenderDescriptorSetLayout<ITransformTreeWithoutNormalMatrices>(device,stageAccessFlags);
 		}
 
 		// the creation is the same as that of a `video::CPropertyPool`
@@ -219,23 +232,27 @@ class ITransformTreeWithoutNormalMatrices : public ITransformTree
 		static inline core::smart_refctd_ptr<ITransformTreeWithoutNormalMatrices> create(video::ILogicalDevice* device, Args... args)
 		{
 			core::smart_refctd_ptr<property_pool_t> pool;
-			core::smart_refctd_ptr<video::IGPUDescriptorSet> ds;
-			if (!ITransformTree::create<ITransformTreeWithoutNormalMatrices,Args...>(pool,ds,device,std::forward<Args>(args)...))
+			core::smart_refctd_ptr<video::IGPUDescriptorSet> poolDS,renderDS;
+			if (!ITransformTree::create<ITransformTreeWithoutNormalMatrices,Args...>(pool,poolDS,renderDS,device,std::forward<Args>(args)...))
 				return nullptr;
 
-			auto* ttRaw = new ITransformTreeWithoutNormalMatrices(std::move(pool),std::move(ds));
+			auto* ttRaw = new ITransformTreeWithoutNormalMatrices(std::move(pool),std::move(poolDS),std::move(renderDS));
 			return core::smart_refctd_ptr<ITransformTreeWithoutNormalMatrices>(ttRaw,core::dont_grab);
 		}
 		
 		//
 		static constexpr inline bool HasNormalMatrices = false;
 		inline bool hasNormalMatrices() const override {return false;}
+		
+		//
+		static constexpr inline uint32_t RenderDescriptorSetBindingCount = 1u;
+		inline uint32_t getRenderDescriptorSetBindingCount() const override {return RenderDescriptorSetBindingCount;}
 
 		//
 		inline const video::IPropertyPool* getNodePropertyPool() const override {return m_nodeStorage.get();}
 
 	protected:
-		ITransformTreeWithoutNormalMatrices(core::smart_refctd_ptr<property_pool_t>&& _nodeStorage, core::smart_refctd_ptr<video::IGPUDescriptorSet>&& _transformHierarchyDS);
+		ITransformTreeWithoutNormalMatrices(core::smart_refctd_ptr<property_pool_t>&& _nodeStorage, core::smart_refctd_ptr<video::IGPUDescriptorSet>&& _transformHierarchyDS, core::smart_refctd_ptr<video::IGPUDescriptorSet>&& _renderDS);
 		inline ~ITransformTreeWithoutNormalMatrices() {} // everything drops itself automatically
 
 
@@ -258,19 +275,22 @@ class ITransformTreeWithNormalMatrices : public ITransformTree
 		>;
 		static inline constexpr uint32_t normal_matrix_prop_ix = 5u;
 
-		// useful for everyone
-		template<typename BindingType>
-		static inline void fillDescriptorLayoutBindings(BindingType* bindings, asset::ISpecializedShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
+		//
+		static inline core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> createPoolDescriptorSetLayout(asset::ISpecializedShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
 		{
-			return ITransformTree::fillDescriptorLayoutBindings<ITransformTreeWithNormalMatrices,BindingType>(bindings,stageAccessFlags);
+			return ITransformTree::createPoolDescriptorSetLayout<ITransformTreeWithNormalMatrices>(stageAccessFlags);
 		}
-		static inline core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> createDescriptorSetLayout(asset::ISpecializedShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
+		static inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createPoolDescriptorSetLayout(video::ILogicalDevice* device, asset::ISpecializedShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
 		{
-			return ITransformTree::createDescriptorSetLayout<ITransformTreeWithNormalMatrices>(stageAccessFlags);
+			return ITransformTree::createPoolDescriptorSetLayout<ITransformTreeWithNormalMatrices>(device,stageAccessFlags);
 		}
-		static inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createDescriptorSetLayout(video::ILogicalDevice* device, asset::ISpecializedShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
+		static inline core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> createRenderDescriptorSetLayout(asset::ISpecializedShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
 		{
-			return ITransformTree::createDescriptorSetLayout<ITransformTreeWithNormalMatrices>(device,stageAccessFlags);
+			return ITransformTree::createRenderDescriptorSetLayout<ITransformTreeWithNormalMatrices>(stageAccessFlags);
+		}
+		static inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createRenderDescriptorSetLayout(video::ILogicalDevice* device, asset::ISpecializedShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
+		{
+			return ITransformTree::createRenderDescriptorSetLayout<ITransformTreeWithNormalMatrices>(device,stageAccessFlags);
 		}
 
 		// the creation is the same as that of a `video::CPropertyPool`
@@ -278,11 +298,11 @@ class ITransformTreeWithNormalMatrices : public ITransformTree
 		static inline core::smart_refctd_ptr<ITransformTreeWithNormalMatrices> create(video::ILogicalDevice* device, Args... args)
 		{
 			core::smart_refctd_ptr<property_pool_t> pool;
-			core::smart_refctd_ptr<video::IGPUDescriptorSet> ds;
-			if (!ITransformTree::create<ITransformTreeWithNormalMatrices,Args...>(pool,ds,device,std::forward<Args>(args)...))
+			core::smart_refctd_ptr<video::IGPUDescriptorSet> poolDS,renderDS;
+			if (!ITransformTree::create<ITransformTreeWithNormalMatrices,Args...>(pool,poolDS,renderDS,device,std::forward<Args>(args)...))
 				return nullptr;
 
-			auto* ttRaw = new ITransformTreeWithNormalMatrices(std::move(pool),std::move(ds));
+			auto* ttRaw = new ITransformTreeWithNormalMatrices(std::move(pool),std::move(poolDS),std::move(renderDS));
 			return core::smart_refctd_ptr<ITransformTreeWithNormalMatrices>(ttRaw,core::dont_grab);
 		}
 		
@@ -291,10 +311,14 @@ class ITransformTreeWithNormalMatrices : public ITransformTree
 		inline bool hasNormalMatrices() const override {return true;}
 
 		//
+		static constexpr inline uint32_t RenderDescriptorSetBindingCount = 2u;
+		inline uint32_t getRenderDescriptorSetBindingCount() const override { return RenderDescriptorSetBindingCount; }
+
+		//
 		inline const video::IPropertyPool* getNodePropertyPool() const override {return m_nodeStorage.get();}
 
 	protected:
-		ITransformTreeWithNormalMatrices(core::smart_refctd_ptr<property_pool_t>&& _nodeStorage, core::smart_refctd_ptr<video::IGPUDescriptorSet>&& _transformHierarchyDS);
+		ITransformTreeWithNormalMatrices(core::smart_refctd_ptr<property_pool_t>&& _nodeStorage, core::smart_refctd_ptr<video::IGPUDescriptorSet>&& _transformHierarchyDS, core::smart_refctd_ptr<video::IGPUDescriptorSet>&& _renderDS);
 		~ITransformTreeWithNormalMatrices() {} // everything drops itself automatically
 
 

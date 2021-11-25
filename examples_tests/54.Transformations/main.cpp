@@ -14,11 +14,7 @@ using namespace core;
 const char* vertexSource = R"===(
 #version 430 core
 
-#define NBL_GLSL_TRANSFORM_TREE_POOL_NODE_PARENT_DESCRIPTOR_DECLARED
-#define NBL_GLSL_TRANSFORM_TREE_POOL_NODE_RELATIVE_TRANSFORM_DESCRIPTOR_DECLARED
-#define NBL_GLSL_TRANSFORM_TREE_POOL_NODE_MODIFIED_TIMESTAMP_DESCRIPTOR_DECLARED
-#define NBL_GLSL_TRANSFORM_TREE_POOL_NODE_RECOMPUTED_TIMESTAMP_DESCRIPTOR_DECLARED
-#include "nbl/builtin/glsl/transform_tree/pool_descriptor_set.glsl"
+#include "nbl/builtin/glsl/transform_tree/render_descriptor_set.glsl"
 
 layout(location = 0) in vec3 vPos;
 layout(location = 3) in vec3 vNormal;
@@ -265,7 +261,8 @@ class TransformationApp : public ApplicationBase
 			if (!ttm.get())
 				return;
 
-			ttDS = tt->getNodePropertyDescriptorSet();
+			debugDrawPipeline = ttm->createDebugPipeline<transform_tree_t>(renderpass);
+			ttDS = tt->getRenderDescriptorSet();
 
 			auto ppHandler = core::make_smart_refctd_ptr<video::CPropertyPoolHandler>(core::smart_refctd_ptr(device));
 
@@ -538,7 +535,7 @@ class TransformationApp : public ApplicationBase
 					}
 
 					asset::SPushConstantRange range[1] = { asset::ISpecializedShader::ESS_VERTEX,0u,sizeof(core::matrix4SIMD) };
-					auto gfxLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(range,range+1u,scene::ITransformTreeWithNormalMatrices::createDescriptorSetLayout());
+					auto gfxLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(range,range+1u,scene::ITransformTreeWithNormalMatrices::createRenderDescriptorSetLayout());
 					pipeline->setLayout(core::smart_refctd_ptr(gfxLayout));
 
 					core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> rpIndependentPipeline = CPU2GPU.getGPUObjectsFromAssets(&pipeline, &pipeline + 1, cpu2gpuParams)->front();
@@ -602,7 +599,15 @@ class TransformationApp : public ApplicationBase
 			ttmDescriptorSets = ttm->createAllDescriptorSets(device.get());
 			ttm->updateUpdateLocalTransformsDescriptorSet(device.get(),ttmDescriptorSets.updateLocal.get(),{0ull,modRangesBuf},{0ull,relTformModsBuf});
 			ttm->updateRecomputeGlobalTransformsDescriptorSet(device.get(),ttmDescriptorSets.recomputeGlobal.get(),{0ull,nodeIdsBuf});
-			//ttm->updateDebugDrawDescriptorSet(device.get(),ttmDescriptorSets.debugDraw.get(),{}); // TODO
+			core::vector<CompressedAABB> aabbs;
+			for (auto obj : solarSystemObjectsData)
+			{
+				auto aabb = cpuMeshPlanets->getBoundingBox();
+				aabb.MinEdge *= obj.scale;
+				aabb.MaxEdge *= obj.scale;
+				aabbs.emplace_back() = aabb;
+			}
+			ttm->updateDebugDrawDescriptorSet(device.get(),ttmDescriptorSets.debugDraw.get(),{0ull,utils->createFilledDeviceLocalGPUBufferOnDedMem(device->getQueue(0,0),sizeof(core::CompressedAABB)*aabbs.size(),aabbs.data())});
 		}
 
 		void onAppTerminated_impl() override
@@ -813,6 +818,14 @@ class TransformationApp : public ApplicationBase
 					cb->bindDescriptorSets(asset::EPBP_GRAPHICS, gpuObject.graphicsPipeline->getRenderpassIndependentPipeline()->getLayout(), 0u, 1u, &ttDS);
 					cb->drawMeshBuffer(gpuObject.gpuMesh.get());
 				}
+				{
+					asset::SBufferBinding<video::IGPUBuffer> nodeAndAABBList = {sizeof(uint32_t),nodeIdsBuf};
+					scene::ITransformTreeManager::DebugPushConstants pushConstants;
+					pushConstants.viewProjectionMatrix = viewProj;
+					pushConstants.lineColor = core::vectorSIMDf(1.f,0.f,0.f,1.f);
+					pushConstants.aabbColor = core::vectorSIMDf(0.f,1.f,0.f,1.f);
+					ttm->debugDraw(cb.get(),debugDrawPipeline.get(),tt.get(),ttmDescriptorSets.debugDraw.get(),nodeAndAABBList,nodeAndAABBList,pushConstants,ObjectCount);
+				}
 			}
 			// TODO: debug draw
 			cb->endRenderPass();
@@ -858,6 +871,7 @@ class TransformationApp : public ApplicationBase
 		core::smart_refctd_ptr<video::IGPUBuffer> nodeIdsBuf;
 		const video::IGPUDescriptorSet* ttDS;
 		scene::ITransformTreeManager::DescriptorSets ttmDescriptorSets;
+		core::smart_refctd_ptr<video::IGPUGraphicsPipeline> debugDrawPipeline;
 
 		core::smart_refctd_ptr<nbl::video::IGPUCommandBuffer> cmdbuf[FRAMES_IN_FLIGHT];
 		core::smart_refctd_ptr<video::IGPUFence> frameComplete[FRAMES_IN_FLIGHT] = { nullptr };
