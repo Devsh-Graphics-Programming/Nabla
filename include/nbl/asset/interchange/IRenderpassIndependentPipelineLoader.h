@@ -28,6 +28,7 @@ class IRenderpassIndependentPipelineLoader : public IAssetLoader
 		// samplers
 		static inline std::string genSamplerCacheKey(const asset::ICPUSampler::SParams& params)
 		{
+			// TODO: Change the HASH, ACTUALLY BUILD IT OUT OF ALL THE PARAMETERS, THERE CANNOT BE ANY COLLISIONS!
 			const std::size_t hash = std::hash<std::string_view>{}(std::string_view(reinterpret_cast<const char*>(&params), sizeof(params)));
 			return "nbl/builtin/sampler/" + std::to_string(hash);
 		}

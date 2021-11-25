@@ -182,7 +182,6 @@ class ISkinInstanceCache : public virtual core::IReferenceCounted
 				m_skinAllocator.free_addr(skinInstance,params.jointCountPerSkin[i]);
             }
 		}
-		// TODO: setup transfers, etc.
 
 		// This removes all cache entries
 		inline void clear()
