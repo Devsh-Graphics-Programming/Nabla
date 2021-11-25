@@ -262,7 +262,7 @@ class TransformationApp : public ApplicationBase
 				return;
 
 			debugDrawPipeline = ttm->createDebugPipeline<transform_tree_t>(renderpass);
-			ttDS = tt->getRenderDescriptorSet();
+			ttRenderDS = tt->getRenderDescriptorSet();
 
 			auto ppHandler = core::make_smart_refctd_ptr<video::CPropertyPoolHandler>(core::smart_refctd_ptr(device));
 
@@ -815,7 +815,7 @@ class TransformationApp : public ApplicationBase
 
 					cb->bindGraphicsPipeline(gpuObject.graphicsPipeline.get());
 					cb->pushConstants(gpuObject.graphicsPipeline->getRenderpassIndependentPipeline()->getLayout(), asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD), viewProj.pointer());
-					cb->bindDescriptorSets(asset::EPBP_GRAPHICS, gpuObject.graphicsPipeline->getRenderpassIndependentPipeline()->getLayout(), 0u, 1u, &ttDS);
+					cb->bindDescriptorSets(asset::EPBP_GRAPHICS, gpuObject.graphicsPipeline->getRenderpassIndependentPipeline()->getLayout(), 0u, 1u, &ttRenderDS);
 					cb->drawMeshBuffer(gpuObject.gpuMesh.get());
 				}
 				{
@@ -869,7 +869,7 @@ class TransformationApp : public ApplicationBase
 		core::smart_refctd_ptr<video::IGPUBuffer> modRangesBuf;
 		core::smart_refctd_ptr<video::IGPUBuffer> relTformModsBuf;
 		core::smart_refctd_ptr<video::IGPUBuffer> nodeIdsBuf;
-		const video::IGPUDescriptorSet* ttDS;
+		const video::IGPUDescriptorSet* ttRenderDS;
 		scene::ITransformTreeManager::DescriptorSets ttmDescriptorSets;
 		core::smart_refctd_ptr<video::IGPUGraphicsPipeline> debugDrawPipeline;
 
