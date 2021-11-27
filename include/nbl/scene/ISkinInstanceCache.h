@@ -150,36 +150,59 @@ class ISkinInstanceCache : public virtual core::IReferenceCounted
 		//
 		struct Allocation
 		{
-			uint32_t count = 0u;
-			// must point to an array initialized with `invalid`
-			skin_instance_t* skinInstances;
-			// self explanatory
+			inline uint32_t computeSkinInstanceTotalCount() const
+			{
+				if (instanceCounts)
+					return std::accumulate(instanceCounts,instanceCounts+skinCount,0u);
+				else
+					return skinCount;
+			}
+
+			uint32_t skinCount = 0u;
+			// self explanatory, needs to point at memory with `skinCount` uint32_t
 			const uint32_t* jointCountPerSkin;
+			// if nullptr then treated like a buffer of {1,1,...,1,1}, else needs to be same length as the skeleton range
+			const uint32_t* instanceCounts = nullptr;
+			// must point to an array initialized with `invalid` large enough to hold 1 value per instance
+			// instance offsets are allocated skin-major (all instances of a single skin are together in memory)
+			skin_instance_t* skinInstances;
 		};
 		[[nodiscard]] inline bool allocate(const Allocation& params)
 		{
-            for (auto i=0u; i<params.count; i++)
+			auto skinInstancesIt = params.skinInstances;
+            for (auto i=0u; i<params.skinCount; i++)
             {
-                auto& skinInstance = params.skinInstances[i];
-                if (skinInstance!=invalid_instance)
-                    continue;
+				const auto jointCount = params.jointCountPerSkin[i];
+				const auto instanceCount = params.instanceCounts ? params.instanceCounts[i]:1u;
+				for (auto j=0u; j<instanceCount; j++,skinInstancesIt++)
+				{
+					auto& skinInstance = *skinInstancesIt;
+					if (skinInstance!=invalid_instance)
+						continue;
 
-				skinInstance = m_skinAllocator.alloc_addr(params.jointCountPerSkin[i],1u);
-                if (skinInstance==invalid_instance)
-                    return false;
+					skinInstance = m_skinAllocator.alloc_addr(jointCount,1u);
+					if (skinInstance==invalid_instance)
+						return false;
+				}
             }
 			return true;
 		}
 		//
 		inline void free(const Allocation& params)
 		{
-            for (auto i=0u; i<params.count; i++)
+			auto skinInstancesIt = params.skinInstances;
+            for (auto i=0u; i<params.skinCount; i++)
             {
-                auto& skinInstance = params.skinInstances[i];
-                if (skinInstance==invalid_instance)
-                    continue;
+				const auto jointCount = params.jointCountPerSkin[i];
+				const auto instanceCount = params.instanceCounts ? params.instanceCounts[i]:1u;
+				for (auto j=0u; j<instanceCount; j++,skinInstancesIt++)
+				{
+					auto& skinInstance = *skinInstancesIt;
+					if (skinInstance==invalid_instance)
+						continue;
 
-				m_skinAllocator.free_addr(skinInstance,params.jointCountPerSkin[i]);
+					m_skinAllocator.free_addr(skinInstance,jointCount);
+				}
             }
 		}
 

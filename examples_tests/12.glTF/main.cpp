@@ -307,10 +307,11 @@ class GLTFApp : public ApplicationBase
 				const ICPUSkeleton* skeleton;
 				asset::SBufferBinding<const asset::ICPUBuffer> skinTranslationTable;
 				asset::SBufferBinding<const asset::ICPUBuffer> inverseBindPoses;
+				uint32_t jointCount;
 
 				inline bool operator==(const Skin& other) const
 				{
-					return skeleton==other.skeleton && skinTranslationTable==other.skinTranslationTable && inverseBindPoses==other.inverseBindPoses;
+					return skeleton==other.skeleton && skinTranslationTable==other.skinTranslationTable && inverseBindPoses==other.inverseBindPoses && jointCount==other.jointCount;
 				}
 			};
 			struct SkinHash
@@ -351,7 +352,7 @@ class GLTFApp : public ApplicationBase
 								inverseBindPoseRanges.insert({std::move(inverseBindPoseRange),std::unique_ptr<uint32_t[]>(new uint32_t[jointCount])});
 						}
 
-						Skin skin = {instance.skeleton,instance.skinTranslationTable,meshbuffer->getInverseBindPoseBufferBinding()};
+						Skin skin = {instance.skeleton,instance.skinTranslationTable,meshbuffer->getInverseBindPoseBufferBinding(),jointCount};
 						auto foundSkin = skinInstances.find(skin);
 						if (foundSkin!=skinInstances.end())
 							foundSkin->second += modelInstanceCount;
@@ -392,22 +393,28 @@ class GLTFApp : public ApplicationBase
 						utilities->getDefaultUpStreamingBuffer(),xferCmdbuf.get(),xferFence.get(),xferQueue,xferScratch,
 						pRequest,1u,waitSemaphoreCount,waitSempahores,waitStages,logger.get()
 					);
-
-					// temporary debug
-					printf("\nNEW BINDPOSE RANGE");
-					while (inverseBindPoseIt!=end)
-					{
-						printf("\n%f %f %f %f\n%f %f %f %f\n%f %f %f %f\n",
-							inverseBindPoseIt->rows[0].x,inverseBindPoseIt->rows[0].y,inverseBindPoseIt->rows[0].z,inverseBindPoseIt->rows[0].w,
-							inverseBindPoseIt->rows[1].x,inverseBindPoseIt->rows[1].y,inverseBindPoseIt->rows[1].z,inverseBindPoseIt->rows[1].w,
-							inverseBindPoseIt->rows[2].x,inverseBindPoseIt->rows[2].y,inverseBindPoseIt->rows[2].z,inverseBindPoseIt->rows[2].w
-						);
-						inverseBindPoseIt++;
-					}
 				}
 			}
 			// allocate a skin cache entry for every skin instance
+			core::vector<scene::ISkinInstanceCache::skin_instance_t> skinInstanceOffsets;
 			{
+				core::vector<uint32_t> skinJointCounts; skinJointCounts.reserve(skinInstances.size());
+				core::vector<uint32_t> instanceCounts; instanceCounts.reserve(skinInstances.size());
+
+				scene::ISkinInstanceCache::Allocation alloc;
+				alloc.skinCount = skinInstances.size();
+				for (auto& pair : skinInstances)
+				{
+					skinJointCounts.push_back(pair.first.jointCount);
+					instanceCounts.push_back(pair.second);
+				}
+				skinInstanceOffsets.resize(std::accumulate(instanceCounts.begin(),instanceCounts.end(),0u),scene::ISkinInstanceCache::invalid_instance);
+				alloc.jointCountPerSkin = skinJointCounts.data();
+				alloc.instanceCounts = instanceCounts.data();
+				alloc.skinInstances = skinInstanceOffsets.data();
+				skinInstanceCache->allocate(alloc);
+				// allocate contiguous range starting at X for each skin instance
+				// need SoA lists of skeleton joints (translation table) and inverse bind pose offsets 
 			}
 			//temp
 			{
