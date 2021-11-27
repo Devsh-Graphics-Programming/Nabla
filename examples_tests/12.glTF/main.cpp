@@ -242,57 +242,78 @@ class GLTFApp : public ApplicationBase
 			// - skeleton instancing (incl copying currently playing animations)
 			// - model instancing TODO
 			core::vector<uint32_t> modelInstanceCounts; // TODO rename
-			// add skeleton instances to transform tree (abuse the value as first an instance count, then to store the offset to the node handles TODO)
-			core::unordered_map<const asset::ICPUSkeleton*,uint32_t> skeletonInstances;
-			for (const auto& model : models)
-			{
-				const auto instanceCount = modelInstanceCounts.emplace_back() = std::uniform_int_distribution<uint32_t>(1,5)(mt);
-				for (const auto& skeleton : model.meta->skeletons)
-				{
-					auto found = skeletonInstances.find(skeleton.get());
-					if (found!=skeletonInstances.end())
-						found->second += instanceCount;
-					else
-						skeletonInstances.insert({skeleton.get(),instanceCount});
-				}
-			}
-			// allocate skeleton nodes in TT
 			core::vector<scene::ITransformTree::node_t> allSkeletonNodes;
+			// add skeleton instances to transform tree
+			static_assert(sizeof(std::unique_ptr<uint32_t[]>)==sizeof(void*));
+			using node_array_t = const scene::ITransformTree::node_t*;
+			core::unordered_map<const asset::ICPUSkeleton*,std::unique_ptr<node_array_t[]>> skeletonInstanceNodes;
 			{
-				core::vector<const ICPUSkeleton*> skeletons; skeletons.reserve(skeletonInstances.size());
-				core::vector<uint32_t> skeletonInstanceCounts; skeletonInstanceCounts.reserve(skeletonInstances.size());
-				for (const auto& pair : skeletonInstances)
+				core::unordered_map<const asset::ICPUSkeleton*,uint32_t> skeletonCounters;
+				for (const auto& model : models)
 				{
-					skeletons.push_back(pair.first);
-					skeletonInstanceCounts.push_back(pair.second);
+					const auto instanceCount = modelInstanceCounts.emplace_back() = std::uniform_int_distribution<uint32_t>(1,5)(mt);
+					for (const auto& skeleton : model.meta->skeletons)
+					{
+						auto found = skeletonCounters.find(skeleton.get());
+						if (found!=skeletonCounters.end())
+							found->second += instanceCount;
+						else
+							skeletonCounters.insert({skeleton.get(),instanceCount});
+					}
 				}
+				// allocate skeleton nodes in TT
+				{
+					const auto uniqueSkeletonCount = skeletonCounters.size();
+					core::vector<const ICPUSkeleton*> skeletons; skeletons.reserve(uniqueSkeletonCount);
+					core::vector<uint32_t> skeletonInstanceCounts; skeletonInstanceCounts.reserve(uniqueSkeletonCount);
+					for (const auto& pair : skeletonCounters)
+					{
+						const auto skeleton = pair.first;
+						const auto instanceCount = pair.second;
+						skeletons.push_back(skeleton);
+						skeletonInstanceCounts.push_back(instanceCount);
+					}
 
-				scene::ITransformTreeManager::SkeletonAllocationRequest skeletonAllocationRequest;
-				skeletonAllocationRequest.tree = transformTree.get();
-				skeletonAllocationRequest.cmdbuf = xferCmdbuf.get();
-				skeletonAllocationRequest.fence = xferFence.get();
-				skeletonAllocationRequest.scratch = xferScratch;
-				skeletonAllocationRequest.upBuff = utilities->getDefaultUpStreamingBuffer();
-				skeletonAllocationRequest.poolHandler = ppHandler;
-				skeletonAllocationRequest.queue = xferQueue;
-				skeletonAllocationRequest.logger = logger.get();
-				skeletonAllocationRequest.skeletons = {skeletons.data(),skeletons.data()+skeletons.size()};
-				skeletonAllocationRequest.instanceCounts = skeletonInstanceCounts.data();
-				skeletonAllocationRequest.skeletonInstanceParents = nullptr; // no parent so we can instance/duplicate the skeleton freely
+					scene::ITransformTreeManager::SkeletonAllocationRequest skeletonAllocationRequest;
+					skeletonAllocationRequest.tree = transformTree.get();
+					skeletonAllocationRequest.cmdbuf = xferCmdbuf.get();
+					skeletonAllocationRequest.fence = xferFence.get();
+					skeletonAllocationRequest.scratch = xferScratch;
+					skeletonAllocationRequest.upBuff = utilities->getDefaultUpStreamingBuffer();
+					skeletonAllocationRequest.poolHandler = ppHandler;
+					skeletonAllocationRequest.queue = xferQueue;
+					skeletonAllocationRequest.logger = logger.get();
+					skeletonAllocationRequest.skeletons = {skeletons.data(),skeletons.data()+skeletons.size()};
+					skeletonAllocationRequest.instanceCounts = skeletonInstanceCounts.data();
+					skeletonAllocationRequest.skeletonInstanceParents = nullptr; // no parent so we can instance/duplicate the skeleton freely
 
-				auto stagingReqs = skeletonAllocationRequest.computeStagingRequirements();
-				allSkeletonNodes.resize(stagingReqs.nodeCount,scene::ITransformTree::invalid_node);
-				core::vector<scene::ITransformTree::node_t> parentScratch(stagingReqs.nodeCount);
-				core::vector<scene::ITransformTree::relative_transform_t> transformScratch(stagingReqs.transformScratchCount);
+					auto stagingReqs = skeletonAllocationRequest.computeStagingRequirements();
+					allSkeletonNodes.resize(stagingReqs.nodeCount,scene::ITransformTree::invalid_node);
+					core::vector<scene::ITransformTree::node_t> parentScratch(stagingReqs.nodeCount);
+					core::vector<scene::ITransformTree::relative_transform_t> transformScratch(stagingReqs.transformScratchCount);
+					auto outNodeIt = allSkeletonNodes.data();
+					for (auto i=0u; i<uniqueSkeletonCount; i++)
+					{
+						const auto skeleton = skeletons[i];
+						const auto instanceCount = skeletonInstanceCounts[i];
+						std::unique_ptr<node_array_t[]> instanceNodeLists(new node_array_t[instanceCount]);
+						for (auto i=0u; i<instanceCount; i++)
+						{
+							instanceNodeLists[i] = outNodeIt;
+							outNodeIt += skeleton->getJointCount();
+						}
+						skeletonInstanceNodes[skeleton] = std::move(instanceNodeLists);
+					}
 
-				skeletonAllocationRequest.outNodes = allSkeletonNodes.data();
-				skeletonAllocationRequest.parentScratch = parentScratch.data();
-				skeletonAllocationRequest.transformScratch = transformScratch.data();
+					skeletonAllocationRequest.outNodes = allSkeletonNodes.data();
+					skeletonAllocationRequest.parentScratch = parentScratch.data();
+					skeletonAllocationRequest.transformScratch = transformScratch.data();
 
-				uint32_t waitSemaphoreCount = 0u;
-				video::IGPUSemaphore*const* waitSempahores = nullptr;
-				const asset::E_PIPELINE_STAGE_FLAGS* waitStages = nullptr;
-				transformTreeManager->addSkeletonNodes(skeletonAllocationRequest,waitSemaphoreCount,waitSempahores,waitStages);
+					uint32_t waitSemaphoreCount = 0u;
+					video::IGPUSemaphore*const* waitSempahores = nullptr;
+					const asset::E_PIPELINE_STAGE_FLAGS* waitStages = nullptr;
+					transformTreeManager->addSkeletonNodes(skeletonAllocationRequest,waitSemaphoreCount,waitSempahores,waitStages);
+				}
 			}
 			struct InverseBindPoseRangeHash
 			{
@@ -321,7 +342,7 @@ class GLTFApp : public ApplicationBase
 					return std::hash<std::string_view>{}(std::string_view(reinterpret_cast<const char*>(&skin),sizeof(skin)));
 				}
 			};
-			core::unordered_map<Skin,uint32_t,SkinHash> skinInstances;
+			core::unordered_map<Skin,uint32_t,SkinHash> skinCounters;
 			// pick a scene and flag all skin instances
 			for (auto i=0u; i<models.size(); i++)
 			{
@@ -353,11 +374,11 @@ class GLTFApp : public ApplicationBase
 						}
 
 						Skin skin = {instance.skeleton,instance.skinTranslationTable,meshbuffer->getInverseBindPoseBufferBinding(),jointCount};
-						auto foundSkin = skinInstances.find(skin);
-						if (foundSkin!=skinInstances.end())
+						auto foundSkin = skinCounters.find(skin);
+						if (foundSkin!= skinCounters.end())
 							foundSkin->second += modelInstanceCount;
 						else
-							skinInstances.insert({std::move(skin),modelInstanceCount});
+							skinCounters.insert({std::move(skin),modelInstanceCount});
 					}
 				}
 			}
@@ -396,20 +417,32 @@ class GLTFApp : public ApplicationBase
 				}
 			}
 			// allocate a skin cache entry for every skin instance
-			core::vector<scene::ISkinInstanceCache::skin_instance_t> skinInstanceOffsets;
+			core::vector<std::unique_ptr<scene::ISkinInstanceCache::skin_instance_t[]>> skinInstances;
 			{
 				const auto skinCount = skinInstances.size();
+				skinInstances.reserve(skinCount);
 				core::vector<uint32_t> skinJointCounts; skinJointCounts.reserve(skinCount);
 				core::vector<uint32_t> instanceCounts; instanceCounts.reserve(skinCount);
 				core::vector<const uint32_t*> translationTables; translationTables.reserve(skinCount);
-				for (auto& pair : skinInstances)
+				core::vector<const scene::ITransformTree::node_t* const*> skeletonNodes;
+				core::vector<const scene::ISkinInstanceCache::inverse_bind_pose_offset_t*> inverseBindPoseRangesFlatArray; inverseBindPoseRangesFlatArray.reserve(skinCount);
+				for (auto& pair : skinCounters)
 				{
 					const Skin& skin = pair.first;
+					const auto instanceCount = pair.second;
+					std::fill_n(skinInstances.emplace_back(new scene::ISkinInstanceCache::skin_instance_t[instanceCount]).get(),instanceCount,scene::ISkinInstanceCache::invalid_instance);
 					skinJointCounts.push_back(skin.jointCount);
-					instanceCounts.push_back(pair.second);
+					instanceCounts.push_back(instanceCount);
 					const auto* buffPtr = reinterpret_cast<const uint8_t*>(skin.skinTranslationTable.buffer->getPointer());
 					translationTables.push_back(reinterpret_cast<const uint32_t*>(buffPtr+skin.skinTranslationTable.offset));
+					skeletonNodes.push_back(reinterpret_cast<const scene::ITransformTree::node_t* const*>(skeletonInstanceNodes.find(skin.skeleton)->second.get()));
+					asset::SBufferRange<const asset::ICPUBuffer> ibprKey;
+					ibprKey.offset = skin.inverseBindPoses.offset;
+					ibprKey.size = sizeof(scene::ISkinInstanceCache::inverse_bind_pose_t)*skin.jointCount;
+					ibprKey.buffer = skin.inverseBindPoses.buffer;
+					inverseBindPoseRangesFlatArray.push_back(inverseBindPoseRanges.find(ibprKey)->second.get());
 				}
+				auto pSkinInstances = reinterpret_cast<scene::ISkinInstanceCache::skin_instance_t* const*>(skinInstances.data());
 
 				scene::ISkinInstanceCacheManager::AdditionRequest request;
 				request.cache = skinInstanceCache.get();
@@ -419,18 +452,26 @@ class GLTFApp : public ApplicationBase
 				request.upBuff = utilities->getDefaultUpStreamingBuffer();
 				request.poolHandler = ppHandler;
 				request.queue = xferQueue;
-				/*
-				request.allocation.skinInstances = {};
+				request.allocation.skinInstances = {pSkinInstances,pSkinInstances+skinInstances.size()};
 				request.allocation.jointCountPerSkin = skinJointCounts.data();
 				request.allocation.instanceCounts = instanceCounts.data();
 				request.translationTables = translationTables.data();
-				request.skeletonNodes = ;
-				request.inverseBindPoseOffsets = ;
-				request.jointIndexScratch = ;
-				request.jointNodeScratch = ;
-				request.inverseBindPoseOffsetScratch = ;
-				*/
+				request.skeletonNodes = skeletonNodes.data();
+				request.inverseBindPoseOffsets = inverseBindPoseRangesFlatArray.data();
+
+				const auto totalJoints = request.computeStagingRequirements();
+				auto jointIndexScratch = std::unique_ptr<scene::ISkinInstanceCache::joint_t[]>(new scene::ISkinInstanceCache::joint_t[totalJoints]);
+				auto jointNodeScratch = std::unique_ptr<scene::ITransformTree::node_t[]>(new scene::ITransformTree::node_t[totalJoints]);
+				auto inverseBindPoseOffsetScratch = std::unique_ptr<scene::ISkinInstanceCache::inverse_bind_pose_offset_t[]>(new scene::ISkinInstanceCache::inverse_bind_pose_offset_t[totalJoints]);
+				request.jointIndexScratch = jointIndexScratch.get();
+				request.jointNodeScratch = jointNodeScratch.get();
+				request.inverseBindPoseOffsetScratch = inverseBindPoseOffsetScratch.get();
 				request.logger = logger.get();
+
+				uint32_t waitSemaphoreCount = 0u;
+				video::IGPUSemaphore* const* waitSempahores = nullptr;
+				const asset::E_PIPELINE_STAGE_FLAGS* waitStages = nullptr;
+				sicManager->addSkinInstances(request,waitSemaphoreCount,waitSempahores,waitStages);
 			}
 			// set up the transfers of property data for skin instances
 			//temp

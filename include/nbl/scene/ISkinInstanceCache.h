@@ -167,7 +167,7 @@ class ISkinInstanceCache : public virtual core::IReferenceCounted
 			}
 
 			// must point to arrays initialized with `invalid` large enough to hold 1 value per instance (as dictated by `instanceCounts`)
-			core::SRange<ISkinInstanceCache::skin_instance_t*> skinInstances;
+			core::SRange<ISkinInstanceCache::skin_instance_t* const> skinInstances;
 			// self explanatory, needs to point at memory with `outSkinInstances.size()` uint32_t
 			const uint32_t* jointCountPerSkin;
 			// if nullptr then treated like a buffer of {1,1,...,1,1}, else needs to be same length as the skeleton range

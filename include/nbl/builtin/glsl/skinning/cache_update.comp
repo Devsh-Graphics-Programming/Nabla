@@ -14,7 +14,7 @@ void main()
     if (skinCount==0u)
         return;
 
-    const uint totalJointCount = jointCountInclPrefixSum.data[skinCount-1u];
+    const uint totalJointCount = jointCountInclPrefixSum[skinCount-1u];
     const uint dispatchSize = NBL_LIMIT_MAX_OPTIMALLY_RESIDENT_WORKGROUP_INVOCATIONS*gl_NumWorkGroups[0];
     for (uint jointIndex=gl_GlobalInvocationID.x; jointIndex<totalJointCount; jointIndex+=dispatchSize)
     {

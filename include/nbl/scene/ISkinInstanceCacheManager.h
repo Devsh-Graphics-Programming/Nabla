@@ -241,7 +241,7 @@ class ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 
 			system::logger_opt_ptr logger = nullptr;
 		}; 
-		inline uint32_t addNodes(
+		inline uint32_t addSkinInstances(
 			const AdditionRequest& request, uint32_t& waitSemaphoreCount,
 			video::IGPUSemaphore* const*& semaphoresToWaitBeforeOverwrite,
 			const asset::E_PIPELINE_STAGE_FLAGS*& stagesToWaitForPerSemaphore, 
