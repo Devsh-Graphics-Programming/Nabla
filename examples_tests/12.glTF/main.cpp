@@ -468,12 +468,12 @@ class GLTFApp : public ApplicationBase
 				request.inverseBindPoseOffsetScratch = inverseBindPoseOffsetScratch.get();
 				request.logger = logger.get();
 
+				// set up the transfers of property data for skin instances
 				uint32_t waitSemaphoreCount = 0u;
 				video::IGPUSemaphore* const* waitSempahores = nullptr;
 				const asset::E_PIPELINE_STAGE_FLAGS* waitStages = nullptr;
 				sicManager->addSkinInstances(request,waitSemaphoreCount,waitSempahores,waitStages);
 			}
-			// set up the transfers of property data for skin instances
 			//temp
 			{
 				IGPUBuffer::SCreationParams params = {};

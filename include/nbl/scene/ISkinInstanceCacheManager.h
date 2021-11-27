@@ -296,97 +296,53 @@ class ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 			);
 		}
 
-/*
 		//
 		struct SBarrierSuggestion
 		{
-			static inline constexpr uint32_t MaxBufferCount = 6u;
+			static inline constexpr uint32_t MaxBufferCount = 4u;
 
 			//
 			enum E_FLAG
 			{
-				// basic
-				EF_PRE_RELATIVE_TFORM_UPDATE = 0x1u,
-				EF_POST_RELATIVE_TFORM_UPDATE = 0x2u,
-				EF_PRE_GLOBAL_TFORM_RECOMPUTE = 0x4u,
-				EF_POST_GLOBAL_TFORM_RECOMPUTE = 0x8u,
-				// if you plan to run recompute right after update
-				EF_INBETWEEN_RLEATIVE_UPDATE_AND_GLOBAL_RECOMPUTE = EF_POST_RELATIVE_TFORM_UPDATE|EF_PRE_GLOBAL_TFORM_RECOMPUTE,
-				// if you're planning to run the fused recompute and update kernel
-				EF_PRE_UPDATE_AND_RECOMPUTE = EF_PRE_RELATIVE_TFORM_UPDATE|EF_PRE_GLOBAL_TFORM_RECOMPUTE,
-				EF_POST_UPDATE_AND_RECOMPUTE = EF_POST_RELATIVE_TFORM_UPDATE|EF_POST_GLOBAL_TFORM_RECOMPUTE,
+				EF_PRE_CACHE_UPDATE = 0x1u,
+				EF_POST_CACHE_UPDATE = 0x2u
 			};
 
 			core::bitflag<asset::E_PIPELINE_STAGE_FLAGS> srcStageMask = static_cast<asset::E_PIPELINE_STAGE_FLAGS>(0u);
 			core::bitflag<asset::E_PIPELINE_STAGE_FLAGS> dstStageMask = static_cast<asset::E_PIPELINE_STAGE_FLAGS>(0u);
-			asset::SMemoryBarrier requestRanges = {};
-			asset::SMemoryBarrier modificationRequests = {};
-			asset::SMemoryBarrier relativeTransforms = {};
-			asset::SMemoryBarrier modifiedTimestamps = {};
-			asset::SMemoryBarrier globalTransforms = {};
-			asset::SMemoryBarrier recomputedTimestamps = {};
+			asset::SMemoryBarrier skinsToUpdate = {};
+			asset::SMemoryBarrier jointCountInclPrefixSum = {};
+			asset::SMemoryBarrier skinningTransforms = {};
+			asset::SMemoryBarrier skinningRecomputedTimestamps = {};
 		};
 		//
 		static inline SBarrierSuggestion barrierHelper(const SBarrierSuggestion::E_FLAG type)
 		{
-			const auto rwAccessMask = core::bitflag(asset::EAF_SHADER_READ_BIT)|asset::EAF_SHADER_WRITE_BIT;
-
 			SBarrierSuggestion barrier;
-			if (type&SBarrierSuggestion::EF_PRE_RELATIVE_TFORM_UPDATE)
+
+			barrier.srcStageMask |= asset::EPSF_COMPUTE_SHADER_BIT;
+			barrier.dstStageMask |= asset::EPSF_COMPUTE_SHADER_BIT;
+			if (type&SBarrierSuggestion::EF_PRE_CACHE_UPDATE)
 			{
-				// we're mostly concerned about stuff writing to buffer update reads from 
-				barrier.dstStageMask |= asset::EPSF_COMPUTE_SHADER_BIT;
-				barrier.requestRanges.dstAccessMask |= asset::EAF_SHADER_READ_BIT;
-				barrier.modificationRequests.dstAccessMask |= asset::EAF_SHADER_READ_BIT;
+				barrier.skinsToUpdate.dstAccessMask |= asset::EAF_SHADER_READ_BIT;
+				barrier.jointCountInclPrefixSum.dstAccessMask |= asset::EAF_SHADER_READ_BIT;
 				// the case of update stepping on its own toes is handled by the POST case
 			}
-			if (type&SBarrierSuggestion::EF_POST_RELATIVE_TFORM_UPDATE)
+			if (type&SBarrierSuggestion::EF_POST_CACHE_UPDATE)
 			{
-				// we're mostly concerned about relative tform update overwriting itself
-				barrier.srcStageMask |= asset::EPSF_COMPUTE_SHADER_BIT;
-				barrier.dstStageMask |= asset::EPSF_COMPUTE_SHADER_BIT;
 				// we also need to barrier against any future update to the inputs overstepping our reading
-				barrier.requestRanges.srcAccessMask |= asset::EAF_SHADER_READ_BIT;
-				barrier.modificationRequests.srcAccessMask |= asset::EAF_SHADER_READ_BIT;
-				// relative transform can be pre-post multiplied or entirely erased, we're not in charge of that
-				// need to also worry about update<->update loop, so both masks are R/W
-				barrier.relativeTransforms.srcAccessMask |= rwAccessMask;
-				barrier.relativeTransforms.dstAccessMask |= rwAccessMask;
-				// we will only overwrite
-				barrier.modifiedTimestamps.srcAccessMask |= asset::EAF_SHADER_WRITE_BIT;
-				// modified timestamp will be written by previous update, but also has to be read by recompute later
-				barrier.modifiedTimestamps.dstAccessMask |= rwAccessMask;
-				// we don't touch anything else
+				barrier.skinsToUpdate.srcAccessMask |= asset::EAF_SHADER_READ_BIT;
+				barrier.jointCountInclPrefixSum.srcAccessMask |= asset::EAF_SHADER_READ_BIT;
 			}
-			if (type&SBarrierSuggestion::EF_PRE_GLOBAL_TFORM_RECOMPUTE)
-			{
-				// we're mostly concerned about relative transform update not being finished before global transform recompute runs 
-				barrier.srcStageMask |= asset::EPSF_COMPUTE_SHADER_BIT;
-				barrier.dstStageMask |= asset::EPSF_COMPUTE_SHADER_BIT;
-				barrier.relativeTransforms.srcAccessMask |= rwAccessMask;
-				barrier.relativeTransforms.dstAccessMask |= asset::EAF_SHADER_READ_BIT;
-				barrier.modifiedTimestamps.srcAccessMask |= asset::EAF_SHADER_WRITE_BIT;
-				barrier.modifiedTimestamps.dstAccessMask |= asset::EAF_SHADER_READ_BIT;
-			}
-			if (type&SBarrierSuggestion::EF_POST_GLOBAL_TFORM_RECOMPUTE)
-			{
-				// we're mostly concerned about global tform recompute overwriting itself
-				barrier.srcStageMask |= asset::EPSF_COMPUTE_SHADER_BIT;
-				barrier.dstStageMask |= asset::EPSF_COMPUTE_SHADER_BIT;
-				// and future local update overwritng the inputs before recompute is done reading
-				barrier.relativeTransforms.srcAccessMask |= asset::EAF_SHADER_READ_BIT;
-				barrier.relativeTransforms.dstAccessMask |= rwAccessMask;
-				barrier.modifiedTimestamps.srcAccessMask |= asset::EAF_SHADER_READ_BIT;
-				barrier.modifiedTimestamps.dstAccessMask |= asset::EAF_SHADER_WRITE_BIT;
-				// global transforms and recompute timestamps can be both read and written
-				barrier.globalTransforms.srcAccessMask |= rwAccessMask;
-				barrier.globalTransforms.dstAccessMask |= rwAccessMask;
-				barrier.recomputedTimestamps.srcAccessMask |= rwAccessMask;
-				barrier.recomputedTimestamps.dstAccessMask |= rwAccessMask;
-			}
+			const auto rwAccessMask = core::bitflag(asset::EAF_SHADER_READ_BIT)|asset::EAF_SHADER_WRITE_BIT;
+			barrier.skinningTransforms.srcAccessMask |= rwAccessMask;
+			barrier.skinningTransforms.dstAccessMask |= rwAccessMask;
+			barrier.skinningRecomputedTimestamps.srcAccessMask |= rwAccessMask;
+			barrier.skinningRecomputedTimestamps.dstAccessMask |= rwAccessMask;
+
 			return barrier;
 		}
-*/
+
 
 		//
 		struct CacheUpdateParams
