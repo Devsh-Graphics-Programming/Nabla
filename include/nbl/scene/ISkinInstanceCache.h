@@ -150,33 +150,39 @@ class ISkinInstanceCache : public virtual core::IReferenceCounted
 		//
 		struct Allocation
 		{
+			Allocation() : skinInstances(nullptr,nullptr) {}
+
 			inline uint32_t computeSkinInstanceTotalCount() const
 			{
+				const auto skinCount = skinInstances.size();
 				if (instanceCounts)
 					return std::accumulate(instanceCounts,instanceCounts+skinCount,0u);
 				else
 					return skinCount;
 			}
 
-			uint32_t skinCount = 0u;
-			// self explanatory, needs to point at memory with `skinCount` uint32_t
+			inline bool isValid() const
+			{
+				return skinInstances.begin() && skinInstances.begin()<=skinInstances.end() && jointCountPerSkin;
+			}
+
+			// must point to arrays initialized with `invalid` large enough to hold 1 value per instance (as dictated by `instanceCounts`)
+			core::SRange<ISkinInstanceCache::skin_instance_t*> skinInstances;
+			// self explanatory, needs to point at memory with `outSkinInstances.size()` uint32_t
 			const uint32_t* jointCountPerSkin;
 			// if nullptr then treated like a buffer of {1,1,...,1,1}, else needs to be same length as the skeleton range
 			const uint32_t* instanceCounts = nullptr;
-			// must point to an array initialized with `invalid` large enough to hold 1 value per instance
-			// instance offsets are allocated skin-major (all instances of a single skin are together in memory)
-			skin_instance_t* skinInstances;
 		};
+		//
 		[[nodiscard]] inline bool allocate(const Allocation& params)
 		{
-			auto skinInstancesIt = params.skinInstances;
-            for (auto i=0u; i<params.skinCount; i++)
+            for (auto i=0u; i<params.skinInstances.size(); i++)
             {
 				const auto jointCount = params.jointCountPerSkin[i];
 				const auto instanceCount = params.instanceCounts ? params.instanceCounts[i]:1u;
-				for (auto j=0u; j<instanceCount; j++,skinInstancesIt++)
+				for (auto j=0u; j<instanceCount; j++)
 				{
-					auto& skinInstance = *skinInstancesIt;
+					auto& skinInstance = params.skinInstances.begin()[i][j];
 					if (skinInstance!=invalid_instance)
 						continue;
 
@@ -190,14 +196,13 @@ class ISkinInstanceCache : public virtual core::IReferenceCounted
 		//
 		inline void free(const Allocation& params)
 		{
-			auto skinInstancesIt = params.skinInstances;
-            for (auto i=0u; i<params.skinCount; i++)
+            for (auto i=0u; i<params.skinInstances.size(); i++)
             {
 				const auto jointCount = params.jointCountPerSkin[i];
 				const auto instanceCount = params.instanceCounts ? params.instanceCounts[i]:1u;
-				for (auto j=0u; j<instanceCount; j++,skinInstancesIt++)
+				for (auto j=0u; j<instanceCount; j++)
 				{
-					auto& skinInstance = *skinInstancesIt;
+					auto& skinInstance = params.skinInstances.begin()[i][j];
 					if (skinInstance==invalid_instance)
 						continue;
 

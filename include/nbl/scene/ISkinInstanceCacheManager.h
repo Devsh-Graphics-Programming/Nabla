@@ -121,8 +121,8 @@ class ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 			);
             return core::smart_refctd_ptr<ISkinInstanceCacheManager>(sicm,core::dont_grab);
         }
-/*
-		static inline constexpr uint32_t TransferCount = 2u;
+
+		static inline constexpr uint32_t TransferCount = 3u;
 		struct RequestBase
 		{
 			ISkinInstanceCache* cache;
@@ -130,115 +130,117 @@ class ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 		//
 		struct TransferRequest : RequestBase
 		{
-			asset::SBufferBinding<video::IGPUBuffer> joints = {};
+			asset::SBufferRange<video::IGPUBuffer> jointCacheOffsets = {};
+			asset::SBufferBinding<video::IGPUBuffer> jointNodes = {};
+			asset::SBufferBinding<video::IGPUBuffer> inverseBindPoseOffsets = {};
 		};
 		inline bool setupTransfers(const TransferRequest& request, video::CPropertyPoolHandler::TransferRequest* transfers)
 		{
-			if (!request.tree)
+			if (!request.cache)
 				return false;
 
 			for (auto i=0u; i<TransferCount; i++)
 			{
-				transfers[i].elementCount = request.joints.size/sizeof(ISkinInstanceCache::joint_t);
-				transfers[i].srcAddressesOffset = video::IPropertyPool::invalid;
-				transfers[i].dstAddressesOffset = request.joints.offset;
+				transfers[i].elementCount = request.jointCacheOffsets.size/sizeof(ISkinInstanceCache::joint_t);
+				transfers[i].srcAddressesOffset = video::IPropertyPool::invalid; // iota input indices
+				transfers[i].dstAddressesOffset = request.jointCacheOffsets.offset;
 			}
 			transfers[0].memblock = request.cache->getJointNodeMemoryBlock();
 			transfers[0].elementSize = sizeof(ISkinInstanceCache::joint_t);
 			transfers[0].flags = video::CPropertyPoolHandler::TransferRequest::EF_NONE;
-			transfers[0].buffer = request.joints;
+			transfers[0].buffer = request.jointNodes;
 			transfers[1].memblock = request.cache->getRecomputedTimestampMemoryBlock();
 			transfers[1].elementSize = sizeof(ISkinInstanceCache::recomputed_stamp_t);
 			transfers[1].flags = video::CPropertyPoolHandler::TransferRequest::EF_FILL;
-			transfers[1].buffer = m_initialTimestampBufferRange;
+			transfers[1].buffer = {0ull,m_initialTimestampBuffer};
+			transfers[2].memblock = request.cache->getInverseBindPoseOffsetMemoryBlock();
+			transfers[2].elementSize = sizeof(ISkinInstanceCache::inverse_bind_pose_offset_t);
+			transfers[2].flags = video::CPropertyPoolHandler::TransferRequest::EF_NONE;
+			transfers[2].buffer = request.inverseBindPoseOffsets;
 			return true;
 		}
-		
+
 		//
-		struct UpstreamRequestBase : RequestBase
+		struct UpstreamRequest : RequestBase
 		{
-			video::CPropertyPoolHandler::UpStreamingRequest::Source joints = {};
-		};
-		struct UpstreamRequest : UpstreamRequestBase
-		{
-			core::SRange<const ITransformTree::node_t> nodes = {nullptr,nullptr};
+			core::SRange<const ISkinInstanceCache::skin_instance_t> jointCacheOffsets = { nullptr,nullptr };
+			video::CPropertyPoolHandler::UpStreamingRequest::Source jointNodes = {};
+			video::CPropertyPoolHandler::UpStreamingRequest::Source inverseBindPoseOffsets = {};
 		};
 		inline bool setupTransfers(const UpstreamRequest& request, video::CPropertyPoolHandler::UpStreamingRequest* upstreams)
 		{
-			if (!request.tree)
+			if (!request.cache)
 				return false;
-			if (request.nodes.empty())
-				return true;
-
-			auto* pool = request.tree->getNodePropertyPool();
 
 			for (auto i=0u; i<TransferCount; i++)
 			{
-				upstreams[i].elementCount = request.nodes.size();
+				upstreams[i].elementCount = request.jointCacheOffsets.size();
 				upstreams[i].srcAddresses = nullptr;
-				upstreams[i].dstAddresses = request.nodes.begin();
+				upstreams[i].dstAddresses = request.jointCacheOffsets.begin();
 			}
-			upstreams[0].setFromPool(pool,ITransformTree::parent_prop_ix);
-			if (request.parents.device2device || request.parents.data)
-			{
-				upstreams[0].fill = false;
-				upstreams[0].source = request.parents;
-			}
-			else
-			{
-				upstreams[0].fill = true;
-				upstreams[0].source.buffer = getDefaultValueBufferBinding(ITransformTree::parent_prop_ix);
-			}
-			upstreams[1].setFromPool(pool,ITransformTree::relative_transform_prop_ix);
-			if (request.relativeTransforms.device2device || request.relativeTransforms.data)
-			{
-				upstreams[1].fill = false;
-				upstreams[1].source = request.relativeTransforms;
-			}
-			else
-			{
-				upstreams[1].fill = true;
-				upstreams[1].source.buffer = getDefaultValueBufferBinding(ITransformTree::relative_transform_prop_ix);
-			}
-			upstreams[2].setFromPool(pool,ITransformTree::modified_stamp_prop_ix);
-			upstreams[2].fill = true;
-			upstreams[2].source.buffer = getDefaultValueBufferBinding(ITransformTree::modified_stamp_prop_ix);
-			upstreams[3].setFromPool(pool,ITransformTree::recomputed_stamp_prop_ix);
-			upstreams[3].fill = true;
-			upstreams[3].source.buffer = getDefaultValueBufferBinding(ITransformTree::recomputed_stamp_prop_ix);
+			if (request.jointCacheOffsets.empty())
+				return true;
+
+			upstreams[0].destination = request.cache->getJointNodeMemoryBlock();
+			upstreams[0].fill = false;
+			upstreams[0].elementSize = sizeof(ISkinInstanceCache::joint_t);
+			upstreams[0].source = request.jointNodes;
+			upstreams[1].destination = request.cache->getRecomputedTimestampMemoryBlock();
+			upstreams[1].fill = true;
+			upstreams[1].elementSize = sizeof(ISkinInstanceCache::recomputed_stamp_t);
+			upstreams[1].source.buffer = {0ull,m_initialTimestampBuffer};
+			upstreams[2].destination = request.cache->getInverseBindPoseOffsetMemoryBlock();
+			upstreams[2].fill = false;
+			upstreams[2].elementSize = sizeof(ISkinInstanceCache::inverse_bind_pose_offset_t);
+			upstreams[2].source = request.inverseBindPoseOffsets;
 			return true;
 		}
 
-		struct AdditionRequestBase
-		{
-			public:
-				// must be in recording state
-				video::IGPUCommandBuffer* cmdbuf;
-				video::IGPUFence* fence;
-				asset::SBufferBinding<video::IGPUBuffer> scratch;
-				video::StreamingTransientDataBufferMT<>* upBuff;
-				video::CPropertyPoolHandler* poolHandler;
-				video::IGPUQueue* queue;
-				system::logger_opt_ptr logger = nullptr;
-
-			protected:
-				inline bool isValid() const
-				{
-					return cmdbuf && fence && scratch.isValid() && upBuff && poolHandler && queue;
-				}
-		};
 		//
-		struct AdditionRequest : UpstreamRequestBase,AdditionRequestBase
+		struct AdditionRequest : RequestBase
 		{
-			// if the `outSkinInstances` have values not equal to `invalid` then we treat them as already allocated
-			// (this allows you to split allocation of nodes from setting up the transfers)
-			core::SRange<ISkinInstanceCache::skin_instance_t> outSkinInstances = {nullptr,nullptr};
-
 			inline bool isValid() const
 			{
-				return AdditionRequestBase::isValid() && outSkinInstances.begin() && outSkinInstances.begin()<= outSkinInstances.end();
+				return cache && cmdbuf && fence && scratch.isValid() && upBuff && poolHandler && queue &&
+					allocation.isValid() && translationTables && skeletonNodes && inverseBindPoseOffsets;
 			}
-		};
+
+			// return `totalJointCount`
+			inline uint32_t computeStagingRequirements() const
+			{
+				uint32_t totalJointCount = 0u;
+				for (auto i=0u; i<allocation.skinInstances.size(); i++)
+				{
+					const auto jointCount = allocation.jointCountPerSkin[i];
+					const auto instanceCount = allocation.instanceCounts ? allocation.instanceCounts[i]:1u;
+					totalJointCount += jointCount*instanceCount;
+				}
+				return totalJointCount;
+			}
+
+			
+			// must be in recording state
+			video::IGPUCommandBuffer* cmdbuf;
+			video::IGPUFence* fence;
+			asset::SBufferBinding<video::IGPUBuffer> scratch;
+			video::StreamingTransientDataBufferMT<>* upBuff;
+			video::CPropertyPoolHandler* poolHandler;
+			video::IGPUQueue* queue;
+
+			ISkinInstanceCache::Allocation allocation;
+			// one entry for each joint in the 2D array of `skinInstances` (all instances share)
+			const uint32_t* const* translationTables;
+			// one array for each skin's instance, order is [skinID][instanceID][localNodeID]
+			const ITransformTree::node_t* const* const* skeletonNodes;
+			// one inverse bind pose offset array per skin (all instances share)
+			const ISkinInstanceCache::inverse_bind_pose_offset_t* const* inverseBindPoseOffsets;
+			// scratch buffers are just required to be `totalJointCount` sized, but they can be filled with garbage
+			ISkinInstanceCache::joint_t* jointIndexScratch;
+			ITransformTree::node_t* jointNodeScratch;
+			ISkinInstanceCache::inverse_bind_pose_offset_t* inverseBindPoseOffsetScratch;
+
+			system::logger_opt_ptr logger = nullptr;
+		}; 
 		inline uint32_t addNodes(
 			const AdditionRequest& request, uint32_t& waitSemaphoreCount,
 			video::IGPUSemaphore* const*& semaphoresToWaitBeforeOverwrite,
@@ -248,145 +250,45 @@ class ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 		{
 			if (!request.isValid())
 				return false;
-			if (request.outSkinInstances.empty())
+			
+			const auto totalJointCount = request.computeStagingRequirements();
+			if (totalJointCount==0u)
 				return true;
 
-			if (!request.cache->allocate(request.outNodes))
+			if (!request.cache->allocate(request.allocation))
 				return false;
 
 			video::CPropertyPoolHandler::UpStreamingRequest upstreams[TransferCount];
 			UpstreamRequest req;
-			static_cast<UpstreamRequestBase&>(req) = request;
-			req.nodes = {request.outNodes.begin(),request.outNodes.end()};
-			if (!setupTransfers(req,upstreams))
-				return false;
-
-			auto upstreamsPtr = upstreams;
-			return request.poolHandler->transferProperties(
-				request.upBuff,request.cmdbuf,request.fence,request.queue,request.scratch,upstreamsPtr,TransferCount,
-				waitSemaphoreCount,semaphoresToWaitBeforeOverwrite,stagesToWaitForPerSemaphore,request.logger,maxWaitPoint
-			);
-		}
-
-		//
-		struct SkeletonAllocationRequest : RequestBase,AdditionRequestBase
-		{
-			core::SRange<const asset::ICPUSkeleton*> skeletons;
-			// if nullptr then treated like a buffer of {1,1,...,1,1}, else needs to be same length as the skeleton range
-			const uint32_t* instanceCounts = nullptr;
-			// If you make the skeleton hierarchy have a real parent, you won't be able to share it amongst multiple instances of a mesh
-			// also in order to render with standard shaders you'll have to cancel out the model transform of the parent for the skinning matrices.
-			const ITransformTree::node_t*const * skeletonInstanceParents = nullptr;
-			// the following arrays need to be sized according to `StagingRequirements`
-			// if the `outNodes` have values not equal to `invalid_node` then we treat them as already allocated
-			// (this allows you to split allocation of nodes from setting up the transfers)
-			ITransformTree::node_t* outNodes = nullptr;
-			// scratch buffers are just required to be the set size, they can be filled with garbage
-			ITransformTree::node_t* parentScratch;
-			// must be non null if at least one skeleton has default transforms
-			ITransformTree::relative_transform_t* transformScratch = nullptr;
-
-			inline bool isValid() const
+			static_cast<RequestBase&>(req) = request;
 			{
-				return AdditionRequestBase::isValid() && skeletons.begin() && skeletons.begin()<=skeletons.end() && outNodes && parentScratch;
-			}
-
-			struct StagingRequirements
-			{
-				uint32_t nodeCount;
-				uint32_t parentScratchSize;
-				uint32_t transformScratchSize;
-			};
-			inline StagingRequirements computeStagingRequirements() const
-			{
-				StagingRequirements reqs = {0u,0u,0u};
-				auto instanceCountIt = instanceCounts;
-				for (auto skeleton : skeletons)
+				auto jointIndexIt = request.jointIndexScratch;
+				auto jointNodeIt = request.jointNodeScratch;
+				auto inverseBindPoseOffsetIt = request.inverseBindPoseOffsetScratch;
+				for (auto i=0u; i<request.allocation.skinInstances.size(); i++)
 				{
-					if (skeleton)
+					const auto jointCount = request.allocation.jointCountPerSkin[i];
+					const auto instanceCount = request.allocation.instanceCounts ? request.allocation.instanceCounts[i]:1u;
+					for (auto j=0u; j<instanceCount; j++)
 					{
-						const uint32_t jointCount = skeleton->getJointCount();
-						const uint32_t jointInstanceCount = (*instanceCountIt)*jointCount;
-						reqs.nodeCount += jointInstanceCount;
-						reqs.parentScratchSize += sizeof(ITransformTree::node_t)*jointInstanceCount;
-						if (skeleton->getDefaultTransformBinding().buffer)
-							reqs.transformScratchSize += sizeof(ITransformTree::relative_transform_t)*jointCount;
-					}
-					instanceCountIt++;
-				}
-				if (reqs.transformScratchSize)
-					reqs.transformScratchSize += reqs.parentScratchSize*sizeof(uint32_t)/sizeof(ITransformTree::node_t);
-				return reqs;
-			}
-		};
-		inline bool addSkeletonNodes(
-			const SkeletonAllocationRequest& request, uint32_t& waitSemaphoreCount,
-			video::IGPUSemaphore* const*& semaphoresToWaitBeforeOverwrite,
-			const asset::E_PIPELINE_STAGE_FLAGS*& stagesToWaitForPerSemaphore, 
-			const std::chrono::steady_clock::time_point& maxWaitPoint=video::GPUEventWrapper::default_wait()
-		)
-		{
-			if (!request.isValid())
-				return false;
-
-			const auto staging = request.computeStagingRequirements();
-			if (staging.nodeCount==0u)
-				return true;
-
-			if (!request.tree->allocateNodes({request.outNodes,request.outNodes+staging.nodeCount}))
-				return false;
-
-			uint32_t* const srcTransformIndices = reinterpret_cast<uint32_t*>(request.transformScratch+staging.transformScratchSize/sizeof(ITransformTree::relative_transform_t));
-			{
-				auto instanceCountIt = request.instanceCounts;
-				auto skeletonInstanceParentsIt = request.skeletonInstanceParents;
-				auto parentsIt = request.parentScratch;
-				auto transformIt = request.transformScratch;
-				auto srcTransformIndicesIt = srcTransformIndices;
-				uint32_t baseJointInstance = 0u;
-				uint32_t baseJoint = 0u;
-				for (auto skeleton : request.skeletons)
-				{
-					const auto instanceCount = request.instanceCounts ? (*(instanceCountIt++)):1u;
-					auto* const instanceParents = request.skeletonInstanceParents ? (*(skeletonInstanceParentsIt++)):nullptr;
-
-					const auto jointCount = skeleton->getJointCount();
-					auto instanceParentsIt = instanceParents;
-					for (auto instanceID=0u; instanceID<instanceCount; instanceID++)
-					{
-						for (auto jointID=0u; jointID<jointCount; jointID++)
+						const auto& skinInstanceIndex = request.allocation.skinInstances.begin()[i][j];
+						for (auto k=0u; k<jointCount; k++)
 						{
-							uint32_t parentID = skeleton->getParentJointID(jointID);
-							if (parentID!=asset::ICPUSkeleton::invalid_joint_id)
-								parentID = request.outNodes[parentID+baseJointInstance];
-							else
-								parentID = instanceParents ? (*instanceParentsIt):ITransformTree::invalid_node;
-							*(parentsIt++) = parentID;
-
-							if (staging.transformScratchSize)
-								*(srcTransformIndicesIt++) = jointID+baseJoint;
+							*(jointIndexIt++) = skinInstanceIndex+k;
+							*(jointNodeIt++) = request.skeletonNodes[i][j][request.translationTables[i][k]];
+							*(inverseBindPoseOffsetIt++) = request.inverseBindPoseOffsets[i][k];
 						}
-						baseJointInstance += jointCount;
 					}
-					if (skeleton->getDefaultTransformBinding().buffer)
-					for (auto jointID=0u; jointID<jointCount; jointID++)
-						*(transformIt++) = skeleton->getDefaultTransformMatrix(jointID);
-					baseJoint += jointCount;
 				}
 			}
-
-			video::CPropertyPoolHandler::UpStreamingRequest upstreams[TransferCount];
-			UpstreamRequest req = {};
-			req.tree = request.tree;
-			req.nodes = {request.outNodes,request.outNodes+staging.nodeCount};
-			req.parents.data = request.parentScratch;
-			if (staging.transformScratchSize)
-				req.relativeTransforms.data = request.transformScratch;
+			req.jointCacheOffsets = {request.jointIndexScratch,request.jointIndexScratch+totalJointCount};
+			req.jointNodes.device2device = false;
+			req.jointNodes.data = request.jointNodeScratch;
+			req.inverseBindPoseOffsets.device2device = false;
+			req.inverseBindPoseOffsets.data = request.inverseBindPoseOffsetScratch;
 			if (!setupTransfers(req,upstreams))
 				return false;
-			if (staging.transformScratchSize)
-				upstreams[1].srcAddresses = srcTransformIndices;
-
+			
 			auto upstreamsPtr = upstreams;
 			return request.poolHandler->transferProperties(
 				request.upBuff,request.cmdbuf,request.fence,request.queue,request.scratch,upstreamsPtr,TransferCount,
@@ -394,7 +296,7 @@ class ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 			);
 		}
 
-
+/*
 		//
 		struct SBarrierSuggestion
 		{
@@ -484,22 +386,21 @@ class ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 			}
 			return barrier;
 		}
+*/
 
 		//
-		using ModificationRequestRange = nbl_glsl_transform_tree_modification_request_range_t;
-		struct ParamsBase
+		struct CacheUpdateParams
 		{
-			ParamsBase()
+			CacheUpdateParams()
 			{
 				dispatchIndirect.buffer = nullptr;
 				dispatchDirect.nodeCount = 0u;
 			}
-#if 0
-			inline ParamsBase& operator=(const ParamsBase& other)
+
+			inline CacheUpdateParams& operator=(const CacheUpdateParams& other)
 			{
 				cmdbuf = other.cmdbuf;
-				fence = other.fence;
-				tree = other.tree;
+				cache = other.cache;
 				if (other.dispatchIndirect.buffer)
 					dispatchIndirect = other.dispatchIndirect;
 				else
@@ -510,12 +411,10 @@ class ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 				logger = other.logger;
 				return *this;
 			}
-#endif
+
 			video::IGPUCommandBuffer* cmdbuf; // must already be in recording state
 			ISkinInstanceCache* cache;
-			// first uint in the buffer tells us how many instances to update we have
-			asset::SBufferBinding<video::IGPUBuffer> skinInstanceIDs;
-			asset::SBufferBinding<video::IGPUBuffer> boneCountPrefixSum;
+			const video::IGPUDescriptorSet* cacheUpdateDS;
 			union
 			{
 				struct
@@ -531,23 +430,58 @@ class ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 						uint32_t nodeCount;
 				} dispatchDirect;
 			};
+			// first uint in the buffer tells us how many total joints to update we have
+			asset::SBufferBinding<video::IGPUBuffer> skinsToUpdate;
+			asset::SBufferBinding<video::IGPUBuffer> jointCountInclPrefixSum;
 			system::logger_opt_ptr logger = nullptr;
 		};
-		inline bool recomputeGlobalTransforms(const GlobalTransformUpdateParams& params)
+		//
+		static inline constexpr uint32_t CacheUpdateDescriptorBindingCount = 2u;
+		static inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createCacheUpdateDescriptorSetLayout(video::ILogicalDevice* device, asset::ISpecializedShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
 		{
-			const video::IGPUDescriptorSet* descSets[] = { params.tree->getNodePropertyPoolDescriptorSet(),tempDS };
-			cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,pipeline->getLayout(),0u,2u,descSets,nullptr);
+			video::IGPUDescriptorSetLayout::SBinding bindings[CacheUpdateDescriptorBindingCount];
+			video::IGPUDescriptorSetLayout::fillBindingsSameType(bindings,CacheUpdateDescriptorBindingCount,asset::E_DESCRIPTOR_TYPE::EDT_STORAGE_BUFFER,nullptr,stageAccessFlags);
+			return device->createGPUDescriptorSetLayout(bindings,bindings+CacheUpdateDescriptorBindingCount);
+		}
+		// first uint in the `skinsToUpdate` buffer tells us how many skinCache entries to update we have
+		// rest is filled wtih `ISkinInstanceCache::skin_instance_t` (offset to the cont array allocated to store the cache for a skin)
+		// `jointCountInclPrefixSum` contains the inclusive prefix sum of each skin's joint count
+		static inline void updateCacheUpdateDescriptorSet(
+			video::ILogicalDevice* device, video::IGPUDescriptorSet* cacheUpdateDS,
+			asset::SBufferBinding<video::IGPUBuffer>&& skinsToUpdate,
+			asset::SBufferBinding<video::IGPUBuffer>&& jointCountInclPrefixSum
+		)
+		{
+			video::IGPUDescriptorSet::SWriteDescriptorSet writes[CacheUpdateDescriptorBindingCount];
+			video::IGPUDescriptorSet::SDescriptorInfo infos[CacheUpdateDescriptorBindingCount];
+			for (auto i=0u; i<CacheUpdateDescriptorBindingCount; i++)
+			{
+				writes[i].dstSet = cacheUpdateDS;
+				writes[i].binding = i;
+				writes[i].arrayElement = 0u;
+				writes[i].count = 1u;
+				writes[i].descriptorType = asset::EDT_STORAGE_BUFFER;
+				writes[i].info = infos+i;
+			}
+			infos[0] = skinsToUpdate;
+			infos[1] = jointCountInclPrefixSum;
+			device->updateDescriptorSets(CacheUpdateDescriptorBindingCount,writes,0u,nullptr);
+		}
+		inline bool cacheUpdate(const CacheUpdateParams& params)
+		{
+			const video::IGPUDescriptorSet* descSets[] = { params.cache->getCacheDescriptorSet(),params.cacheUpdateDS };
+			params.cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,m_cacheUpdate->getLayout(),0u,2u,descSets);
 			
-			cmdbuf->bindComputePipeline(pipeline);
+			params.cmdbuf->bindComputePipeline(m_cacheUpdate.get());
 			if (params.dispatchIndirect.buffer)
-				cmdbuf->dispatchIndirect(params.dispatchIndirect.buffer,params.dispatchIndirect.offset);
+				params.cmdbuf->dispatchIndirect(params.dispatchIndirect.buffer,params.dispatchIndirect.offset);
 			else
 			{
 				const auto& limits = m_device->getPhysicalDevice()->getLimits();
-				cmdbuf->dispatch(limits.computeOptimalPersistentWorkgroupDispatchSize(params.dispatchDirect.nodeCount,m_workgroupSize),1u,1u);
+				params.cmdbuf->dispatch(limits.computeOptimalPersistentWorkgroupDispatchSize(params.dispatchDirect.nodeCount,m_workgroupSize),1u,1u);
 			}
 		}
-*/
+
 		//
 		inline auto createDebugPipeline(core::smart_refctd_ptr<const video::IGPURenderpass>&& renderpass)
 		{
@@ -607,15 +541,6 @@ class ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 			cmdbuf->bindIndexBuffer(m_debugIndexBuffer.get(),0u,asset::EIT_16BIT);
 			cmdbuf->pushConstants(layout,asset::ISpecializedShader::ESS_VERTEX,0u,sizeof(DebugPushConstants),&pushConstants);
 			cmdbuf->drawIndexed(IndexCount,totalJointCount,0u,0u,0u);
-		}
-
-		//
-		static inline constexpr uint32_t CacheUpdateDescriptorBindingCount = 2u;
-		static inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createCacheUpdateDescriptorSetLayout(video::ILogicalDevice* device, asset::ISpecializedShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
-		{
-			video::IGPUDescriptorSetLayout::SBinding bindings[CacheUpdateDescriptorBindingCount];
-			video::IGPUDescriptorSetLayout::fillBindingsSameType(bindings,CacheUpdateDescriptorBindingCount,asset::E_DESCRIPTOR_TYPE::EDT_STORAGE_BUFFER,nullptr,stageAccessFlags);
-			return device->createGPUDescriptorSetLayout(bindings,bindings+CacheUpdateDescriptorBindingCount);
 		}
 
 		//

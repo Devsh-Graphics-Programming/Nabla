@@ -398,24 +398,41 @@ class GLTFApp : public ApplicationBase
 			// allocate a skin cache entry for every skin instance
 			core::vector<scene::ISkinInstanceCache::skin_instance_t> skinInstanceOffsets;
 			{
-				core::vector<uint32_t> skinJointCounts; skinJointCounts.reserve(skinInstances.size());
-				core::vector<uint32_t> instanceCounts; instanceCounts.reserve(skinInstances.size());
-
-				scene::ISkinInstanceCache::Allocation alloc;
-				alloc.skinCount = skinInstances.size();
+				const auto skinCount = skinInstances.size();
+				core::vector<uint32_t> skinJointCounts; skinJointCounts.reserve(skinCount);
+				core::vector<uint32_t> instanceCounts; instanceCounts.reserve(skinCount);
+				core::vector<const uint32_t*> translationTables; translationTables.reserve(skinCount);
 				for (auto& pair : skinInstances)
 				{
-					skinJointCounts.push_back(pair.first.jointCount);
+					const Skin& skin = pair.first;
+					skinJointCounts.push_back(skin.jointCount);
 					instanceCounts.push_back(pair.second);
+					const auto* buffPtr = reinterpret_cast<const uint8_t*>(skin.skinTranslationTable.buffer->getPointer());
+					translationTables.push_back(reinterpret_cast<const uint32_t*>(buffPtr+skin.skinTranslationTable.offset));
 				}
-				skinInstanceOffsets.resize(std::accumulate(instanceCounts.begin(),instanceCounts.end(),0u),scene::ISkinInstanceCache::invalid_instance);
-				alloc.jointCountPerSkin = skinJointCounts.data();
-				alloc.instanceCounts = instanceCounts.data();
-				alloc.skinInstances = skinInstanceOffsets.data();
-				skinInstanceCache->allocate(alloc);
-				// allocate contiguous range starting at X for each skin instance
-				// need SoA lists of skeleton joints (translation table) and inverse bind pose offsets 
+
+				scene::ISkinInstanceCacheManager::AdditionRequest request;
+				request.cache = skinInstanceCache.get();
+				request.cmdbuf = xferCmdbuf.get();
+				request.fence = xferFence.get();
+				request.scratch = xferScratch;
+				request.upBuff = utilities->getDefaultUpStreamingBuffer();
+				request.poolHandler = ppHandler;
+				request.queue = xferQueue;
+				/*
+				request.allocation.skinInstances = {};
+				request.allocation.jointCountPerSkin = skinJointCounts.data();
+				request.allocation.instanceCounts = instanceCounts.data();
+				request.translationTables = translationTables.data();
+				request.skeletonNodes = ;
+				request.inverseBindPoseOffsets = ;
+				request.jointIndexScratch = ;
+				request.jointNodeScratch = ;
+				request.inverseBindPoseOffsetScratch = ;
+				*/
+				request.logger = logger.get();
 			}
+			// set up the transfers of property data for skin instances
 			//temp
 			{
 				IGPUBuffer::SCreationParams params = {};
@@ -438,7 +455,6 @@ class GLTFApp : public ApplicationBase
 				);
 			}
 			// TODO: skin instance cache finish code
-			// TODO: skin instance cache manager update shader
 			// TODO: skin instance cache debug draw shader
 
 			// transfer submit

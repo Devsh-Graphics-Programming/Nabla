@@ -218,7 +218,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			for (auto i=0u; i<TransferCount; i++)
 			{
 				transfers[i].elementCount = request.nodes.size/sizeof(ITransformTree::node_t);
-				transfers[i].srcAddressesOffset = video::IPropertyPool::invalid;
+				transfers[i].srcAddressesOffset = video::IPropertyPool::invalid; // iota input indices
 				transfers[i].dstAddressesOffset = request.nodes.offset;
 			}
 			transfers[0].setFromPool(pool,ITransformTree::parent_prop_ix);
@@ -250,17 +250,17 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		{
 			if (!request.tree)
 				return false;
-			if (request.nodes.empty())
-				return true;
 
 			const auto* pool = request.tree->getNodePropertyPool();
-
 			for (auto i=0u; i<TransferCount; i++)
 			{
 				upstreams[i].elementCount = request.nodes.size();
 				upstreams[i].srcAddresses = nullptr;
 				upstreams[i].dstAddresses = request.nodes.begin();
 			}
+			if (request.nodes.empty())
+				return true;
+
 			upstreams[0].setFromPool(pool,ITransformTree::parent_prop_ix);
 			if (request.parents.device2device || request.parents.data)
 			{
