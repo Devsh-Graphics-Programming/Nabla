@@ -108,8 +108,10 @@ class GLTFApp : public ApplicationBase
 			
 			transformTreeManager = scene::ITransformTreeManager::create(utilities.get(),transferUpQueue);
 			ttDebugDrawPipeline = transformTreeManager->createDebugPipeline<scene::ITransformTreeWithNormalMatrices>(core::smart_refctd_ptr(renderpass));
+			ttmDescriptorSets = transformTreeManager->createAllDescriptorSets(logicalDevice.get());
 
 			sicManager = scene::ISkinInstanceCacheManager::create(utilities.get(),transferUpQueue);
+			sicDescriptorSets = sicManager->createAllDescriptorSets(logicalDevice.get());
 
 			auto gpuTransferFence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
 			auto gpuComputeFence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
@@ -419,7 +421,7 @@ class GLTFApp : public ApplicationBase
 			// allocate a skin cache entry for every skin instance
 			core::vector<std::unique_ptr<scene::ISkinInstanceCache::skin_instance_t[]>> skinInstances;
 			{
-				const auto skinCount = skinInstances.size();
+				const auto skinCount = skinCounters.size();
 				skinInstances.reserve(skinCount);
 				core::vector<uint32_t> skinJointCounts; skinJointCounts.reserve(skinCount);
 				core::vector<uint32_t> instanceCounts; instanceCounts.reserve(skinCount);
@@ -459,10 +461,10 @@ class GLTFApp : public ApplicationBase
 				request.skeletonNodes = skeletonNodes.data();
 				request.inverseBindPoseOffsets = inverseBindPoseRangesFlatArray.data();
 
-				const auto totalJoints = request.computeStagingRequirements();
-				auto jointIndexScratch = std::unique_ptr<scene::ISkinInstanceCache::joint_t[]>(new scene::ISkinInstanceCache::joint_t[totalJoints]);
-				auto jointNodeScratch = std::unique_ptr<scene::ITransformTree::node_t[]>(new scene::ITransformTree::node_t[totalJoints]);
-				auto inverseBindPoseOffsetScratch = std::unique_ptr<scene::ISkinInstanceCache::inverse_bind_pose_offset_t[]>(new scene::ISkinInstanceCache::inverse_bind_pose_offset_t[totalJoints]);
+				totalJointCount = request.computeStagingRequirements();
+				auto jointIndexScratch = std::unique_ptr<scene::ISkinInstanceCache::joint_t[]>(new scene::ISkinInstanceCache::joint_t[totalJointCount]);
+				auto jointNodeScratch = std::unique_ptr<scene::ITransformTree::node_t[]>(new scene::ITransformTree::node_t[totalJointCount]);
+				auto inverseBindPoseOffsetScratch = std::unique_ptr<scene::ISkinInstanceCache::inverse_bind_pose_offset_t[]>(new scene::ISkinInstanceCache::inverse_bind_pose_offset_t[totalJointCount]);
 				request.jointIndexScratch = jointIndexScratch.get();
 				request.jointNodeScratch = jointNodeScratch.get();
 				request.inverseBindPoseOffsetScratch = inverseBindPoseOffsetScratch.get();
@@ -473,18 +475,36 @@ class GLTFApp : public ApplicationBase
 				video::IGPUSemaphore* const* waitSempahores = nullptr;
 				const asset::E_PIPELINE_STAGE_FLAGS* waitStages = nullptr;
 				sicManager->addSkinInstances(request,waitSemaphoreCount,waitSempahores,waitStages);
+
+				core::vector<scene::ISkinInstanceCache::skin_instance_t> skinsToUpdate;
+				core::vector<uint32_t> jointCountInclusivePrefixSum;
+				for (auto i=0u; i<skinCount; i++)
+				{
+					const auto jointCount = skinJointCounts[i];
+					const auto instanceCount = instanceCounts[i];
+					for (auto j=0u; j<instanceCount; j++)
+						skinsToUpdate.push_back(skinInstances[i][j]);
+					jointCountInclusivePrefixSum.insert(jointCountInclusivePrefixSum.end(),instanceCount,jointCount);
+				}
+				// first uint needs to be the count
+				skinsToUpdate.insert(skinsToUpdate.begin(),skinsToUpdate.size());
+				std::inclusive_scan(jointCountInclusivePrefixSum.begin(),jointCountInclusivePrefixSum.end(),jointCountInclusivePrefixSum.begin());
+				sicManager->updateCacheUpdateDescriptorSet(
+					logicalDevice.get(),sicDescriptorSets.cacheUpdate.get(),
+					{0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(transferUpQueue,sizeof(scene::ISkinInstanceCache::skin_instance_t)*skinsToUpdate.size(),skinsToUpdate.data())},
+					{0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(transferUpQueue,sizeof(uint32_t)*jointCountInclusivePrefixSum.size(),jointCountInclusivePrefixSum.data())}
+				);
 			}
 			//temp
 			{
 				IGPUBuffer::SCreationParams params = {};
 				params.usage = core::bitflag(IGPUBuffer::EUF_STORAGE_BUFFER_BIT)|IGPUBuffer::EUF_VERTEX_BUFFER_BIT;
 
-				totalJointCount = allSkeletonNodes.size();
-				allSkeletonNodes.insert(allSkeletonNodes.begin(),totalJointCount);
+				// first uint needs to be the count
+				allSkeletonNodes.insert(allSkeletonNodes.begin(),allSkeletonNodes.size());
 				allSkeletonNodesBinding = {0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(transferUpQueue,sizeof(scene::ITransformTree::node_t)*allSkeletonNodes.size(),allSkeletonNodes.data())};
 				iotaBinding = {0ull,logicalDevice->createDeviceLocalGPUBufferOnDedMem(params,sizeof(uint32_t)*totalJointCount)};
 
-				ttmDescriptorSets = transformTreeManager->createAllDescriptorSets(logicalDevice.get());
 				transformTreeManager->updateRecomputeGlobalTransformsDescriptorSet(logicalDevice.get(),ttmDescriptorSets.recomputeGlobal.get(),SBufferBinding(allSkeletonNodesBinding));
 				
 				const core::aabbox3df defaultAABB(-0.01f,-0.01f,-0.01f,0.01f,0.01f,0.01f);
@@ -669,21 +689,21 @@ class GLTFApp : public ApplicationBase
 			const auto& viewMatrix = camera.getViewMatrix();
 			const auto& viewProjectionMatrix = camera.getConcatenatedMatrix();
 
+			constexpr auto MaxBarrierCount = 6u;
+			static_assert(MaxBarrierCount>=scene::ITransformTreeManager::SBarrierSuggestion::MaxBufferCount);
+			static_assert(MaxBarrierCount>=scene::ISkinInstanceCacheManager::SBarrierSuggestion::MaxBufferCount);
+			video::IGPUCommandBuffer::SBufferMemoryBarrier barriers[MaxBarrierCount];
+			auto setBufferBarrier = [&barriers,commandBuffer](const uint32_t ix, const asset::SBufferRange<video::IGPUBuffer>& range, const asset::SMemoryBarrier& barrier)
+			{
+				barriers[ix].barrier = barrier;
+				barriers[ix].dstQueueFamilyIndex = barriers[ix].srcQueueFamilyIndex = commandBuffer->getQueueFamilyIndex();
+				barriers[ix].buffer = range.buffer;
+				barriers[ix].offset = range.offset;
+				barriers[ix].size = range.size;
+			};
+			const core::bitflag<asset::E_PIPELINE_STAGE_FLAGS> renderingStages = asset::EPSF_VERTEX_SHADER_BIT;
 			// Update node transforms 
 			{
-				// buffers to barrier w.r.t. updates
-				video::IGPUCommandBuffer::SBufferMemoryBarrier barriers[scene::ITransformTreeManager::SBarrierSuggestion::MaxBufferCount];
-				auto setBufferBarrier = [&barriers,commandBuffer](const uint32_t ix, const asset::SBufferRange<video::IGPUBuffer>& range, const asset::SMemoryBarrier& barrier)
-				{
-					barriers[ix].barrier = barrier;
-					barriers[ix].dstQueueFamilyIndex = barriers[ix].srcQueueFamilyIndex = commandBuffer->getQueueFamilyIndex();
-					barriers[ix].buffer = range.buffer;
-					barriers[ix].offset = range.offset;
-					barriers[ix].size = range.size;
-				};
-
-				const core::bitflag<asset::E_PIPELINE_STAGE_FLAGS> renderingStages = asset::EPSF_VERTEX_SHADER_BIT;
-				 
 				scene::ITransformTreeManager::BaseParams baseParams;
 				baseParams.cmdbuf = commandBuffer.get();
 				baseParams.tree = transformTree.get();
@@ -707,9 +727,9 @@ class GLTFApp : public ApplicationBase
 				*/
 				scene::ITransformTreeManager::DispatchParams recomputeDispatch;
 				recomputeDispatch.indirect.buffer = nullptr;
-				recomputeDispatch.direct.nodeCount = totalJointCount;
+				recomputeDispatch.direct.nodeCount = totalJointCount; // TODO: redo
 				transformTreeManager->recomputeGlobalTransforms(baseParams,recomputeDispatch,ttmDescriptorSets.recomputeGlobal.get());
-				// barrier between TTM recompute and TTM recompute+update 
+				// barrier between TTM recompute and SkinCache Update, TTM recompute+update 
 				{
 					auto sugg = scene::ITransformTreeManager::barrierHelper(scene::ITransformTreeManager::SBarrierSuggestion::EF_POST_GLOBAL_TFORM_RECOMPUTE);
 					sugg.dstStageMask |= renderingStages; // also also TTM recompute and rendering shader (to read the global transforms)
@@ -719,6 +739,28 @@ class GLTFApp : public ApplicationBase
 					setBufferBarrier(barrierCount++, node_pp->getPropertyMemoryBlock(scene::ITransformTree::global_transform_prop_ix), sugg.globalTransforms);
 					setBufferBarrier(barrierCount++, node_pp->getPropertyMemoryBlock(scene::ITransformTree::recomputed_stamp_prop_ix), sugg.recomputedTimestamps);
 					setBufferBarrier(barrierCount++, node_pp->getPropertyMemoryBlock(scene::ITransformTreeWithNormalMatrices::normal_matrix_prop_ix), sugg.normalMatrices);
+					commandBuffer->pipelineBarrier(sugg.srcStageMask, sugg.dstStageMask, asset::EDF_NONE, 0u, nullptr, barrierCount, barriers, 0u, nullptr);
+				}
+			}
+			// Update Skin Cache
+			{
+				scene::ISkinInstanceCacheManager::CacheUpdateParams params;
+				params.cmdbuf = commandBuffer.get();
+				params.cache = skinInstanceCache.get();
+				params.cacheUpdateDS = sicDescriptorSets.cacheUpdate.get();
+				params.dispatchDirect.totalJointCount = totalJointCount;
+				params.logger = initOutput.logger.get();
+				sicManager->cacheUpdate(params);
+				// barrier between TTM recompute and TTM recompute+update 
+				{
+					auto sugg = scene::ISkinInstanceCacheManager::barrierHelper(scene::ISkinInstanceCacheManager::SBarrierSuggestion::EF_POST_CACHE_UPDATE);
+					sugg.dstStageMask |= renderingStages;
+					uint32_t barrierCount = 0u;
+					// only needed if you expect to modify these buffers within the same submit (submit to submit doesnt need any memory barriers)
+					//setBufferBarrier(barrierCount++, skinsToUpdateBlock, sugg.skinsToUpdate);
+					//setBufferBarrier(barrierCount++, jointCountInclPrefixSum, sugg.jointCountInclPrefixSum);
+					setBufferBarrier(barrierCount++, skinInstanceCache->getSkinningMatrixMemoryBlock(), sugg.skinningTransforms);
+					setBufferBarrier(barrierCount++, skinInstanceCache->getRecomputedTimestampMemoryBlock(), sugg.skinningRecomputedTimestamps);
 					commandBuffer->pipelineBarrier(sugg.srcStageMask, sugg.dstStageMask, asset::EDF_NONE, 0u, nullptr, barrierCount, barriers, 0u, nullptr);
 				}
 			}
@@ -851,12 +893,13 @@ class GLTFApp : public ApplicationBase
 		core::smart_refctd_ptr<scene::ITransformTreeManager> transformTreeManager;
 		core::smart_refctd_ptr<IGPUGraphicsPipeline> ttDebugDrawPipeline;
 		scene::ITransformTreeManager::DescriptorSets ttmDescriptorSets;
-		// skin cache
-		core::smart_refctd_ptr<scene::ISkinInstanceCache> skinInstanceCache;
-		core::smart_refctd_ptr<scene::ISkinInstanceCacheManager> sicManager;
-		// temporary debug
 		core::smart_refctd_ptr<scene::ITransformTreeWithNormalMatrices> transformTree;
+		// skin cache
+		core::smart_refctd_ptr<scene::ISkinInstanceCacheManager> sicManager;
+		scene::ISkinInstanceCacheManager::DescriptorSets sicDescriptorSets;
+		core::smart_refctd_ptr<scene::ISkinInstanceCache> skinInstanceCache;
 		uint32_t totalJointCount;
+		// temporary debug
 		SBufferBinding<IGPUBuffer> allSkeletonNodesBinding;
 		SBufferBinding<IGPUBuffer> iotaBinding;
 

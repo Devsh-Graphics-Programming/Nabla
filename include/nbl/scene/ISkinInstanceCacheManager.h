@@ -350,7 +350,7 @@ class ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 			CacheUpdateParams()
 			{
 				dispatchIndirect.buffer = nullptr;
-				dispatchDirect.nodeCount = 0u;
+				dispatchDirect.totalJointCount = 0u;
 			}
 
 			inline CacheUpdateParams& operator=(const CacheUpdateParams& other)
@@ -362,7 +362,7 @@ class ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 				else
 				{
 					dispatchIndirect.buffer = nullptr;
-					dispatchDirect.nodeCount = other.dispatchDirect.nodeCount;
+					dispatchDirect.totalJointCount = other.dispatchDirect.totalJointCount;
 				}
 				logger = other.logger;
 				return *this;
@@ -383,12 +383,9 @@ class ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 					private:
 						uint64_t dummy;
 					public:
-						uint32_t nodeCount;
+						uint32_t totalJointCount;
 				} dispatchDirect;
 			};
-			// first uint in the buffer tells us how many total joints to update we have
-			asset::SBufferBinding<video::IGPUBuffer> skinsToUpdate;
-			asset::SBufferBinding<video::IGPUBuffer> jointCountInclPrefixSum;
 			system::logger_opt_ptr logger = nullptr;
 		};
 		//
@@ -434,8 +431,9 @@ class ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 			else
 			{
 				const auto& limits = m_device->getPhysicalDevice()->getLimits();
-				params.cmdbuf->dispatch(limits.computeOptimalPersistentWorkgroupDispatchSize(params.dispatchDirect.nodeCount,m_workgroupSize),1u,1u);
+				params.cmdbuf->dispatch(limits.computeOptimalPersistentWorkgroupDispatchSize(params.dispatchDirect.totalJointCount,m_workgroupSize),1u,1u);
 			}
+			return true;
 		}
 
 		//
