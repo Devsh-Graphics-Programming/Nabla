@@ -26,6 +26,7 @@ class ISkinInstanceCache : public virtual core::IReferenceCounted
 		// for correct intialization
 		static inline constexpr recomputed_stamp_t initial_recomputed_timestamp = 0xffffffffu;
 		static_assert(initial_recomputed_timestamp<ITransformTree::min_timestamp || initial_recomputed_timestamp>ITransformTree::max_timestamp);
+		static_assert(initial_recomputed_timestamp!=ITransformTree::initial_modified_timestamp);
 		static_assert(initial_recomputed_timestamp!=ITransformTree::initial_recomputed_timestamp);
 
 		static inline constexpr uint32_t joint_prop_ix = 0u;

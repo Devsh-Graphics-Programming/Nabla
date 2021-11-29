@@ -23,8 +23,8 @@ class ITransformTree : public virtual core::IReferenceCounted
 		using timestamp_t = video::IGPUAnimationLibrary::timestamp_t;
 		// two timestamp values are reserved for initialization
 		static inline constexpr timestamp_t min_timestamp = 0u;
-		static inline constexpr timestamp_t max_timestamp = 0xfffffffdu;
-		static inline constexpr timestamp_t initial_modified_timestamp = 0xffffffffu;
+		static inline constexpr timestamp_t max_timestamp = 0xfffffffcu;
+		static inline constexpr timestamp_t initial_modified_timestamp = 0xfffffffdu;
 		static inline constexpr timestamp_t initial_recomputed_timestamp = 0xfffffffeu;
 		
 		using parent_t = node_t;

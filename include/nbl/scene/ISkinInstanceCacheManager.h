@@ -455,8 +455,8 @@ class ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 		}
 		static inline void updateDebugDrawDescriptorSet(
 			video::ILogicalDevice* device, video::IGPUDescriptorSet* debugDrawDS,
-			asset::SBufferBinding<video::IGPUBuffer>&& skinInstanceOffsetList,
-			asset::SBufferBinding<video::IGPUBuffer>&& skinInstanceJointCountXXXPrefixSum,
+			asset::SBufferBinding<video::IGPUBuffer>&& skinInstanceDebugData,
+			asset::SBufferBinding<video::IGPUBuffer>&& skinInstanceJointCountInclPrefixSum,
 			asset::SBufferBinding<video::IGPUBuffer>&& aabbPool
 		)
 		{
@@ -471,15 +471,17 @@ class ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 				writes[i].descriptorType = asset::EDT_STORAGE_BUFFER;
 				writes[i].info = infos+i;
 			}
-			infos[0] = skinInstanceOffsetList;
-			infos[1] = skinInstanceJointCountXXXPrefixSum;
+			infos[0] = skinInstanceDebugData;
+			infos[1] = skinInstanceJointCountInclPrefixSum;
 			infos[2] = aabbPool;
 			device->updateDescriptorSets(DebugDrawDescriptorBindingCount,writes,0u,nullptr);
 		}
 		struct DebugPushConstants
 		{
 			core::matrix4SIMD viewProjectionMatrix;
-			core::vector4df_SIMD aabbColor;
+			core::vector4df_SIMD lineColor;
+			core::vector3df aabbColor;
+			uint32_t skinCount;
 		};
 		inline void debugDraw(
 			video::IGPUCommandBuffer* cmdbuf, const video::IGPUGraphicsPipeline* pipeline, const ISkinInstanceCache* cache,

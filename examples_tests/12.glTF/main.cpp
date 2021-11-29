@@ -111,6 +111,7 @@ class GLTFApp : public ApplicationBase
 			ttmDescriptorSets = transformTreeManager->createAllDescriptorSets(logicalDevice.get());
 
 			sicManager = scene::ISkinInstanceCacheManager::create(utilities.get(),transferUpQueue);
+			sicDebugDrawPipeline = sicManager->createDebugPipeline(core::smart_refctd_ptr(renderpass));
 			sicDescriptorSets = sicManager->createAllDescriptorSets(logicalDevice.get());
 
 			auto gpuTransferFence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
@@ -495,6 +496,17 @@ class GLTFApp : public ApplicationBase
 					{0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(transferUpQueue,sizeof(uint32_t)*jointCountInclusivePrefixSum.size(),jointCountInclusivePrefixSum.data())}
 				);
 			}
+			// TODO: allocate pivot nodes and meta instances (also prep the global update list)
+			totalNodeCount = transformTree->getNodePropertyPool()->getAllocated();
+			// TODO: allocate joint aabbs into a pool
+			{
+			}
+			// TODO: allocate:
+			// - skin offset ID + aabb range offset + pivot node ID per metainstance
+			// - prefix sum of joint count
+			{
+				//sicManager->updateDebugDrawDescriptorSet();
+			}
 			//temp
 			{
 				IGPUBuffer::SCreationParams params = {};
@@ -503,7 +515,8 @@ class GLTFApp : public ApplicationBase
 				// first uint needs to be the count
 				allSkeletonNodes.insert(allSkeletonNodes.begin(),allSkeletonNodes.size());
 				allSkeletonNodesBinding = {0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(transferUpQueue,sizeof(scene::ITransformTree::node_t)*allSkeletonNodes.size(),allSkeletonNodes.data())};
-				iotaBinding = {0ull,logicalDevice->createDeviceLocalGPUBufferOnDedMem(params,sizeof(uint32_t)*totalJointCount)};
+				// TODO: remove TTM debug draw (add parent/child debug to SkinCache debug draw)
+				iotaBinding = {0ull,logicalDevice->createDeviceLocalGPUBufferOnDedMem(params,sizeof(uint32_t)*totalNodeCount)};
 
 				transformTreeManager->updateRecomputeGlobalTransformsDescriptorSet(logicalDevice.get(),ttmDescriptorSets.recomputeGlobal.get(),SBufferBinding(allSkeletonNodesBinding));
 				
@@ -515,7 +528,6 @@ class GLTFApp : public ApplicationBase
 					)}
 				);
 			}
-			// TODO: skin instance cache finish code
 			// TODO: skin instance cache debug draw shader
 
 			// transfer submit
@@ -727,7 +739,7 @@ class GLTFApp : public ApplicationBase
 				*/
 				scene::ITransformTreeManager::DispatchParams recomputeDispatch;
 				recomputeDispatch.indirect.buffer = nullptr;
-				recomputeDispatch.direct.nodeCount = totalJointCount; // TODO: redo
+				recomputeDispatch.direct.nodeCount = totalNodeCount;
 				transformTreeManager->recomputeGlobalTransforms(baseParams,recomputeDispatch,ttmDescriptorSets.recomputeGlobal.get());
 				// barrier between TTM recompute and SkinCache Update, TTM recompute+update 
 				{
@@ -850,8 +862,16 @@ class GLTFApp : public ApplicationBase
 				scene::ITransformTreeManager::DebugPushConstants pc;
 				pc.viewProjectionMatrix = viewProjectionMatrix;
 				pc.lineColor.set(0.f,1.f,0.f,1.f);
-				pc.aabbColor.set(1.f,0.f,0.f,1.f);
-				transformTreeManager->debugDraw(commandBuffer.get(),ttDebugDrawPipeline.get(),transformTree.get(),ttmDescriptorSets.debugDraw.get(),nodeIDs,iotaBinding,pc,totalJointCount);
+				pc.aabbColor.set(0.f,0.f,1.f,1.f);
+				transformTreeManager->debugDraw(commandBuffer.get(),ttDebugDrawPipeline.get(),transformTree.get(),ttmDescriptorSets.debugDraw.get(),nodeIDs,iotaBinding,pc,totalNodeCount);
+			}
+			{
+				scene::ISkinInstanceCacheManager::DebugPushConstants pc;
+				pc.viewProjectionMatrix = viewProjectionMatrix;
+				pc.lineColor.set(0.f,1.f,0.f,1.f);
+				pc.aabbColor.set(1.f,0.f,0.f);
+				pc.skinCount = 0x45u;
+				//sicManager->debugDraw(commandBuffer.get(),sicDebugDrawPipeline.get(),skinInstanceCache.get(),sicDescriptorSets.debugDraw.get(),pc,totalJointCount);
 			}
 
 
@@ -894,8 +914,10 @@ class GLTFApp : public ApplicationBase
 		core::smart_refctd_ptr<IGPUGraphicsPipeline> ttDebugDrawPipeline;
 		scene::ITransformTreeManager::DescriptorSets ttmDescriptorSets;
 		core::smart_refctd_ptr<scene::ITransformTreeWithNormalMatrices> transformTree;
+		uint32_t totalNodeCount;
 		// skin cache
 		core::smart_refctd_ptr<scene::ISkinInstanceCacheManager> sicManager;
+		core::smart_refctd_ptr<IGPUGraphicsPipeline> sicDebugDrawPipeline;
 		scene::ISkinInstanceCacheManager::DescriptorSets sicDescriptorSets;
 		core::smart_refctd_ptr<scene::ISkinInstanceCache> skinInstanceCache;
 		uint32_t totalJointCount;
