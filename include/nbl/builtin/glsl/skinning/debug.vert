@@ -97,7 +97,7 @@ void main()
 
 	const bvec3 mask = bvec3(gl_VertexIndex&0x1u,gl_VertexIndex&0x2u,gl_VertexIndex&0x4u);
 	const vec3 pos = nbl_glsl_pseudoMul3x4with3x1(
-        /*nbl_glsl_pseudoMul4x3with4x3(*/nodeGlobalTransforms.data[dd.pivotNode],//skinningTransforms.data[dd.skinOffset+jointID]),
+        nbl_glsl_pseudoMul4x3with4x3(nodeGlobalTransforms.data[dd.pivotNode],skinningTransforms.data[dd.skinOffset+jointID]),
         mix(aabb.minVx,aabb.maxVx,mask)
     );
 
