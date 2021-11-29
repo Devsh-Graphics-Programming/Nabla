@@ -453,6 +453,13 @@ class ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 			video::IGPUDescriptorSetLayout::fillBindingsSameType(bindings,DebugDrawDescriptorBindingCount,asset::E_DESCRIPTOR_TYPE::EDT_STORAGE_BUFFER,nullptr,stageAccessFlags);
 			return device->createGPUDescriptorSetLayout(bindings,bindings+DebugDrawDescriptorBindingCount);
 		}
+		//
+		struct DebugDrawData
+		{
+			ISkinInstanceCache::skin_instance_t skinOffset;
+			uint32_t aabbOffset;
+			ITransformTree::node_t pivotNode;
+		};
 		static inline void updateDebugDrawDescriptorSet(
 			video::ILogicalDevice* device, video::IGPUDescriptorSet* debugDrawDS,
 			asset::SBufferBinding<video::IGPUBuffer>&& skinInstanceDebugData,

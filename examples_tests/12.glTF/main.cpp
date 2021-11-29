@@ -164,7 +164,9 @@ class GLTFApp : public ApplicationBase
 				core::vector<core::smart_refctd_ptr<asset::ICPUMeshBuffer>> meshbuffers;
 			};
 			core::vector<LoadedGLTF> models;
+			core::vector<CompressedAABB> aabbPool;
 
+			const float modelSpacing = 5.f;
 			auto loadRiggedGLTF = [&](const system::path& filename) -> void
 			{
 				auto resourcePath = sharedInputCWD / "../../3rdparty/glTFSampleModels/2.0/"; // TODO: fix up for Android
@@ -188,6 +190,8 @@ class GLTFApp : public ApplicationBase
 					}
 				}
 				models.push_back(std::move(model));
+				const core::aabbox3df defaultAABB(-modelSpacing,-modelSpacing,-modelSpacing,modelSpacing,modelSpacing,modelSpacing);
+				aabbPool.push_back(defaultAABB); // compute properly from animations later
 			};
 //			loadRiggedGLTF("AnimatedTriangle/glTF/AnimatedTriangle.gltf");
 // TODO: @AnastaZIuk this one crashes the loader!
@@ -207,7 +211,7 @@ class GLTFApp : public ApplicationBase
 			
 
 			// Transform Tree
-			constexpr uint32_t MaxNodeCount = 2u<<10u; // get ready for many many nodes
+			constexpr uint32_t MaxNodeCount = 4u<<10u; // get ready for many many nodes
 			transformTree = scene::ITransformTreeWithNormalMatrices::create(logicalDevice.get(),MaxNodeCount);
 
 			// Skinning Cache
@@ -239,14 +243,24 @@ class GLTFApp : public ApplicationBase
 				xferScratch.buffer->setObjectDebugName("PropertyPoolHandler Scratch Buffer");
 			}
 
+
 			std::mt19937 mt(0x45454545u);
-			// three levels of instancing:
-			// - instancing within a model (mesh instances)
-			// - skeleton instancing (incl copying currently playing animations)
-			// - model instancing TODO
-			core::vector<uint32_t> modelInstanceCounts; // TODO rename
-			core::vector<scene::ITransformTree::node_t> allSkeletonNodes;
-			// add skeleton instances to transform tree
+			using intra_skin_instance_counts_t = core::vector<uint32_t>;
+			core::vector<intra_skin_instance_counts_t> modelInstanceCounts;
+			core::vector<scene::ITransformTree::node_t> allNodes;
+			union ModelSkinInstanceInstance
+			{
+				struct
+				{
+					uint32_t modelID : 4;
+					uint32_t skinID : 5;
+					uint32_t instanceID : 23;
+				};
+				uint32_t keyval;
+			};
+			core::unordered_map<uint32_t,uint32_t> modelSkinInstanceInstance2NodeID;
+
+			// set up the transform tree
 			static_assert(sizeof(std::unique_ptr<uint32_t[]>)==sizeof(void*));
 			using node_array_t = const scene::ITransformTree::node_t*;
 			core::unordered_map<const asset::ICPUSkeleton*,std::unique_ptr<node_array_t[]>> skeletonInstanceNodes;
@@ -254,17 +268,24 @@ class GLTFApp : public ApplicationBase
 				core::unordered_map<const asset::ICPUSkeleton*,uint32_t> skeletonCounters;
 				for (const auto& model : models)
 				{
-					const auto instanceCount = modelInstanceCounts.emplace_back() = std::uniform_int_distribution<uint32_t>(1,5)(mt);
+					const auto skeletonInstanceCount = std::uniform_int_distribution<uint32_t>(1,5)(mt);
+					intra_skin_instance_counts_t instanceCounts(skeletonInstanceCount);
+					for (auto& instanceCount : instanceCounts)
+						instanceCount = std::uniform_int_distribution<uint32_t>(1,16)(mt);
+					modelInstanceCounts.emplace_back() = std::move(instanceCounts);
 					for (const auto& skeleton : model.meta->skeletons)
 					{
 						auto found = skeletonCounters.find(skeleton.get());
 						if (found!=skeletonCounters.end())
-							found->second += instanceCount;
+							found->second += skeletonInstanceCount;
 						else
-							skeletonCounters.insert({skeleton.get(),instanceCount});
+							skeletonCounters.insert({skeleton.get(),skeletonInstanceCount});
 					}
 				}
-				// allocate skeleton nodes in TT
+				uint32_t waitSemaphoreCount = 0u;
+				video::IGPUSemaphore* const* waitSempahores = nullptr;
+				const asset::E_PIPELINE_STAGE_FLAGS* waitStages = nullptr;
+				// allocate skeleton instance nodes in TT
 				{
 					const auto uniqueSkeletonCount = skeletonCounters.size();
 					core::vector<const ICPUSkeleton*> skeletons; skeletons.reserve(uniqueSkeletonCount);
@@ -291,10 +312,10 @@ class GLTFApp : public ApplicationBase
 					skeletonAllocationRequest.skeletonInstanceParents = nullptr; // no parent so we can instance/duplicate the skeleton freely
 
 					auto stagingReqs = skeletonAllocationRequest.computeStagingRequirements();
-					allSkeletonNodes.resize(stagingReqs.nodeCount,scene::ITransformTree::invalid_node);
+					allNodes.resize(stagingReqs.nodeCount,scene::ITransformTree::invalid_node);
 					core::vector<scene::ITransformTree::node_t> parentScratch(stagingReqs.nodeCount);
 					core::vector<scene::ITransformTree::relative_transform_t> transformScratch(stagingReqs.transformScratchCount);
-					auto outNodeIt = allSkeletonNodes.data();
+					auto outNodeIt = allNodes.data();
 					for (auto i=0u; i<uniqueSkeletonCount; i++)
 					{
 						const auto skeleton = skeletons[i];
@@ -308,15 +329,57 @@ class GLTFApp : public ApplicationBase
 						skeletonInstanceNodes[skeleton] = std::move(instanceNodeLists);
 					}
 
-					skeletonAllocationRequest.outNodes = allSkeletonNodes.data();
+					skeletonAllocationRequest.outNodes = allNodes.data();
 					skeletonAllocationRequest.parentScratch = parentScratch.data();
 					skeletonAllocationRequest.transformScratch = transformScratch.data();
 
-					uint32_t waitSemaphoreCount = 0u;
-					video::IGPUSemaphore*const* waitSempahores = nullptr;
-					const asset::E_PIPELINE_STAGE_FLAGS* waitStages = nullptr;
 					transformTreeManager->addSkeletonNodes(skeletonAllocationRequest,waitSemaphoreCount,waitSempahores,waitStages);
 				}
+				// allocate pivot nodes (instance nodes)
+				{
+					pivotNodesRange.offset = allNodes.size();
+
+					core::vector<core::matrix3x4SIMD> relativeTransforms;
+					for (auto k=0u; k<modelInstanceCounts.size(); k++)
+					for (auto j=0u; j<modelInstanceCounts[k].size(); j++)
+					for (auto i=0u; i<modelInstanceCounts[k][j]; i++)
+					{
+						ModelSkinInstanceInstance key;
+						key.modelID = k;
+						key.skinID = j;
+						key.instanceID = i;
+						modelSkinInstanceInstance2NodeID[key.keyval] = allNodes.size();
+						allNodes.push_back(scene::ITransformTree::invalid_node);
+						relativeTransforms.emplace_back().setTranslation(core::vectorSIMDf(i,j,k)*2.1f*modelSpacing);
+					}
+					pivotNodesRange.size = allNodes.size()-pivotNodesRange.offset;
+
+					scene::ITransformTreeManager::AdditionRequest request;
+					request.tree = transformTree.get();
+					request.parents = {}; // no parents
+					request.relativeTransforms.data = relativeTransforms.data();
+					request.relativeTransforms.device2device = false;
+					request.cmdbuf = xferCmdbuf.get();
+					request.fence = xferFence.get();
+					request.scratch = xferScratch;
+					request.upBuff = utilities->getDefaultUpStreamingBuffer();
+					request.poolHandler = ppHandler;
+					request.queue = xferQueue;
+					request.logger = logger.get();
+					request.outNodes = {allNodes.data()+pivotNodesRange.offset,allNodes.data()+allNodes.size()};
+					transformTreeManager->addNodes(request,waitSemaphoreCount,waitSempahores,waitStages);
+					
+					pivotNodesRange.offset *= sizeof(scene::ITransformTree::node_t);
+					pivotNodesRange.size *= sizeof(scene::ITransformTree::node_t);
+				}
+
+				// first uint needs to be the count
+				allNodes.insert(allNodes.begin(),allNodes.size());
+				pivotNodesRange.offset += sizeof(uint32_t);
+
+				auto allNodesBuffer = utilities->createFilledDeviceLocalGPUBufferOnDedMem(transferUpQueue,sizeof(scene::ITransformTree::node_t)*allNodes.size(),allNodes.data());
+				transformTreeManager->updateRecomputeGlobalTransformsDescriptorSet(logicalDevice.get(),ttmDescriptorSets.recomputeGlobal.get(),{0ull,allNodesBuffer});
+				pivotNodesRange.buffer = std::move(allNodesBuffer);
 			}
 			struct InverseBindPoseRangeHash
 			{
@@ -346,10 +409,18 @@ class GLTFApp : public ApplicationBase
 				}
 			};
 			core::unordered_map<Skin,uint32_t,SkinHash> skinCounters;
+			struct AABBRangeHash
+			{
+				inline size_t operator()(const asset::SBufferRange<const asset::ICPUBuffer>& aabbRange) const
+				{
+					return std::hash<std::string_view>{}(std::string_view(reinterpret_cast<const char*>(&aabbRange),sizeof(aabbRange)));
+				}
+			};
+			core::unordered_map<asset::SBufferRange<const asset::ICPUBuffer>,uint32_t,AABBRangeHash> aabbRanges;
 			// pick a scene and flag all skin instances
 			for (auto i=0u; i<models.size(); i++)
 			{
-				const auto modelInstanceCount = modelInstanceCounts[i];
+				const uint32_t skeletonInstanceCount = modelInstanceCounts[i].size();
 				const auto* meta = models[i].meta;
 				// pick a scene
 				const auto& scenes = meta->scenes;
@@ -358,12 +429,27 @@ class GLTFApp : public ApplicationBase
 				for (const auto& instanceID : scene.instanceIDs)
 				{
 					const auto& instance = meta->instances[instanceID];
-					//instance.attachedToNode 
 					for (const auto& meshbuffer : instance.mesh->getMeshBuffers())
 					{
 						const uint32_t jointCount = meshbuffer->getJointCount();
 						if (jointCount==0u)
 							continue;
+						
+						asset::SBufferRange<const asset::ICPUBuffer> aabbRange;
+						aabbRange.offset = meshbuffer->getJointAABBBufferBinding().offset;
+						aabbRange.size = sizeof(core::aabbox3df)*jointCount;
+						aabbRange.buffer = meshbuffer->getJointAABBBufferBinding().buffer;
+						auto foundAABBR = aabbRanges.find(aabbRange);
+						if (aabbRange.buffer)
+						{
+							if (foundAABBR==aabbRanges.end())
+							{
+								auto aabbs = reinterpret_cast<const core::aabbox3df*>(reinterpret_cast<const uint8_t*>(aabbRange.buffer->getPointer())+aabbRange.offset);
+								foundAABBR = aabbRanges.insert({std::move(aabbRange),aabbPool.size()}).first;
+								for (auto j=0u; j<jointCount; j++)
+									aabbPool.emplace_back(aabbs[j]);
+							}
+						}
 
 						asset::SBufferRange<const asset::ICPUBuffer> inverseBindPoseRange;
 						inverseBindPoseRange.offset = meshbuffer->getInverseBindPoseBufferBinding().offset;
@@ -379,11 +465,20 @@ class GLTFApp : public ApplicationBase
 						Skin skin = {instance.skeleton,instance.skinTranslationTable,meshbuffer->getInverseBindPoseBufferBinding(),jointCount};
 						auto foundSkin = skinCounters.find(skin);
 						if (foundSkin!= skinCounters.end())
-							foundSkin->second += modelInstanceCount;
+							foundSkin->second += skeletonInstanceCount;
 						else
-							skinCounters.insert({std::move(skin),modelInstanceCount});
+							skinCounters.insert({std::move(skin),skeletonInstanceCount});
 					}
 				}
+			}
+			// transfer compressed aabbs to the GPU
+			{
+				aabbBinding = {0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(transferUpQueue,sizeof(CompressedAABB)*aabbPool.size(),aabbPool.data())};
+				transformTreeManager->updateDebugDrawDescriptorSet(logicalDevice.get(),ttmDescriptorSets.debugDraw.get(),SBufferBinding(aabbBinding));
+				
+				IGPUBuffer::SCreationParams params = {};
+				params.usage = core::bitflag(IGPUBuffer::EUF_STORAGE_BUFFER_BIT)|IGPUBuffer::EUF_VERTEX_BUFFER_BIT;
+				iotaBinding = {0ull,logicalDevice->createDeviceLocalGPUBufferOnDedMem(params,pivotNodesRange.size/sizeof(scene::ITransformTree::node_t))};
 			}
 			// allocate an inverse bind pose for every inverseBindPose
 			{
@@ -419,116 +514,139 @@ class GLTFApp : public ApplicationBase
 					);
 				}
 			}
-			// allocate a skin cache entry for every skin instance
 			core::vector<std::unique_ptr<scene::ISkinInstanceCache::skin_instance_t[]>> skinInstances;
 			{
-				const auto skinCount = skinCounters.size();
-				skinInstances.reserve(skinCount);
-				core::vector<uint32_t> skinJointCounts; skinJointCounts.reserve(skinCount);
-				core::vector<uint32_t> instanceCounts; instanceCounts.reserve(skinCount);
-				core::vector<const uint32_t*> translationTables; translationTables.reserve(skinCount);
-				core::vector<const scene::ITransformTree::node_t* const*> skeletonNodes;
-				core::vector<const scene::ISkinInstanceCache::inverse_bind_pose_offset_t*> inverseBindPoseRangesFlatArray; inverseBindPoseRangesFlatArray.reserve(skinCount);
-				for (auto& pair : skinCounters)
+				// allocate a skin cache entry for every skin instance
 				{
-					const Skin& skin = pair.first;
-					const auto instanceCount = pair.second;
-					std::fill_n(skinInstances.emplace_back(new scene::ISkinInstanceCache::skin_instance_t[instanceCount]).get(),instanceCount,scene::ISkinInstanceCache::invalid_instance);
-					skinJointCounts.push_back(skin.jointCount);
-					instanceCounts.push_back(instanceCount);
-					const auto* buffPtr = reinterpret_cast<const uint8_t*>(skin.skinTranslationTable.buffer->getPointer());
-					translationTables.push_back(reinterpret_cast<const uint32_t*>(buffPtr+skin.skinTranslationTable.offset));
-					skeletonNodes.push_back(reinterpret_cast<const scene::ITransformTree::node_t* const*>(skeletonInstanceNodes.find(skin.skeleton)->second.get()));
-					asset::SBufferRange<const asset::ICPUBuffer> ibprKey;
-					ibprKey.offset = skin.inverseBindPoses.offset;
-					ibprKey.size = sizeof(scene::ISkinInstanceCache::inverse_bind_pose_t)*skin.jointCount;
-					ibprKey.buffer = skin.inverseBindPoses.buffer;
-					inverseBindPoseRangesFlatArray.push_back(inverseBindPoseRanges.find(ibprKey)->second.get());
+					const auto skinCount = skinCounters.size();
+					skinInstances.reserve(skinCount);
+					core::vector<uint32_t> skinJointCounts; skinJointCounts.reserve(skinCount);
+					core::vector<uint32_t> instanceCounts; instanceCounts.reserve(skinCount);
+					core::vector<const uint32_t*> translationTables; translationTables.reserve(skinCount);
+					core::vector<const scene::ITransformTree::node_t* const*> skeletonNodes;
+					core::vector<const scene::ISkinInstanceCache::inverse_bind_pose_offset_t*> inverseBindPoseRangesFlatArray; inverseBindPoseRangesFlatArray.reserve(skinCount);
+					for (auto& pair : skinCounters)
+					{
+						const Skin& skin = pair.first;
+						const auto instanceCount = pair.second;
+
+						std::fill_n(skinInstances.emplace_back(new scene::ISkinInstanceCache::skin_instance_t[instanceCount]).get(),instanceCount,scene::ISkinInstanceCache::invalid_instance);
+						skinJointCounts.push_back(skin.jointCount);
+						instanceCounts.push_back(instanceCount);
+						
+						const auto* buffPtr = reinterpret_cast<const uint8_t*>(skin.skinTranslationTable.buffer->getPointer());
+						translationTables.push_back(reinterpret_cast<const uint32_t*>(buffPtr+skin.skinTranslationTable.offset));
+						skeletonNodes.push_back(reinterpret_cast<const scene::ITransformTree::node_t* const*>(skeletonInstanceNodes.find(skin.skeleton)->second.get()));
+						asset::SBufferRange<const asset::ICPUBuffer> ibprKey;
+						ibprKey.offset = skin.inverseBindPoses.offset;
+						ibprKey.size = sizeof(scene::ISkinInstanceCache::inverse_bind_pose_t)*skin.jointCount;
+						ibprKey.buffer = skin.inverseBindPoses.buffer;
+						inverseBindPoseRangesFlatArray.push_back(inverseBindPoseRanges.find(ibprKey)->second.get());
+					}
+					auto pSkinInstances = reinterpret_cast<scene::ISkinInstanceCache::skin_instance_t* const*>(skinInstances.data());
+
+					scene::ISkinInstanceCacheManager::AdditionRequest request;
+					request.cache = skinInstanceCache.get();
+					request.cmdbuf = xferCmdbuf.get();
+					request.fence = xferFence.get();
+					request.scratch = xferScratch;
+					request.upBuff = utilities->getDefaultUpStreamingBuffer();
+					request.poolHandler = ppHandler;
+					request.queue = xferQueue;
+					request.allocation.skinInstances = {pSkinInstances,pSkinInstances+skinInstances.size()};
+					request.allocation.jointCountPerSkin = skinJointCounts.data();
+					request.allocation.instanceCounts = instanceCounts.data();
+					request.translationTables = translationTables.data();
+					request.skeletonNodes = skeletonNodes.data();
+					request.inverseBindPoseOffsets = inverseBindPoseRangesFlatArray.data();
+
+					totalJointCount = request.computeStagingRequirements();
+					auto jointIndexScratch = std::unique_ptr<scene::ISkinInstanceCache::joint_t[]>(new scene::ISkinInstanceCache::joint_t[totalJointCount]);
+					auto jointNodeScratch = std::unique_ptr<scene::ITransformTree::node_t[]>(new scene::ITransformTree::node_t[totalJointCount]);
+					auto inverseBindPoseOffsetScratch = std::unique_ptr<scene::ISkinInstanceCache::inverse_bind_pose_offset_t[]>(new scene::ISkinInstanceCache::inverse_bind_pose_offset_t[totalJointCount]);
+					request.jointIndexScratch = jointIndexScratch.get();
+					request.jointNodeScratch = jointNodeScratch.get();
+					request.inverseBindPoseOffsetScratch = inverseBindPoseOffsetScratch.get();
+					request.logger = logger.get();
+
+					// set up the transfers of property data for skin instances
+					uint32_t waitSemaphoreCount = 0u;
+					video::IGPUSemaphore* const* waitSempahores = nullptr;
+					const asset::E_PIPELINE_STAGE_FLAGS* waitStages = nullptr;
+					sicManager->addSkinInstances(request,waitSemaphoreCount,waitSempahores,waitStages);
+
+					core::vector<scene::ISkinInstanceCache::skin_instance_t> skinsToUpdate;
+					core::vector<uint32_t> jointCountInclusivePrefixSum;
+					for (auto i=0u; i<skinCount; i++)
+					{
+						const auto jointCount = skinJointCounts[i];
+						const auto instanceCount = instanceCounts[i];
+						for (auto j=0u; j<instanceCount; j++)
+						{
+							const auto skinInstance = skinInstances[i][j];
+							skinsToUpdate.push_back(skinInstance);
+						}
+						jointCountInclusivePrefixSum.insert(jointCountInclusivePrefixSum.end(),instanceCount,jointCount);
+					}
+					// first uint needs to be the count
+					skinsToUpdate.insert(skinsToUpdate.begin(),skinsToUpdate.size());
+					std::inclusive_scan(jointCountInclusivePrefixSum.begin(),jointCountInclusivePrefixSum.end(),jointCountInclusivePrefixSum.begin());
+					sicManager->updateCacheUpdateDescriptorSet(
+						logicalDevice.get(),sicDescriptorSets.cacheUpdate.get(),
+						{0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(transferUpQueue,sizeof(scene::ISkinInstanceCache::skin_instance_t)*skinsToUpdate.size(),skinsToUpdate.data())},
+						{0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(transferUpQueue,sizeof(uint32_t)*jointCountInclusivePrefixSum.size(),jointCountInclusivePrefixSum.data())}
+					);
 				}
-				auto pSkinInstances = reinterpret_cast<scene::ISkinInstanceCache::skin_instance_t* const*>(skinInstances.data());
-
-				scene::ISkinInstanceCacheManager::AdditionRequest request;
-				request.cache = skinInstanceCache.get();
-				request.cmdbuf = xferCmdbuf.get();
-				request.fence = xferFence.get();
-				request.scratch = xferScratch;
-				request.upBuff = utilities->getDefaultUpStreamingBuffer();
-				request.poolHandler = ppHandler;
-				request.queue = xferQueue;
-				request.allocation.skinInstances = {pSkinInstances,pSkinInstances+skinInstances.size()};
-				request.allocation.jointCountPerSkin = skinJointCounts.data();
-				request.allocation.instanceCounts = instanceCounts.data();
-				request.translationTables = translationTables.data();
-				request.skeletonNodes = skeletonNodes.data();
-				request.inverseBindPoseOffsets = inverseBindPoseRangesFlatArray.data();
-
-				totalJointCount = request.computeStagingRequirements();
-				auto jointIndexScratch = std::unique_ptr<scene::ISkinInstanceCache::joint_t[]>(new scene::ISkinInstanceCache::joint_t[totalJointCount]);
-				auto jointNodeScratch = std::unique_ptr<scene::ITransformTree::node_t[]>(new scene::ITransformTree::node_t[totalJointCount]);
-				auto inverseBindPoseOffsetScratch = std::unique_ptr<scene::ISkinInstanceCache::inverse_bind_pose_offset_t[]>(new scene::ISkinInstanceCache::inverse_bind_pose_offset_t[totalJointCount]);
-				request.jointIndexScratch = jointIndexScratch.get();
-				request.jointNodeScratch = jointNodeScratch.get();
-				request.inverseBindPoseOffsetScratch = inverseBindPoseOffsetScratch.get();
-				request.logger = logger.get();
-
-				// set up the transfers of property data for skin instances
-				uint32_t waitSemaphoreCount = 0u;
-				video::IGPUSemaphore* const* waitSempahores = nullptr;
-				const asset::E_PIPELINE_STAGE_FLAGS* waitStages = nullptr;
-				sicManager->addSkinInstances(request,waitSemaphoreCount,waitSempahores,waitStages);
-
-				core::vector<scene::ISkinInstanceCache::skin_instance_t> skinsToUpdate;
-				core::vector<uint32_t> jointCountInclusivePrefixSum;
-				for (auto i=0u; i<skinCount; i++)
+				// debug draw skin instances
 				{
-					const auto jointCount = skinJointCounts[i];
-					const auto instanceCount = instanceCounts[i];
-					for (auto j=0u; j<instanceCount; j++)
-						skinsToUpdate.push_back(skinInstances[i][j]);
-					jointCountInclusivePrefixSum.insert(jointCountInclusivePrefixSum.end(),instanceCount,jointCount);
+					core::vector<scene::ISkinInstanceCacheManager::DebugDrawData> debugData;
+					core::vector<uint32_t> jointCountInclPrefixSum;
+					for (auto i=0u; i<models.size(); i++)
+					{
+						const uint32_t skeletonInstanceCount = modelInstanceCounts[i].size();
+						const auto* meta = models[i].meta;
+						// pick a scene
+						const auto& scenes = meta->scenes;
+						const auto sceneID = meta->defaultSceneID<scenes.size() ? meta->defaultSceneID:0u;
+						const auto& scene = scenes[sceneID];
+						for (const auto& instanceID : scene.instanceIDs)
+						{
+							const auto& instance = meta->instances[instanceID];
+							for (const auto& meshbuffer : instance.mesh->getMeshBuffers())
+							{
+								const uint32_t jointCount = meshbuffer->getJointCount();
+								if (jointCount==0u)
+									continue;
+						
+								for (auto j=0u; j<skeletonInstanceCount; j++)
+								for (auto k=0u; k<modelInstanceCounts[i][j]; k++)
+								{
+									ModelSkinInstanceInstance key;
+									key.modelID = i;
+									key.skinID = j;
+									key.instanceID = k;
+									
+									auto& debugDrawData = debugData.emplace_back();
+									debugDrawData.skinOffset = 0u; // TODO
+									debugDrawData.aabbOffset = 1u; // TODO
+									debugDrawData.pivotNode = modelSkinInstanceInstance2NodeID[key.keyval];
+									jointCountInclPrefixSum.push_back(jointCount);
+								}
+							}
+						}
+					}
+					totalDrawInstances = debugData.size();
+					std::inclusive_scan(jointCountInclPrefixSum.begin(),jointCountInclPrefixSum.end(),jointCountInclPrefixSum.begin());
+					totalJointInstances = jointCountInclPrefixSum.back();
+
+					sicManager->updateDebugDrawDescriptorSet(
+						logicalDevice.get(),sicDescriptorSets.debugDraw.get(),
+						{0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(transferUpQueue,sizeof(scene::ISkinInstanceCacheManager::DebugDrawData)*debugData.size(),debugData.data())},
+						{0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(transferUpQueue,sizeof(uint32_t)*jointCountInclPrefixSum.size(),jointCountInclPrefixSum.data())},
+						SBufferBinding(aabbBinding)
+					);
 				}
-				// first uint needs to be the count
-				skinsToUpdate.insert(skinsToUpdate.begin(),skinsToUpdate.size());
-				std::inclusive_scan(jointCountInclusivePrefixSum.begin(),jointCountInclusivePrefixSum.end(),jointCountInclusivePrefixSum.begin());
-				sicManager->updateCacheUpdateDescriptorSet(
-					logicalDevice.get(),sicDescriptorSets.cacheUpdate.get(),
-					{0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(transferUpQueue,sizeof(scene::ISkinInstanceCache::skin_instance_t)*skinsToUpdate.size(),skinsToUpdate.data())},
-					{0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(transferUpQueue,sizeof(uint32_t)*jointCountInclusivePrefixSum.size(),jointCountInclusivePrefixSum.data())}
-				);
 			}
-			// TODO: allocate pivot nodes and meta instances (also prep the global update list)
-			totalNodeCount = transformTree->getNodePropertyPool()->getAllocated();
-			// TODO: allocate joint aabbs into a pool
-			{
-			}
-			// TODO: allocate:
-			// - skin offset ID + aabb range offset + pivot node ID per metainstance
-			// - prefix sum of joint count
-			{
-				//sicManager->updateDebugDrawDescriptorSet();
-			}
-			//temp
-			{
-				IGPUBuffer::SCreationParams params = {};
-				params.usage = core::bitflag(IGPUBuffer::EUF_STORAGE_BUFFER_BIT)|IGPUBuffer::EUF_VERTEX_BUFFER_BIT;
-
-				// first uint needs to be the count
-				allSkeletonNodes.insert(allSkeletonNodes.begin(),allSkeletonNodes.size());
-				allSkeletonNodesBinding = {0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(transferUpQueue,sizeof(scene::ITransformTree::node_t)*allSkeletonNodes.size(),allSkeletonNodes.data())};
-				// TODO: remove TTM debug draw (add parent/child debug to SkinCache debug draw)
-				iotaBinding = {0ull,logicalDevice->createDeviceLocalGPUBufferOnDedMem(params,sizeof(uint32_t)*totalNodeCount)};
-
-				transformTreeManager->updateRecomputeGlobalTransformsDescriptorSet(logicalDevice.get(),ttmDescriptorSets.recomputeGlobal.get(),SBufferBinding(allSkeletonNodesBinding));
-				
-				const core::aabbox3df defaultAABB(-0.01f,-0.01f,-0.01f,0.01f,0.01f,0.01f);
-				core::vector<CompressedAABB> tmp(MaxNodeCount,defaultAABB);
-				transformTreeManager->updateDebugDrawDescriptorSet(
-					logicalDevice.get(),ttmDescriptorSets.debugDraw.get(),{0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(
-						transferUpQueue,sizeof(CompressedAABB)*MaxNodeCount,tmp.data()
-					)}
-				);
-			}
-			// TODO: skin instance cache debug draw shader
 
 			// transfer submit
 			{
@@ -546,9 +664,8 @@ class GLTFApp : public ApplicationBase
 			// TODO: vertex shader skinning override
 			// TODO: create the IGPUMeshes
 			// TODO: draw them all instanced
-			// TODO: use the LoD system!?
 
-			//Animation before or after draw?
+			// TODO: Animation playback
 #if 0
 			/*
 				We can safely assume that all meshes' mesh buffers loaded from glTF has the same DS1 layout
@@ -648,7 +765,7 @@ class GLTFApp : public ApplicationBase
 #endif
 			core::vectorSIMDf cameraPosition(-0.5, 0, 0);
 			matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60), float(WIN_W) / WIN_H, 0.01f, 10000.0f);
-			camera = Camera(cameraPosition, core::vectorSIMDf(0, 0, 0), projectionMatrix, 0.04f, 1.f);
+			camera = Camera(cameraPosition, core::vectorSIMDf(0, 0, 0), projectionMatrix, 0.4f, 1.f);
 			auto lastTime = std::chrono::system_clock::now();
 
 			logicalDevice->createCommandBuffers(commandPool.get(),video::IGPUCommandBuffer::EL_PRIMARY,FRAMES_IN_FLIGHT,commandBuffers);
@@ -739,7 +856,7 @@ class GLTFApp : public ApplicationBase
 				*/
 				scene::ITransformTreeManager::DispatchParams recomputeDispatch;
 				recomputeDispatch.indirect.buffer = nullptr;
-				recomputeDispatch.direct.nodeCount = totalNodeCount;
+				recomputeDispatch.direct.nodeCount = allNodesBinding.size/sizeof(scene::ITransformTree::node_t);
 				transformTreeManager->recomputeGlobalTransforms(baseParams,recomputeDispatch,ttmDescriptorSets.recomputeGlobal.get());
 				// barrier between TTM recompute and SkinCache Update, TTM recompute+update 
 				{
@@ -856,22 +973,22 @@ class GLTFApp : public ApplicationBase
 #endif
 
 			{
-				auto nodeIDs = allSkeletonNodesBinding;
-				nodeIDs.offset = sizeof(uint32_t);
-
 				scene::ITransformTreeManager::DebugPushConstants pc;
 				pc.viewProjectionMatrix = viewProjectionMatrix;
 				pc.lineColor.set(0.f,1.f,0.f,1.f);
 				pc.aabbColor.set(0.f,0.f,1.f,1.f);
-				transformTreeManager->debugDraw(commandBuffer.get(),ttDebugDrawPipeline.get(),transformTree.get(),ttmDescriptorSets.debugDraw.get(),nodeIDs,iotaBinding,pc,totalNodeCount);
+				transformTreeManager->debugDraw(
+					commandBuffer.get(),ttDebugDrawPipeline.get(),transformTree.get(),ttmDescriptorSets.debugDraw.get(),
+					{pivotNodesRange.offset,pivotNodesRange.buffer},iotaBinding,pc,pivotNodesRange.size/sizeof(scene::ITransformTree::node_t)
+				);
 			}
 			{
 				scene::ISkinInstanceCacheManager::DebugPushConstants pc;
 				pc.viewProjectionMatrix = viewProjectionMatrix;
 				pc.lineColor.set(0.f,1.f,0.f,1.f);
 				pc.aabbColor.set(1.f,0.f,0.f);
-				pc.skinCount = 0x45u;
-				//sicManager->debugDraw(commandBuffer.get(),sicDebugDrawPipeline.get(),skinInstanceCache.get(),sicDescriptorSets.debugDraw.get(),pc,totalJointCount);
+				pc.skinCount = totalDrawInstances;
+				sicManager->debugDraw(commandBuffer.get(),sicDebugDrawPipeline.get(),skinInstanceCache.get(),sicDescriptorSets.debugDraw.get(),pc,totalJointInstances);
 			}
 
 
@@ -914,16 +1031,21 @@ class GLTFApp : public ApplicationBase
 		core::smart_refctd_ptr<IGPUGraphicsPipeline> ttDebugDrawPipeline;
 		scene::ITransformTreeManager::DescriptorSets ttmDescriptorSets;
 		core::smart_refctd_ptr<scene::ITransformTreeWithNormalMatrices> transformTree;
-		uint32_t totalNodeCount;
+		SBufferRange<IGPUBuffer> allNodesBinding;
+		// transform tree debug draw
+		SBufferRange<IGPUBuffer> pivotNodesRange;
+		SBufferBinding<IGPUBuffer> iotaBinding;
+		// neither skin not transform tree
+		SBufferBinding<IGPUBuffer> aabbBinding;
 		// skin cache
 		core::smart_refctd_ptr<scene::ISkinInstanceCacheManager> sicManager;
 		core::smart_refctd_ptr<IGPUGraphicsPipeline> sicDebugDrawPipeline;
 		scene::ISkinInstanceCacheManager::DescriptorSets sicDescriptorSets;
 		core::smart_refctd_ptr<scene::ISkinInstanceCache> skinInstanceCache;
 		uint32_t totalJointCount;
-		// temporary debug
-		SBufferBinding<IGPUBuffer> allSkeletonNodesBinding;
-		SBufferBinding<IGPUBuffer> iotaBinding;
+		// skin cache debug draw
+		uint32_t totalDrawInstances;
+		uint32_t totalJointInstances;
 
 		Camera camera = Camera(vectorSIMDf(0, 0, 0), vectorSIMDf(0, 0, 0), matrix4SIMD());
 		CommonAPI::InputSystem::ChannelReader<IMouseEventChannel> mouse;
