@@ -654,9 +654,9 @@ namespace nbl
 							return bufferViewOffset + relativeAccessorOffset;
 						}();
 
-						auto* inData = reinterpret_cast<core::matrix4SIMD*>(reinterpret_cast<uint8_t*>(cpuBuffer->getPointer()) + globalIBPOffset); //! glTF stores 4x4 IBP matrices
+						auto* inData = reinterpret_cast<core::matrix4SIMD*>(reinterpret_cast<uint8_t*>(cpuBuffer->getPointer()) + globalIBPOffset); //! glTF stores 4x4 IBP column_major matrices
 						for (uint32_t j=0u; j<jointCount; ++j)
-							inverseBindPoseIt[j] = inData[j].extractSub3x4();
+							inverseBindPoseIt[j] = core::transpose(inData[j]).extractSub3x4();
 					}
 					else
 						std::fill_n(inverseBindPoseIt,jointCount,core::matrix3x4SIMD());
@@ -2365,9 +2365,7 @@ namespace nbl
 							for (uint32_t i = 0; i < matrixArray.size(); ++i)
 								*(tmpMatrix.pointer() + i) = matrixArray.at(i).get_double().value();
 
-							// TODO tmpMatrix (coulmn major) to row major (currentNode.matrix)
-
-							glTFnode.transformation.matrix = tmpMatrix.extractSub3x4();
+							glTFnode.transformation.matrix = core::transpose(tmpMatrix).extractSub3x4();
 						}
 						else
 						{

@@ -403,12 +403,13 @@ class IMeshManipulator : public virtual core::IReferenceCounted
 						float weightRemainder = 1.f;
 						for (auto i=0u; i<maxInfluences; i++)
 						{
-							if (jointIDs[i]<jointCount)
+							const auto jointID = jointIDs[i];
+							if (jointID<jointCount)
 							if ((i<maxWeights ? weights[i]:weightRemainder)>FLT_MIN)
 							{
 								core::vectorSIMDf boneSpacePos;
-								inverseBindPoses[i].transformVect(boneSpacePos,pos);
-								jointAABBs[jointIDs[i]].addInternalPoint(boneSpacePos.getAsVector3df());
+								inverseBindPoses[jointID].transformVect(boneSpacePos,pos);
+								jointAABBs[jointID].addInternalPoint(boneSpacePos.getAsVector3df());
 								noJointInfluence = false;
 							}
 							weightRemainder -= weights[i];
