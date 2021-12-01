@@ -315,18 +315,20 @@ class GLTFApp : public ApplicationBase
 					allNodes.resize(stagingReqs.nodeCount,scene::ITransformTree::invalid_node);
 					core::vector<scene::ITransformTree::node_t> parentScratch(stagingReqs.nodeCount);
 					core::vector<scene::ITransformTree::relative_transform_t> transformScratch(stagingReqs.transformScratchCount);
-					auto outNodeIt = allNodes.data();
-					for (auto i=0u; i<uniqueSkeletonCount; i++)
 					{
-						const auto skeleton = skeletons[i];
-						const auto instanceCount = skeletonInstanceCounts[i];
-						std::unique_ptr<node_array_t[]> instanceNodeLists(new node_array_t[instanceCount]);
-						for (auto i=0u; i<instanceCount; i++)
+						const scene::ITransformTree::node_t* outNodeIt = nullptr;
+						for (auto i=0u; i<uniqueSkeletonCount; i++)
 						{
-							instanceNodeLists[i] = outNodeIt;
-							outNodeIt += skeleton->getJointCount();
+							const auto skeleton = skeletons[i];
+							const auto instanceCount = skeletonInstanceCounts[i];
+							std::unique_ptr<node_array_t[]> instanceNodeLists(new node_array_t[instanceCount]);
+							for (auto i=0u; i<instanceCount; i++)
+							{
+								instanceNodeLists[i] = outNodeIt;
+								outNodeIt += skeleton->getJointCount();
+							}
+							skeletonInstanceNodes[skeleton] = std::move(instanceNodeLists);
 						}
-						skeletonInstanceNodes[skeleton] = std::move(instanceNodeLists);
 					}
 
 					skeletonAllocationRequest.outNodes = allNodes.data();
@@ -536,7 +538,16 @@ class GLTFApp : public ApplicationBase
 						
 						const auto* buffPtr = reinterpret_cast<const uint8_t*>(skin.skinTranslationTable.buffer->getPointer());
 						translationTables.push_back(reinterpret_cast<const uint32_t*>(buffPtr+skin.skinTranslationTable.offset));
+						
+						// little remapping
+						for (auto& pair2 : skeletonInstanceNodes)
+						for (auto i=0u; i<instanceCount; i++)
+						{
+							auto& arr = pair2.second.get()[i];
+							arr = allNodes.data()+1u+std::distance<node_array_t>(nullptr,arr);
+						}
 						skeletonNodes.push_back(reinterpret_cast<const scene::ITransformTree::node_t* const*>(skeletonInstanceNodes.find(skin.skeleton)->second.get()));
+						
 						asset::SBufferRange<const asset::ICPUBuffer> ibprKey;
 						ibprKey.offset = skin.inverseBindPoses.offset;
 						ibprKey.size = sizeof(scene::ISkinInstanceCache::inverse_bind_pose_t)*skin.jointCount;
