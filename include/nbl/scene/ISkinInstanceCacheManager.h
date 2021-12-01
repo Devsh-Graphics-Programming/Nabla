@@ -20,7 +20,7 @@ class ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 {
 	public:
 		// creation
-        static inline core::smart_refctd_ptr<ISkinInstanceCacheManager> create(video::IUtilities* utils, video::IGPUQueue* uploadQueue)
+        static inline core::smart_refctd_ptr<ISkinInstanceCacheManager> create(video::IUtilities* utils, video::IGPUQueue* uploadQueue, ITransformTreeManager* ttm)
         {
 			auto device = utils->getLogicalDevice();
 			auto system = device->getPhysicalDevice()->getSystem();
@@ -49,39 +49,6 @@ class ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 			if (!initTimestampValue)
 				return nullptr;
 			initTimestampValue->setObjectDebugName("ISkinInstanceCacheManager::m_initTimestampValue");
-
-			tmp.resize(sizeof(uint16_t)*IndexCount);
-			uint16_t* debugIndices = reinterpret_cast<uint16_t*>(tmp.data());
-			{
-				std::fill_n(debugIndices,24u,0u);
-				debugIndices[0] = 0b000;
-				debugIndices[1] = 0b001;
-				debugIndices[2] = 0b001;
-				debugIndices[3] = 0b011;
-				debugIndices[4] = 0b011;
-				debugIndices[5] = 0b010;
-				debugIndices[6] = 0b010;
-				debugIndices[7] = 0b000;
-				debugIndices[8] = 0b000;
-				debugIndices[9] = 0b100;
-				debugIndices[10] = 0b001;
-				debugIndices[11] = 0b101;
-				debugIndices[12] = 0b010;
-				debugIndices[13] = 0b110;
-				debugIndices[14] = 0b011;
-				debugIndices[15] = 0b111;
-				debugIndices[16] = 0b100;
-				debugIndices[17] = 0b101;
-				debugIndices[18] = 0b101;
-				debugIndices[19] = 0b111;
-				debugIndices[20] = 0b100;
-				debugIndices[21] = 0b110;
-				debugIndices[22] = 0b110;
-				debugIndices[23] = 0b111;
-			}
-			auto debugIndexBuffer = utils->createFilledDeviceLocalGPUBufferOnDedMem(uploadQueue,tmp.size(),debugIndices);
-			if (!debugIndexBuffer)
-				return nullptr;
 			
 			auto cacheDsLayout = ISkinInstanceCache::createCacheDescriptorSetLayout(device);
 			auto cacheUpdateDsLayout = createCacheUpdateDescriptorSetLayout(device);
@@ -115,9 +82,8 @@ class ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 				return nullptr;
 
 			auto* sicm = new ISkinInstanceCacheManager(
-				core::smart_refctd_ptr<video::ILogicalDevice>(device),
-				std::move(cacheUpdatePipeline),std::move(debugDrawIndepenedentPipeline),
-				std::move(initTimestampValue),std::move(debugIndexBuffer)
+				core::smart_refctd_ptr<video::ILogicalDevice>(device),ttm,
+				std::move(cacheUpdatePipeline),std::move(debugDrawIndepenedentPipeline),std::move(initTimestampValue)
 			);
             return core::smart_refctd_ptr<ISkinInstanceCacheManager>(sicm,core::dont_grab);
         }
@@ -446,7 +412,7 @@ class ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 		}
 
 		//
-		static inline constexpr uint32_t DebugDrawDescriptorBindingCount = 3u;
+		static inline constexpr uint32_t DebugDrawDescriptorBindingCount = 4u;
 		static inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createDebugDrawDescriptorSetLayout(video::ILogicalDevice* device, asset::ISpecializedShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
 		{
 			video::IGPUDescriptorSetLayout::SBinding bindings[DebugDrawDescriptorBindingCount];
@@ -462,9 +428,10 @@ class ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 		};
 		static inline void updateDebugDrawDescriptorSet(
 			video::ILogicalDevice* device, video::IGPUDescriptorSet* debugDrawDS,
+			const scene::ITransformTree* transformTree,
+			asset::SBufferBinding<video::IGPUBuffer>&& aabbPool,
 			asset::SBufferBinding<video::IGPUBuffer>&& skinInstanceDebugData,
-			asset::SBufferBinding<video::IGPUBuffer>&& skinInstanceJointCountInclPrefixSum,
-			asset::SBufferBinding<video::IGPUBuffer>&& aabbPool
+			asset::SBufferBinding<video::IGPUBuffer>&& skinInstanceJointCountInclPrefixSum
 		)
 		{
 			video::IGPUDescriptorSet::SWriteDescriptorSet writes[DebugDrawDescriptorBindingCount];
@@ -478,9 +445,10 @@ class ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 				writes[i].descriptorType = asset::EDT_STORAGE_BUFFER;
 				writes[i].info = infos+i;
 			}
-			infos[0] = skinInstanceDebugData;
-			infos[1] = skinInstanceJointCountInclPrefixSum;
-			infos[2] = aabbPool;
+			infos[0] = transformTree->getNodePropertyPool()->getPropertyMemoryBlock(scene::ITransformTree::parent_prop_ix);
+			infos[1] = aabbPool;
+			infos[2] = skinInstanceDebugData;
+			infos[3] = skinInstanceJointCountInclPrefixSum;
 			device->updateDescriptorSets(DebugDrawDescriptorBindingCount,writes,0u,nullptr);
 		}
 		struct DebugPushConstants
@@ -503,7 +471,7 @@ class ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 			cmdbuf->bindGraphicsPipeline(pipeline);
 			cmdbuf->bindIndexBuffer(m_debugIndexBuffer.get(),0u,asset::EIT_16BIT);
 			cmdbuf->pushConstants(layout,asset::ISpecializedShader::ESS_VERTEX,0u,sizeof(DebugPushConstants),&pushConstants);
-			cmdbuf->drawIndexed(IndexCount,totalJointCount,0u,0u,0u);
+			cmdbuf->drawIndexed(ITransformTreeManager::DebugIndexCount,totalJointCount,0u,0u,0u);
 		}
 
 		//
@@ -530,14 +498,14 @@ class ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 	protected:
 		ISkinInstanceCacheManager(
 			core::smart_refctd_ptr<video::ILogicalDevice>&& _device,
+			const ITransformTreeManager* ttm,
 			core::smart_refctd_ptr<video::IGPUComputePipeline>&& _cacheUpdate,
 			core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline>&& _debugDrawRenderpassIndependent,
-			core::smart_refctd_ptr<video::IGPUBuffer>&& _initialTimestampBuffer,
-			core::smart_refctd_ptr<video::IGPUBuffer>&& _debugIndexBuffer
+			core::smart_refctd_ptr<video::IGPUBuffer>&& _initialTimestampBuffer
 		) : m_device(std::move(_device)), m_cacheUpdate(std::move(_cacheUpdate)),
 			m_debugDrawRenderpassIndependent(std::move(_debugDrawRenderpassIndependent)),
 			m_initialTimestampBuffer(std::move(_initialTimestampBuffer)),
-			m_debugIndexBuffer(std::move(_debugIndexBuffer)),
+			m_debugIndexBuffer(ttm->getDebugIndexBuffer()),
 			m_workgroupSize(m_device->getPhysicalDevice()->getLimits().maxOptimallyResidentWorkgroupInvocations)
 		{
 		}
@@ -552,8 +520,7 @@ class ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 		const uint32_t m_workgroupSize;
 
 		core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> m_debugDrawRenderpassIndependent;
-		core::smart_refctd_ptr<video::IGPUBuffer> m_debugIndexBuffer;
-		constexpr static inline auto IndexCount = 24u;
+		core::smart_refctd_ptr<const video::IGPUBuffer> m_debugIndexBuffer;
 };
 
 } // end namespace nbl::scene

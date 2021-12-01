@@ -8,6 +8,38 @@
 #define NBL_GLSL_SKINNING_DEBUG_DESCRIPTOR_SET 1
 #endif
 
+#ifndef NBL_GLSL_TRANSFORM_TREE_POOL_NODE_PARENT_DESCRIPTOR_BINDING
+#define NBL_GLSL_TRANSFORM_TREE_POOL_NODE_PARENT_DESCRIPTOR_BINDING 0
+#endif
+#ifndef NBL_GLSL_TRANSFORM_TREE_POOL_NODE_PARENT_DESCRIPTOR_QUALIFIERS
+#define NBL_GLSL_TRANSFORM_TREE_POOL_NODE_PARENT_DESCRIPTOR_QUALIFIERS readonly restrict
+#endif
+layout(
+    set=NBL_GLSL_SKINNING_DEBUG_DESCRIPTOR_SET,
+    binding=NBL_GLSL_TRANSFORM_TREE_POOL_NODE_PARENT_DESCRIPTOR_BINDING
+) NBL_GLSL_TRANSFORM_TREE_POOL_NODE_PARENT_DESCRIPTOR_QUALIFIERS buffer NodeParents
+{
+    uint data[];
+} nodeParents;
+
+#include "nbl/builtin/glsl/shapes/aabb.glsl"
+#ifndef NBL_GLSL_SKINNING_DEBUG_AABB_DESCRIPTOR_BINDING
+#define NBL_GLSL_SKINNING_DEBUG_AABB_DESCRIPTOR_BINDING 1
+#endif
+#ifndef NBL_GLSL_SKINNING_DEBUG_AABB_DESCRIPTOR_QUALIFIERS
+#define NBL_GLSL_SKINNING_DEBUG_AABB_DESCRIPTOR_QUALIFIERS readonly restrict
+#endif
+#ifndef NBL_GLSL_SKINNING_DEBUG_AABB_DESCRIPTOR_DECLARED
+#define NBL_GLSL_SKINNING_DEBUG_AABB_DESCRIPTOR_DECLARED
+layout(
+    set=NBL_GLSL_SKINNING_DEBUG_DESCRIPTOR_SET,
+    binding=NBL_GLSL_SKINNING_DEBUG_AABB_DESCRIPTOR_BINDING
+) NBL_GLSL_SKINNING_DEBUG_AABB_DESCRIPTOR_QUALIFIERS buffer DebugAABB
+{
+    nbl_glsl_shapes_CompressedAABB_t data[];
+} debugAABB;
+#endif
+
 struct nbl_glsl_skinning_DebugData_t
 {
 	uint skinOffset;
@@ -15,7 +47,7 @@ struct nbl_glsl_skinning_DebugData_t
 	uint pivotNode;
 };
 #ifndef NBL_GLSL_SKINNING_DEBUG_DATA_DESCRIPTOR_BINDING
-#define NBL_GLSL_SKINNING_DEBUG_DATA_DESCRIPTOR_BINDING 0
+#define NBL_GLSL_SKINNING_DEBUG_DATA_DESCRIPTOR_BINDING 2
 #endif
 #ifndef NBL_GLSL_SKINNING_DEBUG_DATA_DESCRIPTOR_QUALIFIERS
 #define NBL_GLSL_SKINNING_DEBUG_DATA_DESCRIPTOR_QUALIFIERS readonly restrict
@@ -32,7 +64,7 @@ layout(
 #endif
 
 #ifndef NBL_GLSL_SKINNING_DEBUG_JOINT_COUNT_INCL_PREFIX_SUM_DESCRIPTOR_BINDING
-#define NBL_GLSL_SKINNING_DEBUG_JOINT_COUNT_INCL_PREFIX_SUM_DESCRIPTOR_BINDING 1
+#define NBL_GLSL_SKINNING_DEBUG_JOINT_COUNT_INCL_PREFIX_SUM_DESCRIPTOR_BINDING 3
 #endif
 #ifndef NBL_GLSL_SKINNING_DEBUG_JOINT_COUNT_INCL_PREFIX_SUM_DESCRIPTOR_QUALIFIERS
 #define NBL_GLSL_SKINNING_DEBUG_JOINT_COUNT_INCL_PREFIX_SUM_DESCRIPTOR_QUALIFIERS readonly restrict
@@ -46,24 +78,6 @@ layout(
 {
     uint jointCountInclPrefixSum[];
 };
-#endif
-
-#include "nbl/builtin/glsl/shapes/aabb.glsl"
-#ifndef NBL_GLSL_SKINNING_DEBUG_AABB_DESCRIPTOR_BINDING
-#define NBL_GLSL_SKINNING_DEBUG_AABB_DESCRIPTOR_BINDING 2
-#endif
-#ifndef NBL_GLSL_SKINNING_DEBUG_AABB_DESCRIPTOR_QUALIFIERS
-#define NBL_GLSL_SKINNING_DEBUG_AABB_DESCRIPTOR_QUALIFIERS readonly restrict
-#endif
-#ifndef NBL_GLSL_SKINNING_DEBUG_AABB_DESCRIPTOR_DECLARED
-#define NBL_GLSL_SKINNING_DEBUG_AABB_DESCRIPTOR_DECLARED
-layout(
-    set=NBL_GLSL_SKINNING_DEBUG_DESCRIPTOR_SET,
-    binding=NBL_GLSL_SKINNING_DEBUG_AABB_DESCRIPTOR_BINDING
-) NBL_GLSL_SKINNING_DEBUG_AABB_DESCRIPTOR_QUALIFIERS buffer DebugAABB
-{
-    nbl_glsl_shapes_CompressedAABB_t data[];
-} debugAABB;
 #endif
 
 
@@ -91,17 +105,34 @@ void main()
     uint jointID = gl_InstanceIndex;
     if (bool(skinInstanceID))
         jointID -= jointCountInclPrefixSum[skinInstanceID-1u];
+    
+	const uint skeletonNode = jointNodes.data[dd.skinOffset+jointID];
 
-    // TODO: draw the parent hierarchy too
-	const nbl_glsl_shapes_AABB_t aabb = nbl_glsl_shapes_CompressedAABB_t_decompress(debugAABB.data[dd.aabbOffset+jointID]);
+	vec3 pos;
+	if (gl_VertexIndex<8u) // render box
+	{
+		const nbl_glsl_shapes_AABB_t aabb = nbl_glsl_shapes_CompressedAABB_t_decompress(debugAABB.data[dd.aabbOffset+jointID]);
 
-	const bvec3 mask = bvec3(gl_VertexIndex&0x1u,gl_VertexIndex&0x2u,gl_VertexIndex&0x4u);
-	const vec3 pos = nbl_glsl_pseudoMul3x4with3x1(
-        nbl_glsl_pseudoMul4x3with4x3(nodeGlobalTransforms.data[dd.pivotNode],skinningTransforms.data[dd.skinOffset+jointID]),
-        mix(aabb.minVx,aabb.maxVx,mask)
-    );
+		const bvec3 mask = bvec3(gl_VertexIndex&0x1u,gl_VertexIndex&0x2u,gl_VertexIndex&0x4u);
+		//pos = nbl_glsl_pseudoMul3x4with3x1(nodeGlobalTransforms.data[skeletonNode],mix(aabb.minVx,aabb.maxVx,mask));
+		pos = nbl_glsl_pseudoMul3x4with3x1(skinningTransforms.data[dd.skinOffset+jointID],mix(aabb.minVx,aabb.maxVx,mask));
 
-	outColor = pc.aabbColor;
-	gl_Position = nbl_glsl_pseudoMul4x4with3x1(pc.viewProj,pos);
+		outColor = pc.aabbColor.rgb;
+	}
+	else // render node-parent line
+	{
+		const uint nodeParentID = nodeParents.data[skeletonNode];
+		
+		uint id = skeletonNode;
+		if (bool(gl_VertexIndex&0x1u)&&nodeParentID!=NBL_GLSL_PROPERTY_POOL_INVALID)
+			id = nodeParentID;
+		pos = nodeGlobalTransforms.data[id][3];
 
+		outColor = pc.lineColor.rgb;
+	}
+
+	if (dd.pivotNode!=NBL_GLSL_PROPERTY_POOL_INVALID)
+		gl_Position = nbl_glsl_pseudoMul4x4with3x1(pc.viewProj,nbl_glsl_pseudoMul3x4with3x1(nodeGlobalTransforms.data[dd.pivotNode],pos));
+	else
+		gl_Position = nbl_glsl_pseudoMul4x4with3x1(pc.viewProj,pos);
 }

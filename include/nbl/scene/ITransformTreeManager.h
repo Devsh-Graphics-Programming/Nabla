@@ -137,7 +137,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			}
 			auto defaultFillValues = utils->createFilledDeviceLocalGPUBufferOnDedMem(uploadQueue,tmp.size(),fillData);
 			defaultFillValues->setObjectDebugName("ITransformTreeManager::m_defaultFillValues");
-			tmp.resize(sizeof(uint16_t)*IndexCount);
+			tmp.resize(sizeof(uint16_t)*DebugIndexCount);
 			uint16_t* debugIndices = reinterpret_cast<uint16_t*>(tmp.data());
 			{
 				std::fill_n(debugIndices,24u,0u);
@@ -701,6 +701,12 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		}
 
 
+		constexpr static inline auto DebugAABBIndices = 24u;
+		constexpr static inline auto DebugLineIndices = 2u;
+		constexpr static inline auto DebugIndexCount = DebugAABBIndices + DebugLineIndices;
+		//
+		inline const video::IGPUBuffer* getDebugIndexBuffer() const { return m_debugIndexBuffer.get(); }
+
 		static inline constexpr uint32_t DebugNodeIDAttributeIndex = 14u;
 		static inline constexpr uint32_t DebugAABBIDAttributeIndex = 15u;
 		static inline constexpr uint32_t DebugNodeIDBindingIndex = DebugNodeIDAttributeIndex;
@@ -752,7 +758,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			}
 			cmdbuf->bindIndexBuffer(m_debugIndexBuffer.get(),0u,asset::EIT_16BIT);
 			cmdbuf->pushConstants(layout,asset::ISpecializedShader::ESS_VERTEX,0u,sizeof(DebugPushConstants),&pushConstants);
-			cmdbuf->drawIndexed(IndexCount,count,0u,0u,0u);
+			cmdbuf->drawIndexed(DebugIndexCount,count,0u,0u,0u);
 		}
 
 		//
@@ -926,9 +932,6 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		const uint32_t m_workgroupSize;
 
 		core::smart_refctd_ptr<video::IGPUBuffer> m_debugIndexBuffer;
-		constexpr static inline auto AABBIndices = 24u;
-		constexpr static inline auto LineIndices = 2u;
-		constexpr static inline auto IndexCount = AABBIndices+LineIndices;
 
 
 };

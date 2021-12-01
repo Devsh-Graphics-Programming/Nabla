@@ -110,7 +110,7 @@ class GLTFApp : public ApplicationBase
 			ttDebugDrawPipeline = transformTreeManager->createDebugPipeline<scene::ITransformTreeWithNormalMatrices>(core::smart_refctd_ptr(renderpass));
 			ttmDescriptorSets = transformTreeManager->createAllDescriptorSets(logicalDevice.get());
 
-			sicManager = scene::ISkinInstanceCacheManager::create(utilities.get(),transferUpQueue);
+			sicManager = scene::ISkinInstanceCacheManager::create(utilities.get(),transferUpQueue,transformTreeManager.get());
 			sicDebugDrawPipeline = sicManager->createDebugPipeline(core::smart_refctd_ptr(renderpass));
 			sicDescriptorSets = sicManager->createAllDescriptorSets(logicalDevice.get());
 
@@ -652,9 +652,9 @@ class GLTFApp : public ApplicationBase
 
 					sicManager->updateDebugDrawDescriptorSet(
 						logicalDevice.get(),sicDescriptorSets.debugDraw.get(),
+						transformTree.get(),SBufferBinding(aabbBinding),
 						{0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(transferUpQueue,sizeof(scene::ISkinInstanceCacheManager::DebugDrawData)*debugData.size(),debugData.data())},
-						{0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(transferUpQueue,sizeof(uint32_t)*jointCountInclPrefixSum.size(),jointCountInclPrefixSum.data())},
-						SBufferBinding(aabbBinding)
+						{0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(transferUpQueue,sizeof(uint32_t)*jointCountInclPrefixSum.size(),jointCountInclPrefixSum.data())}
 					);
 				}
 			}
