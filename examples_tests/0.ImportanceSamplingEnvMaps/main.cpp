@@ -281,6 +281,7 @@ int main()
 			double* conditionalIntegralsPixel = (double*)conditionalIntegrals->getPointer();
 			for (uint32_t y = 0; y < pdfDomainExtent.Y; ++y)
 			{
+				// printf("\n Conditional Integral[%d] = %f", y, conditionalCdfPixel[y * pdfDomainExtent.X + (pdfDomainExtent.X - 1)]);
 				*conditionalIntegralsPixel++ = conditionalCdfPixel[y * pdfDomainExtent.X + (pdfDomainExtent.X - 1)];
 			}
 
@@ -365,7 +366,10 @@ int main()
 
 			// now normalize
 			for (uint32_t y = 0; y < pdfDomainExtent.Y; ++y)
+			{
+				// printf("\n MarginalCDFPixel[%d] = %f", y, marginalCdfPixel[y]);
 				marginalCdfPixel[y] /= marginalIntegral;
+			}
 		}
 		
 		for (uint32_t i = 1; i < (marginalCdfImage->getBuffer()->getSize() / sizeof(double)); ++i)
@@ -392,9 +396,10 @@ int main()
 		{
 			xi.Y = (y + 0.5) / (double)pdfDomainExtent.Y;
 
-			int32_t offset = bisectionSearch((double*)marginalCdfImage->getBuffer()->getPointer(), pdfDomainExtent.Y, xi.Y, &xiRemapped.Y);
-			const uint32_t rowToSample = (uint32_t)offset + 1u;
-			double marginalPdf = ((double*)conditionalIntegrals->getPointer())[offset + 1] / marginalIntegral;
+			int32_t yoffset = bisectionSearch((double*)marginalCdfImage->getBuffer()->getPointer(), pdfDomainExtent.Y, xi.Y, &xiRemapped.Y);
+			const uint32_t rowToSample = (uint32_t)(yoffset + 1);
+			assert(rowToSample < pdfDomainExtent.Y);
+			double marginalPdf = ((double*)conditionalIntegrals->getPointer())[rowToSample] / marginalIntegral;
 
 			const double theta = xiRemapped.Y * core::PI<double>();
 			*thetaLUTPixel++ = (float)theta;
@@ -403,8 +408,10 @@ int main()
 			{
 				xi.X = (x + 0.5) / (double)pdfDomainExtent.X;
 
-				const int32_t offset = bisectionSearch((double*)conditionalCdfImage->getBuffer()->getPointer() + rowToSample * pdfDomainExtent.X, pdfDomainExtent.X, xi.X, &xiRemapped.X);
-				const double conditionalPdf = ((double*)luminancePdfBuffer->getPointer())[rowToSample * pdfDomainExtent.X + offset + 1] / ((double*)conditionalIntegrals->getPointer())[rowToSample];
+				const int32_t xoffset = bisectionSearch((double*)conditionalCdfImage->getBuffer()->getPointer() + rowToSample * pdfDomainExtent.X, pdfDomainExtent.X, xi.X, &xiRemapped.X);
+				const uint32_t colToSample = (uint32_t)(xoffset + 1);
+				assert(colToSample < pdfDomainExtent.X);
+				const double conditionalPdf = ((double*)luminancePdfBuffer->getPointer())[rowToSample * pdfDomainExtent.X + colToSample] / ((double*)conditionalIntegrals->getPointer())[rowToSample];
 
 				const double phi = xiRemapped.X * 2.0 * core::PI<double>();
 				const double pdf = (core::sin(theta) == 0.0) ? 0.0 : (marginalPdf * conditionalPdf) / (2.0 * core::PI<double>() * core::PI<double>() * core::sin(theta));
