@@ -114,6 +114,7 @@ namespace nbl::ui
 					//if (app->savedState != nullptr) {
 					//	ctx.state = (nbl::system::CApplicationAndroid::SSavedState*)app->savedState;
 					//}
+					framework->onAppInitialized();
 					android_poll_source* source;
 					int ident;
 					int events;
