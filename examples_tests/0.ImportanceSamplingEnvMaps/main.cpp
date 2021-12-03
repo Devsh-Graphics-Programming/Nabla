@@ -305,7 +305,7 @@ int main()
 			IImage::SCreationParams inParams;
 			inParams.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0u);
 			inParams.type = IImage::ET_1D;
-			inParams.format = asset::EF_R32_SFLOAT;
+			inParams.format = asset::EF_R64_SFLOAT;
 			inParams.extent = { pdfDomainExtent.Y, 1, 1 };
 			inParams.mipLevels = 1u;
 			inParams.arrayLayers = 1u;
