@@ -224,7 +224,7 @@ int main()
 		{
 			// Create ICPUImage from the buffer for the input image to the SAT filter
 			auto luminanceImageParams = envmapImage->getCreationParameters();
-			luminanceImageParams.format = EF_R32_SFLOAT;
+			luminanceImageParams.format = EF_R64_SFLOAT;
 			luminanceImageParams.extent = { pdfDomainExtent.X, pdfDomainExtent.Y, 1 };
 
 			auto luminanceImageRegions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(1ull);
@@ -280,7 +280,9 @@ int main()
 			conditionalIntegrals = core::make_smart_refctd_ptr<ICPUBuffer>(pdfDomainExtent.Y * sizeof(double));
 			double* conditionalIntegralsPixel = (double*)conditionalIntegrals->getPointer();
 			for (uint32_t y = 0; y < pdfDomainExtent.Y; ++y)
+			{
 				*conditionalIntegralsPixel++ = conditionalCdfPixel[y * pdfDomainExtent.X + (pdfDomainExtent.X - 1)];
+			}
 
 			conditionalCdfPixel = (double*)conditionalCdfImage->getBuffer()->getPointer();
 			conditionalIntegralsPixel = (double*)conditionalIntegrals->getPointer();

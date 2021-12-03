@@ -100,7 +100,7 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 			if (asset::getFormatChannelCount(outFormat) != asset::getFormatChannelCount(inFormat))
 				return false;
 
-			if (asset::getFormatClass(inFormat) >= asset::getFormatClass(outFormat)) // TODO in future! Change to a function checking a bit-depth for an each single channel
+			if (asset::getFormatClass(inFormat) > asset::getFormatClass(outFormat)) // TODO in future! Change to a function checking a bit-depth for an each single channel
 				return false;
 
 			return true;
