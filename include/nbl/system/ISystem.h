@@ -181,7 +181,7 @@ class ISystem : public core::IReferenceCounted
             auto& params = std::get<IFileArchive::SOpenFileParams>(found);
             // TODO: support passwords
             auto f =  archive->readFile(params);
-            assert(f.get()); // cannot fail
+            //assert(f.get()); // cannot fail
             return f;
         }
 

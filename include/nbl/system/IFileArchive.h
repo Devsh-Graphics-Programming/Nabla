@@ -135,6 +135,7 @@ public:
 	core::smart_refctd_ptr<IFile> readFile(const SOpenFileParams& params)
 	{
 		auto index = getIndexByPath(params.filename);
+		if (index == -1) return nullptr;
 		switch (this->getFileType(index))
 		{
 		case EAT_NULL:
