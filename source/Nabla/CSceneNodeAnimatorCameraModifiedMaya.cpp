@@ -286,7 +286,7 @@ void CSceneNodeAnimatorCameraModifiedMaya::animateNode(IDummyTransformationScene
 		else
 		{
 			nRotX += getValueDependentOnHandOrientation((RotateStart.X - MousePos.X) * RotateSpeed);
-			nRotY += getValueDependentOnHandOrientation((RotateStart.Y - MousePos.Y) * RotateSpeed) * (camera->getLeftHanded() ? -1.0f : +1.0f);
+			nRotY += getValueDependentOnHandOrientation((RotateStart.Y - MousePos.Y) * RotateSpeed) * (camera->getLeftHanded() ? +1.0f : -1.0f);
 		}
 	}
 	else
@@ -294,7 +294,7 @@ void CSceneNodeAnimatorCameraModifiedMaya::animateNode(IDummyTransformationScene
 		if (Rotating)
 		{
 			RotX += getValueDependentOnHandOrientation((RotateStart.X - MousePos.X) * RotateSpeed);
-			RotY += getValueDependentOnHandOrientation((RotateStart.Y - MousePos.Y) * RotateSpeed) * (camera->getLeftHanded() ? -1.0f : +1.0f);
+			RotY += getValueDependentOnHandOrientation((RotateStart.Y - MousePos.Y) * RotateSpeed) * (camera->getLeftHanded() ? +1.0f : -1.0f);
 			nRotX = RotX;
 			nRotY = RotY;
 					
