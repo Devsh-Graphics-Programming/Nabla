@@ -290,7 +290,7 @@ core::smart_refctd_ptr<asset::ICPUImage> nbl::asset::CDerivativeMapCreator::crea
 		return nullptr;
 	}
 
-	return core::smart_refctd_ptr<ICPUImage>(state.outImage);
+	return newDerivativeNormalMapImage;
 }
 
 core::smart_refctd_ptr<asset::ICPUImageView> nbl::asset::CDerivativeMapCreator::createDerivativeMapViewFromNormalMap(asset::ICPUImage* _inImg, float out_normalizationFactor[2], bool oneNormFactor/* = false*/)

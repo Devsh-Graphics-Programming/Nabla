@@ -97,12 +97,13 @@ class CNormalMapToDerivativeFilterBase : public impl::CSwizzleableAndDitherableF
 */
 
 template<typename Swizzle = DefaultSwizzle, typename Dither = IdentityDither>
-class CNormalMapToDerivativeFilter : public CMatchedSizeInOutImageFilterCommon, public CNormalMapToDerivativeFilterBase<Swizzle, Dither>
+class CNormalMapToDerivativeFilter : public CMatchedSizeInOutImageFilterCommon, public CNormalMapToDerivativeFilterBase<Swizzle,Dither>
 {
+		using base_t = CNormalMapToDerivativeFilterBase<Swizzle,Dither>;
 	public:
 		virtual ~CNormalMapToDerivativeFilter() {}
 
-		class CStateBase : public CMatchedSizeInOutImageFilterCommon::state_type, public CNormalMapToDerivativeFilterBase<Swizzle, Dither>::CNormalMapToDerivativeStateBase
+		class CStateBase : public CMatchedSizeInOutImageFilterCommon::state_type, public base_t::CNormalMapToDerivativeStateBase
 		{ 
 			public:
 				CStateBase() = default;
@@ -132,7 +133,7 @@ class CNormalMapToDerivativeFilter : public CMatchedSizeInOutImageFilterCommon, 
 			if (!CMatchedSizeInOutImageFilterCommon::validate(state))
 				return false;
 
-			if (!CNormalMapToDerivativeFilterBase<Swizzle, Dither>::validate(state))
+			if (!base_t::validate(state))
 				return false;
 			
 			const ICPUImage::SCreationParams& inParams = state->inImage->getCreationParameters();
@@ -164,7 +165,24 @@ class CNormalMapToDerivativeFilter : public CMatchedSizeInOutImageFilterCommon, 
 			state->setLayerScaleValuesOffset();
 			state->resetLayerScaleValues();
 
-			const asset::E_FORMAT inFormat = state->inImage->getCreationParameters().format;
+			// we have a weird situation where most normalmaps we've encountered seem to encode midpoint as 127 even though they come from SRGB formats
+			// should probably pick interpretation of SRGB vs UNORM based off the average value of the texture.
+			const asset::E_FORMAT inFormat = [state]()
+			{
+				const auto orig = state->inImage->getCreationParameters().format;
+				switch (orig)
+				{
+					case asset::EF_R8G8B8_SRGB:
+						return asset::EF_R8G8B8_UNORM;
+						break;
+					case asset::EF_R8G8B8A8_SRGB:
+						return asset::EF_R8G8B8A8_UNORM;
+						break;
+					default:
+						break;
+				}
+				return orig;
+			}();
 			const asset::E_FORMAT outFormat = state->outImage->getCreationParameters().format;
 			const auto inTexelByteSize = asset::getTexelOrBlockBytesize(inFormat);
 			const auto outTexelByteSize = asset::getTexelOrBlockBytesize(outFormat);
@@ -189,9 +207,10 @@ class CNormalMapToDerivativeFilter : public CMatchedSizeInOutImageFilterCommon, 
 				state->layerCount = copyLayerCount;
 			};
 
+			const bool unsignedInput = !asset::isSignedFormat(inFormat);
 			for (uint16_t w = 0u; w < copyLayerCount; ++w)
 			{
-				float* decodeAbsValuesOffset = state->scaleValuesPointer + (w * CNormalMapToDerivativeFilterBase<Swizzle, Dither>::CNormalMapToDerivativeStateBase::forcedScratchChannelAmount);
+				float* decodeAbsValuesOffset = state->scaleValuesPointer + (w * base_t::CNormalMapToDerivativeStateBase::forcedScratchChannelAmount);
 
 				auto& xMaxDecodeAbsValue = *decodeAbsValuesOffset;
 				auto& yMaxDecodeAbsValue = *(decodeAbsValuesOffset + 1);
@@ -213,12 +232,18 @@ class CNormalMapToDerivativeFilter : public CMatchedSizeInOutImageFilterCommon, 
 						for (auto blockY = 0u; blockY < blockDims.y; blockY++)
 							for (auto blockX = 0u; blockX < blockDims.x; blockX++)
 							{
-								impl::CSwizzleableAndDitherableFilterBase<false, false, Swizzle, IdentityDither>::onDecode(inFormat, state, inSourcePixels, decodeBuffer, swizzledBuffer, blockX, blockY);
+								impl::CSwizzleableAndDitherableFilterBase<false, false, Swizzle, IdentityDither>::onDecode<double,double>(inFormat, state, inSourcePixels, decodeBuffer, swizzledBuffer, blockX, blockY);
 
 								const size_t offset = asset::IImage::SBufferCopy::getLocalByteOffset(core::vector3du32_SIMD(localOutPos.x + blockX, localOutPos.y + blockY, localOutPos.z), scratchByteStrides);
 								float* data = reinterpret_cast<float*>(state->scratchMemory + offset);
 
 								auto& [xDecode, yDecode, zDecode] = std::make_tuple(*swizzledBuffer, *(swizzledBuffer + 1), *(swizzledBuffer + 2));
+								if (unsignedInput)
+								{
+									xDecode = xDecode*2.f-1.f;
+									yDecode = yDecode*2.f-1.f;
+									zDecode = zDecode*2.f-1.f;
+								}
 
 								*data = -xDecode / zDecode;
 								*(data + 1) = -yDecode / zDecode;
@@ -248,10 +273,10 @@ class CNormalMapToDerivativeFilter : public CMatchedSizeInOutImageFilterCommon, 
 				}
 
 				{
-					auto getScratchPixel = [&](core::vector4di32_SIMD readBlockPos) -> CNormalMapToDerivativeFilterBase<Swizzle, Dither>::CNormalMapToDerivativeStateBase::decodeType*
+					auto getScratchPixel = [&](core::vector4di32_SIMD readBlockPos) -> base_t::CNormalMapToDerivativeStateBase::decodeType*
 					{
 						const size_t scratchOffset = asset::IImage::SBufferCopy::getLocalByteOffset(core::vector3du32_SIMD(readBlockPos.x, readBlockPos.y, readBlockPos.z, 0), scratchByteStrides); // TODO
-						return reinterpret_cast<CNormalMapToDerivativeFilterBase<Swizzle, Dither>::CNormalMapToDerivativeStateBase::decodeType*>(reinterpret_cast<uint8_t*>(state->scratchMemory) + scratchOffset);
+						return reinterpret_cast<base_t::CNormalMapToDerivativeStateBase::decodeType*>(reinterpret_cast<uint8_t*>(state->scratchMemory) + scratchOffset);
 					};
 
 					auto normalizeScratch = [&](bool isSigned)
@@ -262,13 +287,13 @@ class CNormalMapToDerivativeFilter : public CMatchedSizeInOutImageFilterCommon, 
 								for (auto& x = localCoord[0] = 0u; x < state->extent.width; ++x)
 								{
 									const size_t scratchOffset = asset::IImage::SBufferCopy::getLocalByteOffset(localCoord, scratchByteStrides);
-									auto* entryScratchAdress = reinterpret_cast<CNormalMapToDerivativeFilterBase<Swizzle, Dither>::CNormalMapToDerivativeStateBase::decodeType*>(reinterpret_cast<uint8_t*>(state->scratchMemory) + scratchOffset);
+									auto* entryScratchAdress = reinterpret_cast<base_t::CNormalMapToDerivativeStateBase::decodeType*>(reinterpret_cast<uint8_t*>(state->scratchMemory) + scratchOffset);
 
 									if (isSigned)
-										for (uint8_t channel = 0; channel < CNormalMapToDerivativeFilterBase<Swizzle, Dither>::CNormalMapToDerivativeStateBase::forcedScratchChannelAmount; ++channel)
+										for (uint8_t channel = 0; channel < base_t::CNormalMapToDerivativeStateBase::forcedScratchChannelAmount; ++channel)
 											entryScratchAdress[channel] = entryScratchAdress[channel] / decodeAbsValuesOffset[channel];
 									else
-										for (uint8_t channel = 0; channel < CNormalMapToDerivativeFilterBase<Swizzle, Dither>::CNormalMapToDerivativeStateBase::forcedScratchChannelAmount; ++channel)
+										for (uint8_t channel = 0; channel < base_t::CNormalMapToDerivativeStateBase::forcedScratchChannelAmount; ++channel)
 											entryScratchAdress[channel] = entryScratchAdress[channel] * 0.5f / decodeAbsValuesOffset[channel] + 0.5f;
 								}
 					};
@@ -287,9 +312,10 @@ class CNormalMapToDerivativeFilter : public CMatchedSizeInOutImageFilterCommon, 
 							uint8_t* outDataAdress = outData + writeBlockArrayOffset;
 
 							const size_t offset = asset::IImage::SBufferCopy::getLocalByteOffset(localOutPos, scratchByteStrides);
-							auto* data = reinterpret_cast<uint8_t*>(state->scratchMemory) + offset;
+							const float* data = reinterpret_cast<float*>(state->scratchMemory+offset);
+							const double srcPixels[base_t::CNormalMapToDerivativeStateBase::forcedScratchChannelAmount] = {data[0],data[1]};
 
-							impl::CSwizzleAndConvertImageFilterBase<false, false, Swizzle, IdentityDither>::onEncode(outFormat, state, outDataAdress, data, localOutPos, 0, 0, CNormalMapToDerivativeFilterBase<Swizzle, Dither>::CNormalMapToDerivativeStateBase::forcedScratchChannelAmount); // overrrides texels, so region-overlapping case is fine
+							impl::CSwizzleableAndDitherableFilterBase<false, false, Swizzle, IdentityDither>::onEncode<const double>(outFormat, state, outDataAdress, srcPixels, localOutPos, 0, 0, base_t::CNormalMapToDerivativeStateBase::forcedScratchChannelAmount); // overrrides texels, so region-overlapping case is fine
 						};
 
 						IImage::SSubresourceLayers subresource = { static_cast<IImage::E_ASPECT_FLAGS>(0u), state->outMipLevel, state->outBaseLayer, 1 };

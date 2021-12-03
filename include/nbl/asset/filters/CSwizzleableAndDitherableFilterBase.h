@@ -82,6 +82,7 @@ namespace nbl
 						void normalize(Tenc* encodeBuffer, const uint8_t& channels)
 						{
 							static_assert(!isSignedFormat<format>(), "The format musn't be a pure-integer!");
+							static_assert(sizeof(Tenc)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
 
 							if constexpr (isSignedFormat<format>())
 								for (uint8_t channel = 0; channel < channels; ++channel)
@@ -100,6 +101,7 @@ namespace nbl
 						template<typename Tenc>
 						void normalize(const E_FORMAT& format, Tenc* encodeBuffer, const uint8_t& channels)
 						{
+							static_assert(sizeof(Tenc)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
 							#ifdef _NBL_DEBUG
 							bool status = !isScaledFormat(format);
 							assert(status);
@@ -171,6 +173,8 @@ namespace nbl
 					template<E_FORMAT inFormat, typename Tdec, typename Tenc>
 					static void onDecode(state_type* state, const void* srcPix[4], Tdec* decodeBuffer, Tenc* encodeBuffer, uint32_t blockX, uint32_t blockY)
 					{
+						static_assert(sizeof(Tdec)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
+						static_assert(sizeof(Tenc)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
 						asset::decodePixels<inFormat>(srcPix, decodeBuffer, blockX, blockY);
 						static_cast<Swizzle&>(*state).operator() < Tdec, Tenc > (decodeBuffer, encodeBuffer);
 					}
@@ -184,6 +188,8 @@ namespace nbl
 					template<typename Tdec, typename Tenc>
 					static void onDecode(E_FORMAT inFormat, state_type* state, const void* srcPix[4], Tdec* decodeBuffer, Tenc* encodeBuffer, uint32_t blockX, uint32_t blockY)
 					{
+						static_assert(sizeof(Tdec)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
+						static_assert(sizeof(Tenc)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
 						asset::decodePixelsRuntime(inFormat, srcPix, decodeBuffer, blockX, blockY);
 						static_cast<Swizzle&>(*state).operator() < Tdec, Tenc > (decodeBuffer, encodeBuffer);
 					}
@@ -205,6 +211,7 @@ namespace nbl
 					template<E_FORMAT outFormat, typename Tenc>
 					static void onEncode(state_type* state, void* dstPix, Tenc* encodeBuffer, core::vectorSIMDu32 position, uint32_t blockX, uint32_t blockY, uint8_t channels, bool queryNormalizing = false)
 					{
+						static_assert(sizeof(Tenc)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
 						for (uint8_t i = 0; i < channels; ++i)
 						{
 							const float ditheredValue = state->dither.pGet(state->ditherState, position + core::vectorSIMDu32(blockX, blockY), i);
@@ -238,6 +245,7 @@ namespace nbl
 					template<typename Tenc>
 					static void onEncode(E_FORMAT outFormat, state_type* state, void* dstPix, Tenc* encodeBuffer, core::vectorSIMDu32 position, uint32_t blockX, uint32_t blockY, uint8_t channels, bool queryNormalizing = false)
 					{
+						static_assert(sizeof(Tenc)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
 						for (uint8_t i = 0; i < channels; ++i)
 						{
 							const float ditheredValue = state->dither.pGet(state->ditherState, position + core::vectorSIMDu32(blockX, blockY), i);
@@ -303,6 +311,8 @@ namespace nbl
 					template<E_FORMAT inFormat, typename Tdec, typename Tenc>
 					static void onDecode(state_type* state, const void* srcPix[4], Tdec* decodeBuffer, Tenc* encodeBuffer, uint32_t blockX, uint32_t blockY)
 					{
+						static_assert(sizeof(Tdec)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
+						static_assert(sizeof(Tenc)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
 						asset::decodePixels<inFormat>(srcPix, decodeBuffer, blockX, blockY);
 						static_cast<Swizzle&>(*state).operator() < Tdec, Tenc > (decodeBuffer, encodeBuffer);
 					}
@@ -316,6 +326,8 @@ namespace nbl
 					template<typename Tdec, typename Tenc>
 					static void onDecode(E_FORMAT inFormat, state_type* state, const void* srcPix[4], Tdec* decodeBuffer, Tenc* encodeBuffer, uint32_t blockX, uint32_t blockY)
 					{
+						static_assert(sizeof(Tdec)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
+						static_assert(sizeof(Tenc)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
 						asset::decodePixelsRuntime(inFormat, srcPix, decodeBuffer, blockX, blockY);
 						static_cast<Swizzle&>(*state).operator() < Tdec, Tenc > (decodeBuffer, encodeBuffer);
 					}
@@ -337,6 +349,7 @@ namespace nbl
 					template<E_FORMAT outFormat, typename Tenc>
 					static void onEncode(state_type* state, void* dstPix, Tenc* encodeBuffer, core::vectorSIMDu32 position, uint32_t blockX, uint32_t blockY, uint8_t channels, bool queryNormalizing = false)
 					{
+						static_assert(sizeof(Tenc)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
 						if constexpr (Normalize)
 							if (queryNormalizing)
 								static_cast<detail::CNormalizeState<Normalize>&>(*state).normalize<outFormat>(encodeBuffer, channels);
@@ -362,6 +375,7 @@ namespace nbl
 					template<typename Tenc>
 					static void onEncode(E_FORMAT outFormat, state_type* state, void* dstPix, Tenc* encodeBuffer, core::vectorSIMDu32 position, uint32_t blockX, uint32_t blockY, uint8_t channels, bool queryNormalizing = false)
 					{
+						static_assert(sizeof(Tenc)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
 						if constexpr (Normalize)
 							if (queryNormalizing)
 								static_cast<detail::CNormalizeState<Normalize>&>(*state).normalize(outFormat, encodeBuffer, channels);
@@ -430,6 +444,8 @@ namespace nbl
 					template<E_FORMAT inFormat, typename Tdec, typename Tenc>
 					static void onDecode(state_type* state, const void* srcPix[4], Tdec* decodeBuffer, Tenc* encodeBuffer, uint32_t blockX, uint32_t blockY)
 					{
+						static_assert(sizeof(Tdec)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
+						static_assert(sizeof(Tenc)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
 						asset::decodePixels<inFormat>(srcPix, decodeBuffer, blockX, blockY);
 						state->swizzle->operator() < Tdec, Tenc > (decodeBuffer, encodeBuffer);
 					}
@@ -443,6 +459,8 @@ namespace nbl
 					template<typename Tdec, typename Tenc>
 					static void onDecode(E_FORMAT inFormat, state_type* state, const void* srcPix[4], Tdec* decodeBuffer, Tenc* encodeBuffer, uint32_t blockX, uint32_t blockY)
 					{
+						static_assert(sizeof(Tdec)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
+						static_assert(sizeof(Tenc)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
 						asset::decodePixelsRuntime(inFormat, srcPix, decodeBuffer, blockX, blockY);
 						state->swizzle->operator() < Tdec, Tenc > (decodeBuffer, encodeBuffer);
 					}
@@ -464,6 +482,7 @@ namespace nbl
 					template<E_FORMAT outFormat, typename Tenc>
 					static void onEncode(state_type* state, void* dstPix, Tenc* encodeBuffer, core::vectorSIMDu32 position, uint32_t blockX, uint32_t blockY, uint8_t channels, bool queryNormalizing = false)
 					{
+						static_assert(sizeof(Tenc)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
 						for (uint8_t i = 0; i < channels; ++i)
 						{
 							const float ditheredValue = state->dither.pGet(state->ditherState, position + core::vectorSIMDu32(blockX, blockY), i);
@@ -497,6 +516,7 @@ namespace nbl
 					template<typename Tenc>
 					static void onEncode(E_FORMAT outFormat, state_type* state, void* dstPix, Tenc* encodeBuffer, core::vectorSIMDu32 position, uint32_t blockX, uint32_t blockY, uint8_t channels, bool queryNormalizing = false)
 					{
+						static_assert(sizeof(Tenc)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
 						for (uint8_t i = 0; i < channels; ++i)
 						{
 							const float ditheredValue = state->dither.pGet(state->ditherState, position + core::vectorSIMDu32(blockX, blockY), i);
