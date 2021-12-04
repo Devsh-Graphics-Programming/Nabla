@@ -81,7 +81,7 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		_NBL_STATIC_INLINE_CONSTEXPR uint32_t MaxDimensions = RandomDimsPerPathVertex*(MaxPathDepth-1u);
 
 		//
-		static constexpr inline uint32_t AntiAliasingSequenceLength = 4096;
+		static constexpr inline uint32_t AntiAliasingSequenceLength = 1024;
 		static const float AntiAliasingSequence[AntiAliasingSequenceLength][2];
     protected:
         ~Renderer();
