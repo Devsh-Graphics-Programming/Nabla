@@ -246,7 +246,8 @@ class CNormalMapToDerivativeFilter : public CMatchedSizeInOutImageFilterCommon, 
 								}
 
 								*data = -xDecode / zDecode;
-								*(data + 1) = -yDecode / zDecode;
+								// scanlines go from top down, so Y component is in reverse
+								*(data + 1) = yDecode / zDecode;
 
 								auto absoluteX = core::abs(*data);
 								auto absoluteY = core::abs(*(data + 1));
