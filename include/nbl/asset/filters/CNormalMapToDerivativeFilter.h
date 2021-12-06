@@ -315,7 +315,7 @@ class CNormalMapToDerivativeFilter : public CMatchedSizeInOutImageFilterCommon, 
 
 							const size_t offset = asset::IImage::SBufferCopy::getLocalByteOffset(localOutPos, scratchByteStrides);
 							const float* data = reinterpret_cast<float*>(state->scratchMemory+offset);
-							const double srcPixels[base_t::CNormalMapToDerivativeStateBase::forcedScratchChannelAmount] = {data[0],data[1]};
+							double srcPixels[base_t::CNormalMapToDerivativeStateBase::forcedScratchChannelAmount] = {data[0],data[1]};
 
 							impl::CSwizzleableAndDitherableFilterBase<false, true, Swizzle, IdentityDither>::onEncode<double>(outFormat, state, outDataAdress, srcPixels, localOutPos, 0, 0, base_t::CNormalMapToDerivativeStateBase::forcedScratchChannelAmount); // overrrides texels, so region-overlapping case is fine
 						};
