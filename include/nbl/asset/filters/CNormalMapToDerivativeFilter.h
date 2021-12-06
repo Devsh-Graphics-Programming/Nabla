@@ -19,11 +19,12 @@ namespace nbl
 namespace asset
 {
 
+// TODO: see the TODO in CNormalizeState in CSwizzeableAndDitherableFilterBase.h
 template<typename Swizzle, typename Dither>
-class CNormalMapToDerivativeFilterBase : public impl::CSwizzleableAndDitherableFilterBase<false, false, Swizzle, Dither>
+class CNormalMapToDerivativeFilterBase : public impl::CSwizzleableAndDitherableFilterBase<false, true, Swizzle, Dither>
 {
 	public:
-		class CNormalMapToDerivativeStateBase : public impl::CSwizzleableAndDitherableFilterBase<false, false, Swizzle, Dither>::state_type
+		class CNormalMapToDerivativeStateBase : public impl::CSwizzleableAndDitherableFilterBase<false, true, Swizzle, Dither>::state_type
 		{
 			public:
 
@@ -84,7 +85,7 @@ class CNormalMapToDerivativeFilterBase : public impl::CSwizzleableAndDitherableF
 			if (state->scratchMemoryByteSize == 0)
 				return false;
 
-			if (!impl::CSwizzleableAndDitherableFilterBase<false, false, Swizzle, Dither>::validate(state))
+			if (!impl::CSwizzleableAndDitherableFilterBase<false, true, Swizzle, Dither>::validate(state))
 				return false;
 
 			return true;
@@ -232,7 +233,7 @@ class CNormalMapToDerivativeFilter : public CMatchedSizeInOutImageFilterCommon, 
 						for (auto blockY = 0u; blockY < blockDims.y; blockY++)
 							for (auto blockX = 0u; blockX < blockDims.x; blockX++)
 							{
-								impl::CSwizzleableAndDitherableFilterBase<false, false, Swizzle, IdentityDither>::onDecode<double,double>(inFormat, state, inSourcePixels, decodeBuffer, swizzledBuffer, blockX, blockY);
+								impl::CSwizzleableAndDitherableFilterBase<false, true, Swizzle, IdentityDither>::onDecode<double,double>(inFormat, state, inSourcePixels, decodeBuffer, swizzledBuffer, blockX, blockY);
 
 								const size_t offset = asset::IImage::SBufferCopy::getLocalByteOffset(core::vector3du32_SIMD(localOutPos.x + blockX, localOutPos.y + blockY, localOutPos.z), scratchByteStrides);
 								float* data = reinterpret_cast<float*>(state->scratchMemory + offset);
@@ -316,7 +317,7 @@ class CNormalMapToDerivativeFilter : public CMatchedSizeInOutImageFilterCommon, 
 							const float* data = reinterpret_cast<float*>(state->scratchMemory+offset);
 							const double srcPixels[base_t::CNormalMapToDerivativeStateBase::forcedScratchChannelAmount] = {data[0],data[1]};
 
-							impl::CSwizzleableAndDitherableFilterBase<false, false, Swizzle, IdentityDither>::onEncode<const double>(outFormat, state, outDataAdress, srcPixels, localOutPos, 0, 0, base_t::CNormalMapToDerivativeStateBase::forcedScratchChannelAmount); // overrrides texels, so region-overlapping case is fine
+							impl::CSwizzleableAndDitherableFilterBase<false, true, Swizzle, IdentityDither>::onEncode<double>(outFormat, state, outDataAdress, srcPixels, localOutPos, 0, 0, base_t::CNormalMapToDerivativeStateBase::forcedScratchChannelAmount); // overrrides texels, so region-overlapping case is fine
 						};
 
 						IImage::SSubresourceLayers subresource = { static_cast<IImage::E_ASPECT_FLAGS>(0u), state->outMipLevel, state->outBaseLayer, 1 };
