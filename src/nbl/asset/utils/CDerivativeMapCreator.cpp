@@ -7,12 +7,13 @@
 #include "nbl/asset/filters/CBlitImageFilter.h"
 #include "nbl/asset/interchange/IImageAssetHandlerBase.h"
 
-namespace nbl {
-namespace asset
+namespace nbl::asset
 {
+
 
 namespace
 {
+
 template<class Kernel>
 class MyKernel : public asset::CFloatingPointSeparableImageFilterKernelBase<MyKernel<Kernel>>
 {
@@ -120,6 +121,7 @@ class SeparateOutXAxisKernel : public asset::CFloatingPointSeparableImageFilterK
 
 }
 
+
 core::smart_refctd_ptr<asset::ICPUImage> nbl::asset::CDerivativeMapCreator::createDerivativeMapFromHeightMap(asset::ICPUImage* _inImg, asset::ISampler::E_TEXTURE_CLAMP _uwrap, asset::ISampler::E_TEXTURE_CLAMP _vwrap, asset::ISampler::E_TEXTURE_BORDER_COLOR _borderColor)
 {
 	using namespace asset;
@@ -133,8 +135,8 @@ core::smart_refctd_ptr<asset::ICPUImage> nbl::asset::CDerivativeMapCreator::crea
 	using YDerivKernel = SeparateOutXAxisKernel<YDerivKernel_>;
 	using DerivativeMapFilter = CBlitImageFilter
 	<
-		false,true,
-		StaticSwizzle<ICPUImageView::SComponentMapping::ES_R,ICPUImageView::SComponentMapping::ES_R>, IdentityDither,
+		StaticSwizzle<ICPUImageView::SComponentMapping::ES_R,ICPUImageView::SComponentMapping::ES_R>,
+		IdentityDither, CDerivativeMapNormalizationState,true, // TODO: proper normalization
 		XDerivKernel,
 		YDerivKernel,
 		CBoxImageFilterKernel
@@ -314,5 +316,5 @@ core::smart_refctd_ptr<asset::ICPUImageView> nbl::asset::CDerivativeMapCreator::
 	return imageView;
 }
 
-}
+
 }

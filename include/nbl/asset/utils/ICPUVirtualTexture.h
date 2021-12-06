@@ -132,7 +132,7 @@ public:
 
         upscaled_img->setBufferAndRegions(std::move(buf), std::move(regions));
 
-        using blit_filter_t = asset::CBlitImageFilter<false, false, asset::VoidSwizzle, asset::IdentityDither, asset::CMitchellImageFilterKernel<>>;
+        using blit_filter_t = asset::CBlitImageFilter<asset::VoidSwizzle,asset::IdentityDither/*TODO: White Noise*/,void,false,asset::CMitchellImageFilterKernel<>>;
         blit_filter_t::state_type blit;
         blit.inOffsetBaseLayer = core::vectorSIMDu32(0u, 0u, 0u, 0u);
         blit.inExtent = params.extent;
@@ -214,7 +214,7 @@ public:
         asset::CPaddedCopyImageFilter::execute(std::execution::par_unseq,&copy);
 
         using mip_gen_filter_t = asset::CMipMapGenerationImageFilter<
-            false, false, VoidSwizzle, IdentityDither,
+            VoidSwizzle,IdentityDither,void/*TODO: whitenoise*/,false,
             asset::CBoxImageFilterKernel, asset::CBoxImageFilterKernel,
             asset::CBoxImageFilterKernel, asset::CBoxImageFilterKernel,
             asset::CBoxImageFilterKernel, asset::CBoxImageFilterKernel

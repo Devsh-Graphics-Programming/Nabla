@@ -23,8 +23,8 @@ namespace asset
 // the correct usage is to compute the first mip map with a 100% support kernel, then subsequent iterations with 50% smaller pixel supports
 // (actually in the case of using a Gaussian for both resampling and reconstruction, this is equivalent to using a single kernel of 3,3,5,9,..)
 
-template<bool Normalize = false, bool Clamp = false, typename Swizzle = VoidSwizzle, typename Dither = IdentityDither, class ResamplingKernelX = CKaiserImageFilterKernel<>, class ReconstructionKernelX = CMitchellImageFilterKernel<>, class ResamplingKernelY = ResamplingKernelX, class ReconstructionKernelY = ReconstructionKernelX, class ResamplingKernelZ = ResamplingKernelY, class ReconstructionKernelZ = ReconstructionKernelY>
-class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageFilter<Normalize, Clamp, Swizzle, Dither, ResamplingKernelX, ReconstructionKernelX, ResamplingKernelY, ReconstructionKernelY, ResamplingKernelZ, ReconstructionKernelZ> >, public CBasicImageFilterCommon
+template<typename Swizzle=VoidSwizzle, typename Dither=IdentityDither/*TODO: WhiteNoiseDither*/, typename Normalization=void, bool Clamp=false, class ResamplingKernelX = CKaiserImageFilterKernel<>, class ReconstructionKernelX = CMitchellImageFilterKernel<>, class ResamplingKernelY = ResamplingKernelX, class ReconstructionKernelY = ReconstructionKernelX, class ResamplingKernelZ = ResamplingKernelY, class ReconstructionKernelZ = ReconstructionKernelY>
+class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageFilter<Swizzle,Dither,Normalization,Clamp, ResamplingKernelX,ReconstructionKernelX, ResamplingKernelY,ReconstructionKernelY, ResamplingKernelZ,ReconstructionKernelZ> >, public CBasicImageFilterCommon
 {
 	public:
 		virtual ~CMipMapGenerationImageFilter() {}
@@ -33,8 +33,12 @@ class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageF
 		using KernelX = ResamplingKernelX;//CKernelConvolution<ResamplingKernelX, ReconstructionKernelX>;
 		using KernelY = ResamplingKernelY;//CKernelConvolution<ResamplingKernelY, ReconstructionKernelY>;
 		using KernelZ = ResamplingKernelZ;//CKernelConvolution<ResamplingKernelZ, ReconstructionKernelZ>;
+	private:
+		using state_base_t = typename CBlitImageFilterBase<typename KernelX::value_type,Swizzle,Dither,Normalization,Clamp>::CStateBase;
+		using pseudo_base_t = CBlitImageFilter<Swizzle,Dither,Normalization,Clamp,KernelX>;
 
-		class CState : public IImageFilter::IState, public CBlitImageFilterBase<typename KernelX::value_type,Normalize,Clamp,Swizzle,Dither>::CStateBase
+	public:
+		class CState : public IImageFilter::IState, public state_base_t
 		{
 			public:
 				virtual ~CState() {}
@@ -51,7 +55,7 @@ class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageF
 		static inline uint32_t getRequiredScratchByteSize(const state_type* state)
 		{
 			auto blit = buildBlitState(state,state->startMipLevel);
-			return CBlitImageFilter<Normalize,Clamp,Swizzle,Dither,KernelX>::getRequiredScratchByteSize(&blit);
+			return pseudo_base_t::getRequiredScratchByteSize(&blit);
 		}
 
 		static inline bool validate(state_type* state)
@@ -76,8 +80,8 @@ class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageF
 			
 			for (auto inMipLevel=state->startMipLevel; inMipLevel!=state->endMipLevel; inMipLevel++)
 			{
-				auto blit = buildBlitState(state, inMipLevel);
-				if (!CBlitImageFilter<Normalize,Clamp,Swizzle,Dither,KernelX>::validate(&blit))
+				auto blit = buildBlitState(state,inMipLevel);
+				if (!pseudo_base_t::validate(&blit))
 					return false;
 			}
 			return true; // CBlit already checks kernel
@@ -92,7 +96,7 @@ class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageF
 			for (auto inMipLevel=state->startMipLevel; inMipLevel!=state->endMipLevel; inMipLevel++)
 			{
 				auto blit = buildBlitState(state, inMipLevel);
-				if (!CBlitImageFilter<Normalize,Clamp,Swizzle,Dither,KernelX>::execute<ExecutionPolicy>(std::forward<ExecutionPolicy>(policy),&blit))
+				if (!pseudo_base_t::execute<ExecutionPolicy>(std::forward<ExecutionPolicy>(policy),&blit))
 					return false;
 			}
 			return true;
@@ -107,7 +111,7 @@ class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageF
 		{
 			const auto prevLevel = inMipLevel-1u;
 
-			typename CBlitImageFilter<Normalize,Clamp,Swizzle,Dither,KernelX>::state_type blit;
+			pseudo_base_t::state_type blit;
 			blit.inOffsetBaseLayer = blit.outOffsetBaseLayer = core::vectorSIMDu32(0, 0, 0, state->baseLayer);
 			blit.inExtentLayerCount = state->inOutImage->getMipSize(prevLevel);
 			blit.outExtentLayerCount = state->inOutImage->getMipSize(inMipLevel);
@@ -117,7 +121,6 @@ class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageF
 			blit.inImage = blit.outImage = state->inOutImage;
 			//not all kernels are default-constructible, this is going to be a problem (i already added appropriate ctor for blit filter state class though)
 			//blit.kernel = Kernel(); // gets default constructed, we should probably do a `static_assert` about this property
-			using state_base_t = typename CBlitImageFilterBase<typename KernelX::value_type, Normalize,Clamp,Swizzle,Dither>::CStateBase;
 			static_cast<state_base_t&>(blit) = *static_cast<const state_base_t*>(state);
 			return blit;
 		}

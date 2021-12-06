@@ -182,7 +182,7 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 			constexpr auto inputFormat = EF_R8_SRGB;
 			constexpr auto outputFormat = EF_R8G8B8_SRGB;
 		
-			using CONVERSION_SWIZZLE_FILTER = CSwizzleAndConvertImageFilter<inputFormat, outputFormat>;
+			using CONVERSION_SWIZZLE_FILTER = CSwizzleAndConvertImageFilter<inputFormat,outputFormat>;
 
 			core::smart_refctd_ptr<ICPUImage> newConvertedImage;
 			{

@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __NBL_ASSET_C_NORMAL_MAP_TO_DERIVATIVE_FILTER_H_INCLUDED__
-#define __NBL_ASSET_C_NORMAL_MAP_TO_DERIVATIVE_FILTER_H_INCLUDED__
+#ifndef _NBL_ASSET_C_NORMAL_MAP_TO_DERIVATIVE_FILTER_H_INCLUDED_
+#define _NBL_ASSET_C_NORMAL_MAP_TO_DERIVATIVE_FILTER_H_INCLUDED_
 
 #include "nbl/core/core.h"
 
@@ -14,11 +14,10 @@
 #include "nbl/asset/filters/CSwizzleAndConvertImageFilter.h"
 #include "CConvertFormatImageFilter.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
+#if 0
 // TODO: see the TODO in CNormalizeState in CSwizzeableAndDitherableFilterBase.h
 template<typename Swizzle, typename Dither>
 class CNormalMapToDerivativeFilterBase : public impl::CSwizzleableAndDitherableFilterBase<false, true, Swizzle, Dither>
@@ -337,8 +336,8 @@ class CNormalMapToDerivativeFilter : public CMatchedSizeInOutImageFilterCommon, 
 			return true;
 		}	
 };
+#endif
 
-} // end namespace asset
-} // end namespace nbl
+} // end namespace nbl::asset
 
 #endif // __NBL_ASSET_C_NORMAL_MAP_TO_DERIVATIVE_FILTER_H_INCLUDED__
