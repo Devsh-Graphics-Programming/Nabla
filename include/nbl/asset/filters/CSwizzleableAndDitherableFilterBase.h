@@ -385,7 +385,7 @@ namespace nbl
 						{
 							for (uint8_t i = 0; i < channels; ++i)
 							{
-								auto&& [min, max, encodeValue] = std::make_tuple<Tenc&&, Tenc&&, Tenc*>(, asset::getFormatMaxValue<Tenc>(outFormat, i), encodeBuffer + i);
+								auto&& [min, max, encodeValue] = std::make_tuple<Tenc&&, Tenc&&, Tenc*>(asset::getFormatMinValue<Tenc>(outFormat, i), asset::getFormatMaxValue<Tenc>(outFormat, i), encodeBuffer + i);
 								*encodeValue = core::clamp(*encodeValue, min, max);
 							}
 						}
@@ -579,7 +579,7 @@ namespace nbl
 							component = in_t(1);
 							break;
 						default:
-							component = reinterpret_cast<const in_t*>(in)[i-ICPUImageView::SComponentMapping::ES_R];
+							component = reinterpret_cast<const in_t*>(in)[mapping-ICPUImageView::SComponentMapping::ES_R];
 							break;
 					}
 					reinterpret_cast<out_t*>(out)[i] = out_t(component);
