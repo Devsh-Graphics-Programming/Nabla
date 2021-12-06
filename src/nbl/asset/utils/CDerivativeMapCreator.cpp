@@ -24,7 +24,7 @@ class MyKernel : public asset::CFloatingPointSeparableImageFilterKernelBase<MyKe
 	public:
 		using value_type = typename Base::value_type;
 
-		MyKernel(Kernel&& k, float _imgExtent) : Base(k.negative_support.x, k.positive_support.x), kernel(std::move(k)), multiplier(_imgExtent) {}
+		MyKernel(Kernel&& k, uint32_t _imgExtent) : Base(k.negative_support.x, k.positive_support.x), kernel(std::move(k)), multiplier(/*float(_imgExtent)*/1.f) {}
 
 		// no special user data by default
 		inline const asset::IImageFilterKernel::UserData* getUserData() const { return nullptr; }
@@ -131,24 +131,22 @@ core::smart_refctd_ptr<asset::ICPUImage> nbl::asset::CDerivativeMapCreator::crea
 	using YDerivKernel_ = CChannelIndependentImageFilterKernel<CBoxImageFilterKernel, DerivKernel>;
 	using XDerivKernel = SeparateOutXAxisKernel<XDerivKernel_>;
 	using YDerivKernel = SeparateOutXAxisKernel<YDerivKernel_>;
-	constexpr bool NORMALIZE = false;
 	using DerivativeMapFilter = CBlitImageFilter
-		<
-		NORMALIZE, false, DefaultSwizzle, IdentityDither, // (Criss, look at impl::CSwizzleAndConvertImageFilterBase)
+	<
+		false,true,
+		StaticSwizzle<ICPUImageView::SComponentMapping::ES_R,ICPUImageView::SComponentMapping::ES_R>, IdentityDither,
 		XDerivKernel,
 		YDerivKernel,
 		CBoxImageFilterKernel
-		>;
+	>;
 
 	const auto extent = _inImg->getCreationParameters().extent;
-	const float mlt = 1.f;// static_cast<float>(std::max(extent.width, extent.height));
-	XDerivKernel xderiv(XDerivKernel_(DerivKernel(DerivKernel_(ReconstructionKernel()), mlt), CBoxImageFilterKernel()));
-	YDerivKernel yderiv(YDerivKernel_(CBoxImageFilterKernel(), DerivKernel(DerivKernel_(ReconstructionKernel()), mlt)));
+	// derivative values should not change depending on resolution of the texture, so they need to be done w.r.t. normalized UV coordinates  
+	XDerivKernel xderiv(XDerivKernel_(DerivKernel(DerivKernel_(ReconstructionKernel()), extent.width), CBoxImageFilterKernel()));
+	YDerivKernel yderiv(YDerivKernel_(CBoxImageFilterKernel(), DerivKernel(DerivKernel_(ReconstructionKernel()), extent.height)));
 
-	using swizzle_t = asset::ICPUImageView::SComponentMapping;
+
 	DerivativeMapFilter::state_type state(std::move(xderiv), std::move(yderiv), CBoxImageFilterKernel());
-
-	state.swizzle = { swizzle_t::ES_R, swizzle_t::ES_R, swizzle_t::ES_R, swizzle_t::ES_R };
 
 	const auto& inParams = _inImg->getCreationParameters();
 	auto outParams = inParams;
@@ -186,7 +184,16 @@ core::smart_refctd_ptr<asset::ICPUImage> nbl::asset::CDerivativeMapCreator::crea
 	state.scratchMemoryByteSize = DerivativeMapFilter::getRequiredScratchByteSize(&state);
 	state.scratchMemory = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(state.scratchMemoryByteSize, _NBL_SIMD_ALIGNMENT));
 
-	DerivativeMapFilter::execute(std::execution::par_unseq,&state);
+	const bool result = DerivativeMapFilter::execute(std::execution::par_unseq,&state);
+	if (result)
+	{
+		float out_normalizationFactor[2];
+/*
+		auto factor = state.oldMinValue(0u);
+		out_normalizationFactor[0] = factor.x;
+		out_normalizationFactor[1] = factor.y;
+*/
+	}
 
 	_NBL_ALIGNED_FREE(state.scratchMemory);
 
@@ -212,7 +219,7 @@ core::smart_refctd_ptr<asset::ICPUImageView> CDerivativeMapCreator::createDeriva
 	return asset::ICPUImageView::create(std::move(params));
 }
 
-core::smart_refctd_ptr<asset::ICPUImage> nbl::asset::CDerivativeMapCreator::createDerivativeMapFromNormalMap(asset::ICPUImage* _inImg, float out_normalizationFactor[2], bool oneNormFactor/* = false*/)
+core::smart_refctd_ptr<asset::ICPUImage> nbl::asset::CDerivativeMapCreator::createDerivativeMapFromNormalMap(asset::ICPUImage* _inImg, float out_normalizationFactor[2], bool isotropicNormalization/* = false*/)
 {
 	core::smart_refctd_ptr<ICPUImage> newDerivativeNormalMapImage;
 	{
@@ -248,14 +255,6 @@ core::smart_refctd_ptr<asset::ICPUImage> nbl::asset::CDerivativeMapCreator::crea
 	using DerivativeNormalMapFilter = CNormalMapToDerivativeFilter<asset::DefaultSwizzle, asset::IdentityDither>;
 	DerivativeNormalMapFilter derivativeNormalFilter;
 	DerivativeNormalMapFilter::state_type state;
-	DerivativeNormalMapFilter::state_type::override_normalization_factor_t normalizationFactorOverride = 
-		[](float inout_nfactor[2]) -> void
-		{
-			const float mx = std::max(inout_nfactor[0], inout_nfactor[1]);
-			inout_nfactor[0] = mx;
-			inout_nfactor[1] = mx;
-		};
-
 	state.inImage = cpuImageNormalTexture;
 	state.outImage = newDerivativeNormalMapImage.get();
 	state.inOffset = { 0, 0, 0 };
@@ -271,8 +270,8 @@ core::smart_refctd_ptr<asset::ICPUImage> nbl::asset::CDerivativeMapCreator::crea
 	state.inMipLevel = 0;
 	state.outMipLevel = 0;
 
-	if (oneNormFactor)
-		state.override_normalization_factor = std::move(normalizationFactorOverride);
+	if (isotropicNormalization)
+		state.override_normalization_factor = isotropicNormalizationOverride;
 
 	const bool result = derivativeNormalFilter.execute(&state);
 	if (result)

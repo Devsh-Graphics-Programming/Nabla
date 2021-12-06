@@ -51,6 +51,7 @@ namespace nbl
 					core::vectorSIMDi32 i;
 				};
 
+				// TODO (code duplication): Upgrade to being able to normalize on a per-subresource or per-region basis, then remove the normalization from `CNormalMapToDerivativeFilterBase`
 				//! Normalizing state
 				/*
 					The class provides mininum and maximum values per texel
@@ -384,7 +385,7 @@ namespace nbl
 						{
 							for (uint8_t i = 0; i < channels; ++i)
 							{
-								auto&& [min, max, encodeValue] = std::make_tuple<Tenc&&, Tenc&&, Tenc*>(asset::getFormatMinValue<Tenc>(outFormat, i), asset::getFormatMaxValue<Tenc>(outFormat, i), encodeBuffer + i);
+								auto&& [min, max, encodeValue] = std::make_tuple<Tenc&&, Tenc&&, Tenc*>(, asset::getFormatMaxValue<Tenc>(outFormat, i), encodeBuffer + i);
 								*encodeValue = core::clamp(*encodeValue, min, max);
 							}
 						}
@@ -558,32 +559,52 @@ namespace nbl
 			*/
 
 			template<typename InT, typename OutT>
-			void operator()(const InT* in, OutT* out, uint8_t channels = SwizzleBase::MaxChannels) const;
+			void operator()(const InT* in, OutT* out, uint8_t channels = SwizzleBase::MaxChannels) const
+			{
+				using in_t = std::conditional_t<std::is_void_v<InT>,uint64_t,InT>;
+				using out_t = std::conditional_t<std::is_void_v<OutT>,uint64_t,OutT>;
+				for (auto i=0u; i<channels; i++)
+				{
+					in_t component;
+					const auto mapping = (&swizzle.r)[i];
+					switch (mapping)
+					{
+						case ICPUImageView::SComponentMapping::ES_IDENTITY:
+							component = reinterpret_cast<const in_t*>(in)[i];
+							break;
+						case ICPUImageView::SComponentMapping::ES_ZERO:
+							component = in_t(0);
+							break;
+						case ICPUImageView::SComponentMapping::ES_ONE:
+							component = in_t(1);
+							break;
+						default:
+							component = reinterpret_cast<const in_t*>(in)[i-ICPUImageView::SComponentMapping::ES_R];
+							break;
+					}
+					reinterpret_cast<out_t*>(out)[i] = out_t(component);
+				}
+			}
 		};
 
-		template<>
-		inline void DefaultSwizzle::operator() <void, void> (const void* in, void* out, uint8_t channels) const
-		{
-			operator()(reinterpret_cast<const uint64_t*>(in), reinterpret_cast<uint64_t*>(out), channels);
-		}
+		/*
+			Compile time Swizzle
+		*/
 
-		template<typename InT, typename OutT>
-		inline void DefaultSwizzle::operator()(const InT* in, OutT* out, uint8_t channels) const
+		template<ICPUImageView::SComponentMapping::E_SWIZZLE... swizzle>
+		struct StaticSwizzle
 		{
-			auto getComponent = [&in](ICPUImageView::SComponentMapping::E_SWIZZLE s, auto id) -> InT
+			static_assert(sizeof...(swizzle)<=SwizzleBase::MaxChannels);
+
+			template<typename InT, typename OutT>
+			void operator()(const InT* in, OutT* out, uint8_t channels=sizeof...(swizzle)) const
 			{
-				if (s < ICPUImageView::SComponentMapping::ES_IDENTITY)
-					return in[id];
-				else if (s < ICPUImageView::SComponentMapping::ES_ZERO)
-					return InT(0);
-				else if (s == ICPUImageView::SComponentMapping::ES_ONE)
-					return InT(1);
-				else
-					return in[s - ICPUImageView::SComponentMapping::ES_R];
-			};
-			for (auto i = 0; i < channels; i++)
-				out[i] = OutT(getComponent((&swizzle.r)[i], i));
-		}
+				assert(channels<=sizeof...(swizzle));
+				DefaultSwizzle pseudoRuntime = {};
+				pseudoRuntime.swizzle = {swizzle...};
+				pseudoRuntime.operator()<InT,OutT>(in,out,channels);
+			}
+		};
 	} // end namespace asset
 } // end namespace nbl
 
