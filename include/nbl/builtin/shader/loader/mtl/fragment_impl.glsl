@@ -203,7 +203,7 @@ vec3 nbl_computeLighting(in nbl_glsl_IsotropicViewSurfaceInteraction interaction
     {
         interaction.N = normalize(interaction.N);
 
-        vec2 dh = nbl_sample_bump(UV, dUV).xy;
+        vec2 dh = nbl_sample_bump(UV, dUV).xy*mtParams.bm;
 
         interaction.N = nbl_glsl_perturbNormal_derivativeMap(interaction.N, dh);
     }

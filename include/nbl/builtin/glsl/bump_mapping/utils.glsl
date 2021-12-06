@@ -27,7 +27,7 @@ vec3 nbl_glsl_perturbNormal_heightMap(in vec3 vtxN, in vec2 dhdUV, in mat2x3 dPd
 vec3 nbl_glsl_perturbNormal_derivativeMap(in vec3 vtxN, in vec2 dhdUV, in mat2x3 dPdQ, mat2 dUVdQ)
 {
     // apply the chain rule in reverse
-	dUVdQ /= abs(determinant(dUVdQ));
+	dUVdQ /= abs(determinant(dUVdQ)); // abs is important to protect against UV coordinate mirroring
     mat2x3 dPdUV;
 	dPdUV[0] = dPdQ[0]*dUVdQ[1][1]-dPdQ[1]*dUVdQ[0][1];
 	dPdUV[1] = dPdQ[1]*dUVdQ[0][0]-dPdQ[0]*dUVdQ[1][0];
