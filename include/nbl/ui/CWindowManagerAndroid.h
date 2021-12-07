@@ -9,6 +9,9 @@
 
 #include "nbl/ui/CWindowAndroid.h"
 
+#include <sys/ioctl.h>
+#include <linux/fb.h>
+
 namespace nbl::ui
 {
 	class CWindowManagerAndroid : public IWindowManager
@@ -33,6 +36,20 @@ namespace nbl::ui
 				return core::make_smart_refctd_ptr<nbl::ui::CWindowAndroid>(std::move(creationParams), m_app->window);
 			}
 			return nullptr;
+		}
+		SDisplayInfo getPrimaryDisplayInfo() const override final
+		{
+			struct fb_var_screeninfo fb_var;
+			int fd = open("/dev/graphics/fb0", O_RDONLY);
+			ioctl(fd, FBIOGET_VSCREENINFO, &fb_var);
+			close(fd);
+
+			SDisplayInfo info{};
+			info.resX = fb_var.xres;
+			info.resY = fb_var.yres;
+			info.x = fb_var.xoffset;
+			info.y = fb_var.yoffset;
+			return info;
 		}
         void destroyWindow(IWindow* wnd) override final
         { 
