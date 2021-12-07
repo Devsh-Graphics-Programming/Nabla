@@ -223,50 +223,66 @@ core::smart_refctd_ptr<asset::ICPUImageView> CDerivativeMapCreator::createDeriva
 
 core::smart_refctd_ptr<asset::ICPUImage> nbl::asset::CDerivativeMapCreator::createDerivativeMapFromNormalMap(asset::ICPUImage* _inImg, float out_normalizationFactor[2], bool isotropicNormalization/* = false*/)
 {
-	core::smart_refctd_ptr<ICPUImage> newDerivativeNormalMapImage;
+	auto formatOverrideCreationParams = _inImg->getCreationParameters();
+	assert(formatOverrideCreationParams.type == IImage::E_TYPE::ET_2D);
+	// tools produce normalmaps with non SRGB encoding but use SRGB formats to store them (WTF!?)
+	switch (formatOverrideCreationParams.format)
 	{
-		bool status = _inImg->getCreationParameters().type == IImage::E_TYPE::ET_2D;
-		assert(status);
+		case asset::EF_R8G8B8_SRGB:
+			formatOverrideCreationParams.format = asset::EF_R8G8B8_UNORM;
+			break;
+		case asset::EF_R8G8B8A8_SRGB:
+			formatOverrideCreationParams.format = asset::EF_R8G8B8A8_UNORM;
+			break;
+		default:
+			break;
 	}
+	auto newImageParams = formatOverrideCreationParams;
+	newImageParams.format = getRGformat(newImageParams.format);
 
-	auto cpuImageNormalTexture = _inImg;
-	const auto referenceImageParams = cpuImageNormalTexture->getCreationParameters();
-	const auto referenceBuffer = cpuImageNormalTexture->getBuffer();
-	const auto referenceRegions = cpuImageNormalTexture->getRegions();
-	const auto* referenceRegion = referenceRegions.begin();
-
-	auto newImageParams = referenceImageParams;
-	newImageParams.format = getRGformat(referenceImageParams.format);
-
-	const uint32_t pitch = IImageAssetHandlerBase::calcPitchInBlocks(referenceImageParams.extent.width, asset::getTexelOrBlockBytesize(newImageParams.format));
-	core::smart_refctd_ptr<ICPUBuffer> newCpuBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(asset::getTexelOrBlockBytesize(newImageParams.format) * pitch * newImageParams.extent.height);
-
-	asset::ICPUImage::SBufferCopy region;
-	region.imageOffset = { 0,0,0 };
-	region.imageExtent = newImageParams.extent;
-	region.imageSubresource.baseArrayLayer = 0u;
-	region.imageSubresource.layerCount = 1u;
-	region.imageSubresource.mipLevel = 0u;
-	region.bufferRowLength = pitch;
-	region.bufferImageHeight = 0u;
-	region.bufferOffset = 0u;
-
-	newDerivativeNormalMapImage = ICPUImage::create(std::move(newImageParams));
-	newDerivativeNormalMapImage->setBufferAndRegions(std::move(newCpuBuffer), core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IImage::SBufferCopy>>(1ull, region));
+	auto cpuImageNormalTexture = ICPUImage::create(std::move(formatOverrideCreationParams));
+	{
+		const auto& referenceRegions = _inImg->getRegions();
+		auto regionList = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IImage::SBufferCopy>>(referenceRegions.size());
+		std::copy(referenceRegions.begin(),referenceRegions.end(),regionList->data());
+		cpuImageNormalTexture->setBufferAndRegions(
+			core::smart_refctd_ptr<ICPUBuffer>(_inImg->getBuffer()),
+			std::move(regionList)
+		);
+	}
 
 	CNormalMapToDerivativeFilter<true> derivativeNormalFilter;
 	decltype(derivativeNormalFilter)::state_type state;
-	state.inImage = cpuImageNormalTexture;
-	state.outImage = newDerivativeNormalMapImage.get();
 	state.inOffset = { 0, 0, 0 };
 	state.inBaseLayer = 0;
 	state.outOffset = { 0, 0, 0 };
 	state.outBaseLayer = 0;
-	state.extent = { referenceImageParams.extent.width, referenceImageParams.extent.height, referenceImageParams.extent.depth };
-	state.layerCount = newDerivativeNormalMapImage->getCreationParameters().arrayLayers;
+	state.extent = { newImageParams.extent.width,newImageParams.extent.height,newImageParams.extent.depth };
+	state.layerCount = newImageParams.arrayLayers;
 	state.inMipLevel = 0;
 	state.outMipLevel = 0;
 
+	core::smart_refctd_ptr<ICPUImage> newDerivativeNormalMapImage;
+	{
+		const uint32_t pitch = IImageAssetHandlerBase::calcPitchInBlocks(newImageParams.extent.width,asset::getTexelOrBlockBytesize(newImageParams.format));
+		core::smart_refctd_ptr<ICPUBuffer> newCpuBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(asset::getTexelOrBlockBytesize(newImageParams.format) * pitch * newImageParams.extent.height);
+
+		asset::ICPUImage::SBufferCopy region;
+		region.imageOffset = { 0,0,0 };
+		region.imageExtent = newImageParams.extent;
+		region.imageSubresource.baseArrayLayer = 0u;
+		region.imageSubresource.layerCount = 1u;
+		region.imageSubresource.mipLevel = 0u;
+		region.bufferRowLength = pitch;
+		region.bufferImageHeight = 0u;
+		region.bufferOffset = 0u;
+
+		newDerivativeNormalMapImage = ICPUImage::create(std::move(newImageParams));
+		newDerivativeNormalMapImage->setBufferAndRegions(std::move(newCpuBuffer), core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IImage::SBufferCopy>>(1ull, region));
+	}
+
+	state.inImage = cpuImageNormalTexture.get();
+	state.outImage = newDerivativeNormalMapImage.get();
 	const bool result = derivativeNormalFilter.execute(&state);
 	if (result)
 	{
