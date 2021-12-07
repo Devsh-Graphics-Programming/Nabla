@@ -193,8 +193,8 @@ core::smart_refctd_ptr<asset::ICPUImage> nbl::asset::CDerivativeMapCreator::crea
 		out_normalizationFactor[0] = state.normalization.maxAbsPerChannel[0];
 		if constexpr (isotropicNormalization)
 			out_normalizationFactor[1] = state.normalization.maxAbsPerChannel[1];
-
-		printf("DerivMap Normalization: %f\n",out_normalizationFactor[0]);
+		else
+			out_normalizationFactor[1] = state.normalization.maxAbsPerChannel[0];
 	}
 
 	_NBL_ALIGNED_FREE(state.scratchMemory);
@@ -253,10 +253,9 @@ core::smart_refctd_ptr<asset::ICPUImage> nbl::asset::CDerivativeMapCreator::crea
 
 	newDerivativeNormalMapImage = ICPUImage::create(std::move(newImageParams));
 	newDerivativeNormalMapImage->setBufferAndRegions(std::move(newCpuBuffer), core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IImage::SBufferCopy>>(1ull, region));
-#if 0
-	using DerivativeNormalMapFilter = CNormalMapToDerivativeFilter<asset::DefaultSwizzle, asset::IdentityDither>;
-	DerivativeNormalMapFilter derivativeNormalFilter;
-	DerivativeNormalMapFilter::state_type state;
+
+	CNormalMapToDerivativeFilter<true> derivativeNormalFilter;
+	decltype(derivativeNormalFilter)::state_type state;
 	state.inImage = cpuImageNormalTexture;
 	state.outImage = newDerivativeNormalMapImage.get();
 	state.inOffset = { 0, 0, 0 };
@@ -265,32 +264,24 @@ core::smart_refctd_ptr<asset::ICPUImage> nbl::asset::CDerivativeMapCreator::crea
 	state.outBaseLayer = 0;
 	state.extent = { referenceImageParams.extent.width, referenceImageParams.extent.height, referenceImageParams.extent.depth };
 	state.layerCount = newDerivativeNormalMapImage->getCreationParameters().arrayLayers;
-
-	state.scratchMemoryByteSize = state.getRequiredScratchByteSize(state.layerCount, state.extent);
-	state.scratchMemory = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(state.scratchMemoryByteSize, 32));
-
 	state.inMipLevel = 0;
 	state.outMipLevel = 0;
-
-	if (isotropicNormalization)
-		state.override_normalization_factor = isotropicNormalizationOverride;
 
 	const bool result = derivativeNormalFilter.execute(&state);
 	if (result)
 	{
-		auto factor = state.getAbsoluteLayerScaleValues(0u);
-		out_normalizationFactor[0] = factor.x;
-		out_normalizationFactor[1] = factor.y;
+		out_normalizationFactor[0] = state.normalization.maxAbsPerChannel[0];
+		if (isotropicNormalization)
+			out_normalizationFactor[1] = state.normalization.maxAbsPerChannel[1];
+		else
+			out_normalizationFactor[1] = state.normalization.maxAbsPerChannel[0];
 	}
-
-	_NBL_ALIGNED_FREE(state.scratchMemory);
-
-	if (!result)
+	else
 	{
 		os::Printer::log("Something went wrong while performing derivative filter operations!", ELL_ERROR);
 		return nullptr;
 	}
-#endif
+
 	return newDerivativeNormalMapImage;
 }
 

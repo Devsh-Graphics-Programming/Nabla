@@ -26,7 +26,8 @@ template<typename Swizzle, typename Dither, typename Normalization, bool Clamp>
 class CSwizzleAndConvertImageFilterBase : public CSwizzleableAndDitherableFilterBase<Swizzle,Dither,Normalization,Clamp>, public CMatchedSizeInOutImageFilterCommon
 {
 	public:
-		class CState : public CSwizzleableAndDitherableFilterBase<Swizzle,Dither,Normalization,Clamp>::state_type, public CMatchedSizeInOutImageFilterCommon::state_type
+		using base_t = CSwizzleableAndDitherableFilterBase<Swizzle,Dither,Normalization,Clamp>;
+		class CState : public base_t::state_type, public CMatchedSizeInOutImageFilterCommon::state_type
 		{
 			public:
 				CState() {}
@@ -37,7 +38,7 @@ class CSwizzleAndConvertImageFilterBase : public CSwizzleableAndDitherableFilter
 
 		static inline bool validate(state_type* state)
 		{
-			if (!CSwizzleableAndDitherableFilterBase<Swizzle,Dither,Normalization,Clamp>::validate(state))
+			if (!base_t::validate(state))
 				return false;
 
 			if (!CMatchedSizeInOutImageFilterCommon::validate(state))
@@ -48,6 +49,42 @@ class CSwizzleAndConvertImageFilterBase : public CSwizzleableAndDitherableFilter
 				return false;
 
 			return true;
+		}
+
+	protected:
+		template<E_FORMAT kInFormat, class ExecutionPolicy, typename decodeBufferType, typename encodeBufferType>
+		static inline void normalizationPrepass(E_FORMAT rInFormat, const ExecutionPolicy& policy, state_type* state, const core::vectorSIMDu32& blockDims)
+		{
+			if constexpr (!std::is_void_v<Normalization>)
+			{			
+				assert(kInFormat==EF_UNKNOWN || rInFormat==EF_UNKNOWN);
+				state->normalization.initialize<decodeBufferType>();
+				auto perOutputRegion = [policy,&blockDims,&state,rInFormat](const CMatchedSizeInOutImageFilterCommon::CommonExecuteData& commonExecuteData, CBasicImageFilterCommon::clip_region_functor_t& clip) -> bool
+				{
+					auto normalizePrepass = [&commonExecuteData,&blockDims,&state,rInFormat](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos)
+					{
+						constexpr auto MaxPlanes = 4;
+						const void* srcPix[MaxPlanes] = { commonExecuteData.inData+readBlockArrayOffset,nullptr,nullptr,nullptr };
+
+						for (auto blockY=0u; blockY<blockDims.y; blockY++)
+						for (auto blockX=0u; blockX<blockDims.x; blockX++)
+						{						
+							constexpr auto maxChannels = 4;
+							decodeBufferType decodeBuffer[maxChannels] = {};
+							encodeBufferType encodeBuffer[maxChannels] = {};
+
+							if constexpr (kInFormat!=EF_UNKNOWN)
+								base_t::onDecode<kInFormat,encodeBufferType>(state, srcPix, decodeBuffer, encodeBuffer, blockX, blockY);
+							else
+								base_t::onDecode<encodeBufferType>(rInFormat, state, srcPix, decodeBuffer, encodeBuffer, blockX, blockY);
+							state->normalization.prepass(encodeBuffer,readBlockPos*blockDims+commonExecuteData.offsetDifference,blockX,blockY,4u/*TODO: figure this out*/);
+						}
+					};
+					CBasicImageFilterCommon::executePerRegion(policy, commonExecuteData.inImg, normalizePrepass, commonExecuteData.inRegions.begin(), commonExecuteData.inRegions.end(), clip);
+					return true;
+				};
+				CMatchedSizeInOutImageFilterCommon::commonExecute(state,perOutputRegion);
+			}
 		}
 };
 
@@ -96,7 +133,7 @@ class CSwizzleAndConvertImageFilter : public CImageFilter<CSwizzleAndConvertImag
 
 			typedef std::conditional<asset::isIntegerFormat<inFormat>(), uint64_t, double>::type decodeBufferType;
 			typedef std::conditional<asset::isIntegerFormat<outFormat>(), uint64_t, double>::type encodeBufferType;
-			
+			normalizationPrepass<inFormat,ExecutionPolicy,decodeBufferType,encodeBufferType>(EF_UNKNOWN,policy,state,blockDims);
 			auto perOutputRegion = [policy,&blockDims,&state](const CMatchedSizeInOutImageFilterCommon::CommonExecuteData& commonExecuteData, CBasicImageFilterCommon::clip_region_functor_t& clip) -> bool
 			{
 				constexpr uint32_t outChannelsAmount = asset::getFormatChannelCount<outFormat>();
@@ -123,7 +160,6 @@ class CSwizzleAndConvertImageFilter : public CImageFilter<CSwizzleAndConvertImag
 				CBasicImageFilterCommon::executePerRegion(policy, commonExecuteData.inImg, swizzle, commonExecuteData.inRegions.begin(), commonExecuteData.inRegions.end(), clip);
 				return true;
 			};
-			state->normalization.initialize<decodeBufferType>();
 			return CMatchedSizeInOutImageFilterCommon::commonExecute(state,perOutputRegion);
 		}
 		static inline bool execute(state_type* state)
@@ -165,6 +201,7 @@ class CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle,Dither,Normali
 				assert(blockDims.z==1u);
 				assert(blockDims.w==1u);
 			#endif
+			normalizationPrepass<EF_UNKNOWN,ExecutionPolicy,double,double>(inFormat,policy,state,blockDims);
 			auto perOutputRegion = [policy,&blockDims,inFormat,outFormat,outChannelsAmount,&state](const CMatchedSizeInOutImageFilterCommon::CommonExecuteData& commonExecuteData, CBasicImageFilterCommon::clip_region_functor_t& clip) -> bool
 			{
 				auto swizzle = [&commonExecuteData,&blockDims,inFormat,outFormat,outChannelsAmount,&state](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos)
@@ -189,7 +226,6 @@ class CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle,Dither,Normali
 				CBasicImageFilterCommon::executePerRegion(policy, commonExecuteData.inImg, swizzle, commonExecuteData.inRegions.begin(), commonExecuteData.inRegions.end(), clip);
 				return true;
 			};
-			state->normalization.initialize<double>();
 			return CMatchedSizeInOutImageFilterCommon::commonExecute(state,perOutputRegion);
 		}
 		static inline bool execute(state_type* state)
@@ -238,7 +274,7 @@ class CSwizzleAndConvertImageFilter<EF_UNKNOWN,outFormat,Swizzle,Dither,Normaliz
 			#endif
 
 			typedef std::conditional<asset::isIntegerFormat<outFormat>(), uint64_t, double>::type encodeBufferType;
-
+			normalizationPrepass<EF_UNKNOWN,ExecutionPolicy,double,encodeBufferType>(inFormat,policy,state,blockDims);
 			auto perOutputRegion = [policy,&blockDims,inFormat,&state](const CMatchedSizeInOutImageFilterCommon::CommonExecuteData& commonExecuteData, CBasicImageFilterCommon::clip_region_functor_t& clip) -> bool
 			{
 				constexpr uint32_t outChannelsAmount = asset::getFormatChannelCount<outFormat>();
@@ -265,7 +301,6 @@ class CSwizzleAndConvertImageFilter<EF_UNKNOWN,outFormat,Swizzle,Dither,Normaliz
 				CBasicImageFilterCommon::executePerRegion(policy, commonExecuteData.inImg, swizzle, commonExecuteData.inRegions.begin(), commonExecuteData.inRegions.end(), clip);
 				return true;
 			};
-			state->normalization.intialize<double>();
 			return CMatchedSizeInOutImageFilterCommon::commonExecute(state, perOutputRegion);
 		}
 		static inline bool execute(state_type* state)
@@ -315,7 +350,7 @@ class CSwizzleAndConvertImageFilter<inFormat,EF_UNKNOWN,Swizzle,Dither,Normaliza
 			#endif
 
 			typedef std::conditional<asset::isIntegerFormat<inFormat>(), uint64_t, double>::type decodeBufferType;
-
+			normalizationPrepass<inFormat,ExecutionPolicy,decodeBufferType,double>(EF_UNKNOWN,policy,state,blockDims);
 			auto perOutputRegion = [policy,&blockDims,&outFormat,outChannelsAmount,&state](const CMatchedSizeInOutImageFilterCommon::CommonExecuteData& commonExecuteData, CBasicImageFilterCommon::clip_region_functor_t& clip) -> bool
 			{
 				const uint32_t outChannelsAmount = asset::getFormatChannelCount(outFormat);
@@ -342,7 +377,6 @@ class CSwizzleAndConvertImageFilter<inFormat,EF_UNKNOWN,Swizzle,Dither,Normaliza
 				CBasicImageFilterCommon::executePerRegion(policy, commonExecuteData.inImg, swizzle, commonExecuteData.inRegions.begin(), commonExecuteData.inRegions.end(), clip);
 				return true;
 			};
-			state->normalization.intialize<decodeBufferType>();
 			return CMatchedSizeInOutImageFilterCommon::commonExecute(state, perOutputRegion);
 		}
 		static inline bool execute(state_type* state)
