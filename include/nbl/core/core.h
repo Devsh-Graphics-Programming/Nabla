@@ -67,6 +67,7 @@
 #include "nbl/core/SRAIIBasedExiter.h"
 #include "nbl/core/SRange.h"
 #include "nbl/core/Types.h"
+#include "nbl/core/atomic.h"
 
 // implementations
 #include "matrix3x4SIMD_impl.h"

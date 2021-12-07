@@ -116,7 +116,7 @@ class CSwizzleAndConvertImageFilter : public CImageFilter<CSwizzleAndConvertImag
 						decodeBufferType decodeBuffer[maxChannels] = {};
 						encodeBufferType encodeBuffer[maxChannels] = {};
 
-						base_t::onDecode<inFormat>(state, srcPix, decodeBuffer, encodeBuffer, readBlockPos, blockX, blockY);
+						base_t::onDecode<inFormat>(state, srcPix, decodeBuffer, encodeBuffer, blockX, blockY);
 						base_t::onEncode<outFormat>(state, dstPix, encodeBuffer, localOutPos, blockX, blockY, outChannelsAmount);
 					}
 				};
@@ -182,7 +182,7 @@ class CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle,Dither,Normali
 						double decodeBuffer[maxChannels] = {};
 						double encodeBuffer[maxChannels] = {};
 
-						base_t::onDecode(inFormat, state, srcPix, decodeBuffer, encodeBuffer, readBlockPos, blockX, blockY);
+						base_t::onDecode(inFormat, state, srcPix, decodeBuffer, encodeBuffer, blockX, blockY);
 						base_t::onEncode(outFormat, state, dstPix, encodeBuffer, localOutPos, blockX, blockY, outChannelsAmount);
 					}
 				};
@@ -258,7 +258,7 @@ class CSwizzleAndConvertImageFilter<EF_UNKNOWN,outFormat,Swizzle,Dither,Normaliz
 						double decodeBuffer[maxChannels] = {};
 						encodeBufferType encodeBuffer[maxChannels] = {};
 
-						base_t::onDecode(inFormat, state, srcPix, decodeBuffer, encodeBuffer, readBlockPos, blockX, blockY);
+						base_t::onDecode(inFormat, state, srcPix, decodeBuffer, encodeBuffer, blockX, blockY);
 						base_t::onEncode<outFormat>(state, dstPix, encodeBuffer, localOutPos, blockX, blockY, outChannelsAmount);
 					}
 				};
@@ -335,7 +335,7 @@ class CSwizzleAndConvertImageFilter<inFormat,EF_UNKNOWN,Swizzle,Dither,Normaliza
 							decodeBufferType decodeBuffer[maxChannels] = {};
 							double encodeBuffer[maxChannels] = {};
 
-							base_t::onDecode<inFormat>(state, srcPix, decodeBuffer, encodeBuffer, readBlockPos, blockX, blockY);
+							base_t::onDecode<inFormat>(state, srcPix, decodeBuffer, encodeBuffer, blockX, blockY);
 							base_t::onEncode(outFormat, state, dstPix, encodeBuffer, localOutPos, blockX, blockY, outChannelsAmount);
 						}
 				};

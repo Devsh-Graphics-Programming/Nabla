@@ -25,7 +25,7 @@ class MyKernel : public asset::CFloatingPointSeparableImageFilterKernelBase<MyKe
 	public:
 		using value_type = typename Base::value_type;
 
-		MyKernel(Kernel&& k, uint32_t _imgExtent) : Base(k.negative_support.x, k.positive_support.x), kernel(std::move(k)), multiplier(/*float(_imgExtent)*/1.f) {}
+		MyKernel(Kernel&& k, uint32_t _imgExtent) : Base(k.negative_support.x, k.positive_support.x), kernel(std::move(k)), multiplier(float(_imgExtent)) {}
 
 		// no special user data by default
 		inline const asset::IImageFilterKernel::UserData* getUserData() const { return nullptr; }
@@ -190,7 +190,9 @@ core::smart_refctd_ptr<asset::ICPUImage> nbl::asset::CDerivativeMapCreator::crea
 	{
 		float out_normalizationFactor[2];
 
-		*reinterpret_cast<CDerivativeMapNormalizationState<isotropicNormalization>*>(out_normalizationFactor) = state.normalization;
+		out_normalizationFactor[0] = state.normalization.maxAbsPerChannel[0];
+		if constexpr (isotropicNormalization)
+			out_normalizationFactor[1] = state.normalization.maxAbsPerChannel[1];
 
 		printf("DerivMap Normalization: %f\n",out_normalizationFactor[0]);
 	}
