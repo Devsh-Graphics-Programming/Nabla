@@ -20,7 +20,7 @@ class CGlobalNormalizationState
 		inline bool validate() const {return true;}
 
 		/*
-			Need to be called prior to `void operator()(const Tdec* decodeBuffer, core::vectorSIMDu32 position, uint32_t blockX, uint32_t blockY, uint8_t channels)`
+			Need to be called prior to `void operator()(const Tdec* decodeBuffer, const core::vectorSIMDu32& position, uint32_t blockX, uint32_t blockY, uint8_t channels)`
 		*/
 		template<typename Tdec>
 		inline void initialize()
@@ -37,10 +37,10 @@ class CGlobalNormalizationState
 			The function examines a decoded pixel and changes oldMaxValue and oldMinValue as appropriate.
 		*/
 		template<typename Tdec>
-		void operator()(const Tdec* decodeBuffer, core::vectorSIMDu32 position, uint32_t blockX, uint32_t blockY, uint8_t channels)
+		void operator()(const Tdec* decodeBuffer, const core::vectorSIMDu32& position, uint32_t blockX, uint32_t blockY)
 		{
 			static_assert(std::is_floating_point_v<Tdec>, "Integer decode not supported yet!");
-			for (uint8_t channel=0u; channel<channels; ++channel)
+			for (uint8_t channel=0u; channel<4u; ++channel)
 			{
 				const auto val = decodeBuffer[channel];
 				if constexpr (std::is_floating_point_v<Tdec>)
@@ -58,7 +58,7 @@ class CGlobalNormalizationState
 			The function supports compile-time normalize.
 		*/
 		template<E_FORMAT format, typename Tenc>
-		void operator()(Tenc* encodeBuffer, core::vectorSIMDu32 position, uint32_t blockX, uint32_t blockY, uint8_t channels) const
+		void operator()(Tenc* encodeBuffer, const core::vectorSIMDu32& position, uint32_t blockX, uint32_t blockY, uint8_t channels) const
 		{
 			static_assert(std::is_floating_point_v<Tenc>, "Encode/Decode types must be double or float!");
 			static_assert(isFloatingPointFormat<format>()||isNormalizedFormat<format>(), "The format musn't be a pure-integer!");
@@ -77,7 +77,7 @@ class CGlobalNormalizationState
 			@see normalize
 		*/
 		template<typename Tenc>
-		void operator()(E_FORMAT format, Tenc* encodeBuffer, core::vectorSIMDu32 position, uint32_t blockX, uint32_t blockY, uint8_t channels) const
+		void operator()(E_FORMAT format, Tenc* encodeBuffer, const core::vectorSIMDu32& position, uint32_t blockX, uint32_t blockY, uint8_t channels) const
 		{
 			static_assert(std::is_floating_point_v<Tenc>, "Encode/Decode types must be double or float!");
 			#ifdef _NBL_DEBUG
@@ -129,14 +129,17 @@ class CGlobalNormalizationState
 };
 
 //! Derivative Map Normalizing state
-// TODO: support using the min/max from Tdec values
-class CDerivativeMapNormalizationState
+template<bool isotropic>
+class CDerivativeMapNormalizationState;
+
+template<>
+class CDerivativeMapNormalizationState<false>
 {
 	public:
 		inline bool validate() const {return true;}
 
 		/*
-			Need to be called prior to `void operator()(const Tdec* decodeBuffer, core::vectorSIMDu32 position, uint32_t blockX, uint32_t blockY, uint8_t channels)`
+			Need to be called prior to `void operator()(const Tdec* decodeBuffer, const core::vectorSIMDu32& position, uint32_t blockX, uint32_t blockY, uint8_t channels)`
 		*/
 		template<typename Tdec>
 		inline void initialize()
@@ -147,19 +150,19 @@ class CDerivativeMapNormalizationState
 
 		//
 		template<typename Tdec>
-		void operator()(const Tdec* decodeBuffer, core::vectorSIMDu32 position, uint32_t blockX, uint32_t blockY, uint8_t channels)
+		void operator()(const Tdec* decodeBuffer, const core::vectorSIMDu32& position, uint32_t blockX, uint32_t blockY)
 		{
 			static_assert(std::is_floating_point_v<Tdec>, "Integer decode not supported yet!");
-			for (uint8_t channel=0u; channel<channels; ++channel)
+			for (uint8_t channel=0u; channel<4u; ++channel)
 			{
 				const auto val = core::abs(decodeBuffer[channel]);
-				if (val>maxAbsPerChannel[i]) maxAbsPerChannel[i] = val;
+				if (val>maxAbsPerChannel[channel]) maxAbsPerChannel[channel] = val;
 			}
 		}
 
 		//
 		template<E_FORMAT format, typename Tenc>
-		void operator()(Tenc* encodeBuffer, core::vectorSIMDu32 position, uint32_t blockX, uint32_t blockY, uint8_t channels) const
+		void operator()(Tenc* encodeBuffer, const core::vectorSIMDu32& position, uint32_t blockX, uint32_t blockY, uint8_t channels) const
 		{
 			static_assert(std::is_floating_point_v<Tenc>, "Encode/Decode types must be double or float!");
 			static_assert(isFloatingPointFormat<format>()||isNormalizedFormat<format>(), "The format musn't be a pure-integer!");
@@ -178,7 +181,7 @@ class CDerivativeMapNormalizationState
 			@see normalize
 		*/
 		template<typename Tenc>
-		void operator()(E_FORMAT format, Tenc* encodeBuffer, core::vectorSIMDu32 position, uint32_t blockX, uint32_t blockY, uint8_t channels) const
+		void operator()(E_FORMAT format, Tenc* encodeBuffer, const core::vectorSIMDu32& position, uint32_t blockX, uint32_t blockY, uint8_t channels) const
 		{
 			static_assert(std::is_floating_point_v<Tenc>, "Encode/Decode types must be double or float!");
 			#ifdef _NBL_DEBUG
@@ -194,8 +197,75 @@ class CDerivativeMapNormalizationState
 					encodeBuffer[channel] = encodeBuffer[channel]*0.5f/maxAbsPerChannel[channel]+0.5f;
 		}
 
-	protected:
 		core::vectorSIMDf maxAbsPerChannel;
+};
+
+template<>
+class CDerivativeMapNormalizationState<true>
+{
+	public:
+		inline bool validate() const {return true;}
+
+		/*
+			Need to be called prior to `void operator()(const Tdec* decodeBuffer, const core::vectorSIMDu32& position, uint32_t blockX, uint32_t blockY, uint8_t channels)`
+		*/
+		template<typename Tdec>
+		inline void initialize()
+		{
+			static_assert(std::is_floating_point_v<Tdec>, "Integer decode not supported yet!");
+			maxAbs = 0.f;
+		}
+
+		//
+		template<typename Tdec>
+		void operator()(const Tdec* decodeBuffer, const core::vectorSIMDu32& position, uint32_t blockX, uint32_t blockY)
+		{
+			static_assert(std::is_floating_point_v<Tdec>, "Integer decode not supported yet!");
+			for (uint8_t channel=0u; channel<4u; ++channel)
+			{
+				const auto val = core::abs(decodeBuffer[channel]);
+				if (val>maxAbs) maxAbs = val;
+			}
+		}
+
+		//
+		template<E_FORMAT format, typename Tenc>
+		void operator()(Tenc* encodeBuffer, const core::vectorSIMDu32& position, uint32_t blockX, uint32_t blockY, uint8_t channels) const
+		{
+			static_assert(std::is_floating_point_v<Tenc>, "Encode/Decode types must be double or float!");
+			static_assert(isFloatingPointFormat<format>()||isNormalizedFormat<format>(), "The format musn't be a pure-integer!");
+
+			if constexpr (isSignedFormat<format>())
+				for (uint8_t channel = 0; channel < channels; ++channel)
+					encodeBuffer[channel] = encodeBuffer[channel]/maxAbs;
+			else
+				for (uint8_t channel = 0; channel < channels; ++channel)
+					encodeBuffer[channel] = encodeBuffer[channel]*0.5f/maxAbs+0.5f;
+		}
+
+		/*
+			Runtime version of normalize
+
+			@see normalize
+		*/
+		template<typename Tenc>
+		void operator()(E_FORMAT format, Tenc* encodeBuffer, const core::vectorSIMDu32& position, uint32_t blockX, uint32_t blockY, uint8_t channels) const
+		{
+			static_assert(std::is_floating_point_v<Tenc>, "Encode/Decode types must be double or float!");
+			#ifdef _NBL_DEBUG
+			bool status = isFloatingPointFormat(format)||isNormalizedFormat(format);
+			assert(status);
+			#endif // _NBL_DEBUG
+
+			if (isSignedFormat(format))
+				for (uint8_t channel = 0; channel < channels; ++channel)
+					encodeBuffer[channel] = encodeBuffer[channel]/maxAbs;
+			else
+				for (uint8_t channel = 0; channel < channels; ++channel)
+					encodeBuffer[channel] = encodeBuffer[channel]*0.5f/maxAbs+0.5f;
+		}
+
+		float maxAbs;
 };
 
 //! Wrapper that makes it easy to put inside states
@@ -214,17 +284,17 @@ class conditional_normalization_state<void>
 		}
 
 		template<typename Tdec>
-		void operator()(const Tdec* decodeBuffer, core::vectorSIMDu32 position, uint32_t blockX, uint32_t blockY, uint8_t channels)
+		void operator()(const Tdec* decodeBuffer, const core::vectorSIMDu32& position, uint32_t blockX, uint32_t blockY)
 		{
 		}
 
 		template<E_FORMAT format, typename Tenc>
-		void operator()(Tenc* encodeBuffer, core::vectorSIMDu32 position, uint32_t blockX, uint32_t blockY, uint8_t channels) const
+		void operator()(Tenc* encodeBuffer, const core::vectorSIMDu32& position, uint32_t blockX, uint32_t blockY, uint8_t channels) const
 		{
 		}
 
 		template<typename Tenc>
-		void operator()(E_FORMAT format, Tenc* encodeBuffer, core::vectorSIMDu32 position, uint32_t blockX, uint32_t blockY, uint8_t channels) const
+		void operator()(E_FORMAT format, Tenc* encodeBuffer, const core::vectorSIMDu32& position, uint32_t blockX, uint32_t blockY, uint8_t channels) const
 		{
 		}
 };

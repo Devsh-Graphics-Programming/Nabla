@@ -124,6 +124,7 @@ class SeparateOutXAxisKernel : public asset::CFloatingPointSeparableImageFilterK
 
 core::smart_refctd_ptr<asset::ICPUImage> nbl::asset::CDerivativeMapCreator::createDerivativeMapFromHeightMap(asset::ICPUImage* _inImg, asset::ISampler::E_TEXTURE_CLAMP _uwrap, asset::ISampler::E_TEXTURE_CLAMP _vwrap, asset::ISampler::E_TEXTURE_BORDER_COLOR _borderColor)
 {
+	constexpr bool isotropicNormalization = true;
 	using namespace asset;
 
 	using ReconstructionKernel = CGaussianImageFilterKernel<>; // or Mitchell
@@ -136,10 +137,8 @@ core::smart_refctd_ptr<asset::ICPUImage> nbl::asset::CDerivativeMapCreator::crea
 	using DerivativeMapFilter = CBlitImageFilter
 	<
 		StaticSwizzle<ICPUImageView::SComponentMapping::ES_R,ICPUImageView::SComponentMapping::ES_R>,
-		IdentityDither, CDerivativeMapNormalizationState,true, // TODO: proper normalization
-		XDerivKernel,
-		YDerivKernel,
-		CBoxImageFilterKernel
+		IdentityDither,CDerivativeMapNormalizationState<isotropicNormalization>,true,
+		XDerivKernel,YDerivKernel,CBoxImageFilterKernel
 	>;
 
 	const auto extent = _inImg->getCreationParameters().extent;
@@ -190,11 +189,10 @@ core::smart_refctd_ptr<asset::ICPUImage> nbl::asset::CDerivativeMapCreator::crea
 	if (result)
 	{
 		float out_normalizationFactor[2];
-/*
-		auto factor = state.oldMinValue(0u);
-		out_normalizationFactor[0] = factor.x;
-		out_normalizationFactor[1] = factor.y;
-*/
+
+		*reinterpret_cast<CDerivativeMapNormalizationState<isotropicNormalization>*>(out_normalizationFactor) = state.normalization;
+
+		printf("DerivMap Normalization: %f\n",out_normalizationFactor[0]);
 	}
 
 	_NBL_ALIGNED_FREE(state.scratchMemory);
@@ -253,7 +251,7 @@ core::smart_refctd_ptr<asset::ICPUImage> nbl::asset::CDerivativeMapCreator::crea
 
 	newDerivativeNormalMapImage = ICPUImage::create(std::move(newImageParams));
 	newDerivativeNormalMapImage->setBufferAndRegions(std::move(newCpuBuffer), core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IImage::SBufferCopy>>(1ull, region));
-
+#if 0
 	using DerivativeNormalMapFilter = CNormalMapToDerivativeFilter<asset::DefaultSwizzle, asset::IdentityDither>;
 	DerivativeNormalMapFilter derivativeNormalFilter;
 	DerivativeNormalMapFilter::state_type state;
@@ -290,7 +288,7 @@ core::smart_refctd_ptr<asset::ICPUImage> nbl::asset::CDerivativeMapCreator::crea
 		os::Printer::log("Something went wrong while performing derivative filter operations!", ELL_ERROR);
 		return nullptr;
 	}
-
+#endif
 	return newDerivativeNormalMapImage;
 }
 

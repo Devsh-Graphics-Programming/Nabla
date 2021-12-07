@@ -486,7 +486,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 								value_type swizzledSample[MaxChannels];
 
 								// TODO: make sure there is no leak due to MaxChannels!
-								impl::CSwizzleAndConvertImageFilterBase<Normalize,Clamp,Swizzle,Dither>::onDecode(inFormat, state, srcPix, sample, swizzledSample, inBlockCoord.x, inBlockCoord.y);
+								base_t::onDecode(inFormat, state, srcPix, sample, swizzledSample, globalTexelCoord, inBlockCoord.x, inBlockCoord.y);
 
 								if (nonPremultBlendSemantic)
 								{
