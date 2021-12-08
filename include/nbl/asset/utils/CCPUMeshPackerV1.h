@@ -67,7 +67,7 @@ public:
 public:
 	CCPUMeshPackerV1(const SVertexInputParams& preDefinedLayout, const AllocationParams& allocParams, uint16_t minTriangleCountPerMDIData = 256u, uint16_t maxTriangleCountPerMDIData = 1024u);
 
-	~CCPUMeshPackerV1()
+	virtual ~CCPUMeshPackerV1()
 	{
 		if(isInstancingEnabled)
 			_NBL_ALIGNED_FREE(m_perInsVtxBuffAlctrResSpc);
@@ -78,17 +78,17 @@ public:
 
 	void free(const ReservedAllocationMeshBuffers& ramb)
 	{
-		if (ramb.indexAllocationOffset != INVALID_ADDRESS)
-			m_idxBuffAlctr.free_addr(ramb.indexAllocationOffset, ramb.indexAllocationReservedCnt);
+		if (ramb.indexAllocationOffset != base_t::INVALID_ADDRESS)
+			base_t::m_idxBuffAlctr.free_addr(ramb.indexAllocationOffset, ramb.indexAllocationReservedCnt);
 
-		if (ramb.mdiAllocationOffset != INVALID_ADDRESS)
-			m_MDIDataAlctr.free_addr(ramb.mdiAllocationOffset, ramb.mdiAllocationReservedCnt);
+		if (ramb.mdiAllocationOffset != base_t::INVALID_ADDRESS)
+			base_t::m_MDIDataAlctr.free_addr(ramb.mdiAllocationOffset, ramb.mdiAllocationReservedCnt);
 
-		if (ramb.vertexAllocationOffset != INVALID_ADDRESS)
-			m_vtxBuffAlctr.free_addr(ramb.vertexAllocationOffset, ramb.vertexAllocationReservedSize);
+		if (ramb.vertexAllocationOffset != base_t::INVALID_ADDRESS)
+			base_t::m_vtxBuffAlctr.free_addr(ramb.vertexAllocationOffset, ramb.vertexAllocationReservedSize);
 
-		if (ramb.instanceAllocationOffset != INVALID_ADDRESS)
-			m_vtxBuffAlctr.free_addr(ramb.instanceAllocationOffset, ramb.instanceAllocationReservedSize);
+		if (ramb.instanceAllocationOffset != base_t::INVALID_ADDRESS)
+			base_t::m_vtxBuffAlctr.free_addr(ramb.instanceAllocationOffset, ramb.instanceAllocationReservedSize);
 	}
 
 	//needs to be called before first `commit`
@@ -110,12 +110,12 @@ public:
 	{
 		base_t::shrinkOutputBuffersSize();
 
-		uint32_t perInsBuffNewSize = m_perInsVtxBuffAlctr.safe_shrink_size(0u, alctrTraits::max_alignment(m_perInsVtxBuffAlctr));
+		uint32_t perInsBuffNewSize = m_perInsVtxBuffAlctr.safe_shrink_size(0u, base_t::alctrTraits::max_alignment(m_perInsVtxBuffAlctr));
 
 		if (isInstancingEnabled)
 		{
-			const void* oldReserved = alctrTraits::getReservedSpacePtr(m_perInsVtxBuffAlctr);
-			m_perInsVtxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(perInsBuffNewSize, std::move(m_perInsVtxBuffAlctr), _NBL_ALIGNED_MALLOC(alctrTraits::reserved_size(perInsBuffNewSize, m_perInsVtxBuffAlctr), _NBL_SIMD_ALIGNMENT));
+			const void* oldReserved = base_t::alctrTraits::getReservedSpacePtr(m_perInsVtxBuffAlctr);
+			m_perInsVtxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(perInsBuffNewSize, std::move(m_perInsVtxBuffAlctr), _NBL_ALIGNED_MALLOC(base_t::alctrTraits::reserved_size(perInsBuffNewSize, m_perInsVtxBuffAlctr), _NBL_SIMD_ALIGNMENT));
 			_NBL_ALIGNED_FREE(const_cast<void*>(oldReserved));
 		}
 	}
@@ -133,7 +133,7 @@ private:
 	void* m_perInsVtxBuffAlctrResSpc;
 	core::GeneralpurposeAddressAllocator<uint32_t> m_perInsVtxBuffAlctr;
 
-	_NBL_STATIC_INLINE_CONSTEXPR ReservedAllocationMeshBuffers invalidReservedAllocationMeshBuffers{ INVALID_ADDRESS, 0, 0, 0, 0, 0, 0, 0 };
+	_NBL_STATIC_INLINE_CONSTEXPR ReservedAllocationMeshBuffers invalidReservedAllocationMeshBuffers{ base_t::INVALID_ADDRESS, 0, 0, 0, 0, 0, 0, 0 };
 
 };
 
@@ -159,9 +159,9 @@ CCPUMeshPackerV1<MDIStructType>::CCPUMeshPackerV1(const SVertexInputParams& preD
 		}
 	}
 
-	m_vtxSize = calcVertexSize(preDefinedLayout, E_VERTEX_INPUT_RATE::EVIR_PER_VERTEX);
+	m_vtxSize = base_t::calcVertexSize(preDefinedLayout, E_VERTEX_INPUT_RATE::EVIR_PER_VERTEX);
 
-	m_perInsVtxSize = calcVertexSize(preDefinedLayout, E_VERTEX_INPUT_RATE::EVIR_PER_INSTANCE);
+	m_perInsVtxSize = base_t::calcVertexSize(preDefinedLayout, E_VERTEX_INPUT_RATE::EVIR_PER_INSTANCE);
 	if (m_perInsVtxSize)
 	{
 		isInstancingEnabled = true;
@@ -174,7 +174,7 @@ CCPUMeshPackerV1<MDIStructType>::CCPUMeshPackerV1(const SVertexInputParams& preD
 		isInstancingEnabled = false;
 	}
 
-	initializeCommonAllocators(
+	base_t::initializeCommonAllocators(
 		{
 			allocParams.indexBuffSupportedCnt,
 			m_vtxSize ? allocParams.vertexBuffSupportedByteSize / m_vtxSize : 0ull,
@@ -220,49 +220,49 @@ typename CCPUMeshPackerV1<MDIStructType>::ReservedAllocationMeshBuffers CCPUMesh
 	for (auto it = mbBegin; it != mbEnd; it++)
 	{
 		ICPUMeshBuffer* mb = *it;
-		idxCnt += calcIdxCntAfterConversionToTriangleList(mb);
-		vtxCnt += calcVertexCountBoundWithBatchDuplication(mb);
+		idxCnt += base_t::calcIdxCntAfterConversionToTriangleList(mb);
+		vtxCnt += base_t::calcVertexCountBoundWithBatchDuplication(mb);
 		perInsVtxCnt += mb->getInstanceCount();
 	}
 
-	const uint32_t minIdxCntPerPatch = m_minTriangleCountPerMDIData * 3;
+	const uint32_t minIdxCntPerPatch = base_t::m_minTriangleCountPerMDIData * 3;
 	
 	uint32_t possibleMDIStructsNeededCnt = 0u;
 	for (auto it = mbBegin; it != mbEnd; it++)
 		possibleMDIStructsNeededCnt += ((*it)->getIndexCount() + minIdxCntPerPatch - 1) / minIdxCntPerPatch;
 
-	uint32_t MDIAllocAddr       = INVALID_ADDRESS;
-	uint32_t idxAllocAddr       = INVALID_ADDRESS;
-	uint32_t vtxAllocAddr       = INVALID_ADDRESS;
-	uint32_t perInsVtxAllocAddr = INVALID_ADDRESS;
+	uint32_t MDIAllocAddr       = base_t::INVALID_ADDRESS;
+	uint32_t idxAllocAddr       = base_t::INVALID_ADDRESS;
+	uint32_t vtxAllocAddr       = base_t::INVALID_ADDRESS;
+	uint32_t perInsVtxAllocAddr = base_t::INVALID_ADDRESS;
 
-	MDIAllocAddr = m_MDIDataAlctr.alloc_addr(possibleMDIStructsNeededCnt, 1u);
-	if (MDIAllocAddr == INVALID_ADDRESS)
+	MDIAllocAddr = base_t::m_MDIDataAlctr.alloc_addr(possibleMDIStructsNeededCnt, 1u);
+	if (MDIAllocAddr == base_t::INVALID_ADDRESS)
 	{
 		_NBL_DEBUG_BREAK_IF(true);
 		return invalidReservedAllocationMeshBuffers;
 	}
 	
-	idxAllocAddr = m_idxBuffAlctr.alloc_addr(idxCnt, 1u);
-	if (idxAllocAddr == INVALID_ADDRESS)
+	idxAllocAddr = base_t::m_idxBuffAlctr.alloc_addr(idxCnt, 1u);
+	if (idxAllocAddr == base_t::INVALID_ADDRESS)
 	{
 		_NBL_DEBUG_BREAK_IF(true);
 
-		m_MDIDataAlctr.free_addr(MDIAllocAddr, possibleMDIStructsNeededCnt);
+		base_t::m_MDIDataAlctr.free_addr(MDIAllocAddr, possibleMDIStructsNeededCnt);
 
 		return invalidReservedAllocationMeshBuffers;
 	}
 
-	bool arePerVtxAttribsEnabled = alctrTraits::get_total_size(m_vtxBuffAlctr) == 0 ? false : true;
+	bool arePerVtxAttribsEnabled = base_t::alctrTraits::get_total_size(base_t::m_vtxBuffAlctr) == 0 ? false : true;
 	if (arePerVtxAttribsEnabled)
 	{
-		vtxAllocAddr = m_vtxBuffAlctr.alloc_addr(vtxCnt * m_vtxSize, 1u);
-		if (vtxAllocAddr == INVALID_ADDRESS)
+		vtxAllocAddr = base_t::m_vtxBuffAlctr.alloc_addr(vtxCnt * m_vtxSize, 1u);
+		if (vtxAllocAddr == base_t::INVALID_ADDRESS)
 		{
 			_NBL_DEBUG_BREAK_IF(true);
 
-			m_MDIDataAlctr.free_addr(MDIAllocAddr, possibleMDIStructsNeededCnt);
-			m_idxBuffAlctr.free_addr(idxAllocAddr, idxCnt);
+			base_t::m_MDIDataAlctr.free_addr(MDIAllocAddr, possibleMDIStructsNeededCnt);
+			base_t::m_idxBuffAlctr.free_addr(idxAllocAddr, idxCnt);
 
 			return invalidReservedAllocationMeshBuffers;
 		}
@@ -271,13 +271,13 @@ typename CCPUMeshPackerV1<MDIStructType>::ReservedAllocationMeshBuffers CCPUMesh
 	if (isInstancingEnabled)
 	{
 		perInsVtxAllocAddr = m_perInsVtxBuffAlctr.alloc_addr(perInsVtxCnt * m_perInsVtxSize, 1u);
-		if (perInsVtxAllocAddr == INVALID_ADDRESS)
+		if (perInsVtxAllocAddr == base_t::INVALID_ADDRESS)
 		{
 			_NBL_DEBUG_BREAK_IF(true);
 
-			m_MDIDataAlctr.free_addr(MDIAllocAddr, possibleMDIStructsNeededCnt);
-			m_idxBuffAlctr.free_addr(idxAllocAddr, idxCnt);
-			m_vtxBuffAlctr.free_addr(vtxAllocAddr, vtxCnt * m_vtxSize);
+			base_t::m_MDIDataAlctr.free_addr(MDIAllocAddr, possibleMDIStructsNeededCnt);
+			base_t::m_idxBuffAlctr.free_addr(idxAllocAddr, idxCnt);
+			base_t::m_vtxBuffAlctr.free_addr(vtxAllocAddr, vtxCnt * m_vtxSize);
 
 			return invalidReservedAllocationMeshBuffers;
 		}
@@ -287,11 +287,11 @@ typename CCPUMeshPackerV1<MDIStructType>::ReservedAllocationMeshBuffers CCPUMesh
 		MDIAllocAddr,
 		possibleMDIStructsNeededCnt,
 		perInsVtxAllocAddr,
-		perInsVtxAllocAddr == INVALID_ADDRESS ? 0u : perInsVtxCnt * m_perInsVtxSize,
+		perInsVtxAllocAddr == base_t::INVALID_ADDRESS ? 0u : perInsVtxCnt * m_perInsVtxSize,
 		idxAllocAddr,
 		idxCnt,
 		vtxAllocAddr,
-		vtxAllocAddr == INVALID_ADDRESS ? 0u : vtxCnt * m_vtxSize
+		vtxAllocAddr == base_t::INVALID_ADDRESS ? 0u : vtxCnt * m_vtxSize
 	};
 	return result;
 }
@@ -299,10 +299,10 @@ typename CCPUMeshPackerV1<MDIStructType>::ReservedAllocationMeshBuffers CCPUMesh
 template <typename MDIStructType>
 void CCPUMeshPackerV1<MDIStructType>::instantiateDataStorage()
 {
-	const size_t MDIDataBuffSupportedByteSize = alctrTraits::get_total_size(m_MDIDataAlctr) * sizeof(MDIStructType);
-	const size_t idxBuffSupportedByteSize = alctrTraits::get_total_size(m_idxBuffAlctr) * sizeof(uint16_t);
-	const size_t vtxBuffSupportedByteSize = alctrTraits::get_total_size(m_vtxBuffAlctr);
-	const size_t perInsBuffSupportedByteSize = alctrTraits::get_total_size(m_vtxBuffAlctr);
+	const size_t MDIDataBuffSupportedByteSize = base_t::alctrTraits::get_total_size(base_t::m_MDIDataAlctr) * sizeof(MDIStructType);
+	const size_t idxBuffSupportedByteSize = base_t::alctrTraits::get_total_size(base_t::m_idxBuffAlctr) * sizeof(uint16_t);
+	const size_t vtxBuffSupportedByteSize = base_t::alctrTraits::get_total_size(base_t::m_vtxBuffAlctr);
+	const size_t perInsBuffSupportedByteSize = base_t::alctrTraits::get_total_size(base_t::m_vtxBuffAlctr);
 
 	m_output.MDIDataBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(MDIDataBuffSupportedByteSize);
 	m_output.indexBuffer.buffer = core::make_smart_refctd_ptr<ICPUBuffer>(idxBuffSupportedByteSize);
@@ -360,9 +360,9 @@ IMeshPackerBase::PackedMeshBufferData CCPUMeshPackerV1<MDIStructType>::commit(co
 	{
 		const auto mbPrimitiveType = (*it)->getPipeline()->getPrimitiveAssemblyParams().primitiveType;
 
-		IdxBufferParams idxBufferParams = retriveOrCreateNewIdxBufferParams(*it);
+		IdxBufferParams idxBufferParams = base_t::createNewIdxBufferParamsForNonTriangleListTopologies(*it);
 
-		TriangleBatches triangleBatches = constructTriangleBatches(*it, idxBufferParams, aabbs);
+		TriangleBatches triangleBatches = base_t::constructTriangleBatches(*it, idxBufferParams, aabbs);
 		const auto& mbVtxInputParams = (*it)->getPipeline()->getVertexInputParams();
 
 		const uint32_t batchCnt = triangleBatches.ranges.size() - 1u;
@@ -374,7 +374,7 @@ IMeshPackerBase::PackedMeshBufferData CCPUMeshPackerV1<MDIStructType>::commit(co
 			const uint32_t triangleInBatchCnt = std::distance(batchBegin, batchEnd);
 			const uint32_t idxInBatchCnt = 3 * triangleInBatchCnt;
 
-			core::unordered_map<uint32_t, uint16_t> usedVertices = constructNewIndicesFromTriangleBatchAndUpdateUnifiedIndexBuffer(triangleBatches, i, indexBuffPtr);
+			core::unordered_map<uint32_t, uint16_t> usedVertices = base_t::constructNewIndicesFromTriangleBatchAndUpdateUnifiedIndexBuffer(triangleBatches, i, indexBuffPtr);
 
 			//copy deinterleaved vertices into unified vertex buffer
 			for (uint16_t attrBit = 0x0001, location = 0; location < SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; attrBit <<= 1, location++)
@@ -391,12 +391,12 @@ IMeshPackerBase::PackedMeshBufferData CCPUMeshPackerV1<MDIStructType>::commit(co
 				if (inputRate == EVIR_PER_VERTEX)
 				{
 					dstAttrPtr += (ramb.vertexAllocationOffset + verticesAddedToUnifiedBufferCnt) * attrSize;
-					deinterleaveAndCopyAttribute(*it, location, usedVertices, dstAttrPtr);
+					base_t::deinterleaveAndCopyAttribute(*it, location, usedVertices, dstAttrPtr);
 				}
 				else if (inputRate == EVIR_PER_INSTANCE)
 				{
 					dstAttrPtr += (ramb.instanceAllocationOffset + instancesAddedCnt) * attrSize;
-					deinterleaveAndCopyPerInstanceAttribute(*it, location, dstAttrPtr);
+					base_t::deinterleaveAndCopyPerInstanceAttribute(*it, location, dstAttrPtr);
 				}
 			}
 
@@ -454,7 +454,7 @@ static uint32_t CCPUMeshPackerV1<MDIStructType>::getPackerCreationParamsFromMesh
 
 	uint32_t packersNeeded = 1u;
 
-	IMeshPackerBase::MeshPackerConfigParams<Iterator> firstInpuParams
+	typename IMeshPackerBase::MeshPackerConfigParams<Iterator> firstInpuParams
 	{
 		(*begin)->getPipeline()->getVertexInputParams(),
 		SRange<void, Iterator>(sortedMeshBuffersOut, sortedMeshBuffersOut)
@@ -481,7 +481,7 @@ static uint32_t CCPUMeshPackerV1<MDIStructType>::getPackerCreationParamsFromMesh
 		{
 			packersNeeded++;
 
-			IMeshPackerBase::MeshPackerConfigParams<Iterator> configParams
+			typename IMeshPackerBase::MeshPackerConfigParams<Iterator> configParams
 			{
 				currMeshVtxInputParams,
 				SRange<void, Iterator>(sortedMeshBuffersOut, sortedMeshBuffersOut)
@@ -509,7 +509,7 @@ static uint32_t CCPUMeshPackerV1<MDIStructType>::getPackerCreationParamsFromMesh
 
 	std::copy(begin, end, sortedMeshBuffersOut);
 	std::sort(sortedMeshBuffersOut, sortedMeshBuffersOutEnd,
-		[&](const MeshBufferType* lhs, const MeshBufferType* rhs)
+		[&](const ICPUMeshBuffer* lhs, const ICPUMeshBuffer* rhs)
 		{
 			return getIndexOfArrayElement(lhs->getPipeline()->getVertexInputParams()) < getIndexOfArrayElement(rhs->getPipeline()->getVertexInputParams());
 		}

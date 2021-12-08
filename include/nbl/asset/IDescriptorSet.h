@@ -36,6 +36,7 @@ class IDescriptorSet : public virtual core::IReferenceCounted
 		using this_type = IDescriptorSet<LayoutType>;
 
 	public:
+		using layout_t = LayoutType;
 		struct SDescriptorInfo
 		{
                 struct SBufferInfo

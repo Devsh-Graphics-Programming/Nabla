@@ -803,7 +803,8 @@ public:
 		assert(result.commandPool);
 		result.physicalDevice = gpu;
 
-		result.assetManager = nbl::core::make_smart_refctd_ptr<nbl::asset::IAssetManager>(nbl::core::smart_refctd_ptr(result.system)); // we should let user choose it?
+		auto glslCompiler = nbl::core::make_smart_refctd_ptr<nbl::asset::IGLSLCompiler>(result.system.get());
+		result.assetManager = nbl::core::make_smart_refctd_ptr<nbl::asset::IAssetManager>(nbl::core::smart_refctd_ptr(result.system), nbl::core::smart_refctd_ptr(glslCompiler)); // we should let user choose it?
 
 		result.cpu2gpuParams.assetManager = result.assetManager.get();
 		result.cpu2gpuParams.device = result.logicalDevice.get();
@@ -978,7 +979,8 @@ public:
 		assert(result.commandPool);
 		result.physicalDevice = gpu;
 
-		result.assetManager = nbl::core::make_smart_refctd_ptr<nbl::asset::IAssetManager>(nbl::core::smart_refctd_ptr(result.system)); // we should let user choose it?
+		auto glslCompiler = nbl::core::make_smart_refctd_ptr<nbl::asset::IGLSLCompiler>(result.system.get());
+		result.assetManager = nbl::core::make_smart_refctd_ptr<nbl::asset::IAssetManager>(nbl::core::smart_refctd_ptr(result.system), nbl::core::smart_refctd_ptr(glslCompiler)); // we should let user choose it?
 		
 		result.cpu2gpuParams.assetManager = result.assetManager.get();
 		result.cpu2gpuParams.device = result.logicalDevice.get();
