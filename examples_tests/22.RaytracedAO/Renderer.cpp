@@ -1,4 +1,4 @@
-#include <numeric>
+﻿#include <numeric>
 #include <filesystem>
 
 #include "Renderer.h"
@@ -1283,10 +1283,10 @@ void Renderer::takeAndSaveScreenShot(const std::filesystem::path& screenshotFile
 // one day it will just work like that
 //#include <nbl/builtin/glsl/sampling/box_muller_transform.glsl>
 
-void Renderer::render(nbl::ITimer* timer)
+bool Renderer::render(nbl::ITimer* timer)
 {
 	if (m_cullPushConstants.maxGlobalInstanceCount==0u)
-		return;
+		return true;
 
 	auto camera = m_smgr->getActiveCamera();
 	camera->OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(timer->getTime()).count());
@@ -1409,8 +1409,10 @@ void Renderer::render(nbl::ITimer* timer)
 	// path trace
 	m_raytraceCommonData.depth = 0u;
 	uint32_t nextTraceRaycount = 0xdeadbeefu; // the raygen shader doesn't care
-	while (m_raytraceCommonData.depth!=m_maxDepth)
-		nextTraceRaycount = traceBounce(nextTraceRaycount);
+	while (m_raytraceCommonData.depth!=m_maxDepth) {
+		 if(!traceBounce(nextTraceRaycount))
+			 return false;
+	}
 
 	// resolve pseudo-MSAA
 	{
@@ -1469,14 +1471,16 @@ void Renderer::render(nbl::ITimer* timer)
 #endif
 	}
 #endif
+	return true;
 }
 
 
-uint32_t Renderer::traceBounce(uint32_t raycount)
+bool Renderer::traceBounce(uint32_t & raycount)
 {
 	const uint32_t descSetIx = (m_raytraceCommonData.depth++)&0x1u;
-	if (raycount==0u)
-		return 0u;
+	if (raycount==0u) {
+		return true;
+	}
 	// trace bounce (accumulate contributions and optionally generate rays)
 	{
 		const bool continuation = m_raytraceCommonData.depth!=1u;
@@ -1507,10 +1511,11 @@ uint32_t Renderer::traceBounce(uint32_t raycount)
 		m_driver->copyBuffer(m_rayCountBuffer.get(),m_littleDownloadBuffer.get(),sizeof(uint32_t)*m_raytraceCommonData.rayCountWriteIx,0u,sizeof(uint32_t));
 		static_assert(core::isPoT(RAYCOUNT_N_BUFFERING),"Raycount Buffer needs to be PoT sized!");
 		glFinish(); // sync CPU to GL
-		//auto start = std::chrono::steady_clock::now();
 		const uint32_t nextTraceRaycount = *reinterpret_cast<uint32_t*>(m_littleDownloadBuffer->getBoundMemory()->getMappedPointer());
-		if (nextTraceRaycount==0u)
-			return 0u;
+		if (nextTraceRaycount==0u) {
+			raycount = 0u;
+			return true;
+		}
 		m_totalRaysCast += nextTraceRaycount;
 		m_raytraceCommonData.rayCountWriteIx = (++m_raytraceCommonData.rayCountWriteIx)&RAYCOUNT_N_BUFFERING_MASK;
 
@@ -1534,14 +1539,38 @@ uint32_t Renderer::traceBounce(uint32_t raycount)
 		cl_event released;
 		ocl::COpenCLHandler::ocl.pclEnqueueReleaseGLObjects(commandQueue, objCount, clObjects, 1u, &raycastDone, &released);
 		ocl::COpenCLHandler::ocl.pclFlush(commandQueue);
-		ocl::COpenCLHandler::ocl.pclWaitForEvents(1u,&released);
-		//const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-start).count();
-		//if (elapsed>100000ull)
-			//printf("Path Vertex: %d took %d us\n",m_raytraceCommonData.depth,elapsed);
-		return nextTraceRaycount;
+
+		cl_int retval = -1;
+		auto startWait = std::chrono::steady_clock::now();
+		constexpr auto timeoutInSeconds = 10ull;
+		bool timedOut = false;
+		do {
+			const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-startWait).count();
+			if (elapsed > timeoutInSeconds * 1'000'000ull)
+			{
+				timedOut = true;
+				break;
+			}
+
+			std::this_thread::yield();
+			ocl::COpenCLHandler::ocl.pclGetEventInfo(released, CL_EVENT_COMMAND_EXECUTION_STATUS, sizeof(cl_int), &retval, nullptr);
+		} while(retval != CL_COMPLETE);
+		
+		// ocl::COpenCLHandler::ocl.pclWaitForEvents(1u,&released);
+
+		if(timedOut)
+		{
+			std::cout << "[ERROR] RadeonRays Timed Out" << std::endl;
+			return false;
+		}
+		raycount = nextTraceRaycount;
+		return true;
 	}
 	else
-		return 0u;
+	{
+		raycount = 0u;
+		return true;
+	}
 }
 
 
