@@ -65,6 +65,17 @@ public:
 				}
 				res.insert(res.end(), recRes.begin(), recRes.end());
 			}
+			else
+			{
+				if (std::string(asset_path) == "")
+				{
+					res.push_back(p);
+				}
+				else
+				{
+					res.push_back((std::filesystem::path(asset_path) / p));
+				}
+			}
 		}
 		res.insert(res.end(), curDirFiles.begin(), curDirFiles.end());
 		return res;
