@@ -12,11 +12,20 @@ class CAPKResourcesArchive : public IFileArchive
 	AAssetManager* mgr;
 	JNIEnv* env;
 	ANativeActivity* activity;
+	jobject context_object;
+	jmethodID  getAssets_method;
+	jobject assetManager_object;
+	jmethodID  list_method;
 public:
 	CAPKResourcesArchive(core::smart_refctd_ptr<ISystem>&& system, system::logger_opt_smart_ptr&& logger, AAssetManager* _mgr, ANativeActivity* act, JNIEnv* jni) :
 		base_t(nullptr, std::move(system), std::move(logger)), mgr(_mgr), activity(act), env(jni)
 	{
-		auto assets = listAssets("");
+		context_object = activity->clazz;
+		getAssets_method = env->GetMethodID(env->GetObjectClass(context_object), "getAssets", "()Landroid/content/res/AssetManager;");
+		assetManager_object = env->CallObjectMethod(context_object, getAssets_method);
+		list_method = env->GetMethodID(env->GetObjectClass(assetManager_object), "list", "(Ljava/lang/String;)[Ljava/lang/String;");
+
+		auto assets = listAssetsRecursively("");
 		uint32_t index = 0;
 		for (auto& a : assets)
 		{
@@ -38,14 +47,31 @@ public:
 		AAsset_close(asset);
 		return fileView;
 	}
+	std::vector<std::string> listAssetsRecursively(const char* asset_path)
+	{
+		std::vector<std::string> curDirFiles = listAssets(asset_path), res;
+		for (auto& p : curDirFiles)
+		{
+			if (std::filesystem::path(p).extension() == "" && std::filesystem::path(p) != "")
+			{
+				std::vector<std::string> recRes;
+				if (std::string(asset_path) == "")
+				{
+					recRes = listAssetsRecursively(std::filesystem::path(p).string().c_str());
+				}
+				else
+				{
+					recRes = listAssetsRecursively((std::filesystem::path(asset_path) / p).string().c_str());
+				}
+				res.insert(res.end(), recRes.begin(), recRes.end());
+			}
+		}
+		res.insert(res.end(), curDirFiles.begin(), curDirFiles.end());
+		return res;
+	}
 	std::vector<std::string> listAssets(const char* asset_path)
 	{
 		std::vector<std::string> result;
-
-		auto context_object = activity->clazz;
-		auto getAssets_method = env->GetMethodID(env->GetObjectClass(context_object), "getAssets", "()Landroid/content/res/AssetManager;");
-		auto assetManager_object = env->CallObjectMethod(context_object, getAssets_method);
-		auto list_method = env->GetMethodID(env->GetObjectClass(assetManager_object), "list", "(Ljava/lang/String;)[Ljava/lang/String;");
 
 		jstring path_object = env->NewStringUTF(asset_path);
 
@@ -63,7 +89,14 @@ public:
 
 			if (filename != nullptr)
 			{
-				result.push_back(filename);
+				if (std::string(asset_path) == "")
+				{
+					result.push_back(filename);
+				}
+				else
+				{
+					result.push_back((std::filesystem::path(asset_path) / filename).generic_string());
+				}
 				env->ReleaseStringUTFChars(jstr, filename);
 			}
 
