@@ -184,7 +184,7 @@ void CSceneNodeAnimatorCameraModifiedMaya::animateNode(IDummyTransformationScene
 	core::vectorSIMDf zoomTarget(0.0f, 0.0f, 0.0f);	// move target to allow further zooming
 	if (StepZooming || Zooming)
 	{
-		std::cout << "Current Zoom = " << CurrentZoom << " -- (Delta = " << ZoomDelta << ")" << std::endl;
+		// std::cout << "Current Zoom = " << CurrentZoom << " -- (Delta = " << ZoomDelta << ")" << std::endl;
 		if (StepZooming)
 			CurrentZoom = CurrentZoom * std::pow(-ScrllZoomMultiplier, ZoomDelta);
 		else
