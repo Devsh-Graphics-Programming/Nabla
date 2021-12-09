@@ -138,7 +138,7 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 	}
 	
 	{
-		constexpr auto raytracingCommonDescriptorCount = 6u;
+		constexpr auto raytracingCommonDescriptorCount = 8u;
 		IGPUDescriptorSetLayout::SBinding bindings[raytracingCommonDescriptorCount];
 		fillIotaDescriptorBindingDeclarations(bindings,ISpecializedShader::ESS_COMPUTE,raytracingCommonDescriptorCount);
 		bindings[0].type = asset::EDT_UNIFORM_BUFFER;
@@ -147,6 +147,8 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 		bindings[3].type = asset::EDT_STORAGE_IMAGE;
 		bindings[4].type = asset::EDT_STORAGE_BUFFER;
 		bindings[5].type = asset::EDT_STORAGE_BUFFER;
+		bindings[6].type = asset::EDT_STORAGE_IMAGE;
+		bindings[7].type = asset::EDT_STORAGE_IMAGE;
 
 		m_commonRaytracingDSLayout = m_driver->createGPUDescriptorSetLayout(bindings,bindings+raytracingCommonDescriptorCount);
 	}
@@ -1011,6 +1013,8 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, core::s
 
 	// create out screen-sized textures
 	m_accumulation = createScreenSizedTexture(EF_R32G32_UINT,m_staticViewData.samplesPerPixelPerDispatch);
+	m_albedoAOV = createScreenSizedTexture(EF_R32_UINT,m_staticViewData.samplesPerPixelPerDispatch);
+	m_normalAOV = createScreenSizedTexture(EF_R32_UINT,m_staticViewData.samplesPerPixelPerDispatch);
 	m_tonemapOutput = createScreenSizedTexture(EF_A2B10G10R10_UNORM_PACK32);
 
 	constexpr uint32_t MaxDescritorUpdates = 8u;
@@ -1057,20 +1061,24 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, core::s
 			infos[2].desc = m_driver->createGPUBufferView(gpubuf.get(),asset::EF_R32G32B32_UINT); // TODO: maybe try to pack into 64bits?
 		}
 		setImageInfo(infos+3,asset::EIL_GENERAL,core::smart_refctd_ptr(m_accumulation));
+		setImageInfo(infos+6,asset::EIL_GENERAL,core::smart_refctd_ptr(m_albedoAOV));
+		setImageInfo(infos+7,asset::EIL_GENERAL,core::smart_refctd_ptr(m_normalAOV));
 		createEmptyInteropBufferAndSetUpInfo(infos+4,m_rayBuffer[0],raygenBufferSize);
 		setBufferInfo(infos+5,m_rayCountBuffer);
 			
 		for (auto i=0u; i<2u; i++)
 			m_commonRaytracingDS[i] = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_commonRaytracingDSLayout));
 
-		constexpr auto descriptorUpdateCount = 6u;
+		constexpr auto descriptorUpdateCount = 8u;
 		setDstSetAndDescTypesOnWrites(m_commonRaytracingDS[0].get(),writes,infos,{
 			EDT_UNIFORM_BUFFER,
 			EDT_STORAGE_IMAGE,
 			EDT_UNIFORM_TEXEL_BUFFER,
 			EDT_STORAGE_IMAGE,
 			EDT_STORAGE_BUFFER,
-			EDT_STORAGE_BUFFER
+			EDT_STORAGE_BUFFER,
+			EDT_STORAGE_IMAGE,
+			EDT_STORAGE_IMAGE
 		});
 		m_driver->updateDescriptorSets(descriptorUpdateCount,writes,0u,nullptr);
 		// set up second DS

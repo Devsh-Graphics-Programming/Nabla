@@ -39,6 +39,9 @@ layout(set = 2, binding = 5) restrict coherent buffer RayCount // maybe remove c
 {
 	uint rayCount[RAYCOUNT_N_BUFFERING];
 };
+// aovs
+layout(set = 2, binding = 6, r32ui) restrict uniform uimage2DArray albedoAOV;
+layout(set = 2, binding = 7, r32ui) restrict uniform uimage2DArray normalAOV;
 
 void clear_raycount()
 {
@@ -87,6 +90,17 @@ bool record_emission_common(out vec3 acc, in uvec3 accumulationLocation, vec3 em
 	const bool anyChange = any(greaterThan(abs(emissive),vec3(nbl_glsl_FLT_MIN)));
 	acc += emissive;
 	return anyChange;
+}
+
+vec3 fetchAlbedo(in uvec3 coord)
+{
+	const uvec2 data = imageLoad(accumulation,ivec3(coord)).rg;
+	return nbl_glsl_decodeRGB19E7(data);
+}
+void storeAlbedo(in vec3 color, in uvec3 coord)
+{
+	const uvec2 data = nbl_glsl_encodeRGB19E7(color);
+	imageStore(accumulation,ivec3(coord),uvec4(data,0u,0u));
 }
 
 
