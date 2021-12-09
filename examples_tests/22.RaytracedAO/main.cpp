@@ -653,14 +653,21 @@ int main(int argc, char** argv)
 		
 		uint32_t itr = 0u;
 		bool takenEnoughSamples = false;
-
+		bool renderFailed = false;
 		while(!takenEnoughSamples && (device->run() && !receiver.isSkipKeyPressed() && receiver.keepOpen()))
 		{
 			if(itr >= maxNeededIterations)
 				std::cout << "[ERROR] Samples taken (" << renderer->getTotalSamplesPerPixelComputed() << ") must've exceeded samples needed for Sensor (" << sensorData.samplesNeeded << ") by now; something is wrong." << std::endl;
 
 			driver->beginScene(false, false);
-			renderer->render(device->getTimer());
+
+			if(!renderer->render(device->getTimer()))
+			{
+				renderFailed = true;
+				driver->endScene();
+				break;
+			}
+
 			auto oldVP = driver->getViewPort();
 			driver->blitRenderTargets(renderer->getColorBuffer(),nullptr,false,false,{},{},true);
 			driver->setViewPort(oldVP);
@@ -680,10 +687,16 @@ int main(int argc, char** argv)
 			screenshotFilePath = std::filesystem::path("ScreenShot_" + mainFileName + "_Sensor_" + std::to_string(s) + extensionStr);
 		}
 		
-		renderer->takeAndSaveScreenShot(screenshotFilePath);
-
-		int progress = float(renderer->getTotalSamplesPerPixelComputed())/float(sensorData.samplesNeeded) * 100;
-		printf("[INFO] Rendered Successfully - %d%% Progress = %u/%u SamplesPerPixel - FileName = %s. \n", progress, renderer->getTotalSamplesPerPixelComputed(), sensorData.samplesNeeded, screenshotFilePath.filename().string().c_str());
+		if(renderFailed)
+		{
+			std::cout << "[ERROR] Render Failed." << std::endl;
+		}
+		else
+		{
+			renderer->takeAndSaveScreenShot(screenshotFilePath);
+			int progress = float(renderer->getTotalSamplesPerPixelComputed())/float(sensorData.samplesNeeded) * 100;
+			printf("[INFO] Rendered Successfully - %d%% Progress = %u/%u SamplesPerPixel - FileName = %s. \n", progress, renderer->getTotalSamplesPerPixelComputed(), sensorData.samplesNeeded, screenshotFilePath.filename().string().c_str());
+		}
 
 		receiver.resetKeys();
 	}
@@ -716,6 +729,7 @@ int main(int argc, char** argv)
 
 		uint64_t lastFPSTime = 0;
 		auto start = std::chrono::steady_clock::now();
+		bool renderFailed = false;
 		while (device->run() && receiver.keepOpen())
 		{
 			// Handle Inputs
@@ -738,7 +752,12 @@ int main(int argc, char** argv)
 
 			driver->beginScene(false, false);
 			
-			renderer->render(device->getTimer());
+			if(!renderer->render(device->getTimer()))
+			{
+				renderFailed = true;
+				driver->endScene();
+				break;
+			}
 
 			auto oldVP = driver->getViewPort();
 			driver->blitRenderTargets(renderer->getColorBuffer(),nullptr,false,false,{},{},true);
@@ -761,8 +780,16 @@ int main(int argc, char** argv)
 			}
 		}
 		
-		auto extensionStr = getFileExtensionFromFormat(sensors[activeSensor].fileFormat);
-		renderer->takeAndSaveScreenShot(std::filesystem::path("LastView_" + mainFileName + "_Sensor_" + std::to_string(activeSensor) + extensionStr));
+		if(renderFailed)
+		{
+			std::cout << "[ERROR] Render Failed." << std::endl;
+		}
+		else
+		{
+			auto extensionStr = getFileExtensionFromFormat(sensors[activeSensor].fileFormat);
+			renderer->takeAndSaveScreenShot(std::filesystem::path("LastView_" + mainFileName + "_Sensor_" + std::to_string(activeSensor) + extensionStr));
+		}
+
 		renderer->deinitScreenSizedResources();
 	}
 
