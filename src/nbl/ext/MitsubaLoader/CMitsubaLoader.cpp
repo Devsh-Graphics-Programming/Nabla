@@ -275,25 +275,24 @@ static core::smart_refctd_ptr<asset::ICPUImage> createDerivMap(SContext& ctx, as
 	const auto& sp = _smplr->getParams();
 
 	core::smart_refctd_ptr<asset::ICPUImage> derivmap_img;
-	float scale[2]{ 1.f, 1.f };
+	float scale;
 	if (fromNormalMap)
-	{
-		derivmap_img = asset::CDerivativeMapCreator::createDerivativeMapFromNormalMap(_heightMap, scale, true);
-		assert(scale[0] == scale[1]);
-	}
+		derivmap_img = asset::CDerivativeMapCreator::createDerivativeMapFromNormalMap<true>(_heightMap,&scale);
 	else
 	{
-		derivmap_img = asset::CDerivativeMapCreator::createDerivativeMapFromHeightMap(
+		derivmap_img = asset::CDerivativeMapCreator::createDerivativeMapFromHeightMap<true>(
 			_heightMap,
 			static_cast<asset::ICPUSampler::E_TEXTURE_CLAMP>(sp.TextureWrapU),
 			static_cast<asset::ICPUSampler::E_TEXTURE_CLAMP>(sp.TextureWrapV),
-			static_cast<asset::ICPUSampler::E_TEXTURE_BORDER_COLOR>(sp.BorderColor));
+			static_cast<asset::ICPUSampler::E_TEXTURE_BORDER_COLOR>(sp.BorderColor),
+			&scale
+		);
 	}
 
 	if (!derivmap_img)
 		return nullptr;
 
-	ctx.derivMapCache.insert({ derivmap_img, scale[0] });
+	ctx.derivMapCache.insert({derivmap_img,scale});
 
 	return derivmap_img;
 }

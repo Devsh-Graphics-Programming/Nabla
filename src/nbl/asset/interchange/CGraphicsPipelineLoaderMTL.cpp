@@ -132,7 +132,7 @@ SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(io::IReadFile* _file, const I
     auto retval = core::make_refctd_dynamic_array<SAssetBundle::contents_container_t>(pipelineCount);
     auto meta = core::make_smart_refctd_ptr<CMTLMetadata>(pipelineCount,core::smart_refctd_ptr(m_basicViewParamsSemantics));
     uint32_t offset = 0u;
-    for (const auto& material : materials)
+    for (auto& material : materials)
     {
         auto createPplnDescAndMeta = [&](const bool hasUV) -> void
         {
@@ -512,7 +512,7 @@ const char* CGraphicsPipelineLoaderMTL::readTexture(const char* _bufPtr, const c
     return _bufPtr;
 }
 
-CGraphicsPipelineLoaderMTL::image_views_set_t CGraphicsPipelineLoaderMTL::loadImages(const std::string& relDir, const SMtl& _mtl, SContext& _ctx)
+CGraphicsPipelineLoaderMTL::image_views_set_t CGraphicsPipelineLoaderMTL::loadImages(const std::string& relDir, SMtl& _mtl, SContext& _ctx)
 {
     images_set_t images;
     image_views_set_t views;
@@ -526,7 +526,7 @@ CGraphicsPipelineLoaderMTL::image_views_set_t CGraphicsPipelineLoaderMTL::loadIm
             SAssetBundle bundle;
             if (i != CMTLMetadata::CRenderpassIndependentPipeline::EMP_BUMP)
                 bundle = interm_getAssetInHierarchy(m_assetMgr, relDir+_mtl.maps[i], lp, hierarchyLevel, _ctx.loaderOverride);
-            else
+            else // TODO: you should attempt to get derivative map FIRST, then restore and regenerate! (right now you're always restoring!)
             {
                 // we need bumpmap restored to create derivative map from it
                 const uint32_t restoreLevels = 3u; // 2 in case of image (image, texel buffer) and 3 in case of image view (view, image, texel buffer)
@@ -628,8 +628,10 @@ CGraphicsPipelineLoaderMTL::image_views_set_t CGraphicsPipelineLoaderMTL::loadIm
 
     for (uint32_t i = 0u; i < views.size(); ++i)
     {
+        const bool isBumpmap = i==CMTLMetadata::CRenderpassIndependentPipeline::EMP_BUMP;
+
         core::smart_refctd_ptr<ICPUImage> image = images[i];
-        if (i == CMTLMetadata::CRenderpassIndependentPipeline::EMP_BUMP && views[i])
+        if (isBumpmap && views[i])
             image = views[i]->getCreationParameters().image;
         if (!image)
             continue;
@@ -640,15 +642,22 @@ CGraphicsPipelineLoaderMTL::image_views_set_t CGraphicsPipelineLoaderMTL::loadIm
             auto view = _ctx.loaderOverride->findDefaultAsset<ICPUImageView>(viewCacheKey, _ctx.inner, _ctx.topHierarchyLevel+ICPURenderpassIndependentPipeline::IMAGEVIEW_HIERARCHYLEVELS_BELOW);
             if (view.first)
             {
+                if (isBumpmap)
+                {
+                    auto meta = view.second->selfCast<CDerivativeMapMetadata>()->getAssetSpecificMetadata(view.first.get());
+                    _mtl.params.bumpFactor *= static_cast<const CDerivativeMapMetadata::CImageView*>(meta)->scale[0];
+                }
                 views[i] = std::move(view.first);
                 continue;
             }
         }
 
-        if (i == CMTLMetadata::CRenderpassIndependentPipeline::EMP_BUMP)
+        float derivativeScale;
+        if (isBumpmap)
         {
             const ISampler::E_TEXTURE_CLAMP wrap = _mtl.isClampToBorder(CMTLMetadata::CRenderpassIndependentPipeline::EMP_BUMP) ? ISampler::ETC_CLAMP_TO_BORDER : ISampler::ETC_REPEAT;
-            image = CDerivativeMapCreator::createDerivativeMapFromHeightMap(image.get(), wrap, wrap, ISampler::ETBC_FLOAT_OPAQUE_BLACK);
+            image = CDerivativeMapCreator::createDerivativeMapFromHeightMap<true>(image.get(), wrap, wrap, ISampler::ETBC_FLOAT_OPAQUE_BLACK, &derivativeScale);
+            _mtl.params.bumpFactor *= derivativeScale;
         }
 
         constexpr IImageView<ICPUImage>::E_TYPE viewType[2]{ IImageView<ICPUImage>::ET_2D, IImageView<ICPUImage>::ET_CUBE_MAP };
@@ -666,8 +675,12 @@ CGraphicsPipelineLoaderMTL::image_views_set_t CGraphicsPipelineLoaderMTL::loadIm
         viewParams.subresourceRange.levelCount = 1u;
         viewParams.image = std::move(image);
 
-        views[i] = ICPUImageView::create(std::move(viewParams));
-        _ctx.loaderOverride->insertAssetIntoCache(SAssetBundle(nullptr,{ views[i] }), viewCacheKey, _ctx.inner, _ctx.topHierarchyLevel+ICPURenderpassIndependentPipeline::IMAGEVIEW_HIERARCHYLEVELS_BELOW);
+        core::smart_refctd_ptr<IAssetMetadata> metaData;
+        auto view = ICPUImageView::create(std::move(viewParams));
+        if (isBumpmap)
+            metaData = core::make_smart_refctd_ptr<CDerivativeMapMetadata>(view.get(),&derivativeScale,true);
+        views[i] = view;
+        _ctx.loaderOverride->insertAssetIntoCache(SAssetBundle(std::move(metaData),{view}), viewCacheKey, _ctx.inner, _ctx.topHierarchyLevel+ICPURenderpassIndependentPipeline::IMAGEVIEW_HIERARCHYLEVELS_BELOW);
     }
 
     return views;

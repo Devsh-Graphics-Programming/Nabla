@@ -4,32 +4,30 @@
 #include "nbl/asset/ICPUImage.h"
 #include "nbl/asset/ICPUImageView.h"
 #include "nbl/asset/filters/CNormalMapToDerivativeFilter.h"
+#include "nbl/asset/metadata/CDerivativeMapMetadata.h"
 
 namespace nbl::asset
 {
 
+//! `isotropicNormalization` makes filter to use max value of all channels for normalization instead of per-channel max
 class CDerivativeMapCreator
 {
 	public:
 		CDerivativeMapCreator() = delete;
 		~CDerivativeMapCreator() = delete;
 
-		static core::smart_refctd_ptr<asset::ICPUImage> createDerivativeMapFromHeightMap(asset::ICPUImage* _inImg, asset::ISampler::E_TEXTURE_CLAMP _uwrap, asset::ISampler::E_TEXTURE_CLAMP _vwrap, asset::ISampler::E_TEXTURE_BORDER_COLOR _borderColor);
-		static core::smart_refctd_ptr<asset::ICPUImageView> createDerivativeMapViewFromHeightMap(asset::ICPUImage* _inImg, asset::ISampler::E_TEXTURE_CLAMP _uwrap, asset::ISampler::E_TEXTURE_CLAMP _vwrap, asset::ISampler::E_TEXTURE_BORDER_COLOR _borderColor);
+		template<bool isotropicNormalization>
+		static core::smart_refctd_ptr<asset::ICPUImage> createDerivativeMapFromHeightMap(asset::ICPUImage* _inImg, asset::ISampler::E_TEXTURE_CLAMP _uwrap, asset::ISampler::E_TEXTURE_CLAMP _vwrap, asset::ISampler::E_TEXTURE_BORDER_COLOR _borderColor, float* out_normalizationFactor);
+		template<bool isotropicNormalization>
+		static core::smart_refctd_ptr<asset::ICPUImageView> createDerivativeMapViewFromHeightMap(asset::ICPUImage* _inImg, asset::ISampler::E_TEXTURE_CLAMP _uwrap, asset::ISampler::E_TEXTURE_CLAMP _vwrap, asset::ISampler::E_TEXTURE_BORDER_COLOR _borderColor, float* out_normalizationFactor);
 
-		//! `isotropicNormalization` makes filter to use max value of all channels for normalization instead of per-channel max
 		//! Normalization is always done per-layer
-		static core::smart_refctd_ptr<asset::ICPUImage> createDerivativeMapFromNormalMap(asset::ICPUImage* _inImg, float out_normalizationFactor[2], bool isotropicNormalization = false);
-		static core::smart_refctd_ptr<asset::ICPUImageView> createDerivativeMapViewFromNormalMap(asset::ICPUImage* _inImg, float out_normalizationFactor[2], bool isotropicNormalization = false);
+		template<bool isotropicNormalization>
+		static core::smart_refctd_ptr<asset::ICPUImage> createDerivativeMapFromNormalMap(asset::ICPUImage* _inImg, float* out_normalizationFactor);
+		template<bool isotropicNormalization>
+		static core::smart_refctd_ptr<asset::ICPUImageView> createDerivativeMapViewFromNormalMap(asset::ICPUImage* _inImg, float* out_normalizationFactor);
 
 	private:
-		static void isotropicNormalizationOverride(float* inout_nfactor)
-		{
-			const float mx = std::max(inout_nfactor[0],inout_nfactor[1]);
-			inout_nfactor[0] = mx;
-			inout_nfactor[1] = mx;
-		}
-
 		static inline asset::E_FORMAT getRGformat(asset::E_FORMAT f)
 		{
 			const uint32_t bytesPerChannel = (getBytesPerPixel(f) * core::rational(1, getFormatChannelCount(f))).getIntegerApprox();

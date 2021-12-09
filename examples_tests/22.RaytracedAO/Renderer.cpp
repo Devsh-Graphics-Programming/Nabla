@@ -523,6 +523,8 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 		}
 
 		// build TLAS with up to date transformations of instances
+		rr->SetOption("bvh.sah.use_splits",1.f);
+		rr->SetOption("bvh.builder","sah");
 		rr->Commit();
 	}
 
