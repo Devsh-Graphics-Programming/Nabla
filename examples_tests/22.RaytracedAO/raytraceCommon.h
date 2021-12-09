@@ -97,10 +97,10 @@ struct RaytraceShaderCommonData_t
 {
 	vec3	camPos;
 	float   rcpFramesDispatched;
-	uint samplesComputed;
-	uint depth;
-	uint rayCountWriteIx;
-	uint padding0;
+	uint	samplesComputed;
+	uint	depth;
+	uint	rayCountWriteIx;
+	float	textureFootprintFactor;
 };
 
 #endif

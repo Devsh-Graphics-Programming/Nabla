@@ -187,7 +187,7 @@ nbl_glsl_xoroshiro64star_state_t load_aux_vertex_attrs(
 		dUVdBary = mat2(uvs[0]-uvs[2],uvs[1]-uvs[2]);
 		const vec2 UV = dUVdBary*compactBary+uvs[2];
 		const mat2 dUVdScreen = nbl_glsl_applyChainRule2D(dUVdBary,dBarydScreen);
-		nbl_glsl_MC_runTexPrefetchStream(tps,UV,dUVdScreen);
+		nbl_glsl_MC_runTexPrefetchStream(tps,UV,dUVdScreen*pc.cummon.textureFootprintFactor);
 	}
 	#endif
 	// the rest is always only needed for continuing
