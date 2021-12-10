@@ -55,26 +55,13 @@ public:
 			if (std::filesystem::path(p).extension() == "" && std::filesystem::path(p) != "")
 			{
 				std::vector<std::string> recRes;
-				if (std::string(asset_path) == "")
-				{
-					recRes = listAssetsRecursively(std::filesystem::path(p).string().c_str());
-				}
-				else
-				{
-					recRes = listAssetsRecursively((std::filesystem::path(asset_path) / p).string().c_str());
-				}
+
+				recRes = listAssetsRecursively(std::filesystem::path(p).string().c_str());
 				res.insert(res.end(), recRes.begin(), recRes.end());
 			}
 			else
 			{
-				if (std::string(asset_path) == "")
-				{
-					res.push_back(p);
-				}
-				else
-				{
-					res.push_back((std::filesystem::path(asset_path) / p));
-				}
+				res.push_back(p);
 			}
 		}
 		res.insert(res.end(), curDirFiles.begin(), curDirFiles.end());
