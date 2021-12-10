@@ -176,13 +176,19 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 		m_closestHitDSLayout = m_driver->createGPUDescriptorSetLayout(bindings,bindings+closestHitDescriptorCount);
 	}
 	{
-		constexpr auto resolveDescriptorCount = 3u;
+		constexpr auto resolveDescriptorCount = 7u;
 		IGPUDescriptorSetLayout::SBinding bindings[resolveDescriptorCount];
 		fillIotaDescriptorBindingDeclarations(bindings,ISpecializedShader::ESS_COMPUTE,resolveDescriptorCount);
 		bindings[0].type = asset::EDT_UNIFORM_BUFFER;
 		bindings[1].type = asset::EDT_COMBINED_IMAGE_SAMPLER;
 		bindings[1].samplers = &sampler;
-		bindings[2].type = asset::EDT_STORAGE_IMAGE;
+		bindings[2].type = asset::EDT_COMBINED_IMAGE_SAMPLER;
+		bindings[2].samplers = &sampler;
+		bindings[3].type = asset::EDT_COMBINED_IMAGE_SAMPLER;
+		bindings[3].samplers = &sampler;
+		bindings[4].type = asset::EDT_STORAGE_IMAGE;
+		bindings[5].type = asset::EDT_STORAGE_IMAGE;
+		bindings[6].type = asset::EDT_STORAGE_IMAGE;
 
 		m_resolveDSLayout = m_driver->createGPUDescriptorSetLayout(bindings,bindings+resolveDescriptorCount);
 	}
@@ -1013,9 +1019,11 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, core::s
 
 	// create out screen-sized textures
 	m_accumulation = createScreenSizedTexture(EF_R32G32_UINT,m_staticViewData.samplesPerPixelPerDispatch);
-	m_albedoAOV = createScreenSizedTexture(EF_R32_UINT,m_staticViewData.samplesPerPixelPerDispatch);
-	m_normalAOV = createScreenSizedTexture(EF_R32_UINT,m_staticViewData.samplesPerPixelPerDispatch);
+	m_albedoAcc = createScreenSizedTexture(EF_R32_UINT,m_staticViewData.samplesPerPixelPerDispatch);
+	m_normalAcc = createScreenSizedTexture(EF_R16G16B16A16_SFLOAT,m_staticViewData.samplesPerPixelPerDispatch);
 	m_tonemapOutput = createScreenSizedTexture(EF_R16G16B16A16_SFLOAT);
+	m_albedoRslv = createScreenSizedTexture(EF_A2B10G10R10_UNORM_PACK32);
+	m_normalRslv = createScreenSizedTexture(EF_R16G16B16A16_SFLOAT);
 
 	constexpr uint32_t MaxDescritorUpdates = 8u;
 	IGPUDescriptorSet::SDescriptorInfo infos[MaxDescritorUpdates];
@@ -1061,8 +1069,8 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, core::s
 			infos[2].desc = m_driver->createGPUBufferView(gpubuf.get(),asset::EF_R32G32B32_UINT); // TODO: maybe try to pack into 64bits?
 		}
 		setImageInfo(infos+3,asset::EIL_GENERAL,core::smart_refctd_ptr(m_accumulation));
-		setImageInfo(infos+6,asset::EIL_GENERAL,core::smart_refctd_ptr(m_albedoAOV));
-		setImageInfo(infos+7,asset::EIL_GENERAL,core::smart_refctd_ptr(m_normalAOV));
+		setImageInfo(infos+6,asset::EIL_GENERAL,core::smart_refctd_ptr(m_albedoAcc));
+		setImageInfo(infos+7,asset::EIL_GENERAL,core::smart_refctd_ptr(m_normalAcc));
 		createEmptyInteropBufferAndSetUpInfo(infos+4,m_rayBuffer[0],raygenBufferSize);
 		setBufferInfo(infos+5,m_rayCountBuffer);
 			
@@ -1117,11 +1125,31 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, core::s
 		infos[0].buffer = {0u,_staticViewDataBuffer->getSize()};
 		infos[0].desc = std::move(_staticViewDataBuffer);
 		setImageInfo(infos+1,asset::EIL_GENERAL,core::smart_refctd_ptr(m_accumulation));
-		setImageInfo(infos+2,asset::EIL_GENERAL,core::smart_refctd_ptr(m_tonemapOutput));
+		core::smart_refctd_ptr<IGPUImageView> albedoSamplerView;
+		{
+			IGPUImageView::SCreationParams viewparams = m_albedoAcc->getCreationParameters();
+			viewparams.format = EF_A2B10G10R10_UNORM_PACK32;
+			albedoSamplerView = m_driver->createGPUImageView(std::move(viewparams));
+		}
+		setImageInfo(infos+2,asset::EIL_GENERAL,std::move(albedoSamplerView));
+		setImageInfo(infos+3,asset::EIL_GENERAL,core::smart_refctd_ptr(m_normalAcc));
+		setImageInfo(infos+4,asset::EIL_GENERAL,core::smart_refctd_ptr(m_tonemapOutput));
+		core::smart_refctd_ptr<IGPUImageView> albedoStorageView;
+		{
+			IGPUImageView::SCreationParams viewparams = m_albedoRslv->getCreationParameters();
+			viewparams.format = EF_R32_UINT;
+			albedoStorageView = m_driver->createGPUImageView(std::move(viewparams));
+		}
+		setImageInfo(infos+5,asset::EIL_GENERAL,std::move(albedoStorageView));
+		setImageInfo(infos+6,asset::EIL_GENERAL,core::smart_refctd_ptr(m_normalRslv));
 				
-		setDstSetAndDescTypesOnWrites(m_resolveDS.get(),writes,infos,{EDT_UNIFORM_BUFFER,EDT_COMBINED_IMAGE_SAMPLER,EDT_STORAGE_IMAGE});
+		setDstSetAndDescTypesOnWrites(m_resolveDS.get(),writes,infos,{
+			EDT_UNIFORM_BUFFER,
+			EDT_COMBINED_IMAGE_SAMPLER,EDT_COMBINED_IMAGE_SAMPLER,EDT_COMBINED_IMAGE_SAMPLER,
+			EDT_STORAGE_IMAGE,EDT_STORAGE_IMAGE,EDT_STORAGE_IMAGE
+		});
 	}
-	m_driver->updateDescriptorSets(3u,writes,0u,nullptr);
+	m_driver->updateDescriptorSets(7u,writes,0u,nullptr);
 
 	m_visibilityBuffer = m_driver->addFrameBuffer();
 	m_visibilityBuffer->attach(EFAP_DEPTH_ATTACHMENT,createScreenSizedTexture(EF_D32_SFLOAT));
@@ -1229,6 +1257,8 @@ void Renderer::deinitScreenSizedResources()
 		m_colorBuffer = nullptr;
 	}
 	m_accumulation = m_tonemapOutput = nullptr;
+	m_albedoAcc = m_albedoRslv = nullptr;
+	m_normalAcc = m_normalRslv = nullptr;
 	glFinish();
 	
 	// wait for OpenCL to finish

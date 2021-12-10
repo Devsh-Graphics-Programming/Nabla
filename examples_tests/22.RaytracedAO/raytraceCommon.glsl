@@ -41,7 +41,7 @@ layout(set = 2, binding = 5) restrict coherent buffer RayCount // maybe remove c
 };
 // aovs
 layout(set = 2, binding = 6, r32ui) restrict uniform uimage2DArray albedoAOV;
-layout(set = 2, binding = 7, r32ui) restrict uniform uimage2DArray normalAOV;
+layout(set = 2, binding = 7, rgba16f) restrict uniform image2DArray normalAOV;
 
 void clear_raycount()
 {
@@ -76,6 +76,18 @@ void storeAccumulation(in vec3 color, in uvec3 coord)
 	const uvec2 data = nbl_glsl_encodeRGB19E7(color);
 	imageStore(accumulation,ivec3(coord),uvec4(data,0u,0u));
 }
+/*
+vec3 fetchAlbedo(in uvec3 coord)
+{
+	const uint data = imageLoad(albedoAOV,ivec3(coord)).r;
+	return nbl_glsl_decodeRGB19E7(data);
+}
+void storeAlbedo(in vec3 color, in uvec3 coord)
+{
+	const uint data = nbl_glsl_encodeRGB19E7(color);
+	imageStore(albedoAOV,ivec3(coord),uvec4(data,0u,0u,0u));
+}
+*/
 
 bool record_emission_common(out vec3 acc, in uvec3 accumulationLocation, vec3 emissive, in bool first_accumulating_path_vertex)
 {
@@ -91,18 +103,6 @@ bool record_emission_common(out vec3 acc, in uvec3 accumulationLocation, vec3 em
 	acc += emissive;
 	return anyChange;
 }
-
-vec3 fetchAlbedo(in uvec3 coord)
-{
-	const uvec2 data = imageLoad(accumulation,ivec3(coord)).rg;
-	return nbl_glsl_decodeRGB19E7(data);
-}
-void storeAlbedo(in vec3 color, in uvec3 coord)
-{
-	const uvec2 data = nbl_glsl_encodeRGB19E7(color);
-	imageStore(accumulation,ivec3(coord),uvec4(data,0u,0u));
-}
-
 
 
 float packOutPixelLocation(in uvec2 outPixelLocation)

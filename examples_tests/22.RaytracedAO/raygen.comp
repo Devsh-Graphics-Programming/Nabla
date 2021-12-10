@@ -75,15 +75,21 @@ void main()
 				scramble_start_state,pc.cummon.samplesComputed,outPixelLocation,origin,vec3(1.0)
 			);
 		}
-
-		vec3 acc;
-		uvec3 accumulationLocation = uvec3(outPixelLocation,0u);
+		
 		const bool firstFrame = pc.cummon.rcpFramesDispatched==1.f;
+		const uvec3 accumulationLocation = uvec3(outPixelLocation,0u);
+		//
+		vec3 acc;
 		if (record_emission_common(acc,accumulationLocation,emissive*float(staticViewData.samplesPerPixelPerDispatch),true) || firstFrame)
 			storeAccumulation(acc,accumulationLocation);
 		
-		if (firstFrame) // clear accumulation totally if beginning a new frame
+		if (firstFrame) // clear accumulations totally if beginning a new frame
 		for (uint i=1u; i<staticViewData.samplesPerPixelPerDispatch; i++)
-			imageStore(accumulation,ivec3(outPixelLocation,i),uvec4(0u));
+		{
+			ivec3 coord = ivec3(outPixelLocation,i);
+			imageStore(accumulation,coord,uvec4(0u));
+			imageStore(albedoAOV,coord,uvec4(0u));
+			imageStore(normalAOV,coord,vec4(0.f));
+		}
 	}
 }
