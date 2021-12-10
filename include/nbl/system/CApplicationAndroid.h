@@ -20,14 +20,14 @@ namespace nbl::system
     protected:
         virtual void onStateSaved_impl(android_app* params) {}
         bool paused = false;
-        bool initialized = false;
+      /*  bool initialized = false;*/
         android_app* m_app;
         JNIEnv* m_env;
     public:
         void pause() { paused = true; }
         void resume() { paused = false; }
-        void initialize() { initialized = true; }
-        bool isInitialized() const { return initialized; }
+        //void initialize() { initialized = true; }
+        //bool isInitialized() const { return initialized; }
         bool isPaused() const { return paused; }
         android_app* getApp() { return m_app; }
         struct SSavedState {
@@ -73,11 +73,11 @@ namespace nbl::system
                 break;
             case APP_CMD_INIT_WINDOW:
             {
-                if (!framework->isInitialized())
+               /* if (!framework->isInitialized())
                 {
                     framework->onAppInitialized();
                     framework->initialize();
-                }
+                }*/
 
             }
                 break;
