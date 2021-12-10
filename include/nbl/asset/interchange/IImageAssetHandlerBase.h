@@ -117,7 +117,7 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 			}
 
 			using COPY_FILTER = asset::CCopyImageFilter;
-			using CONVERSION_FILTER = asset::CSwizzleAndConvertImageFilter<EF_UNKNOWN, EF_UNKNOWN>;
+			using CONVERSION_FILTER = asset::CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,DefaultSwizzle,IdentityDither/*TODO: Blue noise*/,void,true>;
 
 			bool identityTransform = viewParams.format == finalFormat;
 			for (auto i = 0; i < asset::getFormatChannelCount(outFormat); i++)

@@ -7,7 +7,7 @@ layout(set = 0, binding = 0, row_major) uniform StaticViewData
 	StaticViewData_t staticViewData;
 };
 layout(set = 0, binding = 1) uniform usampler2DArray accumulation;
-layout(set = 0, binding = 2, r32ui) restrict uniform uimage2D framebuffer;
+layout(set = 0, binding = 2, rgba16f) restrict uniform image2D framebuffer;
 
 #include <nbl/builtin/glsl/format/decode.glsl>
 #include <nbl/builtin/glsl/format/encode.glsl>
@@ -27,7 +27,7 @@ void main()
 			acc += fetchAccumulation(gl_GlobalInvocationID.xy,i);
 		acc /= float(staticViewData.samplesPerPixelPerDispatch);
 
-		imageStore(framebuffer,pixelCoord,uvec4(nbl_glsl_encodeRGB10A2(vec4(acc,1.0)),0u,0u,0u));
+		imageStore(framebuffer,pixelCoord,vec4(acc,1.f));
 	}
 	// TODO: record autoexposure histogram
 }

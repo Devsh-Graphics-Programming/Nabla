@@ -1015,7 +1015,7 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, core::s
 	m_accumulation = createScreenSizedTexture(EF_R32G32_UINT,m_staticViewData.samplesPerPixelPerDispatch);
 	m_albedoAOV = createScreenSizedTexture(EF_R32_UINT,m_staticViewData.samplesPerPixelPerDispatch);
 	m_normalAOV = createScreenSizedTexture(EF_R32_UINT,m_staticViewData.samplesPerPixelPerDispatch);
-	m_tonemapOutput = createScreenSizedTexture(EF_A2B10G10R10_UNORM_PACK32);
+	m_tonemapOutput = createScreenSizedTexture(EF_R16G16B16A16_SFLOAT);
 
 	constexpr uint32_t MaxDescritorUpdates = 8u;
 	IGPUDescriptorSet::SDescriptorInfo infos[MaxDescritorUpdates];
@@ -1117,13 +1117,7 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, core::s
 		infos[0].buffer = {0u,_staticViewDataBuffer->getSize()};
 		infos[0].desc = std::move(_staticViewDataBuffer);
 		setImageInfo(infos+1,asset::EIL_GENERAL,core::smart_refctd_ptr(m_accumulation));
-		core::smart_refctd_ptr<IGPUImageView> tonemapOutputStorageView;
-		{
-			IGPUImageView::SCreationParams viewparams = m_tonemapOutput->getCreationParameters();
-			viewparams.format = EF_R32_UINT;
-			tonemapOutputStorageView = m_driver->createGPUImageView(std::move(viewparams));
-		}
-		setImageInfo(infos+2,asset::EIL_GENERAL,std::move(tonemapOutputStorageView));
+		setImageInfo(infos+2,asset::EIL_GENERAL,core::smart_refctd_ptr(m_tonemapOutput));
 				
 		setDstSetAndDescTypesOnWrites(m_resolveDS.get(),writes,infos,{EDT_UNIFORM_BUFFER,EDT_COMBINED_IMAGE_SAMPLER,EDT_STORAGE_IMAGE});
 	}
