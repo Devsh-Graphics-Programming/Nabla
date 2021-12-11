@@ -76,32 +76,42 @@ void storeAccumulation(in vec3 color, in uvec3 coord)
 	const uvec2 data = nbl_glsl_encodeRGB19E7(color);
 	imageStore(accumulation,ivec3(coord),uvec4(data,0u,0u));
 }
-/*
+void storeAccumulation(in vec3 prev, in vec3 delta, in uvec3 coord)
+{
+	if (any(greaterThan(abs(delta),vec3(nbl_glsl_FLT_MIN*16.f))))
+		storeAccumulation(prev+delta,coord);
+}
+
+// TODO: RGB19E7
 vec3 fetchAlbedo(in uvec3 coord)
 {
 	const uint data = imageLoad(albedoAOV,ivec3(coord)).r;
-	return nbl_glsl_decodeRGB19E7(data);
+	return nbl_glsl_decodeRGB10A2_UNORM(data).rgb;
 }
 void storeAlbedo(in vec3 color, in uvec3 coord)
 {
-	const uint data = nbl_glsl_encodeRGB19E7(color);
+	const uint data = nbl_glsl_encodeRGB10A2(vec4(color,1.f));
 	imageStore(albedoAOV,ivec3(coord),uvec4(data,0u,0u,0u));
 }
-*/
-
-bool record_emission_common(out vec3 acc, in uvec3 accumulationLocation, vec3 emissive, in bool first_accumulating_path_vertex)
+void storeAlbedo(in vec3 prev, in vec3 delta, in uvec3 coord)
 {
-	acc = vec3(0.0);
-	const bool notFirstFrame = pc.cummon.rcpFramesDispatched!=1.f;
-	if (!first_accumulating_path_vertex || notFirstFrame)
-		acc = fetchAccumulation(accumulationLocation);
-	if (first_accumulating_path_vertex) // a bit useless to add && notFirstFrame) its a tautology with acc=vec3(0.0)
-		emissive -= acc;
-	emissive *= pc.cummon.rcpFramesDispatched;
-	
-	const bool anyChange = any(greaterThan(abs(emissive),vec3(nbl_glsl_FLT_MIN)));
-	acc += emissive;
-	return anyChange;
+	if (any(greaterThan(abs(delta),vec3(1.f/1024.f))))
+		storeAlbedo(prev+delta,coord);
+}
+
+// TODO: RGB19E7
+vec3 fetchWorldspaceNormal(in uvec3 coord)
+{
+	return imageLoad(normalAOV,ivec3(coord)).xyz;
+}
+void storeWorldspaceNormal(in vec3 normal, in uvec3 coord)
+{
+	imageStore(normalAOV,ivec3(coord),vec4(normal,1.f));
+}
+void storeWorldspaceNormal(in vec3 prev, in vec3 delta, in uvec3 coord)
+{
+	if (any(greaterThan(abs(delta),vec3(1.f/512.f))))
+		storeWorldspaceNormal(prev+delta,coord);
 }
 
 
@@ -299,7 +309,8 @@ for (uint i=1u; i!=vertex_depth; i++)
 //		if (i==0u)
 //			imageStore(scramblebuf,ivec3(outPixelLocation,vertex_depth_mod_2_inv),uvec4(scramble_state,0u,0u));
 		nextThroughput[i] *= prevThroughput;
-		if (max(max(nextThroughput[i].x,nextThroughput[i].y),nextThroughput[i].z)>exp2(-19.f)) // TODO: reverse tonemap to adjust the threshold
+		// do denormalized half floats flush to 0 ?
+		if (max(max(nextThroughput[i].x,nextThroughput[i].y),nextThroughput[i].z)>=exp2(-14.f))
 			raysToAllocate++;
 		else
 			maxT[i] = 0.f;

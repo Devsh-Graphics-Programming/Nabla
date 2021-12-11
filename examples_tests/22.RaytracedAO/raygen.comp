@@ -26,6 +26,10 @@ void main()
 	if (get_sample_job())
 	{
 		vec3 emissive = staticViewData.envmapBaseColor;
+		// could do some other normalization factor, whats important is that miss albedo looks somewhat like the HDR environment emitter, albeit scaled down
+		vec3 albedo = emissive/max(max(emissive.r,emissive.g),max(emissive.b,1.f));
+		// for now pretend everything is the floor, if it messed up the denoiser then pretend skydome is a plane always oriented towards camera
+		vec3 worldspaceNormal = vec3(0.f,1.f,0.f);
 		
 		// vis buffer read
 		const uvec2 outPixelLocation = gl_GlobalInvocationID.xy;
@@ -72,24 +76,42 @@ void main()
 			const uint vertex_depth = 1u;
 			generate_next_rays(
 				staticViewData.samplesPerPixelPerDispatch,material,frontfacing,vertex_depth,
-				scramble_start_state,pc.cummon.samplesComputed,outPixelLocation,origin,vec3(1.0)
+				scramble_start_state,pc.cummon.samplesComputed,outPixelLocation,origin,vec3(pc.cummon.rcpFramesDispatched)
 			);
+			// TODO: temporaries
+			albedo = vec3(0.5);
+			worldspaceNormal = normalize(geomDenormal);
 		}
 		
+		// we could optimize this, but its pointless before using KHR_ray_query
 		const bool firstFrame = pc.cummon.rcpFramesDispatched==1.f;
-		const uvec3 accumulationLocation = uvec3(outPixelLocation,0u);
-		//
-		vec3 acc;
-		if (record_emission_common(acc,accumulationLocation,emissive*float(staticViewData.samplesPerPixelPerDispatch),true) || firstFrame)
-			storeAccumulation(acc,accumulationLocation);
-		
-		if (firstFrame) // clear accumulations totally if beginning a new frame
-		for (uint i=1u; i<staticViewData.samplesPerPixelPerDispatch; i++)
+		for (uint i=0u; i<staticViewData.samplesPerPixelPerDispatch; i++)
 		{
-			ivec3 coord = ivec3(outPixelLocation,i);
-			imageStore(accumulation,coord,uvec4(0u));
-			imageStore(albedoAOV,coord,uvec4(0u));
-			imageStore(normalAOV,coord,vec4(0.f));
+			const uvec3 coord = uvec3(outPixelLocation,i);
+			// clear accumulations totally if beginning a new frame
+			if (firstFrame)
+			{
+				storeAccumulation(emissive,coord);
+				storeAlbedo(albedo,coord);
+				storeWorldspaceNormal(worldspaceNormal,coord);
+			}
+			else
+			{
+				const vec3 acc_emissive = fetchAccumulation(coord);
+				const vec3 acc_albedo = fetchAlbedo(coord);
+				const vec3 acc_worldspaceNormal = fetchWorldspaceNormal(coord);
+
+				vec3 emissive_delta = emissive-acc_emissive;
+				vec3 albedo_delta = albedo-acc_albedo;
+				vec3 worldspaceNormal_delta = worldspaceNormal-acc_worldspaceNormal;
+				emissive_delta *= pc.cummon.rcpFramesDispatched;
+				albedo_delta *= pc.cummon.rcpFramesDispatched;
+				worldspaceNormal_delta *= pc.cummon.rcpFramesDispatched;
+	
+				storeAccumulation(acc_emissive,emissive_delta,coord);
+				storeAlbedo(acc_albedo,albedo_delta,coord);
+				storeWorldspaceNormal(acc_worldspaceNormal,worldspaceNormal_delta,coord);
+			}
 		}
 	}
 }

@@ -100,10 +100,12 @@ void main()
 		}
 		
 		const uvec3 accumulationLocation = uvec3(outPixelLocation,sampleID%staticViewData.samplesPerPixelPerDispatch);
-		const bool first_accumulating_path_vertex = get_path_vertex_depth()==2u&&accumulationLocation.z!=0u;
+		const vec3 acc_emissive = fetchAccumulation(accumulationLocation);
+		const vec3 acc_albedo = fetchAlbedo(accumulationLocation);
+		const vec3 acc_worldspaceNormal = fetchWorldspaceNormal(accumulationLocation);
 		// TODO: finish MIS
-		vec3 acc;
-		if (record_emission_common(acc,accumulationLocation,emissive*throughput,first_accumulating_path_vertex))
-			storeAccumulation(acc,accumulationLocation);
+		storeAccumulation(acc_emissive,emissive*throughput,accumulationLocation);
+		storeAlbedo(acc_albedo,vec3(0.f)*throughput,accumulationLocation);
+		storeWorldspaceNormal(acc_worldspaceNormal,vec3(0.f)*throughput,accumulationLocation);
 	}
 }
