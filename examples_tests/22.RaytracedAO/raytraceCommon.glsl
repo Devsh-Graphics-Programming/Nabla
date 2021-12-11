@@ -255,7 +255,7 @@ vec3 rand3d(inout nbl_glsl_xoroshiro64star_state_t scramble_state, in int _sampl
 }
 
 void gen_sample_ray(
-	out float maxT, out vec3 direction, out vec3 throughput,
+	out float maxT, out vec3 direction, out vec3 throughput, out vec3 albedo, out vec3 worlspaceNormal,
 	inout nbl_glsl_xoroshiro64star_state_t scramble_state, in uint sampleID, in uint depth,
 	in nbl_glsl_MC_precomputed_t precomp, in nbl_glsl_MC_instr_stream_t gcs, in nbl_glsl_MC_instr_stream_t rnps
 )
@@ -266,16 +266,17 @@ void gen_sample_ray(
 	
 	float pdf;
 	nbl_glsl_LightSample s;
-	throughput = nbl_glsl_MC_runGenerateAndRemainderStream(precomp,gcs,rnps,rand,pdf,s);
+	throughput = nbl_glsl_MC_runGenerateAndRemainderStream(precomp,gcs,rnps,rand,pdf,s/*, albedo, worldspaceNormal*/);
+	albedo = vec3(0.5f);
+	worlspaceNormal = normalizedN;
 
 	direction = s.L;
 }
 
-
 void generate_next_rays(
 	in uint maxRaysToGen, in nbl_glsl_MC_oriented_material_t material, in bool frontfacing, in uint vertex_depth,
 	in nbl_glsl_xoroshiro64star_state_t scramble_start_state, in uint sampleID, in uvec2 outPixelLocation,
-	in vec3 origin, in vec3 prevThroughput)
+	in vec3 origin, in vec3 prevThroughput, out vec3 albedo, out vec3 worldspaceNormal)
 {
 	// get material streams as well
 	const nbl_glsl_MC_instr_stream_t gcs = nbl_glsl_MC_oriented_material_t_getGenChoiceStream(material);
@@ -304,7 +305,7 @@ for (uint i=1u; i!=vertex_depth; i++)
 	{
 		nbl_glsl_xoroshiro64star_state_t scramble_state = scramble_start_state;
 		// TODO: When generating NEE rays, advance the dimension, NOT the sampleID
-		gen_sample_ray(maxT[i],direction[i],nextThroughput[i],scramble_state,sampleID+i,vertex_depth,precomputed,gcs,rnps);
+		gen_sample_ray(maxT[i],direction[i],nextThroughput[i],albedo,worldspaceNormal,scramble_state,sampleID+i,vertex_depth,precomputed,gcs,rnps);
 // TODO: bad idea, invent something else
 //		if (i==0u)
 //			imageStore(scramblebuf,ivec3(outPixelLocation,vertex_depth_mod_2_inv),uvec4(scramble_state,0u,0u));
@@ -355,6 +356,24 @@ for (uint i=1u; i!=vertex_depth; i++)
 		const uint outputID = baseOutputID+(offset++);
 		sinkRays[outputID] = newRay;
 	}
+}
+
+
+struct Contribution
+{
+	vec3 color;
+	vec3 albedo;
+	vec3 worldspaceNormal;
+};
+
+void Contribution_initMiss(out Contribution contrib)
+{
+	// TODO: Erfan sample envmap with `-normalizedV` here, but remember to compute normalizedV above `if (hit)` in raygen and compute it from NDC + inverseViewProj matrix
+	contrib.color = staticViewData.envmapBaseColor; // TODO: fold the constant into the envmap
+	// could do some other normalization factor, whats important is that miss albedo looks somewhat like the HDR environment emitter, albeit scaled down
+	contrib.albedo = contrib.color / max(max(contrib.color.r, contrib.color.g), max(contrib.color.b, 1.f));
+	// for now pretend everything is the floor, if it messed up the denoiser then pretend skydome is a plane always oriented towards camera
+	contrib.worldspaceNormal = normalizedV;
 }
 
 /* TODO: optimize and reorganize

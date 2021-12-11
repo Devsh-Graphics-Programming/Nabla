@@ -22,20 +22,14 @@ vec3 unpack_barycentrics(in uint data)
 void main()
 {
 	clear_raycount();
-	bool hit = false;
 	if (get_sample_job())
-	{
-		vec3 emissive = staticViewData.envmapBaseColor;
-		// could do some other normalization factor, whats important is that miss albedo looks somewhat like the HDR environment emitter, albeit scaled down
-		vec3 albedo = emissive/max(max(emissive.r,emissive.g),max(emissive.b,1.f));
-		// for now pretend everything is the floor, if it messed up the denoiser then pretend skydome is a plane always oriented towards camera
-		vec3 worldspaceNormal = vec3(0.f,1.f,0.f);
-		
+	{		
 		// vis buffer read
 		const uvec2 outPixelLocation = gl_GlobalInvocationID.xy;
 		const uvec4 visBuffer = texelFetch(frontFacingTriangleIDDrawID_unorm16Bary_dBarydScreenHalf2x2,ivec2(outPixelLocation),0);
 
-		hit = visBuffer[0]!=0xffffffffu;
+		Contribution contrib;
+		const bool hit = visBuffer[0]!=0xffffffffu;
 		if (hit)
 		{
 			// vis buffer decode
@@ -55,7 +49,7 @@ void main()
 			
 			// get material while waiting for indices
 			const nbl_glsl_MC_oriented_material_t material = nbl_glsl_MC_material_data_t_getOriented(batchInstanceData.material,frontfacing);
-			emissive = nbl_glsl_MC_oriented_material_t_getEmissive(material);
+			contrib.color = nbl_glsl_MC_oriented_material_t_getEmissive(material);
 			
 			const uint vertex_depth_mod_2 = 0x1u;
 			// load vertex data
@@ -76,12 +70,12 @@ void main()
 			const uint vertex_depth = 1u;
 			generate_next_rays(
 				staticViewData.samplesPerPixelPerDispatch,material,frontfacing,vertex_depth,
-				scramble_start_state,pc.cummon.samplesComputed,outPixelLocation,origin,vec3(pc.cummon.rcpFramesDispatched)
+				scramble_start_state,pc.cummon.samplesComputed,outPixelLocation,origin,
+				vec3(pc.cummon.rcpFramesDispatched),contrib.albedo,contrib.worldspaceNormal
 			);
-			// TODO: temporaries
-			albedo = vec3(0.5);
-			worldspaceNormal = normalize(geomDenormal);
 		}
+		else
+			Contribution_initMiss(contrib);
 		
 		// we could optimize this, but its pointless before using KHR_ray_query
 		const bool firstFrame = pc.cummon.rcpFramesDispatched==1.f;
@@ -91,9 +85,9 @@ void main()
 			// clear accumulations totally if beginning a new frame
 			if (firstFrame)
 			{
-				storeAccumulation(emissive,coord);
-				storeAlbedo(albedo,coord);
-				storeWorldspaceNormal(worldspaceNormal,coord);
+				storeAccumulation(contrib.color,coord);
+				storeAlbedo(contrib.albedo,coord);
+				storeWorldspaceNormal(contrib.worldspaceNormal,coord);
 			}
 			else
 			{
@@ -101,9 +95,9 @@ void main()
 				const vec3 acc_albedo = fetchAlbedo(coord);
 				const vec3 acc_worldspaceNormal = fetchWorldspaceNormal(coord);
 
-				vec3 emissive_delta = emissive-acc_emissive;
-				vec3 albedo_delta = albedo-acc_albedo;
-				vec3 worldspaceNormal_delta = worldspaceNormal-acc_worldspaceNormal;
+				vec3 emissive_delta = contrib.color-acc_emissive;
+				vec3 albedo_delta = contrib.albedo-acc_albedo;
+				vec3 worldspaceNormal_delta = contrib.worldspaceNormal-acc_worldspaceNormal;
 				emissive_delta *= pc.cummon.rcpFramesDispatched;
 				albedo_delta *= pc.cummon.rcpFramesDispatched;
 				worldspaceNormal_delta *= pc.cummon.rcpFramesDispatched;
