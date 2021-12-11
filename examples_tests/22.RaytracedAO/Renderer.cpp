@@ -1306,13 +1306,18 @@ void Renderer::takeAndSaveScreenShot(const std::filesystem::path& screenshotFile
 
 	glFinish();
 
-	// TODO: Deduce Format from CElementFilm (How?) -> Get format from input 
-	// PNG (any other LDR format) => RGB8_SRGB (can be with alpha if you want)
-	// EXR => 16bit float
-	asset::E_FORMAT format = asset::EF_R16G16B16A16_SFLOAT;
+	// we always decode to 16bit HDR because thats what the denoiser takes
+	// if we save to PNG instead of EXR, it will be converted and clamped once more automagically
+	const asset::E_FORMAT format = asset::EF_R16G16B16A16_SFLOAT;
 
+	auto filename_wo_ext = screenshotFilePath;
+	filename_wo_ext.replace_extension();
 	if (m_tonemapOutput)
-		ext::ScreenShot::createScreenShot(m_driver,m_assetManager,m_tonemapOutput.get(),screenshotFilePath.string(), format);
+		ext::ScreenShot::createScreenShot(m_driver,m_assetManager,m_tonemapOutput.get(),screenshotFilePath.string(),format);
+	if (m_albedoRslv)
+		ext::ScreenShot::createScreenShot(m_driver,m_assetManager,m_albedoRslv.get(),filename_wo_ext.string()+"_albedo.exr",format);
+	if (m_normalRslv)
+		ext::ScreenShot::createScreenShot(m_driver,m_assetManager,m_normalRslv.get(),filename_wo_ext.string()+"_normal.exr",format);
 }
 
 // one day it will just work like that
