@@ -1020,7 +1020,7 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, core::s
 	// create out screen-sized textures
 	m_accumulation = createScreenSizedTexture(EF_R32G32_UINT,m_staticViewData.samplesPerPixelPerDispatch);
 	m_albedoAcc = createScreenSizedTexture(EF_R32_UINT,m_staticViewData.samplesPerPixelPerDispatch);
-	m_normalAcc = createScreenSizedTexture(EF_R16G16B16A16_SFLOAT,m_staticViewData.samplesPerPixelPerDispatch);
+	m_normalAcc = createScreenSizedTexture(EF_R32_UINT,m_staticViewData.samplesPerPixelPerDispatch);
 	m_tonemapOutput = createScreenSizedTexture(EF_R16G16B16A16_SFLOAT);
 	m_albedoRslv = createScreenSizedTexture(EF_A2B10G10R10_UNORM_PACK32);
 	m_normalRslv = createScreenSizedTexture(EF_R16G16B16A16_SFLOAT);

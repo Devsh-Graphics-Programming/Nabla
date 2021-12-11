@@ -8,7 +8,7 @@ layout(set = 0, binding = 0, row_major) uniform StaticViewData
 };
 layout(set = 0, binding = 1) uniform usampler2DArray colorSamples;
 layout(set = 0, binding = 2) uniform sampler2DArray albedoSamples;
-layout(set = 0, binding = 3) uniform sampler2DArray normalSamples;
+layout(set = 0, binding = 3) uniform usampler2DArray normalSamples;
 layout(set = 0, binding = 4, rgba16f) restrict uniform image2D framebuffer;
 layout(set = 0, binding = 5, r32ui) restrict uniform uimage2D albedo;
 layout(set = 0, binding = 6, rgba16f) restrict uniform image2D normals;
@@ -28,19 +28,19 @@ void main()
 	{
 		vec3 acc = fetchAccumulation(gl_GlobalInvocationID.xy,0u);
 		vec3 alb = texelFetch(albedoSamples,ivec3(pixelCoord,0),0).rgb;
-		vec3 nml = texelFetch(normalSamples,ivec3(pixelCoord,0),0).rgb;
+		vec3 nml = nbl_glsl_decodeRGB10A2_SNORM(texelFetch(normalSamples,ivec3(pixelCoord,0),0).r).xyz;
 		for (uint i=1u; i<staticViewData.samplesPerPixelPerDispatch; i++)
 		{
 			acc += fetchAccumulation(gl_GlobalInvocationID.xy,i);
 			alb += texelFetch(albedoSamples,ivec3(pixelCoord,i),0).rgb;
-			nml += texelFetch(normalSamples,ivec3(pixelCoord,i),0).rgb;
+			nml += nbl_glsl_decodeRGB10A2_SNORM(texelFetch(normalSamples,ivec3(pixelCoord,i),0).r).xyz;
 		}
 		acc /= float(staticViewData.samplesPerPixelPerDispatch);
 		alb /= float(staticViewData.samplesPerPixelPerDispatch);
 		nml /= float(staticViewData.samplesPerPixelPerDispatch);
 
 		imageStore(framebuffer,pixelCoord,vec4(acc,1.f));
-		imageStore(albedo,pixelCoord,uvec4(nbl_glsl_encodeRGB10A2(vec4(alb,1.0)),0u,0u,0u));
+		imageStore(albedo,pixelCoord,uvec4(nbl_glsl_encodeRGB10A2_UNORM(vec4(alb,1.0)),0u,0u,0u));
 		imageStore(normals,pixelCoord,vec4(nml,1.f));
 	}
 	// TODO: record autoexposure histogram

@@ -41,7 +41,7 @@ layout(set = 2, binding = 5) restrict coherent buffer RayCount // maybe remove c
 };
 // aovs
 layout(set = 2, binding = 6, r32ui) restrict uniform uimage2DArray albedoAOV;
-layout(set = 2, binding = 7, rgba16f) restrict uniform image2DArray normalAOV;
+layout(set = 2, binding = 7, r32ui) restrict uniform uimage2DArray normalAOV;
 
 void clear_raycount()
 {
@@ -82,7 +82,6 @@ void storeAccumulation(in vec3 prev, in vec3 delta, in uvec3 coord)
 		storeAccumulation(prev+delta,coord);
 }
 
-// TODO: RGB19E7
 vec3 fetchAlbedo(in uvec3 coord)
 {
 	const uint data = imageLoad(albedoAOV,ivec3(coord)).r;
@@ -90,7 +89,7 @@ vec3 fetchAlbedo(in uvec3 coord)
 }
 void storeAlbedo(in vec3 color, in uvec3 coord)
 {
-	const uint data = nbl_glsl_encodeRGB10A2(vec4(color,1.f));
+	const uint data = nbl_glsl_encodeRGB10A2_UNORM(vec4(color,1.f));
 	imageStore(albedoAOV,ivec3(coord),uvec4(data,0u,0u,0u));
 }
 void storeAlbedo(in vec3 prev, in vec3 delta, in uvec3 coord)
@@ -99,14 +98,15 @@ void storeAlbedo(in vec3 prev, in vec3 delta, in uvec3 coord)
 		storeAlbedo(prev+delta,coord);
 }
 
-// TODO: RGB19E7
 vec3 fetchWorldspaceNormal(in uvec3 coord)
 {
-	return imageLoad(normalAOV,ivec3(coord)).xyz;
+	const uint data = imageLoad(normalAOV,ivec3(coord)).r;
+	return nbl_glsl_decodeRGB10A2_SNORM(data).xyz;
 }
 void storeWorldspaceNormal(in vec3 normal, in uvec3 coord)
 {
-	imageStore(normalAOV,ivec3(coord),vec4(normal,1.f));
+	const uint data = nbl_glsl_encodeRGB10A2_SNORM(vec4(normal,1.f));
+	imageStore(normalAOV,ivec3(coord),uvec4(data,0u,0u,0u));
 }
 void storeWorldspaceNormal(in vec3 prev, in vec3 delta, in uvec3 coord)
 {
