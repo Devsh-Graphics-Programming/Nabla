@@ -22,16 +22,14 @@ vec3 unpack_barycentrics(in uint data)
 void main()
 {
 	clear_raycount();
-	bool hit = false;
 	if (get_sample_job())
-	{
-		vec3 emissive = staticViewData.envmapBaseColor;
-		
+	{		
 		// vis buffer read
 		const uvec2 outPixelLocation = gl_GlobalInvocationID.xy;
 		const uvec4 visBuffer = texelFetch(frontFacingTriangleIDDrawID_unorm16Bary_dBarydScreenHalf2x2,ivec2(outPixelLocation),0);
 
-		hit = visBuffer[0]!=0xffffffffu;
+		Contribution contrib;
+		const bool hit = visBuffer[0]!=0xffffffffu;
 		if (hit)
 		{
 			// vis buffer decode
@@ -51,7 +49,7 @@ void main()
 			
 			// get material while waiting for indices
 			const nbl_glsl_MC_oriented_material_t material = nbl_glsl_MC_material_data_t_getOriented(batchInstanceData.material,frontfacing);
-			emissive = nbl_glsl_MC_oriented_material_t_getEmissive(material);
+			contrib.color = nbl_glsl_MC_oriented_material_t_getEmissive(material);
 			
 			const uint vertex_depth_mod_2 = 0x1u;
 			// load vertex data
@@ -72,18 +70,42 @@ void main()
 			const uint vertex_depth = 1u;
 			generate_next_rays(
 				staticViewData.samplesPerPixelPerDispatch,material,frontfacing,vertex_depth,
-				scramble_start_state,pc.cummon.samplesComputed,outPixelLocation,origin,vec3(1.0)
+				scramble_start_state,pc.cummon.samplesComputed,outPixelLocation,origin,
+				vec3(pc.cummon.rcpFramesDispatched),contrib.albedo,contrib.worldspaceNormal
 			);
 		}
-
-		vec3 acc;
-		uvec3 accumulationLocation = uvec3(outPixelLocation,0u);
-		const bool firstFrame = pc.cummon.rcpFramesDispatched==1.f;
-		if (record_emission_common(acc,accumulationLocation,emissive*float(staticViewData.samplesPerPixelPerDispatch),true) || firstFrame)
-			storeAccumulation(acc,accumulationLocation);
+		else
+			Contribution_initMiss(contrib);
 		
-		if (firstFrame) // clear accumulation totally if beginning a new frame
-		for (uint i=1u; i<staticViewData.samplesPerPixelPerDispatch; i++)
-			imageStore(accumulation,ivec3(outPixelLocation,i),uvec4(0u));
+		// we could optimize this, but its pointless before using KHR_ray_query
+		const bool firstFrame = pc.cummon.rcpFramesDispatched==1.f;
+		for (uint i=0u; i<staticViewData.samplesPerPixelPerDispatch; i++)
+		{
+			const uvec3 coord = uvec3(outPixelLocation,i);
+			// clear accumulations totally if beginning a new frame
+			if (firstFrame)
+			{
+				storeAccumulation(contrib.color,coord);
+				storeAlbedo(contrib.albedo,coord);
+				storeWorldspaceNormal(contrib.worldspaceNormal,coord);
+			}
+			else
+			{
+				const vec3 acc_emissive = fetchAccumulation(coord);
+				const vec3 acc_albedo = fetchAlbedo(coord);
+				const vec3 acc_worldspaceNormal = fetchWorldspaceNormal(coord);
+
+				vec3 emissive_delta = contrib.color-acc_emissive;
+				vec3 albedo_delta = contrib.albedo-acc_albedo;
+				vec3 worldspaceNormal_delta = contrib.worldspaceNormal-acc_worldspaceNormal;
+				emissive_delta *= pc.cummon.rcpFramesDispatched;
+				albedo_delta *= pc.cummon.rcpFramesDispatched;
+				worldspaceNormal_delta *= pc.cummon.rcpFramesDispatched;
+	
+				storeAccumulation(acc_emissive,emissive_delta,coord);
+				storeAlbedo(acc_albedo,albedo_delta,coord);
+				storeWorldspaceNormal(acc_worldspaceNormal,worldspaceNormal_delta,coord);
+			}
+		}
 	}
 }

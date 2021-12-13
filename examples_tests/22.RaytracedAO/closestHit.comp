@@ -32,7 +32,6 @@ bool get_sample_job()
 void main()
 {
 	clear_raycount();
-	bool hit = false;
 	if (get_sample_job())
 	{
 		vec3 emissive = staticViewData.envmapBaseColor;	
@@ -45,7 +44,10 @@ void main()
 
 		const uint batchInstanceGUID = intersection.shapeid;
 		const uint invalidID = 0xffffffffu;
-		hit = batchInstanceGUID!=invalidID;
+		const bool hit = batchInstanceGUID!=invalidID;
+		
+		// obtain ray incoming direction
+		normalizedV = -ray.direction;
 
 		const uvec2 outPixelLocation = unpackOutPixelLocation(ray.time);
 		const vec3 throughput = vec3(
@@ -55,13 +57,13 @@ void main()
 		const uint sampleID = bitfieldExtract(ray.useless_padding[1],16,16);
 
 		//
+		Contribution contrib;
+		float aovThroughputScale = 0.f;// TODO: ray.;
 		if (hit)
 		{
 			const uint triangleID = intersection.primid;
 			const nbl_glsl_ext_Mitsuba_Loader_instance_data_t batchInstanceData = InstData.data[batchInstanceGUID];
 			
-			// obtain ray incoming direction
-			normalizedV = -ray.direction;
 			// clear the hit success flag
 			intersections[gl_GlobalInvocationID.x].shapeid = -1;
 
@@ -74,7 +76,7 @@ void main()
 
 			// get material
 			const nbl_glsl_MC_oriented_material_t material = nbl_glsl_MC_material_data_t_getOriented(batchInstanceData.material,frontfacing);
-			emissive = nbl_glsl_MC_oriented_material_t_getEmissive(material);
+			contrib.color = nbl_glsl_MC_oriented_material_t_getEmissive(material);
 	
 			const bool _continue = vertex_depth!=MAX_PATH_DEPTH && ray.maxT==nbl_glsl_FLT_MAX; // last vertex or was a NEE path
 			if (_continue)
@@ -94,16 +96,23 @@ void main()
 
 				generate_next_rays(
 					MAX_RAYS_GENERATED,material,frontfacing,vertex_depth,scramble_start_state,
-					sampleID,outPixelLocation,origin,throughput
+					sampleID,outPixelLocation,origin,throughput,contrib.albedo,contrib.worldspaceNormal
 				);
 			}
+			else
+				aovThroughputScale = 0.f;
 		}
-
-		// TODO: finish MIS
-		vec3 acc;
+		else
+			Contribution_initMiss(contrib);
+		
 		const uvec3 accumulationLocation = uvec3(outPixelLocation,sampleID%staticViewData.samplesPerPixelPerDispatch);
-		const bool first_accumulating_path_vertex = get_path_vertex_depth()==2u&&accumulationLocation.z!=0u;
-		if (record_emission_common(acc,accumulationLocation,emissive*throughput,first_accumulating_path_vertex))
-			storeAccumulation(acc,accumulationLocation);
+		const vec3 acc_emissive = fetchAccumulation(accumulationLocation);
+		const vec3 acc_albedo = fetchAlbedo(accumulationLocation);
+		const vec3 acc_worldspaceNormal = fetchWorldspaceNormal(accumulationLocation);
+		// TODO: finish MIS
+		storeAccumulation(acc_emissive,contrib.color*throughput,accumulationLocation);
+		const vec3 aovThroughput = throughput*aovThroughputScale;
+		storeAlbedo(acc_albedo,contrib.albedo*aovThroughput,accumulationLocation);
+		storeWorldspaceNormal(acc_worldspaceNormal,contrib.worldspaceNormal*(aovThroughput),accumulationLocation); // TODO: luma throughput on normals
 	}
 }

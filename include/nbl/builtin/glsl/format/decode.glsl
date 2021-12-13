@@ -52,11 +52,11 @@ vec4 nbl_glsl_decodeRGB10A2_UNORM(in uint x)
 }
 vec4 nbl_glsl_decodeRGB10A2_SNORM(in uint x)
 {
-	const ivec4 shifted = ivec4(x, uvec3(x) >> uvec3(10u, 20u, 30u));
+	const ivec4 shifted = ivec4(x,uvec3(x)>>uvec3(10u,20u,30u));
 	const ivec4 rgbaBias = ivec4(ivec3(0x200u), 0x2u);
 	const ivec4 halfMask = rgbaBias - ivec4(1);
 	const ivec4 signed = (-(shifted & rgbaBias)) | (shifted & halfMask);
-	return max(vec4(signed) / vec4(halfMask), vec4(-1.0));
+	return max(vec4(signed) / vec4(halfMask), vec4(-1.f));
 }
 
 

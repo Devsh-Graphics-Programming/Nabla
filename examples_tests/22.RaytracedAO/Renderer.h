@@ -199,6 +199,8 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		InteropBuffer m_intersectionBuffer[2];
 
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> m_accumulation,m_tonemapOutput;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> m_albedoAcc,m_albedoRslv;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> m_normalAcc,m_normalRslv;
 		nbl::video::IFrameBuffer* m_visibilityBuffer,* m_colorBuffer;
 
 		std::future<bool> compileShadersFuture;
