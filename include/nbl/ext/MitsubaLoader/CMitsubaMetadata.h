@@ -7,6 +7,7 @@
 
 #include "nbl/core/compile_config.h"
 #include "nbl/asset/metadata/IAssetMetadata.h"
+#include "nbl/asset/ICPUImage.h"
 
 #include "nbl/ext/MitsubaLoader/SContext.h"
 #include "nbl/ext/MitsubaLoader/CElementEmitter.h"
@@ -129,6 +130,7 @@ class CMitsubaMetadata : public asset::IAssetMetadata
 		core::smart_refctd_dynamic_array<asset::IRenderpassIndependentPipelineMetadata::ShaderInputSemantic> m_semanticStorage;
 		CRenderpassIndependentPipeline* m_metaPplnStorageIt;
 
+		core::smart_refctd_ptr<asset::ICPUImage> m_envMapImage;
 		meta_container_t<CMesh> m_metaMeshStorage;
 		core::smart_refctd_dynamic_array<CMesh::SInstance> m_metaMeshInstanceStorage;
 		core::smart_refctd_dynamic_array<CMesh::SInstanceAuxilaryData> m_metaMeshInstanceAuxStorage;
