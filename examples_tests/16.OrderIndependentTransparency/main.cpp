@@ -84,16 +84,6 @@ public:
     core::vector<core::smart_refctd_ptr<video::IGPUMeshBuffer>> gpu_opaqueMeshes;
     core::vector<core::smart_refctd_ptr<video::IGPUMeshBuffer>> gpu_allMeshes;
     core::smart_refctd_ptr<video::IGPUDescriptorSet> ds2;
-    {
-        ds2 = logicalDevice->createGPUDescriptorSet(ds2pool.get(), core::smart_refctd_ptr(ds2layout));
-
-        video::IGPUDescriptorSet::SDescriptorInfo info[ext::OIT::COIT::MaxImgBindingCount];
-        video::IGPUDescriptorSet::SWriteDescriptorSet w[ext::OIT::COIT::MaxImgBindingCount];
-        
-        const auto writeCount = oit.getDSWrites(w, info, ds2.get());
-
-        logicalDevice->updateDescriptorSets(writeCount, w, 0u, nullptr);
-    }
 
     core::smart_refctd_ptr<video::IGPUGraphicsPipeline> oit_resolve_ppln;
     core::smart_refctd_ptr<video::IGPUGraphicsPipeline> oit_pass1_pipeline;
@@ -187,10 +177,10 @@ public:
 
         core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> cpu_ds2layout;
         {
-            asset::ICPUDescriptorSetLayout::SBinding bnd[ext::OIT::COIT::BindingCount];
+            asset::ICPUDescriptorSetLayout::SBinding bnd[ext::OIT::COIT::MaxImgBindingCount];
             oit.getDSLayoutBindings<asset::ICPUDescriptorSetLayout>(bnd);
 
-            cpu_ds2layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(bnd, bnd + ext::OIT::COIT::BindingCount);
+            cpu_ds2layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(bnd, bnd + ext::OIT::COIT::MaxImgBindingCount);
         }
         core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> ds2layout;
         {
@@ -202,12 +192,23 @@ public:
         {
             ds2 = logicalDevice->createGPUDescriptorSet(ds2pool.get(), core::smart_refctd_ptr(ds2layout));
 
-            video::IGPUDescriptorSet::SDescriptorInfo info[ext::OIT::COIT::BindingCount];
-            video::IGPUDescriptorSet::SWriteDescriptorSet w[ext::OIT::COIT::BindingCount];
+            video::IGPUDescriptorSet::SDescriptorInfo info[ext::OIT::COIT::MaxImgBindingCount];
+            video::IGPUDescriptorSet::SWriteDescriptorSet w[ext::OIT::COIT::MaxImgBindingCount];
 
             oit.getDSWrites(w, info, ds2.get());
 
             logicalDevice->updateDescriptorSets(3u, w, 0u, nullptr);
+        }
+
+        {
+            ds2 = logicalDevice->createGPUDescriptorSet(ds2pool.get(), core::smart_refctd_ptr(ds2layout));
+
+            video::IGPUDescriptorSet::SDescriptorInfo info[ext::OIT::COIT::MaxImgBindingCount];
+            video::IGPUDescriptorSet::SWriteDescriptorSet w[ext::OIT::COIT::MaxImgBindingCount];
+
+            const auto writeCount = oit.getDSWrites(w, info, ds2.get());
+
+            logicalDevice->updateDescriptorSets(writeCount, w, 0u, nullptr);
         }
 
         {
@@ -235,14 +236,14 @@ public:
             auto* quantNormalCache = assetManager->getMeshManipulator()->getQuantNormalCache();
             quantNormalCache->loadCacheFromFile<asset::EF_A2B10G10R10_SNORM_PACK32>(system.get(), "../../tmp/normalCache101010.sse");
 
-            system::path archPath = CWDOnStartup / "../../media/white_oak.zip";
+            system::path archPath = sharedInputCWD / "white_oak.zip";
             auto arch = system->openFileArchive(archPath);
             // test no alias loading (TODO: fix loading from absolute paths)
             system->mount(std::move(arch));
             asset::IAssetLoader::SAssetLoadParams loadParams;
-            loadParams.workingDirectory = CWDOnStartup;
+            loadParams.workingDirectory = sharedInputCWD;
             loadParams.logger = logger.get();
-            auto meshes_bundle = assetManager->getAsset((CWDOnStartup / "../../media/white_oak.zip/white_oak.obj").string(), loadParams);
+            auto meshes_bundle = assetManager->getAsset((sharedInputCWD / "white_oak.zip/white_oak.obj").string(), loadParams);
             assert(!meshes_bundle.getContents().empty());
 
             metaOBJ = meshes_bundle.getMetadata()->selfCast<const asset::COBJMetadata>();
@@ -250,7 +251,7 @@ public:
             auto cpuMesh = meshes_bundle.getContents().begin()[0];
             meshRaw = static_cast<asset::ICPUMesh*>(cpuMesh.get());
 
-            quantNormalCache->saveCacheToFile<asset::EF_A2B10G10R10_SNORM_PACK32>(system.get(), "../../tmp/normalCache101010.sse");
+            quantNormalCache->saveCacheToFile<asset::EF_A2B10G10R10_SNORM_PACK32>(system.get(), sharedOutputCWD / "../../tmp/normalCache101010.sse");
         }
 
         core::vector<core::smart_refctd_ptr<asset::ICPUMeshBuffer>> transparentMeshes;
@@ -279,8 +280,8 @@ public:
             layout->setDescriptorSetLayout(2u, core::smart_refctd_ptr(cpu_ds2layout));
 
             asset::IAssetLoader::SAssetLoadParams lparams;
-            lparams.workingDirectory = CWDOnStartup;
-            auto fs_bundle = assetManager->getAsset("../oit_fill_nodes.frag", lparams);
+            lparams.workingDirectory = localInputCWD;
+            auto fs_bundle = assetManager->getAsset("oit_fill_nodes.frag", lparams);
             assert(!fs_bundle.getContents().empty());
             auto fs = core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(fs_bundle.getContents().begin()[0]);
 
@@ -348,12 +349,13 @@ public:
         ubomemreq.vulkanReqs.size = neededDS1UBOsz;
 
         video::IGPUBuffer::SCreationParams gpuuboCreationParams;
+        gpuuboCreationParams.canUpdateSubRange = true;
         gpuuboCreationParams.usage = asset::IBuffer::EUF_UNIFORM_BUFFER_BIT;
         gpuuboCreationParams.sharingMode = asset::E_SHARING_MODE::ESM_CONCURRENT;
         gpuuboCreationParams.queueFamilyIndexCount = 0u;
         gpuuboCreationParams.queueFamilyIndices = nullptr;
 
-        gpuubo = logicalDevice->createGPUBufferOnDedMem(gpuuboCreationParams, ubomemreq, true);
+        gpuubo = logicalDevice->createGPUBufferOnDedMem(gpuuboCreationParams, ubomemreq);
         gpuds1 = logicalDevice->createGPUDescriptorSet(descriptorPool.get(), std::move(gpuds1layout));
         {
             video::IGPUDescriptorSet::SWriteDescriptorSet write;
