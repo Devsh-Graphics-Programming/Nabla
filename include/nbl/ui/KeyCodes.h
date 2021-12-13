@@ -124,6 +124,8 @@ namespace nbl::ui
 		EKC_VOLUME_MUTE,
 		EKC_VOLUME_UP,
 		EKC_VOLUME_DOWN,
+
+		EKC_COUNT,
 	};
 
 	inline char keyCodeToChar(E_KEY_CODE code)
@@ -188,10 +190,11 @@ namespace nbl::ui
 
 	enum E_MOUSE_BUTTON : uint8_t
 	{
-		EMB_LEFT_BUTTON = 1,   
-		EMB_RIGHT_BUTTON = 2,  
-		EMB_MIDDLE_BUTTON = 4, 
-		EMB_BUTTON_4 = 8,
-		EMB_BUTTON_5 = 16
+		EMB_LEFT_BUTTON,
+		EMB_RIGHT_BUTTON,
+		EMB_MIDDLE_BUTTON,
+		EMB_BUTTON_4,
+		EMB_BUTTON_5,
+		EMB_COUNT,
 	};
 };

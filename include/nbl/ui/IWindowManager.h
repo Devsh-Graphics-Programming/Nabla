@@ -19,7 +19,6 @@ namespace nbl::ui
 		virtual SDisplayInfo getPrimaryDisplayInfo() const = 0;
 	private:
 		virtual void destroyWindow(IWindow* wnd) = 0;
-
 	protected:
 		virtual ~IWindowManager() = default;
 	};

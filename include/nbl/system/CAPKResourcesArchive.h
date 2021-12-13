@@ -63,7 +63,14 @@ public:
 
 			if (filename != nullptr)
 			{
-				result.push_back(filename);
+				if (std::string(asset_path) = "")
+				{
+					result.push_back(filename);
+				}
+				else
+				{
+					result.push_back((std::filesystem::path(asset_path) / filename).generic_string());
+				}
 				env->ReleaseStringUTFChars(jstr, filename);
 			}
 
