@@ -571,7 +571,7 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 void Renderer::initSceneNonAreaLights(Renderer::InitializationData& initData)
 {
 	core::vectorSIMDf _envmapBaseColor;
-	_envmapBaseColor.set(0.f,0.f,0.f,1.f);
+	_envmapBaseColor.set(1.f,1.f,1.f,1.f);
 	for (const auto& emitter : m_globalMeta->m_global.m_emitters)
 	{
 		float weight = 0.f;
@@ -579,6 +579,14 @@ void Renderer::initSceneNonAreaLights(Renderer::InitializationData& initData)
 		{
 			case ext::MitsubaLoader::CElementEmitter::Type::CONSTANT:
 				_envmapBaseColor += emitter.constant.radiance;
+				break;
+			case ext::MitsubaLoader::CElementEmitter::Type::ENVMAP:
+				std::cout << "ENVMAP FOUND = " << std::endl;
+				std::cout << "\tScale = " << emitter.envmap.scale << std::endl;
+				std::cout << "\tGamma = " << emitter.envmap.gamma << std::endl;
+				std::cout << "\tSamplingWeight = " << emitter.envmap.samplingWeight << std::endl;
+				std::cout << "\tFileName = " << emitter.envmap.filename.svalue << std::endl;
+				// LOAD file relative to the XML
 				break;
 			case ext::MitsubaLoader::CElementEmitter::Type::INVALID:
 				break;
