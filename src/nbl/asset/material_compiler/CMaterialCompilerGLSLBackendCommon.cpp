@@ -19,6 +19,7 @@ namespace material_compiler
 
 	using tmp_bxdf_translation_cache_t = core::unordered_map<const IR::INode*, IR::INode*>;
 
+	// good idea to make this tree translator "catch" duplicate subtrees
 	class CInterpreter
 	{
 		static inline IR::INode* getCoatNode(IR* ir, tmp_bxdf_translation_cache_t* cache, const IR::CMicrofacetCoatingBSDFNode* coat_blend)
@@ -56,6 +57,7 @@ namespace material_compiler
 		static std::pair<instr_t, const IR::INode*> processSubtree(IR* ir, const IR::INode* tree, IR::INode::children_array_t& next, tmp_bxdf_translation_cache_t* coatTranslationCache);
 	};
 
+	// TODO: more extreme deduplication?
 	class CIdGenerator
 	{
 	public:
@@ -135,7 +137,8 @@ namespace material_compiler
 
 		std::pair<instr_t, const IR::INode*> processSubtree(const IR::INode* tree, IR::INode::children_array_t& next)
 		{
-			//TODO deduplication
+			//TODO deduplication (find identical IR subtrees, make them share instruction streams), hash consing?
+			// Merkle Tree, LLVM had some nice blogposts about how their LTO works with hashmaps that can match subtrees in the context of type definitions
 			return CInterpreter::processSubtree(m_ir, tree, next, m_translationCache);
 		}
 
@@ -502,6 +505,7 @@ namespace remainder_and_pdf
 		traversal_t&& process(uint32_t regCount, uint32_t& _out_usedRegs, id2pos_map_t& _out_id2pos)&&
 		{
 			reorderBumpMapStreams();
+			// TODO: dont align registers to `m_regsPerResult` they're all flat `uint` anyway
 			_out_id2pos = specifyRegisters(regCount, _out_usedRegs);
 			_out_usedRegs += m_regsPerResult;
 
@@ -787,6 +791,7 @@ void remainder_and_pdf::CTraversalManipulator::reorderBumpMapStreams_impl(traver
 	_input.erase(woSubs.begin() + 1, woSubs.end());
 }
 
+// TODO: DONT ALIGN UP REGISTERS!
 auto remainder_and_pdf::CTraversalManipulator::specifyRegisters(uint32_t regCount, uint32_t& _out_maxUsedReg) -> id2pos_map_t
 {
 	core::stack<uint32_t> freeRegs;
@@ -856,43 +861,46 @@ auto remainder_and_pdf::CTraversalManipulator::specifyRegisters(uint32_t regCoun
 
 		_out_maxUsedReg = std::max(srcs[0],srcs[1]);
 
+		// increment instruction interator
+		++j;
+		const bool notLastInstruction = j!=m_input.size();
 		switch (srcsNum)
 		{
-		case 2u:
-		{
-			const uint32_t src2 = srcs[0];
-			const uint32_t src1 = srcs[1];
-			const uint32_t dst = (j == m_input.size() - 1u) ? 0u : src1;
-			pushResultRegister(dst);
-			freeRegs.push(src2);
-			setRegisters(i, dst, src1, src2);
+			case 2u:
+				{
+					const uint32_t src2 = srcs[0];
+					const uint32_t src1 = srcs[1];
+					assert(src1<src2);
+					const uint32_t dst = notLastInstruction ? src1:0u;
+					pushResultRegister(dst);
+					freeRegs.push(src2);
+					setRegisters(i, dst, src1, src2);
+				}
+				break;
+			case 1u:
+				{
+					const uint32_t src = srcs[0];
+					const uint32_t dst = notLastInstruction ? src:0u;
+					pushResultRegister(dst);
+					setRegisters(i, dst, src);
+				}
+				break;
+			case 0u:
+				{
+					assert(!freeRegs.empty());
+					uint32_t dst = 0u;
+					if (notLastInstruction)
+					{
+						dst = freeRegs.top();
+						freeRegs.pop();
+					}
+					pushResultRegister(dst);
+					setRegisters(i, dst);
+				}
+				break;
+			default:
+				break;
 		}
-		break;
-		case 1u:
-		{
-			const uint32_t src = srcs[0];
-			const uint32_t dst = (j == m_input.size() - 1u) ? 0u : src;
-			pushResultRegister(dst);
-			setRegisters(i, dst, src);
-		}
-		break;
-		case 0u:
-		{
-			assert(!freeRegs.empty());
-			uint32_t dst = 0u;
-			if (j < m_input.size() - 1u)
-			{
-				dst = freeRegs.top();
-				freeRegs.pop();
-			}
-			pushResultRegister(dst);
-			setRegisters(i, dst);
-		}
-		break;
-		default: break;
-		}
-
-		++j;
 	}
 
 	return id2pos;
@@ -902,6 +910,7 @@ traversal_t remainder_and_pdf::CTraversalGenerator::genTraversal(const IR::INode
 {
 	traversal_t traversal;
 
+	// push the whole IR tree while on-line translating into a binary tree, generating a DFS traversal on the stack
 	{
 		IR::INode::children_array_t next;
 		const IR::INode* node;
@@ -1052,7 +1061,7 @@ instr_stream::tex_prefetch::prefetch_stream_t tex_prefetch::genTraversal(const t
 	return prefetch_stream;
 }
 
-std::string CMaterialCompilerGLSLBackendCommon::genPreprocDefinitions(const result_t& _res, bool _genChoiceStream)
+std::string CMaterialCompilerGLSLBackendCommon::genPreprocDefinitions(const result_t& _res, E_GENERATOR_STREAM_TYPE _generatorChoiceStream)
 {
 	using namespace std::string_literals;
 
@@ -1070,9 +1079,9 @@ std::string CMaterialCompilerGLSLBackendCommon::genPreprocDefinitions(const resu
 		defs += "\n#define ONLY_ONE_NDF";
 
 	defs += "\n#define sizeof_bsdf_data " + std::to_string((sizeof(instr_stream::SBSDFUnion)+instr_stream::sizeof_uvec4-1u)/instr_stream::sizeof_uvec4);
-
-	if (_genChoiceStream)
-		defs += "\n#define GEN_CHOICE_STREAM";
+	
+	if (_generatorChoiceStream!=EGST_ABSENT)
+		defs += "\n#define GEN_CHOICE_STREAM "+std::to_string(_generatorChoiceStream);
 	if (!_res.noPrefetchStream)
 		defs += "\n#define TEX_PREFETCH_STREAM";
 	if (!_res.noNormPrecompStream)
@@ -1161,7 +1170,7 @@ std::string CMaterialCompilerGLSLBackendCommon::genPreprocDefinitions(const resu
 	return defs;
 }
 
-auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, bool _computeGenChoiceStream) -> result_t
+auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, E_GENERATOR_STREAM_TYPE _generatorChoiceStream) -> result_t
 {
 	result_t res;
 	res.noNormPrecompStream = true;
@@ -1183,11 +1192,30 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, bool _
 		uint32_t usedRegs{};
 		traversal_t rem_pdf_stream;
 		{
-			//In case of presence of generator choice stream, remainder_and_pdf stream has 2 roles in raster backend:
-			//* eval stream
-			//* remainder-and-pdf stream (for use in envmap sampling, as an example); in which case instructions need to write their PDF as well
-			//In raytracing backend _computeGenChoiceStream is always true
-			const uint32_t regsPerRes = _computeGenChoiceStream ? 4u : 3u;
+			const uint32_t regsPerRes = [_generatorChoiceStream]() -> auto
+			{
+				// In case of presence of generator choice stream, remainder_and_pdf stream has 2 roles in raster backend:
+				// * eval stream
+				// * remainder-and-pdf stream (for use in multiple importance sampling, as an example); in which case instructions need to write their PDF as well
+				// In raytracing backend _computeGenChoiceStream is always present
+				switch (_generatorChoiceStream)
+				{
+					case EGST_PRESENT:
+						return 4u;
+						break;
+					// When desiring Albedo and Normal Extraction, one needs to use extra registers for albedo, normal and throughput scale
+					case EGST_PRESENT_WITH_AOV_EXTRACTION:
+						// TODO: investigate whether using 10-16bit storage (fixed point or half float) makes execution faster, because 
+						// albedo could fit in 1.5 DWORDs as 16bit (or 1 DWORDs as 10 bit), normal+throughput scale in 2 DWORDs as half floats or 16 bit snorm
+						// and value/pdf is a low dynamic range so half float could be feasible! Giving us a total register count of 5 DWORDs.
+						return 11u;
+						break;
+					default:
+						break;
+				}
+				// only colour contribution
+				return 3u; 
+			}();
 
 			remainder_and_pdf::CTraversalGenerator gen(_ctx, _ir, &id_gen, &translationCache, registerPool, regsPerRes);
 			rem_pdf_stream = gen.genTraversal(root, usedRegs);
@@ -1196,7 +1224,7 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, bool _
 			id2pos = gen.getId2PosMapping();
 		}
 		traversal_t gen_choice_stream;
-		if (_computeGenChoiceStream)
+		if (_generatorChoiceStream!=EGST_ABSENT)
 		{
 			gen_choice::CTraversalGenerator gen(_ctx, _ir, &id_gen, &translationCache, registerPool);
 			gen_choice_stream = gen.genTraversal(root, usedRegs);
@@ -1367,7 +1395,7 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, bool _
 	}
 
 	res.fragmentShaderSource_declarations =
-		genPreprocDefinitions(res, _computeGenChoiceStream) +
+		genPreprocDefinitions(res, _generatorChoiceStream) +
 R"(
 #include <nbl/builtin/glsl/material_compiler/common_declarations.glsl>
 )";

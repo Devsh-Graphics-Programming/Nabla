@@ -536,7 +536,8 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 				mb->setInstanceCount(instanceCount);
 		}
 
-		auto compResult = ctx.backend.compile(&ctx.backend_ctx, ctx.ir.get());
+		// TODO: put IR and stuff in metadata so that we can recompile the materials after load
+		auto compResult = ctx.backend.compile(&ctx.backend_ctx, ctx.ir.get(), decltype(ctx.backend)::EGST_PRESENT_WITH_AOV_EXTRACTION);
 		ctx.backend_ctx.vt.commitAll();
 		auto pipelineLayout = createPipelineLayout(m_assetMgr, ctx.backend_ctx.vt.vt.get());
 		auto fragShader = createFragmentShader(compResult, ctx.backend_ctx.vt.vt->getFloatViews().size());

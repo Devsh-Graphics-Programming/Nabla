@@ -11,10 +11,9 @@ namespace asset
 namespace material_compiler
 {
 
-auto CMaterialCompilerGLSLRasterBackend::compile(SContext* _ctx, IR* _ir) -> result_t
+auto CMaterialCompilerGLSLRasterBackend::compile(SContext* _ctx, IR* _ir, E_GENERATOR_STREAM_TYPE _generatorChoiceStream) -> result_t
 {
-    constexpr bool WITH_GENERATOR_CHOICE = true;
-    result_t res = base_t::compile(_ctx, _ir, WITH_GENERATOR_CHOICE);
+    result_t res = base_t::compile(_ctx, _ir, _generatorChoiceStream);
 
     res.fragmentShaderSource = 
     R"(
