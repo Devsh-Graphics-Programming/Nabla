@@ -132,6 +132,7 @@ bool CShaderIntrospector::introspectAllShaders(const CIntrospectionData** intros
         *it = introspect(shader->getUnspecialized(),{specInfo.entryPoint.c_str(),_extraDefines,shader->getStage(),specInfo.m_filePathHint});
         if (!*it)
             return false;
+        it++;
     }
     return true;
 }
@@ -325,6 +326,8 @@ core::smart_refctd_ptr<ICPUDescriptorSetLayout> CShaderIntrospector::createAppro
         binding.count = introBnd.descriptorCount;
         if (introBnd.descCountIsSpecConstant)
         {
+            //TODO: delete this line:
+            refShader = *shaders.begin();
             auto& specInfo = refShader->getSpecializationInfo();
             auto val = specInfo.getSpecializationByteValue(binding.count);
             assert(val.second == 4ull);

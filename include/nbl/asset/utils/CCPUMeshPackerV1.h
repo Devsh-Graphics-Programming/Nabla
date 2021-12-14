@@ -67,7 +67,7 @@ public:
 public:
 	CCPUMeshPackerV1(const SVertexInputParams& preDefinedLayout, const AllocationParams& allocParams, uint16_t minTriangleCountPerMDIData = 256u, uint16_t maxTriangleCountPerMDIData = 1024u);
 
-	virtual ~CCPUMeshPackerV1()
+	~CCPUMeshPackerV1()
 	{
 		if(isInstancingEnabled)
 			_NBL_ALIGNED_FREE(m_perInsVtxBuffAlctrResSpc);
