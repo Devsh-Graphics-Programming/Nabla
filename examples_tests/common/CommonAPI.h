@@ -74,9 +74,6 @@ public:
 			{
 				getDefault(m_keyboard,reader);
 			}
-
-		private:
-			friend class CommonAPIEventCallback;
 			template<class ChannelType>
 			void add(Channels<ChannelType>& channels, nbl::core::smart_refctd_ptr<ChannelType>&& channel)
 			{
