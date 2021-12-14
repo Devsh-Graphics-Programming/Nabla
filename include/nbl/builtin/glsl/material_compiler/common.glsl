@@ -531,6 +531,14 @@ void nbl_glsl_MC_runNormalPrecompStream(in nbl_glsl_MC_instr_stream_t stream, in
 #endif
 #endif
 
+// we treat AOV same way we'd treat emissive components in a BXDF Tree
+struct nbl_glsl_MC_DenoiserAOV
+{
+	vec3 albedo;
+	vec3 normal;
+	// perfectly smooth BxDFs
+	float throughputFraction;
+};
 #ifdef GEN_CHOICE_STREAM
 void nbl_glsl_MC_instr_eval_and_pdf_execute(in nbl_glsl_MC_instr_t instr, in nbl_glsl_MC_precomputed_t precomp, in nbl_glsl_LightSample s, in nbl_glsl_MC_microfacet_t _microfacet, in bool skip)
 {
@@ -562,6 +570,10 @@ void nbl_glsl_MC_instr_eval_and_pdf_execute(in nbl_glsl_MC_instr_t instr, in nbl
 
 	vec3 eval = vec3(0.0);
 	float pdf = 0.0;
+	nbl_glsl_MC_DenoiserAOV denoiserAOV;
+	denoiserAOV.albedo = vec3(0.0);
+	denoiserAOV.normal = vec3(0.0);
+	denoiserAOV.throughputFraction = 1.f; // TODO: what to initialize this to?
 
 	if (is_bxdf && run && (NdotV > nbl_glsl_FLT_MIN))
 	{
@@ -583,6 +595,9 @@ void nbl_glsl_MC_instr_eval_and_pdf_execute(in nbl_glsl_MC_instr_t instr, in nbl
 #if defined(OP_DIFFUSE) || defined(OP_DIFFTRANS)
 		if (nbl_glsl_MC_op_isDiffuse(op))
 		{
+			denoiserAOV.albedo = albedo;
+			denoiserAOV.normal = precomp.N;
+			denoiserAOV.throughputFraction = 0.f;
 			if (NdotL > nbl_glsl_FLT_MIN)
 			{
 				eval = albedo * nbl_glsl_oren_nayar_cos_remainder_and_pdf_wo_clamps(pdf, a2, s.VdotL, NdotL, NdotV);
@@ -608,11 +623,8 @@ void nbl_glsl_MC_instr_eval_and_pdf_execute(in nbl_glsl_MC_instr_t instr, in nbl
 			else
 				microfacet = _microfacet;
 
-#if defined(OP_DIELECTRIC) || defined(OP_CONDUCTOR)
-			is_valid = nbl_glsl_isValidVNDFMicrofacet(microfacet.inner.isotropic, is_bsdf, refraction, s.VdotL, eta, rcp_eta);
-#endif
-
-			if (is_valid && a > NBL_GLSL_MC_ALPHA_EPSILON)
+			// TODO: remove the alpha check, implementation should be numerically stable enough to handle roughness tending to 0, also it doesnt do anything for anisotropic roughnesses right now!
+			if (nbl_glsl_isValidVNDFMicrofacet(microfacet.inner.isotropic, is_bsdf, refraction, s.VdotL, eta, rcp_eta) && a > NBL_GLSL_MC_ALPHA_EPSILON)
 			{
 				const float TdotV2 = currInteraction.TdotV2;
 				const float BdotV2 = currInteraction.BdotV2;
@@ -681,13 +693,25 @@ void nbl_glsl_MC_instr_eval_and_pdf_execute(in nbl_glsl_MC_instr_t instr, in nbl
 				float remainder_scalar_part = G2_over_G1;
 
 				const float VdotH = abs(microfacet.inner.isotropic.VdotH);
+
+				// compute fresnel for the microfacet
 				vec3 fr;
 #ifdef OP_CONDUCTOR
+#ifdef OP_DIELECTRIC
 				if (op == OP_CONDUCTOR)
+#endif
 					fr = nbl_glsl_fresnel_conductor(ior[0], ior[1], VdotH);
+#endif
+#ifdef OP_DIELECTRIC
+#ifdef OP_CONDUCTOR
 				else
 #endif
 					fr = vec3(nbl_glsl_fresnel_dielectric_common(eta*eta, VdotH));
+#endif
+
+				denoiserAOV.albedo = fr; // TODO: or should it be F0 ?
+				denoiserAOV.normal = precomp.N;
+				denoiserAOV.throughputFraction = 0.f; // some monotonically increasing function of roughness2
 
 				float eval_scalar_part = remainder_scalar_part * pdf;
 
@@ -723,11 +747,13 @@ void nbl_glsl_MC_instr_eval_and_pdf_execute(in nbl_glsl_MC_instr_t instr, in nbl
 		BEGIN_CASES(op)
 #ifdef OP_COATING
 		CASE_BEGIN(op, OP_COATING) {
+			// TODO: denoiser AOV stuff here
 			result = nbl_glsl_MC_instr_execute_cos_eval_pdf_COATING(instr, srcs, params, ior[0], ior2[0], s, bsdf_data);
 		} CASE_END
 #endif
 #ifdef OP_BLEND
 		CASE_BEGIN(op, OP_BLEND) {
+			// TODO: denoiser AOV stuff here
 			result = nbl_glsl_MC_instr_execute_cos_eval_pdf_BLEND(instr, srcs, params, bsdf_data);
 		} CASE_END
 #endif
@@ -750,6 +776,10 @@ void nbl_glsl_MC_instr_eval_and_pdf_execute(in nbl_glsl_MC_instr_t instr, in nbl
 		nbl_glsl_MC_writeReg(REG_DST(regs), result);
 }
 
+// function is geared toward being used in tandem with importance sampling, hence the `generator_offset` parameter
+// the idea is to save computation and gain numerical stability by factoring out the generating BxDF from the quotient of sums
+// this necessitates an evaluation of the sum of Value & PDF over all BxDF leafs which are not the generator
+// Note: If you dont need/want this "generator skipping" behaviour, just set `generator_offset>=stream.count` (`~0u` will do as well) 
 nbl_glsl_MC_eval_and_pdf_t nbl_bsdf_eval_and_pdf(
 	in nbl_glsl_MC_precomputed_t precomp,
 	in nbl_glsl_MC_instr_stream_t stream,
@@ -758,14 +788,21 @@ nbl_glsl_MC_eval_and_pdf_t nbl_bsdf_eval_and_pdf(
 	inout nbl_glsl_MC_microfacet_t microfacet
 )
 {
+	// TODO: temporary
+	nbl_glsl_MC_DenoiserAOV denoiserAOV;
+	denoiserAOV.albedo = vec3(0.f);
+	denoiserAOV.normal = vec3(0.f);
+	denoiserAOV.throughputFraction = 0.f;
+	// expand thin intersection struct into full precomputation of all tangent frame angles for BxDF evaluation
 	nbl_glsl_MC_setCurrInteraction(precomp);
-	for (uint i = 0u; i < stream.count; ++i)
+	for (uint i=0u; i<stream.count; ++i)
 	{
-		nbl_glsl_MC_instr_t instr = nbl_glsl_MC_fetchInstr(stream.offset+i);
-		uint op = nbl_glsl_MC_instr_getOpcode(instr);
+		const nbl_glsl_MC_instr_t instr = nbl_glsl_MC_fetchInstr(stream.offset+i);
+		const uint op = nbl_glsl_MC_instr_getOpcode(instr);
 
 		bool skip = (i == generator_offset);
-		// skip deltas
+		// skip deltas because they cant contribute anything if they're not the generators
+		// NOTE: Material Compiler will fail if doing a BxDF blend of identical delta BxDFs (same peaks)
 #ifdef OP_THINDIELECTRIC
 		skip = skip || (op == OP_THINDIELECTRIC);
 #endif
@@ -775,6 +812,7 @@ nbl_glsl_MC_eval_and_pdf_t nbl_bsdf_eval_and_pdf(
 
 		nbl_glsl_MC_instr_eval_and_pdf_execute(instr, precomp, s, microfacet, skip);
 
+		// microfacet cache and light sample precomputed angles need some love after the normal gets hot-swapped
 #if defined(OP_SET_GEOM_NORMAL)||defined(OP_BUMPMAP)
 		if (
 #ifdef OP_SET_GEOM_NORMAL
@@ -1092,15 +1130,6 @@ nbl_glsl_LightSample nbl_bsdf_cos_generate(
 
 	return s;
 }
-
-// we treat AOV same way we'd treat emissive components in a BXDF Tree
-struct nbl_glsl_MC_DenoiserAOV
-{
-	vec3 albedo;
-	vec3 normal;
-	// perfectly smooth BxDFs
-	float throughputFraction;
-};
 
 vec3 nbl_glsl_MC_runGenerateAndRemainderStream(
 	in nbl_glsl_MC_precomputed_t precomp,
