@@ -750,7 +750,13 @@ void nbl_glsl_MC_instr_eval_and_pdf_execute(in nbl_glsl_MC_instr_t instr, in nbl
 		nbl_glsl_MC_writeReg(REG_DST(regs), result);
 }
 
-nbl_glsl_MC_eval_and_pdf_t nbl_bsdf_eval_and_pdf(in nbl_glsl_MC_precomputed_t precomp, in nbl_glsl_MC_instr_stream_t stream, in uint generator_offset, inout nbl_glsl_LightSample s, inout nbl_glsl_MC_microfacet_t microfacet)
+nbl_glsl_MC_eval_and_pdf_t nbl_bsdf_eval_and_pdf(
+	in nbl_glsl_MC_precomputed_t precomp,
+	in nbl_glsl_MC_instr_stream_t stream,
+	in uint generator_offset,
+	inout nbl_glsl_LightSample s,
+	inout nbl_glsl_MC_microfacet_t microfacet
+)
 {
 	nbl_glsl_MC_setCurrInteraction(precomp);
 	for (uint i = 0u; i < stream.count; ++i)
@@ -780,7 +786,8 @@ nbl_glsl_MC_eval_and_pdf_t nbl_bsdf_eval_and_pdf(in nbl_glsl_MC_precomputed_t pr
 #ifdef OP_BUMPMAP
 			op == OP_BUMPMAP
 #endif
-			) {
+		)
+		{
 			nbl_glsl_MC_updateLightSampleAfterNormalChange(s);
 			nbl_glsl_MC_updateMicrofacetCacheAfterNormalChange(s, microfacet);
 		}
@@ -791,23 +798,43 @@ nbl_glsl_MC_eval_and_pdf_t nbl_bsdf_eval_and_pdf(in nbl_glsl_MC_precomputed_t pr
 	return eval_and_pdf;
 }
 
-nbl_glsl_LightSample nbl_bsdf_cos_generate(in nbl_glsl_MC_precomputed_t precomp, in nbl_glsl_MC_instr_stream_t stream, in vec3 rand, out vec3 out_remainder, out float out_pdf, out nbl_glsl_MC_microfacet_t out_microfacet, out uint out_gen_rnpOffset)
+// we're able to "perfectly" importance sample sums of BRDFs, thanks to noting that:
+// - our BxDF tree is transformed into a binary tree during IR generation
+// - choosing left vs right branch with probability proportional to the weight keeps the ratio of evaluated value to pdf of the final leaf BxDF constant
+// - this means that the overall pdf (from all generators) is a sum of individual Importance Sampling PDFs of BxDFs with the same LUMA weights as the BxDF itself
+// - rgb weighting and fresnel complicates this, but this only makes the weights slightly different, their ratio is still in the valid (0,INF) range
+nbl_glsl_LightSample nbl_bsdf_cos_generate(
+	in nbl_glsl_MC_precomputed_t precomp,
+	in nbl_glsl_MC_instr_stream_t stream,
+	in vec3 rand,
+	out vec3 out_remainder, out float out_pdf,
+	out nbl_glsl_MC_microfacet_t out_microfacet,
+	out uint out_gen_rnpOffset
+)
 {
+	// position in the flattenned tree (i.e. the stream)
 	uint ix = 0u;
 	nbl_glsl_MC_instr_t instr = nbl_glsl_MC_fetchInstr(stream.offset);
+	// get root op
 	uint op = nbl_glsl_MC_instr_getOpcode(instr);
 	vec3 u = rand;
 
+	// PDFs will be multiplied in (as choices are independent), at the end of the while loop it will be the PDF of choosing a particular BxDF leaf
 	out_pdf = 1.0;
 
+	// precompute some stuff from a lightweight intersectionstruct
 	nbl_glsl_MC_setCurrInteraction(precomp);
 
+	// need to keep track if the "parent" node is a specular over diffuse coating
 	bool is_coat = false;
 	while (!nbl_glsl_MC_op_isBXDF(op))
 	{
 #if defined(OP_COATING) || defined(OP_BLEND)
-		if (nbl_glsl_MC_op_isBXDForCoatOrBlend(op)) {
+		if (nbl_glsl_MC_op_isBXDForCoatOrBlend(op))
+		{
+			// two node children, one must be picked
 			nbl_glsl_MC_bsdf_data_t bsdf_data = nbl_glsl_MC_fetchBSDFDataForInstr(instr);
+			// RGB blendweight of two BxDF nodes
 			vec3 w_;
 #if defined(OP_BLEND)
 			if (op == OP_BLEND)
@@ -819,22 +846,32 @@ nbl_glsl_LightSample nbl_bsdf_cos_generate(in nbl_glsl_MC_precomputed_t precomp,
 #endif
 			{
 				vec3 eta = nbl_glsl_MC_bsdf_data_decodeIoR(bsdf_data, OP_COATING)[0];
+				// fresnel gets tricky, we kind-of assume fresnel against the surface macro-normal is somewhat proportional to integrated fresnel over the distribution of visible normals
 				w_ = nbl_glsl_fresnel_dielectric_frontface_only(eta, max(currInteraction.inner.isotropic.NdotV, 0.0));
 			}
 
+			// choice is binary, need to convert RGB triplet to a scalar
+			// TODO [optimization]: Could we go a bit more aggressive and turn the IoR monochrome before evaluating fresnel?
 			float w = nbl_glsl_MC_colorToScalar(w_);
+
+			// this will be 1/pdf of the choice made
 			float rcpChoiceProb;
-			// right is **coated** material in case of coating
+			// right child BxDF node is **coated** material in the case of a coating
 			bool choseRight = nbl_glsl_partitionRandVariable(w, u.z, rcpChoiceProb);
-
-			uint right_ix = nbl_glsl_MC_instr_getRightJump(instr);
-			ix = choseRight ? right_ix : (ix + 1u);
+			if (choseRight)
+				ix = nbl_glsl_MC_instr_getRightJump(instr);
+			else
+			{
+				ix++;
+				// if the op was a coating and we chose the left child, we're dealing with the specular BRDF
+				is_coat = op==OP_COATING;
+			}
 			out_pdf /= rcpChoiceProb;
-
-			is_coat = (op==OP_COATING && !choseRight);
-		} else
+		}
+		else
 #endif //OP_COATING or OP_BLEND
 		{
+			// these only modify the shading normal which will be used to importance sample the leaf BxDF
 #ifdef OP_SET_GEOM_NORMAL
 			if (op==OP_SET_GEOM_NORMAL)
 			{
@@ -849,13 +886,16 @@ nbl_glsl_LightSample nbl_bsdf_cos_generate(in nbl_glsl_MC_precomputed_t precomp,
 			} else
 #endif //OP_BUMPMAP
 			{}
-			ix = ix + 1u;
+			// left child is always after its parent (useful for single child nodes like bump modifiers)
+			ix++;
 		}
 
 		instr = nbl_glsl_MC_fetchInstr(stream.offset+ix);
 		op = nbl_glsl_MC_instr_getOpcode(instr);
 	}
 
+	// its important to keep track of the chosen BxDF leaf for importance sampling generation
+	// we leverage the fact that the streams lengths and opcode generation order is identical for both generation and evaluation streams
 	out_gen_rnpOffset = nbl_glsl_MC_instr_getOffsetIntoRnPStream(instr);
 
 	nbl_glsl_MC_bsdf_data_t bsdf_data = nbl_glsl_MC_fetchBSDFDataForInstr(instr);
@@ -1053,7 +1093,23 @@ nbl_glsl_LightSample nbl_bsdf_cos_generate(in nbl_glsl_MC_precomputed_t precomp,
 	return s;
 }
 
-vec3 nbl_glsl_MC_runGenerateAndRemainderStream(in nbl_glsl_MC_precomputed_t precomp, in nbl_glsl_MC_instr_stream_t gcs, in nbl_glsl_MC_instr_stream_t rnps, in vec3 rand, out float out_pdf, out nbl_glsl_LightSample out_smpl)
+// we treat AOV same way we'd treat emissive components in a BXDF Tree
+struct nbl_glsl_MC_DenoiserAOV
+{
+	vec3 albedo;
+	vec3 normal;
+	// perfectly smooth BxDFs
+	float throughputFraction;
+};
+
+vec3 nbl_glsl_MC_runGenerateAndRemainderStream(
+	in nbl_glsl_MC_precomputed_t precomp,
+	in nbl_glsl_MC_instr_stream_t gcs,
+	in nbl_glsl_MC_instr_stream_t rnps,
+	in vec3 rand,
+	out float out_pdf, out nbl_glsl_LightSample out_smpl,
+	out nbl_glsl_MC_DenoiserAOV denoiserAOV
+)
 {
 	vec3 generator_rem;
 	float generator_pdf;
@@ -1082,6 +1138,18 @@ vec3 nbl_glsl_MC_runGenerateAndRemainderStream(in nbl_glsl_MC_precomputed_t prec
 	return out_pdf>nbl_glsl_FLT_MIN ? (num/den):vec3(0.0);
 }
 
+vec3 nbl_glsl_MC_runGenerateAndRemainderStream(
+	in nbl_glsl_MC_precomputed_t precomp,
+	in nbl_glsl_MC_instr_stream_t gcs,
+	in nbl_glsl_MC_instr_stream_t rnps,
+	in vec3 rand,
+	out float out_pdf,
+	out nbl_glsl_LightSample out_smpl
+)
+{
+	nbl_glsl_MC_DenoiserAOV dummy;
+	return nbl_glsl_MC_runGenerateAndRemainderStream(precomp,gcs,rnps,rand,out_pdf,out_smpl,dummy);
+}
 #endif //GEN_CHOICE_STREAM
 
 #endif
