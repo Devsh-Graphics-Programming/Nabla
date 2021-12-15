@@ -205,6 +205,7 @@ public:
 			i = core::bitfieldInsert<instr_t>(i, ix, BITFIELDS_BSDF_BUF_OFFSET_SHIFT, BITFIELDS_BSDF_BUF_OFFSET_WIDTH);
 		}
 
+		// TODO: Instruction ID needs to be renamed for better semantics
 		inline static instr_id_t getInstrId(const instr_t& i)
 		{
 			return core::bitfieldExtract(i, INSTR_ID_SHIFT, INSTR_ID_WIDTH);

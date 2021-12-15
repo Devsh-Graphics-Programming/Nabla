@@ -1439,7 +1439,7 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 			reinterpret_cast<float&>(instData.determinantSignBit) = instData.tform.getPseudoDeterminant().x;
 			instData.determinantSignBit &= 0x80000000;
 
-			auto bsdf = inst.bsdf;
+			const auto& bsdf = inst.bsdf;
 			auto bsdf_front = bsdf.front;
 			auto bsdf_back  = bsdf.back;
 			auto streams_it = _compResult.streams.find(bsdf_front);
@@ -1448,9 +1448,8 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 				const auto& streams = streams_it->second;
 
 #ifdef DEBUG_MITSUBA_LOADER
-				//@Crisspl TODO No way how to fix it for reporting the `inst.bsdf_id`
-				os::Printer::log("Debug print front BSDF with id = ", inst.bsdf_id, ELL_INFORMATION);
-				ofile << "Debug print front BSDF with id = " << inst.bsdf_id << std::endl;
+				//os::Printer::log("Debug print front BSDF with id = ", std::to_string(&bsdf), ELL_INFORMATION);
+				ofile << "Debug print front BSDF with id = " << &bsdf << std::endl;
 				_ctx.backend.debugPrint(ofile, streams, _compResult, &_ctx.backend_ctx);
 #endif
 				const auto emissive = inst.frontEmitter.type==CElementEmitter::AREA ? inst.frontEmitter.area.radiance:core::vectorSIMDf(0.f);
@@ -1462,9 +1461,8 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 				const auto& streams = streams_it->second;
 
 #ifdef DEBUG_MITSUBA_LOADER
-				//@Crisspl TODO No way how to fix it for reporting the `inst.bsdf_id`
-				os::Printer::log("Debug print back BSDF with id = ", inst.bsdf_id, ELL_INFORMATION);
-				ofile << "Debug print back BSDF with id = " << inst.bsdf_id << std::endl;
+				//os::Printer::log("Debug print back BSDF with id = ", std::to_string(&bsdf), ELL_INFORMATION);
+				ofile << "Debug print back BSDF with id = " << &bsdf << std::endl;
 				_ctx.backend.debugPrint(ofile, streams, _compResult, &_ctx.backend_ctx);
 #endif
 				const auto emissive = inst.backEmitter.type==CElementEmitter::AREA ? inst.backEmitter.area.radiance:core::vectorSIMDf(0.f);

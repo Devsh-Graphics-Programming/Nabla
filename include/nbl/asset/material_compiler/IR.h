@@ -328,6 +328,7 @@ public:
         explicit INode(E_SYMBOL s) : symbol(s) {}
         virtual ~INode() = default;
 
+        // TODO: Why does every INode have children!? Leaf BxDFs do not need this!
         children_array_t children;
         E_SYMBOL symbol;
         bool deinited = false;
@@ -537,6 +538,7 @@ public:
         {}
 
         E_TYPE type;
+        // TODO: why does this base class have IoR!? Diffuse inherits from this!!!
         color_t eta, etaK;
     };
     struct CMicrofacetSpecularBSDFNode : CBSDFNode
@@ -548,6 +550,7 @@ public:
             ENDF_ASHIKHMIN_SHIRLEY,
             ENDF_PHONG
         };
+        // TODO: Remove, the NDF fixes the geometrical shadowing and masking function.
         enum E_SHADOWING_TERM
         {
             EST_SMITH,
