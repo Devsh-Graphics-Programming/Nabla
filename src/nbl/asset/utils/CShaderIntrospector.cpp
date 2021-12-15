@@ -313,6 +313,7 @@ core::smart_refctd_ptr<ICPUDescriptorSetLayout> CShaderIntrospector::createAppro
                         stageFlags |= shader->getStage();
                         refIndex = (*checkedDescsCntIt)++;
                         refIntro = *introspectionIt;
+                        refShader = shader;
                     }
                 }
                 introspectionIt++;
@@ -326,8 +327,6 @@ core::smart_refctd_ptr<ICPUDescriptorSetLayout> CShaderIntrospector::createAppro
         binding.count = introBnd.descriptorCount;
         if (introBnd.descCountIsSpecConstant)
         {
-            //TODO: delete this line:
-            refShader = *shaders.begin();
             auto& specInfo = refShader->getSpecializationInfo();
             auto val = specInfo.getSpecializationByteValue(binding.count);
             assert(val.second == 4ull);
