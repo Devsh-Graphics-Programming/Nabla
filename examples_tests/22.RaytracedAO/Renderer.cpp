@@ -4,7 +4,7 @@
 #include "Renderer.h"
 
 #include "nbl/ext/ScreenShot/ScreenShot.h"
-
+#include "nbl/asset/filters/CFillImageFilter.h"
 #include "../source/Nabla/COpenCLHandler.h"
 #include "COpenGLDriver.h"
 
@@ -53,7 +53,7 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 	#endif
 		m_prevView(), m_prevCamTform(), m_sceneBound(FLT_MAX,FLT_MAX,FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX),
 		m_framesDispatched(0u), m_rcpPixelSize{0.f,0.f},
-		m_staticViewData{{0.f,0.f,0.f},0u,{0u,0u},0u,0u}, m_raytraceCommonData{vec3(),0.f,0u,0u,0u,0.f},
+		m_staticViewData{{0.f,0.f,0.f},0u,{0u,0u},0u,0u}, m_raytraceCommonData{core::matrix4SIMD(), vec3(),0.f,0u,0u,0u,0.f},
 		m_indirectDrawBuffers{nullptr},m_cullPushConstants{core::matrix4SIMD(),1.f,0u,0u,0u},m_cullWorkGroups(0u),
 		m_raygenWorkGroups{0u,0u},m_visibilityBuffer(nullptr),m_colorBuffer(nullptr)
 {
@@ -138,7 +138,7 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 	}
 	
 	{
-		constexpr auto raytracingCommonDescriptorCount = 8u;
+		constexpr auto raytracingCommonDescriptorCount = 9u;
 		IGPUDescriptorSetLayout::SBinding bindings[raytracingCommonDescriptorCount];
 		fillIotaDescriptorBindingDeclarations(bindings,ISpecializedShader::ESS_COMPUTE,raytracingCommonDescriptorCount);
 		bindings[0].type = asset::EDT_UNIFORM_BUFFER;
@@ -149,6 +149,7 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 		bindings[5].type = asset::EDT_STORAGE_BUFFER;
 		bindings[6].type = asset::EDT_STORAGE_IMAGE;
 		bindings[7].type = asset::EDT_STORAGE_IMAGE;
+		bindings[8].type = asset::EDT_COMBINED_IMAGE_SAMPLER;
 
 		m_commonRaytracingDSLayout = m_driver->createGPUDescriptorSetLayout(bindings,bindings+raytracingCommonDescriptorCount);
 	}
@@ -579,22 +580,27 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 void Renderer::initSceneNonAreaLights(Renderer::InitializationData& initData)
 {
 	core::vectorSIMDf _envmapBaseColor;
-	_envmapBaseColor.set(1.f,1.f,1.f,1.f);
+	_envmapBaseColor.set(0.0f,0.0f,0.0f,1.f);
+
 	for (const auto& emitter : m_globalMeta->m_global.m_emitters)
 	{
 		float weight = 0.f;
 		switch (emitter.type)
 		{
 			case ext::MitsubaLoader::CElementEmitter::Type::CONSTANT:
+			{
 				_envmapBaseColor += emitter.constant.radiance;
+			}
 				break;
 			case ext::MitsubaLoader::CElementEmitter::Type::ENVMAP:
+			{
 				std::cout << "ENVMAP FOUND = " << std::endl;
 				std::cout << "\tScale = " << emitter.envmap.scale << std::endl;
 				std::cout << "\tGamma = " << emitter.envmap.gamma << std::endl;
 				std::cout << "\tSamplingWeight = " << emitter.envmap.samplingWeight << std::endl;
 				std::cout << "\tFileName = " << emitter.envmap.filename.svalue << std::endl;
 				// LOAD file relative to the XML
+			}
 				break;
 			case ext::MitsubaLoader::CElementEmitter::Type::INVALID:
 				break;
@@ -616,6 +622,67 @@ void Renderer::initSceneNonAreaLights(Renderer::InitializationData& initData)
 		//initData.lightPDF.push_back(weight);
 		//initData.lights.push_back(light);
 	}
+
+	// if envmap texture is empty, create one with all values set to '_envmapBaseColor'
+	if(!m_envmap)
+	{
+		// Create CPUImageView
+		uint32_t width = 1u;
+		uint32_t height = 1u;
+
+		// Create CPUImage
+		ICPUImage::SCreationParams imgParams = {};
+		imgParams.type = asset::IImage::ET_2D;
+		imgParams.format = asset::EF_R32G32B32_SFLOAT;
+		imgParams.extent = VkExtent3D{width, height, 1u};
+		imgParams.mipLevels = 1u;
+		imgParams.arrayLayers = 1u;
+		imgParams.samples = asset::IImage::ESCF_1_BIT;
+		core::smart_refctd_ptr<ICPUImage> cpuEnvmapImage = ICPUImage::create(std::move(imgParams));
+				
+		auto texelBytesize = getTexelOrBlockBytesize(imgParams.format);
+		core::smart_refctd_ptr<ICPUBuffer> buffer = core::make_smart_refctd_ptr<ICPUBuffer>(texelBytesize * width * height);
+		
+		auto regionsDynArray = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IImage::SBufferCopy>>(1u);
+		auto regions = regionsDynArray->begin();
+		regions[0].bufferOffset = 0u;
+		regions[0].bufferRowLength = imgParams.extent.width; // could round up to multiple of 8 bytes in the future
+		regions[0].bufferImageHeight = imgParams.extent.height;
+		regions[0].imageSubresource.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0u);
+		regions[0].imageSubresource.mipLevel = 0u;
+		regions[0].imageSubresource.baseArrayLayer = 0u;
+		regions[0].imageSubresource.layerCount = 1u;
+		regions[0].imageOffset = { 0u,0u,0u };
+		regions[0].imageExtent = imgParams.extent;
+
+		cpuEnvmapImage->setBufferAndRegions(std::move(buffer), std::move(regionsDynArray));
+
+		// Fill CPUImage with color
+		CFillImageFilter::state_type fill;
+		fill.subresource.aspectMask = asset::IImage::EAF_COLOR_BIT;
+		fill.subresource.mipLevel = 0u;
+		fill.subresource.baseArrayLayer = 0u;
+		fill.subresource.layerCount = 1u;
+		fill.outRange = { {0u,0u,0u}, {width, height, 1u} };
+		fill.outImage = cpuEnvmapImage.get();
+		fill.fillValue.asFloat = _envmapBaseColor;
+		if (!CFillImageFilter::execute(&fill))
+			std::cout << "CFillImageFilter failed for envmap color filling." << std::endl;
+		
+		ICPUImageView::SCreationParams viewParams;
+		viewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
+		viewParams.image = cpuEnvmapImage;
+		viewParams.format = viewParams.image->getCreationParameters().format;
+		viewParams.viewType = IImageView<ICPUImage>::ET_2D;
+		viewParams.subresourceRange.baseArrayLayer = 0u;
+		viewParams.subresourceRange.layerCount = 1u;
+		viewParams.subresourceRange.baseMipLevel = 0u;
+		viewParams.subresourceRange.levelCount = 1u;
+
+		auto cpuEnvmapImageView = ICPUImageView::create(std::move(viewParams));
+		m_envmap = m_driver->getGPUObjectsFromAssets(&cpuEnvmapImageView.get(), &cpuEnvmapImageView.get() + 1u)->front();
+	}
+	
 	m_staticViewData.envmapBaseColor.x = _envmapBaseColor.x;
 	m_staticViewData.envmapBaseColor.y = _envmapBaseColor.y;
 	m_staticViewData.envmapBaseColor.z = _envmapBaseColor.z;
@@ -879,9 +946,10 @@ void Renderer::deinitSceneResources()
 	m_indirectDrawBuffers[1] = m_indirectDrawBuffers[0] = nullptr;
 	m_indexBuffer = nullptr;
 
-	m_raytraceCommonData = {vec3(),0.f,0,0,0,0.f};
+	m_raytraceCommonData = {core::matrix4SIMD(),vec3(),0.f,0,0,0,0.f};
 	m_sceneBound = core::aabbox3df(FLT_MAX, FLT_MAX, FLT_MAX, -FLT_MAX, -FLT_MAX, -FLT_MAX);
 	
+	m_envmap = nullptr;
 	m_staticViewData = {{0.f,0.f,0.f},0u,{0u,0u},0u,0u};
 
 	auto rr = m_rrManager->getRadeonRaysAPI();
@@ -1033,7 +1101,7 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, core::s
 	m_albedoRslv = createScreenSizedTexture(EF_A2B10G10R10_UNORM_PACK32);
 	m_normalRslv = createScreenSizedTexture(EF_R16G16B16A16_SFLOAT);
 
-	constexpr uint32_t MaxDescritorUpdates = 8u;
+	constexpr uint32_t MaxDescritorUpdates = 9u;
 	IGPUDescriptorSet::SDescriptorInfo infos[MaxDescritorUpdates];
 	IGPUDescriptorSet::SWriteDescriptorSet writes[MaxDescritorUpdates];
 
@@ -1079,13 +1147,20 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, core::s
 		setImageInfo(infos+3,asset::EIL_GENERAL,core::smart_refctd_ptr(m_accumulation));
 		setImageInfo(infos+6,asset::EIL_GENERAL,core::smart_refctd_ptr(m_albedoAcc));
 		setImageInfo(infos+7,asset::EIL_GENERAL,core::smart_refctd_ptr(m_normalAcc));
+
+		// envmap
+		setImageInfo(infos+8,asset::EIL_GENERAL,core::smart_refctd_ptr(m_envmap));
+		ISampler::SParams samplerParams = { ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_FLOAT_OPAQUE_BLACK, ISampler::ETF_LINEAR, ISampler::ETF_LINEAR, ISampler::ESMM_LINEAR, 0u, false, ECO_ALWAYS };
+		infos[8].image.sampler = m_driver->createGPUSampler(samplerParams);
+		infos[8].image.imageLayout = EIL_SHADER_READ_ONLY_OPTIMAL;
+
 		createEmptyInteropBufferAndSetUpInfo(infos+4,m_rayBuffer[0],raygenBufferSize);
 		setBufferInfo(infos+5,m_rayCountBuffer);
 			
 		for (auto i=0u; i<2u; i++)
 			m_commonRaytracingDS[i] = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_commonRaytracingDSLayout));
 
-		constexpr auto descriptorUpdateCount = 8u;
+		constexpr auto descriptorUpdateCount = 9u;
 		setDstSetAndDescTypesOnWrites(m_commonRaytracingDS[0].get(),writes,infos,{
 			EDT_UNIFORM_BUFFER,
 			EDT_STORAGE_IMAGE,
@@ -1094,7 +1169,8 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, core::s
 			EDT_STORAGE_BUFFER,
 			EDT_STORAGE_BUFFER,
 			EDT_STORAGE_IMAGE,
-			EDT_STORAGE_IMAGE
+			EDT_STORAGE_IMAGE,
+			EDT_COMBINED_IMAGE_SAMPLER,
 		});
 		m_driver->updateDescriptorSets(descriptorUpdateCount,writes,0u,nullptr);
 		// set up second DS
@@ -1267,6 +1343,7 @@ void Renderer::deinitScreenSizedResources()
 	m_accumulation = m_tonemapOutput = nullptr;
 	m_albedoAcc = m_albedoRslv = nullptr;
 	m_normalAcc = m_normalRslv = nullptr;
+
 	glFinish();
 	
 	// wait for OpenCL to finish
@@ -1408,7 +1485,8 @@ bool Renderer::render(nbl::ITimer* timer)
 		}(m_framesDispatched++);
 		m_raytraceCommonData.rcpFramesDispatched = 1.f/float(m_framesDispatched);
 		m_raytraceCommonData.textureFootprintFactor = core::inversesqrt(core::min<float>(m_framesDispatched,Renderer::AntiAliasingSequenceLength));
-
+		if(!modifiedViewProj.getInverseTransform(m_raytraceCommonData.viewProjMatrixInverse))
+			std::cout << "Couldn't calculate viewProjection matrix's inverse. something is wrong." << std::endl;
 		// cull batches
 		m_driver->bindComputePipeline(m_cullPipeline.get());
 		{
@@ -1416,7 +1494,7 @@ bool Renderer::render(nbl::ITimer* timer)
 
 			IGPUDescriptorSet* descriptorSets[] = { m_globalBackendDataDS.get(),m_cullDS.get() };
 			m_driver->bindDescriptorSets(EPBP_COMPUTE,_cullPipelineLayout,0u,2u,descriptorSets,nullptr);
-		
+			
 			m_cullPushConstants.viewProjMatrix = modifiedViewProj;
 			m_cullPushConstants.viewProjDeterminant = core::determinant(modifiedViewProj);
 			m_driver->pushConstants(_cullPipelineLayout,ISpecializedShader::ESS_COMPUTE,0u,sizeof(CullShaderData_t),&m_cullPushConstants);

@@ -28,6 +28,9 @@ void main()
 		const uvec2 outPixelLocation = gl_GlobalInvocationID.xy;
 		const uvec4 visBuffer = texelFetch(frontFacingTriangleIDDrawID_unorm16Bary_dBarydScreenHalf2x2,ivec2(outPixelLocation),0);
 
+		// TODO(Erfan): Get Initial RayDirection from ViewProjectionMatrix and NDC (because first pass is visibility buffer)
+		// cummon.viewProjMatrixInverse
+	
 		Contribution contrib;
 		const bool hit = visBuffer[0]!=0xffffffffu;
 		if (hit)
