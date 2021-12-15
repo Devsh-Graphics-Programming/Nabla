@@ -1687,7 +1687,7 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 
 			auto getConvertedImageView = [&](core::smart_refctd_ptr<ICPUImage> image, const E_FORMAT& outFormat)
 			{
-				using CONVERSION_FILTER = CConvertFormatImageFilter<EF_UNKNOWN, EF_UNKNOWN, false, true, asset::CPrecomputedDither>;
+				using CONVERSION_FILTER = CConvertFormatImageFilter<EF_UNKNOWN,EF_UNKNOWN,asset::CPrecomputedDither,void,true>;
 
 				core::smart_refctd_ptr<ICPUImage> newConvertedImage;
 				{
