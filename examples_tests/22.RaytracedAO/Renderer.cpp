@@ -623,9 +623,24 @@ void Renderer::initSceneNonAreaLights(Renderer::InitializationData& initData)
 		//initData.lights.push_back(light);
 	}
 
-	// if envmap texture is empty, create one with all values set to '_envmapBaseColor'
-	if(!m_envmap)
+	if(m_globalMeta->m_global.m_envMapImage)
 	{
+		ICPUImageView::SCreationParams viewParams;
+		viewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
+		viewParams.image = m_globalMeta->m_global.m_envMapImage;
+		viewParams.format = viewParams.image->getCreationParameters().format;
+		viewParams.viewType = IImageView<ICPUImage>::ET_2D;
+		viewParams.subresourceRange.baseArrayLayer = 0u;
+		viewParams.subresourceRange.layerCount = 1u;
+		viewParams.subresourceRange.baseMipLevel = 0u;
+		viewParams.subresourceRange.levelCount = 1u;
+
+		auto cpuEnvmapImageView = ICPUImageView::create(std::move(viewParams));
+		m_envmap = m_driver->getGPUObjectsFromAssets(&cpuEnvmapImageView.get(), &cpuEnvmapImageView.get() + 1u)->front();
+	}
+	else if(!m_envmap)
+	{
+		// if envmap texture is not loaded in mitsuba loader, create one with all values set to '_envmapBaseColor'
 		// Create CPUImageView
 		uint32_t width = 1u;
 		uint32_t height = 1u;

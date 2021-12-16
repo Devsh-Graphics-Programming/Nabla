@@ -95,6 +95,7 @@ class CMitsubaMetadata : public asset::IAssetMetadata
 				core::vector<CElementEmitter> m_emitters;
 				core::smart_refctd_ptr<asset::ICPUVirtualTexture> m_VT;
 				core::smart_refctd_ptr<asset::ICPUDescriptorSet> m_ds0;
+				core::smart_refctd_ptr<asset::ICPUImage> m_envMapImage;
 				//has to go after #version and before required user-provided descriptors and functions
 				std::string m_materialCompilerGLSL_declarations;
 				//has to go after required user-provided descriptors and functions and before the rest of shader (especially entry point function)
@@ -130,7 +131,6 @@ class CMitsubaMetadata : public asset::IAssetMetadata
 		core::smart_refctd_dynamic_array<asset::IRenderpassIndependentPipelineMetadata::ShaderInputSemantic> m_semanticStorage;
 		CRenderpassIndependentPipeline* m_metaPplnStorageIt;
 
-		core::smart_refctd_ptr<asset::ICPUImage> m_envMapImage;
 		meta_container_t<CMesh> m_metaMeshStorage;
 		core::smart_refctd_dynamic_array<CMesh::SInstance> m_metaMeshInstanceStorage;
 		core::smart_refctd_dynamic_array<CMesh::SInstanceAuxilaryData> m_metaMeshInstanceAuxStorage;
