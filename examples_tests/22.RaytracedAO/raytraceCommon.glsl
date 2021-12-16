@@ -378,10 +378,7 @@ vec2 SampleSphericalMap(vec3 v)
 
 void Contribution_initMiss(out Contribution contrib)
 {
-	// TODO: Erfan sample envmap with `-normalizedV` here, but remember to compute normalizedV above `if (hit)` in raygen and compute it from NDC + inverseViewProj matrix
-	
-	// contrib.color = staticViewData.envmapBaseColor; // TODO: fold the constant into the envmap
-	vec2 uv = vec2(0,0);
+    vec2 uv = SampleSphericalMap(-normalizedV);
 	contrib.color = textureLod(envMap, uv, 0.0).rgb;
 
 	// could do some other normalization factor, whats important is that miss albedo looks somewhat like the HDR environment emitter, albeit scaled down
