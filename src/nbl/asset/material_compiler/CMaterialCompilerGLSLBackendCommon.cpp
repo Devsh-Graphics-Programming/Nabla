@@ -1105,6 +1105,7 @@ std::string CMaterialCompilerGLSLBackendCommon::genPreprocDefinitions(const resu
 	if (_res.NDFs.size()==1ull)
 		defs += "\n#define ONLY_ONE_NDF";
 
+	// TODO: dynamically size this?
 	defs += "\n#define sizeof_bsdf_data " + std::to_string((sizeof(instr_stream::SBSDFUnion)+instr_stream::sizeof_uvec4-1u)/instr_stream::sizeof_uvec4);
 	
 	if (_generatorChoiceStream!=EGST_ABSENT)

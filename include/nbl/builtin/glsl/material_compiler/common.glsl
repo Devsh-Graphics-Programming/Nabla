@@ -14,6 +14,7 @@
 #include <nbl/builtin/glsl/math/functions.glsl>
 #include <nbl/builtin/glsl/format/decode.glsl>
 
+// this all all the things we can precompute agnostic of the light sample
 nbl_glsl_MC_precomputed_t nbl_glsl_MC_precomputeData(in bool frontface)
 {
 	nbl_glsl_MC_precomputed_t p;
@@ -29,6 +30,8 @@ float nbl_glsl_MC_colorToScalar(in vec3 color)
 	return dot(color, NBL_GLSL_MC_CIE_XYZ_Luma_Y_coeffs);
 }
 
+// Instruction Methods
+// RnP = Remainder and PDF
 uint nbl_glsl_MC_instr_getOffsetIntoRnPStream(in nbl_glsl_MC_instr_t instr)
 {
 	return bitfieldExtract(instr.y, int(INSTR_OFFSET_INTO_REMANDPDF_STREAM_SHIFT-32u), int(INSTR_OFFSET_INTO_REMANDPDF_STREAM_WIDTH));
@@ -39,6 +42,8 @@ uint nbl_glsl_MC_instr_getOpcode(in nbl_glsl_MC_instr_t instr)
 }
 uint nbl_glsl_MC_instr_getBSDFbufOffset(in nbl_glsl_MC_instr_t instr)
 {
+	// if we allowed for variable size (or very padded) instructions, we wouldnt need to fetch bsdf data from offset
+	// https://github.com/Devsh-Graphics-Programming/Nabla/issues/287
 	return (instr.x>>INSTR_BSDF_BUF_OFFSET_SHIFT) & INSTR_BSDF_BUF_OFFSET_MASK;
 }
 uint nbl_glsl_MC_instr_getNDF(in nbl_glsl_MC_instr_t instr)
@@ -50,6 +55,7 @@ uint nbl_glsl_MC_instr_getRightJump(in nbl_glsl_MC_instr_t instr)
 	return bitfieldExtract(instr.y, int(INSTR_RIGHT_JUMP_SHIFT-32u), int(INSTR_RIGHT_JUMP_WIDTH));
 }
 
+// BSDFs can have at most 2 parameters come from textures
 bool nbl_glsl_MC_instr_get1stParamTexPresence(in nbl_glsl_MC_instr_t instr)
 {
 #if defined(PARAM1_NEVER_TEX)
@@ -71,6 +77,7 @@ bool nbl_glsl_MC_instr_get2ndParamTexPresence(in nbl_glsl_MC_instr_t instr)
 #endif
 }
 
+// some texture parameters are mutually exclusive
 bool nbl_glsl_MC_instr_params_getAlphaUTexPresence(in nbl_glsl_MC_instr_t instr)
 {
 	return nbl_glsl_MC_instr_get1stParamTexPresence(instr);
@@ -96,17 +103,20 @@ bool nbl_glsl_MC_instr_getWeightTexPresence(in nbl_glsl_MC_instr_t instr)
 	return nbl_glsl_MC_instr_get1stParamTexPresence(instr);
 }
 
-//returns: x=dst, y=src1, z=src2
-//works with tex prefetch instructions as well (x=reg0,y=reg1,z=reg2)
+// returns: x=dst, y=src1, z=src2
+// works with tex prefetch instructions as well (x=reg0,y=reg1,z=reg2)
 uvec3 nbl_glsl_MC_instr_decodeRegisters(in nbl_glsl_MC_instr_t instr)
 {
 	uvec3 regs = instr.yyy >> (uvec3(INSTR_REG_DST_SHIFT,INSTR_REG_SRC1_SHIFT,INSTR_REG_SRC2_SHIFT)-32u);
 	return regs & uvec3(INSTR_REG_MASK);
 }
+// TODO: Name mange the defines
 #define REG_DST(r)	(r).x
 #define REG_SRC1(r)	(r).y
 #define REG_SRC2(r)	(r).z
 
+// if we allowed for variable size (or very padded) instructions, we wouldnt need to fetch bsdf data from offset
+// https://github.com/Devsh-Graphics-Programming/Nabla/issues/287
 nbl_glsl_MC_bsdf_data_t nbl_glsl_MC_fetchBSDFDataForInstr(in nbl_glsl_MC_instr_t instr)
 {
 	uint ix = nbl_glsl_MC_instr_getBSDFbufOffset(instr);
@@ -118,13 +128,13 @@ uint nbl_glsl_MC_prefetch_instr_getRegCount(in nbl_glsl_MC_prefetch_instr_t inst
 	uint dword4 = instr.w;
 	return bitfieldExtract(dword4, PREFETCH_INSTR_REG_CNT_SHIFT, PREFETCH_INSTR_REG_CNT_WIDTH);
 }
-
 uint nbl_glsl_MC_prefetch_instr_getDstReg(in nbl_glsl_MC_prefetch_instr_t instr)
 {
 	uint dword4 = instr.w;
 	return bitfieldExtract(dword4, PREFETCH_INSTR_DST_REG_SHIFT, PREFETCH_INSTR_DST_REG_WIDTH);
 }
 
+// opcode methods
 bool nbl_glsl_MC_op_isBRDF(in uint op)
 {
 	return op<=OP_MAX_BRDF;
@@ -204,90 +214,28 @@ bool nbl_glsl_MC_op_isDiffuse(in uint op)
 #include <nbl/builtin/glsl/bump_mapping/utils.glsl>
 #endif
 
-//nbl_glsl_BSDFAnisotropicParams currBSDFParams;
+// current interaction is a global (for now I guess)
 nbl_glsl_MC_interaction_t currInteraction;
+// methods to update the global
+void nbl_glsl_MC_setCurrInteraction(in vec3 N, in vec3 V)
+{
+	nbl_glsl_IsotropicViewSurfaceInteraction interaction = nbl_glsl_calcSurfaceInteractionFromViewVector(V, N);
+	currInteraction.inner = nbl_glsl_calcAnisotropicInteraction(interaction);
+	nbl_glsl_MC_finalizeInteraction(currInteraction);
+}
+void nbl_glsl_MC_setCurrInteraction(in nbl_glsl_MC_precomputed_t precomp)
+{
+	nbl_glsl_MC_setCurrInteraction(precomp.frontface ? precomp.N : -precomp.N, precomp.V);
+}
+void nbl_glsl_MC_updateCurrInteraction(in nbl_glsl_MC_precomputed_t precomp, in vec3 N)
+{
+	// precomputed normals already have correct orientation
+	nbl_glsl_MC_setCurrInteraction(N, precomp.V);
+}
+
+// virtual registers
 nbl_glsl_MC_reg_t registers[REG_COUNT];
-
-void nbl_glsl_MC_updateLightSampleAfterNormalChange(inout nbl_glsl_LightSample out_s)
-{
-	out_s.TdotL = dot(currInteraction.inner.T, out_s.L);
-	out_s.BdotL = dot(currInteraction.inner.B, out_s.L);
-	out_s.NdotL = dot(currInteraction.inner.isotropic.N, out_s.L);
-	out_s.NdotL2 = out_s.NdotL*out_s.NdotL;
-}
-void nbl_glsl_MC_updateMicrofacetCacheAfterNormalChange(in nbl_glsl_LightSample s, inout nbl_glsl_MC_microfacet_t out_microfacet)
-{
-	const float NdotL = s.NdotL;
-	const float NdotV = currInteraction.inner.isotropic.NdotV;
-
-	const float LplusV_rcplen = inversesqrt(2.0 + 2.0 * s.VdotL);
-
-	out_microfacet.inner.isotropic.NdotH = (NdotL + NdotV) * LplusV_rcplen;
-	out_microfacet.inner.isotropic.NdotH2 = out_microfacet.inner.isotropic.NdotH * out_microfacet.inner.isotropic.NdotH;
-
-	out_microfacet.inner.TdotH = (currInteraction.inner.TdotV + s.TdotL) * LplusV_rcplen;
-	out_microfacet.inner.BdotH = (currInteraction.inner.BdotV + s.BdotL) * LplusV_rcplen;
-
-	nbl_glsl_MC_finalizeMicrofacet(out_microfacet);
-}
-
-vec3 nbl_glsl_MC_textureOrRGBconst(in uvec2 data, in bool texPresenceFlag)
-{
-	return
-#ifdef TEX_PREFETCH_STREAM
-	texPresenceFlag ?
-		uintBitsToFloat(uvec3(registers[data.x],registers[data.x+1u],registers[data.x+2u])) :
-#endif
-		nbl_glsl_decodeRGB19E7(data);
-}
-
-vec3 nbl_glsl_MC_bsdf_data_getParam1(in nbl_glsl_MC_bsdf_data_t data, in bool texPresence)
-{
-#ifdef PARAM1_ALWAYS_SAME_VALUE
-	return PARAM1_VALUE;
-#else
-	return nbl_glsl_MC_textureOrRGBconst(data.data[0].xy, texPresence);
-#endif
-}
-vec3 nbl_glsl_MC_bsdf_data_getParam2(in nbl_glsl_MC_bsdf_data_t data, in bool texPresence)
-{
-#ifdef PARAM2_ALWAYS_SAME_VALUE
-	return PARAM2_VALUE;
-#else
-	return nbl_glsl_MC_textureOrRGBconst(data.data[0].zw, texPresence);
-#endif
-}
-
-bvec2 nbl_glsl_MC_instr_getTexPresence(in nbl_glsl_MC_instr_t i)
-{
-	return bvec2(
-		nbl_glsl_MC_instr_get1stParamTexPresence(i),
-		nbl_glsl_MC_instr_get2ndParamTexPresence(i)
-	);
-}
-nbl_glsl_MC_params_t nbl_glsl_MC_instr_getParameters(in nbl_glsl_MC_instr_t i, in nbl_glsl_MC_bsdf_data_t data)
-{
-	nbl_glsl_MC_params_t p;
-	bvec2 presence = nbl_glsl_MC_instr_getTexPresence(i);
-	//speculatively always read RGB
-	p[0] = nbl_glsl_MC_bsdf_data_getParam1(data, presence.x);
-	p[1] = nbl_glsl_MC_bsdf_data_getParam2(data, presence.y);
-
-	return p;
-}
-
-//this should thought better
-mat2x3 nbl_glsl_MC_bsdf_data_decodeIoR(in nbl_glsl_MC_bsdf_data_t data, in uint op)
-{
-	mat2x3 ior = mat2x3(0.0);
-	ior[0] = nbl_glsl_decodeRGB19E7(data.data[1].xy);
-#ifdef OP_CONDUCTOR
-	ior[1] = (op == OP_CONDUCTOR) ? nbl_glsl_decodeRGB19E7(data.data[1].zw) : vec3(0.0);
-#endif
-
-	return ior;
-}
-
+//
 void nbl_glsl_MC_writeReg(in uint n, in float v)
 {
 	registers[n] = floatBitsToUint(v);
@@ -329,7 +277,6 @@ vec4 nbl_glsl_MC_readReg4(in uint n)
 		nbl_glsl_MC_readReg3(n), nbl_glsl_MC_readReg1(n+3u)
 	);
 }
-
 mat2x4 nbl_glsl_MC_instr_fetchSrcRegs(in nbl_glsl_MC_instr_t i, in uvec3 regs)
 {
 	uvec3 r = regs;
@@ -344,20 +291,91 @@ mat2x4 nbl_glsl_MC_instr_fetchSrcRegs(in nbl_glsl_MC_instr_t i)
 	return nbl_glsl_MC_instr_fetchSrcRegs(i, r);
 }
 
-void nbl_glsl_MC_setCurrInteraction(in vec3 N, in vec3 V)
+// when we finally know (or generate) our light sample we can precompute the rest of the angles
+void nbl_glsl_MC_updateLightSampleAfterNormalChange(inout nbl_glsl_LightSample out_s)
 {
-	nbl_glsl_IsotropicViewSurfaceInteraction interaction = nbl_glsl_calcSurfaceInteractionFromViewVector(V, N);
-	currInteraction.inner = nbl_glsl_calcAnisotropicInteraction(interaction);
-	nbl_glsl_MC_finalizeInteraction(currInteraction);
+	out_s.TdotL = dot(currInteraction.inner.T, out_s.L);
+	out_s.BdotL = dot(currInteraction.inner.B, out_s.L);
+	out_s.NdotL = dot(currInteraction.inner.isotropic.N, out_s.L);
+	out_s.NdotL2 = out_s.NdotL*out_s.NdotL;
 }
-void nbl_glsl_MC_setCurrInteraction(in nbl_glsl_MC_precomputed_t precomp)
+// not everything needs to be recomputed when `N` changes, only most things ;)
+void nbl_glsl_MC_updateMicrofacetCacheAfterNormalChange(in nbl_glsl_LightSample s, inout nbl_glsl_MC_microfacet_t out_microfacet)
 {
-	nbl_glsl_MC_setCurrInteraction(precomp.frontface ? precomp.N : -precomp.N, precomp.V);
+	const float NdotL = s.NdotL;
+	const float NdotV = currInteraction.inner.isotropic.NdotV;
+
+	const float LplusV_rcplen = inversesqrt(2.0 + 2.0 * s.VdotL);
+
+	out_microfacet.inner.isotropic.NdotH = (NdotL + NdotV) * LplusV_rcplen;
+	out_microfacet.inner.isotropic.NdotH2 = out_microfacet.inner.isotropic.NdotH * out_microfacet.inner.isotropic.NdotH;
+
+	out_microfacet.inner.TdotH = (currInteraction.inner.TdotV + s.TdotL) * LplusV_rcplen;
+	out_microfacet.inner.BdotH = (currInteraction.inner.BdotV + s.BdotL) * LplusV_rcplen;
+
+	nbl_glsl_MC_finalizeMicrofacet(out_microfacet);
 }
-void nbl_glsl_MC_updateCurrInteraction(in nbl_glsl_MC_precomputed_t precomp, in vec3 N)
+
+// most parameters can be constant or come from a texture, we have a clever system where a single bitflag tells us
+// whether the 64bit value is a RGB19E7 constant or an offset to registers into which a texel was prefetched
+vec3 nbl_glsl_MC_textureOrRGBconst(in uvec2 data, in bool texPresenceFlag)
 {
-	// precomputed normals already have correct orientation
-	nbl_glsl_MC_setCurrInteraction(N, precomp.V);
+	return
+#ifdef TEX_PREFETCH_STREAM
+	texPresenceFlag ?
+		uintBitsToFloat(uvec3(registers[data.x],registers[data.x+1u],registers[data.x+2u])) :
+#endif
+		nbl_glsl_decodeRGB19E7(data);
+}
+
+vec3 nbl_glsl_MC_bsdf_data_getParam1(in nbl_glsl_MC_bsdf_data_t data, in bool texPresence)
+{
+#ifdef PARAM1_ALWAYS_SAME_VALUE
+	return PARAM1_VALUE;
+#else
+	return nbl_glsl_MC_textureOrRGBconst(data.data[0].xy, texPresence);
+#endif
+}
+vec3 nbl_glsl_MC_bsdf_data_getParam2(in nbl_glsl_MC_bsdf_data_t data, in bool texPresence)
+{
+#ifdef PARAM2_ALWAYS_SAME_VALUE
+	return PARAM2_VALUE;
+#else
+	return nbl_glsl_MC_textureOrRGBconst(data.data[0].zw, texPresence);
+#endif
+}
+
+// tells us if a particular parameter is fetched from a register or decoded
+bvec2 nbl_glsl_MC_instr_getTexPresence(in nbl_glsl_MC_instr_t i)
+{
+	return bvec2(
+		nbl_glsl_MC_instr_get1stParamTexPresence(i),
+		nbl_glsl_MC_instr_get2ndParamTexPresence(i)
+	);
+}
+nbl_glsl_MC_params_t nbl_glsl_MC_instr_getParameters(in nbl_glsl_MC_instr_t i, in nbl_glsl_MC_bsdf_data_t data)
+{
+	nbl_glsl_MC_params_t p;
+	bvec2 presence = nbl_glsl_MC_instr_getTexPresence(i);
+	// speculatively always read RGB
+	// TODO: maybe with variable length instructions (embedded BSDF params) we could avoid reading more uvec2 than needed 
+	p[0] = nbl_glsl_MC_bsdf_data_getParam1(data, presence.x);
+	p[1] = nbl_glsl_MC_bsdf_data_getParam2(data, presence.y);
+
+	return p;
+}
+
+// IoR is just a 3rd and 4th parameter
+// TODO: Open question, is it possible to have just an IoR param wihout the first 2?
+mat2x3 nbl_glsl_MC_bsdf_data_decodeIoR(in nbl_glsl_MC_bsdf_data_t data, in uint op)
+{
+	mat2x3 ior = mat2x3(0.0);
+	ior[0] = nbl_glsl_decodeRGB19E7(data.data[1].xy);
+#ifdef OP_CONDUCTOR
+	ior[1] = (op == OP_CONDUCTOR) ? nbl_glsl_decodeRGB19E7(data.data[1].zw) : vec3(0.0);
+#endif
+
+	return ior;
 }
 
 //clamping alpha to min MIN_ALPHA because we're using microfacet BxDFs for deltas as well (and NDFs often end up NaN when given alpha=0) because of less deivergence
@@ -518,6 +536,7 @@ void nbl_glsl_MC_runNormalPrecompStream(in nbl_glsl_MC_instr_stream_t stream, in
 	{
 		nbl_glsl_MC_instr_t instr = nbl_glsl_MC_fetchInstr(stream.offset+i);
 
+		// TODO: shouldn't need to read BSDF data for this instruction
 		nbl_glsl_MC_bsdf_data_t bsdf_data = nbl_glsl_MC_fetchBSDFDataForInstr(instr);
 
 		uint srcreg = bsdf_data.data[0].x;
