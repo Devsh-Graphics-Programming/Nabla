@@ -134,25 +134,28 @@ Contact ***[@devshgraphicsprogramming](https://github.com/devshgraphicsprogrammi
 
 ## Main Features
 
+- **Thread safe and context pollution safe OpenGL**
 - **Asset management pipeline**
 - **Automatic pipeline layout creation**
 - **Shader introspection**
-- **Using SPIR-V shaders in OpenGL**
+- **Using SPIR-V shaders in OpenGL and ES**
 - **Libraries of GLSL shader functions**
 - **Compute shaders**
 - **Virtual Texturing**
+- **Virtual Geometry (programmable and non programmble fetching) with triangle batching**
 - **CUDA and OpenGL interop**
 - **OpenCL and OpenGL interop**
-- **CPU image filtering**
+- **CPU asset manipulation (image filtering, image format transcoding, mesh optimization and manipulation)**
 
 ## Main Delivered Extensions
 
-- **Mitsuba scene loader (auto-generated shaders)** 
+- **Auto Exposure**
 - **Tonemapper**
+- **Mitsuba scene loader (auto-generated shaders)** 
 - **Fastest blur on the planet**
-- **Bullet physics beginner integration** 
+- **Radeon rays interop** 
 - **OptiX interop**
-- **Radeon rays interop**
+- **Bullet physics beginner integration**
 
 ## Platforms
 
@@ -160,7 +163,7 @@ Contact ***[@devshgraphicsprogramming](https://github.com/devshgraphicsprogrammi
 
 - [x] **Linux**
 
-- [ ] **Android 7.0 +**
+- [ ] **Android 7.0 +** (WIP)
 
 - [ ] **Mac OS**
 

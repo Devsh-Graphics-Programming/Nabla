@@ -1,20 +1,84 @@
 #version 430 core
-#include "raytraceCommon.glsl"
+#extension GL_EXT_shader_16bit_storage : require
+
+#include "raytraceCommon.h"
+layout(local_size_x = WORKGROUP_DIM, local_size_y = WORKGROUP_DIM) in;
+
+#include "virtualGeometry.glsl"
+
+// lights
+layout(set = 1, binding = 4, std430) restrict readonly buffer CumulativeLightPDF
+{
+	uint lightCDF[];
+};
+layout(set = 1, binding = 5, std430, row_major) restrict readonly buffer Lights
+{
+	SLight light[];
+};
+layout(set = 1, binding = 6, std430, row_major) restrict readonly buffer LightRadiances
+{
+	uvec2 lightRadiance[]; // Watts / steriadian / steradian in rgb19e7
+};
+
+
+layout(set = 2, binding = 0, row_major) uniform StaticViewData
+{
+	StaticViewData_t staticViewData;
+};
+layout(set = 2, binding = 1, rg32ui) restrict uniform uimage2DArray accumulation;
+#include "bin/ray_count_declaration.glsl"
+#include <nbl/builtin/glsl/ext/RadeonRays/ray.glsl>
+layout(set = 2, binding = 2, std430) restrict buffer Rays
+{
+	nbl_glsl_ext_RadeonRays_ray rays[];
+};
+#include <nbl/builtin/glsl/ext/RadeonRays/intersection.glsl>
+layout(set = 2, binding = 3, std430) restrict buffer Queries
+{
+	nbl_glsl_ext_RadeonRays_Intersection intersections[];
+};
+/*
+#include <nbl/builtin/glsl/utils/indirect_commands.glsl>
+layout(set = 2, binding = 4) restrict coherent buffer RayCount
+{
+	nbl_glsl_DispatchIndirectCommand_t params;
+} traceIndirect[2];
+*/
+
+#include <nbl/builtin/glsl/format/decode.glsl>
+#include <nbl/builtin/glsl/format/encode.glsl>
+vec3 fetchAccumulation(in uvec3 coord)
+{
+	const uvec2 data = imageLoad(accumulation,ivec3(coord)).rg;
+	return nbl_glsl_decodeRGB19E7(data);
+}
+void storeAccumulation(in vec3 color, in uvec3 coord)
+{
+	const uvec2 data = nbl_glsl_encodeRGB19E7(color);
+	imageStore(accumulation,ivec3(coord),uvec4(data,0u,0u));
+}
+
 
 // for per pixel inputs
-#include <nbl/builtin/glsl/utils/normal_decode.glsl>
 #include <nbl/builtin/glsl/random/xoroshiro.glsl>
 #include <nbl/builtin/glsl/utils/transform.glsl>
 
 // rng
-layout(set = 2, binding = 0) uniform usamplerBuffer sampleSequence;
-layout(set = 2, binding = 1) uniform usampler2D scramblebuf;
+layout(set = 3, binding = 0) uniform usamplerBuffer sampleSequence;
+layout(set = 3, binding = 1) uniform usampler2D scramblebuf;
 // vis buffer
-layout(set = 2, binding = 2) uniform sampler2D depthbuf;
-layout(set = 2, binding = 3) uniform usampler2D frontFacing_Object_Triangle;
-layout(set = 2, binding = 4) uniform sampler2D encodedNormal;
-layout(set = 2, binding = 5) uniform sampler2D uvCoords;
-//layout(set = 2, binding = 6) uniform sampler2D barycentricDerivatives; // in the future we shall compute them from triangle vertex positions
+layout(set = 3, binding = 2) uniform sampler2D depthbuf;
+layout(set = 3, binding = 3) uniform usampler2D frontFacingTriangleIDDrawID_unorm16Bary_dBarydScreenHalf2x2; // should it be called backfacing or frontfacing?
+layout(set = 3, binding = 4) readonly restrict buffer ExtraBatchData
+{
+	uint firstIndex[];
+} extraBatchData;
+
+
+layout(push_constant, row_major) uniform PushConstants
+{
+	RaytraceShaderCommonData_t cummon;
+} pc;
 
 
 #include "bin/material_declarations.glsl"
@@ -29,54 +93,21 @@ vec3 nbl_glsl_MC_getNormalizedWorldSpaceN()
 {
 	return normalizedN;
 }
-vec3 worldPosition;
-mat2x3 dPosdScreen = mat2x3(vec3(0.0),vec3(0.0)); // TODO
-mat2x3 nbl_glsl_MC_getdPos()
+mat2x3 dPdBary;
+#ifdef TEX_PREFETCH_STREAM
+mat2x3 nbl_glsl_perturbNormal_dPdSomething()
 {
-	return dPosdScreen;
+	return dPdBary;
 }
+mat2 dUVdBary;
+mat2 nbl_glsl_perturbNormal_dUVdSomething()
+{
+    return dUVdBary;
+}
+#endif
 #define _NBL_USER_PROVIDED_MATERIAL_COMPILER_GLSL_BACKEND_FUNCTIONS_
 #include <nbl/builtin/glsl/material_compiler/common.glsl>
 
-
-/*
-float maxAbs1(in float val) 
-{
-	return abs(val);
-}
-float maxAbs2(in vec2 val)
-{
-	vec2 v = abs(val);
-	return max(v.x,v.y);
-}
-float maxAbs3(in vec3 val)
-{
-	vec3 v = abs(val);
-	return max(max(v.x,v.y),v.z);
-}
-
-float GET_MAGNITUDE(in float val)
-{
-	float x = abs(val);
-	return uintBitsToFloat(floatBitsToUint(x)&2139095040u);
-}
-
-float ULP1(in float val, in uint accuracy)
-{
-	float x = abs(val);
-	return uintBitsToFloat(floatBitsToUint(x) + accuracy)-x;
-}
-float ULP2(in vec2 val, in uint accuracy)
-{
-	float x = maxAbs2(val);
-	return uintBitsToFloat(floatBitsToUint(x) + accuracy)-x;
-}
-float ULP3(in vec3 val, in uint accuracy)
-{
-	float x = maxAbs3(val);
-	return uintBitsToFloat(floatBitsToUint(x) + accuracy)-x;
-}
-*/
 
 vec3 rand3d(inout nbl_glsl_xoroshiro64star_state_t scramble_state, in uint _sample)
 {
@@ -98,140 +129,319 @@ void gen_sample_ray(
 	float pdf;
 	nbl_glsl_LightSample s;
 	throughput = nbl_glsl_MC_runGenerateAndRemainderStream(precomp, gcs, rnps, rand, pdf, s);
-	throughput /= float(staticViewData.samplesPerPixelPerDispatch);
 
 	direction = s.L;
 }
 
+uint get_path_vertex_depth()
+{
+	return bitfieldExtract(pc.cummon.samplesComputed_depth,16,16);
+}
+
+bool get_sample_job()
+{
+	const bool rayContinuation = get_path_vertex_depth()!=1u;
+/**
+	if (rayContinuation)
+	{
+		return gl_GlobalInvocationID.x<raycount;
+	}
+	else**/
+		return all(lessThan(gl_GlobalInvocationID.xy,staticViewData.imageDimensions));
+}
+
+
+bool record_emission_common(out vec3 acc, in uvec3 accumulationLocation, vec3 emissive, in bool later_path_vertices)
+{	
+	acc = vec3(0.0);
+	const bool notFirstFrame = pc.cummon.rcpFramesDispatched!=1.f;
+	const bool needToReadAccumulation = later_path_vertices||notFirstFrame;
+	if (needToReadAccumulation)
+		acc = fetchAccumulation(accumulationLocation);
+
+	if (!later_path_vertices)
+		emissive -= acc;
+	emissive *= pc.cummon.rcpFramesDispatched;
+	
+	const bool anyChange = any(greaterThan(abs(emissive),vec3(FLT_MIN)));
+	acc += emissive;
+	return anyChange || !needToReadAccumulation;
+}
+
+bool record_raster_emission(out vec3 acc, in uvec3 accumulationLocation, vec3 emissive)
+{	
+	emissive *= float(staticViewData.samplesPerPixelPerDispatch);
+	const bool retval = record_emission_common(acc,accumulationLocation,emissive,false);
+	/*
+	if (pc.cummon.rcpFramesDispatched!=1.f)
+		TODO: plop the accumulation into autoexposure histogram
+	*/
+	return retval;
+}
+
+bool record_raytrace_emission(out vec3 acc, in uvec3 accumulationLocation, vec3 emissive)
+{
+	const bool later_path_vertices = accumulationLocation.z==0u||get_path_vertex_depth()!=2u;
+	return record_emission_common(acc,accumulationLocation,emissive,later_path_vertices);
+}
+
+float packOutPixelLocation(in uvec2 outPixelLocation)
+{
+	return uintBitsToFloat(bitfieldInsert(outPixelLocation.x,outPixelLocation.y,16,16));
+}
+uvec2 unpackOutPixelLocation(in float packed)
+{
+	const uint asUint = floatBitsToUint(packed);
+	return uvec2(asUint&0xffffu,asUint>>16u);
+}
+
+
 void main()
 {
-	uvec2 outputLocation = gl_GlobalInvocationID.xy;
-	if (all(lessThan(outputLocation,staticViewData.imageDimensions)))
+	if (get_sample_job())
 	{
-		ivec2 pixelCoord = ivec2(outputLocation);
-		float revdepth = texelFetch(depthbuf,pixelCoord,0).r;
+		const bool rayContinuation = get_path_vertex_depth()!=1u;
+			// TODO: support indirect dispatches of progressively less rays (REDO this)
+			const uint outputID = gl_GlobalInvocationID.y*staticViewData.samplesPerRowPerDispatch+
+			gl_GlobalInvocationID.x*staticViewData.samplesPerPixelPerDispatch+gl_GlobalInvocationID.z;
 
-		const uint outputID = outputLocation.y*staticViewData.samplesPerRowPerDispatch+outputLocation.x*staticViewData.samplesPerPixelPerDispatch;
+		const uint vertex_depth = get_path_vertex_depth();
+		const bool odd_depth = bool(vertex_depth&0x1u);
+		const uint read_ray_offset = odd_depth ? MAX_DISPATCHED_RAYS:0u;
+		const uint write_ray_offset = odd_depth ? 0u:MAX_DISPATCHED_RAYS;
 		
-		nbl_glsl_xoroshiro64star_state_t scramble_start_state; // this should get advanced for secondary rays by 3 or 4 iterations
-		
+		uvec2 outPixelLocation;
+		uint sampleID;
+		uint batchInstanceGUID;
+		bool hit;
+		vec3 throughput = vec3(0.0);
+		//
+		float revdepth;
+		if (rayContinuation) // read from ray query
+		{
+			batchInstanceGUID = intersections[read_ray_offset+outputID].shapeid;
+
+			const nbl_glsl_ext_RadeonRays_ray ray = rays[read_ray_offset+outputID];
+			outPixelLocation = unpackOutPixelLocation(ray.time);
+			throughput = vec3(
+				unpackHalf2x16(ray.useless_padding[0]).rg,
+				unpackHalf2x16(ray.useless_padding[1])[0]
+			);
+			sampleID = bitfieldExtract(rays[read_ray_offset+outputID].useless_padding[1],16,16);
+			normalizedV = -ray.direction;
+
+			const uint invalidID = 0x80000000u;
+			hit = batchInstanceGUID!=invalidID;
+		}
+		else // read from vis buffer
+		{
+			revdepth = texelFetch(depthbuf,ivec2(gl_GlobalInvocationID.xy),0).r;
+			outPixelLocation = gl_GlobalInvocationID.xy;
+
+			hit = revdepth>0.0;
+		}
+
+		vec3 emissive = staticViewData.envmapBaseColor;
+		// only needed for continuing or NEE eval
+		vec3 worldPosition,normal;
+		// only needed for continuing
+		nbl_glsl_MC_precomputed_t precomputed;
 		nbl_glsl_MC_instr_stream_t gcs;
 		nbl_glsl_MC_instr_stream_t rnps;
-		nbl_glsl_MC_precomputed_t precomputed;
-
-		const bool nonBackgroudPixel = revdepth>0.0;
-		vec3 emissive = staticViewData.envmapBaseColor;
-		if (nonBackgroudPixel)
-		{			
-			// vis buffer read
-			const uvec2 visBuffer = texelFetch(frontFacing_Object_Triangle,pixelCoord,0).rg;
-			// init scramble
-			scramble_start_state = texelFetch(scramblebuf,pixelCoord,0).rg;
-			// tmp gbuffer reads
-			const vec2 normalBuffer = texelFetch(encodedNormal,pixelCoord,0).rg;
-			const vec2 UV = texelFetch(uvCoords,pixelCoord,0).xy;
-			mat2 dUVdScreen = mat2(0.0,0.0,0.0,0.0);/*
-			mat2x3 dBarydScreen;/*
+		nbl_glsl_xoroshiro64star_state_t scramble_start_state;
+		if (hit)
+		{
+			uint triangleID;
+			bool frontfacing;
+			// is the rest needed for NEE / non continuation?
+			vec3 bary;
+			//vec3 worldPosition;
+			#ifdef TEX_PREFETCH_STREAM
+			mat2 dBarydScreen;
+			vec2 UV;
+			#endif
+			if (rayContinuation)
 			{
-				// TODO: future https://diaryofagraphicsprogrammer.blogspot.com/2018/03/triangle-visibility-buffer.html
-				vec4 data;// = texelFetch(barycentricDerivatives,pixelCoord,0);
-				dBarydScreen[0] = vec3(data.rg,-data.r-data.g);
-				dBarydScreen[1] = vec3(data.ba,-data.b-data.a);
-			}
-			dPosdScreen = mat3(vPos[0],vPos[1],vPos[2])*dBarydScreen;
-			*/
-			
-			// unproject
-			{
-				const vec3 NDC = vec3(vec2(outputLocation)*staticViewData.rcpPixelSize+staticViewData.rcpHalfPixelSize,1.0-revdepth);
+				triangleID = intersections[read_ray_offset+outputID].primid;
+				bary.xy = intersections[read_ray_offset+outputID].uvwt.xy;
+				intersections[read_ray_offset+outputID].shapeid = -1;
 				
-				vec4 tmp = nbl_glsl_pseudoMul4x4with3x1(pc.cummon.inverseMVP,NDC);
-				worldPosition = tmp.xyz/tmp.w;
-
-				const vec3 V = nbl_glsl_pseudoMul3x4with3x1(pc.cummon.ndcToV,NDC);
-				normalizedV = normalize(V);
-			}
-			
-			// decode vis buffer
-			{
-				const uint objectID = visBuffer[0]&0x7fffffffu;
-				const uint triangleID = visBuffer[1];
-				const bool frontfacing = objectID==visBuffer[0];
-
-				nbl_glsl_MC_oriented_material_t material = nbl_glsl_MC_material_data_t_getOriented(InstData.data[objectID].material,frontfacing);
-				
-				// use loaded data
-				emissive = nbl_glsl_MC_oriented_material_t_getEmissive(material);
-				gcs = nbl_glsl_MC_oriented_material_t_getGenChoiceStream(material);
-				rnps = nbl_glsl_MC_oriented_material_t_getRemAndPdfStream(material);
-				
-				// normally we'd use MeshPackerV2's vertex attribute data for this, but now we read from temporary GBuffer
-				const vec3 normal = nbl_glsl_NormalDecode_signedSpherical(normalBuffer);
-				normalizedN.x = dot(InstData.data[objectID].normalMatrixRow0,normal);
-				normalizedN.y = dot(InstData.data[objectID].normalMatrixRow1,normal);
-				normalizedN.z = dot(InstData.data[objectID].normalMatrixRow2,normal);
-				
-				// need to do this after we have world, V and N ready
-				precomputed = nbl_glsl_MC_precomputeData(frontfacing);
-
-				// prefetch textures and normals
 				#ifdef TEX_PREFETCH_STREAM
-					nbl_glsl_MC_runTexPrefetchStream(nbl_glsl_MC_oriented_material_t_getTexPrefetchStream(material), UV, dUVdScreen);
+				dBarydScreen = mat2(0.0); // TODO: Covariance Rendering
 				#endif
-				#ifdef NORM_PRECOMP_STREAM
-					nbl_glsl_MC_runNormalPrecompStream(nbl_glsl_MC_oriented_material_t_getNormalPrecompStream(material), dUVdScreen, precomputed);
-				#endif
-			}
-		}
-			
-		//
-		if (any(greaterThan(emissive,vec3(FLT_MIN))))
-		{
-			vec3 acc = emissive;
-			if (pc.cummon.rcpFramesDispatched<1.0)
-			{
-				acc /= float(pc.cummon.framesDispatched-1u);
-				acc += fetchAccumulation(pixelCoord);
-			}
-			storeAccumulation(acc,pixelCoord);
-		}
-#ifdef USE_OPTIX_DENOISER
-		// TODO: translate normal into float16_t buff
-#endif
-
-		for (uint i=0u; i<staticViewData.samplesPerPixelPerDispatch; i++)
-		{
-			vec3 direction;
-			float maxT;
-			vec4 throughput = vec4(0.0,0.0,0.0,-1.0); // -1 needs to be there to ensure no backface culling on rays
-
-			if (nonBackgroudPixel)
-			{
-				nbl_glsl_xoroshiro64star_state_t scramble_state = scramble_start_state;
-				const uint sampleID = pc.cummon.samplesComputedPerPixel+i;
-				gen_sample_ray(maxT,direction,throughput.rgb,scramble_state,sampleID,precomputed,gcs,rnps);
-			}
-			
-			// TODO: repack rays in smem for coalescing, or optimize this somehow
-			const uint realOutputID = outputID+i;
-			const bool validRay = any(greaterThan(throughput.rgb,vec3(FLT_MIN)));
-			if (validRay)
-			{
-				const float err = 1.0/64.0; // TODO: improve ray offsets
-				rays[realOutputID].origin = worldPosition+direction*err;
-				rays[realOutputID].maxT = max(maxT-err,0.0);
-				rays[realOutputID].direction = direction;
-				rays[realOutputID].mask = -1;
-				rays[realOutputID]._active = 1;
 			}
 			else
-			{
-				rays[realOutputID].maxT = 0.0;
-				rays[realOutputID].mask = 0;
-				rays[realOutputID]._active = 0;
+			{	
+				// vis buffer read
+				const uvec4 visBuffer = texelFetch(frontFacingTriangleIDDrawID_unorm16Bary_dBarydScreenHalf2x2,ivec2(gl_GlobalInvocationID.xy),0);
+				// unproject
+				{
+					const vec3 NDC = vec3(vec2(gl_GlobalInvocationID.xy)*staticViewData.rcpPixelSize+staticViewData.rcpHalfPixelSize,1.0-revdepth);
+				
+					vec4 tmp = nbl_glsl_pseudoMul4x4with3x1(pc.cummon.inverseMVP,NDC);
+					worldPosition = tmp.xyz/tmp.w;
+
+					const vec3 V = nbl_glsl_pseudoMul3x4with3x1(pc.cummon.ndcToV,NDC);
+					normalizedV = normalize(V);
+				}
+				// vis buffer decode
+				{
+					frontfacing = !bool(visBuffer[0]&0x80000000u);
+					const int triangleIDBitcount = findMSB(MAX_TRIANGLES_IN_BATCH-1)+1;
+					batchInstanceGUID = bitfieldExtract(visBuffer[0],triangleIDBitcount,31-triangleIDBitcount);
+					triangleID = bitfieldExtract(visBuffer[0],0,triangleIDBitcount);
+					bary.xy = unpackUnorm2x16(visBuffer[1]);
+					#ifdef TEX_PREFETCH_STREAM
+					dBarydScreen = mat2(unpackHalf2x16(visBuffer[2]),unpackHalf2x16(visBuffer[3]));
+					#endif
+				}
 			}
-			rays[realOutputID].backfaceCulling = int(packHalf2x16(throughput.ab));
-			rays[realOutputID].useless_padding = int(packHalf2x16(throughput.gr));
+			bary.z = 1.f-bary.x-bary.y;
+
+			// vertex attribute reads and interpolation
+			//vec3 normal;
+			{
+				// vertex indices
+				uvec3 indices;
+				{
+					const uint baseTriangleVertex = triangleID*3u+extraBatchData.firstIndex[batchInstanceGUID];
+					for (uint i=0u; i<3u; i++)
+						indices[i] = nbl_glsl_VG_fetchTriangleVertexIndex(baseTriangleVertex,i);
+				}
+				
+
+				// init scramble while waiting for indices
+				scramble_start_state = texelFetch(scramblebuf,ivec2(outPixelLocation),0).rg;
+
+				mat3 normals;
+				for (int i=0; i<3; i++)
+					normals[i] = nbl_glsl_fetchVtxNormal(indices[i],batchInstanceGUID);
+				mat3 positions;
+				#ifdef TEX_PREFETCH_STREAM
+				mat3x2 uvs;
+				for (int i=0; i<3; i++)
+					uvs[i] = nbl_glsl_fetchVtxUV(indices[i],batchInstanceGUID);
+				#else
+				if (rayContinuation)
+				#endif
+				for (int i=0; i<3; i++)
+					positions[i] = nbl_glsl_fetchVtxPos(indices[i],batchInstanceGUID);
+
+				normal = normalize(normals*bary);
+				normalizedN.x = dot(InstData.data[batchInstanceGUID].normalMatrixRow0,normal);
+				normalizedN.y = dot(InstData.data[batchInstanceGUID].normalMatrixRow1,normal);
+				normalizedN.z = dot(InstData.data[batchInstanceGUID].normalMatrixRow2,normal);
+				#ifdef TEX_PREFETCH_STREAM
+				dUVdBary = mat2(uvs[0]-uvs[2],uvs[1]-uvs[2]);
+				UV = dUVdBary*bary.xy+uvs[2];
+				#else
+				if (rayContinuation)
+				#endif
+				dPdBary = mat2x3(positions[0]-positions[2],positions[1]-positions[2]);
+				if (rayContinuation)
+				{
+					frontfacing = dot(cross(dPdBary[1],dPdBary[0]),normalizedV)>0.f;
+					worldPosition = dPdBary*bary.xy+positions[2];
+				}
+			}
+
+			// get material
+			const nbl_glsl_MC_oriented_material_t material = nbl_glsl_MC_material_data_t_getOriented(InstData.data[batchInstanceGUID].material,frontfacing);
+			emissive = nbl_glsl_MC_oriented_material_t_getEmissive(material);
+			
+
+			// need to do this after we have worldspace V and N ready
+			/*const nbl_glsl_MC_precomputed_t*/ precomputed = nbl_glsl_MC_precomputeData(frontfacing);
+
+			/*const nbl_glsl_MC_instr_stream_t*/ gcs = nbl_glsl_MC_oriented_material_t_getGenChoiceStream(material);
+			/*const nbl_glsl_MC_instr_stream_t*/ rnps = nbl_glsl_MC_oriented_material_t_getRemAndPdfStream(material);
+			#ifdef TEX_PREFETCH_STREAM
+			const nbl_glsl_MC_instr_stream_t tps = nbl_glsl_MC_oriented_material_t_getTexPrefetchStream(material);
+			const mat2 dUVdScreen = nbl_glsl_applyChainRule2D(dUVdBary,dBarydScreen);
+			nbl_glsl_MC_runTexPrefetchStream(tps,UV,dUVdScreen);
+			#endif
+			#ifdef NORM_PRECOMP_STREAM
+			const nbl_glsl_MC_instr_stream_t nps = nbl_glsl_MC_oriented_material_t_getNormalPrecompStream(material);
+			nbl_glsl_MC_runNormalPrecompStream(nps,precomputed);
+			#endif
 		}
+
+		if (rayContinuation)
+			emissive *= throughput;
+
+		//
+		vec3 acc;
+		uvec3 accumulationLocation;
+		bool accumulationChanged;
+		if (rayContinuation)
+		{
+			accumulationLocation = uvec3(outPixelLocation,sampleID%staticViewData.samplesPerPixelPerDispatch);
+			accumulationChanged = record_raytrace_emission(acc,accumulationLocation,emissive);
+		}
+		else
+		{
+			accumulationLocation = uvec3(outPixelLocation,0u);
+			accumulationChanged = record_raster_emission(acc,accumulationLocation,emissive);
+		}
+		//const bool accumulationChanged = record_emission(acc,accumulationLocation,emissive);
+
+		const uint MAX_PATH_DEPTH = 2u;
+		if (get_path_vertex_depth()!=MAX_PATH_DEPTH)
+		{
+			const uint continuations = rayContinuation ? 1u:staticViewData.samplesPerPixelPerDispatch;
+			for (uint i=0u; i<continuations; i++)
+			{
+				vec3 direction;
+				float maxT;
+				if (hit)
+				{
+					nbl_glsl_xoroshiro64star_state_t scramble_state = scramble_start_state;
+
+					// TODO: save the `scramble_state` for the last sample in the pixel
+					for (uint i=1u; i<get_path_vertex_depth(); i++)
+					{
+						nbl_glsl_xoroshiro64star(scramble_state);
+						nbl_glsl_xoroshiro64star(scramble_state);
+						nbl_glsl_xoroshiro64star(scramble_state);
+					}
+
+					if (rayContinuation)
+					{
+						vec3 throughputFactor;
+						gen_sample_ray(maxT,direction,throughputFactor,scramble_state,sampleID,precomputed,gcs,rnps);
+						throughput *= throughputFactor;
+					}
+					else
+					{
+						sampleID = bitfieldExtract(pc.cummon.samplesComputed_depth,0,16)+i;
+						gen_sample_ray(maxT,direction,throughput,scramble_state,sampleID,precomputed,gcs,rnps);
+					}
+				}
+			
+				const uint realOutputID = outputID+write_ray_offset+i;
+				const bool validRay = any(greaterThan(throughput,vec3(FLT_MIN)));
+				// TODO: improve ray offsets
+				const float err = 1.0/128.0;
+				if (validRay)
+					rays[realOutputID].origin = worldPosition+normal*err;
+				rays[realOutputID].maxT = validRay ? maxT:0.0;
+				if (validRay)
+				{
+					rays[realOutputID].direction = direction;
+					rays[realOutputID].time = packOutPixelLocation(outPixelLocation);
+				}
+				rays[realOutputID].mask = validRay ? (-1):0;
+				rays[realOutputID]._active = validRay ? 1:0;
+				if (validRay)
+				{
+					rays[realOutputID].useless_padding[0] = packHalf2x16(throughput.rg);
+					rays[realOutputID].useless_padding[1] = bitfieldInsert(packHalf2x16(throughput.bb),sampleID,16,16);
+				}
+			}
+		}
+			
+		// TODO: finish MIS
+		if (accumulationChanged)
+			storeAccumulation(acc,accumulationLocation);
 	}
 }

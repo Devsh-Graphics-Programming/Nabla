@@ -294,8 +294,8 @@ bool COpenGLDriver::genericDriverInit(asset::IAssetManager* assMgr)
 	// Reset The Current Viewport
 	glViewport(0, 0, Params.WindowSize.Width, Params.WindowSize.Height);
 
-	// adjust flat coloring scheme to DirectX version
-	///extGlProvokingVertex(GL_FIRST_VERTEX_CONVENTION_EXT);
+	// adjust provoking vertex to match Vulkan
+	extGlProvokingVertex(GL_FIRST_VERTEX_CONVENTION_EXT);
 
 	// We need to reset once more at the beginning of the first rendering.
 	// This fixes problems with intermediate changes to the material during texture load.
@@ -411,7 +411,7 @@ core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> COpenGLDriver::createG
     if (!ctx)
         return nullptr;
 
-    auto shaders = core::SRange<IGPUSpecializedShader*>(_shadersBegin, _shadersEnd);
+    auto shaders = core::SRange<IGPUSpecializedShader* const>(_shadersBegin, _shadersEnd);
     auto vsIsPresent = [&shaders] {
         return std::find_if(shaders.begin(), shaders.end(), [](IGPUSpecializedShader* shdr) {return shdr->getStage()==asset::ISpecializedShader::ESS_VERTEX;}) != shaders.end();
     };

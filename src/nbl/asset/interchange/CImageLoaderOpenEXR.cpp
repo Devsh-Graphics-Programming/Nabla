@@ -241,8 +241,8 @@ namespace nbl
 					data(reinterpret_cast<uint8_t*>(image->getBuffer()->getPointer())), pixelMapArray(_pixelMapArray)
 				{
 					using StreamFromEXR = CRegionBlockFunctorFilter<ReadTexels<IlmType>,false>;
-					typename StreamFromEXR::state_type state(*this,image,image->getRegions().begin());
-					StreamFromEXR::execute(&state);
+					StreamFromEXR::state_type state(*this,image,image->getRegions().begin());
+					StreamFromEXR::execute(std::execution::par_unseq,&state);
 				}
 
 				inline void operator()(uint32_t ptrOffset, const core::vectorSIMDu32& texelCoord)

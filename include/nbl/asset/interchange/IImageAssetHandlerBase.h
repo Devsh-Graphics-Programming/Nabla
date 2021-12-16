@@ -142,13 +142,18 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 				};
 
 				// if texel block data does not need changing, we're good
-				if (identityTransform)
+				if (identityTransform) // TODO: why do we even copy!?
 				{
 					COPY_FILTER::state_type state;
 					fillCommonState(state);
 
+<<<<<<< HEAD
 					if (!COPY_FILTER::execute(&state)) // execute is a static method
 						logger.log("Something went wrong while copying texel block data!", system::ILogger::ELL_ERROR);
+=======
+					if (!COPY_FILTER::execute(std::execution::par_unseq,&state)) // execute is a static method
+						os::Printer::log("Something went wrong while copying texel block data!", ELL_ERROR);
+>>>>>>> bdff0ccab19e1ecc9583012108a8251d933279c8
 				}
 				else
 				{
@@ -162,8 +167,13 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 					fillCommonState(state);
 					state.swizzle = viewParams.components;
 
+<<<<<<< HEAD
 						if (!CONVERSION_FILTER::execute(&state)) // static method
 							logger.log("Something went wrong while converting the image!", system::ILogger::ELL_ERROR);
+=======
+						if (!CONVERSION_FILTER::execute(std::execution::par_unseq,&state)) // static method
+							os::Printer::log("Something went wrong while converting the image!", ELL_WARNING);
+>>>>>>> bdff0ccab19e1ecc9583012108a8251d933279c8
 				}
 			}
 
@@ -262,7 +272,7 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 		static inline void performImageFlip(uint8_t* entry, uint8_t* end, uint32_t height, uint32_t rowPitch)
 		{
 			for (uint32_t y = 0, yRising = 0; y < height; y += 2, ++yRising)
-				std::swap_ranges(entry + (yRising * rowPitch), entry + ((yRising + 1) * rowPitch), end - ((yRising + 1) * rowPitch));
+				std::swap_ranges(std::execution::par_unseq, entry + (yRising * rowPitch), entry + ((yRising + 1) * rowPitch), end - ((yRising + 1) * rowPitch));
 		}
 
 	private:

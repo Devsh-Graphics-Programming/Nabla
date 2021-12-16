@@ -83,6 +83,7 @@ private:
 				assert(status);
 			}
 			}
+			return (const char*)nullptr;
 		};
 
 		return getTypeHash() + (indexBufferBindingAvailable ? "triangle_list" : "point_list");

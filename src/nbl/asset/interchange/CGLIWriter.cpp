@@ -205,7 +205,7 @@ bool CGLIWriter::writeGLIFile(system::IFile* file, const asset::ICPUImageView* i
 	};
 
 	const auto& regions = image->getRegions();
-	CBasicImageFilterCommon::executePerRegion<decltype(writeTexel),decltype(updateState)>(image.get(),writeTexel,regions.begin(),regions.end(),updateState);
+	CBasicImageFilterCommon::executePerRegion<const std::execution::parallel_unsequenced_policy&,decltype(writeTexel),decltype(updateState)>(std::execution::par_unseq,image.get(),writeTexel,regions.begin(),regions.end(),updateState);
 
 	return performSavingAsIFile(texture, file, m_system.get(), logger);
 }

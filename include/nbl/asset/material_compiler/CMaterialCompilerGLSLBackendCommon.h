@@ -6,21 +6,45 @@
 #define __NBL_ASSET_C_MITSUBA_MATERIAL_COMPILER_GLSL_BACKEND_COMMON_H_INCLUDED__
 
 
+#include <nbl/core/core.h>
+
 #include <ostream>
 
 #include <nbl/asset/utils/ICPUVirtualTexture.h>
 #include <nbl/asset/material_compiler/IR.h>
 
 
-namespace nbl
+namespace nbl::asset::material_compiler
 {
-namespace asset
+
+
+// TODO: we need a GLSL to C++ compatibility wrapper
+#define uint uint32_t
+#define uvec2 uint64_t
+struct nbl_glsl_MC_oriented_material_t
 {
-namespace material_compiler
+    uvec2 emissive;
+    uint prefetch_offset;
+    uint prefetch_count;
+    uint instr_offset;
+    uint rem_pdf_count;
+    uint nprecomp_count;
+    uint genchoice_count;
+};
+struct nbl_glsl_MC_material_data_t
 {
+    nbl_glsl_MC_oriented_material_t front;
+    nbl_glsl_MC_oriented_material_t back;
+};
+#undef uint
+#undef uvec2
+using oriented_material_t = nbl_glsl_MC_oriented_material_t;
+using material_data_t = nbl_glsl_MC_material_data_t;
+
 
 template <typename stack_el_t>
 class ITraversalGenerator;
+
 
 class CMaterialCompilerGLSLBackendCommon
 {
@@ -687,6 +711,6 @@ public:
 	result_t compile(SContext* _ctx, IR* _ir, bool _computeGenChoiceStream = true);
 };
 
-}}}
+}
 
 #endif
