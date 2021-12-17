@@ -266,9 +266,10 @@ void gen_sample_ray(
 	
 	float pdf;
 	nbl_glsl_LightSample s;
-	throughput = nbl_glsl_MC_runGenerateAndRemainderStream(precomp,gcs,rnps,rand,pdf,s/*, albedo, worldspaceNormal*/);
-	albedo = vec3(0.5f);
-	worlspaceNormal = normalizedN;
+	const nbl_glsl_MC_quot_pdf_aov_t result = nbl_glsl_MC_runGenerateAndRemainderStream(precomp,gcs,rnps,rand,pdf,s);
+	throughput = result.quotient;
+	albedo = result.albedo;
+	worlspaceNormal = result.normal;
 
 	direction = s.L;
 }
