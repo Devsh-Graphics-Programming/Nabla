@@ -111,8 +111,9 @@ void main()
 		const vec3 acc_worldspaceNormal = fetchWorldspaceNormal(accumulationLocation);
 		// TODO: finish MIS
 		storeAccumulation(acc_emissive,contrib.color*throughput,accumulationLocation);
-		const vec3 aovThroughput = throughput*aovThroughputScale;
-		storeAlbedo(acc_albedo,contrib.albedo*aovThroughput,accumulationLocation);
-		storeWorldspaceNormal(acc_worldspaceNormal,contrib.worldspaceNormal*(aovThroughput),accumulationLocation); // TODO: luma throughput on normals
+		// TODO
+		//const vec3 aovThroughput = throughput*aovThroughputScale;
+		//storeAlbedo(acc_albedo,contrib.albedo*aovThroughput,accumulationLocation);
+		//storeWorldspaceNormal(acc_worldspaceNormal,contrib.worldspaceNormal*(aovThroughput),accumulationLocation); // TODO: luma throughput on normals
 	}
 }
