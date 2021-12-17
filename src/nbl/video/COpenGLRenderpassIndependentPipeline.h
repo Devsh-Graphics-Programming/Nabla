@@ -29,7 +29,7 @@ class COpenGLRenderpassIndependentPipeline final : public IGPURenderpassIndepend
         COpenGLRenderpassIndependentPipeline(
             core::smart_refctd_ptr<IOpenGL_LogicalDevice>&& _dev, IOpenGL_FunctionTable* _gl,
             core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
-            IGPUSpecializedShader* const* _shadersBegin, IGPUSpecializedShader* const* _shadersEnd,
+            const IGPUSpecializedShader* const* _shadersBegin, const IGPUSpecializedShader* const* _shadersEnd,
             const asset::SVertexInputParams& _vertexInputParams,
             const asset::SBlendParams& _blendParams,
             const asset::SPrimitiveAssemblyParams& _primAsmParams,

@@ -147,13 +147,8 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 					COPY_FILTER::state_type state;
 					fillCommonState(state);
 
-<<<<<<< HEAD
 					if (!COPY_FILTER::execute(&state)) // execute is a static method
 						logger.log("Something went wrong while copying texel block data!", system::ILogger::ELL_ERROR);
-=======
-					if (!COPY_FILTER::execute(std::execution::par_unseq,&state)) // execute is a static method
-						os::Printer::log("Something went wrong while copying texel block data!", ELL_ERROR);
->>>>>>> bdff0ccab19e1ecc9583012108a8251d933279c8
 				}
 				else
 				{
@@ -167,13 +162,8 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 					fillCommonState(state);
 					state.swizzle = viewParams.components;
 
-<<<<<<< HEAD
 						if (!CONVERSION_FILTER::execute(&state)) // static method
 							logger.log("Something went wrong while converting the image!", system::ILogger::ELL_ERROR);
-=======
-						if (!CONVERSION_FILTER::execute(std::execution::par_unseq,&state)) // static method
-							os::Printer::log("Something went wrong while converting the image!", ELL_WARNING);
->>>>>>> bdff0ccab19e1ecc9583012108a8251d933279c8
 				}
 			}
 

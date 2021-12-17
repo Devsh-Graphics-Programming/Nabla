@@ -92,7 +92,8 @@ class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageF
 			for (auto inMipLevel=state->startMipLevel; inMipLevel!=state->endMipLevel; inMipLevel++)
 			{
 				auto blit = buildBlitState(state, inMipLevel);
-				if (!CBlitImageFilter<Normalize,Clamp,Swizzle,Dither,KernelX>::execute<ExecutionPolicy>(std::forward<ExecutionPolicy>(policy),&blit))
+				return false;
+				if (!CBlitImageFilter<Normalize,Clamp,Swizzle,Dither,KernelX>::template execute<ExecutionPolicy>(std::forward<ExecutionPolicy>(policy),&blit))
 					return false;
 			}
 			return true;
