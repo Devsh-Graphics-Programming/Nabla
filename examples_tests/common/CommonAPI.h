@@ -362,7 +362,7 @@ public:
 
 		void onMouseConnected_impl(nbl::core::smart_refctd_ptr<nbl::ui::IMouseEventChannel>&& mch) override
 		{
-			m_logger.log("A mouse %p has been connected", nbl::system::ILogger::ELL_INFO, mch);
+			m_logger.log("A mouse %p has been connected", nbl::system::ILogger::ELL_INFO, mch.get());
 			m_inputSystem.get()->add(m_inputSystem.get()->m_mouse,std::move(mch));
 		}
 		void onMouseDisconnected_impl(nbl::ui::IMouseEventChannel* mch) override
@@ -372,7 +372,7 @@ public:
 		}
 		void onKeyboardConnected_impl(nbl::core::smart_refctd_ptr<nbl::ui::IKeyboardEventChannel>&& kbch) override
 		{
-			m_logger.log("A keyboard %p has been connected", nbl::system::ILogger::ELL_INFO, kbch);
+			m_logger.log("A keyboard %p has been connected", nbl::system::ILogger::ELL_INFO, kbch.get());
 			m_inputSystem.get()->add(m_inputSystem.get()->m_keyboard,std::move(kbch));
 		}
 		void onKeyboardDisconnected_impl(nbl::ui::IKeyboardEventChannel* kbch) override
