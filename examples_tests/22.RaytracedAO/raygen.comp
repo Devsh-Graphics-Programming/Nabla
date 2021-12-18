@@ -68,10 +68,11 @@ void main()
 
 			// generate rays
 			const uint vertex_depth = 1u;
+			const vec3 aovThroughput = vec3(1.0/float(staticViewData.samplesPerPixelPerDispatch));
 			generate_next_rays(
 				staticViewData.samplesPerPixelPerDispatch,material,frontfacing,vertex_depth,
 				scramble_start_state,pc.cummon.samplesComputed,outPixelLocation,origin,
-				vec3(pc.cummon.rcpFramesDispatched),contrib.albedo,contrib.worldspaceNormal
+				vec3(pc.cummon.rcpFramesDispatched),aovThroughput,contrib.albedo,contrib.worldspaceNormal
 			);
 		}
 		else

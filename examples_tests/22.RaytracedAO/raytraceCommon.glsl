@@ -280,7 +280,7 @@ nbl_glsl_MC_quot_pdf_aov_t gen_sample_ray(
 void generate_next_rays(
 	in uint maxRaysToGen, in nbl_glsl_MC_oriented_material_t material, in bool frontfacing, in uint vertex_depth,
 	in nbl_glsl_xoroshiro64star_state_t scramble_start_state, in uint sampleID, in uvec2 outPixelLocation,
-	in vec3 origin, in vec3 prevThroughput, inout vec3 albedo, out vec3 worldspaceNormal)
+	in vec3 origin, in vec3 prevThroughput, in vec3 aovThroughput, inout vec3 albedo, out vec3 worldspaceNormal)
 {
 	// get material streams as well
 	const nbl_glsl_MC_instr_stream_t gcs = nbl_glsl_MC_oriented_material_t_getGenChoiceStream(material);
@@ -306,6 +306,7 @@ for (uint i=1u; i!=vertex_depth; i++)
 	nbl_glsl_xoroshiro64star(scramble_start_state);
 	nbl_glsl_xoroshiro64star(scramble_start_state);
 }
+	const float normalThroughput = nbl_glsl_MC_colorToScalar(aovThroughput);
 	for (uint i=0u; i<maxRaysToGen; i++)
 	{
 		nbl_glsl_xoroshiro64star_state_t scramble_state = scramble_start_state;
@@ -315,9 +316,8 @@ for (uint i=1u; i!=vertex_depth; i++)
 //		if (i==0u)
 //			imageStore(scramblebuf,ivec3(outPixelLocation,vertex_depth_mod_2_inv),uvec4(scramble_state,0u,0u));
 		nextThroughput[i] = prevThroughput*result.quotient;
-		// TODO: aovThroughputfactors!
-//		albedo += prevThroughput/maxRaysToGen*result.albedo;
-//		worldspaceNormal += nbl_glsl_MC_colorToScalar(prevThroughput/maxRaysToGen)*result.normal;
+		albedo += aovThroughput*result.albedo;
+		worldspaceNormal += normalThroughput*result.normal;
 		// do denormalized half floats flush to 0 ?
 		if (max(max(nextThroughput[i].x,nextThroughput[i].y),nextThroughput[i].z)>=exp2(-14.f))
 			raysToAllocate++;
