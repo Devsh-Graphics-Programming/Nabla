@@ -126,7 +126,7 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		bool m_useDenoiser;
 
 		// managers
-        nbl::video::IVideoDriver* m_driver;
+		nbl::video::IVideoDriver* m_driver;
 
 		nbl::asset::IAssetManager* m_assetManager;
 		nbl::scene::ISceneManager* m_smgr;
@@ -202,7 +202,12 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> m_normalAcc,m_normalRslv;
 		nbl::video::IFrameBuffer* m_visibilityBuffer,* m_colorBuffer;
 		
-		nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> m_envmap;
+		// Resources used for blending environmental maps
+		nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpassIndependentPipeline> blendEnvPipeline;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSetLayout> blendEnvDescriptorSet;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUMeshBuffer> blendEnvMeshBuffer;
+
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> m_finalEnvmap;
 
 		std::future<bool> compileShadersFuture;
 

@@ -4,6 +4,7 @@
 #include "Renderer.h"
 
 #include "nbl/ext/ScreenShot/ScreenShot.h"
+#include "nbl/ext/FullScreenTriangle/FullScreenTriangle.h"
 #include "nbl/asset/filters/CFillImageFilter.h"
 #include "../source/Nabla/COpenCLHandler.h"
 #include "COpenGLDriver.h"
@@ -622,85 +623,141 @@ void Renderer::initSceneNonAreaLights(Renderer::InitializationData& initData)
 		//initData.lightPDF.push_back(weight);
 		//initData.lights.push_back(light);
 	}
-
-	if(m_globalMeta->m_global.m_envMapImage)
-	{
-		ICPUImageView::SCreationParams viewParams;
-		viewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
-		viewParams.image = m_globalMeta->m_global.m_envMapImage;
-		viewParams.format = viewParams.image->getCreationParameters().format;
-		viewParams.viewType = IImageView<ICPUImage>::ET_2D;
-		viewParams.subresourceRange.baseArrayLayer = 0u;
-		viewParams.subresourceRange.layerCount = 1u;
-		viewParams.subresourceRange.baseMipLevel = 0u;
-		viewParams.subresourceRange.levelCount = 1u;
-
-		auto cpuEnvmapImageView = ICPUImageView::create(std::move(viewParams));
-		m_envmap = m_driver->getGPUObjectsFromAssets(&cpuEnvmapImageView.get(), &cpuEnvmapImageView.get() + 1u)->front();
-	}
-	else if(!m_envmap)
-	{
-		// if envmap texture is not loaded in mitsuba loader, create one with all values set to '_envmapBaseColor'
-		// Create CPUImageView
-		uint32_t width = 1u;
-		uint32_t height = 1u;
-
-		// Create CPUImage
-		ICPUImage::SCreationParams imgParams = {};
-		imgParams.type = asset::IImage::ET_2D;
-		imgParams.format = asset::EF_R32G32B32_SFLOAT;
-		imgParams.extent = VkExtent3D{width, height, 1u};
-		imgParams.mipLevels = 1u;
-		imgParams.arrayLayers = 1u;
-		imgParams.samples = asset::IImage::ESCF_1_BIT;
-		core::smart_refctd_ptr<ICPUImage> cpuEnvmapImage = ICPUImage::create(std::move(imgParams));
-				
-		auto texelBytesize = getTexelOrBlockBytesize(imgParams.format);
-		core::smart_refctd_ptr<ICPUBuffer> buffer = core::make_smart_refctd_ptr<ICPUBuffer>(texelBytesize * width * height);
-		
-		auto regionsDynArray = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IImage::SBufferCopy>>(1u);
-		auto regions = regionsDynArray->begin();
-		regions[0].bufferOffset = 0u;
-		regions[0].bufferRowLength = imgParams.extent.width; // could round up to multiple of 8 bytes in the future
-		regions[0].bufferImageHeight = imgParams.extent.height;
-		regions[0].imageSubresource.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0u);
-		regions[0].imageSubresource.mipLevel = 0u;
-		regions[0].imageSubresource.baseArrayLayer = 0u;
-		regions[0].imageSubresource.layerCount = 1u;
-		regions[0].imageOffset = { 0u,0u,0u };
-		regions[0].imageExtent = imgParams.extent;
-
-		cpuEnvmapImage->setBufferAndRegions(std::move(buffer), std::move(regionsDynArray));
-
-		// Fill CPUImage with color
-		CFillImageFilter::state_type fill;
-		fill.subresource.aspectMask = asset::IImage::EAF_COLOR_BIT;
-		fill.subresource.mipLevel = 0u;
-		fill.subresource.baseArrayLayer = 0u;
-		fill.subresource.layerCount = 1u;
-		fill.outRange = { {0u,0u,0u}, {width, height, 1u} };
-		fill.outImage = cpuEnvmapImage.get();
-		fill.fillValue.asFloat = _envmapBaseColor;
-		if (!CFillImageFilter::execute(&fill))
-			std::cout << "CFillImageFilter failed for envmap color filling." << std::endl;
-		
-		ICPUImageView::SCreationParams viewParams;
-		viewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
-		viewParams.image = cpuEnvmapImage;
-		viewParams.format = viewParams.image->getCreationParameters().format;
-		viewParams.viewType = IImageView<ICPUImage>::ET_2D;
-		viewParams.subresourceRange.baseArrayLayer = 0u;
-		viewParams.subresourceRange.layerCount = 1u;
-		viewParams.subresourceRange.baseMipLevel = 0u;
-		viewParams.subresourceRange.levelCount = 1u;
-
-		auto cpuEnvmapImageView = ICPUImageView::create(std::move(viewParams));
-		m_envmap = m_driver->getGPUObjectsFromAssets(&cpuEnvmapImageView.get(), &cpuEnvmapImageView.get() + 1u)->front();
-	}
 	
+	// Create EnvMap Image of "CONSTANT" emitters added together
 	m_staticViewData.envmapBaseColor.x = _envmapBaseColor.x;
 	m_staticViewData.envmapBaseColor.y = _envmapBaseColor.y;
 	m_staticViewData.envmapBaseColor.z = _envmapBaseColor.z;
+
+	// Initialize Pipeline and Resources for EnvMap Blending
+	auto fullScreenTriangle = ext::FullScreenTriangle::createFullScreenTriangle(m_assetManager, m_driver);
+
+	IGPUDescriptorSetLayout::SBinding binding{ 0u, EDT_COMBINED_IMAGE_SAMPLER, 1u, IGPUSpecializedShader::ESS_FRAGMENT, nullptr };
+	auto blendEnvDescriptorSetLayout = m_driver->createGPUDescriptorSetLayout(&binding, &binding + 1u);
+	
+	IAssetLoader::SAssetLoadParams lp;
+	auto fs_bundle = m_assetManager->getAsset("../present2D.frag", lp);
+	auto fs_contents = fs_bundle.getContents();
+	if (fs_contents.begin() == fs_contents.end())
+		std::cout << "[ERROR] fs_contents is empty." << std::endl;
+	
+	ICPUSpecializedShader* fs = static_cast<ICPUSpecializedShader*>(fs_contents.begin()->get());
+	
+	auto fragShader = m_driver->getGPUObjectsFromAssets(&fs, &fs + 1)->front();
+	if (!fragShader)
+		std::cout << "[ERROR] Couldn't get fragShader." << std::endl;
+	
+	IGPUSpecializedShader* shaders[2] = { std::get<0>(fullScreenTriangle).get(), fragShader.get() };
+	SBlendParams blendParams = {};
+	blendParams.logicOpEnable = false;
+	blendParams.logicOp = ELO_NO_OP;
+	blendParams.blendParams[0].attachmentEnabled = true;
+	blendParams.blendParams[0].blendEnable = true;
+	blendParams.blendParams[0].srcColorFactor = asset::EBF_ONE;
+	blendParams.blendParams[0].dstColorFactor = asset::EBF_ONE;
+	blendParams.blendParams[0].colorBlendOp = asset::EBO_ADD;
+	blendParams.blendParams[0].srcAlphaFactor = asset::EBF_ONE;
+	blendParams.blendParams[0].dstAlphaFactor = asset::EBF_ONE;
+	blendParams.blendParams[0].alphaBlendOp = asset::EBO_ADD;
+	blendParams.blendParams[0].colorWriteMask = (1u << 0u) | (1u << 1u) | (1u << 2u) | (1u << 3u);
+
+	SRasterizationParams rasterParams = {};
+	rasterParams.faceCullingMode = EFCM_NONE;
+	rasterParams.depthCompareOp = ECO_ALWAYS;
+	rasterParams.minSampleShading = 1.f;
+	rasterParams.depthWriteEnable = false;
+	rasterParams.depthTestEnable = false;
+
+	auto gpuPipelineLayout = m_driver->createGPUPipelineLayout(nullptr, nullptr, core::smart_refctd_ptr(blendEnvDescriptorSetLayout), nullptr, nullptr, nullptr);
+
+	blendEnvPipeline = m_driver->createGPURenderpassIndependentPipeline(nullptr, std::move(gpuPipelineLayout), shaders, shaders + 2,
+		std::get<SVertexInputParams>(fullScreenTriangle), blendParams,
+		std::get<SPrimitiveAssemblyParams>(fullScreenTriangle), rasterParams);
+	
+	SBufferBinding<IGPUBuffer> idxBinding{ 0ull, nullptr };
+	blendEnvMeshBuffer = core::make_smart_refctd_ptr<IGPUMeshBuffer>(nullptr, nullptr, nullptr, std::move(idxBinding));
+	blendEnvMeshBuffer->setIndexCount(3u);
+	blendEnvMeshBuffer->setInstanceCount(1u);
+	
+	video::IFrameBuffer* finalEnvFramebuffer = nullptr;
+	{
+		auto colorFormat = asset::EF_R32G32B32A32_SFLOAT;
+		IGPUImage::SCreationParams imgInfo;
+		imgInfo.format = colorFormat;
+		imgInfo.type = IGPUImage::ET_2D;
+		imgInfo.extent.width = 2000;
+		imgInfo.extent.height = 1000;
+		imgInfo.extent.depth = 1u;
+		imgInfo.mipLevels = 1u;
+		imgInfo.arrayLayers = 1u;
+		imgInfo.samples = asset::ICPUImage::ESCF_1_BIT;
+		imgInfo.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0u);
+
+		auto image = m_driver->createGPUImageOnDedMem(std::move(imgInfo), m_driver->getDeviceLocalGPUMemoryReqs());
+
+		IGPUImageView::SCreationParams imgViewInfo;
+		imgViewInfo.image = std::move(image);
+		imgViewInfo.format = colorFormat;
+		imgViewInfo.viewType = IGPUImageView::ET_2D;
+		imgViewInfo.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(0u);
+		imgViewInfo.subresourceRange.baseArrayLayer = 0u;
+		imgViewInfo.subresourceRange.baseMipLevel = 0u;
+		imgViewInfo.subresourceRange.layerCount = 1u;
+		imgViewInfo.subresourceRange.levelCount = 1u;
+
+		m_finalEnvmap = m_driver->createGPUImageView(std::move(imgViewInfo));
+
+		finalEnvFramebuffer = m_driver->addFrameBuffer();
+		finalEnvFramebuffer->attach(video::EFAP_COLOR_ATTACHMENT0, std::move(m_finalEnvmap));
+	}
+
+	auto blendToFinalEnvMap = [&](nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> gpuImageView) -> void
+	{
+		auto blendEnvDescriptorSet = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(blendEnvDescriptorSetLayout));
+		
+		IGPUDescriptorSet::SDescriptorInfo info;
+		{
+			info.desc = gpuImageView;
+			ISampler::SParams samplerParams = { ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_FLOAT_OPAQUE_BLACK, ISampler::ETF_LINEAR, ISampler::ETF_LINEAR, ISampler::ESMM_LINEAR, 0u, false, ECO_ALWAYS };
+			info.image.sampler = m_driver->createGPUSampler(samplerParams);
+			info.image.imageLayout = EIL_SHADER_READ_ONLY_OPTIMAL;
+		}
+
+		IGPUDescriptorSet::SWriteDescriptorSet write;
+		write.dstSet = blendEnvDescriptorSet.get();
+		write.binding = 0u;
+		write.arrayElement = 0u;
+		write.count = 1u;
+		write.descriptorType = EDT_COMBINED_IMAGE_SAMPLER;
+		write.info = &info;
+
+		m_driver->updateDescriptorSets(1u, &write, 0u, nullptr);
+		m_driver->bindGraphicsPipeline(blendEnvPipeline.get());
+		m_driver->bindDescriptorSets(EPBP_GRAPHICS, blendEnvPipeline->getLayout(), 0u, 1u, &blendEnvDescriptorSet.get(), nullptr);
+		m_driver->drawMeshBuffer(blendEnvMeshBuffer.get());
+	};
+	
+	m_driver->setRenderTarget(finalEnvFramebuffer, false);
+	float colorClearValues[] = { _envmapBaseColor.x, _envmapBaseColor.y, _envmapBaseColor.z, _envmapBaseColor.w };
+	m_driver->clearColorBuffer(video::EFAP_COLOR_ATTACHMENT0, colorClearValues);
+	for(uint32_t i = 0u; i < m_globalMeta->m_global.m_envMapImages.size(); ++i)
+	{
+		auto envmapCpuImage = m_globalMeta->m_global.m_envMapImages[i];
+		ICPUImageView::SCreationParams viewParams;
+		viewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
+		viewParams.image = envmapCpuImage;
+		viewParams.format = viewParams.image->getCreationParameters().format;
+		viewParams.viewType = IImageView<ICPUImage>::ET_2D;
+		viewParams.subresourceRange.baseArrayLayer = 0u;
+		viewParams.subresourceRange.layerCount = 1u;
+		viewParams.subresourceRange.baseMipLevel = 0u;
+		viewParams.subresourceRange.levelCount = 1u;
+		auto cpuEnvmapImageView = ICPUImageView::create(std::move(viewParams));
+		auto envMapImageView = m_driver->getGPUObjectsFromAssets(&cpuEnvmapImageView.get(), &cpuEnvmapImageView.get() + 1u)->front();
+		blendToFinalEnvMap(envMapImageView);
+	}
+	m_driver->setRenderTarget(nullptr, false);
+	
 }
 
 void Renderer::finalizeScene(Renderer::InitializationData& initData)
@@ -964,7 +1021,7 @@ void Renderer::deinitSceneResources()
 	m_raytraceCommonData = {core::matrix4SIMD(),vec3(),0.f,0,0,0,0.f};
 	m_sceneBound = core::aabbox3df(FLT_MAX, FLT_MAX, FLT_MAX, -FLT_MAX, -FLT_MAX, -FLT_MAX);
 	
-	m_envmap = nullptr;
+	m_finalEnvmap = nullptr;
 	m_staticViewData = {{0.f,0.f,0.f},0u,{0u,0u},0u,0u};
 
 	auto rr = m_rrManager->getRadeonRaysAPI();
@@ -1164,7 +1221,7 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, core::s
 		setImageInfo(infos+7,asset::EIL_GENERAL,core::smart_refctd_ptr(m_normalAcc));
 
 		// envmap
-		setImageInfo(infos+8,asset::EIL_GENERAL,core::smart_refctd_ptr(m_envmap));
+		setImageInfo(infos+8,asset::EIL_GENERAL,core::smart_refctd_ptr(m_finalEnvmap));
 		ISampler::SParams samplerParams = { ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_FLOAT_OPAQUE_BLACK, ISampler::ETF_LINEAR, ISampler::ETF_LINEAR, ISampler::ESMM_LINEAR, 0u, false, ECO_ALWAYS };
 		infos[8].image.sampler = m_driver->createGPUSampler(samplerParams);
 		infos[8].image.imageLayout = EIL_SHADER_READ_ONLY_OPTIMAL;

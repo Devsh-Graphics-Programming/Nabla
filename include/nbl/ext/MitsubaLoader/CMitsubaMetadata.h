@@ -95,7 +95,7 @@ class CMitsubaMetadata : public asset::IAssetMetadata
 				core::vector<CElementEmitter> m_emitters;
 				core::smart_refctd_ptr<asset::ICPUVirtualTexture> m_VT;
 				core::smart_refctd_ptr<asset::ICPUDescriptorSet> m_ds0;
-				core::smart_refctd_ptr<asset::ICPUImage> m_envMapImage;
+				core::vector<core::smart_refctd_ptr<asset::ICPUImage>> m_envMapImages;
 				//has to go after #version and before required user-provided descriptors and functions
 				std::string m_materialCompilerGLSL_declarations;
 				//has to go after required user-provided descriptors and functions and before the rest of shader (especially entry point function)
