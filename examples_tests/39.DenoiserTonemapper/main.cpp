@@ -1033,15 +1033,24 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 				const float bloomRelativeScale = bloomRelativeScaleBundle[i].value();
 				{
 					auto kerDim = outParam.kernel->getCreationParameters().extent;
-					float kernelScale;
+					float kernelScale,minKernelScale;
 					if (extent.width<extent.height)
+					{
+						minKernelScale = 2.f/float(kerDim.width);
 						kernelScale = float(extent.width)*bloomRelativeScale/float(kerDim.width);
+					}
 					else
+					{
+						minKernelScale = 2.f/float(kerDim.height);
 						kernelScale = float(extent.height)*bloomRelativeScale/float(kerDim.height);
+					}
+					//
 					if (kernelScale>1.f)
 						os::Printer::log(imageIDString + "Bloom Kernel loose sharpness, increase resolution of bloom kernel or reduce its relative scale!", ELL_WARNING);
-					outParam.scaledKernelExtent.width = core::ceil(float(kerDim.width)*kernelScale);
-					outParam.scaledKernelExtent.height = core::ceil(float(kerDim.height)*kernelScale);
+					else if (kernelScale<minKernelScale)
+						os::Printer::log(imageIDString + "Bloom Kernel relative scale pathologically small, clamping to prevent division by 0!", ELL_WARNING);
+					outParam.scaledKernelExtent.width = core::max(core::ceil(float(kerDim.width)*kernelScale),2u);
+					outParam.scaledKernelExtent.height = core::max(core::ceil(float(kerDim.height)*kernelScale),2u);
 					outParam.scaledKernelExtent.depth = 1u;
 				}
 				const auto marginSrcDim = [extent,outParam]() -> auto
