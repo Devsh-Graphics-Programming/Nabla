@@ -316,8 +316,8 @@ for (uint i=1u; i!=vertex_depth; i++)
 //		if (i==0u)
 //			imageStore(scramblebuf,ivec3(outPixelLocation,vertex_depth_mod_2_inv),uvec4(scramble_state,0u,0u));
 		nextThroughput[i] = prevThroughput*result.quotient;
-		albedo += aovThroughput*result.albedo;
-		worldspaceNormal += normalThroughput*result.normal;
+		albedo += aovThroughput*result.aov.albedo;
+		worldspaceNormal += normalThroughput*result.aov.normal;
 		// do denormalized half floats flush to 0 ?
 		if (max(max(nextThroughput[i].x,nextThroughput[i].y),nextThroughput[i].z)>=exp2(-14.f))
 			raysToAllocate++;
