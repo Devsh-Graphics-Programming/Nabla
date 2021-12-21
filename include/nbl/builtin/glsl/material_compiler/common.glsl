@@ -805,7 +805,7 @@ void nbl_glsl_MC_instr_eval_and_pdf_execute(in nbl_glsl_MC_instr_t instr, in nbl
 					// TODO: would be nice not to have monochrome dielectrics
 					fr = vec3(nbl_glsl_fresnel_dielectric_common(eta2,VdotH));
 #if GEN_CHOICE_STREAM>=GEN_CHOICE_WITH_AOV_EXTRACTION
-					result.aov.albedo = vec3(nbl_glsl_fresnel_dielectric_common(eta2,currInteraction.inner.isotropic.NdotV));
+					result.aov.albedo = vec3(1.0);
 #endif
 				}
 #endif
@@ -1227,11 +1227,11 @@ nbl_glsl_LightSample nbl_bsdf_cos_generate(
 							out_values.pdf /= rcpChoiceProb;
 
 		#if GEN_CHOICE_STREAM>=GEN_CHOICE_WITH_AOV_EXTRACTION
-							out_values.aov.albedo = vec3(nbl_glsl_fresnel_dielectric_common(eta2,currInteraction.inner.isotropic.NdotV));
+							out_values.aov.albedo = vec3(1.f);
 		#endif
 						}
 						// scope localL out
-						// TODO: factor it out!
+						// TODO: factor the microfacet update stuff out!
 						{
 							vec3 localL;
 							out_microfacet.inner = nbl_glsl_calcAnisotropicMicrofacetCache(refraction, localV, localH, localL, rcpEta, rcpEta*rcpEta);
