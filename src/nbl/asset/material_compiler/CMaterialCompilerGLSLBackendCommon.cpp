@@ -13,27 +13,37 @@ namespace asset
 {
 namespace material_compiler
 {
-	using instr_stream = CMaterialCompilerGLSLBackendCommon::instr_stream;
-	using instr_t = instr_stream::instr_t;
-	using traversal_t = instr_stream::traversal_t;
 
-	using tmp_bxdf_translation_cache_t = core::unordered_map<const IR::INode*, IR::INode*>;
 
-	class CInterpreter
-	{
+using instr_stream = CMaterialCompilerGLSLBackendCommon::instr_stream;
+using instr_t = instr_stream::instr_t;
+using traversal_t = instr_stream::traversal_t;
+
+using tmp_bxdf_translation_cache_t = core::unordered_map<const IR::INode*, IR::INode*>;
+
+
+// good idea to make this tree translator "catch" duplicate subtrees
+class CInterpreter
+{
+	public:
+		static const IR::INode* translateMixIntoBlends(IR* ir, const IR::INode* _mix);
+
+		static std::pair<instr_t, const IR::INode*> processSubtree(IR* ir, const IR::INode* tree, IR::INode::children_array_t& next, tmp_bxdf_translation_cache_t* coatTranslationCache);
+
+	protected:
 		static inline IR::INode* getCoatNode(IR* ir, tmp_bxdf_translation_cache_t* cache, const IR::CMicrofacetCoatingBSDFNode* coat_blend)
 		{
 			if (auto found = cache->find(coat_blend); found != cache->end())
 				return found->second;
 
-			auto* coat = ir->allocTmpNode<IR::CMicrofacetDielectricBSDFNode>();
+			// the coating is a dielectric, but it cannot transmit so make it a conductor
+			auto* coat = ir->allocTmpNode<IR::CMicrofacetSpecularBSDFNode>();
 			{
 				coat->alpha_u = coat_blend->alpha_u;
 				coat->alpha_v = coat_blend->alpha_v;
 				coat->eta = coat_blend->eta;
 				coat->ndf = coat_blend->ndf;
 				coat->shadowing = coat_blend->shadowing;
-				coat->thin = false;
 			}
 			cache->insert({ coat_blend, coat });
 
@@ -49,15 +59,12 @@ namespace material_compiler
 
 			return coat;
 		}
+};
 
-	public:
-		static const IR::INode* translateMixIntoBlends(IR* ir, const IR::INode* _mix);
 
-		static std::pair<instr_t, const IR::INode*> processSubtree(IR* ir, const IR::INode* tree, IR::INode::children_array_t& next, tmp_bxdf_translation_cache_t* coatTranslationCache);
-	};
-
-	class CIdGenerator
-	{
+// TODO: more extreme deduplication?
+class CIdGenerator
+{
 	public:
 		using id_t = instr_stream::instr_id_t;
 
@@ -80,11 +87,17 @@ namespace material_compiler
 
 		id_t gen = 0u;
 		core::unordered_map<const IR::INode*, id_t> m_cache;
-	};
+};
 
-	template <typename stack_el_t>
-	class ITraversalGenerator
-	{
+
+// base class for the many traversals:
+// - texture prefetch
+// - normal precompute
+// - importance sample generator
+// - remainder and pdf computation
+template <typename stack_el_t>
+class ITraversalGenerator
+{
 	protected:
 		using SContext = CMaterialCompilerGLSLBackendCommon::SContext;
 
@@ -99,17 +112,11 @@ namespace material_compiler
 		//rem_and_pdf: instructions not preceded with OP_BUMPMAP (resulting from node without any bumpmap above in tree) will have normal ID = ~0
 		uint32_t m_firstFreeNormalID = static_cast<uint32_t>(-1);
 
-		uint32_t m_registerPool;
+		const uint32_t m_registerBudget;
 
-		/*template <typename ...Params>
-		static stack_el_t createStackEl(Params&& ...args)
-		{
-			return stack_el_t {std::forward<Params>(args)...};
-		}*/
-
+		// right now it only gets used to inherit normalID from parent instruction
 		virtual void writeInheritableBitfields(instr_t& dst, instr_t parent) const
 		{
-
 		}
 
 		// Extra operations performed on instruction just before it is pushed on stack
@@ -125,6 +132,7 @@ namespace material_compiler
 			dst = core::bitfieldInsert<instr_t>(dst, m_firstFreeNormalID, instr_stream::INSTR_NORMAL_ID_SHIFT, instr_stream::INSTR_NORMAL_ID_WIDTH);
 		}
 
+		// TODO: why would we even have NOOPs in the instruction stream!?
 		void filterNOOPs(traversal_t& _traversal)
 		{
 			_traversal.erase(
@@ -135,7 +143,8 @@ namespace material_compiler
 
 		std::pair<instr_t, const IR::INode*> processSubtree(const IR::INode* tree, IR::INode::children_array_t& next)
 		{
-			//TODO deduplication
+			// TODO deduplication (find identical IR subtrees, make them share instruction streams), hash consing?
+			// Merkle Tree, LLVM had some nice blogposts about how their LTO works with hashmaps that can match subtrees in the context of type definitions
 			return CInterpreter::processSubtree(m_ir, tree, next, m_translationCache);
 		}
 
@@ -260,6 +269,7 @@ namespace material_compiler
 			default: break;
 			}
 
+			// TODO: better deduplication
 			auto found = m_ctx->bsdfDataIndexMap.find(_node);
 			if (found != m_ctx->bsdfDataIndexMap.end())
 				return found->second;
@@ -275,6 +285,7 @@ namespace material_compiler
 
 		instr_stream::VTID packTexture(const IR::INode::STextureSource& tex)
 		{
+			// cache, obviously
 			if (auto found = m_ctx->VTallocMap.find({ tex.image.get(),tex.sampler.get() }); found != m_ctx->VTallocMap.end())
 				return found->second;
 
@@ -303,10 +314,6 @@ namespace material_compiler
 			alloc.uwrap = uwrap;
 			alloc.vwrap = vwrap;
 			auto addr = m_ctx->vt.alloc(alloc, std::move(img), border);
-			/*if (alloc.extent.width == 64u && alloc.extent.height == 64u)
-			{
-				printf("allocated 64x64: %u, %u, %u, maxmip=%u\n", (uint32_t)addr.pgTab_x, (uint32_t)addr.pgTab_y, (uint32_t)addr.pgTab_layer, (uint32_t) addr.maxMip);
-			}*/
 
 			std::pair<SContext::VTallocKey, instr_stream::VTID> item{{tex.image.get(),tex.sampler.get()}, addr};
 			m_ctx->VTallocMap.insert(item);
@@ -314,38 +321,37 @@ namespace material_compiler
 			return addr;
 		}
 
+		// returns if the instruction actually got pushed
 		template <typename ...Params>
 		bool push(const instr_t _instr, const IR::INode* _node, const IR::INode::children_array_t& _children, instr_t _parent, Params&& ...args)
 		{
-			bool pushIt = false;
+			// a copy of the instruction gets pushed (some flags get changed) 
 			instr_t instr = _instr;
+			// right now this only deals with the normal ID
 			writeInheritableBitfields(instr, _parent);
 			switch (instr_stream::getOpcode(instr))
 			{
-			case instr_stream::OP_BUMPMAP:
-				writeBumpmapBitfields(instr);
-				[[fallthrough]];
-			case instr_stream::OP_DIFFUSE: [[fallthrough]];
-			case instr_stream::OP_DIFFTRANS: [[fallthrough]];
-			case instr_stream::OP_DIELECTRIC: [[fallthrough]];
-			case instr_stream::OP_THINDIELECTRIC: [[fallthrough]];
-			case instr_stream::OP_CONDUCTOR: [[fallthrough]];
-			case instr_stream::OP_COATING: [[fallthrough]];
-			case instr_stream::OP_BLEND: [[fallthrough]];
-			case instr_stream::OP_NOOP: [[fallthrough]];
-			case instr_stream::OP_DELTRATRANS:
-				pushIt = true;
-				break;
+				case instr_stream::OP_BUMPMAP:
+					writeBumpmapBitfields(instr);
+					[[fallthrough]];
+				case instr_stream::OP_DIFFUSE: [[fallthrough]];
+				case instr_stream::OP_DIFFTRANS: [[fallthrough]];
+				case instr_stream::OP_DIELECTRIC: [[fallthrough]];
+				case instr_stream::OP_THINDIELECTRIC: [[fallthrough]];
+				case instr_stream::OP_CONDUCTOR: [[fallthrough]];
+				case instr_stream::OP_COATING: [[fallthrough]];
+				case instr_stream::OP_BLEND: [[fallthrough]];
+				case instr_stream::OP_NOOP: [[fallthrough]];
+				case instr_stream::OP_DELTRATRANS:
+					onBeforeStackPush(instr,_node);
+					m_stack.push(stack_el_t(instr,_node,_children,std::forward<Params>(args)...));
+					return true;
+					break;
 			}
-
-			if (pushIt) 
-			{
-				onBeforeStackPush(instr, _node);
-				m_stack.push(stack_el_t(instr, _node, _children, std::forward<Params>(args)...));
-			}
-
-			return pushIt;
+			return false;
 		}
+		
+		// set pointer to BSDF parameter data once its known
 		instr_t finalizeInstr(instr_t _instr, const IR::INode* _node, uint32_t _bsdfBufOffset)
 		{
 			constexpr instr_stream::E_NDF ndfMap[4]
@@ -422,34 +428,37 @@ namespace material_compiler
 		}
 
 	public:
-		ITraversalGenerator(SContext* _ctx, IR* _ir, CIdGenerator* _id_gen, tmp_bxdf_translation_cache_t* _cache, uint32_t _regCount) : 
-			m_ctx(_ctx), m_ir(_ir), m_id_gen(_id_gen), m_translationCache(_cache), m_registerPool(_regCount) {}
+		ITraversalGenerator(SContext* _ctx, IR* _ir, CIdGenerator* _id_gen, tmp_bxdf_translation_cache_t* _cache, uint32_t _registerBudget) : 
+			m_ctx(_ctx), m_ir(_ir), m_id_gen(_id_gen), m_translationCache(_cache), m_registerBudget(_registerBudget) {}
 
 		virtual traversal_t genTraversal(const IR::INode* _root, uint32_t& _out_usedRegs) = 0;
-	};
+};
+
 
 namespace remainder_and_pdf
 {
-	inline uint32_t getNumberOfSrcRegsForOpcode(instr_stream::E_OPCODE _op)
-	{
-		if (_op == instr_stream::OP_BLEND || _op == instr_stream::OP_COATING)
-			return 2u;
-		else if (_op == instr_stream::OP_BUMPMAP)
-			return 1u;
-		return 0u;
-	}
 
-	inline core::vector3du32_SIMD getRegisters(const instr_t& i)
-	{
-		return core::vector3du32_SIMD(
-			(i>>instr_stream::remainder_and_pdf::INSTR_REG_DST_SHIFT),
-			(i>>instr_stream::remainder_and_pdf::INSTR_REG_SRC1_SHIFT),
-			(i>>instr_stream::remainder_and_pdf::INSTR_REG_SRC2_SHIFT)
-		) & core::vector3du32_SIMD(instr_stream::remainder_and_pdf::INSTR_REG_MASK);
-	}
+// not dwords, full regs for all output
+inline uint32_t getNumberOfSrcRegsForOpcode(instr_stream::E_OPCODE _op)
+{
+	if (_op == instr_stream::OP_BLEND || _op == instr_stream::OP_COATING)
+		return 2u;
+	else if (_op == instr_stream::OP_BUMPMAP)
+		return 1u;
+	return 0u;
+}
 
-	class CTraversalManipulator
-	{
+inline core::vector3du32_SIMD getRegisters(const instr_t& i)
+{
+	return core::vector3du32_SIMD(
+		(i>>instr_stream::remainder_and_pdf::INSTR_REG_DST_SHIFT),
+		(i>>instr_stream::remainder_and_pdf::INSTR_REG_SRC1_SHIFT),
+		(i>>instr_stream::remainder_and_pdf::INSTR_REG_SRC2_SHIFT)
+	) & core::vector3du32_SIMD(instr_stream::remainder_and_pdf::INSTR_REG_MASK);
+}
+
+class CTraversalManipulator
+{
 	public:
 		using substream_base_t = std::pair<size_t, size_t>;
 		struct substream_t : private substream_base_t
@@ -492,27 +501,28 @@ namespace remainder_and_pdf
 
 		traversal_t m_input;
 		core::queue<uint32_t> m_streamLengths;
-		uint32_t m_regsPerResult;
+		const uint32_t m_regsPerResult;
 
 		void reorderBumpMapStreams_impl(traversal_t& _input, traversal_t& _output, const substream_t& _stream);
 
 	public:
 		CTraversalManipulator(traversal_t&& _traversal, uint32_t _regsPerResult) : m_input(std::move(_traversal)), m_regsPerResult(_regsPerResult) {}
 
-		traversal_t&& process(uint32_t regCount, uint32_t& _out_usedRegs, id2pos_map_t& _out_id2pos)&&
+		traversal_t&& process(uint32_t regBudget, uint32_t& _out_usedRegs, id2pos_map_t& _out_id2pos)
 		{
 			reorderBumpMapStreams();
-			_out_id2pos = specifyRegisters(regCount, _out_usedRegs);
+			_out_id2pos = specifyRegisters(regBudget, _out_usedRegs);
+			// specify registers gives us the maximum used register offset, but we need "one past the end" to know the total consumption
 			_out_usedRegs += m_regsPerResult;
 
 			return std::move(m_input);
 		}
 
 	private:
-		//reorders scattered bump-map streams (traversals of BSDF subtrees below bumpmap BSDF node) into continuous streams
-		//and moves OP_BUMPMAPs to the beginning of their streams/traversals/subtrees (because obviously they must be executed before BSDFs using them)
-		//leaves SPECIAL_VAL to mark original places of beginning of a stream (needed for function specifying registers)
-		//WARNING: modifies m_input
+		// reorders scattered bump-map streams (traversals of BSDF subtrees below bumpmap BSDF node) into continuous streams
+		// and moves OP_BUMPMAPs to the beginning of their streams/traversals/subtrees (because obviously they must be executed before BSDFs using them)
+		// leaves SPECIAL_VAL to mark original places of beginning of a stream (needed for function specifying registers)
+		// WARNING: modifies m_input
 		void reorderBumpMapStreams()
 		{
 			traversal_t result;
@@ -522,22 +532,22 @@ namespace remainder_and_pdf
 		}
 
 		id2pos_map_t specifyRegisters(uint32_t regCount, uint32_t& _out_maxUsedReg);
-	};
+};
 
 
-	struct stack_el
-	{
-		stack_el(instr_t i, const IR::INode* n, const IR::INode::children_array_t& ch, bool v) :
-			instr(i), node(n), children(ch), visited(v)
-		{}
+struct stack_el
+{
+	stack_el(instr_t i, const IR::INode* n, const IR::INode::children_array_t& ch, bool v) :
+		instr(i), node(n), children(ch), visited(v)
+	{}
 
-		instr_t instr;
-		const IR::INode* node;
-		IR::INode::children_array_t children;
-		bool visited;
-	};
-	class CTraversalGenerator : public ITraversalGenerator<stack_el>
-	{
+	instr_t instr;
+	const IR::INode* node;
+	IR::INode::children_array_t children;
+	bool visited;
+};
+class CTraversalGenerator : public ITraversalGenerator<stack_el>
+{
 		using base_t = ITraversalGenerator<stack_el>;
 
 		uint32_t m_regsPerRes;
@@ -558,7 +568,7 @@ namespace remainder_and_pdf
 		}
 
 		traversal_t genTraversal(const IR::INode* _root, uint32_t& _out_usedRegs) override;
-	};
+};
 }
 
 namespace gen_choice
@@ -737,6 +747,7 @@ std::pair<instr_t, const IR::INode*> CInterpreter::processSubtree(IR* ir, const 
 
 void remainder_and_pdf::CTraversalManipulator::reorderBumpMapStreams_impl(traversal_t& _input, traversal_t& _output, const substream_t& _stream)
 {
+	// TODO: comments for this function!
 	const uint32_t n_id = instr_stream::getNormalId(*(_stream.end() - 1));
 
 	const size_t len = _stream.length();
@@ -787,13 +798,15 @@ void remainder_and_pdf::CTraversalManipulator::reorderBumpMapStreams_impl(traver
 	_input.erase(woSubs.begin() + 1, woSubs.end());
 }
 
-auto remainder_and_pdf::CTraversalManipulator::specifyRegisters(uint32_t regCount, uint32_t& _out_maxUsedReg) -> id2pos_map_t
+auto remainder_and_pdf::CTraversalManipulator::specifyRegisters(uint32_t regBudget, uint32_t& _out_maxUsedReg) -> id2pos_map_t
 {
 	core::stack<uint32_t> freeRegs;
 	{
-		regCount /= m_regsPerResult;
-		for (uint32_t i = 0u; i < regCount; ++i)
-			freeRegs.push(m_regsPerResult*(regCount - 1u - i));
+		// each instruction produces `m_regsPerResult` dwords which need contiguous storage
+		regBudget /= m_regsPerResult;
+		// add registers to stack back to front to make sure lowest number are popped first
+		for (int32_t i=regBudget-1; i>=0; --i)
+			freeRegs.push(m_regsPerResult*i);
 	}
 	//registers with result of bump-map substream
 	core::stack<uint32_t> bmRegs;
@@ -802,40 +815,44 @@ auto remainder_and_pdf::CTraversalManipulator::specifyRegisters(uint32_t regCoun
 
 	id2pos_map_t id2pos;
 
+	// TODO: maybe refactor into nested loops so the fact that we deal with substreams assigned to normal IDs is clearer
 	int32_t bmStreamEndCounter = 0;
 	auto pushResultRegister = [&bmStreamEndCounter, &bmRegs, &srcRegs](uint32_t _resultReg)
 	{
 		core::stack<uint32_t>& stack = bmStreamEndCounter == 0 ? bmRegs : srcRegs;
 		stack.push(_resultReg);
 	};
-	for (uint32_t j = 0u; j < m_input.size();)
+	for (uint32_t j=0u; j<m_input.size();)
 	{
 		instr_t& i = m_input[j];
 
+		// we need to use the persistent bump-map register as a source register to our next operation (setting the geometric normal)
 		if (i == SPECIAL_VAL)
 		{
 			srcRegs.push(bmRegs.top());
 			bmRegs.pop();
+			// SPECIAL_VAL is a not an instruction, filter it out of the generated stream
 			m_input.erase(m_input.begin() + j);
 
-			continue;// do not increment j
+			continue; // do not increment j because we erased
 		}
 		const instr_stream::E_OPCODE op = instr_stream::getOpcode(i);
 		const instr_stream::instr_id_t id = instr_stream::getInstrId(i);
 		id2pos.insert({ id, j });
 
 		--bmStreamEndCounter;
+		// next instruction is bump-map setting, record how long the instruction substream is that follows it
 		if (op == instr_stream::OP_BUMPMAP)
 		{
 			bmStreamEndCounter = m_streamLengths.front() - 1u;
 			m_streamLengths.pop();
 
-			//OP_BUMPMAP doesnt care about usual registers, so dont set them
+			// OP_BUMPMAP doesnt care about usual registers, so dont set them (its basically a VM state toggle for a global persistent register)
 			++j;
 			continue;
 		}
-		//if bmStreamEndCounter reaches value of -1 and next instruction is not OP_BUMPMAP, then emit some SET_GEOM_NORMAL instr
-		//but do not insert if we are at the very beginning - interaction is computed for geometry normal at the beginning of each stream implicitely anyway
+		// If bmStreamEndCounter reaches value of -1 and next instruction is not OP_BUMPMAP, then emit some SET_GEOM_NORMAL instr
+		// but do not insert if we are at the very beginning - interaction is computed for geometry normal at the beginning of each stream implicitely anyway
 		else if (bmStreamEndCounter==-1 && j!=0u)
 		{
 			//just opcode, no registers nor other bitfields in this instruction
@@ -856,43 +873,47 @@ auto remainder_and_pdf::CTraversalManipulator::specifyRegisters(uint32_t regCoun
 
 		_out_maxUsedReg = std::max(srcs[0],srcs[1]);
 
+		// increment instruction interator
+		++j;
+		const bool notLastInstruction = j!=m_input.size();
 		switch (srcsNum)
 		{
-		case 2u:
-		{
-			const uint32_t src2 = srcs[0];
-			const uint32_t src1 = srcs[1];
-			const uint32_t dst = (j == m_input.size() - 1u) ? 0u : src1;
-			pushResultRegister(dst);
-			freeRegs.push(src2);
-			setRegisters(i, dst, src1, src2);
+			case 2u:
+				{
+					// in reverse order on purpose, because of stack pop ordering
+					const uint32_t src2 = srcs[0];
+					const uint32_t src1 = srcs[1];
+					assert(src1<src2);
+					const uint32_t dst = notLastInstruction ? src1:0u;
+					pushResultRegister(dst);
+					freeRegs.push(src2);
+					setRegisters(i, dst, src1, src2);
+				}
+				break;
+			case 1u:
+				{
+					const uint32_t src = srcs[0];
+					const uint32_t dst = notLastInstruction ? src:0u;
+					pushResultRegister(dst);
+					setRegisters(i, dst, src);
+				}
+				break;
+			case 0u:
+				{
+					assert(!freeRegs.empty());
+					uint32_t dst = 0u;
+					if (notLastInstruction)
+					{
+						dst = freeRegs.top();
+						freeRegs.pop();
+					}
+					pushResultRegister(dst);
+					setRegisters(i, dst);
+				}
+				break;
+			default:
+				break;
 		}
-		break;
-		case 1u:
-		{
-			const uint32_t src = srcs[0];
-			const uint32_t dst = (j == m_input.size() - 1u) ? 0u : src;
-			pushResultRegister(dst);
-			setRegisters(i, dst, src);
-		}
-		break;
-		case 0u:
-		{
-			assert(!freeRegs.empty());
-			uint32_t dst = 0u;
-			if (j < m_input.size() - 1u)
-			{
-				dst = freeRegs.top();
-				freeRegs.pop();
-			}
-			pushResultRegister(dst);
-			setRegisters(i, dst);
-		}
-		break;
-		default: break;
-		}
-
-		++j;
 	}
 
 	return id2pos;
@@ -902,6 +923,7 @@ traversal_t remainder_and_pdf::CTraversalGenerator::genTraversal(const IR::INode
 {
 	traversal_t traversal;
 
+	// push the whole IR tree while on-line translating into a binary tree, generating a DFS traversal on the stack
 	{
 		IR::INode::children_array_t next;
 		const IR::INode* node;
@@ -913,10 +935,10 @@ traversal_t remainder_and_pdf::CTraversalGenerator::genTraversal(const IR::INode
 	{
 		auto& top = m_stack.top();
 		const instr_stream::E_OPCODE op = instr_stream::getOpcode(top.instr);
-		//const uint32_t srcRegCount = getNumberOfSrcRegsForOpcode(op);
 		_NBL_DEBUG_BREAK_IF(op == instr_stream::OP_INVALID);
 		if (top.children.count==0u || top.visited)
 		{
+			// post-order traversal emits stuff after all children have already been visited
 			const uint32_t bsdfBufIx = getBSDFDataIndex(instr_stream::getOpcode(top.instr), top.node);
 			instr_t instr = finalizeInstr(top.instr, top.node, bsdfBufIx);
 			traversal.push_back(instr);
@@ -929,13 +951,15 @@ traversal_t remainder_and_pdf::CTraversalGenerator::genTraversal(const IR::INode
 			size_t pushedCount = 0ull;
 			for (auto it = top.children.end() - 1; it != top.children.begin() - 1; --it)
 			{
+				// we actually rewrite nodes with K>2 children into an unbalanced chain of 2-children nodes
+				// TODO: https://github.com/Devsh-Graphics-Programming/Nabla/issues/287#issuecomment-994732437
 				const IR::INode* node = nullptr;
 				IR::INode::children_array_t next2;
 				instr_t instr2;
 				std::tie(instr2, node) = processSubtree(*it, next2);
 				pushedCount += push(instr2, node, next2, top.instr, false);
 			}
-			_NBL_DEBUG_BREAK_IF(pushedCount > 2ull);
+			_NBL_DEBUG_BREAK_IF(pushedCount > 2ull); // TODO: this is probably wrong, some nodes can have only 1 child?
 			_NBL_DEBUG_BREAK_IF(pushedCount < top.children.count);
 		}
 	}
@@ -943,17 +967,19 @@ traversal_t remainder_and_pdf::CTraversalGenerator::genTraversal(const IR::INode
 	//remove NOOPs
 	filterNOOPs(traversal);
 
-	traversal = std::move(CTraversalManipulator(std::move(traversal), m_regsPerRes).process(m_registerPool, _out_usedRegs, m_id2pos));
+	traversal = std::move(CTraversalManipulator(std::move(traversal), m_regsPerRes).process(m_registerBudget, _out_usedRegs, m_id2pos));
 
 	return traversal;
 }
 
+// generator choice doesn't use any registers because it chooses BxDF tree branches stochastically
 traversal_t gen_choice::CTraversalGenerator::genTraversal(const IR::INode* _root, uint32_t& _out_usedRegs)
 {
 	constexpr uint32_t INVALID_INDEX = 0xdeadbeefu;
 
 	traversal_t traversal;
 
+	// push the whole IR tree while on-line translating into a binary tree, generating a DFS traversal on the stack
 	{
 		IR::INode::children_array_t next;
 		const IR::INode* node;
@@ -998,12 +1024,19 @@ traversal_t gen_choice::CTraversalGenerator::genTraversal(const IR::INode* _root
 	//remove NOOPs
 	filterNOOPs(traversal);
 
+	// no registers used because stochastic descent
 	_out_usedRegs = 0u;
 
 	return traversal;
 }
 
-instr_stream::tex_prefetch::prefetch_stream_t tex_prefetch::genTraversal(const traversal_t& _t, const core::vector<instr_stream::intermediate::SBSDFUnion>& _bsdfData, core::unordered_map<instr_stream::STextureData, uint32_t, instr_stream::STextureData::hash>& _out_tex2reg, uint32_t _firstFreeReg, uint32_t& _out_usedRegs, uint32_t& _out_regCntFlags)
+// we record whats the most registers (channels) a texture that will get consumed as a parameter
+// TODO: Investigate compressing 2-channel fetches to half floats and 3-channel to RGB9E5 or RGB19E7
+instr_stream::tex_prefetch::prefetch_stream_t tex_prefetch::genTraversal(
+	const traversal_t& _t, const core::vector<instr_stream::intermediate::SBSDFUnion>& _bsdfData,
+	core::unordered_map<instr_stream::STextureData, uint32_t, instr_stream::STextureData::hash>& _out_tex2reg,
+	uint32_t _firstFreeReg, uint32_t& _out_usedRegs, uint32_t& _out_regCntFlags
+)
 {
 	core::unordered_set<instr_stream::STextureData, instr_stream::STextureData::hash> processed;
 	uint32_t regNum = _firstFreeReg;
@@ -1024,9 +1057,11 @@ instr_stream::tex_prefetch::prefetch_stream_t tex_prefetch::genTraversal(const t
 		for (uint32_t param_i = 0u; param_i < param_count; ++param_i)
 		{
 			const uint32_t param_tex_shift = instr_stream::BITFIELDS_SHIFT_PARAM_TEX[param_i];
+			// TODO: fetch normalmap/bumpmap/derivative map as regular textures, then replace the register contents in-place
 			if (op != instr_stream::OP_BUMPMAP && core::bitfieldExtract(instr, param_tex_shift, 1) == 0ull)
 				continue;
 
+			// we dont fetch the same texel twice, cache helps us detect duplicates
 			instr_stream::tex_prefetch::prefetch_instr_t prefetch_instr;
 			prefetch_instr.tex_data = bsdf_data.common.param[param_i].tex;
 			if (processed.find(prefetch_instr.tex_data) != processed.end())
@@ -1035,6 +1070,7 @@ instr_stream::tex_prefetch::prefetch_stream_t tex_prefetch::genTraversal(const t
 
 			const uint32_t dst_reg = regNum;
 			const uint32_t reg_cnt = instr_stream::getRegisterCountForParameter(op, param_i);
+			// TODO: how is reg_cnt==0 handled!? Do redundant opcodes get emitted!?
 			prefetch_instr.setRegCnt(reg_cnt);
 			prefetch_instr.setDstReg(dst_reg);
 			regNum += reg_cnt;
@@ -1052,7 +1088,7 @@ instr_stream::tex_prefetch::prefetch_stream_t tex_prefetch::genTraversal(const t
 	return prefetch_stream;
 }
 
-std::string CMaterialCompilerGLSLBackendCommon::genPreprocDefinitions(const result_t& _res, bool _genChoiceStream)
+std::string CMaterialCompilerGLSLBackendCommon::genPreprocDefinitions(const result_t& _res, E_GENERATOR_STREAM_TYPE _generatorChoiceStream)
 {
 	using namespace std::string_literals;
 
@@ -1069,10 +1105,11 @@ std::string CMaterialCompilerGLSLBackendCommon::genPreprocDefinitions(const resu
 	if (_res.NDFs.size()==1ull)
 		defs += "\n#define ONLY_ONE_NDF";
 
+	// TODO: dynamically size this?
 	defs += "\n#define sizeof_bsdf_data " + std::to_string((sizeof(instr_stream::SBSDFUnion)+instr_stream::sizeof_uvec4-1u)/instr_stream::sizeof_uvec4);
-
-	if (_genChoiceStream)
-		defs += "\n#define GEN_CHOICE_STREAM";
+	
+	if (_generatorChoiceStream!=EGST_ABSENT)
+		defs += "\n#define GEN_CHOICE_STREAM "+std::to_string(_generatorChoiceStream);
 	if (!_res.noPrefetchStream)
 		defs += "\n#define TEX_PREFETCH_STREAM";
 	if (!_res.noNormPrecompStream)
@@ -1161,7 +1198,7 @@ std::string CMaterialCompilerGLSLBackendCommon::genPreprocDefinitions(const resu
 	return defs;
 }
 
-auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, bool _computeGenChoiceStream) -> result_t
+auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, E_GENERATOR_STREAM_TYPE _generatorChoiceStream) -> result_t
 {
 	result_t res;
 	res.noNormPrecompStream = true;
@@ -1171,7 +1208,7 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, bool _
 
 	for (const IR::INode* root : _ir->roots)
 	{
-		uint32_t registerPool = instr_stream::MAX_REGISTER_COUNT;
+		uint32_t remainingRegisters = instr_stream::MAX_REGISTER_COUNT;
 
 		const size_t interm_bsdf_data_begin_ix = _ctx->bsdfData.size();
 
@@ -1183,26 +1220,48 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, bool _
 		uint32_t usedRegs{};
 		traversal_t rem_pdf_stream;
 		{
-			//In case of presence of generator choice stream, remainder_and_pdf stream has 2 roles in raster backend:
-			//* eval stream
-			//* remainder-and-pdf stream (for use in envmap sampling, as an example); in which case instructions need to write their PDF as well
-			//In raytracing backend _computeGenChoiceStream is always true
-			const uint32_t regsPerRes = _computeGenChoiceStream ? 4u : 3u;
+			// TODO: investigate compression of return value registers from 11 to 5 DWORDs
+			const uint32_t regsPerRes = [_generatorChoiceStream]() -> auto
+			{
+				// In case of presence of generator choice stream, remainder_and_pdf stream has 2 roles in raster backend:
+				// * eval stream
+				// * remainder-and-pdf stream (for use in multiple importance sampling, as an example); in which case instructions need to write their PDF as well
+				// In raytracing backend _computeGenChoiceStream is always present
+				switch (_generatorChoiceStream)
+				{
+					case EGST_PRESENT:
+						return 4u;
+						break;
+					// When desiring Albedo and Normal Extraction, one needs to use extra registers for albedo, normal and throughput scale
+					case EGST_PRESENT_WITH_AOV_EXTRACTION:
+						// TODO: investigate whether using 10-16bit storage (fixed point or half float) makes execution faster, because 
+						// albedo could fit in 1.5 DWORDs as 16bit (or 1 DWORDs as 10 bit), normal+throughput scale in 2 DWORDs as half floats or 16 bit snorm
+						// and value/pdf is a low dynamic range so half float could be feasible! Giving us a total register count of 5 DWORDs.
+						return 11u;
+						break;
+					default:
+						break;
+				}
+				// only colour contribution
+				return 3u; 
+			}();
 
-			remainder_and_pdf::CTraversalGenerator gen(_ctx, _ir, &id_gen, &translationCache, registerPool, regsPerRes);
+			remainder_and_pdf::CTraversalGenerator gen(_ctx, _ir, &id_gen, &translationCache, remainingRegisters, regsPerRes);
 			rem_pdf_stream = gen.genTraversal(root, usedRegs);
-			assert(usedRegs <= registerPool);
-			registerPool -= usedRegs;
+			assert(usedRegs <= remainingRegisters);
+			remainingRegisters -= usedRegs;
 			id2pos = gen.getId2PosMapping();
 		}
 		traversal_t gen_choice_stream;
-		if (_computeGenChoiceStream)
+		if (_generatorChoiceStream!=EGST_ABSENT)
 		{
-			gen_choice::CTraversalGenerator gen(_ctx, _ir, &id_gen, &translationCache, registerPool);
-			gen_choice_stream = gen.genTraversal(root, usedRegs);
-			assert(usedRegs <= registerPool);
-			registerPool -= usedRegs;
+			gen_choice::CTraversalGenerator gen(_ctx, _ir, &id_gen, &translationCache, 0u);
+			// generator stream does not consume any registers
+			uint32_t dummyUsedRegs;
+			gen_choice_stream = gen.genTraversal(root,dummyUsedRegs);
+			assert(dummyUsedRegs==0u);
 
+			// final instructions in generator choice need to know which instruction in the remainder&pdf stream corresponds to the same BxDF
 			for (auto& instr : gen_choice_stream)
 			{
 				const instr_stream::instr_id_t id = instr_stream::getInstrId(instr);
@@ -1213,20 +1272,22 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, bool _
 			}
 		}
 
+		// Texture Prefetch and Normal Precompute dont allocate their registers first because we count on 
 		instr_stream::tex_prefetch::prefetch_stream_t tex_prefetch_stream;
 		core::unordered_map<instr_stream::STextureData, uint32_t, instr_stream::STextureData::hash> tex2reg;
 		{
-			tex_prefetch_stream = tex_prefetch::genTraversal(rem_pdf_stream, _ctx->bsdfData, tex2reg, instr_stream::MAX_REGISTER_COUNT-registerPool, usedRegs, res.globalPrefetchRegCountFlags);
-			assert(usedRegs <= registerPool);
-			registerPool -= usedRegs;
+			tex_prefetch_stream = tex_prefetch::genTraversal(rem_pdf_stream, _ctx->bsdfData, tex2reg, instr_stream::MAX_REGISTER_COUNT-remainingRegisters, usedRegs, res.globalPrefetchRegCountFlags);
+			assert(usedRegs <= remainingRegisters);
+			remainingRegisters -= usedRegs;
 		}
 
-		const uint32_t regNum = instr_stream::MAX_REGISTER_COUNT-registerPool;
-
 		traversal_t normal_precomp_stream;
+		// register allocation for bumpmaps is a nice linear affair
+		// TODO: investigate performance impact of quantizing normals to 16 or 21bit SNORM
+		const uint32_t firstRegForBumpmaps = instr_stream::MAX_REGISTER_COUNT-remainingRegisters;
 		{
 			normal_precomp_stream.reserve(std::count_if(rem_pdf_stream.begin(), rem_pdf_stream.end(), [](instr_t i) {return instr_stream::getOpcode(i)==instr_stream::OP_BUMPMAP;}));
-			assert(regNum+3u*normal_precomp_stream.capacity() <= instr_stream::MAX_REGISTER_COUNT);
+			assert(firstRegForBumpmaps+3u*normal_precomp_stream.capacity() <= instr_stream::MAX_REGISTER_COUNT);
 			for (instr_t instr : rem_pdf_stream)
 			{
 				if (instr_stream::getOpcode(instr)==instr_stream::OP_BUMPMAP)
@@ -1234,16 +1295,16 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, bool _
 					constexpr uint32_t REGS_FOR_NORMAL = 3u;
 					//we can be sure that n_id is always in range [0,count of bumpmap instrs)
 					const uint32_t n_id = instr_stream::getNormalId(instr);
-					instr = core::bitfieldInsert<instr_t>(instr, regNum + REGS_FOR_NORMAL*n_id, instr_stream::normal_precomp::BITFIELDS_REG_DST_SHIFT, instr_stream::normal_precomp::BITFIELDS_REG_WIDTH);
+					instr = core::bitfieldInsert<instr_t>(instr, firstRegForBumpmaps + REGS_FOR_NORMAL*n_id, instr_stream::normal_precomp::BITFIELDS_REG_DST_SHIFT, instr_stream::normal_precomp::BITFIELDS_REG_WIDTH);
 					normal_precomp_stream.push_back(instr);
 				}
 			}
-			registerPool = instr_stream::MAX_REGISTER_COUNT - regNum - 3u*normal_precomp_stream.size();
+			remainingRegisters = instr_stream::MAX_REGISTER_COUNT - firstRegForBumpmaps - 3u*normal_precomp_stream.size();
 		}
 
 		//src1 reg for OP_BUMPMAPs is set to dst reg of corresponding instruction in normal precomp stream
-		setSourceRegForBumpmaps(rem_pdf_stream, regNum);
-		setSourceRegForBumpmaps(gen_choice_stream, regNum);
+		setSourceRegForBumpmaps(rem_pdf_stream, firstRegForBumpmaps);
+		setSourceRegForBumpmaps(gen_choice_stream, firstRegForBumpmaps);
 
 		for (auto it = _ctx->bsdfData.begin()+interm_bsdf_data_begin_ix; it != _ctx->bsdfData.end(); ++it)
 		{
@@ -1286,7 +1347,7 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, bool _
 
 		res.noNormPrecompStream = res.noNormPrecompStream && (streams.norm_precomp_count==0u);
 		res.noPrefetchStream = res.noPrefetchStream && (streams.tex_prefetch_count==0u);
-		res.usedRegisterCount = std::max(res.usedRegisterCount, instr_stream::MAX_REGISTER_COUNT-registerPool);
+		res.usedRegisterCount = std::max(res.usedRegisterCount, instr_stream::MAX_REGISTER_COUNT-remainingRegisters);
 	}
 
 	_ir->deinitTmpNodes();
@@ -1367,7 +1428,7 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, bool _
 	}
 
 	res.fragmentShaderSource_declarations =
-		genPreprocDefinitions(res, _computeGenChoiceStream) +
+		genPreprocDefinitions(res, _generatorChoiceStream) +
 R"(
 #include <nbl/builtin/glsl/material_compiler/common_declarations.glsl>
 )";

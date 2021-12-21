@@ -24,8 +24,7 @@
 #define nbl_glsl_MC_prefetch_instr_t uvec4
 #define nbl_glsl_MC_reg_t uint
 #define nbl_glsl_MC_params_t mat2x3
-#define nbl_glsl_MC_bxdf_eval_t vec3
-#define nbl_glsl_MC_eval_and_pdf_t vec4
+#define nbl_glsl_MC_bxdf_spectrum_t vec3
 
 struct nbl_glsl_MC_instr_stream_t
 {

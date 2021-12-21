@@ -58,7 +58,7 @@ void main()
 
 		//
 		Contribution contrib;
-		float aovThroughputScale = 0.f;// TODO: ray.;
+		const vec3 aovThroughput = throughput*0.f; // TODO: *ray.aovThroughputScale
 		if (hit)
 		{
 			const uint triangleID = intersection.primid;
@@ -93,14 +93,12 @@ void main()
 				);
 				
 				const vec3 origin = dPdBary*compactBary+lastVxPos;
-
 				generate_next_rays(
-					MAX_RAYS_GENERATED,material,frontfacing,vertex_depth,scramble_start_state,
-					sampleID,outPixelLocation,origin,throughput,contrib.albedo,contrib.worldspaceNormal
+					MAX_RAYS_GENERATED,material,frontfacing,vertex_depth,
+					scramble_start_state,sampleID,outPixelLocation,origin,
+					throughput,aovThroughput,contrib.albedo,contrib.worldspaceNormal
 				);
 			}
-			else
-				aovThroughputScale = 0.f;
 		}
 		else
 			Contribution_initMiss(contrib);
@@ -111,8 +109,9 @@ void main()
 		const vec3 acc_worldspaceNormal = fetchWorldspaceNormal(accumulationLocation);
 		// TODO: finish MIS
 		storeAccumulation(acc_emissive,contrib.color*throughput,accumulationLocation);
-		const vec3 aovThroughput = throughput*aovThroughputScale;
-		storeAlbedo(acc_albedo,contrib.albedo*aovThroughput,accumulationLocation);
-		storeWorldspaceNormal(acc_worldspaceNormal,contrib.worldspaceNormal*(aovThroughput),accumulationLocation); // TODO: luma throughput on normals
+		// TODO
+		//const vec3 aovThroughput = throughput*aovThroughputScale;
+		//storeAlbedo(acc_albedo,contrib.albedo*aovThroughput,accumulationLocation);
+		//storeWorldspaceNormal(acc_worldspaceNormal,contrib.worldspaceNormal*(aovThroughput),accumulationLocation); // TODO: luma throughput on normals
 	}
 }

@@ -75,7 +75,7 @@ void main()
 			
 			// get material while waiting for indices
 			const nbl_glsl_MC_oriented_material_t material = nbl_glsl_MC_material_data_t_getOriented(batchInstanceData.material,frontfacing);
-			contrib.color = nbl_glsl_MC_oriented_material_t_getEmissive(material);
+			contrib.color = contrib.albedo = nbl_glsl_MC_oriented_material_t_getEmissive(material);
 			
 			const uint vertex_depth_mod_2 = 0x1u;
 			// load vertex data
@@ -94,14 +94,19 @@ void main()
 
 			// generate rays
 			const uint vertex_depth = 1u;
+			const vec3 aovThroughput = vec3(1.0/float(staticViewData.samplesPerPixelPerDispatch));
 			generate_next_rays(
 				staticViewData.samplesPerPixelPerDispatch,material,frontfacing,vertex_depth,
 				scramble_start_state,pc.cummon.samplesComputed,outPixelLocation,origin,
-				vec3(pc.cummon.rcpFramesDispatched),contrib.albedo,contrib.worldspaceNormal
+				vec3(pc.cummon.rcpFramesDispatched),aovThroughput,contrib.albedo,contrib.worldspaceNormal
 			);
 		}
 		else
 			Contribution_initMiss(contrib);
+
+		// could do some other normalization factor, whats important is that albedo looks somewhat like the HDR value, albeit scaled down
+		contrib.albedo = contrib.albedo / max(max(contrib.albedo.r, contrib.albedo.g), max(contrib.albedo.b, 1.f));
+		contrib.worldspaceNormal *= min(inversesqrt(dot(contrib.worldspaceNormal,contrib.worldspaceNormal)),1.f);
 		
 		// we could optimize this, but its pointless before using KHR_ray_query
 		const bool firstFrame = pc.cummon.rcpFramesDispatched==1.f;
@@ -121,12 +126,9 @@ void main()
 				const vec3 acc_albedo = fetchAlbedo(coord);
 				const vec3 acc_worldspaceNormal = fetchWorldspaceNormal(coord);
 
-				vec3 emissive_delta = contrib.color-acc_emissive;
-				vec3 albedo_delta = contrib.albedo-acc_albedo;
-				vec3 worldspaceNormal_delta = contrib.worldspaceNormal-acc_worldspaceNormal;
-				emissive_delta *= pc.cummon.rcpFramesDispatched;
-				albedo_delta *= pc.cummon.rcpFramesDispatched;
-				worldspaceNormal_delta *= pc.cummon.rcpFramesDispatched;
+				const vec3 emissive_delta = (contrib.color-acc_emissive)*pc.cummon.rcpFramesDispatched;
+				const vec3 albedo_delta = (contrib.albedo-acc_albedo)*pc.cummon.rcpFramesDispatched;
+				const vec3 worldspaceNormal_delta = (contrib.worldspaceNormal-acc_worldspaceNormal)*pc.cummon.rcpFramesDispatched;
 	
 				storeAccumulation(acc_emissive,emissive_delta,coord);
 				storeAlbedo(acc_albedo,albedo_delta,coord);

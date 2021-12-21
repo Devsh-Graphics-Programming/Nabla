@@ -205,6 +205,7 @@ public:
 			i = core::bitfieldInsert<instr_t>(i, ix, BITFIELDS_BSDF_BUF_OFFSET_SHIFT, BITFIELDS_BSDF_BUF_OFFSET_WIDTH);
 		}
 
+		// TODO: Instruction ID needs to be renamed for better semantics
 		inline static instr_id_t getInstrId(const instr_t& i)
 		{
 			return core::bitfieldExtract(i, INSTR_ID_SHIFT, INSTR_ID_WIDTH);
@@ -538,6 +539,12 @@ public:
 	struct result_t;
 	struct SContext;
 
+	enum E_GENERATOR_STREAM_TYPE
+	{
+		EGST_ABSENT,
+		EGST_PRESENT,
+		EGST_PRESENT_WITH_AOV_EXTRACTION
+	};
 protected:
 	_NBL_STATIC_INLINE_CONSTEXPR const char* OPCODE_NAMES[instr_stream::OPCODE_COUNT]{
 		"OP_DIFFUSE",
@@ -558,7 +565,7 @@ protected:
 		"NDF_GGX",
 		"NDF_PHONG"
 	};
-	static std::string genPreprocDefinitions(const result_t& _res, bool _genChoiceStream);
+	static std::string genPreprocDefinitions(const result_t& _res, E_GENERATOR_STREAM_TYPE _generatorChoiceStream);
 
 	core::unordered_map<uint32_t, uint32_t> createBsdfDataIndexMapForPrefetchedTextures(SContext* _ctx, const instr_stream::traversal_t& _tex_prefetch_stream, const core::unordered_map<instr_stream::STextureData, uint32_t, instr_stream::STextureData::hash>& _tex2reg) const;
 
@@ -586,6 +593,7 @@ public:
 
 		//users should not touch this
 		core::vector<instr_stream::intermediate::SBSDFUnion> bsdfData;
+		// TODO: HARDER DEDUPLICATION, hash & compare contents not only pointers!
 		core::unordered_map<const IR::INode*, size_t> bsdfDataIndexMap;
 
 		using VTallocKey = std::pair<const asset::ICPUImageView*, const asset::ICPUSampler*>;
@@ -707,7 +715,7 @@ public:
 
 	void debugPrint(std::ostream& _out, const result_t::instr_streams_t& _streams, const result_t& _res, const SContext* _ctx) const;
 
-	result_t compile(SContext* _ctx, IR* _ir, bool _computeGenChoiceStream = true);
+	virtual result_t compile(SContext* _ctx, IR* _ir, E_GENERATOR_STREAM_TYPE _generatorChoiceStream=EGST_PRESENT);
 };
 
 }
