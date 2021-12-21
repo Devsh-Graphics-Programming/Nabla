@@ -1557,7 +1557,7 @@ bool Renderer::render(nbl::ITimer* timer)
 		}(m_framesDispatched++);
 		m_raytraceCommonData.rcpFramesDispatched = 1.f/float(m_framesDispatched);
 		m_raytraceCommonData.textureFootprintFactor = core::inversesqrt(core::min<float>(m_framesDispatched,Renderer::AntiAliasingSequenceLength));
-		if(!modifiedViewProj.getInverseTransform(m_raytraceCommonData.viewProjMatrixInverse))
+		if(!modifiedViewProj.getInverseTransform<core::matrix4SIMD::E_MATRIX_INVERSE_PRECISION::EMIP_64BBIT>(m_raytraceCommonData.viewProjMatrixInverse))
 			std::cout << "Couldn't calculate viewProjection matrix's inverse. something is wrong." << std::endl;
 		// for (auto i=0u; i<3u; i++)
 		// 	m_raytraceCommonData.ndcToV.rows[i] = inverseMVP.rows[3]*cameraPosition[i]-inverseMVP.rows[i];
