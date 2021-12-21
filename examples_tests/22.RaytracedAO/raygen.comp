@@ -68,19 +68,16 @@ void main()
 
 			// generate rays
 			const uint vertex_depth = 1u;
-			const vec3 aovThroughput = vec3(1.0/float(staticViewData.samplesPerPixelPerDispatch));
 			generate_next_rays(
 				staticViewData.samplesPerPixelPerDispatch,material,frontfacing,vertex_depth,
 				scramble_start_state,pc.cummon.samplesComputed,outPixelLocation,origin,
-				vec3(pc.cummon.rcpFramesDispatched),aovThroughput,contrib.albedo,contrib.worldspaceNormal
+				vec3(pc.cummon.rcpFramesDispatched),1.f,contrib.albedo,contrib.worldspaceNormal
 			);
 		}
 		else
 			Contribution_initMiss(contrib);
 
-		// could do some other normalization factor, whats important is that albedo looks somewhat like the HDR value, albeit scaled down
-		contrib.albedo = contrib.albedo / max(max(contrib.albedo.r, contrib.albedo.g), max(contrib.albedo.b, 1.f));
-		contrib.worldspaceNormal *= min(inversesqrt(dot(contrib.worldspaceNormal,contrib.worldspaceNormal)),1.f);
+		Contribution_normalizeAoV(contrib);
 		
 		// we could optimize this, but its pointless before using KHR_ray_query
 		const bool firstFrame = pc.cummon.rcpFramesDispatched==1.f;

@@ -114,15 +114,20 @@ void storeWorldspaceNormal(in vec3 prev, in vec3 delta, in uvec3 coord)
 		storeWorldspaceNormal(prev+delta,coord);
 }
 
-
-float packOutPixelLocation(in uvec2 outPixelLocation)
+// due to memory limitations we can only do 6k renders
+// so that's 13 bits for width, 12 bits for height, which leaves us with 7 bits for throughput
+void packOutPixelLocationAndAoVThroughputFactor(out float val, in uvec2 outPixelLocation, in float aovThroughputFactor)
 {
-	return uintBitsToFloat(bitfieldInsert(outPixelLocation.x,outPixelLocation.y,16,16));
+	uint data = outPixelLocation.x;
+	data |= outPixelLocation.y<<13u;
+	data |= uint(aovThroughputFactor*127.f+0.5f)<<25u;
+	val = uintBitsToFloat(data);
 }
-uvec2 unpackOutPixelLocation(in float packed)
+void unpackOutPixelLocationAndAoVThroughputFactor(in float val, out uvec2 outPixelLocation, out float aovThroughputFactor)
 {
-	const uint asUint = floatBitsToUint(packed);
-	return uvec2(asUint&0xffffu,asUint>>16u);
+	const uint asUint = floatBitsToUint(val);
+	outPixelLocation = uvec2(asUint,asUint>>13u)&uvec2(0x1fffu,0x0fffu);
+	aovThroughputFactor = float(asUint>>25u)/127.f;
 }
 
 #include "bin/runtime_defines.glsl"
@@ -280,7 +285,7 @@ nbl_glsl_MC_quot_pdf_aov_t gen_sample_ray(
 void generate_next_rays(
 	in uint maxRaysToGen, in nbl_glsl_MC_oriented_material_t material, in bool frontfacing, in uint vertex_depth,
 	in nbl_glsl_xoroshiro64star_state_t scramble_start_state, in uint sampleID, in uvec2 outPixelLocation,
-	in vec3 origin, in vec3 prevThroughput, in vec3 aovThroughput, inout vec3 albedo, out vec3 worldspaceNormal)
+	in vec3 origin, in vec3 prevThroughput, in float prevAoVThroughputScale, inout vec3 albedo, out vec3 worldspaceNormal)
 {
 	// get material streams as well
 	const nbl_glsl_MC_instr_stream_t gcs = nbl_glsl_MC_oriented_material_t_getGenChoiceStream(material);
@@ -299,14 +304,16 @@ void generate_next_rays(
 	const uint vertex_depth_mod_2_inv = vertex_depth_mod_2^0x1u;
 	// prepare rays
 	uint raysToAllocate = 0u;
-	float maxT[MAX_RAYS_GENERATED]; vec3 direction[MAX_RAYS_GENERATED]; vec3 nextThroughput[MAX_RAYS_GENERATED];	
+	vec3 direction[MAX_RAYS_GENERATED];
+	float maxT[MAX_RAYS_GENERATED];
+	vec3 nextThroughput[MAX_RAYS_GENERATED];
+	float nextAoVThroughputScale[MAX_RAYS_GENERATED];
 for (uint i=1u; i!=vertex_depth; i++)
 {
 	nbl_glsl_xoroshiro64star(scramble_start_state);
 	nbl_glsl_xoroshiro64star(scramble_start_state);
 	nbl_glsl_xoroshiro64star(scramble_start_state);
 }
-	const float normalThroughput = nbl_glsl_MC_colorToScalar(aovThroughput);
 	for (uint i=0u; i<maxRaysToGen; i++)
 	{
 		nbl_glsl_xoroshiro64star_state_t scramble_state = scramble_start_state;
@@ -316,8 +323,9 @@ for (uint i=1u; i!=vertex_depth; i++)
 //		if (i==0u)
 //			imageStore(scramblebuf,ivec3(outPixelLocation,vertex_depth_mod_2_inv),uvec4(scramble_state,0u,0u));
 		nextThroughput[i] = prevThroughput*result.quotient;
-		albedo += aovThroughput*result.aov.albedo;
-		worldspaceNormal += normalThroughput*result.aov.normal;
+		nextAoVThroughputScale[i] = prevAoVThroughputScale*result.aov.throughputFactor;
+		albedo += result.aov.albedo/float(maxRaysToGen);
+		worldspaceNormal += result.aov.normal/float(maxRaysToGen);
 		// do denormalized half floats flush to 0 ?
 		if (max(max(nextThroughput[i].x,nextThroughput[i].y),nextThroughput[i].z)>=exp2(-14.f))
 			raysToAllocate++;
@@ -356,7 +364,8 @@ for (uint i=1u; i!=vertex_depth; i++)
 			newRay.origin = ray_origin[0];
 		newRay.maxT = maxT[i];
 		newRay.direction = direction[i];
-		newRay.time = packOutPixelLocation(outPixelLocation);
+		packOutPixelLocationAndAoVThroughputFactor(newRay.time,outPixelLocation,nextAoVThroughputScale[i]);
+		// TODO: shove xoroshiro state here!
 		newRay.mask = -1;
 		newRay._active = 1;
 		newRay.useless_padding[0] = packHalf2x16(nextThroughput[i].rg);
@@ -381,6 +390,13 @@ void Contribution_initMiss(out Contribution contrib)
 	contrib.albedo = contrib.color;
 	// for now pretend everything is the floor, if it messed up the denoiser then pretend skydome is a plane always oriented towards camera
 	contrib.worldspaceNormal = normalizedV;
+}
+
+void Contribution_normalizeAoV(inout Contribution contrib)
+{
+	// could do some other normalization factor, whats important is that albedo looks somewhat like the HDR value, albeit scaled down
+	contrib.albedo = contrib.albedo/max(max(contrib.albedo.r,contrib.albedo.g),max(contrib.albedo.b,1.f));
+	contrib.worldspaceNormal *= inversesqrt(max(dot(contrib.worldspaceNormal,contrib.worldspaceNormal),1.f));
 }
 
 /* TODO: optimize and reorganize

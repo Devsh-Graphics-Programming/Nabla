@@ -251,6 +251,7 @@ struct nbl_glsl_MC_aov_t
 // compute throughput factor from roughness
 float nbl_glsl_MC_aov_t_specularThroughputFactor(float a2)
 {
+	// TODO: make the ramp tweakable
 	return exp2(-64.f*a2);
 }
 float nbl_glsl_MC_aov_t_specularThroughputFactor(float ax2, float ay2)
