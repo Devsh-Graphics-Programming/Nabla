@@ -252,7 +252,7 @@ struct nbl_glsl_MC_aov_t
 float nbl_glsl_MC_aov_t_specularThroughputFactor(float a2)
 {
 	// TODO: make the ramp tweakable
-	return exp2(-64.f*a2);
+	return exp2(-128.f*a2);
 }
 float nbl_glsl_MC_aov_t_specularThroughputFactor(float ax2, float ay2)
 {
@@ -484,7 +484,7 @@ nbl_glsl_MC_eval_pdf_aov_t nbl_glsl_MC_instr_execute_COATING(
 	retval.pdf = mix(coat.pdf,coated.pdf,diffuse_pdf);
 #if GEN_CHOICE_STREAM>=GEN_CHOICE_WITH_AOV_EXTRACTION
 	retval.aov.albedo = coat.aov.albedo+coated.aov.albedo*diffuse_weight;
-	retval.aov.throughputFactor = coat.aov.throughputFactor;
+	retval.aov.throughputFactor = 0.f;
 	retval.aov.normal = coat.aov.normal+coated.aov.normal*nbl_glsl_MC_colorToScalar(diffuse_weight);
 #endif
 #endif
@@ -970,6 +970,11 @@ nbl_glsl_LightSample nbl_bsdf_cos_generate(
 	// precompute some stuff from a lightweight intersectionstruct
 	nbl_glsl_MC_setCurrInteraction(precomp);
 
+#if GEN_CHOICE_STREAM>=GEN_CHOICE_WITH_AOV_EXTRACTION
+	// set up the default as full throughput, which will set normal and albedo to 0 despite being uninitialized or initialized speculatively
+	out_values.aov.throughputFactor = 1.f;
+#endif
+
 	vec3 branchWeight = vec3(1.0);
 	// PDFs will be multiplied in (as choices are independent), at the end of the while loop it will be the PDF of choosing a particular BxDF leaf
 	float rcpBranchPdf = 1.0;
@@ -997,6 +1002,9 @@ nbl_glsl_LightSample nbl_bsdf_cos_generate(
 				}
 				else
 				{
+					#if GEN_CHOICE_STREAM>=GEN_CHOICE_WITH_AOV_EXTRACTION
+					out_values.aov.throughputFactor = 0.f;
+					#endif
 					const vec3 eta = nbl_glsl_MC_bsdf_data_decodeIoR(bsdf_data,OP_COATING)[0];
 					// fresnel gets tricky, we kind-of assume fresnel against the surface macro-normal is somewhat proportional to integrated fresnel over the distribution of visible normals
 					blendWeight_OR_fresnelTransmission = vec3(1.f)-nbl_glsl_fresnel_dielectric_frontface_only(eta,max(currInteraction.inner.isotropic.NdotV,0.f));
@@ -1062,10 +1070,6 @@ nbl_glsl_LightSample nbl_bsdf_cos_generate(
 
 	// if PDF is 0, none of the other values will be used for any arithmetic at all
 	out_values.pdf = 0.f;
-#if GEN_CHOICE_STREAM>=GEN_CHOICE_WITH_AOV_EXTRACTION
-	// set up the default as full throughput, which will set normal and albedo to 0 despite being uninitialized or initialized speculatively
-	out_values.aov.throughputFactor = 1.f;
-#endif
 
 	nbl_glsl_LightSample s;
 	#ifdef OP_DELTATRANS
@@ -1288,9 +1292,9 @@ nbl_glsl_LightSample nbl_bsdf_cos_generate(
 
 		#if GEN_CHOICE_STREAM>=GEN_CHOICE_WITH_AOV_EXTRACTION
 		#ifdef ALL_ISOTROPIC_BXDFS
-					out_values.aov.throughputFactor = nbl_glsl_MC_aov_t_specularThroughputFactor(ax2);
+					out_values.aov.throughputFactor *= nbl_glsl_MC_aov_t_specularThroughputFactor(ax2);
 		#else
-					out_values.aov.throughputFactor = nbl_glsl_MC_aov_t_specularThroughputFactor(ax2,ay2);
+					out_values.aov.throughputFactor *= nbl_glsl_MC_aov_t_specularThroughputFactor(ax2,ay2);
 		#endif
 		#endif
 
