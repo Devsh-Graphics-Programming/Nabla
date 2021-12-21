@@ -1079,21 +1079,16 @@ nbl_glsl_LightSample nbl_bsdf_cos_generate(
 	else
 	#endif
 	{
+		// preload common data
 		const nbl_glsl_MC_bsdf_data_t bsdf_data = nbl_glsl_MC_fetchBSDFDataForInstr(instr);
-	const nbl_glsl_MC_params_t params = nbl_glsl_MC_instr_getParameters(instr, bsdf_data);
+		const mat2x3 ior = nbl_glsl_MC_bsdf_data_decodeIoR(bsdf_data,op);
 
-
-	// speculatively
-	const float ax = nbl_glsl_MC_params_getAlpha(params);
-	const float ax2 = ax * ax;
-	// TODO: specialize for all isotropic NDFs
-	const float ay = nbl_glsl_MC_params_getAlphaV(params);
-	const float ay2 = ay * ay;
-		const mat2x3 ior = nbl_glsl_MC_bsdf_data_decodeIoR(bsdf_data, op);
-		const mat2x3 ior2 = matrixCompMult(ior, ior);
-
+		// precompute common parameters
 		const bool is_bsdf = !nbl_glsl_MC_op_isBRDF(op);
 		const float NdotV = nbl_glsl_conditionalAbsOrMax(is_bsdf,currInteraction.inner.isotropic.NdotV,0.f);
+		const mat2x3 ior2 = matrixCompMult(ior,ior);
+
+		//
 		#ifdef OP_THINDIELECTRIC
 		if (op == OP_THINDIELECTRIC)
 		{
@@ -1103,15 +1098,24 @@ nbl_glsl_LightSample nbl_bsdf_cos_generate(
 				currInteraction.inner.isotropic.V.dir, currInteraction.inner.T, currInteraction.inner.B, currInteraction.inner.isotropic.N, 
 				currInteraction.inner.isotropic.NdotV, NdotV, u, ior2[0], luminosityContributionHint, remMetadata
 			);
-			out_microfacet.inner = nbl_glsl_calcAnisotropicMicrofacetCache(currInteraction.inner, s);
-			nbl_glsl_MC_finalizeMicrofacet(out_microfacet);
 			out_values.quotient = nbl_glsl_thin_smooth_dielectric_cos_remainder_and_pdf_wo_clamps(out_values.pdf, remMetadata);
 			// do nothing to AoVs because the default is full throughput
+
+			// TODO: factor it out!
+			out_microfacet.inner = nbl_glsl_calcAnisotropicMicrofacetCache(currInteraction.inner,s);
+			nbl_glsl_MC_finalizeMicrofacet(out_microfacet);
 		} else
 		#endif
 		{
 			if (NdotV>nbl_glsl_FLT_MIN)
 			{
+				const nbl_glsl_MC_params_t params = nbl_glsl_MC_instr_getParameters(instr, bsdf_data);
+
+				const float ax = nbl_glsl_MC_params_getAlpha(params);
+				const float ax2 = ax * ax;
+				// TODO: specialize for all isotropic NDFs
+				const float ay = nbl_glsl_MC_params_getAlphaV(params);
+				const float ay2 = ay * ay;
 				out_values.aov.normal = precomp.N;
 
 				// TODO: refactor
@@ -1134,6 +1138,8 @@ nbl_glsl_LightSample nbl_bsdf_cos_generate(
 						out_values.pdf = 1.f;
 
 					s = nbl_glsl_createLightSampleTangentSpace(localV,localL,tangentFrame);
+
+					// TODO: factor it out!
 					out_microfacet.inner = nbl_glsl_calcAnisotropicMicrofacetCache(currInteraction.inner,s);
 					nbl_glsl_MC_finalizeMicrofacet(out_microfacet);
 
@@ -1225,6 +1231,7 @@ nbl_glsl_LightSample nbl_bsdf_cos_generate(
 		#endif
 						}
 						// scope localL out
+						// TODO: factor it out!
 						{
 							vec3 localL;
 							out_microfacet.inner = nbl_glsl_calcAnisotropicMicrofacetCache(refraction, localV, localH, localL, rcpEta, rcpEta*rcpEta);
