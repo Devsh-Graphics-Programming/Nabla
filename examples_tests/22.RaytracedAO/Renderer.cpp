@@ -533,6 +533,9 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 		// build TLAS with up to date transformations of instances
 		rr->SetOption("bvh.sah.use_splits",1.f);
 		rr->SetOption("bvh.builder","sah");
+		// deinstance everything for great perf
+		rr->SetOption("bvh.forceflat",1.f);
+		rr->SetOption("acc.type","fatbvh");
 		rr->Commit();
 	}
 
@@ -1313,11 +1316,20 @@ void Renderer::takeAndSaveScreenShot(const std::filesystem::path& screenshotFile
 	auto filename_wo_ext = screenshotFilePath;
 	filename_wo_ext.replace_extension();
 	if (m_tonemapOutput)
-		ext::ScreenShot::createScreenShot(m_driver,m_assetManager,m_tonemapOutput.get(),screenshotFilePath.string(),format);
+		ext::ScreenShot::createScreenShot(m_driver,m_assetManager,m_tonemapOutput.get(),filename_wo_ext.string()+".exr",format);
 	if (m_albedoRslv)
 		ext::ScreenShot::createScreenShot(m_driver,m_assetManager,m_albedoRslv.get(),filename_wo_ext.string()+"_albedo.exr",format);
 	if (m_normalRslv)
 		ext::ScreenShot::createScreenShot(m_driver,m_assetManager,m_normalRslv.get(),filename_wo_ext.string()+"_normal.exr",format);
+
+	std::ostringstream denoiserCmd;
+	denoiserCmd << "call ../denoiser_hook.bat";
+	denoiserCmd << " " << filename_wo_ext.string() << ".exr";
+	denoiserCmd << " " << filename_wo_ext.string() << "_albedo.exr";
+	denoiserCmd << " " << filename_wo_ext.string() << "_normal.exr";
+	// NOTE/TODO/FIXME : Do as I say, not as I do
+	// https://wiki.sei.cmu.edu/confluence/pages/viewpage.action?pageId=87152177
+	std::system(denoiserCmd.str().c_str());
 }
 
 // one day it will just work like that
