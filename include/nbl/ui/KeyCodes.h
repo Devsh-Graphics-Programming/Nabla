@@ -1,4 +1,5 @@
-
+#ifndef _MNL_UI_KEYCODES_H_INCLUDED_
+#define _MNL_UI_KEYCODES_H_INCLUDED_
 namespace nbl::ui
 {
 	enum E_KEY_CODE : uint8_t
@@ -198,3 +199,4 @@ namespace nbl::ui
 		EMB_COUNT,
 	};
 };
+#endif
