@@ -86,11 +86,9 @@ struct SLight
 //
 struct StaticViewData_t
 {
-	vec3	envmapBaseColor;
-	uint	lightCount;
 	uvec2   imageDimensions;
 	uint    samplesPerPixelPerDispatch;
-	uint    padding;
+	uint	lightCount;
 };
 
 struct RaytraceShaderCommonData_t

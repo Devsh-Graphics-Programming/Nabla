@@ -386,9 +386,9 @@ struct Contribution
 
 vec2 SampleSphericalMap(vec3 v)
 {
-    vec2 uv = vec2(atan(v.z, v.x), acos(v.y));
+    vec2 uv = vec2(atan(v.z,v.x),acos(v.y));
     uv.x *= nbl_glsl_RECIPROCAL_PI*0.5;
-    uv.x += 0.5; 
+    uv.x += 0.25; 
     uv.y *= nbl_glsl_RECIPROCAL_PI;
     return uv;
 }
@@ -397,7 +397,7 @@ void Contribution_initMiss(out Contribution contrib)
 {
     vec2 uv = SampleSphericalMap(-normalizedV);
 	// funny little trick borrowed from things like Progressive Photon Mapping
-	const float bias = 0.25*pc.cummon.textureFootprintFactor;
+	const float bias = 0.25*sqrt(pc.cummon.rcpFramesDispatched);
 	contrib.color = textureGrad(envMap, uv, vec2(bias*0.5,0.f), vec2(0.f,bias)).rgb;
 }
 

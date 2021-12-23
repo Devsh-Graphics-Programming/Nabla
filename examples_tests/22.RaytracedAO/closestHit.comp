@@ -34,8 +34,6 @@ void main()
 	clear_raycount();
 	if (get_sample_job())
 	{
-		vec3 emissive = staticViewData.envmapBaseColor;	
-
 		// basic reads
 		const uint vertex_depth = get_path_vertex_depth();
 		const uint vertex_depth_mod_2 = vertex_depth&0x1u;

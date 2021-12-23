@@ -54,7 +54,7 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 	#endif
 		m_prevView(), m_prevCamTform(), m_sceneBound(FLT_MAX,FLT_MAX,FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX),
 		m_framesDispatched(0u), m_rcpPixelSize{0.f,0.f},
-		m_staticViewData{{0.f,0.f,0.f},0u,{0u,0u},0u,0u}, m_raytraceCommonData{core::matrix4SIMD(), vec3(),0.f,0u,0u,0u,0.f},
+		m_staticViewData{{0u,0u},0u,0u}, m_raytraceCommonData{core::matrix4SIMD(), vec3(),0.f,0u,0u,0u,0.f},
 		m_indirectDrawBuffers{nullptr},m_cullPushConstants{core::matrix4SIMD(),1.f,0u,0u,0u},m_cullWorkGroups(0u),
 		m_raygenWorkGroups{0u,0u},m_visibilityBuffer(nullptr),m_colorBuffer(nullptr)
 {
@@ -626,11 +626,6 @@ void Renderer::initSceneNonAreaLights(Renderer::InitializationData& initData)
 		//initData.lightPDF.push_back(weight);
 		//initData.lights.push_back(light);
 	}
-	
-	// Create EnvMap Image of "CONSTANT" emitters added together
-	m_staticViewData.envmapBaseColor.x = _envmapBaseColor.x;
-	m_staticViewData.envmapBaseColor.y = _envmapBaseColor.y;
-	m_staticViewData.envmapBaseColor.z = _envmapBaseColor.z;
 
 	// Initialize Pipeline and Resources for EnvMap Blending
 	auto fullScreenTriangle = ext::FullScreenTriangle::createFullScreenTriangle(m_assetManager, m_driver);
@@ -1030,7 +1025,7 @@ void Renderer::deinitSceneResources()
 	m_sceneBound = core::aabbox3df(FLT_MAX, FLT_MAX, FLT_MAX, -FLT_MAX, -FLT_MAX, -FLT_MAX);
 	
 	m_finalEnvmap = nullptr;
-	m_staticViewData = {{0.f,0.f,0.f},0u,{0u,0u},0u,0u};
+	m_staticViewData = {{0u,0u},0u,0u};
 
 	auto rr = m_rrManager->getRadeonRaysAPI();
 	rr->DetachAll();
@@ -1230,7 +1225,7 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, core::s
 
 		// envmap
 		setImageInfo(infos+8,asset::EIL_GENERAL,core::smart_refctd_ptr(m_finalEnvmap));
-		ISampler::SParams samplerParams = { ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_FLOAT_OPAQUE_BLACK, ISampler::ETF_LINEAR, ISampler::ETF_LINEAR, ISampler::ESMM_LINEAR, 0u, false, ECO_ALWAYS };
+		ISampler::SParams samplerParams = { ISampler::ETC_REPEAT, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_FLOAT_OPAQUE_BLACK, ISampler::ETF_LINEAR, ISampler::ETF_LINEAR, ISampler::ESMM_LINEAR, 0u, false, ECO_ALWAYS };
 		infos[8].image.sampler = m_driver->createGPUSampler(samplerParams);
 		infos[8].image.imageLayout = EIL_SHADER_READ_ONLY_OPTIMAL;
 
