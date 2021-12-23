@@ -483,7 +483,9 @@ nbl_glsl_MC_eval_pdf_aov_t nbl_glsl_MC_instr_execute_COATING(
 #ifdef GEN_CHOICE_STREAM
 	retval.pdf = mix(coat.pdf,coated.pdf,diffuse_pdf);
 #if GEN_CHOICE_STREAM>=GEN_CHOICE_WITH_AOV_EXTRACTION
-	retval.aov = coated.aov;
+	retval.aov.albedo = coat.aov.albedo+coated.aov.albedo*diffuse_weight;
+	retval.aov.throughputFactor = 0.f;
+	retval.aov.normal = coat.aov.normal+coated.aov.normal*diffuse_pdf;
 #endif
 #endif
 
@@ -1206,10 +1208,6 @@ nbl_glsl_LightSample nbl_bsdf_cos_generate(
 					out_values.pdf = 1.f;
 					{
 						const float rcpEta = 1.0/eta; // TODO: move computation into the reflective case?
-						
-						#if GEN_CHOICE_STREAM>=GEN_CHOICE_WITH_AOV_EXTRACTION
-						out_values.aov.albedo = vec3(no_coat_parent ? 1.f:0.f);
-						#endif
 
 						#ifdef OP_CONDUCTOR
 						const bool isConductor = op==OP_CONDUCTOR;
@@ -1219,8 +1217,9 @@ nbl_glsl_LightSample nbl_bsdf_cos_generate(
 							out_values.quotient = nbl_glsl_fresnel_conductor(ior[0], ior[1], VdotH_clamp);
 							#if GEN_CHOICE_STREAM>=GEN_CHOICE_WITH_AOV_EXTRACTION
 							// computing fresnel again for albedo is unfortunately quite expensive, but I have no other choice
-							if (no_coat_parent)
-								out_values.aov.albedo = nbl_glsl_fresnel_conductor(ior[0],ior[1],NdotV);
+							out_values.aov.albedo = nbl_glsl_fresnel_conductor(ior[0],ior[1],NdotV);
+							if (!no_coat_parent)
+								out_values.aov.normal *= nbl_glsl_MC_colorToScalar(out_values.aov.albedo);
 							#endif
 						}
 						else
@@ -1237,6 +1236,10 @@ nbl_glsl_LightSample nbl_bsdf_cos_generate(
 								refraction = nbl_glsl_partitionRandVariable(refractionProb,u.z,rcpChoiceProb);
 							}
 							out_values.pdf /= rcpChoiceProb;
+							
+							#if GEN_CHOICE_STREAM>=GEN_CHOICE_WITH_AOV_EXTRACTION
+							out_values.aov.albedo = vec3(1.f);
+							#endif
 						}
 						// scope localL out
 						// TODO: factor the microfacet update stuff out!
@@ -1301,10 +1304,7 @@ nbl_glsl_LightSample nbl_bsdf_cos_generate(
 						#endif
 					}
 					else
-					{
 						out_values.aov.throughputFactor = 0.f;
-						out_values.aov.normal = vec3(0.f);
-					}
 					#endif
 
 					const float LdotH = out_microfacet.inner.isotropic.LdotH;

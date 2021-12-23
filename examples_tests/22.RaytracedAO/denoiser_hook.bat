@@ -31,7 +31,7 @@ set normal_file=%~dpn3.exr
 set output_file=%~dpn1_denoised.exr
 @echo on
 pushd %denoiser_dir%
-denoisertonemapper.exe -COLOR_FILE=%color_file% -ALBEDO_FILE=%albedo_file% -NORMAL_FILE=%normal_file% -OUTPUT=%output_file% -DENOISER_EXPOSURE_BIAS=0.0 -DENOISER_BLEND_FACTOR=0.0 -BLOOM_PSF_FILE=../../media/kernels/physical_flare_512.exr -BLOOM_RELATIVE_SCALE=0.1 -BLOOM_INTENSITY=0.4 -TONEMAPPER=ACES=0.4,0.8 -CAMERA_TRANSFORM=1,0,0,0,1,0,0,0,1
+denoisertonemapper.exe -COLOR_FILE=%color_file% -ALBEDO_FILE=%albedo_file% -NORMAL_FILE=%normal_file% -OUTPUT=%output_file% -DENOISER_EXPOSURE_BIAS=0.0 -DENOISER_BLEND_FACTOR=0.0 -BLOOM_PSF_FILE=../../media/kernels/physical_flare_512.exr -BLOOM_RELATIVE_SCALE=0.1 -BLOOM_INTENSITY=0.1 -TONEMAPPER=ACES=0.4,0.8 -CAMERA_TRANSFORM=1,0,0,0,1,0,0,0,1
 popd
 @echo off
 
