@@ -138,6 +138,9 @@ int main(int argc, char** argv)
 	if (!device)
 		return 1; // could not create selected driver.
 	
+	// will leak it because there's no cross platform input!
+	std::thread cin_thread;
+
 	//
 	asset::SAssetBundle meshes;
 	core::smart_refctd_ptr<const ext::MitsubaLoader::CMitsubaMetadata> globalMeta;
@@ -191,7 +194,7 @@ int main(int argc, char** argv)
 
 				if(extraPath.empty())
 				{
-					uint32_t chosen = 0;
+					uint32_t chosen = 0xffffffffu;
 
 					// Don't ask for choosing file when there is only 1 available
 					if(files.size() > 1)
@@ -200,7 +203,17 @@ int main(int argc, char** argv)
 						for (auto i = 0u; i < files.size(); i++)
 							std::cout << i << ": " << files[i].FullName.c_str() << std::endl;
 
-						std::cin >> chosen;
+						// std::cin with timeout
+						{
+							std::atomic<bool> started = false;
+							cin_thread = std::thread([&chosen,&started]()
+							{
+								started = true;
+								std::cin >> chosen;
+							});
+							const auto end = std::chrono::steady_clock::now()+std::chrono::seconds(5u);
+							while (!started || chosen!=0xffffffffu && std::chrono::steady_clock::now()<end) {}
+						}
 
 						if (chosen >= files.size())
 							chosen = 0u;
@@ -796,5 +809,7 @@ int main(int argc, char** argv)
 	renderer->deinitSceneResources();
 	renderer = nullptr;
 
+	// will leak thread because there's no cross platform input!
+	std::exit(0);
 	return 0;
 }
