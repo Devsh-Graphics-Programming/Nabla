@@ -42,6 +42,7 @@ layout(set = 2, binding = 5) restrict coherent buffer RayCount // maybe remove c
 // aovs
 layout(set = 2, binding = 6, r32ui) restrict uniform uimage2DArray albedoAOV;
 layout(set = 2, binding = 7, r32ui) restrict uniform uimage2DArray normalAOV;
+layout(set = 2, binding = 8) uniform sampler2D envMap; 
 
 void clear_raycount()
 {
@@ -383,11 +384,24 @@ struct Contribution
 	vec3 worldspaceNormal;
 };
 
+vec2 SampleSphericalMap(vec3 v)
+{
+    vec2 uv = vec2(atan(v.z, v.x), acos(v.y));
+    uv.x *= nbl_glsl_RECIPROCAL_PI*0.5;
+    uv.x += 0.5; 
+    uv.y *= nbl_glsl_RECIPROCAL_PI;
+    return uv;
+}
+
 void Contribution_initMiss(out Contribution contrib)
 {
-	// TODO: Erfan sample envmap with `-normalizedV` here, but remember to compute normalizedV above `if (hit)` in raygen and compute it from NDC + inverseViewProj matrix
-	contrib.color = staticViewData.envmapBaseColor; // TODO: fold the constant into the envmap
-	contrib.albedo = contrib.color;
+    vec2 uv = SampleSphericalMap(-normalizedV);
+	// funny little trick borrowed from things like Progressive Photon Mapping
+	const float bias = 0.25*pc.cummon.textureFootprintFactor;
+	contrib.color = textureGrad(envMap, uv, vec2(bias,0.f), vec2(0.f,bias)).rgb;
+
+	// could do some other normalization factor, whats important is that miss albedo looks somewhat like the HDR environment emitter, albeit scaled down
+	contrib.albedo = contrib.color / max(max(contrib.color.r, contrib.color.g), max(contrib.color.b, 1.f));
 	// for now pretend everything is the floor, if it messed up the denoiser then pretend skydome is a plane always oriented towards camera
 	contrib.worldspaceNormal = normalizedV;
 }

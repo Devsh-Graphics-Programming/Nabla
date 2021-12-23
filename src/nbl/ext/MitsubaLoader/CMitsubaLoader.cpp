@@ -591,6 +591,17 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 		parserManager.m_metadata->reservePplnStorage(ctx.pipelineCache.size(),core::smart_refctd_ptr(IRenderpassIndependentPipelineLoader::m_basicViewParamsSemantics));
 		for (auto& ppln : ctx.pipelineCache)
 			parserManager.m_metadata->addPplnMeta(ppln.second.get(),core::smart_refctd_ptr(ds0));
+		
+		for (const auto& emitter : parserManager.m_metadata->m_global.m_emitters)
+		{
+			if(emitter.type == ext::MitsubaLoader::CElementEmitter::Type::ENVMAP)
+			{
+				assert(emitter.envmap.filename.type==ext::MitsubaLoader::SPropertyElementData::Type::STRING);
+				auto envfilename = emitter.envmap.filename.svalue;
+				SAssetBundle envmapImageBundle = interm_getAssetInHierarchy(m_assetMgr, emitter.envmap.filename.svalue, ctx.inner.params, _hierarchyLevel, ctx.override_);
+				parserManager.m_metadata->m_global.m_envMapImages.push_back(core::smart_refctd_ptr_static_cast<asset::ICPUImage>(*envmapImageBundle.getContents().begin()));
+			}
+		}
 
 		return asset::SAssetBundle(std::move(parserManager.m_metadata),std::move(meshSmartPtrArray));
 	}

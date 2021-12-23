@@ -28,6 +28,32 @@ void main()
 		const uvec2 outPixelLocation = gl_GlobalInvocationID.xy;
 		const uvec4 visBuffer = texelFetch(frontFacingTriangleIDDrawID_unorm16Bary_dBarydScreenHalf2x2,ivec2(outPixelLocation),0);
 
+		vec2 texCoordUV = (vec2(outPixelLocation)+vec2(0.5)) / vec2(staticViewData.imageDimensions);
+		vec2 NDC = texCoordUV * vec2(2.0,-2.0) + vec2(-1.0,1.0);
+		/*
+		mat3 ndcToV = mat3(
+			pc.cummon.viewProjMatrixInverse[0].xyz*pc.cummon.camPos.x,
+			pc.cummon.viewProjMatrixInverse[1].xyz*pc.cummon.camPos.y,
+			pc.cummon.viewProjMatrixInverse[2].xyz*pc.cummon.camPos.z
+		)-mat3(pc.cummon.viewProjMatrixInverse);
+		*/
+		// NDC -> ViewSpace
+		// (invProj*NDC).xyz/(invProj*NDC).www
+		// ViewSpace -> WorldSpace
+		// invView*viewSpace
+		// ViewSpace Dir -> WorldSpace Dir
+		// inverse(mat3(view))*viewDir
+		// NDC dir -> View Space Dir
+		// (invProj*NDC).xyz/(invProj*NDC).www-camPos
+		// camPos = (invProj[3]).xyz/invPorj[3].www
+		// inverse(mat3(view))*viewDir
+		// NDC dir -> World Space Dir
+		// (invViewProj*NDC).xyz/(invViewProj*NDC).www-camPos
+		// camPos = (invViewProj[3]).xyz/invViewProj[3].www
+		const vec4 tmpA = pc.cummon.viewProjMatrixInverse*vec4(NDC,1.f,1.f);
+		const vec4 tmpB = pc.cummon.viewProjMatrixInverse[3].xyzw;
+		normalizedV = normalize(tmpA.xyz/tmpB.www-tmpA.xyz/tmpA.www);
+		
 		Contribution contrib;
 		const bool hit = visBuffer[0]!=0xffffffffu;
 		if (hit)

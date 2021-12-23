@@ -95,6 +95,7 @@ struct StaticViewData_t
 
 struct RaytraceShaderCommonData_t
 {
+	mat4 	viewProjMatrixInverse;
 	vec3	camPos;
 	float   rcpFramesDispatched;
 	uint	samplesComputed;
