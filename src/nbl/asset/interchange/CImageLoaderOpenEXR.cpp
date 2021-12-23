@@ -29,6 +29,7 @@ SOFTWARE.
 
 #include "nbl/asset/filters/CRegionBlockFunctorFilter.h"
 #include "nbl/asset/metadata/COpenEXRMetadata.h"
+#include "IReadFile.h"
 
 #include "CImageLoaderOpenEXR.h"
 
@@ -53,14 +54,95 @@ namespace nbl
 	{
 		using namespace IMF;
 		using namespace IMATH;
+		
+		namespace impl
+		{
+			class nblIStream : public IMF::IStream
+			{
+				public:
+					nblIStream(io::IReadFile* _nblFile)
+						: IMF::IStream(getFileName(_nblFile).c_str()), nblFile(_nblFile) {}
+					virtual ~nblIStream() {}
+
+					//------------------------------------------------------
+					// Read from the stream:
+					//
+					// read(c,n) reads n bytes from the stream, and stores
+					// them in array c.  If the stream contains less than n
+					// bytes, or if an I/O error occurs, read(c,n) throws
+					// an exception.  If read(c,n) reads the last byte from
+					// the file it returns false, otherwise it returns true.
+					//------------------------------------------------------
+
+					virtual bool read(char c[/*n*/], int n) override
+					{
+						nblFile->seek(fileOffset);
+						int32_t read = nblFile->read(c, n);
+						fileOffset += read;
+
+						return true;
+					}
+
+					//--------------------------------------------------------
+					// Get the current reading position, in bytes from the
+					// beginning of the file.  If the next call to read() will
+					// read the first byte in the file, tellg() returns 0.
+					//--------------------------------------------------------
+
+					virtual IMF::Int64 tellg() override
+					{
+						return static_cast<IMF::Int64>(fileOffset);
+					}
+
+					//-------------------------------------------
+					// Set the current reading position.
+					// After calling seekg(i), tellg() returns i.
+					//-------------------------------------------
+
+					virtual void seekg(IMF::Int64 pos) override
+					{
+						fileOffset = static_cast<decltype(fileOffset)>(pos);
+					}
+
+					//------------------------------------------------------
+					// Clear error conditions after an operation has failed.
+					//------------------------------------------------------
+
+					virtual void clear() override
+					{
+						/*
+							Probably we don't want to investigate in system::IFile
+							and change the stream error state flags, leaving this 
+							function empty
+						*/
+					}
+
+					void resetFileOffset()
+					{
+						fileOffset = 0u;
+					}
+
+				private:
+
+					const std::string getFileName(io::IReadFile* _nblFile)
+					{
+						io::path filename, extension;
+						core::splitFilename(_nblFile->getFileName(), nullptr, &filename, &extension);
+						return std::string(filename.c_str()) + std::string(extension.c_str());
+					}
+
+					io::IReadFile* nblFile;
+					size_t fileOffset = {};
+			};
+		}
 
 		using suffixOfChannelBundle = std::string;
 		using channelName = std::string;	     									// sytnax if as follows
 		using mapOfChannels = std::unordered_map<channelName, Channel>;				// suffix.channel, where channel are "R", "G", "B", "A"
 
 		class SContext;
-		bool readVersionField(io::IReadFile* _file, SContext& ctx);
-		bool readHeader(const char fileName[], SContext& ctx);
+		bool readVersionField(IMF::IStream* nblIStream, SContext& ctx);
+		bool readHeader(IMF::IStream* nblIStream, SContext& ctx);
 		template<typename rgbaFormat>
 		void readRgba(InputFile& file, std::array<Array2D<rgbaFormat>, 4>& pixelRgbaMapArray, int& width, int& height, E_FORMAT& format, const suffixOfChannelBundle suffixOfChannels);
 		E_FORMAT specifyIrrlichtEndFormat(const mapOfChannels& mapOfChannels, const suffixOfChannelBundle suffixName, const std::string fileName);
@@ -223,16 +305,34 @@ namespace nbl
 			if (!_file)
 				return {};
 
-			const auto& fileName = _file->getFileName().c_str();
-
 			SContext ctx;
-			InputFile file = fileName;
 
-			if (!readVersionField(_file, ctx))
-				return {};
+			IMF::IStream* nblIStream = _NBL_NEW(impl::nblIStream, _file);
+			InputFile file(*nblIStream);
 
-			if (!readHeader(fileName, ctx))
+			if (file.isComplete())
+				static_cast<impl::nblIStream*>(nblIStream)->resetFileOffset();
+			else
+			{
+				_NBL_DELETE(nblIStream);
 				return {};
+			}
+
+			if (readVersionField(nblIStream, ctx))
+				static_cast<impl::nblIStream*>(nblIStream)->resetFileOffset();
+			else
+			{
+				_NBL_DELETE(nblIStream);
+				return {};
+			}
+
+			if (readHeader(nblIStream, ctx))
+				static_cast<impl::nblIStream*>(nblIStream)->resetFileOffset();
+			else
+			{
+				_NBL_DELETE(nblIStream);
+				return {};
+			}
 
 			core::vector<core::smart_refctd_ptr<ICPUImage>> images;
 			const auto channelsData = getChannels(file);
@@ -304,6 +404,7 @@ namespace nbl
 					images.push_back(std::move(image));
 				}
 			}	
+			_NBL_DELETE(nblIStream);
 
 			return SAssetBundle(std::move(meta),std::move(images));
 		}
@@ -400,15 +501,21 @@ namespace nbl
 			return retVal;
 		}
 
-		bool readVersionField(io::IReadFile* _file, SContext& ctx)
+		bool readVersionField(IMF::IStream* nblIStream, SContext& ctx)
 		{
-			RgbaInputFile file(_file->getFileName().c_str());
+			RgbaInputFile file(*nblIStream);
+
+			if (!file.isComplete())
+				return false;
+
 			auto& versionField = ctx.versionField;
 			
 			versionField.mainDataRegisterField = file.version();
 
 			auto isTheBitActive = [&](uint16_t bitToCheck)
-			{
+			{		
+				bool readVersionField(IMF::IStream* nblIStream, SContext& ctx);
+				bool readHeader(IMF::IStream* nblIStream, SContext& ctx);
 				return (versionField.mainDataRegisterField & (1 << (bitToCheck - 1)));
 			};
 
@@ -452,9 +559,12 @@ namespace nbl
 			return true;
 		}
 
-		bool readHeader(const char fileName[], SContext& ctx)
+		bool readHeader(IMF::IStream* nblIStream, SContext& ctx)
 		{
-			RgbaInputFile file(fileName);
+			RgbaInputFile file(*nblIStream);
+
+			if (!file.isComplete())
+				return false;
 			auto& attribs = ctx.attributes;
 			auto& versionField = ctx.versionField;
 
