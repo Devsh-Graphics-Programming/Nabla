@@ -3,8 +3,8 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 
 // basic settings
-#define MAX_DEPTH 15
-#define SAMPLES 32
+#define MAX_DEPTH 3
+#define SAMPLES 128
 
 // firefly and variance reduction techniques
 //#define KILL_DIFFUSE_SPECULAR_PATHS
@@ -371,14 +371,8 @@ vec2 SampleSphericalMap(vec3 v)
 void missProgram(in ImmutableRay_t _immutable, inout Payload_t _payload)
 {
     vec3 finalContribution = _payload.throughput; 
-    //#define USE_ENVMAP
-#ifdef USE_ENVMAP
-	vec2 uv = SampleSphericalMap(_immutable.direction);
-    finalContribution *= textureLod(envMap, uv, 0.0).rgb;
-#else
-    const vec3 kConstantEnvLightRadiance = vec3(0.15, 0.21, 0.3);
+    const vec3 kConstantEnvLightRadiance = vec3(0.f);// 15, 0.21, 0.3);
     finalContribution *= kConstantEnvLightRadiance;
-#endif
     _payload.accumulation += finalContribution;
 }
 
@@ -590,9 +584,9 @@ bool closestHitProgram(in uint depth, in uint _sample, inout Ray_t ray, inout nb
         const float monochromeEta = dot(throughputCIE_Y,BSDFNode_getEta(bsdf)[0])/(throughputCIE_Y.r+throughputCIE_Y.g+throughputCIE_Y.b);
 
         // do NEE
-        const float neeProbability = BSDFNode_getNEEProb(bsdf);
+        const float neeProbability = 1.0;// BSDFNode_getNEEProb(bsdf);
         float rcpChoiceProb;
-        if (!nbl_glsl_partitionRandVariable(neeProbability,epsilon[0].z,rcpChoiceProb))
+        if (!nbl_glsl_partitionRandVariable(neeProbability,epsilon[0].z,rcpChoiceProb) && depth<2u)
         {
             vec3 neeContrib; float lightPdf, t;
             nbl_glsl_LightSample nee_sample = nbl_glsl_light_generate_and_remainder_and_pdf(
@@ -601,21 +595,36 @@ bool closestHitProgram(in uint depth, in uint _sample, inout Ray_t ray, inout nb
                 isBSDF, epsilon[0], depth
             );
             // We don't allow non watertight transmitters in this renderer
-            bool validPath = nee_sample.NdotL>0.0;
+            bool validPath = nee_sample.NdotL>FLT_MIN;
             // but if we allowed non-watertight transmitters (single water surface), it would make sense just to apply this line by itself
             nbl_glsl_AnisotropicMicrofacetCache _cache;
             validPath = validPath && nbl_glsl_calcAnisotropicMicrofacetCache(_cache, interaction, nee_sample, monochromeEta);
+            if (lightPdf<FLT_MAX)
+            {
+            if (any(isnan(nee_sample.L)))
+                ray._payload.accumulation += vec3(1000.f,0.f,0.f);
+            else
+            if (all(equal(vec3(69.f),nee_sample.L)))
+                ray._payload.accumulation += vec3(0.f,1000.f,0.f);
+            else
             if (validPath)
             {
                 float bsdfPdf;
                 neeContrib *= nbl_glsl_bsdf_cos_remainder_and_pdf(bsdfPdf,nee_sample,interaction,bsdf,monochromeEta,_cache)*throughput;
-                const float oc = bsdfPdf*rcpChoiceProb;
-                neeContrib /= 1.0/oc+oc/(lightPdf*lightPdf); // MIS weight
+                const float otherGenOverChoice = bsdfPdf*rcpChoiceProb;
+#if 0
+                const float otherGenOverLightAndChoice = otherGenOverChoice/lightPdf;
+                neeContrib *= otherGenOverChoice/(1.f+otherGenOverLightAndChoice*otherGenOverLightAndChoice); // MIS weight
+#else
+                neeContrib *= otherGenOverChoice;
+#endif
                 if (bsdfPdf<FLT_MAX && getLuma(neeContrib)>lumaContributionThreshold && traceRay(t,intersection+nee_sample.L*t*getStartTolerance(depth),nee_sample.L)==-1)
                     ray._payload.accumulation += neeContrib;
-            }
+            }}
         }
-
+#if 1
+        return false;
+#endif
         // sample BSDF
         float bsdfPdf; vec3 bsdfSampleL;
         {
@@ -716,7 +725,7 @@ void main()
                 ray._mutable.objectID = traceRay(ray._mutable.intersectionT,ray._immutable.origin,ray._immutable.direction);
                 hit = ray._mutable.objectID!=-1;
                 if (hit)
-                    rayAlive = closestHitProgram(3u, i, ray, scramble_state);
+                    rayAlive = closestHitProgram(d, i, ray, scramble_state);
             }
             // was last trace a miss?
             if (!hit)
