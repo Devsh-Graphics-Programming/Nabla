@@ -47,10 +47,10 @@ class RaytracerExampleEventReceiver : public nbl::IEventReceiver
 					case PreviousKey:
 						previousKeyPressed = true;
 						break;
-					case SkipKey: // switch wire frame mode
+					case SkipKey:
 						skipKeyPressed = true;
 						break;
-					case QuitKey: // switch wire frame mode
+					case QuitKey:
 						running = false;
 						return true;
 					default:
@@ -214,14 +214,14 @@ int main(int argc, char** argv)
 							const auto end = std::chrono::steady_clock::now()+std::chrono::seconds(5u);
 							while (!started || chosen!=0xffffffffu && std::chrono::steady_clock::now()<end) {}
 						}
-
-						if (chosen >= files.size())
-							chosen = 0u;
 					}
 					else if(files.size() >= 0)
 					{
 						std::cout << "The only available XML in zip Selected." << std::endl;
 					}
+					
+					if (chosen >= files.size())
+						chosen = 0u;
 
 					filePath = files[chosen].FullName.c_str();
 					std::cout << "Selected XML File: "<< files[chosen].Name.c_str() << std::endl;
