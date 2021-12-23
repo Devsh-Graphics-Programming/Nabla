@@ -1595,7 +1595,7 @@ bool Renderer::traceBounce(uint32_t & raycount)
 
 		cl_int retval = -1;
 		auto startWait = std::chrono::steady_clock::now();
-		constexpr auto timeoutInSeconds = 10ull;
+		constexpr auto timeoutInSeconds = 20ull;
 		bool timedOut = false;
 		do {
 			const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-startWait).count();
