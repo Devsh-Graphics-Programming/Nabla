@@ -211,8 +211,8 @@ int main(int argc, char** argv)
 								started = true;
 								std::cin >> chosen;
 							});
-							const auto end = std::chrono::steady_clock::now()+std::chrono::seconds(5u);
-							while (!started || chosen!=0xffffffffu && std::chrono::steady_clock::now()<end) {}
+							const auto end = std::chrono::steady_clock::now()+std::chrono::seconds(10u);
+							while (!started || chosen==0xffffffffu && std::chrono::steady_clock::now()<end) {}
 						}
 					}
 					else if(files.size() >= 0)
