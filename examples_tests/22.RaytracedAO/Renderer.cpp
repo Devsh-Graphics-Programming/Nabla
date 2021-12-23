@@ -684,14 +684,17 @@ void Renderer::initSceneNonAreaLights(Renderer::InitializationData& initData)
 	
 	video::IFrameBuffer* finalEnvFramebuffer = nullptr;
 	{
-		auto colorFormat = asset::EF_R32G32B32A32_SFLOAT;
+		const auto colorFormat = asset::EF_R16G16B16A16_SFLOAT;
+		const auto mipCount = 13u;
+		const auto resolution = 0x1u<<(mipCount-1u);
+
 		IGPUImage::SCreationParams imgInfo;
 		imgInfo.format = colorFormat;
 		imgInfo.type = IGPUImage::ET_2D;
-		imgInfo.extent.width = 2000;
-		imgInfo.extent.height = 1000;
+		imgInfo.extent.width = resolution;
+		imgInfo.extent.height = resolution/2;
 		imgInfo.extent.depth = 1u;
-		imgInfo.mipLevels = 1u;
+		imgInfo.mipLevels = mipCount;
 		imgInfo.arrayLayers = 1u;
 		imgInfo.samples = asset::ICPUImage::ESCF_1_BIT;
 		imgInfo.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0u);
@@ -706,7 +709,7 @@ void Renderer::initSceneNonAreaLights(Renderer::InitializationData& initData)
 		imgViewInfo.subresourceRange.baseArrayLayer = 0u;
 		imgViewInfo.subresourceRange.baseMipLevel = 0u;
 		imgViewInfo.subresourceRange.layerCount = 1u;
-		imgViewInfo.subresourceRange.levelCount = 1u;
+		imgViewInfo.subresourceRange.levelCount = mipCount;
 
 		m_finalEnvmap = m_driver->createGPUImageView(std::move(imgViewInfo));
 
@@ -740,7 +743,7 @@ void Renderer::initSceneNonAreaLights(Renderer::InitializationData& initData)
 		m_driver->drawMeshBuffer(blendEnvMeshBuffer.get());
 	};
 	
-	m_driver->setRenderTarget(finalEnvFramebuffer, false);
+	m_driver->setRenderTarget(finalEnvFramebuffer, true);
 	float colorClearValues[] = { _envmapBaseColor.x, _envmapBaseColor.y, _envmapBaseColor.z, _envmapBaseColor.w };
 	m_driver->clearColorBuffer(video::EFAP_COLOR_ATTACHMENT0, colorClearValues);
 	for(uint32_t i = 0u; i < m_globalMeta->m_global.m_envMapImages.size(); ++i)
@@ -759,8 +762,10 @@ void Renderer::initSceneNonAreaLights(Renderer::InitializationData& initData)
 		auto envMapImageView = m_driver->getGPUObjectsFromAssets(&cpuEnvmapImageView.get(), &cpuEnvmapImageView.get() + 1u)->front();
 		blendToFinalEnvMap(envMapImageView);
 	}
-	m_driver->setRenderTarget(nullptr, false);
-	
+	m_driver->setRenderTarget(nullptr, true);
+	// always needs doing after rendering
+	// TODO: better filter and GPU accelerated
+	m_finalEnvmap->regenerateMipMapLevels();
 }
 
 void Renderer::finalizeScene(Renderer::InitializationData& initData)
