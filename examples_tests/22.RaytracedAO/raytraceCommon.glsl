@@ -399,11 +399,6 @@ void Contribution_initMiss(out Contribution contrib)
 	// funny little trick borrowed from things like Progressive Photon Mapping
 	const float bias = 0.25*pc.cummon.textureFootprintFactor;
 	contrib.color = textureGrad(envMap, uv, vec2(bias,0.f), vec2(0.f,bias)).rgb;
-
-	// could do some other normalization factor, whats important is that miss albedo looks somewhat like the HDR environment emitter, albeit scaled down
-	contrib.albedo = contrib.color / max(max(contrib.color.r, contrib.color.g), max(contrib.color.b, 1.f));
-	// for now pretend everything is the floor, if it messed up the denoiser then pretend skydome is a plane always oriented towards camera
-	contrib.worldspaceNormal = normalizedV;
 }
 
 void Contribution_normalizeAoV(inout Contribution contrib)
