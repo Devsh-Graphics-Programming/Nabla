@@ -16,6 +16,7 @@
 
 #include <thread>
 #include <future>
+#include <filesystem>
 
 class Renderer : public nbl::core::IReferenceCounted, public nbl::core::InterfaceUnmovable
 {
@@ -28,6 +29,14 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 			#undef mat4
 			#undef mat4x3
 		#endif
+		
+		struct DenoiserArgs
+		{
+			std::filesystem::path bloomFilePath;
+			std::string tonemapperArgs = "";
+			float bloomScale = 0.0f;
+			float bloomIntensity = 0.0f;
+		};
 
 		Renderer(nbl::video::IVideoDriver* _driver, nbl::asset::IAssetManager* _assetManager, nbl::scene::ISceneManager* _smgr, bool useDenoiser = true);
 
@@ -41,7 +50,7 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 
 		void resetSampleAndFrameCounters();
 
-		void takeAndSaveScreenShot(const std::filesystem::path& screenshotFilePath);
+		void takeAndSaveScreenShot(const std::filesystem::path& screenshotFilePath, const DenoiserArgs& denoiserArgs);
 
 		bool render(nbl::ITimer* timer);
 

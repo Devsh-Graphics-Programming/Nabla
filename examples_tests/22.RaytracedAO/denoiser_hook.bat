@@ -8,7 +8,8 @@ if NOT EXIST %denoiser_dir%/denoisertonemapper.exe (
     REM EXIT /B 0
 )
 
-call :denoise %1 %2 %3
+REM 1.ColorFile 2.AlbedoFile 3.NormalFile 4.BloomPsfFilePath(STRING) 5.BloomScale(FLOAT) 6.BloomIntensity(FLOAT) 7.TonemapperArgs(STRING)
+call :denoise %1 %2 %3 %4 %5 %6 %7
 
 EXIT /B %ERRORLEVEL%
 
@@ -29,9 +30,13 @@ set color_file=%~dpn1.exr
 set albedo_file=%~dpn2.exr
 set normal_file=%~dpn3.exr
 set output_file=%~dpn1_denoised.exr
+set bloom_file=%~f4
+set bloom_scale=%~5
+set bloom_intensity=%~6
+set tonemapper_args=%~7
 @echo on
 pushd %denoiser_dir%
-denoisertonemapper.exe -COLOR_FILE=%color_file% -ALBEDO_FILE=%albedo_file% -NORMAL_FILE=%normal_file% -OUTPUT=%output_file% -DENOISER_EXPOSURE_BIAS=0.0 -DENOISER_BLEND_FACTOR=0.0 -BLOOM_PSF_FILE=../../media/kernels/physical_flare_512.exr -BLOOM_RELATIVE_SCALE=0.1 -BLOOM_INTENSITY=0.1 -TONEMAPPER=ACES=0.4,0.8 -CAMERA_TRANSFORM=1,0,0,0,1,0,0,0,1
+denoisertonemapper.exe -COLOR_FILE=%color_file% -ALBEDO_FILE=%albedo_file% -NORMAL_FILE=%normal_file% -OUTPUT=%output_file% -DENOISER_EXPOSURE_BIAS=0.0 -DENOISER_BLEND_FACTOR=0.0 -BLOOM_PSF_FILE=%bloom_file% -BLOOM_RELATIVE_SCALE=%bloom_scale% -BLOOM_INTENSITY=%bloom_intensity% -TONEMAPPER=%tonemapper_args% -CAMERA_TRANSFORM=1,0,0,0,1,0,0,0,1
 popd
 @echo off
 

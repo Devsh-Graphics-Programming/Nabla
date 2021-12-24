@@ -296,6 +296,7 @@ int main(int argc, char** argv)
 		scene::ICameraSceneNode * interactiveCamera;
 		std::filesystem::path outputFilePath;
 		ext::MitsubaLoader::CElementFilm::FileFormat fileFormat;
+		Renderer::DenoiserArgs denoiserInfo = {};
 
 		scene::CSceneNodeAnimatorCameraModifiedMaya* getInteractiveCameraAnimator()
 		{
@@ -464,6 +465,10 @@ int main(int argc, char** argv)
 		
 		float defaultZoomSpeedMultiplier = std::pow(DefaultSceneDiagonal, DefaultZoomSpeed / DefaultSceneDiagonal);
 		outSensorData.interactiveCamera = smgr->addCameraSceneNodeModifiedMaya(nullptr, -1.0f * outSensorData.rotateSpeed, 50.0f, outSensorData.moveSpeed, -1, 2.0f, defaultZoomSpeedMultiplier, false, true);
+		
+		outSensorData.denoiserInfo.bloomFilePath = std::filesystem::path(film.denoiserBloomFilePath);
+		outSensorData.denoiserInfo.bloomScale = film.denoiserBloomScale;
+		outSensorData.denoiserInfo.bloomIntensity = film.denoiserBloomIntensity;
 
 		outSensorData.outputFilePath = std::filesystem::path(film.outputFilePath);
 		outSensorData.fileFormat = film.fileFormat;
@@ -538,23 +543,6 @@ int main(int argc, char** argv)
 		auto & outSensorData = sensors[s];
 		extractSensorData(outSensorData, sensor);
 	}
-
-#if INJECT_TEST_SENSOR
-	std::cout << "New Injected Sensors[0] = " << std::endl;
-	SensorData newSensor = {};
-	extractSensorData(newSensor, globalMeta->m_global.m_sensors[0]);
-	newSensor.staticCamera->setPosition(core::vector3df(0.0f,2.0f,0.0f));
-	newSensor.staticCamera->setTarget(core::vector3df(-0.900177f, 2.0f, -0.435524f));
-	core::vectorSIMDf UpVector(0.0f, 1.0f, 0.0f);
-	newSensor.staticCamera->setUpVector(UpVector);
-	newSensor.staticCamera->render(); // It's not actually "render" :| It's basically recomputeViewMatrix ;
-	
-	newSensor.resetInteractiveCamera();
-	sensors.push_back(newSensor);
-
-	sensors[0].samplesNeeded = 4u;
-	sensors[1].samplesNeeded = 4u;
-#endif
 
 	auto driver = device->getVideoDriver();
 
@@ -715,7 +703,7 @@ int main(int argc, char** argv)
 		}
 		else
 		{
-			renderer->takeAndSaveScreenShot(screenshotFilePath);
+			renderer->takeAndSaveScreenShot(screenshotFilePath, sensorData.denoiserInfo);
 			int progress = float(renderer->getTotalSamplesPerPixelComputed())/float(sensorData.samplesNeeded) * 100;
 			printf("[INFO] Rendered Successfully - %d%% Progress = %u/%u SamplesPerPixel - FileName = %s. \n", progress, renderer->getTotalSamplesPerPixelComputed(), sensorData.samplesNeeded, screenshotFilePath.filename().string().c_str());
 		}
@@ -799,7 +787,7 @@ int main(int argc, char** argv)
 						}
 					}
 					std::string fileNameWoExt = screenShotFilesPrefix + seperator + mainFileName + seperator + std::to_string(maxFileNumber + 1);
-					renderer->takeAndSaveScreenShot(std::filesystem::path(fileNameWoExt));
+					renderer->takeAndSaveScreenShot(std::filesystem::path(fileNameWoExt), sensors[activeSensor].denoiserInfo);
 				}
 				receiver.resetKeys();
 			}
@@ -841,7 +829,7 @@ int main(int argc, char** argv)
 		else
 		{
 			auto extensionStr = getFileExtensionFromFormat(sensors[activeSensor].fileFormat);
-			renderer->takeAndSaveScreenShot(std::filesystem::path("LastView_" + mainFileName + "_Sensor_" + std::to_string(activeSensor) + extensionStr));
+			renderer->takeAndSaveScreenShot(std::filesystem::path("LastView_" + mainFileName + "_Sensor_" + std::to_string(activeSensor) + extensionStr), sensors[activeSensor].denoiserInfo);
 		}
 
 		renderer->deinitScreenSizedResources();
