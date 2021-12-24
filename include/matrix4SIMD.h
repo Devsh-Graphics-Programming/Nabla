@@ -186,7 +186,7 @@ class matrix4SIMD// : public AlignedBase<_NBL_SIMD_ALIGNMENT> don't inherit from
 				if (core::iszero(det, DBL_MIN))
 					return false;
 
-				double invDet = 1.0f / det;
+				double invDet = 1.0 / det;
 
 				_out.rows[0][0] = a11 * invDet;
 				_out.rows[1][0] = a12 * invDet;

@@ -28,8 +28,8 @@ void main()
 		const uvec2 outPixelLocation = gl_GlobalInvocationID.xy;
 		const uvec4 visBuffer = texelFetch(frontFacingTriangleIDDrawID_unorm16Bary_dBarydScreenHalf2x2,ivec2(outPixelLocation),0);
 
-		vec2 texCoordUV = (vec2(outPixelLocation)+vec2(0.5)) / vec2(staticViewData.imageDimensions);
-		vec2 NDC = texCoordUV * vec2(2.0,-2.0) + vec2(-1.0,1.0);
+		const vec2 texCoordUV = (vec2(outPixelLocation)+vec2(0.5)) / vec2(staticViewData.imageDimensions);
+		const vec2 NDC = texCoordUV * vec2(2.0,-2.0) + vec2(-1.0,1.0);
 		/*
 		mat3 ndcToV = mat3(
 			pc.cummon.viewProjMatrixInverse[0].xyz*pc.cummon.camPos.x,
@@ -52,7 +52,7 @@ void main()
 		// camPos = (invViewProj[3]).xyz/invViewProj[3].www
 		const vec4 tmpA = pc.cummon.viewProjMatrixInverse*vec4(NDC,1.f,1.f);
 		const vec4 tmpB = pc.cummon.viewProjMatrixInverse[3].xyzw;
-		normalizedV = normalize(tmpA.xyz/tmpB.www-tmpA.xyz/tmpA.www);
+		normalizedV = normalize(pc.cummon.camPos-tmpA.xyz/tmpA.www);
 		
 		Contribution contrib;
 		const bool hit = visBuffer[0]!=0xffffffffu;
@@ -94,19 +94,16 @@ void main()
 
 			// generate rays
 			const uint vertex_depth = 1u;
-			const vec3 aovThroughput = vec3(1.0/float(staticViewData.samplesPerPixelPerDispatch));
 			generate_next_rays(
 				staticViewData.samplesPerPixelPerDispatch,material,frontfacing,vertex_depth,
 				scramble_start_state,pc.cummon.samplesComputed,outPixelLocation,origin,
-				vec3(pc.cummon.rcpFramesDispatched),aovThroughput,contrib.albedo,contrib.worldspaceNormal
+				vec3(pc.cummon.rcpFramesDispatched),1.f,contrib.albedo,contrib.worldspaceNormal
 			);
 		}
 		else
 			Contribution_initMiss(contrib);
 
-		// could do some other normalization factor, whats important is that albedo looks somewhat like the HDR value, albeit scaled down
-		contrib.albedo = contrib.albedo / max(max(contrib.albedo.r, contrib.albedo.g), max(contrib.albedo.b, 1.f));
-		contrib.worldspaceNormal *= min(inversesqrt(dot(contrib.worldspaceNormal,contrib.worldspaceNormal)),1.f);
+		Contribution_normalizeAoV(contrib);
 		
 		// we could optimize this, but its pointless before using KHR_ray_query
 		const bool firstFrame = pc.cummon.rcpFramesDispatched==1.f;

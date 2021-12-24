@@ -54,7 +54,7 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 	#endif
 		m_prevView(), m_prevCamTform(), m_sceneBound(FLT_MAX,FLT_MAX,FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX),
 		m_framesDispatched(0u), m_rcpPixelSize{0.f,0.f},
-		m_staticViewData{{0.f,0.f,0.f},0u,{0u,0u},0u,0u}, m_raytraceCommonData{core::matrix4SIMD(), vec3(),0.f,0u,0u,0u,0.f},
+		m_staticViewData{{0u,0u},0u,0u}, m_raytraceCommonData{core::matrix4SIMD(), vec3(),0.f,0u,0u,0u,0.f},
 		m_indirectDrawBuffers{nullptr},m_cullPushConstants{core::matrix4SIMD(),1.f,0u,0u,0u},m_cullWorkGroups(0u),
 		m_raygenWorkGroups{0u,0u},m_visibilityBuffer(nullptr),m_colorBuffer(nullptr)
 {
@@ -535,6 +535,9 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 		// build TLAS with up to date transformations of instances
 		rr->SetOption("bvh.sah.use_splits",1.f);
 		rr->SetOption("bvh.builder","sah");
+		// deinstance everything for great perf
+		rr->SetOption("bvh.forceflat",1.f);
+		rr->SetOption("acc.type","fatbvh");
 		rr->Commit();
 	}
 
@@ -623,11 +626,6 @@ void Renderer::initSceneNonAreaLights(Renderer::InitializationData& initData)
 		//initData.lightPDF.push_back(weight);
 		//initData.lights.push_back(light);
 	}
-	
-	// Create EnvMap Image of "CONSTANT" emitters added together
-	m_staticViewData.envmapBaseColor.x = _envmapBaseColor.x;
-	m_staticViewData.envmapBaseColor.y = _envmapBaseColor.y;
-	m_staticViewData.envmapBaseColor.z = _envmapBaseColor.z;
 
 	// Initialize Pipeline and Resources for EnvMap Blending
 	auto fullScreenTriangle = ext::FullScreenTriangle::createFullScreenTriangle(m_assetManager, m_driver);
@@ -681,14 +679,17 @@ void Renderer::initSceneNonAreaLights(Renderer::InitializationData& initData)
 	
 	video::IFrameBuffer* finalEnvFramebuffer = nullptr;
 	{
-		auto colorFormat = asset::EF_R32G32B32A32_SFLOAT;
+		const auto colorFormat = asset::EF_R16G16B16A16_SFLOAT;
+		const auto mipCount = 13u;
+		const auto resolution = 0x1u<<(mipCount-1u);
+
 		IGPUImage::SCreationParams imgInfo;
 		imgInfo.format = colorFormat;
 		imgInfo.type = IGPUImage::ET_2D;
-		imgInfo.extent.width = 2000;
-		imgInfo.extent.height = 1000;
+		imgInfo.extent.width = resolution;
+		imgInfo.extent.height = resolution/2;
 		imgInfo.extent.depth = 1u;
-		imgInfo.mipLevels = 1u;
+		imgInfo.mipLevels = mipCount;
 		imgInfo.arrayLayers = 1u;
 		imgInfo.samples = asset::ICPUImage::ESCF_1_BIT;
 		imgInfo.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0u);
@@ -703,7 +704,7 @@ void Renderer::initSceneNonAreaLights(Renderer::InitializationData& initData)
 		imgViewInfo.subresourceRange.baseArrayLayer = 0u;
 		imgViewInfo.subresourceRange.baseMipLevel = 0u;
 		imgViewInfo.subresourceRange.layerCount = 1u;
-		imgViewInfo.subresourceRange.levelCount = 1u;
+		imgViewInfo.subresourceRange.levelCount = mipCount;
 
 		m_finalEnvmap = m_driver->createGPUImageView(std::move(imgViewInfo));
 
@@ -737,7 +738,7 @@ void Renderer::initSceneNonAreaLights(Renderer::InitializationData& initData)
 		m_driver->drawMeshBuffer(blendEnvMeshBuffer.get());
 	};
 	
-	m_driver->setRenderTarget(finalEnvFramebuffer, false);
+	m_driver->setRenderTarget(finalEnvFramebuffer, true);
 	float colorClearValues[] = { _envmapBaseColor.x, _envmapBaseColor.y, _envmapBaseColor.z, _envmapBaseColor.w };
 	m_driver->clearColorBuffer(video::EFAP_COLOR_ATTACHMENT0, colorClearValues);
 	for(uint32_t i = 0u; i < m_globalMeta->m_global.m_envMapImages.size(); ++i)
@@ -756,8 +757,10 @@ void Renderer::initSceneNonAreaLights(Renderer::InitializationData& initData)
 		auto envMapImageView = m_driver->getGPUObjectsFromAssets(&cpuEnvmapImageView.get(), &cpuEnvmapImageView.get() + 1u)->front();
 		blendToFinalEnvMap(envMapImageView);
 	}
-	m_driver->setRenderTarget(nullptr, false);
-	
+	m_driver->setRenderTarget(nullptr, true);
+	// always needs doing after rendering
+	// TODO: better filter and GPU accelerated
+	m_finalEnvmap->regenerateMipMapLevels();
 }
 
 void Renderer::finalizeScene(Renderer::InitializationData& initData)
@@ -1022,7 +1025,7 @@ void Renderer::deinitSceneResources()
 	m_sceneBound = core::aabbox3df(FLT_MAX, FLT_MAX, FLT_MAX, -FLT_MAX, -FLT_MAX, -FLT_MAX);
 	
 	m_finalEnvmap = nullptr;
-	m_staticViewData = {{0.f,0.f,0.f},0u,{0u,0u},0u,0u};
+	m_staticViewData = {{0u,0u},0u,0u};
 
 	auto rr = m_rrManager->getRadeonRaysAPI();
 	rr->DetachAll();
@@ -1222,7 +1225,7 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, core::s
 
 		// envmap
 		setImageInfo(infos+8,asset::EIL_GENERAL,core::smart_refctd_ptr(m_finalEnvmap));
-		ISampler::SParams samplerParams = { ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_FLOAT_OPAQUE_BLACK, ISampler::ETF_LINEAR, ISampler::ETF_LINEAR, ISampler::ESMM_LINEAR, 0u, false, ECO_ALWAYS };
+		ISampler::SParams samplerParams = { ISampler::ETC_REPEAT, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_FLOAT_OPAQUE_BLACK, ISampler::ETF_LINEAR, ISampler::ETF_LINEAR, ISampler::ESMM_LINEAR, 0u, false, ECO_ALWAYS };
 		infos[8].image.sampler = m_driver->createGPUSampler(samplerParams);
 		infos[8].image.imageLayout = EIL_SHADER_READ_ONLY_OPTIMAL;
 
@@ -1470,11 +1473,20 @@ void Renderer::takeAndSaveScreenShot(const std::filesystem::path& screenshotFile
 	auto filename_wo_ext = screenshotFilePath;
 	filename_wo_ext.replace_extension();
 	if (m_tonemapOutput)
-		ext::ScreenShot::createScreenShot(m_driver,m_assetManager,m_tonemapOutput.get(),screenshotFilePath.string(),format);
+		ext::ScreenShot::createScreenShot(m_driver,m_assetManager,m_tonemapOutput.get(),filename_wo_ext.string()+".exr",format);
 	if (m_albedoRslv)
 		ext::ScreenShot::createScreenShot(m_driver,m_assetManager,m_albedoRslv.get(),filename_wo_ext.string()+"_albedo.exr",format);
 	if (m_normalRslv)
 		ext::ScreenShot::createScreenShot(m_driver,m_assetManager,m_normalRslv.get(),filename_wo_ext.string()+"_normal.exr",format);
+
+	std::ostringstream denoiserCmd;
+	denoiserCmd << "call ../denoiser_hook.bat";
+	denoiserCmd << " " << filename_wo_ext.string() << ".exr";
+	denoiserCmd << " " << filename_wo_ext.string() << "_albedo.exr";
+	denoiserCmd << " " << filename_wo_ext.string() << "_normal.exr";
+	// NOTE/TODO/FIXME : Do as I say, not as I do
+	// https://wiki.sei.cmu.edu/confluence/pages/viewpage.action?pageId=87152177
+	std::system(denoiserCmd.str().c_str());
 }
 
 // one day it will just work like that
@@ -1743,7 +1755,7 @@ bool Renderer::traceBounce(uint32_t & raycount)
 
 		cl_int retval = -1;
 		auto startWait = std::chrono::steady_clock::now();
-		constexpr auto timeoutInSeconds = 10ull;
+		constexpr auto timeoutInSeconds = 20ull;
 		bool timedOut = false;
 		do {
 			const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-startWait).count();

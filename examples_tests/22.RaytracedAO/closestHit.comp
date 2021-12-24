@@ -34,8 +34,6 @@ void main()
 	clear_raycount();
 	if (get_sample_job())
 	{
-		vec3 emissive = staticViewData.envmapBaseColor;	
-
 		// basic reads
 		const uint vertex_depth = get_path_vertex_depth();
 		const uint vertex_depth_mod_2 = vertex_depth&0x1u;
@@ -49,7 +47,10 @@ void main()
 		// obtain ray incoming direction
 		normalizedV = -ray.direction;
 
-		const uvec2 outPixelLocation = unpackOutPixelLocation(ray.time);
+		//
+		uvec2 outPixelLocation;
+		float aovThroughputScale;
+		unpackOutPixelLocationAndAoVThroughputFactor(ray.time,outPixelLocation,aovThroughputScale);
 		const vec3 throughput = vec3(
 			unpackHalf2x16(ray.useless_padding[0]).rg,
 			unpackHalf2x16(ray.useless_padding[1])[0]
@@ -58,7 +59,6 @@ void main()
 
 		//
 		Contribution contrib;
-		const vec3 aovThroughput = throughput*0.f; // TODO: *ray.aovThroughputScale
 		if (hit)
 		{
 			const uint triangleID = intersection.primid;
@@ -76,7 +76,7 @@ void main()
 
 			// get material
 			const nbl_glsl_MC_oriented_material_t material = nbl_glsl_MC_material_data_t_getOriented(batchInstanceData.material,frontfacing);
-			contrib.color = nbl_glsl_MC_oriented_material_t_getEmissive(material);
+			contrib.color = contrib.albedo = nbl_glsl_MC_oriented_material_t_getEmissive(material);
 	
 			const bool _continue = vertex_depth!=MAX_PATH_DEPTH && ray.maxT==nbl_glsl_FLT_MAX; // last vertex or was a NEE path
 			if (_continue)
@@ -96,12 +96,16 @@ void main()
 				generate_next_rays(
 					MAX_RAYS_GENERATED,material,frontfacing,vertex_depth,
 					scramble_start_state,sampleID,outPixelLocation,origin,
-					throughput,aovThroughput,contrib.albedo,contrib.worldspaceNormal
+					throughput,aovThroughputScale,contrib.albedo,contrib.worldspaceNormal
 				);
 			}
+			else
+				contrib.worldspaceNormal = normalize(geomDenormal)*nbl_glsl_MC_colorToScalar(contrib.albedo);
 		}
 		else
 			Contribution_initMiss(contrib);
+			
+		Contribution_normalizeAoV(contrib);
 		
 		const uvec3 accumulationLocation = uvec3(outPixelLocation,sampleID%staticViewData.samplesPerPixelPerDispatch);
 		const vec3 acc_emissive = fetchAccumulation(accumulationLocation);
@@ -109,9 +113,8 @@ void main()
 		const vec3 acc_worldspaceNormal = fetchWorldspaceNormal(accumulationLocation);
 		// TODO: finish MIS
 		storeAccumulation(acc_emissive,contrib.color*throughput,accumulationLocation);
-		// TODO
-		//const vec3 aovThroughput = throughput*aovThroughputScale;
-		//storeAlbedo(acc_albedo,contrib.albedo*aovThroughput,accumulationLocation);
-		//storeWorldspaceNormal(acc_worldspaceNormal,contrib.worldspaceNormal*(aovThroughput),accumulationLocation); // TODO: luma throughput on normals
+		const vec3 aovThroughput = throughput*aovThroughputScale;
+		storeAlbedo(acc_albedo,contrib.albedo*aovThroughput,accumulationLocation);
+		storeWorldspaceNormal(acc_worldspaceNormal,contrib.worldspaceNormal*nbl_glsl_MC_colorToScalar(aovThroughput),accumulationLocation);
 	}
 }
