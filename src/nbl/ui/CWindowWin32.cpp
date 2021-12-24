@@ -475,11 +475,20 @@ namespace nbl::ui
 		case VK_LWIN:			nablaKeyCode = EKC_LEFT_WIN; break;
 		case VK_RWIN:			nablaKeyCode = EKC_RIGHT_WIN; break;
 		case VK_APPS:			nablaKeyCode = EKC_APPS; break;
-		case VK_ADD:			nablaKeyCode = EKC_ADD; break;
-		case VK_SUBTRACT:		nablaKeyCode = EKC_SUBTRACT; break;
+		case VK_ADD:			
+		case VK_OEM_PLUS:		nablaKeyCode = EKC_ADD; break;
+		case VK_OEM_1:			nablaKeyCode = EKC_SEMICOLON; break;
+		case VK_OEM_4:			nablaKeyCode = EKC_OPEN_BRACKET; break;
+		case VK_OEM_5:			nablaKeyCode = EKC_BACKSLASH; break;
+		case VK_OEM_6:			nablaKeyCode = EKC_CLOSE_BRACKET; break;
+		case VK_OEM_7:			nablaKeyCode = EKC_APOSTROPHE; break;
+		case VK_SUBTRACT:		
+		case VK_OEM_MINUS:  	nablaKeyCode = EKC_SUBTRACT; break;
 		case VK_MULTIPLY:		nablaKeyCode = EKC_MULTIPLY; break;
-		case VK_DIVIDE:			nablaKeyCode = EKC_DIVIDE; break;
-		case VK_SEPARATOR:		nablaKeyCode = EKC_SEPARATOR; break;
+		case VK_OEM_2:			nablaKeyCode = EKC_DIVIDE; break;
+		case VK_SEPARATOR:		[[fallthrough]];
+		case VK_OEM_COMMA:		nablaKeyCode = EKC_COMMA; break;
+		case VK_OEM_PERIOD:		nablaKeyCode = EKC_PERIOD; break;
 		case VK_NUMLOCK:		nablaKeyCode = EKC_NUM_LOCK; break;
 		case VK_SCROLL:			nablaKeyCode = EKC_SCROLL_LOCK; break;
 		case VK_VOLUME_MUTE:	nablaKeyCode = EKC_VOLUME_MUTE; break;

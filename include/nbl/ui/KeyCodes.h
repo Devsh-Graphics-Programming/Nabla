@@ -39,7 +39,14 @@ namespace nbl::ui
 		EKC_RIGHT_WIN,
 		EKC_APPS,
 
-		EKC_SEPARATOR,
+		EKC_COMMA,
+		EKC_PERIOD,
+		EKC_SEMICOLON,
+		EKC_OPEN_BRACKET,
+		EKC_CLOSE_BRACKET,
+		EKC_BACKSLASH,
+		EKC_APOSTROPHE,
+
 		EKC_ADD = '+',
 		EKC_SUBTRACT = '-',
 		EKC_MULTIPLY = '*',
@@ -126,6 +133,7 @@ namespace nbl::ui
 		EKC_VOLUME_UP,
 		EKC_VOLUME_DOWN,
 
+
 		EKC_COUNT,
 	};
 
@@ -135,56 +143,67 @@ namespace nbl::ui
 		switch (code)
 		{
 		case EKC_0: [[fallthrough]];
-		case EKC_NUMPAD_0: result = '0';
+		case EKC_NUMPAD_0: result = '0'; break;
 		case EKC_1: [[fallthrough]];
-		case EKC_NUMPAD_1: result = '1';
+		case EKC_NUMPAD_1: result = '1'; break;
 		case EKC_2: [[fallthrough]];
-		case EKC_NUMPAD_2: result = '2';
+		case EKC_NUMPAD_2: result = '2'; break;
 		case EKC_3: [[fallthrough]];
-		case EKC_NUMPAD_3: result = '3';
+		case EKC_NUMPAD_3: result = '3'; break;
 		case EKC_4: [[fallthrough]];
-		case EKC_NUMPAD_4: result = '4';
+		case EKC_NUMPAD_4: result = '4'; break;
 		case EKC_5: [[fallthrough]];
-		case EKC_NUMPAD_5: result = '5';
+		case EKC_NUMPAD_5: result = '5'; break;
 		case EKC_6: [[fallthrough]];
-		case EKC_NUMPAD_6: result = '6';
+		case EKC_NUMPAD_6: result = '6'; break;
 		case EKC_7: [[fallthrough]];
-		case EKC_NUMPAD_7: result = '7';
+		case EKC_NUMPAD_7: result = '7'; break;
 		case EKC_8: [[fallthrough]];
-		case EKC_NUMPAD_8: result = '8';
+		case EKC_NUMPAD_8: result = '8'; break;
 		case EKC_9: [[fallthrough]];
-		case EKC_NUMPAD_9: result = '9';
+		case EKC_NUMPAD_9: result = '9'; break;
 
-		case EKC_A: result = 'a';
-		case EKC_B: result = 'b';
-		case EKC_C: result = 'c';
-		case EKC_D: result = 'd';
-		case EKC_E: result = 'e';
-		case EKC_F: result = 'f';
-		case EKC_G: result = 'g';
-		case EKC_H: result = 'h';
-		case EKC_I: result = 'i';
-		case EKC_J: result = 'j';
-		case EKC_K: result = 'k';
-		case EKC_L: result = 'l';
-		case EKC_M: result = 'm';
-		case EKC_N: result = 'n';
-		case EKC_O: result = 'o';
-		case EKC_P: result = 'p';
-		case EKC_Q: result = 'q';
-		case EKC_R: result = 'r';
-		case EKC_S: result = 's';
-		case EKC_T: result = 't';
-		case EKC_U: result = 'u';
-		case EKC_V: result = 'v';
-		case EKC_W: result = 'w';
-		case EKC_X: result = 'x';
-		case EKC_Y: result = 'y';
-		case EKC_Z: result = 'x';
+		case EKC_A: result = 'a'; break;
+		case EKC_B: result = 'b'; break;
+		case EKC_C: result = 'c'; break;
+		case EKC_D: result = 'd'; break;
+		case EKC_E: result = 'e'; break;
+		case EKC_F: result = 'f'; break;
+		case EKC_G: result = 'g'; break;
+		case EKC_H: result = 'h'; break;
+		case EKC_I: result = 'i'; break;
+		case EKC_J: result = 'j'; break;
+		case EKC_K: result = 'k'; break;
+		case EKC_L: result = 'l'; break;
+		case EKC_M: result = 'm'; break;
+		case EKC_N: result = 'n'; break;
+		case EKC_O: result = 'o'; break;
+		case EKC_P: result = 'p'; break;
+		case EKC_Q: result = 'q'; break;
+		case EKC_R: result = 'r'; break;
+		case EKC_S: result = 's'; break;
+		case EKC_T: result = 't'; break;
+		case EKC_U: result = 'u'; break;
+		case EKC_V: result = 'v'; break;
+		case EKC_W: result = 'w'; break;
+		case EKC_X: result = 'x'; break;
+		case EKC_Y: result = 'y'; break;
+		case EKC_Z: result = 'z'; break;
 
-		case EKC_TAB: result = '\t';
-		case EKC_ENTER: result = '\n';
-		case EKC_SPACE: result = ' ';
+		case EKC_TAB: result = '\t'; break;
+		case EKC_ENTER: result = '\n'; break;
+		case EKC_SPACE: result = ' '; break;
+		case EKC_COMMA: result = ','; break;
+		case EKC_PERIOD: result = '.'; break;
+		case EKC_SEMICOLON: result = ';'; break;
+		case EKC_ADD: result = '+'; break;
+		case EKC_SUBTRACT: result = '-'; break;
+		case EKC_MULTIPLY: result = '*'; break;
+		case EKC_DIVIDE: result = '/'; break;
+		case EKC_OPEN_BRACKET: result = '['; break;
+		case EKC_CLOSE_BRACKET: result = ']'; break;
+		case EKC_BACKSLASH: result = '\\'; break;
+		case EKC_APOSTROPHE: result = '\''; break;
 		}
 		return result;
 	}
