@@ -29,6 +29,7 @@ class RaytracerExampleEventReceiver : public nbl::IEventReceiver
 			, resetViewKeyPressed(false)
 			, nextKeyPressed(false)
 			, previousKeyPressed(false)
+			, screenshotKeyPressed(false)
 		{
 		}
 
@@ -46,6 +47,9 @@ class RaytracerExampleEventReceiver : public nbl::IEventReceiver
 						break;
 					case PreviousKey:
 						previousKeyPressed = true;
+						break;
+					case ScreenshotKey:
+						screenshotKeyPressed = true;
 						break;
 					case SkipKey:
 						skipKeyPressed = true;
@@ -71,12 +75,15 @@ class RaytracerExampleEventReceiver : public nbl::IEventReceiver
 
 		inline bool isPreviousPressed() const { return previousKeyPressed; }
 
+		inline bool isScreenshotKeyPressed() const { return screenshotKeyPressed; }
+
 		inline void resetKeys()
 		{
 			skipKeyPressed = false;
 			resetViewKeyPressed = false;
 			nextKeyPressed = false;
 			previousKeyPressed = false;
+			screenshotKeyPressed = false;
 		}
 
 	private:
@@ -85,12 +92,14 @@ class RaytracerExampleEventReceiver : public nbl::IEventReceiver
 		static constexpr nbl::EKEY_CODE ResetKey = nbl::KEY_HOME;
 		static constexpr nbl::EKEY_CODE NextKey = nbl::KEY_PRIOR; // PAGE_UP
 		static constexpr nbl::EKEY_CODE PreviousKey = nbl::KEY_NEXT; // PAGE_DOWN
+		static constexpr nbl::EKEY_CODE ScreenshotKey = nbl::KEY_KEY_P; // P Key
 
 		bool running = false;
 		bool skipKeyPressed = false;
 		bool resetViewKeyPressed = false;
 		bool nextKeyPressed = false;
 		bool previousKeyPressed = false;
+		bool screenshotKeyPressed = false;
 
 };
 
@@ -697,7 +706,7 @@ int main(int argc, char** argv)
 		if (screenshotFilePath.empty())
 		{
 			auto extensionStr = getFileExtensionFromFormat(sensorData.fileFormat);
-			screenshotFilePath = std::filesystem::path("ScreenShot_" + mainFileName + "_Sensor_" + std::to_string(s) + extensionStr);
+			screenshotFilePath = std::filesystem::path("Render_" + mainFileName + "_Sensor_" + std::to_string(s) + extensionStr);
 		}
 		
 		if(renderFailed)
@@ -759,6 +768,38 @@ int main(int argc, char** argv)
 				if(receiver.isPreviousPressed())
 				{
 					setActiveSensor(activeSensor - 1);
+				}
+				if(receiver.isScreenshotKeyPressed())
+				{
+					const std::string screenShotFilesPrefix = "ScreenShot";
+					const char seperator = '_';
+					int maxFileNumber = -1;
+					for (const auto & entry : std::filesystem::directory_iterator(std::filesystem::current_path()))
+					{
+						const auto entryPathStr = entry.path().filename().string();
+						const auto firstSeperatorLoc = entryPathStr.find_first_of(seperator) ;
+						const auto lastSeperatorLoc = entryPathStr.find_last_of(seperator);
+						const auto firstDotLoc = entryPathStr.find_first_of('.');
+
+						const auto firstSection = entryPathStr.substr(0u, firstSeperatorLoc);
+						const bool isScreenShot = (firstSection == screenShotFilesPrefix);
+						if(isScreenShot)
+						{
+							const auto middleSection = entryPathStr.substr(firstSeperatorLoc + 1, lastSeperatorLoc - (firstSeperatorLoc + 1));
+							const auto numberString = entryPathStr.substr(lastSeperatorLoc + 1, firstDotLoc - (lastSeperatorLoc + 1));
+
+							if(middleSection == mainFileName) 
+							{
+								const auto number = std::stoi(numberString);
+								if(number > maxFileNumber)
+								{
+									maxFileNumber = number;
+								}
+							}
+						}
+					}
+					std::string fileNameWoExt = screenShotFilesPrefix + seperator + mainFileName + seperator + std::to_string(maxFileNumber + 1);
+					renderer->takeAndSaveScreenShot(std::filesystem::path(fileNameWoExt));
 				}
 				receiver.resetKeys();
 			}
