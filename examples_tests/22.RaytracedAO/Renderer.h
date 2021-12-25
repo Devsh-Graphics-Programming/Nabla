@@ -33,9 +33,9 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		struct DenoiserArgs
 		{
 			std::filesystem::path bloomFilePath;
-			std::string tonemapperArgs = "";
 			float bloomScale = 0.0f;
 			float bloomIntensity = 0.0f;
+			std::string tonemapperArgs = "";
 		};
 
 		Renderer(nbl::video::IVideoDriver* _driver, nbl::asset::IAssetManager* _assetManager, nbl::scene::ISceneManager* _smgr, bool useDenoiser = true);

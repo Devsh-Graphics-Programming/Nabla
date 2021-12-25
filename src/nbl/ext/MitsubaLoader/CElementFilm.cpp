@@ -254,6 +254,19 @@ bool CElementFilm::addProperty(SNamedPropertyElement&& _property)
 		denoiserBloomFilePath[len] = 0;
 	};
 	
+	auto setTonemapperArgs = [&]() -> void
+	{
+		if (_property.type != SNamedPropertyElement::Type::STRING)
+		{
+			error = true;
+			return;
+		}
+
+		size_t len = std::min(strlen(_property.svalue),MaxTonemapperArgsLen);
+		memcpy(denoiserTonemapperArgs,_property.svalue,len);
+		denoiserTonemapperArgs[len] = 0;
+	};
+
 	auto setBloomScale			= SET_PROPERTY(denoiserBloomScale,SNamedPropertyElement::Type::FLOAT);
 	auto setBloomIntensity		= SET_PROPERTY(denoiserBloomIntensity,SNamedPropertyElement::Type::FLOAT);
 
@@ -281,7 +294,8 @@ bool CElementFilm::addProperty(SNamedPropertyElement&& _property)
 		{"outputFilePath",		setOutputFilePath},
 		{"bloomFilePath",		setBloomFilePath},
 		{"bloomScale",			setBloomScale},
-		{"bloomIntensity",		setBloomIntensity}
+		{"bloomIntensity",		setBloomIntensity},
+		{"tonemapper",			setTonemapperArgs}
 	};
 
 	auto found = SetPropertyMap.find(_property.name);

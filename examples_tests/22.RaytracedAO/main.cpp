@@ -469,6 +469,7 @@ int main(int argc, char** argv)
 		outSensorData.denoiserInfo.bloomFilePath = std::filesystem::path(film.denoiserBloomFilePath);
 		outSensorData.denoiserInfo.bloomScale = film.denoiserBloomScale;
 		outSensorData.denoiserInfo.bloomIntensity = film.denoiserBloomIntensity;
+		outSensorData.denoiserInfo.tonemapperArgs = std::string(film.denoiserTonemapperArgs);
 
 		outSensorData.outputFilePath = std::filesystem::path(film.outputFilePath);
 		outSensorData.fileFormat = film.fileFormat;

@@ -139,8 +139,8 @@ class CElementFilm : public IElement
 		char denoiserBloomFilePath[MaxPathLen+1] = {0};
 		float denoiserBloomScale = 0.0f;
 		float denoiserBloomIntensity = 0.0f;
-		// _NBL_STATIC_INLINE_CONSTEXPR size_t MaxTonemapperArgsLength = 128;
-		// char denoiserTonemapperArgs[MaxToneMapperArgsLength+1] = {0};
+		_NBL_STATIC_INLINE_CONSTEXPR size_t MaxTonemapperArgsLen = 128;
+		char denoiserTonemapperArgs[MaxTonemapperArgsLen+1] = {0};
 };
 
 
