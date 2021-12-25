@@ -1,0 +1,112 @@
+# Using the Renderer
+
+## How the Renderer works
+
+* It starts by rendering the scene with each sensor and will stop when enough samples is taken.
+
+To skip this part, press the `END` Key. (more detail below)
+
+* Then you'll have full control of the camera, you can take snapshots, move around and have fun :)
+
+To skip this part pass `-TERMINATE` as a cmd argument when executing the renderer (more detail below).
+
+* Before Exiting from the Renderer, the very last view will be rendered and denoised to files named like `LastView_spaceship_Sensor_0`
+
+## CommandLine Help
+```
+Parameters:
+-SCENE=sceneMitsubaXMLPathOrZipAndXML
+-TERMINATE
+
+Description and usage: 
+
+-SCENE:
+	some/path extra/path which will make it skip the file choose dialog
+
+-TERMINATE:
+	It will make the app stop when the required amount of samples has been renderered (its in the Mitsuba Scene metadata) and obviously take screenshot when quitting
+	
+Example Usages :
+	raytracedao.exe -SCENE=../../media/kitchen.zip scene.xml -TERMINATE
+	raytracedao.exe -SCENE="../../media/my good kitchen.zip" scene.xml -TERMINATE
+	raytracedao.exe -SCENE="../../media/my good kitchen.zip scene.xml" -TERMINATE
+	raytracedao.exe -SCENE="../../media/extraced folder/scene.xml" -TERMINATE
+```
+
+## New mitsuba properties and tags 
+Multiple Sensor tags in mitsuba XML's is now supported. This feature helps you have multiple views with different camera and <film> parameters without needing to execute the renderer again.
+You can switch between those sensors using `PAGE UP/DOWN` Keys defined below in more detail.
+
+property_name -> description -> type -> default if not set
+
+Properties added to <sensor>:
+
+moveSpeed
+zoomSpeed
+rotateSpeed
+
+Properties added to <film>
+
+outputFilePath
+bloomScale
+bloomIntensity
+bloomFilePath
+tonemapper
+
+[[[[Full example using all]]]]
+
+## Mouse
+
+| Button              | Description                             |
+|---------------------|-------------------------------------------------|
+| Left Mouse Button   | Drag to Look around                             |
+| Mouse Wheel Scroll  | Zoom In/Out (you can set the speed via mitsuba) |
+| Right Mouse Button  | Drag to Move around                             |
+| Middle Mouse Button | Drag to Move around                             |
+
+## Keyboard
+| Key       | Description                                                                                                            |
+|-----------|------------------------------------------------------------------------------------------------------------------------|
+| Q         | Press to Quit the Renderer                                                                                             |
+| END       | Press to Skip Current Render and "free" the camera                                                                     |
+| PAGE_UP   | Press to switch view to the 'next' sensor defined in mitsuba.                                                          |
+| PAGE_DOWN | Press to switch view to the 'previous' sensor defined in mitsuba.                                                      |
+| HOME      | Press to reset the camera to the initial view. (Usefull when you're lost and you want to go back to where you started) |
+| P         | Press to take a snapshot when moving around (will be denoised)                                                         |
+| L         | Press to log the current progress percentage and samples rendered.                                                     |
+
+## Denoiser Hook
+`denoiser_hook.bat` is a script that you can call to denoise your rendered images.
+
+Example:
+```
+denoiser_hook.bat "Render_scene_Sensor_0.exr" "Render_scene_Sensor_0_albedo.exr" "Render_scene_Sensor_0_normal.exr" "../../media/kernels/physical_flare_512.exr" 0.1 0.3 "ACES=0.4,0.8"
+```
+
+Parameters:
+1. ColorFile
+2. AlbedoFile
+3. NormalFile
+4. BloomPsfFilePath
+5. BloomScale
+6. BloomIntensity
+7. TonemapperArgs(string)
+
+
+## Testing in batch
+
+Run `test.bat` to batch render all of the files referenced in `test_scenes.txt`
+
+Here is an example of  `test_scenes.txt`:
+```
+"../../media/mitsuba/staircase2.zip scene.xml"
+"C:\Mitsuba\CoolLivingRoom\scene.xml"
+"C:\Mitsuba\CoolKitchen.zip scene.xml"
+"../../MitsubaFiles/spaceship.zip scene.xml"
+; Here is my Commented line that batch file will skip (started with semicolons)
+; "relative/dir/from/bin/folder/to/scene.zip something.xml
+```
+lines with semicolons will be skipped.
+
+## Log Messages
+Here are some useful logs that is good to know for general usage of the pathtracer.
