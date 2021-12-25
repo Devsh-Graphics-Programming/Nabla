@@ -1500,7 +1500,9 @@ void Renderer::takeAndSaveScreenShot(const std::filesystem::path& screenshotFile
 	denoiserCmd << " " << "\"" << tonemapperArgs << "\"";
 	// NOTE/TODO/FIXME : Do as I say, not as I do
 	// https://wiki.sei.cmu.edu/confluence/pages/viewpage.action?pageId=87152177
+	std::cout << "\n---[DENOISER_BEGIN]---" << std::endl;
 	std::system(denoiserCmd.str().c_str());
+	std::cout << "\n---[DENOISER_END]---" << std::endl;
 }
 
 // one day it will just work like that

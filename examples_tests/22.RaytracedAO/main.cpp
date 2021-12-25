@@ -51,6 +51,9 @@ class RaytracerExampleEventReceiver : public nbl::IEventReceiver
 					case ScreenshotKey:
 						screenshotKeyPressed = true;
 						break;
+					case LogProgressKey:
+						logProgressKeyPressed = true;
+						break;
 					case SkipKey:
 						skipKeyPressed = true;
 						break;
@@ -77,6 +80,8 @@ class RaytracerExampleEventReceiver : public nbl::IEventReceiver
 
 		inline bool isScreenshotKeyPressed() const { return screenshotKeyPressed; }
 
+		inline bool isLogProgressKeyPressed() const { return logProgressKeyPressed; }
+
 		inline void resetKeys()
 		{
 			skipKeyPressed = false;
@@ -84,6 +89,7 @@ class RaytracerExampleEventReceiver : public nbl::IEventReceiver
 			nextKeyPressed = false;
 			previousKeyPressed = false;
 			screenshotKeyPressed = false;
+			logProgressKeyPressed = false;
 		}
 
 	private:
@@ -92,7 +98,8 @@ class RaytracerExampleEventReceiver : public nbl::IEventReceiver
 		static constexpr nbl::EKEY_CODE ResetKey = nbl::KEY_HOME;
 		static constexpr nbl::EKEY_CODE NextKey = nbl::KEY_PRIOR; // PAGE_UP
 		static constexpr nbl::EKEY_CODE PreviousKey = nbl::KEY_NEXT; // PAGE_DOWN
-		static constexpr nbl::EKEY_CODE ScreenshotKey = nbl::KEY_KEY_P; // P Key
+		static constexpr nbl::EKEY_CODE ScreenshotKey = nbl::KEY_KEY_P;
+		static constexpr nbl::EKEY_CODE LogProgressKey = nbl::KEY_KEY_L;
 
 		bool running = false;
 		bool skipKeyPressed = false;
@@ -100,6 +107,7 @@ class RaytracerExampleEventReceiver : public nbl::IEventReceiver
 		bool nextKeyPressed = false;
 		bool previousKeyPressed = false;
 		bool screenshotKeyPressed = false;
+		bool logProgressKeyPressed = false;
 
 };
 
@@ -670,6 +678,17 @@ int main(int argc, char** argv)
 			if(itr >= maxNeededIterations)
 				std::cout << "[ERROR] Samples taken (" << renderer->getTotalSamplesPerPixelComputed() << ") must've exceeded samples needed for Sensor (" << sensorData.samplesNeeded << ") by now; something is wrong." << std::endl;
 
+			// Handle Inputs
+			{
+				if(receiver.isLogProgressKeyPressed())
+				{
+					int progress = float(renderer->getTotalSamplesPerPixelComputed())/float(sensorData.samplesNeeded) * 100;
+					printf("[INFO] Rendering in progress - %d%% Progress = %u/%u SamplesPerPixel. \n", progress, renderer->getTotalSamplesPerPixelComputed(), sensorData.samplesNeeded);
+				}
+				receiver.resetKeys();
+			}
+
+
 			driver->beginScene(false, false);
 
 			if(!renderer->render(device->getTimer()))
@@ -789,6 +808,10 @@ int main(int argc, char** argv)
 					}
 					std::string fileNameWoExt = screenShotFilesPrefix + seperator + mainFileName + seperator + std::to_string(maxFileNumber + 1);
 					renderer->takeAndSaveScreenShot(std::filesystem::path(fileNameWoExt), sensors[activeSensor].denoiserInfo);
+				}
+				if(receiver.isLogProgressKeyPressed())
+				{
+					printf("[INFO] Rendering in progress - %d Total SamplesPerPixel Computed. \n", renderer->getTotalSamplesPerPixelComputed());
 				}
 				receiver.resetKeys();
 			}
