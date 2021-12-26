@@ -3,13 +3,11 @@
 ## How the Renderer works
 
 * It starts by rendering the scene with each sensor and will stop when enough samples is taken.
-
-To skip this part, press the `END` Key. (more detail below)
-
+	* To skip this part, press the `END` Key. (more detail below)
+---
 * Then you'll have full control of the camera, you can take snapshots, move around and have fun :)
-
-To skip this part pass `-TERMINATE` as a cmd argument when executing the renderer (more detail below).
-
+	* To skip this part pass `-TERMINATE` as a cmd argument when executing the renderer (more detail below).
+---
 * Before Exiting from the Renderer, the very last view will be rendered and denoised to files named like `LastView_spaceship_Sensor_0`
 
 ## CommandLine Help
@@ -22,7 +20,7 @@ Description and usage:
 
 -SCENE:
 	some/path extra/path which will make it skip the file choose dialog
-	
+
 	NOTE: If the scene path contains space, put it between quotation marks
 
 -TERMINATE:
