@@ -22,10 +22,13 @@ Description and usage:
 
 -SCENE:
 	some/path extra/path which will make it skip the file choose dialog
+	
+	NOTE: If the scene path contains space, put it between quotation marks
 
 -TERMINATE:
 	It will make the app stop when the required amount of samples has been renderered (its in the Mitsuba Scene metadata) and obviously take screenshot when quitting
 	
+
 Example Usages :
 	raytracedao.exe -SCENE=../../media/kitchen.zip scene.xml -TERMINATE
 	raytracedao.exe -SCENE="../../media/my good kitchen.zip" scene.xml -TERMINATE
@@ -33,27 +36,57 @@ Example Usages :
 	raytracedao.exe -SCENE="../../media/extraced folder/scene.xml" -TERMINATE
 ```
 
+
 ## New mitsuba properties and tags 
-Multiple Sensor tags in mitsuba XML's is now supported. This feature helps you have multiple views with different camera and <film> parameters without needing to execute the renderer again.
+Multiple Sensor tags in mitsuba XML's is now supported. This feature helps you have multiple views with different camera and <film> parameters without needing to execute the renderer and load again.
 You can switch between those sensors using `PAGE UP/DOWN` Keys defined below in more detail.
 
-property_name -> description -> type -> default if not set
+### Properties added to <sensor>:
 
-Properties added to <sensor>:
+| Property Name | Description           | Type  | Default Value                            |
+|---------------|-----------------------|-------|------------------------------------------|
+|   moveSpeed   | Camera Movement Speed | float | NaN -> Will be deduced from scene bounds |
+|   zoomSpeed   | Camera Zoom Speed     | float | NaN -> Will be deduced from scene bounds |
+|  rotateSpeed  | Camera Rotation Speed | float | 300.0 |
 
-moveSpeed
-zoomSpeed
-rotateSpeed
+### Properties added to <film>
+| Property Name  | Description                                                                            | Type   | Default Value                                                                                                                                                            |
+|----------------|----------------------------------------------------------------------------------------|--------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| outputFilePath | Final Render Output Path;<br>Denoised Render will have "_denoised" suffix added to it. | string | Render_{SceneName}_Sensor_{SensorIdx}.exr<br>{SceneName} is the filename of the xml or zip loaded.<br>{SensorIdx} is the index of the Sensor in xml used for the render. |
+|   bloomScale   | Denoiser Bloom Scale                                                                   | float  | 0.1                                                                                                                                                                      |
+| bloomIntensity | Denoiser Bloom Intensity                                                               | float  | 0.1                                                                                                                                                                      |
+|  bloomFilePath | Lens Flare File Path                                                                   | string | "../../media/kernels/physical_flare_512.exr"                                                                                                                             |
+|   tonemapper   | Tonemapper Settings for Denoiser                                                       | string | "ACES=0.4,0.8"                                                                                                                                                           |
 
-Properties added to <film>
-
-outputFilePath
-bloomScale
-bloomIntensity
-bloomFilePath
-tonemapper
-
-[[[[Full example using all]]]]
+### Example of a sensor using all new properties described above.
+```xml
+	<sensor type="perspective" >
+		<float name="fov" value="60" />
+		<float name="moveSpeed" value="100.0" />
+		<float name="zoomSpeed" value="1.0" />
+		<float name="rotateSpeed" value="300.0" />
+		<transform name="toWorld" >
+			<matrix value="-0.89874 -0.0182716 -0.4381 1.211 0 0.999131 -0.0416703 1.80475 0.438481 -0.0374507 -0.89796 3.85239 0 0 0 1"/>
+		</transform>
+		<sampler type="sobol" >
+			<integer name="sampleCount" value="1024" />
+		</sampler>
+		<film type="ldrfilm" >
+			<string name="outputFilePath" value="C:\Users\MyUser\Desktop\MyRender.exr" />
+			<integer name="width" value="1920" />
+			<integer name="height" value="1080" />
+			<string name="fileFormat" value="png" />
+			<string name="pixelFormat" value="rgb" />
+			<float name="gamma" value="2.2" />
+			<boolean name="banner" value="false" />
+			<float name="bloomScale" value="0.1" />
+			<float name="bloomIntensity" value="0.1" />
+			<string name="bloomFilePath" value="../../media/kernels/physical_flare_512.exr" />
+			<string name="tonemapper" value="ACES=0.4,0.8" />
+			<rfilter type="tent" />
+		</film>
+	</sensor>
+```
 
 ## Mouse
 
@@ -107,6 +140,3 @@ Here is an example of  `test_scenes.txt`:
 ; "relative/dir/from/bin/folder/to/scene.zip something.xml
 ```
 lines with semicolons will be skipped.
-
-## Log Messages
-Here are some useful logs that is good to know for general usage of the pathtracer.
