@@ -36,8 +36,9 @@ Example Usages :
 
 
 ## New mitsuba properties and tags 
-Multiple Sensor tags in mitsuba XML's is now supported. This feature helps you have multiple views with different camera and <film> parameters without needing to execute the renderer and load again.
-You can switch between those sensors using `PAGE UP/DOWN` Keys defined below in more detail.
+Multiple Sensor tags in mitsuba XML's is now supported. This feature helps you have multiple views with different camera and film parameters without needing to execute the renderer and load again.
+
+You can switch between those sensors using `PAGE UP/DOWN` Keys defined in more detail below.
 
 ### Properties added to <sensor>:
 
@@ -58,32 +59,32 @@ You can switch between those sensors using `PAGE UP/DOWN` Keys defined below in 
 
 ### Example of a sensor using all new properties described above.
 ```xml
-	<sensor type="perspective" >
-		<float name="fov" value="60" />
-		<float name="moveSpeed" value="100.0" />
-		<float name="zoomSpeed" value="1.0" />
-		<float name="rotateSpeed" value="300.0" />
-		<transform name="toWorld" >
-			<matrix value="-0.89874 -0.0182716 -0.4381 1.211 0 0.999131 -0.0416703 1.80475 0.438481 -0.0374507 -0.89796 3.85239 0 0 0 1"/>
-		</transform>
-		<sampler type="sobol" >
-			<integer name="sampleCount" value="1024" />
-		</sampler>
-		<film type="ldrfilm" >
-			<string name="outputFilePath" value="C:\Users\MyUser\Desktop\MyRender.exr" />
-			<integer name="width" value="1920" />
-			<integer name="height" value="1080" />
-			<string name="fileFormat" value="png" />
-			<string name="pixelFormat" value="rgb" />
-			<float name="gamma" value="2.2" />
-			<boolean name="banner" value="false" />
-			<float name="bloomScale" value="0.1" />
-			<float name="bloomIntensity" value="0.1" />
-			<string name="bloomFilePath" value="../../media/kernels/physical_flare_512.exr" />
-			<string name="tonemapper" value="ACES=0.4,0.8" />
-			<rfilter type="tent" />
-		</film>
-	</sensor>
+<sensor type="perspective" >
+	<float name="fov" value="60" />
+	<float name="moveSpeed" value="100.0" />
+	<float name="zoomSpeed" value="1.0" />
+	<float name="rotateSpeed" value="300.0" />
+	<transform name="toWorld" >
+		<matrix value="-0.89874 -0.0182716 -0.4381 1.211 0 0.999131 -0.0416703 1.80475 0.438481 -0.0374507 -0.89796 3.85239 0 0 0 1"/>
+	</transform>
+	<sampler type="sobol" >
+		<integer name="sampleCount" value="1024" />
+	</sampler>
+	<film type="ldrfilm" >
+		<string name="outputFilePath" value="C:\Users\MyUser\Desktop\MyRender.exr" />
+		<integer name="width" value="1920" />
+		<integer name="height" value="1080" />
+		<string name="fileFormat" value="png" />
+		<string name="pixelFormat" value="rgb" />
+		<float name="gamma" value="2.2" />
+		<boolean name="banner" value="false" />
+		<float name="bloomScale" value="0.1" />
+		<float name="bloomIntensity" value="0.1" />
+		<string name="bloomFilePath" value="../../media/kernels/physical_flare_512.exr" />
+		<string name="tonemapper" value="ACES=0.4,0.8" />
+		<rfilter type="tent" />
+	</film>
+</sensor>
 ```
 
 ## Mouse
