@@ -87,6 +87,7 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/material_compiler/common.glsl"
   "nbl/builtin/glsl/material_compiler/common_declarations.glsl"
   "nbl/builtin/glsl/material_compiler/common_invariant_declarations.glsl"
+  "nbl/builtin/glsl/material_compiler/instr_eval.glsl"
   "nbl/builtin/glsl/material_compiler/rasterization/impl.glsl"
   # random numbers
   "nbl/builtin/glsl/random/xoroshiro.glsl"

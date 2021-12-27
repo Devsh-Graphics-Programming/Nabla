@@ -10,14 +10,21 @@
 void nbl_glsl_MC_instr_eval_execute(in nbl_glsl_MC_instr_t instr, in nbl_glsl_MC_precomputed_t precomp, inout nbl_glsl_LightSample s, inout nbl_glsl_MC_microfacet_t _microfacet, in bool skip)
 {
 	const uint op = nbl_glsl_MC_instr_getOpcode(instr);
+	const nbl_glsl_MC_RegID_t regs = nbl_glsl_MC_instr_decodeRegisters(instr);
+
+	const bool is_bxdf_or_combiner = nbl_glsl_MC_op_isBXDForCoatOrBlend(op);
 	const bool is_bxdf = nbl_glsl_MC_op_isBXDF(op);
+	const bool is_not_brdf = !nbl_glsl_MC_op_isBRDF(op);
+
+
+
+
+
 	const bool is_bsdf = !nbl_glsl_MC_op_isBRDF(op); //note: true for everything besides BRDF ops (combiners, SET_GEOM_NORMAL and BUMPMAP too)
 	const float cosFactor = nbl_glsl_conditionalAbsOrMax(is_bsdf, s.NdotL, 0.0);
 	const float NdotV = nbl_glsl_conditionalAbsOrMax(is_bsdf, currInteraction.inner.isotropic.NdotV, 0.0);
 	const bool positiveCosFactors = (cosFactor > nbl_glsl_FLT_MIN) && (NdotV > nbl_glsl_FLT_MIN);
-	const bool is_bxdf_or_combiner = nbl_glsl_MC_op_isBXDForCoatOrBlend(op);
 
-	const nbl_glsl_MC_RegID_t regs = nbl_glsl_MC_instr_decodeRegisters(instr);
 	mat2x3 ior;
 	mat2x3 ior2;
 	nbl_glsl_MC_params_t params;
