@@ -649,11 +649,13 @@ void nbl_glsl_MC_instr_eval_and_pdf_execute(in nbl_glsl_MC_instr_t instr, in nbl
 
 	nbl_glsl_MC_eval_pdf_aov_t result;
 	result.value = vec3(0.f);
+#ifdef GEN_CHOICE_STREAM
 	result.pdf = 0.0;
 #if GEN_CHOICE_STREAM>=GEN_CHOICE_WITH_AOV_EXTRACTION
 	result.aov.albedo = vec3(0.f);
 	result.aov.throughputFactor = 0.f;
 	result.aov.normal = vec3(0.f);
+#endif
 #endif
 	if (is_bxdf && run && (NdotV > nbl_glsl_FLT_MIN))
 	{
@@ -681,9 +683,14 @@ void nbl_glsl_MC_instr_eval_and_pdf_execute(in nbl_glsl_MC_instr_t instr, in nbl
 #endif
 			if (NdotL > nbl_glsl_FLT_MIN)
 			{
-				result.value = albedo * nbl_glsl_oren_nayar_cos_remainder_and_pdf_wo_clamps(result.pdf, a2, s.VdotL, NdotL, NdotV);
-				result.pdf *= is_not_brdf ? 0.5 : 1.0;
-				result.value *= result.pdf;
+				float pdf;
+				result.value = albedo * nbl_glsl_oren_nayar_cos_remainder_and_pdf_wo_clamps(pdf, a2, s.VdotL, NdotL, NdotV);
+				if (is_not_brdf)
+					pdf *= 0.5f;
+				result.value *= pdf;
+				#ifdef GEN_CHOICE_STREAM
+				result.pdf = pdf;
+				#endif
 			}
 		}
 		else
@@ -778,7 +785,7 @@ void nbl_glsl_MC_instr_eval_and_pdf_execute(in nbl_glsl_MC_instr_t instr, in nbl
 #endif
 #endif
 
-				result.pdf = nbl_glsl_smith_VNDF_pdf_wo_clamps(ndf_val, G1_over_2NdotV);
+				const float pdf = nbl_glsl_smith_VNDF_pdf_wo_clamps(ndf_val, G1_over_2NdotV);
 				float remainder_scalar_part = G2_over_G1;
 
 				const float VdotH = abs(microfacet.inner.isotropic.VdotH);
@@ -811,7 +818,7 @@ void nbl_glsl_MC_instr_eval_and_pdf_execute(in nbl_glsl_MC_instr_t instr, in nbl
 				}
 #endif
 
-				float eval_scalar_part = remainder_scalar_part * result.pdf;
+				float eval_scalar_part = remainder_scalar_part*pdf;
 #ifndef NO_BSDF
 				if (is_not_brdf)
 				{
@@ -827,7 +834,9 @@ void nbl_glsl_MC_instr_eval_and_pdf_execute(in nbl_glsl_MC_instr_t instr, in nbl
 
 					float reflectance = nbl_glsl_MC_colorToScalar(fr);
 					reflectance = refraction ? (1.0 - reflectance) : reflectance;
-					result.pdf *= reflectance;
+					#ifdef GEN_CHOICE_STREAM
+					result.pdf = pdf*reflectance;
+					#endif
 				}
 #endif 
 				result.value = fr * eval_scalar_part;

@@ -1142,17 +1142,13 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
         std::string glsl(begin,end);
         COpenGLShader::insertGLtoVKextensionsMapping(glsl, getSupportedGLSLExtensions().get());
         auto glslShader_woIncludes = GLSLCompiler->resolveIncludeDirectives(glsl.c_str(), stage, _specInfo.m_filePathHint.c_str());
+        auto src = reinterpret_cast<const char*>(glslShader_woIncludes->getSPVorGLSL()->getPointer());
         {
             auto fl = fopen("shader.glsl", "w");
-            fwrite(glsl.c_str(), 1, glsl.size(), fl);
+            fwrite(src, 1, glslShader_woIncludes->getSPVorGLSL()->getSize(), fl);
             fclose(fl);
         }
-        spirv = GLSLCompiler->compileSPIRVFromGLSL(
-                reinterpret_cast<const char*>(glslShader_woIncludes->getSPVorGLSL()->getPointer()),
-                stage,
-                EP.c_str(),
-               _specInfo.m_filePathHint.c_str()
-            );
+        spirv = GLSLCompiler->compileSPIRVFromGLSL(src,stage,EP.c_str(),_specInfo.m_filePathHint.c_str());
 
         if (!spirv)
             return nullptr;

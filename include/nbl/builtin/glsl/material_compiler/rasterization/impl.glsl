@@ -17,7 +17,7 @@ void nbl_glsl_MC_instr_eval_execute(in nbl_glsl_MC_instr_t instr, in nbl_glsl_MC
 	const bool positiveCosFactors = (cosFactor > nbl_glsl_FLT_MIN) && (NdotV > nbl_glsl_FLT_MIN);
 	const bool is_bxdf_or_combiner = nbl_glsl_MC_op_isBXDForCoatOrBlend(op);
 
-	uvec3 regs = nbl_glsl_MC_instr_decodeRegisters(instr);
+	const nbl_glsl_MC_RegID_t regs = nbl_glsl_MC_instr_decodeRegisters(instr);
 	mat2x3 ior;
 	mat2x3 ior2;
 	nbl_glsl_MC_params_t params;
@@ -34,7 +34,7 @@ void nbl_glsl_MC_instr_eval_execute(in nbl_glsl_MC_instr_t instr, in nbl_glsl_MC
 		params = nbl_glsl_MC_instr_getParameters(instr, bsdf_data);
 	}
 
-	nbl_glsl_MC_bxdf_eval_t result = nbl_glsl_MC_bxdf_eval_t(0.0);
+	nbl_glsl_MC_bxdf_spectrum_t result = nbl_glsl_MC_bxdf_spectrum_t(0.0);
 
 	if (run && is_bxdf)
 	{
@@ -197,7 +197,7 @@ void nbl_glsl_MC_instr_eval_execute(in nbl_glsl_MC_instr_t instr, in nbl_glsl_MC
 		nbl_glsl_MC_writeReg(REG_DST(regs), result);
 }
 
-nbl_glsl_MC_bxdf_eval_t nbl_glsl_MC_runEvalStream(in nbl_glsl_MC_precomputed_t precomp, in nbl_glsl_MC_instr_stream_t stream, in vec3 L)
+nbl_glsl_MC_bxdf_spectrum_t nbl_glsl_MC_runEvalStream(in nbl_glsl_MC_precomputed_t precomp, in nbl_glsl_MC_instr_stream_t stream, in vec3 L)
 {
 	nbl_glsl_MC_setCurrInteraction(precomp);
 	nbl_glsl_LightSample s = nbl_glsl_createLightSample(L, currInteraction.inner);
