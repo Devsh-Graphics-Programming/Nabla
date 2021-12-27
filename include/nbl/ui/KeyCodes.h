@@ -137,73 +137,129 @@ namespace nbl::ui
 		EKC_COUNT,
 	};
 
-	inline char keyCodeToChar(E_KEY_CODE code)
+	inline char keyCodeToChar(E_KEY_CODE code, bool shiftPressed)
 	{
 		char result = 0;
-		switch (code)
+		if (!shiftPressed)
 		{
-		case EKC_0: [[fallthrough]];
-		case EKC_NUMPAD_0: result = '0'; break;
-		case EKC_1: [[fallthrough]];
-		case EKC_NUMPAD_1: result = '1'; break;
-		case EKC_2: [[fallthrough]];
-		case EKC_NUMPAD_2: result = '2'; break;
-		case EKC_3: [[fallthrough]];
-		case EKC_NUMPAD_3: result = '3'; break;
-		case EKC_4: [[fallthrough]];
-		case EKC_NUMPAD_4: result = '4'; break;
-		case EKC_5: [[fallthrough]];
-		case EKC_NUMPAD_5: result = '5'; break;
-		case EKC_6: [[fallthrough]];
-		case EKC_NUMPAD_6: result = '6'; break;
-		case EKC_7: [[fallthrough]];
-		case EKC_NUMPAD_7: result = '7'; break;
-		case EKC_8: [[fallthrough]];
-		case EKC_NUMPAD_8: result = '8'; break;
-		case EKC_9: [[fallthrough]];
-		case EKC_NUMPAD_9: result = '9'; break;
+			switch (code)
+			{
+			case EKC_0: [[fallthrough]];
+			case EKC_NUMPAD_0: result = '0'; break;
+			case EKC_1: [[fallthrough]];
+			case EKC_NUMPAD_1: result = '1'; break;
+			case EKC_2: [[fallthrough]];
+			case EKC_NUMPAD_2: result = '2'; break;
+			case EKC_3: [[fallthrough]];
+			case EKC_NUMPAD_3: result = '3'; break;
+			case EKC_4: [[fallthrough]];
+			case EKC_NUMPAD_4: result = '4'; break;
+			case EKC_5: [[fallthrough]];
+			case EKC_NUMPAD_5: result = '5'; break;
+			case EKC_6: [[fallthrough]];
+			case EKC_NUMPAD_6: result = '6'; break;
+			case EKC_7: [[fallthrough]];
+			case EKC_NUMPAD_7: result = '7'; break;
+			case EKC_8: [[fallthrough]];
+			case EKC_NUMPAD_8: result = '8'; break;
+			case EKC_9: [[fallthrough]];
+			case EKC_NUMPAD_9: result = '9'; break;
 
-		case EKC_A: result = 'a'; break;
-		case EKC_B: result = 'b'; break;
-		case EKC_C: result = 'c'; break;
-		case EKC_D: result = 'd'; break;
-		case EKC_E: result = 'e'; break;
-		case EKC_F: result = 'f'; break;
-		case EKC_G: result = 'g'; break;
-		case EKC_H: result = 'h'; break;
-		case EKC_I: result = 'i'; break;
-		case EKC_J: result = 'j'; break;
-		case EKC_K: result = 'k'; break;
-		case EKC_L: result = 'l'; break;
-		case EKC_M: result = 'm'; break;
-		case EKC_N: result = 'n'; break;
-		case EKC_O: result = 'o'; break;
-		case EKC_P: result = 'p'; break;
-		case EKC_Q: result = 'q'; break;
-		case EKC_R: result = 'r'; break;
-		case EKC_S: result = 's'; break;
-		case EKC_T: result = 't'; break;
-		case EKC_U: result = 'u'; break;
-		case EKC_V: result = 'v'; break;
-		case EKC_W: result = 'w'; break;
-		case EKC_X: result = 'x'; break;
-		case EKC_Y: result = 'y'; break;
-		case EKC_Z: result = 'z'; break;
+			case EKC_A: result = 'a'; break;
+			case EKC_B: result = 'b'; break;
+			case EKC_C: result = 'c'; break;
+			case EKC_D: result = 'd'; break;
+			case EKC_E: result = 'e'; break;
+			case EKC_F: result = 'f'; break;
+			case EKC_G: result = 'g'; break;
+			case EKC_H: result = 'h'; break;
+			case EKC_I: result = 'i'; break;
+			case EKC_J: result = 'j'; break;
+			case EKC_K: result = 'k'; break;
+			case EKC_L: result = 'l'; break;
+			case EKC_M: result = 'm'; break;
+			case EKC_N: result = 'n'; break;
+			case EKC_O: result = 'o'; break;
+			case EKC_P: result = 'p'; break;
+			case EKC_Q: result = 'q'; break;
+			case EKC_R: result = 'r'; break;
+			case EKC_S: result = 's'; break;
+			case EKC_T: result = 't'; break;
+			case EKC_U: result = 'u'; break;
+			case EKC_V: result = 'v'; break;
+			case EKC_W: result = 'w'; break;
+			case EKC_X: result = 'x'; break;
+			case EKC_Y: result = 'y'; break;
+			case EKC_Z: result = 'z'; break;
 
-		case EKC_TAB: result = '\t'; break;
-		case EKC_ENTER: result = '\n'; break;
-		case EKC_SPACE: result = ' '; break;
-		case EKC_COMMA: result = ','; break;
-		case EKC_PERIOD: result = '.'; break;
-		case EKC_SEMICOLON: result = ';'; break;
-		case EKC_ADD: result = '+'; break;
-		case EKC_SUBTRACT: result = '-'; break;
-		case EKC_MULTIPLY: result = '*'; break;
-		case EKC_DIVIDE: result = '/'; break;
-		case EKC_OPEN_BRACKET: result = '['; break;
-		case EKC_CLOSE_BRACKET: result = ']'; break;
-		case EKC_BACKSLASH: result = '\\'; break;
-		case EKC_APOSTROPHE: result = '\''; break;
+			case EKC_TAB: result = '\t'; break;
+			case EKC_ENTER: result = '\n'; break;
+			case EKC_SPACE: result = ' '; break;
+			case EKC_COMMA: result = ','; break;
+			case EKC_PERIOD: result = '.'; break;
+			case EKC_SEMICOLON: result = ';'; break;
+			case EKC_ADD: result = '='; break;
+			case EKC_SUBTRACT: result = '-'; break;
+			case EKC_DIVIDE: result = '/'; break;
+			case EKC_OPEN_BRACKET: result = '['; break;
+			case EKC_CLOSE_BRACKET: result = ']'; break;
+			case EKC_BACKSLASH: result = '\\'; break;
+			case EKC_APOSTROPHE: result = '\''; break;
+			}
+		}
+		else
+		{
+			switch (code)
+			{
+			case EKC_0: result = ')'; break;
+			case EKC_1: result = '!'; break;
+			case EKC_2: result = '@'; break;
+			case EKC_3: result = '#'; break;
+			case EKC_4: result = '$'; break;
+			case EKC_5: result = '%'; break;
+			case EKC_6: result = '^'; break;
+			case EKC_7: result = '&'; break;
+			case EKC_8: result = '*'; break;
+			case EKC_9: result = '('; break;
+
+			case EKC_A: result = 'A'; break;
+			case EKC_B: result = 'B'; break;
+			case EKC_C: result = 'C'; break;
+			case EKC_D: result = 'D'; break;
+			case EKC_E: result = 'E'; break;
+			case EKC_F: result = 'F'; break;
+			case EKC_G: result = 'G'; break;
+			case EKC_H: result = 'H'; break;
+			case EKC_I: result = 'I'; break;
+			case EKC_J: result = 'J'; break;
+			case EKC_K: result = 'K'; break;
+			case EKC_L: result = 'L'; break;
+			case EKC_M: result = 'M'; break;
+			case EKC_N: result = 'N'; break;
+			case EKC_O: result = 'O'; break;
+			case EKC_P: result = 'P'; break;
+			case EKC_Q: result = 'Q'; break;
+			case EKC_R: result = 'R'; break;
+			case EKC_S: result = 'S'; break;
+			case EKC_T: result = 'T'; break;
+			case EKC_U: result = 'U'; break;
+			case EKC_V: result = 'V'; break;
+			case EKC_W: result = 'W'; break;
+			case EKC_X: result = 'X'; break;
+			case EKC_Y: result = 'Y'; break;
+			case EKC_Z: result = 'Z'; break;
+
+			case EKC_COMMA: result = '<'; break;
+			case EKC_PERIOD: result = '>'; break;
+			case EKC_SEMICOLON: result = ':'; break;
+			case EKC_ADD: result = '+'; break;
+			case EKC_SUBTRACT: result = '_'; break;
+			case EKC_DIVIDE: result = '/'; break;
+			case EKC_OPEN_BRACKET: result = '{'; break;
+			case EKC_CLOSE_BRACKET: result = '}'; break;
+			case EKC_BACKSLASH: result = '|'; break;
+			case EKC_APOSTROPHE: result = '\"'; break;
+			}
 		}
 		return result;
 	}
