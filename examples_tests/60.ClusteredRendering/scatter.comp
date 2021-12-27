@@ -1,0 +1,64 @@
+#version 450 core
+
+layout(local_size_x=1) in;
+
+#define LOD_COUNT 10
+
+layout (set = 0, binding = 0, std430) restrict buffer readonly IntersectionRecords
+{
+	uvec2 data[];
+} intersectionRecords;
+
+layout (set = 0, binding = 1, r32ui) uniform readonly uimage3D lightGrid;
+
+layout (set = 0, binding = 2, std430) restrict buffer writeonly LightIndexList
+{
+	uint data[];
+} lightIndexList;
+
+#define VOXEL_COUNT_PER_DIM 4
+#define VOXEL_COUNT_PER_LEVEL 64
+
+// Todo(achal): Need to pull this out in some common head, I need it a lot
+ivec3 getLightGridTexCoords(in uint linearIndex)
+{
+	ivec3 lightGridTexCoords;
+	const uint voxelCountX = VOXEL_COUNT_PER_DIM;
+	const uint voxelCountY = VOXEL_COUNT_PER_DIM;
+	const uint voxelCountPerSlice = voxelCountX*voxelCountY;
+	lightGridTexCoords.z = int(linearIndex/voxelCountPerSlice);
+	const int xy = int(linearIndex%voxelCountPerSlice);
+	lightGridTexCoords.y = int(xy/voxelCountX);
+	lightGridTexCoords.x = int(xy%voxelCountX);
+	return lightGridTexCoords;
+}
+
+void main()
+{
+	const uvec2 packedIntersectionRecord = intersectionRecords.data[gl_GlobalInvocationID.x];
+	// unpack intersection record
+	const uint x = packedIntersectionRecord.x;
+	const uint y = packedIntersectionRecord.y;
+	uvec3 localClusterID;
+	localClusterID.x = x&0x7F;
+	localClusterID.y = (x>>7)&0x7F;
+	localClusterID.z = (x>>14)&0x7F;
+	const uint level = (x>>21)&0x7F;
+		
+	const uint localLightIndex = y & 0xFFF;
+	const uint globalLightIndex = (y >> 12) & 0xFFFFF;
+
+	// Todo(achal): It is probably best to get rid of the intermediate step of
+	// having to compute the globalClusterIndex everytime and just go straight
+	// from localClusterID and level to 3D light grid texture coordinates
+	const uint globalClusterIndex = (LOD_COUNT-1-level)*VOXEL_COUNT_PER_LEVEL + localClusterID.z*16 + localClusterID.y*4 + localClusterID.x;
+
+	uint offset;
+	{
+		const uint encoded = imageLoad(lightGrid, getLightGridTexCoords(globalClusterIndex)).x;
+		offset = (encoded >> 16)&0xFFFF;
+	}
+
+	const uint scatterAddress = offset + localLightIndex;
+	lightIndexList.data[scatterAddress] = globalLightIndex;
+}

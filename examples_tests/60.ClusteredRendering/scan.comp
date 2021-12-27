@@ -1,0 +1,145 @@
+#version 460 core
+
+// Todo(achal): How will I get these values?
+#define _NBL_GLSL_WORKGROUP_SIZE_ 512
+#define _NBL_GLSL_WORKGROUP_SIZE_LOG2_ 9
+// Todo(achal): There are probably named constants for these values
+#define _NBL_GLSL_SCAN_TYPE_ 1
+#define _NBL_GLSL_SCAN_STORAGE_TYPE_ uint
+#define _NBL_GLSL_SCAN_BIN_OP_ 3
+#define VOXEL_COUNT_PER_DIM 4
+
+layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_) in;
+
+
+// Todo(achal): I can optionally define _NBL_GLSL_SCAN_GET_PADDED_DATA_DECLARED_ and
+// same for setData, to remove the (unnecessary) declarations that will be included 
+// by the following file
+#include <nbl/builtin/glsl/scan/declarations.glsl>
+
+layout (set = 0, binding = 0, r32ui) uniform uimage3D lightGrid;
+
+#define _NBL_GLSL_SCAN_INPUT_DESCRIPTOR_DEFINED_
+#define _NBL_GLSL_SCAN_GET_PADDED_DATA_DEFINED_
+#define _NBL_GLSL_SCAN_SET_DATA_DEFINED_
+#include <nbl/builtin/glsl/scan/descriptors.glsl>
+
+ivec3 getLightGridTexCoords(in uint linearIndex)
+{
+	ivec3 lightGridTexCoords;
+	const uint voxelCountX = VOXEL_COUNT_PER_DIM;
+	const uint voxelCountY = VOXEL_COUNT_PER_DIM;
+	const uint voxelCountPerSlice = voxelCountX*voxelCountY;
+	lightGridTexCoords.z = int(linearIndex/voxelCountPerSlice);
+	const int xy = int(linearIndex%voxelCountPerSlice);
+	lightGridTexCoords.y = int(xy/voxelCountX);
+	lightGridTexCoords.x = int(xy%voxelCountX);
+	return lightGridTexCoords;
+}
+	
+void nbl_glsl_scan_getData(
+	inout nbl_glsl_scan_Storage_t data,
+	in uint levelInvocationIndex,
+	in uint localWorkgroupIndex,
+	in uint treeLevel,
+	in uint pseudoLevel)
+{
+	const nbl_glsl_scan_Parameters_t params = nbl_glsl_scan_getParameters();
+
+	uint offset = levelInvocationIndex;
+	const bool notFirstOrLastLevel = bool(pseudoLevel);
+	if (notFirstOrLastLevel)
+		offset += params.temporaryStorageOffset[pseudoLevel-1u];
+
+	// TODO: optimize the branches some more :D
+	if (pseudoLevel!=treeLevel) // downsweep
+	{
+		const bool notFirstInvocationInGroup = gl_LocalInvocationIndex!=0u;
+		if (bool(localWorkgroupIndex) && gl_LocalInvocationIndex==0u)
+			data = scanScratch.data[localWorkgroupIndex+params.temporaryStorageOffset[pseudoLevel]];
+
+		if (notFirstOrLastLevel)
+		{
+			if (notFirstInvocationInGroup)
+				data = scanScratch.data[offset-1u];
+		}
+		else
+		{
+#			if _NBL_GLSL_SCAN_TYPE_==_NBL_GLSL_SCAN_TYPE_EXCLUSIVE_
+				offset--;
+				if (notFirstInvocationInGroup)
+#			endif
+				{
+					// data += scanBuffer.data[offset];
+					data += imageLoad(lightGrid, getLightGridTexCoords(offset)).x;
+				}
+		}
+	}
+	else
+	{
+		if (notFirstOrLastLevel)
+			data = scanScratch.data[offset];
+		else
+			data = imageLoad(lightGrid, getLightGridTexCoords(offset)).x;
+			// data = scanBuffer.data[offset];
+	}
+}
+
+void nbl_glsl_scan_setData(
+	in nbl_glsl_scan_Storage_t data,
+	in uint levelInvocationIndex,
+	in uint localWorkgroupIndex,
+	in uint treeLevel,
+	in uint pseudoLevel,
+	in bool inRange)
+{
+	const nbl_glsl_scan_Parameters_t params = nbl_glsl_scan_getParameters();
+	if (treeLevel<params.topLevel)
+	{
+		const bool lastInvocationInGroup = gl_LocalInvocationIndex==(_NBL_GLSL_WORKGROUP_SIZE_-1);
+		if (lastInvocationInGroup)
+			scanScratch.data[localWorkgroupIndex+params.temporaryStorageOffset[treeLevel]] = data;
+	}
+	else if (inRange)
+	{
+		if (bool(pseudoLevel))
+		{
+			const uint offset = params.temporaryStorageOffset[pseudoLevel-1u];
+			scanScratch.data[levelInvocationIndex+offset] = data;
+		}
+		else
+		{
+			// scanBuffer.data[levelInvocationIndex] = data;
+
+			const ivec3 lightGridTexCoords = getLightGridTexCoords(levelInvocationIndex);
+			const uint lightCount = imageLoad(lightGrid, lightGridTexCoords).x;
+			const uint packed = (data << 16)|lightCount;
+			imageStore(lightGrid, lightGridTexCoords, uvec4(packed, 0u, 0u, 0u));
+		}
+	}
+}
+
+#include <nbl/builtin/glsl/scan/virtual_workgroup.glsl>
+#include <nbl/builtin/glsl/scan/default_scheduler.glsl>
+
+layout(push_constant) uniform PushConstants
+{
+	nbl_glsl_scan_Parameters_t scanParams;
+	nbl_glsl_scan_DefaultSchedulerParameters_t schedulerParams;
+} pc;
+
+nbl_glsl_scan_Parameters_t nbl_glsl_scan_getParameters()
+{
+	return pc.scanParams;
+}
+
+nbl_glsl_scan_DefaultSchedulerParameters_t nbl_glsl_scan_getSchedulerParameters()
+{
+	return pc.schedulerParams;
+}
+
+void main()
+{
+	nbl_glsl_scan_main();
+}
+
