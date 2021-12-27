@@ -1459,7 +1459,7 @@ void Renderer::resetSampleAndFrameCounters()
 	m_prevCamTform = nbl::core::matrix4x3();
 }
 
-void Renderer::takeAndSaveScreenShot(const std::filesystem::path& screenshotFilePath)
+void Renderer::takeAndSaveScreenShot(const std::filesystem::path& screenshotFilePath, const DenoiserArgs& denoiserArgs)
 {
 	auto commandQueue = m_rrManager->getCLCommandQueue();
 	ocl::COpenCLHandler::ocl.pclFinish(commandQueue);
@@ -1479,14 +1479,30 @@ void Renderer::takeAndSaveScreenShot(const std::filesystem::path& screenshotFile
 	if (m_normalRslv)
 		ext::ScreenShot::createScreenShot(m_driver,m_assetManager,m_normalRslv.get(),filename_wo_ext.string()+"_normal.exr",format);
 
+	const std::string defaultBloomFile = "../../media/kernels/physical_flare_512.exr";
+	const std::string defaultTonemapperArgs = "ACES=0.4,0.8";
+	constexpr auto defaultBloomScale = 0.1f;
+	constexpr auto defaultBloomIntensity = 0.1f;
+	auto bloomFilePathStr = (denoiserArgs.bloomFilePath.string().empty()) ? defaultBloomFile : denoiserArgs.bloomFilePath.string();
+	auto bloomScale = (denoiserArgs.bloomScale == 0.0f) ? defaultBloomScale : denoiserArgs.bloomScale;
+	auto bloomIntensity = (denoiserArgs.bloomIntensity == 0.0f) ? defaultBloomIntensity : denoiserArgs.bloomIntensity;
+	auto tonemapperArgs = (denoiserArgs.tonemapperArgs.empty()) ? defaultTonemapperArgs : denoiserArgs.tonemapperArgs;
+
 	std::ostringstream denoiserCmd;
+	// 1.ColorFile 2.AlbedoFile 3.NormalFile 4.BloomPsfFilePath(STRING) 5.BloomScale(FLOAT) 6.BloomIntensity(FLOAT) 7.TonemapperArgs(STRING)
 	denoiserCmd << "call ../denoiser_hook.bat";
 	denoiserCmd << " " << filename_wo_ext.string() << ".exr";
 	denoiserCmd << " " << filename_wo_ext.string() << "_albedo.exr";
 	denoiserCmd << " " << filename_wo_ext.string() << "_normal.exr";
+	denoiserCmd << " " << bloomFilePathStr;
+	denoiserCmd << " " << bloomScale;
+	denoiserCmd << " " << bloomIntensity;
+	denoiserCmd << " " << "\"" << tonemapperArgs << "\"";
 	// NOTE/TODO/FIXME : Do as I say, not as I do
 	// https://wiki.sei.cmu.edu/confluence/pages/viewpage.action?pageId=87152177
+	std::cout << "\n---[DENOISER_BEGIN]---" << std::endl;
 	std::system(denoiserCmd.str().c_str());
+	std::cout << "\n---[DENOISER_END]---" << std::endl;
 }
 
 // one day it will just work like that

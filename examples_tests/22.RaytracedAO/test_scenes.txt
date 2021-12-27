@@ -1,3 +1,3 @@
 ; Here is my Commented line that batch file will skip (started with semicolons)
-; "relative/dir/from/bin/folder/to/scene.zip something.xml" OutputedFiletoDenoise_First.exr OutputedFiletoDenoise_Second.exr
-"../../media/mitsuba/staircase2.zip scene.xml" ScreenShot_staircase2_Sensor_0.exr
+; "relative/dir/from/bin/folder/to/scene.zip something.xml
+"../../media/mitsuba/staircase2.zip scene.xml"

@@ -240,6 +240,35 @@ bool CElementFilm::addProperty(SNamedPropertyElement&& _property)
 		memcpy(outputFilePath,_property.svalue,len);
 		outputFilePath[len] = 0;
 	};
+	
+	auto setBloomFilePath = [&]() -> void
+	{
+		if (_property.type != SNamedPropertyElement::Type::STRING)
+		{
+			error = true;
+			return;
+		}
+
+		size_t len = std::min(strlen(_property.svalue),MaxPathLen);
+		memcpy(denoiserBloomFilePath,_property.svalue,len);
+		denoiserBloomFilePath[len] = 0;
+	};
+	
+	auto setTonemapperArgs = [&]() -> void
+	{
+		if (_property.type != SNamedPropertyElement::Type::STRING)
+		{
+			error = true;
+			return;
+		}
+
+		size_t len = std::min(strlen(_property.svalue),MaxTonemapperArgsLen);
+		memcpy(denoiserTonemapperArgs,_property.svalue,len);
+		denoiserTonemapperArgs[len] = 0;
+	};
+
+	auto setBloomScale			= SET_PROPERTY(denoiserBloomScale,SNamedPropertyElement::Type::FLOAT);
+	auto setBloomIntensity		= SET_PROPERTY(denoiserBloomIntensity,SNamedPropertyElement::Type::FLOAT);
 
 	const core::unordered_map<std::string, std::function<void()>, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> SetPropertyMap =
 	{
@@ -262,7 +291,11 @@ bool CElementFilm::addProperty(SNamedPropertyElement&& _property)
 		{"burn",				setBurn},
 		{"digits",				setDigits},
 		{"variable",			setVariable},
-		{"outputFilePath",		setOutputFilePath}
+		{"outputFilePath",		setOutputFilePath},
+		{"bloomFilePath",		setBloomFilePath},
+		{"bloomScale",			setBloomScale},
+		{"bloomIntensity",		setBloomIntensity},
+		{"tonemapper",			setTonemapperArgs}
 	};
 
 	auto found = SetPropertyMap.find(_property.name);

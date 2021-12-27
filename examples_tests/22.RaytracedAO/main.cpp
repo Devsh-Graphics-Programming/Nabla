@@ -29,6 +29,7 @@ class RaytracerExampleEventReceiver : public nbl::IEventReceiver
 			, resetViewKeyPressed(false)
 			, nextKeyPressed(false)
 			, previousKeyPressed(false)
+			, screenshotKeyPressed(false)
 		{
 		}
 
@@ -46,6 +47,12 @@ class RaytracerExampleEventReceiver : public nbl::IEventReceiver
 						break;
 					case PreviousKey:
 						previousKeyPressed = true;
+						break;
+					case ScreenshotKey:
+						screenshotKeyPressed = true;
+						break;
+					case LogProgressKey:
+						logProgressKeyPressed = true;
 						break;
 					case SkipKey:
 						skipKeyPressed = true;
@@ -71,12 +78,18 @@ class RaytracerExampleEventReceiver : public nbl::IEventReceiver
 
 		inline bool isPreviousPressed() const { return previousKeyPressed; }
 
+		inline bool isScreenshotKeyPressed() const { return screenshotKeyPressed; }
+
+		inline bool isLogProgressKeyPressed() const { return logProgressKeyPressed; }
+
 		inline void resetKeys()
 		{
 			skipKeyPressed = false;
 			resetViewKeyPressed = false;
 			nextKeyPressed = false;
 			previousKeyPressed = false;
+			screenshotKeyPressed = false;
+			logProgressKeyPressed = false;
 		}
 
 	private:
@@ -85,12 +98,16 @@ class RaytracerExampleEventReceiver : public nbl::IEventReceiver
 		static constexpr nbl::EKEY_CODE ResetKey = nbl::KEY_HOME;
 		static constexpr nbl::EKEY_CODE NextKey = nbl::KEY_PRIOR; // PAGE_UP
 		static constexpr nbl::EKEY_CODE PreviousKey = nbl::KEY_NEXT; // PAGE_DOWN
+		static constexpr nbl::EKEY_CODE ScreenshotKey = nbl::KEY_KEY_P;
+		static constexpr nbl::EKEY_CODE LogProgressKey = nbl::KEY_KEY_L;
 
 		bool running = false;
 		bool skipKeyPressed = false;
 		bool resetViewKeyPressed = false;
 		bool nextKeyPressed = false;
 		bool previousKeyPressed = false;
+		bool screenshotKeyPressed = false;
+		bool logProgressKeyPressed = false;
 
 };
 
@@ -287,6 +304,7 @@ int main(int argc, char** argv)
 		scene::ICameraSceneNode * interactiveCamera;
 		std::filesystem::path outputFilePath;
 		ext::MitsubaLoader::CElementFilm::FileFormat fileFormat;
+		Renderer::DenoiserArgs denoiserInfo = {};
 
 		scene::CSceneNodeAnimatorCameraModifiedMaya* getInteractiveCameraAnimator()
 		{
@@ -455,6 +473,11 @@ int main(int argc, char** argv)
 		
 		float defaultZoomSpeedMultiplier = std::pow(DefaultSceneDiagonal, DefaultZoomSpeed / DefaultSceneDiagonal);
 		outSensorData.interactiveCamera = smgr->addCameraSceneNodeModifiedMaya(nullptr, -1.0f * outSensorData.rotateSpeed, 50.0f, outSensorData.moveSpeed, -1, 2.0f, defaultZoomSpeedMultiplier, false, true);
+		
+		outSensorData.denoiserInfo.bloomFilePath = std::filesystem::path(film.denoiserBloomFilePath);
+		outSensorData.denoiserInfo.bloomScale = film.denoiserBloomScale;
+		outSensorData.denoiserInfo.bloomIntensity = film.denoiserBloomIntensity;
+		outSensorData.denoiserInfo.tonemapperArgs = std::string(film.denoiserTonemapperArgs);
 
 		outSensorData.outputFilePath = std::filesystem::path(film.outputFilePath);
 		outSensorData.fileFormat = film.fileFormat;
@@ -529,23 +552,6 @@ int main(int argc, char** argv)
 		auto & outSensorData = sensors[s];
 		extractSensorData(outSensorData, sensor);
 	}
-
-#if INJECT_TEST_SENSOR
-	std::cout << "New Injected Sensors[0] = " << std::endl;
-	SensorData newSensor = {};
-	extractSensorData(newSensor, globalMeta->m_global.m_sensors[0]);
-	newSensor.staticCamera->setPosition(core::vector3df(0.0f,2.0f,0.0f));
-	newSensor.staticCamera->setTarget(core::vector3df(-0.900177f, 2.0f, -0.435524f));
-	core::vectorSIMDf UpVector(0.0f, 1.0f, 0.0f);
-	newSensor.staticCamera->setUpVector(UpVector);
-	newSensor.staticCamera->render(); // It's not actually "render" :| It's basically recomputeViewMatrix ;
-	
-	newSensor.resetInteractiveCamera();
-	sensors.push_back(newSensor);
-
-	sensors[0].samplesNeeded = 4u;
-	sensors[1].samplesNeeded = 4u;
-#endif
 
 	auto driver = device->getVideoDriver();
 
@@ -672,6 +678,17 @@ int main(int argc, char** argv)
 			if(itr >= maxNeededIterations)
 				std::cout << "[ERROR] Samples taken (" << renderer->getTotalSamplesPerPixelComputed() << ") must've exceeded samples needed for Sensor (" << sensorData.samplesNeeded << ") by now; something is wrong." << std::endl;
 
+			// Handle Inputs
+			{
+				if(receiver.isLogProgressKeyPressed())
+				{
+					int progress = float(renderer->getTotalSamplesPerPixelComputed())/float(sensorData.samplesNeeded) * 100;
+					printf("[INFO] Rendering in progress - %d%% Progress = %u/%u SamplesPerPixel. \n", progress, renderer->getTotalSamplesPerPixelComputed(), sensorData.samplesNeeded);
+				}
+				receiver.resetKeys();
+			}
+
+
 			driver->beginScene(false, false);
 
 			if(!renderer->render(device->getTimer()))
@@ -697,7 +714,7 @@ int main(int argc, char** argv)
 		if (screenshotFilePath.empty())
 		{
 			auto extensionStr = getFileExtensionFromFormat(sensorData.fileFormat);
-			screenshotFilePath = std::filesystem::path("ScreenShot_" + mainFileName + "_Sensor_" + std::to_string(s) + extensionStr);
+			screenshotFilePath = std::filesystem::path("Render_" + mainFileName + "_Sensor_" + std::to_string(s) + extensionStr);
 		}
 		
 		if(renderFailed)
@@ -706,7 +723,7 @@ int main(int argc, char** argv)
 		}
 		else
 		{
-			renderer->takeAndSaveScreenShot(screenshotFilePath);
+			renderer->takeAndSaveScreenShot(screenshotFilePath, sensorData.denoiserInfo);
 			int progress = float(renderer->getTotalSamplesPerPixelComputed())/float(sensorData.samplesNeeded) * 100;
 			printf("[INFO] Rendered Successfully - %d%% Progress = %u/%u SamplesPerPixel - FileName = %s. \n", progress, renderer->getTotalSamplesPerPixelComputed(), sensorData.samplesNeeded, screenshotFilePath.filename().string().c_str());
 		}
@@ -760,6 +777,42 @@ int main(int argc, char** argv)
 				{
 					setActiveSensor(activeSensor - 1);
 				}
+				if(receiver.isScreenshotKeyPressed())
+				{
+					const std::string screenShotFilesPrefix = "ScreenShot";
+					const char seperator = '_';
+					int maxFileNumber = -1;
+					for (const auto & entry : std::filesystem::directory_iterator(std::filesystem::current_path()))
+					{
+						const auto entryPathStr = entry.path().filename().string();
+						const auto firstSeperatorLoc = entryPathStr.find_first_of(seperator) ;
+						const auto lastSeperatorLoc = entryPathStr.find_last_of(seperator);
+						const auto firstDotLoc = entryPathStr.find_first_of('.');
+
+						const auto firstSection = entryPathStr.substr(0u, firstSeperatorLoc);
+						const bool isScreenShot = (firstSection == screenShotFilesPrefix);
+						if(isScreenShot)
+						{
+							const auto middleSection = entryPathStr.substr(firstSeperatorLoc + 1, lastSeperatorLoc - (firstSeperatorLoc + 1));
+							const auto numberString = entryPathStr.substr(lastSeperatorLoc + 1, firstDotLoc - (lastSeperatorLoc + 1));
+
+							if(middleSection == mainFileName) 
+							{
+								const auto number = std::stoi(numberString);
+								if(number > maxFileNumber)
+								{
+									maxFileNumber = number;
+								}
+							}
+						}
+					}
+					std::string fileNameWoExt = screenShotFilesPrefix + seperator + mainFileName + seperator + std::to_string(maxFileNumber + 1);
+					renderer->takeAndSaveScreenShot(std::filesystem::path(fileNameWoExt), sensors[activeSensor].denoiserInfo);
+				}
+				if(receiver.isLogProgressKeyPressed())
+				{
+					printf("[INFO] Rendering in progress - %d Total SamplesPerPixel Computed. \n", renderer->getTotalSamplesPerPixelComputed());
+				}
 				receiver.resetKeys();
 			}
 
@@ -800,7 +853,7 @@ int main(int argc, char** argv)
 		else
 		{
 			auto extensionStr = getFileExtensionFromFormat(sensors[activeSensor].fileFormat);
-			renderer->takeAndSaveScreenShot(std::filesystem::path("LastView_" + mainFileName + "_Sensor_" + std::to_string(activeSensor) + extensionStr));
+			renderer->takeAndSaveScreenShot(std::filesystem::path("LastView_" + mainFileName + "_Sensor_" + std::to_string(activeSensor) + extensionStr), sensors[activeSensor].denoiserInfo);
 		}
 
 		renderer->deinitScreenSizedResources();
