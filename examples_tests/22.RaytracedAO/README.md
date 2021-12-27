@@ -40,7 +40,7 @@ Multiple Sensor tags in mitsuba XML's is now supported. This feature helps you h
 
 You can switch between those sensors using `PAGE UP/DOWN` Keys defined in more detail below.
 
-### Properties added to <sensor>:
+### Properties added to \<sensor\>:
 
 | Property Name | Description           | Type  | Default Value                            |
 |---------------|-----------------------|-------|------------------------------------------|
@@ -48,7 +48,7 @@ You can switch between those sensors using `PAGE UP/DOWN` Keys defined in more d
 |   zoomSpeed   | Camera Zoom Speed     | float | NaN -> Will be deduced from scene bounds |
 |  rotateSpeed  | Camera Rotation Speed | float | 300.0 |
 
-### Properties added to <film>
+### Properties added to \<film\>
 | Property Name  | Description                                                                            | Type   | Default Value                                                                                                                                                            |
 |----------------|----------------------------------------------------------------------------------------|--------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | outputFilePath | Final Render Output Path;<br>Denoised Render will have "_denoised" suffix added to it. | string | Render_{SceneName}_Sensor_{SensorIdx}.exr<br>{SceneName} is the filename of the xml or zip loaded.<br>{SensorIdx} is the index of the Sensor in xml used for the render. |
