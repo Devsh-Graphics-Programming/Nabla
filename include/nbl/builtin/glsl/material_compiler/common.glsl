@@ -1115,7 +1115,9 @@ nbl_glsl_LightSample nbl_bsdf_cos_generate(
 				// TODO: specialize for all isotropic NDFs
 				const float ay = nbl_glsl_MC_params_getAlphaV(params);
 				const float ay2 = ay * ay;
+				#if GEN_CHOICE_STREAM>=GEN_CHOICE_WITH_AOV_EXTRACTION
 				out_values.aov.normal = precomp.N;
+				#endif
 
 				// TODO: refactor
 				const vec3 localV = nbl_glsl_getTangentSpaceV(currInteraction.inner);
