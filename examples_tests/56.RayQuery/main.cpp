@@ -141,6 +141,20 @@ class RayQuerySampleApp : public ApplicationBase
 	core::smart_refctd_ptr<video::IGPUDescriptorSet> descriptorSets0[FBO_COUNT] = {};
 	core::smart_refctd_ptr<video::IGPUDescriptorSet> descriptorSet2 = nullptr;
 	core::smart_refctd_ptr<video::IGPUDescriptorSet> uboDescriptorSet1 = nullptr;
+	
+	core::smart_refctd_ptr<IGPUBuffer> aabbsBuffer = nullptr;
+	core::smart_refctd_ptr<IGPUAccelerationStructure> gpuBlas = nullptr;
+	core::smart_refctd_ptr<IGPUAccelerationStructure> gpuTlas = nullptr;
+	core::smart_refctd_ptr<IGPUBuffer> instancesBuffer = nullptr;
+	
+	core::smart_refctd_ptr<IGPUBufferView> gpuSequenceBufferView = nullptr;
+	
+	core::smart_refctd_ptr<video::IGPUSampler> sampler0 = nullptr;
+	core::smart_refctd_ptr<video::IGPUSampler> sampler1 = nullptr;
+	
+	core::smart_refctd_ptr<IGPUBuffer> gpuSequenceBuffer = nullptr;
+	
+	core::smart_refctd_ptr<IGPUBuffer> spheresBuffer = nullptr;
 
 	// TODO: Temp Fix because of validation error: VkPhysicalDeviceLimits::nonCoherentAtomSize
 	struct alignas(64) SBasicViewParametersAligned
@@ -180,7 +194,7 @@ public:
 
 		CommonAPI::SFeatureRequest< video::ILogicalDevice::E_FEATURE> optionalDeviceFeatures = {};
 
-		const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT);
+		const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_TRANSFER_DST_BIT);
 		const video::ISurface::SFormat surfaceFormat(asset::EF_B8G8R8A8_SRGB, asset::ECP_COUNT, asset::EOTF_UNKNOWN);
 
 		CommonAPI::InitOutput initOutput;
@@ -310,8 +324,8 @@ public:
 		spheres[6] = Sphere(core::vector3df(-3.0,0.0,1.0), 0.5,	 5u, INVALID_ID_16BIT);
 		spheres[7] = Sphere(core::vector3df(0.5,1.0,0.5), 0.5,	 6u, INVALID_ID_16BIT);
 		spheres[8] = Sphere(core::vector3df(-1.5,1.5,0.0), 0.3,  INVALID_ID_16BIT, 0u);
+
 		// Create Spheres Buffer
-		core::smart_refctd_ptr<IGPUBuffer> spheresBuffer;
 		uint32_t spheresBufferSize = sizeof(Sphere) * SphereCount;
 
 		{
@@ -384,8 +398,6 @@ public:
 		}
 		#endif
 
-		core::smart_refctd_ptr<IGPUBuffer> aabbsBuffer;
-		core::smart_refctd_ptr<IGPUAccelerationStructure> gpuBlas;
 		// Create + Build BLAS
 		{
 			// Build BLAS with AABBS
@@ -482,8 +494,6 @@ public:
 			}
 		}
 	
-		core::smart_refctd_ptr<IGPUAccelerationStructure> gpuTlas;
-		core::smart_refctd_ptr<IGPUBuffer> instancesBuffer;
 		// Create + Build TLAS
 		{
 			// TODO: Temp fix before nonCoherentAtomSize fix
@@ -670,7 +680,6 @@ public:
 	
 		gpuEnvmapImageView = createGPUImageView("../../media/envmap/envmap_0.exr");
 
-		smart_refctd_ptr<IGPUBufferView> gpuSequenceBufferView;
 		{
 			const uint32_t MaxDimensions = 3u<<kShaderParameters.MaxDepthLog2;
 			const uint32_t MaxSamples = 1u<<kShaderParameters.MaxSamplesLog2;
@@ -689,7 +698,6 @@ public:
 		
 			// TODO: Temp Fix because createFilledDeviceLocalGPUBufferOnDedMem doesn't take in params
 			// auto gpuSequenceBuffer = utilities->createFilledDeviceLocalGPUBufferOnDedMem(graphicsQueue, sampleSequence->getSize(), sampleSequence->getPointer());
-			core::smart_refctd_ptr<IGPUBuffer> gpuSequenceBuffer;
 			{
 				IGPUBuffer::SCreationParams params = {};
 				const size_t size = sampleSequence->getSize();
@@ -801,9 +809,9 @@ public:
 		}
 
 		ISampler::SParams samplerParams0 = { ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_FLOAT_OPAQUE_BLACK, ISampler::ETF_LINEAR, ISampler::ETF_LINEAR, ISampler::ESMM_LINEAR, 0u, false, ECO_ALWAYS };
-		auto sampler0 = logicalDevice->createGPUSampler(samplerParams0);
+		sampler0 = logicalDevice->createGPUSampler(samplerParams0);
 		ISampler::SParams samplerParams1 = { ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_INT_OPAQUE_BLACK, ISampler::ETF_NEAREST, ISampler::ETF_NEAREST, ISampler::ESMM_NEAREST, 0u, false, ECO_ALWAYS };
-		auto sampler1 = logicalDevice->createGPUSampler(samplerParams1);
+		sampler1 = logicalDevice->createGPUSampler(samplerParams1);
 		
 		descriptorSet2 = logicalDevice->createGPUDescriptorSet(descriptorPool.get(), core::smart_refctd_ptr(gpuDescriptorSetLayout2));
 		{
