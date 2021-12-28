@@ -17,6 +17,8 @@ using namespace ui;
 
 class Camera { 
 public:
+	Camera() = default;
+
 	Camera( const core::vectorSIMDf& position,
 			const core::vectorSIMDf& lookat,
 			const core::matrix4SIMD& projection,
