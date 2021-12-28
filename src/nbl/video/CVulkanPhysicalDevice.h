@@ -391,7 +391,7 @@ protected:
         }
 
         VkPhysicalDeviceFeatures2 vk_deviceFeatures2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
-        vk_deviceFeatures2.pNext = &rayQueryFeatures;
+        vk_deviceFeatures2.pNext = &bufferDeviceAddressFeatures;
         vk_deviceFeatures2.features = {};
 
         // Create Device
