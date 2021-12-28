@@ -10,17 +10,23 @@ namespace nbl::video
 class CVulkanSpecializedShader : public IGPUSpecializedShader
 {
 public:
-    CVulkanSpecializedShader(core::smart_refctd_ptr<ILogicalDevice>&& dev, VkShaderModule shaderModule,
-        asset::ISpecializedShader::E_SHADER_STAGE shaderStage)
-        : IGPUSpecializedShader(std::move(dev), shaderStage), m_shaderModule(shaderModule)
+    CVulkanSpecializedShader(
+        core::smart_refctd_ptr<ILogicalDevice>&& dev,
+        core::smart_refctd_ptr<const CVulkanShader>&& unspecShader,
+        const asset::ISpecializedShader::SInfo& specInfo)
+        : IGPUSpecializedShader(std::move(dev)),
+        m_unspecShader(std::move(unspecShader)), m_specInfo(specInfo)
     {}
 
-    ~CVulkanSpecializedShader();
+    asset::IShader::E_SHADER_STAGE getStage() const override { return m_unspecShader->getStage(); }
 
-    inline VkShaderModule getInternalObject() const { return m_shaderModule; }
+    inline VkShaderModule getInternalObject() const { return m_unspecShader->getInternalObject(); }
+
+    inline const asset::ISpecializedShader::SInfo& getSpecInfo() const { return m_specInfo; }
 
 private:
-    VkShaderModule m_shaderModule;
+    core::smart_refctd_ptr<const CVulkanShader> m_unspecShader;
+    asset::ISpecializedShader::SInfo m_specInfo;
 };
 
 }

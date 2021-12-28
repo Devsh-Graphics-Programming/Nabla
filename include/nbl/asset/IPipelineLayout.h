@@ -37,7 +37,7 @@ namespace asset
 
 struct SPushConstantRange
 {
-	ISpecializedShader::E_SHADER_STAGE stageFlags;
+	IShader::E_SHADER_STAGE stageFlags;
     uint32_t offset;
     uint32_t size;
 

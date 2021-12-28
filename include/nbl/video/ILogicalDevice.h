@@ -36,6 +36,21 @@ class IPhysicalDevice;
 class ILogicalDevice : public core::IReferenceCounted
 {
     public:
+        enum E_FEATURE
+        {
+            EF_SWAPCHAIN = 0,
+            EF_DEFERRED_HOST_OPERATIONS,
+            EF_BUFFER_DEVICE_ADDRESS,
+            EF_DESCRIPTOR_INDEXING,
+            EF_ACCELERATION_STRUCTURE,
+            EF_SHADER_FLOAT_CONTROLS,
+            EF_SPIRV_1_4,
+            EF_RAY_TRACING_PIPELINE,
+            EF_RAY_QUERY,
+            EF_FRAGMENT_SHADER_INTERLOCK,
+            EF_COUNT
+        };
+
         struct SQueueCreationParams
         {
             IGPUQueue::E_CREATE_FLAGS flags;
@@ -47,10 +62,10 @@ class ILogicalDevice : public core::IReferenceCounted
         {
             uint32_t queueParamsCount;
             const SQueueCreationParams* queueParams;
-            // ???:
-            //uint32_t enabledExtensionCount;
-            //const char* const* ppEnabledExtensionNames;
-            //const VkPhysicalDeviceFeatures* pEnabledFeatures;
+            uint32_t requiredFeatureCount;
+            E_FEATURE* requiredFeatures;
+            uint32_t optionalFeatureCount;
+            E_FEATURE* optionalFeatures;
         };
 
         struct SDescriptorSetCreationParams
@@ -126,8 +141,6 @@ class ILogicalDevice : public core::IReferenceCounted
             }
             return true;
         }
-
-        virtual const core::smart_refctd_dynamic_array<std::string> getSupportedGLSLExtensions() const = 0;
 
         bool createCommandBuffers(IGPUCommandPool* _cmdPool, IGPUCommandBuffer::E_LEVEL _level, uint32_t _count, core::smart_refctd_ptr<IGPUCommandBuffer>* _outCmdBufs)
         {
@@ -257,7 +270,7 @@ class ILogicalDevice : public core::IReferenceCounted
         //! Utility wrapper for the pointer based func
         virtual void invalidateMappedMemoryRanges(core::SRange<const video::IDriverMemoryAllocation::MappedMemoryRange> ranges) = 0;
 
-        virtual core::smart_refctd_ptr<IGPUBuffer> createGPUBuffer(const IGPUBuffer::SCreationParams& creationParams, const size_t size, const bool canModifySubData = false) { return nullptr; }
+        virtual core::smart_refctd_ptr<IGPUBuffer> createGPUBuffer(const IGPUBuffer::SCreationParams& creationParams, const size_t size) { return nullptr; }
 
         //! Binds memory allocation to provide the backing for the resource.
         /** Available only on Vulkan, in OpenGL all resources create their own memory implicitly,
@@ -273,7 +286,7 @@ class ILogicalDevice : public core::IReferenceCounted
         {
             auto reqs = getDeviceLocalGPUMemoryReqs();
             reqs.vulkanReqs.size = size;
-            return this->createGPUBufferOnDedMem(params, reqs, false);
+            return this->createGPUBufferOnDedMem(params, reqs);
         }
 
         //! Creates the buffer, allocates memory dedicated memory and binds it at once.
@@ -281,7 +294,7 @@ class ILogicalDevice : public core::IReferenceCounted
         {
             auto reqs = getSpilloverGPUMemoryReqs();
             reqs.vulkanReqs.size = size;
-            return this->createGPUBufferOnDedMem(params, reqs, false);
+            return this->createGPUBufferOnDedMem(params, reqs);
         }
 
         //! Creates the buffer, allocates memory dedicated memory and binds it at once.
@@ -289,7 +302,7 @@ class ILogicalDevice : public core::IReferenceCounted
         {
             auto reqs = getUpStreamingMemoryReqs();
             reqs.vulkanReqs.size = size;
-            return this->createGPUBufferOnDedMem(params, reqs, false);
+            return this->createGPUBufferOnDedMem(params, reqs);
         }
 
         //! Creates the buffer, allocates memory dedicated memory and binds it at once.
@@ -297,7 +310,7 @@ class ILogicalDevice : public core::IReferenceCounted
         {
             auto reqs = getDownStreamingMemoryReqs();
             reqs.vulkanReqs.size = size;
-            return this->createGPUBufferOnDedMem(params, reqs, false);
+            return this->createGPUBufferOnDedMem(params, reqs);
         }
 
         //! Creates the buffer, allocates memory dedicated memory and binds it at once.
@@ -305,11 +318,11 @@ class ILogicalDevice : public core::IReferenceCounted
         {
             auto reqs = getCPUSideGPUVisibleGPUMemoryReqs();
             reqs.vulkanReqs.size = size;
-            return this->createGPUBufferOnDedMem(params, reqs, false);
+            return this->createGPUBufferOnDedMem(params, reqs);
         }
 
         //! Low level function used to implement the above, use with caution
-        virtual core::smart_refctd_ptr<IGPUBuffer> createGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& creationParams, const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData = false) { return nullptr; }
+        virtual core::smart_refctd_ptr<IGPUBuffer> createGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& creationParams, const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs) { return nullptr; }
 
         virtual core::smart_refctd_ptr<IGPUShader> createGPUShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader) = 0;
 
@@ -317,7 +330,11 @@ class ILogicalDevice : public core::IReferenceCounted
         {
             if (!_unspecialized->wasCreatedBy(this))
                 return nullptr;
-            return createGPUSpecializedShader_impl(_unspecialized, _specInfo, _spvopt);
+            auto retval =  createGPUSpecializedShader_impl(_unspecialized, _specInfo, _spvopt);
+            const auto path = _unspecialized->getFilepathHint();
+            if (retval && !path.empty())
+                retval->setObjectDebugName(path.c_str());
+            return retval;
         }
 
         //! Create a BufferView, to a shader; a fake 1D texture with no interpolation (@see ICPUBufferView)
@@ -401,12 +418,12 @@ class ILogicalDevice : public core::IReferenceCounted
             return dsPool;
         }
 
-        void createGPUDescriptorSets(IDescriptorPool* pool, uint32_t count, const IGPUDescriptorSetLayout** _layouts, core::smart_refctd_ptr<IGPUDescriptorSet>* output)
+        void createGPUDescriptorSets(IDescriptorPool* pool, uint32_t count, const IGPUDescriptorSetLayout* const* _layouts, core::smart_refctd_ptr<IGPUDescriptorSet>* output)
         {
-            core::SRange<const IGPUDescriptorSetLayout*> layouts{ _layouts, _layouts + count };
+            core::SRange<const IGPUDescriptorSetLayout* const> layouts{ _layouts, _layouts + count };
             createGPUDescriptorSets(pool, layouts, output);
         }
-        void createGPUDescriptorSets(IDescriptorPool* pool, core::SRange<const IGPUDescriptorSetLayout*> layouts, core::smart_refctd_ptr<IGPUDescriptorSet>* output)
+        void createGPUDescriptorSets(IDescriptorPool* pool, core::SRange<const IGPUDescriptorSetLayout* const> layouts, core::smart_refctd_ptr<IGPUDescriptorSet>* output)
         {
             uint32_t i = 0u;
             for (const IGPUDescriptorSetLayout* layout_ : layouts)
@@ -470,7 +487,11 @@ class ILogicalDevice : public core::IReferenceCounted
                 return nullptr;
             if (!_shader->wasCreatedBy(this))
                 return nullptr;
-            return createGPUComputePipeline_impl(_pipelineCache, std::move(_layout), std::move(_shader));
+            const char* debugName = _shader->getObjectDebugName();
+            auto retval = createGPUComputePipeline_impl(_pipelineCache, std::move(_layout), std::move(_shader));
+            if (retval && debugName[0])
+                retval->setObjectDebugName(debugName);
+            return retval;
         }
 
         bool createGPUComputePipelines(

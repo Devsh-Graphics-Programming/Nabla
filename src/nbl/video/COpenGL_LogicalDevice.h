@@ -59,7 +59,7 @@ public:
         IOpenGL_LogicalDevice(std::move(api),physicalDevice,params,_egl),
         m_rdoc_api(rdoc),
         m_threadHandler(
-            this,_egl,_features,
+            this,&m_masterContextSync,&m_masterContextCallsReturned,_egl,_features,
             getTotalQueueCount(params),
             createWindowlessGLContext(FunctionTableType::EGL_API_TYPE,_egl,major,minor,config),
             static_cast<COpenGLDebugCallback*>(physicalDevice->getDebugCallback())
@@ -92,7 +92,7 @@ public:
                 (*m_queues)[ix] = new CThreadSafeGPUQueueAdapter
                 (
                     this,
-                    new QueueType(this, rdoc, _egl, m_glfeatures, ctxid, glctx.ctx,
+                    (IGPUQueue*)new QueueType(this, rdoc, _egl, m_glfeatures, ctxid, glctx.ctx,
                         glctx.pbuffer, famIx, flags, priority,
                         static_cast<COpenGLDebugCallback*>(physicalDevice->getDebugCallback()))
                 );
@@ -114,23 +114,6 @@ public:
 
         m_threadHandler.start();
         m_threadHandler.waitForInitComplete();
-
-        constexpr size_t GLSLcnt = std::extent<decltype(FeaturesType::m_GLSLExtensions)>::value;
-        if (!m_supportedGLSLExtsNames)
-        {
-            size_t cnt = 0ull;
-            for (size_t i = 0ull; i < GLSLcnt; ++i)
-                cnt += _features->isFeatureAvailable(_features->m_GLSLExtensions[i]);
-            if (_features->runningInRenderDoc)
-                ++cnt;
-            m_supportedGLSLExtsNames = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<std::string>>(cnt);
-            size_t i = 0ull;
-            for (size_t j = 0ull; j < GLSLcnt; ++j)
-                if (_features->isFeatureAvailable(_features->m_GLSLExtensions[j]))
-                    (*m_supportedGLSLExtsNames)[i++] = _features->OpenGLFeatureStrings[_features->m_GLSLExtensions[j]];
-            if (_features->runningInRenderDoc)
-                (*m_supportedGLSLExtsNames)[i] = _features->RUNNING_IN_RENDERDOC_EXTENSION_NAME;
-        }
     }
 
 
@@ -149,6 +132,7 @@ public:
         SRequestImageCreate req_params;
         req_params.params = std::move(params);
         auto& req = m_threadHandler.request(std::move(req_params), &retval);
+        m_masterContextCallsInvoked++;
         m_threadHandler.template waitForRequestCompletion<SRequestImageCreate>(req);
 
         return retval;
@@ -163,6 +147,7 @@ public:
         req_params.params = _params;
         req_params.is_gles = IsGLES;
         auto& req = m_threadHandler.template request<SRequestSamplerCreate>(std::move(req_params), &retval);
+        m_masterContextCallsInvoked++;
         m_threadHandler.template waitForRequestCompletion<SRequestSamplerCreate>(req);
 
         return retval;
@@ -173,9 +158,9 @@ public:
         auto source = cpushader->getSPVorGLSL();
         auto clone = core::smart_refctd_ptr_static_cast<asset::ICPUBuffer>(source->clone(1u));
         if (cpushader->containsGLSL())
-            return core::make_smart_refctd_ptr<COpenGLShader>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this), std::move(clone), IGPUShader::buffer_contains_glsl);
+            return core::make_smart_refctd_ptr<COpenGLShader>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this), std::move(clone), IGPUShader::buffer_contains_glsl, cpushader->getStage(), std::string(cpushader->getFilepathHint()));
         else
-            return core::make_smart_refctd_ptr<COpenGLShader>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this), std::move(clone));
+            return core::make_smart_refctd_ptr<COpenGLShader>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this), std::move(clone), cpushader->getStage(), std::string(cpushader->getFilepathHint()));
     }
 
     core::smart_refctd_ptr<IGPURenderpass> createGPURenderpass(const IGPURenderpass::SCreationParams& params) override final
@@ -244,13 +229,15 @@ public:
         return core::make_smart_refctd_ptr<IDescriptorPool>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this),maxSets);
     }
 
-    core::smart_refctd_ptr<IGPUBuffer> createGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& unused, const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData = false) override
+    core::smart_refctd_ptr<IGPUBuffer> createGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& params, const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs) override
     {
-        SRequestBufferCreate params;
-        params.mreqs = initialMreqs;
-        params.canModifySubdata = canModifySubData;
+        SRequestBufferCreate reqParams;
+        reqParams.mreqs = initialMreqs;
+        reqParams.cachedCreationParams = params;
+        reqParams.cachedCreationParams.declaredSize = initialMreqs.vulkanReqs.size;
         core::smart_refctd_ptr<IGPUBuffer> output;
-        auto& req = m_threadHandler.request(std::move(params), &output);
+        auto& req = m_threadHandler.request(std::move(reqParams),&output);
+        m_masterContextCallsInvoked++;
         m_threadHandler.template waitForRequestCompletion<SRequestBufferCreate>(req);
 
         return output;
@@ -355,6 +342,8 @@ public:
     {
         SRequestFlushMappedMemoryRanges req_params{ ranges };
         auto& req = m_threadHandler.request(std::move(req_params));
+        m_masterContextCallsInvoked++;
+        // TODO: if we actually copied the range parameter we wouldn't have to wait
         m_threadHandler.template waitForRequestCompletion<SRequestFlushMappedMemoryRanges>(req);
     }
 
@@ -362,6 +351,7 @@ public:
     {
         SRequestInvalidateMappedMemoryRanges req_params{ ranges };
         auto& req = m_threadHandler.request(std::move(req_params));
+        m_threadHandler.template waitForRequestCompletion<SRequestInvalidateMappedMemoryRanges>(req);
     }
 
     void* mapMemory(const IDriverMemoryAllocation::MappedMemoryRange& memory, IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAG access = IDriverMemoryAllocation::EMCAF_READ_AND_WRITE) override final
@@ -386,6 +376,7 @@ public:
 
         void* retval = nullptr;
         auto& req = m_threadHandler.request(std::move(req_params), &retval);
+        m_masterContextCallsInvoked++;
         m_threadHandler.template waitForRequestCompletion<SRequestMapBufferRange>(req);
 
         core::bitflag<IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAG> actualAccess = static_cast< IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAG>(0);
@@ -407,6 +398,7 @@ public:
         req_params.buf = core::smart_refctd_ptr<IDriverMemoryAllocation>(memory);
 
         auto& req = m_threadHandler.request(std::move(req_params));
+        m_masterContextCallsInvoked++;
 
         post_unmapMemory(memory);
     }
@@ -442,7 +434,7 @@ public:
     // TODO: remove from the engine, not thread safe (access to queues must be synchronized externally)
     void waitIdle() override
     {
-        // TODO: I think glFinish affects only the current context... you'd have to post a request for a glFinish for every single queue and swapchain as well.
+        // TODO: glFinish affects only the current context... you'd have to post a request for a glFinish for every single queue and swapchain as well.
         SRequestWaitIdle params;
         auto& req = m_threadHandler.request(std::move(params));
         m_threadHandler.template waitForRequestCompletion<SRequestWaitIdle>(req);
@@ -476,8 +468,10 @@ public:
     }
     void destroySpecializedShaders(core::smart_refctd_dynamic_array<IOpenGLPipelineBase::SShaderProgram>&& programs) override final
     {
+        constexpr auto MaxCount = COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT*MaxGlNamesForSingleObject;
+
         const auto count = programs->size();
-        assert(count<=MaxGlNamesForSingleObject);
+        assert(count<=MaxCount);
 
         SRequest_Destroy<ERT_PROGRAM_DESTROY> params;
         params.count = 0u;
@@ -535,6 +529,7 @@ protected:
         SRequestMakeCurrent req_params;
         req_params.bind = true;
         auto& req = m_threadHandler.request(std::move(req_params));
+        //m_masterContextCallsInvoked++; should we?
         m_threadHandler.template waitForRequestCompletion<SRequestMakeCurrent>(req);
     }
     void unbindMasterContext()
@@ -542,6 +537,7 @@ protected:
         SRequestMakeCurrent req_params;
         req_params.bind = false;
         auto& req = m_threadHandler.request(std::move(req_params));
+        //m_masterContextCallsInvoked++; should we?
         m_threadHandler.template waitForRequestCompletion<SRequestMakeCurrent>(req);
     }
 
@@ -576,29 +572,26 @@ protected:
         const COpenGLShader* glUnspec = static_cast<const COpenGLShader*>(_unspecialized);
 
         const std::string& EP = _specInfo.entryPoint;
-        const asset::ISpecializedShader::E_SHADER_STAGE stage = _specInfo.shaderStage;
+        const asset::IShader::E_SHADER_STAGE stage = _unspecialized->getStage();
 
         core::smart_refctd_ptr<asset::ICPUBuffer> spirv;
         if (glUnspec->containsGLSL())
         {
             auto begin = reinterpret_cast<const char*>(glUnspec->getSPVorGLSL()->getPointer());
             auto end = begin + glUnspec->getSPVorGLSL()->getSize();
-            std::string glsl(begin, end);
-            COpenGLShader::insertGLtoVKextensionsMapping(glsl, getSupportedGLSLExtensions().get());
-            auto glslShader_woIncludes = m_physicalDevice->getGLSLCompiler()->resolveIncludeDirectives(glsl.c_str(), stage, _specInfo.m_filePathHint.string().c_str(), 4u, getLogger());
-            //{
-                //auto fl = fopen("shader.glsl", "w");
-                //fwrite(glsl.c_str(), 1, glsl.size(), fl);
-                //fclose(fl);
-            //}
+            std::string glsl(begin,end);
+            asset::IShader::insertAfterVersionAndPragmaShaderStage(glsl,std::ostringstream()<<COpenGLShader::k_openGL2VulkanExtensionMap); // TODO: remove this eventually
+            asset::IShader::insertDefines(glsl,m_physicalDevice->getExtraGLSLDefines());
+            auto glslShader_woIncludes = m_physicalDevice->getGLSLCompiler()->resolveIncludeDirectives(glsl.c_str(), stage, glUnspec->getFilepathHint().c_str(), 4u, getLogger());
             spirv = m_physicalDevice->getGLSLCompiler()->compileSPIRVFromGLSL(
                 reinterpret_cast<const char*>(glslShader_woIncludes->getSPVorGLSL()->getPointer()),
                 stage,
                 EP.c_str(),
-                _specInfo.m_filePathHint.string().c_str(),
+                glUnspec->getFilepathHint().c_str(),
                 true,
                 nullptr,
-                getLogger()
+                getLogger(),
+                m_physicalDevice->getLimits().spirvVersion
             );
 
             if (!spirv)
@@ -615,9 +608,9 @@ protected:
         if (!spirv)
             return nullptr;
 
-        core::smart_refctd_ptr<asset::ICPUShader> spvCPUShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(spirv));
+        auto spvCPUShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(spirv), stage, std::string(_unspecialized->getFilepathHint()));
 
-        asset::CShaderIntrospector::SIntrospectionParams introspectionParams{ _specInfo.shaderStage, _specInfo.entryPoint, getSupportedGLSLExtensions(), _specInfo.m_filePathHint.string() };
+        asset::CShaderIntrospector::SIntrospectionParams introspectionParams{_specInfo.entryPoint.c_str(),m_physicalDevice->getExtraGLSLDefines()};
         asset::CShaderIntrospector introspector(m_physicalDevice->getGLSLCompiler()); // TODO: shouldn't the introspection be cached for all calls to `createGPUSpecializedShader` (or somehow embedded into the OpenGL pipeline cache?)
         const asset::CIntrospectionData* introspection = introspector.introspect(spvCPUShader.get(), introspectionParams);
         if (!introspection)
@@ -635,7 +628,7 @@ protected:
             return nullptr;
         }
 
-        return core::make_smart_refctd_ptr<COpenGLSpecializedShader>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this), m_glfeatures->ShaderLanguageVersion, spvCPUShader->getSPVorGLSL(), _specInfo, std::move(uniformList));
+        return core::make_smart_refctd_ptr<COpenGLSpecializedShader>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this), m_glfeatures->ShaderLanguageVersion, spvCPUShader->getSPVorGLSL(), _specInfo, std::move(uniformList), stage);
     }
     core::smart_refctd_ptr<IGPUBufferView> createGPUBufferView_impl(IGPUBuffer* _underlying, asset::E_FORMAT _fmt, size_t _offset = 0ull, size_t _size = IGPUBufferView::whole_buffer) override final
     {
@@ -646,6 +639,7 @@ protected:
         req_params.size = _size;
         core::smart_refctd_ptr<IGPUBufferView> retval;
         auto& req = m_threadHandler.request(std::move(req_params), &retval);
+        m_masterContextCallsInvoked++;
         m_threadHandler.template waitForRequestCompletion<SRequestBufferViewCreate>(req);
         return retval;
     }
@@ -666,6 +660,7 @@ protected:
         SRequestImageViewCreate req_params;
         req_params.params = std::move(params);
         auto& req = m_threadHandler.request(std::move(req_params), &retval);
+        m_masterContextCallsInvoked++;
         m_threadHandler.template waitForRequestCompletion<SRequestImageViewCreate>(req);
 
         return retval;
@@ -713,6 +708,7 @@ protected:
         req_params.count = 1u;
         req_params.pipelineCache = _pipelineCache;
         auto& req = m_threadHandler.request(std::move(req_params), &retval);
+        m_masterContextCallsInvoked++;
         m_threadHandler.template waitForRequestCompletion<SRequestComputePipelineCreate>(req);
 
         return retval;
@@ -728,6 +724,7 @@ protected:
         req_params.count = createInfos.size();
         req_params.pipelineCache = pipelineCache;
         auto& req = m_threadHandler.request(std::move(req_params), output);
+        m_masterContextCallsInvoked++;
         m_threadHandler.template waitForRequestCompletion<SRequestComputePipelineCreate>(req);
 
         return true;
@@ -761,6 +758,7 @@ protected:
         req_params.count = 1u;
         req_params.pipelineCache = _pipelineCache;
         auto& req = m_threadHandler.request(std::move(req_params), &retval);
+        m_masterContextCallsInvoked++;
         m_threadHandler.template waitForRequestCompletion<SRequestRenderpassIndependentPipelineCreate>(req);
 
         return retval;
@@ -776,6 +774,7 @@ protected:
         req_params.count = createInfos.size();
         req_params.pipelineCache = pipelineCache;
         auto& req = m_threadHandler.request(std::move(req_params), output);
+        m_masterContextCallsInvoked++;
         m_threadHandler.template waitForRequestCompletion<SRequestRenderpassIndependentPipelineCreate>(req);
 
         return true;

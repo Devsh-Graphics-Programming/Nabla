@@ -20,11 +20,11 @@ namespace nbl
 {
 namespace asset
 {
-	//! An enum for the color format of textures used by the Nabla.
+    //! An enum for the color format of textures used by the Nabla.
     // @Crisspl it would be dandy if the values (or at least ordering) of our enums matched vulkan's
-	/** A color format specifies how color information is stored. */
-	enum E_FORMAT : uint32_t
-	{
+    /** A color format specifies how color information is stored. */
+    enum E_FORMAT : uint32_t
+    {
         //! Vulkan
         EF_R4G4_UNORM_PACK8 = 1,
         EF_R4G4B4A4_UNORM_PACK16,
@@ -230,9 +230,9 @@ namespace asset
         EF_G8_B8R8_2PLANE_422_UNORM,
         EF_G8_B8_R8_3PLANE_444_UNORM,
 
-		//! Unknown color format:
-		EF_UNKNOWN
-	};
+        //! Unknown color format:
+        EF_UNKNOWN
+    };
 
     enum E_FORMAT_CLASS : uint32_t
     {
@@ -247,6 +247,38 @@ namespace asset
         EFC_192_BIT,
         EFC_256_BIT
         //and many more for block compression and planar formats... but dont want to waste time on it now
+    };
+
+    enum E_FORMAT_FEATURE : uint32_t
+    {
+        EFF_SAMPLED_IMAGE_BIT = 0x00000001,
+        EFF_STORAGE_IMAGE_BIT = 0x00000002,
+        EFF_STORAGE_IMAGE_ATOMIC_BIT = 0x00000004,
+        EFF_UNIFORM_TEXEL_BUFFER_BIT = 0x00000008,
+        EFF_STORAGE_TEXEL_BUFFER_BIT = 0x00000010,
+        EFF_STORAGE_TEXEL_BUFFER_ATOMIC_BIT = 0x00000020,
+        EFF_VERTEX_BUFFER_BIT = 0x00000040,
+        EFF_COLOR_ATTACHMENT_BIT = 0x00000080,
+        EFF_COLOR_ATTACHMENT_BLEND_BIT = 0x00000100,
+        EFF_DEPTH_STENCIL_ATTACHMENT_BIT = 0x00000200,
+        EFF_BLIT_SRC_BIT = 0x00000400,
+        EFF_BLIT_DST_BIT = 0x00000800,
+        EFF_SAMPLED_IMAGE_FILTER_LINEAR_BIT = 0x00001000,
+        EFF_TRANSFER_SRC_BIT = 0x00004000,
+        EFF_TRANSFER_DST_BIT = 0x00008000,
+        EFF_MIDPOINT_CHROMA_SAMPLES_BIT = 0x00020000,
+        EFF_SAMPLED_IMAGE_YCBCR_CONVERSION_LINEAR_FILTER_BIT = 0x00040000,
+        EFF_SAMPLED_IMAGE_YCBCR_CONVERSION_SEPARATE_RECONSTRUCTION_FILTER_BIT = 0x00080000,
+        EFF_SAMPLED_IMAGE_YCBCR_CONVERSION_CHROMA_RECONSTRUCTION_EXPLICIT_BIT = 0x00100000,
+        EFF_SAMPLED_IMAGE_YCBCR_CONVERSION_CHROMA_RECONSTRUCTION_EXPLICIT_FORCEABLE_BIT = 0x00200000,
+        EFF_DISJOINT_BIT = 0x00400000,
+        EFF_COSITED_CHROMA_SAMPLES_BIT = 0x00800000,
+        EFF_SAMPLED_IMAGE_FILTER_MINMAX_BIT = 0x00010000,
+        EFF_SAMPLED_IMAGE_FILTER_CUBIC_BIT_IMG = 0x00002000,
+        EFF_ACCELERATION_STRUCTURE_VERTEX_BUFFER_BIT = 0x20000000,
+        EFF_FRAGMENT_DENSITY_MAP_BIT = 0x01000000,
+        EFF_FRAGMENT_SHADING_RATE_ATTACHMENT_BIT = 0x40000000,
+        EFF_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF
     };
 
     inline uint32_t getFormatClassBlockBytesize(E_FORMAT_CLASS _fclass)
@@ -1814,10 +1846,10 @@ namespace asset
                 @see convertTexelsToBlocks
             */
 
-			inline auto convertTexelsToBlocks(const core::vector3du32_SIMD& coord) const
-			{
-				return (coord+maxCoord)/dimension;
-			}
+            inline auto convertTexelsToBlocks(const core::vector3du32_SIMD& coord) const
+            {
+                return (coord+maxCoord)/dimension;
+            }
 
             //! It converts input texels strides to compute multiples of block sizes
             /*
@@ -1864,17 +1896,19 @@ namespace asset
 
             inline const auto& getDimension() const { return dimension; }
 
+            inline const auto& getBlockByteSize() const { return blockByteSize; }
+
         private:
             core::vector3du32_SIMD dimension;
             core::vector3du32_SIMD maxCoord;
             uint32_t blockByteSize;
     };
 
-	inline core::rational<uint32_t> getBytesPerPixel(asset::E_FORMAT _fmt)
-	{
-		auto dims = getBlockDimensions(_fmt);
-		return { getTexelOrBlockBytesize(_fmt), dims[0]*dims[1]*dims[2] };
-	}
+    inline core::rational<uint32_t> getBytesPerPixel(asset::E_FORMAT _fmt)
+    {
+        auto dims = getBlockDimensions(_fmt);
+        return { getTexelOrBlockBytesize(_fmt), dims[0]*dims[1]*dims[2] };
+    }
 
     template<asset::E_FORMAT cf>
     constexpr bool isSignedFormat()

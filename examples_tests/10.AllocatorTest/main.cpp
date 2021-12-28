@@ -290,95 +290,96 @@ void AllocatorHandler<core::LinearAddressAllocator<uint32_t>>::randFreeAllocated
 	}
 }
 
-int main()
+class AllocatorTestSampleApp : public ApplicationBase
 {
+	core::smart_refctd_ptr<nbl::system::ISystem> system;
 
-	// Allocator test
+public:
+	void setWindow(core::smart_refctd_ptr<nbl::ui::IWindow>&& wnd) override
 	{
-		{
-			AllocatorHandler<core::PoolAddressAllocator<uint32_t>> poolAlctrHandler;
-			poolAlctrHandler.executeAllocatorTest();
-		}
-
-		{
-			AllocatorHandler<core::IteratablePoolAddressAllocator<uint32_t>> iterPoolAlctrHandler;
-			iterPoolAlctrHandler.executeAllocatorTest();
-		}
-
-		{
-			AllocatorHandler<core::LinearAddressAllocator<uint32_t>> linearAlctrHandler;
-			linearAlctrHandler.executeAllocatorTest();
-		}
-
-		{
-			AllocatorHandler<core::StackAddressAllocator<uint32_t>> stackAlctrHandler;
-			stackAlctrHandler.executeAllocatorTest();
-		}
-
-		{
-			AllocatorHandler<core::GeneralpurposeAddressAllocator<uint32_t>> generalpurposeAlctrHandler;
-			generalpurposeAlctrHandler.executeAllocatorTest();
-		}
+		assert(false && "This example shouldn't have a window!");
 	}
-	
-
-	// Address allocator traits test
+	nbl::ui::IWindow* getWindow() override
 	{
-		printf("SINGLE THREADED======================================================\n");
-		printf("Linear \n");
-		nbl::core::address_allocator_traits<core::LinearAddressAllocatorST<uint32_t> >::printDebugInfo();
-		printf("Stack \n");
-		nbl::core::address_allocator_traits<core::StackAddressAllocatorST<uint32_t> >::printDebugInfo();
-		printf("Pool \n");
-		nbl::core::address_allocator_traits<core::PoolAddressAllocatorST<uint32_t> >::printDebugInfo();
-		printf("IteratablePool \n");
-		nbl::core::address_allocator_traits<core::IteratablePoolAddressAllocatorST<uint32_t> >::printDebugInfo();
-		printf("General \n");
-		nbl::core::address_allocator_traits<core::GeneralpurposeAddressAllocatorST<uint32_t> >::printDebugInfo();
-
-		printf("MULTI THREADED=======================================================\n");
-		printf("Linear \n");
-		nbl::core::address_allocator_traits<core::LinearAddressAllocatorMT<uint32_t, std::recursive_mutex> >::printDebugInfo();
-		printf("Pool \n");
-		nbl::core::address_allocator_traits<core::PoolAddressAllocatorMT<uint32_t, std::recursive_mutex> >::printDebugInfo();
-		printf("Iteratable Pool \n");
-		nbl::core::address_allocator_traits<core::IteratablePoolAddressAllocatorMT<uint32_t, std::recursive_mutex> >::printDebugInfo();
-		printf("General \n");
-		nbl::core::address_allocator_traits<core::GeneralpurposeAddressAllocatorMT<uint32_t, std::recursive_mutex> >::printDebugInfo();
+		assert(false && "This example shouldn't have a window!");
+		return nullptr;
+	}
+	void setSystem(core::smart_refctd_ptr<nbl::system::ISystem>&& system) override
+	{
+		system = std::move(system);
 	}
 
-	constexpr uint32_t WIN_W = 1280;
-	constexpr uint32_t WIN_H = 720;
-	constexpr uint32_t SC_IMG_COUNT = 3u;
+	APP_CONSTRUCTOR(AllocatorTestSampleApp);
 
-	auto initOutp = CommonAPI::Init<WIN_W, WIN_H, SC_IMG_COUNT>(video::EAT_OPENGL, "Compute Shader");
-	auto win = initOutp.window;
-	auto gl = initOutp.apiConnection;
-	auto surface = initOutp.surface;
-
-	size_t allocSize = 128;
-
-    constexpr size_t kMinAllocs = 10000u;
-    constexpr size_t kMaxAllocs = 20000u;
-
-	std::mt19937 mt(0xdeadu);
-	std::uniform_int_distribution<uint32_t> allocsPerFrame(kMinAllocs, kMaxAllocs);
-	std::uniform_int_distribution<uint32_t> size(1, 1024 * 1024);
-	std::uniform_int_distribution<uint32_t> alignment(1, 128);
-	constexpr uint32_t FRAME_COUNT = 500000u;
-	constexpr uint64_t MAX_TIMEOUT = 99999999999999ull; //ns
-	for (uint32_t i = 0u; i < FRAME_COUNT; ++i)
+	void onAppInitialized_impl() override
 	{
-		auto allocsThisFrame = allocsPerFrame(mt);
-		uint32_t outAddr[kMaxAllocs];
-		uint32_t sizes[kMaxAllocs];
-		uint32_t alignments[kMaxAllocs];
-		for (size_t i = 0; i < allocsThisFrame; i++)
+		// Allocator test
 		{
-			outAddr[i] = video::StreamingTransientDataBufferST<>::invalid_address;
-			sizes[i] = size(mt);
-			alignments[i] = alignment(mt);
+			{
+				AllocatorHandler<core::PoolAddressAllocator<uint32_t>> poolAlctrHandler;
+				poolAlctrHandler.executeAllocatorTest();
+			}
+
+			{
+				AllocatorHandler<core::IteratablePoolAddressAllocator<uint32_t>> iterPoolAlctrHandler;
+				iterPoolAlctrHandler.executeAllocatorTest();
+			}
+
+			{
+				AllocatorHandler<core::LinearAddressAllocator<uint32_t>> linearAlctrHandler;
+				linearAlctrHandler.executeAllocatorTest();
+			}
+
+			{
+				AllocatorHandler<core::StackAddressAllocator<uint32_t>> stackAlctrHandler;
+				stackAlctrHandler.executeAllocatorTest();
+			}
+
+			{
+				AllocatorHandler<core::GeneralpurposeAddressAllocator<uint32_t>> generalpurposeAlctrHandler;
+				generalpurposeAlctrHandler.executeAllocatorTest();
+			}
+		}
+
+
+		// Address allocator traits test
+		{
+			printf("SINGLE THREADED======================================================\n");
+			printf("Linear \n");
+			nbl::core::address_allocator_traits<core::LinearAddressAllocatorST<uint32_t> >::printDebugInfo();
+			printf("Stack \n");
+			nbl::core::address_allocator_traits<core::StackAddressAllocatorST<uint32_t> >::printDebugInfo();
+			printf("Pool \n");
+			nbl::core::address_allocator_traits<core::PoolAddressAllocatorST<uint32_t> >::printDebugInfo();
+			printf("IteratablePool \n");
+			nbl::core::address_allocator_traits<core::IteratablePoolAddressAllocatorST<uint32_t> >::printDebugInfo();
+			printf("General \n");
+			nbl::core::address_allocator_traits<core::GeneralpurposeAddressAllocatorST<uint32_t> >::printDebugInfo();
+
+			printf("MULTI THREADED=======================================================\n");
+			printf("Linear \n");
+			nbl::core::address_allocator_traits<core::LinearAddressAllocatorMT<uint32_t, std::recursive_mutex> >::printDebugInfo();
+			printf("Pool \n");
+			nbl::core::address_allocator_traits<core::PoolAddressAllocatorMT<uint32_t, std::recursive_mutex> >::printDebugInfo();
+			printf("Iteratable Pool \n");
+			nbl::core::address_allocator_traits<core::IteratablePoolAddressAllocatorMT<uint32_t, std::recursive_mutex> >::printDebugInfo();
+			printf("General \n");
+			nbl::core::address_allocator_traits<core::GeneralpurposeAddressAllocatorMT<uint32_t, std::recursive_mutex> >::printDebugInfo();
 		}
 	}
-}
 
+	void onAppTerminated_impl() override
+	{
+	}
+
+	void workLoopBody() override
+	{
+	}
+
+	bool keepRunning() override
+	{
+		return false;
+	}
+};
+
+NBL_COMMON_API_MAIN(AllocatorTestSampleApp)

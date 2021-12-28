@@ -5,6 +5,7 @@
 #ifndef __NBL_I_GPU_BUFFER_H_INCLUDED__
 #define __NBL_I_GPU_BUFFER_H_INCLUDED__
 
+#include "nbl/core/util/bitflag.h"
 
 #include "nbl/asset/IBuffer.h"
 #include "nbl/asset/IDescriptor.h"
@@ -23,23 +24,34 @@ buffer to buffer copies, one needs a command buffer in Vulkan as these operation
 performed by the GPU and not wholly by the driver, so look for them in IGPUCommandBuffer. */
 class IGPUBuffer : public asset::IBuffer, public IDriverMemoryBacked, public IBackendObject
 {
-    protected:
-        IGPUBuffer(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const IDriverMemoryBacked::SDriverMemoryRequirements& reqs) : IDriverMemoryBacked(reqs), IBackendObject(std::move(dev)) {}
-
     public:
-		struct SCreationParams
+		struct SCachedCreationParams
 		{
 			core::bitflag<E_USAGE_FLAGS> usage = EUF_NONE;
+			bool canUpdateSubRange = false; // whether `IGPUCommandBuffer::updateBuffer` can be used on this buffer
 			asset::E_SHARING_MODE sharingMode = asset::ESM_EXCLUSIVE;
+			size_t declaredSize = 0ull;
+		};
+		struct SCreationParams : SCachedCreationParams
+		{
 			uint32_t queueFamilyIndexCount = 0u;
 			const uint32_t* queueFamilyIndices = nullptr;
 		};
 
-        //! Get usable buffer byte size.
-        inline const uint64_t& getSize() const {return cachedMemoryReqs.vulkanReqs.size;}
+		inline uint64_t getSize() const override {return cachedMemoryReqs.vulkanReqs.size;}
 
-        //! Whether calling updateSubRange will produce any effects.
-        virtual bool canUpdateSubRange() const = 0;
+		inline const SCachedCreationParams& getCachedCreationParams() const {return m_cachedCreationParams;}
+		
+    protected:
+        IGPUBuffer(
+			core::smart_refctd_ptr<const ILogicalDevice>&& dev,
+			const IDriverMemoryBacked::SDriverMemoryRequirements& reqs,
+			const SCachedCreationParams& cachedCreationParams
+		) : IDriverMemoryBacked(reqs), IBackendObject(std::move(dev)), m_cachedCreationParams(cachedCreationParams)
+		{
+		}
+
+		const SCachedCreationParams m_cachedCreationParams;
 };
 
 } // end namespace nbl::video

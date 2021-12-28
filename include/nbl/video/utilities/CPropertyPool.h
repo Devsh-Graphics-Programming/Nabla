@@ -30,9 +30,9 @@ class CPropertyPool final : public IPropertyPool
         static inline uint32_t calcApproximateCapacity(const asset::SBufferRange<IGPUBuffer>* _memoryBlocks)
         {
             size_t capacity = ~0ull;
-            for (auto i=1u; i<PropertyCount; i++)
+            for (auto i=0u; i<PropertyCount; i++)
             {
-                const auto bufcap = _memoryBlocks[0].size/PropertySizes[0];
+                const auto bufcap = _memoryBlocks[i].size/PropertySizes[i];
                 if (bufcap<capacity)
                     capacity = bufcap;
             }
@@ -40,21 +40,26 @@ class CPropertyPool final : public IPropertyPool
         }
 
         // easy dont care creation
-        static inline core::smart_refctd_ptr<this_t> create(ILogicalDevice* device, const uint32_t capacity, const bool contiguous = false)
+        static inline core::smart_refctd_ptr<this_t> create(
+            ILogicalDevice* device,
+            const uint32_t capacity,
+            const bool contiguous = false,
+            const core::bitflag<IGPUBuffer::E_USAGE_FLAGS> usage = IGPUBuffer::EUF_STORAGE_BUFFER_BIT)
         {
             asset::SBufferRange<video::IGPUBuffer> blocks[PropertyCount];
             video::IGPUBuffer::SCreationParams params;
+            params.canUpdateSubRange = false; // maybe user provide?
             params.queueFamilyIndexCount = 0u;
             params.queueFamilyIndices = nullptr;
-            params.sharingMode = asset::ESM_CONCURRENT;
-            //params.usage = // should be user-provided probably
+            params.sharingMode = asset::ESM_EXCLUSIVE;
+            params.usage = usage;
             auto mreqs = device->getDeviceLocalGPUMemoryReqs();
             for (auto i = 0u; i < PropertyCount; i++)
             {
                 blocks[i].offset = 0ull;
                 blocks[i].size = capacity * PropertySizes[i];
                 mreqs.vulkanReqs.size = blocks[i].size;
-                blocks[i].buffer = device->createGPUBufferOnDedMem(params, mreqs);
+                blocks[i].buffer = device->createGPUBufferOnDedMem(params,mreqs);
             }
             return create(device, blocks, capacity, contiguous, allocator<uint8_t>());
         }

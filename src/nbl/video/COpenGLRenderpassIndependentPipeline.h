@@ -109,9 +109,9 @@ class COpenGLRenderpassIndependentPipeline final : public IGPURenderpassIndepend
 	        core::smart_refctd_ptr<const COpenGLPipelineLayout> layout;
 	        std::atomic_uint32_t stageUpdateStamps[IGPURenderpassIndependentPipeline::SHADER_STAGE_COUNT] = { 0u };
 
-            inline uint32_t getStamp(IGPUSpecializedShader::E_SHADER_STAGE _stage) const
+            inline uint32_t getStamp(IGPUShader::E_SHADER_STAGE _stage) const
             {
-                const uint32_t ix = core::findLSB<std::underlying_type_t<IGPUSpecializedShader::E_SHADER_STAGE>>(_stage);
+                const uint32_t ix = core::findLSB<std::underlying_type_t<IGPUShader::E_SHADER_STAGE>>(_stage);
                 assert(ix < IGPURenderpassIndependentPipeline::SHADER_STAGE_COUNT);
                 return stageUpdateStamps[ix];
             }
@@ -126,7 +126,7 @@ class COpenGLRenderpassIndependentPipeline final : public IGPURenderpassIndepend
         {
             for (uint32_t i=0u; i<SHADER_STAGE_COUNT; ++i)
             {
-                auto stage = static_cast<IGPUSpecializedShader::E_SHADER_STAGE>(1u<<i);
+                auto stage = static_cast<IGPUShader::E_SHADER_STAGE>(1u<<i);
                 if ((m_stagePresenceMask&stage)==0u)
                     continue;
 

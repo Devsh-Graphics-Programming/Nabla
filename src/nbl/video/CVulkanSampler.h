@@ -20,6 +20,8 @@ public:
 
     inline VkSampler getInternalObject() const { return m_sampler; }
 
+    void setObjectDebugName(const char* label) const override;
+
 private:
     VkSampler m_sampler;
 };

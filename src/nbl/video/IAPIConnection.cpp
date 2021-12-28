@@ -14,4 +14,18 @@ core::SRange<IPhysicalDevice* const> IAPIConnection::getPhysicalDevices() const
         reinterpret_cast<IPhysicalDevice* const*>(m_physicalDevices.data()) + m_physicalDevices.size());
 }
 
+core::SRange<const IAPIConnection::E_FEATURE> IAPIConnection::getDependentFeatures(const E_FEATURE feature)
+{
+    switch (feature)
+    {
+    case EF_SURFACE:
+    {
+        static E_FEATURE depFeatures[] = { EF_SURFACE };
+        return { depFeatures, depFeatures + sizeof(depFeatures)/sizeof(E_FEATURE) };
+    }
+    default:
+        return { nullptr, nullptr };
+    }
+}
+
 }

@@ -54,7 +54,9 @@ void SOpenGLContextLocalCache::updateNextState_pipelineAndRaster(const IGPUGraph
     }
 
     raster_dst.depthFunc = getGLcmpFunc(raster_src.depthCompareOp);
-    raster_dst.frontFace = raster_src.frontFaceIsCCW ? GL_CCW : GL_CW;
+    // We do glClipControl(GL_UPPER_LEFT, GL_ZERO_TO_ONE) which has the effect of
+    // flipping the winding order
+    raster_dst.frontFace = raster_src.frontFaceIsCCW ? GL_CW : GL_CCW;
     raster_dst.depthClampEnable = raster_src.depthClampEnable;
     raster_dst.rasterizerDiscardEnable = raster_src.rasterizerDiscard;
 
@@ -138,7 +140,8 @@ count = (first_count.resname.count - std::max(0, static_cast<int32_t>(first_coun
             //if prev and curr pipeline layouts are compatible for set N, currState.set[N]==nextState.set[N] and the sets were bound with same dynamic offsets, then binding set N would be redundant
             if ((i < compatibilityLimit) &&
                 (effectivelyBoundDescriptors.descSets[i].set == nextState.descriptorsParams[_pbp].descSets[i].set) &&
-                (effectivelyBoundDescriptors.descSets[i].dynamicOffsets == nextState.descriptorsParams[_pbp].descSets[i].dynamicOffsets)
+                (effectivelyBoundDescriptors.descSets[i].dynamicOffsets == nextState.descriptorsParams[_pbp].descSets[i].dynamicOffsets) &&
+                (effectivelyBoundDescriptors.descSets[i].revision == nextState.descriptorsParams[_pbp].descSets[i].revision)
                 )
             {
                 continue;

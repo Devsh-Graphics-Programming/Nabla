@@ -30,7 +30,21 @@ if(NBL_UPDATE_GIT_SUBMODULE)
 	update_git_submodule(./glm)
 	update_git_submodule(./freetype2)
 	update_git_submodule(./portable-file-dialogs)
+	update_git_submodule(./simdjson)
+	update_git_submodule(./glTFSampleModels)
 endif()
+
+# simdjson
+set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
+set(_OLD_BUILD_STATIC_LIBS ${BUILD_STATIC_LIBS})
+set(_OLD_BUILD_TESTING ${BUILD_TESTING})
+set(BUILD_SHARED_LIBS OFF)
+set(BUILD_STATIC_LIBS OFF)
+set(BUILD_TESTING OFF)
+add_subdirectory(simdjson simdjson EXCLUDE_FROM_ALL)
+set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
+set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
+set(BUILD_TESTING ${_OLD_BUILD_TESTING})
 
 # openssl
 add_subdirectory(openssl openssl EXCLUDE_FROM_ALL)

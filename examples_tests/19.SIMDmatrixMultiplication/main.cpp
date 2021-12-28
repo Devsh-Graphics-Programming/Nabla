@@ -6,12 +6,15 @@
 #include <nabla.h>
 //#include <intrin.h>
 #include <immintrin.h>
+#include "../common/CommonAPI.h"
 
 #include <chrono>
 #include <random>
 #include <cstdlib>
 #include <cstring>
 #include <limits>
+
+using namespace nbl;
 
 // _mm256_extractf128_ps for extracting hi part
 // _mm256_castps256_ps128 for extracting lo part (no cycles!)
@@ -314,90 +317,125 @@ static bool compare(T* _m1, T* _m2);
 template<typename T>
 static double run(void*, void*, void*);
 
-int main()
+class SIMDMatrixMultiplicationSampleApp : public ApplicationBase
 {
-	void* data = malloc(16*4*(size_t)EXEC_CNT*3+ALIGN);
+	core::smart_refctd_ptr<nbl::system::ISystem> system;
 
-	uint8_t* alignedData = reinterpret_cast<uint8_t*>(data);
-	size_t offset = reinterpret_cast<const size_t&>(alignedData)%ALIGN;
-	alignedData += ALIGN-offset;
+public:
+	void setWindow(core::smart_refctd_ptr<nbl::ui::IWindow>&& wnd) override
+	{
+		assert(false && "This example shouldn't have a window!");
+	}
+	nbl::ui::IWindow* getWindow() override
+	{
+		assert(false && "This example shouldn't have a window!");
+		return nullptr;
+	}
+	void setSystem(core::smart_refctd_ptr<nbl::system::ISystem>&& system) override
+	{
+		system = std::move(system);
+	}
 
+	APP_CONSTRUCTOR(SIMDMatrixMultiplicationSampleApp);
+
+	void onAppInitialized_impl() override
 	{
-	size_t i = 1;
-	for (float* p = (float*)alignedData; (void*)p != (void*)(alignedData + (size_t)EXEC_CNT * 16 * 4); ++p, ++i)
-	{
+		void* data = malloc(16 * 4 * (size_t)EXEC_CNT * 3 + ALIGN);
+
+		uint8_t* alignedData = reinterpret_cast<uint8_t*>(data);
+		size_t offset = reinterpret_cast<const size_t&>(alignedData) % ALIGN;
+		alignedData += ALIGN - offset;
+
+		{
+			size_t i = 1;
+			for (float* p = (float*)alignedData; (void*)p != (void*)(alignedData + (size_t)EXEC_CNT * 16 * 4); ++p, ++i)
+			{
 #if COL_MAJOR
-		if (i % 16 == 0)
-			*p = 1.f;
-		else if (i % 4 == 0)
-			*p = 0.f;
-		else
-			*p = rand();
+				if (i % 16 == 0)
+					*p = 1.f;
+				else if (i % 4 == 0)
+					*p = 0.f;
+				else
+					*p = rand();
 #else
-		size_t mod = i % 16;
-		if (mod == 0)
-			*p = 1.f;
-		else if (mod >= 13 && mod <= 15)
-			*p = 0.f;
-		else
-			*p = rand();
+				size_t mod = i % 16;
+				if (mod == 0)
+					*p = 1.f;
+				else if (mod >= 13 && mod <= 15)
+					*p = 0.f;
+				else
+					*p = rand();
 #endif
-	}
-	}
+			}
+		}
 
-	void* dataOut = alignedData+(16*4*(size_t)EXEC_CNT);
-	void* nosimdOut = alignedData+2*(16*4*(size_t)EXEC_CNT);
+		void* dataOut = alignedData + (16 * 4 * (size_t)EXEC_CNT);
+		void* nosimdOut = alignedData + 2 * (16 * 4 * (size_t)EXEC_CNT);
 
-	double nosimdtime = 0.0;
-	double simdtime = 0.0;
+		double nosimdtime = 0.0;
+		double simdtime = 0.0;
 
-	for (size_t i = 0; i < 100; ++i)
-	{
+		for (size_t i = 0; i < 100; ++i)
+		{
 #if COL_MAJOR
-		nosimdtime += run<matrix4x3_col_nosimd>(alignedData, nosimdOut, 0);
+			nosimdtime += run<matrix4x3_col_nosimd>(alignedData, nosimdOut, 0);
 #else
-		nosimdtime += run<matrix4x3_row_nosimd>(alignedData, nosimdOut, 0);
+			nosimdtime += run<matrix4x3_row_nosimd>(alignedData, nosimdOut, 0);
 #endif
-	}
+		}
 
-	for (size_t i = 0; i < 100; ++i)
-	{
+		for (size_t i = 0; i < 100; ++i)
+		{
 #if AVX
-	#if COL_MAJOR
-		simdtime += run<avx::matrix4x3_col>(alignedData, dataOut, nosimdOut);
-	#else
-		simdtime += run<avx::matrix4x3_row>(alignedData, dataOut, nosimdOut);
-	#endif
+#if COL_MAJOR
+			simdtime += run<avx::matrix4x3_col>(alignedData, dataOut, nosimdOut);
 #else
-	#if COL_MAJOR
-		simdtime += run<sse3::matrix4x3_col>(alignedData, dataOut, nosimdOut);
-	#else
-		simdtime += run<sse3::matrix4x3_row>(alignedData, dataOut, nosimdOut);
-	#endif
+			simdtime += run<avx::matrix4x3_row>(alignedData, dataOut, nosimdOut);
 #endif
-	}
+#else
+#if COL_MAJOR
+			simdtime += run<sse3::matrix4x3_col>(alignedData, dataOut, nosimdOut);
+#else
+			simdtime += run<sse3::matrix4x3_row>(alignedData, dataOut, nosimdOut);
+#endif
+#endif
+		}
 
-	printf("nosimd  : %f\n", nosimdtime);
+		printf("nosimd  : %f\n", nosimdtime);
 #if VERIFY
-	printf("SIMD time distorted by comparisons!\n");
+		printf("SIMD time distorted by comparisons!\n");
 #endif
 #if AVX
 #if COL_MAJOR
-    printf("avx  col: %f\n", simdtime);
+		printf("avx  col: %f\n", simdtime);
 #else
-	printf("avx  row: %f\n", simdtime);
+		printf("avx  row: %f\n", simdtime);
 #endif
 #else
 #if COL_MAJOR
-    printf("sse3 col: %f\n", simdtime);
+		printf("sse3 col: %f\n", simdtime);
 #else
-    printf("sse3 row: %f\n", simdtime);
+		printf("sse3 row: %f\n", simdtime);
 #endif
 #endif
-	free(data);
+		free(data);
+	}
 
-	return 0;
-}
+	void onAppTerminated_impl() override
+	{
+	}
+
+	void workLoopBody() override
+	{
+	}
+
+	bool keepRunning() override
+	{
+		return false;
+	}
+};
+
+NBL_COMMON_API_MAIN(SIMDMatrixMultiplicationSampleApp)
 
 template<typename T>
 static bool compare(T* _m1, T* _m2)

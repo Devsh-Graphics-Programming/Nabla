@@ -10,28 +10,28 @@
 namespace nbl::video
 {
 
-struct ArgumentReferenceSegment
-{
-    ArgumentReferenceSegment() : arguments(), argCount(0u), next(nullptr) {}
-    
-    constexpr static uint8_t MAX_REFERENCES = 62u;
-    std::array<core::smart_refctd_ptr<const core::IReferenceCounted>, MAX_REFERENCES> arguments;
-
-    uint8_t argCount;
-    ArgumentReferenceSegment* next;
-};
-
 class CVulkanCommandPool final : public IGPUCommandPool
 {
      constexpr static inline uint32_t NODES_PER_BLOCK = 4096u;
      constexpr static inline uint32_t MAX_BLOCK_COUNT = 256u;
 
 public:
+    struct ArgumentReferenceSegment
+    {
+        ArgumentReferenceSegment() : arguments(), argCount(0u), next(nullptr) {}
+    
+        constexpr static uint8_t MAX_REFERENCES = 62u;
+        std::array<core::smart_refctd_ptr<const core::IReferenceCounted>, MAX_REFERENCES> arguments;
+
+        uint8_t argCount;
+        ArgumentReferenceSegment* next;
+    };
+
     CVulkanCommandPool(core::smart_refctd_ptr<ILogicalDevice>&& dev,
         core::bitflag<IGPUCommandPool::E_CREATE_FLAGS> flags, uint32_t queueFamilyIndex,
-        VkCommandPool commandPool)
+        VkCommandPool vk_commandPool)
         : IGPUCommandPool(std::move(dev), flags.value, queueFamilyIndex),
-        m_commandPool(commandPool), mempool(NODES_PER_BLOCK * sizeof(ArgumentReferenceSegment),
+        m_vkCommandPool(vk_commandPool), mempool(NODES_PER_BLOCK * sizeof(ArgumentReferenceSegment),
             1u, MAX_BLOCK_COUNT, static_cast<uint32_t>(sizeof(ArgumentReferenceSegment)))
     {}
 
@@ -39,8 +39,6 @@ public:
         const core::smart_refctd_ptr<const core::IReferenceCounted>* begin,
         const core::smart_refctd_ptr<const core::IReferenceCounted>* end)
     {
-        std::unique_lock<std::mutex> lock(mutex);
-
         if (!tail)
             tail = mempool.emplace<ArgumentReferenceSegment>();
 
@@ -65,8 +63,6 @@ public:
 
     void free_all(ArgumentReferenceSegment* head)
     {
-        std::unique_lock<std::mutex> lock(mutex);
-
         while (head)
         {
             ArgumentReferenceSegment* next = head->next;
@@ -75,15 +71,15 @@ public:
         }
     }
 
-    VkCommandPool getInternalObject() const { return m_commandPool; }
+    VkCommandPool getInternalObject() const { return m_vkCommandPool; }
 
     ~CVulkanCommandPool();
+	
+    void setObjectDebugName(const char* label) const override;
 
 private:
-    // Todo(achal): Remove
-    VkCommandPool m_commandPool;
-    std::mutex mutex;
-    core::CMemoryPool<core::PoolAddressAllocator<uint32_t>, core::default_aligned_allocator, false, uint32_t> mempool;
+    VkCommandPool m_vkCommandPool;
+    core::CMemoryPool<core::PoolAddressAllocator<uint32_t>, core::default_aligned_allocator, uint32_t> mempool;
 };
 
 }

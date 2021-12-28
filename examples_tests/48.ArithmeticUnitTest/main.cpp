@@ -260,7 +260,7 @@ bool runTest(
 		memoryBarrier[i].size = kBufferSize;
 	}
 	cmdbuf->pipelineBarrier(
-		asset::EPSF_COMPUTE_SHADER_BIT,asset::EPSF_COMPUTE_SHADER_BIT|asset::EPSF_HOST_BIT,asset::EDF_NONE,
+		asset::EPSF_COMPUTE_SHADER_BIT,static_cast<asset::E_PIPELINE_STAGE_FLAGS>(asset::EPSF_COMPUTE_SHADER_BIT|asset::EPSF_HOST_BIT),asset::EDF_NONE,
 		0u,nullptr,outputBufferCount,memoryBarrier,0u,nullptr
 	);
 	cmdbuf->end();
@@ -290,27 +290,29 @@ bool runTest(
 
 int main()
 {
-	auto initOutput = CommonAPI::Init(video::EAT_OPENGL,"Subgroup Arithmetic Test");
+	CommonAPI::SFeatureRequest<video::IAPIConnection::E_FEATURE> requiredInstanceFeatures = {};
+	CommonAPI::SFeatureRequest<video::IAPIConnection::E_FEATURE> optionalInstanceFeatures = {};
+	CommonAPI::SFeatureRequest<video::ILogicalDevice::E_FEATURE> requiredDeviceFeatures = {};
+	CommonAPI::SFeatureRequest< video::ILogicalDevice::E_FEATURE> optionalDeviceFeatures = {};
+
+	auto initOutput = CommonAPI::Init(video::EAT_OPENGL, "Subgroup Arithmetic Test", requiredInstanceFeatures, optionalInstanceFeatures, requiredDeviceFeatures, optionalDeviceFeatures);
 	auto system = std::move(initOutput.system);
-    auto gl = std::move(initOutput.apiConnection);
-    auto logger = std::move(initOutput.logger);
-    auto gpuPhysicalDevice = std::move(initOutput.physicalDevice);
-    auto logicalDevice = std::move(initOutput.logicalDevice);
-    auto queues = std::move(initOutput.queues);
-    auto renderpass = std::move(initOutput.renderpass);
-    auto commandPool = std::move(initOutput.commandPool);
-    auto assetManager = std::move(initOutput.assetManager);
-    auto cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
-    auto utilities = std::move(initOutput.utilities);
+	auto gl = std::move(initOutput.apiConnection);
+	auto logger = std::move(initOutput.logger);
+	auto gpuPhysicalDevice = std::move(initOutput.physicalDevice);
+	auto logicalDevice = std::move(initOutput.logicalDevice);
+	auto queues = std::move(initOutput.queues);
+	auto renderpass = std::move(initOutput.renderpass);
+	auto computeCommandPool = std::move(initOutput.commandPools[CommonAPI::InitOutput::EQT_COMPUTE]);
+	auto commandPool = computeCommandPool;
+	auto assetManager = std::move(initOutput.assetManager);
+	auto cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
+	auto utilities = std::move(initOutput.utilities);
 
-    core::smart_refctd_ptr<IGPUFence> gpuTransferFence = nullptr;
-    core::smart_refctd_ptr<IGPUFence> gpuComputeFence = nullptr;
+	core::smart_refctd_ptr<IGPUFence> gpuTransferFence = nullptr;
+	core::smart_refctd_ptr<IGPUFence> gpuComputeFence = nullptr;
 
-    nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
-    {
-        cpu2gpuParams.perQueue[IGPUObjectFromAssetConverter::EQU_TRANSFER].fence = &gpuTransferFence;
-        cpu2gpuParams.perQueue[IGPUObjectFromAssetConverter::EQU_COMPUTE].fence = &gpuComputeFence;
-    }
+	nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
 
 	uint32_t* inputData = new uint32_t[BUFFER_DWORD_COUNT];
 	{
@@ -327,14 +329,18 @@ int main()
 	core::smart_refctd_ptr<IGPUBuffer> buffers[outputBufferCount];
 	for (auto i=0; i<outputBufferCount; i++)
 	{
+		IGPUBuffer::SCreationParams params;
+		params.queueFamilyIndexCount = 0;
+		params.queueFamilyIndices = nullptr;
+		params.sharingMode = ESM_CONCURRENT;
+		params.usage = IGPUBuffer::EUF_STORAGE_BUFFER_BIT;
 		IDriverMemoryBacked::SDriverMemoryRequirements reqs;
 		reqs.vulkanReqs.memoryTypeBits = ~0u;
 		reqs.vulkanReqs.alignment = 256u;
 		reqs.vulkanReqs.size = kBufferSize;
-		reqs.sharingMode = ESM_CONCURRENT;
 		reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
 		reqs.mappingCapability = IDriverMemoryAllocation::EMCAF_READ;
-		buffers[i] = logicalDevice->createGPUBufferOnDedMem(reqs);
+		buffers[i] = logicalDevice->createGPUBufferOnDedMem(params,reqs);
 		IDriverMemoryAllocation::MappedMemoryRange mem;
 		mem.memory = buffers[i]->getBoundMemory();
 		mem.offset = 0u;
@@ -344,11 +350,11 @@ int main()
 
 	IGPUDescriptorSetLayout::SBinding binding[totalBufferCount];
 	for (uint32_t i=0u; i<totalBufferCount; i++)
-		binding[i] = { i,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr };
+		binding[i] = { i,EDT_STORAGE_BUFFER,1u,IShader::ESS_COMPUTE,nullptr };
 	auto gpuDSLayout = logicalDevice->createGPUDescriptorSetLayout(binding,binding+totalBufferCount);
 
 	constexpr uint32_t pushconstantSize = 8u*totalBufferCount;
-	SPushConstantRange pcRange[1] = { IGPUSpecializedShader::ESS_COMPUTE,0u,pushconstantSize };
+	SPushConstantRange pcRange[1] = { IShader::ESS_COMPUTE,0u,pushconstantSize };
 	auto pipelineLayout = logicalDevice->createGPUPipelineLayout(pcRange,pcRange+pushconstantSize,core::smart_refctd_ptr(gpuDSLayout));
 
 	auto descPool = logicalDevice->createDescriptorPoolForDSLayouts(IDescriptorPool::ECF_NONE,&gpuDSLayout.get(),&gpuDSLayout.get()+1u);
@@ -405,6 +411,7 @@ int main()
 	auto cmdPool = logicalDevice->createCommandPool(computeQueue->getFamilyIndex(),IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
 	core::smart_refctd_ptr<IGPUCommandBuffer> cmdbuf;
 	logicalDevice->createCommandBuffers(cmdPool.get(),IGPUCommandBuffer::EL_PRIMARY,1u,&cmdbuf);
+	computeQueue->startCapture();
 	for (uint32_t workgroupSize=1u; workgroupSize<=1024u; workgroupSize++)
 	{
 		core::smart_refctd_ptr<IGPUComputePipeline> pipelines[kTestTypeCount];
@@ -412,6 +419,7 @@ int main()
 			pipelines[i] = logicalDevice->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(pipelineLayout),std::move(getGPUShader(shaderGLSL[i].get(),workgroupSize)));
 
 		bool passed = true;
+
 
 		const video::IGPUDescriptorSet* ds = descriptorSet.get();
 		passed = runTest<emulatedSubgroupReduction>(logicalDevice.get(),computeQueue,fence.get(),cmdbuf.get(),pipelines[0u].get(),descriptorSet.get(),inputData,workgroupSize,buffers,logger.get())&&passed;
@@ -429,6 +437,7 @@ int main()
 			logger->log("Failed test #%d",system::ILogger::ELL_ERROR,workgroupSize);
 		}
 	}
+	computeQueue->endCapture();
 	logger->log("==========Result==========",system::ILogger::ELL_INFO);
 	logger->log("Fail Count: %d",system::ILogger::ELL_INFO,totalFailCount);
 	delete [] inputData;

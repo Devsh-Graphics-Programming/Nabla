@@ -59,7 +59,6 @@ namespace impl
             // GL pipelines and vaos are kept, created and destroyed in COpenGL_Queue internal thread
             ERT_BUFFER_DESTROY,
             ERT_TEXTURE_DESTROY,
-            ERT_SWAPCHAIN_DESTROY,
             ERT_SYNC_DESTROY,
             ERT_SAMPLER_DESTROY,
             ERT_QUERY_DESTROY,
@@ -70,8 +69,6 @@ namespace impl
             ERT_BUFFER_VIEW_CREATE,
             ERT_IMAGE_CREATE,
             ERT_IMAGE_VIEW_CREATE,
-            ERT_SWAPCHAIN_CREATE,
-            ERT_EVENT_CREATE,
             ERT_FENCE_CREATE,
             ERT_SAMPLER_CREATE,
             ERT_RENDERPASS_INDEPENDENT_PIPELINE_CREATE,
@@ -80,10 +77,6 @@ namespace impl
             //ERT_GRAPHICS_PIPELINE_CREATE,
 
             // non-create requests
-            ERT_GET_EVENT_STATUS,
-            ERT_RESET_EVENT,
-            ERT_SET_EVENT,
-            ERT_RESET_FENCES,
             ERT_WAIT_FOR_FENCES,
             ERT_GET_FENCE_STATUS,
             ERT_FLUSH_MAPPED_MEMORY_RANGES,
@@ -108,11 +101,13 @@ namespace impl
         }
         constexpr static inline bool isCreationRequest(E_REQUEST_TYPE rt)
         {
-            return !isDestroyRequest(rt) && (rt < ERT_GET_EVENT_STATUS);
+            return !isDestroyRequest(rt) && rt<=ERT_COMPUTE_PIPELINE_CREATE;
         }
         constexpr static inline bool isWaitlessRequest(E_REQUEST_TYPE rt)
         {
-            return isDestroyRequest(rt) || rt==ERT_INVALIDATE_MAPPED_MEMORY_RANGES || rt==ERT_UNMAP_BUFFER;
+            // we could actually make the creation waitless too, if we were careful
+            // TODO: if we actually copied the range parameter we wouldn't have to wait on ERT_FLUSH_MAPPED_MEMORY_RANGES
+            return isDestroyRequest(rt) || rt == ERT_UNMAP_BUFFER;
         }
 
         template <E_REQUEST_TYPE rt>
@@ -122,7 +117,7 @@ namespace impl
             static inline constexpr E_REQUEST_TYPE type = rt;
             using retval_t = void;
             
-            GLuint glnames[MaxGlNamesForSingleObject];
+            GLuint glnames[COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT*MaxGlNamesForSingleObject];
             uint32_t count;
         };
         struct SRequestSyncDestroy
@@ -131,11 +126,6 @@ namespace impl
             using retval_t = void;
 
             GLsync glsync;
-        };
-        struct SRequestEventCreate
-        {
-            static inline constexpr E_REQUEST_TYPE type = ERT_EVENT_CREATE;
-            using retval_t = core::smart_refctd_ptr<IGPUEvent>;
         };
         struct SRequestFenceCreate
         {
@@ -149,7 +139,7 @@ namespace impl
             static inline constexpr E_REQUEST_TYPE type = ERT_BUFFER_CREATE;
             using retval_t = core::smart_refctd_ptr<IGPUBuffer>;
             IDriverMemoryBacked::SDriverMemoryRequirements mreqs;
-            bool canModifySubdata;
+            IGPUBuffer::SCachedCreationParams cachedCreationParams;
         };
         struct SRequestBufferViewCreate
         {
@@ -204,30 +194,6 @@ namespace impl
         //
         // Non-create requests:
         //
-        struct SRequestGetEventStatus
-        {
-            static inline constexpr E_REQUEST_TYPE type = ERT_GET_EVENT_STATUS;
-            using retval_t = IGPUEvent::E_STATUS;
-            const IGPUEvent* event;
-        };
-        struct SRequestResetEvent
-        {
-            static inline constexpr E_REQUEST_TYPE type = ERT_RESET_EVENT;
-            using retval_t = IGPUEvent::E_STATUS;
-            IGPUEvent* event;
-        };
-        struct SRequestSetEvent
-        {
-            static inline constexpr E_REQUEST_TYPE type = ERT_SET_EVENT;
-            using retval_t = IGPUEvent::E_STATUS;
-            IGPUEvent* event;
-        };
-        struct SRequestResetFences
-        {
-            static inline constexpr E_REQUEST_TYPE type = ERT_RESET_FENCES;
-            using retval_t = void;
-            core::SRange<core::smart_refctd_ptr<IGPUFence>> fences = { nullptr, nullptr };
-        };
         struct SRequestWaitForFences
         {
             static inline constexpr E_REQUEST_TYPE type = ERT_WAIT_FOR_FENCES;
@@ -309,17 +275,6 @@ namespace impl
     };
 
 /*
-    template <>
-    size_t IOpenGL_LogicalDeviceBase::SRequestBase<IOpenGL_LogicalDeviceBase::SRequestResetFences>::neededMemorySize(const SRequestResetFences& x)
-    {
-        return x.fences.size() * sizeof(core::smart_refctd_ptr<IGPUFence>);
-    }
-    template <>
-    void IOpenGL_LogicalDeviceBase::SRequestBase<IOpenGL_LogicalDeviceBase::SRequestResetFences>::copyContentsToOwnedMemory(SRequestResetFences& x, void* mem)
-    {
-
-    }
-
     template <>
     size_t IOpenGL_LogicalDeviceBase::SRequestBase<IOpenGL_LogicalDeviceBase::SRequestFlushMappedMemoryRanges>::neededMemorySize(const SRequestFlushMappedMemoryRanges& x)
     { 
@@ -403,7 +358,6 @@ protected:
     struct SRequest : public system::impl::IAsyncQueueDispatcherBase::request_base_t
     {
         using params_variant_t = std::variant<
-            SRequestEventCreate,
             SRequestFenceCreate,
             SRequestBufferCreate,
             SRequestBufferViewCreate,
@@ -416,16 +370,11 @@ protected:
 
             SRequest_Destroy<ERT_BUFFER_DESTROY>,
             SRequest_Destroy<ERT_TEXTURE_DESTROY>,
-            SRequest_Destroy<ERT_SWAPCHAIN_DESTROY>,
             SRequest_Destroy<ERT_SAMPLER_DESTROY>,
             SRequest_Destroy<ERT_PROGRAM_DESTROY>,
             SRequest_Destroy<ERT_QUERY_DESTROY>,
             SRequestSyncDestroy,
 
-            SRequestGetEventStatus,
-            SRequestResetEvent,
-            SRequestSetEvent,
-            SRequestResetFences,
             SRequestWaitForFences,
             SRequestGetFenceStatus,
             SRequestFlushMappedMemoryRanges,
@@ -472,13 +421,18 @@ protected:
         friend base_t;
         using FeaturesType = typename FunctionTableType::features_t;
     public:
-        CThreadHandler(IOpenGL_LogicalDevice* dev,
+        CThreadHandler(
+            IOpenGL_LogicalDevice* dev,
+            std::atomic<GLsync>* const _masterContextSync,
+            std::atomic<uint64_t>* const _masterContextCallsReturned,
             const egl::CEGL* _egl,
             const FeaturesType* _features,
             uint32_t _qcount,
             const SGLContext& glctx,
             const COpenGLDebugCallback* _dbgCb) :
             m_queueCount(_qcount),
+            masterContextSync(_masterContextSync),
+            masterContextCallsReturned(_masterContextCallsReturned),
             egl(_egl),
             thisCtx(glctx.ctx), pbuffer(glctx.pbuffer),
             features(_features),
@@ -505,6 +459,7 @@ protected:
         template <typename RequestParams>
         void waitForRequestCompletion(SRequest& req)
         {
+            assert(!isWaitlessRequest(req.type));
             req.wait_ready();
 
             // clear params, just to make sure no refctd ptr is holding an object longer than it needs to
@@ -529,6 +484,8 @@ protected:
             #endif
             if (m_dbgCb)
                 gl->extGlDebugMessageCallback(m_dbgCb->m_callback,m_dbgCb);
+
+            gl->glGeneral.pglFinish();
         }
 
         // RequestParams must be one of request parameter structs
@@ -595,7 +552,7 @@ protected:
             {
                 auto& p = std::get<SRequestBufferCreate>(req.params_variant);
                 core::smart_refctd_ptr<IGPUBuffer>* pretval = reinterpret_cast<core::smart_refctd_ptr<IGPUBuffer>*>(req.pretval);
-                pretval[0] = core::make_smart_refctd_ptr<COpenGLBuffer>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device), &gl, p.mreqs, p.canModifySubdata);
+                pretval[0] = core::make_smart_refctd_ptr<COpenGLBuffer>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device), &gl, p.mreqs, p.cachedCreationParams);
             }
                 break;
             case ERT_BUFFER_VIEW_CREATE:
@@ -667,15 +624,14 @@ protected:
                 auto& p = std::get<SRequestFlushMappedMemoryRanges>(req.params_variant);
                 for (auto mrng : p.memoryRanges)
                     gl.extGlFlushMappedNamedBufferRange(static_cast<COpenGLBuffer*>(mrng.memory)->getOpenGLName(), mrng.offset, mrng.length);
-                // section 5.3 of OpenGL 4.6 spec "Changes to mapped buffer data followed by a command such as Unmap-Buffer or FlushMappedBufferRange."
-                gl.glGeneral.pglFlush(); // see TODO at the end
+                // unfortunately I have to make every other context wait on the master to ensure the flush completes
+                incrementProgressionSync(_gl);
             }
                 break;
             case ERT_INVALIDATE_MAPPED_MEMORY_RANGES:
             {
+                // master context doesn't need to `glWaitSync` because under Vulkan API rules, the user must do a CPU wait before trying to access the pointer, ergo completion guaranteed by the time we call this
                 gl.glSync.pglMemoryBarrier(gl.CLIENT_MAPPED_BUFFER_BARRIER_BIT);
-                // too scarred to test without it (does it fall under section 5.3 ?)
-                gl.glGeneral.pglFlush(); // see TODO at the end
             }
                 break;
             case ERT_MAP_BUFFER_RANGE:
@@ -684,8 +640,8 @@ protected:
 
                 void** pretval = reinterpret_cast<void**>(req.pretval);
                 pretval[0] = gl.extGlMapNamedBufferRange(static_cast<COpenGLBuffer*>(p.buf.get())->getOpenGLName(), p.offset, p.size, p.flags);
-                // section 5.3 of OpenGL 4.6 spec "Changes to mapped buffer data followed by a command such as Unmap-Buffer or FlushMappedBufferRange."
-                gl.glGeneral.pglFlush(); // see TODO at the end
+                // unfortunately I have to make every other context wait on the master to ensure the mapping completes
+                incrementProgressionSync(_gl);
             }
                 break;
             case ERT_UNMAP_BUFFER:
@@ -693,6 +649,8 @@ protected:
                 auto& p = std::get<SRequestUnmapBuffer>(req.params_variant);
 
                 gl.extGlUnmapNamedBuffer(static_cast<COpenGLBuffer*>(p.buf.get())->getOpenGLName());
+                // unfortunately I have to make every other context wait on the master to ensure the unmapping completes
+                incrementProgressionSync(_gl);
             }
                 break;
             case ERT_GET_QUERY_POOL_RESULTS:
@@ -808,7 +766,10 @@ protected:
             {
                 auto& p = std::get<SRequestSetDebugName>(req.params_variant);
 
-                gl.extGlObjectLabel(p.id, p.object, p.len, p.label);
+                if (p.len)
+                    gl.extGlObjectLabel(p.id, p.object, p.len, p.label);
+                else
+                    gl.extGlObjectLabel(p.id, p.object, 0u, nullptr); // remove debug name
             }
                 break;
             case ERT_CTX_MAKE_CURRENT:
@@ -833,13 +794,11 @@ protected:
             // Nvidia's OpenGL nastily gaslights the user with plain wrong errors, i.e. about invalid offsets and sizes when doing buffer2buffer copies
             // there's nothing in the spec saying that I must flush after creating a buffer with ARB_buffer_storage on another context/thread in the sharelist
             // but all this undocumented goodness has finally reared its head
-            // TODO: OpenGL spec is worse and looser than Vulkan, because we use DSA this affects us, if we didnt it wouldn't.
-            // Anyway any creation, mapping, flushing (and maybe even invalidation call) would need to be wrapped up into an opaque API future,
-            // which is always ready on Vulkan, but on OpenGL its packaged together with a GLsync (or a faux fence+semaphore).
+            // OpenGL spec is worse and looser than Vulkan, because we use DSA this affects us, if we didnt it wouldn't.
             // Flushing is a particular PITA because its a not a thing that synchronises with the CPU.
-            // One could also want object creation to optionally only sync with a queue submission and not CPU (so a semaphore).
-            if (isCreationRequest(req.type))
-                gl.glGeneral.pglFlush(); // see TODO above
+            // TODO: One could also want object creation to optionally only sync with a queue submission and not CPU (so a semaphore).
+            if (req.type!=ERT_FENCE_CREATE && isCreationRequest(req.type))
+                incrementProgressionSync(_gl);
         }
 
         void exit(FunctionTableType* gl)
@@ -867,14 +826,14 @@ protected:
 
             auto shaders = core::SRange<const IGPUSpecializedShader*>(shaders_array, shaders_array+shaderCount);
             auto vsIsPresent = [&shaders]() -> bool {
-                return std::find_if(shaders.begin(), shaders.end(), [](const IGPUSpecializedShader* shdr) {return shdr->getStage() == asset::ISpecializedShader::ESS_VERTEX; }) != shaders.end();
+                return std::find_if(shaders.begin(), shaders.end(), [](const IGPUSpecializedShader* shdr) {return shdr->getStage() == asset::IShader::ESS_VERTEX; }) != shaders.end();
             };
 
-            asset::ISpecializedShader::E_SHADER_STAGE lastVertexLikeStage = asset::ISpecializedShader::ESS_VERTEX;
+            asset::IShader::E_SHADER_STAGE lastVertexLikeStage = asset::IShader::ESS_VERTEX;
             for (uint32_t i = 0u; i < shaders.size(); ++i)
             {
                 auto stage = shaders.begin()[shaders.size()-1u-i]->getStage();
-                if (stage != asset::ISpecializedShader::ESS_FRAGMENT)
+                if (stage != asset::IShader::ESS_FRAGMENT)
                 {
                     lastVertexLikeStage = stage;
                     break;
@@ -943,7 +902,7 @@ protected:
         {
             if (!params.layout || !params.shader)
                 return nullptr;
-            if (params.shader->getStage() != asset::ISpecializedShader::ESS_COMPUTE)
+            if (params.shader->getStage() != asset::IShader::ESS_COMPUTE)
                 return nullptr;
 
             GLuint GLname = 0u;
@@ -1043,15 +1002,29 @@ protected:
 
         // currently used by shader programs only
         // they theoretically can be shared between contexts however, because uniforms state is program's state, we cant use that
-        // because they are shareable, all GL names cane be created in the same thread at once though
+        // because they are shareable, all GL names can be created in the same thread at once though
         uint32_t getNameCountForSingleEngineObject() const
         {
             return m_queueCount + 1u; // +1 because of this context (the one in logical device), probably not needed though
         }
 
-        uint32_t m_queueCount;
+        // section 5.3 of OpenGL 4.6 spec requires us to make the other contexts wait on the master context
+        void incrementProgressionSync(FunctionTableType& _gl)
+        {
+            GLsync sync = _gl.glSync.pglFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE,0);
+            _gl.glGeneral.pglFlush(); // cause its a cross context GLsync
+            GLsync oldSync = masterContextSync->exchange(sync);
+            masterContextCallsReturned->operator++();
+            if (oldSync)
+                _gl.glSync.pglDeleteSync(oldSync);
+        }
+
+        const uint32_t m_queueCount;
+        std::atomic<GLsync>* const masterContextSync;
+        std::atomic<uint64_t>* const masterContextCallsReturned;
 
         const egl::CEGL* egl;
+
         EGLContext thisCtx;
         EGLSurface pbuffer;
         const FeaturesType* features;
@@ -1061,16 +1034,26 @@ protected:
     };
 
 protected:
+    std::atomic<uint64_t> m_masterContextCallsInvoked; // increment from calling thread after submitting request
+    std::atomic<uint64_t> m_masterContextCallsReturned; // increment at the end of request process
+    std::atomic<GLsync> m_masterContextSync; // swapped before `m_masterContextCallsReturned` is incremented
     const egl::CEGL* m_egl;
-    core::smart_refctd_dynamic_array<std::string> m_supportedGLSLExtsNames;
 
 public:
     IOpenGL_LogicalDevice(core::smart_refctd_ptr<IAPIConnection>&& api, IPhysicalDevice* physicalDevice, const SCreationParams& params, const egl::CEGL* _egl)
-        : ILogicalDevice(std::move(api),physicalDevice,params), m_egl(_egl) {}
+        : ILogicalDevice(std::move(api),physicalDevice,params), m_masterContextCallsInvoked(0u), m_masterContextCallsReturned(0u), m_masterContextSync(nullptr), m_egl(_egl) {}
 
-    const core::smart_refctd_dynamic_array<std::string> getSupportedGLSLExtensions() const override
+    template <typename FunctionTableType>
+    inline uint64_t waitOnMasterContext(FunctionTableType& _gl, const uint64_t waitedCallsSoFar)
     {
-        return m_supportedGLSLExtsNames;
+        const uint64_t invokedSoFar = m_masterContextCallsInvoked.load();
+        assert(invokedSoFar>=waitedCallsSoFar); // something went very wrong with causality
+        if (invokedSoFar==waitedCallsSoFar)
+            return waitedCallsSoFar;
+        uint64_t returnedSoFar;
+        while ((returnedSoFar=m_masterContextCallsReturned.load())<invokedSoFar) {} // waiting on address deadlocks
+        _gl.glSync.pglWaitSync(m_masterContextSync.load(),0,GL_TIMEOUT_IGNORED);
+        return returnedSoFar;
     }
 
     virtual void destroyFramebuffer(COpenGLFramebuffer::hash_t fbohash) = 0;

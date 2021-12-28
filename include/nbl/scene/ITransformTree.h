@@ -44,17 +44,28 @@ class ITransformTree : public virtual core::IReferenceCounted
 		static inline constexpr uint32_t recomputed_stamp_prop_ix = 4u;
 
 		// useful for everyone
-		static inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createDescriptorSetLayout(video::ILogicalDevice* device, asset::ISpecializedShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
+		template<typename BindingType>
+		static inline void fillDescriptorLayoutBindings(BindingType* bindings, asset::IShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
 		{
-			video::IGPUDescriptorSetLayout::SBinding bindings[property_pool_t::PropertyCount];
 			for (auto i=0u; i<property_pool_t::PropertyCount; i++)
 			{
 				bindings[i].binding = i;
 				bindings[i].type = asset::E_DESCRIPTOR_TYPE::EDT_STORAGE_BUFFER;
 				bindings[i].count = 1u;
-				bindings[i].stageFlags = stageAccessFlags ? stageAccessFlags[i]:asset::ISpecializedShader::ESS_ALL;
+				bindings[i].stageFlags = stageAccessFlags ? stageAccessFlags[i]:asset::IShader::ESS_ALL;
 				bindings[i].samplers = nullptr;
 			}
+		}
+		static inline core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> createDescriptorSetLayout(asset::IShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
+		{
+			asset::ICPUDescriptorSetLayout::SBinding bindings[property_pool_t::PropertyCount];
+			fillDescriptorLayoutBindings(bindings,stageAccessFlags);
+			return core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(bindings,bindings+property_pool_t::PropertyCount);
+		}
+		static inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createDescriptorSetLayout(video::ILogicalDevice* device, asset::IShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
+		{
+			video::IGPUDescriptorSetLayout::SBinding bindings[property_pool_t::PropertyCount];
+			fillDescriptorLayoutBindings(bindings,stageAccessFlags);
 			return device->createGPUDescriptorSetLayout(bindings,bindings+property_pool_t::PropertyCount);
 		}
 
@@ -82,7 +93,7 @@ class ITransformTree : public virtual core::IReferenceCounted
 			if (!layout)
 				return nullptr;
 
-			auto ds = device->createGPUDescriptorSet(dsp.get(),std::move(layout));
+			auto ds = device->createGPUDescriptorSet(dsp.get(), core::smart_refctd_ptr(layout));
 			if (!ds)
 				return nullptr;
 
@@ -100,20 +111,23 @@ class ITransformTree : public virtual core::IReferenceCounted
 			}
 			device->updateDescriptorSets(property_pool_t::PropertyCount,writes,0u,nullptr);
 
-			auto* tt = new ITransformTree(std::move(pool),std::move(ds));
-			return core::smart_refctd_ptr<ITransformTree>(tt,core::dont_grab);
+			auto* ttRaw = new ITransformTree(std::move(pool),std::move(ds));
+			return core::smart_refctd_ptr<ITransformTree>(ttRaw,core::dont_grab);
 		}
 		
 		//
-		inline const auto* getNodePropertyPool() const {return m_nodeStorage.get();}
+		inline const video::IPropertyPool* getNodePropertyPool() const {return m_nodeStorage.get();}
 
 		//
 		inline const auto* getNodePropertyDescriptorSet() const {return m_transformHierarchyDS.get();}
 
-		//
-		inline const asset::SBufferRange<video::IGPUBuffer>& getGlobalTransformationBufferRange() const
+		// nodes array must be initialized with invalid_node
+		inline bool allocateNodes(const core::SRange<ITransformTree::node_t>& outNodes)
 		{
-			return m_nodeStorage->getPropertyMemoryBlock(global_transform_prop_ix);
+			if (outNodes.size()>m_nodeStorage->getFree())
+				return false;
+
+			return m_nodeStorage->allocateProperties(outNodes.begin(),outNodes.end());
 		}
 
 		// This removes all nodes in the hierarchy, if you want to remove individual nodes, use `ITransformTreeManager::removeNodes`
@@ -124,42 +138,45 @@ class ITransformTree : public virtual core::IReferenceCounted
 
 		//
 		[[nodiscard]] inline bool copyGlobalTransforms(
-			video::CPropertyPoolHandler* pphandler, video::StreamingTransientDataBufferMT<>* const upIndexBuff, video::IGPUBuffer* dest, const uint64_t destOffset,
-			video::IGPUCommandBuffer* const cmdbuf, video::IGPUFence* const fence, const node_t* const nodesBegin, const node_t* const nodesEnd, system::logger_opt_ptr logger,
-			const std::chrono::high_resolution_clock::time_point maxWaitPoint=std::chrono::high_resolution_clock::now()+std::chrono::microseconds(500u))
+			video::CPropertyPoolHandler* pphandler, video::IGPUCommandBuffer* const cmdbuf, video::IGPUFence* const fence,
+			const asset::SBufferBinding<video::IGPUBuffer>& scratch, const asset::SBufferRange<video::IGPUBuffer>& nodes,
+			const asset::SBufferBinding<video::IGPUBuffer>& srcTransforms, system::logger_opt_ptr logger
+		)
 		{
 			video::CPropertyPoolHandler::TransferRequest request;
 			request.setFromPool(m_nodeStorage.get(),global_transform_prop_ix);
 			request.flags = video::CPropertyPoolHandler::TransferRequest::EF_NONE;
-			request.elementCount = nodesEnd - nodesBegin;
-			request.srcAddresses = nodesBegin;
-			request.dstAddresses = nullptr;
-			request.buffer = dest;
-			request.offset = destOffset;
-			return pphandler->transferProperties(upIndexBuff, nullptr, cmdbuf, fence, &request, &request + 1u, logger, maxWaitPoint).transferSuccess;
+			request.elementCount = nodes.size/sizeof(scene::ITransformTree::node_t);
+			request.srcAddressesOffset = 0u;
+			request.buffer = srcTransforms;
+			return pphandler->transferProperties(cmdbuf,fence,scratch,{nodes.offset,nodes.buffer},&request,&request+1u,logger);
 		}
 
 		//
-		[[nodiscard]] inline auto downloadGlobalTransforms(
-			video::CPropertyPoolHandler* pphandler, video::StreamingTransientDataBufferMT<>* const upIndexBuff, video::StreamingTransientDataBufferMT<>* const downBuff,
-			video::IGPUCommandBuffer* const cmdbuf, video::IGPUFence* const fence, const node_t* const nodesBegin, const node_t* const nodesEnd, system::logger_opt_ptr logger,
-			const std::chrono::high_resolution_clock::time_point maxWaitPoint=std::chrono::high_resolution_clock::now()+std::chrono::microseconds(500u))
+		[[nodiscard]] inline bool downloadGlobalTransforms(
+			video::CPropertyPoolHandler* pphandler, video::IGPUCommandBuffer* const cmdbuf, video::IGPUFence* const fence,
+			const asset::SBufferBinding<video::IGPUBuffer>& scratch, const asset::SBufferRange<video::IGPUBuffer>& nodes,
+			const asset::SBufferBinding<video::IGPUBuffer>& dstTransforms, system::logger_opt_ptr logger
+		)
 		{
 			video::CPropertyPoolHandler::TransferRequest request;
 			request.setFromPool(m_nodeStorage.get(),global_transform_prop_ix);
-			request.flags = video::CPropertyPoolHandler::TransferRequest::EF_NONE;
-			request.elementCount = nodesEnd-nodesBegin;
-			request.srcAddresses = nodesBegin;
-			request.dstAddresses = nullptr;
-			request.device2device = false;
-			request.source = nullptr;
-			return pphandler->transferProperties(upIndexBuff,downBuff,cmdbuf,fence,&request,&request+1u,logger,maxWaitPoint);
+			request.flags = video::CPropertyPoolHandler::TransferRequest::EF_DOWNLOAD;
+			request.elementCount = nodes.size/sizeof(scene::ITransformTree::node_t);
+			request.srcAddressesOffset = 0u;
+			request.buffer = dstTransforms;
+			return pphandler->transferProperties(cmdbuf,fence,scratch,{nodes.offset,nodes.buffer},&request,&request+1u,logger);
 		}
 
 	protected:
 		ITransformTree(core::smart_refctd_ptr<property_pool_t>&& _nodeStorage, core::smart_refctd_ptr<video::IGPUDescriptorSet>&& _transformHierarchyDS)
 			: m_nodeStorage(std::move(_nodeStorage)), m_transformHierarchyDS(std::move(_transformHierarchyDS))
 		{
+			m_nodeStorage->getPropertyMemoryBlock(parent_prop_ix).buffer->setObjectDebugName("ITransformTree::parent_t");
+			m_nodeStorage->getPropertyMemoryBlock(relative_transform_prop_ix).buffer->setObjectDebugName("ITransformTree::relative_transform_t");
+			m_nodeStorage->getPropertyMemoryBlock(modified_stamp_prop_ix).buffer->setObjectDebugName("ITransformTree::modified_stamp_t");
+			m_nodeStorage->getPropertyMemoryBlock(global_transform_prop_ix).buffer->setObjectDebugName("ITransformTree::global_transform_t");
+			m_nodeStorage->getPropertyMemoryBlock(recomputed_stamp_prop_ix).buffer->setObjectDebugName("ITransformTree::recomputed_stamp_t");
 		}
 		~ITransformTree()
 		{
@@ -168,7 +185,7 @@ class ITransformTree : public virtual core::IReferenceCounted
 
 		friend class ITransformTreeManager;
 		//
-		inline auto* getNodePropertyPool() { return m_nodeStorage.get(); }
+		inline video::IPropertyPool* getNodePropertyPool() { return m_nodeStorage.get(); }
 
 		core::smart_refctd_ptr<property_pool_t> m_nodeStorage;
 		core::smart_refctd_ptr<video::IGPUDescriptorSet> m_transformHierarchyDS;

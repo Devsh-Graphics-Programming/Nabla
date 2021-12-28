@@ -38,7 +38,6 @@ class ICPUSpecializedShader : public IAsset, public ISpecializedShader
 			size_t estimate = m_specInfo.entryPoint.size()+sizeof(uint32_t);
 			if (m_specInfo.getEntries())
 				estimate += sizeof(void*)+sizeof(SInfo::SMapEntry)*m_specInfo.getEntries()->size();
-			estimate += m_specInfo.m_filePathHint.native().size();
 			return estimate;
 		}
 
@@ -75,7 +74,7 @@ class ICPUSpecializedShader : public IAsset, public ISpecializedShader
 				m_specInfo.setEntries(nullptr,core::smart_refctd_ptr<ICPUBuffer>(m_specInfo.getBackingBuffer()));
 		}
 
-		inline E_SHADER_STAGE getStage() const { return m_specInfo.shaderStage; }
+		inline IShader::E_SHADER_STAGE getStage() const { return m_unspecialized->getStage(); }
 
 		inline void setSpecializationInfo(SInfo&& specInfo) 
 		{
@@ -96,10 +95,6 @@ class ICPUSpecializedShader : public IAsset, public ISpecializedShader
 		{
 			auto* other = static_cast<const ICPUSpecializedShader*>(_other);
 			if (m_specInfo.entryPoint != other->m_specInfo.entryPoint)
-				return false;
-			//if (m_specInfo.m_filePathHint != other->m_specInfo.m_filePathHint)
-			//	return false;
-			if (m_specInfo.shaderStage != other->m_specInfo.shaderStage)
 				return false;
 			if (!m_unspecialized->canBeRestoredFrom(other->m_unspecialized.get()))
 				return false;

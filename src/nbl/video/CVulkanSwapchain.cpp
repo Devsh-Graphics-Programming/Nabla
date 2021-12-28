@@ -9,39 +9,30 @@ namespace nbl::video
 
 CVulkanSwapchain::~CVulkanSwapchain()
 {
-    const auto originDevice = getOriginDevice();
-
-    if (originDevice->getAPIType() == EAT_VULKAN)
-    {
-        // auto* vk = m_vkdev->getFunctionTable();
-        VkDevice vk_device = static_cast<const CVulkanLogicalDevice*>(originDevice)->getInternalObject();
-        // vk->vk.vkDestroySwapchainKHR(m_device->getInternalObject(), m_swapchain, nullptr);
-        vkDestroySwapchainKHR(vk_device, m_vkSwapchainKHR, nullptr);
-    }
+    const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
+    auto* vk = vulkanDevice->getFunctionTable();
+    vk->vk.vkDestroySwapchainKHR(vulkanDevice->getInternalObject(), m_vkSwapchainKHR, nullptr);
 }
 
 auto CVulkanSwapchain::acquireNextImage(uint64_t timeout, IGPUSemaphore* semaphore, IGPUFence* fence, uint32_t* out_imgIx) -> E_ACQUIRE_IMAGE_RESULT
 {
-    // VkDevice dev = m_device->getInternalObject();
-    // auto* vk = m_device->getFunctionTable();
-
     const auto originDevice = getOriginDevice();
     if (originDevice->getAPIType() != EAT_VULKAN)
         return EAIR_ERROR;
 
-    VkDevice vk_device = static_cast<const CVulkanLogicalDevice*>(originDevice)->getInternalObject();
+    const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(originDevice);
+    VkDevice vk_device = vulkanDevice->getInternalObject();
+    auto* vk = vulkanDevice->getFunctionTable();
 
     VkSemaphore vk_semaphore = VK_NULL_HANDLE;
     if (semaphore && semaphore->getAPIType() == EAT_VULKAN)
-        vk_semaphore = static_cast<CVulkanSemaphore*>(semaphore)->getInternalObject();
+        vk_semaphore = static_cast<const CVulkanSemaphore*>(semaphore)->getInternalObject();
 
     VkFence vk_fence = VK_NULL_HANDLE;
     if (fence && fence->getAPIType() == EAT_VULKAN)
-        vk_fence = static_cast<CVulkanFence*>(fence)->getInternalObject();
+        vk_fence = static_cast<const CVulkanFence*>(fence)->getInternalObject();
 
-    // VkResult result = vk->vk.vkAcquireNextImageKHR(dev, m_swapchain, timeout, 0, 0, out_imgIx);
-    VkResult result = vkAcquireNextImageKHR(vk_device, m_vkSwapchainKHR, timeout,
-        vk_semaphore, vk_fence, out_imgIx);
+    VkResult result = vk->vk.vkAcquireNextImageKHR(vk_device, m_vkSwapchainKHR, timeout, vk_semaphore, vk_fence, out_imgIx);
 
     switch (result)
     {
@@ -58,4 +49,17 @@ auto CVulkanSwapchain::acquireNextImage(uint64_t timeout, IGPUSemaphore* semapho
     }
 }
 
+void CVulkanSwapchain::setObjectDebugName(const char* label) const
+{
+    IBackendObject::setObjectDebugName(label);
+
+	if(vkSetDebugUtilsObjectNameEXT == 0) return;
+
+    const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
+	VkDebugUtilsObjectNameInfoEXT nameInfo = {VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT, nullptr};
+	nameInfo.objectType = VK_OBJECT_TYPE_SWAPCHAIN_KHR;
+	nameInfo.objectHandle = reinterpret_cast<uint64_t>(getInternalObject());
+	nameInfo.pObjectName = getObjectDebugName();
+	vkSetDebugUtilsObjectNameEXT(vulkanDevice->getInternalObject(), &nameInfo);
+}
 }

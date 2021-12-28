@@ -21,6 +21,8 @@ public:
     ~CVulkanComputePipeline();
 
     inline VkPipeline getInternalObject() const { return m_pipeline; }
+    
+    void setObjectDebugName(const char* label) const override;
 
 private:
     VkPipeline m_pipeline;

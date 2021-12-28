@@ -67,14 +67,19 @@ class CSurfaceGLImpl : public Base<Window>
 
         bool getSurfaceCapabilitiesForPhysicalDevice(const IPhysicalDevice* physicalDevice, ISurface::SCapabilities& capabilities) const override
         {
-            // Todo(achal): Fill it properly
             capabilities.minImageCount = 2u;
-            capabilities.maxImageCount = 8u;
+            capabilities.maxImageCount = ~0u;
             capabilities.currentExtent = { this->getWidth(), this->getHeight() };
             capabilities.minImageExtent = { 1u, 1u };
-            capabilities.maxImageExtent = { this->getWidth(), this->getHeight() };
-            capabilities.maxImageArrayLayers = 1u;
-            capabilities.supportedUsageFlags = static_cast<asset::IImage::E_USAGE_FLAGS>(0u);
+            capabilities.maxImageExtent = { static_cast<uint32_t>(physicalDevice->getLimits().maxTextureSize), static_cast<uint32_t>(physicalDevice->getLimits().maxTextureSize) };
+            capabilities.maxImageArrayLayers = physicalDevice->getLimits().maxImageArrayLayers;
+            capabilities.supportedTransforms = ISurface::EST_IDENTITY_BIT;
+            capabilities.currentTransform = ISurface::EST_IDENTITY_BIT;
+            capabilities.supportedCompositeAlpha = static_cast<ISurface::E_COMPOSITE_ALPHA>(ISurface::ECA_OPAQUE_BIT | ISurface::ECA_PRE_MULTIPLIED_BIT | ISurface::ECA_POST_MULTIPLIED_BIT);
+            capabilities.supportedUsageFlags = static_cast<asset::IImage::E_USAGE_FLAGS>(
+                asset::IImage::EUF_TRANSFER_SRC_BIT | asset::IImage::EUF_TRANSFER_DST_BIT |
+                asset::IImage::EUF_SAMPLED_BIT | asset::IImage::EUF_STORAGE_BIT |
+                asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_DEPTH_STENCIL_ATTACHMENT_BIT);
 
             return true;
         }
@@ -89,6 +94,7 @@ template <typename Window, typename CRTP>
 using CSurfaceNativeGL = CSurfaceGLImpl<Window, CSurfaceNative, CRTP>;
 
 // TODO: conditional defines
+#ifdef _NBL_PLATFORM_WINDOWS_
 using CSurfaceGLWin32 = CSurfaceGL<ui::IWindowWin32>;
 class CSurfaceNativeGLWin32 : public CSurfaceNativeGL<ui::IWindowWin32, CSurfaceNativeGLWin32>
 {
@@ -109,6 +115,12 @@ protected:
         return wr.top - wr.bottom;
     }
 };
+#elif defined(_NBL_PLATFORM_LINUX_)
+using CSurfaceGLX11 = CSurfaceGL<ui::IWindowX11>;
+#elif defined(_NBL_PLATFORM_ANDROID_)
+using CSurfaceGLAndroid = CSurfaceGL<ui::IWindowAndroid>;
+#endif
+
 
 //using CSurfaceGLAndroid = CSurfaceGL<ui::IWindowAndroid>;
 //using CSurfaceGLX11 = CSurfaceGL<ui::IWindowX11>;

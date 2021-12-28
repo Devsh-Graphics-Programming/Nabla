@@ -52,6 +52,7 @@ class CGeometryCreator : public IGeometryCreator
 			float pos[3];
 			uint8_t color[4];
 			uint8_t uv[2];
+			uint8_t dummy[2];
 			float normal[3];
 		} PACK_STRUCT;
 

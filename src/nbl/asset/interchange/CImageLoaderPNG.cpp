@@ -48,7 +48,7 @@ static void png_cpexcept_error(png_structp png_ptr, png_const_charp msg)
 static void png_cpexcept_warn(png_structp png_ptr, png_const_charp msg)
 {
 	auto ctx = (CImageLoaderPng::SContext*)png_get_user_chunk_ptr(png_ptr);
-	ctx->logger.log("PNG warning %s", system::ILogger::ELL_WARNING, msg);
+	ctx->logger.log("PNG warning", system::ILogger::ELL_WARNING); // png loader prints stuff that android fails to process 
 }
 
 // PNG function for file reading
@@ -277,7 +277,7 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(system::IFile* _file, const asset
 
     auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(1u);
     ICPUImage::SBufferCopy& region = regions->front();
-    //region.imageSubresource.aspectMask = ...; //waits for Vulkan
+    region.imageSubresource.aspectMask = IImage::E_ASPECT_FLAGS::EAF_COLOR_BIT;
     region.imageSubresource.mipLevel = 0u;
     region.imageSubresource.baseArrayLayer = 0u;
     region.imageSubresource.layerCount = 1u;

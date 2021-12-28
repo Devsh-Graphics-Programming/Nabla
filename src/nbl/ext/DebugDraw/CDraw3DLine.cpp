@@ -20,18 +20,18 @@ CDraw3DLine::CDraw3DLine(const core::smart_refctd_ptr<video::ILogicalDevice>& de
 		asset::SPushConstantRange range;
 		range.offset = 0u;
 		range.size = sizeof(core::matrix4SIMD);
-		range.stageFlags = asset::ISpecializedShader::ESS_VERTEX;
+		range.stageFlags = asset::IShader::ESS_VERTEX;
 		layout = device->createGPUPipelineLayout(&range, &range + 1);
 	}
 	assert(layout);
 	{
 
-		auto vs_unspec = m_device->createGPUShader(core::make_smart_refctd_ptr<asset::ICPUShader>(Draw3DLineVertexShader));
-		auto fs_unspec = m_device->createGPUShader(core::make_smart_refctd_ptr<asset::ICPUShader>(Draw3DLineFragmentShader));
+		auto vs_unspec = m_device->createGPUShader(core::make_smart_refctd_ptr<asset::ICPUShader>(Draw3DLineVertexShader, asset::IShader::ESS_VERTEX, "vs"));
+		auto fs_unspec = m_device->createGPUShader(core::make_smart_refctd_ptr<asset::ICPUShader>(Draw3DLineFragmentShader, asset::IShader::ESS_FRAGMENT, "fs"));
 
-		asset::ISpecializedShader::SInfo vsinfo(nullptr, nullptr, "main", asset::ISpecializedShader::ESS_VERTEX, "vs");
+		asset::ISpecializedShader::SInfo vsinfo(nullptr, nullptr, "main");
 		auto vs = m_device->createGPUSpecializedShader(vs_unspec.get(), vsinfo);
-		asset::ISpecializedShader::SInfo fsinfo(nullptr, nullptr, "main", asset::ISpecializedShader::ESS_FRAGMENT, "fs");
+		asset::ISpecializedShader::SInfo fsinfo(nullptr, nullptr, "main");
 		auto fs = m_device->createGPUSpecializedShader(fs_unspec.get(), fsinfo);
 
 		video::IGPUSpecializedShader* shaders[2]{ vs.get(), fs.get() };
@@ -59,9 +59,13 @@ CDraw3DLine::CDraw3DLine(const core::smart_refctd_ptr<video::ILogicalDevice>& de
 		asset::SPrimitiveAssemblyParams primitive;
 		primitive.primitiveType = asset::EPT_LINE_LIST;
 
-		asset::SBlendParams blend;
+		asset::SBlendParams blendParams;
+		blendParams.logicOpEnable = false;
+		blendParams.logicOp = nbl::asset::ELO_NO_OP;
+		for (size_t i = 0ull; i < nbl::asset::SBlendParams::MAX_COLOR_ATTACHMENT_COUNT; i++)
+			blendParams.blendParams[i].attachmentEnabled = (i == 0ull);
 
-		m_rpindependent_pipeline = m_device->createGPURenderpassIndependentPipeline(nullptr, core::smart_refctd_ptr(layout), shaders, shaders + 2, vtxinput, blend, primitive, raster);
+		m_rpindependent_pipeline = m_device->createGPURenderpassIndependentPipeline(nullptr, core::smart_refctd_ptr(layout), shaders, shaders + 2, vtxinput, blendParams, primitive, raster);
 		assert(m_rpindependent_pipeline);
 	}
 
@@ -73,7 +77,7 @@ void CDraw3DLine::recordToCommandBuffer(video::IGPUCommandBuffer* cmdBuffer, vid
 	assert(cb->getState() == IGPUCommandBuffer::ES_RECORDING);
 	size_t offset = 0u;
 	cb->bindVertexBuffers(0u, 1u, const_cast<const video::IGPUBuffer**>(&m_linesBuffer.get()), &offset);
-	cb->pushConstants(const_cast<nbl::video::IGPUPipelineLayout*>(m_rpindependent_pipeline->getLayout()), asset::ISpecializedShader::ESS_VERTEX, 0, sizeof(m_viewProj), &m_viewProj);
+	cb->pushConstants(const_cast<nbl::video::IGPUPipelineLayout*>(m_rpindependent_pipeline->getLayout()), asset::IShader::ESS_VERTEX, 0, sizeof(m_viewProj), &m_viewProj);
 	cb->bindGraphicsPipeline(graphics_pipeline);
 	cb->draw(m_lines.size() * 2, 1u, 0u, 0u);
 }
@@ -85,25 +89,25 @@ void CDraw3DLine::updateVertexBuffer(IUtilities* utilities, IGPUQueue* queue, co
 	if (buffSize < minimalBuffSize)
 	{
 		IGPUBuffer::SCreationParams creationParams;
-		creationParams.size = minimalBuffSize;
-		creationParams.usage = asset::IBuffer::E_USAGE_FLAGS::EUF_VERTEX_BUFFER_BIT;
-		creationParams.sharingMode = asset::E_SHARING_MODE::ESM_CONCURRENT;
+		creationParams.usage = static_cast<asset::IBuffer::E_USAGE_FLAGS>(asset::IBuffer::EUF_VERTEX_BUFFER_BIT | asset::IBuffer::EUF_TRANSFER_DST_BIT);
+		creationParams.sharingMode = asset::E_SHARING_MODE::ESM_EXCLUSIVE;
 		creationParams.queueFamilyIndices = 0u;
 		creationParams.queueFamilyIndices = nullptr;
 
-		m_linesBuffer = m_device->createDeviceLocalGPUBufferOnDedMem(creationParams);
+		m_linesBuffer = m_device->createDeviceLocalGPUBufferOnDedMem(creationParams, minimalBuffSize);
 	}
 	SBufferRange<IGPUBuffer> range;
 	range.buffer = m_linesBuffer;
 	range.offset = 0;
 	range.size = minimalBuffSize;
+	
 	if (!fence)
 	{
 		utilities->updateBufferRangeViaStagingBuffer(queue, range, m_lines.data());
 	}
 	else
 	{
-		*fence = m_device->createFence(IGPUFence::ECF_SIGNALED_BIT);
+		*fence = m_device->createFence(video::IGPUFence::ECF_UNSIGNALED);
 		utilities->updateBufferRangeViaStagingBuffer(fence->get(), queue, range, m_lines.data());
 	}
 }

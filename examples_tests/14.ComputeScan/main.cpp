@@ -14,27 +14,29 @@ using namespace asset;
 
 int main()
 {
-	auto initOutput = CommonAPI::Init(video::EAT_OPENGL,"Subgroup Arithmetic Test");
+	CommonAPI::SFeatureRequest<video::IAPIConnection::E_FEATURE> requiredInstanceFeatures = {};
+	CommonAPI::SFeatureRequest<video::IAPIConnection::E_FEATURE> optionalInstanceFeatures = {};
+	CommonAPI::SFeatureRequest<video::ILogicalDevice::E_FEATURE> requiredDeviceFeatures = {};
+	CommonAPI::SFeatureRequest< video::ILogicalDevice::E_FEATURE> optionalDeviceFeatures = {};
+
+	auto initOutput = CommonAPI::Init(video::EAT_OPENGL, "Subgroup Arithmetic Test", requiredInstanceFeatures, optionalInstanceFeatures, requiredDeviceFeatures, optionalDeviceFeatures);
 	auto system = std::move(initOutput.system);
-    auto gl = std::move(initOutput.apiConnection);
-    auto logger = std::move(initOutput.logger);
-    auto gpuPhysicalDevice = std::move(initOutput.physicalDevice);
-    auto logicalDevice = std::move(initOutput.logicalDevice);
-    auto queues = std::move(initOutput.queues);
-    auto renderpass = std::move(initOutput.renderpass);
-    auto commandPool = std::move(initOutput.commandPool);
-    auto assetManager = std::move(initOutput.assetManager);
-    auto cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
-    auto utilities = std::move(initOutput.utilities);
+	auto gl = std::move(initOutput.apiConnection);
+	auto logger = std::move(initOutput.logger);
+	auto gpuPhysicalDevice = std::move(initOutput.physicalDevice);
+	auto logicalDevice = std::move(initOutput.logicalDevice);
+	auto queues = std::move(initOutput.queues);
+	auto renderpass = std::move(initOutput.renderpass);
+	auto computeCommandPool = std::move(initOutput.commandPools[CommonAPI::InitOutput::EQT_COMPUTE]);
+	auto commandPool = computeCommandPool;
+	auto assetManager = std::move(initOutput.assetManager);
+	auto cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
+	auto utilities = std::move(initOutput.utilities);
 
-    core::smart_refctd_ptr<IGPUFence> gpuTransferFence = nullptr;
-    core::smart_refctd_ptr<IGPUFence> gpuComputeFence = nullptr;
+	core::smart_refctd_ptr<IGPUFence> gpuTransferFence = nullptr;
+	core::smart_refctd_ptr<IGPUFence> gpuComputeFence = nullptr;
 
-    nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
-    {
-        cpu2gpuParams.perQueue[IGPUObjectFromAssetConverter::EQU_TRANSFER].fence = &gpuTransferFence;
-        cpu2gpuParams.perQueue[IGPUObjectFromAssetConverter::EQU_COMPUTE].fence = &gpuComputeFence;
-    }
+	nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
 
 	// Create (an almost) 128MB input buffer
 	constexpr auto in_size = 128u<<20u;
@@ -63,17 +65,18 @@ int main()
 	in_gpu_range.size = elementCount*sizeof(uint32_t);
 	in_gpu_range.buffer = utilities->createFilledDeviceLocalGPUBufferOnDedMem(queues[decltype(initOutput)::EQT_TRANSFER_UP],in_count*sizeof(uint32_t),in);
 	
+	const auto scanType = video::CScanner::EST_EXCLUSIVE;
 	auto scanner = utilities->getDefaultScanner();
-	auto scan_pipeline = scanner->getDefaultPipeline(CScanner::EDT_UINT,CScanner::EO_ADD);
+	auto scan_pipeline = scanner->getDefaultPipeline(scanType,CScanner::EDT_UINT,CScanner::EO_ADD);
 
-	CScanner::Parameters scan_push_constants;
+	CScanner::DefaultPushConstants scan_push_constants;
 	CScanner::DispatchInfo scan_dispatch_info;
 	scanner->buildParameters(elementCount,scan_push_constants,scan_dispatch_info);
 	
 	SBufferRange<IGPUBuffer> scratch_gpu_range;
 	{
 		scratch_gpu_range.offset = 0u;
-		scratch_gpu_range.size = scan_push_constants.getScratchSize();
+		scratch_gpu_range.size = scan_push_constants.scanParams.getScratchSize();
 		IGPUBuffer::SCreationParams params = {};
 		params.usage = IGPUBuffer::EUF_STORAGE_BUFFER_BIT;
 		scratch_gpu_range.buffer = logicalDevice->createDeviceLocalGPUBufferOnDedMem(params,scratch_gpu_range.size);
@@ -84,7 +87,7 @@ int main()
 	auto ds = logicalDevice->createGPUDescriptorSet(dsPool.get(),core::smart_refctd_ptr<IGPUDescriptorSetLayout>(dsLayout));
 	scanner->updateDescriptorSet(ds.get(),in_gpu_range,scratch_gpu_range);
 
-	constexpr auto BenchmarkingRuns = 128u;
+	constexpr auto BenchmarkingRuns = 1u;
 	auto computeQueue = queues[decltype(initOutput)::EQT_COMPUTE];
 	core::smart_refctd_ptr<IGPUFence> lastFence;
 	// TODO: timestamp queries
@@ -129,10 +132,22 @@ int main()
 		logger->log("CPU scan begin",system::ILogger::ELL_PERFORMANCE);
 
 		auto start = std::chrono::high_resolution_clock::now();
-		std::exclusive_scan(cpu_begin,in+end,cpu_begin,0u);
+		switch (scanType)
+		{
+			case video::CScanner::EST_INCLUSIVE:
+				std::inclusive_scan(cpu_begin,in+end,cpu_begin);
+				break;
+			case video::CScanner::EST_EXCLUSIVE:
+				std::exclusive_scan(cpu_begin,in+end,cpu_begin,0u);
+				break;
+			default:
+				assert(false);
+				exit(0xdeadbeefu);
+				break;
+		}
 		auto stop = std::chrono::high_resolution_clock::now();
 
-		logger->log("CPU sort end. Time taken: %d us",system::ILogger::ELL_PERFORMANCE,std::chrono::duration_cast<std::chrono::microseconds>(stop-start).count());
+		logger->log("CPU scan end. Time taken: %d us",system::ILogger::ELL_PERFORMANCE,std::chrono::duration_cast<std::chrono::microseconds>(stop-start).count());
 	}
 	
 	// wait for the gpu impl to complete

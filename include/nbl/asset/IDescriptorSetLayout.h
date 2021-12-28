@@ -86,7 +86,7 @@ class IDescriptorSetLayout : public virtual core::IReferenceCounted
 			uint32_t binding;
 			E_DESCRIPTOR_TYPE type;
 			uint32_t count;
-			ISpecializedShader::E_SHADER_STAGE stageFlags;
+			IShader::E_SHADER_STAGE stageFlags;
 			const core::smart_refctd_ptr<sampler_type>* samplers;
 
 			bool operator<(const SBinding& rhs) const

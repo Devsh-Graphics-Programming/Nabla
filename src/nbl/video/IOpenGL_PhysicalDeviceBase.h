@@ -21,7 +21,7 @@ namespace nbl::video
 template <typename LogicalDeviceType>
 class IOpenGL_PhysicalDeviceBase : public IPhysicalDevice
 {
-    using function_table_t = LogicalDeviceType::FunctionTableType;
+    using function_table_t = typename LogicalDeviceType::FunctionTableType;
     static inline constexpr EGLint EGL_API_TYPE = function_table_t::EGL_API_TYPE;
     static inline constexpr bool IsGLES = (EGL_API_TYPE == EGL_OPENGL_ES_API);
 
@@ -318,7 +318,6 @@ public:
 		GetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 1, m_glfeatures.MaxComputeWGSize + 1);
 		GetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 2, m_glfeatures.MaxComputeWGSize + 2);
 
-
 		GetIntegerv(GL_MAX_ARRAY_TEXTURE_LAYERS, &num);
 		m_glfeatures.MaxArrayTextureLayers = num;
 		
@@ -357,6 +356,7 @@ public:
 		GetIntegerv(GL_MAX_DRAW_BUFFERS, &num);
 		m_glfeatures.MaxMultipleRenderTargets = static_cast<uint8_t>(num);
 
+		// TODO: move this to IPhysicalDevice::SFeatures
 		const bool runningInRenderDoc = (m_rdoc_api != nullptr);
 		m_glfeatures.runningInRenderDoc = runningInRenderDoc;
 
@@ -370,7 +370,7 @@ public:
 			m_features.multiDrawIndirect = IsGLES ? m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_multi_draw_indirect) : true;
 			m_features.drawIndirectCount = IsGLES ? false : (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_indirect_parameters) || m_glfeatures.Version >= 460u);
 
-			// TODO: handle ARB, EXT, NVidia and AMD extensions which can be used to spoof
+			// TODO: @achal handle ARB, EXT, NVidia and AMD extensions which can be used to spoof
 			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_KHR_shader_subgroup))
 			{
 				GLboolean subgroupQuadAllStages = GL_FALSE;
@@ -388,6 +388,14 @@ public:
 				m_features.shaderSubgroupShuffleRelative = (subgroup & GL_SUBGROUP_FEATURE_SHUFFLE_RELATIVE_BIT_KHR);
 				m_features.shaderSubgroupClustered = (subgroup & GL_SUBGROUP_FEATURE_CLUSTERED_BIT_KHR);
 				m_features.shaderSubgroupQuad = (subgroup & GL_SUBGROUP_FEATURE_QUAD_BIT_KHR);
+			}
+
+			if(m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_fragment_shader_interlock))
+			{
+				// Can't check individualy (???)
+				m_features.fragmentShaderPixelInterlock = true;
+				m_features.fragmentShaderSampleInterlock = true;
+				m_features.fragmentShaderShadingRateInterlock = true;
 			}
 		}
 
@@ -421,6 +429,7 @@ public:
 			m_limits.maxUBOs = m_glfeatures.maxUBOBindings;
 			m_limits.maxTextures = m_glfeatures.maxTextureBindings;
 			m_limits.maxStorageImages = m_glfeatures.maxImageBindings;
+			GetInteger64v(GL_MAX_TEXTURE_SIZE, reinterpret_cast<GLint64*>(&m_limits.maxTextureSize));
 
 			GetFloatv(GL_POINT_SIZE_RANGE, m_limits.pointSizeRange);
 			GetFloatv(GL_ALIASED_LINE_WIDTH_RANGE, m_limits.lineWidthRange);
@@ -440,10 +449,19 @@ public:
 			m_limits.maxWorkgroupSize[1] = m_glfeatures.MaxComputeWGSize[1];
 			m_limits.maxWorkgroupSize[2] = m_glfeatures.MaxComputeWGSize[2];
 
+			// TODO: get this from OpenCL interop, or just a GPU Device & Vendor ID table
+			GetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS,reinterpret_cast<int32_t*>(&m_limits.maxOptimallyResidentWorkgroupInvocations));
+			m_limits.maxOptimallyResidentWorkgroupInvocations = core::min(core::roundDownToPoT(m_limits.maxOptimallyResidentWorkgroupInvocations),512u);
+			constexpr auto beefyGPUWorkgroupMaxOccupancy = 256u; // TODO: find a way to query and report this somehow, persistent threads are very useful!
+			m_limits.maxResidentInvocations = beefyGPUWorkgroupMaxOccupancy*m_limits.maxOptimallyResidentWorkgroupInvocations;
+
+			// TODO: better subgroup exposal
 			m_limits.subgroupSize = 0u;
-			m_limits.subgroupOpsShaderStages = static_cast<asset::ISpecializedShader::E_SHADER_STAGE>(0u);
+			m_limits.subgroupOpsShaderStages = static_cast<asset::IShader::E_SHADER_STAGE>(0u);
 			
 			m_limits.nonCoherentAtomSize = 256ull;
+
+			m_limits.spirvVersion = asset::IGLSLCompiler::ESV_1_5;
 
 			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_KHR_shader_subgroup))
 			{
@@ -453,20 +471,36 @@ public:
 				GLint subgroupOpsStages = 0;
 				GetIntegerv(GL_SUBGROUP_SUPPORTED_STAGES_KHR, &subgroupOpsStages);
 				if (subgroupOpsStages & GL_VERTEX_SHADER_BIT)
-					m_limits.subgroupOpsShaderStages |= asset::ISpecializedShader::ESS_VERTEX;
+					m_limits.subgroupOpsShaderStages |= asset::IShader::ESS_VERTEX;
 				if (subgroupOpsStages & GL_TESS_CONTROL_SHADER_BIT)
-					m_limits.subgroupOpsShaderStages |= asset::ISpecializedShader::ESS_TESSELATION_CONTROL;
+					m_limits.subgroupOpsShaderStages |= asset::IShader::ESS_TESSELATION_CONTROL;
 				if (subgroupOpsStages & GL_TESS_EVALUATION_SHADER_BIT)
-					m_limits.subgroupOpsShaderStages |= asset::ISpecializedShader::ESS_TESSELATION_EVALUATION;
+					m_limits.subgroupOpsShaderStages |= asset::IShader::ESS_TESSELATION_EVALUATION;
 				if (subgroupOpsStages & GL_GEOMETRY_SHADER_BIT)
-					m_limits.subgroupOpsShaderStages |= asset::ISpecializedShader::ESS_GEOMETRY;
+					m_limits.subgroupOpsShaderStages |= asset::IShader::ESS_GEOMETRY;
 				if (subgroupOpsStages & GL_FRAGMENT_SHADER_BIT)
-					m_limits.subgroupOpsShaderStages |= asset::ISpecializedShader::ESS_FRAGMENT;
+					m_limits.subgroupOpsShaderStages |= asset::IShader::ESS_FRAGMENT;
 				if (subgroupOpsStages & GL_COMPUTE_SHADER_BIT)
-					m_limits.subgroupOpsShaderStages |= asset::ISpecializedShader::ESS_COMPUTE;
+					m_limits.subgroupOpsShaderStages |= asset::IShader::ESS_COMPUTE;
 			}
 		}
-
+		
+		std::ostringstream pool;
+        addCommonGLSLDefines(pool,runningInRenderDoc);
+		{
+			std::string define;
+			for (size_t j=0ull; j<std::extent<decltype(COpenGLFeatureMap::m_GLSLExtensions)>::value; ++j)
+			{
+				auto nativeGLExtension = COpenGLFeatureMap::m_GLSLExtensions[j];
+				if (m_glfeatures.isFeatureAvailable(nativeGLExtension))
+				{
+					define = "NBL_IMPL_";
+					define += COpenGLFeatureMap::OpenGLFeatureStrings[nativeGLExtension];
+					addGLSLDefineToPool(pool,define.c_str());
+				}
+			}
+		}
+        finalizeGLSLDefinePool(std::move(pool));
 
 		// we dont need this any more
 		m_egl.call.peglMakeCurrent(m_egl.display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);

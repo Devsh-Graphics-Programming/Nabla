@@ -13,16 +13,17 @@ class CVulkanMemoryAllocation;
 class CVulkanBuffer : public IGPUBuffer
 {
 public:
-    CVulkanBuffer(core::smart_refctd_ptr<ILogicalDevice>&& dev,
-        const IDriverMemoryBacked::SDriverMemoryRequirements& reqs, const bool canModifySubData, VkBuffer buffer)
-        : IGPUBuffer(std::move(dev), reqs), m_canModifySubData(canModifySubData), m_vkBuffer(buffer)
-    {}
+    CVulkanBuffer(
+        core::smart_refctd_ptr<ILogicalDevice>&& dev,
+        const IDriverMemoryBacked::SDriverMemoryRequirements& reqs,
+        const IGPUBuffer::SCachedCreationParams& cachedCreationParams, VkBuffer buffer
+    ) : IGPUBuffer(std::move(dev),reqs,cachedCreationParams), m_vkBuffer(buffer)
+    {
+    }
 
     ~CVulkanBuffer();
 
     inline VkBuffer getInternalObject() const { return m_vkBuffer; };
-
-    bool canUpdateSubRange() const override { return true; }
 
     IDriverMemoryAllocation* getBoundMemory() override
     {
@@ -44,12 +45,14 @@ public:
         m_memory = std::move(memory);
         m_memBindingOffset = memBindingOffset;
     }
+    
+    void setObjectDebugName(const char* label) const override;
 
 private:
     core::smart_refctd_ptr<IDriverMemoryAllocation> m_memory = nullptr;
     uint64_t m_memBindingOffset;
-    const bool m_canModifySubData;
     VkBuffer m_vkBuffer;
+    uint64_t m_bufferSize;
 };
 
 }

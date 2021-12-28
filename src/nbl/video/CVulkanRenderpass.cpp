@@ -7,10 +7,23 @@ namespace nbl::video
 
 CVulkanRenderpass::~CVulkanRenderpass()
 {
-    // auto* vk = m_vkdev->getFunctionTable();
-    VkDevice vk_device = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getInternalObject();
-    // vk->vk.vkDestroyRenderPass(vkdev, m_renderpass, nullptr);
-    vkDestroyRenderPass(vk_device, m_renderpass, nullptr);
+    const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
+    auto* vk = vulkanDevice->getFunctionTable();
+    vk->vk.vkDestroyRenderPass(vulkanDevice->getInternalObject(), m_renderpass, nullptr);
+}
+
+void CVulkanRenderpass::setObjectDebugName(const char* label) const
+{
+    IBackendObject::setObjectDebugName(label);
+
+	if(vkSetDebugUtilsObjectNameEXT == 0) return;
+
+    const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
+	VkDebugUtilsObjectNameInfoEXT nameInfo = {VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT, nullptr};
+	nameInfo.objectType = VK_OBJECT_TYPE_RENDER_PASS;
+	nameInfo.objectHandle = reinterpret_cast<uint64_t>(getInternalObject());
+	nameInfo.pObjectName = getObjectDebugName();
+	vkSetDebugUtilsObjectNameEXT(vulkanDevice->getInternalObject(), &nameInfo);
 }
 
 }

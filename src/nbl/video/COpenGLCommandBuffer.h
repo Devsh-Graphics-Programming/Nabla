@@ -378,7 +378,7 @@ namespace impl
         constexpr static inline uint32_t MAX_PUSH_CONSTANT_BYTESIZE = 128u;
 
         core::smart_refctd_ptr<const IGPUPipelineLayout> layout;
-        core::bitflag<asset::ISpecializedShader::E_SHADER_STAGE> stageFlags;
+        core::bitflag<asset::IShader::E_SHADER_STAGE> stageFlags;
         uint32_t offset;
         uint32_t size;
         uint8_t values[MAX_PUSH_CONSTANT_BYTESIZE];
@@ -1172,7 +1172,7 @@ public:
         pushCommand(std::move(cmd));
         return true;
     }
-    bool pushConstants(const pipeline_layout_t* layout, core::bitflag<asset::ISpecializedShader::E_SHADER_STAGE> stageFlags, uint32_t offset, uint32_t size, const void* pValues) override
+    bool pushConstants(const pipeline_layout_t* layout, core::bitflag<asset::IShader::E_SHADER_STAGE> stageFlags, uint32_t offset, uint32_t size, const void* pValues) override
     {
         SCmd<impl::ECT_PUSH_CONSTANTS> cmd;
         cmd.layout = core::smart_refctd_ptr<const pipeline_layout_t>(layout);
@@ -1256,15 +1256,7 @@ public:
     }
     bool updateBuffer(buffer_t* dstBuffer, size_t dstOffset, size_t dataSize, const void* pData) override
     {
-        if (!this->isCompatibleDevicewise(dstBuffer))
-            return false;
-        if ((dstOffset & 0x03ull) != 0ull)
-            return false;
-        if ((dataSize & 0x03ull) != 0ull)
-            return false;
-        if (dataSize > 65536ull)
-            return false;
-        if (!dstBuffer->canUpdateSubRange())
+        if (!IGPUCommandBuffer::validate_updateBuffer(dstBuffer,dstOffset,dataSize,pData))
             return false;
 
         SCmd<impl::ECT_UPDATE_BUFFER> cmd;

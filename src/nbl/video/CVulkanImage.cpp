@@ -9,11 +9,24 @@ CVulkanImage::~CVulkanImage()
 {
     if (m_vkImage != VK_NULL_HANDLE)
     {
-        // auto* vk = m_vkdevice->getFunctionTable();
-        // vk->vk.vkDestroyImage(vkdev, m_vkimg, nullptr);
-        VkDevice vk_device = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getInternalObject();
-        vkDestroyImage(vk_device, m_vkImage, nullptr);
+        const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
+        auto* vk = vulkanDevice->getFunctionTable();
+        vk->vk.vkDestroyImage(vulkanDevice->getInternalObject(), m_vkImage, nullptr);
     }
+}
+
+void CVulkanImage::setObjectDebugName(const char* label) const
+{
+    IBackendObject::setObjectDebugName(label);
+
+	if(vkSetDebugUtilsObjectNameEXT == 0) return;
+
+    const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
+	VkDebugUtilsObjectNameInfoEXT nameInfo = {VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT, nullptr};
+	nameInfo.objectType = VK_OBJECT_TYPE_IMAGE;
+	nameInfo.objectHandle = reinterpret_cast<uint64_t>(getInternalObject());
+	nameInfo.pObjectName = getObjectDebugName();
+	vkSetDebugUtilsObjectNameEXT(vulkanDevice->getInternalObject(), &nameInfo);
 }
 
 }

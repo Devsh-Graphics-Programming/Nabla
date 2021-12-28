@@ -7,11 +7,16 @@ namespace nbl::system
     core::smart_refctd_ptr<IFile> ISystemCaller::createFile(core::smart_refctd_ptr<ISystem>&& sys, const std::filesystem::path& filename, core::bitflag<IFile::E_CREATE_FLAGS> flags)
     {
         if (flags.value & IFile::ECF_READ)
-        {
+        {        
             auto a = sys->getFileFromArchive(filename);
             if (a.get() != nullptr) return a;
         }
-        return createFile_impl(std::move(sys), filename, flags);
+        system::path realname = filename;
+        if (std::filesystem::exists(filename))
+        {
+            realname = std::filesystem::absolute(filename).generic_string();
+        }
+        return createFile_impl(std::move(sys), realname, flags);
     }
     ISystem::ISystem(core::smart_refctd_ptr<ISystemCaller>&& caller) : m_dispatcher(this, std::move(caller))
     {
@@ -20,22 +25,19 @@ namespace nbl::system
     }
     core::smart_refctd_ptr<IFile> ISystem::getFileFromArchive(const system::path& _path)
     {
-        system::path path = std::filesystem::exists(_path) ? std::filesystem::canonical(_path.parent_path()).generic_string() : _path.parent_path();
+        system::path path = std::filesystem::exists(_path) ? system::path(std::filesystem::canonical(_path.parent_path()).generic_string()) : _path.parent_path();
 
         
         while (!path.empty() && path.parent_path() != path) // going up the directory tree
         {
-            system::path realPath = std::filesystem::exists(path) ? std::filesystem::canonical(path).generic_string() : path;
-            
-            auto a = m_cachedPathAliases.findRange(path);
-            if (!a.empty())
-                realPath = a.begin()->second;
-
+            system::path realPath = std::filesystem::exists(path) ? system::path(std::filesystem::canonical(path).generic_string()) : path;
             auto archives = m_cachedArchiveFiles.findRange(realPath);
+
             for (auto& archive : archives)
             {
-                auto absolute = std::filesystem::absolute(_path).generic_string();
+                realPath = archive.second->asFile()->getFileName();
                 auto relative = std::filesystem::relative(_path, path);
+                auto absolute = (realPath / relative).generic_string();
                 auto files = archive.second->getArchivedFiles();
                 // TODO: file list should be sorted by the path and you should be using a binary search !!!!!!
                 auto requiredFile = std::find_if(files.begin(), files.end(), [&relative](const IFileArchive::SFileListEntry& entry) { return entry.fullName == relative; });

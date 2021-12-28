@@ -42,17 +42,11 @@ struct SImageResolve
     asset::VkOffset3D dstOffset;
     asset::VkExtent3D extent;
 };
-struct SViewport
-{
-    float x, y;
-    float width, height;
-    float minDepth, maxDepth;
-};
 
 struct SMemoryBarrier
 {
-    asset::E_ACCESS_FLAGS srcAccessMask;
-    asset::E_ACCESS_FLAGS dstAccessMask;
+    core::bitflag<asset::E_ACCESS_FLAGS> srcAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0u);
+    core::bitflag<asset::E_ACCESS_FLAGS> dstAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0u);
 };
 
 union SClearColorValue
@@ -181,6 +175,14 @@ public:
         uint32_t imgBarrierCount;
         const SImageMemoryBarrier* imgBarriers;
     };
+    struct SInheritanceInfo
+    {
+        core::smart_refctd_ptr<const renderpass_t> renderpass;
+        uint32_t subpass;
+        core::smart_refctd_ptr<const framebuffer_t> framebuffer;
+        bool occlusionQueryEnable;
+        core::bitflag<asset::E_QUERY_CONTROL_FLAGS> queryFlags;
+    };
 
     E_STATE getState() const { return m_state; }
 
@@ -295,7 +297,7 @@ public:
     virtual bool bindDescriptorSets(E_PIPELINE_BIND_POINT pipelineBindPoint, const pipeline_layout_t* layout, uint32_t firstSet, uint32_t descriptorSetCount,
         const descriptor_set_t*const *const pDescriptorSets, core::smart_refctd_dynamic_array<uint32_t> dynamicOffsets = nullptr
     ) = 0;
-    virtual bool pushConstants(const pipeline_layout_t* layout, core::bitflag<asset::ISpecializedShader::E_SHADER_STAGE> stageFlags, uint32_t offset, uint32_t size, const void* pValues) = 0;
+    virtual bool pushConstants(const pipeline_layout_t* layout, core::bitflag<asset::IShader::E_SHADER_STAGE> stageFlags, uint32_t offset, uint32_t size, const void* pValues) = 0;
 
     virtual bool clearColorImage(image_t* image, asset::E_IMAGE_LAYOUT imageLayout, const SClearColorValue* pColor, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges) = 0;
     virtual bool clearDepthStencilImage(image_t* image, asset::E_IMAGE_LAYOUT imageLayout, const SClearDepthStencilValue* pDepthStencil, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges) = 0;

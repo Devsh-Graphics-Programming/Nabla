@@ -242,7 +242,7 @@ struct SOpenGLContextLocalCache
                 memcpy(reinterpret_cast<uint64_t*>(pushConstantsState<PBP>()->data) + toFill, &pattern, bytesLeft);
             //#endif
 
-            _stages |= IGPUSpecializedShader::ESS_ALL;
+            _stages |= IGPUShader::ESS_ALL;
         }
         pushConstantsState<PBP>()->incrementStamps(_stages);
 

@@ -30,25 +30,30 @@ CGraphicsPipelineLoaderMTL::CGraphicsPipelineLoaderMTL(IAssetManager* _am, core:
     IRenderpassIndependentPipelineLoader(_am), m_system(std::move(sys))
 {
     //create vertex shaders and insert them into cache
-    auto registerShader = [&](auto constexprStringType, ICPUSpecializedShader::E_SHADER_STAGE stage) -> void
+    auto registerShader = [&](auto constexprStringType, ICPUShader::E_SHADER_STAGE stage) -> void
     {
         auto data = m_assetMgr->getSystem()->loadBuiltinData<decltype(constexprStringType)>();
-        auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(data), asset::ICPUShader::buffer_contains_glsl);
+        auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(data->getSize());
+        memcpy(buffer->getPointer(), data->getMappedPointer(), data->getSize());
+        auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(
+            std::move(buffer),
+            asset::IShader::buffer_contains_glsl_t{},
+            stage,
+            stage != ICPUShader::ESS_VERTEX
+            ? "?IrrlichtBAW PipelineLoaderMTL FragmentShader?"
+            : "?IrrlichtBAW PipelineLoaderMTL VertexShader?");
         
-        ICPUSpecializedShader::SInfo specInfo(
-            {}, nullptr, "main", stage,
-            stage!=ICPUSpecializedShader::ESS_VERTEX ? "?IrrlichtBAW PipelineLoaderMTL FragmentShader?":"?IrrlichtBAW PipelineLoaderMTL VertexShader?"
-        );
+        ICPUSpecializedShader::SInfo specInfo({}, nullptr, "main");
 		auto shader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecializedShader),std::move(specInfo));
         const char* cacheKey = decltype(constexprStringType)::value;
         auto assetbundle = SAssetBundle(nullptr,{ core::smart_refctd_ptr_static_cast<IAsset>(std::move(shader)) });
         insertBuiltinAssetIntoCache(m_assetMgr, assetbundle, cacheKey);
     };
 
-    registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_NO_UV_CACHE_KEY){},ICPUSpecializedShader::ESS_VERTEX);
-    registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_UV_CACHE_KEY){}, ICPUSpecializedShader::ESS_VERTEX);
-    registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_NO_UV_CACHE_KEY){},ICPUSpecializedShader::ESS_FRAGMENT);
-    registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_UV_CACHE_KEY){},ICPUSpecializedShader::ESS_FRAGMENT);
+    registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_NO_UV_CACHE_KEY){},ICPUShader::ESS_VERTEX);
+    registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_UV_CACHE_KEY){}, ICPUShader::ESS_VERTEX);
+    registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_NO_UV_CACHE_KEY){},ICPUShader::ESS_FRAGMENT);
+    registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_UV_CACHE_KEY){},ICPUShader::ESS_FRAGMENT);
 }
 
 void CGraphicsPipelineLoaderMTL::initialize()
@@ -66,7 +71,7 @@ void CGraphicsPipelineLoaderMTL::initialize()
         // precompute the no UV pipeline layout
         {
             SPushConstantRange pcRng;
-            pcRng.stageFlags = ICPUSpecializedShader::ESS_FRAGMENT;
+            pcRng.stageFlags = ICPUShader::ESS_FRAGMENT;
             pcRng.offset = 0u;
             pcRng.size = sizeof(SMtl::params);
             //if intellisense shows error here, it's most likely intellisense's fault and it'll build fine anyway
@@ -235,7 +240,7 @@ core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> CGraphicsPipelineLoade
 
                     ICPUDescriptorSetLayout::SBinding bnd;
                     bnd.count = 1u;
-                    bnd.stageFlags = ICPUSpecializedShader::ESS_FRAGMENT;
+                    bnd.stageFlags = ICPUShader::ESS_FRAGMENT;
                     bnd.type = EDT_COMBINED_IMAGE_SAMPLER;
                     bnd.binding = 0u;
                     std::fill(bindings->begin(), bindings->end(), bnd);
@@ -662,6 +667,15 @@ CGraphicsPipelineLoaderMTL::image_views_set_t CGraphicsPipelineLoaderMTL::loadIm
         viewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
         viewParams.format = image->getCreationParameters().format;
         viewParams.viewType = viewType[isCubemap];
+        asset::IImage::E_ASPECT_FLAGS aspectFlags = asset::IImage::EAF_COLOR_BIT;
+        if (isDepthOrStencilFormat(viewParams.format) && !isDepthOnlyFormat(viewParams.format))
+        {
+            if (isStencilOnlyFormat(viewParams.format))
+                aspectFlags = asset::IImage::EAF_STENCIL_BIT;
+            else
+                aspectFlags = asset::IImage::EAF_DEPTH_BIT;
+        }
+        viewParams.subresourceRange.aspectMask = aspectFlags;
         viewParams.subresourceRange.baseArrayLayer = 0u;
         viewParams.subresourceRange.layerCount = layerCount[isCubemap];
         viewParams.subresourceRange.baseMipLevel = 0u;

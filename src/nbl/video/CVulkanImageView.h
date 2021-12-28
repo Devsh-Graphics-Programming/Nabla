@@ -23,6 +23,8 @@ public:
 
     inline VkImageView getInternalObject() const { return m_vkImageView; }
 
+    void setObjectDebugName(const char* label) const override;
+
 private:
     VkImageView m_vkImageView;
 };
