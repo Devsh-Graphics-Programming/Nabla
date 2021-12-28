@@ -45,7 +45,11 @@ public:
     using memory_pool_mt_t = core::CMemoryPool<core::PoolAddressAllocator<uint32_t>, core::default_aligned_allocator, true, uint32_t>;
 
     CVulkanLogicalDevice(core::smart_refctd_ptr<IAPIConnection>&& api, renderdoc_api_t* rdoc, IPhysicalDevice* physicalDevice, VkDevice vkdev, VkInstance vkinst, const SCreationParams& params)
-        : ILogicalDevice(std::move(api),physicalDevice,params), m_vkdev(vkdev), m_devf(vkdev)
+        : ILogicalDevice(std::move(api)
+        , physicalDevice,params)
+        , m_vkdev(vkdev)
+        , m_devf(vkdev)
+        , m_deferred_op_mempool(NODES_PER_BLOCK_DEFERRED_OP * sizeof(CVulkanDeferredOperation), 1u, MAX_BLOCK_COUNT_DEFERRED_OP, static_cast<uint32_t>(sizeof(CVulkanDeferredOperation)))
     {
         // create actual queue objects
         for (uint32_t i = 0u; i < params.queueParamsCount; ++i)
@@ -262,16 +266,11 @@ public:
             return IGPUFence::ES_ERROR;
         }
     }
-            
-    const core::smart_refctd_dynamic_array<std::string> getSupportedGLSLExtensions() const override
-    {
-        return nullptr;
-    }
-            
+              
     core::smart_refctd_ptr<IDeferredOperation> createDeferredOperation() override
     {
         VkDeferredOperationKHR vk_deferredOp = VK_NULL_HANDLE;
-        VkResult vk_res = vkCreateDeferredOperationKHR(m_vkdev, nullptr, &vk_deferredOp);
+        VkResult vk_res = m_devf.vk.vkCreateDeferredOperationKHR(m_vkdev, nullptr, &vk_deferredOp);
         if(vk_res!=VK_SUCCESS)
             return nullptr;
 
@@ -741,10 +740,10 @@ public:
         uint32_t bufferViewOffset = 0u;
         core::vector<VkBufferView> vk_bufferViews(descriptorWriteCount * MAX_DESCRIPTOR_ARRAY_COUNT);
 
-        VkWriteDescriptorSetAccelerationStructureKHR vk_writeDescriptorSetAS[MAX_DESCRIPTOR_WRITE_COUNT];
+        core::vector<VkWriteDescriptorSetAccelerationStructureKHR> vk_writeDescriptorSetAS(descriptorWriteCount);
         
         uint32_t accelerationStructuresOffset = 0u;
-        VkAccelerationStructureKHR vk_accelerationStructures[MAX_DESCRIPTOR_WRITE_COUNT * MAX_DESCRIPTOR_ARRAY_COUNT];
+        core::vector<VkAccelerationStructureKHR> vk_accelerationStructures(descriptorWriteCount * MAX_DESCRIPTOR_ARRAY_COUNT);
 
         for (uint32_t i = 0u; i < descriptorWriteCount; ++i)
         {
@@ -1006,8 +1005,6 @@ public:
 
     IGPUAccelerationStructure::BuildSizes getAccelerationStructureBuildSizes(const IGPUAccelerationStructure::DeviceBuildGeometryInfo& pBuildInfo, const uint32_t* pMaxPrimitiveCounts) override;
 
-    VkDevice getInternalObject() const { return m_vkdev; }
-        
     inline memory_pool_mt_t & getMemoryPoolForDeferredOperations() {
         return m_deferred_op_mempool;
     }
@@ -1654,10 +1651,10 @@ protected:
             assert(geomCount > 0);
             assert(geomCount <= MaxGeometryPerBuildInfoCount);
 
-            vk_buildGeomsInfo = CVulkanAccelerationStructure::getVkASBuildGeomInfoFromBuildGeomInfo(m_vkdev, pBuildInfo, vk_geometries);
+            vk_buildGeomsInfo = CVulkanAccelerationStructure::getVkASBuildGeomInfoFromBuildGeomInfo(m_vkdev, &m_devf, pBuildInfo, vk_geometries);
         }
 
-        vkGetAccelerationStructureBuildSizesKHR(m_vkdev, buildType, &vk_buildGeomsInfo, pMaxPrimitiveCounts, &vk_ret);
+        m_devf.vk.vkGetAccelerationStructureBuildSizesKHR(m_vkdev, buildType, &vk_buildGeomsInfo, pMaxPrimitiveCounts, &vk_ret);
 
         IGPUAccelerationStructure::BuildSizes ret = {};
         ret.accelerationStructureSize = vk_ret.accelerationStructureSize;

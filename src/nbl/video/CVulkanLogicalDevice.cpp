@@ -647,7 +647,7 @@ core::smart_refctd_ptr<IGPUAccelerationStructure> CVulkanLogicalDevice::createGP
     vasci.buffer = static_cast<const CVulkanBuffer*>(params.bufferRange.buffer.get())->getInternalObject();
     vasci.offset = static_cast<VkDeviceSize>(params.bufferRange.offset);
     vasci.size = static_cast<VkDeviceSize>(params.bufferRange.size);
-    auto vk_res = vkCreateAccelerationStructureKHR(m_vkdev, &vasci, nullptr, &vk_as);
+    auto vk_res = m_devf.vk.vkCreateAccelerationStructureKHR(m_vkdev, &vasci, nullptr, &vk_as);
     if(VK_SUCCESS != vk_res)
         return nullptr;
     return core::make_smart_refctd_ptr<CVulkanAccelerationStructure>(core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(params), vk_as);
@@ -690,13 +690,13 @@ bool CVulkanLogicalDevice::buildAccelerationStructures(
             assert(geomCount > 0);
             assert(geomCount <= MaxGeometryPerBuildInfoCount);
 
-            vk_buildGeomsInfos[i] = CVulkanAccelerationStructure::getVkASBuildGeomInfoFromBuildGeomInfo(m_vkdev, infos[i], &vk_geometries[geometryArrayOffset]);
+            vk_buildGeomsInfos[i] = CVulkanAccelerationStructure::getVkASBuildGeomInfoFromBuildGeomInfo(m_vkdev, &m_devf, infos[i], &vk_geometries[geometryArrayOffset]);
             geometryArrayOffset += geomCount; 
         }
                 
         static_assert(sizeof(IGPUAccelerationStructure::BuildRangeInfo) == sizeof(VkAccelerationStructureBuildRangeInfoKHR));
         auto buildRangeInfos = reinterpret_cast<const VkAccelerationStructureBuildRangeInfoKHR* const*>(ppBuildRangeInfos);
-        VkResult vk_res = vkBuildAccelerationStructuresKHR(m_vkdev, vk_deferredOp, infoCount, vk_buildGeomsInfos, buildRangeInfos);
+        VkResult vk_res = m_devf.vk.vkBuildAccelerationStructuresKHR(m_vkdev, vk_deferredOp, infoCount, vk_buildGeomsInfos, buildRangeInfos);
         if(VK_SUCCESS == vk_res)
         {
             ret = true;
@@ -725,8 +725,8 @@ bool CVulkanLogicalDevice::copyAccelerationStructure(core::smart_refctd_ptr<IDef
             return false;
         }
 
-        VkCopyAccelerationStructureInfoKHR info = CVulkanAccelerationStructure::getVkASCopyInfo(m_vkdev, copyInfo);
-        VkResult res = vkCopyAccelerationStructureKHR(m_vkdev, vk_deferredOp, &info);
+        VkCopyAccelerationStructureInfoKHR info = CVulkanAccelerationStructure::getVkASCopyInfo(m_vkdev, &m_devf, copyInfo);
+        VkResult res = m_devf.vk.vkCopyAccelerationStructureKHR(m_vkdev, vk_deferredOp, &info);
         if(VK_SUCCESS == res)
         {
             ret = true;
@@ -756,8 +756,8 @@ bool CVulkanLogicalDevice::copyAccelerationStructureToMemory(core::smart_refctd_
             return false;
         }
 
-        VkCopyAccelerationStructureToMemoryInfoKHR info = CVulkanAccelerationStructure::getVkASCopyToMemoryInfo(m_vkdev, copyInfo);
-        VkResult res = vkCopyAccelerationStructureToMemoryKHR(m_vkdev, vk_deferredOp, &info);
+        VkCopyAccelerationStructureToMemoryInfoKHR info = CVulkanAccelerationStructure::getVkASCopyToMemoryInfo(m_vkdev, &m_devf, copyInfo);
+        VkResult res = m_devf.vk.vkCopyAccelerationStructureToMemoryKHR(m_vkdev, vk_deferredOp, &info);
         if(VK_SUCCESS == res)
         {
             ret = true;
@@ -786,8 +786,8 @@ bool CVulkanLogicalDevice::copyAccelerationStructureFromMemory(core::smart_refct
             return false;
         }
 
-        VkCopyMemoryToAccelerationStructureInfoKHR info = CVulkanAccelerationStructure::getVkASCopyFromMemoryInfo(m_vkdev, copyInfo);
-        VkResult res = vkCopyMemoryToAccelerationStructureKHR(m_vkdev, vk_deferredOp, &info);
+        VkCopyMemoryToAccelerationStructureInfoKHR info = CVulkanAccelerationStructure::getVkASCopyFromMemoryInfo(m_vkdev, &m_devf, copyInfo);
+        VkResult res = m_devf.vk.vkCopyMemoryToAccelerationStructureKHR(m_vkdev, vk_deferredOp, &info);
         if(VK_SUCCESS == res)
         {
             ret = true;
@@ -812,7 +812,7 @@ core::smart_refctd_ptr<IQueryPool> CVulkanLogicalDevice::createQueryPool(IQueryP
 {
     VkQueryPool vk_queryPool = VK_NULL_HANDLE;
     VkQueryPoolCreateInfo vk_qpci = CVulkanQueryPool::getVkCreateInfoFromCreationParams(std::move(params));
-    auto vk_res = vkCreateQueryPool(m_vkdev, &vk_qpci, nullptr, &vk_queryPool);
+    auto vk_res = m_devf.vk.vkCreateQueryPool(m_vkdev, &vk_qpci, nullptr, &vk_queryPool);
     if(VK_SUCCESS != vk_res)
         return nullptr;
     return core::make_smart_refctd_ptr<CVulkanQueryPool>(core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(params), vk_queryPool);
@@ -825,7 +825,7 @@ bool CVulkanLogicalDevice::getQueryPoolResults(IQueryPool* queryPool, uint32_t f
     {
         auto vk_queryPool = static_cast<CVulkanQueryPool*>(queryPool)->getInternalObject();
         auto vk_queryResultsflags = CVulkanQueryPool::getVkQueryResultsFlagsFromQueryResultsFlags(flags);
-        auto vk_res = vkGetQueryPoolResults(m_vkdev, vk_queryPool, firstQuery, queryCount, dataSize, pData, static_cast<VkDeviceSize>(stride), vk_queryResultsflags);
+        auto vk_res = m_devf.vk.vkGetQueryPoolResults(m_vkdev, vk_queryPool, firstQuery, queryCount, dataSize, pData, static_cast<VkDeviceSize>(stride), vk_queryResultsflags);
         if(VK_SUCCESS == vk_res)
             ret = true;
     }

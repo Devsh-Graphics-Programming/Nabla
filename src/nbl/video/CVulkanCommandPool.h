@@ -79,7 +79,7 @@ public:
 
 private:
     VkCommandPool m_vkCommandPool;
-    core::CMemoryPool<core::PoolAddressAllocator<uint32_t>, core::default_aligned_allocator, uint32_t> mempool;
+    core::CMemoryPool<core::PoolAddressAllocator<uint32_t>, core::default_aligned_allocator, false, uint32_t> mempool;
 };
 
 }

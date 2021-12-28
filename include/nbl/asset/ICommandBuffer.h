@@ -181,7 +181,7 @@ public:
         uint32_t subpass;
         core::smart_refctd_ptr<const framebuffer_t> framebuffer;
         bool occlusionQueryEnable;
-        core::bitflag<asset::E_QUERY_CONTROL_FLAGS> queryFlags;
+        core::bitflag<video::IQueryPool::E_QUERY_CONTROL_FLAGS> queryFlags;
     };
 
     E_STATE getState() const { return m_state; }
