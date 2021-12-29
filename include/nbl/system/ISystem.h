@@ -344,7 +344,137 @@ class ISystem : public core::IReferenceCounted
         }
         void unmount(const IFileArchive* archive, const system::path& pathAlias)
         {
+            assert(false); // TODO(dan): i swear i'll get to it at some point
+        }
 
+        /*
+            Returns true if the path is writable (e.g. if p is a path inside an archive the function will return true).
+            The path existence is not checked.
+        */
+        bool isPathReadOnly(const system::path& p)
+        {
+            auto curPath = p;
+            while (!curPath.empty() && curPath.parent_path() != curPath)
+            {
+                auto archives = m_cachedArchiveFiles.findRange(curPath);
+                if (!archives.empty()) return true;
+
+                curPath = curPath.parent_path().generic_string();
+            }
+            return false;
+        }
+
+        bool createDirectory(const system::path& p)
+        {
+            return std::filesystem::create_directory(p);
+        }
+
+        bool deleteDirectory(const system::path& p)
+        {
+            return std::filesystem::remove(p);
+        }
+
+
+        /*
+            Recursively lists all files and directories in the directory.
+        */
+        core::vector<system::path> listFilesInDirectory(const system::path& p)
+        {
+            if (isPathReadOnly(p))
+            {
+                auto curPath = p;
+                while (!curPath.empty() && curPath.parent_path() != curPath)
+                {
+                    auto archives = m_cachedArchiveFiles.findRange(curPath);
+                    for (auto& arch : archives)
+                    {
+                        auto rel = std::filesystem::relative(p, arch.first);
+                        auto res =  arch.second->listAssets(rel.generic_string().c_str());
+                        std::for_each(res.begin(), res.end(), [&arch](system::path& p) {p = arch.first / p; });
+                        return res;
+                    }
+
+                    curPath = curPath.parent_path().generic_string();
+                }
+                return {};
+            }
+            else
+            {
+                uint32_t fileCount = std::distance(std::filesystem::recursive_directory_iterator(p), std::filesystem::recursive_directory_iterator{});
+                core::vector<system::path> res;
+                res.reserve(fileCount);
+                for (auto entry : std::filesystem::recursive_directory_iterator(p))
+                {
+                    res.push_back(entry.path());
+                }
+                return res;
+            }
+        }
+
+
+        bool isDirectory(const system::path& p)
+        {
+            if (isPathReadOnly(p))
+            {
+                return p.extension() == ""; // TODO: this is a temporary decision until i figure out how to check if a file is directory in androi APK
+            }
+            else
+            {
+                return std::filesystem::is_directory(p);
+            }
+        }
+
+        /*
+            Recursively copy a directory or a file from one place to another.
+            from - a path to the source file or directory. Must exist. Can be both readonly and mutable path.
+            to - a path to the destination file or directory. Must be mutable path (isPathReadonly(to) must be false).
+        */
+        bool copy(const system::path& from, const system::path& to)
+        {
+            constexpr auto copyFile = [this](const system::path& from, const system::path& to)
+            {
+                system::future<core::smart_refctd_ptr<IFile>> readFileFut, writeFileFut;
+                system::future<size_t> readFut, writeFut;
+
+                createFile(readFileFut, from, IFile::ECF_READ);
+                createFile(writeFileFut, from, IFile::ECF_WRITE);
+                auto readFile = readFileFut.get();
+                auto writeFile = writeFileFut.get();
+
+                char* fileData = (char*)malloc(readFile->getSize());
+                readFile->read(readFut, fileData, 0, readFile->getSize());
+                readFut.get();
+
+                writeFile->write(writeFut, fileData, 0, readFile->getSize());
+                writeFut.get();
+
+                free(fileData);
+            };
+            if (isPathReadOnly(from))
+            {
+                if (isPathReadOnly(to)) return false;
+                if (isDirectory(from))
+                {
+                    auto allFiles = listFilesInDirectory(from);
+                    for (const auto& file : allFiles)
+                    {
+                        auto relative = std::filesystem::relative(file, from);
+                        auto targetName = to / relative;
+                        copyFile(file, targetName);
+                    }
+                }
+                else
+                {
+                    copyFile(from, to);
+                }
+                return true;
+            }
+            else
+            {
+                std::error_code error;
+                std::filesystem::copy(from, to, error);
+                return static_cast<bool>(error);
+            }
         }
 
         struct SystemMemory

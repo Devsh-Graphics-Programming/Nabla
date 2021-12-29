@@ -82,6 +82,31 @@ public:
 		_NBL_ALIGNED_FREE(m_filesBuffer);
 		_NBL_ALIGNED_FREE(m_fileFlags);
 	}
+
+	// List all files and directories in a specific dir of the archive
+	virtual core::vector<system::path> listAssets(const char* asset_path)
+	{
+		constexpr auto isSubDir = [](path p, path root) -> bool
+		{
+			while (p != path()) {
+				if (p == root) {
+					return true;
+				}
+				p = p.parent_path();
+			}
+			return false;
+		};
+		core::vector<path> res;
+		for (auto& entry : m_files)
+		{
+			if (isSubDir(entry.fullName, asset_path))
+			{
+				res.push_back(entry.fullName);
+			}
+		}
+		return res;
+	}
+
 	//! An entry in a list of files, can be a folder or a file.
 	struct SFileListEntry
 	{

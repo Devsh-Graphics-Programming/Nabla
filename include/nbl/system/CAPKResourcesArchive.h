@@ -38,9 +38,9 @@ public:
 		AAsset_close(asset);
 		return fileView;
 	}
-	std::vector<std::string> listAssets(const char* asset_path)
+	core::vector<std::string> listAssets(const char* asset_path) override
 	{
-		std::vector<std::string> result;
+		core::vector<std::string> result;
 
 		auto context_object = activity->clazz;
 		auto getAssets_method = env->GetMethodID(env->GetObjectClass(context_object), "getAssets", "()Landroid/content/res/AssetManager;");
