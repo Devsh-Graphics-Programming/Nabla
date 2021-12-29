@@ -819,6 +819,9 @@ void nbl_glsl_MC_instr_eval_and_pdf_execute(in nbl_glsl_MC_instr_t instr, in nbl
 #endif
 
 				float eval_scalar_part = remainder_scalar_part*pdf;
+#ifdef GEN_CHOICE_STREAM
+				result.pdf = pdf;
+#endif
 #ifndef NO_BSDF
 				if (is_not_brdf)
 				{
@@ -835,7 +838,7 @@ void nbl_glsl_MC_instr_eval_and_pdf_execute(in nbl_glsl_MC_instr_t instr, in nbl
 					float reflectance = nbl_glsl_MC_colorToScalar(fr);
 					reflectance = refraction ? (1.0 - reflectance) : reflectance;
 					#ifdef GEN_CHOICE_STREAM
-					result.pdf = pdf*reflectance;
+					result.pdf *= reflectance;
 					#endif
 				}
 #endif 
