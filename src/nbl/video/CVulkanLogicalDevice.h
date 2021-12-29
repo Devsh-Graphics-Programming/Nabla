@@ -514,6 +514,17 @@ public:
             if ((bindInfo.buffer->getAPIType() != EAT_VULKAN) || (bindInfo.memory->getAPIType() != EAT_VULKAN))
                 continue;
 
+            if (bindInfo.buffer->getCachedCreationParams().usage.hasValue(asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT))
+            {
+                if(!bindInfo.memory->getAllocateFlags().hasValue(IDriverMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT))
+                {
+                    // TODO(erfan): Log-> if buffer was created with EUF_SHADER_DEVICE_ADDRESS_BIT set, memory must have been allocated with the EMAF_DEVICE_ADDRESS_BIT bit.
+                    _NBL_DEBUG_BREAK_IF(false);
+                    anyFailed = true;
+                    continue;
+                }
+            }
+
             CVulkanBuffer* vulkanBuffer = static_cast<CVulkanBuffer*>(bindInfo.buffer);
             vulkanBuffer->setMemoryAndOffset(
                 core::smart_refctd_ptr<IDriverMemoryAllocation>(bindInfo.memory), bindInfo.offset);
@@ -523,6 +534,7 @@ public:
             if (m_devf.vk.vkBindBufferMemory(m_vkdev, vk_buffer, vk_memory, static_cast<VkDeviceSize>(pBindInfos[i].offset)) != VK_SUCCESS)
             {
                 // Todo(achal): Log which one failed
+                _NBL_DEBUG_BREAK_IF(false);
                 anyFailed = true;
             }
         }   
@@ -591,8 +603,13 @@ public:
         memoryReqs.memoryHeapLocation = additionalMemoryReqs.memoryHeapLocation;
         memoryReqs.mappingCapability = additionalMemoryReqs.mappingCapability;
 
+        core::bitflag<IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags;
+
+        if(creationParams.usage.hasValue(asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT))
+            allocateFlags |= IDriverMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT;
+
         core::smart_refctd_ptr<video::IDriverMemoryAllocation> bufferMemory =
-            allocateGPUMemory(memoryReqs);
+            allocateGPUMemory(memoryReqs, allocateFlags);
 
         if (!bufferMemory)
             return nullptr;
@@ -910,7 +927,7 @@ public:
         const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) override;
 
     core::smart_refctd_ptr<IDriverMemoryAllocation> allocateGPUMemory(
-        const IDriverMemoryBacked::SDriverMemoryRequirements& reqs) override;
+        const IDriverMemoryBacked::SDriverMemoryRequirements& reqs, core::bitflag<IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags = IDriverMemoryAllocation::EMAF_NONE) override;
 
     core::smart_refctd_ptr<IGPUSampler> createGPUSampler(const IGPUSampler::SParams& _params) override
     {
