@@ -358,9 +358,23 @@ protected:
                 selectedFeatures[i++] = feature.c_str();
         }
 
-        // Currently enabling all features supported by the GPU, for the following extensions
-        // @Erfan you can cherry pick the ones you want
-        VkPhysicalDeviceAccelerationStructureFeaturesKHR accelerationStructureFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR };
+        void * firstFeatureInChain = nullptr;
+
+        // Vulkan has problems with having features in the feature chain that have values set to false.
+        // For example having an empty "RayTracingPipelineFeaturesKHR" in the chain will lead to validation errors for RayQueryONLY applications.
+        auto addFeatureToChain = [&firstFeatureInChain](void* feature) -> void
+        {
+            struct VulkanStructHeader
+            {
+                VkStructureType    sType;
+                void*              pNext;
+            };
+            VulkanStructHeader* enabledExtStructPtr = reinterpret_cast<VulkanStructHeader*>(feature);
+            enabledExtStructPtr->pNext = firstFeatureInChain;
+            firstFeatureInChain = feature;
+        };
+
+        VkPhysicalDeviceAccelerationStructureFeaturesKHR accelerationStructureFeatures = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR};
         if (selectedFeatureSet.find(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME) != selectedFeatureSet.end())
         {
             accelerationStructureFeatures.accelerationStructure = m_features.accelerationStructure;
@@ -368,8 +382,10 @@ protected:
             accelerationStructureFeatures.accelerationStructureIndirectBuild = m_features.accelerationStructureIndirectBuild;
             accelerationStructureFeatures.accelerationStructureHostCommands = m_features.accelerationStructureHostCommands;
             accelerationStructureFeatures.descriptorBindingAccelerationStructureUpdateAfterBind = m_features.descriptorBindingAccelerationStructureUpdateAfterBind;
+            addFeatureToChain(&accelerationStructureFeatures);
         }
-        VkPhysicalDeviceRayTracingPipelineFeaturesKHR rayTracingPipelineFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR, &accelerationStructureFeatures };
+
+        VkPhysicalDeviceRayTracingPipelineFeaturesKHR rayTracingPipelineFeatures = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR};
         if (selectedFeatureSet.find(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME) != selectedFeatureSet.end())
         {
             rayTracingPipelineFeatures.rayTracingPipeline = m_features.rayTracingPipeline;
@@ -377,21 +393,25 @@ protected:
             rayTracingPipelineFeatures.rayTracingPipelineShaderGroupHandleCaptureReplayMixed = m_features.rayTracingPipelineShaderGroupHandleCaptureReplayMixed;
             rayTracingPipelineFeatures.rayTracingPipelineTraceRaysIndirect = m_features.rayTracingPipelineTraceRaysIndirect;
             rayTracingPipelineFeatures.rayTraversalPrimitiveCulling = m_features.rayTraversalPrimitiveCulling;
+            addFeatureToChain(&rayTracingPipelineFeatures);
         }
-        VkPhysicalDeviceRayQueryFeaturesKHR rayQueryFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR, &rayTracingPipelineFeatures };
+
+        VkPhysicalDeviceRayQueryFeaturesKHR rayQueryFeatures = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR};
         if (selectedFeatureSet.find(VK_KHR_RAY_QUERY_EXTENSION_NAME) != selectedFeatureSet.end())
         {
             rayQueryFeatures.rayQuery = m_features.rayQuery;
+            addFeatureToChain(&rayQueryFeatures);
         }
-
-        VkPhysicalDeviceBufferDeviceAddressFeaturesKHR bufferDeviceAddressFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_KHR, &rayQueryFeatures };
+        
+        VkPhysicalDeviceBufferDeviceAddressFeaturesKHR bufferDeviceAddressFeatures = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_KHR};
         if (selectedFeatureSet.find(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME) != selectedFeatureSet.end())
         {
             bufferDeviceAddressFeatures.bufferDeviceAddress = m_features.bufferDeviceAddress;
+            addFeatureToChain(&bufferDeviceAddressFeatures);
         }
 
         VkPhysicalDeviceFeatures2 vk_deviceFeatures2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
-        vk_deviceFeatures2.pNext = &bufferDeviceAddressFeatures;
+        vk_deviceFeatures2.pNext = firstFeatureInChain;
         vk_deviceFeatures2.features = {};
 
         // Create Device

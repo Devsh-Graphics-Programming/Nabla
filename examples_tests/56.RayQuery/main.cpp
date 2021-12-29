@@ -188,7 +188,12 @@ public:
 		CommonAPI::SFeatureRequest<video::IAPIConnection::E_FEATURE> optionalInstanceFeatures = {};
 
 		CommonAPI::SFeatureRequest<video::ILogicalDevice::E_FEATURE> requiredDeviceFeatures = {};
-		video::ILogicalDevice::E_FEATURE requiredFeatures_Device[] = { video::ILogicalDevice::EF_SWAPCHAIN, video::ILogicalDevice::EF_RAY_QUERY, video::ILogicalDevice::EF_ACCELERATION_STRUCTURE };
+		video::ILogicalDevice::E_FEATURE requiredFeatures_Device[] = 
+		{ 
+			video::ILogicalDevice::EF_SWAPCHAIN,
+			video::ILogicalDevice::EF_ACCELERATION_STRUCTURE,
+			video::ILogicalDevice::EF_RAY_QUERY
+		};
 		requiredDeviceFeatures.count = 3u;
 		requiredDeviceFeatures.features = requiredFeatures_Device;
 
