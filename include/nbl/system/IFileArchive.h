@@ -50,7 +50,6 @@ public:
 	static void  operator delete[](void* ptr) noexcept
 	{
 		assert(false);
-		return nullptr;
 	}
 };
 
