@@ -477,8 +477,9 @@ class ISystem : public core::IReferenceCounted
             }
             else
             {
+				const auto copyOptions = std::filesystem::copy_options::recursive | std::filesystem::copy_options::overwrite_existing;
                 std::error_code error;
-                std::filesystem::copy(from, to, error);
+                std::filesystem::copy(from, to, copyOptions, error);
                 return static_cast<bool>(error);
             }
         }

@@ -38,9 +38,9 @@ public:
 		AAsset_close(asset);
 		return fileView;
 	}
-	core::vector<std::string> listAssets(const char* asset_path) override
+	core::vector<system::path> listAssets(const char* asset_path) override
 	{
-		core::vector<std::string> result;
+		core::vector<system::path> result;
 
 		auto context_object = activity->clazz;
 		auto getAssets_method = env->GetMethodID(env->GetObjectClass(context_object), "getAssets", "()Landroid/content/res/AssetManager;");
@@ -63,14 +63,11 @@ public:
 
 			if (filename != nullptr)
 			{
-				if (std::string(asset_path) = "")
-				{
-					result.push_back(filename);
-				}
+				if (std::string(asset_path) == "")
+					result.push_back(std::string(filename));
 				else
-				{
 					result.push_back((std::filesystem::path(asset_path) / filename).generic_string());
-				}
+				
 				env->ReleaseStringUTFChars(jstr, filename);
 			}
 

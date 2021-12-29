@@ -9,6 +9,8 @@
 
 #include "nbl/ui/CWindowAndroid.h"
 
+#include <fcntl.h>
+#include <unistd.h>
 #include <sys/ioctl.h>
 #include <linux/fb.h>
 
