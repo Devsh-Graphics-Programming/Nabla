@@ -144,6 +144,7 @@ class RayQuerySampleApp : public ApplicationBase
 	
 	core::smart_refctd_ptr<IGPUBuffer> aabbsBuffer = nullptr;
 	core::smart_refctd_ptr<IGPUAccelerationStructure> gpuBlas = nullptr;
+	core::smart_refctd_ptr<IGPUAccelerationStructure> gpuBlas2 = nullptr; // Built via CPUObject To GPUObject operations and utility
 	core::smart_refctd_ptr<IGPUAccelerationStructure> gpuTlas = nullptr;
 	core::smart_refctd_ptr<IGPUBuffer> instancesBuffer = nullptr;
 	
@@ -156,8 +157,7 @@ class RayQuerySampleApp : public ApplicationBase
 	
 	core::smart_refctd_ptr<IGPUBuffer> spheresBuffer = nullptr;
 
-	// TODO: Temp Fix because of validation error: VkPhysicalDeviceLimits::nonCoherentAtomSize
-	struct alignas(64) SBasicViewParametersAligned
+	struct SBasicViewParametersAligned
 	{
 		SBasicViewParameters uboData;
 	};
@@ -340,23 +340,21 @@ public:
 			utilities->updateBufferRangeViaStagingBuffer(graphicsQueue, asset::SBufferRange<IGPUBuffer>{0u,spheresBufferSize,spheresBuffer}, spheres);
 		}
 
-		#define DTEST_CPU_2_GPU
-		#ifdef TEST_CPU_2_GPU
+#define TEST_CPU_2_GPU_BLAS
+#ifdef TEST_CPU_2_GPU_BLAS
 		// Acceleration Structure Test
-		core::smart_refctd_ptr<IGPUAccelerationStructure> gpuBlas2;
-		// Create + Build BLAS (ICPU Version)
+		// Create + Build BLAS (CPU2GPU Version)
 		{
-			// TODO: Temp fix before nonCoherentAtomSize fix
-			struct alignas(64) AABB {
+			struct AABB {
 				IGPUAccelerationStructure::AABB_Position aabb;
 			};
-			const uint32_t aabbsCount = SphereCount;
+			const uint32_t aabbsCount = SphereCount / 2u;
 			uint32_t aabbsBufferSize = sizeof(AABB) * aabbsCount;
 		
 			AABB aabbs[aabbsCount] = {};
 			for(uint32_t i = 0; i < aabbsCount; ++i)
 			{
-				aabbs[i].aabb = spheres[i%3].getAABB();
+				aabbs[i].aabb = spheres[i].getAABB();
 			}
 		
 			// auto raytracingFlags = core::bitflag(asset::IBuffer::EUF_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT) | asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
@@ -401,15 +399,14 @@ public:
 				cpu2gpuParams.waitForCreationToComplete();
 			}
 		}
-		#endif
+#endif
 
 		// Create + Build BLAS
 		{
 			// Build BLAS with AABBS
 			const uint32_t aabbsCount = SphereCount;
 
-			// TODO: Temp fix before nonCoherentAtomSize fix
-			struct alignas(64) AABB {
+			struct AABB {
 				IGPUAccelerationStructure::AABB_Position aabb;
 			};
 	
@@ -501,8 +498,7 @@ public:
 	
 		// Create + Build TLAS
 		{
-			// TODO: Temp fix before nonCoherentAtomSize fix
-			struct alignas(64) Instance {
+			struct Instance {
 				IGPUAccelerationStructure::Instance instance;
 			};
 
@@ -514,7 +510,11 @@ public:
 			instances[0].instance.mask = 0xFF;
 			instances[0].instance.instanceShaderBindingTableRecordOffset = 0u;
 			instances[0].instance.flags = IAccelerationStructure::EIF_TRIANGLE_FACING_CULL_DISABLE_BIT;
+#ifdef TEST_CPU_2_GPU_BLAS
+			instances[0].instance.accelerationStructureReference = gpuBlas2->getReferenceForDeviceOperations();
+#else
 			instances[0].instance.accelerationStructureReference = gpuBlas->getReferenceForDeviceOperations();
+#endif
 			auto raytracingFlags = core::bitflag(asset::IBuffer::EUF_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT) | asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
 	
 			uint32_t instancesBufferSize = sizeof(Instance);
