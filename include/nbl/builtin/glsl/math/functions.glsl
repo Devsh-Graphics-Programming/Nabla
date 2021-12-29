@@ -191,7 +191,7 @@ vec3 nbl_glsl_computeMicrofacetNormal(in bool _refract, in vec3 V, in vec3 L, in
 // if V and L are on different sides of the surface normal, then their dot product sign bits will differ, hence XOR will yield 1 at last bit
 bool nbl_glsl_isTransmissionPath(in float NdotV, in float NdotL)
 {
-    return ((floatBitsToUint(NdotV)^floatBitsToUint(NdotL)) & 0x80000000u) != 0u;
+    return bool((floatBitsToUint(NdotV)^floatBitsToUint(NdotL)) & 0x80000000u);
 }
 
 // valid only for `theta` in [-PI,PI]
