@@ -126,7 +126,6 @@ namespace nbl::ui
 		EKC_F23,
 		EKC_F24,
 
-		EKC_SEPARATOR,
 		EKC_NUM_LOCK,
 		EKC_SCROLL_LOCK,
 

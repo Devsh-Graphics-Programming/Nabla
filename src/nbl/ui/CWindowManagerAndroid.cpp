@@ -275,7 +275,7 @@ namespace nbl::ui
 		case AKEYCODE_STAR:				nablaKeyCode = EKC_MULTIPLY; break;
 		case AKEYCODE_SLASH:			nablaKeyCode = EKC_DIVIDE; break;
 		case AKEYCODE_PERIOD: [[fallthrough]];
-		case AKEYCODE_COMMA:			nablaKeyCode = EKC_SEPARATOR; break;
+		case AKEYCODE_COMMA:			nablaKeyCode = EKC_COMMA; break;
 		case AKEYCODE_NUM_LOCK:			nablaKeyCode = EKC_NUM_LOCK; break;
 		case AKEYCODE_SCROLL_LOCK:		nablaKeyCode = EKC_SCROLL_LOCK; break;
 		case AKEYCODE_MUTE:				nablaKeyCode = EKC_VOLUME_MUTE; break;
