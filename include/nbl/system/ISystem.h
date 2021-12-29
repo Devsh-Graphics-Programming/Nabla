@@ -366,7 +366,7 @@ class ISystem : public core::IReferenceCounted
 
         bool createDirectory(const system::path& p)
         {
-            return std::filesystem::create_directory(p);
+            return std::filesystem::create_directories(p);
         }
 
         bool deleteDirectory(const system::path& p)
@@ -374,7 +374,12 @@ class ISystem : public core::IReferenceCounted
             return std::filesystem::remove(p);
         }
 
-
+        bool moveFileOrDirectory(const system::path oldPath, const system::path newPath)
+        {
+            std::error_code ec;
+            std::filesystem::rename(oldPath, newPath, ec);
+            return static_cast<bool>(ec);
+        }
         /*
             Recursively lists all files and directories in the directory.
         */
@@ -431,22 +436,19 @@ class ISystem : public core::IReferenceCounted
         */
         bool copy(const system::path& from, const system::path& to)
         {
-            constexpr auto copyFile = [this](const system::path& from, const system::path& to)
+            auto copyFile = [this](const system::path& from, const system::path& to)
             {
-                system::future<core::smart_refctd_ptr<IFile>> readFileFut, writeFileFut;
-                system::future<size_t> readFut, writeFut;
+                future_t<core::smart_refctd_ptr<IFile>> readFileFut, writeFileFut;
 
                 createFile(readFileFut, from, IFile::ECF_READ);
-                createFile(writeFileFut, from, IFile::ECF_WRITE);
-                auto readFile = readFileFut.get();
-                auto writeFile = writeFileFut.get();
+                createFile(writeFileFut, to, IFile::ECF_WRITE);
+                auto readF = readFileFut.get();
+                auto writeF = writeFileFut.get();
 
-                char* fileData = (char*)malloc(readFile->getSize());
-                readFile->read(readFut, fileData, 0, readFile->getSize());
-                readFut.get();
+                char* fileData = (char*)malloc(readF->getSize());
+                readF->read_impl(fileData, 0, readF->getSize());
 
-                writeFile->write(writeFut, fileData, 0, readFile->getSize());
-                writeFut.get();
+                writeF->write_impl(fileData, 0, readF->getSize());
 
                 free(fileData);
             };
@@ -459,8 +461,12 @@ class ISystem : public core::IReferenceCounted
                     for (const auto& file : allFiles)
                     {
                         auto relative = std::filesystem::relative(file, from);
-                        auto targetName = to / relative;
-                        copyFile(file, targetName);
+                        system::path targetName = (to / relative).generic_string();
+                        std::filesystem::create_directories(targetName.parent_path());
+                        if (!isDirectory(targetName))
+                        {
+                            copyFile(file, targetName);
+                        }
                     }
                 }
                 else

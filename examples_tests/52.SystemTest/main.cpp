@@ -306,12 +306,18 @@ int main(int argc, char** argv)
 		}
 	};
 	
-	auto tarArch = system->openFileArchive(CWD.generic_string() + "file.tar");
-	system->mount(std::move(tarArch), "tarArch");
 	auto arch = system->openFileArchive(CWD.generic_string() + "test.zip");
 	system->mount(std::move(arch), "arch");
-	auto arch1 = system->openFileArchive("arch/test/test1.zip");
-	system->mount(std::move(arch1), "arch1");
+	auto bigarch = system->openFileArchive(CWD.generic_string() + "../../media/sponza.zip");
+	system->mount(std::move(bigarch), "sponza");
+
+	system->copy(CWD.generic_string() + "pngWriteSuccessful.png", "pngCopy.png");
+	
+	system->createDirectory(CWD.generic_string() + "textures1");
+	system->copy(CWD.generic_string() + "textures", CWD.generic_string() + "textures1");
+	system->copy("sponza/textures", CWD.generic_string() + "textures");
+	system->moveFileOrDirectory("file.tar", "movedFile.tar");
+	system->listFilesInDirectory(CWD.generic_string() + "textures");
 	{
 		system::future<smart_refctd_ptr<IFile>> fut;
 		system->createFile(fut, "tarArch/file.txt", IFile::ECF_READ);
