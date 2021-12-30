@@ -4,11 +4,7 @@
 
 #include <nbl/asset/material_compiler/CMaterialCompilerGLSLRasterBackend.h>
 
-namespace nbl
-{
-namespace asset
-{
-namespace material_compiler
+namespace nbl::asset::material_compiler
 {
 
 auto CMaterialCompilerGLSLRasterBackend::compile(SContext* _ctx, IR* _ir, E_GENERATOR_STREAM_TYPE _generatorChoiceStream) -> result_t
@@ -17,11 +13,10 @@ auto CMaterialCompilerGLSLRasterBackend::compile(SContext* _ctx, IR* _ir, E_GENE
 
     res.fragmentShaderSource = 
     R"(
-
 #include <nbl/builtin/glsl/material_compiler/rasterization/impl.glsl>
     )";
 
     return res;
 }
 
-}}}
+}

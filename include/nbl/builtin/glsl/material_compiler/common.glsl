@@ -405,6 +405,8 @@ nbl_glsl_MC_params_t nbl_glsl_MC_instr_getParameters(in nbl_glsl_MC_instr_t i, i
 	return p;
 }
 
+// During the Frontend's AST generation phase, for dielectrics there should be separate frontface and backface ASTs
+// to allow for the Eta to be already fetched as an oriented quotient of internal and external IoR.
 // IoR is just a 3rd and 4th parameter
 // TODO: Open question, is it possible to have just an IoR param wihout the first 2?
 mat2x3 nbl_glsl_MC_bsdf_data_decodeIoR(in nbl_glsl_MC_bsdf_data_t data, in uint op)
@@ -729,6 +731,7 @@ nbl_glsl_MC_CookTorranceFactors nbl_glsl_MC_instr_microfacet_common(
 	const float VdotH = microfacet.inner.isotropic.VdotH;
 	const float LdotH = microfacet.inner.isotropic.LdotH;
 	const float VdotHLdotH = VdotH*LdotH;
+	// we use the function meant for fresnel weighted VNDF to compute the VNDF, simply because sometimes we get the reflectance before already
 	retval.vndf = nbl_glsl_smith_FVNDF_pdf_wo_clamps(ndf_val,G1_over_2NdotV,absOrMaxNdotV,refraction,VdotH,LdotH,VdotHLdotH,orientedEta);
 	return retval;
 }
@@ -1056,6 +1059,7 @@ void nbl_glsl_MC_instr_eval_and_pdf_execute(
 				ior[0] = vec3(1.00001f); // avoid issues from uninitialized memory containing NaNs
 				if (run)
 				{
+					// for dielectrics the IoR is already fetched as oriented
 					ior = nbl_glsl_MC_bsdf_data_decodeIoR(bsdf_data,op);
 					ior2 = matrixCompMult(ior,ior);
 				}
@@ -1114,17 +1118,17 @@ void nbl_glsl_MC_instr_eval_and_pdf_execute(
 						bool is_valid = true;
 						bool refraction = false;
 						#ifndef NO_BSDF
-						const float eta = nbl_glsl_MC_colorToScalar(ior[0]);
+						const float orientedEta = nbl_glsl_MC_colorToScalar(ior[0]);
 						if (nbl_glsl_isTransmissionPath(currInteraction.inner.isotropic.NdotV,s.NdotL))
 						{
-							const float rcp_eta = 1.f/eta;
+							const float rcpOrientedEta = 1.f/orientedEta;
 							// TODO: optimize later for isotropy
 							is_valid = nbl_glsl_calcAnisotropicMicrofacetCache(
 								microfacet.inner,
 								true,currInteraction.inner.isotropic.V.dir,s.L,
 								currInteraction.inner.T,currInteraction.inner.B,
 								currInteraction.inner.isotropic.N,
-								s.NdotL,s.VdotL,eta,rcp_eta
+								s.NdotL,s.VdotL,orientedEta,rcpOrientedEta
 							);
 							nbl_glsl_MC_finalizeMicrofacet(microfacet);
 							refraction = true;
@@ -1151,7 +1155,7 @@ void nbl_glsl_MC_instr_eval_and_pdf_execute(
 								a2,
 								ay,
 								#endif
-								eta,refraction, // only matters for dielectrics
+								orientedEta,refraction, // only matters for dielectrics
 								NdotV,NdotL,s,microfacet
 							);
 							float pdf = ctFactors.vndf;
@@ -1179,7 +1183,7 @@ void nbl_glsl_MC_instr_eval_and_pdf_execute(
 								const float absVdotH = abs(VdotH);
 
 								// TODO: would be nice not to have monochrome dielectrics
-								const float reflectance = nbl_glsl_fresnel_dielectric_common(eta*eta,absVdotH);
+								const float reflectance = nbl_glsl_fresnel_dielectric_common(orientedEta*orientedEta,absVdotH);
 								pdf *= refraction ? (1.f-reflectance):reflectance;
 
 								result.value = vec3(reflectance);
@@ -1442,6 +1446,7 @@ nbl_glsl_LightSample nbl_bsdf_cos_generate(
 	{
 		// preload common data
 		const nbl_glsl_MC_bsdf_data_t bsdf_data = nbl_glsl_MC_fetchBSDFDataForInstr(instr);
+		// for dielectrics the IoR is already fetched as oriented
 		const mat2x3 ior = nbl_glsl_MC_bsdf_data_decodeIoR(bsdf_data,op);
 
 		// precompute common parameters
@@ -1539,7 +1544,7 @@ nbl_glsl_LightSample nbl_bsdf_cos_generate(
 					#else
 					const float ay = nbl_glsl_MC_params_getAlphaV(params);
 					#endif
-					const float eta = nbl_glsl_MC_colorToScalar(ior[0]);
+					const float orientedEta = nbl_glsl_MC_colorToScalar(ior[0]);
 					
 					bool refraction = false;
 					float VdotH;
@@ -1587,10 +1592,8 @@ nbl_glsl_LightSample nbl_bsdf_cos_generate(
 
 								float rcpChoiceProb;
 								{
-									const float eta2 = eta*eta;
-									// TODO: triple check!
 									const float absVdotH = abs(VdotH);
-									const float reflectionProb = nbl_glsl_fresnel_dielectric_common(eta2,absVdotH);
+									const float reflectionProb = nbl_glsl_fresnel_dielectric_common(orientedEta*orientedEta,absVdotH);
 									refraction = nbl_glsl_partitionRandVariable(reflectionProb,u.z,rcpChoiceProb);
 								}
 								out_values.pdf = 1.f/rcpChoiceProb;
@@ -1605,8 +1608,8 @@ nbl_glsl_LightSample nbl_bsdf_cos_generate(
 								// scope localL out
 								vec3 localL;
 								// TODO: move computation into the refractive case?
-								const float rcpEta = 1.0/eta;
-								out_microfacet.inner = nbl_glsl_calcAnisotropicMicrofacetCache(refraction,localV,localH,localL,rcpEta,rcpEta*rcpEta);
+								const float rcpOrientedEta = 1.0/orientedEta;
+								out_microfacet.inner = nbl_glsl_calcAnisotropicMicrofacetCache(refraction,localV,localH,localL,rcpOrientedEta,rcpOrientedEta*rcpOrientedEta);
 								s = nbl_glsl_createLightSampleTangentSpace(localV,localL,tangentFrame);
 							}
 						}
@@ -1624,7 +1627,7 @@ nbl_glsl_LightSample nbl_bsdf_cos_generate(
 						ax2,
 						ay,
 						#endif
-						eta,refraction, // only matters for dielectrics
+						orientedEta,refraction, // only matters for dielectrics
 						NdotV,NdotL,s,out_microfacet
 					);
 
