@@ -634,10 +634,9 @@ void Renderer::initSceneNonAreaLights(Renderer::InitializationData& initData)
 	auto blendEnvDescriptorSetLayout = m_driver->createGPUDescriptorSetLayout(&binding, &binding + 1u);
 	
 	IAssetLoader::SAssetLoadParams lp;
-	auto fs_bundle = m_assetManager->getAsset("../present2D.frag", lp);
+	auto fs_bundle = m_assetManager->getAsset("nbl/builtin/material/lambertian/singletexture/specialized_shader.frag",lp);
 	auto fs_contents = fs_bundle.getContents();
-	if (fs_contents.begin() == fs_contents.end())
-		std::cout << "[ERROR] fs_contents is empty." << std::endl;
+	assert(!fs_contents.empty());
 	
 	ICPUSpecializedShader* fs = static_cast<ICPUSpecializedShader*>(fs_contents.begin()->get());
 	
@@ -666,7 +665,7 @@ void Renderer::initSceneNonAreaLights(Renderer::InitializationData& initData)
 	rasterParams.depthWriteEnable = false;
 	rasterParams.depthTestEnable = false;
 
-	auto gpuPipelineLayout = m_driver->createGPUPipelineLayout(nullptr, nullptr, core::smart_refctd_ptr(blendEnvDescriptorSetLayout), nullptr, nullptr, nullptr);
+	auto gpuPipelineLayout = m_driver->createGPUPipelineLayout(nullptr, nullptr, nullptr, nullptr, nullptr, core::smart_refctd_ptr(blendEnvDescriptorSetLayout));
 
 	blendEnvPipeline = m_driver->createGPURenderpassIndependentPipeline(nullptr, std::move(gpuPipelineLayout), shaders, shaders + 2,
 		std::get<SVertexInputParams>(fullScreenTriangle), blendParams,
@@ -714,7 +713,7 @@ void Renderer::initSceneNonAreaLights(Renderer::InitializationData& initData)
 
 	auto blendToFinalEnvMap = [&](nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> gpuImageView) -> void
 	{
-		auto blendEnvDescriptorSet = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(blendEnvDescriptorSetLayout));
+		auto blendEnvDescriptorSet = m_driver->createGPUDescriptorSet(std::move(blendEnvDescriptorSetLayout));
 		
 		IGPUDescriptorSet::SDescriptorInfo info;
 		{
@@ -734,7 +733,7 @@ void Renderer::initSceneNonAreaLights(Renderer::InitializationData& initData)
 
 		m_driver->updateDescriptorSets(1u, &write, 0u, nullptr);
 		m_driver->bindGraphicsPipeline(blendEnvPipeline.get());
-		m_driver->bindDescriptorSets(EPBP_GRAPHICS, blendEnvPipeline->getLayout(), 0u, 1u, &blendEnvDescriptorSet.get(), nullptr);
+		m_driver->bindDescriptorSets(EPBP_GRAPHICS, blendEnvPipeline->getLayout(), 3u, 1u, &blendEnvDescriptorSet.get(), nullptr);
 		m_driver->drawMeshBuffer(blendEnvMeshBuffer.get());
 	};
 	
