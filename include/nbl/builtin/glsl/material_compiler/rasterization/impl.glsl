@@ -7,22 +7,31 @@
 
 #include <nbl/builtin/glsl/material_compiler/common.glsl>
 
+#if 0
 void nbl_glsl_MC_instr_eval_execute(in nbl_glsl_MC_instr_t instr, in nbl_glsl_MC_precomputed_t precomp, inout nbl_glsl_LightSample s, inout nbl_glsl_MC_microfacet_t _microfacet, in bool skip)
 {
 	const uint op = nbl_glsl_MC_instr_getOpcode(instr);
-	const bool is_bxdf = nbl_glsl_MC_op_isBXDF(op);
-	const bool is_bsdf = !nbl_glsl_MC_op_isBRDF(op); //note: true for everything besides BRDF ops (combiners, SET_GEOM_NORMAL and BUMPMAP too)
-	const float cosFactor = nbl_glsl_conditionalAbsOrMax(is_bsdf, s.NdotL, 0.0);
-	const float NdotV = nbl_glsl_conditionalAbsOrMax(is_bsdf, currInteraction.inner.isotropic.NdotV, 0.0);
-	const bool positiveCosFactors = (cosFactor > nbl_glsl_FLT_MIN) && (NdotV > nbl_glsl_FLT_MIN);
-	const bool is_bxdf_or_combiner = nbl_glsl_MC_op_isBXDForCoatOrBlend(op);
-
 	const nbl_glsl_MC_RegID_t regs = nbl_glsl_MC_instr_decodeRegisters(instr);
+
+	const bool is_bxdf_or_combiner = nbl_glsl_MC_op_isBXDForCoatOrBlend(op);
+	const bool is_bxdf = nbl_glsl_MC_op_isBXDF(op);
+	const bool is_not_brdf = !nbl_glsl_MC_op_isBRDF(op);
+
+
 	mat2x3 ior;
 	mat2x3 ior2;
 	nbl_glsl_MC_params_t params;
 	nbl_glsl_MC_microfacet_t microfacet;
 	nbl_glsl_MC_bsdf_data_t bsdf_data;
+
+	const float NdotL = nbl_glsl_conditionalAbsOrMax(is_not_brdf, s.NdotL, 0.0);
+	const float NdotV = nbl_glsl_conditionalAbsOrMax(is_not_brdf, currInteraction.inner.isotropic.NdotV, 0.0);
+
+
+
+
+
+	const bool positiveCosFactors = (NdotL > nbl_glsl_FLT_MIN) && (NdotV > nbl_glsl_FLT_MIN);
 
 	const bool run = !skip && positiveCosFactors;
 
@@ -35,6 +44,11 @@ void nbl_glsl_MC_instr_eval_execute(in nbl_glsl_MC_instr_t instr, in nbl_glsl_MC
 	}
 
 	nbl_glsl_MC_bxdf_spectrum_t result = nbl_glsl_MC_bxdf_spectrum_t(0.0);
+
+
+
+
+
 
 	if (run && is_bxdf)
 	{
@@ -63,7 +77,7 @@ void nbl_glsl_MC_instr_eval_execute(in nbl_glsl_MC_instr_t instr, in nbl_glsl_MC
 #if defined(OP_DIFFUSE) || defined(OP_DIFFTRANS)
 		if (nbl_glsl_MC_op_isDiffuse(op))
 		{
-			result = albedo * (is_bsdf ? 0.5 : 1.0) * nbl_glsl_oren_nayar_cos_eval_wo_clamps(a2, s.VdotL, cosFactor, NdotV);
+			result = albedo * (is_not_brdf ? 0.5 : 1.0) * nbl_glsl_oren_nayar_cos_eval_wo_clamps(a2, s.VdotL, NdotL, NdotV);
 		}
 		else
 #endif
@@ -77,7 +91,6 @@ void nbl_glsl_MC_instr_eval_execute(in nbl_glsl_MC_instr_t instr, in nbl_glsl_MC
 			const float ay = nbl_glsl_MC_params_getAlphaV(params);
 			const float ay2 = ay*ay;
 #endif
-			const float NdotL = cosFactor;
 			const float NdotL2 = s.NdotL2;
 #ifndef ALL_ISOTROPIC_BXDFS
 			const float TdotL2 = s.TdotL * s.TdotL;
@@ -144,7 +157,7 @@ void nbl_glsl_MC_instr_eval_execute(in nbl_glsl_MC_instr_t instr, in nbl_glsl_MC
 					fr = nbl_glsl_fresnel_dielectric_common(ior2[0], VdotH);
 
 #ifdef OP_DIELECTRIC
-				if (is_bsdf)
+				if (is_not_brdf)
 				{
 					float LdotH = microfacet.inner.isotropic.LdotH;
 					float VdotHLdotH = VdotH * LdotH;
@@ -161,6 +174,12 @@ void nbl_glsl_MC_instr_eval_execute(in nbl_glsl_MC_instr_t instr, in nbl_glsl_MC
 #endif
 		{}
 	}
+
+
+
+
+
+
 
 	if (!is_bxdf)
 	{
@@ -193,7 +212,11 @@ void nbl_glsl_MC_instr_eval_execute(in nbl_glsl_MC_instr_t instr, in nbl_glsl_MC
 		END_CASES
 	}
 
-	if (nbl_glsl_MC_op_isBXDForCoatOrBlend(op))
+
+
+
+
+	if (is_bxdf_or_combiner)
 		nbl_glsl_MC_writeReg(REG_DST(regs), result);
 }
 
@@ -209,34 +232,39 @@ nbl_glsl_MC_bxdf_spectrum_t nbl_glsl_MC_runEvalStream(in nbl_glsl_MC_precomputed
 		nbl_glsl_MC_instr_t instr = nbl_glsl_MC_fetchInstr(stream.offset+i);
 		const uint op = nbl_glsl_MC_instr_getOpcode(instr);
 
-		bool skip = false;
-#ifdef OP_THINDIELECTRIC
-		skip = skip || (op == OP_THINDIELECTRIC);
-#endif
-#ifdef OP_DELTATRANS
-		skip = skip || (op == OP_DELTATRANS);
-#endif
+		bool skip = false
+		#ifdef OP_THINDIELECTRIC
+			|| (op == OP_THINDIELECTRIC)
+		#endif
+		#ifdef OP_DELTATRANS
+			|| (op == OP_DELTATRANS)
+		#endif
+		;
 
+		// TODO: redo
 		nbl_glsl_MC_instr_eval_execute(instr, precomp, s, microfacet, skip);
 
-#if defined(OP_SET_GEOM_NORMAL)||defined(OP_BUMPMAP)
+		#if defined(OP_SET_GEOM_NORMAL)||defined(OP_BUMPMAP)
 		if (
-#ifdef OP_SET_GEOM_NORMAL
+		#ifdef OP_SET_GEOM_NORMAL
 			op==OP_SET_GEOM_NORMAL
-#ifdef OP_BUMPMAP
+		#ifdef OP_BUMPMAP
 			||
-#endif
-#endif
-#ifdef OP_BUMPMAP
+		#endif
+		#endif
+		#ifdef OP_BUMPMAP
 			op==OP_BUMPMAP
-#endif
+		#endif
 		) {
 			nbl_glsl_MC_updateLightSampleAfterNormalChange(s);
 			nbl_glsl_MC_updateMicrofacetCacheAfterNormalChange(s, microfacet);
 		}
-#endif
+		#endif
 	}
-	return nbl_glsl_MC_readReg3(0u);//result is always in regs 0,1,2
+	//result is always in regs 0,1,2
+	nbl_glsl_MC_bxdf_spectrum_t retval;
+	nbl_glsl_MC_readReg(0u,retval);
+	return retval;
 }
 
 #endif
