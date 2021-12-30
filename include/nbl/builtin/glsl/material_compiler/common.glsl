@@ -451,11 +451,14 @@ vec3 nbl_glsl_MC_params_getTransmittance(in nbl_glsl_MC_params_t p)
 
 //
 nbl_glsl_MC_bxdf_spectrum_t nbl_glsl_MC_coatedDiffuse(
+	in nbl_glsl_MC_bxdf_spectrum_t coat,
+	in nbl_glsl_MC_bxdf_spectrum_t coated,
 	//in vec3 thickness_sigma, TODO
 	in vec3 eta, in vec3 eta2,
 	in float clampedNdotV,
 	in float clampedNdotL,
-	out float pdf
+	out vec3 diffuse_weight,
+	out float diffuse_pdf
 )
 {
 	//vec3 thickness_sigma = params_getSigmaA(params);
@@ -464,8 +467,9 @@ nbl_glsl_MC_bxdf_spectrum_t nbl_glsl_MC_coatedDiffuse(
 	// freePath = ( sqrt(refract_compute_NdotT2(NdotL2, rcpOrientedEta2)) + sqrt(refract_compute_NdotT2(NdotV2, rcpOrientedEta2)) )
 	
 	const vec3 transmissionNdotV = vec3(1.0)-nbl_glsl_fresnel_dielectric_frontface_only(eta,clampedNdotV);
-	pdf = nbl_glsl_MC_colorToScalar(transmissionNdotV);
-	return nbl_glsl_diffuseFresnelCorrectionFactor(eta,eta2)*(vec3(1.0)-nbl_glsl_fresnel_dielectric_frontface_only(eta,clampedNdotL))*transmissionNdotV;
+	diffuse_pdf = nbl_glsl_MC_colorToScalar(transmissionNdotV);
+	diffuse_weight = nbl_glsl_diffuseFresnelCorrectionFactor(eta,eta2)*(vec3(1.0)-nbl_glsl_fresnel_dielectric_frontface_only(eta,clampedNdotL))*transmissionNdotV;
+	return coat+coated*diffuse_weight;
 }
 //
 nbl_glsl_MC_eval_pdf_aov_t nbl_glsl_MC_instr_execute_COATING(
@@ -477,11 +481,11 @@ nbl_glsl_MC_eval_pdf_aov_t nbl_glsl_MC_instr_execute_COATING(
 	in float clampedNdotL
 )
 {
+	vec3 diffuse_weight;
 	float diffuse_pdf;
-	const vec3 diffuse_weight = nbl_glsl_MC_coatedDiffuse(eta,eta2,clampedNdotV,clampedNdotL,diffuse_pdf);
 
 	nbl_glsl_MC_eval_pdf_aov_t retval;
-	retval.value = coat.value+coated.value*diffuse_weight;
+	retval.value = nbl_glsl_MC_coatedDiffuse(coat.value,coated.value,eta,eta2,clampedNdotV,clampedNdotL,diffuse_weight,diffuse_pdf);
 #ifdef GEN_CHOICE_STREAM
 	retval.pdf = mix(coat.pdf,coated.pdf,diffuse_pdf);
 #if GEN_CHOICE_STREAM>=GEN_CHOICE_WITH_AOV_EXTRACTION
