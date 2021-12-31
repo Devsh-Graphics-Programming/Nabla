@@ -74,6 +74,18 @@ public:
 	
 	inline const nbl::core::vectorSIMDf& getBackupUpVector() const { return backupUpVector; }
 
+	inline const float getMoveSpeed() const { return moveSpeed; }
+
+	inline void setMoveSpeed(const float _moveSpeed) {
+		moveSpeed = _moveSpeed;
+	}
+
+	inline const float getRotateSpeed() const { return rotateSpeed; }
+
+	inline void setRotateSpeed(const float _rotateSpeed) {
+		rotateSpeed = _rotateSpeed;
+	}
+
 	inline void recomputeViewMatrix() {
 		nbl::core::vectorSIMDf pos = position;
 		nbl::core::vectorSIMDf localTarget = nbl::core::normalize(target - pos);
