@@ -13,9 +13,19 @@ namespace nbl
 namespace core
 {
 
+//! Enumeration for intersection relations of 3d objects
+enum EIntersectionRelation3D
+{
+	ISREL3D_FRONT = 0,
+	ISREL3D_BACK,
+	ISREL3D_PLANAR,
+	ISREL3D_SPANNING,
+	ISREL3D_CLIPPED
+};
 
 //! Template plane class with some intersection testing methods.
-/** It has to be ensured, that the normal is always normalized. The constructors
+/*
+	It has to be ensured, that the normal is always normalized. The constructors
     and setters of this class will not ensure this automatically. So any normal
     passed in has to be normalized in advance. No change to the normal will be
     made by any of the class methods.
@@ -83,6 +93,29 @@ class plane3dSIMDf : private vectorSIMDf
 		    getPlaneEq() |= _mm_castps_si128((normal&BUILD_MASKF(1,1,1,0)).getAsRegister());
 		}
 
+		//! Classifies the relation of a point to this plane.
+		/* 
+			\param point Point to classify its relation.
+			\return ISREL3D_FRONT if the point is in front of the plane,
+			ISREL3D_BACK if the point is behind of the plane, and
+			ISREL3D_PLANAR if the point is within the plane. 
+		*/
+		EIntersectionRelation3D classifyPointRelation(const vector3df& point) const
+		{
+			static constexpr float ROUNDING_ERROR_f32 = 0.000001f;
+
+			const auto& normal = getNormal();
+			const float d = dot(vector3df(normal.x, normal.y, normal.z), point).X + w;
+
+			if (d < -ROUNDING_ERROR_f32)
+				return ISREL3D_BACK;
+
+			if (d > ROUNDING_ERROR_f32)
+				return ISREL3D_FRONT;
+
+			return ISREL3D_PLANAR;
+		}
+
 		//! Recalculates the distance from origin by applying a new member point to the plane.
 		inline void recalculateD(const vector3df_SIMD& MPoint)
 		{
@@ -133,6 +166,22 @@ class plane3dSIMDf : private vectorSIMDf
 			vectorSIMDf t = -dot(*static_cast<const vectorSIMDf*>(this),linePoint)/t2;
 			outIntersection = linePoint + lineVect * t;
 			return true;
+		}
+
+		//! Get percentage of line between two points where an intersection with this plane happens.
+		/*
+			Only useful if known that there is an intersection.
+			\param linePoint1 Point1 of the line to intersect with.
+			\param linePoint2 Point2 of the line to intersect with.
+			\return Where on a line between two points an intersection with this plane happened.
+			For example, 0.5 is returned if the intersection happened exactly in the middle of the two points.
+		*/
+		float getKnownIntersectionWithLine(const vector3df& linePoint1, const vector3df& linePoint2) const
+		{
+			vector3df vect = linePoint2 - linePoint1;
+			const auto& normal = getNormal();
+			float t2 = dot(vector3df(normal.x, normal.y, normal.z), vect).X;
+			return static_cast<float>(-((dot(vector3df(normal.x, normal.y, normal.z), linePoint1).X + W) / t2));
 		}
 
 		//! Intersects this plane with another.
