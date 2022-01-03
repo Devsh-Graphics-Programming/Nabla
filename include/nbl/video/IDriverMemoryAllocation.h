@@ -164,7 +164,7 @@ class IDriverMemoryAllocation : public virtual core::IReferenceCounted
         uint8_t* mappedPtr;
         MemoryRange                 mappedRange;
         E_MAPPING_CPU_ACCESS_FLAG   currentMappingAccess;
-        core::bitflag<E_MEMORY_ALLOCATE_FLAGS> allocateFlags;
+        const core::bitflag<E_MEMORY_ALLOCATE_FLAGS> allocateFlags;
 };
 
 } // end namespace nbl::video
