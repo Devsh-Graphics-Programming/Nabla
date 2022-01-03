@@ -335,7 +335,7 @@ class ISystem : public core::IReferenceCounted
 
         void mount(core::smart_refctd_ptr<IFileArchive>&& archive, const system::path& pathAlias = "")
         {
-            auto path = std::filesystem::absolute(archive->asFile()->getFileName()).generic_string();
+            auto path = archive->asFile()->getFileName();
             m_cachedArchiveFiles.insert(path, std::move(archive));
             if (!pathAlias.empty())
             {
@@ -371,7 +371,10 @@ class ISystem : public core::IReferenceCounted
 
         bool deleteDirectory(const system::path& p)
         {
-            return std::filesystem::remove(p);
+            if (std::filesystem::exists(p))
+                return std::filesystem::remove(p);
+            else
+                return false;
         }
 
         bool moveFileOrDirectory(const system::path oldPath, const system::path newPath)
