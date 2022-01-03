@@ -82,11 +82,14 @@ void main()
 			if (_continue)
 			{
 				// if we ever support spatially varying emissive, we'll need to hoist barycentric computation and UV fetching to the position fetching
-				const vec2 compactBary = vec2(1.f-intersection.uvwt.x-intersection.uvwt.y,intersection.uvwt.x); // radeon rays is a special boy
+				const vec2 compactBary = vec2(1.f-intersection.uvwt.x-intersection.uvwt.y,intersection.uvwt.x); // radeon rays is a special boy and does its barycentrics weird
 				
-				const nbl_glsl_xoroshiro64star_state_t scramble_start_state = load_aux_vertex_attrs(
-					batchInstanceData,indices,compactBary,geomDenormal,
-					material,outPixelLocation,vertex_depth
+				//
+				const nbl_glsl_xoroshiro64star_state_t scramble_start_state = nbl_glsl_xoroshiro64star_state_t(ray.mask,ray._active);
+				
+				//
+				normalizedN = load_normal_and_prefetch_textures(
+					batchInstanceData,indices,compactBary,geomDenormal,material
 #ifdef TEX_PREFETCH_STREAM
 					,mat2(0.0) // TODO: Covariance Rendering
 #endif
