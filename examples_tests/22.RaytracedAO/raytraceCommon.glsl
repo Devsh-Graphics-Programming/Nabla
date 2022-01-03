@@ -24,25 +24,25 @@ layout(set = 2, binding = 0, row_major) uniform StaticViewData
 	StaticViewData_t staticViewData;
 };
 // rng
-layout(set = 2, binding = 1, rg32ui) uniform uimage2DArray scramblebuf;
-layout(set = 2, binding = 2) uniform usamplerBuffer sampleSequence;
+layout(set = 2, binding = 1) uniform usamplerBuffer sampleSequence;
 // accumulation
-layout(set = 2, binding = 3, rg32ui) restrict uniform uimage2DArray accumulation;
+layout(set = 2, binding = 2, rg32ui) restrict uniform uimage2DArray accumulation;
 // ray data
 #include <nbl/builtin/glsl/ext/RadeonRays/ray.glsl>
-layout(set = 2, binding = 4, std430) restrict writeonly buffer SinkRays
+layout(set = 2, binding = 3, std430) restrict writeonly buffer SinkRays
 {
 	nbl_glsl_ext_RadeonRays_ray sinkRays[];
 };
 #include <nbl/builtin/glsl/utils/indirect_commands.glsl>
-layout(set = 2, binding = 5) restrict coherent buffer RayCount // maybe remove coherent keyword
+layout(set = 2, binding = 4) restrict coherent buffer RayCount // maybe remove coherent keyword
 {
 	uint rayCount[RAYCOUNT_N_BUFFERING];
 };
 // aovs
-layout(set = 2, binding = 6, r32ui) restrict uniform uimage2DArray albedoAOV;
-layout(set = 2, binding = 7, r32ui) restrict uniform uimage2DArray normalAOV;
-layout(set = 2, binding = 8) uniform sampler2D envMap; 
+layout(set = 2, binding = 5, r32ui) restrict uniform uimage2DArray albedoAOV;
+layout(set = 2, binding = 6, r32ui) restrict uniform uimage2DArray normalAOV;
+// environment emitter
+layout(set = 2, binding = 7) uniform sampler2D envMap; 
 
 void clear_raycount()
 {

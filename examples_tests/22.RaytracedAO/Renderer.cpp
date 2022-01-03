@@ -139,18 +139,17 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 	}
 	
 	{
-		constexpr auto raytracingCommonDescriptorCount = 9u;
+		constexpr auto raytracingCommonDescriptorCount = 8u;
 		IGPUDescriptorSetLayout::SBinding bindings[raytracingCommonDescriptorCount];
 		fillIotaDescriptorBindingDeclarations(bindings,ISpecializedShader::ESS_COMPUTE,raytracingCommonDescriptorCount);
 		bindings[0].type = asset::EDT_UNIFORM_BUFFER;
-		bindings[1].type = asset::EDT_STORAGE_IMAGE;
-		bindings[2].type = asset::EDT_UNIFORM_TEXEL_BUFFER;
-		bindings[3].type = asset::EDT_STORAGE_IMAGE;
+		bindings[1].type = asset::EDT_UNIFORM_TEXEL_BUFFER;
+		bindings[2].type = asset::EDT_STORAGE_IMAGE;
+		bindings[3].type = asset::EDT_STORAGE_BUFFER;
 		bindings[4].type = asset::EDT_STORAGE_BUFFER;
-		bindings[5].type = asset::EDT_STORAGE_BUFFER;
+		bindings[5].type = asset::EDT_STORAGE_IMAGE;
 		bindings[6].type = asset::EDT_STORAGE_IMAGE;
-		bindings[7].type = asset::EDT_STORAGE_IMAGE;
-		bindings[8].type = asset::EDT_COMBINED_IMAGE_SAMPLER;
+		bindings[7].type = asset::EDT_COMBINED_IMAGE_SAMPLER;
 
 		m_commonRaytracingDSLayout = m_driver->createGPUDescriptorSetLayout(bindings,bindings+raytracingCommonDescriptorCount);
 	}
@@ -163,10 +162,11 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 	samplerParams.CompareEnable = false;
 	auto sampler = m_driver->createGPUSampler(samplerParams);
 	{
-		constexpr auto raygenDescriptorCount = 1u;
+		constexpr auto raygenDescriptorCount = 2u;
 		IGPUDescriptorSetLayout::SBinding bindings[raygenDescriptorCount];
 		fillIotaDescriptorBindingDeclarations(bindings,ISpecializedShader::ESS_COMPUTE,raygenDescriptorCount,EDT_COMBINED_IMAGE_SAMPLER);
 		bindings[0].samplers = &sampler;
+		bindings[1].samplers = &sampler;
 
 		m_raygenDSLayout = m_driver->createGPUDescriptorSetLayout(bindings,bindings+raygenDescriptorCount);
 	}
@@ -1175,7 +1175,7 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, core::s
 	m_albedoRslv = createScreenSizedTexture(EF_A2B10G10R10_UNORM_PACK32);
 	m_normalRslv = createScreenSizedTexture(EF_R16G16B16A16_SFLOAT);
 
-	constexpr uint32_t MaxDescritorUpdates = 9u;
+	constexpr uint32_t MaxDescritorUpdates = 8u;
 	IGPUDescriptorSet::SDescriptorInfo infos[MaxDescritorUpdates];
 	IGPUDescriptorSet::SWriteDescriptorSet writes[MaxDescritorUpdates];
 
@@ -1185,6 +1185,52 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, core::s
 	{
 		_staticViewDataBuffer = createFilledBufferAndSetUpInfoFromStruct(infos+0,m_staticViewData);
 		staticViewDataBufferSize = _staticViewDataBuffer->getSize();
+		{
+			// TODO: maybe use the sample limit in the future to stop a converged render
+			const auto maxSamples = sampleSequence->getSize()/(sizeof(uint32_t)*MaxDimensions);
+			assert(maxSamples==MAX_ACCUMULATED_SAMPLES);
+			// upload sequence to GPU (TODO: clip its size to the dimensions we'll actually use)
+			auto gpubuf = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(sampleSequence->getSize(),sampleSequence->getPointer());
+			infos[1].desc = m_driver->createGPUBufferView(gpubuf.get(),asset::EF_R32G32B32_UINT); // TODO: maybe try to pack into 64bits?
+		}
+		setImageInfo(infos+2,asset::EIL_GENERAL,core::smart_refctd_ptr(m_accumulation));
+		setImageInfo(infos+5,asset::EIL_GENERAL,core::smart_refctd_ptr(m_albedoAcc));
+		setImageInfo(infos+6,asset::EIL_GENERAL,core::smart_refctd_ptr(m_normalAcc));
+
+		// envmap
+		setImageInfo(infos+7,asset::EIL_GENERAL,core::smart_refctd_ptr(m_finalEnvmap));
+		ISampler::SParams samplerParams = { ISampler::ETC_REPEAT, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_FLOAT_OPAQUE_BLACK, ISampler::ETF_LINEAR, ISampler::ETF_LINEAR, ISampler::ESMM_LINEAR, 0u, false, ECO_ALWAYS };
+		infos[7].image.sampler = m_driver->createGPUSampler(samplerParams);
+		infos[7].image.imageLayout = EIL_SHADER_READ_ONLY_OPTIMAL;
+
+		createEmptyInteropBufferAndSetUpInfo(infos+3,m_rayBuffer[0],raygenBufferSize);
+		setBufferInfo(infos+4,m_rayCountBuffer);
+			
+		for (auto i=0u; i<2u; i++)
+			m_commonRaytracingDS[i] = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_commonRaytracingDSLayout));
+
+		constexpr auto descriptorUpdateCount = 8u;
+		setDstSetAndDescTypesOnWrites(m_commonRaytracingDS[0].get(),writes,infos,{
+			EDT_UNIFORM_BUFFER,
+			EDT_UNIFORM_TEXEL_BUFFER,
+			EDT_STORAGE_IMAGE,
+			EDT_STORAGE_BUFFER,
+			EDT_STORAGE_BUFFER,
+			EDT_STORAGE_IMAGE,
+			EDT_STORAGE_IMAGE,
+			EDT_COMBINED_IMAGE_SAMPLER,
+		});
+		m_driver->updateDescriptorSets(descriptorUpdateCount,writes,0u,nullptr);
+		// set up second DS
+		createEmptyInteropBufferAndSetUpInfo(infos+3,m_rayBuffer[1],raygenBufferSize);
+		for (auto i=0u; i<descriptorUpdateCount; i++)
+			writes[i].dstSet = m_commonRaytracingDS[1].get();
+		m_driver->updateDescriptorSets(descriptorUpdateCount,writes,0u,nullptr);
+	}
+
+	// set up m_raygenDS
+	core::smart_refctd_ptr<IGPUImageView> visibilityBuffer = createScreenSizedTexture(EF_R32G32B32A32_UINT);
+	{
 		{
 			constexpr auto ScrambleStateChannels = 2u;
 			auto tmpBuff = m_driver->createCPUSideGPUVisibleGPUBufferOnDedMem(sizeof(uint32_t)*ScrambleStateChannels*renderPixelCount);
@@ -1203,63 +1249,19 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, core::s
 			// upload
 			IGPUImage::SBufferCopy region;
 			//region.imageSubresource.aspectMask = ;
-			region.imageSubresource.baseArrayLayer = 1u;
+			region.imageSubresource.baseArrayLayer = 0u;
 			region.imageSubresource.layerCount = 1u;
-			region.imageExtent = {m_staticViewData.imageDimensions.x,m_staticViewData.imageDimensions.y,1u};
-			auto scrambleKeys = createScreenSizedTexture(EF_R32G32_UINT,2u);
+			region.imageExtent = {m_staticViewData.imageDimensions.x,m_staticViewData.imageDimensions.y,0u};
+			auto scrambleKeys = createScreenSizedTexture(EF_R32G32_UINT);
 			m_driver->copyBufferToImage(tmpBuff.get(),scrambleKeys->getCreationParameters().image.get(),1u,&region);
-			setImageInfo(infos+1,asset::EIL_GENERAL,std::move(scrambleKeys));
+			setImageInfo(infos+0,asset::EIL_SHADER_READ_ONLY_OPTIMAL,std::move(scrambleKeys));
 		}
-		{
-			// TODO: maybe use the sample limit in the future to stop a converged render
-			const auto maxSamples = sampleSequence->getSize()/(sizeof(uint32_t)*MaxDimensions);
-			assert(maxSamples==MAX_ACCUMULATED_SAMPLES);
-			// upload sequence to GPU (TODO: clip its size to the dimensions we'll actually use)
-			auto gpubuf = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(sampleSequence->getSize(),sampleSequence->getPointer());
-			infos[2].desc = m_driver->createGPUBufferView(gpubuf.get(),asset::EF_R32G32B32_UINT); // TODO: maybe try to pack into 64bits?
-		}
-		setImageInfo(infos+3,asset::EIL_GENERAL,core::smart_refctd_ptr(m_accumulation));
-		setImageInfo(infos+6,asset::EIL_GENERAL,core::smart_refctd_ptr(m_albedoAcc));
-		setImageInfo(infos+7,asset::EIL_GENERAL,core::smart_refctd_ptr(m_normalAcc));
+		setImageInfo(infos+1,asset::EIL_SHADER_READ_ONLY_OPTIMAL,core::smart_refctd_ptr(visibilityBuffer));
 
-		// envmap
-		setImageInfo(infos+8,asset::EIL_GENERAL,core::smart_refctd_ptr(m_finalEnvmap));
-		ISampler::SParams samplerParams = { ISampler::ETC_REPEAT, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_FLOAT_OPAQUE_BLACK, ISampler::ETF_LINEAR, ISampler::ETF_LINEAR, ISampler::ESMM_LINEAR, 0u, false, ECO_ALWAYS };
-		infos[8].image.sampler = m_driver->createGPUSampler(samplerParams);
-		infos[8].image.imageLayout = EIL_SHADER_READ_ONLY_OPTIMAL;
-
-		createEmptyInteropBufferAndSetUpInfo(infos+4,m_rayBuffer[0],raygenBufferSize);
-		setBufferInfo(infos+5,m_rayCountBuffer);
-			
-		for (auto i=0u; i<2u; i++)
-			m_commonRaytracingDS[i] = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_commonRaytracingDSLayout));
-
-		constexpr auto descriptorUpdateCount = 9u;
-		setDstSetAndDescTypesOnWrites(m_commonRaytracingDS[0].get(),writes,infos,{
-			EDT_UNIFORM_BUFFER,
-			EDT_STORAGE_IMAGE,
-			EDT_UNIFORM_TEXEL_BUFFER,
-			EDT_STORAGE_IMAGE,
-			EDT_STORAGE_BUFFER,
-			EDT_STORAGE_BUFFER,
-			EDT_STORAGE_IMAGE,
-			EDT_STORAGE_IMAGE,
+		setDstSetAndDescTypesOnWrites(m_raygenDS.get(),writes,infos,{
 			EDT_COMBINED_IMAGE_SAMPLER,
+			EDT_COMBINED_IMAGE_SAMPLER
 		});
-		m_driver->updateDescriptorSets(descriptorUpdateCount,writes,0u,nullptr);
-		// set up second DS
-		createEmptyInteropBufferAndSetUpInfo(infos+4,m_rayBuffer[1],raygenBufferSize);
-		for (auto i=0u; i<descriptorUpdateCount; i++)
-			writes[i].dstSet = m_commonRaytracingDS[1].get();
-		m_driver->updateDescriptorSets(descriptorUpdateCount,writes,0u,nullptr);
-	}
-
-	// set up m_raygenDS
-	core::smart_refctd_ptr<IGPUImageView> visibilityBuffer = createScreenSizedTexture(EF_R32G32B32A32_UINT);
-	{
-		setImageInfo(infos+0,asset::EIL_SHADER_READ_ONLY_OPTIMAL,core::smart_refctd_ptr(visibilityBuffer));
-
-		setDstSetAndDescTypesOnWrites(m_raygenDS.get(),writes,infos,{EDT_COMBINED_IMAGE_SAMPLER});
 	}
 	m_driver->updateDescriptorSets(2u,writes,0u,nullptr);
 

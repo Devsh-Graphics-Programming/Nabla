@@ -6,7 +6,8 @@ layout(local_size_x = WORKGROUP_DIM, local_size_y = WORKGROUP_DIM) in;
 
 #include "raytraceCommon.glsl"
 
-layout(set = 3, binding = 0) uniform usampler2D frontFacingTriangleIDDrawID_unorm16Bary_dBarydScreenHalf2x2; // should it be called backfacing or frontfacing?
+layout(set = 3, binding = 0) uniform usampler2D scramblebuf;
+layout(set = 3, binding = 1) uniform usampler2D frontFacingTriangleIDDrawID_unorm16Bary_dBarydScreenHalf2x2; // should it be called backfacing or frontfacing?
 
 bool get_sample_job()
 {
@@ -83,7 +84,7 @@ void main()
 			const vec3 lastVxPos = load_positions(geomDenormal,batchInstanceData,indices);
 						
 			// get initial scramble key while waiting for vertex positions
-			const nbl_glsl_xoroshiro64star_state_t scramble_start_state = imageLoad(scramblebuf,ivec3(outPixelLocation,1u)).rg; // TODO: redo
+			const nbl_glsl_xoroshiro64star_state_t scramble_start_state = texelFetch(scramblebuf,ivec2(outPixelLocation),0).rg;
 
 			//
 			normalizedN = load_normal_and_prefetch_textures(
