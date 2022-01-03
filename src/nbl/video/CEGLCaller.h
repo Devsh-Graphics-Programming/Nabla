@@ -8,8 +8,6 @@
 namespace nbl::video::egl
 {
 
-class CEGLCaller final
-{
 #define NBL_EGL_FUNC_LIST \
     eglChooseConfig,\
     eglCopyBuffers,\
@@ -61,49 +59,82 @@ class CEGLCaller final
     eglWaitSync,\
     eglGetPlatformDependentHandles
 
-#define NBL_IMPL_DECLARE_EGL_FUNC_PTRS(...)\
-    NBL_FOREACH(NBL_SYSTEM_DECLARE_DYNLIB_FUNCPTR,__VA_ARGS__);
-
 #define NBL_IMPL_GET_FUNC_PTR(FUNC_NAME) reinterpret_cast<void*>(&::FUNC_NAME)
+class CEGLLoader : public system::FuncPtrLoader
+{
+        system::DefaultFuncPtrLoader m_libEGL;
+    public:
+        CEGLLoader() : m_libEGL() {}
+        CEGLLoader(const char* eglOptionalPath) : m_libEGL(eglOptionalPath) {}
+        CEGLLoader(CEGLLoader&& other) : m_libEGL()
+        {
+            operator=(std::move(other));
+        }
+        ~CEGLLoader() {}
 
-#define NBL_IMPL_INIT_EGL_FUNCPTR(FUNC_NAME) ,p ## FUNC_NAME ( NBL_IMPL_GET_FUNC_PTR(FUNC_NAME) )
+        CEGLLoader& operator=(CEGLLoader&& other)
+        {
+            m_libEGL = std::move(other.m_libEGL);
+            return *this;
+        }
 
-#define NBL_IMPL_INIT_EGL_FUNC_PTRS(...)\
-    NBL_FOREACH(NBL_IMPL_INIT_EGL_FUNCPTR,__VA_ARGS__)
+        inline bool isLibraryLoaded() override {return true;}
 
-#define NBL_IMPL_SWAP_EGL_FUNC_PTRS(...)\
-    NBL_FOREACH(NBL_SYSTEM_IMPL_SWAP_DYNLIB_FUNCPTR,__VA_ARGS__);
-
-public:
-    CEGLCaller() : dummy(0)
-        NBL_IMPL_INIT_EGL_FUNC_PTRS(NBL_EGL_FUNC_LIST)
-#if !defined(_NBL_PLATFORM_ANDROID_)
-       // NBL_IMPL_INIT_EGL_FUNCPTR(eglGetPlatformDependentHandles)
-#endif
-    {
-    }
-    CEGLCaller(CEGLCaller&& other)
-    {
-        operator=(std::move(other));
-    }
-
-    CEGLCaller& operator=(CEGLCaller&& other)
-    {
-        NBL_IMPL_SWAP_EGL_FUNC_PTRS(NBL_EGL_FUNC_LIST);
-#if !defined(_NBL_PLATFORM_ANDROID_)
-        std::swap(peglGetPlatformDependentHandles, other.peglGetPlatformDependentHandles);
-#endif
-
-        return *this;
-    }
-
-    int dummy;
-    NBL_IMPL_DECLARE_EGL_FUNC_PTRS(NBL_EGL_FUNC_LIST)
-#if !defined(_NBL_PLATFORM_ANDROID_)
-    //NBL_SYSTEM_DECLARE_DYNLIB_FUNCPTR(eglGetPlatformDependentHandles);
-#endif
+        void* loadFuncPtr(const char* funcname) override
+        {
+            if (m_libEGL.isLibraryLoaded())
+                return m_libEGL.loadFuncPtr(funcname);
+            #define LOAD_DYNLIB_FUNCPTR(FUNC_NAME) if (strcmp(funcname, #FUNC_NAME )==0) \
+                return NBL_IMPL_GET_FUNC_PTR(FUNC_NAME);
+            NBL_FOREACH(LOAD_DYNLIB_FUNCPTR,NBL_EGL_FUNC_LIST)
+            #undef LOAD_DYNLIB_FUNCPTR
+            return nullptr;
+        }
 };
+NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(CEGLCaller,CEGLLoader,NBL_EGL_FUNC_LIST);
 
+/*
+class CEGLCaller final : public core::Uncopyable
+{
+
+
+
+
+    public:
+        #define NBL_IMPL_INIT_EGL_FUNCPTR(FUNC_NAME) ,p ## FUNC_NAME ( NBL_IMPL_GET_FUNC_PTR(FUNC_NAME) )
+        #define NBL_IMPL_INIT_EGL_FUNC_PTRS(...)\
+            NBL_FOREACH(NBL_IMPL_INIT_EGL_FUNCPTR,__VA_ARGS__)
+        CEGLCaller() : core::Uncopyable()
+            NBL_IMPL_INIT_EGL_FUNC_PTRS(NBL_EGL_FUNC_LIST)
+        {
+        }
+        #undef NBL_IMPL_INIT_EGL_FUNC_PTRS
+        #undef NBL_IMPL_INIT_EGL_FUNCPTR
+        #undef NBL_IMPL_GET_FUNC_PTR
+        CEGLCaller(CEGLCaller&& other)
+        {
+            operator=(std::move(other));
+        }
+
+        CEGLCaller& operator=(CEGLCaller&& other)
+        {
+            #define NBL_IMPL_SWAP_EGL_FUNC_PTRS(...)\
+                NBL_FOREACH(NBL_SYSTEM_IMPL_SWAP_DYNLIB_FUNCPTR,__VA_ARGS__);
+            NBL_IMPL_SWAP_EGL_FUNC_PTRS(NBL_EGL_FUNC_LIST);
+            #undef NBL_IMPL_SWAP_EGL_FUNC_PTRS
+
+            return *this;
+        }
+
+        #define NBL_IMPL_DECLARE_EGL_FUNC_PTRS(...)\
+            NBL_FOREACH(NBL_SYSTEM_DECLARE_DYNLIB_FUNCPTR,__VA_ARGS__);
+        NBL_IMPL_DECLARE_EGL_FUNC_PTRS(NBL_EGL_FUNC_LIST)
+        #undef NBL_IMPL_DECLARE_EGL_FUNC_PTRS
+
+};
+*/
+
+#undef NBL_EGL_FUNC_LIST
 }
 
 #endif

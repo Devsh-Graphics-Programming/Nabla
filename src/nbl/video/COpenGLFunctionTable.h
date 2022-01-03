@@ -1763,7 +1763,7 @@ public:
 	}
 	void extGlMultiDrawElementsIndirectCount(GLenum mode, GLenum type, const void* indirect, GLintptr drawcount, GLsizei maxdrawcount, GLsizei stride) override
 	{
-		if (features->Version>=460)
+		if (features->Version>=460 && gl4Drawing.pglMultiDrawElementsIndirectCount) // Intel is a very special boy...
 			gl4Drawing.pglMultiDrawElementsIndirectCount(mode, type, indirect, drawcount, maxdrawcount, stride);
 		else if (features->isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_indirect_parameters))
 			gl4Drawing.pglMultiDrawElementsIndirectCountARB(mode, type, indirect, drawcount, maxdrawcount, stride);

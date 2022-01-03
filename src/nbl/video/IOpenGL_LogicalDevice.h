@@ -475,8 +475,20 @@ protected:
             EGLBoolean mcres = egl->call.peglMakeCurrent(egl->display, pbuffer, pbuffer, thisCtx);
             assert(mcres == EGL_TRUE);
 
-            new (state_ptr) FunctionTableType(egl,features,core::smart_refctd_ptr<system::ILogger>(m_dbgCb->getLogger()));
+            auto logger = m_dbgCb->getLogger();
+            new (state_ptr) FunctionTableType(egl,features,core::smart_refctd_ptr<system::ILogger>(logger));
+
             auto* gl = state_ptr;
+            if (logger)
+            {
+                const char* vendor = reinterpret_cast<const char*>(gl->glGeneral.pglGetString(GL_VENDOR));
+                const char* renderer = reinterpret_cast<const char*>(gl->glGeneral.pglGetString(GL_RENDERER));
+                const char* version = reinterpret_cast<const char*>(gl->glGeneral.pglGetString(GL_VERSION));
+                if constexpr (FunctionTableType::EGL_API_TYPE==EGL_OPENGL_API)
+                    logger->log("Created OpenGL Logical Device. Vendor: %s Renderer: %s Version: %s",system::ILogger::ELL_INFO,vendor,renderer,version);
+                else if (FunctionTableType::EGL_API_TYPE==EGL_OPENGL_ES_API)
+                    logger->log("Created OpenGL ES Logical Device. Vendor: %s Renderer: %s Version: %s",system::ILogger::ELL_INFO,vendor,renderer,version);
+            }
 
             #ifdef _NBL_DEBUG
             gl->glGeneral.pglEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
@@ -890,11 +902,20 @@ protected:
                 }
             }
 
+            auto raster = params.rasterization;
+            if (gl.isGLES() && !gl.getFeatures()->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_clip_control))
+            {
+                if (raster.faceCullingMode == asset::EFCM_BACK_BIT)
+                    raster.faceCullingMode = asset::EFCM_FRONT_BIT;
+                else if (raster.faceCullingMode == asset::EFCM_FRONT_BIT)
+                    raster.faceCullingMode = asset::EFCM_BACK_BIT;
+            }
+
             return core::make_smart_refctd_ptr<COpenGLRenderpassIndependentPipeline>(
                 core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device), &gl,
                 std::move(layout),
                 shaders.begin(), shaders.end(),
-                params.vertexInput, params.blend, params.primitiveAssembly, params.rasterization,
+                params.vertexInput, params.blend, params.primitiveAssembly, raster,
                 getNameCountForSingleEngineObject(), 0u, GLnames, binaries
             );
         }

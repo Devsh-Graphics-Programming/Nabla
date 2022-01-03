@@ -70,33 +70,15 @@ public:
 
 	void onAppInitialized_impl() override
 	{
-		CommonAPI::SFeatureRequest<video::IAPIConnection::E_FEATURE> requiredInstanceFeatures = {};
-		requiredInstanceFeatures.count = 1u;
-		video::IAPIConnection::E_FEATURE requiredFeatures_Instance[] = { video::IAPIConnection::EF_SURFACE };
-		requiredInstanceFeatures.features = requiredFeatures_Instance;
-
-		CommonAPI::SFeatureRequest<video::IAPIConnection::E_FEATURE> optionalInstanceFeatures = {};
-
-		CommonAPI::SFeatureRequest<video::ILogicalDevice::E_FEATURE> requiredDeviceFeatures = {};
-		requiredDeviceFeatures.count = 1u;
-		video::ILogicalDevice::E_FEATURE requiredFeatures_Device[] = { video::ILogicalDevice::EF_SWAPCHAIN };
-		requiredDeviceFeatures.features = requiredFeatures_Device;
-
-		CommonAPI::SFeatureRequest< video::ILogicalDevice::E_FEATURE> optionalDeviceFeatures = {};
-
 		const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT);
 		const video::ISurface::SFormat surfaceFormat(asset::EF_B8G8R8A8_SRGB, asset::ECP_COUNT, asset::EOTF_UNKNOWN);
 
 		CommonAPI::InitOutput initOutput;
 		initOutput.window = core::smart_refctd_ptr(window);
-		CommonAPI::Init(
+		CommonAPI::InitWithDefaultExt(
 			initOutput,
 			video::EAT_VULKAN,
 			"09.ColorSpaceTest",
-			requiredInstanceFeatures,
-			optionalInstanceFeatures,
-			requiredDeviceFeatures,
-			optionalDeviceFeatures,
 			WIN_W, WIN_H, SC_IMG_COUNT,
 			swapchainImageUsage,
 			surfaceFormat);
@@ -423,7 +405,7 @@ public:
 
 				cb->beginRenderPass(&beginInfo, nbl::asset::ESC_INLINE);
 				cb->bindGraphicsPipeline(gpuGraphicsPipeline.get());
-				cb->bindDescriptorSets(asset::EPBP_GRAPHICS, gpuGraphicsPipeline->getRenderpassIndependentPipeline()->getLayout(), 3, 1, &ds.get(), nullptr);
+				cb->bindDescriptorSets(asset::EPBP_GRAPHICS, gpuGraphicsPipeline->getRenderpassIndependentPipeline()->getLayout(), 3, 1, &ds.get());
 				ext::FullScreenTriangle::recordDrawCalls(cb.get());
 				cb->endRenderPass();
 				cb->end();
@@ -489,6 +471,42 @@ public:
 	bool keepRunning() override
 	{
 		return false;
+	}
+	
+	video::IAPIConnection* getAPIConnection() override
+	{
+		return apiConnection.get();
+	}
+	video::ILogicalDevice* getLogicalDevice()  override
+	{
+		return logicalDevice.get();
+	}
+	video::IGPURenderpass* getRenderpass() override
+	{
+		return renderpass.get();
+	}
+	void setSurface(core::smart_refctd_ptr<video::ISurface>&& s) override
+	{
+		surface = std::move(s);
+	}
+	void setFBOs(std::vector<core::smart_refctd_ptr<video::IGPUFramebuffer>>& f) override
+	{
+		for (int i = 0; i < f.size(); i++)
+		{
+			fbos[i] = core::smart_refctd_ptr(f[i]);
+		}
+	}
+	void setSwapchain(core::smart_refctd_ptr<video::ISwapchain>&& s) override
+	{
+		swapchain = std::move(s);
+	}
+	uint32_t getSwapchainImageCount() override
+	{
+		return SC_IMG_COUNT;
+	}
+	virtual nbl::asset::E_FORMAT getDepthFormat() override
+	{
+		return nbl::asset::EF_D32_SFLOAT;
 	}
 };
 

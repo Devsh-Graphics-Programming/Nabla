@@ -50,7 +50,6 @@ public:
 	static void  operator delete[](void* ptr) noexcept
 	{
 		assert(false);
-		return nullptr;
 	}
 };
 
@@ -58,8 +57,9 @@ public:
 //! The FileArchive manages archives and provides access to files inside them.
 class IFileArchive : public core::IReferenceCounted
 {
-	// Can be just the size of heap allocator, they're equal in size anyway 
-	static constexpr inline size_t SIZEOF_INNER_ARCHIVE_FILE = sizeof(CInnerArchiveFile<CPlainHeapAllocator>);
+	static inline constexpr size_t SIZEOF_INNER_ARCHIVE_FILE = std::max(sizeof(CInnerArchiveFile<CPlainHeapAllocator>), sizeof(CInnerArchiveFile<VirtualAllocator>));
+	static inline constexpr size_t ALIGNOF_INNER_ARCHIVE_FILE = std::max(alignof(CInnerArchiveFile<CPlainHeapAllocator>), alignof(CInnerArchiveFile<VirtualAllocator>));
+
 protected:
 	enum E_ALLOCATOR_TYPE
 	{
@@ -81,6 +81,31 @@ public:
 		_NBL_ALIGNED_FREE(m_filesBuffer);
 		_NBL_ALIGNED_FREE(m_fileFlags);
 	}
+
+	// List all files and directories in a specific dir of the archive
+	virtual core::vector<system::path> listAssets(const char* asset_path)
+	{
+		constexpr auto isSubDir = [](path p, path root) -> bool
+		{
+			while (p != path()) {
+				if (p == root) {
+					return true;
+				}
+				p = p.parent_path();
+			}
+			return false;
+		};
+		core::vector<path> res;
+		for (auto& entry : m_files)
+		{
+			if (isSubDir(entry.fullName, asset_path))
+			{
+				res.push_back(entry.fullName);
+			}
+		}
+		return res;
+	}
+
 	//! An entry in a list of files, can be a folder or a file.
 	struct SFileListEntry
 	{
@@ -134,6 +159,7 @@ public:
 	core::smart_refctd_ptr<IFile> readFile(const SOpenFileParams& params)
 	{
 		auto index = getIndexByPath(params.filename);
+		if (index == -1) return nullptr;
 		switch (this->getFileType(index))
 		{
 		case EAT_NULL:
@@ -143,7 +169,7 @@ public:
 			return getFile_impl<CPlainHeapAllocator>(params, index);
 			break;
 		case EAT_VIRTUAL_ALLOC:
-			return getFile_impl<VirtualAllocator>(params, index); //TODO linux
+			return getFile_impl<VirtualAllocator>(params, index);
 			break;
 		}
 		assert(false);

@@ -12,7 +12,6 @@ namespace nbl::system
 		using native_file_mapping_handle_t = void*;
 	private:
 		bool m_openedProperly = true;
-		std::filesystem::path m_filename;
 		size_t m_size = 0;
 		native_file_handle_t m_native = -1;
 		native_file_mapping_handle_t m_memoryMappedObj;
@@ -21,7 +20,6 @@ namespace nbl::system
 		~CFilePOSIX();
 		// Inherited via IFile
 		virtual size_t getSize() const override;
-		virtual const std::filesystem::path& getFileName() const override;
 		virtual void* getMappedPointer() override;
 		virtual const void* getMappedPointer() const override;
 		bool isOpenedProperly() const { return m_openedProperly; }

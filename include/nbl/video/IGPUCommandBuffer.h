@@ -8,7 +8,9 @@
 #include "nbl/video/IGPURenderpass.h"
 #include "nbl/video/IGPUFramebuffer.h"
 #include "nbl/video/IGPUGraphicsPipeline.h"
+*/
 #include "nbl/video/IGPUDescriptorSet.h"
+/*
 #include "nbl/video/IGPUPipelineLayout.h"
 */
 #include "nbl/video/IGPUEvent.h"
@@ -66,6 +68,71 @@ public:
 
     IGPUCommandPool* getPool() const { return m_cmdpool.get(); }
     
+
+    bool regenerateMipmaps(IGPUImage* img, uint32_t lastReadyMip, asset::IImage::E_ASPECT_FLAGS aspect) override
+    {
+        const uint32_t qfam = getQueueFamilyIndex();
+
+        IGPUCommandBuffer::SImageMemoryBarrier barrier = {};
+        barrier.srcQueueFamilyIndex = qfam;
+        barrier.dstQueueFamilyIndex = qfam;
+        barrier.image = core::smart_refctd_ptr<video::IGPUImage>(img);
+        barrier.subresourceRange.aspectMask = aspect;
+        barrier.subresourceRange.levelCount = 1u;
+        barrier.subresourceRange.baseArrayLayer = 0u;
+        barrier.subresourceRange.layerCount = img->getCreationParameters().arrayLayers;
+
+        asset::SImageBlit blitRegion = {};
+        blitRegion.srcSubresource.aspectMask = barrier.subresourceRange.aspectMask;
+        blitRegion.srcSubresource.baseArrayLayer = barrier.subresourceRange.baseArrayLayer;
+        blitRegion.srcSubresource.layerCount = barrier.subresourceRange.layerCount;
+        blitRegion.srcOffsets[0] = { 0, 0, 0 };
+
+        blitRegion.dstSubresource.aspectMask = barrier.subresourceRange.aspectMask;
+        blitRegion.dstSubresource.baseArrayLayer = barrier.subresourceRange.baseArrayLayer;
+        blitRegion.dstSubresource.layerCount = barrier.subresourceRange.layerCount;
+        blitRegion.dstOffsets[0] = { 0, 0, 0 };
+
+        auto mipsize = img->getMipSize(lastReadyMip);
+
+        uint32_t mipWidth = mipsize.x;
+        uint32_t mipHeight = mipsize.y;
+        uint32_t mipDepth = mipsize.z;
+        for (uint32_t i = lastReadyMip + 1u; i < img->getCreationParameters().mipLevels; ++i)
+        {
+            const uint32_t srcLoD = i - 1u;
+            const uint32_t dstLoD = i;
+
+            barrier.barrier.srcAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
+            barrier.barrier.dstAccessMask = asset::EAF_TRANSFER_READ_BIT;
+            barrier.oldLayout = asset::EIL_TRANSFER_DST_OPTIMAL;
+            barrier.newLayout = asset::EIL_TRANSFER_SRC_OPTIMAL;
+            barrier.subresourceRange.baseMipLevel = dstLoD;
+
+            if (srcLoD > lastReadyMip)
+            {
+                if (!pipelineBarrier(asset::EPSF_TRANSFER_BIT, asset::EPSF_TRANSFER_BIT, static_cast<asset::E_DEPENDENCY_FLAGS>(0u), 0u, nullptr, 0u, nullptr, 1u, &barrier))
+                    return false;
+            }
+
+            const auto srcMipSz = img->getMipSize(srcLoD);
+
+            blitRegion.srcSubresource.mipLevel = srcLoD;
+            blitRegion.srcOffsets[1] = { srcMipSz.x, srcMipSz.y, srcMipSz.z };
+
+            blitRegion.dstSubresource.mipLevel = dstLoD;
+            blitRegion.dstOffsets[1] = { mipWidth, mipHeight, mipDepth };
+
+            if (!blitImage(img, asset::EIL_TRANSFER_SRC_OPTIMAL, img, asset::EIL_TRANSFER_DST_OPTIMAL, 1u, &blitRegion, asset::ISampler::ETF_LINEAR))
+                return false;
+
+            if (mipWidth > 1u) mipWidth /= 2u;
+            if (mipHeight > 1u) mipHeight /= 2u;
+            if (mipDepth > 1u) mipDepth /= 2u;
+        }
+
+        return true;
+    }
 
 protected:
     IGPUCommandBuffer(core::smart_refctd_ptr<const ILogicalDevice>&& dev, E_LEVEL lvl, IGPUCommandPool* _cmdpool) : base_t(lvl), IBackendObject(std::move(dev)), m_cmdpool(_cmdpool)

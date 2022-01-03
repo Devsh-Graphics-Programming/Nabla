@@ -516,7 +516,7 @@ void nbl_glsl_MC_runNormalPrecompStream(in nbl_glsl_MC_instr_stream_t stream, in
 		uint srcreg = bsdf_data.data[0].x;
 		uint dstreg = REG_DST(nbl_glsl_MC_instr_decodeRegisters(instr));
 
-		vec2 dh = nbl_glsl_MC_readReg2(srcreg);
+		vec2 dh = nbl_glsl_MC_readReg2(srcreg) * 2 - vec2(1);
 		
 		nbl_glsl_MC_writeReg(dstreg,
 			nbl_glsl_perturbNormal_derivativeMap(currInteraction.inner.isotropic.N, dh, currInteraction.inner.isotropic.V.dPosdScreen, dUV)

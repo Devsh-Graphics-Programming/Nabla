@@ -1,5 +1,7 @@
 #define _NBL_STATIC_LIB_
 #include <nabla.h>
+
+// TODO: get these all included by the appropriate namespace headers!
 #include "nbl/system/IApplicationFramework.h"
 #include "nbl/ui/CGraphicalApplicationAndroid.h"
 #include "nbl/ui/CWindowManagerAndroid.h"
@@ -14,41 +16,7 @@
 #include "nbl/system/CSystemWin32.h"
 // TODO: make these include themselves via `nabla.h`
 
-class GraphicalApplication : public nbl::system::IApplicationFramework, public nbl::ui::IGraphicalApplicationFramework
-{
-	protected:
-		~GraphicalApplication() {}
-	public:
-		GraphicalApplication(
-			const std::filesystem::path& _localInputCWD,
-			const std::filesystem::path& _localOutputCWD,
-			const std::filesystem::path& _sharedInputCWD,
-			const std::filesystem::path& _sharedOutputCWD
-		) : nbl::system::IApplicationFramework(_localInputCWD, _localOutputCWD, _sharedInputCWD, _sharedOutputCWD) {}
-};
-//***** Application framework macros ******
-#ifdef _NBL_PLATFORM_ANDROID_
-using ApplicationBase = nbl::ui::CGraphicalApplicationAndroid;
-#define APP_CONSTRUCTOR(type) type(android_app* app, const nbl::system::path& _localInputCWD,\
-const nbl::system::path& _localOutputCWD,\
-const nbl::system::path& _sharedInputCWD,\
-const nbl::system::path& _sharedOutputCWD) : nbl::ui::CGraphicalApplicationAndroid(app, _localInputCWD, _localOutputCWD, _sharedInputCWD, _sharedOutputCWD) {}
-#define NBL_COMMON_API_MAIN(android_app_class) NBL_ANDROID_MAIN_FUNC(android_app_class, CommonAPI::CommonAPIEventCallback)
-#else
-using ApplicationBase = GraphicalApplication;
-#define APP_CONSTRUCTOR(type) type(const nbl::system::path& _localInputCWD,\
-const nbl::system::path& _localOutputCWD,\
-const nbl::system::path& _sharedInputCWD,\
-const nbl::system::path& _sharedOutputCWD) : GraphicalApplication(_localInputCWD, _localOutputCWD, _sharedInputCWD, _sharedOutputCWD) {}
-#define NBL_COMMON_API_MAIN(android_app_class) int main(int argc, char** argv){\
-CommonAPI::main<android_app_class>(argc, argv);\
-}
-#endif
 
-
-
-
-//***** Application framework macros ******
 
 
 class CommonAPI
@@ -106,9 +74,6 @@ public:
 			{
 				getDefault(m_keyboard,reader);
 			}
-
-		private:
-			friend class CommonAPIEventCallback;
 			template<class ChannelType>
 			void add(Channels<ChannelType>& channels, nbl::core::smart_refctd_ptr<ChannelType>&& channel)
 			{
@@ -116,7 +81,7 @@ public:
 				channels.channels.push_back(std::move(channel));
 				
 				using namespace std::chrono;
-				auto timeStamp = duration_cast<microseconds>(system_clock::now().time_since_epoch());
+				auto timeStamp = duration_cast<microseconds>(steady_clock::now().time_since_epoch());
 				channels.timeStamps.push_back(timeStamp);
 
 				channels.added.notify_all();
@@ -159,7 +124,7 @@ public:
 
 				using namespace std::chrono;
 				constexpr long long DefaultChannelTimeoutInMicroSeconds = 100*1e3; // 100 mili-seconds
-				auto nowTimeStamp = duration_cast<microseconds>(system_clock::now().time_since_epoch());
+				auto nowTimeStamp = duration_cast<microseconds>(steady_clock::now().time_since_epoch());
 
 				// Update Timestamp of all channels
 				for(uint32_t ch = 0u; ch < channels.channels.size(); ++ch) {
@@ -394,7 +359,7 @@ public:
 
 		void onMouseConnected_impl(nbl::core::smart_refctd_ptr<nbl::ui::IMouseEventChannel>&& mch) override
 		{
-			m_logger.log("A mouse %p has been connected", nbl::system::ILogger::ELL_INFO, mch);
+			m_logger.log("A mouse %p has been connected", nbl::system::ILogger::ELL_INFO, mch.get());
 			m_inputSystem.get()->add(m_inputSystem.get()->m_mouse,std::move(mch));
 		}
 		void onMouseDisconnected_impl(nbl::ui::IMouseEventChannel* mch) override
@@ -404,7 +369,7 @@ public:
 		}
 		void onKeyboardConnected_impl(nbl::core::smart_refctd_ptr<nbl::ui::IKeyboardEventChannel>&& kbch) override
 		{
-			m_logger.log("A keyboard %p has been connected", nbl::system::ILogger::ELL_INFO, kbch);
+			m_logger.log("A keyboard %p has been connected", nbl::system::ILogger::ELL_INFO, kbch.get());
 			m_inputSystem.get()->add(m_inputSystem.get()->m_keyboard,std::move(kbch));
 		}
 		void onKeyboardDisconnected_impl(nbl::ui::IKeyboardEventChannel* kbch) override
@@ -878,7 +843,7 @@ public:
 		nbl::system::path CWD = nbl::system::path(argv[0]).parent_path().generic_string() + "/";
 		nbl::system::path sharedInputCWD = CWD / "../../media/";
 		nbl::system::path sharedOutputCWD = CWD / "../../tmp/";;
-		nbl::system::path localInputCWD = CWD / "../";
+		nbl::system::path localInputCWD = CWD / "../assets";
 		nbl::system::path localOutputCWD = CWD;
 		auto app = nbl::core::make_smart_refctd_ptr<AppClassName>(localInputCWD, localOutputCWD, sharedInputCWD, sharedOutputCWD);
 
@@ -893,8 +858,8 @@ public:
 		app->onAppTerminated();
 #endif
 	}
-
-	template<class EventCallback = CommonAPIEventCallback>
+	
+	template<bool gpuInit = true, class EventCallback = CommonAPIEventCallback>
 	static void Init(
 		InitOutput& result,
 		nbl::video::E_API_TYPE api_type,
@@ -913,377 +878,503 @@ public:
 		using namespace nbl;
 		using namespace nbl::video;
 
-		bool headlessCompute = (swapchainImageUsage == asset::IImage::E_USAGE_FLAGS::EUF_NONE || sc_image_count <= 0u || window_width <= 0u || window_height <= 0u);
+		bool headlessCompute = (swapchainImageUsage == nbl::asset::IImage::E_USAGE_FLAGS::EUF_NONE || sc_image_count <= 0u || window_width <= 0u || window_height <= 0u);
 
-		auto logLevelMask = core::bitflag(system::ILogger::ELL_DEBUG) | system::ILogger::ELL_PERFORMANCE | system::ILogger::ELL_WARNING | system::ILogger::ELL_ERROR;
+		auto logLevelMask = nbl::core::bitflag(system::ILogger::ELL_DEBUG) | system::ILogger::ELL_PERFORMANCE | system::ILogger::ELL_WARNING | system::ILogger::ELL_ERROR | system::ILogger::ELL_INFO;
+
 #ifdef _NBL_PLATFORM_WINDOWS_
-		// TODO: Windows/Linux logger define switch
 		result.system = createSystem();
-		result.logger = core::make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>(logLevelMask); // we should let user choose it?
+		result.logger = nbl::core::make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>(logLevelMask); // we should let user choose it?
 #elif defined(_NBL_PLATFORM_ANDROID_)
-		result.logger = core::make_smart_refctd_ptr<system::CStdoutLoggerAndroid>(logLevelMask); // we should let user choose it?
+		result.logger = nbl::core::make_smart_refctd_ptr<system::CStdoutLoggerAndroid>(logLevelMask); // we should let user choose it?
 #endif
 		result.inputSystem = nbl::core::make_smart_refctd_ptr<InputSystem>(system::logger_opt_smart_ptr(nbl::core::smart_refctd_ptr(result.logger)));
-
+		result.assetManager = nbl::core::make_smart_refctd_ptr<nbl::asset::IAssetManager>(nbl::core::smart_refctd_ptr(result.system)); // we should let user choose it?
+		
 		if(!headlessCompute)
 		{
 #ifndef _NBL_PLATFORM_ANDROID_
-			auto windowManager = core::make_smart_refctd_ptr<nbl::ui::CWindowManagerWin32>(); // should we store it in result?
-			result.windowCb = core::make_smart_refctd_ptr<EventCallback>(core::smart_refctd_ptr(result.inputSystem), system::logger_opt_smart_ptr(core::smart_refctd_ptr(result.logger)));
+			auto windowManager = nbl::core::make_smart_refctd_ptr<nbl::ui::CWindowManagerWin32>(); // should we store it in result?
+			result.windowCb = nbl::core::make_smart_refctd_ptr<EventCallback>(nbl::core::smart_refctd_ptr(result.inputSystem), system::logger_opt_smart_ptr(nbl::core::smart_refctd_ptr(result.logger)));
 
 			nbl::ui::IWindow::SCreationParams windowsCreationParams;
 			windowsCreationParams.width = window_width;
 			windowsCreationParams.height = window_height;
 			windowsCreationParams.x = 64u;
 			windowsCreationParams.y = 64u;
-			windowsCreationParams.system = core::smart_refctd_ptr(result.system);
+			windowsCreationParams.system = nbl::core::smart_refctd_ptr(result.system);
 			windowsCreationParams.flags = nbl::ui::IWindow::ECF_NONE;
 			windowsCreationParams.windowCaption = app_name.data();
 			windowsCreationParams.callback = result.windowCb;
 		
 			result.window = windowManager->createWindow(std::move(windowsCreationParams));
+		    result.windowCb->setInputSystem(nbl::core::smart_refctd_ptr(result.inputSystem));
 #else
-			result.window->setEventCallback(core::smart_refctd_ptr(result.windowCb));
+		result.windowCb = nbl::core::smart_refctd_ptr<EventCallback>((CommonAPIEventCallback*)result.window->getEventCallback());
+		result.windowCb->setInputSystem(nbl::core::smart_refctd_ptr(result.inputSystem));
 #endif
 		}
-		if (api_type == EAT_VULKAN) 
-		{
-			auto _apiConnection = video::CVulkanConnection::create(
-				core::smart_refctd_ptr(result.system),
-				0,
-				app_name.data(),
-				requiredInstanceFeatures.count,
-				requiredInstanceFeatures.features,
-				optionalInstanceFeatures.count,
-				optionalInstanceFeatures.features,
-				core::smart_refctd_ptr(result.logger),
-				true);
-#ifdef _NBL_PLATFORM_WINDOWS_
-			result.surface = nbl::video::CSurfaceVulkanWin32::create(nbl::core::smart_refctd_ptr(_apiConnection), nbl::core::smart_refctd_ptr<ui::IWindowWin32>(static_cast<ui::IWindowWin32*>(result.window.get())));
-#elif defined(_NBL_PLATFORM_ANDROID_)
-			////result.surface = nbl::video::CSurfaceVulkanAndroid::create(nbl::core::smart_refctd_ptr(_apiConnection), nbl::core::smart_refctd_ptr<ui::IWindowAndroid>(static_cast<ui::IWindowAndroid*>(result.window.get())));
-#endif
-			result.apiConnection = _apiConnection;
-		}
-		else if (api_type == EAT_OPENGL)
-		{
-			auto _apiConnection = video::COpenGLConnection::create(core::smart_refctd_ptr(result.system), 0, app_name.data(), video::COpenGLDebugCallback(core::smart_refctd_ptr(result.logger)));
-			
-			if(!headlessCompute)
-			{
-#ifdef _NBL_PLATFORM_WINDOWS_
-				result.surface = video::CSurfaceGLWin32::create(core::smart_refctd_ptr(_apiConnection), core::smart_refctd_ptr<ui::IWindowWin32>(static_cast<ui::IWindowWin32*>(result.window.get())));
-#elif defined(_NBL_PLATFORM_ANDROID_)
-				result.surface = video::CSurfaceGLAndroid::create(core::smart_refctd_ptr(_apiConnection), core::smart_refctd_ptr<ui::IWindowAndroid>(static_cast<ui::IWindowAndroid*>(result.window.get())));
-#endif
-			}
-			
-			result.apiConnection = _apiConnection;
-		}
-		else if (api_type == EAT_OPENGL_ES)
-		{
-			auto _apiConnection = video::COpenGLESConnection::create(core::smart_refctd_ptr(result.system), 0, app_name.data(), video::COpenGLDebugCallback(core::smart_refctd_ptr(result.logger)));
-			
-			if(!headlessCompute)
-			{
-#ifdef _NBL_PLATFORM_WINDOWS_
-				result.surface = video::CSurfaceGLWin32::create(core::smart_refctd_ptr(_apiConnection), core::smart_refctd_ptr<ui::IWindowWin32>(static_cast<ui::IWindowWin32*>(result.window.get())));
-#elif defined(_NBL_PLATFORM_ANDROID_)
-				result.surface = video::CSurfaceGLAndroid::create(core::smart_refctd_ptr(_apiConnection), core::smart_refctd_ptr<ui::IWindowAndroid>(static_cast<ui::IWindowAndroid*>(result.window.get())));
-#endif
-			}
-			
-			result.apiConnection = _apiConnection;
-		}
-		else
-		{
-			_NBL_TODO();
-		}
 
-		auto gpus = result.apiConnection->getPhysicalDevices();
-		assert(!gpus.empty());
-		auto extractedInfos = extractGPUInfos(gpus, result.surface, headlessCompute);
-		auto suitableGPUIndex = findSuitableGPU(extractedInfos, headlessCompute);
-		auto gpu = gpus.begin()[suitableGPUIndex];
-		const auto& gpuInfo = extractedInfos[suitableGPUIndex];
+        if constexpr (gpuInit)
+        {
+            if (api_type == EAT_VULKAN) 
+            {
+                auto _apiConnection = nbl::video::CVulkanConnection::create(
+                    nbl::core::smart_refctd_ptr(result.system),
+                    0,
+                    app_name.data(),
+                    requiredInstanceFeatures.count,
+                    requiredInstanceFeatures.features,
+                    optionalInstanceFeatures.count,
+                    optionalInstanceFeatures.features,
+                    nbl::core::smart_refctd_ptr(result.logger),
+                    true);
+                    
+                if(!headlessCompute)
+                {
+                #ifdef _NBL_PLATFORM_WINDOWS_
+                    result.surface = nbl::video::CSurfaceVulkanWin32::create(nbl::core::smart_refctd_ptr(_apiConnection), nbl::core::smart_refctd_ptr<nbl::ui::IWindowWin32>(static_cast<nbl::ui::IWindowWin32*>(result.window.get())));
+                #elif defined(_NBL_PLATFORM_ANDROID_)
+                    ////result.surface = nbl::video::CSurfaceVulkanAndroid::create(nbl::core::smart_refctd_ptr(_apiConnection), nbl::core::smart_refctd_ptr<nbl::ui::IWindowAndroid>(static_cast<nbl::ui::IWindowAndroid*>(result.window.get())));
+                #endif
+                }
+                result.apiConnection = _apiConnection;
+            }
+            else if (api_type == EAT_OPENGL)
+            {
+                auto _apiConnection = nbl::video::COpenGLConnection::create(nbl::core::smart_refctd_ptr(result.system), 0, app_name.data(), nbl::video::COpenGLDebugCallback(nbl::core::smart_refctd_ptr(result.logger)));
+                
+                if(!headlessCompute)
+                {
+                #ifdef _NBL_PLATFORM_WINDOWS_
+                    result.surface = nbl::video::CSurfaceGLWin32::create(nbl::core::smart_refctd_ptr(_apiConnection), nbl::core::smart_refctd_ptr<nbl::ui::IWindowWin32>(static_cast<nbl::ui::IWindowWin32*>(result.window.get())));
+                #elif defined(_NBL_PLATFORM_ANDROID_)
+                    result.surface = nbl::video::CSurfaceGLAndroid::create(nbl::core::smart_refctd_ptr(_apiConnection), nbl::core::smart_refctd_ptr<nbl::ui::IWindowAndroid>(static_cast<nbl::ui::IWindowAndroid*>(result.window.get())));
+                #endif
+                }
+                
+                result.apiConnection = _apiConnection;
+            }
+            else if (api_type == EAT_OPENGL_ES)
+            {
+                auto _apiConnection = nbl::video::COpenGLESConnection::create(nbl::core::smart_refctd_ptr(result.system), 0, app_name.data(), nbl::video::COpenGLDebugCallback(nbl::core::smart_refctd_ptr(result.logger)));
+                
+                if(!headlessCompute)
+                {
+                #ifdef _NBL_PLATFORM_WINDOWS_
+                    result.surface = nbl::video::CSurfaceGLWin32::create(nbl::core::smart_refctd_ptr(_apiConnection), nbl::core::smart_refctd_ptr<nbl::ui::IWindowWin32>(static_cast<nbl::ui::IWindowWin32*>(result.window.get())));
+                #elif defined(_NBL_PLATFORM_ANDROID_)
+                    result.surface = nbl::video::CSurfaceGLAndroid::create(nbl::core::smart_refctd_ptr(_apiConnection), nbl::core::smart_refctd_ptr<nbl::ui::IWindowAndroid>(static_cast<nbl::ui::IWindowAndroid*>(result.window.get())));
+                #endif
+                }
+                
+                result.apiConnection = _apiConnection;
+            }
+            else
+            {
+                _NBL_TODO();
+            }
 
-		// Fill QueueCreationParams
-		constexpr uint32_t MaxQueuesInFamily = 32;
-		float queuePriorities[MaxQueuesInFamily];
-		std::fill(queuePriorities, queuePriorities + MaxQueuesInFamily, IGPUQueue::DEFAULT_QUEUE_PRIORITY);
+            auto gpus = result.apiConnection->getPhysicalDevices();
+            assert(!gpus.empty());
+            auto extractedInfos = extractGPUInfos(gpus, result.surface, headlessCompute);
+            auto suitableGPUIndex = findSuitableGPU(extractedInfos, headlessCompute);
+            auto gpu = gpus.begin()[suitableGPUIndex];
+            const auto& gpuInfo = extractedInfos[suitableGPUIndex];
 
-		constexpr uint32_t MaxQueueFamilyCount = 4;
-		video::ILogicalDevice::SQueueCreationParams qcp[MaxQueueFamilyCount] = {}; 
-		
-		uint32_t actualQueueParamsCount = 0u;
+            // Fill QueueCreationParams
+            constexpr uint32_t MaxQueuesInFamily = 32;
+            float queuePriorities[MaxQueuesInFamily];
+            std::fill(queuePriorities, queuePriorities + MaxQueuesInFamily, IGPUQueue::DEFAULT_QUEUE_PRIORITY);
 
-		uint32_t queuesIndexInFamily[InitOutput::EQT_COUNT];
-		uint32_t presentQueueIndexInFamily = 0u;
+            constexpr uint32_t MaxQueueFamilyCount = 4;
+            nbl::video::ILogicalDevice::SQueueCreationParams qcp[MaxQueueFamilyCount] = {}; 
+            
+            uint32_t actualQueueParamsCount = 0u;
 
-		// Graphics Queue
-		if(!headlessCompute)
-		{
-			uint32_t dedicatedQueuesInFamily = gpuInfo.queueFamilyProps.graphics.dedicatedQueueCount;
-			assert(dedicatedQueuesInFamily >= 1u);
+            uint32_t queuesIndexInFamily[InitOutput::EQT_COUNT];
+            uint32_t presentQueueIndexInFamily = 0u;
 
-			qcp[0].familyIndex = gpuInfo.queueFamilyProps.graphics.index;
-			qcp[0].count = dedicatedQueuesInFamily;
-			qcp[0].flags = static_cast<video::IGPUQueue::E_CREATE_FLAGS>(0);
-			qcp[0].priorities = queuePriorities;
-			queuesIndexInFamily[InitOutput::EQT_GRAPHICS] = 0u;
-			actualQueueParamsCount++;
-		}
-		
-		// Compute Queue
-		bool foundComputeInOtherFamily = false;
-		for(uint32_t i = 0; i < actualQueueParamsCount; ++i)
-		{
-			auto& otherQcp = qcp[i];
-			uint32_t dedicatedQueuesInFamily = gpuInfo.queueFamilyProps.compute.dedicatedQueueCount;
-			if(otherQcp.familyIndex == gpuInfo.queueFamilyProps.compute.index)
-			{
-				if(dedicatedQueuesInFamily >= 1)
-				{
-					queuesIndexInFamily[InitOutput::EQT_COMPUTE] = otherQcp.count + 0u;
-				}
-				else
-				{
-					queuesIndexInFamily[InitOutput::EQT_COMPUTE] = 0u;
-				}
-				otherQcp.count += dedicatedQueuesInFamily;
-				foundComputeInOtherFamily = true;
-				break; // If works correctly no need to check other family indices as they are unique
-			}
-		}
-		if(!foundComputeInOtherFamily)
-		{
-			uint32_t dedicatedQueuesInFamily = gpuInfo.queueFamilyProps.compute.dedicatedQueueCount;
-			assert(dedicatedQueuesInFamily == 1u);
-			
-			queuesIndexInFamily[InitOutput::EQT_COMPUTE] = 0u;
+            // Graphics Queue
+            if(!headlessCompute)
+            {
+                uint32_t dedicatedQueuesInFamily = gpuInfo.queueFamilyProps.graphics.dedicatedQueueCount;
+                assert(dedicatedQueuesInFamily >= 1u);
 
-			auto & computeQcp = qcp[actualQueueParamsCount];
-			computeQcp.familyIndex = gpuInfo.queueFamilyProps.compute.index;
-			computeQcp.count = dedicatedQueuesInFamily;
-			computeQcp.flags = static_cast<video::IGPUQueue::E_CREATE_FLAGS>(0);
-			computeQcp.priorities = queuePriorities;
-			actualQueueParamsCount++;
-		}
-		
-		// Transfer Queue
-		bool foundTransferInOtherFamily = false;
-		for(uint32_t i = 0; i < actualQueueParamsCount; ++i)
-		{
-			auto& otherQcp = qcp[i];
-			uint32_t dedicatedQueuesInFamily = gpuInfo.queueFamilyProps.transfer.dedicatedQueueCount;
-			if(otherQcp.familyIndex == gpuInfo.queueFamilyProps.transfer.index)
-			{
-				if(dedicatedQueuesInFamily >= 2u)
-				{
-					queuesIndexInFamily[InitOutput::EQT_TRANSFER_UP] = otherQcp.count + 0u;
-					queuesIndexInFamily[InitOutput::EQT_TRANSFER_DOWN] = otherQcp.count + 1u;
-				}
-				else if(dedicatedQueuesInFamily >= 1u)
-				{
-					queuesIndexInFamily[InitOutput::EQT_TRANSFER_UP] = otherQcp.count + 0u;
-					queuesIndexInFamily[InitOutput::EQT_TRANSFER_DOWN] = otherQcp.count + 0u;
-				}
-				else if(dedicatedQueuesInFamily == 0u)
-				{
-					queuesIndexInFamily[InitOutput::EQT_TRANSFER_UP] = 0u;
-					queuesIndexInFamily[InitOutput::EQT_TRANSFER_DOWN] = 0u;
-				}
-				otherQcp.count += dedicatedQueuesInFamily;
-				foundTransferInOtherFamily = true;
-				break; // If works correctly no need to check other family indices as they are unique
-			}
-		}
-		if(!foundTransferInOtherFamily)
-		{
-			uint32_t dedicatedQueuesInFamily = gpuInfo.queueFamilyProps.transfer.dedicatedQueueCount;
-			assert(dedicatedQueuesInFamily >= 1u);
+                qcp[0].familyIndex = gpuInfo.queueFamilyProps.graphics.index;
+                qcp[0].count = dedicatedQueuesInFamily;
+                qcp[0].flags = static_cast<nbl::video::IGPUQueue::E_CREATE_FLAGS>(0);
+                qcp[0].priorities = queuePriorities;
+                queuesIndexInFamily[InitOutput::EQT_GRAPHICS] = 0u;
+                actualQueueParamsCount++;
+            }
+            
+            // Compute Queue
+            bool foundComputeInOtherFamily = false;
+            for(uint32_t i = 0; i < actualQueueParamsCount; ++i)
+            {
+                auto& otherQcp = qcp[i];
+                uint32_t dedicatedQueuesInFamily = gpuInfo.queueFamilyProps.compute.dedicatedQueueCount;
+                if(otherQcp.familyIndex == gpuInfo.queueFamilyProps.compute.index)
+                {
+                    if(dedicatedQueuesInFamily >= 1)
+                    {
+                        queuesIndexInFamily[InitOutput::EQT_COMPUTE] = otherQcp.count + 0u;
+                    }
+                    else
+                    {
+                        queuesIndexInFamily[InitOutput::EQT_COMPUTE] = 0u;
+                    }
+                    otherQcp.count += dedicatedQueuesInFamily;
+                    foundComputeInOtherFamily = true;
+                    break; // If works correctly no need to check other family indices as they are unique
+                }
+            }
+            if(!foundComputeInOtherFamily)
+            {
+                uint32_t dedicatedQueuesInFamily = gpuInfo.queueFamilyProps.compute.dedicatedQueueCount;
+                assert(dedicatedQueuesInFamily == 1u);
+                
+                queuesIndexInFamily[InitOutput::EQT_COMPUTE] = 0u;
 
-			if(dedicatedQueuesInFamily >= 2u)
-			{
-				queuesIndexInFamily[InitOutput::EQT_TRANSFER_UP] = 0u;
-				queuesIndexInFamily[InitOutput::EQT_TRANSFER_DOWN] = 1u;
-			}
-			else if(dedicatedQueuesInFamily >= 1u)
-			{
-				queuesIndexInFamily[InitOutput::EQT_TRANSFER_UP] = 0u;
-				queuesIndexInFamily[InitOutput::EQT_TRANSFER_DOWN] = 0u;
-			}
-			else
-			{
-				assert(false);
-			}
+                auto & computeQcp = qcp[actualQueueParamsCount];
+                computeQcp.familyIndex = gpuInfo.queueFamilyProps.compute.index;
+                computeQcp.count = dedicatedQueuesInFamily;
+                computeQcp.flags = static_cast<nbl::video::IGPUQueue::E_CREATE_FLAGS>(0);
+                computeQcp.priorities = queuePriorities;
+                actualQueueParamsCount++;
+            }
+            
+            // Transfer Queue
+            bool foundTransferInOtherFamily = false;
+            for(uint32_t i = 0; i < actualQueueParamsCount; ++i)
+            {
+                auto& otherQcp = qcp[i];
+                uint32_t dedicatedQueuesInFamily = gpuInfo.queueFamilyProps.transfer.dedicatedQueueCount;
+                if(otherQcp.familyIndex == gpuInfo.queueFamilyProps.transfer.index)
+                {
+                    if(dedicatedQueuesInFamily >= 2u)
+                    {
+                        queuesIndexInFamily[InitOutput::EQT_TRANSFER_UP] = otherQcp.count + 0u;
+                        queuesIndexInFamily[InitOutput::EQT_TRANSFER_DOWN] = otherQcp.count + 1u;
+                    }
+                    else if(dedicatedQueuesInFamily >= 1u)
+                    {
+                        queuesIndexInFamily[InitOutput::EQT_TRANSFER_UP] = otherQcp.count + 0u;
+                        queuesIndexInFamily[InitOutput::EQT_TRANSFER_DOWN] = otherQcp.count + 0u;
+                    }
+                    else if(dedicatedQueuesInFamily == 0u)
+                    {
+                        queuesIndexInFamily[InitOutput::EQT_TRANSFER_UP] = 0u;
+                        queuesIndexInFamily[InitOutput::EQT_TRANSFER_DOWN] = 0u;
+                    }
+                    otherQcp.count += dedicatedQueuesInFamily;
+                    foundTransferInOtherFamily = true;
+                    break; // If works correctly no need to check other family indices as they are unique
+                }
+            }
+            if(!foundTransferInOtherFamily)
+            {
+                uint32_t dedicatedQueuesInFamily = gpuInfo.queueFamilyProps.transfer.dedicatedQueueCount;
+                assert(dedicatedQueuesInFamily >= 1u);
 
-			auto & transferQcp = qcp[actualQueueParamsCount];
-			transferQcp.familyIndex = gpuInfo.queueFamilyProps.transfer.index;
-			transferQcp.count = dedicatedQueuesInFamily;
-			transferQcp.flags = static_cast<video::IGPUQueue::E_CREATE_FLAGS>(0);
-			transferQcp.priorities = queuePriorities;
-			actualQueueParamsCount++;
-		}
+                if(dedicatedQueuesInFamily >= 2u)
+                {
+                    queuesIndexInFamily[InitOutput::EQT_TRANSFER_UP] = 0u;
+                    queuesIndexInFamily[InitOutput::EQT_TRANSFER_DOWN] = 1u;
+                }
+                else if(dedicatedQueuesInFamily >= 1u)
+                {
+                    queuesIndexInFamily[InitOutput::EQT_TRANSFER_UP] = 0u;
+                    queuesIndexInFamily[InitOutput::EQT_TRANSFER_DOWN] = 0u;
+                }
+                else
+                {
+                    assert(false);
+                }
 
-		// Present Queue
-		if(!headlessCompute)
-		{
-			bool foundPresentInOtherFamily = false;
-			for(uint32_t i = 0; i < actualQueueParamsCount; ++i)
-			{
-				auto& otherQcp = qcp[i];
-				if(otherQcp.familyIndex == gpuInfo.queueFamilyProps.present.index)
-				{
-					if(otherQcp.familyIndex == gpuInfo.queueFamilyProps.graphics.index)
-					{
-						presentQueueIndexInFamily = 0u;
-					}
-					else
-					{
-						uint32_t dedicatedQueuesInFamily = gpuInfo.queueFamilyProps.present.dedicatedQueueCount;
+                auto & transferQcp = qcp[actualQueueParamsCount];
+                transferQcp.familyIndex = gpuInfo.queueFamilyProps.transfer.index;
+                transferQcp.count = dedicatedQueuesInFamily;
+                transferQcp.flags = static_cast<nbl::video::IGPUQueue::E_CREATE_FLAGS>(0);
+                transferQcp.priorities = queuePriorities;
+                actualQueueParamsCount++;
+            }
 
-						if(dedicatedQueuesInFamily >= 1u)
-						{
-							presentQueueIndexInFamily = otherQcp.count + 0u;
-						}
-						else if(dedicatedQueuesInFamily == 0u)
-						{
-							presentQueueIndexInFamily = 0u;
-						}
-						otherQcp.count += dedicatedQueuesInFamily;
-					}
-					foundPresentInOtherFamily = true;
-					break; // If works correctly no need to check other family indices as they are unique
-				}
-			}
-			if(!foundPresentInOtherFamily)
-			{
-				uint32_t dedicatedQueuesInFamily = gpuInfo.queueFamilyProps.present.dedicatedQueueCount;
-				assert(dedicatedQueuesInFamily == 1u);
-				presentQueueIndexInFamily = 0u;
+            // Present Queue
+            if(!headlessCompute)
+            {
+                bool foundPresentInOtherFamily = false;
+                for(uint32_t i = 0; i < actualQueueParamsCount; ++i)
+                {
+                    auto& otherQcp = qcp[i];
+                    if(otherQcp.familyIndex == gpuInfo.queueFamilyProps.present.index)
+                    {
+                        if(otherQcp.familyIndex == gpuInfo.queueFamilyProps.graphics.index)
+                        {
+                            presentQueueIndexInFamily = 0u;
+                        }
+                        else
+                        {
+                            uint32_t dedicatedQueuesInFamily = gpuInfo.queueFamilyProps.present.dedicatedQueueCount;
 
-				auto & presentQcp = qcp[actualQueueParamsCount];
-				presentQcp.familyIndex = gpuInfo.queueFamilyProps.present.index;
-				presentQcp.count = dedicatedQueuesInFamily;
-				presentQcp.flags = static_cast<video::IGPUQueue::E_CREATE_FLAGS>(0);
-				presentQcp.priorities = queuePriorities;
-				actualQueueParamsCount++;
-			}
-		}
+                            if(dedicatedQueuesInFamily >= 1u)
+                            {
+                                presentQueueIndexInFamily = otherQcp.count + 0u;
+                            }
+                            else if(dedicatedQueuesInFamily == 0u)
+                            {
+                                presentQueueIndexInFamily = 0u;
+                            }
+                            otherQcp.count += dedicatedQueuesInFamily;
+                        }
+                        foundPresentInOtherFamily = true;
+                        break; // If works correctly no need to check other family indices as they are unique
+                    }
+                }
+                if(!foundPresentInOtherFamily)
+                {
+                    uint32_t dedicatedQueuesInFamily = gpuInfo.queueFamilyProps.present.dedicatedQueueCount;
+                    assert(dedicatedQueuesInFamily == 1u);
+                    presentQueueIndexInFamily = 0u;
 
-		video::ILogicalDevice::SCreationParams dev_params;
-		dev_params.queueParamsCount = actualQueueParamsCount;
-		dev_params.queueParams = qcp;
-		dev_params.requiredFeatureCount = requiredDeviceFeatures.count;
-		dev_params.requiredFeatures = requiredDeviceFeatures.features;
-		dev_params.optionalFeatureCount = optionalDeviceFeatures.count;
-		dev_params.optionalFeatures = optionalDeviceFeatures.features;
-		result.logicalDevice = gpu->createLogicalDevice(dev_params);
+                    auto & presentQcp = qcp[actualQueueParamsCount];
+                    presentQcp.familyIndex = gpuInfo.queueFamilyProps.present.index;
+                    presentQcp.count = dedicatedQueuesInFamily;
+                    presentQcp.flags = static_cast<nbl::video::IGPUQueue::E_CREATE_FLAGS>(0);
+                    presentQcp.priorities = queuePriorities;
+                    actualQueueParamsCount++;
+                }
+            }
 
-		result.utilities = nbl::core::make_smart_refctd_ptr<nbl::video::IUtilities>(nbl::core::smart_refctd_ptr(result.logicalDevice));
+            nbl::video::ILogicalDevice::SCreationParams dev_params;
+            dev_params.queueParamsCount = actualQueueParamsCount;
+            dev_params.queueParams = qcp;
+            dev_params.requiredFeatureCount = requiredDeviceFeatures.count;
+            dev_params.requiredFeatures = requiredDeviceFeatures.features;
+            dev_params.optionalFeatureCount = optionalDeviceFeatures.count;
+            dev_params.optionalFeatures = optionalDeviceFeatures.features;
+            result.logicalDevice = gpu->createLogicalDevice(dev_params);
 
-		if(!headlessCompute)
-			result.queues[InitOutput::EQT_GRAPHICS] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.graphics.index, queuesIndexInFamily[InitOutput::EQT_GRAPHICS]);
-		result.queues[InitOutput::EQT_COMPUTE] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.compute.index, queuesIndexInFamily[InitOutput::EQT_COMPUTE]);
+            result.utilities = nbl::core::make_smart_refctd_ptr<nbl::video::IUtilities>(nbl::core::smart_refctd_ptr(result.logicalDevice));
 
-// TEMP_FIX
-#ifdef EXAMPLES_CAN_HANDLE_TRANSFER_WITHOUT_GRAPHICS 
-		result.queues[InitOutput::EQT_TRANSFER_UP] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.transfer.index, queuesIndexInFamily[EQT_TRANSFER_UP]);
-		result.queues[InitOutput::EQT_TRANSFER_DOWN] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.transfer.index, queuesIndexInFamily[EQT_TRANSFER_DOWN]);
-#else
-		if(!headlessCompute)
-		{
-			result.queues[InitOutput::EQT_TRANSFER_UP] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.graphics.index, 0u);
-			result.queues[InitOutput::EQT_TRANSFER_DOWN] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.graphics.index, 0u);
-		}
-		else
-		{
-			result.queues[InitOutput::EQT_TRANSFER_UP] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.compute.index, queuesIndexInFamily[InitOutput::EQT_COMPUTE]);
-			result.queues[InitOutput::EQT_TRANSFER_DOWN] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.compute.index, queuesIndexInFamily[InitOutput::EQT_COMPUTE]);
-		}
-#endif
-		if(!headlessCompute)
-		{
-			nbl::video::ISurface::SFormat requestedFormat;
-			if(api_type == EAT_VULKAN)
-			{
-				requestedFormat.format = (surfaceFormat.format == asset::EF_UNKNOWN)
-					? asset::EF_B8G8R8A8_SRGB
-					: surfaceFormat.format;
-				requestedFormat.colorSpace.eotf = (surfaceFormat.colorSpace.eotf == asset::EOTF_UNKNOWN)
-					? asset::EOTF_sRGB
-					: surfaceFormat.colorSpace.eotf;
-				requestedFormat.colorSpace.primary = (surfaceFormat.colorSpace.primary == asset::ECP_COUNT)
-					? asset::ECP_SRGB
-					: surfaceFormat.colorSpace.primary;
-			}
-			else
-			{
-				// Temporary to make previous examples work
-				requestedFormat.format = (surfaceFormat.format == asset::EF_UNKNOWN)
-					? asset::EF_R8G8B8A8_SRGB
-					: surfaceFormat.format;
-				requestedFormat.colorSpace.eotf = (surfaceFormat.colorSpace.eotf == asset::EOTF_UNKNOWN)
-					? asset::EOTF_sRGB
-					: surfaceFormat.colorSpace.eotf;
-				requestedFormat.colorSpace.primary = (surfaceFormat.colorSpace.primary == asset::ECP_COUNT)
-					? asset::ECP_SRGB
-					: surfaceFormat.colorSpace.primary;
-			}
-			result.swapchain = createSwapchain(api_type, gpuInfo, sc_image_count, window_width, window_height, result.logicalDevice, result.surface, swapchainImageUsage, video::ISurface::EPM_FIFO_RELAXED, requestedFormat);
-			assert(result.swapchain);
-		
-			asset::E_FORMAT swapChainFormat = result.swapchain->getCreationParameters().surfaceFormat.format;
-			result.renderpass = createRenderpass(result.logicalDevice, swapChainFormat, depthFormat);
+            if(!headlessCompute)
+                result.queues[InitOutput::EQT_GRAPHICS] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.graphics.index, queuesIndexInFamily[InitOutput::EQT_GRAPHICS]);
+            result.queues[InitOutput::EQT_COMPUTE] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.compute.index, queuesIndexInFamily[InitOutput::EQT_COMPUTE]);
 
-			result.fbo = createFBOWithSwapchainImages(result.swapchain->getImageCount(), window_width, window_height, result.logicalDevice, result.swapchain, result.renderpass, depthFormat);
-		}
+    // TEMP_FIX
+    #ifdef EXAMPLES_CAN_HANDLE_TRANSFER_WITHOUT_GRAPHICS 
+            result.queues[InitOutput::EQT_TRANSFER_UP] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.transfer.index, queuesIndexInFamily[EQT_TRANSFER_UP]);
+            result.queues[InitOutput::EQT_TRANSFER_DOWN] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.transfer.index, queuesIndexInFamily[EQT_TRANSFER_DOWN]);
+    #else
+            if(!headlessCompute)
+            {
+                result.queues[InitOutput::EQT_TRANSFER_UP] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.graphics.index, 0u);
+                result.queues[InitOutput::EQT_TRANSFER_DOWN] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.graphics.index, 0u);
+            }
+            else
+            {
+                result.queues[InitOutput::EQT_TRANSFER_UP] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.compute.index, queuesIndexInFamily[InitOutput::EQT_COMPUTE]);
+                result.queues[InitOutput::EQT_TRANSFER_DOWN] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.compute.index, queuesIndexInFamily[InitOutput::EQT_COMPUTE]);
+            }
+    #endif
+            if(!headlessCompute)
+            {
+                nbl::video::ISurface::SFormat requestedFormat;
+                if(api_type == EAT_VULKAN)
+                {
+                    requestedFormat.format = (surfaceFormat.format == nbl::asset::EF_UNKNOWN)
+                        ? nbl::asset::EF_B8G8R8A8_SRGB
+                        : surfaceFormat.format;
+                    requestedFormat.colorSpace.eotf = (surfaceFormat.colorSpace.eotf == nbl::asset::EOTF_UNKNOWN)
+                        ? nbl::asset::EOTF_sRGB
+                        : surfaceFormat.colorSpace.eotf;
+                    requestedFormat.colorSpace.primary = (surfaceFormat.colorSpace.primary == nbl::asset::ECP_COUNT)
+                        ? nbl::asset::ECP_SRGB
+                        : surfaceFormat.colorSpace.primary;
+                }
+                else
+                {
+                    // Temporary to make previous examples work
+                    requestedFormat.format = (surfaceFormat.format == nbl::asset::EF_UNKNOWN)
+                        ? nbl::asset::EF_R8G8B8A8_SRGB
+                        : surfaceFormat.format;
+                    requestedFormat.colorSpace.eotf = (surfaceFormat.colorSpace.eotf == nbl::asset::EOTF_UNKNOWN)
+                        ? nbl::asset::EOTF_sRGB
+                        : surfaceFormat.colorSpace.eotf;
+                    requestedFormat.colorSpace.primary = (surfaceFormat.colorSpace.primary == nbl::asset::ECP_COUNT)
+                        ? nbl::asset::ECP_SRGB
+                        : surfaceFormat.colorSpace.primary;
+                }
+                result.swapchain = createSwapchain(api_type, gpuInfo, sc_image_count, window_width, window_height, result.logicalDevice, result.surface, swapchainImageUsage, nbl::video::ISurface::EPM_FIFO_RELAXED, requestedFormat);
+                assert(result.swapchain);
+            
+                nbl::asset::E_FORMAT swapChainFormat = result.swapchain->getCreationParameters().surfaceFormat.format;
+                result.renderpass = createRenderpass(result.logicalDevice, swapChainFormat, depthFormat);
 
-		for(uint32_t i = 0; i < InitOutput::EQT_COUNT; ++i)
-		{
-			const IGPUQueue* queue = result.queues[i];
-			if(queue != nullptr)
-			{
-				result.commandPools[i] = result.logicalDevice->createCommandPool(queue->getFamilyIndex(), IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
-				assert(result.commandPools[i]);
-			}
-		}
+                result.fbo = createFBOWithSwapchainImages(result.swapchain->getImageCount(), window_width, window_height, result.logicalDevice, result.swapchain, result.renderpass, depthFormat);
+            }
 
-		result.physicalDevice = gpu;
+            for(uint32_t i = 0; i < InitOutput::EQT_COUNT; ++i)
+            {
+                const IGPUQueue* queue = result.queues[i];
+                if(queue != nullptr)
+                {
+                    result.commandPools[i] = result.logicalDevice->createCommandPool(queue->getFamilyIndex(), IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
+                    assert(result.commandPools[i]);
+                }
+            }
 
-		result.assetManager = nbl::core::make_smart_refctd_ptr<nbl::asset::IAssetManager>(nbl::core::smart_refctd_ptr(result.system)); // we should let user choose it?
-		
-		uint32_t mainQueueFamilyIndex = (headlessCompute) ? gpuInfo.queueFamilyProps.compute.index : gpuInfo.queueFamilyProps.graphics.index;
-		result.cpu2gpuParams.assetManager = result.assetManager.get();
-		result.cpu2gpuParams.device = result.logicalDevice.get();
-		result.cpu2gpuParams.finalQueueFamIx = mainQueueFamilyIndex;
-		result.cpu2gpuParams.limits = result.physicalDevice->getLimits();
-		result.cpu2gpuParams.pipelineCache = nullptr;
-		result.cpu2gpuParams.sharingMode = nbl::asset::ESM_EXCLUSIVE;
-		result.cpu2gpuParams.utilities = result.utilities.get();
+            result.physicalDevice = gpu;
 
-		result.cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].queue = result.queues[InitOutput::EQT_TRANSFER_UP];
-		result.cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].queue = result.queues[InitOutput::EQT_COMPUTE];
-		
-		const uint32_t transferUpQueueFamIndex = result.queues[InitOutput::EQT_TRANSFER_UP]->getFamilyIndex();
-		const uint32_t computeQueueFamIndex = result.queues[InitOutput::EQT_COMPUTE]->getFamilyIndex();
+            uint32_t mainQueueFamilyIndex = (headlessCompute) ? gpuInfo.queueFamilyProps.compute.index : gpuInfo.queueFamilyProps.graphics.index;
+            result.cpu2gpuParams.assetManager = result.assetManager.get();
+            result.cpu2gpuParams.device = result.logicalDevice.get();
+            result.cpu2gpuParams.finalQueueFamIx = mainQueueFamilyIndex;
+            result.cpu2gpuParams.limits = result.physicalDevice->getLimits();
+            result.cpu2gpuParams.pipelineCache = nullptr;
+            result.cpu2gpuParams.sharingMode = nbl::asset::ESM_EXCLUSIVE;
+            result.cpu2gpuParams.utilities = result.utilities.get();
 
-		auto pool_transfer = result.logicalDevice->createCommandPool(transferUpQueueFamIndex, IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
-		core::smart_refctd_ptr<IGPUCommandPool> pool_compute;
-		if(transferUpQueueFamIndex == computeQueueFamIndex)
-			pool_compute = pool_transfer;
-		else
-			pool_compute = result.logicalDevice->createCommandPool(result.queues[InitOutput::EQT_COMPUTE]->getFamilyIndex(), IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
+            result.cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].queue = result.queues[InitOutput::EQT_TRANSFER_UP];
+            result.cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].queue = result.queues[InitOutput::EQT_COMPUTE];
+            
+            const uint32_t transferUpQueueFamIndex = result.queues[InitOutput::EQT_TRANSFER_UP]->getFamilyIndex();
+            const uint32_t computeQueueFamIndex = result.queues[InitOutput::EQT_COMPUTE]->getFamilyIndex();
+
+            auto pool_transfer = result.logicalDevice->createCommandPool(transferUpQueueFamIndex, IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
+            nbl::core::smart_refctd_ptr<IGPUCommandPool> pool_compute;
+            if(transferUpQueueFamIndex == computeQueueFamIndex)
+                pool_compute = pool_transfer;
+            else
+                pool_compute = result.logicalDevice->createCommandPool(result.queues[InitOutput::EQT_COMPUTE]->getFamilyIndex(), IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
+        
+            nbl::core::smart_refctd_ptr<IGPUCommandBuffer> transferCmdBuffer;
+            nbl::core::smart_refctd_ptr<IGPUCommandBuffer> computeCmdBuffer;
+
+            result.logicalDevice->createCommandBuffers(pool_transfer.get(), IGPUCommandBuffer::EL_PRIMARY, 1u, &transferCmdBuffer);
+            result.logicalDevice->createCommandBuffers(pool_compute.get(), IGPUCommandBuffer::EL_PRIMARY, 1u, &computeCmdBuffer);
+        
+            result.cpu2gpuParams.perQueue[IGPUObjectFromAssetConverter::EQU_TRANSFER].cmdbuf = transferCmdBuffer;
+            result.cpu2gpuParams.perQueue[IGPUObjectFromAssetConverter::EQU_COMPUTE].cmdbuf = computeCmdBuffer;
+        
+        }
+        else
+        {
+			result.cpu2gpuParams.device = nullptr;
+			result.cpu2gpuParams.finalQueueFamIx = 0u;
+			result.cpu2gpuParams.limits = {};
+			result.cpu2gpuParams.pipelineCache = nullptr;
+			result.cpu2gpuParams.sharingMode = nbl::asset::ESM_EXCLUSIVE;
+			result.cpu2gpuParams.utilities = nullptr;
+        }
+    }
 	
-		core::smart_refctd_ptr<IGPUCommandBuffer> transferCmdBuffer;
-		core::smart_refctd_ptr<IGPUCommandBuffer> computeCmdBuffer;
+	// Usefull Abstraction for initializing with no extension
+	template<bool gpuInit = true, class EventCallback = CommonAPIEventCallback>
+	static void InitWithNoExt(
+		InitOutput& result,
+		nbl::video::E_API_TYPE api_type,
+		const std::string_view app_name)
+	{
+		SFeatureRequest<nbl::video::IAPIConnection::E_FEATURE> requiredInstanceFeatures = {};
+		SFeatureRequest<nbl::video::IAPIConnection::E_FEATURE> optionalInstanceFeatures = {};
+		SFeatureRequest<nbl::video::ILogicalDevice::E_FEATURE> requiredDeviceFeatures = {};
+		SFeatureRequest<nbl::video::ILogicalDevice::E_FEATURE> optionalDeviceFeatures = {};
 
-		result.logicalDevice->createCommandBuffers(pool_transfer.get(), IGPUCommandBuffer::EL_PRIMARY, 1u, &transferCmdBuffer);
-		result.logicalDevice->createCommandBuffers(pool_compute.get(), IGPUCommandBuffer::EL_PRIMARY, 1u, &computeCmdBuffer);
-	
-		result.cpu2gpuParams.perQueue[IGPUObjectFromAssetConverter::EQU_TRANSFER].cmdbuf = transferCmdBuffer;
-		result.cpu2gpuParams.perQueue[IGPUObjectFromAssetConverter::EQU_COMPUTE].cmdbuf = computeCmdBuffer;
+		Init<gpuInit, EventCallback>(
+			result,
+			api_type,
+			app_name,
+			requiredInstanceFeatures,
+			optionalInstanceFeatures,
+			requiredDeviceFeatures,
+			optionalDeviceFeatures);
+	}
+
+	// Usefull Abstraction for most examples that only need to init with default swapchain and surface extension and nothing more.
+	template<bool gpuInit = true, class EventCallback = CommonAPIEventCallback>
+	static void InitWithDefaultExt(
+		InitOutput& result,
+		nbl::video::E_API_TYPE api_type,
+		const std::string_view app_name,
+		uint32_t window_width = 0u,
+		uint32_t window_height = 0u,
+		uint32_t sc_image_count = 0u,
+		nbl::asset::IImage::E_USAGE_FLAGS swapchainImageUsage = nbl::asset::IImage::E_USAGE_FLAGS::EUF_NONE,
+		nbl::video::ISurface::SFormat surfaceFormat = nbl::video::ISurface::SFormat(nbl::asset::EF_UNKNOWN, nbl::asset::ECP_COUNT, nbl::asset::EOTF_UNKNOWN),
+		nbl::asset::E_FORMAT depthFormat = nbl::asset::EF_UNKNOWN)
+	{
+		SFeatureRequest<nbl::video::IAPIConnection::E_FEATURE> requiredInstanceFeatures = {};
+		SFeatureRequest<nbl::video::IAPIConnection::E_FEATURE> optionalInstanceFeatures = {};
+		SFeatureRequest<nbl::video::ILogicalDevice::E_FEATURE> requiredDeviceFeatures = {};
+		SFeatureRequest<nbl::video::ILogicalDevice::E_FEATURE> optionalDeviceFeatures = {};
+
+#ifndef _NBL_PLATFORM_ANDROID_
+		nbl::video::IAPIConnection::E_FEATURE requiredFeatures_Instance[] = { nbl::video::IAPIConnection::EF_SURFACE };
+		requiredInstanceFeatures.features = requiredFeatures_Instance;
+		requiredInstanceFeatures.count = 1u;
+		
+		nbl::video::ILogicalDevice::E_FEATURE requiredFeatures_Device[] = { nbl::video::ILogicalDevice::EF_SWAPCHAIN };
+		requiredDeviceFeatures.features = requiredFeatures_Device;
+		requiredDeviceFeatures.count = 1u;
+#endif
+
+		Init<gpuInit, EventCallback>(
+			result,
+			api_type,
+			app_name,
+			requiredInstanceFeatures,
+			optionalInstanceFeatures,
+			requiredDeviceFeatures,
+			optionalDeviceFeatures,
+			window_width, window_height, sc_image_count,
+			swapchainImageUsage, surfaceFormat, depthFormat);
+	}
+
+	// Usefull Abstraction for Raytracing Examples
+	template<bool gpuInit = true, class EventCallback = CommonAPIEventCallback>
+	static void InitWithRaytracingExt(
+		InitOutput& result,
+		nbl::video::E_API_TYPE api_type,
+		const std::string_view app_name,
+		uint32_t window_width = 0u,
+		uint32_t window_height = 0u,
+		uint32_t sc_image_count = 0u,
+		nbl::asset::IImage::E_USAGE_FLAGS swapchainImageUsage = nbl::asset::IImage::E_USAGE_FLAGS::EUF_NONE,
+		nbl::video::ISurface::SFormat surfaceFormat = nbl::video::ISurface::SFormat(nbl::asset::EF_UNKNOWN, nbl::asset::ECP_COUNT, nbl::asset::EOTF_UNKNOWN),
+		nbl::asset::E_FORMAT depthFormat = nbl::asset::EF_UNKNOWN)
+	{
+		SFeatureRequest<nbl::video::IAPIConnection::E_FEATURE> requiredInstanceFeatures = {};
+		SFeatureRequest<nbl::video::IAPIConnection::E_FEATURE> optionalInstanceFeatures = {};
+		SFeatureRequest<nbl::video::ILogicalDevice::E_FEATURE> requiredDeviceFeatures = {};
+		SFeatureRequest<nbl::video::ILogicalDevice::E_FEATURE> optionalDeviceFeatures = {};
+
+#ifndef _NBL_PLATFORM_ANDROID_
+		nbl::video::IAPIConnection::E_FEATURE requiredFeatures_Instance[] = { nbl::video::IAPIConnection::EF_SURFACE };
+		requiredInstanceFeatures.features = requiredFeatures_Instance;
+		requiredInstanceFeatures.count = 1u;
+		
+		nbl::video::ILogicalDevice::E_FEATURE requiredFeatures_Device[] = 
+		{ 
+			nbl::video::ILogicalDevice::EF_SWAPCHAIN,
+			nbl::video::ILogicalDevice::EF_ACCELERATION_STRUCTURE,
+			nbl::video::ILogicalDevice::EF_RAY_QUERY
+		};
+		requiredDeviceFeatures.features = requiredFeatures_Device;
+		requiredDeviceFeatures.count = 3u;
+#endif
+
+		Init<gpuInit, EventCallback>(
+			result,
+			api_type,
+			app_name,
+			requiredInstanceFeatures,
+			optionalInstanceFeatures,
+			requiredDeviceFeatures,
+			optionalDeviceFeatures,
+			window_width, window_height, sc_image_count,
+			swapchainImageUsage, surfaceFormat, depthFormat);
 	}
 
 	static nbl::core::smart_refctd_ptr<nbl::video::ISwapchain> createSwapchain(
@@ -1545,7 +1636,7 @@ public:
 		return fbo;
 	}
 
-	static constexpr inline nbl::asset::E_PIPELINE_STAGE_FLAGS DefaultSubmitWaitStage = nbl::asset::EPSF_COLOR_ATTACHMENT_OUTPUT_BIT;
+	static constexpr nbl::asset::E_PIPELINE_STAGE_FLAGS DefaultSubmitWaitStage = nbl::asset::EPSF_COLOR_ATTACHMENT_OUTPUT_BIT;
 	static void Submit(nbl::video::ILogicalDevice* device,
 		nbl::video::ISwapchain* sc,
 		nbl::video::IGPUCommandBuffer* cmdbuf,
@@ -1634,3 +1725,73 @@ public:
 		return -1;
 	}
 };
+
+
+#ifndef _NBL_PLATFORM_ANDROID_
+class GraphicalApplication : public nbl::system::IApplicationFramework, public nbl::ui::IGraphicalApplicationFramework
+{
+protected:
+	~GraphicalApplication() {}
+public:
+	GraphicalApplication(
+		const std::filesystem::path& _localInputCWD,
+		const std::filesystem::path& _localOutputCWD,
+		const std::filesystem::path& _sharedInputCWD,
+		const std::filesystem::path& _sharedOutputCWD
+	) : nbl::system::IApplicationFramework(_localInputCWD, _localOutputCWD, _sharedInputCWD, _sharedOutputCWD) {}
+	void recreateSurface() override
+	{
+	}
+};
+#else
+class GraphicalApplication : public nbl::ui::CGraphicalApplicationAndroid
+{
+protected:
+	~GraphicalApplication() {}
+public:
+	GraphicalApplication(
+		android_app* app, JNIEnv* env,
+		const std::filesystem::path& _localInputCWD,
+		const std::filesystem::path& _localOutputCWD,
+		const std::filesystem::path& _sharedInputCWD,
+		const std::filesystem::path& _sharedOutputCWD
+	) : nbl::ui::CGraphicalApplicationAndroid(app, env, _localInputCWD, _localOutputCWD, _sharedInputCWD, _sharedOutputCWD) {}
+	void recreateSurface() override
+	{
+		CommonAPI::recreateSurface(this);
+	}
+};
+#endif
+//***** Application framework macros ******
+#ifdef _NBL_PLATFORM_ANDROID_
+using ApplicationBase = GraphicalApplication;
+using NonGraphicalApplicationBase = nbl::system::CApplicationAndroid;
+#define APP_CONSTRUCTOR(type) type(android_app* app, JNIEnv* env, const nbl::system::path& _localInputCWD,\
+const nbl::system::path& _localOutputCWD,\
+const nbl::system::path& _sharedInputCWD,\
+const nbl::system::path& _sharedOutputCWD) : ApplicationBase(app, env, _localInputCWD, _localOutputCWD, _sharedInputCWD, _sharedOutputCWD) {}
+
+#define NON_GRAPHICAL_APP_CONSTRUCTOR(type) type(android_app* app, JNIEnv* env, const nbl::system::path& _localInputCWD,\
+const nbl::system::path& _localOutputCWD,\
+const nbl::system::path& _sharedInputCWD,\
+const nbl::system::path& _sharedOutputCWD) : NonGraphicalApplicationBase(app, env, _localInputCWD, _localOutputCWD, _sharedInputCWD, _sharedOutputCWD) {}
+
+#define NBL_COMMON_API_MAIN(android_app_class) NBL_ANDROID_MAIN_FUNC(android_app_class, CommonAPI::CommonAPIEventCallback)
+#else
+using ApplicationBase = GraphicalApplication;
+using NonGraphicalApplicationBase = nbl::system::IApplicationFramework;
+#define APP_CONSTRUCTOR(type) type(const nbl::system::path& _localInputCWD,\
+const nbl::system::path& _localOutputCWD,\
+const nbl::system::path& _sharedInputCWD,\
+const nbl::system::path& _sharedOutputCWD) : ApplicationBase(_localInputCWD, _localOutputCWD, _sharedInputCWD, _sharedOutputCWD) {}
+
+#define NON_GRAPHICAL_APP_CONSTRUCTOR(type) type(const nbl::system::path& _localInputCWD,\
+const nbl::system::path& _localOutputCWD,\
+const nbl::system::path& _sharedInputCWD,\
+const nbl::system::path& _sharedOutputCWD) : NonGraphicalApplicationBase(_localInputCWD, _localOutputCWD, _sharedInputCWD, _sharedOutputCWD) {}
+#define NBL_COMMON_API_MAIN(app_class) int main(int argc, char** argv){\
+CommonAPI::main<app_class>(argc, argv);\
+}
+#endif
+//***** Application framework macros ******
+

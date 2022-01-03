@@ -172,7 +172,7 @@ public:
 		/*
 		* If a Key was already being held down from previous frames
 		* Compute with this assumption that the key will be held down for this whole frame as well,
-		* And If an UP event was sent It will get subtracted it from this value.
+		* And If an UP event was sent It will get subtracted it from this value. (Currently Disabled Because we Need better Oracle)
 		*/
 		for(uint32_t k = 0; k < Keys::EKA_COUNT; ++k) {
 			if(keysDown[k] == true) {
@@ -195,7 +195,7 @@ public:
 					perActionDt[Keys::EKA_MOVE_FORWARD] += timeDiff; 
 					keysDown[Keys::EKA_MOVE_FORWARD] = true;
 				} else if(ev.action == ui::SKeyboardEvent::ECA_RELEASED) {
-					perActionDt[Keys::EKA_MOVE_FORWARD] -= timeDiff; 
+					// perActionDt[Keys::EKA_MOVE_FORWARD] -= timeDiff; 
 					keysDown[Keys::EKA_MOVE_FORWARD] = false;
 				}
 			}
@@ -205,7 +205,7 @@ public:
 					perActionDt[Keys::EKA_MOVE_BACKWARD] += timeDiff; 
 					keysDown[Keys::EKA_MOVE_BACKWARD] = true;
 				} else if(ev.action == ui::SKeyboardEvent::ECA_RELEASED) {
-					perActionDt[Keys::EKA_MOVE_BACKWARD] -= timeDiff; 
+					// perActionDt[Keys::EKA_MOVE_BACKWARD] -= timeDiff; 
 					keysDown[Keys::EKA_MOVE_BACKWARD] = false;
 				}
 			}
@@ -215,7 +215,7 @@ public:
 					perActionDt[Keys::EKA_MOVE_LEFT] += timeDiff; 
 					keysDown[Keys::EKA_MOVE_LEFT] = true;
 				} else if(ev.action == ui::SKeyboardEvent::ECA_RELEASED) {
-					perActionDt[Keys::EKA_MOVE_LEFT] -= timeDiff; 
+					// perActionDt[Keys::EKA_MOVE_LEFT] -= timeDiff; 
 					keysDown[Keys::EKA_MOVE_LEFT] = false;
 				}
 			}
@@ -225,7 +225,7 @@ public:
 					perActionDt[Keys::EKA_MOVE_RIGHT] += timeDiff; 
 					keysDown[Keys::EKA_MOVE_RIGHT] = true;
 				} else if(ev.action == ui::SKeyboardEvent::ECA_RELEASED) {
-					perActionDt[Keys::EKA_MOVE_RIGHT] -= timeDiff; 
+					// perActionDt[Keys::EKA_MOVE_RIGHT] -= timeDiff; 
 					keysDown[Keys::EKA_MOVE_RIGHT] = false;
 				}
 			}

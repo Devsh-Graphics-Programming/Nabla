@@ -7,11 +7,11 @@
 #include "common.glsl"
 
 #define NBL_GLSL_TRANSFORM_TREE_POOL_DESCRIPTOR_SET 0
-#define NBL_GLSL_TRANSFORM_TREE_POOL_NODE_GLOBAL_TRANSFORM_DESCRIPTOR_BINDING 0
 // disable what we dont use
 #define NBL_GLSL_TRANSFORM_TREE_POOL_NODE_PARENT_DESCRIPTOR_DECLARED
 #define NBL_GLSL_TRANSFORM_TREE_POOL_NODE_RELATIVE_TRANSFORM_DESCRIPTOR_DECLARED
 #define NBL_GLSL_TRANSFORM_TREE_POOL_NODE_MODIFIED_TIMESTAMP_DESCRIPTOR_DECLARED
+#define NBL_GLSL_TRANSFORM_TREE_POOL_NODE_GLOBAL_TRANSFORM_DESCRIPTOR_DECLARED
 #define NBL_GLSL_TRANSFORM_TREE_POOL_NODE_RECOMPUTED_TIMESTAMP_DESCRIPTOR_DECLARED
 #include <nbl/builtin/glsl/transform_tree/pool_descriptor_set.glsl>
 
@@ -28,14 +28,14 @@ layout(location = 0) out vec3 Normal;
 layout(location = 1) out flat uint LoD;
 
 #include <nbl/builtin/glsl/utils/transform.glsl>
+#include <nbl/builtin/glsl/utils/normal_decode.glsl>
 void main()
 {
 	const PerViewPerInstance_t pvpi = perViewPerInstance.data[InstanceGUID_PerViewPerInstance[1]];
-    const mat4x3 worldMatrix = nodeGlobalTransforms.data[InstanceGUID_PerViewPerInstance[0]];
-	const mat3 fastNormalMatrix = nbl_glsl_sub3x3TransposeCofactors(mat3(worldMatrix));
+    const nbl_glsl_CompressedNormalMatrix_t compressedNormalMatrix = nodeNormalMatrix.data[InstanceGUID_PerViewPerInstance[0]];
 
     gl_Position = nbl_glsl_pseudoMul4x4with3x1(pvpi.mvp,vPos);
-    // have to normalize both in vertex and fragment shader, because normal quantization foreshortens `vNormal` and `fastNormalMatrix` is missing a division by determinant
-    Normal = normalize(fastNormalMatrix*vNormal);
+    // have to normalize both in vertex and fragment shader, because normal quantization foreshortens `vNormal` and `compressedNormalMatrix` has a messed up determinant
+    Normal = normalize(nbl_glsl_CompressedNormalMatrix_t_decode(compressedNormalMatrix)*vNormal);
     LoD = pvpi.lod;
 }

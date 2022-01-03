@@ -10,7 +10,6 @@
 #include "nbl/asset/IBuffer.h"
 #include "nbl/asset/format/EFormat.h"
 #include "aabbox3d.h"
-#include "matrix4x3.h"
 #define uint uint32_t
 #include "nbl/builtin/glsl/utils/acceleration_structures.glsl"
 #undef uint

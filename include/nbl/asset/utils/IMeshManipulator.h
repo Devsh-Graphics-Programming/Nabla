@@ -369,20 +369,19 @@ class IMeshManipulator : public virtual core::IReferenceCounted
 				return aabb;
 			
 			const bool computeJointAABBs = outJointAABBs&&meshbuffer->isSkinned();
-			const auto* skeleton = meshbuffer->getSkeleton();
 			if (computeJointAABBs)
-			for (auto i=0u; i<meshbuffer->getSkeleton()->getJointCount(); i++)
+			for (auto i=0u; i<meshbuffer->getJointCount(); i++)
 				outJointAABBs[i] = aabb;
 
 			if (indexCountOverride==0u)
 				indexCountOverride = meshbuffer->getIndexCount();
-			auto impl = [meshbuffer,&aabb,skeleton,indexCountOverride](const auto* indexPtr, auto* jointAABBs) -> void
+			auto impl = [meshbuffer,computeJointAABBs,&aabb,indexCountOverride](const auto* indexPtr, auto* jointAABBs) -> void
 			{
-				const uint32_t jointCount = skeleton ? skeleton->getJointCount():0u;
+				const uint32_t jointCount = meshbuffer->getJointCount();
 				const auto jointIDAttr = meshbuffer->getJointIDAttributeIx();
 				const auto jointWeightAttrId = meshbuffer->getJointWeightAttributeIx();
 				const auto maxInfluences = core::min(meshbuffer->deduceMaxJointsPerVertex(), meshbuffer->getMaxJointsPerVertex());
-				const uint32_t maxWeights = skeleton ? getFormatChannelCount(meshbuffer->getAttribFormat(jointWeightAttrId)):0u;
+				const uint32_t maxWeights = computeJointAABBs ? getFormatChannelCount(meshbuffer->getAttribFormat(jointWeightAttrId)):0u;
 				const auto* inverseBindPoses = meshbuffer->getInverseBindPoses();
 
 				for (uint32_t j=0u; j<indexCountOverride; j++)

@@ -4,8 +4,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-layout(location = _NBL_ATTRIB_POS_LOCATION_) in vec3 vPos;
-layout(location = _NBL_ATTRIB_NORMAL_LOCATION_) in vec3 vNormal;
+layout(location = 0) in vec3 vPos;
+layout(location = 3) in vec3 vNormal;
 layout(location = 15) in uint iObjectID;
 
 layout(set=0, binding=0) readonly buffer InstanceColors

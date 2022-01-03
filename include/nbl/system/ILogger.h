@@ -97,8 +97,8 @@ class ILogger : public core::IReferenceCounted
 				return "";
 			}
 
-			size_t newSize = vsnprintf(nullptr, 0, fmtString.data(), l);
-			std::string message(newSize, ' '); 
+			size_t newSize = vsnprintf(nullptr, 0, fmtString.data(), l) + 1;
+			std::string message(newSize, '\0'); 
 			vsnprintf(message.data(), newSize, fmtString.data(), l);
 			
 			std::string out_str(timeStr.length() + messageTypeStr.length() + message.length() + 3, '\0');

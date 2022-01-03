@@ -3,14 +3,15 @@
 
 #include <nbl/core/IReferenceCounted.h>
 #include <nbl/core/util/bitflag.h>
+
 #include "nbl/asset/IImage.h"
 #include "nbl/asset/IRenderpass.h"
 #include "nbl/asset/ISampler.h"
 #include "nbl/asset/ISpecializedShader.h"
 #include "nbl/asset/ECommonEnums.h"
-#include "nbl/video/IGPUMeshBuffer.h"
 #include "nbl/video/IGPUAccelerationStructure.h"
 #include "nbl/video/IQueryPool.h"
+#include "nbl/asset/IMeshBuffer.h"
 
 #define VK_NO_PROTOTYPES
 #include <vulkan/vulkan.h>
@@ -106,6 +107,7 @@ protected:
     using descriptor_set_t = DescSetType;
     using pipeline_layout_t = PipelineLayoutType;
     using event_t = EventType;
+    using meshbuffer_t = IMeshBuffer<buffer_t,descriptor_set_t,typename graphics_pipeline_t::renderpass_independent_t>;
     using cmdbuf_t = CommandBufferType;
 
 public:
@@ -223,7 +225,7 @@ public:
     virtual bool drawIndirectCount(const buffer_t* buffer, size_t offset, const buffer_t* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride) = 0;
     virtual bool drawIndexedIndirectCount(const buffer_t* buffer, size_t offset, const buffer_t* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride) = 0;
 
-    virtual bool drawMeshBuffer(const nbl::video::IGPUMeshBuffer* meshBuffer) = 0;
+    virtual bool drawMeshBuffer(const meshbuffer_t* meshBuffer) = 0;
 
     virtual bool setViewport(uint32_t firstViewport, uint32_t viewportCount, const SViewport* pViewports) = 0;
 
@@ -294,8 +296,9 @@ public:
     virtual bool writeAccelerationStructureProperties(const core::SRange<video::IGPUAccelerationStructure>& pAccelerationStructures, video::IQueryPool::E_QUERY_TYPE queryType, video::IQueryPool* queryPool, uint32_t firstQuery) {return false;}
 
     // E_PIPELINE_BIND_POINT needs to be in asset namespace or divide this into two functions (for graphics and compute)
-    virtual bool bindDescriptorSets(E_PIPELINE_BIND_POINT pipelineBindPoint, const pipeline_layout_t* layout, uint32_t firstSet, uint32_t descriptorSetCount,
-        const descriptor_set_t*const *const pDescriptorSets, core::smart_refctd_dynamic_array<uint32_t> dynamicOffsets = nullptr
+    virtual bool bindDescriptorSets(
+        E_PIPELINE_BIND_POINT pipelineBindPoint, const pipeline_layout_t* layout, uint32_t firstSet, uint32_t descriptorSetCount,
+        const descriptor_set_t*const *const pDescriptorSets, const uint32_t dynamicOffsetCount=0u, const uint32_t* dynamicOffsets=nullptr
     ) = 0;
     virtual bool pushConstants(const pipeline_layout_t* layout, core::bitflag<asset::IShader::E_SHADER_STAGE> stageFlags, uint32_t offset, uint32_t size, const void* pValues) = 0;
 
@@ -325,7 +328,7 @@ public:
         return true;
     }
 
-    virtual bool regenerateMipmaps(image_view_t* imgview) = 0;
+    virtual bool regenerateMipmaps(image_t* imgview, uint32_t lastReadyMip, asset::IImage::E_ASPECT_FLAGS aspect) = 0;
 
 
 

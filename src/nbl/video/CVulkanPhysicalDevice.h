@@ -52,6 +52,8 @@ public:
                     
             m_limits.maxSSBOs = deviceProperties.properties.limits.maxDescriptorSetStorageBuffers;
             m_limits.maxUBOs = deviceProperties.properties.limits.maxDescriptorSetUniformBuffers;
+            m_limits.maxDynamicOffsetSSBOs = deviceProperties.properties.limits.maxDescriptorSetStorageBuffersDynamic;
+            m_limits.maxDynamicOffsetUBOs = deviceProperties.properties.limits.maxDescriptorSetUniformBuffersDynamic;
             m_limits.maxTextures = deviceProperties.properties.limits.maxDescriptorSetSamplers;
             m_limits.maxStorageImages = deviceProperties.properties.limits.maxDescriptorSetStorageImages;
                     

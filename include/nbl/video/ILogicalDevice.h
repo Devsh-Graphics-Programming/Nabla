@@ -443,20 +443,7 @@ class ILogicalDevice : public core::IReferenceCounted
         virtual core::smart_refctd_ptr<IGPUPipelineCache> createGPUPipelineCache() { return nullptr; }
 
         //! Create a descriptor set layout (@see ICPUDescriptorSetLayout)
-        core::smart_refctd_ptr<IGPUDescriptorSetLayout> createGPUDescriptorSetLayout(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end)
-        {
-            for (auto b = _begin; b != _end; ++b)
-            {
-                if (b->type == asset::EDT_COMBINED_IMAGE_SAMPLER && b->samplers)
-                {
-                    auto* samplers = b->samplers;
-                    for (uint32_t i = 0u; i < b->count; ++i)
-                        if (!samplers[i]->wasCreatedBy(this))
-                            return nullptr;
-                }
-            }
-            return createGPUDescriptorSetLayout_impl(_begin, _end);
-        }
+        core::smart_refctd_ptr<IGPUDescriptorSetLayout> createGPUDescriptorSetLayout(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end);
 
         //! Create a pipeline layout (@see ICPUPipelineLayout)
         core::smart_refctd_ptr<IGPUPipelineLayout> createGPUPipelineLayout(

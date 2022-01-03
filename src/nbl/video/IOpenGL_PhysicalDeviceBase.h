@@ -6,6 +6,7 @@
 #include <regex>
 
 #include "nbl/video/COpenGLFeatureMap.h"
+#include "nbl/video/SOpenGLContextLocalCache.h"
 
 #include "nbl/video/CEGL.h"
 
@@ -294,8 +295,12 @@ public:
 		assert(core::is_alignment(m_glfeatures.reqUBOAlignment));
 		GetIntegerv(GL_SHADER_STORAGE_BUFFER_OFFSET_ALIGNMENT, &m_glfeatures.reqSSBOAlignment);
 		assert(core::is_alignment(m_glfeatures.reqSSBOAlignment));
+		// TODO: GLES has a problem with reporting this
 		GetIntegerv(GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT, &m_glfeatures.reqTBOAlignment);
-		assert(core::is_alignment(m_glfeatures.reqTBOAlignment));
+		if (!core::is_alignment(m_glfeatures.reqTBOAlignment))
+			m_glfeatures.reqTBOAlignment = 16u;
+		//assert(core::is_alignment(m_glfeatures.reqTBOAlignment)); 
+		//m_glfeatures.reqSSBOAlignment = 64u; // uncomment to emulate chromebook
 
 		GetInteger64v(GL_MAX_UNIFORM_BLOCK_SIZE, reinterpret_cast<GLint64*>(&m_glfeatures.maxUBOSize));
 		GetInteger64v(GL_MAX_SHADER_STORAGE_BLOCK_SIZE, reinterpret_cast<GLint64*>(&m_glfeatures.maxSSBOSize));
@@ -427,6 +432,8 @@ public:
 
 			m_limits.maxSSBOs = m_glfeatures.maxSSBOBindings;
 			m_limits.maxUBOs = m_glfeatures.maxUBOBindings;
+			m_limits.maxDynamicOffsetSSBOs = SOpenGLState::MaxDynamicOffsetSSBOs;
+			m_limits.maxDynamicOffsetUBOs = SOpenGLState::MaxDynamicOffsetUBOs;
 			m_limits.maxTextures = m_glfeatures.maxTextureBindings;
 			m_limits.maxStorageImages = m_glfeatures.maxImageBindings;
 			GetInteger64v(GL_MAX_TEXTURE_SIZE, reinterpret_cast<GLint64*>(&m_limits.maxTextureSize));

@@ -23,12 +23,12 @@ class CDumbPresentationOracle : public IPresentationOracle
 
 		inline void reportBeginFrameRecord() override
 		{
-			lastTime = std::chrono::system_clock::now();
+			lastTime = std::chrono::steady_clock::now();
 		}
 
 		inline void reportEndFrameRecord()
 		{
-			auto renderStart = std::chrono::system_clock::now();
+			auto renderStart = std::chrono::steady_clock::now();
 			dt = std::chrono::duration_cast<std::chrono::microseconds>(renderStart-lastTime).count();
 			
 			// Calculate Simple Moving Average for FrameTime
@@ -85,7 +85,7 @@ class CDumbPresentationOracle : public IPresentationOracle
 		double timeSum = 0.0;
 		double dtList[MaxFramesToAverage] = {};
 		double dt = 0.0;
-		std::chrono::system_clock::time_point lastTime;
+		std::chrono::steady_clock::time_point lastTime;
 		std::chrono::microseconds nextPresentationTimeStamp;
 };
 
