@@ -249,11 +249,12 @@ vec3 load_normal_and_prefetch_textures(
 	return normalize(normal);
 }
 
-// TODO: requantize and repack the random sequence
+// TODO: repack the random sequence
+#include <nbl/builtin/glsl/sampling/quantized_sequence.glsl>
 vec3 rand3d(in uvec3 scramble_key, in int _sample, in int depth)
 {
-	uvec3 seqVal = texelFetch(sampleSequence,int(_sample)+(depth-1)*MAX_ACCUMULATED_SAMPLES).xyz;
-    return vec3(seqVal^scramble_key)*uintBitsToFloat(0x2f800004u);
+	const nbl_glsl_sampling_quantized3D quant = texelFetch(sampleSequence,int(_sample)+(depth-1)*MAX_ACCUMULATED_SAMPLES).xy;
+    return nbl_glsl_sampling_decodeSample3Dimensions(quant,scramble_key);
 }
 
 nbl_glsl_MC_quot_pdf_aov_t gen_sample_ray(

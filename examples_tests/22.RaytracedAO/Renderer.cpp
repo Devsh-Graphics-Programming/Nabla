@@ -1186,12 +1186,9 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, core::s
 		_staticViewDataBuffer = createFilledBufferAndSetUpInfoFromStruct(infos+0,m_staticViewData);
 		staticViewDataBufferSize = _staticViewDataBuffer->getSize();
 		{
-			// TODO: maybe use the sample limit in the future to stop a converged render
-			const auto maxSamples = sampleSequence->getSize()/(sizeof(uint32_t)*MaxDimensions);
-			assert(maxSamples==MAX_ACCUMULATED_SAMPLES);
-			// upload sequence to GPU (TODO: clip its size to the dimensions we'll actually use)
+			// upload sequence to GPU
 			auto gpubuf = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(sampleSequence->getSize(),sampleSequence->getPointer());
-			infos[1].desc = m_driver->createGPUBufferView(gpubuf.get(),asset::EF_R32G32B32_UINT); // TODO: maybe try to pack into 64bits?
+			infos[1].desc = m_driver->createGPUBufferView(gpubuf.get(),asset::EF_R32G32_UINT);
 		}
 		setImageInfo(infos+2,asset::EIL_GENERAL,core::smart_refctd_ptr(m_accumulation));
 		setImageInfo(infos+5,asset::EIL_GENERAL,core::smart_refctd_ptr(m_albedoAcc));
