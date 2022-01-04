@@ -78,7 +78,6 @@ void main()
 			const nbl_glsl_MC_oriented_material_t material = nbl_glsl_MC_material_data_t_getOriented(batchInstanceData.material,frontfacing);
 			contrib.color = contrib.albedo = nbl_glsl_MC_oriented_material_t_getEmissive(material);
 
-			const uint vertex_depth_mod_2 = 0x1u;
 			// load vertex data
 			vec3 geomDenormal;
 			const vec3 lastVxPos = load_positions(geomDenormal,batchInstanceData,indices);

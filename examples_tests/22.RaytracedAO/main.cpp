@@ -556,7 +556,7 @@ int main(int argc, char** argv)
 	auto driver = device->getVideoDriver();
 
 	core::smart_refctd_ptr<Renderer> renderer = core::make_smart_refctd_ptr<Renderer>(driver,device->getAssetManager(),smgr);
-	auto sampleSequence = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(uint64_t)*Renderer::MaxSamples*Renderer::MaxPathDepth);
+	auto sampleSequence = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(uint64_t)*Renderer::MaxSamples*QUANTIZED_DIMENSIONS_PER_SAMPLE);
 	{
 		bool generateNewSamples = true;
 
@@ -573,29 +573,28 @@ int main(int argc, char** argv)
 
 		if (generateNewSamples)
 		{
-			// 3d
-			// MIS
-			// Depth
-			// Samples
-			constexpr auto DimensionsPerSample = 3u;
-			core::OwenSampler sampler(Renderer::MaxDimensions*DimensionsPerSample,0xdeadbeefu);
+			constexpr auto DimensionsPerQuanta = 3u;
+			core::OwenSampler sampler(QUANTIZED_DIMENSIONS_PER_SAMPLE*DimensionsPerQuanta,0xdeadbeefu);
 
-			uint32_t(&out)[][2] = *reinterpret_cast<uint32_t(*)[][2]>(sampleSequence->getPointer());
-			for (auto metadim=0u; metadim<Renderer::MaxDimensions; metadim++)
+			// Memory Order: 3 Dimensions, then multiple of sampling stragies per vertex, then depth, then sample ID
+			uint32_t(&pout)[][2] = *reinterpret_cast<uint32_t(*)[][2]>(sampleSequence->getPointer());
+			// the horrible order of iteration over output memory is caused by the fact that certain samplers like the 
+			// Owen Scramble sampler, have a large cache which needs to be generated separately for each dimension.
+			for (auto metadim=0u; metadim<QUANTIZED_DIMENSIONS_PER_SAMPLE; metadim++)
 			{
-				const auto trudim = metadim*DimensionsPerSample;
-				const auto outOffset = metadim*Renderer::MaxSamples;
+				const auto trudim = metadim*DimensionsPerQuanta;
 				for (uint32_t i=0; i<Renderer::MaxSamples; i++)
-					out[outOffset+i][0] = sampler.sample(trudim+0u,i);
+					pout[i*QUANTIZED_DIMENSIONS_PER_SAMPLE+metadim][0] = sampler.sample(trudim+0u,i);
 				for (uint32_t i=0; i<Renderer::MaxSamples; i++)
-					out[outOffset+i][1] = sampler.sample(trudim+1u,i);
+					pout[i*QUANTIZED_DIMENSIONS_PER_SAMPLE+metadim][1] = sampler.sample(trudim+1u,i);
 				for (uint32_t i=0; i<Renderer::MaxSamples; i++)
 				{
 					const auto sample = sampler.sample(trudim+2u,i);
-					out[outOffset+i][0] &= 0xFFFFF800u;
-					out[outOffset+i][0] |= sample>>21;
-					out[outOffset+i][1] &= 0xFFFFF800u;
-					out[outOffset+i][1] |= (sample>>10)&0x07FFu;
+					const auto out = pout[i*QUANTIZED_DIMENSIONS_PER_SAMPLE+metadim];
+					out[0] &= 0xFFFFF800u;
+					out[0] |= sample>>21;
+					out[1] &= 0xFFFFF800u;
+					out[1] |= (sample>>10)&0x07FFu;
 				}
 			}
 

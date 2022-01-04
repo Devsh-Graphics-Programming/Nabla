@@ -36,7 +36,6 @@ void main()
 	{
 		// basic reads
 		const uint vertex_depth = get_path_vertex_depth();
-		const uint vertex_depth_mod_2 = vertex_depth&0x1u;
 		const nbl_glsl_ext_RadeonRays_Intersection intersection = intersections[gl_GlobalInvocationID.x];
 		const nbl_glsl_ext_RadeonRays_ray ray = sourceRays[gl_GlobalInvocationID.x];
 
@@ -78,7 +77,7 @@ void main()
 			const nbl_glsl_MC_oriented_material_t material = nbl_glsl_MC_material_data_t_getOriented(batchInstanceData.material,frontfacing);
 			contrib.color = contrib.albedo = nbl_glsl_MC_oriented_material_t_getEmissive(material);
 	
-			const bool _continue = vertex_depth!=MAX_PATH_DEPTH && ray.maxT==nbl_glsl_FLT_MAX; // last vertex or was a NEE path
+			const bool _continue = vertex_depth!=LAST_PATH_VERTEX_DEPTH && ray.maxT==nbl_glsl_FLT_MAX; // not last vertex and not NEE path
 			if (_continue)
 			{
 				// if we ever support spatially varying emissive, we'll need to hoist barycentric computation and UV fetching to the position fetching

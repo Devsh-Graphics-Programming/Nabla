@@ -1087,7 +1087,7 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, core::s
 	(std::ofstream("runtime_defines.glsl")
 		<< "#define _NBL_EXT_MITSUBA_LOADER_VT_STORAGE_VIEW_COUNT " << m_globalMeta->m_global.getVTStorageViewCount() << "\n"
 		<< m_globalMeta->m_global.m_materialCompilerGLSL_declarations
-		<< "#define MAX_PATH_DEPTH " << m_maxDepth << "\n"
+		<< "#define LAST_PATH_VERTEX_DEPTH " << m_maxDepth << "\n"
 		<< "#ifndef MAX_RAYS_GENERATED\n"
 		<< "#	define MAX_RAYS_GENERATED " << m_staticViewData.samplesPerPixelPerDispatch << "\n"
 		<< "#endif\n"

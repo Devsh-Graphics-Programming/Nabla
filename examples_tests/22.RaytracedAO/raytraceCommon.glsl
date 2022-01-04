@@ -24,7 +24,7 @@ layout(set = 2, binding = 0, row_major) uniform StaticViewData
 	StaticViewData_t staticViewData;
 };
 // rng
-layout(set = 2, binding = 1) uniform usamplerBuffer sampleSequence;
+layout(set = 2, binding = 1) uniform usamplerBuffer quantizedSampleSequence;
 // accumulation
 layout(set = 2, binding = 2, rg32ui) restrict uniform uimage2DArray accumulation;
 // ray data
@@ -249,11 +249,13 @@ vec3 load_normal_and_prefetch_textures(
 	return normalize(normal);
 }
 
-// TODO: repack the random sequence
 #include <nbl/builtin/glsl/sampling/quantized_sequence.glsl>
-vec3 rand3d(in uvec3 scramble_key, in int _sample, in int depth)
+vec3 rand3d(in uvec3 scramble_key, in int _sample, int depth)
 {
-	const nbl_glsl_sampling_quantized3D quant = texelFetch(sampleSequence,int(_sample)+(depth-1)*MAX_ACCUMULATED_SAMPLES).xy;
+	// decrement depth because first vertex is rasterized and picked with a different sample sequence
+	--depth;
+	//
+	const nbl_glsl_sampling_quantized3D quant = texelFetch(quantizedSampleSequence,int(_sample)*QUANTIZED_DIMENSIONS_PER_SAMPLE+depth).xy;
     return nbl_glsl_sampling_decodeSample3Dimensions(quant,scramble_key);
 }
 

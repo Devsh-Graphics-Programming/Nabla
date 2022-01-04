@@ -78,29 +78,11 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 			return m_totalRaysCast;
 		}
 
-		//! Brief guideline to good path depth limits
-		// Want to see stuff with indirect lighting on the other side of a pane of glass
-		// 5 = glass frontface->glass backface->diffuse surface->diffuse surface->light
-		// Want to see through a glass box, vase, or office 
-		// 7 = glass frontface->glass backface->glass frontface->glass backface->diffuse surface->diffuse surface->light
-		// pick higher numbers for better GI and less bias
-		static inline constexpr uint32_t MaxPathDepth = 8u;
-		// need to bump to 2 in case of NEE + MIS
-		static inline constexpr uint32_t WorstCase3DSamplesPerPathVertex = 1u;
-		// one less because the first path vertex is rasterized
-		static inline constexpr uint32_t MaxDimensions = WorstCase3DSamplesPerPathVertex*(MaxPathDepth-1u);
-
 		// The primary limiting factor is the precision of turning a fixed point grid sample to IEEE754 32bit float in the [0,1] range.
 		// Mantissa is only 23 bits, and primary sample space low discrepancy sequence will start to produce duplicates
 		// near 1.0 with exponent -1 after the sample count passes 2^24 elements.
 		// Another limiting factor is our encoding of sample sequences, we only use 21bits per channel, so no duplicates till 2^21 samples.
-		// The final limiting factor is the precision of the resolve buffer.
-		// Assuming VNDF sampling, our highest contribution `M` has to be the supremum of radiosities all lights.
-		// Due to on-line averaging, each sample is premultiplied by reciprocal sample count.
-		// Given that we will accumulate to a RGB19E7 target, and that after many samples the pixel's scene referred value
-		// is already close to the true value, and that IEEE754 numbers must match exponents and rescale mantissas before adding,
-		// a sample with a contribution of M stops moving the average after M * 2^19 samples.
-		static inline constexpr uint32_t MaxSamples = MAX_ACCUMULATED_SAMPLES;
+		static inline constexpr uint32_t MaxSamples = 0x10000u;// 0x200000;
 
 		//
 		static constexpr inline uint32_t AntiAliasingSequenceLength = 1024;
