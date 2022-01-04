@@ -13,7 +13,7 @@
 // Want to see through a glass box, vase, or office 
 // 7 = glass frontface->glass backface->glass frontface->glass backface->diffuse surface->diffuse surface->light
 // pick higher numbers for better GI and less bias
-#define MAX_PATH_DEPTH 8
+#define MAX_PATH_DEPTH 64
 // need to bump to 2 in case of NEE + MIS, 3 in case of Path Guiding
 #define SAMPLING_STRATEGY_COUNT 1
 // One less because the first vertex is rasterized

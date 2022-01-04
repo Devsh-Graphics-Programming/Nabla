@@ -260,7 +260,7 @@ vec3 rand3d(in uvec3 scramble_key, in int _sample, int depth)
 }
 
 nbl_glsl_MC_quot_pdf_aov_t gen_sample_ray(
-	out float maxT, out vec3 direction,
+	out vec3 direction,
 	in uvec3 scramble_key,
 	in uint sampleID, in uint depth,
 	in nbl_glsl_MC_precomputed_t precomp,
@@ -268,14 +268,21 @@ nbl_glsl_MC_quot_pdf_aov_t gen_sample_ray(
 	in nbl_glsl_MC_instr_stream_t rnps
 )
 {
-	maxT = nbl_glsl_FLT_MAX;
-	
-	const vec3 rand = rand3d(scramble_key,int(sampleID),int(depth));
+	vec3 rand = rand3d(scramble_key,int(sampleID),int(depth));
 	
 	nbl_glsl_LightSample s;
-	const nbl_glsl_MC_quot_pdf_aov_t result = nbl_glsl_MC_runGenerateAndRemainderStream(precomp,gcs,rnps,rand,s);
-	direction = s.L;
+	nbl_glsl_MC_quot_pdf_aov_t result = nbl_glsl_MC_runGenerateAndRemainderStream(precomp,gcs,rnps,rand,s);
+	
+#if 0 // TODO: refactor all nbl_glsl_brdf_cos_generate to take the random variable as a `inout`
+	// russian roulette
+	const float rrFactor = 0.9f;
+	const float survivalProb = min(nbl_glsl_MC_colorToScalar(result.quotient)/rrFactor,1.f);
+	float dummy; // not going to use it, because we can optimize out better
+	const bool kill = nbl_glsl_partitionRandVariable(survivalProb,rand.z,dummy);
+	result.quotient *= kill ? 0.f:(1.f/survivalProb);
+#endif
 
+	direction = s.L;
 	return result;
 }
 
@@ -307,18 +314,20 @@ void generate_next_rays(
 		const uvec3 scramble_key = uvec3(nbl_glsl_xoroshiro64star(scramble_state),nbl_glsl_xoroshiro64star(scramble_state),nbl_glsl_xoroshiro64star(scramble_state));
 		for (uint i=0u; i<maxRaysToGen; i++)
 		{
+			maxT[i] = 0.f;
 			// TODO: When generating NEE rays, advance the dimension, NOT the sampleID
-			const nbl_glsl_MC_quot_pdf_aov_t result = gen_sample_ray(maxT[i],direction[i],scramble_key,sampleID+i,vertex_depth,precomputed,gcs,rnps);
-
-			nextThroughput[i] = prevThroughput*result.quotient;
-			nextAoVThroughputScale[i] = prevAoVThroughputScale*result.aov.throughputFactor;
+			const nbl_glsl_MC_quot_pdf_aov_t result = gen_sample_ray(direction[i],scramble_key,sampleID+i,vertex_depth,precomputed,gcs,rnps);
 			albedo += result.aov.albedo/float(maxRaysToGen);
 			worldspaceNormal += result.aov.normal/float(maxRaysToGen);
+
+			nextThroughput[i] = prevThroughput*result.quotient;
 			// do denormalized half floats flush to 0 ?
 			if (max(max(nextThroughput[i].x,nextThroughput[i].y),nextThroughput[i].z)>=exp2(-14.f))
+			{
+				maxT[i] = nbl_glsl_FLT_MAX;
+				nextAoVThroughputScale[i] = prevAoVThroughputScale*result.aov.throughputFactor;
 				raysToAllocate++;
-			else
-				maxT[i] = 0.f;
+			}
 		}
 	}
 	// TODO: investigate workgroup reductions here
