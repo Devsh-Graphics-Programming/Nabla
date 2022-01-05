@@ -2,15 +2,13 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __NBL_ASSET_I_IMAGE_METADATA_H_INCLUDED__
-#define __NBL_ASSET_I_IMAGE_METADATA_H_INCLUDED__
+#ifndef _NBL_ASSET_I_IMAGE_METADATA_H_INCLUDED_
+#define _NBL_ASSET_I_IMAGE_METADATA_H_INCLUDED_
 
 #include "nbl/asset/ICPUImage.h"
 #include "nbl/asset/format/EColorSpace.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 //! A class to derive loader-specific image metadata objects from
@@ -44,7 +42,6 @@ class IImageMetadata : public core::Interface
 		}
 };
 
-}
 }
 
 #endif

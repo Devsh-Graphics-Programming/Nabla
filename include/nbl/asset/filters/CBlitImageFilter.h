@@ -18,17 +18,15 @@
 
 #include "nbl/asset/format/decodePixels.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 
-template<typename value_type, bool Normalize, bool Clamp, typename Swizzle, typename Dither>
-class CBlitImageFilterBase : public impl::CSwizzleableAndDitherableFilterBase<Normalize, Clamp, Swizzle, Dither>, public CBasicImageFilterCommon
+template<typename value_type, typename Swizzle, typename Dither, typename Normalization, bool Clamp>
+class CBlitImageFilterBase : public impl::CSwizzleableAndDitherableFilterBase<Swizzle,Dither,Normalization,Clamp>, public CBasicImageFilterCommon
 {
 	public:
-		class CStateBase : public impl::CSwizzleableAndDitherableFilterBase<Normalize, Clamp, Swizzle, Dither>::state_type
+		class CStateBase : public impl::CSwizzleableAndDitherableFilterBase<Swizzle,Dither,Normalization,Clamp>::state_type
 		{
 			public:
 				CStateBase() {}
@@ -94,7 +92,7 @@ class CBlitImageFilterBase : public impl::CSwizzleableAndDitherableFilterBase<No
 			if (state->alphaChannel>=4)
 				return false;
 
-			if (!impl::CSwizzleableAndDitherableFilterBase<Normalize, Clamp, Swizzle, Dither>::validate(state))
+			if (!impl::CSwizzleableAndDitherableFilterBase<Swizzle,Dither,Normalization,Clamp>::validate(state))
 				return false;
 
 			return true;
@@ -102,13 +100,15 @@ class CBlitImageFilterBase : public impl::CSwizzleableAndDitherableFilterBase<No
 };
 
 // copy while filtering the input into the output, a rare filter where the input and output extents can be different, still works one mip level at a time
-template<bool Normalize, bool Clamp = false, typename Swizzle = DefaultSwizzle, typename Dither = CWhiteNoiseDither, class KernelX=CBoxImageFilterKernel, class KernelY=KernelX, class KernelZ=KernelX>
-class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Normalize,Clamp,Swizzle,Dither,KernelX,KernelX,KernelX>>, public CBlitImageFilterBase<typename KernelX::value_type,Normalize,Clamp,Swizzle,Dither>
+template<typename Swizzle=DefaultSwizzle, typename Dither=CWhiteNoiseDither, typename Normalization=void, bool Clamp=true, class KernelX=CBoxImageFilterKernel, class KernelY=KernelX, class KernelZ=KernelX>
+class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Normalization,Clamp,KernelX,KernelX,KernelX>>, public CBlitImageFilterBase<typename KernelX::value_type,Swizzle,Dither,Normalization,Clamp>
 {
 		static_assert(std::is_same<typename KernelX::value_type,typename KernelY::value_type>::value&&std::is_same<typename KernelZ::value_type,typename KernelY::value_type>::value,"Kernel value_type need to be identical");
 		using value_type = typename KernelX::value_type;
 		
 		_NBL_STATIC_INLINE_CONSTEXPR auto MaxChannels = KernelX::MaxChannels>KernelY::MaxChannels ? (KernelX::MaxChannels>KernelZ::MaxChannels ? KernelX::MaxChannels:KernelZ::MaxChannels):(KernelY::MaxChannels>KernelZ::MaxChannels ? KernelY::MaxChannels:KernelZ::MaxChannels);
+
+		using base_t = CBlitImageFilterBase<value_type,Swizzle,Dither,Normalization,Clamp>;
 
 	public:
 		// we'll probably never remove this requirement
@@ -116,7 +116,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Normalize,Clamp,Sw
 
 		virtual ~CBlitImageFilter() {}
 
-		class CState : public IImageFilter::IState, public CBlitImageFilterBase<value_type, Normalize, Clamp, Swizzle, Dither>::CStateBase
+		class CState : public IImageFilter::IState, public base_t::CStateBase
 		{
 			public:
 				CState(KernelX&& kernel_x, KernelY&& kernel_y, KernelZ&& kernel_z) :
@@ -130,7 +130,9 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Normalize,Clamp,Sw
 				CState() : CState(KernelX(), KernelY(), KernelZ())
 				{
 				}
-				CState(const CState& other) : CBlitImageFilterBase<value_type, Normalize, Clamp, Swizzle, Dither>::CStateBase{other}, inMipLevel(other.inMipLevel),outMipLevel(other.outMipLevel),inImage(other.inImage),outImage(other.outImage),kernelX(other.kernelX), kernelY(other.kernelY), kernelZ(other.kernelZ)
+				CState(const CState& other) : IImageFilter::IState(), base_t::CStateBase{other},
+					inMipLevel(other.inMipLevel),outMipLevel(other.outMipLevel),inImage(other.inImage),outImage(other.outImage),
+					kernelX(other.kernelX), kernelY(other.kernelY), kernelZ(other.kernelZ)
 				{
 					inOffsetBaseLayer = other.inOffsetBaseLayer;
 					inExtentLayerCount = other.inExtentLayerCount;
@@ -201,13 +203,13 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Normalize,Clamp,Sw
 		{
 			// need to add the memory for ping pong buffers
 			uint32_t retval = getScratchOffset(state,true);
-			retval += CBlitImageFilterBase<value_type,Normalize,Clamp,Swizzle,Dither>::getRequiredScratchByteSize(state->alphaSemantic,state->outExtentLayerCount);
+			retval += base_t::getRequiredScratchByteSize(state->alphaSemantic,state->outExtentLayerCount);
 			return retval;
 		}
 
 		static inline bool validate(state_type* state)
 		{
-			if (!CBlitImageFilterBase<value_type, Normalize, Clamp, Swizzle, Dither>::validate(state))
+			if (!base_t::validate(state))
 				return false;
 			
 			if (state->scratchMemoryByteSize<getRequiredScratchByteSize(state))
@@ -278,7 +280,9 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Normalize,Clamp,Sw
 
 			const auto* const axisWraps = state->axisWraps;
 			const bool nonPremultBlendSemantic = state->alphaSemantic==CState::EAS_SEPARATE_BLEND;
+			// TODO: reformulate coverage adjustment as a normalization
 			const bool coverageSemantic = state->alphaSemantic==CState::EAS_REFERENCE_OR_COVERAGE;
+			const bool needsNormalization = !std::is_void_v<Normalization> || coverageSemantic;
 			const auto alphaRefValue = state->alphaRefValue;
 			const auto alphaChannel = state->alphaChannel;
 			
@@ -321,28 +325,33 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Normalize,Clamp,Sw
 						sample[i] /= sample[alphaChannel];
 				}
 
-				impl::CSwizzleAndConvertImageFilterBase<Normalize, Clamp, Swizzle, Dither>::onEncode(outFormat, state, dstPix, sample, localOutPos, 0, 0, MaxChannels);
+				base_t::onEncode(outFormat, state, dstPix, sample, localOutPos, 0, 0, MaxChannels);
 			};
 			const core::SRange<const IImage::SBufferCopy> outRegions = outImg->getRegions(outMipLevel);
-			auto storeToImage = [policy,coverageSemantic,outExtent,intermediateStorage,&sampler,outFormat,alphaRefValue,outData,intermediateStrides,alphaChannel,storeToTexel,outMipLevel,outOffset,outRegions,outImg](const core::rational<>& inverseCoverage, const int axis, const core::vectorSIMDu32& outOffsetLayer) -> void
+			auto storeToImage = [policy,coverageSemantic,needsNormalization,outExtent,intermediateStorage,&sampler,outFormat,alphaRefValue,outData,intermediateStrides,alphaChannel,storeToTexel,outMipLevel,outOffset,outRegions,outImg](
+				const core::rational<>& inverseCoverage, const int axis, const core::vectorSIMDu32& outOffsetLayer
+			) -> void
 			{
-				// little thing for the coverage adjustment trick suggested by developer of The Witness
-				assert(coverageSemantic);
-				const auto outputTexelCount = outExtent.width*outExtent.height*outExtent.depth;
-				// all values with index<=rankIndex will be %==inverseCoverage of the overall array
-				const int32_t rankIndex = (inverseCoverage*core::rational<int32_t>(outputTexelCount)).getIntegerApprox()-1;
-				auto* const begin = intermediateStorage[(axis+1)%3];
-				// this is our new reference value
-				auto* const nth = begin+core::max<int32_t>(rankIndex,0);
-				auto* const end = begin+outputTexelCount;
-				std::for_each(policy,begin,end,[&intermediateStorage,axis,begin,alphaChannel,&sampler,outFormat](value_type& texelAlpha)
+				assert(needsNormalization);
+				value_type coverageScale = 1.0;
+				if (coverageSemantic) // little thing for the coverage adjustment trick suggested by developer of The Witness
 				{
-					texelAlpha = intermediateStorage[axis][std::distance(begin,&texelAlpha)*4u+alphaChannel];
-					texelAlpha -= double(sampler.nextSample())*(asset::getFormatPrecision<value_type>(outFormat,alphaChannel,texelAlpha)/double(~0u));
-				});
-				std::nth_element(policy,begin,nth,end);
-				// scale all alpha texels to work with new reference value
-				const auto coverageScale = alphaRefValue/(*nth);
+					const auto outputTexelCount = outExtent.width*outExtent.height*outExtent.depth;
+					// all values with index<=rankIndex will be %==inverseCoverage of the overall array
+					const int32_t rankIndex = (inverseCoverage*core::rational<int32_t>(outputTexelCount)).getIntegerApprox()-1;
+					auto* const begin = intermediateStorage[(axis+1)%3];
+					// this is our new reference value
+					auto* const nth = begin+core::max<int32_t>(rankIndex,0);
+					auto* const end = begin+outputTexelCount;
+					std::for_each(policy,begin,end,[&intermediateStorage,axis,begin,alphaChannel,&sampler,outFormat](value_type& texelAlpha)
+					{
+						texelAlpha = intermediateStorage[axis][std::distance(begin,&texelAlpha)*4u+alphaChannel];
+						texelAlpha -= double(sampler.nextSample())*(asset::getFormatPrecision<value_type>(outFormat,alphaChannel,texelAlpha)/double(~0u));
+					});
+					std::nth_element(policy,begin,nth,end);
+					// scale all alpha texels to work with new reference value
+					coverageScale = alphaRefValue/(*nth);
+				}
 				auto scaleCoverage = [outData,outOffsetLayer,intermediateStrides,axis,intermediateStorage,alphaChannel,coverageScale,storeToTexel](uint32_t writeBlockArrayOffset, core::vectorSIMDu32 writeBlockPos) -> void
 				{
 					void* const dstPix = outData+writeBlockArrayOffset;
@@ -356,10 +365,13 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Normalize,Clamp,Sw
 					sample[alphaChannel] *= coverageScale;
 					storeToTexel(sample,dstPix,localOutPos);
 				};
-				CBasicImageFilterCommon::clip_region_functor_t clip({static_cast<IImage::E_ASPECT_FLAGS>(0u),outMipLevel,outOffsetLayer.w,1}, {outOffset,outExtent}, outFormat);
+				const ICPUImage::SSubresourceLayers subresource = {static_cast<IImage::E_ASPECT_FLAGS>(0u),outMipLevel,outOffsetLayer.w,1};
+				const IImageFilter::IState::TexelRange range = {outOffset,outExtent};
+				CBasicImageFilterCommon::clip_region_functor_t clip(subresource, range, outFormat);
 				CBasicImageFilterCommon::executePerRegion(policy,outImg,scaleCoverage,outRegions.begin(),outRegions.end(),clip);
 			};
 			// process
+			state->normalization.initialize<double>();
 			const core::vectorSIMDf fInExtent(inExtentLayerCount);
 			const core::vectorSIMDf fOutExtent(outExtentLayerCount);
 			const auto fScale = fInExtent.preciseDivision(fOutExtent);
@@ -483,7 +495,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Normalize,Clamp,Sw
 								value_type swizzledSample[MaxChannels];
 
 								// TODO: make sure there is no leak due to MaxChannels!
-								impl::CSwizzleAndConvertImageFilterBase<Normalize,Clamp,Swizzle,Dither>::onDecode(inFormat, state, srcPix, sample, swizzledSample, inBlockCoord.x, inBlockCoord.y);
+								base_t::onDecode(inFormat, state, srcPix, sample, swizzledSample, inBlockCoord.x, inBlockCoord.y);
 
 								if (nonPremultBlendSemantic)
 								{
@@ -532,18 +544,23 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Normalize,Clamp,Sw
 								relativePos -= 1.f;
 								windowCoord[axis]++;
 							}
-							if (!coverageSemantic && lastPass) // store to image, we're done
+							if (lastPass)
 							{
-								core::vectorSIMDu32 dummy;
-								const core::vectorSIMDu32 localOutPos = localTexCoord + outOffsetBaseLayer;
-								storeToTexel(value,outImg->getTexelBlockData(outMipLevel,localOutPos,dummy),localOutPos);
+								const core::vectorSIMDu32 localOutPos = localTexCoord+outOffsetBaseLayer;
+								if (needsNormalization)
+									state->normalization.prepass(value,localOutPos,0u,0u,MaxChannels);
+								else // store to image, we're done
+								{
+									core::vectorSIMDu32 dummy;
+									storeToTexel(value,outImg->getTexelBlockData(outMipLevel,localOutPos,dummy),localOutPos);
+								}
 							}
 						}
 						if (axis==IImage::ET_1D)
 							free_decode_scratch(decode_offset);
 					});
 					// we'll only get here if we have to do coverage adjustment
-					if (coverageSemantic && lastPass)
+					if (needsNormalization && lastPass)
 						storeToImage(core::rational<>(inv_cvg_num,inv_cvg_den),axis,outOffsetLayer);
 				};
 				// filter in X-axis
@@ -599,7 +616,6 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Normalize,Clamp,Sw
 		}
 };
 
-} // end namespace asset
-} // end namespace nbl
+} // end namespace nbl::asset
 
 #endif

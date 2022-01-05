@@ -7,16 +7,18 @@
 #include "nbl/asset/filters/CBlitImageFilter.h"
 #include "nbl/asset/interchange/IImageAssetHandlerBase.h"
 
-namespace nbl {
-namespace asset
-{
+
+using namespace nbl;
+using namespace nbl::asset;
+
 
 namespace
 {
+
 template<class Kernel>
-class MyKernel : public asset::CFloatingPointSeparableImageFilterKernelBase<MyKernel<Kernel>>
+class MyKernel : public CFloatingPointSeparableImageFilterKernelBase<MyKernel<Kernel>>
 {
-		using Base = asset::CFloatingPointSeparableImageFilterKernelBase<MyKernel<Kernel>>;
+		using Base = CFloatingPointSeparableImageFilterKernelBase<MyKernel<Kernel>>;
 
 		Kernel kernel;
 		float multiplier;
@@ -24,10 +26,10 @@ class MyKernel : public asset::CFloatingPointSeparableImageFilterKernelBase<MyKe
 	public:
 		using value_type = typename Base::value_type;
 
-		MyKernel(Kernel&& k, float _imgExtent) : Base(k.negative_support.x, k.positive_support.x), kernel(std::move(k)), multiplier(_imgExtent) {}
+		MyKernel(Kernel&& k, uint32_t _imgExtent) : Base(k.negative_support.x, k.positive_support.x), kernel(std::move(k)), multiplier(float(_imgExtent)) {}
 
 		// no special user data by default
-		inline const asset::IImageFilterKernel::UserData* getUserData() const { return nullptr; }
+		inline const IImageFilterKernel::UserData* getUserData() const { return nullptr; }
 
 		inline float weight(float x, int32_t channel) const
 		{
@@ -41,10 +43,10 @@ class MyKernel : public asset::CFloatingPointSeparableImageFilterKernelBase<MyKe
 				sample_functor_t(const MyKernel* _this, PreFilter& _preFilter, PostFilter& _postFilter) :
 					_this(_this), preFilter(_preFilter), postFilter(_postFilter) {}
 
-				inline void operator()(value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, const asset::IImageFilterKernel::UserData* userData)
+				inline void operator()(value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, const IImageFilterKernel::UserData* userData)
 				{
 					preFilter(windowSample, relativePos, globalTexelCoord, userData);
-					auto* scale = asset::IImageFilterKernel::ScaleFactorUserData::cast(userData);
+					auto* scale = IImageFilterKernel::ScaleFactorUserData::cast(userData);
 					for (int32_t i=0; i<MaxChannels; i++)
 					{
 						// this differs from the `CFloatingPointSeparableImageFilterKernelBase`
@@ -67,9 +69,9 @@ class MyKernel : public asset::CFloatingPointSeparableImageFilterKernelBase<MyKe
 };
 	
 template<class Kernel>
-class SeparateOutXAxisKernel : public asset::CFloatingPointSeparableImageFilterKernelBase<SeparateOutXAxisKernel<Kernel>>
+class SeparateOutXAxisKernel : public CFloatingPointSeparableImageFilterKernelBase<SeparateOutXAxisKernel<Kernel>>
 {
-		using Base = asset::CFloatingPointSeparableImageFilterKernelBase<SeparateOutXAxisKernel<Kernel>>;
+		using Base = CFloatingPointSeparableImageFilterKernelBase<SeparateOutXAxisKernel<Kernel>>;
 
 		Kernel kernel;
 
@@ -90,10 +92,10 @@ class SeparateOutXAxisKernel : public asset::CFloatingPointSeparableImageFilterK
 				sample_functor_t(const SeparateOutXAxisKernel<Kernel>* _this, PreFilter& _preFilter, PostFilter& _postFilter) :
 					_this(_this), preFilter(_preFilter), postFilter(_postFilter) {}
 
-				inline void operator()(value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, const asset::IImageFilterKernel::UserData* userData)
+				inline void operator()(value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, const IImageFilterKernel::UserData* userData)
 				{
 					preFilter(windowSample, relativePos, globalTexelCoord, userData);
-					auto* scale = asset::IImageFilterKernel::ScaleFactorUserData::cast(userData);
+					auto* scale = IImageFilterKernel::ScaleFactorUserData::cast(userData);
 					for (int32_t i=0; i<MaxChannels; i++)
 					{
 						// this differs from the `CFloatingPointSeparableImageFilterKernelBase`
@@ -120,7 +122,9 @@ class SeparateOutXAxisKernel : public asset::CFloatingPointSeparableImageFilterK
 
 }
 
-core::smart_refctd_ptr<asset::ICPUImage> nbl::asset::CDerivativeMapCreator::createDerivativeMapFromHeightMap(asset::ICPUImage* _inImg, asset::ISampler::E_TEXTURE_CLAMP _uwrap, asset::ISampler::E_TEXTURE_CLAMP _vwrap, asset::ISampler::E_TEXTURE_BORDER_COLOR _borderColor)
+
+template<bool isotropicNormalization>
+core::smart_refctd_ptr<ICPUImage> CDerivativeMapCreator::createDerivativeMapFromHeightMap(ICPUImage* _inImg, ISampler::E_TEXTURE_CLAMP _uwrap, ISampler::E_TEXTURE_CLAMP _vwrap, ISampler::E_TEXTURE_BORDER_COLOR _borderColor, float* out_normalizationFactor)
 {
 	using namespace asset;
 
@@ -131,31 +135,27 @@ core::smart_refctd_ptr<asset::ICPUImage> nbl::asset::CDerivativeMapCreator::crea
 	using YDerivKernel_ = CChannelIndependentImageFilterKernel<CBoxImageFilterKernel, DerivKernel>;
 	using XDerivKernel = SeparateOutXAxisKernel<XDerivKernel_>;
 	using YDerivKernel = SeparateOutXAxisKernel<YDerivKernel_>;
-	constexpr bool NORMALIZE = false;
 	using DerivativeMapFilter = CBlitImageFilter
-		<
-		NORMALIZE, false, DefaultSwizzle, IdentityDither, // (Criss, look at impl::CSwizzleAndConvertImageFilterBase)
-		XDerivKernel,
-		YDerivKernel,
-		CBoxImageFilterKernel
-		>;
+	<
+		StaticSwizzle<ICPUImageView::SComponentMapping::ES_R,ICPUImageView::SComponentMapping::ES_R>,
+		IdentityDither,CDerivativeMapNormalizationState<isotropicNormalization>,true,
+		XDerivKernel,YDerivKernel,CBoxImageFilterKernel
+	>;
 
 	const auto extent = _inImg->getCreationParameters().extent;
-	const float mlt = 1.f;// static_cast<float>(std::max(extent.width, extent.height));
-	XDerivKernel xderiv(XDerivKernel_(DerivKernel(DerivKernel_(ReconstructionKernel()), mlt), CBoxImageFilterKernel()));
-	YDerivKernel yderiv(YDerivKernel_(CBoxImageFilterKernel(), DerivKernel(DerivKernel_(ReconstructionKernel()), mlt)));
+	// derivative values should not change depending on resolution of the texture, so they need to be done w.r.t. normalized UV coordinates  
+	XDerivKernel xderiv(XDerivKernel_(DerivKernel(DerivKernel_(ReconstructionKernel()), extent.width), CBoxImageFilterKernel()));
+	YDerivKernel yderiv(YDerivKernel_(CBoxImageFilterKernel(), DerivKernel(DerivKernel_(ReconstructionKernel()), extent.height)));
 
-	using swizzle_t = asset::ICPUImageView::SComponentMapping;
+
 	DerivativeMapFilter::state_type state(std::move(xderiv), std::move(yderiv), CBoxImageFilterKernel());
-
-	state.swizzle = { swizzle_t::ES_R, swizzle_t::ES_R, swizzle_t::ES_R, swizzle_t::ES_R };
 
 	const auto& inParams = _inImg->getCreationParameters();
 	auto outParams = inParams;
 	outParams.format = getRGformat(outParams.format);
-	const uint32_t pitch = IImageAssetHandlerBase::calcPitchInBlocks(outParams.extent.width, asset::getTexelOrBlockBytesize(outParams.format));
-	auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(asset::getTexelOrBlockBytesize(outParams.format) * pitch * outParams.extent.height);
-	asset::ICPUImage::SBufferCopy region;
+	const uint32_t pitch = IImageAssetHandlerBase::calcPitchInBlocks(outParams.extent.width, getTexelOrBlockBytesize(outParams.format));
+	auto buffer = core::make_smart_refctd_ptr<ICPUBuffer>(getTexelOrBlockBytesize(outParams.format) * pitch * outParams.extent.height);
+	ICPUImage::SBufferCopy region;
 	region.imageOffset = { 0,0,0 };
 	region.imageExtent = outParams.extent;
 	region.imageSubresource.baseArrayLayer = 0u;
@@ -164,7 +164,7 @@ core::smart_refctd_ptr<asset::ICPUImage> nbl::asset::CDerivativeMapCreator::crea
 	region.bufferRowLength = pitch;
 	region.bufferImageHeight = 0u;
 	region.bufferOffset = 0u;
-	auto outImg = asset::ICPUImage::create(std::move(outParams));
+	auto outImg = ICPUImage::create(std::move(outParams));
 	outImg->setBufferAndRegions(std::move(buffer), core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IImage::SBufferCopy>>(1ull, region));
 
 	state.inOffset = { 0,0,0 };
@@ -181,121 +181,127 @@ core::smart_refctd_ptr<asset::ICPUImage> nbl::asset::CDerivativeMapCreator::crea
 	state.outImage = outImg.get();
 	state.axisWraps[0] = _uwrap;
 	state.axisWraps[1] = _vwrap;
-	state.axisWraps[2] = asset::ISampler::ETC_CLAMP_TO_EDGE;
+	state.axisWraps[2] = ISampler::ETC_CLAMP_TO_EDGE;
 	state.borderColor = _borderColor;
 	state.scratchMemoryByteSize = DerivativeMapFilter::getRequiredScratchByteSize(&state);
 	state.scratchMemory = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(state.scratchMemoryByteSize, _NBL_SIMD_ALIGNMENT));
 
-	DerivativeMapFilter::execute(std::execution::par_unseq,&state);
+	const bool result = DerivativeMapFilter::execute(std::execution::par_unseq,&state);
+	if (result)
+	{
+		out_normalizationFactor[0] = state.normalization.maxAbsPerChannel[0];
+		if constexpr (!isotropicNormalization)
+			out_normalizationFactor[1] = state.normalization.maxAbsPerChannel[1];
+	}
 
 	_NBL_ALIGNED_FREE(state.scratchMemory);
 
 	return outImg;
 }
 
-core::smart_refctd_ptr<asset::ICPUImageView> CDerivativeMapCreator::createDerivativeMapViewFromHeightMap(asset::ICPUImage* _inImg, asset::ISampler::E_TEXTURE_CLAMP _uwrap, asset::ISampler::E_TEXTURE_CLAMP _vwrap, asset::ISampler::E_TEXTURE_BORDER_COLOR _borderColor)
+template<bool isotropicNormalization>
+core::smart_refctd_ptr<ICPUImageView> CDerivativeMapCreator::createDerivativeMapViewFromHeightMap(ICPUImage* _inImg, ISampler::E_TEXTURE_CLAMP _uwrap, ISampler::E_TEXTURE_CLAMP _vwrap, ISampler::E_TEXTURE_BORDER_COLOR _borderColor, float* out_normalizationFactor)
 {
-	auto img = createDerivativeMapFromHeightMap(_inImg, _uwrap, _vwrap, _borderColor);
+	auto img = createDerivativeMapFromHeightMap<isotropicNormalization>(_inImg, _uwrap, _vwrap, _borderColor, out_normalizationFactor);
 	const auto& iparams = img->getCreationParameters();
 
-	asset::ICPUImageView::SCreationParams params;
+	ICPUImageView::SCreationParams params;
 	params.format = iparams.format;
 	params.subresourceRange.baseArrayLayer = 0u;
 	params.subresourceRange.layerCount = iparams.arrayLayers;
 	assert(params.subresourceRange.layerCount == 1u);
 	params.subresourceRange.baseMipLevel = 0u;
 	params.subresourceRange.levelCount = iparams.mipLevels;
-	params.viewType = asset::IImageView<asset::ICPUImage>::ET_2D;
-	params.flags = static_cast<asset::IImageView<asset::ICPUImage>::E_CREATE_FLAGS>(0);
+	params.viewType = IImageView<ICPUImage>::ET_2D;
+	params.flags = static_cast<IImageView<ICPUImage>::E_CREATE_FLAGS>(0);
 	params.image = std::move(img);
 
-	return asset::ICPUImageView::create(std::move(params));
+	return ICPUImageView::create(std::move(params));
 }
 
-core::smart_refctd_ptr<asset::ICPUImage> nbl::asset::CDerivativeMapCreator::createDerivativeMapFromNormalMap(asset::ICPUImage* _inImg, float out_normalizationFactor[2], bool oneNormFactor/* = false*/)
+template<bool isotropicNormalization>
+core::smart_refctd_ptr<ICPUImage> CDerivativeMapCreator::createDerivativeMapFromNormalMap(ICPUImage* _inImg, float* out_normalizationFactor)
 {
-	core::smart_refctd_ptr<ICPUImage> newDerivativeNormalMapImage;
+	auto formatOverrideCreationParams = _inImg->getCreationParameters();
+	assert(formatOverrideCreationParams.type == IImage::E_TYPE::ET_2D);
+	// tools produce normalmaps with non SRGB encoding but use SRGB formats to store them (WTF!?)
+	switch (formatOverrideCreationParams.format)
 	{
-		bool status = _inImg->getCreationParameters().type == IImage::E_TYPE::ET_2D;
-		assert(status);
+		case EF_R8G8B8_SRGB:
+			formatOverrideCreationParams.format = EF_R8G8B8_UNORM;
+			break;
+		case EF_R8G8B8A8_SRGB:
+			formatOverrideCreationParams.format = EF_R8G8B8A8_UNORM;
+			break;
+		default:
+			break;
+	}
+	auto newImageParams = formatOverrideCreationParams;
+	newImageParams.format = getRGformat(newImageParams.format);
+
+	auto cpuImageNormalTexture = ICPUImage::create(std::move(formatOverrideCreationParams));
+	{
+		const auto& referenceRegions = _inImg->getRegions();
+		auto regionList = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IImage::SBufferCopy>>(referenceRegions.size());
+		std::copy(referenceRegions.begin(),referenceRegions.end(),regionList->data());
+		cpuImageNormalTexture->setBufferAndRegions(
+			core::smart_refctd_ptr<ICPUBuffer>(_inImg->getBuffer()),
+			std::move(regionList)
+		);
 	}
 
-	auto cpuImageNormalTexture = _inImg;
-	const auto referenceImageParams = cpuImageNormalTexture->getCreationParameters();
-	const auto referenceBuffer = cpuImageNormalTexture->getBuffer();
-	const auto referenceRegions = cpuImageNormalTexture->getRegions();
-	const auto* referenceRegion = referenceRegions.begin();
-
-	auto newImageParams = referenceImageParams;
-	newImageParams.format = getRGformat(referenceImageParams.format);
-
-	const uint32_t pitch = IImageAssetHandlerBase::calcPitchInBlocks(referenceImageParams.extent.width, asset::getTexelOrBlockBytesize(newImageParams.format));
-	core::smart_refctd_ptr<ICPUBuffer> newCpuBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(asset::getTexelOrBlockBytesize(newImageParams.format) * pitch * newImageParams.extent.height);
-
-	asset::ICPUImage::SBufferCopy region;
-	region.imageOffset = { 0,0,0 };
-	region.imageExtent = newImageParams.extent;
-	region.imageSubresource.baseArrayLayer = 0u;
-	region.imageSubresource.layerCount = 1u;
-	region.imageSubresource.mipLevel = 0u;
-	region.bufferRowLength = pitch;
-	region.bufferImageHeight = 0u;
-	region.bufferOffset = 0u;
-
-	newDerivativeNormalMapImage = ICPUImage::create(std::move(newImageParams));
-	newDerivativeNormalMapImage->setBufferAndRegions(std::move(newCpuBuffer), core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IImage::SBufferCopy>>(1ull, region));
-
-	using DerivativeNormalMapFilter = CNormalMapToDerivativeFilter<asset::DefaultSwizzle, asset::IdentityDither>;
-	DerivativeNormalMapFilter derivativeNormalFilter;
-	DerivativeNormalMapFilter::state_type state;
-	DerivativeNormalMapFilter::state_type::override_normalization_factor_t normalizationFactorOverride = 
-		[](float inout_nfactor[2]) -> void
-		{
-			const float mx = std::max(inout_nfactor[0], inout_nfactor[1]);
-			inout_nfactor[0] = mx;
-			inout_nfactor[1] = mx;
-		};
-
-	state.inImage = cpuImageNormalTexture;
-	state.outImage = newDerivativeNormalMapImage.get();
+	CNormalMapToDerivativeFilter<true> derivativeNormalFilter;
+	decltype(derivativeNormalFilter)::state_type state;
 	state.inOffset = { 0, 0, 0 };
 	state.inBaseLayer = 0;
 	state.outOffset = { 0, 0, 0 };
 	state.outBaseLayer = 0;
-	state.extent = { referenceImageParams.extent.width, referenceImageParams.extent.height, referenceImageParams.extent.depth };
-	state.layerCount = newDerivativeNormalMapImage->getCreationParameters().arrayLayers;
-
-	state.scratchMemoryByteSize = state.getRequiredScratchByteSize(state.layerCount, state.extent);
-	state.scratchMemory = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(state.scratchMemoryByteSize, 32));
-
+	state.extent = { newImageParams.extent.width,newImageParams.extent.height,newImageParams.extent.depth };
+	state.layerCount = newImageParams.arrayLayers;
 	state.inMipLevel = 0;
 	state.outMipLevel = 0;
 
-	if (oneNormFactor)
-		state.override_normalization_factor = std::move(normalizationFactorOverride);
+	core::smart_refctd_ptr<ICPUImage> newDerivativeNormalMapImage;
+	{
+		const uint32_t pitch = IImageAssetHandlerBase::calcPitchInBlocks(newImageParams.extent.width,getTexelOrBlockBytesize(newImageParams.format));
+		core::smart_refctd_ptr<ICPUBuffer> newCpuBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(getTexelOrBlockBytesize(newImageParams.format) * pitch * newImageParams.extent.height);
 
+		ICPUImage::SBufferCopy region;
+		region.imageOffset = { 0,0,0 };
+		region.imageExtent = newImageParams.extent;
+		region.imageSubresource.baseArrayLayer = 0u;
+		region.imageSubresource.layerCount = 1u;
+		region.imageSubresource.mipLevel = 0u;
+		region.bufferRowLength = pitch;
+		region.bufferImageHeight = 0u;
+		region.bufferOffset = 0u;
+
+		newDerivativeNormalMapImage = ICPUImage::create(std::move(newImageParams));
+		newDerivativeNormalMapImage->setBufferAndRegions(std::move(newCpuBuffer), core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IImage::SBufferCopy>>(1ull, region));
+	}
+
+	state.inImage = cpuImageNormalTexture.get();
+	state.outImage = newDerivativeNormalMapImage.get();
 	const bool result = derivativeNormalFilter.execute(&state);
 	if (result)
 	{
-		auto factor = state.getAbsoluteLayerScaleValues(0u);
-		out_normalizationFactor[0] = factor.x;
-		out_normalizationFactor[1] = factor.y;
+		out_normalizationFactor[0] = state.normalization.maxAbsPerChannel[0];
+		if (!isotropicNormalization)
+			out_normalizationFactor[1] = state.normalization.maxAbsPerChannel[1];
 	}
-
-	_NBL_ALIGNED_FREE(state.scratchMemory);
-
-	if (!result)
+	else
 	{
 		os::Printer::log("Something went wrong while performing derivative filter operations!", ELL_ERROR);
 		return nullptr;
 	}
 
-	return core::smart_refctd_ptr<ICPUImage>(state.outImage);
+	return newDerivativeNormalMapImage;
 }
 
-core::smart_refctd_ptr<asset::ICPUImageView> nbl::asset::CDerivativeMapCreator::createDerivativeMapViewFromNormalMap(asset::ICPUImage* _inImg, float out_normalizationFactor[2], bool oneNormFactor/* = false*/)
+template<bool isotropicNormalization>
+core::smart_refctd_ptr<ICPUImageView> CDerivativeMapCreator::createDerivativeMapViewFromNormalMap(ICPUImage* _inImg, float* out_normalizationFactor)
 {
-	auto cpuDerivativeImage = createDerivativeMapFromNormalMap(_inImg, out_normalizationFactor, oneNormFactor);
+	auto cpuDerivativeImage = createDerivativeMapFromNormalMap<isotropicNormalization>(_inImg,out_normalizationFactor);
 
 	ICPUImageView::SCreationParams imageViewInfo;
 	imageViewInfo.image = core::smart_refctd_ptr(cpuDerivativeImage);
@@ -315,5 +321,9 @@ core::smart_refctd_ptr<asset::ICPUImageView> nbl::asset::CDerivativeMapCreator::
 	return imageView;
 }
 
-}
-}
+
+//explicit instantiation
+template core::smart_refctd_ptr<ICPUImageView> CDerivativeMapCreator::createDerivativeMapViewFromHeightMap<false>(ICPUImage* _inImg, ISampler::E_TEXTURE_CLAMP _uwrap, ISampler::E_TEXTURE_CLAMP _vwrap, ISampler::E_TEXTURE_BORDER_COLOR _borderColor, float* out_normalizationFactor);
+template core::smart_refctd_ptr<ICPUImageView> CDerivativeMapCreator::createDerivativeMapViewFromHeightMap<true>(ICPUImage* _inImg, ISampler::E_TEXTURE_CLAMP _uwrap, ISampler::E_TEXTURE_CLAMP _vwrap, ISampler::E_TEXTURE_BORDER_COLOR _borderColor, float* out_normalizationFactor);
+template core::smart_refctd_ptr<ICPUImageView> CDerivativeMapCreator::createDerivativeMapViewFromNormalMap<false>(ICPUImage* _inImg, float* out_normalizationFactor);
+template core::smart_refctd_ptr<ICPUImageView> CDerivativeMapCreator::createDerivativeMapViewFromNormalMap<true>(ICPUImage* _inImg, float* out_normalizationFactor);

@@ -117,7 +117,7 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 			}
 
 			using COPY_FILTER = asset::CCopyImageFilter;
-			using CONVERSION_FILTER = asset::CSwizzleAndConvertImageFilter<EF_UNKNOWN, EF_UNKNOWN>;
+			using CONVERSION_FILTER = asset::CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,DefaultSwizzle,IdentityDither/*TODO: Blue noise*/,void,true>;
 
 			bool identityTransform = viewParams.format == finalFormat;
 			for (auto i = 0; i < asset::getFormatChannelCount(outFormat); i++)
@@ -182,7 +182,7 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 			constexpr auto inputFormat = EF_R8_SRGB;
 			constexpr auto outputFormat = EF_R8G8B8_SRGB;
 		
-			using CONVERSION_SWIZZLE_FILTER = CSwizzleAndConvertImageFilter<inputFormat, outputFormat>;
+			using CONVERSION_SWIZZLE_FILTER = CSwizzleAndConvertImageFilter<inputFormat,outputFormat>;
 
 			core::smart_refctd_ptr<ICPUImage> newConvertedImage;
 			{

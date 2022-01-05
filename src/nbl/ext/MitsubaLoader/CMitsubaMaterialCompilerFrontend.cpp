@@ -341,8 +341,9 @@ namespace MitsubaLoader
             auto* node = static_cast<IR::CBSDFMixNode*>(ir_node);
             const size_t cnt = _bsdf->mixturebsdf.childCount;
             ir_node->children.count = cnt;
-            for (int32_t i = cnt-1u; i >= 0; --i)
-                node->weights[i] = _bsdf->mixturebsdf.weights[i];
+            const auto* weightIt = _bsdf->mixturebsdf.weights;
+            for (int32_t i=cnt-1u; i>=0; --i) // need to add weights in reverse, because children are added using a stack
+                node->weights[i] = *(weightIt++);
         }
         break;
         }

@@ -15,7 +15,7 @@ class CMaterialCompilerGLSLRasterBackend : public CMaterialCompilerGLSLBackendCo
         using base_t = CMaterialCompilerGLSLBackendCommon;
 
     public:
-        result_t compile(SContext* _ctx, IR* _ir);
+        result_t compile(SContext* _ctx, IR* _ir, E_GENERATOR_STREAM_TYPE _generatorChoiceStream=EGST_PRESENT) override;
 };
 
 }

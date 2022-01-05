@@ -132,7 +132,7 @@ public:
 
         upscaled_img->setBufferAndRegions(std::move(buf), std::move(regions));
 
-        using blit_filter_t = asset::CBlitImageFilter<false, false, asset::VoidSwizzle, asset::IdentityDither, asset::CMitchellImageFilterKernel<>>;
+        using blit_filter_t = asset::CBlitImageFilter<asset::VoidSwizzle,asset::IdentityDither/*TODO: White Noise*/,void,false,asset::CMitchellImageFilterKernel<>>;
         blit_filter_t::state_type blit;
         blit.inOffsetBaseLayer = core::vectorSIMDu32(0u, 0u, 0u, 0u);
         blit.inExtent = params.extent;
@@ -214,7 +214,7 @@ public:
         asset::CPaddedCopyImageFilter::execute(std::execution::par_unseq,&copy);
 
         using mip_gen_filter_t = asset::CMipMapGenerationImageFilter<
-            false, false, VoidSwizzle, IdentityDither,
+            VoidSwizzle,IdentityDither,void/*TODO: whitenoise*/,false,
             asset::CBoxImageFilterKernel, asset::CBoxImageFilterKernel,
             asset::CBoxImageFilterKernel, asset::CBoxImageFilterKernel,
             asset::CBoxImageFilterKernel, asset::CBoxImageFilterKernel
@@ -477,7 +477,8 @@ public:
         std::fill(m_addrsArray->begin(), m_addrsArray->end(), IVTResidentStorage::phys_pg_addr_alctr_t::invalid_address);
 
         auto* const bufptr = reinterpret_cast<uint8_t*>(m_pageTable->getBuffer()->getPointer());
-        for (uint32_t i=0u; i<core::max(_addr.maxMip,1u); ++i)
+        auto levelCount = core::max(_addr.maxMip,1u);
+        for (uint32_t i=0u; i<levelCount; ++i)
         {
             const uint32_t w = neededPageCountForSide(extent.width, i);
             const uint32_t h = neededPageCountForSide(extent.height, i);

@@ -7,7 +7,7 @@
 [submodule "3rdparty/glslang"]
 	path = 3rdparty/glslang
 	url = https://github.com/devshgraphicsprogramming/glslang.git
-	branch = master
+	branch = nabla
 [submodule "3rdparty/shaderc"]
 	path = 3rdparty/shaderc
 	url = https://github.com/google/shaderc.git
@@ -87,7 +87,7 @@
 	url = https://github.com/greg7mdp/parallel-hashmap
 [submodule "3rdparty/radeonrays"]
 	path = 3rdparty/radeonrays
-	url = https://github.com/devshgraphicsprogramming/RadeonRays_SDK.git
+	url = git@github.com:devshgraphicsprogramming/RadeonRays_SDK.git
 	branch = baw
 [submodule "3rdparty/jitify"]
 	path = 3rdparty/jitify

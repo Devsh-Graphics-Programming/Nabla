@@ -151,8 +151,162 @@ class matrix4SIMD// : public AlignedBase<_NBL_SIMD_ALIGNMENT> don't inherit from
 
 		//! Returns translation part of the matrix (w component is always 0).
 		inline vectorSIMDf getTranslation3D() const;
+		
+		enum class E_MATRIX_INVERSE_PRECISION
+		{
+		  EMIP_FAST_RECIPROCAL,
+		  EMIP_32BIT,
+		  EMIP_64BBIT
+		};
 
-		inline bool getInverseTransform(matrix4SIMD& _out) const;
+		template<E_MATRIX_INVERSE_PRECISION precision = E_MATRIX_INVERSE_PRECISION::EMIP_FAST_RECIPROCAL>
+		inline bool getInverseTransform(matrix4SIMD& _out) const
+		{
+			if constexpr (precision == E_MATRIX_INVERSE_PRECISION::EMIP_64BBIT)
+			{
+				double a = rows[0][0], b = rows[0][1], c = rows[0][2], d = rows[0][3];
+				double e = rows[1][0], f = rows[1][1], g = rows[1][2], h = rows[1][3];
+				double i = rows[2][0], j = rows[2][1], k = rows[2][2], l = rows[2][3];
+				double m = rows[3][0], n = rows[3][1], o = rows[3][2], p = rows[3][3];
+
+				double kp_lo = k * p - l * o;
+				double jp_ln = j * p - l * n;
+				double jo_kn = j * o - k * n;
+				double ip_lm = i * p - l * m;
+				double io_km = i * o - k * m;
+				double in_jm = i * n - j * m;
+
+				double a11 = +(f * kp_lo - g * jp_ln + h * jo_kn);
+				double a12 = -(e * kp_lo - g * ip_lm + h * io_km);
+				double a13 = +(e * jp_ln - f * ip_lm + h * in_jm);
+				double a14 = -(e * jo_kn - f * io_km + g * in_jm);
+
+				double det = a * a11 + b * a12 + c * a13 + d * a14;
+
+				if (core::iszero(det, DBL_MIN))
+					return false;
+
+				double invDet = 1.0 / det;
+
+				_out.rows[0][0] = a11 * invDet;
+				_out.rows[1][0] = a12 * invDet;
+				_out.rows[2][0] = a13 * invDet;
+				_out.rows[3][0] = a14 * invDet;
+
+				_out.rows[0][1] = -(b * kp_lo - c * jp_ln + d * jo_kn) * invDet;
+				_out.rows[1][1] = +(a * kp_lo - c * ip_lm + d * io_km) * invDet;
+				_out.rows[2][1] = -(a * jp_ln - b * ip_lm + d * in_jm) * invDet;
+				_out.rows[3][1] = +(a * jo_kn - b * io_km + c * in_jm) * invDet;
+
+				double gp_ho = g * p - h * o;
+				double fp_hn = f * p - h * n;
+				double fo_gn = f * o - g * n;
+				double ep_hm = e * p - h * m;
+				double eo_gm = e * o - g * m;
+				double en_fm = e * n - f * m;
+
+				_out.rows[0][2] = +(b * gp_ho - c * fp_hn + d * fo_gn) * invDet;
+				_out.rows[1][2] = -(a * gp_ho - c * ep_hm + d * eo_gm) * invDet;
+				_out.rows[2][2] = +(a * fp_hn - b * ep_hm + d * en_fm) * invDet;
+				_out.rows[3][2] = -(a * fo_gn - b * eo_gm + c * en_fm) * invDet;
+
+				double gl_hk = g * l - h * k;
+				double fl_hj = f * l - h * j;
+				double fk_gj = f * k - g * j;
+				double el_hi = e * l - h * i;
+				double ek_gi = e * k - g * i;
+				double ej_fi = e * j - f * i;
+
+				_out.rows[0][3] = -(b * gl_hk - c * fl_hj + d * fk_gj) * invDet;
+				_out.rows[1][3] = +(a * gl_hk - c * el_hi + d * ek_gi) * invDet;
+				_out.rows[2][3] = -(a * fl_hj - b * el_hi + d * ej_fi) * invDet;
+				_out.rows[3][3] = +(a * fk_gj - b * ek_gi + c * ej_fi) * invDet;
+
+				return true;
+			}
+			else
+			{
+				auto mat2mul = [](vectorSIMDf _A, vectorSIMDf _B)
+				{
+					return _A*_B.xwxw()+_A.yxwz()*_B.zyzy();
+				};
+				auto mat2adjmul = [](vectorSIMDf _A, vectorSIMDf _B)
+				{
+					return _A.wwxx()*_B-_A.yyzz()*_B.zwxy();
+				};
+				auto mat2muladj = [](vectorSIMDf _A, vectorSIMDf _B)
+				{
+					return _A*_B.wxwx()-_A.yxwz()*_B.zyzy();
+				};
+
+				vectorSIMDf A = _mm_movelh_ps(rows[0].getAsRegister(), rows[1].getAsRegister());
+				vectorSIMDf B = _mm_movehl_ps(rows[1].getAsRegister(), rows[0].getAsRegister());
+				vectorSIMDf C = _mm_movelh_ps(rows[2].getAsRegister(), rows[3].getAsRegister());
+				vectorSIMDf D = _mm_movehl_ps(rows[3].getAsRegister(), rows[2].getAsRegister());
+
+				vectorSIMDf allDets =	vectorSIMDf(_mm_shuffle_ps(rows[0].getAsRegister(),rows[2].getAsRegister(),_MM_SHUFFLE(2,0,2,0)))*
+										vectorSIMDf(_mm_shuffle_ps(rows[1].getAsRegister(),rows[3].getAsRegister(),_MM_SHUFFLE(3,1,3,1)))
+									-
+										vectorSIMDf(_mm_shuffle_ps(rows[0].getAsRegister(),rows[2].getAsRegister(),_MM_SHUFFLE(3,1,3,1)))*
+										vectorSIMDf(_mm_shuffle_ps(rows[1].getAsRegister(),rows[3].getAsRegister(),_MM_SHUFFLE(2,0,2,0)));
+
+				auto detA = allDets.xxxx();
+				auto detB = allDets.yyyy();
+				auto detC = allDets.zzzz();
+				auto detD = allDets.wwww();
+
+				// https://lxjk.github.io/2017/09/03/Fast-4x4-Matrix-Inverse-with-SSE-SIMD-Explained.html
+				auto D_C = mat2adjmul(D, C);
+				// A#B
+				auto A_B = mat2adjmul(A, B);
+				// X# = |D|A - B(D#C)
+				auto X_ = detD*A - mat2mul(B, D_C);
+				// W# = |A|D - C(A#B)
+				auto W_ = detA*D - mat2mul(C, A_B);
+
+				// |M| = |A|*|D| + ... (continue later)
+				auto detM = detA*detD;
+
+				// Y# = |B|C - D(A#B)#
+				auto Y_ = detB*C - mat2muladj(D, A_B);
+				// Z# = |C|B - A(D#C)#
+				auto Z_ = detC*B -  mat2muladj(A, D_C);
+
+				// |M| = |A|*|D| + |B|*|C| ... (continue later)
+				detM += detB*detC;
+
+				// tr((A#B)(D#C))
+				__m128 tr = (A_B*D_C.xzyw()).getAsRegister();
+				tr = _mm_hadd_ps(tr, tr);
+				tr = _mm_hadd_ps(tr, tr);
+				// |M| = |A|*|D| + |B|*|C| - tr((A#B)(D#C)
+				detM -= tr;
+
+				if (core::iszero(detM.x, FLT_MIN))
+					return false;
+
+				vectorSIMDf rDetM;
+
+				// (1/|M|, -1/|M|, -1/|M|, 1/|M|)
+				if constexpr (precision == E_MATRIX_INVERSE_PRECISION::EMIP_FAST_RECIPROCAL)
+					rDetM = vectorSIMDf(1.f, -1.f, -1.f, 1.f)*core::reciprocal(detM);
+				else if constexpr (precision == E_MATRIX_INVERSE_PRECISION::EMIP_32BIT)
+					rDetM = vectorSIMDf(1.f, -1.f, -1.f, 1.f)*core::vectorSIMDf::preciseDivision(detM);
+
+				X_ *= rDetM;
+				Y_ *= rDetM;
+				Z_ *= rDetM;
+				W_ *= rDetM;
+
+				// apply adjugate and store, here we combine adjugate shuffle and store shuffle
+				_out.rows[0] = _mm_shuffle_ps(X_.getAsRegister(), Y_.getAsRegister(), _MM_SHUFFLE(1, 3, 1, 3));
+				_out.rows[1] = _mm_shuffle_ps(X_.getAsRegister(), Y_.getAsRegister(), _MM_SHUFFLE(0, 2, 0, 2));
+				_out.rows[2] = _mm_shuffle_ps(Z_.getAsRegister(), W_.getAsRegister(), _MM_SHUFFLE(1, 3, 1, 3));
+				_out.rows[3] = _mm_shuffle_ps(Z_.getAsRegister(), W_.getAsRegister(), _MM_SHUFFLE(0, 2, 0, 2));
+
+				return true;
+			}
+		}
 
 		inline vectorSIMDf sub3x3TransformVect(const vectorSIMDf& _in) const;
 

@@ -19,11 +19,11 @@ namespace scene
 //! constructor
 CSceneNodeAnimatorCameraModifiedMaya::CSceneNodeAnimatorCameraModifiedMaya(gui::ICursorControl* cursor,
 	float rotateSpeed, float zoomSpeed, float translateSpeed, float distance,
-	float scrollZoomSpeed, bool zoomWithRMB)
+	float scrollZoomMultiplier, bool zoomWithRMB)
 	: CursorControl(cursor), OldCamera(0), MousePos(0.5f, 0.5f),
 	ZoomSpeed(zoomSpeed), RotateSpeed(rotateSpeed), TranslateSpeed(translateSpeed),
 	CurrentZoom(distance), RotX(0.0f), RotY(0.0f),
-	ZoomDelta(0.0f), ZoomWithRMB(zoomWithRMB), StepZooming(false), ScrllZoomSpeed(-scrollZoomSpeed),
+	ZoomDelta(0.0f), ZoomWithRMB(zoomWithRMB), StepZooming(false), ScrllZoomMultiplier(-scrollZoomMultiplier),
 	Zooming(false), Rotating(false), Moving(false), Translating(false), ShiftTranslating(false), MouseShift(false)
 {
 #ifdef _NBL_DEBUG
@@ -39,7 +39,6 @@ CSceneNodeAnimatorCameraModifiedMaya::CSceneNodeAnimatorCameraModifiedMaya(gui::
 	allKeysUp();
 }
 
-
 //! destructor
 CSceneNodeAnimatorCameraModifiedMaya::~CSceneNodeAnimatorCameraModifiedMaya()
 {
@@ -47,6 +46,33 @@ CSceneNodeAnimatorCameraModifiedMaya::~CSceneNodeAnimatorCameraModifiedMaya()
 		CursorControl->drop();
 }
 
+
+void CSceneNodeAnimatorCameraModifiedMaya::setZoomAndRotationBasedOnTargetAndPosition(const core::vectorSIMDf& position, const core::vectorSIMDf& target)
+{
+	core::vectorSIMDf relativeTarget = position - target;
+	// core::vector3df relativeRotation = relativeTarget.getAsVector3df().getHorizontalAngle();
+	float angleX = 0.0f;
+	float angleY = 0.0f;
+
+	const double tmp = core::degrees(atan2((double)relativeTarget.z, (double)relativeTarget.x));
+	angleX = tmp;
+	if (angleX < 0)
+		angleX += 360;
+	if (angleX >= 360)
+		angleX -= 360;
+
+	const double z1 = core::sqrt(relativeTarget.x*relativeTarget.x + relativeTarget.z*relativeTarget.z);
+	angleY = (core::degrees(atan2((double)relativeTarget.y, (double)z1)) - 0.0);
+	if (angleY < 0)
+		angleY += 360;
+	if (angleY >= 360)
+		angleY -= 360;
+
+	CurrentZoom = core::sqrt(core::dot(relativeTarget, relativeTarget)[0]); 
+	OldTarget = target;
+	RotX = 360-angleX;
+	RotY = angleY;
+}
 
 //! It is possible to send mouse and key events to the camera. Most cameras
 //! may ignore this input, but camera scene nodes which are created for
@@ -98,7 +124,7 @@ bool CSceneNodeAnimatorCameraModifiedMaya::OnEvent(const SEvent& event)
 		if (!StepZooming && !Zooming)
 		{
 			StepZooming = true;
-			ZoomDelta = event.MouseInput.Wheel * ScrllZoomSpeed;
+			ZoomDelta = -1 * event.MouseInput.Wheel;
 		}
         break;
 	}
@@ -158,8 +184,9 @@ void CSceneNodeAnimatorCameraModifiedMaya::animateNode(IDummyTransformationScene
 	core::vectorSIMDf zoomTarget(0.0f, 0.0f, 0.0f);	// move target to allow further zooming
 	if (StepZooming || Zooming)
 	{
+		// std::cout << "Current Zoom = " << CurrentZoom << " -- (Delta = " << ZoomDelta << ")" << std::endl;
 		if (StepZooming)
-			CurrentZoom -= ZoomDelta * ScrllZoomSpeed;
+			CurrentZoom = CurrentZoom * std::pow(-ScrllZoomMultiplier, ZoomDelta);
 		else
 			CurrentZoom += ZoomDelta * ZoomSpeed;
 
@@ -169,7 +196,7 @@ void CSceneNodeAnimatorCameraModifiedMaya::animateNode(IDummyTransformationScene
 			core::vectorSIMDf pos; pos.set(camera->getPosition());
 			zoomTarget = core::normalize(camera->getTarget() - pos);
 			zoomTarget *= (-CurrentZoom + minDistance);
-			CurrentZoom = 1.0f;
+			CurrentZoom = minDistance;
 		}
 		StepZooming = false;
 	}
@@ -189,7 +216,11 @@ void CSceneNodeAnimatorCameraModifiedMaya::animateNode(IDummyTransformationScene
 	core::vectorSIMDf tvectY = va->getFarLeftDown() - va->getFarRightDown();
 	if (camera->getUpVector().Y<0.f)
 		other *= -1.f;
-	tvectY = core::normalize(core::cross(tvectY,other));
+	
+	if(camera->getLeftHanded())
+		tvectY = core::normalize(core::cross(other, tvectY));
+	else
+		tvectY = core::normalize(core::cross(tvectY, other));
 
 			
 	if ((isMouseKeyDown(1) || isMouseKeyDown(2)) && !(StepZooming || Zooming))
@@ -206,7 +237,7 @@ void CSceneNodeAnimatorCameraModifiedMaya::animateNode(IDummyTransformationScene
 		}
 		else
 		{
-			translateTarget += tvectX * (TranslateStart.X - MousePos.X) * TranslateSpeed +
+			translateTarget += tvectX * (MousePos.X - TranslateStart.X) * TranslateSpeed +
 				tvectY * (TranslateStart.Y - MousePos.Y) * TranslateSpeed;
 			if (MouseShift != ShiftTranslating)
 			{
@@ -228,8 +259,7 @@ void CSceneNodeAnimatorCameraModifiedMaya::animateNode(IDummyTransformationScene
 	}
 	else if (Translating || ShiftTranslating)	// first event after releasing mouse-buttons
 	{
-				
-		translateTarget += tvectX * (TranslateStart.X - MousePos.X) * TranslateSpeed+
+		translateTarget += tvectX * (MousePos.X - TranslateStart.X) * TranslateSpeed+
 			tvectY * (TranslateStart.Y - MousePos.Y) * TranslateSpeed;
 		OldTarget = translateTarget;
 				
@@ -256,7 +286,7 @@ void CSceneNodeAnimatorCameraModifiedMaya::animateNode(IDummyTransformationScene
 		else
 		{
 			nRotX += getValueDependentOnHandOrientation((RotateStart.X - MousePos.X) * RotateSpeed);
-			nRotY += getValueDependentOnHandOrientation((RotateStart.Y - MousePos.Y) * RotateSpeed);
+			nRotY += getValueDependentOnHandOrientation((RotateStart.Y - MousePos.Y) * RotateSpeed) * (camera->getLeftHanded() ? +1.0f : -1.0f);
 		}
 	}
 	else
@@ -264,7 +294,7 @@ void CSceneNodeAnimatorCameraModifiedMaya::animateNode(IDummyTransformationScene
 		if (Rotating)
 		{
 			RotX += getValueDependentOnHandOrientation((RotateStart.X - MousePos.X) * RotateSpeed);
-			RotY += getValueDependentOnHandOrientation((RotateStart.Y - MousePos.Y) * RotateSpeed);
+			RotY += getValueDependentOnHandOrientation((RotateStart.Y - MousePos.Y) * RotateSpeed) * (camera->getLeftHanded() ? +1.0f : -1.0f);
 			nRotX = RotX;
 			nRotY = RotY;
 					
@@ -286,7 +316,7 @@ void CSceneNodeAnimatorCameraModifiedMaya::animateNode(IDummyTransformationScene
 	position.X = CurrentZoom + target.X;
 	position.Y = target.Y;
 	position.Z = target.Z;
-
+	
 	position.rotateXYByRAD(core::radians(nRotY), target);
 	position.rotateXZByRAD(-core::radians(nRotX), target);
 
@@ -338,9 +368,9 @@ void CSceneNodeAnimatorCameraModifiedMaya::setZoomSpeed(float speed)
 }
 
 //! Sets the zoom speed
-void CSceneNodeAnimatorCameraModifiedMaya::setStepZoomSpeed(float speed)
+void CSceneNodeAnimatorCameraModifiedMaya::setStepZoomMultiplier(float speed)
 {
-	ScrllZoomSpeed = speed;
+	ScrllZoomMultiplier = -1.0f * speed;
 }
 
 //! Set the distance
@@ -370,10 +400,10 @@ float CSceneNodeAnimatorCameraModifiedMaya::getZoomSpeed() const
 	return ZoomSpeed;
 }
 
-//! Gets the step zoom speed
-float CSceneNodeAnimatorCameraModifiedMaya::getStepZoomSpeed() const
+//! Gets the step zoom speed multiplier
+float CSceneNodeAnimatorCameraModifiedMaya::getStepZoomMultiplier() const
 {
-	return ScrllZoomSpeed;
+	return -1.0f * ScrllZoomMultiplier;
 }
 
 //! Returns the current distance, i.e. orbit radius

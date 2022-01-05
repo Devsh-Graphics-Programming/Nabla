@@ -6,12 +6,12 @@
 #extension GL_GOOGLE_include_directive : require
 
 #define SPHERE_COUNT 8
-#define POLYGON_METHOD 0 // 0 area sampling, 1 solid angle sampling, 2 approximate projected solid angle sampling
+#define POLYGON_METHOD 1 // 0 area sampling, 1 solid angle sampling, 2 approximate projected solid angle sampling
 #include "common.glsl"
 
 #define TRIANGLE_COUNT 1
 Triangle triangles[TRIANGLE_COUNT] = {
-    Triangle_Triangle(mat3(vec3(-1.8,0.35,0.3),vec3(-1.2,0.35,0.0),vec3(-1.5,0.8,-0.3)),INVALID_ID_16BIT,0u)
+    Triangle_Triangle(mat3(vec3(-1.8,0.35,0.3),vec3(-1.2,0.35,0.0),vec3(-1.5,0.8,-0.3))*10.0,INVALID_ID_16BIT,0u)
 };
 
 void traceRay_extraShape(inout int objectID, inout float intersectionT, in vec3 origin, in vec3 direction)
@@ -42,11 +42,11 @@ float nbl_glsl_light_deferred_pdf(in Light light, in Ray_t ray)
     #if POLYGON_METHOD==1
         const float rcpProb = nbl_glsl_shapes_SolidAngleOfTriangle(sphericalVertices);
         // if `rcpProb` is NAN then the triangle's solid angle was close to 0.0 
-        return rcpProb>FLT_MIN ? (1.0/rcpProb):FLT_MAX;
+        return rcpProb>nbl_glsl_FLT_MIN ? (1.0/rcpProb):nbl_glsl_FLT_MAX;
     #elif POLYGON_METHOD==2
         const float pdf = nbl_glsl_sampling_probProjectedSphericalTriangleSample(sphericalVertices,_immutable.normalAtOrigin,_immutable.wasBSDFAtOrigin,L);
         // if `pdf` is NAN then the triangle's projected solid angle was close to 0.0, if its close to INF then the triangle was very small
-        return pdf<FLT_MAX ? pdf:0.0;
+        return pdf<nbl_glsl_FLT_MAX ? pdf:0.0;
     #endif
 #endif
 }
@@ -59,14 +59,15 @@ vec3 nbl_glsl_light_generate_and_pdf(out float pdf, out float newRayMaxT, in vec
     const mat2x3 edges = mat2x3(tri.vertex1-tri.vertex0,tri.vertex2-tri.vertex0);
     const float sqrtU = sqrt(xi.x);
     vec3 point = tri.vertex0+edges[0]*(1.0-sqrtU)+edges[1]*sqrtU*xi.y;
-    const vec3 L = point-origin;
+    vec3 L = point-origin;
     
     const float distanceSq = dot(L,L);
     const float rcpDistance = inversesqrt(distanceSq);
+    L *= rcpDistance;
     
     pdf = distanceSq/abs(dot(Triangle_getNormalTimesArea_impl(edges),L));
     newRayMaxT = 1.0/rcpDistance;
-    return L*rcpDistance;
+    return L;
 #else 
     float rcpPdf;
 
@@ -78,7 +79,7 @@ vec3 nbl_glsl_light_generate_and_pdf(out float pdf, out float newRayMaxT, in vec
 #endif
 
     // if `rcpProb` is NAN or negative then the triangle's solidAngle or projectedSolidAngle was close to 0.0 
-    pdf = rcpPdf>FLT_MIN ? (1.0/rcpPdf):0.0;
+    pdf = rcpPdf>nbl_glsl_FLT_MIN ? (1.0/rcpPdf):0.0;
 
     const vec3 N = Triangle_getNormalTimesArea(tri);
     newRayMaxT = dot(N,tri.vertex0-origin)/dot(N,L);

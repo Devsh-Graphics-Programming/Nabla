@@ -1,0 +1,3 @@
+; Here is my Commented line that batch file will skip (started with semicolons)
+; "relative/dir/from/bin/folder/to/scene.zip something.xml
+"../../media/mitsuba/staircase2.zip scene.xml"

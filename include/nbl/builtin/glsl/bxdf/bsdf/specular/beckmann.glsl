@@ -10,7 +10,7 @@
 #include <nbl/builtin/glsl/bxdf/brdf/specular/beckmann.glsl>
 #include <nbl/builtin/glsl/bxdf/bsdf/specular/common.glsl>
 
-nbl_glsl_LightSample nbl_glsl_beckmann_dielectric_cos_generate_wo_clamps(in vec3 localV, in bool backside, in vec3 upperHemisphereLocalV, in mat3 m, in vec3 u, in float ax, in float ay, in float rcpOrientedEta, in float orientedEta2, in float rcpOrientedEta2, out nbl_glsl_AnisotropicMicrofacetCache _cache)
+nbl_glsl_LightSample nbl_glsl_beckmann_dielectric_cos_generate_wo_clamps(in vec3 localV, in bool backside, in vec3 upperHemisphereLocalV, in mat3 m, inout vec3 u, in float ax, in float ay, in float rcpOrientedEta, in float orientedEta2, in float rcpOrientedEta2, out nbl_glsl_AnisotropicMicrofacetCache _cache)
 {
     // thanks to this manouvre the H will always be in the upper hemisphere (NdotH>0.0)
     const vec3 H = nbl_glsl_beckmann_cos_generate_wo_clamps(upperHemisphereLocalV,u.xy,ax,ay);
@@ -27,7 +27,7 @@ nbl_glsl_LightSample nbl_glsl_beckmann_dielectric_cos_generate_wo_clamps(in vec3
     return nbl_glsl_createLightSampleTangentSpace(localV,localL,m);
 }
 
-nbl_glsl_LightSample nbl_glsl_beckmann_dielectric_cos_generate(in nbl_glsl_AnisotropicViewSurfaceInteraction interaction, in vec3 u, in float ax, in float ay, in float eta, out nbl_glsl_AnisotropicMicrofacetCache _cache)
+nbl_glsl_LightSample nbl_glsl_beckmann_dielectric_cos_generate(in nbl_glsl_AnisotropicViewSurfaceInteraction interaction, inout vec3 u, in float ax, in float ay, in float eta, out nbl_glsl_AnisotropicMicrofacetCache _cache)
 {
     const vec3 localV = nbl_glsl_getTangentSpaceV(interaction);
     

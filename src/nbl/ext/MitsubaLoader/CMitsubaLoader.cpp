@@ -275,25 +275,24 @@ static core::smart_refctd_ptr<asset::ICPUImage> createDerivMap(SContext& ctx, as
 	const auto& sp = _smplr->getParams();
 
 	core::smart_refctd_ptr<asset::ICPUImage> derivmap_img;
-	float scale[2]{ 1.f, 1.f };
+	float scale;
 	if (fromNormalMap)
-	{
-		derivmap_img = asset::CDerivativeMapCreator::createDerivativeMapFromNormalMap(_heightMap, scale, true);
-		assert(scale[0] == scale[1]);
-	}
+		derivmap_img = asset::CDerivativeMapCreator::createDerivativeMapFromNormalMap<true>(_heightMap,&scale);
 	else
 	{
-		derivmap_img = asset::CDerivativeMapCreator::createDerivativeMapFromHeightMap(
+		derivmap_img = asset::CDerivativeMapCreator::createDerivativeMapFromHeightMap<true>(
 			_heightMap,
 			static_cast<asset::ICPUSampler::E_TEXTURE_CLAMP>(sp.TextureWrapU),
 			static_cast<asset::ICPUSampler::E_TEXTURE_CLAMP>(sp.TextureWrapV),
-			static_cast<asset::ICPUSampler::E_TEXTURE_BORDER_COLOR>(sp.BorderColor));
+			static_cast<asset::ICPUSampler::E_TEXTURE_BORDER_COLOR>(sp.BorderColor),
+			&scale
+		);
 	}
 
 	if (!derivmap_img)
 		return nullptr;
 
-	ctx.derivMapCache.insert({ derivmap_img, scale[0] });
+	ctx.derivMapCache.insert({derivmap_img,scale});
 
 	return derivmap_img;
 }
@@ -537,7 +536,8 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 				mb->setInstanceCount(instanceCount);
 		}
 
-		auto compResult = ctx.backend.compile(&ctx.backend_ctx, ctx.ir.get());
+		// TODO: put IR and stuff in metadata so that we can recompile the materials after load
+		auto compResult = ctx.backend.compile(&ctx.backend_ctx, ctx.ir.get(), decltype(ctx.backend)::EGST_PRESENT_WITH_AOV_EXTRACTION);
 		ctx.backend_ctx.vt.commitAll();
 		auto pipelineLayout = createPipelineLayout(m_assetMgr, ctx.backend_ctx.vt.vt.get());
 		auto fragShader = createFragmentShader(compResult, ctx.backend_ctx.vt.vt->getFloatViews().size());
@@ -591,6 +591,17 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 		parserManager.m_metadata->reservePplnStorage(ctx.pipelineCache.size(),core::smart_refctd_ptr(IRenderpassIndependentPipelineLoader::m_basicViewParamsSemantics));
 		for (auto& ppln : ctx.pipelineCache)
 			parserManager.m_metadata->addPplnMeta(ppln.second.get(),core::smart_refctd_ptr(ds0));
+		
+		for (const auto& emitter : parserManager.m_metadata->m_global.m_emitters)
+		{
+			if(emitter.type == ext::MitsubaLoader::CElementEmitter::Type::ENVMAP)
+			{
+				assert(emitter.envmap.filename.type==ext::MitsubaLoader::SPropertyElementData::Type::STRING);
+				auto envfilename = emitter.envmap.filename.svalue;
+				SAssetBundle envmapImageBundle = interm_getAssetInHierarchy(m_assetMgr, emitter.envmap.filename.svalue, ctx.inner.params, _hierarchyLevel, ctx.override_);
+				parserManager.m_metadata->m_global.m_envMapImages.push_back(core::smart_refctd_ptr_static_cast<asset::ICPUImage>(*envmapImageBundle.getContents().begin()));
+			}
+		}
 
 		return asset::SAssetBundle(std::move(parserManager.m_metadata),std::move(meshSmartPtrArray));
 	}
@@ -1439,7 +1450,7 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 			reinterpret_cast<float&>(instData.determinantSignBit) = instData.tform.getPseudoDeterminant().x;
 			instData.determinantSignBit &= 0x80000000;
 
-			auto bsdf = inst.bsdf;
+			const auto& bsdf = inst.bsdf;
 			auto bsdf_front = bsdf.front;
 			auto bsdf_back  = bsdf.back;
 			auto streams_it = _compResult.streams.find(bsdf_front);
@@ -1448,9 +1459,8 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 				const auto& streams = streams_it->second;
 
 #ifdef DEBUG_MITSUBA_LOADER
-				//@Crisspl TODO No way how to fix it for reporting the `inst.bsdf_id`
-				os::Printer::log("Debug print front BSDF with id = ", inst.bsdf_id, ELL_INFORMATION);
-				ofile << "Debug print front BSDF with id = " << inst.bsdf_id << std::endl;
+				//os::Printer::log("Debug print front BSDF with id = ", std::to_string(&bsdf), ELL_INFORMATION);
+				ofile << "Debug print front BSDF with id = " << &bsdf << std::endl;
 				_ctx.backend.debugPrint(ofile, streams, _compResult, &_ctx.backend_ctx);
 #endif
 				const auto emissive = inst.frontEmitter.type==CElementEmitter::AREA ? inst.frontEmitter.area.radiance:core::vectorSIMDf(0.f);
@@ -1462,9 +1472,8 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 				const auto& streams = streams_it->second;
 
 #ifdef DEBUG_MITSUBA_LOADER
-				//@Crisspl TODO No way how to fix it for reporting the `inst.bsdf_id`
-				os::Printer::log("Debug print back BSDF with id = ", inst.bsdf_id, ELL_INFORMATION);
-				ofile << "Debug print back BSDF with id = " << inst.bsdf_id << std::endl;
+				//os::Printer::log("Debug print back BSDF with id = ", std::to_string(&bsdf), ELL_INFORMATION);
+				ofile << "Debug print back BSDF with id = " << &bsdf << std::endl;
 				_ctx.backend.debugPrint(ofile, streams, _compResult, &_ctx.backend_ctx);
 #endif
 				const auto emissive = inst.backEmitter.type==CElementEmitter::AREA ? inst.backEmitter.area.radiance:core::vectorSIMDf(0.f);

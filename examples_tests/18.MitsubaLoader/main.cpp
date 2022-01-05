@@ -74,12 +74,11 @@ vec3 nbl_computeLighting(inout nbl_glsl_AnisotropicViewSurfaceInteraction out_in
 		nbl_glsl_xoroshiro64star_state_t scramble_state = scramble_start_state;
 
 		vec3 rand = rand3d(i,scramble_state);
-		float pdf;
 		nbl_glsl_LightSample s;
-		vec3 rem = nbl_glsl_MC_runGenerateAndRemainderStream(precomp, gcs, rnps, rand, pdf, s);
+		nbl_glsl_MC_quot_pdf_aov_t rem = nbl_glsl_MC_runGenerateAndRemainderStream(precomp, gcs, rnps, rand, s);
 
 		vec2 uv = SampleSphericalMap(s.L);
-		color += rem*textureLod(envMap, uv, 0.0).xyz;
+		color += rem.quotient*textureLod(envMap, uv, 0.0).xyz;
 	}
 	color /= float(SAMPLE_COUNT);
 #endif

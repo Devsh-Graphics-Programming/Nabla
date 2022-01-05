@@ -7,6 +7,39 @@
 
 // WARNING: can and will return NAN if one or three of the triangle edges are near zero length
 // this function could use some more optimizing
+vec3 nbl_glsl_sampling_generateSphericalTriangleSample(in float solidAngle, in vec3 cos_vertices, in vec3 sin_vertices, in float cos_a, in float cos_c, in float csc_b, in float csc_c, in mat3 sphericalVertices, in vec2 u)
+{
+    // this part literally cannot be optimized further
+    float negSinSubSolidAngle,negCosSubSolidAngle;
+    nbl_glsl_sincos(solidAngle*u.x-nbl_glsl_PI,negSinSubSolidAngle,negCosSubSolidAngle);
+
+	const float p = negCosSubSolidAngle*sin_vertices[0]-negSinSubSolidAngle*cos_vertices[0];
+	const float q = -negSinSubSolidAngle*sin_vertices[0]-negCosSubSolidAngle*cos_vertices[0];
+    
+    // TODO: we could optimize everything up and including to the first slerp, because precision here is just godawful
+	float u_ = q - cos_vertices[0];
+	float v_ = p + sin_vertices[0]*cos_c;
+
+    // the slerps could probably be optimized by sidestepping `normalize` calls and accumulating scaling factors
+    vec3 C_s = sphericalVertices[0];
+    if (csc_b<nbl_glsl_FLT_MAX)
+    {
+        const float cosAngleAlongAC = ((v_ * q - u_ * p) * cos_vertices[0] - v_) / ((v_ * p + u_ * q) * sin_vertices[0]);
+        if (abs(cosAngleAlongAC)<1.f)
+            C_s += nbl_glsl_slerp_delta_impl(sphericalVertices[0],sphericalVertices[2]*csc_b,cosAngleAlongAC);
+    }
+
+    vec3 retval = sphericalVertices[1];
+    const float cosBC_s = dot(C_s,sphericalVertices[1]);
+    const float csc_b_s = inversesqrt(1.0-cosBC_s*cosBC_s);
+    if (csc_b_s<nbl_glsl_FLT_MAX)
+    {
+        const float cosAngleAlongBC_s = clamp(1.0+cosBC_s*u.y-u.y,-1.f,1.f);
+        if (abs(cosAngleAlongBC_s)<1.f)
+            retval += nbl_glsl_slerp_delta_impl(sphericalVertices[1],C_s*csc_b_s,cosAngleAlongBC_s);
+    }
+    return retval;
+}
 vec3 nbl_glsl_sampling_generateSphericalTriangleSample(out float rcpPdf, in mat3 sphericalVertices, in vec2 u)
 {
     // for angles between view-to-vertex vectors
@@ -16,26 +49,7 @@ vec3 nbl_glsl_sampling_generateSphericalTriangleSample(out float rcpPdf, in mat3
     // get solid angle, which is also the reciprocal of the probability
     rcpPdf = nbl_glsl_shapes_SolidAngleOfTriangle(sphericalVertices,cos_vertices,sin_vertices,cos_a,cos_c,csc_b,csc_c);
 
-    // this part literally cannot be optimized further
-    float negSinSubSolidAngle,negCosSubSolidAngle;
-    nbl_glsl_sincos(rcpPdf*u.x-nbl_glsl_PI,negSinSubSolidAngle,negCosSubSolidAngle);
-
-	const float p = negCosSubSolidAngle*sin_vertices[0]-negSinSubSolidAngle*cos_vertices[0];
-	const float q = -negSinSubSolidAngle*sin_vertices[0]-negCosSubSolidAngle*cos_vertices[0];
-    
-    // TODO: we could optimize everything up and including to the first slerp, because precision here is just godawful
-	float u_ = q - cos_vertices[0];
-	float v_ = p + sin_vertices[0]*cos_c;
-
-	const float cosAngleAlongAC = clamp(((v_*q - u_*p)*cos_vertices[0] - v_) / ((v_*p + u_*q)*sin_vertices[0]), -1.0, 1.0); // TODO: get rid of this clamp (by improving the precision here)
-
-    // the slerps could probably be optimized by sidestepping `normalize` calls and accumulating scaling factors
-	vec3 C_s = nbl_glsl_slerp_impl_impl(sphericalVertices[0], sphericalVertices[2]*csc_b, cosAngleAlongAC);
-
-    const float cosBC_s = dot(C_s,sphericalVertices[1]);
-	const float cosAngleAlongBC_s = 1.0+cosBC_s*u.y-u.y;
-
-	return nbl_glsl_slerp_impl_impl(sphericalVertices[1], C_s*inversesqrt(1.0-cosBC_s*cosBC_s), cosAngleAlongBC_s);
+    return nbl_glsl_sampling_generateSphericalTriangleSample(rcpPdf,cos_vertices,sin_vertices,cos_a,cos_c,csc_b,csc_c,sphericalVertices,u);
 }
 vec3 nbl_glsl_sampling_generateSphericalTriangleSample(out float rcpPdf, in mat3 vertices, in vec3 origin, in vec2 u)
 {
@@ -44,14 +58,9 @@ vec3 nbl_glsl_sampling_generateSphericalTriangleSample(out float rcpPdf, in mat3
 
 
 //
-vec2 nbl_glsl_sampling_generateSphericalTriangleSampleInverse(out float pdf, in mat3 sphericalVertices, in vec3 L)
+vec2 nbl_glsl_sampling_generateSphericalTriangleSampleInverse(out float pdf, in float solidAngle, in vec3 cos_vertices, in vec3 sin_vertices, in float cos_a, in float cos_c, in float csc_b, in float csc_c, in mat3 sphericalVertices, in vec3 L)
 {
-    // for angles between view-to-vertex vectors
-    float cos_a,cos_c,csc_b,csc_c;
-    // Both vertices and angles at the vertices are denoted by the same upper case letters A, B, and C. The angles A, B, C of the triangle are equal to the angles between the planes that intersect the surface of the sphere or, equivalently, the angles between the tangent vectors of the great circle arcs where they meet at the vertices. Angles are in radians. The angles of proper spherical triangles are (by convention) less than PI
-    vec3 cos_vertices,sin_vertices;
-    // get solid angle, which is also the reciprocal of the probability
-    pdf = 1.0/nbl_glsl_shapes_SolidAngleOfTriangle(sphericalVertices,cos_vertices,sin_vertices,cos_a,cos_c,csc_b,csc_c);
+    pdf = 1.0/solidAngle;
 
     // get the modified B angle of the first subtriangle by getting it from the triangle formed by vertices A,B and the light sample L
     const float cosAngleAlongBC_s = dot(L,sphericalVertices[1]);
@@ -74,6 +83,17 @@ vec2 nbl_glsl_sampling_generateSphericalTriangleSampleInverse(out float pdf, in 
     const float v = (1.0-cosAngleAlongBC_s)/(1.0-(cosBC_s<uintBitsToFloat(0x3f7fffff) ? cosBC_s:cos_c));
 
     return vec2(u,v);
+}
+vec2 nbl_glsl_sampling_generateSphericalTriangleSampleInverse(out float pdf, in mat3 sphericalVertices, in vec3 L)
+{
+    // for angles between view-to-vertex vectors
+    float cos_a,cos_c,csc_b,csc_c;
+    // Both vertices and angles at the vertices are denoted by the same upper case letters A, B, and C. The angles A, B, C of the triangle are equal to the angles between the planes that intersect the surface of the sphere or, equivalently, the angles between the tangent vectors of the great circle arcs where they meet at the vertices. Angles are in radians. The angles of proper spherical triangles are (by convention) less than PI
+    vec3 cos_vertices,sin_vertices;
+    // get solid angle
+    const float solidAngle = nbl_glsl_shapes_SolidAngleOfTriangle(sphericalVertices,cos_vertices,sin_vertices,cos_a,cos_c,csc_b,csc_c);
+
+    return nbl_glsl_sampling_generateSphericalTriangleSampleInverse(pdf,solidAngle,cos_vertices,sin_vertices,cos_a,cos_c,csc_b,csc_c,sphericalVertices,L);
 }
 
 #endif

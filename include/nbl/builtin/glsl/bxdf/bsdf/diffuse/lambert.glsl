@@ -31,13 +31,13 @@ float nbl_glsl_lambertian_transmitter_cos_eval(in nbl_glsl_LightSample _sample)
    return nbl_glsl_lambertian_transmitter_cos_eval_rec_2pi_factored_out(_sample.NdotL)*nbl_glsl_lambertian_transmitter();
 }
 
-nbl_glsl_LightSample nbl_glsl_lambertian_transmitter_cos_generate_wo_clamps(in vec3 tangentSpaceV, in mat3 m, in vec3 u)
+nbl_glsl_LightSample nbl_glsl_lambertian_transmitter_cos_generate_wo_clamps(in vec3 tangentSpaceV, in mat3 m, inout vec3 u)
 {
     vec3 L = nbl_glsl_projected_sphere_generate(u);
     
     return nbl_glsl_createLightSampleTangentSpace(tangentSpaceV,L,m);
 }
-nbl_glsl_LightSample nbl_glsl_lambertian_transmitter_cos_generate(in nbl_glsl_AnisotropicViewSurfaceInteraction interaction, in vec3 u)
+nbl_glsl_LightSample nbl_glsl_lambertian_transmitter_cos_generate(in nbl_glsl_AnisotropicViewSurfaceInteraction interaction, inout vec3 u)
 {
     return nbl_glsl_lambertian_transmitter_cos_generate_wo_clamps(nbl_glsl_getTangentSpaceV(interaction),nbl_glsl_getTangentFrame(interaction),u);
 }

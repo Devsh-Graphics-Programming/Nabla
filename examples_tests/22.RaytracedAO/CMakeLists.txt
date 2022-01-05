@@ -32,6 +32,7 @@ endif()
 set(EXTRA_SOURCES
 	../../src/nbl/ext/DebugDraw/CDraw3DLine.cpp
 	Renderer.cpp
+	CommandLineHandler.cpp
 )
 
 nbl_create_executable_project(

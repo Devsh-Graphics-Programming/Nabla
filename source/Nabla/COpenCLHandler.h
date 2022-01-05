@@ -281,9 +281,12 @@ class COpenCLHandler
             ,clGetDeviceInfo
             ,clFlush
             ,clFinish
+            ,clReleaseEvent
             ,clEnqueueWaitForEvents
             ,clEnqueueMarker
             ,clWaitForEvents
+            ,clGetEventInfo
+            ,clReleaseMemObject
             ,clEnqueueAcquireGLObjects
             ,clEnqueueReleaseGLObjects
 		);

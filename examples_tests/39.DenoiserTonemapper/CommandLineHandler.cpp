@@ -15,9 +15,15 @@ CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetMan
 	auto startEntireTime = std::chrono::steady_clock::now();
 
 	if(argv.size()>=MANDATORY_CMD_ARGUMENTS_AMOUNT && argv.size()<=PROPER_CMD_ARGUMENTS_AMOUNT)
+	{
+		os::Printer::log("Confirm input from Commandline arguments", ELL_INFORMATION);
 		mode = CLM_CMD_LIST;
+	}
 	else if (argv.size()>=PROPER_BATCH_FILE_ARGUMENTS_AMOUNT)
+	{
+		os::Printer::log("Confirm input from Batch File arguments", ELL_INFORMATION);
 		mode = CLM_BATCH_INPUT;
+	}
 	else
 	{
 		mode = CLM_UNKNOWN;
@@ -327,7 +333,11 @@ nbl::core::matrix3x4SIMD CommandLineHandler::getCameraTransform(uint64_t id)
 
 		auto startTime = std::chrono::steady_clock::now();
 		auto meshes_bundle = assetManager->getAsset(filePath.data(), mitsubaLoaderParams);
-		assert(!meshes_bundle.getContents().empty(), ("ERROR (" + std::to_string(__LINE__) + " line): The xml file is invalid! Id of input stride: " + std::to_string(id)).c_str());
+		if (meshes_bundle.getContents().empty())
+		{
+			os::Printer::log("ERROR (" + std::to_string(__LINE__) + " line): The xml file is invalid/cannot be loaded! Id of input file: " + std::to_string(id) + ". File path: " + filePath, ELL_ERROR);
+			exit(-1);
+		}
 		auto endTime = std::chrono::steady_clock::now();
 		elapsedTimeXmls += (endTime - startTime);
 		
@@ -339,7 +349,7 @@ nbl::core::matrix3x4SIMD CommandLineHandler::getCameraTransform(uint64_t id)
 		if (validateFlag)
 		{
 			os::Printer::log("ERROR (" + std::to_string(__LINE__) + " line): The is no transform matrix in " + filePath + " ! Id of input stride: " + std::to_string(id), ELL_ERROR);
-			assert(validateFlag);
+			exit(-2);
 		}
 
 		auto transformReference = mitsubaMetadata->m_global.m_sensors[0].transform.matrix.extractSub3x4();
@@ -378,7 +388,7 @@ nbl::core::matrix3x4SIMD CommandLineHandler::getCameraTransform(uint64_t id)
 		default:
 		{
 			os::Printer::log("ERROR (" + std::to_string(__LINE__) + " line): " + std::string(CAMERA_TRANSFORM.data()) + " isn't a path nor a valid matrix! Id of input stride: " + std::to_string(id), ELL_ERROR);
-			assert(false);
+			exit(-3);
 		}
 	}
 }

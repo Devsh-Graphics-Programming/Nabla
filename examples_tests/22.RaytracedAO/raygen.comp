@@ -6,7 +6,9 @@ layout(local_size_x = WORKGROUP_DIM, local_size_y = WORKGROUP_DIM) in;
 
 #include "raytraceCommon.glsl"
 
-layout(set = 3, binding = 0) uniform usampler2D frontFacingTriangleIDDrawID_unorm16Bary_dBarydScreenHalf2x2; // should it be called backfacing or frontfacing?
+layout(set = 3, binding = 0) uniform usampler2D scramblebuf;
+layout(set = 3, binding = 1) uniform usampler2D frontFacingTriangleIDDrawID_unorm16Bary_dBarydScreenHalf2x2; // should it be called backfacing or frontfacing?
+layout(set = 3, binding = 2, rgba16f) restrict uniform image2D framebuffer;
 
 bool get_sample_job()
 {
@@ -22,16 +24,41 @@ vec3 unpack_barycentrics(in uint data)
 void main()
 {
 	clear_raycount();
-	bool hit = false;
 	if (get_sample_job())
-	{
-		vec3 emissive = staticViewData.envmapBaseColor;
-		
+	{		
 		// vis buffer read
 		const uvec2 outPixelLocation = gl_GlobalInvocationID.xy;
 		const uvec4 visBuffer = texelFetch(frontFacingTriangleIDDrawID_unorm16Bary_dBarydScreenHalf2x2,ivec2(outPixelLocation),0);
 
-		hit = visBuffer[0]!=0xffffffffu;
+		const vec2 texCoordUV = (vec2(outPixelLocation)+vec2(0.5)) / vec2(staticViewData.imageDimensions);
+		const vec2 NDC = texCoordUV * vec2(2.0,-2.0) + vec2(-1.0,1.0);
+		/*
+		mat3 ndcToV = mat3(
+			pc.cummon.viewProjMatrixInverse[0].xyz*pc.cummon.camPos.x,
+			pc.cummon.viewProjMatrixInverse[1].xyz*pc.cummon.camPos.y,
+			pc.cummon.viewProjMatrixInverse[2].xyz*pc.cummon.camPos.z
+		)-mat3(pc.cummon.viewProjMatrixInverse);
+		*/
+		// NDC -> ViewSpace
+		// (invProj*NDC).xyz/(invProj*NDC).www
+		// ViewSpace -> WorldSpace
+		// invView*viewSpace
+		// ViewSpace Dir -> WorldSpace Dir
+		// inverse(mat3(view))*viewDir
+		// NDC dir -> View Space Dir
+		// (invProj*NDC).xyz/(invProj*NDC).www-camPos
+		// camPos = (invProj[3]).xyz/invPorj[3].www
+		// inverse(mat3(view))*viewDir
+		// NDC dir -> World Space Dir
+		// (invViewProj*NDC).xyz/(invViewProj*NDC).www-camPos
+		// camPos = (invViewProj[3]).xyz/invViewProj[3].www
+		const vec4 tmpA = pc.cummon.viewProjMatrixInverse*vec4(NDC,1.f,1.f);
+		const vec4 tmpB = pc.cummon.viewProjMatrixInverse[3].xyzw;
+		normalizedV = normalize(pc.cummon.camPos-tmpA.xyz/tmpA.www);
+		
+		const uint samplesPerPixelPerDispatch = bitfieldExtract(staticViewData.pathDepth_noRussianRouletteDepth_samplesPerPixelPerDispatch,16,16);
+		Contribution contrib;
+		const bool hit = visBuffer[0]!=0xffffffffu;
 		if (hit)
 		{
 			// vis buffer decode
@@ -51,18 +78,21 @@ void main()
 			
 			// get material while waiting for indices
 			const nbl_glsl_MC_oriented_material_t material = nbl_glsl_MC_material_data_t_getOriented(batchInstanceData.material,frontfacing);
-			emissive = nbl_glsl_MC_oriented_material_t_getEmissive(material);
-			
-			const uint vertex_depth_mod_2 = 0x1u;
+			contrib.color = contrib.albedo = nbl_glsl_MC_oriented_material_t_getEmissive(material);
+
 			// load vertex data
 			vec3 geomDenormal;
 			const vec3 lastVxPos = load_positions(geomDenormal,batchInstanceData,indices);
-			const nbl_glsl_xoroshiro64star_state_t scramble_start_state = load_aux_vertex_attrs(
-				batchInstanceData,indices,compactBary,geomDenormal,
-				material,outPixelLocation,vertex_depth_mod_2
-#ifdef TEX_PREFETCH_STREAM
+						
+			// get initial scramble key while waiting for vertex positions
+			const nbl_glsl_xoroshiro64star_state_t scramble_start_state = texelFetch(scramblebuf,ivec2(outPixelLocation),0).rg;
+
+			//
+			normalizedN = load_normal_and_prefetch_textures(
+				batchInstanceData,indices,compactBary,geomDenormal,material
+				#ifdef TEX_PREFETCH_STREAM
 				,dBarydScreen
-#endif
+				#endif
 			);
 			
 			const vec3 origin = dPdBary*compactBary+lastVxPos;
@@ -71,19 +101,47 @@ void main()
 			// generate rays
 			const uint vertex_depth = 1u;
 			generate_next_rays(
-				staticViewData.samplesPerPixelPerDispatch,material,frontfacing,vertex_depth,
-				scramble_start_state,pc.cummon.samplesComputed,outPixelLocation,origin,vec3(1.0)
+				samplesPerPixelPerDispatch,material,frontfacing,vertex_depth,
+				scramble_start_state,pc.cummon.samplesComputed,outPixelLocation,origin,
+				vec3(pc.cummon.rcpFramesDispatched),1.f,contrib.albedo,contrib.worldspaceNormal
 			);
 		}
+		else
+			Contribution_initMiss(contrib);
 
-		vec3 acc;
-		uvec3 accumulationLocation = uvec3(outPixelLocation,0u);
-		const bool firstFrame = pc.cummon.rcpFramesDispatched==1.f;
-		if (record_emission_common(acc,accumulationLocation,emissive*float(staticViewData.samplesPerPixelPerDispatch),true) || firstFrame)
-			storeAccumulation(acc,accumulationLocation);
+		if (bool(pc.cummon.depth))
+		{
+			Contribution_normalizeAoV(contrib);
 		
-		if (firstFrame) // clear accumulation totally if beginning a new frame
-		for (uint i=1u; i<staticViewData.samplesPerPixelPerDispatch; i++)
-			imageStore(accumulation,ivec3(outPixelLocation,i),uvec4(0u));
+			// we could optimize this, but its pointless before using KHR_ray_query
+			const bool firstFrame = pc.cummon.rcpFramesDispatched==1.f;
+			for (uint i=0u; i<samplesPerPixelPerDispatch; i++)
+			{
+				const uvec3 coord = uvec3(outPixelLocation,i);
+				// clear accumulations totally if beginning a new frame
+				if (firstFrame)
+				{
+					storeAccumulation(contrib.color,coord);
+					storeAlbedo(contrib.albedo,coord);
+					storeWorldspaceNormal(contrib.worldspaceNormal,coord);
+				}
+				else
+				{
+					const vec3 acc_emissive = fetchAccumulation(coord);
+					const vec3 acc_albedo = fetchAlbedo(coord);
+					const vec3 acc_worldspaceNormal = fetchWorldspaceNormal(coord);
+
+					const vec3 emissive_delta = (contrib.color-acc_emissive)*pc.cummon.rcpFramesDispatched;
+					const vec3 albedo_delta = (contrib.albedo-acc_albedo)*pc.cummon.rcpFramesDispatched;
+					const vec3 worldspaceNormal_delta = (contrib.worldspaceNormal-acc_worldspaceNormal)*pc.cummon.rcpFramesDispatched;
+	
+					storeAccumulation(acc_emissive,emissive_delta,coord);
+					storeAlbedo(acc_albedo,albedo_delta,coord);
+					storeWorldspaceNormal(acc_worldspaceNormal,worldspaceNormal_delta,coord);
+				}
+			}
+		}
+		else
+			imageStore(framebuffer,ivec2(outPixelLocation),vec4(contrib.albedo,1.f));
 	}
 }

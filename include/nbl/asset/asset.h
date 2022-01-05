@@ -35,6 +35,7 @@
 #include "nbl/asset/filters/CSwizzleAndConvertImageFilter.h"
 #include "nbl/asset/filters/CFlattenRegionsImageFilter.h"
 #include "nbl/asset/filters/CMipMapGenerationImageFilter.h"
+#include "nbl/asset/filters/CSummedAreaTableImageFilter.h"
 
 // shaders
 #include "nbl/asset/ISPIR_VProgram.h"

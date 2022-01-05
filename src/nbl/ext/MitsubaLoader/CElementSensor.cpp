@@ -164,6 +164,8 @@ bool CElementSensor::addProperty(SNamedPropertyElement&& _property)
 	auto setShutterOpen		= SET_PROPERTY_TEMPLATE(shutterOpen,SNamedPropertyElement::Type::FLOAT,ShutterSensor);
 	auto setShutterClose	= SET_PROPERTY_TEMPLATE(shutterClose,SNamedPropertyElement::Type::FLOAT,ShutterSensor);
 	auto setMoveSpeed		= SET_PROPERTY_TEMPLATE(moveSpeed,SNamedPropertyElement::Type::FLOAT,ShutterSensor);
+	auto setZoomSpeed		= SET_PROPERTY_TEMPLATE(zoomSpeed,SNamedPropertyElement::Type::FLOAT,ShutterSensor);
+	auto setRotateSpeed		= SET_PROPERTY_TEMPLATE(rotateSpeed,SNamedPropertyElement::Type::FLOAT,ShutterSensor);
 	auto setNearClip		= SET_PROPERTY_TEMPLATE(nearClip,SNamedPropertyElement::Type::FLOAT,CameraBase);
 	auto setFarClip			= SET_PROPERTY_TEMPLATE(farClip,SNamedPropertyElement::Type::FLOAT,CameraBase);
 	auto setFocusDistance	= SET_PROPERTY_TEMPLATE(focusDistance,SNamedPropertyElement::Type::FLOAT,DepthOfFieldBase);
@@ -178,6 +180,8 @@ bool CElementSensor::addProperty(SNamedPropertyElement&& _property)
 		{"shutterOpen",		setShutterOpen},
 		{"shuttterClose",	setShutterClose},
 		{"moveSpeed",		setMoveSpeed},
+		{"zoomSpeed",		setZoomSpeed},
+		{"rotateSpeed",		setRotateSpeed},
 		{"nearClip",		setNearClip},
 		{"farClip",			setFarClip},
 		{"focusDistance",	setFocusDistance},
