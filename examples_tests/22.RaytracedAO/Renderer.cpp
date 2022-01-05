@@ -49,37 +49,14 @@ auto fillIotaDescriptorBindingDeclarations = [](auto* outBindings, uint32_t acce
 Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::ISceneManager* _smgr, bool useDenoiser) :
 		m_useDenoiser(useDenoiser),	m_driver(_driver), m_smgr(_smgr), m_assetManager(_assetManager),
 		m_rrManager(ext::RadeonRays::Manager::create(m_driver)),
-	#ifdef _NBL_BUILD_OPTIX_
-		m_optixManager(), m_cudaStream(nullptr), m_optixContext(),
-	#endif
 		m_prevView(), m_prevCamTform(), m_sceneBound(FLT_MAX,FLT_MAX,FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX),
 		m_framesDispatched(0u), m_rcpPixelSize{0.f,0.f},
 		m_staticViewData{{0u,0u},0u,0u}, m_raytraceCommonData{core::matrix4SIMD(), vec3(),0.f,0u,0u,0u,0.f},
 		m_indirectDrawBuffers{nullptr},m_cullPushConstants{core::matrix4SIMD(),1.f,0u,0u,0u},m_cullWorkGroups(0u),
 		m_raygenWorkGroups{0u,0u},m_visibilityBuffer(nullptr),m_colorBuffer(nullptr)
 {
-	while (m_useDenoiser)
-	{
-		m_useDenoiser = false;
-#ifdef _NBL_BUILD_OPTIX_
-		m_optixManager = ext::OptiX::Manager::create(m_driver, m_assetManager->getFileSystem());
-		if (!m_optixManager)
-			break;
-		m_cudaStream = m_optixManager->getDeviceStream(0);
-		if (!m_cudaStream)
-			break;
-		m_optixContext = m_optixManager->createContext(0);
-		if (!m_optixContext)
-			break;
-		OptixDenoiserOptions opts = {OPTIX_DENOISER_INPUT_RGB_ALBEDO_NORMAL};
-		m_denoiser = m_optixContext->createDenoiser(&opts);
-		if (!m_denoiser)
-			break;
-
-		m_useDenoiser = false; // TODO
-#endif
-		break;
-	}
+	// TODO: reimplement
+	m_useDenoiser = false;
 
 	// set up raycount buffers
 	{
@@ -827,51 +804,6 @@ core::smart_refctd_ptr<IGPUImageView> Renderer::createScreenSizedTexture(E_FORMA
 	return m_driver->createGPUImageView(std::move(viewparams));
 }
 
-constexpr uint16_t m_maxDepth = 64u;
-constexpr uint16_t m_UNUSED_russianRouletteDepth = 5u;
-bool extractIntegratorInfo(const ext::MitsubaLoader::CElementIntegrator& integrator, uint32_t &bxdfSamples, uint32_t &maxNEESamples)
-{
-	using Enum = ext::MitsubaLoader::CElementIntegrator::Type;
-	switch (integrator.type)
-	{
-		case Enum::DIRECT:
-			//m_maxDepth = 2u; TODO
-			bxdfSamples = integrator.direct.bsdfSamples;
-			maxNEESamples = integrator.direct.emitterSamples;
-			return true;
-			break;
-		case Enum::PATH:
-		case Enum::VOL_PATH_SIMPLE:
-		case Enum::VOL_PATH:
-		case Enum::BDPT:
-			//m_maxDepth = integrator.bdpt.maxPathDepth; TODO
-			return true;
-			break;
-		case Enum::ADAPTIVE:
-			for (size_t i=0u; i<integrator.multichannel.childCount; i++)
-			if (extractIntegratorInfo(*integrator.multichannel.children[i],bxdfSamples,maxNEESamples))
-				return true;
-			break;
-		case Enum::IRR_CACHE:
-			assert(false);
-			break;
-		case Enum::MULTI_CHANNEL:
-			for (size_t i=0u; i<integrator.multichannel.childCount; i++)
-			if (extractIntegratorInfo(*integrator.multichannel.children[i],bxdfSamples,maxNEESamples))
-				return true;
-			break;
-		default:
-			break;
-	};
-	/*
-	* // TODO : save m_maxDepth*RandomDimsPerPathVertex*(1+NEESamplesPerBxDFSample) into a variable
-	if (m_maxDepth*RandomDimsPerPathVertex*(1+NEESamplesPerBxDFSample)>MaxDimensions)
-	{
-		printf("OVerflow",m_maxDepth);
-	}*/
-	return false;
-}
-
 // TODO: be able to fail
 void Renderer::initSceneResources(SAssetBundle& meshes)
 {
@@ -1053,9 +985,54 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, core::s
 	size_t scrambleBufferSize=0u;
 	size_t raygenBufferSize=0u,intersectionBufferSize=0u;
 	{
-		uint32_t bxdfSamples=1u,maxNEESamples=1u;
-		const bool success = extractIntegratorInfo(m_globalMeta->m_global.m_integrator,bxdfSamples,maxNEESamples);
-		assert(success && "unsupported integrator type");
+		m_lastPathVertexDepth = 0u;
+		uint32_t bxdfSamples=1u,maxNEESamples=0u;
+		std::stack<const ext::MitsubaLoader::CElementIntegrator*> integratorStack;
+		integratorStack.push(&m_globalMeta->m_global.m_integrator);
+		while (!integratorStack.empty())
+		{
+			auto integrator = integratorStack.top();
+			integratorStack.pop();
+			using Enum = ext::MitsubaLoader::CElementIntegrator::Type;
+			switch (integrator->type)
+			{
+				case Enum::DIRECT:
+					m_lastPathVertexDepth = 2u;
+					bxdfSamples = integrator->direct.bsdfSamples;
+					maxNEESamples = integrator->direct.emitterSamples;
+					break;
+				case Enum::PATH:
+				case Enum::VOL_PATH_SIMPLE:
+				case Enum::VOL_PATH:
+				case Enum::BDPT:
+					m_lastPathVertexDepth = integrator->bdpt.maxPathDepth;
+					break;
+				case Enum::ADAPTIVE:
+					for (size_t i=0u; i<integrator->multichannel.childCount; i++)
+						integratorStack.push(integrator->multichannel.children[i]);
+					break;
+				case Enum::IRR_CACHE:
+					assert(false);
+					break;
+				case Enum::MULTI_CHANNEL:
+					for (size_t i=0u; i<integrator->multichannel.childCount; i++)
+						integratorStack.push(integrator->multichannel.children[i]);
+					break;
+				default:
+					break;
+			};
+		}
+		if (m_lastPathVertexDepth==0)
+		{
+			printf("[ERROR] No suppoerted Integrator found in the Mitsuba XML, setting default.\n");
+			m_lastPathVertexDepth = 8u;
+		}
+		else if (m_lastPathVertexDepth>MAX_PATH_DEPTH)
+		{
+			printf("[WARNING] Path Depth %d greater than maximum supported, clamping to %d\n",m_lastPathVertexDepth,MAX_PATH_DEPTH);
+			m_lastPathVertexDepth = MAX_PATH_DEPTH;
+		}
+		printf("Path Depth %d\n",m_lastPathVertexDepth);
 
 		uint32_t _maxRaysPerDispatch = 0u;
 		auto setRayBufferSizes = [&bxdfSamples,&maxNEESamples,renderPixelCount,this,&_maxRaysPerDispatch,&raygenBufferSize,&intersectionBufferSize](uint32_t sampleMultiplier) -> void
@@ -1080,14 +1057,14 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, core::s
 				maxNEESamples = 0u;
 				setRayBufferSizes(sampleMultiplier);
 			}
-			printf("Using %d samples (per pixel) per dispatch\n",m_staticViewData.samplesPerPixelPerDispatch);
+			printf("[INFO] Using %d samples (per pixel) per dispatch\n",m_staticViewData.samplesPerPixelPerDispatch);
 		}
 	}
 	
 	(std::ofstream("runtime_defines.glsl")
 		<< "#define _NBL_EXT_MITSUBA_LOADER_VT_STORAGE_VIEW_COUNT " << m_globalMeta->m_global.getVTStorageViewCount() << "\n"
 		<< m_globalMeta->m_global.m_materialCompilerGLSL_declarations
-		<< "#define LAST_PATH_VERTEX_DEPTH " << m_maxDepth << "\n"
+		<< "#define LAST_PATH_VERTEX_DEPTH " << m_lastPathVertexDepth << "\n"
 		<< "#ifndef MAX_RAYS_GENERATED\n"
 		<< "#	define MAX_RAYS_GENERATED " << m_staticViewData.samplesPerPixelPerDispatch << "\n"
 		<< "#endif\n"
@@ -1325,55 +1302,6 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, core::s
 	for (auto i=0u; i<2u; i++)
 		std::cout << "\tRay Buffer[" << i << "] = " << m_rayBuffer[i].buffer->getSize() << " bytes" << std::endl;
 	std::cout << std::endl;
-#ifdef _NBL_BUILD_OPTIX_
-	while (m_denoiser)
-	{
-		m_denoiser->computeMemoryResources(&m_denoiserMemReqs,&m_staticViewData.imageDimensions.x);
-#if TODO
-		// will need to modify this a bit, obviously the denoiser color input needs to be a standalone buffer (due to how our accumulation works)
-		// but the albedo and normal targets could be aliased to a transient buffer too
-		auto inputBuffSz = (kOptiXPixelSize*EDI_COUNT)*renderPixelCount;
-		m_denoiserInputBuffer = core::smart_refctd_ptr<IGPUBuffer>(m_driver->createDeviceLocalGPUBufferOnDedMem(inputBuffSz),core::dont_grab);
-		if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(&m_denoiserInputBuffer, CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY)))
-			break;
-		m_denoiserStateBuffer = core::smart_refctd_ptr<IGPUBuffer>(m_driver->createDeviceLocalGPUBufferOnDedMem(m_denoiserMemReqs.stateSizeInBytes),core::dont_grab);
-		if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(&m_denoiserStateBuffer)))
-			break;
-		m_denoisedBuffer = core::smart_refctd_ptr<IGPUBuffer>(m_driver->createDeviceLocalGPUBufferOnDedMem(kOptiXPixelSize*renderPixelCount), core::dont_grab);
-		if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(&m_denoisedBuffer, CU_GRAPHICS_REGISTER_FLAGS_WRITE_DISCARD)))
-			break;
-		// Note for Achal: I used to reuse one of the transient (ray or intersection) buffers for the denoiser scratch to save on VRAM
-		if (m_rayBuffer->getSize()<m_denoiserMemReqs.recommendedScratchSizeInBytes)
-			break;
-		m_denoiserScratchBuffer = core::smart_refctd_ptr(m_rayBuffer); // TODO: could alias the denoised output to a transient buffer (ray or intersection) as well
-		if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(&m_denoiserScratchBuffer, CU_GRAPHICS_REGISTER_FLAGS_WRITE_DISCARD)))
-			break;
-
-		auto setUpOptiXImage2D = [&](OptixImage2D& img, uint32_t pixelSize) -> void
-		{
-			img = {};
-			img.width = m_staticViewData.imageDimensions.x;
-			img.height = m_staticViewData.imageDimensions.y;
-			img.pixelStrideInBytes = pixelSize;
-			img.rowStrideInBytes = img.width*img.pixelStrideInBytes;
-		};
-
-		setUpOptiXImage2D(m_denoiserInputs[EDI_COLOR],kOptiXPixelSize);
-		m_denoiserInputs[EDI_COLOR].data = 0;
-		m_denoiserInputs[EDI_COLOR].format = OPTIX_PIXEL_FORMAT_HALF3;
-		setUpOptiXImage2D(m_denoiserInputs[EDI_ALBEDO],kOptiXPixelSize);
-		m_denoiserInputs[EDI_ALBEDO].data = m_denoiserInputs[EDI_COLOR].rowStrideInBytes*m_denoiserInputs[EDI_COLOR].height;
-		m_denoiserInputs[EDI_ALBEDO].format = OPTIX_PIXEL_FORMAT_HALF3;
-		setUpOptiXImage2D(m_denoiserInputs[EDI_NORMAL],kOptiXPixelSize);
-		m_denoiserInputs[EDI_NORMAL].data = m_denoiserInputs[EDI_ALBEDO].data+m_denoiserInputs[EDI_ALBEDO].rowStrideInBytes*m_denoiserInputs[EDI_ALBEDO].height;;
-		m_denoiserInputs[EDI_NORMAL].format = OPTIX_PIXEL_FORMAT_HALF3;
-
-		setUpOptiXImage2D(m_denoiserOutput,kOptiXPixelSize);
-		m_denoiserOutput.format = OPTIX_PIXEL_FORMAT_HALF3;
-#endif
-		break;
-	}
-#endif
 }
 
 void Renderer::deinitScreenSizedResources()
@@ -1382,19 +1310,6 @@ void Renderer::deinitScreenSizedResources()
 	ocl::COpenCLHandler::ocl.pclFinish(commandQueue);
 
 	glFinish();
-	
-#ifdef _NBL_BUILD_OPTIX_
-	if (m_cudaStream)
-		cuda::CCUDAHandler::cuda.pcuStreamSynchronize(m_cudaStream);
-	m_denoiserInputBuffer = {};
-	m_denoiserScratchBuffer = {};
-	m_denoisedBuffer = {};
-	m_denoiserStateBuffer = {};
-	m_denoiserInputs[EDI_COLOR] = {};
-	m_denoiserInputs[EDI_ALBEDO] = {};
-	m_denoiserInputs[EDI_NORMAL] = {};
-	m_denoiserOutput = {};
-#endif
 
 	// make sure descriptor sets dont dangle
 	//m_driver->bindDescriptorSets(video::EPBP_COMPUTE,nullptr,0u,4u,nullptr);
@@ -1636,7 +1551,7 @@ bool Renderer::render(nbl::ITimer* timer)
 	// path trace
 	m_raytraceCommonData.depth = 0u;
 	uint32_t nextTraceRaycount = 0xdeadbeefu; // the raygen shader doesn't care
-	while (m_raytraceCommonData.depth!=m_maxDepth) {
+	while (m_raytraceCommonData.depth!=m_lastPathVertexDepth) {
 		 if(!traceBounce(nextTraceRaycount))
 			 return false;
 	}
@@ -1647,57 +1562,13 @@ bool Renderer::render(nbl::ITimer* timer)
 		m_driver->bindComputePipeline(m_resolvePipeline.get());
 		m_driver->dispatch(m_raygenWorkGroups[0],m_raygenWorkGroups[1],1);
 		COpenGLExtensionHandler::pGlMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT|GL_SHADER_IMAGE_ACCESS_BARRIER_BIT
-	#ifndef _NBL_BUILD_OPTIX_
+			// because of direct to screen resolve
 			|GL_FRAMEBUFFER_BARRIER_BIT|GL_TEXTURE_UPDATE_BARRIER_BIT
-	#else
-			|(m_denoisedBuffer.getObject() ? (GL_PIXEL_BUFFER_BARRIER_BIT|GL_BUFFER_UPDATE_BARRIER_BIT):(GL_FRAMEBUFFER_BARRIER_BIT|GL_TEXTURE_UPDATE_BARRIER_BIT))
-	#endif
 		);
 	}
 	m_raytraceCommonData.samplesComputed += m_staticViewData.samplesPerPixelPerDispatch;
 
-	// TODO: tonemap properly
-#ifdef _NBL_BUILD_OPTIX_
-	if (m_denoisedBuffer.getObject())
-	{
-#if TODO
-		cuda::CCUDAHandler::acquireAndGetPointers(&m_denoiserInputBuffer,&m_denoiserScratchBuffer+1,m_cudaStream);
-
-		if (m_denoiser->getLastSetupResult()!=OPTIX_SUCCESS)
-		{
-			m_denoiser->setup(	m_cudaStream,&rSize[0],m_denoiserStateBuffer,m_denoiserStateBuffer.getObject()->getSize(),
-								m_denoiserScratchBuffer,m_denoiserMemReqs.recommendedScratchSizeInBytes);
-		}
-
-		OptixImage2D denoiserInputs[EDI_COUNT];
-		for (auto i=0; i<EDI_COUNT; i++)
-		{
-			denoiserInputs[i] = m_denoiserInputs[i];
-			denoiserInputs[i].data = m_denoiserInputs[i].data+m_denoiserInputBuffer.asBuffer.pointer;
-		}
-		m_denoiser->computeIntensity(	m_cudaStream,denoiserInputs+0,m_denoiserScratchBuffer,m_denoiserScratchBuffer,
-										m_denoiserMemReqs.recommendedScratchSizeInBytes,m_denoiserMemReqs.recommendedScratchSizeInBytes);
-
-		OptixDenoiserParams m_denoiserParams = {};
-		volatile float kConstant = 0.0001f;
-		m_denoiserParams.blendFactor = core::min(1.f-1.f/core::max(kConstant*float(m_framesDone*m_samplesPerPixelPerDispatch),1.f),0.25f);
-		m_denoiserParams.denoiseAlpha = 0u;
-		m_denoiserParams.hdrIntensity = m_denoiserScratchBuffer.asBuffer.pointer+m_denoiserMemReqs.recommendedScratchSizeInBytes;
-		m_denoiserOutput.data = m_denoisedBuffer.asBuffer.pointer;
-		m_denoiser->invoke(	m_cudaStream,&m_denoiserParams,denoiserInputs,denoiserInputs+EDI_COUNT,&m_denoiserOutput,
-							m_denoiserScratchBuffer,m_denoiserMemReqs.recommendedScratchSizeInBytes);
-
-		void* scratch[16];
-		cuda::CCUDAHandler::releaseResourcesToGraphics(scratch,&m_denoiserInputBuffer,&m_denoiserScratchBuffer+1,m_cudaStream);
-
-		auto glbuf = static_cast<COpenGLBuffer*>(m_denoisedBuffer.getObject());
-		auto gltex = static_cast<COpenGLFilterableTexture*>(m_tonemapOutput.get());
-		COpenGLExtensionHandler::extGlBindBuffer(GL_PIXEL_UNPACK_BUFFER,glbuf->getOpenGLName());
-		COpenGLExtensionHandler::extGlTextureSubImage2D(gltex->getOpenGLName(),gltex->getOpenGLTextureType(),0,0,0,rSize[0],rSize[1],GL_RGB,GL_HALF_FLOAT,nullptr);
-		COpenGLExtensionHandler::extGlBindBuffer(GL_PIXEL_UNPACK_BUFFER,0);
-#endif
-	}
-#endif
+	// TODO: autoexpose properly
 	return true;
 }
 
@@ -1733,7 +1604,7 @@ bool Renderer::traceBounce(uint32_t & raycount)
 		COpenGLExtensionHandler::pGlMemoryBarrier(GL_ALL_BARRIER_BITS);
 	}
 	// trace rays
-	if (m_raytraceCommonData.depth!=m_maxDepth)
+	if (m_raytraceCommonData.depth!=m_lastPathVertexDepth)
 	{
 		m_driver->copyBuffer(m_rayCountBuffer.get(),m_littleDownloadBuffer.get(),sizeof(uint32_t)*m_raytraceCommonData.rayCountWriteIx,0u,sizeof(uint32_t));
 		static_assert(core::isPoT(RAYCOUNT_N_BUFFERING),"Raycount Buffer needs to be PoT sized!");

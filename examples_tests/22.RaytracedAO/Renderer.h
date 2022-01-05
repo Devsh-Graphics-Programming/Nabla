@@ -136,11 +136,6 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		nbl::scene::ISceneManager* m_smgr;
 
 		nbl::core::smart_refctd_ptr<nbl::ext::RadeonRays::Manager> m_rrManager;
-#ifdef _NBL_BUILD_OPTIX_
-		nbl::core::smart_refctd_ptr<nbl::ext::OptiX::Manager> m_optixManager;
-		CUstream m_cudaStream;
-		nbl::core::smart_refctd_ptr<nbl::ext::OptiX::IContext> m_optixContext;
-#endif
 
 
 		// persistent (intialized in constructor
@@ -173,6 +168,9 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		uint64_t m_totalRaysCast;
 		StaticViewData_t m_staticViewData;
 		RaytraceShaderCommonData_t m_raytraceCommonData;
+		// tmp
+		uint16_t m_lastPathVertexDepth;
+		static inline constexpr uint16_t m_UNUSED_russianRouletteDepth = 5u;
 
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer> m_indexBuffer;
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer> m_indirectDrawBuffers[2];
@@ -214,22 +212,6 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> m_finalEnvmap;
 
 		std::future<bool> compileShadersFuture;
-
-	#ifdef _NBL_BUILD_OPTIX_
-		nbl::core::smart_refctd_ptr<nbl::ext::OptiX::IDenoiser> m_denoiser;
-		OptixDenoiserSizes m_denoiserMemReqs;
-		nbl::cuda::CCUDAHandler::GraphicsAPIObjLink<nbl::video::IGPUBuffer> m_denoiserInputBuffer,m_denoiserStateBuffer,m_denoisedBuffer,m_denoiserScratchBuffer;
-
-		enum E_DENOISER_INPUT
-		{
-			EDI_COLOR,
-			EDI_ALBEDO,
-			EDI_NORMAL,
-			EDI_COUNT
-		};
-		OptixImage2D m_denoiserOutput;
-		OptixImage2D m_denoiserInputs[EDI_COUNT];
-	#endif
 };
 
 #endif
