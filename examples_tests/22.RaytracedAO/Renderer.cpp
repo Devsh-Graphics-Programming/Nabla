@@ -1426,7 +1426,7 @@ void Renderer::takeAndSaveScreenShot(const std::filesystem::path& screenshotFile
 // one day it will just work like that
 //#include <nbl/builtin/glsl/sampling/box_muller_transform.glsl>
 
-bool Renderer::render(nbl::ITimer* timer)
+bool Renderer::render(nbl::ITimer* timer, const bool beauty)
 {
 	if (m_cullPushConstants.maxGlobalInstanceCount==0u)
 		return true;
@@ -1484,6 +1484,10 @@ bool Renderer::render(nbl::ITimer* timer)
 			std::cout << "Shader Compilation Failed." << std::endl;
 	}
 
+	// only advance frame if rendering a beauty
+	if (beauty)
+		m_framesDispatched++;
+
 	// raster jittered frame
 	{
 		// jitter with AA AntiAliasingSequence
@@ -1500,7 +1504,7 @@ bool Renderer::render(nbl::ITimer* timer)
 			jitterMatrix.rows[0][3] = cosPhi*r*m_rcpPixelSize.x;
 			jitterMatrix.rows[1][3] = sinPhi*r*m_rcpPixelSize.y;
 			return core::concatenateBFollowedByA(jitterMatrix,core::concatenateBFollowedByA(camera->getProjectionMatrix(),m_prevView));
-		}(m_framesDispatched++);
+		}(m_framesDispatched);
 		m_raytraceCommonData.rcpFramesDispatched = 1.f/float(m_framesDispatched);
 		m_raytraceCommonData.textureFootprintFactor = core::inversesqrt(core::min<float>(m_framesDispatched,Renderer::AntiAliasingSequenceLength));
 		if(!modifiedViewProj.getInverseTransform<core::matrix4SIMD::E_MATRIX_INVERSE_PRECISION::EMIP_64BBIT>(m_raytraceCommonData.viewProjMatrixInverse))
@@ -1553,14 +1557,34 @@ bool Renderer::render(nbl::ITimer* timer)
 		m_raytraceCommonData.camPos.y = cameraPosition.y;
 		m_raytraceCommonData.camPos.z = cameraPosition.z;
 	}
-	// path trace
-	m_raytraceCommonData.depth = 0u;
-	uint32_t nextTraceRaycount = 0xdeadbeefu; // the raygen shader doesn't care
-	while (m_raytraceCommonData.depth!=m_staticViewData.pathDepth)
+	// raygen
 	{
-		 if(!traceBounce(nextTraceRaycount))
-			 return false;
+		// vertex 0 is camera
+		m_raytraceCommonData.depth = 0u;
+
+		//
+		video::IGPUDescriptorSet* sameDS[2] = {m_raygenDS.get(),m_raygenDS.get()};
+		preDispatch(m_raygenPipeline->getLayout(),sameDS);
+
+		//
+		m_driver->bindComputePipeline(m_raygenPipeline.get());
+		m_driver->dispatch(m_raygenWorkGroups[0],m_raygenWorkGroups[1],1);
 	}
+	// path trace
+	if (beauty)
+	{
+		while (m_raytraceCommonData.depth!=m_staticViewData.pathDepth)
+		{
+			uint32_t raycount;
+			 if(!traceBounce(raycount))
+				 return false;
+			 if (raycount==0u)
+				 break;
+		}
+	}
+	// mostly writes to accumulation buffers and SSBO clears
+	// probably wise to flush all caches (in the future can optimize to texture_fetch|shader_image_access|shader_storage_buffer|blit|texture_download|...)
+	COpenGLExtensionHandler::pGlMemoryBarrier(GL_ALL_BARRIER_BITS);
 
 	// resolve pseudo-MSAA
 	{
@@ -1572,109 +1596,99 @@ bool Renderer::render(nbl::ITimer* timer)
 			|GL_FRAMEBUFFER_BARRIER_BIT|GL_TEXTURE_UPDATE_BARRIER_BIT
 		);
 	}
-	m_raytraceCommonData.samplesComputed += getSamplesPerPixelPerDispatch();
+	if (beauty)
+		m_raytraceCommonData.samplesComputed += getSamplesPerPixelPerDispatch();
 
 	// TODO: autoexpose properly
 	return true;
 }
 
-
-bool Renderer::traceBounce(uint32_t & raycount)
+void Renderer::preDispatch(const video::IGPUPipelineLayout* pipelineLayout, video::IGPUDescriptorSet*const *const lastDS)
 {
-	const uint32_t descSetIx = (m_raytraceCommonData.depth++)&0x1u;
-	if (raycount==0u) {
-		return true;
-	}
-	// trace bounce (accumulate contributions and optionally generate rays)
-	{
-		const bool continuation = m_raytraceCommonData.depth!=1u;
-		const auto* pipelineLayout = (continuation ? m_closestHitPipeline:m_raygenPipeline)->getLayout();
-		m_driver->pushConstants(pipelineLayout,ISpecializedShader::ESS_COMPUTE,0u,sizeof(RaytraceShaderCommonData_t),&m_raytraceCommonData);
+	// increment depth
+	const uint32_t descSetIx = (++m_raytraceCommonData.depth)&0x1u;
+	m_driver->pushConstants(pipelineLayout,ISpecializedShader::ESS_COMPUTE,0u,sizeof(RaytraceShaderCommonData_t),&m_raytraceCommonData);
 
-		IGPUDescriptorSet* descriptorSets[4] = {m_globalBackendDataDS.get(),m_additionalGlobalDS.get(),m_commonRaytracingDS[descSetIx].get()};
-		if (continuation)
+	// advance
+	static_assert(core::isPoT(RAYCOUNT_N_BUFFERING),"Raycount Buffer needs to be PoT sized!");
+	m_raytraceCommonData.rayCountWriteIx = (++m_raytraceCommonData.rayCountWriteIx)&RAYCOUNT_N_BUFFERING_MASK;
+	
+	IGPUDescriptorSet* descriptorSets[4] = {m_globalBackendDataDS.get(),m_additionalGlobalDS.get(),m_commonRaytracingDS[descSetIx].get(),lastDS[descSetIx]};
+	m_driver->bindDescriptorSets(EPBP_COMPUTE,pipelineLayout,0u,4u,descriptorSets,nullptr);
+}
+
+bool Renderer::traceBounce(uint32_t& raycount)
+{
+	// probably wise to flush all caches (in the future can optimize to texture_fetch|shader_image_access|shader_storage_buffer|blit|texture_download|...)
+	COpenGLExtensionHandler::pGlMemoryBarrier(GL_ALL_BARRIER_BITS);
+	{
+		const auto rayCountReadIx = (m_raytraceCommonData.rayCountWriteIx-1u)&RAYCOUNT_N_BUFFERING_MASK;
+		m_driver->copyBuffer(m_rayCountBuffer.get(),m_littleDownloadBuffer.get(),sizeof(uint32_t)*rayCountReadIx,0u,sizeof(uint32_t));
+	}
+	glFinish(); // sync CPU to GL
+	raycount = *reinterpret_cast<uint32_t*>(m_littleDownloadBuffer->getBoundMemory()->getMappedPointer());
+
+	if (raycount)
+	{
+		// trace rays
+		m_totalRaysCast += raycount;
 		{
-			descriptorSets[3] = m_closestHitDS[descSetIx].get();
-			m_driver->bindDescriptorSets(EPBP_COMPUTE,pipelineLayout,0u,4u,descriptorSets,nullptr);
+			const uint32_t descSetIx = m_raytraceCommonData.depth&0x1u;
+
+			auto commandQueue = m_rrManager->getCLCommandQueue();
+			const cl_mem clObjects[] = {m_rayBuffer[descSetIx].asRRBuffer.second,m_intersectionBuffer[descSetIx].asRRBuffer.second};
+			const auto objCount = sizeof(clObjects)/sizeof(cl_mem);
+			cl_event acquired=nullptr, raycastDone=nullptr;
+			// run the raytrace queries
+			{
+				ocl::COpenCLHandler::ocl.pclEnqueueAcquireGLObjects(commandQueue,objCount,clObjects,0u,nullptr,&acquired);
+
+				clEnqueueWaitForEvents(commandQueue,1u,&acquired);
+				m_rrManager->getRadeonRaysAPI()->QueryIntersection(
+					m_rayBuffer[descSetIx].asRRBuffer.first,raycount,
+					m_intersectionBuffer[descSetIx].asRRBuffer.first,nullptr,nullptr
+				);
+				clEnqueueMarker(commandQueue,&raycastDone);
+			}
+
+			// sync CPU to CL
+			cl_event released;
+			ocl::COpenCLHandler::ocl.pclEnqueueReleaseGLObjects(commandQueue, objCount, clObjects, 1u, &raycastDone, &released);
+			ocl::COpenCLHandler::ocl.pclFlush(commandQueue);
+
+			cl_int retval = -1;
+			auto startWait = std::chrono::steady_clock::now();
+			constexpr auto timeoutInSeconds = 20ull;
+			bool timedOut = false;
+			do {
+				const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-startWait).count();
+				if (elapsed > timeoutInSeconds * 1'000'000ull)
+				{
+					timedOut = true;
+					break;
+				}
+
+				std::this_thread::yield();
+				ocl::COpenCLHandler::ocl.pclGetEventInfo(released, CL_EVENT_COMMAND_EXECUTION_STATUS, sizeof(cl_int), &retval, nullptr);
+			} while(retval != CL_COMPLETE);
+		
+			if(timedOut)
+			{
+				std::cout << "[ERROR] RadeonRays Timed Out" << std::endl;
+				return false;
+			}
+		}
+	
+		// compute bounce (accumulate contributions and optionally generate rays)
+		{
+			preDispatch(m_closestHitPipeline->getLayout(),&m_closestHitDS->get());
+
 			m_driver->bindComputePipeline(m_closestHitPipeline.get());
 			m_driver->dispatch((raycount-1u)/WORKGROUP_SIZE+1u,1u,1u);
 		}
-		else
-		{
-			descriptorSets[3] = m_raygenDS.get();
-			m_driver->bindDescriptorSets(EPBP_COMPUTE,pipelineLayout,0u,4u,descriptorSets,nullptr);
-			m_driver->bindComputePipeline(m_raygenPipeline.get());
-			m_driver->dispatch(m_raygenWorkGroups[0],m_raygenWorkGroups[1],1);
-		}
-		// probably wise to flush all caches (in the future can optimize to texture_fetch|shader_image_access|shader_storage_buffer|blit|texture_download|...)
-		COpenGLExtensionHandler::pGlMemoryBarrier(GL_ALL_BARRIER_BITS);
 	}
-	// trace rays
-	if (m_raytraceCommonData.depth!=m_staticViewData.pathDepth)
-	{
-		m_driver->copyBuffer(m_rayCountBuffer.get(),m_littleDownloadBuffer.get(),sizeof(uint32_t)*m_raytraceCommonData.rayCountWriteIx,0u,sizeof(uint32_t));
-		static_assert(core::isPoT(RAYCOUNT_N_BUFFERING),"Raycount Buffer needs to be PoT sized!");
-		glFinish(); // sync CPU to GL
-		const uint32_t nextTraceRaycount = *reinterpret_cast<uint32_t*>(m_littleDownloadBuffer->getBoundMemory()->getMappedPointer());
-		if (nextTraceRaycount==0u) {
-			raycount = 0u;
-			return true;
-		}
-		m_totalRaysCast += nextTraceRaycount;
-		m_raytraceCommonData.rayCountWriteIx = (++m_raytraceCommonData.rayCountWriteIx)&RAYCOUNT_N_BUFFERING_MASK;
 
-		auto commandQueue = m_rrManager->getCLCommandQueue();
-		const cl_mem clObjects[] = {m_rayBuffer[descSetIx].asRRBuffer.second,m_intersectionBuffer[descSetIx].asRRBuffer.second};
-		const auto objCount = sizeof(clObjects)/sizeof(cl_mem);
-		cl_event acquired=nullptr, raycastDone=nullptr;
-		// run the raytrace queries
-		{
-			ocl::COpenCLHandler::ocl.pclEnqueueAcquireGLObjects(commandQueue,objCount,clObjects,0u,nullptr,&acquired);
-
-			clEnqueueWaitForEvents(commandQueue,1u,&acquired);
-			m_rrManager->getRadeonRaysAPI()->QueryIntersection(
-				m_rayBuffer[descSetIx].asRRBuffer.first,nextTraceRaycount,
-				m_intersectionBuffer[descSetIx].asRRBuffer.first,nullptr,nullptr
-			);
-			clEnqueueMarker(commandQueue,&raycastDone);
-		}
-
-		// sync CPU to CL
-		cl_event released;
-		ocl::COpenCLHandler::ocl.pclEnqueueReleaseGLObjects(commandQueue, objCount, clObjects, 1u, &raycastDone, &released);
-		ocl::COpenCLHandler::ocl.pclFlush(commandQueue);
-
-		cl_int retval = -1;
-		auto startWait = std::chrono::steady_clock::now();
-		constexpr auto timeoutInSeconds = 20ull;
-		bool timedOut = false;
-		do {
-			const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-startWait).count();
-			if (elapsed > timeoutInSeconds * 1'000'000ull)
-			{
-				timedOut = true;
-				break;
-			}
-
-			std::this_thread::yield();
-			ocl::COpenCLHandler::ocl.pclGetEventInfo(released, CL_EVENT_COMMAND_EXECUTION_STATUS, sizeof(cl_int), &retval, nullptr);
-		} while(retval != CL_COMPLETE);
-		
-		// ocl::COpenCLHandler::ocl.pclWaitForEvents(1u,&released);
-
-		if(timedOut)
-		{
-			std::cout << "[ERROR] RadeonRays Timed Out" << std::endl;
-			return false;
-		}
-		raycount = nextTraceRaycount;
-		return true;
-	}
-	else
-	{
-		raycount = 0u;
-		return true;
-	}
+	return true;
 }
 
 

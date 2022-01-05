@@ -23,14 +23,9 @@ using namespace core;
 class RaytracerExampleEventReceiver : public nbl::IEventReceiver
 {
 	public:
-		RaytracerExampleEventReceiver() 
-			: running(true)
-			, skipKeyPressed(false)
-			, resetViewKeyPressed(false)
-			, nextKeyPressed(false)
-			, previousKeyPressed(false)
-			, screenshotKeyPressed(false)
+		RaytracerExampleEventReceiver() : running(true), renderingBeauty(true)
 		{
+			resetKeys();
 		}
 
 		bool OnEvent(const nbl::SEvent& event)
@@ -57,6 +52,9 @@ class RaytracerExampleEventReceiver : public nbl::IEventReceiver
 					case SkipKey:
 						skipKeyPressed = true;
 						break;
+					case BeautyKey:
+						renderingBeauty = !renderingBeauty;
+						break;
 					case QuitKey:
 						running = false;
 						return true;
@@ -82,6 +80,8 @@ class RaytracerExampleEventReceiver : public nbl::IEventReceiver
 
 		inline bool isLogProgressKeyPressed() const { return logProgressKeyPressed; }
 
+		inline bool isRenderingBeauty() const { return renderingBeauty; }
+
 		inline void resetKeys()
 		{
 			skipKeyPressed = false;
@@ -100,15 +100,17 @@ class RaytracerExampleEventReceiver : public nbl::IEventReceiver
 		static constexpr nbl::EKEY_CODE PreviousKey = nbl::KEY_NEXT; // PAGE_DOWN
 		static constexpr nbl::EKEY_CODE ScreenshotKey = nbl::KEY_KEY_P;
 		static constexpr nbl::EKEY_CODE LogProgressKey = nbl::KEY_KEY_L;
+		static constexpr nbl::EKEY_CODE BeautyKey = nbl::KEY_KEY_B;
 
-		bool running = false;
-		bool skipKeyPressed = false;
-		bool resetViewKeyPressed = false;
-		bool nextKeyPressed = false;
-		bool previousKeyPressed = false;
-		bool screenshotKeyPressed = false;
-		bool logProgressKeyPressed = false;
+		bool running;
+		bool renderingBeauty;
 
+		bool skipKeyPressed;
+		bool resetViewKeyPressed;
+		bool nextKeyPressed;
+		bool previousKeyPressed;
+		bool screenshotKeyPressed;
+		bool logProgressKeyPressed;
 };
 
 int main(int argc, char** argv)
@@ -824,8 +826,7 @@ int main(int argc, char** argv)
 			}
 
 			driver->beginScene(false, false);
-			
-			if(!renderer->render(device->getTimer()))
+			if(!renderer->render(device->getTimer(),receiver.isRenderingBeauty()))
 			{
 				renderFailed = true;
 				driver->endScene();

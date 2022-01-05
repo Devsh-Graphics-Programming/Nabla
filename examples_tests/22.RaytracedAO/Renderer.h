@@ -52,7 +52,7 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 
 		void takeAndSaveScreenShot(const std::filesystem::path& screenshotFilePath, const DenoiserArgs& denoiserArgs);
 
-		bool render(nbl::ITimer* timer);
+		bool render(nbl::ITimer* timer, const bool beauty=true);
 
 		auto* getColorBuffer() { return m_colorBuffer; }
 
@@ -121,7 +121,8 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> createScreenSizedTexture(nbl::asset::E_FORMAT format, uint32_t layers = 0u);
 
 		//
-		bool Renderer::traceBounce(uint32_t & inoutRayCount);
+		void preDispatch(const nbl::video::IGPUPipelineLayout* layout, nbl::video::IGPUDescriptorSet*const *const lastDS);
+		bool traceBounce(uint32_t& inoutRayCount);
 
 		//
 		const nbl::ext::MitsubaLoader::CMitsubaMetadata* m_globalMeta = nullptr;

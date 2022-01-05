@@ -1124,7 +1124,7 @@ nbl_glsl_LightSample nbl_bsdf_cos_generate(
 				}
 				else
 				{
-					const vec3 eta = nbl_glsl_MC_bsdf_data_decodeIoR(bsdf_data,OP_COATING)[0];
+					const vec3 eta = nbl_glsl_MC_bsdf_data_decodeIoR(bsdf_data,0xdeadbeefu/*not conductor*/)[0];
 					// fresnel gets tricky, we kind-of assume fresnel against the surface macro-normal is somewhat proportional to integrated fresnel over the distribution of visible normals
 					blendWeight_OR_fresnelTransmission = vec3(1.f)-nbl_glsl_fresnel_dielectric_frontface_only(eta,max(currInteraction.inner.isotropic.NdotV,0.f));
 
