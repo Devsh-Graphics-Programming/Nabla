@@ -8,6 +8,7 @@ layout(local_size_x = WORKGROUP_DIM, local_size_y = WORKGROUP_DIM) in;
 
 layout(set = 3, binding = 0) uniform usampler2D scramblebuf;
 layout(set = 3, binding = 1) uniform usampler2D frontFacingTriangleIDDrawID_unorm16Bary_dBarydScreenHalf2x2; // should it be called backfacing or frontfacing?
+layout(set = 3, binding = 2, rgba16f) restrict uniform image2D framebuffer;
 
 bool get_sample_job()
 {
@@ -108,34 +109,39 @@ void main()
 		else
 			Contribution_initMiss(contrib);
 
-		Contribution_normalizeAoV(contrib);
-		
-		// we could optimize this, but its pointless before using KHR_ray_query
-		const bool firstFrame = pc.cummon.rcpFramesDispatched==1.f;
-		for (uint i=0u; i<samplesPerPixelPerDispatch; i++)
+		if (bool(pc.cummon.depth))
 		{
-			const uvec3 coord = uvec3(outPixelLocation,i);
-			// clear accumulations totally if beginning a new frame
-			if (firstFrame)
+			Contribution_normalizeAoV(contrib);
+		
+			// we could optimize this, but its pointless before using KHR_ray_query
+			const bool firstFrame = pc.cummon.rcpFramesDispatched==1.f;
+			for (uint i=0u; i<samplesPerPixelPerDispatch; i++)
 			{
-				storeAccumulation(contrib.color,coord);
-				storeAlbedo(contrib.albedo,coord);
-				storeWorldspaceNormal(contrib.worldspaceNormal,coord);
-			}
-			else
-			{
-				const vec3 acc_emissive = fetchAccumulation(coord);
-				const vec3 acc_albedo = fetchAlbedo(coord);
-				const vec3 acc_worldspaceNormal = fetchWorldspaceNormal(coord);
+				const uvec3 coord = uvec3(outPixelLocation,i);
+				// clear accumulations totally if beginning a new frame
+				if (firstFrame)
+				{
+					storeAccumulation(contrib.color,coord);
+					storeAlbedo(contrib.albedo,coord);
+					storeWorldspaceNormal(contrib.worldspaceNormal,coord);
+				}
+				else
+				{
+					const vec3 acc_emissive = fetchAccumulation(coord);
+					const vec3 acc_albedo = fetchAlbedo(coord);
+					const vec3 acc_worldspaceNormal = fetchWorldspaceNormal(coord);
 
-				const vec3 emissive_delta = (contrib.color-acc_emissive)*pc.cummon.rcpFramesDispatched;
-				const vec3 albedo_delta = (contrib.albedo-acc_albedo)*pc.cummon.rcpFramesDispatched;
-				const vec3 worldspaceNormal_delta = (contrib.worldspaceNormal-acc_worldspaceNormal)*pc.cummon.rcpFramesDispatched;
+					const vec3 emissive_delta = (contrib.color-acc_emissive)*pc.cummon.rcpFramesDispatched;
+					const vec3 albedo_delta = (contrib.albedo-acc_albedo)*pc.cummon.rcpFramesDispatched;
+					const vec3 worldspaceNormal_delta = (contrib.worldspaceNormal-acc_worldspaceNormal)*pc.cummon.rcpFramesDispatched;
 	
-				storeAccumulation(acc_emissive,emissive_delta,coord);
-				storeAlbedo(acc_albedo,albedo_delta,coord);
-				storeWorldspaceNormal(acc_worldspaceNormal,worldspaceNormal_delta,coord);
+					storeAccumulation(acc_emissive,emissive_delta,coord);
+					storeAlbedo(acc_albedo,albedo_delta,coord);
+					storeWorldspaceNormal(acc_worldspaceNormal,worldspaceNormal_delta,coord);
+				}
 			}
 		}
+		else
+			imageStore(framebuffer,ivec2(outPixelLocation),vec4(contrib.albedo,1.f));
 	}
 }

@@ -106,6 +106,7 @@ You can switch between those sensors using `PAGE UP/DOWN` Keys defined in more d
 | HOME      | Press to reset the camera to the initial view. (Usefull when you're lost and you want to go back to where you started) |
 | P         | Press to take a snapshot when moving around (will be denoised)                                                         |
 | L         | Press to log the current progress percentage and samples rendered.                                                     |
+| B         | Toggle between Path Tracing and Albedo preview, allows you to position the camera more responsively in complex scenes. |
 
 ## Denoiser Hook
 `denoiser_hook.bat` is a script that you can call to denoise your rendered images.

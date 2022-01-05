@@ -103,7 +103,7 @@ struct RaytraceShaderCommonData_t
 	vec3	camPos;
 	float   rcpFramesDispatched;
 	uint	samplesComputed;
-	uint	depth;
+	uint	depth; // 0 if path tracing disabled
 	uint	rayCountWriteIx;
 	float	textureFootprintFactor;
 };

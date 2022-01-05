@@ -139,11 +139,12 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 	samplerParams.CompareEnable = false;
 	auto sampler = m_driver->createGPUSampler(samplerParams);
 	{
-		constexpr auto raygenDescriptorCount = 2u;
+		constexpr auto raygenDescriptorCount = 3u;
 		IGPUDescriptorSetLayout::SBinding bindings[raygenDescriptorCount];
 		fillIotaDescriptorBindingDeclarations(bindings,ISpecializedShader::ESS_COMPUTE,raygenDescriptorCount,EDT_COMBINED_IMAGE_SAMPLER);
 		bindings[0].samplers = &sampler;
 		bindings[1].samplers = &sampler;
+		bindings[2].type = asset::EDT_STORAGE_IMAGE;
 
 		m_raygenDSLayout = m_driver->createGPUDescriptorSetLayout(bindings,bindings+raygenDescriptorCount);
 	}
@@ -1234,13 +1235,15 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, core::s
 			setImageInfo(infos+0,asset::EIL_SHADER_READ_ONLY_OPTIMAL,std::move(scrambleKeys));
 		}
 		setImageInfo(infos+1,asset::EIL_SHADER_READ_ONLY_OPTIMAL,core::smart_refctd_ptr(visibilityBuffer));
+		setImageInfo(infos+2,asset::EIL_GENERAL,core::smart_refctd_ptr(m_tonemapOutput));
 
 		setDstSetAndDescTypesOnWrites(m_raygenDS.get(),writes,infos,{
 			EDT_COMBINED_IMAGE_SAMPLER,
-			EDT_COMBINED_IMAGE_SAMPLER
+			EDT_COMBINED_IMAGE_SAMPLER,
+			EDT_STORAGE_IMAGE
 		});
 	}
-	m_driver->updateDescriptorSets(2u,writes,0u,nullptr);
+	m_driver->updateDescriptorSets(3u,writes,0u,nullptr);
 
 	// set up m_closestHitDS
 	for (auto i=0u; i<2u; i++)
@@ -1560,7 +1563,7 @@ bool Renderer::render(nbl::ITimer* timer, const bool beauty)
 	// raygen
 	{
 		// vertex 0 is camera
-		m_raytraceCommonData.depth = 0u;
+		m_raytraceCommonData.depth = beauty ? 0u:(~0u);
 
 		//
 		video::IGPUDescriptorSet* sameDS[2] = {m_raygenDS.get(),m_raygenDS.get()};
@@ -1587,6 +1590,7 @@ bool Renderer::render(nbl::ITimer* timer, const bool beauty)
 	COpenGLExtensionHandler::pGlMemoryBarrier(GL_ALL_BARRIER_BITS);
 
 	// resolve pseudo-MSAA
+	if (beauty)
 	{
 		m_driver->bindDescriptorSets(EPBP_COMPUTE,m_resolvePipeline->getLayout(),0u,1u,&m_resolveDS.get(),nullptr);
 		m_driver->bindComputePipeline(m_resolvePipeline.get());
@@ -1595,9 +1599,8 @@ bool Renderer::render(nbl::ITimer* timer, const bool beauty)
 			// because of direct to screen resolve
 			|GL_FRAMEBUFFER_BARRIER_BIT|GL_TEXTURE_UPDATE_BARRIER_BIT
 		);
-	}
-	if (beauty)
 		m_raytraceCommonData.samplesComputed += getSamplesPerPixelPerDispatch();
+	}
 
 	// TODO: autoexpose properly
 	return true;
