@@ -13,6 +13,7 @@
 
 using namespace nbl;
 using namespace core;
+using namespace ui;
 /*
     Uncomment for more detailed logging
 */

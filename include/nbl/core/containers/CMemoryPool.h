@@ -16,7 +16,7 @@ class CMemoryPool : public Uncopyable
 {
 public:
     using addr_allocator_type = AddressAllocator;
-    using allocator_type = std::conditional<isThreadSafe,
+    using allocator_type = typename std::conditional<isThreadSafe,
         SimpleBlockBasedAllocatorMT<AddressAllocator,DataAllocator, std::recursive_mutex, Args...>,
         SimpleBlockBasedAllocatorST<AddressAllocator,DataAllocator, Args...>>::type;
     using size_type = typename core::address_allocator_traits<addr_allocator_type>::size_type;

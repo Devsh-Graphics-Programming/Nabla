@@ -99,30 +99,34 @@ class IAccelerationStructure : public IDescriptor
 				std::memmove(this, &copy, sizeof(GeometryData));
 				return *this;
 			}
+			
+			struct Triangles
+			{
+				E_FORMAT		vertexFormat;
+				AddressType		vertexData;
+				uint64_t		vertexStride;
+				uint32_t		maxVertex;
+				E_INDEX_TYPE	indexType;
+				AddressType		indexData;
+				AddressType		transformData;
+			};
+			
+			struct AABBs
+			{
+				AddressType		data;
+				size_t			stride;
+			};
 
+			struct Instances
+			{
+				AddressType		data;
+			};
+			
 			union
 			{
-				struct Triangles
-				{
-					E_FORMAT		vertexFormat;
-					AddressType		vertexData;
-					uint64_t		vertexStride;
-					uint32_t		maxVertex;
-					E_INDEX_TYPE	indexType;
-					AddressType		indexData;
-					AddressType		transformData;
-				} triangles;
-
-				struct AABBs
-				{
-					AddressType		data;
-					size_t			stride;
-				} aabbs;
-
-				struct Instances
-				{
-					AddressType		data;
-				} instances;
+				Triangles triangles;
+				AABBs aabbs;
+				Instances instances;
 			};
 		};
 		

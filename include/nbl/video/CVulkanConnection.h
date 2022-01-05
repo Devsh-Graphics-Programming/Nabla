@@ -2,6 +2,7 @@
 #define __NBL_C_VULKAN_CONNECTION_H_INCLUDED__
 
 #include "nbl/video/IAPIConnection.h"
+#include "nbl/video/debug/CVulkanDebugCallback.h"
 
 #if defined(_NBL_PLATFORM_WINDOWS_)
 #   include "nbl/ui/IWindowWin32.h"
@@ -11,8 +12,6 @@
 
 namespace nbl::video
 {
-class CVulkanDebugCallback;
-
 class CVulkanConnection final : public IAPIConnection
 {
 public:
