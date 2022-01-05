@@ -183,24 +183,47 @@ struct SceneData
     smart_refctd_ptr<IGPURenderpassIndependentPipeline> fillVBufferPpln;
     smart_refctd_ptr<IGPUComputePipeline> shadeVBufferPpln;
 
-    smart_refctd_ptr<IGPUBuffer> mdiBuffer,idxBuffer;
+    smart_refctd_ptr<IGPUBuffer> idxBuffer;
+    //TODO: mdi buffers should be in the `cullShaderData` struct?
+    smart_refctd_ptr<IGPUBuffer> frustumCulledMdiBuffer;
+    smart_refctd_ptr<IGPUBuffer> occlusionCulledMdiBuffer;
     smart_refctd_ptr<IGPUDescriptorSet> vtDS,vgDS,perFrameDS,shadingDS;
 
     core::vector<DrawIndexedIndirectInput> drawIndirectInput;
     core::vector<uint32_t> pushConstantsData;
 
     smart_refctd_ptr<IGPUBuffer> ubo;
+
 };
 
+//TODO: split into two structs (one for frustrum culling, one for occlusion)
 struct CullShaderData
 {
     core::smart_refctd_ptr<IGPUBuffer> perBatchCull;
-    core::smart_refctd_ptr<IGPUBuffer> commandBuffer;
     core::smart_refctd_ptr<IGPUBuffer> mvpBuffer;
 
+    // frustum culling
     core::smart_refctd_ptr<IGPUComputePipeline> cullPipeline;
     core::smart_refctd_ptr<IGPUDescriptorSetLayout> cullDSLayout;
     core::smart_refctd_ptr<IGPUDescriptorSet> cullDS;
+
+    // occlusion culling
+    core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> occlusionCullPipeline;
+    core::smart_refctd_ptr<IGPUDescriptorSetLayout> occlusionCullDSLayout;
+    core::smart_refctd_ptr<IGPUDescriptorSet> occlusionCullDS;
+
+    // batch ID to MDI offset mapping
+    core::smart_refctd_ptr<IGPUComputePipeline> mapPipeline;
+    core::smart_refctd_ptr<IGPUDescriptorSetLayout> mapDSLayout;
+    core::smart_refctd_ptr<IGPUDescriptorSet> mapDS;
+
+    SBufferBinding<IGPUBuffer> cubeIdxBuffer;
+    SBufferBinding<IGPUBuffer> cubeVertexBuffers[SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT];
+    core::smart_refctd_ptr<IGPUBuffer> visible;
+    core::smart_refctd_ptr<IGPUBuffer> cubeMVPs;
+    core::smart_refctd_ptr<IGPUBuffer> cubeDrawGUIDs;
+    core::smart_refctd_ptr<IGPUBuffer> cubeCommandBuffer;
+    core::smart_refctd_ptr<IGPUBuffer> dispatchIndirect;
 
     uint32_t maxBatchCount;
 };
@@ -302,6 +325,9 @@ int main()
     auto fb = driver->addFrameBuffer();
     fb->attach(EFAP_COLOR_ATTACHMENT0,createImageView(smart_refctd_ptr(framebuffer)));
 
+    auto zBuffOnlyFrameBuffer = driver->addFrameBuffer();
+    zBuffOnlyFrameBuffer->attach(EFAP_DEPTH_ATTACHMENT, std::move(depthBufferView));
+
     //
     SceneData sceneData;
     CullShaderData cullShaderData;
@@ -309,89 +335,6 @@ int main()
     core::vector<std::pair<ext::DebugDraw::S3DLineVertex, ext::DebugDraw::S3DLineVertex>> dbgLines;
 #endif
     {
-        //
-        smart_refctd_ptr<IGPUDescriptorSetLayout> perFrameDSLayout,shadingDSLayout;
-        {
-            {
-                IGPUDescriptorSetLayout::SBinding bindings[1];
-                bindings[0].binding = 0u;
-                bindings[0].count = 1u;
-                bindings[0].samplers = nullptr;
-                bindings[0].stageFlags = ISpecializedShader::ESS_VERTEX;
-                bindings[0].type = EDT_UNIFORM_BUFFER;
-
-                perFrameDSLayout = driver->createGPUDescriptorSetLayout(bindings,bindings+sizeof(bindings)/sizeof(IGPUDescriptorSetLayout::SBinding));
-            }
-            {
-                sceneData.ubo = driver->createDeviceLocalGPUBufferOnDedMem(sizeof(SBasicViewParameters));
-                IGPUDescriptorSet::SDescriptorInfo infos[1];
-                infos[0].desc = core::smart_refctd_ptr(sceneData.ubo);
-                infos[0].buffer.offset = 0u;
-                infos[0].buffer.size = sceneData.ubo->getSize();
-
-                sceneData.perFrameDS = driver->createGPUDescriptorSet(smart_refctd_ptr(perFrameDSLayout));
-                IGPUDescriptorSet::SWriteDescriptorSet writes[1];
-                writes[0].dstSet = sceneData.perFrameDS.get();
-                writes[0].binding = 0u;
-                writes[0].arrayElement = 0u;
-                writes[0].count = 1u;
-                writes[0].descriptorType = EDT_UNIFORM_BUFFER;
-                writes[0].info = infos+0u;
-                driver->updateDescriptorSets(sizeof(writes)/sizeof(IGPUDescriptorSet::SWriteDescriptorSet),writes,0u,nullptr);
-            }
-            
-            {
-                IGPUSampler::SParams params;
-                params.TextureWrapU = ISampler::ETC_MIRROR;
-                params.TextureWrapV = ISampler::ETC_MIRROR;
-                params.TextureWrapW = ISampler::ETC_MIRROR;
-                params.BorderColor = ISampler::ETBC_FLOAT_OPAQUE_BLACK;
-                params.MinFilter = ISampler::ETF_NEAREST;
-                params.MaxFilter = ISampler::ETF_NEAREST;
-                params.MipmapMode = ISampler::ESMM_NEAREST;
-                params.AnisotropicFilter = 0;
-                params.CompareEnable = 0;
-                auto sampler = driver->createGPUSampler(params);
-
-                IGPUDescriptorSetLayout::SBinding bindings[2];
-                bindings[0].binding = 0u;
-                bindings[0].count = 1u;
-                bindings[0].samplers = &sampler;
-                bindings[0].stageFlags = ISpecializedShader::ESS_COMPUTE;
-                bindings[0].type = EDT_COMBINED_IMAGE_SAMPLER;
-                bindings[1].binding = 1u;
-                bindings[1].count = 1u;
-                bindings[1].samplers = nullptr;
-                bindings[1].stageFlags = ISpecializedShader::ESS_COMPUTE;
-                bindings[1].type = EDT_STORAGE_IMAGE;
-
-                shadingDSLayout = driver->createGPUDescriptorSetLayout(bindings,bindings+sizeof(bindings)/sizeof(IGPUDescriptorSetLayout::SBinding));
-            }
-            {
-                IGPUDescriptorSet::SDescriptorInfo infos[2];
-                infos[0].desc = core::smart_refctd_ptr(visBufferView);
-                //infos[0].image.imageLayout = ?;
-                infos[0].image.sampler = nullptr; // used immutable in the layout
-                infos[1].desc = createImageView(std::move(framebuffer),EF_R8G8B8A8_UNORM);
-                //infos[0].image.imageLayout = ?;
-                infos[1].image.sampler = nullptr; // storage image
-
-                sceneData.shadingDS = driver->createGPUDescriptorSet(smart_refctd_ptr(shadingDSLayout));
-                IGPUDescriptorSet::SWriteDescriptorSet writes[2];
-                for (auto i=0u; i<2u; i++)
-                {
-                    writes[i].dstSet = sceneData.shadingDS.get();
-                    writes[i].binding = i;
-                    writes[i].arrayElement = 0u;
-                    writes[i].count = 1u;
-                    writes[i].info = infos+i;
-                }
-                writes[0].descriptorType = EDT_COMBINED_IMAGE_SAMPLER;
-                writes[1].descriptorType = EDT_STORAGE_IMAGE;
-                driver->updateDescriptorSets(sizeof(writes)/sizeof(IGPUDescriptorSet::SWriteDescriptorSet),writes,0u,nullptr);
-            }
-        }
-
         //
         auto* qnc = am->getMeshManipulator()->getQuantNormalCache();
         //loading cache from file
@@ -527,9 +470,9 @@ int main()
 
             constexpr uint32_t kVerticesPerTriangle = 3u;
             MeshPacker::AllocationParams allocParams;
-            allocParams.indexBuffSupportedCnt = 32u*1024u*1024u;
+            allocParams.indexBuffSupportedCnt = 32u * 1024u * 1024u;
             allocParams.indexBufferMinAllocCnt = minTrisBatch*kVerticesPerTriangle;
-            allocParams.vertexBuffSupportedByteSize = 128u*1024u*1024u;
+            allocParams.vertexBuffSupportedByteSize = 128u * 1024u * 1024u;
             allocParams.vertexBufferMinAllocByteSize = minTrisBatch;
             allocParams.MDIDataBuffSupportedCnt = 8192u;
             allocParams.MDIDataBuffMinAllocCnt = 16u;
@@ -559,6 +502,7 @@ int main()
                 }
                 allocDataIt += mp->calcMDIStructMaxCount(mbRangeBegin,mbRangeEnd);
             }
+
             mp->shrinkOutputBuffersSize();
             mp->instantiateDataStorage();
 
@@ -639,18 +583,158 @@ int main()
                     }
                 }
             }
+
+            const uint32_t totalActualMdiCnt = mdiListOffset;
+
             batchDataSSBO = driver->createFilledDeviceLocalGPUBufferOnDedMem(batchData.size()*sizeof(BatchInstanceData),batchData.data());
 
             gpump = core::make_smart_refctd_ptr<CGPUMeshPackerV2<>>(driver,mp.get());
-            sceneData.mdiBuffer = gpump->getPackerDataStore().MDIDataBuffer;
             sceneData.idxBuffer = gpump->getPackerDataStore().indexBuffer;
 
-            cullShaderData.commandBuffer = gpump->getPackerDataStore().MDIDataBuffer;
+            sceneData.frustumCulledMdiBuffer = gpump->getPackerDataStore().MDIDataBuffer;
+            sceneData.occlusionCulledMdiBuffer = driver->createDeviceLocalGPUBufferOnDedMem(sceneData.frustumCulledMdiBuffer->getSize());
+            driver->copyBuffer(sceneData.frustumCulledMdiBuffer.get(), sceneData.occlusionCulledMdiBuffer.get(), 0u, 0u, sceneData.frustumCulledMdiBuffer->getSize());
+
+            cullShaderData.cubeMVPs = driver->createDeviceLocalGPUBufferOnDedMem(totalActualMdiCnt * sizeof(core::matrix4SIMD));
+            cullShaderData.cubeDrawGUIDs = driver->createDeviceLocalGPUBufferOnDedMem(totalActualMdiCnt * sizeof(uint32_t));
+
             cullShaderData.maxBatchCount = std::distance(batchCullData.begin(), batchCullDataEnd);
             cullShaderData.perBatchCull = driver->createFilledDeviceLocalGPUBufferOnDedMem(cullShaderData.maxBatchCount * sizeof(CullData_t), batchCullData.data());
             cullShaderData.mvpBuffer = driver->createDeviceLocalGPUBufferOnDedMem(cullShaderData.maxBatchCount * sizeof(core::matrix4SIMD));
+            cullShaderData.visible = driver->createDeviceLocalGPUBufferOnDedMem(totalActualMdiCnt * sizeof(uint16_t));
+            driver->fillBuffer(cullShaderData.visible.get(), 0u, cullShaderData.visible->getSize(), 0u);
         }
         mesh_raw->convertToDummyObject(~0u);
+
+        // 
+        {
+            constexpr uint32_t cubeIdxCnt = 36u;
+
+            DrawElementsIndirectCommand_t cubeIndirectDrawCommand;
+            cubeIndirectDrawCommand.baseInstance = 0u;
+            cubeIndirectDrawCommand.baseVertex = 0u;
+            cubeIndirectDrawCommand.count = cubeIdxCnt;
+            cubeIndirectDrawCommand.firstIndex = 0u;
+            cubeIndirectDrawCommand.instanceCount = 0u;
+            cullShaderData.cubeCommandBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(DrawElementsIndirectCommand_t), &cubeIndirectDrawCommand);
+
+            DispatchIndirectCommand_t dispatchIndirect;
+            dispatchIndirect.num_groups_x = 0u;
+            dispatchIndirect.num_groups_y = 1u;
+            dispatchIndirect.num_groups_z = 1u;
+            cullShaderData.dispatchIndirect = driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(DispatchIndirectCommand_t), &dispatchIndirect);
+        }
+
+        //
+        smart_refctd_ptr<IGPUDescriptorSetLayout> perFrameDSLayout, shadingDSLayout;
+        {
+            {
+                IGPUDescriptorSetLayout::SBinding bindings[1];
+                bindings[0].binding = 0u;
+                bindings[0].count = 1u;
+                bindings[0].samplers = nullptr;
+                bindings[0].stageFlags = ISpecializedShader::ESS_VERTEX;
+                bindings[0].type = EDT_UNIFORM_BUFFER;
+
+                perFrameDSLayout = driver->createGPUDescriptorSetLayout(bindings, bindings + sizeof(bindings) / sizeof(IGPUDescriptorSetLayout::SBinding));
+            }
+            {
+                sceneData.ubo = driver->createDeviceLocalGPUBufferOnDedMem(sizeof(SBasicViewParameters));
+                IGPUDescriptorSet::SDescriptorInfo infos[1];
+                infos[0].desc = core::smart_refctd_ptr(sceneData.ubo);
+                infos[0].buffer.offset = 0u;
+                infos[0].buffer.size = sceneData.ubo->getSize();
+
+                sceneData.perFrameDS = driver->createGPUDescriptorSet(smart_refctd_ptr(perFrameDSLayout));
+                IGPUDescriptorSet::SWriteDescriptorSet writes[1];
+                writes[0].dstSet = sceneData.perFrameDS.get();
+                writes[0].binding = 0u;
+                writes[0].arrayElement = 0u;
+                writes[0].count = 1u;
+                writes[0].descriptorType = EDT_UNIFORM_BUFFER;
+                writes[0].info = infos + 0u;
+                driver->updateDescriptorSets(sizeof(writes) / sizeof(IGPUDescriptorSet::SWriteDescriptorSet), writes, 0u, nullptr);
+            }
+
+            {
+                IGPUSampler::SParams params;
+                params.TextureWrapU = ISampler::ETC_MIRROR;
+                params.TextureWrapV = ISampler::ETC_MIRROR;
+                params.TextureWrapW = ISampler::ETC_MIRROR;
+                params.BorderColor = ISampler::ETBC_FLOAT_OPAQUE_BLACK;
+                params.MinFilter = ISampler::ETF_NEAREST;
+                params.MaxFilter = ISampler::ETF_NEAREST;
+                params.MipmapMode = ISampler::ESMM_NEAREST;
+                params.AnisotropicFilter = 0;
+                params.CompareEnable = 0;
+                auto sampler = driver->createGPUSampler(params);
+
+                IGPUDescriptorSetLayout::SBinding bindings[5];
+                bindings[0].binding = 0u;
+                bindings[0].count = 1u;
+                bindings[0].samplers = &sampler;
+                bindings[0].stageFlags = ISpecializedShader::ESS_COMPUTE;
+                bindings[0].type = EDT_COMBINED_IMAGE_SAMPLER;
+
+                
+
+                bindings[1].binding = 1u;
+                bindings[1].count = 1u;
+                bindings[1].samplers = nullptr;
+                bindings[1].stageFlags = ISpecializedShader::ESS_COMPUTE;
+                bindings[1].type = EDT_STORAGE_IMAGE;
+
+                for (uint32_t i = 2u; i < 5u; i++)
+                {
+                    bindings[i].binding = i;
+                    bindings[i].count = 1u;
+                    bindings[i].samplers = nullptr;
+                    bindings[i].stageFlags = ISpecializedShader::ESS_COMPUTE;
+                    bindings[i].type = EDT_STORAGE_BUFFER;
+                }
+
+                shadingDSLayout = driver->createGPUDescriptorSetLayout(bindings, bindings + sizeof(bindings) / sizeof(IGPUDescriptorSetLayout::SBinding));
+            }
+            {
+                IGPUDescriptorSet::SDescriptorInfo infos[5];
+                infos[0].desc = core::smart_refctd_ptr(visBufferView);
+                //infos[0].image.imageLayout = ?;
+                infos[0].image.sampler = nullptr; // used immutable in the layout
+                infos[1].desc = createImageView(std::move(framebuffer), EF_R8G8B8A8_UNORM);
+                //infos[0].image.imageLayout = ?;
+                infos[1].image.sampler = nullptr; // storage image
+
+                infos[2].buffer.offset = 0u;
+                infos[2].buffer.size = cullShaderData.visible->getSize();
+                infos[2].desc = cullShaderData.visible;
+
+                infos[3].buffer.offset = 0u;
+                infos[3].buffer.size = cullShaderData.cubeCommandBuffer->getSize();
+                infos[3].desc = cullShaderData.cubeCommandBuffer;
+
+                infos[4].buffer.offset = 0u;
+                infos[4].buffer.size = cullShaderData.dispatchIndirect->getSize();
+                infos[4].desc = cullShaderData.dispatchIndirect;
+
+                sceneData.shadingDS = driver->createGPUDescriptorSet(smart_refctd_ptr(shadingDSLayout));
+                IGPUDescriptorSet::SWriteDescriptorSet writes[5];
+                for (auto i = 0u; i < 5u; i++)
+                {
+                    writes[i].dstSet = sceneData.shadingDS.get();
+                    writes[i].binding = i;
+                    writes[i].arrayElement = 0u;
+                    writes[i].count = 1u;
+                    writes[i].info = infos + i;
+                }
+                writes[0].descriptorType = EDT_COMBINED_IMAGE_SAMPLER;
+                writes[1].descriptorType = EDT_STORAGE_IMAGE;
+                writes[2].descriptorType = EDT_STORAGE_BUFFER;
+                writes[3].descriptorType = EDT_STORAGE_BUFFER;
+                writes[4].descriptorType = EDT_STORAGE_BUFFER;
+
+                driver->updateDescriptorSets(sizeof(writes) / sizeof(IGPUDescriptorSet::SWriteDescriptorSet), writes, 0u, nullptr);
+            }
+        }
 
         //
         smart_refctd_ptr<IGPUDescriptorSetLayout> vtDSLayout;
@@ -693,7 +777,7 @@ int main()
         }
         smart_refctd_ptr<IGPUDescriptorSetLayout> vgDSLayout;
         std::string extraCode;
-        // msvc is incredibly dumb and complains about type mismatches in code sections guarded by if constexpr
+        // msvc is incredibly dumb and complains about type mismatches in code sections guarded by ifconstexpr
         std::conditional_t<useSSBO,GPUMeshPacker::DSLayoutParamsSSBO,GPUMeshPacker::DSLayoutParamsUTB> tmp;
         [&](auto& layoutParams) -> void
         {
@@ -731,14 +815,14 @@ int main()
             uint32_t writeCount,infoCount;
             if constexpr (useSSBO)
             {
-                writeCount = gpump->getDescriptorSetWritesForSSBO(nullptr,nullptr,nullptr);
+                writeCount = gpump->getDescriptorSetWritesForSSBO(nullptr, nullptr, nullptr);
                 infoCount = 2u;
             }
             else
-                std::tie(writeCount,infoCount) = gpump->getDescriptorSetWritesForUTB(nullptr,nullptr,nullptr);
+            std::tie(writeCount, infoCount) = gpump->getDescriptorSetWritesForUTB(nullptr, nullptr, nullptr);
             vector<IGPUDescriptorSet::SWriteDescriptorSet> writesVG(++writeCount);
             vector<IGPUDescriptorSet::SDescriptorInfo> infosVG(++infoCount);
-
+            
             auto writes = writesVG.data();
             auto infos = infosVG.data();
             writes->dstSet = sceneData.vgDS.get();
@@ -752,24 +836,24 @@ int main()
             infos->buffer.size = batchDataSSBO->getSize();
             infos->desc = std::move(batchDataSSBO);
             infos++;
-
+            
             constexpr uint32_t vgDescriptorSetIx = 1u;
             if constexpr (useSSBO)
             {
-                extraCode = gpump->getGLSLForSSBO(vgDescriptorSetIx,layoutParams);
-                gpump->getDescriptorSetWritesForSSBO(writes,infos,sceneData.vgDS.get(),layoutParams);
+                extraCode = gpump->getGLSLForSSBO(vgDescriptorSetIx, layoutParams);
+                gpump->getDescriptorSetWritesForSSBO(writes, infos, sceneData.vgDS.get(), layoutParams);
             }
             else
             {
                 extraCode = gpump->getGLSLForUTB(vgDescriptorSetIx, layoutParams);
-                gpump->getDescriptorSetWritesForUTB(writes,infos,sceneData.vgDS.get(),layoutParams);
+                gpump->getDescriptorSetWritesForUTB(writes, infos, sceneData.vgDS.get(), layoutParams);
             }
-            driver->updateDescriptorSets(writeCount,writesVG.data(),0u,nullptr);
+            driver->updateDescriptorSets(writeCount, writesVG.data(), 0u, nullptr);
         }(tmp);
-        auto overrideShaderJustAfterVersionDirective = [am,driver,&extraCode](const char* path)
+        auto overrideShaderJustAfterVersionDirective = [am, driver, &extraCode](const char* path)
         {
             asset::IAssetLoader::SAssetLoadParams lp;
-            auto _specShader = IAsset::castDown<ICPUSpecializedShader>(*am->getAsset(path,lp).getContents().begin());
+            auto _specShader = IAsset::castDown<ICPUSpecializedShader>(*am->getAsset(path, lp).getContents().begin());
             assert(_specShader);
             const asset::ICPUShader* unspec = _specShader->getUnspecialized();
             assert(unspec->containsGLSL());
@@ -805,8 +889,8 @@ int main()
             };
 
             sceneData.fillVBufferPpln = driver->createGPURenderpassIndependentPipeline(
-                nullptr,driver->createGPUPipelineLayout(&pcRange,&pcRange+1,smart_refctd_ptr(vtDSLayout),smart_refctd_ptr(vgDSLayout),smart_refctd_ptr(perFrameDSLayout)),
-                &fillShaders[0].get(),&fillShaders[0].get()+2u,
+                nullptr, driver->createGPUPipelineLayout(&pcRange, &pcRange + 1, smart_refctd_ptr(vtDSLayout), smart_refctd_ptr(vgDSLayout), smart_refctd_ptr(perFrameDSLayout)),
+                &fillShaders[0].get(), &fillShaders[0].get() + 2u,
                 SVertexInputParams{},
                 SBlendParams{},
                 SPrimitiveAssemblyParams{},
@@ -814,7 +898,7 @@ int main()
             );
         }
         {
-            extraCode += "#define _NBL_VT_FLOAT_VIEWS_COUNT "+std::to_string(gpuvt->getFloatViews().size())+"\n";
+            extraCode += "#define _NBL_VT_FLOAT_VIEWS_COUNT " + std::to_string(gpuvt->getFloatViews().size()) + "\n";
             std::cout << gpuvt->getGLSLFunctionsIncludePath().c_str() << std::endl;
 
             SPushConstantRange pcRange;
@@ -823,59 +907,235 @@ int main()
             pcRange.stageFlags = ISpecializedShader::ESS_COMPUTE;
 
             sceneData.shadeVBufferPpln = driver->createGPUComputePipeline(
-                nullptr,driver->createGPUPipelineLayout(&pcRange,&pcRange+1,std::move(vtDSLayout),std::move(vgDSLayout),std::move(perFrameDSLayout),std::move(shadingDSLayout)),
+                nullptr, driver->createGPUPipelineLayout(&pcRange, &pcRange + 1, std::move(vtDSLayout), std::move(vgDSLayout), std::move(perFrameDSLayout), std::move(shadingDSLayout)),
                 overrideShaderJustAfterVersionDirective("../shadeVBuffer.comp")
             );
         }
     }
 
-    // cull shader ds
+    // occlusion cull shader pipeline setup
+    {
+        cullShaderData.cubeVertexBuffers[0].offset = 0ull;
+        cullShaderData.cubeVertexBuffers[0].buffer = cullShaderData.cubeMVPs;
+        
+        const uint16_t indices[36] = {
+            0, 2, 1,
+            0, 3, 2,
+            0, 4, 3,
+            3, 4, 7,
+            4, 5, 7,
+            5, 6, 7,
+            5, 1, 6,
+            1, 2, 6,
+            7, 6, 3,
+            6, 2, 3,
+            4, 0, 5,
+            0, 1, 5
+        };
+
+        cullShaderData.cubeIdxBuffer.offset = 0ull;
+        cullShaderData.cubeIdxBuffer.buffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(indices), indices);
+
+        SVertexInputParams vtxParams;
+        vtxParams.enabledAttribFlags = 0b1111u;
+        vtxParams.enabledBindingFlags = 0b1u;
+
+        vtxParams.bindings[0].inputRate = EVIR_PER_INSTANCE;
+        vtxParams.bindings[0].stride = sizeof(core::vectorSIMDf) * 4u;
+
+        for (uint32_t i = 0u; i < 4u; i++)
+        {
+            vtxParams.attributes[i].binding = 0u;
+            vtxParams.attributes[i].format = EF_R32G32B32A32_SFLOAT;
+            vtxParams.attributes[i].relativeOffset = sizeof(core::vectorSIMDf) * i;
+        }
+
+        {
+            IGPUDescriptorSetLayout::SBinding bindings[1];
+
+            bindings[0].binding = 0u;
+            bindings[0].count = 1u;
+            bindings[0].samplers = nullptr;
+            bindings[0].stageFlags = ISpecializedShader::ESS_FRAGMENT;
+            bindings[0].type = EDT_STORAGE_BUFFER;
+
+            cullShaderData.occlusionCullDSLayout = driver->createGPUDescriptorSetLayout(bindings, bindings + sizeof(bindings) / sizeof(IGPUDescriptorSetLayout::SBinding));
+        }
+
+        {
+            cullShaderData.occlusionCullDS = driver->createGPUDescriptorSet(smart_refctd_ptr(cullShaderData.occlusionCullDSLayout));
+
+            IGPUDescriptorSet::SDescriptorInfo info[1];
+            info[0].desc = core::smart_refctd_ptr(cullShaderData.visible);
+            info[0].buffer.offset = 0u;
+            info[0].buffer.size = cullShaderData.visible->getSize();
+
+
+            IGPUDescriptorSet::SWriteDescriptorSet write[1];
+            write[0].dstSet = cullShaderData.occlusionCullDS.get();
+            write[0].binding = 0;
+            write[0].arrayElement = 0u;
+            write[0].count = 1u;
+            write[0].descriptorType = EDT_STORAGE_BUFFER;
+            write[0].info = info;
+
+            driver->updateDescriptorSets(sizeof(write) / sizeof(IGPUDescriptorSet::SWriteDescriptorSet), write, 0u, nullptr);
+        }
+
+        asset::IAssetLoader::SAssetLoadParams lp;
+        auto vtxOcclusionShader = IAsset::castDown<ICPUSpecializedShader>(*am->getAsset("../occlusionCull.vert", lp).getContents().begin());
+        auto fragOcclusionShader = IAsset::castDown<ICPUSpecializedShader>(*am->getAsset("../occlusionCull.frag", lp).getContents().begin());
+        assert(vtxOcclusionShader);
+        assert(fragOcclusionShader);
+        assert(vtxOcclusionShader->getUnspecialized()->containsGLSL());
+        assert(fragOcclusionShader->getUnspecialized()->containsGLSL());
+
+        auto gpuVtxOcclusionShader = driver->getGPUObjectsFromAssets(&vtxOcclusionShader, &vtxOcclusionShader + 1u)->begin()[0];
+        auto gpuFragOcclusionShader = driver->getGPUObjectsFromAssets(&fragOcclusionShader, &fragOcclusionShader + 1u)->begin()[0];
+
+        IGPUSpecializedShader* occlusionShaders[2] = {
+            gpuVtxOcclusionShader.get(), gpuFragOcclusionShader.get()
+        };
+
+        SRasterizationParams rasterizationParams;
+        rasterizationParams.depthWriteEnable = false;
+
+        cullShaderData.occlusionCullPipeline = driver->createGPURenderpassIndependentPipeline(
+            nullptr, driver->createGPUPipelineLayout(nullptr, nullptr, smart_refctd_ptr(cullShaderData.occlusionCullDSLayout)),
+            occlusionShaders, occlusionShaders + 2u,
+            vtxParams,
+            SBlendParams{},
+            SPrimitiveAssemblyParams{},
+            rasterizationParams
+        );
+    }
+
+    // map shader pipeline setup
+    {
+        SPushConstantRange range{ ISpecializedShader::ESS_COMPUTE,0u,sizeof(uint32_t) };
+
+        {
+            IGPUDescriptorSetLayout::SBinding bindings[4];
+            for (uint32_t i = 0u; i < 4; i++)
+            {
+                bindings[i].binding = i;
+                bindings[i].count = 1u;
+                bindings[i].samplers = nullptr;
+                bindings[i].stageFlags = ISpecializedShader::ESS_COMPUTE;
+                bindings[i].type = EDT_STORAGE_BUFFER;
+            }
+
+            cullShaderData.mapDSLayout = driver->createGPUDescriptorSetLayout(bindings, bindings + sizeof(bindings) / sizeof(IGPUDescriptorSetLayout::SBinding));
+        }
+        
+        {
+            IGPUDescriptorSet::SDescriptorInfo infos[4];
+
+            infos[0].desc = sceneData.occlusionCulledMdiBuffer;
+            infos[0].buffer.offset = 0u;
+            infos[0].buffer.size = sceneData.occlusionCulledMdiBuffer->getSize();
+
+            infos[1].desc = cullShaderData.visible;
+            infos[1].buffer.offset = 0u;
+            infos[1].buffer.size = cullShaderData.visible->getSize();
+
+            infos[2].desc = cullShaderData.cubeDrawGUIDs;
+            infos[2].buffer.offset = 0u;
+            infos[2].buffer.size = cullShaderData.cubeDrawGUIDs->getSize();
+
+            infos[3].desc = cullShaderData.cubeCommandBuffer;
+            infos[3].buffer.offset = 0u;
+            infos[3].buffer.size = cullShaderData.cubeCommandBuffer->getSize();
+
+            cullShaderData.mapDS = driver->createGPUDescriptorSet(smart_refctd_ptr(cullShaderData.mapDSLayout));
+
+            IGPUDescriptorSet::SWriteDescriptorSet writes[4];
+            for (uint32_t i = 0u; i < 4; i++)
+            {
+                writes[i].dstSet = cullShaderData.mapDS.get();
+                writes[i].binding = i;
+                writes[i].arrayElement = 0u;
+                writes[i].count = 1u;
+                writes[i].descriptorType = EDT_STORAGE_BUFFER;
+                writes[i].info = infos + i;
+            }
+
+            driver->updateDescriptorSets(sizeof(writes) / sizeof(IGPUDescriptorSet::SWriteDescriptorSet), writes, 0u, nullptr);
+        }
+
+        asset::IAssetLoader::SAssetLoadParams lp;
+        auto mapShader = IAsset::castDown<ICPUSpecializedShader>(*am->getAsset("../occlusionCullMap.comp", lp).getContents().begin());
+        assert(mapShader);
+        const asset::ICPUShader* unspec = mapShader->getUnspecialized();
+        assert(unspec->containsGLSL());
+
+        auto gpuMapShader = driver->getGPUObjectsFromAssets(&mapShader, &mapShader + 1u)->begin()[0];
+
+        auto mapPipelineLayout = driver->createGPUPipelineLayout(&range, &range + 1u, core::smart_refctd_ptr(cullShaderData.mapDSLayout));
+        cullShaderData.mapPipeline = driver->createGPUComputePipeline(nullptr, std::move(mapPipelineLayout), std::move(gpuMapShader));
+    }
+
+    // frustum cull shader pipeline setup
     {
         SPushConstantRange range{ ISpecializedShader::ESS_COMPUTE,0u,sizeof(CullShaderData_t) };
         
         {
-            IGPUDescriptorSetLayout::SBinding bindings[3];
-            bindings[0].binding = 0u;
-            bindings[0].count = 1u;
-            bindings[0].samplers = nullptr;
-            bindings[0].stageFlags = ISpecializedShader::ESS_COMPUTE;
-            bindings[0].type = EDT_STORAGE_BUFFER;
-        
-            bindings[1].binding = 1u;
-            bindings[1].count = 1u;
-            bindings[1].samplers = nullptr;
-            bindings[1].stageFlags = ISpecializedShader::ESS_COMPUTE;
-            bindings[1].type = EDT_STORAGE_BUFFER;
-            
-            bindings[2].binding = 2u;
-            bindings[2].count = 1u;
-            bindings[2].samplers = nullptr;
-            bindings[2].stageFlags = ISpecializedShader::ESS_COMPUTE;
-            bindings[2].type = EDT_STORAGE_BUFFER;
+            IGPUDescriptorSetLayout::SBinding bindings[9];
+            for (uint32_t i = 0u; i < 9; i++)
+            {
+                bindings[i].binding = i;
+                bindings[i].count = 1u;
+                bindings[i].samplers = nullptr;
+                bindings[i].stageFlags = ISpecializedShader::ESS_COMPUTE;
+                bindings[i].type = EDT_STORAGE_BUFFER;
+            }
 
             cullShaderData.cullDSLayout = driver->createGPUDescriptorSetLayout(bindings, bindings + sizeof(bindings) / sizeof(IGPUDescriptorSetLayout::SBinding));
         }
         
         {
-            IGPUDescriptorSet::SDescriptorInfo infos[3];
+            IGPUDescriptorSet::SDescriptorInfo infos[9];
         
             infos[0].desc = core::smart_refctd_ptr(cullShaderData.perBatchCull);
             infos[0].buffer.offset = 0u;
             infos[0].buffer.size = cullShaderData.perBatchCull->getSize();
         
-            infos[1].desc = core::smart_refctd_ptr(cullShaderData.commandBuffer);
+            infos[1].desc = core::smart_refctd_ptr(cullShaderData.mvpBuffer);
             infos[1].buffer.offset = 0u;
-            infos[1].buffer.size = cullShaderData.commandBuffer->getSize();
+            infos[1].buffer.size = cullShaderData.mvpBuffer->getSize();
 
-            infos[2].desc = core::smart_refctd_ptr(cullShaderData.mvpBuffer);
+            infos[2].desc = cullShaderData.cubeVertexBuffers[0].buffer;
             infos[2].buffer.offset = 0u;
-            infos[2].buffer.size = cullShaderData.mvpBuffer->getSize();
+            infos[2].buffer.size = cullShaderData.cubeVertexBuffers[0].buffer->getSize();
+
+            infos[3].desc = cullShaderData.cubeCommandBuffer;
+            infos[3].buffer.offset = 0u;
+            infos[3].buffer.size = cullShaderData.cubeCommandBuffer->getSize();
+
+            infos[4].desc = sceneData.frustumCulledMdiBuffer;
+            infos[4].buffer.offset = 0u;
+            infos[4].buffer.size = sceneData.frustumCulledMdiBuffer->getSize();
+
+            infos[5].desc = sceneData.occlusionCulledMdiBuffer;
+            infos[5].buffer.offset = 0u;
+            infos[5].buffer.size = sceneData.occlusionCulledMdiBuffer->getSize();
+
+            infos[6].desc = cullShaderData.cubeDrawGUIDs;
+            infos[6].buffer.offset = 0u;
+            infos[6].buffer.size = cullShaderData.cubeDrawGUIDs->getSize();
+
+            infos[7].desc = cullShaderData.dispatchIndirect;
+            infos[7].buffer.offset = 0u;
+            infos[7].buffer.size = cullShaderData.dispatchIndirect->getSize();
+
+            infos[8].desc = cullShaderData.visible;
+            infos[8].buffer.offset = 0u;
+            infos[8].buffer.size = cullShaderData.visible->getSize();
 
             cullShaderData.cullDS = driver->createGPUDescriptorSet(smart_refctd_ptr(cullShaderData.cullDSLayout));
         
-            IGPUDescriptorSet::SWriteDescriptorSet writes[3];
-        
-            for (uint32_t i = 0u; i < 3; i++)
+            IGPUDescriptorSet::SWriteDescriptorSet writes[9];
+            for (uint32_t i = 0u; i < 9; i++)
             {
                 writes[i].dstSet = cullShaderData.cullDS.get();
                 writes[i].binding = i;
@@ -900,21 +1160,43 @@ int main()
         cullShaderData.cullPipeline = driver->createGPUComputePipeline(nullptr, std::move(cullPipelineLayout), std::move(gpuCullShader));
     }
 
-    auto cullBatches = [&driver, &cullShaderData](const core::matrix4SIMD& vp, bool freezeCulling)
+    auto cullBatches = [&driver, &cullShaderData, &sceneData](const core::matrix4SIMD& vp, const core::vector3df& camPos, bool freezeCulling)
     {
         driver->bindDescriptorSets(EPBP_COMPUTE, cullShaderData.cullPipeline->getLayout(), 0u, 1u, &cullShaderData.cullDS.get(), nullptr);
         driver->bindComputePipeline(cullShaderData.cullPipeline.get());
 
         CullShaderData_t cullPushConstants;
         cullPushConstants.viewProjMatrix = vp;
-        cullPushConstants.maxBatchCount = cullShaderData.maxBatchCount;
-        cullPushConstants.freezeCulling = static_cast<uint32_t>(freezeCulling);
+        cullPushConstants.worldCamPos.x = camPos.X;
+        cullPushConstants.worldCamPos.y = camPos.Y;
+        cullPushConstants.worldCamPos.z = camPos.Z;
+        cullPushConstants.freezeCullingAndMaxBatchCountPacked = cullShaderData.maxBatchCount | (static_cast<uint32_t>(freezeCulling) << 16u);
 
         driver->pushConstants(cullShaderData.cullPipeline->getLayout(), ISpecializedShader::ESS_COMPUTE, 0u, sizeof(CullShaderData_t), &cullPushConstants);
 
-        const uint32_t cullWorkGroups = (cullPushConstants.maxBatchCount - 1u) / WORKGROUP_SIZE + 1u;
+        const uint32_t cullWorkGroups = (cullShaderData.maxBatchCount - 1u) / WORKGROUP_SIZE + 1u;
 
         driver->dispatch(cullWorkGroups, 1u, 1u);
+    };
+
+    const IGPUDescriptorSet* vBuffDs[4] = { sceneData.vtDS.get(),sceneData.vgDS.get(),sceneData.perFrameDS.get(),sceneData.shadingDS.get() };
+    auto fillVBuffer = [&driver, &sceneData, &vBuffDs](core::smart_refctd_ptr<IGPUBuffer> mdiBuffer)
+    {
+        driver->bindDescriptorSets(video::EPBP_GRAPHICS, sceneData.fillVBufferPpln->getLayout(), 0u, 3u, vBuffDs, nullptr);
+        driver->bindGraphicsPipeline(sceneData.fillVBufferPpln.get());
+
+        for (auto i = 0u; i < sceneData.pushConstantsData.size(); i++)
+        {
+            driver->pushConstants(sceneData.fillVBufferPpln->getLayout(), IGPUSpecializedShader::ESS_ALL, 0u, sizeof(uint32_t), &sceneData.pushConstantsData[i]);
+
+            const asset::SBufferBinding<IGPUBuffer> noVtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT] = {};
+            driver->drawIndexedIndirect(
+                noVtxBindings, DrawIndexedIndirectInput::mode, DrawIndexedIndirectInput::indexType,
+                sceneData.idxBuffer.get(), mdiBuffer.get(),
+                sceneData.drawIndirectInput[i].offset, sceneData.drawIndirectInput[i].maxCount,
+                sizeof(DrawElementsIndirectCommand_t)
+            );
+        }
     };
 
     //! we want to move around the scene and view it from different angles
@@ -943,46 +1225,58 @@ int main()
         memcpy(uboData.NormalMat, camera->getViewMatrix().pointer(), sizeof(core::matrix3x4SIMD));
         driver->updateBufferRangeViaStagingBuffer(sceneData.ubo.get(), 0u, sizeof(SBasicViewParameters), &uboData);
 
-        // cull MDIs
-        cullBatches(camera->getConcatenatedMatrix(), freezeCulling);
-        COpenGLExtensionHandler::pGlMemoryBarrier(GL_COMMAND_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT);
+        // frustum cull
+        // TODO: fill instanceCounts of frustumCulledMdiBuffer with zeros
+        cullBatches(camera->getConcatenatedMatrix(), camera->getPosition(), freezeCulling);
+        COpenGLExtensionHandler::pGlMemoryBarrier(GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT | GL_COMMAND_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT);
 
+        // first fill visibility buffer pass
         driver->setRenderTarget(visBuffer);
         driver->clearZBuffer();
-        const uint32_t invalidObjectCode[4] = {~0u,0u,0u,0u};
-        driver->clearColorBuffer(EFAP_COLOR_ATTACHMENT0,invalidObjectCode);
+        const uint32_t invalidObjectCode[4] = { ~0u,0u,0u,0u };
+        driver->clearColorBuffer(EFAP_COLOR_ATTACHMENT0, invalidObjectCode);
+        fillVBuffer(sceneData.frustumCulledMdiBuffer);
 
-        const IGPUDescriptorSet* ds[4] = {sceneData.vtDS.get(),sceneData.vgDS.get(),sceneData.perFrameDS.get(),sceneData.shadingDS.get()};
-        driver->bindDescriptorSets(video::EPBP_GRAPHICS,sceneData.fillVBufferPpln->getLayout(),0u,3u,ds,nullptr);
-        // fill visibility buffer
-        driver->bindGraphicsPipeline(sceneData.fillVBufferPpln.get());
-        for (auto i = 0u; i<sceneData.pushConstantsData.size(); i++)
-        {
-            driver->pushConstants(sceneData.fillVBufferPpln->getLayout(),IGPUSpecializedShader::ESS_ALL,0u,sizeof(uint32_t),sceneData.pushConstantsData.data()+i);
+        // occlusion cull (against partially filled new Z-buffer)
+        driver->setRenderTarget(zBuffOnlyFrameBuffer);
+        driver->bindDescriptorSets(video::EPBP_GRAPHICS, cullShaderData.occlusionCullPipeline->getLayout(), 0u, 1u, &cullShaderData.occlusionCullDS.get(), nullptr);
+        driver->bindGraphicsPipeline(cullShaderData.occlusionCullPipeline.get());
 
-            const asset::SBufferBinding<IGPUBuffer> noVtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT] = {};
-            driver->drawIndexedIndirect(
-                noVtxBindings,DrawIndexedIndirectInput::mode,DrawIndexedIndirectInput::indexType,
-                sceneData.idxBuffer.get(),sceneData.mdiBuffer.get(),
-                sceneData.drawIndirectInput[i].offset,sceneData.drawIndirectInput[i].maxCount,
-                sizeof(DrawElementsIndirectCommand_t)
-            );
-        }
+        driver->drawIndexedIndirect(
+            cullShaderData.cubeVertexBuffers, EPT_TRIANGLE_LIST, EIT_16BIT,
+            cullShaderData.cubeIdxBuffer.buffer.get(), cullShaderData.cubeCommandBuffer.get(),
+            0u, 1u,
+            sizeof(DrawElementsIndirectCommand_t)
+        );
+        COpenGLExtensionHandler::pGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+
+        // map batchIDs of batches that passed occlusion test to the `occlusionCulledMdiBuffer`
+        driver->bindDescriptorSets(video::EPBP_COMPUTE, cullShaderData.mapPipeline->getLayout(), 0u, 1u, &cullShaderData.mapDS.get(), nullptr);
+        driver->bindComputePipeline(cullShaderData.mapPipeline.get());
+        
+        driver->dispatchIndirect(cullShaderData.dispatchIndirect.get(), 0u);
+        COpenGLExtensionHandler::pGlMemoryBarrier(GL_COMMAND_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT);
+
+        // second fill visibility buffer pass
+        driver->setRenderTarget(visBuffer);
+        fillVBuffer(sceneData.occlusionCulledMdiBuffer);
+        COpenGLExtensionHandler::extGlMemoryBarrier(GL_FRAMEBUFFER_BARRIER_BIT);
 
 #ifdef DEBUG_AABBS
         //draw aabbs
         draw3DLine->draw(camera->getConcatenatedMatrix(), dbgLines);
 #endif
 
-        // shade
-        driver->bindDescriptorSets(video::EPBP_COMPUTE,sceneData.shadeVBufferPpln->getLayout(),0u,4u,ds,nullptr);
+        // shade visibility buffer
+        driver->bindDescriptorSets(video::EPBP_COMPUTE,sceneData.shadeVBufferPpln->getLayout(),0u,4u,vBuffDs,nullptr);
         driver->bindComputePipeline(sceneData.shadeVBufferPpln.get());
         {
             auto camPos = camera->getAbsolutePosition();
-            driver->pushConstants(sceneData.shadeVBufferPpln->getLayout(),IGPUSpecializedShader::ESS_COMPUTE,0u,sizeof(camPos),&camPos.X);
+
+            driver->pushConstants(sceneData.shadeVBufferPpln->getLayout(),IGPUSpecializedShader::ESS_COMPUTE,0u,sizeof(core::vector3df),&camPos.X);
         }
         driver->dispatch((params.WindowSize.Width-1u)/SHADING_WG_SIZE_X+1u,(params.WindowSize.Height-1u)/SHADING_WG_SIZE_Y+1u,1u);
-        COpenGLExtensionHandler::extGlMemoryBarrier(GL_FRAMEBUFFER_BARRIER_BIT);
+        COpenGLExtensionHandler::extGlMemoryBarrier(GL_COMMAND_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT | GL_FRAMEBUFFER_BARRIER_BIT); // is GL_FRAMEBUFFER_BARRIER_BIT needed?
 
         // blit
         driver->blitRenderTargets(fb,0);
@@ -999,6 +1293,7 @@ int main()
             device->setWindowCaption(str.str().c_str());
             lastFPSTime = time;
         }
+
     }
     driver->removeAllFrameBuffers();
 }

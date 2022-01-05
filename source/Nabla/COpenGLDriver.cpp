@@ -1564,7 +1564,7 @@ void COpenGLDriver::copyImageToBuffer(IGPUImage* srcImage, IGPUBuffer* dstBuffer
 		//assert(?);
 
 		uint32_t pitch = ((it->bufferRowLength ? it->bufferRowLength:it->imageExtent.width)*bpp).getIntegerApprox();
-		int32_t alignment = 0x1<<core::min(core::max(core::findLSB(it->bufferOffset),core::findLSB(pitch)),3u);
+		int32_t alignment = 0x1<<core::min(core::min(core::findLSB(it->bufferOffset),core::findLSB(pitch)),3u);
         ctx->nextState.pixelPack.alignment = alignment;
         ctx->nextState.pixelPack.rowLength = it->bufferRowLength;
         ctx->nextState.pixelPack.imgHeight = it->bufferImageHeight;
