@@ -274,7 +274,8 @@ nbl_glsl_MC_quot_pdf_aov_t gen_sample_ray(
 	nbl_glsl_MC_quot_pdf_aov_t result = nbl_glsl_MC_runGenerateAndRemainderStream(precomp,gcs,rnps,rand,s);
 
 	// russian roulette
-	if (depth>=5u)
+	const uint noRussianRouletteDepth = bitfieldExtract(staticViewData.pathDepth_noRussianRouletteDepth_samplesPerPixelPerDispatch,8,8);
+	if (depth>noRussianRouletteDepth)
 	{
 		const float rrContinuationFactor = 0.25f;
 		const float survivalProb = min(nbl_glsl_MC_colorToScalar(result.quotient)/rrContinuationFactor,1.f);

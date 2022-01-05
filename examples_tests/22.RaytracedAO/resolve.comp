@@ -29,15 +29,17 @@ void main()
 		vec3 acc = fetchAccumulation(gl_GlobalInvocationID.xy,0u);
 		vec3 alb = texelFetch(albedoSamples,ivec3(pixelCoord,0),0).rgb;
 		vec3 nml = nbl_glsl_decodeRGB10A2_SNORM(texelFetch(normalSamples,ivec3(pixelCoord,0),0).r).xyz;
-		for (uint i=1u; i<staticViewData.samplesPerPixelPerDispatch; i++)
+
+		const uint samplesPerPixelPerDispatch = bitfieldExtract(staticViewData.pathDepth_noRussianRouletteDepth_samplesPerPixelPerDispatch,16,16);
+		for (uint i=1u; i<samplesPerPixelPerDispatch; i++)
 		{
 			acc += fetchAccumulation(gl_GlobalInvocationID.xy,i);
 			alb += texelFetch(albedoSamples,ivec3(pixelCoord,i),0).rgb;
 			nml += nbl_glsl_decodeRGB10A2_SNORM(texelFetch(normalSamples,ivec3(pixelCoord,i),0).r).xyz;
 		}
-		acc /= float(staticViewData.samplesPerPixelPerDispatch);
-		alb /= float(staticViewData.samplesPerPixelPerDispatch);
-		nml /= float(staticViewData.samplesPerPixelPerDispatch);
+		acc /= float(samplesPerPixelPerDispatch);
+		alb /= float(samplesPerPixelPerDispatch);
+		nml /= float(samplesPerPixelPerDispatch);
 
 		// transform normal
 

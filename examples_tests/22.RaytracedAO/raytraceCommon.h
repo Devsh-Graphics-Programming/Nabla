@@ -87,7 +87,13 @@ struct SLight
 struct StaticViewData_t
 {
 	uvec2   imageDimensions;
-	uint    samplesPerPixelPerDispatch;
+#ifdef __cplusplus
+	uint8_t pathDepth;
+	uint8_t noRussianRouletteDepth;
+	uint16_t samplesPerPixelPerDispatch;
+#else
+	uint    pathDepth_noRussianRouletteDepth_samplesPerPixelPerDispatch;
+#endif
 	uint	lightCount;
 };
 

@@ -65,11 +65,11 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		uint64_t getTotalSamplesPerPixelComputed() const
 		{
 			const auto framesDispatched = static_cast<uint64_t>(m_framesDispatched);
-			return framesDispatched*m_staticViewData.samplesPerPixelPerDispatch;
+			return framesDispatched*getSamplesPerPixelPerDispatch();
 		}
 		uint64_t getTotalSamplesComputed() const
 		{
-			const auto samplesPerDispatch = static_cast<uint64_t>(m_staticViewData.samplesPerPixelPerDispatch*m_staticViewData.imageDimensions.x*m_staticViewData.imageDimensions.y);
+			const auto samplesPerDispatch = static_cast<uint64_t>(getSamplesPerPixelPerDispatch()*m_staticViewData.imageDimensions.x*m_staticViewData.imageDimensions.y);
 			const auto framesDispatched = static_cast<uint64_t>(m_framesDispatched);
 			return framesDispatched*samplesPerDispatch;
 		}
@@ -168,9 +168,6 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		uint64_t m_totalRaysCast;
 		StaticViewData_t m_staticViewData;
 		RaytraceShaderCommonData_t m_raytraceCommonData;
-		// tmp
-		uint16_t m_lastPathVertexDepth;
-		static inline constexpr uint16_t m_UNUSED_russianRouletteDepth = 5u;
 
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer> m_indexBuffer;
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer> m_indirectDrawBuffers[2];

@@ -985,7 +985,8 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, core::s
 	size_t scrambleBufferSize=0u;
 	size_t raygenBufferSize=0u,intersectionBufferSize=0u;
 	{
-		m_lastPathVertexDepth = 0u;
+		m_staticViewData.pathDepth = 0u;
+		m_staticViewData.noRussianRouletteDepth = 5u;
 		uint32_t bxdfSamples=1u,maxNEESamples=0u;
 		std::stack<const ext::MitsubaLoader::CElementIntegrator*> integratorStack;
 		integratorStack.push(&m_globalMeta->m_global.m_integrator);
@@ -997,7 +998,7 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, core::s
 			switch (integrator->type)
 			{
 				case Enum::DIRECT:
-					m_lastPathVertexDepth = 2u;
+					m_staticViewData.pathDepth = 2u;
 					bxdfSamples = integrator->direct.bsdfSamples;
 					maxNEESamples = integrator->direct.emitterSamples;
 					break;
@@ -1005,7 +1006,8 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, core::s
 				case Enum::VOL_PATH_SIMPLE:
 				case Enum::VOL_PATH:
 				case Enum::BDPT:
-					m_lastPathVertexDepth = integrator->bdpt.maxPathDepth;
+					m_staticViewData.pathDepth = integrator->bdpt.maxPathDepth;
+					m_staticViewData.noRussianRouletteDepth = integrator->bdpt.russianRouletteDepth-1u;
 					break;
 				case Enum::ADAPTIVE:
 					for (size_t i=0u; i<integrator->multichannel.childCount; i++)
@@ -1022,23 +1024,25 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, core::s
 					break;
 			};
 		}
-		if (m_lastPathVertexDepth==0)
+		if (m_staticViewData.pathDepth==0)
 		{
 			printf("[ERROR] No suppoerted Integrator found in the Mitsuba XML, setting default.\n");
-			m_lastPathVertexDepth = 8u;
+			m_staticViewData.pathDepth = 8u;
 		}
-		else if (m_lastPathVertexDepth>MAX_PATH_DEPTH)
+		else if (m_staticViewData.pathDepth>MAX_PATH_DEPTH)
 		{
-			printf("[WARNING] Path Depth %d greater than maximum supported, clamping to %d\n",m_lastPathVertexDepth,MAX_PATH_DEPTH);
-			m_lastPathVertexDepth = MAX_PATH_DEPTH;
+			printf("[WARNING] Path Depth %d greater than maximum supported, clamping to %d\n",m_staticViewData.pathDepth,MAX_PATH_DEPTH);
+			m_staticViewData.pathDepth = MAX_PATH_DEPTH;
 		}
-		printf("Path Depth %d\n",m_lastPathVertexDepth);
+		printf("Path Depth %d\n",m_staticViewData.pathDepth);
+		printf("No Russian Roulette Until %d\n",m_staticViewData.noRussianRouletteDepth);
 
 		uint32_t _maxRaysPerDispatch = 0u;
 		auto setRayBufferSizes = [&bxdfSamples,&maxNEESamples,renderPixelCount,this,&_maxRaysPerDispatch,&raygenBufferSize,&intersectionBufferSize](uint32_t sampleMultiplier) -> void
 		{
 			m_staticViewData.samplesPerPixelPerDispatch = (bxdfSamples+maxNEESamples)*sampleMultiplier;
-			const size_t minimumSampleCountPerDispatch = static_cast<size_t>(renderPixelCount)*m_staticViewData.samplesPerPixelPerDispatch;
+
+			const size_t minimumSampleCountPerDispatch = static_cast<size_t>(renderPixelCount)*getSamplesPerPixelPerDispatch();
 			_maxRaysPerDispatch = static_cast<uint32_t>(minimumSampleCountPerDispatch);
 			const auto doubleBufferSampleCountPerDispatch = minimumSampleCountPerDispatch*2ull;
 
@@ -1049,7 +1053,7 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, core::s
 		{
 			uint32_t sampleMultiplier = 0u;
 			const auto maxSSBOSize = core::min(m_driver->getMaxSSBOSize(),256u<<20);
-			while (raygenBufferSize<=maxSSBOSize && intersectionBufferSize<=maxSSBOSize) // for AMD && _maxRaysPerDispatch*WORKGROUP_SIZE<=64<<10))
+			while (sampleMultiplier<0x10000u && raygenBufferSize<=maxSSBOSize && intersectionBufferSize<=maxSSBOSize)
 				setRayBufferSizes(++sampleMultiplier);
 			if (sampleMultiplier==1u)
 			{
@@ -1057,16 +1061,15 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, core::s
 				maxNEESamples = 0u;
 				setRayBufferSizes(sampleMultiplier);
 			}
-			printf("[INFO] Using %d samples (per pixel) per dispatch\n",m_staticViewData.samplesPerPixelPerDispatch);
+			printf("[INFO] Using %d samples (per pixel) per dispatch\n",getSamplesPerPixelPerDispatch());
 		}
 	}
 	
 	(std::ofstream("runtime_defines.glsl")
 		<< "#define _NBL_EXT_MITSUBA_LOADER_VT_STORAGE_VIEW_COUNT " << m_globalMeta->m_global.getVTStorageViewCount() << "\n"
 		<< m_globalMeta->m_global.m_materialCompilerGLSL_declarations
-		<< "#define LAST_PATH_VERTEX_DEPTH " << m_lastPathVertexDepth << "\n"
 		<< "#ifndef MAX_RAYS_GENERATED\n"
-		<< "#	define MAX_RAYS_GENERATED " << m_staticViewData.samplesPerPixelPerDispatch << "\n"
+		<< "#	define MAX_RAYS_GENERATED " << getSamplesPerPixelPerDispatch() << "\n"
 		<< "#endif\n"
 	).close();
 	
@@ -1356,7 +1359,9 @@ void Renderer::deinitScreenSizedResources()
 	m_resolvePipeline = nullptr;
 
 	m_staticViewData.imageDimensions = {0u, 0u};
-	m_staticViewData.samplesPerPixelPerDispatch = 0u;
+	m_staticViewData.pathDepth = 8u;
+	m_staticViewData.noRussianRouletteDepth = 5u;
+	m_staticViewData.samplesPerPixelPerDispatch = 1u;
 	m_totalRaysCast = 0ull;
 	m_rcpPixelSize = {0.f,0.f};
 	m_framesDispatched = 0u;
@@ -1551,7 +1556,8 @@ bool Renderer::render(nbl::ITimer* timer)
 	// path trace
 	m_raytraceCommonData.depth = 0u;
 	uint32_t nextTraceRaycount = 0xdeadbeefu; // the raygen shader doesn't care
-	while (m_raytraceCommonData.depth!=m_lastPathVertexDepth) {
+	while (m_raytraceCommonData.depth!=m_staticViewData.pathDepth)
+	{
 		 if(!traceBounce(nextTraceRaycount))
 			 return false;
 	}
@@ -1566,7 +1572,7 @@ bool Renderer::render(nbl::ITimer* timer)
 			|GL_FRAMEBUFFER_BARRIER_BIT|GL_TEXTURE_UPDATE_BARRIER_BIT
 		);
 	}
-	m_raytraceCommonData.samplesComputed += m_staticViewData.samplesPerPixelPerDispatch;
+	m_raytraceCommonData.samplesComputed += getSamplesPerPixelPerDispatch();
 
 	// TODO: autoexpose properly
 	return true;
@@ -1604,7 +1610,7 @@ bool Renderer::traceBounce(uint32_t & raycount)
 		COpenGLExtensionHandler::pGlMemoryBarrier(GL_ALL_BARRIER_BITS);
 	}
 	// trace rays
-	if (m_raytraceCommonData.depth!=m_lastPathVertexDepth)
+	if (m_raytraceCommonData.depth!=m_staticViewData.pathDepth)
 	{
 		m_driver->copyBuffer(m_rayCountBuffer.get(),m_littleDownloadBuffer.get(),sizeof(uint32_t)*m_raytraceCommonData.rayCountWriteIx,0u,sizeof(uint32_t));
 		static_assert(core::isPoT(RAYCOUNT_N_BUFFERING),"Raycount Buffer needs to be PoT sized!");

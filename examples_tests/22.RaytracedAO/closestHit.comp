@@ -77,7 +77,8 @@ void main()
 			const nbl_glsl_MC_oriented_material_t material = nbl_glsl_MC_material_data_t_getOriented(batchInstanceData.material,frontfacing);
 			contrib.color = contrib.albedo = nbl_glsl_MC_oriented_material_t_getEmissive(material);
 	
-			const bool _continue = vertex_depth!=LAST_PATH_VERTEX_DEPTH && ray.maxT==nbl_glsl_FLT_MAX; // not last vertex and not NEE path
+			const uint pathDepth = bitfieldExtract(staticViewData.pathDepth_noRussianRouletteDepth_samplesPerPixelPerDispatch,0,8);
+			const bool _continue = vertex_depth!=pathDepth && ray.maxT==nbl_glsl_FLT_MAX; // not last vertex and not NEE path
 			if (_continue)
 			{
 				// if we ever support spatially varying emissive, we'll need to hoist barycentric computation and UV fetching to the position fetching
@@ -109,7 +110,8 @@ void main()
 			
 		Contribution_normalizeAoV(contrib);
 		
-		const uvec3 accumulationLocation = uvec3(outPixelLocation,sampleID%staticViewData.samplesPerPixelPerDispatch);
+		const uint samplesPerPixelPerDispatch = bitfieldExtract(staticViewData.pathDepth_noRussianRouletteDepth_samplesPerPixelPerDispatch,16,16);
+		const uvec3 accumulationLocation = uvec3(outPixelLocation,sampleID%samplesPerPixelPerDispatch);
 		const vec3 acc_emissive = fetchAccumulation(accumulationLocation);
 		const vec3 acc_albedo = fetchAlbedo(accumulationLocation);
 		const vec3 acc_worldspaceNormal = fetchWorldspaceNormal(accumulationLocation);

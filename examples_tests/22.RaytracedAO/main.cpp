@@ -666,7 +666,7 @@ int main(int argc, char** argv)
 		prevHeight = sensorData.height;
 		
 		renderer->resetSampleAndFrameCounters(); // so that renderer->getTotalSamplesPerPixelComputed is 0 at the very beginning
-		if(needsReinit)
+		if(needsReinit) 
 		{
 			renderer->deinitScreenSizedResources();
 			renderer->initScreenSizedResources(sensorData.width, sensorData.height, std::move(sampleSequence));
