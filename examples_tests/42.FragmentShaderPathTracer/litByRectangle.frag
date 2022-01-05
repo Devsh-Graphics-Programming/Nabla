@@ -62,7 +62,7 @@ float nbl_glsl_light_deferred_pdf(in Light light, in Ray_t ray)
             return 1.f/rectSolidAngle;
         #elif POLYGON_METHOD==2
             // TODO: figure out what breaks for a directly visible light under MIS
-            if (rectSolidAngle>FLT_MIN)
+            if (rectSolidAngle>nbl_glsl_FLT_MIN)
             {
                 const vec2 bary = nbl_glsl_barycentric_reconstructBarycentrics(L*ray._mutable.intersectionT+_immutable.origin-rect.offset,mat2x3(rect.edge0,rect.edge1));
                 const uint i = bary.x>=0.f&&bary.y>=0.f&&(bary.x+bary.y)<=1.f ? 0u:1u;
@@ -72,7 +72,7 @@ float nbl_glsl_light_deferred_pdf(in Light light, in Ray_t ray)
                 return pdf;
             }
             else
-                return FLT_INF;
+                return nbl_glsl_FLT_INF;
         #endif
     #else
         #if POLYGON_METHOD==1
@@ -112,7 +112,7 @@ vec3 nbl_glsl_light_generate_and_pdf(out float pdf, out float newRayMaxT, in vec
             solidAngle[i] = nbl_glsl_shapes_SolidAngleOfTriangle(sphericalVertices[i],cos_vertices[i],sin_vertices[i],cos_a[i],cos_c[i],csc_b[i],csc_c[i]);
         vec3 L = vec3(0.f,0.f,0.f);
         const float rectangleSolidAngle = solidAngle[0]+solidAngle[1];
-        if (rectangleSolidAngle>FLT_MIN)
+        if (rectangleSolidAngle>nbl_glsl_FLT_MIN)
         {
             float rcpTriangleChoiceProb;
             const uint i = nbl_glsl_partitionRandVariable(solidAngle[0]/rectangleSolidAngle,xi.z,rcpTriangleChoiceProb) ? 1u:0u;
@@ -126,7 +126,7 @@ vec3 nbl_glsl_light_generate_and_pdf(out float pdf, out float newRayMaxT, in vec
         #endif
         }
         else
-            pdf = FLT_INF;
+            pdf = nbl_glsl_FLT_INF;
     #else
         #if POLYGON_METHOD==1
             #error ""

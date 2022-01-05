@@ -22,7 +22,7 @@ vec3 nbl_glsl_sampling_generateSphericalTriangleSample(in float solidAngle, in v
 
     // the slerps could probably be optimized by sidestepping `normalize` calls and accumulating scaling factors
     vec3 C_s = sphericalVertices[0];
-    if (csc_b<FLT_MAX)
+    if (csc_b<nbl_glsl_FLT_MAX)
     {
         const float cosAngleAlongAC = ((v_ * q - u_ * p) * cos_vertices[0] - v_) / ((v_ * p + u_ * q) * sin_vertices[0]);
         if (abs(cosAngleAlongAC)<1.f)
@@ -32,7 +32,7 @@ vec3 nbl_glsl_sampling_generateSphericalTriangleSample(in float solidAngle, in v
     vec3 retval = sphericalVertices[1];
     const float cosBC_s = dot(C_s,sphericalVertices[1]);
     const float csc_b_s = inversesqrt(1.0-cosBC_s*cosBC_s);
-    if (csc_b_s<FLT_MAX)
+    if (csc_b_s<nbl_glsl_FLT_MAX)
     {
         const float cosAngleAlongBC_s = clamp(1.0+cosBC_s*u.y-u.y,-1.f,1.f);
         if (abs(cosAngleAlongBC_s)<1.f)

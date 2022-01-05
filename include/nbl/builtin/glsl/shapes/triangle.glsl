@@ -18,7 +18,7 @@ bool nbl_glsl_shapes_SphericalTrianglePyramidAngles(in mat3 sphericalVertices, o
     // The sides of proper spherical triangles are (by convention) less than PI
     cos_sides = vec3(dot(sphericalVertices[1],sphericalVertices[2]),dot(sphericalVertices[2],sphericalVertices[0]),dot(sphericalVertices[0],sphericalVertices[1]));
     csc_sides = inversesqrt(vec3(1.f)-cos_sides*cos_sides);
-    return any(greaterThanEqual(csc_sides,vec3(FLT_MAX)));
+    return any(greaterThanEqual(csc_sides,vec3(nbl_glsl_FLT_MAX)));
 }
 
 // returns solid angle of a spherical triangle, this function is beyond optimized.
