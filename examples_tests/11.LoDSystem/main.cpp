@@ -13,6 +13,7 @@ using namespace nbl;
 using namespace core;
 using namespace system;
 using namespace asset;
+using namespace ui;
 
 using lod_library_t = scene::CLevelOfDetailLibrary<>;
 using culling_system_t = scene::ICullingLoDSelectionSystem;
@@ -269,62 +270,11 @@ void addLoDTable(
 
 class LoDSystemApp : public ApplicationBase
 {
-	constexpr uint32_t WIN_W = 1600;
-	constexpr uint32_t WIN_H = 900;
-    constexpr uint32_t FBO_COUNT = 1u;
-	constexpr uint32_t FRAMES_IN_FLIGHT = 5u;
-	static_assert(FRAMES_IN_FLIGHT>FBO_COUNT);
-    
-    CommonAPI::SFeatureRequest<video::IAPIConnection::E_FEATURE> requiredInstanceFeatures = {};
-    requiredInstanceFeatures.count = 1u;
-    video::IAPIConnection::E_FEATURE requiredFeatures_Instance[] = { video::IAPIConnection::EF_SURFACE };
-    requiredInstanceFeatures.features = requiredFeatures_Instance;
-
-    CommonAPI::SFeatureRequest<video::IAPIConnection::E_FEATURE> optionalInstanceFeatures = {};
-
-    CommonAPI::SFeatureRequest<video::ILogicalDevice::E_FEATURE> requiredDeviceFeatures = {};
-    requiredDeviceFeatures.count = 1u;
-    video::ILogicalDevice::E_FEATURE requiredFeatures_Device[] = { video::ILogicalDevice::EF_SWAPCHAIN };
-    requiredDeviceFeatures.features = requiredFeatures_Device;
-
-    CommonAPI::SFeatureRequest< video::ILogicalDevice::E_FEATURE> optionalDeviceFeatures = {};
-
-    
-    const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT);
-    const video::ISurface::SFormat surfaceFormat(asset::EF_B8G8R8A8_SRGB, asset::ECP_COUNT, asset::EOTF_UNKNOWN);
-
-    auto initOutput = CommonAPI::Init(
-        video::EAT_OPENGL,
-        "Level of Detail System",
-        requiredInstanceFeatures,
-        optionalInstanceFeatures,
-        requiredDeviceFeatures,
-        optionalDeviceFeatures,
-        WIN_W, WIN_H, FBO_COUNT,
-        swapchainImageUsage,
-        surfaceFormat,
-        EF_D32_SFLOAT);
-
-    auto window = std::move(initOutput.window);
-    auto gl = std::move(initOutput.apiConnection);
-    auto surface = std::move(initOutput.surface);
-    auto gpuPhysicalDevice = std::move(initOutput.physicalDevice);
-    auto logicalDevice = std::move(initOutput.logicalDevice);
-    auto queues = std::move(initOutput.queues);
-    auto swapchain = std::move(initOutput.swapchain);
-    auto renderpass = std::move(initOutput.renderpass);
-    auto fbos = std::move(initOutput.fbo);
-	auto graphicsCommandPool = std::move(initOutput.commandPools[CommonAPI::InitOutput::EQT_GRAPHICS]);
-	auto computeCommandPool = std::move(initOutput.commandPools[CommonAPI::InitOutput::EQT_COMPUTE]);
-    auto commandPool = graphicsCommandPool;
-    auto assetManager = std::move(initOutput.assetManager);
-    auto logger = std::move(initOutput.logger);
-    auto inputSystem = std::move(initOutput.inputSystem);
-    auto system = std::move(initOutput.system);
-    auto windowCallback = std::move(initOutput.windowCb);
-    auto cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
-    auto utilities = std::move(initOutput.utilities);
-
+    _NBL_STATIC_INLINE_CONSTEXPR uint32_t WIN_W = 1600;
+    _NBL_STATIC_INLINE_CONSTEXPR uint32_t WIN_H = 900;
+    _NBL_STATIC_INLINE_CONSTEXPR uint32_t FBO_COUNT = 1u;
+    _NBL_STATIC_INLINE_CONSTEXPR uint32_t FRAMES_IN_FLIGHT = 5u;
+    static_assert(FRAMES_IN_FLIGHT > FBO_COUNT);
 
     // lod table entries
     _NBL_STATIC_INLINE_CONSTEXPR auto MaxDrawables = EGT_COUNT;
@@ -339,47 +289,8 @@ class LoDSystemApp : public ApplicationBase
     // maximum visible instances of a drawcall (should be a sum of MaxLoDDrawcalls[t]*MaxInstances[t] where t iterates over all LoD Tables)
     _NBL_STATIC_INLINE_CONSTEXPR auto MaxTotalVisibleDrawcallInstances = MaxInstanceCount + (MaxInstanceCount >> 8u); // This is literally my worst case guess of how many batch-draw-instances there will be on screen at the same time
 
-    // Culling System
-    using culling_system_t = scene::ICullingLoDSelectionSystem;
-    core::smart_refctd_ptr<culling_system_t> cullingSystem;
-
-    culling_system_t::Params cullingParams;
-    core::smart_refctd_ptr<video::IDescriptorPool> cullingDSPool;
-    
-    CullPushConstants_t cullPushConstants;
-    cullPushConstants.instanceCount = 0u;
-    {
-        constexpr auto LayoutCount = 4u;
-        core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> layouts[LayoutCount] =
-        {
-            scene::ILevelOfDetailLibrary::createDescriptorSetLayout(logicalDevice.get()),
-            culling_system_t::createInputDescriptorSetLayout(logicalDevice.get()),
-            culling_system_t::createOutputDescriptorSetLayout(logicalDevice.get(),true),
-            [&]() -> core::smart_refctd_ptr<video::IGPUDescriptorSetLayout>
-            {
-                // TODO: figure out what should be here
-                constexpr auto BindingCount = 1u;
-                video::IGPUDescriptorSetLayout::SBinding bindings[BindingCount];
-                for (auto i=0u; i<BindingCount; i++)
-                {
-                    bindings[i].binding = i;
-                    bindings[i].type = asset::EDT_STORAGE_BUFFER;
-                    bindings[i].count = 1u;
-                    bindings[i].stageFlags = asset::IShader::ESS_COMPUTE;
-                    bindings[i].samplers = nullptr;
-                }
-                return logicalDevice->createGPUDescriptorSetLayout(bindings,bindings+BindingCount);
-            }()
-        };
-        cullingDSPool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE,&layouts->get(),&layouts->get()+LayoutCount);
-        
-		const asset::SPushConstantRange range = {asset::IShader::ESS_COMPUTE,0u,sizeof(CullPushConstants_t)};
-        cullingSystem = culling_system_t::create(
-            core::smart_refctd_ptr<video::CScanner>(utilities->getDefaultScanner()),&range,&range+1u,core::smart_refctd_ptr(layouts[3]),
-            std::filesystem::current_path(),"\n#include \"../common.glsl\"\n","\n#include \"../cull_overrides.glsl\"\n"
-        );
-
-        cullingParams.indirectDispatchParams = {0ull,culling_system_t::createDispatchIndirectBuffer(utilities.get(),queues[decltype(initOutput)::EQT_TRANSFER_UP])};
+    public:
+        void setWindow(core::smart_refctd_ptr<nbl::ui::IWindow>&& wnd) override
         {
             window = std::move(wnd);
         }
@@ -387,43 +298,9 @@ class LoDSystemApp : public ApplicationBase
         {
             system = std::move(s);
         }
-
-        cullingParams.indirectDispatchParams.buffer->setObjectDebugName("CullingIndirect");
-        cullingParams.drawCalls.buffer->setObjectDebugName("DrawCallPool");
-        cullingParams.perInstanceRedirectAttribs.buffer->setObjectDebugName("PerInstanceInputAttribs");
-        if (cullingParams.drawCounts.buffer)
-            cullingParams.drawCounts.buffer->setObjectDebugName("DrawCountPool");
-        cullingParams.perViewPerInstance.buffer->setObjectDebugName("DrawcallInstanceRedirects");
-        cullingParams.indirectInstanceCull = false;
-    }
-
-    nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
-
-    core::smart_refctd_ptr<ICPUSpecializedShader> shaders[2];
-    {
-        IAssetLoader::SAssetLoadParams lp;
-        lp.workingDirectory = std::filesystem::current_path();
-        lp.logger = logger.get();
-        auto vertexShaderBundle = assetManager->getAsset("../mesh.vert", lp);
-        auto fragShaderBundle = assetManager->getAsset("../mesh.frag", lp);
-        shaders[0] = IAsset::castDown<ICPUSpecializedShader>(*vertexShaderBundle.getContents().begin());
-        shaders[1] = IAsset::castDown<ICPUSpecializedShader>(*fragShaderBundle.getContents().begin());
-    }
-    
-
-
-
-    core::smart_refctd_ptr<video::IGPUDescriptorSet> perViewDS;
-    core::smart_refctd_ptr<ICPUDescriptorSetLayout> cpuPerViewDSLayout;
-    {
-        constexpr auto BindingCount = 1;
-        ICPUDescriptorSetLayout::SBinding cpuBindings[BindingCount];
-        for (auto i=0; i<BindingCount; i++)
+        nbl::ui::IWindow* getWindow() override
         {
-            cpuBindings[i].binding = i;
-            cpuBindings[i].count = 1u;
-            cpuBindings[i].stageFlags = IShader::ESS_VERTEX;
-            cpuBindings[i].samplers = nullptr;
+            return window.get();
         }
         video::IAPIConnection* getAPIConnection() override
         {
@@ -465,7 +342,11 @@ class LoDSystemApp : public ApplicationBase
         {
             initOutput.window = core::smart_refctd_ptr(window);
             initOutput.system = core::smart_refctd_ptr(system);
-            CommonAPI::Init<WIN_W, WIN_H, FBO_COUNT>(initOutput, video::EAT_OPENGL_ES, "Level of Detail System", asset::EF_D32_SFLOAT);
+            
+            const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_TRANSFER_DST_BIT);
+            const video::ISurface::SFormat surfaceFormat(asset::EF_B8G8R8A8_SRGB, asset::ECP_COUNT, asset::EOTF_UNKNOWN);
+
+            CommonAPI::InitWithDefaultExt(initOutput, video::EAT_OPENGL_ES, "Level of Detail System", WIN_W, WIN_H, FBO_COUNT, swapchainImageUsage, surfaceFormat, asset::EF_D32_SFLOAT);
             window = std::move(initOutput.window);
             gl = std::move(initOutput.apiConnection);
             surface = std::move(initOutput.surface);
@@ -475,7 +356,7 @@ class LoDSystemApp : public ApplicationBase
             swapchain = std::move(initOutput.swapchain);
             renderpass = std::move(initOutput.renderpass);
             fbos = std::move(initOutput.fbo);
-            commandPool = std::move(initOutput.commandPool);
+            commandPools = std::move(initOutput.commandPools);
             assetManager = std::move(initOutput.assetManager);
             logger = std::move(initOutput.logger);
             inputSystem = std::move(initOutput.inputSystem);
@@ -484,7 +365,7 @@ class LoDSystemApp : public ApplicationBase
             cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
             utilities = std::move(initOutput.utilities);
 
-            transferUpQueue = queues[decltype(initOutput)::EQT_TRANSFER_UP];
+            transferUpQueue = queues[CommonAPI::InitOutput::EQT_TRANSFER_UP];
 
             ttm = scene::ITransformTreeManager::create(utilities.get(),transferUpQueue);
             tt = scene::ITransformTreeWithNormalMatrices::create(logicalDevice.get(),MaxInstanceCount);
@@ -525,7 +406,7 @@ class LoDSystemApp : public ApplicationBase
                             bindings[i].binding = i;
                             bindings[i].type = asset::EDT_STORAGE_BUFFER;
                             bindings[i].count = 1u;
-                            bindings[i].stageFlags = asset::ISpecializedShader::ESS_COMPUTE;
+                            bindings[i].stageFlags = asset::IShader::ESS_COMPUTE;
                             bindings[i].samplers = nullptr;
                         }
                         return logicalDevice->createGPUDescriptorSetLayout(bindings,bindings + BindingCount);
@@ -533,7 +414,7 @@ class LoDSystemApp : public ApplicationBase
                 };
                 cullingDSPool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE, &layouts->get(), &layouts->get() + LayoutCount);
 
-                const asset::SPushConstantRange range = { asset::ISpecializedShader::ESS_COMPUTE,0u,sizeof(CullPushConstants_t) };
+                const asset::SPushConstantRange range = { asset::IShader::ESS_COMPUTE,0u,sizeof(CullPushConstants_t) };
                 cullingSystem = culling_system_t::create(
                     core::smart_refctd_ptr<video::CScanner>(utilities->getDefaultScanner()), &range, &range + 1u, core::smart_refctd_ptr(layouts[3]),
                     localInputCWD, "\n#include \"common.glsl\"\n", "\n#include \"cull_overrides.glsl\"\n"
@@ -586,14 +467,6 @@ class LoDSystemApp : public ApplicationBase
                 cullingParams.indirectInstanceCull = false;
             }
 
-
-            core::smart_refctd_ptr<video::IGPUFence> gpuTransferFence;
-            core::smart_refctd_ptr<video::IGPUFence> gpuComputeFence;
-            {
-                cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].fence = &gpuTransferFence;
-                cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].fence = &gpuComputeFence;
-            }
-
             core::smart_refctd_ptr<ICPUSpecializedShader> shaders[2];
             {
                 IAssetLoader::SAssetLoadParams lp;
@@ -614,7 +487,7 @@ class LoDSystemApp : public ApplicationBase
                 {
                     cpuBindings[i].binding = i;
                     cpuBindings[i].count = 1u;
-                    cpuBindings[i].stageFlags = ISpecializedShader::ESS_VERTEX;
+                    cpuBindings[i].stageFlags = IShader::ESS_VERTEX;
                     cpuBindings[i].samplers = nullptr;
                 }
                 cpuBindings[0].type = EDT_STORAGE_BUFFER;
@@ -773,7 +646,7 @@ class LoDSystemApp : public ApplicationBase
                         }
 
                         core::smart_refctd_ptr<video::IGPUCommandBuffer> tferCmdBuf;
-                        logicalDevice->createCommandBuffers(commandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY, 1u, &tferCmdBuf);
+                        logicalDevice->createCommandBuffers(commandPools[CommonAPI::InitOutput::EQT_TRANSFER_UP].get(), video::IGPUCommandBuffer::EL_PRIMARY, 1u, &tferCmdBuf);
                         auto fence = logicalDevice->createFence(video::IGPUFence::ECF_UNSIGNALED);
                         tferCmdBuf->begin(0u); // TODO some one time submit bit or something
                         {
@@ -825,7 +698,7 @@ class LoDSystemApp : public ApplicationBase
                 }
                 // prerecord the secondary cmdbuffer
                 {
-                    logicalDevice->createCommandBuffers(commandPool.get(), video::IGPUCommandBuffer::EL_SECONDARY, 1u, &bakedCommandBuffer);
+                    logicalDevice->createCommandBuffers(commandPools[CommonAPI::InitOutput::EQT_GRAPHICS].get(), video::IGPUCommandBuffer::EL_SECONDARY, 1u, &bakedCommandBuffer);
                     bakedCommandBuffer->begin(video::IGPUCommandBuffer::EU_RENDER_PASS_CONTINUE_BIT | video::IGPUCommandBuffer::EU_SIMULTANEOUS_USE_BIT);
                     // TODO: handle teh offsets
                     auto drawCountBlock = drawIndirectAllocator->getDrawCountMemoryBlock();
@@ -844,44 +717,9 @@ class LoDSystemApp : public ApplicationBase
             camera = Camera(cameraPosition, core::vectorSIMDf(0, 0, 0), projectionMatrix, 2.f, 1.f);
 
             oracle.reportBeginFrameRecord();
-            logicalDevice->createCommandBuffers(commandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY, FRAMES_IN_FLIGHT, commandBuffers);
+            logicalDevice->createCommandBuffers(commandPools[CommonAPI::InitOutput::EQT_GRAPHICS].get(), video::IGPUCommandBuffer::EL_PRIMARY, FRAMES_IN_FLIGHT, commandBuffers);
 
-            camera.beginInputProcessing(nextPresentationTimestamp);
-            mouse.consumeEvents([&](const IMouseEventChannel::range_t& events) -> void { camera.mouseProcess(events); }, logger.get());
-            keyboard.consumeEvents([&](const IKeyboardEventChannel::range_t& events) -> void { camera.keyboardProcess(events); }, logger.get());
-            camera.endInputProcessing(nextPresentationTimestamp);
-        }
-
-        // CBA to actually update transforms (in case something were to move)
-        /*{
-            scene::ITransformTreeManager::GlobalTransformUpdateParams params;
-            params.cmdbuf = commandBuffer.get();
-            params.
-            params.nodeIDs = ;
-            ttm->recomputeGlobalTransforms(params);
-        }*/
-        // cull, choose LoDs, and fill our draw indirects
-        {
-            const auto* layout = cullingSystem->getInstanceCullAndLoDSelectLayout();
-            cullPushConstants.viewProjMat = camera.getConcatenatedMatrix();
-            std::copy_n(camera.getPosition().pointer,3u,cullPushConstants.camPos.comp);
-            commandBuffer->pushConstants(layout,asset::IShader::ESS_COMPUTE,0u,sizeof(cullPushConstants),&cullPushConstants);
-            cullingParams.cmdbuf = commandBuffer.get();
-            cullingSystem->processInstancesAndFillIndirectDraws(cullingParams);
-        }
-        
-        // renderpass
-        {
-            asset::SViewport viewport;
-            viewport.minDepth = 1.f;
-            viewport.maxDepth = 0.f;
-            viewport.x = 0u;
-            viewport.y = 0u;
-            viewport.width = WIN_W;
-            viewport.height = WIN_H;
-            commandBuffer->setViewport(0u,1u,&viewport);
-
-            nbl::video::IGPUCommandBuffer::SRenderpassBeginInfo beginInfo;
+            for (uint32_t i = 0u; i < FRAMES_IN_FLIGHT; i++)
             {
                 imageAcquire[i] = logicalDevice->createSemaphore();
                 renderFinished[i] = logicalDevice->createSemaphore();
@@ -896,8 +734,18 @@ class LoDSystemApp : public ApplicationBase
             const auto& fboCreationParams = fbos[acquiredNextFBO]->getCreationParameters();
             auto gpuSourceImageView = fboCreationParams.attachments[0];
 
-    bool status = ext::ScreenShot::createScreenShot(logicalDevice.get(), queues[decltype(initOutput)::EQT_TRANSFER_DOWN], renderFinished[resourceIx].get(), gpuSourceImageView.get(), assetManager.get(), "ScreenShot.png", asset::EIL_PRESENT_SRC_KHR);
-    assert(status);
+            bool status = ext::ScreenShot::createScreenShot(
+                logicalDevice.get(),
+                queues[CommonAPI::InitOutput::EQT_TRANSFER_DOWN],
+                renderFinished[resourceIx].get(),
+                gpuSourceImageView.get(),
+                assetManager.get(),
+                "ScreenShot.png",
+                asset::EIL_PRESENT_SRC,
+                static_cast<asset::E_ACCESS_FLAGS>(0u));
+
+            assert(status);
+        }
 
         void workLoopBody() override
         {
@@ -943,16 +791,16 @@ class LoDSystemApp : public ApplicationBase
                     barriers[ix].size = range.size;
                 };
                 
-				// not going to barrier between last frame culling and rendering and TTM recompute, because its not in the same submit
-				scene::ITransformTreeManager::BaseParams baseParams;
-				baseParams.cmdbuf = commandBuffer.get();
-				baseParams.tree = tt.get();
-				baseParams.logger = logger.get();
-				scene::ITransformTreeManager::DispatchParams dispatchParams;
-				dispatchParams.indirect.buffer = nullptr;
-				dispatchParams.direct.nodeCount = cullPushConstants.instanceCount;
+                // not going to barrier between last frame culling and rendering and TTM recompute, because its not in the same submit
+                scene::ITransformTreeManager::BaseParams baseParams;
+                baseParams.cmdbuf = commandBuffer.get();
+                baseParams.tree = tt.get();
+                baseParams.logger = logger.get();
+                scene::ITransformTreeManager::DispatchParams dispatchParams;
+                dispatchParams.indirect.buffer = nullptr;
+                dispatchParams.direct.nodeCount = cullPushConstants.instanceCount;
                 ttm->recomputeGlobalTransforms(baseParams,dispatchParams,recomputeGlobalTransformsDS.get());
-				// barrier between TTM recompute and TTM recompute+culling system 
+                // barrier between TTM recompute and TTM recompute+culling system 
                 {
                     const auto* ctt = tt.get();
                     auto node_pp = ctt->getNodePropertyPool();
@@ -972,7 +820,7 @@ class LoDSystemApp : public ApplicationBase
                 const auto* layout = cullingSystem->getInstanceCullAndLoDSelectLayout();
                 cullPushConstants.viewProjMat = camera.getConcatenatedMatrix();
                 std::copy_n(camera.getPosition().pointer, 3u, cullPushConstants.camPos.comp);
-                commandBuffer->pushConstants(layout, asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(cullPushConstants), &cullPushConstants);
+                commandBuffer->pushConstants(layout, asset::IShader::ESS_COMPUTE, 0u, sizeof(cullPushConstants), &cullPushConstants);
                 cullingParams.cmdbuf = commandBuffer.get();
                 cullingSystem->processInstancesAndFillIndirectDraws(cullingParams,cullPushConstants.instanceCount);
             }
@@ -1014,8 +862,8 @@ class LoDSystemApp : public ApplicationBase
                 commandBuffer->end();
             }
 
-            CommonAPI::Submit(logicalDevice.get(), swapchain.get(), commandBuffer.get(), queues[decltype(initOutput)::EQT_GRAPHICS], imageAcquire[resourceIx].get(), renderFinished[resourceIx].get(), fence.get());
-            CommonAPI::Present(logicalDevice.get(), swapchain.get(), queues[decltype(initOutput)::EQT_GRAPHICS], renderFinished[resourceIx].get(), acquiredNextFBO);
+            CommonAPI::Submit(logicalDevice.get(), swapchain.get(), commandBuffer.get(), queues[CommonAPI::InitOutput::EQT_GRAPHICS], imageAcquire[resourceIx].get(), renderFinished[resourceIx].get(), fence.get());
+            CommonAPI::Present(logicalDevice.get(), swapchain.get(), queues[CommonAPI::InitOutput::EQT_GRAPHICS], renderFinished[resourceIx].get(), acquiredNextFBO);
         }
 
         bool keepRunning() override
@@ -1025,18 +873,18 @@ class LoDSystemApp : public ApplicationBase
 
     private:
 
-        CommonAPI::InitOutput<FBO_COUNT> initOutput;
+        CommonAPI::InitOutput initOutput;
         nbl::core::smart_refctd_ptr<nbl::ui::IWindow> window;
         nbl::core::smart_refctd_ptr<nbl::video::IAPIConnection> gl;
         nbl::core::smart_refctd_ptr<nbl::video::ISurface> surface;
         nbl::video::IPhysicalDevice* gpuPhysicalDevice;
         nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice> logicalDevice;
-        std::array<nbl::video::IGPUQueue*, CommonAPI::InitOutput<FBO_COUNT>::EQT_COUNT> queues = { nullptr, nullptr, nullptr, nullptr };
+        std::array<video::IGPUQueue*, CommonAPI::InitOutput::MaxQueuesCount> queues;
         nbl::core::smart_refctd_ptr<nbl::video::ISwapchain> swapchain;
         nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpass> renderpass;
-        std::array<nbl::core::smart_refctd_ptr<nbl::video::IGPUFramebuffer>, FBO_COUNT> fbos;
-
-        nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandPool> commandPool; // TODO: Multibuffer and reset the commandpools
+        std::array<nbl::core::smart_refctd_ptr<nbl::video::IGPUFramebuffer>, CommonAPI::InitOutput::MaxSwapChainImageCount> fbos;
+    
+        std::array<nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandPool>, CommonAPI::InitOutput::MaxQueuesCount> commandPools;
         nbl::core::smart_refctd_ptr<nbl::asset::IAssetManager> assetManager;
         nbl::core::smart_refctd_ptr<nbl::system::ILogger> logger;
         nbl::core::smart_refctd_ptr<CommonAPI::InputSystem> inputSystem;
