@@ -42,11 +42,11 @@ float nbl_glsl_light_deferred_pdf(in Light light, in Ray_t ray)
     #if POLYGON_METHOD==1
         const float rcpProb = nbl_glsl_shapes_SolidAngleOfTriangle(sphericalVertices);
         // if `rcpProb` is NAN then the triangle's solid angle was close to 0.0 
-        return rcpProb>FLT_MIN ? (1.0/rcpProb):FLT_MAX;
+        return rcpProb>nbl_glsl_FLT_MIN ? (1.0/rcpProb):nbl_glsl_FLT_MAX;
     #elif POLYGON_METHOD==2
         const float pdf = nbl_glsl_sampling_probProjectedSphericalTriangleSample(sphericalVertices,_immutable.normalAtOrigin,_immutable.wasBSDFAtOrigin,L);
         // if `pdf` is NAN then the triangle's projected solid angle was close to 0.0, if its close to INF then the triangle was very small
-        return pdf<FLT_MAX ? pdf:0.0;
+        return pdf<nbl_glsl_FLT_MAX ? pdf:0.0;
     #endif
 #endif
 }
@@ -79,7 +79,7 @@ vec3 nbl_glsl_light_generate_and_pdf(out float pdf, out float newRayMaxT, in vec
 #endif
 
     // if `rcpProb` is NAN or negative then the triangle's solidAngle or projectedSolidAngle was close to 0.0 
-    pdf = rcpPdf>FLT_MIN ? (1.0/rcpPdf):0.0;
+    pdf = rcpPdf>nbl_glsl_FLT_MIN ? (1.0/rcpPdf):0.0;
 
     const vec3 N = Triangle_getNormalTimesArea(tri);
     newRayMaxT = dot(N,tri.vertex0-origin)/dot(N,L);

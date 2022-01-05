@@ -62,6 +62,7 @@ uvec2 nbl_glsl_encodeRGB18E7S3(in vec3 col)
 	return encoded;
 }
 
+//
 uint nbl_glsl_encodeRGB10A2_UNORM(in vec4 col)
 {
 	const uvec3 rgbMask = uvec3(0x3ffu);

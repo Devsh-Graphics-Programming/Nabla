@@ -23,14 +23,9 @@ using namespace core;
 class RaytracerExampleEventReceiver : public nbl::IEventReceiver
 {
 	public:
-		RaytracerExampleEventReceiver() 
-			: running(true)
-			, skipKeyPressed(false)
-			, resetViewKeyPressed(false)
-			, nextKeyPressed(false)
-			, previousKeyPressed(false)
-			, screenshotKeyPressed(false)
+		RaytracerExampleEventReceiver() : running(true), renderingBeauty(true)
 		{
+			resetKeys();
 		}
 
 		bool OnEvent(const nbl::SEvent& event)
@@ -57,6 +52,9 @@ class RaytracerExampleEventReceiver : public nbl::IEventReceiver
 					case SkipKey:
 						skipKeyPressed = true;
 						break;
+					case BeautyKey:
+						renderingBeauty = !renderingBeauty;
+						break;
 					case QuitKey:
 						running = false;
 						return true;
@@ -82,6 +80,8 @@ class RaytracerExampleEventReceiver : public nbl::IEventReceiver
 
 		inline bool isLogProgressKeyPressed() const { return logProgressKeyPressed; }
 
+		inline bool isRenderingBeauty() const { return renderingBeauty; }
+
 		inline void resetKeys()
 		{
 			skipKeyPressed = false;
@@ -100,15 +100,17 @@ class RaytracerExampleEventReceiver : public nbl::IEventReceiver
 		static constexpr nbl::EKEY_CODE PreviousKey = nbl::KEY_NEXT; // PAGE_DOWN
 		static constexpr nbl::EKEY_CODE ScreenshotKey = nbl::KEY_KEY_P;
 		static constexpr nbl::EKEY_CODE LogProgressKey = nbl::KEY_KEY_L;
+		static constexpr nbl::EKEY_CODE BeautyKey = nbl::KEY_KEY_B;
 
-		bool running = false;
-		bool skipKeyPressed = false;
-		bool resetViewKeyPressed = false;
-		bool nextKeyPressed = false;
-		bool previousKeyPressed = false;
-		bool screenshotKeyPressed = false;
-		bool logProgressKeyPressed = false;
+		bool running;
+		bool renderingBeauty;
 
+		bool skipKeyPressed;
+		bool resetViewKeyPressed;
+		bool nextKeyPressed;
+		bool previousKeyPressed;
+		bool screenshotKeyPressed;
+		bool logProgressKeyPressed;
 };
 
 int main(int argc, char** argv)
@@ -556,40 +558,47 @@ int main(int argc, char** argv)
 	auto driver = device->getVideoDriver();
 
 	core::smart_refctd_ptr<Renderer> renderer = core::make_smart_refctd_ptr<Renderer>(driver,device->getAssetManager(),smgr);
-	constexpr uint32_t MaxSamples = MAX_ACCUMULATED_SAMPLES;
-	auto sampleSequence = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(uint32_t)*MaxSamples*Renderer::MaxDimensions);
+	auto sampleSequence = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(uint64_t)*Renderer::MaxSamples*QUANTIZED_DIMENSIONS_PER_SAMPLE);
 	{
 		bool generateNewSamples = true;
 
 		io::IReadFile* cacheFile = device->getFileSystem()->createAndOpenFile("../../tmp/rtSamples.bin");
 		if (cacheFile)
 		{
-			if (cacheFile->getSize()>=sampleSequence->getSize()) // light validation
+			if (cacheFile->getSize()==sampleSequence->getSize()) // light validation
 			{
 				cacheFile->read(sampleSequence->getPointer(),sampleSequence->getSize());
-				generateNewSamples = false;
+				//generateNewSamples = false;
 			}
 			cacheFile->drop();
 		}
 
 		if (generateNewSamples)
 		{
-			/** TODO: move into the renderer and redo the sampling (compress into R21G21B21_UINT)
-			Locality Level 0: the 3 dimensions consumed for a BxDF or NEE sample
-			Locality Level 1: the k = 3 (1 + NEE) samples which will be consumed in the same invocation
-			Locality Level 2-COMP: the N = k dispatchSPP Resolution samples consumed by a raygen dispatch (another TODO: would be order CS and everything in a morton curve)
-			Locality Level 2-RTX: the N = k Depth samples consumed as we recurse deeper
-			Locality Level 3: the D = k dispatchSPP Resolution Depth samples consumed as we accumuate more samples
-			**/
-			constexpr uint32_t Channels = 3u;
-			static_assert(Renderer::MaxDimensions%Channels==0u,"We cannot have this!");
-			core::OwenSampler sampler(Renderer::MaxDimensions,0xdeadbeefu);
+			constexpr auto DimensionsPerQuanta = 3u;
+			core::OwenSampler sampler(QUANTIZED_DIMENSIONS_PER_SAMPLE*DimensionsPerQuanta,0xdeadbeefu);
 
-			uint32_t (&out)[][Channels] = *reinterpret_cast<uint32_t(*)[][Channels]>(sampleSequence->getPointer());
-			for (auto realdim=0u; realdim<Renderer::MaxDimensions/Channels; realdim++)
-			for (auto c=0u; c<Channels; c++)
-			for (uint32_t i=0; i<MaxSamples; i++)
-				out[realdim*MaxSamples+i][c] = sampler.sample(realdim*Channels+c,i);
+			// Memory Order: 3 Dimensions, then multiple of sampling stragies per vertex, then depth, then sample ID
+			uint32_t(&pout)[][2] = *reinterpret_cast<uint32_t(*)[][2]>(sampleSequence->getPointer());
+			// the horrible order of iteration over output memory is caused by the fact that certain samplers like the 
+			// Owen Scramble sampler, have a large cache which needs to be generated separately for each dimension.
+			for (auto metadim=0u; metadim<QUANTIZED_DIMENSIONS_PER_SAMPLE; metadim++)
+			{
+				const auto trudim = metadim*DimensionsPerQuanta;
+				for (uint32_t i=0; i<Renderer::MaxSamples; i++)
+					pout[i*QUANTIZED_DIMENSIONS_PER_SAMPLE+metadim][0] = sampler.sample(trudim+0u,i);
+				for (uint32_t i=0; i<Renderer::MaxSamples; i++)
+					pout[i*QUANTIZED_DIMENSIONS_PER_SAMPLE+metadim][1] = sampler.sample(trudim+1u,i);
+				for (uint32_t i=0; i<Renderer::MaxSamples; i++)
+				{
+					const auto sample = sampler.sample(trudim+2u,i);
+					const auto out = pout[i*QUANTIZED_DIMENSIONS_PER_SAMPLE+metadim];
+					out[0] &= 0xFFFFF800u;
+					out[0] |= sample>>21;
+					out[1] &= 0xFFFFF800u;
+					out[1] |= (sample>>10)&0x07FFu;
+				}
+			}
 
 			io::IWriteFile* cacheFile = device->getFileSystem()->createAndWriteFile("../../tmp/rtSamples.bin");
 			if (cacheFile)
@@ -659,7 +668,7 @@ int main(int argc, char** argv)
 		prevHeight = sensorData.height;
 		
 		renderer->resetSampleAndFrameCounters(); // so that renderer->getTotalSamplesPerPixelComputed is 0 at the very beginning
-		if(needsReinit)
+		if(needsReinit) 
 		{
 			renderer->deinitScreenSizedResources();
 			renderer->initScreenSizedResources(sensorData.width, sensorData.height, std::move(sampleSequence));
@@ -817,8 +826,7 @@ int main(int argc, char** argv)
 			}
 
 			driver->beginScene(false, false);
-			
-			if(!renderer->render(device->getTimer()))
+			if(!renderer->render(device->getTimer(),receiver.isRenderingBeauty()))
 			{
 				renderFailed = true;
 				driver->endScene();
@@ -838,8 +846,10 @@ int main(int argc, char** argv)
 				std::wostringstream str;
 				auto samples = renderer->getTotalSamplesComputed();
 				auto rays = renderer->getTotalRaysCast();
-				str << L"Raytraced Shadows Demo - Nabla Engine   MegaSamples: " << samples/1000000ull << "   MRay/s: "
-					<< double(rays)/double(std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-start).count());
+				const double microsecondsElapsed = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-start).count();
+				str << L"Raytraced Shadows Demo - Nabla Engine   MegaSamples: " << samples/1000000ull
+					<< "   MSample/s: " << double(samples)/microsecondsElapsed
+					<< "   MRay/s: " << double(rays)/microsecondsElapsed;
 
 				device->setWindowCaption(str.str());
 				lastFPSTime = time;

@@ -36,7 +36,6 @@ void main()
 	{
 		// basic reads
 		const uint vertex_depth = get_path_vertex_depth();
-		const uint vertex_depth_mod_2 = vertex_depth&0x1u;
 		const nbl_glsl_ext_RadeonRays_Intersection intersection = intersections[gl_GlobalInvocationID.x];
 		const nbl_glsl_ext_RadeonRays_ray ray = sourceRays[gl_GlobalInvocationID.x];
 
@@ -78,15 +77,19 @@ void main()
 			const nbl_glsl_MC_oriented_material_t material = nbl_glsl_MC_material_data_t_getOriented(batchInstanceData.material,frontfacing);
 			contrib.color = contrib.albedo = nbl_glsl_MC_oriented_material_t_getEmissive(material);
 	
-			const bool _continue = vertex_depth!=MAX_PATH_DEPTH && ray.maxT==nbl_glsl_FLT_MAX; // last vertex or was a NEE path
+			const uint pathDepth = bitfieldExtract(staticViewData.pathDepth_noRussianRouletteDepth_samplesPerPixelPerDispatch,0,8);
+			const bool _continue = vertex_depth!=pathDepth && ray.maxT==nbl_glsl_FLT_MAX; // not last vertex and not NEE path
 			if (_continue)
 			{
 				// if we ever support spatially varying emissive, we'll need to hoist barycentric computation and UV fetching to the position fetching
-				const vec2 compactBary = vec2(1.f-intersection.uvwt.x-intersection.uvwt.y,intersection.uvwt.x); // radeon rays is a special boy
+				const vec2 compactBary = vec2(1.f-intersection.uv.x-intersection.uv.y,intersection.uv.x); // radeon rays is a special boy and does its barycentrics weird
 				
-				const nbl_glsl_xoroshiro64star_state_t scramble_start_state = load_aux_vertex_attrs(
-					batchInstanceData,indices,compactBary,geomDenormal,
-					material,outPixelLocation,vertex_depth
+				//
+				const nbl_glsl_xoroshiro64star_state_t scramble_start_state = nbl_glsl_xoroshiro64star_state_t(ray.mask,ray._active);
+				
+				//
+				normalizedN = load_normal_and_prefetch_textures(
+					batchInstanceData,indices,compactBary,geomDenormal,material
 #ifdef TEX_PREFETCH_STREAM
 					,mat2(0.0) // TODO: Covariance Rendering
 #endif
@@ -107,7 +110,8 @@ void main()
 			
 		Contribution_normalizeAoV(contrib);
 		
-		const uvec3 accumulationLocation = uvec3(outPixelLocation,sampleID%staticViewData.samplesPerPixelPerDispatch);
+		const uint samplesPerPixelPerDispatch = bitfieldExtract(staticViewData.pathDepth_noRussianRouletteDepth_samplesPerPixelPerDispatch,16,16);
+		const uvec3 accumulationLocation = uvec3(outPixelLocation,sampleID%samplesPerPixelPerDispatch);
 		const vec3 acc_emissive = fetchAccumulation(accumulationLocation);
 		const vec3 acc_albedo = fetchAlbedo(accumulationLocation);
 		const vec3 acc_worldspaceNormal = fetchWorldspaceNormal(accumulationLocation);

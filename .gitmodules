@@ -87,7 +87,7 @@
 	url = https://github.com/greg7mdp/parallel-hashmap
 [submodule "3rdparty/radeonrays"]
 	path = 3rdparty/radeonrays
-	url = https://github.com/devshgraphicsprogramming/RadeonRays_SDK.git
+	url = git@github.com:devshgraphicsprogramming/RadeonRays_SDK.git
 	branch = baw
 [submodule "3rdparty/jitify"]
 	path = 3rdparty/jitify

@@ -6,7 +6,9 @@ layout(local_size_x = WORKGROUP_DIM, local_size_y = WORKGROUP_DIM) in;
 
 #include "raytraceCommon.glsl"
 
-layout(set = 3, binding = 0) uniform usampler2D frontFacingTriangleIDDrawID_unorm16Bary_dBarydScreenHalf2x2; // should it be called backfacing or frontfacing?
+layout(set = 3, binding = 0) uniform usampler2D scramblebuf;
+layout(set = 3, binding = 1) uniform usampler2D frontFacingTriangleIDDrawID_unorm16Bary_dBarydScreenHalf2x2; // should it be called backfacing or frontfacing?
+layout(set = 3, binding = 2, rgba16f) restrict uniform image2D framebuffer;
 
 bool get_sample_job()
 {
@@ -54,6 +56,7 @@ void main()
 		const vec4 tmpB = pc.cummon.viewProjMatrixInverse[3].xyzw;
 		normalizedV = normalize(pc.cummon.camPos-tmpA.xyz/tmpA.www);
 		
+		const uint samplesPerPixelPerDispatch = bitfieldExtract(staticViewData.pathDepth_noRussianRouletteDepth_samplesPerPixelPerDispatch,16,16);
 		Contribution contrib;
 		const bool hit = visBuffer[0]!=0xffffffffu;
 		if (hit)
@@ -76,17 +79,20 @@ void main()
 			// get material while waiting for indices
 			const nbl_glsl_MC_oriented_material_t material = nbl_glsl_MC_material_data_t_getOriented(batchInstanceData.material,frontfacing);
 			contrib.color = contrib.albedo = nbl_glsl_MC_oriented_material_t_getEmissive(material);
-			
-			const uint vertex_depth_mod_2 = 0x1u;
+
 			// load vertex data
 			vec3 geomDenormal;
 			const vec3 lastVxPos = load_positions(geomDenormal,batchInstanceData,indices);
-			const nbl_glsl_xoroshiro64star_state_t scramble_start_state = load_aux_vertex_attrs(
-				batchInstanceData,indices,compactBary,geomDenormal,
-				material,outPixelLocation,vertex_depth_mod_2
-#ifdef TEX_PREFETCH_STREAM
+						
+			// get initial scramble key while waiting for vertex positions
+			const nbl_glsl_xoroshiro64star_state_t scramble_start_state = texelFetch(scramblebuf,ivec2(outPixelLocation),0).rg;
+
+			//
+			normalizedN = load_normal_and_prefetch_textures(
+				batchInstanceData,indices,compactBary,geomDenormal,material
+				#ifdef TEX_PREFETCH_STREAM
 				,dBarydScreen
-#endif
+				#endif
 			);
 			
 			const vec3 origin = dPdBary*compactBary+lastVxPos;
@@ -95,7 +101,7 @@ void main()
 			// generate rays
 			const uint vertex_depth = 1u;
 			generate_next_rays(
-				staticViewData.samplesPerPixelPerDispatch,material,frontfacing,vertex_depth,
+				samplesPerPixelPerDispatch,material,frontfacing,vertex_depth,
 				scramble_start_state,pc.cummon.samplesComputed,outPixelLocation,origin,
 				vec3(pc.cummon.rcpFramesDispatched),1.f,contrib.albedo,contrib.worldspaceNormal
 			);
@@ -103,34 +109,39 @@ void main()
 		else
 			Contribution_initMiss(contrib);
 
-		Contribution_normalizeAoV(contrib);
-		
-		// we could optimize this, but its pointless before using KHR_ray_query
-		const bool firstFrame = pc.cummon.rcpFramesDispatched==1.f;
-		for (uint i=0u; i<staticViewData.samplesPerPixelPerDispatch; i++)
+		if (bool(pc.cummon.depth))
 		{
-			const uvec3 coord = uvec3(outPixelLocation,i);
-			// clear accumulations totally if beginning a new frame
-			if (firstFrame)
+			Contribution_normalizeAoV(contrib);
+		
+			// we could optimize this, but its pointless before using KHR_ray_query
+			const bool firstFrame = pc.cummon.rcpFramesDispatched==1.f;
+			for (uint i=0u; i<samplesPerPixelPerDispatch; i++)
 			{
-				storeAccumulation(contrib.color,coord);
-				storeAlbedo(contrib.albedo,coord);
-				storeWorldspaceNormal(contrib.worldspaceNormal,coord);
-			}
-			else
-			{
-				const vec3 acc_emissive = fetchAccumulation(coord);
-				const vec3 acc_albedo = fetchAlbedo(coord);
-				const vec3 acc_worldspaceNormal = fetchWorldspaceNormal(coord);
+				const uvec3 coord = uvec3(outPixelLocation,i);
+				// clear accumulations totally if beginning a new frame
+				if (firstFrame)
+				{
+					storeAccumulation(contrib.color,coord);
+					storeAlbedo(contrib.albedo,coord);
+					storeWorldspaceNormal(contrib.worldspaceNormal,coord);
+				}
+				else
+				{
+					const vec3 acc_emissive = fetchAccumulation(coord);
+					const vec3 acc_albedo = fetchAlbedo(coord);
+					const vec3 acc_worldspaceNormal = fetchWorldspaceNormal(coord);
 
-				const vec3 emissive_delta = (contrib.color-acc_emissive)*pc.cummon.rcpFramesDispatched;
-				const vec3 albedo_delta = (contrib.albedo-acc_albedo)*pc.cummon.rcpFramesDispatched;
-				const vec3 worldspaceNormal_delta = (contrib.worldspaceNormal-acc_worldspaceNormal)*pc.cummon.rcpFramesDispatched;
+					const vec3 emissive_delta = (contrib.color-acc_emissive)*pc.cummon.rcpFramesDispatched;
+					const vec3 albedo_delta = (contrib.albedo-acc_albedo)*pc.cummon.rcpFramesDispatched;
+					const vec3 worldspaceNormal_delta = (contrib.worldspaceNormal-acc_worldspaceNormal)*pc.cummon.rcpFramesDispatched;
 	
-				storeAccumulation(acc_emissive,emissive_delta,coord);
-				storeAlbedo(acc_albedo,albedo_delta,coord);
-				storeWorldspaceNormal(acc_worldspaceNormal,worldspaceNormal_delta,coord);
+					storeAccumulation(acc_emissive,emissive_delta,coord);
+					storeAlbedo(acc_albedo,albedo_delta,coord);
+					storeWorldspaceNormal(acc_worldspaceNormal,worldspaceNormal_delta,coord);
+				}
 			}
 		}
+		else
+			imageStore(framebuffer,ivec2(outPixelLocation),vec4(contrib.albedo,1.f));
 	}
 }

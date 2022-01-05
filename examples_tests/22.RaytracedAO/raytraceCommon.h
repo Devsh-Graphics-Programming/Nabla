@@ -87,7 +87,13 @@ struct SLight
 struct StaticViewData_t
 {
 	uvec2   imageDimensions;
-	uint    samplesPerPixelPerDispatch;
+#ifdef __cplusplus
+	uint8_t pathDepth;
+	uint8_t noRussianRouletteDepth;
+	uint16_t samplesPerPixelPerDispatch;
+#else
+	uint    pathDepth_noRussianRouletteDepth_samplesPerPixelPerDispatch;
+#endif
 	uint	lightCount;
 };
 
@@ -97,7 +103,7 @@ struct RaytraceShaderCommonData_t
 	vec3	camPos;
 	float   rcpFramesDispatched;
 	uint	samplesComputed;
-	uint	depth;
+	uint	depth; // 0 if path tracing disabled
 	uint	rayCountWriteIx;
 	float	textureFootprintFactor;
 };

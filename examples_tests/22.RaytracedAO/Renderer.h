@@ -52,7 +52,7 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 
 		void takeAndSaveScreenShot(const std::filesystem::path& screenshotFilePath, const DenoiserArgs& denoiserArgs);
 
-		bool render(nbl::ITimer* timer);
+		bool render(nbl::ITimer* timer, const bool beauty=true);
 
 		auto* getColorBuffer() { return m_colorBuffer; }
 
@@ -65,11 +65,11 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		uint64_t getTotalSamplesPerPixelComputed() const
 		{
 			const auto framesDispatched = static_cast<uint64_t>(m_framesDispatched);
-			return framesDispatched*m_staticViewData.samplesPerPixelPerDispatch;
+			return framesDispatched*getSamplesPerPixelPerDispatch();
 		}
 		uint64_t getTotalSamplesComputed() const
 		{
-			const auto samplesPerDispatch = static_cast<uint64_t>(m_staticViewData.samplesPerPixelPerDispatch*m_staticViewData.imageDimensions.x*m_staticViewData.imageDimensions.y);
+			const auto samplesPerDispatch = static_cast<uint64_t>(getSamplesPerPixelPerDispatch()*m_staticViewData.imageDimensions.x*m_staticViewData.imageDimensions.y);
 			const auto framesDispatched = static_cast<uint64_t>(m_framesDispatched);
 			return framesDispatched*samplesPerDispatch;
 		}
@@ -78,16 +78,11 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 			return m_totalRaysCast;
 		}
 
-		//! Brief guideline to good path depth limits
-		// Want to see stuff with indirect lighting on the other side of a pane of glass
-		// 5 = glass frontface->glass backface->diffuse surface->diffuse surface->light
-		// Want to see through a glass box, vase, or office 
-		// 7 = glass frontface->glass backface->glass frontface->glass backface->diffuse surface->diffuse surface->light
-		// pick higher numbers for better GI and less bias
-		_NBL_STATIC_INLINE_CONSTEXPR uint32_t MaxPathDepth = 8u;
-		_NBL_STATIC_INLINE_CONSTEXPR uint32_t RandomDimsPerPathVertex = 3u;
-		// one less because the first path vertex is rasterized
-		_NBL_STATIC_INLINE_CONSTEXPR uint32_t MaxDimensions = RandomDimsPerPathVertex*(MaxPathDepth-1u);
+		// The primary limiting factor is the precision of turning a fixed point grid sample to IEEE754 32bit float in the [0,1] range.
+		// Mantissa is only 23 bits, and primary sample space low discrepancy sequence will start to produce duplicates
+		// near 1.0 with exponent -1 after the sample count passes 2^24 elements.
+		// Another limiting factor is our encoding of sample sequences, we only use 21bits per channel, so no duplicates till 2^21 samples.
+		static inline constexpr uint32_t MaxSamples = 0x10000u;// 0x200000;
 
 		//
 		static constexpr inline uint32_t AntiAliasingSequenceLength = 1024;
@@ -126,7 +121,8 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> createScreenSizedTexture(nbl::asset::E_FORMAT format, uint32_t layers = 0u);
 
 		//
-		bool Renderer::traceBounce(uint32_t & inoutRayCount);
+		void preDispatch(const nbl::video::IGPUPipelineLayout* layout, nbl::video::IGPUDescriptorSet*const *const lastDS);
+		bool traceBounce(uint32_t& inoutRayCount);
 
 		//
 		const nbl::ext::MitsubaLoader::CMitsubaMetadata* m_globalMeta = nullptr;
@@ -141,11 +137,6 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		nbl::scene::ISceneManager* m_smgr;
 
 		nbl::core::smart_refctd_ptr<nbl::ext::RadeonRays::Manager> m_rrManager;
-#ifdef _NBL_BUILD_OPTIX_
-		nbl::core::smart_refctd_ptr<nbl::ext::OptiX::Manager> m_optixManager;
-		CUstream m_cudaStream;
-		nbl::core::smart_refctd_ptr<nbl::ext::OptiX::IContext> m_optixContext;
-#endif
 
 
 		// persistent (intialized in constructor
@@ -219,22 +210,6 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> m_finalEnvmap;
 
 		std::future<bool> compileShadersFuture;
-
-	#ifdef _NBL_BUILD_OPTIX_
-		nbl::core::smart_refctd_ptr<nbl::ext::OptiX::IDenoiser> m_denoiser;
-		OptixDenoiserSizes m_denoiserMemReqs;
-		nbl::cuda::CCUDAHandler::GraphicsAPIObjLink<nbl::video::IGPUBuffer> m_denoiserInputBuffer,m_denoiserStateBuffer,m_denoisedBuffer,m_denoiserScratchBuffer;
-
-		enum E_DENOISER_INPUT
-		{
-			EDI_COLOR,
-			EDI_ALBEDO,
-			EDI_NORMAL,
-			EDI_COUNT
-		};
-		OptixImage2D m_denoiserOutput;
-		OptixImage2D m_denoiserInputs[EDI_COUNT];
-	#endif
 };
 
 #endif
