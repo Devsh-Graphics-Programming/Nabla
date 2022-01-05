@@ -16,9 +16,7 @@
 #include "nbl/asset/utils/CForsythVertexCacheOptimizer.h"
 #include "nbl/asset/utils/COverdrawMeshOptimizer.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 //! Flips the direction of surfaces. Changes backfacing triangles to frontfacing
@@ -142,8 +140,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> CMeshManipulator::createMeshBufferFetchOp
     outbuffer->setSkin(
         SBufferBinding<ICPUBuffer>(reinterpret_cast<const SBufferBinding<ICPUBuffer>&>(_inbuffer->getInverseBindPoseBufferBinding())),
         SBufferBinding<ICPUBuffer>(reinterpret_cast<const SBufferBinding<ICPUBuffer>&>(_inbuffer->getJointAABBBufferBinding())),
-        core::smart_refctd_ptr<ICPUSkeleton>(const_cast<ICPUSkeleton*>(_inbuffer->getSkeleton())),
-        _inbuffer->getMaxJointsPerVertex()
+        _inbuffer->getJointCount(),_inbuffer->getMaxJointsPerVertex()
     );
 
     constexpr uint32_t MAX_ATTRIBS = asset::ICPUMeshBuffer::MAX_VERTEX_ATTRIB_COUNT;
@@ -633,8 +630,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createOptimizedMeshBuff
     outbuffer->setSkin(
         SBufferBinding<ICPUBuffer>(reinterpret_cast<const SBufferBinding<ICPUBuffer>&>(_inbuffer->getInverseBindPoseBufferBinding())),
         SBufferBinding<ICPUBuffer>(reinterpret_cast<const SBufferBinding<ICPUBuffer>&>(_inbuffer->getJointAABBBufferBinding())),
-        core::smart_refctd_ptr<ICPUSkeleton>(const_cast<ICPUSkeleton*>(_inbuffer->getSkeleton())),
-        _inbuffer->getMaxJointsPerVertex()
+        _inbuffer->getJointCount(),_inbuffer->getMaxJointsPerVertex()
     );
 
     // make index buffer 0,1,2,3,4,... if nothing's mapped
@@ -1512,6 +1508,5 @@ core::smart_refctd_ptr<ICPUBuffer> IMeshManipulator::idxBufferFromTrianglesFanTo
 	return nullptr;
 }
 
-} // end namespace scene
-} // end namespace nbl
+} // end namespace nbl::asset
 

@@ -89,6 +89,15 @@ class IDriverMemoryAllocation : public virtual core::IReferenceCounted
             EMCF_CACHED=0x08u, ///< whether mapping is cached, i.e. if cpu reads go through cache, this is relevant to Vulkan only and is transparent to program operation.
         };
 
+        //! Memory allocate flags
+        enum E_MEMORY_ALLOCATE_FLAGS
+        {
+            EMAF_NONE = 0x00000000,
+            EMAF_DEVICE_MASK_BIT = 0x00000001,
+            EMAF_DEVICE_ADDRESS_BIT = 0x00000002,
+            EMAF_DEVICE_ADDRESS_CAPTURE_REPLAY_BIT = 0x00000004,
+        };
+
         E_API_TYPE getAPIType() const;
 
         //! Where the memory was actually allocated
@@ -117,6 +126,9 @@ class IDriverMemoryAllocation : public virtual core::IReferenceCounted
 
         //!
         inline E_MAPPING_CPU_ACCESS_FLAG getCurrentMappingCaps() const {return currentMappingAccess;}
+        
+        //!
+        inline core::bitflag<E_MEMORY_ALLOCATE_FLAGS> getAllocateFlags() const {return allocateFlags;}
 
         inline bool isCurrentlyMapped() const { return mappedPtr != nullptr; }
 
@@ -143,15 +155,16 @@ class IDriverMemoryAllocation : public virtual core::IReferenceCounted
             currentMappingAccess = access;
         }
 
-        IDriverMemoryAllocation(const ILogicalDevice* originDevice)
+        IDriverMemoryAllocation(const ILogicalDevice* originDevice, core::bitflag<E_MEMORY_ALLOCATE_FLAGS> flags = E_MEMORY_ALLOCATE_FLAGS::EMAF_NONE)
             : m_originDevice(originDevice), mappedPtr(nullptr), mappedRange(0,0),
-            currentMappingAccess(EMCAF_NO_MAPPING_ACCESS)
+            currentMappingAccess(EMCAF_NO_MAPPING_ACCESS), allocateFlags(flags)
         {}
 
         const ILogicalDevice* m_originDevice = nullptr;
         uint8_t* mappedPtr;
         MemoryRange                 mappedRange;
         E_MAPPING_CPU_ACCESS_FLAG   currentMappingAccess;
+        const core::bitflag<E_MEMORY_ALLOCATE_FLAGS> allocateFlags;
 };
 
 } // end namespace nbl::video

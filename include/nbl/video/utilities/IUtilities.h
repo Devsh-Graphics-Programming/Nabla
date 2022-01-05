@@ -398,6 +398,34 @@ namespace nbl::video
             auto* fenceptr = fence.get();
             m_device->blockForFences(1u, &fenceptr);
         }
+        
+        //! WARNING: This function blocks the CPU and stalls the GPU!
+        inline void buildAccelerationStructures(IGPUQueue* queue, const core::SRange<video::IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, video::IGPUAccelerationStructure::BuildRangeInfo* const* ppBuildRangeInfos)
+        {
+		    core::smart_refctd_ptr<IGPUCommandPool> pool = m_device->createCommandPool(queue->getFamilyIndex(), IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
+            auto fence = m_device->createFence(static_cast<IGPUFence::E_CREATE_FLAGS>(0));
+		    core::smart_refctd_ptr<IGPUCommandBuffer> cmdbuf;
+		    m_device->createCommandBuffers(pool.get(), IGPUCommandBuffer::EL_PRIMARY, 1u, &cmdbuf);
+		    IGPUQueue::SSubmitInfo submit;
+		    {
+			    submit.commandBufferCount = 1u;
+			    submit.commandBuffers = &cmdbuf.get();
+			    submit.waitSemaphoreCount = 0u;
+			    submit.pWaitDstStageMask = nullptr;
+			    submit.pWaitSemaphores = nullptr;
+		    }
+
+		    cmdbuf->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
+		    {
+			    cmdbuf->buildAccelerationStructures(pInfos, ppBuildRangeInfos);
+		    }
+		    cmdbuf->end();
+
+		    queue->submit(1u, &submit, fence.get());
+		
+		    auto* fenceptr = fence.get();
+		    m_device->waitForFences(1u,&fenceptr,false,9999999999ull);
+        }
 
 
         // --------------

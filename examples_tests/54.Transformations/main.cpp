@@ -13,31 +13,36 @@ using namespace core;
 
 const char* vertexSource = R"===(
 #version 430 core
-layout(location = 0) in vec4 vPos;
+
+#define NBL_GLSL_TRANSFORM_TREE_POOL_NODE_PARENT_DESCRIPTOR_DECLARED
+#define NBL_GLSL_TRANSFORM_TREE_POOL_NODE_RELATIVE_TRANSFORM_DESCRIPTOR_DECLARED
+#define NBL_GLSL_TRANSFORM_TREE_POOL_NODE_MODIFIED_TIMESTAMP_DESCRIPTOR_DECLARED
+#define NBL_GLSL_TRANSFORM_TREE_POOL_NODE_RECOMPUTED_TIMESTAMP_DESCRIPTOR_DECLARED
+#include "nbl/builtin/glsl/transform_tree/pool_descriptor_set.glsl"
+
+layout(location = 0) in vec3 vPos;
 layout(location = 3) in vec3 vNormal;
 layout(location = 4) in vec4 vCol;
-layout (set = 0, binding = 0, row_major) readonly buffer GlobalTforms
-{
-	mat4x3 data[];
-} globalTform;
+
 layout( push_constant, row_major ) uniform Block {
 	mat4 viewProj;
 } PushConstants;
+
 layout(location = 0) out vec3 Color;
 layout(location = 1) out vec3 Normal;
+
+#include "nbl/builtin/glsl/utils/transform.glsl"
+#include "nbl/builtin/glsl/utils/normal_encode.glsl"
+#include "nbl/builtin/glsl/utils/normal_decode.glsl"
 void main()
 {
-	mat4x3 tform = globalTform.data[gl_InstanceIndex];
-	mat3x4 tpose = transpose(tform);
-	vec4 lcpos = vPos;
-	lcpos.xyz *= vCol.a; // color's alpha has encoded scale
-	vec4 worldPos = vec4(dot(tpose[0], lcpos), dot(tpose[1], lcpos), dot(tpose[2], lcpos), 1.0);
-	vec4 pos = PushConstants.viewProj*worldPos;
-	gl_Position = pos;
+	const vec3 lcpos = vPos*vCol.a; // color's alpha has encoded scale
+	const vec3 worldPos = nbl_glsl_pseudoMul3x4with3x1(nodeGlobalTransforms.data[gl_InstanceIndex],lcpos);
+
+	gl_Position = nbl_glsl_pseudoMul4x4with3x1(PushConstants.viewProj,worldPos);
 	Color = vCol.xyz;
-	mat3x4 transposeWorldMat = tpose;
-	mat3 inverseTransposeWorld = inverse(mat3(transposeWorldMat));
-	Normal = inverseTransposeWorld * normalize(vNormal);
+
+	Normal = normalize(nbl_glsl_CompressedNormalMatrix_t_decode(nodeNormalMatrix.data[gl_InstanceIndex])*vNormal);
 }
 )===";
 
@@ -121,19 +126,18 @@ static core::smart_refctd_ptr<asset::ICPUMeshBuffer> createMeshBufferFromGeomCre
 
 class TransformationApp : public ApplicationBase
 {
-	_NBL_STATIC_INLINE_CONSTEXPR uint32_t WIN_W = 1280;
-	_NBL_STATIC_INLINE_CONSTEXPR uint32_t WIN_H = 720;
-	_NBL_STATIC_INLINE_CONSTEXPR uint32_t FBO_COUNT = 1u;
-	_NBL_STATIC_INLINE_CONSTEXPR uint32_t FRAMES_IN_FLIGHT = 5u;
-	static_assert(FRAMES_IN_FLIGHT > FBO_COUNT);
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t WIN_W = 1280;
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t WIN_H = 720;
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t FBO_COUNT = 1u;
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t FRAMES_IN_FLIGHT = 5u;
+		static_assert(FRAMES_IN_FLIGHT > FBO_COUNT);
 
-	_NBL_STATIC_INLINE_CONSTEXPR uint32_t ObjectCount = 11u;
-	_NBL_STATIC_INLINE_CONSTEXPR uint32_t PropertyCount = 5u;
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t ObjectCount = 11u;
 
-	_NBL_STATIC_INLINE_CONSTEXPR uint32_t FRAME_COUNT = 500000u;
-	_NBL_STATIC_INLINE_CONSTEXPR uint64_t MAX_TIMEOUT = 99999999999999ull;
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t FRAME_COUNT = 500000u;
+		_NBL_STATIC_INLINE_CONSTEXPR uint64_t MAX_TIMEOUT = 99999999999999ull;
 
-	_NBL_STATIC_INLINE_CONSTEXPR float SimulationSpeedScale = 0.03f; //! Instance Data
+		_NBL_STATIC_INLINE_CONSTEXPR float SimulationSpeedScale = 0.03f; //! Instance Data
 
 	public:
 		void setWindow(core::smart_refctd_ptr<nbl::ui::IWindow>&& wnd) override
@@ -148,13 +152,54 @@ class TransformationApp : public ApplicationBase
 		{
 			return window.get();
 		}
-
+		video::IAPIConnection* getAPIConnection() override
+		{
+			return gl.get();
+		}
+		video::ILogicalDevice* getLogicalDevice()  override
+		{
+			return device.get();
+		}
+		video::IGPURenderpass* getRenderpass() override
+		{
+			return renderpass.get();
+		}
+		void setSurface(core::smart_refctd_ptr<video::ISurface>&& s) override
+		{
+			surface = std::move(s);
+		}
+		void setFBOs(std::vector<core::smart_refctd_ptr<video::IGPUFramebuffer>>& f) override
+		{
+			for (int i = 0; i < f.size(); i++)
+			{
+				fbos[i] = core::smart_refctd_ptr(f[i]);
+			}
+		}
+		void setSwapchain(core::smart_refctd_ptr<video::ISwapchain>&& s) override
+		{
+			swapchain = std::move(s);
+		}
+		uint32_t getSwapchainImageCount() override
+		{
+			return FBO_COUNT;
+		}
+		virtual nbl::asset::E_FORMAT getDepthFormat() override
+		{
+			return nbl::asset::EF_D32_SFLOAT;
+		}
 		APP_CONSTRUCTOR(TransformationApp)
 		void onAppInitialized_impl() override
 		{
 			initOutput.window = core::smart_refctd_ptr(window);
+			
+			const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT);
+			const video::ISurface::SFormat surfaceFormat(asset::EF_B8G8R8A8_SRGB, asset::ECP_COUNT, asset::EOTF_UNKNOWN);
+			CommonAPI::InitWithDefaultExt(
+				initOutput, video::EAT_OPENGL, "Solar System Transformations",
+				WIN_W, WIN_H, FBO_COUNT,
+				swapchainImageUsage, surfaceFormat,
+				asset::EF_D32_SFLOAT);
 
-			CommonAPI::Init<WIN_W, WIN_H, FBO_COUNT>(initOutput, video::EAT_OPENGL, "Solar System Transformations", asset::EF_D32_SFLOAT);
 			system = std::move(initOutput.system);
 			window = std::move(initOutput.window);
 			windowCb = std::move(initOutput.windowCb);
@@ -168,22 +213,24 @@ class TransformationApp : public ApplicationBase
 			renderpass = std::move(initOutput.renderpass);
 			fbos = std::move(initOutput.fbo);
 			auto fbo = fbos[0];
-			commandPool = std::move(initOutput.commandPool);
+			commandPools = std::move(initOutput.commandPools);
 			assetManager = std::move(initOutput.assetManager);
 			cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
 			utils = std::move(initOutput.utilities);
+			auto graphicsCommandPool = commandPools[CommonAPI::InitOutput::EQT_GRAPHICS];
+			auto computeCommandPool =  commandPools[CommonAPI::InitOutput::EQT_COMPUTE];
 
-			device->createCommandBuffers(commandPool.get(), nbl::video::IGPUCommandBuffer::EL_PRIMARY, FRAMES_IN_FLIGHT, cmdbuf);
+			device->createCommandBuffers(graphicsCommandPool.get(), nbl::video::IGPUCommandBuffer::EL_PRIMARY, FRAMES_IN_FLIGHT, cmdbuf);
 
 			nbl::video::IGPUObjectFromAssetConverter CPU2GPU;
 
-			//scene::ITransformTree* tt0; 
-			//assert(tt0->getNodePropertyPool()->getPropertyCount() == PropertyCount);
-			const size_t parentPropSz = sizeof(uint32_t);//tt0->getNodePropertyPool()->getPropertySize(scene::ITransformTree::parent_prop_ix);
-			const size_t relTformPropSz = sizeof(core::matrix3x4SIMD);//tt0->getNodePropertyPool()->getPropertySize(scene::ITransformTree::relative_transform_prop_ix);
-			const size_t modifStampPropSz = sizeof(uint32_t);//tt0->getNodePropertyPool()->getPropertySize(scene::ITransformTree::modified_stamp_prop_ix);
-			const size_t globalTformPropSz = sizeof(core::matrix3x4SIMD);//tt0->getNodePropertyPool()->getPropertySize(scene::ITransformTree::global_transform_prop_ix);
-			const size_t recompStampPropSz = sizeof(uint32_t);//tt0->getNodePropertyPool()->getPropertySize(scene::ITransformTree::recomputed_stamp_prop_ix);
+			using transform_tree_t = scene::ITransformTreeWithNormalMatrices;
+			const size_t parentPropSz = sizeof(transform_tree_t::parent_t);
+			const size_t relTformPropSz = sizeof(transform_tree_t::relative_transform_t);
+			const size_t modifStampPropSz = sizeof(transform_tree_t::modified_stamp_t);
+			const size_t globalTformPropSz = sizeof(transform_tree_t::global_transform_t);
+			const size_t recompStampPropSz = sizeof(transform_tree_t::recomputed_stamp_t);
+			const size_t normalMatrixPropSz = sizeof(transform_tree_t::normal_matrix_t);
 
 			constexpr uint32_t GlobalTformPropNum = 3u;
 
@@ -193,8 +240,9 @@ class TransformationApp : public ApplicationBase
 			const size_t offset_modifStamp = core::alignUp(offset_relTform + relTformPropSz * ObjectCount, SSBOAlignment);
 			const size_t offset_globalTform = core::alignUp(offset_modifStamp + modifStampPropSz * ObjectCount, SSBOAlignment);
 			const size_t offset_recompStamp = core::alignUp(offset_globalTform + globalTformPropSz * ObjectCount, SSBOAlignment);
+			const size_t offset_normalMatrix = core::alignUp(offset_recompStamp + recompStampPropSz * ObjectCount, SSBOAlignment);
 
-			const size_t ssboSz = offset_recompStamp + recompStampPropSz * ObjectCount;
+			const size_t ssboSz = offset_normalMatrix + normalMatrixPropSz * ObjectCount;
 
 			video::IGPUBuffer::SCreationParams ssboCreationParams;
 			ssboCreationParams.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
@@ -204,8 +252,8 @@ class TransformationApp : public ApplicationBase
 
 			auto ssbo_buf = device->createDeviceLocalGPUBufferOnDedMem(ssboCreationParams, ssboSz);
 
-			asset::SBufferRange<video::IGPUBuffer> propBufs[PropertyCount];
-			for (uint32_t i = 0u; i < PropertyCount; ++i)
+			asset::SBufferRange<video::IGPUBuffer> propBufs[transform_tree_t::property_pool_t::PropertyCount];
+			for (uint32_t i=0u; i<transform_tree_t::property_pool_t::PropertyCount; ++i)
 				propBufs[i].buffer = ssbo_buf;
 			propBufs[0].offset = offset_parent;
 			propBufs[0].size = parentPropSz * ObjectCount;
@@ -217,19 +265,23 @@ class TransformationApp : public ApplicationBase
 			propBufs[3].size = globalTformPropSz * ObjectCount;
 			propBufs[4].offset = offset_recompStamp;
 			propBufs[4].size = recompStampPropSz * ObjectCount;
+			propBufs[5].offset = offset_normalMatrix;
+			propBufs[5].size = normalMatrixPropSz * ObjectCount;
 
-			tt = scene::ITransformTree::create(device.get(), core::smart_refctd_ptr(renderpass), propBufs, ObjectCount, true); // WTF!? Why a contiguous Pool for a TT !?
+			tt = transform_tree_t::create(device.get(),propBufs,ObjectCount,true); // A contiguous Pool for a TT is unusually used because we index into with with `gl_InstanceIndex`.
 			ttm = scene::ITransformTreeManager::create(utils.get(), transferUpQueue);
 
 			if (!ttm.get())
 				return;
+
+			ttDS = tt->getNodePropertyDescriptorSet();
 
 			auto ppHandler = core::make_smart_refctd_ptr<video::CPropertyPoolHandler>(core::smart_refctd_ptr(device));
 
 			constexpr uint32_t NumSolarSystemObjects = ObjectCount;
 			constexpr uint32_t NumInstances = NumSolarSystemObjects;
 
-			// GPU data pool
+			// GPU data pool 
 			//auto propertyPool = video::CPropertyPool<core::allocator,InstanceData,SolarSystemObject>::create(device.get(),blocks,NumSolarSystemObjects);
 
 			// SolarSystemObject and InstanceData have 1-to-1 relationship
@@ -350,10 +402,10 @@ class TransformationApp : public ApplicationBase
 
 			// upload data
 			{
-				auto* q = device->getQueue(commandPool->getQueueFamilyIndex(), 0u);
+				auto* q = device->getQueue(graphicsCommandPool->getQueueFamilyIndex(), 0u);
 
 				nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandBuffer> cmdbuf_nodes;
-				device->createCommandBuffers(commandPool.get(), nbl::video::IGPUCommandBuffer::EL_PRIMARY, 1u, &cmdbuf_nodes);
+				device->createCommandBuffers(graphicsCommandPool.get(), nbl::video::IGPUCommandBuffer::EL_PRIMARY, 1u, &cmdbuf_nodes);
 
 				auto fence_nodes = device->createFence(static_cast<nbl::video::IGPUFence::E_CREATE_FLAGS>(0));
 
@@ -423,33 +475,22 @@ class TransformationApp : public ApplicationBase
 
 			// Creating CPU Shaders 
 
-			auto createCPUSpecializedShaderFromSource = [=](const char* source, asset::ISpecializedShader::E_SHADER_STAGE stage) -> core::smart_refctd_ptr<asset::ICPUSpecializedShader>
+			auto createCPUSpecializedShaderFromSource = [=](std::string&& source, asset::IShader::E_SHADER_STAGE stage) -> core::smart_refctd_ptr<asset::ICPUSpecializedShader>
 			{
-				auto unspec = assetManager->getGLSLCompiler()->createSPIRVFromGLSL(source, stage, "main", "runtimeID", nullptr, true, nullptr, initOutput.logger.get());
+				const std::string path = localInputCWD.string(); // TODO: make GLSL Compiler take `const system::path&` instead of cstrings
+				auto unspec = assetManager->getGLSLCompiler()->resolveIncludeDirectives(std::move(source),stage,path.c_str(),1u,initOutput.logger.get());
 				if (!unspec)
 					return nullptr;
 
-				asset::ISpecializedShader::SInfo info(nullptr, nullptr, "main", stage, "");
+				asset::ISpecializedShader::SInfo info(nullptr, nullptr, "main");
 				return core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspec), std::move(info));
 			};
 
-			auto vs = createCPUSpecializedShaderFromSource(vertexSource, asset::ISpecializedShader::ESS_VERTEX);
-			auto fs = createCPUSpecializedShaderFromSource(fragmentSource, asset::ISpecializedShader::ESS_FRAGMENT);
+			auto vs = createCPUSpecializedShaderFromSource(vertexSource, asset::IShader::ESS_VERTEX);
+			auto fs = createCPUSpecializedShaderFromSource(fragmentSource, asset::IShader::ESS_FRAGMENT);
 			asset::ICPUSpecializedShader* shaders[2]{ vs.get(), fs.get() };
 
 			auto cpuMeshPlanets = createMeshBufferFromGeomCreatorReturnType(sphereGeom, assetManager.get(), shaders, shaders + 2);
-
-			core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> cpu_gfxDsl0;
-			{
-				asset::ICPUDescriptorSetLayout::SBinding bnd;
-				bnd.binding = 0u;
-				bnd.count = 1u;
-				bnd.samplers = nullptr;
-				bnd.stageFlags = video::IGPUSpecializedShader::ESS_VERTEX;
-				bnd.type = asset::EDT_STORAGE_BUFFER;
-
-				cpu_gfxDsl0 = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&bnd, &bnd + 1);
-			}
 
 			constexpr size_t ColorBufSz = sizeof(core::vectorSIMDf) * ObjectCount;
 			video::IGPUBuffer::SCreationParams colorBufCreationParams;
@@ -505,8 +546,8 @@ class TransformationApp : public ApplicationBase
 						vtxinputParams.enabledBindingFlags |= 0x1u << ColorBindingNum;
 					}
 
-					asset::SPushConstantRange range[1] = { asset::ISpecializedShader::ESS_VERTEX,0u,sizeof(core::matrix4SIMD) };
-					auto gfxLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(range, range + 1u, core::smart_refctd_ptr(cpu_gfxDsl0));
+					asset::SPushConstantRange range[1] = { asset::IShader::ESS_VERTEX,0u,sizeof(core::matrix4SIMD) };
+					auto gfxLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(range,range+1u,scene::ITransformTreeWithNormalMatrices::createDescriptorSetLayout());
 					pipeline->setLayout(core::smart_refctd_ptr(gfxLayout));
 
 					core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> rpIndependentPipeline = CPU2GPU.getGPUObjectsFromAssets(&pipeline, &pipeline + 1, cpu2gpuParams)->front();
@@ -532,25 +573,6 @@ class TransformationApp : public ApplicationBase
 			};
 
 			gpuObjects.push_back(createGPUObject(cpuMeshPlanets.get(), NumSolarSystemObjects, 0ull, gpuColorBuf));
-
-			auto* gfxDsl0 = gpuObjects.back().gpuMesh->getPipeline()->getLayout()->getDescriptorSetLayout(0);
-			auto gfxDescPool = device->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE, &gfxDsl0, &gfxDsl0 + 1);
-			gfxDs0 = device->createGPUDescriptorSet(gfxDescPool.get(), core::smart_refctd_ptr<video::IGPUDescriptorSetLayout>(const_cast<video::IGPUDescriptorSetLayout*>(gfxDsl0)));
-			{
-				video::IGPUDescriptorSet::SDescriptorInfo info;
-				info.desc = propBufs[GlobalTformPropNum].buffer;
-				info.buffer.offset = propBufs[GlobalTformPropNum].offset;
-				info.buffer.size = propBufs[GlobalTformPropNum].size;
-				video::IGPUDescriptorSet::SWriteDescriptorSet w;
-				w.arrayElement = 0;
-				w.binding = 0;
-				w.count = 1;
-				w.descriptorType = asset::EDT_STORAGE_BUFFER;
-				w.dstSet = gfxDs0.get();
-				w.info = &info;
-
-				device->updateDescriptorSets(1u, &w, 0u, nullptr);
-			}
 
 			lastTime = std::chrono::high_resolution_clock::now();
 
@@ -585,6 +607,11 @@ class TransformationApp : public ApplicationBase
 				bufrng.size = nodeIdsBuf->getSize();
 				utils->updateBufferRangeViaStagingBuffer(device->getQueue(0, 0), bufrng, countAndIds);
 			}
+
+			ttmDescriptorSets = ttm->createAllDescriptorSets(device.get());
+			ttm->updateUpdateLocalTransformsDescriptorSet(device.get(),ttmDescriptorSets.updateLocal.get(),{0ull,modRangesBuf},{0ull,relTformModsBuf});
+			ttm->updateRecomputeGlobalTransformsDescriptorSet(device.get(),ttmDescriptorSets.recomputeGlobal.get(),{0ull,nodeIdsBuf});
+			//ttm->updateDebugDrawDescriptorSet(device.get(),ttmDescriptorSets.debugDraw.get(),{}); // TODO
 		}
 
 		void onAppTerminated_impl() override
@@ -697,14 +724,14 @@ class TransformationApp : public ApplicationBase
 
 				const core::bitflag<asset::E_PIPELINE_STAGE_FLAGS> renderingStages = asset::EPSF_VERTEX_SHADER_BIT;
 				const core::bitflag<asset::E_ACCESS_FLAGS> renderingAccesses = asset::EAF_SHADER_READ_BIT;
-
-				scene::ITransformTreeManager::ParamsBase baseParams;
+				 
+				scene::ITransformTreeManager::BaseParams baseParams;
 				baseParams.cmdbuf = cb.get();
 				baseParams.tree = tt.get();
-				baseParams.fence = fence.get();
-				baseParams.dispatchIndirect.buffer = nullptr;
-				baseParams.dispatchDirect.nodeCount = ObjectCount;
 				baseParams.logger = initOutput.logger.get();
+				scene::ITransformTreeManager::DispatchParams dispatchParams;
+				dispatchParams.indirect.buffer = nullptr;
+				dispatchParams.direct.nodeCount = ObjectCount;
 
 				// compilers are too dumb to figure out const correctness (there's also a TODO in `core::smart_refctd_ptr`)
 				const scene::ITransformTree* ptt = tt.get();
@@ -720,14 +747,7 @@ class TransformationApp : public ApplicationBase
 					setBufferBarrier(barrierCount++, { 0ull,relTformModsBuf->getSize(),relTformModsBuf }, sugg.modificationRequests);
 					cb->pipelineBarrier(sugg.srcStageMask, sugg.dstStageMask, asset::EDF_NONE, 0u, nullptr, barrierCount, barriers, 0u, nullptr);
 				}
-				//
-				{
-					scene::ITransformTreeManager::LocalTransformUpdateParams lcparams;
-					static_cast<scene::ITransformTreeManager::ParamsBase&>(lcparams) = baseParams;
-					lcparams.modificationRequests = asset::SBufferBinding<video::IGPUBuffer>{ 0ull, relTformModsBuf };
-					lcparams.requestRanges = asset::SBufferBinding<video::IGPUBuffer>{ 0ull, modRangesBuf };
-					ttm->updateLocalTransforms(lcparams);
-				}
+				ttm->updateLocalTransforms(baseParams,dispatchParams,ttmDescriptorSets.updateLocal.get());
 				// barrier between TTM update and TTM recompute
 				{
 					auto sugg = scene::ITransformTreeManager::barrierHelper(scene::ITransformTreeManager::SBarrierSuggestion::EF_INBETWEEN_RLEATIVE_UPDATE_AND_GLOBAL_RECOMPUTE);
@@ -743,13 +763,7 @@ class TransformationApp : public ApplicationBase
 					setBufferBarrier(barrierCount++, node_pp->getPropertyMemoryBlock(scene::ITransformTree::modified_stamp_prop_ix), sugg.modifiedTimestamps);
 					cb->pipelineBarrier(sugg.srcStageMask, sugg.dstStageMask, asset::EDF_NONE, 0u, nullptr, barrierCount, barriers, 0u, nullptr);
 				}
-				//
-				{
-					scene::ITransformTreeManager::GlobalTransformUpdateParams gparams;
-					static_cast<scene::ITransformTreeManager::ParamsBase&>(gparams) = baseParams;
-					gparams.nodeIDs = { 0ull,nodeIdsBuf };
-					ttm->recomputeGlobalTransforms(gparams);
-				}
+				ttm->recomputeGlobalTransforms(baseParams,dispatchParams,ttmDescriptorSets.recomputeGlobal.get());
 				// barrier between TTM recompute and TTM recompute+update 
 				{
 					auto sugg = scene::ITransformTreeManager::barrierHelper(scene::ITransformTreeManager::SBarrierSuggestion::EF_POST_GLOBAL_TFORM_RECOMPUTE);
@@ -759,6 +773,7 @@ class TransformationApp : public ApplicationBase
 					setBufferBarrier(barrierCount++, node_pp->getPropertyMemoryBlock(scene::ITransformTree::modified_stamp_prop_ix), sugg.modifiedTimestamps);
 					setBufferBarrier(barrierCount++, node_pp->getPropertyMemoryBlock(scene::ITransformTree::global_transform_prop_ix), sugg.globalTransforms);
 					setBufferBarrier(barrierCount++, node_pp->getPropertyMemoryBlock(scene::ITransformTree::recomputed_stamp_prop_ix), sugg.recomputedTimestamps);
+					setBufferBarrier(barrierCount++, node_pp->getPropertyMemoryBlock(scene::ITransformTreeWithNormalMatrices::normal_matrix_prop_ix), sugg.normalMatrices);
 					cb->pipelineBarrier(sugg.srcStageMask, sugg.dstStageMask, asset::EDF_NONE, 0u, nullptr, barrierCount, barriers, 0u, nullptr);
 				}
 			}
@@ -803,11 +818,12 @@ class TransformationApp : public ApplicationBase
 					auto& gpuObject = gpuObjects[i];
 
 					cb->bindGraphicsPipeline(gpuObject.graphicsPipeline.get());
-					cb->pushConstants(gpuObject.graphicsPipeline->getRenderpassIndependentPipeline()->getLayout(), asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD), viewProj.pointer());
-					cb->bindDescriptorSets(asset::EPBP_GRAPHICS, gpuObject.graphicsPipeline->getRenderpassIndependentPipeline()->getLayout(), 0u, 1u, &gfxDs0.get());
+					cb->pushConstants(gpuObject.graphicsPipeline->getRenderpassIndependentPipeline()->getLayout(), asset::IShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD), viewProj.pointer());
+					cb->bindDescriptorSets(asset::EPBP_GRAPHICS, gpuObject.graphicsPipeline->getRenderpassIndependentPipeline()->getLayout(), 0u, 1u, &ttDS);
 					cb->drawMeshBuffer(gpuObject.gpuMesh.get());
 				}
 			}
+			// TODO: debug draw
 			cb->endRenderPass();
 			cb->end();
 
@@ -824,17 +840,17 @@ class TransformationApp : public ApplicationBase
 		}
 
 	private:
-		CommonAPI::InitOutput<FBO_COUNT> initOutput;
+		CommonAPI::InitOutput initOutput;
 		nbl::core::smart_refctd_ptr<nbl::ui::IWindow> window;
 		nbl::core::smart_refctd_ptr<nbl::video::IAPIConnection> gl;
 		nbl::core::smart_refctd_ptr<nbl::video::ISurface> surface;
 		nbl::video::IPhysicalDevice* gpuPhysicalDevice;
 		nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice> device;
-		std::array<nbl::video::IGPUQueue*, CommonAPI::InitOutput<FBO_COUNT>::EQT_COUNT> queues = { nullptr, nullptr, nullptr, nullptr };
+		std::array<nbl::video::IGPUQueue*, CommonAPI::InitOutput::MaxQueuesCount> queues;
 		nbl::core::smart_refctd_ptr<nbl::video::ISwapchain> swapchain;
 		nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpass> renderpass;
-		std::array<nbl::core::smart_refctd_ptr<nbl::video::IGPUFramebuffer>, FBO_COUNT> fbos;
-		nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandPool> commandPool;
+		std::array<nbl::core::smart_refctd_ptr<nbl::video::IGPUFramebuffer>, CommonAPI::InitOutput::MaxSwapChainImageCount> fbos;
+		std::array<nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandPool>, CommonAPI::InitOutput::MaxQueuesCount> commandPools;
 		nbl::core::smart_refctd_ptr<nbl::asset::IAssetManager> assetManager;
 		nbl::core::smart_refctd_ptr<nbl::system::ILogger> logger;
 		nbl::core::smart_refctd_ptr<CommonAPI::InputSystem> inputSystem;
@@ -849,7 +865,8 @@ class TransformationApp : public ApplicationBase
 		core::smart_refctd_ptr<video::IGPUBuffer> modRangesBuf;
 		core::smart_refctd_ptr<video::IGPUBuffer> relTformModsBuf;
 		core::smart_refctd_ptr<video::IGPUBuffer> nodeIdsBuf;
-		core::smart_refctd_ptr<video::IGPUDescriptorSet> gfxDs0;
+		const video::IGPUDescriptorSet* ttDS;
+		scene::ITransformTreeManager::DescriptorSets ttmDescriptorSets;
 
 		core::smart_refctd_ptr<nbl::video::IGPUCommandBuffer> cmdbuf[FRAMES_IN_FLIGHT];
 		core::smart_refctd_ptr<video::IGPUFence> frameComplete[FRAMES_IN_FLIGHT] = { nullptr };

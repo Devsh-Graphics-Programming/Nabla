@@ -26,6 +26,14 @@ enum E_DESCRIPTOR_TYPE : uint32_t
     EDT_UNIFORM_BUFFER_DYNAMIC = 8,
     EDT_STORAGE_BUFFER_DYNAMIC = 9,
     EDT_INPUT_ATTACHMENT = 10,
+	// Provided by VK_EXT_inline_uniform_block
+	EDT_INLINE_UNIFORM_BLOCK_EXT = 1000138000,
+	// Provided by VK_KHR_acceleration_structure
+	EDT_ACCELERATION_STRUCTURE_KHR = 1000150000,
+	// Provided by VK_NV_ray_tracing
+	EDT_ACCELERATION_STRUCTURE_NV = 1000165000,
+	// Provided by VK_VALVE_mutable_descriptor_type
+	EDT_MUTABLE_VALVE = 1000351000,
 	EDT_INVALID = ~0u
 };
 

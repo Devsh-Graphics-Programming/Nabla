@@ -19,7 +19,8 @@ class IDescriptor : public virtual core::IReferenceCounted
 		{
 			EC_BUFFER,
 			EC_IMAGE,
-			EC_BUFFER_VIEW
+			EC_BUFFER_VIEW,
+			EC_ACCELERATION_STRUCTURE
 		};
 
 		virtual E_CATEGORY getTypeCategory() const = 0;

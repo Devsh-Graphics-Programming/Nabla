@@ -5,6 +5,7 @@
 #ifndef _NBL_BUILTIN_GLSL_SHAPES_AABB_INCLUDED_
 #define _NBL_BUILTIN_GLSL_SHAPES_AABB_INCLUDED_
 
+#ifndef __cplusplus
 struct nbl_glsl_shapes_AABB_t
 {
     vec3 minVx;
@@ -33,5 +34,22 @@ vec3 nbl_glsl_shapes_AABB_getFarthestPointInFront(in nbl_glsl_shapes_AABB_t aabb
 {
     return mix(aabb.maxVx,aabb.minVx,lessThan(plane,vec3(0.f)));
 }
+#endif
+
+struct nbl_glsl_shapes_CompressedAABB_t
+{
+    uvec2 minVx18E7S3;
+    uvec2 maxVx18E7S3;
+};
+#ifndef __cplusplus
+#include <nbl/builtin/glsl/format/decode.glsl>
+nbl_glsl_shapes_AABB_t nbl_glsl_shapes_CompressedAABB_t_decompress(in nbl_glsl_shapes_CompressedAABB_t compressed)
+{
+    nbl_glsl_shapes_AABB_t retval;
+    retval.minVx = nbl_glsl_decodeRGB18E7S3(compressed.minVx18E7S3);
+    retval.maxVx = nbl_glsl_decodeRGB18E7S3(compressed.maxVx18E7S3);
+    return retval;
+}
+#endif
 
 #endif

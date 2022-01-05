@@ -156,8 +156,8 @@ class CCircularBufferBase : public Base
     using atomic_counter_t = std::atomic_uint64_t;
     using counter_t = atomic_counter_t::value_type;
 
-    atomic_counter_t m_cb_begin;
-    atomic_counter_t m_cb_end;
+    atomic_counter_t m_cb_begin = 0;
+    atomic_counter_t m_cb_end = 0;
 
 protected:
     bool isAlive(uint32_t ix) const

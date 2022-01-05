@@ -1,6 +1,7 @@
 #include "CVulkanLogicalDevice.h"
 
 #include "nbl/video/CVulkanPhysicalDevice.h"
+#include "nbl/video/CVulkanQueryPool.h"
 #include "nbl/video/CVulkanCommandBuffer.h"
 #include "nbl/video/CVulkanEvent.h"
 
@@ -145,7 +146,8 @@ core::smart_refctd_ptr<IDriverMemoryAllocation> CVulkanLogicalDevice::allocateCP
 }
 
 core::smart_refctd_ptr<IDriverMemoryAllocation> CVulkanLogicalDevice::allocateGPUMemory(
-    const IDriverMemoryBacked::SDriverMemoryRequirements& reqs)
+    const IDriverMemoryBacked::SDriverMemoryRequirements& reqs,
+    core::bitflag<IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags)
 {
     VkMemoryPropertyFlags desiredMemoryProperties = static_cast<VkMemoryPropertyFlags>(0u);
 
@@ -181,9 +183,17 @@ core::smart_refctd_ptr<IDriverMemoryAllocation> CVulkanLogicalDevice::allocateGP
     for (uint32_t i = 0u; i < compatibleMemoryTypeCount; ++i)
     {
         // Todo(achal): Make use of requiresDedicatedAllocation and prefersDedicatedAllocation
+        VkMemoryAllocateFlagsInfo vk_allocateFlags = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO, nullptr };
+        if (allocateFlags.hasValue(IDriverMemoryAllocation::EMAF_DEVICE_MASK_BIT))
+            vk_allocateFlags.flags |= VK_MEMORY_ALLOCATE_DEVICE_MASK_BIT;
+        else if(allocateFlags.hasValue(IDriverMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT))
+            vk_allocateFlags.flags |= VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
+        else if (allocateFlags.hasValue(IDriverMemoryAllocation::EMAF_DEVICE_ADDRESS_CAPTURE_REPLAY_BIT))
+            vk_allocateFlags.flags |= VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_CAPTURE_REPLAY_BIT;
+        vk_allocateFlags.deviceMask = 0u; // unused
 
         VkMemoryAllocateInfo vk_allocateInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
-        vk_allocateInfo.pNext = nullptr; // No extensions for now
+        vk_allocateInfo.pNext = &vk_allocateFlags; // No extensions for now
         vk_allocateInfo.allocationSize = reqs.vulkanReqs.size;
         vk_allocateInfo.memoryTypeIndex = compatibleMemoryTypeIndices[i];
 
@@ -191,7 +201,7 @@ core::smart_refctd_ptr<IDriverMemoryAllocation> CVulkanLogicalDevice::allocateGP
         if (m_devf.vk.vkAllocateMemory(m_vkdev, &vk_allocateInfo, nullptr, &vk_deviceMemory) == VK_SUCCESS)
         {
             // Todo(achal): Change dedicate to not always be false
-            return core::make_smart_refctd_ptr<CVulkanMemoryAllocation>(this, reqs.vulkanReqs.size, false, vk_deviceMemory);
+            return core::make_smart_refctd_ptr<CVulkanMemoryAllocation>(this, reqs.vulkanReqs.size, false, vk_deviceMemory, allocateFlags);
         }
     }
 
@@ -626,6 +636,209 @@ bool CVulkanLogicalDevice::createGPUGraphicsPipelines_impl(
     {
         return false;
     }
+}
+
+core::smart_refctd_ptr<IGPUAccelerationStructure> CVulkanLogicalDevice::createGPUAccelerationStructure_impl(IGPUAccelerationStructure::SCreationParams&& params) 
+{
+    auto physicalDevice = static_cast<const CVulkanPhysicalDevice*>(getPhysicalDevice());
+    auto features = physicalDevice->getFeatures();
+    
+    if(!features.accelerationStructure)
+    {
+        assert(false && "device accelerationStructures is not enabled.");
+        return nullptr;
+    }
+
+    VkAccelerationStructureKHR vk_as = VK_NULL_HANDLE;
+    VkAccelerationStructureCreateInfoKHR vasci = {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR, nullptr};
+    vasci.createFlags = CVulkanAccelerationStructure::getVkASCreateFlagsFromASCreateFlags(params.flags);
+    vasci.type = CVulkanAccelerationStructure::getVkASTypeFromASType(params.type);
+    vasci.buffer = static_cast<const CVulkanBuffer*>(params.bufferRange.buffer.get())->getInternalObject();
+    vasci.offset = static_cast<VkDeviceSize>(params.bufferRange.offset);
+    vasci.size = static_cast<VkDeviceSize>(params.bufferRange.size);
+    auto vk_res = m_devf.vk.vkCreateAccelerationStructureKHR(m_vkdev, &vasci, nullptr, &vk_as);
+    if(VK_SUCCESS != vk_res)
+        return nullptr;
+    return core::make_smart_refctd_ptr<CVulkanAccelerationStructure>(core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(params), vk_as);
+}
+
+bool CVulkanLogicalDevice::buildAccelerationStructures(
+    core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation,
+    const core::SRange<IGPUAccelerationStructure::HostBuildGeometryInfo>& pInfos,
+    IGPUAccelerationStructure::BuildRangeInfo* const* ppBuildRangeInfos)
+{
+    auto physicalDevice = static_cast<const CVulkanPhysicalDevice*>(getPhysicalDevice());
+    auto features = physicalDevice->getFeatures();
+    if(!features.accelerationStructure)
+    {
+        assert(false && "device acceleration structures is not enabled.");
+        return false;
+    }
+
+
+    bool ret = false;
+    if(!pInfos.empty() && deferredOperation.get() != nullptr)
+    {
+        VkDeferredOperationKHR vk_deferredOp = static_cast<CVulkanDeferredOperation *>(deferredOperation.get())->getInternalObject();
+        static constexpr size_t MaxGeometryPerBuildInfoCount = 64;
+        static constexpr size_t MaxBuildInfoCount = 128;
+        size_t infoCount = pInfos.size();
+        assert(infoCount <= MaxBuildInfoCount);
+                
+        // TODO: Use better container when ready for these stack allocated memories.
+        VkAccelerationStructureBuildGeometryInfoKHR vk_buildGeomsInfos[MaxBuildInfoCount] = {};
+
+        uint32_t geometryArrayOffset = 0u;
+        VkAccelerationStructureGeometryKHR vk_geometries[MaxGeometryPerBuildInfoCount * MaxBuildInfoCount] = {};
+
+        IGPUAccelerationStructure::HostBuildGeometryInfo* infos = pInfos.begin();
+        for(uint32_t i = 0; i < infoCount; ++i)
+        {
+            uint32_t geomCount = infos[i].geometries.size();
+
+            assert(geomCount > 0);
+            assert(geomCount <= MaxGeometryPerBuildInfoCount);
+
+            vk_buildGeomsInfos[i] = CVulkanAccelerationStructure::getVkASBuildGeomInfoFromBuildGeomInfo(m_vkdev, &m_devf, infos[i], &vk_geometries[geometryArrayOffset]);
+            geometryArrayOffset += geomCount; 
+        }
+                
+        static_assert(sizeof(IGPUAccelerationStructure::BuildRangeInfo) == sizeof(VkAccelerationStructureBuildRangeInfoKHR));
+        auto buildRangeInfos = reinterpret_cast<const VkAccelerationStructureBuildRangeInfoKHR* const*>(ppBuildRangeInfos);
+        VkResult vk_res = m_devf.vk.vkBuildAccelerationStructuresKHR(m_vkdev, vk_deferredOp, infoCount, vk_buildGeomsInfos, buildRangeInfos);
+        if(VK_SUCCESS == vk_res)
+        {
+            ret = true;
+        }
+    }
+    return ret;
+}
+
+bool CVulkanLogicalDevice::copyAccelerationStructure(core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation, const IGPUAccelerationStructure::CopyInfo& copyInfo)
+{
+    auto physicalDevice = static_cast<const CVulkanPhysicalDevice*>(getPhysicalDevice());
+    auto features = physicalDevice->getFeatures();
+    if(!features.accelerationStructureHostCommands || !features.accelerationStructure)
+    {
+        assert(false && "device accelerationStructuresHostCommands is not enabled.");
+        return false;
+    }
+
+    bool ret = false;
+    if(deferredOperation.get() != nullptr)
+    {
+        VkDeferredOperationKHR vk_deferredOp = static_cast<CVulkanDeferredOperation *>(deferredOperation.get())->getInternalObject();
+        if(copyInfo.dst == nullptr || copyInfo.src == nullptr) 
+        {
+            assert(false && "invalid src or dst");
+            return false;
+        }
+
+        VkCopyAccelerationStructureInfoKHR info = CVulkanAccelerationStructure::getVkASCopyInfo(m_vkdev, &m_devf, copyInfo);
+        VkResult res = m_devf.vk.vkCopyAccelerationStructureKHR(m_vkdev, vk_deferredOp, &info);
+        if(VK_SUCCESS == res)
+        {
+            ret = true;
+        }
+    }
+    return ret;
+}
+    
+bool CVulkanLogicalDevice::copyAccelerationStructureToMemory(core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation, const IGPUAccelerationStructure::HostCopyToMemoryInfo& copyInfo)
+{
+    auto physicalDevice = static_cast<const CVulkanPhysicalDevice*>(getPhysicalDevice());
+    auto features = physicalDevice->getFeatures();
+    if(!features.accelerationStructureHostCommands || !features.accelerationStructure)
+    {
+        assert(false && "device accelerationStructuresHostCommands is not enabled.");
+        return false;
+    }
+
+    bool ret = false;
+    if(deferredOperation.get() != nullptr)
+    {
+        VkDeferredOperationKHR vk_deferredOp = static_cast<CVulkanDeferredOperation *>(deferredOperation.get())->getInternalObject();
+
+        if(copyInfo.dst.isValid() == false || copyInfo.src == nullptr) 
+        {
+            assert(false && "invalid src or dst");
+            return false;
+        }
+
+        VkCopyAccelerationStructureToMemoryInfoKHR info = CVulkanAccelerationStructure::getVkASCopyToMemoryInfo(m_vkdev, &m_devf, copyInfo);
+        VkResult res = m_devf.vk.vkCopyAccelerationStructureToMemoryKHR(m_vkdev, vk_deferredOp, &info);
+        if(VK_SUCCESS == res)
+        {
+            ret = true;
+        }
+    }
+    return ret;
+}
+
+bool CVulkanLogicalDevice::copyAccelerationStructureFromMemory(core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation, const IGPUAccelerationStructure::HostCopyFromMemoryInfo& copyInfo)
+{
+    auto physicalDevice = static_cast<const CVulkanPhysicalDevice*>(getPhysicalDevice());
+    auto features = physicalDevice->getFeatures();
+    if(!features.accelerationStructureHostCommands || !features.accelerationStructure)
+    {
+        assert(false && "device accelerationStructuresHostCommands is not enabled.");
+        return false;
+    }
+
+    bool ret = false;
+    if(deferredOperation.get() != nullptr)
+    {
+        VkDeferredOperationKHR vk_deferredOp = static_cast<CVulkanDeferredOperation *>(deferredOperation.get())->getInternalObject();
+        if(copyInfo.dst == nullptr || copyInfo.src.isValid() == false) 
+        {
+            assert(false && "invalid src or dst");
+            return false;
+        }
+
+        VkCopyMemoryToAccelerationStructureInfoKHR info = CVulkanAccelerationStructure::getVkASCopyFromMemoryInfo(m_vkdev, &m_devf, copyInfo);
+        VkResult res = m_devf.vk.vkCopyMemoryToAccelerationStructureKHR(m_vkdev, vk_deferredOp, &info);
+        if(VK_SUCCESS == res)
+        {
+            ret = true;
+        }
+    }
+    return ret;
+}
+
+IGPUAccelerationStructure::BuildSizes CVulkanLogicalDevice::getAccelerationStructureBuildSizes(const IGPUAccelerationStructure::HostBuildGeometryInfo& pBuildInfo, const uint32_t* pMaxPrimitiveCounts)
+{
+    // TODO(Validation): Rayquery or RayTracing Pipeline must be enabled
+    return getAccelerationStructureBuildSizes_impl(VK_ACCELERATION_STRUCTURE_BUILD_TYPE_HOST_KHR, pBuildInfo, pMaxPrimitiveCounts);
+}
+
+IGPUAccelerationStructure::BuildSizes CVulkanLogicalDevice::getAccelerationStructureBuildSizes(const IGPUAccelerationStructure::DeviceBuildGeometryInfo& pBuildInfo, const uint32_t* pMaxPrimitiveCounts)
+{
+    // TODO(Validation): Rayquery or RayTracing Pipeline must be enabled
+    return getAccelerationStructureBuildSizes_impl(VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, pBuildInfo, pMaxPrimitiveCounts);
+}
+
+core::smart_refctd_ptr<IQueryPool> CVulkanLogicalDevice::createQueryPool(IQueryPool::SCreationParams&& params)
+{
+    VkQueryPool vk_queryPool = VK_NULL_HANDLE;
+    VkQueryPoolCreateInfo vk_qpci = CVulkanQueryPool::getVkCreateInfoFromCreationParams(std::move(params));
+    auto vk_res = m_devf.vk.vkCreateQueryPool(m_vkdev, &vk_qpci, nullptr, &vk_queryPool);
+    if(VK_SUCCESS != vk_res)
+        return nullptr;
+    return core::make_smart_refctd_ptr<CVulkanQueryPool>(core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(params), vk_queryPool);
+}
+
+bool CVulkanLogicalDevice::getQueryPoolResults(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, size_t dataSize, void * pData, uint64_t stride, IQueryPool::E_QUERY_RESULTS_FLAGS flags)
+{
+    bool ret = false;
+    if(queryPool != nullptr)
+    {
+        auto vk_queryPool = static_cast<CVulkanQueryPool*>(queryPool)->getInternalObject();
+        auto vk_queryResultsflags = CVulkanQueryPool::getVkQueryResultsFlagsFromQueryResultsFlags(flags);
+        auto vk_res = m_devf.vk.vkGetQueryPoolResults(m_vkdev, vk_queryPool, firstQuery, queryCount, dataSize, pData, static_cast<VkDeviceSize>(stride), vk_queryResultsflags);
+        if(VK_SUCCESS == vk_res)
+            ret = true;
+    }
+    return ret;
 }
 
 }

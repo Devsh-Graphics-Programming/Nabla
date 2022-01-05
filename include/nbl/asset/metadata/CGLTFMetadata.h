@@ -2,15 +2,13 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __NBL_ASSET_C_GLTF_METADATA_H_INCLUDED__
-#define __NBL_ASSET_C_GLTF_METADATA_H_INCLUDED__
+#ifndef _NBL_ASSET_C_GLTF_METADATA_H_INCLUDED_
+#define _NBL_ASSET_C_GLTF_METADATA_H_INCLUDED_
 
 #include "nbl/asset/metadata/IAssetMetadata.h"
 #include "nbl/asset/metadata/CGLTFPipelineMetadata.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 class CGLTFMetadata final : public IAssetMetadata
@@ -28,6 +26,25 @@ class CGLTFMetadata final : public IAssetMetadata
             return static_cast<const asset::CGLTFPipelineMetadata*>(found);
         }
 
+
+        struct Instance
+        {
+            const ICPUSkeleton* skeleton;
+            asset::SBufferBinding<asset::ICPUBuffer> skinTranslationTable;
+            const ICPUMesh* mesh;
+            ICPUSkeleton::joint_id_t attachedToNode; // the node with the `mesh` and `skin` parameters
+        };
+        core::vector<Instance> instances;
+
+        core::vector<core::smart_refctd_ptr<ICPUSkeleton>> skeletons;
+
+        struct Scene
+        {
+            core::vector<uint32_t> instanceIDs;
+        };
+        core::vector<Scene> scenes;
+        uint32_t defaultSceneID = 0xffFFffFFu;
+
     private:
         meta_container_t<asset::CGLTFPipelineMetadata> m_metaStorage;
 
@@ -37,13 +54,11 @@ class CGLTFMetadata final : public IAssetMetadata
             auto& meta = m_metaStorage->operator[](offset);
 
             meta.m_inputSemantics = _meta.m_inputSemantics;
-            meta.m_materialParams = _meta.m_materialParams;
 
             IAssetMetadata::insertAssetSpecificMetadata(pipeline, &meta);
         }
 };
 
 }
-}
 
-#endif // __NBL_ASSET_C_GLTF_METADATA_H_INCLUDED__
+#endif // _NBL_ASSET_C_GLTF_METADATA_H_INCLUDED_

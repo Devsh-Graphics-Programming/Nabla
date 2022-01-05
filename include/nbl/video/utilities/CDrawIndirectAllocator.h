@@ -31,13 +31,13 @@ class CDrawIndirectAllocator final : public IDrawIndirectAllocator
             
             ExplicitBufferCreationParameters explicit_params;
 
-            video::IGPUBuffer::SCreationParams creationParams;
+            video::IGPUBuffer::SCreationParams creationParams = {};
             creationParams.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
             creationParams.usage |= asset::IBuffer::EUF_INDIRECT_BUFFER_BIT;
 
             static_cast<CreationParametersBase&>(explicit_params) = std::move(params);
             explicit_params.drawCommandBuffer.offset = 0ull;
-            assert(limits.SSBOAlignment<params.maxDrawCommandStride); // need to add a little padding, because generalpurpose allocator doesnt allow for allocations that would leave freeblocks smaller than the minimum allocation size
+            // need to add a little padding, because generalpurpose allocator doesnt allow for allocations that would leave freeblocks smaller than the minimum allocation size
             explicit_params.drawCommandBuffer.size = core::roundUp<size_t>(params.drawCommandCapacity*params.maxDrawCommandStride+params.maxDrawCommandStride,limits.SSBOAlignment);
             explicit_params.drawCommandBuffer.buffer = params.device->createDeviceLocalGPUBufferOnDedMem(creationParams, explicit_params.drawCommandBuffer.size);
             explicit_params.drawCountBuffer.offset = 0ull;

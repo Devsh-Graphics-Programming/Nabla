@@ -510,10 +510,6 @@ inline uint64_t rgb32f_to_rgb19e7(const float _rgb[3])
 
 	return retval.u64;
 }
-inline uint64_t rgb32f_to_rgb19e7(const uint32_t _rgb[3])
-{
-	return rgb32f_to_rgb19e7(reinterpret_cast<const float*>(_rgb));
-}
 inline uint64_t rgb32f_to_rgb19e7(float r, float g, float b)
 {
 	const float rgb[3]{ r,g,b };
@@ -653,11 +649,6 @@ inline uint64_t rgb32f_to_rgb18e7s3(const float _rgb[3])
 	returnValue.field.s = signMask;
 
 	return returnValue.u64;
-}
-
-inline uint64_t rgb32f_to_rgb18e7s3(const uint32_t _rgb[3])
-{
-	return rgb32f_to_rgb18e7s3(reinterpret_cast<const float*>(_rgb));
 }
 inline uint64_t rgb32f_to_rgb18e7s3(float r, float g, float b)
 {

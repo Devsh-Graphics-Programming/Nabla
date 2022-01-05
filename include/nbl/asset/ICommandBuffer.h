@@ -3,12 +3,15 @@
 
 #include <nbl/core/IReferenceCounted.h>
 #include <nbl/core/util/bitflag.h>
+
 #include "nbl/asset/IImage.h"
 #include "nbl/asset/IRenderpass.h"
 #include "nbl/asset/ISampler.h"
 #include "nbl/asset/ISpecializedShader.h"
 #include "nbl/asset/ECommonEnums.h"
-#include "nbl/video/IGPUMeshBuffer.h"
+#include "nbl/video/IGPUAccelerationStructure.h"
+#include "nbl/video/IQueryPool.h"
+#include "nbl/asset/IMeshBuffer.h"
 
 #define VK_NO_PROTOTYPES
 #include <vulkan/vulkan.h>
@@ -104,6 +107,7 @@ protected:
     using descriptor_set_t = DescSetType;
     using pipeline_layout_t = PipelineLayoutType;
     using event_t = EventType;
+    using meshbuffer_t = IMeshBuffer<buffer_t,descriptor_set_t,typename graphics_pipeline_t::renderpass_independent_t>;
     using cmdbuf_t = CommandBufferType;
 
 public:
@@ -179,7 +183,7 @@ public:
         uint32_t subpass;
         core::smart_refctd_ptr<const framebuffer_t> framebuffer;
         bool occlusionQueryEnable;
-        core::bitflag<asset::E_QUERY_CONTROL_FLAGS> queryFlags;
+        core::bitflag<video::IQueryPool::E_QUERY_CONTROL_FLAGS> queryFlags;
     };
 
     E_STATE getState() const { return m_state; }
@@ -221,7 +225,7 @@ public:
     virtual bool drawIndirectCount(const buffer_t* buffer, size_t offset, const buffer_t* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride) = 0;
     virtual bool drawIndexedIndirectCount(const buffer_t* buffer, size_t offset, const buffer_t* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride) = 0;
 
-    virtual bool drawMeshBuffer(const nbl::video::IGPUMeshBuffer* meshBuffer) = 0;
+    virtual bool drawMeshBuffer(const meshbuffer_t* meshBuffer) = 0;
 
     virtual bool setViewport(uint32_t firstViewport, uint32_t viewportCount, const SViewport* pViewports) = 0;
 
@@ -280,15 +284,21 @@ public:
     virtual bool bindGraphicsPipeline(const graphics_pipeline_t* pipeline) = 0;
     virtual bool bindComputePipeline(const compute_pipeline_t* pipeline) = 0;
 
-    //virtual bool resetQueryPool(IGPUQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount) = 0;
-    //virtual bool beginQuery(IGPUQueryPool* queryPool, uint32_t entry, std::underlying_type_t<E_QUERY_CONTROL_FLAGS> flags) = 0;
-    //virtual bool endQuery(IGPUQueryPool* queryPool, uint32_t query) = 0;
-    //virtual bool copyQueryPoolResults(IGPUQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, buffer_t* dstBuffer, size_t dstOffset, size_t stride, std::underlying_type_t<E_QUERY_RESULT_FLAGS> flags) = 0;
-    //virtual bool writeTimestamp(std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> pipelineStage, IGPUQueryPool* queryPool, uint32_t query) = 0;
+    virtual bool resetQueryPool(video::IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount) {return false;}
+    virtual bool beginQuery(video::IQueryPool* queryPool, uint32_t query, video::IQueryPool::E_QUERY_CONTROL_FLAGS flags = static_cast<video::IQueryPool::E_QUERY_CONTROL_FLAGS>(0)) {return false;}
+    virtual bool endQuery(video::IQueryPool* queryPool, uint32_t query) {return false;}
+    virtual bool copyQueryPoolResults(video::IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, buffer_t* dstBuffer, size_t dstOffset, size_t stride, video::IQueryPool::E_QUERY_RESULTS_FLAGS flags) {return false;}
+    virtual bool writeTimestamp(asset::E_PIPELINE_STAGE_FLAGS pipelineStage, video::IQueryPool* queryPool, uint32_t query) {return false;}
+    // TRANSFORM_FEEDBACK_STREAM
+    virtual bool beginQueryIndexed(video::IQueryPool* queryPool, uint32_t query, uint32_t index, video::IQueryPool::E_QUERY_CONTROL_FLAGS flags = static_cast<video::IQueryPool::E_QUERY_CONTROL_FLAGS>(0)) {return false;}
+    virtual bool endQueryIndexed(video::IQueryPool* queryPool, uint32_t query, uint32_t index) {return false;}
+    // Acceleration Structure Properties (Only available on Vulkan)
+    virtual bool writeAccelerationStructureProperties(const core::SRange<video::IGPUAccelerationStructure>& pAccelerationStructures, video::IQueryPool::E_QUERY_TYPE queryType, video::IQueryPool* queryPool, uint32_t firstQuery) {return false;}
 
     // E_PIPELINE_BIND_POINT needs to be in asset namespace or divide this into two functions (for graphics and compute)
-    virtual bool bindDescriptorSets(E_PIPELINE_BIND_POINT pipelineBindPoint, const pipeline_layout_t* layout, uint32_t firstSet, uint32_t descriptorSetCount,
-        const descriptor_set_t*const *const pDescriptorSets, core::smart_refctd_dynamic_array<uint32_t> dynamicOffsets = nullptr
+    virtual bool bindDescriptorSets(
+        E_PIPELINE_BIND_POINT pipelineBindPoint, const pipeline_layout_t* layout, uint32_t firstSet, uint32_t descriptorSetCount,
+        const descriptor_set_t*const *const pDescriptorSets, const uint32_t dynamicOffsetCount=0u, const uint32_t* dynamicOffsets=nullptr
     ) = 0;
     virtual bool pushConstants(const pipeline_layout_t* layout, core::bitflag<asset::IShader::E_SHADER_STAGE> stageFlags, uint32_t offset, uint32_t size, const void* pValues) = 0;
 
@@ -297,6 +307,16 @@ public:
     virtual bool clearAttachments(uint32_t attachmentCount, const SClearAttachment* pAttachments, uint32_t rectCount, const SClearRect* pRects) = 0;
     virtual bool fillBuffer(buffer_t* dstBuffer, size_t dstOffset, size_t size, uint32_t data) = 0;
     virtual bool updateBuffer(buffer_t* dstBuffer, size_t dstOffset, size_t dataSize, const void* pData) = 0;
+    
+    virtual bool buildAccelerationStructures(const core::SRange<video::IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, video::IGPUAccelerationStructure::BuildRangeInfo* const* ppBuildRangeInfos) { return false; }
+    virtual bool buildAccelerationStructuresIndirect(
+        const core::SRange<video::IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, 
+        const core::SRange<video::IGPUAccelerationStructure::DeviceAddressType>& pIndirectDeviceAddresses,
+        const uint32_t* pIndirectStrides,
+        const uint32_t* const* ppMaxPrimitiveCounts) { return false; }
+    virtual bool copyAccelerationStructure(const video::IGPUAccelerationStructure::CopyInfo& copyInfo) { return false; }
+    virtual bool copyAccelerationStructureToMemory(const video::IGPUAccelerationStructure::DeviceCopyToMemoryInfo& copyInfo) { return false; }
+    virtual bool copyAccelerationStructureFromMemory(const video::IGPUAccelerationStructure::DeviceCopyFromMemoryInfo& copyInfo) { return false; }
 
     virtual bool executeCommands(uint32_t count, cmdbuf_t*const *const cmdbufs)
     {
@@ -308,7 +328,9 @@ public:
         return true;
     }
 
-    virtual bool regenerateMipmaps(image_view_t* imgview) = 0;
+    virtual bool regenerateMipmaps(image_t* imgview, uint32_t lastReadyMip, asset::IImage::E_ASPECT_FLAGS aspect) = 0;
+
+
 
 protected:
     ICommandBuffer(E_LEVEL lvl) : m_level(lvl) {}

@@ -95,11 +95,10 @@ public:
     struct SAssetLoadParams
     {
 		SAssetLoadParams(size_t _decryptionKeyLen = 0u, const uint8_t* _decryptionKey = nullptr,
-			E_CACHING_FLAGS _cacheFlags = ECF_CACHE_EVERYTHING,
-			const char* _relativeDir = nullptr, const E_LOADER_PARAMETER_FLAGS& _loaderFlags = ELPF_NONE, 
+			E_CACHING_FLAGS _cacheFlags = ECF_CACHE_EVERYTHING,const E_LOADER_PARAMETER_FLAGS& _loaderFlags = ELPF_NONE, 
 			system::logger_opt_ptr _logger = nullptr, const std::filesystem::path& cwd = "") :
 				decryptionKeyLen(_decryptionKeyLen), decryptionKey(_decryptionKey),
-				cacheFlags(_cacheFlags), relativeDir(_relativeDir), loaderFlags(_loaderFlags),
+				cacheFlags(_cacheFlags), loaderFlags(_loaderFlags),
 				logger(std::move(_logger)), workingDirectory(cwd)
         {
         }
@@ -108,7 +107,6 @@ public:
 			decryptionKeyLen(rhs.decryptionKeyLen),
 			decryptionKey(rhs.decryptionKey),
 			cacheFlags(rhs.cacheFlags),
-			relativeDir(rhs.relativeDir),
 			loaderFlags(rhs.loaderFlags),
 			meshManipulatorOverride(rhs.meshManipulatorOverride),
 			restoreLevels(rhs.restoreLevels),
@@ -121,7 +119,6 @@ public:
         size_t decryptionKeyLen;
         const uint8_t* decryptionKey;
         E_CACHING_FLAGS cacheFlags;
-        const char* relativeDir;
         E_LOADER_PARAMETER_FLAGS loaderFlags;				//!< Flags having an impact on extraordinary tasks during loading process
 		IMeshManipulator* meshManipulatorOverride = nullptr;    //!< pointer used for specifying custom mesh manipulator to use, if nullptr - default mesh manipulator will be used
 		uint32_t restoreLevels = 0u;
@@ -236,15 +233,13 @@ public:
         }
 
         //! Called before loading a file to determine the correct path (could be relative or absolute)
-        inline virtual void getLoadFilename(std::string& inOutFilename, const SAssetLoadContext& ctx, const uint32_t hierarchyLevel)
+        inline virtual void getLoadFilename(system::path& inOutFilename, const system::ISystem* sys,  const SAssetLoadContext& ctx, const uint32_t hierarchyLevel)
 		{
-			if (!ctx.params.relativeDir)
-				return;
 			// try compute absolute path
-			std::string relative = ctx.params.relativeDir+inOutFilename;
-			if (std::filesystem::exists(relative))
+			auto absolute = ctx.params.workingDirectory/inOutFilename;
+			if (sys->exists(absolute,system::IFile::ECF_READ))
 			{
-				inOutFilename = relative;
+				inOutFilename = absolute;
 				return;
 			}
 			// otherwise it was already absolute

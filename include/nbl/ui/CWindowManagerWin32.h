@@ -17,8 +17,8 @@
 namespace nbl::ui
 {
 
-class CWindowManagerWin32 : public IWindowManager
-{
+	class CWindowManagerWin32 : public IWindowManager
+	{
 	public:
 		CWindowManagerWin32() = default;
 		~CWindowManagerWin32() {};
@@ -43,6 +43,17 @@ class CWindowManagerWin32 : public IWindowManager
 		void setCursorVisibility(bool visible)
 		{
 			m_windowThreadManager.setCursorVisibility(visible);
+		}
+		SDisplayInfo getPrimaryDisplayInfo() const override final
+		{
+			RECT size;
+			BOOL res_ok = SystemParametersInfo(SPI_GETWORKAREA, 0, &size, 0);
+			SDisplayInfo info {};
+			info.resX = size.right - size.left;
+			info.resY = size.bottom - size.top;
+			info.x = size.left; // When would this be not 0 though??
+			info.y = size.top;
+			return info;
 		}
 	private:
 		IWindowWin32::native_handle_t createNativeWindow(int _x, int _y, uint32_t _w, uint32_t _h, IWindow::E_CREATE_FLAGS _flags, const std::string_view& caption)

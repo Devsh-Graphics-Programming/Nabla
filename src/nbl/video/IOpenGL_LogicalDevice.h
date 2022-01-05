@@ -28,6 +28,7 @@
 #include "nbl/video/COpenGLSampler.h"
 #include "nbl/video/COpenGLPipelineCache.h"
 #include "nbl/video/COpenGLFence.h"
+#include "nbl/video/COpenGLQueryPool.h"
 
 #ifndef EGL_CONTEXT_OPENGL_NO_ERROR_KHR
 #	define EGL_CONTEXT_OPENGL_NO_ERROR_KHR 0x31B3
@@ -60,6 +61,7 @@ namespace impl
             ERT_TEXTURE_DESTROY,
             ERT_SYNC_DESTROY,
             ERT_SAMPLER_DESTROY,
+            ERT_QUERY_DESTROY,
             //ERT_GRAPHICS_PIPELINE_DESTROY,
             ERT_PROGRAM_DESTROY,
 
@@ -71,6 +73,7 @@ namespace impl
             ERT_SAMPLER_CREATE,
             ERT_RENDERPASS_INDEPENDENT_PIPELINE_CREATE,
             ERT_COMPUTE_PIPELINE_CREATE,
+            ERT_QUERY_POOL_CREATE,
             //ERT_GRAPHICS_PIPELINE_CREATE,
 
             // non-create requests
@@ -83,6 +86,7 @@ namespace impl
             //BIND_BUFFER_MEMORY,
             
             ERT_SET_DEBUG_NAME,
+            ERT_GET_QUERY_POOL_RESULTS,
 
             ERT_CTX_MAKE_CURRENT,
 
@@ -181,7 +185,12 @@ namespace impl
             uint32_t count;
             IGPUPipelineCache* pipelineCache;
         };
-
+        struct SRequestQueryPoolCreate
+        {
+            static inline constexpr E_REQUEST_TYPE type = ERT_QUERY_POOL_CREATE;
+            using retval_t = core::smart_refctd_ptr<IQueryPool>;
+            IQueryPool::SCreationParams params;
+        };
         //
         // Non-create requests:
         //
@@ -238,6 +247,18 @@ namespace impl
             GLuint object;
             GLsizei len;
             char label[IBackendObject::MAX_DEBUG_NAME_LENGTH+1U];
+        };
+        struct SRequestGetQueryPoolResults
+        {
+            static inline constexpr E_REQUEST_TYPE type = ERT_GET_QUERY_POOL_RESULTS;
+            using retval_t = void;
+            core::smart_refctd_ptr<const IQueryPool> queryPool;
+            uint32_t firstQuery;
+            uint32_t queryCount;
+            size_t dataSize;
+            void * pData;
+            uint64_t stride;
+            IQueryPool::E_QUERY_RESULTS_FLAGS flags;
         };
         struct SRequestMakeCurrent
         {
@@ -345,11 +366,13 @@ protected:
             SRequestSamplerCreate,
             SRequestRenderpassIndependentPipelineCreate,
             SRequestComputePipelineCreate,
+            SRequestQueryPoolCreate,
 
             SRequest_Destroy<ERT_BUFFER_DESTROY>,
             SRequest_Destroy<ERT_TEXTURE_DESTROY>,
             SRequest_Destroy<ERT_SAMPLER_DESTROY>,
             SRequest_Destroy<ERT_PROGRAM_DESTROY>,
+            SRequest_Destroy<ERT_QUERY_DESTROY>,
             SRequestSyncDestroy,
 
             SRequestWaitForFences,
@@ -358,6 +381,7 @@ protected:
             SRequestInvalidateMappedMemoryRanges,
             SRequestMapBufferRange,
             SRequestUnmapBuffer,
+            SRequestGetQueryPoolResults,
 
             SRequestSetDebugName,
 
@@ -451,8 +475,20 @@ protected:
             EGLBoolean mcres = egl->call.peglMakeCurrent(egl->display, pbuffer, pbuffer, thisCtx);
             assert(mcres == EGL_TRUE);
 
-            new (state_ptr) FunctionTableType(egl,features,core::smart_refctd_ptr<system::ILogger>(m_dbgCb->getLogger()));
+            auto logger = m_dbgCb->getLogger();
+            new (state_ptr) FunctionTableType(egl,features,core::smart_refctd_ptr<system::ILogger>(logger));
+
             auto* gl = state_ptr;
+            if (logger)
+            {
+                const char* vendor = reinterpret_cast<const char*>(gl->glGeneral.pglGetString(GL_VENDOR));
+                const char* renderer = reinterpret_cast<const char*>(gl->glGeneral.pglGetString(GL_RENDERER));
+                const char* version = reinterpret_cast<const char*>(gl->glGeneral.pglGetString(GL_VERSION));
+                if constexpr (FunctionTableType::EGL_API_TYPE==EGL_OPENGL_API)
+                    logger->log("Created OpenGL Logical Device. Vendor: %s Renderer: %s Version: %s",system::ILogger::ELL_INFO,vendor,renderer,version);
+                else if (FunctionTableType::EGL_API_TYPE==EGL_OPENGL_ES_API)
+                    logger->log("Created OpenGL ES Logical Device. Vendor: %s Renderer: %s Version: %s",system::ILogger::ELL_INFO,vendor,renderer,version);
+            }
 
             #ifdef _NBL_DEBUG
             gl->glGeneral.pglEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
@@ -515,6 +551,12 @@ protected:
                 auto& p = std::get<SRequest_Destroy<ERT_PROGRAM_DESTROY>>(req.params_variant);
                 for (uint32_t i = 0u; i < p.count; ++i) 
                     gl.glShader.pglDeleteProgram(p.glnames[i]);
+            }
+                break;
+            case ERT_QUERY_DESTROY:
+            {
+                auto& p = std::get<SRequest_Destroy<ERT_QUERY_DESTROY>>(req.params_variant);
+                gl.glQuery.pglDeleteQueries(p.count, p.glnames);
             }
                 break;
 
@@ -581,6 +623,14 @@ protected:
                 gl.glGeneral.pglFlush();
             }
                 break;
+            case ERT_QUERY_POOL_CREATE:
+            {
+                auto& p = std::get<SRequestQueryPoolCreate>(req.params_variant);
+                core::smart_refctd_ptr<IQueryPool>* pretval = reinterpret_cast<core::smart_refctd_ptr<IQueryPool>*>(req.pretval);
+                pretval[0] = core::make_smart_refctd_ptr<COpenGLQueryPool>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device), &gl, std::move(p.params));
+            }
+                break;
+
             case ERT_FLUSH_MAPPED_MEMORY_RANGES:
             {
                 auto& p = std::get<SRequestFlushMappedMemoryRanges>(req.params_variant);
@@ -613,6 +663,97 @@ protected:
                 gl.extGlUnmapNamedBuffer(static_cast<COpenGLBuffer*>(p.buf.get())->getOpenGLName());
                 // unfortunately I have to make every other context wait on the master to ensure the unmapping completes
                 incrementProgressionSync(_gl);
+            }
+                break;
+            case ERT_GET_QUERY_POOL_RESULTS:
+            {
+                auto& p = std::get<SRequestGetQueryPoolResults>(req.params_variant);
+                const COpenGLQueryPool* qp = static_cast<const COpenGLQueryPool*>(p.queryPool.get());
+                auto queryPoolQueriesCount = qp->getCreationParameters().queryCount;
+                auto queriesRange = qp->getQueries(); // queriesRange.size() is a multiple of queryPoolQueriesCount
+                auto queries = queriesRange.begin();
+
+                if(p.pData != nullptr)
+                {
+                    IQueryPool::E_QUERY_TYPE queryType = qp->getCreationParameters().queryType;
+                    bool use64Version = (p.flags & IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_64_BIT) == IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_64_BIT;
+                    bool availabilityFlag = (p.flags & IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WITH_AVAILABILITY_BIT) == IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WITH_AVAILABILITY_BIT;
+                    bool waitForAllResults = (p.flags & IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WAIT_BIT) == IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WAIT_BIT;
+                    bool partialResults = (p.flags & IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_PARTIAL_BIT) == IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_PARTIAL_BIT;
+
+                    if(p.firstQuery + p.queryCount > queryPoolQueriesCount)
+                    {
+                        assert(false && "The sum of firstQuery and queryCount must be less than or equal to the number of queries in queryPool");
+                        break;
+                    }
+                    if(partialResults && queryType == IQueryPool::E_QUERY_TYPE::EQT_TIMESTAMP) {
+                        assert(false && "QUERY_RESULT_PARTIAL_BIT must not be used if the pool’s queryType is QUERY_TYPE_TIMESTAMP.");
+                        break;
+                    }
+
+                    size_t currentDataPtrOffset = 0;
+                    size_t queryElementDataSize = (use64Version) ? sizeof(GLuint64) : sizeof(GLuint); // each query might write to multiple values/elements
+
+                    GLenum pname;
+                    if(availabilityFlag)
+                        pname = GL_QUERY_RESULT_AVAILABLE;
+                    else if(waitForAllResults)
+                        pname = GL_QUERY_RESULT;
+                    else if(partialResults)
+                        pname = GL_QUERY_NO_WAIT;
+
+                    auto getQueryObject = [&](GLuint queryId, GLenum pname, void * pData) -> void 
+                    {
+                        if(use64Version)
+                        {
+                            gl.extGlGetQueryObjectui64v(queryId, pname, reinterpret_cast<GLuint64*>(pData));
+                        }
+                        else
+                        {
+                            gl.extGlGetQueryObjectuiv(queryId, pname, reinterpret_cast<GLuint*>(pData));
+                        }
+                    };
+
+                    for(uint32_t i = 0; i < p.queryCount; ++i)
+                    {
+                        // Don't write queries that exceed the dataSize
+                        if(currentDataPtrOffset >= p.dataSize)
+                            break;
+                        
+                        if(queryType == IQueryPool::E_QUERY_TYPE::EQT_TIMESTAMP || queryType == IQueryPool::E_QUERY_TYPE::EQT_OCCLUSION)
+                        {
+                            assert(queryPoolQueriesCount == queriesRange.size());
+                            assert(p.stride >= queryElementDataSize);
+
+                            GLuint query = queries[i+p.firstQuery];
+                            uint8_t* pData = reinterpret_cast<uint8_t*>(p.pData) + currentDataPtrOffset;
+                            getQueryObject(query, pname, pData);
+                        }
+                        else if(queryType == IQueryPool::E_QUERY_TYPE::EQT_TRANSFORM_FEEDBACK_STREAM_EXT)
+                        {
+                            assert(queryPoolQueriesCount * 2 == queriesRange.size());
+                            assert(p.stride >= queryElementDataSize * 2);
+
+                            GLuint query1 = queries[i+p.firstQuery];
+                            GLuint query2 = queries[i+p.firstQuery + queryPoolQueriesCount];
+                                
+                            // If VK_QUERY_RESULT_WITH_AVAILABILITY_BIT is set, the final integer value written for each query is non-zero if the query’s status was available or zero if the status was unavailable.
+                            uint8_t* pData1 = reinterpret_cast<uint8_t*>(p.pData) + currentDataPtrOffset;
+                            uint8_t* pData2 = pData1 + queryElementDataSize;
+
+                            // Write All
+                            getQueryObject(query1, pname, reinterpret_cast<GLuint64*>(pData1));
+                            getQueryObject(query2, pname, reinterpret_cast<GLuint64*>(pData2));
+                        }
+                        else
+                        {
+                            assert(false && "QueryType is not supported.");
+                        }
+
+                        currentDataPtrOffset += p.stride;
+                        
+                    }
+                }
             }
                 break;
             case ERT_GET_FENCE_STATUS:
@@ -761,11 +902,20 @@ protected:
                 }
             }
 
+            auto raster = params.rasterization;
+            if (gl.isGLES() && !gl.getFeatures()->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_clip_control))
+            {
+                if (raster.faceCullingMode == asset::EFCM_BACK_BIT)
+                    raster.faceCullingMode = asset::EFCM_FRONT_BIT;
+                else if (raster.faceCullingMode == asset::EFCM_FRONT_BIT)
+                    raster.faceCullingMode = asset::EFCM_BACK_BIT;
+            }
+
             return core::make_smart_refctd_ptr<COpenGLRenderpassIndependentPipeline>(
                 core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device), &gl,
                 std::move(layout),
                 shaders.begin(), shaders.end(),
-                params.vertexInput, params.blend, params.primitiveAssembly, params.rasterization,
+                params.vertexInput, params.blend, params.primitiveAssembly, raster,
                 getNameCountForSingleEngineObject(), 0u, GLnames, binaries
             );
         }
@@ -935,6 +1085,7 @@ public:
     virtual void destroySpecializedShaders(core::smart_refctd_dynamic_array<IOpenGLPipelineBase::SShaderProgram>&& programs) = 0;
     virtual void destroySync(GLsync sync) = 0;
     virtual void setObjectDebugName(GLenum id, GLuint object, GLsizei len, const GLchar* label) = 0;
+    virtual void destroyQueryPool(COpenGLQueryPool* qp) = 0;
 };
 
 }
