@@ -474,6 +474,9 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 			};
 			auto overrideShader = [device,&cwdForShaderCompilation,workgroupSize,_scanner](shader_source_and_path&& baseShader, std::string additionalCode)
 			{
+				additionalCode = "\n#define _NBL_GLSL_CULLING_LOD_SELECTION_CULL_WORKGROUP_SIZE_ "+std::to_string(workgroupSize)+"\n"+
+					"\n#define _NBL_GLSL_CULLING_LOD_SELECTION_SCAN_WORKGROUP_SIZE_ "+std::to_string(_scanner->getWorkgroupSize())+"\n"+
+					additionalCode;
 				auto& path = baseShader.second;
 				path = cwdForShaderCompilation / path.filename();
 				baseShader.first->setFilePathHint(path.string());
