@@ -272,15 +272,17 @@ nbl_glsl_MC_quot_pdf_aov_t gen_sample_ray(
 	
 	nbl_glsl_LightSample s;
 	nbl_glsl_MC_quot_pdf_aov_t result = nbl_glsl_MC_runGenerateAndRemainderStream(precomp,gcs,rnps,rand,s);
-	
-#if 0 // TODO: refactor all nbl_glsl_brdf_cos_generate to take the random variable as a `inout`
+
 	// russian roulette
-	const float rrFactor = 0.9f;
-	const float survivalProb = min(nbl_glsl_MC_colorToScalar(result.quotient)/rrFactor,1.f);
-	float dummy; // not going to use it, because we can optimize out better
-	const bool kill = nbl_glsl_partitionRandVariable(survivalProb,rand.z,dummy);
-	result.quotient *= kill ? 0.f:(1.f/survivalProb);
-#endif
+	if (depth>=5u)
+	{
+		const float rrContinuationFactor = 0.25f;
+		const float survivalProb = min(nbl_glsl_MC_colorToScalar(result.quotient)/rrContinuationFactor,1.f);
+		result.pdf *= survivalProb;
+		float dummy; // not going to use it, because we can optimize out better
+		const bool kill = nbl_glsl_partitionRandVariable(survivalProb,rand.z,dummy);
+		result.quotient *= kill ? 0.f:(1.f/survivalProb);
+	}
 
 	direction = s.L;
 	return result;
@@ -403,41 +405,4 @@ void Contribution_normalizeAoV(inout Contribution contrib)
 	contrib.albedo = contrib.albedo/max(max(contrib.albedo.r,contrib.albedo.g),max(contrib.albedo.b,1.f));
 	contrib.worldspaceNormal *= inversesqrt(max(dot(contrib.worldspaceNormal,contrib.worldspaceNormal),1.f));
 }
-
-/* TODO: optimize and reorganize
-void main()
-{ 
-	clear_raycount();
-	const bool alive = useful_invocation();
-	uint raysToAllocate = 0u;
-	vec3 emissive;
-	if (alive)
-	{
-		emissive = staticViewData.envmapBaseColor;
-
-		raysToAllocate = main_prolog(emissive,...);
-	}
-
-	const uint raysLocalEnd = nbl_glsl_workgroupInclusiveAdd(raysToAllocate);
-	uint baseOutputID;
-	if (gl_LocalInvocationIndex==WORKGROUP_SIZE-1)
-		baseOutputID = atomicAdd(rayCount[pc.cummon.rayCountWriteIx],raysLocalEnd);
-	baseOutputID = nbl_glsl_workgroupBroadcast(baseOutputID,WORKGROUP_SIZE-1);
-
-	// coalesce rays
-	for ()
-	{
-	}
-	// write them out to global mem
-	for ()
-	{
-	}
-
-	if (alive)
-	{
-		// store accumulation
-		main_epilog();
-	}
-}
-*/
 #endif

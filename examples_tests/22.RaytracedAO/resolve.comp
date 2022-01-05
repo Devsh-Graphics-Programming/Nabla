@@ -39,6 +39,8 @@ void main()
 		alb /= float(staticViewData.samplesPerPixelPerDispatch);
 		nml /= float(staticViewData.samplesPerPixelPerDispatch);
 
+		// transform normal
+
 		imageStore(framebuffer,pixelCoord,vec4(acc,1.f));
 		imageStore(albedo,pixelCoord,uvec4(nbl_glsl_encodeRGB10A2_UNORM(vec4(alb,1.0)),0u,0u,0u));
 		imageStore(normals,pixelCoord,vec4(nml,1.f));

@@ -1077,7 +1077,7 @@ struct nbl_glsl_MC_quot_pdf_aov_t
 nbl_glsl_LightSample nbl_bsdf_cos_generate(
 	in nbl_glsl_MC_precomputed_t precomp,
 	in nbl_glsl_MC_instr_stream_t stream,
-	in vec3 rand,
+	inout vec3 u,
 	out nbl_glsl_MC_quot_pdf_aov_t out_values,
 	out nbl_glsl_MC_microfacet_t out_microfacet,
 	out uint out_gen_rnpOffset
@@ -1088,7 +1088,6 @@ nbl_glsl_LightSample nbl_bsdf_cos_generate(
 	nbl_glsl_MC_instr_t instr = nbl_glsl_MC_fetchInstr(stream.offset);
 	// get root op
 	uint op = nbl_glsl_MC_instr_getOpcode(instr);
-	vec3 u = rand;
 
 	// precompute some stuff from a lightweight intersectionstruct
 	nbl_glsl_MC_setCurrInteraction(precomp);
@@ -1421,7 +1420,7 @@ nbl_glsl_MC_quot_pdf_aov_t nbl_glsl_MC_runGenerateAndRemainderStream(
 	in nbl_glsl_MC_precomputed_t precomp,
 	in nbl_glsl_MC_instr_stream_t gcs,
 	in nbl_glsl_MC_instr_stream_t rnps,
-	in vec3 rand,
+	inout vec3 rand,
 	out nbl_glsl_LightSample out_smpl
 )
 {

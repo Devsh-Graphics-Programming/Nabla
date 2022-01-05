@@ -31,10 +31,14 @@ float nbl_glsl_projected_hemisphere_remainder_and_pdf(out float pdf, in vec3 L)
 	return nbl_glsl_projected_hemisphere_remainder_and_pdf(pdf,L.z);
 }
 
-vec3 nbl_glsl_projected_sphere_generate(in vec3 _sample)
+vec3 nbl_glsl_projected_sphere_generate(inout vec3 _sample)
 {
     vec3 retval = nbl_glsl_projected_hemisphere_generate(_sample.xy);
-    retval.z = _sample.z>0.5 ? (-retval.z):retval.z;
+    const bool chooseLower = _sample.z>0.5;
+    retval.z = chooseLower ? (-retval.z):retval.z;
+    if (chooseLower)
+        _sample.z -= 0.5f;
+    _sample.z *= 2.f;
     return retval;
 }
 

@@ -845,8 +845,10 @@ int main(int argc, char** argv)
 				std::wostringstream str;
 				auto samples = renderer->getTotalSamplesComputed();
 				auto rays = renderer->getTotalRaysCast();
-				str << L"Raytraced Shadows Demo - Nabla Engine   MegaSamples: " << samples/1000000ull << "   MRay/s: "
-					<< double(rays)/double(std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-start).count());
+				const double microsecondsElapsed = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-start).count();
+				str << L"Raytraced Shadows Demo - Nabla Engine   MegaSamples: " << samples/1000000ull
+					<< "   MSample/s: " << double(samples)/microsecondsElapsed
+					<< "   MRay/s: " << double(rays)/microsecondsElapsed;
 
 				device->setWindowCaption(str.str());
 				lastFPSTime = time;
