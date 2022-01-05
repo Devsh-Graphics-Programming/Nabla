@@ -44,7 +44,8 @@ int main()
 {
     constexpr std::string_view APP_NAME = "RGB18E7S3 utility test";
 
-	auto initOutput = CommonAPI::Init(video::EAT_OPENGL, APP_NAME.data());
+	CommonAPI::InitOutput initOutput;
+    CommonAPI::InitWithNoExt(initOutput, video::EAT_OPENGL, APP_NAME.data());
 	auto system = std::move(initOutput.system);
     auto gl = std::move(initOutput.apiConnection);
     auto logger = std::move(initOutput.logger);
@@ -52,19 +53,12 @@ int main()
     auto logicalDevice = std::move(initOutput.logicalDevice);
     auto queues = std::move(initOutput.queues);
     auto renderpass = std::move(initOutput.renderpass);
-    auto commandPool = std::move(initOutput.commandPool);
+    auto commandPools = std::move(initOutput.commandPools);
     auto assetManager = std::move(initOutput.assetManager);
     auto cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
     auto utilities = std::move(initOutput.utilities);
 
-    core::smart_refctd_ptr<video::IGPUFence> gpuTransferFence = nullptr;
-    core::smart_refctd_ptr<video::IGPUFence> gpuComputeFence = nullptr;
-
     nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
-    {
-        cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].fence = &gpuTransferFence;
-        cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].fence = &gpuComputeFence;
-    }
 
     auto createDescriptorPool = [&](const uint32_t count, asset::E_DESCRIPTOR_TYPE type)
     {
@@ -144,11 +138,11 @@ int main()
 
     video::IGPUDescriptorSetLayout::SBinding gpuBindingsLayout[ES_COUNT] =
     {
-        {ES_RGB, asset::EDT_STORAGE_BUFFER, 1u, video::IGPUSpecializedShader::ESS_COMPUTE, nullptr},
-        {ES_RGB_CPP_DECODED, asset::EDT_STORAGE_BUFFER, 1u, video::IGPUSpecializedShader::ESS_COMPUTE, nullptr},
-        {ES_RGB_GLSL_DECODED, asset::EDT_STORAGE_BUFFER, 1u, video::IGPUSpecializedShader::ESS_COMPUTE, nullptr},
-        {ES_RGB_CPP_ENCODED, asset::EDT_STORAGE_BUFFER, 1u, video::IGPUSpecializedShader::ESS_COMPUTE, nullptr},
-        {ES_RGB_GLSL_ENCODED, asset::EDT_STORAGE_BUFFER, 1u, video::IGPUSpecializedShader::ESS_COMPUTE, nullptr}
+        {ES_RGB, asset::EDT_STORAGE_BUFFER, 1u, asset::IShader::ESS_COMPUTE, nullptr},
+        {ES_RGB_CPP_DECODED, asset::EDT_STORAGE_BUFFER, 1u, asset::IShader::ESS_COMPUTE, nullptr},
+        {ES_RGB_GLSL_DECODED, asset::EDT_STORAGE_BUFFER, 1u, asset::IShader::ESS_COMPUTE, nullptr},
+        {ES_RGB_CPP_ENCODED, asset::EDT_STORAGE_BUFFER, 1u, asset::IShader::ESS_COMPUTE, nullptr},
+        {ES_RGB_GLSL_ENCODED, asset::EDT_STORAGE_BUFFER, 1u, asset::IShader::ESS_COMPUTE, nullptr}
     };
 
     auto gpuCDescriptorPool = createDescriptorPool(ES_COUNT, asset::EDT_STORAGE_BUFFER);
@@ -189,7 +183,7 @@ int main()
     auto gpuComputePipeline = logicalDevice->createGPUComputePipeline(nullptr, std::move(gpuCPipelineLayout), std::move(gpuComputeShader));
 
     core::smart_refctd_ptr<video::IGPUCommandBuffer> commandBuffers[FRAMES_IN_FLIGHT];
-    logicalDevice->createCommandBuffers(commandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY, FRAMES_IN_FLIGHT, commandBuffers);
+    logicalDevice->createCommandBuffers(commandPools[CommonAPI::InitOutput::EQT_COMPUTE].get(), video::IGPUCommandBuffer::EL_PRIMARY, FRAMES_IN_FLIGHT, commandBuffers);
     auto gpuFence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
 
     for(size_t i = 0; i < FRAMES_IN_FLIGHT; ++i)
@@ -199,7 +193,7 @@ int main()
         commandBuffer->begin(0);
 
         commandBuffer->bindComputePipeline(gpuComputePipeline.get());
-        commandBuffer->bindDescriptorSets(asset::EPBP_COMPUTE, gpuComputePipeline->getLayout(), 0, 1, &gpuCDescriptorSet.get(), nullptr);
+        commandBuffer->bindDescriptorSets(asset::EPBP_COMPUTE, gpuComputePipeline->getLayout(), 0, 1, &gpuCDescriptorSet.get());
 
         static_assert(MAX_TEST_RGB_VALUES % WORK_GROUP_SIZE == 0, "Inccorect amount!");
         _NBL_STATIC_INLINE_CONSTEXPR size_t groupCountX = MAX_TEST_RGB_VALUES / WORK_GROUP_SIZE;

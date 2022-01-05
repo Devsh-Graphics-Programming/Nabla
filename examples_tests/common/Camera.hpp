@@ -11,19 +11,15 @@
 #include <fstream>
 #include <chrono>
 
-using namespace nbl;
-using namespace core;
-using namespace ui;
-
 class Camera { 
 public:
-	Camera( const core::vectorSIMDf& position,
-			const core::vectorSIMDf& lookat,
-			const core::matrix4SIMD& projection,
+	Camera(const nbl::core::vectorSIMDf& position,
+			const nbl::core::vectorSIMDf& lookat,
+			const nbl::core::matrix4SIMD& projection,
 			float moveSpeed = 1.0f,
 			float rotateSpeed = 1.0f,
-			const core::vectorSIMDf& upVec = core::vectorSIMDf(0.0f, 1.0f, 0.0f),
-			const core::vectorSIMDf& backupUpVec = core::vectorSIMDf(0.5f, 1.0f, 0.0f)
+			const nbl::core::vectorSIMDf& upVec = nbl::core::vectorSIMDf(0.0f, 1.0f, 0.0f),
+			const nbl::core::vectorSIMDf& backupUpVec = nbl::core::vectorSIMDf(0.5f, 1.0f, 0.0f)
 	) 
 		: position(position)
 		, target(lookat)
@@ -42,90 +38,102 @@ public:
 
 public:
 
-	inline const core::matrix4SIMD& getProjectionMatrix() const { return projMatrix; }
-	inline const core::matrix3x4SIMD & getViewMatrix() const {	return viewMatrix; }
-	inline const core::matrix4SIMD & getConcatenatedMatrix() const { return concatMatrix; }
+	inline const nbl::core::matrix4SIMD& getProjectionMatrix() const { return projMatrix; }
+	inline const nbl::core::matrix3x4SIMD & getViewMatrix() const {	return viewMatrix; }
+	inline const nbl::core::matrix4SIMD & getConcatenatedMatrix() const { return concatMatrix; }
 
-	inline void setProjectionMatrix(const core::matrix4SIMD& projection) {
+	inline void setProjectionMatrix(const nbl::core::matrix4SIMD& projection) {
 		projMatrix = projection;
-		leftHanded = core::determinant(projMatrix) < 0.f;
-		concatMatrix = core::matrix4SIMD::concatenateBFollowedByAPrecisely(projMatrix, core::matrix4SIMD(viewMatrix));
+		leftHanded = nbl::core::determinant(projMatrix) < 0.f;
+		concatMatrix = nbl::core::matrix4SIMD::concatenateBFollowedByAPrecisely(projMatrix, nbl::core::matrix4SIMD(viewMatrix));
 	}
 	
-	inline void setPosition(const core::vectorSIMDf& pos) {
+	inline void setPosition(const nbl::core::vectorSIMDf& pos) {
 		position.set(pos);
 		recomputeViewMatrix();
 	}
 	
-	inline const core::vectorSIMDf& getPosition() const { return position; }
+	inline const nbl::core::vectorSIMDf& getPosition() const { return position; }
 
-	inline void setTarget(const core::vectorSIMDf& pos) {
+	inline void setTarget(const nbl::core::vectorSIMDf& pos) {
 		target.set(pos);
 		recomputeViewMatrix();
 	}
 
-	inline const core::vectorSIMDf& getTarget() const { return target; }
+	inline const nbl::core::vectorSIMDf& getTarget() const { return target; }
 
-	inline void setUpVector(const core::vectorSIMDf& up) {
+	inline void setUpVector(const nbl::core::vectorSIMDf& up) {
 		upVector = up;
 	}
 	
-	inline void setBackupUpVector(const core::vectorSIMDf& up) {
+	inline void setBackupUpVector(const nbl::core::vectorSIMDf& up) {
 		backupUpVector = up;
 	}
 
-	inline const core::vectorSIMDf& getUpVector() const { return upVector; }
+	inline const nbl::core::vectorSIMDf& getUpVector() const { return upVector; }
 	
-	inline const core::vectorSIMDf& getBackupUpVector() const { return backupUpVector; }
+	inline const nbl::core::vectorSIMDf& getBackupUpVector() const { return backupUpVector; }
+
+	inline const float getMoveSpeed() const { return moveSpeed; }
+
+	inline void setMoveSpeed(const float _moveSpeed) {
+		moveSpeed = _moveSpeed;
+	}
+
+	inline const float getRotateSpeed() const { return rotateSpeed; }
+
+	inline void setRotateSpeed(const float _rotateSpeed) {
+		rotateSpeed = _rotateSpeed;
+	}
 
 	inline void recomputeViewMatrix() {
-		core::vectorSIMDf pos = position;
-		core::vectorSIMDf localTarget = core::normalize(target - pos);
+		nbl::core::vectorSIMDf pos = position;
+		nbl::core::vectorSIMDf localTarget = nbl::core::normalize(target - pos);
 
 		// if upvector and vector to the target are the same, we have a
 		// problem. so solve this problem:
-		core::vectorSIMDf up = core::normalize(upVector);
-		core::vectorSIMDf cross = core::cross(localTarget, up);
-		bool upVectorNeedsChange = core::lengthsquared(cross)[0] == 0;
+		nbl::core::vectorSIMDf up = nbl::core::normalize(upVector);
+		nbl::core::vectorSIMDf cross = nbl::core::cross(localTarget, up);
+		bool upVectorNeedsChange = nbl::core::lengthsquared(cross)[0] == 0;
 		if (upVectorNeedsChange)
 		{
-			up = core::normalize(backupUpVector);
+			up = nbl::core::normalize(backupUpVector);
 		}
 
 		if (leftHanded)
-			viewMatrix = core::matrix3x4SIMD::buildCameraLookAtMatrixLH(pos, target, up);
+			viewMatrix = nbl::core::matrix3x4SIMD::buildCameraLookAtMatrixLH(pos, target, up);
 		else
-			viewMatrix = core::matrix3x4SIMD::buildCameraLookAtMatrixRH(pos, target, up);
-		concatMatrix = core::matrix4SIMD::concatenateBFollowedByAPrecisely(projMatrix, core::matrix4SIMD(viewMatrix));
+			viewMatrix = nbl::core::matrix3x4SIMD::buildCameraLookAtMatrixRH(pos, target, up);
+		concatMatrix = nbl::core::matrix4SIMD::concatenateBFollowedByAPrecisely(projMatrix, nbl::core::matrix4SIMD(viewMatrix));
 	}
 
 	inline bool getLeftHanded() const { return leftHanded; }
 
 public:
 
-	void mouseProcess(const IMouseEventChannel::range_t& events)
+	void mouseProcess(const nbl::ui::IMouseEventChannel::range_t& events)
 	{
 		for (auto eventIt=events.begin(); eventIt!=events.end(); eventIt++)
 		{
 			auto ev = *eventIt;
 
-			if(ev.type == ui::SMouseEvent::EET_CLICK && ev.clickEvent.mouseButton == ui::EMB_LEFT_BUTTON) {
-				if(ev.clickEvent.action == ui::SMouseEvent::SClickEvent::EA_PRESSED) {
+			if(ev.type == nbl::ui::SMouseEvent::EET_CLICK && ev.clickEvent.mouseButton == nbl::ui::EMB_LEFT_BUTTON) {
+				if(ev.clickEvent.action == nbl::ui::SMouseEvent::SClickEvent::EA_PRESSED) {
 					mouseDown = true;
-				} else if (ev.clickEvent.action == ui::SMouseEvent::SClickEvent::EA_RELEASED) {
+				} else if (ev.clickEvent.action == nbl::ui::SMouseEvent::SClickEvent::EA_RELEASED) {
 					mouseDown = false;
 				}
 			}
 
-			if(ev.type == ui::SMouseEvent::EET_MOVEMENT && mouseDown) {
-				core::vectorSIMDf pos = getPosition();
-				core::vectorSIMDf localTarget = getTarget() - pos;
+			if(ev.type == nbl::ui::SMouseEvent::EET_MOVEMENT && mouseDown) {
+				nbl::core::vectorSIMDf pos = getPosition();
+				nbl::core::vectorSIMDf localTarget = getTarget() - pos;
 
 				// Get Relative Rotation for localTarget in Radians
 				float relativeRotationX, relativeRotationY;
 				relativeRotationY = atan2(localTarget.X, localTarget.Z);
-				const double z1 = core::sqrt(localTarget.X*localTarget.X + localTarget.Z*localTarget.Z);
-				relativeRotationX = atan2(z1, localTarget.Y) - core::PI<float>()/2;
+				const double z1 = nbl::core::sqrt(localTarget.X*localTarget.X + localTarget.Z*localTarget.Z);
+				relativeRotationX = atan2(z1, localTarget.Y) - nbl::core::PI<float>()/2;
 				
 				constexpr float RotateSpeedScale = 0.003f; 
 				relativeRotationX -= ev.movementEvent.relativeMovementY * rotateSpeed * RotateSpeedScale * -1.0f;
@@ -135,24 +143,24 @@ public:
 				else
 					relativeRotationY += tmpYRot;
 
-				const double MaxVerticalAngle = core::radians<float>(88.0f);
+				const double MaxVerticalAngle = nbl::core::radians<float>(88.0f);
 				if (relativeRotationX > MaxVerticalAngle*2 &&
-					relativeRotationX < 2*core::PI<float>()-MaxVerticalAngle)
+					relativeRotationX < 2 * nbl::core::PI<float>()-MaxVerticalAngle)
 				{
-					relativeRotationX = 2*core::PI<float>()-MaxVerticalAngle;
+					relativeRotationX = 2 * nbl::core::PI<float>()-MaxVerticalAngle;
 				}
 				else
 				if (relativeRotationX > MaxVerticalAngle &&
-					relativeRotationX < 2*core::PI<float>()-MaxVerticalAngle)
+					relativeRotationX < 2 * nbl::core::PI<float>()-MaxVerticalAngle)
 				{
 					relativeRotationX = MaxVerticalAngle;
 				}
 
-				localTarget.set(0,0, core::max(1.f, core::length(pos)[0]), 1.f);
+				localTarget.set(0,0, nbl::core::max(1.f, nbl::core::length(pos)[0]), 1.f);
 
-				core::matrix3x4SIMD mat;
+				nbl::core::matrix3x4SIMD mat;
 				{
-					mat.setRotation(core::quaternion(relativeRotationX, relativeRotationY, 0));
+					mat.setRotation(nbl::core::quaternion(relativeRotationX, relativeRotationY, 0));
 				}
 				mat.transformVect(localTarget);
 				
@@ -161,7 +169,7 @@ public:
 		}
 	}
 
-	void keyboardProcess(const IKeyboardEventChannel::range_t& events)
+	void keyboardProcess(const nbl::ui::IKeyboardEventChannel::range_t& events)
 	{
 		for(uint32_t k = 0; k < Keys::EKA_COUNT; ++k) {
 			perActionDt[k] = 0.0;
@@ -170,7 +178,7 @@ public:
 		/*
 		* If a Key was already being held down from previous frames
 		* Compute with this assumption that the key will be held down for this whole frame as well,
-		* And If an UP event was sent It will get subtracted it from this value.
+		* And If an UP event was sent It will get subtracted it from this value. (Currently Disabled Because we Need better Oracle)
 		*/
 		for(uint32_t k = 0; k < Keys::EKA_COUNT; ++k) {
 			if(keysDown[k] == true) {
@@ -188,42 +196,42 @@ public:
 			auto timeDiff = std::chrono::duration_cast<std::chrono::milliseconds>(nextPresentationTimeStamp - ev.timeStamp).count();
 			assert(timeDiff >= 0);
 
-			if(ev.keyCode == ui::EKC_UP_ARROW || ev.keyCode == ui::EKC_W) {
-				if(ev.action == ui::SKeyboardEvent::ECA_PRESSED && keysDown[Keys::EKA_MOVE_FORWARD] == false) {
+			if(ev.keyCode == nbl::ui::EKC_UP_ARROW || ev.keyCode == nbl::ui::EKC_W) {
+				if(ev.action == nbl::ui::SKeyboardEvent::ECA_PRESSED && keysDown[Keys::EKA_MOVE_FORWARD] == false) {
 					perActionDt[Keys::EKA_MOVE_FORWARD] += timeDiff; 
 					keysDown[Keys::EKA_MOVE_FORWARD] = true;
-				} else if(ev.action == ui::SKeyboardEvent::ECA_RELEASED) {
-					perActionDt[Keys::EKA_MOVE_FORWARD] -= timeDiff; 
+				} else if(ev.action == nbl::ui::SKeyboardEvent::ECA_RELEASED) {
+					// perActionDt[Keys::EKA_MOVE_FORWARD] -= timeDiff; 
 					keysDown[Keys::EKA_MOVE_FORWARD] = false;
 				}
 			}
 
-			if(ev.keyCode == ui::EKC_DOWN_ARROW || ev.keyCode == ui::EKC_S) {
-				if(ev.action == ui::SKeyboardEvent::ECA_PRESSED && keysDown[Keys::EKA_MOVE_BACKWARD] == false) {
+			if(ev.keyCode == nbl::ui::EKC_DOWN_ARROW || ev.keyCode == nbl::ui::EKC_S) {
+				if(ev.action == nbl::ui::SKeyboardEvent::ECA_PRESSED && keysDown[Keys::EKA_MOVE_BACKWARD] == false) {
 					perActionDt[Keys::EKA_MOVE_BACKWARD] += timeDiff; 
 					keysDown[Keys::EKA_MOVE_BACKWARD] = true;
-				} else if(ev.action == ui::SKeyboardEvent::ECA_RELEASED) {
-					perActionDt[Keys::EKA_MOVE_BACKWARD] -= timeDiff; 
+				} else if(ev.action == nbl::ui::SKeyboardEvent::ECA_RELEASED) {
+					// perActionDt[Keys::EKA_MOVE_BACKWARD] -= timeDiff; 
 					keysDown[Keys::EKA_MOVE_BACKWARD] = false;
 				}
 			}
 
-			if(ev.keyCode == ui::EKC_LEFT_ARROW || ev.keyCode == ui::EKC_A) {
-				if(ev.action == ui::SKeyboardEvent::ECA_PRESSED && keysDown[Keys::EKA_MOVE_LEFT] == false) {
+			if(ev.keyCode == nbl::ui::EKC_LEFT_ARROW || ev.keyCode == nbl::ui::EKC_A) {
+				if(ev.action == nbl::ui::SKeyboardEvent::ECA_PRESSED && keysDown[Keys::EKA_MOVE_LEFT] == false) {
 					perActionDt[Keys::EKA_MOVE_LEFT] += timeDiff; 
 					keysDown[Keys::EKA_MOVE_LEFT] = true;
-				} else if(ev.action == ui::SKeyboardEvent::ECA_RELEASED) {
-					perActionDt[Keys::EKA_MOVE_LEFT] -= timeDiff; 
+				} else if(ev.action == nbl::ui::SKeyboardEvent::ECA_RELEASED) {
+					// perActionDt[Keys::EKA_MOVE_LEFT] -= timeDiff; 
 					keysDown[Keys::EKA_MOVE_LEFT] = false;
 				}
 			}
 
-			if(ev.keyCode == ui::EKC_RIGHT_ARROW || ev.keyCode == ui::EKC_D) {
-				if(ev.action == ui::SKeyboardEvent::ECA_PRESSED && keysDown[Keys::EKA_MOVE_RIGHT] == false) {
+			if(ev.keyCode == nbl::ui::EKC_RIGHT_ARROW || ev.keyCode == nbl::ui::EKC_D) {
+				if(ev.action == nbl::ui::SKeyboardEvent::ECA_PRESSED && keysDown[Keys::EKA_MOVE_RIGHT] == false) {
 					perActionDt[Keys::EKA_MOVE_RIGHT] += timeDiff; 
 					keysDown[Keys::EKA_MOVE_RIGHT] = true;
-				} else if(ev.action == ui::SKeyboardEvent::ECA_RELEASED) {
-					perActionDt[Keys::EKA_MOVE_RIGHT] -= timeDiff; 
+				} else if(ev.action == nbl::ui::SKeyboardEvent::ECA_RELEASED) {
+					// perActionDt[Keys::EKA_MOVE_RIGHT] -= timeDiff; 
 					keysDown[Keys::EKA_MOVE_RIGHT] = false;
 				}
 			}
@@ -243,12 +251,12 @@ public:
 	}
 	
 	void endInputProcessing(std::chrono::microseconds _nextPresentationTimeStamp) {
-		core::vectorSIMDf pos = getPosition();
-		core::vectorSIMDf localTarget = getTarget() - pos;
+		nbl::core::vectorSIMDf pos = getPosition();
+		nbl::core::vectorSIMDf localTarget = getTarget() - pos;
 
-		core::vectorSIMDf movedir = localTarget;
+		nbl::core::vectorSIMDf movedir = localTarget;
 		movedir.makeSafe3D();
-		movedir = core::normalize(movedir);
+		movedir = nbl::core::normalize(movedir);
 
 		constexpr float MoveSpeedScale = 0.02f; 
 
@@ -260,21 +268,21 @@ public:
 		
 		// if upvector and vector to the target are the same, we have a
 		// problem. so solve this problem:
-		core::vectorSIMDf up = core::normalize(upVector);
-		core::vectorSIMDf cross = core::cross(localTarget, up);
-		bool upVectorNeedsChange = core::lengthsquared(cross)[0] == 0;
+		nbl::core::vectorSIMDf up = nbl::core::normalize(upVector);
+		nbl::core::vectorSIMDf cross = nbl::core::cross(localTarget, up);
+		bool upVectorNeedsChange = nbl::core::lengthsquared(cross)[0] == 0;
 		if (upVectorNeedsChange)
 		{
-			up = core::normalize(backupUpVector);
+			up = nbl::core::normalize(backupUpVector);
 		}
 
-		core::vectorSIMDf strafevect = localTarget;
+		nbl::core::vectorSIMDf strafevect = localTarget;
 		if (leftHanded)
-			strafevect = core::cross(strafevect, up);
+			strafevect = nbl::core::cross(strafevect, up);
 		else
-			strafevect = core::cross(up, strafevect);
+			strafevect = nbl::core::cross(up, strafevect);
 
-		strafevect = core::normalize(strafevect);
+		strafevect = nbl::core::normalize(strafevect);
 
 		pos += strafevect * perActionDt[Keys::EKA_MOVE_LEFT] * moveSpeed * MoveSpeedScale;
 
@@ -297,16 +305,16 @@ private:
 	}
 
 private:
-	core::vectorSIMDf position;
-	core::vectorSIMDf target;
-	core::vectorSIMDf upVector;
-	core::vectorSIMDf backupUpVector;
+	nbl::core::vectorSIMDf position;
+	nbl::core::vectorSIMDf target;
+	nbl::core::vectorSIMDf upVector;
+	nbl::core::vectorSIMDf backupUpVector;
 	
-	core::matrix3x4SIMD viewMatrix;
-	core::matrix4SIMD concatMatrix;
+	nbl::core::matrix3x4SIMD viewMatrix;
+	nbl::core::matrix4SIMD concatMatrix;
 
 	// actual projection matrix used
-	core::matrix4SIMD projMatrix;
+	nbl::core::matrix4SIMD projMatrix;
 
 	bool leftHanded;
 	

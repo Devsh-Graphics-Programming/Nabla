@@ -8,9 +8,7 @@
 #include "nbl/asset/interchange/IRenderpassIndependentPipelineLoader.h"
 #include "nbl/asset/metadata/CMTLMetadata.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {	
 
 class CGraphicsPipelineLoaderMTL final : public asset::IRenderpassIndependentPipelineLoader
@@ -43,7 +41,7 @@ class CGraphicsPipelineLoaderMTL final : public asset::IRenderpassIndependentPip
 
         void initialize() override;
 
-		bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger = nullptr) const override;
+		bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger=nullptr) const override;
 
 		const char** getAssociatedFileExtensions() const override
 		{
@@ -69,7 +67,6 @@ class CGraphicsPipelineLoaderMTL final : public asset::IRenderpassIndependentPip
 
 };
 
-}
 }
 
 #endif

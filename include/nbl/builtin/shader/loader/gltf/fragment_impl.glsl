@@ -65,10 +65,10 @@ void main()
 		metallicRoughness = textureGrad(metallicRoughnessTexture, UV_0, UV_0, UV_0); // TODO: partial derivative parameters & UV index
 	
 	const uint normalDerivativeTextureCheck = pushConstants.availableTextures & EGT_NORMAL_TEXTURE_BIT;
-	vec4 normalDerivative;
+	vec2 normalDerivative;
 	
 	if(normalDerivativeTextureCheck != 0u)
-		normalDerivative = textureGrad(normalDerivativeTexture, UV_0, UV_0, UV_0); // TODO: partial derivative parameters & UV index
+		normalDerivative = textureGrad(normalDerivativeTexture, UV_0, UV_0, UV_0).xy * 2 - vec2(1); // TODO: partial derivative parameters & UV index
 	
 	const uint occlusionTextureCheck = pushConstants.availableTextures & EGT_OCCLUSION_TEXTURE_BIT;
 	vec4 occlusion;

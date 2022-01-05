@@ -9,6 +9,15 @@ using namespace std::filesystem;
 
 JNIEnv* env = nullptr;
 ANativeActivity* activity;
+
+static void openFolderIntent(const char* path)
+{
+	auto context_object = activity->clazz;
+	jstring jstr1 = env->NewStringUTF(path);
+	jmethodID method_id = env->GetMethodID(env->GetObjectClass(context_object), "openFolder", "(Ljava/lang/String;)V");
+	env->CallVoidMethod(context_object, method_id, jstr1);
+}
+
 static std::vector<std::string> listAssets(const char* asset_path)
 {
 	std::vector<std::string> result;
@@ -74,8 +83,18 @@ bool copyDirToDest(const path& src, const path& dest, AAssetManager* mgr)
 	return true;
 }
 
+void handleCommand(android_app* app, int32_t cmd)
+{
+}
+int32_t handleInput(android_app* app, AInputEvent* event) 
+{
+	return 0;
+}
+
 void android_main(android_app* app)
 {
+	app->onAppCmd = handleCommand;
+	app->onInputEvent = handleInput;
 	activity = app->activity;
 	const std::string mediaFolder = "media";
 
@@ -86,4 +105,18 @@ void android_main(android_app* app)
 
 	auto mgr = app->activity->assetManager;
 	copyDirToDest("", sharedPath, mgr);
+	app->activity->vm->AttachCurrentThread(&env, nullptr);
+	openFolderIntent(sharedPath.string().c_str());
+	ANativeActivity_finish(activity);
+	android_poll_source* source;
+	int ident;
+	int events;
+	while (!app->destroyRequested) {
+		while ((ident = ALooper_pollAll(0, nullptr, &events, (void**)&source)) >= 0)
+		{
+			if (source != nullptr) {
+				source->process(app, source);
+			}
+		}
+	}
 }

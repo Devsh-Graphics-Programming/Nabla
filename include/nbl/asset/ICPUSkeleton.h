@@ -2,15 +2,13 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __NBL_ASSET_I_CPU_SKELETON_H_INCLUDED__
-#define __NBL_ASSET_I_CPU_SKELETON_H_INCLUDED__
+#ifndef _NBL_ASSET_I_CPU_SKELETON_H_INCLUDED_
+#define _NBL_ASSET_I_CPU_SKELETON_H_INCLUDED_
 
 #include "nbl/asset/ISkeleton.h"
 #include "nbl/asset/ICPUBuffer.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 class ICPUSkeleton final : public ISkeleton<ICPUBuffer>, /*TODO: public BlobSerializable, */public IAsset
@@ -162,7 +160,6 @@ class ICPUSkeleton final : public ISkeleton<ICPUBuffer>, /*TODO: public BlobSeri
 		}
 };
 
-}
 }
 
 #endif

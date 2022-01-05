@@ -212,6 +212,12 @@ public:
 
         return sc;
     }
+    
+    core::smart_refctd_ptr<IDeferredOperation> createDeferredOperation() override
+    {
+        assert(false && "not implemented");
+        return nullptr;
+    }
 
     core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(uint32_t _familyIx, core::bitflag<IGPUCommandPool::E_CREATE_FLAGS> flags) override
     {
@@ -396,6 +402,34 @@ public:
 
         post_unmapMemory(memory);
     }
+    
+    core::smart_refctd_ptr<IQueryPool> createQueryPool(IQueryPool::SCreationParams&& params) override
+    {
+        core::smart_refctd_ptr<IQueryPool> retval;
+
+        SRequestQueryPoolCreate req_params;
+        req_params.params = params;
+        auto& req = m_threadHandler.request(std::move(req_params), &retval);
+        m_threadHandler.template waitForRequestCompletion<SRequestQueryPoolCreate>(req);
+
+        return retval;
+    }
+    
+    bool getQueryPoolResults(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, size_t dataSize, void * pData, uint64_t stride, IQueryPool::E_QUERY_RESULTS_FLAGS flags) override
+    {
+        SRequestGetQueryPoolResults req_params;
+        req_params.queryPool = core::smart_refctd_ptr<const IQueryPool>(queryPool);
+        req_params.firstQuery = firstQuery;
+        req_params.queryCount = queryCount;
+        req_params.dataSize = dataSize;
+        req_params.pData = pData;
+        req_params.stride = stride;
+        req_params.flags = flags;
+        auto& req = m_threadHandler.request(std::move(req_params));
+        m_threadHandler.template waitForRequestCompletion<SRequestGetQueryPoolResults>(req);
+
+        return true;
+    }
 
     // TODO: remove from the engine, not thread safe (access to queues must be synchronized externally)
     void waitIdle() override
@@ -474,6 +508,21 @@ public:
         m_threadHandler.template waitForRequestCompletion<SRequestSetDebugName>(req);
     }
 
+    void destroyQueryPool(COpenGLQueryPool* qp) override final
+    {
+        if(qp != nullptr)
+        {
+            auto queriesRange = qp->getQueries();
+            if(!queriesRange.empty())
+            {
+                auto queries = qp->getQueries().begin();
+                for(uint32_t i = 0; i < queriesRange.size(); ++i)
+                {
+                    destroyGlObjects<ERT_QUERY_DESTROY>(1u, &queries[i]);
+                }
+            }
+        }
+    }
 protected:
     void bindMasterContext()
     {
@@ -624,6 +673,11 @@ protected:
     core::smart_refctd_ptr<IGPUDescriptorSetLayout> createGPUDescriptorSetLayout_impl(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end) override final
     {
         return core::make_smart_refctd_ptr<IGPUDescriptorSetLayout>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this), _begin, _end);//there's no COpenGLDescriptorSetLayout (no need for such)
+    }
+    core::smart_refctd_ptr<IGPUAccelerationStructure> createGPUAccelerationStructure_impl(IGPUAccelerationStructure::SCreationParams&& params)
+    {
+        assert(false && "AccelerationStructures not supported.");
+        return nullptr;
     }
     core::smart_refctd_ptr<IGPUPipelineLayout> createGPUPipelineLayout_impl(
         const asset::SPushConstantRange* const _pcRangesBegin, const asset::SPushConstantRange* const _pcRangesEnd,

@@ -3,6 +3,7 @@
 
 #include "nbl/core/decl/smart_refctd_ptr.h"
 #include "nbl/core/util/bitflag.h"
+#include "nbl/system/path.h"
 
 #include <filesystem>
 #include <type_traits>
@@ -17,6 +18,7 @@ class future;
 class IFile : public core::IReferenceCounted
 {
 	friend class ISystemCaller;
+	friend class ISystem;
 	friend class IFileArchive;
 	public:
 		enum E_CREATE_FLAGS : uint32_t
@@ -35,7 +37,7 @@ class IFile : public core::IReferenceCounted
 
 		//! Get name of file.
 		/** \return File name as zero terminated character string. */
-		virtual const std::filesystem::path& getFileName() const = 0;
+		inline const path& getFileName() const { return m_filename; }
 
 		E_CREATE_FLAGS getFlags() const { return m_flags.value; }
 
@@ -52,15 +54,20 @@ class IFile : public core::IReferenceCounted
 		void read(future<size_t>& fut, void* buffer, size_t offset, size_t sizeToRead);
 		void write(future<size_t>& fut, const void* buffer, size_t offset, size_t sizeToWrite);
 
+		static path flattenFilename(const path& p);
+
 	protected:
 		virtual size_t read_impl(void* buffer, size_t offset, size_t sizeToRead) = 0;
 		virtual size_t write_impl(const void* buffer, size_t offset, size_t sizeToWrite) = 0;
 
 		// the ISystem is the factory, so this starys protected
-		explicit IFile(core::smart_refctd_ptr<ISystem>&& _system, core::bitflag<E_CREATE_FLAGS> _flags);
+		explicit IFile(core::smart_refctd_ptr<ISystem>&& _system, const path& _filename, core::bitflag<E_CREATE_FLAGS> _flags);
 
 		core::smart_refctd_ptr<ISystem> m_system;
 		core::bitflag<E_CREATE_FLAGS> m_flags;
+
+	private:
+		path m_filename;
 };
 
 }

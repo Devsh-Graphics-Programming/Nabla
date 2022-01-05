@@ -9,6 +9,8 @@
 
 #include "stddef.h"
 #include <type_traits>
+#include <utility>
+#include <iterator>
 
 /*! \file SRange.h
 	\brief File containing SRange utility struct for C++11 range loops
@@ -36,10 +38,9 @@ struct SRange
 		template<class Q=ConstIteratorType>
 		inline typename std::enable_if<!std::is_same<Q,IteratorType>::value,ConstIteratorType>::type end() const { return m_end; }
 		
-		_NBL_STATIC_INLINE_CONSTEXPR bool is_const = std::is_const<T>::value;
-		inline const T&			operator[](size_t ix) const noexcept { return begin()[ix]; }
-		template<typename U=T, typename = typename std::enable_if<!is_const>::type>
-		inline T&				operator[](size_t ix) noexcept { return begin()[ix]; }
+		inline const T&	operator[](size_t ix) const noexcept { return begin()[ix]; }
+		template<typename Q=T>
+        inline typename std::enable_if<!std::is_const_v<Q>,T&>::type operator[](size_t ix) noexcept { return begin()[ix]; }
 		
 		inline size_t size() const {return std::distance(m_begin,m_end);}
 

@@ -24,7 +24,7 @@ endif()
 add_subdirectory(14.ComputeScan EXCLUDE_FROM_ALL)
 # 15 is reserved for Erfan
 add_subdirectory(16.OrderIndependentTransparency EXCLUDE_FROM_ALL)
-if (NBL_BUILD_BULLET)
+if (NBL_BUILD_BULLET AND NOT NBL_BUILD_ANDROID) # The reason why bullet shouldn't build on android: https://github.com/bulletphysics/bullet3/issues/4025
 	add_subdirectory(17.SimpleBulletIntegration EXCLUDE_FROM_ALL) # Needs example 08 to come back first
 endif()
 if (NBL_BUILD_MITSUBA_LOADER)
@@ -72,7 +72,7 @@ add_subdirectory(52.SystemTest EXCLUDE_FROM_ALL)
 add_subdirectory(53.ComputeShaders EXCLUDE_FROM_ALL)
 add_subdirectory(54.Transformations EXCLUDE_FROM_ALL)
 add_subdirectory(55.RGB18E7S3 EXCLUDE_FROM_ALL)
-
+add_subdirectory(56.RayQuery EXCLUDE_FROM_ALL)
 add_subdirectory(57.AndroidSample EXCLUDE_FROM_ALL)
 add_subdirectory(58.MediaUnpackingOnAndroid EXCLUDE_FROM_ALL)
 add_subdirectory(60.ClusteredRendering EXCLUDE_FROM_ALL)

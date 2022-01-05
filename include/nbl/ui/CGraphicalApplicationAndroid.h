@@ -22,10 +22,12 @@ namespace nbl::ui
 			core::smart_refctd_ptr<IWindow::IEventCallback> callback;
 		};
 		CGraphicalApplicationAndroid(android_app* app, 
+			JNIEnv* env,
 			const system::path& _localInputCWD,
 			const system::path& _localOutputCWD,
 			const system::path& _sharedInputCWD,
-			const system::path& _sharedOutputCWD) : system::CApplicationAndroid(app, _localInputCWD, _localOutputCWD, _sharedInputCWD, _sharedOutputCWD) {}
+			const system::path& _sharedOutputCWD) : system::CApplicationAndroid(app, env, _localInputCWD, _localOutputCWD, _sharedInputCWD, _sharedOutputCWD) {}
+
 	private:
 		void handleInput_impl(android_app* app, AInputEvent* event) override
 		{
@@ -49,66 +51,83 @@ namespace nbl::ui
 				system::path sharedOutputCWD = system::path(app->activity->externalDataPath).parent_path().parent_path();
 				system::path privateOutputCWD = system::path(app->activity->internalDataPath);
 
-
-				//std::ofstream ofs(privateOutputCWD / "out.txt");
-				//assert(ofs.is_open());
-				//ofs << "Hello";
-				//ofs.close();
-
-				/*FILE* f = fopen((sharedInputCWD / "dwarf.jpg").string().c_str(), "r");
-				std::ifstream ifs(sharedInputCWD / "dwarf.jpg");
-				std::string someData;
-				bool ex = std::filesystem::exists(sharedInputCWD / "dwarf.jpg");
-				assert(ifs.is_open());
-				ifs >> someData;
-				ifs.close();
-				auto mgr = app->activity->assetManager;
-				AAssetDir* assetDir = AAssetManager_openDir(mgr, "");
-				const char* filename = (const char*)NULL;
-				while ((filename = AAssetDir_getNextFileName(assetDir)) != NULL) {
-					AAsset* asset = AAssetManager_open(mgr, filename, AASSET_MODE_STREAMING);
-					char buf[BUFSIZ];
-					int nb_read = 0;
-					FILE* out = fopen(filename, "w");
-					while ((nb_read = AAsset_read(asset, buf, BUFSIZ)) > 0)
-						fwrite(buf, nb_read, 1, out);
-					fclose(out);
-					AAsset_close(asset);
-				}*/
-
-				nbl::ui::CGraphicalApplicationAndroid::SGraphicalContext ctx{};
-				app->userData = &ctx;
-				auto framework = nbl::core::make_smart_refctd_ptr<android_app_class>(app, APKResourcesPath, privateOutputCWD, sharedInputCWD, sharedOutputCWD);
-				auto eventCallback = nbl::core::make_smart_refctd_ptr<window_event_callback>(std::forward<EventCallbackArgs>(args)...);
-				auto wndManager = nbl::core::make_smart_refctd_ptr<nbl::ui::CWindowManagerAndroid>(app);
-				ctx.wndManager = core::smart_refctd_ptr(wndManager);
-				ctx.callback = core::smart_refctd_ptr(eventCallback);
-				nbl::ui::IWindow::SCreationParams params;
-				params.callback = nullptr;
-				auto caller = core::make_smart_refctd_ptr<nbl::system::CSystemCallerPOSIX>();
-				auto system = core::make_smart_refctd_ptr<nbl::system::CSystemAndroid>(std::move(caller), app->activity, APKResourcesPath);
-				framework->setSystem(std::move(system));
-				if (app->savedState != nullptr) {
-					ctx.state = *(nbl::system::CApplicationAndroid::SSavedState*)app->savedState;
-				}
-				android_poll_source* source;
-				int ident;
-				int events;
-				while (framework->getWindow() == nullptr)
+				if constexpr (std::is_base_of_v<nbl::ui::CGraphicalApplicationAndroid, android_app_class>)
 				{
-					while ((ident = ALooper_pollAll(0, nullptr, &events, (void**)&source)) >= 0)
+					nbl::ui::CGraphicalApplicationAndroid::SGraphicalContext ctx{};
+					app->userData = &ctx;
+					auto framework = nbl::core::make_smart_refctd_ptr<android_app_class>(app, env, APKResourcesPath, privateOutputCWD, sharedInputCWD, sharedOutputCWD);
+					auto eventCallback = nbl::core::make_smart_refctd_ptr<window_event_callback>(std::forward<EventCallbackArgs>(args)...);
+					auto wndManager = nbl::core::make_smart_refctd_ptr<nbl::ui::CWindowManagerAndroid>(app);
+					ctx.wndManager = core::smart_refctd_ptr(wndManager);
+					ctx.callback = core::smart_refctd_ptr(eventCallback);
+					ctx.framework = framework.get();
+					nbl::ui::IWindow::SCreationParams params;
+					params.callback = nullptr;
+					auto caller = core::make_smart_refctd_ptr<nbl::system::CSystemCallerPOSIX>();
+					auto system = core::make_smart_refctd_ptr<nbl::system::CSystemAndroid>(std::move(caller), app->activity, env, APKResourcesPath);
+					framework->setSystem(std::move(system));
+					//if (app->savedState != nullptr) {
+					//	ctx.state = (nbl::system::CApplicationAndroid::SSavedState*)app->savedState;
+					//}
+					android_poll_source* source;
+					int ident;
+					int events;
+					while (framework->getWindow() == nullptr)
 					{
-					}
-				}
-				while (framework->keepRunning()) {
-					while ((ident = ALooper_pollAll(0, nullptr, &events, (void**)&source)) >= 0)
-					{
-						if (source != nullptr) {
-							source->process(app, source);
+						while ((ident = ALooper_pollAll(0, nullptr, &events, (void**)&source)) >= 0)
+						{
+							if (source != nullptr) {
+								source->process(app, source);
+							}
 						}
 					}
-					if (app->window != nullptr && framework->getWindow() != nullptr)
+					{
+						auto wnd = (CWindowAndroid*)framework->getWindow();
+						auto mouseChannel = core::make_smart_refctd_ptr<IMouseEventChannel>(CWindowAndroid::CIRCULAR_BUFFER_CAPACITY);
+						auto keyboardChannel = core::make_smart_refctd_ptr<IKeyboardEventChannel>(CWindowAndroid::CIRCULAR_BUFFER_CAPACITY);
+						if (wnd->addMouseEventChannel(0, core::smart_refctd_ptr<IMouseEventChannel>(mouseChannel)))
+							wnd->getEventCallback()->onMouseConnected(wnd, std::move(mouseChannel));
+						if (wnd->addKeyboardEventChannel(2, core::smart_refctd_ptr<IKeyboardEventChannel>(keyboardChannel)))
+							wnd->getEventCallback()->onKeyboardConnected(wnd, std::move(keyboardChannel));
+					}
+					while (!app->destroyRequested && framework->keepRunning()) 
+					{
+						while ((ident = ALooper_pollAll(0, nullptr, &events, (void**)&source)) >= 0)
+						{
+							if (source != nullptr) {
+								source->process(app, source);
+							}
+						}
+						if (app->window != nullptr && framework->getWindow() != nullptr && !framework->isPaused())
+							framework->workLoopBody();
+					}
+				}
+				else
+				{
+					nbl::system::CApplicationAndroid::SContext ctx{};
+					app->userData = &ctx;
+					auto framework = nbl::core::make_smart_refctd_ptr<android_app_class>(app, env, APKResourcesPath, privateOutputCWD, sharedInputCWD, sharedOutputCWD);
+					ctx.framework = framework.get();
+					auto caller = core::make_smart_refctd_ptr<nbl::system::CSystemCallerPOSIX>();
+					auto system = core::make_smart_refctd_ptr<nbl::system::CSystemAndroid>(std::move(caller), app->activity, env, APKResourcesPath);
+					framework->setSystem(std::move(system));
+					//if (app->savedState != nullptr) {
+					//	ctx.state = (nbl::system::CApplicationAndroid::SSavedState*)app->savedState;
+					//}
+					framework->onAppInitialized();
+					android_poll_source* source;
+					int ident;
+					int events;
+					while (!app->destroyRequested)
+					{
+						while ((ident = ALooper_pollAll(0, nullptr, &events, (void**)&source)) >= 0)
+						{
+							if (source != nullptr) {
+								source->process(app, source);
+							}
+						}
 						framework->workLoopBody();
+					}
 				}
 			}
 	};
