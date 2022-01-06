@@ -42,13 +42,15 @@ public:
 	inline const nbl::core::matrix3x4SIMD & getViewMatrix() const {	return viewMatrix; }
 	inline const nbl::core::matrix4SIMD & getConcatenatedMatrix() const { return concatMatrix; }
 
-	inline void setProjectionMatrix(const nbl::core::matrix4SIMD& projection) {
+	inline void setProjectionMatrix(const nbl::core::matrix4SIMD& projection)
+	{
 		projMatrix = projection;
 		leftHanded = nbl::core::determinant(projMatrix) < 0.f;
 		concatMatrix = nbl::core::matrix4SIMD::concatenateBFollowedByAPrecisely(projMatrix, nbl::core::matrix4SIMD(viewMatrix));
 	}
 	
-	inline void setPosition(const nbl::core::vectorSIMDf& pos) {
+	inline void setPosition(const nbl::core::vectorSIMDf& pos)
+	{
 		position.set(pos);
 		recomputeViewMatrix();
 	}
@@ -238,59 +240,58 @@ public:
 		}
 	}
 
-	void beginInputProcessing(std::chrono::microseconds _nextPresentationTimeStamp) {
+	void beginInputProcessing(std::chrono::microseconds _nextPresentationTimeStamp)
+	{
 		nextPresentationTimeStamp = _nextPresentationTimeStamp;
-
-		if(firstUpdate) {
-			lastVirtualUpTimeStamp = nextPresentationTimeStamp;
-			// Set Cursor to middle of the screen
-			firstUpdate = false;
-		}
-
 		return;
 	}
 	
-	void endInputProcessing(std::chrono::microseconds _nextPresentationTimeStamp) {
+	void endInputProcessing(std::chrono::microseconds _nextPresentationTimeStamp)
+	{
 		nbl::core::vectorSIMDf pos = getPosition();
 		nbl::core::vectorSIMDf localTarget = getTarget() - pos;
 
-		nbl::core::vectorSIMDf movedir = localTarget;
-		movedir.makeSafe3D();
-		movedir = nbl::core::normalize(movedir);
-
-		constexpr float MoveSpeedScale = 0.02f; 
-
-		pos += movedir * perActionDt[Keys::EKA_MOVE_FORWARD] * moveSpeed * MoveSpeedScale;
-
-		pos -= movedir * perActionDt[Keys::EKA_MOVE_BACKWARD] * moveSpeed * MoveSpeedScale;
-
-		// strafing
-		
-		// if upvector and vector to the target are the same, we have a
-		// problem. so solve this problem:
-		nbl::core::vectorSIMDf up = nbl::core::normalize(upVector);
-		nbl::core::vectorSIMDf cross = nbl::core::cross(localTarget, up);
-		bool upVectorNeedsChange = nbl::core::lengthsquared(cross)[0] == 0;
-		if (upVectorNeedsChange)
+		if (!firstUpdate)
 		{
-			up = nbl::core::normalize(backupUpVector);
+			nbl::core::vectorSIMDf movedir = localTarget;
+			movedir.makeSafe3D();
+			movedir = nbl::core::normalize(movedir);
+
+			constexpr float MoveSpeedScale = 0.02f; 
+
+			pos += movedir * perActionDt[Keys::EKA_MOVE_FORWARD] * moveSpeed * MoveSpeedScale;
+
+			pos -= movedir * perActionDt[Keys::EKA_MOVE_BACKWARD] * moveSpeed * MoveSpeedScale;
+
+			// strafing
+		
+			// if upvector and vector to the target are the same, we have a
+			// problem. so solve this problem:
+			nbl::core::vectorSIMDf up = nbl::core::normalize(upVector);
+			nbl::core::vectorSIMDf cross = nbl::core::cross(localTarget, up);
+			bool upVectorNeedsChange = nbl::core::lengthsquared(cross)[0] == 0;
+			if (upVectorNeedsChange)
+			{
+				up = nbl::core::normalize(backupUpVector);
+			}
+
+			nbl::core::vectorSIMDf strafevect = localTarget;
+			if (leftHanded)
+				strafevect = nbl::core::cross(strafevect, up);
+			else
+				strafevect = nbl::core::cross(up, strafevect);
+
+			strafevect = nbl::core::normalize(strafevect);
+
+			pos += strafevect * perActionDt[Keys::EKA_MOVE_LEFT] * moveSpeed * MoveSpeedScale;
+
+			pos -= strafevect * perActionDt[Keys::EKA_MOVE_RIGHT] * moveSpeed * MoveSpeedScale;
 		}
-
-		nbl::core::vectorSIMDf strafevect = localTarget;
-		if (leftHanded)
-			strafevect = nbl::core::cross(strafevect, up);
 		else
-			strafevect = nbl::core::cross(up, strafevect);
-
-		strafevect = nbl::core::normalize(strafevect);
-
-		pos += strafevect * perActionDt[Keys::EKA_MOVE_LEFT] * moveSpeed * MoveSpeedScale;
-
-		pos -= strafevect * perActionDt[Keys::EKA_MOVE_RIGHT] * moveSpeed * MoveSpeedScale;
+			firstUpdate = false;
 
 		setPosition(pos);
-
-		setTarget(localTarget + pos);
+		setTarget(localTarget+pos);
 
 		lastVirtualUpTimeStamp = nextPresentationTimeStamp;
 	}

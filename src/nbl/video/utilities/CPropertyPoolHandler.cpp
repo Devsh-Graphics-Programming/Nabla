@@ -533,9 +533,9 @@ uint32_t CPropertyPoolHandler::TransferDescriptorSetCache::acquireSet(
 
 
 	IGPUDescriptorSet::SDescriptorInfo infos[MaxPropertiesPerDispatch*2u+2u];
-	infos[0].assign(scratch,asset::EDT_STORAGE_BUFFER);
+	infos[0] = scratch;
 	infos[0].buffer.size = sizeof(nbl_glsl_property_pool_transfer_t)*propertyCount;
-	infos[1].assign(addresses,asset::EDT_STORAGE_BUFFER);
+	infos[1] = addresses;
 	auto* inDescInfo = infos+2;
 	auto* outDescInfo = infos+2+maxPropertiesPerPass;
 	for (uint32_t i=0u; i<propertyCount; i++)
@@ -547,20 +547,20 @@ uint32_t CPropertyPoolHandler::TransferDescriptorSetCache::acquireSet(
 		// no not attempt to bind sized ranges of the buffers, remember that the copies are indexed, so the reads and writes may be scattered
 		if (request.isDownload())
 		{
-			inDescInfo[i].assign(memblock,asset::EDT_STORAGE_BUFFER);
-			outDescInfo[i].assign(request.buffer,asset::EDT_STORAGE_BUFFER);
+			inDescInfo[i] = memblock;
+			outDescInfo[i] = request.buffer;
 		}
 		else
 		{
-			inDescInfo[i].assign(request.buffer,asset::EDT_STORAGE_BUFFER);
-			outDescInfo[i].assign(memblock,asset::EDT_STORAGE_BUFFER);
+			inDescInfo[i] = request.buffer;
+			outDescInfo[i] = memblock;
 		}
 	}
 	// just to make Vulkan shut up
 	for (uint32_t i=propertyCount; i<maxPropertiesPerPass; i++)
 	{
-		inDescInfo[i].assign(scratch,asset::EDT_STORAGE_BUFFER);
-		outDescInfo[i].assign(scratch,asset::EDT_STORAGE_BUFFER);
+		inDescInfo[i] = scratch;
+		outDescInfo[i] = scratch;
 	}
 	IGPUDescriptorSet::SWriteDescriptorSet writes[4u];
 	IGPUDescriptorSet* const set = IDescriptorSetCache::getSet(retval);

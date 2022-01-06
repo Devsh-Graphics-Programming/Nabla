@@ -98,6 +98,21 @@ class CPropertyPool final : public IPropertyPool
 		//
 		uint32_t getPropertyCount() const override {return PropertyCount;}
 		uint32_t getPropertySize(uint32_t ix) const override {return static_cast<uint32_t>(PropertySizes[ix]);}
+        
+		// useful for everyone
+		template<typename DescriptorSetLayoutType>
+		static inline void fillDescriptorLayoutBindings(DescriptorSetLayoutType::SBinding* bindings, asset::IShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
+		{
+            IPropertyPool::fillDescriptorLayoutBindings<DescriptorSetLayoutType,PropertyCount>(bindings,stageAccessFlags);
+		}
+		static inline core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> createDescriptorSetLayout(asset::IShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
+		{
+			return IPropertyPool::createDescriptorSetLayout<PropertyCount>(stageAccessFlags);
+		}
+		static inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createDescriptorSetLayout(video::ILogicalDevice* device, asset::IShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
+		{
+			return IPropertyPool::createDescriptorSetLayout<PropertyCount>(device,stageAccessFlags);
+		}
 
 	protected:
         CPropertyPool(const asset::SBufferRange<IGPUBuffer>* _memoryBlocks, const uint32_t capacity, void* _reserved, bool contiguous, allocator<uint8_t>&& _alloc)

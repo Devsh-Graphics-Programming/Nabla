@@ -437,6 +437,7 @@ namespace nbl
 				SBufferRange<ICPUBuffer> translationTable = {};
 				SBufferRange<ICPUBuffer> inverseBindPose = {};
 				ICPUSkeleton::joint_id_t root = ICPUSkeleton::invalid_joint_id;
+				uint16_t jointCount;
 			};
 			core::vector<Skin> skins(glTF.skins.size());
 
@@ -620,6 +621,7 @@ namespace nbl
 					skins[index].skeleton = skeletons[skeletonNodes[globalRootNode].skeletonID];
 					skins[index].translationTable = {sizeof(ICPUSkeleton::joint_id_t)*skinJointRefCount,sizeof(ICPUSkeleton::joint_id_t)*jointCount,vertexJointToSkeletonJoint};
 					skins[index].inverseBindPose = {sizeof(core::matrix3x4SIMD)*skinJointRefCount,sizeof(core::matrix3x4SIMD)*jointCount,inverseBindPose};
+					skins[index].jointCount = jointCount;
 
 					auto translationTableIt = reinterpret_cast<ICPUSkeleton::joint_id_t*>(skins[index].translationTable.buffer->getPointer())+skinJointRefCount;
 					for (const auto& joint : glTFSkin.joints)
@@ -652,9 +654,9 @@ namespace nbl
 							return bufferViewOffset + relativeAccessorOffset;
 						}();
 
-						auto* inData = reinterpret_cast<core::matrix4SIMD*>(reinterpret_cast<uint8_t*>(cpuBuffer->getPointer()) + globalIBPOffset); //! glTF stores 4x4 IBP matrices
+						auto* inData = reinterpret_cast<core::matrix4SIMD*>(reinterpret_cast<uint8_t*>(cpuBuffer->getPointer()) + globalIBPOffset); //! glTF stores 4x4 IBP column_major matrices
 						for (uint32_t j=0u; j<jointCount; ++j)
-							inverseBindPoseIt[j] = inData[j].extractSub3x4();
+							inverseBindPoseIt[j] = core::transpose(inData[j]).extractSub3x4();
 					}
 					else
 						std::fill_n(inverseBindPoseIt,jointCount,core::matrix3x4SIMD());
@@ -877,8 +879,7 @@ namespace nbl
 											return EF_R8G8B8A8_UINT;
 										else if (glTFJointsXAccessor.componentType.value() == SGLTF::SGLTFAccessor::SCT_UNSIGNED_SHORT)
 											return EF_R16G16B16A16_UINT;
-										else
-											EF_UNKNOWN;
+										return EF_UNKNOWN;
 									}();
 
 									if (jointsFormat == EF_UNKNOWN)
@@ -1529,18 +1530,19 @@ namespace nbl
 						for (auto& meshbuffer : mesh->getMeshBufferVector())
 						{
 							auto& skin = skins[pair.skin];
-							const size_t jointCount = skin.skeleton->getJointCount();
+							const size_t jointCount = skin.jointCount;
 
 							SBufferBinding<ICPUBuffer> inverseBindPoseBinding;
 							inverseBindPoseBinding.buffer = core::smart_refctd_ptr(skin.inverseBindPose.buffer);
 							inverseBindPoseBinding.offset = skin.inverseBindPose.offset;
 
 							SBufferBinding<ICPUBuffer> jointAABBBufferBinding;
-							jointAABBBufferBinding.buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(jointCount * sizeof(core::aabbox3df));
+							jointAABBBufferBinding.buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(jointCount*sizeof(core::aabbox3df));
 							jointAABBBufferBinding.offset = 0u;
 
-							nbl::asset::IMeshManipulator::calculateBoundingBox(meshbuffer.get(), reinterpret_cast<core::aabbox3df*>(jointAABBBufferBinding.buffer->getPointer()));
-							meshbuffer->setSkin(std::move(inverseBindPoseBinding), std::move(jointAABBBufferBinding), jointCount, meshbuffer->deduceMaxJointsPerVertex());
+							auto* aabbPtr = reinterpret_cast<core::aabbox3df*>(jointAABBBufferBinding.buffer->getPointer());
+							meshbuffer->setSkin(std::move(inverseBindPoseBinding),std::move(jointAABBBufferBinding),jointCount,meshbuffer->deduceMaxJointsPerVertex());
+							nbl::asset::IMeshManipulator::calculateBoundingBox(meshbuffer.get(),aabbPtr);
 						}
 				}
 			}
@@ -2363,9 +2365,7 @@ namespace nbl
 							for (uint32_t i = 0; i < matrixArray.size(); ++i)
 								*(tmpMatrix.pointer() + i) = matrixArray.at(i).get_double().value();
 
-							// TODO tmpMatrix (coulmn major) to row major (currentNode.matrix)
-
-							glTFnode.transformation.matrix = tmpMatrix.extractSub3x4();
+							glTFnode.transformation.matrix = core::transpose(tmpMatrix).extractSub3x4();
 						}
 						else
 						{

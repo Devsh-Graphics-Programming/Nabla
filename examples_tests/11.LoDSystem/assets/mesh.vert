@@ -7,13 +7,7 @@
 #include "common.glsl"
 
 #define NBL_GLSL_TRANSFORM_TREE_POOL_DESCRIPTOR_SET 0
-// disable what we dont use
-#define NBL_GLSL_TRANSFORM_TREE_POOL_NODE_PARENT_DESCRIPTOR_DECLARED
-#define NBL_GLSL_TRANSFORM_TREE_POOL_NODE_RELATIVE_TRANSFORM_DESCRIPTOR_DECLARED
-#define NBL_GLSL_TRANSFORM_TREE_POOL_NODE_MODIFIED_TIMESTAMP_DESCRIPTOR_DECLARED
-#define NBL_GLSL_TRANSFORM_TREE_POOL_NODE_GLOBAL_TRANSFORM_DESCRIPTOR_DECLARED
-#define NBL_GLSL_TRANSFORM_TREE_POOL_NODE_RECOMPUTED_TIMESTAMP_DESCRIPTOR_DECLARED
-#include <nbl/builtin/glsl/transform_tree/pool_descriptor_set.glsl>
+#include <nbl/builtin/glsl/transform_tree/render_descriptor_set.glsl>
 
 layout(set = 1, binding = 0, std430, row_major) restrict readonly buffer PerViewPerInstance
 {

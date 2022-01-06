@@ -62,7 +62,7 @@ struct SBufferBinding
 template<typename BufferType>
 struct SBufferRange
 {
-	bool isValid() const
+	inline bool isValid() const
 	{
 		return buffer && size && (offset+size<=buffer->getSize());
 	}

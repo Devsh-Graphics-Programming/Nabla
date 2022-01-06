@@ -87,7 +87,7 @@ class ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetLayout>, 
                 const E_DESCRIPTOR_TYPE type = getDescriptorsType(i);
                 for (uint32_t d = 0u; d < desc.size(); ++d)
                 {
-                    cp_desc.begin()[d].assign(desc.begin()[d], type);
+                    cp_desc.begin()[d] = desc.begin()[d];
                     if (_depth > 0u)
                     {
                         cp_desc.begin()[d].desc = cloneDescriptor(cp_desc.begin()[d].desc, _depth-1u);

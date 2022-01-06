@@ -61,7 +61,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 				writes[i].arrayElement = 0u;
 				writes[i].count = 1u;
 				writes[i].descriptorType = asset::EDT_STORAGE_BUFFER;
-				writes[i].info = infos + i;
+				writes[i].info = infos+i;
 			}
 			device->updateDescriptorSets(BindingCount, writes, 0u, nullptr);
 		}
@@ -137,7 +137,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			}
 			auto defaultFillValues = utils->createFilledDeviceLocalGPUBufferOnDedMem(uploadQueue,tmp.size(),fillData);
 			defaultFillValues->setObjectDebugName("ITransformTreeManager::m_defaultFillValues");
-			tmp.resize(sizeof(uint16_t)*IndexCount);
+			tmp.resize(sizeof(uint16_t)*DebugIndexCount);
 			uint16_t* debugIndices = reinterpret_cast<uint16_t*>(tmp.data());
 			{
 				std::fill_n(debugIndices,24u,0u);
@@ -218,7 +218,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			for (auto i=0u; i<TransferCount; i++)
 			{
 				transfers[i].elementCount = request.nodes.size/sizeof(ITransformTree::node_t);
-				transfers[i].srcAddressesOffset = video::IPropertyPool::invalid;
+				transfers[i].srcAddressesOffset = video::IPropertyPool::invalid; // iota input indices
 				transfers[i].dstAddressesOffset = request.nodes.offset;
 			}
 			transfers[0].setFromPool(pool,ITransformTree::parent_prop_ix);
@@ -250,17 +250,17 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		{
 			if (!request.tree)
 				return false;
-			if (request.nodes.empty())
-				return true;
 
 			const auto* pool = request.tree->getNodePropertyPool();
-
 			for (auto i=0u; i<TransferCount; i++)
 			{
 				upstreams[i].elementCount = request.nodes.size();
 				upstreams[i].srcAddresses = nullptr;
 				upstreams[i].dstAddresses = request.nodes.begin();
 			}
+			if (request.nodes.empty())
+				return true;
+
 			upstreams[0].setFromPool(pool,ITransformTree::parent_prop_ix);
 			if (request.parents.device2device || request.parents.data)
 			{
@@ -652,7 +652,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		{
 			const auto updatePipeline = choosePipelines(baseParams.tree).updateRelative.get();
 
-			const video::IGPUDescriptorSet* descSets[] = {baseParams.tree->getNodePropertyDescriptorSet(),updateLocalTransformsDS};
+			const video::IGPUDescriptorSet* descSets[] = {baseParams.tree->getNodePropertyPoolDescriptorSet(),updateLocalTransformsDS};
 			baseParams.cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,updatePipeline->getLayout(),0u,2u,descSets);
 			
 			baseParams.cmdbuf->bindComputePipeline(updatePipeline);
@@ -676,7 +676,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		{
 			const auto recomputePipeline = choosePipelines(baseParams.tree).recomputeGlobal.get();
 
-			const video::IGPUDescriptorSet* descSets[] = {baseParams.tree->getNodePropertyDescriptorSet(),recomputeGlobalTransformsDS};
+			const video::IGPUDescriptorSet* descSets[] = {baseParams.tree->getNodePropertyPoolDescriptorSet(),recomputeGlobalTransformsDS};
 			baseParams.cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,recomputePipeline->getLayout(),0u,2u,descSets);
 			
 			baseParams.cmdbuf->bindComputePipeline(recomputePipeline);
@@ -700,6 +700,12 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			recomputeGlobalTransforms(baseParams,recomputeDispatch,recomputeGlobalTransformsDS);
 		}
 
+
+		constexpr static inline auto DebugAABBIndices = 24u;
+		constexpr static inline auto DebugLineIndices = 2u;
+		constexpr static inline auto DebugIndexCount = DebugAABBIndices + DebugLineIndices;
+		//
+		inline const video::IGPUBuffer* getDebugIndexBuffer() const { return m_debugIndexBuffer.get(); }
 
 		static inline constexpr uint32_t DebugNodeIDAttributeIndex = 14u;
 		static inline constexpr uint32_t DebugAABBIDAttributeIndex = 15u;
@@ -739,7 +745,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			auto layout = choosePipelines(tree).debugDraw->getLayout();
 			assert(pipeline->getRenderpassIndependentPipeline()->getLayout()==layout);
 
-			const video::IGPUDescriptorSet* sets[] = {tree->getNodePropertyDescriptorSet(),debugDrawDS};
+			const video::IGPUDescriptorSet* sets[] = {tree->getNodePropertyPoolDescriptorSet(),debugDrawDS};
 			cmdbuf->bindDescriptorSets(asset::EPBP_GRAPHICS,layout,0u,2u,sets);
 			cmdbuf->bindGraphicsPipeline(pipeline);
 			{
@@ -752,7 +758,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			}
 			cmdbuf->bindIndexBuffer(m_debugIndexBuffer.get(),0u,asset::EIT_16BIT);
 			cmdbuf->pushConstants(layout,asset::IShader::ESS_VERTEX,0u,sizeof(DebugPushConstants),&pushConstants);
-			cmdbuf->drawIndexed(IndexCount,count,0u,0u,0u);
+			cmdbuf->drawIndexed(DebugIndexCount,count,0u,0u,0u);
 		}
 
 		//
@@ -827,9 +833,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		{
 			Pipelines retval = {};
 
-			asset::IShader::E_SHADER_STAGE stageAccessFlags[TransformTree::property_pool_t::PropertyCount];
-			std::fill_n(stageAccessFlags, TransformTree::property_pool_t::PropertyCount,asset::IShader::ESS_COMPUTE);
-			auto poolLayout = TransformTree::createDescriptorSetLayout(device,stageAccessFlags);
+			auto poolLayout = TransformTree::createPoolDescriptorSetLayout(device);
 			
 			auto updateRelativeLayout = device->createGPUPipelineLayout(nullptr,nullptr,core::smart_refctd_ptr(poolLayout),core::smart_refctd_ptr(updateLocalDsLayout));
 			auto recomputeGlobalLayout = device->createGPUPipelineLayout(nullptr,nullptr,core::smart_refctd_ptr(poolLayout),core::smart_refctd_ptr(recomputeGlobalDsLayout));
@@ -837,7 +841,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			pcRange.offset = 0u;
 			pcRange.size = sizeof(DebugPushConstants);
 			pcRange.stageFlags = asset::IShader::ESS_VERTEX;
-			auto debugDrawLayout = device->createGPUPipelineLayout(nullptr,nullptr,core::smart_refctd_ptr(poolLayout),core::smart_refctd_ptr(debugDrawDsLayout));
+			auto debugDrawLayout = device->createGPUPipelineLayout(&pcRange,&pcRange+1u,core::smart_refctd_ptr(poolLayout),core::smart_refctd_ptr(debugDrawDsLayout));
 
 			retval.updateRelative = device->createGPUComputePipeline(nullptr,std::move(updateRelativeLayout),core::smart_refctd_ptr(updateRelativeSpec));
 			retval.recomputeGlobal = device->createGPUComputePipeline(nullptr,std::move(recomputeGlobalLayout),core::smart_refctd_ptr(recomputeGlobalSpec));
@@ -928,9 +932,6 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		const uint32_t m_workgroupSize;
 
 		core::smart_refctd_ptr<video::IGPUBuffer> m_debugIndexBuffer;
-		constexpr static inline auto AABBIndices = 24u;
-		constexpr static inline auto LineIndices = 2u;
-		constexpr static inline auto IndexCount = AABBIndices+LineIndices;
 
 
 };

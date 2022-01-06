@@ -54,4 +54,16 @@ vec3 nbl_glsl_fastNormalTransform(in uint signFlipMask, in mat3 sub3x3TransposeC
     return tmp*uintBitsToFloat(floatBitsToUint(tmpLenRcp)^signFlipMask);
 }
 
+//
+mat4x3 nbl_glsl_pseudoInverse3x4(in mat4x3 tform)
+{
+    const mat3 sub3x3Inv = inverse(mat3(tform));
+    mat4x3 retval;
+    retval[0] = sub3x3Inv[0];
+    retval[1] = sub3x3Inv[1];
+    retval[2] = sub3x3Inv[2];
+    retval[3] = -sub3x3Inv*tform[3];
+    return retval;
+}
+
 #endif

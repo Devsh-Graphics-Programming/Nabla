@@ -1163,8 +1163,19 @@ public:
         if (!this->isCompatibleDevicewise(layout))
             return false;
         for (uint32_t i=0u; i<descriptorSetCount; ++i)
-            if (pDescriptorSets[i] && !this->isCompatibleDevicewise(pDescriptorSets[i]))
+        if (pDescriptorSets[i])
+        {
+            if (!this->isCompatibleDevicewise(pDescriptorSets[i]))
+            {
+                m_logger.log("IGPUCommandBuffer::bindDescriptorSets failed, pDescriptorSets[%d] was not created by the same ILogicalDevice as the commandbuffer!", system::ILogger::ELL_ERROR,i);
                 return false;
+            }
+            if (!pDescriptorSets[i]->getLayout()->isIdenticallyDefined(layout->getDescriptorSetLayout(firstSet+i)))
+            {
+                m_logger.log("IGPUCommandBuffer::bindDescriptorSets failed, pDescriptorSets[%d] not identically defined as layout's %dth descriptor layout!",system::ILogger::ELL_ERROR,i,firstSet+i);
+                return false;
+            }
+        }
 
         // Will bind non-null [firstSet, dsCount) ranges with one call
         SCmd<impl::ECT_BIND_DESCRIPTOR_SETS> cmd;

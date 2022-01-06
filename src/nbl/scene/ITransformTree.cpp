@@ -14,8 +14,9 @@ ITransformTree::~ITransformTree()
 }
 
 
-ITransformTreeWithoutNormalMatrices::ITransformTreeWithoutNormalMatrices(core::smart_refctd_ptr<property_pool_t>&& _nodeStorage, core::smart_refctd_ptr<video::IGPUDescriptorSet>&& _transformHierarchyDS)
-	: ITransformTree(std::move(_transformHierarchyDS)), m_nodeStorage(std::move(_nodeStorage))
+ITransformTreeWithoutNormalMatrices::ITransformTreeWithoutNormalMatrices(
+	core::smart_refctd_ptr<property_pool_t>&& _nodeStorage, core::smart_refctd_ptr<video::IGPUDescriptorSet>&& _transformHierarchyDS, core::smart_refctd_ptr<video::IGPUDescriptorSet>&& _renderDS
+) : ITransformTree(std::move(_transformHierarchyDS),std::move(_renderDS)), m_nodeStorage(std::move(_nodeStorage))
 {
 	m_nodeStorage->getPropertyMemoryBlock(parent_prop_ix).buffer->setObjectDebugName("ITransformTreeWithoutNormalMatrices::parent_t");
 	m_nodeStorage->getPropertyMemoryBlock(relative_transform_prop_ix).buffer->setObjectDebugName("ITransformTreeWithoutNormalMatrices::relative_transform_t");
@@ -25,8 +26,9 @@ ITransformTreeWithoutNormalMatrices::ITransformTreeWithoutNormalMatrices(core::s
 }
 
 
-ITransformTreeWithNormalMatrices::ITransformTreeWithNormalMatrices(core::smart_refctd_ptr<property_pool_t>&& _nodeStorage, core::smart_refctd_ptr<video::IGPUDescriptorSet>&& _transformHierarchyDS)
-	: ITransformTree(std::move(_transformHierarchyDS)), m_nodeStorage(std::move(_nodeStorage))
+ITransformTreeWithNormalMatrices::ITransformTreeWithNormalMatrices(
+	core::smart_refctd_ptr<property_pool_t>&& _nodeStorage, core::smart_refctd_ptr<video::IGPUDescriptorSet>&& _transformHierarchyDS, core::smart_refctd_ptr<video::IGPUDescriptorSet>&& _renderDS
+) : ITransformTree(std::move(_transformHierarchyDS),std::move(_renderDS)), m_nodeStorage(std::move(_nodeStorage))
 {
 	m_nodeStorage->getPropertyMemoryBlock(parent_prop_ix).buffer->setObjectDebugName("ITransformTreeWithNormalMatrices::parent_t");
 	m_nodeStorage->getPropertyMemoryBlock(relative_transform_prop_ix).buffer->setObjectDebugName("ITransformTreeWithNormalMatrices::relative_transform_t");

@@ -3,15 +3,15 @@
 #ifndef _NBL_VERT_INPUTS_DEFINED_
 #define _NBL_VERT_INPUTS_DEFINED_
 
-layout (location = _NBL_V_IN_POSITION_ATTRIBUTE_ID) in vec3 vPos;
-layout(location = _NBL_V_IN_NORMAL_ATTRIBUTE_ID) in vec3 vNormal;
+layout (location = _NBL_GLTF_POSITION_ATTRIBUTE_ID) in vec3 vPos;
+layout(location = _NBL_GLTF_NORMAL_ATTRIBUTE_ID) in vec3 vNormal;
 
 #ifndef _DISABLE_COLOR_ATTRIBUTES
-layout(location = _NBL_V_IN_COLOR_ATTRIBUTE_ID) in vec4 vColor_0; //! multiple color attributes aren't supported
+layout(location = _NBL_GLTF_COLOR_ATTRIBUTE_ID) in vec4 vColor_0; //! multiple color attributes aren't supported
 #endif // _DISABLE_COLOR_ATTRIBUTES
 
 #ifndef _DISABLE_UV_ATTRIBUTES
-layout (location = _NBL_V_IN_UV_ATTRIBUTE_ID) in vec2 vUV_0; //! multiple color attributes aren't supported
+layout (location = _NBL_GLTF_UV_ATTRIBUTE_ID) in vec2 vUV_0; //! multiple color attributes aren't supported
 #endif // _DISABLE_UV_ATTRIBUTES
 
 #if !defined(_DISABLE_COLOR_ATTRIBUTES) && !defined(_DISABLE_UV_ATTRIBUTES)
@@ -19,8 +19,9 @@ layout (location = _NBL_V_IN_UV_ATTRIBUTE_ID) in vec2 vUV_0; //! multiple color 
 #endif
 
 #ifdef _NBL_SKINNING_ENABLED_
-layout (location = _NBL_V_IN_JOINTS_ATTRIBUTE_ID) in vec4 vJoints;
-layout (location = _NBL_V_IN_WEIGHTS_ATTRIBUTE_ID) in vec4 vWeights;
+layout (location = _NBL_GLTF_JOINTS_ATTRIBUTE_ID) in uvec4 vJoints;
+layout (location = _NBL_GLTF_WEIGHTS_ATTRIBUTE_ID) in vec3 vWeights;
+#include <nbl/builtin/glsl/skinning/linear.glsl>
 #endif
 
 #endif //_NBL_VERT_INPUTS_DEFINED_
@@ -33,13 +34,13 @@ layout (location = _NBL_V_IN_WEIGHTS_ATTRIBUTE_ID) in vec4 vWeights;
     at the moment, to change in future
 */
 
-layout (location = _NBL_V_OUT_LOCAL_POSITION_ID) out vec3 LocalPos;
-layout (location = _NBL_V_OUT_VIEW_POS_ID) out vec3 ViewPos;
+layout (location = _NBL_GLTF_LOCAL_POS_INTERPOLANT) out vec3 LocalPos;
+layout (location = _NBL_GLTF_NORMAL_INTERPOLANT) out vec3 Normal;
 #ifndef _DISABLE_UV_ATTRIBUTES
-layout (location = _NBL_V_OUT_UV_ID) out vec2 UV_0;
+layout (location = _NBL_GLTF_UV_INTERPOLANT) out vec2 UV_0;
 #endif // _DISABLE_UV_ATTRIBUTES
 #ifndef _DISABLE_COLOR_ATTRIBUTES
-layout(location = _NBL_V_OUT_COLOR_ID) out vec4 Color_0;
+layout(location = _NBL_GLTF_COLOR_INTERPOLANT) out vec4 Color_0;
 #endif // _DISABLE_COLOR_ATTRIBUTES
 
 #endif //_NBL_VERT_OUTPUTS_DEFINED_
@@ -72,28 +73,13 @@ layout (set = 1, binding = 0, row_major, std140) uniform UBO
 void main()
 {
     LocalPos = vPos;
+	Normal = vNormal;
 	
-#ifndef _NBL_SKINNING_ENABLED_ // @devshgraphicsprogramming leaving this for you, the loader won't set "_NBL_SKINNING_ENABLED_"
-    gl_Position = nbl_glsl_pseudoMul4x4with3x1(CameraData.params.MVP, vPos);
-    ViewPos = nbl_glsl_pseudoMul3x4with3x1(CameraData.params.MV, vPos);
-#else
-	vec3 pos = nodeGlobalTransforms.data[nbl_glsl_skinning_translateJointIDtoNodeID(gl_InstanceID, vJoints[0])]*vPos*vWeights[0];
-	
-	if (vWeights[1]!=0.f)
-	{
-	  pos += nodeGlobalTransforms.data[nbl_glsl_skinning_translateJointIDtoNodeID(gl_InstanceID,vJoints[1])]*vPos*vWeights[1];
-	  if (vWeights[2]!=0.f)
-	  {
-		pos += nodeGlobalTransforms.data[nbl_glsl_skinning_translateJointIDtoNodeID(gl_InstanceID,vJoints[2])]*vPos*vWeights[2];
-		const float lastWeight = 1.f-vWeights[0]-vWeights[1]-vWeights[2];
-		if (lastWeight!=0.f)
-		  pos += nodeGlobalTransforms.data[nbl_glsl_skinning_translateJointIDtoNodeID(gl_InstanceID,vJoints[3])]*vPos*lastWeight;
-	  }
-	}
-	
-	gl_Position = nbl_glsl_pseudoMul4x4with3x1(CameraData.params.MVP, pos);
-    ViewPos = nbl_glsl_pseudoMul3x4with3x1(CameraData.params.MV, pos);
-#endif // _NBL_SKINNING_ENABLED_
+#ifdef _NBL_SKINNING_ENABLED_
+	nbl_glsl_skinning_linear(LocalPos,Normal,0x45u,vJoints,vWeights);
+#endif
+
+	gl_Position = nbl_glsl_pseudoMul4x4with3x1(CameraData.params.MVP,LocalPos);
 
 #ifndef _DISABLE_UV_ATTRIBUTES
     UV_0 = vUV_0;
