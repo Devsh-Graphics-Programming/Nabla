@@ -22,6 +22,7 @@ using namespace nbl;
 using namespace asset;
 using namespace video;
 using namespace core;
+using namespace ui;
 
 class GLTFApp : public ApplicationBase
 {
@@ -84,8 +85,10 @@ class GLTFApp : public ApplicationBase
 		void onAppInitialized_impl() override
 		{
 			initOutput.window = core::smart_refctd_ptr(window);
-
-			CommonAPI::Init<WIN_W, WIN_H, SC_IMG_COUNT>(initOutput, video::EAT_OPENGL, "glTF", asset::EF_D32_SFLOAT);
+			
+			const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT);
+			const video::ISurface::SFormat surfaceFormat(asset::EF_B8G8R8A8_SRGB, asset::ECP_COUNT, asset::EOTF_UNKNOWN);
+			CommonAPI::InitWithDefaultExt(initOutput, video::EAT_OPENGL, "glTF", WIN_W, WIN_H, SC_IMG_COUNT, swapchainImageUsage, surfaceFormat, asset::EF_D32_SFLOAT);
 			window = std::move(initOutput.window);
 			gl = std::move(initOutput.apiConnection);
 			surface = std::move(initOutput.surface);
@@ -95,7 +98,7 @@ class GLTFApp : public ApplicationBase
 			swapchain = std::move(initOutput.swapchain);
 			renderpass = std::move(initOutput.renderpass);
 			fbos = std::move(initOutput.fbo);
-			commandPool = std::move(initOutput.commandPool);
+			commandPools = std::move(initOutput.commandPools);
 			assetManager = std::move(initOutput.assetManager);
 			logger = std::move(initOutput.logger);
 			inputSystem = std::move(initOutput.inputSystem);
@@ -104,7 +107,7 @@ class GLTFApp : public ApplicationBase
 			cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
 			utilities = std::move(initOutput.utilities);
 
-			transferUpQueue = queues[decltype(initOutput)::EQT_TRANSFER_UP];
+			transferUpQueue = queues[CommonAPI::InitOutput::EQT_TRANSFER_UP];
 			
 			transformTreeManager = scene::ITransformTreeManager::create(utilities.get(),transferUpQueue);
 			ttDebugDrawPipeline = transformTreeManager->createDebugPipeline<scene::ITransformTreeWithNormalMatrices>(core::smart_refctd_ptr(renderpass));
@@ -114,37 +117,7 @@ class GLTFApp : public ApplicationBase
 			sicDebugDrawPipeline = sicManager->createDebugPipeline(core::smart_refctd_ptr(renderpass));
 			sicDescriptorSets = sicManager->createAllDescriptorSets(logicalDevice.get());
 
-			auto gpuTransferFence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
-			auto gpuComputeFence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
-
 			nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
-			{
-				cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].fence = &gpuTransferFence;
-				cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].fence = &gpuComputeFence;
-			}
-
-			auto cpu2gpuWaitForFences = [&]() -> void
-			{
-				video::IGPUFence::E_STATUS waitStatus = video::IGPUFence::ES_NOT_READY;
-				while (waitStatus != video::IGPUFence::ES_SUCCESS)
-				{
-					waitStatus = logicalDevice->waitForFences(1u, &gpuTransferFence.get(), false, 99999999ull);
-					if (waitStatus == video::IGPUFence::ES_ERROR)
-						assert(false);
-					else if (waitStatus == video::IGPUFence::ES_TIMEOUT)
-						break;
-				}
-
-				waitStatus = video::IGPUFence::ES_NOT_READY;
-				while (waitStatus != video::IGPUFence::ES_SUCCESS)
-				{
-					waitStatus = logicalDevice->waitForFences(1u, &gpuComputeFence.get(), false, 99999999ull);
-					if (waitStatus == video::IGPUFence::ES_ERROR)
-						assert(false);
-					else if (waitStatus == video::IGPUFence::ES_TIMEOUT)
-						break;
-				}
-			};
 
 			auto createDescriptorPool = [&](const uint32_t amount, const E_DESCRIPTOR_TYPE type) // TODO: review
 			{
@@ -230,7 +203,7 @@ class GLTFApp : public ApplicationBase
 			nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandBuffer> xferCmdbuf;
 			{
 				xferFence = logicalDevice->createFence(static_cast<nbl::video::IGPUFence::E_CREATE_FLAGS>(0));
-				logicalDevice->createCommandBuffers(commandPool.get(),nbl::video::IGPUCommandBuffer::EL_PRIMARY,1u,&xferCmdbuf);
+				logicalDevice->createCommandBuffers(commandPools[CommonAPI::InitOutput::EQT_TRANSFER_UP].get(),nbl::video::IGPUCommandBuffer::EL_PRIMARY,1u,&xferCmdbuf);
 				xferCmdbuf->begin(0);
 			}
 			auto xferQueue = logicalDevice->getQueue(xferCmdbuf->getQueueFamilyIndex(),0u);
@@ -779,7 +752,7 @@ class GLTFApp : public ApplicationBase
 			camera = Camera(cameraPosition, core::vectorSIMDf(0, 0, 0), projectionMatrix, 0.4f, 1.f);
 			auto lastTime = std::chrono::system_clock::now();
 
-			logicalDevice->createCommandBuffers(commandPool.get(),video::IGPUCommandBuffer::EL_PRIMARY,FRAMES_IN_FLIGHT,commandBuffers);
+			logicalDevice->createCommandBuffers(commandPools[CommonAPI::InitOutput::EQT_GRAPHICS].get(),video::IGPUCommandBuffer::EL_PRIMARY,FRAMES_IN_FLIGHT,commandBuffers);
 
 			//
 			oracle.reportBeginFrameRecord();
@@ -795,7 +768,15 @@ class GLTFApp : public ApplicationBase
 			const auto& fboCreationParams = fbos[acquiredNextFBO]->getCreationParameters();
 			auto gpuSourceImageView = fboCreationParams.attachments[0];
 
-			bool status = ext::ScreenShot::createScreenShot(logicalDevice.get(), queues[decltype(initOutput)::EQT_TRANSFER_UP], renderFinished[resourceIx].get(), gpuSourceImageView.get(), assetManager.get(), "ScreenShot.png");
+			bool status = ext::ScreenShot::createScreenShot(
+				logicalDevice.get(),
+				queues[CommonAPI::InitOutput::EQT_TRANSFER_UP],
+				renderFinished[resourceIx].get(),
+				gpuSourceImageView.get(),
+				assetManager.get(),
+				"ScreenShot.png",
+				asset::EIL_PRESENT_SRC,
+				static_cast<asset::E_ACCESS_FLAGS>(0u));
 			assert(status);
 		}
 
@@ -1016,17 +997,17 @@ class GLTFApp : public ApplicationBase
 		}
 
 	private:
-		CommonAPI::InitOutput<SC_IMG_COUNT> initOutput;
+		CommonAPI::InitOutput initOutput;
 		nbl::core::smart_refctd_ptr<nbl::ui::IWindow> window;
 		nbl::core::smart_refctd_ptr<nbl::video::IAPIConnection> gl;
 		nbl::core::smart_refctd_ptr<nbl::video::ISurface> surface;
 		nbl::video::IPhysicalDevice* gpuPhysicalDevice;
 		nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice> logicalDevice;
-		std::array<nbl::video::IGPUQueue*, CommonAPI::InitOutput<SC_IMG_COUNT>::EQT_COUNT> queues = { nullptr, nullptr, nullptr, nullptr };
+		std::array<nbl::video::IGPUQueue*, CommonAPI::InitOutput::MaxQueuesCount> queues;
 		nbl::core::smart_refctd_ptr<nbl::video::ISwapchain> swapchain;
 		nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpass> renderpass;
-		std::array<nbl::core::smart_refctd_ptr<nbl::video::IGPUFramebuffer>, SC_IMG_COUNT> fbos;
-		nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandPool> commandPool;
+		std::array<nbl::core::smart_refctd_ptr<nbl::video::IGPUFramebuffer>, CommonAPI::InitOutput::MaxSwapChainImageCount> fbos;
+		std::array<nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandPool>, CommonAPI::InitOutput::MaxQueuesCount> commandPools;
 		nbl::core::smart_refctd_ptr<nbl::asset::IAssetManager> assetManager;
 		nbl::core::smart_refctd_ptr<nbl::system::ILogger> logger;
 		nbl::core::smart_refctd_ptr<CommonAPI::InputSystem> inputSystem;
