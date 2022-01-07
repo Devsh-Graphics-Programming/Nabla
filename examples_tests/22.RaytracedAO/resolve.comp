@@ -13,6 +13,11 @@ layout(set = 0, binding = 4, rgba16f) restrict uniform image2D framebuffer;
 layout(set = 0, binding = 5, r32ui) restrict uniform uimage2D albedo;
 layout(set = 0, binding = 6, rgba16f) restrict uniform image2D normals;
 
+layout(push_constant, row_major) uniform PushConstants
+{
+	mat4x3 viewMatrix;
+} pc;
+
 #include <nbl/builtin/glsl/format/decode.glsl>
 #include <nbl/builtin/glsl/format/encode.glsl>
 vec3 fetchAccumulation(in uvec2 coord, in uint subsample)
@@ -42,6 +47,7 @@ void main()
 		nml /= float(samplesPerPixelPerDispatch);
 
 		// transform normal
+		nml = mat3(pc.viewMatrix)*nml;
 
 		imageStore(framebuffer,pixelCoord,vec4(acc,1.f));
 		imageStore(albedo,pixelCoord,uvec4(nbl_glsl_encodeRGB10A2_UNORM(vec4(alb,1.0)),0u,0u,0u));
