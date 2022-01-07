@@ -39,7 +39,7 @@ uint64_t CVulkanAccelerationStructure::getReferenceForHostOperations() const
 }
 
 template<>
-static VkDeviceOrHostAddressKHR CVulkanAccelerationStructure::getVkDeviceOrHostAddress(VkDevice vk_device, const CVulkanDeviceFunctionTable* vk_devf, const DeviceAddressType& addr) {
+VkDeviceOrHostAddressKHR CVulkanAccelerationStructure::getVkDeviceOrHostAddress(VkDevice vk_device, const CVulkanDeviceFunctionTable* vk_devf, const DeviceAddressType& addr) {
 	VkDeviceOrHostAddressKHR ret = {};
 	if(addr.buffer.get() != nullptr)
 	{
@@ -52,7 +52,7 @@ static VkDeviceOrHostAddressKHR CVulkanAccelerationStructure::getVkDeviceOrHostA
 	return ret;
 }
 template<>
-static VkDeviceOrHostAddressKHR CVulkanAccelerationStructure::getVkDeviceOrHostAddress(VkDevice vk_device, const CVulkanDeviceFunctionTable* vk_devf, const HostAddressType& addr) {
+VkDeviceOrHostAddressKHR CVulkanAccelerationStructure::getVkDeviceOrHostAddress(VkDevice vk_device, const CVulkanDeviceFunctionTable* vk_devf, const HostAddressType& addr) {
 	VkDeviceOrHostAddressKHR ret = {};
 	if(addr.buffer.get() != nullptr) 
 	{
@@ -65,7 +65,7 @@ static VkDeviceOrHostAddressKHR CVulkanAccelerationStructure::getVkDeviceOrHostA
 	return ret;
 }
 template<>
-static VkDeviceOrHostAddressConstKHR CVulkanAccelerationStructure::getVkDeviceOrHostConstAddress(VkDevice vk_device, const CVulkanDeviceFunctionTable* vk_devf, const DeviceAddressType& addr) {
+VkDeviceOrHostAddressConstKHR CVulkanAccelerationStructure::getVkDeviceOrHostConstAddress(VkDevice vk_device, const CVulkanDeviceFunctionTable* vk_devf, const DeviceAddressType& addr) {
 	VkDeviceOrHostAddressConstKHR ret = {};
 	if(addr.buffer.get() != nullptr)
 	{
@@ -78,7 +78,7 @@ static VkDeviceOrHostAddressConstKHR CVulkanAccelerationStructure::getVkDeviceOr
 	return ret;
 }
 template<>
-static VkDeviceOrHostAddressConstKHR CVulkanAccelerationStructure::getVkDeviceOrHostConstAddress(VkDevice vk_device, const CVulkanDeviceFunctionTable* vk_devf, const HostAddressType& addr) {
+VkDeviceOrHostAddressConstKHR CVulkanAccelerationStructure::getVkDeviceOrHostConstAddress(VkDevice vk_device, const CVulkanDeviceFunctionTable* vk_devf, const HostAddressType& addr) {
 	VkDeviceOrHostAddressConstKHR ret = {};
 	if(addr.buffer.get() != nullptr) 
 	{

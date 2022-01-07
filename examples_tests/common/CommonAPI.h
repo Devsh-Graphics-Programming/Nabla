@@ -859,6 +859,69 @@ public:
 #endif
 	}
 	
+#ifdef _NBL_PLATFORM_ANDROID_
+	static void recreateSurface(nbl::ui::CGraphicalApplicationAndroid* framework)
+	{
+		using namespace nbl;
+		android_app* app = framework->getApp();
+		auto apiConnection = framework->getAPIConnection();
+		auto window = framework->getWindow();
+		auto logicalDevice = framework->getLogicalDevice();
+		auto surface = nbl::video::CSurfaceGLAndroid::create(nbl::core::smart_refctd_ptr<nbl::video::COpenGLESConnection>((nbl::video::COpenGLESConnection*)apiConnection), nbl::core::smart_refctd_ptr<nbl::ui::IWindowAndroid>(static_cast<nbl::ui::IWindowAndroid*>(window)));
+		auto renderpass = framework->getRenderpass();
+		nbl::asset::E_FORMAT depthFormat = framework->getDepthFormat();
+		framework->setSurface(surface);
+		uint32_t width = ANativeWindow_getWidth(app->window);
+		uint32_t height = ANativeWindow_getHeight(app->window);
+		uint32_t scImageCount = framework->getSwapchainImageCount();
+		nbl::video::ISurface::SFormat requestedFormat;
+		
+		// Temporary to make previous examples work
+		requestedFormat.format = nbl::asset::EF_R8G8B8A8_SRGB;
+		requestedFormat.colorSpace.eotf = nbl::asset::EOTF_sRGB;
+		requestedFormat.colorSpace.primary = nbl::asset::ECP_SRGB;
+		
+		auto gpus = apiConnection->getPhysicalDevices();
+		assert(!gpus.empty());
+		auto extractedInfos = extractGPUInfos(gpus, surface);
+		auto suitableGPUIndex = findSuitableGPU(extractedInfos, true);
+		auto gpu = gpus.begin()[suitableGPUIndex];
+		const auto& gpuInfo = extractedInfos[suitableGPUIndex];
+		
+		auto swapchain = createSwapchain(nbl::video::EAT_OPENGL_ES,
+			gpuInfo,
+			scImageCount,
+			width,
+			height,
+			nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice>(logicalDevice),
+			surface,
+			nbl::asset::IImage::E_USAGE_FLAGS::EUF_NONE,
+			nbl::video::ISurface::EPM_FIFO_RELAXED,
+			requestedFormat
+			);
+		auto fbo = [&]()
+		{
+			auto fbos = createFBOWithSwapchainImages(scImageCount, 
+				width, 
+				height, 
+				nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice>(logicalDevice), 
+				swapchain,
+				nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpass>(renderpass),
+				depthFormat
+			);
+			
+			std::vector<nbl::core::smart_refctd_ptr<video::IGPUFramebuffer>> data;
+			for(auto it : fbos)
+				data.push_back(it);
+			
+			return data;
+		}();
+		
+		framework->setSwapchain(std::move(swapchain));
+		framework->setFBOs(fbo);
+	}
+#endif
+	
 	template<bool gpuInit = true, class EventCallback = CommonAPIEventCallback>
 	static void Init(
 		InitOutput& result,

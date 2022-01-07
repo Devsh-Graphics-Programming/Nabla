@@ -1089,7 +1089,7 @@ namespace nbl
 
 												for (uint16_t i = 0; i < vertexInfluenceData.perVertexComponentsData.size(); ++i) //! iterate over single components
 												{
-													VertexInfluenceData::ComponentData& skinComponent = vertexInfluenceData.perVertexComponentsData[i];
+													typename VertexInfluenceData::ComponentData& skinComponent = vertexInfluenceData.perVertexComponentsData[i];
 
 													JointComponentT* vJoint = reinterpret_cast<JointComponentT*>(vJointsComponentDataRaw) + i;
 													WeightCompomentT* vWeight = reinterpret_cast<WeightCompomentT*>(vWeightsComponentDataRaw) + i;
@@ -1099,7 +1099,7 @@ namespace nbl
 												}
 											}
 
-											std::vector<VertexInfluenceData::ComponentData> skinComponentUnlimitedStream;
+											std::vector<typename VertexInfluenceData::ComponentData> skinComponentUnlimitedStream;
 											{
 												for (const auto& vertexInfluenceData : vertexInfluenceDataContainer)
 													for (const auto& skinComponent : vertexInfluenceData.perVertexComponentsData)
@@ -1112,13 +1112,13 @@ namespace nbl
 											}
 
 											//! sort, cache and keep only biggest influencers
-											std::sort(std::begin(skinComponentUnlimitedStream), std::end(skinComponentUnlimitedStream), [&](const VertexInfluenceData::ComponentData& lhs, const VertexInfluenceData::ComponentData& rhs) { return lhs.weight < rhs.weight; });
+											std::sort(std::begin(skinComponentUnlimitedStream), std::end(skinComponentUnlimitedStream), [&](const typename VertexInfluenceData::ComponentData& lhs, const typename VertexInfluenceData::ComponentData& rhs) { return lhs.weight < rhs.weight; });
 											{
 												auto iteratorEnd = skinComponentUnlimitedStream.begin() + (vertexInfluenceDataContainer.size() - 1u) * 4u;
 												if (skinComponentUnlimitedStream.begin() != iteratorEnd)
 													skinComponentUnlimitedStream.erase(skinComponentUnlimitedStream.begin(), iteratorEnd);
 
-												std::sort(std::begin(skinComponentUnlimitedStream), std::end(skinComponentUnlimitedStream), [&](const VertexInfluenceData::ComponentData& lhs, const VertexInfluenceData::ComponentData& rhs) { return lhs.joint < rhs.joint; });
+												std::sort(std::begin(skinComponentUnlimitedStream), std::end(skinComponentUnlimitedStream), [&](const typename VertexInfluenceData::ComponentData& lhs, const typename VertexInfluenceData::ComponentData& rhs) { return lhs.joint < rhs.joint; });
 											}
 
 											auto* vOverrideJointsData = reinterpret_cast<uint8_t*>(vOverrideJointsBuffer->getPointer()) + commonVJointsOffset;
@@ -1280,8 +1280,8 @@ namespace nbl
 													for (uint16_t i = 0; i < quantRequest.encodeData.size(); ++i) //! quantization test
 													{
 														auto& encode = quantRequest.encodeData[i];
-														auto* quantBuffer = std::get<QuantRequest::QUANT_BUFFER>(encode);
-														auto* errorBuffer = std::get<QuantRequest::ERROR_BUFFER>(encode);
+														auto* quantBuffer = std::get<typename QuantRequest::QUANT_BUFFER>(encode);
+														auto* errorBuffer = std::get<typename QuantRequest::ERROR_BUFFER>(encode);
 														const WEIGHT_ENCODING requestWeightEncoding = std::get<WEIGHT_ENCODING>(encode);
 														const E_FORMAT requestQuantFormat = std::get<E_FORMAT>(encode);
 
@@ -1293,7 +1293,7 @@ namespace nbl
 															const auto& weightInput = packedWeightsStream.pointer[i];
 															if (weightInput)
 															{
-																const QuantRequest::ERROR_TYPE& errorComponent = errorBuffer[i] = core::abs(quantsDecoded.pointer[i] - weightInput);
+																const typename QuantRequest::ERROR_TYPE& errorComponent = errorBuffer[i] = core::abs(quantsDecoded.pointer[i] - weightInput);
 
 																if (errorComponent)
 																{
@@ -1680,7 +1680,7 @@ namespace nbl
 
 					if(nodes.error() != simdjson::error_code::NO_SUCH_FIELD)
 						for (const auto& node : nodes.get_array())
-							glTFScene.nodes.push_back(node.get_uint64());
+							glTFScene.nodes.push_back(static_cast<uint32_t>(node.get_uint64()));
 				}
 			}
 

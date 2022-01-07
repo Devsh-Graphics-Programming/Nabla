@@ -101,7 +101,7 @@ class CPropertyPool final : public IPropertyPool
         
 		// useful for everyone
 		template<typename DescriptorSetLayoutType>
-		static inline void fillDescriptorLayoutBindings(DescriptorSetLayoutType::SBinding* bindings, asset::IShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
+		static inline void fillDescriptorLayoutBindings(typename DescriptorSetLayoutType::SBinding* bindings, asset::IShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
 		{
             IPropertyPool::fillDescriptorLayoutBindings<DescriptorSetLayoutType,PropertyCount>(bindings,stageAccessFlags);
 		}
