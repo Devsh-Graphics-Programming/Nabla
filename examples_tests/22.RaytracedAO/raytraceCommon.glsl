@@ -394,10 +394,11 @@ vec2 SampleSphericalMap(vec3 v)
 
 void Contribution_initMiss(out Contribution contrib)
 {
-    vec2 uv = SampleSphericalMap(-normalizedV);
+	vec2 uv = SampleSphericalMap(-normalizedV);
 	// funny little trick borrowed from things like Progressive Photon Mapping
 	const float bias = 0.25*sqrt(pc.cummon.rcpFramesDispatched);
-	contrib.color = textureGrad(envMap, uv, vec2(bias*0.5,0.f), vec2(0.f,bias)).rgb;
+	contrib.albedo = contrib.color = textureGrad(envMap, uv, vec2(bias*0.5,0.f), vec2(0.f,bias)).rgb;
+	contrib.worldspaceNormal = normalizedV;
 }
 
 void Contribution_normalizeAoV(inout Contribution contrib)

@@ -806,8 +806,8 @@ nbl_glsl_MC_eval_pdf_aov_t nbl_glsl_MC_instr_bxdf_eval_and_pdf_common(
 			nbl_glsl_MC_microfacet_t microfacet = _microfacet;
 			bool is_valid = true;
 			bool refraction = false;
-			#ifndef NO_BSDF
 			const float orientedEta = nbl_glsl_MC_colorToScalar(ior[0]);
+			#ifndef NO_BSDF
 			if (nbl_glsl_isTransmissionPath(currInteraction.inner.isotropic.NdotV,s.NdotL))
 			{
 				const float rcpOrientedEta = 1.f/orientedEta;
