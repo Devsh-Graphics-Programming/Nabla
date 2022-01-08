@@ -190,6 +190,55 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 	InitializationData retval;
 	m_globalMeta  = meshes.getMetadata()->selfCast<const ext::MitsubaLoader::CMitsubaMetadata>();
 	assert(m_globalMeta );
+
+	//
+	{
+		// extract integrator parameters
+		std::stack<const ext::MitsubaLoader::CElementIntegrator*> integratorStack;
+		integratorStack.push(&m_globalMeta->m_global.m_integrator);
+		while (!integratorStack.empty())
+		{
+			auto integrator = integratorStack.top();
+			integratorStack.pop();
+			using Enum = ext::MitsubaLoader::CElementIntegrator::Type;
+			switch (integrator->type)
+			{
+				case Enum::DIRECT:
+					pathDepth = 2u;
+					break;
+				case Enum::PATH:
+				case Enum::VOL_PATH_SIMPLE:
+				case Enum::VOL_PATH:
+				case Enum::BDPT:
+					pathDepth = integrator->bdpt.maxPathDepth;
+					noRussianRouletteDepth = integrator->bdpt.russianRouletteDepth-1u;
+					break;
+				case Enum::ADAPTIVE:
+					for (size_t i=0u; i<integrator->multichannel.childCount; i++)
+						integratorStack.push(integrator->multichannel.children[i]);
+					break;
+				case Enum::IRR_CACHE:
+					assert(false);
+					break;
+				case Enum::MULTI_CHANNEL:
+					for (size_t i=0u; i<integrator->multichannel.childCount; i++)
+						integratorStack.push(integrator->multichannel.children[i]);
+					break;
+				default:
+					break;
+			};
+		}
+
+		//
+		retval.maxSensorSamples = MaxFreeviewSamples;
+		for (const auto& sensor : m_globalMeta->m_global.m_sensors)
+		{
+			if (retval.maxSensorSamples<sensor.sampler.sampleCount)
+				retval.maxSensorSamples = sensor.sampler.sampleCount;
+		}
+	}
+
+	//
 	auto* _globalBackendDataDS = m_globalMeta ->m_global.m_ds0.get();
 
 	auto* instanceDataDescPtr = _globalBackendDataDS->getDescriptors(5u).begin();
@@ -853,48 +902,12 @@ core::smart_refctd_ptr<ICPUBuffer> Renderer::SampleSequence::createBufferView(IV
 	return buff;
 }
 
+//
+
 // TODO: be able to fail
 void Renderer::initSceneResources(SAssetBundle& meshes, nbl::io::path&& _sampleSequenceCachePath)
 {
 	deinitSceneResources();
-
-	// load cache
-	uint32_t quantizedDimensions = QUANTIZED_DIMENSIONS_PER_SAMPLE;
-	uint32_t sampleCount = MaxSamples;
-	{
-		core::smart_refctd_ptr<ICPUBuffer> cachebuff;
-		uint32_t cachedQuantizedDimensions=0u,cachedSampleCount=0u;
-		{
-			sampleSequenceCachePath = std::move(_sampleSequenceCachePath);
-			io::IReadFile* cacheFile = m_assetManager->getFileSystem()->createAndOpenFile(sampleSequenceCachePath);
-			if (cacheFile)
-			{
-				cacheFile->read(&cachedQuantizedDimensions,sizeof(cachedQuantizedDimensions));
-				if (cachedQuantizedDimensions)
-				{
-					cachedSampleCount = (cacheFile->getSize()-cacheFile->getPos())/(cachedQuantizedDimensions*SampleSequence::QuantizedDimensionsBytesize);
-					cachebuff = sampleSequence.createCPUBuffer(cachedQuantizedDimensions,cachedSampleCount);
-					if (cachebuff)
-						cacheFile->read(cachebuff->getPointer(),cachebuff->getSize());
-				}
-				cacheFile->drop();
-			}
-		}
-		if (cachedQuantizedDimensions>=quantizedDimensions && cachedSampleCount>=sampleCount)
-			sampleSequence.createBufferView(m_driver,std::move(cachebuff));
-		else
-		{
-			cachebuff = sampleSequence.createBufferView(m_driver,quantizedDimensions,sampleCount);
-			// save sequence
-			io::IWriteFile* cacheFile = m_assetManager->getFileSystem()->createAndWriteFile(sampleSequenceCachePath);
-			if (cacheFile)
-			{
-				cacheFile->write(&quantizedDimensions,sizeof(quantizedDimensions));
-				cacheFile->write(cachebuff->getPointer(),cachebuff->getSize());
-				cacheFile->drop();
-			}
-		}
-	}
 
 
 	// set up Descriptor Sets
@@ -1008,9 +1021,67 @@ void Renderer::initSceneResources(SAssetBundle& meshes, nbl::io::path&& _sampleS
 			std::cout << "\tindexBuffer = " << m_indexBuffer->getSize() << " bytes" << std::endl;
 			for (auto i=0u; i<2u; i++)
 				std::cout << "\tIndirect Draw Buffers[" << i << "] = " << m_indirectDrawBuffers[i]->getSize() << " bytes" << std::endl;
-			std::cout << std::endl;
+		}
+		
+		// load sample cache
+		{
+			core::smart_refctd_ptr<ICPUBuffer> cachebuff;
+			uint32_t cachedQuantizedDimensions=0u,cachedSampleCount=0u;
+			{
+				sampleSequenceCachePath = std::move(_sampleSequenceCachePath);
+				io::IReadFile* cacheFile = m_assetManager->getFileSystem()->createAndOpenFile(sampleSequenceCachePath);
+				if (cacheFile)
+				{
+					cacheFile->read(&cachedQuantizedDimensions,sizeof(cachedQuantizedDimensions));
+					if (cachedQuantizedDimensions)
+					{
+						cachedSampleCount = (cacheFile->getSize()-cacheFile->getPos())/(cachedQuantizedDimensions*SampleSequence::QuantizedDimensionsBytesize);
+						cachebuff = sampleSequence.createCPUBuffer(cachedQuantizedDimensions,cachedSampleCount);
+						if (cachebuff)
+							cacheFile->read(cachebuff->getPointer(),cachebuff->getSize());
+					}
+					cacheFile->drop();
+				}
+			}
+			// lets keep path length within bounds of sanity
+			constexpr auto MaxPathDepth = 255u;
+			if (pathDepth==0)
+			{
+				printf("[ERROR] No suppoerted Integrator found in the Mitsuba XML, setting default.\n");
+				pathDepth = DefaultPathDepth;
+			}
+			else if (pathDepth>MaxPathDepth)
+			{
+				printf("[WARNING] Path Depth %d greater than maximum supported, clamping to %d\n",pathDepth,MaxPathDepth);
+				pathDepth = MaxPathDepth;
+			}
+			const uint32_t quantizedDimensions = SampleSequence::computeQuantizedDimensions(pathDepth);
+			// The primary limiting factor is the precision of turning a fixed point grid sample to IEEE754 32bit float in the [0,1] range.
+			// Mantissa is only 23 bits, and primary sample space low discrepancy sequence will start to produce duplicates
+			// near 1.0 with exponent -1 after the sample count passes 2^24 elements.
+			// Another limiting factor is our encoding of sample sequences, we only use 21bits per channel, so no duplicates till 2^21 samples.
+			initData.maxSensorSamples = core::min(0x1<<21,initData.maxSensorSamples);
+			if (cachedQuantizedDimensions>=quantizedDimensions && cachedSampleCount>=initData.maxSensorSamples)
+				sampleSequence.createBufferView(m_driver,std::move(cachebuff));
+			else
+			{
+				printf("[INFO] Generating Low Discrepancy Sample Sequence Cache, please wait...\n");
+				cachebuff = sampleSequence.createBufferView(m_driver,quantizedDimensions,initData.maxSensorSamples);
+				// save sequence
+				io::IWriteFile* cacheFile = m_assetManager->getFileSystem()->createAndWriteFile(sampleSequenceCachePath);
+				if (cacheFile)
+				{
+					cacheFile->write(&quantizedDimensions,sizeof(quantizedDimensions));
+					cacheFile->write(cachebuff->getPointer(),cachebuff->getSize());
+					cacheFile->drop();
+				}
+			}
+			std::cout << "\tpathDepth = " << pathDepth << std::endl;
+			std::cout << "\tnoRussianRouletteDepth = " << noRussianRouletteDepth << std::endl;
+			std::cout << "\tmaxSamples = " << initData.maxSensorSamples << std::endl;
 		}
 	}
+	std::cout << std::endl;
 }
 
 void Renderer::deinitSceneResources()
@@ -1057,10 +1128,11 @@ void Renderer::deinitSceneResources()
 	for (auto shape : rrShapes)
 		rr->DeleteShape(shape);
 	rrShapes.clear();
+
+	pathDepth = DefaultPathDepth;
+	noRussianRouletteDepth = 5u;
 }
 
-constexpr auto DefaultPathDepth = 8u;
-constexpr auto MaxPathDepth = 255u;
 void Renderer::initScreenSizedResources(uint32_t width, uint32_t height)
 {
 	m_staticViewData.imageDimensions = {width, height};
@@ -1075,62 +1147,14 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height)
 	size_t scrambleBufferSize=0u;
 	size_t raygenBufferSize=0u,intersectionBufferSize=0u;
 	{
-		m_staticViewData.pathDepth = 0u;
-		m_staticViewData.noRussianRouletteDepth = 5u;
-		uint32_t bxdfSamples=1u,maxNEESamples=0u;
-		std::stack<const ext::MitsubaLoader::CElementIntegrator*> integratorStack;
-		integratorStack.push(&m_globalMeta->m_global.m_integrator);
-		while (!integratorStack.empty())
-		{
-			auto integrator = integratorStack.top();
-			integratorStack.pop();
-			using Enum = ext::MitsubaLoader::CElementIntegrator::Type;
-			switch (integrator->type)
-			{
-				case Enum::DIRECT:
-					m_staticViewData.pathDepth = 2u;
-					bxdfSamples = integrator->direct.bsdfSamples;
-					maxNEESamples = integrator->direct.emitterSamples;
-					break;
-				case Enum::PATH:
-				case Enum::VOL_PATH_SIMPLE:
-				case Enum::VOL_PATH:
-				case Enum::BDPT:
-					m_staticViewData.pathDepth = integrator->bdpt.maxPathDepth;
-					m_staticViewData.noRussianRouletteDepth = integrator->bdpt.russianRouletteDepth-1u;
-					break;
-				case Enum::ADAPTIVE:
-					for (size_t i=0u; i<integrator->multichannel.childCount; i++)
-						integratorStack.push(integrator->multichannel.children[i]);
-					break;
-				case Enum::IRR_CACHE:
-					assert(false);
-					break;
-				case Enum::MULTI_CHANNEL:
-					for (size_t i=0u; i<integrator->multichannel.childCount; i++)
-						integratorStack.push(integrator->multichannel.children[i]);
-					break;
-				default:
-					break;
-			};
-		}
-		if (m_staticViewData.pathDepth==0)
-		{
-			printf("[ERROR] No suppoerted Integrator found in the Mitsuba XML, setting default.\n");
-			m_staticViewData.pathDepth = DefaultPathDepth;
-		}
-		else if (m_staticViewData.pathDepth>MAX_PATH_DEPTH)
-		{
-			printf("[WARNING] Path Depth %d greater than maximum supported, clamping to %d\n",m_staticViewData.pathDepth,MAX_PATH_DEPTH);
-			m_staticViewData.pathDepth = MAX_PATH_DEPTH;
-		}
-		printf("Path Depth %d\n",m_staticViewData.pathDepth);
-		printf("No Russian Roulette Until %d\n",m_staticViewData.noRussianRouletteDepth);
+		// TODO
+		m_staticViewData.pathDepth = pathDepth;
+		m_staticViewData.noRussianRouletteDepth = noRussianRouletteDepth;
 
 		uint32_t _maxRaysPerDispatch = 0u;
-		auto setRayBufferSizes = [&bxdfSamples,&maxNEESamples,renderPixelCount,this,&_maxRaysPerDispatch,&raygenBufferSize,&intersectionBufferSize](uint32_t sampleMultiplier) -> void
+		auto setRayBufferSizes = [renderPixelCount,this,&_maxRaysPerDispatch,&raygenBufferSize,&intersectionBufferSize](uint32_t sampleMultiplier) -> void
 		{
-			m_staticViewData.samplesPerPixelPerDispatch = (bxdfSamples+maxNEESamples)*sampleMultiplier;
+			m_staticViewData.samplesPerPixelPerDispatch = SAMPLING_STRATEGY_COUNT*sampleMultiplier;
 
 			const size_t minimumSampleCountPerDispatch = static_cast<size_t>(renderPixelCount)*getSamplesPerPixelPerDispatch();
 			_maxRaysPerDispatch = static_cast<uint32_t>(minimumSampleCountPerDispatch);
@@ -1146,11 +1170,7 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height)
 			while (sampleMultiplier<0x10000u && raygenBufferSize<=maxSSBOSize && intersectionBufferSize<=maxSSBOSize)
 				setRayBufferSizes(++sampleMultiplier);
 			if (sampleMultiplier==1u)
-			{
-				bxdfSamples = 1u;
-				maxNEESamples = 0u;
 				setRayBufferSizes(sampleMultiplier);
-			}
 			printf("[INFO] Using %d samples (per pixel) per dispatch\n",getSamplesPerPixelPerDispatch());
 		}
 	}
@@ -1158,6 +1178,7 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height)
 	(std::ofstream("runtime_defines.glsl")
 		<< "#define _NBL_EXT_MITSUBA_LOADER_VT_STORAGE_VIEW_COUNT " << m_globalMeta->m_global.getVTStorageViewCount() << "\n"
 		<< m_globalMeta->m_global.m_materialCompilerGLSL_declarations
+		<< "#define SAMPLE_SEQUENCE_STRIDE " << SampleSequence::computeQuantizedDimensions(pathDepth) << "\n"
 		<< "#ifndef MAX_RAYS_GENERATED\n"
 		<< "#	define MAX_RAYS_GENERATED " << getSamplesPerPixelPerDispatch() << "\n"
 		<< "#endif\n"

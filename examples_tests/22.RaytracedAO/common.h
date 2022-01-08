@@ -7,17 +7,8 @@
 
 #define MAX_TRIANGLES_IN_BATCH 16384
 
-//! Brief guideline to good path depth limits
-// Want to see stuff with indirect lighting on the other side of a pane of glass
-// 5 = glass frontface->glass backface->diffuse surface->diffuse surface->light
-// Want to see through a glass box, vase, or office 
-// 7 = glass frontface->glass backface->glass frontface->glass backface->diffuse surface->diffuse surface->light
-// pick higher numbers for better GI and less bias
-#define MAX_PATH_DEPTH 35
 // need to bump to 2 in case of NEE + MIS, 3 in case of Path Guiding
 #define SAMPLING_STRATEGY_COUNT 1
-// One less because the first vertex is rasterized
-#define QUANTIZED_DIMENSIONS_PER_SAMPLE ((MAX_PATH_DEPTH-1)*SAMPLING_STRATEGY_COUNT)
 
 
 #define WORKGROUP_SIZE 256

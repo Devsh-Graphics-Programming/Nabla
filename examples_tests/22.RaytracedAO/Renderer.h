@@ -78,11 +78,15 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 			return m_totalRaysCast;
 		}
 
-		// The primary limiting factor is the precision of turning a fixed point grid sample to IEEE754 32bit float in the [0,1] range.
-		// Mantissa is only 23 bits, and primary sample space low discrepancy sequence will start to produce duplicates
-		// near 1.0 with exponent -1 after the sample count passes 2^24 elements.
-		// Another limiting factor is our encoding of sample sequences, we only use 21bits per channel, so no duplicates till 2^21 samples.
-		static inline constexpr uint32_t MaxSamples = 0x10000u;// 0x200000;
+		//! Brief guideline to good path depth limits
+		// Want to see stuff with indirect lighting on the other side of a pane of glass
+		// 5 = glass frontface->glass backface->diffuse surface->diffuse surface->light
+		// Want to see through a glass box, vase, or office 
+		// 7 = glass frontface->glass backface->glass frontface->glass backface->diffuse surface->diffuse surface->light
+		// pick higher numbers for better GI and less bias
+		static inline constexpr uint32_t DefaultPathDepth = 8u;
+		// TODO: Upload only a subsection of the sample sequence to the GPU, so we can use more samples without trashing VRAM
+		static inline constexpr uint32_t MaxFreeviewSamples = 0x10000u;
 
 		//
 		static constexpr inline uint32_t AntiAliasingSequenceLength = 1024;
@@ -92,7 +96,7 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 
 		struct InitializationData
 		{
-			InitializationData() : lights(),lightCDF() {}
+			InitializationData() : lights(),lightCDF(), maxSensorSamples(MaxFreeviewSamples) {}
 			InitializationData(InitializationData&& other) : InitializationData()
 			{
 				operator=(std::move(other));
@@ -112,6 +116,7 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 				nbl::core::vector<float> lightPDF;
 				nbl::core::vector<uint32_t> lightCDF;
 			};
+			uint32_t maxSensorSamples;
 		};
 		InitializationData initSceneObjects(const nbl::asset::SAssetBundle& meshes);
 		void initSceneNonAreaLights(InitializationData& initData);
@@ -119,7 +124,6 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 
 		//
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> createScreenSizedTexture(nbl::asset::E_FORMAT format, uint32_t layers=0u);
-		void genSampleSequenceBufferView(uint32_t quantizedDimensions, uint32_t sampleCount);
 
 		//
 		void preDispatch(const nbl::video::IGPUPipelineLayout* layout, nbl::video::IGPUDescriptorSet*const *const lastDS);
@@ -166,6 +170,8 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 				static inline constexpr auto QuantizedDimensionsBytesize = sizeof(uint64_t);
 				SampleSequence() : bufferView() {}
 
+				// one less because first path vertex uses a different sequence 
+				static inline uint32_t computeQuantizedDimensions(uint32_t maxPathDepth) {return (maxPathDepth-1)*SAMPLING_STRATEGY_COUNT;}
 				nbl::core::smart_refctd_ptr<nbl::asset::ICPUBuffer> createCPUBuffer(uint32_t quantizedDimensions, uint32_t sampleCount);
 
 				// from cache
@@ -178,6 +184,8 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 			private:
 				nbl::core::smart_refctd_ptr<nbl::video::IGPUBufferView> bufferView;
 		} sampleSequence;
+		uint16_t pathDepth;
+		uint16_t noRussianRouletteDepth;
 
 		// scene specific data
 		nbl::core::vector<::RadeonRays::Shape*> rrShapes;

@@ -255,7 +255,7 @@ vec3 rand3d(in uvec3 scramble_key, in int _sample, int depth)
 	// decrement depth because first vertex is rasterized and picked with a different sample sequence
 	--depth;
 	//
-	const nbl_glsl_sampling_quantized3D quant = texelFetch(quantizedSampleSequence,int(_sample)*QUANTIZED_DIMENSIONS_PER_SAMPLE+depth).xy;
+	const nbl_glsl_sampling_quantized3D quant = texelFetch(quantizedSampleSequence,int(_sample)*SAMPLE_SEQUENCE_STRIDE+depth).xy;
     return nbl_glsl_sampling_decodeSample3Dimensions(quant,scramble_key);
 }
 
