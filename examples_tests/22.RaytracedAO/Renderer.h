@@ -40,11 +40,11 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 
 		Renderer(nbl::video::IVideoDriver* _driver, nbl::asset::IAssetManager* _assetManager, nbl::scene::ISceneManager* _smgr, bool useDenoiser = true);
 
-		void initSceneResources(nbl::asset::SAssetBundle& meshes);
+		void initSceneResources(nbl::asset::SAssetBundle& meshes, nbl::io::path&& _sampleSequenceCachePath="");
 
 		void deinitSceneResources();
 		
-		void initScreenSizedResources(uint32_t width, uint32_t height, nbl::core::smart_refctd_ptr<nbl::asset::ICPUBuffer>&& sampleSequence);
+		void initScreenSizedResources(uint32_t width, uint32_t height);
 
 		void deinitScreenSizedResources();
 
@@ -69,7 +69,7 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		}
 		uint64_t getTotalSamplesComputed() const
 		{
-			const auto samplesPerDispatch = static_cast<uint64_t>(getSamplesPerPixelPerDispatch()*m_staticViewData.imageDimensions.x*m_staticViewData.imageDimensions.y);
+			const auto samplesPerDispatch = getSamplesPerPixelPerDispatch()*static_cast<uint64_t>(m_staticViewData.imageDimensions.x*m_staticViewData.imageDimensions.y);
 			const auto framesDispatched = static_cast<uint64_t>(m_framesDispatched);
 			return framesDispatched*samplesPerDispatch;
 		}
@@ -118,7 +118,8 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		void finalizeScene(InitializationData& initData);
 
 		//
-		nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> createScreenSizedTexture(nbl::asset::E_FORMAT format, uint32_t layers = 0u);
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> createScreenSizedTexture(nbl::asset::E_FORMAT format, uint32_t layers=0u);
+		void genSampleSequenceBufferView(uint32_t quantizedDimensions, uint32_t sampleCount);
 
 		//
 		void preDispatch(const nbl::video::IGPUPipelineLayout* layout, nbl::video::IGPUDescriptorSet*const *const lastDS);
@@ -156,6 +157,27 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		nbl::core::smart_refctd_ptr<IGPUSpecializedShader> m_raygenGPUShader;
 		nbl::core::smart_refctd_ptr<IGPUSpecializedShader> m_closestHitGPUShader;
 		nbl::core::smart_refctd_ptr<IGPUSpecializedShader> m_resolveGPUShader;
+
+		// semi persistent data
+		nbl::io::path sampleSequenceCachePath;
+		struct SampleSequence
+		{
+			public:
+				static inline constexpr auto QuantizedDimensionsBytesize = sizeof(uint64_t);
+				SampleSequence() : bufferView() {}
+
+				nbl::core::smart_refctd_ptr<nbl::asset::ICPUBuffer> createCPUBuffer(uint32_t quantizedDimensions, uint32_t sampleCount);
+
+				// from cache
+				void createBufferView(nbl::video::IVideoDriver* driver, nbl::core::smart_refctd_ptr<nbl::asset::ICPUBuffer>&& buff);
+				// regenerate
+				nbl::core::smart_refctd_ptr<nbl::asset::ICPUBuffer> createBufferView(nbl::video::IVideoDriver* driver, uint32_t quantizedDimensions, uint32_t sampleCount);
+
+				auto getBufferView() const {return bufferView;}
+
+			private:
+				nbl::core::smart_refctd_ptr<nbl::video::IGPUBufferView> bufferView;
+		} sampleSequence;
 
 		// scene specific data
 		nbl::core::vector<::RadeonRays::Shape*> rrShapes;

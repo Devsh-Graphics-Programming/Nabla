@@ -805,10 +805,97 @@ core::smart_refctd_ptr<IGPUImageView> Renderer::createScreenSizedTexture(E_FORMA
 	return m_driver->createGPUImageView(std::move(viewparams));
 }
 
+
+core::smart_refctd_ptr<asset::ICPUBuffer> Renderer::SampleSequence::createCPUBuffer(uint32_t quantizedDimensions, uint32_t sampleCount)
+{
+	const size_t bytesize = SampleSequence::QuantizedDimensionsBytesize*quantizedDimensions*sampleCount;
+	if (bytesize)
+		return core::make_smart_refctd_ptr<asset::ICPUBuffer>(bytesize);
+	else
+		return nullptr;
+}
+void Renderer::SampleSequence::createBufferView(IVideoDriver* driver, core::smart_refctd_ptr<asset::ICPUBuffer>&& buff)
+{
+	auto gpubuf = driver->createFilledDeviceLocalGPUBufferOnDedMem(buff->getSize(),buff->getPointer());
+	bufferView = driver->createGPUBufferView(gpubuf.get(),asset::EF_R32G32_UINT);
+}
+core::smart_refctd_ptr<ICPUBuffer> Renderer::SampleSequence::createBufferView(IVideoDriver* driver, uint32_t quantizedDimensions, uint32_t sampleCount)
+{
+	constexpr auto DimensionsPerQuanta = 3u;
+	const auto dimensions = quantizedDimensions*DimensionsPerQuanta;
+	core::OwenSampler sampler(dimensions,0xdeadbeefu);
+
+	// Memory Order: 3 Dimensions, then multiple of sampling stragies per vertex, then depth, then sample ID
+	auto buff = createCPUBuffer(quantizedDimensions,sampleCount);
+	uint32_t(&pout)[][2] = *reinterpret_cast<uint32_t(*)[][2]>(buff->getPointer());
+	// the horrible order of iteration over output memory is caused by the fact that certain samplers like the 
+	// Owen Scramble sampler, have a large cache which needs to be generated separately for each dimension.
+	for (auto metadim=0u; metadim<quantizedDimensions; metadim++)
+	{
+		const auto trudim = metadim*DimensionsPerQuanta;
+		for (uint32_t i=0; i<sampleCount; i++)
+			pout[i*quantizedDimensions+metadim][0] = sampler.sample(trudim+0u,i);
+		for (uint32_t i=0; i<sampleCount; i++)
+			pout[i*quantizedDimensions+metadim][1] = sampler.sample(trudim+1u,i);
+		for (uint32_t i=0; i<sampleCount; i++)
+		{
+			const auto sample = sampler.sample(trudim+2u,i);
+			const auto out = pout[i*quantizedDimensions+metadim];
+			out[0] &= 0xFFFFF800u;
+			out[0] |= sample>>21;
+			out[1] &= 0xFFFFF800u;
+			out[1] |= (sample>>10)&0x07FFu;
+		}
+	}
+	// upload sequence to GPU
+	createBufferView(driver,core::smart_refctd_ptr(buff));
+	// return for caching
+	return buff;
+}
+
 // TODO: be able to fail
-void Renderer::initSceneResources(SAssetBundle& meshes)
+void Renderer::initSceneResources(SAssetBundle& meshes, nbl::io::path&& _sampleSequenceCachePath)
 {
 	deinitSceneResources();
+
+	// load cache
+	uint32_t quantizedDimensions = QUANTIZED_DIMENSIONS_PER_SAMPLE;
+	uint32_t sampleCount = MaxSamples;
+	{
+		core::smart_refctd_ptr<ICPUBuffer> cachebuff;
+		uint32_t cachedQuantizedDimensions=0u,cachedSampleCount=0u;
+		{
+			sampleSequenceCachePath = std::move(_sampleSequenceCachePath);
+			io::IReadFile* cacheFile = m_assetManager->getFileSystem()->createAndOpenFile(sampleSequenceCachePath);
+			if (cacheFile)
+			{
+				cacheFile->read(&cachedQuantizedDimensions,sizeof(cachedQuantizedDimensions));
+				if (cachedQuantizedDimensions)
+				{
+					cachedSampleCount = (cacheFile->getSize()-cacheFile->getPos())/(cachedQuantizedDimensions*SampleSequence::QuantizedDimensionsBytesize);
+					cachebuff = sampleSequence.createCPUBuffer(cachedQuantizedDimensions,cachedSampleCount);
+					if (cachebuff)
+						cacheFile->read(cachebuff->getPointer(),cachebuff->getSize());
+				}
+				cacheFile->drop();
+			}
+		}
+		if (cachedQuantizedDimensions>=quantizedDimensions && cachedSampleCount>=sampleCount)
+			sampleSequence.createBufferView(m_driver,std::move(cachebuff));
+		else
+		{
+			cachebuff = sampleSequence.createBufferView(m_driver,quantizedDimensions,sampleCount);
+			// save sequence
+			io::IWriteFile* cacheFile = m_assetManager->getFileSystem()->createAndWriteFile(sampleSequenceCachePath);
+			if (cacheFile)
+			{
+				cacheFile->write(&quantizedDimensions,sizeof(quantizedDimensions));
+				cacheFile->write(cachebuff->getPointer(),cachebuff->getSize());
+				cacheFile->drop();
+			}
+		}
+	}
+
 
 	// set up Descriptor Sets
 	{
@@ -972,7 +1059,9 @@ void Renderer::deinitSceneResources()
 	rrShapes.clear();
 }
 
-void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, core::smart_refctd_ptr<ICPUBuffer>&& sampleSequence)
+constexpr auto DefaultPathDepth = 8u;
+constexpr auto MaxPathDepth = 255u;
+void Renderer::initScreenSizedResources(uint32_t width, uint32_t height)
 {
 	m_staticViewData.imageDimensions = {width, height};
 	m_rcpPixelSize = { 2.f/float(m_staticViewData.imageDimensions.x),-2.f/float(m_staticViewData.imageDimensions.y) };
@@ -1028,7 +1117,7 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, core::s
 		if (m_staticViewData.pathDepth==0)
 		{
 			printf("[ERROR] No suppoerted Integrator found in the Mitsuba XML, setting default.\n");
-			m_staticViewData.pathDepth = 8u;
+			m_staticViewData.pathDepth = DefaultPathDepth;
 		}
 		else if (m_staticViewData.pathDepth>MAX_PATH_DEPTH)
 		{
@@ -1166,11 +1255,7 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, core::s
 	{
 		_staticViewDataBuffer = createFilledBufferAndSetUpInfoFromStruct(infos+0,m_staticViewData);
 		staticViewDataBufferSize = _staticViewDataBuffer->getSize();
-		{
-			// upload sequence to GPU
-			auto gpubuf = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(sampleSequence->getSize(),sampleSequence->getPointer());
-			infos[1].desc = m_driver->createGPUBufferView(gpubuf.get(),asset::EF_R32G32_UINT);
-		}
+		infos[1].desc = sampleSequence.getBufferView();
 		setImageInfo(infos+2,asset::EIL_GENERAL,core::smart_refctd_ptr(m_accumulation));
 		setImageInfo(infos+5,asset::EIL_GENERAL,core::smart_refctd_ptr(m_albedoAcc));
 		setImageInfo(infos+6,asset::EIL_GENERAL,core::smart_refctd_ptr(m_normalAcc));
@@ -1301,7 +1386,7 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, core::s
 	std::cout << "\nScreen Sized Resources have been initialized (" << width << "x" << height << ")" << std::endl;
 	std::cout << "\tStaticViewData = " << staticViewDataBufferSize << " bytes" << std::endl;
 	std::cout << "\tScrambleBuffer = " << scrambleBufferSize << " bytes" << std::endl;
-	std::cout << "\tSampleSequence = " << sampleSequence->getSize() << " bytes" << std::endl;
+	std::cout << "\tSampleSequence = " << sampleSequence.getBufferView()->getByteSize() << " bytes" << std::endl;
 	std::cout << "\tRayCount Buffer = " << m_rayCountBuffer->getSize() << " bytes" << std::endl;
 	for (auto i=0u; i<2u; i++)
 		std::cout << "\tIntersection Buffer[" << i << "] = " << m_intersectionBuffer[i].buffer->getSize() << " bytes" << std::endl;
@@ -1362,7 +1447,7 @@ void Renderer::deinitScreenSizedResources()
 	m_resolvePipeline = nullptr;
 
 	m_staticViewData.imageDimensions = {0u, 0u};
-	m_staticViewData.pathDepth = 8u;
+	m_staticViewData.pathDepth = DefaultPathDepth;
 	m_staticViewData.noRussianRouletteDepth = 5u;
 	m_staticViewData.samplesPerPixelPerDispatch = 1u;
 	m_totalRaysCast = 0ull;
