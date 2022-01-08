@@ -96,7 +96,7 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 
 		struct InitializationData
 		{
-			InitializationData() : lights(),lightCDF(), maxSensorSamples(MaxFreeviewSamples) {}
+			InitializationData() : lights(),lightCDF() {}
 			InitializationData(InitializationData&& other) : InitializationData()
 			{
 				operator=(std::move(other));
@@ -116,7 +116,6 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 				nbl::core::vector<float> lightPDF;
 				nbl::core::vector<uint32_t> lightCDF;
 			};
-			uint32_t maxSensorSamples;
 		};
 		InitializationData initSceneObjects(const nbl::asset::SAssetBundle& meshes);
 		void initSceneNonAreaLights(InitializationData& initData);
@@ -186,6 +185,7 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		} sampleSequence;
 		uint16_t pathDepth;
 		uint16_t noRussianRouletteDepth;
+		uint32_t maxSensorSamples;
 
 		// scene specific data
 		nbl::core::vector<::RadeonRays::Shape*> rrShapes;

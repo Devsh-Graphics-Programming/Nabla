@@ -50,7 +50,7 @@ struct nbl_glsl_MC_precomputed_t
 
 #include <nbl/builtin/glsl/bxdf/common.glsl>
 
-#define NBL_GLSL_MC_ALPHA_EPSILON 1.0e-12
+#define NBL_GLSL_MC_ALPHA_EPSILON 1.0e-8
 
 struct nbl_glsl_MC_interaction_t
 {

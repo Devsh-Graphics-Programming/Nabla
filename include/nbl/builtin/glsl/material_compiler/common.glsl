@@ -824,9 +824,7 @@ nbl_glsl_MC_eval_pdf_aov_t nbl_glsl_MC_instr_bxdf_eval_and_pdf_common(
 			}
 			#endif
 			// microsurface normal must always be in the upper hemisphere
-			is_valid = is_valid && microfacet.inner.isotropic.NdotH>=0.0;
-
-			// TODO: remove the alpha check, implementation should be numerically stable enough to handle roughness tending to 0, also it doesnt do anything for anisotropic roughnesses right now!
+			is_valid = is_valid && microfacet.inner.isotropic.NdotH>0.0;
 			if (is_valid && a2>NBL_GLSL_MC_ALPHA_EPSILON)
 			{
 				const uint ndf = nbl_glsl_MC_instr_getNDF(instr);

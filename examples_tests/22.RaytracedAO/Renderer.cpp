@@ -230,11 +230,10 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 		}
 
 		//
-		retval.maxSensorSamples = MaxFreeviewSamples;
 		for (const auto& sensor : m_globalMeta->m_global.m_sensors)
 		{
-			if (retval.maxSensorSamples<sensor.sampler.sampleCount)
-				retval.maxSensorSamples = sensor.sampler.sampleCount;
+			if (maxSensorSamples<sensor.sampler.sampleCount)
+				maxSensorSamples = sensor.sampler.sampleCount;
 		}
 	}
 
@@ -1060,13 +1059,13 @@ void Renderer::initSceneResources(SAssetBundle& meshes, nbl::io::path&& _sampleS
 			// Mantissa is only 23 bits, and primary sample space low discrepancy sequence will start to produce duplicates
 			// near 1.0 with exponent -1 after the sample count passes 2^24 elements.
 			// Another limiting factor is our encoding of sample sequences, we only use 21bits per channel, so no duplicates till 2^21 samples.
-			initData.maxSensorSamples = core::min(0x1<<21,initData.maxSensorSamples);
-			if (cachedQuantizedDimensions>=quantizedDimensions && cachedSampleCount>=initData.maxSensorSamples)
+			maxSensorSamples = core::min(0x1<<21,maxSensorSamples);
+			if (cachedQuantizedDimensions>=quantizedDimensions && cachedSampleCount>=maxSensorSamples)
 				sampleSequence.createBufferView(m_driver,std::move(cachebuff));
 			else
 			{
 				printf("[INFO] Generating Low Discrepancy Sample Sequence Cache, please wait...\n");
-				cachebuff = sampleSequence.createBufferView(m_driver,quantizedDimensions,initData.maxSensorSamples);
+				cachebuff = sampleSequence.createBufferView(m_driver,quantizedDimensions,maxSensorSamples);
 				// save sequence
 				io::IWriteFile* cacheFile = m_assetManager->getFileSystem()->createAndWriteFile(sampleSequenceCachePath);
 				if (cacheFile)
@@ -1078,7 +1077,7 @@ void Renderer::initSceneResources(SAssetBundle& meshes, nbl::io::path&& _sampleS
 			}
 			std::cout << "\tpathDepth = " << pathDepth << std::endl;
 			std::cout << "\tnoRussianRouletteDepth = " << noRussianRouletteDepth << std::endl;
-			std::cout << "\tmaxSamples = " << initData.maxSensorSamples << std::endl;
+			std::cout << "\tmaxSamples = " << maxSensorSamples << std::endl;
 		}
 	}
 	std::cout << std::endl;
@@ -1131,6 +1130,7 @@ void Renderer::deinitSceneResources()
 
 	pathDepth = DefaultPathDepth;
 	noRussianRouletteDepth = 5u;
+	maxSensorSamples = MaxFreeviewSamples;
 }
 
 void Renderer::initScreenSizedResources(uint32_t width, uint32_t height)
@@ -1147,7 +1147,6 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height)
 	size_t scrambleBufferSize=0u;
 	size_t raygenBufferSize=0u,intersectionBufferSize=0u;
 	{
-		// TODO
 		m_staticViewData.pathDepth = pathDepth;
 		m_staticViewData.noRussianRouletteDepth = noRussianRouletteDepth;
 
@@ -1706,7 +1705,7 @@ bool Renderer::render(nbl::ITimer* timer, const bool beauty)
 			// because of direct to screen resolve
 			|GL_FRAMEBUFFER_BARRIER_BIT|GL_TEXTURE_UPDATE_BARRIER_BIT
 		);
-		m_raytraceCommonData.samplesComputed += getSamplesPerPixelPerDispatch();
+		m_raytraceCommonData.samplesComputed = (m_raytraceCommonData.samplesComputed+getSamplesPerPixelPerDispatch())%maxSensorSamples;
 	}
 
 	// TODO: autoexpose properly
