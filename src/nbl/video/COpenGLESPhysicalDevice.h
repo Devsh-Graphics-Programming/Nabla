@@ -311,6 +311,7 @@ private:
 		// EXT_color_buffer_float here
 
 		}
+		return false;
 	}
 
 	inline bool isAllowedVertexAttribFormat(const asset::E_FORMAT _fmt) const
