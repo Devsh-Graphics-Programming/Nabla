@@ -82,6 +82,7 @@ namespace nbl::ui
 						}
 					}
 					{
+						framework->onAppInitialized();
 						auto wnd = (CWindowAndroid*)framework->getWindow();
 						auto mouseChannel = core::make_smart_refctd_ptr<IMouseEventChannel>(CWindowAndroid::CIRCULAR_BUFFER_CAPACITY);
 						auto keyboardChannel = core::make_smart_refctd_ptr<IKeyboardEventChannel>(CWindowAndroid::CIRCULAR_BUFFER_CAPACITY);
