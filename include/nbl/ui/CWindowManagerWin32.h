@@ -295,7 +295,16 @@ namespace nbl::ui
 				case ERT_CHANGE_CURSOR_VISIBILITY:
 				{
 					auto& params = req.changeCursorVisibilityParam;
-					ShowCursor(params.visible);
+					if(params.visible)
+					{
+						int ret = ShowCursor(true);
+						while (ret < 0)  ret = ShowCursor(true);
+					}
+					else
+					{
+						int ret = ShowCursor(false);
+						while (ret >= 0)  ret = ShowCursor(false);
+					}
 					break;
 				}
 				}
@@ -312,6 +321,10 @@ namespace nbl::ui
 				else if constexpr (std::is_same_v<RequestParams, SRequestParams_DestroyWindow&>)
 				{
 					req.destroyWindowParam = std::move(params);
+				}
+				else if constexpr (std::is_same_v<RequestParams, SRequestParams_ChangeCursorVisibility&>)
+				{
+					req.changeCursorVisibilityParam = std::move(params);
 				}
 			}
 
