@@ -137,11 +137,13 @@ namespace nbl::ui
 		case WM_SETFOCUS:
 		{
 			eventCallback->onGainedKeyboardFocus(window);
+			window->m_flags = (E_CREATE_FLAGS)(window->m_flags.value | ECF_INPUT_FOCUS);
 			break;
 		}
 		case WM_KILLFOCUS:
 		{
 			eventCallback->onLostKeyboardFocus(window);
+			window->m_flags = (E_CREATE_FLAGS)(window->m_flags.value & ~ECF_INPUT_FOCUS);
 			break;
 		}
 		case WM_ACTIVATE:
@@ -151,9 +153,11 @@ namespace nbl::ui
 			case WA_CLICKACTIVE: [[fallthrough]];
 			case WA_ACTIVE:
 				eventCallback->onGainedMouseFocus(window);
+				window->m_flags = (E_CREATE_FLAGS)(window->m_flags.value | ECF_MOUSE_FOCUS);
 				break;
 			case WA_INACTIVE:
 				eventCallback->onLostMouseFocus(window);
+				window->m_flags = (E_CREATE_FLAGS)(window->m_flags.value & ~ECF_MOUSE_FOCUS);
 				break;
 			}
 			break;
