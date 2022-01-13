@@ -13,7 +13,7 @@ namespace nbl
         enum E_COLOR_PRIMARIES
         {
             //! Specifies support for the sRGB color space. The primaries are the same for scRGB and BT709, only EOTFs differ.
-            ECP_SRGB,
+            ECP_SRGB = 0,
 
             //! Specifies support for the Display-P3 color space to be displayed using an sRGB-like EOTF.
             ECP_DISPLAY_P3,
@@ -43,7 +43,7 @@ namespace nbl
         //! Data to linear value for images
         enum ELECTRO_OPTICAL_TRANSFER_FUNCTION
         {
-            EOTF_IDENTITY,
+            EOTF_IDENTITY = 0,
             EOTF_sRGB,
             EOTF_DCI_P3_XYZ,
             EOTF_SMPTE_170M,
