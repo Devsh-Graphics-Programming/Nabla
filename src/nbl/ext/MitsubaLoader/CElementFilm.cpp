@@ -157,7 +157,7 @@ bool CElementFilm::addProperty(SNamedPropertyElement&& _property)
 		componentFormat = found->second;
 	};
 	auto setBanner			= SET_PROPERTY(banner,SNamedPropertyElement::Type::BOOLEAN);
-	auto setHighQualityEdges= SET_PROPERTY(highQualityEdges,SNamedPropertyElement::Type::BOOLEAN);
+	auto setHighQualityEdges= SET_PROPERTY(highQualityEdges,SNamedPropertyElement::Type::INTEGER);
 	
 
 	auto dispatch = [&](auto func) -> void
