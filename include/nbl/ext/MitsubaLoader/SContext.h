@@ -48,91 +48,147 @@ namespace MitsubaLoader
 		using shape_ass_type = core::smart_refctd_ptr<asset::ICPUMesh>;
 		core::map<const CElementShape*, shape_ass_type> shapeCache;
 		//image, sampler
-		using tex_ass_type = std::tuple<core::smart_refctd_ptr<asset::ICPUImageView>, core::smart_refctd_ptr<asset::ICPUSampler>>;
+		using tex_ass_type = std::tuple<core::smart_refctd_ptr<asset::ICPUImageView>,core::smart_refctd_ptr<asset::ICPUSampler>>;
 		//image, scale
-		core::map<core::smart_refctd_ptr<asset::ICPUImage>, float> derivMapCache;
+		core::map<core::smart_refctd_ptr<asset::ICPUImage>,float> derivMapCache;
 
-		static std::string blendWeightImageCacheKey(const CElementTexture* bitmap)
+		//
+		enum E_IMAGE_VIEW_SEMANTIC : uint8_t
 		{
-			using namespace std::string_literals;
-			return bitmap->bitmap.filename.svalue + "?blend"s;
-		}
-
-		static std::string imageViewCacheKey(const std::string& imageCacheKey)
+			EIVS_IDENTITIY,
+			EIVS_BLEND_WEIGHT,
+			EIVS_NORMAL_MAP,
+			EIVS_BUMP_MAP,
+			EIVS_COUNT
+		};
+		static std::string imageViewCacheKey(const CElementTexture::Bitmap& bitmap, const E_IMAGE_VIEW_SEMANTIC semantic)
 		{
-			return imageCacheKey + "?view";
-		}
-
-		static std::string derivMapCacheKey(const CElementTexture* bitmap, bool wasNormal)
-		{
-			using namespace std::string_literals;
-			static const char* wrap[5]
+			std::string key = bitmap.filename.svalue;
+			switch (bitmap.channel)
 			{
-				"?repeat",
-				"?mirror",
-				"?clamp",
-				"?zero",
-				"?one"
-			};
-
-			std::string key = bitmap->bitmap.filename.svalue + "?deriv"s;
-			key += wasNormal ? "?n"s:"?h"s;
-			key += wrap[bitmap->bitmap.wrapModeU];
-			key += wrap[bitmap->bitmap.wrapModeV];
-
+				case CElementTexture::Bitmap::CHANNEL::R:
+					key += "?rrrr";
+					break;
+				case CElementTexture::Bitmap::CHANNEL::G:
+					key += "?gggg";
+					break;
+				case CElementTexture::Bitmap::CHANNEL::B:
+					key += "?bbbb";
+					break;
+				case CElementTexture::Bitmap::CHANNEL::A:
+					key += "?aaaa";
+					break;
+				default:
+					break;
+			}
+			switch (semantic)
+			{
+				case EIVS_BLEND_WEIGHT:
+					key += "?blend";
+					break;
+				case EIVS_NORMAL_MAP:
+					key += "?deriv?n";
+					break;
+				case EIVS_BUMP_MAP:
+					key += "?deriv?h";
+					{
+						static const char* wrap[5]
+						{
+							"?repeat",
+							"?mirror",
+							"?clamp",
+							"?zero",
+							"?one"
+						};
+						key += wrap[bitmap.wrapModeU];
+						key += wrap[bitmap.wrapModeV];
+					}
+					break;
+				default:
+					break;
+			}
+			key += "?view";
 			return key;
 		}
 
-		static std::string derivMapViewCacheKey(const CElementTexture* bitmap, bool wasNormal)
+		static auto computeSamplerParameters(const CElementTexture::Bitmap& bitmap)
 		{
-			return imageViewCacheKey(derivMapCacheKey(bitmap,wasNormal));
-		}
-
-		static std::string blendWeightViewCacheKey(const CElementTexture* bitmap)
-		{
-			return imageViewCacheKey(blendWeightImageCacheKey(bitmap));
-		}
-
-		static std::string samplerCacheKey(const std::string& base, const CElementTexture* tex)
-		{
-			std::string samplerCacheKey = base;
-
-			switch (tex->bitmap.filterType)
-			{
-			case CElementTexture::Bitmap::FILTER_TYPE::EWA:
-				[[fallthrough]]; //not supported
-			case CElementTexture::Bitmap::FILTER_TYPE::TRILINEAR:
-				samplerCacheKey += "?trilinear";
-				break;
-			default:
-				samplerCacheKey += "?nearest";
-				break;
-			}
-
-			auto perWrapMode = [](CElementTexture::Bitmap::WRAP_MODE mode)
+			asset::ICPUSampler::SParams params;
+			auto getWrapMode = [](CElementTexture::Bitmap::WRAP_MODE mode)
 			{
 				switch (mode)
 				{
-				case CElementTexture::Bitmap::WRAP_MODE::CLAMP:
-					return "?clamp";
-				case CElementTexture::Bitmap::WRAP_MODE::MIRROR:
-					return "?clamp";
-				case CElementTexture::Bitmap::WRAP_MODE::ONE:
-					return "?one";
-				case CElementTexture::Bitmap::WRAP_MODE::ZERO:
-					return "?zero";
-				default:
-					return "?repeat";
+					case CElementTexture::Bitmap::WRAP_MODE::CLAMP:
+						return asset::ISampler::ETC_CLAMP_TO_EDGE;
+						break;
+					case CElementTexture::Bitmap::WRAP_MODE::MIRROR:
+						return asset::ISampler::ETC_MIRROR;
+						break;
+					case CElementTexture::Bitmap::WRAP_MODE::ONE:
+						_NBL_DEBUG_BREAK_IF(true); // TODO : replace whole texture?
+						break;
+					case CElementTexture::Bitmap::WRAP_MODE::ZERO:
+						_NBL_DEBUG_BREAK_IF(true); // TODO : replace whole texture?
+						break;
+					default:
+						break;
 				}
+				return asset::ISampler::ETC_REPEAT;
 			};
-			samplerCacheKey += perWrapMode(tex->bitmap.wrapModeU);
-			samplerCacheKey += perWrapMode(tex->bitmap.wrapModeV);
+			params.TextureWrapU = getWrapMode(bitmap.wrapModeU);
+			params.TextureWrapV = getWrapMode(bitmap.wrapModeV);
+			params.TextureWrapW = asset::ISampler::ETC_REPEAT;
+			params.BorderColor = asset::ISampler::ETBC_FLOAT_OPAQUE_BLACK;
+			switch (bitmap.filterType)
+			{
+				case CElementTexture::Bitmap::FILTER_TYPE::EWA:
+					[[fallthrough]]; // we dont support this fancy stuff
+				case CElementTexture::Bitmap::FILTER_TYPE::TRILINEAR:
+					params.MinFilter = asset::ISampler::ETF_LINEAR;
+					params.MaxFilter = asset::ISampler::ETF_LINEAR;
+					params.MipmapMode = asset::ISampler::ESMM_LINEAR;
+					break;
+				default:
+					params.MinFilter = asset::ISampler::ETF_NEAREST;
+					params.MaxFilter = asset::ISampler::ETF_NEAREST;
+					params.MipmapMode = asset::ISampler::ESMM_NEAREST;
+					break;
+			}
+			params.AnisotropicFilter = core::max(core::findMSB<uint32_t>(bitmap.maxAnisotropy),1u);
+			params.CompareEnable = false;
+			params.CompareFunc = asset::ISampler::ECO_NEVER;
+			params.LodBias = 0.f;
+			params.MaxLod = 10000.f;
+			params.MinLod = 0.f;
+			return params;
+		}
+		// TODO: commonalize this to all loaders
+		static std::string samplerCacheKey(const std::string& base, const asset::ICPUSampler::SParams& samplerParams)
+		{
+			std::string samplerCacheKey = base;
+
+			if (samplerParams.MinFilter==asset::ISampler::ETF_LINEAR)
+				samplerCacheKey += "?trilinear";
+			else
+				samplerCacheKey += "?nearest";
+
+			static const char* wrapModeName[] =
+			{
+				"?repeat",
+				"?clamp_to_edge",
+				"?clamp_to_border",
+				"?mirror",
+				"?mirror_clamp_to_edge",
+				"?mirror_clamp_to_border"
+			};
+			samplerCacheKey += wrapModeName[samplerParams.TextureWrapU];
+			samplerCacheKey += wrapModeName[samplerParams.TextureWrapV];
 
 			return samplerCacheKey;
 		}
-		std::string samplerCacheKey(const CElementTexture* tex) const
+		std::string samplerCacheKey(const asset::ICPUSampler::SParams& samplerParams) const
 		{
-			return samplerCacheKey(samplerCacheKeyBase, tex);
+			return samplerCacheKey(samplerCacheKeyBase,samplerParams);
 		}
 
 		//index of root node in IR
