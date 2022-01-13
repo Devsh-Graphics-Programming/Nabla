@@ -1,8 +1,6 @@
 @echo off
 
-set /p imgSz="Image size: "
 set /p borderSz="Border size: "
-set /a extractedImgSz=imgSz-2*borderSz
 
 set /p img="Image to extract from: "
 
@@ -12,6 +10,11 @@ set /p top="Top path: "
 set /p bottom="Bottom path: "
 set /p front="Front path: "
 set /p back="Back path: "
+
+REM set extracted image size
+for /f "tokens=*" %%s in ('magick identify -format "%%w" %img%') do set sz=%%s
+set /a imgSz=sz/3
+set /a extractedImgSz=imgSz-2*borderSz
 
 set /a x0 = borderSz
 set /a x1 = imgSz+borderSz
