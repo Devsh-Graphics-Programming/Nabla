@@ -224,6 +224,13 @@ class COpenGL_Queue final : public IGPUQueue
                     {
                         // reset initial state to default before cmdbuf execution (in Vulkan command buffers are independent of each other)
                         ctxlocal.nextState = SOpenGLState();
+                        // those flushes are done because propagation of changes done to buffer's/image's contents is done by rebinding it on context where the changed resource is used
+                        // Section 5 of GL spec
+                        //
+                        // TODO: decide what to flush based on queue family flags
+                        // also: we can limit flushing to bindings (especially buffers and textures): vertex, index, SSBO, UBO, indirect, ...
+                        ctxlocal.flushStateGraphics(&gl, SOpenGLContextLocalCache::GSB_ALL, m_ctxid);
+                        ctxlocal.flushStateCompute(&gl, SOpenGLContextLocalCache::GSB_ALL, m_ctxid);
                         auto* cmdbuf = static_cast<COpenGLCommandBuffer*>(submit.commandBuffers[i].get());
                         cmdbuf->executeAll(&gl, &_state.ctxlocal, m_ctxid);
                     }
@@ -458,7 +465,7 @@ class COpenGL_Queue final : public IGPUQueue
 
     private:
         CThreadHandler threadHandler;
-        using memory_pool_t = core::CMemoryPool<core::GeneralpurposeAddressAllocator<uint32_t>,core::default_aligned_allocator,uint32_t>;
+        using memory_pool_t = core::CMemoryPool<core::GeneralpurposeAddressAllocator<uint32_t>,core::default_aligned_allocator,false,uint32_t>;
         memory_pool_t m_mempool;
         uint32_t m_ctxid;
 };

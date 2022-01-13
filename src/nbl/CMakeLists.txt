@@ -293,15 +293,7 @@ set(NBL_VIDEO_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/video/IDriverMemoryAllocation.cpp
 )
 set(NBL_SCENE_SOURCES
-# Junk to refactor
-#${NBL_ROOT_PATH}/source/Nabla/CSkinnedMeshSceneNode.cpp
-#${NBL_ROOT_PATH}/source/Nabla/CCameraSceneNode.cpp
-#${NBL_ROOT_PATH}/source/Nabla/CSceneManager.cpp
-
-# Animators
-#	${NBL_ROOT_PATH}/source/Nabla/CSceneNodeAnimatorCameraFPS.cpp
-#	${NBL_ROOT_PATH}/source/Nabla/CSceneNodeAnimatorCameraMaya.cpp
-#	${NBL_ROOT_PATH}/source/Nabla/CSceneNodeAnimatorCameraModifiedMaya.cpp
+	${NBL_ROOT_PATH}/src/nbl/scene/ITransformTree.cpp
 )
 set(NABLA_SRCS_COMMON
 	${NBL_CORE_SOURCES}
@@ -329,6 +321,7 @@ set(NABLA_SRCS_NORMAL
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanFramebuffer.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanRenderpass.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanImageView.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanCommandBuffer.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanShader.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanCommandPool.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanBuffer.cpp
@@ -341,6 +334,9 @@ set(NABLA_SRCS_NORMAL
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanBufferView.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanForeignImage.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanLogicalDevice.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanDeferredOperation.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanAccelerationStructure.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanQueryPool.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanSampler.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanConnection.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanGraphicsPipeline.cpp
@@ -349,7 +345,6 @@ set(NABLA_SRCS_NORMAL
 
 	#opengl
 	#${NBL_ROOT_PATH}/source/Nabla/COpenCLHandler.cpp
-	#${NBL_ROOT_PATH}/source/Nabla/COpenGLQuery.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IOpenGL_FunctionTable.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLPipelineCache.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLImage.cpp
@@ -364,6 +359,7 @@ set(NABLA_SRCS_NORMAL
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLFramebuffer.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGL_Connection.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLComputePipeline.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/COpenGLQueryPool.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/debug/COpenGLDebugCallback.cpp
 	
 	# CUDA
@@ -707,3 +703,4 @@ nbl_install_lib(OGLCompiler)
 nbl_install_lib(OSDependent)
 nbl_install_lib(zlibstatic)
 nbl_install_lib(simdjson)
+nbl_install_lib(volk)

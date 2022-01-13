@@ -4,7 +4,7 @@ import android.app.Activity;
 import android.view.WindowManager;
 import android.os.Environment;
 import android.content.Intent;
-
+import android.net.Uri;
 public class Loader extends android.app.NativeActivity
 {
     /* load our native library */
@@ -65,4 +65,15 @@ public class Loader extends android.app.NativeActivity
             } catch(Exception e) { }
         }
     }
+	
+	public void openFolder(String path)
+	{
+		Intent intent = new Intent(Intent.ACTION_VIEW);
+		Uri uri = Uri.parse(path);
+		intent.setDataAndType(uri, "resource/folder");
+		if (intent.resolveActivityInfo(getPackageManager(), 0) != null)
+		{
+			startActivity(Intent.createChooser(intent, "Open folder"));
+		}
+	}
 }

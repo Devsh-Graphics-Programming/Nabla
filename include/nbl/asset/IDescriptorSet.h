@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __NBL_ASSET_I_DESCRIPTOR_SET_H_INCLUDED__
-#define __NBL_ASSET_I_DESCRIPTOR_SET_H_INCLUDED__
+#ifndef _NBL_ASSET_I_DESCRIPTOR_SET_H_INCLUDED_
+#define _NBL_ASSET_I_DESCRIPTOR_SET_H_INCLUDED_
 
 #include <algorithm>
 
@@ -153,8 +153,12 @@ class IEmulatedDescriptorSet
 			if (!_layout)
 				return;
 
+			using bnd_t = typename LayoutType::SBinding;
+			auto max_bnd_cmp = [](const bnd_t& a, const bnd_t& b) { return a.binding < b.binding; };
+
 			auto bindings = _layout->getBindings();
-            auto lastBnd = (bindings.end()-1);
+
+            auto lastBnd = std::max_element(bindings.begin(), bindings.end(), max_bnd_cmp);
 
 			m_bindingInfo = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<SBindingInfo> >(lastBnd->binding+1u);
 			for (auto it=m_bindingInfo->begin(); it!=m_bindingInfo->end(); it++)
@@ -174,16 +178,18 @@ class IEmulatedDescriptorSet
 				
 				prevBinding = it->binding;
 			}
+
+			uint32_t offset = descriptorCount;
 			
 			m_descriptors = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<typename IDescriptorSet<LayoutType>::SDescriptorInfo> >(descriptorCount);
-			// set up all offsets
-			prevBinding = 0u;
-			for (auto it=m_bindingInfo->begin(); it!=m_bindingInfo->end(); it++)
+			// set up all offsets, reverse iteration important because "it is for filling gaps with offset of next binding"
+			// TODO: rewrite this whole constructor to initialize the `SBindingOffset::offset` to 0 and simply use `std::exclusive_scan` to set it all up
+			for (auto it=m_bindingInfo->end()-1; it!=m_bindingInfo->begin()-1; it--)
 			{
 				if (it->offset < descriptorCount)
-					prevBinding = it->offset;
+					offset = it->offset;
 				else
-					it->offset = prevBinding;
+					it->offset = offset;
 			}
 		}
 

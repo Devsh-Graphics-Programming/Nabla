@@ -210,12 +210,8 @@ public:
 	);
 	NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(GL4query, OpenGLFunctionLoader
 		, glCreateQueries
-		, glBeginQueryIndexed
-		, glEndQueryIndexed
-		, glGetQueryObjectui64v
 		, glGetQueryBufferObjectuiv
 		, glGetQueryBufferObjectui64v
-		, glQueryCounter
 		, glBeginConditionalRender
 		, glEndConditionalRender
 	);
@@ -1650,15 +1646,16 @@ public:
 			glVertex.pglBindVertexArray(restoreVertexArray);
 		}
 	}
-	void extGlGetQueryBufferObjectuiv(GLuint id, GLuint buffer, GLenum pname, GLintptr offset)
+	void extGlGetQueryBufferObjectuiv(GLuint id, GLuint buffer, GLenum pname, GLintptr offset) override
 	{
 		if (features->Version < 440 && !features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_query_buffer_object])
 		{
-#ifdef _DEBuG
-			os::Printer::log("GL_ARB_query_buffer_object unsupported!\n
-#endif // _DEBuG
+#ifdef _NBL_DEBUG
+			m_logger.log("GL_ARB_query_buffer_object unsupported!\n", system::ILogger::ELL_ERROR);
+#endif // _NBL_DEBUG
 				return;
 		}
+
 		if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 		{
 			if (gl4Query.pglGetQueryBufferObjectuiv)
@@ -1666,21 +1663,16 @@ public:
 		}
 		else
 		{
-			GLint restoreQueryBuffer;
-			glGeneral.pglGetIntegerv(GL_QUERY_BUFFER_BINDING, &restoreQueryBuffer);
-			glBuffer.pglBindBuffer(GL_QUERY_BUFFER, id);
-			if (glQuery.pglGetQueryObjectuiv)
-				glQuery.pglGetQueryObjectuiv(id, pname, reinterpret_cast<GLuint*>(offset));
-			glBuffer.pglBindBuffer(GL_QUERY_BUFFER, restoreQueryBuffer);
+			base_t::extGlGetQueryBufferObjectuiv(id, buffer, pname, offset);
 		}
 	}
-	void extGlGetQueryBufferObjectui64v(GLuint id, GLuint buffer, GLenum pname, GLintptr offset)
+	void extGlGetQueryBufferObjectui64v(GLuint id, GLuint buffer, GLenum pname, GLintptr offset) override
 	{
 		if (features->Version < 440 && !features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_query_buffer_object])
 		{
-#ifdef _DEBuG
-			os::Printer::log("GL_ARB_query_buffer_object unsupported!\n
-#endif // _DEBuG
+#ifdef _NBL_DEBUG
+			m_logger.log("GL_ARB_query_buffer_object unsupported!\n", system::ILogger::ELL_ERROR);
+#endif // _NBL_DEBUG
 				return;
 		}
 
@@ -1691,12 +1683,7 @@ public:
 		}
 		else
 		{
-			GLint restoreQueryBuffer;
-			glGeneral.pglGetIntegerv(GL_QUERY_BUFFER_BINDING, &restoreQueryBuffer);
-			glBuffer.pglBindBuffer(GL_QUERY_BUFFER, id);
-			if (gl4Query.pglGetQueryObjectui64v)
-				gl4Query.pglGetQueryObjectui64v(id, pname, reinterpret_cast<GLuint64*>(offset));
-			glBuffer.pglBindBuffer(GL_QUERY_BUFFER, restoreQueryBuffer);
+			base_t::extGlGetQueryBufferObjectui64v(id, buffer, pname, offset);
 		}
 	}
 	void extGlTextureBarrier()
@@ -1776,7 +1763,7 @@ public:
 	}
 	void extGlMultiDrawElementsIndirectCount(GLenum mode, GLenum type, const void* indirect, GLintptr drawcount, GLsizei maxdrawcount, GLsizei stride) override
 	{
-		if (features->Version>=460)
+		if (features->Version>=460 && gl4Drawing.pglMultiDrawElementsIndirectCount) // Intel is a very special boy...
 			gl4Drawing.pglMultiDrawElementsIndirectCount(mode, type, indirect, drawcount, maxdrawcount, stride);
 		else if (features->isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_indirect_parameters))
 			gl4Drawing.pglMultiDrawElementsIndirectCountARB(mode, type, indirect, drawcount, maxdrawcount, stride);

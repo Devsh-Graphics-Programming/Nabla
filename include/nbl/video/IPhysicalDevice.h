@@ -44,6 +44,8 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
 
             uint32_t maxSSBOs;
             uint32_t maxUBOs;
+            uint32_t maxDynamicOffsetSSBOs;
+            uint32_t maxDynamicOffsetUBOs;
             uint32_t maxTextures;
             uint32_t maxStorageImages;
 
@@ -150,6 +152,12 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
             bool fragmentShaderSampleInterlock = false;
             bool fragmentShaderPixelInterlock = false;
             bool fragmentShaderShadingRateInterlock = false;
+
+            // Queries
+            bool allowCommandBufferQueryCopies = false;
+
+            // Buffer Device Address
+            bool bufferDeviceAddress = false;
         };
 
         struct SMemoryProperties

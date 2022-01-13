@@ -280,14 +280,17 @@ namespace nbl {
 				, glEndTransformFeedback
 			);
 			NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(GLquery, OpenGLFunctionLoader
-				//, glCreateQueries
 				, glGenQueries
 				, glDeleteQueries
 				, glIsQuery
 				, glBeginQuery
 				, glEndQuery
+				, glBeginQueryIndexed
+				, glEndQueryIndexed
+				, glQueryCounter
 				, glGetQueryiv
 				, glGetQueryObjectuiv
+				, glGetQueryObjectui64v
 			);
 			NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(GLgeneral, OpenGLFunctionLoader
 				, glEnablei
@@ -409,6 +412,10 @@ namespace nbl {
 			virtual inline void extGlVertexArrayAttribIFormat(GLuint vaobj, GLuint attribindex, GLint size, GLenum type, GLuint relativeoffset);
 			virtual inline void extGlVertexArrayBindingDivisor(GLuint vaobj, GLuint bindingindex, GLuint divisor);
 			virtual inline void extGlCreateQueries(GLenum target, GLsizei n, GLuint* ids);
+			virtual inline void extGlGetQueryBufferObjectuiv(GLuint query, GLuint buffer, GLenum pname, GLintptr offset);
+			virtual inline void extGlGetQueryBufferObjectui64v(GLuint query, GLuint buffer, GLenum pname, GLintptr offset);
+			virtual inline void extGlGetQueryObjectuiv(GLuint query, GLenum pname, GLuint* params);
+			virtual inline void extGlGetQueryObjectui64v(GLuint query, GLenum pname, GLuint64* params);
 			virtual inline void extGlGetInternalformativ(GLenum target, GLenum internalformat, GLenum pname, GLsizei bufSize, GLint* params);
 			virtual void extGlViewportArrayv(GLuint first, GLsizei count, const GLfloat* v) = 0;
 			virtual void extGlDepthRangeArrayv(GLuint first, GLsizei count, const double* v) = 0;
@@ -1151,9 +1158,91 @@ namespace nbl {
 		}
 		inline void IOpenGL_FunctionTable::extGlCreateQueries(GLenum target, GLsizei n, GLuint* ids)
 		{
-			
 			if (glQuery.pglGenQueries)
 				_NBL_GL_CALL(m_logger, glQuery.pglGenQueries(n, ids));
+		}
+		inline void IOpenGL_FunctionTable::extGlGetQueryBufferObjectuiv(GLuint query, GLuint buffer, GLenum pname, GLintptr offset)
+		{
+			if(glQuery.pglGetQueryObjectuiv && glBuffer.pglBindBuffer)
+			{
+				GLenum retval;
+				GLuint bound;
+				_NBL_GL_CALL(m_logger, glGeneral.pglGetIntegerv(GL_QUERY_BUFFER_BINDING, reinterpret_cast<GLint*>(&bound)));
+
+				if (bound != query)
+					_NBL_GL_CALL(m_logger, glBuffer.pglBindBuffer(GL_QUERY_BUFFER, buffer));
+
+				_NBL_GL_CALL(m_logger, glQuery.pglGetQueryObjectuiv(query, pname, reinterpret_cast<GLuint*>(offset)));
+
+				if (bound != query)
+					_NBL_GL_CALL(m_logger, glBuffer.pglBindBuffer(GL_QUERY_BUFFER, bound));
+			}
+		}
+		inline void IOpenGL_FunctionTable::extGlGetQueryBufferObjectui64v(GLuint query, GLuint buffer, GLenum pname, GLintptr offset)
+		{
+			if(glQuery.pglGetQueryObjectui64v && glBuffer.pglBindBuffer)
+			{
+				GLenum retval;
+				GLuint bound;
+				_NBL_GL_CALL(m_logger, glGeneral.pglGetIntegerv(GL_QUERY_BUFFER_BINDING, reinterpret_cast<GLint*>(&bound)));
+
+				if (bound != query)
+					_NBL_GL_CALL(m_logger, glBuffer.pglBindBuffer(GL_QUERY_BUFFER, buffer));
+
+				_NBL_GL_CALL(m_logger, glQuery.pglGetQueryObjectui64v(query, pname, reinterpret_cast<GLuint64*>(offset)));
+
+				if (bound != query)
+					_NBL_GL_CALL(m_logger, glBuffer.pglBindBuffer(GL_QUERY_BUFFER, bound));
+			}
+		}
+		inline void IOpenGL_FunctionTable::extGlGetQueryObjectuiv(GLuint query, GLenum pname, GLuint* params)
+		{
+			// GL_QUERY_RESULT_NO_WAIT (requires OpenGL 4.4 or ARB_query_buffer_object)
+			if(pname == GL_QUERY_RESULT_NO_WAIT)
+			{
+				if (features->Version < 440 && !features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_query_buffer_object])
+				{
+					// GL_QUERY_RESULT_NO_WAIT is a combination of GL_QUERY_RESULT_AVAILABLE and GL_QUERY_RESULT
+					// Get Query availability with `GL_QUERY_RESULT_AVAILABLE` and if it returned GL_TRUE then Query results with `GL_QUERY_RESULT`
+					GLuint done = 0;
+					_NBL_GL_CALL(m_logger, glQuery.pglGetQueryObjectuiv(query, GL_QUERY_RESULT_AVAILABLE, &done));
+					if(done > 0) 
+					{
+						_NBL_GL_CALL(m_logger, glQuery.pglGetQueryObjectuiv(query, GL_QUERY_RESULT, params));
+					}
+		#ifdef _NBL_DEBUG
+					m_logger.log("GL_ARB_query_buffer_object unsupported!\n", system::ILogger::ELL_ERROR);
+		#endif // _NBL_DEBUG
+					return;
+				}
+			}
+
+			_NBL_GL_CALL(m_logger, glQuery.pglGetQueryObjectuiv(query, pname, params));
+		}
+		inline void IOpenGL_FunctionTable::extGlGetQueryObjectui64v(GLuint query, GLenum pname, GLuint64* params)
+		{
+			// GL_QUERY_RESULT_NO_WAIT (requires OpenGL 4.4 or ARB_query_buffer_object)
+			if(pname == GL_QUERY_RESULT_NO_WAIT)
+			{
+				if (features->Version < 440 && !features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_query_buffer_object])
+				{
+					// Query availability with `GL_QUERY_RESULT_AVAILABLE` and if it returned GL_TRUE then Query results with `GL_QUERY_RESULT`
+					GLuint64 done = 0;
+					_NBL_GL_CALL(m_logger, glQuery.pglGetQueryObjectui64v(query, GL_QUERY_RESULT_AVAILABLE, &done));
+					if(done > 0) 
+					{
+						_NBL_GL_CALL(m_logger, glQuery.pglGetQueryObjectui64v(query, GL_QUERY_RESULT, params));
+					}
+
+		#ifdef _NBL_DEBUG
+					m_logger.log("GL_ARB_query_buffer_object unsupported!\n", system::ILogger::ELL_ERROR);
+		#endif // _NBL_DEBUG
+
+					return;
+				}
+			}
+
+			_NBL_GL_CALL(m_logger, glQuery.pglGetQueryObjectui64v(query, pname, params));
 		}
 		inline void IOpenGL_FunctionTable::extGlGetInternalformativ(GLenum target, GLenum internalformat, GLenum pname, GLsizei bufSize, GLint* params)
 		{

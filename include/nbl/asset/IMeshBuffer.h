@@ -1,22 +1,20 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2021 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
+#ifndef _NBL_ASSET_I_MESH_BUFFER_H_INCLUDED_
+#define _NBL_ASSET_I_MESH_BUFFER_H_INCLUDED_
 
-#ifndef __NBL_ASSET_I_MESH_BUFFER_H_INCLUDED__
-#define __NBL_ASSET_I_MESH_BUFFER_H_INCLUDED__
-
-#include "aabbox3d.h"
+#include "nbl/core/shapes/AABB.h"
 
 #include "nbl/asset/IRenderpassIndependentPipeline.h"
 #include "nbl/asset/ECommonEnums.h"
+
 #include <algorithm>
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
-template <class BufferType, class DescSetType, class PipelineType, class SkeletonType>
+template <class BufferType, class DescSetType, class PipelineType>
 class IMeshBuffer : public virtual core::IReferenceCounted
 {
     public:
@@ -35,7 +33,6 @@ class IMeshBuffer : public virtual core::IReferenceCounted
 
         //! Skin
         SBufferBinding<BufferType> m_inverseBindPoseBufferBinding,m_jointAABBBufferBinding;
-        core::smart_refctd_ptr<SkeletonType> m_skeleton;
 
         //! Descriptor set which goes to set=3
         core::smart_refctd_ptr<DescSetType> m_descriptorSet;
@@ -52,21 +49,22 @@ class IMeshBuffer : public virtual core::IReferenceCounted
         uint32_t baseInstance = 0u;
 
         // others
+        uint32_t jointCount : 11;
         uint32_t maxJointsPerVx : 3;
         uint32_t indexType : 2;
 
     public:
-        IMeshBuffer() : maxJointsPerVx(0u), indexType(EIT_UNKNOWN) {}
+        IMeshBuffer() : jointCount(0u), maxJointsPerVx(0u), indexType(EIT_UNKNOWN) {}
 	    //! Constructor.
 	    IMeshBuffer(core::smart_refctd_ptr<PipelineType>&& _pipeline,
             core::smart_refctd_ptr<DescSetType>&& _ds,
             SBufferBinding<BufferType> _vtxBindings[MAX_ATTR_BUF_BINDING_COUNT],
             SBufferBinding<BufferType>&& _indexBinding
         ) : boundingBox(), m_indexBufferBinding(std::move(_indexBinding)),
-            m_inverseBindPoseBufferBinding(), m_jointAABBBufferBinding(), m_skeleton(),
+            m_inverseBindPoseBufferBinding(), m_jointAABBBufferBinding(),
             m_descriptorSet(std::move(_ds)), m_pipeline(std::move(_pipeline)),
             indexCount(0u), instanceCount(1u), baseVertex(0), baseInstance(0u),
-            maxJointsPerVx(0u), indexType(EIT_UNKNOWN)
+            jointCount(0u), maxJointsPerVx(0u), indexType(EIT_UNKNOWN)
 	    {
             if (_vtxBindings)
                 std::copy(_vtxBindings, _vtxBindings+MAX_ATTR_BUF_BINDING_COUNT, m_vertexBufferBindings);
@@ -207,11 +205,8 @@ class IMeshBuffer : public virtual core::IReferenceCounted
             return buf.offset+static_cast<uint64_t>(getAttribOffset(attrId));
         }
 
-        //!
-        inline const SkeletonType* getSkeleton() const
-        {
-            return m_skeleton.get();
-        }
+        //! Returns bound on JointID in the vertex attribute
+        inline auto getJointCount() const { return jointCount; }
 
         //! Returns max joint influences
         inline auto getMaxJointsPerVertex() const { return maxJointsPerVx; }
@@ -219,40 +214,30 @@ class IMeshBuffer : public virtual core::IReferenceCounted
         //!
         virtual inline bool isSkinned() const
         {
-            return  maxJointsPerVx>0u &&
-                    m_skeleton.get() &&
-                    m_inverseBindPoseBufferBinding.buffer &&
-                    m_inverseBindPoseBufferBinding.offset+m_skeleton->getJointCount()*sizeof(core::matrix3x4SIMD)<=m_inverseBindPoseBufferBinding.buffer->getSize() &&
-                    m_jointAABBBufferBinding.buffer &&
-                    m_jointAABBBufferBinding.offset+m_skeleton->getJointCount()*sizeof(core::aabbox3df)<=m_jointAABBBufferBinding.buffer->getSize();
+            return  jointCount>0u && maxJointsPerVx>0u && m_inverseBindPoseBufferBinding.buffer &&
+                    m_inverseBindPoseBufferBinding.offset+jointCount*sizeof(core::matrix3x4SIMD)<=m_inverseBindPoseBufferBinding.buffer->getSize();
         }
 
         //!
         virtual inline bool setSkin(
             SBufferBinding<BufferType>&& _inverseBindPoseBufferBinding,
             SBufferBinding<BufferType>&& _jointAABBBufferBinding,
-            core::smart_refctd_ptr<SkeletonType>&& _skeleton,
-            const uint32_t _maxJointsPerVx
+            const uint32_t _jointCount, const uint32_t _maxJointsPerVx
         )
         {
-            if (!_inverseBindPoseBufferBinding.buffer || !_jointAABBBufferBinding.buffer || !_skeleton)
+            if (!_inverseBindPoseBufferBinding.buffer || !_jointAABBBufferBinding.buffer || _jointCount==0u)
                 return false;
 
             // a very arbitrary constraint
             if (_maxJointsPerVx==0u || _maxJointsPerVx>4u)
                 return false;
 
-            const auto jointCount = _skeleton->getJointCount();
-            if (jointCount==0u)
-                return false;
-            if (_inverseBindPoseBufferBinding.offset+jointCount*sizeof(core::matrix3x4SIMD)>_inverseBindPoseBufferBinding.buffer->getSize())
-                return false;
-            if (_jointAABBBufferBinding.offset+jointCount*sizeof(core::aabbox3df)>_jointAABBBufferBinding.buffer->getSize())
+            if (_inverseBindPoseBufferBinding.offset+_jointCount*sizeof(core::matrix3x4SIMD)>_inverseBindPoseBufferBinding.buffer->getSize())
                 return false;
 
             m_inverseBindPoseBufferBinding = std::move(_inverseBindPoseBufferBinding);
             m_jointAABBBufferBinding = std::move(_jointAABBBufferBinding);
-            m_skeleton = std::move(_skeleton);
+            jointCount = _jointCount;
             maxJointsPerVx = _maxJointsPerVx;
             return true;
         }
@@ -339,6 +324,6 @@ class IMeshBuffer : public virtual core::IReferenceCounted
         const uint8_t* getPushConstantsDataPtr() const { return m_pushConstantsData; }
 };
 
-}}
+}
 
 #endif

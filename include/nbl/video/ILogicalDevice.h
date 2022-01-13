@@ -20,6 +20,9 @@
 #include "nbl/video/IGPUPipelineCache.h"
 #include "nbl/video/IGPUQueue.h"
 #include "nbl/video/ISwapchain.h"
+#include "nbl/video/IDeferredOperation.h"
+#include "nbl/video/IGPUAccelerationStructure.h"
+#include "nbl/video/IQueryPool.h"
 
 // TODO: undo the circular ref
 #include "nbl/video/CThreadSafeGPUQueueAdapter.h"
@@ -152,7 +155,8 @@ class ILogicalDevice : public core::IReferenceCounted
                     return false;
             return freeCommandBuffers_impl(_cmdbufs, _count);
         }
-
+        
+        virtual core::smart_refctd_ptr<IDeferredOperation> createDeferredOperation() = 0;
         virtual core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(uint32_t _familyIx, core::bitflag<IGPUCommandPool::E_CREATE_FLAGS> flags) = 0;
         virtual core::smart_refctd_ptr<IDescriptorPool> createDescriptorPool(IDescriptorPool::E_CREATE_FLAGS flags, uint32_t maxSets, uint32_t poolSizeCount, const IDescriptorPool::SDescriptorPoolSize* poolSizes) = 0;
 
@@ -244,7 +248,7 @@ class ILogicalDevice : public core::IReferenceCounted
         //! Should be just as fast to play around with on the CPU as regular malloc'ed memory, but slowest to access with GPU
         virtual core::smart_refctd_ptr<IDriverMemoryAllocation> allocateCPUSideGPUVisibleMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) { return nullptr; }
 
-        virtual core::smart_refctd_ptr<IDriverMemoryAllocation> allocateGPUMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& reqs) { return nullptr; }
+        virtual core::smart_refctd_ptr<IDriverMemoryAllocation> allocateGPUMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& reqs, core::bitflag<IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags = IDriverMemoryAllocation::EMAF_NONE) { return nullptr; }
 
         //! For memory allocations without the video::IDriverMemoryAllocation::EMCF_COHERENT mapping capability flag you need to call this for the CPU writes to become GPU visible
         void flushMappedMemoryRanges(uint32_t memoryRangeCount, const video::IDriverMemoryAllocation::MappedMemoryRange* pMemoryRanges)
@@ -368,6 +372,13 @@ class ILogicalDevice : public core::IReferenceCounted
             return createGPUImageView_impl(std::move(params));
         }
 
+        core::smart_refctd_ptr<IGPUAccelerationStructure> createGPUAccelerationStructure(IGPUAccelerationStructure::SCreationParams&& params)
+        {
+            if (!params.bufferRange.buffer->wasCreatedBy(this))
+                return nullptr;
+            return createGPUAccelerationStructure_impl(std::move(params));
+        }
+
         core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(IDescriptorPool* pool, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout)
         {
             if (!pool->wasCreatedBy(this))
@@ -432,20 +443,7 @@ class ILogicalDevice : public core::IReferenceCounted
         virtual core::smart_refctd_ptr<IGPUPipelineCache> createGPUPipelineCache() { return nullptr; }
 
         //! Create a descriptor set layout (@see ICPUDescriptorSetLayout)
-        core::smart_refctd_ptr<IGPUDescriptorSetLayout> createGPUDescriptorSetLayout(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end)
-        {
-            for (auto b = _begin; b != _end; ++b)
-            {
-                if (b->type == asset::EDT_COMBINED_IMAGE_SAMPLER && b->samplers)
-                {
-                    auto* samplers = b->samplers;
-                    for (uint32_t i = 0u; i < b->count; ++i)
-                        if (!samplers[i]->wasCreatedBy(this))
-                            return nullptr;
-                }
-            }
-            return createGPUDescriptorSetLayout_impl(_begin, _end);
-        }
+        core::smart_refctd_ptr<IGPUDescriptorSetLayout> createGPUDescriptorSetLayout(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end);
 
         //! Create a pipeline layout (@see ICPUPipelineLayout)
         core::smart_refctd_ptr<IGPUPipelineLayout> createGPUPipelineLayout(
@@ -608,7 +606,43 @@ class ILogicalDevice : public core::IReferenceCounted
         //vkTrimCommandPool // for this you need to Optimize OpenGL commandrecording to use linked list
         //vkGetPipelineCacheData //as pipeline cache method?? (why not)
         //vkMergePipelineCaches //as pipeline cache method (why not)
-        //vkCreateQueryPool //????
+        
+        virtual core::smart_refctd_ptr<IQueryPool> createQueryPool(IQueryPool::SCreationParams&& params) { return nullptr; }
+
+        virtual bool getQueryPoolResults(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, size_t dataSize, void * pData, uint64_t stride, IQueryPool::E_QUERY_RESULTS_FLAGS flags) { return false;}
+
+        virtual bool buildAccelerationStructures(
+            core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation,
+            const core::SRange<IGPUAccelerationStructure::HostBuildGeometryInfo>& pInfos,
+            IGPUAccelerationStructure::BuildRangeInfo* const* ppBuildRangeInfos)
+        {
+            return false;
+        }
+
+        virtual bool copyAccelerationStructure(core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation, const IGPUAccelerationStructure::CopyInfo& copyInfo)
+        {
+            return false;
+        }
+    
+        virtual bool copyAccelerationStructureToMemory(core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation, const IGPUAccelerationStructure::HostCopyToMemoryInfo& copyInfo)
+        {
+            return false;
+        }
+
+        virtual bool copyAccelerationStructureFromMemory(core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation, const IGPUAccelerationStructure::HostCopyFromMemoryInfo& copyInfo)
+        {
+            return false;
+        }
+
+        virtual IGPUAccelerationStructure::BuildSizes getAccelerationStructureBuildSizes(const IGPUAccelerationStructure::HostBuildGeometryInfo& pBuildInfo, const uint32_t* pMaxPrimitiveCounts)
+        {
+            return IGPUAccelerationStructure::BuildSizes{};
+        }
+
+        virtual IGPUAccelerationStructure::BuildSizes getAccelerationStructureBuildSizes(const IGPUAccelerationStructure::DeviceBuildGeometryInfo& pBuildInfo, const uint32_t* pMaxPrimitiveCounts)
+        {
+            return IGPUAccelerationStructure::BuildSizes{};
+        }
 
     protected:
         ILogicalDevice(core::smart_refctd_ptr<IAPIConnection>&& api, IPhysicalDevice* physicalDevice, const SCreationParams& params)
@@ -654,6 +688,7 @@ class ILogicalDevice : public core::IReferenceCounted
         virtual core::smart_refctd_ptr<IGPUImageView> createGPUImageView_impl(IGPUImageView::SCreationParams&& params) = 0;
         virtual core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet_impl(IDescriptorPool* pool, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout) = 0;
         virtual core::smart_refctd_ptr<IGPUDescriptorSetLayout> createGPUDescriptorSetLayout_impl(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end) = 0;
+        virtual core::smart_refctd_ptr<IGPUAccelerationStructure> createGPUAccelerationStructure_impl(IGPUAccelerationStructure::SCreationParams&& params) = 0;
         virtual core::smart_refctd_ptr<IGPUPipelineLayout> createGPUPipelineLayout_impl(
             const asset::SPushConstantRange* const _pcRangesBegin = nullptr, const asset::SPushConstantRange* const _pcRangesEnd = nullptr,
             core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout0 = nullptr, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout1 = nullptr,

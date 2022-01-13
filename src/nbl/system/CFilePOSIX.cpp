@@ -10,9 +10,9 @@
 namespace nbl::system
 {
 	CFilePOSIX::CFilePOSIX(core::smart_refctd_ptr<ISystem>&& sys, const std::filesystem::path& _filename, core::bitflag<E_CREATE_FLAGS> _flags) :
-		base_t(std::move(sys), _flags), m_filename{ _filename }
+		base_t(std::move(sys), _filename, _flags)
 	{
-		const char* name_c_str = m_filename.string().c_str();
+		const char* name_c_str = _filename.string().c_str();
 		int createFlags = O_LARGEFILE;
 		int mappingFlags;
 		if ((_flags.value & ECF_READ_WRITE) == ECF_READ_WRITE)
@@ -34,7 +34,7 @@ namespace nbl::system
 		}
 		if ((m_flags & ECF_READ).value == ECF_READ)
 		{
-			if (std::filesystem::exists(m_filename))
+			if (std::filesystem::exists(_filename))
 			{
 				m_native = open(name_c_str, createFlags);
 			}
@@ -77,10 +77,6 @@ namespace nbl::system
 		return m_size;
 	}
 
-	const std::filesystem::path& CFilePOSIX::getFileName() const
-	{
-		return m_filename;
-	}
 
 	void* CFilePOSIX::getMappedPointer()
 	{

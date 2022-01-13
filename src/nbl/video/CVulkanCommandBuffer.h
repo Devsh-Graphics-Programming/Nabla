@@ -8,6 +8,8 @@
 #include "nbl/video/CVulkanComputePipeline.h"
 #include "nbl/video/CVulkanPipelineLayout.h"
 #include "nbl/video/CVulkanDescriptorSet.h"
+#include "nbl/video/CVulkanFramebuffer.h"
+#include "nbl/video/CVulkanRenderpass.h"
 #include "nbl/video/CVulkanLogicalDevice.h"
 #include "nbl/video/CVulkanEvent.h"
 
@@ -240,7 +242,7 @@ public:
         return true;
     }
 
-    bool drawMeshBuffer(const nbl::video::IGPUMeshBuffer* meshBuffer) override
+    bool drawMeshBuffer(const IGPUMeshBuffer::base_t* meshBuffer) override
     {
         if (!meshBuffer || !meshBuffer->getInstanceCount())
             return false;
@@ -1027,43 +1029,58 @@ public:
         return true;
     }
 
-    //virtual bool resetQueryPool(IGPUQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount) = 0;
-    //virtual bool beginQuery(IGPUQueryPool* queryPool, uint32_t entry, std::underlying_type_t<E_QUERY_CONTROL_FLAGS> flags) = 0;
-    //virtual bool endQuery(IGPUQueryPool* queryPool, uint32_t query) = 0;
-    //virtual bool copyQueryPoolResults(IGPUQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, buffer_t* dstBuffer, size_t dstOffset, size_t stride, std::underlying_type_t<E_QUERY_RESULT_FLAGS> flags) = 0;
-    //virtual bool writeTimestamp(std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> pipelineStage, IGPUQueryPool* queryPool, uint32_t query) = 0;
+    
+    bool resetQueryPool(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount) override;
+    bool beginQuery(IQueryPool* queryPool, uint32_t query, IQueryPool::E_QUERY_CONTROL_FLAGS flags = static_cast<IQueryPool::E_QUERY_CONTROL_FLAGS>(0)) override;
+    bool endQuery(IQueryPool* queryPool, uint32_t query) override;
+    bool copyQueryPoolResults(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, buffer_t* dstBuffer, size_t dstOffset, size_t stride, IQueryPool::E_QUERY_RESULTS_FLAGS flags) override;
+    bool writeTimestamp(asset::E_PIPELINE_STAGE_FLAGS pipelineStage, IQueryPool* queryPool, uint32_t query) override;
+    // TRANSFORM_FEEDBACK_STREAM
+    bool beginQueryIndexed(IQueryPool* queryPool, uint32_t query, uint32_t index, IQueryPool::E_QUERY_CONTROL_FLAGS flags = static_cast<IQueryPool::E_QUERY_CONTROL_FLAGS>(0)) override;
+    bool endQueryIndexed(IQueryPool* queryPool, uint32_t query, uint32_t index) override;
+    // Acceleration Structure Properties (Only available on Vulkan)
+    bool writeAccelerationStructureProperties(const core::SRange<IGPUAccelerationStructure>& pAccelerationStructures, IQueryPool::E_QUERY_TYPE queryType, IQueryPool* queryPool, uint32_t firstQuery) override;
+
 
     // E_PIPELINE_BIND_POINT needs to be in asset namespace or divide this into two functions (for graphics and compute)
     bool bindDescriptorSets(asset::E_PIPELINE_BIND_POINT pipelineBindPoint,
         const pipeline_layout_t* layout, uint32_t firstSet, uint32_t descriptorSetCount,
-        const descriptor_set_t* const* const pDescriptorSets,
-        core::smart_refctd_dynamic_array<uint32_t> dynamicOffsets = nullptr) override
+        const descriptor_set_t* const* const pDescriptorSets, 
+        const uint32_t dynamicOffsetCount=0u, const uint32_t* dynamicOffsets=nullptr
+    ) override
     {
         if (layout->getAPIType() != EAT_VULKAN)
             return false;
 
-        constexpr uint32_t MAX_DESCRIPTOR_SET_COUNT = 100u;
+        constexpr uint32_t MAX_DESCRIPTOR_SET_COUNT = 4u;
 
         VkPipelineLayout vk_pipelineLayout = static_cast<const CVulkanPipelineLayout*>(layout)->getInternalObject();
 
-        VkDescriptorSet vk_descriptorSets[MAX_DESCRIPTOR_SET_COUNT];
+        uint32_t dynamicOffsetCountPerSet[MAX_DESCRIPTOR_SET_COUNT] = {};
+
+        VkDescriptorSet vk_descriptorSets[MAX_DESCRIPTOR_SET_COUNT] = {};
         for (uint32_t i = 0u; i < descriptorSetCount; ++i)
         {
             if (pDescriptorSets[i] && pDescriptorSets[i]->getAPIType() == EAT_VULKAN)
+            {
                 vk_descriptorSets[i] = static_cast<const CVulkanDescriptorSet*>(pDescriptorSets[i])->getInternalObject();
-        }
 
-        uint32_t vk_dynamicOffsetCount = 0u;
-        uint32_t* vk_dynamicOffsets = nullptr;
-        if (dynamicOffsets)
-        {
-            vk_dynamicOffsetCount = dynamicOffsets->size();
-            vk_dynamicOffsets = dynamicOffsets->begin();
+                if (dynamicOffsets) // count dynamic offsets per set, if there are any
+                {
+                    auto bindings = pDescriptorSets[i]->getLayout()->getBindings();
+                    for (const auto& binding : bindings)
+                    {
+                        if ((binding.type == asset::EDT_STORAGE_BUFFER_DYNAMIC) || (binding.type == asset::EDT_UNIFORM_BUFFER_DYNAMIC))
+                            dynamicOffsetCountPerSet[i] += binding.count;
+                    }
+                }
+            }
         }
 
         const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
 
         // Will bind [first, last) with one call
+        uint32_t dynamicOffsetsBindOffset = 0u;
         uint32_t bindCount = 0u;
         uint32_t first = ~0u;
         uint32_t last = ~0u;
@@ -1082,11 +1099,31 @@ public:
                 // Do a look ahead
                 if ((i + 1 > descriptorSetCount - 1) || !pDescriptorSets[i + 1])
                 {
-                    vk->vk.vkCmdBindDescriptorSets(
-                        m_cmdbuf,
-                        static_cast<VkPipelineBindPoint>(pipelineBindPoint),
-                        vk_pipelineLayout,
-                        firstSet+first, last - first, vk_descriptorSets+first, vk_dynamicOffsetCount, vk_dynamicOffsets);
+                    if (dynamicOffsets)
+                    {
+                        uint32_t totalDynamicOffsetCount = 0u;
+                        for (uint32_t setIndex = first; setIndex < last; ++setIndex)
+                            totalDynamicOffsetCount += dynamicOffsetCountPerSet[setIndex];
+
+                        vk->vk.vkCmdBindDescriptorSets(
+                            m_cmdbuf,
+                            static_cast<VkPipelineBindPoint>(pipelineBindPoint),
+                            vk_pipelineLayout,
+                            // firstSet + first, last - first, vk_descriptorSets + first, vk_dynamicOffsetCount, vk_dynamicOffsets);
+                            firstSet + first, last - first, vk_descriptorSets + first,
+                            totalDynamicOffsetCount, dynamicOffsets + dynamicOffsetsBindOffset);
+
+                        dynamicOffsetsBindOffset += totalDynamicOffsetCount;
+                    }
+                    else
+                    {
+                        vk->vk.vkCmdBindDescriptorSets(
+                            m_cmdbuf,
+                            static_cast<VkPipelineBindPoint>(pipelineBindPoint),
+                            vk_pipelineLayout,
+                            firstSet+first, last - first, vk_descriptorSets+first, 0u, nullptr);
+                    }
+
                     first = ~0u;
                     last = ~0u;
                     ++bindCount;
@@ -1302,11 +1339,19 @@ public:
         return true;
     }
 
-    bool regenerateMipmaps(image_view_t* imgview) override
-    {
-        _NBL_TODO();
-        return false;
-    }
+    bool buildAccelerationStructures(const core::SRange<IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, IGPUAccelerationStructure::BuildRangeInfo* const* ppBuildRangeInfos) override;
+    
+    bool buildAccelerationStructuresIndirect(
+        const core::SRange<IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, 
+        const core::SRange<IGPUAccelerationStructure::DeviceAddressType>& pIndirectDeviceAddresses,
+        const uint32_t* pIndirectStrides,
+        const uint32_t* const* ppMaxPrimitiveCounts) override;
+
+    bool copyAccelerationStructure(const IGPUAccelerationStructure::CopyInfo& copyInfo) override;
+    
+    bool copyAccelerationStructureToMemory(const IGPUAccelerationStructure::DeviceCopyToMemoryInfo& copyInfo) override;
+
+    bool copyAccelerationStructureFromMemory(const IGPUAccelerationStructure::DeviceCopyFromMemoryInfo& copyInfo) override;
 
     VkCommandBuffer getInternalObject() const { return m_cmdbuf; }
 

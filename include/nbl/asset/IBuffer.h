@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __NBL_ASSET_I_BUFFER_H_INCLUDED__
-#define __NBL_ASSET_I_BUFFER_H_INCLUDED__
+#ifndef _NBL_ASSET_I_BUFFER_H_INCLUDED_
+#define _NBL_ASSET_I_BUFFER_H_INCLUDED_
 
 #include "nbl/core/decl/smart_refctd_ptr.h"
 #include "nbl/core/IBuffer.h"
@@ -29,7 +29,14 @@ class IBuffer : public core::IBuffer, public IDescriptor
             EUF_STORAGE_BUFFER_BIT = 0x00000020,
             EUF_INDEX_BUFFER_BIT = 0x00000040,
             EUF_VERTEX_BUFFER_BIT = 0x00000080,
-            EUF_INDIRECT_BUFFER_BIT = 0x00000100
+            EUF_INDIRECT_BUFFER_BIT = 0x00000100,
+            EUF_SHADER_DEVICE_ADDRESS_BIT = 0x00020000,
+            EUF_TRANSFORM_FEEDBACK_BUFFER_BIT_EXT = 0x00000800,
+            EUF_TRANSFORM_FEEDBACK_COUNTER_BUFFER_BIT_EXT = 0x00001000,
+            EUF_CONDITIONAL_RENDERING_BIT_EXT = 0x00000200,
+            EUF_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT = 0x00080000,
+            EUF_ACCELERATION_STRUCTURE_STORAGE_BIT = 0x00100000,
+            EUF_SHADER_BINDING_TABLE_BIT = 0x00000400,
         };
 
 	protected:
@@ -63,6 +70,8 @@ struct SBufferRange
 	size_t offset = 0ull;
 	size_t size = 0ull;
 	core::smart_refctd_ptr<BufferType> buffer = nullptr;
+	inline bool operator==(const SBufferRange<BufferType>& rhs) const { return buffer==rhs.buffer && offset==rhs.offset && size==rhs.size; }
+	inline bool operator!=(const SBufferRange<BufferType>& rhs) const { return !operator==(rhs); }
 };
 
 }

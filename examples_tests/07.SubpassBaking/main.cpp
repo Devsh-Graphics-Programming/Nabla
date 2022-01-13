@@ -23,41 +23,13 @@ int main(int argc, char** argv)
     constexpr uint32_t FRAMES_IN_FLIGHT = 5u;
     static_assert(FRAMES_IN_FLIGHT > SC_IMG_COUNT);
 
-    CommonAPI::SFeatureRequest<video::IAPIConnection::E_FEATURE> requiredInstanceFeatures = {};
-    requiredInstanceFeatures.count = 1u;
-    video::IAPIConnection::E_FEATURE requiredFeatures_Instance[] = { video::IAPIConnection::EF_SURFACE };
-    requiredInstanceFeatures.features = requiredFeatures_Instance;
-
-    CommonAPI::SFeatureRequest<video::IAPIConnection::E_FEATURE> optionalInstanceFeatures = {};
-
-    CommonAPI::SFeatureRequest<video::ILogicalDevice::E_FEATURE> requiredDeviceFeatures = {};
-    requiredDeviceFeatures.count = 1u;
-    video::ILogicalDevice::E_FEATURE requiredFeatures_Device[] = { video::ILogicalDevice::EF_SWAPCHAIN };
-    requiredDeviceFeatures.features = requiredFeatures_Device;
-
-    CommonAPI::SFeatureRequest< video::ILogicalDevice::E_FEATURE> optionalDeviceFeatures = {};
-
-    const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_STORAGE_BIT);
-    const video::ISurface::SFormat surfaceFormat(asset::EF_B8G8R8A8_UNORM, asset::ECP_COUNT, asset::EOTF_UNKNOWN);
-
-    // Todo(achal): Remove when porting to Android
-    core::smart_refctd_ptr<nbl::ui::IWindow> window;
-
     CommonAPI::InitOutput initOutput;
-    initOutput.window = core::smart_refctd_ptr(window);
-    CommonAPI::Init(
-        initOutput,
-        video::EAT_VULKAN,
-        "SubpassBaking",
-        requiredInstanceFeatures,
-        optionalInstanceFeatures,
-        requiredDeviceFeatures,
-        optionalDeviceFeatures,
-        WIN_W, WIN_H, SC_IMG_COUNT,
-        swapchainImageUsage,
-        surfaceFormat, nbl::asset::EF_D32_SFLOAT);
+    
+    const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT);
+    const video::ISurface::SFormat surfaceFormat(asset::EF_B8G8R8A8_SRGB, asset::ECP_COUNT, asset::EOTF_UNKNOWN);
 
-    window = std::move(initOutput.window);
+    CommonAPI::InitWithDefaultExt(initOutput, video::EAT_OPENGL, "SubpassBaking", WIN_W, WIN_H, SC_IMG_COUNT, swapchainImageUsage, surfaceFormat, nbl::asset::EF_D32_SFLOAT);
+    auto window = std::move(initOutput.window);
     auto gl = std::move(initOutput.apiConnection);
     auto surface = std::move(initOutput.surface);
     auto gpuPhysicalDevice = std::move(initOutput.physicalDevice);
@@ -326,10 +298,10 @@ int main(int argc, char** argv)
                 asset::SBufferBinding<video::IGPUBuffer> scratch;
                 {
                     video::IGPUBuffer::SCreationParams scratchParams = {};
-		            scratchParams.canUpdateSubRange = true;
-		            scratchParams.usage = core::bitflag(video::IGPUBuffer::EUF_TRANSFER_DST_BIT)|video::IGPUBuffer::EUF_STORAGE_BUFFER_BIT;
-		            scratch = {0ull,logicalDevice->createDeviceLocalGPUBufferOnDedMem(scratchParams,ppHandler->getMaxScratchSize())};
-		            scratch.buffer->setObjectDebugName("Scratch Buffer");
+                    scratchParams.canUpdateSubRange = true;
+                    scratchParams.usage = core::bitflag(video::IGPUBuffer::EUF_TRANSFER_DST_BIT)|video::IGPUBuffer::EUF_STORAGE_BUFFER_BIT;
+                    scratch = {0ull,logicalDevice->createDeviceLocalGPUBufferOnDedMem(scratchParams,ppHandler->getMaxScratchSize())};
+                    scratch.buffer->setObjectDebugName("Scratch Buffer");
                 }
                 auto* pRequest = &request;
                 uint32_t waitSemaphoreCount = 0u;
@@ -360,8 +332,8 @@ int main(int argc, char** argv)
     }
     bakedCommandBuffer->end();
 
-    CommonAPI::InputSystem::ChannelReader<IMouseEventChannel> mouse;
-    CommonAPI::InputSystem::ChannelReader<IKeyboardEventChannel> keyboard;
+    CommonAPI::InputSystem::ChannelReader<ui::IMouseEventChannel> mouse;
+    CommonAPI::InputSystem::ChannelReader<ui::IKeyboardEventChannel> keyboard;
 
     core::vectorSIMDf cameraPosition(0, 5, -10);
     matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60), float(WIN_W) / WIN_H, 2.f, 4000.f);
@@ -384,8 +356,8 @@ int main(int argc, char** argv)
 
     uint32_t acquiredNextFBO = {};
     auto resourceIx = -1;
-	while(windowCallback->isWindowOpen())
-	{
+    while(windowCallback->isWindowOpen())
+    {
         ++resourceIx;
         if (resourceIx >= FRAMES_IN_FLIGHT)
             resourceIx = 0;
@@ -413,8 +385,8 @@ int main(int argc, char** argv)
             inputSystem->getDefaultKeyboard(&keyboard);
 
             camera.beginInputProcessing(nextPresentationTimestamp);
-            mouse.consumeEvents([&](const IMouseEventChannel::range_t& events) -> void { camera.mouseProcess(events); }, logger.get());
-            keyboard.consumeEvents([&](const IKeyboardEventChannel::range_t& events) -> void { camera.keyboardProcess(events); }, logger.get());
+            mouse.consumeEvents([&](const ui::IMouseEventChannel::range_t& events) -> void { camera.mouseProcess(events); }, logger.get());
+            keyboard.consumeEvents([&](const ui::IKeyboardEventChannel::range_t& events) -> void { camera.keyboardProcess(events); }, logger.get());
             camera.endInputProcessing(nextPresentationTimestamp);
         }
 

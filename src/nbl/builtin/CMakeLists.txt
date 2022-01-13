@@ -19,20 +19,20 @@ endfunction()
 
 set(nbl_resources_to_embed
   "nbl/builtin/shader/loader/mtl/vertex_impl.glsl"
-  "nbl/builtin/shader/loader/mtl/vertex_no_uv.vert"
-  "nbl/builtin/shader/loader/mtl/vertex_uv.vert"
+  "nbl/builtin/shader/loader/mtl/vertex_no_uv.vert" # TODO: remove naming tautology
+  "nbl/builtin/shader/loader/mtl/vertex_uv.vert" # TODO: remove naming tautology
   "nbl/builtin/shader/loader/mtl/fragment_impl.glsl"
-  "nbl/builtin/shader/loader/mtl/fragment_no_uv.frag"
-  "nbl/builtin/shader/loader/mtl/fragment_uv.frag"
+  "nbl/builtin/shader/loader/mtl/fragment_no_uv.frag" # TODO: remove naming tautology
+  "nbl/builtin/shader/loader/mtl/fragment_uv.frag" # TODO: remove naming tautology
   "nbl/builtin/shader/loader/gltf/common.glsl"
   "nbl/builtin/shader/loader/gltf/vertex_impl.glsl"
-  "nbl/builtin/shader/loader/gltf/vertex_uv.vert"
-  "nbl/builtin/shader/loader/gltf/vertex_color.vert"
-  "nbl/builtin/shader/loader/gltf/vertex_no_uv_color.vert"
+  "nbl/builtin/shader/loader/gltf/uv.vert"
+  "nbl/builtin/shader/loader/gltf/color.vert"
+  "nbl/builtin/shader/loader/gltf/no_uv_color.vert"
   "nbl/builtin/shader/loader/gltf/fragment_impl.glsl"
-  "nbl/builtin/shader/loader/gltf/fragment_uv.frag"
-  "nbl/builtin/shader/loader/gltf/fragment_color.frag"
-  "nbl/builtin/shader/loader/gltf/fragment_no_uv_color.frag"
+  "nbl/builtin/shader/loader/gltf/uv.frag"
+  "nbl/builtin/shader/loader/gltf/color.frag"
+  "nbl/builtin/shader/loader/gltf/no_uv_color.frag"
   "nbl/builtin/specialized_shader/fullscreentriangle.vert"
   "nbl/builtin/material/lambertian/singletexture/specialized_shader.vert"
   "nbl/builtin/material/lambertian/singletexture/specialized_shader.frag"
@@ -147,6 +147,7 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/utils/indirect_commands.glsl"
   "nbl/builtin/glsl/utils/common.glsl"
   "nbl/builtin/glsl/utils/culling.glsl"
+  "nbl/builtin/glsl/utils/compressed_normal_matrix_t.glsl"
   "nbl/builtin/glsl/utils/normal_decode.glsl"
   "nbl/builtin/glsl/utils/normal_encode.glsl"
   "nbl/builtin/glsl/utils/transform.glsl"
@@ -172,6 +173,8 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/workgroup/vote.glsl"
   #transform_tree
   "nbl/builtin/glsl/transform_tree/global_transform_update.comp"
+  "nbl/builtin/glsl/transform_tree/global_transform_and_normal_matrix_update.comp"
+  "nbl/builtin/glsl/transform_tree/global_transform_update_common.glsl"
   "nbl/builtin/glsl/transform_tree/global_transform_update_descriptor_set.glsl"
   "nbl/builtin/glsl/transform_tree/modification_request_range.glsl"
   "nbl/builtin/glsl/transform_tree/pool_descriptor_set.glsl"

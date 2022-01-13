@@ -27,9 +27,12 @@
 #include "nbl/video/CVulkanBuffer.h"
 #include "nbl/video/CVulkanBufferView.h"
 #include "nbl/video/CVulkanForeignImage.h"
+#include "nbl/video/CVulkanDeferredOperation.h"
+#include "nbl/video/CVulkanAccelerationStructure.h"
 #include "nbl/video/CVulkanGraphicsPipeline.h"
 #include "nbl/video/CVulkanRenderpassIndependentPipeline.h"
 #include "nbl/video/surface/CSurfaceVulkan.h"
+#include "nbl/core/containers/CMemoryPool.h"
 
 namespace nbl::video
 {
@@ -39,8 +42,14 @@ class CVulkanCommandBuffer;
 class CVulkanLogicalDevice final : public ILogicalDevice
 {
 public:
+    using memory_pool_mt_t = core::CMemoryPool<core::PoolAddressAllocator<uint32_t>, core::default_aligned_allocator, true, uint32_t>;
+
     CVulkanLogicalDevice(core::smart_refctd_ptr<IAPIConnection>&& api, renderdoc_api_t* rdoc, IPhysicalDevice* physicalDevice, VkDevice vkdev, VkInstance vkinst, const SCreationParams& params)
-        : ILogicalDevice(std::move(api),physicalDevice,params), m_vkdev(vkdev), m_devf(vkdev)
+        : ILogicalDevice(std::move(api)
+        , physicalDevice,params)
+        , m_vkdev(vkdev)
+        , m_devf(vkdev)
+        , m_deferred_op_mempool(NODES_PER_BLOCK_DEFERRED_OP * sizeof(CVulkanDeferredOperation), 1u, MAX_BLOCK_COUNT_DEFERRED_OP, static_cast<uint32_t>(sizeof(CVulkanDeferredOperation)))
     {
         // create actual queue objects
         for (uint32_t i = 0u; i < params.queueParamsCount; ++i)
@@ -257,7 +266,22 @@ public:
             return IGPUFence::ES_ERROR;
         }
     }
-            
+              
+    core::smart_refctd_ptr<IDeferredOperation> createDeferredOperation() override
+    {
+        VkDeferredOperationKHR vk_deferredOp = VK_NULL_HANDLE;
+        VkResult vk_res = m_devf.vk.vkCreateDeferredOperationKHR(m_vkdev, nullptr, &vk_deferredOp);
+        if(vk_res!=VK_SUCCESS)
+            return nullptr;
+
+        void* memory = m_deferred_op_mempool.allocate(sizeof(CVulkanDeferredOperation),alignof(CVulkanDeferredOperation));
+        if (!memory)
+            return nullptr;
+
+        new (memory) CVulkanDeferredOperation(core::smart_refctd_ptr<CVulkanLogicalDevice>(this),vk_deferredOp);
+        return core::smart_refctd_ptr<CVulkanDeferredOperation>(reinterpret_cast<CVulkanDeferredOperation*>(memory),core::dont_grab);
+    }
+
     core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(uint32_t familyIndex, core::bitflag<IGPUCommandPool::E_CREATE_FLAGS> flags) override
     {
         VkCommandPoolCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
@@ -490,6 +514,17 @@ public:
             if ((bindInfo.buffer->getAPIType() != EAT_VULKAN) || (bindInfo.memory->getAPIType() != EAT_VULKAN))
                 continue;
 
+            if (bindInfo.buffer->getCachedCreationParams().usage.hasValue(asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT))
+            {
+                if(!bindInfo.memory->getAllocateFlags().hasValue(IDriverMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT))
+                {
+                    // TODO(erfan): Log-> if buffer was created with EUF_SHADER_DEVICE_ADDRESS_BIT set, memory must have been allocated with the EMAF_DEVICE_ADDRESS_BIT bit.
+                    _NBL_DEBUG_BREAK_IF(false);
+                    anyFailed = true;
+                    continue;
+                }
+            }
+
             CVulkanBuffer* vulkanBuffer = static_cast<CVulkanBuffer*>(bindInfo.buffer);
             vulkanBuffer->setMemoryAndOffset(
                 core::smart_refctd_ptr<IDriverMemoryAllocation>(bindInfo.memory), bindInfo.offset);
@@ -499,6 +534,7 @@ public:
             if (m_devf.vk.vkBindBufferMemory(m_vkdev, vk_buffer, vk_memory, static_cast<VkDeviceSize>(pBindInfos[i].offset)) != VK_SUCCESS)
             {
                 // Todo(achal): Log which one failed
+                _NBL_DEBUG_BREAK_IF(false);
                 anyFailed = true;
             }
         }   
@@ -567,8 +603,13 @@ public:
         memoryReqs.memoryHeapLocation = additionalMemoryReqs.memoryHeapLocation;
         memoryReqs.mappingCapability = additionalMemoryReqs.mappingCapability;
 
+        core::bitflag<IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags;
+
+        if(creationParams.usage.hasValue(asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT))
+            allocateFlags |= IDriverMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT;
+
         core::smart_refctd_ptr<video::IDriverMemoryAllocation> bufferMemory =
-            allocateGPUMemory(memoryReqs);
+            allocateGPUMemory(memoryReqs, allocateFlags);
 
         if (!bufferMemory)
             return nullptr;
@@ -716,6 +757,11 @@ public:
         uint32_t bufferViewOffset = 0u;
         core::vector<VkBufferView> vk_bufferViews(descriptorWriteCount * MAX_DESCRIPTOR_ARRAY_COUNT);
 
+        core::vector<VkWriteDescriptorSetAccelerationStructureKHR> vk_writeDescriptorSetAS(descriptorWriteCount);
+        
+        uint32_t accelerationStructuresOffset = 0u;
+        core::vector<VkAccelerationStructureKHR> vk_accelerationStructures(descriptorWriteCount * MAX_DESCRIPTOR_ARRAY_COUNT);
+
         for (uint32_t i = 0u; i < descriptorWriteCount; ++i)
         {
             vk_writeDescriptorSets[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -817,6 +863,27 @@ public:
                     vk_writeDescriptorSets[i].pTexelBufferView = vk_bufferViews.data() + bufferViewOffset;
                     bufferViewOffset += pDescriptorWrites[i].count;
                 } break;
+                
+                case asset::IDescriptor::EC_ACCELERATION_STRUCTURE:
+                {
+                    // Get WriteAS
+                    auto & writeAS = vk_writeDescriptorSetAS[i];
+                    writeAS = { VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR, nullptr};
+                    // Fill Write AS
+                    for (uint32_t j = 0u; j < pDescriptorWrites[i].count; ++j)
+                    {
+                        VkAccelerationStructureKHR vk_accelerationStructure = static_cast<const CVulkanAccelerationStructure*>(pDescriptorWrites[i].info[j].desc.get())->getInternalObject();
+                        vk_accelerationStructures[j + accelerationStructuresOffset] = vk_accelerationStructure;
+                    }
+
+                    writeAS.accelerationStructureCount = pDescriptorWrites[i].count;
+                    writeAS.pAccelerationStructures = &vk_accelerationStructures[accelerationStructuresOffset];
+
+                    // Give Write AS to writeDescriptor.pNext
+                    vk_writeDescriptorSets[i].pNext = &writeAS;
+
+                    accelerationStructuresOffset += pDescriptorWrites[i].count;
+                } break;
 
                 default:
                     assert(!"Don't know what to do with this value!");
@@ -860,7 +927,7 @@ public:
         const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) override;
 
     core::smart_refctd_ptr<IDriverMemoryAllocation> allocateGPUMemory(
-        const IDriverMemoryBacked::SDriverMemoryRequirements& reqs) override;
+        const IDriverMemoryBacked::SDriverMemoryRequirements& reqs, core::bitflag<IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags = IDriverMemoryAllocation::EMAF_NONE) override;
 
     core::smart_refctd_ptr<IGPUSampler> createGPUSampler(const IGPUSampler::SParams& _params) override
     {
@@ -934,6 +1001,29 @@ public:
 
         VkDeviceMemory vk_deviceMemory = static_cast<const CVulkanMemoryAllocation*>(memory)->getInternalObject();
         m_devf.vk.vkUnmapMemory(m_vkdev, vk_deviceMemory);
+    }
+            
+    core::smart_refctd_ptr<IQueryPool> createQueryPool(IQueryPool::SCreationParams&& params) override;
+    
+    bool getQueryPoolResults(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, size_t dataSize, void * pData, uint64_t stride, IQueryPool::E_QUERY_RESULTS_FLAGS flags) override;
+
+    bool buildAccelerationStructures(
+        core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation,
+        const core::SRange<IGPUAccelerationStructure::HostBuildGeometryInfo>& pInfos,
+        IGPUAccelerationStructure::BuildRangeInfo* const* ppBuildRangeInfos) override;
+
+    bool copyAccelerationStructure(core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation, const IGPUAccelerationStructure::CopyInfo& copyInfo) override;
+    
+    bool copyAccelerationStructureToMemory(core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation, const IGPUAccelerationStructure::HostCopyToMemoryInfo& copyInfo) override;
+
+    bool copyAccelerationStructureFromMemory(core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation, const IGPUAccelerationStructure::HostCopyFromMemoryInfo& copyInfo) override;
+
+    IGPUAccelerationStructure::BuildSizes getAccelerationStructureBuildSizes(const IGPUAccelerationStructure::HostBuildGeometryInfo& pBuildInfo, const uint32_t* pMaxPrimitiveCounts) override;
+
+    IGPUAccelerationStructure::BuildSizes getAccelerationStructureBuildSizes(const IGPUAccelerationStructure::DeviceBuildGeometryInfo& pBuildInfo, const uint32_t* pMaxPrimitiveCounts) override;
+
+    inline memory_pool_mt_t & getMemoryPoolForDeferredOperations() {
+        return m_deferred_op_mempool;
     }
 
     // At the moment this NEEDS requiredCount to be zero for the root call. We can fix this
@@ -1289,6 +1379,8 @@ protected:
             return nullptr;
         }
     }
+    
+    core::smart_refctd_ptr<IGPUAccelerationStructure> createGPUAccelerationStructure_impl(IGPUAccelerationStructure::SCreationParams&& params) override;
 
     core::smart_refctd_ptr<IGPUPipelineLayout> createGPUPipelineLayout_impl(
         const asset::SPushConstantRange* const _pcRangesBegin = nullptr,
@@ -1551,6 +1643,43 @@ protected:
 
         return true;
     }
+    
+    template<typename AddressType>
+    IGPUAccelerationStructure::BuildSizes getAccelerationStructureBuildSizes_impl(VkAccelerationStructureBuildTypeKHR buildType, const IGPUAccelerationStructure::BuildGeometryInfo<AddressType>& pBuildInfo, const uint32_t* pMaxPrimitiveCounts) 
+    {
+        VkAccelerationStructureBuildSizesInfoKHR vk_ret = {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR, nullptr};
+
+        if(pMaxPrimitiveCounts == nullptr) {
+            assert(false);
+            return IGPUAccelerationStructure::BuildSizes{};
+        }
+
+        static constexpr size_t MaxGeometryPerBuildInfoCount = 64;
+                
+        VkAccelerationStructureBuildGeometryInfoKHR vk_buildGeomsInfo = {};
+
+        // TODO: Use better container when ready for these stack allocated memories.
+        uint32_t geometryArrayOffset = 0u;
+        VkAccelerationStructureGeometryKHR vk_geometries[MaxGeometryPerBuildInfoCount] = {};
+
+        {
+            uint32_t geomCount = pBuildInfo.geometries.size();
+
+            assert(geomCount > 0);
+            assert(geomCount <= MaxGeometryPerBuildInfoCount);
+
+            vk_buildGeomsInfo = CVulkanAccelerationStructure::getVkASBuildGeomInfoFromBuildGeomInfo(m_vkdev, &m_devf, pBuildInfo, vk_geometries);
+        }
+
+        m_devf.vk.vkGetAccelerationStructureBuildSizesKHR(m_vkdev, buildType, &vk_buildGeomsInfo, pMaxPrimitiveCounts, &vk_ret);
+
+        IGPUAccelerationStructure::BuildSizes ret = {};
+        ret.accelerationStructureSize = vk_ret.accelerationStructureSize;
+        ret.updateScratchSize = vk_ret.updateScratchSize;
+        ret.buildScratchSize = vk_ret.buildScratchSize;
+
+        return ret;
+    }
 
     core::smart_refctd_ptr<IGPUGraphicsPipeline> createGPUGraphicsPipeline_impl(IGPUPipelineCache* pipelineCache, IGPUGraphicsPipeline::SCreationParams&& params);
 
@@ -1576,7 +1705,12 @@ private:
     }
 
     VkDevice m_vkdev;
-    CVulkanDeviceFunctionTable m_devf;
+    CVulkanDeviceFunctionTable m_devf; // Todo(achal): I don't have a function table yet
+    
+    constexpr static inline uint32_t NODES_PER_BLOCK_DEFERRED_OP = 4096u;
+    constexpr static inline uint32_t MAX_BLOCK_COUNT_DEFERRED_OP = 256u;
+    memory_pool_mt_t m_deferred_op_mempool;
+
     core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> m_dummyDSLayout = nullptr;
 };
 

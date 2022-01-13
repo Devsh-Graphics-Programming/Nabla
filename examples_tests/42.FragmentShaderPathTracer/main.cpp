@@ -111,7 +111,9 @@ int main()
 	const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_TRANSFER_DST_BIT);
 	const video::ISurface::SFormat surfaceFormat;
 	
-	auto initOutput = CommonAPI::Init(
+	CommonAPI::InitOutput initOutput;
+	CommonAPI::Init(
+		initOutput,
 		video::EAT_VULKAN,
 		"Compute Shader PathTracer",
 		requiredInstanceFeatures,
@@ -554,9 +556,9 @@ int main()
 		// cube envmap handle
 		{
 			cb->bindComputePipeline(gpuComputePipeline.get());
-			cb->bindDescriptorSets(EPBP_COMPUTE, gpuComputePipeline->getLayout(), 0u, 1u, &descriptorSets0[imgnum].get(), nullptr);
-			cb->bindDescriptorSets(EPBP_COMPUTE, gpuComputePipeline->getLayout(), 1u, 1u, &uboDescriptorSet1.get(), nullptr);
-			cb->bindDescriptorSets(EPBP_COMPUTE, gpuComputePipeline->getLayout(), 2u, 1u, &descriptorSet2.get(), nullptr);
+			cb->bindDescriptorSets(EPBP_COMPUTE, gpuComputePipeline->getLayout(), 0u, 1u, &descriptorSets0[imgnum].get());
+			cb->bindDescriptorSets(EPBP_COMPUTE, gpuComputePipeline->getLayout(), 1u, 1u, &uboDescriptorSet1.get());
+			cb->bindDescriptorSets(EPBP_COMPUTE, gpuComputePipeline->getLayout(), 2u, 1u, &descriptorSet2.get());
 			cb->dispatch(dispatchInfo.workGroupCount[0], dispatchInfo.workGroupCount[1], dispatchInfo.workGroupCount[2]);
 		}
 		// TODO: tone mapping and stuff
@@ -627,7 +629,7 @@ int main()
 			imageBarriers[0].barrier.srcAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
 			imageBarriers[0].barrier.dstAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0u);
 			imageBarriers[0].oldLayout = asset::EIL_TRANSFER_DST_OPTIMAL;
-			imageBarriers[0].newLayout = asset::EIL_PRESENT_SRC_KHR;
+			imageBarriers[0].newLayout = asset::EIL_PRESENT_SRC;
 			imageBarriers[0].srcQueueFamilyIndex = graphicsCmdPoolQueueFamIdx;
 			imageBarriers[0].dstQueueFamilyIndex = graphicsCmdPoolQueueFamIdx;
 			imageBarriers[0].image = dstImgViewCreationParams.image;
