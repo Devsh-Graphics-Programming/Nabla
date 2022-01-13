@@ -4,7 +4,6 @@
 
 #include "nbl/ext/MitsubaLoader/CMitsubaMaterialCompilerFrontend.h"
 #include "nbl/ext/MitsubaLoader/SContext.h"
-#include "nbl/core/Types.h"
 
 namespace nbl::ext::MitsubaLoader
 {
@@ -21,41 +20,14 @@ std::pair<const CElementTexture*,float> CMitsubaMaterialCompilerFrontend::unwind
 
     return {_element,scale};
 }
-
-auto CMitsubaMaterialCompilerFrontend::getDerivMap(const CElementBSDF::BumpMap& _bump) const -> tex_ass_type
-{
-    const CElementTexture* texture = nullptr;
-    float scale = 1.f;
-    std::tie(texture,scale) = unwindTextureScale(_bump.texture);
-
-    const auto key = SContext::imageViewCacheKey(texture->bitmap,_bump.wasNormal ? SContext::EIVS_NORMAL_MAP:SContext::EIVS_BUMP_MAP);
-    return getTexture(key,texture->bitmap,scale);
-}
-
-auto CMitsubaMaterialCompilerFrontend::getBlendWeightTex(const CElementTexture* _element) const -> tex_ass_type
-{
-    float scale = 1.f;
-    std::tie(_element,scale) = unwindTextureScale(_element);
-
-    const auto key = SContext::imageViewCacheKey(_element->bitmap,SContext::EIVS_BLEND_WEIGHT);
-    return getTexture(key,_element->bitmap,scale);
-}
-
-auto CMitsubaMaterialCompilerFrontend::getTexture(const CElementTexture* _element) const -> tex_ass_type
+auto CMitsubaMaterialCompilerFrontend::getTexture(const CElementTexture* _element, const E_IMAGE_VIEW_SEMANTIC semantic) const -> tex_ass_type
 {
     float scale = 1.f;
     std::tie(_element, scale) = unwindTextureScale(_element);
 
-    const auto key = SContext::imageViewCacheKey(_element->bitmap,SContext::EIVS_IDENTITIY);
-    return getTexture(key,_element->bitmap,scale);
-}
-
-auto CMitsubaMaterialCompilerFrontend::getTexture(const std::string& _viewKey, const CElementTexture::Bitmap& _bitmap, float _scale) const -> tex_ass_type
-{
-    const std::string samplerKey = m_loaderContext->samplerCacheKey(SContext::computeSamplerParameters(_bitmap));
-
     asset::IAsset::E_TYPE types[2]{ asset::IAsset::ET_IMAGE_VIEW, asset::IAsset::ET_TERMINATING_ZERO };
-    auto viewBundle = m_loaderContext->override_->findCachedAsset(_viewKey,types,m_loaderContext->inner,0u);
+    const auto key = SContext::imageViewCacheKey(_element->bitmap,semantic);
+    auto viewBundle = m_loaderContext->override_->findCachedAsset(key,types,m_loaderContext->inner,0u);
     if (!viewBundle.getContents().empty())
     {
         auto view = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(viewBundle.getContents().begin()[0]);
@@ -64,17 +36,18 @@ auto CMitsubaMaterialCompilerFrontend::getTexture(const std::string& _viewKey, c
         if (found!=m_loaderContext->derivMapCache.end())
         {
             const float normalizationFactor = found->second;
-            _scale *= normalizationFactor;
+            scale *= normalizationFactor;
         }
 
         types[0] = asset::IAsset::ET_SAMPLER;
+        const std::string samplerKey = m_loaderContext->samplerCacheKey(SContext::computeSamplerParameters(_element->bitmap));
         auto samplerBundle = m_loaderContext->override_->findCachedAsset(samplerKey, types, m_loaderContext->inner, 0u);
         assert(!samplerBundle.getContents().empty());
         auto sampler = core::smart_refctd_ptr_static_cast<asset::ICPUSampler>(samplerBundle.getContents().begin()[0]);
 
-        return {view, sampler, _scale};
+        return {view, sampler, scale};
     }
-    return { nullptr, nullptr, _scale };
+    return { nullptr, nullptr, scale };
 }
 
 auto CMitsubaMaterialCompilerFrontend::getErrorTexture() const -> tex_ass_type
@@ -117,19 +90,20 @@ auto CMitsubaMaterialCompilerFrontend::getErrorTexture() const -> tex_ass_type
             }
             else dst = src.value.fvalue;
         };
-        auto getSpectrumOrTexture = [this](const CElementTexture::SpectrumOrTexture& src, IR::INode::SParameter<IR::INode::color_t>& dst)
+        auto getSpectrumOrTexture = [this](const CElementTexture::SpectrumOrTexture& src, IR::INode::SParameter<IR::INode::color_t>& dst, const E_IMAGE_VIEW_SEMANTIC semantic=EIVS_IDENTITIY) -> void
         {
             if (src.value.type == SPropertyElementData::INVALID)
             {
                 IR::INode::STextureSource tex;
-                std::tie(tex.image, tex.sampler, tex.scale) = getTexture(src.texture);
+                std::tie(tex.image, tex.sampler, tex.scale) = getTexture(src.texture,semantic);
                 _NBL_DEBUG_BREAK_IF(!tex.image);
                 if (tex.image)
                     dst = std::move(tex);
                 else
                     dst = IR::INode::color_t(0.5f, 0.5f, 0.5f); // red in case of no texture
             }
-            else dst = src.value.vvalue;
+            else
+                dst = src.value.vvalue;
         };
 
         constexpr IR::CMicrofacetSpecularBSDFNode::E_NDF ndfMap[4]{
@@ -149,7 +123,7 @@ auto CMitsubaMaterialCompilerFrontend::getErrorTexture() const -> tex_ass_type
         case CElementBSDF::MASK:
             ir_node = ir->allocNode<IR::COpacityNode>();
             ir_node->children.count = 1u;
-            getSpectrumOrTexture(_bsdf->mask.opacity, static_cast<IR::COpacityNode*>(ir_node)->opacity);
+            getSpectrumOrTexture(_bsdf->mask.opacity,static_cast<IR::COpacityNode*>(ir_node)->opacity,EIVS_BLEND_WEIGHT);
             break;
         case CElementBSDF::DIFFUSE:
         case CElementBSDF::ROUGHDIFFUSE:
@@ -271,7 +245,8 @@ auto CMitsubaMaterialCompilerFrontend::getErrorTexture() const -> tex_ass_type
             //no other source supported for now (uncomment in the future) [far future TODO]
             //node->source = IR::CGeomModifierNode::ESRC_TEXTURE;
 
-            std::tie(node->texture.image, node->texture.sampler, node->texture.scale) = getDerivMap(_bsdf->bumpmap);
+            std::tie(node->texture.image,node->texture.sampler,node->texture.scale) =
+                getTexture(_bsdf->bumpmap.texture,_bsdf->bumpmap.wasNormal ? EIVS_NORMAL_MAP:EIVS_BUMP_MAP);
         }
         break;
         case CElementBSDF::COATING:
@@ -317,7 +292,7 @@ auto CMitsubaMaterialCompilerFrontend::getErrorTexture() const -> tex_ass_type
             if (_bsdf->blendbsdf.weight.value.type == SPropertyElementData::INVALID)
             {
                 std::tie(node->weight.value.texture.image, node->weight.value.texture.sampler, node->weight.value.texture.scale) =
-                    getBlendWeightTex(_bsdf->blendbsdf.weight.texture);
+                    getTexture(_bsdf->blendbsdf.weight.texture,EIVS_BLEND_WEIGHT);
                 node->weight.source = IR::INode::EPS_TEXTURE;
             }
             else

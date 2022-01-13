@@ -62,6 +62,12 @@ class IImageView : public IDescriptor
 			E_SWIZZLE b = ES_B;
 			E_SWIZZLE a = ES_A;
 
+			E_SWIZZLE& operator[](const uint32_t ix)
+			{
+				assert(ix<4u);
+				return (&r)[ix];
+			}
+
 			bool operator==(const SComponentMapping& rhs) const
 			{
 				return r == rhs.r && g == rhs.g && b == rhs.b && a == rhs.a;

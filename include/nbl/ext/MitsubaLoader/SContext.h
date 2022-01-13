@@ -10,8 +10,8 @@
 #include "nbl/asset/utils/IGeometryCreator.h"
 #include "nbl/asset/material_compiler/CMaterialCompilerGLSLRasterBackend.h"
 
-#include "../../ext/MitsubaLoader/CMitsubaMaterialCompilerFrontend.h"
-#include "../../ext/MitsubaLoader/CElementShape.h"
+#include "nbl/ext/MitsubaLoader/CMitsubaMaterialCompilerFrontend.h"
+#include "nbl/ext/MitsubaLoader/CElementShape.h"
 
 namespace nbl
 {
@@ -53,15 +53,7 @@ namespace MitsubaLoader
 		core::map<core::smart_refctd_ptr<asset::ICPUImage>,float> derivMapCache;
 
 		//
-		enum E_IMAGE_VIEW_SEMANTIC : uint8_t
-		{
-			EIVS_IDENTITIY,
-			EIVS_BLEND_WEIGHT,
-			EIVS_NORMAL_MAP,
-			EIVS_BUMP_MAP,
-			EIVS_COUNT
-		};
-		static std::string imageViewCacheKey(const CElementTexture::Bitmap& bitmap, const E_IMAGE_VIEW_SEMANTIC semantic)
+		static std::string imageViewCacheKey(const CElementTexture::Bitmap& bitmap, const CMitsubaMaterialCompilerFrontend::E_IMAGE_VIEW_SEMANTIC semantic)
 		{
 			std::string key = bitmap.filename.svalue;
 			switch (bitmap.channel)
@@ -83,13 +75,13 @@ namespace MitsubaLoader
 			}
 			switch (semantic)
 			{
-				case EIVS_BLEND_WEIGHT:
+				case CMitsubaMaterialCompilerFrontend::EIVS_BLEND_WEIGHT:
 					key += "?blend";
 					break;
-				case EIVS_NORMAL_MAP:
+				case CMitsubaMaterialCompilerFrontend::EIVS_NORMAL_MAP:
 					key += "?deriv?n";
 					break;
-				case EIVS_BUMP_MAP:
+				case CMitsubaMaterialCompilerFrontend::EIVS_BUMP_MAP:
 					key += "?deriv?h";
 					{
 						static const char* wrap[5]
