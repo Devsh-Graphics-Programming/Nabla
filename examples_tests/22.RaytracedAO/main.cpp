@@ -597,13 +597,13 @@ int main(int argc, char** argv)
 			{
 				SensorData cubemapFaceSensorData = mainSensorData;
 				
-				if (mainSensorData.outputFilePath.empty())
+				if (cubemapFaceSensorData.outputFilePath.empty())
 				{
-					mainSensorData.outputFilePath = std::filesystem::path("Render_" + mainFileName + "_Sensor_" + std::to_string(idx) + suffixes[i]);
+					cubemapFaceSensorData.outputFilePath = std::filesystem::path("Render_" + mainFileName + "_Sensor_" + std::to_string(idx) + suffixes[i]);
 				}
 				else
 				{
-					cubemapFaceSensorData.outputFilePath += suffixes[i];
+					cubemapFaceSensorData.outputFilePath += (suffixes[i]);
 				}
 
 				cubemapFaceSensorData.staticCamera = smgr->addCameraSceneNode(nullptr); 
