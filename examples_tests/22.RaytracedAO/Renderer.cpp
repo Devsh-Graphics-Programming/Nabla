@@ -1520,10 +1520,10 @@ void Renderer::takeAndSaveScreenShot(const std::filesystem::path& screenshotFile
 		std::ostringstream denoiserCmd;
 		// 1.ColorFile 2.AlbedoFile 3.NormalFile 4.BloomPsfFilePath(STRING) 5.BloomScale(FLOAT) 6.BloomIntensity(FLOAT) 7.TonemapperArgs(STRING)
 		denoiserCmd << "call ../denoiser_hook.bat";
-		denoiserCmd << " " << filename_wo_ext.string() << ".exr";
-		denoiserCmd << " " << filename_wo_ext.string() << "_albedo.exr";
-		denoiserCmd << " " << filename_wo_ext.string() << "_normal.exr";
-		denoiserCmd << " " << bloomFilePathStr;
+		denoiserCmd << " \"" << filename_wo_ext.string() << ".exr" << "\"";
+		denoiserCmd << " \"" << filename_wo_ext.string() << "_albedo.exr" << "\"";
+		denoiserCmd << " \"" << filename_wo_ext.string() << "_normal.exr" << "\"";
+		denoiserCmd << " \"" << bloomFilePathStr << "\"";
 		denoiserCmd << " " << bloomScale;
 		denoiserCmd << " " << bloomIntensity;
 		denoiserCmd << " " << "\"" << tonemapperArgs << "\"";
