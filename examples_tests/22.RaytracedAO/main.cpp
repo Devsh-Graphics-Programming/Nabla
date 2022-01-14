@@ -584,6 +584,16 @@ int main(int argc, char** argv)
 				nbl::core::vectorSIMDf(0, 0, +1, 0), // +Z
 				nbl::core::vectorSIMDf(0, 0, -1, 0), // -Z
 			};
+			
+			const nbl::core::vectorSIMDf upVectors[6] =
+			{
+				nbl::core::vectorSIMDf(0, +1, 0, 0), // +Y
+				nbl::core::vectorSIMDf(0, +1, 0, 0), // +Y
+				nbl::core::vectorSIMDf(0, 0, +1, 0), // -Z
+				nbl::core::vectorSIMDf(0, 0, -1, 0), // +Z
+				nbl::core::vectorSIMDf(0, +1, 0, 0), // +Y
+				nbl::core::vectorSIMDf(0, +1, 0, 0), // +Y
+			};
 
 			const std::string suffixes[6] =
 			{
@@ -620,16 +630,15 @@ int main(int argc, char** argv)
 				auto & staticCamera = cubemapFaceSensorData.staticCamera;
 				
 				const auto & camView = camViews[i];
+				const auto & upVector = upVectors[i];
 
 				staticCamera->setPosition(mainCamPos.getAsVector3df());
 				staticCamera->setTarget((mainCamPos + camView).getAsVector3df());
-				
-				if (core::dot(core::normalize(core::cross(staticCamera->getUpVector(),camView)),core::cross(mainCamUp,camView)).x<0.99f)
-					staticCamera->setUpVector(mainCamUp);
+				staticCamera->setUpVector(upVector);
 
 				auto borderPixels = cubemapFaceSensorData.highQualityEdges;
 				// TODO: compute fov based on borderPixels
-				auto fov = core::radians(90);
+				auto fov = core::radians(90.0f);
 				auto aspectRatio = 1.0f;
 				if(mainSensorData.width != mainSensorData.height)
 				{
@@ -641,7 +650,8 @@ int main(int argc, char** argv)
 					staticCamera->setProjectionMatrix(core::matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(fov, 1.0f, nearClip, farClip));
 				else
 					staticCamera->setProjectionMatrix(core::matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(fov, 1.0f, nearClip, farClip));
-		
+				
+				cubemapFaceSensorData.interactiveCamera = smgr->addCameraSceneNodeModifiedMaya(nullptr, -1.0f * mainSensorData.rotateSpeed, 50.0f, mainSensorData.moveSpeed, -1, 2.0f, defaultZoomSpeedMultiplier, false, true);
 				cubemapFaceSensorData.resetInteractiveCamera();
 				sensors.push_back(cubemapFaceSensorData);
 			}
