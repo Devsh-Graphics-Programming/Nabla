@@ -28,11 +28,21 @@ class matrix3x4SIMD;
 template<typename T>
 NBL_FORCE_INLINE T radians(const T& degrees)
 {
+	static_assert(
+		std::is_same<T, float>::value ||
+		std::is_same<T, double>::value,
+		"This code expects the type to be double or float, only (float, double).");
+
 	return degrees*PI<T>()/T(180);
 }
 template<typename T>
 NBL_FORCE_INLINE T degrees(const T& radians)
 {
+	static_assert(
+		std::is_same<T, float>::value ||
+		std::is_same<T, double>::value,
+		"This code expects the type to be double or float, only (float, double).");
+
 	return radians*T(180)/PI<T>();
 }
 // TODO : sin,cos,tan,asin,acos,atan(y,x),atan(y_over_x),sinh,cosh,tanh,asinh,acosh,atanh,sincos
