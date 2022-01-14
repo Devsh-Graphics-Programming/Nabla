@@ -244,6 +244,7 @@ int main(int argc, char** argv)
 
 					filePath = files[chosen].FullName.c_str();
 					std::cout << "Selected XML File: "<< files[chosen].Name.c_str() << std::endl;
+					mainFileName += std::string("_") + std::filesystem::path(files[chosen].Name.c_str()).replace_extension().string();
 				}
 				else
 				{
@@ -254,6 +255,7 @@ int main(int argc, char** argv)
 						{
 							found = true;
 							filePath = it->FullName.c_str();
+							mainFileName += std::string("_") + std::filesystem::path(it->Name.c_str()).replace_extension().string();
 							break;
 						}
 					}
@@ -393,6 +395,7 @@ int main(int argc, char** argv)
 		return 5; // return code?
 	}
 	
+	const bool shouldHaveSensorIdxInFileName = globalMeta->m_global.m_sensors.size() > 1;
 	std::vector<SensorData> sensors = std::vector<SensorData>();
 	std::vector<CubemapRender> cubemapRenders = std::vector<CubemapRender>();
 
@@ -544,7 +547,10 @@ int main(int argc, char** argv)
 			if (mainSensorData.outputFilePath.empty())
 			{
 				auto extensionStr = getFileExtensionFromFormat(mainSensorData.fileFormat);
-				mainSensorData.outputFilePath = std::filesystem::path("Render_" + mainFileName + "_Sensor_" + std::to_string(idx) + extensionStr);
+				if(shouldHaveSensorIdxInFileName)
+					mainSensorData.outputFilePath = std::filesystem::path("Render_" + mainFileName + "_Sensor_" + std::to_string(idx) + extensionStr);
+				else
+					mainSensorData.outputFilePath = std::filesystem::path("Render_" + mainFileName + extensionStr);
 			}
 
 			mainSensorData.staticCamera = smgr->addCameraSceneNode(nullptr); 
@@ -599,7 +605,11 @@ int main(int argc, char** argv)
 				
 				if (cubemapFaceSensorData.outputFilePath.empty())
 				{
-					cubemapFaceSensorData.outputFilePath = std::filesystem::path("Render_" + mainFileName + "_Sensor_" + std::to_string(idx) + suffixes[i]);
+					if(shouldHaveSensorIdxInFileName)
+						cubemapFaceSensorData.outputFilePath = std::filesystem::path("Render_" + mainFileName + "_Sensor_" + std::to_string(idx) + suffixes[i]);
+					else
+						cubemapFaceSensorData.outputFilePath = std::filesystem::path("Render_" + mainFileName + suffixes[i]);
+
 				}
 				else
 				{
