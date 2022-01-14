@@ -1,15 +1,18 @@
 @echo off
 
-set /p borderSz="Border size: "
+REM examplary usage: 
+REM mergeCubemap.bat 50 mergedImage.png right.png left.png top.png bottom.png front.png back.png
 
-set /p img="Image to extract from: "
+set borderSz=%1
 
-set /p right="Right path: "
-set /p left="Left path: "
-set /p top="Top path: "
-set /p bottom="Bottom path: "
-set /p front="Front path: "
-set /p back="Back path: "
+set img=%2
+
+set right=%3
+set left=%4
+set top=%5
+set bottom=%6
+set front=%7
+set back=%8
 
 REM set extracted image size
 for /f "tokens=*" %%s in ('magick identify -format "%%w" %img%') do set sz=%%s

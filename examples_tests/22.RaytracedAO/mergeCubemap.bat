@@ -1,12 +1,15 @@
 @echo off
 
-set /p right="Right path: "
-set /p left="Left path: "
-set /p top="Top path: "
-set /p bottom="Bottom path: "
-set /p front="Front path: "
-set /p back="Back path: "
-set /p output="Output image name (without extension):"
+set right=%1
+set left=%2
+set top=%3
+set bottom=%4
+set front=%5
+set back=%6
+set output=%7
+
+REM examplary usage: 
+REM mergeCubemap.bat right.png left.png top.png bottom.png front.png back.png outputImageName
 
 REM set image size
 for /f "tokens=*" %%s in ('magick identify -format "%%w" %right%') do set sz=%%s
