@@ -17,7 +17,7 @@
 
 
 #if defined(_NBL_DEBUG) || defined(_NBL_RELWITHDEBINFO)
-//#	define DEBUG_MITSUBA_LOADER
+#	define DEBUG_MITSUBA_LOADER
 #endif
 
 namespace nbl
@@ -270,10 +270,8 @@ static core::smart_refctd_ptr<asset::ICPUImageView> createImageView(core::smart_
 
 	return asset::ICPUImageView::create(std::move(params));
 }
-static core::smart_refctd_ptr<asset::ICPUImage> createDerivMap(SContext& ctx, asset::ICPUImage* _heightMap, asset::ICPUSampler* _smplr, bool fromNormalMap)
+static core::smart_refctd_ptr<asset::ICPUImage> createDerivMap(SContext& ctx, asset::ICPUImage* _heightMap, const ICPUSampler::SParams& _samplerParams, bool fromNormalMap)
 {
-	const auto& sp = _smplr->getParams();
-
 	core::smart_refctd_ptr<asset::ICPUImage> derivmap_img;
 	float scale;
 	if (fromNormalMap)
@@ -282,9 +280,9 @@ static core::smart_refctd_ptr<asset::ICPUImage> createDerivMap(SContext& ctx, as
 	{
 		derivmap_img = asset::CDerivativeMapCreator::createDerivativeMapFromHeightMap<true>(
 			_heightMap,
-			static_cast<asset::ICPUSampler::E_TEXTURE_CLAMP>(sp.TextureWrapU),
-			static_cast<asset::ICPUSampler::E_TEXTURE_CLAMP>(sp.TextureWrapV),
-			static_cast<asset::ICPUSampler::E_TEXTURE_BORDER_COLOR>(sp.BorderColor),
+			static_cast<asset::ICPUSampler::E_TEXTURE_CLAMP>(_samplerParams.TextureWrapU),
+			static_cast<asset::ICPUSampler::E_TEXTURE_CLAMP>(_samplerParams.TextureWrapV),
+			static_cast<asset::ICPUSampler::E_TEXTURE_BORDER_COLOR>(_samplerParams.BorderColor),
 			&scale
 		);
 	}
@@ -296,30 +294,32 @@ static core::smart_refctd_ptr<asset::ICPUImage> createDerivMap(SContext& ctx, as
 
 	return derivmap_img;
 }
-static core::smart_refctd_ptr<asset::ICPUImage> createBlendWeightImage(const asset::ICPUImage* _img)
+static core::smart_refctd_ptr<asset::ICPUImage> createSingleChannelImage(const asset::ICPUImage* _img, const asset::ICPUImageView::SComponentMapping::E_SWIZZLE srcChannel)
 {
 	auto outParams = _img->getCreationParameters();
-	assert(asset::getFormatChannelCount(outParams.format) == 1u);
-
-	auto get3ChannelFormat = [](uint32_t bytesPerChannel) -> asset::E_FORMAT {
-		switch (bytesPerChannel)
-		{
-		case 1u:
-			return asset::EF_R8G8B8_UNORM;
-		case 2u:
-			return asset::EF_R16G16B16_SFLOAT;
-		case 4u:
-			return asset::EF_R32G32B32_SFLOAT;
-		case 8u:
-			return asset::EF_R64G64B64_SFLOAT;
-		default:
-			return asset::EF_UNKNOWN;
-		}
-	};
+	const auto inFormat = outParams.format;
 
 	asset::ICPUImage::SBufferCopy region;
-	const uint32_t bytesPerChannel = (getBytesPerPixel(outParams.format) * core::rational(1, getFormatChannelCount(outParams.format))).getIntegerApprox();
-	outParams.format = get3ChannelFormat(outParams.format);
+	// pick format
+	{
+		// TODO: redo the format selection when @Erfan's format promotor is operational
+		if (isSRGBFormat(inFormat))
+			outParams.format = asset::EF_B8G8R8A8_SRGB;
+		else
+		{
+			const double prec = asset::getFormatPrecision(inFormat,srcChannel,0.0);
+			if (prec<=FLT_MIN)
+				outParams.format = asset::EF_R32G32B32A32_SFLOAT;
+			else if (prec<=1.0/65535.0)
+				outParams.format = asset::EF_R16G16B16A16_UNORM;
+			else if (prec<=exp2f(-14.f))
+				outParams.format = asset::EF_R16G16B16A16_SFLOAT;
+			else if (prec<=1.0/1023.0)
+				outParams.format = asset::EF_A2B10G10R10_UNORM_PACK32;
+			else
+				outParams.format = asset::EF_R8G8B8A8_UNORM;
+		}
+	}
 	const size_t texelBytesz = asset::getTexelOrBlockBytesize(outParams.format);
 	region.bufferRowLength = asset::IImageAssetHandlerBase::calcPitchInBlocks(outParams.extent.width, texelBytesz);
 	auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(texelBytesz * region.bufferRowLength * outParams.extent.height);
@@ -333,13 +333,8 @@ static core::smart_refctd_ptr<asset::ICPUImage> createBlendWeightImage(const ass
 	auto outImg = asset::ICPUImage::create(std::move(outParams));
 	outImg->setBufferAndRegions(std::move(buffer), core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IImage::SBufferCopy>>(1ull, region));
 
-	asset::ICPUImageView::SComponentMapping swizzle;
-	constexpr auto RED = asset::ICPUImageView::SComponentMapping::ES_R;
-	swizzle = { RED, RED, RED, RED };
-
-	using convert_filter_t = asset::CSwizzleAndConvertImageFilter<asset::EF_UNKNOWN, asset::EF_UNKNOWN>;
+	using convert_filter_t = asset::CSwizzleAndConvertImageFilter<asset::EF_UNKNOWN,asset::EF_UNKNOWN>;
 	convert_filter_t::state_type conv;
-	conv.swizzle = swizzle;
 	conv.extent = outParams.extent;
 	conv.layerCount = 1u;
 	conv.inMipLevel = 0u;
@@ -350,6 +345,14 @@ static core::smart_refctd_ptr<asset::ICPUImage> createBlendWeightImage(const ass
 	conv.outOffset = { 0u,0u,0u };
 	conv.inImage = _img;
 	conv.outImage = outImg.get();
+	if (srcChannel!=asset::ICPUImageView::SComponentMapping::E_SWIZZLE::ES_IDENTITY)
+		conv.swizzle = {srcChannel,srcChannel,srcChannel,srcChannel};
+	else
+	{
+		conv.swizzle = {};
+		for (auto i=asset::getFormatChannelCount(inFormat); i<4; i++)
+			conv.swizzle[i] = asset::ICPUImageView::SComponentMapping::E_SWIZZLE::ES_R;
+	}
 
 	if (!convert_filter_t::execute(std::execution::par_unseq,&conv))
 	{
@@ -933,281 +936,131 @@ SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext& ctx, uint32_t 
 	return mesh;
 }
 
-SContext::tex_ass_type CMitsubaLoader::cacheTexture(SContext& ctx, uint32_t hierarchyLevel, const CElementTexture* tex, bool _restore)
+void CMitsubaLoader::cacheTexture(SContext& ctx, uint32_t hierarchyLevel, const CElementTexture* tex, const CMitsubaMaterialCompilerFrontend::E_IMAGE_VIEW_SEMANTIC semantic)
 {
 	if (!tex)
-		return {};
-
-	ICPUImageView::SCreationParams viewParams;
-	viewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0);
-	viewParams.subresourceRange.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0);
-	viewParams.subresourceRange.baseArrayLayer = 0u;
-	viewParams.subresourceRange.layerCount = 1u;
-	viewParams.subresourceRange.baseMipLevel = 0u;
-	viewParams.viewType = IImageView<ICPUImage>::ET_2D;
-	ICPUSampler::SParams samplerParams;
-	samplerParams.AnisotropicFilter = core::max(core::findMSB(uint32_t(tex->bitmap.maxAnisotropy)),1);
-	samplerParams.LodBias = 0.f;
-	samplerParams.TextureWrapW = ISampler::ETC_REPEAT;
-	samplerParams.BorderColor = ISampler::ETBC_FLOAT_OPAQUE_BLACK;
-	samplerParams.CompareEnable = false;
-	samplerParams.CompareFunc = ISampler::ECO_NEVER;
-	samplerParams.MaxLod = 10000.f;
-	samplerParams.MinLod = 0.f;
+		return;
 
 	switch (tex->type)
 	{
 		case CElementTexture::Type::BITMAP:
-		{
-				std::string cacheKey = ctx.imageViewCacheKey(tex->bitmap.filename.svalue);
-				switch (tex->bitmap.channel)
-				{
-				case CElementTexture::Bitmap::CHANNEL::R:
-					cacheKey += "?r";
-					break;
-				case CElementTexture::Bitmap::CHANNEL::G:
-					cacheKey += "?g";
-					break;
-				case CElementTexture::Bitmap::CHANNEL::B:
-					cacheKey += "?b";
-					break;
-				case CElementTexture::Bitmap::CHANNEL::A:
-					cacheKey += "?a";
-					break;
-				default:
-					break;
-				}
+			{
+				// get sampler parameters
+				const auto samplerParams = ctx.computeSamplerParameters(tex->bitmap);
 
-				core::smart_refctd_ptr<asset::ICPUImageView> view;
+				// search the cache for the imageview
+				const auto cacheKey = ctx.imageViewCacheKey(tex->bitmap,semantic);
+				const asset::IAsset::E_TYPE types[]{asset::IAsset::ET_IMAGE_VIEW,asset::IAsset::ET_TERMINATING_ZERO};
+				// could not find view in the cache
+				if (ctx.override_->findCachedAsset(cacheKey,types,ctx.inner,hierarchyLevel).getContents().empty())
 				{
-					asset::SAssetBundle viewBundle;
-					const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_IMAGE_VIEW, static_cast<asset::IAsset::E_TYPE>(0) };
-					viewBundle = ctx.override_->findCachedAsset(cacheKey, types, ctx.inner, 0u);
-
-					auto contents = viewBundle.getContents();
-					if (!contents.empty())
-						view = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(contents.begin()[0]);
-					if (view)
+					ICPUImageView::SCreationParams viewParams = {};
+					// find or restore image from cache
 					{
-						auto& image = view->getCreationParameters().image;
-						if (_restore && image->isADummyObjectForCache())
-						{
-							auto loadParams = ctx.inner.params;
-							loadParams.restoreLevels = std::max(loadParams.restoreLevels, hierarchyLevel + 2u);
-							// this will restore the image being kept by found `view`
-							auto bundle = interm_getAssetInHierarchy(m_assetMgr, tex->bitmap.filename.svalue, loadParams, hierarchyLevel, ctx.override_);
-							if (bundle.getContents().empty() || image->isADummyObjectForCache())
-							{
-								// if for some reason restore failed, force recreating whole view
-								auto removeBundle = asset::SAssetBundle(nullptr, { view });
-								m_assetMgr->removeAssetFromCache(removeBundle);
-								view = nullptr;
-							}
-						}
-					}
-				}
+						auto loadParams = ctx.inner.params;
+						// always restore, the only reason we haven't found a view is because either the image wasnt loaded yet, or its going to be processed with channel extraction or derivative mapping
+						const uint32_t restoreLevels = semantic==CMitsubaMaterialCompilerFrontend::EIVS_IDENTITIY&&tex->bitmap.channel==CElementTexture::Bitmap::CHANNEL::INVALID ? 0u:2u; // all the way to the buffer providing the pixels
+						loadParams.restoreLevels = std::max(loadParams.restoreLevels,hierarchyLevel+restoreLevels);
+						// load using the actual filename, not the cache key
+						asset::SAssetBundle bundle = interm_getAssetInHierarchy(m_assetMgr,tex->bitmap.filename.svalue,loadParams,hierarchyLevel,ctx.override_);
 
-				core::smart_refctd_ptr<asset::ICPUImage> img;
-				if (!view)
-				{
-					const uint32_t restoreLevels = _restore ? 2u : 0u;
-					auto loadParams = ctx.inner.params;
-					loadParams.restoreLevels = std::max(loadParams.restoreLevels, hierarchyLevel + restoreLevels);
-					asset::SAssetBundle imgBundle = interm_getAssetInHierarchy(m_assetMgr,tex->bitmap.filename.svalue,loadParams,hierarchyLevel,ctx.override_);
-					auto contentRange = imgBundle.getContents();
-					if (contentRange.begin() < contentRange.end())
-					{
+						// check if found
+						auto contentRange = bundle.getContents();
+						if (contentRange.empty())
+							return;
 						auto asset = contentRange.begin()[0];
-						if (asset && asset->getAssetType() == asset::IAsset::ET_IMAGE)
-						{
-							img = core::smart_refctd_ptr_static_cast<asset::ICPUImage>(asset);
+						if (asset->getAssetType()!=asset::IAsset::ET_IMAGE)
+							return;
 
-							switch (tex->bitmap.channel)
-							{
-								// no GL_R8_SRGB support yet
-								case CElementTexture::Bitmap::CHANNEL::R:
-									{
-									constexpr auto RED = ICPUImageView::SComponentMapping::ES_R;
-									viewParams.components = {RED,RED,RED,RED};
-									}
-									break;
-								case CElementTexture::Bitmap::CHANNEL::G:
-									{
-									constexpr auto GREEN = ICPUImageView::SComponentMapping::ES_G;
-									viewParams.components = {GREEN,GREEN,GREEN,GREEN};
-									}
-									break;
-								case CElementTexture::Bitmap::CHANNEL::B:
-									{
-									constexpr auto BLUE = ICPUImageView::SComponentMapping::ES_B;
-									viewParams.components = {BLUE,BLUE,BLUE,BLUE};
-									}
-									break;
-								case CElementTexture::Bitmap::CHANNEL::A:
-									{
-									constexpr auto ALPHA = ICPUImageView::SComponentMapping::ES_A;
-									viewParams.components = {ALPHA,ALPHA,ALPHA,ALPHA};
-									}
-									break;
-								/* special conversions needed to CIE space
-								case CElementTexture::Bitmap::CHANNEL::X:
-								case CElementTexture::Bitmap::CHANNEL::Y:
-								case CElementTexture::Bitmap::CHANNEL::Z:*/
-								case CElementTexture::Bitmap::CHANNEL::INVALID:
-									[[fallthrough]];
-								default:
-									break;
-							}
-							viewParams.subresourceRange.levelCount = img->getCreationParameters().mipLevels;
-							viewParams.format = img->getCreationParameters().format;
-							viewParams.image = std::move(img);
-							//! TODO: this stuff (custom shader sampling code?)
-							_NBL_DEBUG_BREAK_IF(tex->bitmap.uoffset != 0.f);
-							_NBL_DEBUG_BREAK_IF(tex->bitmap.voffset != 0.f);
-							_NBL_DEBUG_BREAK_IF(tex->bitmap.uscale != 1.f);
-							_NBL_DEBUG_BREAK_IF(tex->bitmap.vscale != 1.f);
-						}
-
-						//in case of <channel>, extract one channel
-						if (viewParams.components.g != asset::ICPUImageView::SComponentMapping::ES_G)
-						{
-							auto get1ChannelFormat = [](uint32_t bytesPerChannel) -> asset::E_FORMAT {
-								switch (bytesPerChannel)
-								{
-								case 1u:
-									return asset::EF_R8_UNORM;
-								case 2u:
-									return asset::EF_R16_SFLOAT;
-								case 4u:
-									return asset::EF_R32_SFLOAT;
-								case 8u:
-									return asset::EF_R64_SFLOAT;
-								default:
-									return asset::EF_UNKNOWN;
-								}
-							};
-
-							auto outParams = viewParams.image->getCreationParameters();
-							asset::ICPUImage::SBufferCopy region;
-							const uint32_t bytesPerChannel = (getBytesPerPixel(outParams.format) * core::rational(1, getFormatChannelCount(outParams.format))).getIntegerApprox();
-							outParams.format = get1ChannelFormat(bytesPerChannel);
-							const size_t texelBytesz = asset::getTexelOrBlockBytesize(outParams.format);
-							region.bufferRowLength = asset::IImageAssetHandlerBase::calcPitchInBlocks(outParams.extent.width, texelBytesz);
-							auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(texelBytesz * region.bufferRowLength * outParams.extent.height);
-							region.imageOffset = { 0,0,0 };
-							region.imageExtent = outParams.extent;
-							region.imageSubresource.baseArrayLayer = 0u;
-							region.imageSubresource.layerCount = 1u;
-							region.imageSubresource.mipLevel = 0u;
-							region.bufferImageHeight = 0u;
-							region.bufferOffset = 0u;
-							auto outImg = asset::ICPUImage::create(std::move(outParams));
-							outImg->setBufferAndRegions(std::move(buffer), core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IImage::SBufferCopy>>(1ull, region));
-
-							using convert_filter_t = asset::CSwizzleAndConvertImageFilter<asset::EF_UNKNOWN, asset::EF_UNKNOWN>;
-							convert_filter_t::state_type conv;
-							conv.swizzle = viewParams.components;
-							conv.extent = viewParams.image->getCreationParameters().extent;
-							conv.layerCount = 1u;
-							conv.inMipLevel = 0u;
-							conv.outMipLevel = 0u;
-							conv.inBaseLayer = 0u;
-							conv.outBaseLayer = 0u;
-							conv.inOffset = { 0u,0u,0u };
-							conv.outOffset = { 0u,0u,0u };
-							conv.inImage = viewParams.image.get();
-							conv.outImage = outImg.get();
-
-							viewParams.components = asset::ICPUImageView::SComponentMapping{};
-							if (!convert_filter_t::execute(std::execution::par_unseq,&conv))
-								_NBL_DEBUG_BREAK_IF(true);
-							viewParams.format = outImg->getCreationParameters().format;
-							viewParams.image = std::move(outImg);
-						}
-
-						view = ICPUImageView::create(std::move(viewParams));
-						asset::SAssetBundle viewBundle(nullptr,{ view });
-						ctx.override_->insertAssetIntoCache(std::move(viewBundle), cacheKey, ctx.inner, hierarchyLevel);
+						viewParams.image = core::smart_refctd_ptr_static_cast<asset::ICPUImage>(asset);
 					}
-
 					// adjust gamma on pixels (painful and long process)
 					if (!std::isnan(tex->bitmap.gamma))
 					{
-						_NBL_DEBUG_BREAK_IF(true); // TODO : use an image filter!
+						_NBL_DEBUG_BREAK_IF(true); // TODO : use an image filter (unify with the below maybe?)!
 					}
-				}
-
-				const std::string samplerCacheKey = ctx.samplerCacheKey(tex);
-				switch (tex->bitmap.filterType)
-				{
-					case CElementTexture::Bitmap::FILTER_TYPE::EWA:
-						[[fallthrough]]; // we dont support this fancy stuff
-					case CElementTexture::Bitmap::FILTER_TYPE::TRILINEAR:
-						samplerParams.MinFilter = ISampler::ETF_LINEAR;
-						samplerParams.MaxFilter = ISampler::ETF_LINEAR;
-						samplerParams.MipmapMode = ISampler::ESMM_LINEAR;
-						break;
-					default:
-						samplerParams.MinFilter = ISampler::ETF_NEAREST;
-						samplerParams.MaxFilter = ISampler::ETF_NEAREST;
-						samplerParams.MipmapMode = ISampler::ESMM_NEAREST;
-						break;
-				}
-				auto getWrapMode = [&samplerCacheKey](CElementTexture::Bitmap::WRAP_MODE mode)
-				{
-					switch (mode)
+					switch (semantic)
 					{
-						case CElementTexture::Bitmap::WRAP_MODE::CLAMP:
-							return ISampler::ETC_CLAMP_TO_EDGE;
+						case CMitsubaMaterialCompilerFrontend::EIVS_IDENTITIY:
+						case CMitsubaMaterialCompilerFrontend::EIVS_BLEND_WEIGHT:
+							{
+								switch (tex->bitmap.channel)
+								{
+									// no GL_R8_SRGB support yet
+									case CElementTexture::Bitmap::CHANNEL::R:
+										viewParams.image = createSingleChannelImage(viewParams.image.get(),asset::ICPUImageView::SComponentMapping::ES_R);
+										break;
+									case CElementTexture::Bitmap::CHANNEL::G:
+										viewParams.image = createSingleChannelImage(viewParams.image.get(),asset::ICPUImageView::SComponentMapping::ES_G);
+										break;
+									case CElementTexture::Bitmap::CHANNEL::B:
+										viewParams.image = createSingleChannelImage(viewParams.image.get(),asset::ICPUImageView::SComponentMapping::ES_B);
+										break;
+									case CElementTexture::Bitmap::CHANNEL::A:
+										viewParams.image = createSingleChannelImage(viewParams.image.get(),asset::ICPUImageView::SComponentMapping::ES_A);
+										break;
+									/* special conversions needed to CIE space
+									case CElementTexture::Bitmap::CHANNEL::X:
+									case CElementTexture::Bitmap::CHANNEL::Y:
+									case CElementTexture::Bitmap::CHANNEL::Z:*/
+									case CElementTexture::Bitmap::CHANNEL::INVALID:
+										[[fallthrough]];
+									default:
+										if (semantic==CMitsubaMaterialCompilerFrontend::EIVS_BLEND_WEIGHT && asset::getFormatChannelCount(viewParams.image->getCreationParameters().format)<3u)
+											viewParams.image = createSingleChannelImage(viewParams.image.get(),asset::ICPUImageView::SComponentMapping::ES_IDENTITY);
+										break;
+								}
+							}
 							break;
-						case CElementTexture::Bitmap::WRAP_MODE::MIRROR:
-							return ISampler::ETC_MIRROR;
+						case CMitsubaMaterialCompilerFrontend::EIVS_NORMAL_MAP:
+							viewParams.image = createDerivMap(ctx,viewParams.image.get(),samplerParams,true);
 							break;
-						case CElementTexture::Bitmap::WRAP_MODE::ONE:
-							_NBL_DEBUG_BREAK_IF(true); // TODO : replace whole texture?
-							break;
-						case CElementTexture::Bitmap::WRAP_MODE::ZERO:
-							_NBL_DEBUG_BREAK_IF(true); // TODO : replace whole texture?
+						case CMitsubaMaterialCompilerFrontend::EIVS_BUMP_MAP:
+							viewParams.image = createDerivMap(ctx,viewParams.image.get(),samplerParams,false);
 							break;
 						default:
+							_NBL_DEBUG_BREAK_IF(true);
+							assert(false);
 							break;
 					}
-					return ISampler::ETC_REPEAT;
-				};
-				samplerParams.TextureWrapU = getWrapMode(tex->bitmap.wrapModeU);
-				samplerParams.TextureWrapV = getWrapMode(tex->bitmap.wrapModeV);
+					// get rest of view params and insert into cache
+					{
+						viewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0);
+						viewParams.viewType = IImageView<ICPUImage>::ET_2D;
+						viewParams.format = viewParams.image->getCreationParameters().format;
+						viewParams.subresourceRange.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0);
+						viewParams.subresourceRange.levelCount = viewParams.image->getCreationParameters().mipLevels;
+						viewParams.subresourceRange.layerCount = 1u;
+						//! TODO: this stuff (custom shader sampling code?)
+						_NBL_DEBUG_BREAK_IF(tex->bitmap.uoffset != 0.f);
+						_NBL_DEBUG_BREAK_IF(tex->bitmap.voffset != 0.f);
+						_NBL_DEBUG_BREAK_IF(tex->bitmap.uscale != 1.f);
+						_NBL_DEBUG_BREAK_IF(tex->bitmap.vscale != 1.f);
 
-				core::smart_refctd_ptr<ICPUSampler> sampler;
-				{
-					const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_SAMPLER, static_cast<asset::IAsset::E_TYPE>(0) };
-					auto samplerBundle = ctx.override_->findCachedAsset(samplerCacheKey, types, ctx.inner, 0u);
-					auto contents = samplerBundle.getContents();
-					if (!contents.empty())
-						sampler = core::smart_refctd_ptr_static_cast<asset::ICPUSampler>(contents.begin()[0]);
+						asset::SAssetBundle viewBundle(nullptr,{ICPUImageView::create(std::move(viewParams))});
+						ctx.override_->insertAssetIntoCache(std::move(viewBundle),cacheKey,ctx.inner,hierarchyLevel);
+					}
 				}
 
-				if (!view)
-					sampler = nullptr;
-				else if (!sampler)
+
+				// create sampler if not found in cache
 				{
-					sampler = core::make_smart_refctd_ptr<ICPUSampler>(samplerParams);
-					SAssetBundle samplerBundle(nullptr,{ sampler });
-					ctx.override_->insertAssetIntoCache(std::move(samplerBundle), samplerCacheKey, ctx.inner, hierarchyLevel);
+					const std::string samplerCacheKey = ctx.samplerCacheKey(samplerParams);
+					const asset::IAsset::E_TYPE types[] = {asset::IAsset::ET_SAMPLER,asset::IAsset::ET_TERMINATING_ZERO};
+					// not found in cache
+					if (ctx.override_->findCachedAsset(samplerCacheKey,types,ctx.inner,hierarchyLevel).getContents().empty())
+					{
+						SAssetBundle samplerBundle(nullptr,{core::make_smart_refctd_ptr<ICPUSampler>(samplerParams)});
+						ctx.override_->insertAssetIntoCache(std::move(samplerBundle),samplerCacheKey,ctx.inner,hierarchyLevel);
+					}
 				}
-
-				SContext::tex_ass_type tex_ass(std::move(view), std::move(sampler));
-
-				return tex_ass;
-		}
+			}
 			break;
 		case CElementTexture::Type::SCALE:
-		{
-			return cacheTexture(ctx,hierarchyLevel,tex->scale.texture);
-		}
+			cacheTexture(ctx,hierarchyLevel,tex->scale.texture,semantic);
 			break;
 		default:
 			_NBL_DEBUG_BREAK_IF(true);
-			return SContext::tex_ass_type{nullptr,nullptr};
 			break;
 	}
 }
@@ -1228,12 +1081,10 @@ auto CMitsubaLoader::getBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsd
 auto CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* _bsdf) -> SContext::bsdf_type
 {
 	{
-		auto cachePropertyTexture = [&](const auto& const_or_tex, SContext::tex_ass_type& out_img) {
-			bool is_tex = (const_or_tex.value.type == SPropertyElementData::INVALID);
-			if (const_or_tex.value.type == SPropertyElementData::INVALID)
-				out_img = cacheTexture(ctx, 0u, const_or_tex.texture);
-
-			return is_tex;
+		auto cachePropertyTexture = [&](const auto& const_or_tex, const CMitsubaMaterialCompilerFrontend::E_IMAGE_VIEW_SEMANTIC semantic=CMitsubaMaterialCompilerFrontend::EIVS_IDENTITIY) -> void
+		{
+			if (const_or_tex.value.type==SPropertyElementData::INVALID)
+				cacheTexture(ctx,0u,const_or_tex.texture,semantic);
 		};
 		auto unrollScales = [](CElementTexture* tex)
 		{
@@ -1249,99 +1100,64 @@ auto CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* _bs
 		{
 			auto* bsdf = stack.top();
 			stack.pop();
+			//
 			switch (bsdf->type)
 			{
-			case CElementBSDF::COATING:
-				for (uint32_t i = 0u; i < bsdf->coating.childCount; ++i)
-					stack.push(bsdf->coating.bsdf[i]);
-				break;
-			case CElementBSDF::ROUGHCOATING:
-			case CElementBSDF::BUMPMAP:
-			case CElementBSDF::BLEND_BSDF:
-			case CElementBSDF::MIXTURE_BSDF:
-			case CElementBSDF::MASK:
-			case CElementBSDF::TWO_SIDED:
-				for (uint32_t i = 0u; i < bsdf->meta_common.childCount; ++i)
-					stack.push(bsdf->meta_common.bsdf[i]);
-			default: break;
+				case CElementBSDF::COATING:
+					for (uint32_t i = 0u; i < bsdf->coating.childCount; ++i)
+						stack.push(bsdf->coating.bsdf[i]);
+					break;
+				case CElementBSDF::ROUGHCOATING:
+				case CElementBSDF::BUMPMAP:
+				case CElementBSDF::BLEND_BSDF:
+				case CElementBSDF::MIXTURE_BSDF:
+				case CElementBSDF::MASK:
+				case CElementBSDF::TWO_SIDED:
+					for (uint32_t i = 0u; i < bsdf->meta_common.childCount; ++i)
+						stack.push(bsdf->meta_common.bsdf[i]);
+				default:
+					break;
 			}
-
-			SContext::tex_ass_type tex;
+			//
 			switch (bsdf->type)
 			{
-			case CElementBSDF::DIFFUSE:
-			case CElementBSDF::ROUGHDIFFUSE:
-				cachePropertyTexture(bsdf->diffuse.reflectance, tex);
-				cachePropertyTexture(bsdf->diffuse.alpha, tex);
-				break;
-			case CElementBSDF::DIFFUSE_TRANSMITTER:
-				cachePropertyTexture(bsdf->difftrans.transmittance, tex);
-				break;
-			case CElementBSDF::DIELECTRIC:
-			case CElementBSDF::THINDIELECTRIC:
-			case CElementBSDF::ROUGHDIELECTRIC:
-				cachePropertyTexture(bsdf->dielectric.alphaU, tex);
-				if (bsdf->dielectric.distribution == CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
-					cachePropertyTexture(bsdf->dielectric.alphaV, tex);
-				break;
-			case CElementBSDF::CONDUCTOR:
-				cachePropertyTexture(bsdf->conductor.alphaU, tex);
-				if (bsdf->conductor.distribution == CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
-					cachePropertyTexture(bsdf->conductor.alphaV, tex);
-				break;
-			case CElementBSDF::PLASTIC:
-			case CElementBSDF::ROUGHPLASTIC:
-				cachePropertyTexture(bsdf->plastic.diffuseReflectance, tex);
-				cachePropertyTexture(bsdf->plastic.alphaU, tex);
-				if (bsdf->plastic.distribution == CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
-					cachePropertyTexture(bsdf->plastic.alphaV, tex);
-				break;
-			case CElementBSDF::BUMPMAP:
-			{
-				using namespace std::string_literals;
-
-				auto* bumpmap_element = unrollScales(bsdf->bumpmap.texture);
-				auto bm = cacheTexture(ctx, 0u, bumpmap_element);
-				// TODO check and restore if dummy (image and sampler)
-				auto bumpmap = std::get<0>(bm)->getCreationParameters().image;
-				auto sampler = std::get<1>(bm);
-				const bool wasNormal = bsdf->bumpmap.wasNormal;
-				const std::string key = ctx.derivMapCacheKey(bumpmap_element,wasNormal);
-
-				if (!getBuiltinAsset<asset::ICPUImage, asset::IAsset::ET_IMAGE>(key.c_str(), m_assetMgr))
-				{
-					auto derivmap = createDerivMap(ctx, bumpmap.get(),sampler.get(),wasNormal);
-					asset::SAssetBundle imgBundle(nullptr,{ derivmap });
-					ctx.override_->insertAssetIntoCache(std::move(imgBundle), key, ctx.inner, 0u);
-					auto derivmap_view = createImageView(std::move(derivmap));
-					asset::SAssetBundle viewBundle(nullptr,{ derivmap_view });
-					ctx.override_->insertAssetIntoCache(std::move(viewBundle), ctx.imageViewCacheKey(key), ctx.inner, 0u);
-				}
-			}
-				break;
-			case CElementBSDF::BLEND_BSDF:
-				if (cachePropertyTexture(bsdf->blendbsdf.weight, tex))
-				{
-					auto* weight_element = unrollScales(bsdf->blendbsdf.weight.texture);
-					const std::string key = ctx.blendWeightImageCacheKey(weight_element);
-
-					if (!getBuiltinAsset<asset::ICPUImage, asset::IAsset::ET_IMAGE>(key.c_str(), m_assetMgr))
-					{
-						auto img = std::get<0>(tex)->getCreationParameters().image;
-
-						auto blendweight = createBlendWeightImage(img.get());
-						asset::SAssetBundle imgBundle(nullptr,{ blendweight });
-						ctx.override_->insertAssetIntoCache(std::move(imgBundle), key, ctx.inner, 0u);
-						auto blendweight_view = createImageView(std::move(blendweight));
-						asset::SAssetBundle viewBundle(nullptr,{ blendweight_view });
-						ctx.override_->insertAssetIntoCache(std::move(viewBundle), ctx.imageViewCacheKey(key), ctx.inner, 0u);
-					}
-				}
-				break;
-			case CElementBSDF::MASK:
-				cachePropertyTexture(bsdf->mask.opacity, tex);
-				break;
-			default: break;
+				case CElementBSDF::DIFFUSE:
+				case CElementBSDF::ROUGHDIFFUSE:
+					cachePropertyTexture(bsdf->diffuse.reflectance);
+					cachePropertyTexture(bsdf->diffuse.alpha);
+					break;
+				case CElementBSDF::DIFFUSE_TRANSMITTER:
+					cachePropertyTexture(bsdf->difftrans.transmittance);
+					break;
+				case CElementBSDF::DIELECTRIC:
+				case CElementBSDF::THINDIELECTRIC:
+				case CElementBSDF::ROUGHDIELECTRIC:
+					cachePropertyTexture(bsdf->dielectric.alphaU);
+					if (bsdf->dielectric.distribution == CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
+						cachePropertyTexture(bsdf->dielectric.alphaV);
+					break;
+				case CElementBSDF::CONDUCTOR:
+					cachePropertyTexture(bsdf->conductor.alphaU);
+					if (bsdf->conductor.distribution == CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
+						cachePropertyTexture(bsdf->conductor.alphaV);
+					break;
+				case CElementBSDF::PLASTIC:
+				case CElementBSDF::ROUGHPLASTIC:
+					cachePropertyTexture(bsdf->plastic.diffuseReflectance);
+					cachePropertyTexture(bsdf->plastic.alphaU);
+					if (bsdf->plastic.distribution == CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
+						cachePropertyTexture(bsdf->plastic.alphaV);
+					break;
+				case CElementBSDF::BUMPMAP:
+					cacheTexture(ctx,0u,bsdf->bumpmap.texture,bsdf->bumpmap.wasNormal ? CMitsubaMaterialCompilerFrontend::EIVS_NORMAL_MAP:CMitsubaMaterialCompilerFrontend::EIVS_BUMP_MAP);
+					break;
+				case CElementBSDF::BLEND_BSDF:
+					cachePropertyTexture(bsdf->blendbsdf.weight,CMitsubaMaterialCompilerFrontend::EIVS_BLEND_WEIGHT);
+					break;
+				case CElementBSDF::MASK:
+					cachePropertyTexture(bsdf->mask.opacity,CMitsubaMaterialCompilerFrontend::EIVS_BLEND_WEIGHT);
+					break;
+				default: break;
 			}
 		}
 	}

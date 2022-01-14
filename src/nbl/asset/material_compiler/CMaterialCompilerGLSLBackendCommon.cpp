@@ -679,7 +679,7 @@ std::pair<instr_t, const IR::INode*> CInterpreter::processSubtree(IR* ir, const 
 		auto* deltatrans = getDeltaTransmissionNode(ir, cache, opacity);
 		assert(opacity->children.count == 1u);
 		auto* bxdf = const_cast<IR::INode*>(opacity->children[0]);
-		blend->children = IR::INode::createChildrenArray(bxdf, deltatrans);
+		blend->children = IR::INode::createChildrenArray(deltatrans,bxdf);
 		out_next = blend->children;
 
 		tree = blend;

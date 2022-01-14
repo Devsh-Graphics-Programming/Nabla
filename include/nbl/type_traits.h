@@ -33,6 +33,15 @@ template<typename T, typename U>
 struct is_any_of<T, U> : std::is_same<T, U>::type { };
 
 
+template<auto cf, decltype(cf) cmp, decltype(cf)... searchtab>
+struct is_any_of_values : is_any_of_values<cf,searchtab...> {};
+
+template<auto cf, decltype(cf) cmp>
+struct is_any_of_values<cf, cmp> : std::false_type {}; //if last comparison is also false, than return false
+
+template<auto cf, decltype(cf)... searchtab>
+struct is_any_of_values<cf, cf, searchtab...> : std::true_type {};
+
 
 template<typename T, bool is_const_pointer = std::is_const_v<T>>
 struct pointer_to_const;

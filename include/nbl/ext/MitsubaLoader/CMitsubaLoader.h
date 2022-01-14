@@ -16,11 +16,7 @@
 #include "nbl/ext/MitsubaLoader/SContext.h"
 
 
-namespace nbl
-{
-namespace ext
-{
-namespace MitsubaLoader
+namespace nbl::ext::MitsubaLoader
 {
 
 
@@ -78,7 +74,7 @@ class CMitsubaLoader : public asset::IRenderpassIndependentPipelineLoader
 		core::vector<SContext::shape_ass_type>	loadShapeGroup(SContext& ctx, uint32_t hierarchyLevel, const CElementShape::ShapeGroup* shapegroup, const core::matrix3x4SIMD& relTform);
 		SContext::shape_ass_type				loadBasicShape(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape, const core::matrix3x4SIMD& relTform);
 		
-		SContext::tex_ass_type					cacheTexture(SContext& ctx, uint32_t hierarchyLevel, const CElementTexture* texture, bool _restore = false);
+		void									cacheTexture(SContext& ctx, uint32_t hierarchyLevel, const CElementTexture* texture, const CMitsubaMaterialCompilerFrontend::E_IMAGE_VIEW_SEMANTIC semantic);
 
 		SContext::bsdf_type getBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf);
 		SContext::bsdf_type genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf);
@@ -105,7 +101,5 @@ class CMitsubaLoader : public asset::IRenderpassIndependentPipelineLoader
 		asset::SAssetBundle loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 };
 
-}
-}
 }
 #endif
