@@ -6,7 +6,7 @@ set top=%3
 set bottom=%4
 set front=%5
 set back=%6
-set output=%7
+set output=%~dpn7
 
 REM examplary usage: 
 REM mergeCubemap.bat right.png left.png top.png bottom.png front.png back.png outputImageName
@@ -29,5 +29,3 @@ magick convert -size %outputwidth%x%outputHeight% canvas:none ^
 -draw "image over  %sz%,%sz% 0,0 '%front%'" ^
 -draw "image over  %szx2%,%sz% 0,0 '%back%'" ^
 %output%.%format%
-
-PAUSE

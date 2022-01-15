@@ -31,5 +31,3 @@ magick convert %img% -crop %extractedImgSz%x%extractedImgSz%+%x2%+%y0% %top%
 magick convert %img% -crop %extractedImgSz%x%extractedImgSz%+%x0%+%y1% %bottom%
 magick convert %img% -crop %extractedImgSz%x%extractedImgSz%+%x1%+%y1% %front%
 magick convert %img% -crop %extractedImgSz%x%extractedImgSz%+%x2%+%y1% %back%
-
-PAUSE
