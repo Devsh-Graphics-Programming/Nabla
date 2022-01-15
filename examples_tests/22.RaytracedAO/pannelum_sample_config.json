@@ -1,0 +1,11 @@
+{
+    "type": "cubemap",
+    "cubeMap": [
+        "Render_scene_z-_denoised.png",
+        "Render_scene_x+_denoised.png",
+        "Render_scene_z+_denoised.png",
+        "Render_scene_x-_denoised.png",
+        "Render_scene_y+_denoised.png",
+        "Render_scene_y-_denoised.png"
+    ]
+}
