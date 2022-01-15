@@ -575,7 +575,7 @@ int main(int argc, char** argv)
 		}
 		else if (mainSensorData.type == ext::MitsubaLoader::CElementSensor::Type::SPHERICAL)
 		{
-			const nbl::core::vectorSIMDf camViews[6] =
+			nbl::core::vectorSIMDf camViews[6] =
 			{
 				nbl::core::vectorSIMDf(+1, 0, 0, 0), // +X
 				nbl::core::vectorSIMDf(-1, 0, 0, 0), // -X
@@ -584,6 +584,12 @@ int main(int argc, char** argv)
 				nbl::core::vectorSIMDf(0, 0, +1, 0), // +Z
 				nbl::core::vectorSIMDf(0, 0, -1, 0), // -Z
 			};
+
+			if(!mainSensorData.rightHandedCamera)
+			{
+				camViews[0] *= -1;
+				camViews[1] *= -1;
+			}
 			
 			const nbl::core::vectorSIMDf upVectors[6] =
 			{
