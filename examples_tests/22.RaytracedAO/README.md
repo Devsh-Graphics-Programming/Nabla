@@ -56,6 +56,7 @@ You can switch between those sensors using `PAGE UP/DOWN` Keys defined in more d
 | bloomIntensity | Denoiser Bloom Intensity                                                               | float  | 0.1                                                                                                                                                                      |
 |  bloomFilePath | Lens Flare File Path                                                                   | string | "../../media/kernels/physical_flare_512.exr"                                                                                                                             |
 |   tonemapper   | Tonemapper Settings for Denoiser                                                       | string | "ACES=0.4,0.8"                                                                                                                                                           |
+|   highQualityEdges   | Number in pixels (prevously was bool) to add to borders for more accurate denoising            | integer| 0                                                                                                                                                           |
 
 ### Example of a sensor using all new properties described above.
 ```xml

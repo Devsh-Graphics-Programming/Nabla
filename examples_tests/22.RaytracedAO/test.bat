@@ -1,6 +1,6 @@
 @echo off
 
-set pathtracer="raytracedao.exe"
+set pathtracer="%~dp0/bin/raytracedao.exe"
 
 pushd bin
 if NOT EXIST %pathtracer% (

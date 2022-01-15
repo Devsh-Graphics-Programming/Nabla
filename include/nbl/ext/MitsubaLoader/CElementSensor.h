@@ -82,7 +82,7 @@ class CElementSensor : public IElement
 		struct TelecentricLens : Orthographic, DepthOfFieldBase
 		{
 		};
-		struct SphericalCamera : ShutterSensor
+		struct SphericalCamera : CameraBase
 		{
 		};
 		struct IrradianceMeter : ShutterSensor

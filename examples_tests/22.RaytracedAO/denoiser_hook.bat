@@ -11,25 +11,28 @@ if NOT EXIST %denoiser_dir%/denoisertonemapper.exe (
 REM 1.ColorFile 2.AlbedoFile 3.NormalFile 4.BloomPsfFilePath(STRING) 5.BloomScale(FLOAT) 6.BloomIntensity(FLOAT) 7.TonemapperArgs(STRING)
 call :denoise %1 %2 %3 %4 %5 %6 %7
 
+
 EXIT /B %ERRORLEVEL%
 
 :denoise
-if NOT EXIST %~dpn1.exr (
-    echo BatchScriptError: Denoiser input file doesn't exist. ^(at %~dpn1.exr^)
+
+set color_file="%~dpn1.exr"
+set albedo_file="%~dpn2.exr"
+set normal_file="%~dpn3.exr"
+set output_file="%~dpn1_denoised.exr"
+
+if NOT EXIST %color_file% (
+    echo BatchScriptError: Denoiser input file doesn't exist. ^(at %color_file%^)
     EXIT /B 0
 )
-if NOT EXIST %~dpn2.exr (
-    echo BatchScriptError: Denoiser input file doesn't exist. ^(at %~dpn2.exr^)
+if NOT EXIST %albedo_file% (
+    echo BatchScriptError: Denoiser input file doesn't exist. ^(at %albedo_file%^)
     EXIT /B 0
 )
-if NOT EXIST %~dpn3.exr (
-    echo BatchScriptError: Denoiser input file doesn't exist. ^(at %~dpn3.exr^)
+if NOT EXIST %normal_file% (
+    echo BatchScriptError: Denoiser input file doesn't exist. ^(at %normal_file%^)
     EXIT /B 0
 )
-set color_file=%~dpn1.exr
-set albedo_file=%~dpn2.exr
-set normal_file=%~dpn3.exr
-set output_file=%~dpn1_denoised.exr
 set bloom_file=%~f4
 set bloom_scale=%~5
 set bloom_intensity=%~6

@@ -125,7 +125,7 @@ class CElementFilm : public IElement
 		PixelFormat		pixelFormat;
 		ComponentFormat	componentFormat;
 		bool banner;
-		bool highQualityEdges;
+		int32_t highQualityEdges;
 		CElementRFilter rfilter;
 		union
 		{
