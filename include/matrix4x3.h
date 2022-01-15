@@ -162,7 +162,7 @@ namespace core
 			//! Make a rotation matrix from Euler angles. The 4th row and column are unmodified.
 			inline matrix4x3& setRotationDegrees( const vector3df& rotation )
             {
-                return setRotationRadians( radians<vector3df>(rotation) );
+				return setRotationRadians(vector3df(radians(rotation.X), radians(rotation.Y), radians(rotation.Z)));
             }
 
 			//! Returns the rotation, as set by setRotation().
