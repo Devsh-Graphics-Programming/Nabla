@@ -1,6 +1,7 @@
 @echo off
 
 set pathtracer="%~dp0/bin/raytracedao.exe"
+set scenesInput="%~dp0/test_scenes.txt"
 
 pushd bin
 if NOT EXIST %pathtracer% (
@@ -10,7 +11,7 @@ if NOT EXIST %pathtracer% (
 )
 popd
 
-for /f "tokens=*" %%s in ('findstr /v /c:";" test_scenes.txt') do (
+for /f "tokens=*" %%s in ('findstr /v /c:";" %scenesInput%') do (
     REM echo %%s
     Call :render_and_denoise %%s
 )
