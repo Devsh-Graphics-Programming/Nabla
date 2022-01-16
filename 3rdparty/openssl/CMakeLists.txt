@@ -57,7 +57,6 @@ elseif(ANDROID) # cross-compile
 		# ATTENTION - it used to work but ENV variable doesn't work while building https://cmake.org/cmake/help/latest/command/set.html#set-environment-variable, TODO check after changes one more time
 		add_custom_command(
 			OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/build/lib/libcrypto.a" "${CMAKE_CURRENT_BINARY_DIR}/build/lib/libssl.a"
-			COMMAND make clean
 			# not sure if linux-generic64 is right (https://stackoverflow.com/questions/26779531/openssl-for-android-x86-64-and-mips64)
 			# but android-x86_64 is not even recognized (should be according to this https://github.com/openssl/openssl/blob/master/NOTES-ANDROID.md)
 			COMMAND "${PERL_EXECUTABLE}" "${_COPY_BIN_SOURCE_}/Configure" linux-generic64 no-asm no-shared -D__ANDROID_API__=${ANDROID_API_LEVEL} --openssldir=${CMAKE_CURRENT_BINARY_DIR}/build
