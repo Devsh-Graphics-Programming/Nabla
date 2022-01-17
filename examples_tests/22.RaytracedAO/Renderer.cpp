@@ -1500,14 +1500,13 @@ void Renderer::takeAndSaveScreenShot(const std::filesystem::path& screenshotFile
 	filename_wo_ext.replace_extension();
 	if (m_tonemapOutput)
 		ext::ScreenShot::createScreenShot(m_driver,m_assetManager,m_tonemapOutput.get(),filename_wo_ext.string()+".exr",format);
+	if (m_albedoRslv)
+		ext::ScreenShot::createScreenShot(m_driver,m_assetManager,m_albedoRslv.get(),filename_wo_ext.string()+"_albedo.exr",format);
+	if (m_normalRslv)
+		ext::ScreenShot::createScreenShot(m_driver,m_assetManager,m_normalRslv.get(),filename_wo_ext.string()+"_normal.exr",format);
 
 	if(denoise)
 	{
-		if (m_albedoRslv)
-			ext::ScreenShot::createScreenShot(m_driver,m_assetManager,m_albedoRslv.get(),filename_wo_ext.string()+"_albedo.exr",format);
-		if (m_normalRslv)
-			ext::ScreenShot::createScreenShot(m_driver,m_assetManager,m_normalRslv.get(),filename_wo_ext.string()+"_normal.exr",format);
-
 		const std::string defaultBloomFile = "../../media/kernels/physical_flare_512.exr";
 		const std::string defaultTonemapperArgs = "ACES=0.4,0.8";
 		constexpr auto defaultBloomScale = 0.1f;
@@ -1533,6 +1532,98 @@ void Renderer::takeAndSaveScreenShot(const std::filesystem::path& screenshotFile
 		std::system(denoiserCmd.str().c_str());
 		std::cout << "\n---[DENOISER_END]---" << std::endl;
 	}
+}
+
+void Renderer::denoiseCubemapFaces(
+	std::filesystem::path filePaths[6],
+	const std::string& mergedFileName,
+	int borderPixels,
+	const DenoiserArgs& denoiserArgs)
+{
+	auto commandQueue = m_rrManager->getCLCommandQueue();
+	ocl::COpenCLHandler::ocl.pclFinish(commandQueue);
+
+	glFinish();
+
+	std::string renderFilePaths[6] = {};
+	std::string albedoFilePaths[6] = {};
+	std::string normalFilePaths[6] = {};
+	for(uint32_t i = 0; i < 6; ++i)
+		renderFilePaths[i] = filePaths[i].replace_extension().string() + ".exr";
+	for(uint32_t i = 0; i < 6; ++i)
+		albedoFilePaths[i] = filePaths[i].replace_extension().string() + "_albedo.exr";
+	for(uint32_t i = 0; i < 6; ++i)
+		normalFilePaths[i] = filePaths[i].replace_extension().string() + "_normal.exr";
+	
+	std::string mergedRenderFilePath = mergedFileName + ".exr";
+	std::string mergedAlbedoFilePath = mergedFileName + "_albedo.exr";
+	std::string mergedNormalFilePath = mergedFileName + "_normal.exr";
+	std::string mergedDenoisedFilePath = mergedFileName + "_denoised.exr";
+	
+	std::ostringstream mergeRendersCmd;
+	mergeRendersCmd << "call ../mergeCubemap.bat";
+	for(uint32_t i = 0; i < 6; ++i)
+		mergeRendersCmd << " " << renderFilePaths[i];
+	mergeRendersCmd << " " << mergedRenderFilePath;
+	std::system(mergeRendersCmd.str().c_str());
+
+	std::ostringstream mergeAlbedosCmd;
+	mergeAlbedosCmd << "call ../mergeCubemap.bat ";
+	for(uint32_t i = 0; i < 6; ++i)
+		mergeAlbedosCmd << " " << albedoFilePaths[i];
+	mergeAlbedosCmd << " " << mergedAlbedoFilePath;
+	std::system(mergeAlbedosCmd.str().c_str());
+	
+	std::ostringstream mergeNormalsCmd;
+	mergeNormalsCmd << "call ../mergeCubemap.bat ";
+	for(uint32_t i = 0; i < 6; ++i)
+		mergeNormalsCmd << " " << normalFilePaths[i];
+	mergeNormalsCmd << " " << mergedNormalFilePath;
+	std::system(mergeNormalsCmd.str().c_str());
+
+	const std::string defaultBloomFile = "../../media/kernels/physical_flare_512.exr";
+	const std::string defaultTonemapperArgs = "ACES=0.4,0.8";
+	constexpr auto defaultBloomScale = 0.1f;
+	constexpr auto defaultBloomIntensity = 0.1f;
+	auto bloomFilePathStr = (denoiserArgs.bloomFilePath.string().empty()) ? defaultBloomFile : denoiserArgs.bloomFilePath.string();
+	auto bloomScale = (denoiserArgs.bloomScale == 0.0f) ? defaultBloomScale : denoiserArgs.bloomScale;
+	auto bloomIntensity = (denoiserArgs.bloomIntensity == 0.0f) ? defaultBloomIntensity : denoiserArgs.bloomIntensity;
+	auto tonemapperArgs = (denoiserArgs.tonemapperArgs.empty()) ? defaultTonemapperArgs : denoiserArgs.tonemapperArgs;
+	
+	std::ostringstream denoiserCmd;
+	// 1.ColorFile 2.AlbedoFile 3.NormalFile 4.BloomPsfFilePath(STRING) 5.BloomScale(FLOAT) 6.BloomIntensity(FLOAT) 7.TonemapperArgs(STRING)
+	denoiserCmd << "call ../denoiser_hook.bat";
+	denoiserCmd << " \"" << mergedRenderFilePath << "\"";
+	denoiserCmd << " \"" << mergedAlbedoFilePath << "\"";
+	denoiserCmd << " \"" << mergedNormalFilePath << "\"";
+	denoiserCmd << " \"" << bloomFilePathStr << "\"";
+	denoiserCmd << " " << bloomScale;
+	denoiserCmd << " " << bloomIntensity;
+	denoiserCmd << " " << "\"" << tonemapperArgs << "\"";
+	// NOTE/TODO/FIXME : Do as I say, not as I do
+	// https://wiki.sei.cmu.edu/confluence/pages/viewpage.action?pageId=87152177
+	std::cout << "\n---[DENOISER_BEGIN]---" << std::endl;
+	std::system(denoiserCmd.str().c_str());
+	std::cout << "\n---[DENOISER_END]---" << std::endl;
+	
+	auto extractCubemapFaces = [&](const std::string& extension) -> void
+	{
+		std::ostringstream extractImagesCmd;
+		auto mergedDenoisedWithoutExtension = std::filesystem::path(mergedDenoisedFilePath).replace_extension().string();
+		extractImagesCmd << "call ../extractCubemap.bat ";
+		extractImagesCmd << " " << std::to_string(borderPixels);
+		extractImagesCmd << " " << mergedDenoisedWithoutExtension + extension;
+		for(uint32_t i = 0; i < 6; ++i)
+		{
+			auto renderFilePathWithoutExtension = std::filesystem::path(renderFilePaths[i]).replace_extension().string();
+			extractImagesCmd << " " << renderFilePathWithoutExtension + "_denoised" + extension;
+		}
+		std::system(extractImagesCmd.str().c_str());
+	};
+
+	extractCubemapFaces(".exr");
+	extractCubemapFaces(".png");
+	extractCubemapFaces(".jpg");
 }
 
 // one day it will just work like that

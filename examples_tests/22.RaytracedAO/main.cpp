@@ -575,7 +575,7 @@ int main(int argc, char** argv)
 		}
 		else if (mainSensorData.type == ext::MitsubaLoader::CElementSensor::Type::SPHERICAL)
 		{
-			const nbl::core::vectorSIMDf camViews[6] =
+			nbl::core::vectorSIMDf camViews[6] =
 			{
 				nbl::core::vectorSIMDf(+1, 0, 0, 0), // +X
 				nbl::core::vectorSIMDf(-1, 0, 0, 0), // -X
@@ -584,6 +584,12 @@ int main(int argc, char** argv)
 				nbl::core::vectorSIMDf(0, 0, +1, 0), // +Z
 				nbl::core::vectorSIMDf(0, 0, -1, 0), // -Z
 			};
+
+			if(!mainSensorData.rightHandedCamera)
+			{
+				camViews[0] *= -1;
+				camViews[1] *= -1;
+			}
 			
 			const nbl::core::vectorSIMDf upVectors[6] =
 			{
@@ -612,7 +618,14 @@ int main(int argc, char** argv)
 			for(uint32_t i = 0; i < 6; ++i)
 			{
 				SensorData cubemapFaceSensorData = mainSensorData;
-				
+				cubemapFaceSensorData.width = mainSensorData.width + mainSensorData.highQualityEdges * 2;
+				cubemapFaceSensorData.height = mainSensorData.height + mainSensorData.highQualityEdges * 2;
+				if(mainSensorData.width != mainSensorData.height)
+				{
+					std::cout << "[ERROR] Cannot generate cubemap faces where film.width and film.height are not equal. (Aspect Ration must be 1)" << std::endl;
+					assert(false);
+				}
+
 				if (cubemapFaceSensorData.outputFilePath.empty())
 				{
 					if(shouldHaveSensorIdxInFileName)
@@ -636,15 +649,9 @@ int main(int argc, char** argv)
 				staticCamera->setTarget((mainCamPos + camView).getAsVector3df());
 				staticCamera->setUpVector(upVector);
 
-				auto borderPixels = cubemapFaceSensorData.highQualityEdges;
-				// TODO: compute fov based on borderPixels
-				auto fov = core::radians(90.0f);
+				// auto fov = core::radians(90.0f);
+				auto fov = atanf(float(cubemapFaceSensorData.width) / float(mainSensorData.width)) * 2.0f;
 				auto aspectRatio = 1.0f;
-				if(mainSensorData.width != mainSensorData.height)
-				{
-					std::cout << "[ERROR] Cannot generate cubemap faces where film.width and film.height are not equal. (Aspect Ration must be 1)" << std::endl;
-					assert(false);
-				}
 				
 				if (mainSensorData.rightHandedCamera)
 					staticCamera->setProjectionMatrix(core::matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(fov, 1.0f, nearClip, farClip));
@@ -804,11 +811,16 @@ int main(int argc, char** argv)
 		assert(beginIdx + 6 <= sensors.size());
 		auto borderPixels = sensors[beginIdx].highQualityEdges;
 
-		// TODO: use the new batch file to merge/denoise/extract these 6 images.
+		std::filesystem::path filePaths[6] = {};
+
 		for(uint32_t f = beginIdx; f < beginIdx + 6; ++f)
 		{
 			const auto & sensor = sensors[f];
+			filePaths[f] = sensor.outputFilePath;
 		}
+
+		std::string mergedFileName = "Merge_CubeMap_" + mainFileName;
+		renderer->denoiseCubemapFaces(filePaths, mergedFileName, borderPixels, sensors[beginIdx].denoiserInfo);
 	}
 
 	// Interactive
