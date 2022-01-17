@@ -30,14 +30,14 @@ nbl::core::smart_refctd_ptr<ICPUBuffer> ISPIRVOptimizer::optimize(const uint32_t
         &spvtools::CreateSimplificationPass,
         &spvtools::CreateVectorDCEPass,
         &spvtools::CreateDeadInsertElimPass,
-        &spvtools::CreateAggressiveDCEPass,
+        //&spvtools::CreateAggressiveDCEPass,
         &spvtools::CreateDeadBranchElimPass,
         &spvtools::CreateBlockMergePass,
         &spvtools::CreateLocalMultiStoreElimPass,
         &spvtools::CreateRedundancyEliminationPass,
         &spvtools::CreateLoopInvariantCodeMotionPass,
         &spvtools::CreateCCPPass,
-        &spvtools::CreateReduceLoadSizePass,
+        //&spvtools::CreateReduceLoadSizePass,
         &spvtools::CreateStrengthReductionPass,
         &spvtools::CreateIfConversionPass
     };
