@@ -1187,9 +1187,6 @@ public:
 			}
 		}
 
-
-		lightGridCPUBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(VOXEL_COUNT_PER_LEVEL * LOD_COUNT * sizeof(uint32_t));
-
 		// create the light grid 3D texture
 		{
 			// Appending one level grid after another in the Z direction
@@ -1229,21 +1226,6 @@ public:
 			lightGridTextureView = logicalDevice->createGPUImageView(std::move(creationParams));
 			if (!lightGridTextureView)
 				FATAL_LOG("Failed to create image view for light grid 3D texture!\n");
-		}
-		
-		{
-			constexpr uint32_t MAX_LIGHT_CLUSTER_INTERSECTION_COUNT = LIGHT_COUNT * VOXEL_COUNT_PER_LEVEL * LOD_COUNT;
-			const size_t neededSSBOSize = MAX_LIGHT_CLUSTER_INTERSECTION_COUNT * sizeof(uint32_t);
-			video::IGPUBuffer::SCreationParams creationParams = {};
-			creationParams.usage = static_cast<asset::IBuffer::E_USAGE_FLAGS>(asset::IBuffer::EUF_UNIFORM_BUFFER_BIT | asset::IBuffer::EUF_TRANSFER_DST_BIT | asset::IBuffer::EUF_UNIFORM_TEXEL_BUFFER_BIT);
-
-			lightIndexListUbo = logicalDevice->createDeviceLocalGPUBufferOnDedMem(creationParams, neededSSBOSize);
-			if (!lightIndexListUbo)
-				FATAL_LOG("Failed to create SSBO for light index list!\n");
-
-			lightIndexListUboView = logicalDevice->createGPUBufferView(lightIndexListUbo.get(), asset::EF_R32_UINT, 0ull, lightIndexListUbo->getCachedCreationParams().declaredSize);
-			if (!lightIndexListUboView)
-				FATAL_LOG("Failed to create a buffer view for light index list!\n");
 		}
 
 		// lightIndexList storage texel buffer
@@ -1598,32 +1580,6 @@ public:
 			commandBuffer->updateBuffer(cameraUbo.get(), 0ull, cameraUbo->getSize(), uboData.data());
 		}
 
-		// Todo(achal): I probably don't need to build the clipmaps every frame
-		// but only when the camera position changes, but building a clipmap doesn't
-		// seem like an expensive operation so I'm gonna leave it as is right now..
-		const core::vectorSIMDf& cameraPosition = camera.getPosition();
-		nbl_glsl_shapes_AABB_t rootAABB;
-		rootAABB.minVx = { cameraPosition.x - (clipmapExtent / 2.f), cameraPosition.y -(clipmapExtent / 2.f), cameraPosition.z - (clipmapExtent / 2.f) };
-		rootAABB.maxVx = { cameraPosition.x + (clipmapExtent / 2.f), cameraPosition.y + (clipmapExtent / 2.f), cameraPosition.z + (clipmapExtent / 2.f) };
-
-		// Todo(achal): Probably I don't have to store voxels at all, probably I can generate them procedurally on the fly!
-		// ..and probably it doesn't matter much because this isn't a hot path!
-		nbl_glsl_shapes_AABB_t clipmap[VOXEL_COUNT_PER_LEVEL * LOD_COUNT];
-		buildClipmapForRegion(rootAABB, clipmap);
-
-#if 0
-		// Todo(achal): Find a way to get core::ceil(std::log2(LIGHT_COUNT)) `constexpr`-ly
-		constexpr uint32_t LOG2_LIGHT_COUNT = 11u;
-		struct intersection_record_t
-		{
-			// Todo(achal): Would it be better to split this in clusterX, clusterY,
-			// clusterZ and mipLevel?
-			uint64_t globalClusterID : 24;
-			uint64_t localLightID : LOG2_LIGHT_COUNT;
-			uint64_t globalLightID : LOG2_LIGHT_COUNT;
-		};
-#endif
-
 		video::IGPUCommandBuffer::SImageMemoryBarrier toGeneral = {};
 		toGeneral.barrier.srcAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0u);
 		toGeneral.barrier.dstAccessMask = asset::EAF_SHADER_WRITE_BIT;
@@ -1653,6 +1609,7 @@ public:
 		// the compute queue, then I would also need to do queue ownership transfers, most
 		// likely with a pipelineBarrier
 		commandBuffer->bindComputePipeline(cullPipeline.get());
+		const core::vectorSIMDf& cameraPosition = camera.getPosition();
 		float pushConstants[4] = { cameraPosition.x, cameraPosition.y, cameraPosition.z, clipmapExtent };
 		commandBuffer->pushConstants(cullPipeline->getLayout(), asset::IShader::ESS_COMPUTE, 0u, 4 * sizeof(float), pushConstants);
 		commandBuffer->bindDescriptorSets(asset::EPBP_COMPUTE, cullPipeline->getLayout(), 0u, 1u, &cullDs.get());
@@ -1772,232 +1729,7 @@ public:
 
 		// Todo(achal): Do I need to externally synchronize the end of compute and start
 		// of a renderpass???
-
-
-
-
-
-
-
-		auto isNodeInMidRegion = [](const uint32_t nodeIdx) -> bool
-		{
-			return (nodeIdx == 21u) || (nodeIdx == 22u) || (nodeIdx == 25u) || (nodeIdx == 26u)
-				|| (nodeIdx == 37u) || (nodeIdx == 38u) || (nodeIdx == 41u) || (nodeIdx == 42u);
-		};
-
-		// will be an input to the system
-		// 
-		// Todo(achal): Need to have FRAMES_IN_FLIGHT copies of this as well because
-		// it can be change per frame
-#if 0
-		core::vector<uint32_t> activeLightIndices(LIGHT_COUNT);
-		for (uint32_t i = 0u; i < activeLightIndices.size(); ++i)
-			activeLightIndices[i] = i;
-
-		core::unordered_set<uint32_t> testSets[2];
-
-		uint32_t readSet = 0u, writeSet = 1u;
-		testSets[readSet].reserve(LIGHT_COUNT);
-		testSets[writeSet].reserve(LIGHT_COUNT);
-
-		for (const uint32_t globalLightID : activeLightIndices)
-			testSets[readSet].insert(globalLightID);
-
-		// Todo(achal): Probably should make these class members
-		uint32_t lightIndexCount = 0u;
-		core::vector<uint32_t> lightIndexList(LIGHT_COUNT* VOXEL_COUNT_PER_LEVEL* LOD_COUNT, ~0u);
-
-		uint32_t intersectionCount = 0u; // max value for clipmap: 640*2^22
-		core::vector<intersection_record_t> intersectionRecords(VOXEL_COUNT_PER_LEVEL* LOD_COUNT* LIGHT_COUNT);
-		core::vector<uint32_t> lightCounts(VOXEL_COUNT_PER_LEVEL* LOD_COUNT, 0u);
-
-		for (int32_t level = LOD_COUNT - 1; level >= 0; --level)
-		{
-			// logger->log("Number of lights to test this level: %d\n", system::ILogger::ELL_DEBUG, testSets[readSet].size());
-
-			// record intersections (pass1)
-			for (const uint32_t globalLightID : testSets[readSet])
-			{
-				const cone_t& lightVolume = getLightVolume(lights[globalLightID]);
-
-				for (uint32_t clusterID = 0u; clusterID < VOXEL_COUNT_PER_LEVEL; ++clusterID)
-				{
-					const uint32_t globalClusterID = (LOD_COUNT - 1 - level) * VOXEL_COUNT_PER_LEVEL + clusterID;
-
-					if (doesConeIntersectAABB(lightVolume, clipmap[globalClusterID]))
-					{
-						if ((level != 0u) && (isNodeInMidRegion(clusterID)))
-						{
-							testSets[writeSet].insert(globalLightID);
-						}
-						else
-						{
-							intersection_record_t& record = intersectionRecords[intersectionCount++];
-							record.globalClusterID = globalClusterID;
-							record.localLightID = lightCounts[record.globalClusterID];
-							record.globalLightID = globalLightID;
-
-							lightCounts[record.globalClusterID]++;
-						}
-					}
-				}
-			}
-
-			std::swap(readSet, writeSet);
-			testSets[writeSet].clear(); // clear the slate so you can write to it again
-		}
-		lightIndexCount += intersectionCount;
-#endif
-
-#if 0
-		// combined prefix sum at the end
-		uint32_t lightIndexListOffsets[VOXEL_COUNT_PER_LEVEL * LOD_COUNT] = { 0u };
-		for (uint32_t i = 0u; i < VOXEL_COUNT_PER_LEVEL * LOD_COUNT; ++i)
-			lightIndexListOffsets[i] = (i == 0) ? 0u : lightIndexListOffsets[i - 1] + lightCounts[i - 1];
-
-		// scatter
-		for (uint32_t i = 0u; i < intersectionCount; ++i)
-		{
-			const intersection_record_t& record = intersectionRecords[i];
-
-			const uint32_t baseAddress = lightIndexListOffsets[record.globalClusterID];
-			const uint32_t scatterAddress = baseAddress + record.localLightID;
-			lightIndexList[scatterAddress] = record.globalLightID;
-		}
-
-		// set the light grid buffer values
-		uint32_t* lightGridEntry = static_cast<uint32_t*>(lightGridCPUBuffer->getPointer());
-		for (int32_t level = LOD_COUNT - 1; level >= 0; --level)
-		{
-			for (uint32_t clusterID = 0u; clusterID < VOXEL_COUNT_PER_LEVEL; ++clusterID)
-			{
-				const uint32_t globalClusterID = (LOD_COUNT - 1 - level) * VOXEL_COUNT_PER_LEVEL + clusterID;
-				const uint32_t offset = lightIndexListOffsets[globalClusterID];
-				const uint32_t count = lightCounts[globalClusterID];
-				// Todo(achal): Convert this into an assert
-				if (offset >= 65536 || count >= 65536)
-					__debugbreak();
-
-				*lightGridEntry++ = (count << 16) | offset;
-			}
-		}
-
-		// upload light grid cpu buffer to the light grid 3d texture
-		asset::IImage::SBufferCopy region = {};
-		region.bufferOffset = 0ull;
-		region.bufferRowLength = 0u; // tightly packed according to image extent
-		region.bufferImageHeight = 0u;
-		region.imageSubresource.aspectMask = asset::IImage::EAF_COLOR_BIT;
-		region.imageSubresource.baseArrayLayer = 0u;
-		region.imageSubresource.layerCount = 1u;
-		region.imageSubresource.mipLevel = 0u;
-		region.imageOffset = { 0u, 0u, 0u };
-		region.imageExtent = { VOXEL_COUNT_PER_DIM, VOXEL_COUNT_PER_DIM, VOXEL_COUNT_PER_DIM * LOD_COUNT };
-
-		
-		{
-			video::IGPUQueue* queue = queues[CommonAPI::InitOutput::EQT_GRAPHICS];
-			core::smart_refctd_ptr<video::IGPUFence> updateLightGridFence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
-
-			core::smart_refctd_ptr<video::IGPUCommandPool> pool = logicalDevice->createCommandPool(queue->getFamilyIndex(), video::IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
-			core::smart_refctd_ptr<video::IGPUCommandBuffer> cmdbuf = nullptr;
-			logicalDevice->createCommandBuffers(pool.get(), video::IGPUCommandBuffer::EL_PRIMARY, 1u, &cmdbuf);
-			assert(cmdbuf);
-			cmdbuf->begin(video::IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
-
-			video::IGPUCommandBuffer::SImageMemoryBarrier toTransferDst = {};
-			toTransferDst.barrier.srcAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0u);
-			toTransferDst.barrier.dstAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
-			toTransferDst.oldLayout = asset::EIL_UNDEFINED;
-			toTransferDst.newLayout = asset::EIL_TRANSFER_DST_OPTIMAL;
-			toTransferDst.srcQueueFamilyIndex = ~0u;
-			toTransferDst.dstQueueFamilyIndex = ~0u;
-			toTransferDst.image = lightGridTexture;
-			toTransferDst.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
-			toTransferDst.subresourceRange.baseMipLevel = 0u;
-			toTransferDst.subresourceRange.levelCount = 1u;
-			toTransferDst.subresourceRange.baseArrayLayer = 0u;
-			toTransferDst.subresourceRange.layerCount = 1u;
-
-			cmdbuf->pipelineBarrier(
-				asset::EPSF_TOP_OF_PIPE_BIT,
-				asset::EPSF_TRANSFER_BIT,
-				static_cast<asset::E_DEPENDENCY_FLAGS>(0u),
-				0u, nullptr,
-				0u, nullptr,
-				1u, &toTransferDst);
-
-			uint32_t waitSemaphoreCount = 0u;
-			video::IGPUSemaphore* const* semaphoresToWaitBeforeOverwrite = nullptr;
-			const asset::E_PIPELINE_STAGE_FLAGS* stagesToWaitForPerSemaphore = nullptr;
-			// Todo(achal): Handle nodiscard
-			utilities->updateImageViaStagingBuffer(
-				cmdbuf.get(),
-				updateLightGridFence.get(),
-				queue,
-				lightGridCPUBuffer.get(),
-				{&region, &region+1},
-				lightGridTexture.get(),
-				asset::EIL_TRANSFER_DST_OPTIMAL,
-				waitSemaphoreCount, semaphoresToWaitBeforeOverwrite, stagesToWaitForPerSemaphore);
-
-			video::IGPUCommandBuffer::SImageMemoryBarrier toShaderReadOnlyOptimal = {};
-			toShaderReadOnlyOptimal.barrier.srcAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
-			toShaderReadOnlyOptimal.barrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
-			toShaderReadOnlyOptimal.oldLayout = asset::EIL_TRANSFER_DST_OPTIMAL;
-			toShaderReadOnlyOptimal.newLayout = asset::EIL_SHADER_READ_ONLY_OPTIMAL;
-			toShaderReadOnlyOptimal.srcQueueFamilyIndex = ~0u;
-			toShaderReadOnlyOptimal.dstQueueFamilyIndex = ~0u;
-			toShaderReadOnlyOptimal.image = lightGridTexture;
-			toShaderReadOnlyOptimal.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
-			toShaderReadOnlyOptimal.subresourceRange.baseMipLevel = 0u;
-			toShaderReadOnlyOptimal.subresourceRange.levelCount = 1u;
-			toShaderReadOnlyOptimal.subresourceRange.baseArrayLayer = 0u;
-			toShaderReadOnlyOptimal.subresourceRange.layerCount = 1u;
-
-			cmdbuf->pipelineBarrier(
-				asset::EPSF_TRANSFER_BIT,
-				asset::EPSF_FRAGMENT_SHADER_BIT,
-				static_cast<asset::E_DEPENDENCY_FLAGS>(0u),
-				0u, nullptr,
-				0u, nullptr,
-				1u, &toShaderReadOnlyOptimal);
-
-			cmdbuf->end();
-
-			video::IGPUQueue::SSubmitInfo submit = {};
-			submit.commandBufferCount = 1u;
-			submit.commandBuffers = &cmdbuf.get();
-			queue->submit(1u, &submit, updateLightGridFence.get());
-
-			logicalDevice->blockForFences(1u, &updateLightGridFence.get());
-		}
-
-		// upload/update lightIndexList
-		// Todo(achal): Better sync?
-		{
-			asset::SBufferRange<video::IGPUBuffer> bufferRange;
-			bufferRange.offset = 0ull;
-			bufferRange.size = lightIndexCount * sizeof(uint32_t);
-			bufferRange.buffer = lightIndexListUbo;
-			// Todo(achal): Handle return value (nodiscard)
-			utilities->updateBufferRangeViaStagingBuffer(
-				queues[CommonAPI::InitOutput::EQT_GRAPHICS],
-				bufferRange,
-				lightIndexList.data());
-		}
-		
-		// Todo(achal): It might not be very efficient to create an unordred_map (allocate memory) every frame,
-		// would reusing them be better? This is debug code anyway..
-		core::unordered_map<uint32_t, core::unordered_set<uint32_t>> debugDrawLightIDToClustersMap;
-		debugRecordLightIDToClustersMap(debugDrawLightIDToClustersMap, lightIndexList);
-
-		// Todo(achal): debugClustersForLight might go out of scope and die before the command
-		// buffer gets the chance to execute and hence actually transfer the data from CPU to GPU,
-		// I think I can use the property pool to handle this stuff
-		core::vector<nbl_glsl_shapes_AABB_t> debugClustersForLight;
-		debugUpdateLightClusterAssignment(commandBuffer.get(), debugActiveLightIndex, debugClustersForLight, debugDrawLightIDToClustersMap, clipmap);
-#endif
+		// YES
 		
 		// renderpass
 		{
@@ -2065,130 +1797,6 @@ public:
 	}
 
 private:
-	// Returns true if the point lies in negative-half-space (space in which the normal to the plane isn't present) of the plane
-	// Point on the plane returns true.
-	// In other words, if you hold the plane such that its normal points towards your face, then this
-	// will return true if the point is "behind" the plane (or farther from your face than the plane's surface)
-	bool isPointBehindPlane(const core::vector3df_SIMD& point, const core::plane3dSIMDf& plane)
-	{
-		// As an optimization we can add an epsilon to 0, to ignore cones which have a
-		// very very small intersecting region with the AABB, could help with FP precision
-		// too when the point is on the plane
-		return (core::dot(point, plane.getNormal()).x + plane.getDistance()) <= 0.f /* + EPSILON*/;
-	};
-
-	// Imagine yourself to be at the center of the bounding box. Using CCW winding order
-	// in RH ensures that the normals to the box's planes point towards you.
-	bool doesConeIntersectAABB(const cone_t& cone, const nbl_glsl_shapes_AABB_t& aabb)
-	{
-		constexpr uint32_t PLANE_COUNT = 6u;
-		core::plane3dSIMDf planes[PLANE_COUNT];
-		{
-			// 0 -> (minVx.x, minVx.y, minVx.z)
-			// 1 -> (maxVx.x, minVx.y, minVx.z)
-			// 2 -> (minVx.x, maxVx.y, minVx.z)
-			// 3 -> (maxVx.x, maxVx.y, minVx.z)
-			// 4 -> (minVx.x, minVx.y, maxVx.z)
-			// 5 -> (maxVx.x, minVx.y, maxVx.z)
-			// 6 -> (minVx.x, maxVx.y, maxVx.z)
-			// 7 -> (maxVx.x, maxVx.y, maxVx.z)
-
-			planes[0].setPlane(
-				core::vector3df_SIMD(aabb.maxVx.x, aabb.minVx.y, aabb.minVx.z),
-				core::vector3df_SIMD(aabb.maxVx.x, aabb.minVx.y, aabb.maxVx.z),
-				core::vector3df_SIMD(aabb.maxVx.x, aabb.maxVx.y, aabb.maxVx.z)); // 157
-			planes[1].setPlane(
-				core::vector3df_SIMD(aabb.minVx.x, aabb.minVx.y, aabb.minVx.z),
-				core::vector3df_SIMD(aabb.maxVx.x, aabb.minVx.y, aabb.minVx.z),
-				core::vector3df_SIMD(aabb.maxVx.x, aabb.maxVx.y, aabb.minVx.z)); // 013
-			planes[2].setPlane(
-				core::vector3df_SIMD(aabb.minVx.x, aabb.minVx.y, aabb.maxVx.z),
-				core::vector3df_SIMD(aabb.minVx.x, aabb.minVx.y, aabb.minVx.z),
-				core::vector3df_SIMD(aabb.minVx.x, aabb.maxVx.y, aabb.minVx.z)); // 402
-			planes[3].setPlane(
-				core::vector3df_SIMD(aabb.maxVx.x, aabb.minVx.y, aabb.maxVx.z),
-				core::vector3df_SIMD(aabb.minVx.x, aabb.minVx.y, aabb.maxVx.z),
-				core::vector3df_SIMD(aabb.minVx.x, aabb.maxVx.y, aabb.maxVx.z)); // 546
-			planes[4].setPlane(
-				core::vector3df_SIMD(aabb.minVx.x, aabb.minVx.y, aabb.maxVx.z),
-				core::vector3df_SIMD(aabb.maxVx.x, aabb.minVx.y, aabb.maxVx.z),
-				core::vector3df_SIMD(aabb.maxVx.x, aabb.minVx.y, aabb.minVx.z)); // 451
-			planes[5].setPlane(
-				core::vector3df_SIMD(aabb.maxVx.x, aabb.maxVx.y, aabb.maxVx.z),
-				core::vector3df_SIMD(aabb.minVx.x, aabb.maxVx.y, aabb.maxVx.z),
-				core::vector3df_SIMD(aabb.minVx.x, aabb.maxVx.y, aabb.minVx.z)); // 762
-		}
-
-		// Todo(achal): Cannot handle half angle > 90 degrees right now
-		assert(cone.cosHalfAngle > 0.f);
-		const float tanOuterHalfAngle = core::sqrt(core::max(1.f - (cone.cosHalfAngle * cone.cosHalfAngle), 0.f)) / cone.cosHalfAngle;
-		const float coneRadius = cone.height * tanOuterHalfAngle;
-
-		for (uint32_t i = 0u; i < PLANE_COUNT; ++i)
-		{
-			// Calling setPlane above ensures normalized normal
-
-			const core::vectorSIMDf m = core::cross(core::cross(planes[i].getNormal(), cone.direction), cone.direction);
-			const core::vectorSIMDf farthestBasePoint = cone.tip + (cone.direction * cone.height) - (m * coneRadius); // farthest to plane's surface away from positive half-space
-
-			// There are two edge cases here:
-			// 1. When cone's direction and plane's normal are anti-parallel
-			//		There is no reason to check farthestBasePoint in this case, because cone's tip is the farthest point!
-			//		But there is no harm in doing so.
-			// 2. When cone's direction and plane's normal are parallel
-			//		This edge case will get handled nicely by the farthestBasePoint coming as center of the base of the cone itself
-			if (isPointBehindPlane(cone.tip, planes[i]) && isPointBehindPlane(farthestBasePoint, planes[i]))
-				return false;
-		}
-
-		return true;
-	};
-
-	// Todo(achal): Get this working for point lights(spheres) as an edge case of spot lights
-	cone_t getLightVolume(const nbl_glsl_ext_ClusteredLighting_SpotLight& light)
-	{
-		cone_t cone = {};
-		cone.tip = core::vectorSIMDf(light.position.x, light.position.y, light.position.z);
-
-		// get cone's height based on its contribution to the scene (intensity and attenuation)
-		{
-			core::vectorSIMDf intensity;
-			{
-				uint64_t lsb = light.intensity.x;
-				uint64_t msb = light.intensity.y;
-				const uint64_t packedIntensity = (msb << 32) | lsb;
-				const core::rgb32f rgb = core::rgb19e7_to_rgb32f(packedIntensity);
-				intensity = core::vectorSIMDf(rgb.x, rgb.y, rgb.z);
-			}
-
-			const float radiusSq = LIGHT_RADIUS * LIGHT_RADIUS;
-			// Taking max intensity among all the RGB components will give the largest
-			// light volume enclosing light volumes due to other components
-			const float maxIntensityComponent = core::max(core::max(intensity.r, intensity.g), intensity.b);
-			const float determinant = 1.f - ((2.f * LIGHT_CONTRIBUTION_THRESHOLD) / (maxIntensityComponent * radiusSq));
-			if ((determinant > 1.f) || (determinant < -1.f))
-				FATAL_LOG("This should never happen!\n");
-
-			cone.height = LIGHT_RADIUS * core::inversesqrt((1.f / (determinant * determinant)) - 1.f);
-		}
-
-		// get cone's direction and half angle (outer half angle of spot light)
-		{
-			const core::vectorSIMDf directionXY = unpackSnorm2x16(light.direction.x);
-			const core::vectorSIMDf directionZW = unpackSnorm2x16(light.direction.y);
-
-			cone.direction = core::vectorSIMDf(directionXY.x, directionXY.y, directionZW.x);
-
-			const float cosineRange = directionZW.y;
-			// Todo(achal): I cannot handle spotlights/cone intersection against AABB
-			// if it has outerHalfAngle > 90.f
-			cone.cosHalfAngle = light.outerCosineOverCosineRange * cosineRange;
-			assert(std::acosf(cone.cosHalfAngle) <= core::radians(90.f));
-		}
-
-		return cone;
-	};
-
 	bool bakeSecondaryCommandBufferForSubpass(
 		const uint32_t subpass,
 		video::IGPUCommandBuffer* cmdbuf,
@@ -2363,14 +1971,6 @@ private:
 		return true;
 	}
 
-	inline void logAABB(const nbl_glsl_shapes_AABB_t& aabb)
-	{
-		logger->log("\nMin Point: [%f, %f, %f]\nMax Point: [%f, %f %f]\n",
-			system::ILogger::ELL_DEBUG,
-			aabb.minVx.x, aabb.minVx.y, aabb.minVx.z,
-			aabb.maxVx.x, aabb.maxVx.y, aabb.maxVx.z);
-	}
-
 	// As per: https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/packUnorm.xhtml
 	inline uint32_t packSnorm2x16(const float x, const float y)
 	{
@@ -2378,61 +1978,6 @@ private:
 		uint32_t y_snorm16 = (uint32_t)((uint16_t)core::round(core::clamp(y, -1.f, 1.f) * 32767.f));
 		return ((y_snorm16 << 16) | x_snorm16);
 	};
-
-	// As per: https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/unpackUnorm.xhtml
-	inline core::vectorSIMDf unpackSnorm2x16(uint32_t encoded)
-	{
-		core::vectorSIMDf result;
-
-		int16_t firstComp(encoded & 0xFFFFu);
-		int16_t secondComp((encoded>>16)&0xFFFFu);
-		result.x = core::clamp(firstComp / 32727.f, -1.f, 1.f);
-		result.y = core::clamp(secondComp / 32727.f, -1.f, 1.f);
-
-		return result;
-	};
-
-	// Todo(achal): Most likely useless now, remove
-	void buildClipmapForRegion(const nbl_glsl_shapes_AABB_t& rootRegion, nbl_glsl_shapes_AABB_t* outClipmap)
-	{
-		nbl_glsl_shapes_AABB_t aabbRegion = rootRegion;
-		vec3_aligned center = { (aabbRegion.minVx.x + aabbRegion.maxVx.x) / 2.f, (aabbRegion.minVx.y + aabbRegion.maxVx.y) / 2.f, (aabbRegion.minVx.z + aabbRegion.maxVx.z) / 2.f };
-		for (int32_t level = LOD_COUNT - 1; level >= 0; --level)
-		{
-			nbl_glsl_shapes_AABB_t* begin = outClipmap + ((LOD_COUNT - 1ull - level) * VOXEL_COUNT_PER_LEVEL);
-			voxelizeRegion(aabbRegion, begin, begin + VOXEL_COUNT_PER_LEVEL);
-
-			aabbRegion.minVx.x = ((aabbRegion.minVx.x - center.x)/2.f)+center.x;
-			aabbRegion.minVx.y = ((aabbRegion.minVx.y - center.y)/2.f)+center.y;
-			aabbRegion.minVx.z = ((aabbRegion.minVx.z - center.z)/2.f)+center.z;
-
-			aabbRegion.maxVx.x = ((aabbRegion.maxVx.x - center.x)/2.f)+center.x;
-			aabbRegion.maxVx.y = ((aabbRegion.maxVx.y - center.y)/2.f)+center.y;
-			aabbRegion.maxVx.z = ((aabbRegion.maxVx.z - center.z)/2.f)+center.z;
-		}
-	}
-
-	// Todo(achal): Most likely useless now, remove
-	inline void voxelizeRegion(const nbl_glsl_shapes_AABB_t& region, nbl_glsl_shapes_AABB_t* outVoxelsBegin, nbl_glsl_shapes_AABB_t* outVoxelsEnd)
-	{
-		const core::vectorSIMDf extent(region.maxVx.x - region.minVx.x, region.maxVx.y - region.minVx.y, region.maxVx.z - region.minVx.z);
-		const core::vector3df voxelSideLength(extent.X / VOXEL_COUNT_PER_DIM, extent.Y / VOXEL_COUNT_PER_DIM, extent.Z / VOXEL_COUNT_PER_DIM);
-
-		uint32_t k = 0u;
-		for (uint32_t z = 0u; z < VOXEL_COUNT_PER_DIM; ++z)
-		{
-			for (uint32_t y = 0u; y < VOXEL_COUNT_PER_DIM; ++y)
-			{
-				for (uint32_t x = 0u; x < VOXEL_COUNT_PER_DIM; ++x)
-				{
-					nbl_glsl_shapes_AABB_t* voxel = outVoxelsBegin + k++;
-					voxel->minVx = { region.minVx.x + x * voxelSideLength.X, region.minVx.y + y * voxelSideLength.Y, region.minVx.z + z * voxelSideLength.Z };
-					voxel->maxVx = { voxel->minVx.x + voxelSideLength.X, voxel->minVx.y + voxelSideLength.Y, voxel->minVx.z + voxelSideLength.Z };
-				}
-			}
-		}
-		assert(k == VOXEL_COUNT_PER_LEVEL);
-	}
 
 	inline void generateLights(const uint32_t lightCount)
 	{
@@ -2891,12 +2436,8 @@ private:
 	core::smart_refctd_ptr<video::IGPUComputePipeline> scanPipeline = nullptr;
 
 	core::vector<nbl_glsl_ext_ClusteredLighting_SpotLight> lights;
-	core::smart_refctd_ptr<asset::ICPUBuffer> lightGridCPUBuffer;
 	core::smart_refctd_ptr<video::IGPUImage> lightGridTexture = nullptr;
 	core::smart_refctd_ptr<video::IGPUImageView> lightGridTextureView = nullptr;
-	// Todo(achal): This shouldn't probably be a ubo????
-	core::smart_refctd_ptr<video::IGPUBuffer> lightIndexListUbo = nullptr;
-	core::smart_refctd_ptr<video::IGPUBufferView> lightIndexListUboView = nullptr;
 
 	// I need descriptor lifetime tracking!
 	core::smart_refctd_ptr<video::IGPUBuffer> globalLightListSSBO = nullptr;
