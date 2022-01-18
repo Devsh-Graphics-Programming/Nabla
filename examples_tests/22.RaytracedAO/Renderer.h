@@ -54,7 +54,7 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		
 		void denoiseCubemapFaces(std::filesystem::path filePaths[6], const std::string& mergedFileName, int borderPixels, const DenoiserArgs& denoiserArgs = {});
 
-		bool render(nbl::ITimer* timer, const bool beauty=true);
+		bool render(nbl::ITimer* timer, const bool transformNormals, const bool beauty=true);
 
 		auto* getColorBuffer() { return m_colorBuffer; }
 
