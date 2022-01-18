@@ -36,5 +36,5 @@ add_custom_target(pack_artifact_ditt
 	COMMAND cmake -E copy ${EXAMPLES_TESTS_PATH}/media/kernels/physical_flare_256.exr ${CMAKE_CURRENT_BINARY_DIR}/Ditt/pack/media/kernels/physical_flare_256.exr
 	COMMAND cmake -E copy ${EXAMPLES_TESTS_PATH}/media/kernels/physical_flare_512.exr ${CMAKE_CURRENT_BINARY_DIR}/Ditt/pack/media/kernels/physical_flare_512.exr
 	
-	COMMAND cd ${CMAKE_CURRENT_BINARY_DIR}/Ditt/pack && cmake -E tar -cvj ../Ditt.tar ./
+	COMMAND cd ${CMAKE_CURRENT_BINARY_DIR}/Ditt && cmake -E tar -cvj Ditt.tar.bz2 pack/
 )
