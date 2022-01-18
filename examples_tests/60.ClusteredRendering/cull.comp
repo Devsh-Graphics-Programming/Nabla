@@ -1,6 +1,6 @@
 #version 450 core
 
-layout(local_size_x=840) in;
+layout (local_size_x = 512) in;
 
 #define LOD_COUNT 10
 
@@ -10,6 +10,7 @@ layout(local_size_x=840) in;
 #define VOXEL_COUNT_PER_LEVEL 64
 
 #define LIGHT_CONTRIBUTION_THRESHOLD 2.f
+// Todo(achal): This needs to be calculated by light intensity
 #define LIGHT_RADIUS 25.f
 
 struct nbl_glsl_ext_ClusteredLighting_SpotLight
@@ -192,10 +193,10 @@ bool coneIntersectAABB(in cone_t cone, in nbl_glsl_shapes_AABB_t aabb)
 
 struct intersection_record_t
 {
-	uvec3 localClusterID; // 7 bits per dim
-	uint level; // 4 bits
-	uint localLightIndex; // 12 bits, Todo(achal): Make this 10
-	uint globalLightIndex; // 20 bits, Todo(achal): Make this 22
+	uvec3 localClusterID; // Currently 7 bits per dim, Todo(achal): For a 4x4x4 clipmap it should only be 2 bits per dim
+	uint level; // 4 bits, because currently I have LOD_COUNT = 10 (and this probably will only decrease)
+	uint localLightIndex; // currently 12 bits, Todo(achal): Should be 22 bits because there could be a case where all lights intersect with a single cluster
+	uint globalLightIndex; // currently 20 bits, Todo(achal): Make this 22
 };
 
 uvec2 packIntersectionRecord(in intersection_record_t record)
@@ -216,8 +217,15 @@ uvec2 packIntersectionRecord(in intersection_record_t record)
 
 void main()
 {
+	// Todo(achal): This should really be ACTIVE_LIGHT_COUNT
+	if (gl_GlobalInvocationID.x >= LIGHT_COUNT)
+		return;
+
+	// you have literally 0 gurantees that this atomicExchange will be carried out before any atomicAdd to that location
+	// This is why I double or triple buffer such counters
 	if (gl_GlobalInvocationID.x == 0)
 		atomicExchange(intersectionRecordCount.data.x, 0u);
+
 
 	scratchBuffer.data[gl_GlobalInvocationID.x] = INVALID_INDEX; // visibility for this would work without any barrier
 
@@ -257,7 +265,7 @@ void main()
 
 					if (!isMidRegion)
 					{
-						const nbl_glsl_shapes_AABB_t cluster = getCluster(localClusterID, levelMinVertex, voxelSideLength);				
+						const nbl_glsl_shapes_AABB_t cluster = getCluster(localClusterID, levelMinVertex, voxelSideLength);
 						if (coneIntersectAABB(cone, cluster))
 						{
 							// Record intersection

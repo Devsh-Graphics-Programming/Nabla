@@ -1,0 +1,90 @@
+#version 450 core 
+
+#include <../cull_common.glsl>
+
+#define INVOCATIONS_PER_LIGHT 8
+#define LIGHTS_PER_WORKGROUP (NBL_WORKGROUP_SIZE/INVOCATIONS_PER_LIGHT)
+
+// lightPool
+layout (set = 0, binding = 0, std430) restrict buffer readonly Lights
+{
+	nbl_glsl_ext_ClusteredLighting_SpotLight data[];
+} lights;
+
+// Todo(achal): Probably should make it a usamplerBuffer?
+layout (set = 0, binding = 1, std430) restrict buffer readonly ActiveLightIndices
+{
+	uint data[];
+} activeLightIndices;
+
+layout (set = 0, binding = 2, std430) restrict buffer writeonly OutScratch
+{
+  uint count;
+  uvec2 data[];
+} outScratch;
+
+const uint lastSharedUint = NBL_WORKGROUP_SIZE*2;
+shared uint scratchShared[NBL_WORKGROUP_SIZE*2+2];
+
+void main()
+{
+	const uint persistentWGStep = gl_NumWorkGroups.x*LIGHTS_PER_WORKGROUP;
+
+	// workgroup uniform loop (important for the barrier call)
+	for (uint baseLight = gl_WorkGroupID.x*LIGHTS_PER_WORKGROUP; baseLight<pc.lightCount; baseLight+=persistentWGStep)
+	{
+		if (gl_LocalInvocationIndex < LIGHTS_PER_WORKGROUP)
+			// scratchShared[gl_LocalInvocationIndex] = texelFetch(activeLightList,baseLight+gl_LocalInvocationIndex)[0];
+			scratchShared[gl_LocalInvocationIndex] = activeLightIndices.data[baseLight + gl_LocalInvocationIndex];
+
+		if (gl_LocalInvocationIndex==LIGHTS_PER_WORKGROUP)
+			scratchShared[lastSharedUint] = 0u;
+		barrier();
+
+		const uint localLight = gl_LocalInvocationIndex/INVOCATIONS_PER_LIGHT;
+		const uint globalLightIndex = scratchShared[localLight];
+		barrier();
+
+		// finer out of bounds check
+		if (baseLight + localLight < pc.lightCount)
+		{
+			// flow no longer uniform within workgroup, careful with barriers
+			const uvec3 localClusterID = (uvec3(gl_LocalInvocationIndex)>>uvec3(0,1,2))&0x1u; // Hardcoded INVOCATIONS_PER_LIGHT=8u, extensions are trivial
+
+			const nbl_glsl_ext_ClusteredLighting_SpotLight light = lights.data[globalLightIndex];
+			const cone_t cone = getLightVolume(light);
+			
+			const float voxelSideLength = CLIPMAP_EXTENT/8;
+			const vec3 levelMinVertex = vec3(-CLIPMAP_EXTENT/2.f); // this will be same for all levels of the octree
+			nbl_glsl_shapes_AABB_t cluster = getCluster(localClusterID, levelMinVertex, voxelSideLength);
+			// if (!coneIntersectAABB(cone, cluster)) -- shouldn't this be if the light passes culling?? It most likely should be
+			if (coneIntersectAABB(cone, cluster))
+			{
+				const uint localOffset = atomicAdd(scratchShared[lastSharedUint], 1u);
+
+				// repack outputs for coalesced write
+				intersection_record_t record; // Todo(achal): create with lightID and cluster
+				const uvec2 packed = packIntersectionRecord(record);
+
+				scratchShared[localOffset] = packed.x;
+				scratchShared[localOffset+NBL_WORKGROUP_SIZE] = packed.y;
+			}
+		}
+		barrier();
+
+		// each light can spawn `INVOCATIONS_PER_LIGHT` copies of itself (which are found to be intersecting the children light grid nodes of the node the current light reference is referencing)
+		const uint lightReferencesSpawned = scratchShared[lastSharedUint];
+		const bool invocationWillWrite = gl_LocalInvocationIndex<lightReferencesSpawned;
+
+		// elect one invocation && best to avoid a +0 on an atomic
+		if (gl_LocalInvocationIndex==0u && invocationWillWrite)
+			scratchShared[lastSharedUint+1u] = atomicAdd(outScratch.count, lightReferencesSpawned);
+		barrier();
+
+		if (invocationWillWrite)
+		{
+			const uint baseOffset = scratchShared[lastSharedUint+1u];
+			outScratch.data[baseOffset+gl_LocalInvocationIndex] = uvec2(scratchShared[gl_LocalInvocationIndex],scratchShared[gl_LocalInvocationIndex+NBL_WORKGROUP_SIZE]);
+		}
+	}
+}
