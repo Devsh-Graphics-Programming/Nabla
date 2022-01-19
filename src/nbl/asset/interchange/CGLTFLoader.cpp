@@ -367,7 +367,8 @@ namespace nbl
 					pushConstants.availableTextures |= CGLTFPipelineMetadata::SGLTFMaterialParameters::EGT_NORMAL_TEXTURE;
 					const auto normalTextureID = glTFMaterial.normalTexture.value().index.value();
 					// TODO: CACHE THIS FFS!!!
-					auto imageView = CDerivativeMapCreator::createDerivativeMapViewFromNormalMap(cpuTextures[normalTextureID].first->getCreationParameters().image.get());
+					float scales[2] = {};
+					auto imageView = CDerivativeMapCreator::createDerivativeMapViewFromNormalMap<false>(cpuTextures[normalTextureID].first->getCreationParameters().image.get(), scales);
 					auto& sampler = cpuTextures[normalTextureID].second;
 
 					auto desc = material.descriptorSet->getDescriptors(CGLTFPipelineMetadata::SGLTFMaterialParameters::EGT_NORMAL_TEXTURE).begin();
