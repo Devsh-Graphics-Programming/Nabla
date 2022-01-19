@@ -52,7 +52,6 @@ auto CMitsubaMaterialCompilerFrontend::getTexture(const CElementTexture* _elemen
 
         return {view, sampler, scale};
     }
-    os::Printer::log("[ERROR] Could Not Find Texture: "+key,ELL_ERROR);
     return { nullptr, nullptr, scale };
 }
 

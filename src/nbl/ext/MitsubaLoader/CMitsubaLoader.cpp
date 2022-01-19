@@ -967,10 +967,16 @@ void CMitsubaLoader::cacheTexture(SContext& ctx, uint32_t hierarchyLevel, const 
 						// check if found
 						auto contentRange = bundle.getContents();
 						if (contentRange.empty())
+						{
+						    os::Printer::log("[ERROR] Could Not Find Texture: "+cacheKey,ELL_ERROR);
 							return;
+						}
 						auto asset = contentRange.begin()[0];
 						if (asset->getAssetType()!=asset::IAsset::ET_IMAGE)
+						{
+						    os::Printer::log("[ERROR] Loaded an Asset but it wasn't a texture, was E_ASSET_TYPE "+std::to_string(asset->getAssetType()),ELL_ERROR);
 							return;
+						}
 
 						viewParams.image = core::smart_refctd_ptr_static_cast<asset::ICPUImage>(asset);
 					}
