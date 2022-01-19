@@ -133,7 +133,7 @@ class CSwizzleAndConvertImageFilter : public CImageFilter<CSwizzleAndConvertImag
 
 			typedef typename std::conditional<asset::isIntegerFormat<inFormat>(), uint64_t, double>::type decodeBufferType;
 			typedef typename std::conditional<asset::isIntegerFormat<outFormat>(), uint64_t, double>::type encodeBufferType;
-			normalizationPrepass<inFormat,ExecutionPolicy,decodeBufferType,encodeBufferType>(EF_UNKNOWN,policy,state,blockDims);
+			base_t::template normalizationPrepass<inFormat,ExecutionPolicy,decodeBufferType,encodeBufferType>(EF_UNKNOWN,policy,state,blockDims);
 			auto perOutputRegion = [policy,&blockDims,&state](const CMatchedSizeInOutImageFilterCommon::CommonExecuteData& commonExecuteData, CBasicImageFilterCommon::clip_region_functor_t& clip) -> bool
 			{
 				constexpr uint32_t outChannelsAmount = asset::getFormatChannelCount<outFormat>();
@@ -201,7 +201,7 @@ class CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle,Dither,Normali
 				assert(blockDims.z==1u);
 				assert(blockDims.w==1u);
 			#endif
-			normalizationPrepass<EF_UNKNOWN,ExecutionPolicy,double,double>(inFormat,policy,state,blockDims);
+			base_t::template normalizationPrepass<EF_UNKNOWN,ExecutionPolicy,double,double>(inFormat,policy,state,blockDims);
 			auto perOutputRegion = [policy,&blockDims,inFormat,outFormat,outChannelsAmount,&state](const CMatchedSizeInOutImageFilterCommon::CommonExecuteData& commonExecuteData, CBasicImageFilterCommon::clip_region_functor_t& clip) -> bool
 			{
 				auto swizzle = [&commonExecuteData,&blockDims,inFormat,outFormat,outChannelsAmount,&state](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos)

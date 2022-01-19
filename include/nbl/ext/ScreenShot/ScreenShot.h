@@ -199,7 +199,7 @@ inline bool createScreenShot(
 
 #endif
 
-#ifdef 0 // code from `master` branch:
+#ifdef OLD_CODE // code from `master` branch:
 			/*
 				Download mip level image with gpu image usage and save it to IGPUBuffer.
 				Because of the fence placed by driver the function stalls the CPU 

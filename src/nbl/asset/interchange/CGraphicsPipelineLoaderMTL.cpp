@@ -696,7 +696,8 @@ CGraphicsPipelineLoaderMTL::image_views_set_t CGraphicsPipelineLoaderMTL::loadIm
         if (isBumpmap)
             metaData = core::make_smart_refctd_ptr<CDerivativeMapMetadata>(view.get(),&derivativeScale,true);
         views[i] = view;
-        _ctx.loaderOverride->insertAssetIntoCache(SAssetBundle(std::move(metaData),{view}), viewCacheKey, _ctx.inner, _ctx.topHierarchyLevel+ICPURenderpassIndependentPipeline::IMAGEVIEW_HIERARCHYLEVELS_BELOW);
+        auto assetBundle = SAssetBundle(std::move(metaData),{view});
+        _ctx.loaderOverride->insertAssetIntoCache(assetBundle, viewCacheKey, _ctx.inner, _ctx.topHierarchyLevel+ICPURenderpassIndependentPipeline::IMAGEVIEW_HIERARCHYLEVELS_BELOW);
     }
 
     return views;

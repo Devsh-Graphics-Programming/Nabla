@@ -467,7 +467,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 						uint32_t decode_offset;
 						// whole line plus window borders
 						value_type* lineBuffer;
-						core::vectorSIMDi32 localTexCoord(0u);
+						core::vectorSIMDi32 localTexCoord(0);
 						localTexCoord[loopCoordID[0]] = batchCoord[0];
 						localTexCoord[loopCoordID[1]] = batchCoord[1];
 						if (axis!=IImage::ET_1D)

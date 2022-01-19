@@ -148,7 +148,7 @@ core::smart_refctd_ptr<ICPUImage> CDerivativeMapCreator::createDerivativeMapFrom
 	YDerivKernel yderiv(YDerivKernel_(CBoxImageFilterKernel(), DerivKernel(DerivKernel_(ReconstructionKernel()), extent.height)));
 
 
-	DerivativeMapFilter::state_type state(std::move(xderiv), std::move(yderiv), CBoxImageFilterKernel());
+	DerivativeMapFilter::template state_type state(std::move(xderiv), std::move(yderiv), CBoxImageFilterKernel());
 
 	const auto& inParams = _inImg->getCreationParameters();
 	auto outParams = inParams;
@@ -291,7 +291,9 @@ core::smart_refctd_ptr<ICPUImage> CDerivativeMapCreator::createDerivativeMapFrom
 	}
 	else
 	{
-		os::Printer::log("Something went wrong while performing derivative filter operations!", ELL_ERROR);
+		_NBL_DEBUG_BREAK_IF(true);
+		// TODO: use logger
+		// os::Printer::log("Something went wrong while performing derivative filter operations!", ELL_ERROR);
 		return nullptr;
 	}
 
@@ -315,8 +317,12 @@ core::smart_refctd_ptr<ICPUImageView> CDerivativeMapCreator::createDerivativeMap
 
 	auto imageView = ICPUImageView::create(std::move(imageViewInfo));
 
-	if (!imageView.get())
-		os::Printer::log("Something went wrong while creating image view for derivative normal map!", ELL_ERROR);
+	if (!imageView.get()) 
+	{
+		_NBL_DEBUG_BREAK_IF(true);
+		// TODO: use logger
+		// os::Printer::log("Something went wrong while creating image view for derivative normal map!", ELL_ERROR);
+	}
 
 	return imageView;
 }
