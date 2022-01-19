@@ -13,6 +13,8 @@
 
 class Camera { 
 public:
+	Camera() = default;
+
 	Camera(const nbl::core::vectorSIMDf& position,
 			const nbl::core::vectorSIMDf& lookat,
 			const nbl::core::matrix4SIMD& projection,
