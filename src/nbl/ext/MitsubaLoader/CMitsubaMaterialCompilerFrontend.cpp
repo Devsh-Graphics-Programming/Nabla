@@ -86,6 +86,7 @@ auto CMitsubaMaterialCompilerFrontend::getErrorTexture() const -> tex_ass_type
             {
                 IR::INode::STextureSource tex;
                 std::tie(tex.image, tex.sampler, tex.scale) = getTexture(src.texture);
+                dst = std::move(tex);
             }
             else dst = src.value.fvalue;
         };
@@ -95,6 +96,7 @@ auto CMitsubaMaterialCompilerFrontend::getErrorTexture() const -> tex_ass_type
             {
                 IR::INode::STextureSource tex;
                 std::tie(tex.image, tex.sampler, tex.scale) = getTexture(src.texture,semantic);
+                dst = std::move(tex);
             }
             else
                 dst = src.value.vvalue;
@@ -323,6 +325,7 @@ auto CMitsubaMaterialCompilerFrontend::compileToIRTree(asset::material_compiler:
         {
             IR::INode::STextureSource tex;
             std::tie(tex.image, tex.sampler, tex.scale) = getTexture(src.texture);
+            dst = std::move(tex);
         }
         else dst = src.value.fvalue;
     };
@@ -332,6 +335,7 @@ auto CMitsubaMaterialCompilerFrontend::compileToIRTree(asset::material_compiler:
         {
             IR::INode::STextureSource tex;
             std::tie(tex.image, tex.sampler, tex.scale) = getTexture(src.texture);
+            dst = std::move(tex);
         }
         else dst = src.value.vvalue;
     };
