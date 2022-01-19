@@ -311,6 +311,7 @@ int main(int argc, char** argv)
 		ext::MitsubaLoader::CElementFilm::FileFormat fileFormat;
 		Renderer::DenoiserArgs denoiserInfo = {};
 		int32_t highQualityEdges = 0u;
+		bool envmap = false;
 
 		scene::CSceneNodeAnimatorCameraModifiedMaya* getInteractiveCameraAnimator()
 		{
@@ -415,26 +416,46 @@ int main(int argc, char** argv)
 		{
 			std::cout << "[ERROR] film.outputFilePath's extension is not compatible with film.fileFormat" << std::endl;
 		}
+		// handle missing output path
+		if (mainSensorData.outputFilePath.empty())
+		{
+			auto extensionStr = getFileExtensionFromFormat(mainSensorData.fileFormat);
+			if(shouldHaveSensorIdxInFileName)
+				mainSensorData.outputFilePath = std::filesystem::path("Render_" + mainFileName + "_Sensor_" + std::to_string(idx) + extensionStr);
+			else
+				mainSensorData.outputFilePath = std::filesystem::path("Render_" + mainFileName + extensionStr);
+		}
 
 		mainSensorData.samplesNeeded = sensor.sampler.sampleCount;
 		std::cout << "\t SamplesPerPixelNeeded = " << mainSensorData.samplesNeeded << std::endl;
 
 		const ext::MitsubaLoader::CElementSensor::PerspectivePinhole* persp = nullptr;
+		const ext::MitsubaLoader::CElementSensor::Orthographic* ortho = nullptr;
 		const ext::MitsubaLoader::CElementSensor::CameraBase* cameraBase = nullptr;
 		switch (sensor.type)
 		{
 			case ext::MitsubaLoader::CElementSensor::Type::PERSPECTIVE:
 				persp = &sensor.perspective;
-				cameraBase = static_cast<const ext::MitsubaLoader::CElementSensor::CameraBase*>(&sensor.perspective);
+				cameraBase = persp;
 				std::cout << "\t Type = PERSPECTIVE" << std::endl;
 				break;
 			case ext::MitsubaLoader::CElementSensor::Type::THINLENS:
 				persp = &sensor.thinlens;
-				cameraBase = static_cast<const ext::MitsubaLoader::CElementSensor::CameraBase*>(&sensor.thinlens);
+				cameraBase = persp;
 				std::cout << "\t Type = THINLENS" << std::endl;
 				break;
+			case ext::MitsubaLoader::CElementSensor::Type::ORTHOGRAPHIC:
+				ortho = &sensor.orthographic;
+				cameraBase = ortho;
+				std::cout << "\t Type = ORTHOGRAPHIC" << std::endl;
+				break;
+			case ext::MitsubaLoader::CElementSensor::Type::TELECENTRIC:
+				ortho = &sensor.telecentric;
+				cameraBase = ortho;
+				std::cout << "\t Type = TELECENTRIC" << std::endl;
+				break;
 			case ext::MitsubaLoader::CElementSensor::Type::SPHERICAL:
-				cameraBase = static_cast<const ext::MitsubaLoader::CElementSensor::CameraBase*>(&sensor.spherical);
+				cameraBase = &sensor.spherical;
 				std::cout << "\t Type = SPHERICAL" << std::endl;
 				break;
 			default:
@@ -508,72 +529,8 @@ int main(int argc, char** argv)
 		float farClip = cameraBase->farClip;
 		if(farClip > nearClip * 10'000.0f)
 			std::cout << "[WARN] Depth Range is too big: nearClip = " << nearClip << ", farClip = " << farClip << std::endl;
-		
-		if(mainSensorData.type == ext::MitsubaLoader::CElementSensor::Type::PERSPECTIVE || mainSensorData.type == ext::MitsubaLoader::CElementSensor::Type::THINLENS)
-		{
-			switch (persp->fovAxis)
-			{
-				case ext::MitsubaLoader::CElementSensor::PerspectivePinhole::FOVAxis::X:
-					realFoVDegrees = convertFromXFoV(persp->fov);
-					break;
-				case ext::MitsubaLoader::CElementSensor::PerspectivePinhole::FOVAxis::Y:
-					realFoVDegrees = persp->fov;
-					break;
-				case ext::MitsubaLoader::CElementSensor::PerspectivePinhole::FOVAxis::DIAGONAL:
-					{
-						float aspectDiag = tan(core::radians(persp->fov)*0.5f);
-						float aspectY = aspectDiag/core::sqrt(1.f+aspectRatio*aspectRatio);
-						realFoVDegrees = core::degrees(atan(aspectY)*2.f);
-					}
-					break;
-				case ext::MitsubaLoader::CElementSensor::PerspectivePinhole::FOVAxis::SMALLER:
-					if (width < height)
-						realFoVDegrees = convertFromXFoV(persp->fov);
-					else
-						realFoVDegrees = persp->fov;
-					break;
-				case ext::MitsubaLoader::CElementSensor::PerspectivePinhole::FOVAxis::LARGER:
-					if (width < height)
-						realFoVDegrees = persp->fov;
-					else
-						realFoVDegrees = convertFromXFoV(persp->fov);
-					break;
-				default:
-					realFoVDegrees = NAN;
-					assert(false);
-					break;
-			}
-		
-			if (mainSensorData.outputFilePath.empty())
-			{
-				auto extensionStr = getFileExtensionFromFormat(mainSensorData.fileFormat);
-				if(shouldHaveSensorIdxInFileName)
-					mainSensorData.outputFilePath = std::filesystem::path("Render_" + mainFileName + "_Sensor_" + std::to_string(idx) + extensionStr);
-				else
-					mainSensorData.outputFilePath = std::filesystem::path("Render_" + mainFileName + extensionStr);
-			}
 
-			mainSensorData.staticCamera = smgr->addCameraSceneNode(nullptr); 
-			auto & staticCamera = mainSensorData.staticCamera;
-
-			staticCamera->setPosition(mainCamPos.getAsVector3df());
-
-			auto target = mainCamView+mainCamPos;
-			std::cout << "\t Camera Target = <" << target.x << "," << target.y << "," << target.z << ">" << std::endl;
-			staticCamera->setTarget(target.getAsVector3df());
-
-			if (core::dot(core::normalize(core::cross(staticCamera->getUpVector(),mainCamView)),core::cross(mainCamUp,mainCamView)).x<0.99f)
-				staticCamera->setUpVector(mainCamUp);
-			
-			if (mainSensorData.rightHandedCamera)
-				staticCamera->setProjectionMatrix(core::matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(core::radians(realFoVDegrees), aspectRatio, nearClip, farClip));
-			else
-				staticCamera->setProjectionMatrix(core::matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(realFoVDegrees), aspectRatio, nearClip, farClip));
-		
-			mainSensorData.resetInteractiveCamera();
-			sensors.push_back(mainSensorData);
-		}
-		else if (mainSensorData.type == ext::MitsubaLoader::CElementSensor::Type::SPHERICAL)
+		if (mainSensorData.type == ext::MitsubaLoader::CElementSensor::Type::SPHERICAL)
 		{
 			nbl::core::vectorSIMDf camViews[6] =
 			{
@@ -601,16 +558,6 @@ int main(int argc, char** argv)
 				nbl::core::vectorSIMDf(0, +1, 0, 0), // +Y
 			};
 
-			const std::string suffixes[6] =
-			{
-				std::string("_x+"),
-				std::string("_x-"),
-				std::string("_y+"),
-				std::string("_y-"),
-				std::string("_z+"),
-				std::string("_z-"),
-			};
-
 			CubemapRender cubemapRender = {};
 			cubemapRender.sensorIdx = sensors.size();
 			cubemapRenders.push_back(cubemapRender);
@@ -618,32 +565,35 @@ int main(int argc, char** argv)
 			for(uint32_t i = 0; i < 6; ++i)
 			{
 				SensorData cubemapFaceSensorData = mainSensorData;
-				cubemapFaceSensorData.width = mainSensorData.width + mainSensorData.highQualityEdges * 2;
-				cubemapFaceSensorData.height = mainSensorData.height + mainSensorData.highQualityEdges * 2;
+				cubemapFaceSensorData.envmap = true;
+
 				if(mainSensorData.width != mainSensorData.height)
 				{
 					std::cout << "[ERROR] Cannot generate cubemap faces where film.width and film.height are not equal. (Aspect Ration must be 1)" << std::endl;
 					assert(false);
 				}
+				const auto baseResolution = core::max(mainSensorData.width,mainSensorData.height);
+				cubemapFaceSensorData.width = baseResolution + mainSensorData.highQualityEdges * 2;
+				cubemapFaceSensorData.height = baseResolution + mainSensorData.highQualityEdges * 2;
 
-				if (cubemapFaceSensorData.outputFilePath.empty())
+				// FIXME: suffix added after extension
+				cubemapFaceSensorData.outputFilePath.replace_extension();
+				constexpr const char* suffixes[6] =
 				{
-					if(shouldHaveSensorIdxInFileName)
-						cubemapFaceSensorData.outputFilePath = std::filesystem::path("Render_" + mainFileName + "_Sensor_" + std::to_string(idx) + suffixes[i]);
-					else
-						cubemapFaceSensorData.outputFilePath = std::filesystem::path("Render_" + mainFileName + suffixes[i]);
-
-				}
-				else
-				{
-					cubemapFaceSensorData.outputFilePath += (suffixes[i]);
-				}
+					"_x+.exr",
+					"_x-.exr",
+					"_y+.exr",
+					"_y-.exr",
+					"_z+.exr",
+					"_z-.exr",
+				};
+				cubemapFaceSensorData.outputFilePath += suffixes[i];
 
 				cubemapFaceSensorData.staticCamera = smgr->addCameraSceneNode(nullptr); 
-				auto & staticCamera = cubemapFaceSensorData.staticCamera;
+				auto& staticCamera = cubemapFaceSensorData.staticCamera;
 				
-				const auto & camView = camViews[i];
-				const auto & upVector = upVectors[i];
+				const auto& camView = camViews[i];
+				const auto& upVector = upVectors[i];
 
 				staticCamera->setPosition(mainCamPos.getAsVector3df());
 				staticCamera->setTarget((mainCamPos + camView).getAsVector3df());
@@ -662,6 +612,81 @@ int main(int argc, char** argv)
 				cubemapFaceSensorData.resetInteractiveCamera();
 				sensors.push_back(cubemapFaceSensorData);
 			}
+		}
+		else
+		{
+			mainSensorData.staticCamera = smgr->addCameraSceneNode(nullptr); 
+			auto& staticCamera = mainSensorData.staticCamera;
+
+			staticCamera->setPosition(mainCamPos.getAsVector3df());
+			
+			{
+				auto target = mainCamView+mainCamPos;
+				std::cout << "\t Camera Target = <" << target.x << "," << target.y << "," << target.z << ">" << std::endl;
+				staticCamera->setTarget(target.getAsVector3df());
+			}
+
+			if (core::dot(core::normalize(core::cross(staticCamera->getUpVector(),mainCamView)),core::cross(mainCamUp,mainCamView)).x<0.99f)
+				staticCamera->setUpVector(mainCamUp);
+
+			//
+			if (ortho)
+			{
+				const auto scale = sensor.transform.matrix.extractSub3x4().getScale();
+				const float volumeX = 2.f*scale.x;
+				const float volumeY = (2.f/aspectRatio)*scale.y;
+				if (mainSensorData.rightHandedCamera)
+					staticCamera->setProjectionMatrix(core::matrix4SIMD::buildProjectionMatrixOrthoRH(volumeX, volumeY, nearClip, farClip));
+				else
+					staticCamera->setProjectionMatrix(core::matrix4SIMD::buildProjectionMatrixOrthoLH(volumeX, volumeY, nearClip, farClip));
+			}
+			else if (persp)
+			{
+				switch (persp->fovAxis)
+				{
+					case ext::MitsubaLoader::CElementSensor::PerspectivePinhole::FOVAxis::X:
+						realFoVDegrees = convertFromXFoV(persp->fov);
+						break;
+					case ext::MitsubaLoader::CElementSensor::PerspectivePinhole::FOVAxis::Y:
+						realFoVDegrees = persp->fov;
+						break;
+					case ext::MitsubaLoader::CElementSensor::PerspectivePinhole::FOVAxis::DIAGONAL:
+						{
+							float aspectDiag = tan(core::radians(persp->fov)*0.5f);
+							float aspectY = aspectDiag/core::sqrt(1.f+aspectRatio*aspectRatio);
+							realFoVDegrees = core::degrees(atan(aspectY)*2.f);
+						}
+						break;
+					case ext::MitsubaLoader::CElementSensor::PerspectivePinhole::FOVAxis::SMALLER:
+						if (width < height)
+							realFoVDegrees = convertFromXFoV(persp->fov);
+						else
+							realFoVDegrees = persp->fov;
+						break;
+					case ext::MitsubaLoader::CElementSensor::PerspectivePinhole::FOVAxis::LARGER:
+						if (width < height)
+							realFoVDegrees = persp->fov;
+						else
+							realFoVDegrees = convertFromXFoV(persp->fov);
+						break;
+					default:
+						realFoVDegrees = NAN;
+						assert(false);
+						break;
+				}
+
+				if (mainSensorData.rightHandedCamera)
+					staticCamera->setProjectionMatrix(core::matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(core::radians(realFoVDegrees), aspectRatio, nearClip, farClip));
+				else
+					staticCamera->setProjectionMatrix(core::matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(realFoVDegrees), aspectRatio, nearClip, farClip));
+			}
+			else
+			{
+				assert(false);
+			}
+
+			mainSensorData.resetInteractiveCamera();
+			sensors.push_back(mainSensorData);
 		}
 
 		return true;
@@ -768,7 +793,7 @@ int main(int argc, char** argv)
 
 			driver->beginScene(false, false);
 
-			if(!renderer->render(device->getTimer()))
+			if(!renderer->render(device->getTimer(),!sensorData.envmap))
 			{
 				renderFailed = true;
 				driver->endScene();
@@ -909,7 +934,7 @@ int main(int argc, char** argv)
 			}
 
 			driver->beginScene(false, false);
-			if(!renderer->render(device->getTimer(),receiver.isRenderingBeauty()))
+			if(!renderer->render(device->getTimer(),true,receiver.isRenderingBeauty()))
 			{
 				renderFailed = true;
 				driver->endScene();
