@@ -15,9 +15,13 @@ nbl::system::CFileWin32::CFileWin32(core::smart_refctd_ptr<ISystem>&& sys, const
 	GetSystemInfo(&info);
 	m_allocGranularity = info.dwAllocationGranularity;
 
-	DWORD access = m_flags.value | ECF_READ_WRITE ? FILE_GENERIC_READ | FILE_GENERIC_WRITE :
-		(m_flags.value | ECF_READ ? FILE_GENERIC_READ : (m_flags.value | ECF_WRITE ? FILE_GENERIC_WRITE : 0));
-	const bool canOpenWhenOpened = false;
+	auto k = FILE_GENERIC_READ;
+	auto r = FILE_GENERIC_WRITE;
+	auto rw = FILE_GENERIC_READ |
+		FILE_GENERIC_WRITE;
+
+	DWORD access = (m_flags.value & ECF_READ_WRITE) == ECF_READ_WRITE ? FILE_GENERIC_READ | FILE_GENERIC_WRITE :
+		(m_flags.value & ECF_READ ? FILE_GENERIC_READ : (m_flags.value & ECF_WRITE ? FILE_GENERIC_WRITE : 0));
 	SECURITY_ATTRIBUTES secAttribs{ sizeof(SECURITY_ATTRIBUTES), nullptr, FALSE };
 	
 	system::path p = getFileName();
@@ -25,14 +29,18 @@ nbl::system::CFileWin32::CFileWin32(core::smart_refctd_ptr<ISystem>&& sys, const
 	if (p.is_absolute()) 
 		p.make_preferred(); // Replace "/" separators with "\"
 
-	if (std::bit_cast<uint32_t>(m_flags & ECF_READ))
+	if (std::bit_cast<uint32_t>(m_flags & ECF_READ_WRITE) != ECF_READ_WRITE && std::bit_cast<uint32_t>(m_flags & ECF_READ))
 	{
-		m_native = CreateFileA(p.string().data(), access, canOpenWhenOpened, &secAttribs, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
-		if (m_native == INVALID_HANDLE_VALUE) m_openedProperly = false;
+		m_native = CreateFileA(p.string().data(), access, FILE_SHARE_READ, &secAttribs, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+		if (m_native == INVALID_HANDLE_VALUE)
+		{
+			auto e = GetLastError();
+			m_openedProperly = false;
+		}
 	}
 	else
 	{
-		m_native = CreateFileA(p.string().data(), access, canOpenWhenOpened, &secAttribs, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+		m_native = CreateFileA(p.string().data(), access, FILE_SHARE_READ, &secAttribs, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
 	}
 
 	if (m_native != INVALID_HANDLE_VALUE) [[likely]] // let this idle here until c++20 :)
@@ -45,7 +53,7 @@ nbl::system::CFileWin32::CFileWin32(core::smart_refctd_ptr<ISystem>&& sys, const
 	}
 	if (m_flags.value & ECF_MAPPABLE)
 	{
-		DWORD access = (m_flags.value | ECF_READ_WRITE || m_flags.value | ECF_WRITE) ? PAGE_READWRITE :
+		DWORD access = ((m_flags.value & ECF_READ_WRITE) == ECF_READ_WRITE | m_flags.value & ECF_WRITE) ? PAGE_READWRITE :
 			(m_flags.value | ECF_READ ? PAGE_READONLY : 0);
 		m_openedProperly &= access != 0;
 		/*
