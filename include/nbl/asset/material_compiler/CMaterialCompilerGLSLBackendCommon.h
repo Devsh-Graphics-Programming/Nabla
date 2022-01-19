@@ -6,7 +6,7 @@
 #define __NBL_ASSET_C_MITSUBA_MATERIAL_COMPILER_GLSL_BACKEND_COMMON_H_INCLUDED__
 
 
-#include <nbl/core/core.h>
+#include <nbl/core/declarations.h>
 
 #include <ostream>
 

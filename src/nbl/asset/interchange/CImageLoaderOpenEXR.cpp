@@ -28,7 +28,6 @@ SOFTWARE.
 
 #include "nbl/asset/filters/CRegionBlockFunctorFilter.h"
 #include "nbl/asset/metadata/COpenEXRMetadata.h"
-#include "IReadFile.h"
 
 #include "CImageLoaderOpenEXR.h"
 
