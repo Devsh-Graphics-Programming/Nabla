@@ -608,5 +608,3 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 
 #endif // _NBL_COMPILE_WITH_OPENGL_
 #endif
-
-#endif
