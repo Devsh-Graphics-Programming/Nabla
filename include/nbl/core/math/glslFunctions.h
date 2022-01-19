@@ -30,8 +30,9 @@ NBL_FORCE_INLINE T radians(const T& degrees)
 {
 	static_assert(
 		std::is_same<T, float>::value ||
-		std::is_same<T, double>::value,
-		"This code expects the type to be double or float, only (float, double).");
+		std::is_same<T, double>::value ||
+		std::is_same<T, vectorSIMDf>::value,
+		"This code expects the type to be double, float or vectorSIMDf, only (float, double, vectorSIMDf).");
 
 	return degrees*PI<T>()/T(180);
 }
@@ -40,8 +41,9 @@ NBL_FORCE_INLINE T degrees(const T& radians)
 {
 	static_assert(
 		std::is_same<T, float>::value ||
-		std::is_same<T, double>::value,
-		"This code expects the type to be double or float, only (float, double).");
+		std::is_same<T, double>::value ||
+		std::is_same<T, vectorSIMDf>::value,
+		"This code expects the type to be double, float or vectorSIMDf, only (float, double, vectorSIMDf).");
 
 	return radians*T(180)/PI<T>();
 }

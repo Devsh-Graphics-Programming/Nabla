@@ -708,7 +708,7 @@ class LoDSystemApp : public ApplicationBase
             }
 
             core::vectorSIMDf cameraPosition(0, 5, -10);
-            matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60), float(WIN_W) / WIN_H, 2.f, 4000.f);
+            matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60.0f), float(WIN_W) / WIN_H, 2.f, 4000.f);
             {
                 cullPushConstants.fovDilationFactor = decltype(lod_library_t::LoDInfo::choiceParams)::getFoVDilationFactor(projectionMatrix);
                 // dilate by resolution as well, because the LoD distances were tweaked @ 720p
