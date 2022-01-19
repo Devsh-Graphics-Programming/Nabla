@@ -1086,12 +1086,6 @@ auto CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* _bs
 			if (const_or_tex.value.type==SPropertyElementData::INVALID)
 				cacheTexture(ctx,0u,const_or_tex.texture,semantic);
 		};
-		auto unrollScales = [](CElementTexture* tex)
-		{
-			while (tex->type == CElementTexture::SCALE)
-				tex = tex->scale.texture;
-			return tex;
-		};
 
 		core::stack<const CElementBSDF*> stack;
 		stack.push(_bsdf);

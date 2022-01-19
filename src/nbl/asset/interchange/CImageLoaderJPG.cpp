@@ -157,11 +157,11 @@ bool CImageLoaderJPG::isALoadableFileFormat(io::IReadFile* _file) const
 
     const size_t prevPos = _file->getPos();
 
-	int32_t jfif = 0;
-	_file->seek(6);
-	_file->read(&jfif, sizeof(int32_t));
+	uint32_t header = 0;
+	_file->seek(0);
+	_file->read(&header, sizeof(int32_t));
     _file->seek(prevPos);
-	return (jfif == 0x4a464946 || jfif == 0x4649464a || jfif == 0x66697845u || jfif == 0x70747468u); // maybe 0x4a464946 can go
+	return (header&0x00FFD8FFu)==0x00FFD8FFu;
 #endif
 }
 

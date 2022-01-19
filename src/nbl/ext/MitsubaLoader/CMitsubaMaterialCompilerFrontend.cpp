@@ -11,12 +11,12 @@ namespace nbl::ext::MitsubaLoader
 std::pair<const CElementTexture*,float> CMitsubaMaterialCompilerFrontend::unwindTextureScale(const CElementTexture* _element) const
 {
     float scale = 1.f;
-    while (_element->type==CElementTexture::SCALE)
+    while (_element && _element->type==CElementTexture::SCALE)
     {
         scale *= _element->scale.scale;
         _element = _element->scale.texture;
     }
-    _NBL_DEBUG_BREAK_IF(_element->type!=CElementTexture::BITMAP);
+    _NBL_DEBUG_BREAK_IF(_element && _element->type!=CElementTexture::BITMAP);
 
     return {_element,scale};
 }
@@ -24,6 +24,11 @@ auto CMitsubaMaterialCompilerFrontend::getTexture(const CElementTexture* _elemen
 {
     float scale = 1.f;
     std::tie(_element, scale) = unwindTextureScale(_element);
+    if (!_element)
+    {
+        os::Printer::log("[ERROR] Could Not Find Texture, dangling reference after scale unroll, substituting 2x2 Magenta Checkerboard Error Texture.", ELL_ERROR);
+        return getErrorTexture();
+    }
 
     asset::IAsset::E_TYPE types[2]{ asset::IAsset::ET_IMAGE_VIEW, asset::IAsset::ET_TERMINATING_ZERO };
     const auto key = SContext::imageViewCacheKey(_element->bitmap,semantic);
@@ -47,6 +52,7 @@ auto CMitsubaMaterialCompilerFrontend::getTexture(const CElementTexture* _elemen
 
         return {view, sampler, scale};
     }
+    os::Printer::log("[ERROR] Could Not Find Texture: "+key,ELL_ERROR);
     return { nullptr, nullptr, scale };
 }
 
@@ -81,12 +87,6 @@ auto CMitsubaMaterialCompilerFrontend::getErrorTexture() const -> tex_ass_type
             {
                 IR::INode::STextureSource tex;
                 std::tie(tex.image, tex.sampler, tex.scale) = getTexture(src.texture);
-                _NBL_DEBUG_BREAK_IF(!tex.image);
-                if (tex.image)
-                    dst = std::move(tex);
-                else
-                    dst = 0.f; // 0 in case of no texture
-
             }
             else dst = src.value.fvalue;
         };
@@ -96,11 +96,6 @@ auto CMitsubaMaterialCompilerFrontend::getErrorTexture() const -> tex_ass_type
             {
                 IR::INode::STextureSource tex;
                 std::tie(tex.image, tex.sampler, tex.scale) = getTexture(src.texture,semantic);
-                _NBL_DEBUG_BREAK_IF(!tex.image);
-                if (tex.image)
-                    dst = std::move(tex);
-                else
-                    dst = IR::INode::color_t(0.5f, 0.5f, 0.5f); // red in case of no texture
             }
             else
                 dst = src.value.vvalue;
@@ -329,12 +324,6 @@ auto CMitsubaMaterialCompilerFrontend::compileToIRTree(asset::material_compiler:
         {
             IR::INode::STextureSource tex;
             std::tie(tex.image, tex.sampler, tex.scale) = getTexture(src.texture);
-            _NBL_DEBUG_BREAK_IF(!tex.image);
-            if (tex.image)
-                dst = std::move(tex);
-            else
-                dst = 0.f; // 0 in case of no texture
-
         }
         else dst = src.value.fvalue;
     };
@@ -344,15 +333,6 @@ auto CMitsubaMaterialCompilerFrontend::compileToIRTree(asset::material_compiler:
         {
             IR::INode::STextureSource tex;
             std::tie(tex.image, tex.sampler, tex.scale) = getTexture(src.texture);
-            _NBL_DEBUG_BREAK_IF(!tex.image);
-            if (tex.image)
-                dst = std::move(tex);
-            else
-            {
-                // error texture in case of not-found texture
-                std::tie(tex.image, tex.sampler, tex.scale) = getErrorTexture();
-                dst = std::move(tex);
-            }
         }
         else dst = src.value.vvalue;
     };
