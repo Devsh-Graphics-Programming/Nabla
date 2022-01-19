@@ -19,7 +19,7 @@ public:
 		const asset::SRasterizationParams& rasterParams)
     : IGPURenderpassIndependentPipeline(
 		std::move(dev), std::move(layout),
-		const_cast<IGPUSpecializedShader*const *>(_shadersBegin), const_cast<IGPUSpecializedShader*const *>(_shadersEnd),
+		const_cast<IGPUSpecializedShader*const *>(shadersBegin), const_cast<IGPUSpecializedShader*const *>(shadersEnd),
 		vertexInputParams, blendParams, primAsmParams, rasterParams)
     {}
 };
