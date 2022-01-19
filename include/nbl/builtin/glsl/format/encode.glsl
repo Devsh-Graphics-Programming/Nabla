@@ -5,9 +5,9 @@
 
 uvec3 nbl_glsl_impl_sharedExponentEncodeCommon(in vec3 clamped, in int newExpBias, in int newMaxExp, in int mantissaBits, out int shared_exp)
 {
-	float maxrgb = max(max(clamped.r,clamped.g),clamped.b);
+	const float maxrgb = max(max(clamped.r,clamped.g),clamped.b);
 	// TODO: optimize this
-	const int f32_exp = ((floatBitsToInt(maxrgb)>>23) & 0xff) - 126;
+	const int f32_exp = int(nbl_glsl_ieee754_extract_biased_exponent(maxrgb))-126;
 
 	shared_exp = clamp(f32_exp,-newExpBias,newMaxExp+1);
 	
@@ -16,8 +16,7 @@ uvec3 nbl_glsl_impl_sharedExponentEncodeCommon(in vec3 clamped, in int newExpBia
 	const bool need = maxm==(0x1u<<mantissaBits);
 	scale = need ? 0.5*scale:scale;
 	shared_exp = need ? (shared_exp+1):shared_exp;
-	const uvec3 mantissas = uvec3(clamped*scale + vec3(0.5));
-	return mantissas;
+	return uvec3(clamped*scale + vec3(0.5));
 }
 
 uvec2 nbl_glsl_encodeRGB19E7(in vec3 col)
@@ -63,11 +62,21 @@ uvec2 nbl_glsl_encodeRGB18E7S3(in vec3 col)
 	return encoded;
 }
 
-uint nbl_glsl_encodeRGB10A2(in vec4 col)
+//
+uint nbl_glsl_encodeRGB10A2_UNORM(in vec4 col)
 {
 	const uvec3 rgbMask = uvec3(0x3ffu);
 	const vec4 clamped = clamp(col,vec4(0.0),vec4(1.0));
 	uvec4 quantized = uvec4(clamped*vec4(vec3(rgbMask),3.0));
+	quantized.gba <<= uvec3(10,20,30);
+	return quantized.r|quantized.g|quantized.b|quantized.a;
+}
+uint nbl_glsl_encodeRGB10A2_SNORM(in vec4 col)
+{
+	const ivec4 mask = ivec4(ivec3(0x3ffu),0x3u);
+	const uvec3 halfMask = uvec3(0x1ffu);
+	const vec4 clamped = clamp(col,vec4(-1.f),vec4(1.f));
+	uvec4 quantized = uvec4(ivec4(clamped.rgb*vec3(halfMask),int(clamped.a))&mask);
 	quantized.gba <<= uvec3(10,20,30);
 	return quantized.r|quantized.g|quantized.b|quantized.a;
 }

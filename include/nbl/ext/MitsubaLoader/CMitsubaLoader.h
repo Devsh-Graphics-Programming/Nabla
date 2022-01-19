@@ -5,8 +5,8 @@
 #ifndef __C_MITSUBA_LOADER_H_INCLUDED__
 #define __C_MITSUBA_LOADER_H_INCLUDED__
 
-#include "matrix4SIMD.h"
 #include "nbl/asset/asset.h"
+
 #include "IFileSystem.h"
 #include "nbl/asset/utils/ICPUVirtualTexture.h"
 
@@ -16,15 +16,41 @@
 #include "nbl/ext/MitsubaLoader/SContext.h"
 
 
-namespace nbl
+namespace nbl::ext::MitsubaLoader
 {
-namespace ext
-{
-namespace MitsubaLoader
-{
+
 
 class CElementBSDF;
 class CMitsubaMaterialCompilerFrontend;
+
+
+// TODO: we need a GLSL to C++ compatibility wrapper
+//#include "nbl/builtin/glsl/ext/MitsubaLoader/instance_data_struct.glsl"
+#define uint uint32_t
+#define uvec2 uint64_t
+#define mat4x3 nbl::core::matrix3x4SIMD
+#define nbl_glsl_MC_material_data_t asset::material_compiler::material_data_t
+struct nbl_glsl_ext_Mitsuba_Loader_instance_data_t
+{
+	struct vec3
+	{
+		float x, y, z;
+	};
+	mat4x3 tform;
+	vec3 normalMatrixRow0;
+	uint padding0;
+	vec3 normalMatrixRow1;
+	uint padding1;
+	vec3 normalMatrixRow2;
+	uint determinantSignBit;
+	nbl_glsl_MC_material_data_t material;
+};
+#undef uint
+#undef uvec2
+#undef mat4x3
+#undef nbl_glsl_MC_material_data_t
+using instance_data_t = nbl_glsl_ext_Mitsuba_Loader_instance_data_t;
+
 
 class CMitsubaLoader : public asset::IRenderpassIndependentPipelineLoader
 {
@@ -48,7 +74,7 @@ class CMitsubaLoader : public asset::IRenderpassIndependentPipelineLoader
 		core::vector<SContext::shape_ass_type>	loadShapeGroup(SContext& ctx, uint32_t hierarchyLevel, const CElementShape::ShapeGroup* shapegroup, const core::matrix3x4SIMD& relTform);
 		SContext::shape_ass_type				loadBasicShape(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape, const core::matrix3x4SIMD& relTform);
 		
-		SContext::tex_ass_type					cacheTexture(SContext& ctx, uint32_t hierarchyLevel, const CElementTexture* texture, bool _restore = false);
+		void									cacheTexture(SContext& ctx, uint32_t hierarchyLevel, const CElementTexture* texture, const CMitsubaMaterialCompilerFrontend::E_IMAGE_VIEW_SEMANTIC semantic);
 
 		SContext::bsdf_type getBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf);
 		SContext::bsdf_type genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf);
@@ -75,7 +101,5 @@ class CMitsubaLoader : public asset::IRenderpassIndependentPipelineLoader
 		asset::SAssetBundle loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 };
 
-}
-}
 }
 #endif

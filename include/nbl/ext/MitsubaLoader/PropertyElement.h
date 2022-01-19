@@ -236,6 +236,9 @@ struct SNamedPropertyElement : SPropertyElementData
 			}
 
 			for (auto i = 0u; i < SPropertyElementData::MaxAttributes; i++)
+			{
+				if (SPropertyElementData::attributeStrings[type][i] == nullptr)
+					continue;
 				if (core::strcmpi(*it, SPropertyElementData::attributeStrings[type][i]) == 0)
 				{
 					it++;
@@ -247,6 +250,7 @@ struct SNamedPropertyElement : SPropertyElementData
 					else
 						return false;
 				}
+			}
 		}
 		return true;
 	}

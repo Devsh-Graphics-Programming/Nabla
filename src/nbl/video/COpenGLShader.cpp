@@ -25,6 +25,13 @@ const char* COpenGLShader::k_openGL2VulkanExtensionMap = R"(
 #define NBL_GL_EXT_shader_explicit_arithmetic_types_int16
 #endif
 
+#ifdef NBL_IMPL_GL_AMD_shader_explicit_vertex_parameter
+#define NBL_GL_AMD_shader_explicit_vertex_parameter
+#endif
+#ifdef NBL_IMPL_GL_NV_fragment_shader_barycentric
+#define NBL_GL_NV_fragment_shader_barycentric
+#endif
+
 #ifdef NBL_IMPL_GL_NV_shader_thread_group
 #define NBL_GL_KHR_shader_subgroup_ballot_subgroup_mask
 #define NBL_GL_KHR_shader_subgroup_basic_subgroup_size

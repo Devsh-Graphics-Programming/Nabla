@@ -71,5 +71,7 @@
 #include "nbl/core/SRAIIBasedExiter.h"
 #include "nbl/core/SRange.h"
 #include "nbl/core/Byteswap.h"
+#include "nbl/core/atomic.h"
+#include "nbl/core/decl/Types.h"
 
 #endif

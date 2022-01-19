@@ -28,6 +28,7 @@ SOFTWARE.
 
 #include "nbl/asset/filters/CRegionBlockFunctorFilter.h"
 #include "nbl/asset/metadata/COpenEXRMetadata.h"
+#include "IReadFile.h"
 
 #include "CImageLoaderOpenEXR.h"
 
@@ -242,7 +243,7 @@ namespace nbl
 				{
 					using StreamFromEXR = CRegionBlockFunctorFilter<ReadTexels<IlmType>,false>;
 					typename StreamFromEXR::state_type state(*this,image,image->getRegions().begin());
-					StreamFromEXR::execute(&state);
+					StreamFromEXR::execute(std::execution::par_unseq,&state);
 				}
 
 				inline void operator()(uint32_t ptrOffset, const core::vectorSIMDu32& texelCoord)
@@ -401,7 +402,6 @@ namespace nbl
 					images.push_back(std::move(image));
 				}
 			}	
-
 			_NBL_DELETE(nblIStream);
 			return SAssetBundle(std::move(meta),std::move(images));
 		}
@@ -507,7 +507,9 @@ namespace nbl
 			versionField.mainDataRegisterField = file.version();
 
 			auto isTheBitActive = [&](uint16_t bitToCheck)
-			{
+			{		
+				bool readVersionField(IMF::IStream* nblIStream, SContext& ctx);
+				bool readHeader(IMF::IStream* nblIStream, SContext& ctx);
 				return (versionField.mainDataRegisterField & (1 << (bitToCheck - 1)));
 			};
 

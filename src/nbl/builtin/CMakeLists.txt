@@ -43,7 +43,13 @@ set(nbl_resources_to_embed
   # generic GLSL headers after this line
   "nbl/builtin/glsl/macros.glsl"
   "nbl/builtin/glsl/algorithm.glsl"
+  # barycentric
+  "nbl/builtin/glsl/barycentric/extensions.glsl"
+  "nbl/builtin/glsl/barycentric/frag.glsl"
+  "nbl/builtin/glsl/barycentric/vert.glsl"
+  "nbl/builtin/glsl/barycentric/utils.glsl"
   # bump mapping
+  "nbl/builtin/glsl/bump_mapping/fragment.glsl" # TODO: rename to `frag.glsl`
   "nbl/builtin/glsl/bump_mapping/utils.glsl"
   # bxdf
   "nbl/builtin/glsl/bxdf/common.glsl"
@@ -120,6 +126,7 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/sampling/projected_spherical_triangle.glsl"
   #"nbl/builtin/glsl/sampling/spherical_rectangle.glsl"
   "nbl/builtin/glsl/sampling/spherical_triangle.glsl"
+  "nbl/builtin/glsl/sampling/quantized_sequence.glsl"
   # global exclusive scan
   "nbl/builtin/glsl/scan/direct.comp"
   "nbl/builtin/glsl/scan/declarations.glsl"
@@ -207,6 +214,10 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/ext/MitsubaLoader/instance_data_struct.glsl"
   "nbl/builtin/glsl/ext/MitsubaLoader/instance_data_descriptor.glsl"
   "nbl/builtin/glsl/ext/MitsubaLoader/material_compiler_compatibility_impl.glsl"
+  # virtual geometry
+  "nbl/builtin/glsl/virtual_geometry/descriptors.glsl"
+  "nbl/builtin/glsl/virtual_geometry/virtual_attribute.glsl"
+  "nbl/builtin/glsl/virtual_geometry/virtual_attribute_fetch.glsl"
   # OIT
   "nbl/builtin/glsl/ext/OIT/oit.glsl"
   "nbl/builtin/glsl/ext/OIT/insert_node.glsl"

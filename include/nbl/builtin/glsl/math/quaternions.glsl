@@ -69,8 +69,7 @@ mat3 nbl_glsl_quaternion_t_constructMatrix(in nbl_glsl_quaternion_t quat)
 }
 
 
-
-vec3 nbl_glsl_slerp_impl_impl(in vec3 start, in vec3 preScaledWaypoint, float cosAngleFromStart)
+vec3 nbl_glsl_slerp_delta_impl(in vec3 start, in vec3 preScaledWaypoint, in float cosAngleFromStart)
 {
     vec3 planeNormal = cross(start,preScaledWaypoint);
     
@@ -81,7 +80,12 @@ vec3 nbl_glsl_slerp_impl_impl(in vec3 start, in vec3 preScaledWaypoint, float co
     planeNormal *= sinAngle;
     const vec3 precompPart = cross(planeNormal,start)*2.0;
 
-    return start+precompPart*cosAngle+cross(planeNormal,precompPart);
+    return precompPart*cosAngle+cross(planeNormal,precompPart);
+}
+
+vec3 nbl_glsl_slerp_impl_impl(in vec3 start, in vec3 preScaledWaypoint, in float cosAngleFromStart)
+{
+    return start+nbl_glsl_slerp_delta_impl(start,preScaledWaypoint,cosAngleFromStart);
 }
 
 #endif

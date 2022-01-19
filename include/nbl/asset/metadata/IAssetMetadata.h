@@ -2,18 +2,17 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __NBL_ASSET_I_ASSET_METADATA_H_INCLUDED__
-#define __NBL_ASSET_I_ASSET_METADATA_H_INCLUDED__
+#ifndef _NBL_ASSET_I_ASSET_METADATA_H_INCLUDED_
+#define _NBL_ASSET_I_ASSET_METADATA_H_INCLUDED_
 
 #include "nbl/core/declarations.h"
 
 #include "nbl/asset/metadata/IImageMetadata.h"
+#include "nbl/asset/metadata/IImageViewMetadata.h"
 #include "nbl/asset/metadata/IRenderpassIndependentPipelineMetadata.h"
 #include "nbl/asset/metadata/IMeshMetadata.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 namespace impl{
 	class IAssetMetadata_base : public core::IReferenceCounted{
@@ -27,6 +26,11 @@ namespace impl{
 		struct IAssetMetadata_base::asset_metadata<ICPUImage>
 		{
 			using type = IImageMetadata;
+		};
+		template<>
+		struct IAssetMetadata_base::asset_metadata<ICPUImageView>
+		{
+			using type = IImageViewMetadata;
 		};
 		template<>
 		struct IAssetMetadata_base::asset_metadata<ICPURenderpassIndependentPipeline>
@@ -79,6 +83,7 @@ class IAssetMetadata : public impl::IAssetMetadata_base
 
 		std::tuple<
 			asset_metadata_map_t<ICPUImage>,
+			asset_metadata_map_t<ICPUImageView>,
 			asset_metadata_map_t<ICPURenderpassIndependentPipeline>,
 			asset_metadata_map_t<ICPUMesh>
 		> m_metaMaps;
@@ -134,7 +139,6 @@ class IAssetMetadata : public impl::IAssetMetadata_base
 };
 
 
-}
 }
 
 #endif

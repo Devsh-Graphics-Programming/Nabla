@@ -207,7 +207,7 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
         core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> createGPURenderpassIndependentPipeline(
 			IGPUPipelineCache* _pipelineCache,
             core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
-            IGPUSpecializedShader** _shadersBegin, IGPUSpecializedShader** _shadersEnd,
+            IGPUSpecializedShader* const* _shadersBegin, IGPUSpecializedShader* const* _shadersEnd,
             const asset::SVertexInputParams& _vertexInputParams,
             const asset::SBlendParams& _blendParams,
             const asset::SPrimitiveAssemblyParams& _primAsmParams,
@@ -553,6 +553,9 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
         uint32_t getMaxTextureBindings() const override { return COpenGLExtensionHandler::maxTextureBindings; }
         uint32_t getMaxTextureBindingsCompute() const override { return COpenGLExtensionHandler::maxTextureBindingsCompute; }
         uint32_t getMaxImageBindings() const override { return COpenGLExtensionHandler::maxImageBindings; }
+
+		//!
+		bool runningInRenderdoc() const { return runningInRenderDoc; }
 
     private:
         SAuxContext* getThreadContext_helper(const bool& alreadyLockedMutex, const std::thread::id& tid = std::this_thread::get_id());

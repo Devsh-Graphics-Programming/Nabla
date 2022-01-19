@@ -5,46 +5,54 @@
 #ifndef __C_MITSUBA_MATERIAL_COMPILER_FRONTEND_H_INCLUDED__
 #define __C_MITSUBA_MATERIAL_COMPILER_FRONTEND_H_INCLUDED__
 
-#include "nbl/ext/MitsubaLoader/CElementBSDF.h"
-#include <nbl/asset/material_compiler/IR.h>
+#include "nbl/core/Types.h"
 
-namespace nbl
+#include "nbl/asset/material_compiler/IR.h"
+
+#include "nbl/ext/MitsubaLoader/CElementBSDF.h"
+
+namespace nbl::ext::MitsubaLoader
 {
-namespace ext
-{
-namespace MitsubaLoader
-{
-    struct SContext;
+
+struct SContext;
 
 class CMitsubaMaterialCompilerFrontend
 {
-    using IRNode = asset::material_compiler::IR::INode;
-    using tex_ass_type = std::tuple<core::smart_refctd_ptr<asset::ICPUImageView>, core::smart_refctd_ptr<asset::ICPUSampler>, float>;
+    public:
+        using IRNode = asset::material_compiler::IR::INode;
+        enum E_IMAGE_VIEW_SEMANTIC : uint8_t
+        {
+            EIVS_IDENTITIY,
+            EIVS_BLEND_WEIGHT,
+            EIVS_NORMAL_MAP,
+            EIVS_BUMP_MAP,
+            EIVS_COUNT
+        };
 
-    const SContext* m_loaderContext;
+        struct front_and_back_t
+        {
+            IRNode* front;
+            IRNode* back;
+        };
 
-    tex_ass_type getDerivMap(const CElementTexture* _element) const;
-    tex_ass_type getBlendWeightTex(const CElementTexture* _element) const;
+        explicit CMitsubaMaterialCompilerFrontend(const SContext* _ctx) : m_loaderContext(_ctx) {}
 
-    std::pair<const CElementTexture*, float> getTexture_common(const CElementTexture* _element) const;
+        front_and_back_t compileToIRTree(asset::material_compiler::IR* ir, const CElementBSDF* _bsdf);
 
-    tex_ass_type getTexture(const CElementTexture* _element) const;
-    tex_ass_type getTexture(const std::string& _key, const CElementTexture* _element, float _scale) const;
+    private:
+        using tex_ass_type = std::tuple<core::smart_refctd_ptr<asset::ICPUImageView>,core::smart_refctd_ptr<asset::ICPUSampler>,float>;
 
-    IRNode* createIRNode(asset::material_compiler::IR* ir, const CElementBSDF* _bsdf);
+        const SContext* m_loaderContext;
 
-public:
-    struct front_and_back_t
-    {
-        IRNode* front;
-        IRNode* back;
-    };
+        std::pair<const CElementTexture*,float> unwindTextureScale(const CElementTexture* _element) const;
 
-    CMitsubaMaterialCompilerFrontend(const SContext* _ctx) : m_loaderContext(_ctx) {}
+        tex_ass_type getTexture(const CElementTexture* _element, const E_IMAGE_VIEW_SEMANTIC semantic=EIVS_IDENTITIY) const;
 
-    front_and_back_t compileToIRTree(asset::material_compiler::IR* ir, const CElementBSDF* _bsdf);
+        tex_ass_type getErrorTexture() const;
+
+        IRNode* createIRNode(asset::material_compiler::IR* ir, const CElementBSDF* _bsdf);
 };
 
-}}}
+}
 
 #endif

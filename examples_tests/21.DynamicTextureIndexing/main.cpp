@@ -7,7 +7,6 @@
 
 //! I advise to check out this file, its a basic input handler
 #include "../common/QToQuitEventReceiver.h"
-#include "nbl/asset/utils/CCPUMeshPacker.h"
 
 using namespace nbl;
 using namespace core;

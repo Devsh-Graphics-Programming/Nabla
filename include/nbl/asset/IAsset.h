@@ -138,11 +138,11 @@ class IAsset : virtual public core::IReferenceCounted
 		{
 			if (!rootAsset)
 				return nullptr;
-			assetType* image = rootAsset->getAssetType()!=assetType::AssetType ? nullptr:static_cast<assetType*>(rootAsset);
+			assetType* typedAsset = rootAsset->getAssetType()!=assetType::AssetType ? nullptr:static_cast<assetType*>(rootAsset);
 			#ifdef _NBL_DEBUG
-				assert(image);
+				assert(typedAsset);
 			#endif
-			return image;
+			return typedAsset;
 		}
 		//! Smart pointer variant
 		template<typename assetType>

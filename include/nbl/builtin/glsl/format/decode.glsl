@@ -44,6 +44,7 @@ vec3 nbl_glsl_decodeRGB18E7S3(in uvec2 x)
 	return v*scale;
 }
 
+//
 vec4 nbl_glsl_decodeRGB10A2_UNORM(in uint x)
 {
 	const uvec3 rgbMask = uvec3(0x3ffu);
@@ -52,14 +53,14 @@ vec4 nbl_glsl_decodeRGB10A2_UNORM(in uint x)
 }
 vec4 nbl_glsl_decodeRGB10A2_SNORM(in uint x)
 {
-	const ivec4 shifted = ivec4(x, uvec3(x) >> uvec3(10u, 20u, 30u));
+	const ivec4 shifted = ivec4(x,uvec3(x)>>uvec3(10u,20u,30u));
 	const ivec4 rgbaBias = ivec4(ivec3(0x200u), 0x2u);
 	const ivec4 halfMask = rgbaBias - ivec4(1);
 	const ivec4 signed = (-(shifted & rgbaBias)) | (shifted & halfMask);
-	return max(vec4(signed) / vec4(halfMask), vec4(-1.0));
+	return max(vec4(signed) / vec4(halfMask), vec4(-1.f));
 }
 
-
+//
 nbl_glsl_quaternion_t nbl_glsl_decode8888Quaternion(in uint x)
 {
 	nbl_glsl_quaternion_t quat;
@@ -84,5 +85,7 @@ nbl_glsl_quaternion_t nbl_glsl_decode1010102Quaternion(in uint x)
 	quat.data[maxCompIx] = sqrt(1.0-dot(smallest3Components,smallest3Components));
 	return quat;
 }
+
+//
 
 #endif

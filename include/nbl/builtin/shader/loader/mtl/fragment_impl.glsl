@@ -84,6 +84,32 @@ vec2 nbl_sample_bump(in vec2 uv, in mat2 dUV) { return texture(map_bump, uv).xy 
 #include <nbl/builtin/glsl/bxdf/brdf/diffuse/lambert.glsl>
 #include <nbl/builtin/glsl/bxdf/brdf/specular/blinn_phong.glsl>
 
+#ifndef _NBL_BUILTIN_GLSL_BUMP_MAPPING_DERIVATIVES_DECLARED_
+mat2x3 nbl_glsl_perturbNormal_dPdSomething() {return mat2x3(dFdx(ViewPos),dFdy(ViewPos));}
+mat2 nbl_glsl_perturbNormal_dUVdSomething()
+{
+#ifndef _NO_UV
+    return mat2(dFdx(UV), dFdy(UV));    
+#else
+    return mat2(vec2(0,0),vec2(0,0));    
+#endif
+}
+#define _NBL_BUILTIN_GLSL_BUMP_MAPPING_DERIVATIVES_DECLARED_
+#endif
+#include <nbl/builtin/glsl/bump_mapping/utils.glsl>
+
+
+#ifndef _NO_UV
+#ifndef _NBL_FRAG_GET_UV_DERIVATIVES_FUNCTION_DEFINED_
+mat2 nbl_glsl_dUVdScreen()
+{
+    return mat2(dFdx(UV),dFdy(UV));
+}
+#define _NBL_FRAG_GET_UV_DERIVATIVES_FUNCTION_DEFINED_
+#endif
+#endif
+
+
 #ifndef _NBL_BSDF_COS_EVAL_DEFINED_
 #define _NBL_BSDF_COS_EVAL_DEFINED_
 
@@ -92,12 +118,13 @@ vec2 nbl_sample_bump(in vec2 uv, in mat2 dUV) { return texture(map_bump, uv).xy 
 
 //! This is the function that evaluates the BSDF for specific view and observer direction
 // params can be either BSDFIsotropicParams or BSDFAnisotropicParams 
-Spectrum nbl_bsdf_cos_eval(in nbl_glsl_LightSample _sample, in nbl_glsl_IsotropicViewSurfaceInteraction inter, in mat2 dUV)
+Spectrum nbl_bsdf_cos_eval(in nbl_glsl_LightSample _sample, in nbl_glsl_IsotropicViewSurfaceInteraction inter)
 {
     nbl_glsl_MTLMaterialParameters mtParams = nbl_glsl_getMaterialParameters();
 
     vec3 Kd;
 #ifndef _NO_UV
+    const mat2 dUV = nbl_glsl_dUVdScreen();
     if ((mtParams.extra&(map_Kd_MASK)) == (map_Kd_MASK))
         Kd = nbl_sample_Kd(UV, dUV).rgb;
     else
@@ -163,24 +190,22 @@ Spectrum nbl_bsdf_cos_eval(in nbl_glsl_LightSample _sample, in nbl_glsl_Isotropi
 
 #endif //_NBL_BSDF_COS_EVAL_DEFINED_
 
-#include <nbl/builtin/glsl/bump_mapping/utils.glsl>
-
 #ifndef _NBL_COMPUTE_LIGHTING_DEFINED_
 #define _NBL_COMPUTE_LIGHTING_DEFINED_
 
-vec3 nbl_computeLighting(out nbl_glsl_IsotropicViewSurfaceInteraction out_interaction, in mat2 dUV)
+vec3 nbl_computeLighting(in nbl_glsl_IsotropicViewSurfaceInteraction interaction)
 {
-    nbl_glsl_IsotropicViewSurfaceInteraction interaction = nbl_glsl_calcSurfaceInteraction(vec3(0.0), ViewPos, Normal, mat2x3(dFdx(ViewPos),dFdy(ViewPos)));
     nbl_glsl_MTLMaterialParameters mtParams = nbl_glsl_getMaterialParameters();
 
 #ifndef _NO_UV
+    const mat2 dUV = nbl_glsl_dUVdScreen();
     if ((mtParams.extra&map_bump_MASK) == map_bump_MASK)
     {
         interaction.N = normalize(interaction.N);
 
-        vec2 dh = nbl_sample_bump(UV, dUV);
+        vec2 dh = nbl_sample_bump(UV, dUV).xy*mtParams.bm;
 
-        interaction.N = nbl_glsl_perturbNormal_derivativeMap(interaction.N, dh, interaction.V.dPosdScreen, dUV);
+        interaction.N = nbl_glsl_perturbNormal_derivativeMap(interaction.N, dh);
     }
 #endif
     const vec3 L = -ViewPos;
@@ -216,9 +241,8 @@ vec3 nbl_computeLighting(out nbl_glsl_IsotropicViewSurfaceInteraction out_intera
     break;
     }
 
-    out_interaction = interaction;
 #define Intensity 1000000.0
-    return (Intensity/lenL2)*nbl_bsdf_cos_eval(_sample,interaction, dUV) + Ka;
+    return (Intensity/lenL2)*nbl_bsdf_cos_eval(_sample,interaction) + Ka;
 #undef Intensity
 }
 #endif //_NBL_COMPUTE_LIGHTING_DEFINED_
@@ -229,14 +253,9 @@ vec3 nbl_computeLighting(out nbl_glsl_IsotropicViewSurfaceInteraction out_intera
 
 void main()
 {
-#ifndef _NO_UV
-    mat2 dUV = mat2(dFdx(UV), dFdy(UV));    
-#else
-    mat2 dUV = mat2(vec2(0,0),vec2(0,0));    
-#endif
     nbl_glsl_MTLMaterialParameters mtParams = nbl_glsl_getMaterialParameters();
-    nbl_glsl_IsotropicViewSurfaceInteraction interaction;
-    vec3 color = nbl_computeLighting(interaction, dUV);
+    nbl_glsl_IsotropicViewSurfaceInteraction interaction = nbl_glsl_calcSurfaceInteraction(vec3(0.0),ViewPos,Normal);
+    vec3 color = nbl_computeLighting(interaction);
 
     float d = mtParams.d;
 
@@ -256,7 +275,7 @@ void main()
     #ifndef _NO_UV
             if ((mtParams.extra&(map_d_MASK)) == (map_d_MASK))
             {
-                d = nbl_sample_d(UV, dUV).r;
+                d = nbl_sample_d(UV,nbl_glsl_dUVdScreen()).r;
                 color *= d;
             }
     #endif

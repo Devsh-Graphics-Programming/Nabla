@@ -58,7 +58,7 @@ vec2 SampleSphericalMap(in vec3 v)
     return uv;
 }
 
-vec3 nbl_computeLighting(inout nbl_glsl_AnisotropicViewSurfaceInteraction out_interaction, in mat2 dUV)
+vec3 nbl_computeLighting(inout nbl_glsl_AnisotropicViewSurfaceInteraction out_interaction)
 {
 	nbl_glsl_xoroshiro64star_state_t scramble_start_state = textureLod(scramblebuf,gl_FragCoord.xy/VIEWPORT_SZ,0).rg;
 
@@ -74,12 +74,11 @@ vec3 nbl_computeLighting(inout nbl_glsl_AnisotropicViewSurfaceInteraction out_in
 		nbl_glsl_xoroshiro64star_state_t scramble_state = scramble_start_state;
 
 		vec3 rand = rand3d(i,scramble_state);
-		float pdf;
 		nbl_glsl_LightSample s;
-		vec3 rem = nbl_glsl_MC_runGenerateAndRemainderStream(precomp, gcs, rnps, rand, pdf, s);
+		nbl_glsl_MC_quot_pdf_aov_t rem = nbl_glsl_MC_runGenerateAndRemainderStream(precomp, gcs, rnps, rand, s);
 
 		vec2 uv = SampleSphericalMap(s.L);
-		color += rem*textureLod(envMap, uv, 0.0).xyz;
+		color += rem.quotient*textureLod(envMap, uv, 0.0).xyz;
 	}
 	color /= float(SAMPLE_COUNT);
 #endif
@@ -92,7 +91,7 @@ vec3 nbl_computeLighting(inout nbl_glsl_AnisotropicViewSurfaceInteraction out_in
 		const float intensityScale = LIGHT_INTENSITY_SCALE;//ehh might want to render to hdr fbo and do tonemapping
 		nbl_glsl_LightSample _sample;
 		_sample.L = L*inversesqrt(d2);
-		color += nbl_bsdf_cos_eval(_sample,out_interaction, dUV)*l.intensity*intensityScale/d2;
+		color += nbl_bsdf_cos_eval(_sample,out_interaction)*l.intensity*intensityScale/d2;
 	}
 
 	return color+emissive;
@@ -105,19 +104,19 @@ void main()
 	mat2 dUV = mat2(dFdx(UV),dFdy(UV));
 
 	// "The sign of this computation is negated when the value of GL_CLIP_ORIGIN (the clip volume origin, set with glClipControl) is GL_UPPER_LEFT."
-	const bool front = (!gl_FrontFacing) != (PC.camTformDeterminant*InstData.data[InstanceIndex].determinant < 0.0);
+	const bool front = bool((InstData.data[InstanceIndex].determinantSignBit^mix(~0u,0u,gl_FrontFacing!=PC.camTformDeterminant<0.0))&0x80000000u);
 	precomp = nbl_glsl_MC_precomputeData(front);
 	material = nbl_glsl_MC_material_data_t_getOriented(InstData.data[InstanceIndex].material,precomp.frontface);
 #ifdef TEX_PREFETCH_STREAM
 	nbl_glsl_MC_runTexPrefetchStream(nbl_glsl_MC_oriented_material_t_getTexPrefetchStream(material), UV, dUV);
 #endif
 #ifdef NORM_PRECOMP_STREAM
-	nbl_glsl_MC_runNormalPrecompStream(nbl_glsl_MC_oriented_material_t_getNormalPrecompStream(precomp), dUV, precomp);
+	nbl_glsl_MC_runNormalPrecompStream(nbl_glsl_MC_oriented_material_t_getNormalPrecompStream(material), precomp);
 #endif
 
 
 	nbl_glsl_AnisotropicViewSurfaceInteraction inter;
-	vec3 color = nbl_computeLighting(inter, dUV);
+	vec3 color = nbl_computeLighting(inter);
 
 	OutColor = vec4(color, 1.0);
 }

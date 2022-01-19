@@ -223,7 +223,7 @@ core::smart_refctd_ptr<ICPUImage> createAndconvertImageData(ICPUImage::SCreation
 		state.inMipLevel = attachedRegion->imageSubresource.mipLevel;
 		state.outMipLevel = attachedRegion->imageSubresource.mipLevel;
 
-		//if (!convertFilter.execute(&state))
+		//if (!convertFilter.execute(std::execution::par_unseq,&state))
 		//	imgInfo.logger.log("Something went wrong while converting!", system::ILogger::ELL_WARNING);
 	}
 

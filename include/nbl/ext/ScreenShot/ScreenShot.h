@@ -198,3 +198,165 @@ inline bool createScreenShot(
 } // namespace nbl::ext::ScreenShot
 
 #endif
+
+#ifdef 0 // code from `master` branch:
+			/*
+				Download mip level image with gpu image usage and save it to IGPUBuffer.
+				Because of the fence placed by driver the function stalls the CPU 
+				to wait on the GPU to finish, beware of that.
+				@see video::IDriverFence
+			*/
+
+			//! TODO: HANDLE UNPACK ALIGNMENT
+			[[nodiscard]] core::smart_refctd_ptr<video::IDriverFence> downloadImageMipLevel(video::IDriver* driver, video::IGPUImage* source, video::IGPUBuffer* destination, uint32_t sourceMipLevel = 0u, size_t destOffset = 0ull, bool implicitflush = true)
+			{
+				// will change this, https://github.com/buildaworldnet/IrrlichtBAW/issues/148
+				if (isBlockCompressionFormat(source->getCreationParameters().format))
+					return nullptr;
+
+				auto extent = source->getMipSize(sourceMipLevel);
+				video::IGPUImage::SBufferCopy pRegions[1u] = { {destOffset,extent.x,extent.y,{static_cast<asset::IImage::E_ASPECT_FLAGS>(0u),sourceMipLevel,0u,1u},{0u,0u,0u},{extent.x,extent.y,extent.z}} };
+				driver->copyImageToBuffer(source, destination, 1u, pRegions);
+
+				return driver->placeFence(implicitflush);
+			}
+
+			/*
+				Create a ScreenShot with gpu image usage and save it to a file.
+			*/
+			bool createScreenShot(video::IVideoDriver* driver, asset::IAssetManager* assetManager, const video::IGPUImageView* gpuImageView, const std::string& outFileName, asset::E_FORMAT convertToFormat=asset::EF_UNKNOWN)
+			{
+				auto fetchedImageViewParmas = gpuImageView->getCreationParameters();
+				auto gpuImage = fetchedImageViewParmas.image;
+				auto fetchedImageParams = gpuImage->getCreationParameters();
+				auto image = asset::ICPUImage::create(std::move(fetchedImageParams));
+
+				auto texelBufferRowLength = asset::IImageAssetHandlerBase::calcPitchInBlocks(fetchedImageParams.extent.width * asset::getBlockDimensions(fetchedImageParams.format).X, asset::getTexelOrBlockBytesize(fetchedImageParams.format));
+
+				auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ICPUImage::SBufferCopy>>(1u);
+				asset::ICPUImage::SBufferCopy& region = regions->front();
+
+				region.imageSubresource.mipLevel = 0u;
+				region.imageSubresource.baseArrayLayer = 0u;
+				region.imageSubresource.layerCount = 1u;
+				region.bufferOffset = 0u;
+				region.bufferRowLength = texelBufferRowLength;
+				region.bufferImageHeight = 0u;
+				region.imageOffset = { 0u, 0u, 0u };
+				region.imageExtent = image->getCreationParameters().extent;
+
+				video::IDriverMemoryBacked::SDriverMemoryRequirements memoryRequirements;
+				memoryRequirements.vulkanReqs.alignment = 64u;
+				memoryRequirements.vulkanReqs.memoryTypeBits = 0xffffffffu;
+				memoryRequirements.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL;
+				memoryRequirements.mappingCapability = video::IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ | video::IDriverMemoryAllocation::EMCF_COHERENT | video::IDriverMemoryAllocation::EMCF_CACHED;
+				memoryRequirements.vulkanReqs.size = image->getImageDataSizeInBytes();
+				auto destinationBuffer = driver->createGPUBufferOnDedMem(memoryRequirements);
+
+				auto mapPointerGetterFence = downloadImageMipLevel(driver, gpuImage.get(), destinationBuffer.get());
+
+				auto destinationBoundMemory = destinationBuffer->getBoundMemory();
+				destinationBoundMemory->mapMemoryRange(video::IDriverMemoryAllocation::EMCAF_READ, { 0u, memoryRequirements.vulkanReqs.size });
+
+				auto correctedScreenShotTexelBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(memoryRequirements.vulkanReqs.size);
+				bool flipImage = true;
+				if(flipImage)
+				{
+					auto extent = gpuImage->getMipSize(0u);
+					uint32_t rowByteSize = extent.x * asset::getTexelOrBlockBytesize(gpuImage->getCreationParameters().format);
+					for(uint32_t y = 0; y < extent.y; ++y)
+					{
+						uint32_t flipped_y = extent.y - y - 1;
+						memcpy(reinterpret_cast<uint8_t*>(correctedScreenShotTexelBuffer->getPointer()) + rowByteSize * y, reinterpret_cast<uint8_t*>(destinationBoundMemory->getMappedPointer()) + rowByteSize * flipped_y, rowByteSize);
+					}
+				}
+				else
+				{
+					memcpy(correctedScreenShotTexelBuffer->getPointer(), destinationBoundMemory->getMappedPointer(), memoryRequirements.vulkanReqs.size);
+				}
+
+				destinationBoundMemory->unmapMemory();
+
+				image->setBufferAndRegions(std::move(correctedScreenShotTexelBuffer), regions);
+				
+				while (mapPointerGetterFence->waitCPU(1000ull, mapPointerGetterFence->canDeferredFlush()) == video::EDFR_TIMEOUT_EXPIRED) {}
+
+				core::smart_refctd_ptr<asset::ICPUImage> convertedImage;
+				if (convertToFormat != asset::EF_UNKNOWN)
+				{
+					auto referenceImageParams = image->getCreationParameters();
+					auto referenceBuffer = image->getBuffer();
+					auto referenceRegions = image->getRegions();
+					auto referenceRegion = referenceRegions.begin();
+					const auto newTexelOrBlockByteSize = asset::getTexelOrBlockBytesize(convertToFormat);
+
+					auto newImageParams = referenceImageParams;
+					auto newCpuBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(referenceBuffer->getSize() * newTexelOrBlockByteSize);
+					auto newRegions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ICPUImage::SBufferCopy>>(referenceRegions.size());
+
+					for (auto newRegion = newRegions->begin(); newRegion != newRegions->end(); ++newRegion)
+					{
+						*newRegion = *(referenceRegion++);
+						newRegion->bufferOffset = newRegion->bufferOffset * newTexelOrBlockByteSize;
+					}
+
+					newImageParams.format = convertToFormat;
+					convertedImage = asset::ICPUImage::create(std::move(newImageParams));
+					convertedImage->setBufferAndRegions(std::move(newCpuBuffer), newRegions);
+
+					//asset::CConvertFormatImageFilter TODO: use this one instead with a nice dither @Anastazluk, we could also get rid of a lot of code here, since there's a bunch of constraints
+					asset::CSwizzleAndConvertImageFilter<> convertFilter;
+					asset::CSwizzleAndConvertImageFilter<>::state_type state;
+
+					state.swizzle = {};
+					state.inImage = image.get();
+					state.outImage = convertedImage.get();
+					state.inOffset = { 0, 0, 0 };
+					state.inBaseLayer = 0;
+					state.outOffset = { 0, 0, 0 };
+					state.outBaseLayer = 0;
+					//state.dither = ;
+
+					for (auto itr = 0; itr < convertedImage->getCreationParameters().mipLevels; ++itr)
+					{
+						auto regionWithMipMap = convertedImage->getRegions(itr).begin();
+
+						state.extent = regionWithMipMap->getExtent();
+						state.layerCount = regionWithMipMap->imageSubresource.layerCount;
+						state.inMipLevel = regionWithMipMap->imageSubresource.mipLevel;
+						state.outMipLevel = regionWithMipMap->imageSubresource.mipLevel;
+
+						const bool ok = convertFilter.execute(std::execution::par_unseq,&state);
+						assert(ok);
+					}
+				}
+				else
+					convertedImage = image;
+				auto newCreationParams = convertedImage->getCreationParameters();
+				
+				asset::ICPUImageView::SCreationParams viewParams;
+				viewParams.flags = static_cast<asset::ICPUImageView::E_CREATE_FLAGS>(0u);
+				viewParams.image = convertedImage;
+				viewParams.format = newCreationParams.format;
+				viewParams.viewType = asset::ICPUImageView::ET_2D;
+				viewParams.subresourceRange.baseArrayLayer = 0u;
+				viewParams.subresourceRange.layerCount = newCreationParams.arrayLayers;
+				viewParams.subresourceRange.baseMipLevel = 0u;
+				viewParams.subresourceRange.levelCount = newCreationParams.mipLevels;
+
+				auto imageView = asset::ICPUImageView::create(std::move(viewParams));
+
+				auto tryToWrite = [&](asset::IAsset* asset)
+				{
+					asset::IAssetWriter::SAssetWriteParams wparams(asset);
+					return assetManager->writeAsset(outFileName, wparams);
+				};
+
+				bool status = tryToWrite(convertedImage.get());
+				if (!status)
+					status = tryToWrite(imageView.get());
+
+				return status;
+
+			}
+#endif

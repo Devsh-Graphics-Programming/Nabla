@@ -697,7 +697,7 @@ endif()
 nbl_install_lib(shaderc)
 nbl_install_lib(shaderc_util)
 nbl_install_lib(SPIRV)
-nbl_install_lib(SPIRV-Tools-static)
+nbl_install_lib(SPIRV-Tools-static) # TODO: make this function/macro work with alias target
 nbl_install_lib(SPIRV-Tools-opt)
 nbl_install_lib(OGLCompiler)
 nbl_install_lib(OSDependent)
