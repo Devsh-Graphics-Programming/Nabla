@@ -3,8 +3,11 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
-#ifndef __NBL_C_VIDEO_OPEN_GL_H_INCLUDED__
-#define __NBL_C_VIDEO_OPEN_GL_H_INCLUDED__
+#include "nbl/asset/utils/IGLSLCompiler.h"
+#include "nbl/asset/utils/CShaderIntrospector.h"
+#include "nbl/asset/utils/spvUtils.h"
+
+#ifdef OLD_CODE
 
 #include "nbl/core/core.h"
 #include "nbl/system/compile_config.h"
@@ -606,3 +609,4 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 #endif // _NBL_COMPILE_WITH_OPENGL_
 #endif
 
+#endif
