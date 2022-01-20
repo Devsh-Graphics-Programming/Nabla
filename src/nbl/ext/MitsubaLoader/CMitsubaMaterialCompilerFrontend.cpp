@@ -305,7 +305,7 @@ auto CMitsubaMaterialCompilerFrontend::getErrorTexture() const -> tex_ass_type
             const size_t cnt = _bsdf->mixturebsdf.childCount;
             ir_node->children.count = cnt;
             const auto* weightIt = _bsdf->mixturebsdf.weights;
-            for (int32_t i=cnt-1u; i>=0; --i) // need to add weights in reverse, because children are added using a stack
+            for (size_t i=0u; i<cnt; i++)
                 node->weights[i] = *(weightIt++);
         }
         break;
