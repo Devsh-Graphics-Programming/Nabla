@@ -38,24 +38,25 @@ class IGPUVirtualTexture final : public asset::IVirtualTexture<IGPUImageView, IG
         uint32_t& waitSemaphoreCount, IGPUSemaphore* const* &semaphoresToWaitBeforeExecution, const asset::E_PIPELINE_STAGE_FLAGS* &stagesToWaitForPerSemaphore
     )
     {
+        core::smart_refctd_ptr<IUtilities> utilities = core::make_smart_refctd_ptr<IUtilities>(core::smart_refctd_ptr<ILogicalDevice>(logicalDevice));
 
         core::smart_refctd_ptr<IGPUImage> gpuImage;
         {
             auto cpuImageParams = _cpuimg->getCreationParameters();
             cpuImageParams.initialLayout = asset::EIL_TRANSFER_DST_OPTIMAL;
-        
+
             // TODO: Look at issue #167 on Nabla repo, at some point
-            auto gpuTexelBuffer = logicalDevice->createDeviceLocalGPUBufferOnDedMem(_cpuimg->getBuffer()->getSize());
+            auto gpuTexelBuffer = logicalDevice->createDeviceLocalGPUBufferOnDedMem(IGPUBuffer::SCreationParams(), _cpuimg->getBuffer()->getSize());
             uint32_t signalSemaphoreCount=0u;
             IGPUSemaphore* const* semaphoresToSignal = nullptr;
-            logicalDevice->updateBufferRangeViaStagingBuffer(
+            utilities->updateBufferRangeViaStagingBuffer(
                 cmdbuf,fence,queue,asset::SBufferRange<IGPUBuffer>{0u,gpuTexelBuffer->getSize(),gpuTexelBuffer},_cpuimg->getBuffer()->getPointer(),
                 waitSemaphoreCount,semaphoresToWaitBeforeExecution,stagesToWaitForPerSemaphore
             );
 
             auto regions = _cpuimg->getRegions();
             assert(regions.size());
-            gpuImage = logicalDevice->createFilledDeviceLocalGPUImageOnDedMem(cmdbuf,std::move(cpuImageParams),gpuTexelBuffer.get(),regions.size(),regions.begin());
+            gpuImage = utilities->createFilledDeviceLocalGPUImageOnDedMem(cmdbuf,std::move(cpuImageParams),gpuTexelBuffer.get(),regions.size(),regions.begin());
         }
 
         return gpuImage;
@@ -80,7 +81,7 @@ class IGPUVirtualTexture final : public asset::IVirtualTexture<IGPUImageView, IG
             auto* cpuStorage = static_cast<asset::ICPUVirtualTexture::ICPUVTResidentStorage*>(pair.second.get());
             const asset::E_FORMAT_CLASS fmtClass = pair.first;
 
-            m_storage.insert({fmtClass,core::make_smart_refctd_ptr<IGPUVTResidentStorage>(m_logicalDevice.get(),queue.get(),cpuStorage)});
+            m_storage.insert({fmtClass,core::make_smart_refctd_ptr<IGPUVTResidentStorage>(m_logicalDevice.get(),cmdbuf,fenceToSignal,queue,cpuStorage,waitSemaphoreCount,semaphoresToWaitBeforeExecution,stagesToWaitForPerSemaphore)});
         }
 
         auto createViewsFromCPU = [this](core::vector<SamplerArray::Sampler>& _dst, decltype(_cpuvt->getFloatViews()) _src) -> void
@@ -301,11 +302,11 @@ protected:
     }
     core::smart_refctd_ptr<IVTResidentStorage> createVTResidentStorage(asset::E_FORMAT _format, uint32_t _tileExtent, uint32_t _layers, uint32_t _tilesPerDim) override
     {
-        return core::make_smart_refctd_ptr<IGPUVTResidentStorage>(m_logicalDevice, _format, _tileExtent, _layers, _tilesPerDim);
+        return core::make_smart_refctd_ptr<IGPUVTResidentStorage>(m_logicalDevice.get(), _format, _tileExtent, _layers, _tilesPerDim);
     }
     core::smart_refctd_ptr<IVTResidentStorage> createVTResidentStorage(asset::E_FORMAT _format, uint32_t _tilesPerDim) override
     {
-        return core::make_smart_refctd_ptr<IGPUVTResidentStorage>(m_logicalDevice, _format, _tilesPerDim);
+        return core::make_smart_refctd_ptr<IGPUVTResidentStorage>(m_logicalDevice.get(), _format, _tilesPerDim);
     }
     core::smart_refctd_ptr<IGPUImage> createPageTableImage(IGPUImage::SCreationParams&& _params) const override
     {

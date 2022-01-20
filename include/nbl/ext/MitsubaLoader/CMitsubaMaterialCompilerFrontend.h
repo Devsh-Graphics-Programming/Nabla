@@ -37,7 +37,7 @@ class CMitsubaMaterialCompilerFrontend
 
         explicit CMitsubaMaterialCompilerFrontend(const SContext* _ctx) : m_loaderContext(_ctx) {}
 
-        front_and_back_t compileToIRTree(asset::material_compiler::IR* ir, const CElementBSDF* _bsdf);
+        front_and_back_t compileToIRTree(asset::material_compiler::IR* ir, const CElementBSDF* _bsdf, const system::logger_opt_ptr& logger);
 
     private:
         using tex_ass_type = std::tuple<core::smart_refctd_ptr<asset::ICPUImageView>,core::smart_refctd_ptr<asset::ICPUSampler>,float>;
@@ -50,7 +50,7 @@ class CMitsubaMaterialCompilerFrontend
 
         tex_ass_type getErrorTexture() const;
 
-        IRNode* createIRNode(asset::material_compiler::IR* ir, const CElementBSDF* _bsdf);
+        IRNode* createIRNode(asset::material_compiler::IR* ir, const CElementBSDF* _bsdf, const system::logger_opt_ptr& logger);
 };
 
 }

@@ -14,7 +14,11 @@ namespace nbl::system
  
     inline nbl::core::string extension_wo_dot(const path& _filename)
     {
-        return _filename.extension().string().substr(1u, nbl::core::string::npos);
+        std::string extension = _filename.extension().string();
+        if (extension.empty())
+            return extension;
+
+        return extension.substr(1u, nbl::core::string::npos);
     }
 
     inline path filename_wo_extension(const path& filename)

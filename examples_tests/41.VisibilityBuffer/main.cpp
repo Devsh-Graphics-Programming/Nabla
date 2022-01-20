@@ -12,7 +12,7 @@
 
 #ifdef DEBUG_AABBS
 #include "nbl/ext/DebugDraw/CDraw3DLine.h"
-#endif
+#include "nbl/ext/DepthPyramidGenerator/DepthPyramidGenerator.h"
 
 using namespace nbl;
 using namespace nbl::core;
@@ -261,6 +261,7 @@ int main()
     params.Bits = 24; //may have to set to 32bit for some platforms
     params.ZBufferBits = 24; //we'd like 32bit here
     params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing
+    //params.WindowSize = dimension2d<uint32_t>(3000, 2100);
     params.WindowSize = dimension2d<uint32_t>(1280, 720);
     params.Fullscreen = false;
     params.Vsync = true; //! If supported by target platform
@@ -327,6 +328,35 @@ int main()
 
     auto zBuffOnlyFrameBuffer = driver->addFrameBuffer();
     zBuffOnlyFrameBuffer->attach(EFAP_DEPTH_ATTACHMENT, std::move(depthBufferView));
+
+    // depth pyramid generator setup
+    using DPG = ext::DepthPyramidGenerator::DepthPyramidGenerator;
+
+    DPG::Config config;
+    config.op = DPG::E_MIPMAP_GENERATION_OPERATOR::EMGO_MAX;
+    config.outputFormat = EF_R32_SFLOAT;
+    config.workGroupSize = DPG::E_WORK_GROUP_SIZE::EWGS_32x32x1;
+    //config.roundUpToPoTWithPadding = true;
+    //config.lvlLimit = 5u;
+    DPG dpg(driver, am, depthBufferView, config);
+
+    const uint32_t mipCnt = DPG::getMaxMipCntFromImage(depthBufferView, config);
+    
+    core::vector<core::smart_refctd_ptr<IGPUImage>> mipImages(mipCnt);
+    core::vector<core::smart_refctd_ptr<IGPUImageView>> mips(mipCnt);
+    DPG::createMipMapImages(driver, depthBufferView, mipImages.data(), config);
+    DPG::createMipMapImageViews(driver, depthBufferView, mipImages.data(), mips.data(), config);
+    
+
+    core::smart_refctd_ptr<IGPUDescriptorSetLayout> dpgDsLayout;
+    dpgDsLayout = DPG::createDescriptorSetLayout(driver, config);
+    const uint32_t dpgDsCnt = DPG::createDescriptorSets(driver, depthBufferView, mips.data(), dpgDsLayout, nullptr, nullptr, config);
+    core::vector<core::smart_refctd_ptr<IGPUDescriptorSet>> dpgDs(dpgDsCnt);
+    core::vector<DPG::DispatchData> dpgDispatchData(dpgDsCnt);
+    DPG::createDescriptorSets(driver, depthBufferView, mips.data(), dpgDsLayout, dpgDs.data(), dpgDispatchData.data(), config);
+
+    core::smart_refctd_ptr<IGPUComputePipeline> dpgPpln;
+    dpg.createPipeline(driver, dpgDsLayout, dpgPpln);
 
     //
     SceneData sceneData;
@@ -1236,6 +1266,10 @@ int main()
         const uint32_t invalidObjectCode[4] = { ~0u,0u,0u,0u };
         driver->clearColorBuffer(EFAP_COLOR_ATTACHMENT0, invalidObjectCode);
         fillVBuffer(sceneData.frustumCulledMdiBuffer);
+
+        // create depth pyramid
+        for (uint32_t i = 0u; i < dpgDsCnt; i++)
+            dpg.generateMipMaps(depthBufferView, dpgPpln, dpgDs[i], dpgDispatchData[i]);
 
         // occlusion cull (against partially filled new Z-buffer)
         driver->setRenderTarget(zBuffOnlyFrameBuffer);

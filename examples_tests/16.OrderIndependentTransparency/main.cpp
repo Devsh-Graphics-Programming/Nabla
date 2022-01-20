@@ -227,6 +227,17 @@ public:
         }
 
         {
+            ds2 = logicalDevice->createGPUDescriptorSet(ds2pool.get(), core::smart_refctd_ptr(ds2layout));
+
+            video::IGPUDescriptorSet::SDescriptorInfo info[ext::OIT::COIT::MaxImgBindingCount];
+            video::IGPUDescriptorSet::SWriteDescriptorSet w[ext::OIT::COIT::MaxImgBindingCount];
+
+            const auto writeCount = oit.getDSWrites(w, info, ds2.get());
+
+            logicalDevice->updateDescriptorSets(writeCount, w, 0u, nullptr);
+        }
+
+        {
             auto layout = logicalDevice->createGPUPipelineLayout(nullptr, nullptr, nullptr, nullptr, core::smart_refctd_ptr(ds2layout), nullptr);
 
             const auto& proto = oit.getResolveProtoPipeline();
@@ -359,6 +370,7 @@ public:
         ubomemreq.vulkanReqs.size = neededDS1UBOsz;
 
         video::IGPUBuffer::SCreationParams gpuuboCreationParams;
+        gpuuboCreationParams.canUpdateSubRange = true;
         gpuuboCreationParams.usage = asset::IBuffer::EUF_UNIFORM_BUFFER_BIT;
         gpuuboCreationParams.sharingMode = asset::E_SHARING_MODE::ESM_CONCURRENT;
         gpuuboCreationParams.queueFamilyIndexCount = 0u;

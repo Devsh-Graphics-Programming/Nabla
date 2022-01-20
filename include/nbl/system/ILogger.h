@@ -118,8 +118,6 @@ class ILogger : public core::IReferenceCounted
 		core::bitflag<E_LOG_LEVEL> m_logLevelMask;
 };
 
-
-
 class logger_opt_ptr final
 {
 	public:

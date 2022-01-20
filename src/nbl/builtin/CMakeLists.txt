@@ -165,6 +165,7 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/utils/normal_decode.glsl"
   "nbl/builtin/glsl/utils/normal_encode.glsl"
   "nbl/builtin/glsl/utils/transform.glsl"
+  "nbl/builtin/glsl/utils/morton.glsl"
   # virtual texturing
   "nbl/builtin/glsl/virtual_texturing/descriptors.glsl"
   "nbl/builtin/glsl/virtual_texturing/extensions.glsl"
@@ -214,13 +215,18 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/ext/MitsubaLoader/instance_data_struct.glsl"
   "nbl/builtin/glsl/ext/MitsubaLoader/instance_data_descriptor.glsl"
   "nbl/builtin/glsl/ext/MitsubaLoader/material_compiler_compatibility_impl.glsl"
-  # virtual geometry
-  "nbl/builtin/glsl/virtual_geometry/descriptors.glsl"
-  "nbl/builtin/glsl/virtual_geometry/virtual_attribute.glsl"
-  "nbl/builtin/glsl/virtual_geometry/virtual_attribute_fetch.glsl"
   # OIT
   "nbl/builtin/glsl/ext/OIT/oit.glsl"
   "nbl/builtin/glsl/ext/OIT/insert_node.glsl"
   "nbl/builtin/glsl/ext/OIT/resolve.frag"
+  # virtual geometry
+  "nbl/builtin/glsl/virtual_geometry/descriptors.glsl"
+  "nbl/builtin/glsl/virtual_geometry/virtual_attribute.glsl"
+  "nbl/builtin/glsl/virtual_geometry/virtual_attribute_fetch.glsl"
+  # depth pyramid generator
+  "nbl/builtin/glsl/ext/DepthPyramidGenerator/common.glsl"
+  "nbl/builtin/glsl/ext/DepthPyramidGenerator/push_constants_struct_common.h"
+  "nbl/builtin/glsl/ext/DepthPyramidGenerator/depth_pyramid_generator_impl.glsl"
+  "nbl/builtin/glsl/ext/DepthPyramidGenerator/virtual_work_group.glsl"
 PARENT_SCOPE)
 

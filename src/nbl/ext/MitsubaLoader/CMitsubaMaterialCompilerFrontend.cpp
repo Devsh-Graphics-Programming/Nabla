@@ -70,7 +70,7 @@ auto CMitsubaMaterialCompilerFrontend::getErrorTexture() const -> tex_ass_type
     return { view, smplr, 1.f };
 }
 
-    auto CMitsubaMaterialCompilerFrontend::createIRNode(asset::material_compiler::IR* ir, const CElementBSDF* _bsdf) -> IRNode*
+    auto CMitsubaMaterialCompilerFrontend::createIRNode(asset::material_compiler::IR* ir, const CElementBSDF* _bsdf, const system::logger_opt_ptr& logger) -> IRNode*
     {
         using namespace asset;
         using namespace material_compiler;
@@ -214,8 +214,8 @@ auto CMitsubaMaterialCompilerFrontend::getErrorTexture() const -> tex_ass_type
 
             const float eta = _bsdf->dielectric.intIOR/_bsdf->dielectric.extIOR;
             _NBL_DEBUG_BREAK_IF(eta==1.f);
-            if (eta==1.f)
-                os::Printer::log("WARNING: Dielectric with IoR=1.0!", _bsdf->id, ELL_ERROR);
+            if (eta == 1.f)
+		        _logger.log("WARNING: Dielectric with IoR=1.0!", system::ILogger::E_LOG_LEVEL::ELL_ERROR);
 
             dielectric->shadowing = IR::CMicrofacetSpecularBSDFNode::EST_SMITH;
             dielectric->eta = IR::INode::color_t(eta);
@@ -318,7 +318,7 @@ auto CMitsubaMaterialCompilerFrontend::getErrorTexture() const -> tex_ass_type
         return ir_node;
     }
 
-auto CMitsubaMaterialCompilerFrontend::compileToIRTree(asset::material_compiler::IR* ir, const CElementBSDF* _bsdf) -> front_and_back_t
+auto CMitsubaMaterialCompilerFrontend::compileToIRTree(asset::material_compiler::IR* ir, const CElementBSDF* _bsdf, const system::logger_opt_ptr& logger) -> front_and_back_t
 {
     using namespace asset;
     using namespace material_compiler;
@@ -456,7 +456,7 @@ auto CMitsubaMaterialCompilerFrontend::compileToIRTree(asset::material_compiler:
         else
             dst = const_cast<IRNode**>(&node_parent(node, bfs)->ir_node->children[node.child_num]);
 
-        node.ir_node = *dst = createIRNode(ir, node.bsdf);
+        node.ir_node = *dst = createIRNode(ir, node.bsdf, logger);
     }
     IRNode* backroot = nullptr;
     for (uint32_t i = 0u; i < bfs.size(); ++i)
@@ -476,7 +476,7 @@ auto CMitsubaMaterialCompilerFrontend::compileToIRTree(asset::material_compiler:
                 ir_node = ir->copyNode(node.ir_node);
             }
             else
-                ir_node = createIRNode(ir, node.bsdf);
+                ir_node = createIRNode(ir, node.bsdf, logger);
         }
         node.ir_node = ir_node;
 
