@@ -631,7 +631,7 @@ bool closestHitProgram(in uint depth, in uint _sample, inout Ray_t ray, inout nb
                 neeContrib *= nbl_glsl_bsdf_cos_remainder_and_pdf(bsdfPdf,nee_sample,interaction,bsdf,monochromeEta,_cache)*throughput;
                 const float oc = bsdfPdf*rcpChoiceProb;
                 neeContrib /= 1.0/oc+oc/(lightPdf*lightPdf); // MIS weight
-                if (bsdfPdf<FLT_MAX && getLuma(neeContrib)>lumaContributionThreshold && traceRay(t,intersection+nee_sample.L*t*getStartTolerance(depth),nee_sample.L)==-1)
+                if (bsdfPdf<nbl_glsl_FLT_MAX && getLuma(neeContrib)>lumaContributionThreshold && traceRay(t,intersection+nee_sample.L*t*getStartTolerance(depth),nee_sample.L)==-1)
                     ray._payload.accumulation += neeContrib;
             }
         }
@@ -740,7 +740,7 @@ void main()
             bool hit = true; bool rayAlive = true;
             for (int d=1; d<=MAX_DEPTH && hit && rayAlive; d+=2)
             {
-                ray._mutable.intersectionT = FLT_MAX;
+                ray._mutable.intersectionT = nbl_glsl_FLT_MAX;
                 ray._mutable.objectID = traceRay(ray._mutable.intersectionT,ray._immutable.origin,ray._immutable.direction);
                 hit = ray._mutable.objectID!=-1;
                 if (hit)
