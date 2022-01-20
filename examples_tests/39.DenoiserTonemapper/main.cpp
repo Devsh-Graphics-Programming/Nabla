@@ -79,7 +79,9 @@ int main(int argc, char* argv[])
 	params.Vsync = true;
 	params.Doublebuffer = true;
 	params.Stencilbuffer = false;
-	params.StreamingDownloadBufferSize = 1024*1024*1024; // for 16k images
+	// TODO: this is a temporary fix for a problem solved in the Vulkan Branch
+	params.StreamingUploadBufferSize = 1024*1024*1024; // for Color + 2 AoV of 8k images
+	params.StreamingDownloadBufferSize = core::roundUp(params.StreamingUploadBufferSize/3u,256u); // for output image
 	auto device = createDeviceEx(params);
 
 	if (check_error(!device,"Could not create Irrlicht Device!"))
@@ -1270,8 +1272,17 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 		uint32_t inImageByteOffset[EII_COUNT];
 		{
 			asset::ICPUBuffer* buffersToUpload[EII_COUNT];
+			size_t inputSize = 0u;
 			for (uint32_t j=0u; j<denoiserInputCount; j++)
+			{
 				buffersToUpload[j] = param.image[j]->getBuffer();
+				inputSize += buffersToUpload[j]->getSize();
+			}
+			if (inputSize>=params.StreamingUploadBufferSize)
+			{
+				printf("[ERROR] Denoiser Failed, input too large to fit in VRAM, Streaming Denoise not implemented yet!");
+				return -1;
+			}
 			auto gpubuffers = driver->getGPUObjectsFromAssets(buffersToUpload,buffersToUpload+denoiserInputCount,&assetConverter);
 
 			bool skip = false;
