@@ -1243,31 +1243,24 @@ public:
 	#endif
 			if(!headlessCompute)
 			{
-				nbl::video::ISurface::SFormat requestedFormat;
+				nbl::video::ISurface::SFormat requestedFormat = surfaceFormat;
 				if(api_type == EAT_VULKAN)
 				{
-					requestedFormat.format = (surfaceFormat.format == nbl::asset::EF_UNKNOWN)
-						? nbl::asset::EF_B8G8R8A8_SRGB
-						: surfaceFormat.format;
-					requestedFormat.colorSpace.eotf = (surfaceFormat.colorSpace.eotf == nbl::asset::EOTF_UNKNOWN)
-						? nbl::asset::EOTF_sRGB
-						: surfaceFormat.colorSpace.eotf;
-					requestedFormat.colorSpace.primary = (surfaceFormat.colorSpace.primary == nbl::asset::ECP_COUNT)
-						? nbl::asset::ECP_SRGB
-						: surfaceFormat.colorSpace.primary;
+					if (requestedFormat.format == nbl::asset::EF_UNKNOWN || requestedFormat.format == asset::EF_R8G8B8A8_SRGB)
+					{
+						requestedFormat.format = nbl::asset::EF_B8G8R8A8_SRGB;
+						requestedFormat.colorSpace.eotf = nbl::asset::EOTF_sRGB;
+						requestedFormat.colorSpace.primary = nbl::asset::ECP_SRGB;
+					}
 				}
 				else
 				{
-					// Temporary to make previous examples work
-					requestedFormat.format = (surfaceFormat.format == nbl::asset::EF_UNKNOWN)
-						? nbl::asset::EF_R8G8B8A8_SRGB
-						: surfaceFormat.format;
-					requestedFormat.colorSpace.eotf = (surfaceFormat.colorSpace.eotf == nbl::asset::EOTF_UNKNOWN)
-						? nbl::asset::EOTF_sRGB
-						: surfaceFormat.colorSpace.eotf;
-					requestedFormat.colorSpace.primary = (surfaceFormat.colorSpace.primary == nbl::asset::ECP_COUNT)
-						? nbl::asset::ECP_SRGB
-						: surfaceFormat.colorSpace.primary;
+					if (requestedFormat.format == nbl::asset::EF_UNKNOWN)
+					{
+						requestedFormat.format = nbl::asset::EF_R8G8B8A8_SRGB;
+						requestedFormat.colorSpace.eotf = nbl::asset::EOTF_sRGB;
+						requestedFormat.colorSpace.primary = nbl::asset::ECP_SRGB;
+					}
 				}
 				result.swapchain = createSwapchain(api_type, gpuInfo, sc_image_count, window_width, window_height, result.logicalDevice, result.surface, swapchainImageUsage, nbl::video::ISurface::EPM_FIFO_RELAXED, requestedFormat);
 				assert(result.swapchain);
