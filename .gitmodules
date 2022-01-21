@@ -85,10 +85,6 @@
 [submodule "3rdparty/jitify"]
 	path = 3rdparty/jitify
 	url = https://github.com/NVIDIA/jitify
-[submodule "3rdparty/SDL2"]
-	path = 3rdparty/SDL2
-	url = https://github.com/spurious/SDL-mirror.git
-	branch = release-2.0.12
 [submodule "3rdparty/volk"]
 	path = 3rdparty/volk
 	url = https://github.com/zeux/volk.git

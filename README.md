@@ -363,7 +363,6 @@ list(APPEND NBL_CMAKE_ARGS "-DNBL_BUILD_DOCS:BOOL=OFF") # enable only if you hav
 list(APPEND NBL_CMAKE_ARGS "-DNBL_BUILD_EXAMPLES:BOOL=OFF")
 list(APPEND NBL_CMAKE_ARGS "-DNBL_BUILD_TOOLS:BOOL=OFF") # the tools don't work yet (Apr 2020 status, might have changed since then)
 list(APPEND NBL_CMAKE_ARGS "-DNBL_BUILD_MITSUBA_LOADER:BOOL=OFF") # you probably don't want this extension
-list(APPEND NBL_CMAKE_ARGS "-DNBL_COMPILE_WITH_SDL2:BOOL=OFF") # you probably don't want this extension
 list(APPEND NBL_CMAKE_ARGS "-D_NBL_COMPILE_WITH_BAW_LOADER_:BOOL=OFF") # you probably don't want this extension
 list(APPEND NBL_CMAKE_ARGS "-D_NBL_COMPILE_WITH_BAW_WRITER_:BOOL=OFF") # you probably don't want this extension
 list(APPEND NBL_CMAKE_ARGS "-DCMAKE_INSTALL_PREFIX:PATH=${NBL_INSTALL_DIR}") # because of https://gitlab.kitware.com/cmake/cmake/-/issues/18790

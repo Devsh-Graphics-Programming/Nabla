@@ -8,7 +8,6 @@ include(../cmake/common.cmake)
 option(NBL_UPDATE_GIT_SUBMODULE "" ON)
 
 if(NBL_UPDATE_GIT_SUBMODULE)
-	update_git_submodule(./SDL2)
 	update_git_submodule(./volk)
 	update_git_submodule(./SPIRV-Headers)
 	update_git_submodule(./SPIRV-Tools)

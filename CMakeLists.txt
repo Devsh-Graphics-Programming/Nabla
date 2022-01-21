@@ -78,7 +78,6 @@ if(NBL_BUILD_ANDROID)
 	endif()
 	
 	# TODO - remove those bellow in future
-	set(NBL_COMPILE_WITH_SDL2 OFF CACHE BOOL "Off for Android purposes at the moment" FORCE) 			# TODO - compile/linker errors
 	set(_NBL_COMPILE_WITH_OPEN_EXR_ OFF CACHE BOOL "Off for Android purposes at the moment" FORCE) 		# TODO - check it out
 	set(_NBL_COMPILE_WITH_BAW_LOADER_ OFF CACHE BOOL "Off for Android purposes at the moment" FORCE)	# TODO - remove when BAW-v4 is done
 	set(_NBL_COMPILE_WITH_BAW_WRITER_ OFF CACHE BOOL "Off for Android purposes at the moment" FORCE)	# TODO - remove when BAW-v4 is done
@@ -205,7 +204,6 @@ else()
 endif()
 
 option(NBL_COMPILE_WITH_CUDA "Compile with CUDA interop?" OFF)
-option(NBL_COMPILE_WITH_SDL2 "Compile with SDL2" OFF)
 
 # CUDA test
 include(CheckLanguage)
