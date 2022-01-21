@@ -18,6 +18,7 @@ function(nbl_add_builtin_resources)
 endfunction()
 
 set(nbl_resources_to_embed
+  "nbl/builtin/glsl/utils/acceleration_structures.glsl"
   "nbl/builtin/shader/loader/mtl/vertex_impl.glsl"
   "nbl/builtin/shader/loader/mtl/vertex_no_uv.vert" # TODO: remove naming tautology
   "nbl/builtin/shader/loader/mtl/vertex_uv.vert" # TODO: remove naming tautology
