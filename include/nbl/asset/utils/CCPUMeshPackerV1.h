@@ -32,7 +32,7 @@ public:
 		size_t perInstanceVertexBufferMinAllocByteSize = 32ull;
 	};
 
-	struct ReservedAllocationMeshBuffers : ReservedAllocationMeshBuffersBase
+	struct ReservedAllocationMeshBuffers : IMeshPackerBase::ReservedAllocationMeshBuffersBase
 	{
 		uint32_t instanceAllocationOffset;
 		uint32_t instanceAllocationReservedSize;
@@ -274,16 +274,16 @@ typename CCPUMeshPackerV1<MDIStructType>::ReservedAllocationMeshBuffers CCPUMesh
 		}
 	}
 
-	ReservedAllocationMeshBuffers result{
-		MDIAllocAddr,
-		possibleMDIStructsNeededCnt,
-		perInsVtxAllocAddr,
-		perInsVtxAllocAddr == base_t::INVALID_ADDRESS ? 0u : perInsVtxCnt * m_perInsVtxSize,
-		idxAllocAddr,
-		idxCnt,
-		vtxAllocAddr,
-		vtxAllocAddr == base_t::INVALID_ADDRESS ? 0u : vtxCnt * m_vtxSize
-	};
+	ReservedAllocationMeshBuffers result;
+	result.mdiAllocationOffset = MDIAllocAddr;
+	result.mdiAllocationReservedCnt = possibleMDIStructsNeededCnt;
+	result.indexAllocationOffset = idxAllocAddr;
+	result.indexAllocationReservedCnt = idxCnt;
+	result.instanceAllocationOffset = perInsVtxAllocAddr;
+	result.instanceAllocationReservedSize = perInsVtxAllocAddr == base_t::INVALID_ADDRESS ? 0u : perInsVtxCnt * m_perInsVtxSize;
+	result.vertexAllocationOffset = vtxAllocAddr;
+	result.vertexAllocationReservedSize = vtxAllocAddr == base_t::INVALID_ADDRESS ? 0u : vtxCnt * m_vtxSize;
+
 	return result;
 }
 
