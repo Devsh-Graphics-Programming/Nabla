@@ -419,7 +419,7 @@ int main(int argc, char** argv)
 	core::recti viewport(core::position2di(0, 0), core::position2di(WIN_W, WIN_H));
 
 	core::vectorSIMDf cameraPosition(0, 5, -10);
-	matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60), float(WIN_W) / WIN_H, 0.1, 1000);
+	matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60.0f), float(WIN_W) / WIN_H, 0.1, 1000);
 	core::vectorSIMDf lookAt(0, 0, 0);
 	core::vectorSIMDf upVec(0, 1, 0);
 	float moveSpeed = 10.0f;
@@ -432,7 +432,7 @@ int main(int argc, char** argv)
 #endif
 	{
 		core::vectorSIMDf cameraPositionRef(0, 5, -10);
-		matrix4SIMD projectionMatrixRef = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60), float(WIN_W) / WIN_H, 0.1, 1000);
+		matrix4SIMD projectionMatrixRef = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60.0f), float(WIN_W) / WIN_H, 0.1, 1000);
 
 		const auto& film = sensor.film;
 		viewport = core::recti(core::position2di(film.cropOffsetX, film.cropOffsetY), core::position2di(film.cropWidth, film.cropHeight));

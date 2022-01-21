@@ -152,7 +152,7 @@ public:
 		for (size_t i = 0ull; i < NBL_FRAMES_TO_AVERAGE; ++i)
 			dtList[i] = 0.0;
 
-		matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60), float(WIN_W) / WIN_H, 0.1, 1000);
+		matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60.0f), float(WIN_W) / WIN_H, 0.1, 1000);
 		camera = Camera(core::vectorSIMDf(-4, 0, 0), core::vectorSIMDf(0, 0, 0), projectionMatrix);
 
 		logicalDevice->createCommandBuffers(commandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY, FRAMES_IN_FLIGHT, commandBuffers);

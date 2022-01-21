@@ -464,7 +464,7 @@ APP_CONSTRUCTOR(MeshLoadersApp)
 		engine->window->setCaption(captionData);
 
 		core::vectorSIMDf cameraPosition(0, 0, 0);
-		matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60), float(WIN_W) / WIN_H, 0.001, 1000);
+		matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60.0f), float(WIN_W) / WIN_H, 0.001, 1000);
 		engine->camera = Camera(cameraPosition, core::vectorSIMDf(0, 0, -1), projectionMatrix, 10.f, 1.f);
 		engine->lastTime = std::chrono::system_clock::now();
 		for (size_t i = 0ull; i < NBL_FRAMES_TO_AVERAGE; ++i)

@@ -695,7 +695,7 @@ public:
 
 		// Camera 
 		core::vectorSIMDf cameraPosition(0, 5, -10);
-		core::matrix4SIMD proj = core::matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(core::radians(60), float(WIN_W) / WIN_H, 0.01f, 500.0f);
+		core::matrix4SIMD proj = core::matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(core::radians(60.0f), float(WIN_W) / WIN_H, 0.01f, 500.0f);
 		m_cam = std::make_unique<Camera>(cameraPosition, core::vectorSIMDf(0, 0, 0), proj);
 
 		logicalDevice->createCommandBuffers(graphicsCommandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY, FRAMES_IN_FLIGHT, m_cmdbuf);

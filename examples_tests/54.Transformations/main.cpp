@@ -466,7 +466,7 @@ class TransformationApp : public ApplicationBase
 
 			// Camera Stuff
 			core::vectorSIMDf cameraPosition(0, 20, -50);
-			matrix4SIMD proj = matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(core::radians(60), float(WIN_W) / WIN_H, 0.01, 100);
+			matrix4SIMD proj = matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(core::radians(60.0f), float(WIN_W) / WIN_H, 0.01, 100);
 			matrix3x4SIMD view = matrix3x4SIMD::buildCameraLookAtMatrixRH(cameraPosition, core::vectorSIMDf(0, 0, 0), core::vectorSIMDf(0, 1, 0));
 			viewProj = matrix4SIMD::concatenateBFollowedByA(proj, matrix4SIMD(view));
 

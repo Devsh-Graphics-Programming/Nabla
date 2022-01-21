@@ -437,7 +437,7 @@ public:
 		}));
 
 		core::vectorSIMDf cameraPosition(0, 5, -10);
-		matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60), float(WIN_W) / WIN_H, 0.001, 1000);
+		matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60.0f), float(WIN_W) / WIN_H, 0.001, 1000);
 		m_camera = std::make_unique<Camera>(cameraPosition, core::vectorSIMDf(0, 0, 0), projectionMatrix, 10.f, 1.f);
 		m_lastTime = std::chrono::system_clock::now();
 		
