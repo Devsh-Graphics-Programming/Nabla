@@ -372,7 +372,7 @@ class ISystem : public core::IReferenceCounted
         bool deleteDirectory(const system::path& p)
         {
             if (std::filesystem::exists(p))
-                return std::filesystem::remove(p);
+                return std::filesystem::remove_all(p);
             else
                 return false;
         }

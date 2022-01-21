@@ -169,6 +169,28 @@ class matrix4SIMD// : public AlignedBase<_NBL_SIMD_ALIGNMENT> don't inherit from
 
 		bool isBoxInFrustum(const aabbox3d<float>& bbox);
 
+		bool perspectiveTransformVect(core::vectorSIMDf& inOutVec)
+		{
+			transformVect(inOutVec);
+			const bool inFront = inOutVec[3] > 0.f;
+			inOutVec /= inOutVec.wwww();
+			return inFront;
+		}
+
+		core::vector2di fragCoordTransformVect(const core::vectorSIMDf& _in, const core::dimension2du& viewportDimensions)
+		{
+			core::vectorSIMDf pos(_in);
+			pos.w = 1.f;
+			if (perspectiveTransformVect(pos))
+				core::vector2di(-0x80000000, -0x80000000);
+
+			pos[0] *= 0.5f;
+			pos[1] *= 0.5f;
+			pos[0] += 0.5f;
+			pos[1] += 0.5f;
+
+			return core::vector2di(pos[0] * float(viewportDimensions.Width), pos[1] * float(viewportDimensions.Height));
+		}
 
 		static inline matrix4SIMD buildProjectionMatrixPerspectiveFovRH(float fieldOfViewRadians, float aspectRatio, float zNear, float zFar);
 		static inline matrix4SIMD buildProjectionMatrixPerspectiveFovLH(float fieldOfViewRadians, float aspectRatio, float zNear, float zFar);
