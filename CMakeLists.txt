@@ -318,9 +318,7 @@ macro(nbl_adjust_flags)
 			)
 		endif()
 
-		if (NOT NBL_BUILD_CEGUI)
-			add_compile_options(-fno-exceptions)
-		endif()
+		add_compile_options(-fno-exceptions)
 
 		if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 
@@ -448,8 +446,6 @@ if (NBL_COMPILE_WITH_CUDA)
 else()
 	message(STATUS "Because NBL_COMPILE_WITH_CUDA is not enabled, the NBL_BUILD_OPTIX option will be hidden.")
 endif()
-
-option(NBL_BUILD_CEGUI "Enable CEGUI building and integration?" OFF)
 
 option(NBL_BUILD_BULLET "Enable Bullet Physics building and integration?" OFF)
 
