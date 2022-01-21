@@ -290,26 +290,18 @@ void AllocatorHandler<core::LinearAddressAllocator<uint32_t>>::randFreeAllocated
 	}
 }
 
-class AllocatorTestSampleApp : public ApplicationBase
+class AllocatorTestSampleApp : public NonGraphicalApplicationBase
 {
 	core::smart_refctd_ptr<nbl::system::ISystem> system;
 
 public:
-	void setWindow(core::smart_refctd_ptr<nbl::ui::IWindow>&& wnd) override
-	{
-		assert(false && "This example shouldn't have a window!");
-	}
-	nbl::ui::IWindow* getWindow() override
-	{
-		assert(false && "This example shouldn't have a window!");
-		return nullptr;
-	}
+
 	void setSystem(core::smart_refctd_ptr<nbl::system::ISystem>&& system) override
 	{
 		system = std::move(system);
 	}
 
-	APP_CONSTRUCTOR(AllocatorTestSampleApp);
+	NON_GRAPHICAL_APP_CONSTRUCTOR(AllocatorTestSampleApp);
 
 	void onAppInitialized_impl() override
 	{
