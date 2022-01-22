@@ -519,7 +519,15 @@ APP_CONSTRUCTOR(MeshLoadersApp)
 		const auto& fboCreationParams = fbo[0]->getCreationParameters();
 		auto gpuSourceImageView = fboCreationParams.attachments[0];
 
-		bool status = ext::ScreenShot::createScreenShot(logicalDevice.get(), queues[CommonAPI::InitOutput::EQT_TRANSFER_UP], render_finished_sem.get(), gpuSourceImageView.get(), assetManager.get(), "ScreenShot.png", EIL_UNDEFINED);
+		bool status = ext::ScreenShot::createScreenShot(logicalDevice.get(),
+			queues[CommonAPI::InitOutput::EQT_TRANSFER_UP],
+			render_finished_sem.get(),
+			gpuSourceImageView.get(),
+			assetManager.get(),
+			"ScreenShot.png",
+			asset::EIL_PRESENT_SRC,
+			static_cast<asset::E_ACCESS_FLAGS>(0u));
+
 		assert(status);
 	}
 

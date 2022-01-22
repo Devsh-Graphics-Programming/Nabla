@@ -178,8 +178,8 @@ static core::smart_refctd_ptr<asset::ICPUImage> createDerivMapFromHeightMap(asse
 		<
 		DefaultSwizzle,
 		IdentityDither,
-		void, //TODO: i have no idea if this parameter is correct
-		false, //TODO: i have no idea if this parameter is correct
+		void, //TODO: fix
+		true,
 		XDerivKernel,
 		YDerivKernel,
 		CBoxImageFilterKernel
@@ -426,7 +426,16 @@ public:
 
 		const std::string writePath = "screenShot_" + captionData.name + ".png";
 		//TODO: what should be last parameter here?
-		bool status = ext::ScreenShot::createScreenShot(logicalDevice.get(), queues[CommonAPI::InitOutput::EQT_TRANSFER_UP], renderFinished[resourceIx].get(), gpuSourceImageView.get(), assetManager.get(), writePath, EIL_UNDEFINED);
+		bool status = ext::ScreenShot::createScreenShot(
+			logicalDevice.get(), 
+			queues[CommonAPI::InitOutput::EQT_TRANSFER_UP],
+			renderFinished[resourceIx].get(),
+			gpuSourceImageView.get(),
+			assetManager.get(),
+			writePath, 
+			asset::EIL_PRESENT_SRC,
+			static_cast<asset::E_ACCESS_FLAGS>(0u));
+
 		return status;
 	};
 
@@ -661,7 +670,6 @@ public:
 
 	void workLoopBody() override
 	{
-		//TODO: for sure?
 		auto gpuImageView = gpuImageViews->operator[](imagesPresented);
 		auto& captionData = captionTexturesData[imagesPresented];
 
