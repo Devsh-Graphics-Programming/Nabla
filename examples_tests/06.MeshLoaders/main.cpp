@@ -451,7 +451,7 @@ public:
     }
     bool keepRunning() override
     {
-        return true;// windowCb->isWindowOpen();
+        return windowCb->isWindowOpen();
     }
 };
 
