@@ -196,6 +196,18 @@ public:
 
             quantNormalCache->saveCacheToFile<asset::EF_A2B10G10R10_SNORM_PACK32>(system.get(), sharedOutputCWD / "normalCache101010.sse");
         }
+
+        // Fix FrontFace and BlendParams for meshBuffers
+        for (size_t i = 0ull; i < meshRaw->getMeshBuffers().size(); ++i)
+        {
+            auto& meshBuffer = meshRaw->getMeshBuffers().begin()[i];
+
+            for (size_t i = 0ull; i < nbl::asset::SBlendParams::MAX_COLOR_ATTACHMENT_COUNT; i++)
+                meshBuffer->getPipeline()->getBlendParams().blendParams[i].attachmentEnabled = (i == 0ull);
+
+            meshBuffer->getPipeline()->getRasterizationParams().frontFaceIsCCW = false;
+        }
+
         // we can safely assume that all meshbuffers within mesh loaded from OBJ has same DS1 layout (used for camera-specific data)
         firstMeshBuffer = *meshRaw->getMeshBuffers().begin();
         pipelineMetadata = metaOBJ->getAssetSpecificMetadata(firstMeshBuffer->getPipeline());
