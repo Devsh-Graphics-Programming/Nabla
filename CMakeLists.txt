@@ -127,9 +127,6 @@ if(NBL_BUILD_ANDROID)
 
     #option(STRIP_ANDROID_LIBRARY "Strip the resulting android library" OFF)
 
-    if(NOT ANDROID_PLATFORM)
-        set(ANDROID_PLATFORM "android-25")
-    endif()
 	string(SUBSTRING
 		"${ANDROID_PLATFORM}"
 		8  # length of "android-"
@@ -160,7 +157,11 @@ if(NBL_BUILD_ANDROID)
         unset(__buildTools)
     endif()
 	set(ANDROID_BUILD_TOOLS "${ANDROID_SDK_ROOT_PATH}/build-tools/${ANDROID_BUILD_TOOLS_VERSION}")
+	if(MSVC)
 	set(ANDROID_JAVA_BIN "${JAVA_HOME}")
+	else()
+	set(ANDROID_JAVA_BIN "${JAVA_HOME}/bin")
+	endif()
 	set(ANDROID_JAVA_RT_JAR "${JAVA_HOME}/jre/lib/rt.jar")
 
 	set(ANDROID_APK_TARGET_ID "" CACHE STRING "The Target ID to build the APK for like 'android-99', use <android list targets> to choose another one.")
