@@ -291,7 +291,7 @@ class matrix4SIMD// : public AlignedBase<_NBL_SIMD_ALIGNMENT> don't inherit from
 				if constexpr (precision == E_MATRIX_INVERSE_PRECISION::EMIP_FAST_RECIPROCAL)
 					rDetM = vectorSIMDf(1.f, -1.f, -1.f, 1.f)*core::reciprocal(detM);
 				else if constexpr (precision == E_MATRIX_INVERSE_PRECISION::EMIP_32BIT)
-					rDetM = vectorSIMDf(1.f, -1.f, -1.f, 1.f)*core::vectorSIMDf::preciseDivision(detM);
+					rDetM = vectorSIMDf(1.f, -1.f, -1.f, 1.f).preciseDivision(detM);
 
 				X_ *= rDetM;
 				Y_ *= rDetM;
