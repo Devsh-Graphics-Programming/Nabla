@@ -234,8 +234,10 @@ public:
 		auto cpuVertexShader = core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(assetManager->findAssets("nbl/builtin/material/lambertian/singletexture/specialized_shader.vert", types)->front().getContents().begin()[0]);
 		auto cpuFragmentShader = core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(assetManager->findAssets("nbl/builtin/material/lambertian/singletexture/specialized_shader.frag", types)->front().getContents().begin()[0]);
 
+		cpu2gpuParams.beginCommandBuffers();
 		auto gpuVertexShader = cpu2gpu.getGPUObjectsFromAssets(&cpuVertexShader.get(), &cpuVertexShader.get() + 1, cpu2gpuParams)->front();
 		cpu2gpuParams.waitForCreationToComplete();
+		cpu2gpuParams.beginCommandBuffers();
 		auto gpuFragmentShader = cpu2gpu.getGPUObjectsFromAssets(&cpuFragmentShader.get(), &cpuFragmentShader.get() + 1, cpu2gpuParams)->front();
 		cpu2gpuParams.waitForCreationToComplete();
 		cpu2gpuParams.waitForCreationToComplete();
