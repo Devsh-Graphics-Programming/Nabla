@@ -661,6 +661,26 @@ static inline std::pair<VkDebugUtilsMessageSeverityFlagsEXT, VkDebugUtilsMessage
     return result;
 }
 
+static inline VkBlendFactor getVkBlendFactorFromBlendFactor(const asset::E_BLEND_FACTOR in)
+{
+    return static_cast<VkBlendFactor>(in);
+}
+
+static inline VkBlendOp getVkBlendOpFromBlendOp(const asset::E_BLEND_OP in)
+{
+    return static_cast<VkBlendOp>(in);
+}
+
+static inline VkLogicOp getVkLogicOpFromLogicOp(const asset::E_LOGIC_OP in)
+{
+    return static_cast<VkLogicOp>(in);
+}
+
+static inline VkColorComponentFlags getVkColorComponentFlagsFromColorWriteMask(const uint64_t in)
+{
+    return static_cast<VkColorComponentFlags>(in);
+}
+
 }
 
 #define __NBL_VIDEO_C_VULKAN_COMMON_H_INCLUDED__
