@@ -13,6 +13,7 @@
 
 using namespace nbl;
 using namespace core;
+using namespace ui;
 
 int main(int argc, char** argv)
 {
@@ -28,7 +29,7 @@ int main(int argc, char** argv)
     const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT);
     const video::ISurface::SFormat surfaceFormat(asset::EF_B8G8R8A8_SRGB, asset::ECP_COUNT, asset::EOTF_UNKNOWN);
 
-    CommonAPI::InitWithDefaultExt(initOutput, video::EAT_OPENGL, "MeshLoaders", WIN_W, WIN_H, SC_IMG_COUNT, swapchainImageUsage, surfaceFormat, nbl::asset::EF_D32_SFLOAT);
+    CommonAPI::InitWithDefaultExt(initOutput, video::EAT_VULKAN, "MeshLoaders", WIN_W, WIN_H, SC_IMG_COUNT, swapchainImageUsage, surfaceFormat, nbl::asset::EF_D32_SFLOAT);
     auto window = std::move(initOutput.window);
     auto gl = std::move(initOutput.apiConnection);
     auto surface = std::move(initOutput.surface);
@@ -144,10 +145,6 @@ int main(int argc, char** argv)
     for (size_t i = 0ull; i < meshRaw->getMeshBuffers().size(); ++i)
     {
         auto& meshBuffer = meshRaw->getMeshBuffers().begin()[i];
-
-        for (size_t i = 0ull; i < nbl::asset::SBlendParams::MAX_COLOR_ATTACHMENT_COUNT; i++)
-            meshBuffer->getPipeline()->getBlendParams().blendParams[i].attachmentEnabled = (i == 0ull);
-
         meshBuffer->getPipeline()->getRasterizationParams().frontFaceIsCCW = false;
     }
     
@@ -395,7 +392,8 @@ int main(int argc, char** argv)
             const auto& viewMatrix = camera.getViewMatrix();
             const auto& viewProjectionMatrix = camera.getConcatenatedMatrix();
 
-            core::vector<uint8_t> uboData(cameraUBO->getSize());
+            const size_t camUboSize = cameraUBO->getCachedCreationParams().declaredSize;
+            core::vector<uint8_t> uboData(camUboSize);
             for (const auto& shdrIn : pipelineMetadata->m_inputSemantics)
             {
                 if (shdrIn.descriptorSection.type==asset::IRenderpassIndependentPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER && shdrIn.descriptorSection.uniformBufferObject.set==1u && shdrIn.descriptorSection.uniformBufferObject.binding==cameraUBOBinding)
@@ -419,7 +417,7 @@ int main(int argc, char** argv)
                     }
                 }
             }       
-            commandBuffer->updateBuffer(cameraUBO.get(),0ull,cameraUBO->getSize(),uboData.data());
+            commandBuffer->updateBuffer(cameraUBO.get(),0ull,camUboSize,uboData.data());
         }
         
         // renderpass

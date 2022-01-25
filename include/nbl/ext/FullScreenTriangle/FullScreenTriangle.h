@@ -58,8 +58,6 @@ namespace nbl
 				auto& blendParams = std::get<asset::SBlendParams>(protoPipeline);
 				blendParams.logicOpEnable = false;
 				blendParams.logicOp = nbl::asset::ELO_NO_OP;
-				for (size_t i = 0ull; i < nbl::asset::SBlendParams::MAX_COLOR_ATTACHMENT_COUNT; i++)
-					blendParams.blendParams[i].attachmentEnabled = (i == 0ull);
 
 				auto& rasterParams = std::get<asset::SRasterizationParams>(protoPipeline);
 				rasterParams.faceCullingMode = nbl::asset::EFCM_NONE;

@@ -674,7 +674,6 @@ void Renderer::initSceneNonAreaLights(Renderer::InitializationData& initData)
 	SBlendParams blendParams = {};
 	blendParams.logicOpEnable = false;
 	blendParams.logicOp = ELO_NO_OP;
-	blendParams.blendParams[0].attachmentEnabled = true;
 	blendParams.blendParams[0].blendEnable = true;
 	blendParams.blendParams[0].srcColorFactor = asset::EBF_ONE;
 	blendParams.blendParams[0].dstColorFactor = asset::EBF_ONE;

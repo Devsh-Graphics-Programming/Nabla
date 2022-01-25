@@ -162,9 +162,9 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
 
         struct SMemoryProperties
         {
-            uint32_t        memoryTypeCount;
+            uint32_t        memoryTypeCount = 0u;
             VkMemoryType    memoryTypes[VK_MAX_MEMORY_TYPES];
-            uint32_t        memoryHeapCount;
+            uint32_t        memoryHeapCount = 0u;
             VkMemoryHeap    memoryHeaps[VK_MAX_MEMORY_HEAPS];
         };
 

@@ -39,11 +39,11 @@ public:
     nbl::core::smart_refctd_ptr<nbl::video::IUtilities> utilities;
     nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice> logicalDevice;
     nbl::video::IPhysicalDevice* physicalDevice;
-	std::array<video::IGPUQueue*, CommonAPI::InitOutput::MaxQueuesCount> queues;
+    std::array<video::IGPUQueue*, CommonAPI::InitOutput::MaxQueuesCount> queues;
     nbl::core::smart_refctd_ptr<nbl::video::ISwapchain> swapchain;
     nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpass> renderpass;
-	std::array<nbl::core::smart_refctd_ptr<nbl::video::IGPUFramebuffer>, CommonAPI::InitOutput::MaxSwapChainImageCount> fbo;
-	std::array<nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandPool>, CommonAPI::InitOutput::MaxQueuesCount> commandPools;
+    std::array<nbl::core::smart_refctd_ptr<nbl::video::IGPUFramebuffer>, CommonAPI::InitOutput::MaxSwapChainImageCount> fbo;
+    std::array<nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandPool>, CommonAPI::InitOutput::MaxQueuesCount> commandPools;
     nbl::core::smart_refctd_ptr<nbl::system::ISystem> system;
     nbl::core::smart_refctd_ptr<nbl::asset::IAssetManager> assetManager;
     nbl::video::IGPUObjectFromAssetConverter::SParams cpu2gpuParams;
@@ -152,8 +152,8 @@ public:
         initOutput.window = core::smart_refctd_ptr(window);
         initOutput.system = core::smart_refctd_ptr(system);
 
-		const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT);
-		const video::ISurface::SFormat surfaceFormat(asset::EF_R8G8B8A8_SRGB, asset::ECP_COUNT, asset::EOTF_UNKNOWN);
+        const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT);
+        const video::ISurface::SFormat surfaceFormat(asset::EF_R8G8B8A8_SRGB, asset::ECP_SRGB, asset::EOTF_sRGB);
 
         CommonAPI::InitWithDefaultExt(initOutput, video::EAT_OPENGL_ES, "MeshLoaders", WIN_W, WIN_H, SC_IMG_COUNT, swapchainImageUsage, surfaceFormat, nbl::asset::EF_D32_SFLOAT);
         window = std::move(initOutput.window);
@@ -196,6 +196,14 @@ public:
 
             quantNormalCache->saveCacheToFile<asset::EF_A2B10G10R10_SNORM_PACK32>(system.get(), sharedOutputCWD / "normalCache101010.sse");
         }
+
+        // Fix FrontFace and BlendParams for meshBuffers
+        for (size_t i = 0ull; i < meshRaw->getMeshBuffers().size(); ++i)
+        {
+            auto& meshBuffer = meshRaw->getMeshBuffers().begin()[i];
+            meshBuffer->getPipeline()->getRasterizationParams().frontFaceIsCCW = false;
+        }
+
         // we can safely assume that all meshbuffers within mesh loaded from OBJ has same DS1 layout (used for camera-specific data)
         firstMeshBuffer = *meshRaw->getMeshBuffers().begin();
         pipelineMetadata = metaOBJ->getAssetSpecificMetadata(firstMeshBuffer->getPipeline());
@@ -232,8 +240,8 @@ public:
         ubomemreq.vulkanReqs.size = neededDS1UBOsz;
         video::IGPUBuffer::SCreationParams gpuuboCreationParams;
         gpuuboCreationParams.canUpdateSubRange = true;
-        gpuuboCreationParams.usage = asset::IBuffer::EUF_UNIFORM_BUFFER_BIT;
-        gpuuboCreationParams.sharingMode = asset::E_SHARING_MODE::ESM_CONCURRENT;
+        gpuuboCreationParams.usage = core::bitflag<asset::IBuffer::E_USAGE_FLAGS>(asset::IBuffer::EUF_UNIFORM_BUFFER_BIT) | asset::IBuffer::EUF_TRANSFER_DST_BIT;
+        gpuuboCreationParams.sharingMode = asset::E_SHARING_MODE::ESM_EXCLUSIVE;
         gpuuboCreationParams.queueFamilyIndexCount = 0u;
         gpuuboCreationParams.queueFamilyIndices = nullptr;
 
@@ -305,6 +313,7 @@ public:
     }
     void onAppTerminated_impl() override
     {
+        logicalDevice->waitIdle();
     }
     void workLoopBody() override
     {
@@ -344,36 +353,18 @@ public:
         viewport.width = WIN_W;
         viewport.height = WIN_H;
         commandBuffer->setViewport(0u, 1u, &viewport);
-
-        swapchain->acquireNextImage(MAX_TIMEOUT, imageAcquire[resourceIx].get(), nullptr, &acquiredNextFBO);
-
-        nbl::video::IGPUCommandBuffer::SRenderpassBeginInfo beginInfo;
-        {
-            VkRect2D area;
-            area.offset = { 0,0 };
-            area.extent = { WIN_W, WIN_H };
-            asset::SClearValue clear[2] = {};
-            clear[0].color.float32[0] = 1.f;
-            clear[0].color.float32[1] = 1.f;
-            clear[0].color.float32[2] = 1.f;
-            clear[0].color.float32[3] = 1.f;
-            clear[1].depthStencil.depth = 0.f;
-
-            beginInfo.clearValueCount = 2u;
-            beginInfo.framebuffer = fbo[acquiredNextFBO];
-            beginInfo.renderpass = renderpass;
-            beginInfo.renderArea = area;
-            beginInfo.clearValues = clear;
-        }
-
-        commandBuffer->beginRenderPass(&beginInfo, nbl::asset::ESC_INLINE);
+        
+        VkRect2D scissor = {};
+        scissor.offset = { 0, 0 };
+        scissor.extent = { WIN_W, WIN_H };
+        commandBuffer->setScissor(0u, 1u, &scissor);
 
         core::matrix3x4SIMD modelMatrix;
         modelMatrix.setTranslation(nbl::core::vectorSIMDf(0, 0, 0, 0));
-
         core::matrix4SIMD mvp = core::concatenateBFollowedByA(viewProjectionMatrix, modelMatrix);
 
-        core::vector<uint8_t> uboData(gpuubo->getSize());
+        const size_t uboSize = gpuubo->getCachedCreationParams().declaredSize;
+        core::vector<uint8_t> uboData(uboSize);
         for (const auto& shdrIn : pipelineMetadata->m_inputSemantics)
         {
             if (shdrIn.descriptorSection.type == asset::IRenderpassIndependentPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER && shdrIn.descriptorSection.uniformBufferObject.set == 1u && shdrIn.descriptorSection.uniformBufferObject.binding == ds1UboBinding)
@@ -397,8 +388,28 @@ public:
                 }
             }
         }
+        commandBuffer->updateBuffer(gpuubo.get(), 0ull, uboSize, uboData.data());
+        
+        nbl::video::IGPUCommandBuffer::SRenderpassBeginInfo beginInfo;
+        {
+            VkRect2D area;
+            area.offset = { 0,0 };
+            area.extent = { WIN_W, WIN_H };
+            asset::SClearValue clear[2] = {};
+            clear[0].color.float32[0] = 1.f;
+            clear[0].color.float32[1] = 1.f;
+            clear[0].color.float32[2] = 1.f;
+            clear[0].color.float32[3] = 1.f;
+            clear[1].depthStencil.depth = 0.f;
 
-        commandBuffer->updateBuffer(gpuubo.get(), 0ull, gpuubo->getSize(), uboData.data());
+            beginInfo.clearValueCount = 2u;
+            beginInfo.framebuffer = fbo[acquiredNextFBO];
+            beginInfo.renderpass = renderpass;
+            beginInfo.renderArea = area;
+            beginInfo.clearValues = clear;
+        }
+
+        commandBuffer->beginRenderPass(&beginInfo, nbl::asset::ESC_INLINE);
 
         for (size_t i = 0; i < gpumesh->getMeshBuffers().size(); ++i)
         {
@@ -422,7 +433,8 @@ public:
 
         commandBuffer->endRenderPass();
         commandBuffer->end();
-
+        
+        logicalDevice->resetFences(1, &fence.get());
         CommonAPI::Submit(logicalDevice.get(),
             swapchain.get(), 
             commandBuffer.get(),
@@ -436,7 +448,7 @@ public:
     }
     bool keepRunning() override
     {
-        return true;// windowCb->isWindowOpen();
+        return windowCb->isWindowOpen();
     }
 };
 

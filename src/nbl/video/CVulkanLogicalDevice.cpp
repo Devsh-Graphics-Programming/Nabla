@@ -573,25 +573,25 @@ bool CVulkanLogicalDevice::createGPUGraphicsPipelines_impl(
             
             uint32_t offset = colorBlendAttachmentCount_total;
 
-            uint32_t colorBlendAttachmentCount = 0u;
-            for (uint32_t as = 0u; as < asset::SBlendParams::MAX_COLOR_ATTACHMENT_COUNT; ++as)
-            {
-                const auto& attBlendParams = blendParams.blendParams[as];
-                if (attBlendParams.attachmentEnabled)
-                {
-                    auto& attBlendState = vk_colorBlendAttachmentStates[offset + colorBlendAttachmentCount++];
+            assert(creationParams[i].subpassIx < creationParams[i].renderpass->getCreationParameters().subpassCount);
+            auto subpassDescription = creationParams[i].renderpass->getCreationParameters().subpasses[creationParams[i].subpassIx];
+            uint32_t colorBlendAttachmentCount = subpassDescription.colorAttachmentCount;
 
-                    attBlendState.blendEnable = attBlendParams.blendEnable;
-                    attBlendState.srcColorBlendFactor = static_cast<VkBlendFactor>(attBlendParams.srcColorFactor);
-                    attBlendState.dstColorBlendFactor = static_cast<VkBlendFactor>(attBlendParams.dstColorFactor);
-                    assert(attBlendParams.colorBlendOp <= asset::EBO_MAX);
-                    attBlendState.colorBlendOp = static_cast<VkBlendOp>(attBlendParams.colorBlendOp);
-                    attBlendState.srcAlphaBlendFactor = static_cast<VkBlendFactor>(attBlendParams.srcAlphaFactor);
-                    attBlendState.dstAlphaBlendFactor = static_cast<VkBlendFactor>(attBlendParams.dstAlphaFactor);
-                    assert(attBlendParams.alphaBlendOp <= asset::EBO_MAX);
-                    attBlendState.alphaBlendOp = static_cast<VkBlendOp>(attBlendParams.alphaBlendOp);
-                    attBlendState.colorWriteMask = static_cast<VkColorComponentFlags>(attBlendParams.colorWriteMask);
-                }
+            for (uint32_t as = 0u; as < colorBlendAttachmentCount; ++as)
+            {
+                const auto& inBlendParams = blendParams.blendParams[as];
+                auto& outBlendState = vk_colorBlendAttachmentStates[offset + as];
+
+                outBlendState.blendEnable = inBlendParams.blendEnable;
+                outBlendState.srcColorBlendFactor = getVkBlendFactorFromBlendFactor(static_cast<asset::E_BLEND_FACTOR>(inBlendParams.srcColorFactor));
+                outBlendState.dstColorBlendFactor = getVkBlendFactorFromBlendFactor(static_cast<asset::E_BLEND_FACTOR>(inBlendParams.dstColorFactor));
+                assert(inBlendParams.colorBlendOp <= asset::EBO_MAX);
+                outBlendState.colorBlendOp = getVkBlendOpFromBlendOp(static_cast<asset::E_BLEND_OP>(inBlendParams.colorBlendOp));
+                outBlendState.srcAlphaBlendFactor = getVkBlendFactorFromBlendFactor(static_cast<asset::E_BLEND_FACTOR>(inBlendParams.srcAlphaFactor));
+                outBlendState.dstAlphaBlendFactor = getVkBlendFactorFromBlendFactor(static_cast<asset::E_BLEND_FACTOR>(inBlendParams.dstAlphaFactor));
+                assert(inBlendParams.alphaBlendOp <= asset::EBO_MAX);
+                outBlendState.alphaBlendOp = getVkBlendOpFromBlendOp(static_cast<asset::E_BLEND_OP>(inBlendParams.alphaBlendOp));
+                outBlendState.colorWriteMask = getVkColorComponentFlagsFromColorWriteMask(inBlendParams.colorWriteMask);
             }
             colorBlendAttachmentCount_total += colorBlendAttachmentCount;
 
@@ -599,7 +599,7 @@ bool CVulkanLogicalDevice::createGPUGraphicsPipelines_impl(
             vk_colorBlendStates[i].pNext = nullptr;
             vk_colorBlendStates[i].flags = 0u;
             vk_colorBlendStates[i].logicOpEnable = blendParams.logicOpEnable;
-            vk_colorBlendStates[i].logicOp = static_cast<VkLogicOp>(blendParams.logicOp);
+            vk_colorBlendStates[i].logicOp = getVkLogicOpFromLogicOp(static_cast<asset::E_LOGIC_OP>(blendParams.logicOp));
             vk_colorBlendStates[i].attachmentCount = colorBlendAttachmentCount;
             vk_colorBlendStates[i].pAttachments = vk_colorBlendAttachmentStates.data() + offset;
             vk_colorBlendStates[i].blendConstants[0] = 0.0f;

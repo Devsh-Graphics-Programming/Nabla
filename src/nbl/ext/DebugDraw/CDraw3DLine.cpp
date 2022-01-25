@@ -62,9 +62,7 @@ CDraw3DLine::CDraw3DLine(const core::smart_refctd_ptr<video::ILogicalDevice>& de
 		asset::SBlendParams blendParams;
 		blendParams.logicOpEnable = false;
 		blendParams.logicOp = nbl::asset::ELO_NO_OP;
-		for (size_t i = 0ull; i < nbl::asset::SBlendParams::MAX_COLOR_ATTACHMENT_COUNT; i++)
-			blendParams.blendParams[i].attachmentEnabled = (i == 0ull);
-
+		
 		m_rpindependent_pipeline = m_device->createGPURenderpassIndependentPipeline(nullptr, core::smart_refctd_ptr(layout), shaders, shaders + 2, vtxinput, blendParams, primitive, raster);
 		assert(m_rpindependent_pipeline);
 	}
