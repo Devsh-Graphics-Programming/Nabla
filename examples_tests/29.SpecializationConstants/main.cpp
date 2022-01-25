@@ -155,7 +155,7 @@ public:
 		initOutp.system = system;
 		CommonAPI::Init(
 			initOutp,
-			video::EAT_VULKAN,
+			video::EAT_OPENGL,
 			"29.SpecializationConstants",
 			requiredInstanceFeatures,
 			optionalInstanceFeatures,
@@ -394,8 +394,8 @@ public:
 		m_lastTime = std::chrono::high_resolution_clock::now();
 		constexpr uint32_t FRAME_COUNT = 500000u;
 		constexpr uint64_t MAX_TIMEOUT = 99999999999999ull;
-		m_computeUBORange = { 0, gpuUboCompute->getSize(), gpuUboCompute };
-		m_graphicsUBORange = { 0, gpuUboGraphics->getSize(), gpuUboGraphics };
+		m_computeUBORange = { 0, gpuUboCompute->getCachedCreationParams().declaredSize, gpuUboCompute };
+		m_graphicsUBORange = { 0, gpuUboGraphics->getCachedCreationParams().declaredSize, gpuUboGraphics };
 
 		device->createCommandBuffers(commandPools[CommonAPI::InitOutput::EQT_GRAPHICS].get(), video::IGPUCommandBuffer::EL_PRIMARY, FRAMES_IN_FLIGHT, m_cmdbuf);
 
