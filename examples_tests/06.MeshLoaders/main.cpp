@@ -317,6 +317,7 @@ public:
     }
     void onAppTerminated_impl() override
     {
+        logicalDevice->waitIdle();
     }
     void workLoopBody() override
     {
