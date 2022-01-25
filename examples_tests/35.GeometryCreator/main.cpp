@@ -252,7 +252,7 @@ public:
 
 		CommonAPI::Init(
 			initOutput,
-			video::EAT_VULKAN,
+			video::EAT_OPENGL,
 			"35.GeometryCreator",
 			requiredInstanceFeatures,
 			optionalInstanceFeatures,
