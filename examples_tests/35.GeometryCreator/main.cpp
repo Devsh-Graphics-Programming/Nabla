@@ -13,6 +13,7 @@
 
 using namespace nbl;
 using namespace core;
+using namespace ui;
 
 /*
 	Uncomment for more detailed logging
@@ -138,6 +139,7 @@ class GeometryCreatorSampleApp : public ApplicationBase
 	static constexpr size_t NBL_FRAMES_TO_AVERAGE = 100ull;
 	static_assert(FRAMES_IN_FLIGHT > SC_IMG_COUNT);
 
+    core::smart_refctd_ptr<nbl::system::ISystem> system;
 	core::smart_refctd_ptr<nbl::ui::IWindow> window;
 	core::smart_refctd_ptr<CommonAPI::CommonAPIEventCallback> windowCb;
 	core::smart_refctd_ptr<nbl::system::ILogger> logger;
@@ -174,18 +176,54 @@ class GeometryCreatorSampleApp : public ApplicationBase
 	std::unique_ptr<Objects> m_cpuGpuObjects = nullptr;
 
 public:
-	void setWindow(core::smart_refctd_ptr<nbl::ui::IWindow>&& wnd) override
-	{
-		window = std::move(wnd);
-	}
-	nbl::ui::IWindow* getWindow() override
-	{
-		return window.get();
-	}
-	void setSystem(core::smart_refctd_ptr<nbl::system::ISystem>&& system) override
-	{
-		system = std::move(system);
-	}
+
+    void setWindow(core::smart_refctd_ptr<nbl::ui::IWindow>&& wnd) override
+    {
+        window = std::move(wnd);
+    }
+    void setSystem(core::smart_refctd_ptr<nbl::system::ISystem>&& s) override
+    {
+        system = std::move(s);
+    }
+    nbl::ui::IWindow* getWindow() override
+    {
+        return window.get();
+    }
+    video::IAPIConnection* getAPIConnection() override
+    {
+        return api.get();
+    }
+    video::ILogicalDevice* getLogicalDevice()  override
+    {
+        return logicalDevice.get();
+    }
+    video::IGPURenderpass* getRenderpass() override
+    {
+        return renderpass.get();
+    }
+    void setSurface(core::smart_refctd_ptr<video::ISurface>&& s) override
+    {
+        surface = std::move(s);
+    }
+    void setFBOs(std::vector<core::smart_refctd_ptr<video::IGPUFramebuffer>>& f) override
+    {
+        for (int i = 0; i < f.size(); i++)
+        {
+            fbos[i] = core::smart_refctd_ptr(f[i]);
+        }
+    }
+    void setSwapchain(core::smart_refctd_ptr<video::ISwapchain>&& s) override
+    {
+        swapchain = std::move(s);
+    }
+    uint32_t getSwapchainImageCount() override
+    {
+        return SC_IMG_COUNT;
+    }
+    virtual nbl::asset::E_FORMAT getDepthFormat() override
+    {
+        return nbl::asset::EF_D32_SFLOAT;
+    }
 
 	APP_CONSTRUCTOR(GeometryCreatorSampleApp);
 
@@ -209,10 +247,12 @@ public:
 		const video::ISurface::SFormat surfaceFormat(asset::EF_B8G8R8A8_SRGB, asset::ECP_COUNT, asset::EOTF_UNKNOWN);
 
 		CommonAPI::InitOutput initOutput;
-		initOutput.window = core::smart_refctd_ptr(window);
+		initOutput.window = window;
+		initOutput.system = system;
+
 		CommonAPI::Init(
 			initOutput,
-			video::EAT_OPENGL,
+			video::EAT_VULKAN,
 			"35.GeometryCreator",
 			requiredInstanceFeatures,
 			optionalInstanceFeatures,
@@ -222,7 +262,8 @@ public:
 			WIN_H,
 			SC_IMG_COUNT,
 			swapchainImageUsage,
-			surfaceFormat);
+			surfaceFormat,
+			nbl::asset::EF_D32_SFLOAT);
 
 		window = std::move(initOutput.window);
 		windowCb = std::move(initOutput.windowCb);
@@ -236,6 +277,7 @@ public:
 		swapchain = std::move(initOutput.swapchain);
 		renderpass = std::move(initOutput.renderpass);
 		fbos = std::move(initOutput.fbo);
+        system = std::move(initOutput.system);
 		commandPools = std::move(initOutput.commandPools);
 		assetManager = std::move(initOutput.assetManager);
 		cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
@@ -293,8 +335,6 @@ public:
 			asset::SBlendParams blendParams;
 			blendParams.logicOpEnable = false;
 			blendParams.logicOp = nbl::asset::ELO_NO_OP;
-			for (size_t i = 0ull; i < nbl::asset::SBlendParams::MAX_COLOR_ATTACHMENT_COUNT; i++)
-				blendParams.blendParams[i].attachmentEnabled = (i == 0ull);
 
 			asset::SRasterizationParams rasterParams;
 			rasterParams.faceCullingMode = asset::EFCM_NONE;
@@ -467,7 +507,7 @@ public:
 			gpuSourceImageView.get(),
 			assetManager.get(),
 			"ScreenShot.png",
-			asset::EIL_PRESENT_SRC_KHR,
+			asset::EIL_PRESENT_SRC,
 			static_cast<asset::E_ACCESS_FLAGS>(0u));
 
 		assert(status);
