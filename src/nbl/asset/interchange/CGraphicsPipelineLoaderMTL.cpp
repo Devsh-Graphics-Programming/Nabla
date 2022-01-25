@@ -179,9 +179,6 @@ core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> CGraphicsPipelineLoade
 {
     SBlendParams blendParams;
 
-    for (size_t i = 0ull; i < SBlendParams::MAX_COLOR_ATTACHMENT_COUNT; i++)
-        blendParams.blendParams[i].attachmentEnabled = (i == 0ull);
-
     std::string cacheKey("nbl/builtin/renderpass_independent_pipeline/loader/mtl/");
     {
         const uint32_t illum = _mtl.params.extra&0xfu;
