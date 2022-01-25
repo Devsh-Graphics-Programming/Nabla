@@ -145,10 +145,6 @@ int main(int argc, char** argv)
     for (size_t i = 0ull; i < meshRaw->getMeshBuffers().size(); ++i)
     {
         auto& meshBuffer = meshRaw->getMeshBuffers().begin()[i];
-
-        for (size_t i = 0ull; i < nbl::asset::SBlendParams::MAX_COLOR_ATTACHMENT_COUNT; i++)
-            meshBuffer->getPipeline()->getBlendParams().blendParams[i].attachmentEnabled = (i == 0ull);
-
         meshBuffer->getPipeline()->getRasterizationParams().frontFaceIsCCW = false;
     }
     
