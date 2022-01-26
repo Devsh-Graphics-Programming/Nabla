@@ -9,7 +9,7 @@ The project currently aims for a thread-able ands *Vulkan*-centered API, but cur
 This framework has been kindly begun by the founder ***[@devshgraphicsprogramming](https://github.com/devshgraphicsprogramming)*** of **[Devsh Graphics Programming Sp. z O.O.](http://devsh.eu/)**  and almost entirely sponsored by **Build A World Aps**. in it's early days, and now picked up by the **[Ditt](https://www.ditt.nl/)** company. The `stable-ish` branch is used in production releases of **[Build A World EDU](https://edu.buildaworld.net/)**, since 2015. The framework has been used both for game development and ArchViz.
 
 ## (Get Hired) Jobs and Internships
-
+a
 If you are a programmer with a passion for High Performance Computing, Mathematics and Computer Graphics
 
 If you can work 100% remotely and be in charge of your own time managment
