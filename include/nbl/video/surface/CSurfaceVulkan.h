@@ -40,7 +40,8 @@ public:
                 if (vkCreateWin32SurfaceKHR(api->getInternalObject(), &createInfo, nullptr,
                     &vk_surface) == VK_SUCCESS)
                 {
-                    return core::make_smart_refctd_ptr<this_t>(std::move(api), std::move(window), vk_surface);
+                    auto retval = new this_t(std::move(api), std::move(window), vk_surface);
+                    return core::smart_refctd_ptr<this_t>(retval, core::dont_grab);
                 }
                 else
                 {
@@ -172,8 +173,7 @@ public:
 
     inline VkSurfaceKHR getInternalObject() const { return m_vkSurfaceKHR; }
 
-// Todo(achal): Remove
-// private:
+protected:
     explicit CSurfaceVulkan(core::smart_refctd_ptr<video::CVulkanConnection>&& api,
         core::smart_refctd_ptr<Window>&& window, VkSurfaceKHR vk_surface)
         : base_t(std::move(api), std::move(window)), m_vkSurfaceKHR(vk_surface)
@@ -184,7 +184,6 @@ public:
         VkInstance vk_instance = static_cast<const CVulkanConnection*>(base_t::m_api.get())->getInternalObject();
         vkDestroySurfaceKHR(vk_instance, m_vkSurfaceKHR, nullptr);
     }
-
 
     VkSurfaceKHR m_vkSurfaceKHR = VK_NULL_HANDLE;
 };
