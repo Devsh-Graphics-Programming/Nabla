@@ -31,7 +31,6 @@
 #include "nbl/video/CVulkanAccelerationStructure.h"
 #include "nbl/video/CVulkanGraphicsPipeline.h"
 #include "nbl/video/CVulkanRenderpassIndependentPipeline.h"
-#include "nbl/video/surface/CSurfaceVulkan.h"
 #include "nbl/core/containers/CMemoryPool.h"
 
 namespace nbl::video
@@ -79,89 +78,7 @@ public:
         m_devf.vk.vkDestroyDevice(m_vkdev, nullptr);
     }
             
-    core::smart_refctd_ptr<ISwapchain> createSwapchain(ISwapchain::SCreationParams&& params) override
-    {
-        constexpr uint32_t MAX_SWAPCHAIN_IMAGE_COUNT = 100u;
-
-        if (params.surface->getAPIType() != EAT_VULKAN)
-            return nullptr;
-
-#ifdef _NBL_PLATFORM_WINDOWS_
-        // Todo(achal): not sure yet, how would I handle multiple platforms without making
-        // this function templated
-        VkSurfaceKHR vk_surface = static_cast<const CSurfaceVulkanWin32*>(params.surface.get())->getInternalObject();
-#endif
-
-        VkPresentModeKHR vkPresentMode;
-        if((params.presentMode & ISurface::E_PRESENT_MODE::EPM_IMMEDIATE) == ISurface::E_PRESENT_MODE::EPM_IMMEDIATE)
-            vkPresentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
-        else if((params.presentMode & ISurface::E_PRESENT_MODE::EPM_MAILBOX) == ISurface::E_PRESENT_MODE::EPM_MAILBOX)
-            vkPresentMode = VK_PRESENT_MODE_MAILBOX_KHR;
-        else if((params.presentMode & ISurface::E_PRESENT_MODE::EPM_FIFO) == ISurface::E_PRESENT_MODE::EPM_FIFO)
-            vkPresentMode = VK_PRESENT_MODE_FIFO_KHR;
-        else if((params.presentMode & ISurface::E_PRESENT_MODE::EPM_FIFO_RELAXED) == ISurface::E_PRESENT_MODE::EPM_FIFO_RELAXED)
-            vkPresentMode = VK_PRESENT_MODE_FIFO_RELAXED_KHR;
-
-        VkSwapchainCreateInfoKHR vk_createInfo = { VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR };
-#ifdef _NBL_PLATFORM_WINDOWS_
-        vk_createInfo.surface = vk_surface;
-#endif        
-        vk_createInfo.minImageCount = params.minImageCount;
-        vk_createInfo.imageFormat = getVkFormatFromFormat(params.surfaceFormat.format);
-        vk_createInfo.imageColorSpace = getVkColorSpaceKHRFromColorSpace(params.surfaceFormat.colorSpace);
-        vk_createInfo.imageExtent = { params.width, params.height };
-        vk_createInfo.imageArrayLayers = params.arrayLayers;
-        vk_createInfo.imageUsage = static_cast<VkImageUsageFlags>(params.imageUsage);
-        vk_createInfo.imageSharingMode = static_cast<VkSharingMode>(params.imageSharingMode);
-        vk_createInfo.queueFamilyIndexCount = params.queueFamilyIndexCount;
-        vk_createInfo.pQueueFamilyIndices = params.queueFamilyIndices;
-        vk_createInfo.preTransform = static_cast<VkSurfaceTransformFlagBitsKHR>(params.preTransform);
-        vk_createInfo.compositeAlpha = static_cast<VkCompositeAlphaFlagBitsKHR>(params.compositeAlpha);
-        vk_createInfo.presentMode = vkPresentMode;
-        vk_createInfo.clipped = VK_FALSE;
-        vk_createInfo.oldSwapchain = VK_NULL_HANDLE;
-        if (params.oldSwapchain && (params.oldSwapchain->getAPIType() == EAT_VULKAN))
-            vk_createInfo.oldSwapchain = static_cast<CVulkanSwapchain*>(params.oldSwapchain.get())->getInternalObject();
-
-        VkSwapchainKHR vk_swapchain;
-        if (m_devf.vk.vkCreateSwapchainKHR(m_vkdev, &vk_createInfo, nullptr, &vk_swapchain) != VK_SUCCESS)
-            return nullptr;
-
-        uint32_t imageCount;
-        VkResult retval = m_devf.vk.vkGetSwapchainImagesKHR(m_vkdev, vk_swapchain, &imageCount, nullptr);
-        if ((retval != VK_SUCCESS) && (retval != VK_INCOMPLETE))
-            return nullptr;
-
-        assert(imageCount <= MAX_SWAPCHAIN_IMAGE_COUNT);
-
-        VkImage vk_images[MAX_SWAPCHAIN_IMAGE_COUNT];
-        retval = m_devf.vk.vkGetSwapchainImagesKHR(m_vkdev, vk_swapchain, &imageCount, vk_images);
-        if ((retval != VK_SUCCESS) && (retval != VK_INCOMPLETE))
-            return nullptr;
-
-        ISwapchain::images_array_t images = core::make_refctd_dynamic_array<ISwapchain::images_array_t>(imageCount);
-
-        uint32_t i = 0u;
-        for (auto& image : (*images))
-        {
-            CVulkanForeignImage::SCreationParams creationParams;
-            creationParams.arrayLayers = params.arrayLayers;
-            creationParams.extent = { params.width, params.height, 1u };
-            creationParams.flags = static_cast<CVulkanForeignImage::E_CREATE_FLAGS>(0); // Todo(achal)
-            creationParams.format = params.surfaceFormat.format;
-            creationParams.mipLevels = 1u;
-            creationParams.samples = CVulkanImage::ESCF_1_BIT; // Todo(achal)
-            creationParams.type = CVulkanImage::ET_2D;
-
-            image = core::make_smart_refctd_ptr<CVulkanForeignImage>(
-                core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(creationParams),
-                vk_images[i++]);
-        }
-
-        return core::make_smart_refctd_ptr<CVulkanSwapchain>(
-            core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(params),
-            std::move(images), vk_swapchain);
-    }
+    core::smart_refctd_ptr<ISwapchain> createSwapchain(ISwapchain::SCreationParams&& params) override;
     
     core::smart_refctd_ptr<IGPUSemaphore> createSemaphore() override
     {
