@@ -4,7 +4,7 @@ t
 r
 **Nabla** (previousltest 3y called **[IrrlichtBaW](https://github.com/buildaworldnet/IrrlichtBAW)** ) is a new renovated version of older **[Irrlicht](http://irrlicht.sourceforge.net/)** engine. 
 The name change to Nabla allows for using Nabla side by side with the legacy Irrlicht and IrrlichtBaW engines. 
-The project currently aims for a thread-able and *Vulkan*-centered API, but currently works on *OpenGL* only. 
+The project currently aims for a thread-able ands *Vulkan*-centered API, but currently works on *OpenGL* only. 
 
 This framework has been kindly begun by the founder ***[@devshgraphicsprogramming](https://github.com/devshgraphicsprogramming)*** of **[Devsh Graphics Programming Sp. z O.O.](http://devsh.eu/)**  and almost entirely sponsored by **Build A World Aps**. in it's early days, and now picked up by the **[Ditt](https://www.ditt.nl/)** company. The `stable-ish` branch is used in production releases of **[Build A World EDU](https://edu.buildaworld.net/)**, since 2015. The framework has been used both for game development and ArchViz.
 
