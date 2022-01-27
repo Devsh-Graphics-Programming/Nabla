@@ -106,7 +106,7 @@ void main()
 				contrib.worldspaceNormal = normalize(geomDenormal)*nbl_glsl_MC_colorToScalar(contrib.albedo);
 		}
 		else
-			Contribution_initMiss(contrib);
+			Contribution_initMiss(contrib,aovThroughputScale);
 			
 		Contribution_normalizeAoV(contrib);
 		

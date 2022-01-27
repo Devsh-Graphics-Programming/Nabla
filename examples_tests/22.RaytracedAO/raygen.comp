@@ -107,7 +107,7 @@ void main()
 			);
 		}
 		else
-			Contribution_initMiss(contrib);
+			Contribution_initMiss(contrib,1.f);
 
 		if (bool(pc.cummon.depth))
 		{
