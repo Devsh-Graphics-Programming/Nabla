@@ -1,8 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
-  <Type Name="Test">
-    <DisplayString>dupa={c}</DisplayString>
-  </Type> 
   
   <Type Name="nbl::core::refctd_dynamic_array&lt;*&gt;">
     <DisplayString>size={item_count} elementType={"$T1"}</DisplayString>
