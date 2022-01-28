@@ -550,9 +550,7 @@ public:
 
         const asset::ICPUBuffer* source = cpushader->getSPVorGLSL();
 
-        core::smart_refctd_ptr<asset::ICPUBuffer> spirv =
-            core::smart_refctd_ptr_static_cast<asset::ICPUBuffer>(source->clone(1u));
-
+        core::smart_refctd_ptr<asset::ICPUBuffer> spirv;
         if (cpushader->containsGLSL())
         {
             const char* begin = static_cast<const char*>(source->getPointer());
@@ -577,6 +575,10 @@ public:
                 logger,
                 m_physicalDevice->getLimits().spirvVersion);
         }
+        else
+        {
+            spirv = core::smart_refctd_ptr_static_cast<asset::ICPUBuffer>(source->clone(1u));
+        }
 
         if (!spirv)
             return nullptr;
@@ -591,7 +593,7 @@ public:
         if (m_devf.vk.vkCreateShaderModule(m_vkdev, &vk_createInfo, nullptr, &vk_shaderModule) == VK_SUCCESS)
         {
             return core::make_smart_refctd_ptr<video::CVulkanShader>(
-                core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(spirv), cpushader->getStage(), std::string(cpushader->getFilepathHint()), vk_shaderModule);
+                core::smart_refctd_ptr<CVulkanLogicalDevice>(this), cpushader->getStage(), std::string(cpushader->getFilepathHint()), vk_shaderModule);
         }
         else
         {
@@ -1131,14 +1133,6 @@ protected:
             return nullptr;
 
         const CVulkanShader* vulkanShader = static_cast<const CVulkanShader*>(_unspecialized);
-
-        auto spirv = core::smart_refctd_ptr<const asset::ICPUBuffer>(static_cast<const CVulkanShader*>(_unspecialized)->getSPV());
-
-        if (spvopt)
-            spirv = spvopt->optimize(spirv.get(), m_physicalDevice->getDebugCallback()->getLogger());
-
-        if (!spirv)
-            return nullptr;
 
         return core::make_smart_refctd_ptr<CVulkanSpecializedShader>(
             core::smart_refctd_ptr<CVulkanLogicalDevice>(this),
