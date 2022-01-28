@@ -393,16 +393,14 @@ public:
 				auto buf = geometryObject.bindings[i].buffer.get();
 				if (buf)
 				{
-					const auto newUsageFlags = buf->getUsageFlags() | asset::IBuffer::EUF_VERTEX_BUFFER_BIT;
-					buf->setUsageFlags(newUsageFlags);
+					buf->addUsageFlags(asset::IBuffer::EUF_VERTEX_BUFFER_BIT);
 					cpubuffers.push_back(buf);
 				}
 			}
 			auto cpuindexbuffer = geometryObject.indexBuffer.buffer.get();
 			if (cpuindexbuffer)
 			{
-				const auto newUsageFlags = cpuindexbuffer->getUsageFlags() | asset::IBuffer::EUF_INDEX_BUFFER_BIT;
-				cpuindexbuffer->setUsageFlags(newUsageFlags);
+				cpuindexbuffer->addUsageFlags(asset::IBuffer::EUF_INDEX_BUFFER_BIT);
 				cpubuffers.push_back(cpuindexbuffer);
 			}
 
