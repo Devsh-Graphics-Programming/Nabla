@@ -1237,15 +1237,7 @@ protected:
 
     core::smart_refctd_ptr<IGPUDescriptorSetLayout> createGPUDescriptorSetLayout_impl(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end) override
     {
-        constexpr uint32_t MAX_BINDING_COUNT = 25u;
-        constexpr uint32_t MAX_SAMPLER_COUNT_PER_BINDING = 25u;
-
         uint32_t bindingCount = std::distance(_begin, _end);
-        assert(bindingCount <= MAX_BINDING_COUNT);
-
-        std::vector<VkSampler> vk_samplers;
-        std::vector<VkDescriptorSetLayoutBinding> vk_dsLayoutBindings;
-
         uint32_t maxSamplersCount = 0u;
         for (uint32_t b = 0u; b < bindingCount; ++b)
         {
@@ -1254,6 +1246,8 @@ protected:
                 maxSamplersCount += binding->count;
         }
 
+        std::vector<VkSampler> vk_samplers;
+        std::vector<VkDescriptorSetLayoutBinding> vk_dsLayoutBindings;
         vk_samplers.reserve(maxSamplersCount); // Reserve to avoid resizing and pointer change while iterating 
         vk_dsLayoutBindings.reserve(bindingCount);
 
@@ -1272,8 +1266,6 @@ protected:
             {
                 // If descriptorType is VK_DESCRIPTOR_TYPE_SAMPLER or VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, and descriptorCount is not 0 and pImmutableSamplers is not NULL:
                 // pImmutableSamplers must be a valid pointer to an array of descriptorCount valid VkSampler handles.
-
-                assert(binding->count <= MAX_SAMPLER_COUNT_PER_BINDING);
                 const uint32_t samplerOffset = vk_samplers.size();
 
                 for (uint32_t i = 0u; i < binding->count; ++i)
