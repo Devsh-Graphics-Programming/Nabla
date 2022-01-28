@@ -1246,6 +1246,17 @@ protected:
         std::vector<VkSampler> vk_samplers;
         std::vector<VkDescriptorSetLayoutBinding> vk_dsLayoutBindings;
 
+        uint32_t maxSamplersCount = 0u;
+        for (uint32_t b = 0u; b < bindingCount; ++b)
+        {
+            auto binding = _begin + b;
+            if (binding->samplers && binding->count > 0u)
+                maxSamplersCount += binding->count;
+        }
+
+        vk_samplers.reserve(maxSamplersCount); // Reserve to avoid resizing and pointer change while iterating 
+        vk_dsLayoutBindings.reserve(bindingCount);
+
         for (uint32_t b = 0u; b < bindingCount; ++b)
         {
             auto binding = _begin + b;
