@@ -140,7 +140,7 @@ public:
     }
             
     // API needs to change. vkResetFences can fail.
-    void resetFences(uint32_t _count, IGPUFence*const* _fences) override
+    bool resetFences(uint32_t _count, IGPUFence*const* _fences) override
     {
         constexpr uint32_t MAX_FENCE_COUNT = 100u;
         assert(_count < MAX_FENCE_COUNT);
@@ -149,12 +149,13 @@ public:
         for (uint32_t i = 0u; i < _count; ++i)
         {
             if (_fences[i]->getAPIType() != EAT_VULKAN)
-                return;
+                return false;
 
             vk_fences[i] = static_cast<CVulkanFence*>(_fences[i])->getInternalObject();
         }
 
-        m_devf.vk.vkResetFences(m_vkdev, _count, vk_fences);
+        auto vk_res = m_devf.vk.vkResetFences(m_vkdev, _count, vk_fences);
+        return (vk_res == VK_SUCCESS);
     }
             
     IGPUFence::E_STATUS waitForFences(uint32_t _count, IGPUFence*const* _fences, bool _waitAll, uint64_t _timeout) override

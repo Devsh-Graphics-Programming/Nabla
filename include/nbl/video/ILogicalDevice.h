@@ -124,7 +124,7 @@ class ILogicalDevice : public core::IReferenceCounted
 
         virtual core::smart_refctd_ptr<IGPUFence> createFence(IGPUFence::E_CREATE_FLAGS _flags) = 0;
         virtual IGPUFence::E_STATUS getFenceStatus(IGPUFence* _fence) = 0;
-        virtual void resetFences(uint32_t _count, IGPUFence*const * _fences) = 0;
+        virtual bool resetFences(uint32_t _count, IGPUFence*const * _fences) = 0;
         virtual IGPUFence::E_STATUS waitForFences(uint32_t _count, IGPUFence* const* _fences, bool _waitAll, uint64_t _timeout) = 0;
         // Forever waiting variant if you're confident that the fence will eventually be signalled
         inline bool blockForFences(uint32_t _count, IGPUFence* const* _fences, bool _waitAll = true)

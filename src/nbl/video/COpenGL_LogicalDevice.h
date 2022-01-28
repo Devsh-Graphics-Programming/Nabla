@@ -299,10 +299,11 @@ public:
         return retval;
     }
 
-    void resetFences(uint32_t _count, IGPUFence*const * _fences) override final
+    bool resetFences(uint32_t _count, IGPUFence*const * _fences) override final
     {
         for (uint32_t i = 0u; i < _count; ++i)
             static_cast<COpenGLFence*>(_fences[i])->reset();
+        return true;
     }
 
     IGPUFence::E_STATUS waitForFences(uint32_t _count, IGPUFence* const* _fences, bool _waitAll, uint64_t _timeout) override final
