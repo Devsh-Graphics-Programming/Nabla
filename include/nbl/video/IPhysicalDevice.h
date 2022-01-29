@@ -29,6 +29,7 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
             uint32_t UBOAlignment;
             uint32_t SSBOAlignment;
             uint32_t bufferViewAlignment;
+            float    maxSamplerAnisotropyLog2;
 
             uint32_t maxUBOSize;
             uint32_t maxSSBOSize;
@@ -130,6 +131,7 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
             bool shaderSubgroupQuadAllStages = false;
             bool drawIndirectCount = false;
             bool multiDrawIndirect = false;
+            bool samplerAnisotropy = false;
 
             // RayQuery
             bool rayQuery = false;

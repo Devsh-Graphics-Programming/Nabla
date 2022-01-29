@@ -863,8 +863,9 @@ public:
         vk_createInfo.addressModeV = getVkAddressModeFromTexClamp(static_cast<asset::ISampler::E_TEXTURE_CLAMP>(_params.TextureWrapV));
         vk_createInfo.addressModeW = getVkAddressModeFromTexClamp(static_cast<asset::ISampler::E_TEXTURE_CLAMP>(_params.TextureWrapW));
         vk_createInfo.mipLodBias = _params.LodBias;
-        vk_createInfo.maxAnisotropy = std::exp2(_params.AnisotropicFilter); // Todo(achal): Verify
-        vk_createInfo.anisotropyEnable = VK_FALSE; // vk_createInfo.maxAnisotropy < 1.f ? VK_FALSE : VK_TRUE; // Todo(achal): Verify. Also this needs to take into account if the anistropic sampling feature is enabled
+        assert(_params.AnisotropicFilter <= m_physicalDevice->getLimits().maxSamplerAnisotropyLog2);
+        vk_createInfo.maxAnisotropy = std::exp2(_params.AnisotropicFilter);
+        vk_createInfo.anisotropyEnable = m_physicalDevice->getFeatures().samplerAnisotropy;
         vk_createInfo.compareEnable = _params.CompareEnable;
         vk_createInfo.compareOp = static_cast<VkCompareOp>(_params.CompareFunc);
         vk_createInfo.minLod = _params.MinLod;

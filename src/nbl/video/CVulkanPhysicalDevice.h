@@ -42,7 +42,8 @@ public:
             m_limits.UBOAlignment = deviceProperties.properties.limits.minUniformBufferOffsetAlignment;
             m_limits.SSBOAlignment = deviceProperties.properties.limits.minStorageBufferOffsetAlignment;
             m_limits.bufferViewAlignment = deviceProperties.properties.limits.minTexelBufferOffsetAlignment;
-                    
+            m_limits.maxSamplerAnisotropyLog2 = std::log2(deviceProperties.properties.limits.maxSamplerAnisotropy);
+
             m_limits.maxUBOSize = deviceProperties.properties.limits.maxUniformBufferRange;
             m_limits.maxSSBOSize = deviceProperties.properties.limits.maxStorageBufferRange;
             m_limits.maxBufferViewSizeTexels = deviceProperties.properties.limits.maxTexelBufferElements;
@@ -138,6 +139,7 @@ public:
             m_features.imageCubeArray = features.imageCubeArray;
             m_features.logicOp = features.logicOp;
             m_features.multiDrawIndirect = features.multiDrawIndirect;
+            m_features.samplerAnisotropy = features.samplerAnisotropy;
             m_features.multiViewport = features.multiViewport;
             m_features.vertexAttributeDouble = features.shaderFloat64;
             m_features.dispatchBase = false; // Todo(achal): Umm.. what is this? Whether you can call VkCmdDispatchBase with non zero base args
@@ -151,7 +153,6 @@ public:
             m_features.shaderSubgroupQuad = subgroupProperties.supportedOperations & VK_SUBGROUP_FEATURE_QUAD_BIT;
             m_features.shaderSubgroupQuadAllStages = ((subgroupProperties.supportedStages & asset::IShader::E_SHADER_STAGE::ESS_ALL)
                                                         == asset::IShader::E_SHADER_STAGE::ESS_ALL);
-            
 
             // RayQuery
             if (m_availableFeatureSet.find(VK_KHR_RAY_QUERY_EXTENSION_NAME) != m_availableFeatureSet.end())
