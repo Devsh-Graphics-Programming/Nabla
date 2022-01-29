@@ -416,6 +416,7 @@ protected:
         VkPhysicalDeviceFeatures2 vk_deviceFeatures2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
         vk_deviceFeatures2.pNext = firstFeatureInChain;
         vk_deviceFeatures2.features = {};
+        vk_deviceFeatures2.features.samplerAnisotropy = m_features.samplerAnisotropy;
 
         // Create Device
         VkDeviceCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO };
