@@ -76,32 +76,52 @@ public:
         
         const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
         VkResult retval = vk->vk.vkBeginCommandBuffer(m_cmdbuf, &beginInfo);
-        assert(retval == VK_SUCCESS);
-        IGPUCommandBuffer::begin(recordingFlags);
+        if(retval == VK_SUCCESS)
+        {
+            return IGPUCommandBuffer::begin(recordingFlags);
+        }
+        else
+        {
+            assert(false);
+            return false;
+        }
+        
     }
 
     // API needs to changed, vkEndCommandBuffer can fail
-    void end() override
+    bool end() override
     {
         const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
         VkResult retval = vk->vk.vkEndCommandBuffer(m_cmdbuf);
-        assert(retval == VK_SUCCESS);
-        IGPUCommandBuffer::end();
+        if(retval == VK_SUCCESS)
+        {
+            return IGPUCommandBuffer::end();
+        }
+        else
+        {
+            assert(false);
+            return false;
+        }
     }
 
     bool reset(uint32_t _flags) override
     {
+        if(!IGPUCommandBuffer::canReset())
+            return false;
+
         freeSpaceInCmdPool();
 
         const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
 
         if (vk->vk.vkResetCommandBuffer(m_cmdbuf, static_cast<VkCommandBufferResetFlags>(_flags)) == VK_SUCCESS)
         {
-            IGPUCommandBuffer::reset(_flags);
-            return true;
+            return IGPUCommandBuffer::reset(_flags);
         }
         else
+        {
+            assert(false);
             return false;
+        }
     }
 
     virtual bool bindIndexBuffer(const buffer_t* buffer, size_t offset, asset::E_INDEX_TYPE indexType) override

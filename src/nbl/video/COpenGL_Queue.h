@@ -321,6 +321,8 @@ class COpenGL_Queue final : public IGPUQueue
         {
             if (!IGPUQueue::submit(_count, _submits, _fence))
                 return false;
+            if(!IGPUQueue::markCommandBuffersAsPending(_count, _submits))
+                return false;
 
             core::smart_refctd_ptr<COpenGLSync> sync;
             for (uint32_t i = 0u; i < _count; ++i)
@@ -383,7 +385,9 @@ class COpenGL_Queue final : public IGPUQueue
                 COpenGLFence* glfence = static_cast<COpenGLFence*>(_fence);
                 glfence->associateGLSync(std::move(sync)); // associate sync used for signal semaphores in last submit
             }
-
+            
+            if(!IGPUQueue::markCommandBuffersAsDone(_count, _submits))
+                return false;
             return true;
         }
 

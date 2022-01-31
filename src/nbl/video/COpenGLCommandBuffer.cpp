@@ -112,14 +112,12 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
 
     bool COpenGLCommandBuffer::reset(uint32_t _flags)
     {
-        if (!(m_cmdpool->getCreationFlags() & IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT))
+        if (!IGPUCommandBuffer::canReset())
             return false;
 
         freeSpaceInCmdPool();
         m_commands.clear();
-        IGPUCommandBuffer::reset(_flags);
-
-        return true;
+        return IGPUCommandBuffer::reset(_flags);
     }
 
     void COpenGLCommandBuffer::copyBufferToImage(const SCmd<impl::ECT_COPY_BUFFER_TO_IMAGE>& c, IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid)

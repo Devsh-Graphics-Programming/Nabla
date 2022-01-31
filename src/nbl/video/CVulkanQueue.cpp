@@ -10,6 +10,12 @@ namespace nbl::video
 
 bool CVulkanQueue::submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFence* _fence)
 {
+    if (!IGPUQueue::submit(_count, _submits, _fence))
+        return false;
+
+    if(!IGPUQueue::markCommandBuffersAsPending(_count, _submits))
+        return false;
+
     auto* vk = static_cast<const CVulkanLogicalDevice*>(m_originDevice)->getFunctionTable();
 
     uint32_t waitSemCnt = 0u;
@@ -98,7 +104,11 @@ bool CVulkanQueue::submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFenc
 
     VkFence fence = _fence ? static_cast<CVulkanFence*>(_fence)->getInternalObject() : VK_NULL_HANDLE;
     if (vk->vk.vkQueueSubmit(m_vkQueue, _count, submits, fence) == VK_SUCCESS)
+    {
+        if(!IGPUQueue::markCommandBuffersAsDone(_count, _submits))
+            return false;
         return true;
+    }
 
     return false;
 }

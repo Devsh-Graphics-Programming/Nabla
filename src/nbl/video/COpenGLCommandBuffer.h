@@ -555,11 +555,12 @@ public:
 
     COpenGLCommandBuffer(core::smart_refctd_ptr<const ILogicalDevice>&& dev, E_LEVEL lvl, IGPUCommandPool* _cmdpool, system::logger_opt_smart_ptr&& logger, const COpenGLFeatureMap* _features);
 
-    inline void begin(uint32_t _flags) override final
+    inline bool begin(uint32_t _flags) override final
     {
-        IGPUCommandBuffer::begin(_flags);
         reset(_flags);
+        return IGPUCommandBuffer::begin(_flags);
     }
+
     bool reset(uint32_t _flags) override final;
 
 

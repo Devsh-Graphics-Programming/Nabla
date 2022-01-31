@@ -295,7 +295,7 @@ namespace nbl::video
             const uint32_t alignment = static_cast<uint32_t>(limits.nonCoherentAtomSize);
 
             auto* cmdpool = cmdbuf->getPool();
-            assert(cmdpool->getCreationFlags() & IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
+            assert(cmdbuf->isResettable());
             assert(cmdpool->getQueueFamilyIndex() == queue->getFamilyIndex());
 
             // no pipeline barriers necessary because write and optional flush happens before submit, and memory allocation is reclaimed after fence signal

@@ -54,14 +54,47 @@ class IGPUCommandBuffer :
     >;
 
 public:
+
+    inline bool isResettable() const
+    {
+        return m_cmdpool->getCreationFlags().hasValue(IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
+    }
+
+    inline bool canReset() const
+    {
+        if(isResettable())
+            return m_state != ES_PENDING;
+        return false;
+    }
+
     virtual bool begin(uint32_t _flags, const SInheritanceInfo* inheritanceInfo = nullptr)
     {
-        base_t::begin(_flags);
-        if ((m_cmdpool->getCreationFlags()&IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT)==0u)
+        if (!isResettable())
         {
-            assert(m_state != ES_INITIAL);
+            if(m_state != ES_INITIAL)
+            {
+                assert(false);
+                return false;
+            }
         }
-        return true;
+
+        if(m_state == ES_PENDING)
+        {
+            assert(false);
+            return false;
+        }
+
+        return base_t::begin(_flags);
+    }
+
+    virtual bool reset(uint32_t _flags)
+    {
+        if (!canReset())
+        {
+            assert(false);
+            return false;
+        }
+        return base_t::reset(_flags);
     }
 
     uint32_t getQueueFamilyIndex() const { return m_cmdpool->getQueueFamilyIndex(); }
@@ -135,6 +168,8 @@ public:
     }
 
 protected:
+    friend class IGPUQueue;
+
     IGPUCommandBuffer(core::smart_refctd_ptr<const ILogicalDevice>&& dev, E_LEVEL lvl, IGPUCommandPool* _cmdpool) : base_t(lvl), IBackendObject(std::move(dev)), m_cmdpool(_cmdpool)
     {
     }
