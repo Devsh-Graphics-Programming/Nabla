@@ -149,7 +149,10 @@ public:
         for (uint32_t i = 0u; i < _count; ++i)
         {
             if (_fences[i]->getAPIType() != EAT_VULKAN)
+            {
+                assert(false);
                 return false;
+            }
 
             vk_fences[i] = static_cast<CVulkanFence*>(_fences[i])->getInternalObject();
         }
