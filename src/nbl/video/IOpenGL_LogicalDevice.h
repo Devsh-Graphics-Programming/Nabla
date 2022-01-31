@@ -875,7 +875,7 @@ protected:
                 uint32_t ix = core::findLSB<uint32_t>(stage);
                 assert(ix < COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT);
 
-                COpenGLPipelineCache::SCacheKey key{ glshdr->getSpirvHash(), glshdr->getSpecializationInfo(), core::smart_refctd_ptr_static_cast<COpenGLPipelineLayout>(layout) };
+                COpenGLPipelineCache::SCacheKey key{ glshdr->getSpirvHash(), glshdr->getSpecializationInfo(), core::smart_refctd_ptr_static_cast<COpenGLPipelineLayout>(layout), stage };
                 auto bin = cache ? cache->find(key) : COpenGLSpecializedShader::SProgramBinary{ 0,nullptr };
                 if (bin.binary)
                 {
@@ -932,7 +932,7 @@ protected:
             auto layout = core::smart_refctd_ptr_static_cast<COpenGLPipelineLayout>(params.layout);
             auto glshdr = core::smart_refctd_ptr_static_cast<COpenGLSpecializedShader>(params.shader);
 
-            COpenGLPipelineCache::SCacheKey key{ glshdr->getSpirvHash(), glshdr->getSpecializationInfo(), layout };
+            COpenGLPipelineCache::SCacheKey key{ glshdr->getSpirvHash(), glshdr->getSpecializationInfo(), layout, asset::IShader::ESS_COMPUTE };
             auto bin = cache ? cache->find(key) : COpenGLSpecializedShader::SProgramBinary{ 0,nullptr };
             if (bin.binary)
             {
