@@ -26,6 +26,7 @@ public:
 		std::array<uint64_t, 4> hash;
 		COpenGLSpecializedShader::SInfo info;
 		core::smart_refctd_ptr<COpenGLPipelineLayout> layout;
+		asset::IShader::E_SHADER_STAGE shaderStage = asset::IShader::ESS_UNKNOWN;
 
 		bool operator<(const SCacheKey& _rhs) const;
 	};
