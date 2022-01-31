@@ -81,7 +81,7 @@ public:
             m_limits.maxResidentInvocations = beefyGPUWorkgroupMaxOccupancy*m_limits.maxOptimallyResidentWorkgroupInvocations;
 
             m_limits.spirvVersion = asset::IGLSLCompiler::ESV_1_3;
-#if 0
+
             switch (VK_API_VERSION_MINOR(deviceProperties.properties.apiVersion))
             {
             case 0:
@@ -94,7 +94,6 @@ public:
                 _NBL_DEBUG_BREAK_IF("Invalid Vulkan minor version!");
                 break;
             }
-#endif
 
             // AccelerationStructure
             if (m_availableFeatureSet.find(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME) != m_availableFeatureSet.end())
@@ -221,7 +220,8 @@ public:
         }
 
         std::ostringstream pool;
-        addCommonGLSLDefines(pool,false/*TODO: @achal detect if RenderDoc is running*/);
+        bool runningRDoc = (m_rdoc_api != nullptr);
+        addCommonGLSLDefines(pool,runningRDoc);
         finalizeGLSLDefinePool(std::move(pool));
     }
             
@@ -347,11 +347,11 @@ protected:
             if (!insertFeatureIfAvailable(params.optionalFeatures[i], selectedFeatureSet))
                 continue;
         }
-
-        if (selectedFeatureSet.find(VK_KHR_SPIRV_1_4_EXTENSION_NAME) != selectedFeatureSet.end()
-            && (m_limits.spirvVersion < asset::IGLSLCompiler::ESV_1_4))
+                    
+        if (m_availableFeatureSet.find(VK_KHR_SPIRV_1_4_EXTENSION_NAME) != m_availableFeatureSet.end() && (m_limits.spirvVersion < asset::IGLSLCompiler::ESV_1_4))
         {
             m_limits.spirvVersion = asset::IGLSLCompiler::ESV_1_4;
+            selectedFeatureSet.insert(VK_KHR_SPIRV_1_4_EXTENSION_NAME);
         }
 
         core::vector<const char*> selectedFeatures(selectedFeatureSet.size());
