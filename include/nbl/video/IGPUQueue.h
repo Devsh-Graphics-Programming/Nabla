@@ -80,6 +80,7 @@ class IGPUQueue : public core::Interface, public core::Unmovable
                 submit.commandBuffers[j]->setState(IGPUCommandBuffer::ES_PENDING);
             }
         }
+        return true;
     }
     
     inline bool markCommandBuffersAsDone(uint32_t _count, const SSubmitInfo* _submits)
