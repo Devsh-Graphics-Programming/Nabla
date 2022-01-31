@@ -11,6 +11,8 @@
 
 #include "nbl/asset/utils/CCPUMeshPackerV1.h"
 
+#include "nbl/ext/ScreenShot/ScreenShot.h"
+
 using namespace nbl;
 using namespace core;
 using namespace asset;
@@ -624,6 +626,24 @@ public:
         CommonAPI::Present(logicalDevice.get(),
             swapchain.get(),
             queues[CommonAPI::InitOutput::EQT_GRAPHICS], renderFinished[resourceIx].get(), acquiredNextFBO);
+    }
+
+    void onAppTerminated_impl() override
+    {
+        const auto& fboCreationParams = fbo[acquiredNextFBO]->getCreationParameters();
+        auto gpuSourceImageView = fboCreationParams.attachments[0];
+
+        bool status = ext::ScreenShot::createScreenShot(
+            logicalDevice.get(),
+            queues[CommonAPI::InitOutput::EQT_TRANSFER_UP],
+            renderFinished[resourceIx].get(),
+            gpuSourceImageView.get(),
+            assetManager.get(),
+            "ScreenShot.png",
+            asset::EIL_PRESENT_SRC,
+            static_cast<asset::E_ACCESS_FLAGS>(0u));
+
+        assert(status);
     }
 
     bool keepRunning() override

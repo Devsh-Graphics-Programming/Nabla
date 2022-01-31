@@ -300,7 +300,7 @@ public:
 	void onAppInitialized_impl() override
 	{
 		CommonAPI::InitOutput initOutput;
-		CommonAPI::InitWithNoExt(initOutput, nbl::video::EAT_VULKAN, "Subgroup Arithmetic Test");
+		CommonAPI::InitWithNoExt(initOutput, nbl::video::EAT_OPENGL, "Subgroup Arithmetic Test");
 		gl = std::move(initOutput.apiConnection);
 		gpuPhysicalDevice = std::move(initOutput.physicalDevice);
 		logicalDevice = std::move(initOutput.logicalDevice);

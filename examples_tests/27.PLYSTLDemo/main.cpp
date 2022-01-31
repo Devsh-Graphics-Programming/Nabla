@@ -391,8 +391,16 @@ APP_CONSTRUCTOR(PLYSTLDemo)
 		auto gpuSourceImageView = fboCreationParams.attachments[0];
 
 		//TODO: 
-		//bool status = ext::ScreenShot::createScreenShot(logicalDevice.get(), queues[CommonAPI::InitOutput<1u>::EQT_TRANSFER_UP], renderFinished[resourceIx].get(), gpuSourceImageView.get(), assetManager.get(), "ScreenShot.png");
-		//assert(status);
+		bool status = ext::ScreenShot::createScreenShot(
+			logicalDevice.get(),
+			queues[CommonAPI::InitOutput::EQT_TRANSFER_UP],
+			renderFinished[resourceIx].get(),
+			gpuSourceImageView.get(),
+			assetManager.get(),
+			"ScreenShot.png",
+			asset::EIL_PRESENT_SRC,
+			static_cast<asset::E_ACCESS_FLAGS>(0u));
+		assert(status);
 	}
 
 	void workLoopBody() override
