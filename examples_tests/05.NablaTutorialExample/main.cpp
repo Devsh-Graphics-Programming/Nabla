@@ -236,10 +236,7 @@ public:
 
 		cpu2gpuParams.beginCommandBuffers();
 		auto gpuVertexShader = cpu2gpu.getGPUObjectsFromAssets(&cpuVertexShader.get(), &cpuVertexShader.get() + 1, cpu2gpuParams)->front();
-		cpu2gpuParams.waitForCreationToComplete();
-		cpu2gpuParams.beginCommandBuffers();
 		auto gpuFragmentShader = cpu2gpu.getGPUObjectsFromAssets(&cpuFragmentShader.get(), &cpuFragmentShader.get() + 1, cpu2gpuParams)->front();
-		cpu2gpuParams.waitForCreationToComplete();
 		cpu2gpuParams.waitForCreationToComplete();
 		std::array<IGPUSpecializedShader*, 2> gpuShaders = { gpuVertexShader.get(), gpuFragmentShader.get() };
 
