@@ -157,23 +157,19 @@ class GeometryCreatorSampleApp : public ApplicationBase
 	video::IGPUObjectFromAssetConverter::SParams cpu2gpuParams;
 	core::smart_refctd_ptr<nbl::video::IUtilities> utilities;
 
-	int32_t m_resourceIx = -1;
 	core::smart_refctd_ptr<video::IGPUFence> m_frameComplete[FRAMES_IN_FLIGHT] = { nullptr };
 	core::smart_refctd_ptr<video::IGPUSemaphore> m_imageAcquire[FRAMES_IN_FLIGHT] = { nullptr };
 	core::smart_refctd_ptr<video::IGPUSemaphore> m_renderFinished[FRAMES_IN_FLIGHT] = { nullptr };
 	core::smart_refctd_ptr<video::IGPUCommandBuffer> m_commandBuffers[FRAMES_IN_FLIGHT];
 
-	std::chrono::system_clock::time_point m_lastTime;
-	double m_time_sum = 0;
-	size_t m_frame_count = 0ull;
-	double m_dtList[NBL_FRAMES_TO_AVERAGE] = {};
-	bool m_frameDataFilled = false;
+	int32_t m_resourceIx = -1;
 	uint32_t m_acquiredNextFBO = {};
 
 	CommonAPI::InputSystem::ChannelReader<IMouseEventChannel> m_mouse;
 	CommonAPI::InputSystem::ChannelReader<IKeyboardEventChannel> m_keyboard;
 	std::unique_ptr<Camera> m_camera = nullptr;
 	std::unique_ptr<Objects> m_cpuGpuObjects = nullptr;
+	video::CDumbPresentationOracle oracle;
 
 public:
 
@@ -477,10 +473,8 @@ public:
 		core::vectorSIMDf cameraPosition(0, 5, -10);
 		matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60.0f), float(WIN_W) / WIN_H, 0.001, 1000);
 		m_camera = std::make_unique<Camera>(cameraPosition, core::vectorSIMDf(0, 0, 0), projectionMatrix, 10.f, 1.f);
-		m_lastTime = std::chrono::system_clock::now();
-		
-		for (size_t i = 0ull; i < NBL_FRAMES_TO_AVERAGE; ++i)
-			m_dtList[i] = 0.0;
+
+		oracle.reportBeginFrameRecord();
 
 		logicalDevice->createCommandBuffers(commandPools[CommonAPI::InitOutput::EQT_GRAPHICS].get(), video::IGPUCommandBuffer::EL_PRIMARY, FRAMES_IN_FLIGHT, m_commandBuffers);
 
@@ -528,30 +522,7 @@ public:
 		else
 			fence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
 
-		auto renderStart = std::chrono::system_clock::now();
-		const auto renderDt = std::chrono::duration_cast<std::chrono::milliseconds>(renderStart - m_lastTime).count();
-		m_lastTime = renderStart;
-		{ // Calculate Simple Moving Average for FrameTime
-			m_time_sum -= m_dtList[m_frame_count];
-			m_time_sum += renderDt;
-			m_dtList[m_frame_count] = renderDt;
-			m_frame_count++;
-			if (m_frame_count >= NBL_FRAMES_TO_AVERAGE)
-			{
-				m_frameDataFilled = true;
-				m_frame_count = 0;
-			}
-
-		}
-		const double averageFrameTime = m_frameDataFilled ? (m_time_sum / (double)NBL_FRAMES_TO_AVERAGE) : (m_time_sum / m_frame_count);
-
-#ifdef NBL_MORE_LOGS
-		logger->log("renderDt = %f ------ averageFrameTime = %f", system::ILogger::ELL_INFO, renderDt, averageFrameTime);
-#endif // NBL_MORE_LOGS
-
-		auto averageFrameTimeDuration = std::chrono::duration<double, std::milli>(averageFrameTime);
-		auto nextPresentationTime = renderStart + averageFrameTimeDuration;
-		auto nextPresentationTimeStamp = std::chrono::duration_cast<std::chrono::microseconds>(nextPresentationTime.time_since_epoch());
+		const auto nextPresentationTimeStamp = oracle.acquireNextImage(swapchain.get(), m_imageAcquire[m_resourceIx].get(), nullptr, &m_acquiredNextFBO);
 
 		inputSystem->getDefaultMouse(&m_mouse);
 		inputSystem->getDefaultKeyboard(&m_keyboard);

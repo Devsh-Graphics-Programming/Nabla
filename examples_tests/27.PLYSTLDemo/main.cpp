@@ -49,11 +49,11 @@ public:
 	nbl::core::smart_refctd_ptr<nbl::video::IUtilities> utilities;
 	nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice> logicalDevice;
 	nbl::video::IPhysicalDevice* gpuPhysicalDevice;
-	std::array<nbl::video::IGPUQueue*, CommonAPI::InitOutput<SC_IMG_COUNT>::EQT_COUNT> queues = { nullptr, nullptr, nullptr, nullptr };
+	std::array<nbl::video::IGPUQueue*, CommonAPI::InitOutput::MaxQueuesCount> queues = { nullptr, nullptr, nullptr, nullptr };
 	nbl::core::smart_refctd_ptr<nbl::video::ISwapchain> swapchain;
 	nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpass> renderpass;
-	std::array<nbl::core::smart_refctd_ptr<nbl::video::IGPUFramebuffer>, SC_IMG_COUNT> fbos;
-	nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandPool> commandPool;
+	std::array<nbl::core::smart_refctd_ptr<nbl::video::IGPUFramebuffer>, CommonAPI::InitOutput::MaxSwapChainImageCount> fbos;
+	std::array<nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandPool>, CommonAPI::InitOutput::MaxQueuesCount> commandPools;
 	nbl::core::smart_refctd_ptr<nbl::system::ISystem> system;
 	nbl::core::smart_refctd_ptr<nbl::asset::IAssetManager> assetManager;
 	nbl::video::IGPUObjectFromAssetConverter::SParams cpu2gpuParams;
@@ -79,8 +79,8 @@ public:
 	double time_sum = 0;
 	double dtList[NBL_FRAMES_TO_AVERAGE] = {};
 	
-	CommonAPI::InputSystem::ChannelReader<IMouseEventChannel> mouse;
-	CommonAPI::InputSystem::ChannelReader<IKeyboardEventChannel> keyboard;
+	CommonAPI::InputSystem::ChannelReader<ui::IMouseEventChannel> mouse;
+	CommonAPI::InputSystem::ChannelReader<ui::IKeyboardEventChannel> keyboard;
 	
 	Camera camera = Camera(core::vectorSIMDf(0, 0, 0), core::vectorSIMDf(0, 0, 0), core::matrix4SIMD());
 	
@@ -94,22 +94,62 @@ public:
 	{
 		window = std::move(wnd);
 	}
+	nbl::ui::IWindow* getWindow() override
+	{
+		return window.get();
+	}
 	void setSystem(core::smart_refctd_ptr<nbl::system::ISystem>&& s) override
 	{
 		system = std::move(s);
 	}
-	nbl::ui::IWindow* getWindow() override
+	video::IAPIConnection* getAPIConnection() override
 	{
-		return window.get();
+		return gl.get();
+	}
+	video::ILogicalDevice* getLogicalDevice()  override
+	{
+		return logicalDevice.get();
+	}
+	video::IGPURenderpass* getRenderpass() override
+	{
+		return renderpass.get();
+	}
+	void setSurface(core::smart_refctd_ptr<video::ISurface>&& s) override
+	{
+		surface = std::move(s);
+	}
+	void setFBOs(std::vector<core::smart_refctd_ptr<video::IGPUFramebuffer>>& f) override
+	{
+		for (int i = 0; i < f.size(); i++)
+		{
+			fbos[i] = core::smart_refctd_ptr(f[i]);
+		}
+	}
+	void setSwapchain(core::smart_refctd_ptr<video::ISwapchain>&& s) override
+	{
+		swapchain = std::move(s);
+	}
+	uint32_t getSwapchainImageCount() override
+	{
+		return SC_IMG_COUNT;
+	}
+	virtual nbl::asset::E_FORMAT getDepthFormat() override
+	{
+		return nbl::asset::EF_D32_SFLOAT;
 	}
 
 APP_CONSTRUCTOR(PLYSTLDemo)
 
 	void onAppInitialized_impl() override
 	{
-		CommonAPI::InitOutput<SC_IMG_COUNT> initOutput;
+		CommonAPI::InitOutput initOutput;
 		initOutput.window = core::smart_refctd_ptr(window);
-		CommonAPI::Init<WIN_W, WIN_H, SC_IMG_COUNT>(initOutput, video::EAT_OPENGL, "plystldemo", nbl::asset::EF_D32_SFLOAT);
+		initOutput.system = core::smart_refctd_ptr(system);
+
+		const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT);
+		const video::ISurface::SFormat surfaceFormat(asset::EF_R8G8B8A8_SRGB, asset::ECP_COUNT, asset::EOTF_UNKNOWN);
+
+		CommonAPI::InitWithDefaultExt(initOutput, video::EAT_OPENGL_ES, "plystldemo", WIN_W, WIN_H, SC_IMG_COUNT, swapchainImageUsage, surfaceFormat, nbl::asset::EF_D32_SFLOAT);
 		window = std::move(initOutput.window);
 		gl = std::move(initOutput.apiConnection);
 		surface = std::move(initOutput.surface);
@@ -119,7 +159,7 @@ APP_CONSTRUCTOR(PLYSTLDemo)
 		swapchain = std::move(initOutput.swapchain);
 		renderpass = std::move(initOutput.renderpass);
 		fbos = std::move(initOutput.fbo);
-		commandPool = std::move(initOutput.commandPool);
+		commandPools = std::move(initOutput.commandPools);
 		assetManager = std::move(initOutput.assetManager);
 		logger = std::move(initOutput.logger);
 		inputSystem = std::move(initOutput.inputSystem);
@@ -162,11 +202,9 @@ APP_CONSTRUCTOR(PLYSTLDemo)
 			cpu2gpuParams.sharingMode = nbl::asset::ESM_CONCURRENT;
 			cpu2gpuParams.utilities = utilities.get();
 
-			cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].fence = &gpuTransferFence;
 			cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].semaphore = &gpuTransferSemaphore;
 			cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].queue = queues[decltype(initOutput)::EQT_TRANSFER_UP];
 
-			cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].fence = &gpuComputeFence;
 			cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].semaphore = &gpuComputeSemaphore;
 			cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].queue = queues[decltype(initOutput)::EQT_COMPUTE];
 		}
@@ -338,7 +376,7 @@ APP_CONSTRUCTOR(PLYSTLDemo)
 		for (size_t i = 0ull; i < NBL_FRAMES_TO_AVERAGE; ++i)
 			dtList[i] = 0.0;
 
-		logicalDevice->createCommandBuffers(commandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY, FRAMES_IN_FLIGHT, commandBuffers);
+		logicalDevice->createCommandBuffers(commandPools[CommonAPI::InitOutput::EQT_GRAPHICS].get(), video::IGPUCommandBuffer::EL_PRIMARY, FRAMES_IN_FLIGHT, commandBuffers);
 
 		for (uint32_t i = 0u; i < FRAMES_IN_FLIGHT; i++)
 		{
@@ -352,7 +390,16 @@ APP_CONSTRUCTOR(PLYSTLDemo)
 		const auto& fboCreationParams = fbos[acquiredNextFBO]->getCreationParameters();
 		auto gpuSourceImageView = fboCreationParams.attachments[0];
 
-		bool status = ext::ScreenShot::createScreenShot(logicalDevice.get(), queues[CommonAPI::InitOutput<1u>::EQT_TRANSFER_UP], renderFinished[resourceIx].get(), gpuSourceImageView.get(), assetManager.get(), "ScreenShot.png");
+		//TODO: 
+		bool status = ext::ScreenShot::createScreenShot(
+			logicalDevice.get(),
+			queues[CommonAPI::InitOutput::EQT_TRANSFER_UP],
+			renderFinished[resourceIx].get(),
+			gpuSourceImageView.get(),
+			assetManager.get(),
+			"ScreenShot.png",
+			asset::EIL_PRESENT_SRC,
+			static_cast<asset::E_ACCESS_FLAGS>(0u));
 		assert(status);
 	}
 
@@ -399,8 +446,8 @@ APP_CONSTRUCTOR(PLYSTLDemo)
 		inputSystem->getDefaultKeyboard(&keyboard);
 
 		camera.beginInputProcessing(nextPresentationTimeStamp);
-		mouse.consumeEvents([&](const IMouseEventChannel::range_t& events) -> void { camera.mouseProcess(events); }, logger.get());
-		keyboard.consumeEvents([&](const IKeyboardEventChannel::range_t& events) -> void { camera.keyboardProcess(events); }, logger.get());
+		mouse.consumeEvents([&](const ui::IMouseEventChannel::range_t& events) -> void { camera.mouseProcess(events); }, logger.get());
+		keyboard.consumeEvents([&](const ui::IKeyboardEventChannel::range_t& events) -> void { camera.keyboardProcess(events); }, logger.get());
 		camera.endInputProcessing(nextPresentationTimeStamp);
 
 		const auto& viewMatrix = camera.getViewMatrix();
@@ -494,12 +541,12 @@ APP_CONSTRUCTOR(PLYSTLDemo)
 				commandBuffer->bindGraphicsPipeline(gpuGraphicsPipeline.get());
 
 				const video::IGPUDescriptorSet* gpuds1_ptr = gpuds1.get();
-				commandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS, gpuRenderpassIndependentPipeline->getLayout(), 1u, 1u, &gpuds1_ptr, nullptr);
+				commandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS, gpuRenderpassIndependentPipeline->getLayout(), 1u, 1u, &gpuds1_ptr, 0u);
 				const video::IGPUDescriptorSet* gpuds3_ptr = gpuMeshBuffer->getAttachedDescriptorSet();
 
 				if (gpuds3_ptr)
-					commandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS, gpuRenderpassIndependentPipeline->getLayout(), 3u, 1u, &gpuds3_ptr, nullptr);
-				commandBuffer->pushConstants(gpuRenderpassIndependentPipeline->getLayout(), video::IGPUSpecializedShader::ESS_FRAGMENT, 0u, gpuMeshBuffer->MAX_PUSH_CONSTANT_BYTESIZE, gpuMeshBuffer->getPushConstantsDataPtr());
+					commandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS, gpuRenderpassIndependentPipeline->getLayout(), 3u, 1u, &gpuds3_ptr, 0u);
+				commandBuffer->pushConstants(gpuRenderpassIndependentPipeline->getLayout(), video::IGPUShader::ESS_FRAGMENT, 0u, gpuMeshBuffer->MAX_PUSH_CONSTANT_BYTESIZE, gpuMeshBuffer->getPushConstantsDataPtr());
 
 				commandBuffer->drawMeshBuffer(gpuMeshBuffer);
 			}
@@ -515,8 +562,8 @@ APP_CONSTRUCTOR(PLYSTLDemo)
 		commandBuffer->endRenderPass();
 		commandBuffer->end();
 
-		CommonAPI::Submit(logicalDevice.get(), swapchain.get(), commandBuffer.get(), queues[CommonAPI::InitOutput<1u>::EQT_GRAPHICS], imageAcquire[resourceIx].get(), renderFinished[resourceIx].get(), fence.get());
-		CommonAPI::Present(logicalDevice.get(), swapchain.get(), queues[CommonAPI::InitOutput<1u>::EQT_GRAPHICS], renderFinished[resourceIx].get(), acquiredNextFBO);
+		CommonAPI::Submit(logicalDevice.get(), swapchain.get(), commandBuffer.get(), queues[CommonAPI::InitOutput::EQT_GRAPHICS], imageAcquire[resourceIx].get(), renderFinished[resourceIx].get(), fence.get());
+		CommonAPI::Present(logicalDevice.get(), swapchain.get(), queues[CommonAPI::InitOutput::EQT_GRAPHICS], renderFinished[resourceIx].get(), acquiredNextFBO);
 	}
 
 	bool keepRunning() override

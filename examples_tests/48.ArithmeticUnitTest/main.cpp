@@ -405,6 +405,17 @@ public:
 			// no need to wait on fences because its only a shader create, does not result in the filling of image or buffers
 		};
 
+		auto logTestOutcome = [this](bool passed, uint32_t workgroupSize)
+		{
+			if (passed)
+				logger->log("Passed test #%u", system::ILogger::ELL_INFO, workgroupSize);
+			else
+			{
+				totalFailCount++;
+				logger->log("Failed test #%u", system::ILogger::ELL_ERROR, workgroupSize);
+			}
+		};
+
 		//max workgroup size is hardcoded to 1024
 		const auto ds = descriptorSet.get();
 		auto computeQueue = initOutput.queues[CommonAPI::InitOutput::EQT_COMPUTE];
@@ -423,19 +434,17 @@ public:
 
 			const video::IGPUDescriptorSet* ds = descriptorSet.get();
 			passed = runTest<emulatedSubgroupReduction>(logicalDevice.get(), computeQueue, fence.get(), cmdbuf.get(), pipelines[0u].get(), descriptorSet.get(), inputData, workgroupSize, buffers, logger.get()) && passed;
+			logTestOutcome(passed, workgroupSize);
 			passed = runTest<emulatedSubgroupScanExclusive>(logicalDevice.get(), computeQueue, fence.get(), cmdbuf.get(), pipelines[1u].get(), descriptorSet.get(), inputData, workgroupSize, buffers, logger.get()) && passed;
+			logTestOutcome(passed, workgroupSize);
 			passed = runTest<emulatedSubgroupScanInclusive>(logicalDevice.get(), computeQueue, fence.get(), cmdbuf.get(), pipelines[2u].get(), descriptorSet.get(), inputData, workgroupSize, buffers, logger.get()) && passed;
+			logTestOutcome(passed, workgroupSize);
 			passed = runTest<emulatedWorkgroupReduction>(logicalDevice.get(), computeQueue, fence.get(), cmdbuf.get(), pipelines[3u].get(), descriptorSet.get(), inputData, workgroupSize, buffers, logger.get(), true) && passed;
+			logTestOutcome(passed, workgroupSize);
 			passed = runTest<emulatedWorkgroupScanExclusive>(logicalDevice.get(), computeQueue, fence.get(), cmdbuf.get(), pipelines[4u].get(), descriptorSet.get(), inputData, workgroupSize, buffers, logger.get(), true) && passed;
+			logTestOutcome(passed, workgroupSize);
 			passed = runTest<emulatedWorkgroupScanInclusive>(logicalDevice.get(), computeQueue, fence.get(), cmdbuf.get(), pipelines[5u].get(), descriptorSet.get(), inputData, workgroupSize, buffers, logger.get(), true) && passed;
-
-			if (passed)
-				logger->log("Passed test #%u", system::ILogger::ELL_INFO, workgroupSize);
-			else
-			{
-				totalFailCount++;
-				logger->log("Failed test #%u", system::ILogger::ELL_ERROR, workgroupSize);
-			}
+			logTestOutcome(passed, workgroupSize);
 		}
 		computeQueue->endCapture();
 	}
