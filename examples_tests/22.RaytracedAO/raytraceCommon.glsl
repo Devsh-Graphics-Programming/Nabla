@@ -79,8 +79,10 @@ void storeAccumulation(in vec3 color, in uvec3 coord)
 }
 void storeAccumulation(in vec3 prev, in vec3 delta, in uvec3 coord)
 {
-	if (any(greaterThan(abs(delta),vec3(nbl_glsl_FLT_MIN*16.f))))
-		storeAccumulation(prev+delta,coord);
+	const vec3 newVal = prev+delta;
+	const uvec3 diff = floatBitsToUint(newVal)^floatBitsToUint(prev);
+	if (bool((diff.x|diff.y|diff.z)&0x7ffffff0u))
+		storeAccumulation(newVal,coord);
 }
 
 vec3 fetchAlbedo(in uvec3 coord)
@@ -324,8 +326,8 @@ void generate_next_rays(
 			worldspaceNormal += result.aov.normal/float(maxRaysToGen);
 
 			nextThroughput[i] = prevThroughput*result.quotient;
-			// do denormalized half floats flush to 0 ?
-			if (max(max(nextThroughput[i].x,nextThroughput[i].y),nextThroughput[i].z)>=exp2(-14.f))
+			// TODO: add some sort of factor to this inequality that could account for highest possible emission (direct or indirect) we could encounter
+			if (max(max(nextThroughput[i].x,nextThroughput[i].y),nextThroughput[i].z)>exp2(-19.f)) // match output mantissa (won't contribute anything afterwards)
 			{
 				maxT[i] = nbl_glsl_FLT_MAX;
 				nextAoVThroughputScale[i] = prevAoVThroughputScale*result.aov.throughputFactor;
