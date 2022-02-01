@@ -79,11 +79,11 @@ public:
 	nbl::core::smart_refctd_ptr<nbl::video::IUtilities> utilities;
 	nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice> logicalDevice;
 	nbl::video::IPhysicalDevice* physicalDevice;
-	std::array<nbl::video::IGPUQueue*, CommonAPI::InitOutput<SC_IMG_COUNT>::EQT_COUNT> queues = { nullptr, nullptr, nullptr, nullptr };
+	std::array<nbl::video::IGPUQueue*, CommonAPI::InitOutput::MaxQueuesCount> queues = { nullptr, nullptr, nullptr, nullptr };
 	nbl::core::smart_refctd_ptr<nbl::video::ISwapchain> swapchain;
 	nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpass> renderpass;
-	std::array<nbl::core::smart_refctd_ptr<nbl::video::IGPUFramebuffer>, SC_IMG_COUNT> fbos;
-	nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandPool> commandPool;
+	std::array<nbl::core::smart_refctd_ptr<nbl::video::IGPUFramebuffer>, CommonAPI::InitOutput::MaxSwapChainImageCount> fbo;
+	std::array<nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandPool>, CommonAPI::InitOutput::MaxQueuesCount> commandPools;
 	nbl::core::smart_refctd_ptr<nbl::system::ISystem> system;
 	nbl::core::smart_refctd_ptr<nbl::asset::IAssetManager> assetManager;
 	nbl::video::IGPUObjectFromAssetConverter::SParams cpu2gpuParams;
@@ -94,8 +94,8 @@ public:
 	nbl::core::smart_refctd_ptr<video::IGPUFence> gpuComputeFence;
 	nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
 
-	CommonAPI::InputSystem::ChannelReader<IMouseEventChannel> mouse;
-	CommonAPI::InputSystem::ChannelReader<IKeyboardEventChannel> keyboard;
+	CommonAPI::InputSystem::ChannelReader<ui::IMouseEventChannel> mouse;
+	CommonAPI::InputSystem::ChannelReader<ui::IKeyboardEventChannel> keyboard;
 	Camera camera = Camera(vectorSIMDf(0, 0, 0), vectorSIMDf(0, 0, 0), matrix4SIMD());
 
 	int resourceIx = -1;
@@ -123,14 +123,54 @@ public:
 	{
 		return window.get();
 	}
+	video::IAPIConnection* getAPIConnection() override
+	{
+		return apiConnection.get();
+	}
+	video::ILogicalDevice* getLogicalDevice()  override
+	{
+		return logicalDevice.get();
+	}
+	video::IGPURenderpass* getRenderpass() override
+	{
+		return renderpass.get();
+	}
+	void setSurface(core::smart_refctd_ptr<video::ISurface>&& s) override
+	{
+		surface = std::move(s);
+	}
+	void setFBOs(std::vector<core::smart_refctd_ptr<video::IGPUFramebuffer>>& f) override
+	{
+		for (int i = 0; i < f.size(); i++)
+		{
+			fbo[i] = core::smart_refctd_ptr(f[i]);
+		}
+	}
+	void setSwapchain(core::smart_refctd_ptr<video::ISwapchain>&& s) override
+	{
+		swapchain = std::move(s);
+	}
+	uint32_t getSwapchainImageCount() override
+	{
+		return SC_IMG_COUNT;
+	}
+	virtual nbl::asset::E_FORMAT getDepthFormat() override
+	{
+		return nbl::asset::EF_D32_SFLOAT;
+	}
 
 	APP_CONSTRUCTOR(GPUMesh)
 
 	void onAppInitialized_impl() override
 	{
-		CommonAPI::InitOutput<SC_IMG_COUNT> initOutput;
+		CommonAPI::InitOutput initOutput;
 		initOutput.window = core::smart_refctd_ptr(window);
-		CommonAPI::Init<WIN_W, WIN_H, SC_IMG_COUNT>(initOutput, video::EAT_OPENGL, "GPUMesh", nbl::asset::EF_D32_SFLOAT);
+		initOutput.system = core::smart_refctd_ptr(system);
+
+		const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT);
+		const video::ISurface::SFormat surfaceFormat(asset::EF_R8G8B8A8_SRGB, asset::ECP_COUNT, asset::EOTF_UNKNOWN);
+
+		CommonAPI::InitWithDefaultExt(initOutput, video::EAT_OPENGL_ES, "GPUMesh", WIN_W, WIN_H, SC_IMG_COUNT, swapchainImageUsage, surfaceFormat, nbl::asset::EF_D32_SFLOAT);
 		window = std::move(initOutput.window);
 		windowCb = std::move(initOutput.windowCb);
 		apiConnection = std::move(initOutput.apiConnection);
@@ -141,8 +181,8 @@ public:
 		queues = std::move(initOutput.queues);
 		swapchain = std::move(initOutput.swapchain);
 		renderpass = std::move(initOutput.renderpass);
-		fbos = std::move(initOutput.fbo);
-		commandPool = std::move(initOutput.commandPool);
+		fbo = std::move(initOutput.fbo);
+		commandPools = std::move(initOutput.commandPools);
 		system = std::move(initOutput.system);
 		assetManager = std::move(initOutput.assetManager);
 		cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
@@ -155,7 +195,7 @@ public:
 		matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60.0f), float(WIN_W) / WIN_H, 0.1, 1000);
 		camera = Camera(core::vectorSIMDf(-4, 0, 0), core::vectorSIMDf(0, 0, 0), projectionMatrix);
 
-		logicalDevice->createCommandBuffers(commandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY, FRAMES_IN_FLIGHT, commandBuffers);
+		logicalDevice->createCommandBuffers(commandPools[CommonAPI::InitOutput::EQT_GRAPHICS].get(), video::IGPUCommandBuffer::EL_PRIMARY, FRAMES_IN_FLIGHT, commandBuffers);
 
 		for (uint32_t i = 0u; i < FRAMES_IN_FLIGHT; i++)
 		{
@@ -213,8 +253,8 @@ public:
 		inputSystem->getDefaultKeyboard(&keyboard);
 
 		camera.beginInputProcessing(nextPresentationTimeStamp);
-		mouse.consumeEvents([&](const IMouseEventChannel::range_t& events) -> void { camera.mouseProcess(events); }, logger.get());
-		keyboard.consumeEvents([&](const IKeyboardEventChannel::range_t& events) -> void { camera.keyboardProcess(events); }, logger.get());
+		mouse.consumeEvents([&](const ui::IMouseEventChannel::range_t& events) -> void { camera.mouseProcess(events); }, logger.get());
+		keyboard.consumeEvents([&](const ui::IKeyboardEventChannel::range_t& events) -> void { camera.keyboardProcess(events); }, logger.get());
 		camera.endInputProcessing(nextPresentationTimeStamp);
 
 		const auto& mvp = camera.getConcatenatedMatrix();
@@ -246,7 +286,7 @@ public:
 			clear[1].depthStencil.depth = 0.f;
 
 			beginInfo.clearValueCount = 2u;
-			beginInfo.framebuffer = fbos[acquiredNextFBO];
+			beginInfo.framebuffer = fbo[acquiredNextFBO];
 			beginInfo.renderpass = renderpass;
 			beginInfo.renderArea = area;
 			beginInfo.clearValues = clear;
