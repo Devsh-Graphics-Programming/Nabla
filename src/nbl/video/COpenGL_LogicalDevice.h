@@ -549,7 +549,7 @@ protected:
         for (uint32_t i = 0u; i < _count; ++i)
             _output[i] = core::make_smart_refctd_ptr<COpenGLCommandBuffer>(
                 core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this),
-                _level, _cmdPool,
+                _level, core::smart_refctd_ptr<IGPUCommandPool>(_cmdPool),
                 core::smart_refctd_ptr<system::ILogger>(getLogger().get()),
                 m_glfeatures
             );

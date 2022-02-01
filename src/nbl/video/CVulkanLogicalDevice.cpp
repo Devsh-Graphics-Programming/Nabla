@@ -318,7 +318,7 @@ bool CVulkanLogicalDevice::createCommandBuffers_impl(IGPUCommandPool* cmdPool, I
         {
             outCmdBufs[i] = core::make_smart_refctd_ptr<CVulkanCommandBuffer>(
                 core::smart_refctd_ptr<ILogicalDevice>(this), level, vk_commandBuffers[i],
-                cmdPool);
+                core::smart_refctd_ptr<IGPUCommandPool>(cmdPool));
         }
 
         return true;

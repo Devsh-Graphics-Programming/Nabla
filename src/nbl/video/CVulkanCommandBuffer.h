@@ -23,8 +23,8 @@ class CVulkanCommandBuffer : public IGPUCommandBuffer
 {
 public:
     CVulkanCommandBuffer(core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice, E_LEVEL level,
-        VkCommandBuffer _vkcmdbuf, IGPUCommandPool* commandPool)
-        : IGPUCommandBuffer(std::move(logicalDevice), level, commandPool), m_cmdbuf(_vkcmdbuf)
+        VkCommandBuffer _vkcmdbuf, core::smart_refctd_ptr<IGPUCommandPool>&& commandPool)
+        : IGPUCommandBuffer(std::move(logicalDevice), level, std::move(commandPool)), m_cmdbuf(_vkcmdbuf)
     {
         if (m_cmdpool->getAPIType() == EAT_VULKAN)
         {
