@@ -175,12 +175,17 @@ namespace nbl::video
             debugMessengerCreateInfo.pfnUserCallback = CVulkanDebugCallback::defaultCallback;
             debugMessengerCreateInfo.pUserData = debugCallback.get();
         }
+        
+        uint32_t instanceApiVersion = MinimumVulkanApiVersion;
+        vkEnumerateInstanceVersion(&instanceApiVersion); // Get Highest
+        if(instanceApiVersion < MinimumVulkanApiVersion)
+        {
+            assert(false);
+            return nullptr;
+        }
 
         VkInstance vk_instance;
         {
-            uint32_t instanceApiVersion = VK_MAKE_API_VERSION(0, 1, 1, 0);
-            vkEnumerateInstanceVersion(&instanceApiVersion);
-
             VkApplicationInfo applicationInfo = { VK_STRUCTURE_TYPE_APPLICATION_INFO };
             applicationInfo.pNext = nullptr; // pNext must be NULL
             applicationInfo.pApplicationName = appName;
@@ -242,7 +247,7 @@ namespace nbl::video
             physicalDevices.emplace_back(std::make_unique<CVulkanPhysicalDevice>(
                 core::smart_refctd_ptr(sys),
                 core::make_smart_refctd_ptr<asset::IGLSLCompiler>(sys.get()),
-                api.get(), api->m_rdoc_api, vk_physicalDevices[i], vk_instance));
+                api.get(), api->m_rdoc_api, vk_physicalDevices[i], vk_instance, instanceApiVersion));
 
         }
 

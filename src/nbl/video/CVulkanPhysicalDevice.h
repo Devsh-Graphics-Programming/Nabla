@@ -12,7 +12,7 @@ namespace nbl::video
 class CVulkanPhysicalDevice final : public IPhysicalDevice
 {
 public:
-    CVulkanPhysicalDevice(core::smart_refctd_ptr<system::ISystem>&& sys, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc, IAPIConnection* api, renderdoc_api_t* rdoc, VkPhysicalDevice vk_physicalDevice, VkInstance vk_instance)
+    CVulkanPhysicalDevice(core::smart_refctd_ptr<system::ISystem>&& sys, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc, IAPIConnection* api, renderdoc_api_t* rdoc, VkPhysicalDevice vk_physicalDevice, VkInstance vk_instance, uint32_t instanceApiVersion)
         : IPhysicalDevice(std::move(sys),std::move(glslc)), m_api(api), m_rdoc_api(rdoc), m_vkPhysicalDevice(vk_physicalDevice), m_vkInstance(vk_instance)
     {
         // Get Supported Extensions
@@ -80,20 +80,37 @@ public:
             constexpr auto beefyGPUWorkgroupMaxOccupancy = 256u; // TODO: find a way to query and report this somehow, persistent threads are very useful!
             m_limits.maxResidentInvocations = beefyGPUWorkgroupMaxOccupancy*m_limits.maxOptimallyResidentWorkgroupInvocations;
 
+            
+            /*
+                [NO NABALA SUPPORT] Vulkan 1.0 implementation must support the 1.0 version of SPIR-V and the 1.0 version of the SPIR-V Extended Instructions for GLSL. If the VK_KHR_spirv_1_4 extension is enabled, the implementation must additionally support the 1.4 version of SPIR-V.
+                A Vulkan 1.1 implementation must support the 1.0, 1.1, 1.2, and 1.3 versions of SPIR-V and the 1.0 version of the SPIR-V Extended Instructions for GLSL.
+                A Vulkan 1.2 implementation must support the 1.0, 1.1, 1.2, 1.3, 1.4, and 1.5 versions of SPIR-V and the 1.0 version of the SPIR-V Extended Instructions for GLSL.
+            */
+            
+            uint32_t apiVersion = std::min(instanceApiVersion, deviceProperties.properties.apiVersion);
+            assert(apiVersion >= MinimumVulkanApiVersion);
             m_limits.spirvVersion = asset::IGLSLCompiler::ESV_1_3;
 
-            switch (VK_API_VERSION_MINOR(deviceProperties.properties.apiVersion))
+            switch (VK_API_VERSION_MINOR(apiVersion))
             {
             case 0:
-                m_limits.spirvVersion = asset::IGLSLCompiler::ESV_1_0; break;
+                m_limits.spirvVersion = asset::IGLSLCompiler::ESV_1_0; 
+                assert(false);
+                break;
             case 1:
-                m_limits.spirvVersion = asset::IGLSLCompiler::ESV_1_3; break;
+                m_limits.spirvVersion = asset::IGLSLCompiler::ESV_1_3;
+                break;
             case 2:
-                m_limits.spirvVersion = asset::IGLSLCompiler::ESV_1_5; break;
+                m_limits.spirvVersion = asset::IGLSLCompiler::ESV_1_5;
+                break;
             default:
                 _NBL_DEBUG_BREAK_IF("Invalid Vulkan minor version!");
                 break;
             }
+
+            m_apiVersion.major = VK_API_VERSION_MAJOR(apiVersion);
+            m_apiVersion.minor = VK_API_VERSION_MINOR(apiVersion);
+            m_apiVersion.patch = VK_API_VERSION_PATCH(apiVersion);
 
             // AccelerationStructure
             if (m_availableFeatureSet.find(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME) != m_availableFeatureSet.end())
