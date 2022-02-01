@@ -178,12 +178,15 @@ namespace nbl::video
 
         VkInstance vk_instance;
         {
+            uint32_t instanceApiVersion = VK_MAKE_API_VERSION(0, 1, 1, 0);
+            vkEnumerateInstanceVersion(&instanceApiVersion);
+
             VkApplicationInfo applicationInfo = { VK_STRUCTURE_TYPE_APPLICATION_INFO };
             applicationInfo.pNext = nullptr; // pNext must be NULL
             applicationInfo.pApplicationName = appName;
             applicationInfo.applicationVersion = appVer;
             applicationInfo.pEngineName = "Nabla";
-            applicationInfo.apiVersion = VK_MAKE_API_VERSION(0, 1, 1, 0);
+            applicationInfo.apiVersion = instanceApiVersion;
             applicationInfo.engineVersion = NABLA_VERSION_INTEGER;
 
             VkInstanceCreateInfo createInfo = { VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO };
