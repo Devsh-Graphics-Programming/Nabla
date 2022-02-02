@@ -89,7 +89,7 @@ namespace nbl::video
                     
                     // Add Refs of BuildInfo to CmdPool
                     auto tmp = getBuildGeometryInfoReferences(infos[i]);
-                    CVulkanCommandPool* vulkanCommandPool = static_cast<CVulkanCommandPool*>(m_cmdpool.get());
+                    CVulkanCommandPool* vulkanCommandPool = IBackendObject::compatibility_cast<CVulkanCommandPool*>(m_cmdpool.get(), this);
                     vulkanCommandPool->emplace_n(m_argListTail, tmp.data(), tmp.data() + tmp.size());
                 }
                 
@@ -149,7 +149,7 @@ namespace nbl::video
                     
                     // Add Refs of BuildInfo to CmdPool
                     auto tmp = getBuildGeometryInfoReferences(infos[i]);
-                    CVulkanCommandPool* vulkanCommandPool = static_cast<CVulkanCommandPool*>(m_cmdpool.get());
+                    CVulkanCommandPool* vulkanCommandPool = IBackendObject::compatibility_cast<CVulkanCommandPool*>(m_cmdpool.get(), this);
                     vulkanCommandPool->emplace_n(m_argListTail, tmp.data(), tmp.data() + tmp.size());
                 }
                 
@@ -182,7 +182,7 @@ namespace nbl::video
                 core::smart_refctd_ptr<const IGPUAccelerationStructure>(copyInfo.src),
                 core::smart_refctd_ptr<const IGPUAccelerationStructure>(copyInfo.dst),
             };
-            CVulkanCommandPool* vulkanCommandPool = static_cast<CVulkanCommandPool*>(m_cmdpool.get());
+            CVulkanCommandPool* vulkanCommandPool = IBackendObject::compatibility_cast<CVulkanCommandPool*>(m_cmdpool.get(), this);
             vulkanCommandPool->emplace_n(m_argListTail, tmpRefCntd, tmpRefCntd + 2);
 
 
@@ -215,7 +215,7 @@ namespace nbl::video
                 copyInfo.dst.buffer,
                 core::smart_refctd_ptr<const IGPUAccelerationStructure>(copyInfo.src),
             };
-            CVulkanCommandPool* vulkanCommandPool = static_cast<CVulkanCommandPool*>(m_cmdpool.get());
+            CVulkanCommandPool* vulkanCommandPool = IBackendObject::compatibility_cast<CVulkanCommandPool*>(m_cmdpool.get(), this);
             vulkanCommandPool->emplace_n(m_argListTail, tmpRefCntd, tmpRefCntd + 2);
             
             VkCopyAccelerationStructureToMemoryInfoKHR info = CVulkanAccelerationStructure::getVkASCopyToMemoryInfo(vk_device, vk, copyInfo);
@@ -247,7 +247,7 @@ namespace nbl::video
                 copyInfo.src.buffer,
                 core::smart_refctd_ptr<const IGPUAccelerationStructure>(copyInfo.dst),
             };
-            CVulkanCommandPool* vulkanCommandPool = static_cast<CVulkanCommandPool*>(m_cmdpool.get());
+            CVulkanCommandPool* vulkanCommandPool = IBackendObject::compatibility_cast<CVulkanCommandPool*>(m_cmdpool.get(), this);
             vulkanCommandPool->emplace_n(m_argListTail, tmpRefCntd, tmpRefCntd + 2);
             
             VkCopyMemoryToAccelerationStructureInfoKHR info = CVulkanAccelerationStructure::getVkASCopyFromMemoryInfo(vk_device, vk, copyInfo);
@@ -266,10 +266,10 @@ namespace nbl::video
 
             // Add Ref to CmdPool
             core::smart_refctd_ptr<const core::IReferenceCounted> tmpRefCntd[1] = { core::smart_refctd_ptr<const IQueryPool>(queryPool) };
-            CVulkanCommandPool* vulkanCommandPool = static_cast<CVulkanCommandPool*>(m_cmdpool.get());
+            CVulkanCommandPool* vulkanCommandPool = IBackendObject::compatibility_cast<CVulkanCommandPool*>(m_cmdpool.get(), this);
             vulkanCommandPool->emplace_n(m_argListTail, tmpRefCntd, tmpRefCntd + 1);
 
-            auto vk_queryPool = static_cast<CVulkanQueryPool*>(queryPool)->getInternalObject();
+            auto vk_queryPool = IBackendObject::compatibility_cast<CVulkanQueryPool*>(queryPool, this)->getInternalObject();
             vk->vk.vkCmdResetQueryPool(m_cmdbuf, vk_queryPool, firstQuery, queryCount);
             ret = true;
         }
@@ -285,10 +285,10 @@ namespace nbl::video
 
             // Add Ref to CmdPool
             core::smart_refctd_ptr<const core::IReferenceCounted> tmpRefCntd[1] = { core::smart_refctd_ptr<const IQueryPool>(queryPool) };
-            CVulkanCommandPool* vulkanCommandPool = static_cast<CVulkanCommandPool*>(m_cmdpool.get());
+            CVulkanCommandPool* vulkanCommandPool = IBackendObject::compatibility_cast<CVulkanCommandPool*>(m_cmdpool.get(), this);
             vulkanCommandPool->emplace_n(m_argListTail, tmpRefCntd, tmpRefCntd + 1);
 
-            auto vk_queryPool = static_cast<CVulkanQueryPool*>(queryPool)->getInternalObject();
+            auto vk_queryPool = IBackendObject::compatibility_cast<CVulkanQueryPool*>(queryPool, this)->getInternalObject();
             auto vk_flags = CVulkanQueryPool::getVkQueryControlFlagsFromQueryControlFlags(flags);
             vk->vk.vkCmdBeginQuery(m_cmdbuf, vk_queryPool, query, vk_flags);
             ret = true;
@@ -305,10 +305,10 @@ namespace nbl::video
 
             // Add Ref to CmdPool
             core::smart_refctd_ptr<const core::IReferenceCounted> tmpRefCntd[1] = { core::smart_refctd_ptr<const IQueryPool>(queryPool) };
-            CVulkanCommandPool* vulkanCommandPool = static_cast<CVulkanCommandPool*>(m_cmdpool.get());
+            CVulkanCommandPool* vulkanCommandPool = IBackendObject::compatibility_cast<CVulkanCommandPool*>(m_cmdpool.get(), this);
             vulkanCommandPool->emplace_n(m_argListTail, tmpRefCntd, tmpRefCntd + 1);
 
-            auto vk_queryPool = static_cast<CVulkanQueryPool*>(queryPool)->getInternalObject();
+            auto vk_queryPool = IBackendObject::compatibility_cast<CVulkanQueryPool*>(queryPool, this)->getInternalObject();
             vk->vk.vkCmdEndQuery(m_cmdbuf, vk_queryPool, query);
             ret = true;
         }
@@ -328,11 +328,11 @@ namespace nbl::video
                 core::smart_refctd_ptr<const IQueryPool>(queryPool),
                 core::smart_refctd_ptr<const buffer_t>(dstBuffer),
             };
-            CVulkanCommandPool* vulkanCommandPool = static_cast<CVulkanCommandPool*>(m_cmdpool.get());
+            CVulkanCommandPool* vulkanCommandPool = IBackendObject::compatibility_cast<CVulkanCommandPool*>(m_cmdpool.get(), this);
             vulkanCommandPool->emplace_n(m_argListTail, tmpRefCntd, tmpRefCntd + 2);
 
-            auto vk_queryPool = static_cast<CVulkanQueryPool*>(queryPool)->getInternalObject();
-            auto vk_dstBuffer = static_cast<CVulkanBuffer*>(dstBuffer)->getInternalObject();
+            auto vk_queryPool = IBackendObject::compatibility_cast<CVulkanQueryPool*>(queryPool, this)->getInternalObject();
+            auto vk_dstBuffer = IBackendObject::compatibility_cast<CVulkanBuffer*>(dstBuffer, this)->getInternalObject();
             auto vk_queryResultsFlags = CVulkanQueryPool::getVkQueryResultsFlagsFromQueryResultsFlags(flags); 
             vk->vk.vkCmdCopyQueryPoolResults(m_cmdbuf, vk_queryPool, firstQuery, queryCount, vk_dstBuffer, dstOffset, static_cast<VkDeviceSize>(stride), vk_queryResultsFlags);
             ret = true;
@@ -349,10 +349,10 @@ namespace nbl::video
 
             // Add Ref to CmdPool
             core::smart_refctd_ptr<const core::IReferenceCounted> tmpRefCntd[1] = { core::smart_refctd_ptr<const IQueryPool>(queryPool) };
-            CVulkanCommandPool* vulkanCommandPool = static_cast<CVulkanCommandPool*>(m_cmdpool.get());
+            CVulkanCommandPool* vulkanCommandPool = IBackendObject::compatibility_cast<CVulkanCommandPool*>(m_cmdpool.get(), this);
             vulkanCommandPool->emplace_n(m_argListTail, tmpRefCntd, tmpRefCntd + 1);
 
-            auto vk_queryPool = static_cast<CVulkanQueryPool*>(queryPool)->getInternalObject();
+            auto vk_queryPool = IBackendObject::compatibility_cast<CVulkanQueryPool*>(queryPool, this)->getInternalObject();
             auto vk_pipelineStage = static_cast<VkPipelineStageFlagBits>(pipelineStage); // am I doing this right?
 
             vk->vk.vkCmdWriteTimestamp(m_cmdbuf, vk_pipelineStage, vk_queryPool, query);
@@ -372,10 +372,10 @@ namespace nbl::video
 
             // Add Ref to CmdPool
             core::smart_refctd_ptr<const core::IReferenceCounted> tmpRefCntd[1] = { core::smart_refctd_ptr<const IQueryPool>(queryPool) };
-            CVulkanCommandPool* vulkanCommandPool = static_cast<CVulkanCommandPool*>(m_cmdpool.get());
+            CVulkanCommandPool* vulkanCommandPool = IBackendObject::compatibility_cast<CVulkanCommandPool*>(m_cmdpool.get(), this);
             vulkanCommandPool->emplace_n(m_argListTail, tmpRefCntd, tmpRefCntd + 1);
 
-            auto vk_queryPool = static_cast<CVulkanQueryPool*>(queryPool)->getInternalObject();
+            auto vk_queryPool = IBackendObject::compatibility_cast<CVulkanQueryPool*>(queryPool, this)->getInternalObject();
             auto vk_flags = CVulkanQueryPool::getVkQueryControlFlagsFromQueryControlFlags(flags);
             vk->vk.vkCmdBeginQueryIndexedEXT(m_cmdbuf, vk_queryPool, query, vk_flags, index);
             ret = true;
@@ -393,10 +393,10 @@ namespace nbl::video
 
             // Add Ref to CmdPool
             core::smart_refctd_ptr<const core::IReferenceCounted> tmpRefCntd[1] = { core::smart_refctd_ptr<const IQueryPool>(queryPool) };
-            CVulkanCommandPool* vulkanCommandPool = static_cast<CVulkanCommandPool*>(m_cmdpool.get());
+            CVulkanCommandPool* vulkanCommandPool = IBackendObject::compatibility_cast<CVulkanCommandPool*>(m_cmdpool.get(), this);
             vulkanCommandPool->emplace_n(m_argListTail, tmpRefCntd, tmpRefCntd + 1);
 
-            auto vk_queryPool = static_cast<CVulkanQueryPool*>(queryPool)->getInternalObject();
+            auto vk_queryPool = IBackendObject::compatibility_cast<CVulkanQueryPool*>(queryPool, this)->getInternalObject();
             vk->vk.vkCmdEndQueryIndexedEXT(m_cmdbuf, vk_queryPool, query, index);
             ret = true;
         }
@@ -409,11 +409,10 @@ namespace nbl::video
         bool ret = false;
         if(queryPool != nullptr && pAccelerationStructures.empty() == false)
         {
-            CVulkanCommandPool* vulkanCommandPool = static_cast<CVulkanCommandPool*>(m_cmdpool.get());
+            CVulkanCommandPool* vulkanCommandPool = IBackendObject::compatibility_cast<CVulkanCommandPool*>(m_cmdpool.get(), this);
             {
                 // Add Ref to CmdPool
                 core::smart_refctd_ptr<const core::IReferenceCounted> tmpRefCntd[1] = { core::smart_refctd_ptr<const IQueryPool>(queryPool) };
-                CVulkanCommandPool* vulkanCommandPool = static_cast<CVulkanCommandPool*>(m_cmdpool.get());
                 vulkanCommandPool->emplace_n(m_argListTail, tmpRefCntd, tmpRefCntd + 1);
             }
 
@@ -427,7 +426,7 @@ namespace nbl::video
             core::smart_refctd_ptr<const core::IReferenceCounted> tmpRefCntd[MaxAccelerationStructureCount];
             for(size_t i = 0; i < asCount; ++i) 
             {
-                vk_accelerationStructures[i] = static_cast<CVulkanAccelerationStructure*>(&accelerationStructures[i])->getInternalObject();
+                vk_accelerationStructures[i] = IBackendObject::compatibility_cast<CVulkanAccelerationStructure*>(&accelerationStructures[i], this)->getInternalObject();
                 // Add Refs to CmdPool
                 tmpRefCntd[i] = core::smart_refctd_ptr<const IGPUAccelerationStructure>(&accelerationStructures[i]);
             }
@@ -436,7 +435,7 @@ namespace nbl::video
             
             const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
 
-            auto vk_queryPool = static_cast<CVulkanQueryPool*>(queryPool)->getInternalObject();
+            auto vk_queryPool = IBackendObject::compatibility_cast<CVulkanQueryPool*>(queryPool, this)->getInternalObject();
             auto vk_queryType = CVulkanQueryPool::getVkQueryTypeFromQueryType(queryType);
             vk->vk.vkCmdWriteAccelerationStructuresPropertiesKHR(m_cmdbuf, asCount, vk_accelerationStructures, vk_queryType, vk_queryPool, firstQuery);
             ret = true;

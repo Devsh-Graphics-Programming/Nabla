@@ -126,7 +126,7 @@ public:
         if (!_fence && (_fence->getAPIType() != EAT_VULKAN))
             return IGPUFence::E_STATUS::ES_ERROR;
 
-        VkResult retval = m_devf.vk.vkGetFenceStatus(m_vkdev, static_cast<const CVulkanFence*>(_fence)->getInternalObject());
+        VkResult retval = m_devf.vk.vkGetFenceStatus(m_vkdev, IBackendObject::device_compatibility_cast<const CVulkanFence*>(_fence, this)->getInternalObject());
 
         switch (retval)
         {
@@ -154,7 +154,7 @@ public:
                 return false;
             }
 
-            vk_fences[i] = static_cast<CVulkanFence*>(_fences[i])->getInternalObject();
+            vk_fences[i] = IBackendObject::device_compatibility_cast<CVulkanFence*>(_fences[i], this)->getInternalObject();
         }
 
         auto vk_res = m_devf.vk.vkResetFences(m_vkdev, _count, vk_fences);
@@ -173,7 +173,7 @@ public:
             if (_fences[i]->getAPIType() != EAT_VULKAN)
                 return IGPUFence::E_STATUS::ES_ERROR;
 
-            vk_fences[i] = static_cast<CVulkanFence*>(_fences[i])->getInternalObject();
+            vk_fences[i] = IBackendObject::device_compatibility_cast<CVulkanFence*>(_fences[i], this)->getInternalObject();
         }
 
         VkResult result = m_devf.vk.vkWaitForFences(m_vkdev, _count, vk_fences, _waitAll, _timeout);
@@ -446,7 +446,7 @@ public:
                 }
             }
 
-            CVulkanBuffer* vulkanBuffer = static_cast<CVulkanBuffer*>(bindInfo.buffer);
+            CVulkanBuffer* vulkanBuffer = IBackendObject::device_compatibility_cast<CVulkanBuffer*>(bindInfo.buffer, this);
             vulkanBuffer->setMemoryAndOffset(
                 core::smart_refctd_ptr<IDriverMemoryAllocation>(bindInfo.memory), bindInfo.offset);
 
@@ -616,7 +616,7 @@ public:
             if ((bindInfo.image->getAPIType() != EAT_VULKAN) || (bindInfo.memory->getAPIType() != EAT_VULKAN))
                 continue;
 
-            CVulkanImage* vulkanImage = static_cast<CVulkanImage*>(bindInfo.image);
+            CVulkanImage* vulkanImage = IBackendObject::device_compatibility_cast<CVulkanImage*>(bindInfo.image, this);
             vulkanImage->setMemoryAndOffset(
                 core::smart_refctd_ptr<IDriverMemoryAllocation>(bindInfo.memory),
                 bindInfo.offset);
@@ -1096,7 +1096,7 @@ protected:
         {
             if (params.attachments[i]->getAPIType() == EAT_VULKAN)
             {
-                vk_attachments[i] = static_cast<const CVulkanImageView*>(params.attachments[i].get())->getInternalObject();
+                vk_attachments[i] = IBackendObject::device_compatibility_cast<const CVulkanImageView*>(params.attachments[i].get(), this)->getInternalObject();
                 ++attachmentCount;
             }
         }
@@ -1109,7 +1109,7 @@ protected:
         if (params.renderpass->getAPIType() != EAT_VULKAN)
             return nullptr;
 
-        createInfo.renderPass = static_cast<const CVulkanRenderpass*>(params.renderpass.get())->getInternalObject();
+        createInfo.renderPass = IBackendObject::device_compatibility_cast<const CVulkanRenderpass*>(params.renderpass.get(), this)->getInternalObject();
         createInfo.attachmentCount = attachmentCount;
         createInfo.pAttachments = vk_attachments;
         createInfo.width = params.width;
@@ -1136,7 +1136,7 @@ protected:
         if (_unspecialized->getAPIType() != EAT_VULKAN)
             return nullptr;
 
-        const CVulkanShader* vulkanShader = static_cast<const CVulkanShader*>(_unspecialized);
+        const CVulkanShader* vulkanShader = IBackendObject::device_compatibility_cast<const CVulkanShader*>(_unspecialized, this);
 
         return core::make_smart_refctd_ptr<CVulkanSpecializedShader>(
             core::smart_refctd_ptr<CVulkanLogicalDevice>(this),
@@ -1148,7 +1148,7 @@ protected:
         if (_underlying->getAPIType() != EAT_VULKAN)
             return nullptr;
 
-        VkBuffer vk_buffer = static_cast<const CVulkanBuffer*>(_underlying)->getInternalObject();
+        VkBuffer vk_buffer = IBackendObject::device_compatibility_cast<const CVulkanBuffer*>(_underlying, this)->getInternalObject();
 
         VkBufferViewCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_BUFFER_VIEW_CREATE_INFO };
         vk_createInfo.pNext = nullptr; // pNext must be NULL
@@ -1181,7 +1181,7 @@ protected:
         if (params.image->getAPIType() != EAT_VULKAN)
             return nullptr;
 
-        VkImage vk_image = static_cast<const CVulkanImage*>(params.image.get())->getInternalObject();
+        VkImage vk_image = IBackendObject::device_compatibility_cast<const CVulkanImage*>(params.image.get(), this)->getInternalObject();
         vk_createInfo.image = vk_image;
         vk_createInfo.viewType = static_cast<VkImageViewType>(params.viewType);
         vk_createInfo.format = getVkFormatFromFormat(params.format);
@@ -1212,7 +1212,7 @@ protected:
         if (pool->getAPIType() != EAT_VULKAN)
             return nullptr;
 
-        const CVulkanDescriptorPool* vulkanDescriptorPool = static_cast<const CVulkanDescriptorPool*>(pool);
+        const CVulkanDescriptorPool* vulkanDescriptorPool = IBackendObject::device_compatibility_cast<const CVulkanDescriptorPool*>(pool, this);
 
         VkDescriptorSetAllocateInfo vk_allocateInfo = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO };
         vk_allocateInfo.pNext = nullptr; // pNext must be NULL or a pointer to a valid instance of VkDescriptorSetVariableDescriptorCountAllocateInfo
@@ -1222,7 +1222,7 @@ protected:
 
         if (layout->getAPIType() != EAT_VULKAN)
             return nullptr;
-        VkDescriptorSetLayout vk_dsLayout = static_cast<const CVulkanDescriptorSetLayout*>(layout.get())->getInternalObject();
+        VkDescriptorSetLayout vk_dsLayout = IBackendObject::device_compatibility_cast<const CVulkanDescriptorSetLayout*>(layout.get(), this)->getInternalObject();
         vk_allocateInfo.pSetLayouts = &vk_dsLayout;
 
         VkDescriptorSet vk_descriptorSet;
@@ -1280,7 +1280,7 @@ protected:
                         continue;
                     }
 
-                    VkSampler vkSampler = static_cast<const CVulkanSampler*>(binding->samplers[i].get())->getInternalObject();
+                    VkSampler vkSampler = IBackendObject::device_compatibility_cast<const CVulkanSampler*>(binding->samplers[i].get(), this)->getInternalObject();
                     vk_samplers.push_back(vkSampler);
                 }
 
@@ -1329,11 +1329,11 @@ protected:
         {
             if (tmp[i] && (tmp[i]->getAPIType() == EAT_VULKAN))
             {
-                vk_dsLayouts[i] = static_cast<const CVulkanDescriptorSetLayout*>(tmp[i].get())->getInternalObject();
+                vk_dsLayouts[i] = IBackendObject::device_compatibility_cast<const CVulkanDescriptorSetLayout*>(tmp[i].get(), this)->getInternalObject();
                 setLayoutCount = i + 1;
             }
             else
-                vk_dsLayouts[i] = static_cast<const CVulkanDescriptorSetLayout*>(m_dummyDSLayout.get())->getInternalObject();
+                vk_dsLayouts[i] = IBackendObject::device_compatibility_cast<const CVulkanDescriptorSetLayout*>(m_dummyDSLayout.get(), this)->getInternalObject();
         }
 
         const auto pcRangeCount = std::distance(_pcRangesBegin, _pcRangesEnd);
@@ -1418,7 +1418,7 @@ protected:
 
         VkPipelineCache vk_pipelineCache = VK_NULL_HANDLE;
         if (pipelineCache && pipelineCache->getAPIType() == EAT_VULKAN)
-            vk_pipelineCache = static_cast<const CVulkanPipelineCache*>(pipelineCache)->getInternalObject();
+            vk_pipelineCache = IBackendObject::device_compatibility_cast<const CVulkanPipelineCache*>(pipelineCache, this)->getInternalObject();
 
         VkPipelineShaderStageCreateInfo vk_shaderStageCreateInfos[MAX_PIPELINE_COUNT];
         VkSpecializationInfo vk_specializationInfos[MAX_PIPELINE_COUNT];
@@ -1438,7 +1438,7 @@ protected:
             if (createInfo->shader->getAPIType() != EAT_VULKAN)
                 continue;
 
-            const auto* specShader = static_cast<const CVulkanSpecializedShader*>(createInfo->shader.get());
+            const auto* specShader = IBackendObject::device_compatibility_cast<const CVulkanSpecializedShader*>(createInfo->shader.get(), this);
 
             vk_shaderStageCreateInfos[i].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
             vk_shaderStageCreateInfos[i].pNext = nullptr; // pNext must be NULL or a pointer to a valid instance of VkPipelineShaderStageRequiredSubgroupSizeCreateInfoEXT
@@ -1476,11 +1476,11 @@ protected:
 
             vk_createInfos[i].layout = VK_NULL_HANDLE;
             if (createInfo->layout && (createInfo->layout->getAPIType() == EAT_VULKAN))
-                vk_createInfos[i].layout = static_cast<const CVulkanPipelineLayout*>(createInfo->layout.get())->getInternalObject();
+                vk_createInfos[i].layout = IBackendObject::device_compatibility_cast<const CVulkanPipelineLayout*>(createInfo->layout.get(), this)->getInternalObject();
 
             vk_createInfos[i].basePipelineHandle = VK_NULL_HANDLE;
             if (createInfo->basePipeline && (createInfo->basePipeline->getAPIType() == EAT_VULKAN))
-                vk_createInfos[i].basePipelineHandle = static_cast<const CVulkanComputePipeline*>(createInfo->basePipeline.get())->getInternalObject();
+                vk_createInfos[i].basePipelineHandle = IBackendObject::device_compatibility_cast<const CVulkanComputePipeline*>(createInfo->basePipeline.get(), this)->getInternalObject();
 
             vk_createInfos[i].basePipelineIndex = createInfo->basePipelineIndex;
         }

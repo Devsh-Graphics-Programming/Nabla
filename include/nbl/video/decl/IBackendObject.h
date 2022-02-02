@@ -42,7 +42,7 @@ class IBackendObject
         static inline derived_t_ptr compatibility_cast(base_t_ptr base, const other_t_ptr& compatibleWith)
         {
             using other_t = std::remove_pointer_t<other_t_ptr>;
-            static_assert(std::is_base_of_v<IBackendObject, other_t>,"other_t_ptr should be derived from IBackendObject");
+            static_assert(std::is_base_of_v<IBackendObject, other_t>,"other_t should be derived from IBackendObject");
             return device_compatibility_cast<derived_t_ptr,base_t_ptr>(base,compatibleWith->getOriginDevice());
         }
 
