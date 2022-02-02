@@ -28,12 +28,12 @@ class COpenGLQueryPool final : public IQueryPool
 		{
 			if(_params.queryType == EQT_OCCLUSION)
 			{
-				queries.resize(params.queryCount);
+				queries.resize(_params.queryCount);
 				gl->extGlCreateQueries(GL_SAMPLES_PASSED, _params.queryCount, queries.data());
 			}
 			else if(_params.queryType == EQT_TIMESTAMP)
 			{
-				queries.resize(params.queryCount);
+				queries.resize(_params.queryCount);
 				gl->extGlCreateQueries(GL_TIMESTAMP, _params.queryCount, queries.data());
 			}
 			else if(_params.queryType == EQT_TRANSFORM_FEEDBACK_STREAM_EXT)
@@ -42,9 +42,9 @@ class COpenGLQueryPool final : public IQueryPool
 				// The first integer is the number of primitives successfully written to the corresponding transform feedback buffer
 				// and the second is the number of primitives output to the vertex stream.
 				// But in OpenGL there you need twice the queries to get both values.
-				queries.resize(params.queryCount * 2);
+				queries.resize(_params.queryCount * 2);
 				gl->extGlCreateQueries(GL_TRANSFORM_FEEDBACK_PRIMITIVES_WRITTEN, _params.queryCount, queries.data());
-				gl->extGlCreateQueries(GL_PRIMITIVES_GENERATED, _params.queryCount, queries.data() + params.queryCount);
+				gl->extGlCreateQueries(GL_PRIMITIVES_GENERATED, _params.queryCount, queries.data() + _params.queryCount);
 			}
 			else
 			{
@@ -55,18 +55,6 @@ class COpenGLQueryPool final : public IQueryPool
 		inline core::SRange<const GLuint> getQueries() const
 		{
 			return core::SRange<const GLuint>(queries.data(), queries.data() + queries.size());
-		}
-
-		inline GLuint getQueryAt(uint32_t index) const
-		{
-			if(index < queries.size())
-			{
-				return queries[index];
-			}
-			else
-			{
-				return 0; // is 0 an invalid GLuint?
-			}
 		}
 
 		inline void beginQuery(IOpenGL_FunctionTable* gl, uint32_t queryIndex, E_QUERY_CONTROL_FLAGS flags) const
@@ -174,6 +162,59 @@ class COpenGLQueryPool final : public IQueryPool
 				}
 			}
 		}
+
+		inline bool resetQueries(IOpenGL_FunctionTable* gl, uint32_t query, uint32_t queryCount)
+		{
+			// NOTE: There is no Reset Queries on OpenGL but to make the queries invalid/unavailable and not return the previous ones we just delete the queries and recreate them.
+			// TODO: Needs test
+			size_t logicalQuerySize = 0ull;
+			if(params.queryType == EQT_TRANSFORM_FEEDBACK_STREAM_EXT)
+				logicalQuerySize = queries.size() / 2ull;
+			else
+				logicalQuerySize = queries.size();
+
+			if(query + queryCount > logicalQuerySize)
+			{
+				assert(false);
+				return false;
+			}
+
+			if(params.queryType == EQT_OCCLUSION)
+			{
+				gl->glQuery.pglDeleteQueries(queryCount, queries.data() + query);
+				gl->extGlCreateQueries(GL_SAMPLES_PASSED, queryCount, queries.data() + query);
+			}
+			else if(params.queryType == EQT_TIMESTAMP)
+			{
+				gl->glQuery.pglDeleteQueries(queryCount, queries.data() + query);
+				gl->extGlCreateQueries(GL_TIMESTAMP, queryCount, queries.data() + query);
+			}
+			else if(params.queryType == EQT_TRANSFORM_FEEDBACK_STREAM_EXT)
+			{
+				gl->glQuery.pglDeleteQueries(queryCount, queries.data() + query);
+				gl->glQuery.pglDeleteQueries(queryCount, (queries.data() + logicalQuerySize) + query);
+				gl->extGlCreateQueries(GL_TRANSFORM_FEEDBACK_PRIMITIVES_WRITTEN, queryCount, queries.data() + query);
+				gl->extGlCreateQueries(GL_PRIMITIVES_GENERATED, queryCount, (queries.data() + logicalQuerySize) + query );
+			}
+
+			return true;
+		}
+
+		protected:
+			
+		inline GLuint getQueryAt(uint32_t index) const
+		{
+			if(index < queries.size())
+			{
+				return queries[index];
+			}
+			else
+			{
+				assert(false);
+				return 0u; // is 0 an invalid GLuint?
+			}
+		}
+
 };
 
 } // end namespace nbl::video

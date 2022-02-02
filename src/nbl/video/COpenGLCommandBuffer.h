@@ -1072,9 +1072,13 @@ public:
         
     bool resetQueryPool(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount) override
     {
-        // If multiple queries are issued using the same query object id before calling glGetQueryObject or glGetQueryBufferObject:
-        // the results of the most recent query will be returned. In this case, when issuing a new query, the results of the previous query are discarded.
-        // So just ignore :)
+        if (!this->isCompatibleDevicewise(queryPool))
+            return false;
+        SCmd<impl::ECT_RESET_QUERY_POOL> cmd;
+        cmd.queryPool = core::smart_refctd_ptr<const IQueryPool>(queryPool);
+        cmd.query = firstQuery;
+        cmd.queryCount = queryCount;
+        pushCommand(std::move(cmd));
         return true;
     }
     bool beginQuery(IQueryPool* queryPool, uint32_t query, IQueryPool::E_QUERY_CONTROL_FLAGS flags = static_cast<IQueryPool::E_QUERY_CONTROL_FLAGS>(0)) override

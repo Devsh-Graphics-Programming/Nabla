@@ -913,7 +913,8 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
             case impl::ECT_RESET_QUERY_POOL:
             {
                 auto& c = cmd.get<impl::ECT_RESET_QUERY_POOL>();
-                _NBL_TODO();
+                const COpenGLQueryPool* qp = static_cast<const COpenGLQueryPool*>(c.queryPool.get());
+                qp->resetQueries(gl, c.query, c.queryCount);
             }
             break;
             case impl::ECT_BEGIN_QUERY:
@@ -1017,7 +1018,7 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
             {
                 auto& c = cmd.get<impl::ECT_WRITE_TIMESTAMP>();
                 const COpenGLQueryPool* qp = static_cast<const COpenGLQueryPool*>(c.queryPool.get());
-                GLuint query = qp->getQueryAt(c.query);
+                const GLuint query = qp->getQueries()[c.query];
                 assert(qp->getCreationParameters().queryType == IQueryPool::E_QUERY_TYPE::EQT_TIMESTAMP);
                 gl->glQuery.pglQueryCounter(query, GL_TIMESTAMP);
             }
