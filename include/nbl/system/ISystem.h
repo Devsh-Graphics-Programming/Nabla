@@ -521,6 +521,17 @@ class ISystem : public core::IReferenceCounted
 
             return systemMemory;
         }
+
+        struct SystemInfo
+        {
+            uint64_t cpuFrequency;
+            //TODO others
+
+            uint32_t desktopResX;
+            uint32_t desktopResY;
+            std::string OSFullName;
+        };
+        virtual SystemInfo getSystemInfo() const = 0;
 };
 
 template<typename T>
