@@ -24,6 +24,8 @@ class CSystemCallerWin32 final : public ISystemCaller
 
 class CSystemWin32 : public ISystem
 {
+public:
+    CSystemWin32(core::smart_refctd_ptr<ISystemCaller>&& caller) : ISystem(std::move(caller)) {}
     //LOL the struct definition wasn't added to winapi headers do they ask to declare them yourself
     typedef struct _PROCESSOR_POWER_INFORMATION {
         ULONG Number;
@@ -37,9 +39,10 @@ class CSystemWin32 : public ISystem
     SystemInfo getSystemInfo() const override
     {
         SystemInfo info;
-        PROCESSOR_POWER_INFORMATION cpuInfo;
-        CallNtPowerInformation(ProcessorInformation, nullptr, 0, &cpuInfo, sizeof(cpuInfo));
-        info.cpuFrequency = cpuInfo.MaxMhz;
+        LARGE_INTEGER speed;
+        QueryPerformanceFrequency(&speed);
+
+        info.cpuFrequency = speed.QuadPart;
 
         info.desktopResX = GetSystemMetrics(SM_CXSCREEN);
         info.desktopResY = GetSystemMetrics(SM_CYSCREEN);
