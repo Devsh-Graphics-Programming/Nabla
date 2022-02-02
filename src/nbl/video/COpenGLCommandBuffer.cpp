@@ -834,7 +834,6 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
                 auto& c = cmd.get<impl::ECT_SET_EVENT>();
                 //https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/vkCmdSetEvent2KHR.html
                 // A memory dependency is defined between the event signal operation and commands that occur earlier in submission order.
-                //gl->glSync.pglMemoryBarrier(c.barrierBits); @Crisspl?
             }
             break;
             case impl::ECT_RESET_EVENT:
