@@ -668,7 +668,7 @@ protected:
             case ERT_GET_QUERY_POOL_RESULTS:
             {
                 auto& p = std::get<SRequestGetQueryPoolResults>(req.params_variant);
-                const COpenGLQueryPool* qp = static_cast<const COpenGLQueryPool*>(p.queryPool.get());
+                const COpenGLQueryPool* qp = IBackendObject::device_compatibility_cast<const COpenGLQueryPool*>(p.queryPool.get(), device);
                 auto queryPoolQueriesCount = qp->getCreationParameters().queryCount;
                 auto queriesRange = qp->getQueries(); // queriesRange.size() is a multiple of queryPoolQueriesCount
                 auto queries = queriesRange.begin();
@@ -743,7 +743,7 @@ protected:
             case ERT_GET_FENCE_STATUS:
             {
                 auto& p = std::get<SRequestGetFenceStatus>(req.params_variant);
-                auto* glfence = static_cast<COpenGLFence*>(p.fence);
+                auto* glfence = IBackendObject::device_compatibility_cast<COpenGLFence*>(p.fence, device);
                 IGPUFence::E_STATUS* retval = reinterpret_cast<IGPUFence::E_STATUS*>(req.pretval);
 
                 retval[0] = glfence->getStatus(&gl);
@@ -849,11 +849,11 @@ protected:
                 needClipControlWorkaround = !gl.getFeatures()->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_clip_control);
             }
 
-            COpenGLPipelineCache* cache = static_cast<COpenGLPipelineCache*>(_pipelineCache);
-            COpenGLPipelineLayout* gllayout = static_cast<COpenGLPipelineLayout*>(layout.get());
+            COpenGLPipelineCache* cache = IBackendObject::device_compatibility_cast<COpenGLPipelineCache*>(_pipelineCache, device);
+            COpenGLPipelineLayout* gllayout = IBackendObject::device_compatibility_cast<COpenGLPipelineLayout*>(layout.get(), device);
             for (auto shdr = shaders.begin(); shdr != shaders.end(); ++shdr)
             {
-                const auto* glshdr = static_cast<const COpenGLSpecializedShader*>(*shdr);
+                const auto* glshdr = IBackendObject::device_compatibility_cast<const COpenGLSpecializedShader*>(*shdr, device);
 
                 auto stage = glshdr->getStage();
                 uint32_t ix = core::findLSB<uint32_t>(stage);

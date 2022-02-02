@@ -1199,7 +1199,7 @@ public:
             if (pDescriptorSets[i])
             {
                 cmd.descriptorSets[cmd.dsCount++] = core::smart_refctd_ptr<const IGPUDescriptorSet>(pDescriptorSets[i]);
-                const auto count = static_cast<const COpenGLDescriptorSet*>(pDescriptorSets[i])->getDynamicOffsetCount();
+                const auto count = IBackendObject::compatibility_cast<const COpenGLDescriptorSet*>(pDescriptorSets[i], this)->getDynamicOffsetCount();
                 std::copy_n(dynamicOffsetsIt,count,cmd.dynamicOffsets+cmd.dynamicOffsetCount);
                 cmd.dynamicOffsetCount += count;
                 dynamicOffsetsIt += count;

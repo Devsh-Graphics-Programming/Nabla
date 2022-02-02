@@ -78,9 +78,11 @@ public:
 
     E_ACQUIRE_IMAGE_RESULT acquireNextImage(uint64_t timeout, IGPUSemaphore* semaphore, IGPUFence* fence, uint32_t* out_imgIx) override
     {
-        if (semaphore && !this->isCompatibleDevicewise(semaphore))
+        COpenGLSemaphore* glSem = IBackendObject::compatibility_cast<COpenGLSemaphore*>(semaphore, this);
+        COpenGLFence* glFen = IBackendObject::compatibility_cast<COpenGLFence*>(fence, this);
+        if (semaphore && !glSem)
             return EAIR_ERROR;
-        if (fence && this->isCompatibleDevicewise(fence))
+        if (fence && !glFen)
             return EAIR_ERROR;
 
         // TODO currently completely ignoring `timeout`
@@ -91,16 +93,10 @@ public:
         if (semaphore || fence)
         {
             core::smart_refctd_ptr<COpenGLSync> sync = m_threadHandler.getSyncForImgIx(m_imgIx);
-            if (semaphore)
-            {
-                COpenGLSemaphore* sem = static_cast<COpenGLSemaphore*>(semaphore);
-                sem->associateGLSync(core::smart_refctd_ptr(sync));
-            }
-            if (fence)
-            {
-                COpenGLFence* fen = static_cast<COpenGLFence*>(fence);
-                fen->associateGLSync(core::smart_refctd_ptr(sync));
-            }
+            if (glSem)
+                glSem->associateGLSync(core::smart_refctd_ptr(sync));
+            if (glFen)
+                glFen->associateGLSync(core::smart_refctd_ptr(sync));
         }
 
         assert(out_imgIx);
@@ -185,7 +181,7 @@ private:
                 request.sems.reserve(semCount);
             for (uint32_t i = 0u; i < semCount; ++i)
             {
-                COpenGLSemaphore* sem = static_cast<COpenGLSemaphore*>(sems[i]);
+                COpenGLSemaphore* sem = IBackendObject::device_compatibility_cast<COpenGLSemaphore*>(sems[i], m_device);
                 request.sems.push_back(core::smart_refctd_ptr<COpenGLSemaphore>(sem));
             }
         }
@@ -230,8 +226,8 @@ private:
             {
                 auto& img = images.begin()[i];
                 GLuint texture = m_texViews[i];
-                GLuint origtexture = static_cast<COpenGLImage*>(img.get())->getOpenGLName();
-                GLenum format = static_cast<COpenGLImage*>(img.get())->getOpenGLSizedFormat();
+                GLuint origtexture = IBackendObject::device_compatibility_cast<COpenGLImage*>(img.get(), m_device)->getOpenGLName();
+                GLenum format = IBackendObject::device_compatibility_cast<COpenGLImage*>(img.get(), m_device)->getOpenGLSizedFormat();
                 static_cast<IOpenGL_FunctionTable&>(gl).extGlTextureView(texture, GL_TEXTURE_2D, origtexture, format, 0, 1, 0, 1);
             }
             

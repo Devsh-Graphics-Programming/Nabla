@@ -58,7 +58,7 @@ class COpenGLImageView final : public IGPUImageView
 			//GL_INVALID_OPERATION is generated if texture has already been bound or otherwise given a target.
 			//thus we cannot create a name for view with glCreateTextures
 			gl->glTexture.pglGenTextures(1, &name);
-			gl->extGlTextureView(	name, target, static_cast<COpenGLImage*>(params.image.get())->getOpenGLName(), internalFormat, 
+			gl->extGlTextureView(	name, target, IBackendObject::compatibility_cast<COpenGLImage*>(params.image.get(), this)->getOpenGLName(), internalFormat, 
 														params.subresourceRange.baseMipLevel, params.subresourceRange.levelCount,
 														params.subresourceRange.baseArrayLayer, params.subresourceRange.layerCount);
 

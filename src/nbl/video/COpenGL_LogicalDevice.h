@@ -302,7 +302,7 @@ public:
     bool resetFences(uint32_t _count, IGPUFence*const * _fences) override final
     {
         for (uint32_t i = 0u; i < _count; ++i)
-            static_cast<COpenGLFence*>(_fences[i])->reset();
+            IBackendObject::device_compatibility_cast<COpenGLFence*>(_fences[i], this)->reset();
         return true;
     }
 
@@ -570,7 +570,7 @@ protected:
     }
     core::smart_refctd_ptr<IGPUSpecializedShader> createGPUSpecializedShader_impl(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo, const asset::ISPIRVOptimizer* _spvopt = nullptr) override final
     {
-        const COpenGLShader* glUnspec = static_cast<const COpenGLShader*>(_unspecialized);
+        const COpenGLShader* glUnspec = IBackendObject::device_compatibility_cast<const COpenGLShader*>(_unspecialized, this);
 
         const std::string& EP = _specInfo.entryPoint;
         const asset::IShader::E_SHADER_STAGE stage = _unspecialized->getStage();

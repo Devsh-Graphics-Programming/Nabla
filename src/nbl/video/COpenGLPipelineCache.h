@@ -41,11 +41,11 @@ public:
 		for (uint32_t i = 0u; i < _count; ++i)
 		{
 			{
-				const auto& src = static_cast<const COpenGLPipelineCache*>(_srcCaches[i])->m_cache;
+				const auto& src = IBackendObject::compatibility_cast<const COpenGLPipelineCache*>(_srcCaches[i], this)->m_cache;
 				m_cache.insert(src.begin(), src.end());
 			}
 			{
-				const auto& src = static_cast<const COpenGLPipelineCache*>(_srcCaches[i])->m_parsedSpirvs;
+				const auto& src = IBackendObject::compatibility_cast<const COpenGLPipelineCache*>(_srcCaches[i], this)->m_parsedSpirvs;
 				m_parsedSpirvs.insert(src.begin(), src.end());
 			}
 		}
