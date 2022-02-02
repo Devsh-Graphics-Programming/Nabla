@@ -304,7 +304,7 @@ namespace impl
     };
     _NBL_DEFINE_SCMD_SPEC(ECT_RESET_QUERY_POOL)
     {
-        core::smart_refctd_ptr<const IQueryPool> queryPool;
+        core::smart_refctd_ptr<IQueryPool> queryPool;
         uint32_t query;
         uint32_t queryCount;
     };
@@ -1075,7 +1075,7 @@ public:
         if (!this->isCompatibleDevicewise(queryPool))
             return false;
         SCmd<impl::ECT_RESET_QUERY_POOL> cmd;
-        cmd.queryPool = core::smart_refctd_ptr<const IQueryPool>(queryPool);
+        cmd.queryPool = core::smart_refctd_ptr<IQueryPool>(queryPool);
         cmd.query = firstQuery;
         cmd.queryCount = queryCount;
         pushCommand(std::move(cmd));

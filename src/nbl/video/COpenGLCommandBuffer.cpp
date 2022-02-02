@@ -912,8 +912,9 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
             case impl::ECT_RESET_QUERY_POOL:
             {
                 auto& c = cmd.get<impl::ECT_RESET_QUERY_POOL>();
-                const COpenGLQueryPool* qp = static_cast<const COpenGLQueryPool*>(c.queryPool.get());
-                qp->resetQueries(gl, c.query, c.queryCount);
+                COpenGLQueryPool* qp = static_cast<COpenGLQueryPool*>(c.queryPool.get());
+                bool success = qp->resetQueries(gl, c.query, c.queryCount);
+                assert(success);
             }
             break;
             case impl::ECT_BEGIN_QUERY:
