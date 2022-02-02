@@ -138,12 +138,16 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
 
         const auto bpp = asset::getBytesPerPixel(format);
         const auto blockDims = asset::getBlockDimensions(format);
+        const auto blockByteSize = asset::getTexelOrBlockBytesize(format);
 
         ctxlocal->nextState.pixelUnpack.buffer = core::smart_refctd_ptr<const COpenGLBuffer>(static_cast<const COpenGLBuffer*>(srcBuffer));
         for (auto it = c.regions; it != c.regions + c.regionCount; it++)
         {
-            // TODO: check it->bufferOffset is aligned to data type of E_FORMAT
-            //assert(?);
+            if(it->bufferOffset != core::alignUp(it->bufferOffset, blockByteSize))
+            {
+                assert(false && "bufferOffset should be aligned to block/texel byte size.");
+                continue;
+            }
 
             uint32_t pitch = ((it->bufferRowLength ? it->bufferRowLength : it->imageExtent.width) * bpp).getIntegerApprox();
             int32_t alignment = 0x1 << core::min(core::min<uint32_t>(core::findLSB(it->bufferOffset),core::findLSB(pitch)), 3u);
@@ -233,6 +237,7 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
 
         const auto bpp = asset::getBytesPerPixel(format);
         const auto blockDims = asset::getBlockDimensions(format);
+        const auto blockByteSize = asset::getTexelOrBlockBytesize(format);
 
         const bool usingGetTexSubImage = (gl->features->Version >= 450 || gl->features->FeatureAvailable[gl->features->EOpenGLFeatures::NBL_ARB_get_texture_sub_image]);
 
@@ -243,8 +248,11 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
         ctxlocal->nextState.pixelPack.buffer = core::smart_refctd_ptr<const COpenGLBuffer>(static_cast<COpenGLBuffer*>(dstBuffer));
         for (auto it = c.regions; it != c.regions + c.regionCount; it++)
         {
-            // TODO: check it->bufferOffset is aligned to data type of E_FORMAT
-            //assert(?);
+            if(it->bufferOffset != core::alignUp(it->bufferOffset, blockByteSize))
+            {
+                assert(false && "bufferOffset should be aligned to block/texel byte size.");
+                continue;
+            }
 
             uint32_t pitch = ((it->bufferRowLength ? it->bufferRowLength : it->imageExtent.width) * bpp).getIntegerApprox();
             int32_t alignment = 0x1 << core::min(core::max(core::findLSB(it->bufferOffset), core::findLSB(pitch)), 3u);
