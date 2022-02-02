@@ -992,18 +992,6 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
 
                         getQueryBufferObject(query, bufferId, pname, currentDataPtrOffset);
                     }
-                    else if(queryType == IQueryPool::E_QUERY_TYPE::EQT_TRANSFORM_FEEDBACK_STREAM_EXT)
-                    {
-                        assert(queryPoolQueriesCount * 2 == queriesRange.size());
-                        assert(c.stride >= queryElementDataSize * 2);
-
-                        GLuint query1 = queries[i+c.firstQuery];
-                        GLuint query2 = queries[i+c.firstQuery + queryPoolQueriesCount];
-
-                        // Write All
-                        getQueryBufferObject(query1, bufferId, pname, currentDataPtrOffset);
-                        getQueryBufferObject(query2, bufferId, pname, currentDataPtrOffset + queryElementDataSize);
-                    }
                     else
                     {
                         assert(false && "QueryType is not supported.");
@@ -1017,7 +1005,7 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
             {
                 auto& c = cmd.get<impl::ECT_WRITE_TIMESTAMP>();
                 const COpenGLQueryPool* qp = static_cast<const COpenGLQueryPool*>(c.queryPool.get());
-                const GLuint query = qp->getQueries()[c.query];
+                const GLuint query = qp->getQueryAt(c.query);
                 assert(qp->getCreationParameters().queryType == IQueryPool::E_QUERY_TYPE::EQT_TIMESTAMP);
                 gl->glQuery.pglQueryCounter(query, GL_TIMESTAMP);
             }

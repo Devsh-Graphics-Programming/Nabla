@@ -729,22 +729,6 @@ protected:
                             uint8_t* pData = reinterpret_cast<uint8_t*>(p.pData) + currentDataPtrOffset;
                             getQueryObject(query, pname, pData);
                         }
-                        else if(queryType == IQueryPool::E_QUERY_TYPE::EQT_TRANSFORM_FEEDBACK_STREAM_EXT)
-                        {
-                            assert(queryPoolQueriesCount * 2 == queriesRange.size());
-                            assert(p.stride >= queryElementDataSize * 2);
-
-                            GLuint query1 = queries[i+p.firstQuery];
-                            GLuint query2 = queries[i+p.firstQuery + queryPoolQueriesCount];
-                                
-                            // If VK_QUERY_RESULT_WITH_AVAILABILITY_BIT is set, the final integer value written for each query is non-zero if the query’s status was available or zero if the status was unavailable.
-                            uint8_t* pData1 = reinterpret_cast<uint8_t*>(p.pData) + currentDataPtrOffset;
-                            uint8_t* pData2 = pData1 + queryElementDataSize;
-
-                            // Write All
-                            getQueryObject(query1, pname, reinterpret_cast<GLuint64*>(pData1));
-                            getQueryObject(query2, pname, reinterpret_cast<GLuint64*>(pData2));
-                        }
                         else
                         {
                             assert(false && "QueryType is not supported.");

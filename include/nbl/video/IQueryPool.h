@@ -16,7 +16,6 @@ public:
             EQT_OCCLUSION = 0,
             EQT_PIPELINE_STATISTICS = 1,
             EQT_TIMESTAMP = 2,
-            EQT_TRANSFORM_FEEDBACK_STREAM_EXT = 1000028004, // VK_EXT_transform_feedback
             EQT_PERFORMANCE_QUERY = 1000116000, // VK_KHR_performance_query
             EQT_ACCELERATION_STRUCTURE_COMPACTED_SIZE = 1000150000, // VK_KHR_acceleration_structure
             EQT_ACCELERATION_STRUCTURE_SERIALIZATION_SIZE = 1000150001, // VK_KHR_acceleration_structure

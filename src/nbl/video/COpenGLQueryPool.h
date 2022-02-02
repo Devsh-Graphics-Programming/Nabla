@@ -36,16 +36,6 @@ class COpenGLQueryPool final : public IQueryPool
 				queries.resize(_params.queryCount);
 				gl->extGlCreateQueries(GL_TIMESTAMP, _params.queryCount, queries.data());
 			}
-			else if(_params.queryType == EQT_TRANSFORM_FEEDBACK_STREAM_EXT)
-			{
-				// Vulkan Transform feedback queries write two integers;
-				// The first integer is the number of primitives successfully written to the corresponding transform feedback buffer
-				// and the second is the number of primitives output to the vertex stream.
-				// But in OpenGL there you need twice the queries to get both values.
-				queries.resize(_params.queryCount * 2);
-				gl->extGlCreateQueries(GL_TRANSFORM_FEEDBACK_PRIMITIVES_WRITTEN, _params.queryCount, queries.data());
-				gl->extGlCreateQueries(GL_PRIMITIVES_GENERATED, _params.queryCount, queries.data() + _params.queryCount);
-			}
 			else
 			{
 				assert(false && "QueryType is not supported.");
@@ -55,6 +45,19 @@ class COpenGLQueryPool final : public IQueryPool
 		inline core::SRange<const GLuint> getQueries() const
 		{
 			return core::SRange<const GLuint>(queries.data(), queries.data() + queries.size());
+		}
+		
+		inline GLuint getQueryAt(uint32_t index) const
+		{
+			if(index < queries.size())
+			{
+				return queries[index];
+			}
+			else
+			{
+				assert(false);
+				return 0u; // is 0 an invalid GLuint?
+			}
 		}
 
 		inline void beginQuery(IOpenGL_FunctionTable* gl, uint32_t queryIndex, E_QUERY_CONTROL_FLAGS flags) const
@@ -69,13 +72,6 @@ class COpenGLQueryPool final : public IQueryPool
 				else if(params.queryType == EQT_TIMESTAMP)
 				{
 					assert(false && "TIMESTAMP Query doesn't work with begin/end functions.");
-				}
-				else if(params.queryType == EQT_TRANSFORM_FEEDBACK_STREAM_EXT)
-				{
-					GLuint query1 = getQueryAt(queryIndex);
-					GLuint query2 = getQueryAt(queryIndex + params.queryCount);
-					gl->glQuery.pglBeginQuery(GL_TRANSFORM_FEEDBACK_PRIMITIVES_WRITTEN, query1);
-					gl->glQuery.pglBeginQuery(GL_PRIMITIVES_GENERATED, query2);
 				}
 				else
 				{
@@ -96,11 +92,6 @@ class COpenGLQueryPool final : public IQueryPool
 				else if(params.queryType == EQT_TIMESTAMP)
 				{
 					assert(false && "TIMESTAMP Query doesn't work with begin/end functions.");
-				}
-				else if(params.queryType == EQT_TRANSFORM_FEEDBACK_STREAM_EXT)
-				{
-					gl->glQuery.pglEndQuery(GL_PRIMITIVES_GENERATED);
-					gl->glQuery.pglEndQuery(GL_TRANSFORM_FEEDBACK_PRIMITIVES_WRITTEN);
 				}
 				else
 				{
@@ -124,13 +115,6 @@ class COpenGLQueryPool final : public IQueryPool
 				{
 					assert(false && "TIMESTAMP Query doesn't work with begin/end functions.");
 				}
-				else if(params.queryType == EQT_TRANSFORM_FEEDBACK_STREAM_EXT)
-				{
-					GLuint query1 = getQueryAt(queryIndex);
-					GLuint query2 = getQueryAt(queryIndex + params.queryCount);
-					gl->glQuery.pglBeginQueryIndexed(GL_TRANSFORM_FEEDBACK_PRIMITIVES_WRITTEN, index, query1);
-					gl->glQuery.pglBeginQueryIndexed(GL_PRIMITIVES_GENERATED, index, query2);
-				}
 				else
 				{
 					assert(false && "QueryType is not supported.");
@@ -151,11 +135,6 @@ class COpenGLQueryPool final : public IQueryPool
 				{
 					assert(false && "TIMESTAMP Query doesn't work with begin/end functions.");
 				}
-				else if(params.queryType == EQT_TRANSFORM_FEEDBACK_STREAM_EXT)
-				{
-					gl->glQuery.pglEndQueryIndexed(GL_PRIMITIVES_GENERATED, index);
-					gl->glQuery.pglEndQueryIndexed(GL_TRANSFORM_FEEDBACK_PRIMITIVES_WRITTEN, index);
-				}
 				else
 				{
 					assert(false && "QueryType is not supported.");
@@ -167,13 +146,9 @@ class COpenGLQueryPool final : public IQueryPool
 		{
 			// NOTE: There is no Reset Queries on OpenGL but to make the queries invalid/unavailable and not return the previous ones we just delete the queries and recreate them.
 			// TODO: Needs test
-			size_t logicalQuerySize = 0ull;
-			if(params.queryType == EQT_TRANSFORM_FEEDBACK_STREAM_EXT)
-				logicalQuerySize = queries.size() / 2ull;
-			else
-				logicalQuerySize = queries.size();
+			size_t querySize = queries.size();
 
-			if(query + queryCount > logicalQuerySize)
+			if(query + queryCount > querySize)
 			{
 				assert(false);
 				return false;
@@ -189,30 +164,8 @@ class COpenGLQueryPool final : public IQueryPool
 				gl->glQuery.pglDeleteQueries(queryCount, queries.data() + query);
 				gl->extGlCreateQueries(GL_TIMESTAMP, queryCount, queries.data() + query);
 			}
-			else if(params.queryType == EQT_TRANSFORM_FEEDBACK_STREAM_EXT)
-			{
-				gl->glQuery.pglDeleteQueries(queryCount, queries.data() + query);
-				gl->glQuery.pglDeleteQueries(queryCount, (queries.data() + logicalQuerySize) + query);
-				gl->extGlCreateQueries(GL_TRANSFORM_FEEDBACK_PRIMITIVES_WRITTEN, queryCount, queries.data() + query);
-				gl->extGlCreateQueries(GL_PRIMITIVES_GENERATED, queryCount, (queries.data() + logicalQuerySize) + query );
-			}
 
 			return true;
-		}
-
-		protected:
-			
-		inline GLuint getQueryAt(uint32_t index) const
-		{
-			if(index < queries.size())
-			{
-				return queries[index];
-			}
-			else
-			{
-				assert(false);
-				return 0u; // is 0 an invalid GLuint?
-			}
 		}
 
 };
