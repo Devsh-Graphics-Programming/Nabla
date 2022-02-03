@@ -31,6 +31,8 @@ if(NBL_UPDATE_GIT_SUBMODULE)
 	update_git_submodule(./portable-file-dialogs)
 	update_git_submodule(./simdjson)
 	update_git_submodule(./glTFSampleModels)
+	update_git_submodule(./pstl/oneTBB)
+	update_git_submodule(./pstl/oneDPL/oneDPL)
 endif()
 
 # simdjson
