@@ -1513,6 +1513,343 @@ core::smart_refctd_ptr<ICPUBuffer> IMeshManipulator::idxBufferFromTrianglesFanTo
 	return nullptr;
 }
 
+IMeshManipulator::OBB IMeshManipulator::calcOBB_DiTO26(ICPUMeshBuffer* mb)
+{
+    IMeshManipulator::OBB resultOBB;
+
+    //TODO: invalid vertex data handling
+
+    const size_t vtxCnt = mb->calcVertexCount();
+
+    if (vtxCnt == 0u)
+    {
+        _NBL_DEBUG_BREAK_IF(true);
+        return resultOBB;
+    }
+    
+    constexpr uint32_t projCnt = 13;
+    constexpr int np = projCnt * 2;		// Number of points selected along the sample directions
+    core::vectorSIMDf selVtxPos[np];
+    core::vectorSIMDf* minVtxPos = selVtxPos;           // Pointer to first half of selVert where the min points are placed    
+    core::vectorSIMDf* maxVtxPos = selVtxPos + projCnt; // Pointer to the second half of selVert where the max points are placed	
+    std::array<float, projCnt> minProjLen;
+    std::array<float, projCnt> maxProjLen;
+
+    core::vectorSIMDf AABBlen; //axis aligned dimensions of the vertices
+    core::vectorSIMDf AABBmid; //axis aligned mid point of the vertices
+    float AABBArea;        //quality measure of the axis-aligned box 
+
+    core::vectorSIMDf p0, p1, p2; // Vertices of the large base triangle
+    core::vectorSIMDf e0, e1, e2; // Edge vectors of the large base triangle
+    core::vectorSIMDf n;          // Unit normal of the large base triangle 
+    core::vectorSIMDf t0, t1;     // tetrahedron vertices
+
+    core::matrix3x4SIMD b; // The currently best found OBB orientation (transposed)
+    float bestVal;         // the best obb quality value
+    core::vectorSIMDf bMin, bMax, bLen;
+
+    constexpr float eps = 0.000001f;
+
+    const core::vectorSIMDf sampleDir[projCnt] =
+    {
+        core::vectorSIMDf(1.0f, 0.0f, 0.0f),
+        core::vectorSIMDf(0.0f, 1.0f, 0.0f),
+        core::vectorSIMDf(0.0f, 0.0f, 1.0f),
+        core::vectorSIMDf(1.0f, 1.0f, 1.0f),
+        core::vectorSIMDf(1.0f, 1.0f, -1.0f),
+        core::vectorSIMDf(1.0f, -1.0f, 1.0f),
+        core::vectorSIMDf(1.0f, -1.0f, -1.0f),
+        core::vectorSIMDf(1.0f, 1.0f, 0.0f),
+        core::vectorSIMDf(1.0f, -1.0f, 0.0f),
+        core::vectorSIMDf(1.0f, 0.0f, 1.0f),
+        core::vectorSIMDf(1.0f, 0.0f, -1.0f),
+        core::vectorSIMDf(0.0f, 1.0f, 1.0f),
+        core::vectorSIMDf(1.0f, 1.0f, -1.0f)
+    };
+
+    auto constructOBB = [](const core::matrix3x4SIMD& rotation, const core::vectorSIMDf& scale, const core::vectorSIMDf& mid)
+    {
+        core::matrix3x4SIMD scaleMat;
+        scaleMat.setScale(scale);
+
+        IMeshManipulator::OBB result; 
+        result.asMat3x4 = core::concatenateBFollowedByA(rotation, scaleMat);
+        result.asMat3x4.setTranslation(mid);
+
+        return result;
+    };
+    
+    //calc max and min projections
+    {
+        const core::vectorSIMDf firstVtxPos = mb->getPosition(0u);
+
+        for(uint32_t i = 0u; i < projCnt; i++)
+            minProjLen[i] = maxProjLen[i] = core::dot(firstVtxPos, sampleDir[i]).x; // should be better to compute it manually..
+
+        std::fill(minVtxPos, minVtxPos + projCnt, firstVtxPos);
+        std::fill(maxVtxPos, maxVtxPos + projCnt, firstVtxPos);
+
+        for (size_t i = 1u; i < mb->calcVertexCount(); i++)
+        {
+            for (uint32_t j = 0u; j < projCnt; j++)
+            {
+                float vtxProj = core::dot(mb->getPosition(i), sampleDir[j]).x;
+
+                if (vtxProj > maxProjLen[j])
+                {
+                    maxProjLen[j] = vtxProj;
+                    maxVtxPos[j] = mb->getPosition(i);
+                }
+
+                if (vtxProj < minProjLen[j])
+                {
+                    minProjLen[j] = vtxProj;
+                    minVtxPos[j] = mb->getPosition(i);
+                }
+            }
+        }
+    }
+
+    //compute size of AABB (slabs 0, 1 and 2 define AABB)
+    AABBmid = core::vectorSIMDf(minProjLen[0] + maxProjLen[0], minProjLen[1] + maxProjLen[1], minProjLen[2] + maxProjLen[2]) * 0.5f;
+    AABBlen = core::vectorSIMDf(maxProjLen[0] - minProjLen[0], maxProjLen[1] - minProjLen[1], maxProjLen[2] - minProjLen[2]);
+    AABBArea = AABBlen.x * AABBlen.y + AABBlen.x * AABBlen.z + AABBlen.y * AABBlen.z; //half box area
+
+    // Initialize the best found orientation so far to be the standard base
+    bestVal = AABBArea;
+        // b is already an identity matrix
+
+    //TODO: handle case, where vtxCnt < 26
+
+    //construct base triangle
+    {
+        //find first 2 vertices
+        uint32_t bestPairIdx = 0u;
+        float maxDistance = core::distancesquared(minVtxPos[0], maxVtxPos[0]).x;
+        for (uint32_t i = 1u; i < projCnt; i++)
+        {
+            float distance = core::distancesquared(minVtxPos[i], maxVtxPos[i]).x;
+
+            if (distance > maxDistance)
+            {
+                maxDistance = distance;
+                bestPairIdx = i;
+            }
+        }
+
+        p0 = minVtxPos[bestPairIdx];
+        p1 = maxVtxPos[bestPairIdx];
+
+        if (core::distancesquared(p0, p1).x < eps)
+        {
+            // return AABB
+            return constructOBB(core::matrix3x4SIMD(), AABBlen / 2.0f, core::vectorSIMDf());
+        }
+
+        //TODO: check it!!
+        auto pointToLineDistanceSquared = [&](const core::vectorSIMDf p0, const core::vectorSIMDf dir, const core::vectorSIMDf v)
+        {
+            _NBL_DEBUG_BREAK_IF(core::length(dir).x < eps);
+
+            const core::vectorSIMDf u = v - p0;
+            return core::lengthsquared(u - (dir * core::dot(u, dir).x)).x;
+        };
+
+        e0 = core::normalize(p0 - p1);
+
+        // Find a third vertex furthest away from line given by p0, e0
+        maxDistance = pointToLineDistanceSquared(p0, e0, selVtxPos[0]);
+        p2 = selVtxPos[0];
+        for (uint32_t i = 1u; i < np; i++)
+        {
+            float distance = pointToLineDistanceSquared(p0, e0, selVtxPos[i]);
+
+            if (distance > maxDistance)
+            {
+                p2 = selVtxPos[i];
+                maxDistance = distance;
+            }
+        }
+
+        //TODO: handle this case
+        if (maxDistance < eps)
+        {
+            _NBL_DEBUG_BREAK_IF(true);
+        }
+
+        // calculate edges and normal of the base triangle
+        e1 = core::normalize(p1 - p2);
+        e2 = core::normalize(p2 - p0);
+        n = core::normalize(core::cross(e1, e0));
+    }
+
+    //find remaining vertices of ditetrahedron
+    {
+        //find vertices that are furthest from the plane defined by p0, p1 and p2 (base triangle) on the both positive and negative half space
+        //n dot x = d
+        const float d = core::dot(p0, n).x;
+
+        float minDistance;
+        float maxDistance;
+        minDistance = maxDistance = core::dot(mb->getPosition(0u), n).x - d;
+        t0 = t1 = mb->getPosition(0u);
+
+        for (size_t i = 0; i < mb->calcVertexCount(); i++)
+        {
+            float distance = core::dot(mb->getPosition(i), n).x - d;
+
+            if (distance < minDistance)
+            {
+                minDistance = distance;
+                t0 = mb->getPosition(i);
+            }
+            if (distance > maxDistance)
+            {
+                maxDistance = distance;
+                t1 = mb->getPosition(i);
+            }
+        }
+    }
+
+    auto findExternalPointProj = [&](const core::vectorSIMDf& dir, float& minPoint, float& maxPoint)
+    {
+        minPoint = maxPoint = core::dot(selVtxPos[0], dir).x;
+
+        for (size_t i = 1u; i < np; i++)
+        {
+            float proj = core::dot(selVtxPos[i], dir).x;
+            
+            if (proj > maxPoint)
+                maxPoint = proj;
+
+            if (proj < minPoint)
+                minPoint = proj;
+        }
+    };
+
+    auto findImprovedAxesFromTriangle = [&](const core::vectorSIMDf& v0, const core::vectorSIMDf& v1, const core::vectorSIMDf& v2, 
+        const core::vectorSIMDf& n)
+    {
+        core::vectorSIMDf dMin, dMax, len;
+
+        core::vectorSIMDf m0 = core::cross(v0, n);
+        core::vectorSIMDf m1 = core::cross(v1, n);
+        core::vectorSIMDf m2 = core::cross(v2, n);
+
+        findExternalPointProj(v0, dMin.x, dMax.x);
+        findExternalPointProj(n, dMin.y, dMax.y);
+        findExternalPointProj(m0, dMin.z, dMax.z);
+
+        len = dMax - dMin;
+        float quality = len.x * len.y + len.x * len.z + len.y * len.z;
+
+        if (quality < bestVal)
+        {
+            bestVal = quality;
+            b = core::matrix3x4SIMD(v0, n, m0);
+        }
+
+        findExternalPointProj(v1, dMin.x, dMax.x);
+        findExternalPointProj(m1, dMin.z, dMax.z);
+
+        len = dMax - dMin;
+        quality = len.x * len.y + len.x * len.z + len.y * len.z;
+
+        if (quality < bestVal)
+        {
+            bestVal = quality;
+            b = core::matrix3x4SIMD(v1, n, m1);
+        }
+
+        findExternalPointProj(v2, dMin.x, dMax.x);
+        findExternalPointProj(m2, dMin.z, dMax.z);
+
+        len = dMax - dMin;
+        quality = len.x * len.y + len.x * len.z + len.y * len.z;
+
+        if (quality < bestVal)
+        {
+            bestVal = quality;
+            b = core::matrix3x4SIMD(v2, n, m2);
+        }
+    };
+
+    //find the best axes
+    {
+        //from base triangle
+        findImprovedAxesFromTriangle(e0, e1, e2, n);
+
+        //from top tetrahedra
+        core::vectorSIMDf f0 = core::normalize(t0 - p0);
+        core::vectorSIMDf f1 = core::normalize(t0 - p1);
+        core::vectorSIMDf f2 = core::normalize(t0 - p2);
+        core::vectorSIMDf n0 = core::normalize(core::cross(f1, e0));
+        core::vectorSIMDf n1 = core::normalize(core::cross(f2, e1));
+        core::vectorSIMDf n2 = core::normalize(core::cross(f0, e2));
+        /*findImprovedAxesFromTriangle(e0, f1, f0, n0);
+        findImprovedAxesFromTriangle(e1, f2, f1, n1);
+        findImprovedAxesFromTriangle(e2, f0, f2, n2);*/
+
+
+        //from bottom tetrahedra
+        f0 = core::normalize(t1 - p0);
+        f1 = core::normalize(t1 - p1);
+        f2 = core::normalize(t1 - p2);
+        n0 = core::normalize(core::cross(f1, e0));
+        n1 = core::normalize(core::cross(f2, e1));
+        n2 = core::normalize(core::cross(f0, e2));
+
+        /*findImprovedAxesFromTriangle(e0, f1, f0, n0);
+        findImprovedAxesFromTriangle(e1, f2, f1, n1);
+        findImprovedAxesFromTriangle(e2, f0, f2, n2);*/
+    }
+
+    core::matrix3x4SIMD resultRotation;
+    resultRotation[0] = core::vectorSIMDf(b[0].x, b[1].x, b[2].x);
+    resultRotation[1] = core::vectorSIMDf(b[0].y, b[1].y, b[2].y);
+    resultRotation[2] = core::vectorSIMDf(b[0].z, b[1].z, b[2].z);
+    b = resultRotation;
+
+    //compute OBB dimensions
+    {
+        //b is an orthonormal matrix, which represent rotation of the bounding box
+        bMin.x = bMax.x = core::dot(mb->getPosition(0u), b[0]).x;
+        bMin.y = bMax.y = core::dot(mb->getPosition(0u), b[1]).x;
+        bMin.z = bMax.z = core::dot(mb->getPosition(0u), b[2]).x;
+
+        for (size_t i = 1u; i < mb->calcVertexCount(); i++)
+        {
+            const core::vectorSIMDf vtxPos = mb->getPosition(i);
+            for (uint32_t j = 0u; j < 3u; j++)
+            {
+                float proj = core::dot(vtxPos, b[j]).x;
+
+                if (proj > bMax[j])
+                    bMax[j] = proj;
+
+                if (proj < bMin[j])
+                    bMin[j] = proj;
+            }
+        }
+
+        bLen = bMax - bMin;
+
+        bestVal = bLen.x * bLen.y + bLen.x * bLen.z + bLen.y * bLen.z;
+    }
+
+    if (bestVal < AABBArea)
+    {
+        return constructOBB(b, bLen / 2.0f, core::vectorSIMDf());
+    }
+    else
+    {
+        // return AABB
+        return constructOBB(core::matrix3x4SIMD(), AABBlen / 2.0f, core::vectorSIMDf());
+    }
+
+    return resultOBB;
+}
+
 } // end namespace scene
 } // end namespace nbl
 

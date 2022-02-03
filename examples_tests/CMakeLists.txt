@@ -63,3 +63,5 @@ add_subdirectory(47.DerivMapTest EXCLUDE_FROM_ALL)
 add_subdirectory(48.ArithmeticUnitTest EXCLUDE_FROM_ALL)
 add_subdirectory(49.ComputeFFT EXCLUDE_FROM_ALL)
 add_subdirectory(0.ImportanceSamplingEnvMaps EXCLUDE_FROM_ALL)
+add_subdirectory(61.OrientedBoundingBox EXCLUDE_FROM_ALL)
+
