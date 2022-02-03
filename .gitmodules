@@ -86,9 +86,6 @@
 [submodule "3rdparty/nbl_spirv_cross"]
 	path = 3rdparty/nbl_spirv_cross
 	url = https://github.com/devshgraphicsprogramming/SPIRV-Cross.git
-[submodule "3rdparty/pstl/oneDPL/oneDPL"]
-	path = 3rdparty/pstl/oneDPL/oneDPL
-	url = https://github.com/oneapi-src/oneDPL.git
 [submodule "3rdparty/pstl/oneTBB"]
 	path = 3rdparty/pstl/oneTBB
 	url = https://github.com/Devsh-Graphics-Programming/oneTBB.git
