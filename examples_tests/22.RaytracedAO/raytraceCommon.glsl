@@ -154,7 +154,7 @@ bool has_world_transform(in nbl_glsl_ext_Mitsuba_Loader_instance_data_t batchIns
 
 #include <nbl/builtin/glsl/barycentric/utils.glsl>
 mat2x3 dPdBary;
-vec3 load_positions(out vec3 geomDenormal, in nbl_glsl_ext_Mitsuba_Loader_instance_data_t batchInstanceData, in uvec3 indices)
+vec3 load_positions(out vec3 geomNormal, in nbl_glsl_ext_Mitsuba_Loader_instance_data_t batchInstanceData, in uvec3 indices)
 {
 	mat3 positions = mat3(
 		nbl_glsl_fetchVtxPos(indices[0],batchInstanceData),
@@ -167,7 +167,7 @@ vec3 load_positions(out vec3 geomDenormal, in nbl_glsl_ext_Mitsuba_Loader_instan
 	//
 	for (int i=0; i<2; i++)
 		dPdBary[i] = positions[i]-positions[2];
-	geomDenormal = cross(dPdBary[0],dPdBary[1]);
+	geomNormal = normalize(cross(dPdBary[0],dPdBary[1]));
 	//
 	if (tform)
 		positions[2] += batchInstanceData.tform[3];
@@ -196,7 +196,7 @@ bool needs_texture_prefetch(in nbl_glsl_ext_Mitsuba_Loader_instance_data_t batch
 
 vec3 load_normal_and_prefetch_textures(
 	in nbl_glsl_ext_Mitsuba_Loader_instance_data_t batchInstanceData,
-	in uvec3 indices, in vec2 compactBary, in vec3 geomDenormal,
+	in uvec3 indices, in vec2 compactBary, in vec3 geomNormal,
 	in nbl_glsl_MC_oriented_material_t material
 #ifdef TEX_PREFETCH_STREAM
 	,in mat2 dBarydScreen
@@ -224,7 +224,6 @@ vec3 load_normal_and_prefetch_textures(
 	// the rest is always only needed for continuing rays
 
 
-	vec3 normal = geomDenormal;
 	// while waiting for the scramble state
 	// TODO: optimize, add loads more flags to control this
 	const bool needsSmoothNormals = true;
@@ -237,18 +236,20 @@ vec3 load_normal_and_prefetch_textures(
 		);
 
 		// not needed for NEE unless doing Area or Projected Solid Angle Sampling
-		const vec3 smoothNormal = normals*nbl_glsl_barycentric_expand(compactBary);
-		// TODO: first check wouldn't be needed if we had `needsSmoothNormals` implemented
-		if (!isnan(smoothNormal.x) && has_world_transform(batchInstanceData))
+		vec3 smoothNormal = normals*nbl_glsl_barycentric_expand(compactBary);
+		if (has_world_transform(batchInstanceData))
 		{
-			normal = vec3(
+			smoothNormal = vec3(
 				dot(batchInstanceData.normalMatrixRow0,smoothNormal),
 				dot(batchInstanceData.normalMatrixRow1,smoothNormal),
 				dot(batchInstanceData.normalMatrixRow2,smoothNormal)
 			);
 		}
+		// TODO: this check wouldn't be needed if we had `needsSmoothNormals` implemented
+		if (!isnan(smoothNormal.x))
+			return normalize(smoothNormal);
 	}
-	return normalize(normal);
+	return geomNormal;
 }
 
 #include <nbl/builtin/glsl/sampling/quantized_sequence.glsl>
