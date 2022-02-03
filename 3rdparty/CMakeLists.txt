@@ -62,6 +62,10 @@ if(DEFINED ENV{VULKAN_SDK})
     target_include_directories(volk_headers INTERFACE "$ENV{VULKAN_SDK}/include")
 endif()
 
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+	add_subdirectory(pstl pstl)
+endif()
+
 # SDL2
 if (NBL_COMPILE_WITH_SDL2)
 	set(SDL_STATIC_ENABLED_BY_DEFAULT ON)
