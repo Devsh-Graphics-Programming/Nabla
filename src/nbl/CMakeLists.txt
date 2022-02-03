@@ -407,6 +407,7 @@ endmacro()
 # PSTL
 macro(nbl_target_link_oneDPL _trgt)
 	add_dependencies(${_trgt} oneDPL)
+	target_include_directories(${_trgt} PUBLIC ${ONETBB_INSTALL_DIR}/include)
 	target_include_directories(${_trgt} PUBLIC ${ONEDPL_INSTALL_DIR}/include)
 	
 	target_link_libraries(${_trgt} INTERFACE
