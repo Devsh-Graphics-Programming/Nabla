@@ -38,6 +38,7 @@ class COpenGLQueryPool final : public IQueryPool
 			}
 			else
 			{
+				// TODO: Add ARB_pipeline_statistics support: https://www.khronos.org/registry/OpenGL/extensions/ARB/ARB_pipeline_statistics_query.txt
 				assert(false && "QueryType is not supported.");
 			}
 		}

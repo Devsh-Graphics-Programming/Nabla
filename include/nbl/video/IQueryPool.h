@@ -16,7 +16,7 @@ public:
             EQT_OCCLUSION = 0,
             EQT_PIPELINE_STATISTICS = 1,
             EQT_TIMESTAMP = 2,
-            EQT_PERFORMANCE_QUERY = 1000116000, // VK_KHR_performance_query
+            EQT_PERFORMANCE_QUERY = 1000116000, // VK_KHR_performance_query // TODO: We don't support this fully yet -> needs Acquire/ReleaseProfilingLock + Counters Information report from physical device
             EQT_ACCELERATION_STRUCTURE_COMPACTED_SIZE = 1000150000, // VK_KHR_acceleration_structure
             EQT_ACCELERATION_STRUCTURE_SERIALIZATION_SIZE = 1000150001, // VK_KHR_acceleration_structure
         };

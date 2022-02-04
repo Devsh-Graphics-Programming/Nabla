@@ -101,7 +101,7 @@ namespace impl
         }
         constexpr static inline bool isCreationRequest(E_REQUEST_TYPE rt)
         {
-            return !isDestroyRequest(rt) && rt<=ERT_COMPUTE_PIPELINE_CREATE;
+            return !isDestroyRequest(rt) && rt<=ERT_QUERY_POOL_CREATE;
         }
         constexpr static inline bool isWaitlessRequest(E_REQUEST_TYPE rt)
         {
