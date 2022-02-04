@@ -1574,8 +1574,12 @@ inline created_gpu_object_array<asset::ICPUImageView> IGPUObjectFromAssetConvert
             requiredFormatUsages.attachment = 1;
         if ((imageUsageFlags & asset::IImage::EUF_DEPTH_STENCIL_ATTACHMENT_BIT).value)
             requiredFormatUsages.attachment = 1;
-
+        
         const auto format = imageCreationParams.format;
+
+        if(format != asset::EF_R8G8B8_SRGB)
+            continue; // This Temporary format promotion code only works for this format
+
         bool formatSupported = false;
         if (imageCreationParams.tiling == asset::IImage::ET_OPTIMAL)
         {
