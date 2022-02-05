@@ -5,6 +5,9 @@
 #ifndef __NBL_PCH_H_INCLUDED__
 #define __NBL_PCH_H_INCLUDED__
 
+// oneDPL headers should be included before standard headers (for clang build)
+#include "nbl/core/execution.h"
+
 #include "nbl/core/pch_core.h"
 #include "nbl/asset/pch_asset.h"
 #include "nbl/video/pch_video.h"

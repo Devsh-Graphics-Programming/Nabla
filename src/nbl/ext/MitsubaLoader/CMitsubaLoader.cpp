@@ -352,7 +352,7 @@ static core::smart_refctd_ptr<asset::ICPUImage> createSingleChannelImage(const a
 			conv.swizzle[i] = asset::ICPUImageView::SComponentMapping::E_SWIZZLE::ES_R;
 	}
 
-	if (!convert_filter_t::execute(std::execution::par_unseq,&conv))
+	if (!convert_filter_t::execute(core::execution::par_unseq,&conv))
 	{
 		_logger.log("Mitsuba XML Loader: blend weight texture creation failed!", system::ILogger::E_LOG_LEVEL::ELL_ERROR);
 		_NBL_DEBUG_BREAK_IF(true);

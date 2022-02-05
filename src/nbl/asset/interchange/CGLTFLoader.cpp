@@ -9,7 +9,7 @@
 #include "nbl/asset/utils/CDerivativeMapCreator.h"
 #include "simdjson/singleheader/simdjson.h"
 #include <algorithm>
-#include <execution>
+#include "nbl/core/execution.h"
 
 
 namespace nbl

@@ -120,7 +120,7 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 		}	
 		static inline bool execute(state_type* state)
 		{
-			return execute(std::execution::seq,state);
+			return execute(core::execution::seq,state);
 		}
 
 	private:
@@ -171,7 +171,7 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 			const auto&& [copyInBaseLayer, copyOutBaseLayer, copyLayerCount] = std::make_tuple(state->inBaseLayer, state->outBaseLayer, state->layerCount);
 			state->layerCount = 1u;
 
-			auto resetState = [&]()
+			auto resetState = [&, copyInBaseLayer=copyInBaseLayer, copyOutBaseLayer=copyOutBaseLayer, copyLayerCount=copyLayerCount]()
 			{
 				state->inBaseLayer = copyInBaseLayer;
 				state->outBaseLayer = copyOutBaseLayer;

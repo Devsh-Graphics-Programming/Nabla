@@ -326,7 +326,7 @@ inline bool createScreenShot(
 						state.inMipLevel = regionWithMipMap->imageSubresource.mipLevel;
 						state.outMipLevel = regionWithMipMap->imageSubresource.mipLevel;
 
-						const bool ok = convertFilter.execute(std::execution::par_unseq,&state);
+						const bool ok = convertFilter.execute(core::execution::par_unseq,&state);
 						assert(ok);
 					}
 				}

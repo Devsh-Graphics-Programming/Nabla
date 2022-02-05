@@ -309,13 +309,13 @@ asset::SAssetBundle CSerializedLoader::loadAsset(system::IFile* _file, const ass
 			if (sourceIsDoubles)
 			{
 				auto*& typedPtr = reinterpret_cast<unaligned_dvec3*&>(ptr);
-				std::for_each_n(std::execution::seq,typedPtr,vertexCount,readPositions);
+				std::for_each_n(core::execution::seq,typedPtr,vertexCount,readPositions);
 				typedPtr += vertexCount;
 			}
 			else
 			{
 				auto*& typedPtr = reinterpret_cast<unaligned_vec3*&>(ptr);
-				std::for_each_n(std::execution::seq,typedPtr,vertexCount,readPositions);
+				std::for_each_n(core::execution::seq,typedPtr,vertexCount,readPositions);
 				typedPtr += vertexCount;
 			}
 			meshBuffer->setBoundingBox(aabb);
@@ -334,14 +334,14 @@ asset::SAssetBundle CSerializedLoader::loadAsset(system::IFile* _file, const ass
 			{
 				auto*& typedPtr = reinterpret_cast<unaligned_dvec3*&>(ptr);
 				if (read)
-					std::for_each_n(std::execution::seq,typedPtr,vertexCount,readNormals);
+					std::for_each_n(core::execution::seq,typedPtr,vertexCount,readNormals);
 				typedPtr += vertexCount;
 			}
 			else
 			{
 				auto*& typedPtr = reinterpret_cast<unaligned_vec3*&>(ptr);
 				if (read)
-					std::for_each_n(std::execution::seq,typedPtr,vertexCount,readNormals);
+					std::for_each_n(core::execution::seq,typedPtr,vertexCount,readNormals);
 				typedPtr += vertexCount;
 			}
 			meshBuffer->setNormalAttributeIx(NORMAL_ATTRIBUTE);
@@ -358,13 +358,13 @@ asset::SAssetBundle CSerializedLoader::loadAsset(system::IFile* _file, const ass
 			if (sourceIsDoubles)
 			{
 				auto*& typedPtr = reinterpret_cast<unaligned_dvec2*&>(ptr);
-				std::for_each_n(std::execution::seq,typedPtr,vertexCount,readUVs);
+				std::for_each_n(core::execution::seq,typedPtr,vertexCount,readUVs);
 				typedPtr += vertexCount;
 			}
 			else
 			{
 				auto*& typedPtr = reinterpret_cast<unaligned_vec2*&>(ptr);
-				std::for_each_n(std::execution::seq,typedPtr,vertexCount,readUVs);
+				std::for_each_n(core::execution::seq,typedPtr,vertexCount,readUVs);
 				typedPtr += vertexCount;
 			}
 		}
@@ -380,13 +380,13 @@ asset::SAssetBundle CSerializedLoader::loadAsset(system::IFile* _file, const ass
 			if (sourceIsDoubles)
 			{
 				auto*& typedPtr = reinterpret_cast<unaligned_dvec3*&>(ptr);
-				std::for_each_n(std::execution::seq,typedPtr,vertexCount,readColors);
+				std::for_each_n(core::execution::seq,typedPtr,vertexCount,readColors);
 				typedPtr += vertexCount;
 			}
 			else
 			{
 				auto*& typedPtr = reinterpret_cast<unaligned_vec3*&>(ptr);
-				std::for_each_n(std::execution::seq,typedPtr,vertexCount,readColors);
+				std::for_each_n(core::execution::seq,typedPtr,vertexCount,readColors);
 				typedPtr += vertexCount;
 			}
 		}

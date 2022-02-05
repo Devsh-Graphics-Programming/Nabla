@@ -148,7 +148,7 @@ core::smart_refctd_ptr<ICPUImage> CDerivativeMapCreator::createDerivativeMapFrom
 	YDerivKernel yderiv(YDerivKernel_(CBoxImageFilterKernel(), DerivKernel(DerivKernel_(ReconstructionKernel()), extent.height)));
 
 
-	DerivativeMapFilter::template state_type state(std::move(xderiv), std::move(yderiv), CBoxImageFilterKernel());
+	typename DerivativeMapFilter::state_type state(std::move(xderiv), std::move(yderiv), CBoxImageFilterKernel());
 
 	const auto& inParams = _inImg->getCreationParameters();
 	auto outParams = inParams;
@@ -186,7 +186,7 @@ core::smart_refctd_ptr<ICPUImage> CDerivativeMapCreator::createDerivativeMapFrom
 	state.scratchMemoryByteSize = DerivativeMapFilter::getRequiredScratchByteSize(&state);
 	state.scratchMemory = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(state.scratchMemoryByteSize, _NBL_SIMD_ALIGNMENT));
 
-	const bool result = DerivativeMapFilter::execute(std::execution::par_unseq,&state);
+	const bool result = DerivativeMapFilter::execute(core::execution::par_unseq,&state);
 	if (result)
 	{
 		out_normalizationFactor[0] = state.normalization.maxAbsPerChannel[0];

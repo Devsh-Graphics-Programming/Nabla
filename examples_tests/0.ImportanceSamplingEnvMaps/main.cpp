@@ -269,7 +269,7 @@ int main()
 			state.inMipLevel = 0;
 			state.outMipLevel = 0;
 
-			if (!sum_filter.execute(std::execution::par_unseq, &state))
+			if (!sum_filter.execute(core::execution::par_unseq, &state))
 				std::cout << "SAT filter failed for some reason" << std::endl;
 
 			_NBL_ALIGNED_FREE(state.scratchMemory);
@@ -354,7 +354,7 @@ int main()
 			state.inMipLevel = 0;
 			state.outMipLevel = 0;
 
-			if (!sum_filter.execute(std::execution::par_unseq, &state))
+			if (!sum_filter.execute(core::execution::par_unseq, &state))
 				std::cout << "SAT filter failed for some reason" << std::endl;
 
 			_NBL_ALIGNED_FREE(state.scratchMemory);

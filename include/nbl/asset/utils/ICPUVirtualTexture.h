@@ -211,7 +211,7 @@ public:
         copy.inImage = _img;
         copy.outImage = paddedImg.get();
 
-        asset::CPaddedCopyImageFilter::execute(std::execution::par_unseq,&copy);
+        asset::CPaddedCopyImageFilter::execute(core::execution::par_unseq,&copy);
 
         using mip_gen_filter_t = asset::CMipMapGenerationImageFilter<
             VoidSwizzle,IdentityDither,void/*TODO: whitenoise*/,false,
@@ -233,7 +233,7 @@ public:
             genmips.axisWraps[1] = _wrapv;
             genmips.axisWraps[2] = asset::ISampler::ETC_CLAMP_TO_EDGE;
             genmips.borderColor = _borderColor;
-            mip_gen_filter_t::execute(std::execution::par_unseq,&genmips);
+            mip_gen_filter_t::execute(core::execution::par_unseq,&genmips);
             _NBL_ALIGNED_FREE(genmips.scratchMemory);
         }
 
@@ -396,7 +396,7 @@ public:
                     copy.axisWraps[1] = _vwrap;
                     copy.axisWraps[2] = ISampler::ETC_CLAMP_TO_EDGE;
                     copy.borderColor = _borderColor;
-                    if (!CPaddedCopyImageFilter::execute(std::execution::par_unseq,&copy))
+                    if (!CPaddedCopyImageFilter::execute(core::execution::par_unseq,&copy))
                         assert(false);
                 }
         }
@@ -445,7 +445,7 @@ public:
             copy.inOffset = {static_cast<uint32_t>(_addr.pgTab_x>>(copy.inMipLevel)),static_cast<uint32_t>(_addr.pgTab_y>>(copy.inMipLevel)),0u};
             copy.outOffset = {static_cast<uint32_t>(aliasAddr.pgTab_x>>i), static_cast<uint32_t>(aliasAddr.pgTab_y>>i), 0u};
 
-            CCopyImageFilter::execute(std::execution::par_unseq,&copy);
+            CCopyImageFilter::execute(core::execution::par_unseq,&copy);
         }
 
         //nasty trick

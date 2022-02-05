@@ -201,7 +201,7 @@ int main()
 			state.outMipLevel = MIPMAP_IMAGE;
 			#endif // IMAGE_VIEW
 
-			if (!sumFilter.execute(std::execution::par_unseq,&state))
+			if (!sumFilter.execute(core::execution::par_unseq,&state))
 				os::Printer::log("Something went wrong while performing sum operation!", ELL_WARNING);
 
 			_NBL_ALIGNED_FREE(state.scratchMemory);
@@ -301,7 +301,7 @@ int main()
 		state.scratchMemoryByteSize = blitImageFilter.getRequiredScratchByteSize(&state);
 		state.scratchMemory = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(state.scratchMemoryByteSize, 32));
 
-		if (!blitImageFilter.execute(std::execution::par_unseq,&state))
+		if (!blitImageFilter.execute(core::execution::par_unseq,&state))
 			os::Printer::log("Something went wrong while performing discrete convolution operation!", ELL_WARNING);
 
 		_NBL_DELETE(state.ditherState);
