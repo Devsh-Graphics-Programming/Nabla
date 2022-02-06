@@ -60,13 +60,15 @@ class CBasicImageFilterCommon
 				inline pointer operator->() const {return &batchCoord;}
 
 				inline value_type operator[] (int index) 
-				{ 
-					return nullptr;
+				{
+					BlockIterator<batch_dims> temp = BlockIterator<batch_dims>(this->extentBatches);
+					temp+=index;
+					return *temp;
 				}
 				
 				inline bool operator< (const BlockIterator<batch_dims>& _rhs) const 
 				{ 
-					return false;
+					return toLinearAddress() < _rhs.toLinearAddress();
 				}
 
 				/*
