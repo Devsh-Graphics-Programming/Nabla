@@ -1,10 +1,15 @@
-#define NBL_WORKGROUP_SIZE 512
+// Todo(achal): Make this 512, made this only for test building the histogram
+#define _NBL_GLSL_WORKGROUP_SIZE_ 256
+
 #define LIGHT_CONTRIBUTION_THRESHOLD 2.f
 // Todo(achal): This needs to be calculated by light intensity
 #define LIGHT_RADIUS 25.f
 #define CLIPMAP_EXTENT 11977.0674f
 
-layout(local_size_x = NBL_WORKGROUP_SIZE) in;
+#define INVOCATIONS_PER_LIGHT 8
+#define LIGHTS_PER_WORKGROUP (_NBL_GLSL_WORKGROUP_SIZE_/INVOCATIONS_PER_LIGHT)
+
+layout(local_size_x = _NBL_GLSL_WORKGROUP_SIZE_) in;
 
 #include <nbl/builtin/glsl/shapes/aabb.glsl>
 
@@ -18,8 +23,15 @@ struct nbl_glsl_ext_ClusteredLighting_SpotLight
 
 struct intersection_record_t
 {
-	uvec3 localClusterID; // Currently 7 bits per dim, Todo(achal): For a 4x4x4 clipmap it should only be 2 bits per dim
-	uint level; // 4 bits, because currently I have LOD_COUNT = 10 (and this probably will only decrease)
+	// Todo(achal): This is currently 7 bits per dim.
+	// 1. For a 4x4x4 clipmap, 2 bits per dim would suffice
+	// 2. For a 64^3 octree, 6 bits per dim would suffice
+	uvec3 localClusterID;
+
+	// Todo(achal): This is currently 4 bits per dim, because currently I have LOD_COUNT = 10
+	// which is overkill for an octree and most likely for clipmap as well
+	uint level;
+
 	uint localLightIndex; // currently 12 bits, Todo(achal): Should be 22 bits because there could be a case where all lights intersect with a single cluster
 	uint globalLightIndex; // currently 20 bits, Todo(achal): Make this 22
 };
@@ -32,12 +44,6 @@ struct cone_t
 	float cosHalfAngle;
 	float baseRadius;
 };
-
-layout(push_constant) uniform Block
-{
-	vec4 camPosClipmapExtent;
-	uint lightCount;
-} pc;
 
 bool isPointBehindPlane(in vec3 point, in vec4 plane)
 {

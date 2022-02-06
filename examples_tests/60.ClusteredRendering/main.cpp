@@ -6,27 +6,34 @@
 #include "nbl/ext/ScreenShot/ScreenShot.h"
 #include "nbl/ui/ICursorControl.h"
 
-#include <fstream>
-
 using namespace nbl;
 
 // #define DEBUG_VIZ
-#define CLIPMAP
+// #define DEBUG_BUDGETING
+
+// #define CLIPMAP
 #define OCTREE
 
-#define WG_DIM 512
+#define WG_DIM 256
 
 #define FATAL_LOG(x, ...) {logger->log(##x, system::ILogger::ELL_ERROR, __VA_ARGS__); exit(-1);}
+
+#ifdef DEBUG_BUDGETING
+	#define BUDGETING_DEBUG_OFFSET 1024
+	#define DEBUG_RESULT_OFFSET 2048
+#endif
 
 struct vec3
 {
 	float x, y, z;
 };
 
+#ifdef DEBUG_VIZ
 struct alignas(16) vec3_aligned
 {
 	float x, y, z;
 };
+#endif
 
 struct uvec2
 {
@@ -41,11 +48,13 @@ struct nbl_glsl_ext_ClusteredLighting_SpotLight
 	uvec2 direction; // xyz encoded as packSNorm2x16, w used for storing `cosineRange`
 };
 
+#ifdef DEBUG_VIZ
 struct nbl_glsl_shapes_AABB_t
 {
 	vec3_aligned minVx;
 	vec3_aligned maxVx;
 };
+#endif
 
 class ClusteredRenderingSampleApp : public ApplicationBase
 {
@@ -53,15 +62,27 @@ class ClusteredRenderingSampleApp : public ApplicationBase
 	constexpr static uint32_t WIN_H = 720u;
 	constexpr static uint32_t SC_IMG_COUNT = 3u;
 	constexpr static uint32_t FRAMES_IN_FLIGHT = 5u;
-	static constexpr uint64_t MAX_TIMEOUT = 99999999999999ull;
+	constexpr static uint64_t MAX_TIMEOUT = 99999999999999ull;
 	static_assert(FRAMES_IN_FLIGHT > SC_IMG_COUNT);
 
-	static constexpr uint32_t LIGHT_COUNT = 6860u; // 1680u;
+	constexpr static uint32_t LIGHT_COUNT = 6860u;
 
 	// Todo(achal): It could be a good idea to make LOD_COUNT dynamic based on double/float precision?
 	//
 	// Level 9 is the outermost/coarsest, Level 0 is the innermost/finest
+#ifdef CLIPMAP
 	static constexpr uint32_t LOD_COUNT = 10u;
+#else OCTREE
+	static constexpr uint32_t LOD_COUNT = 7u;
+#endif
+
+	constexpr static uint32_t MEMORY_BUDGET = 15ull * 1024ull * 1024ull;
+	// Todo(achal): Try making this 2048
+	// Todo(achal): ..something something atomic contention..
+	constexpr static uint32_t BUDGETING_HISTOGRAM_BIN_COUNT = 1024u;
+	constexpr static float MIN_HISTOGRAM_IMPORTANCE = 1 / 2048.f;
+	constexpr static float MAX_HISTOGRAM_IMPORTANCE = float(1 << 16);
+	constexpr static float BUDGETING_MARGIN = 0.9f;
 
 	constexpr static uint32_t CAMERA_DS_NUMBER = 1u;
 	constexpr static uint32_t LIGHT_DS_NUMBER = 2u;
@@ -76,12 +97,12 @@ class ClusteredRenderingSampleApp : public ApplicationBase
 #ifdef CLIPMAP
 	constexpr static uint32_t VOXEL_COUNT_PER_DIM = 4u;
 	constexpr static uint32_t VOXEL_COUNT_PER_LEVEL = VOXEL_COUNT_PER_DIM * VOXEL_COUNT_PER_DIM * VOXEL_COUNT_PER_DIM;
+#endif
 
 #ifdef DEBUG_VIZ
 	constexpr static float DEBUG_CONE_RADIUS = 10.f;
 	constexpr static float DEBUG_CONE_LENGTH = 25.f;
 	constexpr static vec3 DEBUG_CONE_DIRECTION = { 0.f, -1.f, 0.f };
-#endif
 #endif
 
 	struct cone_t
@@ -90,6 +111,13 @@ class ClusteredRenderingSampleApp : public ApplicationBase
 		core::vectorSIMDf direction; // always normalized
 		float height;
 		float cosHalfAngle;
+	};
+
+	struct octree_first_cull_push_constants_t
+	{
+		float camPosClipmapExtent[4];
+		uint32_t lightCount;
+		uint32_t currHistogramID;
 	};
 
 #ifdef DEBUG_VIZ
@@ -549,8 +577,8 @@ public:
 			core::vector4df_SIMD topRight(1.f, 1.f, 1.f, 1.f);
 			invProj.transformVect(topRight);
 			topRight /= topRight.w;
-			clipmapExtent = 2.f * core::sqrt(topRight.x * topRight.x + topRight.y * topRight.y + topRight.z * topRight.z);
-			assert(clipmapExtent > 2.f * cameraFar);
+			genesisVoxelExtent = 2.f * core::sqrt(topRight.x * topRight.x + topRight.y * topRight.y + topRight.z * topRight.z);
+			assert(genesisVoxelExtent > 2.f * cameraFar);
 		}
 
 		video::CPropertyPoolHandler* propertyPoolHandler = utilities->getDefaultPropertyPoolHandler();
@@ -559,7 +587,7 @@ public:
 		const bool contiguous = false;
 
 		video::IGPUBuffer::SCreationParams creationParams = {};
-		creationParams.usage = static_cast<asset::IBuffer::E_USAGE_FLAGS>(asset::IBuffer::EUF_STORAGE_BUFFER_BIT | asset::IBuffer::EUF_TRANSFER_DST_BIT);
+		creationParams.usage = static_cast<asset::IBuffer::E_USAGE_FLAGS>(asset::IBuffer::EUF_STORAGE_BUFFER_BIT | asset::IBuffer::EUF_TRANSFER_DST_BIT | asset::IBuffer::EUF_TRANSFER_SRC_BIT);
 
 		asset::SBufferRange<video::IGPUBuffer> blocks[PropertyPoolType::PropertyCount];
 		for (uint32_t i = 0u; i < PropertyPoolType::PropertyCount; ++i)
@@ -659,35 +687,27 @@ public:
 		}
 
 
-		constexpr uint32_t OCTREE_FIRST_CULL_DESCRIPTOR_COUNT = 3u;
+		constexpr uint32_t OCTREE_FIRST_CULL_DESCRIPTOR_COUNT = 4u;
 		core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> octreeFirstCullDSLayout = nullptr;
 		{
 			video::IGPUDescriptorSetLayout::SBinding bindings[OCTREE_FIRST_CULL_DESCRIPTOR_COUNT];
 
-			// property pool of lights
-			bindings[0].binding = 0u;
-			bindings[0].type = asset::EDT_STORAGE_BUFFER;
-			bindings[0].count = 1u;
-			bindings[0].stageFlags = asset::IShader::ESS_COMPUTE;
-			bindings[0].samplers = nullptr;
-
-			// active light indices
-			bindings[1].binding = 1u;
-			bindings[1].type = asset::EDT_STORAGE_BUFFER;
-			bindings[1].count = 1u;
-			bindings[1].stageFlags = asset::IShader::ESS_COMPUTE;
-			bindings[1].samplers = nullptr;
-
-			// out scratch buffer
-			bindings[2].binding = 2u;
-			bindings[2].type = asset::EDT_STORAGE_BUFFER;
-			bindings[2].count = 1u;
-			bindings[2].stageFlags = asset::IShader::ESS_COMPUTE;
-			bindings[2].samplers = nullptr;
+			// 0. property pool of lights
+			// 1. active light indices
+			// 2. out scratch buffer
+			// 3. importance histogram
+			for (uint32_t i = 0u; i < OCTREE_FIRST_CULL_DESCRIPTOR_COUNT; ++i)
+			{
+				bindings[i].binding = i;
+				bindings[i].type = asset::EDT_STORAGE_BUFFER;
+				bindings[i].count = 1u;
+				bindings[i].stageFlags = asset::IShader::ESS_COMPUTE;
+				bindings[i].samplers = nullptr;
+			}
 
 			octreeFirstCullDSLayout = logicalDevice->createGPUDescriptorSetLayout(bindings, bindings + OCTREE_FIRST_CULL_DESCRIPTOR_COUNT);
 		}
-		const uint32_t octreeFirstCullDSCount = 1u;
+		const uint32_t octreeFirstCullDSCount = 1u + 2u; // +2 for intermediate cull pass' descriptor sets
 		core::smart_refctd_ptr<video::IDescriptorPool> octreeFirstCullDescriptorPool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE, &octreeFirstCullDSLayout.get(), &octreeFirstCullDSLayout.get() + 1ull, &octreeFirstCullDSCount);
 
 		core::smart_refctd_ptr<video::IGPUPipelineLayout> octreeFirstCullPipelineLayout = nullptr;
@@ -695,42 +715,166 @@ public:
 			asset::SPushConstantRange pcRange = {};
 			pcRange.stageFlags = asset::IShader::ESS_COMPUTE;
 			pcRange.offset = 0u;
-			pcRange.size = 4*sizeof(float) + sizeof(uint32_t);
+			pcRange.size = sizeof(octree_first_cull_push_constants_t);
 			octreeFirstCullPipelineLayout = logicalDevice->createGPUPipelineLayout(&pcRange, &pcRange + 1ull, core::smart_refctd_ptr(octreeFirstCullDSLayout));
 		}
 
-		// octree first cull out scratch buffer
-		core::smart_refctd_ptr<video::IGPUBuffer> octreeFirstCullScratchBuffer;
+		// create octree scratch buffers
+		for (uint32_t i = 0u; i < 2u; ++i)
 		{
-			const size_t neededSize = sizeof(uint32_t) + (LIGHT_COUNT * 8 * sizeof(uint64_t));
 			video::IGPUBuffer::SCreationParams creationParams = {};
-			creationParams.usage = video::IGPUBuffer::EUF_STORAGE_BUFFER_BIT;
-			octreeFirstCullScratchBuffer = logicalDevice->createDeviceLocalGPUBufferOnDedMem(creationParams, neededSize);
+			creationParams.usage = static_cast<video::IGPUBuffer::E_USAGE_FLAGS>(video::IGPUBuffer::EUF_STORAGE_BUFFER_BIT | video::IGPUBuffer::EUF_TRANSFER_DST_BIT);
+
+			octreeScratchBuffers[i] = logicalDevice->createDeviceLocalGPUBufferOnDedMem(creationParams, MEMORY_BUDGET);
+
+			core::smart_refctd_ptr<video::IGPUCommandBuffer> cmdbuf = nullptr;
+			logicalDevice->createCommandBuffers(commandPools[CommonAPI::InitOutput::EQT_COMPUTE].get(), video::IGPUCommandBuffer::EL_PRIMARY, 1u, &cmdbuf);
+
+			cmdbuf->begin(video::IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
+			cmdbuf->fillBuffer(octreeScratchBuffers[i].get(), 0u, sizeof(uint32_t), 0u);
+			cmdbuf->end();
+
+			auto fence = logicalDevice->createFence(video::IGPUFence::ECF_UNSIGNALED);
+
+			video::IGPUQueue::SSubmitInfo submitInfo = {};
+			submitInfo.commandBufferCount = 1u;
+			submitInfo.commandBuffers = &cmdbuf.get();
+			computeQueue->submit(1u, &submitInfo, fence.get());
+
+			logicalDevice->blockForFences(1u, &fence.get());
+		}
+
+		// create importance histogram buffer
+		{
+#ifdef DEBUG_BUDGETING
+			const size_t neededSize = (2ull * BUDGETING_HISTOGRAM_BIN_COUNT + 1ull) * sizeof(uint32_t);
+#else
+			const size_t neededSize = 2ull * BUDGETING_HISTOGRAM_BIN_COUNT * sizeof(uint32_t);
+#endif
+
+			importanceHistogramBuffer = logicalDevice->createDeviceLocalGPUBufferOnDedMem(creationParams, neededSize);
+
+			core::smart_refctd_ptr<video::IGPUCommandBuffer> cmdbuf = nullptr;
+			logicalDevice->createCommandBuffers(commandPools[CommonAPI::InitOutput::EQT_COMPUTE].get(), video::IGPUCommandBuffer::EL_PRIMARY, 1u, &cmdbuf);
+
+			cmdbuf->begin(video::IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
+			// Todo(achal): Is there a benefit to clearing only first-half of the buffer because I can clear the next half in
+			// the shader itself? Ofcourse, best case scenario would be to not have to clear here at all
+			cmdbuf->fillBuffer(importanceHistogramBuffer.get(), 0u, neededSize, 0u);
+			cmdbuf->end();
+
+			auto fence = logicalDevice->createFence(video::IGPUFence::ECF_UNSIGNALED);
+
+			video::IGPUQueue::SSubmitInfo submitInfo = {};
+			submitInfo.commandBufferCount = 1u;
+			submitInfo.commandBuffers = &cmdbuf.get();
+			computeQueue->submit(1u, &submitInfo, fence.get());
+
+			logicalDevice->blockForFences(1u, &fence.get());
 		}
 
 		const char* octreeFirstCullShaderPath = "../octree_first_cull.comp";
-		core::smart_refctd_ptr<video::IGPUComputePipeline> octreeFirstCullPipeline = nullptr;
 		{
-			core::smart_refctd_ptr<video::IGPUSpecializedShader> specShader = createShader(octreeFirstCullShaderPath);
-			octreeFirstCullPipeline = logicalDevice->createGPUComputePipeline(nullptr, std::move(octreeFirstCullPipelineLayout), std::move(specShader));
+			asset::IAssetLoader::SAssetLoadParams params = {};
+			params.logger = logger.get();
+			auto loadedShader = core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(*assetManager->getAsset(octreeFirstCullShaderPath, params).getContents().begin());
+
+#ifdef DEBUG_BUDGETING
+			auto unspecOverridenShader = asset::IGLSLCompiler::createOverridenCopy(loadedShader->getUnspecialized(),
+				"#define DEBUG_BUDGETING\n"
+				"#define BUDGETING_DEBUG_OFFSET %d\n"
+				"#define DEBUG_RESULT_OFFSET %d\n"
+				"#define BIN_COUNT %d\n"
+				"#define MIN_HISTOGRAM_IMPORTANCE %f\n"
+				"#define MAX_HISTOGRAM_IMPORTANCE %f\n"
+				"#define MEMORY_BUDGET %d\n"
+				"#define BUDGETING_MARGIN %f\n",
+				BUDGETING_DEBUG_OFFSET, DEBUG_RESULT_OFFSET, BUDGETING_HISTOGRAM_BIN_COUNT, MIN_HISTOGRAM_IMPORTANCE, MAX_HISTOGRAM_IMPORTANCE, MEMORY_BUDGET, BUDGETING_MARGIN);
+#else
+			auto unspecOverridenShader = asset::IGLSLCompiler::createOverridenCopy(loadedShader->getUnspecialized(),
+				"#define BIN_COUNT %d\n"
+				"#define MIN_HISTOGRAM_IMPORTANCE %f\n"
+				"#define MAX_HISTOGRAM_IMPORTANCE %f\n"
+				"#define MEMORY_BUDGET %d\n"
+				"#define BUDGETING_MARGIN %f\n",
+				BUDGETING_HISTOGRAM_BIN_COUNT, MIN_HISTOGRAM_IMPORTANCE, MAX_HISTOGRAM_IMPORTANCE, MEMORY_BUDGET, BUDGETING_MARGIN);
+#endif
+
+			auto specShader_cpu = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecOverridenShader), asset::ISpecializedShader::SInfo(nullptr, nullptr, "main"));
+
+			auto gpuArray = cpu2gpu.getGPUObjectsFromAssets(&specShader_cpu.get(), &specShader_cpu.get() + 1, cpu2gpuParams);
+			if (!gpuArray || gpuArray->size() < 1u || !(*gpuArray)[0])
+				FATAL_LOG("Failed to convert CPU specialized shader to GPU specialized shaders!\n");
+
+			core::smart_refctd_ptr<video::IGPUSpecializedShader> specShader = gpuArray->begin()[0];
+			octreeFirstCullPipeline = logicalDevice->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(octreeFirstCullPipelineLayout), std::move(specShader));
 		}
 
-		core::smart_refctd_ptr<video::IGPUDescriptorSet> octreeFirstCullDS = logicalDevice->createGPUDescriptorSet(octreeFirstCullDescriptorPool.get(), std::move(octreeFirstCullDSLayout));
+		octreeFirstCullDS = logicalDevice->createGPUDescriptorSet(octreeFirstCullDescriptorPool.get(), core::smart_refctd_ptr(octreeFirstCullDSLayout));
 		{
 			video::IGPUDescriptorSet::SWriteDescriptorSet writes[OCTREE_FIRST_CULL_DESCRIPTOR_COUNT] = {};
-			writes[0].dstSet = octreeFirstCullDS.get();
+			video::IGPUDescriptorSet::SDescriptorInfo infos[OCTREE_FIRST_CULL_DESCRIPTOR_COUNT] = {};
+
+			for (uint32_t i = 0u; i < OCTREE_FIRST_CULL_DESCRIPTOR_COUNT; ++i)
+			{
+				writes[i].dstSet = octreeFirstCullDS.get();
+				writes[i].binding = i;
+				writes[i].arrayElement = 0u;
+				writes[i].count = 1u;
+				writes[i].descriptorType = asset::EDT_STORAGE_BUFFER;
+				writes[i].info = &infos[i];
+			}
+
+			const auto& propertyMemoryBlock = propertyPool->getPropertyMemoryBlock(0u);
+			infos[0].desc = propertyMemoryBlock.buffer;
+			infos[0].buffer.offset = propertyMemoryBlock.offset;
+			infos[0].buffer.size = propertyMemoryBlock.size;
+
+			infos[1].desc = activeLightIndicesGPUBuffer;
+			infos[1].buffer.offset = 0ull;
+			infos[1].buffer.size = activeLightIndicesGPUBuffer->getCachedCreationParams().declaredSize;
+
+			infos[2].desc = octreeScratchBuffers[0];
+			infos[2].buffer.offset = 0ull;
+			infos[2].buffer.size = octreeScratchBuffers[0]->getCachedCreationParams().declaredSize;
+
+			infos[3].desc = importanceHistogramBuffer;
+			infos[3].buffer.offset = 0ull;
+			infos[3].buffer.size = importanceHistogramBuffer->getCachedCreationParams().declaredSize;
+
+			logicalDevice->updateDescriptorSets(OCTREE_FIRST_CULL_DESCRIPTOR_COUNT, writes, 0u, nullptr);
+		}
+
+		// octreeIntermediateCullDSLayout would be the same as the octreeFirstCullDSLayout
+		// octreeIntermediatePipelineLayout would be the same as octreeFirstPipelineLayout
+		
+#if 0
+		const char* octreeIntermediateCullShaderPath = "../octree_intermediate_cull.comp";
+		core::smart_refctd_ptr<video::IGPUComputePipeline> octreeIntermediateCullPipeline = nullptr;
+		{
+			core::smart_refctd_ptr<video::IGPUSpecializedShader> specShader = createShader(octreeIntermediateCullShaderPath);
+			octreeIntermediateCullPipeline = logicalDevice->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(octreeFirstCullPipelineLayout), std::move(specShader));
+		}
+
+		core::smart_refctd_ptr<video::IGPUDescriptorSet> octreeIntermediateCullDS[2];
+		for (uint32_t i = 0u; i < 2u; ++i)
+		{
+			octreeIntermediateCullDS[i] = logicalDevice->createGPUDescriptorSet(octreeFirstCullDescriptorPool.get(), core::smart_refctd_ptr(octreeFirstCullDSLayout));
+
+			video::IGPUDescriptorSet::SWriteDescriptorSet writes[OCTREE_FIRST_CULL_DESCRIPTOR_COUNT] = {};
+			writes[0].dstSet = octreeIntermediateCullDS[i].get();
 			writes[0].binding = 0u;
 			writes[0].arrayElement = 0u;
 			writes[0].count = 1u;
 			writes[0].descriptorType = asset::EDT_STORAGE_BUFFER;
 
-			writes[1].dstSet = octreeFirstCullDS.get();
+			writes[1].dstSet = octreeIntermediateCullDS[i].get();
 			writes[1].binding = 1u;
 			writes[1].arrayElement = 0u;
 			writes[1].count = 1u;
 			writes[1].descriptorType = asset::EDT_STORAGE_BUFFER;
 
-			writes[2].dstSet = octreeFirstCullDS.get();
+			writes[2].dstSet = octreeIntermediateCullDS[i].get();
 			writes[2].binding = 2u;
 			writes[2].arrayElement = 0u;
 			writes[2].count = 1u;
@@ -742,57 +886,75 @@ public:
 			infos[0].buffer.offset = propertyMemoryBlock.offset;
 			infos[0].buffer.size = propertyMemoryBlock.size;
 
-			infos[1].desc = activeLightIndicesGPUBuffer;
+			infos[1].desc = octreeScratchBuffers[i];
 			infos[1].buffer.offset = 0ull;
-			infos[1].buffer.size = activeLightIndicesGPUBuffer->getCachedCreationParams().declaredSize;
+			infos[1].buffer.size = octreeScratchBuffers[i]->getCachedCreationParams().declaredSize;
 
-			infos[2].desc = octreeFirstCullScratchBuffer;
+			infos[2].desc = octreeScratchBuffers[1-i];
 			infos[2].buffer.offset = 0ull;
-			infos[2].buffer.size = octreeFirstCullScratchBuffer->getCachedCreationParams().declaredSize;
+			infos[2].buffer.size = octreeScratchBuffers[1 - i]->getCachedCreationParams().declaredSize;
 
 			writes[0].info = &infos[0];
 			writes[1].info = &infos[1];
 			writes[2].info = &infos[2];
+
 			logicalDevice->updateDescriptorSets(OCTREE_FIRST_CULL_DESCRIPTOR_COUNT, writes, 0u, nullptr);
 		}
+#endif
 
-		core::smart_refctd_ptr<video::IGPUCommandBuffer> octreeCmdBuf;
-		logicalDevice->createCommandBuffers(
-			computeCommandPool.get(),
-			video::IGPUCommandBuffer::EL_PRIMARY,
-			1u,
-			&octreeCmdBuf);
-
-		octreeCmdBuf->begin(video::IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
-		octreeCmdBuf->bindDescriptorSets(asset::EPBP_COMPUTE, octreeFirstCullPipeline->getLayout(), 0u, 1u, &octreeFirstCullDS.get());
-		// float pushConstants[4] = { cameraPosition.x, cameraPosition.y, cameraPosition.z, clipmapExtent };
-		struct octree_first_cull_push_constants_t
+		// lightGridTexture
 		{
-			float camPosClipmapExtent[4];
-			uint32_t lightCount;
-		} pushConstants;
-		pushConstants.camPosClipmapExtent[0] = cameraPosition.x;
-		pushConstants.camPosClipmapExtent[1] = cameraPosition.y;
-		pushConstants.camPosClipmapExtent[2] = cameraPosition.z;
-		pushConstants.camPosClipmapExtent[3] = clipmapExtent;
-		pushConstants.lightCount = LIGHT_COUNT;
-		octreeCmdBuf->pushConstants(octreeFirstCullPipeline->getLayout(), video::IGPUShader::ESS_COMPUTE, 0u, sizeof(octree_first_cull_push_constants_t), &pushConstants);
-		octreeCmdBuf->bindComputePipeline(octreeFirstCullPipeline.get());
-		octreeCmdBuf->dispatch((LIGHT_COUNT + (WG_DIM / 8) - 1) / (WG_DIM / 8), 1u, 1u);
-		octreeCmdBuf->end();
+#ifdef CLIPMAP
+			// Appending one level grid after another in the Z direction
+			const uint32_t width = VOXEL_COUNT_PER_DIM;
+			const uint32_t height = VOXEL_COUNT_PER_DIM;
+			const uint32_t depth = VOXEL_COUNT_PER_DIM * LOD_COUNT;
+#else OCTREE
+			const uint32_t width = 1 << (LOD_COUNT - 1);
+			const uint32_t height = 1 << (LOD_COUNT - 1);
+			const uint32_t depth = 1 << (LOD_COUNT - 1);
+#endif
+			video::IGPUImage::SCreationParams creationParams = {};
+			creationParams.type = video::IGPUImage::ET_3D;
+			creationParams.format = asset::EF_R32_UINT;
+			creationParams.extent = { width, height, depth };
+			creationParams.mipLevels = 1u;
+			creationParams.arrayLayers = 1u;
+			creationParams.samples = asset::IImage::ESCF_1_BIT;
+			creationParams.tiling = asset::IImage::ET_OPTIMAL;
+			creationParams.usage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_STORAGE_BIT | asset::IImage::EUF_TRANSFER_DST_BIT | asset::IImage::EUF_SAMPLED_BIT);
+			creationParams.sharingMode = asset::ESM_EXCLUSIVE;
+			creationParams.queueFamilyIndexCount = 0u;
+			creationParams.queueFamilyIndices = nullptr;
+			creationParams.initialLayout = asset::EIL_UNDEFINED;
+			lightGridTexture = logicalDevice->createDeviceLocalGPUImageOnDedMem(std::move(creationParams));
 
+			if (!lightGridTexture)
+				FATAL_LOG("Failed to create the light grid 3D texture!\n");
+		}
+		// lightGridTextureView
 		{
-			video::IGPUQueue::SSubmitInfo submitInfo = {};
-			submitInfo.commandBufferCount = 1u;
-			submitInfo.commandBuffers = &octreeCmdBuf.get();
+			video::IGPUImageView::SCreationParams creationParams = {};
+			creationParams.image = lightGridTexture;
+			creationParams.viewType = video::IGPUImageView::ET_3D;
+			creationParams.format = asset::EF_R32_UINT;
+			creationParams.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
+			creationParams.subresourceRange.levelCount = 1u;
+			creationParams.subresourceRange.layerCount = 1u;
 
-			auto fence = logicalDevice->createFence(video::IGPUFence::ECF_UNSIGNALED);
-			computeQueue->submit(1u, &submitInfo, fence.get());
-
-			logicalDevice->blockForFences(1u, &fence.get());
+			lightGridTextureView = logicalDevice->createGPUImageView(std::move(creationParams));
+			if (!lightGridTextureView)
+				FATAL_LOG("Failed to create image view for light grid 3D texture!\n");
+		}
+		// light index list gpu buffer and view
+		{
+			video::IGPUBuffer::SCreationParams creationParams = {};
+			creationParams.usage = static_cast<video::IGPUBuffer::E_USAGE_FLAGS>(video::IGPUBuffer::EUF_STORAGE_BUFFER_BIT | video::IGPUBuffer::EUF_UNIFORM_TEXEL_BUFFER_BIT);
+			lightIndexListGPUBuffer = logicalDevice->createDeviceLocalGPUBufferOnDedMem(creationParams, MEMORY_BUDGET);
+			lightIndexListSSBOView = logicalDevice->createGPUBufferView(lightIndexListGPUBuffer.get(), asset::EF_R32_UINT, 0ull, lightIndexListGPUBuffer->getCachedCreationParams().declaredSize);
 		}
 
-
+#ifdef CLIPMAP
 		constexpr uint32_t CULL_DESCRIPTOR_COUNT = 6u;
 		core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> cullDsLayout = nullptr;
 		{
@@ -884,44 +1046,6 @@ public:
 				bufferRange,
 				clearValues);
 		}
-		// lightGridTexture2
-		{
-			// Appending one level grid after another in the Z direction
-			const uint32_t width = VOXEL_COUNT_PER_DIM;
-			const uint32_t height = VOXEL_COUNT_PER_DIM;
-			const uint32_t depth = VOXEL_COUNT_PER_DIM * LOD_COUNT;
-			video::IGPUImage::SCreationParams creationParams = {};
-			creationParams.type = video::IGPUImage::ET_3D;
-			creationParams.format = asset::EF_R32_UINT;
-			creationParams.extent = { width, height, depth };
-			creationParams.mipLevels = 1u;
-			creationParams.arrayLayers = 1u;
-			creationParams.samples = asset::IImage::ESCF_1_BIT;
-			creationParams.tiling = asset::IImage::ET_OPTIMAL;
-			creationParams.usage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_STORAGE_BIT | asset::IImage::EUF_TRANSFER_DST_BIT | asset::IImage::EUF_SAMPLED_BIT);
-			creationParams.sharingMode = asset::ESM_EXCLUSIVE;
-			creationParams.queueFamilyIndexCount = 0u;
-			creationParams.queueFamilyIndices = nullptr;
-			creationParams.initialLayout = asset::EIL_UNDEFINED;
-			lightGridTexture2 = logicalDevice->createDeviceLocalGPUImageOnDedMem(std::move(creationParams));
-
-			if (!lightGridTexture2)
-				FATAL_LOG("Failed to create the light grid 3D texture!\n");
-		}
-		// lightGridTextureView2
-		{
-			video::IGPUImageView::SCreationParams creationParams = {};
-			creationParams.image = lightGridTexture2;
-			creationParams.viewType = video::IGPUImageView::ET_3D;
-			creationParams.format = asset::EF_R32_UINT;
-			creationParams.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
-			creationParams.subresourceRange.levelCount = 1u;
-			creationParams.subresourceRange.layerCount = 1u;
-
-			lightGridTextureView2 = logicalDevice->createGPUImageView(std::move(creationParams));
-			if (!lightGridTextureView2)
-				FATAL_LOG("Failed to create image view for light grid 3D texture!\n");
-		}
 		// scratchBuffer
 		{
 			const size_t neededSize = LIGHT_COUNT * sizeof(uint32_t);
@@ -1003,7 +1127,7 @@ public:
 			infos[3].buffer.offset = 0ull;
 			infos[3].buffer.size = intersectionRecordCountGPUBuffer->getCachedCreationParams().declaredSize;
 
-			infos[4].desc = lightGridTextureView2;
+			infos[4].desc = lightGridTextureView;
 			infos[4].image.imageLayout = asset::EIL_GENERAL;
 			infos[4].image.sampler = nullptr;
 
@@ -1087,7 +1211,7 @@ public:
 
 				infos[0].image.imageLayout = asset::EIL_GENERAL;
 				infos[0].image.sampler = nullptr;
-				infos[0].desc = lightGridTextureView2;
+				infos[0].desc = lightGridTextureView;
 
 				infos[1].buffer.offset = 0ull;
 				infos[1].buffer.size = scanScratchGPUBuffer->getCachedCreationParams().declaredSize;
@@ -1139,14 +1263,6 @@ public:
 			scatterPipeline = logicalDevice->createGPUComputePipeline(nullptr, std::move(scatterPipelineLayout), std::move(scatterShader));
 			scatterDS = logicalDevice->createGPUDescriptorSet(scatterDescriptorPool.get(), std::move(scatterDSLayout));
 
-			// light index list gpu buffer (result of this pass)
-			{
-				constexpr uint32_t MAX_INTERSECTION_COUNT = VOXEL_COUNT_PER_LEVEL * LOD_COUNT * LIGHT_COUNT;
-				const size_t neededSize = MAX_INTERSECTION_COUNT * sizeof(uint32_t);
-				video::IGPUBuffer::SCreationParams creationParams = {};
-				creationParams.usage = static_cast<video::IGPUBuffer::E_USAGE_FLAGS>(video::IGPUBuffer::EUF_STORAGE_BUFFER_BIT | video::IGPUBuffer::EUF_UNIFORM_TEXEL_BUFFER_BIT);
-				lightIndexListGPUBuffer = logicalDevice->createDeviceLocalGPUBufferOnDedMem(creationParams, neededSize);
-			}
 			{
 				video::IGPUDescriptorSet::SWriteDescriptorSet writes[SCATTER_DESCRIPTOR_COUNT] = {};
 				writes[0].dstSet = scatterDS.get();
@@ -1172,7 +1288,7 @@ public:
 				infos[0].buffer.offset = 0ull;
 				infos[0].buffer.size = intersectionRecordsGPUBuffer->getCachedCreationParams().declaredSize;
 
-				infos[1].desc = lightGridTextureView2;
+				infos[1].desc = lightGridTextureView;
 				infos[1].image.imageLayout = asset::EIL_GENERAL;
 				infos[1].image.sampler = nullptr;
 
@@ -1187,51 +1303,7 @@ public:
 			}
 		}
 
-		// create the light grid 3D texture
-		{
-			// Appending one level grid after another in the Z direction
-			const uint32_t width = VOXEL_COUNT_PER_DIM;
-			const uint32_t height = VOXEL_COUNT_PER_DIM;
-			const uint32_t depth = VOXEL_COUNT_PER_DIM * LOD_COUNT;
-			video::IGPUImage::SCreationParams creationParams = {};
-			creationParams.type = video::IGPUImage::ET_3D;
-			creationParams.format = asset::EF_R32_UINT;
-			creationParams.extent = { width, height, depth };
-			creationParams.mipLevels = 1u;
-			creationParams.arrayLayers = 1u;
-			creationParams.samples = asset::IImage::ESCF_1_BIT;
-			creationParams.tiling = asset::IImage::ET_OPTIMAL;
-			creationParams.usage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_SAMPLED_BIT | asset::IImage::EUF_TRANSFER_DST_BIT);
-			creationParams.sharingMode = asset::ESM_EXCLUSIVE;
-			creationParams.queueFamilyIndexCount = 0u;
-			creationParams.queueFamilyIndices = nullptr;
-			creationParams.initialLayout = asset::EIL_UNDEFINED;
-
-			lightGridTexture = logicalDevice->createDeviceLocalGPUImageOnDedMem(std::move(creationParams));
-
-			if (!lightGridTexture)
-				FATAL_LOG("Failed to create the light grid 3d texture!\n");
-		}
-		
-		// lightGridTextureView
-		{
-			video::IGPUImageView::SCreationParams creationParams = {};
-			creationParams.image = lightGridTexture;
-			creationParams.viewType = video::IGPUImageView::ET_3D;
-			creationParams.format = asset::EF_R32_UINT;
-			creationParams.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
-			creationParams.subresourceRange.levelCount = 1u;
-			creationParams.subresourceRange.layerCount = 1u;
-
-			lightGridTextureView = logicalDevice->createGPUImageView(std::move(creationParams));
-			if (!lightGridTextureView)
-				FATAL_LOG("Failed to create image view for light grid 3D texture!\n");
-		}
-
-		// lightIndexList storage texel buffer
-		{
-			lightIndexListSSBOView = logicalDevice->createGPUBufferView(lightIndexListGPUBuffer.get(), asset::EF_R32_UINT, 0ull, lightIndexListGPUBuffer->getCachedCreationParams().declaredSize);
-		}
+#endif
 		
 		// Todo(achal): This should probably need the active light indices as well
 		constexpr uint32_t LIGHTING_DESCRIPTOR_COUNT = 3u;
@@ -1323,13 +1395,12 @@ public:
 				info[0].buffer.size = propertyMemoryBlock.size;
 
 				info[1].image.imageLayout = asset::EIL_GENERAL;// Todo(achal): asset::EIL_SHADER_READ_ONLY_OPTIMAL;
-				// Todo(achal): You don't need a sampler here most likely
-				info[1].image.sampler = dsLayout_gpu->getBindings()[1].samplers[0];
-				info[1].desc = lightGridTextureView2;
+				info[1].image.sampler = nullptr;
+				info[1].desc = lightGridTextureView;
 
-				info[2].desc = lightIndexListSSBOView;// lightIndexListUboView;
+				info[2].desc = lightIndexListSSBOView;
 				info[2].buffer.offset = 0ull;
-				info[2].buffer.size = lightIndexListSSBOView->getByteSize();// lightIndexListUboView->getByteSize();
+				info[2].buffer.size = lightIndexListSSBOView->getByteSize();
 			}
 			write[0].info = info;
 			write[1].info = info + 1;
@@ -1399,7 +1470,6 @@ public:
 		assert(status);
 	}
 
-	// Todo(achal): Overflowing stack, move stuff to heap
 	void workLoopBody() override
 	{
 		++resourceIx;
@@ -1461,82 +1531,6 @@ public:
 							if (debugActiveLightIndex < 0)
 								debugActiveLightIndex += LIGHT_COUNT;
 						}
-
-#if 0
-						if ((ev.keyCode == ui::EKC_G) && (ev.action == ui::SKeyboardEvent::ECA_RELEASED))
-						{
-							const uint32_t lightCount = 840u;
-							logger->log("Generating %d lights..\n", system::ILogger::ELL_DEBUG, lightCount);
-
-							generateLights(lightCount);
-
-							video::CPropertyPoolHandler::UpStreamingRequest upstreamingRequest;
-							upstreamingRequest.setFromPool(propertyPool.get(), 0);
-							upstreamingRequest.fill = false; // Don't know what this is used for
-							upstreamingRequest.elementCount = lightCount;
-							upstreamingRequest.source.data = lights.data();
-							upstreamingRequest.source.device2device = false;
-							// Don't know what are these for
-							upstreamingRequest.srcAddresses = nullptr;
-							upstreamingRequest.dstAddresses = nullptr;
-
-							core::smart_refctd_ptr<video::IGPUCommandBuffer> propertyTransferCommandBuffer;
-							logicalDevice->createCommandBuffers(
-								commandPools[CommonAPI::InitOutput::EQT_COMPUTE].get(),
-								video::IGPUCommandBuffer::EL_PRIMARY,
-								1u,
-								&propertyTransferCommandBuffer);
-
-							auto propertyTransferFence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
-							auto computeQueue = queues[CommonAPI::InitOutput::EQT_COMPUTE];
-
-							// Todo(achal): This could probably be reused
-							asset::SBufferBinding<video::IGPUBuffer> scratchBufferBinding;
-							{
-								video::IGPUBuffer::SCreationParams scratchParams = {};
-								scratchParams.canUpdateSubRange = true;
-								scratchParams.usage = core::bitflag(video::IGPUBuffer::EUF_TRANSFER_DST_BIT) | video::IGPUBuffer::EUF_STORAGE_BUFFER_BIT;
-								scratchBufferBinding = { 0ull,logicalDevice->createDeviceLocalGPUBufferOnDedMem(scratchParams,utilities->getDefaultPropertyPoolHandler()->getMaxScratchSize()) };
-								scratchBufferBinding.buffer->setObjectDebugName("Scratch Buffer");
-							}
-
-							propertyTransferCommandBuffer->begin(video::IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
-							{
-								// Todo(achal): I should probably wait for FRAGMENT_STAGE (where
-								// this light SSBO is used) before overwriting with new data
-								uint32_t waitSemaphoreCount = 0u;
-								video::IGPUSemaphore* const* semaphoresToWaitBeforeOverwrite = nullptr;
-								const asset::E_PIPELINE_STAGE_FLAGS* stagesToWaitForPerSemaphore = nullptr;
-
-								auto* pRequest = &upstreamingRequest;
-
-								utilities->getDefaultPropertyPoolHandler()->transferProperties(
-									utilities->getDefaultUpStreamingBuffer(),
-									propertyTransferCommandBuffer.get(),
-									propertyTransferFence.get(),
-									computeQueue,
-									scratchBufferBinding,
-									pRequest, 1u,
-									waitSemaphoreCount, semaphoresToWaitBeforeOverwrite, stagesToWaitForPerSemaphore,
-									system::logger_opt_ptr(logger.get()),
-									std::chrono::high_resolution_clock::time_point::max());
-							}
-							propertyTransferCommandBuffer->end();
-
-							video::IGPUQueue::SSubmitInfo submit;
-							{
-								submit.commandBufferCount = 1u;
-								submit.commandBuffers = &propertyTransferCommandBuffer.get();
-								submit.signalSemaphoreCount = 0u;
-								submit.waitSemaphoreCount = 0u;
-
-								computeQueue->submit(1u, &submit, propertyTransferFence.get());
-
-								// Todo(achal): Can I do better (more fine-grained) sync here?
-								logicalDevice->blockForFences(1u, &propertyTransferFence.get());
-							}
-						}
-#endif
 					}
 
 				}, logger.get());
@@ -1587,7 +1581,7 @@ public:
 		toGeneral.newLayout = asset::EIL_GENERAL;
 		toGeneral.srcQueueFamilyIndex = ~0u;
 		toGeneral.dstQueueFamilyIndex = ~0u;
-		toGeneral.image = lightGridTexture2;
+		toGeneral.image = lightGridTexture;
 		toGeneral.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
 		toGeneral.subresourceRange.baseMipLevel = 0u;
 		toGeneral.subresourceRange.levelCount = 1u;
@@ -1605,11 +1599,77 @@ public:
 			0u, nullptr,
 			1u, &toGeneral);
 
+		commandBuffer->bindDescriptorSets(asset::EPBP_COMPUTE, octreeFirstCullPipeline->getLayout(), 0u, 1u, &octreeFirstCullDS.get());
+		const core::vectorSIMDf& cameraPosition = camera.getPosition();
+		octree_first_cull_push_constants_t pushConstants = {};
+		{
+			pushConstants.camPosClipmapExtent[0] = cameraPosition.x;
+			pushConstants.camPosClipmapExtent[1] = cameraPosition.y;
+			pushConstants.camPosClipmapExtent[2] = cameraPosition.z;
+			pushConstants.camPosClipmapExtent[3] = genesisVoxelExtent;
+			pushConstants.lightCount = LIGHT_COUNT;
+			pushConstants.currHistogramID = currHistogramID;
+
+			// Todo(achal): FOR MY CURRENT BROKEN VERSION THIS SHOULD BE DONE AT EACH OCTREE LEVEL!!!!
+			currHistogramID ^= 0x1u;
+		}
+		commandBuffer->pushConstants(octreeFirstCullPipeline->getLayout(), video::IGPUShader::ESS_COMPUTE, 0u, sizeof(octree_first_cull_push_constants_t), &pushConstants);
+		commandBuffer->bindComputePipeline(octreeFirstCullPipeline.get());
+		// commandBuffer->dispatch((LIGHT_COUNT + (WG_DIM / 8) - 1) / (WG_DIM / 8), 1u, 1u);
+		commandBuffer->dispatch((LIGHT_COUNT + (WG_DIM / 1) - 1) / (WG_DIM / 1), 1u, 1u);
+
+#ifdef DEBUG_BUDGETING		
+		const size_t downloadSize = importanceHistogramBuffer->getCachedCreationParams().declaredSize;
+		core::smart_refctd_ptr<video::IGPUBuffer> downloadGPUBuffer = nullptr;
+		{
+			// need a memory dependency here to ensure the compute dispatch has finished
+			video::IGPUCommandBuffer::SBufferMemoryBarrier downloadReadyBarrier = {};
+			downloadReadyBarrier.barrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
+			downloadReadyBarrier.barrier.dstAccessMask = asset::EAF_TRANSFER_READ_BIT;
+			downloadReadyBarrier.srcQueueFamilyIndex = ~0u;
+			downloadReadyBarrier.dstQueueFamilyIndex = ~0u;
+			downloadReadyBarrier.buffer = importanceHistogramBuffer;
+			downloadReadyBarrier.offset = 0ull;
+			downloadReadyBarrier.size = downloadSize;
+
+			commandBuffer->pipelineBarrier(asset::EPSF_COMPUTE_SHADER_BIT, asset::EPSF_TRANSFER_BIT, asset::EDF_BY_REGION_BIT, 0u, nullptr,
+				1u, &downloadReadyBarrier, 0u, nullptr);
+
+			video::IGPUBuffer::SCreationParams creationParams = {};
+			creationParams.usage = video::IGPUBuffer::EUF_TRANSFER_DST_BIT;
+
+			downloadGPUBuffer = logicalDevice->createGPUBuffer(creationParams, downloadSize);
+			
+			video::IDriverMemoryBacked::SDriverMemoryRequirements memReqs = {};
+			memReqs.vulkanReqs.alignment = downloadGPUBuffer->getMemoryReqs().vulkanReqs.alignment;
+			memReqs.vulkanReqs.size = downloadGPUBuffer->getMemoryReqs().vulkanReqs.size;
+			memReqs.vulkanReqs.memoryTypeBits = downloadGPUBuffer->getMemoryReqs().vulkanReqs.memoryTypeBits;
+
+			memReqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL;
+			memReqs.mappingCapability = video::IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ;
+			memReqs.prefersDedicatedAllocation = downloadGPUBuffer->getMemoryReqs().prefersDedicatedAllocation;
+			memReqs.requiresDedicatedAllocation = downloadGPUBuffer->getMemoryReqs().requiresDedicatedAllocation;
+			auto downloadGPUBufferMemory = logicalDevice->allocateGPUMemory(memReqs);
+
+			video::ILogicalDevice::SBindBufferMemoryInfo bindBufferInfo = {};
+			bindBufferInfo.buffer = downloadGPUBuffer.get();
+			bindBufferInfo.memory = downloadGPUBufferMemory.get();
+			bindBufferInfo.offset = 0ull;
+			logicalDevice->bindBufferMemory(1u, &bindBufferInfo);
+
+			asset::SBufferCopy copyRegion = {};
+			copyRegion.srcOffset = 0ull;
+			copyRegion.dstOffset = 0ull;
+			copyRegion.size = downloadSize;
+			commandBuffer->copyBuffer(importanceHistogramBuffer.get(), downloadGPUBuffer.get(), 1u, &copyRegion);
+		};
+#endif
+
+#ifdef CLIPMAP
 		// Todo(achal): I would need a different set of command buffers allocated from a pool which utilizes
 		// the compute queue, then I would also need to do queue ownership transfers, most
 		// likely with a pipelineBarrier
 		commandBuffer->bindComputePipeline(cullPipeline.get());
-		const core::vectorSIMDf& cameraPosition = camera.getPosition();
 		float pushConstants[4] = { cameraPosition.x, cameraPosition.y, cameraPosition.z, clipmapExtent };
 		commandBuffer->pushConstants(cullPipeline->getLayout(), asset::IShader::ESS_COMPUTE, 0u, 4 * sizeof(float), pushConstants);
 		commandBuffer->bindDescriptorSets(asset::EPBP_COMPUTE, cullPipeline->getLayout(), 0u, 1u, &cullDs.get());
@@ -1621,7 +1681,7 @@ public:
 			range.levelCount = 1u;
 			range.baseArrayLayer = 0u;
 			range.layerCount = 1u;
-			commandBuffer->clearColorImage(lightGridTexture2.get(), asset::EIL_GENERAL, &lightGridClearValue, 1u, &range);
+			commandBuffer->clearColorImage(lightGridTexture.get(), asset::EIL_GENERAL, &lightGridClearValue, 1u, &range);
 		}
 
 		// memory dependency to ensure the light grid texture is cleared via clearColorImage
@@ -1632,7 +1692,7 @@ public:
 		lightGridUpdated.newLayout = asset::EIL_GENERAL;
 		lightGridUpdated.srcQueueFamilyIndex = ~0u;
 		lightGridUpdated.dstQueueFamilyIndex = ~0u;
-		lightGridUpdated.image = lightGridTexture2;
+		lightGridUpdated.image = lightGridTexture;
 		lightGridUpdated.subresourceRange.aspectMask = video::IGPUImage::EAF_COLOR_BIT;
 		lightGridUpdated.subresourceRange.baseArrayLayer = 0u;
 		lightGridUpdated.subresourceRange.layerCount = 1u;
@@ -1730,6 +1790,7 @@ public:
 		// Todo(achal): Do I need to externally synchronize the end of compute and start
 		// of a renderpass???
 		// YES
+#endif
 		
 		// renderpass
 		{
@@ -1789,6 +1850,63 @@ public:
 			queues[CommonAPI::InitOutput::EQT_GRAPHICS],
 			renderFinished[resourceIx].get(),
 			acquiredNextFBO);
+
+#ifdef DEBUG_BUDGETING
+		logicalDevice->blockForFences(1u, &fence.get());
+
+		video::IDriverMemoryAllocation::MappedMemoryRange mappedRange = {};
+		mappedRange.memory = downloadGPUBuffer->getBoundMemory();
+		mappedRange.offset = 0ull;
+		mappedRange.length = downloadSize;
+		void* mappedPtr = logicalDevice->mapMemory(mappedRange);
+
+		uint32_t* data = reinterpret_cast<uint32_t*>(mappedPtr);
+
+		core::vector<uint32_t> cumHistogram(BUDGETING_HISTOGRAM_BIN_COUNT, 0u);
+		for (uint32_t i = 0u; i < BUDGETING_HISTOGRAM_BIN_COUNT; ++i)
+			cumHistogram[i] = (i == 0) ? 0 : cumHistogram[i - 1] + data[i - 1];
+
+		// check the cumulative histogram
+		for (uint32_t i = 0u; i < BUDGETING_HISTOGRAM_BIN_COUNT; ++i)
+		{
+			const uint32_t cpuData = cumHistogram[i];
+			const uint32_t gpuData = data[BUDGETING_DEBUG_OFFSET + i];
+			if (cpuData != gpuData)
+			{
+				printf("Difference at %d\n\tGPU: %d\n\tCPU: %d\n", i, gpuData, cpuData);
+				__debugbreak();
+			}
+		}
+		printf("Cumulative Histogram: PASS!\n");
+
+		const float margin = 0.9f;
+
+		const uint32_t budgetIntersectionRecordCount = MEMORY_BUDGET / 4u;
+		const uint32_t marginIntersectionRecordCount = margin * budgetIntersectionRecordCount;
+
+		float MIN_HISTOGRAM_IMPORTANCE_mutable = MIN_HISTOGRAM_IMPORTANCE;
+		float MAX_HISTOGRAM_IMPORTANCE_mutable = MAX_HISTOGRAM_IMPORTANCE;
+
+		const int32_t minVal = core::floatBitsToInt(MIN_HISTOGRAM_IMPORTANCE_mutable) + 1;
+		const int32_t maxVal = core::floatBitsToInt(MAX_HISTOGRAM_IMPORTANCE_mutable) - 1;
+
+		const int32_t range = maxVal - minVal;
+
+		const uint32_t binsToDiscard = (LIGHT_COUNT < marginIntersectionRecordCount) ? 0u : (LIGHT_COUNT - marginIntersectionRecordCount);
+		printf("Discarding bins: %d\n", binsToDiscard);
+		{
+			const uint32_t valueToSearch = binsToDiscard;
+
+			const uint32_t foundIndex = std::lower_bound(cumHistogram.begin(), cumHistogram.end(), valueToSearch) - cumHistogram.begin();
+
+			uint32_t binMinBitPattern = uint32_t(foundIndex * (float(range) / float(BUDGETING_HISTOGRAM_BIN_COUNT)) + minVal);
+			const float cpuData = core::uintBitsToFloat(binMinBitPattern);
+			const float gpuData = core::uintBitsToFloat(data[DEBUG_RESULT_OFFSET]);
+		
+			printf("Lower Bound: PASS!\n\tGPU: %f\n\tCPU: %f\n", gpuData, cpuData);
+		}
+		__debugbreak();
+#endif
 	}
 
 	bool keepRunning() override
@@ -1977,6 +2095,26 @@ private:
 		uint32_t x_snorm16 = (uint32_t)((uint16_t)core::round(core::clamp(x, -1.f, 1.f) * 32767.f));
 		uint32_t y_snorm16 = (uint32_t)((uint16_t)core::round(core::clamp(y, -1.f, 1.f) * 32767.f));
 		return ((y_snorm16 << 16) | x_snorm16);
+	};
+
+	inline float getLightImportanceMagnitude(const nbl_glsl_ext_ClusteredLighting_SpotLight& light, const core::vectorSIMDf& cameraPosition)
+	{
+		core::vectorSIMDf intensity;
+		{
+			uint64_t packedIntensity = light.intensity.y;
+			packedIntensity = (packedIntensity << 32) | light.intensity.x;
+			core::rgb32f result = core::rgb19e7_to_rgb32f(packedIntensity);
+			intensity.r = result.x;
+			intensity.g = result.y;
+			intensity.b = result.z;
+		}
+
+		const core::vectorSIMDf lightToCamera = cameraPosition - core::vectorSIMDf(light.position.x, light.position.y, light.position.z);
+		const float lenSq = core::dot(lightToCamera, lightToCamera).x;
+		const float radiusSq = LIGHT_RADIUS * LIGHT_RADIUS;
+		const float attenuation = 0.5f * radiusSq * (1.f - core::inversesqrt(1.f + radiusSq / lenSq));
+		const core::vectorSIMDf importance = intensity * attenuation;
+		return core::sqrt(core::dot(importance, importance).x);
 	};
 
 	inline void generateLights(const uint32_t lightCount)
@@ -2413,34 +2551,44 @@ private:
 
 	const asset::COBJMetadata::CRenderpassIndependentPipeline* pipelineMetadata = nullptr;
 
-	float clipmapExtent;
+	float genesisVoxelExtent;
 
+	core::smart_refctd_ptr<video::IGPUBuffer> activeLightIndicesGPUBuffer = nullptr; // should be an input to the system
+
+	core::smart_refctd_ptr<video::IGPUComputePipeline> octreeFirstCullPipeline = nullptr;
+	core::smart_refctd_ptr<video::IGPUDescriptorSet> octreeFirstCullDS = nullptr;
+	core::smart_refctd_ptr<video::IGPUBuffer> octreeScratchBuffers[2];
+	core::smart_refctd_ptr<video::IGPUBuffer> importanceHistogramBuffer = nullptr;
+
+	uint32_t currHistogramID = 0u;
+
+#ifdef CLIPMAP
 	core::smart_refctd_ptr<video::IGPUComputePipeline> cullPipeline = nullptr;
 	core::smart_refctd_ptr<video::IGPUDescriptorSet> cullDs = nullptr;
-	core::smart_refctd_ptr<video::IGPUBuffer> activeLightIndicesGPUBuffer = nullptr; // should be an input to the system
 	core::smart_refctd_ptr<video::IGPUBuffer> intersectionRecordsGPUBuffer = nullptr;
 	core::smart_refctd_ptr<video::IGPUBuffer> intersectionRecordCountGPUBuffer = nullptr;
 	core::smart_refctd_ptr<video::IGPUBuffer> cullScratchGPUBuffer = nullptr;
 	core::smart_refctd_ptr<video::IGPUComputePipeline> scatterPipeline = nullptr;
 	core::smart_refctd_ptr<video::IGPUDescriptorSet> scatterDS = nullptr;
+#endif
 
-	core::smart_refctd_ptr<video::IGPUImage> lightGridTexture2 = nullptr;
-	core::smart_refctd_ptr<video::IGPUImageView> lightGridTextureView2 = nullptr;
+	core::smart_refctd_ptr<video::IGPUImage> lightGridTexture = nullptr;
+	core::smart_refctd_ptr<video::IGPUImageView> lightGridTextureView = nullptr;
 	core::smart_refctd_ptr<video::IGPUBuffer> lightIndexListGPUBuffer = nullptr;
 	core::smart_refctd_ptr<video::IGPUBufferView> lightIndexListSSBOView = nullptr;
 
+// Todo(achal): This will be eventually common for both clipmap and octree
+#ifdef CLIPMAP
 	core::smart_refctd_ptr<video::IGPUDescriptorSet> scanDS = nullptr;
 	video::CScanner::DefaultPushConstants scanPushConstants;
 	video::CScanner::DispatchInfo scanDispatchInfo;
 	core::smart_refctd_ptr<video::IGPUBuffer> scanScratchGPUBuffer = nullptr;
 	core::smart_refctd_ptr<video::IGPUComputePipeline> scanPipeline = nullptr;
+#endif
 
 	core::vector<nbl_glsl_ext_ClusteredLighting_SpotLight> lights;
-	core::smart_refctd_ptr<video::IGPUImage> lightGridTexture = nullptr;
-	core::smart_refctd_ptr<video::IGPUImageView> lightGridTextureView = nullptr;
 
 	// I need descriptor lifetime tracking!
-	core::smart_refctd_ptr<video::IGPUBuffer> globalLightListSSBO = nullptr;
 	using PropertyPoolType = video::CPropertyPool<core::allocator, nbl_glsl_ext_ClusteredLighting_SpotLight>;
 	core::smart_refctd_ptr<PropertyPoolType> propertyPool = nullptr;
 

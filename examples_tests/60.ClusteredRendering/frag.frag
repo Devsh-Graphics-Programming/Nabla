@@ -204,11 +204,17 @@ vec3 nbl_computeLighting(out nbl_glsl_IsotropicViewSurfaceInteraction out_intera
     uint lightOffset, lightCount;
     getLightIndexListOffsetAndCount(lightGridCoords, lightOffset, lightCount);
 
+
     vec3 lightAccum = vec3(0.f);
-    // for (uint lightID = 0u; lightID < LIGHT_COUNT; ++lightID)
+#ifdef CLIPMAP
     for (uint i = 0u; i < lightCount; ++i)
+#else
+    for (uint lightID = 0u; lightID < LIGHT_COUNT; ++lightID)
+#endif
     {
+#ifdef CLIPMAP
         const uint lightID = texelFetch(lightIndexList, int(lightOffset + i)).x;
+#endif
         const nbl_glsl_ext_ClusteredLighting_SpotLight light = ssbo.lights[lightID];
 
         lightAccum += computeLightContribution(WorldPos, light, interaction, dUV);

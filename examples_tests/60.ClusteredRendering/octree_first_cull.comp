@@ -1,9 +1,18 @@
-#version 450 core 
+#version 450 core
+
+layout(push_constant) uniform Block
+{
+	vec4 camPosClipmapExtent;
+	uint lightCount;
+	uint currHistogramID;
+} pc;
 
 #include <../cull_common.glsl>
 
-#define INVOCATIONS_PER_LIGHT 8
-#define LIGHTS_PER_WORKGROUP (NBL_WORKGROUP_SIZE/INVOCATIONS_PER_LIGHT)
+#include <nbl/builtin/glsl/workgroup/arithmetic.glsl>
+
+shared uint prevBlockSumShared;
+shared uint histogramShared[BIN_COUNT];
 
 // lightPool
 layout (set = 0, binding = 0, std430) restrict buffer readonly Lights
@@ -23,11 +32,150 @@ layout (set = 0, binding = 2, std430) restrict buffer writeonly OutScratch
   uvec2 data[];
 } outScratch;
 
-const uint lastSharedUint = NBL_WORKGROUP_SIZE*2;
-shared uint scratchShared[NBL_WORKGROUP_SIZE*2+2];
+// Todo(achal): Should I put `writeonly` back?
+layout (set = 0, binding = 3, std430) restrict coherent buffer ImportanceHistogram
+{
+	uint data[];
+} importanceHistogram;
+
+// Todo(achal): Bad names, don't know what they're for..
+const uint lastSharedUint = _NBL_GLSL_WORKGROUP_SIZE_*2;
+shared uint scratchShared[_NBL_GLSL_WORKGROUP_SIZE_*2+2];
+
+float getLightImportanceMagnitude(in nbl_glsl_ext_ClusteredLighting_SpotLight light)
+{
+	const vec3 intensity = nbl_glsl_decodeRGB19E7(light.intensity);
+
+	const vec3 lightToCamera = pc.camPosClipmapExtent.xyz - light.position;
+	const float lenSq = dot(lightToCamera, lightToCamera);
+	const float radiusSq = LIGHT_RADIUS*LIGHT_RADIUS;
+	const float attenuation = 0.5f*radiusSq*(1.f-inversesqrt(1.f+radiusSq/lenSq));
+	const vec3 importance = intensity*attenuation;
+	return sqrt(dot(importance, importance));
+}
+
+uint getHistogramBinIndex(in float importanceMagnitude)
+{
+	const int minVal = floatBitsToInt(MIN_HISTOGRAM_IMPORTANCE) + 1;
+	const int maxVal = floatBitsToInt(MAX_HISTOGRAM_IMPORTANCE) - 1;
+	const int range = maxVal - minVal;
+
+	return uint(BIN_COUNT * (float(clamp(floatBitsToInt(importanceMagnitude) - minVal, 0, range)) / float(range)));
+}
 
 void main()
 {
+	const uint currHistogramOffset = pc.currHistogramID*BIN_COUNT;
+
+	// build the histogram
+	if (gl_GlobalInvocationID.x < pc.lightCount)
+	{
+		const uint globalLightIndex = activeLightIndices.data[gl_GlobalInvocationID.x];
+		const nbl_glsl_ext_ClusteredLighting_SpotLight light = lights.data[globalLightIndex];
+		const float importanceMagnitude = getLightImportanceMagnitude(light);
+		const uint binIndex = getHistogramBinIndex(importanceMagnitude);
+		atomicAdd(importanceHistogram.data[currHistogramOffset + binIndex], 1u);
+	}
+	barrier();
+	memoryBarrier();
+
+	prevBlockSumShared = 0u;
+	barrier();
+
+	const uint stepCount = BIN_COUNT/_NBL_GLSL_WORKGROUP_SIZE_;
+	for (uint step = 0; step < stepCount; ++step)
+	{
+		uint index = gl_LocalInvocationIndex + step*_NBL_GLSL_WORKGROUP_SIZE_;
+		const uint scanData = importanceHistogram.data[currHistogramOffset + index];
+		const uint incScanResult = nbl_glsl_workgroupInclusiveAdd(scanData);
+
+		histogramShared[index] = prevBlockSumShared + (incScanResult - scanData);
+
+		if (gl_LocalInvocationIndex == (_NBL_GLSL_WORKGROUP_SIZE_ - 1u))
+			prevBlockSumShared += incScanResult;
+		barrier();
+		memoryBarrierShared();
+	}
+
+#ifdef DEBUG_BUDGETING
+	if (gl_WorkGroupID.x == 0u)
+	{
+		for (uint step = 0u; step < stepCount; ++step)
+		{
+			uint index = gl_LocalInvocationIndex + step*_NBL_GLSL_WORKGROUP_SIZE_;
+			importanceHistogram.data[BUDGETING_DEBUG_OFFSET + index] = histogramShared[index];
+		}
+	}
+#else
+	// clear the global memory for histogram of the next level
+	const uint totalInvocationCount = _NBL_GLSL_WORKGROUP_SIZE_*gl_NumWorkGroups.x;
+
+	const uint nextHistogramOffset = (1u - pc.currHistogramID)*BIN_COUNT;
+	
+	if (totalInvocationCount <= BIN_COUNT)
+	{
+		// need to reuse invocations
+		const uint stepCount = uint(ceil(BIN_COUNT/totalInvocationCount));
+		for (uint step = 0u; step < stepCount; ++step)
+		{
+			uint index = gl_GlobalInvocationID.x + step*totalInvocationCount;
+			if (index < BIN_COUNT)
+				importanceHistogram.data[nextHistogramOffset + index] = 0u;
+		}
+	}
+	else
+	{
+		if (gl_GlobalInvocationID.x < BIN_COUNT)
+			importanceHistogram.data[nextHistogramOffset + gl_GlobalInvocationID.x] = 0u;
+	}
+#endif
+
+	uint budgetIntersectionRecordCount = MEMORY_BUDGET/4u;
+	const uint marginIntersectionRecordCount = uint(BUDGETING_MARGIN * budgetIntersectionRecordCount);
+
+	// Note(achal): Can't reuse the code in the algorithms header because:
+	//		1. Not very reusable as is
+	//		2. No way to supply the cumulative histogram stored in shared memory
+	// so, repurposing the code instead.
+
+	// Todo(achal): Here I'm assuming:
+	//		1. All lights in the scene are active
+
+	const uint binsToDiscard = (pc.lightCount < marginIntersectionRecordCount) ? 0u : (pc.lightCount - marginIntersectionRecordCount);
+	float threshold;
+	{
+		uint begin = 0u;
+		uint end = BIN_COUNT;
+		const uint value = binsToDiscard;
+
+		const int minVal = floatBitsToInt(MIN_HISTOGRAM_IMPORTANCE) + 1;
+		const int maxVal = floatBitsToInt(MAX_HISTOGRAM_IMPORTANCE) - 1;
+		const int range = maxVal - minVal;
+
+		uint len = end-begin;
+		if (NBL_GLSL_IS_NOT_POT(len))
+		{
+			const uint newLen = 0x1u<<findMSB(len);
+			const uint diff = len-newLen;
+
+			begin = NBL_GLSL_LESS(NBL_GLSL_EVAL(histogramShared)[newLen],value) ? diff:0u;
+			len = newLen;
+		}
+		while (len!=0u)
+		{
+			begin += NBL_GLSL_LESS(NBL_GLSL_EVAL(histogramShared)[begin+(len>>=1u)],value) ? len:0u;
+			begin += NBL_GLSL_LESS(NBL_GLSL_EVAL(histogramShared)[begin+(len>>=1u)],value) ? len:0u;
+		}
+		const uint thresholdBinIndex = begin+(NBL_GLSL_LESS(NBL_GLSL_EVAL(histogramShared)[begin],value) ? 1u:0u);
+		const uint binMinBitPattern = uint(thresholdBinIndex * (float(range) / float(BIN_COUNT)) + minVal);
+		threshold = uintBitsToFloat(binMinBitPattern); // this needs to be set gradually, not at once, to avoid temporal flickering
+	}
+
+#ifdef DEBUG_BUDGETING
+	importanceHistogram.data[DEBUG_RESULT_OFFSET] = floatBitsToUint(threshold);
+#endif
+
+#if 0
 	const uint persistentWGStep = gl_NumWorkGroups.x*LIGHTS_PER_WORKGROUP;
 
 	// workgroup uniform loop (important for the barrier call)
@@ -54,16 +202,20 @@ void main()
 			const nbl_glsl_ext_ClusteredLighting_SpotLight light = lights.data[globalLightIndex];
 			const cone_t cone = getLightVolume(light);
 			
-			const float voxelSideLength = CLIPMAP_EXTENT/8;
+			const float voxelSideLength = CLIPMAP_EXTENT/2;
 			const vec3 levelMinVertex = vec3(-CLIPMAP_EXTENT/2.f); // this will be same for all levels of the octree
-			nbl_glsl_shapes_AABB_t cluster = getCluster(localClusterID, levelMinVertex, voxelSideLength);
-			// if (!coneIntersectAABB(cone, cluster)) -- shouldn't this be if the light passes culling?? It most likely should be
+			const nbl_glsl_shapes_AABB_t cluster = getCluster(localClusterID, levelMinVertex, voxelSideLength);
+
 			if (coneIntersectAABB(cone, cluster))
 			{
 				const uint localOffset = atomicAdd(scratchShared[lastSharedUint], 1u);
 
 				// repack outputs for coalesced write
-				intersection_record_t record; // Todo(achal): create with lightID and cluster
+				intersection_record_t record;
+				record.localClusterID = localClusterID;
+				record.level = 1u;
+				record.localLightIndex = 0xFFF; // for first cull, this can be garbage, for the last cull, this will be derived by doing imageAtomicAdd on the lightGrid
+				record.globalLightIndex = globalLightIndex;
 				const uvec2 packed = packIntersectionRecord(record);
 
 				scratchShared[localOffset] = packed.x;
@@ -87,4 +239,6 @@ void main()
 			outScratch.data[baseOffset+gl_LocalInvocationIndex] = uvec2(scratchShared[gl_LocalInvocationIndex],scratchShared[gl_LocalInvocationIndex+NBL_WORKGROUP_SIZE]);
 		}
 	}
+#endif
+
 }
