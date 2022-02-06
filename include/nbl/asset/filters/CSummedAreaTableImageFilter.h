@@ -171,6 +171,7 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 			const auto&& [copyInBaseLayer, copyOutBaseLayer, copyLayerCount] = std::make_tuple(state->inBaseLayer, state->outBaseLayer, state->layerCount);
 			state->layerCount = 1u;
 
+			// https://stackoverflow.com/questions/46114214/lambda-implicit-capture-fails-with-variable-declared-from-structured-binding
 			auto resetState = [&, copyInBaseLayer=copyInBaseLayer, copyOutBaseLayer=copyOutBaseLayer, copyLayerCount=copyLayerCount]()
 			{
 				state->inBaseLayer = copyInBaseLayer;
