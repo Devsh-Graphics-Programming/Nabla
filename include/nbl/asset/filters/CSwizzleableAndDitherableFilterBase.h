@@ -112,7 +112,7 @@ class CSwizzleableAndDitherableFilterBase
 				*encodeValue += static_cast<Tenc>(ditheredValue) * scale;
 			}
 
-			state->normalization.operator()<outFormat,Tenc>(encodeBuffer,position,blockX,blockY,channels);
+			state->normalization.template operator()<outFormat,Tenc>(encodeBuffer,position,blockX,blockY,channels);
 
 			if constexpr (Clamp)
 			{
@@ -143,7 +143,7 @@ class CSwizzleableAndDitherableFilterBase
 				*encodeValue += static_cast<Tenc>(ditheredValue)* scale;
 			}
 
-			state->normalization.operator()<Tenc>(outFormat,encodeBuffer,position,blockX,blockY,channels);
+			state->normalization.template operator()<Tenc>(outFormat,encodeBuffer,position,blockX,blockY,channels);
 
 			if constexpr (Clamp)
 			{
@@ -240,7 +240,7 @@ class CSwizzleableAndDitherableFilterBase<Swizzle,IdentityDither,Normalization,C
 		{
 			static_assert(sizeof(Tenc)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
 			
-			state->normalization.operator()<outFormat,Tenc>(encodeBuffer,position,blockX,blockY,channels);
+			state->normalization.template operator()<outFormat,Tenc>(encodeBuffer,position,blockX,blockY,channels);
 
 			if constexpr (Clamp)
 			{
@@ -264,7 +264,7 @@ class CSwizzleableAndDitherableFilterBase<Swizzle,IdentityDither,Normalization,C
 		{
 			static_assert(sizeof(Tenc)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
 
-			state->normalization.operator()<Tenc>(outFormat,encodeBuffer,position,blockX,blockY,channels);
+			state->normalization.template operator()<Tenc>(outFormat,encodeBuffer,position,blockX,blockY,channels);
 
 			if constexpr (Clamp)
 			{
@@ -382,7 +382,7 @@ class CSwizzleableAndDitherableFilterBase<PolymorphicSwizzle,Dither,Normalizatio
 				*encodeValue += static_cast<Tenc>(ditheredValue) * scale;
 			}
 			
-			state->normalization.operator()<outFormat,Tenc>(encodeBuffer,position,blockX,blockY,channels);
+			state->normalization.template operator()<outFormat,Tenc>(encodeBuffer,position,blockX,blockY,channels);
 
 			if constexpr (Clamp)
 			{
@@ -413,7 +413,7 @@ class CSwizzleableAndDitherableFilterBase<PolymorphicSwizzle,Dither,Normalizatio
 				*encodeValue += static_cast<Tenc>(ditheredValue)* scale;
 			}
 
-			state->normalization.operator()<Tenc>(outFormat,encodeBuffer,position,blockX,blockY,channels);
+			state->normalization.template operator()<Tenc>(outFormat,encodeBuffer,position,blockX,blockY,channels);
 
 			if constexpr (Clamp)
 			{

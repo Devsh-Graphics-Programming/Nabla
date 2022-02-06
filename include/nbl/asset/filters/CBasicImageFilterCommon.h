@@ -6,9 +6,9 @@
 #define __NBL_ASSET_C_BASIC_IMAGE_FILTER_COMMON_H_INCLUDED__
 
 #include "nbl/core/declarations.h"
+#include "nbl/core/execution.h"
 
 #include <algorithm>
-#include <execution>
 
 #include "nbl/asset/filters/IImageFilter.h"
 
@@ -58,6 +58,19 @@ class CBasicImageFilterCommon
 					return batchCoord;
 				}
 				inline pointer operator->() const {return &batchCoord;}
+
+				inline value_type operator[] (int index) 
+				{
+					BlockIterator<batch_dims> temp = BlockIterator<batch_dims>(this->extentBatches);
+					temp+=index;
+					return *temp;
+				}
+				
+				inline bool operator< (const BlockIterator<batch_dims>& _rhs) const 
+				{ 
+					return toLinearAddress() < _rhs.toLinearAddress();
+				}
+
 				/*
 				inline const BlockIterator<batch_dims>& operator--()
 				{
@@ -201,7 +214,7 @@ class CBasicImageFilterCommon
 
 			constexpr uint32_t batchSizeThreshold = 0x80u;
 			const core::vectorSIMDu32 spaceFillingEnd(0u,0u,0u,trueExtent.w);
-			if (std::is_same_v<ExecutionPolicy,std::execution::sequenced_policy> || trueExtent.x*trueExtent.y<batchSizeThreshold)
+			if (std::is_same_v<ExecutionPolicy,core::execution::sequenced_policy> || trueExtent.x*trueExtent.y<batchSizeThreshold)
 			{
 				constexpr uint32_t batch_dims = 1u;
 				BlockIterator<batch_dims> begin(trueExtent.pointer+4u-batch_dims);
@@ -226,7 +239,7 @@ class CBasicImageFilterCommon
 		template<typename F>
 		static inline void executePerBlock(const ICPUImage* image, const IImage::SBufferCopy& region, F& f)
 		{
-			executePerBlock(std::execution::seq,image,region,f);
+			executePerBlock(core::execution::seq,image,region,f);
 		}
 
 		struct default_region_functor_t
@@ -309,7 +322,7 @@ class CBasicImageFilterCommon
 											const IImage::SBufferCopy* _end,
 											G& g)
 		{
-			return executePerRegion<const std::execution::sequenced_policy&,F,G>(std::execution::seq,image,f,_begin,_end,g);
+			return executePerRegion<const core::execution::sequenced_policy&,F,G>(core::execution::seq,image,f,_begin,_end,g);
 		}
 		template<typename F>
 		static inline void executePerRegion(const ICPUImage* image, F& f,

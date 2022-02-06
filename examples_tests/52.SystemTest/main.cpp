@@ -306,8 +306,6 @@ int main(int argc, char** argv)
 		}
 	};
 	
-	auto arch = system->openFileArchive(CWD.generic_string() + "test.zip");
-	system->mount(std::move(arch), "arch");
 	auto bigarch = system->openFileArchive(CWD.generic_string() + "../../media/sponza.zip");
 	system->mount(std::move(bigarch), "sponza");
 

@@ -403,6 +403,17 @@ macro(nbl_target_link_zlib _trgt)
 	target_include_directories(${_trgt} PUBLIC $<TARGET_PROPERTY:zlibstatic,BINARY_DIR>/copy_source)
 endmacro()
 
+# PSTL
+macro(nbl_target_link_oneDPL _trgt)
+	add_dependencies(${_trgt} oneDPL)
+	target_include_directories(${_trgt} PUBLIC ${ONETBB_INSTALL_DIR}/include)
+	target_include_directories(${_trgt} PUBLIC ${ONEDPL_INSTALL_DIR}/include)
+	
+	target_link_libraries(${_trgt} INTERFACE
+		tbb tbbmalloc tbbmalloc_proxy
+	)
+endmacro()
+
 #Parallel hashmap
 macro(nbl_target_include_parallel_hashmap _trgt)
 	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/parallel-hashmap/parallel_hashmap)
@@ -540,6 +551,9 @@ nbl_target_link_spirv_tools(Nabla)
 nbl_target_link_volk(Nabla)
 nbl_target_link_EGL(Nabla)
 nbl_target_link_simdjson(Nabla)
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+	nbl_target_link_oneDPL(Nabla)
+endif()
 
 #target_link_libraries(Nabla INTERFACE ${OPENGL_gl_LIBRARY})
 if (UNIX)
@@ -694,3 +708,9 @@ nbl_install_lib(OSDependent)
 nbl_install_lib(zlibstatic)
 nbl_install_lib(simdjson)
 nbl_install_lib(volk)
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+	nbl_install_lib(tbb)
+	nbl_install_lib(tbbmalloc)
+	nbl_install_lib(tbbmalloc_proxy)
+endif()
+

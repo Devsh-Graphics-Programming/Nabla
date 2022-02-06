@@ -5,8 +5,7 @@
 #ifndef _NBL_VIDEO_I_DRAW_INDIRECT_ALLOCATOR_H_INCLUDED_
 #define _NBL_VIDEO_I_DRAW_INDIRECT_ALLOCATOR_H_INCLUDED_
 
-
-#include "nbl/core/alloc/GeneralPurposeAddressAllocator.h"
+#include "nbl/core/alloc/GeneralpurposeAddressAllocator.h"
 
 #include "nbl/video/utilities/CPropertyPool.h"
 #include "nbl/video/utilities/CPropertyPoolHandler.h"
