@@ -103,7 +103,7 @@ class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageF
 		}
 		static inline bool execute(state_type* state)
 		{
-			return execute(std::execution::seq,state);
+			return execute(core::execution::seq,state);
 		}
 
 	protected:
@@ -111,7 +111,7 @@ class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageF
 		{
 			const auto prevLevel = inMipLevel-1u;
 
-			pseudo_base_t::template state_type blit;
+			typename pseudo_base_t::state_type blit;
 			blit.inOffsetBaseLayer = blit.outOffsetBaseLayer = core::vectorSIMDu32(0, 0, 0, state->baseLayer);
 			blit.inExtentLayerCount = state->inOutImage->getMipSize(prevLevel);
 			blit.outExtentLayerCount = state->inOutImage->getMipSize(inMipLevel);

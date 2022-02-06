@@ -164,7 +164,7 @@ class CFlattenRegionsImageFilter : public CImageFilter<CFlattenRegionsImageFilte
 		}
 		static inline bool execute(state_type* state)
 		{
-			return execute(std::execution::seq,state);
+			return execute(core::execution::seq,state);
 		}
 };
 

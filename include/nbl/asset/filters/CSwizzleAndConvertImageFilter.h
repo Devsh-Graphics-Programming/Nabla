@@ -58,7 +58,7 @@ class CSwizzleAndConvertImageFilterBase : public CSwizzleableAndDitherableFilter
 			if constexpr (!std::is_void_v<Normalization>)
 			{			
 				assert(kInFormat==EF_UNKNOWN || rInFormat==EF_UNKNOWN);
-				state->normalization.initialize<decodeBufferType>();
+				state->normalization.template initialize<decodeBufferType>();
 				auto perOutputRegion = [policy,&blockDims,&state,rInFormat](const CMatchedSizeInOutImageFilterCommon::CommonExecuteData& commonExecuteData, CBasicImageFilterCommon::clip_region_functor_t& clip) -> bool
 				{
 					auto normalizePrepass = [&commonExecuteData,&blockDims,&state,rInFormat](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos)
@@ -153,8 +153,8 @@ class CSwizzleAndConvertImageFilter : public CImageFilter<CSwizzleAndConvertImag
 						decodeBufferType decodeBuffer[maxChannels] = {};
 						encodeBufferType encodeBuffer[maxChannels] = {};
 
-						base_t::onDecode<inFormat>(state, srcPix, decodeBuffer, encodeBuffer, blockX, blockY);
-						base_t::onEncode<outFormat>(state, dstPix, encodeBuffer, localOutPos, blockX, blockY, outChannelsAmount);
+						base_t::template onDecode<inFormat>(state, srcPix, decodeBuffer, encodeBuffer, blockX, blockY);
+						base_t::template onEncode<outFormat>(state, dstPix, encodeBuffer, localOutPos, blockX, blockY, outChannelsAmount);
 					}
 				};
 				CBasicImageFilterCommon::executePerRegion(policy, commonExecuteData.inImg, swizzle, commonExecuteData.inRegions.begin(), commonExecuteData.inRegions.end(), clip);
@@ -164,7 +164,7 @@ class CSwizzleAndConvertImageFilter : public CImageFilter<CSwizzleAndConvertImag
 		}
 		static inline bool execute(state_type* state)
 		{
-			return execute(std::execution::seq,state);
+			return execute(core::execution::seq,state);
 		}
 };
 
@@ -219,8 +219,8 @@ class CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle,Dither,Normali
 						double decodeBuffer[maxChannels] = {};
 						double encodeBuffer[maxChannels] = {};
 
-						base_t::onDecode(inFormat, state, srcPix, decodeBuffer, encodeBuffer, blockX, blockY);
-						base_t::onEncode(outFormat, state, dstPix, encodeBuffer, localOutPos, blockX, blockY, outChannelsAmount);
+						base_t::template onDecode(inFormat, state, srcPix, decodeBuffer, encodeBuffer, blockX, blockY);
+						base_t::template onEncode(outFormat, state, dstPix, encodeBuffer, localOutPos, blockX, blockY, outChannelsAmount);
 					}
 				};
 				CBasicImageFilterCommon::executePerRegion(policy, commonExecuteData.inImg, swizzle, commonExecuteData.inRegions.begin(), commonExecuteData.inRegions.end(), clip);
@@ -230,7 +230,7 @@ class CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle,Dither,Normali
 		}
 		static inline bool execute(state_type* state)
 		{
-			return execute(std::execution::seq,state);
+			return execute(core::execution::seq,state);
 		}
 };
 
@@ -294,8 +294,8 @@ class CSwizzleAndConvertImageFilter<EF_UNKNOWN,outFormat,Swizzle,Dither,Normaliz
 						double decodeBuffer[maxChannels] = {};
 						encodeBufferType encodeBuffer[maxChannels] = {};
 
-						base_t::onDecode(inFormat, state, srcPix, decodeBuffer, encodeBuffer, blockX, blockY);
-						base_t::onEncode<outFormat>(state, dstPix, encodeBuffer, localOutPos, blockX, blockY, outChannelsAmount);
+						base_t::template onDecode(inFormat, state, srcPix, decodeBuffer, encodeBuffer, blockX, blockY);
+						base_t::template onEncode<outFormat>(state, dstPix, encodeBuffer, localOutPos, blockX, blockY, outChannelsAmount);
 					}
 				};
 				CBasicImageFilterCommon::executePerRegion(policy, commonExecuteData.inImg, swizzle, commonExecuteData.inRegions.begin(), commonExecuteData.inRegions.end(), clip);
@@ -305,7 +305,7 @@ class CSwizzleAndConvertImageFilter<EF_UNKNOWN,outFormat,Swizzle,Dither,Normaliz
 		}
 		static inline bool execute(state_type* state)
 		{
-			return execute(std::execution::seq,state);
+			return execute(core::execution::seq,state);
 		}
 };
 
@@ -370,8 +370,8 @@ class CSwizzleAndConvertImageFilter<inFormat,EF_UNKNOWN,Swizzle,Dither,Normaliza
 							decodeBufferType decodeBuffer[maxChannels] = {};
 							double encodeBuffer[maxChannels] = {};
 
-							base_t::onDecode<inFormat>(state, srcPix, decodeBuffer, encodeBuffer, blockX, blockY);
-							base_t::onEncode(outFormat, state, dstPix, encodeBuffer, localOutPos, blockX, blockY, outChannelsAmount);
+							base_t::template onDecode<inFormat>(state, srcPix, decodeBuffer, encodeBuffer, blockX, blockY);
+							base_t::template onEncode(outFormat, state, dstPix, encodeBuffer, localOutPos, blockX, blockY, outChannelsAmount);
 						}
 				};
 				CBasicImageFilterCommon::executePerRegion(policy, commonExecuteData.inImg, swizzle, commonExecuteData.inRegions.begin(), commonExecuteData.inRegions.end(), clip);
@@ -381,7 +381,7 @@ class CSwizzleAndConvertImageFilter<inFormat,EF_UNKNOWN,Swizzle,Dither,Normaliza
 		}
 		static inline bool execute(state_type* state)
 		{
-			return execute(std::execution::seq,state);
+			return execute(core::execution::seq,state);
 		}
 };
 

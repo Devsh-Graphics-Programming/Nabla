@@ -147,7 +147,7 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 					COPY_FILTER::state_type state;
 					fillCommonState(state);
 
-					if (!COPY_FILTER::execute(std::execution::par_unseq,&state)) // execute is a static method
+					if (!COPY_FILTER::execute(core::execution::par_unseq,&state)) // execute is a static method
 						logger.log("Something went wrong while copying texel block data!", system::ILogger::ELL_ERROR);
 				}
 				else
@@ -162,7 +162,7 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 					fillCommonState(state);
 					state.swizzle = viewParams.components;
 
-						if (!CONVERSION_FILTER::execute(std::execution::par_unseq,&state)) // static method
+						if (!CONVERSION_FILTER::execute(core::execution::par_unseq,&state)) // static method
 							logger.log("Something went wrong while converting the image!", system::ILogger::ELL_ERROR);
 				}
 			}
@@ -231,7 +231,7 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 					state.inMipLevel = regionWithMipMap->imageSubresource.mipLevel;
 					state.outMipLevel = regionWithMipMap->imageSubresource.mipLevel;
 				
-					if (!convertFilter.execute(std::execution::par_unseq,&state))
+					if (!convertFilter.execute(core::execution::par_unseq,&state))
 						logger.log("Something went wrong while converting from R8 to R8G8B8 format!", system::ILogger::ELL_WARNING);
 				}
 			}
@@ -262,7 +262,7 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 		static inline void performImageFlip(uint8_t* entry, uint8_t* end, uint32_t height, uint32_t rowPitch)
 		{
 			for (uint32_t y = 0, yRising = 0; y < height; y += 2, ++yRising)
-				std::swap_ranges(std::execution::par_unseq, entry + (yRising * rowPitch), entry + ((yRising + 1) * rowPitch), end - ((yRising + 1) * rowPitch));
+				core::swap_ranges(core::execution::par_unseq, entry + (yRising * rowPitch), entry + ((yRising + 1) * rowPitch), end - ((yRising + 1) * rowPitch));
 		}
 
 	private:

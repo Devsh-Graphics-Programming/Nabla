@@ -31,6 +31,8 @@ if(NBL_UPDATE_GIT_SUBMODULE)
 	update_git_submodule(./portable-file-dialogs)
 	update_git_submodule(./simdjson)
 	update_git_submodule(./glTFSampleModels)
+	update_git_submodule(./pstl/oneTBB)
+	update_git_submodule(./pstl/oneDPL/oneDPL)
 endif()
 
 # simdjson
@@ -60,6 +62,10 @@ if(DEFINED ENV{VULKAN_SDK})
 	
     target_include_directories(volk PUBLIC "$ENV{VULKAN_SDK}/include")
     target_include_directories(volk_headers INTERFACE "$ENV{VULKAN_SDK}/include")
+endif()
+
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+	add_subdirectory(pstl pstl)
 endif()
 
 # SDL2

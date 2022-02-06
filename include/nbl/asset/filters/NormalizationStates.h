@@ -98,10 +98,10 @@ class CGlobalNormalizationState
 
 			if constexpr (isSignedFormat)
 				for (uint8_t channel = 0; channel < channels; ++channel)
-					encodeBuffer[channel] = (2.0 * encodeBuffer[channel] - oldMaxValue.f[channel] - oldMinValue.f[channel]) / (oldMaxValue.f[channel] - oldMinValue.f[channel]);
+					encodeBuffer[channel] = (2.0 * encodeBuffer[channel] - oldMaxValue[channel] - oldMinValue[channel]) / (oldMaxValue[channel] - oldMinValue[channel]);
 			else
 				for (uint8_t channel = 0; channel < channels; ++channel)
-					encodeBuffer[channel] = (encodeBuffer[channel] - oldMinValue.f[channel]) / (oldMaxValue.f[channel] - oldMinValue.f[channel]);
+					encodeBuffer[channel] = (encodeBuffer[channel] - oldMinValue[channel]) / (oldMaxValue[channel] - oldMinValue[channel]);
 		}
 };
 
