@@ -241,7 +241,7 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 					CMatchedSizeInOutImageFilterCommon::state_type::TexelRange range = { state->inOffset,state->extent };
 					CBasicImageFilterCommon::clip_region_functor_t clipFunctor(subresource, range, inFormat);
 
-					auto& inRegions = state->inImage->getRegions(state->inMipLevel);
+					const auto& inRegions = state->inImage->getRegions(state->inMipLevel);
 					CBasicImageFilterCommon::executePerRegion(policy, state->inImage, decode, inRegions.begin(), inRegions.end(), clipFunctor);
 
 					if constexpr (ExclusiveMode)
@@ -395,7 +395,7 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 						CMatchedSizeInOutImageFilterCommon::state_type::TexelRange range = { state->outOffset,state->extent };
 						CBasicImageFilterCommon::clip_region_functor_t clipFunctor(subresource, range, outFormat);
 
-						auto& outRegions = state->outImage->getRegions(state->outMipLevel);
+						const auto& outRegions = state->outImage->getRegions(state->outMipLevel);
 						CBasicImageFilterCommon::executePerRegion(policy,state->outImage, encode, outRegions.begin(), outRegions.end(), clipFunctor);
 					}
 				}
