@@ -7,11 +7,10 @@
 // file belongs to nblpack.h, see there for more info
 
 // Default alignment
-#if defined(_MSC_VER) || defined(__GNUC__) || defined (__clang__)
-#	pragma pack( pop, packing )
+#if defined(_MSC_VER) || defined(__GNUC__) || defined(__clang__)
+#pragma pack(pop, packing)
 #else
-#	error compiler not supported
+#error compiler not supported
 #endif
 
 #undef PACK_STRUCT
-

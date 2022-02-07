@@ -12,5 +12,4 @@
 //
 #include "nbl/video/def/IBackendObject.h"
 
-
 #endif

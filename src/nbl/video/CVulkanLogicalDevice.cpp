@@ -7,15 +7,14 @@
 
 namespace nbl::video
 {
-
 core::smart_refctd_ptr<IGPUEvent> CVulkanLogicalDevice::createEvent(IGPUEvent::E_CREATE_FLAGS flags)
 {
-    VkEventCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_EVENT_CREATE_INFO };
+    VkEventCreateInfo vk_createInfo = {VK_STRUCTURE_TYPE_EVENT_CREATE_INFO};
     vk_createInfo.pNext = nullptr;
     vk_createInfo.flags = static_cast<VkEventCreateFlags>(flags);
 
     VkEvent vk_event;
-    if (m_devf.vk.vkCreateEvent(m_vkdev, &vk_createInfo, nullptr, &vk_event) == VK_SUCCESS)
+    if(m_devf.vk.vkCreateEvent(m_vkdev, &vk_createInfo, nullptr, &vk_event) == VK_SUCCESS)
         return core::make_smart_refctd_ptr<CVulkanEvent>(
             core::smart_refctd_ptr<const CVulkanLogicalDevice>(this), flags, vk_event);
     else
@@ -24,29 +23,29 @@ core::smart_refctd_ptr<IGPUEvent> CVulkanLogicalDevice::createEvent(IGPUEvent::E
 
 IGPUEvent::E_STATUS CVulkanLogicalDevice::getEventStatus(const IGPUEvent* _event)
 {
-    if (!_event || _event->getAPIType() != EAT_VULKAN)
+    if(!_event || _event->getAPIType() != EAT_VULKAN)
         return IGPUEvent::E_STATUS::ES_FAILURE;
 
     VkEvent vk_event = static_cast<const CVulkanEvent*>(_event)->getInternalObject();
     VkResult retval = m_devf.vk.vkGetEventStatus(m_vkdev, vk_event);
-    switch (retval)
+    switch(retval)
     {
-    case VK_EVENT_SET:
-        return IGPUEvent::ES_SET;
-    case VK_EVENT_RESET:
-        return IGPUEvent::ES_RESET;
-    default:
-        return IGPUEvent::ES_FAILURE;
+        case VK_EVENT_SET:
+            return IGPUEvent::ES_SET;
+        case VK_EVENT_RESET:
+            return IGPUEvent::ES_RESET;
+        default:
+            return IGPUEvent::ES_FAILURE;
     }
 }
 
 IGPUEvent::E_STATUS CVulkanLogicalDevice::resetEvent(IGPUEvent* _event)
 {
-    if (!_event || _event->getAPIType() != EAT_VULKAN)
+    if(!_event || _event->getAPIType() != EAT_VULKAN)
         return IGPUEvent::E_STATUS::ES_FAILURE;
 
     VkEvent vk_event = static_cast<const CVulkanEvent*>(_event)->getInternalObject();
-    if (m_devf.vk.vkResetEvent(m_vkdev, vk_event) == VK_SUCCESS)
+    if(m_devf.vk.vkResetEvent(m_vkdev, vk_event) == VK_SUCCESS)
         return IGPUEvent::ES_RESET;
     else
         return IGPUEvent::ES_FAILURE;
@@ -54,11 +53,11 @@ IGPUEvent::E_STATUS CVulkanLogicalDevice::resetEvent(IGPUEvent* _event)
 
 IGPUEvent::E_STATUS CVulkanLogicalDevice::setEvent(IGPUEvent* _event)
 {
-    if (!_event || _event->getAPIType() != EAT_VULKAN)
+    if(!_event || _event->getAPIType() != EAT_VULKAN)
         return IGPUEvent::E_STATUS::ES_FAILURE;
 
     VkEvent vk_event = static_cast<const CVulkanEvent*>(_event)->getInternalObject();
-    if (m_devf.vk.vkSetEvent(m_vkdev, vk_event) == VK_SUCCESS)
+    if(m_devf.vk.vkSetEvent(m_vkdev, vk_event) == VK_SUCCESS)
         return IGPUEvent::ES_SET;
     else
         return IGPUEvent::ES_FAILURE;
@@ -82,7 +81,7 @@ core::smart_refctd_ptr<IDriverMemoryAllocation> CVulkanLogicalDevice::allocateDe
 core::smart_refctd_ptr<IDriverMemoryAllocation> CVulkanLogicalDevice::allocateSpilloverMemory(
     const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs)
 {
-    if (additionalReqs.memoryHeapLocation == IDriverMemoryAllocation::ESMT_DEVICE_LOCAL)
+    if(additionalReqs.memoryHeapLocation == IDriverMemoryAllocation::ESMT_DEVICE_LOCAL)
         return nullptr;
 
     IDriverMemoryBacked::SDriverMemoryRequirements memoryReqs = getSpilloverGPUMemoryReqs();
@@ -130,7 +129,7 @@ core::smart_refctd_ptr<IDriverMemoryAllocation> CVulkanLogicalDevice::allocateDo
 core::smart_refctd_ptr<IDriverMemoryAllocation> CVulkanLogicalDevice::allocateCPUSideGPUVisibleMemory(
     const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs)
 {
-    if (additionalReqs.memoryHeapLocation != IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL)
+    if(additionalReqs.memoryHeapLocation != IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL)
         return nullptr;
 
     IDriverMemoryBacked::SDriverMemoryRequirements memoryReqs = getCPUSideGPUVisibleGPUMemoryReqs();
@@ -151,17 +150,17 @@ core::smart_refctd_ptr<IDriverMemoryAllocation> CVulkanLogicalDevice::allocateGP
 {
     VkMemoryPropertyFlags desiredMemoryProperties = static_cast<VkMemoryPropertyFlags>(0u);
 
-    if (reqs.memoryHeapLocation == IDriverMemoryAllocation::ESMT_DEVICE_LOCAL)
+    if(reqs.memoryHeapLocation == IDriverMemoryAllocation::ESMT_DEVICE_LOCAL)
         desiredMemoryProperties |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 
-    if ((reqs.mappingCapability & IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ) ||
+    if((reqs.mappingCapability & IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ) ||
         (reqs.mappingCapability & IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_WRITE))
         desiredMemoryProperties |= VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
 
-    if (reqs.mappingCapability & IDriverMemoryAllocation::EMCF_COHERENT)
+    if(reqs.mappingCapability & IDriverMemoryAllocation::EMCF_COHERENT)
         desiredMemoryProperties |= VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
 
-    if (reqs.mappingCapability & IDriverMemoryAllocation::EMCF_CACHED)
+    if(reqs.mappingCapability & IDriverMemoryAllocation::EMCF_CACHED)
         desiredMemoryProperties |= VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
 
     const IPhysicalDevice::SMemoryProperties& memoryProperties = m_physicalDevice->getMemoryProperties();
@@ -169,36 +168,35 @@ core::smart_refctd_ptr<IDriverMemoryAllocation> CVulkanLogicalDevice::allocateGP
     uint32_t compatibleMemoryTypeCount = 0u;
     uint32_t compatibleMemoryTypeIndices[VK_MAX_MEMORY_TYPES];
 
-    for (uint32_t i = 0u; i < memoryProperties.memoryTypeCount; ++i)
+    for(uint32_t i = 0u; i < memoryProperties.memoryTypeCount; ++i)
     {
         const bool memoryTypeSupportedForResource = (reqs.vulkanReqs.memoryTypeBits & (1 << i));
 
-        const bool memoryHasDesirableProperties = (memoryProperties.memoryTypes[i].propertyFlags
-            & desiredMemoryProperties) == desiredMemoryProperties;
+        const bool memoryHasDesirableProperties = (memoryProperties.memoryTypes[i].propertyFlags & desiredMemoryProperties) == desiredMemoryProperties;
 
-        if (memoryTypeSupportedForResource && memoryHasDesirableProperties)
+        if(memoryTypeSupportedForResource && memoryHasDesirableProperties)
             compatibleMemoryTypeIndices[compatibleMemoryTypeCount++] = i;
     }
 
-    for (uint32_t i = 0u; i < compatibleMemoryTypeCount; ++i)
+    for(uint32_t i = 0u; i < compatibleMemoryTypeCount; ++i)
     {
         // Todo(achal): Make use of requiresDedicatedAllocation and prefersDedicatedAllocation
-        VkMemoryAllocateFlagsInfo vk_allocateFlags = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO, nullptr };
-        if (allocateFlags.hasValue(IDriverMemoryAllocation::EMAF_DEVICE_MASK_BIT))
+        VkMemoryAllocateFlagsInfo vk_allocateFlags = {VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO, nullptr};
+        if(allocateFlags.hasValue(IDriverMemoryAllocation::EMAF_DEVICE_MASK_BIT))
             vk_allocateFlags.flags |= VK_MEMORY_ALLOCATE_DEVICE_MASK_BIT;
         else if(allocateFlags.hasValue(IDriverMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT))
             vk_allocateFlags.flags |= VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
-        else if (allocateFlags.hasValue(IDriverMemoryAllocation::EMAF_DEVICE_ADDRESS_CAPTURE_REPLAY_BIT))
+        else if(allocateFlags.hasValue(IDriverMemoryAllocation::EMAF_DEVICE_ADDRESS_CAPTURE_REPLAY_BIT))
             vk_allocateFlags.flags |= VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_CAPTURE_REPLAY_BIT;
-        vk_allocateFlags.deviceMask = 0u; // unused
+        vk_allocateFlags.deviceMask = 0u;  // unused
 
-        VkMemoryAllocateInfo vk_allocateInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
-        vk_allocateInfo.pNext = &vk_allocateFlags; // No extensions for now
+        VkMemoryAllocateInfo vk_allocateInfo = {VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
+        vk_allocateInfo.pNext = &vk_allocateFlags;  // No extensions for now
         vk_allocateInfo.allocationSize = reqs.vulkanReqs.size;
         vk_allocateInfo.memoryTypeIndex = compatibleMemoryTypeIndices[i];
 
         VkDeviceMemory vk_deviceMemory;
-        if (m_devf.vk.vkAllocateMemory(m_vkdev, &vk_allocateInfo, nullptr, &vk_deviceMemory) == VK_SUCCESS)
+        if(m_devf.vk.vkAllocateMemory(m_vkdev, &vk_allocateInfo, nullptr, &vk_deviceMemory) == VK_SUCCESS)
         {
             // Todo(achal): Change dedicate to not always be false
             return core::make_smart_refctd_ptr<CVulkanMemoryAllocation>(this, reqs.vulkanReqs.size, false, vk_deviceMemory, allocateFlags);
@@ -213,7 +211,7 @@ bool CVulkanLogicalDevice::createCommandBuffers_impl(IGPUCommandPool* cmdPool, I
 {
     constexpr uint32_t MAX_COMMAND_BUFFER_COUNT = 1000u;
 
-    if (cmdPool->getAPIType() != EAT_VULKAN)
+    if(cmdPool->getAPIType() != EAT_VULKAN)
         return false;
 
     auto vulkanCommandPool = static_cast<CVulkanCommandPool*>(cmdPool)->getInternalObject();
@@ -221,15 +219,15 @@ bool CVulkanLogicalDevice::createCommandBuffers_impl(IGPUCommandPool* cmdPool, I
     assert(count <= MAX_COMMAND_BUFFER_COUNT);
     VkCommandBuffer vk_commandBuffers[MAX_COMMAND_BUFFER_COUNT];
 
-    VkCommandBufferAllocateInfo vk_allocateInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
-    vk_allocateInfo.pNext = nullptr; // this must be NULL
+    VkCommandBufferAllocateInfo vk_allocateInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
+    vk_allocateInfo.pNext = nullptr;  // this must be NULL
     vk_allocateInfo.commandPool = vulkanCommandPool;
     vk_allocateInfo.level = static_cast<VkCommandBufferLevel>(level);
     vk_allocateInfo.commandBufferCount = count;
 
-    if (m_devf.vk.vkAllocateCommandBuffers(m_vkdev, &vk_allocateInfo, vk_commandBuffers) == VK_SUCCESS)
+    if(m_devf.vk.vkAllocateCommandBuffers(m_vkdev, &vk_allocateInfo, vk_commandBuffers) == VK_SUCCESS)
     {
-        for (uint32_t i = 0u; i < count; ++i)
+        for(uint32_t i = 0u; i < count; ++i)
         {
             outCmdBufs[i] = core::make_smart_refctd_ptr<CVulkanCommandBuffer>(
                 core::smart_refctd_ptr<ILogicalDevice>(this), level, vk_commandBuffers[i],
@@ -246,12 +244,12 @@ bool CVulkanLogicalDevice::createCommandBuffers_impl(IGPUCommandPool* cmdPool, I
 
 core::smart_refctd_ptr<IGPUImage> CVulkanLogicalDevice::createGPUImage(asset::IImage::SCreationParams&& params)
 {
-    VkImageCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
-    vk_createInfo.pNext = nullptr; // there are a lot of extensions
+    VkImageCreateInfo vk_createInfo = {VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
+    vk_createInfo.pNext = nullptr;  // there are a lot of extensions
     vk_createInfo.flags = static_cast<VkImageCreateFlags>(params.flags);
     vk_createInfo.imageType = static_cast<VkImageType>(params.type);
     vk_createInfo.format = getVkFormatFromFormat(params.format);
-    vk_createInfo.extent = { params.extent.width, params.extent.height, params.extent.depth };
+    vk_createInfo.extent = {params.extent.width, params.extent.height, params.extent.depth};
     vk_createInfo.mipLevels = params.mipLevels;
     vk_createInfo.arrayLayers = params.arrayLayers;
     vk_createInfo.samples = static_cast<VkSampleCountFlagBits>(params.samples);
@@ -263,14 +261,14 @@ core::smart_refctd_ptr<IGPUImage> CVulkanLogicalDevice::createGPUImage(asset::II
     vk_createInfo.initialLayout = static_cast<VkImageLayout>(params.initialLayout);
 
     VkImage vk_image;
-    if (m_devf.vk.vkCreateImage(m_vkdev, &vk_createInfo, nullptr, &vk_image) == VK_SUCCESS)
+    if(m_devf.vk.vkCreateImage(m_vkdev, &vk_createInfo, nullptr, &vk_image) == VK_SUCCESS)
     {
-        VkImageMemoryRequirementsInfo2 vk_memReqsInfo = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_REQUIREMENTS_INFO_2 };
+        VkImageMemoryRequirementsInfo2 vk_memReqsInfo = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_REQUIREMENTS_INFO_2};
         vk_memReqsInfo.pNext = nullptr;
         vk_memReqsInfo.image = vk_image;
 
-        VkMemoryDedicatedRequirements vk_memDedReqs = { VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS };
-        VkMemoryRequirements2 vk_memReqs = { VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2 };
+        VkMemoryDedicatedRequirements vk_memDedReqs = {VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS};
+        VkMemoryRequirements2 vk_memReqs = {VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2};
         vk_memReqs.pNext = &vk_memDedReqs;
 
         m_devf.vk.vkGetImageMemoryRequirements2(m_vkdev, &vk_memReqsInfo, &vk_memReqs);
@@ -279,8 +277,8 @@ core::smart_refctd_ptr<IGPUImage> CVulkanLogicalDevice::createGPUImage(asset::II
         imageMemReqs.vulkanReqs.alignment = vk_memReqs.memoryRequirements.alignment;
         imageMemReqs.vulkanReqs.size = vk_memReqs.memoryRequirements.size;
         imageMemReqs.vulkanReqs.memoryTypeBits = vk_memReqs.memoryRequirements.memoryTypeBits;
-        imageMemReqs.memoryHeapLocation = 0u; // doesn't matter, would get overwritten during memory allocation for this resource anyway
-        imageMemReqs.mappingCapability = 0u; // doesn't matter, would get overwritten during memory allocation for this resource anyway
+        imageMemReqs.memoryHeapLocation = 0u;  // doesn't matter, would get overwritten during memory allocation for this resource anyway
+        imageMemReqs.mappingCapability = 0u;  // doesn't matter, would get overwritten during memory allocation for this resource anyway
         imageMemReqs.prefersDedicatedAllocation = vk_memDedReqs.prefersDedicatedAllocation;
         imageMemReqs.requiresDedicatedAllocation = vk_memDedReqs.requiresDedicatedAllocation;
 
@@ -299,7 +297,7 @@ core::smart_refctd_ptr<IGPUGraphicsPipeline> CVulkanLogicalDevice::createGPUGrap
     IGPUGraphicsPipeline::SCreationParams&& params)
 {
     core::smart_refctd_ptr<IGPUGraphicsPipeline> result;
-    if (createGPUGraphicsPipelines_impl(pipelineCache, { &params, &params + 1 }, &result))
+    if(createGPUGraphicsPipelines_impl(pipelineCache, {&params, &params + 1}, &result))
         return result;
     else
         return nullptr;
@@ -313,7 +311,7 @@ bool CVulkanLogicalDevice::createGPUGraphicsPipelines_impl(
     IGPUGraphicsPipeline::SCreationParams* creationParams = const_cast<IGPUGraphicsPipeline::SCreationParams*>(params.begin());
 
     VkPipelineCache vk_pipelineCache = VK_NULL_HANDLE;
-    if (pipelineCache && pipelineCache->getAPIType() == EAT_VULKAN)
+    if(pipelineCache && pipelineCache->getAPIType() == EAT_VULKAN)
         vk_pipelineCache = static_cast<const CVulkanPipelineCache*>(pipelineCache)->getInternalObject();
 
     // Shader stages
@@ -323,7 +321,7 @@ bool CVulkanLogicalDevice::createGPUGraphicsPipelines_impl(
     core::vector<VkSpecializationInfo> vk_specInfos(vk_shaderStages.size());
     constexpr uint32_t MAX_MAP_ENTRIES_PER_SHADER = 100u;
     uint32_t mapEntryCount_total = 0u;
-    core::vector<VkSpecializationMapEntry> vk_mapEntries(vk_specInfos.size()*MAX_MAP_ENTRIES_PER_SHADER);
+    core::vector<VkSpecializationMapEntry> vk_mapEntries(vk_specInfos.size() * MAX_MAP_ENTRIES_PER_SHADER);
 
     // Vertex input
     uint32_t vertexBindingDescriptionCount_total = 0u;
@@ -350,15 +348,15 @@ bool CVulkanLogicalDevice::createGPUGraphicsPipelines_impl(
     core::vector<VkPipelineColorBlendStateCreateInfo> vk_colorBlendStates(params.size());
 
     constexpr uint32_t DYNAMIC_STATE_COUNT = 2u;
-    VkDynamicState vk_dynamicStates[DYNAMIC_STATE_COUNT] = { VK_DYNAMIC_STATE_VIEWPORT , VK_DYNAMIC_STATE_SCISSOR };
-    VkPipelineDynamicStateCreateInfo vk_dynamicStateCreateInfo = { VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO };
+    VkDynamicState vk_dynamicStates[DYNAMIC_STATE_COUNT] = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+    VkPipelineDynamicStateCreateInfo vk_dynamicStateCreateInfo = {VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
     vk_dynamicStateCreateInfo.pNext = nullptr;
     vk_dynamicStateCreateInfo.flags = 0u;
     vk_dynamicStateCreateInfo.dynamicStateCount = DYNAMIC_STATE_COUNT;
     vk_dynamicStateCreateInfo.pDynamicStates = vk_dynamicStates;
 
     core::vector<VkGraphicsPipelineCreateInfo> vk_createInfos(params.size());
-    for (size_t i = 0ull; i < params.size(); ++i)
+    for(size_t i = 0ull; i < params.size(); ++i)
     {
         const auto& rpIndie = creationParams[i].renderpassIndependent;
 
@@ -367,10 +365,10 @@ bool CVulkanLogicalDevice::createGPUGraphicsPipelines_impl(
         vk_createInfos[i].flags = static_cast<VkPipelineCreateFlags>(creationParams[i].createFlags.value);
 
         uint32_t shaderStageCount = 0u;
-        for (uint32_t ss = 0u; ss < IGPURenderpassIndependentPipeline::SHADER_STAGE_COUNT; ++ss)
+        for(uint32_t ss = 0u; ss < IGPURenderpassIndependentPipeline::SHADER_STAGE_COUNT; ++ss)
         {
             const IGPUSpecializedShader* shader = rpIndie->getShaderAtIndex(ss);
-            if (!shader || shader->getAPIType() != EAT_VULKAN)
+            if(!shader || shader->getAPIType() != EAT_VULKAN)
                 continue;
 
             const auto* vulkanSpecShader = static_cast<const CVulkanSpecializedShader*>(shader);
@@ -386,9 +384,9 @@ bool CVulkanLogicalDevice::createGPUGraphicsPipelines_impl(
 
             const auto& shaderSpecInfo = vulkanSpecShader->getSpecInfo();
 
-            if (shaderSpecInfo.m_backingBuffer && shaderSpecInfo.m_entries)
+            if(shaderSpecInfo.m_backingBuffer && shaderSpecInfo.m_entries)
             {
-                for (uint32_t me = 0u; me < shaderSpecInfo.m_entries->size(); ++me)
+                for(uint32_t me = 0u; me < shaderSpecInfo.m_entries->size(); ++me)
                 {
                     const auto entry = shaderSpecInfo.m_entries->begin() + me;
 
@@ -428,9 +426,9 @@ bool CVulkanLogicalDevice::createGPUGraphicsPipelines_impl(
             uint32_t offset = vertexBindingDescriptionCount_total;
             uint32_t vertexBindingDescriptionCount = 0u;
 
-            for (uint32_t b = 0u; b < asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; ++b)
+            for(uint32_t b = 0u; b < asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; ++b)
             {
-                if (vertexInputParams.enabledBindingFlags & (1 << b))
+                if(vertexInputParams.enabledBindingFlags & (1 << b))
                 {
                     auto& bndDesc = vk_vertexBindingDescriptions[offset + vertexBindingDescriptionCount++];
 
@@ -447,9 +445,9 @@ bool CVulkanLogicalDevice::createGPUGraphicsPipelines_impl(
             offset = vertexAttribDescriptionCount_total;
             uint32_t vertexAttribDescriptionCount = 0u;
 
-            for (uint32_t l = 0u; l < asset::SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT; ++l)
+            for(uint32_t l = 0u; l < asset::SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT; ++l)
             {
-                if (vertexInputParams.enabledAttribFlags & (1 << l))
+                if(vertexInputParams.enabledAttribFlags & (1 << l))
                 {
                     auto& attribDesc = vk_vertexAttribDescriptions[offset + vertexAttribDescriptionCount++];
 
@@ -471,7 +469,7 @@ bool CVulkanLogicalDevice::createGPUGraphicsPipelines_impl(
 
             vk_inputAssemblyStates[i].sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
             vk_inputAssemblyStates[i].pNext = nullptr;
-            vk_inputAssemblyStates[i].flags = 0u; // reserved for future use by Vulkan
+            vk_inputAssemblyStates[i].flags = 0u;  // reserved for future use by Vulkan
             vk_inputAssemblyStates[i].topology = static_cast<VkPrimitiveTopology>(primAssParams.primitiveType);
             vk_inputAssemblyStates[i].primitiveRestartEnable = primAssParams.primitiveRestartEnable;
         }
@@ -488,9 +486,9 @@ bool CVulkanLogicalDevice::createGPUGraphicsPipelines_impl(
             vk_viewportStates[i].pNext = nullptr;
             vk_viewportStates[i].flags = 0u;
             vk_viewportStates[i].viewportCount = viewportCount;
-            vk_viewportStates[i].pViewports = nullptr; // ignored
-            vk_viewportStates[i].scissorCount = viewportCount; // must be identical to viewport count unless VK_DYNAMIC_STATE_VIEWPORT_WITH_COUNT_EXT or VK_DYNAMIC_STATE_SCISSOR_WITH_COUNT_EXT are used
-            vk_viewportStates[i].pScissors = nullptr; // ignored
+            vk_viewportStates[i].pViewports = nullptr;  // ignored
+            vk_viewportStates[i].scissorCount = viewportCount;  // must be identical to viewport count unless VK_DYNAMIC_STATE_VIEWPORT_WITH_COUNT_EXT or VK_DYNAMIC_STATE_SCISSOR_WITH_COUNT_EXT are used
+            vk_viewportStates[i].pScissors = nullptr;  // ignored
         }
         vk_createInfos[i].pViewportState = &vk_viewportStates[i];
 
@@ -521,7 +519,7 @@ bool CVulkanLogicalDevice::createGPUGraphicsPipelines_impl(
             vk_multisampleStates[i].sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
             vk_multisampleStates[i].pNext = nullptr;
             vk_multisampleStates[i].flags = 0u;
-            vk_multisampleStates[i].rasterizationSamples = static_cast<VkSampleCountFlagBits>(rasterizationParams.rasterizationSamplesHint);            
+            vk_multisampleStates[i].rasterizationSamples = static_cast<VkSampleCountFlagBits>(rasterizationParams.rasterizationSamplesHint);
             vk_multisampleStates[i].sampleShadingEnable = rasterizationParams.sampleShadingEnable;
             vk_multisampleStates[i].minSampleShading = rasterizationParams.minSampleShading;
             vk_multisampleStates[i].pSampleMask = rasterizationParams.sampleMask;
@@ -551,7 +549,7 @@ bool CVulkanLogicalDevice::createGPUGraphicsPipelines_impl(
             vk_stencilBackStates[i].compareMask = 0xFFFFFFFF;
             vk_stencilBackStates[i].writeMask = rasterParams.backStencilOps.writeMask;
             vk_stencilBackStates[i].reference = rasterParams.backStencilOps.reference;
-            
+
             vk_depthStencilStates[i].sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
             vk_depthStencilStates[i].pNext = nullptr;
             vk_depthStencilStates[i].flags = static_cast<VkPipelineDepthStencilStateCreateFlags>(0u);
@@ -570,14 +568,14 @@ bool CVulkanLogicalDevice::createGPUGraphicsPipelines_impl(
         // Color blend
         {
             const auto& blendParams = rpIndie->getBlendParams();
-            
+
             uint32_t offset = colorBlendAttachmentCount_total;
 
             assert(creationParams[i].subpassIx < creationParams[i].renderpass->getCreationParameters().subpassCount);
             auto subpassDescription = creationParams[i].renderpass->getCreationParameters().subpasses[creationParams[i].subpassIx];
             uint32_t colorBlendAttachmentCount = subpassDescription.colorAttachmentCount;
 
-            for (uint32_t as = 0u; as < colorBlendAttachmentCount; ++as)
+            for(uint32_t as = 0u; as < colorBlendAttachmentCount; ++as)
             {
                 const auto& inBlendParams = blendParams.blendParams[as];
                 auto& outBlendState = vk_colorBlendAttachmentStates[offset + as];
@@ -620,10 +618,10 @@ bool CVulkanLogicalDevice::createGPUGraphicsPipelines_impl(
     }
 
     core::vector<VkPipeline> vk_pipelines(params.size());
-    if (m_devf.vk.vkCreateGraphicsPipelines(m_vkdev, vk_pipelineCache,
-        static_cast<uint32_t>(params.size()), vk_createInfos.data(), nullptr, vk_pipelines.data()) == VK_SUCCESS)
+    if(m_devf.vk.vkCreateGraphicsPipelines(m_vkdev, vk_pipelineCache,
+           static_cast<uint32_t>(params.size()), vk_createInfos.data(), nullptr, vk_pipelines.data()) == VK_SUCCESS)
     {
-        for (size_t i = 0ull; i < params.size(); ++i)
+        for(size_t i = 0ull; i < params.size(); ++i)
         {
             output[i] = core::make_smart_refctd_ptr<CVulkanGraphicsPipeline>(
                 core::smart_refctd_ptr<CVulkanLogicalDevice>(this),
@@ -638,11 +636,11 @@ bool CVulkanLogicalDevice::createGPUGraphicsPipelines_impl(
     }
 }
 
-core::smart_refctd_ptr<IGPUAccelerationStructure> CVulkanLogicalDevice::createGPUAccelerationStructure_impl(IGPUAccelerationStructure::SCreationParams&& params) 
+core::smart_refctd_ptr<IGPUAccelerationStructure> CVulkanLogicalDevice::createGPUAccelerationStructure_impl(IGPUAccelerationStructure::SCreationParams&& params)
 {
     auto physicalDevice = static_cast<const CVulkanPhysicalDevice*>(getPhysicalDevice());
     auto features = physicalDevice->getFeatures();
-    
+
     if(!features.accelerationStructure)
     {
         assert(false && "device accelerationStructures is not enabled.");
@@ -675,16 +673,15 @@ bool CVulkanLogicalDevice::buildAccelerationStructures(
         return false;
     }
 
-
     bool ret = false;
     if(!pInfos.empty() && deferredOperation.get() != nullptr)
     {
-        VkDeferredOperationKHR vk_deferredOp = static_cast<CVulkanDeferredOperation *>(deferredOperation.get())->getInternalObject();
+        VkDeferredOperationKHR vk_deferredOp = static_cast<CVulkanDeferredOperation*>(deferredOperation.get())->getInternalObject();
         static constexpr size_t MaxGeometryPerBuildInfoCount = 64;
         static constexpr size_t MaxBuildInfoCount = 128;
         size_t infoCount = pInfos.size();
         assert(infoCount <= MaxBuildInfoCount);
-                
+
         // TODO: Use better container when ready for these stack allocated memories.
         VkAccelerationStructureBuildGeometryInfoKHR vk_buildGeomsInfos[MaxBuildInfoCount] = {};
 
@@ -700,9 +697,9 @@ bool CVulkanLogicalDevice::buildAccelerationStructures(
             assert(geomCount <= MaxGeometryPerBuildInfoCount);
 
             vk_buildGeomsInfos[i] = CVulkanAccelerationStructure::getVkASBuildGeomInfoFromBuildGeomInfo(m_vkdev, &m_devf, infos[i], &vk_geometries[geometryArrayOffset]);
-            geometryArrayOffset += geomCount; 
+            geometryArrayOffset += geomCount;
         }
-                
+
         static_assert(sizeof(IGPUAccelerationStructure::BuildRangeInfo) == sizeof(VkAccelerationStructureBuildRangeInfoKHR));
         auto buildRangeInfos = reinterpret_cast<const VkAccelerationStructureBuildRangeInfoKHR* const*>(ppBuildRangeInfos);
         VkResult vk_res = m_devf.vk.vkBuildAccelerationStructuresKHR(m_vkdev, vk_deferredOp, infoCount, vk_buildGeomsInfos, buildRangeInfos);
@@ -727,8 +724,8 @@ bool CVulkanLogicalDevice::copyAccelerationStructure(core::smart_refctd_ptr<IDef
     bool ret = false;
     if(deferredOperation.get() != nullptr)
     {
-        VkDeferredOperationKHR vk_deferredOp = static_cast<CVulkanDeferredOperation *>(deferredOperation.get())->getInternalObject();
-        if(copyInfo.dst == nullptr || copyInfo.src == nullptr) 
+        VkDeferredOperationKHR vk_deferredOp = static_cast<CVulkanDeferredOperation*>(deferredOperation.get())->getInternalObject();
+        if(copyInfo.dst == nullptr || copyInfo.src == nullptr)
         {
             assert(false && "invalid src or dst");
             return false;
@@ -743,7 +740,7 @@ bool CVulkanLogicalDevice::copyAccelerationStructure(core::smart_refctd_ptr<IDef
     }
     return ret;
 }
-    
+
 bool CVulkanLogicalDevice::copyAccelerationStructureToMemory(core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation, const IGPUAccelerationStructure::HostCopyToMemoryInfo& copyInfo)
 {
     auto physicalDevice = static_cast<const CVulkanPhysicalDevice*>(getPhysicalDevice());
@@ -757,9 +754,9 @@ bool CVulkanLogicalDevice::copyAccelerationStructureToMemory(core::smart_refctd_
     bool ret = false;
     if(deferredOperation.get() != nullptr)
     {
-        VkDeferredOperationKHR vk_deferredOp = static_cast<CVulkanDeferredOperation *>(deferredOperation.get())->getInternalObject();
+        VkDeferredOperationKHR vk_deferredOp = static_cast<CVulkanDeferredOperation*>(deferredOperation.get())->getInternalObject();
 
-        if(copyInfo.dst.isValid() == false || copyInfo.src == nullptr) 
+        if(copyInfo.dst.isValid() == false || copyInfo.src == nullptr)
         {
             assert(false && "invalid src or dst");
             return false;
@@ -788,8 +785,8 @@ bool CVulkanLogicalDevice::copyAccelerationStructureFromMemory(core::smart_refct
     bool ret = false;
     if(deferredOperation.get() != nullptr)
     {
-        VkDeferredOperationKHR vk_deferredOp = static_cast<CVulkanDeferredOperation *>(deferredOperation.get())->getInternalObject();
-        if(copyInfo.dst == nullptr || copyInfo.src.isValid() == false) 
+        VkDeferredOperationKHR vk_deferredOp = static_cast<CVulkanDeferredOperation*>(deferredOperation.get())->getInternalObject();
+        if(copyInfo.dst == nullptr || copyInfo.src.isValid() == false)
         {
             assert(false && "invalid src or dst");
             return false;
@@ -827,7 +824,7 @@ core::smart_refctd_ptr<IQueryPool> CVulkanLogicalDevice::createQueryPool(IQueryP
     return core::make_smart_refctd_ptr<CVulkanQueryPool>(core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(params), vk_queryPool);
 }
 
-bool CVulkanLogicalDevice::getQueryPoolResults(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, size_t dataSize, void * pData, uint64_t stride, IQueryPool::E_QUERY_RESULTS_FLAGS flags)
+bool CVulkanLogicalDevice::getQueryPoolResults(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, size_t dataSize, void* pData, uint64_t stride, IQueryPool::E_QUERY_RESULTS_FLAGS flags)
 {
     bool ret = false;
     if(queryPool != nullptr)

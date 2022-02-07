@@ -8,45 +8,45 @@
 
 namespace nbl::asset
 {
-
 class COpenEXRMetadata final : public IAssetMetadata
 {
+public:
+    class CImage : public IImageMetadata
+    {
     public:
-        class CImage : public IImageMetadata
+        using IImageMetadata::IImageMetadata;
+
+        inline CImage& operator=(CImage&& other)
         {
-            public:
-                using IImageMetadata::IImageMetadata;
-
-                inline CImage& operator=(CImage&& other)
-                {
-                    IImageMetadata::operator=(std::move(other));
-                    std::swap(m_name,other.m_name);
-                    return *this;
-                }
-
-                std::string m_name;
-        };
-
-        COpenEXRMetadata(uint32_t imageCount) : IAssetMetadata(), m_metaStorage(createContainer<CImage>(imageCount))
-        {
+            IImageMetadata::operator=(std::move(other));
+            std::swap(m_name, other.m_name);
+            return *this;
         }
 
-        _NBL_STATIC_INLINE_CONSTEXPR const char* LoaderName = "CImageLoaderOpenEXR";
-        const char* getLoaderName() const override { return LoaderName; }
+        std::string m_name;
+    };
 
-    private:
-        meta_container_t<CImage> m_metaStorage;
+    COpenEXRMetadata(uint32_t imageCount)
+        : IAssetMetadata(), m_metaStorage(createContainer<CImage>(imageCount))
+    {
+    }
 
-        friend class CImageLoaderOpenEXR;
-        template<typename... Args>
-        inline void placeMeta(uint32_t offset, const ICPUImage* image, std::string&& _name, Args&&... args)
-        {
-            auto& meta = m_metaStorage->operator[](offset);
-            meta = CImage(std::forward<Args>(args)...);
-            meta.m_name = std::move(_name);
+    _NBL_STATIC_INLINE_CONSTEXPR const char* LoaderName = "CImageLoaderOpenEXR";
+    const char* getLoaderName() const override { return LoaderName; }
 
-            IAssetMetadata::insertAssetSpecificMetadata(image,&meta);
-        }
+private:
+    meta_container_t<CImage> m_metaStorage;
+
+    friend class CImageLoaderOpenEXR;
+    template<typename... Args>
+    inline void placeMeta(uint32_t offset, const ICPUImage* image, std::string&& _name, Args&&... args)
+    {
+        auto& meta = m_metaStorage->operator[](offset);
+        meta = CImage(std::forward<Args>(args)...);
+        meta.m_name = std::move(_name);
+
+        IAssetMetadata::insertAssetSpecificMetadata(image, &meta);
+    }
 };
 
 }

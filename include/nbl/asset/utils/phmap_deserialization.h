@@ -10,36 +10,34 @@
 
 namespace nbl::asset
 {
-
 class CBufferPhmapInputArchive
 {
-	public:
-		CBufferPhmapInputArchive(const SBufferRange<const ICPUBuffer>& _buffer)
-		{
-			buffPtr = reinterpret_cast<const uint8_t*>(_buffer.buffer.get()->getPointer())+_buffer.offset;
-		}
+public:
+    CBufferPhmapInputArchive(const SBufferRange<const ICPUBuffer>& _buffer)
+    {
+        buffPtr = reinterpret_cast<const uint8_t*>(_buffer.buffer.get()->getPointer()) + _buffer.offset;
+    }
 
-		// TODO: protect against reading out of the buffer range
-		bool load(char* p, size_t sz)
-		{
-			memcpy(p, buffPtr, sz);
-			buffPtr += sz;
+    // TODO: protect against reading out of the buffer range
+    bool load(char* p, size_t sz)
+    {
+        memcpy(p, buffPtr, sz);
+        buffPtr += sz;
 
-			return true;
-		}
+        return true;
+    }
 
-		template<typename V>
-		typename std::enable_if<phmap::type_traits_internal::IsTriviallyCopyable<V>::value,bool>::type load(V* v)
-		{
-			memcpy(reinterpret_cast<uint8_t*>(v), buffPtr, sizeof(V));
-			buffPtr += sizeof(V);
+    template<typename V>
+    typename std::enable_if<phmap::type_traits_internal::IsTriviallyCopyable<V>::value, bool>::type load(V* v)
+    {
+        memcpy(reinterpret_cast<uint8_t*>(v), buffPtr, sizeof(V));
+        buffPtr += sizeof(V);
 
-			return true;
-		}
+        return true;
+    }
 
-	private:
-		const uint8_t* buffPtr;
-
+private:
+    const uint8_t* buffPtr;
 };
 
 }

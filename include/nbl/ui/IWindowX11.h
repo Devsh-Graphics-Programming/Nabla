@@ -9,7 +9,6 @@
 
 namespace nbl::ui
 {
-
 class IWindowX11 : public IWindow
 {
 protected:

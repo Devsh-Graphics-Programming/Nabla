@@ -4,7 +4,6 @@
 
 namespace nbl::video
 {
-
 CVulkanMemoryAllocation::~CVulkanMemoryAllocation()
 {
     const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(m_originDevice);

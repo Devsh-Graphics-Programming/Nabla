@@ -3,10 +3,10 @@
 
 #include "nbl/video/IGPURenderpass.h"
 
-namespace nbl {
+namespace nbl
+{
 namespace video
 {
-
 using COpenGLRenderpass = IGPURenderpass;
 
 }

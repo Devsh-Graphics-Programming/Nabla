@@ -5,7 +5,7 @@
 #ifndef _NBL_CORE_EXECUTION_H_INCLUDED_
 #define _NBL_CORE_EXECUTION_H_INCLUDED_
 
-#if !defined (__clang__)
+#if !defined(__clang__)
 #include <execution>
 #include <algorithm>
 #else
@@ -17,18 +17,17 @@
 #include "oneapi/dpl/pstl/glue_algorithm_ranges_defs.h"
 #endif
 
-#define ALIAS_TEMPLATE_FUNCTION(highLevelF, lowLevelF) \
-template<typename... Args> \
-inline auto highLevelF(Args&&... args) -> decltype(lowLevelF(std::forward<Args>(args)...)) \
-{ \
-    return lowLevelF(std::forward<Args>(args)...); \
-}
+#define ALIAS_TEMPLATE_FUNCTION(highLevelF, lowLevelF)                                       \
+    template<typename... Args>                                                               \
+    inline auto highLevelF(Args&&... args)->decltype(lowLevelF(std::forward<Args>(args)...)) \
+    {                                                                                        \
+        return lowLevelF(std::forward<Args>(args)...);                                       \
+    }
 
 namespace nbl::core
 {
-#if !defined (__clang__)
+#if !defined(__clang__)
 namespace execution = std::execution;
-
 
 ALIAS_TEMPLATE_FUNCTION(for_each_n, std::for_each_n)
 ALIAS_TEMPLATE_FUNCTION(for_each, std::for_each)
@@ -61,4 +60,3 @@ ALIAS_TEMPLATE_FUNCTION(nth_element, oneapi::dpl::nth_element)
 }
 
 #endif
-

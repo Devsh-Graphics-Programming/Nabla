@@ -14,7 +14,6 @@
 
 namespace nbl::asset::impl
 {
-
 /*
 	Common base class for Swizzleable or Ditherable ones
 	with custom compile time swizzle, dither, normalization and clamp.
@@ -30,64 +29,64 @@ namespace nbl::asset::impl
 template<typename Swizzle, typename Dither, typename Normalization, bool Clamp>
 class CSwizzleableAndDitherableFilterBase
 {
-	public:
-		class CState : public Swizzle
-		{
-			public:
-				CState() {}
-				virtual ~CState() {}
+public:
+    class CState : public Swizzle
+    {
+    public:
+        CState() {}
+        virtual ~CState() {}
 
-				Dither dither;
-				using DitherState = typename Dither::state_type;
-				DitherState* ditherState = nullptr;							//! Allocation, creation of the dither state and making the pointer valid is necessary!
+        Dither dither;
+        using DitherState = typename Dither::state_type;
+        DitherState* ditherState = nullptr;  //! Allocation, creation of the dither state and making the pointer valid is necessary!
 
-				conditional_normalization_state<Normalization> normalization;
-		};
-		using state_type = CState;
+        conditional_normalization_state<Normalization> normalization;
+    };
+    using state_type = CState;
 
-		static inline bool validate(state_type* state)
-		{
-			if (!state->normalization.validate())
-				return false;
+    static inline bool validate(state_type* state)
+    {
+        if(!state->normalization.validate())
+            return false;
 
-			if (!state->ditherState)
-				return false;
+        if(!state->ditherState)
+            return false;
 
-			return true;
-		}
+        return true;
+    }
 
-		/*
+    /*
 			Performs decode doing swizzle at first on a given pointer
 			and putting the result to the encodeBuffer.
 
 			The function supports compile-time decode.
 		*/
-		template<E_FORMAT inFormat, typename Tdec, typename Tenc>
-		static void onDecode(state_type* state, const void* srcPix[4], Tdec* decodeBuffer, Tenc* encodeBuffer, uint32_t blockX, uint32_t blockY)
-		{
-			static_assert(sizeof(Tdec)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
-			static_assert(sizeof(Tenc)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
-			asset::decodePixels<inFormat>(srcPix, decodeBuffer, blockX, blockY);
-			// TODO: shouldn't swizzles be performed in-place on decode buffers and their values?
-			static_cast<Swizzle&>(*state).template operator() < Tdec, Tenc > (decodeBuffer, encodeBuffer);
-		}
+    template<E_FORMAT inFormat, typename Tdec, typename Tenc>
+    static void onDecode(state_type* state, const void* srcPix[4], Tdec* decodeBuffer, Tenc* encodeBuffer, uint32_t blockX, uint32_t blockY)
+    {
+        static_assert(sizeof(Tdec) == 8u, "Encode/Decode types must be double, int64_t or uint64_t!");
+        static_assert(sizeof(Tenc) == 8u, "Encode/Decode types must be double, int64_t or uint64_t!");
+        asset::decodePixels<inFormat>(srcPix, decodeBuffer, blockX, blockY);
+        // TODO: shouldn't swizzles be performed in-place on decode buffers and their values?
+        static_cast<Swizzle&>(*state).template operator()<Tdec, Tenc>(decodeBuffer, encodeBuffer);
+    }
 
-		/*
+    /*
 			Runtime version of onDecode
 
 			@see onDecode
 		*/
-		template<typename Tdec, typename Tenc>
-		static void onDecode(E_FORMAT inFormat, state_type* state, const void* srcPix[4], Tdec* decodeBuffer, Tenc* encodeBuffer, uint32_t blockX, uint32_t blockY)
-		{
-			static_assert(sizeof(Tdec)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
-			static_assert(sizeof(Tenc)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
-			asset::decodePixelsRuntime(inFormat, srcPix, decodeBuffer, blockX, blockY);
-			// TODO: shouldn't swizzles be performed in-place on decode buffers and their values?
-			static_cast<Swizzle&>(*state).template operator()<Tdec,Tenc>(decodeBuffer,encodeBuffer);
-		}
+    template<typename Tdec, typename Tenc>
+    static void onDecode(E_FORMAT inFormat, state_type* state, const void* srcPix[4], Tdec* decodeBuffer, Tenc* encodeBuffer, uint32_t blockX, uint32_t blockY)
+    {
+        static_assert(sizeof(Tdec) == 8u, "Encode/Decode types must be double, int64_t or uint64_t!");
+        static_assert(sizeof(Tenc) == 8u, "Encode/Decode types must be double, int64_t or uint64_t!");
+        asset::decodePixelsRuntime(inFormat, srcPix, decodeBuffer, blockX, blockY);
+        // TODO: shouldn't swizzles be performed in-place on decode buffers and their values?
+        static_cast<Swizzle&>(*state).template operator()<Tdec, Tenc>(decodeBuffer, encodeBuffer);
+    }
 
-		/*
+    /*
 			Performs encode doing dithering at first on a given encode buffer in pointer.
 			The encode buffer is a buffer holding decoded (and swizzled optionally) values.
 
@@ -100,62 +99,62 @@ class CSwizzleableAndDitherableFilterBase
 
 			The function supports compile-time encode.
 		*/
-		template<E_FORMAT outFormat, typename Tenc>
-		static void onEncode(state_type* state, void* dstPix, Tenc* encodeBuffer, const core::vectorSIMDu32& position, uint32_t blockX, uint32_t blockY, uint8_t channels)
-		{
-			static_assert(sizeof(Tenc)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
-			for (uint8_t i = 0; i < channels; ++i)
-			{
-				const float ditheredValue = state->dither.pGet(state->ditherState, position + core::vectorSIMDu32(blockX, blockY), i);
-				auto* encodeValue = encodeBuffer + i;
-				const Tenc scale = asset::getFormatPrecision<Tenc>(outFormat, i, *encodeValue);
-				*encodeValue += static_cast<Tenc>(ditheredValue) * scale;
-			}
+    template<E_FORMAT outFormat, typename Tenc>
+    static void onEncode(state_type* state, void* dstPix, Tenc* encodeBuffer, const core::vectorSIMDu32& position, uint32_t blockX, uint32_t blockY, uint8_t channels)
+    {
+        static_assert(sizeof(Tenc) == 8u, "Encode/Decode types must be double, int64_t or uint64_t!");
+        for(uint8_t i = 0; i < channels; ++i)
+        {
+            const float ditheredValue = state->dither.pGet(state->ditherState, position + core::vectorSIMDu32(blockX, blockY), i);
+            auto* encodeValue = encodeBuffer + i;
+            const Tenc scale = asset::getFormatPrecision<Tenc>(outFormat, i, *encodeValue);
+            *encodeValue += static_cast<Tenc>(ditheredValue) * scale;
+        }
 
-			state->normalization.template operator()<outFormat,Tenc>(encodeBuffer,position,blockX,blockY,channels);
+        state->normalization.template operator()<outFormat, Tenc>(encodeBuffer, position, blockX, blockY, channels);
 
-			if constexpr (Clamp)
-			{
-				for (uint8_t i = 0; i < channels; ++i)
-				{
-					auto&& [min, max, encodeValue] = std::make_tuple<Tenc&&, Tenc&&, Tenc*>(asset::getFormatMinValue<Tenc>(outFormat, i), asset::getFormatMaxValue<Tenc>(outFormat, i), encodeBuffer + i);
-					*encodeValue = core::clamp(*encodeValue, min, max);
-				}
-			}
+        if constexpr(Clamp)
+        {
+            for(uint8_t i = 0; i < channels; ++i)
+            {
+                auto&& [min, max, encodeValue] = std::make_tuple<Tenc&&, Tenc&&, Tenc*>(asset::getFormatMinValue<Tenc>(outFormat, i), asset::getFormatMaxValue<Tenc>(outFormat, i), encodeBuffer + i);
+                *encodeValue = core::clamp(*encodeValue, min, max);
+            }
+        }
 
-			asset::encodePixels<outFormat>(dstPix, encodeBuffer);
-		}
+        asset::encodePixels<outFormat>(dstPix, encodeBuffer);
+    }
 
-		/*
+    /*
 			Runtime version of onEncode
 
 			@see onEncode
 		*/
-		template<typename Tenc>
-		static void onEncode(E_FORMAT outFormat, state_type* state, void* dstPix, Tenc* encodeBuffer, const core::vectorSIMDu32& position, uint32_t blockX, uint32_t blockY, uint8_t channels)
-		{
-			static_assert(sizeof(Tenc)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
-			for (uint8_t i = 0; i < channels; ++i)
-			{
-				const float ditheredValue = state->dither.pGet(state->ditherState, position + core::vectorSIMDu32(blockX, blockY), i);
-				auto* encodeValue = encodeBuffer + i;
-				const Tenc scale = asset::getFormatPrecision<Tenc>(outFormat, i, *encodeValue);
-				*encodeValue += static_cast<Tenc>(ditheredValue)* scale;
-			}
+    template<typename Tenc>
+    static void onEncode(E_FORMAT outFormat, state_type* state, void* dstPix, Tenc* encodeBuffer, const core::vectorSIMDu32& position, uint32_t blockX, uint32_t blockY, uint8_t channels)
+    {
+        static_assert(sizeof(Tenc) == 8u, "Encode/Decode types must be double, int64_t or uint64_t!");
+        for(uint8_t i = 0; i < channels; ++i)
+        {
+            const float ditheredValue = state->dither.pGet(state->ditherState, position + core::vectorSIMDu32(blockX, blockY), i);
+            auto* encodeValue = encodeBuffer + i;
+            const Tenc scale = asset::getFormatPrecision<Tenc>(outFormat, i, *encodeValue);
+            *encodeValue += static_cast<Tenc>(ditheredValue) * scale;
+        }
 
-			state->normalization.template operator()<Tenc>(outFormat,encodeBuffer,position,blockX,blockY,channels);
+        state->normalization.template operator()<Tenc>(outFormat, encodeBuffer, position, blockX, blockY, channels);
 
-			if constexpr (Clamp)
-			{
-				for (uint8_t i = 0; i < channels; ++i)
-				{
-					auto&& [min, max, encodeValue] = std::make_tuple<Tenc&&, Tenc&&, Tenc*>(asset::getFormatMinValue<Tenc>(outFormat, i), asset::getFormatMaxValue<Tenc>(outFormat, i), encodeBuffer + i);
-					*encodeValue = core::clamp(*encodeValue, min, max);
-				}
-			}
+        if constexpr(Clamp)
+        {
+            for(uint8_t i = 0; i < channels; ++i)
+            {
+                auto&& [min, max, encodeValue] = std::make_tuple<Tenc&&, Tenc&&, Tenc*>(asset::getFormatMinValue<Tenc>(outFormat, i), asset::getFormatMaxValue<Tenc>(outFormat, i), encodeBuffer + i);
+                *encodeValue = core::clamp(*encodeValue, min, max);
+            }
+        }
 
-			asset::encodePixelsRuntime(outFormat, dstPix, encodeBuffer);
-		}
+        asset::encodePixelsRuntime(outFormat, dstPix, encodeBuffer);
+    }
 };
 
 /*
@@ -169,60 +168,60 @@ class CSwizzleableAndDitherableFilterBase
 	max values.
 */
 template<typename Swizzle, typename Normalization, bool Clamp>
-class CSwizzleableAndDitherableFilterBase<Swizzle,IdentityDither,Normalization,Clamp>
+class CSwizzleableAndDitherableFilterBase<Swizzle, IdentityDither, Normalization, Clamp>
 {
-	public:
-		virtual ~CSwizzleableAndDitherableFilterBase() {}
+public:
+    virtual ~CSwizzleableAndDitherableFilterBase() {}
 
-		class CState : public Swizzle
-		{
-			public:
-				CState() {}
-				virtual ~CState() {}
+    class CState : public Swizzle
+    {
+    public:
+        CState() {}
+        virtual ~CState() {}
 
-				conditional_normalization_state<Normalization> normalization;
-		};
-		using state_type = CState;
+        conditional_normalization_state<Normalization> normalization;
+    };
+    using state_type = CState;
 
-		static inline bool validate(state_type* state)
-		{
-			if (!state->normalization.validate())
-				return false;
-			return true;
-		}
+    static inline bool validate(state_type* state)
+    {
+        if(!state->normalization.validate())
+            return false;
+        return true;
+    }
 
-		/*
+    /*
 			Performs decode doing swizzle at first on a given pointer
 			and putting the result to the encodeBuffer.
 
 			The function supports compile-time decode.
 		*/
-		template<E_FORMAT inFormat, typename Tdec, typename Tenc>
-		static void onDecode(state_type* state, const void* srcPix[4], Tdec* decodeBuffer, Tenc* encodeBuffer, uint32_t blockX, uint32_t blockY)
-		{
-			static_assert(sizeof(Tdec)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
-			static_assert(sizeof(Tenc)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
-			asset::decodePixels<inFormat>(srcPix, decodeBuffer, blockX, blockY);
-			// TODO: shouldn't swizzles be performed in-place on decode buffers and their values?
-			static_cast<Swizzle&>(*state).template operator()<Tdec,Tenc>(decodeBuffer,encodeBuffer);
-		}
+    template<E_FORMAT inFormat, typename Tdec, typename Tenc>
+    static void onDecode(state_type* state, const void* srcPix[4], Tdec* decodeBuffer, Tenc* encodeBuffer, uint32_t blockX, uint32_t blockY)
+    {
+        static_assert(sizeof(Tdec) == 8u, "Encode/Decode types must be double, int64_t or uint64_t!");
+        static_assert(sizeof(Tenc) == 8u, "Encode/Decode types must be double, int64_t or uint64_t!");
+        asset::decodePixels<inFormat>(srcPix, decodeBuffer, blockX, blockY);
+        // TODO: shouldn't swizzles be performed in-place on decode buffers and their values?
+        static_cast<Swizzle&>(*state).template operator()<Tdec, Tenc>(decodeBuffer, encodeBuffer);
+    }
 
-		/*
+    /*
 			Runtime version of onDecode
 
 			@see onDecode
 		*/
-		template<typename Tdec, typename Tenc>
-		static void onDecode(E_FORMAT inFormat, state_type* state, const void* srcPix[4], Tdec* decodeBuffer, Tenc* encodeBuffer, uint32_t blockX, uint32_t blockY)
-		{
-			static_assert(sizeof(Tdec)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
-			static_assert(sizeof(Tenc)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
-			asset::decodePixelsRuntime(inFormat, srcPix, decodeBuffer, blockX, blockY);
-			// TODO: shouldn't swizzles be performed in-place on decode buffers and their values?
-			static_cast<Swizzle&>(*state).template operator()<Tdec,Tenc>(decodeBuffer,encodeBuffer);
-		}
+    template<typename Tdec, typename Tenc>
+    static void onDecode(E_FORMAT inFormat, state_type* state, const void* srcPix[4], Tdec* decodeBuffer, Tenc* encodeBuffer, uint32_t blockX, uint32_t blockY)
+    {
+        static_assert(sizeof(Tdec) == 8u, "Encode/Decode types must be double, int64_t or uint64_t!");
+        static_assert(sizeof(Tenc) == 8u, "Encode/Decode types must be double, int64_t or uint64_t!");
+        asset::decodePixelsRuntime(inFormat, srcPix, decodeBuffer, blockX, blockY);
+        // TODO: shouldn't swizzles be performed in-place on decode buffers and their values?
+        static_cast<Swizzle&>(*state).template operator()<Tdec, Tenc>(decodeBuffer, encodeBuffer);
+    }
 
-		/*
+    /*
 			Performs encode.
 			The encode buffer is a buffer holding decoded (and swizzled optionally) values.
 
@@ -235,48 +234,48 @@ class CSwizzleableAndDitherableFilterBase<Swizzle,IdentityDither,Normalization,C
 
 			The function supports compile-time encode.
 		*/
-		template<E_FORMAT outFormat, typename Tenc>
-		static void onEncode(state_type* state, void* dstPix, Tenc* encodeBuffer, const core::vectorSIMDu32& position, uint32_t blockX, uint32_t blockY, uint8_t channels)
-		{
-			static_assert(sizeof(Tenc)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
-			
-			state->normalization.template operator()<outFormat,Tenc>(encodeBuffer,position,blockX,blockY,channels);
+    template<E_FORMAT outFormat, typename Tenc>
+    static void onEncode(state_type* state, void* dstPix, Tenc* encodeBuffer, const core::vectorSIMDu32& position, uint32_t blockX, uint32_t blockY, uint8_t channels)
+    {
+        static_assert(sizeof(Tenc) == 8u, "Encode/Decode types must be double, int64_t or uint64_t!");
 
-			if constexpr (Clamp)
-			{
-				for (uint8_t i = 0; i < channels; ++i)
-				{
-					auto&& [min, max, encodeValue] = std::make_tuple<Tenc&&, Tenc&&, Tenc*>(asset::getFormatMinValue<Tenc>(outFormat, i), asset::getFormatMaxValue<Tenc>(outFormat, i), encodeBuffer + i);
-					*encodeValue = core::clamp(*encodeValue, min, max);
-				}
-			}
+        state->normalization.template operator()<outFormat, Tenc>(encodeBuffer, position, blockX, blockY, channels);
 
-			asset::encodePixels<outFormat>(dstPix, encodeBuffer);
-		}
+        if constexpr(Clamp)
+        {
+            for(uint8_t i = 0; i < channels; ++i)
+            {
+                auto&& [min, max, encodeValue] = std::make_tuple<Tenc&&, Tenc&&, Tenc*>(asset::getFormatMinValue<Tenc>(outFormat, i), asset::getFormatMaxValue<Tenc>(outFormat, i), encodeBuffer + i);
+                *encodeValue = core::clamp(*encodeValue, min, max);
+            }
+        }
 
-		/*
+        asset::encodePixels<outFormat>(dstPix, encodeBuffer);
+    }
+
+    /*
 			Runtime version of onEncode
 
 			@see onEncode
 		*/
-		template<typename Tenc>
-		static void onEncode(E_FORMAT outFormat, state_type* state, void* dstPix, Tenc* encodeBuffer, const core::vectorSIMDu32& position, uint32_t blockX, uint32_t blockY, uint8_t channels)
-		{
-			static_assert(sizeof(Tenc)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
+    template<typename Tenc>
+    static void onEncode(E_FORMAT outFormat, state_type* state, void* dstPix, Tenc* encodeBuffer, const core::vectorSIMDu32& position, uint32_t blockX, uint32_t blockY, uint8_t channels)
+    {
+        static_assert(sizeof(Tenc) == 8u, "Encode/Decode types must be double, int64_t or uint64_t!");
 
-			state->normalization.template operator()<Tenc>(outFormat,encodeBuffer,position,blockX,blockY,channels);
+        state->normalization.template operator()<Tenc>(outFormat, encodeBuffer, position, blockX, blockY, channels);
 
-			if constexpr (Clamp)
-			{
-				for (uint8_t i = 0; i < channels; ++i)
-				{
-					auto&& [min, max, encodeValue] = std::make_tuple<Tenc&&, Tenc&&, Tenc*>(asset::getFormatMinValue<Tenc>(outFormat, i), asset::getFormatMaxValue<Tenc>(outFormat, i), encodeBuffer + i);
-					*encodeValue = core::clamp(*encodeValue, min, max);
-				}
-			}
+        if constexpr(Clamp)
+        {
+            for(uint8_t i = 0; i < channels; ++i)
+            {
+                auto&& [min, max, encodeValue] = std::make_tuple<Tenc&&, Tenc&&, Tenc*>(asset::getFormatMinValue<Tenc>(outFormat, i), asset::getFormatMaxValue<Tenc>(outFormat, i), encodeBuffer + i);
+                *encodeValue = core::clamp(*encodeValue, min, max);
+            }
+        }
 
-			asset::encodePixelsRuntime(outFormat, dstPix, encodeBuffer);
-		}
+        asset::encodePixelsRuntime(outFormat, dstPix, encodeBuffer);
+    }
 };
 
 /*
@@ -290,74 +289,74 @@ class CSwizzleableAndDitherableFilterBase<Swizzle,IdentityDither,Normalization,C
 	max values.
 */
 template<typename Dither, typename Normalization, bool Clamp>
-class CSwizzleableAndDitherableFilterBase<PolymorphicSwizzle,Dither,Normalization,Clamp>
+class CSwizzleableAndDitherableFilterBase<PolymorphicSwizzle, Dither, Normalization, Clamp>
 {
-	public:
-		virtual ~CSwizzleableAndDitherableFilterBase() {}
+public:
+    virtual ~CSwizzleableAndDitherableFilterBase() {}
 
-		class CState
-		{
-			public:
-				CState() {}
-				virtual ~CState() {}
+    class CState
+    {
+    public:
+        CState() {}
+        virtual ~CState() {}
 
-				PolymorphicSwizzle* swizzle;
+        PolymorphicSwizzle* swizzle;
 
-				Dither dither;
-				using DitherState = typename Dither::state_type;
-				DitherState* ditherState = nullptr;					//! Allocation, creation of the dither state and making the pointer valid is necessary!
+        Dither dither;
+        using DitherState = typename Dither::state_type;
+        DitherState* ditherState = nullptr;  //! Allocation, creation of the dither state and making the pointer valid is necessary!
 
-				conditional_normalization_state<Normalization> normalization;
-		};
-		using state_type = CState;
+        conditional_normalization_state<Normalization> normalization;
+    };
+    using state_type = CState;
 
-		static inline bool validate(state_type* state)
-		{
-			if (!state->swizzle)
-				return false;
+    static inline bool validate(state_type* state)
+    {
+        if(!state->swizzle)
+            return false;
 
-			if (!state->ditherState)
-				return false;
+        if(!state->ditherState)
+            return false;
 
-			if (!state->normalization.validate())
-				return false;
+        if(!state->normalization.validate())
+            return false;
 
-			return true;
-		}
-					
-		/*
+        return true;
+    }
+
+    /*
 			Performs decode doing swizzle at first on a given pointer
 			and putting the result to the encodeBuffer.
 
 			The function supports compile-time decode.
 		*/
-		template<E_FORMAT inFormat, typename Tdec, typename Tenc>
-		static void onDecode(state_type* state, const void* srcPix[4], Tdec* decodeBuffer, Tenc* encodeBuffer, uint32_t blockX, uint32_t blockY)
-		{
-			static_assert(sizeof(Tdec)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
-			static_assert(sizeof(Tenc)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
-			asset::decodePixels<inFormat>(srcPix, decodeBuffer, blockX, blockY);
-			// TODO: shouldn't swizzles be performed in-place on decode buffers and their values?
-			state->swizzle->template operator()<Tdec,Tenc>(decodeBuffer,encodeBuffer);
-		}
+    template<E_FORMAT inFormat, typename Tdec, typename Tenc>
+    static void onDecode(state_type* state, const void* srcPix[4], Tdec* decodeBuffer, Tenc* encodeBuffer, uint32_t blockX, uint32_t blockY)
+    {
+        static_assert(sizeof(Tdec) == 8u, "Encode/Decode types must be double, int64_t or uint64_t!");
+        static_assert(sizeof(Tenc) == 8u, "Encode/Decode types must be double, int64_t or uint64_t!");
+        asset::decodePixels<inFormat>(srcPix, decodeBuffer, blockX, blockY);
+        // TODO: shouldn't swizzles be performed in-place on decode buffers and their values?
+        state->swizzle->template operator()<Tdec, Tenc>(decodeBuffer, encodeBuffer);
+    }
 
-		/*
+    /*
 			Runtime version of onDecode
 
 			@see onDecode
 		*/
 
-		template<typename Tdec, typename Tenc>
-		static void onDecode(E_FORMAT inFormat, state_type* state, const void* srcPix[4], Tdec* decodeBuffer, Tenc* encodeBuffer, uint32_t blockX, uint32_t blockY)
-		{
-			static_assert(sizeof(Tdec)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
-			static_assert(sizeof(Tenc)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
-			asset::decodePixelsRuntime(inFormat, srcPix, decodeBuffer, blockX, blockY);
-			// TODO: shouldn't swizzles be performed in-place on decode buffers and their values?
-			state->swizzle->template operator()<Tdec,Tenc>(decodeBuffer,encodeBuffer);
-		}
+    template<typename Tdec, typename Tenc>
+    static void onDecode(E_FORMAT inFormat, state_type* state, const void* srcPix[4], Tdec* decodeBuffer, Tenc* encodeBuffer, uint32_t blockX, uint32_t blockY)
+    {
+        static_assert(sizeof(Tdec) == 8u, "Encode/Decode types must be double, int64_t or uint64_t!");
+        static_assert(sizeof(Tenc) == 8u, "Encode/Decode types must be double, int64_t or uint64_t!");
+        asset::decodePixelsRuntime(inFormat, srcPix, decodeBuffer, blockX, blockY);
+        // TODO: shouldn't swizzles be performed in-place on decode buffers and their values?
+        state->swizzle->template operator()<Tdec, Tenc>(decodeBuffer, encodeBuffer);
+    }
 
-		/*
+    /*
 			Performs encode doing dithering at first on a given encode buffer in pointer.
 			The encode buffer is a buffer holding decoded (and swizzled optionally) values.
 
@@ -370,65 +369,64 @@ class CSwizzleableAndDitherableFilterBase<PolymorphicSwizzle,Dither,Normalizatio
 
 			The function supports compile-time encode.
 		*/
-		template<E_FORMAT outFormat, typename Tenc>
-		static void onEncode(state_type* state, void* dstPix, Tenc* encodeBuffer, const core::vectorSIMDu32& position, uint32_t blockX, uint32_t blockY, uint8_t channels)
-		{
-			static_assert(sizeof(Tenc)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
-			for (uint8_t i = 0; i < channels; ++i)
-			{
-				const float ditheredValue = state->dither.pGet(state->ditherState, position + core::vectorSIMDu32(blockX, blockY), i);
-				auto* encodeValue = encodeBuffer + i;
-				const Tenc scale = asset::getFormatPrecision<Tenc>(outFormat, i, *encodeValue);
-				*encodeValue += static_cast<Tenc>(ditheredValue) * scale;
-			}
-			
-			state->normalization.template operator()<outFormat,Tenc>(encodeBuffer,position,blockX,blockY,channels);
+    template<E_FORMAT outFormat, typename Tenc>
+    static void onEncode(state_type* state, void* dstPix, Tenc* encodeBuffer, const core::vectorSIMDu32& position, uint32_t blockX, uint32_t blockY, uint8_t channels)
+    {
+        static_assert(sizeof(Tenc) == 8u, "Encode/Decode types must be double, int64_t or uint64_t!");
+        for(uint8_t i = 0; i < channels; ++i)
+        {
+            const float ditheredValue = state->dither.pGet(state->ditherState, position + core::vectorSIMDu32(blockX, blockY), i);
+            auto* encodeValue = encodeBuffer + i;
+            const Tenc scale = asset::getFormatPrecision<Tenc>(outFormat, i, *encodeValue);
+            *encodeValue += static_cast<Tenc>(ditheredValue) * scale;
+        }
 
-			if constexpr (Clamp)
-			{
-				for (uint8_t i = 0; i < channels; ++i)
-				{
-					auto&& [min, max, encodeValue] = std::make_tuple<Tenc&&, Tenc&&, Tenc*>(asset::getFormatMinValue<Tenc>(outFormat, i), asset::getFormatMaxValue<Tenc>(outFormat, i), encodeBuffer + i);
-					*encodeValue = core::clamp(*encodeValue, min, max);
-				}
-			}
+        state->normalization.template operator()<outFormat, Tenc>(encodeBuffer, position, blockX, blockY, channels);
 
-			asset::encodePixels<outFormat>(dstPix, encodeBuffer);
-		}
+        if constexpr(Clamp)
+        {
+            for(uint8_t i = 0; i < channels; ++i)
+            {
+                auto&& [min, max, encodeValue] = std::make_tuple<Tenc&&, Tenc&&, Tenc*>(asset::getFormatMinValue<Tenc>(outFormat, i), asset::getFormatMaxValue<Tenc>(outFormat, i), encodeBuffer + i);
+                *encodeValue = core::clamp(*encodeValue, min, max);
+            }
+        }
 
-		/*
+        asset::encodePixels<outFormat>(dstPix, encodeBuffer);
+    }
+
+    /*
 			Runtime version of onEncode
 
 			@see onEncode
 		*/
-		template<typename Tenc>
-		static void onEncode(E_FORMAT outFormat, state_type* state, void* dstPix, Tenc* encodeBuffer, const core::vectorSIMDu32& position, uint32_t blockX, uint32_t blockY, uint8_t channels)
-		{
-			static_assert(sizeof(Tenc)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
-			for (uint8_t i = 0; i < channels; ++i)
-			{
-				const float ditheredValue = state->dither.pGet(state->ditherState, position + core::vectorSIMDu32(blockX, blockY), i);
-				auto* encodeValue = encodeBuffer + i;
-				const Tenc scale = asset::getFormatPrecision<Tenc>(outFormat, i, *encodeValue);
-				*encodeValue += static_cast<Tenc>(ditheredValue)* scale;
-			}
+    template<typename Tenc>
+    static void onEncode(E_FORMAT outFormat, state_type* state, void* dstPix, Tenc* encodeBuffer, const core::vectorSIMDu32& position, uint32_t blockX, uint32_t blockY, uint8_t channels)
+    {
+        static_assert(sizeof(Tenc) == 8u, "Encode/Decode types must be double, int64_t or uint64_t!");
+        for(uint8_t i = 0; i < channels; ++i)
+        {
+            const float ditheredValue = state->dither.pGet(state->ditherState, position + core::vectorSIMDu32(blockX, blockY), i);
+            auto* encodeValue = encodeBuffer + i;
+            const Tenc scale = asset::getFormatPrecision<Tenc>(outFormat, i, *encodeValue);
+            *encodeValue += static_cast<Tenc>(ditheredValue) * scale;
+        }
 
-			state->normalization.template operator()<Tenc>(outFormat,encodeBuffer,position,blockX,blockY,channels);
+        state->normalization.template operator()<Tenc>(outFormat, encodeBuffer, position, blockX, blockY, channels);
 
-			if constexpr (Clamp)
-			{
-				for (uint8_t i = 0; i < channels; ++i)
-				{
-					auto&& [min, max, encodeValue] = std::make_tuple<Tenc&&, Tenc&&, Tenc*>(asset::getFormatMinValue<Tenc>(outFormat, i), asset::getFormatMaxValue<Tenc>(outFormat, i), encodeBuffer + i);
-					*encodeValue = core::clamp(*encodeValue, min, max);
-				}
-			}
+        if constexpr(Clamp)
+        {
+            for(uint8_t i = 0; i < channels; ++i)
+            {
+                auto&& [min, max, encodeValue] = std::make_tuple<Tenc&&, Tenc&&, Tenc*>(asset::getFormatMinValue<Tenc>(outFormat, i), asset::getFormatMaxValue<Tenc>(outFormat, i), encodeBuffer + i);
+                *encodeValue = core::clamp(*encodeValue, min, max);
+            }
+        }
 
-			asset::encodePixelsRuntime(outFormat, dstPix, encodeBuffer);
-		}
+        asset::encodePixelsRuntime(outFormat, dstPix, encodeBuffer);
+    }
 };
 
-
-} // end namespace nbl::asset::impl
+}  // end namespace nbl::asset::impl
 
 #endif

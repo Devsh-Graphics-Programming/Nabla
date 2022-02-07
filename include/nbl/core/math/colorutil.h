@@ -7,21 +7,25 @@
 
 #include <cstdlib>
 
-namespace nbl { namespace core
+namespace nbl
 {
-
+namespace core
+{
 inline double lin2srgb(double _lin)
 {
-    if (_lin <= 0.0031308) return _lin * 12.92;
-    return 1.055 * pow(_lin, 1./2.4) - 0.055;
+    if(_lin <= 0.0031308)
+        return _lin * 12.92;
+    return 1.055 * pow(_lin, 1. / 2.4) - 0.055;
 }
 
 inline double srgb2lin(double _s)
 {
-    if (_s <= 0.04045) return _s / 12.92;
+    if(_s <= 0.04045)
+        return _s / 12.92;
     return pow((_s + 0.055) / 1.055, 2.4);
 }
 
-}}
+}
+}
 
 #endif

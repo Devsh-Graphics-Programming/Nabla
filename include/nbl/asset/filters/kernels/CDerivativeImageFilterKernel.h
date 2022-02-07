@@ -15,38 +15,37 @@ namespace nbl
 {
 namespace asset
 {
-
 // A Kernel that's a derivative of another, `Kernel` must have a `d_weight` function
 template<class Kernel>
 class CDerivativeImageFilterKernel : public CFloatingPointSeparableImageFilterKernelBase<CDerivativeImageFilterKernel<Kernel>>
 {
-		using Base = CFloatingPointSeparableImageFilterKernelBase<CDerivativeImageFilterKernel<Kernel>>;
+    using Base = CFloatingPointSeparableImageFilterKernelBase<CDerivativeImageFilterKernel<Kernel>>;
 
-		Kernel kernel;
+    Kernel kernel;
 
-	public:
-		using value_type = typename Base::value_type;
+public:
+    using value_type = typename Base::value_type;
 
-		CDerivativeImageFilterKernel(Kernel&& k) : Base(k.negative_support.x, k.positive_support.x), kernel(std::move(k)) {}
+    CDerivativeImageFilterKernel(Kernel&& k)
+        : Base(k.negative_support.x, k.positive_support.x), kernel(std::move(k)) {}
 
-		// no special user data by default
-		inline const IImageFilterKernel::UserData* getUserData() const { return nullptr; }
+    // no special user data by default
+    inline const IImageFilterKernel::UserData* getUserData() const { return nullptr; }
 
-		inline float weight(float x, int32_t channel) const
-		{
-			auto* scale = IImageFilterKernel::ScaleFactorUserData::cast(kernel.getUserData());
-			if (scale)
-				x *= scale->factor[channel];
-			return kernel.d_weight(x,channel);
-		}
+    inline float weight(float x, int32_t channel) const
+    {
+        auto* scale = IImageFilterKernel::ScaleFactorUserData::cast(kernel.getUserData());
+        if(scale)
+            x *= scale->factor[channel];
+        return kernel.d_weight(x, channel);
+    }
 
-		_NBL_STATIC_INLINE_CONSTEXPR bool has_derivative = false;
+    _NBL_STATIC_INLINE_CONSTEXPR bool has_derivative = false;
 
-		NBL_DECLARE_DEFINE_CIMAGEFILTER_KERNEL_PASS_THROUGHS(Base)
+    NBL_DECLARE_DEFINE_CIMAGEFILTER_KERNEL_PASS_THROUGHS(Base)
 };
 
-
-} // end namespace asset
-} // end namespace nbl
+}  // end namespace asset
+}  // end namespace nbl
 
 #endif

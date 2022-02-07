@@ -10,12 +10,10 @@
 
 namespace nbl
 {
-
 namespace scene
 {
-
-	//! Special scene node animator for Maya-style cameras
-	/** This scene node animator can be attached to a camera to make it act like a 3d
+//! Special scene node animator for Maya-style cameras
+/** This scene node animator can be attached to a camera to make it act like a 3d
 	modelling tool.
 	The camera is moving relative to the target with the mouse, by pressing either
 	of the three buttons.
@@ -23,37 +21,35 @@ namespace scene
 	the current orbit radius the camera moves on. Distance can be changed via the setter
 	or by mouse events.
 	*/
-	class ISceneNodeAnimatorCameraMaya : public ISceneNodeAnimator
-	{
-	public:
+class ISceneNodeAnimatorCameraMaya : public ISceneNodeAnimator
+{
+public:
+    //! Returns the speed of movement
+    virtual float getMoveSpeed() const = 0;
 
-		//! Returns the speed of movement
-		virtual float getMoveSpeed() const = 0;
+    //! Sets the speed of movement
+    virtual void setMoveSpeed(float moveSpeed) = 0;
 
-		//! Sets the speed of movement
-		virtual void setMoveSpeed(float moveSpeed) = 0;
+    //! Returns the rotation speed
+    virtual float getRotateSpeed() const = 0;
 
-		//! Returns the rotation speed
-		virtual float getRotateSpeed() const = 0;
+    //! Set the rotation speed
+    virtual void setRotateSpeed(float rotateSpeed) = 0;
 
-		//! Set the rotation speed
-		virtual void setRotateSpeed(float rotateSpeed) = 0;
+    //! Returns the zoom speed
+    virtual float getZoomSpeed() const = 0;
 
-		//! Returns the zoom speed
-		virtual float getZoomSpeed() const = 0;
+    //! Set the zoom speed
+    virtual void setZoomSpeed(float zoomSpeed) = 0;
 
-		//! Set the zoom speed
-		virtual void setZoomSpeed(float zoomSpeed) = 0;
+    //! Returns the current distance, i.e. orbit radius
+    virtual float getDistance() const = 0;
 
-		//! Returns the current distance, i.e. orbit radius
-		virtual float getDistance() const = 0;
+    //! Set the distance
+    virtual void setDistance(float distance) = 0;
+};
 
-		//! Set the distance
-		virtual void setDistance(float distance) = 0;
-	};
-
-} // end namespace scene
-} // end namespace nbl
+}  // end namespace scene
+}  // end namespace nbl
 
 #endif
-

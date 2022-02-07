@@ -8,7 +8,6 @@
 
 namespace nbl::video
 {
-
 class CVulkanDebugCallback : public IDebugCallback
 {
 public:
@@ -25,35 +24,35 @@ public:
 
         uint8_t level = 0;
 
-        switch (messageSeverity)
+        switch(messageSeverity)
         {
-        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT:
-        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT:
-            level |= system::ILogger::ELL_INFO;
-            break;
-        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
-            level |= system::ILogger::ELL_WARNING;
-            break;
-        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
-            level |= system::ILogger::ELL_ERROR;
-            break;
-        default:
-            assert(!"Don't know what to do with this value!");
+            case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT:
+            case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT:
+                level |= system::ILogger::ELL_INFO;
+                break;
+            case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
+                level |= system::ILogger::ELL_WARNING;
+                break;
+            case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
+                level |= system::ILogger::ELL_ERROR;
+                break;
+            default:
+                assert(!"Don't know what to do with this value!");
         }
 
-        switch (messageType)
+        switch(messageType)
         {
-        case VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT:
-            level |= system::ILogger::ELL_INFO;
-            break;
-        case VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT:
-            level |= system::ILogger::ELL_ERROR;
-            break;
-        case VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT:
-            level |= system::ILogger::ELL_PERFORMANCE;
-            break;
-        default:
-            assert(!"Don't know what to do with this value!");
+            case VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT:
+                level |= system::ILogger::ELL_INFO;
+                break;
+            case VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT:
+                level |= system::ILogger::ELL_ERROR;
+                break;
+            case VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT:
+                level |= system::ILogger::ELL_PERFORMANCE;
+                break;
+            default:
+                assert(!"Don't know what to do with this value!");
         }
 
         cb->getLogger()->log("%s", static_cast<system::ILogger::E_LOG_LEVEL>(level), callbackData->pMessage);

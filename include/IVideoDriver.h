@@ -65,8 +65,7 @@ namespace video
 	};
 #endif
 
-} // end namespace video
-} // end namespace nbl
-
+}  // end namespace video
+}  // end namespace nbl
 
 #endif

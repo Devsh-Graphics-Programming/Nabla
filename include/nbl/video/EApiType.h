@@ -6,7 +6,6 @@
 
 namespace nbl::video
 {
-
 enum E_API_TYPE : uint32_t
 {
     EAT_OPENGL,

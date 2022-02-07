@@ -21,23 +21,20 @@
 
 namespace nbl::video
 {
-
-class IGPUCommandBuffer :
-    public core::IReferenceCounted,
-    public asset::ICommandBuffer<
-        IGPUBuffer,
-        IGPUImage,
-        IGPUImageView,
-        IGPURenderpass,
-        IGPUFramebuffer,
-        IGPUGraphicsPipeline,
-        IGPUComputePipeline,
-        IGPUDescriptorSet,
-        IGPUPipelineLayout,
-        IGPUEvent,
-        IGPUCommandBuffer
-    >,
-    public IBackendObject
+class IGPUCommandBuffer : public core::IReferenceCounted,
+                          public asset::ICommandBuffer<
+                              IGPUBuffer,
+                              IGPUImage,
+                              IGPUImageView,
+                              IGPURenderpass,
+                              IGPUFramebuffer,
+                              IGPUGraphicsPipeline,
+                              IGPUComputePipeline,
+                              IGPUDescriptorSet,
+                              IGPUPipelineLayout,
+                              IGPUEvent,
+                              IGPUCommandBuffer>,
+                          public IBackendObject
 {
     using base_t = asset::ICommandBuffer<
         IGPUBuffer,
@@ -50,14 +47,13 @@ class IGPUCommandBuffer :
         IGPUDescriptorSet,
         IGPUPipelineLayout,
         IGPUEvent,
-        IGPUCommandBuffer
-    >;
+        IGPUCommandBuffer>;
 
 public:
     virtual bool begin(uint32_t _flags, const SInheritanceInfo* inheritanceInfo = nullptr)
     {
         base_t::begin(_flags);
-        if ((m_cmdpool->getCreationFlags()&IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT)==0u)
+        if((m_cmdpool->getCreationFlags() & IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT) == 0u)
         {
             assert(m_state != ES_INITIAL);
         }
@@ -67,7 +63,6 @@ public:
     uint32_t getQueueFamilyIndex() const { return m_cmdpool->getQueueFamilyIndex(); }
 
     IGPUCommandPool* getPool() const { return m_cmdpool.get(); }
-    
 
     bool regenerateMipmaps(IGPUImage* img, uint32_t lastReadyMip, asset::IImage::E_ASPECT_FLAGS aspect) override
     {
@@ -86,19 +81,19 @@ public:
         blitRegion.srcSubresource.aspectMask = barrier.subresourceRange.aspectMask;
         blitRegion.srcSubresource.baseArrayLayer = barrier.subresourceRange.baseArrayLayer;
         blitRegion.srcSubresource.layerCount = barrier.subresourceRange.layerCount;
-        blitRegion.srcOffsets[0] = { 0, 0, 0 };
+        blitRegion.srcOffsets[0] = {0, 0, 0};
 
         blitRegion.dstSubresource.aspectMask = barrier.subresourceRange.aspectMask;
         blitRegion.dstSubresource.baseArrayLayer = barrier.subresourceRange.baseArrayLayer;
         blitRegion.dstSubresource.layerCount = barrier.subresourceRange.layerCount;
-        blitRegion.dstOffsets[0] = { 0, 0, 0 };
+        blitRegion.dstOffsets[0] = {0, 0, 0};
 
         auto mipsize = img->getMipSize(lastReadyMip);
 
         uint32_t mipWidth = mipsize.x;
         uint32_t mipHeight = mipsize.y;
         uint32_t mipDepth = mipsize.z;
-        for (uint32_t i = lastReadyMip + 1u; i < img->getCreationParameters().mipLevels; ++i)
+        for(uint32_t i = lastReadyMip + 1u; i < img->getCreationParameters().mipLevels; ++i)
         {
             const uint32_t srcLoD = i - 1u;
             const uint32_t dstLoD = i;
@@ -109,49 +104,52 @@ public:
             barrier.newLayout = asset::EIL_TRANSFER_SRC_OPTIMAL;
             barrier.subresourceRange.baseMipLevel = dstLoD;
 
-            if (srcLoD > lastReadyMip)
+            if(srcLoD > lastReadyMip)
             {
-                if (!pipelineBarrier(asset::EPSF_TRANSFER_BIT, asset::EPSF_TRANSFER_BIT, static_cast<asset::E_DEPENDENCY_FLAGS>(0u), 0u, nullptr, 0u, nullptr, 1u, &barrier))
+                if(!pipelineBarrier(asset::EPSF_TRANSFER_BIT, asset::EPSF_TRANSFER_BIT, static_cast<asset::E_DEPENDENCY_FLAGS>(0u), 0u, nullptr, 0u, nullptr, 1u, &barrier))
                     return false;
             }
 
             const auto srcMipSz = img->getMipSize(srcLoD);
 
             blitRegion.srcSubresource.mipLevel = srcLoD;
-            blitRegion.srcOffsets[1] = { srcMipSz.x, srcMipSz.y, srcMipSz.z };
+            blitRegion.srcOffsets[1] = {srcMipSz.x, srcMipSz.y, srcMipSz.z};
 
             blitRegion.dstSubresource.mipLevel = dstLoD;
-            blitRegion.dstOffsets[1] = { mipWidth, mipHeight, mipDepth };
+            blitRegion.dstOffsets[1] = {mipWidth, mipHeight, mipDepth};
 
-            if (!blitImage(img, asset::EIL_TRANSFER_SRC_OPTIMAL, img, asset::EIL_TRANSFER_DST_OPTIMAL, 1u, &blitRegion, asset::ISampler::ETF_LINEAR))
+            if(!blitImage(img, asset::EIL_TRANSFER_SRC_OPTIMAL, img, asset::EIL_TRANSFER_DST_OPTIMAL, 1u, &blitRegion, asset::ISampler::ETF_LINEAR))
                 return false;
 
-            if (mipWidth > 1u) mipWidth /= 2u;
-            if (mipHeight > 1u) mipHeight /= 2u;
-            if (mipDepth > 1u) mipDepth /= 2u;
+            if(mipWidth > 1u)
+                mipWidth /= 2u;
+            if(mipHeight > 1u)
+                mipHeight /= 2u;
+            if(mipDepth > 1u)
+                mipDepth /= 2u;
         }
 
         return true;
     }
 
 protected:
-    IGPUCommandBuffer(core::smart_refctd_ptr<const ILogicalDevice>&& dev, E_LEVEL lvl, IGPUCommandPool* _cmdpool) : base_t(lvl), IBackendObject(std::move(dev)), m_cmdpool(_cmdpool)
+    IGPUCommandBuffer(core::smart_refctd_ptr<const ILogicalDevice>&& dev, E_LEVEL lvl, IGPUCommandPool* _cmdpool)
+        : base_t(lvl), IBackendObject(std::move(dev)), m_cmdpool(_cmdpool)
     {
     }
     virtual ~IGPUCommandBuffer() = default;
 
     core::smart_refctd_ptr<IGPUCommandPool> m_cmdpool;
-    
 
     inline bool validate_updateBuffer(IGPUBuffer* dstBuffer, size_t dstOffset, size_t dataSize, const void* pData)
     {
-        if (!this->isCompatibleDevicewise(dstBuffer))
+        if(!this->isCompatibleDevicewise(dstBuffer))
             return false;
-        if ((dstOffset & 0x03ull) != 0ull)
+        if((dstOffset & 0x03ull) != 0ull)
             return false;
-        if ((dataSize & 0x03ull) != 0ull)
+        if((dataSize & 0x03ull) != 0ull)
             return false;
-        if (dataSize > 65536ull)
+        if(dataSize > 65536ull)
             return false;
         return dstBuffer->getCachedCreationParams().canUpdateSubRange;
     }
@@ -159,10 +157,11 @@ protected:
     static void bindDescriptorSets_generic(const IGPUPipelineLayout* _newLayout, uint32_t _first, uint32_t _count, const IGPUDescriptorSet* const* _descSets, const IGPUPipelineLayout** const _destPplnLayouts)
     {
         int32_t compatibilityLimits[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT]{};
-        for (uint32_t i = 0u; i < IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; i++)
+        for(uint32_t i = 0u; i < IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; i++)
         {
-            const int32_t lim = _destPplnLayouts[i] ? //if no descriptor set bound at this index
-                _destPplnLayouts[i]->isCompatibleUpToSet(IGPUPipelineLayout::DESCRIPTOR_SET_COUNT - 1u, _newLayout) : -1;
+            const int32_t lim = _destPplnLayouts[i] ?  //if no descriptor set bound at this index
+                _destPplnLayouts[i]->isCompatibleUpToSet(IGPUPipelineLayout::DESCRIPTOR_SET_COUNT - 1u, _newLayout) :
+                -1;
 
             compatibilityLimits[i] = lim;
         }
@@ -171,14 +170,14 @@ protected:
         https://www.khronos.org/registry/vulkan/specs/1.1-extensions/html/vkspec.html#descriptorsets-compatibility
         When binding a descriptor set (see Descriptor Set Binding) to set number N, if the previously bound descriptor sets for sets zero through N-1 were all bound using compatible pipeline layouts, then performing this binding does not disturb any of the lower numbered sets.
         */
-        for (int32_t i = 0; i < static_cast<int32_t>(_first); ++i)
-            if (compatibilityLimits[i] < i)
+        for(int32_t i = 0; i < static_cast<int32_t>(_first); ++i)
+            if(compatibilityLimits[i] < i)
                 _destPplnLayouts[i] = nullptr;
         /*
         If, additionally, the previous bound descriptor set for set N was bound using a pipeline layout compatible for set N, then the bindings in sets numbered greater than N are also not disturbed.
         */
-        if (compatibilityLimits[_first] < static_cast<int32_t>(_first))
-            for (uint32_t i = _first + 1u; i < IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
+        if(compatibilityLimits[_first] < static_cast<int32_t>(_first))
+            for(uint32_t i = _first + 1u; i < IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
                 _destPplnLayouts[i] = nullptr;
     }
 };

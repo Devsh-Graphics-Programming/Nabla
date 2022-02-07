@@ -6,10 +6,8 @@
 #include "nbl/video/ILogicalDevice.h"
 #include "nbl/video/alloc/SimpleGPUBufferAllocator.h"
 
-
 using namespace nbl;
 using namespace video;
-
 
 SimpleGPUBufferAllocator::value_type SimpleGPUBufferAllocator::allocate(size_t bytes, size_t alignment) noexcept
 {
@@ -18,7 +16,7 @@ SimpleGPUBufferAllocator::value_type SimpleGPUBufferAllocator::allocate(size_t b
     reqs.vulkanReqs.alignment = alignment;
 
     // Todo(achal): Need to get these values from the user somehow
-    // This doesn't matter right now because updateBufferRangeViaStagingBuffer 
+    // This doesn't matter right now because updateBufferRangeViaStagingBuffer
     // only makes use of upstreaming buffer which would be TRANSFER_SRC
     // Devsh: Provide usage parameters in the Constructor of the allocator (see how I handle `canUpdateViaCmdBuff`)
     IGPUBuffer::SCreationParams creationParams = {};
@@ -28,5 +26,5 @@ SimpleGPUBufferAllocator::value_type SimpleGPUBufferAllocator::allocate(size_t b
     creationParams.queueFamilyIndexCount = 0u;
     creationParams.queueFamilyIndices = nullptr;
 
-    return mDriver->createGPUBufferOnDedMem(creationParams,reqs);
+    return mDriver->createGPUBufferOnDedMem(creationParams, reqs);
 }

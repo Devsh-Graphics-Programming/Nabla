@@ -11,30 +11,26 @@
 
 namespace nbl::ext::Bullet3
 {
-
-
 class CPhysicsWorld;
 class IMotionStateBase : public btMotionState
 {
-    public:
+public:
+    IMotionStateBase(const btTransform& startTrans = btTransform::getIdentity())
+        : m_startWorldTrans(startTrans),
+          m_userPointer(0)
+    {
+    }
 
-        IMotionStateBase(const btTransform &startTrans = btTransform::getIdentity())
-            : m_startWorldTrans(startTrans),
-              m_userPointer(0)
-        {
-        }
+    virtual void getWorldTransform(btTransform& worldTrans) const = 0;
+    virtual void setWorldTransform(const btTransform& worldTrans) = 0;
 
-        virtual void getWorldTransform(btTransform &worldTrans) const = 0;
-        virtual void setWorldTransform(const btTransform &worldTrans) = 0;
+    btTransform m_startWorldTrans;
+    void* m_userPointer;
 
-        btTransform m_startWorldTrans;
-        void *m_userPointer;
-
-    protected:
-        friend class CPhysicsWorld;
+protected:
+    friend class CPhysicsWorld;
 };
 
 }
-
 
 #endif

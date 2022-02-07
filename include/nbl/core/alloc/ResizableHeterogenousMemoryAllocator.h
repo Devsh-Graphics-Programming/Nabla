@@ -11,8 +11,7 @@
 
 namespace nbl::core
 {
-
-#if 0 // TODO: until we figure out the API for HeterogenousMemoryAllocator (how it resizes a buffer)
+#if 0  // TODO: until we figure out the API for HeterogenousMemoryAllocator (how it resizes a buffer)
 // if only we could use c++17 if-constexpr
 namespace impl
 {
@@ -185,7 +184,3 @@ class ResizableHeterogenousMemoryAllocator : public impl::ResizableHeterogenousM
 }
 
 #endif
-
-
-
-

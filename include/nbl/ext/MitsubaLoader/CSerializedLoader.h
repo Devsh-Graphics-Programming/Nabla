@@ -13,66 +13,63 @@ namespace ext
 {
 namespace MitsubaLoader
 {
-
 //! Meshloader capable of loading obj meshes.
 class CSerializedLoader final : public asset::IRenderpassIndependentPipelineLoader
 {
-	protected:
-		//! Destructor
-		inline ~CSerializedLoader() {}
+protected:
+    //! Destructor
+    inline ~CSerializedLoader() {}
 
-	public:
-		//! Constructor
-		CSerializedLoader(asset::IAssetManager* _manager) : IRenderpassIndependentPipelineLoader(_manager) {}
+public:
+    //! Constructor
+    CSerializedLoader(asset::IAssetManager* _manager)
+        : IRenderpassIndependentPipelineLoader(_manager) {}
 
-		inline bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger = nullptr) const override
-		{
-			FileHeader header;
-			
-			system::future<size_t> future;
-			_file->read(future, &header, 0u, sizeof(header));
-			future.get();
+    inline bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger = nullptr) const override
+    {
+        FileHeader header;
 
-			return header==FileHeader();
-		}
+        system::future<size_t> future;
+        _file->read(future, &header, 0u, sizeof(header));
+        future.get();
 
-		inline const char** getAssociatedFileExtensions() const override
-		{
-			static const char* ext[]{ "serialized", nullptr };
-			return ext;
-		}
+        return header == FileHeader();
+    }
 
-		inline uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_MESH; }
+    inline const char** getAssociatedFileExtensions() const override
+    {
+        static const char* ext[]{"serialized", nullptr};
+        return ext;
+    }
 
-		//! creates/loads an animated mesh from the file.
-		asset::SAssetBundle loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
+    inline uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_MESH; }
 
-	private:
+    //! creates/loads an animated mesh from the file.
+    asset::SAssetBundle loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
-		struct FileHeader
-		{
-			uint16_t format = 0x041Cu;
-			uint16_t version = 0x0004u;
+private:
+    struct FileHeader
+    {
+        uint16_t format = 0x041Cu;
+        uint16_t version = 0x0004u;
 
-			inline bool operator!=(const FileHeader& other)
-			{
-				return format!=other.format || version!=other.version;
-			}
-			inline bool operator==(const FileHeader& other) { return !operator!=(other); }
-		};
-		
-		struct SContext
-		{
-			IAssetLoader::SAssetLoadContext inner;
-			uint32_t meshCount;
-			core::smart_refctd_dynamic_array<uint64_t> meshOffsets;
-		};
+        inline bool operator!=(const FileHeader& other)
+        {
+            return format != other.format || version != other.version;
+        }
+        inline bool operator==(const FileHeader& other) { return !operator!=(other); }
+    };
+
+    struct SContext
+    {
+        IAssetLoader::SAssetLoadContext inner;
+        uint32_t meshCount;
+        core::smart_refctd_dynamic_array<uint64_t> meshOffsets;
+    };
 };
-
 
 }
 }
 }
 
 #endif
-

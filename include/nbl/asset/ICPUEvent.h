@@ -4,25 +4,25 @@
 #include "nbl/asset/IEvent.h"
 #include "nbl/asset/IAsset.h"
 
-namespace nbl {
+namespace nbl
+{
 namespace asset
 {
-
 class ICPUEvent final : public IEvent, public IAsset
 {
 public:
     using IEvent::IEvent;
 
-    size_t conservativeSizeEstimate() const override { return 0ull; } // TODO
+    size_t conservativeSizeEstimate() const override { return 0ull; }  // TODO
 
     core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
     {
-        return nullptr; // TODO
+        return nullptr;  // TODO
     }
 
     bool canBeRestoredFrom(const IAsset* _other) const
     {
-        return false; // TODO
+        return false;  // TODO
     }
 
     E_TYPE getAssetType() const override

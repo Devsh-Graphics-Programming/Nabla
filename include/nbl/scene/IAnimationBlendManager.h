@@ -13,7 +13,6 @@
 
 namespace nbl::scene
 {
-
 /**
 * Time to think about animation library.
 * 
@@ -47,150 +46,153 @@ namespace nbl::scene
 // TODO: move out to separate header
 class IAnimationBlendSystem : public virtual core::IReferenceCounted
 {
-	public:
-		using blend_id_t = uint32_t;
+public:
+    using blend_id_t = uint32_t;
 
-		// TODO: move to GLSL header and include it
-		struct nbl_glsl_animation_blend_t
-		{
-			blend_id_t next;
-			// one less indirection is good
-			video::IGPUAnimationLibrary::keyframe_t keyframeOffset_type;
-			video::IGPUAnimationLibrary::timestamp_t timestampBeginOffset;
-			video::IGPUAnimationLibrary::timestamp_t timestampEndOffset;
-			uint16_t weight;
-			// mutable state
-			// we will support programmble (non constant) weights in the far future
-			uint16_t animationTimestampsPerSystemTimestamp; // how many uints to advance for every uint ticked (speed), if NaN then dont perform the blend (dont evaluate)
-			video::IGPUAnimationLibrary::timestamp_t currentAnimationFrame; // might need a supporting fraction to allow interpolation (really slow speeds)
-			uint32_t keyframeBinarySearchHint; // does it help, is it needed?
-		};
-		struct Blend : nbl_glsl_animation_blend_t
-		{
-			enum E_TYPE : uint32_t
-			{
-				// will run once (TODO: and self-delete)
-				ET_FINISH=0,
-				// will run over and over
-				ET_LOOP=1,
-				ET_PING_PONG_FORWARD=2,
-				ET_PING_PONG_BACKWARD=3,
-				ET_COUNT
-			};
-			
-			inline video::IGPUAnimationLibrary::keyframe_t getKeyframeOffset() const {return core::bitfieldExtract(keyframeOffset_type,0,32-TypeBits());}
-			inline E_TYPE getType() const {return static_cast<E_TYPE>(core::bitfieldExtract(keyframeOffset_type,32-TypeBits(),TypeBits()));}
-		private:
-			static inline int32_t TypeBits() {return core::findMSB(ET_COUNT);}
-		};
-
-		// creation
-        static inline core::smart_refctd_ptr<IAnimationBlendManager> create(core::smart_refctd_ptr<ITransformTree>&& tree, core::smart_refctd_ptr<video::IGPUAnimationLibrary>&& _animationLibrary)
+    // TODO: move to GLSL header and include it
+    struct nbl_glsl_animation_blend_t
+    {
+        blend_id_t next;
+        // one less indirection is good
+        video::IGPUAnimationLibrary::keyframe_t keyframeOffset_type;
+        video::IGPUAnimationLibrary::timestamp_t timestampBeginOffset;
+        video::IGPUAnimationLibrary::timestamp_t timestampEndOffset;
+        uint16_t weight;
+        // mutable state
+        // we will support programmble (non constant) weights in the far future
+        uint16_t animationTimestampsPerSystemTimestamp;  // how many uints to advance for every uint ticked (speed), if NaN then dont perform the blend (dont evaluate)
+        video::IGPUAnimationLibrary::timestamp_t currentAnimationFrame;  // might need a supporting fraction to allow interpolation (really slow speeds)
+        uint32_t keyframeBinarySearchHint;  // does it help, is it needed?
+    };
+    struct Blend : nbl_glsl_animation_blend_t
+    {
+        enum E_TYPE : uint32_t
         {
-			if (true) // TODO: some checks and validation before creating?
-				return nullptr;
+            // will run once (TODO: and self-delete)
+            ET_FINISH = 0,
+            // will run over and over
+            ET_LOOP = 1,
+            ET_PING_PONG_FORWARD = 2,
+            ET_PING_PONG_BACKWARD = 3,
+            ET_COUNT
+        };
 
-			// TODO: allocate node blend update frequency bufferview (R8_UINT), and initialize to 120 FPS
+        inline video::IGPUAnimationLibrary::keyframe_t getKeyframeOffset() const { return core::bitfieldExtract(keyframeOffset_type, 0, 32 - TypeBits()); }
+        inline E_TYPE getType() const { return static_cast<E_TYPE>(core::bitfieldExtract(keyframeOffset_type, 32 - TypeBits(), TypeBits())); }
 
-			// TODO: allocate per-node list tail and head buffer and fill them with 0xfffffffu (invalid value) [could call `clearBlends`]
+    private:
+        static inline int32_t TypeBits() { return core::findMSB(ET_COUNT); }
+    };
 
-			auto* abm = new IAnimationBlendSystem(std::move(tree),std::move(_animationLibrary));
-            return core::smart_refctd_ptr<IAnimationBlendSystem>(abm,core::dont_grab);
-        }
+    // creation
+    static inline core::smart_refctd_ptr<IAnimationBlendManager> create(core::smart_refctd_ptr<ITransformTree>&& tree, core::smart_refctd_ptr<video::IGPUAnimationLibrary>&& _animationLibrary)
+    {
+        if(true)  // TODO: some checks and validation before creating?
+            return nullptr;
 
-		// TODO: might need to move these to the `IAnimationBlendManager` 
-		// TODO: do as a param struct, allow for animation speed to be sourced from a GPU bufffer as well
-		void startBlends(const blend_id_t* begin, const blend_id_t* end, const float* animationTimestampsPerSystemTimestamp)
-		{
-			// easy enough, just set the `animationTimestampsPerSystemTimestamp` to whatever it was supposed to be
-		}
-		// remove from a contiguous list in GPU memory
-		void pauseBlends(const blend_id_t* begin, const blend_id_t* end)
-		{
-			// easy enough, just set the `animationTimestampsPerSystemTimestamp` to NaN
-		}
+        // TODO: allocate node blend update frequency bufferview (R8_UINT), and initialize to 120 FPS
 
-		// TODO: do as a param struct, allow for the frame seeked timestamp to be sourced from a GPU bufffer as well
-		void seekBlends(const blend_id_t* begin, const blend_id_t* end, const video::IGPUAnimationLibrary::timestamp_t* frame)
-		{
-			// easy enough, just set the `currentAnimationFrame` to `frame
-		}
+        // TODO: allocate per-node list tail and head buffer and fill them with 0xfffffffu (invalid value) [could call `clearBlends`]
 
-		// TODO: clearBlends (remove all/everything), setNodeUpdateFrequency
+        auto* abm = new IAnimationBlendSystem(std::move(tree), std::move(_animationLibrary));
+        return core::smart_refctd_ptr<IAnimationBlendSystem>(abm, core::dont_grab);
+    }
 
-	protected:
-		IAnimationBlendSystem(core::smart_refctd_ptr<ITransformTree>&& tree, core::smart_refctd_ptr<video::IGPUAnimationLibrary>&& _animationLibrary) : m_tree(std::move(tree)), m_animationLibrary(std::move(_animationLibrary))
-		{
-		}
-		~IAnimationBlendSystem()
-		{
-			// everything drops itself automatically
-		}
+    // TODO: might need to move these to the `IAnimationBlendManager`
+    // TODO: do as a param struct, allow for animation speed to be sourced from a GPU bufffer as well
+    void startBlends(const blend_id_t* begin, const blend_id_t* end, const float* animationTimestampsPerSystemTimestamp)
+    {
+        // easy enough, just set the `animationTimestampsPerSystemTimestamp` to whatever it was supposed to be
+    }
+    // remove from a contiguous list in GPU memory
+    void pauseBlends(const blend_id_t* begin, const blend_id_t* end)
+    {
+        // easy enough, just set the `animationTimestampsPerSystemTimestamp` to NaN
+    }
 
-		core::smart_refctd_ptr<ITransformTree> m_tree;
-		core::smart_refctd_ptr<video::IGPUAnimationLibrary> m_animationLibrary;
-		core::smart_refctd_ptr<video::IGPUBufferView> m_nodeBlendUpdateFrequencies;
-		core::smart_refctd_ptr<video::IGPUBuffer> m_nodeBlendList;
-		// TODO: PRoperty Pool for the blends
-		// TODO: Descriptor sets for the different pipelines
-		//core::smart_refctd_ptr<video::IGPUDescriptorSet> m_animationDS; // animation library (keyframes + animations) + registered blends + active blend IDs
-		// ? core::smart_refctd_ptr<video::IGPUBuffer> m_dispatchIndirectCommandBuffer;
+    // TODO: do as a param struct, allow for the frame seeked timestamp to be sourced from a GPU bufffer as well
+    void seekBlends(const blend_id_t* begin, const blend_id_t* end, const video::IGPUAnimationLibrary::timestamp_t* frame)
+    {
+        // easy enough, just set the `currentAnimationFrame` to `frame
+    }
+
+    // TODO: clearBlends (remove all/everything), setNodeUpdateFrequency
+
+protected:
+    IAnimationBlendSystem(core::smart_refctd_ptr<ITransformTree>&& tree, core::smart_refctd_ptr<video::IGPUAnimationLibrary>&& _animationLibrary)
+        : m_tree(std::move(tree)), m_animationLibrary(std::move(_animationLibrary))
+    {
+    }
+    ~IAnimationBlendSystem()
+    {
+        // everything drops itself automatically
+    }
+
+    core::smart_refctd_ptr<ITransformTree> m_tree;
+    core::smart_refctd_ptr<video::IGPUAnimationLibrary> m_animationLibrary;
+    core::smart_refctd_ptr<video::IGPUBufferView> m_nodeBlendUpdateFrequencies;
+    core::smart_refctd_ptr<video::IGPUBuffer> m_nodeBlendList;
+    // TODO: PRoperty Pool for the blends
+    // TODO: Descriptor sets for the different pipelines
+    //core::smart_refctd_ptr<video::IGPUDescriptorSet> m_animationDS; // animation library (keyframes + animations) + registered blends + active blend IDs
+    // ? core::smart_refctd_ptr<video::IGPUBuffer> m_dispatchIndirectCommandBuffer;
 };
 
 class IAnimationBlendManager : public virtual core::IReferenceCounted
 {
-	public:
-		// creation
-        static inline core::smart_refctd_ptr<IAnimationBlendManager> create(core::smart_refctd_ptr<video::ILogicalDevice>&& _device)
-        {
-			if (true) // TODO: some checks and validation before creating?
-				return nullptr;
+public:
+    // creation
+    static inline core::smart_refctd_ptr<IAnimationBlendManager> create(core::smart_refctd_ptr<video::ILogicalDevice>&& _device)
+    {
+        if(true)  // TODO: some checks and validation before creating?
+            return nullptr;
 
-			auto* abm = new IAnimationBlendManager(std:::move(_device));
-            return core::smart_refctd_ptr<IAnimationBlendManager>(abm,core::dont_grab);
-        }
+        auto* abm = new IAnimationBlendManager(std::
+                                                   : move(_device));
+        return core::smart_refctd_ptr<IAnimationBlendManager>(abm, core::dont_grab);
+    }
 
-		struct ParamsBase
-		{
-			// TODO: probably cmdbuf, fence, etc.
-			const ITransformTree::node_t* nodes;
-			uint32_t count;
-		};
-		struct AddBlendsParams : ParamsBase
-		{
-			const IAnimationBlendSystem::blend_id_t* outBlends;
-			// required, from this we will initialize the three members of `nbl_glsl_animation_blend_t`
-			const video::IGPUAnimationLibrary::animation_t* animations;
-			// if null, intialize to 1.f
-			const uint16_t* animationTimestampsPerSystemTimestamp = nullptr;
-			// if null, intialize to the first timestamp read from `timestamps[anims.data[animations[i]].timestampOffset]`
-			const video::IGPUAnimationLibrary::timestamp_t* currentAnimationFrame = nullptr;
-		};
-		// Each blend is added to a particular node, if you have multiple `node` references we cannot guarantee the order they will be added to the per-node linked list
-		void addBlends(const AddBlendsParams& params)
-		{
-			// launch a `CPropertyPoolHandler`-esque shader to initialize the propertries of a blend properly and add it to a node's linked list
-		}
+    struct ParamsBase
+    {
+        // TODO: probably cmdbuf, fence, etc.
+        const ITransformTree::node_t* nodes;
+        uint32_t count;
+    };
+    struct AddBlendsParams : ParamsBase
+    {
+        const IAnimationBlendSystem::blend_id_t* outBlends;
+        // required, from this we will initialize the three members of `nbl_glsl_animation_blend_t`
+        const video::IGPUAnimationLibrary::animation_t* animations;
+        // if null, intialize to 1.f
+        const uint16_t* animationTimestampsPerSystemTimestamp = nullptr;
+        // if null, intialize to the first timestamp read from `timestamps[anims.data[animations[i]].timestampOffset]`
+        const video::IGPUAnimationLibrary::timestamp_t* currentAnimationFrame = nullptr;
+    };
+    // Each blend is added to a particular node, if you have multiple `node` references we cannot guarantee the order they will be added to the per-node linked list
+    void addBlends(const AddBlendsParams& params)
+    {
+        // launch a `CPropertyPoolHandler`-esque shader to initialize the propertries of a blend properly and add it to a node's linked list
+    }
 
-		struct RemoveBlendsParams : ParamsBase
-		{
-			const IAnimationBlendSystem::blend_id_t* blends;
-		};
-		//
-		void removeBlends(const RemoveBlendsParams& params)
-		{
-			// launch a compute shader that mutexes on a node but can always make forward progress, to remove the blends from the linked list 
-		}
+    struct RemoveBlendsParams : ParamsBase
+    {
+        const IAnimationBlendSystem::blend_id_t* blends;
+    };
+    //
+    void removeBlends(const RemoveBlendsParams& params)
+    {
+        // launch a compute shader that mutexes on a node but can always make forward progress, to remove the blends from the linked list
+    }
 
-		// removes all blends (resets linked list) for the given nodes
-		void removeAllBlends(const ParamsBase& params)
-		{
-			// launch a compute shader that initializes the head and tail to default values for the nodes given in the list 
-		}
+    // removes all blends (resets linked list) for the given nodes
+    void removeAllBlends(const ParamsBase& params)
+    {
+        // launch a compute shader that initializes the head and tail to default values for the nodes given in the list
+    }
 
-		// TODO: periodically we need to download the list of blends which have self-removed on the GPU, in order to free them from the CPU Pool Allocator 
-#if 0 // out of date API idea
-		//
+    // TODO: periodically we need to download the list of blends which have self-removed on the GPU, in order to free them from the CPU Pool Allocator
+#if 0  // out of date API idea \
+    //
 		struct Params
 		{
 			video::IGPUCommandBuffer* cmdbuf; // must already be in recording state
@@ -233,22 +235,20 @@ class IAnimationBlendManager : public virtual core::IReferenceCounted
 			// TODO: Do what ITransformTreeManager and CPropertyPoolHandler do
 		}
 #endif
-	protected:
-		IAnimationBlendManager(core::smart_refctd_ptr<video::ILogicalDevice>&& _device) : m_device(std::move(_device))
-		{
-		}
-		~IAnimationBlendManager()
-		{
-			// everything drops itself automatically
-		}
+protected:
+    IAnimationBlendManager(core::smart_refctd_ptr<video::ILogicalDevice>&& _device)
+        : m_device(std::move(_device))
+    {
+    }
+    ~IAnimationBlendManager()
+    {
+        // everything drops itself automatically
+    }
 
-		core::smart_refctd_ptr<video::ILogicalDevice> m_device;
-		core::smart_refctd_ptr<video::IGPUComputePipeline> m_addBlendsPipeline,m_removeBlendsPipeline,m_computeBlendsPipeline;
+    core::smart_refctd_ptr<video::ILogicalDevice> m_device;
+    core::smart_refctd_ptr<video::IGPUComputePipeline> m_addBlendsPipeline, m_removeBlendsPipeline, m_computeBlendsPipeline;
 };
 
-
-
-} // end namespace nbl::scene
+}  // end namespace nbl::scene
 
 #endif
-

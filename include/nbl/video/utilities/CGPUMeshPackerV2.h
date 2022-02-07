@@ -17,67 +17,64 @@ namespace nbl
 {
 namespace video
 {
-
-template <typename MDIStructType = asset::DrawElementsIndirectCommand_t>
-class CGPUMeshPackerV2 final : public asset::IMeshPackerV2<IGPUBuffer,IGPUDescriptorSet,IGPUMeshBuffer,MDIStructType>
+template<typename MDIStructType = asset::DrawElementsIndirectCommand_t>
+class CGPUMeshPackerV2 final : public asset::IMeshPackerV2<IGPUBuffer, IGPUDescriptorSet, IGPUMeshBuffer, MDIStructType>
 {
-        using base_t = asset::IMeshPackerV2<IGPUBuffer,IGPUDescriptorSet,IGPUMeshBuffer,MDIStructType>;
-        using Triangle = typename base_t::Triangle;
-        using TriangleBatches = typename base_t::TriangleBatches;
+    using base_t = asset::IMeshPackerV2<IGPUBuffer, IGPUDescriptorSet, IGPUMeshBuffer, MDIStructType>;
+    using Triangle = typename base_t::Triangle;
+    using TriangleBatches = typename base_t::TriangleBatches;
 
-    public:
-        using AllocationParams = typename base_t::AllocationParamsCommon;
-        using PackerDataStore = typename base_t::PackerDataStore;
-        using ReservedAllocationMeshBuffers = typename base_t::ReservedAllocationMeshBuffers;
-        using AttribAllocParams = typename base_t::AttribAllocParams;
+public:
+    using AllocationParams = typename base_t::AllocationParamsCommon;
+    using PackerDataStore = typename base_t::PackerDataStore;
+    using ReservedAllocationMeshBuffers = typename base_t::ReservedAllocationMeshBuffers;
+    using AttribAllocParams = typename base_t::AttribAllocParams;
 
-    public:
-        CGPUMeshPackerV2(ILogicalDevice* driver, const AllocationParams& allocParams, const asset::IMeshPackerV2Base::SupportedFormatsContainer& formats, uint16_t minTriangleCountPerMDIData = 256u, uint16_t maxTriangleCountPerMDIData = 1024u)
-            : base_t(allocParams, formats, minTriangleCountPerMDIData, maxTriangleCountPerMDIData), m_driver(driver)
-        {
-            m_utilities = core::make_smart_refctd_ptr<IUtilities>(core::smart_refctd_ptr<ILogicalDevice>(driver));
-        }
+public:
+    CGPUMeshPackerV2(ILogicalDevice* driver, const AllocationParams& allocParams, const asset::IMeshPackerV2Base::SupportedFormatsContainer& formats, uint16_t minTriangleCountPerMDIData = 256u, uint16_t maxTriangleCountPerMDIData = 1024u)
+        : base_t(allocParams, formats, minTriangleCountPerMDIData, maxTriangleCountPerMDIData), m_driver(driver)
+    {
+        m_utilities = core::make_smart_refctd_ptr<IUtilities>(core::smart_refctd_ptr<ILogicalDevice>(driver));
+    }
 
-        // TODO: protect against empty cpuMP (no allocations and then shrinked)
-        CGPUMeshPackerV2(ILogicalDevice* driver, IGPUQueue* queue, const asset::CCPUMeshPackerV2<MDIStructType>* cpuMP)
-            : base_t(cpuMP), m_driver(driver)
-        {
-            // TODO: protect against unitiliazed storage of cpuMP
-            const auto& cpuMDIBuff = cpuMP->getPackerDataStore().MDIDataBuffer;
-            const auto& cpuIdxBuff = cpuMP->getPackerDataStore().indexBuffer;
-            const auto& cpuVtxBuff = cpuMP->getPackerDataStore().vertexBuffer;
+    // TODO: protect against empty cpuMP (no allocations and then shrinked)
+    CGPUMeshPackerV2(ILogicalDevice* driver, IGPUQueue* queue, const asset::CCPUMeshPackerV2<MDIStructType>* cpuMP)
+        : base_t(cpuMP), m_driver(driver)
+    {
+        // TODO: protect against unitiliazed storage of cpuMP
+        const auto& cpuMDIBuff = cpuMP->getPackerDataStore().MDIDataBuffer;
+        const auto& cpuIdxBuff = cpuMP->getPackerDataStore().indexBuffer;
+        const auto& cpuVtxBuff = cpuMP->getPackerDataStore().vertexBuffer;
 
-            m_utilities = core::make_smart_refctd_ptr<IUtilities>(core::smart_refctd_ptr<ILogicalDevice>(driver));
+        m_utilities = core::make_smart_refctd_ptr<IUtilities>(core::smart_refctd_ptr<ILogicalDevice>(driver));
 
-            // TODO: call this->instantiateDataStorage() here and then copy CPU data to the initialized storage
-            base_t::m_packerDataStore.MDIDataBuffer = m_utilities->createFilledDeviceLocalGPUBufferOnDedMem(queue, cpuMDIBuff->getSize(),cpuMDIBuff->getPointer());
-            base_t::m_packerDataStore.indexBuffer = m_utilities->createFilledDeviceLocalGPUBufferOnDedMem(queue, cpuIdxBuff->getSize(),cpuIdxBuff->getPointer());
-            base_t::m_packerDataStore.vertexBuffer = m_utilities->createFilledDeviceLocalGPUBufferOnDedMem(queue, cpuVtxBuff->getSize(),cpuVtxBuff->getPointer());
-        }
+        // TODO: call this->instantiateDataStorage() here and then copy CPU data to the initialized storage
+        base_t::m_packerDataStore.MDIDataBuffer = m_utilities->createFilledDeviceLocalGPUBufferOnDedMem(queue, cpuMDIBuff->getSize(), cpuMDIBuff->getPointer());
+        base_t::m_packerDataStore.indexBuffer = m_utilities->createFilledDeviceLocalGPUBufferOnDedMem(queue, cpuIdxBuff->getSize(), cpuIdxBuff->getPointer());
+        base_t::m_packerDataStore.vertexBuffer = m_utilities->createFilledDeviceLocalGPUBufferOnDedMem(queue, cpuVtxBuff->getSize(), cpuVtxBuff->getPointer());
+    }
 
-        void instantiateDataStorage();
+    void instantiateDataStorage();
 
-        template <typename MeshBufferIterator>
-        bool commit(typename base_t::PackedMeshBufferData* pmbdOut, ReservedAllocationMeshBuffers* rambIn, core::aabbox3df* aabbs, const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd);
-        
-        inline std::pair<uint32_t,uint32_t> getDescriptorSetWritesForUTB(
-            IGPUDescriptorSet::SWriteDescriptorSet* outWrites, IGPUDescriptorSet::SDescriptorInfo* outInfo, IGPUDescriptorSet* dstSet,
-            const typename base_t::DSLayoutParamsUTB& params = {}
-        ) const
-        {
-            auto createBufferView = [&](core::smart_refctd_ptr<IGPUBuffer>&& buff, asset::E_FORMAT format) -> core::smart_refctd_ptr<asset::IDescriptor>
-            {
-                return m_driver->createGPUBufferView(buff.get(),format);
-            };
-            return base_t::getDescriptorSetWritesForUTB(outWrites,outInfo,dstSet,createBufferView,params);
-        }
-    private:
-        core::smart_refctd_ptr<IUtilities> m_utilities;
-        ILogicalDevice* m_driver;
+    template<typename MeshBufferIterator>
+    bool commit(typename base_t::PackedMeshBufferData* pmbdOut, ReservedAllocationMeshBuffers* rambIn, core::aabbox3df* aabbs, const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd);
 
+    inline std::pair<uint32_t, uint32_t> getDescriptorSetWritesForUTB(
+        IGPUDescriptorSet::SWriteDescriptorSet* outWrites, IGPUDescriptorSet::SDescriptorInfo* outInfo, IGPUDescriptorSet* dstSet,
+        const typename base_t::DSLayoutParamsUTB& params = {}) const
+    {
+        auto createBufferView = [&](core::smart_refctd_ptr<IGPUBuffer>&& buff, asset::E_FORMAT format) -> core::smart_refctd_ptr<asset::IDescriptor> {
+            return m_driver->createGPUBufferView(buff.get(), format);
+        };
+        return base_t::getDescriptorSetWritesForUTB(outWrites, outInfo, dstSet, createBufferView, params);
+    }
+
+private:
+    core::smart_refctd_ptr<IUtilities> m_utilities;
+    ILogicalDevice* m_driver;
 };
 
-template <typename MDIStructType>
+template<typename MDIStructType>
 void CGPUMeshPackerV2<MDIStructType>::instantiateDataStorage()
 {
     const uint32_t MDIDataBuffByteSize = base_t::m_MDIDataAlctr.get_total_size() * sizeof(MDIStructType);
@@ -89,8 +86,8 @@ void CGPUMeshPackerV2<MDIStructType>::instantiateDataStorage()
     base_t::m_packerDataStore.vertexBuffer = m_driver->createDeviceLocalGPUBufferOnDedMem(vtxBuffByteSize);
 }
 
-template <typename MDIStructType>
-template <typename MeshBufferIterator>
+template<typename MDIStructType>
+template<typename MeshBufferIterator>
 bool CGPUMeshPackerV2<MDIStructType>::commit(typename base_t::PackedMeshBufferData* pmbdOut, ReservedAllocationMeshBuffers* rambIn, core::aabbox3df* aabbs, const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd)
 {
     assert(0);

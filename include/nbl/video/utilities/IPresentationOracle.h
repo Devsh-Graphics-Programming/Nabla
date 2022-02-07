@@ -11,19 +11,19 @@ namespace nbl::video
 {
 class IPresentationOracle
 {
-    public:
-        //! demark CPU work on a frame start and end
-        virtual void reportBeginFrameRecord() = 0;
-        virtual void reportEndFrameRecord() = 0;
+public:
+    //! demark CPU work on a frame start and end
+    virtual void reportBeginFrameRecord() = 0;
+    virtual void reportEndFrameRecord() = 0;
 
-        //! wraps image acquire, could inject timings and queries before and after to obtain frame presentation data
-        virtual std::chrono::microseconds acquireNextImage(ISwapchain* swapchain, IGPUSemaphore* acquireSemaphore, IGPUFence* fence, uint32_t* imageNumber) = 0;
+    //! wraps image acquire, could inject timings and queries before and after to obtain frame presentation data
+    virtual std::chrono::microseconds acquireNextImage(ISwapchain* swapchain, IGPUSemaphore* acquireSemaphore, IGPUFence* fence, uint32_t* imageNumber) = 0;
 
-        // TODO: Actually start using this in CommonAPI of the examples
-        //! wraps image acquire, could inject timings and queries before and after to obtain frame presentation data
-        virtual void present(nbl::video::ILogicalDevice* device, nbl::video::ISwapchain* swapchain, nbl::video::IGPUQueue* queue, nbl::video::IGPUSemaphore* renderFinishedSemaphore, const uint32_t imageNumer) = 0;
+    // TODO: Actually start using this in CommonAPI of the examples
+    //! wraps image acquire, could inject timings and queries before and after to obtain frame presentation data
+    virtual void present(nbl::video::ILogicalDevice* device, nbl::video::ISwapchain* swapchain, nbl::video::IGPUQueue* queue, nbl::video::IGPUSemaphore* renderFinishedSemaphore, const uint32_t imageNumer) = 0;
 };
 
 }
 
-#endif // __NBL_VIDEO_I_PRESENTATION_ORACLE__H_INCLUDED__
+#endif  // __NBL_VIDEO_I_PRESENTATION_ORACLE__H_INCLUDED__

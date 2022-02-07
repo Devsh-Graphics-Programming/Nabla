@@ -10,7 +10,6 @@
 
 namespace nbl::asset
 {
-
 //! A class to derive loader-specific image metadata objects from
 /**
 	Images may sometimes require external inputs from outside of the resourced they were built with, for total flexibility
@@ -20,26 +19,28 @@ namespace nbl::asset
 */
 class IImageMetadata : public core::Interface
 {
-	public:
-		struct ColorSemantic
-		{
-			E_COLOR_PRIMARIES colorSpace;
-			ELECTRO_OPTICAL_TRANSFER_FUNCTION transferFunction;
-		};
+public:
+    struct ColorSemantic
+    {
+        E_COLOR_PRIMARIES colorSpace;
+        ELECTRO_OPTICAL_TRANSFER_FUNCTION transferFunction;
+    };
 
-		inline IImageMetadata() : colorSemantic{ECP_COUNT,EOTF_UNKNOWN} {}
-		inline IImageMetadata(const ColorSemantic& _colorSemantic) : colorSemantic(_colorSemantic) {}
+    inline IImageMetadata()
+        : colorSemantic{ECP_COUNT, EOTF_UNKNOWN} {}
+    inline IImageMetadata(const ColorSemantic& _colorSemantic)
+        : colorSemantic(_colorSemantic) {}
 
-		ColorSemantic colorSemantic;
+    ColorSemantic colorSemantic;
 
-	protected:
-		virtual ~IImageMetadata() = default;
+protected:
+    virtual ~IImageMetadata() = default;
 
-		inline IImageMetadata& operator=(IImageMetadata&& other)
-		{
-			std::swap(colorSemantic,other.colorSemantic);
-			return *this;
-		}
+    inline IImageMetadata& operator=(IImageMetadata&& other)
+    {
+        std::swap(colorSemantic, other.colorSemantic);
+        return *this;
+    }
 };
 
 }

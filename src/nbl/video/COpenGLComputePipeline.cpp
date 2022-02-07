@@ -6,7 +6,6 @@
 
 namespace nbl::video
 {
-
 COpenGLComputePipeline::~COpenGLComputePipeline()
 {
     m_device->destroySpecializedShaders(std::move(m_GLprograms));

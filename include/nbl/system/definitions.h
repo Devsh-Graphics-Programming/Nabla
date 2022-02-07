@@ -7,5 +7,4 @@
 
 #include "nbl/system/declarations.h"
 
-
 #endif

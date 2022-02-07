@@ -17,8 +17,6 @@ namespace core
 }
 namespace asset
 {
-
-
 // forward declarations
 class CFinalBoneHierarchy;
 class ICPUMeshBuffer;
@@ -26,8 +24,6 @@ class ICPUMesh;
 
 namespace legacyv0
 {
-
-
 enum E_COMPONENTS_PER_ATTRIBUTE
 {
     //! Special ID for reverse XYZW order
@@ -71,7 +67,7 @@ enum E_COMPONENT_TYPE
     ECT_INTEGER_INT,
     ECT_INTEGER_UNSIGNED_INT,
     //special
-    ECT_DOUBLE_IN_DOUBLE_OUT, //only accepted by glVertexAttribLPointer
+    ECT_DOUBLE_IN_DOUBLE_OUT,  //only accepted by glVertexAttribLPointer
     ECT_COUNT
 };
 
@@ -83,7 +79,11 @@ enum E_COMPONENT_TYPE
 struct NBL_FORCE_EBO MeshDataFormatDescBlobV0 : TypedBlob<MeshDataFormatDescBlobV0, asset::IMeshDataFormatDesc<asset::ICPUBuffer> >, VariableSizeBlob<MeshDataFormatDescBlobV0, asset::IMeshDataFormatDesc<asset::ICPUBuffer> >
 {
 private:
-    enum { VERTEX_ATTRIB_CNT = 16 };
+    enum
+    {
+        VERTEX_ATTRIB_CNT = 16
+    };
+
 public:
     //! was storing scene::E_COMPONENTS_PER_ATTRIBUTE in .baw v0 (in version 1 MeshDataFormatDescBlobV1 is used)
     uint32_t cpa[VERTEX_ATTRIB_CNT];
@@ -97,23 +97,21 @@ public:
 } PACK_STRUCT;
 #include "nbl/nblunpack.h"
 static_assert(
-    sizeof(MeshDataFormatDescBlobV0) == 
-    sizeof(MeshDataFormatDescBlobV0::cpa) + sizeof(MeshDataFormatDescBlobV0::attrType) + sizeof(MeshDataFormatDescBlobV0::attrStride) + sizeof(MeshDataFormatDescBlobV0::attrOffset) + sizeof(MeshDataFormatDescBlobV0::attrDivisor) + sizeof(MeshDataFormatDescBlobV0::attrBufPtrs) + sizeof(MeshDataFormatDescBlobV0::idxBufPtr),
-    "MeshDataFormatDescBlobV0: Size of blob is not sum of its contents!"
-);
+    sizeof(MeshDataFormatDescBlobV0) ==
+        sizeof(MeshDataFormatDescBlobV0::cpa) + sizeof(MeshDataFormatDescBlobV0::attrType) + sizeof(MeshDataFormatDescBlobV0::attrStride) + sizeof(MeshDataFormatDescBlobV0::attrOffset) + sizeof(MeshDataFormatDescBlobV0::attrDivisor) + sizeof(MeshDataFormatDescBlobV0::attrBufPtrs) + sizeof(MeshDataFormatDescBlobV0::idxBufPtr),
+    "MeshDataFormatDescBlobV0: Size of blob is not sum of its contents!");
 #endif
 
 asset::E_FORMAT mapECT_plus_ECPA_onto_E_FORMAT(E_COMPONENT_TYPE _ct, E_COMPONENTS_PER_ATTRIBUTE _cpa);
 
-
 #include "nbl/nblpack.h"
-struct NBL_FORCE_EBO FinalBoneHierarchyBlobV0 : VariableSizeBlob<FinalBoneHierarchyBlobV0,CFinalBoneHierarchy>, TypedBlob<FinalBoneHierarchyBlobV0, CFinalBoneHierarchy>
+struct NBL_FORCE_EBO FinalBoneHierarchyBlobV0 : VariableSizeBlob<FinalBoneHierarchyBlobV0, CFinalBoneHierarchy>, TypedBlob<FinalBoneHierarchyBlobV0, CFinalBoneHierarchy>
 {
 public:
-	inline uint8_t* getBoneData()
-	{
-		return reinterpret_cast<uint8_t*>(this)+sizeof(FinalBoneHierarchyBlobV0);
-	}
+    inline uint8_t* getBoneData()
+    {
+        return reinterpret_cast<uint8_t*>(this) + sizeof(FinalBoneHierarchyBlobV0);
+    }
 
     size_t boneCount;
     size_t numLevelsInHierarchy;
@@ -122,9 +120,8 @@ public:
 #include "nbl/nblunpack.h"
 static_assert(
     sizeof(FinalBoneHierarchyBlobV0) ==
-    sizeof(FinalBoneHierarchyBlobV0::boneCount) + sizeof(FinalBoneHierarchyBlobV0::numLevelsInHierarchy) + sizeof(FinalBoneHierarchyBlobV0::keyframeCount),
-    "FinalBoneHierarchyBlobV0: Size of blob is not sum of its contents!"
-);
+        sizeof(FinalBoneHierarchyBlobV0::boneCount) + sizeof(FinalBoneHierarchyBlobV0::numLevelsInHierarchy) + sizeof(FinalBoneHierarchyBlobV0::keyframeCount),
+    "FinalBoneHierarchyBlobV0: Size of blob is not sum of its contents!");
 
 class ICPUMesh;
 
@@ -133,18 +130,17 @@ class ICPUMesh;
 struct NBL_FORCE_EBO MeshBlobV0 : VariableSizeBlob<MeshBlobV0, asset::ICPUMesh>, TypedBlob<MeshBlobV0, asset::ICPUMesh>
 {
 public:
-	core::aabbox3df box;
-	uint32_t meshBufCnt;
-	uint64_t meshBufPtrs[1];
+    core::aabbox3df box;
+    uint32_t meshBufCnt;
+    uint64_t meshBufPtrs[1];
 } PACK_STRUCT;
 #include "nbl/nblunpack.h"
 static_assert(sizeof(core::aabbox3df) == 24, "sizeof(core::aabbox3df) must be 24");
 static_assert(sizeof(MeshBlobV0::meshBufPtrs) == 8, "sizeof(MeshBlobV0::meshBufPtrs) must be 8");
 static_assert(
-	sizeof(MeshBlobV0) ==
-	sizeof(MeshBlobV0::box) + sizeof(MeshBlobV0::meshBufCnt) + sizeof(MeshBlobV0::meshBufPtrs),
-	"MeshBlobV0: Size of blob is not sum of its contents!"
-	);
+    sizeof(MeshBlobV0) ==
+        sizeof(MeshBlobV0::box) + sizeof(MeshBlobV0::meshBufCnt) + sizeof(MeshBlobV0::meshBufPtrs),
+    "MeshBlobV0: Size of blob is not sum of its contents!");
 
 class ICPUSkinnedMesh;
 
@@ -153,47 +149,43 @@ class ICPUSkinnedMesh;
 struct NBL_FORCE_EBO SkinnedMeshBlobV0 : VariableSizeBlob<SkinnedMeshBlobV0, ICPUSkinnedMesh>, TypedBlob<SkinnedMeshBlobV0, ICPUSkinnedMesh>
 {
 public:
-	uint64_t boneHierarchyPtr;
-	core::aabbox3df box;
-	uint32_t meshBufCnt;
-	uint64_t meshBufPtrs[1];
+    uint64_t boneHierarchyPtr;
+    core::aabbox3df box;
+    uint32_t meshBufCnt;
+    uint64_t meshBufPtrs[1];
 } PACK_STRUCT;
 #include "nbl/nblunpack.h"
 static_assert(sizeof(SkinnedMeshBlobV0::meshBufPtrs) == 8, "sizeof(SkinnedMeshBlobV0::meshBufPtrs) must be 8");
 static_assert(
-	sizeof(SkinnedMeshBlobV0) ==
-	sizeof(SkinnedMeshBlobV0::boneHierarchyPtr) + sizeof(SkinnedMeshBlobV0::box) + sizeof(SkinnedMeshBlobV0::meshBufCnt) + sizeof(SkinnedMeshBlobV0::meshBufPtrs),
-	"SkinnedMeshBlobV0: Size of blob is not sum of its contents!"
-	);
+    sizeof(SkinnedMeshBlobV0) ==
+        sizeof(SkinnedMeshBlobV0::boneHierarchyPtr) + sizeof(SkinnedMeshBlobV0::box) + sizeof(SkinnedMeshBlobV0::meshBufCnt) + sizeof(SkinnedMeshBlobV0::meshBufPtrs),
+    "SkinnedMeshBlobV0: Size of blob is not sum of its contents!");
 
 #include "nbl/nblpack.h"
 //! Simple struct of essential data of ICPUMeshBuffer that has to be exported
 struct NBL_FORCE_EBO MeshBufferBlobV0 : TypedBlob<MeshBufferBlobV0, ICPUMeshBuffer>, FixedSizeBlob<MeshBufferBlobV0, ICPUMeshBuffer>
 {
 #ifdef OLD_SHADERS
-	video::SCPUMaterial mat;
+    video::SCPUMaterial mat;
 #endif
-	core::aabbox3df box;
-	uint64_t descPtr;
-	uint32_t indexType;
-	uint32_t baseVertex;
-	uint64_t indexCount;
-	size_t indexBufOffset;
-	size_t instanceCount;
-	uint32_t baseInstance;
-	uint32_t primitiveType;
-	uint32_t posAttrId;
+    core::aabbox3df box;
+    uint64_t descPtr;
+    uint32_t indexType;
+    uint32_t baseVertex;
+    uint64_t indexCount;
+    size_t indexBufOffset;
+    size_t instanceCount;
+    uint32_t baseInstance;
+    uint32_t primitiveType;
+    uint32_t posAttrId;
 } PACK_STRUCT;
 #include "nbl/nblunpack.h"
 #ifdef OLD_SHADERS
 static_assert(sizeof(MeshBufferBlobV0::mat) == 197, "sizeof(MeshBufferBlobV0::mat) must be 197");
 static_assert(
-	sizeof(MeshBufferBlobV0) ==
-	sizeof(MeshBufferBlobV0::mat) + sizeof(MeshBufferBlobV0::box) + sizeof(MeshBufferBlobV0::descPtr) + sizeof(MeshBufferBlobV0::indexType) + sizeof(MeshBufferBlobV0::baseVertex)
-	+ sizeof(MeshBufferBlobV0::indexCount) + sizeof(MeshBufferBlobV0::indexBufOffset) + sizeof(MeshBufferBlobV0::instanceCount) + sizeof(MeshBufferBlobV0::baseInstance)
-	+ sizeof(MeshBufferBlobV0::primitiveType) + sizeof(MeshBufferBlobV0::posAttrId),
-	"MeshBufferBlobV0: Size of blob is not sum of its contents!"
-	);
+    sizeof(MeshBufferBlobV0) ==
+        sizeof(MeshBufferBlobV0::mat) + sizeof(MeshBufferBlobV0::box) + sizeof(MeshBufferBlobV0::descPtr) + sizeof(MeshBufferBlobV0::indexType) + sizeof(MeshBufferBlobV0::baseVertex) + sizeof(MeshBufferBlobV0::indexCount) + sizeof(MeshBufferBlobV0::indexBufOffset) + sizeof(MeshBufferBlobV0::instanceCount) + sizeof(MeshBufferBlobV0::baseInstance) + sizeof(MeshBufferBlobV0::primitiveType) + sizeof(MeshBufferBlobV0::posAttrId),
+    "MeshBufferBlobV0: Size of blob is not sum of its contents!");
 #endif
 
 class ICPUSkinnedMeshBuffer;
@@ -202,39 +194,34 @@ class ICPUSkinnedMeshBuffer;
 struct NBL_FORCE_EBO SkinnedMeshBufferBlobV0 : TypedBlob<SkinnedMeshBufferBlobV0, ICPUSkinnedMeshBuffer>, FixedSizeBlob<SkinnedMeshBufferBlobV0, ICPUSkinnedMeshBuffer>
 {
 #ifdef OLD_SHADERS
-	video::SCPUMaterial mat;
+    video::SCPUMaterial mat;
 #endif
-	core::aabbox3df box;
-	uint64_t descPtr;
-	uint32_t indexType;
-	uint32_t baseVertex;
-	uint64_t indexCount;
-	size_t indexBufOffset;
-	size_t instanceCount;
-	uint32_t baseInstance;
-	uint32_t primitiveType;
-	uint32_t posAttrId;
-	uint32_t indexValMin;
-	uint32_t indexValMax;
-	uint32_t maxVertexBoneInfluences;
+    core::aabbox3df box;
+    uint64_t descPtr;
+    uint32_t indexType;
+    uint32_t baseVertex;
+    uint64_t indexCount;
+    size_t indexBufOffset;
+    size_t instanceCount;
+    uint32_t baseInstance;
+    uint32_t primitiveType;
+    uint32_t posAttrId;
+    uint32_t indexValMin;
+    uint32_t indexValMax;
+    uint32_t maxVertexBoneInfluences;
 } PACK_STRUCT;
 #include "nbl/nblunpack.h"
 #ifdef OLD_SHADERS
 static_assert(sizeof(SkinnedMeshBufferBlobV0::mat) == 197, "sizeof(MeshBufferBlobV0::mat) must be 197");
 static_assert(
-	sizeof(SkinnedMeshBufferBlobV0) ==
-	sizeof(SkinnedMeshBufferBlobV0::mat) + sizeof(SkinnedMeshBufferBlobV0::box) + sizeof(SkinnedMeshBufferBlobV0::descPtr) + sizeof(SkinnedMeshBufferBlobV0::indexType) + sizeof(SkinnedMeshBufferBlobV0::baseVertex)
-	+ sizeof(SkinnedMeshBufferBlobV0::indexCount) + sizeof(SkinnedMeshBufferBlobV0::indexBufOffset) + sizeof(SkinnedMeshBufferBlobV0::instanceCount) + sizeof(SkinnedMeshBufferBlobV0::baseInstance)
-	+ sizeof(SkinnedMeshBufferBlobV0::primitiveType) + sizeof(SkinnedMeshBufferBlobV0::posAttrId) + sizeof(SkinnedMeshBufferBlobV0::indexValMin) + sizeof(SkinnedMeshBufferBlobV0::indexValMax) + sizeof(SkinnedMeshBufferBlobV0::maxVertexBoneInfluences),
-	"SkinnedMeshBufferBlobV0: Size of blob is not sum of its contents!"
-	);
+    sizeof(SkinnedMeshBufferBlobV0) ==
+        sizeof(SkinnedMeshBufferBlobV0::mat) + sizeof(SkinnedMeshBufferBlobV0::box) + sizeof(SkinnedMeshBufferBlobV0::descPtr) + sizeof(SkinnedMeshBufferBlobV0::indexType) + sizeof(SkinnedMeshBufferBlobV0::baseVertex) + sizeof(SkinnedMeshBufferBlobV0::indexCount) + sizeof(SkinnedMeshBufferBlobV0::indexBufOffset) + sizeof(SkinnedMeshBufferBlobV0::instanceCount) + sizeof(SkinnedMeshBufferBlobV0::baseInstance) + sizeof(SkinnedMeshBufferBlobV0::primitiveType) + sizeof(SkinnedMeshBufferBlobV0::posAttrId) + sizeof(SkinnedMeshBufferBlobV0::indexValMin) + sizeof(SkinnedMeshBufferBlobV0::indexValMax) + sizeof(SkinnedMeshBufferBlobV0::maxVertexBoneInfluences),
+    "SkinnedMeshBufferBlobV0: Size of blob is not sum of its contents!");
 #endif
 }
 
-
 namespace legacyv1
 {
-	
 using FinalBoneHierarchyBlobV1 = legacyv0::FinalBoneHierarchyBlobV0;
 using MeshBlobV1 = legacyv0::MeshBlobV0;
 using SkinnedMeshBlobV1 = legacyv0::SkinnedMeshBlobV0;
@@ -245,23 +232,19 @@ using SkinnedMeshBufferBlobV1 = legacyv0::SkinnedMeshBufferBlobV0;
 
 namespace legacyv2
 {
-
 #include "nbl/nblpack.h"
 struct NBL_FORCE_EBO FinalBoneHierarchyBlobV2 : VariableSizeBlob<FinalBoneHierarchyBlobV2, CFinalBoneHierarchy>, TypedBlob<FinalBoneHierarchyBlobV2, CFinalBoneHierarchy>
 {
 public:
-
-	size_t boneCount;
-	size_t numLevelsInHierarchy;
-	size_t keyframeCount;
+    size_t boneCount;
+    size_t numLevelsInHierarchy;
+    size_t keyframeCount;
 } PACK_STRUCT;
 #include "nbl/nblunpack.h"
 static_assert(
-	sizeof(FinalBoneHierarchyBlobV2) ==
-	sizeof(FinalBoneHierarchyBlobV2::boneCount) + sizeof(FinalBoneHierarchyBlobV2::numLevelsInHierarchy) + sizeof(FinalBoneHierarchyBlobV2::keyframeCount),
-	"FinalBoneHierarchyBlobV2: Size of blob is not sum of its contents!"
-	);
-
+    sizeof(FinalBoneHierarchyBlobV2) ==
+        sizeof(FinalBoneHierarchyBlobV2::boneCount) + sizeof(FinalBoneHierarchyBlobV2::numLevelsInHierarchy) + sizeof(FinalBoneHierarchyBlobV2::keyframeCount),
+    "FinalBoneHierarchyBlobV2: Size of blob is not sum of its contents!");
 
 using MeshBlobV2 = legacyv1::MeshBlobV1;
 using SkinnedMeshBlobV2 = legacyv1::SkinnedMeshBlobV1;
@@ -271,6 +254,6 @@ using SkinnedMeshBufferBlobV2 = legacyv1::SkinnedMeshBufferBlobV1;
 }
 
 }
-} //nbl::asset
+}  //nbl::asset
 
 #endif

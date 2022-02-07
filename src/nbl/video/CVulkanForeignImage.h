@@ -4,7 +4,6 @@
 
 namespace nbl::video
 {
-
 class CVulkanSwapchain;
 
 class CVulkanForeignImage final : public CVulkanImage

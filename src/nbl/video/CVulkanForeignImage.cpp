@@ -2,7 +2,6 @@
 
 namespace nbl::video
 {
-
 CVulkanForeignImage::~CVulkanForeignImage()
 {
     // m_swapchain = nullptr;

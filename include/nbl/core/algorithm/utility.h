@@ -5,14 +5,13 @@ namespace nbl
 {
 namespace core
 {
-
 namespace impl
 {
-    template<typename T, typename F, std::size_t... Is>
-    inline void for_each(T&& t, F f, std::index_sequence<Is...>)
-    {
-        auto l = { (f(std::get<Is>(t)), 0)... };
-    }
+template<typename T, typename F, std::size_t... Is>
+inline void for_each(T&& t, F f, std::index_sequence<Is...>)
+{
+    auto l = {(f(std::get<Is>(t)), 0)...};
+}
 }
 
 template<typename... Ts, typename F>
@@ -25,4 +24,4 @@ inline void for_each_in_tuple(std::tuple<Ts...> const& t, F f)
 }
 }
 
-#endif //__NBL_CORE_ALGORITHM_UTILITY_H_INCLUDED__
+#endif  //__NBL_CORE_ALGORITHM_UTILITY_H_INCLUDED__

@@ -7,14 +7,14 @@
 
 namespace nbl::video
 {
-
 class ILogicalDevice;
 
 class CVulkanSemaphore final : public IGPUSemaphore
 {
 public:
     CVulkanSemaphore(core::smart_refctd_ptr<ILogicalDevice>&& _vkdev,
-        VkSemaphore semaphore) : IGPUSemaphore(std::move(_vkdev)), m_semaphore(semaphore)
+        VkSemaphore semaphore)
+        : IGPUSemaphore(std::move(_vkdev)), m_semaphore(semaphore)
     {}
 
     ~CVulkanSemaphore();

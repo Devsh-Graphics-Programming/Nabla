@@ -11,21 +11,21 @@
 
 namespace nbl::core
 {
-
-struct adopt_memory_t {};
+struct adopt_memory_t
+{
+};
 constexpr adopt_memory_t adopt_memory{};
 
 class IBuffer : public virtual IReferenceCounted
 {
-    public:
-        //! size in BYTES
-        virtual uint64_t getSize() const = 0;
+public:
+    //! size in BYTES
+    virtual uint64_t getSize() const = 0;
 
-    protected:
-        _NBL_INTERFACE_CHILD(IBuffer) {}
+protected:
+    _NBL_INTERFACE_CHILD(IBuffer) {}
 };
 
-} // end namespace nbl::video
+}  // end namespace nbl::video
 
 #endif
-

@@ -5,93 +5,89 @@
 #ifndef _NBL_VIDEO_C_DRAW_INDIRECT_ALLOCATOR_H_INCLUDED_
 #define _NBL_VIDEO_C_DRAW_INDIRECT_ALLOCATOR_H_INCLUDED_
 
-
 #include "nbl/video/utilities/IDrawIndirectAllocator.h"
-
 
 namespace nbl::video
 {
-
-template<template<class...> class allocator=core::allocator>
+template<template<class...> class allocator = core::allocator>
 class CDrawIndirectAllocator final : public IDrawIndirectAllocator
 {
-        using this_t = CDrawIndirectAllocator<allocator>;
+    using this_t = CDrawIndirectAllocator<allocator>;
 
-    public:
-        // easy dont care creation
-        static inline core::smart_refctd_ptr<this_t> create(ImplicitBufferCreationParameters&& params, allocator<uint8_t>&& alloc=allocator<uint8_t>())
+public:
+    // easy dont care creation
+    static inline core::smart_refctd_ptr<this_t> create(ImplicitBufferCreationParameters&& params, allocator<uint8_t>&& alloc = allocator<uint8_t>())
+    {
+        if(!params.device || params.drawCommandCapacity == 0u)
+            return nullptr;
+
+        const auto& features = params.device->getPhysicalDevice()->getFeatures();
+        if(!features.drawIndirectCount)
+            params.drawCountCapacity = 0;
+        const auto& limits = params.device->getPhysicalDevice()->getLimits();
+
+        ExplicitBufferCreationParameters explicit_params;
+
+        video::IGPUBuffer::SCreationParams creationParams = {};
+        creationParams.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
+        creationParams.usage |= asset::IBuffer::EUF_INDIRECT_BUFFER_BIT;
+
+        static_cast<CreationParametersBase&>(explicit_params) = std::move(params);
+        explicit_params.drawCommandBuffer.offset = 0ull;
+        // need to add a little padding, because generalpurpose allocator doesnt allow for allocations that would leave freeblocks smaller than the minimum allocation size
+        explicit_params.drawCommandBuffer.size = core::roundUp<size_t>(params.drawCommandCapacity * params.maxDrawCommandStride + params.maxDrawCommandStride, limits.SSBOAlignment);
+        explicit_params.drawCommandBuffer.buffer = params.device->createDeviceLocalGPUBufferOnDedMem(creationParams, explicit_params.drawCommandBuffer.size);
+        explicit_params.drawCountBuffer.offset = 0ull;
+        explicit_params.drawCountBuffer.size = core::roundUp<size_t>(params.drawCountCapacity * sizeof(uint32_t), limits.SSBOAlignment);
+        if(explicit_params.drawCountBuffer.size)
         {
-            if (!params.device || params.drawCommandCapacity==0u)
-                return nullptr;
-
-            const auto& features = params.device->getPhysicalDevice()->getFeatures();
-            if (!features.drawIndirectCount)
-                params.drawCountCapacity = 0;
-            const auto& limits = params.device->getPhysicalDevice()->getLimits();
-            
-            ExplicitBufferCreationParameters explicit_params;
-
-            video::IGPUBuffer::SCreationParams creationParams = {};
-            creationParams.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
-            creationParams.usage |= asset::IBuffer::EUF_INDIRECT_BUFFER_BIT;
-
-            static_cast<CreationParametersBase&>(explicit_params) = std::move(params);
-            explicit_params.drawCommandBuffer.offset = 0ull;
-            // need to add a little padding, because generalpurpose allocator doesnt allow for allocations that would leave freeblocks smaller than the minimum allocation size
-            explicit_params.drawCommandBuffer.size = core::roundUp<size_t>(params.drawCommandCapacity*params.maxDrawCommandStride+params.maxDrawCommandStride,limits.SSBOAlignment);
-            explicit_params.drawCommandBuffer.buffer = params.device->createDeviceLocalGPUBufferOnDedMem(creationParams, explicit_params.drawCommandBuffer.size);
-            explicit_params.drawCountBuffer.offset = 0ull;
-            explicit_params.drawCountBuffer.size = core::roundUp<size_t>(params.drawCountCapacity*sizeof(uint32_t),limits.SSBOAlignment);
-            if (explicit_params.drawCountBuffer.size)
-            {
-                const size_t bufferSize = explicit_params.drawCountBuffer.size;
-                explicit_params.drawCountBuffer.buffer = params.device->createDeviceLocalGPUBufferOnDedMem(creationParams, bufferSize);
-            }
-            else
-                explicit_params.drawCountBuffer.buffer = nullptr;
-            return create(std::move(explicit_params),std::move(alloc));
+            const size_t bufferSize = explicit_params.drawCountBuffer.size;
+            explicit_params.drawCountBuffer.buffer = params.device->createDeviceLocalGPUBufferOnDedMem(creationParams, bufferSize);
         }
-        // you can either construct the allocator with capacity deduced from the memory blocks you pass
-		static inline core::smart_refctd_ptr<this_t> create(ExplicitBufferCreationParameters&& params, allocator<uint8_t>&& alloc = allocator<uint8_t>())
-		{
-            const auto drawCapacity = params.drawCommandBuffer.size/params.maxDrawCommandStride;
-            if (!params.device || !params.drawCommandBuffer.isValid() || drawCapacity==0u)
-                return nullptr;
-            
-            auto drawCountPool = draw_count_pool_t::create(params.device,&params.drawCountBuffer);
-            if (params.drawCountBuffer.size!=0u && !drawCountPool)
-                return nullptr;
+        else
+            explicit_params.drawCountBuffer.buffer = nullptr;
+        return create(std::move(explicit_params), std::move(alloc));
+    }
+    // you can either construct the allocator with capacity deduced from the memory blocks you pass
+    static inline core::smart_refctd_ptr<this_t> create(ExplicitBufferCreationParameters&& params, allocator<uint8_t>&& alloc = allocator<uint8_t>())
+    {
+        const auto drawCapacity = params.drawCommandBuffer.size / params.maxDrawCommandStride;
+        if(!params.device || !params.drawCommandBuffer.isValid() || drawCapacity == 0u)
+            return nullptr;
 
-			const auto drawAllocatorReservedSize = computeReservedSize(params.drawCommandBuffer.size,params.maxDrawCommandStride);
-			auto drawAllocatorReserved = std::allocator_traits<allocator<uint8_t>>::allocate(alloc,drawAllocatorReservedSize);
-			if (!drawAllocatorReserved)
-				return nullptr;
+        auto drawCountPool = draw_count_pool_t::create(params.device, &params.drawCountBuffer);
+        if(params.drawCountBuffer.size != 0u && !drawCountPool)
+            return nullptr;
 
-			auto* retval = new CDrawIndirectAllocator(std::move(drawCountPool),params.maxDrawCommandStride,std::move(params.drawCommandBuffer),drawAllocatorReserved,std::move(alloc));
-			if (!retval) // TODO: redo this, allocate the memory for the object, if fail, then dealloc, we cannot free from a moved allocator
-				std::allocator_traits<allocator<uint8_t>>::deallocate(alloc,drawAllocatorReserved,drawAllocatorReservedSize);
+        const auto drawAllocatorReservedSize = computeReservedSize(params.drawCommandBuffer.size, params.maxDrawCommandStride);
+        auto drawAllocatorReserved = std::allocator_traits<allocator<uint8_t>>::allocate(alloc, drawAllocatorReservedSize);
+        if(!drawAllocatorReserved)
+            return nullptr;
 
-            return core::smart_refctd_ptr<CDrawIndirectAllocator>(retval,core::dont_grab);
-        }
+        auto* retval = new CDrawIndirectAllocator(std::move(drawCountPool), params.maxDrawCommandStride, std::move(params.drawCommandBuffer), drawAllocatorReserved, std::move(alloc));
+        if(!retval)  // TODO: redo this, allocate the memory for the object, if fail, then dealloc, we cannot free from a moved allocator
+            std::allocator_traits<allocator<uint8_t>>::deallocate(alloc, drawAllocatorReserved, drawAllocatorReservedSize);
 
-    protected:
-        CDrawIndirectAllocator(core::smart_refctd_ptr<draw_count_pool_t>&& _drawCountPool, const uint16_t _maxDrawCommandStride, asset::SBufferRange<IGPUBuffer>&& _drawCommandBlock, void* _drawAllocatorReserved, allocator<uint8_t>&& _alloc)
-            : IDrawIndirectAllocator(std::move(_drawCountPool),_maxDrawCommandStride,std::move(_drawCommandBlock),_drawAllocatorReserved), m_alloc(std::move(_alloc))
-        {
-        }
-        ~CDrawIndirectAllocator()
-        {
-            std::allocator_traits<allocator<uint8_t>>::deallocate(
-                m_alloc,reinterpret_cast<uint8_t*>(m_drawAllocatorReserved),computeReservedSize(m_drawCommandBlock.size,m_maxDrawCommandStride)
-            );
-        }
+        return core::smart_refctd_ptr<CDrawIndirectAllocator>(retval, core::dont_grab);
+    }
 
-        static inline size_t computeReservedSize(const uint64_t bufferSize, const uint32_t maxStride)
-        {
-            return DrawIndirectAddressAllocator::reserved_size(core::roundUpToPoT(maxStride),bufferSize,maxStride);
-        }
+protected:
+    CDrawIndirectAllocator(core::smart_refctd_ptr<draw_count_pool_t>&& _drawCountPool, const uint16_t _maxDrawCommandStride, asset::SBufferRange<IGPUBuffer>&& _drawCommandBlock, void* _drawAllocatorReserved, allocator<uint8_t>&& _alloc)
+        : IDrawIndirectAllocator(std::move(_drawCountPool), _maxDrawCommandStride, std::move(_drawCommandBlock), _drawAllocatorReserved), m_alloc(std::move(_alloc))
+    {
+    }
+    ~CDrawIndirectAllocator()
+    {
+        std::allocator_traits<allocator<uint8_t>>::deallocate(
+            m_alloc, reinterpret_cast<uint8_t*>(m_drawAllocatorReserved), computeReservedSize(m_drawCommandBlock.size, m_maxDrawCommandStride));
+    }
 
-        allocator<uint8_t> m_alloc;
+    static inline size_t computeReservedSize(const uint64_t bufferSize, const uint32_t maxStride)
+    {
+        return DrawIndirectAddressAllocator::reserved_size(core::roundUpToPoT(maxStride), bufferSize, maxStride);
+    }
+
+    allocator<uint8_t> m_alloc;
 };
 
 }

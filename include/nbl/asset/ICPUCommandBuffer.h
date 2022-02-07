@@ -16,34 +16,31 @@
 
 namespace nbl::asset
 {
-
-class ICPUCommandBuffer final :
-    public IAsset,
-    public ICommandBuffer<
-        ICPUBuffer,
-        ICPUImage,
-        ICPUImageView,
-        ICPURenderpass,
-        ICPUFramebuffer,
-        ICPUGraphicsPipeline,
-        ICPUComputePipeline,
-        ICPUDescriptorSet,
-        ICPUPipelineLayout,
-        ICPUEvent,
-        ICPUCommandBuffer
-    >
+class ICPUCommandBuffer final : public IAsset,
+                                public ICommandBuffer<
+                                    ICPUBuffer,
+                                    ICPUImage,
+                                    ICPUImageView,
+                                    ICPURenderpass,
+                                    ICPUFramebuffer,
+                                    ICPUGraphicsPipeline,
+                                    ICPUComputePipeline,
+                                    ICPUDescriptorSet,
+                                    ICPUPipelineLayout,
+                                    ICPUEvent,
+                                    ICPUCommandBuffer>
 {
 public:
-    size_t conservativeSizeEstimate() const override { return 0ull; } // TODO
+    size_t conservativeSizeEstimate() const override { return 0ull; }  // TODO
 
     core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
     {
-        return nullptr; // TODO
+        return nullptr;  // TODO
     }
 
     bool canBeRestoredFrom(const IAsset* _other) const
     {
-        return false; // TODO
+        return false;  // TODO
     }
 
     E_TYPE getAssetType() const override

@@ -24,9 +24,9 @@
 
 //whole system
 #if defined(_NBL_PLATFORM_WINDOWS_)
-#	include "nbl/system/CSystemWin32.h"
+#include "nbl/system/CSystemWin32.h"
 #elif defined(_NBL_PLATFORM_LINUX_)
-#	include "nbl/system/CSystemLinux.h"
-#endif // TODO more platforms (android)
+#include "nbl/system/CSystemLinux.h"
+#endif  // TODO more platforms (android)
 
 #endif

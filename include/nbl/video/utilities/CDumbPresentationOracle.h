@@ -9,86 +9,88 @@
 
 namespace nbl::video
 {
-
-class CDumbPresentationOracle : public IPresentationOracle 
+class CDumbPresentationOracle : public IPresentationOracle
 {
-	public:
-		CDumbPresentationOracle()
-		{
-			reset();
-		}
+public:
+    CDumbPresentationOracle()
+    {
+        reset();
+    }
 
-		~CDumbPresentationOracle() {
-		}
+    ~CDumbPresentationOracle()
+    {
+    }
 
-		inline void reportBeginFrameRecord() override
-		{
-			lastTime = std::chrono::steady_clock::now();
-		}
+    inline void reportBeginFrameRecord() override
+    {
+        lastTime = std::chrono::steady_clock::now();
+    }
 
-		inline void reportEndFrameRecord()
-		{
-			auto renderStart = std::chrono::steady_clock::now();
-			dt = std::chrono::duration_cast<std::chrono::microseconds>(renderStart-lastTime).count();
-			
-			// Calculate Simple Moving Average for FrameTime
-			{
-				timeSum -= dtList[frameCount];
-				timeSum += dt;
-				dtList[frameCount] = dt;
-				frameCount++;
-				if(frameCount >= MaxFramesToAverage) {
-					frameCount = 0;
-					frameDataFilled = true;
-				}
-			}
-			double averageFrameTime = (frameDataFilled) ? (timeSum / (double)MaxFramesToAverage) : (timeSum / frameCount);
-			auto averageFrameTimeDuration = std::chrono::duration<double, std::micro>(averageFrameTime);
-			auto nextPresentationTime = renderStart + averageFrameTimeDuration;
-			nextPresentationTimeStamp = std::chrono::duration_cast<std::chrono::microseconds>(nextPresentationTime.time_since_epoch());
-		}
+    inline void reportEndFrameRecord()
+    {
+        auto renderStart = std::chrono::steady_clock::now();
+        dt = std::chrono::duration_cast<std::chrono::microseconds>(renderStart - lastTime).count();
 
-		inline std::chrono::microseconds getNextPresentationTimeStamp() const {return nextPresentationTimeStamp;}
+        // Calculate Simple Moving Average for FrameTime
+        {
+            timeSum -= dtList[frameCount];
+            timeSum += dt;
+            dtList[frameCount] = dt;
+            frameCount++;
+            if(frameCount >= MaxFramesToAverage)
+            {
+                frameCount = 0;
+                frameDataFilled = true;
+            }
+        }
+        double averageFrameTime = (frameDataFilled) ? (timeSum / (double)MaxFramesToAverage) : (timeSum / frameCount);
+        auto averageFrameTimeDuration = std::chrono::duration<double, std::micro>(averageFrameTime);
+        auto nextPresentationTime = renderStart + averageFrameTimeDuration;
+        nextPresentationTimeStamp = std::chrono::duration_cast<std::chrono::microseconds>(nextPresentationTime.time_since_epoch());
+    }
 
-		inline double getDeltaTimeInMicroSeconds() const {return dt;}
+    inline std::chrono::microseconds getNextPresentationTimeStamp() const { return nextPresentationTimeStamp; }
 
-		inline std::chrono::microseconds acquireNextImage(ISwapchain* swapchain, IGPUSemaphore* acquireSemaphore, IGPUFence* fence, uint32_t* imageNumber) override
-		{
-			swapchain->acquireNextImage(acquireSemaphore,fence,imageNumber);
-			reportEndFrameRecord();
-			const auto retval = getNextPresentationTimeStamp();
-			reportBeginFrameRecord();
-			return retval;
-		}
+    inline double getDeltaTimeInMicroSeconds() const { return dt; }
 
-		inline void present(ILogicalDevice* device, ISwapchain* swapchain, IGPUQueue* queue, IGPUSemaphore* renderFinishedSemaphore, const uint32_t imageNumber) override
-		{
-			// literally cant do anything here in this dumb algorithm
-		}
-	private:
-	
-		void reset()
-		{
-			frameCount = 0ull;
-			frameDataFilled = false;
-			timeSum = 0.0;
-			for(size_t i = 0ull; i < MaxFramesToAverage; ++i) {
-				dtList[i] = 0.0;
-			}
-			dt = 0.0;
-		}
+    inline std::chrono::microseconds acquireNextImage(ISwapchain* swapchain, IGPUSemaphore* acquireSemaphore, IGPUFence* fence, uint32_t* imageNumber) override
+    {
+        swapchain->acquireNextImage(acquireSemaphore, fence, imageNumber);
+        reportEndFrameRecord();
+        const auto retval = getNextPresentationTimeStamp();
+        reportBeginFrameRecord();
+        return retval;
+    }
 
-		static constexpr size_t MaxFramesToAverage = 100ull;
+    inline void present(ILogicalDevice* device, ISwapchain* swapchain, IGPUQueue* queue, IGPUSemaphore* renderFinishedSemaphore, const uint32_t imageNumber) override
+    {
+        // literally cant do anything here in this dumb algorithm
+    }
 
-		bool frameDataFilled = false;
-		size_t frameCount = 0ull;
-		double timeSum = 0.0;
-		double dtList[MaxFramesToAverage] = {};
-		double dt = 0.0;
-		std::chrono::steady_clock::time_point lastTime;
-		std::chrono::microseconds nextPresentationTimeStamp;
+private:
+    void reset()
+    {
+        frameCount = 0ull;
+        frameDataFilled = false;
+        timeSum = 0.0;
+        for(size_t i = 0ull; i < MaxFramesToAverage; ++i)
+        {
+            dtList[i] = 0.0;
+        }
+        dt = 0.0;
+    }
+
+    static constexpr size_t MaxFramesToAverage = 100ull;
+
+    bool frameDataFilled = false;
+    size_t frameCount = 0ull;
+    double timeSum = 0.0;
+    double dtList[MaxFramesToAverage] = {};
+    double dt = 0.0;
+    std::chrono::steady_clock::time_point lastTime;
+    std::chrono::microseconds nextPresentationTimeStamp;
 };
 
 }
 
-#endif // _NBL_VIDEO_I_PRESENTATION_ORACLE__H_INCLUDED_
+#endif  // _NBL_VIDEO_I_PRESENTATION_ORACLE__H_INCLUDED_

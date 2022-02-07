@@ -11,7 +11,6 @@
 
 namespace nbl::core
 {
-
 template<typename T>
 using atomic = std::atomic<T>;
 
@@ -19,7 +18,7 @@ template<typename T>
 typename atomic<T>::value_type atomic_fetch_max(atomic<T>* obj, typename atomic<T>::value_type value) noexcept
 {
     auto prev_value = std::atomic_load(obj);
-    while (value>prev_value && !std::atomic_compare_exchange_weak(obj,&prev_value,value))
+    while(value > prev_value && !std::atomic_compare_exchange_weak(obj, &prev_value, value))
     {
     }
     return prev_value;
@@ -29,7 +28,7 @@ template<typename T>
 typename atomic<T>::value_type atomic_fetch_min(atomic<T>* obj, typename atomic<T>::value_type value) noexcept
 {
     auto prev_value = std::atomic_load(obj);
-    while (value<prev_value && !std::atomic_compare_exchange_weak(obj,&prev_value,value))
+    while(value < prev_value && !std::atomic_compare_exchange_weak(obj, &prev_value, value))
     {
     }
     return prev_value;
@@ -38,4 +37,3 @@ typename atomic<T>::value_type atomic_fetch_min(atomic<T>* obj, typename atomic<
 }
 
 #endif
-

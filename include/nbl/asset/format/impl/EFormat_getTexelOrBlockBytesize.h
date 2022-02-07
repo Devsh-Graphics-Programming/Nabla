@@ -1,4 +1,4 @@
-switch (_fmt)
+switch(_fmt)
 {
     case EF_R8G8B8_UINT: return 3;
     case EF_R8G8B8A8_UINT: return 4;

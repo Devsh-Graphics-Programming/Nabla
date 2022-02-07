@@ -5,7 +5,6 @@
 #ifndef __NBL_VIDEO_DECLARATIONS_H_INCLUDED__
 #define __NBL_VIDEO_DECLARATIONS_H_INCLUDED__
 
-
 // dependencies
 #include "nbl/asset/asset.h"
 #include "nbl/ui/declarations.h"
@@ -38,6 +37,5 @@
 //VT
 //#include "nbl/video/CGPUMeshPackerV2.h"
 //#include "nbl/video/IGPUVirtualTexture.h"
-
 
 #endif

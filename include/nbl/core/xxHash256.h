@@ -10,7 +10,6 @@
 
 namespace nbl::core
 {
-
 /*
    xxHash256 - A fast checksum algorithm
    Copyright (C) 2012, Yann Collet & Maciej Adamczyk.
@@ -61,14 +60,14 @@ namespace nbl::core
 */
 inline void XXHash_256(const void* input, size_t len, uint64_t* out)
 {
-	//**************************************
-	// Macros
-	//**************************************
-	#define _rotl(x,r) ((x << r) | (x >> (64 - r)))
+//**************************************
+// Macros
+//**************************************
+#define _rotl(x, r) ((x << r) | (x >> (64 - r)))
 
-	//**************************************
-	// Constants
-	//**************************************
+    //**************************************
+    // Constants
+    //**************************************
     const uint64_t PRIME = 11400714819323198393ULL;
 
     const uint8_t* p = (uint8_t*)input;
@@ -81,57 +80,75 @@ inline void XXHash_256(const void* input, size_t len, uint64_t* out)
     const size_t big_loop_step = 4 * 4 * sizeof(uint64_t);
     const size_t small_loop_step = 4 * sizeof(uint64_t);
     // Set the big loop limit early enough, so the well-mixing small loop can be executed twice after it
-    const uint8_t* const big_loop_limit   = bEnd - big_loop_step - 2 * small_loop_step;
+    const uint8_t* const big_loop_limit = bEnd - big_loop_step - 2 * small_loop_step;
     const uint8_t* const small_loop_limit = bEnd - small_loop_step;
 
-    while (p < big_loop_limit)
+    while(p < big_loop_limit)
     {
-        v1 = _rotl(v1, 29) + (*(uint64_t*)p); p+=sizeof(uint64_t);
-        v2 = _rotl(v2, 31) + (*(uint64_t*)p); p+=sizeof(uint64_t);
-        v3 = _rotl(v3, 33) + (*(uint64_t*)p); p+=sizeof(uint64_t);
-        v4 = _rotl(v4, 35) + (*(uint64_t*)p); p+=sizeof(uint64_t);
+        v1 = _rotl(v1, 29) + (*(uint64_t*)p);
+        p += sizeof(uint64_t);
+        v2 = _rotl(v2, 31) + (*(uint64_t*)p);
+        p += sizeof(uint64_t);
+        v3 = _rotl(v3, 33) + (*(uint64_t*)p);
+        p += sizeof(uint64_t);
+        v4 = _rotl(v4, 35) + (*(uint64_t*)p);
+        p += sizeof(uint64_t);
         v1 += v2 *= PRIME;
-        v1 = _rotl(v1, 29) + (*(uint64_t*)p); p+=sizeof(uint64_t);
-        v2 = _rotl(v2, 31) + (*(uint64_t*)p); p+=sizeof(uint64_t);
-        v3 = _rotl(v3, 33) + (*(uint64_t*)p); p+=sizeof(uint64_t);
-        v4 = _rotl(v4, 35) + (*(uint64_t*)p); p+=sizeof(uint64_t);
+        v1 = _rotl(v1, 29) + (*(uint64_t*)p);
+        p += sizeof(uint64_t);
+        v2 = _rotl(v2, 31) + (*(uint64_t*)p);
+        p += sizeof(uint64_t);
+        v3 = _rotl(v3, 33) + (*(uint64_t*)p);
+        p += sizeof(uint64_t);
+        v4 = _rotl(v4, 35) + (*(uint64_t*)p);
+        p += sizeof(uint64_t);
         v2 += v3 *= PRIME;
-        v1 = _rotl(v1, 29) + (*(uint64_t*)p); p+=sizeof(uint64_t);
-        v2 = _rotl(v2, 31) + (*(uint64_t*)p); p+=sizeof(uint64_t);
-        v3 = _rotl(v3, 33) + (*(uint64_t*)p); p+=sizeof(uint64_t);
-        v4 = _rotl(v4, 35) + (*(uint64_t*)p); p+=sizeof(uint64_t);
+        v1 = _rotl(v1, 29) + (*(uint64_t*)p);
+        p += sizeof(uint64_t);
+        v2 = _rotl(v2, 31) + (*(uint64_t*)p);
+        p += sizeof(uint64_t);
+        v3 = _rotl(v3, 33) + (*(uint64_t*)p);
+        p += sizeof(uint64_t);
+        v4 = _rotl(v4, 35) + (*(uint64_t*)p);
+        p += sizeof(uint64_t);
         v3 += v4 *= PRIME;
-        v1 = _rotl(v1, 29) + (*(uint64_t*)p); p+=sizeof(uint64_t);
-        v2 = _rotl(v2, 31) + (*(uint64_t*)p); p+=sizeof(uint64_t);
-        v3 = _rotl(v3, 33) + (*(uint64_t*)p); p+=sizeof(uint64_t);
-        v4 = _rotl(v4, 35) + (*(uint64_t*)p); p+=sizeof(uint64_t);
+        v1 = _rotl(v1, 29) + (*(uint64_t*)p);
+        p += sizeof(uint64_t);
+        v2 = _rotl(v2, 31) + (*(uint64_t*)p);
+        p += sizeof(uint64_t);
+        v3 = _rotl(v3, 33) + (*(uint64_t*)p);
+        p += sizeof(uint64_t);
+        v4 = _rotl(v4, 35) + (*(uint64_t*)p);
+        p += sizeof(uint64_t);
         v4 += v1 *= PRIME;
     }
 
-    while (p < small_loop_limit)
+    while(p < small_loop_limit)
     {
-        v1 = _rotl(v1, 29) + (*(uint64_t*)p); p+=sizeof(uint64_t);
+        v1 = _rotl(v1, 29) + (*(uint64_t*)p);
+        p += sizeof(uint64_t);
         v2 += v1 *= PRIME;
-        v2 = _rotl(v2, 31) + (*(uint64_t*)p); p+=sizeof(uint64_t);
+        v2 = _rotl(v2, 31) + (*(uint64_t*)p);
+        p += sizeof(uint64_t);
         v3 += v2 *= PRIME;
-        v3 = _rotl(v3, 33) + (*(uint64_t*)p); p+=sizeof(uint64_t);
+        v3 = _rotl(v3, 33) + (*(uint64_t*)p);
+        p += sizeof(uint64_t);
         v4 += v3 *= PRIME;
-        v4 = _rotl(v4, 35) + (*(uint64_t*)p); p+=sizeof(uint64_t);
+        v4 = _rotl(v4, 35) + (*(uint64_t*)p);
+        p += sizeof(uint64_t);
         v1 += v4 *= PRIME;
     }
 #undef _rotl
     size_t leftOverBytes = bEnd - p;
     memcpy(out, p, leftOverBytes);
-    for (uint8_t* leftOverZeroP = reinterpret_cast<uint8_t*>(out)+leftOverBytes; leftOverZeroP<reinterpret_cast<uint8_t*>(out+4); leftOverZeroP++)
+    for(uint8_t* leftOverZeroP = reinterpret_cast<uint8_t*>(out) + leftOverBytes; leftOverZeroP < reinterpret_cast<uint8_t*>(out + 4); leftOverZeroP++)
         *leftOverZeroP = 0;
-
 
     out[0] += v1;
     out[1] += v2;
     out[2] += v3;
-	out[3] += v4;
+    out[3] += v4;
 }
-
 
 }
 

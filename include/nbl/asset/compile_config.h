@@ -66,23 +66,23 @@ currently only supports zip archives, though. */
 
 //! @see @ref CBlobsLoadingManager
 #define _NBL_ADD_BLOB_SUPPORT(BlobClassName, EnumValue, Function, ...) \
-case asset::Blob::EnumValue:\
-	return asset::BlobClassName::Function(__VA_ARGS__);
+    case asset::Blob::EnumValue:                                       \
+        return asset::BlobClassName::Function(__VA_ARGS__);
 
 //! Used inside CBlobsLoadingManager. Adds support of given blob types.
 #ifdef OLD_SHADERS
 // @crisspl / @Anastazluk fix this shit for new pipeline !!!
-#define _NBL_SUPPORTED_BLOBS(Function, ...) \
-_NBL_ADD_BLOB_SUPPORT(RawBufferBlobV3, EBT_RAW_DATA_BUFFER, Function, __VA_ARGS__)\
-_NBL_ADD_BLOB_SUPPORT(TexturePathBlobV3, EBT_TEXTURE_PATH, Function, __VA_ARGS__)\
-_NBL_ADD_BLOB_SUPPORT(MeshBlobV3, EBT_MESH, Function, __VA_ARGS__)\
-_NBL_ADD_BLOB_SUPPORT(SkinnedMeshBlobV3, EBT_SKINNED_MESH, Function, __VA_ARGS__)\
-_NBL_ADD_BLOB_SUPPORT(MeshBufferBlobV3, EBT_MESH_BUFFER, Function, __VA_ARGS__)\
-_NBL_ADD_BLOB_SUPPORT(SkinnedMeshBufferBlobV3, EBT_SKINNED_MESH_BUFFER, Function, __VA_ARGS__)\
-_NBL_ADD_BLOB_SUPPORT(MeshDataFormatDescBlobV3, EBT_DATA_FORMAT_DESC, Function, __VA_ARGS__)\
-_NBL_ADD_BLOB_SUPPORT(FinalBoneHierarchyBlobV3, EBT_FINAL_BONE_HIERARCHY, Function, __VA_ARGS__)
+#define _NBL_SUPPORTED_BLOBS(Function, ...)                                                        \
+    _NBL_ADD_BLOB_SUPPORT(RawBufferBlobV3, EBT_RAW_DATA_BUFFER, Function, __VA_ARGS__)             \
+    _NBL_ADD_BLOB_SUPPORT(TexturePathBlobV3, EBT_TEXTURE_PATH, Function, __VA_ARGS__)              \
+    _NBL_ADD_BLOB_SUPPORT(MeshBlobV3, EBT_MESH, Function, __VA_ARGS__)                             \
+    _NBL_ADD_BLOB_SUPPORT(SkinnedMeshBlobV3, EBT_SKINNED_MESH, Function, __VA_ARGS__)              \
+    _NBL_ADD_BLOB_SUPPORT(MeshBufferBlobV3, EBT_MESH_BUFFER, Function, __VA_ARGS__)                \
+    _NBL_ADD_BLOB_SUPPORT(SkinnedMeshBufferBlobV3, EBT_SKINNED_MESH_BUFFER, Function, __VA_ARGS__) \
+    _NBL_ADD_BLOB_SUPPORT(MeshDataFormatDescBlobV3, EBT_DATA_FORMAT_DESC, Function, __VA_ARGS__)   \
+    _NBL_ADD_BLOB_SUPPORT(FinalBoneHierarchyBlobV3, EBT_FINAL_BONE_HIERARCHY, Function, __VA_ARGS__)
 #else
-#define _NBL_SUPPORTED_BLOBS(Function, ...) 
+#define _NBL_SUPPORTED_BLOBS(Function, ...)
 #endif
 
 #endif

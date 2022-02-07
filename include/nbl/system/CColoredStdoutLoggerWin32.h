@@ -9,57 +9,56 @@
 
 namespace nbl::system
 {
-
 class CColoredStdoutLoggerWin32 : public IThreadsafeLogger
 {
-		HANDLE m_native_console;
+    HANDLE m_native_console;
 
-	public:
-		CColoredStdoutLoggerWin32(core::bitflag<E_LOG_LEVEL> logLevelMask = ILogger::defaultLogMask()) : IThreadsafeLogger(logLevelMask)
-		{
-			m_native_console = GetStdHandle(STD_OUTPUT_HANDLE);
-		}
+public:
+    CColoredStdoutLoggerWin32(core::bitflag<E_LOG_LEVEL> logLevelMask = ILogger::defaultLogMask())
+        : IThreadsafeLogger(logLevelMask)
+    {
+        m_native_console = GetStdHandle(STD_OUTPUT_HANDLE);
+    }
 
-	private:
-		virtual void threadsafeLog_impl(const std::string_view& fmt, E_LOG_LEVEL logLevel, va_list args) override
-		{
-			SetConsoleTextAttribute(m_native_console, getConsoleColor(logLevel));
-			printf(constructLogString(fmt, logLevel, args).data());
-			fflush(stdout);
-			SetConsoleTextAttribute(m_native_console, 15); // restore to white
-		}
+private:
+    virtual void threadsafeLog_impl(const std::string_view& fmt, E_LOG_LEVEL logLevel, va_list args) override
+    {
+        SetConsoleTextAttribute(m_native_console, getConsoleColor(logLevel));
+        printf(constructLogString(fmt, logLevel, args).data());
+        fflush(stdout);
+        SetConsoleTextAttribute(m_native_console, 15);  // restore to white
+    }
 
-		int getConsoleColor(E_LOG_LEVEL level)
-		{
-			switch (level)
-			{
-				case ELL_DEBUG: // Gray
-				{
-					return 8;
-				}
-				case ELL_INFO: // White
-				{
-					return 7;
-				}
-				case ELL_WARNING: // Yellow
-				{
-					return 14;
-				}
-				case ELL_ERROR: // Red
-				{
-					return 12;
-				}
-				case ELL_PERFORMANCE: // Blue
-				{
-					return 11;
-				}
-				case ELL_NONE: 
-				{
-					assert(false); // how did this happen?? Btw, do we even need this log level? 
-					return 0;
-				}
-			}
-		}
+    int getConsoleColor(E_LOG_LEVEL level)
+    {
+        switch(level)
+        {
+            case ELL_DEBUG:  // Gray
+            {
+                return 8;
+            }
+            case ELL_INFO:  // White
+            {
+                return 7;
+            }
+            case ELL_WARNING:  // Yellow
+            {
+                return 14;
+            }
+            case ELL_ERROR:  // Red
+            {
+                return 12;
+            }
+            case ELL_PERFORMANCE:  // Blue
+            {
+                return 11;
+            }
+            case ELL_NONE: {
+                assert(false);  // how did this happen?? Btw, do we even need this log level?
+                return 0;
+            }
+        }
+    }
 };
 
 }

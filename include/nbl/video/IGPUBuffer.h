@@ -14,47 +14,44 @@
 #include "nbl/video/decl/IBackendObject.h"
 #include "nbl/video/IDriverMemoryBacked.h"
 
-
 namespace nbl::video
 {
-
 //! GPU Buffer class, where the memory is provided by the driver, does not support resizing.
 /** For additional OpenGL DSA state-free operations such as flushing mapped ranges or
 buffer to buffer copies, one needs a command buffer in Vulkan as these operations are
 performed by the GPU and not wholly by the driver, so look for them in IGPUCommandBuffer. */
 class IGPUBuffer : public asset::IBuffer, public IDriverMemoryBacked, public IBackendObject
 {
-    public:
-		struct SCachedCreationParams
-		{
-			core::bitflag<E_USAGE_FLAGS> usage = EUF_NONE;
-			bool canUpdateSubRange = false; // whether `IGPUCommandBuffer::updateBuffer` can be used on this buffer
-			asset::E_SHARING_MODE sharingMode = asset::ESM_EXCLUSIVE;
-			size_t declaredSize = 0ull;
-		};
-		struct SCreationParams : SCachedCreationParams
-		{
-			uint32_t queueFamilyIndexCount = 0u;
-			const uint32_t* queueFamilyIndices = nullptr;
-		};
+public:
+    struct SCachedCreationParams
+    {
+        core::bitflag<E_USAGE_FLAGS> usage = EUF_NONE;
+        bool canUpdateSubRange = false;  // whether `IGPUCommandBuffer::updateBuffer` can be used on this buffer
+        asset::E_SHARING_MODE sharingMode = asset::ESM_EXCLUSIVE;
+        size_t declaredSize = 0ull;
+    };
+    struct SCreationParams : SCachedCreationParams
+    {
+        uint32_t queueFamilyIndexCount = 0u;
+        const uint32_t* queueFamilyIndices = nullptr;
+    };
 
-		inline uint64_t getSize() const override {return cachedMemoryReqs.vulkanReqs.size;}
+    inline uint64_t getSize() const override { return cachedMemoryReqs.vulkanReqs.size; }
 
-		inline const SCachedCreationParams& getCachedCreationParams() const {return m_cachedCreationParams;}
-		
-    protected:
-        IGPUBuffer(
-			core::smart_refctd_ptr<const ILogicalDevice>&& dev,
-			const IDriverMemoryBacked::SDriverMemoryRequirements& reqs,
-			const SCachedCreationParams& cachedCreationParams
-		) : IDriverMemoryBacked(reqs), IBackendObject(std::move(dev)), m_cachedCreationParams(cachedCreationParams)
-		{
-		}
+    inline const SCachedCreationParams& getCachedCreationParams() const { return m_cachedCreationParams; }
 
-		const SCachedCreationParams m_cachedCreationParams;
+protected:
+    IGPUBuffer(
+        core::smart_refctd_ptr<const ILogicalDevice>&& dev,
+        const IDriverMemoryBacked::SDriverMemoryRequirements& reqs,
+        const SCachedCreationParams& cachedCreationParams)
+        : IDriverMemoryBacked(reqs), IBackendObject(std::move(dev)), m_cachedCreationParams(cachedCreationParams)
+    {
+    }
+
+    const SCachedCreationParams m_cachedCreationParams;
 };
 
-} // end namespace nbl::video
+}  // end namespace nbl::video
 
 #endif
-

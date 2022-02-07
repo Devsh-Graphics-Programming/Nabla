@@ -4,7 +4,6 @@
 
 namespace nbl::video
 {
-
 CVulkanGraphicsPipeline::~CVulkanGraphicsPipeline()
 {
     const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());

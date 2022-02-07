@@ -9,12 +9,13 @@
 
 namespace nbl::ui
 {
-
 class IWindowAndroid : public IWindow
 {
 protected:
     virtual ~IWindowAndroid() = default;
-    IWindowAndroid(SCreationParams&& params) : IWindow(std::move(params)) {}
+    IWindowAndroid(SCreationParams&& params)
+        : IWindow(std::move(params)) {}
+
 public:
     using IWindow::IWindow;
 
@@ -25,6 +26,6 @@ public:
 
 }
 
-#endif // _NBL_PLATFORM_ANDROID_
+#endif  // _NBL_PLATFORM_ANDROID_
 
 #endif

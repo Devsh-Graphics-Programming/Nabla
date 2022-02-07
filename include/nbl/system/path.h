@@ -5,27 +5,27 @@
 
 namespace nbl::core
 {
-    //TODO: Figure out where to move this
-    using string = std::string;
+//TODO: Figure out where to move this
+using string = std::string;
 }
 namespace nbl::system
 {
-    using path = std::filesystem::path;
- 
-    inline nbl::core::string extension_wo_dot(const path& _filename)
-    {
-        std::string extension = _filename.extension().string();
-        if (extension.empty())
-            return extension;
+using path = std::filesystem::path;
 
-        return extension.substr(1u, nbl::core::string::npos);
-    }
+inline nbl::core::string extension_wo_dot(const path& _filename)
+{
+    std::string extension = _filename.extension().string();
+    if(extension.empty())
+        return extension;
 
-    inline path filename_wo_extension(const path& filename)
-    {
-        path ret = filename;
-        return ret.replace_extension();
-    }
+    return extension.substr(1u, nbl::core::string::npos);
+}
+
+inline path filename_wo_extension(const path& filename)
+{
+    path ret = filename;
+    return ret.replace_extension();
+}
 
 }
 

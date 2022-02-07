@@ -11,7 +11,6 @@
 
 namespace nbl::core
 {
-
 namespace impl
 {
 #define uvec2 uint64_t
@@ -35,9 +34,9 @@ struct CompressedAABB : impl::nbl_glsl_shapes_CompressedAABB_t
 {
     CompressedAABB()
     {
-        const float initMin[] = {FLT_MAX,FLT_MAX,FLT_MAX};
+        const float initMin[] = {FLT_MAX, FLT_MAX, FLT_MAX};
         minVx18E7S3 = rgb32f_to_rgb18e7s3(initMin);
-        const float initMax[] = {-FLT_MAX,-FLT_MAX,-FLT_MAX};
+        const float initMax[] = {-FLT_MAX, -FLT_MAX, -FLT_MAX};
         maxVx18E7S3 = rgb32f_to_rgb18e7s3(initMax);
     }
     CompressedAABB(const core::aabbox3df& aabb)
@@ -55,7 +54,6 @@ struct CompressedAABB : impl::nbl_glsl_shapes_CompressedAABB_t
     }
 };
 
-} // end namespace nbl::video
+}  // end namespace nbl::video
 
 #endif
-

@@ -4,10 +4,10 @@
 #include "nbl/asset/IAsset.h"
 #include "nbl/asset/IRenderpass.h"
 
-namespace nbl {
+namespace nbl
+{
 namespace asset
 {
-
 class ICPURenderpass : public IRenderpass, public IAsset
 {
 public:
@@ -21,7 +21,7 @@ public:
     }
     bool canBeRestoredFrom(const IAsset* _other) const override
     {
-        return false; // TODO
+        return false;  // TODO
     }
     E_TYPE getAssetType() const override
     {

@@ -1,51 +1,51 @@
 #ifndef __NBL_I_GPU_FENCE_H_INCLUDED__
 #define __NBL_I_GPU_FENCE_H_INCLUDED__
 
-
 #include "nbl/core/declarations.h"
 
 #include "nbl/video/decl/IBackendObject.h"
 
-
 namespace nbl::video
 {
-
 class IGPUFence : public core::IReferenceCounted, public IBackendObject
 {
-    public:
-        enum E_CREATE_FLAGS : uint32_t
-        {
-            ECF_UNSIGNALED = 0x00u,
-            ECF_SIGNALED_BIT = 0x01u
-        };
-        enum E_STATUS
-        {
-            ES_SUCCESS,
-            ES_TIMEOUT,
-            ES_NOT_READY,
-            ES_ERROR
-        };
+public:
+    enum E_CREATE_FLAGS : uint32_t
+    {
+        ECF_UNSIGNALED = 0x00u,
+        ECF_SIGNALED_BIT = 0x01u
+    };
+    enum E_STATUS
+    {
+        ES_SUCCESS,
+        ES_TIMEOUT,
+        ES_NOT_READY,
+        ES_ERROR
+    };
 
-        IGPUFence(core::smart_refctd_ptr<const ILogicalDevice>&& dev, E_CREATE_FLAGS flags) : IBackendObject(std::move(dev))
-        {
-        }
+    IGPUFence(core::smart_refctd_ptr<const ILogicalDevice>&& dev, E_CREATE_FLAGS flags)
+        : IBackendObject(std::move(dev))
+    {
+    }
 
-    protected:
-        virtual ~IGPUFence() = default;
+protected:
+    virtual ~IGPUFence() = default;
 };
-
 
 class GPUEventWrapper : public core::Uncopyable
 {
 protected:
     ILogicalDevice* mDevice;
     core::smart_refctd_ptr<IGPUFence> mFence;
+
 public:
-    GPUEventWrapper(ILogicalDevice* dev, core::smart_refctd_ptr<IGPUFence>&& fence) : mDevice(dev), mFence(std::move(fence))
+    GPUEventWrapper(ILogicalDevice* dev, core::smart_refctd_ptr<IGPUFence>&& fence)
+        : mDevice(dev), mFence(std::move(fence))
     {
     }
     GPUEventWrapper(const GPUEventWrapper& other) = delete;
-    GPUEventWrapper(GPUEventWrapper&& other) noexcept : mFence(nullptr)
+    GPUEventWrapper(GPUEventWrapper&& other) noexcept
+        : mFence(nullptr)
     {
         this->operator=(std::forward<GPUEventWrapper>(other));
     }
@@ -61,37 +61,38 @@ public:
         return *this;
     }
 
-    template<class Clock=std::chrono::high_resolution_clock, class Duration=typename Clock::duration>
-    inline static std::chrono::time_point<Clock,Duration> default_wait()
+    template<class Clock = std::chrono::high_resolution_clock, class Duration = typename Clock::duration>
+    inline static std::chrono::time_point<Clock, Duration> default_wait()
     {
-        return std::chrono::high_resolution_clock::now()+std::chrono::nanoseconds(50000ull); // 50 us
+        return std::chrono::high_resolution_clock::now() + std::chrono::nanoseconds(50000ull);  // 50 us
     }
 
     IGPUFence::E_STATUS waitFenceWrapper(IGPUFence* fence, uint64_t timeout);
     IGPUFence::E_STATUS getFenceStatusWrapper(IGPUFence* fence);
 
-    template<class Clock=std::chrono::steady_clock, class Duration=typename Clock::duration>
-    inline bool wait_until(const std::chrono::time_point<Clock,Duration>& timeout_time)
+    template<class Clock = std::chrono::steady_clock, class Duration = typename Clock::duration>
+    inline bool wait_until(const std::chrono::time_point<Clock, Duration>& timeout_time)
     {
         auto currentClockTime = Clock::now();
         do
         {
             uint64_t nanosecondsLeft = 0ull;
-            if (currentClockTime<timeout_time)
-                nanosecondsLeft = std::chrono::duration_cast<std::chrono::nanoseconds>(timeout_time-currentClockTime).count();
+            if(currentClockTime < timeout_time)
+                nanosecondsLeft = std::chrono::duration_cast<std::chrono::nanoseconds>(timeout_time - currentClockTime).count();
             const IGPUFence::E_STATUS waitStatus = waitFenceWrapper(mFence.get(), nanosecondsLeft);
-            switch (waitStatus)
+            switch(waitStatus)
             {
-            case IGPUFence::ES_ERROR:
-                return true;
-            case IGPUFence::ES_TIMEOUT:
-                break;
-            case IGPUFence::ES_SUCCESS:
-                return true;
-                break;
+                case IGPUFence::ES_ERROR:
+                    return true;
+                case IGPUFence::ES_TIMEOUT:
+                    break;
+                case IGPUFence::ES_SUCCESS:
+                    return true;
+                    break;
             }
             currentClockTime = Clock::now();
-        } while (currentClockTime<timeout_time);
+        }
+        while(currentClockTime < timeout_time);
 
         return false;
     }
@@ -99,30 +100,30 @@ public:
     inline bool poll()
     {
         const IGPUFence::E_STATUS status = getFenceStatusWrapper(mFence.get());
-        switch (status)
+        switch(status)
         {
-        case IGPUFence::ES_ERROR:
-        case IGPUFence::ES_SUCCESS:
-            return true;
-            break;
-        default:
-            break;
+            case IGPUFence::ES_ERROR:
+            case IGPUFence::ES_SUCCESS:
+                return true;
+                break;
+            default:
+                break;
         }
         return false;
     }
 
     inline bool operator==(const GPUEventWrapper& other)
     {
-        return mFence==other.mFence;
+        return mFence == other.mFence;
     }
     inline bool operator<(const GPUEventWrapper& other)
     {
-        return mFence.get()<other.mFence.get();
+        return mFence.get() < other.mFence.get();
     }
 };
 
 template<class Functor>
-using GPUDeferredEventHandlerST = core::DeferredEventHandlerST<core::DeferredEvent<GPUEventWrapper,Functor> >;
+using GPUDeferredEventHandlerST = core::DeferredEventHandlerST<core::DeferredEvent<GPUEventWrapper, Functor> >;
 
 }
 

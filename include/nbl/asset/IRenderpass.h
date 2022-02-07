@@ -11,7 +11,6 @@
 
 namespace nbl::asset
 {
-
 class IRenderpass
 {
 public:
@@ -83,7 +82,7 @@ public:
 
         uint32_t attachmentCount;
         const SAttachmentDescription* attachments;
-        
+
         uint32_t subpassCount = 0u;
         const SSubpassDescription* subpasses = nullptr;
 
@@ -91,67 +90,67 @@ public:
         const SSubpassDependency* dependencies = nullptr;
     };
 
-    explicit IRenderpass(const SCreationParams& params) : 
-        m_params(params),
-        m_attachments(params.attachmentCount ? core::make_refctd_dynamic_array<attachments_array_t>(params.attachmentCount):nullptr),
-        m_subpasses(params.subpassCount ? core::make_refctd_dynamic_array<subpasses_array_t>(params.subpassCount):nullptr),
-        m_dependencies(params.dependencyCount ? core::make_refctd_dynamic_array<subpass_deps_array_t>(params.dependencyCount):nullptr)
+    explicit IRenderpass(const SCreationParams& params)
+        : m_params(params),
+          m_attachments(params.attachmentCount ? core::make_refctd_dynamic_array<attachments_array_t>(params.attachmentCount) : nullptr),
+          m_subpasses(params.subpassCount ? core::make_refctd_dynamic_array<subpasses_array_t>(params.subpassCount) : nullptr),
+          m_dependencies(params.dependencyCount ? core::make_refctd_dynamic_array<subpass_deps_array_t>(params.dependencyCount) : nullptr)
     {
-        if (!params.subpasses)
+        if(!params.subpasses)
             return;
 
-        auto attachments = core::SRange<const SCreationParams::SAttachmentDescription>{params.attachments, params.attachments+params.attachmentCount};
+        auto attachments = core::SRange<const SCreationParams::SAttachmentDescription>{params.attachments, params.attachments + params.attachmentCount};
         std::copy(attachments.begin(), attachments.end(), m_attachments->begin());
         m_params.attachments = m_attachments->data();
 
-        auto subpasses = core::SRange<const SCreationParams::SSubpassDescription>{params.subpasses, params.subpasses+params.subpassCount};
+        auto subpasses = core::SRange<const SCreationParams::SSubpassDescription>{params.subpasses, params.subpasses + params.subpassCount};
         std::copy(subpasses.begin(), subpasses.end(), m_subpasses->begin());
         m_params.subpasses = m_subpasses->data();
 
         uint32_t attRefCnt = 0u;
         uint32_t preservedAttRefCnt = 0u;
-        for (const auto& sb : (*m_subpasses))
+        for(const auto& sb : (*m_subpasses))
         {
             attRefCnt += sb.colorAttachmentCount;
             attRefCnt += sb.inputAttachmentCount;
-            if (sb.resolveAttachments)
+            if(sb.resolveAttachments)
                 attRefCnt += sb.colorAttachmentCount;
-            if (sb.depthStencilAttachment)
+            if(sb.depthStencilAttachment)
                 ++attRefCnt;
 
-            if (sb.preserveAttachments)
+            if(sb.preserveAttachments)
                 preservedAttRefCnt += sb.preserveAttachmentCount;
         }
-        if (attRefCnt)
+        if(attRefCnt)
             m_attachmentRefs = core::make_refctd_dynamic_array<attachment_refs_array_t>(attRefCnt);
-        if (preservedAttRefCnt)
+        if(preservedAttRefCnt)
             m_preservedAttachmentRefs = core::make_refctd_dynamic_array<preserved_attachment_refs_array_t>(preservedAttRefCnt);
 
         uint32_t refOffset = 0u;
         uint32_t preservedRefOffset = 0u;
         auto* refs = m_attachmentRefs->data();
         auto* preservedRefs = m_preservedAttachmentRefs->data();
-        for (auto& sb : (*m_subpasses))
+        for(auto& sb : (*m_subpasses))
         {
-            if (m_attachmentRefs)
+            if(m_attachmentRefs)
             {
-#define _COPY_ATTACHMENT_REFS(_array,_count)\
-                std::copy(sb._array, sb._array+sb._count, refs+refOffset);\
-                sb._array = refs+refOffset;\
-                refOffset += sb._count;
+#define _COPY_ATTACHMENT_REFS(_array, _count)                      \
+    std::copy(sb._array, sb._array + sb._count, refs + refOffset); \
+    sb._array = refs + refOffset;                                  \
+    refOffset += sb._count;
 
                 // Todo(achal): It is probably wise to do the existence check on colorAttachements
                 // as well since it could be NULL according to the Vulkan spec
                 _COPY_ATTACHMENT_REFS(colorAttachments, colorAttachmentCount);
-                if (sb.inputAttachments)
+                if(sb.inputAttachments)
                 {
                     _COPY_ATTACHMENT_REFS(inputAttachments, inputAttachmentCount);
                 }
-                if (sb.resolveAttachments)
+                if(sb.resolveAttachments)
                 {
                     _COPY_ATTACHMENT_REFS(resolveAttachments, colorAttachmentCount);
                 }
-                if (sb.depthStencilAttachment)
+                if(sb.depthStencilAttachment)
                 {
                     refs[refOffset] = sb.depthStencilAttachment[0];
                     sb.depthStencilAttachment = refs + refOffset;
@@ -160,41 +159,41 @@ public:
 #undef _COPY_ATTACHMENT_REFS
             }
 
-            if (m_preservedAttachmentRefs)
+            if(m_preservedAttachmentRefs)
             {
-                std::copy(sb.preserveAttachments, sb.preserveAttachments+sb.preserveAttachmentCount, preservedRefs+preservedRefOffset);
-                sb.preserveAttachments = preservedRefs+preservedRefOffset;
+                std::copy(sb.preserveAttachments, sb.preserveAttachments + sb.preserveAttachmentCount, preservedRefs + preservedRefOffset);
+                sb.preserveAttachments = preservedRefs + preservedRefOffset;
                 preservedRefOffset += sb.preserveAttachmentCount;
             }
         }
 
-        if (!params.dependencies)
+        if(!params.dependencies)
             return;
 
-        auto deps = core::SRange<const SCreationParams::SSubpassDependency>{params.dependencies, params.dependencies+params.dependencyCount};
+        auto deps = core::SRange<const SCreationParams::SSubpassDependency>{params.dependencies, params.dependencies + params.dependencyCount};
         std::copy(deps.begin(), deps.end(), m_dependencies->begin());
         m_params.dependencies = m_dependencies->data();
     }
 
     inline core::SRange<const SCreationParams::SAttachmentDescription> getAttachments() const
     {
-        if (!m_attachments)
-            return { nullptr, nullptr };
-        return { m_attachments->cbegin(), m_attachments->cend() };
+        if(!m_attachments)
+            return {nullptr, nullptr};
+        return {m_attachments->cbegin(), m_attachments->cend()};
     }
 
     inline core::SRange<const SCreationParams::SSubpassDescription> getSubpasses() const
     {
-        if (!m_subpasses)
-            return { nullptr, nullptr };
-        return { m_subpasses->cbegin(), m_subpasses->cend() };
+        if(!m_subpasses)
+            return {nullptr, nullptr};
+        return {m_subpasses->cbegin(), m_subpasses->cend()};
     }
 
     inline core::SRange<const SCreationParams::SSubpassDependency> getSubpassDependencies() const
     {
-        if (!m_dependencies)
-            return { nullptr, nullptr };
-        return { m_dependencies->cbegin(), m_dependencies->cend() };
+        if(!m_dependencies)
+            return {nullptr, nullptr};
+        return {m_dependencies->cbegin(), m_dependencies->cend()};
     }
 
     const SCreationParams& getCreationParameters() const { return m_params; }

@@ -7,7 +7,6 @@
 
 namespace nbl::video
 {
-
 class CVulkanSampler : public IGPUSampler
 {
 public:

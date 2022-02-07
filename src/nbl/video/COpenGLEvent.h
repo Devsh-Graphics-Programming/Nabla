@@ -3,11 +3,11 @@
 
 #include "nbl/video/IGPUEvent.h"
 
-namespace nbl {
+namespace nbl
+{
 namespace video
 {
-
-// for now impl of COpenGLEvent doesnt include any COpenGLSync since 
+// for now impl of COpenGLEvent doesnt include any COpenGLSync since
 // we dont support no DEVICE_ONLY events yet
 // and so no waiting GL calls are required
 class COpenGLEvent : public IGPUEvent
@@ -16,6 +16,7 @@ public:
     using IGPUEvent::IGPUEvent;
 };
 
-}}
+}
+}
 
 #endif

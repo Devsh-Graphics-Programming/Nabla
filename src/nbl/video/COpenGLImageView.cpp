@@ -4,7 +4,6 @@
 
 namespace nbl::video
 {
-
 COpenGLImageView::~COpenGLImageView()
 {
     auto* device = static_cast<IOpenGL_LogicalDevice*>(const_cast<ILogicalDevice*>(getOriginDevice()));

@@ -12,13 +12,11 @@
 
 #include "nbl/system/DefaultFuncPtrLoader.h"
 
-namespace nbl {
+namespace nbl
+{
 namespace ui
 {
-
-
-
-int CWindowX11::printXErrorCallback(Display *Display, XErrorEvent *event)
+int CWindowX11::printXErrorCallback(Display* Display, XErrorEvent* event)
 {
     char msg[256];
     char msg2[256];
@@ -31,7 +29,8 @@ int CWindowX11::printXErrorCallback(Display *Display, XErrorEvent *event)
     return 0;
 }
 
-CWindowX11::CWindowX11(core::smart_refctd_ptr<system::ISystem>&& sys, Display* dpy, native_handle_t win) : IWindowX11(std::move(sys)), m_dpy(dpy), m_native(win)
+CWindowX11::CWindowX11(core::smart_refctd_ptr<system::ISystem>&& sys, Display* dpy, native_handle_t win)
+    : IWindowX11(std::move(sys)), m_dpy(dpy), m_native(win)
 {
     Window tmp;
     int x, y;
@@ -48,9 +47,9 @@ CWindowX11::CWindowX11(core::smart_refctd_ptr<system::ISystem>&& sys, Display* d
     // TODO m_flags
 }
 
-CWindowX11::CWindowX11(core::smart_refctd_ptr<system::ISystem>&& sys, uint32_t _w, uint32_t _h, E_CREATE_FLAGS _flags) : IWindowX11(std::move(sys), _w, _h, _flags), m_dpy(NULL), m_native(NULL)
+CWindowX11::CWindowX11(core::smart_refctd_ptr<system::ISystem>&& sys, uint32_t _w, uint32_t _h, E_CREATE_FLAGS _flags)
+    : IWindowX11(std::move(sys), _w, _h, _flags), m_dpy(NULL), m_native(NULL)
 {
-
 }
 
 void CWindowX11::processEvent(XEvent event)
@@ -59,15 +58,13 @@ void CWindowX11::processEvent(XEvent event)
 
     switch(event.type)
     {
-        case ConfigureNotify:
-        {
+        case ConfigureNotify: {
             XConfigureEvent e = event.xconfigure;
             // Resized
             if(e.width != m_width || e.height != m_height)
             {
                 if(eventCallback->onWindowResized(this, e.width, e.height))
                     x11.pXResizeWindow(m_dpy, m_native, e.width, e.height);
-
             }
             // Moved
             if(e.x != m_x || e.y != m_y)
@@ -78,9 +75,8 @@ void CWindowX11::processEvent(XEvent event)
 
             break;
         }
-        case MapNotify:
-        {
-            if (eventCallback->onWindowShown(this))
+        case MapNotify: {
+            if(eventCallback->onWindowShown(this))
             {
                 assert(false);
                 // ShowWindow call or sth like that
@@ -89,28 +85,29 @@ void CWindowX11::processEvent(XEvent event)
             break;
         }
         // Don't think these 2 are the same, will return to them later, but onWindowHidden is definitely right here
-        case UnmapNotify: //TODO
+        case UnmapNotify:  //TODO
         {
             assert(false);
             eventCallback->onWindowHidden(this);
-            eventCallback->onWindowMinimized(this); 
+            eventCallback->onWindowMinimized(this);
             break;
         }
-        case PropertyNotify:
-        {
+        case PropertyNotify: {
             XPropertyEvent e = event.xproperty;
             if(e.atom == _NET_WM_STATE)
             {
                 Atom* allStates;
                 unsigned long itemCount, bytesAfter;
-                unsigned char *properties = NULL;
+                unsigned char* properties = NULL;
                 //Retrieving all states
                 XGetWindowProperty(m_dpy, m_native, _NET_WM_STATE, 0, LONG_MAX, False, AnyPropertyType, allStates, &itemCount, &bytesAfter, &properties);
-                bool maximizedVertically = false, maximizedHorizontally = false; 
+                bool maximizedVertically = false, maximizedHorizontally = false;
                 for(int i = 0; i < itemCount; i++)
                 {
-                    if(allStates[i] == _NET_WM_STATE_MAXIMIZED_HORZ) maximizedHorizontally = true;
-                    else if(allStates[i] == _NET_WM_STATE_MAXIMIZED_VERT) maximizedVertically = true;
+                    if(allStates[i] == _NET_WM_STATE_MAXIMIZED_HORZ)
+                        maximizedHorizontally = true;
+                    else if(allStates[i] == _NET_WM_STATE_MAXIMIZED_VERT)
+                        maximizedVertically = true;
                 }
                 if(maximizedVertically && maximizedHorizontally && !isMaximized)
                 {
@@ -126,14 +123,12 @@ void CWindowX11::processEvent(XEvent event)
             break;
         }
         // TODO: don't know yet how those behave and whether i should
-        // call mouse/keyboard/both focus change 
-        case FocusIn:
-        {
+        // call mouse/keyboard/both focus change
+        case FocusIn: {
             assert(false);
             break;
         }
-        case FocusOut:
-        {
+        case FocusOut: {
             assert(false);
             break;
         }
@@ -148,171 +143,166 @@ void CWindowManagerX11::CThreadHandler::init()
 
 void CWindowManagerX11::CThreadHandler::process_request(SRequest& req)
 {
-    switch (req.type)
+    switch(req.type)
     {
-    case ERT_CREATE_WINDOW:
-    {
-        // XInitThreads() call not needed unless windows are created concurrently, spoof EGL synchronizes per-display access itself
-        //"If all calls to Xlib functions are protected by some other access mechanism 
-        //(for example, a mutual exclusion lock in a toolkit or through explicit client programming), Xlib thread initialization is not required."
-        //XInitThreads();
-        auto params = req.createWindowParam;
-        uint32_t w = params.width;
-        uint32_t h = params.height;
-        int32_t x = params.x;
-        int32_t y = params.y;
-        CWindowX11::E_CREATE_FLAGS flags = params.flags;
-        std::string windowCaption = params.windowCaption; 
+        case ERT_CREATE_WINDOW: {
+            // XInitThreads() call not needed unless windows are created concurrently, spoof EGL synchronizes per-display access itself
+            //"If all calls to Xlib functions are protected by some other access mechanism
+            //(for example, a mutual exclusion lock in a toolkit or through explicit client programming), Xlib thread initialization is not required."
+            //XInitThreads();
+            auto params = req.createWindowParam;
+            uint32_t w = params.width;
+            uint32_t h = params.height;
+            int32_t x = params.x;
+            int32_t y = params.y;
+            CWindowX11::E_CREATE_FLAGS flags = params.flags;
+            std::string windowCaption = params.windowCaption;
 
-        x11.pXSetErrorHandler(&printXErrorCallback);
+            x11.pXSetErrorHandler(&printXErrorCallback);
 
-        Display* dpy = x11.pXOpenDisplay(nullptr);
-        int screennr = DefaultScreen(dpy);
+            Display* dpy = x11.pXOpenDisplay(nullptr);
+            int screennr = DefaultScreen(dpy);
 
-        if (isFullscreen()) // contents of this if are most likely broken
-        {
-            xxf86m.pXF86VidModeModeInfo oldVidMode;
-            xxf86m.pXF86VidModeSwitchToMode(dpy, screennr, &oldVidMode);
-            xxf86m.pXF86VidModeSetViewPort(dpy, screennr, 0, 0);
-
-            SizeID oldRandrMode;
-            Rotation oldRandrRotation;
-            XRRScreenConfiguration *config = xrandr.pXRRGetScreenInfo(dpy,DefaultRootWindow(dpy));
-            xrandr.pXRRSetScreenConfig(dpy,config,DefaultRootWindow(dpy),oldRandrMode,oldRandrRotation,CurrentTime);
-            xrandr.pXRRFreeScreenConfigInfo(config);
-
-            int32_t eventbase, errorbase;
-            int32_t bestMode = -1;
-
-            if (xxf86m.pXF86VidModeQueryExtension(dpy, &eventbase, &errorbase))
+            if(isFullscreen())  // contents of this if are most likely broken
             {
-                int32_t modeCount;
-                XF86VidModeModeInfo** modes;
+                xxf86m.pXF86VidModeModeInfo oldVidMode;
+                xxf86m.pXF86VidModeSwitchToMode(dpy, screennr, &oldVidMode);
+                xxf86m.pXF86VidModeSetViewPort(dpy, screennr, 0, 0);
 
-                xxf86m.pXF86VidModeGetAllModeLines(dpy, screennr, &modeCount, &modes);
+                SizeID oldRandrMode;
+                Rotation oldRandrRotation;
+                XRRScreenConfiguration* config = xrandr.pXRRGetScreenInfo(dpy, DefaultRootWindow(dpy));
+                xrandr.pXRRSetScreenConfig(dpy, config, DefaultRootWindow(dpy), oldRandrMode, oldRandrRotation, CurrentTime);
+                xrandr.pXRRFreeScreenConfigInfo(config);
 
-                // find fitting mode
-                for (int32_t i = 0; i<modeCount; ++i)
+                int32_t eventbase, errorbase;
+                int32_t bestMode = -1;
+
+                if(xxf86m.pXF86VidModeQueryExtension(dpy, &eventbase, &errorbase))
                 {
-                    if (bestMode==-1 && modes[i]->hdisplay >= w && modes[i]->vdisplay >= h)
-                        bestMode = i;
-                    else if (bestMode!=-1 &&
+                    int32_t modeCount;
+                    XF86VidModeModeInfo** modes;
+
+                    xxf86m.pXF86VidModeGetAllModeLines(dpy, screennr, &modeCount, &modes);
+
+                    // find fitting mode
+                    for(int32_t i = 0; i < modeCount; ++i)
+                    {
+                        if(bestMode == -1 && modes[i]->hdisplay >= w && modes[i]->vdisplay >= h)
+                            bestMode = i;
+                        else if(bestMode != -1 &&
                             modes[i]->hdisplay >= w &&
                             modes[i]->vdisplay >= h &&
                             modes[i]->hdisplay <= modes[bestMode]->hdisplay &&
                             modes[i]->vdisplay <= modes[bestMode]->vdisplay)
-                        bestMode = i;
-                }
-                if (bestMode != -1)
-                {
-                    xxf86m.pXF86VidModeSwitchToMode(dpy, screennr, modes[bestMode]);
-                    xxf86m.pXF86VidModeSetViewPort(dpy, screennr, 0, 0);
-                }
-                else
-                {
-                    //os::Printer::log("Could not find specified video mode, running windowed.", ELL_WARNING);
-                    CreationParams.Fullscreen = false;
-                }
+                            bestMode = i;
+                    }
+                    if(bestMode != -1)
+                    {
+                        xxf86m.pXF86VidModeSwitchToMode(dpy, screennr, modes[bestMode]);
+                        xxf86m.pXF86VidModeSetViewPort(dpy, screennr, 0, 0);
+                    }
+                    else
+                    {
+                        //os::Printer::log("Could not find specified video mode, running windowed.", ELL_WARNING);
+                        CreationParams.Fullscreen = false;
+                    }
 
-                x11.pXFree(modes);
-            }
-            else
-            if (xrandr.pXRRQueryExtension(dpy, &eventbase, &errorbase))
-            {
-                int32_t modeCount;
-                XRRScreenConfiguration *config=xrandr.pXRRGetScreenInfo(dpy,DefaultRootWindow(dpy));
-                XRRScreenSize *modes=xrandr.pXRRConfigSizes(config,&modeCount);
-                for (int32_t i = 0; i<modeCount; ++i)
+                    x11.pXFree(modes);
+                }
+                else if(xrandr.pXRRQueryExtension(dpy, &eventbase, &errorbase))
                 {
-                    if (bestMode==-1 && (uint32_t)modes[i].width >= w && (uint32_t)modes[i].height >= h)
-                        bestMode = i;
-                    else if (bestMode!=-1 &&
+                    int32_t modeCount;
+                    XRRScreenConfiguration* config = xrandr.pXRRGetScreenInfo(dpy, DefaultRootWindow(dpy));
+                    XRRScreenSize* modes = xrandr.pXRRConfigSizes(config, &modeCount);
+                    for(int32_t i = 0; i < modeCount; ++i)
+                    {
+                        if(bestMode == -1 && (uint32_t)modes[i].width >= w && (uint32_t)modes[i].height >= h)
+                            bestMode = i;
+                        else if(bestMode != -1 &&
                             (uint32_t)modes[i].width >= w &&
                             (uint32_t)modes[i].height >= h &&
                             modes[i].width <= modes[bestMode].width &&
                             modes[i].height <= modes[bestMode].height)
-                        bestMode = i;
+                            bestMode = i;
+                    }
+                    if(bestMode != -1)
+                    {
+                        xrandr.pXRRSetScreenConfig(dpy, config, DefaultRootWindow(dpy), bestMode, oldRandrRotation, CurrentTime);
+                    }
+                    xrandr.pXRRFreeScreenConfigInfo(config);
                 }
-                if (bestMode != -1)
+                else
                 {
-                    xrandr.pXRRSetScreenConfig(dpy,config,DefaultRootWindow(dpy),bestMode,oldRandrRotation,CurrentTime);
+                    flags = static_cast<E_CREATE_FLAGS>(flags & (~ECF_FULLSCREEN));
                 }
-                xrandr.pXRRFreeScreenConfigInfo(config);
             }
-            else
-            {
-                flags = static_cast<E_CREATE_FLAGS>(flags & (~ECF_FULLSCREEN));
-            }
-        }
 
-        XVisualInfo visTempl;
-        int visNumber;
+            XVisualInfo visTempl;
+            int visNumber;
 
-        visTempl.screen = screennr;
-        visTempl.depth = 32;
+            visTempl.screen = screennr;
+            visTempl.depth = 32;
 
-        XVisualInfo* visual = x11.pXGetVisualInfo(dpy, VisualScreenMask | VisualDepthMask, &visTempl, &visNumber);
+            XVisualInfo* visual = x11.pXGetVisualInfo(dpy, VisualScreenMask | VisualDepthMask, &visTempl, &visNumber);
 
-        Colormap colormap;
-        colormap = x11.pXCreateColormap(dpy, RootWindow(dpy, visual->screen), visual->visual, AllocNone);
+            Colormap colormap;
+            colormap = x11.pXCreateColormap(dpy, RootWindow(dpy, visual->screen), visual->visual, AllocNone);
 
-        XSetWindowAttributes attribs;
-        attribs.colormap = colormap;
-        attribs.border_pixel = 0;
-        attribs.event_mask = StructureNotifyMask | FocusChangeMask | ExposureMask; // TODO depend on create flags?
-        // if not ignore input:
-        attribs.event_mask |= PointerMotionMask | ButtonPressMask | KeyPressMask | ButtonReleaseMask | KeyReleaseMask;
-        attribs.override_redirect = isFullscreen();
+            XSetWindowAttributes attribs;
+            attribs.colormap = colormap;
+            attribs.border_pixel = 0;
+            attribs.event_mask = StructureNotifyMask | FocusChangeMask | ExposureMask;  // TODO depend on create flags?
+            // if not ignore input:
+            attribs.event_mask |= PointerMotionMask | ButtonPressMask | KeyPressMask | ButtonReleaseMask | KeyReleaseMask;
+            attribs.override_redirect = isFullscreen();
 
-        Window win;
-        win = x11.pXCreateWindow(dpy, RootWindow(dpy, visual->screen), 0, 0, w, h, 0, visual->depth, InputOutput, visual->visual, 
+            Window win;
+            win = x11.pXCreateWindow(dpy, RootWindow(dpy, visual->screen), 0, 0, w, h, 0, visual->depth, InputOutput, visual->visual,
                 CWBorderPixel | CWColormap | CWEventMask | CWOverrideRedirect, &attribs);
-        if (!isHidden())
-            x11.pXMapRaised(dpy, win);
-        Atom wmDelete;
-        wmDelete = x11.pXInternAtom(dpy, "WM_DELETE_WINDOW", True);
-        x11.pXSetWMProtocols(dpy, win, &wmDelete, 1);
+            if(!isHidden())
+                x11.pXMapRaised(dpy, win);
+            Atom wmDelete;
+            wmDelete = x11.pXInternAtom(dpy, "WM_DELETE_WINDOW", True);
+            x11.pXSetWMProtocols(dpy, win, &wmDelete, 1);
 
-        if (isFullscreen())
-        {
-            x11.pXSetInputFocus(dpy, win, RevertToParent, CurrentTime);
-            int grabkb = x11.pXGrabKeyboard(dpy, win, True, GrabModeAsync, GrabModeAsync, CurrentTime);
+            if(isFullscreen())
+            {
+                x11.pXSetInputFocus(dpy, win, RevertToParent, CurrentTime);
+                int grabkb = x11.pXGrabKeyboard(dpy, win, True, GrabModeAsync, GrabModeAsync, CurrentTime);
 
-            int grabptr = x11.pXGrabPointer(dpy, win, True, ButtonPressMask, GrabModeAsync, GrabModeAsync, win, None, CurrentTime);
+                int grabptr = x11.pXGrabPointer(dpy, win, True, ButtonPressMask, GrabModeAsync, GrabModeAsync, win, None, CurrentTime);
 
-            x11.pXWarpPointer(dpy, None, win, 0, 0, 0, 0, 0, 0);
+                x11.pXWarpPointer(dpy, None, win, 0, 0, 0, 0, 0, 0);
+            }
+
+            *params.nativeHandle = win;
+
+            XContext classId = x11.pXUniqueContext();
+            x11.pXSaveContext(dpy, *params.nativeHandle, classId, (XPointer)this);
+
+            int deviceCount;
+            XDeviceInfo* infos = xinput.pXListInputDevices(dpy, &deviceCount);
+            break;
         }
-
-        *params.nativeHandle = win;
-
-
-        XContext classId = x11.pXUniqueContext();
-        x11.pXSaveContext(dpy, *params.nativeHandle, classId, (XPointer)this);
-
-        int deviceCount;
-        XDeviceInfo* infos =  xinput.pXListInputDevices(dpy, &deviceCount);
-        break;
-    }
-    case ERT_DESTROY_WINDOW:
-    {
-        auto params = req.destroyWindowParam;
-        x11.pXDestroyWindow(dpy, params.nativeWindow);
-        break;
-    }
+        case ERT_DESTROY_WINDOW: {
+            auto params = req.destroyWindowParam;
+            x11.pXDestroyWindow(dpy, params.nativeWindow);
+            break;
+        }
     }
 }
 
-
 void CWindowManagerX11::CThreadHandler::background_work(lock_t& lock)
 {
-	XEvent event;
-	x11.pXNextEvent(display, event);
-	Window nativeWindow = event.xany.window;
-	XPointer windowCharPtr = nullptr;
-	x11.pXFindContext(display, nativeWindow, &windowCharPtr);
-	CWindowX11* currentWindow = static_cast<CWindowX11*>(windowCharPtr);
-	auto* eventCallback = nativeWindow->getEventCallback();
-	currentWindow->processEvent(event);
+    XEvent event;
+    x11.pXNextEvent(display, event);
+    Window nativeWindow = event.xany.window;
+    XPointer windowCharPtr = nullptr;
+    x11.pXFindContext(display, nativeWindow, &windowCharPtr);
+    CWindowX11* currentWindow = static_cast<CWindowX11*>(windowCharPtr);
+    auto* eventCallback = nativeWindow->getEventCallback();
+    currentWindow->processEvent(event);
 }
 
 CWindowManagerX11::CWindowManagerX11()
@@ -328,12 +318,10 @@ core::smart_refctd_ptr<IWindow> CWindowManagerX11::createWindow(const IWindow::S
     CWindowx11::E_CREATE_FLAGS flags = creationParams.flags;
     const std::string_view& caption = creationParams.windowCaption;
     CWindowx11::native_handle_t* wnd;
-    
+
     m_windowThreadManager.createWindow(x, y, w, h, flags, &wnd, caption);
     return core::make_smart_refctd_ptr<IWindow>(this, display, wnd);
 }
-
-
 
 void CWindowManagerX11::destroyWindow(IWindow* wnd)
 {
@@ -351,10 +339,13 @@ core::vector<XID> CWindowManagerX11::getConnectedMice() const
         bool has_motion = false, has_buttons = false;
         for(int j = 0; j < device.num_classes; j++)
         {
-            if(device.inputclassinfo[j].c_class == ButtonClass) has_buttons = true;
-            else if(device.inputclassinfo[j].c_class == ValuatorClass) has_motion = true;
+            if(device.inputclassinfo[j].c_class == ButtonClass)
+                has_buttons = true;
+            else if(device.inputclassinfo[j].c_class == ValuatorClass)
+                has_motion = true;
         }
-        if(has_motion && has_buttons) result.push_back(device.id);
+        if(has_motion && has_buttons)
+            result.push_back(device.id);
     }
 }
 
@@ -369,24 +360,25 @@ core::vector<XID> CWindowManagerX11::getConnectedKeyboards() const
         bool has_keys = false;
         for(int j = 0; j < device.num_classes; j++)
         {
-            if(device.inputclassinfo[j].c_class == KeyClass) has_keys = true;
+            if(device.inputclassinfo[j].c_class == KeyClass)
+                has_keys = true;
         }
-        if(has_keys) result.push_back(device.id);
+        if(has_keys)
+            result.push_back(device.id);
     }
 }
 
-
-CWindowX11:CWindowX11(CWindowManagerX11* manager, Display* dpy, native_handle_t win):
-m_manager(manager), m_dpy(dpy), m_native(win)
+CWindowX11 : CWindowX11(CWindowManagerX11* manager, Display* dpy, native_handle_t win)
+    : m_manager(manager), m_dpy(dpy), m_native(win)
 {
-
 }
 
-CWindowX11:~CWindowX11()
+CWindowX11 : ~CWindowX11()
 {
     m_manager->destroyWindow(this);
 }
 
-}}
+}
+}
 
 #endif

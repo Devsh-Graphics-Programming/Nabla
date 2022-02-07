@@ -11,7 +11,7 @@
 
 #include "nbl/scene/ICullingLoDSelectionSystem.h"
 
-#if 0 // not buildable on criss/vulkan branch
+#if 0  // not buildable on criss/vulkan branch
 //
 #include "nbl/scene/IAnimationBlendManager.h"
 #endif

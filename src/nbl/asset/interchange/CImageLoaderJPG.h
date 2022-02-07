@@ -12,12 +12,10 @@
 
 #include "nbl/asset/interchange/IAssetLoader.h"
 
-
 namespace nbl
 {
 namespace asset
 {
-
 //! Surface Loader for JPG images
 class CImageLoaderJPG : public asset::IAssetLoader
 {
@@ -27,32 +25,31 @@ public:
         char* filename = nullptr;
         system::logger_opt_ptr logger = nullptr;
     };
+
 private:
-    protected:
-	    //! destructor
-	    virtual ~CImageLoaderJPG();
+protected:
+    //! destructor
+    virtual ~CImageLoaderJPG();
 
-    public:
-	    //! constructor
-	    CImageLoaderJPG();
+public:
+    //! constructor
+    CImageLoaderJPG();
 
-        virtual bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const override;
+    virtual bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const override;
 
-        virtual const char** getAssociatedFileExtensions() const override
-        {
-            static const char* ext[]{ "jpg", "jpeg", "jpe", "jif", "jfif", "jfi", nullptr };
-            return ext;
-        }
+    virtual const char** getAssociatedFileExtensions() const override
+    {
+        static const char* ext[]{"jpg", "jpeg", "jpe", "jif", "jfif", "jfi", nullptr};
+        return ext;
+    }
 
-        virtual uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_IMAGE; }
+    virtual uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_IMAGE; }
 
-        virtual asset::SAssetBundle loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
+    virtual asset::SAssetBundle loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 };
 
-} // end namespace video
-} // end namespace nbl
-
+}  // end namespace video
+}  // end namespace nbl
 
 #endif
 #endif
-

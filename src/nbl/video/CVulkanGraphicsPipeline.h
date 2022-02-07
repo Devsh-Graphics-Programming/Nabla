@@ -5,7 +5,6 @@
 
 namespace nbl::video
 {
-
 class CVulkanGraphicsPipeline : public IGPUGraphicsPipeline
 {
 public:

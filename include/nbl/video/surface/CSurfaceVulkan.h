@@ -5,11 +5,10 @@
 #include "nbl/ui/IWindowAndroid.h"
 namespace nbl::video
 {
-
 class CVulkanConnection;
 class CVulkanPhysicalDevice;
 
-template <typename Window>
+template<typename Window>
 class CSurfaceVulkan final : public CSurface<Window>
 {
 public:
@@ -23,15 +22,15 @@ public:
     bool isSupportedForPhysicalDevice(const IPhysicalDevice* dev, uint32_t _queueFamIx) const override;
 
     void getAvailableFormatsForPhysicalDevice(const IPhysicalDevice* physicalDevice, uint32_t& formatCount, ISurface::SFormat* formats) const override;
-    
+
     ISurface::E_PRESENT_MODE getAvailablePresentModesForPhysicalDevice(const IPhysicalDevice* physicalDevice) const override;
-    
+
     bool getSurfaceCapabilitiesForPhysicalDevice(const IPhysicalDevice* physicalDevice, ISurface::SCapabilities& capabilities) const override;
 
     inline VkSurfaceKHR getInternalObject() const { return m_vkSurfaceKHR; }
 
-// Todo(achal): Remove
-// private:
+    // Todo(achal): Remove
+    // private:
     explicit CSurfaceVulkan(core::smart_refctd_ptr<video::CVulkanConnection>&& api,
         core::smart_refctd_ptr<Window>&& window, VkSurfaceKHR vk_surface)
         : base_t(std::move(api), std::move(window)), m_vkSurfaceKHR(vk_surface)

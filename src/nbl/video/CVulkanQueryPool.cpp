@@ -4,7 +4,6 @@
 
 namespace nbl::video
 {
-
 CVulkanQueryPool::~CVulkanQueryPool()
 {
     if(VK_NULL_HANDLE != m_queryPool)

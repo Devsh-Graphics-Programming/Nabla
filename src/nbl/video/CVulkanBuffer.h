@@ -6,7 +6,6 @@
 
 namespace nbl::video
 {
-
 class ILogicalDevice;
 class CVulkanMemoryAllocation;
 
@@ -16,8 +15,8 @@ public:
     CVulkanBuffer(
         core::smart_refctd_ptr<ILogicalDevice>&& dev,
         const IDriverMemoryBacked::SDriverMemoryRequirements& reqs,
-        const IGPUBuffer::SCachedCreationParams& cachedCreationParams, VkBuffer buffer
-    ) : IGPUBuffer(std::move(dev),reqs,cachedCreationParams), m_vkBuffer(buffer)
+        const IGPUBuffer::SCachedCreationParams& cachedCreationParams, VkBuffer buffer)
+        : IGPUBuffer(std::move(dev), reqs, cachedCreationParams), m_vkBuffer(buffer)
     {
     }
 
@@ -45,7 +44,7 @@ public:
         m_memory = std::move(memory);
         m_memBindingOffset = memBindingOffset;
     }
-    
+
     void setObjectDebugName(const char* label) const override;
 
 private:

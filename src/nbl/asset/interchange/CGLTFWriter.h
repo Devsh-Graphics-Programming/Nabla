@@ -16,38 +16,38 @@
 
 namespace nbl
 {
-	namespace asset
-	{
-		//! glTF Writer capable of writing .gltf files
-		/*
+namespace asset
+{
+//! glTF Writer capable of writing .gltf files
+/*
 			glTF bridges the gap between 3D content creation tools and modern 3D applications
 			by providing an efficient, extensible, interoperable format for the transmission and loading of 3D content.
 		*/
 
-		class CGLTFWriter final : public asset::IAssetWriter
-		{
-			protected:
-				virtual ~CGLTFWriter() {}
+class CGLTFWriter final : public asset::IAssetWriter
+{
+protected:
+    virtual ~CGLTFWriter() {}
 
-			public:
-				CGLTFWriter() {}
+public:
+    CGLTFWriter() {}
 
-				virtual const char** getAssociatedFileExtensions() const override
-				{
-					static const char* extensions[]{ "gltf", nullptr };
-					return extensions;
-				}
+    virtual const char** getAssociatedFileExtensions() const override
+    {
+        static const char* extensions[]{"gltf", nullptr};
+        return extensions;
+    }
 
-				uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_MESH; }
+    uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_MESH; }
 
-				uint32_t getSupportedFlags() override { return asset::EWF_NONE; }
+    uint32_t getSupportedFlags() override { return asset::EWF_NONE; }
 
-				uint32_t getForcedFlags() override { return asset::EWF_NONE; }
+    uint32_t getForcedFlags() override { return asset::EWF_NONE; }
 
-				bool writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr) override;
-		};
-	}
+    bool writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr) override;
+};
+}
 }
 
-#endif // _NBL_COMPILE_WITH_GLTF_WRITER_
-#endif // __NBL_ASSET_C_MESH_WRITER_GLTF__
+#endif  // _NBL_COMPILE_WITH_GLTF_WRITER_
+#endif  // __NBL_ASSET_C_MESH_WRITER_GLTF__

@@ -11,14 +11,14 @@
 
 namespace nbl::video
 {
-
 class IGPUSampler : public asset::ISampler, public IBackendObject
 {
-    protected:
-        virtual ~IGPUSampler() = default;
+protected:
+    virtual ~IGPUSampler() = default;
 
-    public:
-        IGPUSampler(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const SParams& params) : ISampler(params), IBackendObject(std::move(dev)) {}
+public:
+    IGPUSampler(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const SParams& params)
+        : ISampler(params), IBackendObject(std::move(dev)) {}
 };
 
 }

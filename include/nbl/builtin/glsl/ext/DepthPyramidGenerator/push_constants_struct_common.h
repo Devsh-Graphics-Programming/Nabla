@@ -14,11 +14,11 @@ namespace ext
 {
 namespace DepthPyramidGenerator
 {
-
 struct uvec2
 {
     uvec2() = default;
-    uvec2(uint32_t _x, uint32_t _y) : x(_x), y(_y) {}
+    uvec2(uint32_t _x, uint32_t _y)
+        : x(_x), y(_y) {}
 
     uint32_t x;
     uint32_t y;
@@ -43,7 +43,6 @@ struct nbl_glsl_depthPyramid_PushConstantsData
     uint maxMetaZLayerCnt;
     uint virtualDispatchIndex;
     uint sourceImageIsDepthOriginalDepthBuffer;
-
 };
 
 #ifdef __cplusplus

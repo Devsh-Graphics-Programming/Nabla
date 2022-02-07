@@ -6,10 +6,10 @@
 #include <atomic>
 #include <chrono>
 
-namespace nbl {
+namespace nbl
+{
 namespace video
 {
-
 class IOpenGLSyncPrimitiveBase
 {
 protected:

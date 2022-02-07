@@ -10,26 +10,25 @@
 
 namespace nbl::ui
 {
-
 class CWindowWayland : public IWindowWayland
 {
-	static void registry_callback(void* data, struct wl_registry* registry, uint32_t id, const char* interface, uint32_t version);
+    static void registry_callback(void* data, struct wl_registry* registry, uint32_t id, const char* interface, uint32_t version);
     static const struct wl_registry_listener s_listener;
 
 public:
-	explicit CWindowWayland(core::smart_refctd_ptr<system::ISystem>&& sys, wl_display* dpy, native_handle_t win);
+    explicit CWindowWayland(core::smart_refctd_ptr<system::ISystem>&& sys, wl_display* dpy, native_handle_t win);
 
     struct wl_display* getDisplay() const override { return m_dpy; }
-	const native_handle_t& getNativeHandle() const override { return m_native; }
+    const native_handle_t& getNativeHandle() const override { return m_native; }
 
-	static core::smart_refctd_ptr<CWindowWayland> create(core::smart_refctd_ptr<system::ISystem>&& sys, uint32_t _w, uint32_t _h, E_CREATE_FLAGS _flags)
-	{
-		if ((_flags & (ECF_MINIMIZED | ECF_MAXIMIZED)) == (ECF_MINIMIZED | ECF_MAXIMIZED))
-			return nullptr;
+    static core::smart_refctd_ptr<CWindowWayland> create(core::smart_refctd_ptr<system::ISystem>&& sys, uint32_t _w, uint32_t _h, E_CREATE_FLAGS _flags)
+    {
+        if((_flags & (ECF_MINIMIZED | ECF_MAXIMIZED)) == (ECF_MINIMIZED | ECF_MAXIMIZED))
+            return nullptr;
 
-		CWindowWayland* win = new CWindowWayland(std::move(sys), _w, _h, _flags);
-		return core::smart_refctd_ptr<CWindowWayland>(win, core::dont_grab);
-	}
+        CWindowWayland* win = new CWindowWayland(std::move(sys), _w, _h, _flags);
+        return core::smart_refctd_ptr<CWindowWayland>(win, core::dont_grab);
+    }
 
 private:
     CWindowWayland(core::smart_refctd_ptr<system::ISystem>&& sys, uint32_t _w, uint32_t _h, E_CREATE_FLAGS _flags);

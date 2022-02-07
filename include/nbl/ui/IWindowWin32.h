@@ -5,24 +5,23 @@
 
 #include "nbl/ui/IWindow.h"
 
-
 #ifdef _NBL_PLATFORM_WINDOWS_
 
 namespace nbl::ui
 {
-
 class IWindowWin32 : public IWindow
 {
-    protected:
-        virtual ~IWindowWin32() = default;
-        IWindowWin32(SCreationParams&& params) : IWindow(std::move(params)) {}
+protected:
+    virtual ~IWindowWin32() = default;
+    IWindowWin32(SCreationParams&& params)
+        : IWindow(std::move(params)) {}
 
-    public:
-        using IWindow::IWindow;
+public:
+    using IWindow::IWindow;
 
-        using native_handle_t = HWND;
+    using native_handle_t = HWND;
 
-        virtual const native_handle_t& getNativeHandle() const = 0;
+    virtual const native_handle_t& getNativeHandle() const = 0;
 };
 
 }

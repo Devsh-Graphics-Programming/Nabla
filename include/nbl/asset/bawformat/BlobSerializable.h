@@ -9,16 +9,15 @@ namespace nbl
 {
 namespace asset
 {
-
 class NBL_FORCE_EBO BlobSerializable
 {
-	public:
-		virtual ~BlobSerializable() {}
+public:
+    virtual ~BlobSerializable() {}
 
-		virtual void* serializeToBlob(void* _stackPtr = NULL, const size_t& _stackSize = 0) const = 0;
+    virtual void* serializeToBlob(void* _stackPtr = NULL, const size_t& _stackSize = 0) const = 0;
 };
 
 }
-} // nbl::asset
+}  // nbl::asset
 
 #endif

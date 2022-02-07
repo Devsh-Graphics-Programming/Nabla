@@ -6,7 +6,6 @@
 
 namespace nbl::video
 {
-
 COpenGLRenderpassIndependentPipeline::~COpenGLRenderpassIndependentPipeline()
 {
     m_device->destroyPipeline(this);

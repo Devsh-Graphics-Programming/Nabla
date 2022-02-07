@@ -19,39 +19,33 @@ namespace ext
 {
 namespace Bullet3
 {
-
-class CInstancedMotionState : public IMotionStateBase{
+class CInstancedMotionState : public IMotionStateBase
+{
 public:
     inline CInstancedMotionState() {}
-    inline CInstancedMotionState(scene::IMeshSceneNodeInstanced *node, uint32_t index)
-        : m_node(node), 
+    inline CInstancedMotionState(scene::IMeshSceneNodeInstanced* node, uint32_t index)
+        : m_node(node),
           m_index(index),
           IMotionStateBase(convertMatrixSIMD(node->getInstanceTransform(index)))
     {
-       
-
         m_node->grab();
     }
 
-    inline ~CInstancedMotionState() {
+    inline ~CInstancedMotionState()
+    {
         m_node->drop();
     }
-    
 
-    virtual void getWorldTransform(btTransform &worldTrans) const;
-    virtual void setWorldTransform(const btTransform &worldTrans);
+    virtual void getWorldTransform(btTransform& worldTrans) const;
+    virtual void setWorldTransform(const btTransform& worldTrans);
+
 protected:
-
-    scene::IMeshSceneNodeInstanced *m_node;
+    scene::IMeshSceneNodeInstanced* m_node;
     uint32_t m_index;
-
-
-
 };
 
 }
 }
 }
-
 
 #endif

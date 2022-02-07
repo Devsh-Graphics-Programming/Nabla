@@ -11,10 +11,8 @@
 
 namespace nbl::core
 {
-
 namespace impl
 {
-
 class CCircularBufferCommonBase
 {
 protected:
@@ -30,13 +28,14 @@ protected:
     }
 };
 
-template <typename T>
+template<typename T>
 class CConstantRuntimeSizedCircularBufferBase : public CCircularBufferCommonBase
 {
 protected:
     static constexpr inline auto Alignment = alignof(T);
 
-    explicit CConstantRuntimeSizedCircularBufferBase(size_t cap) : m_mem(nullptr), m_capacity(cap)
+    explicit CConstantRuntimeSizedCircularBufferBase(size_t cap)
+        : m_mem(nullptr), m_capacity(cap)
     {
         assert(core::isPoT(cap));
 
@@ -46,7 +45,7 @@ protected:
 
         auto n_blocks = numberOfFlagBlocksNeeded(cap);
         m_flags = std::make_unique<atomic_alive_flags_block_t[]>(n_blocks);
-        for (size_t i = 0u; i < n_blocks; ++i)
+        for(size_t i = 0u; i < n_blocks; ++i)
             std::atomic_init(m_flags.get() + i, 0ul);
     }
 
@@ -75,7 +74,7 @@ public:
 
     ~CConstantRuntimeSizedCircularBufferBase()
     {
-        if (m_mem)
+        if(m_mem)
         {
             _NBL_ALIGNED_FREE(m_mem);
         }
@@ -92,8 +91,7 @@ private:
     size_t m_capacity;
 };
 
-
-template <typename T, size_t S>
+template<typename T, size_t S>
 class CCompileTimeSizedCircularBufferBase : public CCircularBufferCommonBase
 {
     static_assert(core::isPoT(S), "Circular buffer capacity must be PoT!");
@@ -128,7 +126,7 @@ public:
 
     CCompileTimeSizedCircularBufferBase()
     {
-        for (auto& a : m_flags)
+        for(auto& a : m_flags)
             std::atomic_init(&a, 0);
     }
 
@@ -138,14 +136,14 @@ public:
     }
 
 private:
-    alignas(Alignment) uint8_t m_mem[StorageSize] {};
+    alignas(Alignment) uint8_t m_mem[StorageSize]{};
     atomic_alive_flags_block_t m_flags[CCircularBufferCommonBase::numberOfFlagBlocksNeeded(S)];
 };
 
 // Do not use with AllowOverflows and non PoD data types concurrently, you can get unordered and non-atomic construction and destruction of elements
 // TODO: Reimplement with per-element C++20 atomic waits and a ticket lock (for ordered overwrites)
 // https://cdn.discordapp.com/attachments/593903264987349057/872793258042986496/100543_449723386_Bryce_Adelstein_Lelbach_The_C20_synchronization_library.pdf
-template <typename Base, bool AllowOverflows = true>
+template<typename Base, bool AllowOverflows = true>
 class CCircularBufferBase : public Base
 {
     using this_type = CCircularBufferBase<Base>;
@@ -187,15 +185,15 @@ private:
         return x & mask;
     }
 
-    template <typename... Args>
+    template<typename... Args>
     type& push_back_impl(Args&&... args)
     {
         auto virtualIx = m_cb_end++;
 
-        if constexpr (!AllowOverflows)
+        if constexpr(!AllowOverflows)
         {
             auto safe_begin = virtualIx < base_t::capacity() ? static_cast<counter_t>(0) : (virtualIx - base_t::capacity() + 1u);
-            for (counter_t old_begin; (old_begin = m_cb_begin.load()) < safe_begin; )
+            for(counter_t old_begin; (old_begin = m_cb_begin.load()) < safe_begin;)
                 m_cb_begin.wait(old_begin);
         }
 
@@ -203,10 +201,10 @@ private:
 
         type* storage = base_t::getStorage() + ix;
         const bool was_alive = isAlive(ix);
-        if (was_alive)
+        if(was_alive)
             storage->~type();
-        new (storage) type(std::forward<Args>(args)...);
-        if (!was_alive)
+        new(storage) type(std::forward<Args>(args)...);
+        if(!was_alive)
             flipAliveFlag(ix);
 
         return *storage;
@@ -222,7 +220,8 @@ public:
         this_type* m_owner;
         counter_t m_ix;
 
-        explicit iterator(this_type* owner, counter_t ix) : m_owner(owner), m_ix(ix) {}
+        explicit iterator(this_type* owner, counter_t ix)
+            : m_owner(owner), m_ix(ix) {}
 
         counter_t getIx() const
         {
@@ -238,7 +237,7 @@ public:
 
         iterator operator+(difference_type n) const
         {
-            return iterator(m_owner,m_ix+static_cast<counter_t>(n));
+            return iterator(m_owner, m_ix + static_cast<counter_t>(n));
         }
         iterator& operator+=(difference_type n)
         {
@@ -255,7 +254,7 @@ public:
         }
         difference_type operator-(const iterator& rhs) const
         {
-            return static_cast<difference_type>(m_ix-rhs.m_ix);
+            return static_cast<difference_type>(m_ix - rhs.m_ix);
         }
         iterator& operator++()
         {
@@ -321,7 +320,7 @@ public:
     {
         push_back_impl(std::move(a));
     }
-    template <typename... Args>
+    template<typename... Args>
     type& emplace_back(Args&&... args)
     {
         return push_back_impl(std::forward<Args>(args)...);
@@ -331,13 +330,13 @@ public:
     {
         counter_t ix = m_cb_begin.load();
         ix = wrapAround(ix);
-        #ifdef _NBL_DEBUG
-            if constexpr (!AllowOverflows)
-            {
-                bool alive = isAlive(ix);
-                assert(alive);
-            }
-        #endif
+#ifdef _NBL_DEBUG
+        if constexpr(!AllowOverflows)
+        {
+            bool alive = isAlive(ix);
+            assert(alive);
+        }
+#endif
 
         type* storage = base_t::getStorage() + ix;
         auto cp = std::move(*storage);
@@ -345,7 +344,7 @@ public:
         storage->~type();
 
         ++m_cb_begin;
-        if constexpr (!AllowOverflows)
+        if constexpr(!AllowOverflows)
         {
             m_cb_begin.notify_one();
         }
@@ -358,12 +357,12 @@ public:
     iterator begin()
     {
         counter_t b = m_cb_begin.load();
-        return iterator(this,b);
+        return iterator(this, b);
     }
     iterator end()
     {
         counter_t e = m_cb_end.load();
-        return iterator(this,e);
+        return iterator(this, e);
     }
 
     size_t size() const
@@ -374,7 +373,7 @@ public:
 
 }
 
-template <typename T, size_t S, bool AllowOverflows = true>
+template<typename T, size_t S, bool AllowOverflows = true>
 class CCompileTimeSizedCircularBuffer : public impl::CCircularBufferBase<impl::CCompileTimeSizedCircularBufferBase<T, S>, AllowOverflows>
 {
     using base_t = impl::CCircularBufferBase<impl::CCompileTimeSizedCircularBufferBase<T, S>>;
@@ -383,15 +382,15 @@ public:
     CCompileTimeSizedCircularBuffer() = default;
 };
 
-template <typename T, bool AllowOverflows = true>
+template<typename T, bool AllowOverflows = true>
 class CConstantRuntimeSizedCircularBuffer : public impl::CCircularBufferBase<impl::CConstantRuntimeSizedCircularBufferBase<T>, AllowOverflows>
 {
     using base_t = impl::CCircularBufferBase<impl::CConstantRuntimeSizedCircularBufferBase<T>>;
 
 public:
-    explicit CConstantRuntimeSizedCircularBuffer(size_t cap) : base_t(cap)
+    explicit CConstantRuntimeSizedCircularBuffer(size_t cap)
+        : base_t(cap)
     {
-
     }
 };
 

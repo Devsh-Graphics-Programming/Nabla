@@ -4,10 +4,9 @@
 
 namespace nbl::video
 {
-
 COpenGLSync::~COpenGLSync()
 {
-    if (sync)
+    if(sync)
         device->destroySync(sync);
 }
 

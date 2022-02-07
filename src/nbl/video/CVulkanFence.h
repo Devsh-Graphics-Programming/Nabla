@@ -7,14 +7,14 @@
 
 namespace nbl::video
 {
-
 class ILogicalDevice;
 
 class CVulkanFence final : public IGPUFence
 {
 public:
     CVulkanFence(core::smart_refctd_ptr<ILogicalDevice>&& _vkdev, E_CREATE_FLAGS _flags,
-        VkFence fence) : IGPUFence(std::move(_vkdev), _flags), m_fence(fence)
+        VkFence fence)
+        : IGPUFence(std::move(_vkdev), _flags), m_fence(fence)
     {}
 
     ~CVulkanFence();

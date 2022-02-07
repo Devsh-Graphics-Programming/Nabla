@@ -13,17 +13,14 @@
 
 namespace nbl::asset
 {
-
 class IImageLoader : public IAssetLoader, public IImageAssetHandlerBase
 {
-	public:
+public:
+protected:
+    IImageLoader() {}
+    virtual ~IImageLoader() = 0;
 
-	protected:
-
-		IImageLoader() {}
-		virtual ~IImageLoader() = 0;
-
-	private:
+private:
 };
 
 }

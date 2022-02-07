@@ -22,7 +22,6 @@
 
 namespace nbl::asset
 {
-
 class IVirtualTextureBase
 {
 public:
@@ -41,10 +40,11 @@ public:
     using physical_tiles_per_dim_log2_callback_t = std::function<uint32_t(E_FORMAT_CLASS)>;
 };
 
-template <typename image_view_t, typename sampler_t>
+template<typename image_view_t, typename sampler_t>
 class IVirtualTexture : public core::IReferenceCounted, public IVirtualTextureBase
 {
     using this_type = IVirtualTexture<image_view_t, sampler_t>;
+
 protected:
     //! SPhysPgOffset is what is stored in texels of page table!
     struct SPhysPgOffset
@@ -52,21 +52,22 @@ protected:
         _NBL_STATIC_INLINE_CONSTEXPR uint32_t invalid_addr = 0xffffu;
 
         _NBL_STATIC_INLINE_CONSTEXPR uint32_t PAGE_ADDR_BITLENGTH = 16u;
-        _NBL_STATIC_INLINE_CONSTEXPR uint32_t PAGE_ADDR_MASK = (1u<<PAGE_ADDR_BITLENGTH)-1u;
+        _NBL_STATIC_INLINE_CONSTEXPR uint32_t PAGE_ADDR_MASK = (1u << PAGE_ADDR_BITLENGTH) - 1u;
         _NBL_STATIC_INLINE_CONSTEXPR uint32_t PAGE_ADDR_X_BITS = 4u;
-        _NBL_STATIC_INLINE_CONSTEXPR uint32_t PAGE_ADDR_X_MASK = (1u<<PAGE_ADDR_X_BITS)-1u;
+        _NBL_STATIC_INLINE_CONSTEXPR uint32_t PAGE_ADDR_X_MASK = (1u << PAGE_ADDR_X_BITS) - 1u;
         _NBL_STATIC_INLINE_CONSTEXPR uint32_t PAGE_ADDR_Y_BITS = 4u;
-        _NBL_STATIC_INLINE_CONSTEXPR uint32_t PAGE_ADDR_Y_MASK = (1u<<PAGE_ADDR_Y_BITS)-1u;
+        _NBL_STATIC_INLINE_CONSTEXPR uint32_t PAGE_ADDR_Y_MASK = (1u << PAGE_ADDR_Y_BITS) - 1u;
         _NBL_STATIC_INLINE_CONSTEXPR uint32_t PAGE_ADDR_LAYER_SHIFT = PAGE_ADDR_BITLENGTH - PAGE_ADDR_X_BITS - PAGE_ADDR_Y_BITS;
 
         inline uint32_t x() const { return addr & PAGE_ADDR_X_MASK; }
-        inline uint32_t y() const { return (addr >> PAGE_ADDR_X_BITS)& PAGE_ADDR_Y_MASK; }
+        inline uint32_t y() const { return (addr >> PAGE_ADDR_X_BITS) & PAGE_ADDR_Y_MASK; }
         inline uint32_t layer() const { return (addr & PAGE_ADDR_MASK) >> PAGE_ADDR_LAYER_SHIFT; }
         inline bool valid() const { return (addr & PAGE_ADDR_MASK) != invalid_addr; }
         inline SPhysPgOffset mipTailAddr() const { return addr >> PAGE_ADDR_BITLENGTH; }
         inline bool hasMipTailAddr() const { return mipTailAddr().valid(); }
 
-        SPhysPgOffset(uint32_t _addr) : addr(_addr) {}
+        SPhysPgOffset(uint32_t _addr)
+            : addr(_addr) {}
 
         //upper 16 bits are used for address of mip-tail page
         uint32_t addr;
@@ -74,7 +75,7 @@ protected:
 
     uint32_t neededPageCountForSide(uint32_t _sideExtent, uint32_t _level) const
     {
-        return (((_sideExtent+(1u<<_level)-1u)>>_level) + m_pgSzxy-1u) / m_pgSzxy;
+        return (((_sideExtent + (1u << _level) - 1u) >> _level) + m_pgSzxy - 1u) / m_pgSzxy;
     }
 
 public:
@@ -86,14 +87,14 @@ public:
         {
             int x, y, mx, my;
 
-            inline core::vector2du32_SIMD extent() const { return core::vector2du32_SIMD(mx, my)+core::vector2du32_SIMD(1u)-core::vector2du32_SIMD(x,y); }
+            inline core::vector2du32_SIMD extent() const { return core::vector2du32_SIMD(mx, my) + core::vector2du32_SIMD(1u) - core::vector2du32_SIMD(x, y); }
         };
         static inline bool computeMiptailOffsets(rect* res, int log2SIZE, int padding);
     };
 
 #include "nbl/nblpack.h"
     //must be 64bit
-    template <typename CRTP>
+    template<typename CRTP>
     struct NBL_FORCE_EBO STextureData
     {
         enum E_WRAP_MODE
@@ -105,32 +106,32 @@ public:
         };
         static E_WRAP_MODE ETC_to_EWM(ISampler::E_TEXTURE_CLAMP _etc)
         {
-            switch (_etc)
+            switch(_etc)
             {
-            case ISampler::ETC_REPEAT:
-                return EWM_REPEAT;
-            case ISampler::ETC_CLAMP_TO_EDGE: [[fallthrough]];
-            case ISampler::ETC_CLAMP_TO_BORDER:
-                return EWM_CLAMP;
-            case ISampler::ETC_MIRROR: [[fallthrough]];
-            case ISampler::ETC_MIRROR_CLAMP_TO_EDGE: [[fallthrough]];
-            case ISampler::ETC_MIRROR_CLAMP_TO_BORDER:
-                return EWM_MIRROR;
-            default:
-                return EWM_INVALID;
+                case ISampler::ETC_REPEAT:
+                    return EWM_REPEAT;
+                case ISampler::ETC_CLAMP_TO_EDGE: [[fallthrough]];
+                case ISampler::ETC_CLAMP_TO_BORDER:
+                    return EWM_CLAMP;
+                case ISampler::ETC_MIRROR: [[fallthrough]];
+                case ISampler::ETC_MIRROR_CLAMP_TO_EDGE: [[fallthrough]];
+                case ISampler::ETC_MIRROR_CLAMP_TO_BORDER:
+                    return EWM_MIRROR;
+                default:
+                    return EWM_INVALID;
             }
         }
         static ISampler::E_TEXTURE_CLAMP EWM_to_ETC(E_WRAP_MODE _ewm)
         {
-            switch (_ewm)
+            switch(_ewm)
             {
-            case EWM_INVALID: [[fallthrough]];
-            case EWM_REPEAT:
-                return ISampler::ETC_REPEAT;
-            case EWM_CLAMP:
-                return ISampler::ETC_CLAMP_TO_EDGE;
-            case EWM_MIRROR:
-                return ISampler::ETC_MIRROR;
+                case EWM_INVALID: [[fallthrough]];
+                case EWM_REPEAT:
+                    return ISampler::ETC_REPEAT;
+                case EWM_CLAMP:
+                    return ISampler::ETC_CLAMP_TO_EDGE;
+                case EWM_MIRROR:
+                    return ISampler::ETC_MIRROR;
             }
         }
 
@@ -142,21 +143,21 @@ public:
         uint64_t pgTab_x : 8;
         uint64_t pgTab_y : 8;
         uint64_t pgTab_layer : 8;
-        uint64_t maxMip : 4; // this is number of mip-maps plus 1 that the texture will have in the virtual texture (before the mip-tail)
+        uint64_t maxMip : 4;  // this is number of mip-maps plus 1 that the texture will have in the virtual texture (before the mip-tail)
         uint64_t wrap_x : 2;
         uint64_t wrap_y : 2;
 
         static CRTP invalid()
         {
             CRTP inv;
-            memset(&inv,0,sizeof(inv));
+            memset(&inv, 0, sizeof(inv));
             inv.wrap_x = EWM_INVALID;
             inv.wrap_y = EWM_INVALID;
             return inv;
         }
         static bool is_invalid(const CRTP& _td)
         {
-            return _td.wrap_x==EWM_INVALID||_td.wrap_y==EWM_INVALID;
+            return _td.wrap_x == EWM_INVALID || _td.wrap_y == EWM_INVALID;
         }
 
     protected:
@@ -164,21 +165,23 @@ public:
     } PACK_STRUCT;
 #include "nbl/nblunpack.h"
 
-    struct NBL_FORCE_EBO SMasterTextureData : STextureData<SMasterTextureData> 
+    struct NBL_FORCE_EBO SMasterTextureData : STextureData<SMasterTextureData>
     {
         friend this_type;
+
     private:
         SMasterTextureData() = default;
     };
-    static_assert(sizeof(SMasterTextureData)==sizeof(uint64_t), "SMasterTextureData is not 64bit!");
+    static_assert(sizeof(SMasterTextureData) == sizeof(uint64_t), "SMasterTextureData is not 64bit!");
 
     struct NBL_FORCE_EBO SViewAliasTextureData : STextureData<SViewAliasTextureData>
     {
         friend this_type;
+
     private:
         SViewAliasTextureData() = default;
     };
-    static_assert(sizeof(SViewAliasTextureData)==sizeof(uint64_t), "SViewAliasTextureData is not 64bit!");
+    static_assert(sizeof(SViewAliasTextureData) == sizeof(uint64_t), "SViewAliasTextureData is not 64bit!");
 
 protected:
     static SMasterTextureData createMasterTextureData() { return SMasterTextureData(); }
@@ -187,17 +190,17 @@ protected:
     using image_t = typename decltype(image_view_t::SCreationParams::image)::pointee;
 
     using page_tab_offset_t = core::vector3du32_SIMD;
-    static page_tab_offset_t page_tab_offset_invalid() { return page_tab_offset_t(~0u,~0u,~0u); }
+    static page_tab_offset_t page_tab_offset_invalid() { return page_tab_offset_t(~0u, ~0u, ~0u); }
 
     uint32_t countNeededPages(const VkExtent3D& _extent, uint32_t _baseLevel) const
     {
         uint32_t levels = countLevelsTakingAtLeastOnePage(_extent, _baseLevel);
-        uint32_t pages = 1u; // mip-tail
-        for (uint32_t i = 0u; i < levels; ++i)
+        uint32_t pages = 1u;  // mip-tail
+        for(uint32_t i = 0u; i < levels; ++i)
         {
             uint32_t w = neededPageCountForSide(_extent.width, i + _baseLevel);
             uint32_t h = neededPageCountForSide(_extent.height, i + _baseLevel);
-            pages += w*h;
+            pages += w * h;
         }
 
         return pages;
@@ -209,12 +212,12 @@ protected:
         texData.origsize_x = _extent.width;
         texData.origsize_y = _extent.height;
 
-		texData.pgTab_x = _offset.x;
-		texData.pgTab_y = _offset.y;
+        texData.pgTab_x = _offset.x;
+        texData.pgTab_y = _offset.y;
         texData.pgTab_layer = _offset.z;
 
-        const uint32_t maxMip = _mipCount-m_pgSzxy_log2;
-        assert(static_cast<int32_t>(maxMip) >= 0); // only textures of size at least half page size must be packed
+        const uint32_t maxMip = _mipCount - m_pgSzxy_log2;
+        assert(static_cast<int32_t>(maxMip) >= 0);  // only textures of size at least half page size must be packed
         texData.maxMip = maxMip;
 
         texData.wrap_x = SMasterTextureData::ETC_to_EWM(_wrapu);
@@ -251,7 +254,7 @@ protected:
     ISampler::SParams getPhysicalStorageFloatSamplerParams() const
     {
         ISampler::SParams params;
-        params.AnisotropicFilter = m_tilePadding ? core::findMSB(m_tilePadding<<1) : 0u;
+        params.AnisotropicFilter = m_tilePadding ? core::findMSB(m_tilePadding << 1) : 0u;
         params.BorderColor = ISampler::ETBC_FLOAT_OPAQUE_WHITE;
         params.CompareEnable = false;
         params.CompareFunc = ISampler::ECO_NEVER;
@@ -268,7 +271,7 @@ protected:
     ISampler::SParams getPhysicalStorageNonFloatSamplerParams() const
     {
         ISampler::SParams params;
-        params.AnisotropicFilter = 0u; // TODO: don't apply padding to uint and int textures (is it even possible with all the view aliasing going on?)
+        params.AnisotropicFilter = 0u;  // TODO: don't apply padding to uint and int textures (is it even possible with all the view aliasing going on?)
         params.BorderColor = ISampler::ETBC_FLOAT_OPAQUE_WHITE;
         params.CompareEnable = false;
         params.CompareFunc = ISampler::ECO_NEVER;
@@ -287,19 +290,19 @@ protected:
 
     core::smart_refctd_ptr<sampler_t> getPageTableSampler() const
     {
-        if (!m_pageTableSampler)
+        if(!m_pageTableSampler)
             m_pageTableSampler = createSampler(getPageTableSamplerParams());
         return m_pageTableSampler;
     }
     core::smart_refctd_ptr<sampler_t> getPhysicalStorageFloatSampler() const
     {
-        if (!m_physicalStorageFloatSampler)
+        if(!m_physicalStorageFloatSampler)
             m_physicalStorageFloatSampler = createSampler(getPhysicalStorageFloatSamplerParams());
         return m_physicalStorageFloatSampler;
     }
     core::smart_refctd_ptr<sampler_t> getPhysicalStorageNonFloatSampler() const
     {
-        if (!m_physicalStorageNonFloatSampler)
+        if(!m_physicalStorageNonFloatSampler)
             m_physicalStorageNonFloatSampler = createSampler(getPhysicalStorageNonFloatSamplerParams());
         return m_physicalStorageNonFloatSampler;
     }
@@ -317,66 +320,66 @@ protected:
         auto begin = std::begin(m_precomputed.layer_to_sampler_ix);
         auto end = std::end(m_precomputed.layer_to_sampler_ix);
         auto found = std::find(begin, end, INVALID_SAMPLER_INDEX);
-        if (found == end)
+        if(found == end)
             return INVALID_LAYER_INDEX;
-        return found-m_precomputed.layer_to_sampler_ix;
+        return found - m_precomputed.layer_to_sampler_ix;
     }
 
     core::vector2du32_SIMD getMaxAllocatableTextureSize() const
     {
-        return (core::vector2du32_SIMD(1u<<m_pgtabSzxy_log2)*m_pgSzxy) & core::vector2du32_SIMD(~0u,~0u,0u,0u);
+        return (core::vector2du32_SIMD(1u << m_pgtabSzxy_log2) * m_pgSzxy) & core::vector2du32_SIMD(~0u, ~0u, 0u, 0u);
     }
     bool isAllocatable(const VkExtent3D& _extent)
     {
-        return (core::vector2du32_SIMD(&_extent.width)<=getMaxAllocatableTextureSize()).xyxy().all();
+        return (core::vector2du32_SIMD(&_extent.width) <= getMaxAllocatableTextureSize()).xyxy().all();
     }
 
     uint32_t countLevelsTakingAtLeastOnePage(const VkExtent3D& _extent, uint32_t _baseLevel = 0u) const
     {
-        const uint32_t baseMaxDim = core::roundUpToPoT(core::max<uint32_t>(_extent.width, _extent.height))>>_baseLevel;
-        const int32_t lastFullMip = core::findMSB(baseMaxDim-1u)+1 - static_cast<int32_t>(m_pgSzxy_log2);
+        const uint32_t baseMaxDim = core::roundUpToPoT(core::max<uint32_t>(_extent.width, _extent.height)) >> _baseLevel;
+        const int32_t lastFullMip = core::findMSB(baseMaxDim - 1u) + 1 - static_cast<int32_t>(m_pgSzxy_log2);
 
         //assert(lastFullMip<static_cast<int32_t>(m_pageTable->getCreationParameters().mipLevels));
 
-        return core::max<int32_t>(lastFullMip+1, 0);
+        return core::max<int32_t>(lastFullMip + 1, 0);
     }
 
     //this is not static only because it has to call virtual member function
     core::smart_refctd_ptr<image_t> createPageTable(uint32_t _pgTabSzxy_log2, uint32_t _pgTabLayers, uint32_t _pgSzxy_log2, uint32_t _maxAllocatableTexSz_log2)
     {
-        assert(_pgTabSzxy_log2<=MAX_PAGE_TABLE_EXTENT_LOG2);//otherwise STextureData encoding falls apart
-        assert(_pgTabLayers<=MAX_PAGE_TABLE_LAYERS);
+        assert(_pgTabSzxy_log2 <= MAX_PAGE_TABLE_EXTENT_LOG2);  //otherwise STextureData encoding falls apart
+        assert(_pgTabLayers <= MAX_PAGE_TABLE_LAYERS);
 
         _pgTabLayers = std::max(_pgTabLayers, 1u);
 
-        const uint32_t pgTabSzxy = 1u<<_pgTabSzxy_log2;
+        const uint32_t pgTabSzxy = 1u << _pgTabSzxy_log2;
         typename image_t::SCreationParams params;
-        params.arrayLayers = _pgTabLayers; // page table must always be present
-        params.extent = {pgTabSzxy,pgTabSzxy,1u};
+        params.arrayLayers = _pgTabLayers;  // page table must always be present
+        params.extent = {pgTabSzxy, pgTabSzxy, 1u};
         params.format = EF_R16G16_UINT;
-        params.mipLevels = std::max<int32_t>(static_cast<int32_t>(_maxAllocatableTexSz_log2-_pgSzxy_log2+1u), 1);
+        params.mipLevels = std::max<int32_t>(static_cast<int32_t>(_maxAllocatableTexSz_log2 - _pgSzxy_log2 + 1u), 1);
         params.samples = IImage::ESCF_1_BIT;
         params.type = IImage::ET_2D;
         params.flags = static_cast<IImage::E_CREATE_FLAGS>(0);
 
         auto pgtab = createPageTableImage(std::move(params));
-        if constexpr(std::is_same<image_t,ICPUImage>::value)
+        if constexpr(std::is_same<image_t, ICPUImage>::value)
         {
             const uint32_t texelSz = getTexelOrBlockBytesize(pgtab->getCreationParameters().format);
-        
+
             auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(pgtab->getCreationParameters().mipLevels);
 
             uint32_t bufOffset = 0u;
-            for (uint32_t i = 0u; i < pgtab->getCreationParameters().mipLevels; ++i)
+            for(uint32_t i = 0u; i < pgtab->getCreationParameters().mipLevels; ++i)
             {
-                const uint32_t tilesPerLodDim = pgTabSzxy>>i;
-                const uint32_t regionSz = _pgTabLayers*tilesPerLodDim*tilesPerLodDim*texelSz;
+                const uint32_t tilesPerLodDim = pgTabSzxy >> i;
+                const uint32_t regionSz = _pgTabLayers * tilesPerLodDim * tilesPerLodDim * texelSz;
                 auto& region = (*regions)[i];
                 region.bufferOffset = bufOffset;
                 region.bufferImageHeight = 0u;
                 region.bufferRowLength = tilesPerLodDim;
-                region.imageExtent = {tilesPerLodDim,tilesPerLodDim,1u};
-                region.imageOffset = {0,0,0};
+                region.imageExtent = {tilesPerLodDim, tilesPerLodDim, 1u};
+                region.imageOffset = {0, 0, 0};
                 region.imageSubresource.baseArrayLayer = 0u;
                 region.imageSubresource.layerCount = _pgTabLayers;
                 region.imageSubresource.mipLevel = i;
@@ -387,10 +390,10 @@ protected:
             auto buf = core::make_smart_refctd_ptr<ICPUBuffer>(bufOffset);
 #ifdef _NBL_DEBUG
             uint32_t* bufptr = reinterpret_cast<uint32_t*>(buf->getPointer());
-            std::fill(bufptr, bufptr+bufOffset/sizeof(uint32_t), SPhysPgOffset::invalid_addr);
+            std::fill(bufptr, bufptr + bufOffset / sizeof(uint32_t), SPhysPgOffset::invalid_addr);
 #endif
             pgtab->setBufferAndRegions(std::move(buf), regions);
-        } 
+        }
         return pgtab;
     }
 
@@ -437,8 +440,9 @@ protected:
         using range_t = core::SRange<const Sampler>;
         core::vector<Sampler> views;
 
-        range_t getViews() const {
-            return views.size() ? range_t(views.data(),views.data()+views.size()) : range_t(nullptr,nullptr);
+        range_t getViews() const
+        {
+            return views.size() ? range_t(views.data(), views.data() + views.size()) : range_t(nullptr, nullptr);
         }
     };
     SamplerArray m_fsamplers, m_isamplers, m_usamplers;
@@ -453,18 +457,18 @@ protected:
         using phys_pg_addr_alctr_t = core::PoolAddressAllocator<uint32_t>;
 
     protected:
-        _NBL_STATIC_INLINE_CONSTEXPR uint32_t MAX_TILES_PER_DIM = std::min<uint32_t>(SPhysPgOffset::PAGE_ADDR_X_MASK,SPhysPgOffset::PAGE_ADDR_Y_MASK) + 1u;
-        _NBL_STATIC_INLINE_CONSTEXPR uint32_t MAX_LAYERS = (1u<<(SPhysPgOffset::PAGE_ADDR_BITLENGTH-SPhysPgOffset::PAGE_ADDR_LAYER_SHIFT));
+        _NBL_STATIC_INLINE_CONSTEXPR uint32_t MAX_TILES_PER_DIM = std::min<uint32_t>(SPhysPgOffset::PAGE_ADDR_X_MASK, SPhysPgOffset::PAGE_ADDR_Y_MASK) + 1u;
+        _NBL_STATIC_INLINE_CONSTEXPR uint32_t MAX_LAYERS = (1u << (SPhysPgOffset::PAGE_ADDR_BITLENGTH - SPhysPgOffset::PAGE_ADDR_LAYER_SHIFT));
 
         virtual ~IVTResidentStorage()
         {
-            if (m_alctrReservedSpace)
+            if(m_alctrReservedSpace)
                 _NBL_ALIGNED_FREE(m_alctrReservedSpace);
         }
 
         static uint8_t* allocReservedSpaceForAllocator(uint32_t tilesPerDim, uint32_t layers)
         {
-            const size_t tiles = tilesPerDim*tilesPerDim*layers;
+            const size_t tiles = tilesPerDim * tilesPerDim * layers;
             void* mem = _NBL_ALIGNED_MALLOC(phys_pg_addr_alctr_t::reserved_size(1u, tiles, 1u), _NBL_SIMD_ALIGNMENT);
             return reinterpret_cast<uint8_t*>(mem);
         }
@@ -480,38 +484,37 @@ protected:
         };
 
         //_format implies format class and also is the format image is created with
-        IVTResidentStorage(E_FORMAT _imgFormat, uint32_t _layers, uint32_t _tilesPerDim) :
-            imageFormat(_imgFormat),
-            image(nullptr),//initialized in derived class's constructor
-            m_alctrReservedSpace(allocReservedSpaceForAllocator(_tilesPerDim, _layers)),
-            tileAlctr(m_alctrReservedSpace, 0u, 0u, 1u, _layers*_tilesPerDim*_tilesPerDim, 1u),
-            m_decodeAddr_layerShift(core::findLSB(_tilesPerDim)<<1),
-            m_decodeAddr_xMask((1u<<(m_decodeAddr_layerShift>>1))-1u)
+        IVTResidentStorage(E_FORMAT _imgFormat, uint32_t _layers, uint32_t _tilesPerDim)
+            : imageFormat(_imgFormat),
+              image(nullptr),  //initialized in derived class's constructor
+              m_alctrReservedSpace(allocReservedSpaceForAllocator(_tilesPerDim, _layers)),
+              tileAlctr(m_alctrReservedSpace, 0u, 0u, 1u, _layers * _tilesPerDim * _tilesPerDim, 1u),
+              m_decodeAddr_layerShift(core::findLSB(_tilesPerDim) << 1),
+              m_decodeAddr_xMask((1u << (m_decodeAddr_layerShift >> 1)) - 1u)
         {
-            assert(_tilesPerDim<=MAX_TILES_PER_DIM);
-            assert(_layers<=MAX_LAYERS);
+            assert(_tilesPerDim <= MAX_TILES_PER_DIM);
+            assert(_layers <= MAX_LAYERS);
         }
 
-        IVTResidentStorage(E_FORMAT _imgFormat, uint32_t _tilesPerDim) :
-            imageFormat(_imgFormat),
-            image(nullptr),//deferred initialization, when layer count is known
-            m_alctrReservedSpace(nullptr),
-            tileAlctr(), // default constructor, deferred initialization, when layer count is known
-            m_decodeAddr_layerShift(core::findLSB(_tilesPerDim)<<1),
-            m_decodeAddr_xMask((1u<<(m_decodeAddr_layerShift>>1))-1u)
+        IVTResidentStorage(E_FORMAT _imgFormat, uint32_t _tilesPerDim)
+            : imageFormat(_imgFormat),
+              image(nullptr),  //deferred initialization, when layer count is known
+              m_alctrReservedSpace(nullptr),
+              tileAlctr(),  // default constructor, deferred initialization, when layer count is known
+              m_decodeAddr_layerShift(core::findLSB(_tilesPerDim) << 1),
+              m_decodeAddr_xMask((1u << (m_decodeAddr_layerShift >> 1)) - 1u)
         {
-            assert(_tilesPerDim<=MAX_TILES_PER_DIM);
+            assert(_tilesPerDim <= MAX_TILES_PER_DIM);
         }
-        
-        IVTResidentStorage(core::smart_refctd_ptr<image_t>&& _image, const phys_pg_addr_alctr_t& _alctr, const void* _reservedSpc, uint32_t _layerShift, uint32_t _xmask) :
-            imageFormat(_image->getCreationParameters().format),
-            image(std::move(_image)),
-            m_alctrReservedSpace(reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(phys_pg_addr_alctr_t::reserved_size(_alctr, _alctr.get_total_size()),_NBL_SIMD_ALIGNMENT))),
-            tileAlctr(_alctr.get_total_size(), _alctr, m_alctrReservedSpace),
-            m_decodeAddr_layerShift(_layerShift),
-            m_decodeAddr_xMask(_xmask)
-        {
 
+        IVTResidentStorage(core::smart_refctd_ptr<image_t>&& _image, const phys_pg_addr_alctr_t& _alctr, const void* _reservedSpc, uint32_t _layerShift, uint32_t _xmask)
+            : imageFormat(_image->getCreationParameters().format),
+              image(std::move(_image)),
+              m_alctrReservedSpace(reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(phys_pg_addr_alctr_t::reserved_size(_alctr, _alctr.get_total_size()), _NBL_SIMD_ALIGNMENT))),
+              tileAlctr(_alctr.get_total_size(), _alctr, m_alctrReservedSpace),
+              m_decodeAddr_layerShift(_layerShift),
+              m_decodeAddr_xMask(_xmask)
+        {
         }
 
         virtual void deferredInitialization(uint32_t tileExtent, uint32_t _layers = 0u)
@@ -519,11 +522,11 @@ protected:
             assert(_layers != 0u);
 
             const bool uninitialized = (tileAlctr.get_align_offset() == phys_pg_addr_alctr_t::invalid_address);
-            if (uninitialized)
+            if(uninitialized)
             {
                 const uint32_t tilesPerDim = getTilesPerDim();
                 m_alctrReservedSpace = allocReservedSpaceForAllocator(tilesPerDim, _layers);
-                phys_pg_addr_alctr_t alctr(m_alctrReservedSpace, 0u, 0u, 1u, _layers*tilesPerDim*tilesPerDim, 1u);
+                phys_pg_addr_alctr_t alctr(m_alctrReservedSpace, 0u, 0u, 1u, _layers * tilesPerDim * tilesPerDim, 1u);
                 tileAlctr = std::move(alctr);
             }
         }
@@ -537,16 +540,16 @@ protected:
         uint16_t encodePageAddress(uint16_t _addr) const
         {
             const uint16_t x = _addr & m_decodeAddr_xMask;
-            const uint16_t y = (_addr>>(m_decodeAddr_layerShift>>1)) & m_decodeAddr_xMask;
+            const uint16_t y = (_addr >> (m_decodeAddr_layerShift >> 1)) & m_decodeAddr_xMask;
             const uint16_t layer = _addr >> m_decodeAddr_layerShift;
 
-            return x | (y<<SPhysPgOffset::PAGE_ADDR_X_BITS) | (layer<<SPhysPgOffset::PAGE_ADDR_LAYER_SHIFT);
+            return x | (y << SPhysPgOffset::PAGE_ADDR_X_BITS) | (layer << SPhysPgOffset::PAGE_ADDR_LAYER_SHIFT);
         }
 
         core::smart_refctd_ptr<image_view_t> createView(E_FORMAT _format) const
         {
             auto found = m_viewsCache.find(_format);
-            if (found!=m_viewsCache.end())
+            if(found != m_viewsCache.end())
                 return found->second;
 
             typename image_view_t::SCreationParams params;
@@ -560,14 +563,14 @@ protected:
             params.image = core::smart_refctd_ptr<image_t>(image);
             params.viewType = asset::IImageView<image_t>::ET_2D_ARRAY;
 
-            return m_viewsCache.insert({_format,createView_internal(std::move(params))}).first->second;
+            return m_viewsCache.insert({_format, createView_internal(std::move(params))}).first->second;
         }
 
         //! @returns texel-wise offset of physical page
         static core::vector3du32_SIMD pageCoords(SPhysPgOffset _txoffset, uint32_t _pageSz, uint32_t _padding)
         {
             core::vector3du32_SIMD coords(_txoffset.x(), _txoffset.y(), 0u);
-            coords *= (_pageSz + 2u*_padding);
+            coords *= (_pageSz + 2u * _padding);
             coords += _padding;
             coords.z = _txoffset.layer();
             return coords;
@@ -604,20 +607,19 @@ protected:
 
     typename SMiptailPacker::rect m_miptailOffsets[MAX_PHYSICAL_PAGE_SIZE_LOG2];
 
-
     auto getPageTableLayersForFormat(E_FORMAT _format) const
     {
         return m_viewFormatToLayer.equal_range(_format);
     }
     void addPageTableLayerForFormat(E_FORMAT _format, uint32_t _layer)
     {
-        m_viewFormatToLayer.insert({_format,_layer});
+        m_viewFormatToLayer.insert({_format, _layer});
     }
     void removePageTableLayerForFormat(E_FORMAT _format, uint32_t _layer)
     {
         auto rng = getPageTableLayersForFormat(_format);
-        for (auto it = rng.first; it!=rng.second; ++it)
-            if  (it->second==_layer)
+        for(auto it = rng.first; it != rng.second; ++it)
+            if(it->second == _layer)
             {
                 m_viewFormatToLayer.erase(it);
                 return;
@@ -630,7 +632,7 @@ protected:
 
     virtual ~IVirtualTexture()
     {
-        if (m_pgTabAddrAlctr_reservedSpc)
+        if(m_pgTabAddrAlctr_reservedSpc)
             _NBL_ALIGNED_FREE(m_pgTabAddrAlctr_reservedSpc);
     }
 
@@ -643,7 +645,7 @@ protected:
     IVTResidentStorage* getStorageForFormatClass(E_FORMAT_CLASS _fc) const
     {
         auto found = m_storage.find(_fc);
-        if (found == m_storage.end())
+        if(found == m_storage.end())
             return nullptr;
         return found->second.get();
     }
@@ -651,7 +653,7 @@ protected:
     IVTResidentStorage* getOrCreateStorageForFormat(E_FORMAT _fmt)
     {
         const E_FORMAT_CLASS fc = getFormatClass(_fmt);
-        if (IVTResidentStorage* storage = getStorageForFormatClass(fc))
+        if(IVTResidentStorage* storage = getStorageForFormatClass(fc))
             return storage;
 
         const uint32_t tilesPerDim = getTilesPerDimForFormatClass(fc);
@@ -664,55 +666,53 @@ protected:
     // Delegated to separate method, because is strongly dependent on derived class and has to be called once derived class's object exist
     void initResidentStorage(
         const typename IVTResidentStorage::SCreationParams* _residentStorageParams,
-        uint32_t _residentStorageCount
-    )
+        uint32_t _residentStorageCount)
     {
         {
             const uint32_t tileExtent = getTileExtent();
-            for (uint32_t i = 0u; i < _residentStorageCount; ++i)
+            for(uint32_t i = 0u; i < _residentStorageCount; ++i)
             {
                 const auto& params = _residentStorageParams[i];
-                const uint32_t tilesPerDim = (1u<<params.tilesPerDim_log2);
-                assert(params.formatCount>0u);
+                const uint32_t tilesPerDim = (1u << params.tilesPerDim_log2);
+                assert(params.formatCount > 0u);
                 const E_FORMAT fmt = params.formats[0];
                 const uint32_t layers = params.layerCount;
                 m_storage.insert({params.formatClass, createVTResidentStorage(fmt, tileExtent, layers, tilesPerDim)});
             }
         }
         {
-            auto execPerFormat = [_residentStorageCount, _residentStorageParams,this] (auto f_fmtf, auto f_fmti, auto f_fmtu)
-            {
-                for (uint32_t i = 0u; i < _residentStorageCount; ++i)
+            auto execPerFormat = [_residentStorageCount, _residentStorageParams, this](auto f_fmtf, auto f_fmti, auto f_fmtu) {
+                for(uint32_t i = 0u; i < _residentStorageCount; ++i)
                 {
                     const auto& params = _residentStorageParams[i];
-                    for (uint32_t j = 0u; j < params.formatCount; ++j)
+                    for(uint32_t j = 0u; j < params.formatCount; ++j)
                     {
                         const E_FORMAT fmt = params.formats[j];
                         auto* storage = m_storage[params.formatClass].get();
-                        if (isNormalizedFormat(fmt)||isFloatingPointFormat(fmt)||isScaledFormat(fmt))
-                            f_fmtf(fmt,storage);
-                        else { //integer formats
-                            if (isSignedFormat(fmt))
-                                f_fmti(fmt,storage);
+                        if(isNormalizedFormat(fmt) || isFloatingPointFormat(fmt) || isScaledFormat(fmt))
+                            f_fmtf(fmt, storage);
+                        else
+                        {  //integer formats
+                            if(isSignedFormat(fmt))
+                                f_fmti(fmt, storage);
                             else
-                                f_fmtu(fmt,storage);
+                                f_fmtu(fmt, storage);
                         }
                     }
                 }
             };
             {
                 uint32_t fcount = 0u, icount = 0u, ucount = 0u;
-                execPerFormat([&](auto,auto) {++fcount; }, [&](auto,auto) {++icount; }, [&](auto,auto) {++ucount; });
+                execPerFormat([&](auto, auto) { ++fcount; }, [&](auto, auto) { ++icount; }, [&](auto, auto) { ++ucount; });
                 m_fsamplers.views.reserve(fcount);
                 m_isamplers.views.reserve(icount);
                 m_usamplers.views.reserve(ucount);
             }
             {
                 execPerFormat(
-                    [this](E_FORMAT _fmt, IVTResidentStorage* _storage) { m_fsamplers.views.push_back({ _fmt, _storage->createView(_fmt) }); },
-                    [this](E_FORMAT _fmt, IVTResidentStorage* _storage) { m_isamplers.views.push_back({ _fmt, _storage->createView(_fmt) }); },
-                    [this](E_FORMAT _fmt, IVTResidentStorage* _storage) { m_usamplers.views.push_back({ _fmt, _storage->createView(_fmt) }); }
-                );
+                    [this](E_FORMAT _fmt, IVTResidentStorage* _storage) { m_fsamplers.views.push_back({_fmt, _storage->createView(_fmt)}); },
+                    [this](E_FORMAT _fmt, IVTResidentStorage* _storage) { m_isamplers.views.push_back({_fmt, _storage->createView(_fmt)}); },
+                    [this](E_FORMAT _fmt, IVTResidentStorage* _storage) { m_usamplers.views.push_back({_fmt, _storage->createView(_fmt)}); });
             }
         }
     }
@@ -736,18 +736,18 @@ protected:
 
     bool validateCommit(const SMasterTextureData& _addr, const IImage::SSubresourceRange& _subres, ISampler::E_TEXTURE_CLAMP _uwrap, ISampler::E_TEXTURE_CLAMP _vwrap)
     {
-        if (_subres.layerCount != 1u)
+        if(_subres.layerCount != 1u)
             return false;
-        if (SMasterTextureData::ETC_to_EWM(_uwrap)!=static_cast<typename SMasterTextureData::E_WRAP_MODE>(_addr.wrap_x))
+        if(SMasterTextureData::ETC_to_EWM(_uwrap) != static_cast<typename SMasterTextureData::E_WRAP_MODE>(_addr.wrap_x))
             return false;
-        if (SMasterTextureData::ETC_to_EWM(_vwrap)!=static_cast<typename SMasterTextureData::E_WRAP_MODE>(_addr.wrap_y))
+        if(SMasterTextureData::ETC_to_EWM(_vwrap) != static_cast<typename SMasterTextureData::E_WRAP_MODE>(_addr.wrap_y))
             return false;
         return true;
     }
 
     bool validateAliasCreation(const SMasterTextureData& _addr, E_FORMAT _viewingFormat, const IImage::SSubresourceRange& _subresRelativeToMaster)
     {
-        if (_subresRelativeToMaster.baseMipLevel+_subresRelativeToMaster.levelCount > _addr.maxMip)
+        if(_subresRelativeToMaster.baseMipLevel + _subresRelativeToMaster.levelCount > _addr.maxMip)
             return false;
         return true;
     }
@@ -758,10 +758,10 @@ protected:
         pgtabSzSqr *= pgtabSzSqr;
         const size_t spacePerAllocator = pg_tab_addr_alctr_t::reserved_size(pgtabSzSqr, pgtabSzSqr, 1u);
         m_pgTabAddrAlctr_reservedSpc = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(spacePerAllocator * _layers, _NBL_SIMD_ALIGNMENT));
-        for (uint32_t i = 0u; i < _layers; ++i)
+        for(uint32_t i = 0u; i < _layers; ++i)
         {
             auto& alctr = m_pageTableLayerAllocators[i];
-            alctr = pg_tab_addr_alctr_t(m_pgTabAddrAlctr_reservedSpc + i*spacePerAllocator, 0u, 0u, pgtabSzSqr, pgtabSzSqr, 1u);
+            alctr = pg_tab_addr_alctr_t(m_pgTabAddrAlctr_reservedSpc + i * spacePerAllocator, 0u, 0u, pgtabSzSqr, pgtabSzSqr, 1u);
         }
     }
 
@@ -772,22 +772,22 @@ public:
         uint32_t _pgTabLayers = 32u,
         uint32_t _pgSzxy_log2 = 7u,
         uint32_t _tilePadding = 9u,
-        bool _initSharedResources = true
-    ) : m_physicalStorageExtentLog2CB(std::move(_callback)),
-        m_pgSzxy(1u<<_pgSzxy_log2), m_pgSzxy_log2(_pgSzxy_log2), m_pgtabSzxy_log2(_pgTabSzxy_log2), m_tilePadding(_tilePadding)
+        bool _initSharedResources = true)
+        : m_physicalStorageExtentLog2CB(std::move(_callback)),
+          m_pgSzxy(1u << _pgSzxy_log2), m_pgSzxy_log2(_pgSzxy_log2), m_pgtabSzxy_log2(_pgTabSzxy_log2), m_tilePadding(_tilePadding)
     {
         {
             m_precomputed.pgtab_sz_log2 = _pgTabSzxy_log2;
             double f = 1.0;
-            f /= static_cast<double>(1u<<(m_pgSzxy_log2+m_pgtabSzxy_log2));
+            f /= static_cast<double>(1u << (m_pgSzxy_log2 + m_pgtabSzxy_log2));
             m_precomputed.vtex_sz_rcp = f;
         }
 
-        std::fill(m_precomputed.layer_to_sampler_ix, m_precomputed.layer_to_sampler_ix+MAX_PAGE_TABLE_LAYERS, INVALID_SAMPLER_INDEX);
-        std::fill(m_precomputed.layer_to_phys_pg_tex_sz_rcp, m_precomputed.layer_to_phys_pg_tex_sz_rcp+MAX_PAGE_TABLE_LAYERS, core::nan<float>());
+        std::fill(m_precomputed.layer_to_sampler_ix, m_precomputed.layer_to_sampler_ix + MAX_PAGE_TABLE_LAYERS, INVALID_SAMPLER_INDEX);
+        std::fill(m_precomputed.layer_to_phys_pg_tex_sz_rcp, m_precomputed.layer_to_phys_pg_tex_sz_rcp + MAX_PAGE_TABLE_LAYERS, core::nan<float>());
         std::fill(m_layerToFormat.begin(), m_layerToFormat.end(), EF_UNKNOWN);
 
-        if (_initSharedResources)
+        if(_initSharedResources)
         {
             initPageTableAllocators(_pgTabSzxy_log2, _pgTabLayers);
         }
@@ -798,9 +798,9 @@ public:
             assert(ok);
         }
 
-        m_addrsArray = core::make_refctd_dynamic_array<decltype(m_addrsArray)>(1u<<(2u*_pgTabSzxy_log2 + 1u));
+        m_addrsArray = core::make_refctd_dynamic_array<decltype(m_addrsArray)>(1u << (2u * _pgTabSzxy_log2 + 1u));
         std::fill(m_addrsArray->begin(), m_addrsArray->end(), IVTResidentStorage::phys_pg_addr_alctr_t::invalid_address);
-        m_sizesArray = core::make_refctd_dynamic_array<decltype(m_sizesArray)>(1u<<(2u*_pgTabSzxy_log2 + 1u));
+        m_sizesArray = core::make_refctd_dynamic_array<decltype(m_sizesArray)>(1u << (2u * _pgTabSzxy_log2 + 1u));
         std::fill(m_sizesArray->begin(), m_sizesArray->end(), 1u);
     }
 
@@ -811,13 +811,13 @@ public:
 
     void shrink()
     {
-        if (!m_pageTable)
+        if(!m_pageTable)
         {
             uint32_t pgtLayers = 0u;
-            for (uint32_t i = 0u; i < MAX_PAGE_TABLE_LAYERS; ++i)
+            for(uint32_t i = 0u; i < MAX_PAGE_TABLE_LAYERS; ++i)
             {
                 uint32_t layer = MAX_PAGE_TABLE_LAYERS - 1u - i;
-                if (m_precomputed.layer_to_sampler_ix[layer] != INVALID_SAMPLER_INDEX)
+                if(m_precomputed.layer_to_sampler_ix[layer] != INVALID_SAMPLER_INDEX)
                 {
                     pgtLayers = layer + 1u;
                     break;
@@ -828,14 +828,13 @@ public:
         }
 
         const uint32_t tileExtent = getTileExtent();
-        for (auto storage_it : m_storage)
+        for(auto storage_it : m_storage)
         {
             auto& storage = storage_it.second;
             storage->deferredInitialization(tileExtent);
         }
 
-        auto initSampler = [this](typename SamplerArray::Sampler& s)
-        {
+        auto initSampler = [this](typename SamplerArray::Sampler& s) {
             const E_FORMAT format = s.format;
             const E_FORMAT_CLASS fc = getFormatClass(format);
             auto found = m_storage.find(fc);
@@ -844,9 +843,9 @@ public:
             IVTResidentStorage* storage = found->second.get();
             s.view = storage->createView(format);
         };
-        for (typename SamplerArray::Sampler& s : m_fsamplers.views)
+        for(typename SamplerArray::Sampler& s : m_fsamplers.views)
         {
-            if (s.view)
+            if(s.view)
                 continue;
 
             initSampler(s);
@@ -855,33 +854,33 @@ public:
 
     SMasterTextureData alloc(E_FORMAT _primaryFormat, const VkExtent3D& _mip0extent, const IImage::SSubresourceRange& _subres, ISampler::E_TEXTURE_CLAMP _wrapu, ISampler::E_TEXTURE_CLAMP _wrapv)
     {
-        if (_subres.layerCount != 1u)
+        if(_subres.layerCount != 1u)
             return SMasterTextureData::invalid();
 
-        const VkExtent3D extent = {_mip0extent.width>>_subres.baseMipLevel, _mip0extent.height>>_subres.baseMipLevel, 1u};
-        if (!isAllocatable(extent))
+        const VkExtent3D extent = {_mip0extent.width >> _subres.baseMipLevel, _mip0extent.height >> _subres.baseMipLevel, 1u};
+        if(!isAllocatable(extent))
             return SMasterTextureData::invalid();
 
         const E_FORMAT format = _primaryFormat;
         uint32_t smplrIndex = 0u;
         IVTResidentStorage* const storage = getOrCreateStorageForFormat(format);
         {
-            if (!storage)
+            if(!storage)
                 return SMasterTextureData::invalid();
 
             SamplerArray* views = nullptr;
-            if (isFloatingPointFormat(format)||isNormalizedFormat(format)||isScaledFormat(format))
+            if(isFloatingPointFormat(format) || isNormalizedFormat(format) || isScaledFormat(format))
                 views = &m_fsamplers;
-            else if (isSignedFormat(format))
+            else if(isSignedFormat(format))
                 views = &m_isamplers;
             else
                 views = &m_usamplers;
             auto views_rng = views->getViews();
-            auto view_it = std::find_if(views_rng.begin(), views_rng.end(), [format](const typename SamplerArray::Sampler& s) {return s.format == format;});
-            if (view_it == views_rng.end()) //no physical page texture view/sampler for requested format
+            auto view_it = std::find_if(views_rng.begin(), views_rng.end(), [format](const typename SamplerArray::Sampler& s) { return s.format == format; });
+            if(view_it == views_rng.end())  //no physical page texture view/sampler for requested format
             {
                 smplrIndex = views->views.size();
-                typename SamplerArray::Sampler sampler{ format, nullptr };
+                typename SamplerArray::Sampler sampler{format, nullptr};
                 views->views.push_back(sampler);
             }
             else
@@ -896,20 +895,20 @@ public:
 
         uint32_t pgtLayer = 0u;
         uint32_t addr = pg_tab_addr_alctr_t::invalid_address;
-        for (auto it = assignedLayers.first; it != assignedLayers.second; ++it)
+        for(auto it = assignedLayers.first; it != assignedLayers.second; ++it)
         {
             pgtLayer = it->second;
             core::address_allocator_traits<pg_tab_addr_alctr_t>::multi_alloc_addr(m_pageTableLayerAllocators[pgtLayer], 1u, &addr, &szAndAlignment, &szAndAlignment, nullptr);
-            if (addr!=pg_tab_addr_alctr_t::invalid_address)
+            if(addr != pg_tab_addr_alctr_t::invalid_address)
                 break;
         }
-        if (addr==pg_tab_addr_alctr_t::invalid_address)
+        if(addr == pg_tab_addr_alctr_t::invalid_address)
         {
             pgtLayer = findFreePageTableLayer();
-            if (pgtLayer==INVALID_LAYER_INDEX)
+            if(pgtLayer == INVALID_LAYER_INDEX)
                 return SMasterTextureData::invalid();
             core::address_allocator_traits<pg_tab_addr_alctr_t>::multi_alloc_addr(m_pageTableLayerAllocators[pgtLayer], 1u, &addr, &szAndAlignment, &szAndAlignment, nullptr);
-            assert(addr!=pg_tab_addr_alctr_t::invalid_address);
+            assert(addr != pg_tab_addr_alctr_t::invalid_address);
             addPageTableLayerForFormat(format, pgtLayer);
 
             updatePrecomputedData(pgtLayer, smplrIndex, getStorageRcpSize(storage), format);
@@ -923,8 +922,7 @@ public:
             extent,
             _subres.levelCount,
             _wrapu,
-            _wrapv
-        );
+            _wrapv);
     }
 
     bool destroyAlias(const SViewAliasTextureData& _addr)
@@ -937,12 +935,12 @@ public:
 
         const E_FORMAT format = getFormatInLayer(_addr.pgTab_layer);
         IVTResidentStorage* storage = getStorageForFormatClass(getFormatClass(format));
-        if (!storage)
+        if(!storage)
             return false;
         //in case when pgtab layer has no allocations, free it for use by another format
-        if (m_pageTableLayerAllocators[_addr.pgTab_layer].get_allocated_size()==0u)
+        if(m_pageTableLayerAllocators[_addr.pgTab_layer].get_allocated_size() == 0u)
         {
-            m_pageTableLayerAllocators[_addr.pgTab_layer].reset();//defragmentation
+            m_pageTableLayerAllocators[_addr.pgTab_layer].reset();  //defragmentation
             updatePrecomputedData(_addr.pgTab_layer, INVALID_SAMPLER_INDEX, core::nan<float>(), EF_UNKNOWN);
             removePageTableLayerForFormat(format, _addr.pgTab_layer);
         }
@@ -954,7 +952,7 @@ public:
     {
         const E_FORMAT format = getFormatInLayer(_addr.pgTab_layer);
         IVTResidentStorage* storage = getStorageForFormatClass(getFormatClass(format));
-        if (!storage)
+        if(!storage)
             return false;
         VkExtent3D extent;
         extent.width = _addr.origsize_x;
@@ -976,10 +974,10 @@ public:
         _count = std::min<uint32_t>(_count, m_pageTable->getCreationParameters().arrayLayers);
         const uint32_t bufSz = m_pageTableLayerAllocators[0].get_total_size();
         const uint32_t resSpcPerAlctr = pg_tab_addr_alctr_t::reserved_size(m_pageTableLayerAllocators[0].get_total_size(), m_pageTableLayerAllocators[0]);
-        uint8_t* reservedSpc = reinterpret_cast<uint8_t*>( _NBL_ALIGNED_MALLOC(resSpcPerAlctr*_count, _NBL_SIMD_ALIGNMENT) );
+        uint8_t* reservedSpc = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(resSpcPerAlctr * _count, _NBL_SIMD_ALIGNMENT));
 
-        for (uint32_t i = 0u; i < _count; ++i)
-            _dstArray[i] = pg_tab_addr_alctr_t(bufSz, m_pageTableLayerAllocators[i], reservedSpc + i*resSpcPerAlctr);
+        for(uint32_t i = 0u; i < _count; ++i)
+            _dstArray[i] = pg_tab_addr_alctr_t(bufSz, m_pageTableLayerAllocators[i], reservedSpc + i * resSpcPerAlctr);
 
         return reservedSpc;
     }
@@ -988,7 +986,7 @@ public:
 
     image_view_t* getPageTableView() const
     {
-        if (!m_pageTableView)
+        if(!m_pageTableView)
             m_pageTableView = createPageTableView();
         return m_pageTableView.get();
     }
@@ -999,7 +997,7 @@ public:
     uint32_t getPageExtent_log2() const { return core::findLSB(m_pgSzxy); }
     uint32_t getTilePadding() const { return m_tilePadding; }
     const auto& getResidentStorages() const { return m_storage; }
-    typename SamplerArray::range_t getFloatViews() const  { return m_fsamplers.getViews(); }
+    typename SamplerArray::range_t getFloatViews() const { return m_fsamplers.getViews(); }
     typename SamplerArray::range_t getIntViews() const { return m_isamplers.getViews(); }
     typename SamplerArray::range_t getUintViews() const { return m_usamplers.getViews(); }
 
@@ -1008,7 +1006,9 @@ public:
         return m_precomputed;
     }
 
-    struct reset_update_t {};
+    struct reset_update_t
+    {
+    };
     _NBL_STATIC_INLINE_CONSTEXPR reset_update_t reset_update{};
     const auto& getPrecomputedData(reset_update_t)
     {
@@ -1027,19 +1027,19 @@ public:
     }
 
 protected:
-    template <typename DSlayout_t>
-    std::pair<uint32_t,uint32_t> getDSlayoutBindings_internal(typename DSlayout_t::SBinding* _outBindings, core::smart_refctd_ptr<sampler_t>* _outSamplers, uint32_t _pgtBinding = 0u, uint32_t _fsamplersBinding = 1u, uint32_t _isamplersBinding = 2u, uint32_t _usamplersBinding = 3u) const
+    template<typename DSlayout_t>
+    std::pair<uint32_t, uint32_t> getDSlayoutBindings_internal(typename DSlayout_t::SBinding* _outBindings, core::smart_refctd_ptr<sampler_t>* _outSamplers, uint32_t _pgtBinding = 0u, uint32_t _fsamplersBinding = 1u, uint32_t _isamplersBinding = 2u, uint32_t _usamplersBinding = 3u) const
     {
-        const uint32_t bindingCount = 1u+(getFloatViews().size()?1u:0u)+(getIntViews().size()?1u:0u)+(getUintViews().size()?1u:0u);
-        const uint32_t samplerCount = 1u+std::max<uint32_t>(getFloatViews().size(), std::max<uint32_t>(getIntViews().size(), getUintViews().size()));
-        if (!_outBindings || !_outSamplers)
+        const uint32_t bindingCount = 1u + (getFloatViews().size() ? 1u : 0u) + (getIntViews().size() ? 1u : 0u) + (getUintViews().size() ? 1u : 0u);
+        const uint32_t samplerCount = 1u + std::max<uint32_t>(getFloatViews().size(), std::max<uint32_t>(getIntViews().size(), getUintViews().size()));
+        if(!_outBindings || !_outSamplers)
             return std::make_pair(bindingCount, samplerCount);
 
         auto* bindings = _outBindings;
         auto* samplers = _outSamplers;
 
         samplers[0] = getPageTableSampler();
-        std::fill(samplers+1, samplers+samplerCount, getPhysicalStorageFloatSampler());
+        std::fill(samplers + 1, samplers + samplerCount, getPhysicalStorageFloatSampler());
         //std::fill(samplers+1, samplers+samplerCount, getPhysicalStorageNonFloatSampler()); // TODO: @Crisspl fix issue #106 please
 
         auto fillBinding = [](auto& bnd, uint32_t _binding, uint32_t _count, core::smart_refctd_ptr<sampler_t>* _samplers) {
@@ -1053,31 +1053,31 @@ protected:
         fillBinding(bindings[0], _pgtBinding, 1u, samplers);
 
         uint32_t i = 1u;
-        if (getFloatViews().size())
+        if(getFloatViews().size())
         {
-            fillBinding(bindings[i], _fsamplersBinding, getFloatViews().size(), samplers+1);
+            fillBinding(bindings[i], _fsamplersBinding, getFloatViews().size(), samplers + 1);
             ++i;
         }
-        if (getIntViews().size())
+        if(getIntViews().size())
         {
-            fillBinding(bindings[i], _isamplersBinding, getIntViews().size(), samplers+1); // TODO: @Crisspl this has to be wrong! Sampler state for an interpolated float texture is definitely wrong to use for a integer texture
+            fillBinding(bindings[i], _isamplersBinding, getIntViews().size(), samplers + 1);  // TODO: @Crisspl this has to be wrong! Sampler state for an interpolated float texture is definitely wrong to use for a integer texture
             ++i;
         }
-        if (getUintViews().size())
+        if(getUintViews().size())
         {
-            fillBinding(bindings[i], _usamplersBinding, getUintViews().size(), samplers+1); // TODO: @Crisspl this has to be wrong! Sampler state for an interpolated float texture is definitely wrong to use for a integer texture
+            fillBinding(bindings[i], _usamplersBinding, getUintViews().size(), samplers + 1);  // TODO: @Crisspl this has to be wrong! Sampler state for an interpolated float texture is definitely wrong to use for a integer texture
         }
 
         return std::make_pair(bindingCount, samplerCount);
     }
 
-    template <typename DS_t>
-    std::pair<uint32_t,uint32_t> getDescriptorSetWrites_internal(typename DS_t::SWriteDescriptorSet* _outWrites, typename DS_t::SDescriptorInfo* _outInfo, DS_t* _dstSet, uint32_t _pgtBinding = 0u, uint32_t _fsamplersBinding = 1u, uint32_t _isamplersBinding = 2u, uint32_t _usamplersBinding = 3u) const
+    template<typename DS_t>
+    std::pair<uint32_t, uint32_t> getDescriptorSetWrites_internal(typename DS_t::SWriteDescriptorSet* _outWrites, typename DS_t::SDescriptorInfo* _outInfo, DS_t* _dstSet, uint32_t _pgtBinding = 0u, uint32_t _fsamplersBinding = 1u, uint32_t _isamplersBinding = 2u, uint32_t _usamplersBinding = 3u) const
     {
-        const uint32_t writeCount = 1u+(getFloatViews().size()?1u:0u)+(getIntViews().size()?1u:0u)+(getUintViews().size()?1u:0u);
+        const uint32_t writeCount = 1u + (getFloatViews().size() ? 1u : 0u) + (getIntViews().size() ? 1u : 0u) + (getUintViews().size() ? 1u : 0u);
         const uint32_t infoCount = 1u + getFloatViews().size() + getIntViews().size() + getUintViews().size();
 
-        if (!_outWrites || !_outInfo)
+        if(!_outWrites || !_outInfo)
             return std::make_pair(writeCount, infoCount);
 
         auto* writes = _outWrites;
@@ -1091,52 +1091,52 @@ protected:
         writes[0].info = info;
         info[0].desc = core::smart_refctd_ptr<image_view_t>(getPageTableView());
         info[0].image.imageLayout = EIL_UNDEFINED;
-        info[0].image.sampler = nullptr; //samplers are left for user to specify at will
+        info[0].image.sampler = nullptr;  //samplers are left for user to specify at will
 
         uint32_t i = 1u, j = 1u;
-        if (getFloatViews().size())
+        if(getFloatViews().size())
         {
             writes[i].binding = _fsamplersBinding;
             writes[i].arrayElement = 0u;
             writes[i].count = getFloatViews().size();
             writes[i].descriptorType = EDT_COMBINED_IMAGE_SAMPLER;
             writes[i].dstSet = _dstSet;
-            writes[i].info = info+j;
-            for (uint32_t j0 = j; (j-j0)<writes[i].count; ++j)
+            writes[i].info = info + j;
+            for(uint32_t j0 = j; (j - j0) < writes[i].count; ++j)
             {
-                info[j].desc = getFloatViews().begin()[j-j0].view;
+                info[j].desc = getFloatViews().begin()[j - j0].view;
                 info[j].image.imageLayout = EIL_UNDEFINED;
                 info[j].image.sampler = nullptr;
             }
             ++i;
         }
-        if (getIntViews().size())
+        if(getIntViews().size())
         {
             writes[i].binding = _isamplersBinding;
             writes[i].arrayElement = 0u;
             writes[i].count = getIntViews().size();
             writes[i].descriptorType = EDT_COMBINED_IMAGE_SAMPLER;
             writes[i].dstSet = _dstSet;
-            writes[i].info = info+j;
-            for (uint32_t j0 = j; (j-j0)<writes[i].count; ++j)
+            writes[i].info = info + j;
+            for(uint32_t j0 = j; (j - j0) < writes[i].count; ++j)
             {
-                info[j].desc = getIntViews().begin()[j-j0].view;
+                info[j].desc = getIntViews().begin()[j - j0].view;
                 info[j].image.imageLayout = EIL_UNDEFINED;
                 info[j].image.sampler = nullptr;
             }
             ++i;
         }
-        if (getUintViews().size())
+        if(getUintViews().size())
         {
             writes[i].binding = _usamplersBinding;
             writes[i].arrayElement = 0u;
             writes[i].count = getUintViews().size();
             writes[i].descriptorType = EDT_COMBINED_IMAGE_SAMPLER;
             writes[i].dstSet = _dstSet;
-            writes[i].info = info+j;
-            for (uint32_t j0 = j; (j-j0)<writes[i].count; ++j)
+            writes[i].info = info + j;
+            for(uint32_t j0 = j; (j - j0) < writes[i].count; ++j)
             {
-                info[j].desc = getUintViews().begin()[j-j0].view;
+                info[j].desc = getUintViews().begin()[j - j0].view;
                 info[j].image.imageLayout = EIL_UNDEFINED;
                 info[j].image.sampler = nullptr;
             }
@@ -1148,7 +1148,7 @@ protected:
 
     uint32_t getTileExtent() const
     {
-        return m_pgSzxy + 2u*m_tilePadding;
+        return m_pgSzxy + 2u * m_tilePadding;
     }
 
     uint32_t getPhysicalStorageExtent(uint32_t tilesPerDim) const
@@ -1159,7 +1159,7 @@ protected:
 
     uint32_t getPhysicalStorageExtent(const IVTResidentStorage* storage) const
     {
-        const uint32_t tile = m_pgSzxy + 2u*m_tilePadding;
+        const uint32_t tile = m_pgSzxy + 2u * m_tilePadding;
         return storage->getTilesPerDim() * tile;
     }
 
@@ -1169,96 +1169,97 @@ protected:
     }
 };
 
-template <typename image_view_t, typename sampler_t>
+template<typename image_view_t, typename sampler_t>
 bool IVirtualTexture<image_view_t, sampler_t>::SMiptailPacker::computeMiptailOffsets(IVirtualTexture<image_view_t, sampler_t>::SMiptailPacker::rect* res, int log2SIZE, int padding)
 {
-    if (log2SIZE<7 || log2SIZE>10)
+    if(log2SIZE < 7 || log2SIZE > 10)
         return false;
-    
-    int SIZE = 0x1u<<log2SIZE;
-	if ((SIZE>>1)+(SIZE>>2) + padding * 4 > SIZE)
-		return false;
-	
 
-	int x1 = 0, y1 = 0;
-	res[0].x = 0;
-	res[0].mx = (SIZE >> 1) + padding * 2 -1;
-	res[0].y = 0;
-	res[0].my = (SIZE >> 1) + padding * 2 -1;
-	y1 = res[0].my + 1;
-	x1 = res[0].mx + 1;
+    int SIZE = 0x1u << log2SIZE;
+    if((SIZE >> 1) + (SIZE >> 2) + padding * 4 > SIZE)
+        return false;
 
-	bool ofx1 = false, ofx2 = false;
-	int i = 1;
-	while (i < log2SIZE)
-	{
+    int x1 = 0, y1 = 0;
+    res[0].x = 0;
+    res[0].mx = (SIZE >> 1) + padding * 2 - 1;
+    res[0].y = 0;
+    res[0].my = (SIZE >> 1) + padding * 2 - 1;
+    y1 = res[0].my + 1;
+    x1 = res[0].mx + 1;
 
-		int s = (SIZE >> (i + 1)) + padding * 2;
-		int x, y;
-		if (i % 2 == 0) {	//on right
-			if (i == 2)
-			{
-				x = x1;
-				y = 0;
-			}
-			else
-			{
-				if (res[i - 2].my + s > y1)
-				{
-					if (res[i - 6].mx + s > SIZE || ofx1)
-					{
-						x = res[i - 4].mx + 1;
-						y = res[i - 4].y;
-						ofx1 = true;
-					}
-					else {
+    bool ofx1 = false, ofx2 = false;
+    int i = 1;
+    while(i < log2SIZE)
+    {
+        int s = (SIZE >> (i + 1)) + padding * 2;
+        int x, y;
+        if(i % 2 == 0)
+        {  //on right
+            if(i == 2)
+            {
+                x = x1;
+                y = 0;
+            }
+            else
+            {
+                if(res[i - 2].my + s > y1)
+                {
+                    if(res[i - 6].mx + s > SIZE || ofx1)
+                    {
+                        x = res[i - 4].mx + 1;
+                        y = res[i - 4].y;
+                        ofx1 = true;
+                    }
+                    else
+                    {
+                        x = res[i - 6].mx + 1;
+                        y = res[i - 6].y;
+                    }
+                }
+                else
+                {
+                    y = res[i - 2].my + 1;
+                    x = x1;
+                }
+            }
+        }
+        else  //those placed below the first square and going right are ~x2 larger than those above
+        {
+            if(i == 1)
+            {
+                x = 0;
+                y = y1;
+            }
+            else
+            {
+                if(res[i - 2].mx + s > SIZE)
+                {
+                    if(res[i - 6].my + s > SIZE || ofx2)
+                    {
+                        x = res[i - 4].x;
+                        y = res[i - 4].my + 1;
+                        ofx2 = true;
+                    }
+                    else
+                    {
+                        x = res[i - 6].x;
+                        y = res[i - 6].my + 1;
+                    }
+                }
+                else
+                {
+                    x = res[i - 2].mx + 1;
+                    y = y1;
+                }
+            }
+        }
+        res[i].x = x;
+        res[i].y = y;
+        res[i].mx = x + s - 1;
+        res[i].my = y + s - 1;
 
-					x = res[i - 6].mx + 1;
-					y = res[i - 6].y;
-					}
-				}
-				else
-				{
-					y = res[i - 2].my + 1;
-					x = x1;
-				}
-			}
-		}
-		else //those placed below the first square and going right are ~x2 larger than those above
-		{
-			if (i == 1)
-			{
-				x = 0;
-				y = y1;
-			}
-			else {
-				if (res[i - 2].mx + s > SIZE)
-				{
-					if (res[i - 6].my + s > SIZE ||ofx2)
-					{
-						x = res[i - 4].x;
-						y = res[i - 4].my + 1;
-						ofx2 = true;
-					}
-					else {
-						x = res[i - 6].x;
-						y = res[i - 6].my + 1;
-					}
-				}
-				else 
-				{
-				    x = res[i - 2].mx + 1;
-				    y = y1;
-				}
-			}
-		}
-		res[i].x = x;
-		res[i].y = y;
-		res[i].mx = x + s -1;
-		res[i].my = y + s -1 ;
-
-		i++;
-	}
+        i++;
+    }
     return true;
 }
 

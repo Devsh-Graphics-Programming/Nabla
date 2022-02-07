@@ -3,19 +3,18 @@
 
 namespace nbl::video
 {
-
 void IUtilities::updateImageViaStagingBuffer(
     IGPUCommandBuffer* cmdbuf, IGPUFence* fence, IGPUQueue* queue,
     asset::ICPUBuffer const* srcBuffer, const core::SRange<const asset::IImage::SBufferCopy>& regions, video::IGPUImage* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout,
-    uint32_t& waitSemaphoreCount, IGPUSemaphore*const * &semaphoresToWaitBeforeOverwrite, const asset::E_PIPELINE_STAGE_FLAGS* &stagesToWaitForPerSemaphore)
+    uint32_t& waitSemaphoreCount, IGPUSemaphore* const*& semaphoresToWaitBeforeOverwrite, const asset::E_PIPELINE_STAGE_FLAGS*& stagesToWaitForPerSemaphore)
 {
     const auto& limits = m_device->getPhysicalDevice()->getLimits();
     const uint32_t allocationAlignment = static_cast<uint32_t>(limits.nonCoherentAtomSize);
 
     auto* cmdpool = cmdbuf->getPool();
-    assert(cmdpool->getCreationFlags()&IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
-    assert(cmdpool->getQueueFamilyIndex()==queue->getFamilyIndex());
-            
+    assert(cmdpool->getCreationFlags() & IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
+    assert(cmdpool->getQueueFamilyIndex() == queue->getFamilyIndex());
+
     auto texelBlockInfo = asset::TexelBlockInfo(dstImage->getCreationParameters().format);
     auto texelBlockDim = texelBlockInfo.getDimension();
     auto queueFamProps = m_device->getPhysicalDevice()->getQueueFamilyProperties()[0];
@@ -25,7 +24,7 @@ void IUtilities::updateImageViaStagingBuffer(
     // Other queues supporting image transfer operations are only required to support whole mip level transfers, thus minImageTransferGranularity for queues belonging to such queue families may be (0,0,0)
     bool canTransferMipLevelsPartially = !(minImageTransferGranularity.width == 0 && minImageTransferGranularity.height == 0 && minImageTransferGranularity.depth == 0);
 
-    // Block Offsets 
+    // Block Offsets
     // (1 blockInRow = texelBlockDimensions.x texels)
     // (1 rowInSlice = texelBlockDimensions.y texel rows)
     // (1 sliceInLayer = texelBlockDimensions.z texel depths)
@@ -34,12 +33,12 @@ void IUtilities::updateImageViaStagingBuffer(
     uint32_t currentSliceInLayer = 0u;
     uint32_t currentLayerInRegion = 0u;
     uint32_t currentRegion = 0u;
-            
+
     // bufferOffsetAlignment:
-        // [x] If Depth/Stencil -> must be multiple of 4
-        // [ ] If multi-planar -> bufferOffset must be a multiple of the element size of the compatible format for the aspectMask of imagesubresource
-        // [x] If Queue doesn't support GRAPHICS_BIT or COMPUTE_BIT ->  must be multiple of 4
-        // [x] bufferOffset must be a multiple of texel block size in bytes
+    // [x] If Depth/Stencil -> must be multiple of 4
+    // [ ] If multi-planar -> bufferOffset must be a multiple of the element size of the compatible format for the aspectMask of imagesubresource
+    // [x] If Queue doesn't support GRAPHICS_BIT or COMPUTE_BIT ->  must be multiple of 4
+    // [x] bufferOffset must be a multiple of texel block size in bytes
     uint32_t bufferOffsetAlignment = texelBlockInfo.getBlockByteSize();
     if(asset::isDepthOrStencilFormat(dstImage->getCreationParameters().format))
         bufferOffsetAlignment = std::lcm(bufferOffsetAlignment, 4u);
@@ -53,20 +52,20 @@ void IUtilities::updateImageViaStagingBuffer(
     // if(asset::isPlanarFormat(dstImage->getCreationParameters().format))
 
     assert(core::is_alignment(bufferOffsetAlignment));
-    
+
     // Assuming each thread can handle minImageTranferGranularitySize of texelBlocks:
-    const uint32_t maxResidentImageTransferSize = limits.maxResidentInvocations * texelBlockInfo.getBlockByteSize() * (minImageTransferGranularity.width * minImageTransferGranularity.height * minImageTransferGranularity.depth); 
-    // memoryLowerBound = max(maxResidentImageTransferSize, the largest rowPitch of regions); 
+    const uint32_t maxResidentImageTransferSize = limits.maxResidentInvocations * texelBlockInfo.getBlockByteSize() * (minImageTransferGranularity.width * minImageTransferGranularity.height * minImageTransferGranularity.depth);
+    // memoryLowerBound = max(maxResidentImageTransferSize, the largest rowPitch of regions);
     uint32_t memoryLowerBound = maxResidentImageTransferSize;
 
-    while (currentRegion < regions.size())
+    while(currentRegion < regions.size())
     {
         size_t memoryNeededForRemainingRegions = 0ull;
-        for (uint32_t i = currentRegion; i < regions.size(); ++i)
+        for(uint32_t i = currentRegion; i < regions.size(); ++i)
         {
             memoryNeededForRemainingRegions = core::alignUp(memoryNeededForRemainingRegions, bufferOffsetAlignment);
 
-            const asset::IImage::SBufferCopy & region = regions[i];
+            const asset::IImage::SBufferCopy& region = regions[i];
 
             auto subresourceSize = dstImage->getMipSize(region.imageSubresource.mipLevel);
 
@@ -82,20 +81,20 @@ void IUtilities::updateImageViaStagingBuffer(
 
             // region.imageOffset.{xyz} should be multiple of minImageTransferGranularity.{xyz} scaled up by block size
             bool isImageOffsetAlignmentValid =
-                (region.imageOffset.x % (minImageTransferGranularity.width  * texelBlockDim.x) == 0) &&
+                (region.imageOffset.x % (minImageTransferGranularity.width * texelBlockDim.x) == 0) &&
                 (region.imageOffset.y % (minImageTransferGranularity.height * texelBlockDim.y) == 0) &&
-                (region.imageOffset.z % (minImageTransferGranularity.depth  * texelBlockDim.z) == 0);
+                (region.imageOffset.z % (minImageTransferGranularity.depth * texelBlockDim.z) == 0);
             assert(isImageOffsetAlignmentValid);
 
             // region.imageExtent.{xyz} should be multiple of minImageTransferGranularity.{xyz} scaled up by block size,
             // OR ELSE (region.imageOffset.{x/y/z} + region.imageExtent.{width/height/depth}) MUST be equal to subresource{Width,Height,Depth}
-            bool isImageExtentAlignmentValid = 
-                (region.imageExtent.width  % (minImageTransferGranularity.width  * texelBlockDim.x) == 0 || (region.imageOffset.x + region.imageExtent.width   == subresourceSize.x)) && 
-                (region.imageExtent.height % (minImageTransferGranularity.height * texelBlockDim.y) == 0 || (region.imageOffset.y + region.imageExtent.height  == subresourceSize.y)) &&
-                (region.imageExtent.depth  % (minImageTransferGranularity.depth  * texelBlockDim.z) == 0 || (region.imageOffset.z + region.imageExtent.depth   == subresourceSize.z));
+            bool isImageExtentAlignmentValid =
+                (region.imageExtent.width % (minImageTransferGranularity.width * texelBlockDim.x) == 0 || (region.imageOffset.x + region.imageExtent.width == subresourceSize.x)) &&
+                (region.imageExtent.height % (minImageTransferGranularity.height * texelBlockDim.y) == 0 || (region.imageOffset.y + region.imageExtent.height == subresourceSize.y)) &&
+                (region.imageExtent.depth % (minImageTransferGranularity.depth * texelBlockDim.z) == 0 || (region.imageOffset.z + region.imageExtent.depth == subresourceSize.z));
             assert(isImageExtentAlignmentValid);
 
-            bool isImageExtentAndOffsetValid = 
+            bool isImageExtentAndOffsetValid =
                 (region.imageExtent.width + region.imageOffset.x <= subresourceSize.x) &&
                 (region.imageExtent.height + region.imageOffset.y <= subresourceSize.y) &&
                 (region.imageExtent.depth + region.imageOffset.z <= subresourceSize.z);
@@ -104,7 +103,7 @@ void IUtilities::updateImageViaStagingBuffer(
             auto imageExtent = core::vector3du32_SIMD(region.imageExtent.width, region.imageExtent.height, region.imageExtent.depth);
             auto imageExtentInBlocks = texelBlockInfo.convertTexelsToBlocks(imageExtent);
             auto imageExtentBlockStridesInBytes = texelBlockInfo.convert3DBlockStridesTo1DByteStrides(imageExtentInBlocks);
-            memoryLowerBound = core::max(memoryLowerBound, imageExtentBlockStridesInBytes[1]); // rowPitch = imageExtentBlockStridesInBytes[1]
+            memoryLowerBound = core::max(memoryLowerBound, imageExtentBlockStridesInBytes[1]);  // rowPitch = imageExtentBlockStridesInBytes[1]
 
             if(i == currentRegion)
             {
@@ -115,13 +114,13 @@ void IUtilities::updateImageViaStagingBuffer(
 
                 if(currentBlockInRow == 0 && currentRowInSlice == 0 && currentSliceInLayer == 0 && remainingLayersInRegion > 0)
                     memoryNeededForRemainingRegions += imageExtentBlockStridesInBytes[3] * remainingLayersInRegion;
-                else if (currentBlockInRow == 0 && currentRowInSlice == 0 && currentSliceInLayer > 0)
+                else if(currentBlockInRow == 0 && currentRowInSlice == 0 && currentSliceInLayer > 0)
                 {
                     memoryNeededForRemainingRegions += imageExtentBlockStridesInBytes[2] * remainingSlicesInLayer;
                     if(remainingLayersInRegion > 1u)
                         memoryNeededForRemainingRegions += imageExtentBlockStridesInBytes[3] * (remainingLayersInRegion - 1u);
                 }
-                else if (currentBlockInRow == 0 && currentRowInSlice > 0)
+                else if(currentBlockInRow == 0 && currentRowInSlice > 0)
                 {
                     memoryNeededForRemainingRegions += imageExtentBlockStridesInBytes[1] * remainingRowsInSlice;
                     if(remainingSlicesInLayer > 1u)
@@ -129,7 +128,7 @@ void IUtilities::updateImageViaStagingBuffer(
                     if(remainingLayersInRegion > 1u)
                         memoryNeededForRemainingRegions += imageExtentBlockStridesInBytes[3] * (remainingLayersInRegion - 1u);
                 }
-                else if (currentBlockInRow > 0)
+                else if(currentBlockInRow > 0)
                 {
                     memoryNeededForRemainingRegions += imageExtentBlockStridesInBytes[0] * remainingBlocksInRow;
                     if(remainingRowsInSlice > 1u)
@@ -142,7 +141,7 @@ void IUtilities::updateImageViaStagingBuffer(
             }
             else
             {
-                memoryNeededForRemainingRegions += imageExtentBlockStridesInBytes[3] * region.imageSubresource.layerCount; // = blockByteSize * imageExtentInBlocks.x * imageExtentInBlocks.y * imageExtentInBlocks.z * region.imageSubresource.layerCount
+                memoryNeededForRemainingRegions += imageExtentBlockStridesInBytes[3] * region.imageSubresource.layerCount;  // = blockByteSize * imageExtentInBlocks.x * imageExtentInBlocks.y * imageExtentInBlocks.z * region.imageSubresource.layerCount
             }
         }
 
@@ -151,11 +150,11 @@ void IUtilities::updateImageViaStagingBuffer(
         subSize = std::max(subSize, memoryLowerBound);
         const uint32_t uploadBufferSize = core::alignUp(subSize, allocationAlignment);
         // cannot use `multi_place` because of the extra padding size we could have added
-        m_defaultUploadBuffer.get()->multi_alloc(std::chrono::high_resolution_clock::now()+std::chrono::microseconds(500u), 1u, &localOffset, &uploadBufferSize, &allocationAlignment);
+        m_defaultUploadBuffer.get()->multi_alloc(std::chrono::high_resolution_clock::now() + std::chrono::microseconds(500u), 1u, &localOffset, &uploadBufferSize, &allocationAlignment);
         bool failedAllocation = (localOffset == video::StreamingTransientDataBufferMT<>::invalid_address);
 
         // keep trying again
-        if (failedAllocation)
+        if(failedAllocation)
         {
             if(currentRegion == 0 && currentLayerInRegion == 0 && currentSliceInLayer == 0 && currentRowInSlice == 0 && currentBlockInRow == 0)
             {
@@ -193,8 +192,7 @@ void IUtilities::updateImageViaStagingBuffer(
             // Start CmdCopying Regions and Copying Data to m_defaultUploadBuffer
             uint32_t currentUploadBufferOffset = 0u;
             uint32_t availableUploadBufferMemory = 0u;
-            auto addToCurrentUploadBufferOffset = [&](uint32_t size) -> bool 
-            {
+            auto addToCurrentUploadBufferOffset = [&](uint32_t size) -> bool {
                 currentUploadBufferOffset += size;
                 currentUploadBufferOffset = core::alignUp(currentUploadBufferOffset, bufferOffsetAlignment);
                 if(currentUploadBufferOffset - localOffset <= uploadBufferSize)
@@ -215,10 +213,10 @@ void IUtilities::updateImageViaStagingBuffer(
             core::vector<asset::IImage::SBufferCopy> regionsToCopy;
 
             // Worst case iterations: remaining blocks --> remaining rows --> remaining slices --> full layers
-            const uint32_t maxIterations = regions.size() * 4u; 
-            for (uint32_t d = 0u; d < maxIterations && currentRegion < regions.size(); ++d)
+            const uint32_t maxIterations = regions.size() * 4u;
+            for(uint32_t d = 0u; d < maxIterations && currentRegion < regions.size(); ++d)
             {
-                const asset::IImage::SBufferCopy & region = regions[currentRegion];
+                const asset::IImage::SBufferCopy& region = regions[currentRegion];
 
                 auto subresourceSize = dstImage->getMipSize(region.imageSubresource.mipLevel);
                 auto subresourceSizeInBlocks = texelBlockInfo.convertTexelsToBlocks(subresourceSize);
@@ -238,9 +236,8 @@ void IUtilities::updateImageViaStagingBuffer(
                 auto imageExtentBlockStridesInBytes = texelBlockInfo.convert3DBlockStridesTo1DByteStrides(imageExtentInBlocks);
 
                 // region <-> region.imageSubresource.layerCount <-> imageExtentInBlocks.z <-> imageExtentInBlocks.y <-> imageExtentInBlocks.x
-                auto updateCurrentOffsets = [&]() -> void
-                {
-                    if(currentBlockInRow >= imageExtentInBlocks.x) 
+                auto updateCurrentOffsets = [&]() -> void {
+                    if(currentBlockInRow >= imageExtentInBlocks.x)
                     {
                         currentBlockInRow = 0u;
                         currentRowInSlice++;
@@ -257,21 +254,20 @@ void IUtilities::updateImageViaStagingBuffer(
                         currentSliceInLayer = 0u;
                         currentLayerInRegion++;
                     }
-                    if(currentLayerInRegion >= region.imageSubresource.layerCount) 
+                    if(currentLayerInRegion >= region.imageSubresource.layerCount)
                     {
                         assert(currentBlockInRow == 0 && currentRowInSlice == 0 && currentSliceInLayer == 0);
-                        currentLayerInRegion = 0u; 
+                        currentLayerInRegion = 0u;
                         currentRegion++;
                     }
                 };
-                        
-                uint32_t eachBlockNeededMemory  = imageExtentBlockStridesInBytes[0];  // = blockByteSize
-                uint32_t eachRowNeededMemory    = imageExtentBlockStridesInBytes[1];  // = blockByteSize * imageExtentInBlocks.x
-                uint32_t eachSliceNeededMemory  = imageExtentBlockStridesInBytes[2];  // = blockByteSize * imageExtentInBlocks.x * imageExtentInBlocks.y
-                uint32_t eachLayerNeededMemory  = imageExtentBlockStridesInBytes[3];  // = blockByteSize * imageExtentInBlocks.x * imageExtentInBlocks.y * imageExtentInBlocks.z
 
-                auto tryFillRow = [&]() -> bool
-                {
+                uint32_t eachBlockNeededMemory = imageExtentBlockStridesInBytes[0];  // = blockByteSize
+                uint32_t eachRowNeededMemory = imageExtentBlockStridesInBytes[1];  // = blockByteSize * imageExtentInBlocks.x
+                uint32_t eachSliceNeededMemory = imageExtentBlockStridesInBytes[2];  // = blockByteSize * imageExtentInBlocks.x * imageExtentInBlocks.y
+                uint32_t eachLayerNeededMemory = imageExtentBlockStridesInBytes[3];  // = blockByteSize * imageExtentInBlocks.x * imageExtentInBlocks.y * imageExtentInBlocks.z
+
+                auto tryFillRow = [&]() -> bool {
                     bool ret = false;
                     // C: There is remaining slices left in layer -> Copy Blocks
                     uint32_t uploadableBlocks = availableUploadBufferMemory / eachBlockNeededMemory;
@@ -286,9 +282,9 @@ void IUtilities::updateImageViaStagingBuffer(
                         auto localImageOffset = core::vector3du32_SIMD(0u + currentBlockInRow, 0u + currentRowInSlice, 0u + currentSliceInLayer, currentLayerInRegion);
                         uint64_t offsetInCPUBuffer = region.bufferOffset + core::dot(localImageOffset, regionBlockStridesInBytes)[0];
                         uint64_t offsetInUploadBuffer = currentUploadBufferOffset;
-                        memcpy( reinterpret_cast<uint8_t*>(m_defaultUploadBuffer->getBufferPointer())+offsetInUploadBuffer,
-                                reinterpret_cast<uint8_t const*>(srcBuffer->getPointer())+offsetInCPUBuffer,
-                                blocksToUploadMemorySize);
+                        memcpy(reinterpret_cast<uint8_t*>(m_defaultUploadBuffer->getBufferPointer()) + offsetInUploadBuffer,
+                            reinterpret_cast<uint8_t const*>(srcBuffer->getPointer()) + offsetInCPUBuffer,
+                            blocksToUploadMemorySize);
 
                         asset::IImage::SBufferCopy bufferCopy;
                         bufferCopy.bufferOffset = currentUploadBufferOffset;
@@ -300,9 +296,9 @@ void IUtilities::updateImageViaStagingBuffer(
                         bufferCopy.imageOffset.x = region.imageOffset.x + currentBlockInRow * texelBlockDim.x;
                         bufferCopy.imageOffset.y = region.imageOffset.y + currentRowInSlice * texelBlockDim.y;
                         bufferCopy.imageOffset.z = region.imageOffset.z + currentSliceInLayer * texelBlockDim.z;
-                        bufferCopy.imageExtent.width    = core::min(uploadableBlocks * texelBlockDim.x, imageExtent.x);
-                        bufferCopy.imageExtent.height   = core::min(1u * texelBlockDim.y, imageExtent.y);
-                        bufferCopy.imageExtent.depth    = core::min(1u * texelBlockDim.z, imageExtent.z);
+                        bufferCopy.imageExtent.width = core::min(uploadableBlocks * texelBlockDim.x, imageExtent.x);
+                        bufferCopy.imageExtent.height = core::min(1u * texelBlockDim.y, imageExtent.y);
+                        bufferCopy.imageExtent.depth = core::min(1u * texelBlockDim.z, imageExtent.z);
                         bufferCopy.imageSubresource.layerCount = 1u;
                         regionsToCopy.push_back(bufferCopy);
 
@@ -316,9 +312,8 @@ void IUtilities::updateImageViaStagingBuffer(
 
                     return ret;
                 };
-                        
-                auto tryFillSlice = [&]() -> bool
-                {
+
+                auto tryFillSlice = [&]() -> bool {
                     bool ret = false;
                     // B: There is remaining slices left in layer -> Copy Rows
                     uint32_t uploadableRows = availableUploadBufferMemory / eachRowNeededMemory;
@@ -330,7 +325,7 @@ void IUtilities::updateImageViaStagingBuffer(
                     if(uploadableRows > 0)
                     {
                         uint32_t rowsToUploadMemorySize = eachRowNeededMemory * uploadableRows;
-                                
+
                         if(regionBlockStrides.x != imageExtentInBlocks.x)
                         {
                             // Can't copy all rows at once, there is padding, copy row by row
@@ -338,10 +333,10 @@ void IUtilities::updateImageViaStagingBuffer(
                             {
                                 auto localImageOffset = core::vector3du32_SIMD(0u, 0u + currentRowInSlice + y, 0u + currentSliceInLayer, currentLayerInRegion);
                                 uint64_t offsetInCPUBuffer = region.bufferOffset + core::dot(localImageOffset, regionBlockStridesInBytes)[0];
-                                uint64_t offsetInUploadBuffer = currentUploadBufferOffset + y*eachRowNeededMemory;
-                                memcpy( reinterpret_cast<uint8_t*>(m_defaultUploadBuffer->getBufferPointer())+offsetInUploadBuffer,
-                                        reinterpret_cast<uint8_t const*>(srcBuffer->getPointer())+offsetInCPUBuffer,
-                                        eachRowNeededMemory);
+                                uint64_t offsetInUploadBuffer = currentUploadBufferOffset + y * eachRowNeededMemory;
+                                memcpy(reinterpret_cast<uint8_t*>(m_defaultUploadBuffer->getBufferPointer()) + offsetInUploadBuffer,
+                                    reinterpret_cast<uint8_t const*>(srcBuffer->getPointer()) + offsetInCPUBuffer,
+                                    eachRowNeededMemory);
                             }
                         }
                         else
@@ -351,11 +346,10 @@ void IUtilities::updateImageViaStagingBuffer(
                             auto localImageOffset = core::vector3du32_SIMD(0u, 0u + currentRowInSlice, 0u + currentSliceInLayer, currentLayerInRegion);
                             uint64_t offsetInCPUBuffer = region.bufferOffset + core::dot(localImageOffset, regionBlockStridesInBytes)[0];
                             uint64_t offsetInUploadBuffer = currentUploadBufferOffset;
-                            memcpy( reinterpret_cast<uint8_t*>(m_defaultUploadBuffer->getBufferPointer())+offsetInUploadBuffer,
-                                    reinterpret_cast<uint8_t const*>(srcBuffer->getPointer())+offsetInCPUBuffer,
-                                    rowsToUploadMemorySize);
+                            memcpy(reinterpret_cast<uint8_t*>(m_defaultUploadBuffer->getBufferPointer()) + offsetInUploadBuffer,
+                                reinterpret_cast<uint8_t const*>(srcBuffer->getPointer()) + offsetInCPUBuffer,
+                                rowsToUploadMemorySize);
                         }
-
 
                         asset::IImage::SBufferCopy bufferCopy;
                         bufferCopy.bufferOffset = currentUploadBufferOffset;
@@ -364,12 +358,13 @@ void IUtilities::updateImageViaStagingBuffer(
                         bufferCopy.imageSubresource.aspectMask = region.imageSubresource.aspectMask;
                         bufferCopy.imageSubresource.mipLevel = region.imageSubresource.mipLevel;
                         bufferCopy.imageSubresource.baseArrayLayer = region.imageSubresource.baseArrayLayer + currentLayerInRegion;
-                        bufferCopy.imageOffset.x = region.imageOffset.x + 0u; assert(currentBlockInRow == 0);
+                        bufferCopy.imageOffset.x = region.imageOffset.x + 0u;
+                        assert(currentBlockInRow == 0);
                         bufferCopy.imageOffset.y = region.imageOffset.y + currentRowInSlice * texelBlockDim.y;
                         bufferCopy.imageOffset.z = region.imageOffset.z + currentSliceInLayer * texelBlockDim.z;
-                        bufferCopy.imageExtent.width    = imageExtent.x;
-                        bufferCopy.imageExtent.height   = core::min(uploadableRows * texelBlockDim.y, imageExtent.y);
-                        bufferCopy.imageExtent.depth    = core::min(1u * texelBlockDim.z, imageExtent.z);
+                        bufferCopy.imageExtent.width = imageExtent.x;
+                        bufferCopy.imageExtent.height = core::min(uploadableRows * texelBlockDim.y, imageExtent.y);
+                        bufferCopy.imageExtent.depth = core::min(1u * texelBlockDim.z, imageExtent.z);
                         bufferCopy.imageSubresource.layerCount = 1u;
                         regionsToCopy.push_back(bufferCopy);
 
@@ -378,21 +373,20 @@ void IUtilities::updateImageViaStagingBuffer(
                         currentRowInSlice += uploadableRows;
                         ret = true;
                     }
-                            
+
                     if(currentRowInSlice < imageExtentInBlocks.y)
                     {
                         bool filledAnyBlocksInRow = tryFillRow();
                         if(filledAnyBlocksInRow)
                             ret = true;
                     }
-                            
+
                     updateCurrentOffsets();
 
                     return ret;
                 };
-                        
-                auto tryFillLayer = [&]() -> bool
-                {
+
+                auto tryFillLayer = [&]() -> bool {
                     bool ret = false;
                     // A: There is remaining layers left in region -> Copy Slices (Depths)
                     uint32_t uploadableSlices = availableUploadBufferMemory / eachSliceNeededMemory;
@@ -415,13 +409,13 @@ void IUtilities::updateImageViaStagingBuffer(
                                     auto localImageOffset = core::vector3du32_SIMD(0u, 0u + y, 0u + currentSliceInLayer + z, currentLayerInRegion);
                                     uint64_t offsetInCPUBuffer = region.bufferOffset + core::dot(localImageOffset, regionBlockStridesInBytes)[0];
                                     uint64_t offsetInUploadBuffer = currentUploadBufferOffset + z * eachSliceNeededMemory + y * eachRowNeededMemory;
-                                    memcpy( reinterpret_cast<uint8_t*>(m_defaultUploadBuffer->getBufferPointer())+offsetInUploadBuffer,
-                                            reinterpret_cast<uint8_t const*>(srcBuffer->getPointer())+offsetInCPUBuffer,
-                                            eachRowNeededMemory);
+                                    memcpy(reinterpret_cast<uint8_t*>(m_defaultUploadBuffer->getBufferPointer()) + offsetInUploadBuffer,
+                                        reinterpret_cast<uint8_t const*>(srcBuffer->getPointer()) + offsetInCPUBuffer,
+                                        eachRowNeededMemory);
                                 }
                             }
                         }
-                        else if (regionBlockStrides.y != imageExtentInBlocks.y)
+                        else if(regionBlockStrides.y != imageExtentInBlocks.y)
                         {
                             assert(imageOffsetInBlocks.x == 0u);
                             // Can't copy all slices at once, there is more padding at the end of slices, copy slice by slice
@@ -430,9 +424,9 @@ void IUtilities::updateImageViaStagingBuffer(
                                 auto localImageOffset = core::vector3du32_SIMD(0u, 0u, 0u + currentSliceInLayer + z, currentLayerInRegion);
                                 uint64_t offsetInCPUBuffer = region.bufferOffset + core::dot(localImageOffset, regionBlockStridesInBytes)[0];
                                 uint64_t offsetInUploadBuffer = currentUploadBufferOffset + z * eachSliceNeededMemory;
-                                memcpy( reinterpret_cast<uint8_t*>(m_defaultUploadBuffer->getBufferPointer())+offsetInUploadBuffer,
-                                        reinterpret_cast<uint8_t const*>(srcBuffer->getPointer())+offsetInCPUBuffer,
-                                        eachSliceNeededMemory);
+                                memcpy(reinterpret_cast<uint8_t*>(m_defaultUploadBuffer->getBufferPointer()) + offsetInUploadBuffer,
+                                    reinterpret_cast<uint8_t const*>(srcBuffer->getPointer()) + offsetInCPUBuffer,
+                                    eachSliceNeededMemory);
                             }
                         }
                         else
@@ -443,11 +437,11 @@ void IUtilities::updateImageViaStagingBuffer(
                             auto localImageOffset = core::vector3du32_SIMD(0u, 0u, 0u + currentSliceInLayer, currentLayerInRegion);
                             uint64_t offsetInCPUBuffer = region.bufferOffset + core::dot(localImageOffset, regionBlockStridesInBytes)[0];
                             uint64_t offsetInUploadBuffer = currentUploadBufferOffset;
-                            memcpy( reinterpret_cast<uint8_t*>(m_defaultUploadBuffer->getBufferPointer())+offsetInUploadBuffer,
-                                    reinterpret_cast<uint8_t const*>(srcBuffer->getPointer())+offsetInCPUBuffer,
-                                    slicesToUploadMemorySize);
+                            memcpy(reinterpret_cast<uint8_t*>(m_defaultUploadBuffer->getBufferPointer()) + offsetInUploadBuffer,
+                                reinterpret_cast<uint8_t const*>(srcBuffer->getPointer()) + offsetInCPUBuffer,
+                                slicesToUploadMemorySize);
                         }
-                                
+
                         asset::IImage::SBufferCopy bufferCopy;
                         bufferCopy.bufferOffset = currentUploadBufferOffset;
                         bufferCopy.bufferRowLength = imageExtentInBlocks.x * texelBlockDim.x;
@@ -455,12 +449,14 @@ void IUtilities::updateImageViaStagingBuffer(
                         bufferCopy.imageSubresource.aspectMask = region.imageSubresource.aspectMask;
                         bufferCopy.imageSubresource.mipLevel = region.imageSubresource.mipLevel;
                         bufferCopy.imageSubresource.baseArrayLayer = region.imageSubresource.baseArrayLayer + currentLayerInRegion;
-                        bufferCopy.imageOffset.x = region.imageOffset.x + 0u; assert(currentBlockInRow == 0);
-                        bufferCopy.imageOffset.y = region.imageOffset.y + 0u; assert(currentRowInSlice == 0);
+                        bufferCopy.imageOffset.x = region.imageOffset.x + 0u;
+                        assert(currentBlockInRow == 0);
+                        bufferCopy.imageOffset.y = region.imageOffset.y + 0u;
+                        assert(currentRowInSlice == 0);
                         bufferCopy.imageOffset.z = region.imageOffset.z + currentSliceInLayer * texelBlockDim.z;
-                        bufferCopy.imageExtent.width    = imageExtent.x;
-                        bufferCopy.imageExtent.height   = imageExtent.y;
-                        bufferCopy.imageExtent.depth    = core::min(uploadableSlices * texelBlockDim.z, imageExtent.z);
+                        bufferCopy.imageExtent.width = imageExtent.x;
+                        bufferCopy.imageExtent.height = imageExtent.y;
+                        bufferCopy.imageExtent.depth = core::min(uploadableSlices * texelBlockDim.z, imageExtent.z);
                         bufferCopy.imageSubresource.layerCount = 1u;
                         regionsToCopy.push_back(bufferCopy);
 
@@ -469,21 +465,20 @@ void IUtilities::updateImageViaStagingBuffer(
                         currentSliceInLayer += uploadableSlices;
                         ret = true;
                     }
-                            
+
                     if(currentSliceInLayer < imageExtentInBlocks.z)
                     {
                         bool filledAnyRowsOrBlocksInSlice = tryFillSlice();
                         if(filledAnyRowsOrBlocksInSlice)
                             ret = true;
                     }
-                            
+
                     updateCurrentOffsets();
 
                     return ret;
                 };
 
-                auto tryFillRegion = [&]() -> bool
-                {
+                auto tryFillRegion = [&]() -> bool {
                     bool ret = false;
                     uint32_t uploadableArrayLayers = availableUploadBufferMemory / eachLayerNeededMemory;
                     uint32_t remainingLayers = region.imageSubresource.layerCount - currentLayerInRegion;
@@ -505,18 +500,18 @@ void IUtilities::updateImageViaStagingBuffer(
                                         auto localImageOffset = core::vector3du32_SIMD(0u, 0u + y, 0u + z, currentLayerInRegion + layer);
                                         uint64_t offsetInCPUBuffer = region.bufferOffset + core::dot(localImageOffset, regionBlockStridesInBytes)[0];
                                         uint64_t offsetInUploadBuffer = currentUploadBufferOffset + layer * eachLayerNeededMemory + z * eachSliceNeededMemory + y * eachRowNeededMemory;
-                                        memcpy( reinterpret_cast<uint8_t*>(m_defaultUploadBuffer->getBufferPointer())+offsetInUploadBuffer,
-                                                reinterpret_cast<uint8_t const*>(srcBuffer->getPointer())+offsetInCPUBuffer,
-                                                eachRowNeededMemory);
+                                        memcpy(reinterpret_cast<uint8_t*>(m_defaultUploadBuffer->getBufferPointer()) + offsetInUploadBuffer,
+                                            reinterpret_cast<uint8_t const*>(srcBuffer->getPointer()) + offsetInCPUBuffer,
+                                            eachRowNeededMemory);
                                     }
                                 }
                             }
                         }
-                        else if (regionBlockStrides.y != imageExtentInBlocks.y)
+                        else if(regionBlockStrides.y != imageExtentInBlocks.y)
                         {
                             assert(imageOffsetInBlocks.x == 0u);
                             // Can't copy all slices at once, there is more padding at the end of slices, copy slice by slice
-                                    
+
                             for(uint32_t layer = 0; layer < uploadableArrayLayers; ++layer)
                             {
                                 for(uint32_t z = 0; z < imageExtentInBlocks.z; ++z)
@@ -524,9 +519,9 @@ void IUtilities::updateImageViaStagingBuffer(
                                     auto localImageOffset = core::vector3du32_SIMD(0u, 0u, 0u + z, currentLayerInRegion + layer);
                                     uint64_t offsetInCPUBuffer = region.bufferOffset + core::dot(localImageOffset, regionBlockStridesInBytes)[0];
                                     uint64_t offsetInUploadBuffer = currentUploadBufferOffset + layer * eachLayerNeededMemory + z * eachSliceNeededMemory;
-                                    memcpy( reinterpret_cast<uint8_t*>(m_defaultUploadBuffer->getBufferPointer())+offsetInUploadBuffer,
-                                            reinterpret_cast<uint8_t const*>(srcBuffer->getPointer())+offsetInCPUBuffer,
-                                            eachSliceNeededMemory);
+                                    memcpy(reinterpret_cast<uint8_t*>(m_defaultUploadBuffer->getBufferPointer()) + offsetInUploadBuffer,
+                                        reinterpret_cast<uint8_t const*>(srcBuffer->getPointer()) + offsetInCPUBuffer,
+                                        eachSliceNeededMemory);
                                 }
                             }
                         }
@@ -538,11 +533,11 @@ void IUtilities::updateImageViaStagingBuffer(
                             auto localImageOffset = core::vector3du32_SIMD(0u, 0u, 0u, currentLayerInRegion);
                             uint64_t offsetInCPUBuffer = region.bufferOffset + core::dot(localImageOffset, regionBlockStridesInBytes)[0];
                             uint64_t offsetInUploadBuffer = currentUploadBufferOffset;
-                            memcpy( reinterpret_cast<uint8_t*>(m_defaultUploadBuffer->getBufferPointer())+offsetInUploadBuffer,
-                                    reinterpret_cast<uint8_t const*>(srcBuffer->getPointer())+offsetInCPUBuffer,
-                                    layersToUploadMemorySize);
+                            memcpy(reinterpret_cast<uint8_t*>(m_defaultUploadBuffer->getBufferPointer()) + offsetInUploadBuffer,
+                                reinterpret_cast<uint8_t const*>(srcBuffer->getPointer()) + offsetInCPUBuffer,
+                                layersToUploadMemorySize);
                         }
-                                
+
                         asset::IImage::SBufferCopy bufferCopy;
                         bufferCopy.bufferOffset = currentUploadBufferOffset;
                         bufferCopy.bufferRowLength = imageExtentInBlocks.x * texelBlockDim.x;
@@ -550,12 +545,15 @@ void IUtilities::updateImageViaStagingBuffer(
                         bufferCopy.imageSubresource.aspectMask = region.imageSubresource.aspectMask;
                         bufferCopy.imageSubresource.mipLevel = region.imageSubresource.mipLevel;
                         bufferCopy.imageSubresource.baseArrayLayer = region.imageSubresource.baseArrayLayer + currentLayerInRegion;
-                        bufferCopy.imageOffset.x = region.imageOffset.x + 0u; assert(currentBlockInRow == 0);
-                        bufferCopy.imageOffset.y = region.imageOffset.y + 0u; assert(currentRowInSlice == 0);
-                        bufferCopy.imageOffset.z = region.imageOffset.z + 0u; assert(currentSliceInLayer == 0);
-                        bufferCopy.imageExtent.width    = imageExtent.x;
-                        bufferCopy.imageExtent.height   = imageExtent.y;
-                        bufferCopy.imageExtent.depth    = imageExtent.z;
+                        bufferCopy.imageOffset.x = region.imageOffset.x + 0u;
+                        assert(currentBlockInRow == 0);
+                        bufferCopy.imageOffset.y = region.imageOffset.y + 0u;
+                        assert(currentRowInSlice == 0);
+                        bufferCopy.imageOffset.z = region.imageOffset.z + 0u;
+                        assert(currentSliceInLayer == 0);
+                        bufferCopy.imageExtent.width = imageExtent.x;
+                        bufferCopy.imageExtent.height = imageExtent.y;
+                        bufferCopy.imageExtent.depth = imageExtent.z;
                         bufferCopy.imageSubresource.layerCount = uploadableArrayLayers;
                         regionsToCopy.push_back(bufferCopy);
 
@@ -572,13 +570,13 @@ void IUtilities::updateImageViaStagingBuffer(
                         if(filledAnySlicesOrRowsOrBlocksInLayer)
                             ret = true;
                     }
-                            
+
                     updateCurrentOffsets();
 
                     return ret;
                 };
 
-                    // There is remaining layers in region that needs copying
+                // There is remaining layers in region that needs copying
                 auto remainingLayersInRegion = region.imageSubresource.layerCount - currentLayerInRegion;
                 if(currentBlockInRow == 0 && currentRowInSlice == 0 && currentSliceInLayer == 0 && remainingLayersInRegion > 0)
                 {
@@ -586,37 +584,37 @@ void IUtilities::updateImageViaStagingBuffer(
                     if(success)
                         anyTransferRecorded = true;
                     else
-                        break; // not enough mem -> break
+                        break;  // not enough mem -> break
                 }
                 // There is remaining slices in layer that needs copying
-                else if (currentBlockInRow == 0 && currentRowInSlice == 0 && currentSliceInLayer > 0)
+                else if(currentBlockInRow == 0 && currentRowInSlice == 0 && currentSliceInLayer > 0)
                 {
                     assert(canTransferMipLevelsPartially);
                     bool success = tryFillLayer();
                     if(success)
                         anyTransferRecorded = true;
                     else
-                        break; // not enough mem -> break
+                        break;  // not enough mem -> break
                 }
                 // There is remaining rows in slice that needs copying
-                else if (currentBlockInRow == 0 && currentRowInSlice > 0)
+                else if(currentBlockInRow == 0 && currentRowInSlice > 0)
                 {
                     assert(canTransferMipLevelsPartially);
                     bool success = tryFillSlice();
                     if(success)
                         anyTransferRecorded = true;
                     else
-                        break; // not enough mem -> break
+                        break;  // not enough mem -> break
                 }
                 // There is remaining blocks in row that needs copying
-                else if (currentBlockInRow > 0)
+                else if(currentBlockInRow > 0)
                 {
                     assert(canTransferMipLevelsPartially);
                     bool success = tryFillRow();
                     if(success)
                         anyTransferRecorded = true;
                     else
-                        break; // not enough mem -> break
+                        break;  // not enough mem -> break
                 }
             }
 
@@ -626,16 +624,17 @@ void IUtilities::updateImageViaStagingBuffer(
             }
 
             assert(anyTransferRecorded && "uploadBufferSize is not enough to support the smallest possible transferable units to image, may be caused if your queueFam's minImageTransferGranularity is large or equal to <0,0,0>.");
-            
+
             // some platforms expose non-coherent host-visible GPU memory, so writes need to be flushed explicitly
-            if (m_defaultUploadBuffer.get()->needsManualFlushOrInvalidate()) {
+            if(m_defaultUploadBuffer.get()->needsManualFlushOrInvalidate())
+            {
                 IDriverMemoryAllocation::MappedMemoryRange flushRange(m_defaultUploadBuffer.get()->getBuffer()->getBoundMemory(), localOffset, uploadBufferSize);
                 m_device->flushMappedMemoryRanges(1u, &flushRange);
             }
         }
 
         // this doesn't actually free the memory, the memory is queued up to be freed only after the GPU fence/event is signalled
-        m_defaultUploadBuffer.get()->multi_free(1u, &localOffset, &uploadBufferSize, core::smart_refctd_ptr<IGPUFence>(fence), &cmdbuf); // can queue with a reset but not yet pending fence, just fine
+        m_defaultUploadBuffer.get()->multi_free(1u, &localOffset, &uploadBufferSize, core::smart_refctd_ptr<IGPUFence>(fence), &cmdbuf);  // can queue with a reset but not yet pending fence, just fine
     }
 }
 
@@ -643,15 +642,14 @@ void IUtilities::updateImageViaStagingBuffer(
     IGPUFence* fence, IGPUQueue* queue,
     asset::ICPUBuffer const* srcBuffer, const core::SRange<const asset::IImage::SBufferCopy>& regions, video::IGPUImage* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout,
     uint32_t waitSemaphoreCount, IGPUSemaphore* const* semaphoresToWaitBeforeOverwrite, const asset::E_PIPELINE_STAGE_FLAGS* stagesToWaitForPerSemaphore,
-    const uint32_t signalSemaphoreCount, IGPUSemaphore* const* semaphoresToSignal
-)
+    const uint32_t signalSemaphoreCount, IGPUSemaphore* const* semaphoresToSignal)
 {
-    core::smart_refctd_ptr<IGPUCommandPool> pool = m_device->createCommandPool(queue->getFamilyIndex(),IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
+    core::smart_refctd_ptr<IGPUCommandPool> pool = m_device->createCommandPool(queue->getFamilyIndex(), IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
     core::smart_refctd_ptr<IGPUCommandBuffer> cmdbuf;
-    m_device->createCommandBuffers(pool.get(),IGPUCommandBuffer::EL_PRIMARY,1u,&cmdbuf);
+    m_device->createCommandBuffers(pool.get(), IGPUCommandBuffer::EL_PRIMARY, 1u, &cmdbuf);
     assert(cmdbuf);
     cmdbuf->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
-    updateImageViaStagingBuffer(cmdbuf.get(),fence,queue,srcBuffer,regions,dstImage,dstImageLayout,waitSemaphoreCount,semaphoresToWaitBeforeOverwrite,stagesToWaitForPerSemaphore);
+    updateImageViaStagingBuffer(cmdbuf.get(), fence, queue, srcBuffer, regions, dstImage, dstImageLayout, waitSemaphoreCount, semaphoresToWaitBeforeOverwrite, stagesToWaitForPerSemaphore);
     cmdbuf->end();
     IGPUQueue::SSubmitInfo submit;
     submit.commandBufferCount = 1u;
@@ -662,20 +660,19 @@ void IUtilities::updateImageViaStagingBuffer(
     submit.waitSemaphoreCount = waitSemaphoreCount;
     submit.pWaitSemaphores = semaphoresToWaitBeforeOverwrite;
     submit.pWaitDstStageMask = stagesToWaitForPerSemaphore;
-    queue->submit(1u,&submit,fence);
+    queue->submit(1u, &submit, fence);
 }
 
 void IUtilities::updateImageViaStagingBuffer(
     IGPUQueue* queue,
     asset::ICPUBuffer const* srcBuffer, const core::SRange<const asset::IImage::SBufferCopy>& regions, video::IGPUImage* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout,
     uint32_t waitSemaphoreCount, IGPUSemaphore* const* semaphoresToWaitBeforeOverwrite, const asset::E_PIPELINE_STAGE_FLAGS* stagesToWaitForPerSemaphore,
-    const uint32_t signalSemaphoreCount, IGPUSemaphore* const* semaphoresToSignal
-)
+    const uint32_t signalSemaphoreCount, IGPUSemaphore* const* semaphoresToSignal)
 {
     auto fence = m_device->createFence(static_cast<IGPUFence::E_CREATE_FLAGS>(0));
-    updateImageViaStagingBuffer(fence.get(),queue,srcBuffer,regions,dstImage,dstImageLayout,waitSemaphoreCount,semaphoresToWaitBeforeOverwrite,stagesToWaitForPerSemaphore,signalSemaphoreCount,semaphoresToSignal);
+    updateImageViaStagingBuffer(fence.get(), queue, srcBuffer, regions, dstImage, dstImageLayout, waitSemaphoreCount, semaphoresToWaitBeforeOverwrite, stagesToWaitForPerSemaphore, signalSemaphoreCount, semaphoresToSignal);
     auto* fenceptr = fence.get();
-    m_device->blockForFences(1u,&fenceptr);
+    m_device->blockForFences(1u, &fenceptr);
 }
 
-} // namespace nbl::video
+}  // namespace nbl::video

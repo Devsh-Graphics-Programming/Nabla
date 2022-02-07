@@ -3,15 +3,14 @@
 
 namespace nbl::video
 {
-
 // public
-inline IBackendObject::IBackendObject(core::smart_refctd_ptr<const ILogicalDevice>&& device) : m_originDevice(std::move(device)) 
+inline IBackendObject::IBackendObject(core::smart_refctd_ptr<const ILogicalDevice>&& device)
+    : m_originDevice(std::move(device))
 {
     IBackendObject::setObjectDebugName(nullptr);
     m_debugName[MAX_DEBUG_NAME_LENGTH] = 0;
 }
 inline IBackendObject::~IBackendObject() {}
-
 
 inline E_API_TYPE IBackendObject::getAPIType() const
 {
@@ -20,15 +19,18 @@ inline E_API_TYPE IBackendObject::getAPIType() const
 
 inline bool IBackendObject::isCompatibleDevicewise(const IBackendObject* other) const
 {
-    return m_originDevice==other->m_originDevice;
+    return m_originDevice == other->m_originDevice;
 }
 
 inline bool IBackendObject::wasCreatedBy(const ILogicalDevice* device) const
 {
-    return m_originDevice.get()==device;
+    return m_originDevice.get() == device;
 }
 
-inline const ILogicalDevice* IBackendObject::getOriginDevice() const { return m_originDevice.get(); }
+inline const ILogicalDevice* IBackendObject::getOriginDevice() const
+{
+    return m_originDevice.get();
+}
 
 }
 

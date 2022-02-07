@@ -12,72 +12,71 @@
 
 namespace nbl::asset
 {
-
 // byte-align structures
 #include "nbl/nblpack.h"
 // these structs are also used in the TGA writer
 struct STGAHeader
 {
-	uint8_t IdLength;
-	uint8_t ColorMapType;
-	uint8_t ImageType;
-	uint8_t FirstEntryIndex[2];
-	uint16_t ColorMapLength;
-	uint8_t ColorMapEntrySize;
-	uint8_t XOrigin[2];
-	uint8_t YOrigin[2];
-	uint16_t ImageWidth;
-	uint16_t ImageHeight;
-	uint8_t PixelDepth;
-	uint8_t ImageDescriptor;
+    uint8_t IdLength;
+    uint8_t ColorMapType;
+    uint8_t ImageType;
+    uint8_t FirstEntryIndex[2];
+    uint16_t ColorMapLength;
+    uint8_t ColorMapEntrySize;
+    uint8_t XOrigin[2];
+    uint8_t YOrigin[2];
+    uint16_t ImageWidth;
+    uint16_t ImageHeight;
+    uint8_t PixelDepth;
+    uint8_t ImageDescriptor;
 };
-	
-// Note to maintainers: most of this (except gamma) goes unused, and the struct itself is ignored 
-// by most TGA readers/writers. But we have to use a full struct just to store gamma information, 
+
+// Note to maintainers: most of this (except gamma) goes unused, and the struct itself is ignored
+// by most TGA readers/writers. But we have to use a full struct just to store gamma information,
 // of course we can get around to just store gamma, but then it'd no longer be conformant to TGA standard.
 struct STGAExtensionArea
 {
-	uint16_t ExtensionSize;
-	char AuthorName[41];
-	char AuthorComment[324];
-	char DateTimeStamp[12];
-	char JobID[41];
-	char JobTime[6];
-	char SoftwareID[41];
-	char SoftwareVersion[3];
-	uint32_t KeyColor;
-	float PixelAspectRatio;
-	float Gamma;
-	uint32_t ColorCorrectionOffset;
-	uint32_t PostageStampOffset;
-	uint32_t ScanlineOffset;
-	uint8_t AttributeType;
+    uint16_t ExtensionSize;
+    char AuthorName[41];
+    char AuthorComment[324];
+    char DateTimeStamp[12];
+    char JobID[41];
+    char JobTime[6];
+    char SoftwareID[41];
+    char SoftwareVersion[3];
+    uint32_t KeyColor;
+    float PixelAspectRatio;
+    float Gamma;
+    uint32_t ColorCorrectionOffset;
+    uint32_t PostageStampOffset;
+    uint32_t ScanlineOffset;
+    uint8_t AttributeType;
 };
 
 struct STGAFooter
 {
-	uint32_t ExtensionOffset;
-	uint32_t DeveloperOffset;
-	char  Signature[18];
+    uint32_t ExtensionOffset;
+    uint32_t DeveloperOffset;
+    char Signature[18];
 };
 
 enum STANDARD_TGA_BITS
 {
-	STB_8_BITS = 8,
-	STB_16_BITS = 16,
-	STB_24_BITS = 24,
-	STB_32_BITS = 32,
-	STB_COUNT
+    STB_8_BITS = 8,
+    STB_16_BITS = 16,
+    STB_24_BITS = 24,
+    STB_32_BITS = 32,
+    STB_COUNT
 };
 
 enum STANDARD_TGA_IMAGE_TYPE
 {
-	STIT_NONE = 0,
-	STIT_UNCOMPRESSED_COLOR_MAPPED_IMAGE = 1,
-	STIT_UNCOMPRESSED_RGB_IMAGE = 2,
-	STIT_UNCOMPRESSED_GRAYSCALE_IMAGE = 3,
-	STIT_RLE_TRUE_COLOR_IMAGE = 10,
-	STIT_COUNT
+    STIT_NONE = 0,
+    STIT_UNCOMPRESSED_COLOR_MAPPED_IMAGE = 1,
+    STIT_UNCOMPRESSED_RGB_IMAGE = 2,
+    STIT_UNCOMPRESSED_GRAYSCALE_IMAGE = 3,
+    STIT_RLE_TRUE_COLOR_IMAGE = 10,
+    STIT_COUNT
 };
 // Default alignment
 #include "nbl/nblunpack.h"
@@ -87,29 +86,28 @@ enum STANDARD_TGA_IMAGE_TYPE
 */
 class CImageLoaderTGA final : public IImageLoader
 {
-	public:
-		CImageLoaderTGA() = default;
-		virtual bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const override;
+public:
+    CImageLoaderTGA() = default;
+    virtual bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const override;
 
-		virtual const char** getAssociatedFileExtensions() const override
-		{
-			static const char* ext[]{ "tga", nullptr };
-			return ext;
-		}
+    virtual const char** getAssociatedFileExtensions() const override
+    {
+        static const char* ext[]{"tga", nullptr};
+        return ext;
+    }
 
-		virtual uint64_t getSupportedAssetTypesBitfield() const override
-		{
-			return asset::IAsset::ET_IMAGE;
-		}
+    virtual uint64_t getSupportedAssetTypesBitfield() const override
+    {
+        return asset::IAsset::ET_IMAGE;
+    }
 
-		virtual asset::SAssetBundle loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
+    virtual asset::SAssetBundle loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
-
-	private:
-		//! loads a compressed tga. Was written and sent in by Jon Pry, thank you very much!
-		void loadCompressedImage(system::IFile *file, const STGAHeader& header, const uint32_t wholeSizeWithPitchInBytes, core::smart_refctd_ptr<ICPUBuffer>& bufferData) const;
+private:
+    //! loads a compressed tga. Was written and sent in by Jon Pry, thank you very much!
+    void loadCompressedImage(system::IFile* file, const STGAHeader& header, const uint32_t wholeSizeWithPitchInBytes, core::smart_refctd_ptr<ICPUBuffer>& bufferData) const;
 };
 
-} // end namespace nbl::asset
+}  // end namespace nbl::asset
 
 #endif

@@ -9,7 +9,6 @@
 
 namespace nbl::video
 {
-
 class IPhysicalDevice;
 
 class IAPIConnection : public core::IReferenceCounted
@@ -30,16 +29,17 @@ public:
     static core::SRange<const E_FEATURE> getDependentFeatures(const E_FEATURE feature);
 
 protected:
-    inline IAPIConnection() : m_physicalDevices(), m_rdoc_api(nullptr)
+    inline IAPIConnection()
+        : m_physicalDevices(), m_rdoc_api(nullptr)
     {
 #ifdef _NBL_PLATFORM_WINDOWS_
-        if (HMODULE mod = GetModuleHandleA("renderdoc.dll"))
+        if(HMODULE mod = GetModuleHandleA("renderdoc.dll"))
 #elif defined(_NBL_PLATFORM_ANDROID_)
-        if (void* mod = dlopen("libVkLayer_GLES_RenderDoc.so", RTLD_NOW | RTLD_NOLOAD))
+        if(void* mod = dlopen("libVkLayer_GLES_RenderDoc.so", RTLD_NOW | RTLD_NOLOAD))
 #elif defined(_NBL_PLATFORM_LINUX_)
-        if (void* mod = dlopen("librenderdoc.so", RTLD_NOW | RTLD_NOLOAD))
+        if(void* mod = dlopen("librenderdoc.so", RTLD_NOW | RTLD_NOLOAD))
 #else
-        if (false)
+        if(false)
 #endif
         {
 #if defined(_NBL_PLATFORM_WINDOWS_)
@@ -60,6 +60,5 @@ protected:
 };
 
 }
-
 
 #endif

@@ -4,7 +4,6 @@
 
 namespace nbl::video
 {
-
 CVulkanEvent::~CVulkanEvent()
 {
     const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());

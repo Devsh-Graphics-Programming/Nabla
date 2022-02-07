@@ -16,60 +16,59 @@ namespace nbl
 {
 namespace asset
 {
-
 //! Texture writer capable of saving in .ktx, .dds and .kmg file extensions
 class CGLIWriter final : public asset::IAssetWriter
 {
-	core::smart_refctd_ptr<system::ISystem> m_system;
-	protected:
-		virtual ~CGLIWriter() {}
+    core::smart_refctd_ptr<system::ISystem> m_system;
 
-	public:
-		explicit CGLIWriter(core::smart_refctd_ptr<system::ISystem>&& sys) : m_system(std::move(sys)) {}
+protected:
+    virtual ~CGLIWriter() {}
 
-		virtual const char** getAssociatedFileExtensions() const override
-		{
-			static const char* extensions[]{ "ktx", "dds", "kmg", nullptr };
-			return extensions;
-		}
+public:
+    explicit CGLIWriter(core::smart_refctd_ptr<system::ISystem>&& sys)
+        : m_system(std::move(sys)) {}
 
-		uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_IMAGE_VIEW; }
+    virtual const char** getAssociatedFileExtensions() const override
+    {
+        static const char* extensions[]{"ktx", "dds", "kmg", nullptr};
+        return extensions;
+    }
 
-		uint32_t getSupportedFlags() override { return asset::EWF_NONE | asset::EWF_BINARY; }
+    uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_IMAGE_VIEW; }
 
-		uint32_t getForcedFlags() override { return asset::EWF_NONE | asset::EWF_BINARY; }
+    uint32_t getSupportedFlags() override { return asset::EWF_NONE | asset::EWF_BINARY; }
 
-		bool writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr) override;
+    uint32_t getForcedFlags() override { return asset::EWF_NONE | asset::EWF_BINARY; }
 
-	protected:
+    bool writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr) override;
 
-	private:
-		bool writeGLIFile(system::IFile* file, const asset::ICPUImageView* imageView, const system::logger_opt_ptr logger);
+protected:
+private:
+    bool writeGLIFile(system::IFile* file, const asset::ICPUImageView* imageView, const system::logger_opt_ptr logger);
 
-		static inline bool doesItHaveFaces(const IImageView<ICPUImage>::E_TYPE& type)
-		{
-			switch (type)
-			{
-				case ICPUImageView::ET_CUBE_MAP: return true;
-				case ICPUImageView::ET_CUBE_MAP_ARRAY: return true;
-				default: return false;
-			}
-		}
-		static inline bool doesItHaveLayers(const IImageView<ICPUImage>::E_TYPE& type)
-		{
-			switch (type)
-			{
-				case ICPUImageView::ET_1D_ARRAY: return true;
-				case ICPUImageView::ET_2D_ARRAY: return true;
-				case ICPUImageView::ET_CUBE_MAP_ARRAY: return true;
-				default: return false;
-			}
-		}
-		
+    static inline bool doesItHaveFaces(const IImageView<ICPUImage>::E_TYPE& type)
+    {
+        switch(type)
+        {
+            case ICPUImageView::ET_CUBE_MAP: return true;
+            case ICPUImageView::ET_CUBE_MAP_ARRAY: return true;
+            default: return false;
+        }
+    }
+    static inline bool doesItHaveLayers(const IImageView<ICPUImage>::E_TYPE& type)
+    {
+        switch(type)
+        {
+            case ICPUImageView::ET_1D_ARRAY: return true;
+            case ICPUImageView::ET_2D_ARRAY: return true;
+            case ICPUImageView::ET_CUBE_MAP_ARRAY: return true;
+            default: return false;
+        }
+    }
 };
 
 }
 }
 
-#endif // _NBL_COMPILE_WITH_GLI_WRITER_
+#endif  // _NBL_COMPILE_WITH_GLI_WRITER_
 #endif

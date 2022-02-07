@@ -33,6 +33,6 @@
 #include "nbl/video/COpenGLEvent.h"
 #include "nbl/video/COpenGLFence.h"
 
-#endif //_NBL_PCH_IGNORE_PRIVATE_HEADERS
+#endif  //_NBL_PCH_IGNORE_PRIVATE_HEADERS
 
 #endif

@@ -6,25 +6,25 @@
 
 namespace nbl
 {
-	namespace asset
-	{
-		asset::SAssetBundle CBufferLoaderBIN::loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
-		{
-			if (!_file)
-				return {};
+namespace asset
+{
+asset::SAssetBundle CBufferLoaderBIN::loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
+{
+    if(!_file)
+        return {};
 
-			SContext ctx(_file->getSize());
-			ctx.file = _file;
-			system::future<size_t> read_future;
-			ctx.file->read(read_future, ctx.sourceCodeBuffer->getPointer(), 0u, ctx.sourceCodeBuffer->getSize());
-			read_future.get();
+    SContext ctx(_file->getSize());
+    ctx.file = _file;
+    system::future<size_t> read_future;
+    ctx.file->read(read_future, ctx.sourceCodeBuffer->getPointer(), 0u, ctx.sourceCodeBuffer->getSize());
+    read_future.get();
 
-			return SAssetBundle(nullptr,{std::move(ctx.sourceCodeBuffer)});
-		}
+    return SAssetBundle(nullptr, {std::move(ctx.sourceCodeBuffer)});
+}
 
-		bool CBufferLoaderBIN::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const
-		{
-			return true; // validation if needed
-		}
-	}
+bool CBufferLoaderBIN::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const
+{
+    return true;  // validation if needed
+}
+}
 }

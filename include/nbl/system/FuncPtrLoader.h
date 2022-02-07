@@ -9,24 +9,24 @@
 
 namespace nbl::system
 {
-
 class FuncPtrLoader : public core::Uncopyable
 {
-	protected:
-		FuncPtrLoader() = default;
-		FuncPtrLoader(FuncPtrLoader&& other)
-		{
-			operator=(std::move(other));
-		}
-		virtual ~FuncPtrLoader() = default;
+protected:
+    FuncPtrLoader() = default;
+    FuncPtrLoader(FuncPtrLoader&& other)
+    {
+        operator=(std::move(other));
+    }
+    virtual ~FuncPtrLoader() = default;
 
-		inline FuncPtrLoader& operator=(FuncPtrLoader&& other) {return *this;}
-	public:
-		virtual bool isLibraryLoaded() = 0;
+    inline FuncPtrLoader& operator=(FuncPtrLoader&& other) { return *this; }
 
-		virtual void* loadFuncPtr(const char* funcname) = 0;
+public:
+    virtual bool isLibraryLoaded() = 0;
 
-		/* When C++ gets reflection
+    virtual void* loadFuncPtr(const char* funcname) = 0;
+
+    /* When C++ gets reflection
 		template<typename FuncT>
 		auto loadFuncPtr()
 		{

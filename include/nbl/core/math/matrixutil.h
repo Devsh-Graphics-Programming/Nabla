@@ -10,8 +10,6 @@
 
 namespace nbl::core
 {
-
-
 //! TODO: OPTIMIZE THIS, DON'T PROMOTE THE MATRIX IF DON'T HAVE TO
 inline matrix4SIMD concatenateBFollowedByA(const matrix4SIMD& _a, const matrix3x4SIMD& _b)
 {

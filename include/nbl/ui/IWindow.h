@@ -12,7 +12,6 @@
 
 namespace nbl::ui
 {
-
 class ICursorControl;
 
 class IWindow : public core::IReferenceCounted
@@ -37,12 +36,10 @@ public:
         ECF_NONE = 0
     };
 
-
-   
     class IEventCallback : public core::IReferenceCounted
     {
     public:
-        [[nodiscard]] bool onWindowShown(IWindow* w) 
+        [[nodiscard]] bool onWindowShown(IWindow* w)
         {
             auto canShow = onWindowShown_impl();
             if(canShow)
@@ -54,7 +51,7 @@ public:
         [[nodiscard]] bool onWindowHidden(IWindow* w)
         {
             auto canHide = onWindowHidden_impl();
-            if (canHide)
+            if(canHide)
             {
                 w->m_flags |= ECF_HIDDEN;
             }
@@ -63,7 +60,7 @@ public:
         [[nodiscard]] bool onWindowMoved(IWindow* w, int32_t x, int32_t y)
         {
             auto canMove = onWindowMoved_impl(x, y);
-            if (canMove)
+            if(canMove)
             {
                 w->m_x = x;
                 w->m_y = y;
@@ -73,7 +70,7 @@ public:
         [[nodiscard]] bool onWindowResized(IWindow* w, uint32_t width, uint32_t height)
         {
             auto canResize = onWindowResized_impl(width, height);
-            if (canResize)
+            if(canResize)
             {
                 w->m_width = width;
                 w->m_height = height;
@@ -87,7 +84,7 @@ public:
         [[nodiscard]] bool onWindowMinimized(IWindow* w)
         {
             auto canMinimize = onWindowMinimized_impl();
-            if (canMinimize)
+            if(canMinimize)
             {
                 w->m_flags |= ECF_MINIMIZED;
                 w->m_flags &= (~core::bitflag(ECF_MAXIMIZED));
@@ -97,7 +94,7 @@ public:
         [[nodiscard]] bool onWindowMaximized(IWindow* w)
         {
             auto canMaximize = onWindowMaximized_impl();
-            if (canMaximize)
+            if(canMaximize)
             {
                 w->m_flags |= ECF_MAXIMIZED;
                 w->m_flags &= (~core::bitflag(ECF_MINIMIZED));
@@ -141,7 +138,7 @@ public:
         {
             onKeyboardDisconnected_impl(kbch);
         }
-        
+
     protected:
         virtual bool onWindowShown_impl() { return true; }
         virtual bool onWindowHidden_impl() { return true; }
@@ -174,16 +171,16 @@ public:
     };
     friend struct IEventCallback;
 
-    inline bool isFullscreen()      { return (m_flags.value & ECF_FULLSCREEN); }
-    inline bool isHidden()          { return (m_flags.value & ECF_HIDDEN); }
-    inline bool isBorderless()      { return (m_flags.value & ECF_BORDERLESS); }
-    inline bool isResizable()       { return (m_flags.value & ECF_RESIZABLE); }
-    inline bool isMinimized()       { return (m_flags.value & ECF_MINIMIZED); }
-    inline bool isMaximized()       { return (m_flags.value & ECF_MAXIMIZED); }
-    inline bool hasMouseCaptured()  { return (m_flags.value & ECF_MOUSE_CAPTURE); }
-    inline bool hasInputFocus()     { return (m_flags.value & ECF_INPUT_FOCUS); }
-    inline bool hasMouseFocus()     { return (m_flags.value & ECF_MOUSE_FOCUS); }
-    inline bool isAlwaysOnTop()     { return (m_flags.value & ECF_ALWAYS_ON_TOP); }
+    inline bool isFullscreen() { return (m_flags.value & ECF_FULLSCREEN); }
+    inline bool isHidden() { return (m_flags.value & ECF_HIDDEN); }
+    inline bool isBorderless() { return (m_flags.value & ECF_BORDERLESS); }
+    inline bool isResizable() { return (m_flags.value & ECF_RESIZABLE); }
+    inline bool isMinimized() { return (m_flags.value & ECF_MINIMIZED); }
+    inline bool isMaximized() { return (m_flags.value & ECF_MAXIMIZED); }
+    inline bool hasMouseCaptured() { return (m_flags.value & ECF_MOUSE_CAPTURE); }
+    inline bool hasInputFocus() { return (m_flags.value & ECF_INPUT_FOCUS); }
+    inline bool hasMouseFocus() { return (m_flags.value & ECF_MOUSE_FOCUS); }
+    inline bool isAlwaysOnTop() { return (m_flags.value & ECF_ALWAYS_ON_TOP); }
 
     inline uint32_t getWidth() const { return m_width; }
     inline uint32_t getHeight() const { return m_height; }
@@ -196,12 +193,12 @@ public:
     IEventCallback* getEventCallback() const { return m_cb.get(); }
 
     virtual void setCaption(const std::string_view& caption) = 0;
+
 protected:
     // TODO need to update constructors of all derived CWindow* classes
-    IWindow(SCreationParams&& params) :
-        m_cb(std::move(params.callback)), m_sys(std::move(params.system)), m_width(params.width), m_height(params.height), m_x(params.x), m_y(params.y), m_flags(params.flags)
+    IWindow(SCreationParams&& params)
+        : m_cb(std::move(params.callback)), m_sys(std::move(params.system)), m_width(params.width), m_height(params.height), m_x(params.x), m_y(params.y), m_flags(params.flags)
     {
-
     }
 
     virtual ~IWindow() = default;
@@ -209,13 +206,13 @@ protected:
     core::smart_refctd_ptr<IEventCallback> m_cb;
     core::smart_refctd_ptr<system::ISystem> m_sys;
     uint32_t m_width = 0u, m_height = 0u;
-    int32_t m_x, m_y; // gonna add it here until further instructions XD
+    int32_t m_x, m_y;  // gonna add it here until further instructions XD
     core::bitflag<E_CREATE_FLAGS> m_flags = static_cast<E_CREATE_FLAGS>(0u);
+
 public:
-        void setEventCallback(core::smart_refctd_ptr<IEventCallback>&& evCb) { m_cb = std::move(evCb); }
+    void setEventCallback(core::smart_refctd_ptr<IEventCallback>&& evCb) { m_cb = std::move(evCb); }
 };
 
 }
-
 
 #endif

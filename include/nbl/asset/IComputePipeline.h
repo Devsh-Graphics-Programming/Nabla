@@ -11,7 +11,6 @@
 
 namespace nbl::asset
 {
-
 //! Interface class for compute pipelines
 /*
 	This pipeline takes in Vulkan commands through 
@@ -26,28 +25,27 @@ namespace nbl::asset
 template<typename SpecShaderType, typename LayoutType>
 class IComputePipeline : public IPipeline<LayoutType>
 {
-    public:
-		_NBL_STATIC_INLINE_CONSTEXPR size_t SHADER_STAGE_COUNT = 1u;
+public:
+    _NBL_STATIC_INLINE_CONSTEXPR size_t SHADER_STAGE_COUNT = 1u;
 
-        const SpecShaderType* getShader() const { return m_shader.get(); }
-        inline const LayoutType* getLayout() const { return IPipeline<LayoutType>::m_layout.get(); }
+    const SpecShaderType* getShader() const { return m_shader.get(); }
+    inline const LayoutType* getLayout() const { return IPipeline<LayoutType>::m_layout.get(); }
 
-		IComputePipeline(
-			core::smart_refctd_ptr<LayoutType>&& _layout,
-			core::smart_refctd_ptr<SpecShaderType>&& _cs
-		) : IPipeline<LayoutType>(std::move(_layout)),
-			m_shader(std::move(_cs))
-		{
-            assert(m_shader->getStage() == IShader::ESS_COMPUTE);
-        }
+    IComputePipeline(
+        core::smart_refctd_ptr<LayoutType>&& _layout,
+        core::smart_refctd_ptr<SpecShaderType>&& _cs)
+        : IPipeline<LayoutType>(std::move(_layout)),
+          m_shader(std::move(_cs))
+    {
+        assert(m_shader->getStage() == IShader::ESS_COMPUTE);
+    }
 
-    protected:
-		virtual ~IComputePipeline() = default;
+protected:
+    virtual ~IComputePipeline() = default;
 
-		core::smart_refctd_ptr<SpecShaderType> m_shader;
+    core::smart_refctd_ptr<SpecShaderType> m_shader;
 };
 
 }
-
 
 #endif

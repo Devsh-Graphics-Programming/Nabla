@@ -7,7 +7,6 @@
 
 namespace nbl::video
 {
-
 class ILogicalDevice;
 
 class CVulkanDeferredOperation : public IDeferredOperation
@@ -15,12 +14,11 @@ class CVulkanDeferredOperation : public IDeferredOperation
 public:
     CVulkanDeferredOperation(core::smart_refctd_ptr<ILogicalDevice>&& dev, VkDeferredOperationKHR vkDeferredOp)
         : IDeferredOperation(std::move(dev)), m_deferredOp(vkDeferredOp)
-    { }
+    {}
 
 public:
-
     ~CVulkanDeferredOperation();
-    
+
     bool join() override;
     uint32_t getMaxConcurrency() override;
     E_STATUS getStatus() override;
@@ -33,10 +31,10 @@ public:
 
     static inline void* operator new(size_t size, void* where) noexcept
     {
-        return where; // done
+        return where;  // done
     }
 
-    static inline void operator delete (void* ptr, void* place) noexcept
+    static inline void operator delete(void* ptr, void* place) noexcept
     {
         assert(false && "don't use");
     }
@@ -46,7 +44,7 @@ public:
     static void operator delete[](void* ptr) noexcept = delete;
     static void operator delete(void* ptr, size_t size) noexcept
     {
-        operator delete(ptr); //roll back to own operator with no size
+        operator delete(ptr);  //roll back to own operator with no size
     }
     static void operator delete[](void* ptr, size_t size) noexcept = delete;
 

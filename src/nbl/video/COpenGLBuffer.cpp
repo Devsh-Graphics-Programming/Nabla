@@ -6,10 +6,9 @@
 
 namespace nbl::video
 {
-
 COpenGLBuffer::~COpenGLBuffer()
 {
-    if (BufferName == 0u)
+    if(BufferName == 0u)
         return;
     auto* device = static_cast<IOpenGL_LogicalDevice*>(const_cast<ILogicalDevice*>(getOriginDevice()));
     device->destroyBuffer(BufferName);

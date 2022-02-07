@@ -12,42 +12,41 @@
 
 namespace nbl::video
 {
-
 class ILogicalDevice;
 
 class CVulkanImage : public IGPUImage
 {
-	public:
-		CVulkanImage(core::smart_refctd_ptr<ILogicalDevice>&& _vkdev,
-			IGPUImage::SCreationParams&& _params, VkImage _vkimg,
-			const IDriverMemoryBacked::SDriverMemoryRequirements& reqs = IDriverMemoryBacked::SDriverMemoryRequirements())
-			: IGPUImage(std::move(_vkdev), std::move(_params), reqs), m_vkImage(_vkimg)
-		{}
+public:
+    CVulkanImage(core::smart_refctd_ptr<ILogicalDevice>&& _vkdev,
+        IGPUImage::SCreationParams&& _params, VkImage _vkimg,
+        const IDriverMemoryBacked::SDriverMemoryRequirements& reqs = IDriverMemoryBacked::SDriverMemoryRequirements())
+        : IGPUImage(std::move(_vkdev), std::move(_params), reqs), m_vkImage(_vkimg)
+    {}
 
-		inline VkImage getInternalObject() const { return m_vkImage; }
+    inline VkImage getInternalObject() const { return m_vkImage; }
 
-		inline IDriverMemoryAllocation* getBoundMemory() override { return m_memory.get(); }
+    inline IDriverMemoryAllocation* getBoundMemory() override { return m_memory.get(); }
 
-		inline const IDriverMemoryAllocation* getBoundMemory() const override { return m_memory.get(); }
+    inline const IDriverMemoryAllocation* getBoundMemory() const override { return m_memory.get(); }
 
-		inline size_t getBoundMemoryOffset() const override { return m_memBindingOffset; }
+    inline size_t getBoundMemoryOffset() const override { return m_memBindingOffset; }
 
-		inline void setMemoryAndOffset(core::smart_refctd_ptr<IDriverMemoryAllocation>&& memory, uint64_t memBindingOffset)
-		{
-			m_memory = std::move(memory);
-			m_memBindingOffset = memBindingOffset;
-		}
+    inline void setMemoryAndOffset(core::smart_refctd_ptr<IDriverMemoryAllocation>&& memory, uint64_t memBindingOffset)
+    {
+        m_memory = std::move(memory);
+        m_memBindingOffset = memBindingOffset;
+    }
 
-		void setObjectDebugName(const char* label) const override;
+    void setObjectDebugName(const char* label) const override;
 
-	protected:
-		virtual ~CVulkanImage();
+protected:
+    virtual ~CVulkanImage();
 
-		core::smart_refctd_ptr<IDriverMemoryAllocation> m_memory = nullptr;
-		uint64_t m_memBindingOffset;
-		VkImage m_vkImage;
+    core::smart_refctd_ptr<IDriverMemoryAllocation> m_memory = nullptr;
+    uint64_t m_memBindingOffset;
+    VkImage m_vkImage;
 };
 
-} // end namespace nbl::video
+}  // end namespace nbl::video
 
 #endif

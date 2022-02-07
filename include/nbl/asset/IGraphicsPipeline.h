@@ -6,7 +6,6 @@
 
 namespace nbl::asset
 {
-
 template<typename RenderpassIndependentType, typename RenderpassType>
 class IGraphicsPipeline
 {
@@ -31,14 +30,14 @@ public:
 
         auto& rp = params.renderpass;
         uint32_t sp = params.subpassIx;
-        if (sp >= rp->getSubpasses().size())
+        if(sp >= rp->getSubpasses().size())
             return false;
         return true;
     }
 
-    explicit IGraphicsPipeline(SCreationParams&& _params) : m_params(std::move(_params))
+    explicit IGraphicsPipeline(SCreationParams&& _params)
+        : m_params(std::move(_params))
     {
-
     }
 
     const renderpass_independent_t* getRenderpassIndependentPipeline() const { return m_params.renderpassIndependent.get(); }

@@ -6,7 +6,6 @@
 
 namespace nbl::video
 {
-
 class ILogicalDevice;
 class CVulkanDescriptorPool;
 
@@ -18,7 +17,7 @@ public:
         core::smart_refctd_ptr<const CVulkanDescriptorPool>&& parentPool,
         VkDescriptorSet descriptorSet)
         : IGPUDescriptorSet(std::move(dev), std::move(layout)), m_parentPool(std::move(parentPool)),
-        m_descriptorSet(descriptorSet)
+          m_descriptorSet(descriptorSet)
     {}
 
     inline VkDescriptorSet getInternalObject() const { return m_descriptorSet; }

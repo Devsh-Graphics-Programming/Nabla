@@ -6,7 +6,6 @@
 
 namespace nbl::video
 {
-
 class ILogicalDevice;
 
 class CVulkanQueue final : public IGPUQueue
@@ -28,7 +27,7 @@ public:
 
 private:
     renderdoc_api_t* m_rdoc_api;
-	VkInstance m_vkInstance;
+    VkInstance m_vkInstance;
     VkQueue m_vkQueue;
 };
 

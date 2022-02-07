@@ -14,17 +14,14 @@
 
 namespace nbl::video
 {
-
-class IGPUMeshBuffer final : public asset::IMeshBuffer<IGPUBuffer,IGPUDescriptorSet,IGPURenderpassIndependentPipeline>
+class IGPUMeshBuffer final : public asset::IMeshBuffer<IGPUBuffer, IGPUDescriptorSet, IGPURenderpassIndependentPipeline>
 {
-    public:
-        using base_t = asset::IMeshBuffer<IGPUBuffer,IGPUDescriptorSet,IGPURenderpassIndependentPipeline>;
+public:
+    using base_t = asset::IMeshBuffer<IGPUBuffer, IGPUDescriptorSet, IGPURenderpassIndependentPipeline>;
 
-        using base_t::base_t;
+    using base_t::base_t;
 };
 
-} // end namespace nbl::video
+}  // end namespace nbl::video
 
 #endif
-
-

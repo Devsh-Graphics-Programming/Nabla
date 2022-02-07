@@ -16,39 +16,39 @@ namespace nbl
 {
 namespace asset
 {
-
 class CImageWriterPNG : public asset::IAssetWriter
 {
     core::smart_refctd_ptr<system::ISystem> m_system;
+
 public:
     struct SContext
     {
-        SContext(system::ISystem* sys, const system::logger_opt_ptr log) : system(sys), logger(log) {}
+        SContext(system::ISystem* sys, const system::logger_opt_ptr log)
+            : system(sys), logger(log) {}
         system::ISystem* system;
         size_t file_pos = 0;
         system::logger_opt_ptr logger;
     };
     //! constructor
     explicit CImageWriterPNG(core::smart_refctd_ptr<system::ISystem>&& sys);
-    
+
     virtual const char** getAssociatedFileExtensions() const
     {
-        static const char* ext[]{ "png", nullptr };
+        static const char* ext[]{"png", nullptr};
         return ext;
     }
-    
+
     virtual uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_IMAGE_VIEW; }
-    
+
     virtual uint32_t getSupportedFlags() override { return 0u; }
-    
+
     virtual uint32_t getForcedFlags() { return asset::EWF_BINARY; }
-    
+
     virtual bool writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr) override;
 };
 
-} // namespace video
-} // namespace nbl
+}  // namespace video
+}  // namespace nbl
 
 #endif
 #endif
-

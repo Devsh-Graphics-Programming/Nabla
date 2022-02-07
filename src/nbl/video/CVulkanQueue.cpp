@@ -7,7 +7,6 @@
 
 namespace nbl::video
 {
-
 bool CVulkanQueue::submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFence* _fence)
 {
     auto* vk = static_cast<const CVulkanLogicalDevice*>(m_originDevice)->getFunctionTable();
@@ -16,7 +15,7 @@ bool CVulkanQueue::submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFenc
     uint32_t signalSemCnt = 0u;
     uint32_t cmdBufCnt = 0u;
 
-    for (uint32_t i = 0u; i < _count; ++i)
+    for(uint32_t i = 0u; i < _count; ++i)
     {
         const auto& sb = _submits[i];
         waitSemCnt += sb.waitSemaphoreCount;
@@ -24,17 +23,17 @@ bool CVulkanQueue::submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFenc
         cmdBufCnt += sb.commandBufferCount;
     }
 
-    constexpr uint32_t STACK_MEM_SIZE = 1u<<15;
+    constexpr uint32_t STACK_MEM_SIZE = 1u << 15;
     uint8_t stackmem_[STACK_MEM_SIZE]{};
     uint8_t* mem = stackmem_;
     uint32_t memSize = STACK_MEM_SIZE;
 
-    const uint32_t submitsSz = sizeof(VkSubmitInfo)*_count;
-    const uint32_t memNeeded = submitsSz + (waitSemCnt + signalSemCnt)*sizeof(VkSemaphore) + cmdBufCnt*sizeof(VkCommandBuffer);
-    if (memNeeded > memSize)
+    const uint32_t submitsSz = sizeof(VkSubmitInfo) * _count;
+    const uint32_t memNeeded = submitsSz + (waitSemCnt + signalSemCnt) * sizeof(VkSemaphore) + cmdBufCnt * sizeof(VkCommandBuffer);
+    if(memNeeded > memSize)
     {
         memSize = memNeeded;
-        mem = reinterpret_cast<uint8_t*>( _NBL_ALIGNED_MALLOC(memSize, _NBL_SIMD_ALIGNMENT) );
+        mem = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(memSize, _NBL_SIMD_ALIGNMENT));
     }
 
     // Todo(achal): FREE ONLY IF _NBL_ALIGNED_MALLOC was called
@@ -44,22 +43,22 @@ bool CVulkanQueue::submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFenc
     mem += submitsSz;
 
     VkSemaphore* waitSemaphores = reinterpret_cast<VkSemaphore*>(mem);
-    mem += waitSemCnt*sizeof(VkSemaphore);
+    mem += waitSemCnt * sizeof(VkSemaphore);
     VkSemaphore* signalSemaphores = reinterpret_cast<VkSemaphore*>(mem);
-    mem += signalSemCnt*sizeof(VkSemaphore);
+    mem += signalSemCnt * sizeof(VkSemaphore);
     VkCommandBuffer* cmdbufs = reinterpret_cast<VkCommandBuffer*>(mem);
-    mem += cmdBufCnt*sizeof(VkCommandBuffer);
+    mem += cmdBufCnt * sizeof(VkCommandBuffer);
 
     uint32_t waitSemOffset = 0u;
     uint32_t signalSemOffset = 0u;
     uint32_t cmdBufOffset = 0u;
-    for (uint32_t i = 0u; i < _count; ++i)
+    for(uint32_t i = 0u; i < _count; ++i)
     {
         auto& sb = submits[i];
 
         const SSubmitInfo& _sb = _submits[i];
 #ifdef _NBL_DEBUG
-        for (uint32_t j = 0u; j < _sb.commandBufferCount; ++j)
+        for(uint32_t j = 0u; j < _sb.commandBufferCount; ++j)
             assert(_sb.commandBuffers[j]->getLevel() != CVulkanCommandBuffer::EL_SECONDARY);
 #endif
 
@@ -75,15 +74,15 @@ bool CVulkanQueue::submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFenc
         sb.pSignalSemaphores = signals;
         sb.signalSemaphoreCount = _sb.signalSemaphoreCount;
 
-        for (uint32_t j = 0u; j < sb.waitSemaphoreCount; ++j)
+        for(uint32_t j = 0u; j < sb.waitSemaphoreCount; ++j)
         {
             waits[j] = static_cast<CVulkanSemaphore*>(_sb.pWaitSemaphores[j])->getInternalObject();
         }
-        for (uint32_t j = 0u; j < sb.signalSemaphoreCount; ++j)
+        for(uint32_t j = 0u; j < sb.signalSemaphoreCount; ++j)
         {
             signals[j] = static_cast<CVulkanSemaphore*>(_sb.pSignalSemaphores[j])->getInternalObject();
         }
-        for (uint32_t j = 0u; j < sb.commandBufferCount; ++j)
+        for(uint32_t j = 0u; j < sb.commandBufferCount; ++j)
         {
             commandBuffers[j] = reinterpret_cast<CVulkanCommandBuffer*>(_sb.commandBuffers[j])->getInternalObject();
         }
@@ -97,7 +96,7 @@ bool CVulkanQueue::submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFenc
     }
 
     VkFence fence = _fence ? static_cast<CVulkanFence*>(_fence)->getInternalObject() : VK_NULL_HANDLE;
-    if (vk->vk.vkQueueSubmit(m_vkQueue, _count, submits, fence) == VK_SUCCESS)
+    if(vk->vk.vkQueueSubmit(m_vkQueue, _count, submits, fence) == VK_SUCCESS)
         return true;
 
     return false;
@@ -109,9 +108,9 @@ ISwapchain::E_PRESENT_RESULT CVulkanQueue::present(const SPresentInfo& info)
 
     assert(info.waitSemaphoreCount <= 100);
     VkSemaphore vk_waitSemaphores[100];
-    for (uint32_t i = 0u; i < info.waitSemaphoreCount; ++i)
+    for(uint32_t i = 0u; i < info.waitSemaphoreCount; ++i)
     {
-        if (info.waitSemaphores[i]->getAPIType() != EAT_VULKAN)
+        if(info.waitSemaphores[i]->getAPIType() != EAT_VULKAN)
             return ISwapchain::EPR_ERROR;
 
         vk_waitSemaphores[i] = static_cast<const CVulkanSemaphore*>(info.waitSemaphores[i])->getInternalObject();
@@ -119,15 +118,15 @@ ISwapchain::E_PRESENT_RESULT CVulkanQueue::present(const SPresentInfo& info)
 
     assert(info.swapchainCount <= 5);
     VkSwapchainKHR vk_swapchains[5];
-    for (uint32_t i = 0u; i < info.swapchainCount; ++i)
+    for(uint32_t i = 0u; i < info.swapchainCount; ++i)
     {
-        if (info.swapchains[i]->getAPIType() != EAT_VULKAN)
+        if(info.swapchains[i]->getAPIType() != EAT_VULKAN)
             return ISwapchain::EPR_ERROR;
 
         vk_swapchains[i] = static_cast<const CVulkanSwapchain*>(info.swapchains[i])->getInternalObject();
     }
 
-    VkPresentInfoKHR presentInfo = { VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
+    VkPresentInfoKHR presentInfo = {VK_STRUCTURE_TYPE_PRESENT_INFO_KHR};
     presentInfo.waitSemaphoreCount = info.waitSemaphoreCount;
     presentInfo.pWaitSemaphores = vk_waitSemaphores;
     presentInfo.swapchainCount = info.swapchainCount;
@@ -135,29 +134,29 @@ ISwapchain::E_PRESENT_RESULT CVulkanQueue::present(const SPresentInfo& info)
     presentInfo.pImageIndices = info.imgIndices;
 
     VkResult retval = vk->vk.vkQueuePresentKHR(m_vkQueue, &presentInfo);
-    switch (retval)
+    switch(retval)
     {
-    case VK_SUCCESS:
-        return ISwapchain::EPR_SUCCESS;
-    case VK_SUBOPTIMAL_KHR:
-        return ISwapchain::EPR_SUBOPTIMAL;
-    default:
-        return ISwapchain::EPR_ERROR;
+        case VK_SUCCESS:
+            return ISwapchain::EPR_SUCCESS;
+        case VK_SUBOPTIMAL_KHR:
+            return ISwapchain::EPR_SUBOPTIMAL;
+        default:
+            return ISwapchain::EPR_ERROR;
     }
 }
 
-bool CVulkanQueue::startCapture() 
+bool CVulkanQueue::startCapture()
 {
-	if(m_rdoc_api == nullptr)
-		return false;
+    if(m_rdoc_api == nullptr)
+        return false;
     m_rdoc_api->StartFrameCapture(RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(m_vkInstance), NULL);
-	return true;
+    return true;
 }
 bool CVulkanQueue::endCapture()
 {
-	if(m_rdoc_api == nullptr)
-		return false;
+    if(m_rdoc_api == nullptr)
+        return false;
     m_rdoc_api->EndFrameCapture(RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(m_vkInstance), NULL);
-	return true;
+    return true;
 }
 }

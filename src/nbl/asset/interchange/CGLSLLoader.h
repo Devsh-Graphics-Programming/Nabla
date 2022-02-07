@@ -14,51 +14,49 @@ namespace nbl
 {
 namespace asset
 {
-
 //!  Surface Loader for PNG files
 class CGLSLLoader final : public asset::IAssetLoader
 {
-	public:
-		CGLSLLoader() = default;
-		bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger = nullptr) const override
-		{
-			char tmp[10] = { 0 };
-			char* end = tmp+sizeof(tmp);
-			auto filesize = _file->getSize();
-			size_t readPos = 0;
-			while (readPos+sizeof(tmp)<filesize)
-			{
-				system::future<size_t> future;
-				_file->read(future, tmp, readPos, sizeof tmp);
-				size_t count = future.get();
-				
-				if (strncmp(tmp,"#version ",9u)==0)
-					return true;
-				auto found = std::find(tmp,end,'#');
-				if (found==end || found==tmp)
-				{
-					readPos += count;
-					continue;
-				}
-				readPos += found - end;
-			}
+public:
+    CGLSLLoader() = default;
+    bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger = nullptr) const override
+    {
+        char tmp[10] = {0};
+        char* end = tmp + sizeof(tmp);
+        auto filesize = _file->getSize();
+        size_t readPos = 0;
+        while(readPos + sizeof(tmp) < filesize)
+        {
+            system::future<size_t> future;
+            _file->read(future, tmp, readPos, sizeof tmp);
+            size_t count = future.get();
 
-			return false;
-		}
+            if(strncmp(tmp, "#version ", 9u) == 0)
+                return true;
+            auto found = std::find(tmp, end, '#');
+            if(found == end || found == tmp)
+            {
+                readPos += count;
+                continue;
+            }
+            readPos += found - end;
+        }
 
-		const char** getAssociatedFileExtensions() const override
-		{
-			static const char* ext[]{ "vert","tesc","tese","geom","frag","comp", nullptr };
-			return ext;
-		}
+        return false;
+    }
 
-		uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_SPECIALIZED_SHADER; }
+    const char** getAssociatedFileExtensions() const override
+    {
+        static const char* ext[]{"vert", "tesc", "tese", "geom", "frag", "comp", nullptr};
+        return ext;
+    }
 
-		asset::SAssetBundle loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
+    uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_SPECIALIZED_SHADER; }
+
+    asset::SAssetBundle loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 };
 
-} // namespace asset
-} // namespace nbl
+}  // namespace asset
+}  // namespace nbl
 
 #endif
-

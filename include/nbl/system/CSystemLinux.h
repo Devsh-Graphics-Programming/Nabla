@@ -4,10 +4,9 @@
 #include "nbl/system/ISystem.h"
 namespace nbl::system
 {
-	class CSystemLinux : public ISystem
-	{
-
-	};
+class CSystemLinux : public ISystem
+{
+};
 }
 #endif
 #endif

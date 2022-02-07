@@ -7,10 +7,8 @@
 
 namespace nbl
 {
-
 namespace asset
 {
-
 class ISPIRVOptimizer final : public core::IReferenceCounted
 {
 public:
@@ -39,7 +37,8 @@ public:
         EOP_COUNT
     };
 
-    ISPIRVOptimizer(std::initializer_list<E_OPTIMIZER_PASS> _passes) : m_passes(std::move(_passes)) {}
+    ISPIRVOptimizer(std::initializer_list<E_OPTIMIZER_PASS> _passes)
+        : m_passes(std::move(_passes)) {}
 
     core::smart_refctd_ptr<ICPUBuffer> optimize(const uint32_t* _spirv, uint32_t _dwordCount, system::logger_opt_ptr logger) const;
     core::smart_refctd_ptr<ICPUBuffer> optimize(const ICPUBuffer* _spirv, system::logger_opt_ptr logger) const;

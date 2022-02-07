@@ -37,7 +37,6 @@
 // builtins/headers
 #include "nbl/asset/utils/CGLSLVirtualTexturingBuiltinIncludeLoader.h"
 
-
 // mesh
 #include "nbl/asset/utils/CGeometryCreator.h"
 // loaders
@@ -62,6 +61,6 @@
 //#include "nbl/asset/bawformat/CBAWMeshWriter.h"
 #endif
 
-#endif //_NBL_PCH_IGNORE_PRIVATE_HEADERS
+#endif  //_NBL_PCH_IGNORE_PRIVATE_HEADERS
 
 #endif

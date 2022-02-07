@@ -6,10 +6,10 @@
 #include "nbl/video/IOpenGL_FunctionTable.h"
 #include "nbl/video/COpenGLImageView.h"
 
-namespace nbl {
+namespace nbl
+{
 namespace video
 {
-
 class IOpenGL_LogicalDevice;
 
 class COpenGLFramebuffer final : public IGPUFramebuffer
@@ -18,8 +18,8 @@ public:
 #include "nbl/nblpack.h"
     struct hash_element_t
     {
-        using id_t = uint64_t; 
-        id_t id;// reinterpret_cast of pointer
+        using id_t = uint64_t;
+        id_t id;  // reinterpret_cast of pointer
         uint32_t mip;
         uint32_t baseLayer;
         uint32_t layerCount;
@@ -28,7 +28,7 @@ public:
         inline bool operator!=(const hash_element_t& rhs) const { return !operator==(rhs); }
     } PACK_STRUCT;
 #include "nbl/nblunpack.h"
-    using hash_t = std::array<hash_element_t, IGPURenderpass::SCreationParams::MaxColorAttachments+1u>;
+    using hash_t = std::array<hash_element_t, IGPURenderpass::SCreationParams::MaxColorAttachments + 1u>;
 
 private:
     using base_t = IGPUFramebuffer;
@@ -61,7 +61,7 @@ public:
         gl->extGlCreateFramebuffers(1u, &fbo);
         auto* glimg = static_cast<const COpenGLImage*>(img);
         const GLenum textarget = glimg->getOpenGLTarget();
-        if (layer < 0)
+        if(layer < 0)
             gl->extGlNamedFramebufferTexture(fbo, GL_COLOR_ATTACHMENT0, glimg->getOpenGLName(), mip, textarget);
         else
             gl->extGlNamedFramebufferTextureLayer(fbo, GL_COLOR_ATTACHMENT0, glimg->getOpenGLName(), glimg->getOpenGLTarget(), mip, layer);
@@ -70,7 +70,7 @@ public:
 
         GLenum status = gl->extGlCheckNamedFramebufferStatus(fbo, GL_FRAMEBUFFER);
         assert(status == GL_FRAMEBUFFER_COMPLETE);
-        if (status != GL_FRAMEBUFFER_COMPLETE)
+        if(status != GL_FRAMEBUFFER_COMPLETE)
         {
             gl->glFramebuffer.pglDeleteFramebuffers(1, &fbo);
             return 0u;
@@ -89,22 +89,23 @@ public:
         const GLenum textarget = glimg->getOpenGLTarget();
         auto format = glimg->getCreationParameters().format;
         GLenum attpoint = GL_INVALID_ENUM;
-        if (asset::isDepthOnlyFormat(format))
+        if(asset::isDepthOnlyFormat(format))
             attpoint = GL_DEPTH_ATTACHMENT;
-        else if (asset::isStencilOnlyFormat(format))
+        else if(asset::isStencilOnlyFormat(format))
             attpoint = GL_STENCIL_ATTACHMENT;
-        else if (asset::isDepthOrStencilFormat(format))
+        else if(asset::isDepthOrStencilFormat(format))
             attpoint = GL_DEPTH_STENCIL_ATTACHMENT;
-        else return 0u;
+        else
+            return 0u;
         gl->extGlCreateFramebuffers(1u, &fbo);
-        if (layer < 0)
+        if(layer < 0)
             gl->extGlNamedFramebufferTexture(fbo, attpoint, glimg->getOpenGLName(), mip, textarget);
         else
             gl->extGlNamedFramebufferTextureLayer(fbo, attpoint, glimg->getOpenGLName(), glimg->getOpenGLTarget(), mip, layer);
 
         GLenum status = gl->extGlCheckNamedFramebufferStatus(fbo, GL_FRAMEBUFFER);
         assert(status == GL_FRAMEBUFFER_COMPLETE);
-        if (status != GL_FRAMEBUFFER_COMPLETE)
+        if(status != GL_FRAMEBUFFER_COMPLETE)
         {
             gl->glFramebuffer.pglDeleteFramebuffers(1, &fbo);
             return 0u;
@@ -119,21 +120,21 @@ public:
         const auto* attachments = m_params.attachments;
 
         hash_t hash;
-        memset(hash.data(), 0, sizeof(hash_t::value_type)*hash.size());
-        for (uint32_t i = 0u; i < sub.colorAttachmentCount; ++i)
+        memset(hash.data(), 0, sizeof(hash_t::value_type) * hash.size());
+        for(uint32_t i = 0u; i < sub.colorAttachmentCount; ++i)
         {
             uint32_t a = sub.colorAttachments[i].attachment;
-            if (a == IGPURenderpass::ATTACHMENT_UNUSED)
+            if(a == IGPURenderpass::ATTACHMENT_UNUSED)
                 continue;
 
             auto& att = attachments[a];
-            static_assert(sizeof(hash_t::value_type::id_t)==sizeof(void*), "Bad reinterpret_cast!");
+            static_assert(sizeof(hash_t::value_type::id_t) == sizeof(void*), "Bad reinterpret_cast!");
             hash[i].id = reinterpret_cast<hash_t::value_type::id_t>(att.get());
             hash[i].baseLayer = 0u;
             hash[i].layerCount = att->getCreationParameters().subresourceRange.layerCount;
             hash[i].mip = 0u;
         }
-        if (sub.depthStencilAttachment && sub.depthStencilAttachment->attachment != IGPURenderpass::ATTACHMENT_UNUSED)
+        if(sub.depthStencilAttachment && sub.depthStencilAttachment->attachment != IGPURenderpass::ATTACHMENT_UNUSED)
         {
             auto& att = attachments[sub.depthStencilAttachment->attachment];
             hash[IGPURenderpass::SCreationParams::MaxColorAttachments].id = reinterpret_cast<hash_t::value_type::id_t>(att.get());
@@ -153,14 +154,14 @@ public:
 
         GLuint fbo = 0u;
         gl->extGlCreateFramebuffers(1u, &fbo);
-        if (!fbo)
+        if(!fbo)
             return 0u;
 
-        GLenum drawbuffers[IGPURenderpass::SCreationParams::MaxColorAttachments] = { 0 }; // GL_NONE
-        for (uint32_t i = 0u; i < sub.colorAttachmentCount; ++i)
+        GLenum drawbuffers[IGPURenderpass::SCreationParams::MaxColorAttachments] = {0};  // GL_NONE
+        for(uint32_t i = 0u; i < sub.colorAttachmentCount; ++i)
         {
             const uint32_t a = sub.colorAttachments[i].attachment;
-            if (a != IGPURenderpass::ATTACHMENT_UNUSED)
+            if(a != IGPURenderpass::ATTACHMENT_UNUSED)
             {
                 const auto& att = attachments[a];
                 const auto& d = descriptions[a];
@@ -174,9 +175,9 @@ public:
                 //gl->glTexture.pglBindTexture(GL_TEXTURE_2D, 0);
             }
 
-            drawbuffers[i] = (a != IGPURenderpass::ATTACHMENT_UNUSED) ?  (GL_COLOR_ATTACHMENT0 + i) : GL_NONE;
+            drawbuffers[i] = (a != IGPURenderpass::ATTACHMENT_UNUSED) ? (GL_COLOR_ATTACHMENT0 + i) : GL_NONE;
         }
-        if (sub.depthStencilAttachment)
+        if(sub.depthStencilAttachment)
         {
             const auto& att = attachments[sub.depthStencilAttachment->attachment];
             auto* glatt = static_cast<COpenGLImageView*>(att.get());
@@ -186,13 +187,14 @@ public:
             const asset::E_FORMAT format = att->getCreationParameters().format;
 
             GLenum attpoint = GL_INVALID_ENUM;
-            if (asset::isDepthOnlyFormat(format))
+            if(asset::isDepthOnlyFormat(format))
                 attpoint = GL_DEPTH_ATTACHMENT;
-            else if (asset::isStencilOnlyFormat(format))
+            else if(asset::isStencilOnlyFormat(format))
                 attpoint = GL_STENCIL_ATTACHMENT;
-            else if (asset::isDepthOrStencilFormat(format))
+            else if(asset::isDepthOrStencilFormat(format))
                 attpoint = GL_DEPTH_STENCIL_ATTACHMENT;
-            else {
+            else
+            {
                 gl->glFramebuffer.pglDeleteFramebuffers(1, &fbo);
                 return 0u;
             }
@@ -204,7 +206,7 @@ public:
 
         GLenum status = gl->extGlCheckNamedFramebufferStatus(fbo, GL_FRAMEBUFFER);
         assert(status == GL_FRAMEBUFFER_COMPLETE);
-        if (status != GL_FRAMEBUFFER_COMPLETE)
+        if(status != GL_FRAMEBUFFER_COMPLETE)
         {
             gl->glFramebuffer.pglDeleteFramebuffers(1, &fbo);
             return 0u;
@@ -212,7 +214,7 @@ public:
         gl->glGeneral.pglFlush();
 
         const char* dbgname = getObjectDebugName();
-        if (dbgname[0])
+        if(dbgname[0])
         {
             gl->extGlObjectLabel(GL_FRAMEBUFFER, fbo, strlen(dbgname), dbgname);
         }

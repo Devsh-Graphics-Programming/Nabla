@@ -7,7 +7,6 @@
 
 namespace nbl::video
 {
-
 class ILogicalDevice;
 
 class CVulkanBufferView : public IGPUBufferView
@@ -22,7 +21,7 @@ public:
     inline VkBufferView getInternalObject() const { return m_vkBufferView; }
 
     ~CVulkanBufferView();
-	
+
     void setObjectDebugName(const char* label) const override;
 
 private:

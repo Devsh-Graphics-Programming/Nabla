@@ -6,13 +6,12 @@
 
 namespace nbl::asset::material_compiler
 {
-
 auto CMaterialCompilerGLSLRasterBackend::compile(SContext* _ctx, IR* _ir, E_GENERATOR_STREAM_TYPE _generatorChoiceStream) -> result_t
 {
     result_t res = base_t::compile(_ctx, _ir, _generatorChoiceStream);
 
-    res.fragmentShaderSource = 
-    R"(
+    res.fragmentShaderSource =
+        R"(
 #include <nbl/builtin/glsl/material_compiler/rasterization/impl.glsl>
     )";
 

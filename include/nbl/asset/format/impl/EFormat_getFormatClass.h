@@ -1,4 +1,4 @@
-switch (_fmt)
+switch(_fmt)
 {
     case EF_R4G4_UNORM_PACK8: [[fallthrough]];
     case EF_R8_UNORM: [[fallthrough]];
@@ -135,5 +135,5 @@ switch (_fmt)
         return EFC_256_BIT;
     default:
         _NBL_DEBUG_BREAK_IF(true);
-        return static_cast<E_FORMAT_CLASS>(EFC_256_BIT+1u);
+        return static_cast<E_FORMAT_CLASS>(EFC_256_BIT + 1u);
 }

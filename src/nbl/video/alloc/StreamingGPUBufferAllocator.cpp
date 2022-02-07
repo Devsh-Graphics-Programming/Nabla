@@ -5,11 +5,10 @@
 
 namespace nbl::video
 {
-
 void* StreamingGPUBufferAllocator::mapWrapper(IDriverMemoryAllocation* mem, IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAG access, const IDriverMemoryAllocation::MemoryRange& range) noexcept
 {
-    IDriverMemoryAllocation::MappedMemoryRange memory(mem,range.offset,range.length);
-    return mDriver->mapMemory(memory,access);
+    IDriverMemoryAllocation::MappedMemoryRange memory(mem, range.offset, range.length);
+    return mDriver->mapMemory(memory, access);
 }
 
 void StreamingGPUBufferAllocator::unmapWrapper(IDriverMemoryAllocation* mem) noexcept

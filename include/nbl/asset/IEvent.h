@@ -3,10 +3,10 @@
 
 #include "nbl/core/IReferenceCounted.h"
 
-namespace nbl {
+namespace nbl
+{
 namespace asset
 {
-
 class IEvent
 {
 public:
@@ -27,11 +27,13 @@ public:
 protected:
     virtual ~IEvent() = default;
 
-    IEvent(E_CREATE_FLAGS _flags) : m_flags(_flags) {}
+    IEvent(E_CREATE_FLAGS _flags)
+        : m_flags(_flags) {}
 
     E_CREATE_FLAGS m_flags;
 };
 
-}}
+}
+}
 
 #endif

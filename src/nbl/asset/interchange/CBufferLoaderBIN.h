@@ -12,34 +12,34 @@ namespace nbl
 {
 namespace asset
 {
-
 //! Binaryloader capable of loading source code in binary format
 class CBufferLoaderBIN final : public asset::IAssetLoader
 {
-	protected:
-		~CBufferLoaderBIN() = default;
+protected:
+    ~CBufferLoaderBIN() = default;
 
-	public:
-		CBufferLoaderBIN() {}
-		bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const override;
+public:
+    CBufferLoaderBIN() {}
+    bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const override;
 
-		const char** getAssociatedFileExtensions() const override
-		{
-			static const char* extensions[]{ "bin", nullptr };
-			return extensions;
-		}
+    const char** getAssociatedFileExtensions() const override
+    {
+        static const char* extensions[]{"bin", nullptr};
+        return extensions;
+    }
 
-		uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_BUFFER; } 
+    uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_BUFFER; }
 
-		asset::SAssetBundle loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
+    asset::SAssetBundle loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
-	private:
-		struct SContext
-		{
-			SContext(const size_t& sizeInBytes) : sourceCodeBuffer(core::make_smart_refctd_ptr<ICPUBuffer>(sizeInBytes)) {}
-			system::IFile* file;
-			core::smart_refctd_ptr<ICPUBuffer> sourceCodeBuffer;
-		};
+private:
+    struct SContext
+    {
+        SContext(const size_t& sizeInBytes)
+            : sourceCodeBuffer(core::make_smart_refctd_ptr<ICPUBuffer>(sizeInBytes)) {}
+        system::IFile* file;
+        core::smart_refctd_ptr<ICPUBuffer> sourceCodeBuffer;
+    };
 };
 
 }

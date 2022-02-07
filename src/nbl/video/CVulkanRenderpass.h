@@ -7,7 +7,6 @@
 
 namespace nbl::video
 {
-
 class ILogicalDevice;
 
 class CVulkanRenderpass final : public IGPURenderpass

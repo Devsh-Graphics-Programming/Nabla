@@ -5,11 +5,11 @@
 #include "nbl/video/IGPUImageView.h"
 #include "nbl/video/IGPURenderpass.h"
 
-namespace nbl {
+namespace nbl
+{
 namespace asset
 {
-
-template <typename RenderpassType, typename ImageViewType>
+template<typename RenderpassType, typename ImageViewType>
 class IFramebuffer
 {
 public:
@@ -34,29 +34,29 @@ public:
 
     static bool validate(const SCreationParams& params)
     {
-        if (!params.width)
+        if(!params.width)
             return false;
-        if (!params.height)
+        if(!params.height)
             return false;
-        if (!params.layers)
+        if(!params.layers)
             return false;
 
         auto* rp = params.renderpass.get();
 
         const uint32_t presentAttachments = params.attachmentCount;
 
-        if (rp->getCreationParameters().attachmentCount != presentAttachments)
+        if(rp->getCreationParameters().attachmentCount != presentAttachments)
             return false;
 
-        if (!(params.flags & ECF_IMAGELESS_BIT))
+        if(!(params.flags & ECF_IMAGELESS_BIT))
         {
-            for (uint32_t i = 0u; i < params.attachmentCount; ++i)
+            for(uint32_t i = 0u; i < params.attachmentCount; ++i)
             {
                 auto& a = params.attachments[i];
                 const asset::E_FORMAT this_format = a->getCreationParameters().format;
                 const asset::E_FORMAT rp_format = rp->getAttachments().begin()[i].format;
 
-                if (this_format != rp_format)
+                if(this_format != rp_format)
                     return false;
             }
 
@@ -73,19 +73,19 @@ public:
             */
 
             auto attachments = core::SRange<core::smart_refctd_ptr<attachment_t>>{params.attachments, params.attachments + params.attachmentCount};
-            for (auto& a : attachments)
+            for(auto& a : attachments)
             {
                 const auto& aParams = a->getCreationParameters();
 
-                if (aParams.image->getCreationParameters().extent.width < params.width)
+                if(aParams.image->getCreationParameters().extent.width < params.width)
                     return false;
-                if (aParams.image->getCreationParameters().extent.height < params.height)
+                if(aParams.image->getCreationParameters().extent.height < params.height)
                     return false;
-                if (aParams.subresourceRange.layerCount < params.layers)
+                if(aParams.subresourceRange.layerCount < params.layers)
                     return false;
-                if (aParams.subresourceRange.levelCount != 1u)
+                if(aParams.subresourceRange.levelCount != 1u)
                     return false;
-                if (aParams.viewType == ImageViewType::ET_3D)
+                if(aParams.viewType == ImageViewType::ET_3D)
                     return false;
             }
         }
@@ -96,9 +96,10 @@ public:
     const SCreationParams& getCreationParameters() const { return m_params; }
 
 protected:
-    explicit IFramebuffer(SCreationParams&& params) : m_params(std::move(params))
+    explicit IFramebuffer(SCreationParams&& params)
+        : m_params(std::move(params))
     {
-        if (m_params.flags & ECF_IMAGELESS_BIT)
+        if(m_params.flags & ECF_IMAGELESS_BIT)
         {
             m_params.attachments = nullptr;
             m_params.attachmentCount = 0u;

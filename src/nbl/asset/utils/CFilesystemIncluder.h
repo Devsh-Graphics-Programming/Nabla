@@ -8,13 +8,15 @@
 #include "nbl/asset/utils/IIncluder.h"
 #include "nbl/system/ISystem.h"
 
-namespace nbl { namespace asset
+namespace nbl
 {
-
+namespace asset
+{
 class CFilesystemIncluder : public IIncluder
 {
 public:
-    CFilesystemIncluder(system::ISystem* _sys) : m_system{_sys}
+    CFilesystemIncluder(system::ISystem* _sys)
+        : m_system{_sys}
     {
     }
 
@@ -30,8 +32,9 @@ public:
         {
             system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
             bool valid = m_system->createFile(future, _path.c_str(), system::IFile::ECF_READ);
-            if (valid) f = future.get();
-            if (!f)
+            if(valid)
+                f = future.get();
+            if(!f)
                 return {};
         }
         size_t size = f->getSize();
@@ -47,6 +50,7 @@ private:
     system::ISystem* m_system;
 };
 
-}}
+}
+}
 
 #endif

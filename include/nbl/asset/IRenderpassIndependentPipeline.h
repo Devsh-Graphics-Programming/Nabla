@@ -7,7 +7,6 @@
 
 #include <algorithm>
 
-
 #include "nbl/macros.h"
 
 #include "nbl/core/declarations.h"
@@ -25,7 +24,6 @@ namespace nbl
 {
 namespace asset
 {
-
 struct SViewport
 {
     float x, y;
@@ -57,18 +55,19 @@ enum E_VERTEX_INPUT_RATE : uint8_t
 #include "nbl/nblpack.h"
 struct SVertexInputAttribParams
 {
-	SVertexInputAttribParams() : binding(0u), format(EF_UNKNOWN), relativeOffset(0u) {}
-	SVertexInputAttribParams(uint32_t _binding, uint32_t _format, uint32_t _relativeOffset) :
-						binding(_binding), format(_format), relativeOffset(_relativeOffset) {}
+    SVertexInputAttribParams()
+        : binding(0u), format(EF_UNKNOWN), relativeOffset(0u) {}
+    SVertexInputAttribParams(uint32_t _binding, uint32_t _format, uint32_t _relativeOffset)
+        : binding(_binding), format(_format), relativeOffset(_relativeOffset) {}
 
     inline bool operator==(const SVertexInputAttribParams& rhs) const
     {
-        return binding==rhs.binding&&format==rhs.format&&relativeOffset==rhs.relativeOffset;
+        return binding == rhs.binding && format == rhs.format && relativeOffset == rhs.relativeOffset;
     }
 
     uint32_t binding : 4;
-    uint32_t format : 8;//asset::E_FORMAT
-    uint32_t relativeOffset : 13;//assuming max=2048
+    uint32_t format : 8;  //asset::E_FORMAT
+    uint32_t relativeOffset : 13;  //assuming max=2048
 
     std::string to_string() const
     {
@@ -85,16 +84,15 @@ struct SVertexInputAttribParams
         *dst = core::bitfieldInsert(*dst, relativeOffset, 12, 13);
     }
 } PACK_STRUCT;
-static_assert(sizeof(SVertexInputAttribParams)==(4u), "Unexpected size!");
+static_assert(sizeof(SVertexInputAttribParams) == (4u), "Unexpected size!");
 struct SVertexInputBindingParams
 {
-
     inline bool operator==(const SVertexInputBindingParams& rhs) const
     {
-        return stride==rhs.stride&&inputRate==rhs.inputRate;
+        return stride == rhs.stride && inputRate == rhs.inputRate;
     }
 
-    uint32_t stride = 0u; // could have packed the stride and input rate together since there are limits on those
+    uint32_t stride = 0u;  // could have packed the stride and input rate together since there are limits on those
     E_VERTEX_INPUT_RATE inputRate = EVIR_PER_VERTEX;
 
     std::string to_string() const
@@ -109,7 +107,7 @@ struct SVertexInputBindingParams
         memcpy(mem, this, serializedSize());
     }
 } PACK_STRUCT;
-static_assert(sizeof(SVertexInputBindingParams)==5u, "Unexpected size!");
+static_assert(sizeof(SVertexInputBindingParams) == 5u, "Unexpected size!");
 struct SVertexInputParams
 {
     _NBL_STATIC_INLINE_CONSTEXPR size_t MAX_VERTEX_ATTRIB_COUNT = 16u;
@@ -117,36 +115,35 @@ struct SVertexInputParams
 
     inline bool operator==(const SVertexInputParams& rhs) const
     {
-        if (enabledAttribFlags!=rhs.enabledAttribFlags||enabledBindingFlags!=rhs.enabledBindingFlags)
+        if(enabledAttribFlags != rhs.enabledAttribFlags || enabledBindingFlags != rhs.enabledBindingFlags)
             return false;
 
-        return std::equal(attributes,attributes+MAX_VERTEX_ATTRIB_COUNT,rhs.attributes)&&std::equal(bindings,bindings+MAX_ATTR_BUF_BINDING_COUNT,rhs.bindings);
+        return std::equal(attributes, attributes + MAX_VERTEX_ATTRIB_COUNT, rhs.attributes) && std::equal(bindings, bindings + MAX_ATTR_BUF_BINDING_COUNT, rhs.bindings);
     }
-
 
     uint16_t enabledAttribFlags = 0u;
     uint16_t enabledBindingFlags = 0u;
     //! index in array denotes location (attribute ID)
-	SVertexInputAttribParams attributes[MAX_VERTEX_ATTRIB_COUNT] = {};
+    SVertexInputAttribParams attributes[MAX_VERTEX_ATTRIB_COUNT] = {};
     //! index in array denotes binding number
-	SVertexInputBindingParams bindings[MAX_ATTR_BUF_BINDING_COUNT] = {};
+    SVertexInputBindingParams bindings[MAX_ATTR_BUF_BINDING_COUNT] = {};
 
     std::string to_string() const
     {
         std::string cacheKey;
 
         cacheKey += ICacheKeyCreator::getHexString(enabledAttribFlags) + ICacheKeyCreator::getHexString(enabledBindingFlags);
-        for (uint32_t i = 0; i < MAX_VERTEX_ATTRIB_COUNT; ++i)
+        for(uint32_t i = 0; i < MAX_VERTEX_ATTRIB_COUNT; ++i)
             cacheKey += attributes[i].to_string();
-        for (uint32_t i = 0; i < MAX_ATTR_BUF_BINDING_COUNT; ++i)
+        for(uint32_t i = 0; i < MAX_ATTR_BUF_BINDING_COUNT; ++i)
             cacheKey += bindings[i].to_string();
         return cacheKey;
     }
 
-    static_assert(sizeof(enabledAttribFlags)*8 >= MAX_VERTEX_ATTRIB_COUNT, "Insufficient flag bits for number of supported attributes");
-    static_assert(sizeof(enabledBindingFlags)*8 >= MAX_ATTR_BUF_BINDING_COUNT, "Insufficient flag bits for number of supported bindings");
+    static_assert(sizeof(enabledAttribFlags) * 8 >= MAX_VERTEX_ATTRIB_COUNT, "Insufficient flag bits for number of supported attributes");
+    static_assert(sizeof(enabledBindingFlags) * 8 >= MAX_ATTR_BUF_BINDING_COUNT, "Insufficient flag bits for number of supported bindings");
 
-    constexpr static size_t serializedSize() { return 2u*sizeof(uint16_t) + MAX_VERTEX_ATTRIB_COUNT*SVertexInputAttribParams::serializedSize() + MAX_ATTR_BUF_BINDING_COUNT*SVertexInputBindingParams::serializedSize(); }
+    constexpr static size_t serializedSize() { return 2u * sizeof(uint16_t) + MAX_VERTEX_ATTRIB_COUNT * SVertexInputAttribParams::serializedSize() + MAX_ATTR_BUF_BINDING_COUNT * SVertexInputBindingParams::serializedSize(); }
 
     void serialize(void* mem) const
     {
@@ -154,11 +151,11 @@ struct SVertexInputParams
         flags[0] = enabledAttribFlags;
         flags[1] = enabledBindingFlags;
         auto* dst = reinterpret_cast<uint8_t*>(flags + 2);
-        for (uint32_t i = 0u; i < MAX_VERTEX_ATTRIB_COUNT; ++i)
-            attributes[i].serialize(dst + i*attributes[i].serializedSize());
+        for(uint32_t i = 0u; i < MAX_VERTEX_ATTRIB_COUNT; ++i)
+            attributes[i].serialize(dst + i * attributes[i].serializedSize());
         dst += MAX_VERTEX_ATTRIB_COUNT * SVertexInputAttribParams::serializedSize();
-        for (uint32_t i = 0u; i < MAX_VERTEX_ATTRIB_COUNT; ++i)
-            bindings[i].serialize(dst + i*bindings[i].serializedSize());
+        for(uint32_t i = 0u; i < MAX_VERTEX_ATTRIB_COUNT; ++i)
+            bindings[i].serialize(dst + i * bindings[i].serializedSize());
     }
 } PACK_STRUCT;
 static_assert(sizeof(SVertexInputParams) == (2u * 2u + SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT * sizeof(SVertexInputAttribParams) + SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT * sizeof(SVertexInputBindingParams)), "Unexpected size!");
@@ -176,7 +173,7 @@ struct SPrimitiveAssemblyParams
         memcpy(mem, this, sizeof(*this));
     }
 } PACK_STRUCT;
-static_assert(sizeof(SPrimitiveAssemblyParams)==4u, "Unexpected size!");
+static_assert(sizeof(SPrimitiveAssemblyParams) == 4u, "Unexpected size!");
 
 enum E_STENCIL_OP : uint8_t
 {
@@ -211,7 +208,7 @@ struct SStencilOpParams
     uint32_t writeMask = ~0u;
     uint32_t reference = 0u;
 } PACK_STRUCT;
-static_assert(sizeof(SStencilOpParams)==(4u*1u + 2u*4u), "Unexpected size!");
+static_assert(sizeof(SStencilOpParams) == (4u * 1u + 2u * 4u), "Unexpected size!");
 
 enum E_POLYGON_MODE : uint8_t
 {
@@ -230,33 +227,34 @@ enum E_FACE_CULL_MODE : uint8_t
 
 struct SRasterizationParams
 {
-	SRasterizationParams()
-	{
-		depthClampEnable = false;
-		rasterizerDiscard = false;
-		frontFaceIsCCW = true;
-		depthBiasEnable = false;
-		sampleShadingEnable = false;
-		alphaToCoverageEnable = false;
-		alphaToOneEnable = false;
-		depthTestEnable = true;
-		depthWriteEnable = true;
-		depthBoundsTestEnable = false;
-		stencilTestEnable = false;
-	}
+    SRasterizationParams()
+    {
+        depthClampEnable = false;
+        rasterizerDiscard = false;
+        frontFaceIsCCW = true;
+        depthBiasEnable = false;
+        sampleShadingEnable = false;
+        alphaToCoverageEnable = false;
+        alphaToOneEnable = false;
+        depthTestEnable = true;
+        depthWriteEnable = true;
+        depthBoundsTestEnable = false;
+        stencilTestEnable = false;
+    }
 
     uint8_t viewportCount = 1u;
     E_POLYGON_MODE polygonMode = EPM_FILL;
     E_FACE_CULL_MODE faceCullingMode = EFCM_BACK_BIT;
-	E_COMPARE_OP depthCompareOp = ECO_GREATER;
-    IImage::E_SAMPLE_COUNT_FLAGS rasterizationSamplesHint = IImage::ESCF_1_BIT; //TODO depr
-	uint32_t sampleMask[2] = {~0u,~0u};
+    E_COMPARE_OP depthCompareOp = ECO_GREATER;
+    IImage::E_SAMPLE_COUNT_FLAGS rasterizationSamplesHint = IImage::ESCF_1_BIT;  //TODO depr
+    uint32_t sampleMask[2] = {~0u, ~0u};
     float minSampleShading = 0.f;
     float depthBiasSlopeFactor = 0.f;
     float depthBiasConstantFactor = 0.f;
     SStencilOpParams frontStencilOps;
     SStencilOpParams backStencilOps;
-    struct {
+    struct
+    {
         uint16_t depthClampEnable : 1;
         uint16_t rasterizerDiscard : 1;
         uint16_t frontFaceIsCCW : 1;
@@ -293,7 +291,7 @@ struct SRasterizationParams
         reinterpret_cast<uint16_t*>(bf_dst)[0] = bf;
     }
 } PACK_STRUCT;
-static_assert(sizeof(SRasterizationParams)==4u*sizeof(uint8_t) + 3u*sizeof(uint32_t) + 3u*sizeof(float) + 2u*sizeof(SStencilOpParams) + sizeof(uint16_t), "Unexpected size!");
+static_assert(sizeof(SRasterizationParams) == 4u * sizeof(uint8_t) + 3u * sizeof(uint32_t) + 3u * sizeof(float) + 2u * sizeof(SStencilOpParams) + sizeof(uint16_t), "Unexpected size!");
 
 enum E_LOGIC_OP : uint8_t
 {
@@ -395,28 +393,28 @@ enum E_BLEND_OP : uint8_t
 
 struct SColorAttachmentBlendParams
 {
-	SColorAttachmentBlendParams() : 
-		blendEnable(false),
-		srcColorFactor(EBF_ONE),
-		dstColorFactor(EBF_ZERO),
-		colorBlendOp(EBO_ADD),
-		srcAlphaFactor(EBF_ONE),
-		dstAlphaFactor(EBF_ZERO),
-		alphaBlendOp(EBO_ADD),
-		colorWriteMask(0xfu)
-	{}
+    SColorAttachmentBlendParams()
+        : blendEnable(false),
+          srcColorFactor(EBF_ONE),
+          dstColorFactor(EBF_ZERO),
+          colorBlendOp(EBO_ADD),
+          srcAlphaFactor(EBF_ONE),
+          dstAlphaFactor(EBF_ZERO),
+          alphaBlendOp(EBO_ADD),
+          colorWriteMask(0xfu)
+    {}
 
     uint64_t blendEnable : 1;
     uint64_t srcColorFactor : 5;
-    
+
     uint64_t dstColorFactor : 5;
-    
+
     uint64_t colorBlendOp : 6;
-    
+
     uint64_t srcAlphaFactor : 5;
-    
+
     uint64_t dstAlphaFactor : 5;
-    
+
     uint64_t alphaBlendOp : 2;
     //RGBA, LSB is R, MSB is A
     uint64_t colorWriteMask : 4;
@@ -443,7 +441,8 @@ struct SColorAttachmentBlendParams
 
 struct SBlendParams
 {
-	SBlendParams() : logicOpEnable(false), logicOp(ELO_NO_OP), blendParams{} {}
+    SBlendParams()
+        : logicOpEnable(false), logicOp(ELO_NO_OP), blendParams{} {}
 
     _NBL_STATIC_INLINE_CONSTEXPR size_t MAX_COLOR_ATTACHMENT_COUNT = 8u;
     uint8_t logicOpEnable : 1;
@@ -458,11 +457,11 @@ struct SBlendParams
         *bf_dst = core::bitfieldInsert(*bf_dst, logicOpEnable, 0, 1);
         *bf_dst = core::bitfieldInsert(*bf_dst, logicOp, 1, 4);
         ++bf_dst;
-        for (uint32_t i = 0u; i < MAX_COLOR_ATTACHMENT_COUNT; ++i)
-            blendParams[i].serialize(bf_dst + i*SColorAttachmentBlendParams::serializedSize());
+        for(uint32_t i = 0u; i < MAX_COLOR_ATTACHMENT_COUNT; ++i)
+            blendParams[i].serialize(bf_dst + i * SColorAttachmentBlendParams::serializedSize());
     }
 } PACK_STRUCT;
-static_assert(sizeof(SBlendParams)==(1u + sizeof(SColorAttachmentBlendParams)*SBlendParams::MAX_COLOR_ATTACHMENT_COUNT), "Unexpected size!");
+static_assert(sizeof(SBlendParams) == (1u + sizeof(SColorAttachmentBlendParams) * SBlendParams::MAX_COLOR_ATTACHMENT_COUNT), "Unexpected size!");
 
 #include "nbl/nblunpack.h"
 
@@ -508,60 +507,60 @@ enum E_VERTEX_ATTRIBUTE_ID
 template<typename SpecShaderType, typename LayoutType>
 class IRenderpassIndependentPipeline : public IPipeline<LayoutType>
 {
-	public:
-		_NBL_STATIC_INLINE_CONSTEXPR size_t SHADER_STAGE_COUNT = 5u;
+public:
+    _NBL_STATIC_INLINE_CONSTEXPR size_t SHADER_STAGE_COUNT = 5u;
 
-		enum E_SHADER_STAGE_IX : uint32_t
-		{
-			ESSI_VERTEX_SHADER_IX = 0,
-			ESSI_TESS_CTRL_SHADER_IX = 1,
-			ESSI_TESS_EVAL_SHADER_IX = 2,
-			ESSI_GEOMETRY_SHADER_IX = 3,
-			ESSI_FRAGMENT_SHADER_IX = 4
-		};
+    enum E_SHADER_STAGE_IX : uint32_t
+    {
+        ESSI_VERTEX_SHADER_IX = 0,
+        ESSI_TESS_CTRL_SHADER_IX = 1,
+        ESSI_TESS_EVAL_SHADER_IX = 2,
+        ESSI_GEOMETRY_SHADER_IX = 3,
+        ESSI_FRAGMENT_SHADER_IX = 4
+    };
 
-		IRenderpassIndependentPipeline(
-			core::smart_refctd_ptr<LayoutType>&& _layout,
-			SpecShaderType*const * _shadersBegin, SpecShaderType*const * _shadersEnd, 
-			const SVertexInputParams& _vertexInputParams,
-			const SBlendParams& _blendParams,
-			const SPrimitiveAssemblyParams& _primAsmParams,
-			const SRasterizationParams& _rasterParams
-		) : IPipeline<LayoutType>(std::move(_layout)),
-			m_blendParams(_blendParams),
-			m_primAsmParams(_primAsmParams),
-			m_rasterParams(_rasterParams),
-			m_vertexInputParams(_vertexInputParams)
-		{
-			auto shaders = core::SRange<SpecShaderType* const>(_shadersBegin, _shadersEnd);
-			for (auto shdr : shaders)
-			{
-				const int32_t ix = core::findLSB<uint32_t>(shdr->getStage());
-				assert(ix < static_cast<int32_t>(SHADER_STAGE_COUNT));
-				assert(!m_shaders[ix]);//must be maximum of 1 for each stage
-				m_shaders[ix] = core::smart_refctd_ptr<SpecShaderType>(shdr);
-			}
-		}
-		virtual ~IRenderpassIndependentPipeline() = default;
+    IRenderpassIndependentPipeline(
+        core::smart_refctd_ptr<LayoutType>&& _layout,
+        SpecShaderType* const* _shadersBegin, SpecShaderType* const* _shadersEnd,
+        const SVertexInputParams& _vertexInputParams,
+        const SBlendParams& _blendParams,
+        const SPrimitiveAssemblyParams& _primAsmParams,
+        const SRasterizationParams& _rasterParams)
+        : IPipeline<LayoutType>(std::move(_layout)),
+          m_blendParams(_blendParams),
+          m_primAsmParams(_primAsmParams),
+          m_rasterParams(_rasterParams),
+          m_vertexInputParams(_vertexInputParams)
+    {
+        auto shaders = core::SRange<SpecShaderType* const>(_shadersBegin, _shadersEnd);
+        for(auto shdr : shaders)
+        {
+            const int32_t ix = core::findLSB<uint32_t>(shdr->getStage());
+            assert(ix < static_cast<int32_t>(SHADER_STAGE_COUNT));
+            assert(!m_shaders[ix]);  //must be maximum of 1 for each stage
+            m_shaders[ix] = core::smart_refctd_ptr<SpecShaderType>(shdr);
+        }
+    }
+    virtual ~IRenderpassIndependentPipeline() = default;
 
-	public:
-		inline const LayoutType* getLayout() const { return IPipeline<LayoutType>::m_layout.get(); }
+public:
+    inline const LayoutType* getLayout() const { return IPipeline<LayoutType>::m_layout.get(); }
 
-		inline const SpecShaderType* getShaderAtStage(IShader::E_SHADER_STAGE _stage) const { return m_shaders[core::findLSB<uint32_t>(_stage)].get(); }
-		inline const SpecShaderType* getShaderAtIndex(uint32_t _ix) const { return m_shaders[_ix].get(); }
+    inline const SpecShaderType* getShaderAtStage(IShader::E_SHADER_STAGE _stage) const { return m_shaders[core::findLSB<uint32_t>(_stage)].get(); }
+    inline const SpecShaderType* getShaderAtIndex(uint32_t _ix) const { return m_shaders[_ix].get(); }
 
-		inline const SBlendParams& getBlendParams() const { return m_blendParams; }
-		inline const SPrimitiveAssemblyParams& getPrimitiveAssemblyParams() const { return m_primAsmParams; }
-		inline const SRasterizationParams& getRasterizationParams() const { return m_rasterParams; }
-		inline const SVertexInputParams& getVertexInputParams() const { return m_vertexInputParams; }
+    inline const SBlendParams& getBlendParams() const { return m_blendParams; }
+    inline const SPrimitiveAssemblyParams& getPrimitiveAssemblyParams() const { return m_primAsmParams; }
+    inline const SRasterizationParams& getRasterizationParams() const { return m_rasterParams; }
+    inline const SVertexInputParams& getVertexInputParams() const { return m_vertexInputParams; }
 
-	protected:
-		core::smart_refctd_ptr<SpecShaderType> m_shaders[SHADER_STAGE_COUNT];
+protected:
+    core::smart_refctd_ptr<SpecShaderType> m_shaders[SHADER_STAGE_COUNT];
 
-		SBlendParams m_blendParams;
-		SPrimitiveAssemblyParams m_primAsmParams;
-		SRasterizationParams m_rasterParams;
-		SVertexInputParams m_vertexInputParams;
+    SBlendParams m_blendParams;
+    SPrimitiveAssemblyParams m_primAsmParams;
+    SRasterizationParams m_rasterParams;
+    SVertexInputParams m_vertexInputParams;
 };
 
 }

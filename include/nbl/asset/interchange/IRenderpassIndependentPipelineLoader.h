@@ -12,41 +12,41 @@
 
 namespace nbl::asset
 {
-
 class IRenderpassIndependentPipelineLoader : public IAssetLoader
 {
-	public:
-		virtual void initialize() override;
+public:
+    virtual void initialize() override;
 
-	protected:
-		IAssetManager* m_assetMgr;
-		core::smart_refctd_dynamic_array<IRenderpassIndependentPipelineMetadata::ShaderInputSemantic> m_basicViewParamsSemantics;
+protected:
+    IAssetManager* m_assetMgr;
+    core::smart_refctd_dynamic_array<IRenderpassIndependentPipelineMetadata::ShaderInputSemantic> m_basicViewParamsSemantics;
 
-		inline IRenderpassIndependentPipelineLoader(IAssetManager* _am) : m_assetMgr(_am) {}
-		virtual ~IRenderpassIndependentPipelineLoader() = 0;
-		
-		// samplers
-		static inline std::string genSamplerCacheKey(const asset::ICPUSampler::SParams& params)
-		{
-			// TODO: Change the HASH, ACTUALLY BUILD IT OUT OF ALL THE PARAMETERS, THERE CANNOT BE ANY COLLISIONS!
-			const std::size_t hash = std::hash<std::string_view>{}(std::string_view(reinterpret_cast<const char*>(&params), sizeof(params)));
-			return "nbl/builtin/sampler/" + std::to_string(hash);
-		}
-		static inline core::smart_refctd_ptr<ICPUSampler> getSampler(asset::ICPUSampler::SParams&& params, const IAssetLoader::SAssetLoadContext& context, IAssetLoaderOverride* _override)
-		{
-			const auto cacheKey = genSamplerCacheKey(params);
-			
-			auto found = _override->findDefaultAsset<ICPUSampler>(cacheKey,context,0u).first; // cached builtins have level 0
-			if (found)
-				return found;
-			
-			auto sampler = core::make_smart_refctd_ptr<ICPUSampler>(std::move(params));
-			SAssetBundle samplerBundle = SAssetBundle(nullptr,{sampler});
-			_override->insertAssetIntoCache(samplerBundle,cacheKey,context,0u); // cached builtins have level 0
-			return sampler;
-		}
+    inline IRenderpassIndependentPipelineLoader(IAssetManager* _am)
+        : m_assetMgr(_am) {}
+    virtual ~IRenderpassIndependentPipelineLoader() = 0;
 
-	private:
+    // samplers
+    static inline std::string genSamplerCacheKey(const asset::ICPUSampler::SParams& params)
+    {
+        // TODO: Change the HASH, ACTUALLY BUILD IT OUT OF ALL THE PARAMETERS, THERE CANNOT BE ANY COLLISIONS!
+        const std::size_t hash = std::hash<std::string_view>{}(std::string_view(reinterpret_cast<const char*>(&params), sizeof(params)));
+        return "nbl/builtin/sampler/" + std::to_string(hash);
+    }
+    static inline core::smart_refctd_ptr<ICPUSampler> getSampler(asset::ICPUSampler::SParams&& params, const IAssetLoader::SAssetLoadContext& context, IAssetLoaderOverride* _override)
+    {
+        const auto cacheKey = genSamplerCacheKey(params);
+
+        auto found = _override->findDefaultAsset<ICPUSampler>(cacheKey, context, 0u).first;  // cached builtins have level 0
+        if(found)
+            return found;
+
+        auto sampler = core::make_smart_refctd_ptr<ICPUSampler>(std::move(params));
+        SAssetBundle samplerBundle = SAssetBundle(nullptr, {sampler});
+        _override->insertAssetIntoCache(samplerBundle, cacheKey, context, 0u);  // cached builtins have level 0
+        return sampler;
+    }
+
+private:
 };
 
 }

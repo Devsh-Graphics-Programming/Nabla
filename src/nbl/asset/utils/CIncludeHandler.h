@@ -14,7 +14,6 @@ namespace nbl
 {
 namespace asset
 {
-
 class CIncludeHandler : public IIncludeHandler
 {
     using SmartRefctIncluderPtr = core::smart_refctd_ptr<IIncluder>;

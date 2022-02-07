@@ -15,7 +15,6 @@ namespace nbl
 {
 namespace asset
 {
-
 //! Base class for general filters with runtime polymorphism.
 /*
 	Filters can execute various actions basing on input image
@@ -42,10 +41,9 @@ namespace asset
 
 class IImageFilter
 {
-	public:
-
-		//! Base class for filter's \bstate\b.
-		/*
+public:
+    //! Base class for filter's \bstate\b.
+    /*
 			To make use of the filter, it's \bstate\b must be provided.
 			State contains information about data needed to execute
 			some processes needed to get final output image or it's bundle.
@@ -68,97 +66,97 @@ class IImageFilter
 			different filters require different states.
 		*/
 
-		class IState
-		{
-			public:
-				virtual ~IState() {}
+    class IState
+    {
+    public:
+        virtual ~IState() {}
 
-				/*
+        /*
 					Class for holding information about handled texel 
 					range in a buffer attached to an image.
 				*/
 
-				struct TexelRange
-				{
-					VkOffset3D	offset = { 0u,0u,0u };
-					VkExtent3D	extent = { 0u,0u,0u };
-				};
+        struct TexelRange
+        {
+            VkOffset3D offset = {0u, 0u, 0u};
+            VkExtent3D extent = {0u, 0u, 0u};
+        };
 
-				/*
+        /*
 					Class for reinterpreting a single color value,
 					it may be a texel or single compressed block.
 				*/
 
-				struct ColorValue
-				{
-					ColorValue() {}
-					~ColorValue() {}
+        struct ColorValue
+        {
+            ColorValue() {}
+            ~ColorValue() {}
 
-					_NBL_STATIC_INLINE_CONSTEXPR uint32_t MAX_CHANNELS = 4u;
-					_NBL_STATIC_INLINE_CONSTEXPR uint32_t LARGEST_COMPRESSED_BLOCK_SIZE = 16u;
-					union
-					{
-						uint8_t				pointer[sizeof(double)*MAX_CHANNELS];
-						uint8_t				asCompressedBlock[LARGEST_COMPRESSED_BLOCK_SIZE];
-						double				asDouble[MAX_CHANNELS];
-						core::vectorSIMDf	asFloat;
-						core::vectorSIMDu32 asUint;
-						core::vectorSIMDi32 asInt;
-						uint16_t			asUShort[MAX_CHANNELS];
-						int16_t				asShort[MAX_CHANNELS];
-						uint8_t				asUByte[MAX_CHANNELS];
-						int8_t				asByte[MAX_CHANNELS];
-					};
+            _NBL_STATIC_INLINE_CONSTEXPR uint32_t MAX_CHANNELS = 4u;
+            _NBL_STATIC_INLINE_CONSTEXPR uint32_t LARGEST_COMPRESSED_BLOCK_SIZE = 16u;
+            union
+            {
+                uint8_t pointer[sizeof(double) * MAX_CHANNELS];
+                uint8_t asCompressedBlock[LARGEST_COMPRESSED_BLOCK_SIZE];
+                double asDouble[MAX_CHANNELS];
+                core::vectorSIMDf asFloat;
+                core::vectorSIMDu32 asUint;
+                core::vectorSIMDi32 asInt;
+                uint16_t asUShort[MAX_CHANNELS];
+                int16_t asShort[MAX_CHANNELS];
+                uint8_t asUByte[MAX_CHANNELS];
+                int8_t asByte[MAX_CHANNELS];
+            };
 
-					inline ColorValue& operator=(const ColorValue& other)
-					{
-						memcpy(pointer,other.pointer,sizeof(double)*MAX_CHANNELS);
-						return *this;
-					}
+            inline ColorValue& operator=(const ColorValue& other)
+            {
+                memcpy(pointer, other.pointer, sizeof(double) * MAX_CHANNELS);
+                return *this;
+            }
 
-					struct WriteMemoryInfo
-					{
-						WriteMemoryInfo(E_FORMAT colorFmt, void* outPtr) :
-							outMemory(reinterpret_cast<uint8_t*>(outPtr)),
-							blockByteSize(getTexelOrBlockBytesize(colorFmt))
-						{
-						}
+            struct WriteMemoryInfo
+            {
+                WriteMemoryInfo(E_FORMAT colorFmt, void* outPtr)
+                    : outMemory(reinterpret_cast<uint8_t*>(outPtr)),
+                      blockByteSize(getTexelOrBlockBytesize(colorFmt))
+                {
+                }
 
-						uint8_t* const	outMemory = nullptr;
-						const uint32_t	blockByteSize = 0u;
-					};
-					inline void writeMemory(const WriteMemoryInfo& info, uint32_t offset)
-					{
-						memcpy(info.outMemory+offset,pointer,info.blockByteSize);
-					}
-					
-					struct ReadMemoryInfo
-					{
-						ReadMemoryInfo(E_FORMAT colorFmt, const void* inPtr) :
-							inMemory(reinterpret_cast<const uint8_t*>(inPtr)),
-							blockByteSize(getTexelOrBlockBytesize(colorFmt))
-						{
-						}
+                uint8_t* const outMemory = nullptr;
+                const uint32_t blockByteSize = 0u;
+            };
+            inline void writeMemory(const WriteMemoryInfo& info, uint32_t offset)
+            {
+                memcpy(info.outMemory + offset, pointer, info.blockByteSize);
+            }
 
-						const uint8_t* const	inMemory = nullptr;
-						const uint32_t			blockByteSize = 0u;
-					};
-					inline void readMemory(const ReadMemoryInfo& info, uint32_t offset)
-					{
-						memcpy(pointer,info.inMemory+offset,info.blockByteSize);
-					}
-				};
-		};		
+            struct ReadMemoryInfo
+            {
+                ReadMemoryInfo(E_FORMAT colorFmt, const void* inPtr)
+                    : inMemory(reinterpret_cast<const uint8_t*>(inPtr)),
+                      blockByteSize(getTexelOrBlockBytesize(colorFmt))
+                {
+                }
 
-        //
-		virtual bool pValidate(IState* state) const = 0;
-		
-		//
-		virtual bool pExecute(const core::execution::sequenced_policy&, IState* state) const = 0;
-		virtual bool pExecute(const core::execution::parallel_policy&, IState* state) const = 0;
-		virtual bool pExecute(const core::execution::parallel_unsequenced_policy&, IState* state) const = 0;
+                const uint8_t* const inMemory = nullptr;
+                const uint32_t blockByteSize = 0u;
+            };
+            inline void readMemory(const ReadMemoryInfo& info, uint32_t offset)
+            {
+                memcpy(pointer, info.inMemory + offset, info.blockByteSize);
+            }
+        };
+    };
 
-		virtual bool pExecute(IState* state) const {return pExecute(core::execution::seq,state);}
+    //
+    virtual bool pValidate(IState* state) const = 0;
+
+    //
+    virtual bool pExecute(const core::execution::sequenced_policy&, IState* state) const = 0;
+    virtual bool pExecute(const core::execution::parallel_policy&, IState* state) const = 0;
+    virtual bool pExecute(const core::execution::parallel_unsequenced_policy&, IState* state) const = 0;
+
+    virtual bool pExecute(IState* state) const { return pExecute(core::execution::seq, state); }
 };
 
 /*
@@ -168,39 +166,39 @@ class IImageFilter
 template<typename CRTP>
 class CImageFilter : public IImageFilter
 {
-	public:
-		static inline bool validate(IState* state)
-		{
-			return CRTP::validate(static_cast<typename CRTP::state_type*>(state));
-		}
-		
-		inline bool pValidate(IState* state) const override
-		{
-			return validate(state);
-		}
+public:
+    static inline bool validate(IState* state)
+    {
+        return CRTP::validate(static_cast<typename CRTP::state_type*>(state));
+    }
 
-		template<class ExecutionPolicy>
-		static inline bool execute(ExecutionPolicy&& policy, IState* state)
-		{
-			return CRTP::execute(std::forward<ExecutionPolicy>(policy), static_cast<typename CRTP::state_type*>(state));
-		}
-		static inline bool execute(IState* state)
-		{
-			return CRTP::execute(static_cast<typename CRTP::state_type*>(state));
-		}
+    inline bool pValidate(IState* state) const override
+    {
+        return validate(state);
+    }
 
-		inline bool pExecute(const core::execution::sequenced_policy& policy, IState* state) const override
-		{
-			return execute(policy, state);
-		}
-		inline bool pExecute(const core::execution::parallel_policy& policy, IState* state) const override
-		{
-			return execute(policy,state);
-		}
-		inline bool pExecute(const core::execution::parallel_unsequenced_policy& policy, IState* state) const override
-		{
-			return execute(policy,state);
-		}
+    template<class ExecutionPolicy>
+    static inline bool execute(ExecutionPolicy&& policy, IState* state)
+    {
+        return CRTP::execute(std::forward<ExecutionPolicy>(policy), static_cast<typename CRTP::state_type*>(state));
+    }
+    static inline bool execute(IState* state)
+    {
+        return CRTP::execute(static_cast<typename CRTP::state_type*>(state));
+    }
+
+    inline bool pExecute(const core::execution::sequenced_policy& policy, IState* state) const override
+    {
+        return execute(policy, state);
+    }
+    inline bool pExecute(const core::execution::parallel_policy& policy, IState* state) const override
+    {
+        return execute(policy, state);
+    }
+    inline bool pExecute(const core::execution::parallel_unsequenced_policy& policy, IState* state) const override
+    {
+        return execute(policy, state);
+    }
 };
 
 }

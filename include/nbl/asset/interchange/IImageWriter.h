@@ -18,17 +18,14 @@ namespace nbl
 {
 namespace asset
 {
-
 class IImageWriter : public IAssetWriter, public IImageAssetHandlerBase
 {
-	public:
+public:
+protected:
+    IImageWriter() = default;
+    virtual ~IImageWriter() = 0;
 
-	protected:
-
-		IImageWriter() = default;
-		virtual ~IImageWriter() = 0;
-
-	private:
+private:
 };
 
 }

@@ -9,7 +9,7 @@
 
 // dependencies
 #include "nbl/system/declarations.h"
-#include "nbl/system/definitions.h" // TODO: split `asset.h` into decl and def
+#include "nbl/system/definitions.h"  // TODO: split `asset.h` into decl and def
 
 // utils
 #include "nbl/asset/asset_utils.h"
@@ -67,7 +67,6 @@
 // baw files
 #include "nbl/asset/bawformat/CBAWFile.h"
 #include "nbl/asset/bawformat/CBlobsLoadingManager.h"
-
 
 #include "nbl/asset/IAssetManager.h"
 // importexport

@@ -7,21 +7,21 @@
 
 namespace nbl::video
 {
-
 class ILogicalDevice;
 
 class GPUMemoryAllocatorBase
 {
-    protected:
-        ILogicalDevice* mDriver; // TODO: change to smartpointer backlink (after declarations_and_definitions branch merge)
+protected:
+    ILogicalDevice* mDriver;  // TODO: change to smartpointer backlink (after declarations_and_definitions branch merge)
 
-        GPUMemoryAllocatorBase(ILogicalDevice* inDriver) : mDriver(inDriver) {}
-        virtual ~GPUMemoryAllocatorBase() = default;
-    public:
-        ILogicalDevice*    getDriver() noexcept {return mDriver;}
+    GPUMemoryAllocatorBase(ILogicalDevice* inDriver)
+        : mDriver(inDriver) {}
+    virtual ~GPUMemoryAllocatorBase() = default;
+
+public:
+    ILogicalDevice* getDriver() noexcept { return mDriver; }
 };
 
 }
-
 
 #endif

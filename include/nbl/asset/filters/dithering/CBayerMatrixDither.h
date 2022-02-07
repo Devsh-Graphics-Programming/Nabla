@@ -2,7 +2,7 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#if 0 // TODO
+#if 0  // TODO
 
 #ifndef __NBL_ASSET_C_BAYER_MATRIX_DITHER_H_INCLUDED__
 #define __NBL_ASSET_C_BAYER_MATRIX_DITHER_H_INCLUDED__
@@ -38,4 +38,4 @@ namespace nbl
 
 #endif
 
-#endif // TODO
+#endif  // TODO

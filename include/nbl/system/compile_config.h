@@ -6,7 +6,7 @@
 #define __NBL_SYSTEM_COMPILE_CONFIG_H_INCLUDED__
 
 #if defined(_NBL_PLATFORM_LINUX_)
-#   define _NBL_COMPILE_WITH_X11_DEVICE_
+#define _NBL_COMPILE_WITH_X11_DEVICE_
 #endif
 
 //! VidMode is ANCIENT
@@ -16,8 +16,8 @@
 //! to remove the dependencies such that Irrlicht will compile on those systems, too.
 //! If you don't need colored cursors you can also disable the Xcursor extension
 #if defined(_NBL_PLATFORM_LINUX_) && defined(_NBL_COMPILE_WITH_X11_)
-#   define _NBL_LINUX_X11_VIDMODE_
-#   define _NBL_LINUX_X11_RANDR_
+#define _NBL_LINUX_X11_VIDMODE_
+#define _NBL_LINUX_X11_RANDR_
 #endif
 
 //! Define _NBL_COMPILE_WITH_X11_ to compile the Irrlicht engine with X11 support.

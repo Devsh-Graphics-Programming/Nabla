@@ -6,7 +6,6 @@
 
 namespace nbl::video
 {
-
 class CVulkanSpecializedShader : public IGPUSpecializedShader
 {
 public:
@@ -15,7 +14,7 @@ public:
         core::smart_refctd_ptr<const CVulkanShader>&& unspecShader,
         const asset::ISpecializedShader::SInfo& specInfo)
         : IGPUSpecializedShader(std::move(dev)),
-        m_unspecShader(std::move(unspecShader)), m_specInfo(specInfo)
+          m_unspecShader(std::move(unspecShader)), m_specInfo(specInfo)
     {}
 
     asset::IShader::E_SHADER_STAGE getStage() const override { return m_unspecShader->getStage(); }
@@ -33,4 +32,3 @@ private:
 
 #define __NBL_VIDEO_C_VULKAN_SPECIALIZED_SHADER_H_INCLUDED__
 #endif
-

@@ -14,58 +14,58 @@ namespace nbl
 {
 namespace asset
 {
-
 class CBuiltinIncluder : public IIncluder
 {
-        core::smart_refctd_ptr<IGLSLEmbeddedIncludeLoader> m_default;
+    core::smart_refctd_ptr<IGLSLEmbeddedIncludeLoader> m_default;
 
-        using LoadersContainer = core::CMultiObjectCache<std::string, IBuiltinIncludeLoader*>;
-        LoadersContainer m_loaders;
+    using LoadersContainer = core::CMultiObjectCache<std::string, IBuiltinIncludeLoader*>;
+    LoadersContainer m_loaders;
 
-        static void loaderGrab(IBuiltinIncludeLoader* _ldr) { _ldr->grab(); }
-        static void loaderDrop(IBuiltinIncludeLoader* _ldr) { _ldr->drop(); }
+    static void loaderGrab(IBuiltinIncludeLoader* _ldr) { _ldr->grab(); }
+    static void loaderDrop(IBuiltinIncludeLoader* _ldr) { _ldr->drop(); }
 
-    public:
-        CBuiltinIncluder(system::ISystem* s) : m_default(core::make_smart_refctd_ptr<IGLSLEmbeddedIncludeLoader>(s)), m_loaders(&loaderGrab, &loaderDrop)
+public:
+    CBuiltinIncluder(system::ISystem* s)
+        : m_default(core::make_smart_refctd_ptr<IGLSLEmbeddedIncludeLoader>(s)), m_loaders(&loaderGrab, &loaderDrop)
+    {
+        m_searchDirectories.emplace_back("/");
+    }
+
+    //! No-op, cannot add search dirs to includer of builtins
+    void addSearchDirectory(const system::path& _searchDir) override {}
+
+    void addBuiltinLoader(core::smart_refctd_ptr<IBuiltinIncludeLoader>&& _loader)
+    {
+        using namespace std::string_literals;
+        if(!_loader)
+            return;
+
+        m_loaders.insert(std::string(IIncludeHandler::BUILTIN_PREFIX) + _loader->getVirtualDirectoryName(), _loader.get());
+    }
+
+protected:
+    std::string getInclude_internal(const system::path& _path) const override
+    {
+        if(!IIncludeHandler::isBuiltinPath(_path))
+            return {};
+
+        const std::string relativePath = std::filesystem::relative(_path, system::path(IIncludeHandler::BUILTIN_PREFIX)).generic_string();
+        system::path path = _path.parent_path().string();
+        std::string res;
+        while(path.generic_string() + '/' != IIncludeHandler::BUILTIN_PREFIX)  // going up the directory tree
         {
-            m_searchDirectories.emplace_back("/");
-        }
-
-        //! No-op, cannot add search dirs to includer of builtins
-        void addSearchDirectory(const system::path& _searchDir) override {}
-
-        void addBuiltinLoader(core::smart_refctd_ptr<IBuiltinIncludeLoader>&& _loader)
-        {
-            using namespace std::string_literals;
-            if (!_loader)
-                return;
-
-            m_loaders.insert(std::string(IIncludeHandler::BUILTIN_PREFIX) + _loader->getVirtualDirectoryName(), _loader.get());
-        }
-
-    protected:
-        std::string getInclude_internal(const system::path& _path) const override
-        {
-            if (!IIncludeHandler::isBuiltinPath(_path))
-                return {};
-
-            const std::string relativePath = std::filesystem::relative(_path, system::path(IIncludeHandler::BUILTIN_PREFIX)).generic_string();
-            system::path path = _path.parent_path().string();
-            std::string res;
-            while (path.generic_string() + '/' != IIncludeHandler::BUILTIN_PREFIX) // going up the directory tree
+            auto capableLoadersRng = m_loaders.findRange(path.generic_string() + '/');
+            for(auto& loader : capableLoadersRng)
             {
-                auto capableLoadersRng = m_loaders.findRange(path.generic_string() + '/');
-                for (auto& loader : capableLoadersRng)
-                {
-                    if (!(res = loader.second->getBuiltinInclude(relativePath)).empty())
-                        return res;
-                }
-                if (path.string().size()==0ull)
-                    break;
-                path = path.parent_path();
+                if(!(res = loader.second->getBuiltinInclude(relativePath)).empty())
+                    return res;
             }
-            return m_default->getBuiltinInclude(relativePath);
+            if(path.string().size() == 0ull)
+                break;
+            path = path.parent_path();
         }
+        return m_default->getBuiltinInclude(relativePath);
+    }
 };
 
 }

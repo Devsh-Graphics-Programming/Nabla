@@ -2,7 +2,6 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-
 #ifndef _NBL_ASSET_MESH_BLOB_H_INCLUDED_
 #define _NBL_ASSET_MESH_BLOB_H_INCLUDED_
 
@@ -10,7 +9,6 @@
 
 namespace nbl::asset
 {
-
 class ICPUMesh;
 
 #if 0
@@ -45,6 +43,6 @@ template<>
 struct CorrespondingBlobTypeFor<ICPUMesh> { typedef MeshBlobV3 type; };
 #endif
 
-} // nbl::asset
+}  // nbl::asset
 
 #endif

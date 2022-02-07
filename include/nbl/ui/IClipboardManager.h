@@ -6,10 +6,10 @@
 #include "nbl/asset/ICPUImage.h"
 #include "nbl/asset/ICommandBuffer.h"
 
-namespace nbl {
+namespace nbl
+{
 namespace ui
 {
-
 class IClipboardManager : public core::IReferenceCounted
 {
 public:
@@ -23,11 +23,12 @@ public:
     virtual bool setClipboardText(const std::string_view& data) = 0;
     virtual core::smart_refctd_ptr<asset::ICPUImage> getClipboardImage() = 0;
     virtual bool setClipboardImage(asset::ICPUImage* image, const SImageClipboardRegion& data) = 0;
-         
+
     virtual ~IClipboardManager() = default;
 
 protected:
-    IClipboardManager(core::smart_refctd_ptr<system::ISystem>&& sys) : m_sys(std::move(sys)) {}
+    IClipboardManager(core::smart_refctd_ptr<system::ISystem>&& sys)
+        : m_sys(std::move(sys)) {}
 
     core::smart_refctd_ptr<system::ISystem> m_sys;
 };

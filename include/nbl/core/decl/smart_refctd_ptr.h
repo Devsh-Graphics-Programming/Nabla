@@ -10,134 +10,140 @@
 
 namespace nbl::core
 {
-
 // Parameter types for special overloaded constructors
-struct dont_grab_t {};
+struct dont_grab_t
+{
+};
 constexpr dont_grab_t dont_grab{};
-struct dont_drop_t {};
+struct dont_drop_t
+{
+};
 constexpr dont_drop_t dont_drop{};
 
 // A RAII-like class to help you safeguard against memory leaks.
 // Will automagically drop reference counts when it goes out of scope
 template<class I_REFERENCE_COUNTED>
 class smart_refctd_ptr
-{			
-		mutable I_REFERENCE_COUNTED* ptr; // since IReferenceCounted declares the refcount mutable atomic
+{
+    mutable I_REFERENCE_COUNTED* ptr;  // since IReferenceCounted declares the refcount mutable atomic
 
-		template<class U> friend class smart_refctd_ptr;
-		template<class U, class T> friend smart_refctd_ptr<U> smart_refctd_ptr_static_cast(smart_refctd_ptr<T>&&);
-		template<class U, class T> friend smart_refctd_ptr<U> smart_refctd_ptr_dynamic_cast(smart_refctd_ptr<T>&&);
+    template<class U>
+    friend class smart_refctd_ptr;
+    template<class U, class T>
+    friend smart_refctd_ptr<U> smart_refctd_ptr_static_cast(smart_refctd_ptr<T>&&);
+    template<class U, class T>
+    friend smart_refctd_ptr<U> smart_refctd_ptr_dynamic_cast(smart_refctd_ptr<T>&&);
 
-        template<class U>
-		void copy(const smart_refctd_ptr<U>& other) noexcept;
-        template<class U>
-        void move(smart_refctd_ptr<U>&& other) noexcept
-        {
-            ptr = other.ptr;
-            other.ptr = nullptr;
-        }
-	public:
-		using pointee = I_REFERENCE_COUNTED;
-		using value_type = I_REFERENCE_COUNTED*;
+    template<class U>
+    void copy(const smart_refctd_ptr<U>& other) noexcept;
+    template<class U>
+    void move(smart_refctd_ptr<U>&& other) noexcept
+    {
+        ptr = other.ptr;
+        other.ptr = nullptr;
+    }
 
-		struct hash
-		{
-			size_t operator() (const core::smart_refctd_ptr<I_REFERENCE_COUNTED>& ptr) const;
-		};
+public:
+    using pointee = I_REFERENCE_COUNTED;
+    using value_type = I_REFERENCE_COUNTED*;
 
-		constexpr smart_refctd_ptr() noexcept : ptr(nullptr) {}
-		constexpr smart_refctd_ptr(std::nullptr_t) noexcept : ptr(nullptr) {}
-		template<class U>
-		explicit smart_refctd_ptr(U* _pointer) noexcept;
-		template<class U>
-		explicit smart_refctd_ptr(U* _pointer, dont_grab_t t) noexcept : ptr(_pointer) {}
-			
-        template<class U, std::enable_if_t<!std::is_same<U,I_REFERENCE_COUNTED>::value, int> = 0>
-        inline smart_refctd_ptr(const smart_refctd_ptr<U>& other) noexcept
-        {
-            this->copy(other);
-        }
-		inline smart_refctd_ptr(const smart_refctd_ptr<I_REFERENCE_COUNTED>& other) noexcept
-        {
-            this->copy(other);
-        }
+    struct hash
+    {
+        size_t operator()(const core::smart_refctd_ptr<I_REFERENCE_COUNTED>& ptr) const;
+    };
 
-		template<class U, std::enable_if_t<!std::is_same<U, I_REFERENCE_COUNTED>::value, int> = 0>
-		inline smart_refctd_ptr(smart_refctd_ptr<U>&& other) noexcept
-		{
-            this->move(std::move(other));
-		}
-        inline smart_refctd_ptr(smart_refctd_ptr<I_REFERENCE_COUNTED>&& other) noexcept
-        {
-            this->move(std::move(other));
-        }
+    constexpr smart_refctd_ptr() noexcept
+        : ptr(nullptr) {}
+    constexpr smart_refctd_ptr(std::nullptr_t) noexcept
+        : ptr(nullptr) {}
+    template<class U>
+    explicit smart_refctd_ptr(U* _pointer) noexcept;
+    template<class U>
+    explicit smart_refctd_ptr(U* _pointer, dont_grab_t t) noexcept
+        : ptr(_pointer) {}
 
-		~smart_refctd_ptr() noexcept;
+    template<class U, std::enable_if_t<!std::is_same<U, I_REFERENCE_COUNTED>::value, int> = 0>
+    inline smart_refctd_ptr(const smart_refctd_ptr<U>& other) noexcept
+    {
+        this->copy(other);
+    }
+    inline smart_refctd_ptr(const smart_refctd_ptr<I_REFERENCE_COUNTED>& other) noexcept
+    {
+        this->copy(other);
+    }
 
-		inline smart_refctd_ptr& operator=(const smart_refctd_ptr<I_REFERENCE_COUNTED>& other) noexcept;
-        template<class U, std::enable_if_t<!std::is_same<U,I_REFERENCE_COUNTED>::value, int> = 0>
-		inline smart_refctd_ptr& operator=(const smart_refctd_ptr<U>& other) noexcept;
+    template<class U, std::enable_if_t<!std::is_same<U, I_REFERENCE_COUNTED>::value, int> = 0>
+    inline smart_refctd_ptr(smart_refctd_ptr<U>&& other) noexcept
+    {
+        this->move(std::move(other));
+    }
+    inline smart_refctd_ptr(smart_refctd_ptr<I_REFERENCE_COUNTED>&& other) noexcept
+    {
+        this->move(std::move(other));
+    }
 
-		inline smart_refctd_ptr& operator=(smart_refctd_ptr<I_REFERENCE_COUNTED>&& other) noexcept;
-        //those std::enable_if_t's most likely not needed, but just to be sure (i put them to trigger SFINAE to be sure call to non-templated ctor is always generated in case of same type)
-		template<class U, std::enable_if_t<!std::is_same<U, I_REFERENCE_COUNTED>::value, int> = 0>
-		inline smart_refctd_ptr& operator=(smart_refctd_ptr<U>&& other) noexcept;
+    ~smart_refctd_ptr() noexcept;
 
-		// so that you don't mix refcounting methods
-		void grab() = delete;
-		void grab() const = delete;
-		bool drop() = delete;
-		bool drop() const = delete;
+    inline smart_refctd_ptr& operator=(const smart_refctd_ptr<I_REFERENCE_COUNTED>& other) noexcept;
+    template<class U, std::enable_if_t<!std::is_same<U, I_REFERENCE_COUNTED>::value, int> = 0>
+    inline smart_refctd_ptr& operator=(const smart_refctd_ptr<U>& other) noexcept;
 
-		// TODO: const correctness on the access operators (std::enable_if)
-		inline I_REFERENCE_COUNTED* const& get() const { return ptr; }
+    inline smart_refctd_ptr& operator=(smart_refctd_ptr<I_REFERENCE_COUNTED>&& other) noexcept;
+    //those std::enable_if_t's most likely not needed, but just to be sure (i put them to trigger SFINAE to be sure call to non-templated ctor is always generated in case of same type)
+    template<class U, std::enable_if_t<!std::is_same<U, I_REFERENCE_COUNTED>::value, int> = 0>
+    inline smart_refctd_ptr& operator=(smart_refctd_ptr<U>&& other) noexcept;
 
-		inline I_REFERENCE_COUNTED* operator->() const { return ptr; }
+    // so that you don't mix refcounting methods
+    void grab() = delete;
+    void grab() const = delete;
+    bool drop() = delete;
+    bool drop() const = delete;
 
-		inline I_REFERENCE_COUNTED& operator*() const { return *ptr; }
+    // TODO: const correctness on the access operators (std::enable_if)
+    inline I_REFERENCE_COUNTED* const& get() const { return ptr; }
 
-		inline I_REFERENCE_COUNTED& operator[](size_t idx) { return ptr[idx]; }
-		inline const I_REFERENCE_COUNTED& operator[](size_t idx) const { return ptr[idx]; }
+    inline I_REFERENCE_COUNTED* operator->() const { return ptr; }
 
+    inline I_REFERENCE_COUNTED& operator*() const { return *ptr; }
 
-		inline explicit operator bool() const { return ptr; }
-		inline bool operator!() const { return !ptr; }
+    inline I_REFERENCE_COUNTED& operator[](size_t idx) { return ptr[idx]; }
+    inline const I_REFERENCE_COUNTED& operator[](size_t idx) const { return ptr[idx]; }
 
-		template<class U>
-		inline bool operator==(const smart_refctd_ptr<U> &other) const { return ptr == other.ptr; }
-		template<class U>
-		inline bool operator!=(const smart_refctd_ptr<U> &other) const { return ptr != other.ptr; }
+    inline explicit operator bool() const { return ptr; }
+    inline bool operator!() const { return !ptr; }
 
-		template<class U>
-		inline bool operator<(const smart_refctd_ptr<U> &other) const { return ptr < other.ptr; }
-		template<class U>
-		inline bool operator>(const smart_refctd_ptr<U>& other) const { return ptr > other.ptr; }
+    template<class U>
+    inline bool operator==(const smart_refctd_ptr<U>& other) const { return ptr == other.ptr; }
+    template<class U>
+    inline bool operator!=(const smart_refctd_ptr<U>& other) const { return ptr != other.ptr; }
+
+    template<class U>
+    inline bool operator<(const smart_refctd_ptr<U>& other) const { return ptr < other.ptr; }
+    template<class U>
+    inline bool operator>(const smart_refctd_ptr<U>& other) const { return ptr > other.ptr; }
 };
 static_assert(sizeof(smart_refctd_ptr<IReferenceCounted>) == sizeof(IReferenceCounted*), "smart_refctd_ptr has a memory overhead!");
 
+template<class T, class... Args>
+smart_refctd_ptr<T> make_smart_refctd_ptr(Args&&... args);
 
-template< class T, class... Args >
-smart_refctd_ptr<T> make_smart_refctd_ptr(Args&& ... args);
-
-
-template< class U, class T >
+template<class U, class T>
 smart_refctd_ptr<U> smart_refctd_ptr_static_cast(const smart_refctd_ptr<T>& smart_ptr);
-template< class U, class T >
+template<class U, class T>
 smart_refctd_ptr<U> smart_refctd_ptr_static_cast(smart_refctd_ptr<T>&& smart_ptr);
 
-template< class U, class T >
+template<class U, class T>
 smart_refctd_ptr<U> move_and_static_cast(smart_refctd_ptr<T>&& smart_ptr);
 
-
-template< class U, class T >
+template<class U, class T>
 smart_refctd_ptr<U> smart_refctd_ptr_dynamic_cast(const smart_refctd_ptr<T>& smart_ptr);
-template< class U, class T >
+template<class U, class T>
 smart_refctd_ptr<U> smart_refctd_ptr_dynamic_cast(smart_refctd_ptr<T>&& smart_ptr);
 
-template< class U, class T >
+template<class U, class T>
 smart_refctd_ptr<U> move_and_dynamic_cast(smart_refctd_ptr<T>&& smart_ptr);
 
-} // end namespace nbl::core
+}  // end namespace nbl::core
 
 /*
 namespace std
@@ -153,4 +159,3 @@ namespace std
 */
 
 #endif
-

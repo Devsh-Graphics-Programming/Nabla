@@ -10,43 +10,44 @@
 
 namespace nbl::asset
 {
-
 class CDerivativeMapMetadata final : public IAssetMetadata
 {
+public:
+    class CImageView : public IImageViewMetadata
+    {
     public:
-        class CImageView : public IImageViewMetadata
+        CImageView(const float* _scale, bool isotropic)
+            : IImageViewMetadata({ECP_PASS_THROUGH, EOTF_IDENTITY})
         {
-            public:
-                CImageView(const float* _scale, bool isotropic) : IImageViewMetadata({ECP_PASS_THROUGH,EOTF_IDENTITY})
-                {
-                    scale[0] = _scale[0];
-                    if (isotropic)
-                        scale[1] = _scale[0];
-                    else
-                        scale[1] = _scale[1];
-                }
-
-                inline CImageView& operator=(CImageView&& other)
-                {
-                    IImageViewMetadata::operator=(std::move(other));
-                    scale[0] = other.scale[0];
-                    scale[1] = other.scale[1];
-                    return *this;
-                }
-
-                float scale[2];
-        };
-
-        CDerivativeMapMetadata(ICPUImageView* imageView, const float* _scale, bool isotropic) : IAssetMetadata(), m_metaStorage(_scale,isotropic)
-        {
-            IAssetMetadata::insertAssetSpecificMetadata(imageView,&m_metaStorage);
+            scale[0] = _scale[0];
+            if(isotropic)
+                scale[1] = _scale[0];
+            else
+                scale[1] = _scale[1];
         }
 
-        static inline constexpr const char* LoaderName = "CDerivativeMapCreator";
-        const char* getLoaderName() const override { return LoaderName; }
+        inline CImageView& operator=(CImageView&& other)
+        {
+            IImageViewMetadata::operator=(std::move(other));
+            scale[0] = other.scale[0];
+            scale[1] = other.scale[1];
+            return *this;
+        }
 
-    private:
-        CImageView m_metaStorage;
+        float scale[2];
+    };
+
+    CDerivativeMapMetadata(ICPUImageView* imageView, const float* _scale, bool isotropic)
+        : IAssetMetadata(), m_metaStorage(_scale, isotropic)
+    {
+        IAssetMetadata::insertAssetSpecificMetadata(imageView, &m_metaStorage);
+    }
+
+    static inline constexpr const char* LoaderName = "CDerivativeMapCreator";
+    const char* getLoaderName() const override { return LoaderName; }
+
+private:
+    CImageView m_metaStorage;
 };
 
 }

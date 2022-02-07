@@ -4,7 +4,6 @@
 
 namespace nbl::video
 {
-
 core::SRange<IPhysicalDevice* const> IAPIConnection::getPhysicalDevices() const
 {
     static_assert(sizeof(std::unique_ptr<IPhysicalDevice>) == sizeof(void*));
@@ -16,15 +15,14 @@ core::SRange<IPhysicalDevice* const> IAPIConnection::getPhysicalDevices() const
 
 core::SRange<const IAPIConnection::E_FEATURE> IAPIConnection::getDependentFeatures(const E_FEATURE feature)
 {
-    switch (feature)
+    switch(feature)
     {
-    case EF_SURFACE:
-    {
-        static E_FEATURE depFeatures[] = { EF_SURFACE };
-        return { depFeatures, depFeatures + sizeof(depFeatures)/sizeof(E_FEATURE) };
-    }
-    default:
-        return { nullptr, nullptr };
+        case EF_SURFACE: {
+            static E_FEATURE depFeatures[] = {EF_SURFACE};
+            return {depFeatures, depFeatures + sizeof(depFeatures) / sizeof(E_FEATURE)};
+        }
+        default:
+            return {nullptr, nullptr};
     }
 }
 

@@ -13,53 +13,51 @@ namespace nbl
 {
 namespace asset
 {
-
 //! class to write meshes, implementing a STL writer
 class CSTLMeshWriter : public asset::IAssetWriter
 {
-    protected:
-        virtual ~CSTLMeshWriter();
+protected:
+    virtual ~CSTLMeshWriter();
 
-    public:
-        CSTLMeshWriter();
+public:
+    CSTLMeshWriter();
 
-        virtual const char** getAssociatedFileExtensions() const
-        {
-            static const char* ext[]{ "stl", nullptr };
-            return ext;
-        }
+    virtual const char** getAssociatedFileExtensions() const
+    {
+        static const char* ext[]{"stl", nullptr};
+        return ext;
+    }
 
-        virtual uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_MESH; }
+    virtual uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_MESH; }
 
-        virtual uint32_t getSupportedFlags() override { return asset::EWF_BINARY; }
+    virtual uint32_t getSupportedFlags() override { return asset::EWF_BINARY; }
 
-        virtual uint32_t getForcedFlags() { return 0u; }
+    virtual uint32_t getForcedFlags() { return 0u; }
 
-        virtual bool writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr) override;
+    virtual bool writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr) override;
 
-    private:
+private:
+    struct SContext
+    {
+        SAssetWriteContext writeContext;
+        size_t fileOffset;
+    };
 
-        struct SContext
-        {
-            SAssetWriteContext writeContext;
-            size_t fileOffset;
-        };
+    // write binary format
+    bool writeMeshBinary(const asset::ICPUMesh* mesh, SContext* context);
 
-        // write binary format
-        bool writeMeshBinary(const asset::ICPUMesh* mesh, SContext* context);
+    // write text format
+    bool writeMeshASCII(const asset::ICPUMesh* mesh, SContext* context);
 
-        // write text format
-        bool writeMeshASCII(const asset::ICPUMesh* mesh, SContext* context);
+    // create vector output with line end into string
+    void getVectorAsStringLine(const core::vectorSIMDf& v, std::string& s) const;
 
-        // create vector output with line end into string
-        void getVectorAsStringLine(const core::vectorSIMDf& v, std::string& s) const;
-
-        // write face information to file
-        void writeFaceText(const core::vectorSIMDf& v1,
-            const core::vectorSIMDf& v2, const core::vectorSIMDf& v3, SContext* context);
+    // write face information to file
+    void writeFaceText(const core::vectorSIMDf& v1,
+        const core::vectorSIMDf& v2, const core::vectorSIMDf& v3, SContext* context);
 };
 
-} // end namespace
-} // end namespace
+}  // end namespace
+}  // end namespace
 
 #endif

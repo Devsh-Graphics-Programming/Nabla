@@ -9,15 +9,14 @@
 // in between!
 
 // byte-align structures
-#if defined(_MSC_VER) || defined(__GNUC__) || defined (__clang__)
-#	ifdef _MSC_VER
-#		pragma warning(disable: 4103)
-#	endif
-#		pragma pack( push, packing )
-#		pragma pack( 1 )
-// TODO: Remove PACK_STRUCT from the engine
-#		define PACK_STRUCT
-#else
-#	error compiler not supported
+#if defined(_MSC_VER) || defined(__GNUC__) || defined(__clang__)
+#ifdef _MSC_VER
+#pragma warning(disable : 4103)
 #endif
-
+#pragma pack(push, packing)
+#pragma pack(1)
+// TODO: Remove PACK_STRUCT from the engine
+#define PACK_STRUCT
+#else
+#error compiler not supported
+#endif

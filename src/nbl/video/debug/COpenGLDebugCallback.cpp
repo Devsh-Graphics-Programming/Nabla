@@ -8,7 +8,7 @@ void COpenGLDebugCallback::defaultCallback(GLenum _source, GLenum _type, GLuint 
 {
     const auto* cb = reinterpret_cast<const COpenGLDebugCallback*>(_userParam);
     uint8_t level = 0u;
-    switch (_severity)
+    switch(_severity)
     {
         case GL_DEBUG_SEVERITY_HIGH:
             level |= system::ILogger::ELL_PERFORMANCE;
@@ -22,7 +22,7 @@ void COpenGLDebugCallback::defaultCallback(GLenum _source, GLenum _type, GLuint 
         case GL_DEBUG_SEVERITY_NOTIFICATION:
             break;
     }
-    switch (_type)
+    switch(_type)
     {
         case GL_DEBUG_TYPE_ERROR:
             [[fallthrough]];
@@ -45,6 +45,6 @@ void COpenGLDebugCallback::defaultCallback(GLenum _source, GLenum _type, GLuint 
             break;
     }
     level = 1 << core::findMSB(uint32_t(level));
-    cb->getLogger()->log("%s",static_cast<system::ILogger::E_LOG_LEVEL>(level),_message);
+    cb->getLogger()->log("%s", static_cast<system::ILogger::E_LOG_LEVEL>(level), _message);
     // __debugbreak();
 }

@@ -5,7 +5,7 @@
 #include "nbl/video/debug/CVulkanDebugCallback.h"
 
 #if defined(_NBL_PLATFORM_WINDOWS_)
-#   include "nbl/ui/IWindowWin32.h"
+#include "nbl/ui/IWindowWin32.h"
 #endif
 
 #include <volk/volk.h>
@@ -40,13 +40,13 @@ private:
         VkExtensionProperties* extensions)
     {
         VkResult retval = vkEnumerateInstanceExtensionProperties(layerName, &extensionCount, nullptr);
-        if ((retval != VK_SUCCESS) && (retval != VK_INCOMPLETE))
+        if((retval != VK_SUCCESS) && (retval != VK_INCOMPLETE))
             return false;
 
-        if (extensions)
+        if(extensions)
         {
             retval = vkEnumerateInstanceExtensionProperties(layerName, &extensionCount, extensions);
-            if ((retval != VK_SUCCESS) && (retval != VK_INCOMPLETE))
+            if((retval != VK_SUCCESS) && (retval != VK_INCOMPLETE))
                 return false;
         }
 
@@ -57,7 +57,7 @@ private:
 
     VkInstance m_vkInstance = VK_NULL_HANDLE;
     VkDebugUtilsMessengerEXT m_vkDebugUtilsMessengerEXT = VK_NULL_HANDLE;
-    std::unique_ptr<CVulkanDebugCallback> m_debugCallback = nullptr; // this needs to live longer than VkDebugUtilsMessengerEXT handle above
+    std::unique_ptr<CVulkanDebugCallback> m_debugCallback = nullptr;  // this needs to live longer than VkDebugUtilsMessengerEXT handle above
 };
 
 }

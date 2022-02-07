@@ -8,7 +8,6 @@
 
 namespace nbl::video
 {
-
 class ILogicalDevice;
 
 class CVulkanImageView final : public IGPUImageView

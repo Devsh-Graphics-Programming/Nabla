@@ -12,25 +12,24 @@ namespace nbl
 {
 namespace asset
 {
-
 class IIncludeHandler : public core::IReferenceCounted
 {
-	public:
-		static constexpr const char* BUILTIN_PREFIX = "nbl/builtin/";
-		static bool isBuiltinPath(const system::path& _p)
-		{
-			const size_t prefix_len = strlen(BUILTIN_PREFIX);
-			return _p.string().compare(0u, prefix_len, BUILTIN_PREFIX) == 0;
-		}
+public:
+    static constexpr const char* BUILTIN_PREFIX = "nbl/builtin/";
+    static bool isBuiltinPath(const system::path& _p)
+    {
+        const size_t prefix_len = strlen(BUILTIN_PREFIX);
+        return _p.string().compare(0u, prefix_len, BUILTIN_PREFIX) == 0;
+    }
 
-	protected:
-		virtual ~IIncludeHandler() = default;
+protected:
+    virtual ~IIncludeHandler() = default;
 
-	public:
-		virtual std::string getIncludeStandard(const system::path& _path) const = 0;
-		virtual std::string getIncludeRelative(const system::path& _path, const system::path& _workingDirectory) const = 0;
+public:
+    virtual std::string getIncludeStandard(const system::path& _path) const = 0;
+    virtual std::string getIncludeRelative(const system::path& _path, const system::path& _workingDirectory) const = 0;
 
-		virtual void addBuiltinIncludeLoader(core::smart_refctd_ptr<IBuiltinIncludeLoader>&& _inclLoader) = 0;
+    virtual void addBuiltinIncludeLoader(core::smart_refctd_ptr<IBuiltinIncludeLoader>&& _inclLoader) = 0;
 };
 
 }

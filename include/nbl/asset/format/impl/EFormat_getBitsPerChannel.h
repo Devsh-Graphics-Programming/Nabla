@@ -1,5 +1,5 @@
-using inline_array = std::array<uint8_t,4u>;
-switch (_fmt)
+using inline_array = std::array<uint8_t, 4u>;
+switch(_fmt)
 {
     case EF_R4G4_UNORM_PACK8: [[fallthrough]];
     case EF_R4G4B4A4_UNORM_PACK16: [[fallthrough]];
@@ -137,30 +137,30 @@ switch (_fmt)
         break;
 
     case EF_X8_D24_UNORM_PACK32:
-        return inline_array{24,0}[_channel];
+        return inline_array{24, 0}[_channel];
         break;
 
     case EF_D16_UNORM_S8_UINT:
-        return inline_array{16,8}[_channel];
+        return inline_array{16, 8}[_channel];
         break;
 
     case EF_D24_UNORM_S8_UINT:
-        return inline_array{24,8}[_channel];
+        return inline_array{24, 8}[_channel];
         break;
 
     case EF_D32_SFLOAT_S8_UINT:
-        return inline_array{32,8}[_channel];
+        return inline_array{32, 8}[_channel];
         break;
 
     case EF_R5G6B5_UNORM_PACK16:
     case EF_B5G6R5_UNORM_PACK16:
-        return inline_array{5,6,5}[_channel];
+        return inline_array{5, 6, 5}[_channel];
         break;
 
     case EF_R5G5B5A1_UNORM_PACK16: [[fallthrough]];
     case EF_B5G5R5A1_UNORM_PACK16: [[fallthrough]];
     case EF_A1R5G5B5_UNORM_PACK16:
-        return inline_array{5,6,5,1}[_channel];
+        return inline_array{5, 6, 5, 1}[_channel];
         break;
 
     case EF_A2R10G10B10_UNORM_PACK32: [[fallthrough]];
@@ -175,19 +175,19 @@ switch (_fmt)
     case EF_A2B10G10R10_SSCALED_PACK32: [[fallthrough]];
     case EF_A2B10G10R10_UINT_PACK32: [[fallthrough]];
     case EF_A2B10G10R10_SINT_PACK32:
-        return inline_array{10,10,10,2}[_channel];
+        return inline_array{10, 10, 10, 2}[_channel];
         break;
 
     case EF_B10G11R11_UFLOAT_PACK32:
-        return inline_array{10,11,11}[_channel];
+        return inline_array{10, 11, 11}[_channel];
         break;
     case EF_E5B9G9R9_UFLOAT_PACK32:
         return 14u;
         break;
 
-    // TODO: impl block compressed formats
+        // TODO: impl block compressed formats
 
-    default: 
+    default:
         break;
 }
 return 0u;

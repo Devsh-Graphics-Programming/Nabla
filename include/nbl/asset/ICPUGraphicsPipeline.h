@@ -6,10 +6,10 @@
 #include "nbl/asset/ICPURenderpassIndependentPipeline.h"
 #include "nbl/asset/ICPURenderpass.h"
 
-namespace nbl {
+namespace nbl
+{
 namespace asset
 {
-
 class ICPUGraphicsPipeline final : public IAsset, public IGraphicsPipeline<ICPURenderpassIndependentPipeline, ICPURenderpass>
 {
     using base_t = IGraphicsPipeline<ICPURenderpassIndependentPipeline, ICPURenderpass>;
@@ -17,7 +17,6 @@ class ICPUGraphicsPipeline final : public IAsset, public IGraphicsPipeline<ICPUR
 public:
     ~ICPUGraphicsPipeline()
     {
-
     }
 
     using base_t::base_t;

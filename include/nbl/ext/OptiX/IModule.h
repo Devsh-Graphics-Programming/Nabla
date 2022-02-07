@@ -15,28 +15,26 @@ namespace ext
 {
 namespace OptiX
 {
-
 class IContext;
-
 
 class IModule final : public core::IReferenceCounted
 {
-	public:
-		inline OptixModule getOptiXHandle() {return module;}
+public:
+    inline OptixModule getOptiXHandle() { return module; }
 
-	protected:
-		friend class OptiX::IContext;
+protected:
+    friend class OptiX::IContext;
 
-		IModule(const OptixModule& _module) : module(_module) {}
-		~IModule()
-		{
-			if (module)
-				optixModuleDestroy(module);
-		}
+    IModule(const OptixModule& _module)
+        : module(_module) {}
+    ~IModule()
+    {
+        if(module)
+            optixModuleDestroy(module);
+    }
 
-		OptixModule module;
+    OptixModule module;
 };
-
 
 }
 }

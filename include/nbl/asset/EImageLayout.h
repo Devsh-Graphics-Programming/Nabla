@@ -9,7 +9,6 @@ namespace nbl
 {
 namespace asset
 {
-
 // TODO: move this to appropriate class
 enum E_IMAGE_LAYOUT : uint32_t
 {
@@ -30,6 +29,7 @@ enum E_IMAGE_LAYOUT : uint32_t
     EIL_FRAGMENT_DENSITY_MAP_OPTIMAL_EXT = 1000218000
 };
 
-}}
+}
+}
 
 #endif

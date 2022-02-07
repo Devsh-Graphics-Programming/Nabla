@@ -10,25 +10,23 @@
 
 namespace nbl::core
 {
-
 class RandomSampler
 {
-	public:
-		RandomSampler(uint32_t _seed)
-		{
-			mersenneTwister.seed(_seed);
-		}
+public:
+    RandomSampler(uint32_t _seed)
+    {
+        mersenneTwister.seed(_seed);
+    }
 
-		// 
-		inline uint32_t nextSample()
-		{
-			return mersenneTwister();
-		}
+    //
+    inline uint32_t nextSample()
+    {
+        return mersenneTwister();
+    }
 
-	protected:
-		std::mt19937 mersenneTwister;
+protected:
+    std::mt19937 mersenneTwister;
 };
-
 
 }
 

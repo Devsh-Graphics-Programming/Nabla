@@ -19,14 +19,14 @@ namespace nbl
 {
 namespace asset
 {
-
 //!  Surface Loader for PNG files
 class CImageLoaderPng : public asset::IAssetLoader
 {
 public:
     struct SContext
     {
-        SContext(const system::logger_opt_ptr _logger) :  logger(_logger) {}
+        SContext(const system::logger_opt_ptr _logger)
+            : logger(_logger) {}
         // Made file_pos initial value 8 cause it's first set to 8 in CImageLoaderPng::loadAsset
         // and set to 8 but you cannot access this struct from there
         size_t file_pos = 8;
@@ -37,7 +37,7 @@ public:
 
     virtual const char** getAssociatedFileExtensions() const override
     {
-        static const char* ext[]{ "png", nullptr };
+        static const char* ext[]{"png", nullptr};
         return ext;
     }
 
@@ -46,10 +46,8 @@ public:
     virtual asset::SAssetBundle loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 };
 
-
-} // end namespace video
-} // end namespace nbl
+}  // end namespace video
+}  // end namespace nbl
 
 #endif
 #endif
-

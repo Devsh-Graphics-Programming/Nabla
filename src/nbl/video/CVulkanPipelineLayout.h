@@ -6,7 +6,6 @@
 
 namespace nbl::video
 {
-
 class ILogicalDevice;
 
 class CVulkanPipelineLayout : public IGPUPipelineLayout
@@ -20,7 +19,8 @@ public:
         core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout2,
         core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout3, VkPipelineLayout vk_layout)
         : IGPUPipelineLayout(std::move(dev), _pcRangesBegin, _pcRangesEnd, std::move(_layout0),
-            std::move(_layout1), std::move(_layout2), std::move(_layout3)), m_layout(vk_layout)
+              std::move(_layout1), std::move(_layout2), std::move(_layout3)),
+          m_layout(vk_layout)
     {}
 
     ~CVulkanPipelineLayout();
@@ -31,7 +31,6 @@ public:
 
 private:
     VkPipelineLayout m_layout;
-
 };
 
 }

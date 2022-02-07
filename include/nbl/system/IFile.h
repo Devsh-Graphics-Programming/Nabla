@@ -10,64 +10,63 @@
 
 namespace nbl::system
 {
-
 class ISystem;
 template<typename T>
 class future;
 
 class IFile : public core::IReferenceCounted
 {
-	friend class ISystemCaller;
-	friend class ISystem;
-	friend class IFileArchive;
-	public:
-		enum E_CREATE_FLAGS : uint32_t
-		{
-			ECF_READ = 0b0001,
-			ECF_WRITE = 0b0010,
-			ECF_READ_WRITE = 0b0011,
-			ECF_MAPPABLE = 0b0100,
-			//! Implies ECF_MAPPABLE
-			ECF_COHERENT = 0b1100
-		};
+    friend class ISystemCaller;
+    friend class ISystem;
+    friend class IFileArchive;
 
-		//! Get size of file.
-		/** \return Size of the file in bytes. */
-		virtual size_t getSize() const = 0;
+public:
+    enum E_CREATE_FLAGS : uint32_t
+    {
+        ECF_READ = 0b0001,
+        ECF_WRITE = 0b0010,
+        ECF_READ_WRITE = 0b0011,
+        ECF_MAPPABLE = 0b0100,
+        //! Implies ECF_MAPPABLE
+        ECF_COHERENT = 0b1100
+    };
 
-		//! Get name of file.
-		/** \return File name as zero terminated character string. */
-		inline const path& getFileName() const { return m_filename; }
+    //! Get size of file.
+    /** \return Size of the file in bytes. */
+    virtual size_t getSize() const = 0;
 
-		E_CREATE_FLAGS getFlags() const { return m_flags.value; }
+    //! Get name of file.
+    /** \return File name as zero terminated character string. */
+    inline const path& getFileName() const { return m_filename; }
 
-		virtual void* getMappedPointer() = 0;
-		virtual const void* getMappedPointer() const = 0;
-	
+    E_CREATE_FLAGS getFlags() const { return m_flags.value; }
 
-		bool isMappingCoherent() const
-		{
-			return (m_flags & ECF_COHERENT).value == ECF_COHERENT;
-		}
+    virtual void* getMappedPointer() = 0;
+    virtual const void* getMappedPointer() const = 0;
 
-		// TODO: make the `ISystem` methods protected instead 
-		void read(future<size_t>& fut, void* buffer, size_t offset, size_t sizeToRead);
-		void write(future<size_t>& fut, const void* buffer, size_t offset, size_t sizeToWrite);
+    bool isMappingCoherent() const
+    {
+        return (m_flags & ECF_COHERENT).value == ECF_COHERENT;
+    }
 
-		static path flattenFilename(const path& p);
+    // TODO: make the `ISystem` methods protected instead
+    void read(future<size_t>& fut, void* buffer, size_t offset, size_t sizeToRead);
+    void write(future<size_t>& fut, const void* buffer, size_t offset, size_t sizeToWrite);
 
-	protected:
-		virtual size_t read_impl(void* buffer, size_t offset, size_t sizeToRead) = 0;
-		virtual size_t write_impl(const void* buffer, size_t offset, size_t sizeToWrite) = 0;
+    static path flattenFilename(const path& p);
 
-		// the ISystem is the factory, so this starys protected
-		explicit IFile(core::smart_refctd_ptr<ISystem>&& _system, const path& _filename, core::bitflag<E_CREATE_FLAGS> _flags);
+protected:
+    virtual size_t read_impl(void* buffer, size_t offset, size_t sizeToRead) = 0;
+    virtual size_t write_impl(const void* buffer, size_t offset, size_t sizeToWrite) = 0;
 
-		core::smart_refctd_ptr<ISystem> m_system;
-		core::bitflag<E_CREATE_FLAGS> m_flags;
+    // the ISystem is the factory, so this starys protected
+    explicit IFile(core::smart_refctd_ptr<ISystem>&& _system, const path& _filename, core::bitflag<E_CREATE_FLAGS> _flags);
 
-	private:
-		path m_filename;
+    core::smart_refctd_ptr<ISystem> m_system;
+    core::bitflag<E_CREATE_FLAGS> m_flags;
+
+private:
+    path m_filename;
 };
 
 }

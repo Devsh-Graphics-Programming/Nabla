@@ -6,7 +6,6 @@
 
 namespace nbl::video
 {
-
 class ILogicalDevice;
 
 class CVulkanDescriptorPool : public IDescriptorPool

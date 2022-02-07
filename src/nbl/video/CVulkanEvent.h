@@ -8,7 +8,6 @@
 
 namespace nbl::video
 {
-
 class ILogicalDevice;
 
 class CVulkanEvent : public IGPUEvent

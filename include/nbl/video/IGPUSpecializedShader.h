@@ -5,15 +5,13 @@
 #ifndef __NBL_VIDEO_I_GPU_SPECIALIZED_SHADER_H_INCLUDED__
 #define __NBL_VIDEO_I_GPU_SPECIALIZED_SHADER_H_INCLUDED__
 
-#include "nbl/asset/IShader.h" // only because of m_stage member
+#include "nbl/asset/IShader.h"  // only because of m_stage member
 #include "nbl/asset/ISpecializedShader.h"
 
 #include "nbl/video/decl/IBackendObject.h"
 
-
 namespace nbl::video
 {
-
 //! GPU Version of Specialized Shader
 /*
 	@see ISpecializedShader
@@ -21,16 +19,16 @@ namespace nbl::video
 
 class IGPUSpecializedShader : public asset::ISpecializedShader, public IBackendObject
 {
-	public:
-		IGPUSpecializedShader(core::smart_refctd_ptr<const ILogicalDevice>&& dev) : IBackendObject(std::move(dev)) {}
+public:
+    IGPUSpecializedShader(core::smart_refctd_ptr<const ILogicalDevice>&& dev)
+        : IBackendObject(std::move(dev)) {}
 
-		virtual asset::IShader::E_SHADER_STAGE getStage() const = 0;
+    virtual asset::IShader::E_SHADER_STAGE getStage() const = 0;
 
-	protected:
-		virtual ~IGPUSpecializedShader() = default;
+protected:
+    virtual ~IGPUSpecializedShader() = default;
 };
 
 }
 
 #endif
-

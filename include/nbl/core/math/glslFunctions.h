@@ -15,37 +15,35 @@ namespace nbl
 {
 namespace core
 {
-
 template<int components>
 class vectorSIMDBool;
-template <class T>
+template<class T>
 class vectorSIMD_32;
 class vectorSIMDf;
 class matrix4SIMD;
 class matrix3x4SIMD;
 
-
 template<typename T>
 NBL_FORCE_INLINE T radians(const T& degrees)
 {
-	static_assert(
-		std::is_same<T, float>::value ||
-		std::is_same<T, double>::value ||
-		std::is_same<T, vectorSIMDf>::value,
-		"This code expects the type to be double, float or vectorSIMDf, only (float, double, vectorSIMDf).");
+    static_assert(
+        std::is_same<T, float>::value ||
+            std::is_same<T, double>::value ||
+            std::is_same<T, vectorSIMDf>::value,
+        "This code expects the type to be double, float or vectorSIMDf, only (float, double, vectorSIMDf).");
 
-	return degrees*PI<T>()/T(180);
+    return degrees * PI<T>() / T(180);
 }
 template<typename T>
 NBL_FORCE_INLINE T degrees(const T& radians)
 {
-	static_assert(
-		std::is_same<T, float>::value ||
-		std::is_same<T, double>::value ||
-		std::is_same<T, vectorSIMDf>::value,
-		"This code expects the type to be double, float or vectorSIMDf, only (float, double, vectorSIMDf).");
+    static_assert(
+        std::is_same<T, float>::value ||
+            std::is_same<T, double>::value ||
+            std::is_same<T, vectorSIMDf>::value,
+        "This code expects the type to be double, float or vectorSIMDf, only (float, double, vectorSIMDf).");
 
-	return radians*T(180)/PI<T>();
+    return radians * T(180) / PI<T>();
 }
 // TODO : sin,cos,tan,asin,acos,atan(y,x),atan(y_over_x),sinh,cosh,tanh,asinh,acosh,atanh,sincos specializations for vectors
 template<typename T>
@@ -53,7 +51,7 @@ T sin(const T& radians);
 template<typename T>
 NBL_FORCE_INLINE T cos(const T& radians)
 {
-	return std::cos(radians);
+    return std::cos(radians);
 }
 
 // TODO : pow,exp,log,exp2,log2
@@ -72,7 +70,7 @@ NBL_FORCE_INLINE T inversesqrt(const T& x);
 template<typename T>
 NBL_FORCE_INLINE T reciprocal(const T& x)
 {
-	return T(1.0)/x;
+    return T(1.0) / x;
 }
 
 template<typename T>
@@ -93,61 +91,57 @@ NBL_FORCE_INLINE double exp2<double>(const double& x);
 template<typename T>
 NBL_FORCE_INLINE T fma(const T& a, const T& b, const T& c)
 {
-	return a * b + c;
+    return a * b + c;
 }
 
 //! returns linear interpolation of a and b with ratio t
 //! only defined for floating point scalar and vector types
 //! \return: a if t==0, b if t==1, and the linear interpolation else
 template<typename T, typename U>
-NBL_FORCE_INLINE T mix(const T & a, const T & b, const U & t)
+NBL_FORCE_INLINE T mix(const T& a, const T& b, const U& t)
 {
-	T retval;
-	if constexpr(nbl::is_any_of<U,vectorSIMDBool<2>,vectorSIMDBool<4>,vectorSIMDBool<8>,vectorSIMDBool<16> >::value)
-	{
-		if constexpr(std::is_same<T,vectorSIMDf>::value)
-		{
-			retval = _mm_castsi128_ps(_mm_or_si128(_mm_castps_si128((a&(~t)).getAsRegister()),_mm_castps_si128((b&t).getAsRegister())));
-		}
-		else
-		{
-			retval = (a&(~t))|(b&t);
-		}
-		
-	}
-	else
-	{
-		if constexpr(std::is_same<U,bool>::value)
-		{
-			retval = t ? b:a;
-		}
-		else
-		{
-			if constexpr(nbl::is_any_of<T,matrix4SIMD,matrix3x4SIMD>::value)
-			{
-				for (uint32_t i=0u; i<T::VectorCount; i++)
-				{
-					if constexpr(nbl::is_any_of<U, matrix4SIMD, matrix3x4SIMD>::value)
-					{
-						retval[i] = core::mix<vectorSIMDf, vectorSIMDf>(a.rows[i], b.rows[i], t.rows[i]);
-					}
-					else
-					{
-						retval[i] = core::mix<vectorSIMDf, U>(a.rows[i], b.rows[i], t);
-					}
-					
-				}
-			}
-			else
-			{
-				retval = core::fma<T>(b-a,t,a);
-			}
-			
-		}
-		
-	}
-	
-	return retval;
+    T retval;
+    if constexpr(nbl::is_any_of<U, vectorSIMDBool<2>, vectorSIMDBool<4>, vectorSIMDBool<8>, vectorSIMDBool<16>>::value)
+    {
+        if constexpr(std::is_same<T, vectorSIMDf>::value)
+        {
+            retval = _mm_castsi128_ps(_mm_or_si128(_mm_castps_si128((a & (~t)).getAsRegister()), _mm_castps_si128((b & t).getAsRegister())));
+        }
+        else
+        {
+            retval = (a & (~t)) | (b & t);
+        }
+    }
+    else
+    {
+        if constexpr(std::is_same<U, bool>::value)
+        {
+            retval = t ? b : a;
+        }
+        else
+        {
+            if constexpr(nbl::is_any_of<T, matrix4SIMD, matrix3x4SIMD>::value)
+            {
+                for(uint32_t i = 0u; i < T::VectorCount; i++)
+                {
+                    if constexpr(nbl::is_any_of<U, matrix4SIMD, matrix3x4SIMD>::value)
+                    {
+                        retval[i] = core::mix<vectorSIMDf, vectorSIMDf>(a.rows[i], b.rows[i], t.rows[i]);
+                    }
+                    else
+                    {
+                        retval[i] = core::mix<vectorSIMDf, U>(a.rows[i], b.rows[i], t);
+                    }
+                }
+            }
+            else
+            {
+                retval = core::fma<T>(b - a, t, a);
+            }
+        }
+    }
+
+    return retval;
 }
 
 //! returns abs of two values. Own implementation to get rid of STL (VS6 problems)
@@ -160,11 +154,11 @@ NBL_FORCE_INLINE vectorSIMDf abs<vectorSIMDf>(const vectorSIMDf& a);
 template<class T>
 NBL_FORCE_INLINE T sign(const T& a)
 {
-	auto isneg = a < T(0);
-	using bool_type = typename std::remove_reference<decltype(isneg)>::type;
-	T half_sign = core::mix<T,bool_type>(T(1),T(-1),isneg);
-	auto iszero = a == T(0);
-	return core::mix<T,bool_type>(half_sign,T(0),iszero);
+    auto isneg = a < T(0);
+    using bool_type = typename std::remove_reference<decltype(isneg)>::type;
+    T half_sign = core::mix<T, bool_type>(T(1), T(-1), isneg);
+    auto iszero = a == T(0);
+    return core::mix<T, bool_type>(half_sign, T(0), iszero);
 }
 
 //! round down
@@ -175,7 +169,7 @@ NBL_FORCE_INLINE float floor<float>(const float& x);
 template<>
 NBL_FORCE_INLINE double floor<double>(const double& x);
 template<>
-NBL_FORCE_INLINE vectorSIMDf floor<vectorSIMDf>(const vectorSIMDf& x);/*
+NBL_FORCE_INLINE vectorSIMDf floor<vectorSIMDf>(const vectorSIMDf& x); /*
 template<typename T, typename I>
 NBL_FORCE_INLINE I floor(const T& x)
 {
@@ -184,7 +178,7 @@ NBL_FORCE_INLINE I floor(const T& x)
 
 //! round towards zero
 template<typename T>
-NBL_FORCE_INLINE T trunc(const T& x);/*
+NBL_FORCE_INLINE T trunc(const T& x); /*
 template<typename T, typename I>
 NBL_FORCE_INLINE I trunc(const T& x)
 {
@@ -195,12 +189,12 @@ NBL_FORCE_INLINE I trunc(const T& x)
 template<typename T>
 NBL_FORCE_INLINE T round(const T& x)
 {
-	return core::floor<T>(x+T(0.5));
+    return core::floor<T>(x + T(0.5));
 }
 template<typename T, typename I>
 NBL_FORCE_INLINE I round(const T& x)
 {
-	return I(core::round<T>(x));
+    return I(core::round<T>(x));
 }
 
 //! No idea how this shit works, unimplemented
@@ -209,7 +203,7 @@ NBL_FORCE_INLINE T roundEven(const T& x);
 template<typename T, typename I>
 NBL_FORCE_INLINE I roundEven(const T& x)
 {
-	return I(core::trunc<T>(x));
+    return I(core::trunc<T>(x));
 }
 
 //! round up
@@ -220,33 +214,33 @@ NBL_FORCE_INLINE float ceil<float>(const float& x);
 template<>
 NBL_FORCE_INLINE double ceil<double>(const double& x);
 template<>
-NBL_FORCE_INLINE vectorSIMDf ceil<vectorSIMDf>(const vectorSIMDf& x);/*
+NBL_FORCE_INLINE vectorSIMDf ceil<vectorSIMDf>(const vectorSIMDf& x); /*
 template<typename T, typename I>
 NBL_FORCE_INLINE I ceil(const T& x)
 {
 	return I(core::ceil<T>(x));
 }*/
 
-//! 
+//!
 template<typename T>
 NBL_FORCE_INLINE T fract(const T& x)
 {
-	return x - core::floor<T>(x);
+    return x - core::floor<T>(x);
 }
 
-//! 
-template<typename T, typename U=T>
+//!
+template<typename T, typename U = T>
 NBL_FORCE_INLINE T mod(const T& x, const U& y)
 {
-	return core::fma<T>(-core::floor<T>(x / y),y,x);
+    return core::fma<T>(-core::floor<T>(x / y), y, x);
 }
 
-//! 
+//!
 template<typename T, typename U>
 NBL_FORCE_INLINE T modf(const T& x, U& i)
 {
-	i = x; // floor
-	return x - T(i);
+    i = x;  // floor
+    return x - T(i);
 }
 
 template<class T>
@@ -256,14 +250,14 @@ NBL_FORCE_INLINE vectorSIMDf min<vectorSIMDf>(const vectorSIMDf& a, const vector
 template<class T, typename U>
 NBL_FORCE_INLINE T min(const T& a, const U& b)
 {
-	return core::min<T>(a,T(b));
+    return core::min<T>(a, T(b));
 }
 
-template<class T, typename U=T>
+template<class T, typename U = T>
 NBL_FORCE_INLINE T min(const T& a, const U& b, const U& c)
 {
-	T vb = T(b);
-	return core::min<T,T>(core::min<T,T>(a,vb), min<T,U>(vb,c));
+    T vb = T(b);
+    return core::min<T, T>(core::min<T, T>(a, vb), min<T, U>(vb, c));
 }
 /* don't remember what I made it for
 template<typename... Args>
@@ -283,14 +277,14 @@ NBL_FORCE_INLINE vectorSIMDf max<vectorSIMDf>(const vectorSIMDf& a, const vector
 template<class T, typename U>
 NBL_FORCE_INLINE T max(const T& a, const U& b)
 {
-	return core::max<T>(a, T(b));
+    return core::max<T>(a, T(b));
 }
 
-template<class T, typename U=T>
+template<class T, typename U = T>
 NBL_FORCE_INLINE T max(const T& a, const U& b, const U& c)
 {
-	T vb = T(b);
-	return core::max<T,T>(core::max<T,T>(a,vb),max<T,U>(vb,c));
+    T vb = T(b);
+    return core::max<T, T>(core::max<T, T>(a, vb), max<T, U>(vb, c));
 }
 /* don't remember what I made it for
 template<typename... Args>
@@ -304,19 +298,18 @@ struct max_t
 */
 
 //! clamps a value between low and high
-template <class T, typename U=T>
+template<class T, typename U = T>
 NBL_FORCE_INLINE const T clamp(const T& value, const U& low, const U& high)
 {
-	return core::min<T,U>(core::max<T,U>(value, low), high);
+    return core::min<T, U>(core::max<T, U>(value, low), high);
 }
 
 //! alias for core::mix()
-template<typename T, typename U=T>
+template<typename T, typename U = T>
 NBL_FORCE_INLINE T lerp(const T& a, const T& b, const U& t)
 {
-	return core::mix<T,U>(a,b,t);
+    return core::mix<T, U>(a, b, t);
 }
-
 
 // TODO : step,smoothstep,isnan,isinf,floatBitsToInt,floatBitsToUint,intBitsToFloat,uintBitsToFloat,frexp,ldexp
 // extra note, GCC breaks isfinite, isinf, isnan, isnormal, signbit in -ffast-math so need to implement ourselves
@@ -331,27 +324,26 @@ NBL_FORCE_INLINE vectorSIMD_32<int32_t> dot<vectorSIMD_32<int32_t>>(const vector
 template<>
 NBL_FORCE_INLINE vectorSIMD_32<uint32_t> dot<vectorSIMD_32<uint32_t>>(const vectorSIMD_32<uint32_t>& a, const vectorSIMD_32<uint32_t>& b);
 
-
 template<typename T>
 NBL_FORCE_INLINE T lengthsquared(const T& v)
 {
-	return core::dot<T>(v, v);
+    return core::dot<T>(v, v);
 }
 template<typename T>
 NBL_FORCE_INLINE T length(const T& v)
 {
-	return core::sqrt<T>(lengthsquared<T>(v));
+    return core::sqrt<T>(lengthsquared<T>(v));
 }
 
 template<typename T>
 NBL_FORCE_INLINE T distance(const T& a, const T& b)
 {
-	return core::length<T>(a-b);
+    return core::length<T>(a - b);
 }
 template<typename T>
 NBL_FORCE_INLINE T distancesquared(const T& a, const T& b)
 {
-	return core::lengthsquared<T>(a-b);
+    return core::lengthsquared<T>(a - b);
 }
 
 template<typename T>
@@ -362,11 +354,11 @@ NBL_FORCE_INLINE vectorSIMDf cross<vectorSIMDf>(const vectorSIMDf& a, const vect
 template<typename T>
 NBL_FORCE_INLINE T normalize(const T& v)
 {
-	auto d = dot<T>(v, v);
+    auto d = dot<T>(v, v);
 #ifdef __NBL_FAST_MATH
-	return v * core::inversesqrt<T>(d);
+    return v * core::inversesqrt<T>(d);
 #else
-	return v / core::sqrt<T>(d);
+    return v / core::sqrt<T>(d);
 #endif
 }
 
@@ -405,48 +397,54 @@ NBL_FORCE_INLINE uint32_t bitCount(uint32_t x);
 template<>
 NBL_FORCE_INLINE uint32_t bitCount(uint64_t x);
 template<>
-NBL_FORCE_INLINE uint32_t bitCount(int32_t x) {return core::bitCount(static_cast<const uint32_t&>(x));}
+NBL_FORCE_INLINE uint32_t bitCount(int32_t x)
+{
+    return core::bitCount(static_cast<const uint32_t&>(x));
+}
 template<>
-NBL_FORCE_INLINE uint32_t bitCount(int64_t x) {return core::bitCount(static_cast<const uint64_t&>(x));}
+NBL_FORCE_INLINE uint32_t bitCount(int64_t x)
+{
+    return core::bitCount(static_cast<const uint64_t&>(x));
+}
 
 // Extras
 
-template <typename T>
+template<typename T>
 NBL_FORCE_INLINE constexpr std::enable_if_t<std::is_integral_v<T> && !std::is_signed_v<T>, T> bitfieldExtract(T value, int32_t offset, int32_t bits)
 {
-	constexpr T one = static_cast<T>(1);
+    constexpr T one = static_cast<T>(1);
 
-	T retval = value;
-	retval >>= offset;
-	return retval & ((one<<bits) - one);
+    T retval = value;
+    retval >>= offset;
+    return retval & ((one << bits) - one);
 }
-template <typename T>
+template<typename T>
 NBL_FORCE_INLINE constexpr std::enable_if_t<std::is_integral_v<T> && std::is_signed_v<T>, T> bitfieldExtract(T value, int32_t offset, int32_t bits)
 {
-	constexpr T one = static_cast<T>(1);
-	constexpr T all_set = static_cast<T>(~0ull);
+    constexpr T one = static_cast<T>(1);
+    constexpr T all_set = static_cast<T>(~0ull);
 
-	T retval = value;
-	retval >>= offset;
-	retval &= ((one<<bits) - one);
-	if (retval & (one << (bits-1)))//sign extension
-		retval |= (all_set << bits);
+    T retval = value;
+    retval >>= offset;
+    retval &= ((one << bits) - one);
+    if(retval & (one << (bits - 1)))  //sign extension
+        retval |= (all_set << bits);
 
-	return retval;
+    return retval;
 }
 
-template <typename T>
+template<typename T>
 NBL_FORCE_INLINE constexpr T bitfieldInsert(T base, T insert, int32_t offset, int32_t bits)
 {
-	constexpr T one = static_cast<T>(1);
-	const T mask = (one << bits) - one;
-	const T shifted_mask = mask << offset;
+    constexpr T one = static_cast<T>(1);
+    const T mask = (one << bits) - one;
+    const T shifted_mask = mask << offset;
 
-	insert &= mask;
-	base &= (~shifted_mask);
-	base |= (insert << offset);
+    insert &= mask;
+    base &= (~shifted_mask);
+    base |= (insert << offset);
 
-	return base;
+    return base;
 }
 
 //! returns if a equals b, taking possible rounding errors into account
@@ -459,38 +457,56 @@ NBL_FORCE_INLINE bool equals<matrix4SIMD>(const matrix4SIMD& a, const matrix4SIM
 template<>
 NBL_FORCE_INLINE bool equals<matrix3x4SIMD>(const matrix3x4SIMD& a, const matrix3x4SIMD& b, const matrix3x4SIMD& tolerance);
 
-
 //! returns if a equals zero, taking rounding errors into account
 template<typename T>
 NBL_FORCE_INLINE auto iszero(const T& a, const T& tolerance)
 {
-	return core::abs<T>(a) <= tolerance;
+    return core::abs<T>(a) <= tolerance;
 }
-template<typename T, typename U=T>
+template<typename T, typename U = T>
 NBL_FORCE_INLINE auto iszero(const T& a, const U& tolerance = ROUNDING_ERROR<U>())
 {
-	return core::iszero(a,T(tolerance));
+    return core::iszero(a, T(tolerance));
 }
-
 
 template<typename T>
 NBL_FORCE_INLINE T sin(const T& a);
 
-
-NBL_FORCE_INLINE float& intBitsToFloat(int32_t& _i) { return reinterpret_cast<float&>(_i); }
-NBL_FORCE_INLINE float& uintBitsToFloat(uint32_t& _u) { return reinterpret_cast<float&>(_u); }
-NBL_FORCE_INLINE int32_t& floatBitsToInt(float& _f) { return reinterpret_cast<int32_t&>(_f); }
-NBL_FORCE_INLINE uint32_t& floatBitsToUint(float& _f) { return reinterpret_cast<uint32_t&>(_f); }
+NBL_FORCE_INLINE float& intBitsToFloat(int32_t& _i)
+{
+    return reinterpret_cast<float&>(_i);
+}
+NBL_FORCE_INLINE float& uintBitsToFloat(uint32_t& _u)
+{
+    return reinterpret_cast<float&>(_u);
+}
+NBL_FORCE_INLINE int32_t& floatBitsToInt(float& _f)
+{
+    return reinterpret_cast<int32_t&>(_f);
+}
+NBL_FORCE_INLINE uint32_t& floatBitsToUint(float& _f)
+{
+    return reinterpret_cast<uint32_t&>(_f);
+}
 //rvalue ref parameters to ensure that functions returning a copy will be called for rvalues only (functions for lvalues returns same memory but with reinterpreted type)
-NBL_FORCE_INLINE float intBitsToFloat(int32_t&& _i) { return reinterpret_cast<float&>(_i); }
-NBL_FORCE_INLINE float uintBitsToFloat(uint32_t&& _u) { return reinterpret_cast<float&>(_u); }
-NBL_FORCE_INLINE int32_t floatBitsToInt(float&& _f) { return reinterpret_cast<int32_t&>(_f); }
-NBL_FORCE_INLINE uint32_t floatBitsToUint(float&& _f) { return reinterpret_cast<uint32_t&>(_f); }
-
-
+NBL_FORCE_INLINE float intBitsToFloat(int32_t&& _i)
+{
+    return reinterpret_cast<float&>(_i);
+}
+NBL_FORCE_INLINE float uintBitsToFloat(uint32_t&& _u)
+{
+    return reinterpret_cast<float&>(_u);
+}
+NBL_FORCE_INLINE int32_t floatBitsToInt(float&& _f)
+{
+    return reinterpret_cast<int32_t&>(_f);
+}
+NBL_FORCE_INLINE uint32_t floatBitsToUint(float&& _f)
+{
+    return reinterpret_cast<uint32_t&>(_f);
+}
 
 // extras
-
 
 template<typename T>
 NBL_FORCE_INLINE T gcd(const T& a, const T& b);
@@ -498,20 +514,18 @@ NBL_FORCE_INLINE T gcd(const T& a, const T& b);
 template<typename T>
 NBL_FORCE_INLINE T sinc(const T& x)
 {
-	// TODO: do a direct series/computation in the future
-	return mix<T>(	sin<T>(x)/x,
-					T(1.0)+x*x*(x*x*T(1.0/120.0)-T(1.0/6.0)),
-					abs<T>(x)<T(0.0001)
-				);
+    // TODO: do a direct series/computation in the future
+    return mix<T>(sin<T>(x) / x,
+        T(1.0) + x * x * (x * x * T(1.0 / 120.0) - T(1.0 / 6.0)),
+        abs<T>(x) < T(0.0001));
 }
 template<typename T>
 NBL_FORCE_INLINE T d_sinc(const T& x)
 {
-	// TODO: do a direct series/computation in the future
-	return mix<T>(	(cos<T>(x)-sin<T>(x)/x)/x,
-					x*(x*x*T(4.0/120.0)-T(2.0/6.0)),
-					abs<T>(x)<T(0.0001)
-				);
+    // TODO: do a direct series/computation in the future
+    return mix<T>((cos<T>(x) - sin<T>(x) / x) / x,
+        x * (x * x * T(4.0 / 120.0) - T(2.0 / 6.0)),
+        abs<T>(x) < T(0.0001));
 }
 
 template<typename T>
@@ -522,22 +536,20 @@ NBL_FORCE_INLINE T d_cyl_bessel_i(const T& v, const T& x);
 template<typename T>
 NBL_FORCE_INLINE T KaiserWindow(const T& x, const T& alpha, const T& width)
 {
-	auto p = x/width;
-	return cyl_bessel_i<T>(T(0.0),sqrt<T>(T(1.0)-p*p)*alpha)/cyl_bessel_i<T>(T(0.0),alpha);
+    auto p = x / width;
+    return cyl_bessel_i<T>(T(0.0), sqrt<T>(T(1.0) - p * p) * alpha) / cyl_bessel_i<T>(T(0.0), alpha);
 }
 template<typename T>
 NBL_FORCE_INLINE T d_KaiserWindow(const T& x, const T& alpha, const T& width)
 {
-	auto p = x/width;
-	T s = sqrt<T>(T(1.0)-p*p);
-	T u = s*alpha;
-	T du = -p*alpha/(width*s);
-	return du*d_cyl_bessel_i<T>(T(0.0),u)/cyl_bessel_i<T>(T(0.0),alpha);
+    auto p = x / width;
+    T s = sqrt<T>(T(1.0) - p * p);
+    T u = s * alpha;
+    T du = -p * alpha / (width * s);
+    return du * d_cyl_bessel_i<T>(T(0.0), u) / cyl_bessel_i<T>(T(0.0), alpha);
 }
 
-
-} // end namespace core
-} // end namespace nbl
+}  // end namespace core
+}  // end namespace nbl
 
 #endif
-

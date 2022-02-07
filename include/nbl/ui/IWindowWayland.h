@@ -12,7 +12,6 @@
 
 namespace nbl::ui
 {
-
 class IWindowWayland : public IWindow
 {
 protected:
@@ -29,6 +28,6 @@ public:
 
 }
 
-#endif //_NBL_BUILD_WITH_WAYLAND
+#endif  //_NBL_BUILD_WITH_WAYLAND
 
 #endif

@@ -8,7 +8,6 @@
 
 namespace nbl::system
 {
-
 // Usage:
 /*
 * class MyThreadHandler : public IThreadHandler<SomeInternalStateType> { .... };
@@ -22,24 +21,24 @@ namespace nbl::system
 * After this handler can be safely destroyed.
 * Every method playing around with object's state shared with the thread must begin with line: `auto raii_handler = createRAIIDisptachHandler();`!
 */
-template <typename CRTP, typename InternalStateType = void>
+template<typename CRTP, typename InternalStateType = void>
 class IThreadHandler
 {
 private:
     // TODO: @Crisspl factor this out somewhere? `nbl/core/reflection` ?
-#define _NBL_IMPL_MEMBER_FUNC_PRESENCE_CHECKER(member_func_name)\
-    class has_##member_func_name\
-    {\
-        using true_type = uint32_t;\
-        using false_type = uint64_t;\
-    \
-        template <typename T>\
-        static true_type& test(decltype(&T::member_func_name));\
-        template <typename T>\
-        static false_type& test(...);\
-    \
-    public:\
-        static inline constexpr bool value = (sizeof(test<CRTP>(0)) == sizeof(true_type));\
+#define _NBL_IMPL_MEMBER_FUNC_PRESENCE_CHECKER(member_func_name)                           \
+    class has_##member_func_name                                                           \
+    {                                                                                      \
+        using true_type = uint32_t;                                                        \
+        using false_type = uint64_t;                                                       \
+                                                                                           \
+        template<typename T>                                                               \
+        static true_type& test(decltype(&T::member_func_name));                            \
+        template<typename T>                                                               \
+        static false_type& test(...);                                                      \
+                                                                                           \
+    public:                                                                                \
+        static inline constexpr bool value = (sizeof(test<CRTP>(0)) == sizeof(true_type)); \
     };
 
     _NBL_IMPL_MEMBER_FUNC_PRESENCE_CHECKER(init)
@@ -57,7 +56,8 @@ protected:
 
     struct raii_dispatch_handler_t
     {
-        raii_dispatch_handler_t(mutex_t& _mtx, cvar_t& _cv) : lk(_mtx), cv(_cv) {}
+        raii_dispatch_handler_t(mutex_t& _mtx, cvar_t& _cv)
+            : lk(_mtx), cv(_cv) {}
         ~raii_dispatch_handler_t()
         {
             cv.notify_one();
@@ -91,16 +91,16 @@ private:
 
     inline void init_impl()
     {
-        //TODO!! temporarily commented (couldn't find the source) 
+        //TODO!! temporarily commented (couldn't find the source)
         //static_assert(has_internal_state == has_init::value, "Custom internal state require implementation of init() method!");
 
         internal_state_t* state_ptr = getInternalStatePtr();
 
-        if constexpr (has_internal_state)
+        if constexpr(has_internal_state)
         {
             static_cast<CRTP*>(this)->init(state_ptr);
         }
-        else if (has_init::value)
+        else if(has_init::value)
         {
             static_cast<CRTP*>(this)->init();
         }
@@ -115,25 +115,27 @@ private:
         m_cvar.notify_one();
         lock.unlock();
 
-        if (m_thread.joinable())
+        if(m_thread.joinable())
             m_thread.join();
     }
 
 public:
-    struct start_on_construction_t {};
-    constexpr inline static start_on_construction_t start_on_construction {};
-
-    IThreadHandler() : m_thread() {}
-    IThreadHandler(start_on_construction_t) :
-        m_thread(&IThreadHandler<CRTP, InternalStateType>::thread, this)
+    struct start_on_construction_t
     {
+    };
+    constexpr inline static start_on_construction_t start_on_construction{};
 
+    IThreadHandler()
+        : m_thread() {}
+    IThreadHandler(start_on_construction_t)
+        : m_thread(&IThreadHandler<CRTP, InternalStateType>::thread, this)
+    {
     }
 
     //! Has no effect if thread is already running
     bool start()
     {
-        if (m_thread.get_id() == std::thread::id())
+        if(m_thread.get_id() == std::thread::id())
         {
             m_thread = std::thread(&IThreadHandler<CRTP, InternalStateType>::thread, this);
             return true;
@@ -161,12 +163,13 @@ protected:
 
         auto lock = createLock();
 
-        do {
-            m_cvar.wait(lock, [this,this_] { return this_->wakeupPredicate() || this->m_quit; });
+        do
+        {
+            m_cvar.wait(lock, [this, this_] { return this_->wakeupPredicate() || this->m_quit; });
 
-            if (this_->continuePredicate() && !m_quit)
+            if(this_->continuePredicate() && !m_quit)
             {
-                if constexpr (has_internal_state)
+                if constexpr(has_internal_state)
                 {
                     internal_state_t& internal_state = state_ptr[0];
                     this_->work(lock, internal_state);
@@ -176,11 +179,12 @@ protected:
                     this_->work(lock);
                 }
             }
-        } while (!m_quit);
+        }
+        while(!m_quit);
 
-        if constexpr (has_exit::value)
+        if constexpr(has_exit::value)
         {
-            if constexpr (has_internal_state)
+            if constexpr(has_internal_state)
             {
                 this_->exit(state_ptr);
             }
@@ -196,14 +200,13 @@ protected:
 
     mutex_t m_mutex;
     cvar_t m_cvar;
-    std::atomic_flag m_initComplete; // begins in false state, per C++11 spec
-    bool m_quit = false; // TODO: make this an atomic_flag
+    std::atomic_flag m_initComplete;  // begins in false state, per C++11 spec
+    bool m_quit = false;  // TODO: make this an atomic_flag
 
     // Must be last member!
     std::thread m_thread;
 };
 
 }
-
 
 #endif

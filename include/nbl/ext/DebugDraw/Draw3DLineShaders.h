@@ -11,7 +11,6 @@ namespace ext
 {
 namespace DebugDraw
 {
-
 static const char* Draw3DLineVertexShader = R"===(
 #version 430 core
 
@@ -43,8 +42,8 @@ void main()
 }
 )===";
 
-} // namespace DebugDraw
-} // namespace ext
-} // namespace nbl
+}  // namespace DebugDraw
+}  // namespace ext
+}  // namespace nbl
 
 #endif

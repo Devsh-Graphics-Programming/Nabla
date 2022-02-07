@@ -4,7 +4,6 @@
 
 namespace nbl::video
 {
-
 class ILogicalDevice;
 
 class CVulkanShader : public IGPUShader
@@ -17,7 +16,7 @@ public:
         std::string&& filepathHint,
         VkShaderModule vk_shaderModule)
         : IGPUShader(std::move(dev), stage, std::move(filepathHint)),
-        m_spirv(std::move(spirv)), m_vkShaderModule(vk_shaderModule)
+          m_spirv(std::move(spirv)), m_vkShaderModule(vk_shaderModule)
     {}
 
     ~CVulkanShader();
@@ -29,7 +28,6 @@ public:
 private:
     core::smart_refctd_ptr<asset::ICPUBuffer> m_spirv;
     VkShaderModule m_vkShaderModule = VK_NULL_HANDLE;
-
 };
 }
 
