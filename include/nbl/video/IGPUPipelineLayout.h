@@ -9,10 +9,10 @@
 #include "nbl/asset/IPipelineLayout.h"
 #include "nbl/video/IGPUDescriptorSetLayout.h"
 
-namespace nbl {
+namespace nbl
+{
 namespace video
 {
-
 //! GPU Version of Pipeline Layout
 /*
     @see IPipelineLayout

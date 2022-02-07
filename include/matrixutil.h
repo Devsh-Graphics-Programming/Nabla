@@ -12,8 +12,6 @@ namespace nbl
 {
 namespace core
 {
-
-
 //! TODO: OPTIMIZE THIS, DON'T PROMOTE THE MATRIX IF DON'T HAVE TO
 inline matrix4SIMD concatenateBFollowedByA(const matrix4SIMD& _a, const matrix3x4SIMD& _b)
 {
@@ -27,13 +25,12 @@ inline matrix4SIMD concatenateBFollowedByAPrecisely(const matrix4SIMD& _a, const
 */
 
 // TODO: Kill this when killing matrix4x3
-inline matrix4SIMD concatenateBFollowedByA(const matrix4SIMD& other_a, const matrix4x3& other_b )
+inline matrix4SIMD concatenateBFollowedByA(const matrix4SIMD& other_a, const matrix4x3& other_b)
 {
     matrix3x4SIMD rowBasedMatrixB;
     rowBasedMatrixB.set(other_b);
-    return concatenateBFollowedByA(other_a,matrix4SIMD(rowBasedMatrixB));
+    return concatenateBFollowedByA(other_a, matrix4SIMD(rowBasedMatrixB));
 }
-
 
 }
 }

@@ -18,28 +18,25 @@ namespace nbl
 {
 namespace asset
 {
-
 //!  Surface Loader for PNG files
 class CImageLoaderPng : public asset::IAssetLoader
 {
-    public:
-        virtual bool isALoadableFileFormat(io::IReadFile* _file) const override;
+public:
+    virtual bool isALoadableFileFormat(io::IReadFile* _file) const override;
 
-        virtual const char** getAssociatedFileExtensions() const override
-        {
-            static const char* ext[]{ "png", nullptr };
-            return ext;
-        }
+    virtual const char** getAssociatedFileExtensions() const override
+    {
+        static const char* ext[]{"png", nullptr};
+        return ext;
+    }
 
-        virtual uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_IMAGE; }
+    virtual uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_IMAGE; }
 
-        virtual asset::SAssetBundle loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
+    virtual asset::SAssetBundle loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 };
 
-
-} // end namespace video
-} // end namespace nbl
+}  // end namespace video
+}  // end namespace nbl
 
 #endif
 #endif
-

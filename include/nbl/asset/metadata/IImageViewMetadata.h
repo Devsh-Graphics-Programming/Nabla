@@ -10,30 +10,31 @@
 
 namespace nbl::asset
 {
-
-//! 
+//!
 class IImageViewMetadata : public core::Interface
 {
-	public:
-		struct ColorSemantic
-		{
-			E_COLOR_PRIMARIES colorSpace;
-			ELECTRO_OPTICAL_TRANSFER_FUNCTION transferFunction;
-		};
+public:
+    struct ColorSemantic
+    {
+        E_COLOR_PRIMARIES colorSpace;
+        ELECTRO_OPTICAL_TRANSFER_FUNCTION transferFunction;
+    };
 
-		inline IImageViewMetadata() : colorSemantic{ECP_COUNT,EOTF_UNKNOWN} {}
-		inline IImageViewMetadata(const ColorSemantic& _colorSemantic) : colorSemantic(_colorSemantic) {}
+    inline IImageViewMetadata()
+        : colorSemantic{ECP_COUNT, EOTF_UNKNOWN} {}
+    inline IImageViewMetadata(const ColorSemantic& _colorSemantic)
+        : colorSemantic(_colorSemantic) {}
 
-		ColorSemantic colorSemantic;
+    ColorSemantic colorSemantic;
 
-	protected:
-		virtual ~IImageViewMetadata() = default;
+protected:
+    virtual ~IImageViewMetadata() = default;
 
-		inline IImageViewMetadata& operator=(IImageViewMetadata&& other)
-		{
-			std::swap(colorSemantic,other.colorSemantic);
-			return *this;
-		}
+    inline IImageViewMetadata& operator=(IImageViewMetadata&& other)
+    {
+        std::swap(colorSemantic, other.colorSemantic);
+        return *this;
+    }
 };
 
 }

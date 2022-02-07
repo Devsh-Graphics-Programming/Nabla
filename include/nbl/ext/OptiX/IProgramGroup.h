@@ -15,28 +15,26 @@ namespace ext
 {
 namespace OptiX
 {
-
 class IContext;
-
 
 class IProgramGroup final : public core::IReferenceCounted
 {
-	public:
-		inline OptixProgramGroup getOptiXHandle() {return programGroup;}
+public:
+    inline OptixProgramGroup getOptiXHandle() { return programGroup; }
 
-	protected:
-		friend class OptiX::IContext;
+protected:
+    friend class OptiX::IContext;
 
-		IProgramGroup(const OptixProgramGroup& _programGroup) : programGroup(_programGroup) {}
-		~IProgramGroup()
-		{
-			if (programGroup)
-				optixProgramGroupDestroy(programGroup);
-		}
+    IProgramGroup(const OptixProgramGroup& _programGroup)
+        : programGroup(_programGroup) {}
+    ~IProgramGroup()
+    {
+        if(programGroup)
+            optixProgramGroupDestroy(programGroup);
+    }
 
-		OptixProgramGroup programGroup;
+    OptixProgramGroup programGroup;
 };
-
 
 }
 }

@@ -15,7 +15,6 @@ namespace nbl
 {
 namespace video
 {
-
 enum E_FBO_ATTACHMENT_POINT
 {
     EFAP_DEPTH_ATTACHMENT = 0,
@@ -34,9 +33,9 @@ enum E_FBO_ATTACHMENT_POINT
 
 class IFrameBuffer : public virtual core::IReferenceCounted, public core::IThreadBound
 {
-    public:
-		//! Attaches given texture to given attachment point.
-		/** @param attachmentPoint Identifies attachment point.
+public:
+    //! Attaches given texture to given attachment point.
+    /** @param attachmentPoint Identifies attachment point.
 		@param tex Texture being attached.
 		@param mipMapLayer Mipmap level of the texture image to be attached. Must be 0 if `tex` has a sample count not equal to 1.
 		@param layer 
@@ -49,25 +48,22 @@ class IFrameBuffer : public virtual core::IReferenceCounted, public core::IThrea
 		@endparblock
 		@returns Whether attachment has been attached, can return false when you detach.
 		*/
-        virtual bool attach(E_FBO_ATTACHMENT_POINT attachmenPoint, core::smart_refctd_ptr<IGPUImageView>&& tex, uint32_t mipMapLayer=0, int32_t layer=-1) = 0;
+    virtual bool attach(E_FBO_ATTACHMENT_POINT attachmenPoint, core::smart_refctd_ptr<IGPUImageView>&& tex, uint32_t mipMapLayer = 0, int32_t layer = -1) = 0;
 
-		//! Gets attachment accessible at the given index.
-		/** @param ix Given index.
+    //! Gets attachment accessible at the given index.
+    /** @param ix Given index.
 		@returns Attached at given index object or NULL if nothing is bound there.
 		*/
-        virtual const IGPUImageView* getAttachment(uint32_t ix) const = 0;
+    virtual const IGPUImageView* getAttachment(uint32_t ix) const = 0;
 
-		//!
-		virtual const core::dimension2du& getSize() const = 0;
+    //!
+    virtual const core::dimension2du& getSize() const = 0;
 
-    protected:
-        _NBL_INTERFACE_CHILD(IFrameBuffer) {}
+protected:
+    _NBL_INTERFACE_CHILD(IFrameBuffer) {}
 };
 
-
-} // end namespace video
-} // end namespace nbl
+}  // end namespace video
+}  // end namespace nbl
 
 #endif
-
-

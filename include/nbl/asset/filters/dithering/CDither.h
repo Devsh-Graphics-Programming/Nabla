@@ -9,10 +9,10 @@
 
 namespace nbl
 {
-	namespace asset
-	{
-		//! Base CRTP class for dithering classes
-		/*
+namespace asset
+{
+//! Base CRTP class for dithering classes
+/*
 			There are several dithering classes:
 
 			- CWhiteNoiseDither
@@ -22,58 +22,58 @@ namespace nbl
 			Each of them put some noise on a processed image.
 		*/
 
-		template<class CRTP>
-		class CDither : public IDither
-		{
-			public:
-				CDither() {}
-				virtual ~CDither() {}
+template<class CRTP>
+class CDither : public IDither
+{
+public:
+    CDither() {}
+    virtual ~CDither() {}
 
-				class CState : public IDither::IState
-				{
-					public:
-						CState() {}
-						virtual ~CState() {}
+    class CState : public IDither::IState
+    {
+    public:
+        CState() {}
+        virtual ~CState() {}
 
-						TexelRange texelRange;
-				};
+        TexelRange texelRange;
+    };
 
-				using state_type = CState;
+    using state_type = CState;
 
-				float pGet(const IDither::IState* state, const core::vectorSIMDu32& pixelCoord, const int32_t& channel) final override
-				{
-					return get(state, pixelCoord, channel);
-				}
-				
-				float get(const IDither::IState* state, const core::vectorSIMDu32& pixelCoord, const int32_t& channel)
-				{
-					const auto& return_value = static_cast<CRTP*>(this)->get(static_cast<const typename CRTP::CState*>(state), pixelCoord, channel);
+    float pGet(const IDither::IState* state, const core::vectorSIMDu32& pixelCoord, const int32_t& channel) final override
+    {
+        return get(state, pixelCoord, channel);
+    }
 
-					#ifdef _NBL_DEBUG
-					bool status = return_value >= 0 && return_value <= 1;
-					assert(status);
-					#endif // _NBL_DEBUG
-					
-					return return_value;
-				}
-		};
+    float get(const IDither::IState* state, const core::vectorSIMDu32& pixelCoord, const int32_t& channel)
+    {
+        const auto& return_value = static_cast<CRTP*>(this)->get(static_cast<const typename CRTP::CState*>(state), pixelCoord, channel);
 
-		/*
+#ifdef _NBL_DEBUG
+        bool status = return_value >= 0 && return_value <= 1;
+        assert(status);
+#endif  // _NBL_DEBUG
+
+        return return_value;
+    }
+};
+
+/*
 			Identity Dither is used for not providing any Dither in a state.
 		*/
 
-		class IdentityDither : public CDither<IdentityDither>
-		{
-			public:
-				IdentityDither() {}
-				virtual ~IdentityDither() {}
+class IdentityDither : public CDither<IdentityDither>
+{
+public:
+    IdentityDither() {}
+    virtual ~IdentityDither() {}
 
-				static float get(const state_type* state, const core::vectorSIMDu32& pixelCoord, const int32_t& channel)
-				{
-					return {};
-				}
-		};
-	}
+    static float get(const state_type* state, const core::vectorSIMDu32& pixelCoord, const int32_t& channel)
+    {
+        return {};
+    }
+};
+}
 }
 
 #endif

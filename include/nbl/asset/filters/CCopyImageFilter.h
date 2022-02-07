@@ -15,7 +15,6 @@ namespace nbl
 {
 namespace asset
 {
-
 //! Copy Filter
 /*
 	Copy a one input image's texel data in strictly defined way to another one output image.
@@ -38,49 +37,47 @@ namespace asset
 // copy while converting format from input image to output image
 class CCopyImageFilter : public CImageFilter<CCopyImageFilter>, public CMatchedSizeInOutImageFilterCommon
 {
-	public:
-		virtual ~CCopyImageFilter() {}
-		
-		using state_type = CMatchedSizeInOutImageFilterCommon::state_type;
+public:
+    virtual ~CCopyImageFilter() {}
 
-		static inline bool validate(state_type* state)
-		{
-			if (!CMatchedSizeInOutImageFilterCommon::validate(state))
-				return false;
+    using state_type = CMatchedSizeInOutImageFilterCommon::state_type;
 
-			return getFormatClass(state->inImage->getCreationParameters().format)==getFormatClass(state->outImage->getCreationParameters().format);
-		}
+    static inline bool validate(state_type* state)
+    {
+        if(!CMatchedSizeInOutImageFilterCommon::validate(state))
+            return false;
 
-		template<class ExecutionPolicy>
-		static inline bool execute(ExecutionPolicy&& policy, state_type* state)
-		{
-			if (!validate(state))
-				return false;
+        return getFormatClass(state->inImage->getCreationParameters().format) == getFormatClass(state->outImage->getCreationParameters().format);
+    }
 
-			auto perOutputRegion = [policy](const CommonExecuteData& commonExecuteData, CBasicImageFilterCommon::clip_region_functor_t& clip) -> bool
-			{
-				assert(getTexelOrBlockBytesize(commonExecuteData.inFormat)==getTexelOrBlockBytesize(commonExecuteData.outFormat)); // if this asserts the API got broken during an update or something
+    template<class ExecutionPolicy>
+    static inline bool execute(ExecutionPolicy&& policy, state_type* state)
+    {
+        if(!validate(state))
+            return false;
 
-				const auto blockDims = asset::getBlockDimensions(commonExecuteData.inFormat);
-				auto copy = [&commonExecuteData,&blockDims](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos) -> void
-				{
-					auto localOutPos = readBlockPos*blockDims+commonExecuteData.offsetDifference;
-					memcpy(commonExecuteData.outData+commonExecuteData.oit->getByteOffset(localOutPos,commonExecuteData.outByteStrides),commonExecuteData.inData+readBlockArrayOffset,commonExecuteData.outBlockByteSize);
-				};
-				CBasicImageFilterCommon::executePerRegion<ExecutionPolicy>(policy,commonExecuteData.inImg,copy,commonExecuteData.inRegions.begin(),commonExecuteData.inRegions.end(),clip);
+        auto perOutputRegion = [policy](const CommonExecuteData& commonExecuteData, CBasicImageFilterCommon::clip_region_functor_t& clip) -> bool {
+            assert(getTexelOrBlockBytesize(commonExecuteData.inFormat) == getTexelOrBlockBytesize(commonExecuteData.outFormat));  // if this asserts the API got broken during an update or something
 
-				return true;
-			};
+            const auto blockDims = asset::getBlockDimensions(commonExecuteData.inFormat);
+            auto copy = [&commonExecuteData, &blockDims](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos) -> void {
+                auto localOutPos = readBlockPos * blockDims + commonExecuteData.offsetDifference;
+                memcpy(commonExecuteData.outData + commonExecuteData.oit->getByteOffset(localOutPos, commonExecuteData.outByteStrides), commonExecuteData.inData + readBlockArrayOffset, commonExecuteData.outBlockByteSize);
+            };
+            CBasicImageFilterCommon::executePerRegion<ExecutionPolicy>(policy, commonExecuteData.inImg, copy, commonExecuteData.inRegions.begin(), commonExecuteData.inRegions.end(), clip);
 
-			return commonExecute(state,perOutputRegion);
-		}
-		static inline bool execute(state_type* state)
-		{
-			return execute(std::execution::seq,state);
-		}
+            return true;
+        };
+
+        return commonExecute(state, perOutputRegion);
+    }
+    static inline bool execute(state_type* state)
+    {
+        return execute(std::execution::seq, state);
+    }
 };
 
-} // end namespace asset
-} // end namespace nbl
+}  // end namespace asset
+}  // end namespace nbl
 
 #endif

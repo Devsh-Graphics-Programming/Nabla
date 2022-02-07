@@ -13,46 +13,45 @@ namespace nbl
 {
 namespace asset
 {
-
 //! class to write meshes, implementing a STL writer
 class CSTLMeshWriter : public asset::IAssetWriter
 {
-    protected:
-        virtual ~CSTLMeshWriter();
+protected:
+    virtual ~CSTLMeshWriter();
 
-    public:
-        CSTLMeshWriter();
+public:
+    CSTLMeshWriter();
 
-        virtual const char** getAssociatedFileExtensions() const
-        {
-            static const char* ext[]{ "stl", nullptr };
-            return ext;
-        }
+    virtual const char** getAssociatedFileExtensions() const
+    {
+        static const char* ext[]{"stl", nullptr};
+        return ext;
+    }
 
-        virtual uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_MESH; }
+    virtual uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_MESH; }
 
-        virtual uint32_t getSupportedFlags() override { return asset::EWF_BINARY; }
+    virtual uint32_t getSupportedFlags() override { return asset::EWF_BINARY; }
 
-        virtual uint32_t getForcedFlags() { return 0u; }
+    virtual uint32_t getForcedFlags() { return 0u; }
 
-        virtual bool writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr) override;
+    virtual bool writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr) override;
 
-    protected:
-        // write binary format
-        bool writeMeshBinary(io::IWriteFile* file, const asset::ICPUMesh* mesh, const SAssetWriteParams& _params);
+protected:
+    // write binary format
+    bool writeMeshBinary(io::IWriteFile* file, const asset::ICPUMesh* mesh, const SAssetWriteParams& _params);
 
-        // write text format
-        bool writeMeshASCII(io::IWriteFile* file, const asset::ICPUMesh* mesh, const SAssetWriteParams& _params);
+    // write text format
+    bool writeMeshASCII(io::IWriteFile* file, const asset::ICPUMesh* mesh, const SAssetWriteParams& _params);
 
-        // create vector output with line end into string
-        void getVectorAsStringLine(const core::vectorSIMDf& v, core::stringc& s) const;
+    // create vector output with line end into string
+    void getVectorAsStringLine(const core::vectorSIMDf& v, core::stringc& s) const;
 
-        // write face information to file
-        void writeFaceText(io::IWriteFile* file, const core::vectorSIMDf& v1,
-            const core::vectorSIMDf& v2, const core::vectorSIMDf& v3, const SAssetWriteParams& _params);
+    // write face information to file
+    void writeFaceText(io::IWriteFile* file, const core::vectorSIMDf& v1,
+        const core::vectorSIMDf& v2, const core::vectorSIMDf& v3, const SAssetWriteParams& _params);
 };
 
-} // end namespace
-} // end namespace
+}  // end namespace
+}  // end namespace
 
 #endif

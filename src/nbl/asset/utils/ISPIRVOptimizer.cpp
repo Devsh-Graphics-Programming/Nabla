@@ -1,6 +1,6 @@
 #include "nbl/asset/utils/ISPIRVOptimizer.h"
 
-#include "spirv-tools/optimizer.hpp" 
+#include "spirv-tools/optimizer.hpp"
 #include "spirv-tools/libspirv.hpp"
 
 #include "nbl/core/core.h"
@@ -19,7 +19,7 @@ nbl::core::smart_refctd_ptr<ICPUBuffer> ISPIRVOptimizer::optimize(const uint32_t
         return spvtools::CreateScalarReplacementPass();
     };
 
-    using create_pass_f_t = spvtools::Optimizer::PassToken(*)();
+    using create_pass_f_t = spvtools::Optimizer::PassToken (*)();
     create_pass_f_t create_pass_f[EOP_COUNT]{
         &spvtools::CreateMergeReturnPass,
         &spvtools::CreateInlineExhaustivePass,
@@ -39,11 +39,9 @@ nbl::core::smart_refctd_ptr<ICPUBuffer> ISPIRVOptimizer::optimize(const uint32_t
         &spvtools::CreateCCPPass,
         &spvtools::CreateReduceLoadSizePass,
         &spvtools::CreateStrengthReductionPass,
-        &spvtools::CreateIfConversionPass
-    };
+        &spvtools::CreateIfConversionPass};
 
-    auto msgConsumer = [](spv_message_level_t level, const char* src, const spv_position_t& pos, const char* msg)
-    {
+    auto msgConsumer = [](spv_message_level_t level, const char* src, const spv_position_t& pos, const char* msg) {
         using namespace std::string_literals;
 
         constexpr static ELOG_LEVEL lvl2lvl[6]{
@@ -52,8 +50,7 @@ nbl::core::smart_refctd_ptr<ICPUBuffer> ISPIRVOptimizer::optimize(const uint32_t
             ELL_ERROR,
             ELL_WARNING,
             ELL_INFORMATION,
-            ELL_DEBUG
-        };
+            ELL_DEBUG};
         const auto lvl = lvl2lvl[level];
         const std::string location = src + ":"s + std::to_string(pos.line) + ":" + std::to_string(pos.column);
 
@@ -62,7 +59,7 @@ nbl::core::smart_refctd_ptr<ICPUBuffer> ISPIRVOptimizer::optimize(const uint32_t
 
     spvtools::Optimizer opt(SPIRV_VERSION);
 
-    for (E_OPTIMIZER_PASS pass : m_passes)
+    for(E_OPTIMIZER_PASS pass : m_passes)
         opt.RegisterPass(create_pass_f[pass]());
 
     opt.SetMessageConsumer(msgConsumer);
@@ -71,7 +68,7 @@ nbl::core::smart_refctd_ptr<ICPUBuffer> ISPIRVOptimizer::optimize(const uint32_t
     opt.Run(_spirv, _dwordCount, &optimized);
 
     const uint32_t resultBytesize = optimized.size() * sizeof(uint32_t);
-    if (!resultBytesize)
+    if(!resultBytesize)
         return nullptr;
 
     auto result = core::make_smart_refctd_ptr<ICPUBuffer>(resultBytesize);

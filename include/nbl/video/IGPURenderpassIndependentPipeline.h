@@ -13,7 +13,6 @@ namespace nbl
 {
 namespace video
 {
-
 //! GPU Version of Renderpass Independent Pipeline
 /*
 	@see IRenderpassIndependentPipeline
@@ -21,13 +20,13 @@ namespace video
 
 class IGPURenderpassIndependentPipeline : public asset::IRenderpassIndependentPipeline<IGPUSpecializedShader, IGPUPipelineLayout>
 {
-		using base_t = asset::IRenderpassIndependentPipeline<IGPUSpecializedShader, IGPUPipelineLayout>;
+    using base_t = asset::IRenderpassIndependentPipeline<IGPUSpecializedShader, IGPUPipelineLayout>;
 
-	public:
-		using base_t::base_t;
+public:
+    using base_t::base_t;
 
-	protected:
-		virtual ~IGPURenderpassIndependentPipeline() = default;
+protected:
+    virtual ~IGPURenderpassIndependentPipeline() = default;
 };
 
 }

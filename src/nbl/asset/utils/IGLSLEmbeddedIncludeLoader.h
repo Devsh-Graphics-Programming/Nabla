@@ -14,51 +14,51 @@ namespace nbl
 {
 namespace asset
 {
-
 class IGLSLEmbeddedIncludeLoader : public IBuiltinIncludeLoader
 {
-	protected:
-		virtual ~IGLSLEmbeddedIncludeLoader() = default;
+protected:
+    virtual ~IGLSLEmbeddedIncludeLoader() = default;
 
-		inline core::vector<std::pair<std::regex,HandleFunc_t>> getBuiltinNamesToFunctionMapping() const override
-		{
-			std::string pattern(getVirtualDirectoryName());
-			pattern += ".*";
-			HandleFunc_t tmp = [this](const std::string& _name) -> std::string {return getFromDiskOrEmbedding(_name);};
-			return {{std::regex{pattern},std::move(tmp)}};
-		}
-		
-		static core::vector<std::string> parseArgumentsFromPath(const std::string& _path)
-		{
-			core::vector<std::string> args;
+    inline core::vector<std::pair<std::regex, HandleFunc_t>> getBuiltinNamesToFunctionMapping() const override
+    {
+        std::string pattern(getVirtualDirectoryName());
+        pattern += ".*";
+        HandleFunc_t tmp = [this](const std::string& _name) -> std::string { return getFromDiskOrEmbedding(_name); };
+        return {{std::regex{pattern}, std::move(tmp)}};
+    }
 
-			std::stringstream ss{ _path };
-			std::string arg;
-			while (std::getline(ss, arg, '/'))
-				args.push_back(std::move(arg));
+    static core::vector<std::string> parseArgumentsFromPath(const std::string& _path)
+    {
+        core::vector<std::string> args;
 
-			return args;
-		}
-		
-		io::IFileSystem* fs;
+        std::stringstream ss{_path};
+        std::string arg;
+        while(std::getline(ss, arg, '/'))
+            args.push_back(std::move(arg));
 
-	public:
-		IGLSLEmbeddedIncludeLoader(io::IFileSystem* filesystem) : fs(filesystem) {}
+        return args;
+    }
 
-		//
-		const char* getVirtualDirectoryName() const override { return ""; }
+    io::IFileSystem* fs;
 
-		//
-		inline std::string getFromDiskOrEmbedding(const std::string& _name) const
-		{
-			auto path = "nbl/builtin/" + _name;
-			auto data = fs->loadBuiltinData(path);
-			if (!data)
-				return "";
-			auto begin = reinterpret_cast<const char*>(data->getPointer());
-			auto end = begin+data->getSize();
-			return std::string(begin,end);
-		}
+public:
+    IGLSLEmbeddedIncludeLoader(io::IFileSystem* filesystem)
+        : fs(filesystem) {}
+
+    //
+    const char* getVirtualDirectoryName() const override { return ""; }
+
+    //
+    inline std::string getFromDiskOrEmbedding(const std::string& _name) const
+    {
+        auto path = "nbl/builtin/" + _name;
+        auto data = fs->loadBuiltinData(path);
+        if(!data)
+            return "";
+        auto begin = reinterpret_cast<const char*>(data->getPointer());
+        auto end = begin + data->getSize();
+        return std::string(begin, end);
+    }
 };
 
 }

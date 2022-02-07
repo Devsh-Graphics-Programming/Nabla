@@ -3,10 +3,10 @@
 
 #include <nbl/video/IGPUCommandBuffer.h>
 
-namespace nbl {
+namespace nbl
+{
 namespace video
 {
-
 class IGPUPrimaryCommandBuffer : public IGPUCommandBuffer
 {
     using base_t = IGPUCommandBuffer;
@@ -38,6 +38,7 @@ public:
     //virtual void executeCommands(uint32_t commandBufferCount, IGPUSecondaryCommandBuffer* pCommandBuffer) = 0;
 };
 
-}}
+}
+}
 
 #endif

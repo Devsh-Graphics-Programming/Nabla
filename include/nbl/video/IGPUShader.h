@@ -12,7 +12,6 @@ namespace nbl
 {
 namespace video
 {
-
 //! GPU Version of Unspecialized Shader
 /*
 	@see IReferenceCounted
@@ -20,8 +19,8 @@ namespace video
 
 class IGPUShader : public asset::IShader
 {
-    protected:
-        virtual ~IGPUShader() = default;
+protected:
+    virtual ~IGPUShader() = default;
 };
 
 }

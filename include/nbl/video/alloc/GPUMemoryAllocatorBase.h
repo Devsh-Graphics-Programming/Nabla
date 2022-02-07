@@ -11,23 +11,23 @@ namespace nbl
 {
 namespace video
 {
-
 class IDriver;
 
 class GPUMemoryAllocatorBase
 {
-    protected:
-        IDriver*   mDriver;
-        void            copyBuffersWrapper(IGPUBuffer* oldBuffer, IGPUBuffer* newBuffer, size_t oldOffset, size_t newOffset, size_t copyRangeLen);
+protected:
+    IDriver* mDriver;
+    void copyBuffersWrapper(IGPUBuffer* oldBuffer, IGPUBuffer* newBuffer, size_t oldOffset, size_t newOffset, size_t copyRangeLen);
 
-        GPUMemoryAllocatorBase(IDriver* inDriver) : mDriver(inDriver) {}
-        virtual ~GPUMemoryAllocatorBase() {}
-    public:
-        IDriver*    getDriver() noexcept {return mDriver;}
+    GPUMemoryAllocatorBase(IDriver* inDriver)
+        : mDriver(inDriver) {}
+    virtual ~GPUMemoryAllocatorBase() {}
+
+public:
+    IDriver* getDriver() noexcept { return mDriver; }
 };
 
 }
 }
-
 
 #endif

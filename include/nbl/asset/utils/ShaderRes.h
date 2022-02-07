@@ -13,7 +13,6 @@ namespace nbl
 {
 namespace asset
 {
-
 enum E_SHADER_RESOURCE_TYPE : uint8_t
 {
     //! GLSL declaration: e.g. `sampler2D`
@@ -66,7 +65,6 @@ struct SShaderResource<ESRT_COMBINED_IMAGE_SAMPLER>
 template<>
 struct SShaderResource<ESRT_SAMPLED_IMAGE>
 {
-
 };
 template<>
 struct SShaderResource<ESRT_STORAGE_IMAGE>
@@ -78,17 +76,14 @@ struct SShaderResource<ESRT_STORAGE_IMAGE>
 template<>
 struct SShaderResource<ESRT_UNIFORM_TEXEL_BUFFER>
 {
-
 };
 template<>
 struct SShaderResource<ESRT_STORAGE_TEXEL_BUFFER>
 {
-
 };
 template<>
 struct SShaderResource<ESRT_SAMPLER>
 {
-
 };
 template<>
 struct SShaderResource<ESRT_INPUT_ATTACHMENT>
@@ -108,7 +103,8 @@ struct SShaderMemoryBlock
 
     struct SMember
     {
-        union {
+        union
+        {
             uint32_t count;
             uint32_t count_specID;
         };
@@ -126,7 +122,8 @@ struct SShaderMemoryBlock
         bool rowMajor;
         E_GLSL_VAR_TYPE type;
         //TODO change to core::dynamic_array later
-        struct SMembers {
+        struct SMembers
+        {
             SMember* array;
             size_t count;
         } members;
@@ -148,7 +145,7 @@ struct SShaderMemoryBlock
     size_t rtSizedArrayOneElementSize;
 
     //! See docs for `size` member
-    inline size_t getRuntimeSize(size_t _elmntCnt) const { return size + _elmntCnt*(rtSizedArrayOneElementSize-size); }
+    inline size_t getRuntimeSize(size_t _elmntCnt) const { return size + _elmntCnt * (rtSizedArrayOneElementSize - size); }
     inline bool isRuntimeSized() const { return size != rtSizedArrayOneElementSize; }
 };
 }
@@ -156,14 +153,11 @@ struct SShaderMemoryBlock
 template<>
 struct SShaderResource<ESRT_UNIFORM_BUFFER> : public impl::SShaderMemoryBlock
 {
-
 };
 template<>
 struct SShaderResource<ESRT_STORAGE_BUFFER> : public impl::SShaderMemoryBlock
 {
-
 };
-
 
 //! push-constants are treated seprately (see SIntrospectionData in ICPUShader.h)
 struct SShaderPushConstant : public impl::SShaderMemoryBlock
@@ -171,14 +165,14 @@ struct SShaderPushConstant : public impl::SShaderMemoryBlock
     // todo
 };
 
-
 struct SShaderResourceVariant
 {
     //! binding
     uint32_t binding;
     E_SHADER_RESOURCE_TYPE type;
     //! Basically size of an array in shader (equal to 1 if individual variable)
-    union {
+    union
+    {
         uint32_t descriptorCount;
         uint32_t count_specID;
     };
@@ -195,7 +189,11 @@ struct SShaderResourceVariant
     {
         Variant() {}
         Variant(const Variant& other) { memcpy(this, &other, sizeof(Variant)); }
-        Variant& operator=(const Variant& other) { memcpy(this, &other, sizeof(Variant)); return *this; }
+        Variant& operator=(const Variant& other)
+        {
+            memcpy(this, &other, sizeof(Variant));
+            return *this;
+        }
         ~Variant() {}
 
         SShaderResource<ESRT_COMBINED_IMAGE_SAMPLER> combinedImageSampler;
@@ -220,7 +218,6 @@ struct SShaderInfo;
 template<>
 struct SShaderInfo<ESIT_STAGE_INPUT>
 {
-
 };
 template<>
 struct SShaderInfo<ESIT_STAGE_OUTPUT>
@@ -232,7 +229,8 @@ struct SShaderInfo<ESIT_STAGE_OUTPUT>
 struct SShaderInfoVariant
 {
     uint32_t location;
-    struct {
+    struct
+    {
         E_GLSL_VAR_TYPE basetype;
         uint32_t elements;
     } glslType;
@@ -254,6 +252,7 @@ inline bool operator<(const SShaderInfoVariant& _lhs, const SShaderInfoVariant& 
     return _lhs.location < _rhs.location;
 }
 
-}}
+}
+}
 
 #endif

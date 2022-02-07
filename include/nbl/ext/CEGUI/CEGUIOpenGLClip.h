@@ -32,19 +32,18 @@ namespace nbl
 {
 namespace video
 {
-  class COpenGLState;
+class COpenGLState;
 }
 
 namespace ext
 {
 namespace cegui
 {
-
 void setOpenGLClip();
 void resetOpenGLClip();
 
-} // namespace cegui
-} // namespace ext
-} // namespace nbl
+}  // namespace cegui
+}  // namespace ext
+}  // namespace nbl
 
 #endif

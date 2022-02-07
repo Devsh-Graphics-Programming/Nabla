@@ -5,28 +5,26 @@
 #ifndef __NBL_CORE_CORE_SINGLE_EVENT_HANDLER_H__
 #define __NBL_CORE_CORE_SINGLE_EVENT_HANDLER_H__
 
-
 #include "nbl/core/Types.h"
 
 namespace nbl
 {
 namespace core
 {
-
 class SingleEventHandler
 {
-    public:
-        using Function = std::function<void()>;
+public:
+    using Function = std::function<void()>;
 
-    protected:
-        using FunctionContainerType = core::forward_list<Function>;
-        using FunctionContainerIt = typename FunctionContainerType::iterator;
+protected:
+    using FunctionContainerType = core::forward_list<Function>;
+    using FunctionContainerIt = typename FunctionContainerType::iterator;
 
-        bool                    mExecuteOnDestroy;
-		uint32_t				mFunctionsCount;
-        FunctionContainerType   mFunctions;
-        FunctionContainerIt     mLastFunction;
-/*
+    bool mExecuteOnDestroy;
+    uint32_t mFunctionsCount;
+    FunctionContainerType mFunctions;
+    FunctionContainerIt mLastFunction;
+    /*
         // returns prev and 
         inline std::pair<FunctionContainerIt,FunctionContainerIt> findFunction(const Function& function)
         {
@@ -41,29 +39,30 @@ class SingleEventHandler
             return {prev,curr};
         }
 */
-    public:
-        SingleEventHandler(bool executeEventsOnDestroy) : mExecuteOnDestroy(executeEventsOnDestroy), mFunctionsCount(0u)
-        {
-            mLastFunction = mFunctions.before_begin();
-        }
+public:
+    SingleEventHandler(bool executeEventsOnDestroy)
+        : mExecuteOnDestroy(executeEventsOnDestroy), mFunctionsCount(0u)
+    {
+        mLastFunction = mFunctions.before_begin();
+    }
 
-        virtual ~SingleEventHandler()
-        {
-            if (mExecuteOnDestroy)
-            for (auto& func : mFunctions)
+    virtual ~SingleEventHandler()
+    {
+        if(mExecuteOnDestroy)
+            for(auto& func : mFunctions)
                 func();
-        }
+    }
 
-        //
-        inline auto getFunctionCount() const { return mFunctionsCount; }
+    //
+    inline auto getFunctionCount() const { return mFunctionsCount; }
 
-        //
-        inline void registerFunction(Function&& function)
-        {
-            mLastFunction = mFunctions.emplace_after(mLastFunction,std::forward<Function>(function));
-            mFunctionsCount++;
-        }
- /* no comparison operator for std::function<> so no find
+    //
+    inline void registerFunction(Function&& function)
+    {
+        mLastFunction = mFunctions.emplace_after(mLastFunction, std::forward<Function>(function));
+        mFunctionsCount++;
+    }
+    /* no comparison operator for std::function<> so no find
         //! does not call the operator()
         inline void deregisterFunction(const Function& function)
         {
@@ -83,106 +82,102 @@ class SingleEventHandler
                 found.second->swap(newFunction);
         }
 */
-        //
-        inline void execute()
-        {
-            for (auto& func : mFunctions)
-                func();
-            mFunctionsCount = 0u;
-            mFunctions.clear();
-            mLastFunction = mFunctions.before_begin();
-        }
+    //
+    inline void execute()
+    {
+        for(auto& func : mFunctions)
+            func();
+        mFunctionsCount = 0u;
+        mFunctions.clear();
+        mLastFunction = mFunctions.before_begin();
+    }
 };
 
 //
 class QuitSignalling
 {
-    public:
-        inline void registerOnQuit(SingleEventHandler::Function&& function)
-        {
-            quitEventHandler.registerFunction(std::move(function));
-        }
-/*
+public:
+    inline void registerOnQuit(SingleEventHandler::Function&& function)
+    {
+        quitEventHandler.registerFunction(std::move(function));
+    }
+    /*
         //! does not call the operator()
         inline void deregisterOnQuit(const SingleEventHandler::Function& function)
         {
             quitEventHandler.deregisterFunction(function);
         }
 */
-    protected:
-        QuitSignalling() : quitEventHandler(false) {}
-        virtual ~QuitSignalling() {assert(!quitEventHandler.getFunctionCount());}
+protected:
+    QuitSignalling()
+        : quitEventHandler(false) {}
+    virtual ~QuitSignalling() { assert(!quitEventHandler.getFunctionCount()); }
 
-        SingleEventHandler quitEventHandler;
+    SingleEventHandler quitEventHandler;
 };
 
 //
 template<class T>
 class FactoryAndStaticSafeST
 {
-        T data = {};
-        QuitSignalling* factory = nullptr;
+    T data = {};
+    QuitSignalling* factory = nullptr;
 
-    protected:
-        virtual void preemptiveDestruction()
-        {
-            data = T();
-            factory = nullptr;
-        }
+protected:
+    virtual void preemptiveDestruction()
+    {
+        data = T();
+        factory = nullptr;
+    }
 
-    public:
-        FactoryAndStaticSafeST() = default;
-        ~FactoryAndStaticSafeST()
-        {
-            assert(!factory);
-        }
+public:
+    FactoryAndStaticSafeST() = default;
+    ~FactoryAndStaticSafeST()
+    {
+        assert(!factory);
+    }
 
-        T& getData(QuitSignalling* _factory)
+    T& getData(QuitSignalling* _factory)
+    {
+        if(_factory != factory)
         {
-            if (_factory!=factory)
-            {
-                std::function<void()> func(preemptiveDestruction);
-                if (factory)
-                    factory->deregisterOnQuit(func);
-                _factory->registerOnQuit(std::move(func));
-                factory = _factory;
-            }
-            return data;
+            std::function<void()> func(preemptiveDestruction);
+            if(factory)
+                factory->deregisterOnQuit(func);
+            _factory->registerOnQuit(std::move(func));
+            factory = _factory;
         }
+        return data;
+    }
 };
 
 //
-template<class T, class Lockable=std::mutex>
+template<class T, class Lockable = std::mutex>
 class FactoryAndStaticSafeMT : protected FactoryAndStaticSafeST<T>
 {
-        static_assert(std::is_standard_layout<Lockable>::value, "Lock class is not standard layout");
-        Lockable lock;
+    static_assert(std::is_standard_layout<Lockable>::value, "Lock class is not standard layout");
+    Lockable lock;
 
-    protected:
-        inline void preemptiveDestruction() override
-        {
-            lock.lock();
-            FactoryAndStaticSafeST<T>::preemptiveDestruction();
-            lock.unlock();
-        }
+protected:
+    inline void preemptiveDestruction() override
+    {
+        lock.lock();
+        FactoryAndStaticSafeST<T>::preemptiveDestruction();
+        lock.unlock();
+    }
 
-    public:
-        FactoryAndStaticSafeMT() = default;
-        ~FactoryAndStaticSafeMT() {}
-        
-        std::pair<T&,std::unique_lock<Lockable>> getData(QuitSignalling* _factory)
-        {
-            std::unique_lock lockFirst(lock);
-            return {FactoryAndStaticSafeST<T>::getData(),std::move(lockFirst)};
-        }
+public:
+    FactoryAndStaticSafeMT() = default;
+    ~FactoryAndStaticSafeMT() {}
+
+    std::pair<T&, std::unique_lock<Lockable>> getData(QuitSignalling* _factory)
+    {
+        std::unique_lock lockFirst(lock);
+        return {FactoryAndStaticSafeST<T>::getData(), std::move(lockFirst)};
+    }
 };
-
 
 }
 }
 
 #endif
-
-
-
-

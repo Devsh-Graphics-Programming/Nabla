@@ -13,13 +13,12 @@
 
 namespace nbl::asset::material_compiler
 {
-
 class IR : public core::IReferenceCounted
 {
     class SBackingMemManager
     {
-        _NBL_STATIC_INLINE_CONSTEXPR size_t INITIAL_MEM_SIZE = 1ull<<20;
-        _NBL_STATIC_INLINE_CONSTEXPR size_t MAX_MEM_SIZE = 1ull<<20;
+        _NBL_STATIC_INLINE_CONSTEXPR size_t INITIAL_MEM_SIZE = 1ull << 20;
+        _NBL_STATIC_INLINE_CONSTEXPR size_t MAX_MEM_SIZE = 1ull << 20;
         _NBL_STATIC_INLINE_CONSTEXPR size_t ALIGNMENT = _NBL_SIMD_ALIGNMENT;
 
         uint8_t* mem;
@@ -28,10 +27,13 @@ class IR : public core::IReferenceCounted
         addr_alctr_t addrAlctr;
 
     public:
-        SBackingMemManager() : mem(nullptr), currSz(INITIAL_MEM_SIZE), addrAlctr(nullptr, 0u, 0u, ALIGNMENT, MAX_MEM_SIZE) {
+        SBackingMemManager()
+            : mem(nullptr), currSz(INITIAL_MEM_SIZE), addrAlctr(nullptr, 0u, 0u, ALIGNMENT, MAX_MEM_SIZE)
+        {
             mem = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(currSz, ALIGNMENT));
         }
-        ~SBackingMemManager() {
+        ~SBackingMemManager()
+        {
             _NBL_ALIGNED_FREE(mem);
         }
 
@@ -42,9 +44,11 @@ class IR : public core::IReferenceCounted
             //TODO reallocation will invalidate all pointers to nodes, so...
             //1) never reallocate (just have reasonably big buffer for nodes)
             //2) make some node_handle class that will work as pointer but is based on offset instead of actual address
-            if (addr+bytes > currSz) {
-                size_t newSz = currSz<<1;
-                if (newSz > MAX_MEM_SIZE) {
+            if(addr + bytes > currSz)
+            {
+                size_t newSz = currSz << 1;
+                if(newSz > MAX_MEM_SIZE)
+                {
                     addrAlctr.free_addr(addr, bytes);
                     return nullptr;
                 }
@@ -56,7 +60,7 @@ class IR : public core::IReferenceCounted
                 currSz = newSz;
             }
 
-            return mem+addr;
+            return mem + addr;
         }
 
         uint32_t getAllocatedSize() const
@@ -76,18 +80,19 @@ protected:
     ~IR()
     {
         //call destructors on all nodes
-        for (auto* root : roots)
+        for(auto* root : roots)
         {
             core::stack<decltype(root)> s;
             s.push(root);
-            while (!s.empty())
+            while(!s.empty())
             {
                 auto* n = s.top();
                 s.pop();
-                for (auto* c : n->children)
+                for(auto* c : n->children)
                     s.push(c);
 
-                if (!n->deinited) {
+                if(!n->deinited)
+                {
                     n->~INode();
                     n->deinited = true;
                 }
@@ -95,21 +100,22 @@ protected:
         }
     }
 
-    template <typename NodeType, typename ...Args>
-    NodeType* allocNode_impl(Args&& ...args)
+    template<typename NodeType, typename... Args>
+    NodeType* allocNode_impl(Args&&... args)
     {
         uint8_t* ptr = memMgr.alloc(sizeof(NodeType));
-        return new (ptr) NodeType(std::forward<Args>(args)...);
+        return new(ptr) NodeType(std::forward<Args>(args)...);
     }
 
 public:
-    IR() : memMgr() {}
+    IR()
+        : memMgr() {}
 
     struct INode;
 
     void deinitTmpNodes()
     {
-        for (INode* n : tmp)
+        for(INode* n : tmp)
             n->~INode();
         tmp.clear();
         memMgr.freeLastAllocatedBytes(tmpSize);
@@ -121,21 +127,21 @@ public:
         roots.push_back(node);
     }
 
-    template <typename NodeType, typename ...Args>
-    NodeType* allocNode(Args&& ...args)
+    template<typename NodeType, typename... Args>
+    NodeType* allocNode(Args&&... args)
     {
         tmpSize = 0u;
         return allocNode_impl<NodeType>(std::forward<Args>(args)...);
     }
-    template <typename NodeType, typename ...Args>
-    NodeType* allocRootNode(Args&& ...args)
+    template<typename NodeType, typename... Args>
+    NodeType* allocRootNode(Args&&... args)
     {
         auto* root = allocNode<NodeType>(std::forward<Args>(args)...);
         addRootNode(root);
         return root;
     }
-    template <typename NodeType, typename ...Args>
-    NodeType* allocTmpNode(Args&& ...args)
+    template<typename NodeType, typename... Args>
+    NodeType* allocTmpNode(Args&&... args)
     {
         const uint32_t cursor = memMgr.getAllocatedSize();
         auto* node = allocNode_impl<NodeType>(std::forward<Args>(args)...);
@@ -155,12 +161,13 @@ public:
             ES_BSDF_COMBINER
         };
 
-        struct STextureSource {
+        struct STextureSource
+        {
             core::smart_refctd_ptr<ICPUImageView> image;
             core::smart_refctd_ptr<ICPUSampler> sampler;
             float scale;
 
-            bool operator==(const STextureSource& rhs) const { return image==rhs.image && sampler==rhs.sampler && scale==rhs.scale; }
+            bool operator==(const STextureSource& rhs) const { return image == rhs.image && sampler == rhs.sampler && scale == rhs.scale; }
         };
 
         enum E_PARAM_SOURCE
@@ -169,13 +176,15 @@ public:
             EPS_TEXTURE
         };
 
-        template <typename type_of_const>
+        template<typename type_of_const>
         struct SParameter
         {
             //destructor of actually used variant member has to be called by hand!
-            template <typename type_of_const>
-            union UTextureOrConstant {
-                UTextureOrConstant() : texture{ nullptr,nullptr,0.f } {}
+            template<typename type_of_const>
+            union UTextureOrConstant
+            {
+                UTextureOrConstant()
+                    : texture{nullptr, nullptr, 0.f} {}
                 ~UTextureOrConstant() {}
 
                 type_of_const constant;
@@ -183,8 +192,9 @@ public:
             };
             using TextureOrConstant = UTextureOrConstant<type_of_const>;
 
-            ~SParameter() {
-                if (source==EPS_TEXTURE)
+            ~SParameter()
+            {
+                if(source == EPS_TEXTURE)
                     value.texture.~STextureSource();
             }
 
@@ -234,13 +244,15 @@ public:
             {
                 const auto prevSource = source;
                 source = rhs.source;
-                if (source == EPS_CONSTANT) {
-                    if (prevSource == EPS_TEXTURE)
+                if(source == EPS_CONSTANT)
+                {
+                    if(prevSource == EPS_TEXTURE)
                         value.texture.~STextureSource();
                     value.constant = rhs.value.constant;
                 }
-                else {
-                    if (prevSource == EPS_CONSTANT)
+                else
+                {
+                    if(prevSource == EPS_CONSTANT)
                         value.constant = type_of_const();
                     value.texture = rhs.value.texture;
                 }
@@ -248,16 +260,17 @@ public:
                 return *this;
             }
 
-            bool operator==(const SParameter<type_of_const>& rhs) const {
-                if (source!=rhs.source)
+            bool operator==(const SParameter<type_of_const>& rhs) const
+            {
+                if(source != rhs.source)
                     return false;
-                switch (source)
+                switch(source)
                 {
-                case EPS_CONSTANT:
-                    return value.constant==value.constant;
-                case EPS_TEXTURE:
-                    return value.texture==value.texture;
-                default: return false;
+                    case EPS_CONSTANT:
+                        return value.constant == value.constant;
+                    case EPS_TEXTURE:
+                        return value.texture == value.texture;
+                    default: return false;
                 }
             }
 
@@ -272,17 +285,18 @@ public:
             but this would only be possible if the nodes were uniform bytesize.
         That way there would be no artificial limit on max children in our IR (backends will still have limits)
         */
-        struct children_array_t {
-            INode* array[MAX_CHILDREN] {};
+        struct children_array_t
+        {
+            INode* array[MAX_CHILDREN]{};
             size_t count = 0ull;
 
             inline bool operator!=(const children_array_t& rhs) const
             {
-                if (count != rhs.count)
+                if(count != rhs.count)
                     return true;
 
-                for (uint32_t i = 0u; i < count; ++i)
-                    if (array[i]!=rhs.array[i])
+                for(uint32_t i = 0u; i < count; ++i)
+                    if(array[i] != rhs.array[i])
                         return true;
                 return false;
             }
@@ -291,41 +305,50 @@ public:
                 return !operator!=(rhs);
             }
 
-            inline bool find(E_SYMBOL s, size_t* ix = nullptr) const 
-            { 
-                auto found = std::find_if(begin(),end(),[s](const INode* child){return child->symbol==s;});
-                if (found != (array+count))
+            inline bool find(E_SYMBOL s, size_t* ix = nullptr) const
+            {
+                auto found = std::find_if(begin(), end(), [s](const INode* child) { return child->symbol == s; });
+                if(found != (array + count))
                 {
-                    if (ix)
-                        ix[0] = found-array;
+                    if(ix)
+                        ix[0] = found - array;
                     return true;
                 }
                 return false;
             }
 
-            operator bool() const { return count!=0ull; }
+            operator bool() const { return count != 0ull; }
 
             INode** begin() { return array; }
-            const INode*const* begin() const { return array; }
-            INode** end() { return array+count; }
-            const INode*const* end() const { return array+count; }
+            const INode* const* begin() const { return array; }
+            INode** end() { return array + count; }
+            const INode* const* end() const { return array + count; }
 
-            inline INode*& operator[](size_t i) { assert(i<count); return array[i]; }
-            inline const INode* const& operator[](size_t i) const { assert(i<count); return array[i]; }
+            inline INode*& operator[](size_t i)
+            {
+                assert(i < count);
+                return array[i];
+            }
+            inline const INode* const& operator[](size_t i) const
+            {
+                assert(i < count);
+                return array[i];
+            }
         };
-        template <typename ...Contents>
-        static inline children_array_t createChildrenArray(Contents... children) 
-        { 
+        template<typename... Contents>
+        static inline children_array_t createChildrenArray(Contents... children)
+        {
             children_array_t a;
-            const INode* ch[]{ children... };
+            const INode* ch[]{children...};
             memcpy(a.array, ch, sizeof(ch));
             a.count = sizeof...(children);
-            return a; 
+            return a;
         }
 
         using color_t = core::vector3df_SIMD;
 
-        explicit INode(E_SYMBOL s) : symbol(s) {}
+        explicit INode(E_SYMBOL s)
+            : symbol(s) {}
         virtual ~INode() = default;
 
         // TODO: Why does every INode have children!? Leaf BxDFs do not need this!
@@ -337,109 +360,95 @@ public:
     INode* copyNode(const INode* _rhs)
     {
         INode* node = nullptr;
-        switch (_rhs->symbol)
+        switch(_rhs->symbol)
         {
-        case INode::ES_GEOM_MODIFIER:
-        {
-            auto* rhs = static_cast<const CGeomModifierNode*>(_rhs);
-            node = allocNode<CGeomModifierNode>(rhs->type);
-            *static_cast<CGeomModifierNode*>(node) = *rhs;
-        }
+            case INode::ES_GEOM_MODIFIER: {
+                auto* rhs = static_cast<const CGeomModifierNode*>(_rhs);
+                node = allocNode<CGeomModifierNode>(rhs->type);
+                *static_cast<CGeomModifierNode*>(node) = *rhs;
+            }
             break;
-        case INode::ES_EMISSION:
-        {
-            auto* rhs = static_cast<const CEmissionNode*>(_rhs);
-            node = allocNode<CEmissionNode>();
-            *static_cast<CEmissionNode*>(node) = *rhs;
-        }
+            case INode::ES_EMISSION: {
+                auto* rhs = static_cast<const CEmissionNode*>(_rhs);
+                node = allocNode<CEmissionNode>();
+                *static_cast<CEmissionNode*>(node) = *rhs;
+            }
             break;
-        case INode::ES_OPACITY:
-        {
-            auto* rhs = static_cast<const COpacityNode*>(_rhs);
-            node = allocNode<COpacityNode>();
-            *static_cast<COpacityNode*>(node) = *rhs;
-        }
+            case INode::ES_OPACITY: {
+                auto* rhs = static_cast<const COpacityNode*>(_rhs);
+                node = allocNode<COpacityNode>();
+                *static_cast<COpacityNode*>(node) = *rhs;
+            }
             break;
-        case INode::ES_BSDF:
-        {
-            auto* rhs_bsdf = static_cast<const CBSDFNode*>(_rhs);
+            case INode::ES_BSDF: {
+                auto* rhs_bsdf = static_cast<const CBSDFNode*>(_rhs);
 
-            switch (rhs_bsdf->type)
-            {
-            case CBSDFNode::ET_MICROFACET_DIFFTRANS:
-            {
-                auto* rhs = static_cast<const CMicrofacetDifftransBSDFNode*>(_rhs);
-                node = allocNode<CMicrofacetDifftransBSDFNode>();
-                *static_cast<CMicrofacetDifftransBSDFNode*>(node) = *rhs;
+                switch(rhs_bsdf->type)
+                {
+                    case CBSDFNode::ET_MICROFACET_DIFFTRANS: {
+                        auto* rhs = static_cast<const CMicrofacetDifftransBSDFNode*>(_rhs);
+                        node = allocNode<CMicrofacetDifftransBSDFNode>();
+                        *static_cast<CMicrofacetDifftransBSDFNode*>(node) = *rhs;
+                    }
+                    break;
+                    case CBSDFNode::ET_MICROFACET_DIFFUSE: {
+                        auto* rhs = static_cast<const CMicrofacetDiffuseBSDFNode*>(_rhs);
+                        node = allocNode<CMicrofacetDiffuseBSDFNode>();
+                        *static_cast<CMicrofacetDiffuseBSDFNode*>(node) = *rhs;
+                    }
+                    break;
+                    case CBSDFNode::ET_MICROFACET_SPECULAR: {
+                        auto* rhs = static_cast<const CMicrofacetSpecularBSDFNode*>(_rhs);
+                        node = allocNode<CMicrofacetSpecularBSDFNode>();
+                        *static_cast<CMicrofacetSpecularBSDFNode*>(node) = *rhs;
+                    }
+                    break;
+                    case CBSDFNode::ET_MICROFACET_COATING: {
+                        auto* rhs = static_cast<const CMicrofacetCoatingBSDFNode*>(_rhs);
+                        node = allocNode<CMicrofacetCoatingBSDFNode>();
+                        *static_cast<CMicrofacetCoatingBSDFNode*>(node) = *rhs;
+                    }
+                    break;
+                    case CBSDFNode::ET_MICROFACET_DIELECTRIC: {
+                        auto* rhs = static_cast<const CMicrofacetDielectricBSDFNode*>(_rhs);
+                        node = allocNode<CMicrofacetDielectricBSDFNode>();
+                        *static_cast<CMicrofacetDielectricBSDFNode*>(node) = *rhs;
+                    }
+                    break;
+                    default: {
+                        node = allocNode<CBSDFNode>(rhs_bsdf->type);
+                        *static_cast<CBSDFNode*>(node) = *rhs_bsdf;
+                    }
+                }
             }
             break;
-            case CBSDFNode::ET_MICROFACET_DIFFUSE:
-            {
-                auto* rhs = static_cast<const CMicrofacetDiffuseBSDFNode*>(_rhs);
-                node = allocNode<CMicrofacetDiffuseBSDFNode>();
-                *static_cast<CMicrofacetDiffuseBSDFNode*>(node) = *rhs;
-            }
-            break;
-            case CBSDFNode::ET_MICROFACET_SPECULAR:
-            {
-                auto* rhs = static_cast<const CMicrofacetSpecularBSDFNode*>(_rhs);
-                node = allocNode<CMicrofacetSpecularBSDFNode>();
-                *static_cast<CMicrofacetSpecularBSDFNode*>(node) = *rhs;
-            }
-            break;
-            case CBSDFNode::ET_MICROFACET_COATING:
-            {
-                auto* rhs = static_cast<const CMicrofacetCoatingBSDFNode*>(_rhs);
-                node = allocNode<CMicrofacetCoatingBSDFNode>();
-                *static_cast<CMicrofacetCoatingBSDFNode*>(node) = *rhs;
-            }
-            break;
-            case CBSDFNode::ET_MICROFACET_DIELECTRIC:
-            {
-                auto* rhs = static_cast<const CMicrofacetDielectricBSDFNode*>(_rhs);
-                node = allocNode<CMicrofacetDielectricBSDFNode>();
-                *static_cast<CMicrofacetDielectricBSDFNode*>(node) = *rhs;
+            case INode::ES_BSDF_COMBINER: {
+                auto* rhs_combiner = static_cast<const CBSDFCombinerNode*>(_rhs);
+                switch(rhs_combiner->type)
+                {
+                    case CBSDFCombinerNode::ET_WEIGHT_BLEND: {
+                        auto* rhs = static_cast<const CBSDFBlendNode*>(_rhs);
+                        node = allocNode<CBSDFBlendNode>();
+                        *static_cast<CBSDFBlendNode*>(node) = *rhs;
+                    }
+                    break;
+                    case CBSDFCombinerNode::ET_MIX: {
+                        auto* rhs = static_cast<const CBSDFMixNode*>(_rhs);
+                        node = allocNode<CBSDFMixNode>();
+                        *static_cast<CBSDFMixNode*>(node) = *rhs;
+                    }
+                    break;
+                    default: {
+                        node = allocNode<CBSDFCombinerNode>(rhs_combiner->type);
+                        *static_cast<CBSDFCombinerNode*>(node) = *rhs_combiner;
+                    }
+                    break;
+                }
             }
             break;
             default:
-            {
-                node = allocNode<CBSDFNode>(rhs_bsdf->type);
-                *static_cast<CBSDFNode*>(node) = *rhs_bsdf;
-            }
-            }
-        }
-            break;
-        case INode::ES_BSDF_COMBINER:
-        {
-            auto* rhs_combiner = static_cast<const CBSDFCombinerNode*>(_rhs);
-            switch (rhs_combiner->type)
-            {
-            case CBSDFCombinerNode::ET_WEIGHT_BLEND:
-            {
-                auto* rhs = static_cast<const CBSDFBlendNode*>(_rhs);
-                node = allocNode<CBSDFBlendNode>();
-                *static_cast<CBSDFBlendNode*>(node) = *rhs;
-            }
-            break;
-            case CBSDFCombinerNode::ET_MIX:
-            {
-                auto* rhs = static_cast<const CBSDFMixNode*>(_rhs);
-                node = allocNode<CBSDFMixNode>();
-                *static_cast<CBSDFMixNode*>(node) = *rhs;
-            }
-            break;
-            default:
-            {
-                node = allocNode<CBSDFCombinerNode>(rhs_combiner->type);
-                *static_cast<CBSDFCombinerNode*>(node) = *rhs_combiner;
-            }
-            break;
-            }
-        }
-            break;
-        default:
-            assert(false);
-            return nullptr;
+                assert(false);
+                return nullptr;
         }
 
         return node;
@@ -460,7 +469,8 @@ public:
             ESRC_TEXTURE
         };
 
-        CGeomModifierNode(E_TYPE t) : INode(ES_GEOM_MODIFIER), type(t) {}
+        CGeomModifierNode(E_TYPE t)
+            : INode(ES_GEOM_MODIFIER), type(t) {}
 
         E_TYPE type;
         //no other (than texture) source supported for now (uncomment in the future) [far future TODO]
@@ -468,20 +478,22 @@ public:
         //TODO some union member for when source==ESRC_UV_FUNCTION, no idea what type
         //in fact when we want to translate MDL function of (u,v) into this IR we could just create an image being a 2D plot of this function with some reasonable quantization (pixel dimensions)
         //union {
-            STextureSource texture;
+        STextureSource texture;
         //};
     };
 
     struct CEmissionNode : INode
     {
-        CEmissionNode() : INode(ES_EMISSION) {}
+        CEmissionNode()
+            : INode(ES_EMISSION) {}
 
         color_t intensity = color_t(1.f);
     };
 
     struct COpacityNode : INode
     {
-        COpacityNode() : INode(ES_OPACITY) {}
+        COpacityNode()
+            : INode(ES_OPACITY) {}
 
         SParameter<color_t> opacity;
     };
@@ -502,17 +514,20 @@ public:
 
         E_TYPE type;
 
-        CBSDFCombinerNode(E_TYPE t) : INode(ES_BSDF_COMBINER), type(t) {}
+        CBSDFCombinerNode(E_TYPE t)
+            : INode(ES_BSDF_COMBINER), type(t) {}
     };
     struct CBSDFBlendNode : CBSDFCombinerNode
     {
-        CBSDFBlendNode() : CBSDFCombinerNode(ET_WEIGHT_BLEND) {}
+        CBSDFBlendNode()
+            : CBSDFCombinerNode(ET_WEIGHT_BLEND) {}
 
         SParameter<color_t> weight;
     };
     struct CBSDFMixNode : CBSDFCombinerNode
     {
-        CBSDFMixNode() : CBSDFCombinerNode(ET_MIX) {}
+        CBSDFMixNode()
+            : CBSDFCombinerNode(ET_MIX) {}
 
         float weights[MAX_CHILDREN];
     };
@@ -530,11 +545,11 @@ public:
             //ET_SHEEN,
         };
 
-        CBSDFNode(E_TYPE t) :
-            INode(ES_BSDF),
-            type(t),
-            eta(1.33f),
-            etaK(0.f)
+        CBSDFNode(E_TYPE t)
+            : INode(ES_BSDF),
+              type(t),
+              eta(1.33f),
+              etaK(0.f)
         {}
 
         E_TYPE type;
@@ -557,7 +572,8 @@ public:
             EST_VCAVITIES
         };
 
-        CMicrofacetSpecularBSDFNode() : CBSDFNode(ET_MICROFACET_SPECULAR) {}
+        CMicrofacetSpecularBSDFNode()
+            : CBSDFNode(ET_MICROFACET_SPECULAR) {}
 
         void setSmooth(E_NDF _ndf = ENDF_GGX)
         {
@@ -573,11 +589,13 @@ public:
         SParameter<float> alpha_v = 0.f;
 
     protected:
-        CMicrofacetSpecularBSDFNode(E_TYPE t) : CBSDFNode(t) {}
+        CMicrofacetSpecularBSDFNode(E_TYPE t)
+            : CBSDFNode(t) {}
     };
     struct CMicrofacetDiffuseBxDFBase : CBSDFNode
     {
-        CMicrofacetDiffuseBxDFBase(E_TYPE t) : CBSDFNode(t) {}
+        CMicrofacetDiffuseBxDFBase(E_TYPE t)
+            : CBSDFNode(t) {}
 
         void setSmooth()
         {
@@ -591,25 +609,29 @@ public:
     };
     struct CMicrofacetDiffuseBSDFNode : CMicrofacetDiffuseBxDFBase
     {
-        CMicrofacetDiffuseBSDFNode() : CMicrofacetDiffuseBxDFBase(ET_MICROFACET_DIFFUSE) {}
+        CMicrofacetDiffuseBSDFNode()
+            : CMicrofacetDiffuseBxDFBase(ET_MICROFACET_DIFFUSE) {}
 
         SParameter<color_t> reflectance = color_t(1.f);
     };
     struct CMicrofacetDifftransBSDFNode : CMicrofacetDiffuseBxDFBase
     {
-        CMicrofacetDifftransBSDFNode() : CMicrofacetDiffuseBxDFBase(ET_MICROFACET_DIFFTRANS) {}
+        CMicrofacetDifftransBSDFNode()
+            : CMicrofacetDiffuseBxDFBase(ET_MICROFACET_DIFFTRANS) {}
 
         SParameter<color_t> transmittance = color_t(0.5f);
     };
     struct CMicrofacetCoatingBSDFNode : CMicrofacetSpecularBSDFNode
     {
-        CMicrofacetCoatingBSDFNode() : CMicrofacetSpecularBSDFNode(ET_MICROFACET_COATING) {}
+        CMicrofacetCoatingBSDFNode()
+            : CMicrofacetSpecularBSDFNode(ET_MICROFACET_COATING) {}
 
         SParameter<color_t> thicknessSigmaA;
     };
     struct CMicrofacetDielectricBSDFNode : CMicrofacetSpecularBSDFNode
     {
-        CMicrofacetDielectricBSDFNode() : CMicrofacetSpecularBSDFNode(ET_MICROFACET_DIELECTRIC) {}
+        CMicrofacetDielectricBSDFNode()
+            : CMicrofacetSpecularBSDFNode(ET_MICROFACET_DIELECTRIC) {}
         bool thin = false;
     };
 

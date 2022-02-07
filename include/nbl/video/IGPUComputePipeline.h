@@ -9,10 +9,10 @@
 #include "nbl/video/IGPUSpecializedShader.h"
 #include "nbl/video/IGPUPipelineLayout.h"
 
-namespace nbl {
+namespace nbl
+{
 namespace video
 {
-
 class IGPUComputePipeline : public asset::IComputePipeline<IGPUSpecializedShader, IGPUPipelineLayout>
 {
     using base_t = asset::IComputePipeline<IGPUSpecializedShader, IGPUPipelineLayout>;
@@ -26,6 +26,7 @@ protected:
     bool m_allowDispatchBase = false;
 };
 
-}}
+}
+}
 
 #endif

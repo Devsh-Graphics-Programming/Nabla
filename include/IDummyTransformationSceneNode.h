@@ -15,17 +15,14 @@ namespace nbl
 {
 namespace scene
 {
-
 class ISceneManager;
 class ISceneNodeAnimator;
 class IDummyTransformationSceneNode;
 
-
-
-	//! Typedef for array of scene nodes
-	typedef core::vector<IDummyTransformationSceneNode*> IDummyTransformationSceneNodeArray;
-	//! Typedef for array of scene node animators
-	typedef core::vector<ISceneNodeAnimator*> ISceneNodeAnimatorArray;
+//! Typedef for array of scene nodes
+typedef core::vector<IDummyTransformationSceneNode*> IDummyTransformationSceneNodeArray;
+//! Typedef for array of scene node animators
+typedef core::vector<ISceneNodeAnimator*> ISceneNodeAnimatorArray;
 
 //! Dummy scene node for adding additional transformations to the scene tree.
 /** This scene node does not render itself, and does not respond to set/getPosition,
@@ -37,177 +34,176 @@ joint scene nodes when playing skeletal animations.
 */
 class IDummyTransformationSceneNode : public virtual core::IReferenceCounted
 {
-    protected:
-        uint64_t lastTimeRelativeTransRead[5];
+protected:
+    uint64_t lastTimeRelativeTransRead[5];
 
-        uint64_t relativeTransChanged;
-        bool relativeTransNeedsUpdate;
+    uint64_t relativeTransChanged;
+    bool relativeTransNeedsUpdate;
 
-        virtual ~IDummyTransformationSceneNode()
-        {
-            removeAll();
+    virtual ~IDummyTransformationSceneNode()
+    {
+        removeAll();
 
-			// delete all animators
-			ISceneNodeAnimatorArray::iterator ait = Animators.begin();
-			for (; ait != Animators.end(); ++ait)
-				(*ait)->drop();
-        }
+        // delete all animators
+        ISceneNodeAnimatorArray::iterator ait = Animators.begin();
+        for(; ait != Animators.end(); ++ait)
+            (*ait)->drop();
+    }
 
-    public:
-        IDummyTransformationSceneNode(IDummyTransformationSceneNode* parent,
-				const core::vector3df& position = core::vector3df(0,0,0),
-				const core::vector3df& rotation = core::vector3df(0,0,0),
-				const core::vector3df& scale = core::vector3df(1.0f, 1.0f, 1.0f)) :
-                RelativeTranslation(position), RelativeRotation(rotation), RelativeScale(scale),
-				Parent(0),  relativeTransChanged(1), relativeTransNeedsUpdate(true)
-        {
-            memset(lastTimeRelativeTransRead,0,sizeof(uint64_t)*5);
+public:
+    IDummyTransformationSceneNode(IDummyTransformationSceneNode* parent,
+        const core::vector3df& position = core::vector3df(0, 0, 0),
+        const core::vector3df& rotation = core::vector3df(0, 0, 0),
+        const core::vector3df& scale = core::vector3df(1.0f, 1.0f, 1.0f))
+        : RelativeTranslation(position), RelativeRotation(rotation), RelativeScale(scale),
+          Parent(0), relativeTransChanged(1), relativeTransNeedsUpdate(true)
+    {
+        memset(lastTimeRelativeTransRead, 0, sizeof(uint64_t) * 5);
 
-			if (parent)
-				parent->addChild(this);
+        if(parent)
+            parent->addChild(this);
 
-			updateAbsolutePosition();
-        }
+        updateAbsolutePosition();
+    }
 
-        virtual bool isISceneNode() const {return false;}
+    virtual bool isISceneNode() const { return false; }
 
-        //! Returns a reference to the current relative transformation matrix.
-        /** This is the matrix, this scene node uses instead of scale, translation
+    //! Returns a reference to the current relative transformation matrix.
+    /** This is the matrix, this scene node uses instead of scale, translation
         and rotation. */
-        inline virtual const core::matrix4x3& getRelativeTransformationMatrix()
+    inline virtual const core::matrix4x3& getRelativeTransformationMatrix()
+    {
+        if(relativeTransNeedsUpdate)
         {
-            if (relativeTransNeedsUpdate)
-            {
-                RelativeTransformation.setRotationDegrees(RelativeRotation);
-                RelativeTransformation.setTranslation(RelativeTranslation);
-                //
-                RelativeTransformation(0,0) *= RelativeScale.X;
-                RelativeTransformation(1,0) *= RelativeScale.X;
-                RelativeTransformation(2,0) *= RelativeScale.X;
-                RelativeTransformation(0,1) *= RelativeScale.Y;
-                RelativeTransformation(1,1) *= RelativeScale.Y;
-                RelativeTransformation(2,1) *= RelativeScale.Y;
-                RelativeTransformation(0,2) *= RelativeScale.Z;
-                RelativeTransformation(1,2) *= RelativeScale.Z;
-                RelativeTransformation(2,2) *= RelativeScale.Z;
-                //
-                relativeTransChanged++;
-                relativeTransNeedsUpdate = false;
-            }
-            return RelativeTransformation;
-        }
-
-        //!
-        inline void setRelativeTransformationMatrix(const core::matrix4x3& tform)
-        {
-            RelativeTransformation = tform;
+            RelativeTransformation.setRotationDegrees(RelativeRotation);
+            RelativeTransformation.setTranslation(RelativeTranslation);
+            //
+            RelativeTransformation(0, 0) *= RelativeScale.X;
+            RelativeTransformation(1, 0) *= RelativeScale.X;
+            RelativeTransformation(2, 0) *= RelativeScale.X;
+            RelativeTransformation(0, 1) *= RelativeScale.Y;
+            RelativeTransformation(1, 1) *= RelativeScale.Y;
+            RelativeTransformation(2, 1) *= RelativeScale.Y;
+            RelativeTransformation(0, 2) *= RelativeScale.Z;
+            RelativeTransformation(1, 2) *= RelativeScale.Z;
+            RelativeTransformation(2, 2) *= RelativeScale.Z;
+            //
             relativeTransChanged++;
             relativeTransNeedsUpdate = false;
         }
+        return RelativeTransformation;
+    }
 
-        inline const uint64_t& getRelativeTransChangedHint() const {return relativeTransChanged;}
+    //!
+    inline void setRelativeTransformationMatrix(const core::matrix4x3& tform)
+    {
+        RelativeTransformation = tform;
+        relativeTransChanged++;
+        relativeTransNeedsUpdate = false;
+    }
 
-        inline const uint64_t& getAbsoluteTransformLastRecomputeHint() const {return lastTimeRelativeTransRead[3];}
+    inline const uint64_t& getRelativeTransChangedHint() const { return relativeTransChanged; }
 
-        inline const core::vector3df& getScale()
+    inline const uint64_t& getAbsoluteTransformLastRecomputeHint() const { return lastTimeRelativeTransRead[3]; }
+
+    inline const core::vector3df& getScale()
+    {
+        if(lastTimeRelativeTransRead[0] < relativeTransChanged)
         {
-            if (lastTimeRelativeTransRead[0]<relativeTransChanged)
+            const core::matrix4x3& rel = getRelativeTransformationMatrix();
+            RelativeScale = rel.getScale();
+            lastTimeRelativeTransRead[0] = relativeTransChanged;
+        }
+        return RelativeScale;
+    }
+
+    inline void setScale(const core::vector3df& scale)
+    {
+        RelativeScale = scale;
+        relativeTransNeedsUpdate = true;
+    }
+
+    inline const core::vector3df& getRotation()
+    {
+        if(lastTimeRelativeTransRead[1] < relativeTransChanged)
+        {
+            const core::matrix4x3& rel = getRelativeTransformationMatrix();
+            RelativeRotation = rel.getRotationDegrees();
+            lastTimeRelativeTransRead[1] = relativeTransChanged;
+        }
+        return RelativeRotation;
+    }
+
+    inline void setRotation(const core::vector3df& rotation)
+    {
+        RelativeRotation = rotation;
+        relativeTransNeedsUpdate = true;
+    }
+
+    inline const core::vector3df& getPosition()
+    {
+        if(lastTimeRelativeTransRead[2] < relativeTransChanged)
+        {
+            const core::matrix4x3& rel = getRelativeTransformationMatrix();
+            RelativeTranslation = rel.getTranslation();
+            lastTimeRelativeTransRead[2] = relativeTransChanged;
+        }
+        return RelativeTranslation;
+    }
+
+    inline void setPosition(const core::vector3df& newpos)
+    {
+        RelativeTranslation = newpos;
+        relativeTransNeedsUpdate = true;
+    }
+
+    inline virtual bool needsAbsoluteTransformRecompute() const
+    {
+        if(relativeTransNeedsUpdate || lastTimeRelativeTransRead[3] < relativeTransChanged)
+            return true;
+
+        if(Parent)
+            return lastTimeRelativeTransRead[4] < Parent->getAbsoluteTransformLastRecomputeHint();
+
+        return false;
+    }
+
+    inline virtual size_t needsDeepAbsoluteTransformRecompute() const
+    {
+        const IDummyTransformationSceneNode* parentStack[1024];
+        parentStack[0] = this;
+        size_t stackSize = 0;
+
+        while(parentStack[stackSize])
+        {
+            parentStack[++stackSize] = parentStack[stackSize];
+            if(stackSize >= 1024)
+                break;
+        }
+
+        size_t maxStackSize = stackSize - 1;
+        while(--stackSize)
+        {
+            if(parentStack[stackSize]->relativeTransNeedsUpdate || parentStack[stackSize]->lastTimeRelativeTransRead[3] < parentStack[stackSize]->relativeTransChanged)
+                return stackSize;
+
+            if(stackSize < maxStackSize)
             {
-                const core::matrix4x3& rel = getRelativeTransformationMatrix();
-                RelativeScale = rel.getScale();
-                lastTimeRelativeTransRead[0] = relativeTransChanged;
-            }
-            return RelativeScale;
-        }
-
-        inline void setScale(const core::vector3df& scale)
-        {
-            RelativeScale = scale;
-            relativeTransNeedsUpdate = true;
-        }
-
-        inline const core::vector3df& getRotation()
-        {
-            if (lastTimeRelativeTransRead[1]<relativeTransChanged)
-            {
-                const core::matrix4x3& rel = getRelativeTransformationMatrix();
-                RelativeRotation = rel.getRotationDegrees();
-                lastTimeRelativeTransRead[1] = relativeTransChanged;
-            }
-            return RelativeRotation;
-        }
-
-        inline void setRotation(const core::vector3df& rotation)
-        {
-            RelativeRotation = rotation;
-            relativeTransNeedsUpdate = true;
-        }
-
-        inline const core::vector3df& getPosition()
-        {
-            if (lastTimeRelativeTransRead[2]<relativeTransChanged)
-            {
-                const core::matrix4x3& rel = getRelativeTransformationMatrix();
-                RelativeTranslation = rel.getTranslation();
-                lastTimeRelativeTransRead[2] = relativeTransChanged;
-            }
-            return RelativeTranslation;
-        }
-
-        inline void setPosition(const core::vector3df& newpos)
-        {
-            RelativeTranslation = newpos;
-            relativeTransNeedsUpdate = true;
-        }
-
-
-        inline virtual bool needsAbsoluteTransformRecompute() const
-        {
-            if (relativeTransNeedsUpdate||lastTimeRelativeTransRead[3]<relativeTransChanged)
-                return true;
-
-            if (Parent)
-                return lastTimeRelativeTransRead[4]<Parent->getAbsoluteTransformLastRecomputeHint();
-
-            return false;
-        }
-
-        inline virtual size_t needsDeepAbsoluteTransformRecompute() const
-        {
-            const IDummyTransformationSceneNode* parentStack[1024];
-            parentStack[0] = this;
-            size_t stackSize=0;
-
-            while (parentStack[stackSize])
-            {
-                parentStack[++stackSize] = parentStack[stackSize];
-                if (stackSize>=1024)
-                    break;
-            }
-
-            size_t maxStackSize = stackSize-1;
-            while (--stackSize)
-            {
-                if (parentStack[stackSize]->relativeTransNeedsUpdate||parentStack[stackSize]->lastTimeRelativeTransRead[3]<parentStack[stackSize]->relativeTransChanged)
+                if(parentStack[stackSize]->lastTimeRelativeTransRead[4] < parentStack[stackSize + 1]->getAbsoluteTransformLastRecomputeHint())
                     return stackSize;
-
-                if (stackSize<maxStackSize)
-                {
-                    if (parentStack[stackSize]->lastTimeRelativeTransRead[4]<parentStack[stackSize+1]->getAbsoluteTransformLastRecomputeHint())
-                        return stackSize;
-                }
             }
-
-            return 0xdeadbeefu;
         }
 
-        inline const core::matrix4x3& getAbsoluteTransformation()
-        {
-            return AbsoluteTransformation;
-        }
+        return 0xdeadbeefu;
+    }
 
-		//! Gets the absolute position of the node in world coordinates.
-		/** If you want the position of the node relative to its parent,
+    inline const core::matrix4x3& getAbsoluteTransformation()
+    {
+        return AbsoluteTransformation;
+    }
+
+    //! Gets the absolute position of the node in world coordinates.
+    /** If you want the position of the node relative to its parent,
 		use getPosition() instead.
 		NOTE: For speed reasons the absolute position is not
 		automatically recalculated on each change of the relative
@@ -215,221 +211,208 @@ class IDummyTransformationSceneNode : public virtual core::IReferenceCounted
 		update usually happens once per frame in OnAnimate. You can enforce
 		an update with updateAbsolutePosition().
 		\return The current absolute position of the scene node (updated on last call of updateAbsolutePosition). */
-		inline core::vector3df getAbsolutePosition() const
-		{
-			return AbsoluteTransformation.getTranslation();
-		}
+    inline core::vector3df getAbsolutePosition() const
+    {
+        return AbsoluteTransformation.getTranslation();
+    }
 
-		//! Updates the absolute position based on the relative and the parents position
-		/** Note: This does not recursively update the parents absolute positions, so if you have a deeper
+    //! Updates the absolute position based on the relative and the parents position
+    /** Note: This does not recursively update the parents absolute positions, so if you have a deeper
 			hierarchy you might want to update the parents first.*/
-		inline virtual void updateAbsolutePosition()
-		{
-            bool recompute = relativeTransNeedsUpdate||lastTimeRelativeTransRead[3]<relativeTransChanged;
+    inline virtual void updateAbsolutePosition()
+    {
+        bool recompute = relativeTransNeedsUpdate || lastTimeRelativeTransRead[3] < relativeTransChanged;
 
-            if (Parent)
+        if(Parent)
+        {
+            uint64_t parentAbsoluteHint = Parent->getAbsoluteTransformLastRecomputeHint();
+            if(lastTimeRelativeTransRead[4] < parentAbsoluteHint)
             {
-                uint64_t parentAbsoluteHint = Parent->getAbsoluteTransformLastRecomputeHint();
-                if (lastTimeRelativeTransRead[4] < parentAbsoluteHint)
-                {
-                    lastTimeRelativeTransRead[4] = parentAbsoluteHint;
-                    recompute = true;
-                }
-
-                // recompute if local transform has changed
-                if (recompute)
-                {
-                    const core::matrix4x3& rel = getRelativeTransformationMatrix();
-                    AbsoluteTransformation = concatenateBFollowedByA(Parent->getAbsoluteTransformation(),rel);
-                    lastTimeRelativeTransRead[3] = relativeTransChanged;
-                }
+                lastTimeRelativeTransRead[4] = parentAbsoluteHint;
+                recompute = true;
             }
-            else if (recompute)
+
+            // recompute if local transform has changed
+            if(recompute)
             {
-                AbsoluteTransformation = getRelativeTransformationMatrix();
+                const core::matrix4x3& rel = getRelativeTransformationMatrix();
+                AbsoluteTransformation = concatenateBFollowedByA(Parent->getAbsoluteTransformation(), rel);
                 lastTimeRelativeTransRead[3] = relativeTransChanged;
             }
-		}
+        }
+        else if(recompute)
+        {
+            AbsoluteTransformation = getRelativeTransformationMatrix();
+            lastTimeRelativeTransRead[3] = relativeTransChanged;
+        }
+    }
 
+    //! Returns a const reference to the list of all children.
+    /** \return The list of all children of this node. */
+    inline const IDummyTransformationSceneNodeArray& getChildren() const
+    {
+        return Children;
+    }
 
+    //! Changes the parent of the scene node.
+    /** \param newParent The new parent to be used. */
+    virtual void setParent(IDummyTransformationSceneNode* newParent)
+    {
+        if(newParent == Parent)
+            return;
 
-		//! Returns a const reference to the list of all children.
-		/** \return The list of all children of this node. */
-		inline const IDummyTransformationSceneNodeArray& getChildren() const
-		{
-			return Children;
-		}
+        if(newParent)
+        {
+            newParent->addChild(this);
+            lastTimeRelativeTransRead[4] = 0;
+        }
+        else
+            remove();
+    }
 
+    //! Returns the parent of this scene node
+    /** \return A pointer to the parent. */
+    inline IDummyTransformationSceneNode* getParent() const
+    {
+        return Parent;
+    }
 
-		//! Changes the parent of the scene node.
-		/** \param newParent The new parent to be used. */
-		virtual void setParent(IDummyTransformationSceneNode* newParent)
-		{
-		    if (newParent==Parent)
-                return;
-
-			if (newParent)
-            {
-				newParent->addChild(this);
-				lastTimeRelativeTransRead[4] = 0;
-            }
-            else
-                remove();
-		}
-
-
-		//! Returns the parent of this scene node
-		/** \return A pointer to the parent. */
-		inline IDummyTransformationSceneNode* getParent() const
-		{
-			return Parent;
-		}
-
-		//! Adds a child to this scene node.
-		/** If the scene node already has a parent it is first removed
+    //! Adds a child to this scene node.
+    /** If the scene node already has a parent it is first removed
 		from the other parent.
 		\param child A pointer to the new child. */
-		virtual void addChild(IDummyTransformationSceneNode* child)
-		{
-			if (!child || child == this || child->getParent() == this)
-                return;
+    virtual void addChild(IDummyTransformationSceneNode* child)
+    {
+        if(!child || child == this || child->getParent() == this)
+            return;
 
-            child->grab();
-            child->remove(); // remove from old parent
-            IDummyTransformationSceneNodeArray::iterator insertionPoint = std::lower_bound(Children.begin(),Children.end(),child);
-            Children.insert(insertionPoint,child);
-            child->Parent = this;
-            child->lastTimeRelativeTransRead[4] = 0;
-		}
+        child->grab();
+        child->remove();  // remove from old parent
+        IDummyTransformationSceneNodeArray::iterator insertionPoint = std::lower_bound(Children.begin(), Children.end(), child);
+        Children.insert(insertionPoint, child);
+        child->Parent = this;
+        child->lastTimeRelativeTransRead[4] = 0;
+    }
 
-
-		//! Removes a child from this scene node.
-		/** If found in the children list, the child pointer is also
+    //! Removes a child from this scene node.
+    /** If found in the children list, the child pointer is also
 		dropped and might be deleted if no other grab exists.
 		\param child A pointer to the child which shall be removed.
 		\return True if the child was removed, and false if not,
 		e.g. because it couldn't be found in the children list. */
-		virtual bool removeChild(IDummyTransformationSceneNode* child)
-		{
-            IDummyTransformationSceneNodeArray::iterator found = std::lower_bound(Children.begin(),Children.end(),child);
-            if (found==Children.end() || *found!=child)
-                return false;
+    virtual bool removeChild(IDummyTransformationSceneNode* child)
+    {
+        IDummyTransformationSceneNodeArray::iterator found = std::lower_bound(Children.begin(), Children.end(), child);
+        if(found == Children.end() || *found != child)
+            return false;
 
-			(*found)->Parent = 0;
-            (*found)->drop();
-            Children.erase(found);
-            return true;
-		}
+        (*found)->Parent = 0;
+        (*found)->drop();
+        Children.erase(found);
+        return true;
+    }
 
-
-		//! Removes all children of this scene node
-		/** The scene nodes found in the children list are also dropped
+    //! Removes all children of this scene node
+    /** The scene nodes found in the children list are also dropped
 		and might be deleted if no other grab exists on them.
 		*/
-		virtual void removeAll()
-		{
-			IDummyTransformationSceneNodeArray::iterator it = Children.begin();
-			for (; it != Children.end(); ++it)
-			{
-				(*it)->Parent = 0;
-				(*it)->drop();
-			}
+    virtual void removeAll()
+    {
+        IDummyTransformationSceneNodeArray::iterator it = Children.begin();
+        for(; it != Children.end(); ++it)
+        {
+            (*it)->Parent = 0;
+            (*it)->drop();
+        }
 
-			Children.clear();
-		}
+        Children.clear();
+    }
 
-
-		//! Removes this scene node from the scene
-		/** If no other grab exists for this node, it will be deleted.
+    //! Removes this scene node from the scene
+    /** If no other grab exists for this node, it will be deleted.
 		*/
-		virtual void remove()
-		{
-			if (Parent)
-				Parent->removeChild(this);
-		}
+    virtual void remove()
+    {
+        if(Parent)
+            Parent->removeChild(this);
+    }
 
+    //! Adds an animator which should animate this node.
+    /** \param animator A pointer to the new animator. */
+    virtual void addAnimator(ISceneNodeAnimator* animator)
+    {
+        if(!animator)
+            return;
 
-		//! Adds an animator which should animate this node.
-		/** \param animator A pointer to the new animator. */
-		virtual void addAnimator(ISceneNodeAnimator* animator)
-		{
-			if (!animator)
-				return;
+        ISceneNodeAnimatorArray::iterator found = std::lower_bound(Animators.begin(), Animators.end(), animator);
+        ///if (found!=Animators.end() && *found==animator) //already in there
+        ///return;
 
-			ISceneNodeAnimatorArray::iterator found = std::lower_bound(Animators.begin(),Animators.end(),animator);
-            ///if (found!=Animators.end() && *found==animator) //already in there
-                ///return;
+        animator->grab();
+        Animators.insert(found, animator);
+    }
 
-            animator->grab();
-            Animators.insert(found,animator);
-		}
+    //! Get a list of all scene node animators.
+    /** \return The list of animators attached to this node. */
+    inline const ISceneNodeAnimatorArray& getAnimators() const
+    {
+        return Animators;
+    }
 
-
-		//! Get a list of all scene node animators.
-		/** \return The list of animators attached to this node. */
-		inline const ISceneNodeAnimatorArray& getAnimators() const
-		{
-			return Animators;
-		}
-
-
-		//! Removes an animator from this scene node.
-		/** If the animator is found, it is also dropped and might be
+    //! Removes an animator from this scene node.
+    /** If the animator is found, it is also dropped and might be
 		deleted if not other grab exists for it.
 		\param animator A pointer to the animator to be deleted. */
-		virtual void removeAnimator(ISceneNodeAnimator* animator)
-		{
-			ISceneNodeAnimatorArray::iterator found = std::lower_bound(Animators.begin(),Animators.end(),animator);
-            if (found==Animators.end() || *found!=animator)
-                return;
-
-            (*found)->drop();
-            Animators.erase(found);
+    virtual void removeAnimator(ISceneNodeAnimator* animator)
+    {
+        ISceneNodeAnimatorArray::iterator found = std::lower_bound(Animators.begin(), Animators.end(), animator);
+        if(found == Animators.end() || *found != animator)
             return;
-		}
 
+        (*found)->drop();
+        Animators.erase(found);
+        return;
+    }
 
-		//! Removes all animators from this scene node.
-		/** The animators might also be deleted if no other grab exists
+    //! Removes all animators from this scene node.
+    /** The animators might also be deleted if no other grab exists
 		for them. */
-		virtual void removeAnimators()
-		{
-			ISceneNodeAnimatorArray::iterator it = Animators.begin();
-			for (; it != Animators.end(); ++it)
-				(*it)->drop();
+    virtual void removeAnimators()
+    {
+        ISceneNodeAnimatorArray::iterator it = Animators.begin();
+        for(; it != Animators.end(); ++it)
+            (*it)->drop();
 
-			Animators.clear();
-		}
+        Animators.clear();
+    }
 
-	protected:
-		//! Pointer to the parent
-		IDummyTransformationSceneNode* Parent;
+protected:
+    //! Pointer to the parent
+    IDummyTransformationSceneNode* Parent;
 
-		//! List of all children of this node
-		IDummyTransformationSceneNodeArray Children;
+    //! List of all children of this node
+    IDummyTransformationSceneNodeArray Children;
 
-		//! List of all animator nodes
-		ISceneNodeAnimatorArray Animators;
+    //! List of all animator nodes
+    ISceneNodeAnimatorArray Animators;
 
-		//! Absolute transformation of the node.
-		core::matrix4x3 AbsoluteTransformation;
+    //! Absolute transformation of the node.
+    core::matrix4x3 AbsoluteTransformation;
 
-        //! Relative transformation of the node.
-        core::matrix4x3 RelativeTransformation;
+    //! Relative transformation of the node.
+    core::matrix4x3 RelativeTransformation;
 
-		//! Relative translation of the scene node.
-		core::vector3df RelativeTranslation;
+    //! Relative translation of the scene node.
+    core::vector3df RelativeTranslation;
 
-		//! Relative rotation of the scene node.
-		core::vector3df RelativeRotation;
+    //! Relative rotation of the scene node.
+    core::vector3df RelativeRotation;
 
-		//! Relative scale of the scene node.
-		core::vector3df RelativeScale;
+    //! Relative scale of the scene node.
+    core::vector3df RelativeScale;
 };
 
-} // end namespace scene
-} // end namespace nbl
-
+}  // end namespace scene
+}  // end namespace nbl
 
 #endif
-

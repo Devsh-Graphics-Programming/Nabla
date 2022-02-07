@@ -14,7 +14,6 @@ namespace nbl
 {
 namespace io
 {
-
 //! Type used for all file system related strings.
 /** This type will transparently handle different file system encodings. */
 typedef core::string<char> path;
@@ -87,35 +86,36 @@ private:
 };
 */
 
-struct SNamedPath// : public AllocationOverrideDefault
+struct SNamedPath  // : public AllocationOverrideDefault
 {
-	//! Constructor
-	SNamedPath() {}
+    //! Constructor
+    SNamedPath() {}
 
-	//! Constructor
-	SNamedPath(const path& p) : InternalName( PathToName(p) )
-	{
-	}
+    //! Constructor
+    SNamedPath(const path& p)
+        : InternalName(PathToName(p))
+    {
+    }
 
-	//! Is smaller comparator
-	inline bool operator <(const SNamedPath& other) const
-	{
-		return InternalName < other.InternalName;
-	}
+    //! Is smaller comparator
+    inline bool operator<(const SNamedPath& other) const
+    {
+        return InternalName < other.InternalName;
+    }
 
-	//! Set the path.
-	inline void setPath(const path& p)
-	{
-		InternalName = PathToName(p);
-	}
+    //! Set the path.
+    inline void setPath(const path& p)
+    {
+        InternalName = PathToName(p);
+    }
 
-	//! Get the name which is used to identify the file.
-	//! This string is similar to the names and filenames used before Irrlicht 1.7
-	inline const path& getInternalName() const
-	{
-		return InternalName;
-	}
-/*
+    //! Get the name which is used to identify the file.
+    //! This string is similar to the names and filenames used before Irrlicht 1.7
+    inline const path& getInternalName() const
+    {
+        return InternalName;
+    }
+    /*
 	//! Implicit cast to io::path
 	operator core::stringc() const
 	{
@@ -128,23 +128,23 @@ struct SNamedPath// : public AllocationOverrideDefault
 	}
 */
 
-	// convert the given path string to a name string.
-	static inline path PathToName(const path& p)
-	{
-		path name(p);
-		//handleBackslashes(&name);
-		name.replace('\\' , '/'); //! On Linux just delete them
+    // convert the given path string to a name string.
+    static inline path PathToName(const path& p)
+    {
+        path name(p);
+        //handleBackslashes(&name);
+        name.replace('\\', '/');  //! On Linux just delete them
 #ifndef _NBL_POSIX_API_
-		name.make_lower();
-#endif // _NBL_POSIX_API_
-		return name;
-	}
+        name.make_lower();
+#endif  // _NBL_POSIX_API_
+        return name;
+    }
 
 private:
-	path InternalName;
+    path InternalName;
 };
 
-} // io
-} // nbl
+}  // io
+}  // nbl
 
 #endif

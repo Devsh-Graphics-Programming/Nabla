@@ -5,10 +5,10 @@
 #include <nbl/video/IGPUPrimaryCommandBuffer.h>
 #include "IDriverFence.h"
 
-namespace nbl {
+namespace nbl
+{
 namespace video
 {
-
 class IGPUQueue : public core::IReferenceCounted
 {
 public:
@@ -32,12 +32,11 @@ public:
     IGPUQueue(uint32_t _famIx, uint32_t _flags, float _priority)
         : m_flags(_flags), m_familyIndex(_famIx), m_priority(_priority)
     {
-
     }
 
     virtual void submit(uint32_t _count, const SSubmitInfo* _submits, IDriverFence* _fence)
     {
-        for (uint32_t i = 0u; i < _count; ++i)
+        for(uint32_t i = 0u; i < _count; ++i)
             submit(_submits[i]);
     }
 
@@ -52,7 +51,7 @@ protected:
     }
     void submit(const SSubmitInfo& _submit)
     {
-        for (uint32_t i = 0u; i < _submit.commandBufferCount; ++i)
+        for(uint32_t i = 0u; i < _submit.commandBufferCount; ++i)
         {
             const auto* cmdbuf = _submit.commandBuffers[i];
             submit(cmdbuf);
@@ -60,7 +59,7 @@ protected:
     }
     void submit_epilogue(IDriverFence* _fence)
     {
-        if (_fence)
+        if(_fence)
             _fence->waitCPU(9999999999ull);
     }
 
@@ -70,6 +69,7 @@ protected:
     const float m_priority;
 };
 
-}}
+}
+}
 
 #endif

@@ -12,23 +12,24 @@ namespace nbl
 {
 namespace video
 {
-
 class COpenGLShader : public IGPUShader
 {
-	public:
-		COpenGLShader(core::smart_refctd_ptr<asset::ICPUBuffer>&& _spirv) : m_code(std::move(_spirv)), m_containsGLSL(false) {}
-		COpenGLShader(core::smart_refctd_ptr<asset::ICPUBuffer>&& _glsl, buffer_contains_glsl_t buffer_contains_glsl) : m_code(std::move(_glsl)), m_containsGLSL(true) {}
+public:
+    COpenGLShader(core::smart_refctd_ptr<asset::ICPUBuffer>&& _spirv)
+        : m_code(std::move(_spirv)), m_containsGLSL(false) {}
+    COpenGLShader(core::smart_refctd_ptr<asset::ICPUBuffer>&& _glsl, buffer_contains_glsl_t buffer_contains_glsl)
+        : m_code(std::move(_glsl)), m_containsGLSL(true) {}
 
-		const asset::ICPUBuffer* getSPVorGLSL() const { return m_code.get(); };
-		bool containsGLSL() const { return m_containsGLSL; }
+    const asset::ICPUBuffer* getSPVorGLSL() const { return m_code.get(); };
+    bool containsGLSL() const { return m_containsGLSL; }
 
-		static inline void insertGLtoVKextensionsMapping(std::string& _glsl, const core::refctd_dynamic_array<std::string>* _exts)
-		{
-			if (!_exts)
-				return;
+    static inline void insertGLtoVKextensionsMapping(std::string& _glsl, const core::refctd_dynamic_array<std::string>* _exts)
+    {
+        if(!_exts)
+            return;
 
-			const std::string insertion = genGLSLExtensionDefines(_exts) +
-R"(
+        const std::string insertion = genGLSLExtensionDefines(_exts) +
+            R"(
 #ifdef NBL_IMPL_GL_AMD_gpu_shader_half_float
 #define NBL_GL_EXT_shader_explicit_arithmetic_types_float16
 #endif
@@ -146,14 +147,14 @@ R"(
 #endif
 )";
 
-			insertAfterVersionAndPragmaShaderStage(_glsl, insertion);
-		}
+        insertAfterVersionAndPragmaShaderStage(_glsl, insertion);
+    }
 
-	private:
-		friend class COpenGLDriver;
-		//! Might be GLSL null-terminated string or SPIR-V bytecode (denoted by m_containsGLSL)
-		core::smart_refctd_ptr<asset::ICPUBuffer>	m_code;
-		const bool									m_containsGLSL;
+private:
+    friend class COpenGLDriver;
+    //! Might be GLSL null-terminated string or SPIR-V bytecode (denoted by m_containsGLSL)
+    core::smart_refctd_ptr<asset::ICPUBuffer> m_code;
+    const bool m_containsGLSL;
 };
 
 }

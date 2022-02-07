@@ -12,33 +12,33 @@ namespace nbl
 {
 namespace asset
 {
-
 //! Binaryloader capable of loading source code in binary format
 class CBufferLoaderBIN final : public asset::IAssetLoader
 {
-	protected:
-		~CBufferLoaderBIN();
+protected:
+    ~CBufferLoaderBIN();
 
-	public:
-		bool isALoadableFileFormat(io::IReadFile* _file) const override;
+public:
+    bool isALoadableFileFormat(io::IReadFile* _file) const override;
 
-		const char** getAssociatedFileExtensions() const override
-		{
-			static const char* extensions[]{ "bin", nullptr };
-			return extensions;
-		}
+    const char** getAssociatedFileExtensions() const override
+    {
+        static const char* extensions[]{"bin", nullptr};
+        return extensions;
+    }
 
-		uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_BUFFER; } 
+    uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_BUFFER; }
 
-		asset::SAssetBundle loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
+    asset::SAssetBundle loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
-	private:
-		struct SContext
-		{
-			SContext(const size_t& sizeInBytes) : sourceCodeBuffer(core::make_smart_refctd_ptr<ICPUBuffer>(sizeInBytes)) {}
-			io::IReadFile* file;
-			core::smart_refctd_ptr<ICPUBuffer> sourceCodeBuffer;
-		};
+private:
+    struct SContext
+    {
+        SContext(const size_t& sizeInBytes)
+            : sourceCodeBuffer(core::make_smart_refctd_ptr<ICPUBuffer>(sizeInBytes)) {}
+        io::IReadFile* file;
+        core::smart_refctd_ptr<ICPUBuffer> sourceCodeBuffer;
+    };
 };
 
 }

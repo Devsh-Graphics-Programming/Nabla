@@ -12,20 +12,17 @@ namespace nbl
 {
 namespace video
 {
-
-
 class IGPUTimestampQuery : public core::IReferenceCounted
 {
-	    _NBL_INTERFACE_CHILD(IGPUTimestampQuery) {}
-    public:
-		virtual bool isQueryReady() = 0;
+    _NBL_INTERFACE_CHILD(IGPUTimestampQuery) {}
 
-        virtual uint64_t getTimestampWhenCompleted() = 0;
+public:
+    virtual bool isQueryReady() = 0;
+
+    virtual uint64_t getTimestampWhenCompleted() = 0;
 };
 
 }
 }
 
 #endif
-
-

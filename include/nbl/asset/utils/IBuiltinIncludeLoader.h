@@ -8,38 +8,36 @@
 #include <functional>
 #include <regex>
 
-
 #include "nbl/core/IReferenceCounted.h"
 
 namespace nbl
 {
 namespace asset
 {
-
 class IBuiltinIncludeLoader : public core::IReferenceCounted
 {
-	protected:
-		using HandleFunc_t = std::function<std::string(const std::string&)>;
+protected:
+    using HandleFunc_t = std::function<std::string(const std::string&)>;
 
-		virtual core::vector<std::pair<std::regex, HandleFunc_t>> getBuiltinNamesToFunctionMapping() const = 0;
+    virtual core::vector<std::pair<std::regex, HandleFunc_t>> getBuiltinNamesToFunctionMapping() const = 0;
 
-	public:
-		virtual ~IBuiltinIncludeLoader() = default;
+public:
+    virtual ~IBuiltinIncludeLoader() = default;
 
-		//! @param _name must be path relative to /nbl/builtin/
-		virtual std::string getBuiltinInclude(const std::string& _name) const
-		{
-			core::vector<std::pair<std::regex, HandleFunc_t>> builtinNames = getBuiltinNamesToFunctionMapping();
+    //! @param _name must be path relative to /nbl/builtin/
+    virtual std::string getBuiltinInclude(const std::string& _name) const
+    {
+        core::vector<std::pair<std::regex, HandleFunc_t>> builtinNames = getBuiltinNamesToFunctionMapping();
 
-			for (const auto& pattern : builtinNames)
-				if (std::regex_match(_name, pattern.first))
-					return pattern.second(_name);
+        for(const auto& pattern : builtinNames)
+            if(std::regex_match(_name, pattern.first))
+                return pattern.second(_name);
 
-			return {};
-		}
+        return {};
+    }
 
-		//! @returns Path relative to /nbl/builtin/
-		virtual const char* getVirtualDirectoryName() const = 0;
+    //! @returns Path relative to /nbl/builtin/
+    virtual const char* getVirtualDirectoryName() const = 0;
 };
 
 }

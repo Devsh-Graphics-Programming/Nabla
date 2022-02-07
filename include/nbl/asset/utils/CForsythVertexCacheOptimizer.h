@@ -29,56 +29,65 @@
 #include <cstring>
 #include "nbl/core/Types.h"
 
-namespace nbl { namespace asset
+namespace nbl
 {
-
+namespace asset
+{
 class NBL_FORCE_EBO CForsythVertexCacheOptimizer
 {
-	struct VertData
-	{
-		int32_t cachePosition;
-		float score;
-		uint32_t numReferences;
-		uint32_t numUnaddedReferences;
-		int32_t *triIndex;
+    struct VertData
+    {
+        int32_t cachePosition;
+        float score;
+        uint32_t numReferences;
+        uint32_t numUnaddedReferences;
+        int32_t* triIndex;
 
-		VertData() : cachePosition(-1), score(0.0f), numReferences(0), numUnaddedReferences(0), triIndex(NULL) {}
-		~VertData() { if (triIndex != NULL) delete[] triIndex; triIndex = NULL; }
-	};
+        VertData()
+            : cachePosition(-1), score(0.0f), numReferences(0), numUnaddedReferences(0), triIndex(NULL) {}
+        ~VertData()
+        {
+            if(triIndex != NULL)
+                delete[] triIndex;
+            triIndex = NULL;
+        }
+    };
 
-	struct TriData
-	{
-		bool isInList;
-		float score;
-		uint32_t vertIdx[3];
+    struct TriData
+    {
+        bool isInList;
+        float score;
+        uint32_t vertIdx[3];
 
-		TriData() : isInList(false), score(0.0f) { memset(vertIdx, 0, sizeof(vertIdx)); }
-	};
+        TriData()
+            : isInList(false), score(0.0f) { memset(vertIdx, 0, sizeof(vertIdx)); }
+    };
 
-	class LRUCacheModel
-	{
-		struct LRUCacheEntry
-		{
-			LRUCacheEntry *next;
-			uint32_t vIdx;
-			VertData *vData;
+    class LRUCacheModel
+    {
+        struct LRUCacheEntry
+        {
+            LRUCacheEntry* next;
+            uint32_t vIdx;
+            VertData* vData;
 
-			LRUCacheEntry() : next(NULL), vIdx(0), vData(NULL) {}
-		};
+            LRUCacheEntry()
+                : next(NULL), vIdx(0), vData(NULL) {}
+        };
 
-		LRUCacheEntry *mCacheHead;
+        LRUCacheEntry* mCacheHead;
 
-	public:
-		LRUCacheModel() : mCacheHead(NULL) {}
-		~LRUCacheModel();
-		void enforceSize(const size_t maxSize, core::vector<uint32_t> &outTrisToUpdate);
-		void useVertex(const uint32_t vIdx, VertData *vData);
-		int32_t getCachePosition(const uint32_t vIdx);
-	};
-
+    public:
+        LRUCacheModel()
+            : mCacheHead(NULL) {}
+        ~LRUCacheModel();
+        void enforceSize(const size_t maxSize, core::vector<uint32_t>& outTrisToUpdate);
+        void useVertex(const uint32_t vIdx, VertData* vData);
+        int32_t getCachePosition(const uint32_t vIdx);
+    };
 
 public:
-	/**
+    /**
 	 This method will look at the index buffer for a triangle list, and generate
 	 a new index buffer which is optimized using Tom Forsyth's paper:
 	 "Linear-Speed Vertex Cache Optimization"
@@ -89,13 +98,14 @@ public:
 	 @param outIndices Output index buffer
 
 	 @note Both 'indices' and 'outIndices' can point to the same memory.*/
-	template<typename IdxT> // IdxT is uint16_t or uint32_t
-	void optimizeTriangleOrdering(const size_t _numVerts, const size_t _numIndices, const IdxT* _indices, IdxT* _outIndices) const;
+    template<typename IdxT>  // IdxT is uint16_t or uint32_t
+    void optimizeTriangleOrdering(const size_t _numVerts, const size_t _numIndices, const IdxT* _indices, IdxT* _outIndices) const;
 
 private:
-	static float score(const VertData &vertexData);
+    static float score(const VertData& vertexData);
 };
 
-}}
+}
+}
 
 #endif

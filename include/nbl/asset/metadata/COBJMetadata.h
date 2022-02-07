@@ -12,40 +12,40 @@ namespace nbl
 {
 namespace asset
 {
-
 class COBJMetadata final : public IAssetMetadata
 {
-    public:
-        using CRenderpassIndependentPipeline = typename CMTLMetadata::CRenderpassIndependentPipeline;
-        COBJMetadata(uint32_t pplnCount) : IAssetMetadata(), m_metaStorage(createContainer<CRenderpassIndependentPipeline>(pplnCount))
-        {
-        }
+public:
+    using CRenderpassIndependentPipeline = typename CMTLMetadata::CRenderpassIndependentPipeline;
+    COBJMetadata(uint32_t pplnCount)
+        : IAssetMetadata(), m_metaStorage(createContainer<CRenderpassIndependentPipeline>(pplnCount))
+    {
+    }
 
-        _NBL_STATIC_INLINE_CONSTEXPR const char* LoaderName = "CGraphicsPipelineLoaderMTL";
-        const char* getLoaderName() const override { return LoaderName; }
+    _NBL_STATIC_INLINE_CONSTEXPR const char* LoaderName = "CGraphicsPipelineLoaderMTL";
+    const char* getLoaderName() const override { return LoaderName; }
 
-        //!
-		inline const CRenderpassIndependentPipeline* getAssetSpecificMetadata(const ICPURenderpassIndependentPipeline* asset) const
-		{
-            const auto found = IAssetMetadata::getAssetSpecificMetadata(asset);
-			return static_cast<const CRenderpassIndependentPipeline*>(found);
-		}
+    //!
+    inline const CRenderpassIndependentPipeline* getAssetSpecificMetadata(const ICPURenderpassIndependentPipeline* asset) const
+    {
+        const auto found = IAssetMetadata::getAssetSpecificMetadata(asset);
+        return static_cast<const CRenderpassIndependentPipeline*>(found);
+    }
 
-    private:
-        meta_container_t<CRenderpassIndependentPipeline> m_metaStorage;
+private:
+    meta_container_t<CRenderpassIndependentPipeline> m_metaStorage;
 
-        friend class COBJMeshFileLoader;
-        inline void placeMeta(uint32_t offset, const ICPURenderpassIndependentPipeline* ppln, const CRenderpassIndependentPipeline& _meta)
-        {
-            auto& meta = m_metaStorage->operator[](offset);
-            meta.m_inputSemantics = _meta.m_inputSemantics;
-            meta.m_descriptorSet3 = _meta.m_descriptorSet3;
-            meta.m_materialParams = _meta.m_materialParams;
-            meta.m_name = _meta.m_name;
-            meta.m_hash = _meta.m_hash;
+    friend class COBJMeshFileLoader;
+    inline void placeMeta(uint32_t offset, const ICPURenderpassIndependentPipeline* ppln, const CRenderpassIndependentPipeline& _meta)
+    {
+        auto& meta = m_metaStorage->operator[](offset);
+        meta.m_inputSemantics = _meta.m_inputSemantics;
+        meta.m_descriptorSet3 = _meta.m_descriptorSet3;
+        meta.m_materialParams = _meta.m_materialParams;
+        meta.m_name = _meta.m_name;
+        meta.m_hash = _meta.m_hash;
 
-            IAssetMetadata::insertAssetSpecificMetadata(ppln,&meta);
-        }
+        IAssetMetadata::insertAssetSpecificMetadata(ppln, &meta);
+    }
 };
 
 }

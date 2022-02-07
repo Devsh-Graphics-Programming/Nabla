@@ -13,52 +13,48 @@ namespace nbl
 {
 namespace asset
 {
-
 //! Meshloader capable of loading STL meshes.
 class CSTLMeshFileLoader final : public IRenderpassIndependentPipelineLoader
 {
-	public:
+public:
+    CSTLMeshFileLoader(asset::IAssetManager* _m_assetMgr);
 
-		CSTLMeshFileLoader(asset::IAssetManager* _m_assetMgr);
+    asset::SAssetBundle loadAsset(io::IReadFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
-		asset::SAssetBundle loadAsset(io::IReadFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
+    bool isALoadableFileFormat(io::IReadFile* _file) const override;
 
-		bool isALoadableFileFormat(io::IReadFile* _file) const override;
+    const char** getAssociatedFileExtensions() const override
+    {
+        static const char* ext[]{"stl", nullptr};
+        return ext;
+    }
 
-		const char** getAssociatedFileExtensions() const override
-		{
-			static const char* ext[]{ "stl", nullptr };
-			return ext;
-		}
+    uint64_t getSupportedAssetTypesBitfield() const override { return IAsset::ET_MESH; }
 
-		uint64_t getSupportedAssetTypesBitfield() const override { return IAsset::ET_MESH; }
+private:
+    virtual void initialize() override;
 
-	private:
+    const std::string_view getPipelineCacheKey(bool withColorAttribute) { return withColorAttribute ? "nbl/builtin/pipeline/loader/STL/color_attribute" : "nbl/builtin/pipeline/loader/STL/no_color_attribute"; }
 
-		virtual void initialize() override;
+    // skips to the first non-space character available
+    void goNextWord(io::IReadFile* file) const;
+    // returns the next word
+    const core::stringc& getNextToken(io::IReadFile* file, core::stringc& token) const;
+    // skip to next printable character after the first line break
+    void goNextLine(io::IReadFile* file) const;
+    //! Read 3d vector of floats
+    void getNextVector(io::IReadFile* file, core::vectorSIMDf& vec, bool binary) const;
 
-		const std::string_view getPipelineCacheKey(bool withColorAttribute) { return withColorAttribute ? "nbl/builtin/pipeline/loader/STL/color_attribute" : "nbl/builtin/pipeline/loader/STL/no_color_attribute"; }
+    template<typename aType>
+    static inline void performActionBasedOnOrientationSystem(aType& varToHandle, void (*performOnCertainOrientation)(aType& varToHandle))
+    {
+        performOnCertainOrientation(varToHandle);
+    }
 
-		// skips to the first non-space character available
-		void goNextWord(io::IReadFile* file) const;
-		// returns the next word
-		const core::stringc& getNextToken(io::IReadFile* file, core::stringc& token) const;
-		// skip to next printable character after the first line break
-		void goNextLine(io::IReadFile* file) const;
-		//! Read 3d vector of floats
-		void getNextVector(io::IReadFile* file, core::vectorSIMDf& vec, bool binary) const;
-
-		template<typename aType>
-		static inline void performActionBasedOnOrientationSystem(aType& varToHandle, void (*performOnCertainOrientation)(aType& varToHandle))
-		{
-			performOnCertainOrientation(varToHandle);
-		}
-
-		asset::IAssetManager* m_assetMgr;
+    asset::IAssetManager* m_assetMgr;
 };
 
-}	// end namespace scene
-}	// end namespace nbl
+}  // end namespace scene
+}  // end namespace nbl
 
 #endif
-

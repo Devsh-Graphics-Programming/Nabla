@@ -14,30 +14,30 @@
 //#define IRRLICHT_VERSION_SVN -alpha
 #define NABLA_SDK_VERSION "0.3.0-beta2"
 
-#include <stdio.h> // TODO: Although included elsewhere this is required at least for mingw
+#include <stdio.h>  // TODO: Although included elsewhere this is required at least for mingw
 
 // this actually includes file depending on build type (Debug/Release)
 #include "BuildConfigOptions.h"
 
 #if defined(_NBL_PLATFORM_LINUX_)
-#   define _NBL_POSIX_API_
+#define _NBL_POSIX_API_
 #endif
 
 #if defined(_NBL_PLATFORM_WINDOWS_)
-#   define _NBL_WINDOWS_API_
-#   define _NBL_COMPILE_WITH_WINDOWS_DEVICE_
+#define _NBL_WINDOWS_API_
+#define _NBL_COMPILE_WITH_WINDOWS_DEVICE_
 #endif
 
 #ifdef _NBL_TARGET_ARCH_ARM_
-#   define __NBL_COMPILE_WITH_ARM_SIMD_ // NEON
-#else // target arch x86
-#   define __NBL_COMPILE_WITH_SSE3
-#   define __NBL_COMPILE_WITH_X86_SIMD_ // SSE 4.2 
-#   include <immintrin.h>
+#define __NBL_COMPILE_WITH_ARM_SIMD_  // NEON
+#else  // target arch x86
+#define __NBL_COMPILE_WITH_SSE3
+#define __NBL_COMPILE_WITH_X86_SIMD_  // SSE 4.2
+#include <immintrin.h>
 #endif
 
 #ifdef _MSC_VER
-#	define _ENABLE_EXTENDED_ALIGNED_STORAGE
+#define _ENABLE_EXTENDED_ALIGNED_STORAGE
 #endif
 
 //! Uncomment the following line if you want to ignore the deprecated warnings
@@ -52,33 +52,33 @@
 #define NABLA_API __declspec(dllexport)
 #else
 #define NABLA_API __declspec(dllimport)
-#endif // NABLA_EXPORT
+#endif  // NABLA_EXPORT
 #else
 #define NABLA_API
-#endif // _NBL_STATIC_LIB_
+#endif  // _NBL_STATIC_LIB_
 
 // Declare the calling convention.
 #if defined(_STDCALL_SUPPORTED)
 #define NBLCALLCONV __stdcall
 #else
 #define NBLCALLCONV __cdecl
-#endif // STDCALL_SUPPORTED
+#endif  // STDCALL_SUPPORTED
 
-#else // _NBL_WINDOWS_API_
+#else  // _NBL_WINDOWS_API_
 
 // Force symbol export in shared libraries built with gcc.
-#if (__GNUC__ >= 4) && !defined(_NBL_STATIC_LIB_) && defined(NABLA_EXPORTS)
-#define NABLA_API __attribute__ ((visibility("default")))
+#if(__GNUC__ >= 4) && !defined(_NBL_STATIC_LIB_) && defined(NABLA_EXPORTS)
+#define NABLA_API __attribute__((visibility("default")))
 #else
 #define NABLA_API
 #endif
 
 #define NBLCALLCONV
 
-#endif // _NBL_WINDOWS_API_
+#endif  // _NBL_WINDOWS_API_
 
 #ifndef _NBL_WINDOWS_API_
-#   undef _NBL_WCHAR_FILESYSTEM
+#undef _NBL_WCHAR_FILESYSTEM
 #endif
 
 #endif

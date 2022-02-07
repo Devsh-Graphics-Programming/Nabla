@@ -5,28 +5,27 @@
 #ifndef __NBL_CORE_EVENT_DEFERRED_HANDLER_H__
 #define __NBL_CORE_EVENT_DEFERRED_HANDLER_H__
 
-
 #include "nbl/core/Types.h"
 
 namespace nbl
 {
 namespace core
 {
-
 template<class Event, class Functor>
 struct DeferredEvent
 {
     using event_t = Event;
     using functor_t = Functor;
 
-	inline DeferredEvent(event_t&& _event, functor_t&& _function) : m_event(std::move(_event)), m_function(std::move(_function)) {}
-	DeferredEvent(const DeferredEvent&) = delete;
-	inline DeferredEvent(DeferredEvent&& other)
+    inline DeferredEvent(event_t&& _event, functor_t&& _function)
+        : m_event(std::move(_event)), m_function(std::move(_function)) {}
+    DeferredEvent(const DeferredEvent&) = delete;
+    inline DeferredEvent(DeferredEvent&& other)
     {
         operator=(std::move(other));
     }
 
-	DeferredEvent& operator=(const DeferredEvent&) = delete;
+    DeferredEvent& operator=(const DeferredEvent&) = delete;
     inline DeferredEvent& operator=(DeferredEvent&& other)
     {
         // TODO: investigate how to handle this without swap
@@ -41,93 +40,94 @@ struct DeferredEvent
 
 class PolymorphicEvent : public core::Uncopyable
 {
-    protected:
-        PolymorphicEvent() = default;
-        virtual ~PolymorphicEvent() {}
+protected:
+    PolymorphicEvent() = default;
+    virtual ~PolymorphicEvent() {}
 
-    public:
-        PolymorphicEvent& operator=(const PolymorphicEvent&) = delete;
-        virtual PolymorphicEvent& operator=(PolymorphicEvent&& other) noexcept
-        {
-        }
+public:
+    PolymorphicEvent& operator=(const PolymorphicEvent&) = delete;
+    virtual PolymorphicEvent& operator=(PolymorphicEvent&& other) noexcept
+    {
+    }
 
-        virtual bool wait_until(const std::chrono::steady_clock::time_point& timeout_time) = 0;
+    virtual bool wait_until(const std::chrono::steady_clock::time_point& timeout_time) = 0;
 
-        virtual bool poll() = 0;
+    virtual bool poll() = 0;
 
-        virtual bool operator==(const PolymorphicEvent& other)
-        {
-            return false;
-        }
+    virtual bool operator==(const PolymorphicEvent& other)
+    {
+        return false;
+    }
 };
 
 template<class Functor>
-using DeferredPolymorphicEvent = DeferredEvent<PolymorphicEvent*,Functor>;
+using DeferredPolymorphicEvent = DeferredEvent<PolymorphicEvent*, Functor>;
 
 template<class Event>
-using DeferredEventPolymorphic = DeferredEvent<Event,std::function<void()> >;
+using DeferredEventPolymorphic = DeferredEvent<Event, std::function<void()> >;
 
-using DeferredPolymorphicEventPolymorphic = DeferredEvent<PolymorphicEvent*,std::function<void()> >;
-
+using DeferredPolymorphicEventPolymorphic = DeferredEvent<PolymorphicEvent*, std::function<void()> >;
 
 template<class DeferredEvent>
 class DeferredEventHandlerST
 {
-    protected:
-        using EventContainerType = core::forward_list<DeferredEvent>;
-		uint32_t								mEventsCount;
-        EventContainerType                      mEvents;
-        typename EventContainerType::iterator	mLastEvent;
+protected:
+    using EventContainerType = core::forward_list<DeferredEvent>;
+    uint32_t mEventsCount;
+    EventContainerType mEvents;
+    typename EventContainerType::iterator mLastEvent;
 
-    public:
-        using event_t = typename DeferredEvent::event_t;
-        using functor_t = typename DeferredEvent::functor_t;
+public:
+    using event_t = typename DeferredEvent::event_t;
+    using functor_t = typename DeferredEvent::functor_t;
 
-        DeferredEventHandlerST() : mEventsCount(0u)
-        {
-            mLastEvent = mEvents.before_begin();
-        }
-        DeferredEventHandlerST(const DeferredEventHandlerST&) = delete;
-        DeferredEventHandlerST(DeferredEventHandlerST&& other) : DeferredEventHandlerST()
-        {
-            operator=(std::move(other));
-        }
+    DeferredEventHandlerST()
+        : mEventsCount(0u)
+    {
+        mLastEvent = mEvents.before_begin();
+    }
+    DeferredEventHandlerST(const DeferredEventHandlerST&) = delete;
+    DeferredEventHandlerST(DeferredEventHandlerST&& other)
+        : DeferredEventHandlerST()
+    {
+        operator=(std::move(other));
+    }
 
-        DeferredEventHandlerST& operator=(const DeferredEventHandlerST&) = delete;
-        inline DeferredEventHandlerST& operator=(DeferredEventHandlerST&& other)
-        {
-            std::swap(mEventsCount,other.mEventsCount);
-            std::swap(mEvents,other.mEvents);
-            std::swap(mLastEvent,other.mLastEvent);
-            return *this;
-        }
+    DeferredEventHandlerST& operator=(const DeferredEventHandlerST&) = delete;
+    inline DeferredEventHandlerST& operator=(DeferredEventHandlerST&& other)
+    {
+        std::swap(mEventsCount, other.mEventsCount);
+        std::swap(mEvents, other.mEvents);
+        std::swap(mLastEvent, other.mLastEvent);
+        return *this;
+    }
 
-        virtual ~DeferredEventHandlerST()
+    virtual ~DeferredEventHandlerST()
+    {
+        while(mEventsCount)
         {
-            while (mEventsCount)
+            auto prev = mEvents.before_begin();
+            for(auto it = mEvents.begin(); it != mEvents.end();)
             {
-                auto prev = mEvents.before_begin();
-                for (auto it = mEvents.begin(); it!=mEvents.end(); )
+                if(it->m_event.wait_until(std::chrono::high_resolution_clock::now() + std::chrono::microseconds(250ull)))
                 {
-                    if (it->m_event.wait_until(std::chrono::high_resolution_clock::now()+std::chrono::microseconds(250ull)))
-                    {
-                        it->m_function();
-                        it = mEvents.erase_after(prev);
-                        mEventsCount--;
-                        continue;
-                    }
-                    prev = it++;
+                    it->m_function();
+                    it = mEvents.erase_after(prev);
+                    mEventsCount--;
+                    continue;
                 }
-                mLastEvent = prev;
+                prev = it++;
             }
+            mLastEvent = prev;
         }
+    }
 
-        inline void     addEvent(event_t&& event, functor_t&& functor)
-        {
-            mLastEvent = mEvents.emplace_after(mLastEvent,std::forward<event_t>(event),std::forward<functor_t>(functor));
-            mEventsCount++;
-        }
-        /*
+    inline void addEvent(event_t&& event, functor_t&& functor)
+    {
+        mLastEvent = mEvents.emplace_after(mLastEvent, std::forward<event_t>(event), std::forward<functor_t>(functor));
+        mEventsCount++;
+    }
+    /*
         //! Abort does not call the operator()
         inline uint32_t abortEvent(const event_t& eventToAbort)
         {
@@ -164,105 +164,104 @@ class DeferredEventHandlerST
         }
         */
 
-
-        template<class Clock, class Duration=typename Clock::duration, typename... Args>
-        inline uint32_t waitUntilForReadyEvents(const std::chrono::time_point<Clock,Duration>& timeout_time, Args&... args)
+    template<class Clock, class Duration = typename Clock::duration, typename... Args>
+    inline uint32_t waitUntilForReadyEvents(const std::chrono::time_point<Clock, Duration>& timeout_time, Args&... args)
+    {
+        // keep on iterating until there are no events left, we time out or functor tells us we can quit early
+        while(mEventsCount)
         {
-            // keep on iterating until there are no events left, we time out or functor tells us we can quit early
-            while (mEventsCount)
-            {
-                // iterate to poll, from oldest to newest (oldest event most likely to signal first)
-                auto prev = mEvents.before_begin();
-                for (auto it = mEvents.begin(); it!=mEvents.end();)
-                {
-                    bool success;
-                    auto currentTime = Clock::now();
-                    bool canWait = timeout_time>currentTime;
-                    if (canWait)
-                    {
-                        // want to give each event equal wait time, so interpolate (albeit weirdly)
-                        std::chrono::time_point<Clock> singleWaitTimePt((currentTime.time_since_epoch()*(mEventsCount-1u)+timeout_time.time_since_epoch())/mEventsCount);
-                        success = it->m_event.wait_until(singleWaitTimePt);
-                    }
-                    else
-                        success = it->m_event.poll();
-
-                    if (success)
-                    {
-                        bool earlyQuit = it->m_function(args...);
-                        it = mEvents.erase_after(prev);
-                        mEventsCount--;
-                        if (earlyQuit)
-                        {
-                            if (it==mEvents.end())
-                                mLastEvent = prev;
-                            return mEventsCount;
-                        }
-
-                        continue;
-                    }
-                    // dont care about timeout until we hit first fence we had to wait for
-                    if (!canWait)
-                        return mEventsCount;
-
-                    prev = it++;
-                }
-                mLastEvent = prev;
-            }
-
-            return 0u;
-        }
-
-        template<typename... Args>
-        inline uint32_t pollForReadyEvents(Args&... args)
-        {
+            // iterate to poll, from oldest to newest (oldest event most likely to signal first)
             auto prev = mEvents.before_begin();
-            for (auto it = mEvents.begin(); it!=mEvents.end();)
+            for(auto it = mEvents.begin(); it != mEvents.end();)
             {
-                if (it->m_event.poll())
+                bool success;
+                auto currentTime = Clock::now();
+                bool canWait = timeout_time > currentTime;
+                if(canWait)
+                {
+                    // want to give each event equal wait time, so interpolate (albeit weirdly)
+                    std::chrono::time_point<Clock> singleWaitTimePt((currentTime.time_since_epoch() * (mEventsCount - 1u) + timeout_time.time_since_epoch()) / mEventsCount);
+                    success = it->m_event.wait_until(singleWaitTimePt);
+                }
+                else
+                    success = it->m_event.poll();
+
+                if(success)
                 {
                     bool earlyQuit = it->m_function(args...);
                     it = mEvents.erase_after(prev);
                     mEventsCount--;
-                    if (earlyQuit)
+                    if(earlyQuit)
                     {
-                        if (it==mEvents.end())
+                        if(it == mEvents.end())
                             mLastEvent = prev;
                         return mEventsCount;
                     }
 
                     continue;
                 }
+                // dont care about timeout until we hit first fence we had to wait for
+                if(!canWait)
+                    return mEventsCount;
+
                 prev = it++;
             }
             mLastEvent = prev;
-
-            return mEventsCount;
         }
 
-        //! Will try to poll enough events so that the number of events in the queue is less or equal to maxEventCount
-        template<typename... Args>
-        inline uint32_t cullEvents(uint32_t maxEventCount)
+        return 0u;
+    }
+
+    template<typename... Args>
+    inline uint32_t pollForReadyEvents(Args&... args)
+    {
+        auto prev = mEvents.before_begin();
+        for(auto it = mEvents.begin(); it != mEvents.end();)
         {
-            if (mEventsCount<=maxEventCount)
-                return mEventsCount;
-
-            auto prev = mEvents.before_begin();
-            for (auto it = mEvents.begin(); mEventsCount>maxEventCount&&it!=mEvents.end();)
+            if(it->m_event.poll())
             {
-                if (it->m_event.poll())
+                bool earlyQuit = it->m_function(args...);
+                it = mEvents.erase_after(prev);
+                mEventsCount--;
+                if(earlyQuit)
                 {
-                    it->m_function();
-                    it = mEvents.erase_after(prev);
-                    mEventsCount--;
-                    continue;
+                    if(it == mEvents.end())
+                        mLastEvent = prev;
+                    return mEventsCount;
                 }
-                prev = it++;
-            }
-            mLastEvent = prev;
 
-            return mEventsCount;
+                continue;
+            }
+            prev = it++;
         }
+        mLastEvent = prev;
+
+        return mEventsCount;
+    }
+
+    //! Will try to poll enough events so that the number of events in the queue is less or equal to maxEventCount
+    template<typename... Args>
+    inline uint32_t cullEvents(uint32_t maxEventCount)
+    {
+        if(mEventsCount <= maxEventCount)
+            return mEventsCount;
+
+        auto prev = mEvents.before_begin();
+        for(auto it = mEvents.begin(); mEventsCount > maxEventCount && it != mEvents.end();)
+        {
+            if(it->m_event.poll())
+            {
+                it->m_function();
+                it = mEvents.erase_after(prev);
+                mEventsCount--;
+                continue;
+            }
+            prev = it++;
+        }
+        mLastEvent = prev;
+
+        return mEventsCount;
+    }
 };
 
 //! EventDeferredHandlerMT coming later

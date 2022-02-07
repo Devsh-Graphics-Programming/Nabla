@@ -11,36 +11,35 @@ namespace nbl
 {
 namespace asset
 {
-
 class CSPVLoader final : public asset::IAssetLoader
 {
-		_NBL_STATIC_INLINE_CONSTEXPR uint32_t SPV_MAGIC_NUMBER = 0x07230203u;
-	public:
-		bool isALoadableFileFormat(io::IReadFile* _file) const override
-		{
-			uint32_t magicNumber = 0u;
+    _NBL_STATIC_INLINE_CONSTEXPR uint32_t SPV_MAGIC_NUMBER = 0x07230203u;
 
-			const size_t prevPos = _file->getPos();
-			_file->seek(0u);
-			_file->read(&magicNumber,sizeof(uint32_t));
-			_file->seek(prevPos);
+public:
+    bool isALoadableFileFormat(io::IReadFile* _file) const override
+    {
+        uint32_t magicNumber = 0u;
 
-			return magicNumber==SPV_MAGIC_NUMBER;
-		}
+        const size_t prevPos = _file->getPos();
+        _file->seek(0u);
+        _file->read(&magicNumber, sizeof(uint32_t));
+        _file->seek(prevPos);
 
-		const char** getAssociatedFileExtensions() const override
-		{
-			static const char* ext[]{ "spv", nullptr };
-			return ext;
-		}
+        return magicNumber == SPV_MAGIC_NUMBER;
+    }
 
-		uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_SHADER; }
+    const char** getAssociatedFileExtensions() const override
+    {
+        static const char* ext[]{"spv", nullptr};
+        return ext;
+    }
 
-		asset::SAssetBundle loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
+    uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_SHADER; }
+
+    asset::SAssetBundle loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 };
 
-} // namespace asset
-} // namespace nbl
+}  // namespace asset
+}  // namespace nbl
 
 #endif
-

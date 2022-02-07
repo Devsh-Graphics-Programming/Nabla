@@ -13,20 +13,18 @@
 
 #include "IMotionStateBase.h"
 
-
 namespace nbl
 {
 namespace ext
 {
 namespace Bullet3
 {
-
-
-class CPhysicsWorld : public core::IReferenceCounted {
+class CPhysicsWorld : public core::IReferenceCounted
+{
 public:
-
-    struct RigidBodyData {
-        btCollisionShape *shape;
+    struct RigidBodyData
+    {
+        btCollisionShape* shape;
         core::matrix3x4SIMD trans;
         core::vectorSIMDf inertia;
         float mass;
@@ -36,31 +34,33 @@ public:
     ~CPhysicsWorld();
 
     template<class btObject, typename... Args>
-    inline btObject *createbtObject(Args&&... args) {
-        void *mem = _NBL_ALIGNED_MALLOC(sizeof(btObject), 32u);
+    inline btObject* createbtObject(Args&&... args)
+    {
+        void* mem = _NBL_ALIGNED_MALLOC(sizeof(btObject), 32u);
         return new(mem) btObject(std::forward<Args>(args)...);
     }
 
     template<class btObject>
-    inline void deletebtObject(btObject *obj) {
+    inline void deletebtObject(btObject* obj)
+    {
         obj->~btObject();
         _NBL_ALIGNED_FREE(obj);
     }
 
+    btRigidBody* createRigidBody(RigidBodyData data);
+    void deleteRigidBody(btRigidBody* body);
 
-
-    btRigidBody *createRigidBody(RigidBodyData data);
-    void deleteRigidBody(btRigidBody *body);
-
-    inline void bindRigidBody(btRigidBody *body) {
+    inline void bindRigidBody(btRigidBody* body)
+    {
         m_physicsWorld->addRigidBody(body);
     }
 
     template<class state, typename... Args>
-    inline state *bindRigidBody(btRigidBody *body, Args... args) {
+    inline state* bindRigidBody(btRigidBody* body, Args... args)
+    {
         assert(!body->getMotionState());
 
-        state *motionState = createbtObject<state>(args...);
+        state* motionState = createbtObject<state>(args...);
         body->setMotionState(motionState);
 
         m_physicsWorld->addRigidBody(body);
@@ -68,34 +68,30 @@ public:
         return motionState;
     }
 
-    inline void unbindRigidBody(btRigidBody *body, bool free = true) {
+    inline void unbindRigidBody(btRigidBody* body, bool free = true)
+    {
         m_physicsWorld->removeRigidBody(body);
-        if (free) {
+        if(free)
+        {
             deletebtObject(body->getMotionState());
         }
     }
 
-
-    btDiscreteDynamicsWorld *getWorld();
+    btDiscreteDynamicsWorld* getWorld();
 
 protected:
-
-
 private:
-    btDiscreteDynamicsWorld *m_physicsWorld;
+    btDiscreteDynamicsWorld* m_physicsWorld;
 
-    btDefaultCollisionConfiguration *m_collisionCfg;
+    btDefaultCollisionConfiguration* m_collisionCfg;
 
-    btCollisionDispatcher *m_dispatcher;
-    btBroadphaseInterface *m_overlappingPairCache;
-    btSequentialImpulseConstraintSolver *m_solver;
-
+    btCollisionDispatcher* m_dispatcher;
+    btBroadphaseInterface* m_overlappingPairCache;
+    btSequentialImpulseConstraintSolver* m_solver;
 };
 
-
 }
 }
 }
-
 
 #endif

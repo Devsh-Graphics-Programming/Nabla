@@ -67,7 +67,6 @@
 #include "nbl/asset/bawformat/CBAWFile.h"
 #include "nbl/asset/bawformat/CBlobsLoadingManager.h"
 
-
 #include "nbl/asset/IAssetManager.h"
 // importexport
 #include "nbl/asset/interchange/IAssetLoader.h"

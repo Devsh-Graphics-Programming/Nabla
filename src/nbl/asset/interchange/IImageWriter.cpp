@@ -9,5 +9,4 @@ using namespace asset;
 
 IImageWriter::~IImageWriter()
 {
-
 }

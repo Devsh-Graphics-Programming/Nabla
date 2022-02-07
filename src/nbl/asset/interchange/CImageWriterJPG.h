@@ -16,26 +16,25 @@ namespace nbl
 {
 namespace asset
 {
-
 class CImageWriterJPG : public asset::IAssetWriter
 {
-    public:
-	    //! constructor
-	    CImageWriterJPG();
+public:
+    //! constructor
+    CImageWriterJPG();
 
-        virtual const char** getAssociatedFileExtensions() const
-        {
-            static const char* ext[]{ "jpg", "jpeg", "jpe", "jif", "jfif", "jfi", nullptr };
-            return ext;
-        }
+    virtual const char** getAssociatedFileExtensions() const
+    {
+        static const char* ext[]{"jpg", "jpeg", "jpe", "jif", "jfif", "jfi", nullptr};
+        return ext;
+    }
 
-        virtual uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_IMAGE_VIEW; }
+    virtual uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_IMAGE_VIEW; }
 
-        virtual uint32_t getSupportedFlags() override { return asset::EWF_COMPRESSED; }
+    virtual uint32_t getSupportedFlags() override { return asset::EWF_COMPRESSED; }
 
-        virtual uint32_t getForcedFlags() { return asset::EWF_BINARY; }
+    virtual uint32_t getForcedFlags() { return asset::EWF_BINARY; }
 
-        virtual bool writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr) override;
+    virtual bool writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr) override;
 };
 
 }
@@ -43,4 +42,3 @@ class CImageWriterJPG : public asset::IAssetWriter
 
 #endif
 #endif
-

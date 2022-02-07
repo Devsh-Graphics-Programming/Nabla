@@ -45,8 +45,8 @@ namespace ext
 {
 namespace cegui
 {
-
-class ImageBuffer {
+class ImageBuffer
+{
 public:
     unsigned char* buffer = nullptr;
     int w, h, c;
@@ -68,7 +68,7 @@ std::pair<bool, std::string> openFileDialog(const char* title, const std::vector
 //ImageBuffer loadImage(const char* file);
 
 // Basically std::to_string(float), but with customizable floating point precision
-template <typename T>
+template<typename T>
 ::CEGUI::String toStringFloat(const T rvalue, const int n = 6)
 {
     std::ostringstream out;
@@ -78,20 +78,20 @@ template <typename T>
 }
 
 // sprintf() for std::string
-template <typename... Args>
+template<typename... Args>
 ::CEGUI::String ssprintf(const std::string& format, Args... args)
 {
-    size_t size = snprintf(nullptr, 0, format.c_str(), args...) + 1; // Extra space for '\0'
+    size_t size = snprintf(nullptr, 0, format.c_str(), args...) + 1;  // Extra space for '\0'
     std::unique_ptr<char[]> buf(new char[size]);
     snprintf(buf.get(), size, format.c_str(), args...);
-    return ::CEGUI::String(std::string(buf.get(), buf.get() + size - 1)); // We don't want the '\0' inside
+    return ::CEGUI::String(std::string(buf.get(), buf.get() + size - 1));  // We don't want the '\0' inside
 }
 
 std::string readWindowLayout(const std::string& layoutName);
 ::CEGUI::Key::Scan toCEGUIKey(const nbl::EKEY_CODE& code);
 
-} // namespace cegui
-} // namespace ext
-} // namespace nbl
+}  // namespace cegui
+}  // namespace ext
+}  // namespace nbl
 
 #endif

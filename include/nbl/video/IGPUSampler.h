@@ -11,7 +11,6 @@ namespace nbl
 {
 namespace video
 {
-
 class IGPUSampler : public asset::ISampler
 {
 protected:

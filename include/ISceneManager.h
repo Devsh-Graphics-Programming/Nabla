@@ -16,27 +16,27 @@
 
 namespace nbl
 {
-	struct SKeyMap;
-	struct SEvent;
-    class IrrlichtDevice;
+struct SKeyMap;
+struct SEvent;
+class IrrlichtDevice;
 
 namespace io
 {
-	class IReadFile;
-	class IWriteFile;
-	class IFileSystem;
-} // end namespace io
+class IReadFile;
+class IWriteFile;
+class IFileSystem;
+}  // end namespace io
 
 namespace scene
 {
-	class ICameraSceneNode;
-	class IDummyTransformationSceneNode;
-	class IMeshSceneNode;
-	class ISceneNode;
-	class ISceneNodeAnimator;
+class ICameraSceneNode;
+class IDummyTransformationSceneNode;
+class IMeshSceneNode;
+class ISceneNode;
+class ISceneNodeAnimator;
 
-	//! The Scene Manager manages scene nodes, mesh recources, cameras and all the other stuff.
-	/** All Scene nodes can be created only here. There is a always growing
+//! The Scene Manager manages scene nodes, mesh recources, cameras and all the other stuff.
+/** All Scene nodes can be created only here. There is a always growing
 	list of scene nodes for lots of purposes: Indoor rendering scene nodes,
 	different Camera scene nodes (addCameraSceneNode(), addCameraSceneNodeMaya()), and so on.
 	A scene node is a node in the hierachical scene tree. Every scene node
@@ -50,16 +50,16 @@ namespace scene
 	supported. If these formats are not enough, use
 	addExternalMeshLoader() to add new formats to the engine.
 	*/
-	class ISceneManager : public virtual core::IReferenceCounted
-	{
-	public:
-		//! Get the video driver.
-		/** \return Pointer to the video Driver.
+class ISceneManager : public virtual core::IReferenceCounted
+{
+public:
+    //! Get the video driver.
+    /** \return Pointer to the video Driver.
 		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
-		virtual video::IVideoDriver* getVideoDriver() = 0;
+    virtual video::IVideoDriver* getVideoDriver() = 0;
 
-		//! Adds a camera scene node to the scene tree and sets it as active camera.
-		/** This camera does not react on user input like for example the one created with
+    //! Adds a camera scene node to the scene tree and sets it as active camera.
+    /** This camera does not react on user input like for example the one created with
 		addCameraSceneNodeFPS(). If you want to move or animate it, use animators or the
 		ISceneNode::setPosition(), ICameraSceneNode::setTarget() etc methods.
 		By default, a camera's look at position (set with setTarget()) and its scene node
@@ -75,13 +75,13 @@ namespace scene
 		Make sure you always have one active camera.
 		\return Pointer to interface to camera if successful, otherwise 0.
 		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
-		virtual ICameraSceneNode* addCameraSceneNode(IDummyTransformationSceneNode* parent = 0,
-			const core::vector3df& position = core::vector3df(0,0,0),
-			const core::vectorSIMDf & lookat = core::vectorSIMDf(0,0,100),
-			int32_t id=-1, bool makeActive=true) = 0;
+    virtual ICameraSceneNode* addCameraSceneNode(IDummyTransformationSceneNode* parent = 0,
+        const core::vector3df& position = core::vector3df(0, 0, 0),
+        const core::vectorSIMDf& lookat = core::vectorSIMDf(0, 0, 100),
+        int32_t id = -1, bool makeActive = true) = 0;
 
-		//! Adds a maya style user controlled camera scene node to the scene tree.
-		/** This is a standard camera with an animator that provides mouse control similar
+    //! Adds a maya style user controlled camera scene node to the scene tree.
+    /** This is a standard camera with an animator that provides mouse control similar
 		to camera in the 3D Software Maya by Alias Wavefront.
 		The camera does not react on setPosition anymore after applying this animator. Instead
 		use setTarget, to fix the target the camera the camera hovers around. And setDistance
@@ -97,19 +97,19 @@ namespace scene
 		Make sure you always have one active camera.
 		\return Returns a pointer to the interface of the camera if successful, otherwise 0.
 		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
-		virtual ICameraSceneNode* addCameraSceneNodeMaya(IDummyTransformationSceneNode* parent=0,
-			float rotateSpeed=-1500.f, float zoomSpeed=200.f,
-			float translationSpeed=1500.f, int32_t id=-1, float distance=70.f,
-			bool makeActive=true) =0;
+    virtual ICameraSceneNode* addCameraSceneNodeMaya(IDummyTransformationSceneNode* parent = 0,
+        float rotateSpeed = -1500.f, float zoomSpeed = 200.f,
+        float translationSpeed = 1500.f, int32_t id = -1, float distance = 70.f,
+        bool makeActive = true) = 0;
 
-		virtual ICameraSceneNode* addCameraSceneNodeModifiedMaya(IDummyTransformationSceneNode* parent = 0,
-			float rotateSpeed = -1500.f, float zoomSpeed = 200.f,
-			float translationSpeed = 1500.f, int32_t id = -1, float distance = 70.f,
-			float scrlZoomSpeed = 10.0f, bool scroolWithRMB = false,
-			bool makeActive = true) = 0;
+    virtual ICameraSceneNode* addCameraSceneNodeModifiedMaya(IDummyTransformationSceneNode* parent = 0,
+        float rotateSpeed = -1500.f, float zoomSpeed = 200.f,
+        float translationSpeed = 1500.f, int32_t id = -1, float distance = 70.f,
+        float scrlZoomSpeed = 10.0f, bool scroolWithRMB = false,
+        bool makeActive = true) = 0;
 
-		//! Adds a camera scene node with an animator which provides mouse and keyboard control appropriate for first person shooters (FPS).
-		/** This FPS camera is intended to provide a demonstration of a
+    //! Adds a camera scene node with an animator which provides mouse and keyboard control appropriate for first person shooters (FPS).
+    /** This FPS camera is intended to provide a demonstration of a
 		camera that behaves like a typical First Person Shooter. It is
 		useful for simple demos and prototyping but is not intended to
 		provide a full solution for a production quality game. It binds
@@ -172,36 +172,34 @@ namespace scene
 		\return Pointer to the interface of the camera if successful,
 		otherwise 0. This pointer should not be dropped. See
 		IReferenceCounted::drop() for more information. */
-		virtual ICameraSceneNode* addCameraSceneNodeFPS(IDummyTransformationSceneNode* parent = 0,
-			float rotateSpeed = 100.0f, float moveSpeed = 0.5f, int32_t id=-1,
-			SKeyMap* keyMapArray=0, int32_t keyMapSize=0, bool noVerticalMovement=false,
-			float jumpSpeed = 0.f, bool invertMouse=false,
-			bool makeActive=true) = 0;
+    virtual ICameraSceneNode* addCameraSceneNodeFPS(IDummyTransformationSceneNode* parent = 0,
+        float rotateSpeed = 100.0f, float moveSpeed = 0.5f, int32_t id = -1,
+        SKeyMap* keyMapArray = 0, int32_t keyMapSize = 0, bool noVerticalMovement = false,
+        float jumpSpeed = 0.f, bool invertMouse = false,
+        bool makeActive = true) = 0;
 
-		//! Get the current active camera.
-		/** \return The active camera is returned. Note that this can
+    //! Get the current active camera.
+    /** \return The active camera is returned. Note that this can
 		be NULL, if there was no camera created yet.
 		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
-		virtual ICameraSceneNode* getActiveCamera() const =0;
+    virtual ICameraSceneNode* getActiveCamera() const = 0;
 
-		//! Sets the currently active camera.
-		/** The previous active camera will be deactivated.
+    //! Sets the currently active camera.
+    /** The previous active camera will be deactivated.
 		\param camera: The new camera which should be active. */
-		virtual void setActiveCamera(ICameraSceneNode* camera) = 0;
+    virtual void setActiveCamera(ICameraSceneNode* camera) = 0;
 
-		//! Posts an input event to the environment.
-		/** Usually you do not have to
+    //! Posts an input event to the environment.
+    /** Usually you do not have to
 		use this method, it is used by the internal engine. */
-		virtual bool receiveIfEventReceiverDidNotAbsorb(const SEvent& event) = 0;
+    virtual bool receiveIfEventReceiverDidNotAbsorb(const SEvent& event) = 0;
 
-		//! Clears the whole scene.
-		/** All scene nodes are removed. */
-		virtual void clear() = 0;
-	};
+    //! Clears the whole scene.
+    /** All scene nodes are removed. */
+    virtual void clear() = 0;
+};
 
-
-} // end namespace scene
-} // end namespace nbl
+}  // end namespace scene
+}  // end namespace nbl
 
 #endif
-

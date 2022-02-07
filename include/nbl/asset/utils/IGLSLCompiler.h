@@ -18,7 +18,6 @@
 
 namespace nbl
 {
-
 namespace video
 {
 class COpenGLDriver;
@@ -26,24 +25,23 @@ class COpenGLDriver;
 
 namespace asset
 {
-
 //! Will be derivative of IShaderGenerator, but we have to establish interface first
 class IGLSLCompiler final : public core::IReferenceCounted
 {
-		core::smart_refctd_ptr<IIncludeHandler> m_inclHandler;
-		const io::IFileSystem* m_fs;
+    core::smart_refctd_ptr<IIncludeHandler> m_inclHandler;
+    const io::IFileSystem* m_fs;
 
-	protected:
-		friend class video::COpenGLDriver;
-		core::smart_refctd_ptr<ICPUBuffer> compileSPIRVFromGLSL(const char* _glslCode, ISpecializedShader::E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, bool _genDebugInfo = true, std::string* _outAssembly = nullptr) const;
+protected:
+    friend class video::COpenGLDriver;
+    core::smart_refctd_ptr<ICPUBuffer> compileSPIRVFromGLSL(const char* _glslCode, ISpecializedShader::E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, bool _genDebugInfo = true, std::string* _outAssembly = nullptr) const;
 
-	public:
-		IGLSLCompiler(io::IFileSystem* _fs);
+public:
+    IGLSLCompiler(io::IFileSystem* _fs);
 
-		IIncludeHandler* getIncludeHandler() { return m_inclHandler.get(); }
-		const IIncludeHandler* getIncludeHandler() const { return m_inclHandler.get(); }
+    IIncludeHandler* getIncludeHandler() { return m_inclHandler.get(); }
+    const IIncludeHandler* getIncludeHandler() const { return m_inclHandler.get(); }
 
-		/**
+    /**
 		If _stage is ESS_UNKNOWN, then compiler will try to deduce shader stage from #pragma annotation, i.e.:
 		#pragma shader_stage(vertex),       or
 		#pragma shader_stage(tesscontrol),  or
@@ -64,11 +62,11 @@ class IGLSLCompiler final : public core::IReferenceCounted
 
 		@returns Shader containing SPIR-V bytecode.
 		*/
-		core::smart_refctd_ptr<ICPUShader> createSPIRVFromGLSL(const char* _glslCode, ISpecializedShader::E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, const ISPIRVOptimizer* _opt = nullptr, bool _genDebugInfo = true, std::string* _outAssembly = nullptr) const;
+    core::smart_refctd_ptr<ICPUShader> createSPIRVFromGLSL(const char* _glslCode, ISpecializedShader::E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, const ISPIRVOptimizer* _opt = nullptr, bool _genDebugInfo = true, std::string* _outAssembly = nullptr) const;
 
-		core::smart_refctd_ptr<ICPUShader> createSPIRVFromGLSL(io::IReadFile* _sourcefile, ISpecializedShader::E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, const ISPIRVOptimizer* _opt = nullptr, bool _genDebugInfo = true, std::string* _outAssembly = nullptr) const;
+    core::smart_refctd_ptr<ICPUShader> createSPIRVFromGLSL(io::IReadFile* _sourcefile, ISpecializedShader::E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, const ISPIRVOptimizer* _opt = nullptr, bool _genDebugInfo = true, std::string* _outAssembly = nullptr) const;
 
-		/**
+    /**
 		Resolves ALL #include directives regardless of any other preprocessor directive.
 		This is done in order to support `#include` AND simultaneulsy be able to store (serialize) such ICPUShader (mostly GLSL source) into ONE file which, upon loading, will compile on every hardware/driver predicted by shader's author.
 
@@ -82,9 +80,9 @@ class IGLSLCompiler final : public core::IReferenceCounted
 
 		@returns Shader containing logically same GLSL code as input but with #include directives resolved.
 		*/
-		core::smart_refctd_ptr<ICPUShader> resolveIncludeDirectives(std::string&& glslCode, ISpecializedShader::E_SHADER_STAGE _stage, const char* _originFilepath, uint32_t _maxSelfInclusionCnt = 4u) const;
+    core::smart_refctd_ptr<ICPUShader> resolveIncludeDirectives(std::string&& glslCode, ISpecializedShader::E_SHADER_STAGE _stage, const char* _originFilepath, uint32_t _maxSelfInclusionCnt = 4u) const;
 
-		core::smart_refctd_ptr<ICPUShader> resolveIncludeDirectives(io::IReadFile* _sourcefile, ISpecializedShader::E_SHADER_STAGE _stage, const char* _originFilepath, uint32_t _maxSelfInclusionCnt = 4u) const;
+    core::smart_refctd_ptr<ICPUShader> resolveIncludeDirectives(io::IReadFile* _sourcefile, ISpecializedShader::E_SHADER_STAGE _stage, const char* _originFilepath, uint32_t _maxSelfInclusionCnt = 4u) const;
 };
 
 }

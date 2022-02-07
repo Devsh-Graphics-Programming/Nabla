@@ -11,10 +11,10 @@
 #include <nbl/asset/IAssetManager.h>
 #include <nbl/video/IGPUDescriptorSet.h>
 
-namespace nbl {
+namespace nbl
+{
 namespace video
 {
-
 namespace impl
 {
 inline core::smart_refctd_ptr<IGPUImage> createGPUImageFromCPU(IVideoDriver* _driver, asset::ICPUImage* _cpuimg)
@@ -44,29 +44,26 @@ protected:
         using cpu_counterpart_t = asset::ICPUVirtualTexture::ICPUVTResidentStorage;
 
     public:
-        IGPUVTResidentStorage(IVideoDriver* _driver, const cpu_counterpart_t* _cpuStorage) :
-            base_t(
-                impl::createGPUImageFromCPU(_driver, _cpuStorage->image.get()),
-                _cpuStorage->tileAlctr,
-                _cpuStorage->m_alctrReservedSpace,
-                _cpuStorage->m_decodeAddr_layerShift,
-                _cpuStorage->m_decodeAddr_xMask
-            ),
-            m_driver(_driver)
+        IGPUVTResidentStorage(IVideoDriver* _driver, const cpu_counterpart_t* _cpuStorage)
+            : base_t(
+                  impl::createGPUImageFromCPU(_driver, _cpuStorage->image.get()),
+                  _cpuStorage->tileAlctr,
+                  _cpuStorage->m_alctrReservedSpace,
+                  _cpuStorage->m_decodeAddr_layerShift,
+                  _cpuStorage->m_decodeAddr_xMask),
+              m_driver(_driver)
         {
-
         }
 
-        IGPUVTResidentStorage(IVideoDriver* _driver, asset::E_FORMAT _format, uint32_t _tilesPerDim) :
-            base_t(_format, _tilesPerDim),
-            m_driver(_driver)
+        IGPUVTResidentStorage(IVideoDriver* _driver, asset::E_FORMAT _format, uint32_t _tilesPerDim)
+            : base_t(_format, _tilesPerDim),
+              m_driver(_driver)
         {
-
         }
 
-        IGPUVTResidentStorage(IVideoDriver* _driver, asset::E_FORMAT _format, uint32_t _tileExtent, uint32_t _layers, uint32_t _tilesPerDim) :
-            base_t(_format, _layers, _tilesPerDim),
-            m_driver(_driver)
+        IGPUVTResidentStorage(IVideoDriver* _driver, asset::E_FORMAT _format, uint32_t _tileExtent, uint32_t _layers, uint32_t _tilesPerDim)
+            : base_t(_format, _layers, _tilesPerDim),
+              m_driver(_driver)
         {
             deferredInitialization(_tileExtent, _layers);
         }
@@ -75,14 +72,14 @@ protected:
         {
             base_t::deferredInitialization(tileExtent, _layers);
 
-            if (image)
+            if(image)
                 return;
 
             const uint32_t tilesPerDim = getTilesPerDim();
             const uint32_t extent = tileExtent * tilesPerDim;
 
             IGPUImage::SCreationParams params;
-            params.extent = { extent, extent, 1u };
+            params.extent = {extent, extent, 1u};
             params.format = imageFormat;
             params.arrayLayers = _layers;
             params.mipLevels = 1u;
@@ -111,16 +108,14 @@ public:
         uint32_t _pgSzxy_log2 = 7u,
         uint32_t _pgTabLayers = 32u,
         uint32_t _tilePadding = 9u,
-        uint32_t _maxAllocatableTexSz_log2 = 14u
-    ) :
-        base_t(
-            std::move(_callback),
-            _maxAllocatableTexSz_log2-_pgSzxy_log2,
-            _pgTabLayers,
-            _pgSzxy_log2,
-            _tilePadding
-        ),
-        m_driver(_driver)
+        uint32_t _maxAllocatableTexSz_log2 = 14u)
+        : base_t(
+              std::move(_callback),
+              _maxAllocatableTexSz_log2 - _pgSzxy_log2,
+              _pgTabLayers,
+              _pgSzxy_log2,
+              _tilePadding),
+          m_driver(_driver)
     {
         m_pageTable = createPageTable(m_pgtabSzxy_log2, _pgTabLayers, _pgSzxy_log2, _maxAllocatableTexSz_log2);
         initResidentStorage(_residentStorageParams, _residentStorageCount);
@@ -130,28 +125,25 @@ public:
         physical_tiles_per_dim_log2_callback_t&& _callback,
         uint32_t _pgSzxy_log2 = 7u,
         uint32_t _tilePadding = 9u,
-        uint32_t _maxAllocatableTexSz_log2 = 14u
-    ) : base_t(
-            std::move(_callback),
-            _maxAllocatableTexSz_log2-_pgSzxy_log2,
-            MAX_PAGE_TABLE_LAYERS,
-            _pgSzxy_log2,
-            _tilePadding
-        ),
-        m_driver(_driver)
+        uint32_t _maxAllocatableTexSz_log2 = 14u)
+        : base_t(
+              std::move(_callback),
+              _maxAllocatableTexSz_log2 - _pgSzxy_log2,
+              MAX_PAGE_TABLE_LAYERS,
+              _pgSzxy_log2,
+              _tilePadding),
+          m_driver(_driver)
     {
-
     }
-    IGPUVirtualTexture(IVideoDriver* _driver, asset::ICPUVirtualTexture* _cpuvt) :
-        base_t(
-            _cpuvt->getPhysicalStorageExtentCallback(),
-            _cpuvt->getPageTableExtent_log2(),
-            _cpuvt->getPageTable()->getCreationParameters().arrayLayers,
-            _cpuvt->getPageExtent_log2(),
-            _cpuvt->getTilePadding(),
-            false
-            ),
-        m_driver(_driver)
+    IGPUVirtualTexture(IVideoDriver* _driver, asset::ICPUVirtualTexture* _cpuvt)
+        : base_t(
+              _cpuvt->getPhysicalStorageExtentCallback(),
+              _cpuvt->getPageTableExtent_log2(),
+              _cpuvt->getPageTable()->getCreationParameters().arrayLayers,
+              _cpuvt->getPageExtent_log2(),
+              _cpuvt->getTilePadding(),
+              false),
+          m_driver(_driver)
     {
         //now copy from CPU counterpart resources that can be shared (i.e. just copy state) between CPU and GPU
         //and convert to GPU those which can't be "shared": page table and VT resident storages along with their images and views
@@ -162,11 +154,11 @@ public:
         m_precomputed = _cpuvt->getPrecomputedData();
 
         m_pgTabAddrAlctr_reservedSpc = _cpuvt->copyVirtualSpaceAllocatorsState(m_pageTable->getCreationParameters().arrayLayers, m_pageTableLayerAllocators.data());
-        
+
         m_viewFormatToLayer = _cpuvt->getViewFormatToLayerMapping();
 
         const auto& cpuStorages = _cpuvt->getResidentStorages();
-        for (const auto& pair : cpuStorages)
+        for(const auto& pair : cpuStorages)
         {
             auto* cpuStorage = static_cast<asset::ICPUVirtualTexture::ICPUVTResidentStorage*>(pair.second.get());
             const asset::E_FORMAT_CLASS fmtClass = pair.first;
@@ -174,15 +166,14 @@ public:
             m_storage.insert({fmtClass, core::make_smart_refctd_ptr<IGPUVTResidentStorage>(_driver, cpuStorage)});
         }
 
-        auto createViewsFromCPU = [this](core::vector<SamplerArray::Sampler>& _dst, decltype(_cpuvt->getFloatViews()) _src) -> void
-        {
-            for (const auto& v : _src)
+        auto createViewsFromCPU = [this](core::vector<SamplerArray::Sampler>& _dst, decltype(_cpuvt->getFloatViews()) _src) -> void {
+            for(const auto& v : _src)
             {
                 const asset::E_FORMAT format = v.view->getCreationParameters().format;
 
                 const auto& storage = m_storage.find(asset::getFormatClass(format))->second;
                 auto view = storage->createView(format);
-                SamplerArray::Sampler s{ format, std::move(view) };
+                SamplerArray::Sampler s{format, std::move(view)};
                 _dst.push_back(std::move(s));
             }
         };
@@ -245,6 +236,7 @@ protected:
     }
 };
 
-}}
+}
+}
 
 #endif

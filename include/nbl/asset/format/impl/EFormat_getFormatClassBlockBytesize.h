@@ -1,10 +1,10 @@
-switch (_fclass)
+switch(_fclass)
 {
     case EFC_8_BIT: [[fallthrough]];
     case EFC_16_BIT: [[fallthrough]];
     case EFC_24_BIT: [[fallthrough]];
     case EFC_32_BIT:
-        return _fclass+1u;
+        return _fclass + 1u;
     case EFC_48_BIT:
         return 6u;
     case EFC_64_BIT:

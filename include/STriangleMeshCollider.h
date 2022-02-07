@@ -12,161 +12,160 @@ namespace nbl
 {
 namespace core
 {
-
-class STriangleCollider// : public AllocationOverrideDefault EBO inheritance problem
+class STriangleCollider  // : public AllocationOverrideDefault EBO inheritance problem
 {
-    public:
-        STriangleCollider() {}
-        STriangleCollider(const vectorSIMDf& A, const vectorSIMDf& B, const vectorSIMDf& C, bool& validTriangle)
+public:
+    STriangleCollider() {}
+    STriangleCollider(const vectorSIMDf& A, const vectorSIMDf& B, const vectorSIMDf& C, bool& validTriangle)
+    {
+        const vectorSIMDf edges[2] = {B - A, C - A};
+
+        vectorSIMDf normal = planeEq = cross(edges[0], edges[1]);
+        if((normal == vectorSIMDf(0.f)).all())
         {
-            const vectorSIMDf edges[2] = {B-A,C-A};
-
-            vectorSIMDf normal = planeEq = cross(edges[0],edges[1]);
-            if ((normal==vectorSIMDf(0.f)).all())
-            {
-                validTriangle = false;
-                return;
-            }
-            boundaryPlanes[0] = cross(normal,edges[0]);
-            boundaryPlanes[1] = cross(edges[1],normal);
-            boundaryPlanes[0] /= dot(boundaryPlanes[0],edges[1]);
-            boundaryPlanes[1] /= dot(boundaryPlanes[1],edges[0]);
-
-            planeEq.W = dot(planeEq,A).X;
-            boundaryPlanes[0].W = -dot(boundaryPlanes[0],A).X;
-            boundaryPlanes[1].W = -dot(boundaryPlanes[1],A).X;
-            validTriangle = true;
+            validTriangle = false;
+            return;
         }
+        boundaryPlanes[0] = cross(normal, edges[0]);
+        boundaryPlanes[1] = cross(edges[1], normal);
+        boundaryPlanes[0] /= dot(boundaryPlanes[0], edges[1]);
+        boundaryPlanes[1] /= dot(boundaryPlanes[1], edges[0]);
 
-        inline bool CollideWithRay(float& collisionDistance, vectorSIMDf origin, vectorSIMDf direction, const float& dirMaxMultiplier) const
+        planeEq.W = dot(planeEq, A).X;
+        boundaryPlanes[0].W = -dot(boundaryPlanes[0], A).X;
+        boundaryPlanes[1].W = -dot(boundaryPlanes[1], A).X;
+        validTriangle = true;
+    }
+
+    inline bool CollideWithRay(float& collisionDistance, vectorSIMDf origin, vectorSIMDf direction, const float& dirMaxMultiplier) const
+    {
+        direction.makeSafe3D();
+        origin.makeSafe3D();
+
+        const float NdotD = dot(direction, planeEq).X;
+        if(NdotD != 0.f)
+            return false;
+
+        const float NdotOrigin = dot(origin, planeEq).X;
+        const float d = planeEq.W;
+
+        const float t = (d - NdotOrigin) / NdotD;
+        if(t >= dirMaxMultiplier || t < 0.f)
+            return false;
+
+        vectorSIMDf outPoint = origin + direction * t;
+
+        vectorSIMDf extraComponent(0.f, 0.f, 0.f, 1.f);
+        const vectorSIMDf outPointW1 = outPoint | reinterpret_cast<const vectorSIMDu32&>(extraComponent);
+
+        const float distToEdge[2] = {dot(outPointW1, boundaryPlanes[0])[0], dot(outPointW1, boundaryPlanes[1])[0]};
+        if(distToEdge[0] < 0.f || distToEdge[1] < 0.f || (distToEdge[0] + distToEdge[1]) > 1.f)
         {
-			direction.makeSafe3D();
-			origin.makeSafe3D();
-
-            const float NdotD = dot(direction,planeEq).X;
-            if (NdotD!=0.f)
-                return false;
-
-            const float NdotOrigin = dot(origin,planeEq).X;
-            const float d = planeEq.W;
-
-            const float t = (d-NdotOrigin)/NdotD;
-            if (t>=dirMaxMultiplier||t<0.f)
-                return false;
-
-            vectorSIMDf outPoint = origin+direction*t;
-
-            vectorSIMDf extraComponent(0.f,0.f,0.f,1.f);
-            const vectorSIMDf outPointW1 = outPoint|reinterpret_cast<const vectorSIMDu32&>(extraComponent);
-
-            const float distToEdge[2] ={dot(outPointW1,boundaryPlanes[0])[0],dot(outPointW1,boundaryPlanes[1])[0]};
-            if (distToEdge[0]<0.f||distToEdge[1]<0.f||(distToEdge[0]+distToEdge[1])>1.f)
-            {
-                collisionDistance = t;
-                return true;
-            }
-            else
-                return false;
+            collisionDistance = t;
+            return true;
         }
+        else
+            return false;
+    }
 
-        vectorSIMDf planeEq;
-        vectorSIMDf boundaryPlanes[2];
+    vectorSIMDf planeEq;
+    vectorSIMDf boundaryPlanes[2];
 };
-
 
 class STriangleMeshCollider : public IReferenceCounted
 {
-	    _NBL_INTERFACE_CHILD(STriangleMeshCollider) {}
+    _NBL_INTERFACE_CHILD(STriangleMeshCollider) {}
 
-        SAABoxCollider BBox;
-        ///matrix4x3 cachedTransformInverse;
-        ///matrix4x3 cachedTransform;
-        vector<STriangleCollider> triangles;
-    public:
-        STriangleMeshCollider() : BBox(core::aabbox3df()) {}
+    SAABoxCollider BBox;
+    ///matrix4x3 cachedTransformInverse;
+    ///matrix4x3 cachedTransform;
+    vector<STriangleCollider> triangles;
 
+public:
+    STriangleMeshCollider()
+        : BBox(core::aabbox3df()) {}
 
-        inline const SAABoxCollider& getBoundingBox() const {return BBox;}
+    inline const SAABoxCollider& getBoundingBox() const { return BBox; }
 
-        inline size_t getTriangleCount() const {return triangles.size();}
+    inline size_t getTriangleCount() const { return triangles.size(); }
 
-        inline bool Init(float* vertices, const size_t &indexCount, uint32_t* indices=NULL)
+    inline bool Init(float* vertices, const size_t& indexCount, uint32_t* indices = NULL)
+    {
+        bool firstPoint = true;
+        if(indices)
         {
-            bool firstPoint = true;
-            if (indices)
+            for(size_t i = 0; i < indexCount; i += 3)
             {
-                for (size_t i=0; i<indexCount; i+=3)
-                {
-                    vectorSIMDf A(vertices[indices[i+0]*3+0],vertices[indices[i+0]*3+1],vertices[indices[i+0]*3+2]);
-                    vectorSIMDf B(vertices[indices[i+1]*3+0],vertices[indices[i+1]*3+1],vertices[indices[i+1]*3+2]);
-                    vectorSIMDf C(vertices[indices[i+2]*3+0],vertices[indices[i+2]*3+1],vertices[indices[i+2]*3+2]);
+                vectorSIMDf A(vertices[indices[i + 0] * 3 + 0], vertices[indices[i + 0] * 3 + 1], vertices[indices[i + 0] * 3 + 2]);
+                vectorSIMDf B(vertices[indices[i + 1] * 3 + 0], vertices[indices[i + 1] * 3 + 1], vertices[indices[i + 1] * 3 + 2]);
+                vectorSIMDf C(vertices[indices[i + 2] * 3 + 0], vertices[indices[i + 2] * 3 + 1], vertices[indices[i + 2] * 3 + 2]);
 
-                    bool useful = false;
-                    STriangleCollider triangle(A,B,C,useful);
-                    if (useful)
+                bool useful = false;
+                STriangleCollider triangle(A, B, C, useful);
+                if(useful)
+                {
+                    if(firstPoint)
                     {
-                        if (firstPoint)
-                        {
-                            BBox.Box.reset(A.getAsVector3df());
-                            firstPoint = false;
-                        }
-                        else
-                            BBox.Box.addInternalPoint(A.getAsVector3df());
-                        BBox.Box.addInternalPoint(B.getAsVector3df());
-                        BBox.Box.addInternalPoint(C.getAsVector3df());
-                        triangles.push_back(triangle);
+                        BBox.Box.reset(A.getAsVector3df());
+                        firstPoint = false;
                     }
+                    else
+                        BBox.Box.addInternalPoint(A.getAsVector3df());
+                    BBox.Box.addInternalPoint(B.getAsVector3df());
+                    BBox.Box.addInternalPoint(C.getAsVector3df());
+                    triangles.push_back(triangle);
                 }
             }
-            else
+        }
+        else
+        {
+            for(size_t i = 0; i < indexCount; i += 3)
             {
-                for (size_t i=0; i<indexCount; i+=3)
-                {
-                    vectorSIMDf A(vertices[(i+0)*3+0],vertices[(i+0)*3+1],vertices[(i+0)*3+2]);
-                    vectorSIMDf B(vertices[(i+1)*3+0],vertices[(i+1)*3+1],vertices[(i+1)*3+2]);
-                    vectorSIMDf C(vertices[(i+2)*3+0],vertices[(i+2)*3+1],vertices[(i+2)*3+2]);
+                vectorSIMDf A(vertices[(i + 0) * 3 + 0], vertices[(i + 0) * 3 + 1], vertices[(i + 0) * 3 + 2]);
+                vectorSIMDf B(vertices[(i + 1) * 3 + 0], vertices[(i + 1) * 3 + 1], vertices[(i + 1) * 3 + 2]);
+                vectorSIMDf C(vertices[(i + 2) * 3 + 0], vertices[(i + 2) * 3 + 1], vertices[(i + 2) * 3 + 2]);
 
-                    bool useful;
-                    STriangleCollider triangle(A,B,C,useful);
-                    if (useful)
+                bool useful;
+                STriangleCollider triangle(A, B, C, useful);
+                if(useful)
+                {
+                    if(firstPoint)
                     {
-                        if (firstPoint)
-                        {
-                            BBox.Box.reset(A.getAsVector3df());
-                            firstPoint = false;
-                        }
-                        else
-                            BBox.Box.addInternalPoint(A.getAsVector3df());
-                        BBox.Box.addInternalPoint(B.getAsVector3df());
-                        BBox.Box.addInternalPoint(C.getAsVector3df());
-                        triangles.push_back(triangle);
+                        BBox.Box.reset(A.getAsVector3df());
+                        firstPoint = false;
                     }
+                    else
+                        BBox.Box.addInternalPoint(A.getAsVector3df());
+                    BBox.Box.addInternalPoint(B.getAsVector3df());
+                    BBox.Box.addInternalPoint(C.getAsVector3df());
+                    triangles.push_back(triangle);
                 }
             }
-
-            return triangles.size();
         }
 
-        inline bool CollideWithRay(float& collisionDistance, const vectorSIMDf& origin, const vectorSIMDf& direction, const float& dirMaxMultiplier) const
-        {
-            return CollideWithRay(collisionDistance,origin,direction,dirMaxMultiplier,reciprocal_approxim(direction));
-        }
+        return triangles.size();
+    }
 
-        inline bool CollideWithRay(float& collisionDistance, const vectorSIMDf& origin, const vectorSIMDf& direction, const float& dirMaxMultiplier, const vectorSIMDf& direction_reciprocal) const
-        {
-            float dummyDist;
-            if (!BBox.CollideWithRay(dummyDist,origin,direction,dirMaxMultiplier,direction_reciprocal))
-                return false;
+    inline bool CollideWithRay(float& collisionDistance, const vectorSIMDf& origin, const vectorSIMDf& direction, const float& dirMaxMultiplier) const
+    {
+        return CollideWithRay(collisionDistance, origin, direction, dirMaxMultiplier, reciprocal_approxim(direction));
+    }
 
-            for (size_t i=0; i<triangles.size(); i++)
-            {
-                if (triangles[i].CollideWithRay(collisionDistance,origin,direction,dirMaxMultiplier))
-                    return true;
-            }
-
+    inline bool CollideWithRay(float& collisionDistance, const vectorSIMDf& origin, const vectorSIMDf& direction, const float& dirMaxMultiplier, const vectorSIMDf& direction_reciprocal) const
+    {
+        float dummyDist;
+        if(!BBox.CollideWithRay(dummyDist, origin, direction, dirMaxMultiplier, direction_reciprocal))
             return false;
+
+        for(size_t i = 0; i < triangles.size(); i++)
+        {
+            if(triangles[i].CollideWithRay(collisionDistance, origin, direction, dirMaxMultiplier))
+                return true;
         }
-/**
+
+        return false;
+    }
+    /**
         inline bool UpdateTransformation(const matrix4x3& newTransform)
         {
             if (newTransform==cachedTransform)
@@ -236,9 +235,7 @@ class STriangleMeshCollider : public IReferenceCounted
         }**/
 };
 
-
 }
 }
 
 #endif
-

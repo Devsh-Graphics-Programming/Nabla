@@ -9,95 +9,84 @@ namespace nbl
 {
 namespace io
 {
-
-
 CReadFile::CReadFile(const io::path& fileName)
-: File(0), FileSize(0), Filename(fileName)
+    : File(0), FileSize(0), Filename(fileName)
 {
-	#ifdef _NBL_DEBUG
-	setDebugName("CReadFile");
-	#endif
+#ifdef _NBL_DEBUG
+    setDebugName("CReadFile");
+#endif
 
-	openFile();
+    openFile();
 }
-
 
 CReadFile::~CReadFile()
 {
-	if (File)
-		fclose(File);
+    if(File)
+        fclose(File);
 }
-
 
 //! returns how much was read
 int32_t CReadFile::read(void* buffer, uint32_t sizeToRead)
 {
-	if (!isOpen())
-		return 0;
+    if(!isOpen())
+        return 0;
 
-	return (int32_t)fread(buffer, 1, sizeToRead, File);
+    return (int32_t)fread(buffer, 1, sizeToRead, File);
 }
-
 
 //! changes position in file, returns true if successful
 //! if relativeMovement==true, the pos is changed relative to current pos,
 //! otherwise from begin of file
 bool CReadFile::seek(const size_t& finalPos, bool relativeMovement)
 {
-	if (!isOpen())
-		return false;
+    if(!isOpen())
+        return false;
 
-	return fseek(File, finalPos, relativeMovement ? SEEK_CUR : SEEK_SET) == 0;
+    return fseek(File, finalPos, relativeMovement ? SEEK_CUR : SEEK_SET) == 0;
 }
-
 
 //! returns size of file
 size_t CReadFile::getSize() const
 {
-	return FileSize;
+    return FileSize;
 }
-
 
 //! returns where in the file we are.
 size_t CReadFile::getPos() const
 {
-	return ftell(File);
+    return ftell(File);
 }
-
 
 //! opens the file
 void CReadFile::openFile()
 {
-	if (Filename.size() == 0) // bugfix posted by rt
-	{
-		File = 0;
-		return;
-	}
+    if(Filename.size() == 0)  // bugfix posted by rt
+    {
+        File = 0;
+        return;
+    }
 
-#if defined ( _NBL_WCHAR_FILESYSTEM )
-	File = _wfopen(Filename.c_str(), L"rb");
+#if defined(_NBL_WCHAR_FILESYSTEM)
+    File = _wfopen(Filename.c_str(), L"rb");
 #else
-	File = fopen(Filename.c_str(), "rb");
+    File = fopen(Filename.c_str(), "rb");
 #endif
 
-	if (File)
-	{
-		// get FileSize
+    if(File)
+    {
+        // get FileSize
 
-		fseek(File, 0, SEEK_END);
-		FileSize = getPos();
-		fseek(File, 0, SEEK_SET);
-	}
+        fseek(File, 0, SEEK_END);
+        FileSize = getPos();
+        fseek(File, 0, SEEK_SET);
+    }
 }
-
 
 //! returns name of file
 const io::path& CReadFile::getFileName() const
 {
-	return Filename;
+    return Filename;
 }
 
-
-} // end namespace io
-} // end namespace nbl
-
+}  // end namespace io
+}  // end namespace nbl

@@ -40,82 +40,75 @@ SOFTWARE.
 
 namespace nbl
 {
-
 class IrrlichtDevice;
 
 namespace ext
 {
 namespace cegui
 {
-
-
 class GUIManager;
 GUIManager* createGUIManager(IrrlichtDevice* device);
 
 using TEventHandler = std::function<void(const ::CEGUI::EventArgs&)>;
 using TOnColorPicked = std::function<void(const ::CEGUI::Colour&)>;
 
-class GUIManager: public core::IReferenceCounted, public IEventReceiver
+class GUIManager : public core::IReferenceCounted, public IEventReceiver
 {
-    public:
-        // White (1.0f, 1.0f, 1.0f) color, but it's a CEGUI::String property
-        // (which is the editable property seen in CEED). Needed for setProperty().
-        const ::CEGUI::String WhiteProperty = ::CEGUI::PropertyHelper<::CEGUI::ColourRect>::toString(
-            ::CEGUI::ColourRect(::CEGUI::Colour(1.0f, 1.0f, 1.0f, 1.0f)));
+public:
+    // White (1.0f, 1.0f, 1.0f) color, but it's a CEGUI::String property
+    // (which is the editable property seen in CEED). Needed for setProperty().
+    const ::CEGUI::String WhiteProperty = ::CEGUI::PropertyHelper<::CEGUI::ColourRect>::toString(
+        ::CEGUI::ColourRect(::CEGUI::Colour(1.0f, 1.0f, 1.0f, 1.0f)));
 
-    public:
-        GUIManager(IrrlichtDevice* device);
-        ~GUIManager();
+public:
+    GUIManager(IrrlichtDevice* device);
+    ~GUIManager();
 
-        void init();
-		void destroy();
-        void render();
-        bool OnEvent(const SEvent& event) override;
+    void init();
+    void destroy();
+    void render();
+    bool OnEvent(const SEvent& event) override;
 
-        void createRootWindowFromLayout(const std::string& layout);
-        auto getRootWindow() const { return RootWindow; }
-        auto& getRenderer() const { return Renderer; }
+    void createRootWindowFromLayout(const std::string& layout);
+    auto getRootWindow() const { return RootWindow; }
+    auto& getRenderer() const { return Renderer; }
 
-        std::pair<bool, std::string>  openFileDialog(
-            const char* title,
-            const std::vector<std::string>& filters
-        );
+    std::pair<bool, std::string> openFileDialog(
+        const char* title,
+        const std::vector<std::string>& filters);
 
-        ::CEGUI::ColourPicker* createColourPicker(
-            bool alternativeLayout,
-            const char* parent,
-            const char* title,
-            const char* name,
-            const TOnColorPicked& onColorPicked = [](const ::CEGUI::Colour&) {}
-        );
+    ::CEGUI::ColourPicker* createColourPicker(
+        bool alternativeLayout,
+        const char* parent,
+        const char* title,
+        const char* name,
+        const TOnColorPicked& onColorPicked = [](const ::CEGUI::Colour&) {});
 
-        ::CEGUI::Window* createDropDownList(
-            const char* name,
-            const char* title,
-            const std::vector<const char*>& list,
-            const TEventHandler& eventSelectionAccepted = [](const ::CEGUI::EventArgs&) {}
-        );
+    ::CEGUI::Window* createDropDownList(
+        const char* name,
+        const char* title,
+        const std::vector<const char*>& list,
+        const TEventHandler& eventSelectionAccepted = [](const ::CEGUI::EventArgs&) {});
 
-        void registerSliderEvent(
-            const char* name,
-            float max,
-            float step,
-            const TEventHandler& func
-        );
+    void registerSliderEvent(
+        const char* name,
+        float max,
+        float step,
+        const TEventHandler& func);
 
-        void setOpacity(const char* name, float opacity);
+    void setOpacity(const char* name, float opacity);
 
-    private:
-        IrrlichtDevice* Device = nullptr;
-        video::IVideoDriver* Driver = nullptr;
-		CEGUIOpenGLState GLStateManager;
-        ::CEGUI::OpenGL3Renderer& Renderer;
-        ::CEGUI::Window* RootWindow;
-        std::map<const char*, ::CEGUI::ColourPicker*> ColourPickers;
+private:
+    IrrlichtDevice* Device = nullptr;
+    video::IVideoDriver* Driver = nullptr;
+    CEGUIOpenGLState GLStateManager;
+    ::CEGUI::OpenGL3Renderer& Renderer;
+    ::CEGUI::Window* RootWindow;
+    std::map<const char*, ::CEGUI::ColourPicker*> ColourPickers;
 };
 
-} // namespace cegui
-} // namespace ext
-} // namespace nbl
+}  // namespace cegui
+}  // namespace ext
+}  // namespace nbl
 
 #endif

@@ -12,7 +12,6 @@ namespace nbl
 {
 namespace asset
 {
-
 //! Writing flags
 /**
 	They have an impact on writing (saving) an Asset.
@@ -29,13 +28,13 @@ namespace asset
 */
 enum E_WRITER_FLAGS : uint32_t
 {
-    EWF_NONE = 0u,						//!< No writer flags (default writer settings)
-    EWF_COMPRESSED = 1u<<0u,			//!< Write in a way that consumes less disk space if possible
-    EWF_ENCRYPTED = 1u<<1u,				//!< Write encrypted if possible
+    EWF_NONE = 0u,  //!< No writer flags (default writer settings)
+    EWF_COMPRESSED = 1u << 0u,  //!< Write in a way that consumes less disk space if possible
+    EWF_ENCRYPTED = 1u << 1u,  //!< Write encrypted if possible
     //! write in binary format rather than text if possible
     EWF_BINARY = 1u << 2u,
 
-    //!< specifies the incoming orientation of loaded mesh we want to write. Flipping will be performed if needed in dependency of format extension orientation	
+    //!< specifies the incoming orientation of loaded mesh we want to write. Flipping will be performed if needed in dependency of format extension orientation
     EWF_MESH_IS_RIGHT_HANDED = 1u << 3u
 };
 
@@ -69,8 +68,8 @@ enum E_WRITER_FLAGS : uint32_t
 class IAssetWriter : public virtual core::IReferenceCounted
 {
 public:
-	//! Struct storing important data used for Asset writing process
-	/**
+    //! Struct storing important data used for Asset writing process
+    /**
 		Struct stores an Asset on which entire writing process is based. It also stores decryptionKey for file encryption. 
 		You can find an usage example in CBAWMeshFileLoader .cpp file. Since decryptionKey is a pointer, size must be specified 
 		for iterating through key properly and encryptionKeyLen stores it.
@@ -84,23 +83,23 @@ public:
 	*/
     struct SAssetWriteParams
     {
-        SAssetWriteParams(IAsset* _asset, const E_WRITER_FLAGS& _flags = EWF_NONE, const float& _compressionLevel = 0.f, const size_t& _encryptionKeyLen = 0, const uint8_t* _encryptionKey = nullptr, const void* _userData = nullptr) :
-            rootAsset(_asset), flags(_flags), compressionLevel(_compressionLevel),
-            encryptionKeyLen(_encryptionKeyLen), encryptionKey(_encryptionKey),
-            userData(_userData)
+        SAssetWriteParams(IAsset* _asset, const E_WRITER_FLAGS& _flags = EWF_NONE, const float& _compressionLevel = 0.f, const size_t& _encryptionKeyLen = 0, const uint8_t* _encryptionKey = nullptr, const void* _userData = nullptr)
+            : rootAsset(_asset), flags(_flags), compressionLevel(_compressionLevel),
+              encryptionKeyLen(_encryptionKeyLen), encryptionKey(_encryptionKey),
+              userData(_userData)
         {
         }
 
-        const IAsset* rootAsset;			//!< An Asset on which entire writing process is based.
-        E_WRITER_FLAGS flags;				//!< Flags set by user that defines rules during writing process.
-        float compressionLevel;				//!< The more compression level, the more expensive (slower) compression algorithm is launched. @see IAsset::conservativeSizeEstimate().
-        size_t encryptionKeyLen;			//!< Stores a size of data in encryptionKey pointer for correct iteration.
-        const uint8_t* encryptionKey;		//!< Stores an encryption key used for encryption process.
-        const void* userData;				//!< Stores writer-dependets parameters. It is usually a struct provided by a writer author.
+        const IAsset* rootAsset;  //!< An Asset on which entire writing process is based.
+        E_WRITER_FLAGS flags;  //!< Flags set by user that defines rules during writing process.
+        float compressionLevel;  //!< The more compression level, the more expensive (slower) compression algorithm is launched. @see IAsset::conservativeSizeEstimate().
+        size_t encryptionKeyLen;  //!< Stores a size of data in encryptionKey pointer for correct iteration.
+        const uint8_t* encryptionKey;  //!< Stores an encryption key used for encryption process.
+        const void* userData;  //!< Stores writer-dependets parameters. It is usually a struct provided by a writer author.
     };
 
     //! Struct for keeping the state of the current write operation for safe threading
-	/**
+    /**
 		Important data used for Asset writing process is stored by params.
 		Also a path to Asset data file to write is specified, stored by outputFile.
 		You can store path to file as an absolute path or a relative path, flexibility is provided.
@@ -115,7 +114,6 @@ public:
     };
 
 public:
-
     //! Returns an array of string literals terminated by nullptr
     virtual const char** getAssociatedFileExtensions() const = 0;
 
@@ -133,7 +131,7 @@ public:
     virtual uint32_t getForcedFlags() = 0;
 
     //! Override class to facilitate changing how assets are written, especially the sub-assets
-	/*
+    /*
 		Each writer may override those functions to get more control on some process, but default implementations are provided.
 		It handles getter-functions (eg. getting writing flags, compression level, encryption key or extra file paths). It
 		also has a function for handling writing errors.
@@ -163,7 +161,7 @@ public:
         }
 
         //! If the writer has to output multiple files (e.g. write out textures)
-        inline virtual void getExtraFilePaths(std::string& inOutAbsoluteFileWritePath, std::string& inOutPathToRecord, const SAssetWriteContext& ctx, std::pair<const IAsset*, uint32_t> assetsToWriteAndTheirLevel) {} // do absolutely nothing, no changes to paths
+        inline virtual void getExtraFilePaths(std::string& inOutAbsoluteFileWritePath, std::string& inOutPathToRecord, const SAssetWriteContext& ctx, std::pair<const IAsset*, uint32_t> assetsToWriteAndTheirLevel) {}  // do absolutely nothing, no changes to paths
 
         inline virtual io::IWriteFile* getOutputFile(io::IWriteFile* origIntendedOutput, const SAssetWriteContext& ctx, std::pair<const IAsset*, uint32_t> assetsToWriteAndTheirLeve)
         {
@@ -171,10 +169,10 @@ public:
             return origIntendedOutput;
         }
 
-        //!This function is supposed to give an already seeked file the IAssetWriter can write to 
+        //!This function is supposed to give an already seeked file the IAssetWriter can write to
         inline virtual io::IWriteFile* handleWriteError(io::IWriteFile* failingFile, const uint32_t& failedPos, const SAssetWriteContext& ctx, const IAsset* assetToWrite, const uint32_t& hierarchyLevel)
         {
-            return nullptr; // no handling of fail
+            return nullptr;  // no handling of fail
         }
     };
 
@@ -188,6 +186,7 @@ protected:
     static void getDefaultOverride(IAssetWriterOverride*& _out) { _out = &s_defaultOverride; }
 };
 
-}} //nbl::asset
+}
+}  //nbl::asset
 
 #endif

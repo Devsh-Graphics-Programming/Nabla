@@ -13,7 +13,6 @@ namespace nbl
 {
 namespace video
 {
-
 class COpenGLPipelineLayout : public IGPUPipelineLayout
 {
 public:
@@ -34,13 +33,13 @@ public:
     COpenGLPipelineLayout(
         const asset::SPushConstantRange* const _pcRangesBegin, const asset::SPushConstantRange* const _pcRangesEnd,
         core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout0, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout1,
-        core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout2, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout3
-    ) : IGPUPipelineLayout(_pcRangesBegin, _pcRangesEnd, std::move(_layout0), std::move(_layout1), std::move(_layout2), std::move(_layout3))
+        core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout2, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout3)
+        : IGPUPipelineLayout(_pcRangesBegin, _pcRangesEnd, std::move(_layout0), std::move(_layout1), std::move(_layout2), std::move(_layout3))
     {
         SMultibindParams params;
 
-        for (size_t i = 0u; i<m_descSetLayouts.size(); ++i)
-		{
+        for(size_t i = 0u; i < m_descSetLayouts.size(); ++i)
+        {
             IGPUDescriptorSetLayout* descSetLayout = m_descSetLayouts[i].get();
 
             auto reset = [](SMultibindParams::SFirstCount& _fc) {
@@ -49,14 +48,15 @@ public:
             };
 
             auto bindings = descSetLayout ? descSetLayout->getBindings() : core::SRange<const IGPUDescriptorSetLayout::SBinding>(nullptr, nullptr);
-            for (const auto& bnd : bindings) {
-                if (bnd.type == asset::EDT_UNIFORM_BUFFER || bnd.type == asset::EDT_UNIFORM_BUFFER_DYNAMIC)
+            for(const auto& bnd : bindings)
+            {
+                if(bnd.type == asset::EDT_UNIFORM_BUFFER || bnd.type == asset::EDT_UNIFORM_BUFFER_DYNAMIC)
                     params.ubos.count += bnd.count;
-                else if (bnd.type == asset::EDT_STORAGE_BUFFER || bnd.type == asset::EDT_STORAGE_BUFFER_DYNAMIC)
+                else if(bnd.type == asset::EDT_STORAGE_BUFFER || bnd.type == asset::EDT_STORAGE_BUFFER_DYNAMIC)
                     params.ssbos.count += bnd.count;
-                else if (bnd.type == asset::EDT_COMBINED_IMAGE_SAMPLER || bnd.type == asset::EDT_UNIFORM_TEXEL_BUFFER)
+                else if(bnd.type == asset::EDT_COMBINED_IMAGE_SAMPLER || bnd.type == asset::EDT_UNIFORM_TEXEL_BUFFER)
                     params.textures.count += bnd.count;
-                else if (bnd.type == asset::EDT_STORAGE_IMAGE || bnd.type == asset::EDT_STORAGE_TEXEL_BUFFER)
+                else if(bnd.type == asset::EDT_STORAGE_IMAGE || bnd.type == asset::EDT_STORAGE_TEXEL_BUFFER)
                     params.textureImages.count += bnd.count;
             }
             m_multibindParams[i] = params;

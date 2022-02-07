@@ -14,57 +14,55 @@ namespace nbl
 {
 namespace io
 {
-
 static const io::path emptyFileListEntry;
 
-CFileList::CFileList(const io::path& path) : Path(path)
+CFileList::CFileList(const io::path& path)
+    : Path(path)
 {
-	#ifdef _NBL_DEBUG
-	setDebugName("CFileList");
-	#endif
+#ifdef _NBL_DEBUG
+    setDebugName("CFileList");
+#endif
 
-	handleBackslashes(&Path);
+    handleBackslashes(&Path);
 }
 
 CFileList::~CFileList()
 {
-	Files.clear();
+    Files.clear();
 }
 
 //! adds a file or folder
 void CFileList::addItem(const io::path& fullPath, uint32_t offset, uint32_t size, bool isDirectory, uint32_t id)
 {
-	SFileListEntry entry;
-	entry.ID   = id ? id : Files.size();
-	entry.Offset = offset;
-	entry.Size = size;
-	entry.Name = fullPath;
-	handleBackslashes(&entry.Name);
-	entry.IsDirectory = isDirectory;
+    SFileListEntry entry;
+    entry.ID = id ? id : Files.size();
+    entry.Offset = offset;
+    entry.Size = size;
+    entry.Name = fullPath;
+    handleBackslashes(&entry.Name);
+    entry.IsDirectory = isDirectory;
 
-	// remove trailing slash
-	if (entry.Name.lastChar() == '/')
-	{
-		entry.IsDirectory = true;
-		entry.Name[entry.Name.size()-1] = 0;
-		entry.Name.validate();
-	}
+    // remove trailing slash
+    if(entry.Name.lastChar() == '/')
+    {
+        entry.IsDirectory = true;
+        entry.Name[entry.Name.size() - 1] = 0;
+        entry.Name.validate();
+    }
 
-	entry.FullName = entry.Name;
+    entry.FullName = entry.Name;
 
-	core::deletePathFromFilename(entry.Name);
+    core::deletePathFromFilename(entry.Name);
 
-	//os::Printer::log(Path.c_str(), entry.FullName);
+    //os::Printer::log(Path.c_str(), entry.FullName);
 
-	Files.insert(std::lower_bound(Files.begin(),Files.end(),entry),entry);
+    Files.insert(std::lower_bound(Files.begin(), Files.end(), entry), entry);
 }
-
-
 
 //! Searches for a file or folder within the list, returns the index
 IFileList::ListCIterator CFileList::findFile(IFileList::ListCIterator _begin, IFileList::ListCIterator _end, const io::path& filename, bool isDirectory) const
 {
-    SFileListEntry entry; 
+    SFileListEntry entry;
     // we only need FullName to be set for the search
     entry.FullName = filename;
     entry.IsDirectory = isDirectory;
@@ -73,21 +71,19 @@ IFileList::ListCIterator CFileList::findFile(IFileList::ListCIterator _begin, IF
     handleBackslashes(&entry.FullName);
 
     // remove trailing slash
-    if (entry.FullName.lastChar() == '/')
+    if(entry.FullName.lastChar() == '/')
     {
         entry.IsDirectory = true;
-        entry.FullName[entry.FullName.size()-1] = 0;
+        entry.FullName[entry.FullName.size() - 1] = 0;
         entry.FullName.validate();
     }
-	entry.Name = entry.FullName;
+    entry.Name = entry.FullName;
 
-    auto retval = std::lower_bound(_begin,_end,entry);
-    if (retval!=_end && entry<*retval)
+    auto retval = std::lower_bound(_begin, _end, entry);
+    if(retval != _end && entry < *retval)
         return _end;
     return retval;
 }
 
-
-} // end namespace nbl
-} // end namespace io
-
+}  // end namespace nbl
+}  // end namespace io

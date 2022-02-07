@@ -10,7 +10,8 @@
 
 #include <type_traits>
 
-namespace nbl {
+namespace nbl
+{
 namespace video
 {
 //TODO move and possibly rename
@@ -47,8 +48,8 @@ struct VkExtent2D
 };
 struct VkRect2D
 {
-    VkOffset2D    offset;
-    VkExtent2D    extent;
+    VkOffset2D offset;
+    VkExtent2D extent;
 };
 enum E_STENCIL_FACE_FLAGS : uint32_t
 {
@@ -137,9 +138,9 @@ public:
         EL_SECONDARY
     };
 
-    IGPUCommandBuffer(uint32_t _familyIx) : m_familyIndex(_familyIx)
+    IGPUCommandBuffer(uint32_t _familyIx)
+        : m_familyIndex(_familyIx)
     {
-
     }
 
     virtual E_LEVEL getLevel() const = 0;
@@ -149,13 +150,13 @@ public:
     //! `_flags` takes bits from E_RESET_FLAGS
     virtual void reset(uint32_t _flags)
     {
-        assert(m_state!=ES_PENDING);
+        assert(m_state != ES_PENDING);
         m_state = ES_INITIAL;
     }
 
     virtual void end()
     {
-        assert(m_state!=ES_PENDING);
+        assert(m_state != ES_PENDING);
         m_state = ES_EXECUTABLE;
     }
 
@@ -225,8 +226,7 @@ public:
     //virtual void writeTimestamp(std::underlying_type_t<E_PIPELINE_STAGE_FLAGS> pipelineStage, IGPUQueryPool* queryPool, uint32_t query) = 0;
 
     virtual void bindDescriptorSets(E_PIPELINE_BIND_POINT pipelineBindPoint, IGPUPipelineLayout* layout, uint32_t firstSet, uint32_t descriptorSetCount,
-        IGPUDescriptorSet** pDescriptorSets, uint32_t dynamicOffsetCount, const uint32_t pDynamicOffsets
-    ) = 0;
+        IGPUDescriptorSet** pDescriptorSets, uint32_t dynamicOffsetCount, const uint32_t pDynamicOffsets) = 0;
     virtual void pushConstants(IGPUPipelineLayout* layout, std::underlying_type_t<IGPUSpecializedShader::E_SHADER_STAGE> stageFlags, uint32_t offset, uint32_t size, const void* pValues) = 0;
 
     //virtual void clearColorImage(IGPUImage* image, IGPUImage::E_LAYOUT imageLayout, const VkClearColorValue* pColor, uint32_t rangeCount, const VkImageSubresourceRange* pRanges) = 0;
@@ -239,8 +239,8 @@ protected:
     //! `_flags` takes bits from E_USAGE
     virtual void begin(uint32_t _flags)
     {
-        assert(m_state!=ES_PENDING);
-        assert(m_state!=ES_RECORDING);
+        assert(m_state != ES_PENDING);
+        assert(m_state != ES_RECORDING);
 
         m_state = ES_RECORDING;
         m_recordingFlags = _flags;
@@ -259,6 +259,7 @@ protected:
     uint32_t m_deviceMask = ~0u;
 };
 
-}}
+}
+}
 
 #endif

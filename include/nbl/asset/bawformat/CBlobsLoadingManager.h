@@ -16,34 +16,32 @@
 
 namespace nbl
 {
-
 namespace asset
 {
-    class ICPUSkinnedMesh;
-    class ICPUSkinnedMeshBuffer;
-	class IAssetManager;
+class ICPUSkinnedMesh;
+class ICPUSkinnedMeshBuffer;
+class IAssetManager;
 }
 namespace io
 {
-	class IFileSystem;
+class IFileSystem;
 }
 
 namespace asset
 {
+struct BlobLoadingParams
+{
+    IAssetLoader* const ldr;
+    IAssetManager* const manager;
+    io::IFileSystem* const fs;
+    const io::path filePath;
+    const asset::IAssetLoader::SAssetLoadParams params;
+    asset::IAssetLoader::IAssetLoaderOverride* const loaderOverride;
+    core::stack<core::smart_refctd_ptr<ICPUMesh>> meshesToFlip;
+};
 
-	struct BlobLoadingParams
-	{
-        IAssetLoader* const ldr;
-        IAssetManager* const manager;
-		io::IFileSystem* const fs;
-		const io::path filePath;
-        const asset::IAssetLoader::SAssetLoadParams params;
-        asset::IAssetLoader::IAssetLoaderOverride* const loaderOverride;
-		core::stack<core::smart_refctd_ptr<ICPUMesh>> meshesToFlip;
-	};
-
-	//! Class abstracting blobs version from process of loading them from *.baw file.
-	/**
+//! Class abstracting blobs version from process of loading them from *.baw file.
+/**
 	If you wish to extend .baw format by your own blob types, here's what you need to do:
 		- Add a corresponding to your blob value to Blob::E_BLOB_TYPE enum
 		- Make a class (or struct, a matter of keyword) representing your blob
@@ -56,17 +54,18 @@ namespace asset
 
 	Feature not ready yet. (only loading actually)
 	*/
-	class NBL_FORCE_EBO CBlobsLoadingManager
-	{
-	public:
-		core::unordered_set<uint64_t> getNeededDeps(uint32_t _blobType, const void* _blob);
-		void* instantiateEmpty(uint32_t _blobType, const void* _blob, size_t _blobSize, BlobLoadingParams& _params);
-		void* finalize(uint32_t _blobType, void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, BlobLoadingParams& _params);
-		void releaseObj(uint32_t _blobType, void* _obj);
+class NBL_FORCE_EBO CBlobsLoadingManager
+{
+public:
+    core::unordered_set<uint64_t> getNeededDeps(uint32_t _blobType, const void* _blob);
+    void* instantiateEmpty(uint32_t _blobType, const void* _blob, size_t _blobSize, BlobLoadingParams& _params);
+    void* finalize(uint32_t _blobType, void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, BlobLoadingParams& _params);
+    void releaseObj(uint32_t _blobType, void* _obj);
 
-		//static void printMemberPackingDebug();
-	};
+    //static void printMemberPackingDebug();
+};
 
-}} // nbl::asset
+}
+}  // nbl::asset
 
 #endif

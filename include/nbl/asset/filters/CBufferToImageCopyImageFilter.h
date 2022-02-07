@@ -11,10 +11,9 @@ namespace nbl
 {
 namespace asset
 {
-
 using CBufferToImageCopyImageFilter = CFlattenRegionsImageFilter;
 
-} // end namespace asset
-} // end namespace nbl
+}  // end namespace asset
+}  // end namespace nbl
 
 #endif

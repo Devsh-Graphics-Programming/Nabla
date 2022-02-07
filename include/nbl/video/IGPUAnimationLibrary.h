@@ -12,37 +12,32 @@ namespace nbl
 {
 namespace video
 {
-
 class IGPUAnimationLibrary final : public asset::IAnimationLibrary<IGPUBuffer>
 {
-        using base_t = asset::IAnimationLibrary<IGPUBuffer>;
+    using base_t = asset::IAnimationLibrary<IGPUBuffer>;
 
-    public:
-		template<class OtherBufferType>
-		inline IGPUAnimationLibrary(
-			asset::SBufferBinding<IGPUBuffer>&& _keyframeStorageBinding,
-			asset::SBufferBinding<IGPUBuffer>&& _timestampStorageBinding,
-			asset::SBufferRange<IGPUBuffer>&& _animationStorageRange,
-			const asset::IAnimationLibrary<OtherBufferType>* animationLibraryToCopyNamedRanges) :
-				base_t(
-					std::move(_keyframeStorageBinding),
-					std::move(_timestampStorageBinding),
-					animationLibraryToCopyNamedRanges->getAnimationCapacity(),
-					std::move(_animationStorageRange)
-				)
-		{
-			base_t::setAnimationNames<OtherBufferType>(animationLibraryToCopyNamedRanges);
-		}
+public:
+    template<class OtherBufferType>
+    inline IGPUAnimationLibrary(
+        asset::SBufferBinding<IGPUBuffer>&& _keyframeStorageBinding,
+        asset::SBufferBinding<IGPUBuffer>&& _timestampStorageBinding,
+        asset::SBufferRange<IGPUBuffer>&& _animationStorageRange,
+        const asset::IAnimationLibrary<OtherBufferType>* animationLibraryToCopyNamedRanges)
+        : base_t(
+              std::move(_keyframeStorageBinding),
+              std::move(_timestampStorageBinding),
+              animationLibraryToCopyNamedRanges->getAnimationCapacity(),
+              std::move(_animationStorageRange))
+    {
+        base_t::setAnimationNames<OtherBufferType>(animationLibraryToCopyNamedRanges);
+    }
 
-		template<typename... Args>
-		inline IGPUAnimationLibrary(Args&&... args) : base_t(std::forward<Args>(args)...) {}
+    template<typename... Args>
+    inline IGPUAnimationLibrary(Args&&... args)
+        : base_t(std::forward<Args>(args)...) {}
 };
 
-} // end namespace video
-} // end namespace nbl
-
-
+}  // end namespace video
+}  // end namespace nbl
 
 #endif
-
-

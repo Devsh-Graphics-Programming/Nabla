@@ -9,42 +9,44 @@
 #include "IFileSystem.h"
 
 //! Adds support of given blob type to BlobsLoadingManager. For use ONLY inside BlobsLoadingManager's member functions. _NBL_SUPPORTED_BLOBS is defined in IrrCompileConfig.h.
-#define _NBL_GENERAL_BLOB_FUNCTION_SWITCH_WRAPPER(Function, BlobType, ...)\
-switch(BlobType)\
-{\
-_NBL_SUPPORTED_BLOBS(Function, __VA_ARGS__)\
-}
+#define _NBL_GENERAL_BLOB_FUNCTION_SWITCH_WRAPPER(Function, BlobType, ...) \
+    switch(BlobType)                                                       \
+    {                                                                      \
+        _NBL_SUPPORTED_BLOBS(Function, __VA_ARGS__)                        \
+    }
 
-namespace nbl { namespace asset
+namespace nbl
 {
-core::unordered_set<uint64_t> CBlobsLoadingManager::getNeededDeps(uint32_t _blobType, const void * _blob)
+namespace asset
+{
+core::unordered_set<uint64_t> CBlobsLoadingManager::getNeededDeps(uint32_t _blobType, const void* _blob)
 {
 #ifdef OLD_SHADERS
-	_NBL_GENERAL_BLOB_FUNCTION_SWITCH_WRAPPER(getNeededDeps, _blobType, _blob)
+    _NBL_GENERAL_BLOB_FUNCTION_SWITCH_WRAPPER(getNeededDeps, _blobType, _blob)
 #endif
-	return core::unordered_set<uint64_t>();
+    return core::unordered_set<uint64_t>();
 }
 
 void* CBlobsLoadingManager::instantiateEmpty(uint32_t _blobType, const void* _blob, size_t _blobSize, BlobLoadingParams& _params)
 {
 #ifdef OLD_SHADERS
-	_NBL_GENERAL_BLOB_FUNCTION_SWITCH_WRAPPER(instantiateEmpty, _blobType, _blob, _blobSize, _params)
+    _NBL_GENERAL_BLOB_FUNCTION_SWITCH_WRAPPER(instantiateEmpty, _blobType, _blob, _blobSize, _params)
 #endif
-	return nullptr;
+    return nullptr;
 }
 
 void* CBlobsLoadingManager::finalize(uint32_t _blobType, void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, BlobLoadingParams& _params)
 {
 #ifdef OLD_SHADERS
-	_NBL_GENERAL_BLOB_FUNCTION_SWITCH_WRAPPER(finalize, _blobType, _obj, _blob, _blobSize, _deps, _params)
+    _NBL_GENERAL_BLOB_FUNCTION_SWITCH_WRAPPER(finalize, _blobType, _obj, _blob, _blobSize, _deps, _params)
 #endif
-	return nullptr;
+    return nullptr;
 }
 
-void CBlobsLoadingManager::releaseObj(uint32_t _blobType, void * _obj)
+void CBlobsLoadingManager::releaseObj(uint32_t _blobType, void* _obj)
 {
 #ifdef OLD_SHADERS
-	_NBL_GENERAL_BLOB_FUNCTION_SWITCH_WRAPPER(releaseObj, _blobType, _obj)
+    _NBL_GENERAL_BLOB_FUNCTION_SWITCH_WRAPPER(releaseObj, _blobType, _obj)
 #endif
 }
 
@@ -62,4 +64,5 @@ void CBlobsLoadingManager::printMemberPackingDebug()
 
 #undef _NBL_GENERAL_BLOB_FUNCTION_SWITCH_WRAPPER
 
-}} // nbl::asset
+}
+}  // nbl::asset

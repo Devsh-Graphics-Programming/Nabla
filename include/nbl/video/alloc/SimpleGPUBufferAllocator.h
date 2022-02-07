@@ -13,61 +13,60 @@ namespace nbl
 {
 namespace video
 {
+//! TODO: Use a GPU heap allocator instead of buffer directly -- after move to Vulkan only
+class SimpleGPUBufferAllocator : public GPUMemoryAllocatorBase
+{
+protected:
+    IDriverMemoryBacked::SDriverMemoryRequirements mBufferMemReqs;
 
-    //! TODO: Use a GPU heap allocator instead of buffer directly -- after move to Vulkan only
-    class SimpleGPUBufferAllocator : public GPUMemoryAllocatorBase
+    template<class AddressAllocator>
+    std::tuple<typename AddressAllocator::size_type, size_t, size_t> getOldOffset_CopyRange_OldSize(IGPUBuffer* oldBuff, size_t bytes, const AddressAllocator& allocToQueryOffsets)
     {
-        protected:
-            IDriverMemoryBacked::SDriverMemoryRequirements  mBufferMemReqs;
+        auto oldSize = oldBuff->getSize();
+        auto oldOffset = core::address_allocator_traits<AddressAllocator>::get_combined_offset(allocToQueryOffsets);
+        auto copyRangeLen = core::min<size_t>(oldSize - oldOffset, bytes);
+        return std::make_tuple(oldOffset, copyRangeLen, oldSize);
+    }
 
-            template<class AddressAllocator>
-            std::tuple<typename AddressAllocator::size_type,size_t,size_t> getOldOffset_CopyRange_OldSize(IGPUBuffer* oldBuff, size_t bytes, const AddressAllocator& allocToQueryOffsets)
-            {
-                auto oldSize = oldBuff->getSize();
-                auto oldOffset = core::address_allocator_traits<AddressAllocator>::get_combined_offset(allocToQueryOffsets);
-                auto copyRangeLen = core::min<size_t>(oldSize-oldOffset,bytes);
-                return std::make_tuple(oldOffset,copyRangeLen,oldSize);
-            }
-        public:
-            typedef IGPUBuffer* value_type;
+public:
+    typedef IGPUBuffer* value_type;
 
-            SimpleGPUBufferAllocator(IDriver* inDriver, const IDriverMemoryBacked::SDriverMemoryRequirements& bufferReqs) :
-                            GPUMemoryAllocatorBase(inDriver), mBufferMemReqs(bufferReqs)
-            {
-            }
+    SimpleGPUBufferAllocator(IDriver* inDriver, const IDriverMemoryBacked::SDriverMemoryRequirements& bufferReqs)
+        : GPUMemoryAllocatorBase(inDriver), mBufferMemReqs(bufferReqs)
+    {
+    }
 
-            value_type  allocate(size_t bytes, size_t alignment) noexcept;
+    value_type allocate(size_t bytes, size_t alignment) noexcept;
 
-            template<class AddressAllocator>
-            inline void             reallocate(value_type& allocation, size_t bytes, size_t alignment, const AddressAllocator& allocToQueryOffsets, bool copyBuffers=true) noexcept
-            {
-                auto tmp = allocate(bytes,alignment);
-                if (!tmp)
-                {
-                    deallocate(allocation);
-                    return;
-                }
+    template<class AddressAllocator>
+    inline void reallocate(value_type& allocation, size_t bytes, size_t alignment, const AddressAllocator& allocToQueryOffsets, bool copyBuffers = true) noexcept
+    {
+        auto tmp = allocate(bytes, alignment);
+        if(!tmp)
+        {
+            deallocate(allocation);
+            return;
+        }
 
-                //move contents
-                if (copyBuffers)
-                {
-                    auto oldOffset_copyRange = getOldOffset_CopyRange_OldSize(allocation,bytes,allocToQueryOffsets);
-                    copyBufferWrapper(allocation,tmp,oldOffset_copyRange.first,0u,oldOffset_copyRange.second);
-                }
+        //move contents
+        if(copyBuffers)
+        {
+            auto oldOffset_copyRange = getOldOffset_CopyRange_OldSize(allocation, bytes, allocToQueryOffsets);
+            copyBufferWrapper(allocation, tmp, oldOffset_copyRange.first, 0u, oldOffset_copyRange.second);
+        }
 
-                //swap the internals of buffers
-                allocation->pseudoMoveAssign(tmp);
-                tmp->drop();
-            }
+        //swap the internals of buffers
+        allocation->pseudoMoveAssign(tmp);
+        tmp->drop();
+    }
 
-            inline void             deallocate(value_type& allocation) noexcept
-            {
-                allocation->drop();
-                allocation = nullptr;
-            }
-    };
+    inline void deallocate(value_type& allocation) noexcept
+    {
+        allocation->drop();
+        allocation = nullptr;
+    }
+};
 }
 }
 
 #endif
-

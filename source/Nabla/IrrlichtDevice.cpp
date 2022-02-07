@@ -9,8 +9,8 @@
 
 namespace nbl
 {
-
-IrrlichtDevice::IrrlichtDevice() : m_assetMgr()
+IrrlichtDevice::IrrlichtDevice()
+    : m_assetMgr()
 {
 }
 
@@ -20,7 +20,7 @@ IrrlichtDevice::~IrrlichtDevice()
 
 asset::IAssetManager* IrrlichtDevice::getAssetManager()
 {
-    if (!m_assetMgr) // this init is messed up
+    if(!m_assetMgr)  // this init is messed up
         m_assetMgr = core::make_smart_refctd_ptr<asset::IAssetManager>(core::smart_refctd_ptr<io::IFileSystem>(getFileSystem()));
     return m_assetMgr.get();
 }

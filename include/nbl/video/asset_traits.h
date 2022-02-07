@@ -32,21 +32,20 @@
 #include "nbl/asset/ICPUAnimationLibrary.h"
 #include "nbl/video/IGPUAnimationLibrary.h"
 
-
 namespace nbl
 {
 namespace video
 {
-
 // TODO: don't we already have a class for this in asset::IBuffer?
 template<typename BuffT>
 class IOffsetBufferPair : public core::IReferenceCounted
 {
 protected:
-	virtual ~IOffsetBufferPair() {}
+    virtual ~IOffsetBufferPair() {}
 
 public:
-    IOffsetBufferPair(uint64_t _offset = 0ull, core::smart_refctd_ptr<BuffT>&& _buffer = nullptr) : m_offset{_offset}, m_buffer(_buffer) {}
+    IOffsetBufferPair(uint64_t _offset = 0ull, core::smart_refctd_ptr<BuffT>&& _buffer = nullptr)
+        : m_offset{_offset}, m_buffer(_buffer) {}
 
     inline void setOffset(uint64_t _offset) { m_offset = _offset; }
     inline void setBuffer(core::smart_refctd_ptr<BuffT>&& _buffer) { m_buffer = _buffer; }
@@ -64,38 +63,85 @@ template<typename AssetType>
 struct asset_traits;
 
 template<>
-struct asset_traits<asset::ICPUBuffer> { using GPUObjectType = IGPUOffsetBufferPair; };
+struct asset_traits<asset::ICPUBuffer>
+{
+    using GPUObjectType = IGPUOffsetBufferPair;
+};
 template<>
-struct asset_traits<asset::ICPUBufferView> { using GPUObjectType = video::IGPUBufferView; };
+struct asset_traits<asset::ICPUBufferView>
+{
+    using GPUObjectType = video::IGPUBufferView;
+};
 template<>
-struct asset_traits<asset::ICPUImage> { using GPUObjectType = video::IGPUImage; };
+struct asset_traits<asset::ICPUImage>
+{
+    using GPUObjectType = video::IGPUImage;
+};
 template<>
-struct asset_traits<asset::ICPUImageView> { using GPUObjectType = video::IGPUImageView; };
+struct asset_traits<asset::ICPUImageView>
+{
+    using GPUObjectType = video::IGPUImageView;
+};
 template<>
-struct asset_traits<asset::ICPUSampler> { using GPUObjectType = video::IGPUSampler; };
+struct asset_traits<asset::ICPUSampler>
+{
+    using GPUObjectType = video::IGPUSampler;
+};
 template<>
-struct asset_traits<asset::ICPUShader> { using GPUObjectType = video::IGPUShader; };
+struct asset_traits<asset::ICPUShader>
+{
+    using GPUObjectType = video::IGPUShader;
+};
 template<>
-struct asset_traits<asset::ICPUSpecializedShader> { using GPUObjectType = video::IGPUSpecializedShader; };
+struct asset_traits<asset::ICPUSpecializedShader>
+{
+    using GPUObjectType = video::IGPUSpecializedShader;
+};
 template<>
-struct asset_traits<asset::ICPUDescriptorSet> { using GPUObjectType = video::IGPUDescriptorSet; };
+struct asset_traits<asset::ICPUDescriptorSet>
+{
+    using GPUObjectType = video::IGPUDescriptorSet;
+};
 template<>
-struct asset_traits<asset::ICPUDescriptorSetLayout> { using GPUObjectType = video::IGPUDescriptorSetLayout; };
+struct asset_traits<asset::ICPUDescriptorSetLayout>
+{
+    using GPUObjectType = video::IGPUDescriptorSetLayout;
+};
 template<>
-struct asset_traits<asset::ICPUPipelineLayout> { using GPUObjectType = video::IGPUPipelineLayout; };
+struct asset_traits<asset::ICPUPipelineLayout>
+{
+    using GPUObjectType = video::IGPUPipelineLayout;
+};
 template<>
-struct asset_traits<asset::ICPURenderpassIndependentPipeline> { using GPUObjectType = video::IGPURenderpassIndependentPipeline; };
+struct asset_traits<asset::ICPURenderpassIndependentPipeline>
+{
+    using GPUObjectType = video::IGPURenderpassIndependentPipeline;
+};
 template<>
-struct asset_traits<asset::ICPUSkeleton> { using GPUObjectType = video::IGPUSkeleton; };
+struct asset_traits<asset::ICPUSkeleton>
+{
+    using GPUObjectType = video::IGPUSkeleton;
+};
 template<>
-struct asset_traits<asset::ICPUMeshBuffer> { using GPUObjectType = video::IGPUMeshBuffer; };
+struct asset_traits<asset::ICPUMeshBuffer>
+{
+    using GPUObjectType = video::IGPUMeshBuffer;
+};
 template<>
-struct asset_traits<asset::ICPUComputePipeline> { using GPUObjectType = video::IGPUComputePipeline; };
+struct asset_traits<asset::ICPUComputePipeline>
+{
+    using GPUObjectType = video::IGPUComputePipeline;
+};
 template<>
-struct asset_traits<asset::ICPUMesh> { using GPUObjectType = video::IGPUMesh; };
+struct asset_traits<asset::ICPUMesh>
+{
+    using GPUObjectType = video::IGPUMesh;
+};
 template<>
-struct asset_traits<asset::ICPUAnimationLibrary> { using GPUObjectType = video::IGPUAnimationLibrary; };
-
+struct asset_traits<asset::ICPUAnimationLibrary>
+{
+    using GPUObjectType = video::IGPUAnimationLibrary;
+};
 
 template<typename AssetType>
 using created_gpu_object_array = core::smart_refctd_dynamic_array<core::smart_refctd_ptr<typename video::asset_traits<AssetType>::GPUObjectType> >;

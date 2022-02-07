@@ -36,7 +36,6 @@
 // builtins/headers
 #include "nbl/asset/utils/CGLSLVirtualTexturingBuiltinIncludeLoader.h"
 
-	
 // mesh
 #include "nbl/asset/utils/CGeometryCreator.h"
 // loaders

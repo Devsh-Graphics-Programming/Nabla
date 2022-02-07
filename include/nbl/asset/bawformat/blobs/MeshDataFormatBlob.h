@@ -11,12 +11,11 @@ namespace nbl
 {
 namespace asset
 {
-
 //template<typename> class IMeshDataFormatDesc; // is this the type we should be using?
 
 namespace legacyv0
 {
-	struct MeshDataFormatDescBlobV0;
+struct MeshDataFormatDescBlobV0;
 }
 
 #ifdef OLD_SHADERS
@@ -24,7 +23,11 @@ namespace legacyv0
 struct NBL_FORCE_EBO MeshDataFormatDescBlobV1 : TypedBlob<MeshDataFormatDescBlobV1, IMeshDataFormatDesc<ICPUBuffer> >, FixedSizeBlob<MeshDataFormatDescBlobV1, IMeshDataFormatDesc<ICPUBuffer> >
 {
 private:
-    enum { VERTEX_ATTRIB_CNT = 16 };
+    enum
+    {
+        VERTEX_ATTRIB_CNT = 16
+    };
+
 public:
     //! Constructor filling all members
     explicit MeshDataFormatDescBlobV1(const IMeshDataFormatDesc<ICPUBuffer>*);
@@ -42,15 +45,17 @@ public:
 #include "nbl/nblunpack.h"
 static_assert(
     sizeof(MeshDataFormatDescBlobV1) ==
-    sizeof(MeshDataFormatDescBlobV1::attrFormat) + sizeof(MeshDataFormatDescBlobV1::attrStride) + sizeof(MeshDataFormatDescBlobV1::attrOffset) + sizeof(MeshDataFormatDescBlobV1::attrDivisor) + sizeof(MeshDataFormatDescBlobV1::padding) + sizeof(MeshDataFormatDescBlobV1::attrBufPtrs) + sizeof(MeshDataFormatDescBlobV1::idxBufPtr),
-    "MeshDataFormatDescBlobV1: Size of blob is not sum of its contents!"
-);
+        sizeof(MeshDataFormatDescBlobV1::attrFormat) + sizeof(MeshDataFormatDescBlobV1::attrStride) + sizeof(MeshDataFormatDescBlobV1::attrOffset) + sizeof(MeshDataFormatDescBlobV1::attrDivisor) + sizeof(MeshDataFormatDescBlobV1::padding) + sizeof(MeshDataFormatDescBlobV1::attrBufPtrs) + sizeof(MeshDataFormatDescBlobV1::idxBufPtr),
+    "MeshDataFormatDescBlobV1: Size of blob is not sum of its contents!");
 
 using MeshDataFormatDescBlobV2 = MeshDataFormatDescBlobV1;
 using MeshDataFormatDescBlobV3 = MeshDataFormatDescBlobV2;
 
 template<>
-struct CorrespondingBlobTypeFor<IMeshDataFormatDesc<ICPUBuffer> > { typedef MeshDataFormatDescBlobV3 type; };
+struct CorrespondingBlobTypeFor<IMeshDataFormatDesc<ICPUBuffer> >
+{
+    typedef MeshDataFormatDescBlobV3 type;
+};
 
 template<>
 inline size_t SizedBlob<FixedSizeBlob, MeshDataFormatDescBlobV3, IMeshDataFormatDesc<ICPUBuffer> >::calcBlobSizeForObj(const IMeshDataFormatDesc<ICPUBuffer>* _obj)
@@ -60,6 +65,6 @@ inline size_t SizedBlob<FixedSizeBlob, MeshDataFormatDescBlobV3, IMeshDataFormat
 #endif
 
 }
-} // nbl::asset
+}  // nbl::asset
 
 #endif

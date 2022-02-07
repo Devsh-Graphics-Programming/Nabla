@@ -18,7 +18,6 @@ namespace nbl
 {
 namespace asset
 {
-
 //! One of CPU class-object representing an Asset
 /**
 	One of Assets used for storage of large arrays, so that storage can be decoupled
@@ -28,97 +27,99 @@ namespace asset
 */
 class ICPUBuffer : public asset::IBuffer, public asset::IAsset
 {
-    protected:
-        virtual ~ICPUBuffer()
-        {
-            this->convertToDummyObject();
-        }
+protected:
+    virtual ~ICPUBuffer()
+    {
+        this->convertToDummyObject();
+    }
 
-        //! Non-allocating constructor for CCustormAllocatorCPUBuffer derivative
-        ICPUBuffer(size_t sizeInBytes, void* dat) : size(dat ? sizeInBytes : 0), data(dat)
-        {}
-    public:
-		//! Constructor.
-		/** @param sizeInBytes Size in bytes. If `dat` argument is present, it denotes size of data pointed by `dat`, otherwise - size of data to be allocated.
+    //! Non-allocating constructor for CCustormAllocatorCPUBuffer derivative
+    ICPUBuffer(size_t sizeInBytes, void* dat)
+        : size(dat ? sizeInBytes : 0), data(dat)
+    {}
+
+public:
+    //! Constructor.
+    /** @param sizeInBytes Size in bytes. If `dat` argument is present, it denotes size of data pointed by `dat`, otherwise - size of data to be allocated.
 		*/
-        ICPUBuffer(size_t sizeInBytes) : size(0)
-        {
-			data = _NBL_ALIGNED_MALLOC(sizeInBytes,_NBL_SIMD_ALIGNMENT);
-            if (!data)
-                return;
+    ICPUBuffer(size_t sizeInBytes)
+        : size(0)
+    {
+        data = _NBL_ALIGNED_MALLOC(sizeInBytes, _NBL_SIMD_ALIGNMENT);
+        if(!data)
+            return;
 
-            size = sizeInBytes;
-        }
+        size = sizeInBytes;
+    }
 
-        core::smart_refctd_ptr<IAsset> clone(uint32_t = ~0u) const override
-        {
-            auto cp = core::make_smart_refctd_ptr<ICPUBuffer>(size);
-            clone_common(cp.get());
-            memcpy(cp->getPointer(), data, size);
+    core::smart_refctd_ptr<IAsset> clone(uint32_t = ~0u) const override
+    {
+        auto cp = core::make_smart_refctd_ptr<ICPUBuffer>(size);
+        clone_common(cp.get());
+        memcpy(cp->getPointer(), data, size);
 
-            return cp;
-        }
+        return cp;
+    }
 
-        virtual void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
-        {
-            if (!canBeConvertedToDummy())
-                return;
-            convertToDummyObject_common(referenceLevelsBelowToConvert);
+    virtual void convertToDummyObject(uint32_t referenceLevelsBelowToConvert = 0u) override
+    {
+        if(!canBeConvertedToDummy())
+            return;
+        convertToDummyObject_common(referenceLevelsBelowToConvert);
 
-            if (data)
-                _NBL_ALIGNED_FREE(data);
-            data = nullptr;
-            size = 0ull;
-            isDummyObjectForCacheAliasing = true;
-        }
+        if(data)
+            _NBL_ALIGNED_FREE(data);
+        data = nullptr;
+        size = 0ull;
+        isDummyObjectForCacheAliasing = true;
+    }
 
-        _NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_BUFFER;
-        inline E_TYPE getAssetType() const override { return AssetType; }
+    _NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_BUFFER;
+    inline E_TYPE getAssetType() const override { return AssetType; }
 
-        virtual size_t conservativeSizeEstimate() const override { return getSize(); }
+    virtual size_t conservativeSizeEstimate() const override { return getSize(); }
 
-        //! Returns size in bytes.
-        virtual const uint64_t& getSize() const {return size;}
+    //! Returns size in bytes.
+    virtual const uint64_t& getSize() const { return size; }
 
-		//! Returns pointer to data.
-        /** WARNING: RESIZE will invalidate pointer.
+    //! Returns pointer to data.
+    /** WARNING: RESIZE will invalidate pointer.
 		*/
-        virtual const void* getPointer() const {return data;}
-		//! Returns pointer to data.
-		/** WARNING: RESIZE will invalidate pointer.
+    virtual const void* getPointer() const { return data; }
+    //! Returns pointer to data.
+    /** WARNING: RESIZE will invalidate pointer.
 		*/
-        virtual void* getPointer() 
-        { 
-            assert(!isImmutable_debug());
-            return data; 
-        }
+    virtual void* getPointer()
+    {
+        assert(!isImmutable_debug());
+        return data;
+    }
 
-        bool canBeRestoredFrom(const IAsset* _other) const override
-        {
-            auto* other = static_cast<const ICPUBuffer*>(_other);
-            if (size != other->size)
-                return false;
+    bool canBeRestoredFrom(const IAsset* _other) const override
+    {
+        auto* other = static_cast<const ICPUBuffer*>(_other);
+        if(size != other->size)
+            return false;
 
-            return true;
-        }
+        return true;
+    }
 
-    protected:
-        void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
-        {
-            auto* other = static_cast<ICPUBuffer*>(_other);
+protected:
+    void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
+    {
+        auto* other = static_cast<ICPUBuffer*>(_other);
 
-            if (willBeRestoredFrom(_other))
-                std::swap(data, other->data);
-        }
+        if(willBeRestoredFrom(_other))
+            std::swap(data, other->data);
+    }
 
-        uint64_t size;
-        void* data;
+    uint64_t size;
+    void* data;
 };
 
 template<
     typename Allocator = _NBL_DEFAULT_ALLOCATOR_METATYPE<uint8_t>,
-    bool = std::is_same<Allocator, core::null_allocator<typename Allocator::value_type> >::value
->
+    bool = std::is_same<Allocator, core::null_allocator<typename Allocator::value_type> >::value>
 class CCustomAllocatorCPUBuffer;
 
 //! Specialization of ICPUBuffer capable of taking custom allocators
@@ -136,51 +137,55 @@ class CCustomAllocatorCPUBuffer;
 template<typename Allocator>
 class CCustomAllocatorCPUBuffer<Allocator, true> : public ICPUBuffer
 {
-		static_assert(sizeof(Allocator::value_type) == 1u, "Allocator::value_type must be of size 1");
-	protected:
-		Allocator m_allocator;
+    static_assert(sizeof(Allocator::value_type) == 1u, "Allocator::value_type must be of size 1");
 
-        virtual ~CCustomAllocatorCPUBuffer()
-        {
-            this->convertToDummyObject();
-        }
+protected:
+    Allocator m_allocator;
 
-	public:
-		CCustomAllocatorCPUBuffer(size_t sizeInBytes, void* dat, core::adopt_memory_t, Allocator&& alctr = Allocator()) : ICPUBuffer(sizeInBytes, dat), m_allocator(std::move(alctr))
-		{
-		}
+    virtual ~CCustomAllocatorCPUBuffer()
+    {
+        this->convertToDummyObject();
+    }
 
-		virtual void convertToDummyObject(uint32_t referenceLevelsBelowToConvert = 0u) override
-		{
-            if (isDummyObjectForCacheAliasing)
-                return;
-            convertToDummyObject_common(referenceLevelsBelowToConvert);
-            if (!canBeConvertedToDummy())
-                return;
+public:
+    CCustomAllocatorCPUBuffer(size_t sizeInBytes, void* dat, core::adopt_memory_t, Allocator&& alctr = Allocator())
+        : ICPUBuffer(sizeInBytes, dat), m_allocator(std::move(alctr))
+    {
+    }
 
-			if (ICPUBuffer::data)
-				m_allocator.deallocate(reinterpret_cast<typename Allocator::pointer>(ICPUBuffer::data), ICPUBuffer::size);
-			ICPUBuffer::data = nullptr; // so that ICPUBuffer won't try deallocating
-		}
+    virtual void convertToDummyObject(uint32_t referenceLevelsBelowToConvert = 0u) override
+    {
+        if(isDummyObjectForCacheAliasing)
+            return;
+        convertToDummyObject_common(referenceLevelsBelowToConvert);
+        if(!canBeConvertedToDummy())
+            return;
+
+        if(ICPUBuffer::data)
+            m_allocator.deallocate(reinterpret_cast<typename Allocator::pointer>(ICPUBuffer::data), ICPUBuffer::size);
+        ICPUBuffer::data = nullptr;  // so that ICPUBuffer won't try deallocating
+    }
 };
 
 template<typename Allocator>
 class CCustomAllocatorCPUBuffer<Allocator, false> : public CCustomAllocatorCPUBuffer<Allocator, true>
 {
-		using Base = CCustomAllocatorCPUBuffer<Allocator, true>;
-	protected:
-		virtual ~CCustomAllocatorCPUBuffer() = default;
+    using Base = CCustomAllocatorCPUBuffer<Allocator, true>;
 
-	public:
-		using Base::Base;
+protected:
+    virtual ~CCustomAllocatorCPUBuffer() = default;
 
-		CCustomAllocatorCPUBuffer(size_t sizeInBytes, const void* dat, Allocator&& alctr = Allocator()) : Base(sizeInBytes, alctr.allocate(sizeInBytes), core::adopt_memory, std::move(alctr))
-		{
-			memcpy(Base::data, dat, sizeInBytes);
-		}
+public:
+    using Base::Base;
+
+    CCustomAllocatorCPUBuffer(size_t sizeInBytes, const void* dat, Allocator&& alctr = Allocator())
+        : Base(sizeInBytes, alctr.allocate(sizeInBytes), core::adopt_memory, std::move(alctr))
+    {
+        memcpy(Base::data, dat, sizeInBytes);
+    }
 };
 
-} // end namespace asset
-} // end namespace nbl
+}  // end namespace asset
+}  // end namespace nbl
 
 #endif

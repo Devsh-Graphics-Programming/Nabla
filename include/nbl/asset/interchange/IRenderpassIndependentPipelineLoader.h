@@ -14,20 +14,20 @@ namespace nbl
 {
 namespace asset
 {
-
 class IRenderpassIndependentPipelineLoader : public IAssetLoader
 {
-	public:
-		virtual void initialize() override;
+public:
+    virtual void initialize() override;
 
-	protected:
-		IAssetManager* m_assetMgr;
-		core::smart_refctd_dynamic_array<IRenderpassIndependentPipelineMetadata::ShaderInputSemantic> m_basicViewParamsSemantics;
+protected:
+    IAssetManager* m_assetMgr;
+    core::smart_refctd_dynamic_array<IRenderpassIndependentPipelineMetadata::ShaderInputSemantic> m_basicViewParamsSemantics;
 
-		inline IRenderpassIndependentPipelineLoader(IAssetManager* _am) : m_assetMgr(_am) {}
-		virtual ~IRenderpassIndependentPipelineLoader() = 0;
+    inline IRenderpassIndependentPipelineLoader(IAssetManager* _am)
+        : m_assetMgr(_am) {}
+    virtual ~IRenderpassIndependentPipelineLoader() = 0;
 
-	private:
+private:
 };
 
 }

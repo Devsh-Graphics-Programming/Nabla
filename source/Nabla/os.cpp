@@ -7,7 +7,6 @@
 
 //#include "nbl/core/math/irrMath.h"
 
-
 #if defined(_NBL_WINDOWS_API_)
 // ----------------------------------------------------------------
 // Windows specific functions
@@ -20,16 +19,15 @@ namespace nbl
 {
 namespace os
 {
-	//! prints a debuginfo string
-	void Printer::print(const std::string& message)
-	{
-		std::string tmp(message);
-		tmp += "\n";
-		OutputDebugStringA(tmp.c_str());
-		printf("%s", tmp.c_str());
-	}
-} // end namespace os
-
+//! prints a debuginfo string
+void Printer::print(const std::string& message)
+{
+    std::string tmp(message);
+    tmp += "\n";
+    OutputDebugStringA(tmp.c_str());
+    printf("%s", tmp.c_str());
+}
+}  // end namespace os
 
 #else
 
@@ -45,41 +43,38 @@ namespace nbl
 {
 namespace os
 {
+//! prints a debuginfo string
+void Printer::print(const std::string& message)
+{
+    printf("%s\n", message.c_str());
+}
 
-	//! prints a debuginfo string
-	void Printer::print(const std::string& message)
-	{
-		printf("%s\n", message.c_str());
-	}
+}  // end namespace os
 
-} // end namespace os
-
-#endif // end linux / windows
+#endif  // end linux / windows
 
 namespace os
 {
-	// The platform independent implementation of the printer
-	ILogger* Printer::Logger = 0;
+// The platform independent implementation of the printer
+ILogger* Printer::Logger = 0;
 
-	void Printer::log(const std::string& message, ELOG_LEVEL ll)
-	{
-		if (Logger)
-			Logger->log(message, ll);
-	}
+void Printer::log(const std::string& message, ELOG_LEVEL ll)
+{
+    if(Logger)
+        Logger->log(message, ll);
+}
 
-	void Printer::log(const std::wstring& message, ELOG_LEVEL ll)
-	{
-		if (Logger)
-			Logger->log(message, ll);
-	}
+void Printer::log(const std::wstring& message, ELOG_LEVEL ll)
+{
+    if(Logger)
+        Logger->log(message, ll);
+}
 
-	void Printer::log(const std::string& message, const std::string& hint, ELOG_LEVEL ll)
-	{
-		if (Logger)
-			Logger->log(message, hint, ll);
-	}
+void Printer::log(const std::string& message, const std::string& hint, ELOG_LEVEL ll)
+{
+    if(Logger)
+        Logger->log(message, hint, ll);
+}
 
-} // end namespace os
-} // end namespace nbl
-
-
+}  // end namespace os
+}  // end namespace nbl

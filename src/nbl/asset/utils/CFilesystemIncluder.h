@@ -8,13 +8,15 @@
 #include "nbl/asset/utils/IIncluder.h"
 #include "IFileSystem.h"
 
-namespace nbl { namespace asset
+namespace nbl
 {
-
+namespace asset
+{
 class CFilesystemIncluder : public IIncluder
 {
 public:
-    CFilesystemIncluder(io::IFileSystem* _fs) : m_filesystem{_fs}
+    CFilesystemIncluder(io::IFileSystem* _fs)
+        : m_filesystem{_fs}
     {
     }
 
@@ -27,7 +29,7 @@ public:
     std::string getInclude_internal(const std::string& _path) const override
     {
         auto f = m_filesystem->createAndOpenFile(_path.c_str());
-        if (!f)
+        if(!f)
             return {};
         std::string contents(f->getSize(), '\0');
         f->read(&contents.front(), f->getSize());
@@ -41,6 +43,7 @@ private:
     io::IFileSystem* m_filesystem;
 };
 
-}}
+}
+}
 
 #endif

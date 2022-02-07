@@ -11,21 +11,20 @@ namespace nbl
 {
 namespace asset
 {
-
 class IDescriptor : public virtual core::IReferenceCounted
 {
-	public:
-		enum E_CATEGORY
-		{
-			EC_BUFFER,
-			EC_IMAGE,
-			EC_BUFFER_VIEW
-		};
+public:
+    enum E_CATEGORY
+    {
+        EC_BUFFER,
+        EC_IMAGE,
+        EC_BUFFER_VIEW
+    };
 
-		virtual E_CATEGORY getTypeCategory() const = 0;
+    virtual E_CATEGORY getTypeCategory() const = 0;
 
-	protected:
-		virtual ~IDescriptor() = default;
+protected:
+    virtual ~IDescriptor() = default;
 };
 
 }

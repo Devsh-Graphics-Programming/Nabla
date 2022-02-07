@@ -8,33 +8,30 @@
 #include "ConvertUTF.h"
 #include "FW_Mutex.h"
 
-
 namespace std
 {
-    template <>
-    struct hash<nbl::core::CLeakDebugger::StackTrace>
+template<>
+struct hash<nbl::core::CLeakDebugger::StackTrace>
+{
+    std::size_t operator()(const nbl::core::CLeakDebugger::StackTrace& k) const noexcept
     {
-        std::size_t operator()(const nbl::core::CLeakDebugger::StackTrace& k) const noexcept
-        {
-            using std::size_t;
-            using std::hash;
-            using std::string;
+        using std::hash;
+        using std::size_t;
+        using std::string;
 
-            // Compute individual hash values for first,
-            // second and third and combine them using XOR
-            // and bit shifting:
-            size_t retval = 0;
+        // Compute individual hash values for first,
+        // second and third and combine them using XOR
+        // and bit shifting:
+        size_t retval = 0;
 
-            for (nbl::core::vector<string>::const_iterator it=k.getTrace().begin(); it!=k.getTrace().end(); it++)
-                retval ^= std::hash<string>()(*it) + 0x9e3779b9 + (retval << 6) + (retval >> 2);
+        for(nbl::core::vector<string>::const_iterator it = k.getTrace().begin(); it != k.getTrace().end(); it++)
+            retval ^= std::hash<string>()(*it) + 0x9e3779b9 + (retval << 6) + (retval >> 2);
 
-            return retval;
-        }
-    };
+        return retval;
+    }
+};
 
 }
-
-
 
 #ifdef _NBL_DEBUG
 #ifdef _NBL_COMPILE_WITH_X11_DEVICE_
@@ -44,45 +41,44 @@ namespace std
 
 #include <cxxabi.h>
 
-#endif // _NBL_COMPILE_WITH_X11_DEVICE_
-#endif // _NBL_DEBUG
+#endif  // _NBL_COMPILE_WITH_X11_DEVICE_
+#endif  // _NBL_DEBUG
 
 namespace nbl
 {
 namespace core
 {
-
 std::string WStringToUTF8String(const std::wstring& inString)
 {
-	std::string utf8line;
-	utf8line.reserve(inString.length());
+    std::string utf8line;
+    utf8line.reserve(inString.length());
 
-	utf8::unchecked::utf16to8(inString.begin(), inString.end(), back_inserter(utf8line));
-	return utf8line;
+    utf8::unchecked::utf16to8(inString.begin(), inString.end(), back_inserter(utf8line));
+    return utf8line;
 }
 
 std::wstring UTF8StringToWString(const std::string& inString)
 {
-	std::string::const_iterator end_it = utf8::find_invalid(inString.begin(), inString.end());
+    std::string::const_iterator end_it = utf8::find_invalid(inString.begin(), inString.end());
 
-	std::wstring utf16line;
-	utf16line.reserve(end_it-inString.begin());
-	utf8::unchecked::utf8to16(inString.begin(), end_it, back_inserter(utf16line));
+    std::wstring utf16line;
+    utf16line.reserve(end_it - inString.begin());
+    utf8::unchecked::utf8to16(inString.begin(), end_it, back_inserter(utf16line));
 
-	return utf16line;
+    return utf16line;
 }
 
 std::wstring UTF8StringToWString(const std::string& inString, uint32_t inReplacementforInvalid)
 {
-	std::string replacedStr;
-	replacedStr.reserve(inString.size());
-	utf8::unchecked::replace_invalid(inString.begin(), inString.end(), back_inserter(replacedStr), inReplacementforInvalid);
+    std::string replacedStr;
+    replacedStr.reserve(inString.size());
+    utf8::unchecked::replace_invalid(inString.begin(), inString.end(), back_inserter(replacedStr), inReplacementforInvalid);
 
-	std::wstring utf16line;
-	utf16line.reserve(replacedStr.length());
-	utf8::unchecked::utf8to16(replacedStr.begin(), replacedStr.end(), back_inserter(utf16line));
+    std::wstring utf16line;
+    utf16line.reserve(replacedStr.length());
+    utf8::unchecked::utf8to16(replacedStr.begin(), replacedStr.end(), back_inserter(utf16line));
 
-	return utf16line;
+    return utf16line;
 }
 
 /*
@@ -108,15 +104,12 @@ template<typename T>
 T lastChar(const std::basic_string<T>& str1)
 */
 
-
-
-
 core::vector<std::string> getBackTrace(void)
 {
     core::vector<std::string> retval;
 #ifdef _NBL_DEBUG
 #ifdef _NBL_COMPILE_WITH_X11_DEVICE_
-/*
+    /*
     void* funcAddrs[256];
     int callStackLen = backtrace(funcAddrs,256);
     retval.resize(callStackLen);
@@ -134,8 +127,8 @@ core::vector<std::string> getBackTrace(void)
     unw_getcontext(&context);
     unw_init_local(&cursor, &context);
 
-    size_t n=0;
-    while ( unw_step(&cursor) )
+    size_t n = 0;
+    while(unw_step(&cursor))
     {
         unw_word_t ip, sp, off;
 
@@ -143,25 +136,25 @@ core::vector<std::string> getBackTrace(void)
         unw_get_reg(&cursor, UNW_REG_SP, &sp);
 
         char symbol[256] = {"<unknown>"};
-        char *name = symbol;
+        char* name = symbol;
 
-        if ( !unw_get_proc_name(&cursor, symbol, sizeof(symbol), &off) )
+        if(!unw_get_proc_name(&cursor, symbol, sizeof(symbol), &off))
         {
             int status;
-            if ( (name = abi::__cxa_demangle(symbol, NULL, NULL, &status)) == 0 )
+            if((name = abi::__cxa_demangle(symbol, NULL, NULL, &status)) == 0)
                 name = symbol;
         }
 
-        char outBuff[16*1024];
-        sprintf(outBuff,"#%-2d 0x%016" PRIxPTR " sp=0x%016" PRIxPTR " %s + 0x%" PRIxPTR "\n",
-                            ++n,
-                            static_cast<uintptr_t>(ip),
-                            static_cast<uintptr_t>(sp),
-                            name,
-                            static_cast<uintptr_t>(off));
+        char outBuff[16 * 1024];
+        sprintf(outBuff, "#%-2d 0x%016" PRIxPTR " sp=0x%016" PRIxPTR " %s + 0x%" PRIxPTR "\n",
+            ++n,
+            static_cast<uintptr_t>(ip),
+            static_cast<uintptr_t>(sp),
+            name,
+            static_cast<uintptr_t>(off));
         retval.push_back(outBuff);
 
-        if ( name != symbol )
+        if(name != symbol)
             free(name);
     }
 #endif
@@ -169,9 +162,8 @@ core::vector<std::string> getBackTrace(void)
     return retval;
 }
 
-
-
-CLeakDebugger::CLeakDebugger(const std::string& nameOfDbgr) : name(nameOfDbgr)
+CLeakDebugger::CLeakDebugger(const std::string& nameOfDbgr)
+    : name(nameOfDbgr)
 {
 }
 CLeakDebugger::~CLeakDebugger()
@@ -183,17 +175,17 @@ void CLeakDebugger::registerObj(const void* obj)
 #ifdef _NBL_DEBUG
     std::lock_guard<std::mutex> lock(tsafer);
 
-    core::unordered_map<const void*,StackTrace>::const_iterator found = tracker.find(obj);
-    if (found!=tracker.end())
+    core::unordered_map<const void*, StackTrace>::const_iterator found = tracker.find(obj);
+    if(found != tracker.end())
     {
-        printf("BAD REFCOUNTING IN LEAK DEBUGGER %s with item %p \t Previous supposed alloc was:\n",name.c_str(),obj);
+        printf("BAD REFCOUNTING IN LEAK DEBUGGER %s with item %p \t Previous supposed alloc was:\n", name.c_str(), obj);
 
         std::ostringstream strm;
         found->second.printStackToOStream(strm);
         printf(strm.str().c_str());
     }
     tracker[obj] = getBackTrace();
-#endif // _NBL_DEBUG
+#endif  // _NBL_DEBUG
 }
 
 void CLeakDebugger::deregisterObj(const void* obj)
@@ -201,10 +193,10 @@ void CLeakDebugger::deregisterObj(const void* obj)
 #ifdef _NBL_DEBUG
     std::lock_guard<std::mutex> lock(tsafer);
 
-    core::unordered_map<const void*,StackTrace>::const_iterator found = tracker.find(obj);
-    if (found==tracker.end())
+    core::unordered_map<const void*, StackTrace>::const_iterator found = tracker.find(obj);
+    if(found == tracker.end())
     {
-        printf("LEAK DEBUGGER %s found DOUBLE FREE item %p \t Allocated from:\n",name.c_str(),obj);
+        printf("LEAK DEBUGGER %s found DOUBLE FREE item %p \t Allocated from:\n", name.c_str(), obj);
 
         std::ostringstream strm;
         found->second.printStackToOStream(strm);
@@ -212,7 +204,7 @@ void CLeakDebugger::deregisterObj(const void* obj)
     }
     else
         tracker.erase(obj);
-#endif // _NBL_DEBUG
+#endif  // _NBL_DEBUG
 }
 
 void CLeakDebugger::clearLeaks()
@@ -220,7 +212,7 @@ void CLeakDebugger::clearLeaks()
 #ifdef _NBL_DEBUG
     std::lock_guard<std::mutex> lock(tsafer);
     tracker.clear();
-#endif // _NBL_DEBUG
+#endif  // _NBL_DEBUG
 }
 
 void CLeakDebugger::dumpLeaks()
@@ -230,14 +222,14 @@ void CLeakDebugger::dumpLeaks()
 
     std::lock_guard<std::mutex> lock(tsafer);
     {
-        printf("Printing the leaks of %s\n\n",name.c_str());
+        printf("Printing the leaks of %s\n\n", name.c_str());
 
-        for (core::unordered_map<const void*,StackTrace>::iterator it=tracker.begin(); it!=tracker.end(); it++)
+        for(core::unordered_map<const void*, StackTrace>::iterator it = tracker.begin(); it != tracker.end(); it++)
             epicCounter.insert(it->second);
 
         {
-            core::unordered_multiset<StackTrace>::iterator it=epicCounter.begin();
-            while (it!=epicCounter.end())
+            core::unordered_multiset<StackTrace>::iterator it = epicCounter.begin();
+            while(it != epicCounter.end())
             {
                 size_t occurences = epicCounter.count(*it);
 
@@ -246,14 +238,14 @@ void CLeakDebugger::dumpLeaks()
                 it->printStackToOStream(strm);
                 printf(strm.str().c_str());
 
-                for (size_t j=0; j<occurences; j++)
+                for(size_t j = 0; j < occurences; j++)
                     it++;
             }
         }
     }
 #else
     printf("Object Leak Tracking Not Enabled, _NBL_DEBUG not defined during Irrlicht compilation!\n");
-#endif // _NBL_DEBUG
+#endif  // _NBL_DEBUG
 }
 
 }

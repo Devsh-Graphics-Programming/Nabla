@@ -1,4 +1,4 @@
-switch (_fmt)
+switch(_fmt)
 {
     case EF_R8_UNORM:
     case EF_R8_SNORM:

@@ -8,44 +8,42 @@
 
 namespace nbl
 {
+//! An enum for the different device types supported by the Irrlicht Engine.
+enum E_DEVICE_TYPE
+{
 
-	//! An enum for the different device types supported by the Irrlicht Engine.
-	enum E_DEVICE_TYPE
-	{
+    //! A device native to Microsoft Windows
+    /** This device uses the Win32 API and works in all versions of Windows. */
+    EIDT_WIN32,
 
-		//! A device native to Microsoft Windows
-		/** This device uses the Win32 API and works in all versions of Windows. */
-		EIDT_WIN32,
-
-		//! A device native to Unix style operating systems.
-		/** This device uses the X11 windowing system and works in Linux, Solaris, FreeBSD, OSX and
+    //! A device native to Unix style operating systems.
+    /** This device uses the X11 windowing system and works in Linux, Solaris, FreeBSD, OSX and
 		other operating systems which support X11. */
-		EIDT_X11,
+    EIDT_X11,
 
-		//! A device native to Mac OSX
-		/** This device uses Apple's Cocoa API and works in Mac OSX 10.2 and above. */
-		EIDT_OSX,
+    //! A device native to Mac OSX
+    /** This device uses Apple's Cocoa API and works in Mac OSX 10.2 and above. */
+    EIDT_OSX,
 
-		//! A device for raw framebuffer access
-		/** Best used with embedded devices and mobile systems.
+    //! A device for raw framebuffer access
+    /** Best used with embedded devices and mobile systems.
 		Does not need X11 or other graphical subsystems.
 		May support hw-acceleration via OpenGL-ES for FBDirect */
-		EIDT_FRAMEBUFFER,
+    EIDT_FRAMEBUFFER,
 
-		//! A simple text only device supported by all platforms.
-		/** This device allows applications to run from the command line without opening a window.
+    //! A simple text only device supported by all platforms.
+    /** This device allows applications to run from the command line without opening a window.
 		It only supports mouse and keyboard in Windows operating systems. */
-		EIDT_CONSOLE,
+    EIDT_CONSOLE,
 
-		//! This selection allows Irrlicht to choose the best device from the ones available.
-		/** If this selection is chosen then Irrlicht will try to use the IrrlichtDevice native
+    //! This selection allows Irrlicht to choose the best device from the ones available.
+    /** If this selection is chosen then Irrlicht will try to use the IrrlichtDevice native
 		to your operating system. If this is unavailable then the X11, SDL and then console device
 		will be tried. This ensures that Irrlicht will run even if your platform is unsupported,
 		although it may not be able to render anything. */
-		EIDT_BEST
-	};
+    EIDT_BEST
+};
 
-} // end namespace nbl
+}  // end namespace nbl
 
 #endif
-

@@ -15,59 +15,58 @@ namespace nbl
 {
 namespace asset
 {
-
 // fill a section of the image with a uniform value
 template<typename Functor, bool ConstImage>
-class CRegionBlockFunctorFilter : public CImageFilter<CRegionBlockFunctorFilter<Functor,ConstImage> >
+class CRegionBlockFunctorFilter : public CImageFilter<CRegionBlockFunctorFilter<Functor, ConstImage> >
 {
-	public:
-		virtual ~CRegionBlockFunctorFilter() {}
+public:
+    virtual ~CRegionBlockFunctorFilter() {}
 
-		class CState : public IImageFilter::IState
-		{
-			public:
-				using image_type = typename std::conditional<ConstImage, const ICPUImage, ICPUImage>::type;
-				CState(Functor& _functor, image_type* _image, const IImage::SBufferCopy* _regionIterator) :
-					functor(_functor), image(_image), regionIterator(_regionIterator) {}
-				virtual ~CState() {}
+    class CState : public IImageFilter::IState
+    {
+    public:
+        using image_type = typename std::conditional<ConstImage, const ICPUImage, ICPUImage>::type;
+        CState(Functor& _functor, image_type* _image, const IImage::SBufferCopy* _regionIterator)
+            : functor(_functor), image(_image), regionIterator(_regionIterator) {}
+        virtual ~CState() {}
 
-				Functor& functor;
-				image_type* image;
-				const IImage::SBufferCopy* regionIterator;
-		};
-		using state_type = CState;
+        Functor& functor;
+        image_type* image;
+        const IImage::SBufferCopy* regionIterator;
+    };
+    using state_type = CState;
 
-		static inline bool validate(state_type* state)
-		{
-			if (!state->image)
-				return false;
+    static inline bool validate(state_type* state)
+    {
+        if(!state->image)
+            return false;
 
-			if (!state->regionIterator)
-				return false;	
-			const auto& regions = state->image->getRegions();
-			if (state->regionIterator<regions.begin() || state->regionIterator>=regions.end())
-				return false;
+        if(!state->regionIterator)
+            return false;
+        const auto& regions = state->image->getRegions();
+        if(state->regionIterator < regions.begin() || state->regionIterator >= regions.end())
+            return false;
 
-			return true;
-		}
+        return true;
+    }
 
-		template<class ExecutionPolicy>
-		static inline bool execute(ExecutionPolicy&& policy, state_type* state)
-		{
-			if (!validate(state))
-				return false;
+    template<class ExecutionPolicy>
+    static inline bool execute(ExecutionPolicy&& policy, state_type* state)
+    {
+        if(!validate(state))
+            return false;
 
-			CBasicImageFilterCommon::executePerBlock<ExecutionPolicy,Functor>(std::forward<ExecutionPolicy>(policy),state->image,*state->regionIterator,state->functor);
+        CBasicImageFilterCommon::executePerBlock<ExecutionPolicy, Functor>(std::forward<ExecutionPolicy>(policy), state->image, *state->regionIterator, state->functor);
 
-			return true;
-		}
-		static inline bool execute(state_type* state)
-		{
-			return execute(std::execution::seq,state);
-		}
+        return true;
+    }
+    static inline bool execute(state_type* state)
+    {
+        return execute(std::execution::seq, state);
+    }
 };
 
-} // end namespace asset
-} // end namespace nbl
+}  // end namespace asset
+}  // end namespace nbl
 
 #endif

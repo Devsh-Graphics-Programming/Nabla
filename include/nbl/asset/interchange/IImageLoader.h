@@ -15,17 +15,14 @@ namespace nbl
 {
 namespace asset
 {
-
 class IImageLoader : public IAssetLoader, public IImageAssetHandlerBase
 {
-	public:
+public:
+protected:
+    IImageLoader() = default;
+    virtual ~IImageLoader() = 0;
 
-	protected:
-
-		IImageLoader() = default;
-		virtual ~IImageLoader() = 0;
-
-	private:
+private:
 };
 
 }

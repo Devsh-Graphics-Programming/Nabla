@@ -13,14 +13,13 @@ namespace nbl
 {
 namespace core
 {
-
 class SCollisionEngine : public AllocationOverrideDefault
 {
-        core::vector<core::smart_refctd_ptr<SCompoundCollider> > colliders;
+    core::vector<core::smart_refctd_ptr<SCompoundCollider> > colliders;
 
-    public:
-		//! Destructor.
-		~SCollisionEngine() = default;
+public:
+    //! Destructor.
+    ~SCollisionEngine() = default;
 
 #if 0
 		//! Returns a 3d ray which would go through the 2d screen coodinates.
@@ -63,106 +62,106 @@ class SCollisionEngine : public AllocationOverrideDefault
             direction /= rayLen;
             return true;
         }
-#endif // 0
-		//! Calculates 2d screen position from a 3d position.
-		/**
+#endif  // 0 \
+    //! Calculates 2d screen position from a 3d position.
+    /**
 		@param pos 3d position which is to be projected on screen
 		@param driver Driver
 		@param camera Camera on which calculations will depend
 		@param iseViewPort Whether to use viewport or current render target's size
 		@returns 2d position or {-100000, -100000} (minus ten thousand) if the point is behind camera.
 		*/
-		inline static position2di getScreenCoordinatesFrom3DPosition(const vector3df& pos, video::IVideoDriver* driver, scene::ICameraSceneNode* camera, bool useViewPort=false)
-		{
-            if (!driver||!camera)
-                return position2d<int32_t>(-100000,-100000);
+    inline static position2di getScreenCoordinatesFrom3DPosition(const vector3df& pos, video::IVideoDriver* driver, scene::ICameraSceneNode* camera, bool useViewPort = false)
+    {
+        if(!driver || !camera)
+            return position2d<int32_t>(-100000, -100000);
 
-            dimension2d<uint32_t> dim;
-            if (useViewPort)
-                dim.set(driver->getViewPort().getWidth(), driver->getViewPort().getHeight());
-            else
-                dim=(driver->getCurrentRenderTargetSize());
+        dimension2d<uint32_t> dim;
+        if(useViewPort)
+            dim.set(driver->getViewPort().getWidth(), driver->getViewPort().getHeight());
+        else
+            dim = (driver->getCurrentRenderTargetSize());
 
-            dim.Width /= 2;
-            dim.Height /= 2;
+        dim.Width /= 2;
+        dim.Height /= 2;
 
-            auto trans = camera->getConcatenatedMatrix();
+        auto trans = camera->getConcatenatedMatrix();
 
-            core::vectorSIMDf transformedPos(pos.X, pos.Y, pos.Z, 1.0f );
+        core::vectorSIMDf transformedPos(pos.X, pos.Y, pos.Z, 1.0f);
 
-            trans.transformVect(transformedPos);
+        trans.transformVect(transformedPos);
 
-            if (transformedPos.w < 0)
-                return position2d<int32_t>(-10000,-10000);
+        if(transformedPos.w < 0)
+            return position2d<int32_t>(-10000, -10000);
 
-            const float zDiv = transformedPos.w==0.f  ?  1.f:reciprocal_approxim(transformedPos).w;
+        const float zDiv = transformedPos.w == 0.f ? 1.f : reciprocal_approxim(transformedPos).w;
 
-            return position2d<int32_t>(
-                        dim.Width + round<float,int32_t>(dim.Width * (transformedPos.x * zDiv)),
-                        dim.Height - round<float,int32_t>(dim.Height * (transformedPos.y * zDiv)));
-		}
+        return position2d<int32_t>(
+            dim.Width + round<float, int32_t>(dim.Width * (transformedPos.x * zDiv)),
+            dim.Height - round<float, int32_t>(dim.Height * (transformedPos.y * zDiv)));
+    }
 
-		//! Adds a collider
-		/** @param collider A pointer to collider. */
-        inline void addCompoundCollider(core::smart_refctd_ptr<SCompoundCollider>&& collider)
+    //! Adds a collider
+    /** @param collider A pointer to collider. */
+    inline void addCompoundCollider(core::smart_refctd_ptr<SCompoundCollider>&& collider)
+    {
+        if(!collider)
+            return;
+
+        auto found = std::lower_bound(colliders.begin(), colliders.end(), collider);
+        if(found != colliders.end() && *found == collider)
+            return;
+
+        colliders.insert(found, std::move(collider));
+    }
+
+    //! Removes collider pointed by `collider`
+    /** @param collider Pointer to collider. s*/
+    inline void removeCompoundCollider(const SCompoundCollider* collider)
+    {
+        if(!collider)
+            return;
+
+        auto found = std::lower_bound(colliders.begin(), colliders.end(), reinterpret_cast<const core::smart_refctd_ptr<SCompoundCollider>&>(collider));
+        if(found == colliders.end() || found->get() != collider)
         {
-            if (!collider)
-                return;
-
-            auto found = std::lower_bound(colliders.begin(),colliders.end(),collider);
-            if (found!=colliders.end() && *found==collider)
-                return;
-
-            colliders.insert(found,std::move(collider));
+            //				FW_WriteToLog(kLogError,"removeCompoundCollider collider not found!\n");
+            return;
         }
 
-		//! Removes collider pointed by `collider`
-		/** @param collider Pointer to collider. s*/
-        inline void removeCompoundCollider(const SCompoundCollider* collider)
-        {
-            if (!collider)
-                return;
+        colliders.erase(found);
+    }
 
-            auto found = std::lower_bound(colliders.begin(),colliders.end(),reinterpret_cast<const core::smart_refctd_ptr<SCompoundCollider>&>(collider));
-            if (found==colliders.end() || found->get()!=collider)
-			{
-//				FW_WriteToLog(kLogError,"removeCompoundCollider collider not found!\n");
-                return;
-			}
+    //! Gets current amount of colliders
+    /** @rturns Current amount of colliders. */
+    inline size_t getColliderCount() const { return colliders.size(); }
 
-            colliders.erase(found);
-        }
-
-		//! Gets current amount of colliders
-		/** @rturns Current amount of colliders. */
-        inline size_t getColliderCount() const { return colliders.size(); }
-
-		//! Performs collision test with a given ray defined by `origin`, `direction` and `maxRayLen` parameters
-		/**
+    //! Performs collision test with a given ray defined by `origin`, `direction` and `maxRayLen` parameters
+    /**
 		@param[out] hitPointObjectData Data of collider with which the collision occured. Does not get touched if no collision occured.
 		@param[out] collisionDistance If no collision occured - gets value of `maxRayLen` parameter. Otherwise - ???
 		@param[in] origin Start point point of the input ray
 		@param[in] direction Normalized vector denoting direction of the input ray
 		@param[in] maxRayLen Length of the input ray
 		*/
-        inline bool FastCollide(SColliderData& hitPointObjectData, float &collisionDistance, const vectorSIMDf& origin, const vectorSIMDf& direction, const float& maxRayLen=FLT_MAX) const
+    inline bool FastCollide(SColliderData& hitPointObjectData, float& collisionDistance, const vectorSIMDf& origin, const vectorSIMDf& direction, const float& maxRayLen = FLT_MAX) const
+    {
+        bool retval = false;
+
+        collisionDistance = maxRayLen;
+        for(size_t i = 0; i < colliders.size(); i++)
         {
-            bool retval = false;
-
-            collisionDistance = maxRayLen;
-            for (size_t i=0; i<colliders.size(); i++)
+            float tmpDist;
+            if(colliders[i]->CollideWithRay(tmpDist, origin, direction, collisionDistance) && tmpDist < collisionDistance)
             {
-                float tmpDist;
-                if (colliders[i]->CollideWithRay(tmpDist,origin,direction,collisionDistance)&&tmpDist<collisionDistance)
-                {
-                    collisionDistance = tmpDist;
-                    hitPointObjectData = colliders[i]->getColliderData();
-                    retval = true;
-                }
+                collisionDistance = tmpDist;
+                hitPointObjectData = colliders[i]->getColliderData();
+                retval = true;
             }
-
-            return retval;
         }
+
+        return retval;
+    }
 };
 
 }

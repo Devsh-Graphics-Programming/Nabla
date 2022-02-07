@@ -13,51 +13,50 @@ namespace nbl
 {
 namespace io
 {
-
 //! An entry in a list of files, can be a folder or a file.
 struct SFileListEntry
 {
-	//! The name of the file
-	/** If this is a file or folder in the virtual filesystem and the archive
+    //! The name of the file
+    /** If this is a file or folder in the virtual filesystem and the archive
 	was created with the ignoreCase flag then the file name will be lower case. */
-	io::path Name;
+    io::path Name;
 
-	//! The name of the file including the path
-	/** If this is a file or folder in the virtual filesystem and the archive was
+    //! The name of the file including the path
+    /** If this is a file or folder in the virtual filesystem and the archive was
 	created with the ignoreDirs flag then it will be the same as Name. */
-	io::path FullName;
+    io::path FullName;
 
-	//! The size of the file in bytes
-	uint32_t Size;
+    //! The size of the file in bytes
+    uint32_t Size;
 
-	//! The ID of the file in an archive
-	/** This is used to link the FileList entry to extra info held about this
+    //! The ID of the file in an archive
+    /** This is used to link the FileList entry to extra info held about this
 	file in an archive, which can hold things like data offset and CRC. */
-	uint32_t ID;
+    uint32_t ID;
 
-	//! FileOffset inside an archive
-	uint32_t Offset;
+    //! FileOffset inside an archive
+    uint32_t Offset;
 
-	//! True if this is a folder, false if not.
-	bool IsDirectory;
+    //! True if this is a folder, false if not.
+    bool IsDirectory;
 
-	//! The == operator is provided so that CFileList can slowly search the list!
-	inline bool operator ==(const struct SFileListEntry& other) const
-	{
-		if (IsDirectory != other.IsDirectory)
-			return false;
+    //! The == operator is provided so that CFileList can slowly search the list!
+    inline bool operator==(const struct SFileListEntry& other) const
+    {
+        if(IsDirectory != other.IsDirectory)
+            return false;
 
-		return FullName.equals_ignore_case(other.FullName);
-	}
+        return FullName.equals_ignore_case(other.FullName);
+    }
 
-	//! The < operator is provided so that CFileList can sort and quickly search the list.
-	inline bool operator <(const struct SFileListEntry& other) const
-	{
-		if (IsDirectory != other.IsDirectory)
-			return IsDirectory;
+    //! The < operator is provided so that CFileList can sort and quickly search the list.
+    inline bool operator<(const struct SFileListEntry& other) const
+    {
+        if(IsDirectory != other.IsDirectory)
+            return IsDirectory;
 
-		return FullName.lower_ignore_case(other.FullName);
-	}
+        return FullName.lower_ignore_case(other.FullName);
+    }
 };
 
 //! Provides a list of files and folders.
@@ -68,23 +67,21 @@ class IFileList : public virtual core::IReferenceCounted
 public:
     typedef core::vector<SFileListEntry>::const_iterator ListCIterator;
 
-	//! Get the number of files in the filelist.
-	/** \return Amount of files and directories in the file list. */
-	virtual uint32_t getFileCount() const = 0;
+    //! Get the number of files in the filelist.
+    /** \return Amount of files and directories in the file list. */
+    virtual uint32_t getFileCount() const = 0;
 
-	//!
-	virtual core::vector<SFileListEntry> getFiles() const = 0;
+    //!
+    virtual core::vector<SFileListEntry> getFiles() const = 0;
 
     //! If @retval not equal to @param _end then file was found and return value is a valid pointer in the range given
-	virtual ListCIterator findFile(ListCIterator _begin, ListCIterator _end, const io::path& filename, bool isDirectory = false) const = 0;
+    virtual ListCIterator findFile(ListCIterator _begin, ListCIterator _end, const io::path& filename, bool isDirectory = false) const = 0;
 
-	//! Returns the base path of the file list
-	virtual const io::path& getPath() const = 0;
+    //! Returns the base path of the file list
+    virtual const io::path& getPath() const = 0;
 };
 
-} // end namespace nbl
-} // end namespace io
-
+}  // end namespace nbl
+}  // end namespace io
 
 #endif
-

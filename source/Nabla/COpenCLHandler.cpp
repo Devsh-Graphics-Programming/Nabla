@@ -9,11 +9,9 @@ namespace nbl
 {
 namespace ocl
 {
-
 bool COpenCLHandler::alreadyEnumeratedPlatforms = false;
 
 core::vector<COpenCLHandler::SOpenCLPlatformInfo> COpenCLHandler::platformInformation;
-
 
 COpenCLHandler::OpenCL COpenCLHandler::ocl;
 COpenCLHandler::OpenCLExtensions COpenCLHandler::ocl_ext;
@@ -21,5 +19,4 @@ COpenCLHandler::OpenCLExtensions COpenCLHandler::ocl_ext;
 }
 }
 
-
-#endif // _NBL_COMPILE_WITH_OPENCL_
+#endif  // _NBL_COMPILE_WITH_OPENCL_

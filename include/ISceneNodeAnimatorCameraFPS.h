@@ -13,58 +13,54 @@
 
 namespace nbl
 {
-
 namespace scene
 {
-
-	//! Special scene node animator for FPS cameras
-	/** This scene node animator can be attached to a camera to make it act
+//! Special scene node animator for FPS cameras
+/** This scene node animator can be attached to a camera to make it act
 	like a first person shooter
 	*/
-	class ISceneNodeAnimatorCameraFPS : public ISceneNodeAnimator
-	{
-	public:
+class ISceneNodeAnimatorCameraFPS : public ISceneNodeAnimator
+{
+public:
+    //! Returns the speed of movement in units per millisecond
+    virtual float getMoveSpeed() const = 0;
 
-		//! Returns the speed of movement in units per millisecond
-		virtual float getMoveSpeed() const = 0;
+    //! Sets the speed of movement in units per millisecond
+    virtual void setMoveSpeed(float moveSpeed) = 0;
 
-		//! Sets the speed of movement in units per millisecond
-		virtual void setMoveSpeed(float moveSpeed) = 0;
-
-		//! Returns the rotation speed in degrees
-		/** The degrees are equivalent to a half screen movement of the mouse,
+    //! Returns the rotation speed in degrees
+    /** The degrees are equivalent to a half screen movement of the mouse,
 		i.e. if the mouse cursor had been moved to the border of the screen since
 		the last animation. */
-		virtual float getRotateSpeed() const = 0;
+    virtual float getRotateSpeed() const = 0;
 
-		//! Set the rotation speed in degrees
-		virtual void setRotateSpeed(float rotateSpeed) = 0;
+    //! Set the rotation speed in degrees
+    virtual void setRotateSpeed(float rotateSpeed) = 0;
 
-		//! Sets the keyboard mapping for this animator (old style)
-		/** \param map Array of keyboard mappings, see nbl::SKeyMap
+    //! Sets the keyboard mapping for this animator (old style)
+    /** \param map Array of keyboard mappings, see nbl::SKeyMap
 		\param count Size of the keyboard map array. */
-		virtual void setKeyMap(SKeyMap *map, uint32_t count) = 0;
+    virtual void setKeyMap(SKeyMap* map, uint32_t count) = 0;
 
-		//! Sets the keyboard mapping for this animator
-		//!	\param keymap The new keymap array
-		virtual void setKeyMap(const core::vector<SKeyMap>& keymap) = 0;
+    //! Sets the keyboard mapping for this animator
+    //!	\param keymap The new keymap array
+    virtual void setKeyMap(const core::vector<SKeyMap>& keymap) = 0;
 
-		//! Gets the keyboard mapping for this animator
-		virtual const core::vector<SKeyMap>& getKeyMap() const = 0;
+    //! Gets the keyboard mapping for this animator
+    virtual const core::vector<SKeyMap>& getKeyMap() const = 0;
 
-		//! Sets whether vertical movement should be allowed.
-		/** If vertical movement is enabled then the camera may fight with
+    //! Sets whether vertical movement should be allowed.
+    /** If vertical movement is enabled then the camera may fight with
 		gravity causing camera shake. Disable this if the camera has
 		a collision animator with gravity enabled. */
-		virtual void setVerticalMovement(bool allow) = 0;
+    virtual void setVerticalMovement(bool allow) = 0;
 
-		//! Sets whether the Y axis of the mouse should be inverted.
-		/** If enabled then moving the mouse down will cause
+    //! Sets whether the Y axis of the mouse should be inverted.
+    /** If enabled then moving the mouse down will cause
 		the camera to look up. It is disabled by default. */
-		virtual void setInvertMouse(bool invert) = 0;
-	};
-} // end namespace scene
-} // end namespace nbl
+    virtual void setInvertMouse(bool invert) = 0;
+};
+}  // end namespace scene
+}  // end namespace nbl
 
 #endif
-

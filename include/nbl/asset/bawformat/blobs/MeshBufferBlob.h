@@ -12,30 +12,29 @@ namespace nbl
 {
 namespace asset
 {
-
 class ICPUMeshBuffer;
 
 #include "nbl/nblpack.h"
 //! Simple struct of essential data of ICPUMeshBuffer that has to be exported
 struct NBL_FORCE_EBO MeshBufferBlobV3 : TypedBlob<MeshBufferBlobV3, ICPUMeshBuffer>, FixedSizeBlob<MeshBufferBlobV3, ICPUMeshBuffer>
 {
-	//! Constructor filling all members
-	explicit MeshBufferBlobV3(const ICPUMeshBuffer*);
+    //! Constructor filling all members
+    explicit MeshBufferBlobV3(const ICPUMeshBuffer*);
 
 #ifdef OLD_SHADERS
-	video::SCPUMaterial mat;
+    video::SCPUMaterial mat;
 #endif
-	core::aabbox3df box;
-	uint64_t descPtr;
-	uint32_t indexType;
-	uint32_t baseVertex;
-	uint64_t indexCount;
-	size_t indexBufOffset;
-	size_t instanceCount;
-	uint32_t baseInstance;
-	uint32_t primitiveType;
-	uint32_t posAttrId;
-	uint32_t normalAttrId;
+    core::aabbox3df box;
+    uint64_t descPtr;
+    uint32_t indexType;
+    uint32_t baseVertex;
+    uint64_t indexCount;
+    size_t indexBufOffset;
+    size_t instanceCount;
+    uint32_t baseInstance;
+    uint32_t primitiveType;
+    uint32_t posAttrId;
+    uint32_t normalAttrId;
 } PACK_STRUCT;
 #include "nbl/nblunpack.h"
 //TODO bring it back
@@ -44,17 +43,17 @@ struct NBL_FORCE_EBO MeshBufferBlobV3 : TypedBlob<MeshBufferBlobV3, ICPUMeshBuff
 #ifdef OLD_SHADERS
 static_assert(
     sizeof(MeshBufferBlobV3) ==
-    sizeof(MeshBufferBlobV3::mat) + sizeof(MeshBufferBlobV3::box) + sizeof(MeshBufferBlobV3::descPtr) + sizeof(MeshBufferBlobV3::indexType) + sizeof(MeshBufferBlobV3::baseVertex)
-    + sizeof(MeshBufferBlobV3::indexCount) + sizeof(MeshBufferBlobV3::indexBufOffset) + sizeof(MeshBufferBlobV3::instanceCount) + sizeof(MeshBufferBlobV3::baseInstance)
-    + sizeof(MeshBufferBlobV3::primitiveType) + sizeof(MeshBufferBlobV3::posAttrId) + sizeof(MeshBufferBlobV3::normalAttrId),
-    "MeshBufferBlobV0: Size of blob is not sum of its contents!"
-);
+        sizeof(MeshBufferBlobV3::mat) + sizeof(MeshBufferBlobV3::box) + sizeof(MeshBufferBlobV3::descPtr) + sizeof(MeshBufferBlobV3::indexType) + sizeof(MeshBufferBlobV3::baseVertex) + sizeof(MeshBufferBlobV3::indexCount) + sizeof(MeshBufferBlobV3::indexBufOffset) + sizeof(MeshBufferBlobV3::instanceCount) + sizeof(MeshBufferBlobV3::baseInstance) + sizeof(MeshBufferBlobV3::primitiveType) + sizeof(MeshBufferBlobV3::posAttrId) + sizeof(MeshBufferBlobV3::normalAttrId),
+    "MeshBufferBlobV0: Size of blob is not sum of its contents!");
 #endif
 
 template<>
-struct CorrespondingBlobTypeFor<ICPUMeshBuffer> { typedef MeshBufferBlobV3 type; };
+struct CorrespondingBlobTypeFor<ICPUMeshBuffer>
+{
+    typedef MeshBufferBlobV3 type;
+};
 
 }
-} // nbl::asset
+}  // nbl::asset
 
 #endif

@@ -8,74 +8,75 @@
 #include "nbl/system/FuncPtrLoader.h"
 
 #if defined(_NBL_WINDOWS_API_)
-	#include <windows.h> 
-	#include <stdio.h> 
+#include <windows.h>
+#include <stdio.h>
 #elif defined(_NBL_POSIX_API_)
-	#include <dlfcn.h>
+#include <dlfcn.h>
 #endif
-
 
 namespace nbl
 {
 namespace system
 {
-
 class DefaultFuncPtrLoader final : FuncPtrLoader
 {
-	protected:
-		#if defined(_NBL_WINDOWS_API_)
-			HINSTANCE lib;
-		#elif defined(_NBL_POSIX_API_)
-			void* lib;
-		#endif
-	public:
-		DefaultFuncPtrLoader() : lib(NULL) {}
-		DefaultFuncPtrLoader(const char* name) : DefaultFuncPtrLoader()
-		{
-			#if defined(_NBL_WINDOWS_API_)
-				std::string libname(name);
-				libname += ".dll";
-				lib = LoadLibrary(libname.c_str());
-			#elif defined(_NBL_POSIX_API_)
-				std::string libname("lib");
-				libname += name;
-				libname += ".so";
-				lib = dlopen(libname.c_str(), RTLD_LAZY);
-			#endif
-		}
-		DefaultFuncPtrLoader(DefaultFuncPtrLoader&& other) : DefaultFuncPtrLoader()
-		{
-			operator=(std::move(other));
-		}
-		~DefaultFuncPtrLoader()
-		{
-			if (lib != NULL)
-			#if defined(_NBL_WINDOWS_API_)
-				FreeLibrary(lib);
-			#elif defined(_NBL_POSIX_API_)
-				dlclose(lib);
-			#endif
-		}
+protected:
+#if defined(_NBL_WINDOWS_API_)
+    HINSTANCE lib;
+#elif defined(_NBL_POSIX_API_)
+    void* lib;
+#endif
+public:
+    DefaultFuncPtrLoader()
+        : lib(NULL) {}
+    DefaultFuncPtrLoader(const char* name)
+        : DefaultFuncPtrLoader()
+    {
+#if defined(_NBL_WINDOWS_API_)
+        std::string libname(name);
+        libname += ".dll";
+        lib = LoadLibrary(libname.c_str());
+#elif defined(_NBL_POSIX_API_)
+        std::string libname("lib");
+        libname += name;
+        libname += ".so";
+        lib = dlopen(libname.c_str(), RTLD_LAZY);
+#endif
+    }
+    DefaultFuncPtrLoader(DefaultFuncPtrLoader&& other)
+        : DefaultFuncPtrLoader()
+    {
+        operator=(std::move(other));
+    }
+    ~DefaultFuncPtrLoader()
+    {
+        if(lib != NULL)
+#if defined(_NBL_WINDOWS_API_)
+            FreeLibrary(lib);
+#elif defined(_NBL_POSIX_API_)
+            dlclose(lib);
+#endif
+    }
 
-		inline DefaultFuncPtrLoader& operator=(DefaultFuncPtrLoader&& other)
-		{
-			std::swap(lib, other.lib);
-			return *this;
-		}
+    inline DefaultFuncPtrLoader& operator=(DefaultFuncPtrLoader&& other)
+    {
+        std::swap(lib, other.lib);
+        return *this;
+    }
 
-		inline bool isLibraryLoaded() override final
-		{
-			return lib!=NULL;
-		}
+    inline bool isLibraryLoaded() override final
+    {
+        return lib != NULL;
+    }
 
-		inline void* loadFuncPtr(const char* funcname) override final
-		{
-			#if defined(_NBL_WINDOWS_API_)
-				return GetProcAddress(lib,funcname);
-			#elif defined(_NBL_POSIX_API_)
-				return dlsym(lib,funcname);
-			#endif
-		}
+    inline void* loadFuncPtr(const char* funcname) override final
+    {
+#if defined(_NBL_WINDOWS_API_)
+        return GetProcAddress(lib, funcname);
+#elif defined(_NBL_POSIX_API_)
+        return dlsym(lib, funcname);
+#endif
+    }
 };
 
 }

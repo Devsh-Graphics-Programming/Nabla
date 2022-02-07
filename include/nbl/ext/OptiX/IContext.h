@@ -5,9 +5,7 @@
 #ifndef __NBL_EXT_OPTIX_CONTEXT_H_INCLUDED__
 #define __NBL_EXT_OPTIX_CONTEXT_H_INCLUDED__
 
-
 #include "nabla.h"
-
 
 #include "nbl/ext/OptiX/IModule.h"
 #include "nbl/ext/OptiX/IDenoiser.h"
@@ -18,168 +16,164 @@ namespace ext
 {
 namespace OptiX
 {
-
 class Manager;
 
-#define _NBL_OPTIX_DEFAULT_NVRTC_OPTIONS "--std=c++14",cuda::CCUDAHandler::getCommonVirtualCUDAArchitecture(),"-dc","-use_fast_math","-default-device","--device-debug"
+#define _NBL_OPTIX_DEFAULT_NVRTC_OPTIONS "--std=c++14", cuda::CCUDAHandler::getCommonVirtualCUDAArchitecture(), "-dc", "-use_fast_math", "-default-device", "--device-debug"
 
 class IContext final : public core::IReferenceCounted
 {
-	public:
-		inline OptixDeviceContext getOptiXHandle() {return optixContext;}
+public:
+    inline OptixDeviceContext getOptiXHandle() { return optixContext; }
 
+    // modules
+    static const OptixModuleCompileOptions defaultOptixModuleCompileOptions;
 
-		// modules
-		static const OptixModuleCompileOptions defaultOptixModuleCompileOptions;
+    core::smart_refctd_ptr<IModule> createModuleFromPTX(const char* ptx, size_t ptx_size, const OptixPipelineCompileOptions& pipeline_options,
+        const OptixModuleCompileOptions& module_options = defaultOptixModuleCompileOptions,
+        std::string* log = nullptr);
+    core::smart_refctd_ptr<IModule> createModuleFromPTX(const std::string& ptx, const OptixPipelineCompileOptions& pipeline_options,
+        const OptixModuleCompileOptions& module_options = defaultOptixModuleCompileOptions,
+        std::string* log = nullptr)
+    {
+        return createModuleFromPTX(ptx.c_str(), ptx.size(), pipeline_options, module_options, log);
+    }
 
-		core::smart_refctd_ptr<IModule> createModuleFromPTX(const char* ptx, size_t ptx_size, const OptixPipelineCompileOptions& pipeline_options,
-															const OptixModuleCompileOptions& module_options=defaultOptixModuleCompileOptions,
-															std::string* log=nullptr);
-		core::smart_refctd_ptr<IModule> createModuleFromPTX(const std::string& ptx, const OptixPipelineCompileOptions& pipeline_options,
-															const OptixModuleCompileOptions& module_options=defaultOptixModuleCompileOptions,
-															std::string* log=nullptr)
-		{
-			return createModuleFromPTX(ptx.c_str(),ptx.size(),pipeline_options,module_options,log);
-		}
+    template<typename CompileOptionsT = const std::initializer_list<const char*>&>
+    inline core::smart_refctd_ptr<IModule> compileModuleFromSource(const char* source, const char* filename, const OptixPipelineCompileOptions& pipeline_options,
+        const OptixModuleCompileOptions& module_options = defaultOptixModuleCompileOptions,
+        CompileOptionsT compile_options = {_NBL_OPTIX_DEFAULT_NVRTC_OPTIONS}, std::string* log = nullptr)
+    {
+        return compileModuleFromSource_helper(source, filename, pipeline_options, module_options, &(*compile_options.begin()), &(*compile_options.end()), log);
+    }
 
-		template<typename CompileOptionsT = const std::initializer_list<const char*>&>
-		inline core::smart_refctd_ptr<IModule> compileModuleFromSource(	const char* source, const char* filename, const OptixPipelineCompileOptions& pipeline_options,
-																		const OptixModuleCompileOptions& module_options=defaultOptixModuleCompileOptions,
-																		CompileOptionsT compile_options={_NBL_OPTIX_DEFAULT_NVRTC_OPTIONS}, std::string* log=nullptr)
-		{
-			return compileModuleFromSource_helper(source,filename,pipeline_options,module_options,&(*compile_options.begin()),&(*compile_options.end()),log);
-		}
+    template<typename CompileOptionsT = const std::initializer_list<const char*>&>
+    inline core::smart_refctd_ptr<IModule> compileModuleFromFile(io::IReadFile* file, const OptixPipelineCompileOptions& pipeline_options,
+        const OptixModuleCompileOptions& module_options = defaultOptixModuleCompileOptions,
+        CompileOptionsT compile_options = {_NBL_OPTIX_DEFAULT_NVRTC_OPTIONS}, std::string* log = nullptr)
+    {
+        if(!file)
+            return nullptr;
 
-		template<typename CompileOptionsT = const std::initializer_list<const char*>&>
-		inline core::smart_refctd_ptr<IModule> compileModuleFromFile(io::IReadFile* file, const OptixPipelineCompileOptions& pipeline_options,
-																	const OptixModuleCompileOptions& module_options=defaultOptixModuleCompileOptions,
-																	CompileOptionsT compile_options={_NBL_OPTIX_DEFAULT_NVRTC_OPTIONS}, std::string* log=nullptr)
-		{
-			if (!file)
-				return nullptr;
+        auto sz = file->getSize();
+        core::vector<char> tmp(sz + 1ull);
+        file->read(tmp.data(), sz);
+        tmp.back() = 0;
+        return compileModuleFromSource<CompileOptionsT>(tmp.data(), file->getFileName().c_str(), pipeline_options, module_options, std::forward<CompileOptionsT>(compile_options), log);
+    }
 
-			auto sz = file->getSize();
-			core::vector<char> tmp(sz+1ull);
-			file->read(tmp.data(),sz);
-			tmp.back() = 0;
-			return compileModuleFromSource<CompileOptionsT>(tmp.data(),file->getFileName().c_str(),pipeline_options,module_options,std::forward<CompileOptionsT>(compile_options),log);
-		}
+    //
+    using RegisteredBufferCache = core::set<cuda::CCUDAHandler::GraphicsAPIObjLink<video::IGPUBuffer>>;
+    template<typename Iterator>
+    OptixTraversableHandle createAccelerationStructure(CUstream stream, RegisteredBufferCache& bufferCache, const OptixAccelBuildOptions& accelOptions, Iterator _begin, Iterator _end, uint32_t deviceID = 0u, size_t scratchBufferSize = 0u, CUdeviceptr scratchBuffer = nullptr)
+    {
+        auto EFormatToOptixFormat = [](asset::E_FORMAT format) -> OptixVertexFormat {
+            switch(format)
+            {
+                case asset::EF_R16G16_SNORM:
+                    return OPTIX_VERTEX_FORMAT_SNORM16_2;
+                case asset::EF_R32G32B32_SNORM:
+                    return OPTIX_VERTEX_FORMAT_SNORM16_3;
+                case asset::EF_R16G16_SFLOAT:
+                    return OPTIX_VERTEX_FORMAT_HALF2;
+                case asset::EF_R16G16B16_SFLOAT:
+                    return OPTIX_VERTEX_FORMAT_HALF3;
+                case asset::EF_R32G32_SFLOAT:
+                    return OPTIX_VERTEX_FORMAT_FLOAT2;
+                case asset::EF_R32G32B32_SFLOAT:
+                    return OPTIX_VERTEX_FORMAT_FLOAT3;
+                default:
+                    break;
+            }
+            return static_cast<OptixVertexFormat>(0u);
+        };
 
+        const auto inputCount = std::distance(_begin, _end);
+        core::vector<CUgraphicsResource> vertexBuffers;
+        core::vector<uint32_t> bufferIndices(inputCount);
+        {
+            vertexBuffers.reserve(inputCount);
 
-		//
-		using RegisteredBufferCache = core::set<cuda::CCUDAHandler::GraphicsAPIObjLink<video::IGPUBuffer>>;
-		template<typename Iterator>
-		OptixTraversableHandle createAccelerationStructure(CUstream stream, RegisteredBufferCache& bufferCache, const OptixAccelBuildOptions& accelOptions, Iterator _begin, Iterator _end, uint32_t deviceID=0u, size_t scratchBufferSize=0u, CUdeviceptr scratchBuffer = nullptr)
-		{
-			auto EFormatToOptixFormat = [](asset::E_FORMAT format) -> OptixVertexFormat
-			{
-				switch (format)
-				{
-				case asset::EF_R16G16_SNORM:
-					return OPTIX_VERTEX_FORMAT_SNORM16_2;
-				case asset::EF_R32G32B32_SNORM:
-					return OPTIX_VERTEX_FORMAT_SNORM16_3;
-				case asset::EF_R16G16_SFLOAT:
-					return OPTIX_VERTEX_FORMAT_HALF2;
-				case asset::EF_R16G16B16_SFLOAT:
-					return OPTIX_VERTEX_FORMAT_HALF3;
-				case asset::EF_R32G32_SFLOAT:
-					return OPTIX_VERTEX_FORMAT_FLOAT2;
-				case asset::EF_R32G32B32_SFLOAT:
-					return OPTIX_VERTEX_FORMAT_FLOAT3;
-				default:
-					break;
-				}
-				return static_cast<OptixVertexFormat>(0u);
-			};
+            RegisteredBufferCache newBuffers;
+            uint32_t counter = 0u;
+            for(auto it = _begin; it != _end; it++, counter++)
+            {
+                bufferIndices[counter] = ~0u;
 
-			const auto inputCount = std::distance(_begin,_end);
-			core::vector<CUgraphicsResource> vertexBuffers;
-			core::vector<uint32_t> bufferIndices(inputCount);
-			{
-				vertexBuffers.reserve(inputCount);
+                auto* mb = static_cast<video::IGPUMeshBuffer*>(*it);
+                auto pipeline = mb->getMeshDataAndFormat();
+                auto posIx = mb->getPositionAttributeIx();
+                if(EFormatToOptixFormat(pipeline->getAttribFormat(posIx)))
+                    continue;
 
-				RegisteredBufferCache newBuffers;
-				uint32_t counter = 0u;
-				for (auto it=_begin; it!=_end; it++,counter++)
-				{
-					bufferIndices[counter] = ~0u;
+                auto posbuffer = pipeline->getMappedBuffer(posIx);
+                auto found = bufferCache.find(posbuffer);
+                if(found == bufferCache.end())
+                {
+                    RegisteredBufferCache::value_type link;
+                    if(!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(&link, CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY)))
+                        continue;
+                    found = newBuffers.insert(std::move(link)).first;
+                }
+                vertexBuffers.push_back(*found);
+                bufferIndices[counter] = counter;
+            }
+            bufferCache.merge(newBuffers);
+        }
 
-					auto* mb = static_cast<video::IGPUMeshBuffer*>(*it);
-					auto pipeline = mb->getMeshDataAndFormat();
-					auto posIx = mb->getPositionAttributeIx();
-					if (EFormatToOptixFormat(pipeline->getAttribFormat(posIx)))
-						continue;
+        if(!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::cuda.pcuGraphicsMapResources(vertexBuffers.size(), vertexBuffers.data(), stream)))
+            return nullptr;
 
-					auto posbuffer = pipeline->getMappedBuffer(posIx);
-					auto found = bufferCache.find(posbuffer);
-					if (found == bufferCache.end())
-					{
-						RegisteredBufferCache::value_type link;
-						if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(&link,CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY)))
-							continue;
-						found = newBuffers.insert(std::move(link)).first;
-					}
-					vertexBuffers.push_back(*found);
-					bufferIndices[counter] = counter;
-				}
-				bufferCache.merge(newBuffers);
-			}
+        constexpr uint32_t buildStepSize = 256u;
+        const uint32_t triangle_input_flags[1] = {OPTIX_GEOMETRY_FLAG_NONE};  // TODO: MAYBE CHANGE?
+        auto it = _begin;
+        for(auto i = 0; i < inputCount;)
+        {
+            OptixBuildInput buildInputs[buildStepSize] = {};
+            OptixAccelBufferSizes buffSizes = {};
+            uint32_t j = 0u;
+            for(; j < buildStepSize && it != _end; it++, j++, i++)
+            {
+                auto buffIx = bufferIndices[i];
+                if(buffIx == (~0u))
+                    continue;
 
-			if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::cuda.pcuGraphicsMapResources(vertexBuffers.size(),vertexBuffers.data(),stream)))
-				return nullptr;
+                auto* mb = static_cast<video::IGPUMeshBuffer*>(*it);
+                auto pipeline = mb->getMeshDataAndFormat();
+                auto posIx = mb->getPositionAttributeIx();
 
-			constexpr uint32_t buildStepSize = 256u;
-			const uint32_t triangle_input_flags[1] = { OPTIX_GEOMETRY_FLAG_NONE }; // TODO: MAYBE CHANGE?
-			auto it = _begin;
-			for (auto i=0; i<inputCount;)
-			{
-				OptixBuildInput buildInputs[buildStepSize] = {};
-				OptixAccelBufferSizes buffSizes = {};
-				uint32_t j = 0u;
-				for (; j<buildStepSize&&it!=_end; it++,j++,i++)
-				{
-					auto buffIx = bufferIndices[i];
-					if (buffIx == (~0u))
-						continue;
+                buildInputs[j].type = OPTIX_BUILD_INPUT_TYPE_TRIANGLES;
+                buildInputs[j].triangleArray.vertexBuffers = vertexBuffers.data() + buffIx;
+                //buildInputs[j].triangleArray.numVertices = mb-> ? ;
+                buildInputs[j].triangleArray.vertexFormat = EFormatToOptixFormat(pipeline->getAttribFormat(posIx));
+                buildInputs[j].triangleArray.vertexStrideInBytes = pipeline->getAttribStride(posIx);
+                if(pipeline->getIndexBuffer())
+                {
+                    //buildInputs[j].triangleArray.indexBuffer = ;
+                    buildInputs[j].triangleArray.numIndexTriplets = mb->getIndexCount() / 3u;
+                    buildInputs[j].triangleArray.indexFormat = mb->getIndexType() != asset::EIT_16BIT ? OPTIX_INDICES_FORMAT_UNSIGNED_INT3 : OPTIX_INDICES_FORMAT_UNSIGNEDSHORT3;
+                    buildInputs[j].triangleArray.indexStrideInBytes = 0u;
+                    buildInputs[j].triangleArray.primitiveIndexOffset = mb->getBaseVertex();
+                    buildInputs[j].triangleArray.numSbtRecords = 1u;
+                    buildInputs[j].triangleArray.flags = triangle_input_flags;
+                }
+            }
+            optixAccelComputeMemoryUsage(optixContext[deviceID], &accelOptions, buildInputs, j, &buffSizes);
 
-					auto* mb = static_cast<video::IGPUMeshBuffer*>(*it);
-					auto pipeline = mb->getMeshDataAndFormat();
-					auto posIx = mb->getPositionAttributeIx();
+            // check and resize buffers as necessary
+            buffSizes.outputSizeInBytes
+                buffSizes.tempSzeInBytes
+                    optixAccelBuild(optixContext[deviceID], stream, &accelOptions, buildInputs, j, scratchBuffer, scratchBuffer->getSize(), outputBuffer, outputBuffer->getSize(), outputHandle, props, propsCount);
+        }
 
-					buildInputs[j].type = OPTIX_BUILD_INPUT_TYPE_TRIANGLES;
-					buildInputs[j].triangleArray.vertexBuffers = vertexBuffers.data()+buffIx;
-					//buildInputs[j].triangleArray.numVertices = mb-> ? ;
-					buildInputs[j].triangleArray.vertexFormat = EFormatToOptixFormat(pipeline->getAttribFormat(posIx));
-					buildInputs[j].triangleArray.vertexStrideInBytes = pipeline->getAttribStride(posIx);
-					if (pipeline->getIndexBuffer())
-					{
-						//buildInputs[j].triangleArray.indexBuffer = ;
-						buildInputs[j].triangleArray.numIndexTriplets = mb->getIndexCount()/3u;
-						buildInputs[j].triangleArray.indexFormat = mb->getIndexType()!=asset::EIT_16BIT ? OPTIX_INDICES_FORMAT_UNSIGNED_INT3:OPTIX_INDICES_FORMAT_UNSIGNEDSHORT3;
-						buildInputs[j].triangleArray.indexStrideInBytes = 0u;
-						buildInputs[j].triangleArray.primitiveIndexOffset = mb->getBaseVertex();
-						buildInputs[j].triangleArray.numSbtRecords = 1u;
-						buildInputs[j].triangleArray.flags = triangle_input_flags;
-					}
-				}
-				optixAccelComputeMemoryUsage(optixContext[deviceID],&accelOptions,buildInputs,j,&buffSizes);
+        if(!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::cuda.pcuGraphicsUnmapResources(vertexBuffers.size(), vertexBuffers.data(), stream)))
+            return nullptr;
 
-				// check and resize buffers as necessary
-				buffSizes.outputSizeInBytes
-				buffSizes.tempSzeInBytes
-				optixAccelBuild(optixContext[deviceID],stream,&accelOptions,buildInputs,j,scratchBuffer,scratchBuffer->getSize(),outputBuffer,outputBuffer->getSize(),outputHandle,props,propsCount);
-			}
+        return nullptr;
+    }
 
-			if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::cuda.pcuGraphicsUnmapResources(vertexBuffers.size(),vertexBuffers.data(), stream)))
-				return nullptr;
+    // TODO: optixAccelCompact
 
-			return nullptr;
-		}
-
-		// TODO: optixAccelCompact
-
-	/*
+    /*
 		using MeshBufferRRShapeCache = core::unordered_map<const asset::ICPUMeshBuffer*,::RadeonRays::Shape*>;
 		using MeshNodeRRInstanceCache = core::unordered_map<scene::IMeshSceneNode*, core::smart_refctd_dynamic_array<::RadeonRays::Shape*> >;
 
@@ -324,49 +318,49 @@ class IContext final : public core::IReferenceCounted
 				rr->Commit();
 		}*/
 
-		core::smart_refctd_ptr<IDenoiser> createDenoiser(const OptixDenoiserOptions* options, OptixDenoiserModelKind model=OPTIX_DENOISER_MODEL_KIND_HDR, void* modelData=nullptr, size_t modelDataSizeInBytes=0ull)
-		{
-			if (!options)
-				return nullptr;
+    core::smart_refctd_ptr<IDenoiser> createDenoiser(const OptixDenoiserOptions* options, OptixDenoiserModelKind model = OPTIX_DENOISER_MODEL_KIND_HDR, void* modelData = nullptr, size_t modelDataSizeInBytes = 0ull)
+    {
+        if(!options)
+            return nullptr;
 
-			OptixDenoiser denoiser = nullptr;
-			if (optixDenoiserCreate(optixContext,options,&denoiser)!=OPTIX_SUCCESS || !denoiser)
-				return nullptr;
+        OptixDenoiser denoiser = nullptr;
+        if(optixDenoiserCreate(optixContext, options, &denoiser) != OPTIX_SUCCESS || !denoiser)
+            return nullptr;
 
-			auto denoiser_wrapper = core::smart_refctd_ptr<IDenoiser>(new IDenoiser(denoiser),core::dont_grab);
-			if (optixDenoiserSetModel(denoiser,model,modelData,modelDataSizeInBytes)!=OPTIX_SUCCESS)
-				return nullptr;
+        auto denoiser_wrapper = core::smart_refctd_ptr<IDenoiser>(new IDenoiser(denoiser), core::dont_grab);
+        if(optixDenoiserSetModel(denoiser, model, modelData, modelDataSizeInBytes) != OPTIX_SUCCESS)
+            return nullptr;
 
-			return denoiser_wrapper;
-		}
+        return denoiser_wrapper;
+    }
 
-	protected:
-		friend class Manager;
+protected:
+    friend class Manager;
 
-		IContext(Manager* _manager, CUcontext _CUDAContext, OptixDeviceContext _optixContext) : manager(_manager), CUDAContext(_CUDAContext), optixContext(_optixContext)
-		{
-			assert(manager && CUDAContext && optixContext);
-		}
-		~IContext()
-		{
-			if (cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::cuda.pcuCtxPushCurrent_v2(CUDAContext)))
-			{
-				CUcontext tmp = nullptr;
-				cuda::CCUDAHandler::cuda.pcuCtxSynchronize();
-				cuda::CCUDAHandler::cuda.pcuCtxPopCurrent_v2(&tmp);
-			}
-			
-			optixDeviceContextDestroy(optixContext);
-		}
+    IContext(Manager* _manager, CUcontext _CUDAContext, OptixDeviceContext _optixContext)
+        : manager(_manager), CUDAContext(_CUDAContext), optixContext(_optixContext)
+    {
+        assert(manager && CUDAContext && optixContext);
+    }
+    ~IContext()
+    {
+        if(cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::cuda.pcuCtxPushCurrent_v2(CUDAContext)))
+        {
+            CUcontext tmp = nullptr;
+            cuda::CCUDAHandler::cuda.pcuCtxSynchronize();
+            cuda::CCUDAHandler::cuda.pcuCtxPopCurrent_v2(&tmp);
+        }
 
-		core::smart_refctd_ptr<IModule> compileModuleFromSource_helper(	const char* source, const char* filename,
-																		const OptixPipelineCompileOptions& pipeline_options,
-																		const OptixModuleCompileOptions& module_options,
-																		const char* const* compile_options_begin, const char* const* compile_options_end,
-																		std::string* log);
+        optixDeviceContextDestroy(optixContext);
+    }
 
+    core::smart_refctd_ptr<IModule> compileModuleFromSource_helper(const char* source, const char* filename,
+        const OptixPipelineCompileOptions& pipeline_options,
+        const OptixModuleCompileOptions& module_options,
+        const char* const* compile_options_begin, const char* const* compile_options_end,
+        std::string* log);
 
-		/*
+    /*
 		void makeShape(MeshBufferRRShapeCache& shapeCache, const asset::ICPUMeshBuffer* mb, int32_t* indices);
 		void makeInstance(	MeshNodeRRInstanceCache& instanceCache,
 							const core::unordered_map<const video::IGPUMeshBuffer*,MeshBufferRRShapeCache::value_type>& GPU2CPUTable,
@@ -376,10 +370,9 @@ class IContext final : public core::IReferenceCounted
 		static core::smart_refctd_ptr<RadeonRaysIncludeLoader> radeonRaysIncludes;
 		*/
 
-		
-		Manager* manager;
-		CUcontext CUDAContext;
-		OptixDeviceContext optixContext;
+    Manager* manager;
+    CUcontext CUDAContext;
+    OptixDeviceContext optixContext;
 };
 
 }

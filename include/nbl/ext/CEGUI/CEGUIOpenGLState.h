@@ -32,29 +32,29 @@ namespace nbl
 {
 namespace video
 {
-  class COpenGLState;
+class COpenGLState;
 }
 
 namespace ext
 {
 namespace cegui
 {
-
 class CEGUIOpenGLState final
 {
-	protected:
-		video::COpenGLState* GUIState;
-		video::COpenGLState* RenderState;
-	public:
-		CEGUIOpenGLState();
-		~CEGUIOpenGLState();
+protected:
+    video::COpenGLState* GUIState;
+    video::COpenGLState* RenderState;
 
-		void saveOpenGLState();
-		void restoreOpenGLState();
+public:
+    CEGUIOpenGLState();
+    ~CEGUIOpenGLState();
+
+    void saveOpenGLState();
+    void restoreOpenGLState();
 };
 
-} // namespace cegui
-} // namespace ext
-} // namespace nbl
+}  // namespace cegui
+}  // namespace ext
+}  // namespace nbl
 
 #endif

@@ -1,13 +1,13 @@
 #ifndef __IRR_I_GPU_QUEUE_FAMILY_H_INCLUDED__
 #define __IRR_I_GPU_QUEUE_FAMILY_H_INCLUDED__
 
-#include <nbl/asset/IImage.h> //for VkExtent3D only
+#include <nbl/asset/IImage.h>  //for VkExtent3D only
 #include <type_traits>
 
-namespace nbl {
+namespace nbl
+{
 namespace video
 {
-
 //possibly move into IGPUQueueFamily
 enum E_QUEUE_FLAGS : uint32_t
 {
@@ -27,6 +27,7 @@ struct SQueueFamilyProperties
     asset::VkExtent3D minImageTransferGranularity;
 };
 
-}}
+}
+}
 
 #endif

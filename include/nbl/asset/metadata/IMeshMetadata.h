@@ -11,27 +11,28 @@ namespace nbl
 {
 namespace asset
 {
-
-//! 
+//!
 class IMeshMetadata : public core::Interface
 {
-	public:
-		struct SInstance
-		{
-			core::matrix3x4SIMD worldTform;
-		};
-		core::SRange<const SInstance> m_instances;
+public:
+    struct SInstance
+    {
+        core::matrix3x4SIMD worldTform;
+    };
+    core::SRange<const SInstance> m_instances;
 
-	protected:
-		IMeshMetadata() : m_instances(nullptr,nullptr) {}
-		IMeshMetadata(core::SRange<const SInstance>&& _instances) : m_instances(std::move(_instances)) {}
-		virtual ~IMeshMetadata() = default;
+protected:
+    IMeshMetadata()
+        : m_instances(nullptr, nullptr) {}
+    IMeshMetadata(core::SRange<const SInstance>&& _instances)
+        : m_instances(std::move(_instances)) {}
+    virtual ~IMeshMetadata() = default;
 
-		inline IMeshMetadata& operator=(IMeshMetadata&& other)
-		{
-			m_instances = other.m_instances;
-			return *this;
-		}
+    inline IMeshMetadata& operator=(IMeshMetadata&& other)
+    {
+        m_instances = other.m_instances;
+        return *this;
+    }
 };
 
 }

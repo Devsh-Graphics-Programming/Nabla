@@ -82,178 +82,157 @@
 #include "nbl/asset/utils/CGeometryCreator.h"
 #include "nbl/asset/utils/CMeshManipulator.h"
 
-
 using namespace nbl;
 using namespace asset;
 
-
 std::function<void(SAssetBundle&)> nbl::asset::makeAssetGreetFunc(const IAssetManager* const _mgr)
 {
-	return [_mgr](SAssetBundle& _asset) {
-		_mgr->setAssetCached(_asset, true);
-		auto rng = _asset.getContents();
-		//assets being in the cache must be immutable
+    return [_mgr](SAssetBundle& _asset) {
+        _mgr->setAssetCached(_asset, true);
+        auto rng = _asset.getContents();
+        //assets being in the cache must be immutable
         //asset mutability is changed just before insertion by inserting methods of IAssetManager
         //for (auto ass : rng)
-		//	_mgr->setAssetMutability(ass.get(), IAsset::EM_IMMUTABLE);
-	};
+        //	_mgr->setAssetMutability(ass.get(), IAsset::EM_IMMUTABLE);
+    };
 }
 std::function<void(SAssetBundle&)> nbl::asset::makeAssetDisposeFunc(const IAssetManager* const _mgr)
 {
-	return [_mgr](SAssetBundle& _asset) {
-		_mgr->setAssetCached(_asset, false);
-		auto rng = _asset.getContents();
-        for (auto ass : rng)
-			_mgr->setAssetMutability(ass.get(), IAsset::EM_MUTABLE);
-	};
+    return [_mgr](SAssetBundle& _asset) {
+        _mgr->setAssetCached(_asset, false);
+        auto rng = _asset.getContents();
+        for(auto ass : rng)
+            _mgr->setAssetMutability(ass.get(), IAsset::EM_MUTABLE);
+    };
 }
 
 void IAssetManager::initializeMeshTools()
 {
-	m_meshManipulator = core::make_smart_refctd_ptr<CMeshManipulator>();
+    m_meshManipulator = core::make_smart_refctd_ptr<CMeshManipulator>();
     m_geometryCreator = core::make_smart_refctd_ptr<CGeometryCreator>(m_meshManipulator.get());
-	m_glslCompiler = core::make_smart_refctd_ptr<IGLSLCompiler>(m_fileSystem.get());
+    m_glslCompiler = core::make_smart_refctd_ptr<IGLSLCompiler>(m_fileSystem.get());
 }
 
 const IGeometryCreator* IAssetManager::getGeometryCreator() const
 {
-	return m_geometryCreator.get();
+    return m_geometryCreator.get();
 }
 
 IMeshManipulator* IAssetManager::getMeshManipulator()
 {
-	return m_meshManipulator.get();
+    return m_meshManipulator.get();
 }
-
 
 void IAssetManager::addLoadersAndWriters()
 {
 #ifdef _NBL_COMPILE_WITH_STL_LOADER_
-	addAssetLoader(core::make_smart_refctd_ptr<asset::CSTLMeshFileLoader>(this));
+    addAssetLoader(core::make_smart_refctd_ptr<asset::CSTLMeshFileLoader>(this));
 #endif
 #ifdef _NBL_COMPILE_WITH_PLY_LOADER_
-	addAssetLoader(core::make_smart_refctd_ptr<asset::CPLYMeshFileLoader>(this));
+    addAssetLoader(core::make_smart_refctd_ptr<asset::CPLYMeshFileLoader>(this));
 #endif
 #ifdef _NBL_COMPILE_WITH_MTL_LOADER_
     addAssetLoader(core::make_smart_refctd_ptr<asset::CGraphicsPipelineLoaderMTL>(this));
 #endif
 #ifdef _NBL_COMPILE_WITH_OBJ_LOADER_
-	addAssetLoader(core::make_smart_refctd_ptr<asset::COBJMeshFileLoader>(this));
+    addAssetLoader(core::make_smart_refctd_ptr<asset::COBJMeshFileLoader>(this));
 #endif
 #ifdef _NBL_COMPILE_WITH_BAW_LOADER_
-	addAssetLoader(core::make_smart_refctd_ptr<asset::CBAWMeshFileLoader>(this));
+    addAssetLoader(core::make_smart_refctd_ptr<asset::CBAWMeshFileLoader>(this));
 #endif
 #ifdef _NBL_COMPILE_WITH_JPG_LOADER_
-	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderJPG>());
+    addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderJPG>());
 #endif
 #ifdef _NBL_COMPILE_WITH_PNG_LOADER_
-	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderPng>());
+    addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderPng>());
 #endif
 #ifdef _NBL_COMPILE_WITH_OPENEXR_LOADER_
-	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderOpenEXR>(this));
+    addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderOpenEXR>(this));
 #endif
-#ifdef  _NBL_COMPILE_WITH_GLI_LOADER_
-	addAssetLoader(core::make_smart_refctd_ptr<asset::CGLILoader>());
-#endif 
+#ifdef _NBL_COMPILE_WITH_GLI_LOADER_
+    addAssetLoader(core::make_smart_refctd_ptr<asset::CGLILoader>());
+#endif
 #ifdef _NBL_COMPILE_WITH_TGA_LOADER_
-	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderTGA>());
+    addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderTGA>());
 #endif
-	addAssetLoader(core::make_smart_refctd_ptr<asset::CGLSLLoader>());
-	addAssetLoader(core::make_smart_refctd_ptr<asset::CSPVLoader>());
+    addAssetLoader(core::make_smart_refctd_ptr<asset::CGLSLLoader>());
+    addAssetLoader(core::make_smart_refctd_ptr<asset::CSPVLoader>());
 
 #ifdef _NBL_COMPILE_WITH_BAW_WRITER_
-	addAssetWriter(core::make_smart_refctd_ptr<asset::CBAWMeshWriter>(getFileSystem()));
+    addAssetWriter(core::make_smart_refctd_ptr<asset::CBAWMeshWriter>(getFileSystem()));
 #endif
 #ifdef _NBL_COMPILE_WITH_PLY_WRITER_
-	addAssetWriter(core::make_smart_refctd_ptr<asset::CPLYMeshWriter>());
+    addAssetWriter(core::make_smart_refctd_ptr<asset::CPLYMeshWriter>());
 #endif
 #ifdef _NBL_COMPILE_WITH_STL_WRITER_
-	addAssetWriter(core::make_smart_refctd_ptr<asset::CSTLMeshWriter>());
+    addAssetWriter(core::make_smart_refctd_ptr<asset::CSTLMeshWriter>());
 #endif
 #ifdef _NBL_COMPILE_WITH_TGA_WRITER_
-	addAssetWriter(core::make_smart_refctd_ptr<asset::CImageWriterTGA>());
+    addAssetWriter(core::make_smart_refctd_ptr<asset::CImageWriterTGA>());
 #endif
 #ifdef _NBL_COMPILE_WITH_JPG_WRITER_
-	addAssetWriter(core::make_smart_refctd_ptr<asset::CImageWriterJPG>());
+    addAssetWriter(core::make_smart_refctd_ptr<asset::CImageWriterJPG>());
 #endif
 #ifdef _NBL_COMPILE_WITH_PNG_WRITER_
-	addAssetWriter(core::make_smart_refctd_ptr<asset::CImageWriterPNG>());
+    addAssetWriter(core::make_smart_refctd_ptr<asset::CImageWriterPNG>());
 #endif
 #ifdef _NBL_COMPILE_WITH_OPENEXR_WRITER_
-	addAssetWriter(core::make_smart_refctd_ptr<asset::CImageWriterOpenEXR>());
+    addAssetWriter(core::make_smart_refctd_ptr<asset::CImageWriterOpenEXR>());
 #endif
 #ifdef _NBL_COMPILE_WITH_GLI_WRITER_
-	addAssetWriter(core::make_smart_refctd_ptr<asset::CGLIWriter>());
+    addAssetWriter(core::make_smart_refctd_ptr<asset::CGLIWriter>());
 #endif
 
-    for (auto& loader : m_loaders.vector)
+    for(auto& loader : m_loaders.vector)
         loader->initialize();
 }
 
-
-
-
 void IAssetManager::insertBuiltinAssets()
 {
-	auto addBuiltInToCaches = [&](auto&& asset, const char* path) -> void
-	{
-		asset::SAssetBundle bundle(nullptr,{ asset });
-		changeAssetKey(bundle, path);
-		insertBuiltinAssetIntoCache(bundle);
-	};
+    auto addBuiltInToCaches = [&](auto&& asset, const char* path) -> void {
+        asset::SAssetBundle bundle(nullptr, {asset});
+        changeAssetKey(bundle, path);
+        insertBuiltinAssetIntoCache(bundle);
+    };
 
-	// materials
-	{
-		//
-		auto buildInGLSLShader = [&](	core::smart_refctd_ptr<asset::ICPUBuffer>&& data,
-									asset::ISpecializedShader::E_SHADER_STAGE type,
-									std::initializer_list<const char*> paths) -> void
-		{
-			auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(data),asset::ICPUShader::buffer_contains_glsl);
-			auto shader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecializedShader), asset::ISpecializedShader::SInfo({}, nullptr, "main", type));
-			for (auto& path : paths)
-				addBuiltInToCaches(std::move(shader), path);
-		};
-		auto fileSystem = getFileSystem();
+    // materials
+    {
+        //
+        auto buildInGLSLShader = [&](core::smart_refctd_ptr<asset::ICPUBuffer>&& data,
+                                     asset::ISpecializedShader::E_SHADER_STAGE type,
+                                     std::initializer_list<const char*> paths) -> void {
+            auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(data), asset::ICPUShader::buffer_contains_glsl);
+            auto shader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecializedShader), asset::ISpecializedShader::SInfo({}, nullptr, "main", type));
+            for(auto& path : paths)
+                addBuiltInToCaches(std::move(shader), path);
+        };
+        auto fileSystem = getFileSystem();
 
-		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/specialized_shader/fullscreentriangle.vert")>(),
-			asset::ISpecializedShader::ESS_VERTEX,
-			{
-                "nbl/builtin/specialized_shader/fullscreentriangle.vert"
-            });
-		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/lambertian/singletexture/specialized_shader.vert")>(),
-			asset::ISpecializedShader::ESS_VERTEX,
-			{
-                "nbl/builtin/material/lambertian/singletexture/specialized_shader.vert",
-                "nbl/builtin/material/debug/vertex_uv/specialized_shader.vert"
-            });
-		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/lambertian/singletexture/specialized_shader.frag")>(), // it somehow adds an extra "tt" raw string to the end of the returned value, beware
-			asset::ISpecializedShader::ESS_FRAGMENT, 
-			{
-                "nbl/builtin/material/lambertian/singletexture/specialized_shader.frag"
-            });
+        buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/specialized_shader/fullscreentriangle.vert")>(),
+            asset::ISpecializedShader::ESS_VERTEX,
+            {"nbl/builtin/specialized_shader/fullscreentriangle.vert"});
+        buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/lambertian/singletexture/specialized_shader.vert")>(),
+            asset::ISpecializedShader::ESS_VERTEX,
+            {"nbl/builtin/material/lambertian/singletexture/specialized_shader.vert",
+                "nbl/builtin/material/debug/vertex_uv/specialized_shader.vert"});
+        buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/lambertian/singletexture/specialized_shader.frag")>(),  // it somehow adds an extra "tt" raw string to the end of the returned value, beware
+            asset::ISpecializedShader::ESS_FRAGMENT,
+            {"nbl/builtin/material/lambertian/singletexture/specialized_shader.frag"});
 
-		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_normal/specialized_shader.vert")>(),
-			asset::ISpecializedShader::ESS_VERTEX,
-			{
-                "nbl/builtin/material/debug/vertex_normal/specialized_shader.vert"});
-		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_color/specialized_shader.vert")>(),
-			asset::ISpecializedShader::ESS_VERTEX,
-			{
-                "nbl/builtin/material/debug/vertex_color/specialized_shader.vert"
-            });
-		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_uv/specialized_shader.frag")>(),
-			asset::ISpecializedShader::ESS_FRAGMENT,
-			{   
-                "nbl/builtin/material/debug/vertex_uv/specialized_shader.frag"
-            });
-		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_normal/specialized_shader.frag")>(),
-			asset::ISpecializedShader::ESS_FRAGMENT,
-			{
-                "nbl/builtin/material/debug/vertex_normal/specialized_shader.frag",
-                "nbl/builtin/material/debug/vertex_color/specialized_shader.frag"
-            });
-	}
+        buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_normal/specialized_shader.vert")>(),
+            asset::ISpecializedShader::ESS_VERTEX,
+            {"nbl/builtin/material/debug/vertex_normal/specialized_shader.vert"});
+        buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_color/specialized_shader.vert")>(),
+            asset::ISpecializedShader::ESS_VERTEX,
+            {"nbl/builtin/material/debug/vertex_color/specialized_shader.vert"});
+        buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_uv/specialized_shader.frag")>(),
+            asset::ISpecializedShader::ESS_FRAGMENT,
+            {"nbl/builtin/material/debug/vertex_uv/specialized_shader.frag"});
+        buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_normal/specialized_shader.frag")>(),
+            asset::ISpecializedShader::ESS_FRAGMENT,
+            {"nbl/builtin/material/debug/vertex_normal/specialized_shader.frag",
+                "nbl/builtin/material/debug/vertex_color/specialized_shader.frag"});
+    }
 
     /*
         SBinding for UBO - basic view parameters.
@@ -280,40 +259,38 @@ void IAssetManager::insertBuiltinAssets()
     binding3.samplers = nullptr;
 
     auto ds3Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&binding3, &binding3 + 1);
-    addBuiltInToCaches(ds3Layout, "nbl/builtin/material/lambertian/singletexture/descriptor_set_layout/3"); // TODO find everything what has been using it so far
+    addBuiltInToCaches(ds3Layout, "nbl/builtin/material/lambertian/singletexture/descriptor_set_layout/3");  // TODO find everything what has been using it so far
 
-	constexpr uint32_t pcCount = 1u;
-	asset::SPushConstantRange pcRanges[pcCount] = {asset::ISpecializedShader::ESS_VERTEX,0u,sizeof(core::matrix4SIMD)};
-	auto pLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(
-			pcRanges,pcRanges+pcCount,
-			nullptr, core::smart_refctd_ptr(ds1Layout),nullptr, core::smart_refctd_ptr(ds3Layout)
-	);
-	addBuiltInToCaches(pLayout,"nbl/builtin/material/lambertian/singletexture/pipeline_layout"); // TODO find everything what has been using it so far
+    constexpr uint32_t pcCount = 1u;
+    asset::SPushConstantRange pcRanges[pcCount] = {asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD)};
+    auto pLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(
+        pcRanges, pcRanges + pcCount,
+        nullptr, core::smart_refctd_ptr(ds1Layout), nullptr, core::smart_refctd_ptr(ds3Layout));
+    addBuiltInToCaches(pLayout, "nbl/builtin/material/lambertian/singletexture/pipeline_layout");  // TODO find everything what has been using it so far
 
-	// samplers
-	{
-		asset::ISampler::SParams params;
-		params.TextureWrapU = asset::ISampler::ETC_REPEAT;
-		params.TextureWrapV = asset::ISampler::ETC_REPEAT;
-		params.TextureWrapW = asset::ISampler::ETC_REPEAT;
-		params.BorderColor = asset::ISampler::ETBC_FLOAT_OPAQUE_BLACK;
-		params.MinFilter = asset::ISampler::ETF_LINEAR;
-		params.MaxFilter = asset::ISampler::ETF_LINEAR;
-		params.MipmapMode = asset::ISampler::ESMM_LINEAR;
-		params.CompareEnable = false;
-		params.CompareFunc = asset::ISampler::ECO_ALWAYS;
-		params.AnisotropicFilter = 4u;
-		params.LodBias = 0.f;
-		params.MinLod = -1000.f;
-		params.MaxLod = 1000.f;
-		auto sampler = core::make_smart_refctd_ptr<asset::ICPUSampler>(params);
-		addBuiltInToCaches(sampler, "nbl/builtin/sampler/default");
+    // samplers
+    {
+        asset::ISampler::SParams params;
+        params.TextureWrapU = asset::ISampler::ETC_REPEAT;
+        params.TextureWrapV = asset::ISampler::ETC_REPEAT;
+        params.TextureWrapW = asset::ISampler::ETC_REPEAT;
+        params.BorderColor = asset::ISampler::ETBC_FLOAT_OPAQUE_BLACK;
+        params.MinFilter = asset::ISampler::ETF_LINEAR;
+        params.MaxFilter = asset::ISampler::ETF_LINEAR;
+        params.MipmapMode = asset::ISampler::ESMM_LINEAR;
+        params.CompareEnable = false;
+        params.CompareFunc = asset::ISampler::ECO_ALWAYS;
+        params.AnisotropicFilter = 4u;
+        params.LodBias = 0.f;
+        params.MinLod = -1000.f;
+        params.MaxLod = 1000.f;
+        auto sampler = core::make_smart_refctd_ptr<asset::ICPUSampler>(params);
+        addBuiltInToCaches(sampler, "nbl/builtin/sampler/default");
 
-		params.TextureWrapU = params.TextureWrapV = params.TextureWrapW = asset::ISampler::ETC_CLAMP_TO_BORDER;
-		sampler = core::make_smart_refctd_ptr<asset::ICPUSampler>(params);
-		addBuiltInToCaches(sampler, "nbl/builtin/sampler/default_clamp_to_border");
-	}
-
+        params.TextureWrapU = params.TextureWrapV = params.TextureWrapW = asset::ISampler::ETC_CLAMP_TO_BORDER;
+        sampler = core::make_smart_refctd_ptr<asset::ICPUSampler>(params);
+        addBuiltInToCaches(sampler, "nbl/builtin/sampler/default_clamp_to_border");
+    }
 
     //images
     core::smart_refctd_ptr<asset::ICPUImage> dummy2dImage;
@@ -328,12 +305,11 @@ void IAssetManager::insertBuiltinAssets()
         info.arrayLayers = 1u;
         info.samples = asset::ICPUImage::ESCF_1_BIT;
         info.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0u);
-        auto buf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(info.extent.width*info.extent.height*asset::getTexelOrBlockBytesize(info.format));
+        auto buf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(info.extent.width * info.extent.height * asset::getTexelOrBlockBytesize(info.format));
         memcpy(buf->getPointer(),
             //magenta-grey 2x2 chessboard
             std::array<uint8_t, 16>{{255, 0, 255, 255, 128, 128, 128, 255, 128, 128, 128, 255, 255, 0, 255, 255}}.data(),
-            buf->getSize()
-        );
+            buf->getSize());
 
         dummy2dImage = asset::ICPUImage::create(std::move(info));
 
@@ -349,7 +325,7 @@ void IAssetManager::insertBuiltinAssets()
         region.imageExtent = {2u, 2u, 1u};
         dummy2dImage->setBufferAndRegions(std::move(buf), regions);
     }
-    
+
     //image views
     {
         asset::ICPUImageView::SCreationParams info;
@@ -376,7 +352,7 @@ void IAssetManager::insertBuiltinAssets()
         //maybe even ESS_ALL_GRAPHICS?
         bnd.stageFlags = static_cast<asset::ICPUSpecializedShader::E_SHADER_STAGE>(asset::ICPUSpecializedShader::ESS_VERTEX | asset::ICPUSpecializedShader::ESS_FRAGMENT);
         bnd.type = asset::EDT_UNIFORM_BUFFER;
-        defaultDs1Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&bnd, &bnd+1);
+        defaultDs1Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&bnd, &bnd + 1);
         //it's intentionally added to cache later, see comments below, dont touch this order of insertions
     }
 
@@ -409,13 +385,12 @@ void IAssetManager::insertBuiltinAssets()
 
         pipelineLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(nullptr, nullptr, nullptr, std::move(ds1Layout), nullptr, nullptr);
         auto paths =
-        {               
-            "nbl/builtin/material/lambertian/no_texture/pipeline_layout",
-            "nbl/builtin/pipeline_layout/loader/PLY",
-            "nbl/builtin/pipeline_layout/loader/STL" 
-        };
+            {
+                "nbl/builtin/material/lambertian/no_texture/pipeline_layout",
+                "nbl/builtin/pipeline_layout/loader/PLY",
+                "nbl/builtin/pipeline_layout/loader/STL"};
 
-        for(auto &path : paths)
+        for(auto& path : paths)
             addBuiltInToCaches(pipelineLayout, path);
     }
 }

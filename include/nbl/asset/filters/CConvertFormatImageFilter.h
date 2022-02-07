@@ -15,7 +15,6 @@ namespace nbl
 {
 namespace asset
 {
-
 //! Convert Filter
 /*
 	Copy while converting format from input image to output image.
@@ -33,16 +32,16 @@ namespace asset
 */
 
 // copy while converting format from input image to output image
-template<E_FORMAT inFormat=EF_UNKNOWN, E_FORMAT outFormat=EF_UNKNOWN, class Dither=IdentityDither, typename Normalization=void, bool Clamp=false>
-class CConvertFormatImageFilter : public CSwizzleAndConvertImageFilter<inFormat,outFormat,VoidSwizzle,Dither,Normalization,Clamp>
+template<E_FORMAT inFormat = EF_UNKNOWN, E_FORMAT outFormat = EF_UNKNOWN, class Dither = IdentityDither, typename Normalization = void, bool Clamp = false>
+class CConvertFormatImageFilter : public CSwizzleAndConvertImageFilter<inFormat, outFormat, VoidSwizzle, Dither, Normalization, Clamp>
 {
-	public:
-		virtual ~CConvertFormatImageFilter() {}
-		
-		using state_type = typename CSwizzleAndConvertImageFilter<inFormat,outFormat,VoidSwizzle,Dither,Normalization,Clamp>::state_type;
+public:
+    virtual ~CConvertFormatImageFilter() {}
+
+    using state_type = typename CSwizzleAndConvertImageFilter<inFormat, outFormat, VoidSwizzle, Dither, Normalization, Clamp>::state_type;
 };
 
-} // end namespace asset
-} // end namespace nbl
+}  // end namespace asset
+}  // end namespace nbl
 
 #endif

@@ -35,7 +35,6 @@
 // scene lib (basic rendering, culling, scene graph etc.) [DEPENDS: video, ui]
 #include "nbl/scene/scene.h"
 
-
 #include "aabbox3d.h"
 #include "vector2d.h"
 #include "vector3d.h"
@@ -69,7 +68,6 @@
 #include "Keycodes.h"
 #include "splines.h"
 
-
 #include "SColor.h"
 #include "SCollisionEngine.h"
 #include "SExposedVideoData.h"
@@ -77,14 +75,13 @@
 #include "SKeyMap.h"
 #include "SViewFrustum.h"
 
-
 #include "SIrrCreationParameters.h"
 
 //! Everything in the Irrlicht Engine can be found in this namespace.
 namespace nbl
 {
-	//! Creates an Irrlicht device. The Irrlicht device is the root object for using the engine.
-	/** If you need more parameters to be passed to the creation of the Irrlicht Engine device,
+//! Creates an Irrlicht device. The Irrlicht device is the root object for using the engine.
+/** If you need more parameters to be passed to the creation of the Irrlicht Engine device,
 	use the createDeviceEx() function.
 	\param deviceType: Type of the device. This can currently be video::EDT_NULL,
 	video::EDT_VULKAN, and video::EDT_OPENGL.
@@ -101,55 +98,53 @@ namespace nbl
 	\return Returns pointer to the created IrrlichtDevice or null if the
 	device could not be created.
 	*/
-	core::smart_refctd_ptr<IrrlichtDevice> createDevice(
-		video::E_DRIVER_TYPE deviceType = video::EDT_OPENGL,
-		// parantheses are necessary for some compilers
-		const core::dimension2d<uint32_t>& windowSize = (core::dimension2d<uint32_t>(640,480)),
-		uint32_t bits = 16,
-		bool fullscreen = false,
-		bool stencilbuffer = false,
-		bool vsync = false,
-		IEventReceiver* receiver = 0);
+core::smart_refctd_ptr<IrrlichtDevice> createDevice(
+    video::E_DRIVER_TYPE deviceType = video::EDT_OPENGL,
+    // parantheses are necessary for some compilers
+    const core::dimension2d<uint32_t>& windowSize = (core::dimension2d<uint32_t>(640, 480)),
+    uint32_t bits = 16,
+    bool fullscreen = false,
+    bool stencilbuffer = false,
+    bool vsync = false,
+    IEventReceiver* receiver = 0);
 
-
-	//! Creates an Irrlicht device with the option to specify advanced parameters.
-	/** Usually you should use createDevice() for creating an Irrlicht Engine device.
+//! Creates an Irrlicht device with the option to specify advanced parameters.
+/** Usually you should use createDevice() for creating an Irrlicht Engine device.
 	Use this function only if you wish to specify advanced parameters like a window
 	handle in which the device should be created.
 	\param parameters: Structure containing advanced parameters for the creation of the device.
 	See nbl::SIrrlichtCreationParameters for details.
 	\return Returns pointer to the created IrrlichtDevice or null if the
 	device could not be created. */
-	core::smart_refctd_ptr<IrrlichtDevice> createDeviceEx(const SIrrlichtCreationParameters& parameters);
+core::smart_refctd_ptr<IrrlichtDevice> createDeviceEx(const SIrrlichtCreationParameters& parameters);
 
+// THE FOLLOWING IS AN EMPTY LIST OF ALL SUB NAMESPACES
+// EXISTING ONLY FOR THE DOCUMENTATION SOFTWARE DOXYGEN.
 
-	// THE FOLLOWING IS AN EMPTY LIST OF ALL SUB NAMESPACES
-	// EXISTING ONLY FOR THE DOCUMENTATION SOFTWARE DOXYGEN.
+//! Basic classes such as vectors, planes, arrays, lists, and so on can be found in this namespace.
+namespace core
+{
+}
 
-	//! Basic classes such as vectors, planes, arrays, lists, and so on can be found in this namespace.
-	namespace core
-	{
-	}
+//! This namespace provides interfaces for input/output: Reading and writing files, accessing zip archives, faking files ...
+namespace io
+{
+}
 
-	//! This namespace provides interfaces for input/output: Reading and writing files, accessing zip archives, faking files ...
-	namespace io
-	{
-	}
-    
-    //! All asset loading and mutation is performed here: Loading and Saving Images, Models, Shaders, Mesh and Texture CPU manipulation ...
-    namespace asset
-    {
-    }
+//! All asset loading and mutation is performed here: Loading and Saving Images, Models, Shaders, Mesh and Texture CPU manipulation ...
+namespace asset
+{
+}
 
-	//! All scene management can be found in this namespace: scene graph, scene nodes, cameras, animation, etc...
-	namespace scene
-	{
-	}
+//! All scene management can be found in this namespace: scene graph, scene nodes, cameras, animation, etc...
+namespace scene
+{
+}
 
-	//! The video namespace contains classes for accessing the graphics API
-	namespace video
-	{
-	}
+//! The video namespace contains classes for accessing the graphics API
+namespace video
+{
+}
 }
 
 /*! \file irrlicht.h
@@ -157,4 +152,3 @@ namespace nbl
 */
 
 #endif
-

@@ -14,7 +14,6 @@ namespace nbl
 {
 namespace asset
 {
-
 inline shaderc_shader_kind ESStoShadercEnum(ISpecializedShader::E_SHADER_STAGE _ss)
 {
     using T = std::underlying_type_t<ISpecializedShader::E_SHADER_STAGE>;
@@ -30,7 +29,7 @@ inline shaderc_shader_kind ESStoShadercEnum(ISpecializedShader::E_SHADER_STAGE _
     return convert[core::findLSB<uint32_t>(_ss)];
 }
 
-}}
+}
+}
 
 #endif
-

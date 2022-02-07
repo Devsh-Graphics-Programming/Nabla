@@ -13,7 +13,6 @@ namespace nbl
 {
 namespace video
 {
-
 //! GPU Version of Descriptor Set Layout
 /*
     @see IDescriptorSetLayout
