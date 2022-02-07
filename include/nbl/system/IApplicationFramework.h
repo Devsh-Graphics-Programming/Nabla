@@ -41,7 +41,35 @@ class IApplicationFramework : public core::IReferenceCounted
         virtual void onAppInitialized_impl() {}
         virtual void onAppTerminated_impl() {}
 
-        system::path localInputCWD, localOutputCWD, sharedInputCWD, sharedOutputCWD;
+        /*
+         ****************** Current Working Directories ********************
+         Each Nabla app has 4 pre-defined working directories. You can change them to your liking.
+         *******************************************************************
+        */
+        
+        
+        /*
+            This is a CWD which is used for reading app-local assets.
+            Do NOT try writing to this path if you wan't your app to work on Android because on Android this CWD is located inside a readonly APK archive.
+
+            To add files to your assets directory, create an "assets" directory in your app's source directory
+        */
+        system::path localInputCWD;
+
+        /*
+            This is a CWD used to output app-local data e.g. screenshots
+        */
+        system::path localOutputCWD;
+
+        /*
+            The CWD for input data that can be shared among apps, like the "examples_tests/media" directory for Nabla examples
+        */
+        system::path sharedInputCWD;
+
+        /*
+            This CWD is used to output data that can be shared between apps e.g. quantization cache
+        */
+        system::path sharedOutputCWD;
 };
 
 }
