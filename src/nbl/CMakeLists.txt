@@ -193,6 +193,7 @@ set(NBL_UI_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/ui/CWindowWayland.cpp
 	${NBL_ROOT_PATH}/src/nbl/ui/CWaylandCaller.cpp
 	${NBL_ROOT_PATH}/src/nbl/ui/CCursorControlWin32.cpp
+	${NBL_ROOT_PATH}/src/nbl/ui/CClipboardManagerWin32.cpp
 	${NBL_ROOT_PATH}/src/nbl/ui/CWindowManagerAndroid.cpp
 	${NBL_ROOT_PATH}/src/nbl/ui/CGraphicalApplicationAndroid.cpp
 )
