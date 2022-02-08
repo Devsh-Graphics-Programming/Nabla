@@ -34,6 +34,10 @@
 #include "nbl/video/utilities/CSubpassKiln.h"
 #include "nbl/video/utilities/IUtilities.h"
 #include "nbl/video/utilities/IGPUObjectFromAssetConverter.h"
+
+//VT
+//#include "nbl/video/CGPUMeshPackerV2.h"
 //#include "nbl/video/IGPUVirtualTexture.h"
+
 
 #endif

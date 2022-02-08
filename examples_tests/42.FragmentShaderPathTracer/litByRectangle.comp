@@ -6,7 +6,7 @@
 #extension GL_GOOGLE_include_directive : require
 
 #define SPHERE_COUNT 8
-#define POLYGON_METHOD 0 // 0 area sampling, 1 solid angle sampling, 2 approximate projected solid angle sampling
+#define POLYGON_METHOD 2 // 0 area sampling, 1 solid angle sampling, 2 approximate projected solid angle sampling
 #include "common.glsl"
 
 
@@ -30,26 +30,54 @@ void traceRay_extraShape(inout int objectID, inout float intersectionT, in vec3 
     }
 }
 
-/// #include <nbl/builtin/glsl/sampling/projected_spherical_rectangle.glsl>
+//
+#define TRIANGLE_REFERENCE
+#include <nbl/builtin/glsl/sampling/projected_spherical_triangle.glsl>
+#include <nbl/builtin/glsl/barycentric/utils.glsl>
+
+//#include <nbl/builtin/glsl/sampling/projected_spherical_rectangle.glsl>
 float nbl_glsl_light_deferred_pdf(in Light light, in Ray_t ray)
 {
     const Rectangle rect = rectangles[Light_getObjectID(light)];
-
-    const vec3 L = ray._immutable.direction;
+    
+    const ImmutableRay_t _immutable = ray._immutable;
+    const vec3 L = _immutable.direction;
 #if POLYGON_METHOD==0
     const float dist = ray._mutable.intersectionT;
     return dist*dist/abs(dot(Rectangle_getNormalTimesArea(rect),L));
 #else
-    const ImmutableRay_t _immutable = ray._immutable;
-    const mat3 sphericalVertices = nbl_glsl_shapes_getSphericalTriangle(mat3(tri.vertex0,tri.vertex1,tri.vertex2),_immutable.origin);
-    #if POLYGON_METHOD==1
-        const float rcpProb = nbl_glsl_shapes_SolidAngleOfTriangle(sphericalVertices);
-        // if `rcpProb` is NAN then the triangle's solid angle was close to 0.0 
-        return rcpProb>FLT_MIN ? (1.0/rcpProb):FLT_MAX;
-    #elif POLYGON_METHOD==2
-        const float pdf = nbl_glsl_sampling_probProjectedSphericalTriangleSample(sphericalVertices,_immutable.normalAtOrigin,_immutable.wasBSDFAtOrigin,L);
-        // if `pdf` is NAN then the triangle's projected solid angle was close to 0.0, if its close to INF then the triangle was very small
-        return pdf<FLT_MAX ? pdf:0.0;
+    #ifdef TRIANGLE_REFERENCE
+        const mat3 sphericalVertices[2] = 
+        {
+            nbl_glsl_shapes_getSphericalTriangle(mat3(rect.offset,rect.offset+rect.edge0,rect.offset+rect.edge1),_immutable.origin),
+            nbl_glsl_shapes_getSphericalTriangle(mat3(rect.offset+rect.edge1,rect.offset+rect.edge0,rect.offset+rect.edge0+rect.edge1),_immutable.origin)
+        };
+        float solidAngle[2];
+        vec3 cos_vertices[2],sin_vertices[2];
+        float cos_a[2],cos_c[2],csc_b[2],csc_c[2];
+        for (uint i=0u; i<2u; i++)
+            solidAngle[i] = nbl_glsl_shapes_SolidAngleOfTriangle(sphericalVertices[i],cos_vertices[i],sin_vertices[i],cos_a[i],cos_c[i],csc_b[i],csc_c[i]);
+        const float rectSolidAngle = solidAngle[0]+solidAngle[1];
+        #if POLYGON_METHOD==1
+            return 1.f/rectSolidAngle;
+        #elif POLYGON_METHOD==2
+            // TODO: figure out what breaks for a directly visible light under MIS
+            if (rectSolidAngle>nbl_glsl_FLT_MIN)
+            {
+                const vec2 bary = nbl_glsl_barycentric_reconstructBarycentrics(L*ray._mutable.intersectionT+_immutable.origin-rect.offset,mat2x3(rect.edge0,rect.edge1));
+                const uint i = bary.x>=0.f&&bary.y>=0.f&&(bary.x+bary.y)<=1.f ? 0u:1u;
+
+                float pdf = nbl_glsl_sampling_probProjectedSphericalTriangleSample(solidAngle[i],cos_vertices[i],sin_vertices[i],cos_a[i],cos_c[i],csc_b[i],csc_c[i],sphericalVertices[i],_immutable.normalAtOrigin,_immutable.wasBSDFAtOrigin,L);
+                pdf *= solidAngle[i]/rectSolidAngle;
+                return pdf;
+            }
+            else
+                return nbl_glsl_FLT_INF;
+        #endif
+    #else
+        #if POLYGON_METHOD==1
+        #elif POLYGON_METHOD==2
+        #endif
     #endif
 #endif
 }
@@ -57,32 +85,56 @@ float nbl_glsl_light_deferred_pdf(in Light light, in Ray_t ray)
 vec3 nbl_glsl_light_generate_and_pdf(out float pdf, out float newRayMaxT, in vec3 origin, in nbl_glsl_AnisotropicViewSurfaceInteraction interaction, in bool isBSDF, in vec3 xi, in uint objectID)
 {
     const Rectangle rect = rectangles[objectID];
-    
+    const vec3 N = Rectangle_getNormalTimesArea(rect);
+
+    const vec3 origin2origin = rect.offset-origin;
 #if POLYGON_METHOD==0
-    const vec3 point = rect.offset+rect.edge0*xi.x+rect.edge1*xi.y; // TODO: refactor
-    const vec3 L = point-origin;
+    vec3 L = origin2origin+rect.edge0*xi.x+rect.edge1*xi.y; // TODO: refactor
     
     const float distanceSq = dot(L,L);
     const float rcpDistance = inversesqrt(distanceSq);
+    L *= rcpDistance;
     
-    pdf = distanceSq/abs(dot(Rectangle_getNormalTimesArea(rect),L));
+    pdf = distanceSq/abs(dot(N,L));
     newRayMaxT = 1.0/rcpDistance;
-    return L*rcpDistance;
+    return L;
 #else 
-    float rcpPdf;
-
-    const mat3 sphericalVertices = nbl_glsl_shapes_getSphericalTriangle(mat3(tri.vertex0,tri.vertex1,tri.vertex2),origin);
-#if POLYGON_METHOD==1
-    const vec3 L = nbl_glsl_sampling_generateSphericalTriangleSample(rcpPdf,sphericalVertices,xi.xy);
-#elif POLYGON_METHOD==2
-    const vec3 L = nbl_glsl_sampling_generateProjectedSphericalTriangleSample(rcpPdf,sphericalVertices,interaction.isotropic.N,isBSDF,xi.xy);
-#endif
-
-    // if `rcpProb` is NAN or negative then the triangle's solidAngle or projectedSolidAngle was close to 0.0 
-    pdf = rcpPdf>FLT_MIN ? (1.0/rcpPdf):0.0;
-
-    const vec3 N = Triangle_getNormalTimesArea(tri);
-    newRayMaxT = dot(N,tri.vertex0-origin)/dot(N,L);
+    #ifdef TRIANGLE_REFERENCE
+        const mat3 sphericalVertices[2] = 
+        {
+            nbl_glsl_shapes_getSphericalTriangle(mat3(rect.offset,rect.offset+rect.edge0,rect.offset+rect.edge1),origin),
+            nbl_glsl_shapes_getSphericalTriangle(mat3(rect.offset+rect.edge1,rect.offset+rect.edge0,rect.offset+rect.edge0+rect.edge1),origin)
+        };
+        float solidAngle[2];
+        vec3 cos_vertices[2],sin_vertices[2];
+        float cos_a[2],cos_c[2],csc_b[2],csc_c[2];
+        for (uint i=0u; i<2u; i++)
+            solidAngle[i] = nbl_glsl_shapes_SolidAngleOfTriangle(sphericalVertices[i],cos_vertices[i],sin_vertices[i],cos_a[i],cos_c[i],csc_b[i],csc_c[i]);
+        vec3 L = vec3(0.f,0.f,0.f);
+        const float rectangleSolidAngle = solidAngle[0]+solidAngle[1];
+        if (rectangleSolidAngle>nbl_glsl_FLT_MIN)
+        {
+            float rcpTriangleChoiceProb;
+            const uint i = nbl_glsl_partitionRandVariable(solidAngle[0]/rectangleSolidAngle,xi.z,rcpTriangleChoiceProb) ? 1u:0u;
+        #if POLYGON_METHOD==1
+            L = nbl_glsl_sampling_generateSphericalTriangleSample(solidAngle[i],cos_vertices[i],sin_vertices[i],cos_a[i],cos_c[i],csc_b[i],csc_c[i],sphericalVertices[i],xi.xy);
+            pdf = 1.f/rectangleSolidAngle;
+        #elif POLYGON_METHOD==2
+            float rcpPdf;
+            L = nbl_glsl_sampling_generateProjectedSphericalTriangleSample(rcpPdf,solidAngle[i],cos_vertices[i],sin_vertices[i],cos_a[i],cos_c[i],csc_b[i],csc_c[i],sphericalVertices[i],interaction.isotropic.N,isBSDF,xi.xy);
+            pdf = 1.f/(rcpPdf*rcpTriangleChoiceProb);
+        #endif
+        }
+        else
+            pdf = nbl_glsl_FLT_INF;
+    #else
+        #if POLYGON_METHOD==1
+            #error ""
+        #elif POLYGON_METHOD==2
+            #error ""
+        #endif
+    #endif
+    newRayMaxT = dot(N,origin2origin)/dot(N,L);
     return L;
 #endif
 }

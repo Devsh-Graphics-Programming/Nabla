@@ -12,7 +12,7 @@ namespace nbl::video
 class CVulkanPhysicalDevice final : public IPhysicalDevice
 {
 public:
-    CVulkanPhysicalDevice(core::smart_refctd_ptr<system::ISystem>&& sys, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc, IAPIConnection* api, renderdoc_api_t* rdoc, VkPhysicalDevice vk_physicalDevice, VkInstance vk_instance)
+    CVulkanPhysicalDevice(core::smart_refctd_ptr<system::ISystem>&& sys, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc, IAPIConnection* api, renderdoc_api_t* rdoc, VkPhysicalDevice vk_physicalDevice, VkInstance vk_instance, uint32_t instanceApiVersion)
         : IPhysicalDevice(std::move(sys),std::move(glslc)), m_api(api), m_rdoc_api(rdoc), m_vkPhysicalDevice(vk_physicalDevice), m_vkInstance(vk_instance)
     {
         // Get Supported Extensions
@@ -42,7 +42,8 @@ public:
             m_limits.UBOAlignment = deviceProperties.properties.limits.minUniformBufferOffsetAlignment;
             m_limits.SSBOAlignment = deviceProperties.properties.limits.minStorageBufferOffsetAlignment;
             m_limits.bufferViewAlignment = deviceProperties.properties.limits.minTexelBufferOffsetAlignment;
-                    
+            m_limits.maxSamplerAnisotropyLog2 = std::log2(deviceProperties.properties.limits.maxSamplerAnisotropy);
+
             m_limits.maxUBOSize = deviceProperties.properties.limits.maxUniformBufferRange;
             m_limits.maxSSBOSize = deviceProperties.properties.limits.maxStorageBufferRange;
             m_limits.maxBufferViewSizeTexels = deviceProperties.properties.limits.maxTexelBufferElements;
@@ -79,21 +80,37 @@ public:
             constexpr auto beefyGPUWorkgroupMaxOccupancy = 256u; // TODO: find a way to query and report this somehow, persistent threads are very useful!
             m_limits.maxResidentInvocations = beefyGPUWorkgroupMaxOccupancy*m_limits.maxOptimallyResidentWorkgroupInvocations;
 
+            
+            /*
+                [NO NABALA SUPPORT] Vulkan 1.0 implementation must support the 1.0 version of SPIR-V and the 1.0 version of the SPIR-V Extended Instructions for GLSL. If the VK_KHR_spirv_1_4 extension is enabled, the implementation must additionally support the 1.4 version of SPIR-V.
+                A Vulkan 1.1 implementation must support the 1.0, 1.1, 1.2, and 1.3 versions of SPIR-V and the 1.0 version of the SPIR-V Extended Instructions for GLSL.
+                A Vulkan 1.2 implementation must support the 1.0, 1.1, 1.2, 1.3, 1.4, and 1.5 versions of SPIR-V and the 1.0 version of the SPIR-V Extended Instructions for GLSL.
+            */
+            
+            uint32_t apiVersion = std::min(instanceApiVersion, deviceProperties.properties.apiVersion);
+            assert(apiVersion >= MinimumVulkanApiVersion);
             m_limits.spirvVersion = asset::IGLSLCompiler::ESV_1_3;
-#if 0
-            switch (VK_API_VERSION_MINOR(deviceProperties.properties.apiVersion))
+
+            switch (VK_API_VERSION_MINOR(apiVersion))
             {
             case 0:
-                m_limits.spirvVersion = asset::IGLSLCompiler::ESV_1_0; break;
+                m_limits.spirvVersion = asset::IGLSLCompiler::ESV_1_0; 
+                assert(false);
+                break;
             case 1:
-                m_limits.spirvVersion = asset::IGLSLCompiler::ESV_1_3; break;
+                m_limits.spirvVersion = asset::IGLSLCompiler::ESV_1_3;
+                break;
             case 2:
-                m_limits.spirvVersion = asset::IGLSLCompiler::ESV_1_5; break;
+                m_limits.spirvVersion = asset::IGLSLCompiler::ESV_1_5;
+                break;
             default:
                 _NBL_DEBUG_BREAK_IF("Invalid Vulkan minor version!");
                 break;
             }
-#endif
+
+            m_apiVersion.major = VK_API_VERSION_MAJOR(apiVersion);
+            m_apiVersion.minor = VK_API_VERSION_MINOR(apiVersion);
+            m_apiVersion.patch = VK_API_VERSION_PATCH(apiVersion);
 
             // AccelerationStructure
             if (m_availableFeatureSet.find(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME) != m_availableFeatureSet.end())
@@ -138,6 +155,7 @@ public:
             m_features.imageCubeArray = features.imageCubeArray;
             m_features.logicOp = features.logicOp;
             m_features.multiDrawIndirect = features.multiDrawIndirect;
+            m_features.samplerAnisotropy = features.samplerAnisotropy;
             m_features.multiViewport = features.multiViewport;
             m_features.vertexAttributeDouble = features.shaderFloat64;
             m_features.dispatchBase = false; // Todo(achal): Umm.. what is this? Whether you can call VkCmdDispatchBase with non zero base args
@@ -151,7 +169,6 @@ public:
             m_features.shaderSubgroupQuad = subgroupProperties.supportedOperations & VK_SUBGROUP_FEATURE_QUAD_BIT;
             m_features.shaderSubgroupQuadAllStages = ((subgroupProperties.supportedStages & asset::IShader::E_SHADER_STAGE::ESS_ALL)
                                                         == asset::IShader::E_SHADER_STAGE::ESS_ALL);
-            
 
             // RayQuery
             if (m_availableFeatureSet.find(VK_KHR_RAY_QUERY_EXTENSION_NAME) != m_availableFeatureSet.end())
@@ -220,7 +237,8 @@ public:
         }
 
         std::ostringstream pool;
-        addCommonGLSLDefines(pool,false/*TODO: @achal detect if RenderDoc is running*/);
+        bool runningRDoc = (m_rdoc_api != nullptr);
+        addCommonGLSLDefines(pool,runningRDoc);
         finalizeGLSLDefinePool(std::move(pool));
     }
             
@@ -346,11 +364,11 @@ protected:
             if (!insertFeatureIfAvailable(params.optionalFeatures[i], selectedFeatureSet))
                 continue;
         }
-
-        if (selectedFeatureSet.find(VK_KHR_SPIRV_1_4_EXTENSION_NAME) != selectedFeatureSet.end()
-            && (m_limits.spirvVersion < asset::IGLSLCompiler::ESV_1_4))
+                    
+        if (m_availableFeatureSet.find(VK_KHR_SPIRV_1_4_EXTENSION_NAME) != m_availableFeatureSet.end() && (m_limits.spirvVersion < asset::IGLSLCompiler::ESV_1_4))
         {
             m_limits.spirvVersion = asset::IGLSLCompiler::ESV_1_4;
+            selectedFeatureSet.insert(VK_KHR_SPIRV_1_4_EXTENSION_NAME);
         }
 
         core::vector<const char*> selectedFeatures(selectedFeatureSet.size());
@@ -415,6 +433,7 @@ protected:
         VkPhysicalDeviceFeatures2 vk_deviceFeatures2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
         vk_deviceFeatures2.pNext = firstFeatureInChain;
         vk_deviceFeatures2.features = {};
+        vk_deviceFeatures2.features.samplerAnisotropy = m_features.samplerAnisotropy;
 
         // Create Device
         VkDeviceCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO };

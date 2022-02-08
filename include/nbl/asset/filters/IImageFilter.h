@@ -154,7 +154,11 @@ class IImageFilter
 		virtual bool pValidate(IState* state) const = 0;
 		
 		//
-		virtual bool pExecute(IState* state) const = 0;
+		virtual bool pExecute(const core::execution::sequenced_policy&, IState* state) const = 0;
+		virtual bool pExecute(const core::execution::parallel_policy&, IState* state) const = 0;
+		virtual bool pExecute(const core::execution::parallel_unsequenced_policy&, IState* state) const = 0;
+
+		virtual bool pExecute(IState* state) const {return pExecute(core::execution::seq,state);}
 };
 
 /*
@@ -175,14 +179,27 @@ class CImageFilter : public IImageFilter
 			return validate(state);
 		}
 
+		template<class ExecutionPolicy>
+		static inline bool execute(ExecutionPolicy&& policy, IState* state)
+		{
+			return CRTP::execute(std::forward<ExecutionPolicy>(policy), static_cast<typename CRTP::state_type*>(state));
+		}
 		static inline bool execute(IState* state)
 		{
 			return CRTP::execute(static_cast<typename CRTP::state_type*>(state));
 		}
 
-		inline bool pExecute(IState* state) const override
+		inline bool pExecute(const core::execution::sequenced_policy& policy, IState* state) const override
 		{
-			return execute(state);
+			return execute(policy, state);
+		}
+		inline bool pExecute(const core::execution::parallel_policy& policy, IState* state) const override
+		{
+			return execute(policy,state);
+		}
+		inline bool pExecute(const core::execution::parallel_unsequenced_policy& policy, IState* state) const override
+		{
+			return execute(policy,state);
 		}
 };
 

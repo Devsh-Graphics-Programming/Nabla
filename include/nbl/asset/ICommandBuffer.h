@@ -118,6 +118,23 @@ public:
         ERF_RELEASE_RESOURCES_BIT = 0x01
     };
 
+    /*
+    CommandBuffer Lifecycle Tracking in Nabla:
+        * We say a command buffer is "resettable" If it was allocated from a command pool which was created with `ECF_RESET_COMMAND_BUFFER_BIT` flag.
+        - ES_INITIAL 
+            -> When a command buffer is allocated, it is in the ES_INITIAL state.
+            -> If a command buffer is "resettable", Calling `reset()` on a command buffer will change it's state to ES_INITIAL If it's not PENDING
+        - ES_RECORDING
+            -> Calling `begin()` on a command buffer will change it's state to `ES_RECORDING` If It's not already RECORDING, and should be INITIAL for non-resettable command buffers.
+        - ES_EXECUTABLE
+            -> Calling `end()` on a command buffer will change it's state to `ES_EXECUTABLE` If it's RECORDING
+            -> After submission for non-resettable command buffers.
+        - ES_PENDING
+            * ES_PENDING Is impossible to track correctly without a fence. So `ES_PENDING` actually means the engine is in the process of SUBMITTING and It will be changed to either `ES_EXECUTABLE` or `ES_INVALID` after SUBMISSION.
+            * So the convention here is different than Vulkan's command buffer lifecycle and therefore contains false negatives (It is not PENDING but actually is PENDING and working on GPU) 
+        - ES_INVALID
+            -> After submission for resettable command buffers.
+    */
     enum E_STATE : uint32_t
     {
         ES_INITIAL,
@@ -193,27 +210,34 @@ public:
     // hm now i think having begin(), reset() and end() as command buffer API is a little weird
 
     //! `_flags` takes bits from E_USAGE
-    virtual void begin(uint32_t _flags)
+    virtual bool begin(uint32_t _flags)
     {
-        assert(m_state != ES_PENDING);
+        if(m_state == ES_RECORDING)
+        {
+            assert(false);
+            return false;
+        }
         m_state = ES_RECORDING;
         m_recordingFlags = _flags;
+        return true;
     }
-
+   
     //! `_flags` takes bits from E_RESET_FLAGS
     virtual bool reset(uint32_t _flags)
     {
-        if (m_state==ES_PENDING);
-            return false;
         m_state = ES_INITIAL;
-
         return true;
     }
 
-    virtual void end()
+    virtual bool end()
     {
-        assert(m_state!=ES_PENDING);
+        if(m_state!=ES_RECORDING)
+        {
+            assert(false);
+            return false;
+        }
         m_state = ES_EXECUTABLE;
+        return true;
     }
 
     virtual bool bindIndexBuffer(const buffer_t* buffer, size_t offset, E_INDEX_TYPE indexType) = 0;
@@ -285,13 +309,11 @@ public:
     virtual bool bindComputePipeline(const compute_pipeline_t* pipeline) = 0;
 
     virtual bool resetQueryPool(video::IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount) {return false;}
-    virtual bool beginQuery(video::IQueryPool* queryPool, uint32_t query, video::IQueryPool::E_QUERY_CONTROL_FLAGS flags = static_cast<video::IQueryPool::E_QUERY_CONTROL_FLAGS>(0)) {return false;}
+    virtual bool beginQuery(video::IQueryPool* queryPool, uint32_t query, core::bitflag<video::IQueryPool::E_QUERY_CONTROL_FLAGS> flags = video::IQueryPool::E_QUERY_CONTROL_FLAGS::EQCF_NONE) {return false;}
     virtual bool endQuery(video::IQueryPool* queryPool, uint32_t query) {return false;}
-    virtual bool copyQueryPoolResults(video::IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, buffer_t* dstBuffer, size_t dstOffset, size_t stride, video::IQueryPool::E_QUERY_RESULTS_FLAGS flags) {return false;}
+    virtual bool copyQueryPoolResults(video::IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, buffer_t* dstBuffer, size_t dstOffset, size_t stride, core::bitflag<video::IQueryPool::E_QUERY_RESULTS_FLAGS> flags) {return false;}
     virtual bool writeTimestamp(asset::E_PIPELINE_STAGE_FLAGS pipelineStage, video::IQueryPool* queryPool, uint32_t query) {return false;}
-    // TRANSFORM_FEEDBACK_STREAM
-    virtual bool beginQueryIndexed(video::IQueryPool* queryPool, uint32_t query, uint32_t index, video::IQueryPool::E_QUERY_CONTROL_FLAGS flags = static_cast<video::IQueryPool::E_QUERY_CONTROL_FLAGS>(0)) {return false;}
-    virtual bool endQueryIndexed(video::IQueryPool* queryPool, uint32_t query, uint32_t index) {return false;}
+
     // Acceleration Structure Properties (Only available on Vulkan)
     virtual bool writeAccelerationStructureProperties(const core::SRange<video::IGPUAccelerationStructure>& pAccelerationStructures, video::IQueryPool::E_QUERY_TYPE queryType, video::IQueryPool* queryPool, uint32_t firstQuery) {return false;}
 

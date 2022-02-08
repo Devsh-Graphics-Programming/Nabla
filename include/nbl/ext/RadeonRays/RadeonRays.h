@@ -49,10 +49,7 @@ class Manager final : public core::IReferenceCounted
 
 		
 		std::pair<::RadeonRays::Buffer*,cl_mem> linkBuffer(const video::IGPUBuffer* buffer, cl_mem_flags access);
-		inline void deleteRRBuffer(::RadeonRays::Buffer* buffer)
-		{
-			rr->DeleteBuffer(buffer);
-		}
+		void unlinkBuffer(std::pair<::RadeonRays::Buffer*,cl_mem>&& link);
 
 
 		struct MeshBufferRRShapeCache
@@ -145,7 +142,86 @@ class Manager final : public core::IReferenceCounted
 			}
 		}
 
+		static inline void shapeSetTransform(::RadeonRays::Shape* shape, const core::matrix3x4SIMD& transform)
+		{
+			core::matrix4SIMD tform(transform);
 
+			// TODO: move this stuff
+			struct dvec3
+			{
+				dvec3() : x(0.0), y(0.0), z(0.0) {}
+				dvec3(const core::vectorSIMDf& p) : x(p.x), y(p.y), z(p.z) {}
+
+				dvec3& operator-=(dvec3 other)
+				{
+					x -= other.x;
+					y -= other.y;
+					z -= other.z;
+					return *this;
+				}
+				dvec3& operator*=(double other)
+				{
+					x *= other;
+					y *= other;
+					z *= other;
+					return *this;
+				}
+				dvec3 operator*(double other) const
+				{
+					dvec3 retval(*this);
+					retval *= other;
+					return retval;
+				}
+				dvec3& operator/=(double other)
+				{
+					x /= other;
+					y /= other;
+					z /= other;
+					return *this;
+				}
+
+				double x,y,z;
+			};
+			auto dot = [](const dvec3& a, const dvec3& b) -> double
+			{
+				return a.x*b.x+a.y*b.y+a.z*b.z;
+			};
+			auto cross = [](const dvec3& a, const dvec3& b) -> dvec3
+			{
+				dvec3 retval;
+				retval.x = a.y*b.z-a.z*b.y;
+				retval.y = a.z*b.x-a.x*b.z;
+				retval.z = a.x*b.y-a.y*b.x;
+				return retval;
+			};
+			const dvec3 in_rows[3] = {transform.rows[0],transform.rows[1],transform.rows[2]};
+			dvec3 out_cols[4];
+			out_cols[0] = cross(in_rows[1],in_rows[2]);
+			out_cols[1] = cross(in_rows[2],in_rows[0]);
+			out_cols[2] = cross(in_rows[0],in_rows[1]);
+			const double determinant = dot(in_rows[0],out_cols[0]);
+			//if (core::isnan(determinant)||determinant<FLT_MIN)
+				//exit();
+			out_cols[3] = {};
+			const auto translation = transform.getTranslation();
+			for (auto i=0; i<3; i++)
+			{
+				out_cols[3] -= out_cols[i]*double(translation.pointer[i]);
+				out_cols[i] /= determinant;
+			}
+			out_cols[3] /= determinant;
+
+			core::matrix4SIMD tform_inv;
+			for (auto i=0; i<4; i++)
+			{
+				tform_inv.rows[i].x = out_cols[i].x;
+				tform_inv.rows[i].y = out_cols[i].y;
+				tform_inv.rows[i].z = out_cols[i].z;
+			}
+			tform_inv = core::transpose(tform_inv);
+
+			shape->SetTransform(reinterpret_cast<::RadeonRays::matrix&>(tform),reinterpret_cast<::RadeonRays::matrix&>(tform_inv));
+		}
 		template<typename Iterator>
 		inline void update(const MockSceneManager* mock_smgr, Iterator _instancesBegin, Iterator _instancesEnd)
 		{
@@ -164,15 +240,8 @@ class Manager final : public core::IReferenceCounted
 				firstShape->GetTransform(reinterpret_cast<::RadeonRays::matrix&>(oldTForm), reinterpret_cast<::RadeonRays::matrix&>(dummy));
 				if (!core::equals(absoluteTForm,oldTForm.extractSub3x4(),core::matrix3x4SIMD(0.f,0.f,0.f,0.f,0.f,0.f,0.f,0.f,0.f,0.f,0.f,0.f)))
 				{
-					core::matrix4SIMD world(absoluteTForm);
-
-					core::matrix3x4SIMD tmp;
-					absoluteTForm.getInverse(tmp);
-					core::matrix4SIMD worldinv(tmp);
-
 					for (auto shape : *shapeArray)
-						shape->SetTransform(reinterpret_cast<::RadeonRays::matrix&>(world), reinterpret_cast<::RadeonRays::matrix&>(worldinv));
-
+						shapeSetTransform(shape,absoluteTForm);
 					needToCommit = true;
 				}
 			}

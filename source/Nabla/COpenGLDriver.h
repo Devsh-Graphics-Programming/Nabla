@@ -3,8 +3,11 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
-#ifndef __NBL_C_VIDEO_OPEN_GL_H_INCLUDED__
-#define __NBL_C_VIDEO_OPEN_GL_H_INCLUDED__
+#include "nbl/asset/utils/IGLSLCompiler.h"
+#include "nbl/asset/utils/CShaderIntrospector.h"
+#include "nbl/asset/utils/spvUtils.h"
+
+#ifdef OLD_CODE
 
 #include "nbl/core/core.h"
 #include "nbl/system/compile_config.h"
@@ -207,7 +210,7 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
         core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> createGPURenderpassIndependentPipeline(
 			IGPUPipelineCache* _pipelineCache,
             core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
-            IGPUSpecializedShader** _shadersBegin, IGPUSpecializedShader** _shadersEnd,
+            IGPUSpecializedShader* const* _shadersBegin, IGPUSpecializedShader* const* _shadersEnd,
             const asset::SVertexInputParams& _vertexInputParams,
             const asset::SBlendParams& _blendParams,
             const asset::SPrimitiveAssemblyParams& _primAsmParams,
@@ -554,6 +557,9 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
         uint32_t getMaxTextureBindingsCompute() const override { return COpenGLExtensionHandler::maxTextureBindingsCompute; }
         uint32_t getMaxImageBindings() const override { return COpenGLExtensionHandler::maxImageBindings; }
 
+		//!
+		bool runningInRenderdoc() const { return runningInRenderDoc; }
+
     private:
         SAuxContext* getThreadContext_helper(const bool& alreadyLockedMutex, const std::thread::id& tid = std::this_thread::get_id());
 
@@ -602,4 +608,3 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 
 #endif // _NBL_COMPILE_WITH_OPENGL_
 #endif
-

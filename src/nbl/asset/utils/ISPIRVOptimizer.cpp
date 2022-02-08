@@ -19,6 +19,10 @@ nbl::core::smart_refctd_ptr<ICPUBuffer> ISPIRVOptimizer::optimize(const uint32_t
         return spvtools::CreateScalarReplacementPass();
     };
 
+    auto CreateReduceLoadSizePass = [] {
+        return spvtools::CreateReduceLoadSizePass();
+    };
+
     using create_pass_f_t = spvtools::Optimizer::PassToken(*)();
     create_pass_f_t create_pass_f[EOP_COUNT]{
         &spvtools::CreateMergeReturnPass,
@@ -37,7 +41,7 @@ nbl::core::smart_refctd_ptr<ICPUBuffer> ISPIRVOptimizer::optimize(const uint32_t
         &spvtools::CreateRedundancyEliminationPass,
         &spvtools::CreateLoopInvariantCodeMotionPass,
         &spvtools::CreateCCPPass,
-        //&spvtools::CreateReduceLoadSizePass,
+        CreateReduceLoadSizePass,
         &spvtools::CreateStrengthReductionPass,
         &spvtools::CreateIfConversionPass
     };

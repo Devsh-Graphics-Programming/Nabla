@@ -36,6 +36,7 @@
 #include "nbl/asset/filters/CSwizzleAndConvertImageFilter.h"
 #include "nbl/asset/filters/CFlattenRegionsImageFilter.h"
 #include "nbl/asset/filters/CMipMapGenerationImageFilter.h"
+#include "nbl/asset/filters/CSummedAreaTableImageFilter.h"
 
 // shaders
 #include "nbl/asset/ISPIR_VProgram.h"
@@ -58,7 +59,7 @@
 #include "nbl/asset/ICPUMeshBuffer.h"
 #include "nbl/asset/ICPUMesh.h"
 #include "nbl/asset/utils/IGeometryCreator.h"
-#include "nbl/asset/utils/IMeshPacker.h"
+// #include "nbl/asset/utils/IMeshPacker.h"
 
 // manipulation + reflection + introspection
 #include "nbl/asset/utils/IMeshManipulator.h"
@@ -82,7 +83,8 @@
 #include "nbl/asset/metadata/CSTLMetadata.h"
 
 //VT
-#include "nbl/asset/utils/IVirtualTexture.h"
+// #include "nbl/asset/utils/CCPUMeshPackerV1.h"
+// #include "nbl/asset/utils/CCPUMeshPackerV2.h"
 #include "nbl/asset/utils/ICPUVirtualTexture.h"
 
 #endif

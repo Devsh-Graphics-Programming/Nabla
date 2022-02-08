@@ -1,15 +1,12 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#ifndef __NBL_ASSET_C_OPENEXR_METADATA_H_INCLUDED__
-#define __NBL_ASSET_C_OPENEXR_METADATA_H_INCLUDED__
+#ifndef _NBL_ASSET_C_OPENEXR_METADATA_H_INCLUDED_
+#define _NBL_ASSET_C_OPENEXR_METADATA_H_INCLUDED_
 
 #include "nbl/asset/metadata/IAssetMetadata.h"
 
-namespace nbl 
-{
-namespace asset
+namespace nbl::asset
 {
 
 class COpenEXRMetadata final : public IAssetMetadata
@@ -52,7 +49,6 @@ class COpenEXRMetadata final : public IAssetMetadata
         }
 };
 
-}   
 }
 
 #endif

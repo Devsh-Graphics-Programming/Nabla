@@ -396,7 +396,6 @@ enum E_BLEND_OP : uint8_t
 struct SColorAttachmentBlendParams
 {
 	SColorAttachmentBlendParams() : 
-		attachmentEnabled(true),
 		blendEnable(false),
 		srcColorFactor(EBF_ONE),
 		dstColorFactor(EBF_ZERO),
@@ -407,21 +406,20 @@ struct SColorAttachmentBlendParams
 		colorWriteMask(0xfu)
 	{}
 
-    uint8_t attachmentEnabled : 1;
-    uint8_t blendEnable : 1;
-    uint8_t srcColorFactor : 5;
+    uint64_t blendEnable : 1;
+    uint64_t srcColorFactor : 5;
     
-    uint8_t dstColorFactor : 5;
+    uint64_t dstColorFactor : 5;
     
-    uint8_t colorBlendOp : 6;
+    uint64_t colorBlendOp : 6;
     
-    uint8_t srcAlphaFactor : 5;
+    uint64_t srcAlphaFactor : 5;
     
-    uint8_t dstAlphaFactor : 5;
+    uint64_t dstAlphaFactor : 5;
     
-    uint8_t alphaBlendOp : 2;
+    uint64_t alphaBlendOp : 2;
     //RGBA, LSB is R, MSB is A
-    uint8_t colorWriteMask : 4;
+    uint64_t colorWriteMask : 4;
 
     constexpr static size_t serializedSize() { return 5ull; }
 
@@ -429,15 +427,14 @@ struct SColorAttachmentBlendParams
     {
         auto* bf_dst = reinterpret_cast<uint8_t*>(_mem);
         uint64_t bf = 0;
-        bf = core::bitfieldInsert<uint64_t>(bf, attachmentEnabled, 0, 1);
-        bf = core::bitfieldInsert<uint64_t>(bf, blendEnable, 1, 1);
-        bf = core::bitfieldInsert<uint64_t>(bf, srcColorFactor, 2, 5);
-        bf = core::bitfieldInsert<uint64_t>(bf, dstColorFactor, 7, 5);
-        bf = core::bitfieldInsert<uint64_t>(bf, colorBlendOp, 12, 6);
-        bf = core::bitfieldInsert<uint64_t>(bf, srcAlphaFactor, 18, 5);
-        bf = core::bitfieldInsert<uint64_t>(bf, dstAlphaFactor, 23, 5);
-        bf = core::bitfieldInsert<uint64_t>(bf, alphaBlendOp, 28, 2);
-        bf = core::bitfieldInsert<uint64_t>(bf, colorWriteMask, 30, 4);
+        bf = core::bitfieldInsert<uint64_t>(bf, blendEnable, 0, 1);
+        bf = core::bitfieldInsert<uint64_t>(bf, srcColorFactor, 1, 5);
+        bf = core::bitfieldInsert<uint64_t>(bf, dstColorFactor, 6, 5);
+        bf = core::bitfieldInsert<uint64_t>(bf, colorBlendOp, 11, 6);
+        bf = core::bitfieldInsert<uint64_t>(bf, srcAlphaFactor, 17, 5);
+        bf = core::bitfieldInsert<uint64_t>(bf, dstAlphaFactor, 22, 5);
+        bf = core::bitfieldInsert<uint64_t>(bf, alphaBlendOp, 27, 2);
+        bf = core::bitfieldInsert<uint64_t>(bf, colorWriteMask, 29, 4);
 
         memcpy(bf_dst, &bf, serializedSize());
     }

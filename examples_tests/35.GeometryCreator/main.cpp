@@ -13,6 +13,7 @@
 
 using namespace nbl;
 using namespace core;
+using namespace ui;
 
 /*
 	Uncomment for more detailed logging
@@ -138,6 +139,7 @@ class GeometryCreatorSampleApp : public ApplicationBase
 	static constexpr size_t NBL_FRAMES_TO_AVERAGE = 100ull;
 	static_assert(FRAMES_IN_FLIGHT > SC_IMG_COUNT);
 
+    core::smart_refctd_ptr<nbl::system::ISystem> system;
 	core::smart_refctd_ptr<nbl::ui::IWindow> window;
 	core::smart_refctd_ptr<CommonAPI::CommonAPIEventCallback> windowCb;
 	core::smart_refctd_ptr<nbl::system::ILogger> logger;
@@ -155,37 +157,69 @@ class GeometryCreatorSampleApp : public ApplicationBase
 	video::IGPUObjectFromAssetConverter::SParams cpu2gpuParams;
 	core::smart_refctd_ptr<nbl::video::IUtilities> utilities;
 
-	int32_t m_resourceIx = -1;
 	core::smart_refctd_ptr<video::IGPUFence> m_frameComplete[FRAMES_IN_FLIGHT] = { nullptr };
 	core::smart_refctd_ptr<video::IGPUSemaphore> m_imageAcquire[FRAMES_IN_FLIGHT] = { nullptr };
 	core::smart_refctd_ptr<video::IGPUSemaphore> m_renderFinished[FRAMES_IN_FLIGHT] = { nullptr };
 	core::smart_refctd_ptr<video::IGPUCommandBuffer> m_commandBuffers[FRAMES_IN_FLIGHT];
 
-	std::chrono::system_clock::time_point m_lastTime;
-	double m_time_sum = 0;
-	size_t m_frame_count = 0ull;
-	double m_dtList[NBL_FRAMES_TO_AVERAGE] = {};
-	bool m_frameDataFilled = false;
+	int32_t m_resourceIx = -1;
 	uint32_t m_acquiredNextFBO = {};
 
 	CommonAPI::InputSystem::ChannelReader<IMouseEventChannel> m_mouse;
 	CommonAPI::InputSystem::ChannelReader<IKeyboardEventChannel> m_keyboard;
 	std::unique_ptr<Camera> m_camera = nullptr;
 	std::unique_ptr<Objects> m_cpuGpuObjects = nullptr;
+	video::CDumbPresentationOracle oracle;
 
 public:
-	void setWindow(core::smart_refctd_ptr<nbl::ui::IWindow>&& wnd) override
-	{
-		window = std::move(wnd);
-	}
-	nbl::ui::IWindow* getWindow() override
-	{
-		return window.get();
-	}
-	void setSystem(core::smart_refctd_ptr<nbl::system::ISystem>&& system) override
-	{
-		system = std::move(system);
-	}
+
+    void setWindow(core::smart_refctd_ptr<nbl::ui::IWindow>&& wnd) override
+    {
+        window = std::move(wnd);
+    }
+    void setSystem(core::smart_refctd_ptr<nbl::system::ISystem>&& s) override
+    {
+        system = std::move(s);
+    }
+    nbl::ui::IWindow* getWindow() override
+    {
+        return window.get();
+    }
+    video::IAPIConnection* getAPIConnection() override
+    {
+        return api.get();
+    }
+    video::ILogicalDevice* getLogicalDevice()  override
+    {
+        return logicalDevice.get();
+    }
+    video::IGPURenderpass* getRenderpass() override
+    {
+        return renderpass.get();
+    }
+    void setSurface(core::smart_refctd_ptr<video::ISurface>&& s) override
+    {
+        surface = std::move(s);
+    }
+    void setFBOs(std::vector<core::smart_refctd_ptr<video::IGPUFramebuffer>>& f) override
+    {
+        for (int i = 0; i < f.size(); i++)
+        {
+            fbos[i] = core::smart_refctd_ptr(f[i]);
+        }
+    }
+    void setSwapchain(core::smart_refctd_ptr<video::ISwapchain>&& s) override
+    {
+        swapchain = std::move(s);
+    }
+    uint32_t getSwapchainImageCount() override
+    {
+        return SC_IMG_COUNT;
+    }
+    virtual nbl::asset::E_FORMAT getDepthFormat() override
+    {
+        return nbl::asset::EF_D32_SFLOAT;
+    }
 
 	APP_CONSTRUCTOR(GeometryCreatorSampleApp);
 
@@ -209,7 +243,9 @@ public:
 		const video::ISurface::SFormat surfaceFormat(asset::EF_B8G8R8A8_SRGB, asset::ECP_COUNT, asset::EOTF_UNKNOWN);
 
 		CommonAPI::InitOutput initOutput;
-		initOutput.window = core::smart_refctd_ptr(window);
+		initOutput.window = window;
+		initOutput.system = system;
+
 		CommonAPI::Init(
 			initOutput,
 			video::EAT_OPENGL,
@@ -222,7 +258,8 @@ public:
 			WIN_H,
 			SC_IMG_COUNT,
 			swapchainImageUsage,
-			surfaceFormat);
+			surfaceFormat,
+			nbl::asset::EF_D32_SFLOAT);
 
 		window = std::move(initOutput.window);
 		windowCb = std::move(initOutput.windowCb);
@@ -236,6 +273,7 @@ public:
 		swapchain = std::move(initOutput.swapchain);
 		renderpass = std::move(initOutput.renderpass);
 		fbos = std::move(initOutput.fbo);
+        system = std::move(initOutput.system);
 		commandPools = std::move(initOutput.commandPools);
 		assetManager = std::move(initOutput.assetManager);
 		cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
@@ -293,8 +331,6 @@ public:
 			asset::SBlendParams blendParams;
 			blendParams.logicOpEnable = false;
 			blendParams.logicOp = nbl::asset::ELO_NO_OP;
-			for (size_t i = 0ull; i < nbl::asset::SBlendParams::MAX_COLOR_ATTACHMENT_COUNT; i++)
-				blendParams.blendParams[i].attachmentEnabled = (i == 0ull);
 
 			asset::SRasterizationParams rasterParams;
 			rasterParams.faceCullingMode = asset::EFCM_NONE;
@@ -353,16 +389,14 @@ public:
 				auto buf = geometryObject.bindings[i].buffer.get();
 				if (buf)
 				{
-					const auto newUsageFlags = buf->getUsageFlags() | asset::IBuffer::EUF_VERTEX_BUFFER_BIT;
-					buf->setUsageFlags(newUsageFlags);
+					buf->addUsageFlags(asset::IBuffer::EUF_VERTEX_BUFFER_BIT);
 					cpubuffers.push_back(buf);
 				}
 			}
 			auto cpuindexbuffer = geometryObject.indexBuffer.buffer.get();
 			if (cpuindexbuffer)
 			{
-				const auto newUsageFlags = cpuindexbuffer->getUsageFlags() | asset::IBuffer::EUF_INDEX_BUFFER_BIT;
-				cpuindexbuffer->setUsageFlags(newUsageFlags);
+				cpuindexbuffer->addUsageFlags(asset::IBuffer::EUF_INDEX_BUFFER_BIT);
 				cpubuffers.push_back(cpuindexbuffer);
 			}
 
@@ -437,12 +471,10 @@ public:
 		}));
 
 		core::vectorSIMDf cameraPosition(0, 5, -10);
-		matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60), float(WIN_W) / WIN_H, 0.001, 1000);
+		matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60.0f), float(WIN_W) / WIN_H, 0.001, 1000);
 		m_camera = std::make_unique<Camera>(cameraPosition, core::vectorSIMDf(0, 0, 0), projectionMatrix, 10.f, 1.f);
-		m_lastTime = std::chrono::system_clock::now();
-		
-		for (size_t i = 0ull; i < NBL_FRAMES_TO_AVERAGE; ++i)
-			m_dtList[i] = 0.0;
+
+		oracle.reportBeginFrameRecord();
 
 		logicalDevice->createCommandBuffers(commandPools[CommonAPI::InitOutput::EQT_GRAPHICS].get(), video::IGPUCommandBuffer::EL_PRIMARY, FRAMES_IN_FLIGHT, m_commandBuffers);
 
@@ -467,7 +499,7 @@ public:
 			gpuSourceImageView.get(),
 			assetManager.get(),
 			"ScreenShot.png",
-			asset::EIL_PRESENT_SRC_KHR,
+			asset::EIL_PRESENT_SRC,
 			static_cast<asset::E_ACCESS_FLAGS>(0u));
 
 		assert(status);
@@ -490,30 +522,7 @@ public:
 		else
 			fence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
 
-		auto renderStart = std::chrono::system_clock::now();
-		const auto renderDt = std::chrono::duration_cast<std::chrono::milliseconds>(renderStart - m_lastTime).count();
-		m_lastTime = renderStart;
-		{ // Calculate Simple Moving Average for FrameTime
-			m_time_sum -= m_dtList[m_frame_count];
-			m_time_sum += renderDt;
-			m_dtList[m_frame_count] = renderDt;
-			m_frame_count++;
-			if (m_frame_count >= NBL_FRAMES_TO_AVERAGE)
-			{
-				m_frameDataFilled = true;
-				m_frame_count = 0;
-			}
-
-		}
-		const double averageFrameTime = m_frameDataFilled ? (m_time_sum / (double)NBL_FRAMES_TO_AVERAGE) : (m_time_sum / m_frame_count);
-
-#ifdef NBL_MORE_LOGS
-		logger->log("renderDt = %f ------ averageFrameTime = %f", system::ILogger::ELL_INFO, renderDt, averageFrameTime);
-#endif // NBL_MORE_LOGS
-
-		auto averageFrameTimeDuration = std::chrono::duration<double, std::milli>(averageFrameTime);
-		auto nextPresentationTime = renderStart + averageFrameTimeDuration;
-		auto nextPresentationTimeStamp = std::chrono::duration_cast<std::chrono::microseconds>(nextPresentationTime.time_since_epoch());
+		const auto nextPresentationTimeStamp = oracle.acquireNextImage(swapchain.get(), m_imageAcquire[m_resourceIx].get(), nullptr, &m_acquiredNextFBO);
 
 		inputSystem->getDefaultMouse(&m_mouse);
 		inputSystem->getDefaultKeyboard(&m_keyboard);

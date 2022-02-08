@@ -10,6 +10,7 @@
 
 using namespace nbl;
 using namespace core;
+using namespace ui;
 
 class Draw3DLineSampleApp : public ApplicationBase
 {
@@ -20,7 +21,8 @@ class Draw3DLineSampleApp : public ApplicationBase
 	static constexpr uint64_t MAX_TIMEOUT = 99999999999999ull;
 	static_assert(FRAMES_IN_FLIGHT > SC_IMG_COUNT);
 
-	core::smart_refctd_ptr<nbl::ui::IWindow> win;
+	core::smart_refctd_ptr<nbl::ui::IWindow> window;
+    core::smart_refctd_ptr<nbl::system::ISystem> system;
 	core::smart_refctd_ptr<CommonAPI::CommonAPIEventCallback> windowCb;
 	core::smart_refctd_ptr<nbl::video::IAPIConnection> api;
 	core::smart_refctd_ptr<nbl::video::ISurface> surface;
@@ -47,17 +49,53 @@ class Draw3DLineSampleApp : public ApplicationBase
 	core::smart_refctd_ptr<video::IGPUSemaphore> m_renderFinished[FRAMES_IN_FLIGHT] = { nullptr };
 
 public:
+
 	void setWindow(core::smart_refctd_ptr<nbl::ui::IWindow>&& wnd) override
 	{
-		win = std::move(wnd);
+		window = std::move(wnd);
+	}
+	void setSystem(core::smart_refctd_ptr<nbl::system::ISystem>&& s) override
+	{
+		system = std::move(s);
 	}
 	nbl::ui::IWindow* getWindow() override
 	{
-		return win.get();
+		return window.get();
 	}
-	void setSystem(core::smart_refctd_ptr<nbl::system::ISystem>&& system) override
+	video::IAPIConnection* getAPIConnection() override
 	{
-		system = std::move(system);
+		return api.get();
+	}
+	video::ILogicalDevice* getLogicalDevice()  override
+	{
+		return device.get();
+	}
+	video::IGPURenderpass* getRenderpass() override
+	{
+		return renderpass.get();
+	}
+	void setSurface(core::smart_refctd_ptr<video::ISurface>&& s) override
+	{
+		surface = std::move(s);
+	}
+	void setFBOs(std::vector<core::smart_refctd_ptr<video::IGPUFramebuffer>>& f) override
+	{
+		for (int i = 0; i < f.size(); i++)
+		{
+			fbo[i] = core::smart_refctd_ptr(f[i]);
+		}
+	}
+	void setSwapchain(core::smart_refctd_ptr<video::ISwapchain>&& s) override
+	{
+		sc = std::move(s);
+	}
+	uint32_t getSwapchainImageCount() override
+	{
+		return SC_IMG_COUNT;
+	}
+	virtual nbl::asset::E_FORMAT getDepthFormat() override
+	{
+		return nbl::asset::EF_UNKNOWN;
 	}
 
 	APP_CONSTRUCTOR(Draw3DLineSampleApp);
@@ -83,10 +121,13 @@ public:
 		const asset::E_FORMAT depthFormat = asset::EF_UNKNOWN;
 
 		CommonAPI::InitOutput initOutp;
-		initOutp.window = core::smart_refctd_ptr(win);
+		
+		initOutp.window = window;
+		initOutp.system = system;
+
 		CommonAPI::Init(
 			initOutp,
-			video::EAT_OPENGL,
+			video::EAT_VULKAN,
 			"33.Draw3DLine",
 			requiredInstanceFeatures,
 			optionalInstanceFeatures,
@@ -97,7 +138,7 @@ public:
 			surfaceFormat,
 			depthFormat);
 
-		win = std::move(initOutp.window);
+		window = std::move(initOutp.window);
 		windowCb = std::move(initOutp.windowCb);
 		api = std::move(initOutp.apiConnection);
 		surface = std::move(initOutp.surface);
@@ -130,7 +171,7 @@ public:
 				});
 		}
 
-		matrix4SIMD proj = matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(core::radians(90), float(WIN_W) / WIN_H, 0.01, 100);
+		matrix4SIMD proj = matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(core::radians(90.0f), float(WIN_W) / WIN_H, 0.01, 100);
 		matrix3x4SIMD view = matrix3x4SIMD::buildCameraLookAtMatrixRH(core::vectorSIMDf(0, 0, -10), core::vectorSIMDf(0, 0, 0), core::vectorSIMDf(0, 1, 0));
 		auto viewProj = matrix4SIMD::concatenateBFollowedByA(proj, matrix4SIMD(view));
 		

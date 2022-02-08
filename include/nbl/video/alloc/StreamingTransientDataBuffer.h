@@ -39,7 +39,7 @@ class StreamingTransientDataBuffer
         //!
         /**
         \param default minAllocSize has been carefully picked to reflect the lowest nonCoherentAtomSize under Vulkan 1.1 which is not 1u .*/
-        StreamingTransientDataBuffer(ILogicalDevice* inDevice, const IDriverMemoryBacked::SDriverMemoryRequirements& bufferReqs, const CPUAllocator& reservedMemAllocator = CPUAllocator(), size_type minAllocSize = 64u)
+        StreamingTransientDataBuffer(ILogicalDevice* inDevice, const IDriverMemoryBacked::SDriverMemoryRequirements& bufferReqs, const CPUAllocator& reservedMemAllocator = CPUAllocator(), size_type minAllocSize = 1024u)
             : m_composed(inDevice, reservedMemAllocator, StreamingGPUBufferAllocator(inDevice, bufferReqs), 0u, 0u, bufferReqs.vulkanReqs.alignment, bufferReqs.vulkanReqs.size, minAllocSize) {}
 
         const auto& getAllocator() const {return m_composed.getAllocator();}

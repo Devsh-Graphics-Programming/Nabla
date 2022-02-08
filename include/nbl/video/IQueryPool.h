@@ -16,14 +16,14 @@ public:
             EQT_OCCLUSION = 0,
             EQT_PIPELINE_STATISTICS = 1,
             EQT_TIMESTAMP = 2,
-            EQT_TRANSFORM_FEEDBACK_STREAM_EXT = 1000028004, // VK_EXT_transform_feedback
-            EQT_PERFORMANCE_QUERY = 1000116000, // VK_KHR_performance_query
+            EQT_PERFORMANCE_QUERY = 1000116000, // VK_KHR_performance_query // TODO: We don't support this fully yet -> needs Acquire/ReleaseProfilingLock + Counters Information report from physical device
             EQT_ACCELERATION_STRUCTURE_COMPACTED_SIZE = 1000150000, // VK_KHR_acceleration_structure
             EQT_ACCELERATION_STRUCTURE_SERIALIZATION_SIZE = 1000150001, // VK_KHR_acceleration_structure
         };
 
         enum E_PIPELINE_STATISTICS_FLAGS
         {
+            EPSF_NONE = 0,
             EPSF_INPUT_ASSEMBLY_VERTICES_BIT = 0x00000001,
             EPSF_INPUT_ASSEMBLY_PRIMITIVES_BIT = 0x00000002,
             EPSF_VERTEX_SHADER_INVOCATIONS_BIT = 0x00000004,
@@ -39,6 +39,7 @@ public:
 
         enum E_QUERY_RESULTS_FLAGS
         {
+            EQRF_NONE = 0,
             EQRF_64_BIT = 0x00000001,
             EQRF_WAIT_BIT = 0x00000002,
             EQRF_WITH_AVAILABILITY_BIT = 0x00000004,
@@ -47,14 +48,15 @@ public:
 
         enum E_QUERY_CONTROL_FLAGS : uint32_t
         {
-            EQCF_PRECISE_BIT = 0x01
+            EQCF_NONE = 0,
+            EQCF_PRECISE_BIT = 0x01,
         };
 
         struct SCreationParams
         {
-            E_QUERY_TYPE                    queryType;
-            uint32_t                        queryCount;
-            E_PIPELINE_STATISTICS_FLAGS     pipelineStatisticsFlags; // only when the queryType is EQT_PIPELINE_STATISTICS
+            E_QUERY_TYPE                                   queryType;
+            uint32_t                                       queryCount;
+            core::bitflag<E_PIPELINE_STATISTICS_FLAGS>     pipelineStatisticsFlags; // only when the queryType is EQT_PIPELINE_STATISTICS
         };
 
 public:

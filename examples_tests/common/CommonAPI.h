@@ -971,367 +971,360 @@ public:
 			windowsCreationParams.callback = result.windowCb;
 		
 			result.window = windowManager->createWindow(std::move(windowsCreationParams));
-		    result.windowCb->setInputSystem(nbl::core::smart_refctd_ptr(result.inputSystem));
+			result.windowCb->setInputSystem(nbl::core::smart_refctd_ptr(result.inputSystem));
 #else
 		result.windowCb = nbl::core::smart_refctd_ptr<EventCallback>((CommonAPIEventCallback*)result.window->getEventCallback());
 		result.windowCb->setInputSystem(nbl::core::smart_refctd_ptr(result.inputSystem));
 #endif
 		}
 
-        if constexpr (gpuInit)
-        {
-            if (api_type == EAT_VULKAN) 
-            {
-                auto _apiConnection = nbl::video::CVulkanConnection::create(
-                    nbl::core::smart_refctd_ptr(result.system),
-                    0,
-                    app_name.data(),
-                    requiredInstanceFeatures.count,
-                    requiredInstanceFeatures.features,
-                    optionalInstanceFeatures.count,
-                    optionalInstanceFeatures.features,
-                    nbl::core::smart_refctd_ptr(result.logger),
-                    true);
-                    
-                if(!headlessCompute)
-                {
-                #ifdef _NBL_PLATFORM_WINDOWS_
-                    result.surface = nbl::video::CSurfaceVulkanWin32::create(nbl::core::smart_refctd_ptr(_apiConnection), nbl::core::smart_refctd_ptr<nbl::ui::IWindowWin32>(static_cast<nbl::ui::IWindowWin32*>(result.window.get())));
-                #elif defined(_NBL_PLATFORM_ANDROID_)
-                    ////result.surface = nbl::video::CSurfaceVulkanAndroid::create(nbl::core::smart_refctd_ptr(_apiConnection), nbl::core::smart_refctd_ptr<nbl::ui::IWindowAndroid>(static_cast<nbl::ui::IWindowAndroid*>(result.window.get())));
-                #endif
-                }
-                result.apiConnection = _apiConnection;
-            }
-            else if (api_type == EAT_OPENGL)
-            {
-                auto _apiConnection = nbl::video::COpenGLConnection::create(nbl::core::smart_refctd_ptr(result.system), 0, app_name.data(), nbl::video::COpenGLDebugCallback(nbl::core::smart_refctd_ptr(result.logger)));
-                
-                if(!headlessCompute)
-                {
-                #ifdef _NBL_PLATFORM_WINDOWS_
-                    result.surface = nbl::video::CSurfaceGLWin32::create(nbl::core::smart_refctd_ptr(_apiConnection), nbl::core::smart_refctd_ptr<nbl::ui::IWindowWin32>(static_cast<nbl::ui::IWindowWin32*>(result.window.get())));
-                #elif defined(_NBL_PLATFORM_ANDROID_)
-                    result.surface = nbl::video::CSurfaceGLAndroid::create(nbl::core::smart_refctd_ptr(_apiConnection), nbl::core::smart_refctd_ptr<nbl::ui::IWindowAndroid>(static_cast<nbl::ui::IWindowAndroid*>(result.window.get())));
-                #endif
-                }
-                
-                result.apiConnection = _apiConnection;
-            }
-            else if (api_type == EAT_OPENGL_ES)
-            {
-                auto _apiConnection = nbl::video::COpenGLESConnection::create(nbl::core::smart_refctd_ptr(result.system), 0, app_name.data(), nbl::video::COpenGLDebugCallback(nbl::core::smart_refctd_ptr(result.logger)));
-                
-                if(!headlessCompute)
-                {
-                #ifdef _NBL_PLATFORM_WINDOWS_
-                    result.surface = nbl::video::CSurfaceGLWin32::create(nbl::core::smart_refctd_ptr(_apiConnection), nbl::core::smart_refctd_ptr<nbl::ui::IWindowWin32>(static_cast<nbl::ui::IWindowWin32*>(result.window.get())));
-                #elif defined(_NBL_PLATFORM_ANDROID_)
-                    result.surface = nbl::video::CSurfaceGLAndroid::create(nbl::core::smart_refctd_ptr(_apiConnection), nbl::core::smart_refctd_ptr<nbl::ui::IWindowAndroid>(static_cast<nbl::ui::IWindowAndroid*>(result.window.get())));
-                #endif
-                }
-                
-                result.apiConnection = _apiConnection;
-            }
-            else
-            {
-                _NBL_TODO();
-            }
+		if constexpr (gpuInit)
+		{
+			if (api_type == EAT_VULKAN) 
+			{
+				auto _apiConnection = nbl::video::CVulkanConnection::create(
+					nbl::core::smart_refctd_ptr(result.system),
+					0,
+					app_name.data(),
+					requiredInstanceFeatures.count,
+					requiredInstanceFeatures.features,
+					optionalInstanceFeatures.count,
+					optionalInstanceFeatures.features,
+					nbl::core::smart_refctd_ptr(result.logger),
+					true);
+					
+				if(!headlessCompute)
+				{
+				#ifdef _NBL_PLATFORM_WINDOWS_
+					result.surface = nbl::video::CSurfaceVulkanWin32::create(nbl::core::smart_refctd_ptr(_apiConnection), nbl::core::smart_refctd_ptr<nbl::ui::IWindowWin32>(static_cast<nbl::ui::IWindowWin32*>(result.window.get())));
+				#elif defined(_NBL_PLATFORM_ANDROID_)
+					////result.surface = nbl::video::CSurfaceVulkanAndroid::create(nbl::core::smart_refctd_ptr(_apiConnection), nbl::core::smart_refctd_ptr<nbl::ui::IWindowAndroid>(static_cast<nbl::ui::IWindowAndroid*>(result.window.get())));
+				#endif
+				}
+				result.apiConnection = _apiConnection;
+			}
+			else if (api_type == EAT_OPENGL)
+			{
+				auto _apiConnection = nbl::video::COpenGLConnection::create(nbl::core::smart_refctd_ptr(result.system), 0, app_name.data(), nbl::video::COpenGLDebugCallback(nbl::core::smart_refctd_ptr(result.logger)));
+				
+				if(!headlessCompute)
+				{
+				#ifdef _NBL_PLATFORM_WINDOWS_
+					result.surface = nbl::video::CSurfaceGLWin32::create(nbl::core::smart_refctd_ptr(_apiConnection), nbl::core::smart_refctd_ptr<nbl::ui::IWindowWin32>(static_cast<nbl::ui::IWindowWin32*>(result.window.get())));
+				#elif defined(_NBL_PLATFORM_ANDROID_)
+					result.surface = nbl::video::CSurfaceGLAndroid::create(nbl::core::smart_refctd_ptr(_apiConnection), nbl::core::smart_refctd_ptr<nbl::ui::IWindowAndroid>(static_cast<nbl::ui::IWindowAndroid*>(result.window.get())));
+				#endif
+				}
+				
+				result.apiConnection = _apiConnection;
+			}
+			else if (api_type == EAT_OPENGL_ES)
+			{
+				auto _apiConnection = nbl::video::COpenGLESConnection::create(nbl::core::smart_refctd_ptr(result.system), 0, app_name.data(), nbl::video::COpenGLDebugCallback(nbl::core::smart_refctd_ptr(result.logger)));
+				
+				if(!headlessCompute)
+				{
+				#ifdef _NBL_PLATFORM_WINDOWS_
+					result.surface = nbl::video::CSurfaceGLWin32::create(nbl::core::smart_refctd_ptr(_apiConnection), nbl::core::smart_refctd_ptr<nbl::ui::IWindowWin32>(static_cast<nbl::ui::IWindowWin32*>(result.window.get())));
+				#elif defined(_NBL_PLATFORM_ANDROID_)
+					result.surface = nbl::video::CSurfaceGLAndroid::create(nbl::core::smart_refctd_ptr(_apiConnection), nbl::core::smart_refctd_ptr<nbl::ui::IWindowAndroid>(static_cast<nbl::ui::IWindowAndroid*>(result.window.get())));
+				#endif
+				}
+				
+				result.apiConnection = _apiConnection;
+			}
+			else
+			{
+				_NBL_TODO();
+			}
 
-            auto gpus = result.apiConnection->getPhysicalDevices();
-            assert(!gpus.empty());
-            auto extractedInfos = extractGPUInfos(gpus, result.surface, headlessCompute);
-            auto suitableGPUIndex = findSuitableGPU(extractedInfos, headlessCompute);
-            auto gpu = gpus.begin()[suitableGPUIndex];
-            const auto& gpuInfo = extractedInfos[suitableGPUIndex];
+			auto gpus = result.apiConnection->getPhysicalDevices();
+			assert(!gpus.empty());
+			auto extractedInfos = extractGPUInfos(gpus, result.surface, headlessCompute);
+			auto suitableGPUIndex = findSuitableGPU(extractedInfos, headlessCompute);
+			auto gpu = gpus.begin()[suitableGPUIndex];
+			const auto& gpuInfo = extractedInfos[suitableGPUIndex];
 
-            // Fill QueueCreationParams
-            constexpr uint32_t MaxQueuesInFamily = 32;
-            float queuePriorities[MaxQueuesInFamily];
-            std::fill(queuePriorities, queuePriorities + MaxQueuesInFamily, IGPUQueue::DEFAULT_QUEUE_PRIORITY);
+			// Fill QueueCreationParams
+			constexpr uint32_t MaxQueuesInFamily = 32;
+			float queuePriorities[MaxQueuesInFamily];
+			std::fill(queuePriorities, queuePriorities + MaxQueuesInFamily, IGPUQueue::DEFAULT_QUEUE_PRIORITY);
 
-            constexpr uint32_t MaxQueueFamilyCount = 4;
-            nbl::video::ILogicalDevice::SQueueCreationParams qcp[MaxQueueFamilyCount] = {}; 
-            
-            uint32_t actualQueueParamsCount = 0u;
+			constexpr uint32_t MaxQueueFamilyCount = 4;
+			nbl::video::ILogicalDevice::SQueueCreationParams qcp[MaxQueueFamilyCount] = {}; 
+			
+			uint32_t actualQueueParamsCount = 0u;
 
-            uint32_t queuesIndexInFamily[InitOutput::EQT_COUNT];
-            uint32_t presentQueueIndexInFamily = 0u;
+			uint32_t queuesIndexInFamily[InitOutput::EQT_COUNT];
+			uint32_t presentQueueIndexInFamily = 0u;
 
-            // Graphics Queue
-            if(!headlessCompute)
-            {
-                uint32_t dedicatedQueuesInFamily = gpuInfo.queueFamilyProps.graphics.dedicatedQueueCount;
-                assert(dedicatedQueuesInFamily >= 1u);
+			// Graphics Queue
+			if(!headlessCompute)
+			{
+				uint32_t dedicatedQueuesInFamily = gpuInfo.queueFamilyProps.graphics.dedicatedQueueCount;
+				assert(dedicatedQueuesInFamily >= 1u);
 
-                qcp[0].familyIndex = gpuInfo.queueFamilyProps.graphics.index;
-                qcp[0].count = dedicatedQueuesInFamily;
-                qcp[0].flags = static_cast<nbl::video::IGPUQueue::E_CREATE_FLAGS>(0);
-                qcp[0].priorities = queuePriorities;
-                queuesIndexInFamily[InitOutput::EQT_GRAPHICS] = 0u;
-                actualQueueParamsCount++;
-            }
-            
-            // Compute Queue
-            bool foundComputeInOtherFamily = false;
-            for(uint32_t i = 0; i < actualQueueParamsCount; ++i)
-            {
-                auto& otherQcp = qcp[i];
-                uint32_t dedicatedQueuesInFamily = gpuInfo.queueFamilyProps.compute.dedicatedQueueCount;
-                if(otherQcp.familyIndex == gpuInfo.queueFamilyProps.compute.index)
-                {
-                    if(dedicatedQueuesInFamily >= 1)
-                    {
-                        queuesIndexInFamily[InitOutput::EQT_COMPUTE] = otherQcp.count + 0u;
-                    }
-                    else
-                    {
-                        queuesIndexInFamily[InitOutput::EQT_COMPUTE] = 0u;
-                    }
-                    otherQcp.count += dedicatedQueuesInFamily;
-                    foundComputeInOtherFamily = true;
-                    break; // If works correctly no need to check other family indices as they are unique
-                }
-            }
-            if(!foundComputeInOtherFamily)
-            {
-                uint32_t dedicatedQueuesInFamily = gpuInfo.queueFamilyProps.compute.dedicatedQueueCount;
-                assert(dedicatedQueuesInFamily == 1u);
-                
-                queuesIndexInFamily[InitOutput::EQT_COMPUTE] = 0u;
+				qcp[0].familyIndex = gpuInfo.queueFamilyProps.graphics.index;
+				qcp[0].count = dedicatedQueuesInFamily;
+				qcp[0].flags = static_cast<nbl::video::IGPUQueue::E_CREATE_FLAGS>(0);
+				qcp[0].priorities = queuePriorities;
+				queuesIndexInFamily[InitOutput::EQT_GRAPHICS] = 0u;
+				actualQueueParamsCount++;
+			}
+			
+			// Compute Queue
+			bool foundComputeInOtherFamily = false;
+			for(uint32_t i = 0; i < actualQueueParamsCount; ++i)
+			{
+				auto& otherQcp = qcp[i];
+				uint32_t dedicatedQueuesInFamily = gpuInfo.queueFamilyProps.compute.dedicatedQueueCount;
+				if(otherQcp.familyIndex == gpuInfo.queueFamilyProps.compute.index)
+				{
+					if(dedicatedQueuesInFamily >= 1)
+					{
+						queuesIndexInFamily[InitOutput::EQT_COMPUTE] = otherQcp.count + 0u;
+					}
+					else
+					{
+						queuesIndexInFamily[InitOutput::EQT_COMPUTE] = 0u;
+					}
+					otherQcp.count += dedicatedQueuesInFamily;
+					foundComputeInOtherFamily = true;
+					break; // If works correctly no need to check other family indices as they are unique
+				}
+			}
+			if(!foundComputeInOtherFamily)
+			{
+				uint32_t dedicatedQueuesInFamily = gpuInfo.queueFamilyProps.compute.dedicatedQueueCount;
+				assert(dedicatedQueuesInFamily == 1u);
+				
+				queuesIndexInFamily[InitOutput::EQT_COMPUTE] = 0u;
 
-                auto & computeQcp = qcp[actualQueueParamsCount];
-                computeQcp.familyIndex = gpuInfo.queueFamilyProps.compute.index;
-                computeQcp.count = dedicatedQueuesInFamily;
-                computeQcp.flags = static_cast<nbl::video::IGPUQueue::E_CREATE_FLAGS>(0);
-                computeQcp.priorities = queuePriorities;
-                actualQueueParamsCount++;
-            }
-            
-            // Transfer Queue
-            bool foundTransferInOtherFamily = false;
-            for(uint32_t i = 0; i < actualQueueParamsCount; ++i)
-            {
-                auto& otherQcp = qcp[i];
-                uint32_t dedicatedQueuesInFamily = gpuInfo.queueFamilyProps.transfer.dedicatedQueueCount;
-                if(otherQcp.familyIndex == gpuInfo.queueFamilyProps.transfer.index)
-                {
-                    if(dedicatedQueuesInFamily >= 2u)
-                    {
-                        queuesIndexInFamily[InitOutput::EQT_TRANSFER_UP] = otherQcp.count + 0u;
-                        queuesIndexInFamily[InitOutput::EQT_TRANSFER_DOWN] = otherQcp.count + 1u;
-                    }
-                    else if(dedicatedQueuesInFamily >= 1u)
-                    {
-                        queuesIndexInFamily[InitOutput::EQT_TRANSFER_UP] = otherQcp.count + 0u;
-                        queuesIndexInFamily[InitOutput::EQT_TRANSFER_DOWN] = otherQcp.count + 0u;
-                    }
-                    else if(dedicatedQueuesInFamily == 0u)
-                    {
-                        queuesIndexInFamily[InitOutput::EQT_TRANSFER_UP] = 0u;
-                        queuesIndexInFamily[InitOutput::EQT_TRANSFER_DOWN] = 0u;
-                    }
-                    otherQcp.count += dedicatedQueuesInFamily;
-                    foundTransferInOtherFamily = true;
-                    break; // If works correctly no need to check other family indices as they are unique
-                }
-            }
-            if(!foundTransferInOtherFamily)
-            {
-                uint32_t dedicatedQueuesInFamily = gpuInfo.queueFamilyProps.transfer.dedicatedQueueCount;
-                assert(dedicatedQueuesInFamily >= 1u);
+				auto & computeQcp = qcp[actualQueueParamsCount];
+				computeQcp.familyIndex = gpuInfo.queueFamilyProps.compute.index;
+				computeQcp.count = dedicatedQueuesInFamily;
+				computeQcp.flags = static_cast<nbl::video::IGPUQueue::E_CREATE_FLAGS>(0);
+				computeQcp.priorities = queuePriorities;
+				actualQueueParamsCount++;
+			}
+			
+			// Transfer Queue
+			bool foundTransferInOtherFamily = false;
+			for(uint32_t i = 0; i < actualQueueParamsCount; ++i)
+			{
+				auto& otherQcp = qcp[i];
+				uint32_t dedicatedQueuesInFamily = gpuInfo.queueFamilyProps.transfer.dedicatedQueueCount;
+				if(otherQcp.familyIndex == gpuInfo.queueFamilyProps.transfer.index)
+				{
+					if(dedicatedQueuesInFamily >= 2u)
+					{
+						queuesIndexInFamily[InitOutput::EQT_TRANSFER_UP] = otherQcp.count + 0u;
+						queuesIndexInFamily[InitOutput::EQT_TRANSFER_DOWN] = otherQcp.count + 1u;
+					}
+					else if(dedicatedQueuesInFamily >= 1u)
+					{
+						queuesIndexInFamily[InitOutput::EQT_TRANSFER_UP] = otherQcp.count + 0u;
+						queuesIndexInFamily[InitOutput::EQT_TRANSFER_DOWN] = otherQcp.count + 0u;
+					}
+					else if(dedicatedQueuesInFamily == 0u)
+					{
+						queuesIndexInFamily[InitOutput::EQT_TRANSFER_UP] = 0u;
+						queuesIndexInFamily[InitOutput::EQT_TRANSFER_DOWN] = 0u;
+					}
+					otherQcp.count += dedicatedQueuesInFamily;
+					foundTransferInOtherFamily = true;
+					break; // If works correctly no need to check other family indices as they are unique
+				}
+			}
+			if(!foundTransferInOtherFamily)
+			{
+				uint32_t dedicatedQueuesInFamily = gpuInfo.queueFamilyProps.transfer.dedicatedQueueCount;
+				assert(dedicatedQueuesInFamily >= 1u);
 
-                if(dedicatedQueuesInFamily >= 2u)
-                {
-                    queuesIndexInFamily[InitOutput::EQT_TRANSFER_UP] = 0u;
-                    queuesIndexInFamily[InitOutput::EQT_TRANSFER_DOWN] = 1u;
-                }
-                else if(dedicatedQueuesInFamily >= 1u)
-                {
-                    queuesIndexInFamily[InitOutput::EQT_TRANSFER_UP] = 0u;
-                    queuesIndexInFamily[InitOutput::EQT_TRANSFER_DOWN] = 0u;
-                }
-                else
-                {
-                    assert(false);
-                }
+				if(dedicatedQueuesInFamily >= 2u)
+				{
+					queuesIndexInFamily[InitOutput::EQT_TRANSFER_UP] = 0u;
+					queuesIndexInFamily[InitOutput::EQT_TRANSFER_DOWN] = 1u;
+				}
+				else if(dedicatedQueuesInFamily >= 1u)
+				{
+					queuesIndexInFamily[InitOutput::EQT_TRANSFER_UP] = 0u;
+					queuesIndexInFamily[InitOutput::EQT_TRANSFER_DOWN] = 0u;
+				}
+				else
+				{
+					assert(false);
+				}
 
-                auto & transferQcp = qcp[actualQueueParamsCount];
-                transferQcp.familyIndex = gpuInfo.queueFamilyProps.transfer.index;
-                transferQcp.count = dedicatedQueuesInFamily;
-                transferQcp.flags = static_cast<nbl::video::IGPUQueue::E_CREATE_FLAGS>(0);
-                transferQcp.priorities = queuePriorities;
-                actualQueueParamsCount++;
-            }
+				auto & transferQcp = qcp[actualQueueParamsCount];
+				transferQcp.familyIndex = gpuInfo.queueFamilyProps.transfer.index;
+				transferQcp.count = dedicatedQueuesInFamily;
+				transferQcp.flags = static_cast<nbl::video::IGPUQueue::E_CREATE_FLAGS>(0);
+				transferQcp.priorities = queuePriorities;
+				actualQueueParamsCount++;
+			}
 
-            // Present Queue
-            if(!headlessCompute)
-            {
-                bool foundPresentInOtherFamily = false;
-                for(uint32_t i = 0; i < actualQueueParamsCount; ++i)
-                {
-                    auto& otherQcp = qcp[i];
-                    if(otherQcp.familyIndex == gpuInfo.queueFamilyProps.present.index)
-                    {
-                        if(otherQcp.familyIndex == gpuInfo.queueFamilyProps.graphics.index)
-                        {
-                            presentQueueIndexInFamily = 0u;
-                        }
-                        else
-                        {
-                            uint32_t dedicatedQueuesInFamily = gpuInfo.queueFamilyProps.present.dedicatedQueueCount;
+			// Present Queue
+			if(!headlessCompute)
+			{
+				bool foundPresentInOtherFamily = false;
+				for(uint32_t i = 0; i < actualQueueParamsCount; ++i)
+				{
+					auto& otherQcp = qcp[i];
+					if(otherQcp.familyIndex == gpuInfo.queueFamilyProps.present.index)
+					{
+						if(otherQcp.familyIndex == gpuInfo.queueFamilyProps.graphics.index)
+						{
+							presentQueueIndexInFamily = 0u;
+						}
+						else
+						{
+							uint32_t dedicatedQueuesInFamily = gpuInfo.queueFamilyProps.present.dedicatedQueueCount;
 
-                            if(dedicatedQueuesInFamily >= 1u)
-                            {
-                                presentQueueIndexInFamily = otherQcp.count + 0u;
-                            }
-                            else if(dedicatedQueuesInFamily == 0u)
-                            {
-                                presentQueueIndexInFamily = 0u;
-                            }
-                            otherQcp.count += dedicatedQueuesInFamily;
-                        }
-                        foundPresentInOtherFamily = true;
-                        break; // If works correctly no need to check other family indices as they are unique
-                    }
-                }
-                if(!foundPresentInOtherFamily)
-                {
-                    uint32_t dedicatedQueuesInFamily = gpuInfo.queueFamilyProps.present.dedicatedQueueCount;
-                    assert(dedicatedQueuesInFamily == 1u);
-                    presentQueueIndexInFamily = 0u;
+							if(dedicatedQueuesInFamily >= 1u)
+							{
+								presentQueueIndexInFamily = otherQcp.count + 0u;
+							}
+							else if(dedicatedQueuesInFamily == 0u)
+							{
+								presentQueueIndexInFamily = 0u;
+							}
+							otherQcp.count += dedicatedQueuesInFamily;
+						}
+						foundPresentInOtherFamily = true;
+						break; // If works correctly no need to check other family indices as they are unique
+					}
+				}
+				if(!foundPresentInOtherFamily)
+				{
+					uint32_t dedicatedQueuesInFamily = gpuInfo.queueFamilyProps.present.dedicatedQueueCount;
+					assert(dedicatedQueuesInFamily == 1u);
+					presentQueueIndexInFamily = 0u;
 
-                    auto & presentQcp = qcp[actualQueueParamsCount];
-                    presentQcp.familyIndex = gpuInfo.queueFamilyProps.present.index;
-                    presentQcp.count = dedicatedQueuesInFamily;
-                    presentQcp.flags = static_cast<nbl::video::IGPUQueue::E_CREATE_FLAGS>(0);
-                    presentQcp.priorities = queuePriorities;
-                    actualQueueParamsCount++;
-                }
-            }
+					auto & presentQcp = qcp[actualQueueParamsCount];
+					presentQcp.familyIndex = gpuInfo.queueFamilyProps.present.index;
+					presentQcp.count = dedicatedQueuesInFamily;
+					presentQcp.flags = static_cast<nbl::video::IGPUQueue::E_CREATE_FLAGS>(0);
+					presentQcp.priorities = queuePriorities;
+					actualQueueParamsCount++;
+				}
+			}
 
-            nbl::video::ILogicalDevice::SCreationParams dev_params;
-            dev_params.queueParamsCount = actualQueueParamsCount;
-            dev_params.queueParams = qcp;
-            dev_params.requiredFeatureCount = requiredDeviceFeatures.count;
-            dev_params.requiredFeatures = requiredDeviceFeatures.features;
-            dev_params.optionalFeatureCount = optionalDeviceFeatures.count;
-            dev_params.optionalFeatures = optionalDeviceFeatures.features;
-            result.logicalDevice = gpu->createLogicalDevice(dev_params);
+			nbl::video::ILogicalDevice::SCreationParams dev_params;
+			dev_params.queueParamsCount = actualQueueParamsCount;
+			dev_params.queueParams = qcp;
+			dev_params.requiredFeatureCount = requiredDeviceFeatures.count;
+			dev_params.requiredFeatures = requiredDeviceFeatures.features;
+			dev_params.optionalFeatureCount = optionalDeviceFeatures.count;
+			dev_params.optionalFeatures = optionalDeviceFeatures.features;
+			result.logicalDevice = gpu->createLogicalDevice(dev_params);
 
-            result.utilities = nbl::core::make_smart_refctd_ptr<nbl::video::IUtilities>(nbl::core::smart_refctd_ptr(result.logicalDevice));
+			result.utilities = nbl::core::make_smart_refctd_ptr<nbl::video::IUtilities>(nbl::core::smart_refctd_ptr(result.logicalDevice));
 
-            if(!headlessCompute)
-                result.queues[InitOutput::EQT_GRAPHICS] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.graphics.index, queuesIndexInFamily[InitOutput::EQT_GRAPHICS]);
-            result.queues[InitOutput::EQT_COMPUTE] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.compute.index, queuesIndexInFamily[InitOutput::EQT_COMPUTE]);
+			if(!headlessCompute)
+				result.queues[InitOutput::EQT_GRAPHICS] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.graphics.index, queuesIndexInFamily[InitOutput::EQT_GRAPHICS]);
+			result.queues[InitOutput::EQT_COMPUTE] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.compute.index, queuesIndexInFamily[InitOutput::EQT_COMPUTE]);
 
-    // TEMP_FIX
-    #ifdef EXAMPLES_CAN_HANDLE_TRANSFER_WITHOUT_GRAPHICS 
-            result.queues[InitOutput::EQT_TRANSFER_UP] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.transfer.index, queuesIndexInFamily[EQT_TRANSFER_UP]);
-            result.queues[InitOutput::EQT_TRANSFER_DOWN] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.transfer.index, queuesIndexInFamily[EQT_TRANSFER_DOWN]);
-    #else
-            if(!headlessCompute)
-            {
-                result.queues[InitOutput::EQT_TRANSFER_UP] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.graphics.index, 0u);
-                result.queues[InitOutput::EQT_TRANSFER_DOWN] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.graphics.index, 0u);
-            }
-            else
-            {
-                result.queues[InitOutput::EQT_TRANSFER_UP] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.compute.index, queuesIndexInFamily[InitOutput::EQT_COMPUTE]);
-                result.queues[InitOutput::EQT_TRANSFER_DOWN] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.compute.index, queuesIndexInFamily[InitOutput::EQT_COMPUTE]);
-            }
-    #endif
-            if(!headlessCompute)
-            {
-                nbl::video::ISurface::SFormat requestedFormat;
-                if(api_type == EAT_VULKAN)
-                {
-                    requestedFormat.format = (surfaceFormat.format == nbl::asset::EF_UNKNOWN)
-                        ? nbl::asset::EF_B8G8R8A8_SRGB
-                        : surfaceFormat.format;
-                    requestedFormat.colorSpace.eotf = (surfaceFormat.colorSpace.eotf == nbl::asset::EOTF_UNKNOWN)
-                        ? nbl::asset::EOTF_sRGB
-                        : surfaceFormat.colorSpace.eotf;
-                    requestedFormat.colorSpace.primary = (surfaceFormat.colorSpace.primary == nbl::asset::ECP_COUNT)
-                        ? nbl::asset::ECP_SRGB
-                        : surfaceFormat.colorSpace.primary;
-                }
-                else
-                {
-                    // Temporary to make previous examples work
-                    requestedFormat.format = (surfaceFormat.format == nbl::asset::EF_UNKNOWN)
-                        ? nbl::asset::EF_R8G8B8A8_SRGB
-                        : surfaceFormat.format;
-                    requestedFormat.colorSpace.eotf = (surfaceFormat.colorSpace.eotf == nbl::asset::EOTF_UNKNOWN)
-                        ? nbl::asset::EOTF_sRGB
-                        : surfaceFormat.colorSpace.eotf;
-                    requestedFormat.colorSpace.primary = (surfaceFormat.colorSpace.primary == nbl::asset::ECP_COUNT)
-                        ? nbl::asset::ECP_SRGB
-                        : surfaceFormat.colorSpace.primary;
-                }
-                result.swapchain = createSwapchain(api_type, gpuInfo, sc_image_count, window_width, window_height, result.logicalDevice, result.surface, swapchainImageUsage, nbl::video::ISurface::EPM_FIFO_RELAXED, requestedFormat);
-                assert(result.swapchain);
-            
-                nbl::asset::E_FORMAT swapChainFormat = result.swapchain->getCreationParameters().surfaceFormat.format;
-                result.renderpass = createRenderpass(result.logicalDevice, swapChainFormat, depthFormat);
+	// TEMP_FIX
+	#ifdef EXAMPLES_CAN_HANDLE_TRANSFER_WITHOUT_GRAPHICS 
+			result.queues[InitOutput::EQT_TRANSFER_UP] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.transfer.index, queuesIndexInFamily[EQT_TRANSFER_UP]);
+			result.queues[InitOutput::EQT_TRANSFER_DOWN] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.transfer.index, queuesIndexInFamily[EQT_TRANSFER_DOWN]);
+	#else
+			if(!headlessCompute)
+			{
+				result.queues[InitOutput::EQT_TRANSFER_UP] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.graphics.index, 0u);
+				result.queues[InitOutput::EQT_TRANSFER_DOWN] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.graphics.index, 0u);
+			}
+			else
+			{
+				result.queues[InitOutput::EQT_TRANSFER_UP] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.compute.index, queuesIndexInFamily[InitOutput::EQT_COMPUTE]);
+				result.queues[InitOutput::EQT_TRANSFER_DOWN] = result.logicalDevice->getQueue(gpuInfo.queueFamilyProps.compute.index, queuesIndexInFamily[InitOutput::EQT_COMPUTE]);
+			}
+	#endif
+			if(!headlessCompute)
+			{
+				nbl::video::ISurface::SFormat requestedFormat = surfaceFormat;
+				if(api_type == EAT_VULKAN)
+				{
+					if (requestedFormat.format == nbl::asset::EF_UNKNOWN || requestedFormat.format == asset::EF_R8G8B8A8_SRGB)
+					{
+						requestedFormat.format = nbl::asset::EF_B8G8R8A8_SRGB;
+						requestedFormat.colorSpace.eotf = nbl::asset::EOTF_sRGB;
+						requestedFormat.colorSpace.primary = nbl::asset::ECP_SRGB;
+					}
+				}
+				else
+				{
+					if (requestedFormat.format == nbl::asset::EF_UNKNOWN)
+					{
+						requestedFormat.format = nbl::asset::EF_R8G8B8A8_SRGB;
+						requestedFormat.colorSpace.eotf = nbl::asset::EOTF_sRGB;
+						requestedFormat.colorSpace.primary = nbl::asset::ECP_SRGB;
+					}
+				}
+				result.swapchain = createSwapchain(api_type, gpuInfo, sc_image_count, window_width, window_height, result.logicalDevice, result.surface, swapchainImageUsage, nbl::video::ISurface::EPM_FIFO_RELAXED, requestedFormat);
+				assert(result.swapchain);
+			
+				nbl::asset::E_FORMAT swapChainFormat = result.swapchain->getCreationParameters().surfaceFormat.format;
+				result.renderpass = createRenderpass(result.logicalDevice, swapChainFormat, depthFormat);
 
-                result.fbo = createFBOWithSwapchainImages(result.swapchain->getImageCount(), window_width, window_height, result.logicalDevice, result.swapchain, result.renderpass, depthFormat);
-            }
+				result.fbo = createFBOWithSwapchainImages(result.swapchain->getImageCount(), window_width, window_height, result.logicalDevice, result.swapchain, result.renderpass, depthFormat);
+			}
 
-            for(uint32_t i = 0; i < InitOutput::EQT_COUNT; ++i)
-            {
-                const IGPUQueue* queue = result.queues[i];
-                if(queue != nullptr)
-                {
-                    result.commandPools[i] = result.logicalDevice->createCommandPool(queue->getFamilyIndex(), IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
-                    assert(result.commandPools[i]);
-                }
-            }
+			for(uint32_t i = 0; i < InitOutput::EQT_COUNT; ++i)
+			{
+				const IGPUQueue* queue = result.queues[i];
+				if(queue != nullptr)
+				{
+					result.commandPools[i] = result.logicalDevice->createCommandPool(queue->getFamilyIndex(), IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
+					assert(result.commandPools[i]);
+				}
+			}
 
-            result.physicalDevice = gpu;
+			result.physicalDevice = gpu;
 
-            uint32_t mainQueueFamilyIndex = (headlessCompute) ? gpuInfo.queueFamilyProps.compute.index : gpuInfo.queueFamilyProps.graphics.index;
-            result.cpu2gpuParams.assetManager = result.assetManager.get();
-            result.cpu2gpuParams.device = result.logicalDevice.get();
-            result.cpu2gpuParams.finalQueueFamIx = mainQueueFamilyIndex;
-            result.cpu2gpuParams.limits = result.physicalDevice->getLimits();
-            result.cpu2gpuParams.pipelineCache = nullptr;
-            result.cpu2gpuParams.sharingMode = nbl::asset::ESM_EXCLUSIVE;
-            result.cpu2gpuParams.utilities = result.utilities.get();
+			uint32_t mainQueueFamilyIndex = (headlessCompute) ? gpuInfo.queueFamilyProps.compute.index : gpuInfo.queueFamilyProps.graphics.index;
+			result.cpu2gpuParams.assetManager = result.assetManager.get();
+			result.cpu2gpuParams.device = result.logicalDevice.get();
+			result.cpu2gpuParams.finalQueueFamIx = mainQueueFamilyIndex;
+			result.cpu2gpuParams.limits = result.physicalDevice->getLimits();
+			result.cpu2gpuParams.pipelineCache = nullptr;
+			result.cpu2gpuParams.sharingMode = nbl::asset::ESM_EXCLUSIVE;
+			result.cpu2gpuParams.utilities = result.utilities.get();
 
-            result.cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].queue = result.queues[InitOutput::EQT_TRANSFER_UP];
-            result.cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].queue = result.queues[InitOutput::EQT_COMPUTE];
-            
-            const uint32_t transferUpQueueFamIndex = result.queues[InitOutput::EQT_TRANSFER_UP]->getFamilyIndex();
-            const uint32_t computeQueueFamIndex = result.queues[InitOutput::EQT_COMPUTE]->getFamilyIndex();
+			result.cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].queue = result.queues[InitOutput::EQT_TRANSFER_UP];
+			result.cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].queue = result.queues[InitOutput::EQT_COMPUTE];
+			
+			const uint32_t transferUpQueueFamIndex = result.queues[InitOutput::EQT_TRANSFER_UP]->getFamilyIndex();
+			const uint32_t computeQueueFamIndex = result.queues[InitOutput::EQT_COMPUTE]->getFamilyIndex();
 
-            auto pool_transfer = result.logicalDevice->createCommandPool(transferUpQueueFamIndex, IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
-            nbl::core::smart_refctd_ptr<IGPUCommandPool> pool_compute;
-            if(transferUpQueueFamIndex == computeQueueFamIndex)
-                pool_compute = pool_transfer;
-            else
-                pool_compute = result.logicalDevice->createCommandPool(result.queues[InitOutput::EQT_COMPUTE]->getFamilyIndex(), IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
-        
-            nbl::core::smart_refctd_ptr<IGPUCommandBuffer> transferCmdBuffer;
-            nbl::core::smart_refctd_ptr<IGPUCommandBuffer> computeCmdBuffer;
+			auto pool_transfer = result.logicalDevice->createCommandPool(transferUpQueueFamIndex, IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
+			nbl::core::smart_refctd_ptr<IGPUCommandPool> pool_compute;
+			if(transferUpQueueFamIndex == computeQueueFamIndex)
+				pool_compute = pool_transfer;
+			else
+				pool_compute = result.logicalDevice->createCommandPool(result.queues[InitOutput::EQT_COMPUTE]->getFamilyIndex(), IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
+		
+			nbl::core::smart_refctd_ptr<IGPUCommandBuffer> transferCmdBuffer;
+			nbl::core::smart_refctd_ptr<IGPUCommandBuffer> computeCmdBuffer;
 
-            result.logicalDevice->createCommandBuffers(pool_transfer.get(), IGPUCommandBuffer::EL_PRIMARY, 1u, &transferCmdBuffer);
-            result.logicalDevice->createCommandBuffers(pool_compute.get(), IGPUCommandBuffer::EL_PRIMARY, 1u, &computeCmdBuffer);
-        
-            result.cpu2gpuParams.perQueue[IGPUObjectFromAssetConverter::EQU_TRANSFER].cmdbuf = transferCmdBuffer;
-            result.cpu2gpuParams.perQueue[IGPUObjectFromAssetConverter::EQU_COMPUTE].cmdbuf = computeCmdBuffer;
-        
-        }
-        else
-        {
+			result.logicalDevice->createCommandBuffers(pool_transfer.get(), IGPUCommandBuffer::EL_PRIMARY, 1u, &transferCmdBuffer);
+			result.logicalDevice->createCommandBuffers(pool_compute.get(), IGPUCommandBuffer::EL_PRIMARY, 1u, &computeCmdBuffer);
+		
+			result.cpu2gpuParams.perQueue[IGPUObjectFromAssetConverter::EQU_TRANSFER].cmdbuf = transferCmdBuffer;
+			result.cpu2gpuParams.perQueue[IGPUObjectFromAssetConverter::EQU_COMPUTE].cmdbuf = computeCmdBuffer;
+		
+		}
+		else
+		{
 			result.cpu2gpuParams.device = nullptr;
 			result.cpu2gpuParams.finalQueueFamIx = 0u;
 			result.cpu2gpuParams.limits = {};
 			result.cpu2gpuParams.pipelineCache = nullptr;
 			result.cpu2gpuParams.sharingMode = nbl::asset::ESM_EXCLUSIVE;
 			result.cpu2gpuParams.utilities = nullptr;
-        }
-    }
+		}
+	}
 	
 	// Usefull Abstraction for initializing with no extension
 	template<bool gpuInit = true, class EventCallback = CommonAPIEventCallback>
@@ -1570,7 +1563,7 @@ public:
 		return swapchain;
 	}
 
-	static nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpass> createRenderpass(const nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice>& device, nbl::asset::E_FORMAT colorAttachmentFormat = nbl::asset::EF_UNKNOWN, nbl::asset::E_FORMAT depthFormat = nbl::asset::EF_UNKNOWN)
+	static nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpass> createRenderpass(const nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice>& device, nbl::asset::E_FORMAT colorAttachmentFormat, nbl::asset::E_FORMAT depthFormat)
 	{
 		using namespace nbl;
 

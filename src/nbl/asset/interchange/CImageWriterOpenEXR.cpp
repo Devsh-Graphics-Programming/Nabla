@@ -165,7 +165,7 @@ namespace asset
 				continue;
 
 			state.regionIterator = rit;
-			StreamToEXR::execute(&state);
+			StreamToEXR::execute(core::execution::par_unseq,&state);
 		}
 
 		constexpr std::array<const char*, availableChannels> rgbaSignatureAsText = { "R", "G", "B", "A" };

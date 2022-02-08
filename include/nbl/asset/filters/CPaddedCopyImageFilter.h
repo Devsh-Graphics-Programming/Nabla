@@ -64,7 +64,8 @@ class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, publ
 			return getFormatClass(inFormat)==getFormatClass(outFormat);
 		}
 
-		static inline bool execute(state_type* state)
+		template<class ExecutionPolicy>
+		static inline bool execute(ExecutionPolicy&& policy, state_type* state)
 		{
 			if (!validate(state))
 				return false;
@@ -72,7 +73,7 @@ class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, publ
 			core::vector3du32_SIMD paddedExtent(&state->paddedExtent.width); paddedExtent = paddedExtent&core::vectorSIMDu32(~0u, ~0u, ~0u, 0u);
 			core::vector3du32_SIMD reloffset(&state->relativeOffset.x); reloffset = reloffset&core::vectorSIMDu32(~0u,~0u,~0u,0u);
 			state->outOffsetBaseLayer += reloffset;//abuse state for a moment
-			if (!CCopyImageFilter::execute(state))
+			if (!CCopyImageFilter::execute<ExecutionPolicy>(policy,state))
 				return false;
 			state->outOffsetBaseLayer -= reloffset;
 
@@ -206,11 +207,15 @@ class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, publ
 					clip_region_functor_t clip(subresource, borderRegions[i], state->outImage->getCreationParameters().format);
 					IImage::SBufferCopy clipped_reg = outreg;
 					if (clip(clipped_reg, &outreg))
-						executePerBlock(state->outImage, clipped_reg, perBlock);
+						executePerBlock<ExecutionPolicy>(policy,state->outImage,clipped_reg,perBlock);
 				}
 			}
 
 			return true;
+		}
+		static inline bool execute(state_type* state)
+		{
+			return execute(core::execution::seq,state);
 		}
 
 	private:

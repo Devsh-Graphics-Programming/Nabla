@@ -133,8 +133,8 @@ class COpenGLRenderpassIndependentPipeline final : public IGPURenderpassIndepend
                 uint32_t stampValue = _pcState.getStamp(stage);
                 if (stampValue>m_lastUpdateStamp[i])
                 {
-                    auto uniforms = static_cast<COpenGLSpecializedShader*>(m_shaders[i].get())->getUniforms();
-                    auto locations = static_cast<COpenGLSpecializedShader*>(m_shaders[i].get())->getLocations();
+                    auto uniforms = IBackendObject::compatibility_cast<COpenGLSpecializedShader*>(m_shaders[i].get(), this)->getUniforms();
+                    auto locations = IBackendObject::compatibility_cast<COpenGLSpecializedShader*>(m_shaders[i].get(), this)->getLocations();
                     if (uniforms.size())
                         IOpenGLPipeline<SHADER_STAGE_COUNT>::setUniformsImitatingPushConstants(gl, i, _ctxID, _pcState.data, uniforms, locations);
                     m_lastUpdateStamp[i] = stampValue;

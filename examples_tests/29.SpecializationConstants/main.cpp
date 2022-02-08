@@ -9,6 +9,7 @@
 // #include "CFileSystem.h"
 using namespace nbl;
 using namespace core;
+using namespace ui;
 
 struct UBOCompute
 {
@@ -25,7 +26,8 @@ class SpecializationConstantsSampleApp : public ApplicationBase
 	static constexpr uint64_t MAX_TIMEOUT = 99999999999999ull;
 	static_assert(FRAMES_IN_FLIGHT > SC_IMG_COUNT);
 
-	core::smart_refctd_ptr<nbl::ui::IWindow> win;
+	core::smart_refctd_ptr<nbl::ui::IWindow> window;
+	core::smart_refctd_ptr<nbl::system::ISystem> system;
 	core::smart_refctd_ptr<CommonAPI::CommonAPIEventCallback> windowCb;
 	core::smart_refctd_ptr<nbl::video::IAPIConnection> api;
 	core::smart_refctd_ptr<nbl::video::ISurface> surface;
@@ -33,7 +35,7 @@ class SpecializationConstantsSampleApp : public ApplicationBase
 	core::smart_refctd_ptr<nbl::video::ILogicalDevice> device;
 	video::IPhysicalDevice* gpu;
 	std::array<video::IGPUQueue*, CommonAPI::InitOutput::MaxQueuesCount> queues;
-	core::smart_refctd_ptr<nbl::video::ISwapchain> sc;
+	core::smart_refctd_ptr<nbl::video::ISwapchain> swapchain;
 	core::smart_refctd_ptr<nbl::video::IGPURenderpass> renderpass;
 	std::array<nbl::core::smart_refctd_ptr<nbl::video::IGPUFramebuffer>, CommonAPI::InitOutput::MaxSwapChainImageCount> fbo;
 	std::array<nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandPool>, CommonAPI::InitOutput::MaxQueuesCount> commandPools;
@@ -77,17 +79,53 @@ class SpecializationConstantsSampleApp : public ApplicationBase
 	core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> m_rpIndependentPipeline;
 
 public:
+
 	void setWindow(core::smart_refctd_ptr<nbl::ui::IWindow>&& wnd) override
 	{
-		win = std::move(wnd);
+		window = std::move(wnd);
+	}
+	void setSystem(core::smart_refctd_ptr<nbl::system::ISystem>&& s) override
+	{
+		system = std::move(s);
 	}
 	nbl::ui::IWindow* getWindow() override
 	{
-		return win.get();
+		return window.get();
 	}
-	void setSystem(core::smart_refctd_ptr<nbl::system::ISystem>&& system) override
+	video::IAPIConnection* getAPIConnection() override
 	{
-		system = std::move(system);
+		return api.get();
+	}
+	video::ILogicalDevice* getLogicalDevice()  override
+	{
+		return device.get();
+	}
+	video::IGPURenderpass* getRenderpass() override
+	{
+		return renderpass.get();
+	}
+	void setSurface(core::smart_refctd_ptr<video::ISurface>&& s) override
+	{
+		surface = std::move(s);
+	}
+	void setFBOs(std::vector<core::smart_refctd_ptr<video::IGPUFramebuffer>>& f) override
+	{
+		for (int i = 0; i < f.size(); i++)
+		{
+			fbo[i] = core::smart_refctd_ptr(f[i]);
+		}
+	}
+	void setSwapchain(core::smart_refctd_ptr<video::ISwapchain>&& s) override
+	{
+		swapchain = std::move(s);
+	}
+	uint32_t getSwapchainImageCount() override
+	{
+		return SC_IMG_COUNT;
+	}
+	virtual nbl::asset::E_FORMAT getDepthFormat() override
+	{
+		return nbl::asset::EF_UNKNOWN;
 	}
 
 	APP_CONSTRUCTOR(SpecializationConstantsSampleApp);
@@ -113,10 +151,11 @@ public:
 		const asset::E_FORMAT depthFormat = asset::EF_UNKNOWN;
 
 		CommonAPI::InitOutput initOutp;
-		initOutp.window = core::smart_refctd_ptr(win);
+		initOutp.window = window;
+		initOutp.system = system;
 		CommonAPI::Init(
 			initOutp,
-			video::EAT_VULKAN,
+			video::EAT_OPENGL,
 			"29.SpecializationConstants",
 			requiredInstanceFeatures,
 			optionalInstanceFeatures,
@@ -127,14 +166,15 @@ public:
 			surfaceFormat,
 			depthFormat);
 
-		win = std::move(initOutp.window);
+		window = std::move(initOutp.window);
+		system = std::move(initOutp.system);
 		windowCb = std::move(initOutp.windowCb);
 		api = std::move(initOutp.apiConnection);
 		surface = std::move(initOutp.surface);
 		device = std::move(initOutp.logicalDevice);
 		gpu = std::move(initOutp.physicalDevice);
 		queues = std::move(initOutp.queues);
-		sc = std::move(initOutp.swapchain);
+		swapchain = std::move(initOutp.swapchain);
 		renderpass = std::move(initOutp.renderpass);
 		fbo = std::move(initOutp.fbo);
 		commandPools = std::move(initOutp.commandPools);
@@ -153,7 +193,7 @@ public:
 
 		video::IGPUObjectFromAssetConverter CPU2GPU;
 		m_cameraPosition = core::vectorSIMDf(0, 0, -10);
-		matrix4SIMD proj = matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(core::radians(90), float(WIN_W) / WIN_H, 0.01, 100);
+		matrix4SIMD proj = matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(core::radians(90.0f), float(WIN_W) / WIN_H, 0.01, 100);
 		matrix3x4SIMD view = matrix3x4SIMD::buildCameraLookAtMatrixRH(m_cameraPosition, core::vectorSIMDf(0, 0, 0), core::vectorSIMDf(0, 1, 0));
 		m_viewProj = matrix4SIMD::concatenateBFollowedByA(proj, matrix4SIMD(view));
 		m_camFront = view[2];
@@ -191,7 +231,7 @@ public:
 				int32_t vel_buf_ix;
 				int32_t buf_count;
 			};
-			SpecConstants sc{ WORKGROUP_SIZE, PARTICLE_COUNT, POS_BUF_IX, VEL_BUF_IX, BUF_COUNT };
+			SpecConstants swapchain{ WORKGROUP_SIZE, PARTICLE_COUNT, POS_BUF_IX, VEL_BUF_IX, BUF_COUNT };
 
 			auto it_particleBufDescIntro = std::find_if(introspection->descriptorSetBindings[COMPUTE_SET].begin(), introspection->descriptorSetBindings[COMPUTE_SET].end(),
 				[=](auto b) { return b.binding == PARTICLE_BUF_BINDING; }
@@ -202,8 +242,8 @@ public:
 			assert(particleDataArrayIntro.countIsSpecConstant);
 			const uint32_t particle_count_specID = particleDataArrayIntro.count_specID;
 
-			auto backbuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(sc));
-			memcpy(backbuf->getPointer(), &sc, sizeof(sc));
+			auto backbuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(swapchain));
+			memcpy(backbuf->getPointer(), &swapchain, sizeof(swapchain));
 			auto entries = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ISpecializedShader::SInfo::SMapEntry>>(5u);
 			(*entries)[0] = { 0u,offsetof(SpecConstants,wg_size),sizeof(int32_t) };//currently local_size_{x|y|z}_id is not queryable via introspection API
 			(*entries)[1] = { particle_count_specID,offsetof(SpecConstants,particle_count),sizeof(int32_t) };
@@ -314,8 +354,6 @@ public:
 			auto& blendParams = pipeline->getBlendParams();
 			blendParams.logicOpEnable = false;
 			blendParams.logicOp = nbl::asset::ELO_NO_OP;
-			for (size_t i = 0ull; i < nbl::asset::SBlendParams::MAX_COLOR_ATTACHMENT_COUNT; i++)
-				blendParams.blendParams[i].attachmentEnabled = (i == 0ull);
 		}
 		auto gfxLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(nullptr, nullptr, core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(pipeline->getLayout()->getDescriptorSetLayout(0)));
 		pipeline->setLayout(core::smart_refctd_ptr(gfxLayout));
@@ -356,8 +394,8 @@ public:
 		m_lastTime = std::chrono::high_resolution_clock::now();
 		constexpr uint32_t FRAME_COUNT = 500000u;
 		constexpr uint64_t MAX_TIMEOUT = 99999999999999ull;
-		m_computeUBORange = { 0, gpuUboCompute->getSize(), gpuUboCompute };
-		m_graphicsUBORange = { 0, gpuUboGraphics->getSize(), gpuUboGraphics };
+		m_computeUBORange = { 0, gpuUboCompute->getCachedCreationParams().declaredSize, gpuUboCompute };
+		m_graphicsUBORange = { 0, gpuUboGraphics->getCachedCreationParams().declaredSize, gpuUboGraphics };
 
 		device->createCommandBuffers(commandPools[CommonAPI::InitOutput::EQT_GRAPHICS].get(), video::IGPUCommandBuffer::EL_PRIMARY, FRAMES_IN_FLIGHT, m_cmdbuf);
 
@@ -410,7 +448,7 @@ public:
 			COMPUTE_SET,
 			1u,
 			&m_gpuds0Compute.get(),
-			nullptr);
+			0u);
 		cb->dispatch(PARTICLE_COUNT / WORKGROUP_SIZE, 1u, 1u);
 
 		asset::SMemoryBarrier memBarrier;
@@ -445,7 +483,7 @@ public:
 		}
 		// renderpass 
 		uint32_t imgnum = 0u;
-		sc->acquireNextImage(MAX_TIMEOUT, m_imageAcquire[m_resourceIx].get(), nullptr, &imgnum);
+		swapchain->acquireNextImage(MAX_TIMEOUT, m_imageAcquire[m_resourceIx].get(), nullptr, &imgnum);
 		{
 			video::IGPUCommandBuffer::SRenderpassBeginInfo info;
 			asset::SClearValue clear;
@@ -466,7 +504,7 @@ public:
 			cb->bindGraphicsPipeline(m_graphicsPipeline.get());
 			size_t vbOffset = 0;
 			cb->bindVertexBuffers(0, 1, &m_gpuParticleBuf.get(), &vbOffset);
-			cb->bindDescriptorSets(asset::EPBP_GRAPHICS, m_rpIndependentPipeline->getLayout(), GRAPHICS_SET, 1u, &m_gpuds0Graphics.get(), nullptr);
+			cb->bindDescriptorSets(asset::EPBP_GRAPHICS, m_rpIndependentPipeline->getLayout(), GRAPHICS_SET, 1u, &m_gpuds0Graphics.get(), 0u);
 			cb->draw(PARTICLE_COUNT, 1, 0, 0);
 		}
 		cb->endRenderPass();
@@ -474,7 +512,7 @@ public:
 
 		CommonAPI::Submit(
 			device.get(),
-			sc.get(),
+			swapchain.get(),
 			cb.get(),
 			queues[CommonAPI::InitOutput::EQT_GRAPHICS],
 			m_imageAcquire[m_resourceIx].get(),
@@ -483,7 +521,7 @@ public:
 
 		CommonAPI::Present(
 			device.get(),
-			sc.get(),
+			swapchain.get(),
 			queues[CommonAPI::InitOutput::EQT_GRAPHICS],
 			m_renderFinished[m_resourceIx].get(),
 			imgnum);

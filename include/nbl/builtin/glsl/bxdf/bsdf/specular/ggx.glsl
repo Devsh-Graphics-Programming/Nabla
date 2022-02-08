@@ -88,7 +88,7 @@ float nbl_glsl_ggx_height_correlated_dielectric_cos_eval(in nbl_glsl_LightSample
 }
 
 // TODO: unifty the two following functions into `nbl_glsl_microfacet_BSDF_cos_generate_wo_clamps(vec3 H,...)` and `nbl_glsl_microfacet_BSDF_cos_generate` or at least a auto declaration macro in lieu of a template
-nbl_glsl_LightSample nbl_glsl_ggx_dielectric_cos_generate_wo_clamps(in vec3 localV, in bool backside, in vec3 upperHemisphereLocalV, in mat3 m, in vec3 u, in float _ax, in float _ay, in float rcpOrientedEta, in float orientedEta2, in float rcpOrientedEta2, out nbl_glsl_AnisotropicMicrofacetCache _cache)
+nbl_glsl_LightSample nbl_glsl_ggx_dielectric_cos_generate_wo_clamps(in vec3 localV, in bool backside, in vec3 upperHemisphereLocalV, in mat3 m, inout vec3 u, in float _ax, in float _ay, in float rcpOrientedEta, in float orientedEta2, in float rcpOrientedEta2, out nbl_glsl_AnisotropicMicrofacetCache _cache)
 {
     // thanks to this manouvre the H will always be in the upper hemisphere (NdotH>0.0)
     const vec3 H = nbl_glsl_ggx_cos_generate(upperHemisphereLocalV,u.xy,_ax,_ay);
@@ -105,7 +105,7 @@ nbl_glsl_LightSample nbl_glsl_ggx_dielectric_cos_generate_wo_clamps(in vec3 loca
     return nbl_glsl_createLightSampleTangentSpace(localV,localL,m);
 }
 
-nbl_glsl_LightSample nbl_glsl_ggx_dielectric_cos_generate(in nbl_glsl_AnisotropicViewSurfaceInteraction interaction, in vec3 u, in float ax, in float ay, in float eta, out nbl_glsl_AnisotropicMicrofacetCache _cache)
+nbl_glsl_LightSample nbl_glsl_ggx_dielectric_cos_generate(in nbl_glsl_AnisotropicViewSurfaceInteraction interaction, inout vec3 u, in float ax, in float ay, in float eta, out nbl_glsl_AnisotropicMicrofacetCache _cache)
 {
     const vec3 localV = nbl_glsl_getTangentSpaceV(interaction);
     

@@ -101,7 +101,7 @@ namespace impl
         }
         constexpr static inline bool isCreationRequest(E_REQUEST_TYPE rt)
         {
-            return !isDestroyRequest(rt) && rt<=ERT_COMPUTE_PIPELINE_CREATE;
+            return !isDestroyRequest(rt) && rt<=ERT_QUERY_POOL_CREATE;
         }
         constexpr static inline bool isWaitlessRequest(E_REQUEST_TYPE rt)
         {
@@ -258,7 +258,7 @@ namespace impl
             size_t dataSize;
             void * pData;
             uint64_t stride;
-            IQueryPool::E_QUERY_RESULTS_FLAGS flags;
+            core::bitflag<IQueryPool::E_QUERY_RESULTS_FLAGS> flags;
         };
         struct SRequestMakeCurrent
         {
@@ -668,7 +668,7 @@ protected:
             case ERT_GET_QUERY_POOL_RESULTS:
             {
                 auto& p = std::get<SRequestGetQueryPoolResults>(req.params_variant);
-                const COpenGLQueryPool* qp = static_cast<const COpenGLQueryPool*>(p.queryPool.get());
+                const COpenGLQueryPool* qp = IBackendObject::device_compatibility_cast<const COpenGLQueryPool*>(p.queryPool.get(), device);
                 auto queryPoolQueriesCount = qp->getCreationParameters().queryCount;
                 auto queriesRange = qp->getQueries(); // queriesRange.size() is a multiple of queryPoolQueriesCount
                 auto queries = queriesRange.begin();
@@ -676,10 +676,10 @@ protected:
                 if(p.pData != nullptr)
                 {
                     IQueryPool::E_QUERY_TYPE queryType = qp->getCreationParameters().queryType;
-                    bool use64Version = (p.flags & IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_64_BIT) == IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_64_BIT;
-                    bool availabilityFlag = (p.flags & IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WITH_AVAILABILITY_BIT) == IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WITH_AVAILABILITY_BIT;
-                    bool waitForAllResults = (p.flags & IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WAIT_BIT) == IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WAIT_BIT;
-                    bool partialResults = (p.flags & IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_PARTIAL_BIT) == IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_PARTIAL_BIT;
+                    bool use64Version = p.flags.hasValue(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_64_BIT);
+                    bool availabilityFlag = p.flags.hasValue(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WITH_AVAILABILITY_BIT);
+                    bool waitForAllResults = p.flags.hasValue(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WAIT_BIT);
+                    bool partialResults = p.flags.hasValue(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_PARTIAL_BIT);
 
                     if(p.firstQuery + p.queryCount > queryPoolQueriesCount)
                     {
@@ -729,22 +729,6 @@ protected:
                             uint8_t* pData = reinterpret_cast<uint8_t*>(p.pData) + currentDataPtrOffset;
                             getQueryObject(query, pname, pData);
                         }
-                        else if(queryType == IQueryPool::E_QUERY_TYPE::EQT_TRANSFORM_FEEDBACK_STREAM_EXT)
-                        {
-                            assert(queryPoolQueriesCount * 2 == queriesRange.size());
-                            assert(p.stride >= queryElementDataSize * 2);
-
-                            GLuint query1 = queries[i+p.firstQuery];
-                            GLuint query2 = queries[i+p.firstQuery + queryPoolQueriesCount];
-                                
-                            // If VK_QUERY_RESULT_WITH_AVAILABILITY_BIT is set, the final integer value written for each query is non-zero if the query’s status was available or zero if the status was unavailable.
-                            uint8_t* pData1 = reinterpret_cast<uint8_t*>(p.pData) + currentDataPtrOffset;
-                            uint8_t* pData2 = pData1 + queryElementDataSize;
-
-                            // Write All
-                            getQueryObject(query1, pname, reinterpret_cast<GLuint64*>(pData1));
-                            getQueryObject(query2, pname, reinterpret_cast<GLuint64*>(pData2));
-                        }
                         else
                         {
                             assert(false && "QueryType is not supported.");
@@ -759,7 +743,7 @@ protected:
             case ERT_GET_FENCE_STATUS:
             {
                 auto& p = std::get<SRequestGetFenceStatus>(req.params_variant);
-                auto* glfence = static_cast<COpenGLFence*>(p.fence);
+                auto* glfence = IBackendObject::device_compatibility_cast<COpenGLFence*>(p.fence, device);
                 IGPUFence::E_STATUS* retval = reinterpret_cast<IGPUFence::E_STATUS*>(req.pretval);
 
                 retval[0] = glfence->getStatus(&gl);
@@ -865,17 +849,17 @@ protected:
                 needClipControlWorkaround = !gl.getFeatures()->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_clip_control);
             }
 
-            COpenGLPipelineCache* cache = static_cast<COpenGLPipelineCache*>(_pipelineCache);
-            COpenGLPipelineLayout* gllayout = static_cast<COpenGLPipelineLayout*>(layout.get());
+            COpenGLPipelineCache* cache = IBackendObject::device_compatibility_cast<COpenGLPipelineCache*>(_pipelineCache, device);
+            COpenGLPipelineLayout* gllayout = IBackendObject::device_compatibility_cast<COpenGLPipelineLayout*>(layout.get(), device);
             for (auto shdr = shaders.begin(); shdr != shaders.end(); ++shdr)
             {
-                const auto* glshdr = static_cast<const COpenGLSpecializedShader*>(*shdr);
+                const auto* glshdr = IBackendObject::device_compatibility_cast<const COpenGLSpecializedShader*>(*shdr, device);
 
                 auto stage = glshdr->getStage();
                 uint32_t ix = core::findLSB<uint32_t>(stage);
                 assert(ix < COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT);
 
-                COpenGLPipelineCache::SCacheKey key{ glshdr->getSpirvHash(), glshdr->getSpecializationInfo(), core::smart_refctd_ptr_static_cast<COpenGLPipelineLayout>(layout) };
+                COpenGLPipelineCache::SCacheKey key{ glshdr->getSpirvHash(), glshdr->getSpecializationInfo(), core::smart_refctd_ptr_static_cast<COpenGLPipelineLayout>(layout), stage };
                 auto bin = cache ? cache->find(key) : COpenGLSpecializedShader::SProgramBinary{ 0,nullptr };
                 if (bin.binary)
                 {
@@ -932,7 +916,7 @@ protected:
             auto layout = core::smart_refctd_ptr_static_cast<COpenGLPipelineLayout>(params.layout);
             auto glshdr = core::smart_refctd_ptr_static_cast<COpenGLSpecializedShader>(params.shader);
 
-            COpenGLPipelineCache::SCacheKey key{ glshdr->getSpirvHash(), glshdr->getSpecializationInfo(), layout };
+            COpenGLPipelineCache::SCacheKey key{ glshdr->getSpirvHash(), glshdr->getSpecializationInfo(), layout, asset::IShader::ESS_COMPUTE };
             auto bin = cache ? cache->find(key) : COpenGLSpecializedShader::SProgramBinary{ 0,nullptr };
             if (bin.binary)
             {

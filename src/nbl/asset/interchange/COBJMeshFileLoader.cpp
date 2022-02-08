@@ -159,6 +159,10 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
                 SAssetLoadParams loadParams(_params);
 				loadParams.workingDirectory = _file->getFileName().parent_path();
                 auto bundle = interm_getAssetInHierarchy(AssetManager, mtllib, loadParams, _hierarchyLevel+ICPUMesh::PIPELINE_HIERARCHYLEVELS_BELOW, _override);
+                
+				if (bundle.getContents().empty())
+					break;
+
 				if (bundle.getMetadata())
 				{
 					auto meta = bundle.getMetadata()->selfCast<const CMTLMetadata>();
@@ -242,8 +246,6 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
 					bool notempty = mbs.size()!=0ull;
                     {
                         auto mb = notempty ? core::smart_refctd_ptr_static_cast<ICPUMeshBuffer>(*mbs.begin()) : core::make_smart_refctd_ptr<ICPUMeshBuffer>();
-						if (notempty)
-							mb->setNormalAttributeIx(NORMAL);
                         submeshes.push_back(std::move(mb));
                     }
                     indices.emplace_back();
@@ -262,7 +264,6 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
 				dummyMaterialCreated = true;
 
 				submeshes.push_back(core::make_smart_refctd_ptr<ICPUMeshBuffer>());
-				submeshes.back()->setNormalAttributeIx(NORMAL);
 				indices.emplace_back();
 				recalcNormals.push_back(false);
 				submeshWasLoadedFromCache.push_back(false);
@@ -370,6 +371,20 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
 		// eat up rest of line
 		bufPtr = goNextLine(bufPtr, bufEnd);
 	}	// end while(bufPtr && (bufPtr-buf<filesize))
+
+	// prune out invalid empty shape groups (TODO: convert to AoS and use an erase_if)
+	for (size_t i = 0ull; i < submeshes.size(); ++i)
+	if (indices[i].size())
+		i++;
+	else
+	{
+		submeshes.erase(submeshes.begin()+i);
+		indices.erase(indices.begin()+i);
+		recalcNormals.erase(recalcNormals.begin()+i);
+		submeshWasLoadedFromCache.erase(submeshWasLoadedFromCache.begin()+i);
+		submeshCacheKeys.erase(submeshCacheKeys.begin()+i);
+		submeshMaterialNames.erase(submeshMaterialNames.begin()+i);
+	}
 	
     core::unordered_set<pipeline_meta_pair_t,hash_t,key_equal_t> usedPipelines;
     {
@@ -455,6 +470,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
                 continue;
 
             submeshes[i]->setPositionAttributeIx(POSITION);
+			submeshes[i]->setNormalAttributeIx(NORMAL);
 			
 			submeshes[i]->setIndexBufferBinding({submeshes[i]->getIndexBufferBinding().offset,ixBuf});
             const uint64_t offset = submeshes[i]->getIndexBufferBinding().offset;

@@ -53,11 +53,11 @@ class CGLSLVirtualTexturingBuiltinIncludeLoader : public IGLSLEmbeddedIncludeLoa
 #ifndef _NBL_BUILTIN_GLSL_VIRTUAL_TEXTURING_FUNCTIONS_INCLUDED_
 #define _NBL_BUILTIN_GLSL_VIRTUAL_TEXTURING_FUNCTIONS_INCLUDED_
 )";
-			s += "\n\n#define PAGE_SZ " + std::to_string(1u<<pg_sz_log2) + "u" +
-				"\n#define PAGE_SZ_LOG2 " + args[ix_pg_sz_log2] + "u" +
-				"\n#define TILE_PADDING " + args[ix_tile_padding] + "u" +
-				"\n#define PADDED_TILE_SIZE uint(PAGE_SZ+2*TILE_PADDING)" +
-				"\n\nconst vec2 packingOffsets[] = vec2[PAGE_SZ_LOG2+1]( vec2(" + std::to_string(tile_padding) + ")," + tilePackingOffsetsStr() + ");";
+			s += "\n\n#define _NBL_VT_IMPL_PAGE_SZ " + std::to_string(1u<<pg_sz_log2) + "u" +
+				"\n#define _NBL_VT_IMPL_PAGE_SZ_LOG2 " + args[ix_pg_sz_log2] + "u" +
+				"\n#define _NBL_VT_IMPL_TILE_PADDING " + args[ix_tile_padding] + "u" +
+				"\n#define _NBL_VT_IMPL_PADDED_TILE_SIZE uint(_NBL_VT_IMPL_PAGE_SZ+2*_NBL_VT_IMPL_TILE_PADDING)" +
+				"\n\nconst vec2 packingOffsets[] = vec2[_NBL_VT_IMPL_PAGE_SZ_LOG2+1]( vec2(" + std::to_string(tile_padding) + ")," + tilePackingOffsetsStr() + ");";
 			s += R"(
 #include "nbl/builtin/glsl/virtual_texturing/impl_functions.glsl"
 

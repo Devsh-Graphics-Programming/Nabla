@@ -36,6 +36,7 @@ class IDescriptorSet : public virtual core::IReferenceCounted
 		using this_type = IDescriptorSet<LayoutType>;
 
 	public:
+		using layout_t = LayoutType;
 		struct SDescriptorInfo
 		{
                 struct SBufferInfo
@@ -47,7 +48,7 @@ class IDescriptorSet : public virtual core::IReferenceCounted
                 };
                 struct SImageInfo
                 {
-                    core::smart_refctd_ptr<typename LayoutType::sampler_type> sampler;
+                    core::smart_refctd_ptr<typename layout_t::sampler_type> sampler;
                     //! Irrelevant in OpenGL backend
                     E_IMAGE_LAYOUT imageLayout;
                 };
@@ -143,15 +144,15 @@ class IDescriptorSet : public virtual core::IReferenceCounted
 			uint32_t count;
 		};
 
-		const LayoutType* getLayout() const { return m_layout.get(); }
+		const layout_t* getLayout() const { return m_layout.get(); }
 
 	protected:
-		IDescriptorSet(core::smart_refctd_ptr<LayoutType>&& _layout) : m_layout(std::move(_layout))
+		IDescriptorSet(core::smart_refctd_ptr<layout_t>&& _layout) : m_layout(std::move(_layout))
 		{
 		}
 		virtual ~IDescriptorSet() = default;
 
-		core::smart_refctd_ptr<LayoutType> m_layout;
+		core::smart_refctd_ptr<layout_t> m_layout;
 };
 
 
@@ -207,6 +208,16 @@ class IEmulatedDescriptorSet
 					offset = it->offset;
 				else
 					it->offset = offset;
+			}
+
+			// this is vital for getDescriptorCountAtIndex
+			uint32_t off = ~0u;
+			for (auto it = m_bindingInfo->end() - 1; it != m_bindingInfo->begin() - 1; --it)
+			{
+				if (it->descriptorType != EDT_INVALID)
+					off = it->offset;
+				else
+					it->offset = off;
 			}
 		}
 

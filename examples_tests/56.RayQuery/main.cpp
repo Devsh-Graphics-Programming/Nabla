@@ -574,7 +574,7 @@ public:
 
 		// Camera 
 		core::vectorSIMDf cameraPosition(0, 5, -10);
-		matrix4SIMD proj = matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(core::radians(60), float(WIN_W) / WIN_H, 0.01f, 500.0f);
+		matrix4SIMD proj = matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(core::radians(60.0f), float(WIN_W) / WIN_H, 0.01f, 500.0f);
 		cam = Camera(cameraPosition, core::vectorSIMDf(0, 0, 0), proj);
 
 		IGPUDescriptorSetLayout::SBinding descriptorSet0Bindings[] = {

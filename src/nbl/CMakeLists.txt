@@ -312,7 +312,6 @@ endif()
 
 set(NABLA_SRCS_NORMAL
 	# Vulkan
-	${NBL_ROOT_PATH}/src/nbl/video/CSurfaceVulkan.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanSwapchain.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanFence.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanImage.cpp
@@ -404,6 +403,17 @@ macro(nbl_target_link_zlib _trgt)
 	target_include_directories(${_trgt} PUBLIC $<TARGET_PROPERTY:zlibstatic,BINARY_DIR>/copy_source)
 endmacro()
 
+# PSTL
+macro(nbl_target_link_oneDPL _trgt)
+	add_dependencies(${_trgt} oneDPL)
+	target_include_directories(${_trgt} PUBLIC ${ONETBB_INSTALL_DIR}/include)
+	target_include_directories(${_trgt} PUBLIC ${ONEDPL_INSTALL_DIR}/include)
+	
+	target_link_libraries(${_trgt} INTERFACE
+		tbb tbbmalloc tbbmalloc_proxy
+	)
+endmacro()
+
 #Parallel hashmap
 macro(nbl_target_include_parallel_hashmap _trgt)
 	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/parallel-hashmap/parallel_hashmap)
@@ -469,12 +479,6 @@ macro(nbl_target_link_spirv_tools _trgt)
 	target_include_directories(${_trgt} PUBLIC
 		${THIRD_PARTY_SOURCE_DIR}/SPIRV-Tools/include
 	)
-endmacro()
-macro(nbl_target_link_SDL2 _trgt)	
-	target_link_libraries(${_trgt} PUBLIC
-		SDL2-static
-	)
-	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/SDL2/include)
 endmacro()
 macro(nbl_target_link_volk _trgt)
 	target_link_libraries(${_trgt} PUBLIC volk)
@@ -544,12 +548,12 @@ if(_NBL_COMPILE_WITH_GLI_)
 endif()
 nbl_target_include_parallel_hashmap(Nabla)
 nbl_target_link_spirv_tools(Nabla)
-if (NBL_COMPILE_WITH_SDL2)
-	nbl_target_link_SDL2(Nabla)
-endif()
 nbl_target_link_volk(Nabla)
 nbl_target_link_EGL(Nabla)
 nbl_target_link_simdjson(Nabla)
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+	nbl_target_link_oneDPL(Nabla)
+endif()
 
 #target_link_libraries(Nabla INTERFACE ${OPENGL_gl_LIBRARY})
 if (UNIX)
@@ -697,10 +701,16 @@ endif()
 nbl_install_lib(shaderc)
 nbl_install_lib(shaderc_util)
 nbl_install_lib(SPIRV)
-nbl_install_lib(SPIRV-Tools-static)
+nbl_install_lib(SPIRV-Tools-static) # TODO: make this function/macro work with alias target
 nbl_install_lib(SPIRV-Tools-opt)
 nbl_install_lib(OGLCompiler)
 nbl_install_lib(OSDependent)
 nbl_install_lib(zlibstatic)
 nbl_install_lib(simdjson)
 nbl_install_lib(volk)
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+	nbl_install_lib(tbb)
+	nbl_install_lib(tbbmalloc)
+	nbl_install_lib(tbbmalloc_proxy)
+endif()
+

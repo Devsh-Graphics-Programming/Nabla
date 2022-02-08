@@ -35,7 +35,7 @@ namespace nbl
 			//! Constructor
 			CSceneNodeAnimatorCameraModifiedMaya(gui::ICursorControl* cursor, float rotateSpeed = -1500.f,
 				float zoomSpeed = 200.f, float translationSpeed = 1500.f, float distance = 70.f, 
-				float scrollZoomSpeed = 10.0f, bool zoomWithRBM = false);
+				float scrollZoomMultiplier = 1.1f, bool zoomWithRBM = false);
 
 			//! Animates the scene node, currently only works on cameras
 			virtual void animateNode(IDummyTransformationSceneNode* node, uint32_t timeMs) override;
@@ -59,13 +59,13 @@ namespace nbl
 			virtual float getZoomSpeed() const override;
 
 			//! Returns the step zoom speed
-			virtual float getStepZoomSpeed() const override;
+			virtual float getStepZoomMultiplier() const override;
 
 			//! Set the zoom speed
 			virtual void setZoomSpeed(float zoomSpeed) override;
 
 			//! Set the step zoom speed
-			virtual void setStepZoomSpeed(float zoomSpeed) override;
+			virtual void setStepZoomMultiplier(float zoomSpeed) override;
 
 			//! Returns the current distance, i.e. orbit radius
 			virtual float getDistance() const override;
@@ -81,6 +81,8 @@ namespace nbl
 
 			//! Enable/disable zooming when right button is pressed
 			virtual void toggleZoomWithRightButton() override;
+
+			void setZoomAndRotationBasedOnTargetAndPosition(const core::vectorSIMDf& position, const core::vectorSIMDf& target);
 
 		private:
 			void allKeysUp();
@@ -99,7 +101,7 @@ namespace nbl
 			core::position2df TranslateStart;
 			core::position2df MousePos;
 			float ZoomSpeed;
-			float ScrllZoomSpeed;
+			float ScrllZoomMultiplier; // CurrentZoom will be multiplied/divided by this number with each step
 			float RotateSpeed;
 			float TranslateSpeed;
 			float CurrentZoom;

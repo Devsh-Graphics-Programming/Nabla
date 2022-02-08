@@ -44,7 +44,13 @@ set(nbl_resources_to_embed
   # generic GLSL headers after this line
   "nbl/builtin/glsl/macros.glsl"
   "nbl/builtin/glsl/algorithm.glsl"
+  # barycentric
+  "nbl/builtin/glsl/barycentric/extensions.glsl"
+  "nbl/builtin/glsl/barycentric/frag.glsl"
+  "nbl/builtin/glsl/barycentric/vert.glsl"
+  "nbl/builtin/glsl/barycentric/utils.glsl"
   # bump mapping
+  "nbl/builtin/glsl/bump_mapping/fragment.glsl" # TODO: rename to `frag.glsl`
   "nbl/builtin/glsl/bump_mapping/utils.glsl"
   # bxdf
   "nbl/builtin/glsl/bxdf/common.glsl"
@@ -121,6 +127,7 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/sampling/projected_spherical_triangle.glsl"
   #"nbl/builtin/glsl/sampling/spherical_rectangle.glsl"
   "nbl/builtin/glsl/sampling/spherical_triangle.glsl"
+  "nbl/builtin/glsl/sampling/quantized_sequence.glsl"
   # global exclusive scan
   "nbl/builtin/glsl/scan/direct.comp"
   "nbl/builtin/glsl/scan/declarations.glsl"
@@ -159,6 +166,7 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/utils/normal_decode.glsl"
   "nbl/builtin/glsl/utils/normal_encode.glsl"
   "nbl/builtin/glsl/utils/transform.glsl"
+  "nbl/builtin/glsl/utils/morton.glsl"
   # virtual texturing
   "nbl/builtin/glsl/virtual_texturing/descriptors.glsl"
   "nbl/builtin/glsl/virtual_texturing/extensions.glsl"
@@ -212,5 +220,14 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/ext/OIT/oit.glsl"
   "nbl/builtin/glsl/ext/OIT/insert_node.glsl"
   "nbl/builtin/glsl/ext/OIT/resolve.frag"
+  # virtual geometry
+  "nbl/builtin/glsl/virtual_geometry/descriptors.glsl"
+  "nbl/builtin/glsl/virtual_geometry/virtual_attribute.glsl"
+  "nbl/builtin/glsl/virtual_geometry/virtual_attribute_fetch.glsl"
+  # depth pyramid generator
+  "nbl/builtin/glsl/ext/DepthPyramidGenerator/common.glsl"
+  "nbl/builtin/glsl/ext/DepthPyramidGenerator/push_constants_struct_common.h"
+  "nbl/builtin/glsl/ext/DepthPyramidGenerator/depth_pyramid_generator_impl.glsl"
+  "nbl/builtin/glsl/ext/DepthPyramidGenerator/virtual_work_group.glsl"
 PARENT_SCOPE)
 

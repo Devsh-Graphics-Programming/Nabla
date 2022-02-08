@@ -3,6 +3,7 @@
 
 
 #include "nbl/core/IReferenceCounted.h"
+#include "nbl/core/util/bitflag.h"
 
 #include "nbl/video/decl/IBackendObject.h"
 
@@ -21,15 +22,15 @@ class IGPUCommandPool : public core::IReferenceCounted, public IBackendObject
             ECF_PROTECTED_BIT = 0x04
         };
 
-        IGPUCommandPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, E_CREATE_FLAGS _flags, uint32_t _familyIx) : IBackendObject(std::move(dev)), m_flags(_flags), m_familyIx(_familyIx) {}
+        IGPUCommandPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, core::bitflag<E_CREATE_FLAGS> _flags, uint32_t _familyIx) : IBackendObject(std::move(dev)), m_flags(_flags), m_familyIx(_familyIx) {}
 
-        E_CREATE_FLAGS getCreationFlags() const { return m_flags; }
+        core::bitflag<E_CREATE_FLAGS> getCreationFlags() const { return m_flags; }
         uint32_t getQueueFamilyIndex() const { return m_familyIx; }
 
     protected:
         virtual ~IGPUCommandPool() = default;
 
-        E_CREATE_FLAGS m_flags;
+        core::bitflag<E_CREATE_FLAGS> m_flags;
         uint32_t m_familyIx;
 };
 

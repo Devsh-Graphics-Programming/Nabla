@@ -13,7 +13,7 @@ void IUtilities::updateImageViaStagingBuffer(
     const uint32_t allocationAlignment = static_cast<uint32_t>(limits.nonCoherentAtomSize);
 
     auto* cmdpool = cmdbuf->getPool();
-    assert(cmdpool->getCreationFlags()&IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
+    assert(cmdbuf->isResettable());
     assert(cmdpool->getQueueFamilyIndex()==queue->getFamilyIndex());
             
     auto texelBlockInfo = asset::TexelBlockInfo(dstImage->getCreationParameters().format);

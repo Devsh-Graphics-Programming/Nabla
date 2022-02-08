@@ -748,7 +748,7 @@ class GLTFApp : public ApplicationBase
 			}
 #endif
 			core::vectorSIMDf cameraPosition(-0.5, 0, 0);
-			matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60), float(WIN_W) / WIN_H, 0.01f, 10000.0f);
+			matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60.0f), float(WIN_W) / WIN_H, 0.01f, 10000.0f);
 			camera = Camera(cameraPosition, core::vectorSIMDf(0, 0, 0), projectionMatrix, 0.4f, 1.f);
 			auto lastTime = std::chrono::system_clock::now();
 

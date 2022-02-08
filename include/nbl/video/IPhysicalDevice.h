@@ -29,6 +29,7 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
             uint32_t UBOAlignment;
             uint32_t SSBOAlignment;
             uint32_t bufferViewAlignment;
+            float    maxSamplerAnisotropyLog2;
 
             uint32_t maxUBOSize;
             uint32_t maxSSBOSize;
@@ -102,7 +103,7 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
             // a workgroup of the next cut of the DAG spins for an extended time to wait on a workgroup from a previous one.
             inline uint32_t computeOptimalPersistentWorkgroupDispatchSize(const uint64_t elementCount, const uint32_t workgroupSize, const uint32_t workgroupSpinningProtection=1u) const
             {
-				assert(elementCount!=0ull && "Input element count can't be 0!");
+                assert(elementCount!=0ull && "Input element count can't be 0!");
                 const uint64_t infinitelyWideDeviceWGCount = (elementCount-1ull)/(static_cast<uint64_t>(workgroupSize)*static_cast<uint64_t>(workgroupSpinningProtection))+1ull;
                 const uint32_t maxResidentWorkgroups = maxResidentInvocations/workgroupSize;
                 return static_cast<uint32_t>(core::min<uint64_t>(infinitelyWideDeviceWGCount,maxResidentWorkgroups));
@@ -130,6 +131,7 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
             bool shaderSubgroupQuadAllStages = false;
             bool drawIndirectCount = false;
             bool multiDrawIndirect = false;
+            bool samplerAnisotropy = false;
 
             // RayQuery
             bool rayQuery = false;
@@ -162,9 +164,9 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
 
         struct SMemoryProperties
         {
-            uint32_t        memoryTypeCount;
+            uint32_t        memoryTypeCount = 0u;
             VkMemoryType    memoryTypes[VK_MAX_MEMORY_TYPES];
-            uint32_t        memoryHeapCount;
+            uint32_t        memoryHeapCount = 0u;
             VkMemoryHeap    memoryHeaps[VK_MAX_MEMORY_HEAPS];
         };
 
@@ -318,9 +320,17 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
             asset::VkExtent3D minImageTransferGranularity;
         };
 
+        struct APIVersion
+        {
+          uint32_t major : 5;
+          uint32_t minor : 5;
+          uint32_t patch : 22;
+        };
+
         const SLimits& getLimits() const { return m_limits; }
         const SFeatures& getFeatures() const { return m_features; }
         const SMemoryProperties& getMemoryProperties() const { return m_memoryProperties; }
+        const APIVersion& getAPIVersion() const { return m_apiVersion; }
 
         // these are the defines which shall be added to any IGPUShader which has its source as GLSL
         inline core::SRange<const char* const> getExtraGLSLDefines() const
@@ -400,6 +410,7 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
         SLimits m_limits;
         SFeatures m_features;
         SMemoryProperties m_memoryProperties;
+        APIVersion m_apiVersion;
         using qfam_props_array_t = core::smart_refctd_dynamic_array<SQueueFamilyProperties>;
         qfam_props_array_t m_qfamProperties;
 

@@ -210,7 +210,7 @@ class COpenGL_Queue final : public IGPUQueue
                     for (uint32_t i = 0; i < submit.waitSemaphoreCount; ++i)
                     {
                         IGPUSemaphore* sem = submit.pWaitSemaphores[i].get();
-                        COpenGLSemaphore* glsem = static_cast<COpenGLSemaphore*>(sem);
+                        COpenGLSemaphore* glsem = IBackendObject::device_compatibility_cast<COpenGLSemaphore*>(sem, m_device);
                         glsem->wait(&gl);
                     }
                     
@@ -231,7 +231,7 @@ class COpenGL_Queue final : public IGPUQueue
                         // also: we can limit flushing to bindings (especially buffers and textures): vertex, index, SSBO, UBO, indirect, ...
                         ctxlocal.flushStateGraphics(&gl, SOpenGLContextLocalCache::GSB_ALL, m_ctxid);
                         ctxlocal.flushStateCompute(&gl, SOpenGLContextLocalCache::GSB_ALL, m_ctxid);
-                        auto* cmdbuf = static_cast<COpenGLCommandBuffer*>(submit.commandBuffers[i].get());
+                        auto* cmdbuf = IBackendObject::device_compatibility_cast<COpenGLCommandBuffer*>(submit.commandBuffers[i].get(), m_device);
                         cmdbuf->executeAll(&gl, &_state.ctxlocal, m_ctxid);
                     }
 
@@ -321,6 +321,8 @@ class COpenGL_Queue final : public IGPUQueue
         {
             if (!IGPUQueue::submit(_count, _submits, _fence))
                 return false;
+            if(!IGPUQueue::markCommandBuffersAsPending(_count, _submits))
+                return false;
 
             core::smart_refctd_ptr<COpenGLSync> sync;
             for (uint32_t i = 0u; i < _count; ++i)
@@ -339,7 +341,7 @@ class COpenGL_Queue final : public IGPUQueue
                 params.commandBufferCount = submit.commandBufferCount;
                 for (uint32_t i = 0u; i < submit.signalSemaphoreCount; ++i)
                 {
-                    COpenGLSemaphore* sem = static_cast<COpenGLSemaphore*>(submit.pSignalSemaphores[i]);
+                    COpenGLSemaphore* sem = IBackendObject::device_compatibility_cast<COpenGLSemaphore*>(submit.pSignalSemaphores[i], m_originDevice);
                     sem->associateGLSync(core::smart_refctd_ptr(sync));
                 }
                 core::smart_refctd_ptr<IGPUSemaphore>* waitSems = nullptr;
@@ -380,10 +382,12 @@ class COpenGL_Queue final : public IGPUQueue
 
             if (_fence)
             {
-                COpenGLFence* glfence = static_cast<COpenGLFence*>(_fence);
+                COpenGLFence* glfence = IBackendObject::device_compatibility_cast<COpenGLFence*>(_fence, m_originDevice);
                 glfence->associateGLSync(std::move(sync)); // associate sync used for signal semaphores in last submit
             }
-
+            
+            if(!IGPUQueue::markCommandBuffersAsDone(_count, _submits))
+                return false;
             return true;
         }
 

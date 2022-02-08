@@ -8,8 +8,8 @@
 namespace nbl::video
 {
 
-COpenGLCommandBuffer::COpenGLCommandBuffer(core::smart_refctd_ptr<const ILogicalDevice>&& dev, E_LEVEL lvl, IGPUCommandPool* _cmdpool, system::logger_opt_smart_ptr&& logger, const COpenGLFeatureMap* _features)
-    : IGPUCommandBuffer(std::move(dev), lvl, _cmdpool), m_logger(std::move(logger)), m_features(_features)
+COpenGLCommandBuffer::COpenGLCommandBuffer(core::smart_refctd_ptr<const ILogicalDevice>&& dev, E_LEVEL lvl, core::smart_refctd_ptr<IGPUCommandPool>&& _cmdpool, system::logger_opt_smart_ptr&& logger, const COpenGLFeatureMap* _features)
+    : IGPUCommandBuffer(std::move(dev), lvl, std::move(_cmdpool)), m_logger(std::move(logger)), m_features(_features)
 {
 }
 
@@ -112,17 +112,15 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
 
     bool COpenGLCommandBuffer::reset(uint32_t _flags)
     {
-        if (!(m_cmdpool->getCreationFlags() & IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT))
+        if (!IGPUCommandBuffer::canReset())
             return false;
 
         freeSpaceInCmdPool();
         m_commands.clear();
-        IGPUCommandBuffer::reset(_flags);
-
-        return true;
+        return IGPUCommandBuffer::reset(_flags);
     }
 
-    void COpenGLCommandBuffer::copyBufferToImage(const SCmd<impl::ECT_COPY_BUFFER_TO_IMAGE>& c, IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid)
+    void COpenGLCommandBuffer::copyBufferToImage(const SCmd<impl::ECT_COPY_BUFFER_TO_IMAGE>& c, IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid, const system::logger_opt_ptr logger)
     {
         IGPUImage* dstImage = c.dstImage.get();
         const IGPUBuffer* srcBuffer = c.srcBuffer.get();
@@ -140,12 +138,16 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
 
         const auto bpp = asset::getBytesPerPixel(format);
         const auto blockDims = asset::getBlockDimensions(format);
+        const auto blockByteSize = asset::getTexelOrBlockBytesize(format);
 
         ctxlocal->nextState.pixelUnpack.buffer = core::smart_refctd_ptr<const COpenGLBuffer>(static_cast<const COpenGLBuffer*>(srcBuffer));
         for (auto it = c.regions; it != c.regions + c.regionCount; it++)
         {
-            // TODO: check it->bufferOffset is aligned to data type of E_FORMAT
-            //assert(?);
+            if(it->bufferOffset != core::alignUp(it->bufferOffset, blockByteSize))
+            {
+                assert(false && "bufferOffset should be aligned to block/texel byte size.");
+                continue;
+            }
 
             uint32_t pitch = ((it->bufferRowLength ? it->bufferRowLength : it->imageExtent.width) * bpp).getIntegerApprox();
             int32_t alignment = 0x1 << core::min(core::min<uint32_t>(core::findLSB(it->bufferOffset),core::findLSB(pitch)), 3u);
@@ -217,7 +219,7 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
         }
     }
 
-    void COpenGLCommandBuffer::copyImageToBuffer(const SCmd<impl::ECT_COPY_IMAGE_TO_BUFFER>& c, IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid)
+    void COpenGLCommandBuffer::copyImageToBuffer(const SCmd<impl::ECT_COPY_IMAGE_TO_BUFFER>& c, IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid, const system::logger_opt_ptr logger)
     {
         const auto* srcImage = c.srcImage.get();
         auto* dstBuffer = c.dstBuffer.get();
@@ -232,9 +234,11 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
         GLuint src = static_cast<const COpenGLImage*>(srcImage)->getOpenGLName();
         GLenum glfmt, gltype;
         getOpenGLFormatAndParametersFromColorFormat(gl, format, glfmt, gltype);
-
+        
+        const auto texelBlockInfo = asset::TexelBlockInfo(format);
         const auto bpp = asset::getBytesPerPixel(format);
-        const auto blockDims = asset::getBlockDimensions(format);
+        const auto blockDims = texelBlockInfo.getDimension();
+        const auto blockByteSize = texelBlockInfo.getBlockByteSize();
 
         const bool usingGetTexSubImage = (gl->features->Version >= 450 || gl->features->FeatureAvailable[gl->features->EOpenGLFeatures::NBL_ARB_get_texture_sub_image]);
 
@@ -245,8 +249,17 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
         ctxlocal->nextState.pixelPack.buffer = core::smart_refctd_ptr<const COpenGLBuffer>(static_cast<COpenGLBuffer*>(dstBuffer));
         for (auto it = c.regions; it != c.regions + c.regionCount; it++)
         {
-            // TODO: check it->bufferOffset is aligned to data type of E_FORMAT
-            //assert(?);
+            if(it->bufferOffset != core::alignUp(it->bufferOffset, blockByteSize))
+            {
+                logger.log("bufferOffset should be aligned to block/texel byte size.", system::ILogger::ELL_ERROR);
+                assert(false);
+                continue;
+            }
+            
+            const auto imageExtent = core::vector3du32_SIMD(it->imageExtent.width, it->imageExtent.height, it->imageExtent.depth);
+            const auto imageExtentInBlocks = texelBlockInfo.convertTexelsToBlocks(imageExtent);
+            const auto imageExtentBlockStridesInBytes = texelBlockInfo.convert3DBlockStridesTo1DByteStrides(imageExtentInBlocks);
+            const uint32_t eachLayerNeededMemory = imageExtentBlockStridesInBytes[3];  // = blockByteSize * imageExtentInBlocks.x * imageExtentInBlocks.y * imageExtentInBlocks.z
 
             uint32_t pitch = ((it->bufferRowLength ? it->bufferRowLength : it->imageExtent.width) * bpp).getIntegerApprox();
             int32_t alignment = 0x1 << core::min(core::max(core::findLSB(it->bufferOffset), core::findLSB(pitch)), 3u);
@@ -285,14 +298,13 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
             {
                 ctxlocal->flushStateGraphics(gl, SOpenGLContextLocalCache::GSB_PIXEL_PACK_UNPACK, ctxid);
 
-                // TODO this isnt totally valid right?
-                const size_t bytesPerLayer = pitch * yRange * (compressed ? nbl::asset::getFormatChannelCount(format) : nbl::asset::getTexelOrBlockBytesize(format)); // all block compressed formats are decoded into 1 byte per channel format
+                const size_t bytesPerLayer = eachLayerNeededMemory;
                 for (uint32_t z = 0u; z < zRange; ++z)
                 {
                     GLuint fbo = ctxlocal->getSingleColorAttachmentFBO(gl, srcImage, it->imageSubresource.mipLevel, it->imageSubresource.baseArrayLayer + z);
                     if (!fbo)
                     {
-                        // TODO log something
+                        logger.log("Couldn't retrieve attachment to download image to.", system::ILogger::ELL_ERROR);
                         continue;
                     }
 
@@ -686,14 +698,14 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
             {
                 auto& c = cmd.get<impl::ECT_COPY_BUFFER_TO_IMAGE>();
 
-                copyBufferToImage(c, gl, ctxlocal, ctxid);
+                copyBufferToImage(c, gl, ctxlocal, ctxid, m_logger.getOptRawPtr());
             }
             break;
             case impl::ECT_COPY_IMAGE_TO_BUFFER:
             {
                 auto& c = cmd.get<impl::ECT_COPY_IMAGE_TO_BUFFER>();
 
-                copyImageToBuffer(c, gl, ctxlocal, ctxid);
+                copyImageToBuffer(c, gl, ctxlocal, ctxid, m_logger.getOptRawPtr());
             }
             break;
             case impl::ECT_BLIT_IMAGE:
@@ -828,7 +840,6 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
                 auto& c = cmd.get<impl::ECT_SET_EVENT>();
                 //https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/vkCmdSetEvent2KHR.html
                 // A memory dependency is defined between the event signal operation and commands that occur earlier in submission order.
-                //gl->glSync.pglMemoryBarrier(c.barrierBits); @Crisspl?
             }
             break;
             case impl::ECT_RESET_EVENT:
@@ -907,14 +918,16 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
             case impl::ECT_RESET_QUERY_POOL:
             {
                 auto& c = cmd.get<impl::ECT_RESET_QUERY_POOL>();
-                _NBL_TODO();
+                COpenGLQueryPool* qp = static_cast<COpenGLQueryPool*>(c.queryPool.get());
+                bool success = qp->resetQueries(gl, c.query, c.queryCount);
+                assert(success);
             }
             break;
             case impl::ECT_BEGIN_QUERY:
             {
                 auto& c = cmd.get<impl::ECT_BEGIN_QUERY>();
                 const COpenGLQueryPool* qp = static_cast<const COpenGLQueryPool*>(c.queryPool.get());
-                qp->beginQuery(gl, c.query, c.flags);
+                qp->beginQuery(gl, c.query, c.flags.value);
             }
             break;
             case impl::ECT_END_QUERY:
@@ -938,10 +951,10 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
                 auto queries = queriesRange.begin();
                 
                 IQueryPool::E_QUERY_TYPE queryType = qp->getCreationParameters().queryType;
-                bool use64Version = (c.flags & IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_64_BIT) == IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_64_BIT;
-                bool availabilityFlag = (c.flags & IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WITH_AVAILABILITY_BIT) == IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WITH_AVAILABILITY_BIT;
-                bool waitForAllResults = (c.flags & IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WAIT_BIT) == IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WAIT_BIT;
-                bool partialResults = (c.flags & IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_PARTIAL_BIT) == IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_PARTIAL_BIT;
+                bool use64Version = c.flags.hasValue(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_64_BIT);
+                bool availabilityFlag = c.flags.hasValue(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WITH_AVAILABILITY_BIT);
+                bool waitForAllResults = c.flags.hasValue(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WAIT_BIT);
+                bool partialResults = c.flags.hasValue(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_PARTIAL_BIT);
 
                 if(c.firstQuery + c.queryCount > queryPoolQueriesCount)
                 {
@@ -986,18 +999,6 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
 
                         getQueryBufferObject(query, bufferId, pname, currentDataPtrOffset);
                     }
-                    else if(queryType == IQueryPool::E_QUERY_TYPE::EQT_TRANSFORM_FEEDBACK_STREAM_EXT)
-                    {
-                        assert(queryPoolQueriesCount * 2 == queriesRange.size());
-                        assert(c.stride >= queryElementDataSize * 2);
-
-                        GLuint query1 = queries[i+c.firstQuery];
-                        GLuint query2 = queries[i+c.firstQuery + queryPoolQueriesCount];
-
-                        // Write All
-                        getQueryBufferObject(query1, bufferId, pname, currentDataPtrOffset);
-                        getQueryBufferObject(query2, bufferId, pname, currentDataPtrOffset + queryElementDataSize);
-                    }
                     else
                     {
                         assert(false && "QueryType is not supported.");
@@ -1011,23 +1012,9 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
             {
                 auto& c = cmd.get<impl::ECT_WRITE_TIMESTAMP>();
                 const COpenGLQueryPool* qp = static_cast<const COpenGLQueryPool*>(c.queryPool.get());
-                GLuint query = qp->getQueryAt(c.query);
+                const GLuint query = qp->getQueryAt(c.query);
                 assert(qp->getCreationParameters().queryType == IQueryPool::E_QUERY_TYPE::EQT_TIMESTAMP);
                 gl->glQuery.pglQueryCounter(query, GL_TIMESTAMP);
-            }
-            break;
-            case impl::ECT_BEGIN_QUERY_INDEXED:
-            {
-                auto& c = cmd.get<impl::ECT_BEGIN_QUERY_INDEXED>();
-                const COpenGLQueryPool* qp = static_cast<const COpenGLQueryPool*>(c.queryPool.get());
-                qp->beginQueryIndexed(gl, c.query, c.index, c.flags);
-            }
-            break;
-            case impl::ECT_END_QUERY_INDEXED:
-            {
-                auto& c = cmd.get<impl::ECT_END_QUERY_INDEXED>();
-                const COpenGLQueryPool* qp = static_cast<const COpenGLQueryPool*>(c.queryPool.get());
-                qp->endQueryIndexed(gl, c.query, c.index);
             }
             break;
             case impl::ECT_BIND_DESCRIPTOR_SETS:
