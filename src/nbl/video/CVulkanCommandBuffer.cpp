@@ -361,48 +361,6 @@ namespace nbl::video
         return ret;
     }
 
-    // TRANSFORM_FEEDBACK_STREAM
-    bool CVulkanCommandBuffer::beginQueryIndexed(IQueryPool* queryPool, uint32_t query, uint32_t index, IQueryPool::E_QUERY_CONTROL_FLAGS flags)
-    {
-        bool ret = false;
-        // TODO: Check  for PhysicalDevice Availability and Extension
-        if(queryPool != nullptr)
-        {
-            const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
-
-            // Add Ref to CmdPool
-            core::smart_refctd_ptr<const core::IReferenceCounted> tmpRefCntd[1] = { core::smart_refctd_ptr<const IQueryPool>(queryPool) };
-            CVulkanCommandPool* vulkanCommandPool = IBackendObject::compatibility_cast<CVulkanCommandPool*>(m_cmdpool.get(), this);
-            vulkanCommandPool->emplace_n(m_argListTail, tmpRefCntd, tmpRefCntd + 1);
-
-            auto vk_queryPool = IBackendObject::compatibility_cast<CVulkanQueryPool*>(queryPool, this)->getInternalObject();
-            auto vk_flags = CVulkanQueryPool::getVkQueryControlFlagsFromQueryControlFlags(flags);
-            vk->vk.vkCmdBeginQueryIndexedEXT(m_cmdbuf, vk_queryPool, query, vk_flags, index);
-            ret = true;
-        }
-        return ret;
-    }
-
-    bool CVulkanCommandBuffer::endQueryIndexed(IQueryPool* queryPool, uint32_t query, uint32_t index)
-    {
-        bool ret = false;
-        // TODO: Check  for PhysicalDevice Availability and Extension
-        if(queryPool != nullptr)
-        {
-            const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
-
-            // Add Ref to CmdPool
-            core::smart_refctd_ptr<const core::IReferenceCounted> tmpRefCntd[1] = { core::smart_refctd_ptr<const IQueryPool>(queryPool) };
-            CVulkanCommandPool* vulkanCommandPool = IBackendObject::compatibility_cast<CVulkanCommandPool*>(m_cmdpool.get(), this);
-            vulkanCommandPool->emplace_n(m_argListTail, tmpRefCntd, tmpRefCntd + 1);
-
-            auto vk_queryPool = IBackendObject::compatibility_cast<CVulkanQueryPool*>(queryPool, this)->getInternalObject();
-            vk->vk.vkCmdEndQueryIndexedEXT(m_cmdbuf, vk_queryPool, query, index);
-            ret = true;
-        }
-        return ret;
-    }
-
     // Acceleration Structure Properties (Only available on Vulkan)
     bool CVulkanCommandBuffer::writeAccelerationStructureProperties(const core::SRange<IGPUAccelerationStructure>& pAccelerationStructures, IQueryPool::E_QUERY_TYPE queryType, IQueryPool* queryPool, uint32_t firstQuery) 
     {

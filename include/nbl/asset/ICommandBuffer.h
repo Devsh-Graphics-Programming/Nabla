@@ -313,9 +313,7 @@ public:
     virtual bool endQuery(video::IQueryPool* queryPool, uint32_t query) {return false;}
     virtual bool copyQueryPoolResults(video::IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, buffer_t* dstBuffer, size_t dstOffset, size_t stride, video::IQueryPool::E_QUERY_RESULTS_FLAGS flags) {return false;}
     virtual bool writeTimestamp(asset::E_PIPELINE_STAGE_FLAGS pipelineStage, video::IQueryPool* queryPool, uint32_t query) {return false;}
-    // TRANSFORM_FEEDBACK_STREAM
-    virtual bool beginQueryIndexed(video::IQueryPool* queryPool, uint32_t query, uint32_t index, video::IQueryPool::E_QUERY_CONTROL_FLAGS flags = static_cast<video::IQueryPool::E_QUERY_CONTROL_FLAGS>(0)) {return false;}
-    virtual bool endQueryIndexed(video::IQueryPool* queryPool, uint32_t query, uint32_t index) {return false;}
+
     // Acceleration Structure Properties (Only available on Vulkan)
     virtual bool writeAccelerationStructureProperties(const core::SRange<video::IGPUAccelerationStructure>& pAccelerationStructures, video::IQueryPool::E_QUERY_TYPE queryType, video::IQueryPool* queryPool, uint32_t firstQuery) {return false;}
 

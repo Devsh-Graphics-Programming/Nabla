@@ -100,48 +100,6 @@ class COpenGLQueryPool final : public IQueryPool
 				}
 			}
 		}
-		
-		inline void beginQueryIndexed(IOpenGL_FunctionTable* gl, uint32_t queryIndex, uint32_t index, E_QUERY_CONTROL_FLAGS flags) const
-		{
-			if(gl != nullptr)
-			{
-				if(params.queryType == EQT_OCCLUSION)
-				{
-					// if(index != 0)
-					// 	assert(false && "OCCLUSION Query doesn't work with begin/end Indexed functions.");
-					GLuint query = getQueryAt(queryIndex);
-					gl->glQuery.pglBeginQueryIndexed(GL_SAMPLES_PASSED, index, query);
-				}
-				else if(params.queryType == EQT_TIMESTAMP)
-				{
-					assert(false && "TIMESTAMP Query doesn't work with begin/end functions.");
-				}
-				else
-				{
-					assert(false && "QueryType is not supported.");
-				}
-			}
-		}
-		
-		inline void endQueryIndexed(IOpenGL_FunctionTable* gl, uint32_t queryIndex, uint32_t index) const
-		{
-			// End Function doesn't use queryIndex
-			if(gl != nullptr)
-			{
-				if(params.queryType == EQT_OCCLUSION)
-				{
-					gl->glQuery.pglEndQueryIndexed(GL_SAMPLES_PASSED, index);
-				}
-				else if(params.queryType == EQT_TIMESTAMP)
-				{
-					assert(false && "TIMESTAMP Query doesn't work with begin/end functions.");
-				}
-				else
-				{
-					assert(false && "QueryType is not supported.");
-				}
-			}
-		}
 
 		inline bool resetQueries(IOpenGL_FunctionTable* gl, uint32_t query, uint32_t queryCount)
 		{

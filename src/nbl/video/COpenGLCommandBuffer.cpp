@@ -1017,20 +1017,6 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
                 gl->glQuery.pglQueryCounter(query, GL_TIMESTAMP);
             }
             break;
-            case impl::ECT_BEGIN_QUERY_INDEXED:
-            {
-                auto& c = cmd.get<impl::ECT_BEGIN_QUERY_INDEXED>();
-                const COpenGLQueryPool* qp = static_cast<const COpenGLQueryPool*>(c.queryPool.get());
-                qp->beginQueryIndexed(gl, c.query, c.index, c.flags);
-            }
-            break;
-            case impl::ECT_END_QUERY_INDEXED:
-            {
-                auto& c = cmd.get<impl::ECT_END_QUERY_INDEXED>();
-                const COpenGLQueryPool* qp = static_cast<const COpenGLQueryPool*>(c.queryPool.get());
-                qp->endQueryIndexed(gl, c.query, c.index);
-            }
-            break;
             case impl::ECT_BIND_DESCRIPTOR_SETS:
             {
                 auto& c = cmd.get<impl::ECT_BIND_DESCRIPTOR_SETS>();
