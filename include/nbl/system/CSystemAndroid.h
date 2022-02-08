@@ -26,6 +26,11 @@ namespace nbl::system
 			m_cachedArchiveFiles.insert(APKResourcesPath, std::move(archive));
 
 		}
+		SystemInfo getSystemInfo() const override
+		{
+			assert(false); // TODO
+			return SystemInfo();
+		}
 	};
 }
 #endif

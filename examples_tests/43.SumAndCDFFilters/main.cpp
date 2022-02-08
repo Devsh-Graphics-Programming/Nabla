@@ -249,7 +249,7 @@ public:
 		viewParams.subresourceRange.levelCount = cpuImage->getCreationParameters().mipLevels;
 
 		auto cpuImageView = ICPUImageView::create(std::move(viewParams));
-		assert(cpuImageView.get(), "The imageView didn't pass creation validation!");
+		assert(cpuImageView.get()); // The imageView didn't pass creation validation!
 
 		auto writeSATandGetItsOutputName = [&]() -> std::string
 		{
@@ -342,7 +342,7 @@ public:
 			viewParams.components = {};
 
 			auto cpuImageView = ICPUImageView::create(std::move(viewParams));
-			assert(cpuImageView.get(), "The imageView didn't pass creation validation!");
+			assert(cpuImageView.get()); // The imageView didn't pass creation validation!
 
 			asset::IAssetWriter::SAssetWriteParams wparams(cpuImageView.get());
 			assetManager->writeAsset(convolutedSatFilePath.string(), wparams);

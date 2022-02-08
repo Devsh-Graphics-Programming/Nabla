@@ -1,7 +1,7 @@
-#ifndef C_CLIPBOARD_MANAGER_WIN32
-#define C_CLIPBOARD_MANAGER_WIN32
+#ifndef _NBL_UI_C_CLIPBOARD_MANAGER_WIN32_INCLUDED_
+#define _NBL_UI_C_CLIPBOARD_MANAGER_WIN32_INCLUDED_
+#ifdef _NBL_PLATFORM_WINDOWS_
 #include "nbl/ui/IClipboardManager.h"
-#include <WinUser.h>
 
 namespace nbl::ui
 {
@@ -21,4 +21,5 @@ private:
 }
 
 
+#endif
 #endif
