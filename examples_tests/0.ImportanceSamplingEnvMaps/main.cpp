@@ -129,7 +129,7 @@ public:
 	video::IGPUFramebuffer* HDRFramebuffer;
 	core::smart_refctd_ptr<video::IGPUBuffer> gpuubo;
 	core::smart_refctd_ptr<IGPUDescriptorSet> uboDescriptorSet1;
-	core::smart_refctd_ptr<IGPUDescriptorSet> descriptorSet5
+	core::smart_refctd_ptr<IGPUDescriptorSet> descriptorSet5;
 	float envmapNormalizationFactor;
 
 	bool ss = true;
@@ -296,16 +296,6 @@ public:
 		cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
 		logger = std::move(initOutput.logger);
 		inputSystem = std::move(initOutput.inputSystem);
-
-		//TODO
-		/*video::IVideoDriver* driver = device->getVideoDriver();
-		IAssetManager* assetManager = device->getAssetManager();
-		auto filesystem = device->getFileSystem();
-		auto glslc = assetManager->getGLSLCompiler();
-		auto sceneManager = device->getSceneManager();
-		auto geometryCreator = device->getAssetManager()->getGeometryCreator();*/
-
-		//camera->setLeftHanded(false);
 
 		core::vectorSIMDf cameraPosition(-0.0889001, 0.678913, -4.01774);
 		core::vectorSIMDf cameraTarget(1.80119, 0.515374, -0.410544);
