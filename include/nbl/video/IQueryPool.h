@@ -23,6 +23,7 @@ public:
 
         enum E_PIPELINE_STATISTICS_FLAGS
         {
+            EPSF_NONE = 0,
             EPSF_INPUT_ASSEMBLY_VERTICES_BIT = 0x00000001,
             EPSF_INPUT_ASSEMBLY_PRIMITIVES_BIT = 0x00000002,
             EPSF_VERTEX_SHADER_INVOCATIONS_BIT = 0x00000004,
@@ -38,6 +39,7 @@ public:
 
         enum E_QUERY_RESULTS_FLAGS
         {
+            EQRF_NONE = 0,
             EQRF_64_BIT = 0x00000001,
             EQRF_WAIT_BIT = 0x00000002,
             EQRF_WITH_AVAILABILITY_BIT = 0x00000004,
@@ -46,14 +48,15 @@ public:
 
         enum E_QUERY_CONTROL_FLAGS : uint32_t
         {
-            EQCF_PRECISE_BIT = 0x01
+            EQCF_NONE = 0,
+            EQCF_PRECISE_BIT = 0x01,
         };
 
         struct SCreationParams
         {
-            E_QUERY_TYPE                    queryType;
-            uint32_t                        queryCount;
-            E_PIPELINE_STATISTICS_FLAGS     pipelineStatisticsFlags; // only when the queryType is EQT_PIPELINE_STATISTICS
+            E_QUERY_TYPE                                   queryType;
+            uint32_t                                       queryCount;
+            core::bitflag<E_PIPELINE_STATISTICS_FLAGS>     pipelineStatisticsFlags; // only when the queryType is EQT_PIPELINE_STATISTICS
         };
 
 public:

@@ -276,7 +276,7 @@ namespace nbl::video
         return ret;
     }
 
-    bool CVulkanCommandBuffer::beginQuery(IQueryPool* queryPool, uint32_t query, IQueryPool::E_QUERY_CONTROL_FLAGS flags)
+    bool CVulkanCommandBuffer::beginQuery(IQueryPool* queryPool, uint32_t query, core::bitflag<IQueryPool::E_QUERY_CONTROL_FLAGS> flags)
     {
         bool ret = false;
         if(queryPool != nullptr)
@@ -289,7 +289,7 @@ namespace nbl::video
             vulkanCommandPool->emplace_n(m_argListTail, tmpRefCntd, tmpRefCntd + 1);
 
             auto vk_queryPool = IBackendObject::compatibility_cast<CVulkanQueryPool*>(queryPool, this)->getInternalObject();
-            auto vk_flags = CVulkanQueryPool::getVkQueryControlFlagsFromQueryControlFlags(flags);
+            auto vk_flags = CVulkanQueryPool::getVkQueryControlFlagsFromQueryControlFlags(flags.value);
             vk->vk.vkCmdBeginQuery(m_cmdbuf, vk_queryPool, query, vk_flags);
             ret = true;
         }
@@ -315,7 +315,7 @@ namespace nbl::video
         return ret;
     }
 
-    bool CVulkanCommandBuffer::copyQueryPoolResults(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, buffer_t* dstBuffer, size_t dstOffset, size_t stride, IQueryPool::E_QUERY_RESULTS_FLAGS flags)
+    bool CVulkanCommandBuffer::copyQueryPoolResults(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, buffer_t* dstBuffer, size_t dstOffset, size_t stride, core::bitflag<IQueryPool::E_QUERY_RESULTS_FLAGS> flags)
     {
         bool ret = false;
         if(queryPool != nullptr && dstBuffer != nullptr)
@@ -333,7 +333,7 @@ namespace nbl::video
 
             auto vk_queryPool = IBackendObject::compatibility_cast<CVulkanQueryPool*>(queryPool, this)->getInternalObject();
             auto vk_dstBuffer = IBackendObject::compatibility_cast<CVulkanBuffer*>(dstBuffer, this)->getInternalObject();
-            auto vk_queryResultsFlags = CVulkanQueryPool::getVkQueryResultsFlagsFromQueryResultsFlags(flags); 
+            auto vk_queryResultsFlags = CVulkanQueryPool::getVkQueryResultsFlagsFromQueryResultsFlags(flags.value); 
             vk->vk.vkCmdCopyQueryPoolResults(m_cmdbuf, vk_queryPool, firstQuery, queryCount, vk_dstBuffer, dstOffset, static_cast<VkDeviceSize>(stride), vk_queryResultsFlags);
             ret = true;
         }
@@ -353,9 +353,10 @@ namespace nbl::video
             vulkanCommandPool->emplace_n(m_argListTail, tmpRefCntd, tmpRefCntd + 1);
 
             auto vk_queryPool = IBackendObject::compatibility_cast<CVulkanQueryPool*>(queryPool, this)->getInternalObject();
-            auto vk_pipelineStage = static_cast<VkPipelineStageFlagBits>(pipelineStage); // am I doing this right?
+            assert(core::isPoT(static_cast<uint32_t>(pipelineStage))); // should only be 1 stage (1 bit set)
+            auto vk_pipelineStageFlagBit = static_cast<VkPipelineStageFlagBits>(getVkPipelineStageFlagsFromPipelineStageFlags(pipelineStage));
 
-            vk->vk.vkCmdWriteTimestamp(m_cmdbuf, vk_pipelineStage, vk_queryPool, query);
+            vk->vk.vkCmdWriteTimestamp(m_cmdbuf, vk_pipelineStageFlagBit, vk_queryPool, query);
             ret = true;
         }
         return ret;

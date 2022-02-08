@@ -310,7 +310,7 @@ namespace impl
     {
         core::smart_refctd_ptr<const IQueryPool> queryPool;
         uint32_t query;
-        IQueryPool::E_QUERY_CONTROL_FLAGS flags;
+        core::bitflag<IQueryPool::E_QUERY_CONTROL_FLAGS> flags;
     };
     _NBL_DEFINE_SCMD_SPEC(ECT_END_QUERY)
     {
@@ -325,7 +325,7 @@ namespace impl
         core::smart_refctd_ptr<const IGPUBuffer> dstBuffer;
         size_t dstOffset;
         size_t stride;
-        IQueryPool::E_QUERY_RESULTS_FLAGS flags;
+        core::bitflag<IQueryPool::E_QUERY_RESULTS_FLAGS> flags;
     };
     _NBL_DEFINE_SCMD_SPEC(ECT_WRITE_TIMESTAMP)
     {
@@ -1066,7 +1066,7 @@ public:
         pushCommand(std::move(cmd));
         return true;
     }
-    bool beginQuery(IQueryPool* queryPool, uint32_t query, IQueryPool::E_QUERY_CONTROL_FLAGS flags = static_cast<IQueryPool::E_QUERY_CONTROL_FLAGS>(0)) override
+    bool beginQuery(IQueryPool* queryPool, uint32_t query, core::bitflag<video::IQueryPool::E_QUERY_CONTROL_FLAGS> flags) override
     {
         if (!this->isCompatibleDevicewise(queryPool))
             return false;
@@ -1087,7 +1087,7 @@ public:
         pushCommand(std::move(cmd));
         return true;
     }
-    bool copyQueryPoolResults(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, buffer_t* dstBuffer, size_t dstOffset, size_t stride, IQueryPool::E_QUERY_RESULTS_FLAGS flags) override
+    bool copyQueryPoolResults(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, buffer_t* dstBuffer, size_t dstOffset, size_t stride, core::bitflag<video::IQueryPool::E_QUERY_RESULTS_FLAGS> flags) override
     {
         if (!this->isCompatibleDevicewise(queryPool))
             return false;

@@ -258,7 +258,7 @@ namespace impl
             size_t dataSize;
             void * pData;
             uint64_t stride;
-            IQueryPool::E_QUERY_RESULTS_FLAGS flags;
+            core::bitflag<IQueryPool::E_QUERY_RESULTS_FLAGS> flags;
         };
         struct SRequestMakeCurrent
         {
@@ -676,10 +676,10 @@ protected:
                 if(p.pData != nullptr)
                 {
                     IQueryPool::E_QUERY_TYPE queryType = qp->getCreationParameters().queryType;
-                    bool use64Version = (p.flags & IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_64_BIT) == IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_64_BIT;
-                    bool availabilityFlag = (p.flags & IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WITH_AVAILABILITY_BIT) == IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WITH_AVAILABILITY_BIT;
-                    bool waitForAllResults = (p.flags & IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WAIT_BIT) == IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WAIT_BIT;
-                    bool partialResults = (p.flags & IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_PARTIAL_BIT) == IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_PARTIAL_BIT;
+                    bool use64Version = p.flags.hasValue(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_64_BIT);
+                    bool availabilityFlag = p.flags.hasValue(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WITH_AVAILABILITY_BIT);
+                    bool waitForAllResults = p.flags.hasValue(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WAIT_BIT);
+                    bool partialResults = p.flags.hasValue(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_PARTIAL_BIT);
 
                     if(p.firstQuery + p.queryCount > queryPoolQueriesCount)
                     {

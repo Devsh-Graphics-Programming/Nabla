@@ -683,6 +683,11 @@ static inline VkColorComponentFlags getVkColorComponentFlagsFromColorWriteMask(c
     return static_cast<VkColorComponentFlags>(in);
 }
 
+static inline VkPipelineStageFlags getVkPipelineStageFlagsFromPipelineStageFlags(const asset::E_PIPELINE_STAGE_FLAGS in)
+{
+    return static_cast<VkPipelineStageFlags>(in);
+}
+
 }
 
 #define __NBL_VIDEO_C_VULKAN_COMMON_H_INCLUDED__

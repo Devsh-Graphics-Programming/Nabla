@@ -771,7 +771,7 @@ public:
         vk->vk.vkCmdResetEvent(
             m_cmdbuf,
             IBackendObject::compatibility_cast<const CVulkanEvent*>(event, this)->getInternalObject(),
-            static_cast<VkPipelineStageFlags>(stageMask));
+            getVkPipelineStageFlagsFromPipelineStageFlags(stageMask));
 
         return true;
     }
@@ -952,8 +952,8 @@ public:
         }
 
         const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
-        vk->vk.vkCmdPipelineBarrier(m_cmdbuf, static_cast<VkPipelineStageFlags>(srcStageMask.value),
-            static_cast<VkPipelineStageFlags>(dstStageMask.value),
+        vk->vk.vkCmdPipelineBarrier(m_cmdbuf, getVkPipelineStageFlagsFromPipelineStageFlags(srcStageMask.value),
+            getVkPipelineStageFlagsFromPipelineStageFlags(dstStageMask.value),
             static_cast<VkDependencyFlags>(dependencyFlags.value),
             memoryBarrierCount, vk_memoryBarriers,
             bufferMemoryBarrierCount, vk_bufferMemoryBarriers,
@@ -1051,9 +1051,9 @@ public:
 
     
     bool resetQueryPool(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount) override;
-    bool beginQuery(IQueryPool* queryPool, uint32_t query, IQueryPool::E_QUERY_CONTROL_FLAGS flags = static_cast<IQueryPool::E_QUERY_CONTROL_FLAGS>(0)) override;
+    bool beginQuery(IQueryPool* queryPool, uint32_t query, core::bitflag<video::IQueryPool::E_QUERY_CONTROL_FLAGS>) override;
     bool endQuery(IQueryPool* queryPool, uint32_t query) override;
-    bool copyQueryPoolResults(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, buffer_t* dstBuffer, size_t dstOffset, size_t stride, IQueryPool::E_QUERY_RESULTS_FLAGS flags) override;
+    bool copyQueryPoolResults(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, buffer_t* dstBuffer, size_t dstOffset, size_t stride, core::bitflag<video::IQueryPool::E_QUERY_RESULTS_FLAGS> flags) override;
     bool writeTimestamp(asset::E_PIPELINE_STAGE_FLAGS pipelineStage, IQueryPool* queryPool, uint32_t query) override;
 
     // Acceleration Structure Properties (Only available on Vulkan)

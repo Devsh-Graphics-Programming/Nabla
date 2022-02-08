@@ -60,7 +60,7 @@ public:
 		ret.flags = 0; // "flags is reserved for future use."
 		ret.queryType = getVkQueryTypeFromQueryType(params.queryType);
 		ret.queryCount = params.queryCount;
-		ret.pipelineStatistics = getVkPipelineStatisticsFlagsFromPipelineStatisticsFlags(params.pipelineStatisticsFlags);
+		ret.pipelineStatistics = getVkPipelineStatisticsFlagsFromPipelineStatisticsFlags(params.pipelineStatisticsFlags.value);
 		return ret;
 	}
 

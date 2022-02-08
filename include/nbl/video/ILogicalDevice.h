@@ -609,7 +609,7 @@ class ILogicalDevice : public core::IReferenceCounted
         
         virtual core::smart_refctd_ptr<IQueryPool> createQueryPool(IQueryPool::SCreationParams&& params) { return nullptr; }
 
-        virtual bool getQueryPoolResults(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, size_t dataSize, void * pData, uint64_t stride, IQueryPool::E_QUERY_RESULTS_FLAGS flags) { return false;}
+        virtual bool getQueryPoolResults(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, size_t dataSize, void * pData, uint64_t stride, core::bitflag<IQueryPool::E_QUERY_RESULTS_FLAGS> flags) { return false;}
 
         virtual bool buildAccelerationStructures(
             core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation,

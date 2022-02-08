@@ -927,7 +927,7 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
             {
                 auto& c = cmd.get<impl::ECT_BEGIN_QUERY>();
                 const COpenGLQueryPool* qp = static_cast<const COpenGLQueryPool*>(c.queryPool.get());
-                qp->beginQuery(gl, c.query, c.flags);
+                qp->beginQuery(gl, c.query, c.flags.value);
             }
             break;
             case impl::ECT_END_QUERY:
@@ -951,10 +951,10 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
                 auto queries = queriesRange.begin();
                 
                 IQueryPool::E_QUERY_TYPE queryType = qp->getCreationParameters().queryType;
-                bool use64Version = (c.flags & IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_64_BIT) == IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_64_BIT;
-                bool availabilityFlag = (c.flags & IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WITH_AVAILABILITY_BIT) == IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WITH_AVAILABILITY_BIT;
-                bool waitForAllResults = (c.flags & IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WAIT_BIT) == IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WAIT_BIT;
-                bool partialResults = (c.flags & IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_PARTIAL_BIT) == IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_PARTIAL_BIT;
+                bool use64Version = c.flags.hasValue(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_64_BIT);
+                bool availabilityFlag = c.flags.hasValue(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WITH_AVAILABILITY_BIT);
+                bool waitForAllResults = c.flags.hasValue(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WAIT_BIT);
+                bool partialResults = c.flags.hasValue(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_PARTIAL_BIT);
 
                 if(c.firstQuery + c.queryCount > queryPoolQueriesCount)
                 {
