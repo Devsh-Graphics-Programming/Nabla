@@ -3,6 +3,7 @@
 
 
 #include "nbl/ui/IWindowWin32.h"
+#include "nbl/ui/CClipboardManagerWin32.h"
 
 #include <queue>
 
@@ -36,6 +37,7 @@ private:
 	core::map<HANDLE, core::smart_refctd_ptr<IKeyboardEventChannel>> m_keyboardEventChannels;
 	
 	core::smart_refctd_ptr<CCursorControlWin32> m_cursorControl;
+	core::smart_refctd_ptr<CClipboardManagerWin32> m_clipboardManager;
 
 	/* 
 	*  Storing this data is required for the device removal to work properly

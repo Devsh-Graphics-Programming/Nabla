@@ -1,6 +1,8 @@
 #ifndef _NBL_SYSTEM_CSYSTEMWIN32_H_INCLUDED_
 #define _NBL_SYSTEM_CSYSTEMWIN32_H_INCLUDED_
 #ifdef _NBL_PLATFORM_WINDOWS_
+#include <windows.h>
+#include <powerbase.h>
 #include "ISystem.h"
 #include "CFileWin32.h"
 
@@ -22,7 +24,31 @@ class CSystemCallerWin32 final : public ISystemCaller
 
 class CSystemWin32 : public ISystem
 {
+public:
+    CSystemWin32(core::smart_refctd_ptr<ISystemCaller>&& caller) : ISystem(std::move(caller)) {}
+    //LOL the struct definition wasn't added to winapi headers do they ask to declare them yourself
+    typedef struct _PROCESSOR_POWER_INFORMATION {
+        ULONG Number;
+        ULONG MaxMhz;
+        ULONG CurrentMhz;
+        ULONG MhzLimit;
+        ULONG MaxIdleState;
+        ULONG CurrentIdleState;
+    } PROCESSOR_POWER_INFORMATION, * PPROCESSOR_POWER_INFORMATION;
 
+    SystemInfo getSystemInfo() const override
+    {
+        SystemInfo info;
+        LARGE_INTEGER speed;
+        QueryPerformanceFrequency(&speed);
+
+        info.cpuFrequency = speed.QuadPart;
+
+        info.desktopResX = GetSystemMetrics(SM_CXSCREEN);
+        info.desktopResY = GetSystemMetrics(SM_CYSCREEN);
+
+        return info;
+    }
 };
 
 }

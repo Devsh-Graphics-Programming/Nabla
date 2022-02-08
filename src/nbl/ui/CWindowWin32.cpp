@@ -14,7 +14,8 @@ namespace nbl::ui
 
 	CWindowWin32::CWindowWin32(core::smart_refctd_ptr<CWindowManagerWin32>&& winManager, SCreationParams&& params, native_handle_t hwnd) : 
 		IWindowWin32(std::move(params)), m_native(hwnd), m_windowManager(winManager), 
-		m_cursorControl(core::make_smart_refctd_ptr<CCursorControlWin32>(core::smart_refctd_ptr(m_windowManager)))
+		m_cursorControl(core::make_smart_refctd_ptr<CCursorControlWin32>(core::smart_refctd_ptr(m_windowManager))),
+		m_clipboardManager(core::make_smart_refctd_ptr<CClipboardManagerWin32>())
 	{
 		addAlreadyConnectedInputDevices();
 		// do this last, we dont want the "WndProc" to be called concurrently to anything in the constructor
@@ -33,8 +34,7 @@ namespace nbl::ui
 
 	IClipboardManager* CWindowWin32::getClipboardManager()
 	{
-		assert(false);
-		return nullptr;
+		return m_clipboardManager.get();
 	}
 
 	ICursorControl* CWindowWin32::getCursorControl()
@@ -137,11 +137,13 @@ namespace nbl::ui
 		case WM_SETFOCUS:
 		{
 			eventCallback->onGainedKeyboardFocus(window);
+			window->m_flags = (E_CREATE_FLAGS)(window->m_flags.value | ECF_INPUT_FOCUS);
 			break;
 		}
 		case WM_KILLFOCUS:
 		{
 			eventCallback->onLostKeyboardFocus(window);
+			window->m_flags = (E_CREATE_FLAGS)(window->m_flags.value & ~ECF_INPUT_FOCUS);
 			break;
 		}
 		case WM_ACTIVATE:
@@ -151,9 +153,11 @@ namespace nbl::ui
 			case WA_CLICKACTIVE: [[fallthrough]];
 			case WA_ACTIVE:
 				eventCallback->onGainedMouseFocus(window);
+				window->m_flags = (E_CREATE_FLAGS)(window->m_flags.value | ECF_MOUSE_FOCUS);
 				break;
 			case WA_INACTIVE:
 				eventCallback->onLostMouseFocus(window);
+				window->m_flags = (E_CREATE_FLAGS)(window->m_flags.value & ~ECF_MOUSE_FOCUS);
 				break;
 			}
 			break;
