@@ -363,69 +363,92 @@ macro(nbl_android_create_apk _TARGET)
 		COMMAND ${ANDROID_JAVA_BIN}/keytool -genkey -keystore ${KEYSTORE_FILE} -storepass android -alias ${KEY_ENTRY_ALIAS} -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=, OU=, O=, L=, S=, C="
 	)
 	
-	set(D8_SCRIPT "${ANDROID_BUILD_TOOLS}/d8.bat")
-    if(NOT EXISTS ${D8_SCRIPT})
-        set(DEX_COMMAND ${ANDROID_BUILD_TOOLS}/d8 ./obj/eu/devsh/${TARGET_NAME}/Loader.class --output ./bin/)
-    else()
-        set(DEX_COMMAND ${D8_SCRIPT} --output ./bin/ ./obj/eu/devsh/${TARGET_NAME}/*.class)
-    endif()
-	#message(FATAL_ERROR "ANDROID_BUILD_TOOLS: ${ANDROID_BUILD_TOOLS}")
-	#message(FATAL_ERROR "ANDROID_ANDROID_JAR_LOCATION: ${ANDROID_ANDROID_JAR_LOCATION}")
-	#set(ANDROID_JAVA_RT_JAR "C:/Program Files (x86)/Java/jre1.8.0_301/lib/rt.jar")
-	#message(FATAL_ERROR "ANDROID_JAR: ${ANDROID_JAR}")
+	if("${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Windows")
+		set(D8_SCRIPT "${ANDROID_BUILD_TOOLS}/d8.bat")
+		
+		if(EXISTS ${D8_SCRIPT})
+			set(DEX_COMMAND ${D8_SCRIPT} --output ./bin/ ./obj/eu/devsh/${TARGET_NAME}/*.class)
+		else()
+			message(FATAL_ERROR "ANDROID_BUILD_TOOLS path doesn't contain D8 (DEX) bat file!")
+		endif()
+	else()
+		set(D8_SCRIPT "${ANDROID_BUILD_TOOLS}/d8")
+		
+		if(EXISTS ${D8_SCRIPT})
+			set(DEX_COMMAND ${D8_SCRIPT} ./obj/eu/devsh/${TARGET_NAME}/Loader.class --output ./bin/)
+		else()
+			message(FATAL_ERROR "ANDROID_BUILD_TOOLS path doesn't contain D8 (DEX) script file!")
+		endif()
+	endif()
+	
+	set(NBL_APK_LIBRARY_DIR libs/lib/x86_64)
+	set(NBL_APK_OBJ_DIR obj)
+	set(NBL_APK_BIN_DIR bin)
+	set(NBL_APK_ASSETS_DIR assets)
+	
+	add_custom_target(${TARGET_NAME}_apk_deps
+		DEPENDS ${_TARGET}
+		DEPENDS ${NBL_ANDROID_MANIFEST_FILE}
+		DEPENDS ${NBL_ANDROID_LOADER_JAVA}
+		DEPENDS ${KEYSTORE_FILE}
+		DEPENDS ${NBL_ROOT_PATH}/android/Loader.java
+		WORKING_DIRECTORY ${NBL_GEN_DIRECTORY}/$<CONFIG>
+		
+		COMMAND ${CMAKE_COMMAND} -E make_directory ${NBL_APK_LIBRARY_DIR}
+		COMMAND ${CMAKE_COMMAND} -E make_directory ${NBL_APK_OBJ_DIR}
+		COMMAND ${CMAKE_COMMAND} -E make_directory ${NBL_APK_BIN_DIR}
+		COMMAND ${CMAKE_COMMAND} -E make_directory ${NBL_APK_ASSETS_DIR}
+	
+		# main library
+		COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${_TARGET}> libs/lib/x86_64/$<TARGET_FILE_NAME:${_TARGET}>
+		
+		# dependencies
+		COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:tbb> libs/lib/x86_64/$<TARGET_FILE_NAME:tbb>
+		COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:tbbmalloc> libs/lib/x86_64/$<TARGET_FILE_NAME:tbbmalloc>
+		COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:tbbmalloc_proxy> libs/lib/x86_64/$<TARGET_FILE_NAME:tbbmalloc_proxy>
+		
+		COMMENT "Preparing for ${APK_FILE_NAME} creation..."
+		VERBATIM
+	)
 	
 	if(EXISTS ${ASSET_SOURCE_DIR})
 		add_custom_command(
-		OUTPUT ${APK_FILE}
-		DEPENDS ${_TARGET}
-		DEPENDS ${NBL_ANDROID_MANIFEST_FILE}
-		DEPENDS ${NBL_ANDROID_LOADER_JAVA}
-		DEPENDS ${KEYSTORE_FILE}
-		DEPENDS ${NBL_ROOT_PATH}/android/Loader.java
-		WORKING_DIRECTORY ${NBL_GEN_DIRECTORY}/$<CONFIG>
-		COMMENT "Creating ${APK_FILE_NAME} ..."
-		COMMAND ${CMAKE_COMMAND} -E make_directory libs/lib/x86_64
-		COMMAND ${CMAKE_COMMAND} -E make_directory obj
-		COMMAND ${CMAKE_COMMAND} -E make_directory bin
-		COMMAND ${CMAKE_COMMAND} -E make_directory assets
-		COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${_TARGET}> libs/lib/x86_64/$<TARGET_FILE_NAME:${_TARGET}>
-		COMMAND ${CMAKE_COMMAND} -E copy_directory ${ASSET_SOURCE_DIR} assets
-		COMMAND ${ANDROID_BUILD_TOOLS}/aapt package -f -m -J src -M AndroidManifest.xml -I ${ANDROID_JAR}
-		COMMAND ${ANDROID_JAVA_BIN}/javac -d ./obj -source 1.7 -target 1.7 -bootclasspath ${ANDROID_JAVA_RT_JAR} -classpath "${ANDROID_JAR}" -sourcepath src ${NBL_ANDROID_LOADER_JAVA}
-		COMMAND ${DEX_COMMAND}
-		COMMAND ${ANDROID_BUILD_TOOLS}/aapt package -f -M AndroidManifest.xml -A assets -I ${ANDROID_JAR} -F ${TARGET_NAME}-unaligned.apk bin libs
-		COMMAND ${ANDROID_BUILD_TOOLS}/zipalign -f 4 ${TARGET_NAME}-unaligned.apk ${APK_FILE_NAME}
-		COMMAND ${ANDROID_BUILD_TOOLS}/apksigner sign --ks ${KEYSTORE_FILE} --ks-pass pass:android --key-pass pass:android --ks-key-alias ${KEY_ENTRY_ALIAS} ${APK_FILE_NAME}
-		COMMAND ${CMAKE_COMMAND} -E copy ${APK_FILE_NAME} ${APK_FILE}
-		COMMAND ${CMAKE_COMMAND} -E rm -rf assets
-		VERBATIM
-	)
+			OUTPUT ${APK_FILE}
+			DEPENDS ${TARGET_NAME}_apk_deps
+			WORKING_DIRECTORY ${NBL_GEN_DIRECTORY}/$<CONFIG>
+			
+			COMMAND ${CMAKE_COMMAND} -E copy_directory ${ASSET_SOURCE_DIR} ${NBL_APK_ASSETS_DIR}
+			COMMAND ${ANDROID_BUILD_TOOLS}/aapt package -f -m -J src -M AndroidManifest.xml -I ${ANDROID_JAR}
+			COMMAND ${ANDROID_JAVA_BIN}/javac -d ./obj -source 1.7 -target 1.7 -bootclasspath ${ANDROID_JAVA_RT_JAR} -classpath "${ANDROID_JAR}" -sourcepath src ${NBL_ANDROID_LOADER_JAVA}
+			COMMAND ${DEX_COMMAND}
+			COMMAND ${ANDROID_BUILD_TOOLS}/aapt package -f -M AndroidManifest.xml -A ${NBL_APK_ASSETS_DIR} -I ${ANDROID_JAR} -F ${TARGET_NAME}-unaligned.apk bin libs
+			COMMAND ${ANDROID_BUILD_TOOLS}/zipalign -f 4 ${TARGET_NAME}-unaligned.apk ${APK_FILE_NAME}
+			COMMAND ${ANDROID_BUILD_TOOLS}/apksigner sign --ks ${KEYSTORE_FILE} --ks-pass pass:android --key-pass pass:android --ks-key-alias ${KEY_ENTRY_ALIAS} ${APK_FILE_NAME}
+			COMMAND ${CMAKE_COMMAND} -E copy ${APK_FILE_NAME} ${APK_FILE}
+			COMMAND ${CMAKE_COMMAND} -E rm -rf ${NBL_APK_ASSETS_DIR}
+			
+			COMMENT "Creating ${APK_FILE_NAME}..."
+			VERBATIM
+		)
 	else()
 		add_custom_command(
-		OUTPUT ${APK_FILE}
-		DEPENDS ${_TARGET}
-		DEPENDS ${NBL_ANDROID_MANIFEST_FILE}
-		DEPENDS ${NBL_ANDROID_LOADER_JAVA}
-		DEPENDS ${KEYSTORE_FILE}
-		DEPENDS ${NBL_ROOT_PATH}/android/Loader.java
-		WORKING_DIRECTORY ${NBL_GEN_DIRECTORY}/$<CONFIG>
-		COMMENT "Creating ${APK_FILE_NAME} ..."
-		COMMAND ${CMAKE_COMMAND} -E make_directory libs/lib/x86_64
-		COMMAND ${CMAKE_COMMAND} -E make_directory obj
-		COMMAND ${CMAKE_COMMAND} -E make_directory bin
-		COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${_TARGET}> libs/lib/x86_64/$<TARGET_FILE_NAME:${_TARGET}>
-		COMMAND ${ANDROID_BUILD_TOOLS}/aapt package -f -m -J src -M AndroidManifest.xml -I ${ANDROID_JAR}
-		COMMAND ${ANDROID_JAVA_BIN}/javac -d ./obj -source 1.7 -target 1.7 -bootclasspath ${ANDROID_JAVA_RT_JAR} -classpath "${ANDROID_JAR}" -sourcepath src ${NBL_ANDROID_LOADER_JAVA}
-		COMMAND ${DEX_COMMAND}
-		COMMAND ${ANDROID_BUILD_TOOLS}/aapt package -f -M AndroidManifest.xml -I ${ANDROID_JAR} -F ${TARGET_NAME}-unaligned.apk bin libs
-		COMMAND ${ANDROID_BUILD_TOOLS}/zipalign -f 4 ${TARGET_NAME}-unaligned.apk ${APK_FILE_NAME}
-		COMMAND ${ANDROID_BUILD_TOOLS}/apksigner sign --ks ${KEYSTORE_FILE} --ks-pass pass:android --key-pass pass:android --ks-key-alias ${KEY_ENTRY_ALIAS} ${APK_FILE_NAME}
-		COMMAND ${CMAKE_COMMAND} -E copy ${APK_FILE_NAME} ${APK_FILE}
-		VERBATIM
-	)
+			OUTPUT ${APK_FILE}
+			DEPENDS ${TARGET_NAME}_apk_deps
+			WORKING_DIRECTORY ${NBL_GEN_DIRECTORY}/$<CONFIG>
+			
+			COMMAND ${ANDROID_BUILD_TOOLS}/aapt package -f -m -J src -M AndroidManifest.xml -I ${ANDROID_JAR}
+			COMMAND ${ANDROID_JAVA_BIN}/javac -d ./obj -source 1.7 -target 1.7 -bootclasspath ${ANDROID_JAVA_RT_JAR} -classpath "${ANDROID_JAR}" -sourcepath src ${NBL_ANDROID_LOADER_JAVA}
+			COMMAND ${DEX_COMMAND}
+			COMMAND ${ANDROID_BUILD_TOOLS}/aapt package -f -M AndroidManifest.xml -I ${ANDROID_JAR} -F ${TARGET_NAME}-unaligned.apk bin libs
+			COMMAND ${ANDROID_BUILD_TOOLS}/zipalign -f 4 ${TARGET_NAME}-unaligned.apk ${APK_FILE_NAME}
+			COMMAND ${ANDROID_BUILD_TOOLS}/apksigner sign --ks ${KEYSTORE_FILE} --ks-pass pass:android --key-pass pass:android --ks-key-alias ${KEY_ENTRY_ALIAS} ${APK_FILE_NAME}
+			COMMAND ${CMAKE_COMMAND} -E copy ${APK_FILE_NAME} ${APK_FILE}
+			
+			COMMENT "Creating ${APK_FILE_NAME}..."
+			VERBATIM
+		)
 	endif()
 endmacro()
-
 
 function(nbl_android_create_media_storage_apk)
 	set(TARGET_NAME android_media_storage)

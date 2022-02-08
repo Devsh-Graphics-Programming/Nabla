@@ -104,7 +104,7 @@ if(NBL_BUILD_ANDROID)
 	endif()
 	
 	string(LENGTH ${Java_JAVA_EXECUTABLE} Java_JAVA_EXECUTABLE_LENGTH)
-	if(WIN32) 
+	if("${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Windows") 
 		set(Java_JAVA_EXE_BIN_LENGTH 13)
 	else() 
 		set(Java_JAVA_EXE_BIN_LENGTH 9)
