@@ -183,3 +183,24 @@ bool coneIntersectAABB(in cone_t cone, in nbl_glsl_shapes_AABB_t aabb)
 
 	return true;
 }
+
+float getLightImportanceMagnitude(in nbl_glsl_ext_ClusteredLighting_SpotLight light)
+{
+	const vec3 intensity = nbl_glsl_decodeRGB19E7(light.intensity);
+
+	const vec3 lightToCamera = pc.camPosClipmapExtent.xyz - light.position;
+	const float lenSq = dot(lightToCamera, lightToCamera);
+	const float radiusSq = LIGHT_RADIUS * LIGHT_RADIUS;
+	const float attenuation = 0.5f * radiusSq * (1.f - inversesqrt(1.f + radiusSq / lenSq));
+	const vec3 importance = intensity * attenuation;
+	return sqrt(dot(importance, importance));
+}
+
+uint getHistogramBinIndex(in float importanceMagnitude)
+{
+	const int minVal = floatBitsToInt(MIN_HISTOGRAM_IMPORTANCE) + 1;
+	const int maxVal = floatBitsToInt(MAX_HISTOGRAM_IMPORTANCE) - 1;
+	const int range = maxVal - minVal;
+
+	return uint(BIN_COUNT * (float(clamp(floatBitsToInt(importanceMagnitude) - minVal, 0, range)) / float(range)));
+}
