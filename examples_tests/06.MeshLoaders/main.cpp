@@ -313,6 +313,20 @@ public:
     }
     void onAppTerminated_impl() override
     {
+        const auto& fboCreationParams = fbo[acquiredNextFBO]->getCreationParameters();
+        auto gpuSourceImageView = fboCreationParams.attachments[0];
+
+        bool status = ext::ScreenShot::createScreenShot(
+            logicalDevice.get(),
+            queues[CommonAPI::InitOutput::EQT_TRANSFER_DOWN],
+            renderFinished[resourceIx].get(),
+            gpuSourceImageView.get(),
+            assetManager.get(),
+            "ScreenShot.png",
+            asset::EIL_PRESENT_SRC,
+            static_cast<asset::E_ACCESS_FLAGS>(0u));
+
+        assert(status);
         logicalDevice->waitIdle();
     }
     void workLoopBody() override

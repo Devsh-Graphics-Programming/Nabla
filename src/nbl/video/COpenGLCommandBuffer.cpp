@@ -120,7 +120,7 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
         return IGPUCommandBuffer::reset(_flags);
     }
 
-    void COpenGLCommandBuffer::copyBufferToImage(const SCmd<impl::ECT_COPY_BUFFER_TO_IMAGE>& c, IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid)
+    void COpenGLCommandBuffer::copyBufferToImage(const SCmd<impl::ECT_COPY_BUFFER_TO_IMAGE>& c, IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid, const system::logger_opt_ptr logger)
     {
         IGPUImage* dstImage = c.dstImage.get();
         const IGPUBuffer* srcBuffer = c.srcBuffer.get();
@@ -219,7 +219,7 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
         }
     }
 
-    void COpenGLCommandBuffer::copyImageToBuffer(const SCmd<impl::ECT_COPY_IMAGE_TO_BUFFER>& c, IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid)
+    void COpenGLCommandBuffer::copyImageToBuffer(const SCmd<impl::ECT_COPY_IMAGE_TO_BUFFER>& c, IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid, const system::logger_opt_ptr logger)
     {
         const auto* srcImage = c.srcImage.get();
         auto* dstBuffer = c.dstBuffer.get();
@@ -234,10 +234,11 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
         GLuint src = static_cast<const COpenGLImage*>(srcImage)->getOpenGLName();
         GLenum glfmt, gltype;
         getOpenGLFormatAndParametersFromColorFormat(gl, format, glfmt, gltype);
-
+        
+        const auto texelBlockInfo = asset::TexelBlockInfo(format);
         const auto bpp = asset::getBytesPerPixel(format);
-        const auto blockDims = asset::getBlockDimensions(format);
-        const auto blockByteSize = asset::getTexelOrBlockBytesize(format);
+        const auto blockDims = texelBlockInfo.getDimension();
+        const auto blockByteSize = texelBlockInfo.getBlockByteSize();
 
         const bool usingGetTexSubImage = (gl->features->Version >= 450 || gl->features->FeatureAvailable[gl->features->EOpenGLFeatures::NBL_ARB_get_texture_sub_image]);
 
@@ -250,9 +251,15 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
         {
             if(it->bufferOffset != core::alignUp(it->bufferOffset, blockByteSize))
             {
-                assert(false && "bufferOffset should be aligned to block/texel byte size.");
+                logger.log("bufferOffset should be aligned to block/texel byte size.", system::ILogger::ELL_ERROR);
+                assert(false);
                 continue;
             }
+            
+            const auto imageExtent = core::vector3du32_SIMD(it->imageExtent.width, it->imageExtent.height, it->imageExtent.depth);
+            const auto imageExtentInBlocks = texelBlockInfo.convertTexelsToBlocks(imageExtent);
+            const auto imageExtentBlockStridesInBytes = texelBlockInfo.convert3DBlockStridesTo1DByteStrides(imageExtentInBlocks);
+            const uint32_t eachLayerNeededMemory = imageExtentBlockStridesInBytes[3];  // = blockByteSize * imageExtentInBlocks.x * imageExtentInBlocks.y * imageExtentInBlocks.z
 
             uint32_t pitch = ((it->bufferRowLength ? it->bufferRowLength : it->imageExtent.width) * bpp).getIntegerApprox();
             int32_t alignment = 0x1 << core::min(core::max(core::findLSB(it->bufferOffset), core::findLSB(pitch)), 3u);
@@ -291,14 +298,13 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
             {
                 ctxlocal->flushStateGraphics(gl, SOpenGLContextLocalCache::GSB_PIXEL_PACK_UNPACK, ctxid);
 
-                // TODO this isnt totally valid right?
-                const size_t bytesPerLayer = pitch * yRange * (compressed ? nbl::asset::getFormatChannelCount(format) : nbl::asset::getTexelOrBlockBytesize(format)); // all block compressed formats are decoded into 1 byte per channel format
+                const size_t bytesPerLayer = eachLayerNeededMemory;
                 for (uint32_t z = 0u; z < zRange; ++z)
                 {
                     GLuint fbo = ctxlocal->getSingleColorAttachmentFBO(gl, srcImage, it->imageSubresource.mipLevel, it->imageSubresource.baseArrayLayer + z);
                     if (!fbo)
                     {
-                        // TODO log something
+                        logger.log("Couldn't retrieve attachment to download image to.", system::ILogger::ELL_ERROR);
                         continue;
                     }
 
@@ -692,14 +698,14 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
             {
                 auto& c = cmd.get<impl::ECT_COPY_BUFFER_TO_IMAGE>();
 
-                copyBufferToImage(c, gl, ctxlocal, ctxid);
+                copyBufferToImage(c, gl, ctxlocal, ctxid, m_logger.getOptRawPtr());
             }
             break;
             case impl::ECT_COPY_IMAGE_TO_BUFFER:
             {
                 auto& c = cmd.get<impl::ECT_COPY_IMAGE_TO_BUFFER>();
 
-                copyImageToBuffer(c, gl, ctxlocal, ctxid);
+                copyImageToBuffer(c, gl, ctxlocal, ctxid, m_logger.getOptRawPtr());
             }
             break;
             case impl::ECT_BLIT_IMAGE:
