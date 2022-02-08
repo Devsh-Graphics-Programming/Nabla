@@ -1,3 +1,4 @@
+#ifdef _NBL_PLATFORM_WINDOWS_
 #include "nbl/ui/CClipboardManagerWin32.h"
 #include <Windows.h>
 namespace nbl::ui
@@ -33,3 +34,5 @@ namespace nbl::ui
         return true;
     }
 }
+
+#endif
