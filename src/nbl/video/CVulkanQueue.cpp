@@ -10,6 +10,12 @@ namespace nbl::video
 
 bool CVulkanQueue::submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFence* _fence)
 {
+    if (!IGPUQueue::submit(_count, _submits, _fence))
+        return false;
+
+    if(!IGPUQueue::markCommandBuffersAsPending(_count, _submits))
+        return false;
+
     auto* vk = static_cast<const CVulkanLogicalDevice*>(m_originDevice)->getFunctionTable();
 
     uint32_t waitSemCnt = 0u;
@@ -77,11 +83,11 @@ bool CVulkanQueue::submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFenc
 
         for (uint32_t j = 0u; j < sb.waitSemaphoreCount; ++j)
         {
-            waits[j] = static_cast<CVulkanSemaphore*>(_sb.pWaitSemaphores[j])->getInternalObject();
+            waits[j] = IBackendObject::device_compatibility_cast<CVulkanSemaphore*>(_sb.pWaitSemaphores[j], m_originDevice)->getInternalObject();
         }
         for (uint32_t j = 0u; j < sb.signalSemaphoreCount; ++j)
         {
-            signals[j] = static_cast<CVulkanSemaphore*>(_sb.pSignalSemaphores[j])->getInternalObject();
+            signals[j] = IBackendObject::device_compatibility_cast<CVulkanSemaphore*>(_sb.pSignalSemaphores[j], m_originDevice)->getInternalObject();
         }
         for (uint32_t j = 0u; j < sb.commandBufferCount; ++j)
         {
@@ -96,9 +102,13 @@ bool CVulkanQueue::submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFenc
         sb.pWaitDstStageMask = reinterpret_cast<const VkPipelineStageFlags*>(_sb.pWaitDstStageMask);
     }
 
-    VkFence fence = _fence ? static_cast<CVulkanFence*>(_fence)->getInternalObject() : VK_NULL_HANDLE;
+    VkFence fence = _fence ? IBackendObject::device_compatibility_cast<CVulkanFence*>(_fence, m_originDevice)->getInternalObject() : VK_NULL_HANDLE;
     if (vk->vk.vkQueueSubmit(m_vkQueue, _count, submits, fence) == VK_SUCCESS)
+    {
+        if(!IGPUQueue::markCommandBuffersAsDone(_count, _submits))
+            return false;
         return true;
+    }
 
     return false;
 }
@@ -114,7 +124,7 @@ ISwapchain::E_PRESENT_RESULT CVulkanQueue::present(const SPresentInfo& info)
         if (info.waitSemaphores[i]->getAPIType() != EAT_VULKAN)
             return ISwapchain::EPR_ERROR;
 
-        vk_waitSemaphores[i] = static_cast<const CVulkanSemaphore*>(info.waitSemaphores[i])->getInternalObject();
+        vk_waitSemaphores[i] = IBackendObject::device_compatibility_cast<const CVulkanSemaphore*>(info.waitSemaphores[i], m_originDevice)->getInternalObject();
     }
 
     assert(info.swapchainCount <= 5);
@@ -124,7 +134,7 @@ ISwapchain::E_PRESENT_RESULT CVulkanQueue::present(const SPresentInfo& info)
         if (info.swapchains[i]->getAPIType() != EAT_VULKAN)
             return ISwapchain::EPR_ERROR;
 
-        vk_swapchains[i] = static_cast<const CVulkanSwapchain*>(info.swapchains[i])->getInternalObject();
+        vk_swapchains[i] = IBackendObject::device_compatibility_cast<const CVulkanSwapchain*>(info.swapchains[i], m_originDevice)->getInternalObject();
     }
 
     VkPresentInfoKHR presentInfo = { VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };

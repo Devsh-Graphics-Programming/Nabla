@@ -207,6 +207,7 @@ public:
 				state.inMipLevel = MIPMAP_IMAGE;
 				state.outMipLevel = MIPMAP_IMAGE;
 				#endif // IMAGE_VIEW
+				state.axesToSum = (1 << 2) | (1 << 1) | (1 << 0); // ZYX
 
 				if (!sumFilter.execute(core::execution::par_unseq,&state))
 					logger->log("Something went wrong while performing sum operation!", nbl::system::ILogger::ELL_WARNING);
@@ -215,17 +216,19 @@ public:
 			}
 			return newSumImage;
 		};
-
-		IAssetLoader::SAssetLoadParams lp(0ull, nullptr, IAssetLoader::ECF_DONT_CACHE_REFERENCES);
-
+		
+        asset::IAssetLoader::SAssetLoadParams loadParams;
+        loadParams.logger = logger.get();
+		
 		#ifdef IMAGE_VIEW
-		auto bundle = assetManager->getAsset("../../media/GLI/earth-cubemap3.dds", lp);
-		auto cpuImageViewFetched = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(bundle.getContents().begin()[0]);
-
+		auto imgPath = sharedInputCWD / "GLI/earth-cubemap3.dds";
+		auto bundle = assetManager->getAsset(imgPath.string(), loadParams);
+		auto cpuImageViewFetched = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(bundle.getContents()[0]);
 		auto cpuImage = getSummedImage(cpuImageViewFetched->getCreationParameters().image);
 		#else
-		auto bundle = assetManager->getAsset("../../media/colorexr.exr", lp);
-		auto cpuImage = getSummedImage(core::smart_refctd_ptr_static_cast<asset::ICPUImage>(bundle.getContents().begin()[0]));
+		auto imgPath = sharedInputCWD / "colorexr.exr";
+		auto bundle = assetManager->getAsset(imgPath.string(), loadParams);
+		auto cpuImage = getSummedImage(core::smart_refctd_ptr_static_cast<asset::ICPUImage>(bundle.getContents()[0]));
 		#endif // IMAGE_VIEW
 
 		ICPUImageView::SCreationParams viewParams;
@@ -262,16 +265,20 @@ public:
 			();
 
 			asset::IAssetWriter::SAssetWriteParams wparams(cpuImageView.get());
+			wparams.logger = logger.get();
+
 			#ifdef IMAGE_VIEW
-			assetManager->writeAsset(outputFileName = std::string(MODE.data()) + "IMG_VIEW.dds", wparams);
+			outputFileName = std::string(MODE.data()) + "IMG_VIEW.dds";
 			#else
 				#ifdef OVERLAPPING_REGIONS
-				assetManager->writeAsset(outputFileName = std::string(MODE.data()) + "IMG_OVERLAPPING_REGIONS.exr", wparams);
+				outputFileName = std::string(MODE.data()) + "IMG_OVERLAPPING_REGIONS.exr";
 				#else 
-				assetManager->writeAsset(outputFileName = std::string(MODE.data()) + "IMG.exr", wparams);
+				outputFileName = std::string(MODE.data()) + "IMG.exr";
 				#endif // OVERLAPPING_REGIONS
 			#endif // IMAGE_VIEW
-
+			
+			auto outputFilePath = localOutputCWD / outputFileName;
+			assetManager->writeAsset(outputFilePath.string(), wparams);
 			return outputFileName;
 		};
 
@@ -320,8 +327,9 @@ public:
 		{
 			const std::string satFileName = writeSATandGetItsOutputName();
 			const std::string convolutedSatFileName = "CONVOLUTED_" + satFileName;
+			const auto convolutedSatFilePath = localOutputCWD / convolutedSatFileName;
 
-			auto bundle = assetManager->getAsset(satFileName, lp);
+			auto bundle = assetManager->getAsset(satFileName, loadParams);
 			#ifdef IMAGE_VIEW
 			auto cpuImageViewFetched = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(bundle.getContents().begin()[0]);
 			auto cpuImage = getDisConvolutedImage(cpuImageViewFetched->getCreationParameters().image);
@@ -337,7 +345,7 @@ public:
 			assert(cpuImageView.get(), "The imageView didn't pass creation validation!");
 
 			asset::IAssetWriter::SAssetWriteParams wparams(cpuImageView.get());
-			assetManager->writeAsset(convolutedSatFileName, wparams);
+			assetManager->writeAsset(convolutedSatFilePath.string(), wparams);
 		}
 	}
 

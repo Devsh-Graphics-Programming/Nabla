@@ -29,7 +29,6 @@ namespace nbl::core
 #if !defined (__clang__)
 namespace execution = std::execution;
 
-
 ALIAS_TEMPLATE_FUNCTION(for_each_n, std::for_each_n)
 ALIAS_TEMPLATE_FUNCTION(for_each, std::for_each)
 ALIAS_TEMPLATE_FUNCTION(swap_ranges, std::swap_ranges)
@@ -59,6 +58,8 @@ ALIAS_TEMPLATE_FUNCTION(nth_element, oneapi::dpl::nth_element)
 //const auto swap_ranges = oneapi::dpl::swap_ranges<_ExPo, _FwdIt1, _FwdIt2>;
 #endif
 }
+
+#undef ALIAS_TEMPLATE_FUNCTION
 
 #endif
 

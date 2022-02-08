@@ -122,7 +122,7 @@ public:
         const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT);
         const video::ISurface::SFormat surfaceFormat(asset::EF_B8G8R8A8_SRGB, asset::ECP_COUNT, asset::EOTF_UNKNOWN);
 
-        CommonAPI::InitWithDefaultExt(initOutput, video::EAT_VULKAN, "SubpassBaking", WIN_W, WIN_H, SC_IMG_COUNT, swapchainImageUsage, surfaceFormat, nbl::asset::EF_D32_SFLOAT);
+        CommonAPI::InitWithDefaultExt(initOutput, video::EAT_OPENGL, "SubpassBaking", WIN_W, WIN_H, SC_IMG_COUNT, swapchainImageUsage, surfaceFormat, nbl::asset::EF_D32_SFLOAT);
         window = std::move(initOutput.window);
         apiConnection = std::move(initOutput.apiConnection);
         surface = std::move(initOutput.surface);
@@ -145,19 +145,16 @@ public:
         const asset::COBJMetadata* metaOBJ = nullptr;
         {
             auto* quantNormalCache = assetManager->getMeshManipulator()->getQuantNormalCache();
-            quantNormalCache->loadCacheFromFile<asset::EF_A2B10G10R10_SNORM_PACK32>(system.get(), "../../tmp/normalCache101010.sse");
+            quantNormalCache->loadCacheFromFile<asset::EF_A2B10G10R10_SNORM_PACK32>(system.get(), sharedOutputCWD / "normalCache101010.sse");
 
             system::path archPath = sharedInputCWD / "sponza.zip";
             auto arch = system->openFileArchive(archPath);
-            system->mount(std::move(arch), "resources");
+            // test no alias loading (TODO: fix loading from absolute paths)
+            system->mount(std::move(arch));
             asset::IAssetLoader::SAssetLoadParams loadParams;
-#if 0 // @sadiuk unfuck this please
-            loadParams.workingDirectory = "resources";
-#else
-            loadParams.workingDirectory = archPath;
-#endif
+            loadParams.workingDirectory = sharedInputCWD;
             loadParams.logger = logger.get();
-            auto meshes_bundle = assetManager->getAsset("sponza.obj", loadParams);
+            auto meshes_bundle = assetManager->getAsset((sharedInputCWD / "sponza.zip/sponza.obj").string(), loadParams);
             assert(!meshes_bundle.getContents().empty());
 
             metaOBJ = meshes_bundle.getMetadata()->selfCast<const asset::COBJMetadata>();
@@ -165,7 +162,7 @@ public:
             auto cpuMesh = meshes_bundle.getContents().begin()[0];
             meshRaw = static_cast<asset::ICPUMesh*>(cpuMesh.get());
 
-            quantNormalCache->saveCacheToFile<asset::EF_A2B10G10R10_SNORM_PACK32>(system.get(), "../../tmp/normalCache101010.sse");
+            quantNormalCache->saveCacheToFile<asset::EF_A2B10G10R10_SNORM_PACK32>(system.get(), sharedOutputCWD / "normalCache101010.sse");
         }
 
         core::smart_refctd_ptr<video::IGPUDescriptorSet> perCameraDescSet;

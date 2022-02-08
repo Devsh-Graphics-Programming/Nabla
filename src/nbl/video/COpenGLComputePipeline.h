@@ -59,8 +59,8 @@ class COpenGLComputePipeline : public IGPUComputePipeline, public IOpenGLPipelin
             uint32_t stampValue = _pcState.getStamp(IGPUShader::ESS_COMPUTE);
             if (stampValue>m_lastUpdateStamp)
             {
-                auto uniforms = static_cast<COpenGLSpecializedShader*>(m_shader.get())->getUniforms();
-                auto locations = static_cast<COpenGLSpecializedShader*>(m_shader.get())->getLocations();
+                auto uniforms = IBackendObject::compatibility_cast<COpenGLSpecializedShader*>(m_shader.get(), this)->getUniforms();
+                auto locations = IBackendObject::compatibility_cast<COpenGLSpecializedShader*>(m_shader.get(), this)->getLocations();
                 if (uniforms.size())
                     IOpenGLPipeline<1>::setUniformsImitatingPushConstants(gl, 0u, _ctxID, _pcState.data, uniforms, locations);
                 m_lastUpdateStamp = stampValue;

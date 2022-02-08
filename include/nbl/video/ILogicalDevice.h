@@ -124,7 +124,7 @@ class ILogicalDevice : public core::IReferenceCounted
 
         virtual core::smart_refctd_ptr<IGPUFence> createFence(IGPUFence::E_CREATE_FLAGS _flags) = 0;
         virtual IGPUFence::E_STATUS getFenceStatus(IGPUFence* _fence) = 0;
-        virtual void resetFences(uint32_t _count, IGPUFence*const * _fences) = 0;
+        virtual bool resetFences(uint32_t _count, IGPUFence*const * _fences) = 0;
         virtual IGPUFence::E_STATUS waitForFences(uint32_t _count, IGPUFence* const* _fences, bool _waitAll, uint64_t _timeout) = 0;
         // Forever waiting variant if you're confident that the fence will eventually be signalled
         inline bool blockForFences(uint32_t _count, IGPUFence* const* _fences, bool _waitAll = true)
@@ -609,7 +609,7 @@ class ILogicalDevice : public core::IReferenceCounted
         
         virtual core::smart_refctd_ptr<IQueryPool> createQueryPool(IQueryPool::SCreationParams&& params) { return nullptr; }
 
-        virtual bool getQueryPoolResults(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, size_t dataSize, void * pData, uint64_t stride, IQueryPool::E_QUERY_RESULTS_FLAGS flags) { return false;}
+        virtual bool getQueryPoolResults(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, size_t dataSize, void * pData, uint64_t stride, core::bitflag<IQueryPool::E_QUERY_RESULTS_FLAGS> flags) { return false;}
 
         virtual bool buildAccelerationStructures(
             core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation,

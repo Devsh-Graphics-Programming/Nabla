@@ -30,7 +30,7 @@ class CSummedAreaTableImageFilterBase
 				uint8_t*	scratchMemory = nullptr;										//!< memory covering all regions used for temporary filling within computation of sum values
 				size_t	scratchMemoryByteSize = {};											//!< required byte size for entire scratch memory
 				bool normalizeImageByTotalSATValues = false;								//!< after sum performation division will be performed for the entire image by the max sum values in (maxX, 0, z) depending on input image - needed for UNORM and SNORM
-				uint8_t axesToSum = 0u;														//!< which axes you want to sum; X: bit0, Y: bit1, Z: bit2
+				uint8_t axesToSum = 0u;														//!< which axes you want to sum; X: bit0, Y: bit1, Z: bit2 // TODO: make ALL_AXES the default and make sure examples using it work as expected.
 
 				static inline size_t getRequiredScratchByteSize(const ICPUImage* inputImage, asset::VkExtent3D extent)
 				{
@@ -96,13 +96,16 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 
 			if (state->scratchMemoryByteSize < state_type::getRequiredScratchByteSize(state->inImage, state->extent))
 				return false;
+			
+			if (state->axesToSum == 0u)
+				return false;
 
 			if (asset::getFormatChannelCount(outFormat) != asset::getFormatChannelCount(inFormat))
 				return false;
 
 			if (asset::getFormatClass(inFormat) > asset::getFormatClass(outFormat)) // TODO in future! Change to a function checking a bit-depth for an each single channel
 				return false;
-
+			
 			return true;
 		}
 

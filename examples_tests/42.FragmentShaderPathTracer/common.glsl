@@ -392,6 +392,7 @@ void missProgram(in ImmutableRay_t _immutable, inout Payload_t _payload)
     const vec3 kConstantEnvLightRadiance = vec3(0.15, 0.21, 0.3);
     finalContribution *= kConstantEnvLightRadiance;
     _payload.accumulation += finalContribution;
+#endif
 }
 
 #include <nbl/builtin/glsl/bxdf/brdf/diffuse/oren_nayar.glsl>

@@ -40,8 +40,7 @@ CGeometryCreator::return_type CGeometryCreator::createCubeMesh(const core::vecto
 	{
 		retval.indexCount = 36u;
 		auto indices = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(uint16_t)*retval.indexCount);
-		const auto newUsageFlags = indices->getUsageFlags() | asset::IBuffer::EUF_INDEX_BUFFER_BIT;
-		indices->setUsageFlags(newUsageFlags);
+		indices->addUsageFlags(asset::IBuffer::EUF_INDEX_BUFFER_BIT);
 		auto u = reinterpret_cast<uint16_t*>(indices->getPointer());
 		for (uint32_t i=0u; i<6u; ++i)
 		{
@@ -57,8 +56,7 @@ CGeometryCreator::return_type CGeometryCreator::createCubeMesh(const core::vecto
 
 	// Create vertices
 	auto vertices = core::make_smart_refctd_ptr<asset::ICPUBuffer>(24u*vertexSize);
-	const auto newUsageFlags = vertices->getUsageFlags() | asset::IBuffer::EUF_VERTEX_BUFFER_BIT;
-	vertices->setUsageFlags(newUsageFlags);
+	vertices->addUsageFlags(asset::IBuffer::EUF_VERTEX_BUFFER_BIT);
 	CubeVertex* ptr = (CubeVertex*)vertices->getPointer();
 
 	const core::vector3d<int8_t> normals[6] =

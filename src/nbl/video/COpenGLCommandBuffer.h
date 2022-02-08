@@ -71,8 +71,6 @@ namespace impl
     ECT_END_QUERY,\
     ECT_COPY_QUERY_POOL_RESULTS,\
     ECT_WRITE_TIMESTAMP,\
-    ECT_BEGIN_QUERY_INDEXED,\
-    ECT_END_QUERY_INDEXED,\
 \
     ECT_BIND_DESCRIPTOR_SETS,\
 \
@@ -304,7 +302,7 @@ namespace impl
     };
     _NBL_DEFINE_SCMD_SPEC(ECT_RESET_QUERY_POOL)
     {
-        core::smart_refctd_ptr<const IQueryPool> queryPool;
+        core::smart_refctd_ptr<IQueryPool> queryPool;
         uint32_t query;
         uint32_t queryCount;
     };
@@ -312,7 +310,7 @@ namespace impl
     {
         core::smart_refctd_ptr<const IQueryPool> queryPool;
         uint32_t query;
-        IQueryPool::E_QUERY_CONTROL_FLAGS flags;
+        core::bitflag<IQueryPool::E_QUERY_CONTROL_FLAGS> flags;
     };
     _NBL_DEFINE_SCMD_SPEC(ECT_END_QUERY)
     {
@@ -327,26 +325,13 @@ namespace impl
         core::smart_refctd_ptr<const IGPUBuffer> dstBuffer;
         size_t dstOffset;
         size_t stride;
-        IQueryPool::E_QUERY_RESULTS_FLAGS flags;
+        core::bitflag<IQueryPool::E_QUERY_RESULTS_FLAGS> flags;
     };
     _NBL_DEFINE_SCMD_SPEC(ECT_WRITE_TIMESTAMP)
     {
         core::smart_refctd_ptr<const IQueryPool> queryPool;
         asset::E_PIPELINE_STAGE_FLAGS pipelineStage;
         uint32_t query;
-    };
-    _NBL_DEFINE_SCMD_SPEC(ECT_BEGIN_QUERY_INDEXED)
-    {
-        core::smart_refctd_ptr<const IQueryPool> queryPool;
-        uint32_t query;
-        uint32_t index;
-        IQueryPool::E_QUERY_CONTROL_FLAGS flags;
-    };
-    _NBL_DEFINE_SCMD_SPEC(ECT_END_QUERY_INDEXED)
-    {
-        core::smart_refctd_ptr<const IQueryPool> queryPool;
-        uint32_t query;
-        uint32_t index;
     };
     _NBL_DEFINE_SCMD_SPEC(ECT_BIND_DESCRIPTOR_SETS)
     {
@@ -467,9 +452,9 @@ protected:
 #undef _NBL_SCMD_TYPE_FOR_ECT
 #undef _NBL_COMMAND_TYPES_LIST
 
-    static void copyBufferToImage(const SCmd<impl::ECT_COPY_BUFFER_TO_IMAGE>& c, IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid);
+    static void copyBufferToImage(const SCmd<impl::ECT_COPY_BUFFER_TO_IMAGE>& c, IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid, const system::logger_opt_ptr logger);
 
-    static void copyImageToBuffer(const SCmd<impl::ECT_COPY_IMAGE_TO_BUFFER>& c, IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid);
+    static void copyImageToBuffer(const SCmd<impl::ECT_COPY_IMAGE_TO_BUFFER>& c, IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid, const system::logger_opt_ptr logger);
 
     static void beginRenderpass_clearAttachments(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid, const SRenderpassBeginInfo& info, GLuint fbo, const system::logger_opt_ptr logger);
 
@@ -553,13 +538,14 @@ public:
     void executeAll(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid) const;
 
 
-    COpenGLCommandBuffer(core::smart_refctd_ptr<const ILogicalDevice>&& dev, E_LEVEL lvl, IGPUCommandPool* _cmdpool, system::logger_opt_smart_ptr&& logger, const COpenGLFeatureMap* _features);
+    COpenGLCommandBuffer(core::smart_refctd_ptr<const ILogicalDevice>&& dev, E_LEVEL lvl, core::smart_refctd_ptr<IGPUCommandPool>&& _cmdpool, system::logger_opt_smart_ptr&& logger, const COpenGLFeatureMap* _features);
 
-    inline void begin(uint32_t _flags) override final
+    inline bool begin(uint32_t _flags) override final
     {
-        IGPUCommandBuffer::begin(_flags);
         reset(_flags);
+        return IGPUCommandBuffer::begin(_flags);
     }
+
     bool reset(uint32_t _flags) override final;
 
 
@@ -1071,12 +1057,16 @@ public:
         
     bool resetQueryPool(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount) override
     {
-        // If multiple queries are issued using the same query object id before calling glGetQueryObject or glGetQueryBufferObject:
-        // the results of the most recent query will be returned. In this case, when issuing a new query, the results of the previous query are discarded.
-        // So just ignore :)
+        if (!this->isCompatibleDevicewise(queryPool))
+            return false;
+        SCmd<impl::ECT_RESET_QUERY_POOL> cmd;
+        cmd.queryPool = core::smart_refctd_ptr<IQueryPool>(queryPool);
+        cmd.query = firstQuery;
+        cmd.queryCount = queryCount;
+        pushCommand(std::move(cmd));
         return true;
     }
-    bool beginQuery(IQueryPool* queryPool, uint32_t query, IQueryPool::E_QUERY_CONTROL_FLAGS flags = static_cast<IQueryPool::E_QUERY_CONTROL_FLAGS>(0)) override
+    bool beginQuery(IQueryPool* queryPool, uint32_t query, core::bitflag<video::IQueryPool::E_QUERY_CONTROL_FLAGS> flags) override
     {
         if (!this->isCompatibleDevicewise(queryPool))
             return false;
@@ -1097,7 +1087,7 @@ public:
         pushCommand(std::move(cmd));
         return true;
     }
-    bool copyQueryPoolResults(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, buffer_t* dstBuffer, size_t dstOffset, size_t stride, IQueryPool::E_QUERY_RESULTS_FLAGS flags) override
+    bool copyQueryPoolResults(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, buffer_t* dstBuffer, size_t dstOffset, size_t stride, core::bitflag<video::IQueryPool::E_QUERY_RESULTS_FLAGS> flags) override
     {
         if (!this->isCompatibleDevicewise(queryPool))
             return false;
@@ -1122,30 +1112,6 @@ public:
         cmd.queryPool = core::smart_refctd_ptr<const IQueryPool>(queryPool);
         cmd.pipelineStage = pipelineStage;
         cmd.query = query;
-        pushCommand(std::move(cmd));
-        return true;
-    }
-    // TRANSFORM_FEEDBACK_STREAM
-    bool beginQueryIndexed(IQueryPool* queryPool, uint32_t query, uint32_t index, IQueryPool::E_QUERY_CONTROL_FLAGS flags = static_cast<IQueryPool::E_QUERY_CONTROL_FLAGS>(0))
-    {
-        if (!this->isCompatibleDevicewise(queryPool))
-            return false;
-        SCmd<impl::ECT_BEGIN_QUERY_INDEXED> cmd;
-        cmd.queryPool = core::smart_refctd_ptr<const IQueryPool>(queryPool);
-        cmd.query = query;
-        cmd.flags = flags;
-        cmd.index = index;
-        pushCommand(std::move(cmd));
-        return true;
-    }
-    bool endQueryIndexed(IQueryPool* queryPool, uint32_t query, uint32_t index) override
-    {
-        if (!this->isCompatibleDevicewise(queryPool))
-            return false;
-        SCmd<impl::ECT_END_QUERY_INDEXED> cmd;
-        cmd.queryPool = core::smart_refctd_ptr<const IQueryPool>(queryPool);
-        cmd.query = query;
-        cmd.index = index;
         pushCommand(std::move(cmd));
         return true;
     }
@@ -1194,7 +1160,7 @@ public:
             if (pDescriptorSets[i])
             {
                 cmd.descriptorSets[cmd.dsCount++] = core::smart_refctd_ptr<const IGPUDescriptorSet>(pDescriptorSets[i]);
-                const auto count = static_cast<const COpenGLDescriptorSet*>(pDescriptorSets[i])->getDynamicOffsetCount();
+                const auto count = IBackendObject::compatibility_cast<const COpenGLDescriptorSet*>(pDescriptorSets[i], this)->getDynamicOffsetCount();
                 std::copy_n(dynamicOffsetsIt,count,cmd.dynamicOffsets+cmd.dynamicOffsetCount);
                 cmd.dynamicOffsetCount += count;
                 dynamicOffsetsIt += count;

@@ -4,9 +4,94 @@
 #include "nbl/video/CVulkanQueryPool.h"
 #include "nbl/video/CVulkanCommandBuffer.h"
 #include "nbl/video/CVulkanEvent.h"
+#include "nbl/video/surface/CSurfaceVulkan.h"
 
 namespace nbl::video
 {
+
+core::smart_refctd_ptr<ISwapchain> CVulkanLogicalDevice::createSwapchain(ISwapchain::SCreationParams&& params)
+{
+    constexpr uint32_t MAX_SWAPCHAIN_IMAGE_COUNT = 100u;
+
+    if (params.surface->getAPIType() != EAT_VULKAN)
+        return nullptr;
+
+#ifdef _NBL_PLATFORM_WINDOWS_
+    // Todo(achal): not sure yet, how would I handle multiple platforms without making
+    // this function templated
+    VkSurfaceKHR vk_surface = static_cast<const CSurfaceVulkanWin32*>(params.surface.get())->getInternalObject();
+#endif
+
+    VkPresentModeKHR vkPresentMode;
+    if((params.presentMode & ISurface::E_PRESENT_MODE::EPM_IMMEDIATE) == ISurface::E_PRESENT_MODE::EPM_IMMEDIATE)
+        vkPresentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
+    else if((params.presentMode & ISurface::E_PRESENT_MODE::EPM_MAILBOX) == ISurface::E_PRESENT_MODE::EPM_MAILBOX)
+        vkPresentMode = VK_PRESENT_MODE_MAILBOX_KHR;
+    else if((params.presentMode & ISurface::E_PRESENT_MODE::EPM_FIFO) == ISurface::E_PRESENT_MODE::EPM_FIFO)
+        vkPresentMode = VK_PRESENT_MODE_FIFO_KHR;
+    else if((params.presentMode & ISurface::E_PRESENT_MODE::EPM_FIFO_RELAXED) == ISurface::E_PRESENT_MODE::EPM_FIFO_RELAXED)
+        vkPresentMode = VK_PRESENT_MODE_FIFO_RELAXED_KHR;
+
+    VkSwapchainCreateInfoKHR vk_createInfo = { VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR };
+#ifdef _NBL_PLATFORM_WINDOWS_
+    vk_createInfo.surface = vk_surface;
+#endif        
+    vk_createInfo.minImageCount = params.minImageCount;
+    vk_createInfo.imageFormat = getVkFormatFromFormat(params.surfaceFormat.format);
+    vk_createInfo.imageColorSpace = getVkColorSpaceKHRFromColorSpace(params.surfaceFormat.colorSpace);
+    vk_createInfo.imageExtent = { params.width, params.height };
+    vk_createInfo.imageArrayLayers = params.arrayLayers;
+    vk_createInfo.imageUsage = static_cast<VkImageUsageFlags>(params.imageUsage);
+    vk_createInfo.imageSharingMode = static_cast<VkSharingMode>(params.imageSharingMode);
+    vk_createInfo.queueFamilyIndexCount = params.queueFamilyIndexCount;
+    vk_createInfo.pQueueFamilyIndices = params.queueFamilyIndices;
+    vk_createInfo.preTransform = static_cast<VkSurfaceTransformFlagBitsKHR>(params.preTransform);
+    vk_createInfo.compositeAlpha = static_cast<VkCompositeAlphaFlagBitsKHR>(params.compositeAlpha);
+    vk_createInfo.presentMode = vkPresentMode;
+    vk_createInfo.clipped = VK_FALSE;
+    vk_createInfo.oldSwapchain = VK_NULL_HANDLE;
+    if (params.oldSwapchain && (params.oldSwapchain->getAPIType() == EAT_VULKAN))
+        vk_createInfo.oldSwapchain = IBackendObject::device_compatibility_cast<CVulkanSwapchain*>(params.oldSwapchain.get(), this)->getInternalObject();
+
+    VkSwapchainKHR vk_swapchain;
+    if (m_devf.vk.vkCreateSwapchainKHR(m_vkdev, &vk_createInfo, nullptr, &vk_swapchain) != VK_SUCCESS)
+        return nullptr;
+
+    uint32_t imageCount;
+    VkResult retval = m_devf.vk.vkGetSwapchainImagesKHR(m_vkdev, vk_swapchain, &imageCount, nullptr);
+    if ((retval != VK_SUCCESS) && (retval != VK_INCOMPLETE))
+        return nullptr;
+
+    assert(imageCount <= MAX_SWAPCHAIN_IMAGE_COUNT);
+
+    VkImage vk_images[MAX_SWAPCHAIN_IMAGE_COUNT];
+    retval = m_devf.vk.vkGetSwapchainImagesKHR(m_vkdev, vk_swapchain, &imageCount, vk_images);
+    if ((retval != VK_SUCCESS) && (retval != VK_INCOMPLETE))
+        return nullptr;
+
+    ISwapchain::images_array_t images = core::make_refctd_dynamic_array<ISwapchain::images_array_t>(imageCount);
+
+    uint32_t i = 0u;
+    for (auto& image : (*images))
+    {
+        CVulkanForeignImage::SCreationParams creationParams;
+        creationParams.arrayLayers = params.arrayLayers;
+        creationParams.extent = { params.width, params.height, 1u };
+        creationParams.flags = static_cast<CVulkanForeignImage::E_CREATE_FLAGS>(0); // Todo(achal)
+        creationParams.format = params.surfaceFormat.format;
+        creationParams.mipLevels = 1u;
+        creationParams.samples = CVulkanImage::ESCF_1_BIT; // Todo(achal)
+        creationParams.type = CVulkanImage::ET_2D;
+
+        image = core::make_smart_refctd_ptr<CVulkanForeignImage>(
+            core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(creationParams),
+            vk_images[i++]);
+    }
+
+    return core::make_smart_refctd_ptr<CVulkanSwapchain>(
+        core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(params),
+        std::move(images), vk_swapchain);
+}
 
 core::smart_refctd_ptr<IGPUEvent> CVulkanLogicalDevice::createEvent(IGPUEvent::E_CREATE_FLAGS flags)
 {
@@ -27,7 +112,7 @@ IGPUEvent::E_STATUS CVulkanLogicalDevice::getEventStatus(const IGPUEvent* _event
     if (!_event || _event->getAPIType() != EAT_VULKAN)
         return IGPUEvent::E_STATUS::ES_FAILURE;
 
-    VkEvent vk_event = static_cast<const CVulkanEvent*>(_event)->getInternalObject();
+    VkEvent vk_event = IBackendObject::device_compatibility_cast<const CVulkanEvent*>(_event, this)->getInternalObject();
     VkResult retval = m_devf.vk.vkGetEventStatus(m_vkdev, vk_event);
     switch (retval)
     {
@@ -45,7 +130,7 @@ IGPUEvent::E_STATUS CVulkanLogicalDevice::resetEvent(IGPUEvent* _event)
     if (!_event || _event->getAPIType() != EAT_VULKAN)
         return IGPUEvent::E_STATUS::ES_FAILURE;
 
-    VkEvent vk_event = static_cast<const CVulkanEvent*>(_event)->getInternalObject();
+    VkEvent vk_event = IBackendObject::device_compatibility_cast<const CVulkanEvent*>(_event, this)->getInternalObject();
     if (m_devf.vk.vkResetEvent(m_vkdev, vk_event) == VK_SUCCESS)
         return IGPUEvent::ES_RESET;
     else
@@ -57,7 +142,7 @@ IGPUEvent::E_STATUS CVulkanLogicalDevice::setEvent(IGPUEvent* _event)
     if (!_event || _event->getAPIType() != EAT_VULKAN)
         return IGPUEvent::E_STATUS::ES_FAILURE;
 
-    VkEvent vk_event = static_cast<const CVulkanEvent*>(_event)->getInternalObject();
+    VkEvent vk_event = IBackendObject::device_compatibility_cast<const CVulkanEvent*>(_event, this)->getInternalObject();
     if (m_devf.vk.vkSetEvent(m_vkdev, vk_event) == VK_SUCCESS)
         return IGPUEvent::ES_SET;
     else
@@ -216,7 +301,7 @@ bool CVulkanLogicalDevice::createCommandBuffers_impl(IGPUCommandPool* cmdPool, I
     if (cmdPool->getAPIType() != EAT_VULKAN)
         return false;
 
-    auto vulkanCommandPool = static_cast<CVulkanCommandPool*>(cmdPool)->getInternalObject();
+    auto vulkanCommandPool = IBackendObject::device_compatibility_cast<CVulkanCommandPool*>(cmdPool, this)->getInternalObject();
 
     assert(count <= MAX_COMMAND_BUFFER_COUNT);
     VkCommandBuffer vk_commandBuffers[MAX_COMMAND_BUFFER_COUNT];
@@ -233,7 +318,7 @@ bool CVulkanLogicalDevice::createCommandBuffers_impl(IGPUCommandPool* cmdPool, I
         {
             outCmdBufs[i] = core::make_smart_refctd_ptr<CVulkanCommandBuffer>(
                 core::smart_refctd_ptr<ILogicalDevice>(this), level, vk_commandBuffers[i],
-                cmdPool);
+                core::smart_refctd_ptr<IGPUCommandPool>(cmdPool));
         }
 
         return true;
@@ -314,7 +399,7 @@ bool CVulkanLogicalDevice::createGPUGraphicsPipelines_impl(
 
     VkPipelineCache vk_pipelineCache = VK_NULL_HANDLE;
     if (pipelineCache && pipelineCache->getAPIType() == EAT_VULKAN)
-        vk_pipelineCache = static_cast<const CVulkanPipelineCache*>(pipelineCache)->getInternalObject();
+        vk_pipelineCache = IBackendObject::device_compatibility_cast<const CVulkanPipelineCache*>(pipelineCache, this)->getInternalObject();
 
     // Shader stages
     uint32_t shaderStageCount_total = 0u;
@@ -373,7 +458,7 @@ bool CVulkanLogicalDevice::createGPUGraphicsPipelines_impl(
             if (!shader || shader->getAPIType() != EAT_VULKAN)
                 continue;
 
-            const auto* vulkanSpecShader = static_cast<const CVulkanSpecializedShader*>(shader);
+            const auto* vulkanSpecShader = IBackendObject::device_compatibility_cast<const CVulkanSpecializedShader*>(shader, this);
 
             auto& vk_shaderStage = vk_shaderStages[shaderStageCount_total + shaderStageCount];
 
@@ -612,8 +697,8 @@ bool CVulkanLogicalDevice::createGPUGraphicsPipelines_impl(
         // Dynamic state
         vk_createInfos[i].pDynamicState = &vk_dynamicStateCreateInfo;
 
-        vk_createInfos[i].layout = static_cast<const CVulkanPipelineLayout*>(rpIndie->getLayout())->getInternalObject();
-        vk_createInfos[i].renderPass = static_cast<const CVulkanRenderpass*>(creationParams[i].renderpass.get())->getInternalObject();
+        vk_createInfos[i].layout = IBackendObject::device_compatibility_cast<const CVulkanPipelineLayout*>(rpIndie->getLayout(), this)->getInternalObject();
+        vk_createInfos[i].renderPass = IBackendObject::device_compatibility_cast<const CVulkanRenderpass*>(creationParams[i].renderpass.get(), this)->getInternalObject();
         vk_createInfos[i].subpass = creationParams[i].subpassIx;
         vk_createInfos[i].basePipelineHandle = VK_NULL_HANDLE;
         vk_createInfos[i].basePipelineIndex = 0u;
@@ -653,7 +738,7 @@ core::smart_refctd_ptr<IGPUAccelerationStructure> CVulkanLogicalDevice::createGP
     VkAccelerationStructureCreateInfoKHR vasci = {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR, nullptr};
     vasci.createFlags = CVulkanAccelerationStructure::getVkASCreateFlagsFromASCreateFlags(params.flags);
     vasci.type = CVulkanAccelerationStructure::getVkASTypeFromASType(params.type);
-    vasci.buffer = static_cast<const CVulkanBuffer*>(params.bufferRange.buffer.get())->getInternalObject();
+    vasci.buffer = IBackendObject::device_compatibility_cast<const CVulkanBuffer*>(params.bufferRange.buffer.get(), this)->getInternalObject();
     vasci.offset = static_cast<VkDeviceSize>(params.bufferRange.offset);
     vasci.size = static_cast<VkDeviceSize>(params.bufferRange.size);
     auto vk_res = m_devf.vk.vkCreateAccelerationStructureKHR(m_vkdev, &vasci, nullptr, &vk_as);
@@ -679,7 +764,7 @@ bool CVulkanLogicalDevice::buildAccelerationStructures(
     bool ret = false;
     if(!pInfos.empty() && deferredOperation.get() != nullptr)
     {
-        VkDeferredOperationKHR vk_deferredOp = static_cast<CVulkanDeferredOperation *>(deferredOperation.get())->getInternalObject();
+        VkDeferredOperationKHR vk_deferredOp = IBackendObject::device_compatibility_cast<CVulkanDeferredOperation *>(deferredOperation.get(), this)->getInternalObject();
         static constexpr size_t MaxGeometryPerBuildInfoCount = 64;
         static constexpr size_t MaxBuildInfoCount = 128;
         size_t infoCount = pInfos.size();
@@ -727,7 +812,7 @@ bool CVulkanLogicalDevice::copyAccelerationStructure(core::smart_refctd_ptr<IDef
     bool ret = false;
     if(deferredOperation.get() != nullptr)
     {
-        VkDeferredOperationKHR vk_deferredOp = static_cast<CVulkanDeferredOperation *>(deferredOperation.get())->getInternalObject();
+        VkDeferredOperationKHR vk_deferredOp = IBackendObject::device_compatibility_cast<CVulkanDeferredOperation *>(deferredOperation.get(), this)->getInternalObject();
         if(copyInfo.dst == nullptr || copyInfo.src == nullptr) 
         {
             assert(false && "invalid src or dst");
@@ -757,7 +842,7 @@ bool CVulkanLogicalDevice::copyAccelerationStructureToMemory(core::smart_refctd_
     bool ret = false;
     if(deferredOperation.get() != nullptr)
     {
-        VkDeferredOperationKHR vk_deferredOp = static_cast<CVulkanDeferredOperation *>(deferredOperation.get())->getInternalObject();
+        VkDeferredOperationKHR vk_deferredOp = IBackendObject::device_compatibility_cast<CVulkanDeferredOperation *>(deferredOperation.get(), this)->getInternalObject();
 
         if(copyInfo.dst.isValid() == false || copyInfo.src == nullptr) 
         {
@@ -788,7 +873,7 @@ bool CVulkanLogicalDevice::copyAccelerationStructureFromMemory(core::smart_refct
     bool ret = false;
     if(deferredOperation.get() != nullptr)
     {
-        VkDeferredOperationKHR vk_deferredOp = static_cast<CVulkanDeferredOperation *>(deferredOperation.get())->getInternalObject();
+        VkDeferredOperationKHR vk_deferredOp = IBackendObject::device_compatibility_cast<CVulkanDeferredOperation *>(deferredOperation.get(), this)->getInternalObject();
         if(copyInfo.dst == nullptr || copyInfo.src.isValid() == false) 
         {
             assert(false && "invalid src or dst");
@@ -827,13 +912,13 @@ core::smart_refctd_ptr<IQueryPool> CVulkanLogicalDevice::createQueryPool(IQueryP
     return core::make_smart_refctd_ptr<CVulkanQueryPool>(core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(params), vk_queryPool);
 }
 
-bool CVulkanLogicalDevice::getQueryPoolResults(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, size_t dataSize, void * pData, uint64_t stride, IQueryPool::E_QUERY_RESULTS_FLAGS flags)
+bool CVulkanLogicalDevice::getQueryPoolResults(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, size_t dataSize, void * pData, uint64_t stride, core::bitflag<IQueryPool::E_QUERY_RESULTS_FLAGS> flags)
 {
     bool ret = false;
     if(queryPool != nullptr)
     {
-        auto vk_queryPool = static_cast<CVulkanQueryPool*>(queryPool)->getInternalObject();
-        auto vk_queryResultsflags = CVulkanQueryPool::getVkQueryResultsFlagsFromQueryResultsFlags(flags);
+        auto vk_queryPool = IBackendObject::device_compatibility_cast<CVulkanQueryPool*>(queryPool, this)->getInternalObject();
+        auto vk_queryResultsflags = CVulkanQueryPool::getVkQueryResultsFlagsFromQueryResultsFlags(flags.value);
         auto vk_res = m_devf.vk.vkGetQueryPoolResults(m_vkdev, vk_queryPool, firstQuery, queryCount, dataSize, pData, static_cast<VkDeviceSize>(stride), vk_queryResultsflags);
         if(VK_SUCCESS == vk_res)
             ret = true;

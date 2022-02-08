@@ -22,9 +22,9 @@ namespace nbl::video
 template <typename LogicalDeviceType>
 class IOpenGL_PhysicalDeviceBase : public IPhysicalDevice
 {
-    using function_table_t = typename LogicalDeviceType::FunctionTableType;
-    static inline constexpr EGLint EGL_API_TYPE = function_table_t::EGL_API_TYPE;
-    static inline constexpr bool IsGLES = (EGL_API_TYPE == EGL_OPENGL_ES_API);
+	using function_table_t = typename LogicalDeviceType::FunctionTableType;
+	static inline constexpr EGLint EGL_API_TYPE = function_table_t::EGL_API_TYPE;
+	static inline constexpr bool IsGLES = (EGL_API_TYPE == EGL_OPENGL_ES_API);
 
 	static inline constexpr uint32_t MaxQueues = 8u;
 
@@ -162,17 +162,17 @@ protected:
 	}
 
 public:
-    IOpenGL_PhysicalDeviceBase(IAPIConnection* api, renderdoc_api_t* rdoc, core::smart_refctd_ptr<system::ISystem>&& s, egl::CEGL&& _egl, COpenGLDebugCallback&& _dbgCb, EGLConfig _config, EGLContext ctx, EGLint _major, EGLint _minor)
+	IOpenGL_PhysicalDeviceBase(IAPIConnection* api, renderdoc_api_t* rdoc, core::smart_refctd_ptr<system::ISystem>&& s, egl::CEGL&& _egl, COpenGLDebugCallback&& _dbgCb, EGLConfig _config, EGLContext ctx, EGLint _major, EGLint _minor)
 		: IPhysicalDevice(std::move(s),core::make_smart_refctd_ptr<asset::IGLSLCompiler>(s.get())), m_api(api), m_rdoc_api(rdoc), m_egl(std::move(_egl)), m_dbgCb(std::move(_dbgCb)), m_config(_config), m_gl_major(_major), m_gl_minor(_minor)
-    {
-        // OpenGL backend emulates presence of just one queue family with all capabilities (graphics, compute, transfer, ... what about sparse binding?)
-        SQueueFamilyProperties qprops;
-        qprops.queueFlags = core::bitflag(EQF_GRAPHICS_BIT)|EQF_COMPUTE_BIT|EQF_TRANSFER_BIT;
-        qprops.queueCount = MaxQueues;
-        qprops.timestampValidBits = 30u; // ??? TODO: glGetQueryiv(GL_TIMESTAMP,GL_QUERY_COUNTER_BITS,&qprops.timestampValidBits)
-        qprops.minImageTransferGranularity = { 1u,1u,1u };
+	{
+		// OpenGL backend emulates presence of just one queue family with all capabilities (graphics, compute, transfer, ... what about sparse binding?)
+		SQueueFamilyProperties qprops;
+		qprops.queueFlags = core::bitflag(EQF_GRAPHICS_BIT)|EQF_COMPUTE_BIT|EQF_TRANSFER_BIT;
+		qprops.queueCount = MaxQueues;
+		qprops.timestampValidBits = 30u; // ??? TODO: glGetQueryiv(GL_TIMESTAMP,GL_QUERY_COUNTER_BITS,&qprops.timestampValidBits)
+		qprops.minImageTransferGranularity = { 1u,1u,1u };
 
-        m_qfamProperties = core::make_refctd_dynamic_array<qfam_props_array_t>(1u, qprops);
+		m_qfamProperties = core::make_refctd_dynamic_array<qfam_props_array_t>(1u, qprops);
 
 		m_egl.call.peglBindAPI(EGL_API_TYPE);
 
@@ -492,8 +492,17 @@ public:
 			}
 		}
 		
+		int majorVer = 0;
+		int minorVer = 0;
+		GetIntegerv(GL_MAJOR_VERSION, &majorVer);
+		GetIntegerv(GL_MINOR_VERSION, &minorVer);
+		m_apiVersion.major = majorVer;
+		m_apiVersion.minor = minorVer;
+		m_apiVersion.patch = 0u;
+
+
 		std::ostringstream pool;
-        addCommonGLSLDefines(pool,runningInRenderDoc);
+		addCommonGLSLDefines(pool,runningInRenderDoc);
 		{
 			std::string define;
 			for (size_t j=0ull; j<std::extent<decltype(COpenGLFeatureMap::m_GLSLExtensions)>::value; ++j)
@@ -507,13 +516,13 @@ public:
 				}
 			}
 		}
-        finalizeGLSLDefinePool(std::move(pool));
+		finalizeGLSLDefinePool(std::move(pool));
 
 		// we dont need this any more
 		m_egl.call.peglMakeCurrent(m_egl.display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
 		m_egl.call.peglDestroyContext(m_egl.display, ctx);
 		m_egl.call.peglDestroySurface(m_egl.display, pbuf);
-    }
+	}
 
 	IDebugCallback* getDebugCallback()
 	{
@@ -530,11 +539,11 @@ protected:
 
 	IAPIConnection* m_api; // dumb pointer to avoid circ ref
 	renderdoc_api_t* m_rdoc_api;
-    egl::CEGL m_egl;
+	egl::CEGL m_egl;
 	COpenGLDebugCallback m_dbgCb;
 
-    EGLConfig m_config;
-    EGLint m_gl_major, m_gl_minor;
+	EGLConfig m_config;
+	EGLint m_gl_major, m_gl_minor;
 
 	COpenGLFeatureMap m_glfeatures;
 };

@@ -21,12 +21,13 @@ public:
     {}
 
     ~CVulkanShader();
-
+    
     const asset::ICPUBuffer* getSPV() const { return m_spirv.get(); };
 
     inline VkShaderModule getInternalObject() const { return m_vkShaderModule; }
 
 private:
+    // We want to use the SPIR-V optimizer later.
     core::smart_refctd_ptr<asset::ICPUBuffer> m_spirv;
     VkShaderModule m_vkShaderModule = VK_NULL_HANDLE;
 

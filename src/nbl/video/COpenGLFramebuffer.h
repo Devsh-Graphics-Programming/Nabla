@@ -165,7 +165,7 @@ public:
                 const auto& att = attachments[a];
                 const auto& d = descriptions[a];
 
-                auto* glatt = static_cast<COpenGLImageView*>(att.get());
+                auto* glatt = IBackendObject::compatibility_cast<COpenGLImageView*>(att.get(), this);
                 const GLuint glname = glatt->getOpenGLName();
                 //gl->glTexture.pglBindTexture(GL_TEXTURE_2D, glname); // what was it for???
                 const GLenum textarget = COpenGLImageView::ViewTypeToGLenumTarget[glatt->getCreationParameters().viewType];
@@ -179,7 +179,7 @@ public:
         if (sub.depthStencilAttachment)
         {
             const auto& att = attachments[sub.depthStencilAttachment->attachment];
-            auto* glatt = static_cast<COpenGLImageView*>(att.get());
+            auto* glatt = IBackendObject::compatibility_cast<COpenGLImageView*>(att.get(), this);
             const GLuint glname = glatt->getOpenGLName();
             const GLenum textarget = COpenGLImageView::ViewTypeToGLenumTarget[glatt->getCreationParameters().viewType];
 

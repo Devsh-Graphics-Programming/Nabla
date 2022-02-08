@@ -5,6 +5,8 @@
 namespace nbl::video
 {
 
+static constexpr uint32_t MinimumVulkanApiVersion = VK_MAKE_API_VERSION(0, 1, 1, 0);
+
 static inline asset::E_FORMAT getFormatFromVkFormat(VkFormat in)
 {
     switch (in)
@@ -679,6 +681,11 @@ static inline VkLogicOp getVkLogicOpFromLogicOp(const asset::E_LOGIC_OP in)
 static inline VkColorComponentFlags getVkColorComponentFlagsFromColorWriteMask(const uint64_t in)
 {
     return static_cast<VkColorComponentFlags>(in);
+}
+
+static inline VkPipelineStageFlags getVkPipelineStageFlagsFromPipelineStageFlags(const asset::E_PIPELINE_STAGE_FLAGS in)
+{
+    return static_cast<VkPipelineStageFlags>(in);
 }
 
 }

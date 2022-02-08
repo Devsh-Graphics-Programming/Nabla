@@ -299,10 +299,11 @@ public:
         return retval;
     }
 
-    void resetFences(uint32_t _count, IGPUFence*const * _fences) override final
+    bool resetFences(uint32_t _count, IGPUFence*const * _fences) override final
     {
         for (uint32_t i = 0u; i < _count; ++i)
-            static_cast<COpenGLFence*>(_fences[i])->reset();
+            IBackendObject::device_compatibility_cast<COpenGLFence*>(_fences[i], this)->reset();
+        return true;
     }
 
     IGPUFence::E_STATUS waitForFences(uint32_t _count, IGPUFence* const* _fences, bool _waitAll, uint64_t _timeout) override final
@@ -415,7 +416,7 @@ public:
         return retval;
     }
     
-    bool getQueryPoolResults(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, size_t dataSize, void * pData, uint64_t stride, IQueryPool::E_QUERY_RESULTS_FLAGS flags) override
+    bool getQueryPoolResults(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, size_t dataSize, void * pData, uint64_t stride, core::bitflag<IQueryPool::E_QUERY_RESULTS_FLAGS> flags) override
     {
         SRequestGetQueryPoolResults req_params;
         req_params.queryPool = core::smart_refctd_ptr<const IQueryPool>(queryPool);
@@ -548,7 +549,7 @@ protected:
         for (uint32_t i = 0u; i < _count; ++i)
             _output[i] = core::make_smart_refctd_ptr<COpenGLCommandBuffer>(
                 core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this),
-                _level, _cmdPool,
+                _level, core::smart_refctd_ptr<IGPUCommandPool>(_cmdPool),
                 core::smart_refctd_ptr<system::ILogger>(getLogger().get()),
                 m_glfeatures
             );
@@ -569,7 +570,7 @@ protected:
     }
     core::smart_refctd_ptr<IGPUSpecializedShader> createGPUSpecializedShader_impl(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo, const asset::ISPIRVOptimizer* _spvopt = nullptr) override final
     {
-        const COpenGLShader* glUnspec = static_cast<const COpenGLShader*>(_unspecialized);
+        const COpenGLShader* glUnspec = IBackendObject::device_compatibility_cast<const COpenGLShader*>(_unspecialized, this);
 
         const std::string& EP = _specInfo.entryPoint;
         const asset::IShader::E_SHADER_STAGE stage = _unspecialized->getStage();

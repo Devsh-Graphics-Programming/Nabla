@@ -66,6 +66,8 @@ bool COpenGLPipelineCache::SCacheKey::operator<(const COpenGLPipelineCache::SCac
 {
 	if (hash < _rhs.hash) return true;
 	if (_rhs.hash < hash) return false;
+	if (shaderStage < _rhs.shaderStage) return true;
+	if (_rhs.shaderStage < shaderStage) return false;
 	if (info < _rhs.info) return true;
 	if (_rhs.info < info) return false;
 	for (uint32_t i = 0u; i < IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
