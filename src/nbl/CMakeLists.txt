@@ -477,7 +477,7 @@ macro(nbl_target_link_spirv_tools _trgt)
 	target_link_libraries(${_trgt} INTERFACE
 		SPIRV SPIRV-Tools SPIRV-Tools-opt
 	)
-	target_include_directories(${_trgt} PUBLIC
+	target_include_directories(${_trgt} PUBLIC BEFORE
 		${THIRD_PARTY_SOURCE_DIR}/SPIRV-Tools/include
 	)
 endmacro()
