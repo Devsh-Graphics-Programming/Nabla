@@ -362,6 +362,7 @@ macro(nbl_android_create_apk _TARGET)
 		WORKING_DIRECTORY ${NBL_GEN_DIRECTORY}/$<CONFIG>
 		COMMAND ${ANDROID_JAVA_BIN}/keytool -genkey -keystore ${KEYSTORE_FILE} -storepass android -alias ${KEY_ENTRY_ALIAS} -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=, OU=, O=, L=, S=, C="
 	)
+	
 	set(D8_SCRIPT "${ANDROID_BUILD_TOOLS}/d8.bat")
     if(NOT EXISTS ${D8_SCRIPT})
         set(DEX_COMMAND ${ANDROID_BUILD_TOOLS}/d8 ./obj/eu/devsh/${TARGET_NAME}/Loader.class --output ./bin/)
