@@ -41,6 +41,16 @@ namespace nbl::system
 			}
 			else m_openedProperly = false;
 		}
+		else
+		{
+			if (std::filesystem::exists(_filename.parent_path()))
+			{
+				m_native = creat(name_c_str, S_IRUSR | S_IRGRP | S_IROTH);//open(name_c_str, createFlags, S_IRUSR | S_IRGRP | S_IROTH);
+			}
+			else
+				m_openedProperly = false;
+		}
+		std::string error = strerror(errno);
 		m_openedProperly = m_native >= 0;
 		if(m_openedProperly)
 		{

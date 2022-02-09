@@ -49,7 +49,7 @@ namespace nbl::ui
 				system::path sharedInputCWD = system::path(app->activity->externalDataPath).parent_path().parent_path() / "eu.devsh.mediaunpackingonandroid/files/media";
 				system::path APKResourcesPath = "asset"; // an archive alias to recognize this path as an apk resource
 				system::path sharedOutputCWD = system::path(app->activity->externalDataPath).parent_path().parent_path();
-				system::path privateOutputCWD = system::path(app->activity->internalDataPath);
+				system::path privateOutputCWD = system::path(app->activity->externalDataPath);
 
 				if constexpr (std::is_base_of_v<nbl::ui::CGraphicalApplicationAndroid, android_app_class>)
 				{
