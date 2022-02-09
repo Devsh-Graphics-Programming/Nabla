@@ -60,8 +60,8 @@ if(DEFINED ENV{VULKAN_SDK})
 	endif()
 	add_subdirectory(volk volk EXCLUDE_FROM_ALL)
 	
-    target_include_directories(volk PUBLIC "$ENV{VULKAN_SDK}/include")
-    target_include_directories(volk_headers INTERFACE "$ENV{VULKAN_SDK}/include")
+    target_include_directories(volk PUBLIC "$ENV{VULKAN_SDK}/Include")
+    target_include_directories(volk_headers INTERFACE "$ENV{VULKAN_SDK}/Include")
 endif()
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")

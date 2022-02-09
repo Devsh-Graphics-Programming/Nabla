@@ -68,9 +68,9 @@ class SumAndCDFFilterSampleApp : public NonGraphicalApplicationBase
 
 public:
 
-	void setSystem(core::smart_refctd_ptr<nbl::system::ISystem>&& system) override
+	void setSystem(core::smart_refctd_ptr<nbl::system::ISystem>&& _system) override
 	{
-		system = std::move(system);
+		system = std::move(_system);
 	}
 
 	NON_GRAPHICAL_APP_CONSTRUCTOR(SumAndCDFFilterSampleApp);
@@ -249,9 +249,9 @@ public:
 		viewParams.subresourceRange.levelCount = cpuImage->getCreationParameters().mipLevels;
 
 		auto cpuImageView = ICPUImageView::create(std::move(viewParams));
-		assert(cpuImageView.get(), "The imageView didn't pass creation validation!");
+		assert(cpuImageView.get()); // The imageView didn't pass creation validation!
 
-		auto writeSATandGetItsOutputName = [&]() -> std::string
+		auto writeSATandGetItsOutputName = [&]() -> std::string //! Writes asset and returns file name without full path
 		{
 			std::string outputFileName;
 
@@ -326,10 +326,11 @@ public:
 
 		{
 			const std::string satFileName = writeSATandGetItsOutputName();
+			const auto satFilePath = localOutputCWD / satFileName;
 			const std::string convolutedSatFileName = "CONVOLUTED_" + satFileName;
 			const auto convolutedSatFilePath = localOutputCWD / convolutedSatFileName;
 
-			auto bundle = assetManager->getAsset(satFileName, loadParams);
+			auto bundle = assetManager->getAsset(satFilePath.string(), loadParams);
 			#ifdef IMAGE_VIEW
 			auto cpuImageViewFetched = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(bundle.getContents().begin()[0]);
 			auto cpuImage = getDisConvolutedImage(cpuImageViewFetched->getCreationParameters().image);
@@ -342,7 +343,7 @@ public:
 			viewParams.components = {};
 
 			auto cpuImageView = ICPUImageView::create(std::move(viewParams));
-			assert(cpuImageView.get(), "The imageView didn't pass creation validation!");
+			assert(cpuImageView.get()); // The imageView didn't pass creation validation!
 
 			asset::IAssetWriter::SAssetWriteParams wparams(cpuImageView.get());
 			assetManager->writeAsset(convolutedSatFilePath.string(), wparams);

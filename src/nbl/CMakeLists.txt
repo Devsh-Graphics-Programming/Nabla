@@ -121,6 +121,14 @@ option(_NBL_COMPILE_WITH_GLI_WRITER_ "Compile with GLI Writer" ON)
 option(_NBL_COMPILE_WITH_GLTF_LOADER_ "Compile with GLTF Loader" ON)
 option(_NBL_COMPILE_WITH_GLTF_WRITER_ "Compile with GLTF Writer" ON)
 
+if(NBL_BUILD_ANDROID)
+	set(_NBL_COMPILE_WITH_BAW_LOADER_ OFF CACHE BOOL "Off for Android purposes at the moment" FORCE)	# TODO - remove when BAW-v4 is done
+	set(_NBL_COMPILE_WITH_BAW_WRITER_ OFF CACHE BOOL "Off for Android purposes at the moment" FORCE)	# TODO - remove when BAW-v4 is done
+	set(_NBL_COMPILE_WITH_OBJ_LOADER_ OFF CACHE BOOL "Off for Android purposes at the moment" FORCE)
+	set(_NBL_COMPILE_WITH_MTL_LOADER_ OFF CACHE BOOL "Off for Android purposes at the moment" FORCE)
+	set(NBL_BUILD_MITSUBA_LOADER OFF CACHE BOOL "Off for Android purposes at the moment" FORCE) 		# TODO - compile/linker errors
+endif()
+
 nbl_get_conf_dir(NABLA_CONF_DIR_DEBUG Debug)
 nbl_get_conf_dir(NABLA_CONF_DIR_RELEASE Release)
 if(NBL_EMBED_BUILTIN_RESOURCES)	
@@ -477,7 +485,7 @@ macro(nbl_target_link_spirv_tools _trgt)
 	target_link_libraries(${_trgt} INTERFACE
 		SPIRV SPIRV-Tools SPIRV-Tools-opt
 	)
-	target_include_directories(${_trgt} PUBLIC
+	target_include_directories(${_trgt} PUBLIC BEFORE
 		${THIRD_PARTY_SOURCE_DIR}/SPIRV-Tools/include
 	)
 endmacro()

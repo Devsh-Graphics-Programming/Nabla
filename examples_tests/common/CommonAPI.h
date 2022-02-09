@@ -395,10 +395,12 @@ public:
 #ifdef _NBL_PLATFORM_WINDOWS_
 		return nbl::core::make_smart_refctd_ptr<nbl::system::CSystemWin32>(std::move(caller));
 #elif defined(_NBL_PLATFORM_ANDROID_)
+#if 0
 		return nbl::core::make_smart_refctd_ptr<nbl::system::CSystemAndroid>(std::move(caller));
-#else
-		return nullptr;
 #endif
+#endif
+		return nullptr;
+
 	}
 	
 	// Used to help with queue selection

@@ -176,7 +176,7 @@ Contact ***[@devshgraphicsprogramming](https://github.com/devshgraphicsprogrammi
 
 - **[CMake](https://cmake.org/download/)** 
 - **[MSVC](https://visualstudio.microsoft.com/pl/downloads/)** or **[GCC](https://sourceforge.net/projects/mingw-w64/)**
-- **[Vulkan SDK](https://vulkan.lunarg.com/sdk/home)**
+- **[Vulkan SDK](https://vulkan.lunarg.com/sdk/home)**, at least **1.2.198.1** version ***without* any components** installed
 - **[Perl 5.28 executable version](https://www.perl.org/get.html)**
 - **[NASM](https://www.nasm.us/pub/nasm/releasebuilds/?C=M;O=D)**
 - **[Python 3.8](https://www.python.org/downloads/release/python-380/)** or later
