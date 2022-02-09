@@ -12,7 +12,8 @@ namespace nbl::system
 	CFilePOSIX::CFilePOSIX(core::smart_refctd_ptr<ISystem>&& sys, const std::filesystem::path& _filename, core::bitflag<E_CREATE_FLAGS> _flags) :
 		base_t(std::move(sys), _filename, _flags)
 	{
-		const char* name_c_str = _filename.string().c_str();
+		auto filenameStream = _filename.string();
+		const char* name_c_str = filenameStream.c_str();
 		int createFlags = O_LARGEFILE;
 		int mappingFlags;
 		if ((_flags.value & ECF_READ_WRITE) == ECF_READ_WRITE)

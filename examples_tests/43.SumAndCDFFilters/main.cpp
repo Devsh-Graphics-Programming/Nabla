@@ -68,9 +68,9 @@ class SumAndCDFFilterSampleApp : public NonGraphicalApplicationBase
 
 public:
 
-	void setSystem(core::smart_refctd_ptr<nbl::system::ISystem>&& system) override
+	void setSystem(core::smart_refctd_ptr<nbl::system::ISystem>&& _system) override
 	{
-		system = std::move(system);
+		system = std::move(_system);
 	}
 
 	NON_GRAPHICAL_APP_CONSTRUCTOR(SumAndCDFFilterSampleApp);

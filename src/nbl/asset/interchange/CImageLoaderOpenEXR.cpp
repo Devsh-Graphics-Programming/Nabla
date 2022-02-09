@@ -356,7 +356,9 @@ namespace nbl
 
 					if (params.format == EF_UNKNOWN)
 					{
+						#ifndef  _NBL_PLATFORM_ANDROID_
 						_params.logger.log("LOAD EXR: incorrect format specified for " + suffixOfChannels + " channels - skipping the file %s", system::ILogger::ELL_INFO, file.fileName());
+						#endif // ! _NBL_PLATFORM_ANDROID_
 						continue;
 					}
 
@@ -463,6 +465,7 @@ namespace nbl
 			const auto bChannel = doesTheChannelExist("B", mapOfChannels);
 			const auto aChannel = doesTheChannelExist("A", mapOfChannels);
 			
+			#ifndef _NBL_PLATFORM_ANDROID_
 			if (rChannel && gChannel && bChannel && aChannel)
 				logger.log("LOAD EXR: loading " + suffixName + " RGBA file %s", system::ILogger::ELL_INFO, fileName.c_str());
 			else if (rChannel && gChannel && bChannel)
@@ -473,6 +476,7 @@ namespace nbl
 				logger.log("LOAD EXR: loading " + suffixName + " R file %s", system::ILogger::ELL_INFO, fileName.c_str());
 			else 
 				logger.log("LOAD EXR: the file's channels are invalid to load %s", system::ILogger::ELL_ERROR, fileName.c_str());
+			#endif // ! _NBL_PLATFORM_ANDROID_
 
 			auto doesMapOfChannelsFormatHaveTheSameFormatLikePassedToIt = [&](const PixelType ImfTypeToCompare)
 			{
@@ -521,7 +525,9 @@ namespace nbl
 				if (isTheBitActive(9))
 				{
 					versionField.Compoment.singlePartFileCompomentSubTypes = SContext::VersionField::Compoment::TILES;
+					#ifndef _NBL_PLATFORM_ANDROID_
 					logger.log("LOAD EXR: the file consist of not supported tiles %s", system::ILogger::ELL_ERROR, file.fileName());
+					#endif // !_NBL_PLATFORM_ANDROID_
 					return false;
 				}
 				else
@@ -531,14 +537,18 @@ namespace nbl
 			{
 				versionField.Compoment.type = SContext::VersionField::Compoment::MULTI_PART_FILE;
 				versionField.Compoment.singlePartFileCompomentSubTypes = SContext::VersionField::Compoment::SCAN_LINES_OR_TILES;
+				#ifndef  _NBL_PLATFORM_ANDROID_
 				logger.log("LOAD EXR: the file is a not supported multi part file %s", system::ILogger::ELL_ERROR, file.fileName());
+				#endif // ! _NBL_PLATFORM_ANDROID_
 				return false;
 			}
 
 			if (!isTheBitActive(9) && isTheBitActive(11) && isTheBitActive(12))
 			{
 				versionField.doesItSupportDeepData = true;
+				#ifndef  _NBL_PLATFORM_ANDROID_
 				logger.log("LOAD EXR: the file consist of not supported deep data%s", system::ILogger::ELL_ERROR, file.fileName());
+				#endif // ! _NBL_PLATFORM_ANDROID_
 				return false;
 			}
 			else
