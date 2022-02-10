@@ -43,7 +43,9 @@ public:
             m_limits.SSBOAlignment = deviceProperties.properties.limits.minStorageBufferOffsetAlignment;
             m_limits.bufferViewAlignment = deviceProperties.properties.limits.minTexelBufferOffsetAlignment;
             m_limits.maxSamplerAnisotropyLog2 = std::log2(deviceProperties.properties.limits.maxSamplerAnisotropy);
-
+            
+            m_limits.timestampPeriodInNanoSeconds = deviceProperties.properties.limits.timestampPeriod;
+            
             m_limits.maxUBOSize = deviceProperties.properties.limits.maxUniformBufferRange;
             m_limits.maxSSBOSize = deviceProperties.properties.limits.maxStorageBufferRange;
             m_limits.maxBufferViewSizeTexels = deviceProperties.properties.limits.maxTexelBufferElements;
@@ -80,7 +82,6 @@ public:
             constexpr auto beefyGPUWorkgroupMaxOccupancy = 256u; // TODO: find a way to query and report this somehow, persistent threads are very useful!
             m_limits.maxResidentInvocations = beefyGPUWorkgroupMaxOccupancy*m_limits.maxOptimallyResidentWorkgroupInvocations;
 
-            
             /*
                 [NO NABALA SUPPORT] Vulkan 1.0 implementation must support the 1.0 version of SPIR-V and the 1.0 version of the SPIR-V Extended Instructions for GLSL. If the VK_KHR_spirv_1_4 extension is enabled, the implementation must additionally support the 1.4 version of SPIR-V.
                 A Vulkan 1.1 implementation must support the 1.0, 1.1, 1.2, and 1.3 versions of SPIR-V and the 1.0 version of the SPIR-V Extended Instructions for GLSL.

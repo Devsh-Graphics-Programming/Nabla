@@ -30,6 +30,7 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
             uint32_t SSBOAlignment;
             uint32_t bufferViewAlignment;
             float    maxSamplerAnisotropyLog2;
+            float    timestampPeriodInNanoSeconds;
 
             uint32_t maxUBOSize;
             uint32_t maxSSBOSize;

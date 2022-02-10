@@ -419,6 +419,7 @@ public:
 			m_limits.maxBufferSize = std::max(m_limits.maxUBOSize, m_limits.maxSSBOSize);
 
 			m_limits.maxImageArrayLayers = m_glfeatures.MaxArrayTextureLayers;
+			m_limits.timestampPeriodInNanoSeconds = 1.0f;
 
 			GLint max_ssbos[5];
 			GetIntegerv(GL_MAX_VERTEX_SHADER_STORAGE_BLOCKS, max_ssbos + 0);

@@ -57,6 +57,9 @@ public:
     core::smart_refctd_ptr<video::IGPUBuffer> gpuubo;
     core::smart_refctd_ptr<video::IGPUDescriptorSet> gpuds1;
 
+    core::smart_refctd_ptr<video::IQueryPool> occlusionQueryPool;
+    core::smart_refctd_ptr<video::IQueryPool> timestampQueryPool;
+
     asset::ICPUMesh* meshRaw = nullptr;
     const asset::COBJMetadata* metaOBJ = nullptr;
 
@@ -145,6 +148,25 @@ public:
         return nbl::asset::EF_D32_SFLOAT;
     }
 
+    void getAndLogQueryPoolResults()
+    {
+        {
+            uint64_t samples_passed = 0u;
+            auto queryResultFlags = core::bitflag<video::IQueryPool::E_QUERY_RESULTS_FLAGS>(video::IQueryPool::EQRF_WAIT_BIT) | video::IQueryPool::EQRF_64_BIT;
+            logicalDevice->getQueryPoolResults(occlusionQueryPool.get(), 0u, 1u, sizeof(uint64_t), &samples_passed, sizeof(uint64_t), queryResultFlags);
+            logger->log("Samples Passed = %d", system::ILogger::ELL_INFO, samples_passed);
+        }
+
+        {
+            uint64_t timestamps[2] = {};
+            auto queryResultFlags = core::bitflag<video::IQueryPool::E_QUERY_RESULTS_FLAGS>(video::IQueryPool::EQRF_WAIT_BIT) | video::IQueryPool::EQRF_64_BIT;
+            logicalDevice->getQueryPoolResults(timestampQueryPool.get(), 0u, 2u, sizeof(timestamps), timestamps, sizeof(uint64_t), queryResultFlags);
+            float timePassed = (timestamps[1] - timestamps[0]) * physicalDevice->getLimits().timestampPeriodInNanoSeconds;
+            // logger->log("Time Passed (NanoSeconds) = %f", system::ILogger::ELL_INFO, timePassed);
+            logger->log("Time Passed (Seconds) = %f", system::ILogger::ELL_INFO, (timePassed * 1e-9));
+        }
+    }
+
     APP_CONSTRUCTOR(MeshLoadersApp)
     void onAppInitialized_impl() override
     {
@@ -155,7 +177,7 @@ public:
         const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT);
         const video::ISurface::SFormat surfaceFormat(asset::EF_R8G8B8A8_SRGB, asset::ECP_SRGB, asset::EOTF_sRGB);
 
-        CommonAPI::InitWithDefaultExt(initOutput, video::EAT_OPENGL_ES, "MeshLoaders", WIN_W, WIN_H, SC_IMG_COUNT, swapchainImageUsage, surfaceFormat, nbl::asset::EF_D32_SFLOAT);
+        CommonAPI::InitWithDefaultExt(initOutput, video::EAT_VULKAN, "MeshLoaders", WIN_W, WIN_H, SC_IMG_COUNT, swapchainImageUsage, surfaceFormat, nbl::asset::EF_D32_SFLOAT);
         window = std::move(initOutput.window);
         windowCb = std::move(initOutput.windowCb);
         apiConnection = std::move(initOutput.apiConnection);
@@ -173,6 +195,23 @@ public:
         cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
         logger = std::move(initOutput.logger);
         inputSystem = std::move(initOutput.inputSystem);
+        
+        // Occlusion Query
+        {
+            video::IQueryPool::SCreationParams queryPoolCreationParams = {};
+            queryPoolCreationParams.queryType = video::IQueryPool::EQT_OCCLUSION;
+            queryPoolCreationParams.queryCount = 1u;
+            occlusionQueryPool = logicalDevice->createQueryPool(std::move(queryPoolCreationParams));
+        }
+
+        // Timestamp Query
+        video::IQueryPool::SCreationParams queryPoolCreationParams = {};
+        {
+            video::IQueryPool::SCreationParams queryPoolCreationParams = {};
+            queryPoolCreationParams.queryType = video::IQueryPool::EQT_TIMESTAMP;
+            queryPoolCreationParams.queryCount = 2u;
+            timestampQueryPool = logicalDevice->createQueryPool(std::move(queryPoolCreationParams));
+        }
 
         nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
         {
@@ -423,8 +462,12 @@ public:
             beginInfo.clearValues = clear;
         }
 
+        commandBuffer->resetQueryPool(occlusionQueryPool.get(), 0u, 1u);
+        commandBuffer->resetQueryPool(timestampQueryPool.get(), 0u, 2u);
         commandBuffer->beginRenderPass(&beginInfo, nbl::asset::ESC_INLINE);
-
+        
+        commandBuffer->beginQuery(occlusionQueryPool.get(), 0u);
+        commandBuffer->writeTimestamp(asset::E_PIPELINE_STAGE_FLAGS::EPSF_TOP_OF_PIPE_BIT, timestampQueryPool.get(), 0u);
         for (size_t i = 0; i < gpumesh->getMeshBuffers().size(); ++i)
         {
             auto gpuMeshBuffer = gpumesh->getMeshBuffers().begin()[i];
@@ -444,6 +487,8 @@ public:
 
             commandBuffer->drawMeshBuffer(gpuMeshBuffer);
         }
+        commandBuffer->writeTimestamp(asset::E_PIPELINE_STAGE_FLAGS::EPSF_BOTTOM_OF_PIPE_BIT, timestampQueryPool.get(), 1u);
+        commandBuffer->endQuery(occlusionQueryPool.get(), 0u);
 
         commandBuffer->endRenderPass();
         commandBuffer->end();
@@ -459,6 +504,8 @@ public:
         CommonAPI::Present(logicalDevice.get(), 
             swapchain.get(),
             queues[CommonAPI::InitOutput::EQT_GRAPHICS], renderFinished[resourceIx].get(), acquiredNextFBO);
+
+        getAndLogQueryPoolResults();
     }
     bool keepRunning() override
     {
