@@ -26,7 +26,7 @@ class CBasicImageFilterCommon
 			public:
 				using iterator_category = std::random_access_iterator_tag;
 				using difference_type = int64_t;
-				using value_type = const uint32_t*;
+				using value_type = std::array<uint32_t,batch_dims>;
 				using pointer = const value_type*;
 				using reference = value_type;
 
@@ -35,17 +35,17 @@ class CBasicImageFilterCommon
 				BlockIterator()
 				{
 					std::fill_n(extentBatches,batch_dims,0u);
-					std::fill_n(batchCoord,batch_dims,0u);
+					std::fill_n(batchCoord.begin(),batch_dims,0u);
 				}
 				explicit inline BlockIterator(const uint32_t* _extentBatches)
 				{
 					std::copy_n(_extentBatches,batch_dims,extentBatches);
-					std::fill_n(batchCoord,batch_dims,0u);
+					std::fill_n(batchCoord.begin(),batch_dims,0u);
 				}
 				explicit inline BlockIterator(const uint32_t* _extentBatches, const uint32_t* _batchCoord)
 				{
 					std::copy_n(_extentBatches,batch_dims,extentBatches);
-					std::copy_n(_batchCoord,batch_dims,batchCoord);
+					std::copy_n(_batchCoord,batch_dims,batchCoord.begin());
 				}
 				BlockIterator(const BlockIterator<batch_dims>& other) = default;
 				BlockIterator(BlockIterator<batch_dims>&& other) = default;
@@ -59,11 +59,9 @@ class CBasicImageFilterCommon
 				}
 				inline pointer operator->() const {return &batchCoord;}
 
-				inline value_type operator[] (int index) 
+				inline value_type operator[] (int index) const
 				{
-					BlockIterator<batch_dims> temp = BlockIterator<batch_dims>(this->extentBatches);
-					temp+=index;
-					return *temp;
+					return *(operator+(index));
 				}
 				
 				inline bool operator< (const BlockIterator<batch_dims>& _rhs) const 
@@ -108,7 +106,7 @@ class CBasicImageFilterCommon
 					return copy;
 				}
 
-				inline bool operator==(const BlockIterator<batch_dims>& other) const {return std::equal(batchCoord,batchCoord+batch_dims,other.batchCoord);}
+				inline bool operator==(const BlockIterator<batch_dims>& other) const {return std::equal(batchCoord.begin(),batchCoord.end(),other.batchCoord.begin());}
 				inline bool operator!=(const BlockIterator<batch_dims>& other) const {return !operator==(other);}
 
 				inline BlockIterator<batch_dims>& operator+=(const difference_type advance)
@@ -134,7 +132,7 @@ class CBasicImageFilterCommon
 				inline const uint32_t* getExtentBatches() const {return extentBatches;}
 			private:
 				uint32_t extentBatches[batch_dims];
-				uint32_t batchCoord[batch_dims];
+				value_type batchCoord;
 				
 				
 				explicit inline BlockIterator(const uint32_t* _extentBatches, difference_type linearAddress)
@@ -184,7 +182,7 @@ class CBasicImageFilterCommon
 
 			const auto strides = region.getByteStrides(blockInfo);
 			
-			auto batch1D = [&f,&region,trueExtent,strides,trueOffset](const uint32_t* batchCoord)
+			auto batch1D = [&f,&region,trueExtent,strides,trueOffset](const std::array<uint32_t,3u>& batchCoord)
 			{
 				for (auto xBlock=0u; xBlock<trueExtent.x; ++xBlock)
 				{
@@ -192,7 +190,7 @@ class CBasicImageFilterCommon
 					f(region.getByteOffset(localCoord,strides),localCoord+trueOffset);
 				}
 			};
-			auto batch2D = [&f,&region,trueExtent,strides,trueOffset](const uint32_t* batchCoord)
+			auto batch2D = [&f,&region,trueExtent,strides,trueOffset](const std::array<uint32_t,2u>& batchCoord)
 			{
 				for (auto yBlock=0u; yBlock<trueExtent.y; ++yBlock)
 				for (auto xBlock=0u; xBlock<trueExtent.x; ++xBlock)
@@ -201,7 +199,7 @@ class CBasicImageFilterCommon
 					f(region.getByteOffset(localCoord,strides),localCoord+trueOffset);
 				}
 			};
-			auto batch3D = [&f,&region,trueExtent,strides,trueOffset](const uint32_t* batchCoord)
+			auto batch3D = [&f,&region,trueExtent,strides,trueOffset](const std::array<uint32_t,1u>& batchCoord)
 			{
 				for (auto zBlock=0u; zBlock<trueExtent.z; ++zBlock)
 				for (auto yBlock=0u; yBlock<trueExtent.y; ++yBlock)
