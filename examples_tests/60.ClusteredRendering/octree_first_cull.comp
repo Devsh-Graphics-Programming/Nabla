@@ -82,7 +82,7 @@ void main()
 		if (totalInvocationCount <= BIN_COUNT)
 		{
 			// need to reuse invocations
-			const uint stepCount = uint(ceil(BIN_COUNT/totalInvocationCount));
+			const uint stepCount = uint(ceil(float(BIN_COUNT)/float(totalInvocationCount)));
 			for (uint step = 0u; step < stepCount; ++step)
 			{
 				uint index = gl_GlobalInvocationID.x + step*totalInvocationCount;
@@ -97,8 +97,7 @@ void main()
 		}
 	}
 	
-	// Todo(achal): This is wrong!!
-	uint budgetIntersectionRecordCapacity = MEMORY_BUDGET/4u;
+	uint budgetIntersectionRecordCapacity = MEMORY_BUDGET/8u;
 	const uint marginIntersectionRecordCount = uint(BUDGETING_MARGIN * budgetIntersectionRecordCapacity);
 
 	// Note(achal): Can't reuse the code in the algorithms header because:
@@ -137,7 +136,7 @@ void main()
 	}
 
 	const uint persistentWGStepWidth = gl_NumWorkGroups.x * LIGHTS_PER_WORKGROUP;
-	const uint persistentWGStepCount = uint(ceil(pc.lightCount/persistentWGStepWidth));
+	const uint persistentWGStepCount = uint(ceil(float(pc.lightCount)/float(persistentWGStepWidth)));
 	for (uint step = 0u; step < persistentWGStepCount; ++step)
 	{
 		const uint index = step*persistentWGStepWidth + gl_WorkGroupID.x*LIGHTS_PER_WORKGROUP + gl_LocalInvocationIndex;
@@ -164,8 +163,8 @@ void main()
 			const nbl_glsl_ext_ClusteredLighting_SpotLight light = lights.data[globalLightIndex];
 			const float importanceMagnitude = getLightImportanceMagnitude(light);
 
-			if (importanceMagnitude < threshold)
-				break;
+			// if (importanceMagnitude < threshold)
+			// 	break;
 
 			const uvec3 localClusterID = (uvec3(gl_LocalInvocationIndex)>>uvec3(0,1,2))&0x1u; // Hardcoded INVOCATIONS_PER_LIGHT=8u, extensions are trivial
 				
@@ -242,7 +241,7 @@ void main()
 			const uvec3 localClusterID = (uvec3(gl_LocalInvocationIndex)>>uvec3(0,1,2))&0x1u; // Hardcoded INVOCATIONS_PER_LIGHT=8u, extensions are trivial
 				
 			const cone_t cone = getLightVolume(light);
-			const float voxelSideLength = CLIPMAP_EXTENT/2;
+			const float voxelSideLength = CLIPMAP_EXTENT/2.f;
 
 			const vec3 levelMinVertex = vec3(-CLIPMAP_EXTENT/2.f); // this will be same for all levels of the octree
 			const nbl_glsl_shapes_AABB_t cluster = getCluster(localClusterID, levelMinVertex, voxelSideLength);

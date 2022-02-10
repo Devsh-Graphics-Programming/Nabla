@@ -17,12 +17,14 @@ layout (set = 0, binding = 0, std430) restrict buffer readonly Lights
 layout (set = 0, binding = 1, std430) restrict buffer readonly InScratch
 {
 	uint count;
+	uint padding;
 	uvec2 data[];
 } inScratch;
 
 layout (set = 0, binding = 2, std430) restrict buffer writeonly OutScratch
 {
 	uint count;
+	uint padding;
 	uvec2 data[];
 } outScratch;
 
@@ -52,13 +54,13 @@ uvec3 getLocalClusterID(in uvec2 packedIntersectionRecord)
 void main()
 {
 	// In cases of underflow of the scratch the actualWGCount could be way less than the launched number of workgroups
-	const uint actualWGCount = (inScratch.count + _NBL_GLSL_WORKGROUP_SIZE_ - 1)/_NBL_GLSL_WORKGROUP_SIZE_;
+	const uint actualWGCount = (inScratch.count + _NBL_GLSL_WORKGROUP_SIZE_ - 1)/_NBL_GLSL_WORKGROUP_SIZE_; // 29
 
 	if (gl_WorkGroupID.x >= actualWGCount)
 		return;
 
-	const uint persistentWGStepWidth = actualWGCount * LIGHTS_PER_WORKGROUP;
-	const uint persistentWGStepCount = uint(ceil(inScratch.count/persistentWGStepWidth));
+	const uint persistentWGStepWidth = actualWGCount * LIGHTS_PER_WORKGROUP; // 928
+	const uint persistentWGStepCount = uint(ceil(float(inScratch.count)/float(persistentWGStepWidth))); // 8
 
 	for (uint step = 0u; step < persistentWGStepCount; ++step)
 	{
@@ -76,7 +78,7 @@ void main()
 		barrier();
 
 		const uint localLightIndex = gl_LocalInvocationIndex/INVOCATIONS_PER_LIGHT;
-		const uvec2 packedIntersectionRecord = uvec2(scratchShared[gl_LocalInvocationIndex], scratchShared[gl_LocalInvocationIndex + _NBL_GLSL_WORKGROUP_SIZE_]);
+		const uvec2 packedIntersectionRecord = uvec2(scratchShared[localLightIndex], scratchShared[localLightIndex + _NBL_GLSL_WORKGROUP_SIZE_]);
 		barrier();
 
 		if (index < inScratch.count)
@@ -92,10 +94,10 @@ void main()
 
 			const cone_t cone = getLightVolume(light);
 
-			const float voxelSideLength = CLIPMAP_EXTENT/(1<<pc.hierarchyLevel);
+			const float voxelSideLength = CLIPMAP_EXTENT/float(1<<pc.hierarchyLevel);
 			const vec3 levelMinVertex = vec3(-CLIPMAP_EXTENT/2.f);
 
-			const uvec3 parentVoxelID = getLocalClusterID(packedIntersectionRecord); // uvec3(packedIntersectionRecord.x | 0x7F, (packedIntersectionRecord.x >> 7) | 0x7F, (packedIntersectionRecord.x >> 14) | 0x7F);
+			const uvec3 parentVoxelID = getLocalClusterID(packedIntersectionRecord);
 
 			const uvec3 voxelID = (parentVoxelID << 1u) + ((uvec3(gl_LocalInvocationIndex)>>uvec3(0,1,2))&0x1u);
 			const nbl_glsl_shapes_AABB_t cluster = getCluster(voxelID, levelMinVertex, voxelSideLength);
@@ -117,6 +119,7 @@ void main()
 			}
 		}
 		barrier();
+		memoryBarrierShared();
 
 		// each light can spawn `INVOCATIONS_PER_LIGHT` copies of itself (which are found to be intersecting the children light grid nodes of the node the current light reference is referencing)
 		const uint lightReferencesSpawned = scratchShared[lastSharedUint];
@@ -126,10 +129,12 @@ void main()
 		if (gl_LocalInvocationIndex==0u && invocationWillWrite)
 			scratchShared[lastSharedUint+1u] = atomicAdd(outScratch.count, lightReferencesSpawned);
 		barrier();
+		memoryBarrierShared();
+		memoryBarrier();
 
 		if (invocationWillWrite)
 		{
-			uint budgetIntersectionRecordCapacity = MEMORY_BUDGET/4u;
+			uint budgetIntersectionRecordCapacity = MEMORY_BUDGET/8u;
 
 			const uint baseOffset = scratchShared[lastSharedUint+1u];
 			const uint outIndex = baseOffset + gl_LocalInvocationIndex;

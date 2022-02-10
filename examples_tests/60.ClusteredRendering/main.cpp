@@ -22,12 +22,12 @@ struct vec3
 	float x, y, z;
 };
 
-#ifdef DEBUG_VIZ
+// #ifdef DEBUG_VIZ
 struct alignas(16) vec3_aligned
 {
 	float x, y, z;
 };
-#endif
+// #endif
 
 struct uvec2
 {
@@ -42,13 +42,13 @@ struct nbl_glsl_ext_ClusteredLighting_SpotLight
 	uvec2 direction; // xyz encoded as packSNorm2x16, w used for storing `cosineRange`
 };
 
-#ifdef DEBUG_VIZ
+// #ifdef DEBUG_VIZ
 struct nbl_glsl_shapes_AABB_t
 {
 	vec3_aligned minVx;
 	vec3_aligned maxVx;
 };
-#endif
+// #endif
 
 class ClusteredRenderingSampleApp : public ApplicationBase
 {
@@ -668,7 +668,8 @@ public:
 		// active light indices
 		{
 			// Todo(achal): Should be changeable per frame
-			core::vector<uint32_t> activeLightIndices(LIGHT_COUNT);
+			activeLightIndices.resize(LIGHT_COUNT);
+
 			for (uint32_t i = 0u; i < activeLightIndices.size(); ++i)
 				activeLightIndices[i] = i;
 
@@ -726,7 +727,7 @@ public:
 			for (uint32_t i = 0u; i < 2u; ++i)
 			{
 				video::IGPUBuffer::SCreationParams creationParams = {};
-				creationParams.usage = static_cast<video::IGPUBuffer::E_USAGE_FLAGS>(video::IGPUBuffer::EUF_STORAGE_BUFFER_BIT | video::IGPUBuffer::EUF_TRANSFER_DST_BIT);
+				creationParams.usage = static_cast<video::IGPUBuffer::E_USAGE_FLAGS>(video::IGPUBuffer::EUF_STORAGE_BUFFER_BIT | video::IGPUBuffer::EUF_TRANSFER_DST_BIT | video::IGPUBuffer::EUF_TRANSFER_SRC_BIT);
 
 				// Todo(achal): Do I have to abide by something something SSBO alignment?
 				const size_t neededSize = sizeof(uint32_t) + sizeof(uint32_t) + MEMORY_BUDGET;
@@ -1601,6 +1602,7 @@ public:
 			0u, nullptr,
 			1u, &toGeneral);
 
+		// first pass, against level 1
 		commandBuffer->bindDescriptorSets(asset::EPBP_COMPUTE, octreeFirstCullPipeline->getLayout(), 0u, 1u, &octreeFirstCullDS[acquiredNextFBO].get());
 		const core::vectorSIMDf& cameraPosition = camera.getPosition();
 		{
@@ -1616,10 +1618,12 @@ public:
 		commandBuffer->bindComputePipeline(octreeFirstCullPipeline.get());
 		commandBuffer->dispatch((LIGHT_COUNT + WG_DIM - 1) / WG_DIM, 1u, 1u);
 
-		// memory dependency for the scratch buffer
+		// auto firstPassOutScratchBuffer = recordDownloadGPUBufferCommands(octreeScratchBuffers[acquiredNextFBO][0], commandBuffer.get(), logicalDevice.get());
+
+		// Todo(achal): Wrap the following two barriers into 1 pipeline barrier call
 		video::IGPUCommandBuffer::SBufferMemoryBarrier scratchUpdatedBarrier = {};
 		scratchUpdatedBarrier.barrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
-		scratchUpdatedBarrier.barrier.dstAccessMask = static_cast<asset::E_ACCESS_FLAGS>(asset::EAF_SHADER_READ_BIT | asset::EAF_INDIRECT_COMMAND_READ_BIT);
+		scratchUpdatedBarrier.barrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
 		scratchUpdatedBarrier.srcQueueFamilyIndex = ~0u;
 		scratchUpdatedBarrier.dstQueueFamilyIndex = ~0u;
 		scratchUpdatedBarrier.buffer = octreeScratchBuffers[acquiredNextFBO][0];
@@ -1627,7 +1631,7 @@ public:
 		scratchUpdatedBarrier.size = scratchUpdatedBarrier.buffer->getCachedCreationParams().declaredSize;
 		commandBuffer->pipelineBarrier(
 			asset::EPSF_COMPUTE_SHADER_BIT,
-			static_cast<asset::E_PIPELINE_STAGE_FLAGS>(asset::EPSF_COMPUTE_SHADER_BIT | asset::EPSF_DRAW_INDIRECT_BIT),
+			asset::EPSF_COMPUTE_SHADER_BIT,
 			asset::EDF_BY_REGION_BIT,
 			0u, nullptr,
 			1u, &scratchUpdatedBarrier,
@@ -1650,7 +1654,7 @@ public:
 			1u, &histogramUpdatedBarrier,
 			0u, nullptr);
 
-		// next pass
+		// next pass (against level 2)
 		commandBuffer->bindDescriptorSets(asset::EPBP_COMPUTE, octreeIntermediateCullPipeline->getLayout(), 0u, 1u, &octreeIntermediateCullDS[acquiredNextFBO][0].get());
 		{
 			octree_intermediate_cull_push_constants_t pc = {};
@@ -1671,6 +1675,87 @@ public:
 			constexpr uint32_t MAX_INVOCATIONS = MEMORY_BUDGET / sizeof(uint64_t);
 			commandBuffer->dispatch((MAX_INVOCATIONS + WG_DIM - 1)/WG_DIM, 1u, 1u);
 		}
+
+		// auto secondPassOutScratchBuffer = recordDownloadGPUBufferCommands(octreeScratchBuffers[acquiredNextFBO][1], commandBuffer.get(), logicalDevice.get());
+
+		// next pass (against level 3)
+		scratchUpdatedBarrier.buffer = octreeScratchBuffers[acquiredNextFBO][1];
+		commandBuffer->pipelineBarrier(
+			asset::EPSF_COMPUTE_SHADER_BIT,
+			asset::EPSF_COMPUTE_SHADER_BIT,
+			asset::EDF_BY_REGION_BIT,
+			0u, nullptr,
+			1u, &scratchUpdatedBarrier,
+			0u, nullptr);
+
+		commandBuffer->bindDescriptorSets(asset::EPBP_COMPUTE, octreeIntermediateCullPipeline->getLayout(), 0u, 1u, &octreeIntermediateCullDS[acquiredNextFBO][1].get());
+		{
+			octree_intermediate_cull_push_constants_t pc = {};
+			pc.camPosClipmapExtent[0] = cameraPosition.x;
+			pc.camPosClipmapExtent[1] = cameraPosition.y;
+			pc.camPosClipmapExtent[2] = cameraPosition.z;
+			pc.camPosClipmapExtent[3] = genesisVoxelExtent;
+			pc.hierarchyLevel = 3u;
+			commandBuffer->pushConstants(octreeIntermediateCullPipeline->getLayout(), video::IGPUShader::ESS_COMPUTE, 0u, sizeof(octree_intermediate_cull_push_constants_t), &pc);
+		}
+		commandBuffer->bindComputePipeline(octreeIntermediateCullPipeline.get());
+		{
+			constexpr uint32_t MAX_INVOCATIONS = MEMORY_BUDGET / sizeof(uint64_t);
+			commandBuffer->dispatch((MAX_INVOCATIONS + WG_DIM - 1) / WG_DIM, 1u, 1u);
+		}
+
+		// next pass (against level 4)
+		scratchUpdatedBarrier.buffer = octreeScratchBuffers[acquiredNextFBO][0];
+		commandBuffer->pipelineBarrier(
+			asset::EPSF_COMPUTE_SHADER_BIT,
+			asset::EPSF_COMPUTE_SHADER_BIT,
+			asset::EDF_BY_REGION_BIT,
+			0u, nullptr,
+			1u, &scratchUpdatedBarrier,
+			0u, nullptr);
+		commandBuffer->bindDescriptorSets(asset::EPBP_COMPUTE, octreeIntermediateCullPipeline->getLayout(), 0u, 1u, &octreeIntermediateCullDS[acquiredNextFBO][0].get());
+		{
+			octree_intermediate_cull_push_constants_t pc = {};
+			pc.camPosClipmapExtent[0] = cameraPosition.x;
+			pc.camPosClipmapExtent[1] = cameraPosition.y;
+			pc.camPosClipmapExtent[2] = cameraPosition.z;
+			pc.camPosClipmapExtent[3] = genesisVoxelExtent;
+			pc.hierarchyLevel = 4u;
+			commandBuffer->pushConstants(octreeIntermediateCullPipeline->getLayout(), video::IGPUShader::ESS_COMPUTE, 0u, sizeof(octree_intermediate_cull_push_constants_t), &pc);
+		}
+		commandBuffer->bindComputePipeline(octreeIntermediateCullPipeline.get());
+		{
+			constexpr uint32_t MAX_INVOCATIONS = MEMORY_BUDGET / sizeof(uint64_t);
+			commandBuffer->dispatch((MAX_INVOCATIONS + WG_DIM - 1) / WG_DIM, 1u, 1u);
+		}
+
+		// next pass (against level 5)
+		scratchUpdatedBarrier.buffer = octreeScratchBuffers[acquiredNextFBO][1];
+		commandBuffer->pipelineBarrier(
+			asset::EPSF_COMPUTE_SHADER_BIT,
+			asset::EPSF_COMPUTE_SHADER_BIT,
+			asset::EDF_BY_REGION_BIT,
+			0u, nullptr,
+			1u, &scratchUpdatedBarrier,
+			0u, nullptr);
+		commandBuffer->bindDescriptorSets(asset::EPBP_COMPUTE, octreeIntermediateCullPipeline->getLayout(), 0u, 1u, &octreeIntermediateCullDS[acquiredNextFBO][1].get());
+		{
+			octree_intermediate_cull_push_constants_t pc = {};
+			pc.camPosClipmapExtent[0] = cameraPosition.x;
+			pc.camPosClipmapExtent[1] = cameraPosition.y;
+			pc.camPosClipmapExtent[2] = cameraPosition.z;
+			pc.camPosClipmapExtent[3] = genesisVoxelExtent;
+			pc.hierarchyLevel = 5u;
+			commandBuffer->pushConstants(octreeIntermediateCullPipeline->getLayout(), video::IGPUShader::ESS_COMPUTE, 0u, sizeof(octree_intermediate_cull_push_constants_t), &pc);
+		}
+		commandBuffer->bindComputePipeline(octreeIntermediateCullPipeline.get());
+		{
+			constexpr uint32_t MAX_INVOCATIONS = MEMORY_BUDGET / sizeof(uint64_t);
+			commandBuffer->dispatch((MAX_INVOCATIONS + WG_DIM - 1) / WG_DIM, 1u, 1u);
+		}
+
+		// final pass (against level 6)
+
 
 #ifdef CLIPMAP
 		// Todo(achal): I would need a different set of command buffers allocated from a pool which utilizes
@@ -1857,6 +1942,99 @@ public:
 			queues[CommonAPI::InitOutput::EQT_GRAPHICS],
 			renderFinished[resourceIx].get(),
 			acquiredNextFBO);
+
+		core::vectorSIMDf levelMinVertex(-genesisVoxelExtent / 2.f, -genesisVoxelExtent / 2.f, -genesisVoxelExtent / 2.f);
+		const float voxelSideLength = genesisVoxelExtent / 2.f;
+
+		auto getAABBFromLocalClusterID = [&cameraPosition, &levelMinVertex](uint32_t x, uint32_t y, uint32_t z, float voxelSideLength) -> nbl_glsl_shapes_AABB_t
+		{
+			core::vectorSIMDf minVertex = cameraPosition + levelMinVertex + core::vectorSIMDf(x, y, z) * voxelSideLength;
+			core::vectorSIMDf maxVertex = cameraPosition + levelMinVertex + core::vectorSIMDf(x + 1, y + 1, z + 1) * voxelSideLength;
+
+			nbl_glsl_shapes_AABB_t result;
+			result.minVx = { minVertex.x, minVertex.y, minVertex.z };
+			result.maxVx = { maxVertex.x, maxVertex.y, maxVertex.z };
+
+			return result;
+		};
+
+#if 0
+		struct intersection_record_t
+		{
+			uint32_t globalLightIndex;
+			uint32_t localClusterID[3];
+		};
+
+		logicalDevice->blockForFences(1u, &fence.get());
+
+		uint32_t* firstPassOutScratchData = nullptr;
+		{
+			video::IDriverMemoryAllocation::MappedMemoryRange mappedRange = {};
+			mappedRange.memory = firstPassOutScratchBuffer->getBoundMemory();
+			mappedRange.offset = 0ull;
+			mappedRange.length = firstPassOutScratchBuffer->getCachedCreationParams().declaredSize;
+			void* mappedPtr = logicalDevice->mapMemory(mappedRange);
+
+			firstPassOutScratchData = reinterpret_cast<uint32_t*>(mappedPtr);
+		}
+
+		uint32_t* secondPassOutScratchData = nullptr;
+		{
+			video::IDriverMemoryAllocation::MappedMemoryRange mappedRange = {};
+			mappedRange.memory = secondPassOutScratchBuffer->getBoundMemory();
+			mappedRange.offset = 0ull;
+			mappedRange.length = secondPassOutScratchBuffer->getCachedCreationParams().declaredSize;
+			void* mappedPtr = logicalDevice->mapMemory(mappedRange);
+
+			secondPassOutScratchData = reinterpret_cast<uint32_t*>(mappedPtr);
+		}
+
+		const uint32_t intersectionRecordCount = *firstPassOutScratchData++;
+		firstPassOutScratchData++; // ignore padding
+
+		const uint32_t intersectionRecordCount_2 = *secondPassOutScratchData++;
+		secondPassOutScratchData++; // ignore padding
+
+
+		printf("After first pass, intersection record count: %d\n", intersectionRecordCount);
+
+		uint32_t intersectionRecordCount_nextpass = 0u;
+		for (uint32_t i = 0u; i < intersectionRecordCount; ++i)
+		{
+			const uint32_t packedX = *firstPassOutScratchData++;
+			const uint32_t packedY = *firstPassOutScratchData++;
+
+			intersection_record_t gpuRecord;
+			gpuRecord.globalLightIndex = (packedY >> 12) & 0x3FFFFF;
+			gpuRecord.localClusterID[0] = packedX & 0x7u;
+			gpuRecord.localClusterID[1] = (packedX >> 7) & 0x7u;
+			gpuRecord.localClusterID[2] = (packedX >> 14) & 0x7u;
+
+			const float voxelSideLength = genesisVoxelExtent / 4.f;
+
+			const auto parentVoxel = getAABBFromLocalClusterID(gpuRecord.localClusterID[0], gpuRecord.localClusterID[1], gpuRecord.localClusterID[2], genesisVoxelExtent / 2.f);
+
+			nbl_glsl_shapes_AABB_t nodes[2][2][2];
+			for (uint32_t z = 0u; z < 2u; ++z)
+			{
+				for (uint32_t y = 0u; y < 2u; ++y)
+				{
+					for (uint32_t x = 0u; x < 2u; ++x)
+					{
+						nodes[z][y][x] = getAABBFromLocalClusterID((gpuRecord.localClusterID[0] << 1) + x, (gpuRecord.localClusterID[1] << 1) + y, (gpuRecord.localClusterID[2] << 1) + z, voxelSideLength);
+						const auto& aabb = nodes[z][y][x];
+
+						if (doesConeIntersectAABB(getLightVolume(lights[gpuRecord.globalLightIndex]), nodes[z][y][x]))
+							++intersectionRecordCount_nextpass;
+					}
+				}
+			}
+		}
+
+		printf("After the next level traversal: %d\n", intersectionRecordCount_nextpass);
+		printf("On the GPU: %d\n", intersectionRecordCount_2);
+		__debugbreak();	
+#endif
 	}
 
 	bool keepRunning() override
@@ -1865,6 +2043,191 @@ public:
 	}
 
 private:
+	// Only for buffers written by a compute shader
+	core::smart_refctd_ptr<video::IGPUBuffer> recordDownloadGPUBufferCommands(core::smart_refctd_ptr<video::IGPUBuffer> bufferToDownload, video::IGPUCommandBuffer* commandBuffer, video::ILogicalDevice* logicalDevice)
+	{
+		const size_t downloadSize = bufferToDownload->getCachedCreationParams().declaredSize;
+
+		// need a memory dependency here to ensure the compute dispatch has finished
+		video::IGPUCommandBuffer::SBufferMemoryBarrier downloadReadyBarrier = {};
+		downloadReadyBarrier.barrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
+		downloadReadyBarrier.barrier.dstAccessMask = asset::EAF_TRANSFER_READ_BIT;
+		downloadReadyBarrier.srcQueueFamilyIndex = ~0u;
+		downloadReadyBarrier.dstQueueFamilyIndex = ~0u;
+		downloadReadyBarrier.buffer = bufferToDownload;
+		downloadReadyBarrier.offset = 0ull;
+		downloadReadyBarrier.size = downloadSize;
+
+		commandBuffer->pipelineBarrier(
+			asset::EPSF_COMPUTE_SHADER_BIT,
+			asset::EPSF_TRANSFER_BIT,
+			asset::EDF_BY_REGION_BIT,
+			0u, nullptr,
+			1u, &downloadReadyBarrier,
+			0u, nullptr);
+
+		video::IGPUBuffer::SCreationParams creationParams = {};
+		creationParams.usage = video::IGPUBuffer::EUF_TRANSFER_DST_BIT;
+
+		core::smart_refctd_ptr<video::IGPUBuffer> downloadBuffer = logicalDevice->createGPUBuffer(creationParams, downloadSize);
+
+		video::IDriverMemoryBacked::SDriverMemoryRequirements memReqs = {};
+		memReqs.vulkanReqs.alignment = downloadBuffer->getMemoryReqs().vulkanReqs.alignment;
+		memReqs.vulkanReqs.size = downloadBuffer->getMemoryReqs().vulkanReqs.size;
+		memReqs.vulkanReqs.memoryTypeBits = downloadBuffer->getMemoryReqs().vulkanReqs.memoryTypeBits;
+
+		memReqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL;
+		memReqs.mappingCapability = video::IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ;
+		memReqs.prefersDedicatedAllocation = downloadBuffer->getMemoryReqs().prefersDedicatedAllocation;
+		memReqs.requiresDedicatedAllocation = downloadBuffer->getMemoryReqs().requiresDedicatedAllocation;
+		auto downloadGPUBufferMemory = logicalDevice->allocateGPUMemory(memReqs);
+
+		video::ILogicalDevice::SBindBufferMemoryInfo bindBufferInfo = {};
+		bindBufferInfo.buffer = downloadBuffer.get();
+		bindBufferInfo.memory = downloadGPUBufferMemory.get();
+		bindBufferInfo.offset = 0ull;
+		logicalDevice->bindBufferMemory(1u, &bindBufferInfo);
+
+		asset::SBufferCopy copyRegion = {};
+		copyRegion.srcOffset = 0ull;
+		copyRegion.dstOffset = 0ull;
+		copyRegion.size = downloadSize;
+		commandBuffer->copyBuffer(bufferToDownload.get(), downloadBuffer.get(), 1u, &copyRegion);
+
+		return downloadBuffer;
+	};
+
+	cone_t getLightVolume(const nbl_glsl_ext_ClusteredLighting_SpotLight& light)
+	{
+		cone_t cone = {};
+		cone.tip = core::vectorSIMDf(light.position.x, light.position.y, light.position.z);
+
+		// get cone's height based on its contribution to the scene (intensity and attenuation)
+		{
+			core::vectorSIMDf intensity;
+			{
+				uint64_t lsb = light.intensity.x;
+				uint64_t msb = light.intensity.y;
+				const uint64_t packedIntensity = (msb << 32) | lsb;
+				const core::rgb32f rgb = core::rgb19e7_to_rgb32f(packedIntensity);
+				intensity = core::vectorSIMDf(rgb.x, rgb.y, rgb.z);
+			}
+
+			const float radiusSq = LIGHT_RADIUS * LIGHT_RADIUS;
+			// Taking max intensity among all the RGB components will give the largest
+			// light volume enclosing light volumes due to other components
+			const float maxIntensityComponent = core::max(core::max(intensity.r, intensity.g), intensity.b);
+			const float determinant = 1.f - ((2.f * LIGHT_CONTRIBUTION_THRESHOLD) / (maxIntensityComponent * radiusSq));
+			if ((determinant > 1.f) || (determinant < -1.f))
+			{
+				logger->log("This should never happen!\n", system::ILogger::ELL_ERROR);
+				exit(-1);
+			}
+
+			cone.height = LIGHT_RADIUS * core::inversesqrt((1.f / (determinant * determinant)) - 1.f);
+		}
+
+		// get cone's direction and half angle (outer half angle of spot light)
+		{
+			const core::vectorSIMDf directionXY = unpackSnorm2x16(light.direction.x);
+			const core::vectorSIMDf directionZW = unpackSnorm2x16(light.direction.y);
+
+			cone.direction = core::vectorSIMDf(directionXY.x, directionXY.y, directionZW.x);
+
+			const float cosineRange = directionZW.y;
+			// Todo(achal): I cannot handle spotlights/cone intersection against AABB
+			// if it has outerHalfAngle > 90.f
+			cone.cosHalfAngle = light.outerCosineOverCosineRange * cosineRange;
+			assert(std::acosf(cone.cosHalfAngle) <= core::radians(90.f));
+		}
+
+		return cone;
+	}
+
+	// Returns true if the point lies in negative-half-space (space in which the normal to the plane isn't present) of the plane
+	// Point on the plane returns true.
+	// In other words, if you hold the plane such that its normal points towards your face, then this
+	// will return true if the point is "behind" the plane (or farther from your face than the plane's surface)
+	bool isPointBehindPlane(const core::vector3df_SIMD& point, const core::plane3dSIMDf& plane)
+	{
+		// As an optimization we can add an epsilon to 0, to ignore cones which have a
+		// very very small intersecting region with the AABB, could help with FP precision
+		// too when the point is on the plane
+		const float result = (core::dot(point, plane.getNormal()).x + plane.getDistance());
+		return  result <= 0.f /* + EPSILON*/;
+	}
+
+	// Imagine yourself to be at the center of the bounding box. Using CCW winding order
+	// in RH ensures that the normals to the box's planes point towards you.
+	bool doesConeIntersectAABB(const cone_t& cone, const nbl_glsl_shapes_AABB_t& aabb)
+	{
+		constexpr uint32_t PLANE_COUNT = 6u;
+		core::plane3dSIMDf planes[PLANE_COUNT];
+		{
+			// 0 -> (minVx.x, minVx.y, minVx.z)
+			// 1 -> (maxVx.x, minVx.y, minVx.z)
+			// 2 -> (minVx.x, maxVx.y, minVx.z)
+			// 3 -> (maxVx.x, maxVx.y, minVx.z)
+			// 4 -> (minVx.x, minVx.y, maxVx.z)
+			// 5 -> (maxVx.x, minVx.y, maxVx.z)
+			// 6 -> (minVx.x, maxVx.y, maxVx.z)
+			// 7 -> (maxVx.x, maxVx.y, maxVx.z)
+
+			planes[0].setPlane(
+				core::vector3df_SIMD(aabb.maxVx.x, aabb.minVx.y, aabb.minVx.z),
+				core::vector3df_SIMD(aabb.maxVx.x, aabb.minVx.y, aabb.maxVx.z),
+				core::vector3df_SIMD(aabb.maxVx.x, aabb.maxVx.y, aabb.maxVx.z)); // 157
+			planes[1].setPlane(
+				core::vector3df_SIMD(aabb.minVx.x, aabb.minVx.y, aabb.minVx.z),
+				core::vector3df_SIMD(aabb.maxVx.x, aabb.minVx.y, aabb.minVx.z),
+				core::vector3df_SIMD(aabb.maxVx.x, aabb.maxVx.y, aabb.minVx.z)); // 013
+			planes[2].setPlane(
+				core::vector3df_SIMD(aabb.minVx.x, aabb.minVx.y, aabb.maxVx.z),
+				core::vector3df_SIMD(aabb.minVx.x, aabb.minVx.y, aabb.minVx.z),
+				core::vector3df_SIMD(aabb.minVx.x, aabb.maxVx.y, aabb.minVx.z)); // 402
+			planes[3].setPlane(
+				core::vector3df_SIMD(aabb.maxVx.x, aabb.minVx.y, aabb.maxVx.z),
+				core::vector3df_SIMD(aabb.minVx.x, aabb.minVx.y, aabb.maxVx.z),
+				core::vector3df_SIMD(aabb.minVx.x, aabb.maxVx.y, aabb.maxVx.z)); // 546
+			planes[4].setPlane(
+				core::vector3df_SIMD(aabb.minVx.x, aabb.minVx.y, aabb.maxVx.z),
+				core::vector3df_SIMD(aabb.maxVx.x, aabb.minVx.y, aabb.maxVx.z),
+				core::vector3df_SIMD(aabb.maxVx.x, aabb.minVx.y, aabb.minVx.z)); // 451
+			planes[5].setPlane(
+				core::vector3df_SIMD(aabb.maxVx.x, aabb.maxVx.y, aabb.maxVx.z),
+				core::vector3df_SIMD(aabb.minVx.x, aabb.maxVx.y, aabb.maxVx.z),
+				core::vector3df_SIMD(aabb.minVx.x, aabb.maxVx.y, aabb.minVx.z)); // 762
+		}
+
+		// Todo(achal): Cannot handle half angle > 90 degrees right now
+		assert(cone.cosHalfAngle > 0.f);
+		const float tanOuterHalfAngle = core::sqrt(core::max(1.f - (cone.cosHalfAngle * cone.cosHalfAngle), 0.f)) / cone.cosHalfAngle;
+		const float coneRadius = cone.height * tanOuterHalfAngle;
+
+		for (uint32_t i = 0u; i < PLANE_COUNT; ++i)
+		{
+			// Calling setPlane above ensures normalized normal
+
+			const core::vectorSIMDf m = core::cross(core::cross(planes[i].getNormal(), cone.direction), cone.direction);
+			const core::vectorSIMDf farthestBasePoint = cone.tip + (cone.direction * cone.height) - (m * coneRadius); // farthest to plane's surface away from positive half-space
+
+			const bool isTipBehindPlane = isPointBehindPlane(cone.tip, planes[i]);
+			const bool isFBPBehindPlane = isPointBehindPlane(farthestBasePoint, planes[i]);
+
+			// There are two edge cases here:
+			// 1. When cone's direction and plane's normal are anti-parallel
+			//		There is no reason to check farthestBasePoint in this case, because cone's tip is the farthest point!
+			//		But there is no harm in doing so.
+			// 2. When cone's direction and plane's normal are parallel
+			//		This edge case will get handled nicely by the farthestBasePoint coming as center of the base of the cone itself
+			// if (isPointBehindPlane(cone.tip, planes[i], printMoreStuff) && isPointBehindPlane(farthestBasePoint, planes[i], printMoreStuff))
+			if (isTipBehindPlane && isFBPBehindPlane)
+				return false;
+		}
+
+		return true;
+	};
+
 	bool bakeSecondaryCommandBufferForSubpass(
 		const uint32_t subpass,
 		video::IGPUCommandBuffer* cmdbuf,
@@ -2045,6 +2408,19 @@ private:
 		uint32_t x_snorm16 = (uint32_t)((uint16_t)core::round(core::clamp(x, -1.f, 1.f) * 32767.f));
 		uint32_t y_snorm16 = (uint32_t)((uint16_t)core::round(core::clamp(y, -1.f, 1.f) * 32767.f));
 		return ((y_snorm16 << 16) | x_snorm16);
+	};
+
+	// As per: https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/unpackUnorm.xhtml
+	inline core::vectorSIMDf unpackSnorm2x16(uint32_t encoded)
+	{
+		core::vectorSIMDf result;
+
+		int16_t firstComp(encoded & 0xFFFFu);
+		int16_t secondComp((encoded >> 16) & 0xFFFFu);
+		result.x = core::clamp(firstComp / 32727.f, -1.f, 1.f);
+		result.y = core::clamp(secondComp / 32727.f, -1.f, 1.f);
+
+		return result;
 	};
 
 	inline float getLightImportanceMagnitude(const nbl_glsl_ext_ClusteredLighting_SpotLight& light, const core::vectorSIMDf& cameraPosition)
@@ -2540,6 +2916,8 @@ private:
 #endif
 
 	core::vector<nbl_glsl_ext_ClusteredLighting_SpotLight> lights;
+	// Todo(achal): Not make it global
+	core::vector<uint32_t> activeLightIndices;
 
 	// I need descriptor lifetime tracking!
 	using PropertyPoolType = video::CPropertyPool<core::allocator, nbl_glsl_ext_ClusteredLighting_SpotLight>;
