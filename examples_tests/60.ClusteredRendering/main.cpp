@@ -688,7 +688,6 @@ public:
 				activeLightIndices.data());
 		}
 
-
 		constexpr uint32_t OCTREE_FIRST_CULL_DESCRIPTOR_COUNT = 4u;
 		core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> octreeFirstCullDSLayout = nullptr;
 		{
@@ -747,7 +746,7 @@ public:
 			}
 		}
 
-		// create debug histogram buffer
+		// create histogram buffer
 		for (uint32_t scImageIndex = 0u; scImageIndex < SC_IMG_COUNT; ++scImageIndex)
 		{
 			// currently used to debug the histogram and its cumulative histogram
@@ -842,8 +841,8 @@ public:
 			params.logger = logger.get();
 			auto loadedShader = core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(*assetManager->getAsset(octreeIntermediateCullShaderPath, params).getContents().begin());
 
-			// Todo(achal): Won't require most of these after I switch to one histogram per pass rather than 7 histograms
 			auto unspecOverridenShader = asset::IGLSLCompiler::createOverridenCopy(loadedShader->getUnspecialized(),
+				// Todo(achal): Most of this stuff can be removed now
 				"#define BIN_COUNT %d\n"
 				"#define MIN_HISTOGRAM_IMPORTANCE %f\n"
 				"#define MAX_HISTOGRAM_IMPORTANCE %f\n"
@@ -954,6 +953,117 @@ public:
 			creationParams.usage = static_cast<video::IGPUBuffer::E_USAGE_FLAGS>(video::IGPUBuffer::EUF_STORAGE_BUFFER_BIT | video::IGPUBuffer::EUF_UNIFORM_TEXEL_BUFFER_BIT);
 			lightIndexListGPUBuffer = logicalDevice->createDeviceLocalGPUBufferOnDedMem(creationParams, MEMORY_BUDGET);
 			lightIndexListSSBOView = logicalDevice->createGPUBufferView(lightIndexListGPUBuffer.get(), asset::EF_R32_UINT, 0ull, lightIndexListGPUBuffer->getCachedCreationParams().declaredSize);
+		}
+
+		constexpr uint32_t OCTREE_LAST_CULL_DESCRIPTOR_COUNT = 4u;
+		core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> octreeLastCullDSLayout = nullptr;
+		{
+			video::IGPUDescriptorSetLayout::SBinding binding[OCTREE_LAST_CULL_DESCRIPTOR_COUNT];
+			{
+				// property pool of lights
+				binding[0].binding = 0u;
+				binding[0].type = asset::EDT_STORAGE_BUFFER;
+				binding[0].count = 1u;
+				binding[0].stageFlags = asset::IShader::ESS_COMPUTE;
+				binding[0].samplers = nullptr;
+
+				// inScratch
+				binding[1].binding = 1u;
+				binding[1].type = asset::EDT_STORAGE_BUFFER;
+				binding[1].count = 1u;
+				binding[1].stageFlags = asset::IShader::ESS_COMPUTE;
+				binding[1].samplers = nullptr;
+
+				// intersection records
+				binding[2].binding = 2u;
+				binding[2].type = asset::EDT_STORAGE_BUFFER;
+				binding[2].count = 1u;
+				binding[2].stageFlags = asset::IShader::ESS_COMPUTE;
+				binding[2].samplers = nullptr;
+
+				// light grid (storage image)
+				binding[3].binding = 3u;
+				binding[3].type = asset::EDT_STORAGE_IMAGE;
+				binding[3].count = 1u;
+				binding[3].stageFlags = asset::IShader::ESS_COMPUTE;
+				binding[3].samplers = nullptr;
+			}
+
+			octreeLastCullDSLayout = logicalDevice->createGPUDescriptorSetLayout(binding, binding + OCTREE_LAST_CULL_DESCRIPTOR_COUNT);
+			if (!octreeLastCullDSLayout)
+				FATAL_LOG("Failed to create DS Layout for the last octree cull pass resources!\n");
+		}
+
+		core::smart_refctd_ptr<video::IGPUPipelineLayout> octreeLastCullPipelineLayout = nullptr;
+		{
+			asset::SPushConstantRange pcRange = {};
+			pcRange.stageFlags = asset::IShader::ESS_COMPUTE;
+			pcRange.offset = 0u;
+			pcRange.size = sizeof(octree_intermediate_cull_push_constants_t);
+			octreeLastCullPipelineLayout = logicalDevice->createGPUPipelineLayout(&pcRange, &pcRange + 1ull, core::smart_refctd_ptr(octreeLastCullDSLayout));
+		}
+
+		const char* octreeLastCullShaderPath = "../octree_last_cull.comp";
+		{
+			asset::IAssetLoader::SAssetLoadParams params = {};
+			params.logger = logger.get();
+			auto loadedShader = core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(*assetManager->getAsset(octreeLastCullShaderPath, params).getContents().begin());
+
+			auto unspecOverridenShader = asset::IGLSLCompiler::createOverridenCopy(loadedShader->getUnspecialized(), "#define MEMORY_BUDGET %d\n", MEMORY_BUDGET);
+
+			auto specShader_cpu = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecOverridenShader), asset::ISpecializedShader::SInfo(nullptr, nullptr, "main"));
+			auto gpuArray = cpu2gpu.getGPUObjectsFromAssets(&specShader_cpu.get(), &specShader_cpu.get() + 1, cpu2gpuParams);
+			if (!gpuArray || gpuArray->size() < 1u || !(*gpuArray)[0])
+				FATAL_LOG("Failed to convert CPU specialized shader to GPU specialized shaders!\n");
+
+			core::smart_refctd_ptr<video::IGPUSpecializedShader> specShader = gpuArray->begin()[0];
+			octreeLastCullPipeline = logicalDevice->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(octreeLastCullPipelineLayout), std::move(specShader));
+		}
+
+		// octree last cull ds
+		const uint32_t octreeLastCullDSCount = SC_IMG_COUNT;
+		core::smart_refctd_ptr<video::IDescriptorPool> octreeLastCullDescriptorPool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE, &octreeLastCullDSLayout.get(), &octreeLastCullDSLayout.get() + 1ull, &octreeLastCullDSCount);
+		for (uint32_t scImageIndex = 0u; scImageIndex < SC_IMG_COUNT; ++scImageIndex)
+		{
+			octreeLastCullDS[scImageIndex] = logicalDevice->createGPUDescriptorSet(octreeLastCullDescriptorPool.get(), core::smart_refctd_ptr(octreeLastCullDSLayout));
+
+			video::IGPUDescriptorSet::SWriteDescriptorSet writes[OCTREE_LAST_CULL_DESCRIPTOR_COUNT] = {};
+			video::IGPUDescriptorSet::SDescriptorInfo infos[OCTREE_LAST_CULL_DESCRIPTOR_COUNT] = {};
+
+			for (uint32_t i = 0u; i < OCTREE_LAST_CULL_DESCRIPTOR_COUNT; ++i)
+			{
+				writes[i].dstSet = octreeLastCullDS[scImageIndex].get();
+				writes[i].binding = i;
+				writes[i].arrayElement = 0u;
+				writes[i].count = 1u;
+				writes[i].descriptorType = asset::EDT_STORAGE_BUFFER;
+				writes[i].info = &infos[i];
+			}
+
+			writes[OCTREE_LAST_CULL_DESCRIPTOR_COUNT - 1u].descriptorType = asset::EDT_STORAGE_IMAGE;
+
+			// light pool
+			const auto& propertyMemoryBlock = propertyPool->getPropertyMemoryBlock(0u);
+			infos[0].desc = propertyMemoryBlock.buffer;
+			infos[0].buffer.offset = propertyMemoryBlock.offset;
+			infos[0].buffer.size = propertyMemoryBlock.size;
+
+			// inScratch
+			infos[1].desc = octreeScratchBuffers[scImageIndex][0];
+			infos[1].buffer.offset = 0ull;
+			infos[1].buffer.size = octreeScratchBuffers[scImageIndex][1]->getCachedCreationParams().declaredSize;
+
+			// intersection records
+			infos[2].desc = octreeScratchBuffers[scImageIndex][1u];
+			infos[2].buffer.offset = 0ull;
+			infos[2].buffer.size = octreeScratchBuffers[scImageIndex][1u]->getCachedCreationParams().declaredSize;
+
+			// light grid
+			infos[3].desc = lightGridTextureView;
+			infos[3].image.imageLayout = asset::EIL_GENERAL;
+			infos[3].image.sampler = nullptr;
+
+			logicalDevice->updateDescriptorSets(OCTREE_LAST_CULL_DESCRIPTOR_COUNT, writes, 0u, nullptr);
 		}
 
 #ifdef CLIPMAP
@@ -1754,7 +1864,65 @@ public:
 			commandBuffer->dispatch((MAX_INVOCATIONS + WG_DIM - 1) / WG_DIM, 1u, 1u);
 		}
 
+		{
+			asset::SClearColorValue lightGridClearValue = { 0 };
+			asset::IImage::SSubresourceRange range;
+			range.aspectMask = video::IGPUImage::EAF_COLOR_BIT;
+			range.baseMipLevel = 0u;
+			range.levelCount = 1u;
+			range.baseArrayLayer = 0u;
+			range.layerCount = 1u;
+			commandBuffer->clearColorImage(lightGridTexture.get(), asset::EIL_GENERAL, &lightGridClearValue, 1u, &range);
+		}
+
+		// memory dependency to ensure the light grid texture is cleared via clearColorImage
+		video::IGPUCommandBuffer::SImageMemoryBarrier lightGridClearedBarrier = {};
+		lightGridClearedBarrier.barrier.srcAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
+		lightGridClearedBarrier.barrier.dstAccessMask = asset::EAF_SHADER_WRITE_BIT;
+		lightGridClearedBarrier.oldLayout = asset::EIL_GENERAL;
+		lightGridClearedBarrier.newLayout = asset::EIL_GENERAL;
+		lightGridClearedBarrier.srcQueueFamilyIndex = ~0u;
+		lightGridClearedBarrier.dstQueueFamilyIndex = ~0u;
+		lightGridClearedBarrier.image = lightGridTexture;
+		lightGridClearedBarrier.subresourceRange.aspectMask = video::IGPUImage::EAF_COLOR_BIT;
+		lightGridClearedBarrier.subresourceRange.baseArrayLayer = 0u;
+		lightGridClearedBarrier.subresourceRange.layerCount = 1u;
+		lightGridClearedBarrier.subresourceRange.baseMipLevel = 0u;
+		lightGridClearedBarrier.subresourceRange.levelCount = 1u;
+		commandBuffer->pipelineBarrier(
+			asset::EPSF_TRANSFER_BIT,
+			asset::EPSF_COMPUTE_SHADER_BIT,
+			asset::EDF_NONE,
+			0u, nullptr,
+			0u, nullptr,
+			1u, &lightGridClearedBarrier);
+
+
 		// final pass (against level 6)
+		scratchUpdatedBarrier.buffer = octreeScratchBuffers[acquiredNextFBO][0];
+		commandBuffer->pipelineBarrier(
+			asset::EPSF_COMPUTE_SHADER_BIT,
+			asset::EPSF_COMPUTE_SHADER_BIT,
+			asset::EDF_BY_REGION_BIT,
+			0u, nullptr,
+			1u, &scratchUpdatedBarrier,
+			0u, nullptr);
+		commandBuffer->bindDescriptorSets(asset::EPBP_COMPUTE, octreeLastCullPipeline->getLayout(), 0u, 1u, &octreeLastCullDS[acquiredNextFBO].get());
+		{
+			octree_intermediate_cull_push_constants_t pc = {};
+			pc.camPosClipmapExtent[0] = cameraPosition.x;
+			pc.camPosClipmapExtent[1] = cameraPosition.y;
+			pc.camPosClipmapExtent[2] = cameraPosition.z;
+			pc.camPosClipmapExtent[3] = genesisVoxelExtent;
+			pc.hierarchyLevel = 6u;
+			commandBuffer->pushConstants(octreeLastCullPipeline->getLayout(), video::IGPUShader::ESS_COMPUTE, 0u, sizeof(octree_intermediate_cull_push_constants_t), &pc);
+		}
+		commandBuffer->bindComputePipeline(octreeLastCullPipeline.get());
+		{
+			constexpr uint32_t MAX_INVOCATIONS = MEMORY_BUDGET / sizeof(uint64_t);
+			commandBuffer->dispatch((MAX_INVOCATIONS + WG_DIM - 1) / WG_DIM, 1u, 1u);
+		}
+
 
 
 #ifdef CLIPMAP
@@ -2888,6 +3056,9 @@ private:
 
 	core::smart_refctd_ptr<video::IGPUComputePipeline> octreeIntermediateCullPipeline = nullptr;
 	core::smart_refctd_ptr<video::IGPUDescriptorSet> octreeIntermediateCullDS[SC_IMG_COUNT][2];
+
+	core::smart_refctd_ptr<video::IGPUComputePipeline> octreeLastCullPipeline = nullptr;
+	core::smart_refctd_ptr<video::IGPUDescriptorSet> octreeLastCullDS[SC_IMG_COUNT] = { nullptr };
 
 	uint32_t buildHistogramID = 0u;
 

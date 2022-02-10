@@ -196,11 +196,16 @@ float getLightImportanceMagnitude(in nbl_glsl_ext_ClusteredLighting_SpotLight li
 	return sqrt(dot(importance, importance));
 }
 
-uint getHistogramBinIndex(in float importanceMagnitude)
+uint getGlobalLightIndex(in uvec2 packedIntersectionRecord)
 {
-	const int minVal = floatBitsToInt(MIN_HISTOGRAM_IMPORTANCE) + 1;
-	const int maxVal = floatBitsToInt(MAX_HISTOGRAM_IMPORTANCE) - 1;
-	const int range = maxVal - minVal;
+	return packedIntersectionRecord.y >> 12;
+}
 
-	return uint(BIN_COUNT * (float(clamp(floatBitsToInt(importanceMagnitude) - minVal, 0, range)) / float(range)));
+uvec3 getLocalClusterID(in uvec2 packedIntersectionRecord)
+{
+	uvec3 result;
+	result.x = packedIntersectionRecord.x & 0x7Fu;
+	result.y = (packedIntersectionRecord.x >> 7) & 0x7Fu;
+	result.z = (packedIntersectionRecord.x >> 14) & 0x7Fu;
+	return result;
 }
