@@ -1343,88 +1343,78 @@ public:
 			logicalDevice->updateDescriptorSets(SCAN_DESCRIPTOR_COUNT, writes, 0u, nullptr);
 		}
 
-#ifdef CLIPMAP
+		constexpr uint32_t SCATTER_DESCRIPTOR_COUNT = 3u;
+		core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> scatterDSLayout = nullptr;
 		{
-			core::smart_refctd_ptr<video::IGPUSpecializedShader> scatterShader = createShader("../scatter.comp");
+			video::IGPUDescriptorSetLayout::SBinding bindings[SCATTER_DESCRIPTOR_COUNT];
 
-			constexpr uint32_t SCATTER_DESCRIPTOR_COUNT = 3u;
-			core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> scatterDSLayout = nullptr;
+			for (uint32_t i = 0u; i < SCATTER_DESCRIPTOR_COUNT; ++i)
 			{
-				video::IGPUDescriptorSetLayout::SBinding bindings[SCATTER_DESCRIPTOR_COUNT];
-
 				// intersection records
-				bindings[0].binding = 0u;
-				bindings[0].type = asset::EDT_STORAGE_BUFFER;
-				bindings[0].count = 1u;
-				bindings[0].stageFlags = asset::IShader::ESS_COMPUTE;
-				bindings[0].samplers = nullptr;
-
-				// light index list offsets
-				bindings[1].binding = 1u;
-				bindings[1].type = asset::EDT_STORAGE_IMAGE;
-				bindings[1].count = 1u;
-				bindings[1].stageFlags = asset::IShader::ESS_COMPUTE;
-				bindings[1].samplers = nullptr;
-
-				// light index list
-				bindings[2].binding = 2u;
-				bindings[2].type = asset::EDT_STORAGE_BUFFER;
-				bindings[2].count = 1u;
-				bindings[2].stageFlags = asset::IShader::ESS_COMPUTE;
-				bindings[2].samplers = nullptr;
-
-				scatterDSLayout = logicalDevice->createGPUDescriptorSetLayout(bindings, bindings + SCATTER_DESCRIPTOR_COUNT);
+				bindings[i].binding = i;
+				bindings[i].count = 1u;
+				bindings[i].stageFlags = asset::IShader::ESS_COMPUTE;
+				bindings[i].samplers = nullptr;
 			}
+			// intersection records
+			bindings[0].type = asset::EDT_STORAGE_BUFFER;
+			// light grid
+			bindings[1].type = asset::EDT_STORAGE_IMAGE;
+			// light index list
+			bindings[2].type = asset::EDT_STORAGE_BUFFER;
 
-			const uint32_t scatterDSCount = 1u;
-			core::smart_refctd_ptr<video::IDescriptorPool> scatterDescriptorPool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE, &scatterDSLayout.get(), &scatterDSLayout.get() + 1ull, &scatterDSCount);
-
-			core::smart_refctd_ptr<video::IGPUPipelineLayout> scatterPipelineLayout = logicalDevice->createGPUPipelineLayout(nullptr, nullptr, core::smart_refctd_ptr(scatterDSLayout));
-
-			scatterPipeline = logicalDevice->createGPUComputePipeline(nullptr, std::move(scatterPipelineLayout), std::move(scatterShader));
-			scatterDS = logicalDevice->createGPUDescriptorSet(scatterDescriptorPool.get(), std::move(scatterDSLayout));
-
-			{
-				video::IGPUDescriptorSet::SWriteDescriptorSet writes[SCATTER_DESCRIPTOR_COUNT] = {};
-				writes[0].dstSet = scatterDS.get();
-				writes[0].binding = 0u;
-				writes[0].arrayElement = 0u;
-				writes[0].count = 1u;
-				writes[0].descriptorType = asset::EDT_STORAGE_BUFFER;
-
-				writes[1].dstSet = scatterDS.get();
-				writes[1].binding = 1u;
-				writes[1].arrayElement = 0u;
-				writes[1].count = 1u;
-				writes[1].descriptorType = asset::EDT_STORAGE_IMAGE;
-
-				writes[2].dstSet = scatterDS.get();
-				writes[2].binding = 2u;
-				writes[2].arrayElement = 0u;
-				writes[2].count = 1u;
-				writes[2].descriptorType = asset::EDT_STORAGE_BUFFER;
-
-				video::IGPUDescriptorSet::SDescriptorInfo infos[SCATTER_DESCRIPTOR_COUNT] = {};
-				infos[0].desc = intersectionRecordsGPUBuffer;
-				infos[0].buffer.offset = 0ull;
-				infos[0].buffer.size = intersectionRecordsGPUBuffer->getCachedCreationParams().declaredSize;
-
-				infos[1].desc = lightGridTextureView;
-				infos[1].image.imageLayout = asset::EIL_GENERAL;
-				infos[1].image.sampler = nullptr;
-
-				infos[2].desc = lightIndexListGPUBuffer;
-				infos[2].buffer.offset = 0ull;
-				infos[2].buffer.size = lightIndexListGPUBuffer->getCachedCreationParams().declaredSize;
-
-				writes[0].info = &infos[0];
-				writes[1].info = &infos[1];
-				writes[2].info = &infos[2];
-				logicalDevice->updateDescriptorSets(SCATTER_DESCRIPTOR_COUNT, writes, 0u, nullptr);
-			}
+			scatterDSLayout = logicalDevice->createGPUDescriptorSetLayout(bindings, bindings + SCATTER_DESCRIPTOR_COUNT);
 		}
 
-#endif
+		core::smart_refctd_ptr<video::IGPUPipelineLayout> scatterPipelineLayout = logicalDevice->createGPUPipelineLayout(nullptr, nullptr, core::smart_refctd_ptr(scatterDSLayout));
+
+		const char* scatterShaderPath = "../scatter.comp";
+		{
+			core::smart_refctd_ptr<video::IGPUSpecializedShader> scatterShader = createShader(scatterShaderPath);
+			scatterPipeline = logicalDevice->createGPUComputePipeline(nullptr, std::move(scatterPipelineLayout), std::move(scatterShader));
+		}
+
+		// create & update scatter ds
+		const uint32_t scatterDSCount = SC_IMG_COUNT;
+		auto scatterDescriptorPool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE, &scatterDSLayout.get(), &scatterDSLayout.get() + 1ull, &scatterDSCount);
+		for (uint32_t scImageIndex = 0u; scImageIndex < SC_IMG_COUNT; ++scImageIndex)
+		{
+			scatterDS[scImageIndex] = logicalDevice->createGPUDescriptorSet(scatterDescriptorPool.get(), core::smart_refctd_ptr(scatterDSLayout));
+
+			video::IGPUDescriptorSet::SWriteDescriptorSet writes[SCATTER_DESCRIPTOR_COUNT] = {};
+
+			for (uint32_t i = 0u; i < SCATTER_DESCRIPTOR_COUNT; ++i)
+			{
+				writes[i].dstSet = scatterDS[scImageIndex].get();
+				writes[i].binding = i;
+				writes[i].arrayElement = 0u;
+				writes[i].count = 1u;
+			}
+			// intersection records
+			writes[0].descriptorType = asset::EDT_STORAGE_BUFFER;
+			// light grid
+			writes[1].descriptorType = asset::EDT_STORAGE_IMAGE;
+			// light index list
+			writes[2].descriptorType = asset::EDT_STORAGE_BUFFER;
+
+			video::IGPUDescriptorSet::SDescriptorInfo infos[SCATTER_DESCRIPTOR_COUNT] = {};
+			infos[0].desc = octreeScratchBuffers[scImageIndex][1];
+			infos[0].buffer.offset = 0ull;
+			infos[0].buffer.size = octreeScratchBuffers[scImageIndex][1]->getCachedCreationParams().declaredSize;
+
+			infos[1].desc = lightGridTextureView;
+			infos[1].image.imageLayout = asset::EIL_GENERAL;
+			infos[1].image.sampler = nullptr;
+
+			infos[2].desc = lightIndexListGPUBuffer;
+			infos[2].buffer.offset = 0ull;
+			infos[2].buffer.size = lightIndexListGPUBuffer->getCachedCreationParams().declaredSize;
+
+			writes[0].info = &infos[0];
+			writes[1].info = &infos[1];
+			writes[2].info = &infos[2];
+			logicalDevice->updateDescriptorSets(SCATTER_DESCRIPTOR_COUNT, writes, 0u, nullptr);
+		}
 		
 		// Todo(achal): This should probably need the active light indices as well
 		constexpr uint32_t LIGHTING_DESCRIPTOR_COUNT = 3u;
@@ -1973,7 +1963,7 @@ public:
 		// light grid before the scan pass can read from it, we only need this dependency
 		// for the light grid so not using a global memory barrier here
 		lightGridUpdated.barrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
-		lightGridUpdated.barrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
+		lightGridUpdated.barrier.dstAccessMask = static_cast<asset::E_ACCESS_FLAGS>(asset::EAF_SHADER_WRITE_BIT | asset::EAF_SHADER_READ_BIT);
 
 		commandBuffer->pipelineBarrier(
 			asset::EPSF_COMPUTE_SHADER_BIT,
@@ -1991,6 +1981,16 @@ public:
 			asset::EPSF_TOP_OF_PIPE_BIT,
 			0u, nullptr,
 			asset::EPSF_BOTTOM_OF_PIPE_BIT,
+			0u, nullptr);
+
+		// memory dependency to ensure the final culling pass has finished writing intersection records to the scratch
+		scratchUpdatedBarrier.buffer = octreeScratchBuffers[acquiredNextFBO][1];
+		commandBuffer->pipelineBarrier(
+			asset::EPSF_COMPUTE_SHADER_BIT,
+			asset::EPSF_COMPUTE_SHADER_BIT,
+			asset::EDF_BY_REGION_BIT,
+			0u, nullptr,
+			1u, &scratchUpdatedBarrier,
 			0u, nullptr);
 		
 #ifdef CLIPMAP
@@ -2016,11 +2016,25 @@ public:
 			intersectionDataUpdated[1].offset = 0ull;
 			intersectionDataUpdated[1].size = intersectionRecordsGPUBuffer->getCachedCreationParams().declaredSize;
 		}
+#endif
 
 		// image memory dependency to ensure that scan has finished writing to the light grid
 		lightGridUpdated.barrier.srcAccessMask = static_cast<asset::E_ACCESS_FLAGS>(asset::EAF_SHADER_READ_BIT | asset::EAF_SHADER_WRITE_BIT);
 		lightGridUpdated.barrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
+		commandBuffer->pipelineBarrier(
+			asset::EPSF_COMPUTE_SHADER_BIT,
+#ifdef CLIPMAP
+			static_cast<asset::E_PIPELINE_STAGE_FLAGS>(asset::EPSF_COMPUTE_SHADER_BIT | asset::EPSF_DRAW_INDIRECT_BIT),
+#endif
+#ifdef OCTREE
+			asset::EPSF_COMPUTE_SHADER_BIT,
+#endif
+			asset::EDF_NONE,
+			0u, nullptr,
+			0u, nullptr,
+			1u, &lightGridUpdated);
 
+#ifdef CLIPMAP
 		commandBuffer->pipelineBarrier(
 			asset::EPSF_COMPUTE_SHADER_BIT,
 			static_cast<asset::E_PIPELINE_STAGE_FLAGS>(asset::EPSF_COMPUTE_SHADER_BIT | asset::EPSF_DRAW_INDIRECT_BIT),
@@ -2028,15 +2042,36 @@ public:
 			0u, nullptr,
 			2u, intersectionDataUpdated,
 			1u, &lightGridUpdated);
+#endif
 
 		commandBuffer->bindComputePipeline(scatterPipeline.get());
-		commandBuffer->bindDescriptorSets(asset::EPBP_COMPUTE, scatterPipeline->getLayout(), 0u, 1u, &scatterDS.get());
+		commandBuffer->bindDescriptorSets(asset::EPBP_COMPUTE, scatterPipeline->getLayout(), 0u, 1u, &scatterDS[acquiredNextFBO].get());
+#ifdef CLIPMAP
 		commandBuffer->dispatchIndirect(intersectionRecordCountGPUBuffer.get(), 0ull);
-
-		// Todo(achal): Do I need to externally synchronize the end of compute and start
-		// of a renderpass???
-		// YES
 #endif
+#ifdef OCTREE
+		{
+			constexpr uint32_t MAX_INVOCATIONS = MEMORY_BUDGET / sizeof(uint64_t);
+			commandBuffer->dispatch((MAX_INVOCATIONS + WG_DIM - 1) / WG_DIM, 1u, 1u);
+		}
+#endif
+
+		// memory dependency to ensure the light index list is updated
+		video::IGPUCommandBuffer::SBufferMemoryBarrier lightIndexListUpdated = {};
+		lightIndexListUpdated.barrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
+		lightIndexListUpdated.barrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
+		lightIndexListUpdated.srcQueueFamilyIndex = ~0u;
+		lightIndexListUpdated.dstQueueFamilyIndex = ~0u;
+		lightIndexListUpdated.buffer = lightIndexListGPUBuffer;
+		lightIndexListUpdated.offset = 0ull;
+		lightIndexListUpdated.size = lightIndexListUpdated.buffer->getCachedCreationParams().declaredSize;
+		commandBuffer->pipelineBarrier(
+			asset::EPSF_COMPUTE_SHADER_BIT,
+			asset::EPSF_FRAGMENT_SHADER_BIT,
+			asset::EDF_BY_REGION_BIT,
+			0u, nullptr,
+			1u, &lightIndexListUpdated,
+			0u, nullptr);
 		
 		// renderpass
 		{
@@ -2097,6 +2132,7 @@ public:
 			renderFinished[resourceIx].get(),
 			acquiredNextFBO);
 
+#if 0
 		core::vectorSIMDf levelMinVertex(-genesisVoxelExtent / 2.f, -genesisVoxelExtent / 2.f, -genesisVoxelExtent / 2.f);
 		const float voxelSideLength = genesisVoxelExtent / 2.f;
 
@@ -2111,6 +2147,7 @@ public:
 
 			return result;
 		};
+#endif
 
 #if 0
 		struct intersection_record_t
@@ -3054,9 +3091,10 @@ private:
 	core::smart_refctd_ptr<video::IGPUBuffer> intersectionRecordsGPUBuffer = nullptr;
 	core::smart_refctd_ptr<video::IGPUBuffer> intersectionRecordCountGPUBuffer = nullptr;
 	core::smart_refctd_ptr<video::IGPUBuffer> cullScratchGPUBuffer = nullptr;
-	core::smart_refctd_ptr<video::IGPUComputePipeline> scatterPipeline = nullptr;
-	core::smart_refctd_ptr<video::IGPUDescriptorSet> scatterDS = nullptr;
 #endif
+
+	core::smart_refctd_ptr<video::IGPUComputePipeline> scatterPipeline = nullptr;
+	core::smart_refctd_ptr<video::IGPUDescriptorSet> scatterDS[SC_IMG_COUNT] = { nullptr };
 
 	core::smart_refctd_ptr<video::IGPUImage> lightGridTexture = nullptr;
 	core::smart_refctd_ptr<video::IGPUImageView> lightGridTextureView = nullptr;

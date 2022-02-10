@@ -1,12 +1,20 @@
-
 #version 430 core
+
+// Todo(achal): Get this via push constants
+#define CLIPMAP_EXTENT 11977.0674f
 
 // Todo(achal): Get these from host, some of these are required
 // in the culling compute shader as well, need to make the code DRY
-#define LOD_COUNT 10
-#define VOXEL_COUNT_PER_DIM 4
-#define VOXEL_COUNT_PER_LEVEL 64
-#define CLIPMAP_EXTENT 11977.0674f
+#ifdef CLIPMAP
+    #define LOD_COUNT 10
+    #define VOXEL_COUNT_PER_DIM 4
+    #define VOXEL_COUNT_PER_LEVEL 64
+    #define CLIPMAP_EXTENT 11977.0674f
+#else
+    #define LOD_COUNT 7
+    #define VOXEL_COUNT_PER_DIM 64
+#endif
+
 // Somewhat arbitrary
 #define LIGHT_CONTRIBUTION_THRESHOLD 2.f
 #define LIGHT_RADIUS 25.f
@@ -96,6 +104,7 @@ vec3 getWorldPosFromFramebufferCoords(in vec4 fragCoord)
     return worldPos.xyz;
 }
 
+#ifdef CLIPMAP
 uint getClipmapLevel(in vec3 worldPos, in vec3 camPos)
 {
     const vec3 distFromCamera = abs(worldPos - camPos);
@@ -127,6 +136,16 @@ uint getClipmapClusterAtLevel(in uint level, in vec3 worldPos, in vec3 eyePos)
         + localClusterCoord.x;
 
     return globalClusterID;
+}
+#endif
+
+ivec3 getOctreeCluster(in vec3 worldPos, in vec3 eyePos)
+{
+    const vec3 levelMinVertex = vec3(-CLIPMAP_EXTENT/2.f);
+    const float voxelSideLength = CLIPMAP_EXTENT / VOXEL_COUNT_PER_DIM;
+    const vec3 fromClipmapCenter = worldPos - eyePos;
+    ivec3 localClusterCoord = ivec3(floor((fromClipmapCenter - levelMinVertex) / voxelSideLength));
+    return localClusterCoord;
 }
 
 ivec3 getLightGridCoords(in uint globalClusterID)
@@ -190,8 +209,13 @@ vec3 computeLightContribution(in vec3 worldPos, in nbl_glsl_ext_ClusteredLightin
 vec3 nbl_computeLighting(out nbl_glsl_IsotropicViewSurfaceInteraction out_interaction, in mat2 dUV)
 {
     const vec3 WorldPos = getWorldPosFromFramebufferCoords(gl_FragCoord);
+#ifdef CLIPMAP
     const uint level = getClipmapLevel(WorldPos, EyePos);
     const uint globalClusterID = getClipmapClusterAtLevel(level, WorldPos, EyePos);
+    ivec3 lightGridCoords = getLightGridCoords(globalClusterID);
+#else
+    ivec3 lightGridCoords = getOctreeCluster(WorldPos, EyePos);
+#endif
 
     nbl_glsl_IsotropicViewSurfaceInteraction interaction = nbl_glsl_calcSurfaceInteraction(
         EyePos,
@@ -199,20 +223,19 @@ vec3 nbl_computeLighting(out nbl_glsl_IsotropicViewSurfaceInteraction out_intera
         Normal_WorldSpace,
         mat2x3(dFdx(ViewPos),dFdy(ViewPos)));
 
-    ivec3 lightGridCoords = getLightGridCoords(globalClusterID);
     
     uint lightOffset, lightCount;
     getLightIndexListOffsetAndCount(lightGridCoords, lightOffset, lightCount);
 
 
     vec3 lightAccum = vec3(0.f);
-#ifdef CLIPMAP
+#if 1
     for (uint i = 0u; i < lightCount; ++i)
 #else
     for (uint lightID = 0u; lightID < LIGHT_COUNT; ++lightID)
 #endif
     {
-#ifdef CLIPMAP
+#if 1
         const uint lightID = texelFetch(lightIndexList, int(lightOffset + i)).x;
 #endif
         const nbl_glsl_ext_ClusteredLighting_SpotLight light = ssbo.lights[lightID];
