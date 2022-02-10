@@ -55,7 +55,9 @@ public:
     CommonAPI::InputSystem::ChannelReader<IMouseEventChannel> mouse;
     CommonAPI::InputSystem::ChannelReader<IKeyboardEventChannel> keyboard;
     Camera camera = Camera(vectorSIMDf(0, 0, 0), vectorSIMDf(0, 0, 0), matrix4SIMD());
-
+    
+    core::smart_refctd_ptr<video::IGPUMesh> gpumesh;
+    core::smart_refctd_ptr<video::IGPUDescriptorSet> perCameraDescSet;
     core::smart_refctd_ptr<video::IGPUCommandBuffer> bakedCommandBuffer;
     uint32_t cameraUBOBinding = 0u;
     core::smart_refctd_ptr<video::IGPUBuffer> cameraUBO;
@@ -120,7 +122,7 @@ public:
         CommonAPI::InitOutput initOutput;
 
         const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT);
-        const video::ISurface::SFormat surfaceFormat(asset::EF_B8G8R8A8_SRGB, asset::ECP_COUNT, asset::EOTF_UNKNOWN);
+        const video::ISurface::SFormat surfaceFormat(asset::EF_R8G8B8A8_SRGB, asset::ECP_SRGB, asset::EOTF_sRGB);
 
         CommonAPI::InitWithDefaultExt(initOutput, video::EAT_OPENGL, "SubpassBaking", WIN_W, WIN_H, SC_IMG_COUNT, swapchainImageUsage, surfaceFormat, nbl::asset::EF_D32_SFLOAT);
         window = std::move(initOutput.window);
@@ -165,7 +167,6 @@ public:
             quantNormalCache->saveCacheToFile<asset::EF_A2B10G10R10_SNORM_PACK32>(system.get(), sharedOutputCWD / "normalCache101010.sse");
         }
 
-        core::smart_refctd_ptr<video::IGPUDescriptorSet> perCameraDescSet;
         {
             const auto meshbuffers = meshRaw->getMeshBuffers();
 
@@ -233,7 +234,6 @@ public:
             meshBuffer->getPipeline()->getRasterizationParams().frontFaceIsCCW = false;
         }
 
-        core::smart_refctd_ptr<video::IGPUMesh> gpumesh;
         {
             cpu2gpuParams.beginCommandBuffers();
             auto gpu_array = cpu2gpu.getGPUObjectsFromAssets(&meshRaw, &meshRaw + 1, cpu2gpuParams);
