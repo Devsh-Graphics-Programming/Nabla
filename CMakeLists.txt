@@ -8,6 +8,8 @@ cmake_policy(SET CMP0072 OLD) #not yet, would need to get pointers to all OpenGL
 set(OpenGL_GL_PREFERENCE LEGACY)
 #cmake_policy(SET CMP )
 
+set(NBL_BUILD_ANDROID OFF)
+
 include(ExternalProject)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/toolchains/android/build.cmake)
 

@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set(NBL_BUILD_ANDROID OFF)
 if(DEFINED CMAKE_TOOLCHAIN_FILE)
 	if(EXISTS "${CMAKE_TOOLCHAIN_FILE}")
 		cmake_path(GET CMAKE_TOOLCHAIN_FILE FILENAME _NBL_CMAKE_TOOLCHAIN_FILENAME_)
@@ -88,13 +87,6 @@ if(NBL_BUILD_ANDROID)
 		message(FATAL_ERROR "Current host OS for Android cross-compiling isn't allowed!")
 	endif()
 	
-	# TODO - remove those bellow in future
-	set(_NBL_COMPILE_WITH_OPEN_EXR_ OFF CACHE BOOL "Off for Android purposes at the moment" FORCE) 		# TODO - check it out
-	set(_NBL_COMPILE_WITH_BAW_LOADER_ OFF CACHE BOOL "Off for Android purposes at the moment" FORCE)	# TODO - remove when BAW-v4 is done
-	set(_NBL_COMPILE_WITH_BAW_WRITER_ OFF CACHE BOOL "Off for Android purposes at the moment" FORCE)	# TODO - remove when BAW-v4 is done
-	set(_NBL_COMPILE_WITH_OBJ_LOADER_ ON CACHE BOOL "Off for Android purposes at the moment" FORCE)
-	set(NBL_BUILD_MITSUBA_LOADER OFF CACHE BOOL "Off for Android purposes at the moment" FORCE) 		# TODO - compile/linker errors
-	
 	find_package(Java 1.8)
 	
 	if(DEFINED Java_JAVA_EXECUTABLE)
@@ -104,7 +96,7 @@ if(NBL_BUILD_ANDROID)
 	endif()
 	
 	string(LENGTH ${Java_JAVA_EXECUTABLE} Java_JAVA_EXECUTABLE_LENGTH)
-	if(WIN32) 
+	if("${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Windows") 
 		set(Java_JAVA_EXE_BIN_LENGTH 13)
 	else() 
 		set(Java_JAVA_EXE_BIN_LENGTH 9)

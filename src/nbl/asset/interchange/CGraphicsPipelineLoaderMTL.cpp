@@ -86,7 +86,7 @@ void CGraphicsPipelineLoaderMTL::initialize()
     // default pipelines
     constexpr std::string_view filename = "Nabla default MTL material";
 
-    auto default_mtl_file = core::make_smart_refctd_ptr<system::CFileView<system::CPlainHeapAllocator>>(core::smart_refctd_ptr(m_system), filename, system::IFile::ECF_READ, strlen(DUMMY_MTL_CONTENT));
+    auto default_mtl_file = core::make_smart_refctd_ptr<system::CFileView<system::CPlainHeapAllocator>>(core::smart_refctd_ptr(m_system), filename, system::IFile::ECF_READ_WRITE, strlen(DUMMY_MTL_CONTENT));
     
     system::future<size_t> future;
     default_mtl_file->write(future, DUMMY_MTL_CONTENT, 0, strlen(DUMMY_MTL_CONTENT));
@@ -94,7 +94,6 @@ void CGraphicsPipelineLoaderMTL::initialize()
 
     SAssetLoadParams assetLoadParams;
     auto bundle = loadAsset(default_mtl_file.get(), assetLoadParams, &dfltOver);
-
 
     insertBuiltinAssetIntoCache(m_assetMgr, bundle, "nbl/builtin/renderpass_independent_pipeline/loader/mtl/missing_material_pipeline");
 }
