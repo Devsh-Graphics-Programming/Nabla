@@ -1255,86 +1255,95 @@ public:
 			writes[5].info = &infos[5];
 			logicalDevice->updateDescriptorSets(CULL_DESCRIPTOR_COUNT, writes, 0u, nullptr);
 		}
+#endif
 
+		// Todo(achal): I'm sure this scan scratch buffer can be reused from some other scratch we allocate
 		{
 			video::CScanner* scanner = utilities->getDefaultScanner();
+			const auto& lightGridExtent = lightGridTexture->getCreationParameters().extent;
+			scanner->buildParameters(lightGridExtent.width * lightGridExtent.height * lightGridExtent.depth, scanPushConstants, scanDispatchInfo);
 
-			constexpr uint32_t SCAN_DESCRIPTOR_COUNT = 2u;
+			const size_t neededSize = scanPushConstants.scanParams.getScratchSize();
+			video::IGPUBuffer::SCreationParams creationParams = {};
+			creationParams.usage = static_cast<video::IGPUBuffer::E_USAGE_FLAGS>(video::IGPUBuffer::EUF_STORAGE_BUFFER_BIT | video::IGPUBuffer::EUF_TRANSFER_DST_BIT);
+			scanScratchGPUBuffer = logicalDevice->createDeviceLocalGPUBufferOnDedMem(creationParams, neededSize);
+		}
+
+		constexpr uint32_t SCAN_DESCRIPTOR_COUNT = 2u;
+		core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> scanDSLayout = nullptr;
+		{
 			video::IGPUDescriptorSetLayout::SBinding binding[SCAN_DESCRIPTOR_COUNT];
-			{
-				// light grid
-				binding[0].binding = 0u;
-				binding[0].type = asset::EDT_STORAGE_IMAGE;
-				binding[0].count = 1u;
-				binding[0].stageFlags = video::IGPUShader::ESS_COMPUTE;
-				binding[0].samplers = nullptr;
 
-				// scratch
-				binding[1].binding = 1u;
-				binding[1].type = asset::EDT_STORAGE_BUFFER;
-				binding[1].count = 1u;
-				binding[1].stageFlags = video::IGPUShader::ESS_COMPUTE;
-				binding[1].samplers = nullptr;
-			}
-			auto scanDSLayout = logicalDevice->createGPUDescriptorSetLayout(binding, binding + SCAN_DESCRIPTOR_COUNT);
+			// light grid
+			binding[0].binding = 0u;
+			binding[0].type = asset::EDT_STORAGE_IMAGE;
+			binding[0].count = 1u;
+			binding[0].stageFlags = video::IGPUShader::ESS_COMPUTE;
+			binding[0].samplers = nullptr;
 
+			// scratch
+			binding[1].binding = 1u;
+			binding[1].type = asset::EDT_STORAGE_BUFFER;
+			binding[1].count = 1u;
+			binding[1].stageFlags = video::IGPUShader::ESS_COMPUTE;
+			binding[1].samplers = nullptr;
+
+			scanDSLayout = logicalDevice->createGPUDescriptorSetLayout(binding, binding + SCAN_DESCRIPTOR_COUNT);
+		}
+
+		core::smart_refctd_ptr<video::IGPUPipelineLayout> scanPipelineLayout = nullptr;
+		{
 			asset::SPushConstantRange pcRange;
 			pcRange.stageFlags = asset::IShader::ESS_COMPUTE;
 			pcRange.offset = 0u;
 			pcRange.size = sizeof(video::CScanner::DefaultPushConstants);
-
-			auto scanPipelineLayout = logicalDevice->createGPUPipelineLayout(&pcRange, &pcRange+1ull, core::smart_refctd_ptr(scanDSLayout));
-			auto shader = createShader("../scan.comp");
-			scanPipeline = logicalDevice->createGPUComputePipeline(nullptr, std::move(scanPipelineLayout), std::move(shader));
-
-			const uint32_t setCount = 1u;
-			auto scanDSPool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE, &scanDSLayout.get(), &scanDSLayout.get() + 1ull, &setCount);
-			scanDS = logicalDevice->createGPUDescriptorSet(scanDSPool.get(), core::smart_refctd_ptr(scanDSLayout));
-			scanner->buildParameters(VOXEL_COUNT_PER_LEVEL * LOD_COUNT, scanPushConstants, scanDispatchInfo);
-			
-			// Todo(achal): This scratch buffer can be "merged" with the one I need for the first
-			// compute pass. Required scratch memory could be: max(required_for_scan, required_for_cull)
-			// scan scratch buffer
-			{
-				const size_t neededSize = scanPushConstants.scanParams.getScratchSize();
-				video::IGPUBuffer::SCreationParams creationParams = {};
-				creationParams.usage = static_cast<video::IGPUBuffer::E_USAGE_FLAGS>(video::IGPUBuffer::EUF_STORAGE_BUFFER_BIT | video::IGPUBuffer::EUF_TRANSFER_DST_BIT);
-				scanScratchGPUBuffer = logicalDevice->createDeviceLocalGPUBufferOnDedMem(creationParams, neededSize);
-			}
-
-			{
-				video::IGPUDescriptorSet::SWriteDescriptorSet writes[SCAN_DESCRIPTOR_COUNT];
-
-				// light grid
-				writes[0].dstSet = scanDS.get();
-				writes[0].binding = 0u;
-				writes[0].arrayElement = 0u;
-				writes[0].count = 1u;
-				writes[0].descriptorType = asset::EDT_STORAGE_IMAGE;
-
-				// scratch
-				writes[1].dstSet = scanDS.get();
-				writes[1].binding = 1u;
-				writes[1].arrayElement = 0u;
-				writes[1].count = 1u;
-				writes[1].descriptorType = asset::EDT_STORAGE_BUFFER;
-
-				video::IGPUDescriptorSet::SDescriptorInfo infos[SCAN_DESCRIPTOR_COUNT];
-
-				infos[0].image.imageLayout = asset::EIL_GENERAL;
-				infos[0].image.sampler = nullptr;
-				infos[0].desc = lightGridTextureView;
-
-				infos[1].buffer.offset = 0ull;
-				infos[1].buffer.size = scanScratchGPUBuffer->getCachedCreationParams().declaredSize;
-				infos[1].desc = scanScratchGPUBuffer;
-
-				writes[0].info = &infos[0];
-				writes[1].info = &infos[1];
-				logicalDevice->updateDescriptorSets(SCAN_DESCRIPTOR_COUNT, writes, 0u, nullptr);
-			}
+			scanPipelineLayout = logicalDevice->createGPUPipelineLayout(&pcRange, &pcRange+1ull, core::smart_refctd_ptr(scanDSLayout));
 		}
 
+		const char* scanShaderPath = "../scan.comp";
+		{
+			auto specShader = createShader(scanShaderPath);
+			scanPipeline = logicalDevice->createGPUComputePipeline(nullptr, std::move(scanPipelineLayout), std::move(specShader));
+		}
+
+		// create & update scan ds
+		const uint32_t scanDSCount = SC_IMG_COUNT;
+		auto scanDSPool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE, &scanDSLayout.get(), &scanDSLayout.get() + 1ull, &scanDSCount);
+		for (uint32_t scImageIndex = 0u; scImageIndex < SC_IMG_COUNT; ++scImageIndex)
+		{
+			scanDS[scImageIndex] = logicalDevice->createGPUDescriptorSet(scanDSPool.get(), core::smart_refctd_ptr(scanDSLayout));
+
+			video::IGPUDescriptorSet::SWriteDescriptorSet writes[SCAN_DESCRIPTOR_COUNT];
+
+			for (uint32_t i = 0u; i < SCAN_DESCRIPTOR_COUNT; ++i)
+			{
+				writes[i].dstSet = scanDS[scImageIndex].get();
+				writes[i].binding = i;
+				writes[i].arrayElement = 0u;
+				writes[i].count = 1u;
+			}
+
+			// light grid
+			writes[0].descriptorType = asset::EDT_STORAGE_IMAGE;
+			// scratch
+			writes[1].descriptorType = asset::EDT_STORAGE_BUFFER;
+
+			video::IGPUDescriptorSet::SDescriptorInfo infos[SCAN_DESCRIPTOR_COUNT];
+
+			infos[0].image.imageLayout = asset::EIL_GENERAL;
+			infos[0].image.sampler = nullptr;
+			infos[0].desc = lightGridTextureView;
+
+			infos[1].buffer.offset = 0ull;
+			infos[1].buffer.size = scanScratchGPUBuffer->getCachedCreationParams().declaredSize;
+			infos[1].desc = scanScratchGPUBuffer;
+
+			writes[0].info = &infos[0];
+			writes[1].info = &infos[1];
+			logicalDevice->updateDescriptorSets(SCAN_DESCRIPTOR_COUNT, writes, 0u, nullptr);
+		}
+
+#ifdef CLIPMAP
 		{
 			core::smart_refctd_ptr<video::IGPUSpecializedShader> scatterShader = createShader("../scatter.comp");
 
@@ -1864,75 +1873,9 @@ public:
 			commandBuffer->dispatch((MAX_INVOCATIONS + WG_DIM - 1) / WG_DIM, 1u, 1u);
 		}
 
-		{
-			asset::SClearColorValue lightGridClearValue = { 0 };
-			asset::IImage::SSubresourceRange range;
-			range.aspectMask = video::IGPUImage::EAF_COLOR_BIT;
-			range.baseMipLevel = 0u;
-			range.levelCount = 1u;
-			range.baseArrayLayer = 0u;
-			range.layerCount = 1u;
-			commandBuffer->clearColorImage(lightGridTexture.get(), asset::EIL_GENERAL, &lightGridClearValue, 1u, &range);
-		}
-
-		// memory dependency to ensure the light grid texture is cleared via clearColorImage
-		video::IGPUCommandBuffer::SImageMemoryBarrier lightGridClearedBarrier = {};
-		lightGridClearedBarrier.barrier.srcAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
-		lightGridClearedBarrier.barrier.dstAccessMask = asset::EAF_SHADER_WRITE_BIT;
-		lightGridClearedBarrier.oldLayout = asset::EIL_GENERAL;
-		lightGridClearedBarrier.newLayout = asset::EIL_GENERAL;
-		lightGridClearedBarrier.srcQueueFamilyIndex = ~0u;
-		lightGridClearedBarrier.dstQueueFamilyIndex = ~0u;
-		lightGridClearedBarrier.image = lightGridTexture;
-		lightGridClearedBarrier.subresourceRange.aspectMask = video::IGPUImage::EAF_COLOR_BIT;
-		lightGridClearedBarrier.subresourceRange.baseArrayLayer = 0u;
-		lightGridClearedBarrier.subresourceRange.layerCount = 1u;
-		lightGridClearedBarrier.subresourceRange.baseMipLevel = 0u;
-		lightGridClearedBarrier.subresourceRange.levelCount = 1u;
-		commandBuffer->pipelineBarrier(
-			asset::EPSF_TRANSFER_BIT,
-			asset::EPSF_COMPUTE_SHADER_BIT,
-			asset::EDF_NONE,
-			0u, nullptr,
-			0u, nullptr,
-			1u, &lightGridClearedBarrier);
-
-
-		// final pass (against level 6)
-		scratchUpdatedBarrier.buffer = octreeScratchBuffers[acquiredNextFBO][0];
-		commandBuffer->pipelineBarrier(
-			asset::EPSF_COMPUTE_SHADER_BIT,
-			asset::EPSF_COMPUTE_SHADER_BIT,
-			asset::EDF_BY_REGION_BIT,
-			0u, nullptr,
-			1u, &scratchUpdatedBarrier,
-			0u, nullptr);
-		commandBuffer->bindDescriptorSets(asset::EPBP_COMPUTE, octreeLastCullPipeline->getLayout(), 0u, 1u, &octreeLastCullDS[acquiredNextFBO].get());
-		{
-			octree_intermediate_cull_push_constants_t pc = {};
-			pc.camPosClipmapExtent[0] = cameraPosition.x;
-			pc.camPosClipmapExtent[1] = cameraPosition.y;
-			pc.camPosClipmapExtent[2] = cameraPosition.z;
-			pc.camPosClipmapExtent[3] = genesisVoxelExtent;
-			pc.hierarchyLevel = 6u;
-			commandBuffer->pushConstants(octreeLastCullPipeline->getLayout(), video::IGPUShader::ESS_COMPUTE, 0u, sizeof(octree_intermediate_cull_push_constants_t), &pc);
-		}
-		commandBuffer->bindComputePipeline(octreeLastCullPipeline.get());
-		{
-			constexpr uint32_t MAX_INVOCATIONS = MEMORY_BUDGET / sizeof(uint64_t);
-			commandBuffer->dispatch((MAX_INVOCATIONS + WG_DIM - 1) / WG_DIM, 1u, 1u);
-		}
-
-
-
-#ifdef CLIPMAP
 		// Todo(achal): I would need a different set of command buffers allocated from a pool which utilizes
 		// the compute queue, then I would also need to do queue ownership transfers, most
 		// likely with a pipelineBarrier
-		commandBuffer->bindComputePipeline(cullPipeline.get());
-		float pushConstants[4] = { cameraPosition.x, cameraPosition.y, cameraPosition.z, clipmapExtent };
-		commandBuffer->pushConstants(cullPipeline->getLayout(), asset::IShader::ESS_COMPUTE, 0u, 4 * sizeof(float), pushConstants);
-		commandBuffer->bindDescriptorSets(asset::EPBP_COMPUTE, cullPipeline->getLayout(), 0u, 1u, &cullDs.get());
 		{
 			asset::SClearColorValue lightGridClearValue = { 0 };
 			asset::IImage::SSubresourceRange range;
@@ -1966,16 +1909,49 @@ public:
 			0u, nullptr,
 			1u, &lightGridUpdated);
 		
+#ifdef CLIPMAP
+		commandBuffer->bindComputePipeline(cullPipeline.get());
+		float pushConstants[4] = { cameraPosition.x, cameraPosition.y, cameraPosition.z, clipmapExtent };
+		commandBuffer->pushConstants(cullPipeline->getLayout(), asset::IShader::ESS_COMPUTE, 0u, 4 * sizeof(float), pushConstants);
+		commandBuffer->bindDescriptorSets(asset::EPBP_COMPUTE, cullPipeline->getLayout(), 0u, 1u, &cullDs.get());
 		const uint32_t wgCount = (LIGHT_COUNT + WG_DIM - 1) / WG_DIM;
 		commandBuffer->dispatch(wgCount, 1u, 1u);
+#endif
+
+#ifdef OCTREE
+		// final pass (against level 6)
+		scratchUpdatedBarrier.buffer = octreeScratchBuffers[acquiredNextFBO][0];
+		commandBuffer->pipelineBarrier(
+			asset::EPSF_COMPUTE_SHADER_BIT,
+			asset::EPSF_COMPUTE_SHADER_BIT,
+			asset::EDF_BY_REGION_BIT,
+			0u, nullptr,
+			1u, &scratchUpdatedBarrier,
+			0u, nullptr);
+		commandBuffer->bindDescriptorSets(asset::EPBP_COMPUTE, octreeLastCullPipeline->getLayout(), 0u, 1u, &octreeLastCullDS[acquiredNextFBO].get());
+		{
+			octree_intermediate_cull_push_constants_t pc = {};
+			pc.camPosClipmapExtent[0] = cameraPosition.x;
+			pc.camPosClipmapExtent[1] = cameraPosition.y;
+			pc.camPosClipmapExtent[2] = cameraPosition.z;
+			pc.camPosClipmapExtent[3] = genesisVoxelExtent;
+			pc.hierarchyLevel = 6u;
+			commandBuffer->pushConstants(octreeLastCullPipeline->getLayout(), video::IGPUShader::ESS_COMPUTE, 0u, sizeof(octree_intermediate_cull_push_constants_t), &pc);
+		}
+		commandBuffer->bindComputePipeline(octreeLastCullPipeline.get());
+		{
+			constexpr uint32_t MAX_INVOCATIONS = MEMORY_BUDGET / sizeof(uint64_t);
+			commandBuffer->dispatch((MAX_INVOCATIONS + WG_DIM - 1) / WG_DIM, 1u, 1u);
+		}
+#endif
 
 		video::CScanner* scanner = utilities->getDefaultScanner();
 
 		commandBuffer->fillBuffer(scanScratchGPUBuffer.get(), 0u, sizeof(uint32_t) + scanScratchGPUBuffer->getCachedCreationParams().declaredSize / 2u, 0u);
 		commandBuffer->bindComputePipeline(scanPipeline.get());
-		commandBuffer->bindDescriptorSets(asset::EPBP_COMPUTE, scanPipeline->getLayout(), 0u, 1u, &scanDS.get());
+		commandBuffer->bindDescriptorSets(asset::EPBP_COMPUTE, scanPipeline->getLayout(), 0u, 1u, &scanDS[acquiredNextFBO].get());
 
-		// buffer memory depdency to ensure part of scratch buffer for scan is cleared
+		// buffer memory dependency to ensure part of scratch buffer for scan is cleared
 		video::IGPUCommandBuffer::SBufferMemoryBarrier scanScratchUpdated = {};
 		scanScratchUpdated.barrier.srcAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
 		scanScratchUpdated.barrier.dstAccessMask = static_cast<asset::E_ACCESS_FLAGS>(asset::EAF_SHADER_READ_BIT | asset::EAF_SHADER_WRITE_BIT);
@@ -1984,18 +1960,27 @@ public:
 		scanScratchUpdated.buffer = scanScratchGPUBuffer;
 		scanScratchUpdated.offset = 0ull;
 		scanScratchUpdated.size = scanScratchGPUBuffer->getCachedCreationParams().declaredSize;
-		
-		// image memory dependency to ensure that the first pass has finished writing to the
-		// light grid before the second pass (scan) can read from it, we only need this dependency
-		// for the light grid so not using a global memory barrier here
-		lightGridUpdated.barrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
-		lightGridUpdated.barrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
+
 		commandBuffer->pipelineBarrier(
-			static_cast<asset::E_PIPELINE_STAGE_FLAGS>(asset::EPSF_COMPUTE_SHADER_BIT | asset::EPSF_TRANSFER_BIT),
+			asset::EPSF_TRANSFER_BIT,
 			asset::EPSF_COMPUTE_SHADER_BIT,
 			asset::EDF_NONE,
 			0u, nullptr,
 			1u, &scanScratchUpdated,
+			0u, nullptr);
+		
+		// image memory dependency to ensure that the previous pass has finished writing to the
+		// light grid before the scan pass can read from it, we only need this dependency
+		// for the light grid so not using a global memory barrier here
+		lightGridUpdated.barrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
+		lightGridUpdated.barrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
+
+		commandBuffer->pipelineBarrier(
+			asset::EPSF_COMPUTE_SHADER_BIT,
+			asset::EPSF_COMPUTE_SHADER_BIT,
+			asset::EDF_NONE,
+			0u, nullptr,
+			0u, nullptr,
 			1u, &lightGridUpdated);
 
 		scanner->dispatchHelper(
@@ -2008,6 +1993,7 @@ public:
 			asset::EPSF_BOTTOM_OF_PIPE_BIT,
 			0u, nullptr);
 		
+#ifdef CLIPMAP
 		// buffer memory dependency to ensure that the first compute dispatch has finished writing
 		// all the intersection record data
 		video::IGPUCommandBuffer::SBufferMemoryBarrier intersectionDataUpdated[2u] = { };
@@ -3077,14 +3063,11 @@ private:
 	core::smart_refctd_ptr<video::IGPUBuffer> lightIndexListGPUBuffer = nullptr;
 	core::smart_refctd_ptr<video::IGPUBufferView> lightIndexListSSBOView = nullptr;
 
-// Todo(achal): This will be eventually common for both clipmap and octree
-#ifdef CLIPMAP
-	core::smart_refctd_ptr<video::IGPUDescriptorSet> scanDS = nullptr;
+	core::smart_refctd_ptr<video::IGPUDescriptorSet> scanDS[SC_IMG_COUNT] = { nullptr };
 	video::CScanner::DefaultPushConstants scanPushConstants;
 	video::CScanner::DispatchInfo scanDispatchInfo;
 	core::smart_refctd_ptr<video::IGPUBuffer> scanScratchGPUBuffer = nullptr;
 	core::smart_refctd_ptr<video::IGPUComputePipeline> scanPipeline = nullptr;
-#endif
 
 	core::vector<nbl_glsl_ext_ClusteredLighting_SpotLight> lights;
 	// Todo(achal): Not make it global
