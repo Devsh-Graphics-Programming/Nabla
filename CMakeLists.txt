@@ -7,57 +7,65 @@ cmake_minimum_required(VERSION 3.20)
 cmake_policy(SET CMP0072 OLD) #not yet, would need to get pointers to all OpenGL functions
 set(OpenGL_GL_PREFERENCE LEGACY)
 #cmake_policy(SET CMP )
-option(NBL_BUILD_ANDROID "Build for Android?" OFF)
+set(NBL_BUILD_ANDROID OFF)
 
-if(DEFINED CMAKE_TOOLCHAIN_FILE) # TODO - validate paths due to CMake path-policy (errors when no path passed in)
-	cmake_path(GET CMAKE_TOOLCHAIN_FILE FILENAME _NBL_CMAKE_TOOLCHAIN_FILENAME_)
+if(DEFINED CMAKE_TOOLCHAIN_FILE)
+
+	if(EXISTS "${CMAKE_TOOLCHAIN_FILE}")
+		cmake_path(GET CMAKE_TOOLCHAIN_FILE FILENAME _NBL_CMAKE_TOOLCHAIN_FILENAME_)
+	else()
+		message(FATAL_ERROR "CMAKE_TOOLCHAIN_FILE as '${CMAKE_TOOLCHAIN_FILE}' is invalid!")
+	endif()
 
 	if(${_NBL_CMAKE_TOOLCHAIN_FILENAME_} STREQUAL "android.toolchain.cmake")
 		message(STATUS "Found Android toolchain! Validating...")
 		
-		set(_NBL_SUPPORTED_NDK_ "android-ndk-r22b") # supported NDK version
-		set(_NBL_SUPPORTED_ABI_ "x86_64")			# supported ABI
+		set(_NBL_SUPPORTED_ABI_ 
+			"x86_64"
+			# "arm64-v8a" in future
+		)
 		
-		# quering ${_NBL_EXPECTED_ANDROID_SDK_ROOT_DIRECTORY_}/${_NBL_SUPPORTED_NDK_}/build/cmake/android.toolchain.cmake
-		cmake_path(GET CMAKE_TOOLCHAIN_FILE PARENT_PATH _NBL_TOOLCHAIN_NDK_CMAKE_DIRECTORY_)
-		cmake_path(GET _NBL_TOOLCHAIN_NDK_CMAKE_DIRECTORY_ PARENT_PATH _NBL_TOOLCHAIN_NDK_BUILD_DIRECTORY_)
-		cmake_path(GET _NBL_TOOLCHAIN_NDK_BUILD_DIRECTORY_ PARENT_PATH _NBL_TOOLCHAIN_NDK_ROOT_DIRECTORY_)
-		cmake_path(GET _NBL_TOOLCHAIN_NDK_ROOT_DIRECTORY_ PARENT_PATH _NBL_EXPECTED_ANDROID_SDK_ROOT_DIRECTORY_)
-		
-		string(LENGTH ${CMAKE_TOOLCHAIN_FILE} _NBL_CMAKE_TOOLCHAIN_FILE_LENGTH_)
-		string(LENGTH ${_NBL_EXPECTED_ANDROID_SDK_ROOT_DIRECTORY_} _NBL_EXPECTED_ANDROID_SDK_ROOT_DIRECTORY_LENGTH_)
-		math(EXPR _NBL_PARENT_NDK_TO_TOOLCHAIN_FILE_LENGTH_ "${_NBL_CMAKE_TOOLCHAIN_FILE_LENGTH_} - ${_NBL_EXPECTED_ANDROID_SDK_ROOT_DIRECTORY_LENGTH_}" OUTPUT_FORMAT DECIMAL)
-		string(SUBSTRING ${CMAKE_TOOLCHAIN_FILE} ${_NBL_EXPECTED_ANDROID_SDK_ROOT_DIRECTORY_LENGTH_} ${_NBL_PARENT_NDK_TO_TOOLCHAIN_FILE_LENGTH_} _NBL_PARENT_NDK_TO_TOOLCHAIN_FILEPATH_)
-		
-		if(${_NBL_PARENT_NDK_TO_TOOLCHAIN_FILEPATH_} STREQUAL "/${_NBL_SUPPORTED_NDK_}/build/cmake/android.toolchain.cmake")
-			message(STATUS "Found Android NDK '${_NBL_SUPPORTED_NDK_}' is appropriate!")
-		else()
-			message(FATAL_ERROR "Found Android NDK version isn't appropriate. Use '${_NBL_SUPPORTED_NDK_}'!")
-		endif()
-		
-		if(EXISTS "${_NBL_EXPECTED_ANDROID_SDK_ROOT_DIRECTORY_}/build-tools")
-			if(DEFINED ANDROID_ABI)
-				if(${ANDROID_ABI} STREQUAL ${_NBL_SUPPORTED_ABI_})
-					message(STATUS "Supported '${_NBL_SUPPORTED_ABI_}' ABI!")
-				
-				else()
-					message(FATAL_ERROR "Found '${ANDROID_ABI}' isn't appropriate. Use '${_NBL_SUPPORTED_ABI_}'!")
+		if(DEFINED ANDROID_ABI) # see _NBL_SUPPORTED_ABI_
+			set(FOUND 0)
+			foreach(CURRENT_ABI IN LISTS _NBL_SUPPORTED_ABI_)
+				if("${CURRENT_ABI}" STREQUAL ${ANDROID_ABI})
+					message(STATUS "Selecting found ${CURRENT_ABI} ABI!")
+					set(FOUND 1)
+					break()
 				endif()
+			endforeach()
+			
+			if(NOT FOUND)
+				message(FATAL_ERROR "Selected ${ANDROID_ABI} isn't appropriate. Supported ABIs: ${_NBL_SUPPORTED_ABI_}!")
 			else()
-				message(STATUS "Could not find 'ANDROID_ABI', using supported ABI: '${_NBL_SUPPORTED_ABI_}'")
-				set(ANDROID_ABI ${_NBL_SUPPORTED_ABI_} CACHE INTERNAL "" FORCE)
+				unset(FOUND)
 			endif()
-		
-			message(STATUS "'${_NBL_SUPPORTED_NDK_}' located in Android SDK path. Building Nabla with Android toolchain!")
-		
-			set(ANDROID_SDK_ROOT_PATH "${_NBL_EXPECTED_ANDROID_SDK_ROOT_DIRECTORY_}")
-			set(ANDROID_NDK_ROOT_PATH ${ANDROID_SDK_ROOT_PATH}/${_NBL_SUPPORTED_NDK_})
-				
-			set(NBL_BUILD_ANDROID ON)
-			set(_NBL_ANDROID_VALIDATED_ ON)
 		else()
-			message(FATAL_ERROR "${_NBL_SUPPORTED_NDK_} must be placed in Android SDK path!")
+			message(FATAL_ERROR "ANDROID_ABI must be specified at the very beginning of execution!")
 		endif()
+		
+		if(NOT DEFINED ANDROID_PLATFORM) # android-28
+			message(FATAL_ERROR "ANDROID_PLATFORM must be specified at the very beginning of execution!")
+		endif()
+	
+		include(${CMAKE_TOOLCHAIN_FILE})
+
+		if(${ANDROID_NDK_MAJOR} LESS 22) 
+			message(FATAL_ERROR "Update your NDK to at least 22. We don't support ${ANDROID_NDK_REVISION} NDK version!")
+		endif()
+		
+		# note that we assume NDK has been installed using Android Studio, so the existing paths should look as followning:
+		# ${ANDROID_SDK_ROOT_PATH}/ndk/${ANDROID_NDK_REVISION}/build/cmake/android.toolchain.cmake
+		
+		set(ANDROID_NDK_ROOT_PATH ${CMAKE_ANDROID_NDK})
+		get_filename_component(ANDROID_SDK_ROOT_PATH "${ANDROID_NDK_ROOT_PATH}/../../" ABSOLUTE)
+		
+		if(EXISTS "${ANDROID_SDK_ROOT_PATH}/build-tools")
+			message(STATUS "Building Nabla with ${ANDROID_NDK_REVISION} NDK!")
+		endif()
+		
+		set(NBL_BUILD_ANDROID ON)
+		set(_NBL_ANDROID_VALIDATED_ ON)
 	endif()
 	
 	# TODO - another toolchains in future
@@ -119,9 +127,6 @@ if(NBL_BUILD_ANDROID)
 
     #option(STRIP_ANDROID_LIBRARY "Strip the resulting android library" OFF)
 
-    if(NOT ANDROID_PLATFORM)
-        set(ANDROID_PLATFORM "android-25")
-    endif()
 	string(SUBSTRING
 		"${ANDROID_PLATFORM}"
 		8  # length of "android-"
@@ -152,7 +157,11 @@ if(NBL_BUILD_ANDROID)
         unset(__buildTools)
     endif()
 	set(ANDROID_BUILD_TOOLS "${ANDROID_SDK_ROOT_PATH}/build-tools/${ANDROID_BUILD_TOOLS_VERSION}")
+	if(MSVC)
 	set(ANDROID_JAVA_BIN "${JAVA_HOME}")
+	else()
+	set(ANDROID_JAVA_BIN "${JAVA_HOME}/bin")
+	endif()
 	set(ANDROID_JAVA_RT_JAR "${JAVA_HOME}/jre/lib/rt.jar")
 
 	set(ANDROID_APK_TARGET_ID "" CACHE STRING "The Target ID to build the APK for like 'android-99', use <android list targets> to choose another one.")
