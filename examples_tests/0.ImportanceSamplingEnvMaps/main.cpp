@@ -124,7 +124,7 @@ public:
 	CommonAPI::InputSystem::ChannelReader<IKeyboardEventChannel> keyboard;
 	Camera camera = Camera(vectorSIMDf(0, 0, 0), vectorSIMDf(0, 0, 0), matrix4SIMD());
 
-	core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> gpuEnvmapPipeline;
+	core::smart_refctd_ptr<IGPUGraphicsPipeline> gpuEnvmapPipeline;
 	core::smart_refctd_ptr<IGPUMeshBuffer> gpuEnvmapMeshBuffer;
 	video::IGPUFramebuffer* HDRFramebuffer;
 	core::smart_refctd_ptr<video::IGPUBuffer> gpuubo;
@@ -636,7 +636,7 @@ public:
 			sizeof(float)
 		};
 
-		auto createGpuResources = [&](std::string pathToShader) -> std::pair<core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline>, core::smart_refctd_ptr<video::IGPUMeshBuffer>>
+		auto createGpuResources = [&](std::string pathToShader) -> std::pair<core::smart_refctd_ptr<video::IGPUGraphicsPipeline>, core::smart_refctd_ptr<video::IGPUMeshBuffer>>
 		{
 			auto cpuFragmentSpecializedShader = core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(assetManager->getAsset(pathToShader, {}).getContents().begin()[0]);
 			ISpecializedShader::SInfo info = cpuFragmentSpecializedShader->getSpecializationInfo();
@@ -668,13 +668,19 @@ public:
 				shaders, shaders + sizeof(shaders) / sizeof(IGPUSpecializedShader*),
 				std::get<SVertexInputParams>(fullScreenTriangle), blendParams, std::get<SPrimitiveAssemblyParams>(fullScreenTriangle), rasterParams);
 
+			nbl::video::IGPUGraphicsPipeline::SCreationParams graphicsPipelineParams;
+			graphicsPipelineParams.renderpassIndependent = core::smart_refctd_ptr<nbl::video::IGPURenderpassIndependentPipeline>(const_cast<video::IGPURenderpassIndependentPipeline*>(gpuPipeline.get()));
+			graphicsPipelineParams.renderpass = core::smart_refctd_ptr(renderpass);
+
+			auto gpuGraphicsPipeline = logicalDevice->createGPUGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
+
 			SBufferBinding<IGPUBuffer> idxBinding{ 0ull, nullptr };
 			core::smart_refctd_ptr<video::IGPUMeshBuffer> gpuMeshBuffer = core::make_smart_refctd_ptr<video::IGPUMeshBuffer>(core::smart_refctd_ptr(gpuPipeline), nullptr, nullptr, std::move(idxBinding));
 			{
 				gpuMeshBuffer->setIndexCount(3u);
 			}
 
-			return { gpuPipeline, gpuMeshBuffer };
+			return { gpuGraphicsPipeline, gpuMeshBuffer };
 		};
 
 		const char* fragment_shader_path = "../fullscreen.frag";
@@ -851,10 +857,10 @@ public:
 
 		commandBuffer->beginRenderPass(&beginInfo, nbl::asset::ESC_INLINE);
 
-		commandBuffer->bindGraphicsPipeline(gpuEnvmapPipeline.get());
-		commandBuffer->bindDescriptorSets(EPBP_GRAPHICS, gpuEnvmapPipeline->getLayout(), 1u, 1u, &uboDescriptorSet1.get(), 0u);
-		commandBuffer->bindDescriptorSets(EPBP_GRAPHICS, gpuEnvmapPipeline->getLayout(), 3u, 1u, &descriptorSet5.get(), 0u);
-		commandBuffer->pushConstants(gpuEnvmapPipeline->getLayout(), video::IGPUShader::ESS_FRAGMENT, 0u, sizeof(float), &envmapNormalizationFactor);
+		commandBuffer->bindGraphicsPipeline(gpuEnvmapPipeline.get()); 
+		commandBuffer->bindDescriptorSets(EPBP_GRAPHICS, gpuEnvmapPipeline->getRenderpassIndependentPipeline()->getLayout(), 1u, 1u, &uboDescriptorSet1.get(), 0u);
+		commandBuffer->bindDescriptorSets(EPBP_GRAPHICS, gpuEnvmapPipeline->getRenderpassIndependentPipeline()->getLayout(), 3u, 1u, &descriptorSet5.get(), 0u);
+		commandBuffer->pushConstants(gpuEnvmapPipeline->getRenderpassIndependentPipeline()->getLayout(), video::IGPUShader::ESS_FRAGMENT, 0u, sizeof(float), &envmapNormalizationFactor);
 		commandBuffer->drawMeshBuffer(gpuEnvmapMeshBuffer.get());
 
 		// TODO:
@@ -867,8 +873,8 @@ public:
 		if (ss)
 		{
 			//TODO:
-			ext::ScreenShot::createScreenShot(device, HDRFramebuffer->getAttachment(video::EFAP_COLOR_ATTACHMENT0), "screenshot.exr", asset::EIL_PRESENT_SRC, static_cast<asset::E_ACCESS_FLAGS>(0u));
-			ss = false;
+			//ext::ScreenShot::createScreenShot(device, HDRFramebuffer->getAttachment(video::EFAP_COLOR_ATTACHMENT0), "screenshot.exr", asset::EIL_PRESENT_SRC, static_cast<asset::E_ACCESS_FLAGS>(0u));
+			//ss = false;
 		}
 	}
 
