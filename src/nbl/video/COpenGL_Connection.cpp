@@ -35,7 +35,7 @@ core::smart_refctd_ptr<COpenGL_Connection<API_TYPE>> COpenGL_Connection<API_TYPE
 
     if (!physicalDevice)
     {
-        retval->drop();
+        retval->drop(); // maual drop needed, haven't made a smart pointer yet
         return nullptr;
     }
     retval->m_physicalDevices.push_back(std::move(physicalDevice));

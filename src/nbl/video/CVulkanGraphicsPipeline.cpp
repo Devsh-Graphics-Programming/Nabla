@@ -1,4 +1,4 @@
-#include "CVulkanGraphicsPipeline.h"
+#include "nbl/video/CVulkanGraphicsPipeline.h"
 
 #include "nbl/video/CVulkanLogicalDevice.h"
 

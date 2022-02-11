@@ -410,8 +410,6 @@ namespace nbl::system
 				if (!pBuf)
 				{
 					delete[] decryptedBuf;
-					if (decrypted)
-						decrypted->drop();
 					return 0;
 				}
 
@@ -457,9 +455,7 @@ namespace nbl::system
 					inflateEnd(&stream);
 				}
 
-				if (decrypted)
-					decrypted->drop();
-				else
+				if (!decrypted)
 					delete[] pcData;
 
 				delete[] decryptedBuf;
@@ -496,8 +492,6 @@ namespace nbl::system
 				{
 					m_logger.log("Not enough memory for decompressing %s", ILogger::ELL_ERROR, params.absolutePath.string().c_str());
 					delete[] decryptedBuf;
-					if (decrypted)
-						decrypted->drop();
 					return 0;
 				}
 
@@ -541,9 +535,7 @@ namespace nbl::system
 				err = BZ2_bzDecompress(&bz_ctx);
 				err = BZ2_bzDecompressEnd(&bz_ctx);
 
-				if (decrypted)
-					decrypted->drop();
-				else
+				if (!decrypted)
 					delete[] pcData;
 
 				if (err != BZ_OK)
@@ -579,8 +571,6 @@ namespace nbl::system
 				{
 					m_logger.log("Not enough memory for decompressing %s", ILogger::ELL_ERROR, params.absolutePath.c_str());
 					delete[] decryptedBuf;
-					if (decrypted)
-						decrypted->drop();
 					return 0;
 				}
 
@@ -615,9 +605,7 @@ namespace nbl::system
 					&lzmaAlloc);
 				uncompressedSize = tmpDstSize; // may be different to expected value
 
-				if (decrypted)
-					decrypted->drop();
-				else
+				if (!decrypted)
 					delete[] pcData;
 
 				delete[] decryptedBuf;

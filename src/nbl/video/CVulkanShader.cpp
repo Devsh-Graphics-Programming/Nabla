@@ -1,4 +1,4 @@
-#include "CVulkanShader.h"
+#include "nbl/video/CVulkanShader.h"
 
 #include "nbl/video/CVulkanLogicalDevice.h"
 

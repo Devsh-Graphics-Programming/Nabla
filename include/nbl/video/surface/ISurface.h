@@ -109,8 +109,8 @@ class ISurface : public core::IReferenceCounted
         virtual const void* getNativeWindowHandle() const = 0;
 };
 
-template<class Window>
-class CSurface : public ISurface
+template<class Window, class ImmediateBase = ISurface>
+class CSurface : public ImmediateBase
 {
     public:
         inline const void* getNativeWindowHandle() const override final
@@ -119,7 +119,8 @@ class CSurface : public ISurface
         }
 
     protected:
-        CSurface(core::smart_refctd_ptr<IAPIConnection>&& api, core::smart_refctd_ptr<Window>&& window) : ISurface(std::move(api)), m_window(std::move(window)) {}
+        template<typename... Args>
+        CSurface(core::smart_refctd_ptr<Window>&& window, Args&&... args) : ImmediateBase(std::forward<Args>(args)...), m_window(std::move(window)) {}
         virtual ~CSurface() = default;
 
         uint32_t getWidth() const override { return m_window->getWidth(); }
@@ -128,8 +129,8 @@ class CSurface : public ISurface
         core::smart_refctd_ptr<Window> m_window;
 };
 
-template<class Window>
-class CSurfaceNative : public ISurface
+template<class Window, class ImmediateBase = ISurface>
+class CSurfaceNative : public ImmediateBase
 {
     public:
         inline const void* getNativeWindowHandle() const override final
@@ -138,7 +139,7 @@ class CSurfaceNative : public ISurface
         }
 
     protected:
-        CSurfaceNative(core::smart_refctd_ptr<IAPIConnection>&& api, typename Window::native_handle_t handle) : ISurface(std::move(api)), m_handle(handle) {}
+        CSurfaceNative(core::smart_refctd_ptr<IAPIConnection>&& api, typename Window::native_handle_t handle) : ImmediateBase(std::move(api)), m_handle(handle) {}
         virtual ~CSurfaceNative() = default;
 
         typename Window::native_handle_t m_handle;

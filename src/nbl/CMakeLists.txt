@@ -349,6 +349,7 @@ set(NABLA_SRCS_NORMAL
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanConnection.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanGraphicsPipeline.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanEvent.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CSurfaceVulkan.cpp
 
 
 	#opengl
@@ -722,4 +723,3 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 	nbl_install_lib(tbbmalloc)
 	nbl_install_lib(tbbmalloc_proxy)
 endif()
-

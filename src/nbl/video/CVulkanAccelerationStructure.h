@@ -6,7 +6,7 @@
 #define VK_NO_PROTOTYPES
 #include "vulkan/vulkan.h"
 
-#include "CVulkanCommon.h"
+#include "nbl/video/CVulkanCommon.h"
 #include "CVulkanDeviceFunctionTable.h"
 
 namespace nbl::video

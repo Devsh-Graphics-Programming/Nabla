@@ -461,7 +461,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 					CBasicImageFilterCommon::BlockIterator<batch_dims> begin(batchExtent);
 					const uint32_t spaceFillingEnd[batch_dims] = {0u,batchExtent[1]};
 					CBasicImageFilterCommon::BlockIterator<batch_dims> end(begin.getExtentBatches(),spaceFillingEnd);
-					std::for_each(policy,begin,end,[&](const uint32_t* batchCoord) -> void
+					std::for_each(policy,begin,end,[&](const std::array<uint32_t,batch_dims>& batchCoord) -> void
 					{
 						// we need some tmp memory for threads in the first pass so that they dont step on each other
 						uint32_t decode_offset;

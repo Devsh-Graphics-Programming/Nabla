@@ -654,7 +654,6 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
 			if (file) // could fail creating file (lack of permissions)
 			{
 				bool res = writeAsset(file.get(), _params, _override);
-				file->drop();
 				return res;
 			}
 			else
