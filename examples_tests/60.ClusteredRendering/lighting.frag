@@ -73,12 +73,10 @@ uint upper_bound_arr_NBL_GLSL_LESS(uint begin, in uint end, in float value, in f
 
 // Todo(achal): Probably its better to use a linear search for such small number of
 // elements (<10)
-#if 0
+#ifdef CLIPMAP
 uint getClipmapLevel(in float clipmapHalfExtent, in float dist)
 {
     uint level = 0u;
-    // Todo(achal): LOD_COUNT
-    const uint LOD_COUNT = 10u;
     while (level < LOD_COUNT)
     {
         const float currHalfExtent = (clipmapHalfExtent / (1 << (LOD_COUNT - 1 - level)));

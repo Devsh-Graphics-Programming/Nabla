@@ -214,7 +214,7 @@ void main()
 		{
 			const uint baseOffset = scratchShared[lastSharedUint+1u];
 			const uint outIndex = baseOffset+gl_LocalInvocationIndex;
-			if (outIndex < budgetIntersectionRecordCapacity)
+			// if (outIndex < budgetIntersectionRecordCapacity)
 				outScratch.data[outIndex] = uvec2(scratchShared[gl_LocalInvocationIndex],scratchShared[gl_LocalInvocationIndex+_NBL_GLSL_WORKGROUP_SIZE_]);
 		}
 	}
