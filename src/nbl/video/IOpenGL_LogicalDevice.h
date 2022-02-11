@@ -670,9 +670,8 @@ protected:
                 auto& p = std::get<SRequestGetQueryPoolResults>(req.params_variant);
                 const COpenGLQueryPool* qp = IBackendObject::device_compatibility_cast<const COpenGLQueryPool*>(p.queryPool.get(), device);
                 auto queryPoolQueriesCount = qp->getCreationParameters().queryCount;
-                auto queriesRange = qp->getQueries(); // queriesRange.size() is a multiple of queryPoolQueriesCount
-                auto queries = queriesRange.begin();
-
+                auto queries = qp->getQueries();
+                
                 if(p.pData != nullptr)
                 {
                     IQueryPool::E_QUERY_TYPE queryType = qp->getCreationParameters().queryType;
@@ -680,6 +679,8 @@ protected:
                     bool availabilityFlag = p.flags.hasValue(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WITH_AVAILABILITY_BIT);
                     bool waitForAllResults = p.flags.hasValue(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WAIT_BIT);
                     bool partialResults = p.flags.hasValue(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_PARTIAL_BIT);
+
+                    assert(queryType == IQueryPool::E_QUERY_TYPE::EQT_OCCLUSION || queryType == IQueryPool::E_QUERY_TYPE::EQT_TIMESTAMP);
 
                     if(p.firstQuery + p.queryCount > queryPoolQueriesCount)
                     {
@@ -692,50 +693,103 @@ protected:
                     }
 
                     size_t currentDataPtrOffset = 0;
-                    size_t queryElementDataSize = (use64Version) ? sizeof(GLuint64) : sizeof(GLuint); // each query might write to multiple values/elements
+                    const uint32_t glQueriesPerQuery = qp->getGLQueriesPerQuery();
+                    const size_t queryElementDataSize = (use64Version) ? sizeof(GLuint64) : sizeof(GLuint); // each query might write to multiple values/elements
+                    const size_t eachQueryDataSize = queryElementDataSize * glQueriesPerQuery;
+                    const size_t eachQueryWithAvailabilityDataSize = (availabilityFlag) ? queryElementDataSize + eachQueryDataSize : eachQueryDataSize;
+                    
+                    assert(p.stride >= eachQueryWithAvailabilityDataSize);
+                    assert(p.stride && core::is_aligned_to(p.stride, eachQueryWithAvailabilityDataSize)); // p.stride must be aligned to each query data size considering the specified flags
+                    assert(p.dataSize >= (p.queryCount * p.stride)); // dataSize is not enough for "queryCount" queries and specified stride
+                    assert(p.dataSize >= (p.queryCount * eachQueryWithAvailabilityDataSize)); // dataSize is not enough for "queryCount" queries with considering the specified flags
 
-                    GLenum pname;
-                    if(availabilityFlag)
-                        pname = GL_QUERY_RESULT_AVAILABLE;
-                    else if(waitForAllResults)
-                        pname = GL_QUERY_RESULT;
-                    else if(partialResults)
-                        pname = GL_QUERY_NO_WAIT;
-
-                    auto getQueryObject = [&](GLuint queryId, GLenum pname, void * pData) -> void 
+                    auto getQueryObject = [&](GLuint queryId, GLenum pname, void* pData) -> void 
+                    {
+                        if(use64Version)
+                            gl.extGlGetQueryObjectui64v(queryId, pname, reinterpret_cast<GLuint64*>(pData));
+                        else
+                            gl.extGlGetQueryObjectuiv(queryId, pname, reinterpret_cast<GLuint*>(pData));
+                    }; 
+                    auto getQueryAvailablity = [&](GLuint queryId) -> bool 
+                    {
+                        GLuint ret = 0;
+                        gl.extGlGetQueryObjectuiv(queryId, GL_QUERY_RESULT_AVAILABLE, &ret);
+                        return (ret == GL_TRUE);
+                    };
+                    auto writeValueToData = [&](void* pData, const uint64_t value)
                     {
                         if(use64Version)
                         {
-                            gl.extGlGetQueryObjectui64v(queryId, pname, reinterpret_cast<GLuint64*>(pData));
+                            GLuint64* dataPtr = reinterpret_cast<GLuint64*>(pData);
+                            *dataPtr = value;
                         }
                         else
                         {
-                            gl.extGlGetQueryObjectuiv(queryId, pname, reinterpret_cast<GLuint*>(pData));
+                            GLuint* dataPtr = reinterpret_cast<GLuint*>(pData);
+                            *dataPtr = static_cast<uint32_t>(value);
                         }
                     };
 
+                    // iterate on each query
                     for(uint32_t i = 0; i < p.queryCount; ++i)
                     {
-                        // Don't write queries that exceed the dataSize
                         if(currentDataPtrOffset >= p.dataSize)
+                        {
+                            assert(false);
                             break;
-                        
-                        if(queryType == IQueryPool::E_QUERY_TYPE::EQT_TIMESTAMP || queryType == IQueryPool::E_QUERY_TYPE::EQT_OCCLUSION)
-                        {
-                            assert(queryPoolQueriesCount == queriesRange.size());
-                            assert(p.stride >= queryElementDataSize);
-
-                            GLuint query = queries[i+p.firstQuery];
-                            uint8_t* pData = reinterpret_cast<uint8_t*>(p.pData) + currentDataPtrOffset;
-                            getQueryObject(query, pname, pData);
                         }
-                        else
+                        
+                        uint8_t* pQueryData = reinterpret_cast<uint8_t*>(p.pData) + currentDataPtrOffset;
+                        uint8_t* pAvailabilityData = pQueryData + eachQueryDataSize; // Write Availability to this value if flag specified
+
+                        // iterate on each gl query (we may have multiple gl queries per query like pipelinestatistics query type)
+                        const uint32_t queryIndex = i + p.firstQuery;
+                        const uint32_t glQueryBegin = queryIndex * glQueriesPerQuery;
+                        bool allGlQueriesAvailable = true;
+                        for(uint32_t q = 0; q < glQueriesPerQuery; ++q)
                         {
-                            assert(false && "QueryType is not supported.");
+                            uint8_t* pSubQueryData = pQueryData + q * queryElementDataSize;
+                            GLuint query = queries[glQueryBegin + q];
+
+                            GLenum pname;
+
+                            if(waitForAllResults)
+                            {
+                                // Has WAIT_BIT -> Get Result with Wait (GL_QUERY_RESULT) + don't getQueryAvailability (if availability flag is set it will report true)
+                                pname = GL_QUERY_RESULT;
+                            }
+                            else if(partialResults)
+                            {
+                                // Has PARTIAL_BIT but no WAIT_BIT -> (read vk spec) -> result value between zero and the final result value
+                                // No PARTIAL queries for GL -> GL_QUERY_RESULT_NO_WAIT best match
+                                // TODO(Erfan): Maybe set the values to 0 before query so it's consistent with vulkan spec? (what to do about the cmd version where we have to upload 0's to buffer)
+                                pname = GL_QUERY_RESULT_NO_WAIT;
+                            }
+                            else if(availabilityFlag)
+                            {
+                                // Only Availablity -> Get Results with NoWait + get Query Availability
+                                pname = GL_QUERY_RESULT_NO_WAIT;
+                            }
+                            else
+                            {
+                                // No Flags -> GL_QUERY_RESULT_NO_WAIT
+                                pname = GL_QUERY_RESULT_NO_WAIT;
+                            }
+                            
+                            if(availabilityFlag)
+                                allGlQueriesAvailable &= getQueryAvailablity(query);
+                            getQueryObject(query, pname, pSubQueryData);
+                        }
+
+                        if(availabilityFlag)
+                        {
+                            if(waitForAllResults)
+                                writeValueToData(pAvailabilityData, (allGlQueriesAvailable) ? 1ull : 0ull);
+                            else
+                                writeValueToData(pAvailabilityData, 1ull);
                         }
 
                         currentDataPtrOffset += p.stride;
-                        
                     }
                 }
             }

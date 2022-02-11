@@ -19,8 +19,8 @@ class COpenGLQueryPool final : public IQueryPool
 	protected:
 		virtual ~COpenGLQueryPool();
 
-		// queries.size() is a multiple of params.queryCount
 		core::vector<GLuint> queries;
+		uint32_t glQueriesPerQuery = 0u;
 
 	public:
 		COpenGLQueryPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, IOpenGL_FunctionTable* gl, IQueryPool::SCreationParams&& _params) 
@@ -28,12 +28,12 @@ class COpenGLQueryPool final : public IQueryPool
 		{
 			if(_params.queryType == EQT_OCCLUSION)
 			{
-				queries.resize(_params.queryCount);
+				glQueriesPerQuery = 1u;
 				gl->extGlCreateQueries(GL_SAMPLES_PASSED, _params.queryCount, queries.data());
 			}
 			else if(_params.queryType == EQT_TIMESTAMP)
 			{
-				queries.resize(_params.queryCount);
+				glQueriesPerQuery = 1u;
 				gl->extGlCreateQueries(GL_TIMESTAMP, _params.queryCount, queries.data());
 			}
 			else
@@ -41,6 +41,7 @@ class COpenGLQueryPool final : public IQueryPool
 				// TODO: Add ARB_pipeline_statistics support: https://www.khronos.org/registry/OpenGL/extensions/ARB/ARB_pipeline_statistics_query.txt
 				assert(false && "QueryType is not supported.");
 			}
+			queries.resize(_params.queryCount * glQueriesPerQuery);
 		}
 
 		inline core::SRange<const GLuint> getQueries() const
@@ -60,6 +61,8 @@ class COpenGLQueryPool final : public IQueryPool
 				return 0u; // is 0 an invalid GLuint?
 			}
 		}
+
+		inline uint32_t getGLQueriesPerQuery() const { return glQueriesPerQuery; }
 
 		inline void beginQuery(IOpenGL_FunctionTable* gl, uint32_t queryIndex, E_QUERY_CONTROL_FLAGS flags) const
 		{
@@ -103,27 +106,8 @@ class COpenGLQueryPool final : public IQueryPool
 
 		inline bool resetQueries(IOpenGL_FunctionTable* gl, uint32_t query, uint32_t queryCount)
 		{
-			// NOTE: There is no Reset Queries on OpenGL but to make the queries invalid/unavailable and not return the previous ones we just delete the queries and recreate them.
-			// TODO: Needs test
-			size_t querySize = queries.size();
-
-			if(query + queryCount > querySize)
-			{
-				assert(false);
-				return false;
-			}
-
-			if(params.queryType == EQT_OCCLUSION)
-			{
-				gl->glQuery.pglDeleteQueries(queryCount, queries.data() + query);
-				gl->extGlCreateQueries(GL_SAMPLES_PASSED, queryCount, queries.data() + query);
-			}
-			else if(params.queryType == EQT_TIMESTAMP)
-			{
-				gl->glQuery.pglDeleteQueries(queryCount, queries.data() + query);
-				gl->extGlCreateQueries(GL_TIMESTAMP, queryCount, queries.data() + query);
-			}
-
+			// NOTE: There is no Reset Queries on OpenGL
+			// NOOP
 			return true;
 		}
 
