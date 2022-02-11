@@ -1,4 +1,4 @@
-#include "CVulkanForeignImage.h"
+#include "nbl/video/CVulkanForeignImage.h"
 
 namespace nbl::video
 {

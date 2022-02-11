@@ -4,7 +4,7 @@
 #include "nbl/system/IThreadHandler.h"
 
 #include "nbl/video/ISwapchain.h"
-#include "nbl/video/surface/ISurfaceGL.h"
+#include "nbl/video/surface/CSurfaceGL.h"
 
 #include "nbl/video/IOpenGL_FunctionTable.h"
 #include "nbl/video/COpenGLSync.h"

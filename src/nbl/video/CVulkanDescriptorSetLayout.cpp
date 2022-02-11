@@ -1,4 +1,4 @@
-#include "CVulkanDescriptorSetLayout.h"
+#include "nbl/video/CVulkanDescriptorSetLayout.h"
 
 #include "nbl/video/CVulkanLogicalDevice.h"
 

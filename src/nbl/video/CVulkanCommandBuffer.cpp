@@ -1,4 +1,4 @@
-#include "CVulkanCommandBuffer.h"
+#include "nbl/video/CVulkanCommandBuffer.h"
 
 #include "nbl/video/CVulkanCommon.h"
 #include "nbl/video/CVulkanLogicalDevice.h"
