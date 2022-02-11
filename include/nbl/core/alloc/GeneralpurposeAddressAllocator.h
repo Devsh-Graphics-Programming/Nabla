@@ -697,10 +697,27 @@ namespace core
 
 // aliases
 template<typename size_type>
-using GeneralpurposeAddressAllocatorST = GeneralpurposeAddressAllocator<size_type>;
+class GeneralpurposeAddressAllocatorST : public GeneralpurposeAddressAllocator<size_type>
+{
+    public:
+        inline void defragment() noexcept
+        {
+            GeneralpurposeAddressAllocator<size_type>::defragment();
+        }
+};
 
 template<typename size_type, class RecursiveLockable>
-using GeneralpurposeAddressAllocatorMT = AddressAllocatorBasicConcurrencyAdaptor<GeneralpurposeAddressAllocator<size_type>,RecursiveLockable>;
+class GeneralpurposeAddressAllocatorMT : public AddressAllocatorBasicConcurrencyAdaptor<GeneralpurposeAddressAllocator<size_type>,RecursiveLockable>
+{
+        using Base = AddressAllocatorBasicConcurrencyAdaptor<GeneralpurposeAddressAllocator<size_type>,RecursiveLockable>;
+    public:
+        inline void defragment() noexcept
+        {
+            Base::get_lock().lock();
+            GeneralpurposeAddressAllocator<size_type>::defragment();
+            Base::get_lock().unlock();
+        }
+};
 
 }
 }
