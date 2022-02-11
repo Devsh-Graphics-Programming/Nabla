@@ -291,7 +291,7 @@ namespace nbl::video
         )
         {
             const auto& limits = m_device->getPhysicalDevice()->getLimits();
-            const uint32_t memoryLowerBound = limits.maxResidentInvocations * sizeof(uint32_t);
+            const uint32_t optimalTransferAtom = limits.maxResidentInvocations*sizeof(uint32_t);
             const uint32_t alignment = static_cast<uint32_t>(limits.nonCoherentAtomSize);
 
             auto* cmdpool = cmdbuf->getPool();
@@ -301,15 +301,23 @@ namespace nbl::video
             // no pipeline barriers necessary because write and optional flush happens before submit, and memory allocation is reclaimed after fence signal
             for (size_t uploadedSize = 0ull; uploadedSize < bufferRange.size;)
             {
-                const uint32_t size = bufferRange.size - uploadedSize;
-                const uint32_t paddedSize = static_cast<uint32_t>(core::min<uint64_t>(
-                    core::alignDown(m_defaultUploadBuffer.get()->max_size(), alignment),
-                    core::alignUp(size, alignment)
-                    ));
-                const uint32_t subSize = core::min(paddedSize, size);
+                // how much hasn't been uploaded yet
+                const size_t size = bufferRange.size-uploadedSize;
+                // due to coherent flushing atom sizes, we need to pad
+                const size_t paddedSize = core::alignUp(size,alignment);
+                // how large we can make the allocation
+                uint32_t maxFreeBlock = core::alignDown(m_defaultUploadBuffer.get()->max_size(),alignment);
+                // don't want to be stuck doing tiny copies, better defragment the allocator by forcing an allocation failure
+                const bool largeEnoughTransfer = maxFreeBlock>=paddedSize || maxFreeBlock>=optimalTransferAtom;
+                // how big of an allocation we'll make
+                const uint32_t alllocationSize = static_cast<uint32_t>(core::min<size_t>(
+                    largeEnoughTransfer ? maxFreeBlock:optimalTransferAtom,paddedSize
+                ));
+                // make sure we dont overrun the destination buffer due to padding
+                const uint32_t subSize = core::min(alllocationSize,size);
                 // cannot use `multi_place` because of the extra padding size we could have added
                 uint32_t localOffset = video::StreamingTransientDataBufferMT<>::invalid_address;
-                m_defaultUploadBuffer.get()->multi_alloc(std::chrono::high_resolution_clock::now() + std::chrono::microseconds(500u), 1u, &localOffset, &paddedSize, &alignment);
+                m_defaultUploadBuffer.get()->multi_alloc(std::chrono::high_resolution_clock::now()+std::chrono::microseconds(500u),1u,&localOffset,&alllocationSize,&alignment);
                 // copy only the unpadded part
                 if (localOffset != video::StreamingTransientDataBufferMT<>::invalid_address)
                 {
@@ -346,8 +354,8 @@ namespace nbl::video
                 // some platforms expose non-coherent host-visible GPU memory, so writes need to be flushed explicitly
                 if (m_defaultUploadBuffer.get()->needsManualFlushOrInvalidate())
                 {
-                    IDriverMemoryAllocation::MappedMemoryRange flushRange(m_defaultUploadBuffer.get()->getBuffer()->getBoundMemory(), localOffset, paddedSize);
-                    m_device->flushMappedMemoryRanges(1u, &flushRange);
+                    IDriverMemoryAllocation::MappedMemoryRange flushRange(m_defaultUploadBuffer.get()->getBuffer()->getBoundMemory(),localOffset,alllocationSize);
+                    m_device->flushMappedMemoryRanges(1u,&flushRange);
                 }
                 // after we make sure writes are in GPU memory (visible to GPU) and not still in a cache, we can copy using the GPU to device-only memory
                 asset::SBufferCopy copy;
@@ -356,7 +364,7 @@ namespace nbl::video
                 copy.size = subSize;
                 cmdbuf->copyBuffer(m_defaultUploadBuffer.get()->getBuffer(), bufferRange.buffer.get(), 1u, &copy);
                 // this doesn't actually free the memory, the memory is queued up to be freed only after the GPU fence/event is signalled
-                m_defaultUploadBuffer.get()->multi_free(1u, &localOffset, &paddedSize, core::smart_refctd_ptr<IGPUFence>(fence), &cmdbuf); // can queue with a reset but not yet pending fence, just fine
+                m_defaultUploadBuffer.get()->multi_free(1u,&localOffset,&alllocationSize,core::smart_refctd_ptr<IGPUFence>(fence),&cmdbuf); // can queue with a reset but not yet pending fence, just fine
                 uploadedSize += subSize;
             }
         }
