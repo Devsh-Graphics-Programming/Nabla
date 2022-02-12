@@ -1,8 +1,12 @@
 #version 450 core
 
-#define _NBL_GLSL_WORKGROUP_SIZE_ 256
+#ifndef _NBL_GLSL_WORKGROUP_SIZE_
+#error "_NBL_GLSL_WORKGROUP_SIZE_ must be defined"
+#endif
 
 layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_) in;
+
+#include <../intersection_record.glsl>
 
 layout (set = 0, binding = 0, std430) restrict buffer readonly IntersectionRecords
 {
@@ -17,14 +21,6 @@ layout (set = 0, binding = 2, std430) restrict buffer writeonly LightIndexList
 {
 	uint data[];
 } lightIndexList;
-
-#ifdef CLIPMAP
-	#define VOXEL_COUNT_PER_DIM 4
-	#define VOXEL_COUNT_PER_LEVEL 64
-	#define LOD_COUNT 10
-#else
-	#define VOXEL_COUNT_PER_DIM 64
-#endif
 
 // Todo(achal): Need to pull this out in some common head, I need it a lot
 ivec3 getLightGridTexCoords(in uint linearIndex)
@@ -49,35 +45,26 @@ void main()
 		return;
 
 	const uvec2 packedIntersectionRecord = intersectionRecords.data[gl_GlobalInvocationID.x];
-	// unpack intersection record
-	const uint x = packedIntersectionRecord.x;
-	const uint y = packedIntersectionRecord.y;
+	
+	uvec3 localClusterID = getLocalClusterID(packedIntersectionRecord);
+	const uint level = getLevel(packedIntersectionRecord);
+	const uint localLightIndex = getLocalLightIndex(packedIntersectionRecord);
+	const uint globalLightIndex = getGlobalLightIndex(packedIntersectionRecord);
 
-	// Todo(achal): I have a function for this
-	uvec3 localClusterID;
-	localClusterID.x = x&0x7F;
-	localClusterID.y = (x>>7)&0x7F;
-	localClusterID.z = (x>>14)&0x7F;
-	const uint level = (x>>21)&0x7F;
-		
-	// Todo(achal): Make a function for this
-	const uint localLightIndex = y & 0xFFF;
-
-	// Todo(achal): I have a function for this
-	const uint globalLightIndex = (y >> 12) & 0xFFFFF;
-
-#ifdef CLIPMAP
 	// Todo(achal): It is probably best to get rid of the intermediate step of
 	// having to compute the globalClusterIndex everytime and just go straight
 	// from localClusterID and level to 3D light grid texture coordinates
-	const uint globalClusterIndex = (LOD_COUNT-1-level)*VOXEL_COUNT_PER_LEVEL + localClusterID.z*16 + localClusterID.y*4 + localClusterID.x;
+#ifdef CLIPMAP
+	const uint voxelCountPerLevel = VOXEL_COUNT_PER_DIM * VOXEL_COUNT_PER_DIM * VOXEL_COUNT_PER_DIM;
+	const uint globalClusterIndex = (LOD_COUNT-1-level)*voxelCountPerLevel + localClusterID.z*16 + localClusterID.y*4 + localClusterID.x;
 #endif
 
 	uint offset;
 	{
 #ifdef CLIPMAP
 		const uint encoded = imageLoad(lightGrid, getLightGridTexCoords(globalClusterIndex)).x;
-#else
+#endif
+#ifdef OCTREE
 		const uint encoded = imageLoad(lightGrid, ivec3(localClusterID)).x;
 #endif
 		offset = (encoded >> 16)&0xFFFF;

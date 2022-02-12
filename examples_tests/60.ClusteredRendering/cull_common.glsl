@@ -1,10 +1,17 @@
-// Todo(achal): Make this 512, made this only for test building the histogram
-#define _NBL_GLSL_WORKGROUP_SIZE_ 256
+#ifndef CULL_COMMON_H
+#define CULL_COMMON_H
 
-#define LIGHT_CONTRIBUTION_THRESHOLD 2.f
-// Todo(achal): This needs to be calculated by light intensity
-#define LIGHT_RADIUS 25.f
-#define CLIPMAP_EXTENT 11977.0674f
+#ifndef _NBL_GLSL_WORKGROUP_SIZE_
+#error "_NBL_GLSL_WORKGROUP_SIZE_ must be defined"
+#endif
+
+#ifndef LIGHT_CONTRIBUTION_THRESHOLD
+#error "LIGHT_CONTRIBUTION_THRESHOLD must be defined"
+#endif
+
+#ifndef LIGHT_RADIUS
+#error "LIGHT_RADIUS must be defined"
+#endif
 
 #define INVOCATIONS_PER_LIGHT 8
 #define LIGHTS_PER_WORKGROUP (_NBL_GLSL_WORKGROUP_SIZE_/INVOCATIONS_PER_LIGHT)
@@ -13,27 +20,14 @@ layout(local_size_x = _NBL_GLSL_WORKGROUP_SIZE_) in;
 
 #include <nbl/builtin/glsl/shapes/aabb.glsl>
 
+#include <../intersection_record.glsl>
+
 struct nbl_glsl_ext_ClusteredLighting_SpotLight
 {
 	vec3 position;
 	float outerCosineOverCosineRange;
 	uvec2 intensity;
 	uvec2 direction;
-};
-
-struct intersection_record_t
-{
-	// Todo(achal): This is currently 7 bits per dim.
-	// 1. For a 4x4x4 clipmap, 2 bits per dim would suffice
-	// 2. For a 64^3 octree, 6 bits per dim would suffice
-	uvec3 localClusterID;
-
-	// Todo(achal): This is currently 4 bits per dim, because currently I have LOD_COUNT = 10
-	// which is overkill for an octree and most likely for clipmap as well
-	uint level;
-
-	uint localLightIndex; // currently 12 bits, Todo(achal): Should be 22 bits because there could be a case where all lights intersect with a single cluster
-	uint globalLightIndex; // currently 20 bits, Todo(achal): Make this 22
 };
 
 struct cone_t
@@ -45,12 +39,12 @@ struct cone_t
 	float baseRadius;
 };
 
-bool isPointBehindPlane(in vec3 point, in vec4 plane)
+bool isPointBehindPlane(in vec3 p, in vec4 plane)
 {
 	// As an optimization we can add an epsilon to 0, to ignore cones which have a
 	// very very small intersecting region with the AABB, could help with FP precision
 	// too when the point is on the plane
-	return (dot(point, plane.xyz) + plane.w) <= 0.f /* + EPSILON*/;
+	return (dot(p, plane.xyz) + plane.w) <= 0.f /* + EPSILON*/;
 }
 
 cone_t getLightVolume(in nbl_glsl_ext_ClusteredLighting_SpotLight light)
@@ -90,26 +84,12 @@ cone_t getLightVolume(in nbl_glsl_ext_ClusteredLighting_SpotLight light)
 // Todo(achal): Rename to getClusterAABB
 nbl_glsl_shapes_AABB_t getCluster(in uvec3 localClusterID, in vec3 levelMinVertex, in float voxelSideLength)
 {
-	const vec3 camPos = pc.camPosClipmapExtent.xyz;
+	const vec3 camPos = pc.camPosGenesisVoxelExtent.xyz;
 
 	nbl_glsl_shapes_AABB_t cluster;
 	cluster.minVx = levelMinVertex + (localClusterID * voxelSideLength) + camPos;
 	cluster.maxVx = levelMinVertex + (localClusterID + uvec3(1u)) * voxelSideLength + camPos;
 	return cluster;
-}
-
-uvec2 packIntersectionRecord(in intersection_record_t record)
-{
-	uvec2 result = uvec2(0u);
-	result.x |= record.localClusterID.x;
-	result.x |= (record.localClusterID.y << 7);
-	result.x |= (record.localClusterID.z << 14);
-	result.x |= (record.level << 21);
-
-	result.y |= record.localLightIndex;
-	result.y |= (record.globalLightIndex << 12); // Todo(achal): Make this 10
-
-	return result;
 }
 
 #define PLANE_COUNT 6
@@ -188,24 +168,11 @@ float getLightImportanceMagnitude(in nbl_glsl_ext_ClusteredLighting_SpotLight li
 {
 	const vec3 intensity = nbl_glsl_decodeRGB19E7(light.intensity);
 
-	const vec3 lightToCamera = pc.camPosClipmapExtent.xyz - light.position;
+	const vec3 lightToCamera = pc.camPosGenesisVoxelExtent.xyz - light.position;
 	const float lenSq = dot(lightToCamera, lightToCamera);
 	const float radiusSq = LIGHT_RADIUS * LIGHT_RADIUS;
 	const float attenuation = 0.5f * radiusSq * (1.f - inversesqrt(1.f + radiusSq / lenSq));
 	const vec3 importance = intensity * attenuation;
 	return sqrt(dot(importance, importance));
 }
-
-uint getGlobalLightIndex(in uvec2 packedIntersectionRecord)
-{
-	return packedIntersectionRecord.y >> 12;
-}
-
-uvec3 getLocalClusterID(in uvec2 packedIntersectionRecord)
-{
-	uvec3 result;
-	result.x = packedIntersectionRecord.x & 0x7Fu;
-	result.y = (packedIntersectionRecord.x >> 7) & 0x7Fu;
-	result.z = (packedIntersectionRecord.x >> 14) & 0x7Fu;
-	return result;
-}
+#endif

@@ -1,18 +1,20 @@
 #version 460 core
 
-// Todo(achal): How will I get these values?
-#define _NBL_GLSL_WORKGROUP_SIZE_ 512
-#define _NBL_GLSL_WORKGROUP_SIZE_LOG2_ 9
-
 // Todo(achal): There are probably named constants for these values
 #define _NBL_GLSL_SCAN_TYPE_ 1
 #define _NBL_GLSL_SCAN_STORAGE_TYPE_ uint
 #define _NBL_GLSL_SCAN_BIN_OP_ 3
 
-#ifdef CLIPMAP
-	#define VOXEL_COUNT_PER_DIM 4
-#else
-	#define VOXEL_COUNT_PER_DIM 64
+#ifndef _NBL_GLSL_WORKGROUP_SIZE_
+#error "_NBL_GLSL_WORKGROUP_SIZE_ must be defined"
+#endif
+
+#ifndef _NBL_GLSL_WORKGROUP_SIZE_LOG2_
+#error "_NBL_GLSL_WORKGROUP_SIZE_LOG2_ must be defined"
+#endif
+
+#ifndef VOXEL_COUNT_PER_DIM
+#error "VOXEL_COUNT_PER_DIM must be defined"
 #endif
 
 layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_) in;

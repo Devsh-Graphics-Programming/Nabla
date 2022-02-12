@@ -2,7 +2,7 @@
 
 layout(push_constant) uniform Block
 {
-	vec4 camPosClipmapExtent;
+	vec4 camPosGenesisVoxelExtent;
 	uint lightCount; // Todo(achal): This needs to be activeLightCount
 	uint buildHistogramID;
 } pc;
@@ -13,6 +13,7 @@ layout(push_constant) uniform Block
 
 shared uint prevBlockSumShared;
 shared uint cumHistogramShared[BIN_COUNT];
+shared uint scratchShared[_NBL_GLSL_WORKGROUP_SIZE_*2+2];
 
 // lightPool
 layout (set = 0, binding = 0, std430) restrict buffer readonly Lights
@@ -38,10 +39,6 @@ layout (set = 0, binding = 3, std430) restrict buffer ImportanceHistogram
 	uint data[];
 } importanceHistogram;
 
-// Todo(achal): Bad names, don't know what they're for..
-const uint lastSharedUint = _NBL_GLSL_WORKGROUP_SIZE_*2;
-shared uint scratchShared[_NBL_GLSL_WORKGROUP_SIZE_*2+2];
-
 uint getHistogramBinIndex(in float importanceMagnitude)
 {
 	const int minVal = floatBitsToInt(MIN_HISTOGRAM_IMPORTANCE) + 1;
@@ -64,9 +61,9 @@ void main()
 		const float importanceMagnitude = getLightImportanceMagnitude(light);
 		const uint binIndex = getHistogramBinIndex(importanceMagnitude);
 		atomicAdd(importanceHistogram.data[buildHistogramOffset + binIndex], 1u);
-	}
 
-	prevBlockSumShared = 0u;
+		prevBlockSumShared = 0u;
+	}
 	barrier();
 
 	const uint stepCount = BIN_COUNT/_NBL_GLSL_WORKGROUP_SIZE_;
@@ -109,11 +106,6 @@ void main()
 	uint budgetIntersectionRecordCapacity = MEMORY_BUDGET/8u;
 	const uint marginIntersectionRecordCount = uint(BUDGETING_MARGIN * budgetIntersectionRecordCapacity);
 
-	// Note(achal): Can't reuse the code in the algorithms header because:
-	//		1. Not very reusable as is
-	//		2. No way to supply the cumulative histogram stored in shared memory
-	// so, repurposing the code instead.
-
 	const uint binsToDiscard = (pc.lightCount < marginIntersectionRecordCount) ? 0u : (pc.lightCount - marginIntersectionRecordCount);
 	float threshold;
 	{
@@ -144,6 +136,9 @@ void main()
 		threshold = uintBitsToFloat(binMinBitPattern); // this needs to be set gradually, not at once, to avoid temporal flickering
 	}
 
+	const uint recordsSpawnedPerWGOffset = _NBL_GLSL_WORKGROUP_SIZE_*2;
+	const float genesisVoxelExtent = pc.camPosGenesisVoxelExtent.w;
+
 	const uint persistentWGStepWidth = gl_NumWorkGroups.x * LIGHTS_PER_WORKGROUP;
 	const uint persistentWGStepCount = uint(ceil(float(pc.lightCount)/float(persistentWGStepWidth)));
 	for (uint step = 0u; step < persistentWGStepCount; ++step)
@@ -158,7 +153,7 @@ void main()
 		}
 
 		if (gl_LocalInvocationIndex == LIGHTS_PER_WORKGROUP)
-			scratchShared[lastSharedUint] = 0u;
+			scratchShared[recordsSpawnedPerWGOffset] = 0u;
 		barrier();
 
 		const uint localLightIndex = gl_LocalInvocationIndex/INVOCATIONS_PER_LIGHT;
@@ -178,14 +173,14 @@ void main()
 			const uvec3 localClusterID = (uvec3(gl_LocalInvocationIndex)>>uvec3(0,1,2))&0x1u; // Hardcoded INVOCATIONS_PER_LIGHT=8u, extensions are trivial
 				
 			const cone_t cone = getLightVolume(light);
-			const float voxelSideLength = CLIPMAP_EXTENT/2;
+			const float voxelSideLength = genesisVoxelExtent/2.f;
 
-			const vec3 levelMinVertex = vec3(-CLIPMAP_EXTENT/2.f); // this will be same for all levels of the octree
+			const vec3 levelMinVertex = vec3(-genesisVoxelExtent/2.f); // this will be same for all levels of the octree
 			const nbl_glsl_shapes_AABB_t cluster = getCluster(localClusterID, levelMinVertex, voxelSideLength);
 
 			if (coneIntersectAABB(cone, cluster))
 			{
-				const uint localOffset = atomicAdd(scratchShared[lastSharedUint], 1u);
+				const uint localOffset = atomicAdd(scratchShared[recordsSpawnedPerWGOffset], 1u);
 
 				// repack outputs for coalesced write
 				intersection_record_t record;
@@ -202,17 +197,17 @@ void main()
 		barrier();
 
 		// each light can spawn `INVOCATIONS_PER_LIGHT` copies of itself (which are found to be intersecting the children light grid nodes of the node the current light reference is referencing)
-		const uint lightReferencesSpawned = scratchShared[lastSharedUint];
+		const uint lightReferencesSpawned = scratchShared[recordsSpawnedPerWGOffset];
 		const bool invocationWillWrite = gl_LocalInvocationIndex<lightReferencesSpawned;
 
 		// elect one invocation && best to avoid a +0 on an atomic
 		if (gl_LocalInvocationIndex==0u && invocationWillWrite)
-			scratchShared[lastSharedUint+1u] = atomicAdd(outScratch.count, lightReferencesSpawned);
+			scratchShared[recordsSpawnedPerWGOffset+1u] = atomicAdd(outScratch.count, lightReferencesSpawned);
 		barrier();
 
 		if (invocationWillWrite)
 		{
-			const uint baseOffset = scratchShared[lastSharedUint+1u];
+			const uint baseOffset = scratchShared[recordsSpawnedPerWGOffset+1u];
 			const uint outIndex = baseOffset+gl_LocalInvocationIndex;
 			// if (outIndex < budgetIntersectionRecordCapacity)
 				outScratch.data[outIndex] = uvec2(scratchShared[gl_LocalInvocationIndex],scratchShared[gl_LocalInvocationIndex+_NBL_GLSL_WORKGROUP_SIZE_]);

@@ -2,7 +2,7 @@
 
 layout(push_constant) uniform Block
 {
-	vec4 camPosClipmapExtent;
+	vec4 camPosGenesisVoxelExtent;
 	uint hierarchyLevel;
 } pc;
 
@@ -28,13 +28,12 @@ layout (set = 0, binding = 2, std430) restrict buffer writeonly OutScratch
 	uvec2 data[];
 } outScratch;
 
-// Todo(achal): Should I put `writeonly`?
+// Todo(achal): Do I even need this here??
 layout (set = 0, binding = 3, std430) restrict coherent buffer ImportanceHistogram
 {
 	uint data[];
 } importanceHistogram;
 
-const uint lastSharedUint = _NBL_GLSL_WORKGROUP_SIZE_*2;
 shared uint scratchShared[_NBL_GLSL_WORKGROUP_SIZE_*2+2];
 
 void main()
@@ -45,6 +44,8 @@ void main()
 	if (gl_WorkGroupID.x >= actualWGCount)
 		return;
 
+	const float genesisVoxelExtent = pc.camPosGenesisVoxelExtent.w;
+	const uint recordsSpawnedPerWGOffset = _NBL_GLSL_WORKGROUP_SIZE_*2;
 	const uint persistentWGStepWidth = actualWGCount * LIGHTS_PER_WORKGROUP; // 928
 	const uint persistentWGStepCount = uint(ceil(float(inScratch.count)/float(persistentWGStepWidth))); // 8
 
@@ -60,7 +61,7 @@ void main()
 		}
 
 		if (gl_LocalInvocationIndex == LIGHTS_PER_WORKGROUP)
-			scratchShared[lastSharedUint] = 0u;
+			scratchShared[recordsSpawnedPerWGOffset] = 0u;
 		barrier();
 
 		const uint localLightIndex = gl_LocalInvocationIndex/INVOCATIONS_PER_LIGHT;
@@ -80,8 +81,8 @@ void main()
 
 			const cone_t cone = getLightVolume(light);
 
-			const float voxelSideLength = CLIPMAP_EXTENT/float(1<<pc.hierarchyLevel);
-			const vec3 levelMinVertex = vec3(-CLIPMAP_EXTENT/2.f);
+			const float voxelSideLength = genesisVoxelExtent/float(1<<pc.hierarchyLevel);
+			const vec3 levelMinVertex = vec3(-genesisVoxelExtent/2.f);
 
 			const uvec3 parentVoxelID = getLocalClusterID(packedIntersectionRecord);
 
@@ -90,7 +91,7 @@ void main()
 
 			if (coneIntersectAABB(cone, cluster))
 			{
-				const uint localOffset = atomicAdd(scratchShared[lastSharedUint], 1u);
+				const uint localOffset = atomicAdd(scratchShared[recordsSpawnedPerWGOffset], 1u);
 
 				// repack outputs for coalesced write
 				intersection_record_t record;
@@ -110,12 +111,12 @@ void main()
 		memoryBarrierShared();
 
 		// each light can spawn `INVOCATIONS_PER_LIGHT` copies of itself (which are found to be intersecting the children light grid nodes of the node the current light reference is referencing)
-		const uint lightReferencesSpawned = scratchShared[lastSharedUint];
+		const uint lightReferencesSpawned = scratchShared[recordsSpawnedPerWGOffset];
 		const bool invocationWillWrite = gl_LocalInvocationIndex<lightReferencesSpawned;
 
 		// elect one invocation && best to avoid a +0 on an atomic
 		if (gl_LocalInvocationIndex==0u && invocationWillWrite)
-			scratchShared[lastSharedUint+1u] = atomicAdd(outScratch.count, lightReferencesSpawned);
+			scratchShared[recordsSpawnedPerWGOffset+1u] = atomicAdd(outScratch.count, lightReferencesSpawned);
 		barrier();
 
 		// Todo(achal): Probably not required
@@ -126,13 +127,14 @@ void main()
 		{
 			uint budgetIntersectionRecordCapacity = MEMORY_BUDGET/8u;
 
-			const uint baseOffset = scratchShared[lastSharedUint+1u];
+			const uint baseOffset = scratchShared[recordsSpawnedPerWGOffset+1u];
 			const uint outIndex = baseOffset + gl_LocalInvocationIndex;
 			// if (outIndex < budgetIntersectionRecordCapacity)
 				outScratch.data[outIndex] = uvec2(scratchShared[gl_LocalInvocationIndex],scratchShared[gl_LocalInvocationIndex+_NBL_GLSL_WORKGROUP_SIZE_]);
 		}
 	}
 
+	// Todo(achal): Do I need some kind of memory barrier here?
 	if (gl_GlobalInvocationID.x == 0u)
 		inScratch.count = 0u;
 }

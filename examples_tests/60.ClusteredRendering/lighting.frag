@@ -1,24 +1,5 @@
 #version 430 core
 
-// Todo(achal): Get this via push constants
-#define CLIPMAP_EXTENT 11977.0674f
-
-// Todo(achal): Get these from host, some of these are required
-// in the culling compute shader as well, need to make the code DRY
-#ifdef CLIPMAP
-    #define LOD_COUNT 10
-    #define VOXEL_COUNT_PER_DIM 4
-    #define VOXEL_COUNT_PER_LEVEL 64
-    #define CLIPMAP_EXTENT 11977.0674f
-#else
-    #define LOD_COUNT 7
-    #define VOXEL_COUNT_PER_DIM 64
-#endif
-
-// Somewhat arbitrary
-#define LIGHT_CONTRIBUTION_THRESHOLD 2.f
-#define LIGHT_RADIUS 25.f
-
 layout (location = 4) flat in vec3 EyePos;
 layout (location = 5) in vec3 Normal_WorldSpace;
 layout (location = 6) flat in mat4 MVP;
@@ -34,7 +15,7 @@ struct nbl_glsl_ext_ClusteredLighting_SpotLight
 
 layout (set = 2, binding = 0, std430) restrict buffer readonly LIGHT_DATA
 {
-	nbl_glsl_ext_ClusteredLighting_SpotLight lights[LIGHT_COUNT];
+	nbl_glsl_ext_ClusteredLighting_SpotLight lights[];
 } ssbo;
 
 layout (set = 2, binding = 1) uniform usampler3D lightGrid;
@@ -110,7 +91,7 @@ uint getClipmapLevel(in vec3 worldPos, in vec3 camPos)
 
     float halfExtents[LOD_COUNT];
 
-    float halfExtent = CLIPMAP_EXTENT/2.f;
+    float halfExtent = GENESIS_VOXEL_EXTENT/2.f;
     for (int i = LOD_COUNT-1; i >= 0; --i)
     {
         halfExtents[i] = halfExtent;
@@ -122,7 +103,7 @@ uint getClipmapLevel(in vec3 worldPos, in vec3 camPos)
 
 uint getClipmapClusterAtLevel(in uint level, in vec3 worldPos, in vec3 eyePos)
 {
-    const float levelExtent = CLIPMAP_EXTENT / (1 << (LOD_COUNT - 1 - level));
+    const float levelExtent = GENESIS_VOXEL_EXTENT / (1 << (LOD_COUNT - 1 - level));
     const vec3 levelMinVertex = vec3(-levelExtent/2.f);
     const float voxelSideLength = levelExtent / VOXEL_COUNT_PER_DIM;
     const vec3 fromClipmapCenter = worldPos - eyePos;
@@ -139,8 +120,8 @@ uint getClipmapClusterAtLevel(in uint level, in vec3 worldPos, in vec3 eyePos)
 
 ivec3 getOctreeCluster(in vec3 worldPos, in vec3 eyePos)
 {
-    const vec3 levelMinVertex = vec3(-CLIPMAP_EXTENT/2.f);
-    const float voxelSideLength = CLIPMAP_EXTENT / VOXEL_COUNT_PER_DIM;
+    const vec3 levelMinVertex = vec3(-GENESIS_VOXEL_EXTENT/2.f);
+    const float voxelSideLength = GENESIS_VOXEL_EXTENT / VOXEL_COUNT_PER_DIM;
     const vec3 fromClipmapCenter = worldPos - eyePos;
     ivec3 localClusterCoord = ivec3(floor((fromClipmapCenter - levelMinVertex) / voxelSideLength));
     return localClusterCoord;
@@ -211,7 +192,8 @@ vec3 nbl_computeLighting(out nbl_glsl_IsotropicViewSurfaceInteraction out_intera
     const uint level = getClipmapLevel(WorldPos, EyePos);
     const uint globalClusterID = getClipmapClusterAtLevel(level, WorldPos, EyePos);
     ivec3 lightGridCoords = getLightGridCoords(globalClusterID);
-#else
+#endif
+#ifdef OCTREE
     ivec3 lightGridCoords = getOctreeCluster(WorldPos, EyePos);
 #endif
 
