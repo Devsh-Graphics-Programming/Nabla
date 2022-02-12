@@ -65,7 +65,7 @@ if(DEFINED ENV{VULKAN_SDK})
 endif()
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-	add_subdirectory(pstl pstl)
+	add_subdirectory(pstl pstl EXCLUDE_FROM_ALL)
 endif()
 
 # SDL2
