@@ -176,11 +176,23 @@ file(GLOB_RECURSE TEMP_GLOB_RES "${NBL_ROOT_PATH}/include/*.h")
 set(NABLA_HEADERS_PUBLIC ${NABLA_HEADERS_PUBLIC} ${TEMP_GLOB_RES})
 file(GLOB_RECURSE TEMP_GLOB_RES "${NBL_ROOT_PATH}/include/*.tcc")
 set(NABLA_HEADERS_PUBLIC ${NABLA_HEADERS_PUBLIC} ${TEMP_GLOB_RES})
+file(GLOB_RECURSE TEMP_GLOB_RES  "${NBL_ROOT_PATH}/src/*.h")
+set(NABLA_HEADERS_PUBLIC2 ${NABLA_HEADERS_PUBLIC2} ${TEMP_GLOB_RES}) # TODO: we should have moved all headers from src directory to /include, but we need it for install target
+
+foreach(NBL_CURRENT_HEADER IN LISTS NABLA_HEADERS_PUBLIC2)
+	install(FILES ${NBL_CURRENT_HEADER} DESTINATION include CONFIGURATIONS Release)
+	install(FILES ${NBL_CURRENT_HEADER} DESTINATION debug/include CONFIGURATIONS Debug)
+	install(FILES ${NBL_CURRENT_HEADER} DESTINATION relwithdebinfo/include CONFIGURATIONS RelWithDebInfo)
+	
+	message(STATUS ${NBL_CURRENT_HEADER})
+endforeach()
+
+unset(NABLA_HEADERS_PUBLIC2 ${NBL_TMP_FULL_PATHS})
 
 file(GLOB_RECURSE NABLA_HEADERS_PRIV1 "*.h")
 file(GLOB_RECURSE NABLA_HEADERS_PRIV2 "${NBL_ROOT_PATH}/src/nbl/*.h")
 # just gather all the header files and later put them into project so it's easy to search for things using IDE
-set(NABLA_HEADERS "${CMAKE_CURRENT_BINARY_DIR}/include/nabla.h" ${NABLA_HEADERS_PUBLIC} ${NABLA_HEADERS_PIRV1} ${NABLA_HEADERS_PRIV2})
+set(NABLA_HEADERS "${CMAKE_CURRENT_BINARY_DIR}/include/nabla.h" ${NABLA_HEADERS_PUBLIC} ${NABLA_HEADERS_PIRV1} ${NABLA_HEADERS_PRIV2}) # see, we don't want NABLA_HEADERS_PUBLIC2 here
 
 set(NBL_CORE_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/core/IReferenceCounted.cpp
@@ -655,7 +667,6 @@ endforeach()
 start_tracking_variables_for_propagation_to_parent()
 add_subdirectory(ext)
 propagate_changed_variables_to_parent_scope()
-
 
 set(NABLA_HEADERS_TO_INSTALL 
 	${NABLA_HEADERS_PUBLIC}
