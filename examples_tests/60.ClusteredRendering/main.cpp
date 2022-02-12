@@ -894,8 +894,14 @@ public:
 			asset::IAssetLoader::SAssetLoadParams params = {};
 			params.logger = logger.get();
 			auto loadedShader = core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(*assetManager->getAsset(clipmapCullCompShaderPath, params).getContents().begin());
-			// Todo(achal): Remove WG_DIM from here and put _NBL_GLSL_WORKGROUP_SIZE_
-			auto unspecOverridenShader = asset::IGLSLCompiler::createOverridenCopy(loadedShader->getUnspecialized(), "#define WG_DIM %d\n#define LIGHT_COUNT %d\n", WG_DIM, LIGHT_COUNT);
+			auto unspecOverridenShader = asset::IGLSLCompiler::createOverridenCopy(loadedShader->getUnspecialized(),
+				"#define _NBL_GLSL_WORKGROUP_SIZE_ %d\n"
+				"#define LIGHT_COUNT %d\n" // Todo(achal): If needed, want to send via push constants
+				"#define LIGHT_CONTRIBUTION_THRESHOLD %f\n"
+				"#define LIGHT_RADIUS %f\n"
+				"#define LOD_COUNT %d\n"
+				"#define VOXEL_COUNT_PER_DIM %d\n"
+				,WG_DIM, LIGHT_COUNT, LIGHT_CONTRIBUTION_THRESHOLD, LIGHT_RADIUS, LOD_COUNT, VOXEL_COUNT_PER_DIM);
 			auto cullSpecShader_cpu = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecOverridenShader), asset::ISpecializedShader::SInfo(nullptr, nullptr, "main"));
 
 			auto gpuArray = cpu2gpu.getGPUObjectsFromAssets(&cullSpecShader_cpu.get(), &cullSpecShader_cpu.get() + 1, cpu2gpuParams);
@@ -1829,7 +1835,6 @@ public:
 			commandBuffer->executeCommands(1u, &zPrepassCommandBuffer.get());
 			commandBuffer->nextSubpass(asset::ESC_SECONDARY_COMMAND_BUFFERS);
 			commandBuffer->executeCommands(1u, &lightingCommandBuffer.get());
-			commandBuffer->nextSubpass(asset::ESC_INLINE);
 			commandBuffer->endRenderPass();
 			commandBuffer->end();
 		}
@@ -2403,7 +2408,7 @@ private:
 		depthStencilAttRef.attachment = 1u;
 		depthStencilAttRef.layout = asset::EIL_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-		constexpr uint32_t SUBPASS_COUNT = 3u;
+		constexpr uint32_t SUBPASS_COUNT = 2u;
 		video::IGPURenderpass::SCreationParams::SSubpassDescription subpasses[SUBPASS_COUNT] = {};
 
 		// The Z Pre pass subpass
@@ -2416,13 +2421,7 @@ private:
 		subpasses[LIGHTING_PASS_INDEX].colorAttachmentCount = 1u;
 		subpasses[LIGHTING_PASS_INDEX].colorAttachments = &swapchainColorAttRef;
 
-		// The debug draw subpass
-		subpasses[DEBUG_DRAW_PASS_INDEX].pipelineBindPoint = asset::EPBP_GRAPHICS;
-		subpasses[DEBUG_DRAW_PASS_INDEX].colorAttachmentCount = 1u;
-		subpasses[DEBUG_DRAW_PASS_INDEX].colorAttachments = &swapchainColorAttRef;
-		subpasses[DEBUG_DRAW_PASS_INDEX].depthStencilAttachment = &depthStencilAttRef;
-
-		constexpr uint32_t SUBPASS_DEPS_COUNT = 4u;
+		constexpr uint32_t SUBPASS_DEPS_COUNT = 3u;
 		video::IGPURenderpass::SCreationParams::SSubpassDependency subpassDeps[SUBPASS_DEPS_COUNT];
 
 		subpassDeps[0].srcSubpass = video::IGPURenderpass::SCreationParams::SSubpassDependency::SUBPASS_EXTERNAL;
@@ -2449,14 +2448,6 @@ private:
 		subpassDeps[2].dstStageMask = asset::EPSF_BOTTOM_OF_PIPE_BIT;
 		subpassDeps[2].dstAccessMask = asset::EAF_MEMORY_READ_BIT;
 		subpassDeps[2].dependencyFlags = asset::EDF_BY_REGION_BIT; // Todo(achal): Not sure
-
-		subpassDeps[3].srcSubpass = LIGHTING_PASS_INDEX;
-		subpassDeps[3].dstSubpass = DEBUG_DRAW_PASS_INDEX;
-		subpassDeps[3].srcStageMask = static_cast<asset::E_PIPELINE_STAGE_FLAGS>(asset::EPSF_COLOR_ATTACHMENT_OUTPUT_BIT | asset::EPSF_LATE_FRAGMENT_TESTS_BIT);
-		subpassDeps[3].srcAccessMask = static_cast<asset::E_ACCESS_FLAGS>(asset::EAF_COLOR_ATTACHMENT_WRITE_BIT | asset::EAF_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT);
-		subpassDeps[3].dstStageMask = static_cast<asset::E_PIPELINE_STAGE_FLAGS>(asset::EPSF_COLOR_ATTACHMENT_OUTPUT_BIT | asset::EPSF_LATE_FRAGMENT_TESTS_BIT);
-		subpassDeps[3].dstAccessMask = static_cast<asset::E_ACCESS_FLAGS>(asset::EAF_COLOR_ATTACHMENT_WRITE_BIT | asset::EAF_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT);
-		subpassDeps[3].dependencyFlags = asset::EDF_BY_REGION_BIT;  // Todo(achal): Not sure
 
 		video::IGPURenderpass::SCreationParams creationParams = {};
 		creationParams.attachmentCount = ATTACHMENT_COUNT;

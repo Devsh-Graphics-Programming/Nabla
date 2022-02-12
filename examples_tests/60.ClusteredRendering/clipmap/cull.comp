@@ -2,7 +2,7 @@
 
 layout (push_constant) uniform Block
 {
-	vec4 camPosClipmapExtent;
+	vec4 camPosGenesisVoxelExtent;
 	uint hierarchyLevel;
 } pc;
 
@@ -34,11 +34,6 @@ layout (set = 0, binding = 3, std430) restrict buffer writeonly IntersectionReco
 
 layout (set = 0, binding = 4, r32ui) restrict uniform uimage3D lightGrid;
 
-// Todo(achal): Make this come in via host, make it 7
-#define LOD_COUNT 10
-// Todo(achal): Make this come in via host
-#define VOXEL_COUNT_PER_DIM 4
-
 #define INVALID_INDEX ~0u
 
 void main()
@@ -50,7 +45,7 @@ void main()
 	const nbl_glsl_ext_ClusteredLighting_SpotLight light = lights.data[globalLightIndex];
 	const cone_t cone = getLightVolume(light);
 
-	const float clipmapExtent = pc.camPosClipmapExtent.w;
+	const float clipmapExtent = pc.camPosGenesisVoxelExtent.w;
 	const float levelExtent = clipmapExtent / (1 << (LOD_COUNT - 1 - pc.hierarchyLevel));
 	const vec3 levelMinVertex = vec3(-levelExtent/2.f);
 	const float voxelSideLength = levelExtent / VOXEL_COUNT_PER_DIM;

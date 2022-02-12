@@ -109,7 +109,8 @@ uint getClipmapClusterAtLevel(in uint level, in vec3 worldPos, in vec3 eyePos)
     const vec3 fromClipmapCenter = worldPos - eyePos;
     uvec3 localClusterCoord = uvec3(floor((fromClipmapCenter - levelMinVertex) / voxelSideLength));
 
-    const uint globalClusterID = (LOD_COUNT - 1 - level) * VOXEL_COUNT_PER_LEVEL
+    const uint voxelCountPerLevel = VOXEL_COUNT_PER_DIM * VOXEL_COUNT_PER_DIM * VOXEL_COUNT_PER_DIM;
+    const uint globalClusterID = (LOD_COUNT - 1 - level) * voxelCountPerLevel
         + (VOXEL_COUNT_PER_DIM * VOXEL_COUNT_PER_DIM * localClusterCoord.z)
         + (VOXEL_COUNT_PER_DIM * localClusterCoord.y)
         + localClusterCoord.x;
