@@ -24,7 +24,7 @@ class CSurfaceGLImpl : public Base<Window>
         {
             if (!api || !window)
                 return nullptr;
-            auto retval = new this_t(std::move(window), std::move(api));
+            auto retval = new this_t(std::move(api), std::move(window));
             return core::smart_refctd_ptr<this_t>(retval,core::dont_grab);
         }
         template<video::E_API_TYPE API_TYPE>
