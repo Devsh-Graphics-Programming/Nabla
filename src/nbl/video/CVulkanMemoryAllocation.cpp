@@ -1,4 +1,4 @@
-#include "CVulkanMemoryAllocation.h"
+#include "nbl/video/CVulkanMemoryAllocation.h"
 
 #include "nbl/video/CVulkanLogicalDevice.h"
 

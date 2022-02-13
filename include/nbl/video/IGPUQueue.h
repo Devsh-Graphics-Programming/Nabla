@@ -96,10 +96,10 @@ class IGPUQueue : public core::Interface, public core::Unmovable
                 if(cmdbuf == nullptr)
                     return false;
 
-                if(cmdbuf->isResettable())
-                    cmdbuf->setState(IGPUCommandBuffer::ES_INVALID);
-                else
+                if (cmdbuf->isResettable())
                     cmdbuf->setState(IGPUCommandBuffer::ES_EXECUTABLE);
+                else
+                    cmdbuf->setState(IGPUCommandBuffer::ES_INVALID);
             }
         }
         return true;

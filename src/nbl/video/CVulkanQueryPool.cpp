@@ -1,4 +1,4 @@
-#include "CVulkanQueryPool.h"
+#include "nbl/video/CVulkanQueryPool.h"
 
 #include "nbl/video/CVulkanLogicalDevice.h"
 

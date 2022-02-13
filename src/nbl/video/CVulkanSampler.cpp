@@ -1,4 +1,4 @@
-#include "CVulkanSampler.h"
+#include "nbl/video/CVulkanSampler.h"
 
 #include "nbl/video/CVulkanLogicalDevice.h"
 
