@@ -1,0 +1,160 @@
+#version 450 core
+
+layout (push_constant) uniform Block
+{
+	vec4 camPosGenesisVoxelExtent;
+	uint hierarchyLevel;
+	uint activeLightCount;
+} pc;
+
+#include <../cull_common.glsl>
+
+layout (set = 0, binding = 0, std430) restrict buffer readonly Lights
+{
+	nbl_glsl_ext_ClusteredLighting_SpotLight data[];
+} lights;
+
+layout (set = 0, binding = 1, std430) restrict buffer readonly ActiveLightIndices
+{
+	uint data[];
+} activeLightIndices;
+
+layout (set = 0, binding = 2, std430) restrict buffer writeonly OutScratch
+{
+	uint count;
+	uint padding;
+	uvec2 data[];
+} outScratch;
+
+layout (set = 0, binding = 3, std430) restrict buffer writeonly IntersectionRecords
+{
+	uint count;
+	uint padding;
+	uvec2 data[];
+} intersectionRecords;
+
+layout (set = 0, binding = 4, r32ui) restrict uniform uimage3D lightGrid;
+
+#define INT_CEIL(X, Y) (((X) + (Y) - 1)/(Y))
+
+void main()
+{
+	if (gl_GlobalInvocationID.x >= pc.activeLightCount)
+		return;
+
+	const float clipmapExtent = pc.camPosGenesisVoxelExtent.w;
+	const float levelExtent = clipmapExtent / (1 << (LOD_COUNT - 1 - pc.hierarchyLevel));
+	const vec3 levelMinVertex = vec3(-levelExtent/2.f);
+	const float voxelSideLength = levelExtent / VOXEL_COUNT_PER_DIM;
+
+	const uint globalLightIndex = activeLightIndices.data[gl_GlobalInvocationID.x];
+	const nbl_glsl_ext_ClusteredLighting_SpotLight light = lights.data[globalLightIndex];
+	const cone_t cone = getLightVolume(light);
+
+	for (uint clusterZ = 0u; clusterZ < VOXEL_COUNT_PER_DIM; ++clusterZ)
+	{
+		for (uint clusterY = 0u; clusterY < VOXEL_COUNT_PER_DIM; ++clusterY)
+		{
+			for (uint clusterX = 0u; clusterX < VOXEL_COUNT_PER_DIM; ++clusterX)
+			{
+				const uvec3 localClusterID = uvec3(clusterX, clusterY, clusterZ);
+				const nbl_glsl_shapes_AABB_t cluster = getCluster(localClusterID, levelMinVertex, voxelSideLength);
+
+				if (coneIntersectAABB(cone, cluster))
+				{
+					// Record intersection
+					intersection_record_t record;
+					record.localClusterID = localClusterID;
+					record.level = pc.hierarchyLevel; // Todo(achal): Do we need this anymore?
+					record.globalLightIndex = globalLightIndex;
+
+					const bool isMidRegion =
+						(localClusterID.x >= 1 && localClusterID.x <= 2) &&
+						(localClusterID.y >= 1 && localClusterID.y <= 2) &&
+						(localClusterID.z >= 1 && localClusterID.z <= 2);
+
+					if (isMidRegion)
+					{
+						const uvec2 packed = packIntersectionRecord(record);	
+						outScratch.data[atomicAdd(outScratch.count, 1u)] = packed;
+					}
+					else
+					{
+						// Todo(achal): VOXEL_COUNT_PER_LEVEL
+						const uint globalClusterIndex = (LOD_COUNT-1-pc.hierarchyLevel)*64 + localClusterID.z*16 + localClusterID.y*4 + localClusterID.x;
+						
+						// Todo(achal): Use the function here
+						ivec3 lightGridTexCoords;
+						{
+							const uint voxelCountX = VOXEL_COUNT_PER_DIM;
+							const uint voxelCountY = VOXEL_COUNT_PER_DIM;
+							const uint voxelCountPerSlice = voxelCountX*voxelCountY;
+							lightGridTexCoords.z = int(globalClusterIndex/voxelCountPerSlice);
+							const int xy = int(globalClusterIndex%voxelCountPerSlice);
+							lightGridTexCoords.y = int(xy/voxelCountX);
+							lightGridTexCoords.x = int(xy%voxelCountX);
+						}
+
+						record.localLightIndex = imageAtomicAdd(lightGrid, lightGridTexCoords, 1u);
+
+						const uvec2 packed = packIntersectionRecord(record);
+						intersectionRecords.data[atomicAdd(intersectionRecords.count, 1u)] = packed;
+					}
+				}
+			}	
+		}
+	}
+
+
+
+#if 0
+	#define INVOCATIONS_PER_LIGHT 8
+	#define LIGHTS_PER_WORKGROUP (_NBL_GLSL_WORKGROUP_SIZE_/INVOCATIONS_PER_LIGHT) // 32
+	const uint persistentWGStepWidth = gl_NumWorkGroups.x * LIGHTS_PER_WORKGROUP; // 864
+	const uint persistentWGStepCount = INT_CEIL(pc.activeLightCount, persistentWGStepWidth); // 8
+
+	for (uint step = 0u; step < persistentWGStepCount; ++step)
+	{
+		const uint index = step*persistentWGStepWidth + gl_WorkGroupID.x*LIGHTS_PER_WORKGROUP + gl_LocalInvocationIndex;
+
+		if (index >= pc.activeLightCount)
+			break;
+
+		if (gl_LocalInvocationIndex < LIGHTS_PER_WORKGROUP)
+			scratchShared[gl_LocalInvocationIndex] = activeLightIndices.data[index];
+
+		if (gl_LocalInvocationIndex == LIGHTS_PER_WORKGROUP)
+			scratchShared[recordsSpawnedPerWGOffset] = 0u;
+		barrier();
+		groupMemoryBarrier();
+
+		const uint localLightIndex = gl_LocalInvocationIndex/INVOCATIONS_PER_LIGHT;
+		const uint globalLightIndex = scratchShared[localLightIndex];
+		barrier();
+
+		// Splitting the entire 64 voxels of this level of the clipmap to 8 groups of 8 voxels
+		#define VOXEL_GROUP_DIM 2
+		#define VOXEL_GROUP_COUNT_PER_DIM (VOXEL_COUNT_PER_DIM/VOXEL_GROUP_DIM)
+
+		for (uint voxelGroupZ = 0u; voxelGroupZ < VOXEL_GROUP_COUNT_PER_DIM; ++voxelGroupZ)
+		{
+			for (uint voxelGroupY = 0u; voxelGroupY < VOXEL_GROUP_COUNT_PER_DIM; ++voxelGroupY)
+			{
+				for (uint voxelGroupX = 0u; voxelGroupX < VOXEL_GROUP_COUNT_PER_DIM; ++voxelGroupX)
+				{
+					const uvec3 voxelGroupID = uvec3(voxelGroupX, voxelGroupY, voxelGroupZ);
+					const uvec3 voxelID = (voxelGroupID << 1u) + ((uvec3(gl_LocalInvocationIndex)>>uvec3(0,1,2))&0x1u);
+
+					const nbl_glsl_shapes_AABB_t cluster = getCluster(voxelID, levelMinVertex, voxelSideLength);
+
+					if (coneIntersectAABB(cone, cluster))
+					{
+						// create intersection record
+
+
+					}
+				}
+			}
+		}
+#endif
+}

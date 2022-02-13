@@ -1,0 +1,95 @@
+#version 450 core
+
+layout(push_constant) uniform Block
+{
+	vec4 camPosGenesisVoxelExtent;
+	uint hierarchyLevel;
+} pc;
+
+#include <../cull_common.glsl>
+
+layout (set = 0, binding = 0, std430) restrict buffer readonly Lights
+{
+	nbl_glsl_ext_ClusteredLighting_SpotLight data[];
+} lights;
+
+layout (set = 0, binding = 1, std430) restrict buffer InScratch
+{
+	uint count;
+	uint padding;
+	uvec2 data[];
+} inScratch;
+
+layout (set = 0, binding = 2, std430) restrict buffer writeonly IntersectionRecords
+{
+	uint count;
+	uint padding;
+	uvec2 data[];
+} intersectionRecords;
+
+layout (set = 0, binding = 3, r32ui) restrict uniform uimage3D lightGrid;
+
+void main()
+{
+	if (gl_GlobalInvocationID.x >= inScratch.count)
+		return;
+
+	const uvec2 packedIntersectionRecord = inScratch.data[gl_GlobalInvocationID.x];
+	const uint globalLightIndex = getGlobalLightIndex(packedIntersectionRecord);
+	const nbl_glsl_ext_ClusteredLighting_SpotLight light = lights.data[globalLightIndex];
+	const cone_t cone = getLightVolume(light);
+
+	const uvec3 parentVoxelID = getLocalClusterID(packedIntersectionRecord);
+
+	const float genesisVoxelExtent = pc.camPosGenesisVoxelExtent.w;
+	const float levelExtent = genesisVoxelExtent / (1 << (LOD_COUNT - 1 - pc.hierarchyLevel));
+	const vec3 levelMinVertex = vec3(-levelExtent/2.f);
+	const float voxelSideLength = levelExtent / VOXEL_COUNT_PER_DIM;
+
+	for (uint voxelZ = 0u; voxelZ < 2u; ++voxelZ)
+	{
+		for (uint voxelY = 0u; voxelY < 2u; ++voxelY)
+		{
+			for (uint voxelX = 0u; voxelX < 2u; ++voxelX)
+			{
+				const uvec3 localClusterID = 2u*(parentVoxelID >> 1u) + uvec3(voxelX, voxelY, voxelZ);
+				const nbl_glsl_shapes_AABB_t cluster = getCluster(localClusterID, levelMinVertex, voxelSideLength);
+
+				if (coneIntersectAABB(cone, cluster))
+				{
+					// Record intersection
+					intersection_record_t record;
+					record.localClusterID = localClusterID;
+					record.level = pc.hierarchyLevel; // Todo(achal): Do we need this anymore?
+					record.globalLightIndex = globalLightIndex;
+
+					// Todo(achal): VOXEL_COUNT_PER_LEVEL
+					const uint globalClusterIndex = (LOD_COUNT-1-pc.hierarchyLevel)*64 + localClusterID.z*16 + localClusterID.y*4 + localClusterID.x;
+						
+					// Todo(achal): Use the function here
+					ivec3 lightGridTexCoords;
+					{
+						const uint voxelCountX = VOXEL_COUNT_PER_DIM;
+						const uint voxelCountY = VOXEL_COUNT_PER_DIM;
+						const uint voxelCountPerSlice = voxelCountX*voxelCountY;
+						lightGridTexCoords.z = int(globalClusterIndex/voxelCountPerSlice);
+						const int xy = int(globalClusterIndex%voxelCountPerSlice);
+						lightGridTexCoords.y = int(xy/voxelCountX);
+						lightGridTexCoords.x = int(xy%voxelCountX);
+					}
+
+					record.localLightIndex = imageAtomicAdd(lightGrid, lightGridTexCoords, 1u);
+
+					const uvec2 packed = packIntersectionRecord(record);
+					intersectionRecords.data[atomicAdd(intersectionRecords.count, 1u)] = packed;
+				}
+
+			}
+		}
+	}
+
+	memoryBarrier();
+
+	if (gl_GlobalInvocationID.x == 0u)
+		inScratch.count = 0u;
+}

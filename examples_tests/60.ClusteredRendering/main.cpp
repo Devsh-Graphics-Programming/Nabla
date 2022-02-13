@@ -8,8 +8,10 @@
 
 using namespace nbl;
 
-// #define CLIPMAP
-#define OCTREE
+#define SYNC_DEBUG
+
+#define CLIPMAP
+// #define OCTREE
 
 #define WG_DIM 256
 
@@ -96,24 +98,31 @@ class ClusteredRenderingSampleApp : public ApplicationBase
 		float cosHalfAngle;
 	};
 
+	// Todo(achal): Probably merge the following two into one, idk..
 #ifdef CLIPMAP
-	struct clipmap_push_constants_t
+	struct first_cull_push_constants_t
 	{
-		float camPosClipmapExtent[4];
+		float camPosGenesisVoxelExtent[4];
+		uint32_t hierarchyLevel;
+		uint32_t activeLightCount;
+	};
+
+	struct intermediate_cull_push_constants_t
+	{
+		float camPosGenesisVoxelExtent[4];
 		uint32_t hierarchyLevel;
 	};
 #endif
 
 #ifdef OCTREE
-	// Todo(achal): Probably merge the following two into one, idk..
-	struct octree_first_cull_push_constants_t
+	struct first_cull_push_constants_t
 	{
 		float camPosGenesisVoxelExtent[4];
 		uint32_t lightCount;
 		uint32_t buildHistogramID;
 	};
 
-	struct octree_intermediate_cull_push_constants_t
+	struct intermediate_cull_push_constants_t
 	{
 		float camPosClipmapExtent[4];
 		uint32_t hierarchyLevel;
@@ -168,7 +177,6 @@ public:
 		generateLights(LIGHT_COUNT);
 
 		core::vectorSIMDf cameraPosition(-157.229813, 369.800446, -19.696722, 0.000000);
-		// core::vectorSIMDf cameraTarget(-387.548462, 198.927414, -26.500174, 1.000000);
 		core::vectorSIMDf cameraTarget(244.568039, 651.844543, -13.182179, 1.000000);
 
 		const float cameraFar = 4000.f;
@@ -321,7 +329,7 @@ public:
 			asset::SPushConstantRange pcRange = {};
 			pcRange.stageFlags = asset::IShader::ESS_COMPUTE;
 			pcRange.offset = 0u;
-			pcRange.size = sizeof(octree_first_cull_push_constants_t);
+			pcRange.size = sizeof(first_cull_push_constants_t);
 			octreeFirstCullPipelineLayout = logicalDevice->createGPUPipelineLayout(&pcRange, &pcRange + 1ull, core::smart_refctd_ptr(octreeFirstCullDSLayout));
 		}
 
@@ -434,7 +442,15 @@ public:
 		}
 
 		// octreeIntermediateCullDSLayout would be the same as the octreeFirstCullDSLayout
-		// octreeIntermediatePipelineLayout would be the same as octreeFirstPipelineLayout
+
+		core::smart_refctd_ptr<video::IGPUPipelineLayout> octreeIntermediateCullPipelineLayout = nullptr;
+		{
+			asset::SPushConstantRange pcRange = {};
+			pcRange.stageFlags = asset::IShader::ESS_COMPUTE;
+			pcRange.offset = 0u;
+			pcRange.size = sizeof(intermediate_cull_push_constants_t);
+			octreeIntermediateCullPipelineLayout = logicalDevice->createGPUPipelineLayout(&pcRange, &pcRange + 1ull, core::smart_refctd_ptr(octreeFirstCullDSLayout));
+		}
 		
 		const char* octreeIntermediateCullShaderPath = "../octree/intermediate_cull.comp";
 		{
@@ -457,7 +473,7 @@ public:
 				FATAL_LOG("Failed to convert CPU specialized shader to GPU specialized shaders!\n");
 
 			core::smart_refctd_ptr<video::IGPUSpecializedShader> specShader = gpuArray->begin()[0];
-			octreeIntermediateCullPipeline = logicalDevice->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(octreeFirstCullPipelineLayout), std::move(specShader));
+			octreeIntermediateCullPipeline = logicalDevice->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(octreeIntermediateCullPipelineLayout), std::move(specShader));
 		}
 
 		// octree intermediate cull ds
@@ -630,7 +646,7 @@ public:
 			asset::SPushConstantRange pcRange = {};
 			pcRange.stageFlags = asset::IShader::ESS_COMPUTE;
 			pcRange.offset = 0u;
-			pcRange.size = sizeof(octree_intermediate_cull_push_constants_t);
+			pcRange.size = sizeof(intermediate_cull_push_constants_t);
 			octreeLastCullPipelineLayout = logicalDevice->createGPUPipelineLayout(&pcRange, &pcRange + 1ull, core::smart_refctd_ptr(octreeLastCullDSLayout));
 		}
 
@@ -727,78 +743,69 @@ public:
 
 		// scratch buffers
 		{
-			const size_t neededSize = LIGHT_COUNT * sizeof(uint32_t);
+			const size_t neededSize = MEMORY_BUDGET + sizeof(uint32_t) + sizeof(uint32_t); // +padding +count
 			video::IGPUBuffer::SCreationParams creationParams = {};
-			creationParams.usage = video::IGPUBuffer::EUF_STORAGE_BUFFER_BIT;
+			creationParams.usage = static_cast<video::IGPUBuffer::E_USAGE_FLAGS>(video::IGPUBuffer::EUF_STORAGE_BUFFER_BIT | video::IGPUBuffer::EUF_TRANSFER_DST_BIT);
 			for (uint32_t i = 0u; i < 2u; ++i)
+			{
 				clipmapScratchBuffers[i] = logicalDevice->createDeviceLocalGPUBufferOnDedMem(creationParams, neededSize);
+
+				uint32_t clearValue = 0u;
+
+				asset::SBufferRange<video::IGPUBuffer> bufferRange = {};
+				bufferRange.buffer = clipmapScratchBuffers[i];
+				bufferRange.offset = 0ull;
+				bufferRange.size = sizeof(uint32_t);
+				utilities->updateBufferRangeViaStagingBuffer(
+					queues[CommonAPI::InitOutput::EQT_TRANSFER_UP],
+					bufferRange,
+					&clearValue);
+			}
 		}
 
-		constexpr uint32_t CLIPMAP_CULL_DESCRIPTOR_COUNT = 5u;
-		core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> clipmapCullDSLayout = nullptr;
+		constexpr uint32_t CLIPMAP_FIRST_CULL_DESCRIPTOR_COUNT = 5u;
+		core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> clipmapFirstCullDSLayout = nullptr;
 		{
-			video::IGPUDescriptorSetLayout::SBinding bindings[CLIPMAP_CULL_DESCRIPTOR_COUNT];
+			video::IGPUDescriptorSetLayout::SBinding bindings[CLIPMAP_FIRST_CULL_DESCRIPTOR_COUNT];
 
-			// property pool of lights
-			bindings[0].binding = 0u;
-			bindings[0].type = asset::EDT_STORAGE_BUFFER;
-			bindings[0].count = 1u;
-			bindings[0].stageFlags = asset::IShader::ESS_COMPUTE;
-			bindings[0].samplers = nullptr;
+			for (uint32_t i = 0u; i < CLIPMAP_FIRST_CULL_DESCRIPTOR_COUNT; ++i)
+			{
+				bindings[i].binding = i;
+				bindings[i].count = 1u;
+				bindings[i].stageFlags = asset::IShader::ESS_COMPUTE;
+				bindings[i].samplers = nullptr;
+			}
+			bindings[0].type = asset::EDT_STORAGE_BUFFER; // property pool of lights
+			bindings[1].type = asset::EDT_STORAGE_BUFFER; // active light indices
+			bindings[2].type = asset::EDT_STORAGE_BUFFER; // out scratch
+			bindings[3].type = asset::EDT_STORAGE_BUFFER; // intersection records
+			bindings[4].type = asset::EDT_STORAGE_IMAGE; // light grid
 
-			// inScratch / active light indices
-			bindings[1].binding = 1u;
-			bindings[1].type = asset::EDT_STORAGE_BUFFER;
-			bindings[1].count = 1u;
-			bindings[1].stageFlags = asset::IShader::ESS_COMPUTE;
-			bindings[1].samplers = nullptr;
-
-			// outScratch
-			bindings[2].binding = 2u;
-			bindings[2].type = asset::EDT_STORAGE_BUFFER;
-			bindings[2].count = 1u;
-			bindings[2].stageFlags = asset::IShader::ESS_COMPUTE;
-			bindings[2].samplers = nullptr;
-
-			// intersection records
-			bindings[3].binding = 3u;
-			bindings[3].type = asset::EDT_STORAGE_BUFFER;
-			bindings[3].count = 1u;
-			bindings[3].stageFlags = asset::IShader::ESS_COMPUTE;
-			bindings[3].samplers = nullptr;
-
-			// light grid
-			bindings[4].binding = 4u;
-			bindings[4].type = asset::EDT_STORAGE_IMAGE;
-			bindings[4].count = 1u;
-			bindings[4].stageFlags = asset::IShader::ESS_COMPUTE;
-			bindings[4].samplers = nullptr;
-
-			clipmapCullDSLayout = logicalDevice->createGPUDescriptorSetLayout(bindings, bindings + CLIPMAP_CULL_DESCRIPTOR_COUNT);
+			clipmapFirstCullDSLayout = logicalDevice->createGPUDescriptorSetLayout(bindings, bindings + CLIPMAP_FIRST_CULL_DESCRIPTOR_COUNT);
 		}
 
-		core::smart_refctd_ptr<video::IGPUPipelineLayout> clipmapCullPipelineLayout = nullptr;
+		core::smart_refctd_ptr<video::IGPUPipelineLayout> clipmapFirstCullPipelineLayout = nullptr;
 		{
 			asset::SPushConstantRange pcRange = {};
 			pcRange.stageFlags = asset::IShader::ESS_COMPUTE;
 			pcRange.offset = 0u;
-			pcRange.size = sizeof(clipmap_push_constants_t);
+			pcRange.size = sizeof(first_cull_push_constants_t);
 
-			clipmapCullPipelineLayout = logicalDevice->createGPUPipelineLayout(&pcRange, &pcRange + 1ull, core::smart_refctd_ptr(clipmapCullDSLayout));
+			clipmapFirstCullPipelineLayout = logicalDevice->createGPUPipelineLayout(&pcRange, &pcRange + 1ull, core::smart_refctd_ptr(clipmapFirstCullDSLayout));
 		}
 
 		// create & update climap cull ds
-		const uint32_t clipmapCullDSCount = 1u + 2u; // first + ping + pong
-		auto clipmapCullDescriptorPool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE, &clipmapCullDSLayout.get(), &clipmapCullDSLayout.get() + 1ull, &clipmapCullDSCount);
+		const uint32_t clipmapFirstCullDSCount = 1u + 2u; // + ping + pong
+		auto clipmapFirstCullDescriptorPool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE, &clipmapFirstCullDSLayout.get(), &clipmapFirstCullDSLayout.get() + 1ull, &clipmapFirstCullDSCount);
 
-		clipmapFirstDS = logicalDevice->createGPUDescriptorSet(clipmapCullDescriptorPool.get(), core::smart_refctd_ptr(clipmapCullDSLayout));
+		clipmapFirstCullDS = logicalDevice->createGPUDescriptorSet(clipmapFirstCullDescriptorPool.get(), core::smart_refctd_ptr(clipmapFirstCullDSLayout));
 		{
-			video::IGPUDescriptorSet::SWriteDescriptorSet writes[CLIPMAP_CULL_DESCRIPTOR_COUNT];
-			video::IGPUDescriptorSet::SDescriptorInfo infos[CLIPMAP_CULL_DESCRIPTOR_COUNT];
+			video::IGPUDescriptorSet::SWriteDescriptorSet writes[CLIPMAP_FIRST_CULL_DESCRIPTOR_COUNT];
+			video::IGPUDescriptorSet::SDescriptorInfo infos[CLIPMAP_FIRST_CULL_DESCRIPTOR_COUNT];
 
-			for (uint32_t i = 0u; i < CLIPMAP_CULL_DESCRIPTOR_COUNT; ++i)
+			for (uint32_t i = 0u; i < CLIPMAP_FIRST_CULL_DESCRIPTOR_COUNT; ++i)
 			{
-				writes[i].dstSet = clipmapFirstDS.get();
+				writes[i].dstSet = clipmapFirstCullDS.get();
 				writes[i].binding = i;
 				writes[i].arrayElement = 0u;
 				writes[i].count = 1u;
@@ -836,19 +843,156 @@ public:
 			infos[4].image.sampler = nullptr;
 			writes[4].descriptorType = asset::EDT_STORAGE_IMAGE;
 
-			logicalDevice->updateDescriptorSets(CLIPMAP_CULL_DESCRIPTOR_COUNT, writes, 0u, nullptr);
+			logicalDevice->updateDescriptorSets(CLIPMAP_FIRST_CULL_DESCRIPTOR_COUNT, writes, 0u, nullptr);
 		}
 
+		const char* clipmapFirstCullCompShaderPath = "../clipmap/first_cull.comp";
+		{
+			asset::IAssetLoader::SAssetLoadParams params = {};
+			params.logger = logger.get();
+			auto loadedShader = core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(*assetManager->getAsset(clipmapFirstCullCompShaderPath, params).getContents().begin());
+			auto unspecOverridenShader = asset::IGLSLCompiler::createOverridenCopy(loadedShader->getUnspecialized(),
+				"#define _NBL_GLSL_WORKGROUP_SIZE_ %d\n"
+				"#define LIGHT_CONTRIBUTION_THRESHOLD %f\n"
+				"#define LIGHT_RADIUS %f\n"
+				"#define LOD_COUNT %d\n"
+				"#define VOXEL_COUNT_PER_DIM %d\n"
+				, WG_DIM, LIGHT_CONTRIBUTION_THRESHOLD, LIGHT_RADIUS, LOD_COUNT, VOXEL_COUNT_PER_DIM);
+			auto cullSpecShader_cpu = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecOverridenShader), asset::ISpecializedShader::SInfo(nullptr, nullptr, "main"));
+
+			auto gpuArray = cpu2gpu.getGPUObjectsFromAssets(&cullSpecShader_cpu.get(), &cullSpecShader_cpu.get() + 1, cpu2gpuParams);
+			if (!gpuArray || gpuArray->size() < 1u || !(*gpuArray)[0])
+				FATAL_LOG("Failed to convert CPU specialized shader to GPU specialized shaders!\n");
+
+			core::smart_refctd_ptr<video::IGPUSpecializedShader> cullSpecShader = gpuArray->begin()[0];
+			clipmapFirstCullPipeline = logicalDevice->createGPUComputePipeline(nullptr, std::move(clipmapFirstCullPipelineLayout), std::move(cullSpecShader));
+		}
+		
+		// clipmapIntermediateCullDSLayout will be same as clipmapFirstCullDSLayout
+
+		core::smart_refctd_ptr<video::IGPUPipelineLayout> clipmapIntermediateCullPipelineLayout = nullptr;
+		{
+			asset::SPushConstantRange pcRange = {};
+			pcRange.stageFlags = asset::IShader::ESS_COMPUTE;
+			pcRange.offset = 0u;
+			pcRange.size = sizeof(intermediate_cull_push_constants_t);
+
+			clipmapIntermediateCullPipelineLayout = logicalDevice->createGPUPipelineLayout(&pcRange, &pcRange + 1ull, core::smart_refctd_ptr(clipmapFirstCullDSLayout));
+		}
+
+		// create & update intermediate cull ds
 		for (uint32_t dsIndex = 0u; dsIndex < 2u; ++dsIndex)
 		{
-			clipmapPingPongDS[dsIndex] = logicalDevice->createGPUDescriptorSet(clipmapCullDescriptorPool.get(), core::smart_refctd_ptr(clipmapCullDSLayout));
+			clipmapIntermediateCullDS[dsIndex] = logicalDevice->createGPUDescriptorSet(clipmapFirstCullDescriptorPool.get(), core::smart_refctd_ptr(clipmapFirstCullDSLayout));
 
-			video::IGPUDescriptorSet::SWriteDescriptorSet writes[CLIPMAP_CULL_DESCRIPTOR_COUNT];
-			video::IGPUDescriptorSet::SDescriptorInfo infos[CLIPMAP_CULL_DESCRIPTOR_COUNT];
+			video::IGPUDescriptorSet::SWriteDescriptorSet writes[CLIPMAP_FIRST_CULL_DESCRIPTOR_COUNT] = {};
+			video::IGPUDescriptorSet::SDescriptorInfo infos[CLIPMAP_FIRST_CULL_DESCRIPTOR_COUNT] = {};
 
-			for (uint32_t i = 0u; i < CLIPMAP_CULL_DESCRIPTOR_COUNT; ++i)
+			for (uint32_t i = 0u; i < CLIPMAP_FIRST_CULL_DESCRIPTOR_COUNT; ++i)
 			{
-				writes[i].dstSet = clipmapPingPongDS[dsIndex].get();
+				writes[i].dstSet = clipmapIntermediateCullDS[dsIndex].get();
+				writes[i].binding = i;
+				writes[i].arrayElement = 0u;
+				writes[i].count = 1u;
+				writes[i].descriptorType = asset::EDT_STORAGE_BUFFER;
+				writes[i].info = &infos[i];
+			}
+
+			// property pool of lights
+			const auto& propertyMemoryBlock = propertyPool->getPropertyMemoryBlock(0u);
+			infos[0].desc = propertyMemoryBlock.buffer;
+			infos[0].buffer.offset = propertyMemoryBlock.offset;
+			infos[0].buffer.size = propertyMemoryBlock.size;
+
+			// inScratch
+			infos[1].desc = clipmapScratchBuffers[dsIndex];
+			infos[1].buffer.offset = 0ull;
+			infos[1].buffer.size = clipmapScratchBuffers[dsIndex]->getCachedCreationParams().declaredSize;
+
+			// outScratch
+			infos[2].desc = clipmapScratchBuffers[1u - dsIndex];
+			infos[2].buffer.offset = 0ull;
+			infos[2].buffer.size = clipmapScratchBuffers[1u - dsIndex]->getCachedCreationParams().declaredSize;
+
+			// intersection records
+			infos[3].desc = intersectionRecordsBuffer;
+			infos[3].buffer.offset = 0ull;
+			infos[3].buffer.size = intersectionRecordsBuffer->getCachedCreationParams().declaredSize;
+			writes[3].descriptorType = asset::EDT_STORAGE_BUFFER;
+
+			// light grid
+			infos[4].desc = lightGridTextureView;
+			infos[4].image.imageLayout = asset::EIL_GENERAL;
+			infos[4].image.sampler = nullptr;
+			writes[4].descriptorType = asset::EDT_STORAGE_IMAGE;
+
+			logicalDevice->updateDescriptorSets(CLIPMAP_FIRST_CULL_DESCRIPTOR_COUNT, writes, 0u, nullptr);
+		}
+
+		const char* clipmapIntermediateCullCompShaderPath = "../clipmap/intermediate_cull.comp";
+		{
+			asset::IAssetLoader::SAssetLoadParams params = {};
+			params.logger = logger.get();
+			auto loadedShader = core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(*assetManager->getAsset(clipmapIntermediateCullCompShaderPath, params).getContents().begin());
+			auto unspecOverridenShader = asset::IGLSLCompiler::createOverridenCopy(loadedShader->getUnspecialized(),
+				"#define _NBL_GLSL_WORKGROUP_SIZE_ %d\n"
+				"#define LIGHT_CONTRIBUTION_THRESHOLD %f\n"
+				"#define LIGHT_RADIUS %f\n"
+				"#define LOD_COUNT %d\n"
+				"#define VOXEL_COUNT_PER_DIM %d\n"
+				, WG_DIM, LIGHT_CONTRIBUTION_THRESHOLD, LIGHT_RADIUS, LOD_COUNT, VOXEL_COUNT_PER_DIM);
+			auto cullSpecShader_cpu = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecOverridenShader), asset::ISpecializedShader::SInfo(nullptr, nullptr, "main"));
+
+			auto gpuArray = cpu2gpu.getGPUObjectsFromAssets(&cullSpecShader_cpu.get(), &cullSpecShader_cpu.get() + 1, cpu2gpuParams);
+			if (!gpuArray || gpuArray->size() < 1u || !(*gpuArray)[0])
+				FATAL_LOG("Failed to convert CPU specialized shader to GPU specialized shaders!\n");
+
+			core::smart_refctd_ptr<video::IGPUSpecializedShader> cullSpecShader = gpuArray->begin()[0];
+			clipmapIntermediateCullPipeline = logicalDevice->createGPUComputePipeline(nullptr, std::move(clipmapIntermediateCullPipelineLayout), std::move(cullSpecShader));
+		}
+
+		constexpr uint32_t CLIPMAP_LAST_CULL_DESCRIPTOR_COUNT = 4u;
+		core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> clipmapLastCullDSLayout = nullptr;
+		{
+			video::IGPUDescriptorSetLayout::SBinding bindings[CLIPMAP_LAST_CULL_DESCRIPTOR_COUNT];
+
+			for (uint32_t i = 0u; i < CLIPMAP_LAST_CULL_DESCRIPTOR_COUNT; ++i)
+			{
+				bindings[i].binding = i;
+				bindings[i].count = 1u;
+				bindings[i].stageFlags = asset::IShader::ESS_COMPUTE;
+				bindings[i].samplers = nullptr;
+			}
+			bindings[0].type = asset::EDT_STORAGE_BUFFER; // property pool of lights
+			bindings[1].type = asset::EDT_STORAGE_BUFFER; // in scratch
+			bindings[2].type = asset::EDT_STORAGE_BUFFER; // intersection records
+			bindings[3].type = asset::EDT_STORAGE_IMAGE; // light grid
+
+			clipmapLastCullDSLayout = logicalDevice->createGPUDescriptorSetLayout(bindings, bindings + CLIPMAP_LAST_CULL_DESCRIPTOR_COUNT);
+		}
+
+		core::smart_refctd_ptr<video::IGPUPipelineLayout> clipmapLastCullPipelineLayout = nullptr;
+		{
+			asset::SPushConstantRange pcRange = {};
+			pcRange.stageFlags = asset::IShader::ESS_COMPUTE;
+			pcRange.offset = 0u;
+			pcRange.size = sizeof(intermediate_cull_push_constants_t);
+
+			clipmapLastCullPipelineLayout = logicalDevice->createGPUPipelineLayout(&pcRange, &pcRange + 1ull, core::smart_refctd_ptr(clipmapLastCullDSLayout));
+		}
+
+		// create & update climap last cull ds
+		const uint32_t clipmapLastCullDSCount = 1u;
+		auto clipmapLastCullDescriptorPool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE, &clipmapLastCullDSLayout.get(), &clipmapLastCullDSLayout.get() + 1ull, &clipmapLastCullDSCount);
+
+		clipmapLastCullDS = logicalDevice->createGPUDescriptorSet(clipmapLastCullDescriptorPool.get(), core::smart_refctd_ptr(clipmapLastCullDSLayout));
+		{
+			video::IGPUDescriptorSet::SWriteDescriptorSet writes[CLIPMAP_LAST_CULL_DESCRIPTOR_COUNT];
+			video::IGPUDescriptorSet::SDescriptorInfo infos[CLIPMAP_LAST_CULL_DESCRIPTOR_COUNT];
+
+			for (uint32_t i = 0u; i < CLIPMAP_LAST_CULL_DESCRIPTOR_COUNT; ++i)
+			{
+				writes[i].dstSet = clipmapLastCullDS.get();
 				writes[i].binding = i;
 				writes[i].arrayElement = 0u;
 				writes[i].count = 1u;
@@ -863,45 +1007,38 @@ public:
 			writes[0].descriptorType = asset::EDT_STORAGE_BUFFER;
 
 			// in scratch
-			infos[1].desc = clipmapScratchBuffers[dsIndex];
+			infos[1].desc = clipmapScratchBuffers[0];
 			infos[1].buffer.offset = 0ull;
-			infos[1].buffer.size = clipmapScratchBuffers[dsIndex]->getCachedCreationParams().declaredSize;
+			infos[1].buffer.size = clipmapScratchBuffers[0]->getCachedCreationParams().declaredSize;
 			writes[1].descriptorType = asset::EDT_STORAGE_BUFFER;
 
-			// out scratch
-			infos[2].desc = clipmapScratchBuffers[1u-dsIndex];
+			// intersection records
+			infos[2].desc = intersectionRecordsBuffer;
 			infos[2].buffer.offset = 0ull;
-			infos[2].buffer.size = clipmapScratchBuffers[1u-dsIndex]->getCachedCreationParams().declaredSize;
+			infos[2].buffer.size = intersectionRecordsBuffer->getCachedCreationParams().declaredSize;
 			writes[2].descriptorType = asset::EDT_STORAGE_BUFFER;
 
-			// intersection records
-			infos[3].desc = intersectionRecordsBuffer;
-			infos[3].buffer.offset = 0ull;
-			infos[3].buffer.size = intersectionRecordsBuffer->getCachedCreationParams().declaredSize;
-			writes[3].descriptorType = asset::EDT_STORAGE_BUFFER;
-
 			// light grid
-			infos[4].desc = lightGridTextureView;
-			infos[4].image.imageLayout = asset::EIL_GENERAL;
-			infos[4].image.sampler = nullptr;
-			writes[4].descriptorType = asset::EDT_STORAGE_IMAGE;
+			infos[3].desc = lightGridTextureView;
+			infos[3].image.imageLayout = asset::EIL_GENERAL;
+			infos[3].image.sampler = nullptr;
+			writes[3].descriptorType = asset::EDT_STORAGE_IMAGE;
 
-			logicalDevice->updateDescriptorSets(CLIPMAP_CULL_DESCRIPTOR_COUNT, writes, 0u, nullptr);
+			logicalDevice->updateDescriptorSets(CLIPMAP_LAST_CULL_DESCRIPTOR_COUNT, writes, 0u, nullptr);
 		}
 
-		const char* clipmapCullCompShaderPath = "../clipmap/cull.comp";
+		const char* clipmapLastCullCompShaderPath = "../clipmap/last_cull.comp";
 		{
 			asset::IAssetLoader::SAssetLoadParams params = {};
 			params.logger = logger.get();
-			auto loadedShader = core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(*assetManager->getAsset(clipmapCullCompShaderPath, params).getContents().begin());
+			auto loadedShader = core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(*assetManager->getAsset(clipmapLastCullCompShaderPath, params).getContents().begin());
 			auto unspecOverridenShader = asset::IGLSLCompiler::createOverridenCopy(loadedShader->getUnspecialized(),
 				"#define _NBL_GLSL_WORKGROUP_SIZE_ %d\n"
-				"#define LIGHT_COUNT %d\n" // Todo(achal): If needed, want to send via push constants
 				"#define LIGHT_CONTRIBUTION_THRESHOLD %f\n"
 				"#define LIGHT_RADIUS %f\n"
 				"#define LOD_COUNT %d\n"
 				"#define VOXEL_COUNT_PER_DIM %d\n"
-				,WG_DIM, LIGHT_COUNT, LIGHT_CONTRIBUTION_THRESHOLD, LIGHT_RADIUS, LOD_COUNT, VOXEL_COUNT_PER_DIM);
+				, WG_DIM, LIGHT_CONTRIBUTION_THRESHOLD, LIGHT_RADIUS, LOD_COUNT, VOXEL_COUNT_PER_DIM);
 			auto cullSpecShader_cpu = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecOverridenShader), asset::ISpecializedShader::SInfo(nullptr, nullptr, "main"));
 
 			auto gpuArray = cpu2gpu.getGPUObjectsFromAssets(&cullSpecShader_cpu.get(), &cullSpecShader_cpu.get() + 1, cpu2gpuParams);
@@ -909,7 +1046,7 @@ public:
 				FATAL_LOG("Failed to convert CPU specialized shader to GPU specialized shaders!\n");
 
 			core::smart_refctd_ptr<video::IGPUSpecializedShader> cullSpecShader = gpuArray->begin()[0];
-			clipmapCullPipeline = logicalDevice->createGPUComputePipeline(nullptr, std::move(clipmapCullPipelineLayout), std::move(cullSpecShader));
+			clipmapLastCullPipeline = logicalDevice->createGPUComputePipeline(nullptr, std::move(clipmapLastCullPipelineLayout), std::move(cullSpecShader));
 		}
 #endif
 
@@ -1425,47 +1562,141 @@ public:
 			1u, &intersectionRecordsUpdated,
 			1u, &lightGridUpdated);
 
-		// memory dependency to ensure the output (scratch0) of previous pass is visible
-		video::IGPUCommandBuffer::SBufferMemoryBarrier cullScratchUpdated = {};
-		cullScratchUpdated.barrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
-		cullScratchUpdated.barrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
-		cullScratchUpdated.srcQueueFamilyIndex = ~0u;
-		cullScratchUpdated.dstQueueFamilyIndex = ~0u;
-		cullScratchUpdated.offset = 0ull;
-
-		commandBuffer->bindComputePipeline(clipmapCullPipeline.get());
-		for (int32_t level = 9; level >= 0; --level)
+		// first pass
+		commandBuffer->bindComputePipeline(clipmapFirstCullPipeline.get());
 		{
-			clipmap_push_constants_t pc = {};
-			pc.camPosClipmapExtent[0] = cameraPosition.x;
-			pc.camPosClipmapExtent[1] = cameraPosition.y;
-			pc.camPosClipmapExtent[2] = cameraPosition.z;
-			pc.camPosClipmapExtent[3] = genesisVoxelExtent;
-			pc.hierarchyLevel = level;
-			commandBuffer->pushConstants(clipmapCullPipeline->getLayout(), asset::IShader::ESS_COMPUTE, 0u, sizeof(clipmap_push_constants_t), &pc);
+			first_cull_push_constants_t pc = {};
+			pc.camPosGenesisVoxelExtent[0] = cameraPosition.x;
+			pc.camPosGenesisVoxelExtent[1] = cameraPosition.y;
+			pc.camPosGenesisVoxelExtent[2] = cameraPosition.z;
+			pc.camPosGenesisVoxelExtent[3] = genesisVoxelExtent;
+			pc.hierarchyLevel = 9u;
+			pc.activeLightCount = LIGHT_COUNT;
+			commandBuffer->pushConstants(clipmapFirstCullPipeline->getLayout(), asset::IShader::ESS_COMPUTE, 0u, sizeof(first_cull_push_constants_t), &pc);
+		}
+		commandBuffer->bindDescriptorSets(asset::EPBP_COMPUTE, clipmapFirstCullPipeline->getLayout(), 0u, 1u, &clipmapFirstCullDS.get());
+		commandBuffer->dispatch((LIGHT_COUNT + WG_DIM - 1) / WG_DIM, 1u, 1u);
 
-			if (level == 9)
-				commandBuffer->bindDescriptorSets(asset::EPBP_COMPUTE, clipmapCullPipeline->getLayout(), 0u, 1u, &clipmapFirstDS.get());
-			else
-				commandBuffer->bindDescriptorSets(asset::EPBP_COMPUTE, clipmapCullPipeline->getLayout(), 0u, 1u, &clipmapPingPongDS[(level & 1)].get());
+		video::IGPUCommandBuffer::SBufferMemoryBarrier cullScratchUpdated[3];
+		{
+			// memory dependency to ensure that writes to intersection records buffer has finished from this pass
+			// before starting the next one
+			cullScratchUpdated[0].barrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
+			cullScratchUpdated[0].barrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
+			cullScratchUpdated[0].srcQueueFamilyIndex = ~0u;
+			cullScratchUpdated[0].dstQueueFamilyIndex = ~0u;
+			cullScratchUpdated[0].buffer = intersectionRecordsBuffer;
+			cullScratchUpdated[0].offset = 0ull;
+			cullScratchUpdated[0].size = intersectionRecordsBuffer->getCachedCreationParams().declaredSize;
 
-			// It could be better if I could somehow launch only required amount of workgroups which could be way less
-			// at the final levels because the list of active lights would've been pruned significantly
-			commandBuffer->dispatch((LIGHT_COUNT + WG_DIM - 1) / WG_DIM, 1u, 1u);
+			// memory dependency to ensure that writes to scratch are finished
+			cullScratchUpdated[1].barrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
+			cullScratchUpdated[1].barrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
+			cullScratchUpdated[1].srcQueueFamilyIndex = ~0u;
+			cullScratchUpdated[1].dstQueueFamilyIndex = ~0u;
+			cullScratchUpdated[1].buffer = clipmapScratchBuffers[0];
+			cullScratchUpdated[1].offset = 0ull;
+			cullScratchUpdated[1].size = cullScratchUpdated[1].buffer->getCachedCreationParams().declaredSize;
 
-			cullScratchUpdated.buffer = clipmapScratchBuffers[1 - (level & 1)];
-			cullScratchUpdated.size = cullScratchUpdated.buffer->getCachedCreationParams().declaredSize;
-			commandBuffer->pipelineBarrier(
-				asset::EPSF_COMPUTE_SHADER_BIT,
-				asset::EPSF_COMPUTE_SHADER_BIT,
-				asset::EDF_NONE,
-				0u, nullptr,
-				1u, &cullScratchUpdated,
-				0u, nullptr);
+			// memory dependency to ensure that a previous pass has reset the atomic counter (which it read from in the current pass)
+			// to be incremented in the next pass --unused for the 0th pass
+			cullScratchUpdated[2].barrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
+			cullScratchUpdated[2].barrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
+			cullScratchUpdated[2].srcQueueFamilyIndex = ~0u;
+			cullScratchUpdated[2].dstQueueFamilyIndex = ~0u;
+			cullScratchUpdated[2].buffer = clipmapScratchBuffers[0];
+			cullScratchUpdated[2].offset = 0ull;
+			cullScratchUpdated[2].size = cullScratchUpdated[2].buffer->getCachedCreationParams().declaredSize;
 		}
 
-		video::CScanner* scanner = utilities->getDefaultScanner();
+		commandBuffer->pipelineBarrier(
+			asset::EPSF_COMPUTE_SHADER_BIT,
+			asset::EPSF_COMPUTE_SHADER_BIT,
+			asset::EDF_BY_REGION_BIT,
+			0u, nullptr,
+			2u, cullScratchUpdated, // reset counter buffer barrier is not required here
+			0u, nullptr);
+		
+		lightGridUpdated.barrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
+		lightGridUpdated.barrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
 
+		commandBuffer->bindComputePipeline(clipmapIntermediateCullPipeline.get());
+
+		for (int32_t level = 8; level >= 1; --level)
+		{
+			{
+				intermediate_cull_push_constants_t pc = {};
+				pc.camPosGenesisVoxelExtent[0] = cameraPosition.x;
+				pc.camPosGenesisVoxelExtent[1] = cameraPosition.y;
+				pc.camPosGenesisVoxelExtent[2] = cameraPosition.z;
+				pc.camPosGenesisVoxelExtent[3] = genesisVoxelExtent;
+				pc.hierarchyLevel = level;
+				commandBuffer->pushConstants(clipmapIntermediateCullPipeline->getLayout(), asset::IShader::ESS_COMPUTE, 0u, sizeof(intermediate_cull_push_constants_t), &pc);
+			}
+
+			commandBuffer->bindDescriptorSets(asset::EPBP_COMPUTE, clipmapIntermediateCullPipeline->getLayout(), 0u, 1u, &clipmapIntermediateCullDS[(level & 1)].get());
+			{
+				// It could be better if I could somehow launch only required amount of workgroups which could be way less
+				// at the final levels because the list of active lights would've been pruned significantly
+				constexpr uint32_t MAX_INVOCATIONS = MEMORY_BUDGET / sizeof(uint64_t);
+				commandBuffer->dispatch((MAX_INVOCATIONS + WG_DIM - 1) / WG_DIM, 1u, 1u);
+			}
+
+			cullScratchUpdated[1].buffer = clipmapScratchBuffers[1u - (level & 1u)]; // memory dependency to ensure this pass has finished writing to scratch
+
+			if (level != 1)
+			{
+				cullScratchUpdated[2].buffer = clipmapScratchBuffers[(level & 1u)]; // memory dependency to ensure this pass has finished resetting the counter
+				commandBuffer->pipelineBarrier(
+					asset::EPSF_COMPUTE_SHADER_BIT,
+					asset::EPSF_COMPUTE_SHADER_BIT,
+					asset::EDF_BY_REGION_BIT,
+					0u, nullptr,
+					3u, cullScratchUpdated,
+					1u, &lightGridUpdated);
+			}
+			else
+			{
+				commandBuffer->pipelineBarrier(
+					asset::EPSF_COMPUTE_SHADER_BIT,
+					asset::EPSF_COMPUTE_SHADER_BIT,
+					asset::EDF_BY_REGION_BIT,
+					0u, nullptr,
+					2u, cullScratchUpdated, // counter reset buffer barrier is not required here
+					1u, &lightGridUpdated);
+			}
+		}
+
+		// final pass
+		commandBuffer->bindComputePipeline(clipmapLastCullPipeline.get());
+		{
+			intermediate_cull_push_constants_t pc = {};
+			pc.camPosGenesisVoxelExtent[0] = cameraPosition.x;
+			pc.camPosGenesisVoxelExtent[1] = cameraPosition.y;
+			pc.camPosGenesisVoxelExtent[2] = cameraPosition.z;
+			pc.camPosGenesisVoxelExtent[3] = genesisVoxelExtent;
+			pc.hierarchyLevel = 0u;
+			commandBuffer->pushConstants(clipmapLastCullPipeline->getLayout(), asset::IShader::ESS_COMPUTE, 0u, sizeof(intermediate_cull_push_constants_t), &pc);
+		}
+
+		commandBuffer->bindDescriptorSets(asset::EPBP_COMPUTE, clipmapLastCullPipeline->getLayout(), 0u, 1u, &clipmapLastCullDS.get());
+		{
+			constexpr uint32_t MAX_INVOCATIONS = MEMORY_BUDGET / sizeof(uint64_t);
+			commandBuffer->dispatch((MAX_INVOCATIONS + WG_DIM - 1) / WG_DIM, 1u, 1u);
+		}
+
+		// before the scan begins ensure the light grid is updated
+		lightGridUpdated.barrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
+		lightGridUpdated.barrier.dstAccessMask = static_cast<asset::E_ACCESS_FLAGS>(asset::EAF_SHADER_READ_BIT | asset::EAF_SHADER_WRITE_BIT);
+		commandBuffer->pipelineBarrier(
+			asset::EPSF_COMPUTE_SHADER_BIT,
+			asset::EPSF_COMPUTE_SHADER_BIT,
+			asset::EDF_NONE,
+			0u, nullptr,
+			0u, nullptr,
+			1u, &lightGridUpdated);
+
+		video::CScanner* scanner = utilities->getDefaultScanner();
 		commandBuffer->fillBuffer(scanScratchGPUBuffer.get(), 0u, sizeof(uint32_t) + scanScratchGPUBuffer->getCachedCreationParams().declaredSize / 2u, 0u);
 		commandBuffer->bindComputePipeline(scanPipeline.get());
 		commandBuffer->bindDescriptorSets(asset::EPBP_COMPUTE, scanPipeline->getLayout(), 0u, 1u, &scanDS.get());
@@ -1488,18 +1719,6 @@ public:
 			1u, &scanScratchUpdated,
 			0u, nullptr);
 
-		// image memory dependency to ensure that the previous pass has finished writing to the
-		// light grid before the scan pass can read from it,
-		lightGridUpdated.barrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
-		lightGridUpdated.barrier.dstAccessMask = static_cast<asset::E_ACCESS_FLAGS>(asset::EAF_SHADER_WRITE_BIT | asset::EAF_SHADER_READ_BIT);
-		commandBuffer->pipelineBarrier(
-			asset::EPSF_COMPUTE_SHADER_BIT,
-			asset::EPSF_COMPUTE_SHADER_BIT,
-			asset::EDF_NONE,
-			0u, nullptr,
-			0u, nullptr,
-			1u, &lightGridUpdated);
-
 		scanner->dispatchHelper(
 			commandBuffer.get(),
 			scanPipeline->getLayout(),
@@ -1510,26 +1729,24 @@ public:
 			asset::EPSF_BOTTOM_OF_PIPE_BIT,
 			0u, nullptr);
 
-		// buffer memory dependency to ensure that the previous culling passes have finished writing
-		// to the intersection records
-		intersectionRecordsUpdated.barrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
-		intersectionRecordsUpdated.barrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
-		intersectionRecordsUpdated.buffer = intersectionRecordsBuffer;
-		intersectionRecordsUpdated.offset = 0ull;
-		intersectionRecordsUpdated.size = intersectionRecordsBuffer->getCachedCreationParams().declaredSize;
+		// before the scatter pass begins ensure the intersection records and light grid are updated
+		lightGridUpdated.barrier.srcAccessMask = static_cast<asset::E_ACCESS_FLAGS>(asset::EAF_SHADER_READ_BIT | asset::EAF_SHADER_WRITE_BIT);
+		lightGridUpdated.barrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
 		commandBuffer->pipelineBarrier(
 			asset::EPSF_COMPUTE_SHADER_BIT,
 			asset::EPSF_COMPUTE_SHADER_BIT,
 			asset::EDF_NONE,
 			0u, nullptr,
-			1u, &intersectionRecordsUpdated,
-			0u, nullptr);
+			1u, &cullScratchUpdated[0],
+			1u, &lightGridUpdated);
 
 		// scatter dispatch
 		commandBuffer->bindComputePipeline(scatterPipeline.get());
 		commandBuffer->bindDescriptorSets(asset::EPBP_COMPUTE, scatterPipeline->getLayout(), 0u, 1u, &scatterDS.get());
-		constexpr uint32_t MAX_INTERSECTION_COUNT = VOXEL_COUNT_PER_LEVEL * LOD_COUNT * LIGHT_COUNT; // Todo(achal): Use MEMORY_BUDGET
-		commandBuffer->dispatch((MAX_INTERSECTION_COUNT + WG_DIM - 1)/WG_DIM, 1u, 1u);
+		{
+			constexpr uint32_t MAX_INVOCATIONS = MEMORY_BUDGET / sizeof(uint64_t);
+			commandBuffer->dispatch((MAX_INVOCATIONS + WG_DIM - 1) / WG_DIM, 1u, 1u);
+		}
 
 		// memory dependency to ensure the light index list is updated
 		video::IGPUCommandBuffer::SBufferMemoryBarrier lightIndexListUpdated = {};
@@ -1540,6 +1757,7 @@ public:
 		lightIndexListUpdated.buffer = lightIndexListGPUBuffer;
 		lightIndexListUpdated.offset = 0ull;
 		lightIndexListUpdated.size = lightIndexListUpdated.buffer->getCachedCreationParams().declaredSize;
+
 		commandBuffer->pipelineBarrier(
 			asset::EPSF_COMPUTE_SHADER_BIT,
 			asset::EPSF_FRAGMENT_SHADER_BIT,
@@ -1553,14 +1771,14 @@ public:
 		// first pass
 		commandBuffer->bindDescriptorSets(asset::EPBP_COMPUTE, octreeFirstCullPipeline->getLayout(), 0u, 1u, &octreeFirstCullDS.get());
 		{
-			octree_first_cull_push_constants_t pushConstants = {};
+			first_cull_push_constants_t pushConstants = {};
 			pushConstants.camPosGenesisVoxelExtent[0] = cameraPosition.x;
 			pushConstants.camPosGenesisVoxelExtent[1] = cameraPosition.y;
 			pushConstants.camPosGenesisVoxelExtent[2] = cameraPosition.z;
 			pushConstants.camPosGenesisVoxelExtent[3] = genesisVoxelExtent;
 			pushConstants.lightCount = LIGHT_COUNT;
 			pushConstants.buildHistogramID = buildHistogramID; buildHistogramID ^= 0x1u;
-			commandBuffer->pushConstants(octreeFirstCullPipeline->getLayout(), video::IGPUShader::ESS_COMPUTE, 0u, sizeof(octree_first_cull_push_constants_t), &pushConstants);
+			commandBuffer->pushConstants(octreeFirstCullPipeline->getLayout(), video::IGPUShader::ESS_COMPUTE, 0u, sizeof(first_cull_push_constants_t), &pushConstants);
 		}
 		commandBuffer->bindComputePipeline(octreeFirstCullPipeline.get());
 		commandBuffer->dispatch((LIGHT_COUNT + WG_DIM - 1) / WG_DIM, 1u, 1u);
@@ -1587,6 +1805,15 @@ public:
 			cullScratchUpdated[1].size = cullScratchUpdated[1].buffer->getCachedCreationParams().declaredSize;
 		}
 
+#ifdef SYNC_DEBUG
+		commandBuffer->pipelineBarrier(
+			asset::EPSF_ALL_COMMANDS_BIT,
+			asset::EPSF_ALL_COMMANDS_BIT,
+			asset::EDF_NONE,
+			1u, &debugSerializeAllBarrier,
+			0u, nullptr,
+			0u, nullptr);
+#else
 		commandBuffer->pipelineBarrier(
 			asset::EPSF_COMPUTE_SHADER_BIT,
 			asset::EPSF_COMPUTE_SHADER_BIT,
@@ -1594,6 +1821,7 @@ public:
 			0u, nullptr,
 			1u, &cullScratchUpdated[0],
 			0u, nullptr);
+#endif
 
 #if 0
 		// Todo(achal): Can I wrap this one up with the cull scratch updated barrier?
@@ -1621,13 +1849,13 @@ public:
 			commandBuffer->bindDescriptorSets(asset::EPBP_COMPUTE, octreeIntermediateCullPipeline->getLayout(), 0u, 1u, &octreeIntermediateCullDS[(level & 1u)].get());
 
 			{
-				octree_intermediate_cull_push_constants_t pc = {};
+				intermediate_cull_push_constants_t pc = {};
 				pc.camPosClipmapExtent[0] = cameraPosition.x;
 				pc.camPosClipmapExtent[1] = cameraPosition.y;
 				pc.camPosClipmapExtent[2] = cameraPosition.z;
 				pc.camPosClipmapExtent[3] = genesisVoxelExtent;
 				pc.hierarchyLevel = level;
-				commandBuffer->pushConstants(octreeIntermediateCullPipeline->getLayout(), video::IGPUShader::ESS_COMPUTE, 0u, sizeof(octree_intermediate_cull_push_constants_t), &pc);
+				commandBuffer->pushConstants(octreeIntermediateCullPipeline->getLayout(), video::IGPUShader::ESS_COMPUTE, 0u, sizeof(intermediate_cull_push_constants_t), &pc);
 			}
 
 			{
@@ -1640,6 +1868,15 @@ public:
 				commandBuffer->dispatch((MAX_INVOCATIONS + WG_DIM - 1) / WG_DIM, 1u, 1u);
 			}
 
+#ifdef SYNC_DEBUG
+			commandBuffer->pipelineBarrier(
+				asset::EPSF_ALL_COMMANDS_BIT,
+				asset::EPSF_ALL_COMMANDS_BIT,
+				asset::EDF_NONE,
+				1u, &debugSerializeAllBarrier,
+				0u, nullptr,
+				0u, nullptr);
+#else
 			cullScratchUpdated[0].buffer = octreeScratchBuffers[1u - (level & 1u)]; // memory dependency to ensure this pass has finished writing to scratch
 			cullScratchUpdated[1].buffer = octreeScratchBuffers[(level & 1u)]; // memory dependency to ensure this pass has finished resetting the counter
 			commandBuffer->pipelineBarrier(
@@ -1649,6 +1886,7 @@ public:
 				0u, nullptr,
 				1u, cullScratchUpdated,
 				0u, nullptr);
+#endif
 		}
 
 		// Todo(achal): I would need a different set of command buffers allocated from a pool which utilizes
@@ -1679,6 +1917,15 @@ public:
 		lightGridUpdated.subresourceRange.layerCount = 1u;
 		lightGridUpdated.subresourceRange.baseMipLevel = 0u;
 		lightGridUpdated.subresourceRange.levelCount = 1u;
+#ifdef SYNC_DEBUG
+		commandBuffer->pipelineBarrier(
+			asset::EPSF_ALL_COMMANDS_BIT,
+			asset::EPSF_ALL_COMMANDS_BIT,
+			asset::EDF_NONE,
+			1u, &debugSerializeAllBarrier,
+			0u, nullptr,
+			0u, nullptr);
+#else
 		commandBuffer->pipelineBarrier(
 			asset::EPSF_TRANSFER_BIT,
 			asset::EPSF_COMPUTE_SHADER_BIT,
@@ -1686,17 +1933,18 @@ public:
 			0u, nullptr,
 			0u, nullptr,
 			1u, &lightGridUpdated);
+#endif
 
 		// final pass
 		commandBuffer->bindDescriptorSets(asset::EPBP_COMPUTE, octreeLastCullPipeline->getLayout(), 0u, 1u, &octreeLastCullDS.get());
 		{
-			octree_intermediate_cull_push_constants_t pc = {};
+			intermediate_cull_push_constants_t pc = {};
 			pc.camPosClipmapExtent[0] = cameraPosition.x;
 			pc.camPosClipmapExtent[1] = cameraPosition.y;
 			pc.camPosClipmapExtent[2] = cameraPosition.z;
 			pc.camPosClipmapExtent[3] = genesisVoxelExtent;
 			pc.hierarchyLevel = 6u;
-			commandBuffer->pushConstants(octreeLastCullPipeline->getLayout(), video::IGPUShader::ESS_COMPUTE, 0u, sizeof(octree_intermediate_cull_push_constants_t), &pc);
+			commandBuffer->pushConstants(octreeLastCullPipeline->getLayout(), video::IGPUShader::ESS_COMPUTE, 0u, sizeof(intermediate_cull_push_constants_t), &pc);
 		}
 		commandBuffer->bindComputePipeline(octreeLastCullPipeline.get());
 		{
@@ -1720,6 +1968,15 @@ public:
 		scanScratchUpdated.offset = 0ull;
 		scanScratchUpdated.size = scanScratchGPUBuffer->getCachedCreationParams().declaredSize;
 
+#ifdef SYNC_DEBUG
+		commandBuffer->pipelineBarrier(
+			asset::EPSF_ALL_COMMANDS_BIT,
+			asset::EPSF_ALL_COMMANDS_BIT,
+			asset::EDF_NONE,
+			1u, &debugSerializeAllBarrier,
+			0u, nullptr,
+			0u, nullptr);
+#else
 		commandBuffer->pipelineBarrier(
 			asset::EPSF_TRANSFER_BIT,
 			asset::EPSF_COMPUTE_SHADER_BIT,
@@ -1727,6 +1984,7 @@ public:
 			0u, nullptr,
 			1u, &scanScratchUpdated,
 			0u, nullptr);
+#endif
 		
 		// image memory dependency to ensure that the previous pass has finished writing to the
 		// light grid before the scan pass can read from it, we only need this dependency
@@ -1734,6 +1992,15 @@ public:
 		lightGridUpdated.barrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
 		lightGridUpdated.barrier.dstAccessMask = static_cast<asset::E_ACCESS_FLAGS>(asset::EAF_SHADER_WRITE_BIT | asset::EAF_SHADER_READ_BIT);
 
+#ifdef SYNC_DEBUG
+		commandBuffer->pipelineBarrier(
+			asset::EPSF_ALL_COMMANDS_BIT,
+			asset::EPSF_ALL_COMMANDS_BIT,
+			asset::EDF_NONE,
+			1u, &debugSerializeAllBarrier,
+			0u, nullptr,
+			0u, nullptr);
+#else
 		commandBuffer->pipelineBarrier(
 			asset::EPSF_COMPUTE_SHADER_BIT,
 			asset::EPSF_COMPUTE_SHADER_BIT,
@@ -1741,6 +2008,7 @@ public:
 			0u, nullptr,
 			0u, nullptr,
 			1u, &lightGridUpdated);
+#endif
 
 		scanner->dispatchHelper(
 			commandBuffer.get(),
@@ -1753,6 +2021,15 @@ public:
 			0u, nullptr);
 
 		// memory dependency to ensure the final culling pass has finished writing intersection records to the one of the scratches
+#ifdef SYNC_DEBUG
+		commandBuffer->pipelineBarrier(
+			asset::EPSF_ALL_COMMANDS_BIT,
+			asset::EPSF_ALL_COMMANDS_BIT,
+			asset::EDF_NONE,
+			1u, &debugSerializeAllBarrier,
+			0u, nullptr,
+			0u, nullptr);
+#else
 		cullScratchUpdated[0].buffer = octreeScratchBuffers[1];
 		commandBuffer->pipelineBarrier(
 			asset::EPSF_COMPUTE_SHADER_BIT,
@@ -1761,7 +2038,17 @@ public:
 			0u, nullptr,
 			1u, &cullScratchUpdated[0],
 			0u, nullptr);
+#endif
 
+#ifdef SYNC_DEBUG
+		commandBuffer->pipelineBarrier(
+			asset::EPSF_ALL_COMMANDS_BIT,
+			asset::EPSF_ALL_COMMANDS_BIT,
+			asset::EDF_NONE,
+			1u, &debugSerializeAllBarrier,
+			0u, nullptr,
+			0u, nullptr);
+#else
 		// image memory dependency to ensure that scan has finished writing to the light grid
 		lightGridUpdated.barrier.srcAccessMask = static_cast<asset::E_ACCESS_FLAGS>(asset::EAF_SHADER_READ_BIT | asset::EAF_SHADER_WRITE_BIT);
 		lightGridUpdated.barrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
@@ -1772,6 +2059,7 @@ public:
 			0u, nullptr,
 			0u, nullptr,
 			1u, &lightGridUpdated);
+#endif
 
 		commandBuffer->bindComputePipeline(scatterPipeline.get());
 		commandBuffer->bindDescriptorSets(asset::EPBP_COMPUTE, scatterPipeline->getLayout(), 0u, 1u, &scatterDS.get());
@@ -1789,6 +2077,15 @@ public:
 		lightIndexListUpdated.buffer = lightIndexListGPUBuffer;
 		lightIndexListUpdated.offset = 0ull;
 		lightIndexListUpdated.size = lightIndexListUpdated.buffer->getCachedCreationParams().declaredSize;
+#ifdef SYNC_DEBUG
+		commandBuffer->pipelineBarrier(
+			asset::EPSF_ALL_COMMANDS_BIT,
+			asset::EPSF_ALL_COMMANDS_BIT,
+			asset::EDF_NONE,
+			1u, &debugSerializeAllBarrier,
+			0u, nullptr,
+			0u, nullptr);
+#else
 		commandBuffer->pipelineBarrier(
 			asset::EPSF_COMPUTE_SHADER_BIT,
 			asset::EPSF_FRAGMENT_SHADER_BIT,
@@ -1796,6 +2093,8 @@ public:
 			0u, nullptr,
 			1u, &lightIndexListUpdated,
 			0u, nullptr);
+#endif
+
 #endif
 		
 		// renderpass
@@ -2735,6 +3034,13 @@ private:
 	uint32_t buildHistogramID = 0u;
 
 #ifdef CLIPMAP
+	core::smart_refctd_ptr<video::IGPUDescriptorSet> clipmapFirstCullDS = nullptr;
+	core::smart_refctd_ptr<video::IGPUComputePipeline> clipmapFirstCullPipeline = nullptr;
+	core::smart_refctd_ptr<video::IGPUDescriptorSet> clipmapIntermediateCullDS[2] = { nullptr };
+	core::smart_refctd_ptr<video::IGPUComputePipeline> clipmapIntermediateCullPipeline = nullptr;
+	core::smart_refctd_ptr<video::IGPUComputePipeline> clipmapLastCullPipeline = nullptr;
+	core::smart_refctd_ptr<video::IGPUDescriptorSet> clipmapLastCullDS = nullptr;
+
 	core::smart_refctd_ptr<video::IGPUComputePipeline> clipmapCullPipeline = nullptr;
 	core::smart_refctd_ptr<video::IGPUDescriptorSet> clipmapFirstDS = nullptr;
 	core::smart_refctd_ptr<video::IGPUDescriptorSet> clipmapPingPongDS[2] = { nullptr };
@@ -2772,6 +3078,26 @@ private:
 	CommonAPI::InputSystem::ChannelReader<ui::IKeyboardEventChannel> keyboard;
 
 	Camera camera = Camera(core::vectorSIMDf(0, 0, 0), core::vectorSIMDf(0, 0, 0), core::matrix4SIMD());
+
+	const asset::E_ACCESS_FLAGS allSrcAccessFlags = static_cast<asset::E_ACCESS_FLAGS>(
+		asset::EAF_INDIRECT_COMMAND_READ_BIT |
+		asset::EAF_INDEX_READ_BIT |
+		asset::EAF_VERTEX_ATTRIBUTE_READ_BIT |
+		asset::EAF_UNIFORM_READ_BIT |
+		asset::EAF_INPUT_ATTACHMENT_READ_BIT |
+		asset::EAF_SHADER_READ_BIT |
+		asset::EAF_SHADER_WRITE_BIT |
+		asset::EAF_COLOR_ATTACHMENT_READ_BIT |
+		asset::EAF_COLOR_ATTACHMENT_WRITE_BIT |
+		asset::EAF_DEPTH_STENCIL_ATTACHMENT_READ_BIT |
+		asset::EAF_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT |
+		asset::EAF_TRANSFER_READ_BIT |
+		asset::EAF_TRANSFER_WRITE_BIT |
+		asset::EAF_HOST_READ_BIT |
+		asset::EAF_HOST_WRITE_BIT);
+
+	asset::SMemoryBarrier debugSerializeAllBarrier = { allSrcAccessFlags, allSrcAccessFlags };
+
 public:
 	void setWindow(core::smart_refctd_ptr<nbl::ui::IWindow>&& wnd) override
 	{

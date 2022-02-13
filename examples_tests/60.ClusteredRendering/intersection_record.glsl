@@ -20,12 +20,17 @@ struct intersection_record_t
 uvec2 packIntersectionRecord(in intersection_record_t record)
 {
 	uvec2 result = uvec2(0u);
-	result.x |= record.localClusterID.x;
-	result.x |= (record.localClusterID.y << 7);
-	result.x |= (record.localClusterID.z << 14);
-	result.x |= (record.level << 21);
+	result.x |= (record.localClusterID.x & 0x7Fu);
+	result.x |= ((record.localClusterID.y & 0x7Fu) << 7);
+	result.x |= ((record.localClusterID.z & 0x7Fu) << 14);
+	result.x |= ((record.level & 0xFu) << 21);
 
-	result.y |= record.localLightIndex;
+	// result.x |= record.localClusterID.x;
+	// result.x |= (record.localClusterID.y << 7);
+	// result.x |= (record.localClusterID.z << 14);
+	// result.x |= (record.level << 21);
+
+	result.y |= (record.localLightIndex & 0xFFFu);
 	result.y |= (record.globalLightIndex << 12); // Todo(achal): Make this 10
 
 	return result;
