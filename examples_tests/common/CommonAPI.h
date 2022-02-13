@@ -608,7 +608,7 @@ public:
 					bool hasSparseBindingFlag = (familyProperty.queueFlags & IPhysicalDevice::EQF_SPARSE_BINDING_BIT).value != 0;
 					bool hasProtectedFlag = (familyProperty.queueFlags & IPhysicalDevice::EQF_PROTECTED_BIT).value != 0;
 
-					const uint32_t extraQueueCount = nbl::core::min(remainingQueueCounts[familyIndex], 2u); // UP + DOWN
+					const uint32_t extraQueueCount = core::min(remainingQueueCounts[familyIndex], 2u); // UP + DOWN
 					const bool hasExtraQueues = extraQueueCount >= 1u;
 					
 					/*
@@ -1459,12 +1459,12 @@ public:
 		else
 			imageSharingMode = asset::ESM_CONCURRENT;
 		
-		nbl::video::ISurface::SFormat surfaceFormat;
+		video::ISurface::SFormat surfaceFormat;
 
 		if(api_type == nbl::video::EAT_VULKAN)
 		{
 			// Deduce format features from imageUsage param
-			nbl::video::IPhysicalDevice::SFormatImageUsage requiredFormatUsages = {};
+			video::IPhysicalDevice::SFormatImageUsage requiredFormatUsages = {};
 			if (imageUsage & asset::IImage::EUF_STORAGE_BIT)
 				requiredFormatUsages.storageImage = 1;
 			
@@ -1561,8 +1561,8 @@ public:
 		sc_params.imageUsage = imageUsage;
 		sc_params.surface = surface;
 		sc_params.imageSharingMode = imageSharingMode;
-		sc_params.preTransform = nbl::video::ISurface::EST_IDENTITY_BIT;
-		sc_params.compositeAlpha = nbl::video::ISurface::ECA_OPAQUE_BIT;
+		sc_params.preTransform = video::ISurface::EST_IDENTITY_BIT;
+		sc_params.compositeAlpha = video::ISurface::ECA_OPAQUE_BIT;
 		sc_params.surfaceFormat = surfaceFormat;
 
 		auto swapchain = device->createSwapchain(std::move(sc_params));
@@ -1636,7 +1636,7 @@ public:
 	{
 		using namespace nbl;
 		bool useDepth = asset::isDepthOrStencilFormat(depthFormat);
-		std::array<nbl::core::smart_refctd_ptr<nbl::video::IGPUFramebuffer>, InitOutput::MaxSwapChainImageCount> fbo;
+		std::array<nbl::core::smart_refctd_ptr<video::IGPUFramebuffer>, InitOutput::MaxSwapChainImageCount> fbo;
 		auto sc_images = swapchain->getImages();
 		assert(sc_images.size() == imageCount);
 		for (uint32_t i = 0u; i < imageCount; ++i)
@@ -1716,10 +1716,10 @@ public:
 		{
 			submit.commandBufferCount = 1u;
 			submit.commandBuffers = &cmdbuf;
-			nbl::video::IGPUSemaphore* signalsem = renderFinishedSemaphore;
+			video::IGPUSemaphore* signalsem = renderFinishedSemaphore;
 			submit.signalSemaphoreCount = waitSemaphore ? 1u:0u;
 			submit.pSignalSemaphores = &signalsem;
-			nbl::video::IGPUSemaphore* waitsem = waitSemaphore;
+			video::IGPUSemaphore* waitsem = waitSemaphore;
 			asset::E_PIPELINE_STAGE_FLAGS dstWait = waitDstStageMask.value;
 			submit.waitSemaphoreCount = 1u;
 			submit.pWaitSemaphores = &waitsem;
