@@ -8,17 +8,15 @@
 #include "nabla.h"
 #include "../../../nbl/ext/LumaMeter/CLumaMeter.h"
 
-namespace nbl
+namespace nbl::ext::ToneMapper
 {
-namespace ext
-{
-namespace ToneMapper
-{
-
 
 class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmovable
 {
     public:
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t DEFAULT_WORKGROUP_DIM = 16u;
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t DEFAULT_MAX_DESCRIPTOR_COUNT = 4u;
+
 		enum E_OPERATOR
 		{
 			EO_REINHARD,
@@ -87,16 +85,16 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 		}
 
 		//
-		static core::SRange<const video::IGPUDescriptorSetLayout::SBinding> getDefaultBindings(video::IVideoDriver* driver, bool usingLumaMeter=false);
+		static core::SRange<const video::IGPUDescriptorSetLayout::SBinding> getDefaultBindings(video::ILogicalDevice* device, bool usingLumaMeter=false);
 
 		//
-		static inline core::smart_refctd_ptr<video::IGPUPipelineLayout> getDefaultPipelineLayout(video::IVideoDriver* driver, bool usingLumaMeter=false)
+		static inline core::smart_refctd_ptr<video::IGPUPipelineLayout> getDefaultPipelineLayout(video::ILogicalDevice* device, bool usingLumaMeter=false)
 		{
 			auto pcRange = getDefaultPushConstantRanges(usingLumaMeter);
-			auto bindings = getDefaultBindings(driver,usingLumaMeter);
-			return driver->createGPUPipelineLayout(
+			auto bindings = getDefaultBindings(device,usingLumaMeter);
+			return device->createGPUPipelineLayout(
 				pcRange.begin(),pcRange.end(),
-				driver->createGPUDescriptorSetLayout(bindings.begin(),bindings.end()),nullptr,nullptr,nullptr
+				device->createGPUDescriptorSetLayout(bindings.begin(),bindings.end()),nullptr,nullptr,nullptr
 			);
 		}
 
@@ -111,69 +109,89 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 		}
 
 		//
-		_NBL_STATIC_INLINE_CONSTEXPR uint32_t MAX_DESCRIPTOR_COUNT = 4u;
-		template<E_OPERATOR _operator, LumaMeter::CLumaMeter::E_METERING_MODE MeterMode=LumaMeter::CLumaMeter::EMM_COUNT>
+		template <ext::LumaMeter::CLumaMeter::E_METERING_MODE MeterMode = ext::LumaMeter::CLumaMeter::EMM_COUNT>
 		static inline void updateDescriptorSet(
-			video::IVideoDriver* driver, video::IGPUDescriptorSet* set,
-			core::smart_refctd_ptr<video::IGPUBuffer> inputParameterDescriptor, 
-			core::smart_refctd_ptr<video::IGPUImageView> inputImageDescriptor,
-			core::smart_refctd_ptr<video::IGPUImageView> outputImageDescriptor,
-			uint32_t inputParameterBinding,
-			uint32_t inputImageBinding,
-			uint32_t outputImageBinding,
-			core::smart_refctd_ptr<video::IGPUBuffer> lumaUniformsDescriptor=nullptr,
-			uint32_t lumaUniformsBinding=0u,
-			bool usingTemporalAdaptation = false,
-			uint32_t arrayLayers=1u
-		)
+			video::ILogicalDevice* logicalDevice,
+			video::IGPUDescriptorSet* ds,
+			const core::smart_refctd_ptr<video::IGPUImageView> outImageView,
+			const core::smart_refctd_ptr<video::IGPUBuffer> paramsSSBO,
+			const core::smart_refctd_ptr<video::IGPUImageView> inputImageView,
+			const core::smart_refctd_ptr<video::IGPUBuffer> lumaParamsUbo = nullptr)
 		{
-			video::IGPUDescriptorSet::SDescriptorInfo pInfos[MAX_DESCRIPTOR_COUNT];
-			video::IGPUDescriptorSet::SWriteDescriptorSet pWrites[MAX_DESCRIPTOR_COUNT];
-			for (auto i=0; i< MAX_DESCRIPTOR_COUNT; i++)
+			video::IGPUDescriptorSet::SWriteDescriptorSet writes[DEFAULT_MAX_DESCRIPTOR_COUNT] = {};
+			video::IGPUDescriptorSet::SDescriptorInfo infos[DEFAULT_MAX_DESCRIPTOR_COUNT] = {};
+
+			const bool usingLumaMeter = MeterMode < ext::LumaMeter::CLumaMeter::EMM_COUNT;
+
+			uint32_t descriptorCount = ~0u;
+			asset::E_DESCRIPTOR_TYPE descriptorTypes[DEFAULT_MAX_DESCRIPTOR_COUNT] = {};
+			if (!usingLumaMeter)
 			{
-				pWrites[i].dstSet = set;
-				pWrites[i].arrayElement = 0u;
-				pWrites[i].count = 1u;
-				pWrites[i].info = pInfos+i;
-			}
-			
-			pInfos[1].desc = inputParameterDescriptor;
-			pInfos[1].buffer.size = getParameterBufferSize<_operator,MeterMode>(arrayLayers);
-			pInfos[1].buffer.offset = 0u;
-			pInfos[2].desc = inputImageDescriptor;
-			pInfos[2].image.imageLayout = static_cast<asset::E_IMAGE_LAYOUT>(0u);
-			pInfos[2].image.sampler = nullptr;
+				descriptorCount = 3u;
 
-			uint32_t outputImageIx;
-			if constexpr (MeterMode<LumaMeter::CLumaMeter::EMM_COUNT)
-			{
-				assert(!!lumaUniformsDescriptor);
+				// output image
+				descriptorTypes[0] = asset::EDT_STORAGE_IMAGE;
+				infos[0].desc = outImageView;
+				infos[0].image.sampler = nullptr;
+				infos[0].image.imageLayout = asset::EIL_GENERAL;
 
-				outputImageIx = 3u;
+				// parameter buffer
+				descriptorTypes[1] = asset::EDT_STORAGE_BUFFER;
+				infos[1].desc = paramsSSBO;
+				infos[1].buffer.offset = 0ull;
+				infos[1].buffer.size = paramsSSBO->getCachedCreationParams().declaredSize;
 
-				pInfos[0].desc = lumaUniformsDescriptor;
-				pInfos[0].buffer.offset = 0u;
-				pInfos[0].buffer.size = sizeof(LumaMeter::CLumaMeter::Uniforms_t<MeterMode>);
-
-				pWrites[0].binding = lumaUniformsBinding;
-				pWrites[0].descriptorType = asset::EDT_UNIFORM_BUFFER_DYNAMIC;
+				// input image
+				descriptorTypes[2] = asset::EDT_COMBINED_IMAGE_SAMPLER;
+				infos[2].desc = inputImageView;
+				infos[2].image.sampler = nullptr;
+				infos[2].image.imageLayout = asset::EIL_SHADER_READ_ONLY_OPTIMAL;
 			}
 			else
-				outputImageIx = 0u;
+			{
+				const auto& lumaMeterBindings = ext::LumaMeter::CLumaMeter::getDefaultBindings(logicalDevice);
+				const uint32_t lumaMeterBindingCount = static_cast<uint32_t>(lumaMeterBindings.size());
+				assert(lumaMeterBindingCount < DEFAULT_MAX_DESCRIPTOR_COUNT);
+				assert(lumaParamsUbo);
 
-			pInfos[outputImageIx].desc = outputImageDescriptor;
-			pInfos[outputImageIx].image.imageLayout = static_cast<asset::E_IMAGE_LAYOUT>(0u);
-			pInfos[outputImageIx].image.sampler = nullptr;
+				descriptorCount = lumaMeterBindingCount + 1u;
 
+				// luma meter input params
+				descriptorTypes[0] = lumaMeterBindings.begin()[0].type;
+				infos[0].desc = lumaParamsUbo;
+				infos[0].buffer.offset = 0ull;
+				infos[0].buffer.size = lumaParamsUbo->getCachedCreationParams().declaredSize;
 
-			pWrites[1].binding = inputParameterBinding;
-			pWrites[1].descriptorType = asset::EDT_STORAGE_BUFFER_DYNAMIC;
-			pWrites[2].binding = inputImageBinding;
-			pWrites[2].descriptorType = asset::EDT_COMBINED_IMAGE_SAMPLER;
-			pWrites[outputImageIx].binding = outputImageBinding;
-			pWrites[outputImageIx].descriptorType = asset::EDT_STORAGE_IMAGE;
+				// tonemapping params and luma output buffer
+				descriptorTypes[1] = lumaMeterBindings.begin()[1].type;
+				infos[1].desc = paramsSSBO;
+				infos[1].buffer.offset = 0ull;
+				infos[1].buffer.size = paramsSSBO->getCachedCreationParams().declaredSize;
 
-			driver->updateDescriptorSets(lumaUniformsDescriptor ? 4u:3u, pWrites, 0u, nullptr);
+				// input image
+				descriptorTypes[2] = lumaMeterBindings.begin()[2].type;
+				infos[2].desc = inputImageView;
+				infos[2].image.sampler = nullptr;
+				infos[2].image.imageLayout = asset::EIL_SHADER_READ_ONLY_OPTIMAL;
+
+				// output image
+				descriptorTypes[3] = asset::EDT_STORAGE_IMAGE;
+				infos[3].desc = outImageView;
+				infos[3].image.sampler = nullptr;
+				infos[3].image.imageLayout = asset::EIL_GENERAL;
+			}
+
+			for (uint32_t binding = 0u; binding < descriptorCount; ++binding)
+			{
+				writes[binding].dstSet = ds;
+				writes[binding].binding = binding;
+				writes[binding].count = 1u;
+				writes[binding].descriptorType = descriptorTypes[binding];
+				writes[binding].arrayElement = 0u;
+				writes[binding].info = infos + binding;
+			}
+
+			logicalDevice->updateDescriptorSets(descriptorCount, writes, 0u, nullptr);
 		}
 		
 		//
@@ -186,34 +204,19 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 			bool usingTemporalAdaptation=false
 		);
 
-		//
-		static inline core::smart_refctd_ptr<video::IGPUImageView> createViewForImage(
-			video::IVideoDriver* driver, bool usedAsInput,
-			core::smart_refctd_ptr<video::IGPUImage>&& image,
-			const asset::IImage::SSubresourceRange& subresource
-		)
-		{
-			if (!driver || !image)
-				return nullptr;
-
-			auto nativeFormat = image->getCreationParameters().format;
-
-			video::IGPUImageView::SCreationParams params;
-			params.flags = static_cast<video::IGPUImageView::E_CREATE_FLAGS>(0u);
-			params.image = std::move(image);
-			params.viewType = video::IGPUImageView::ET_2D_ARRAY;
-			params.format = usedAsInput ? getInputViewFormat(nativeFormat):getOutputViewFormat(nativeFormat);
-			params.components = {};
-			params.subresourceRange = subresource;
-			return driver->createGPUImageView(std::move(params));
-		}
-
 		// we expect user binds correct pipeline, descriptor sets and pushes the push constants by themselves
-		_NBL_STATIC_INLINE_CONSTEXPR uint32_t DEFAULT_WORKGROUP_DIM = 16u;
 		static inline void dispatchHelper(
-			video::IVideoDriver* driver, const video::IGPUImageView* outputView,
-			bool issueDefaultBarrier=true, uint32_t workGroupSizeX=DEFAULT_WORKGROUP_DIM, uint32_t workGroupSizeY=DEFAULT_WORKGROUP_DIM
-		)
+			video::IGPUCommandBuffer* cmdbuf,
+			const video::IGPUImageView* outputView,
+			const asset::E_PIPELINE_STAGE_FLAGS srcStageMask,
+			const uint32_t srcImageBarrierCount,
+			const video::IGPUCommandBuffer::SImageMemoryBarrier* srcImageBarriers,
+			const asset::E_PIPELINE_STAGE_FLAGS dstStageMask,
+			const uint32_t dstImageBarrierCount,
+			const video::IGPUCommandBuffer::SImageMemoryBarrier* dstImageBarriers,
+			const bool usingTemporalAdaptation = false,
+			uint32_t workGroupSizeX=DEFAULT_WORKGROUP_DIM,
+			uint32_t workGroupSizeY=DEFAULT_WORKGROUP_DIM)
 		{
 			const auto& params = outputView->getCreationParameters();
 			auto imgViewSize = params.image->getMipSize(params.subresourceRange.baseMipLevel);
@@ -221,13 +224,16 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 			
 			const core::vectorSIMDu32 workgroupSize(workGroupSizeX,workGroupSizeY,1,1);
 			auto groups = (imgViewSize+workgroupSize-core::vectorSIMDu32(1,1,1,1))/workgroupSize;
-			driver->dispatch(groups.x, groups.y, groups.w);
 
-			if (issueDefaultBarrier)
-				defaultBarrier();
+			if (srcStageMask != asset::E_PIPELINE_STAGE_FLAGS::EPSF_TOP_OF_PIPE_BIT && srcImageBarrierCount)
+				cmdbuf->pipelineBarrier(srcStageMask, asset::EPSF_COMPUTE_SHADER_BIT, asset::EDF_NONE, 0u, nullptr, 0u, nullptr, srcImageBarrierCount, srcImageBarriers);
+			cmdbuf->dispatch(groups.x, groups.y, groups.w);
+			if (dstStageMask != asset::E_PIPELINE_STAGE_FLAGS::EPSF_BOTTOM_OF_PIPE_BIT && dstImageBarrierCount)
+				cmdbuf->pipelineBarrier(asset::EPSF_COMPUTE_SHADER_BIT, dstStageMask, asset::EDF_NONE, 0u, nullptr, 0u, nullptr, dstImageBarrierCount, dstImageBarriers);
 		}
 
-    private:
+    // private:
+		// this can probably be removed now
 		static inline asset::E_FORMAT getInputViewFormat(asset::E_FORMAT imageFormat)
 		{
 			// before adding any more formats to the support list consult the `createShader` function
@@ -266,13 +272,12 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 			{
 				case asset::EF_R8G8B8A8_UNORM:
 				case asset::EF_R8G8B8A8_SRGB:
+				case asset::EF_B8G8R8A8_SRGB:
 				case asset::EF_A2B10G10R10_UNORM_PACK32:
 					return asset::EF_R32_UINT;
-					break;
 				case asset::EF_R16G16B16A16_UNORM:
 				case asset::EF_R16G16B16A16_SFLOAT:
 					return asset::EF_R32G32_UINT;
-					break;
 				default:
 					break;
 			}
@@ -280,12 +285,8 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 			_NBL_DEBUG_BREAK_IF(true);
 			return asset::EF_UNKNOWN;
 		}
-
-		static void defaultBarrier();
 };
 
-}
-}
 }
 
 #endif

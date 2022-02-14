@@ -3,7 +3,6 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 
 #include "nbl/ext/LumaMeter/CLumaMeter.h"
-#include "../../../../source/Nabla/COpenGLExtensionHandler.h"
 
 #include <cstdio>
 
@@ -18,37 +17,37 @@ core::SRange<const asset::SPushConstantRange> CLumaMeter::getDefaultPushConstant
 {
 	static const asset::SPushConstantRange range =
 	{
-		ISpecializedShader::ESS_COMPUTE,
+		IShader::ESS_COMPUTE,
 		0u,
 		sizeof(uint32_t)
 	};
 	return {&range,&range+1};
 }
 
-core::SRange<const video::IGPUDescriptorSetLayout::SBinding> CLumaMeter::getDefaultBindings(video::IVideoDriver* driver)
+core::SRange<const video::IGPUDescriptorSetLayout::SBinding> CLumaMeter::getDefaultBindings(video::ILogicalDevice* device)
 {
 	static core::smart_refctd_ptr<IGPUSampler> sampler;
 	static const IGPUDescriptorSetLayout::SBinding bnd[] =
 	{
 		{
 			0u,
-			EDT_UNIFORM_BUFFER_DYNAMIC,
+			EDT_UNIFORM_BUFFER,
 			1u,
-			ISpecializedShader::ESS_COMPUTE,
+			IShader::ESS_COMPUTE,
 			nullptr
 		},
 		{
 			1u,
-			EDT_STORAGE_BUFFER_DYNAMIC,
+			EDT_STORAGE_BUFFER,
 			1u,
-			ISpecializedShader::ESS_COMPUTE,
+			IShader::ESS_COMPUTE,
 			nullptr
 		},
 		{
 			2u,
 			EDT_COMBINED_IMAGE_SAMPLER,
 			1u,
-			ISpecializedShader::ESS_COMPUTE,
+			IShader::ESS_COMPUTE,
 			&sampler
 		}
 	};
@@ -69,7 +68,7 @@ core::SRange<const video::IGPUDescriptorSetLayout::SBinding> CLumaMeter::getDefa
 				ISampler::ECO_ALWAYS
 			}
 		};
-		sampler = driver->createGPUSampler(params);
+		sampler = device->createGPUSampler(params);
 	}
 	return {bnd,bnd+sizeof(bnd)/sizeof(IGPUDescriptorSetLayout::SBinding)};
 }
@@ -159,8 +158,8 @@ void main()
 }
 )===";
 
-	constexpr char* eotf = "nbl_glsl_eotf_identity";
-	constexpr char* xyzMatrices[ECP_COUNT] = 
+	const char* eotf = "nbl_glsl_eotf_identity";
+	const char* xyzMatrices[ECP_COUNT] = 
 	{
 		"nbl_glsl_sRGBtoXYZ",
 		"nbl_glsl_Display_P3toXYZ",
@@ -188,12 +187,6 @@ void main()
 	);
 
 	return core::make_smart_refctd_ptr<ICPUSpecializedShader>(
-		core::make_smart_refctd_ptr<ICPUShader>(std::move(shader),ICPUShader::buffer_contains_glsl),
-		ISpecializedShader::SInfo{nullptr, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE}
-	);
-}
-
-void CLumaMeter::defaultBarrier()
-{
-	COpenGLExtensionHandler::pGlMemoryBarrier(GL_UNIFORM_BARRIER_BIT|GL_SHADER_STORAGE_BARRIER_BIT|GL_BUFFER_UPDATE_BARRIER_BIT);
+		core::make_smart_refctd_ptr<ICPUShader>(std::move(shader), ICPUShader::buffer_contains_glsl, asset::IShader::ESS_COMPUTE, "????"),
+		ISpecializedShader::SInfo{ nullptr, nullptr, "main" });
 }
