@@ -93,7 +93,7 @@ public:
 		m_bufferUsages[format].bufferView = isAllowedBufferViewFormat(format) ? 1 : 0;
 		m_bufferUsages[format].storageBufferView = isAllowedBufferViewFormat(format) ? 1 : 0;
 		m_bufferUsages[format].storageBufferViewAtomic = isAllowedBufferViewFormat(format) ? 1 : 0;
-		m_bufferUsages[format].accelerationStructureVertex = isAllowedVertexAttribFormat(format);
+		m_bufferUsages[format].accelerationStructureVertex = false;
 
 		m_bufferUsages[format].isInitialized = 1;
 
