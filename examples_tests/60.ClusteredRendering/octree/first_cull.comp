@@ -50,6 +50,7 @@ uint getHistogramBinIndex(in float importanceMagnitude)
 
 void main()
 {
+#if 0
 	const uint buildHistogramOffset = pc.buildHistogramID*BIN_COUNT;
 	const uint useHistogramOffset = (1u - pc.buildHistogramID)*BIN_COUNT;
 
@@ -135,6 +136,7 @@ void main()
 		const uint binMinBitPattern = uint(thresholdBinIndex * (float(range) / float(BIN_COUNT)) + minVal);
 		threshold = uintBitsToFloat(binMinBitPattern); // this needs to be set gradually, not at once, to avoid temporal flickering
 	}
+#endif
 
 	const uint recordsSpawnedPerWGOffset = _NBL_GLSL_WORKGROUP_SIZE_*2;
 	const float genesisVoxelExtent = pc.camPosGenesisVoxelExtent.w;
@@ -186,7 +188,7 @@ void main()
 				intersection_record_t record;
 				record.localClusterID = localClusterID;
 				record.level = 1u;
-				record.localLightIndex = 0xFFF; // for first cull, this can be garbage, for the last cull, this will be derived by doing imageAtomicAdd on the lightGrid
+				record.localLightIndex = 0u;// 0xFFF; // for first cull, this can be garbage, for the last cull, this will be derived by doing imageAtomicAdd on the lightGrid
 				record.globalLightIndex = globalLightIndex;
 				const uvec2 packed = packIntersectionRecord(record);
 

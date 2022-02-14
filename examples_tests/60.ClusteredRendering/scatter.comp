@@ -51,10 +51,10 @@ void main()
 	const uint localLightIndex = getLocalLightIndex(packedIntersectionRecord);
 	const uint globalLightIndex = getGlobalLightIndex(packedIntersectionRecord);
 
+#ifdef CLIPMAP
 	// Todo(achal): It is probably best to get rid of the intermediate step of
 	// having to compute the globalClusterIndex everytime and just go straight
 	// from localClusterID and level to 3D light grid texture coordinates
-#ifdef CLIPMAP
 	const uint voxelCountPerLevel = VOXEL_COUNT_PER_DIM * VOXEL_COUNT_PER_DIM * VOXEL_COUNT_PER_DIM;
 	const uint globalClusterIndex = (LOD_COUNT-1-level)*voxelCountPerLevel + localClusterID.z*16 + localClusterID.y*4 + localClusterID.x;
 #endif

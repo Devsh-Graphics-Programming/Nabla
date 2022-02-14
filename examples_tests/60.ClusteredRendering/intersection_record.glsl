@@ -25,13 +25,8 @@ uvec2 packIntersectionRecord(in intersection_record_t record)
 	result.x |= ((record.localClusterID.z & 0x7Fu) << 14);
 	result.x |= ((record.level & 0xFu) << 21);
 
-	// result.x |= record.localClusterID.x;
-	// result.x |= (record.localClusterID.y << 7);
-	// result.x |= (record.localClusterID.z << 14);
-	// result.x |= (record.level << 21);
-
 	result.y |= (record.localLightIndex & 0xFFFu);
-	result.y |= (record.globalLightIndex << 12); // Todo(achal): Make this 10
+	result.y |= (record.globalLightIndex << 12); // Todo(achal): Do we want a limit on how many lights it is possible to have in a cluster, if so, what?
 
 	return result;
 }

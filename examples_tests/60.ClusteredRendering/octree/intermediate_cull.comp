@@ -8,20 +8,19 @@ layout(push_constant) uniform Block
 
 #include <../cull_common.glsl>
 
-// Todo(achal): This can be absorbed in cull_common.glsl at this point
 layout (set = 0, binding = 0, std430) restrict buffer readonly Lights
 {
 	nbl_glsl_ext_ClusteredLighting_SpotLight data[];
 } lights;
 
-layout (set = 0, binding = 1, std430) restrict buffer InScratch
+layout (set = 0, binding = 1, std430) restrict coherent buffer InScratch
 {
 	uint count;
 	uint padding;
 	uvec2 data[];
 } inScratch;
 
-layout (set = 0, binding = 2, std430) restrict buffer writeonly OutScratch
+layout (set = 0, binding = 2, std430) coherent buffer OutScratch
 {
 	uint count;
 	uint padding;
@@ -38,16 +37,10 @@ shared uint scratchShared[_NBL_GLSL_WORKGROUP_SIZE_*2+2];
 
 void main()
 {
-	// In cases of underflow of the scratch the actualWGCount could be way less than the launched number of workgroups
-	const uint actualWGCount = (inScratch.count + _NBL_GLSL_WORKGROUP_SIZE_ - 1)/_NBL_GLSL_WORKGROUP_SIZE_; // 29
-
-	if (gl_WorkGroupID.x >= actualWGCount)
-		return;
-
 	const float genesisVoxelExtent = pc.camPosGenesisVoxelExtent.w;
-	const uint recordsSpawnedPerWGOffset = _NBL_GLSL_WORKGROUP_SIZE_*2;
-	const uint persistentWGStepWidth = actualWGCount * LIGHTS_PER_WORKGROUP; // 928
-	const uint persistentWGStepCount = uint(ceil(float(inScratch.count)/float(persistentWGStepWidth))); // 8
+	const uint recordsSpawnedPerWGOffset = _NBL_GLSL_WORKGROUP_SIZE_*2; // 512
+	const uint persistentWGStepWidth = gl_NumWorkGroups.x * LIGHTS_PER_WORKGROUP; // 7680 * 32 = 245760
+	const uint persistentWGStepCount = uint(ceil(float(inScratch.count)/float(persistentWGStepWidth)));
 
 	for (uint step = 0u; step < persistentWGStepCount; ++step)
 	{
@@ -107,9 +100,6 @@ void main()
 		}
 		barrier();
 
-		// Todo(achal): Probably not required
-		memoryBarrierShared();
-
 		// each light can spawn `INVOCATIONS_PER_LIGHT` copies of itself (which are found to be intersecting the children light grid nodes of the node the current light reference is referencing)
 		const uint lightReferencesSpawned = scratchShared[recordsSpawnedPerWGOffset];
 		const bool invocationWillWrite = gl_LocalInvocationIndex<lightReferencesSpawned;
@@ -118,10 +108,6 @@ void main()
 		if (gl_LocalInvocationIndex==0u && invocationWillWrite)
 			scratchShared[recordsSpawnedPerWGOffset+1u] = atomicAdd(outScratch.count, lightReferencesSpawned);
 		barrier();
-
-		// Todo(achal): Probably not required
-		memoryBarrierShared();
-		memoryBarrier();
 
 		if (invocationWillWrite)
 		{
@@ -133,8 +119,9 @@ void main()
 				outScratch.data[outIndex] = uvec2(scratchShared[gl_LocalInvocationIndex],scratchShared[gl_LocalInvocationIndex+_NBL_GLSL_WORKGROUP_SIZE_]);
 		}
 	}
-
-	// Todo(achal): Do I need some kind of memory barrier here?
+	
+	// Todo(achal): This is wrong need to get rid of it
+	memoryBarrier();
 	if (gl_GlobalInvocationID.x == 0u)
 		inScratch.count = 0u;
 }

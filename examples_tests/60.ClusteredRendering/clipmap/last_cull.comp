@@ -88,8 +88,4 @@ void main()
 		}
 	}
 
-	memoryBarrier();
-
-	if (gl_GlobalInvocationID.x == 0u)
-		inScratch.count = 0u;
 }
