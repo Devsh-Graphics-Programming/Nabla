@@ -403,31 +403,175 @@ public:
 
         post_unmapMemory(memory);
     }
-    
+
     core::smart_refctd_ptr<IQueryPool> createQueryPool(IQueryPool::SCreationParams&& params) override
     {
-        core::smart_refctd_ptr<IQueryPool> retval;
+        core::smart_refctd_dynamic_array<GLuint> queries[IOpenGLPhysicalDeviceBase::MaxQueues];
+        
+        uint32_t glQueriesPerQuery = 0u;
+        GLenum glQueryType = 0u;
+        if(params.queryType == IQueryPool::EQT_OCCLUSION)
+        {
+            glQueriesPerQuery = 1u;
+            glQueryType = GL_SAMPLES_PASSED;
+        }
+        else if(params.queryType == IQueryPool::EQT_TIMESTAMP)
+        {
+            glQueriesPerQuery = 1u;
+            glQueryType = GL_TIMESTAMP;
+        }
+        else
+        {
+            // TODO: Add ARB_pipeline_statistics support: https://www.khronos.org/registry/OpenGL/extensions/ARB/ARB_pipeline_statistics_query.txt
+            assert(false && "QueryType is not supported.");
+            return nullptr;
+        }
 
-        SRequestQueryPoolCreate req_params;
-        req_params.params = params;
-        auto& req = m_threadHandler.request(std::move(req_params), &retval);
-        m_threadHandler.template waitForRequestCompletion<SRequestQueryPoolCreate>(req);
+        const uint32_t actualQueryCount = glQueriesPerQuery * params.queryCount;
 
-        return retval;
+        for (auto& q : (*m_queues))
+        {
+            auto openglQueue = static_cast<QueueType*>(q->getUnderlyingQueue());
+            core::smart_refctd_dynamic_array<GLuint> & outQueriesToFill = queries[openglQueue->getCtxId()];
+            outQueriesToFill = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<GLuint>>(actualQueryCount);
+            openglQueue->createQueries(outQueriesToFill, glQueryType, actualQueryCount);
+        }
+
+        return core::make_smart_refctd_ptr<COpenGLQueryPool>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this), queries, glQueriesPerQuery, std::move(params));
     }
-    
+
     bool getQueryPoolResults(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, size_t dataSize, void * pData, uint64_t stride, core::bitflag<IQueryPool::E_QUERY_RESULTS_FLAGS> flags) override
     {
-        SRequestGetQueryPoolResults req_params;
-        req_params.queryPool = core::smart_refctd_ptr<const IQueryPool>(queryPool);
-        req_params.firstQuery = firstQuery;
-        req_params.queryCount = queryCount;
-        req_params.dataSize = dataSize;
-        req_params.pData = pData;
-        req_params.stride = stride;
-        req_params.flags = flags;
-        auto& req = m_threadHandler.request(std::move(req_params));
-        m_threadHandler.template waitForRequestCompletion<SRequestGetQueryPoolResults>(req);
+        const COpenGLQueryPool* qp = IBackendObject::device_compatibility_cast<const COpenGLQueryPool*>(queryPool, this);
+        auto queryPoolQueriesCount = qp->getCreationParameters().queryCount;
+
+        if(pData != nullptr && qp != nullptr)
+        {
+            IQueryPool::E_QUERY_TYPE queryType = qp->getCreationParameters().queryType;
+            bool use64Version = flags.hasValue(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_64_BIT);
+            bool availabilityFlag = flags.hasValue(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WITH_AVAILABILITY_BIT);
+            bool waitForAllResults = flags.hasValue(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WAIT_BIT);
+            bool partialResults = flags.hasValue(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_PARTIAL_BIT);
+
+            assert(queryType == IQueryPool::E_QUERY_TYPE::EQT_OCCLUSION || queryType == IQueryPool::E_QUERY_TYPE::EQT_TIMESTAMP);
+
+            if(firstQuery + queryCount > queryPoolQueriesCount)
+            {
+                assert(false && "The sum of firstQuery and queryCount must be less than or equal to the number of queries in queryPool");
+                return false;
+            }
+            if(partialResults && queryType == IQueryPool::E_QUERY_TYPE::EQT_TIMESTAMP) {
+                assert(false && "QUERY_RESULT_PARTIAL_BIT must not be used if the pool’s queryType is QUERY_TYPE_TIMESTAMP.");
+                return false;
+            }
+
+            size_t currentDataPtrOffset = 0;
+            const uint32_t glQueriesPerQuery = qp->getGLQueriesPerQuery();
+            const size_t queryElementDataSize = (use64Version) ? sizeof(GLuint64) : sizeof(GLuint); // each query might write to multiple values/elements
+            const size_t eachQueryDataSize = queryElementDataSize * glQueriesPerQuery;
+            const size_t eachQueryWithAvailabilityDataSize = (availabilityFlag) ? queryElementDataSize + eachQueryDataSize : eachQueryDataSize;
+
+            assert(stride >= eachQueryWithAvailabilityDataSize);
+            assert(stride && core::is_aligned_to(stride, eachQueryWithAvailabilityDataSize)); // stride must be aligned to each query data size considering the specified flags
+            assert(dataSize >= (queryCount * stride)); // dataSize is not enough for "queryCount" queries and specified stride
+            assert(dataSize >= (queryCount * eachQueryWithAvailabilityDataSize)); // dataSize is not enough for "queryCount" queries with considering the specified flags
+
+            auto getQueryObject = [&](GLuint queryId, GLenum pname, void* pData, uint32_t queueIdx) -> void 
+            {
+                for (auto& q : (*m_queues))
+                {
+                    auto openglQueue = static_cast<QueueType*>(q->getUnderlyingQueue());
+                    if(queueIdx == openglQueue->getCtxId())
+                    {
+                        openglQueue->getQueryResult(queryId, pname, pData, use64Version);
+                        break;
+                    }
+                }
+            }; 
+            auto getQueryAvailablity = [&](GLuint queryId, uint32_t queueIdx) -> bool 
+            {
+                GLuint64 ret = 0;
+                getQueryObject(queryId, GL_QUERY_RESULT_AVAILABLE, &ret, queueIdx);
+                return (ret == GL_TRUE);
+            };
+            auto writeValueToData = [&](void* pData, const uint64_t value)
+            {
+                if(use64Version)
+                {
+                    GLuint64* dataPtr = reinterpret_cast<GLuint64*>(pData);
+                    *dataPtr = value;
+                }
+                else
+                {
+                    GLuint* dataPtr = reinterpret_cast<GLuint*>(pData);
+                    *dataPtr = static_cast<uint32_t>(value);
+                }
+            };
+
+            // iterate on each query
+            for(uint32_t i = 0; i < queryCount; ++i)
+            {
+                if(currentDataPtrOffset >= dataSize)
+                {
+                    assert(false);
+                    break;
+                }
+
+                uint8_t* pQueryData = reinterpret_cast<uint8_t*>(pData) + currentDataPtrOffset;
+                uint8_t* pAvailabilityData = pQueryData + eachQueryDataSize; // Write Availability to this value if flag specified
+
+                // iterate on each gl query (we may have multiple gl queries per query like pipelinestatistics query type)
+                const uint32_t queryIndex = i + firstQuery;
+                const uint32_t glQueryBegin = queryIndex * glQueriesPerQuery;
+                bool allGlQueriesAvailable = true;
+                for(uint32_t q = 0; q < glQueriesPerQuery; ++q)
+                {
+                    uint8_t* pSubQueryData = pQueryData + q * queryElementDataSize;
+                    const uint32_t queryIdx = glQueryBegin + q;
+                    const uint32_t lastQueueToUse = qp->getLastQueueToUseForQuery(queryIdx);
+                    GLuint query = qp->getQueryAt(lastQueueToUse, queryIdx);
+
+                    GLenum pname;
+
+                    if(waitForAllResults)
+                    {
+                        // Has WAIT_BIT -> Get Result with Wait (GL_QUERY_RESULT) + don't getQueryAvailability (if availability flag is set it will report true)
+                        pname = GL_QUERY_RESULT;
+                    }
+                    else if(partialResults)
+                    {
+                        // Has PARTIAL_BIT but no WAIT_BIT -> (read vk spec) -> result value between zero and the final result value
+                        // No PARTIAL queries for GL -> GL_QUERY_RESULT_NO_WAIT best match
+                        // TODO(Erfan): Maybe set the values to 0 before query so it's consistent with vulkan spec? (what to do about the cmd version where we have to upload 0's to buffer)
+                        pname = GL_QUERY_RESULT_NO_WAIT;
+                    }
+                    else if(availabilityFlag)
+                    {
+                        // Only Availablity -> Get Results with NoWait + get Query Availability
+                        pname = GL_QUERY_RESULT_NO_WAIT;
+                    }
+                    else
+                    {
+                        // No Flags -> GL_QUERY_RESULT_NO_WAIT
+                        pname = GL_QUERY_RESULT_NO_WAIT;
+                    }
+                            
+                    if(availabilityFlag)
+                        allGlQueriesAvailable &= getQueryAvailablity(query, lastQueueToUse);
+                    getQueryObject(query, pname, pSubQueryData, lastQueueToUse);
+                }
+
+                if(availabilityFlag)
+                {
+                    if(waitForAllResults)
+                        writeValueToData(pAvailabilityData, 1ull);
+                    else
+                        writeValueToData(pAvailabilityData, (allGlQueriesAvailable) ? 1ull : 0ull);
+                }
+
+                currentDataPtrOffset += stride;
+            }
+        }
 
         return true;
     }
@@ -511,17 +655,11 @@ public:
 
     void destroyQueryPool(COpenGLQueryPool* qp) override final
     {
-        if(qp != nullptr)
+        for (auto& q : (*m_queues))
         {
-            auto queriesRange = qp->getQueries();
-            if(!queriesRange.empty())
-            {
-                auto queries = qp->getQueries().begin();
-                for(uint32_t i = 0; i < queriesRange.size(); ++i)
-                {
-                    destroyGlObjects<ERT_QUERY_DESTROY>(1u, &queries[i]);
-                }
-            }
+            auto openglQueue = static_cast<QueueType*>(q->getUnderlyingQueue());
+            core::smart_refctd_dynamic_array<GLuint> queriesToDestroy = qp->getQueriesForQueueIdx(openglQueue->getCtxId());
+            openglQueue->destroyQueries(queriesToDestroy);
         }
     }
 protected:

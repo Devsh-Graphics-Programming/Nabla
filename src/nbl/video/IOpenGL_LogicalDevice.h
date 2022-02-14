@@ -61,7 +61,6 @@ namespace impl
             ERT_TEXTURE_DESTROY,
             ERT_SYNC_DESTROY,
             ERT_SAMPLER_DESTROY,
-            ERT_QUERY_DESTROY,
             //ERT_GRAPHICS_PIPELINE_DESTROY,
             ERT_PROGRAM_DESTROY,
 
@@ -73,7 +72,6 @@ namespace impl
             ERT_SAMPLER_CREATE,
             ERT_RENDERPASS_INDEPENDENT_PIPELINE_CREATE,
             ERT_COMPUTE_PIPELINE_CREATE,
-            ERT_QUERY_POOL_CREATE,
             //ERT_GRAPHICS_PIPELINE_CREATE,
 
             // non-create requests
@@ -101,7 +99,7 @@ namespace impl
         }
         constexpr static inline bool isCreationRequest(E_REQUEST_TYPE rt)
         {
-            return !isDestroyRequest(rt) && rt<=ERT_QUERY_POOL_CREATE;
+            return !isDestroyRequest(rt) && rt<=ERT_COMPUTE_PIPELINE_CREATE;
         }
         constexpr static inline bool isWaitlessRequest(E_REQUEST_TYPE rt)
         {
@@ -184,12 +182,6 @@ namespace impl
             const IGPUComputePipeline::SCreationParams* params;
             uint32_t count;
             IGPUPipelineCache* pipelineCache;
-        };
-        struct SRequestQueryPoolCreate
-        {
-            static inline constexpr E_REQUEST_TYPE type = ERT_QUERY_POOL_CREATE;
-            using retval_t = core::smart_refctd_ptr<IQueryPool>;
-            IQueryPool::SCreationParams params;
         };
         //
         // Non-create requests:
@@ -366,13 +358,11 @@ protected:
             SRequestSamplerCreate,
             SRequestRenderpassIndependentPipelineCreate,
             SRequestComputePipelineCreate,
-            SRequestQueryPoolCreate,
 
             SRequest_Destroy<ERT_BUFFER_DESTROY>,
             SRequest_Destroy<ERT_TEXTURE_DESTROY>,
             SRequest_Destroy<ERT_SAMPLER_DESTROY>,
             SRequest_Destroy<ERT_PROGRAM_DESTROY>,
-            SRequest_Destroy<ERT_QUERY_DESTROY>,
             SRequestSyncDestroy,
 
             SRequestWaitForFences,
@@ -553,12 +543,6 @@ protected:
                     gl.glShader.pglDeleteProgram(p.glnames[i]);
             }
                 break;
-            case ERT_QUERY_DESTROY:
-            {
-                auto& p = std::get<SRequest_Destroy<ERT_QUERY_DESTROY>>(req.params_variant);
-                gl.glQuery.pglDeleteQueries(p.count, p.glnames);
-            }
-                break;
 
             case ERT_BUFFER_CREATE:
             {
@@ -623,14 +607,6 @@ protected:
                 gl.glGeneral.pglFlush();
             }
                 break;
-            case ERT_QUERY_POOL_CREATE:
-            {
-                auto& p = std::get<SRequestQueryPoolCreate>(req.params_variant);
-                core::smart_refctd_ptr<IQueryPool>* pretval = reinterpret_cast<core::smart_refctd_ptr<IQueryPool>*>(req.pretval);
-                pretval[0] = core::make_smart_refctd_ptr<COpenGLQueryPool>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device), &gl, std::move(p.params));
-            }
-                break;
-
             case ERT_FLUSH_MAPPED_MEMORY_RANGES:
             {
                 auto& p = std::get<SRequestFlushMappedMemoryRanges>(req.params_variant);
@@ -663,135 +639,6 @@ protected:
                 gl.extGlUnmapNamedBuffer(static_cast<COpenGLBuffer*>(p.buf.get())->getOpenGLName());
                 // unfortunately I have to make every other context wait on the master to ensure the unmapping completes
                 incrementProgressionSync(_gl);
-            }
-                break;
-            case ERT_GET_QUERY_POOL_RESULTS:
-            {
-                auto& p = std::get<SRequestGetQueryPoolResults>(req.params_variant);
-                const COpenGLQueryPool* qp = IBackendObject::device_compatibility_cast<const COpenGLQueryPool*>(p.queryPool.get(), device);
-                auto queryPoolQueriesCount = qp->getCreationParameters().queryCount;
-                auto queries = qp->getQueries();
-                
-                if(p.pData != nullptr)
-                {
-                    IQueryPool::E_QUERY_TYPE queryType = qp->getCreationParameters().queryType;
-                    bool use64Version = p.flags.hasValue(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_64_BIT);
-                    bool availabilityFlag = p.flags.hasValue(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WITH_AVAILABILITY_BIT);
-                    bool waitForAllResults = p.flags.hasValue(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WAIT_BIT);
-                    bool partialResults = p.flags.hasValue(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_PARTIAL_BIT);
-
-                    assert(queryType == IQueryPool::E_QUERY_TYPE::EQT_OCCLUSION || queryType == IQueryPool::E_QUERY_TYPE::EQT_TIMESTAMP);
-
-                    if(p.firstQuery + p.queryCount > queryPoolQueriesCount)
-                    {
-                        assert(false && "The sum of firstQuery and queryCount must be less than or equal to the number of queries in queryPool");
-                        break;
-                    }
-                    if(partialResults && queryType == IQueryPool::E_QUERY_TYPE::EQT_TIMESTAMP) {
-                        assert(false && "QUERY_RESULT_PARTIAL_BIT must not be used if the pool’s queryType is QUERY_TYPE_TIMESTAMP.");
-                        break;
-                    }
-
-                    size_t currentDataPtrOffset = 0;
-                    const uint32_t glQueriesPerQuery = qp->getGLQueriesPerQuery();
-                    const size_t queryElementDataSize = (use64Version) ? sizeof(GLuint64) : sizeof(GLuint); // each query might write to multiple values/elements
-                    const size_t eachQueryDataSize = queryElementDataSize * glQueriesPerQuery;
-                    const size_t eachQueryWithAvailabilityDataSize = (availabilityFlag) ? queryElementDataSize + eachQueryDataSize : eachQueryDataSize;
-                    
-                    assert(p.stride >= eachQueryWithAvailabilityDataSize);
-                    assert(p.stride && core::is_aligned_to(p.stride, eachQueryWithAvailabilityDataSize)); // p.stride must be aligned to each query data size considering the specified flags
-                    assert(p.dataSize >= (p.queryCount * p.stride)); // dataSize is not enough for "queryCount" queries and specified stride
-                    assert(p.dataSize >= (p.queryCount * eachQueryWithAvailabilityDataSize)); // dataSize is not enough for "queryCount" queries with considering the specified flags
-
-                    auto getQueryObject = [&](GLuint queryId, GLenum pname, void* pData) -> void 
-                    {
-                        if(use64Version)
-                            gl.extGlGetQueryObjectui64v(queryId, pname, reinterpret_cast<GLuint64*>(pData));
-                        else
-                            gl.extGlGetQueryObjectuiv(queryId, pname, reinterpret_cast<GLuint*>(pData));
-                    }; 
-                    auto getQueryAvailablity = [&](GLuint queryId) -> bool 
-                    {
-                        GLuint ret = 0;
-                        gl.extGlGetQueryObjectuiv(queryId, GL_QUERY_RESULT_AVAILABLE, &ret);
-                        return (ret == GL_TRUE);
-                    };
-                    auto writeValueToData = [&](void* pData, const uint64_t value)
-                    {
-                        if(use64Version)
-                        {
-                            GLuint64* dataPtr = reinterpret_cast<GLuint64*>(pData);
-                            *dataPtr = value;
-                        }
-                        else
-                        {
-                            GLuint* dataPtr = reinterpret_cast<GLuint*>(pData);
-                            *dataPtr = static_cast<uint32_t>(value);
-                        }
-                    };
-
-                    // iterate on each query
-                    for(uint32_t i = 0; i < p.queryCount; ++i)
-                    {
-                        if(currentDataPtrOffset >= p.dataSize)
-                        {
-                            assert(false);
-                            break;
-                        }
-                        
-                        uint8_t* pQueryData = reinterpret_cast<uint8_t*>(p.pData) + currentDataPtrOffset;
-                        uint8_t* pAvailabilityData = pQueryData + eachQueryDataSize; // Write Availability to this value if flag specified
-
-                        // iterate on each gl query (we may have multiple gl queries per query like pipelinestatistics query type)
-                        const uint32_t queryIndex = i + p.firstQuery;
-                        const uint32_t glQueryBegin = queryIndex * glQueriesPerQuery;
-                        bool allGlQueriesAvailable = true;
-                        for(uint32_t q = 0; q < glQueriesPerQuery; ++q)
-                        {
-                            uint8_t* pSubQueryData = pQueryData + q * queryElementDataSize;
-                            GLuint query = queries[glQueryBegin + q];
-
-                            GLenum pname;
-
-                            if(waitForAllResults)
-                            {
-                                // Has WAIT_BIT -> Get Result with Wait (GL_QUERY_RESULT) + don't getQueryAvailability (if availability flag is set it will report true)
-                                pname = GL_QUERY_RESULT;
-                            }
-                            else if(partialResults)
-                            {
-                                // Has PARTIAL_BIT but no WAIT_BIT -> (read vk spec) -> result value between zero and the final result value
-                                // No PARTIAL queries for GL -> GL_QUERY_RESULT_NO_WAIT best match
-                                // TODO(Erfan): Maybe set the values to 0 before query so it's consistent with vulkan spec? (what to do about the cmd version where we have to upload 0's to buffer)
-                                pname = GL_QUERY_RESULT_NO_WAIT;
-                            }
-                            else if(availabilityFlag)
-                            {
-                                // Only Availablity -> Get Results with NoWait + get Query Availability
-                                pname = GL_QUERY_RESULT_NO_WAIT;
-                            }
-                            else
-                            {
-                                // No Flags -> GL_QUERY_RESULT_NO_WAIT
-                                pname = GL_QUERY_RESULT_NO_WAIT;
-                            }
-                            
-                            if(availabilityFlag)
-                                allGlQueriesAvailable &= getQueryAvailablity(query);
-                            getQueryObject(query, pname, pSubQueryData);
-                        }
-
-                        if(availabilityFlag)
-                        {
-                            if(waitForAllResults)
-                                writeValueToData(pAvailabilityData, (allGlQueriesAvailable) ? 1ull : 0ull);
-                            else
-                                writeValueToData(pAvailabilityData, 1ull);
-                        }
-
-                        currentDataPtrOffset += p.stride;
-                    }
-                }
             }
                 break;
             case ERT_GET_FENCE_STATUS:

@@ -13,6 +13,7 @@
 #include "nbl/video/SOpenGLContextLocalCache.h"
 #include "nbl/video/COpenGLCommandBuffer.h"
 #include "nbl/video/COpenGL_Swapchain.h"
+#include "nbl/video/COpenGLQueryPool.h"
 #include "nbl/video/COpenGLCommon.h"
 #include "nbl/core/alloc/GeneralpurposeAddressAllocator.h"
 #include "nbl/core/containers/CMemoryPool.h"
@@ -54,7 +55,10 @@ class COpenGL_Queue final : public IGPUQueue
             ERT_DESTROY_FRAMEBUFFER,
             ERT_DESTROY_PIPELINE,
             ERT_BEGIN_CAPTURE,
-            ERT_END_CAPTURE
+            ERT_END_CAPTURE,
+            ERT_CREATE_QUERIES,
+            ERT_DESTROY_QUERIES,
+            ERT_GET_QUERY_POOL_RESULTS,
         };
         template <E_REQUEST_TYPE ERT>
         struct SRequestParamsBase
@@ -83,6 +87,25 @@ class COpenGL_Queue final : public IGPUQueue
         };
         using SRequestParams_BeginCapture = SRequestParamsBase<ERT_BEGIN_CAPTURE>;
         using SRequestParams_EndCapture = SRequestParamsBase<ERT_END_CAPTURE>;
+        
+        struct SRequestParams_CreateQueries : SRequestParamsBase<ERT_CREATE_QUERIES>
+        {
+            core::smart_refctd_dynamic_array<GLuint> queriesToFill;
+            GLenum queryType;
+            uint32_t queryCount;
+        };
+        struct SRequestParams_DestroyQueries : SRequestParamsBase<ERT_DESTROY_QUERIES>
+        {
+            core::smart_refctd_dynamic_array<GLuint> queries;
+        };
+        struct SRequestParams_GetQueryPoolResults : SRequestParamsBase<ERT_GET_QUERY_POOL_RESULTS>
+        {
+            GLuint queryID;
+            GLenum pname;
+            void* pData;
+            bool use64BitVersion;
+        };
+
         struct SRequest : public system::impl::IAsyncQueueDispatcherBase::request_base_t 
         {
             E_REQUEST_TYPE type;
@@ -92,7 +115,10 @@ class COpenGL_Queue final : public IGPUQueue
                 SRequestParams_DestroyFramebuffer, 
                 SRequestParams_DestroyPipeline,
                 SRequestParams_BeginCapture,
-                SRequestParams_EndCapture
+                SRequestParams_EndCapture,
+                SRequestParams_CreateQueries,
+                SRequestParams_DestroyQueries,
+                SRequestParams_GetQueryPoolResults
             > params;
         };
 
@@ -262,6 +288,31 @@ class COpenGL_Queue final : public IGPUQueue
                 break;
                 case ERT_END_CAPTURE:
                     m_rdoc_api->EndFrameCapture(nativeHandles.context, NULL);
+                break;
+                case ERT_CREATE_QUERIES:
+                {
+                    auto& p = std::get<SRequestParams_CreateQueries>(req.params);
+                    auto& queryDynmArrayPtr = p.queriesToFill.get();
+                    assert(queryDynmArrayPtr && queryDynmArrayPtr->size() == p.queryCount);
+                    gl.extGlCreateQueries(p.queryType, p.queryCount, queryDynmArrayPtr->begin());
+                }
+                break;
+                case ERT_DESTROY_QUERIES:
+                {
+                    auto& p = std::get<SRequestParams_DestroyQueries>(req.params);
+                    auto& queryDynmArrayPtr = p.queries.get();
+                    assert(queryDynmArrayPtr && queryDynmArrayPtr->size() >= 0);
+                    gl.glQuery.pglDeleteQueries(queryDynmArrayPtr->size(), queryDynmArrayPtr->begin());
+                }
+                break;
+                case ERT_GET_QUERY_POOL_RESULTS:
+                {
+                    auto& p = std::get<SRequestParams_GetQueryPoolResults>(req.params);
+                    if(p.use64BitVersion)
+                        gl.extGlGetQueryObjectui64v(p.queryID, p.pname, reinterpret_cast<GLuint64*>(p.pData));
+                    else
+                        gl.extGlGetQueryObjectuiv(p.queryID, p.pname, reinterpret_cast<GLuint*>(p.pData));
+                }
                 break;
                 }
             }
@@ -459,6 +510,49 @@ class COpenGL_Queue final : public IGPUQueue
 
             threadHandler.request(std::move(p));
 
+            return true;
+        }
+
+        uint32_t getCtxId() const { return m_ctxid; }
+
+        bool createQueries(core::smart_refctd_dynamic_array<GLuint> queriesToFill, GLenum queryType, uint32_t queryCount)
+        {
+            if(!queriesToFill)
+                return false;
+
+            SRequestParams_CreateQueries params;
+            params.queriesToFill = queriesToFill;
+            params.queryType = queryType;
+            params.queryCount = queryCount;
+            auto& req = threadHandler.request(std::move(params));
+            threadHandler.template waitForRequestCompletion<SRequestParams_CreateQueries>(req);
+            return true;
+        }
+
+        bool destroyQueries(core::smart_refctd_dynamic_array<GLuint> queries)
+        {
+            if(!queries)
+                return false;
+            
+            SRequestParams_DestroyQueries params;
+            params.queries = queries;
+            auto& req = threadHandler.request(std::move(params));
+            threadHandler.template waitForRequestCompletion<SRequestParams_DestroyQueries>(req);
+            return true;
+        }
+
+        bool getQueryResult(GLuint queryID, GLenum pname, void* pData, bool use64BitVersion)
+        {
+            if(!pData)
+                return false;
+
+            SRequestParams_GetQueryPoolResults params;
+            params.queryID = queryID;
+            params.pname = pname;
+            params.pData = pData;
+            params.use64BitVersion = use64BitVersion;
+            auto& req = threadHandler.request(std::move(params));
+            threadHandler.template waitForRequestCompletion<SRequestParams_GetQueryPoolResults>(req);
             return true;
         }
 

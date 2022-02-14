@@ -919,7 +919,7 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
             {
                 auto& c = cmd.get<impl::ECT_RESET_QUERY_POOL>();
                 COpenGLQueryPool* qp = static_cast<COpenGLQueryPool*>(c.queryPool.get());
-                bool success = qp->resetQueries(gl, c.query, c.queryCount);
+                bool success = qp->resetQueries(gl, ctxid, c.query, c.queryCount);
                 assert(success);
             }
             break;
@@ -927,14 +927,15 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
             {
                 auto& c = cmd.get<impl::ECT_BEGIN_QUERY>();
                 const COpenGLQueryPool* qp = static_cast<const COpenGLQueryPool*>(c.queryPool.get());
-                qp->beginQuery(gl, c.query, c.flags.value);
+                qp->beginQuery(gl, ctxid, c.query, c.flags.value);
             }
             break;
             case impl::ECT_END_QUERY:
             {
+                // TODO: set last queue to use
                 auto& c = cmd.get<impl::ECT_END_QUERY>();
                 const COpenGLQueryPool* qp = static_cast<const COpenGLQueryPool*>(c.queryPool.get());
-                qp->endQuery(gl, c.query);
+                qp->endQuery(gl, ctxid, c.query);
             }
             break;
             case impl::ECT_COPY_QUERY_POOL_RESULTS:
@@ -942,69 +943,114 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
                 auto& c = cmd.get<impl::ECT_COPY_QUERY_POOL_RESULTS>();
                 
                 const COpenGLBuffer* buffer = static_cast<const COpenGLBuffer*>(c.dstBuffer.get());
-                GLuint bufferId = buffer->getOpenGLName();
-
-                const COpenGLQueryPool* qp = static_cast<const COpenGLQueryPool*>(c.queryPool.get());
-                
+                const COpenGLQueryPool* qp = IBackendObject::compatibility_cast<const COpenGLQueryPool*>(c.queryPool.get(), this);
                 auto queryPoolQueriesCount = qp->getCreationParameters().queryCount;
-                auto queriesRange = qp->getQueries(); // queriesRange.size() is a multiple of queryPoolQueriesCount
-                auto queries = queriesRange.begin();
-                
-                IQueryPool::E_QUERY_TYPE queryType = qp->getCreationParameters().queryType;
-                bool use64Version = c.flags.hasValue(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_64_BIT);
-                bool availabilityFlag = c.flags.hasValue(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WITH_AVAILABILITY_BIT);
-                bool waitForAllResults = c.flags.hasValue(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WAIT_BIT);
-                bool partialResults = c.flags.hasValue(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_PARTIAL_BIT);
 
-                if(c.firstQuery + c.queryCount > queryPoolQueriesCount)
+                if(buffer != nullptr && qp != nullptr)
                 {
-                    assert(false && "The sum of firstQuery and queryCount must be less than or equal to the number of queries in queryPool");
-                    break;
-                }
-                if(partialResults && queryType == IQueryPool::E_QUERY_TYPE::EQT_TIMESTAMP) {
-                    assert(false && "QUERY_RESULT_PARTIAL_BIT must not be used if the pool’s queryType is QUERY_TYPE_TIMESTAMP.");
-                    break;
-                }
+                    GLuint bufferId = buffer->getOpenGLName();
 
-                size_t currentDataPtrOffset = c.dstOffset;
-                size_t queryElementDataSize = (use64Version) ? sizeof(GLuint64) : sizeof(GLuint); // each query might write to multiple values/elements
+                    IQueryPool::E_QUERY_TYPE queryType = qp->getCreationParameters().queryType;
+                    bool use64Version = c.flags.hasValue(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_64_BIT);
+                    bool availabilityFlag = c.flags.hasValue(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WITH_AVAILABILITY_BIT);
+                    bool waitForAllResults = c.flags.hasValue(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WAIT_BIT);
+                    bool partialResults = c.flags.hasValue(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_PARTIAL_BIT);
 
-                GLenum pname;
-                if(availabilityFlag)
-                    pname = GL_QUERY_RESULT_AVAILABLE;
-                else if(waitForAllResults)
-                    pname = GL_QUERY_RESULT;
-                else if(partialResults)
-                    pname = GL_QUERY_NO_WAIT;
+                    assert(queryType == IQueryPool::E_QUERY_TYPE::EQT_OCCLUSION || queryType == IQueryPool::E_QUERY_TYPE::EQT_TIMESTAMP);
 
-                auto getQueryBufferObject = [&](GLuint queryId, GLuint buffer, GLenum pname, GLintptr offset) -> void 
-                {
-                    if(use64Version)
+                    if(c.firstQuery + c.queryCount > queryPoolQueriesCount)
                     {
-                        gl->extGlGetQueryBufferObjectui64v(queryId, buffer, pname, offset);
+                        assert(false && "The sum of firstQuery and queryCount must be less than or equal to the number of queries in queryPool");
+                        break;
                     }
-                    else
-                    {
-                        gl->extGlGetQueryBufferObjectuiv(queryId, buffer, pname, offset);
-                    }
-                };
-
-                for(uint32_t i = 0; i < c.queryCount; ++i)
-                {
-                    if(queryType == IQueryPool::E_QUERY_TYPE::EQT_TIMESTAMP || queryType == IQueryPool::E_QUERY_TYPE::EQT_OCCLUSION)
-                    {
-                        assert(queryPoolQueriesCount == queriesRange.size());
-                        assert(c.stride >= queryElementDataSize);
-                        GLuint query = queries[i+c.firstQuery];
-
-                        getQueryBufferObject(query, bufferId, pname, currentDataPtrOffset);
-                    }
-                    else
-                    {
-                        assert(false && "QueryType is not supported.");
+                    if(partialResults && queryType == IQueryPool::E_QUERY_TYPE::EQT_TIMESTAMP) {
+                        assert(false && "QUERY_RESULT_PARTIAL_BIT must not be used if the pool’s queryType is QUERY_TYPE_TIMESTAMP.");
+                        break;
                     }
 
-                    currentDataPtrOffset += c.stride;
+                    size_t currentDataPtrOffset = c.dstOffset;
+                    const uint32_t glQueriesPerQuery = qp->getGLQueriesPerQuery();
+                    const size_t queryElementDataSize = (use64Version) ? sizeof(GLuint64) : sizeof(GLuint); // each query might write to multiple values/elements
+                    const size_t eachQueryDataSize = queryElementDataSize * glQueriesPerQuery;
+                    const size_t eachQueryWithAvailabilityDataSize = (availabilityFlag) ? queryElementDataSize + eachQueryDataSize : eachQueryDataSize;
+                    
+                    const size_t bufferDataSize = buffer->getSize();
+
+                    assert(core::is_aligned_to(c.dstOffset, queryElementDataSize));
+                    assert(c.stride >= eachQueryWithAvailabilityDataSize);
+                    assert(c.stride && core::is_aligned_to(c.stride, eachQueryWithAvailabilityDataSize)); // stride must be aligned to each query data size considering the specified flags
+                    assert((bufferDataSize - currentDataPtrOffset) >= (c.queryCount * c.stride)); // bufferDataSize is not enough for "queryCount" queries and specified stride
+                    assert((bufferDataSize - currentDataPtrOffset) >= (c.queryCount * eachQueryWithAvailabilityDataSize)); // bufferDataSize is not enough for "queryCount" queries with considering the specified flags
+
+                    auto getQueryObject = [&](GLuint queryId, GLuint buffer, GLenum pname, GLintptr offset, uint32_t queueIdx) -> void 
+                    {
+                        assert(ctxid == queueIdx);
+                        if(ctxid == queueIdx)
+                        {
+                            if(use64Version)
+                                gl->extGlGetQueryBufferObjectui64v(queryId, buffer, pname, offset);
+                            else
+                                gl->extGlGetQueryBufferObjectuiv(queryId, buffer, pname, offset);
+                        }
+                    };
+
+                    // iterate on each query
+                    for(uint32_t i = 0; i < c.queryCount; ++i)
+                    {
+                        if(currentDataPtrOffset >= bufferDataSize)
+                        {
+                            assert(false);
+                            break;
+                        }
+
+                        const size_t queryDataOffset = currentDataPtrOffset;
+                        const size_t availabilityDataOffset = queryDataOffset + eachQueryDataSize; // Write Availability to this offset if flag specified
+
+                        // iterate on each gl query (we may have multiple gl queries per query like pipelinestatistics query type)
+                        const uint32_t queryIndex = i + c.firstQuery;
+                        const uint32_t glQueryBegin = queryIndex * glQueriesPerQuery;
+                        bool allGlQueriesAvailable = true;
+                        for(uint32_t q = 0; q < glQueriesPerQuery; ++q)
+                        {
+                            const size_t subQueryDataOffset = queryDataOffset + q * queryElementDataSize;
+                            const uint32_t queryIdx = glQueryBegin + q;
+                            const uint32_t lastQueueToUse = qp->getLastQueueToUseForQuery(queryIdx);
+                            GLuint query = qp->getQueryAt(lastQueueToUse, queryIdx);
+
+                            GLenum pname;
+                            if(waitForAllResults)
+                            {
+                                // Has WAIT_BIT -> Get Result with Wait (GL_QUERY_RESULT) + don't getQueryAvailability (if availability flag is set it will report true)
+                                pname = GL_QUERY_RESULT;
+                            }
+                            else if(partialResults)
+                            {
+                                // Has PARTIAL_BIT but no WAIT_BIT -> (read vk spec) -> result value between zero and the final result value
+                                // No PARTIAL queries for GL -> GL_QUERY_RESULT_NO_WAIT best match
+                                pname = GL_QUERY_RESULT_NO_WAIT;
+                            }
+                            else if(availabilityFlag)
+                            {
+                                // Only Availablity -> Get Results with NoWait + get Query Availability
+                                pname = GL_QUERY_RESULT_NO_WAIT;
+                            }
+                            else
+                            {
+                                // No Flags -> GL_QUERY_RESULT_NO_WAIT
+                                pname = GL_QUERY_RESULT_NO_WAIT;
+                            }
+
+                            if(availabilityFlag && !waitForAllResults && (q == glQueriesPerQuery - 1))
+                                getQueryObject(query, bufferId, GL_QUERY_RESULT_AVAILABLE, availabilityDataOffset, lastQueueToUse);
+
+                            getQueryObject(query, bufferId, pname, subQueryDataOffset, lastQueueToUse);
+
+                            if(availabilityFlag && waitForAllResults && (q == glQueriesPerQuery - 1))
+                                getQueryObject(query, bufferId, GL_QUERY_RESULT_AVAILABLE, availabilityDataOffset, lastQueueToUse);
+                        }
+
+                        currentDataPtrOffset += c.stride;
+                    }
                 }
             }
             break;
@@ -1012,9 +1058,7 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
             {
                 auto& c = cmd.get<impl::ECT_WRITE_TIMESTAMP>();
                 const COpenGLQueryPool* qp = static_cast<const COpenGLQueryPool*>(c.queryPool.get());
-                const GLuint query = qp->getQueryAt(c.query);
-                assert(qp->getCreationParameters().queryType == IQueryPool::E_QUERY_TYPE::EQT_TIMESTAMP);
-                gl->glQuery.pglQueryCounter(query, GL_TIMESTAMP);
+                qp->writeTimestamp(gl, ctxid, c.query);
             }
             break;
             case impl::ECT_BIND_DESCRIPTOR_SETS:

@@ -150,21 +150,34 @@ public:
 
     void getAndLogQueryPoolResults()
     {
+#ifdef QUERY_POOL_LOGS
         {
-            uint64_t samples_passed = 0u;
-            auto queryResultFlags = core::bitflag<video::IQueryPool::E_QUERY_RESULTS_FLAGS>(video::IQueryPool::EQRF_WAIT_BIT) | video::IQueryPool::EQRF_64_BIT;
-            logicalDevice->getQueryPoolResults(occlusionQueryPool.get(), 0u, 1u, sizeof(uint64_t), &samples_passed, sizeof(uint64_t), queryResultFlags);
-            logger->log("Samples Passed = %d", system::ILogger::ELL_INFO, samples_passed);
+            uint64_t samples_passed[4] = {};
+            auto queryResultFlags = core::bitflag<video::IQueryPool::E_QUERY_RESULTS_FLAGS>(video::IQueryPool::EQRF_WITH_AVAILABILITY_BIT) | video::IQueryPool::EQRF_64_BIT;
+            logicalDevice->getQueryPoolResults(occlusionQueryPool.get(), 0u, 2u, sizeof(samples_passed), &samples_passed, sizeof(uint64_t) * 2, queryResultFlags);
+            logger->log("[AVAIL+64] Samples Passed [1] = %d, Samples Passed [2] = %d, Result Available = %d, %d", system::ILogger::ELL_INFO, samples_passed[0], samples_passed[2], samples_passed[1], samples_passed[3]);
         }
-
         {
-            uint64_t timestamps[2] = {};
-            auto queryResultFlags = core::bitflag<video::IQueryPool::E_QUERY_RESULTS_FLAGS>(video::IQueryPool::EQRF_WAIT_BIT) | video::IQueryPool::EQRF_64_BIT;
-            logicalDevice->getQueryPoolResults(timestampQueryPool.get(), 0u, 2u, sizeof(timestamps), timestamps, sizeof(uint64_t), queryResultFlags);
-            float timePassed = (timestamps[1] - timestamps[0]) * physicalDevice->getLimits().timestampPeriodInNanoSeconds;
-            // logger->log("Time Passed (NanoSeconds) = %f", system::ILogger::ELL_INFO, timePassed);
+            uint64_t samples_passed[4] = {};
+            auto queryResultFlags = core::bitflag<video::IQueryPool::E_QUERY_RESULTS_FLAGS>(video::IQueryPool::EQRF_WITH_AVAILABILITY_BIT) | video::IQueryPool::EQRF_64_BIT | video::IQueryPool::EQRF_WAIT_BIT;
+            logicalDevice->getQueryPoolResults(occlusionQueryPool.get(), 0u, 2u, sizeof(samples_passed), &samples_passed, sizeof(uint64_t) * 2, queryResultFlags);
+            logger->log("[WAIT+AVAIL+64] Samples Passed [1] = %d, Samples Passed [2] = %d, Result Available = %d, %d", system::ILogger::ELL_INFO, samples_passed[0], samples_passed[2], samples_passed[1], samples_passed[3]);
+        }
+        {
+            uint32_t samples_passed[2] = {};
+            auto queryResultFlags = core::bitflag<video::IQueryPool::E_QUERY_RESULTS_FLAGS>(video::IQueryPool::EQRF_64_BIT) | video::IQueryPool::EQRF_WAIT_BIT;
+            logicalDevice->getQueryPoolResults(occlusionQueryPool.get(), 0u, 2u, sizeof(samples_passed), &samples_passed, sizeof(uint32_t), queryResultFlags);
+            logger->log("[WAIT] Samples Passed [0] = %d, Samples Passed [1] = %d", system::ILogger::ELL_INFO, samples_passed[0], samples_passed[1]);
+        }
+        {
+            uint64_t timestamps[4] = {};
+            auto queryResultFlags = core::bitflag<video::IQueryPool::E_QUERY_RESULTS_FLAGS>(video::IQueryPool::EQRF_WAIT_BIT) | video::IQueryPool::EQRF_WITH_AVAILABILITY_BIT | video::IQueryPool::EQRF_64_BIT;
+            logicalDevice->getQueryPoolResults(timestampQueryPool.get(), 0u, 2u, sizeof(timestamps), timestamps, sizeof(uint64_t) * 2ull, queryResultFlags);
+            float timePassed = (timestamps[2] - timestamps[0]) * physicalDevice->getLimits().timestampPeriodInNanoSeconds;
             logger->log("Time Passed (Seconds) = %f", system::ILogger::ELL_INFO, (timePassed * 1e-9));
+            logger->log("Timestamps availablity: %d, %d", system::ILogger::ELL_INFO, timestamps[1], timestamps[3]);
         }
+#endif
     }
 
     APP_CONSTRUCTOR(MeshLoadersApp)
@@ -177,7 +190,7 @@ public:
         const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT);
         const video::ISurface::SFormat surfaceFormat(asset::EF_R8G8B8A8_SRGB, asset::ECP_SRGB, asset::EOTF_sRGB);
 
-        CommonAPI::InitWithDefaultExt(initOutput, video::EAT_VULKAN, "MeshLoaders", WIN_W, WIN_H, SC_IMG_COUNT, swapchainImageUsage, surfaceFormat, nbl::asset::EF_D32_SFLOAT);
+        CommonAPI::InitWithDefaultExt(initOutput, video::EAT_OPENGL, "MeshLoaders", WIN_W, WIN_H, SC_IMG_COUNT, swapchainImageUsage, surfaceFormat, nbl::asset::EF_D32_SFLOAT);
         window = std::move(initOutput.window);
         windowCb = std::move(initOutput.windowCb);
         apiConnection = std::move(initOutput.apiConnection);
@@ -200,7 +213,7 @@ public:
         {
             video::IQueryPool::SCreationParams queryPoolCreationParams = {};
             queryPoolCreationParams.queryType = video::IQueryPool::EQT_OCCLUSION;
-            queryPoolCreationParams.queryCount = 1u;
+            queryPoolCreationParams.queryCount = 2u;
             occlusionQueryPool = logicalDevice->createQueryPool(std::move(queryPoolCreationParams));
         }
 
@@ -462,14 +475,15 @@ public:
             beginInfo.clearValues = clear;
         }
 
-        commandBuffer->resetQueryPool(occlusionQueryPool.get(), 0u, 1u);
+        commandBuffer->resetQueryPool(occlusionQueryPool.get(), 0u, 2u);
         commandBuffer->resetQueryPool(timestampQueryPool.get(), 0u, 2u);
         commandBuffer->beginRenderPass(&beginInfo, nbl::asset::ESC_INLINE);
         
-        commandBuffer->beginQuery(occlusionQueryPool.get(), 0u);
         commandBuffer->writeTimestamp(asset::E_PIPELINE_STAGE_FLAGS::EPSF_TOP_OF_PIPE_BIT, timestampQueryPool.get(), 0u);
         for (size_t i = 0; i < gpumesh->getMeshBuffers().size(); ++i)
         {
+            if(i < 2)
+                commandBuffer->beginQuery(occlusionQueryPool.get(), i);
             auto gpuMeshBuffer = gpumesh->getMeshBuffers().begin()[i];
             auto gpuGraphicsPipeline = gpuPipelines[reinterpret_cast<RENDERPASS_INDEPENDENT_PIPELINE_ADRESS>(gpuMeshBuffer->getPipeline())];
 
@@ -486,9 +500,11 @@ public:
             commandBuffer->pushConstants(gpuRenderpassIndependentPipeline->getLayout(), asset::IShader::ESS_FRAGMENT, 0u, gpuMeshBuffer->MAX_PUSH_CONSTANT_BYTESIZE, gpuMeshBuffer->getPushConstantsDataPtr());
 
             commandBuffer->drawMeshBuffer(gpuMeshBuffer);
+
+            if(i < 2)
+        commandBuffer->endQuery(occlusionQueryPool.get(), i);
         }
         commandBuffer->writeTimestamp(asset::E_PIPELINE_STAGE_FLAGS::EPSF_BOTTOM_OF_PIPE_BIT, timestampQueryPool.get(), 1u);
-        commandBuffer->endQuery(occlusionQueryPool.get(), 0u);
 
         commandBuffer->endRenderPass();
         commandBuffer->end();

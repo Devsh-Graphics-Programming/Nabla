@@ -10,72 +10,100 @@
 #include "nbl/video/IQueryPool.h"
 #include "nbl/video/COpenGLCommon.h"
 #include "nbl/video/IOpenGL_FunctionTable.h"
+#include "nbl/video/IOpenGL_PhysicalDeviceBase.h"
 
 namespace nbl::video
 {
 
 class COpenGLQueryPool final : public IQueryPool
 {
+	public:
+		using atomic_queue_id = core::atomic<uint32_t>;
+
 	protected:
 		virtual ~COpenGLQueryPool();
 
-		core::vector<GLuint> queries;
-		uint32_t glQueriesPerQuery = 0u;
+		uint32_t m_glQueriesPerQuery = 0u;
+		core::smart_refctd_dynamic_array<GLuint> m_queries[IOpenGLPhysicalDeviceBase::MaxQueues];
+
+		atomic_queue_id* lastQueueToUseArray;
 
 	public:
-		COpenGLQueryPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, IOpenGL_FunctionTable* gl, IQueryPool::SCreationParams&& _params) 
-			: IQueryPool(std::move(dev), std::move(_params))
+		COpenGLQueryPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, core::smart_refctd_dynamic_array<GLuint> queries[IOpenGLPhysicalDeviceBase::MaxQueues], uint32_t glQueriesPerQuery, IQueryPool::SCreationParams&& _params) 
+			: IQueryPool(std::move(dev), std::move(_params)), m_glQueriesPerQuery(glQueriesPerQuery)
 		{
-			if(_params.queryType == EQT_OCCLUSION)
-			{
-				glQueriesPerQuery = 1u;
-				gl->extGlCreateQueries(GL_SAMPLES_PASSED, _params.queryCount, queries.data());
-			}
-			else if(_params.queryType == EQT_TIMESTAMP)
-			{
-				glQueriesPerQuery = 1u;
-				gl->extGlCreateQueries(GL_TIMESTAMP, _params.queryCount, queries.data());
-			}
-			else
-			{
-				// TODO: Add ARB_pipeline_statistics support: https://www.khronos.org/registry/OpenGL/extensions/ARB/ARB_pipeline_statistics_query.txt
-				assert(false && "QueryType is not supported.");
-			}
-			queries.resize(_params.queryCount * glQueriesPerQuery);
+			for(uint32_t q = 0; q < IOpenGLPhysicalDeviceBase::MaxQueues; ++q)
+				m_queries[q] = queries[q];
+			
+			// Can we have a #define for allocation with default alignment that takes type and count? this seems long and mostly redundant
+			lastQueueToUseArray = reinterpret_cast<atomic_queue_id*>(_NBL_ALIGNED_MALLOC(sizeof(atomic_queue_id) * _params.queryCount, _NBL_DEFAULT_ALIGNMENT(atomic_queue_id)));
 		}
 
-		inline core::SRange<const GLuint> getQueries() const
+		inline core::smart_refctd_dynamic_array<GLuint> getQueriesForQueueIdx(uint32_t queueIdx)
 		{
-			return core::SRange<const GLuint>(queries.data(), queries.data() + queries.size());
+			assert(queueIdx < IOpenGLPhysicalDeviceBase::MaxQueues);
+			return m_queries[queueIdx];
+		}
+
+		inline core::SRange<const GLuint> getQueries(uint32_t queueIdx) const
+		{
+			assert(queueIdx < IOpenGLPhysicalDeviceBase::MaxQueues);
+			auto queryArray = m_queries[queueIdx].get();
+			if(queryArray)
+				return core::SRange<const GLuint>(queryArray->begin(), queryArray->begin() + queryArray->size());
+			else
+				return core::SRange<const GLuint>(nullptr, nullptr);
 		}
 		
-		inline GLuint getQueryAt(uint32_t index) const
+		inline GLuint getQueryAt(uint32_t queueIdx, uint32_t query) const
 		{
-			if(index < queries.size())
+			auto queries = getQueries(queueIdx);
+			if(query < queries.size())
 			{
-				return queries[index];
+				return queries[query];
 			}
 			else
 			{
 				assert(false);
-				return 0u; // is 0 an invalid GLuint?
+				return 0u;
+			}
+		}
+		
+		inline uint32_t getLastQueueToUseForQuery(uint32_t query) const
+		{
+			assert(query < params.queryCount);
+			return lastQueueToUseArray[query].load();
+		}
+
+		inline GLuint getLatestQueryAt(uint32_t query) const
+		{
+			const uint32_t queueToUse = getLastQueueToUseForQuery(query);
+			auto queries = getQueries(queueToUse);
+			if(query < queries.size())
+			{
+				return queries[query];
+			}
+			else
+			{
+				assert(false);
+				return 0u;
 			}
 		}
 
-		inline uint32_t getGLQueriesPerQuery() const { return glQueriesPerQuery; }
+		inline uint32_t getGLQueriesPerQuery() const { return m_glQueriesPerQuery; }
 
-		inline void beginQuery(IOpenGL_FunctionTable* gl, uint32_t queryIndex, E_QUERY_CONTROL_FLAGS flags) const
+		inline void beginQuery(IOpenGL_FunctionTable* gl, uint32_t ctxid, uint32_t queryIndex, E_QUERY_CONTROL_FLAGS flags) const
 		{
 			if(gl != nullptr)
 			{
 				if(params.queryType == EQT_OCCLUSION)
 				{
-					GLuint query = getQueryAt(queryIndex);
+					GLuint query = getQueryAt(ctxid, queryIndex);
 					gl->glQuery.pglBeginQuery(GL_SAMPLES_PASSED, query);
 				}
 				else if(params.queryType == EQT_TIMESTAMP)
 				{
-					assert(false && "TIMESTAMP Query doesn't work with begin/end functions.");
+					assert(false && "TIMESTAMP QueryPool doesn't work with begin/end functions.");
 				}
 				else
 				{
@@ -84,7 +112,7 @@ class COpenGLQueryPool final : public IQueryPool
 			}
 		}
 		
-		inline void endQuery(IOpenGL_FunctionTable* gl, uint32_t queryIndex) const
+		inline void endQuery(IOpenGL_FunctionTable* gl, uint32_t ctxid, uint32_t queryIndex) const
 		{
 			// End Function doesn't use queryIndex
 			if(gl != nullptr)
@@ -92,10 +120,11 @@ class COpenGLQueryPool final : public IQueryPool
 				if(params.queryType == EQT_OCCLUSION)
 				{
 					gl->glQuery.pglEndQuery(GL_SAMPLES_PASSED);
+					lastQueueToUseArray[queryIndex] = ctxid;
 				}
 				else if(params.queryType == EQT_TIMESTAMP)
 				{
-					assert(false && "TIMESTAMP Query doesn't work with begin/end functions.");
+					assert(false && "TIMESTAMP QueryPool doesn't work with begin/end functions.");
 				}
 				else
 				{
@@ -104,7 +133,24 @@ class COpenGLQueryPool final : public IQueryPool
 			}
 		}
 
-		inline bool resetQueries(IOpenGL_FunctionTable* gl, uint32_t query, uint32_t queryCount)
+		inline void writeTimestamp(IOpenGL_FunctionTable* gl, uint32_t ctxid, uint32_t queryIndex) const
+		{
+			if(gl != nullptr)
+			{
+				if(params.queryType == EQT_TIMESTAMP)
+				{
+					GLuint query = getQueryAt(ctxid, queryIndex);
+					gl->glQuery.pglQueryCounter(query, GL_TIMESTAMP);
+					lastQueueToUseArray[queryIndex] = ctxid;
+				}
+				else
+				{
+					assert(false && "Cannot use writeTimestamp for non-timestamp query pools.");
+				}
+			}
+		}
+
+		inline bool resetQueries(IOpenGL_FunctionTable* gl, uint32_t ctxid, uint32_t query, uint32_t queryCount)
 		{
 			// NOTE: There is no Reset Queries on OpenGL
 			// NOOP

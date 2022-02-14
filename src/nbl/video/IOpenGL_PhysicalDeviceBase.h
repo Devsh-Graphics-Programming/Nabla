@@ -19,14 +19,18 @@
 namespace nbl::video
 {
 
+class IOpenGLPhysicalDeviceBase
+{
+public:
+	static inline constexpr uint32_t MaxQueues = 8u;
+};
+
 template <typename LogicalDeviceType>
-class IOpenGL_PhysicalDeviceBase : public IPhysicalDevice
+class IOpenGL_PhysicalDeviceBase : public IPhysicalDevice, public IOpenGLPhysicalDeviceBase
 {
 	using function_table_t = typename LogicalDeviceType::FunctionTableType;
 	static inline constexpr EGLint EGL_API_TYPE = function_table_t::EGL_API_TYPE;
 	static inline constexpr bool IsGLES = (EGL_API_TYPE == EGL_OPENGL_ES_API);
-
-	static inline constexpr uint32_t MaxQueues = 8u;
 
 protected:
 	struct SInitResult
