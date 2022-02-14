@@ -57,12 +57,8 @@ class ClusteredRenderingSampleApp : public ApplicationBase
 
 	constexpr static uint32_t LIGHT_COUNT = 6860u;
 
-	// Level 9 is the outermost/coarsest, Level 0 is the innermost/finest
-#ifdef CLIPMAP
-	static constexpr uint32_t LOD_COUNT = 10u;
-#else OCTREE
+	// Level 0 is the innermost in case of clipmap
 	static constexpr uint32_t LOD_COUNT = 7u;
-#endif
 
 	constexpr static uint32_t MEMORY_BUDGET = 15ull * 1024ull * 1024ull;
 	// Todo(achal): Try making this 2048
@@ -77,7 +73,6 @@ class ClusteredRenderingSampleApp : public ApplicationBase
 
 	constexpr static uint32_t Z_PREPASS_INDEX = 0u;
 	constexpr static uint32_t LIGHTING_PASS_INDEX = 1u;
-	constexpr static uint32_t DEBUG_DRAW_PASS_INDEX = 2u;
 
 	constexpr static float LIGHT_CONTRIBUTION_THRESHOLD = 2.f;
 	constexpr static float LIGHT_RADIUS = 25.f;
@@ -1620,15 +1615,17 @@ public:
 
 		commandBuffer->bindComputePipeline(clipmapIntermediateCullPipeline.get());
 
-		for (int32_t level = LOD_COUNT - 2; level >= 1; --level)
+		uint32_t outScratchBufferIndex = 1u;
+		uint32_t intermediateDSIndex = 0u;
+		for (uint32_t level = LOD_COUNT - 2u; level >= 1u; --level)
 		{
 			// if required, this fillBuffer and pipelineBarrier can be remedied by triple buffering the scratch counter used for
 			// culling and setting it in the shader itself
-			commandBuffer->fillBuffer(clipmapScratchBuffers[1-(level & 1)].get(), 0ull, sizeof(uint32_t), 0u);
+			commandBuffer->fillBuffer(clipmapScratchBuffers[outScratchBufferIndex].get(), 0ull, sizeof(uint32_t), 0u);
 
 			cullScratchCounterReset.barrier.srcAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
 			cullScratchCounterReset.barrier.dstAccessMask = asset::EAF_SHADER_WRITE_BIT;
-			cullScratchCounterReset.buffer = clipmapScratchBuffers[1 - (level & 1)];
+			cullScratchCounterReset.buffer = clipmapScratchBuffers[outScratchBufferIndex];
 			commandBuffer->pipelineBarrier(
 				asset::EPSF_TRANSFER_BIT,
 				asset::EPSF_COMPUTE_SHADER_BIT,
@@ -1647,7 +1644,7 @@ public:
 				commandBuffer->pushConstants(clipmapIntermediateCullPipeline->getLayout(), asset::IShader::ESS_COMPUTE, 0u, sizeof(intermediate_cull_push_constants_t), &pc);
 			}
 
-			commandBuffer->bindDescriptorSets(asset::EPBP_COMPUTE, clipmapIntermediateCullPipeline->getLayout(), 0u, 1u, &clipmapIntermediateCullDS[(level & 1)].get());
+			commandBuffer->bindDescriptorSets(asset::EPBP_COMPUTE, clipmapIntermediateCullPipeline->getLayout(), 0u, 1u, &clipmapIntermediateCullDS[intermediateDSIndex].get());
 			{
 				// It could be better if I could somehow launch only required amount of workgroups which could be way less
 				// at the final levels because the list of active lights would've been pruned significantly
@@ -1655,7 +1652,7 @@ public:
 				commandBuffer->dispatch((MAX_INVOCATIONS + WG_DIM - 1) / WG_DIM, 1u, 1u);
 			}
 
-			cullScratchUpdated.buffer = clipmapScratchBuffers[1 - (level & 1)];
+			cullScratchUpdated.buffer = clipmapScratchBuffers[outScratchBufferIndex];
 			{
 				video::IGPUCommandBuffer::SBufferMemoryBarrier tmp[2] = { intersectionRecordsUpdated, cullScratchUpdated };
 
@@ -1667,6 +1664,9 @@ public:
 					2u, tmp,
 					1u, &lightGridUpdated);
 			}
+
+			outScratchBufferIndex ^= 0x1u;
+			intermediateDSIndex ^= 0x1u;
 		}
 
 		// final pass

@@ -31,7 +31,7 @@ vec3 nbl_computeLighting(out nbl_glsl_IsotropicViewSurfaceInteraction out_intera
 
 // NBL_GLSL_DECLARE_UPPER_BOUND(arr, uint)
 // NBL_GLSL_DEFINE_UPPER_BOUND(arr, uint)
-uint upper_bound_arr_NBL_GLSL_LESS(uint begin, in uint end, in float value, in float arr[10])
+uint upper_bound_arr_NBL_GLSL_LESS(uint begin, in uint end, in float value, in float arr[LOD_COUNT])
 {
     uint len = end - begin;
     if (NBL_GLSL_IS_NOT_POT(len))

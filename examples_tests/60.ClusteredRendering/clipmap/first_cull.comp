@@ -42,8 +42,8 @@ void main()
 	if (gl_GlobalInvocationID.x >= pc.activeLightCount)
 		return;
 
-	const float clipmapExtent = pc.camPosGenesisVoxelExtent.w;
-	const float levelExtent = clipmapExtent / (1 << (LOD_COUNT - 1 - pc.hierarchyLevel));
+	const float genesisVoxelExtent = pc.camPosGenesisVoxelExtent.w;
+	const float levelExtent = genesisVoxelExtent / (1 << (LOD_COUNT - 1 - pc.hierarchyLevel));
 	const vec3 levelMinVertex = vec3(-levelExtent/2.f);
 	const float voxelSideLength = levelExtent / VOXEL_COUNT_PER_DIM;
 
