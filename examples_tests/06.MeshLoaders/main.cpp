@@ -88,6 +88,8 @@ public:
     double dtList[NBL_FRAMES_TO_AVERAGE] = {};
 
     video::CDumbPresentationOracle oracle;
+    
+    core::smart_refctd_ptr<video::IGPUBuffer> queryResultsBuffer;
 
     auto createDescriptorPool(const uint32_t textureCount)
     {
@@ -190,7 +192,7 @@ public:
         const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT);
         const video::ISurface::SFormat surfaceFormat(asset::EF_R8G8B8A8_SRGB, asset::ECP_SRGB, asset::EOTF_sRGB);
 
-        CommonAPI::InitWithDefaultExt(initOutput, video::EAT_OPENGL, "MeshLoaders", WIN_W, WIN_H, SC_IMG_COUNT, swapchainImageUsage, surfaceFormat, nbl::asset::EF_D32_SFLOAT);
+        CommonAPI::InitWithDefaultExt(initOutput, video::EAT_VULKAN, "MeshLoaders", WIN_W, WIN_H, SC_IMG_COUNT, swapchainImageUsage, surfaceFormat, nbl::asset::EF_D32_SFLOAT);
         window = std::move(initOutput.window);
         windowCb = std::move(initOutput.windowCb);
         apiConnection = std::move(initOutput.apiConnection);
@@ -224,6 +226,22 @@ public:
             queryPoolCreationParams.queryType = video::IQueryPool::EQT_TIMESTAMP;
             queryPoolCreationParams.queryCount = 2u;
             timestampQueryPool = logicalDevice->createQueryPool(std::move(queryPoolCreationParams));
+        }
+
+        {
+            // SAMPLES_PASSED_0 + AVAILABILIY_0 + SAMPLES_PASSED_1 + AVAILABILIY_1 (uint32_t)
+            const size_t queriesSize = sizeof(uint32_t) * 4;
+            auto memreq = logicalDevice->getDeviceLocalGPUMemoryReqs();
+            memreq.vulkanReqs.size = queriesSize;
+            video::IGPUBuffer::SCreationParams gpuuboCreationParams;
+            gpuuboCreationParams.canUpdateSubRange = true;
+            gpuuboCreationParams.usage = core::bitflag<asset::IBuffer::E_USAGE_FLAGS>(asset::IBuffer::EUF_UNIFORM_BUFFER_BIT) | asset::IBuffer::EUF_TRANSFER_DST_BIT;
+            gpuuboCreationParams.sharingMode = asset::E_SHARING_MODE::ESM_EXCLUSIVE;
+            gpuuboCreationParams.queueFamilyIndexCount = 0u;
+            gpuuboCreationParams.queueFamilyIndices = nullptr;
+
+            queryResultsBuffer = logicalDevice->createGPUBufferOnDedMem(gpuuboCreationParams, memreq);
+            queryResultsBuffer->setObjectDebugName("QueryResults");
         }
 
         nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
@@ -502,11 +520,15 @@ public:
             commandBuffer->drawMeshBuffer(gpuMeshBuffer);
 
             if(i < 2)
-        commandBuffer->endQuery(occlusionQueryPool.get(), i);
+                commandBuffer->endQuery(occlusionQueryPool.get(), i);
         }
         commandBuffer->writeTimestamp(asset::E_PIPELINE_STAGE_FLAGS::EPSF_BOTTOM_OF_PIPE_BIT, timestampQueryPool.get(), 1u);
 
         commandBuffer->endRenderPass();
+
+        auto queryResultFlags = core::bitflag<video::IQueryPool::E_QUERY_RESULTS_FLAGS>(video::IQueryPool::EQRF_WAIT_BIT) | video::IQueryPool::EQRF_WITH_AVAILABILITY_BIT;
+        commandBuffer->copyQueryPoolResults(occlusionQueryPool.get(), 0, 2, queryResultsBuffer.get(), 0u, sizeof(uint32_t) * 2, queryResultFlags);
+
         commandBuffer->end();
         
         logicalDevice->resetFences(1, &fence.get());
