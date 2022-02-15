@@ -533,8 +533,9 @@ protected:
     }
     core::vector<SCommand> m_commands; // TODO: embed in the command pool via the use of linked list
     const COpenGLFeatureMap* m_features;
-    mutable core::bitflag<IQueryPool::E_QUERY_TYPE> queriesUsed;
-    mutable std::tuple<IQueryPool*,uint32_t/*query ix*/,renderpass_t*,uint32_t/*subpass ix*/> currentlyRecordingQuery[IQueryPool::EQT_COUNT];
+    mutable renderpass_t const * currentlyRecordingRenderPass = nullptr;
+    mutable core::bitflag<IQueryPool::E_QUERY_TYPE> queriesActive;
+    mutable std::tuple<IQueryPool const *,uint32_t/*query ix*/,renderpass_t const *,uint32_t/*subpass ix*/> currentlyRecordingQueries[IQueryPool::EQT_COUNT];
 
 public:
     void executeAll(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid) const;
@@ -554,6 +555,7 @@ public:
 
     inline bool end() override final
     {
+        assert(queriesActive.value == 0u); // No Queries should be active when command buffer ends
         return IGPUCommandBuffer::end();
     }
     bool reset(uint32_t _flags) override final;

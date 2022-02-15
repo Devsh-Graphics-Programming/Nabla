@@ -864,7 +864,7 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
             {
                 auto& c = cmd.get<impl::ECT_BEGIN_RENDERPASS>();
                 auto framebuf = core::smart_refctd_ptr_static_cast<const COpenGLFramebuffer>(c.renderpassBegin.framebuffer);
-
+                
                 ctxlocal->nextState.framebuffer.hash = framebuf->getHashValue();
                 ctxlocal->nextState.framebuffer.fbo = std::move(framebuf);
                 ctxlocal->flushStateGraphics(gl, SOpenGLContextLocalCache::GSB_FRAMEBUFFER, ctxid);
@@ -872,6 +872,8 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
                 GLuint fbo = ctxlocal->currentState.framebuffer.GLname;
                 if (fbo)
                     beginRenderpass_clearAttachments(gl, ctxlocal, ctxid, c.renderpassBegin, fbo, m_logger.getOptRawPtr());
+
+                currentlyRecordingRenderPass = c.renderpassBegin.renderpass.get();
             }
             break;
             case impl::ECT_NEXT_SUBPASS:
@@ -887,6 +889,7 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
                 ctxlocal->nextState.framebuffer.hash = SOpenGLState::NULL_FBO_HASH;
                 ctxlocal->nextState.framebuffer.GLname = 0u;
                 ctxlocal->nextState.framebuffer.fbo = nullptr;
+                currentlyRecordingRenderPass = nullptr;
             }
             break;
             case impl::ECT_SET_DEVICE_MASK:
@@ -928,10 +931,18 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
                 auto& c = cmd.get<impl::ECT_BEGIN_QUERY>();
                 const COpenGLQueryPool* qp = static_cast<const COpenGLQueryPool*>(c.queryPool.get());
                 auto currentQuery = core::bitflag(qp->getCreationParameters().queryType);
-                if(!queriesUsed.hasValue(currentQuery))
+                if(!queriesActive.hasValue(currentQuery))
                 {
                     qp->beginQuery(gl, ctxid, c.query, c.flags.value);
-                    queriesUsed |= currentQuery;
+                    queriesActive |= currentQuery;
+
+                    uint32_t queryTypeIndex = std::log2<uint32_t>(currentQuery.value);
+                    currentlyRecordingQueries[queryTypeIndex] = std::make_tuple(
+                        qp,
+                        c.query,
+                        currentlyRecordingRenderPass,
+                        0u
+                    );
                 }
                 else
                 {
@@ -941,12 +952,36 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
             break;
             case impl::ECT_END_QUERY:
             {
-                // TODO: set last queue to use
                 auto& c = cmd.get<impl::ECT_END_QUERY>();
                 const COpenGLQueryPool* qp = static_cast<const COpenGLQueryPool*>(c.queryPool.get());
                 auto currentQuery = core::bitflag(qp->getCreationParameters().queryType);
-                qp->endQuery(gl, ctxid, c.query);
-                queriesUsed &= ~currentQuery;
+                if(queriesActive.hasValue(currentQuery))
+                {
+                    uint32_t queryTypeIndex = std::log2<uint32_t>(currentQuery.value);
+                    IQueryPool const * currentQueryPool = std::get<0>(currentlyRecordingQueries[queryTypeIndex]);
+                    uint32_t currentQueryIndex = std::get<1>(currentlyRecordingQueries[queryTypeIndex]);
+                    renderpass_t const * currentQueryRenderpass = std::get<2>(currentlyRecordingQueries[queryTypeIndex]);
+                    uint32_t currentQuerySubpassIndex = std::get<3>(currentlyRecordingQueries[queryTypeIndex]);
+
+                    if(currentQueryPool != c.queryPool.get() || currentQueryIndex != c.query)
+                    {
+                        assert(false); // You must end the same query you began for every query type.
+                        break;
+                    }
+                    if(currentQueryRenderpass != currentlyRecordingRenderPass)
+                    {
+                        assert(false); // Query either starts and ends in the same subpass or starts and ends entirely outside a renderpass
+                        break;
+                    }
+
+                    // currentlyRecordingQuery assert tuple -> same query index and query pool -> same renderpass
+                    qp->endQuery(gl, ctxid, c.query);
+                    queriesActive &= ~currentQuery;
+                }
+                else
+                {
+                    assert(false); // QueryType was not active to end.
+                }
             }
             break;
             case impl::ECT_COPY_QUERY_POOL_RESULTS:
@@ -1259,7 +1294,12 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
             case impl::ECT_EXECUTE_COMMANDS:
             {
                 auto& c = cmd.get<impl::ECT_EXECUTE_COMMANDS>();
-
+                auto inheritanceInfo = c.cmdbuf->getCachedInheritanceInfo();
+                if(queriesActive.hasValue(IQueryPool::EQT_OCCLUSION))
+                {
+                    // For a secondary command buffer to be executed while a query is active, it must set the occlusionQueryEnable, queryFlags, and/or pipelineStatistics members of InheritanceInfo to conservative values
+                    assert(inheritanceInfo.occlusionQueryEnable);
+                }
                 static_cast<COpenGLCommandBuffer*>(c.cmdbuf.get())->executeAll(gl, ctxlocal, ctxid);
             }
             break;

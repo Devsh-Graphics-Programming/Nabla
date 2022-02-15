@@ -84,6 +84,9 @@ public:
             return false;
         }
 
+        if (inheritanceInfo != nullptr)
+            m_cachedInheritanceInfo = *inheritanceInfo;
+
         return base_t::begin(_flags);
     }
 
@@ -166,6 +169,11 @@ public:
         return true;
     }
 
+    SInheritanceInfo getCachedInheritanceInfo() const
+    {
+        return m_cachedInheritanceInfo;
+    }
+
 protected:
     friend class IGPUQueue;
 
@@ -175,7 +183,7 @@ protected:
     virtual ~IGPUCommandBuffer() = default;
 
     core::smart_refctd_ptr<IGPUCommandPool> m_cmdpool;
-    
+    SInheritanceInfo m_cachedInheritanceInfo;
 
     inline bool validate_updateBuffer(IGPUBuffer* dstBuffer, size_t dstOffset, size_t dataSize, const void* pData)
     {
