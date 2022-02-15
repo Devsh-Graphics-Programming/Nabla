@@ -158,6 +158,7 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
 
             // Queries
             bool allowCommandBufferQueryCopies = false;
+            bool inheritedQueries = false;
 
             // Buffer Device Address
             bool bufferDeviceAddress = false;

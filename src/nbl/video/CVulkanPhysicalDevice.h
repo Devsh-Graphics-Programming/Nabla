@@ -170,6 +170,7 @@ public:
             m_features.shaderSubgroupQuad = subgroupProperties.supportedOperations & VK_SUBGROUP_FEATURE_QUAD_BIT;
             m_features.shaderSubgroupQuadAllStages = ((subgroupProperties.supportedStages & asset::IShader::E_SHADER_STAGE::ESS_ALL)
                                                         == asset::IShader::E_SHADER_STAGE::ESS_ALL);
+            m_features.inheritedQueries = features.inheritedQueries;
 
             // RayQuery
             if (m_availableFeatureSet.find(VK_KHR_RAY_QUERY_EXTENSION_NAME) != m_availableFeatureSet.end())
@@ -434,7 +435,10 @@ protected:
         VkPhysicalDeviceFeatures2 vk_deviceFeatures2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
         vk_deviceFeatures2.pNext = firstFeatureInChain;
         vk_deviceFeatures2.features = {};
+        // Enabled Logical Device Features By Default:
+        // TODO: seperate logical and physical device features.
         vk_deviceFeatures2.features.samplerAnisotropy = m_features.samplerAnisotropy;
+        vk_deviceFeatures2.features.inheritedQueries = m_features.inheritedQueries;
 
         // Create Device
         VkDeviceCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO };

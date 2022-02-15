@@ -334,14 +334,16 @@ public:
 		{
 			m_features.allowCommandBufferQueryCopies = true;
 		}
+		m_features.inheritedQueries = true; // We emulate secondary command buffers so enable by default
 
 		if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_texture_filter_anisotropic))
 		{
 			GetIntegerv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &num);
 			m_glfeatures.MaxAnisotropy = static_cast<uint8_t>(num);
+			m_features.samplerAnisotropy = true;
+			m_limits.maxSamplerAnisotropyLog2 = std::log2((float)m_glfeatures.MaxAnisotropy);
 		}
 		else m_glfeatures.MaxAnisotropy = 0u;
-
 
 		if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_ARB_geometry_shader4))
 		{

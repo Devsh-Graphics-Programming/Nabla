@@ -941,7 +941,14 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
             case impl::ECT_COPY_QUERY_POOL_RESULTS:
             {
                 auto& c = cmd.get<impl::ECT_COPY_QUERY_POOL_RESULTS>();
-                
+
+                const IPhysicalDevice* physdev = getOriginDevice()->getPhysicalDevice();
+                if(!physdev->getFeatures().allowCommandBufferQueryCopies)
+                {
+                    assert(false); // allowCommandBufferQueryCopies feature not enabled -> can't write query results to buffer
+                    break;
+                }
+
                 const COpenGLBuffer* buffer = static_cast<const COpenGLBuffer*>(c.dstBuffer.get());
                 const COpenGLQueryPool* qp = IBackendObject::compatibility_cast<const COpenGLQueryPool*>(c.queryPool.get(), this);
                 auto queryPoolQueriesCount = qp->getCreationParameters().queryCount;
