@@ -927,7 +927,16 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
             {
                 auto& c = cmd.get<impl::ECT_BEGIN_QUERY>();
                 const COpenGLQueryPool* qp = static_cast<const COpenGLQueryPool*>(c.queryPool.get());
-                qp->beginQuery(gl, ctxid, c.query, c.flags.value);
+                auto currentQuery = core::bitflag(qp->getCreationParameters().queryType);
+                if(!queriesUsed.hasValue(currentQuery))
+                {
+                    qp->beginQuery(gl, ctxid, c.query, c.flags.value);
+                    queriesUsed |= currentQuery;
+                }
+                else
+                {
+                    assert(false); // There is an active query with the same query type.
+                }
             }
             break;
             case impl::ECT_END_QUERY:
@@ -935,7 +944,9 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
                 // TODO: set last queue to use
                 auto& c = cmd.get<impl::ECT_END_QUERY>();
                 const COpenGLQueryPool* qp = static_cast<const COpenGLQueryPool*>(c.queryPool.get());
+                auto currentQuery = core::bitflag(qp->getCreationParameters().queryType);
                 qp->endQuery(gl, ctxid, c.query);
+                queriesUsed &= ~currentQuery;
             }
             break;
             case impl::ECT_COPY_QUERY_POOL_RESULTS:
@@ -1023,6 +1034,9 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
                             const uint32_t queryIdx = glQueryBegin + q;
                             const uint32_t lastQueueToUse = qp->getLastQueueToUseForQuery(queryIdx);
                             GLuint query = qp->getQueryAt(lastQueueToUse, queryIdx);
+
+                            if(query == GL_NONE)
+                                continue;
 
                             GLenum pname;
                             if(waitForAllResults)

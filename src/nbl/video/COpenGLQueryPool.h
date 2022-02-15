@@ -47,12 +47,16 @@ class COpenGLQueryPool final : public IQueryPool
 
 		inline core::SRange<const GLuint> getQueries(uint32_t queueIdx) const
 		{
-			assert(queueIdx < IOpenGLPhysicalDeviceBase::MaxQueues);
-			auto queryArray = m_queries[queueIdx].get();
-			if(queryArray)
-				return core::SRange<const GLuint>(queryArray->begin(), queryArray->begin() + queryArray->size());
+			auto ret = core::SRange<const GLuint>(nullptr, nullptr);
+			if(queueIdx < IOpenGLPhysicalDeviceBase::MaxQueues)
+			{
+				auto queryArray = m_queries[queueIdx].get();
+				if(queryArray)
+					ret = core::SRange<const GLuint>(queryArray->begin(), queryArray->begin() + queryArray->size());
+			}
 			else
-				return core::SRange<const GLuint>(nullptr, nullptr);
+				assert(false);
+			return ret;
 		}
 		
 		inline GLuint getQueryAt(uint32_t queueIdx, uint32_t query) const
@@ -65,7 +69,7 @@ class COpenGLQueryPool final : public IQueryPool
 			else
 			{
 				assert(false);
-				return 0u;
+				return GL_NONE;
 			}
 		}
 		
@@ -153,8 +157,19 @@ class COpenGLQueryPool final : public IQueryPool
 		inline bool resetQueries(IOpenGL_FunctionTable* gl, uint32_t ctxid, uint32_t query, uint32_t queryCount)
 		{
 			// NOTE: There is no Reset Queries on OpenGL
-			// NOOP
-			return true;
+			// NOOP, ONLY set last queue used.
+			// TODO: validations about reseting queries and unavailable/available state
+			if(query + queryCount <= params.queryCount)
+			{
+				for(uint32_t i = 0; i < queryCount; ++i)
+					lastQueueToUseArray[query + i] = ctxid;
+				return true;
+			}
+			else
+			{
+				assert(false);
+				return false;
+			}
 		}
 
 };

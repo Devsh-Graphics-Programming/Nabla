@@ -100,7 +100,6 @@ public:
     uint32_t getQueueFamilyIndex() const { return m_cmdpool->getQueueFamilyIndex(); }
 
     IGPUCommandPool* getPool() const { return m_cmdpool.get(); }
-    
 
     bool regenerateMipmaps(IGPUImage* img, uint32_t lastReadyMip, asset::IImage::E_ASPECT_FLAGS aspect) override
     {

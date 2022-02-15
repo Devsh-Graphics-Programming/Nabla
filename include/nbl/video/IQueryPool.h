@@ -11,17 +11,18 @@ class IQueryPool : public core::IReferenceCounted, public IBackendObject
 {
     
 public:
-        enum E_QUERY_TYPE
+        enum E_QUERY_TYPE : uint32_t
         {
-            EQT_OCCLUSION = 0,
-            EQT_PIPELINE_STATISTICS = 1,
-            EQT_TIMESTAMP = 2,
-            EQT_PERFORMANCE_QUERY = 1000116000, // VK_KHR_performance_query // TODO: We don't support this fully yet -> needs Acquire/ReleaseProfilingLock + Counters Information report from physical device
-            EQT_ACCELERATION_STRUCTURE_COMPACTED_SIZE = 1000150000, // VK_KHR_acceleration_structure
-            EQT_ACCELERATION_STRUCTURE_SERIALIZATION_SIZE = 1000150001, // VK_KHR_acceleration_structure
+            EQT_OCCLUSION = 0x00000001,
+            EQT_PIPELINE_STATISTICS = 0x00000002,
+            EQT_TIMESTAMP = 0x00000004,
+            EQT_PERFORMANCE_QUERY = 0x00000008, // VK_KHR_performance_query // TODO: We don't support this fully yet -> needs Acquire/ReleaseProfilingLock + Counters Information report from physical device
+            EQT_ACCELERATION_STRUCTURE_COMPACTED_SIZE = 0x00000010, // VK_KHR_acceleration_structure
+            EQT_ACCELERATION_STRUCTURE_SERIALIZATION_SIZE = 0x00000020, // VK_KHR_acceleration_structure
+            EQT_COUNT = 6u,
         };
 
-        enum E_PIPELINE_STATISTICS_FLAGS
+        enum E_PIPELINE_STATISTICS_FLAGS : uint32_t
         {
             EPSF_NONE = 0,
             EPSF_INPUT_ASSEMBLY_VERTICES_BIT = 0x00000001,
@@ -37,7 +38,7 @@ public:
             EPSF_COMPUTE_SHADER_INVOCATIONS_BIT = 0x00000400,
         };
 
-        enum E_QUERY_RESULTS_FLAGS
+        enum E_QUERY_RESULTS_FLAGS : uint32_t
         {
             EQRF_NONE = 0,
             EQRF_64_BIT = 0x00000001,

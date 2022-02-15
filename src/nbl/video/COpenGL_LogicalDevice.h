@@ -531,6 +531,9 @@ public:
                     const uint32_t lastQueueToUse = qp->getLastQueueToUseForQuery(queryIdx);
                     GLuint query = qp->getQueryAt(lastQueueToUse, queryIdx);
 
+                    if(query == GL_NONE)
+                        continue;
+
                     GLenum pname;
 
                     if(waitForAllResults)
