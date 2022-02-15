@@ -156,20 +156,20 @@ public:
         {
             uint64_t samples_passed[4] = {};
             auto queryResultFlags = core::bitflag<video::IQueryPool::E_QUERY_RESULTS_FLAGS>(video::IQueryPool::EQRF_WITH_AVAILABILITY_BIT) | video::IQueryPool::EQRF_64_BIT;
-            logicalDevice->getQueryPoolResults(occlusionQueryPool.get(), 0u, 2u, sizeof(samples_passed), &samples_passed, sizeof(uint64_t) * 2, queryResultFlags);
-            logger->log("[AVAIL+64] Samples Passed [1] = %d, Samples Passed [2] = %d, Result Available = %d, %d", system::ILogger::ELL_INFO, samples_passed[0], samples_passed[2], samples_passed[1], samples_passed[3]);
+            logicalDevice->getQueryPoolResults(occlusionQueryPool.get(), 0u, 2u, sizeof(samples_passed), samples_passed, sizeof(uint64_t) * 2, queryResultFlags);
+            logger->log("[AVAIL+64] SamplesPassed[0] = %d, SamplesPassed[1] = %d, Result Available = %d, %d", system::ILogger::ELL_INFO, samples_passed[0], samples_passed[2], samples_passed[1], samples_passed[3]);
         }
         {
             uint64_t samples_passed[4] = {};
             auto queryResultFlags = core::bitflag<video::IQueryPool::E_QUERY_RESULTS_FLAGS>(video::IQueryPool::EQRF_WITH_AVAILABILITY_BIT) | video::IQueryPool::EQRF_64_BIT | video::IQueryPool::EQRF_WAIT_BIT;
-            logicalDevice->getQueryPoolResults(occlusionQueryPool.get(), 0u, 2u, sizeof(samples_passed), &samples_passed, sizeof(uint64_t) * 2, queryResultFlags);
-            logger->log("[WAIT+AVAIL+64] Samples Passed [1] = %d, Samples Passed [2] = %d, Result Available = %d, %d", system::ILogger::ELL_INFO, samples_passed[0], samples_passed[2], samples_passed[1], samples_passed[3]);
+            logicalDevice->getQueryPoolResults(occlusionQueryPool.get(), 0u, 2u, sizeof(samples_passed), samples_passed, sizeof(uint64_t) * 2, queryResultFlags);
+            logger->log("[WAIT+AVAIL+64] SamplesPassed[0] = %d, SamplesPassed[1] = %d, Result Available = %d, %d", system::ILogger::ELL_INFO, samples_passed[0], samples_passed[2], samples_passed[1], samples_passed[3]);
         }
         {
             uint32_t samples_passed[2] = {};
-            auto queryResultFlags = core::bitflag<video::IQueryPool::E_QUERY_RESULTS_FLAGS>(video::IQueryPool::EQRF_64_BIT) | video::IQueryPool::EQRF_WAIT_BIT;
-            logicalDevice->getQueryPoolResults(occlusionQueryPool.get(), 0u, 2u, sizeof(samples_passed), &samples_passed, sizeof(uint32_t), queryResultFlags);
-            logger->log("[WAIT] Samples Passed [0] = %d, Samples Passed [1] = %d", system::ILogger::ELL_INFO, samples_passed[0], samples_passed[1]);
+            auto queryResultFlags = core::bitflag<video::IQueryPool::E_QUERY_RESULTS_FLAGS>(video::IQueryPool::EQRF_WAIT_BIT);
+            logicalDevice->getQueryPoolResults(occlusionQueryPool.get(), 0u, 2u, sizeof(samples_passed), samples_passed, sizeof(uint32_t), queryResultFlags);
+            logger->log("[WAIT] SamplesPassed[0] = %d, SamplesPassed[1] = %d", system::ILogger::ELL_INFO, samples_passed[0], samples_passed[1]);
         }
         {
             uint64_t timestamps[4] = {};
