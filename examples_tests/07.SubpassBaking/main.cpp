@@ -63,6 +63,9 @@ public:
     core::smart_refctd_ptr<video::IGPUBuffer> cameraUBO;
     video::CDumbPresentationOracle oracle;
     const asset::COBJMetadata::CRenderpassIndependentPipeline* pipelineMetadata = nullptr;
+    
+    core::smart_refctd_ptr<video::IQueryPool> occlusionQueryPool;
+    core::smart_refctd_ptr<video::IQueryPool> timestampQueryPool;
 
     uint32_t acquiredNextFBO = {};
     int resourceIx = -1;
@@ -117,6 +120,25 @@ public:
 
     APP_CONSTRUCTOR(SubpassBaking)
 
+    void getAndLogQueryPoolResults()
+    {
+#ifdef QUERY_POOL_LOGS
+        bool all_results_available = false;
+        uint64_t samples_passed[4] = {};
+        while(!all_results_available)
+        {
+            auto queryResultFlags = core::bitflag<video::IQueryPool::E_QUERY_RESULTS_FLAGS>(video::IQueryPool::EQRF_WITH_AVAILABILITY_BIT) | video::IQueryPool::EQRF_64_BIT;
+            logicalDevice->getQueryPoolResults(occlusionQueryPool.get(), 0u, 2u, sizeof(samples_passed), samples_passed, sizeof(uint64_t) * 2, queryResultFlags);
+
+            all_results_available = true;
+            all_results_available &= samples_passed[1];
+            // all_results_available &= samples_passed[3];
+        }
+
+        logger->log("SamplesPassed[0] = %d, SamplesPassed[1] = %d", system::ILogger::ELL_INFO, samples_passed[0], samples_passed[2]);
+#endif
+    }
+
     void onAppInitialized_impl() override
     {
         CommonAPI::InitOutput initOutput;
@@ -142,6 +164,23 @@ public:
         windowCb = std::move(initOutput.windowCb);
         cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
         utilities = std::move(initOutput.utilities);
+        
+        // Occlusion Query
+        {
+            video::IQueryPool::SCreationParams queryPoolCreationParams = {};
+            queryPoolCreationParams.queryType = video::IQueryPool::EQT_OCCLUSION;
+            queryPoolCreationParams.queryCount = 2u;
+            occlusionQueryPool = logicalDevice->createQueryPool(std::move(queryPoolCreationParams));
+        }
+
+        // Timestamp Query
+        video::IQueryPool::SCreationParams queryPoolCreationParams = {};
+        {
+            video::IQueryPool::SCreationParams queryPoolCreationParams = {};
+            queryPoolCreationParams.queryType = video::IQueryPool::EQT_TIMESTAMP;
+            queryPoolCreationParams.queryCount = 2u;
+            timestampQueryPool = logicalDevice->createQueryPool(std::move(queryPoolCreationParams));
+        }
 
         asset::ICPUMesh* meshRaw = nullptr;
         const asset::COBJMetadata* metaOBJ = nullptr;
@@ -247,7 +286,7 @@ public:
         inheritanceInfo.renderpass = renderpass;
         inheritanceInfo.subpass = 0; // this should probably be kSubpassIx?
         // inheritanceInfo.framebuffer = ;
-        // inheritanceInfo.occlusionQueryEnable = ;
+        inheritanceInfo.occlusionQueryEnable = true;
         // inheritanceInfo.queryFlags = ;
 
         bakedCommandBuffer->begin(video::IGPUCommandBuffer::EU_RENDER_PASS_CONTINUE_BIT | video::IGPUCommandBuffer::EU_SIMULTANEOUS_USE_BIT, &inheritanceInfo);
@@ -543,15 +582,24 @@ public:
                 beginInfo.clearValues = clear;
             }
 
+            commandBuffer->resetQueryPool(occlusionQueryPool.get(), 0u, 2u);
+            commandBuffer->resetQueryPool(timestampQueryPool.get(), 0u, 2u);
+
+            commandBuffer->beginQuery(occlusionQueryPool.get(), 0u);
+
             commandBuffer->beginRenderPass(&beginInfo, nbl::asset::ESC_SECONDARY_COMMAND_BUFFERS);
             commandBuffer->executeCommands(1u, &bakedCommandBuffer.get());
             commandBuffer->endRenderPass();
+
+            commandBuffer->endQuery(occlusionQueryPool.get(), 0u);
 
             commandBuffer->end();
         }
 
         CommonAPI::Submit(logicalDevice.get(), swapchain.get(), commandBuffer.get(), queues[CommonAPI::InitOutput::EQT_GRAPHICS], imageAcquire[resourceIx].get(), renderFinished[resourceIx].get(), fence.get());
         CommonAPI::Present(logicalDevice.get(), swapchain.get(), queues[CommonAPI::InitOutput::EQT_GRAPHICS], renderFinished[resourceIx].get(), acquiredNextFBO);
+
+        getAndLogQueryPoolResults();
     }
 
     bool keepRunning() override
