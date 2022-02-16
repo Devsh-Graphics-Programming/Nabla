@@ -30,7 +30,7 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
             uint32_t SSBOAlignment;
             uint32_t bufferViewAlignment;
             float    maxSamplerAnisotropyLog2;
-            float    timestampPeriodInNanoSeconds;
+            float    timestampPeriodInNanoSeconds; // timestampPeriod is the number of nanoseconds required for a timestamp query to be incremented by 1 (a float because vulkan reports), use core::rational in the future
 
             uint32_t maxUBOSize;
             uint32_t maxSSBOSize;
