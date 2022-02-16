@@ -314,7 +314,7 @@ set(NABLA_SRCS_COMMON
 	${NBL_UI_SOURCES}
 )
 
-if(MSVC AND NBL_BUILD_TOOLS)
+if(MSVC)
 	list(APPEND NABLA_SRCS_COMMON "${PROJECT_SOURCE_DIR}/tools/debug/VisualStudio/DynamicArrayVisualizer.natvis")
 endif()
 
