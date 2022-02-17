@@ -110,7 +110,7 @@ public:
         m_threadHandler.waitForInitComplete();
     }
 
-    virtual const void* getNativeHandle() const override {return nullptr;}
+    virtual const void* getNativeHandle() const override {return &m_threadHandler.glctx;}
 
 protected:
     // images will be created in COpenGLLogicalDevice::createSwapchain
@@ -149,7 +149,7 @@ private:
         ) : m_device(dev), m_masterContextCallsWaited(0),
             egl(_egl),
             m_presentMode(presentMode),
-            thisCtx(_ctx), surface(EGL_NO_SURFACE),
+            glctx{_ctx,EGL_NO_SURFACE},
             features(_features),
             images(_images),
             m_dbgCb(_dbgCb)
@@ -165,8 +165,8 @@ private:
                 EGL_NONE
             };
 
-            surface = _egl->call.peglCreateWindowSurface(_egl->display, _config, (EGLNativeWindowType)_window, surface_attributes);
-            assert(surface != EGL_NO_SURFACE);
+            glctx.surface = _egl->call.peglCreateWindowSurface(_egl->display, _config, (EGLNativeWindowType)_window, surface_attributes);
+            assert(glctx.surface != EGL_NO_SURFACE);
 
             base_t::start();
         }
@@ -195,13 +195,14 @@ private:
             return syncs[imgix];
         }
 
+        egl::CEGL::Context glctx;
     protected:
 
         void init(SThreadHandlerInternalState* state_ptr)
         {
             egl->call.peglBindAPI(FunctionTableType::EGL_API_TYPE);
 
-            EGLBoolean mcres = egl->call.peglMakeCurrent(egl->display, surface, surface, thisCtx);
+            EGLBoolean mcres = egl->call.peglMakeCurrent(egl->display, glctx.surface, glctx.surface, glctx.ctx);
             assert(mcres == EGL_TRUE);
 
             m_ctxCreatedCvar.notify_one();
@@ -285,7 +286,7 @@ private:
             syncs[imgix]->init(m_device, &gl, false);
             // swap buffers performs an implicit flush before swapping 
             // https://www.khronos.org/registry/EGL/sdk/docs/man/html/eglSwapBuffers.xhtml
-            egl->call.peglSwapBuffers(egl->display, surface);
+            egl->call.peglSwapBuffers(egl->display, glctx.surface);
         }
 
         void exit(SThreadHandlerInternalState* gl)
@@ -297,8 +298,8 @@ private:
             gl->~SThreadHandlerInternalState();
 
             egl->call.peglMakeCurrent(egl->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
-            egl->call.peglDestroyContext(egl->display, thisCtx);
-            egl->call.peglDestroySurface(egl->display, surface);
+            egl->call.peglDestroyContext(egl->display, glctx.ctx);
+            egl->call.peglDestroySurface(egl->display, glctx.surface);
         }
 
         bool wakeupPredicate() const { return needToBlit; }
@@ -309,16 +310,15 @@ private:
         uint64_t m_masterContextCallsWaited;
 
 		const egl::CEGL* egl;
-		EGLContext thisCtx;
-		EGLSurface surface;
         ISurface::E_PRESENT_MODE m_presentMode;
 		const COpenGLFeatureMap* features;
         core::SRange<core::smart_refctd_ptr<IGPUImage>> images;
         GLuint fbos[MaxImages]{};
         core::smart_refctd_ptr<COpenGLSync> syncs[MaxImages];
         COpenGLDebugCallback* m_dbgCb;
-        std::array<GLuint, MaxImages> m_texViews;
-        struct SRequest {
+        std::array<GLuint,MaxImages> m_texViews;
+        struct SRequest
+        {
             SRequest() { sems.reserve(50); }
 
             uint32_t imgIx = 0u;

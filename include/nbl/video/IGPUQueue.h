@@ -63,7 +63,7 @@ class IGPUQueue : public core::Interface, public core::Unmovable
 
         inline constexpr static float DEFAULT_QUEUE_PRIORITY = 1.f;
 
-        // OpenGL: GLsync_
+        // OpenGL: const egl::CEGL::Context*
         // Vulkan: const VkQueue*
         virtual const void* getNativeHandle() const = 0;
 

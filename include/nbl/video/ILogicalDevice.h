@@ -644,7 +644,7 @@ class ILogicalDevice : public core::IReferenceCounted
             return IGPUAccelerationStructure::BuildSizes{};
         }
 
-        // OpenGL: EGL
+        // OpenGL: const egl::CEGL::Context*
         // Vulkan: const VkDevice*
         virtual const void* getNativeHandle() const = 0;
 

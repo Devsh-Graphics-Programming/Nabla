@@ -15,12 +15,6 @@ class COpenGL_Connection final : public IAPIConnection
 {
     public:
         //
-        struct SStuff
-        {
-            // to load function pointers, make EGL context current and use `egl->call.peglGetProcAddress("glFuncname")`
-        };
-
-        //
         static core::smart_refctd_ptr<COpenGL_Connection<API_TYPE>> create(core::smart_refctd_ptr<system::ISystem>&& sys, uint32_t appVer, const char* appName, COpenGLDebugCallback&& dbgCb);
 
         E_API_TYPE getAPIType() const override

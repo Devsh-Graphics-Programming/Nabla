@@ -128,11 +128,11 @@ class COpenGL_Queue final : public IGPUQueue
             using base_t = system::IAsyncQueueDispatcher<CThreadHandler, SRequest, 256u, ThreadInternalStateType>;
             friend base_t;
 
-            CThreadHandler(const egl::CEGL* _egl, renderdoc_api_t* rdoc, IOpenGL_LogicalDevice* dev, const FeaturesType* _features, EGLContext _ctx, EGLSurface _pbuf, uint32_t _ctxid, COpenGLDebugCallback* _dbgCb) :
+            CThreadHandler(const egl::CEGL* _egl, renderdoc_api_t* rdoc, IOpenGL_LogicalDevice* dev, const FeaturesType* _features, const egl::CEGL::Context& _glctx, uint32_t _ctxid, COpenGLDebugCallback* _dbgCb) :
                 m_rdoc_api(rdoc),
                 egl(_egl),
                 m_device(dev), m_masterContextCallsWaited(0),
-                thisCtx(_ctx), pbuffer(_pbuf),
+                glctx(_glctx),
                 features(_features),
                 m_ctxid(_ctxid),
                 m_dbgCb(_dbgCb)
@@ -158,7 +158,7 @@ class COpenGL_Queue final : public IGPUQueue
                 EGLBoolean mcres = EGL_FALSE;
                 while (mcres!=EGL_TRUE)
                 {
-                    mcres = egl->call.peglMakeCurrent(egl->display,pbuffer,pbuffer,thisCtx);
+                    mcres = egl->call.peglMakeCurrent(egl->display, glctx.surface, glctx.surface, glctx.ctx);
                     /*
                     * I think Queue context creation has a timing bug
                     * Debug build breaks, context can never be made current
@@ -168,9 +168,9 @@ class COpenGL_Queue final : public IGPUQueue
                     //_NBL_DEBUG_BREAK_IF(mcres!=EGL_TRUE);
                 }
 
-            #ifndef _NBL_PLATFORM_ANDROID_
-                egl->call.peglGetPlatformDependentHandles(&nativeHandles, egl->display, pbuffer, thisCtx);
-            #endif
+                #ifndef _NBL_PLATFORM_ANDROID_
+                egl->call.peglGetPlatformDependentHandles(&nativeHandles, egl->display, glctx.surface, glctx.ctx);
+                #endif
                 new (state_ptr) ThreadInternalStateType(egl,features,core::smart_refctd_ptr<system::ILogger>(m_dbgCb->getLogger()));
                 auto& gl = state_ptr->gl;
                 auto& ctxlocal = state_ptr->ctxlocal;
@@ -323,18 +323,17 @@ class COpenGL_Queue final : public IGPUQueue
                 state_ptr->~ThreadInternalStateType();
 
                 egl->call.peglMakeCurrent(egl->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT); // detach ctx from thread
-                egl->call.peglDestroyContext(egl->display, thisCtx);
-                egl->call.peglDestroySurface(egl->display, pbuffer);
+                egl->call.peglDestroyContext(egl->display, glctx.ctx);
+                egl->call.peglDestroySurface(egl->display, glctx.surface);
             }
 
             renderdoc_api_t* m_rdoc_api;
+            egl::CEGL::Context glctx;
         private:
             const egl::CEGL* egl;
             IOpenGL_LogicalDevice* m_device;
             uint64_t m_masterContextCallsWaited;
 
-            EGLContext thisCtx;
-            EGLSurface pbuffer;
             const FeaturesType* features;
             uint32_t m_ctxid;
             COpenGLDebugCallback* m_dbgCb;
@@ -350,14 +349,13 @@ class COpenGL_Queue final : public IGPUQueue
             const egl::CEGL* _egl,
             const FeaturesType* _features,
             uint32_t _ctxid,
-            EGLContext _ctx,
-            EGLSurface _surface,
+            const egl::CEGL::Context& _glctx,
             uint32_t _famIx,
             E_CREATE_FLAGS _flags,
             float _priority,
             COpenGLDebugCallback* _dbgCb
         ) : IGPUQueue(gldev,_famIx,_flags,_priority),
-            threadHandler(_egl,rdoc,gldev,_features,_ctx,_surface,_ctxid,_dbgCb),
+            threadHandler(_egl,rdoc,gldev,_features,_glctx,_ctxid,_dbgCb),
             m_mempool(128u,1u,512u,sizeof(void*)),
             m_ctxid(_ctxid)
         {
@@ -556,7 +554,7 @@ class COpenGL_Queue final : public IGPUQueue
             return true;
         }
 
-        const void* getNativeHandle() const override {return nullptr;}
+        const void* getNativeHandle() const override {return &threadHandler.glctx;}
 
     protected:
         ~COpenGL_Queue()

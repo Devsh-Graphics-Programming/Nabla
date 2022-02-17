@@ -7,9 +7,20 @@
 namespace nbl::video::egl
 {
 
+// any EGL handles are not native EGL handles, they come from our EGL over WGL/GLX/EGL implementation!
 class CEGL
 {
     public:
+        //
+        struct Context
+        {
+            EGLContext ctx = EGL_NO_CONTEXT;
+            EGLSurface surface = EGL_NO_SURFACE;
+
+            // to load function pointers, make EGL context current and use `egl->call.peglGetProcAddress("glFuncname")`
+        };
+
+        //
         CEGL(const char* eglOptionalPath) : call(eglOptionalPath) {}
 
         bool initialize()

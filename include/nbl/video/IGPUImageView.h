@@ -20,7 +20,7 @@ class IGPUImageView : public asset::IImageView<IGPUImage>, public IBackendObject
         const SCreationParams& getCreationParameters() const { return params; }
 
 		// OpenGL: const GLuint* handle of GL_TEXTURE_VIEW target
-		// Vulkan: const VKImageView*
+		// Vulkan: const VkImageView*
 		virtual const void* getNativeHandle() const = 0;
 
 	protected:
