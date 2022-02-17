@@ -12,14 +12,20 @@ namespace nbl::system
 {
 
 class ISystem;
+
+// TODO:
+//namespace impl
+//{
 template<typename T>
 class future;
+//}
 
 class IFile : public core::IReferenceCounted
 {
-	friend class ISystemCaller;
-	friend class ISystem;
-	friend class IFileArchive;
+		friend class ISystemCaller;
+		friend class ISystem;
+		friend class IFileArchive;
+
 	public:
 		enum E_CREATE_FLAGS : uint32_t
 		{
@@ -53,6 +59,37 @@ class IFile : public core::IReferenceCounted
 		// TODO: make the `ISystem` methods protected instead 
 		void read(future<size_t>& fut, void* buffer, size_t offset, size_t sizeToRead);
 		void write(future<size_t>& fut, const void* buffer, size_t offset, size_t sizeToWrite);
+
+		/* TODO: future utility
+		struct success
+		{
+			public:
+				success() = default;
+				~success() = default;
+				inline explicit operator bool()
+				{
+					return m_internalFuture.get()==sizeToProcess;
+				}
+				inline bool operator!()
+				{
+					return m_internalFuture.get()!=sizeToProcess;
+				}
+			private:
+				friend IFile;
+				future<size_t> m_internalFuture;
+				size_t sizeToProcess;
+		};
+		void read(success& fut, void* buffer, size_t offset, size_t sizeToRead)
+		{
+			read(fut.m_internalFuture,buffer,offset,sizeToRead);
+			fut.sizeToProcess = sizeToRead;
+		}
+		void write(success& fut, const void* buffer, size_t offset, size_t sizeToWrite)
+		{
+			write(fut.m_internalFuture,buffer,offset,sizeToWrite);
+			fut.sizeToProcess = sizeToWrite;
+		}
+		*/
 
 		static path flattenFilename(const path& p);
 
