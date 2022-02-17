@@ -1320,6 +1320,8 @@ public:
 
         return true;
     }
+
+    inline const void* getNativeHandle() const override {return nullptr;}
 };
 
 }

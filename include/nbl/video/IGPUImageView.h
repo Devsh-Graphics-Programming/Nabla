@@ -19,6 +19,10 @@ class IGPUImageView : public asset::IImageView<IGPUImage>, public IBackendObject
 	public:
         const SCreationParams& getCreationParameters() const { return params; }
 
+		// OpenGL: const GLuint* handle of GL_TEXTURE_VIEW target
+		// Vulkan: const VKImageView*
+		virtual const void* getNativeHandle() const = 0;
+
 	protected:
 		IGPUImageView(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& _params) : IImageView<IGPUImage>(std::move(_params)), IBackendObject(std::move(dev)) {}
 		virtual ~IGPUImageView() = default;

@@ -39,8 +39,8 @@ namespace nbl::video
 
 namespace impl
 {
-    class IOpenGL_LogicalDeviceBase
-    {
+class IOpenGL_LogicalDeviceBase
+{
     public:
         static inline constexpr uint32_t MaxQueueCount = 8u;
         static inline constexpr uint32_t MaxGlNamesForSingleObject = MaxQueueCount + 1u;
@@ -264,7 +264,7 @@ namespace impl
             static inline constexpr E_REQUEST_TYPE type = ERT_WAIT_IDLE;
             using retval_t = void;
         };
-    };
+};
 
 /*
     template <>
@@ -971,6 +971,8 @@ public:
     virtual void destroySync(GLsync sync) = 0;
     virtual void setObjectDebugName(GLenum id, GLuint object, GLsizei len, const GLchar* label) = 0;
     virtual void destroyQueryPool(COpenGLQueryPool* qp) = 0;
+    
+    const void* getNativeHandle() const override {return nullptr;}
 };
 
 }

@@ -19,6 +19,10 @@ class IGPUSampler : public asset::ISampler, public IBackendObject
 
     public:
         IGPUSampler(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const SParams& params) : ISampler(params), IBackendObject(std::move(dev)) {}
+
+        // OpenGL: const GLuint* handle
+        // Vulkan: const VkSampler
+        virtual const void* getNativeHandle() const = 0;
 };
 
 }

@@ -117,7 +117,8 @@ class COpenGLSampler : public IGPUSampler
 
 		void setObjectDebugName(const char* label) const override;
 
-		GLuint getOpenGLName() const { return m_GLname; }
+		const void* getNativeHandle() const override {return &m_GLname;}
+		GLuint getOpenGLName() const {return m_GLname;}
 
 	private:
 		GLuint m_GLname;

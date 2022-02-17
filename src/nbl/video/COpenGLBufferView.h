@@ -34,8 +34,10 @@ class COpenGLBufferView : public IGPUBufferView
 			m_textureSize = m_size / asset::getTexelOrBlockBytesize(m_format);
 		}
 
-		GLuint getOpenGLName() const { return m_textureName; }
-		GLenum getInternalFormat() const { return m_GLformat; }
+		inline GLuint getOpenGLName() const {return m_textureName;}
+		inline const void* getNativeHandle() const override {return &m_textureName;}
+
+		inline GLenum getInternalFormat() const { return m_GLformat; }
 
 	protected:
 		virtual ~COpenGLBufferView();

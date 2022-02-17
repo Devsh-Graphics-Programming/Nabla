@@ -63,49 +63,52 @@ class IGPUQueue : public core::Interface, public core::Unmovable
 
         inline constexpr static float DEFAULT_QUEUE_PRIORITY = 1.f;
 
-    protected:
-    
-    inline bool markCommandBuffersAsPending(uint32_t _count, const SSubmitInfo* _submits)
-    {
-        if(_submits == nullptr)
-            return false;
-        for (uint32_t i = 0u; i < _count; ++i)
-        {
-            auto& submit = _submits[i];
-            for (uint32_t j = 0u; j < submit.commandBufferCount; ++j)
-            {
-                auto& cmdbuf = submit.commandBuffers[j];
-                if(cmdbuf == nullptr)
-                    return false;
-                submit.commandBuffers[j]->setState(IGPUCommandBuffer::ES_PENDING);
-            }
-        }
-        return true;
-    }
-    
-    inline bool markCommandBuffersAsDone(uint32_t _count, const SSubmitInfo* _submits)
-    {
-        if(_submits == nullptr)
-            return false;
-        for (uint32_t i = 0u; i < _count; ++i)
-        {
-            auto& submit = _submits[i];
-            for (uint32_t j = 0u; j < submit.commandBufferCount; ++j)
-            {
-                auto& cmdbuf = submit.commandBuffers[j];
-                if(cmdbuf == nullptr)
-                    return false;
-
-                if (cmdbuf->isResettable())
-                    cmdbuf->setState(IGPUCommandBuffer::ES_EXECUTABLE);
-                else
-                    cmdbuf->setState(IGPUCommandBuffer::ES_INVALID);
-            }
-        }
-        return true;
-    }
+        // OpenGL: GLsync_
+        // Vulkan: const VkQueue*
+        virtual const void* getNativeHandle() const = 0;
 
     protected:
+        inline bool markCommandBuffersAsPending(uint32_t _count, const SSubmitInfo* _submits)
+        {
+            if(_submits == nullptr)
+                return false;
+            for (uint32_t i = 0u; i < _count; ++i)
+            {
+                auto& submit = _submits[i];
+                for (uint32_t j = 0u; j < submit.commandBufferCount; ++j)
+                {
+                    auto& cmdbuf = submit.commandBuffers[j];
+                    if(cmdbuf == nullptr)
+                        return false;
+                    submit.commandBuffers[j]->setState(IGPUCommandBuffer::ES_PENDING);
+                }
+            }
+            return true;
+        }
+    
+        inline bool markCommandBuffersAsDone(uint32_t _count, const SSubmitInfo* _submits)
+        {
+            if(_submits == nullptr)
+                return false;
+            for (uint32_t i = 0u; i < _count; ++i)
+            {
+                auto& submit = _submits[i];
+                for (uint32_t j = 0u; j < submit.commandBufferCount; ++j)
+                {
+                    auto& cmdbuf = submit.commandBuffers[j];
+                    if(cmdbuf == nullptr)
+                        return false;
+
+                    if (cmdbuf->isResettable())
+                        cmdbuf->setState(IGPUCommandBuffer::ES_EXECUTABLE);
+                    else
+                        cmdbuf->setState(IGPUCommandBuffer::ES_INVALID);
+                }
+            }
+            return true;
+        }
+
+
         const uint32_t m_familyIndex;
         const E_CREATE_FLAGS m_flags;
         const float m_priority;

@@ -21,7 +21,8 @@ public:
 
     ISwapchain::E_PRESENT_RESULT present(const SPresentInfo& info) override;
 
-    inline VkQueue getInternalObject() const { return m_vkQueue; }
+    inline const void* getNativeHandle() const override {return &m_vkQueue;}
+    inline VkQueue getInternalObject() const {return m_vkQueue;}
 
     bool startCapture() override;
     bool endCapture() override;

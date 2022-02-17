@@ -15,6 +15,7 @@ class IPhysicalDevice;
 class IAPIConnection : public core::IReferenceCounted
 {
 public:
+    // TODO: are these "instance features" ?
     enum E_FEATURE
     {
         EF_SURFACE = 0,
@@ -30,6 +31,7 @@ public:
     static core::SRange<const E_FEATURE> getDependentFeatures(const E_FEATURE feature);
 
 protected:
+    // TODO: move to IAPIConnection.cpp
     inline IAPIConnection() : m_physicalDevices(), m_rdoc_api(nullptr)
     {
 #ifdef _NBL_PLATFORM_WINDOWS_

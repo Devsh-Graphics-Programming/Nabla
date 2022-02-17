@@ -30,6 +30,10 @@ class IGPUFence : public core::IReferenceCounted, public IBackendObject
         {
         }
 
+        // OpenGL: core::smart_refctd_ptr<COpenGLSync>*
+        // Vulkan: const VkFence*
+        virtual void* getNativeHandle() = 0;
+
     protected:
         virtual ~IGPUFence() = default;
 };

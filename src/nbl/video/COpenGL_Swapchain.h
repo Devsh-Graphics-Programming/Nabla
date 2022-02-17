@@ -110,6 +110,8 @@ public:
         m_threadHandler.waitForInitComplete();
     }
 
+    virtual const void* getNativeHandle() const override {return nullptr;}
+
 protected:
     // images will be created in COpenGLLogicalDevice::createSwapchain
     COpenGL_Swapchain(

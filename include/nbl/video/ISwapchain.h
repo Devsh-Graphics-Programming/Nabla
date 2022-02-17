@@ -84,6 +84,10 @@ class ISwapchain : public core::IReferenceCounted, public IBackendObject
             return m_params;
         }
 
+        // OpenGL: EGL
+        // Vulkan: const VkSwapchainKHR*
+        virtual const void* getNativeHandle() const = 0;
+
     protected:
         virtual ~ISwapchain() = default;
 

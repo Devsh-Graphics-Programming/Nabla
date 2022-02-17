@@ -1,5 +1,5 @@
-#ifndef __NBL_C_EGL_CALLER_H_INCLUDED__
-#define __NBL_C_EGL_CALLER_H_INCLUDED__
+#ifndef _NBL_C_EGL_CALLER_H_INCLUDED_
+#define _NBL_C_EGL_CALLER_H_INCLUDED_
 
 #include "EGL/egl.h"
 #include "nbl/system/DynamicFunctionCaller.h"
@@ -59,7 +59,6 @@ namespace nbl::video::egl
     eglWaitSync,\
     eglGetPlatformDependentHandles
 
-#define NBL_IMPL_GET_FUNC_PTR(FUNC_NAME) reinterpret_cast<void*>(&::FUNC_NAME)
 class CEGLLoader : public system::FuncPtrLoader
 {
         system::DefaultFuncPtrLoader m_libEGL;
@@ -84,55 +83,17 @@ class CEGLLoader : public system::FuncPtrLoader
         {
             if (m_libEGL.isLibraryLoaded())
                 return m_libEGL.loadFuncPtr(funcname);
+
+            #define NBL_IMPL_GET_FUNC_PTR(FUNC_NAME) reinterpret_cast<void*>(&::FUNC_NAME)
             #define LOAD_DYNLIB_FUNCPTR(FUNC_NAME) if (strcmp(funcname, #FUNC_NAME )==0) \
                 return NBL_IMPL_GET_FUNC_PTR(FUNC_NAME);
             NBL_FOREACH(LOAD_DYNLIB_FUNCPTR,NBL_EGL_FUNC_LIST)
             #undef LOAD_DYNLIB_FUNCPTR
+            #undef NBL_IMPL_GET_FUNC_PTR
             return nullptr;
         }
 };
 NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(CEGLCaller,CEGLLoader,NBL_EGL_FUNC_LIST);
-
-/*
-class CEGLCaller final : public core::Uncopyable
-{
-
-
-
-
-    public:
-        #define NBL_IMPL_INIT_EGL_FUNCPTR(FUNC_NAME) ,p ## FUNC_NAME ( NBL_IMPL_GET_FUNC_PTR(FUNC_NAME) )
-        #define NBL_IMPL_INIT_EGL_FUNC_PTRS(...)\
-            NBL_FOREACH(NBL_IMPL_INIT_EGL_FUNCPTR,__VA_ARGS__)
-        CEGLCaller() : core::Uncopyable()
-            NBL_IMPL_INIT_EGL_FUNC_PTRS(NBL_EGL_FUNC_LIST)
-        {
-        }
-        #undef NBL_IMPL_INIT_EGL_FUNC_PTRS
-        #undef NBL_IMPL_INIT_EGL_FUNCPTR
-        #undef NBL_IMPL_GET_FUNC_PTR
-        CEGLCaller(CEGLCaller&& other)
-        {
-            operator=(std::move(other));
-        }
-
-        CEGLCaller& operator=(CEGLCaller&& other)
-        {
-            #define NBL_IMPL_SWAP_EGL_FUNC_PTRS(...)\
-                NBL_FOREACH(NBL_SYSTEM_IMPL_SWAP_DYNLIB_FUNCPTR,__VA_ARGS__);
-            NBL_IMPL_SWAP_EGL_FUNC_PTRS(NBL_EGL_FUNC_LIST);
-            #undef NBL_IMPL_SWAP_EGL_FUNC_PTRS
-
-            return *this;
-        }
-
-        #define NBL_IMPL_DECLARE_EGL_FUNC_PTRS(...)\
-            NBL_FOREACH(NBL_SYSTEM_DECLARE_DYNLIB_FUNCPTR,__VA_ARGS__);
-        NBL_IMPL_DECLARE_EGL_FUNC_PTRS(NBL_EGL_FUNC_LIST)
-        #undef NBL_IMPL_DECLARE_EGL_FUNC_PTRS
-
-};
-*/
 
 #undef NBL_EGL_FUNC_LIST
 }

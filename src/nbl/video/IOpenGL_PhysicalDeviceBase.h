@@ -21,12 +21,25 @@ namespace nbl::video
 
 class IOpenGLPhysicalDeviceBase : public IPhysicalDevice
 {
-public:
-	static inline constexpr uint32_t MaxQueues = 8u;
+	public:
+		static inline constexpr uint32_t MaxQueues = 8u;
 
-	IOpenGLPhysicalDeviceBase(core::smart_refctd_ptr<system::ISystem>&& s, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc)
-		: IPhysicalDevice(std::move(s), std::move(glslc))
-	{}
+		IOpenGLPhysicalDeviceBase(
+			core::smart_refctd_ptr<system::ISystem>&& s,
+			core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc,
+			egl::CEGL&& _egl
+		) : IPhysicalDevice(std::move(s),std::move(glslc)), m_egl(std::move(_egl))
+		{}
+	
+		const egl::CEGL& getInternalObject() const {return m_egl;}
+		
+	protected:
+		virtual ~IOpenGLPhysicalDeviceBase()
+		{
+			m_egl.deinitialize();
+		}
+
+		egl::CEGL m_egl;
 };
 
 template <typename LogicalDeviceType>
@@ -171,7 +184,7 @@ protected:
 
 public:
 	IOpenGL_PhysicalDeviceBase(IAPIConnection* api, renderdoc_api_t* rdoc, core::smart_refctd_ptr<system::ISystem>&& s, egl::CEGL&& _egl, COpenGLDebugCallback&& _dbgCb, EGLConfig _config, EGLContext ctx, EGLint _major, EGLint _minor)
-		: IOpenGLPhysicalDeviceBase(std::move(s),core::make_smart_refctd_ptr<asset::IGLSLCompiler>(s.get())), m_api(api), m_rdoc_api(rdoc), m_egl(std::move(_egl)), m_dbgCb(std::move(_dbgCb)), m_config(_config), m_gl_major(_major), m_gl_minor(_minor)
+		: IOpenGLPhysicalDeviceBase(std::move(s),core::make_smart_refctd_ptr<asset::IGLSLCompiler>(s.get()),std::move(_egl)), m_api(api), m_rdoc_api(rdoc), m_dbgCb(std::move(_dbgCb)), m_config(_config), m_gl_major(_major), m_gl_minor(_minor)
 	{
 		// OpenGL backend emulates presence of just one queue family with all capabilities (graphics, compute, transfer, ... what about sparse binding?)
 		SQueueFamilyProperties qprops;
@@ -529,7 +542,7 @@ public:
 		}
 		finalizeGLSLDefinePool(std::move(pool));
 
-		// we dont need this any more
+		// we dont need this context any more
 		m_egl.call.peglMakeCurrent(m_egl.display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
 		m_egl.call.peglDestroyContext(m_egl.display, ctx);
 		m_egl.call.peglDestroySurface(m_egl.display, pbuf);
@@ -543,14 +556,8 @@ public:
 	bool isSwapchainSupported() const override { return true; }
 
 protected:
-	virtual ~IOpenGL_PhysicalDeviceBase()
-	{
-		m_egl.deinitialize();
-	}
-
 	IAPIConnection* m_api; // dumb pointer to avoid circ ref
 	renderdoc_api_t* m_rdoc_api;
-	egl::CEGL m_egl;
 	COpenGLDebugCallback m_dbgCb;
 
 	EGLConfig m_config;

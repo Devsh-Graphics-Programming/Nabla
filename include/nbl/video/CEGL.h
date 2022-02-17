@@ -1,5 +1,5 @@
-#ifndef __NBL_C_EGL_H_INCLUDED__
-#define __NBL_C_EGL_H_INCLUDED__
+#ifndef _NBL_C_EGL_H_INCLUDED_
+#define _NBL_C_EGL_H_INCLUDED_
 
 //#include "nbl/video/CWaylandCaller.h"
 #include "nbl/video/CEGLCaller.h"

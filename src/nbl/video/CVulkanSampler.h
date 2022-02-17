@@ -18,7 +18,8 @@ public:
 
     ~CVulkanSampler();
 
-    inline VkSampler getInternalObject() const { return m_sampler; }
+    const void* getNativeHandle() const override {return &m_sampler;}
+    inline VkSampler getInternalObject() const {return m_sampler;}
 
     void setObjectDebugName(const char* label) const override;
 

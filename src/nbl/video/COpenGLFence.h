@@ -26,21 +26,20 @@ class COpenGLFence final : public IGPUFence, public IOpenGLSyncPrimitiveBase
         // un-signaled ctor
         explicit COpenGLFence(core::smart_refctd_ptr<IOpenGL_LogicalDevice>&& _dev) : IGPUFence(std::move(_dev), static_cast<E_CREATE_FLAGS>(0))
         {
-
         }
 
-    E_STATUS wait(IOpenGL_FunctionTable* _gl, uint64_t timeout)
-    {
-        if (!m_sync || !m_sync->isInitialized())
-            return ES_NOT_READY;
-        COpenGLSync::E_STATUS status = m_sync->waitCPU(_gl, timeout);
-        if (status == COpenGLSync::ES_FAIL)
-            return ES_ERROR;
-        else if (status == COpenGLSync::ES_TIMEOUT_EXPIRED)
-            return ES_TIMEOUT;
-        else
-            return ES_SUCCESS;
-    }
+        E_STATUS wait(IOpenGL_FunctionTable* _gl, uint64_t timeout)
+        {
+            if (!m_sync || !m_sync->isInitialized())
+                return ES_NOT_READY;
+            COpenGLSync::E_STATUS status = m_sync->waitCPU(_gl, timeout);
+            if (status == COpenGLSync::ES_FAIL)
+                return ES_ERROR;
+            else if (status == COpenGLSync::ES_TIMEOUT_EXPIRED)
+                return ES_TIMEOUT;
+            else
+                return ES_SUCCESS;
+        }
 
         E_STATUS getStatus(IOpenGL_FunctionTable* _gl)
         {
@@ -62,6 +61,8 @@ class COpenGLFence final : public IGPUFence, public IOpenGLSyncPrimitiveBase
         {
             IOpenGLSyncPrimitiveBase::reset();
         }
+        
+        void* getNativeHandle() override {return &m_sync;}
 };
 
 }

@@ -4,8 +4,7 @@
 #include "nbl/video/IOpenGL_FunctionTable.h"
 #include "nbl/core/IReferenceCounted.h"
 
-namespace nbl {
-namespace video
+namespace nbl::video
 {
 
 class IOpenGL_LogicalDevice;
@@ -113,10 +112,8 @@ class COpenGLSync final : public core::IReferenceCounted
             }
         }
 
-        inline GLsync getOpenGLName() const
-        {
-            return sync;
-        }
+        //inline const volatile GLsync* getNativeHandle() const {return &sync;}
+        inline GLsync getOpenGLName() const {return sync;}
 
         bool isInitialized() const
         {
@@ -132,6 +129,6 @@ class COpenGLSync final : public core::IReferenceCounted
         volatile GLsync sync;
 };
 
-}}
+}
 
 #endif
