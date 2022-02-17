@@ -66,7 +66,7 @@ namespace nbl::system
 		CArchiveLoaderTar(core::smart_refctd_ptr<ISystem>&& system, system::logger_opt_smart_ptr&& logger) : IArchiveLoader(std::move(system), std::move(logger)) {}
 		virtual bool isALoadableFileFormat(IFile* file) const override
 		{
-			return file->getFileName().extension() == ".tar";
+			return file->getFileName().extension() == ".tar"; // TODO: ekhm, check the old CTarReader
 		}
 
 		virtual const char** getAssociatedFileExtensions() const override

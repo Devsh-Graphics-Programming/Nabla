@@ -12,7 +12,7 @@ namespace nbl::system
 			auto a = core::make_smart_refctd_ptr<CFileView<CNullAllocator>>(
 				core::smart_refctd_ptr<ISystem>(m_system),
 				params.absolutePath,
-				IFile::ECF_READ_WRITE,
+				IFile::ECF_READ_WRITE, // TODO: this file cannot grow, unsure whether we should allow write access!
 				buff,
 				found->size);
 			return a;
