@@ -1,4 +1,4 @@
-#ifdef __unix__
+#ifdef __unix__ // WTF: can it be `defined(_NBL_PLATFORM_ANDROID_) | defined(_NBL_PLATFORM_LINUX_)` instead?
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/types.h>

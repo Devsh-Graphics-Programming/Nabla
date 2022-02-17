@@ -12,7 +12,7 @@
 #include "nbl/system/CFileView.h"
 #include "nbl/core/util/bitflag.h"
 
-#if defined(_NBL_PLATFORM_LINUX_)
+#if defined(_NBL_PLATFORM_LINUX_) // TODO: platform specific includes shouldn't be in global interface headers
 #include <sys/sysinfo.h>
 #endif
 
@@ -205,7 +205,6 @@ class ISystem : public core::IReferenceCounted
         } m_loaders;
 
         core::CMultiObjectCache<system::path,core::smart_refctd_ptr<IFileArchive>> m_cachedArchiveFiles;
-        //core::CMultiObjectCache<system::path, system::path> m_cachedPathAliases;
 
     public:
         template <typename T>
@@ -286,13 +285,13 @@ class ISystem : public core::IReferenceCounted
                 return file;
             }
             return nullptr;
-    #endif
+        #endif
         }
         //! Compile time resource ID
         template<typename StringUniqueType>
         inline core::smart_refctd_ptr<IFile> loadBuiltinData()
         {
-    #ifdef _NBL_EMBED_BUILTIN_RESOURCES_
+        #ifdef _NBL_EMBED_BUILTIN_RESOURCES_
             std::pair<const uint8_t*, size_t> found = nbl::builtin::get_resource<StringUniqueType>();
             if (found.first && found.second)
             {
@@ -301,9 +300,9 @@ class ISystem : public core::IReferenceCounted
                 return fileView;
             }
             return nullptr;
-    #else
+        #else
             return loadBuiltinData(StringUniqueType::value);
-    #endif
+        #endif
         }
 
         //! Warning: blocking call
@@ -487,12 +486,14 @@ class ISystem : public core::IReferenceCounted
             }
         }
 
+        // TODO: Merge SystemMemory into SystemInfo
         struct SystemMemory
         {
             uint32_t totalMemory = {};
             uint32_t availableMemory = {};
         };
 
+        // TODO: integrate `getSystemMemory()` into `getSystemInfo()`
         static inline SystemMemory getSystemMemory()
         {
             SystemMemory systemMemory;
@@ -513,7 +514,7 @@ class ISystem : public core::IReferenceCounted
             systemMemory.totalMemory = linuxSystemInfo.totalram;
             systemMemory.availableMemory = linuxSystemInfo.freeram;
             #endif
-            #elif defined(_NBL_PLATFORM_ANDROID_)
+            #elif defined(_NBL_PLATFORM_ANDROID_) // Also TODO: for POSIX/LINUX
             // @sadiuk TODO
             #elif defined(_NBL_PLATFORM_OSX_) 
             // TODO: implement for OSX

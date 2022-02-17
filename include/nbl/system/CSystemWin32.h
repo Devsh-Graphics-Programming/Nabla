@@ -26,7 +26,7 @@ class CSystemWin32 : public ISystem
 {
 public:
     CSystemWin32(core::smart_refctd_ptr<ISystemCaller>&& caller) : ISystem(std::move(caller)) {}
-    //LOL the struct definition wasn't added to winapi headers do they ask to declare them yourself
+    //LOL the struct definition wasn't added to winapi headers do they ask to declare them yourself (probably in another header?)
     typedef struct _PROCESSOR_POWER_INFORMATION {
         ULONG Number;
         ULONG MaxMhz;

@@ -28,7 +28,7 @@ namespace nbl::system
 		}
 		SystemInfo getSystemInfo() const override
 		{
-			assert(false); // TODO
+			assert(false); // TODO: @sadiuk
 			return SystemInfo();
 		}
 	};

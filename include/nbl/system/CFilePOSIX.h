@@ -11,7 +11,7 @@ namespace nbl::system
 		using native_file_handle_t = int;
 		using native_file_mapping_handle_t = void*;
 	private:
-		bool m_openedProperly = true;
+		bool m_openedProperly = true; // TODO: @sadiuk remove
 		size_t m_size = 0;
 		native_file_handle_t m_native = -1;
 		native_file_mapping_handle_t m_memoryMappedObj;
@@ -22,7 +22,7 @@ namespace nbl::system
 		virtual size_t getSize() const override;
 		virtual void* getMappedPointer() override;
 		virtual const void* getMappedPointer() const override;
-		bool isOpenedProperly() const { return m_openedProperly; }
+		bool isOpenedProperly() const { return m_openedProperly; }  // TODO: @sadiuk remove
 	private:
 		virtual size_t read_impl(void* buffer, size_t offset, size_t sizeToRead) override;
 		virtual size_t write_impl(const void* buffer, size_t offset, size_t sizeToWrite) override;
