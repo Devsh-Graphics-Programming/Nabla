@@ -8,38 +8,18 @@
 
 #include "ISceneManager.h"
 #include "ISceneNode.h"
-#include "ICursorControl.h"
-
-#include <map>
-#include <string>
 
 namespace nbl
 {
-	class ITimer;
-namespace io
-{
-	class IFileSystem;
-}
 namespace scene
 {
 
-	/*!
-		The Scene Manager manages scene nodes, mesh recources, cameras and all the other stuff.
-	*/
-	class CSceneManager : public ISceneManager, public ISceneNode
-	{
-    protected:
-		//! destructor
-		virtual ~CSceneManager();
-
+/*!
+	The Scene Manager manages scene nodes, mesh recources, cameras and all the other stuff.
+*/
+class CSceneManager : public ISceneManager, public ISceneNode
+{
 	public:
-		//! constructor
-		CSceneManager(	IrrlichtDevice* device, video::IVideoDriver* driver,
-						nbl::ITimer* timer, io::IFileSystem* fs, gui::ICursorControl* cursorControl);
-
-		//! returns the video driver
-		inline video::IVideoDriver* getVideoDriver() override { return Driver; }
-
         //!
 		virtual void OnAnimate(uint32_t timeMs);
 
@@ -88,10 +68,6 @@ namespace scene
 		//! \param camera: The new camera which should be active.
 		virtual void setActiveCamera(ICameraSceneNode* camera);
 
-		//! Posts an input event to the environment. Usually you do not have to
-		//! use this method, it is used by the internal engine.
-		virtual bool receiveIfEventReceiverDidNotAbsorb(const SEvent& event);
-
 		//! Clears the whole scene. All scene nodes are removed.
 		virtual void clear();
 
@@ -111,9 +87,6 @@ namespace scene
 
         //! parent device
         IrrlichtDevice* Device;
-
-		//! cursor control
-		gui::ICursorControl* CursorControl;
 
 		//! current active camera
 		ICameraSceneNode* ActiveCamera;
