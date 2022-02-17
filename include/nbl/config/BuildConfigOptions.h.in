@@ -1,10 +1,12 @@
 #ifndef __NBL_BUILD_CONFIG_OPTIONS_H_INCLUDED__
 #define __NBL_BUILD_CONFIG_OPTIONS_H_INCLUDED__
 
+// TODO: figure out _ and _ suffixes and prefixes
+
 #cmakedefine _NBL_DEBUG
 #cmakedefine _NBL_RELWITHDEBINFO
 
-// architecture
+// architecture (TODO: rethink)
 #cmakedefine __NBL_COMPILE_WITH_ARM_SIMD_
 
 // libraries
@@ -17,6 +19,7 @@
 #cmakedefine _NBL_PLATFORM_OSX_
 #cmakedefine _NBL_PLATFORM_ANDROID_
 
+// TODO: X11 vs Wayland shouldn't even be an option (dlopen at runtime!)
 #cmakedefine _NBL_BUILD_WITH_WAYLAND
 
 // graphics API backend
@@ -57,7 +60,6 @@
 #cmakedefine _NBL_COMPILE_WITH_GLTF_WRITER_
 
 // compute interop
-#cmakedefine _NBL_COMPILE_WITH_OPENCL_
 #cmakedefine _NBL_COMPILE_WITH_CUDA_
 #cmakedefine _NBL_BUILD_OPTIX_
 

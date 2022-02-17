@@ -26,7 +26,7 @@ template <typename CRTP, typename InternalStateType = void>
 class IThreadHandler
 {
 private:
-    // TODO: @Crisspl factor this out somewhere? `nbl/core/reflection` ?
+    // TODO: @AnastzIuk factor this out somewhere? `nbl/core/reflection` ?
 #define _NBL_IMPL_MEMBER_FUNC_PRESENCE_CHECKER(member_func_name)\
     class has_##member_func_name\
     {\

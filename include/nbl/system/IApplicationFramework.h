@@ -38,6 +38,7 @@ class IApplicationFramework : public core::IReferenceCounted
     protected:
         ~IApplicationFramework() {}
 
+        // TODO: why aren't these pure virtual, and why do we even need a `_impl()`suffix?
         virtual void onAppInitialized_impl() {}
         virtual void onAppTerminated_impl() {}
 
