@@ -32,7 +32,7 @@ namespace nbl::system
 				system::future<size_t> lenFuture;
 				m_file->read(lenFuture, &dataLen, offset, 2);
 				lenFuture.get();
-				offset += 2;
+				offset += 2; // TODO: I think it should be `+= dataLen;`
 			}
 			std::filesystem::path zipFileName = "";
 			if (header.flags & EGZF_FILE_NAME)
@@ -281,9 +281,28 @@ namespace nbl::system
 		{
 			const SZipFileEntry& e = m_fileInfo[found->ID];
 			wchar_t buf[64];
+			// Nabla supports 0, 8, 12, 14, 99
+			//0 - The file is stored (no compression)
+			//1 - The file is Shrunk
+			//2 - The file is Reduced with compression factor 1
+			//3 - The file is Reduced with compression factor 2
+			//4 - The file is Reduced with compression factor 3
+			//5 - The file is Reduced with compression factor 4
+			//6 - The file is Imploded
+			//7 - Reserved for Tokenizing compression algorithm
+			//8 - The file is Deflated
+			//9 - Reserved for enhanced Deflating
+			//10 - PKWARE Date Compression Library Imploding
+			//12 - bzip2 - Compression Method from libbz2, WinZip 10
+			//14 - LZMA - Compression Method, WinZip 12
+			//96 - Jpeg compression - Compression Method, WinZip 12
+			//97 - WavPack - Compression Method, WinZip 11
+			//98 - PPMd - Compression Method, WinZip 10
+			//99 - AES encryption, WinZip 9
 			int16_t actualCompressionMethod = e.header.CompressionMethod;
 			//TODO: CFileView factory
 			// CFileViewVirtualAllocatorWin32
+			// @sadiuk WTF!? You hand out a new file every time!?
 			core::smart_refctd_ptr<CFileView<VirtualAllocator>> decrypted = nullptr;
 			uint8_t* decryptedBuf = 0;
 			uint32_t decryptedSize = e.header.DataDescriptor.CompressedSize;
@@ -318,18 +337,20 @@ namespace nbl::system
 				}
 				decryptedSize = e.header.DataDescriptor.CompressedSize - saltSize - 12;
 				decryptedBuf = new uint8_t[decryptedSize];
+				//
+				constexpr uint32_t kChunkSize = 0x8000u;
 				uint32_t c = 0;
-				while ((c + 32768) <= decryptedSize)
+				while ((c + kChunkSize) <= decryptedSize)
 				{
 					{
-						read_blocking(m_file.get(), decryptedBuf + c, readOffset, 32768);
-						readOffset += 32768;
+						read_blocking(m_file.get(), decryptedBuf + c, readOffset, kChunkSize);
+						readOffset += kChunkSize;
 					}
 					fcrypt_decrypt(
 						decryptedBuf + c, // pointer to the data to decrypt
-						32768,   // how many bytes to decrypt
+						kChunkSize,   // how many bytes to decrypt
 						&zctx); // decryption context
-					c += 32768;
+					c += kChunkSize;
 				}
 				{
 					read_blocking(m_file.get(), decryptedBuf + c, readOffset, decryptedSize - c);
@@ -395,7 +416,7 @@ namespace nbl::system
 					auto a = core::make_smart_refctd_ptr<CFileView<CNullAllocator>>(
 						core::smart_refctd_ptr<ISystem>(m_system),
 						params.absolutePath,
-						IFile::ECF_READ_WRITE,
+						IFile::ECF_READ_WRITE, // TODO: should be READONLY
 						buff,
 						decryptedSize);
 					return a;
@@ -410,6 +431,7 @@ namespace nbl::system
 				if (!pBuf)
 				{
 					delete[] decryptedBuf;
+					// TODO: log error
 					return 0;
 				}
 
@@ -421,6 +443,7 @@ namespace nbl::system
 					{
 						delete[] decryptedBuf;
 						delete[] pBuf;
+						// TODO: log error
 						return 0;
 					}
 
@@ -462,6 +485,7 @@ namespace nbl::system
 				if (err != Z_OK)
 				{
 					delete[] pBuf;
+					// TODO: log error
 					return 0;
 				}
 				else
@@ -469,7 +493,7 @@ namespace nbl::system
 					auto ret = core::make_smart_refctd_ptr<CFileView<VirtualAllocator>>(
 						core::smart_refctd_ptr<ISystem>(m_system),
 						params.absolutePath,
-						IFile::ECF_READ_WRITE,
+						IFile::ECF_READ_WRITE, // TODO: readonly!
 						uncompressedSize);
 					{
 						write_blocking(ret.get(), pBuf, 0, uncompressedSize);
@@ -547,9 +571,9 @@ namespace nbl::system
 				}
 				else
 				{
-					auto ret = core::make_smart_refctd_ptr<CFileView<VirtualAllocator>>(std::move(m_system), found->fullName, IFile::ECF_READ_WRITE, uncompressedSize);
+					auto ret = core::make_smart_refctd_ptr<CFileView<VirtualAllocator>>(std::move(m_system), found->fullName, IFile::ECF_READ_WRITE, uncompressedSize); // TODO: readonly
 					{
-						write_blocking(decrypted.get(), pBuf, 0, uncompressedSize);
+						write_blocking(decrypted.get(), pBuf, 0, uncompressedSize); // huh!?
 					}
 					delete[] pBuf;
 					return ret;
@@ -564,7 +588,6 @@ namespace nbl::system
 			case 14:
 			{
 #ifdef _NBL_COMPILE_WITH_LZMA_
-
 				uint32_t uncompressedSize = e.header.DataDescriptor.UncompressedSize;
 				char* pBuf = new char[uncompressedSize];
 				if (!pBuf)
