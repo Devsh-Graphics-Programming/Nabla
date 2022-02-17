@@ -102,10 +102,10 @@ include(common)
 option(_NBL_COMPILE_WITH_MTL_LOADER_ "Compile with MTL Loader" ON)
 option(_NBL_COMPILE_WITH_OBJ_LOADER_ "Compile with OBJ Loader" ON)
 #option(_NBL_COMPILE_WITH_OBJ_WRITER_ "Compile with OBJ Writer" ON) uncomment when writer exists
-option(_NBL_COMPILE_WITH_STL_LOADER_ "Compile with STL Loader" OFF)
-option(_NBL_COMPILE_WITH_STL_WRITER_ "Compile with STL Writer" OFF)
-option(_NBL_COMPILE_WITH_PLY_LOADER_ "Compile with PLY Loader" OFF)
-option(_NBL_COMPILE_WITH_PLY_WRITER_ "Compile with PLY Writer" OFF)
+option(_NBL_COMPILE_WITH_STL_LOADER_ "Compile with STL Loader" ON)
+option(_NBL_COMPILE_WITH_STL_WRITER_ "Compile with STL Writer" ON)
+option(_NBL_COMPILE_WITH_PLY_LOADER_ "Compile with PLY Loader" ON)
+option(_NBL_COMPILE_WITH_PLY_WRITER_ "Compile with PLY Writer" ON)
 option(_NBL_COMPILE_WITH_BAW_LOADER_ "Compile with BAW Loader" OFF)
 option(_NBL_COMPILE_WITH_BAW_WRITER_ "Compile with BAW Writer" OFF)
 option(_NBL_COMPILE_WITH_JPG_LOADER_ "Compile with JPG Loader" ON)
@@ -124,8 +124,6 @@ option(_NBL_COMPILE_WITH_GLTF_WRITER_ "Compile with GLTF Writer" ON)
 if(NBL_BUILD_ANDROID)
 	set(_NBL_COMPILE_WITH_BAW_LOADER_ OFF CACHE BOOL "Off for Android purposes at the moment" FORCE)	# TODO - remove when BAW-v4 is done
 	set(_NBL_COMPILE_WITH_BAW_WRITER_ OFF CACHE BOOL "Off for Android purposes at the moment" FORCE)	# TODO - remove when BAW-v4 is done
-	set(_NBL_COMPILE_WITH_OBJ_LOADER_ OFF CACHE BOOL "Off for Android purposes at the moment" FORCE)
-	set(_NBL_COMPILE_WITH_MTL_LOADER_ OFF CACHE BOOL "Off for Android purposes at the moment" FORCE)
 	set(NBL_BUILD_MITSUBA_LOADER OFF CACHE BOOL "Off for Android purposes at the moment" FORCE) 		# TODO - compile/linker errors
 endif()
 
@@ -138,11 +136,6 @@ endif()
 nbl_get_conf_dir(NABLA_CONF_DIR_RELWITHDEBINFO RelWithDebInfo)
 
 set(_NBL_COMPILE_WITH_OPENGL_ ${NBL_COMPILE_WITH_OPENGL})
-if (NBL_COMPILE_WITH_OPENCL)
-	message(STATUS "Building with OpenCL interop")
-		
-	set(_NBL_COMPILE_WITH_OPENCL_ ${NBL_COMPILE_WITH_OPENCL})
-endif()
 if (NBL_COMPILE_WITH_CUDA)
 	message(STATUS "Building with CUDA interop")
 	set(_NBL_COMPILE_WITH_CUDA_ ${NBL_COMPILE_WITH_CUDA})
@@ -357,7 +350,6 @@ set(NABLA_SRCS_NORMAL
 
 
 	#opengl
-	#${NBL_ROOT_PATH}/source/Nabla/COpenCLHandler.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IOpenGL_FunctionTable.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLPipelineCache.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLImage.cpp
@@ -377,14 +369,11 @@ set(NABLA_SRCS_NORMAL
 	
 	# CUDA
 	${NBL_ROOT_PATH}/src/nbl/video/CCUDAHandler.cpp
-
-	# OpenCL
-	# ${NBL_ROOT_PATH}/source/Nabla/COpenCLHandler.cpp
 )
 
 set(COMMON_INCLUDE_DIRS
-	${THIRD_PARTY_SOURCE_DIR}/convertutf
-	${THIRD_PARTY_SOURCE_DIR}/utfcpp/source
+	${THIRD_PARTY_SOURCE_DIR}/convertutf # TODO: remove
+	${THIRD_PARTY_SOURCE_DIR}/utfcpp/source # TODO: remove
 	${THIRD_PARTY_SOURCE_DIR}/glm
         ${THIRD_PARTY_SOURCE_DIR}/renderdoc # for renderdoc api header
 	${CMAKE_BINARY_DIR}/3rdparty/zlib #for dynamically generated zconf.h
@@ -398,7 +387,7 @@ macro(nbl_target_link_vulkan _trgt) # we don't want to link against library dire
 	target_include_directories(${_trgt} PUBLIC "$ENV{VULKAN_SDK}/include")
 endmacro()
 
-macro(nbl_target_link_utfcpp _trgt)
+macro(nbl_target_link_utfcpp _trgt)  # TODO: remove
 	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/utfcpp/source)
 endmacro()
 
