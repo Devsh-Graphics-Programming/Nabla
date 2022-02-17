@@ -369,6 +369,7 @@ set(NABLA_SRCS_NORMAL
 	
 	# CUDA
 	${NBL_ROOT_PATH}/src/nbl/video/CCUDAHandler.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CCUDADevice.cpp
 )
 
 set(COMMON_INCLUDE_DIRS

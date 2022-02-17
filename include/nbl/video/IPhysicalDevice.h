@@ -24,8 +24,24 @@ namespace nbl::video
 class IPhysicalDevice : public core::Interface, public core::Unmovable
 {
     public:
+        //
+        virtual E_API_TYPE getAPIType() const = 0;
+        
+        // TODO: fold into SLimits
+        struct APIVersion
+        {
+            uint32_t major : 5;
+            uint32_t minor : 5;
+            uint32_t patch : 22;
+        };
+        const APIVersion& getAPIVersion() const { return m_apiVersion; }
+        
+        //
         struct SLimits
         {
+            uint8_t deviceUUID[VK_UUID_SIZE] = {}; // TODO: implement on Vulkan with VkPhysicalDeviceIDProperties
+
+            //
             uint32_t UBOAlignment;
             uint32_t SSBOAlignment;
             uint32_t bufferViewAlignment;
@@ -110,7 +126,9 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
                 return static_cast<uint32_t>(core::min<uint64_t>(infinitelyWideDeviceWGCount,maxResidentWorkgroups));
             }
         };
+        const SLimits& getLimits() const { return m_limits; }
 
+        //
         struct SFeatures
         {
             bool robustBufferAccess = false;
@@ -163,7 +181,9 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
             // Buffer Device Address
             bool bufferDeviceAddress = false;
         };
+        const SFeatures& getFeatures() const { return m_features; }
 
+        //
         struct SMemoryProperties
         {
             uint32_t        memoryTypeCount = 0u;
@@ -171,7 +191,9 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
             uint32_t        memoryHeapCount = 0u;
             VkMemoryHeap    memoryHeaps[VK_MAX_MEMORY_HEAPS];
         };
+        const SMemoryProperties& getMemoryProperties() const { return m_memoryProperties; }
 
+        //
         struct SFormatBufferUsage
         {
             uint8_t isInitialized : 1u;
@@ -225,7 +247,9 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
                     (accelerationStructureVertex == other.accelerationStructureVertex);
             }
         };
+        virtual const SFormatBufferUsage& getBufferFormatUsages(const asset::E_FORMAT format) = 0;
 
+        //
         struct SFormatImageUsage
         {
             uint8_t isInitialized : 1u;
@@ -304,8 +328,10 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
                     (log2MaxSamples == other.log2MaxSamples);
             }
         };
+        virtual const SFormatImageUsage& getImageFormatUsagesLinear(const asset::E_FORMAT format) = 0;
+        virtual const SFormatImageUsage& getImageFormatUsagesOptimal(const asset::E_FORMAT format) = 0;
 
-
+        //
         enum E_QUEUE_FLAGS : uint32_t
         {
             EQF_GRAPHICS_BIT = 0x01,
@@ -321,26 +347,6 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
             uint32_t timestampValidBits;
             asset::VkExtent3D minImageTransferGranularity;
         };
-
-        struct APIVersion
-        {
-          uint32_t major : 5;
-          uint32_t minor : 5;
-          uint32_t patch : 22;
-        };
-
-        const SLimits& getLimits() const { return m_limits; }
-        const SFeatures& getFeatures() const { return m_features; }
-        const SMemoryProperties& getMemoryProperties() const { return m_memoryProperties; }
-        const APIVersion& getAPIVersion() const { return m_apiVersion; }
-
-        // these are the defines which shall be added to any IGPUShader which has its source as GLSL
-        inline core::SRange<const char* const> getExtraGLSLDefines() const
-        {
-            const char* const* begin = m_extraGLSLDefines.data();
-            return {begin,begin+m_extraGLSLDefines.size()};
-        }
-
         auto getQueueFamilyProperties() const 
         {
             using citer_t = qfam_props_array_t::pointee::const_iterator;
@@ -350,11 +356,20 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
             );
         }
 
+        // these are the defines which shall be added to any IGPUShader which has its source as GLSL
+        inline core::SRange<const char* const> getExtraGLSLDefines() const
+        {
+            const char* const* begin = m_extraGLSLDefines.data();
+            return {begin,begin+m_extraGLSLDefines.size()};
+        }
+
+        //
         inline system::ISystem* getSystem() const {return m_system.get();}
         inline asset::IGLSLCompiler* getGLSLCompiler() const {return m_GLSLCompiler.get();}
 
         virtual IDebugCallback* getDebugCallback() = 0;
 
+        // TODO: shouldn't this be in SFeatures?
         virtual bool isSwapchainSupported() const = 0;
 
         core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice(const ILogicalDevice::SCreationParams& params)
@@ -364,12 +379,6 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
 
             return createLogicalDevice_impl(params);
         }
-
-        virtual E_API_TYPE getAPIType() const = 0;
-
-        virtual const SFormatImageUsage& getImageFormatUsagesLinear(const asset::E_FORMAT format) = 0;
-        virtual const SFormatImageUsage& getImageFormatUsagesOptimal(const asset::E_FORMAT format) = 0;
-        virtual const SFormatBufferUsage& getBufferFormatUsages(const asset::E_FORMAT format) = 0;
 
     protected:
         IPhysicalDevice(core::smart_refctd_ptr<system::ISystem>&& s, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc);

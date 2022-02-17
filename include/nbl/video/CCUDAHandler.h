@@ -1,49 +1,41 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#ifndef __NBL_VIDEO_C_CUDA_HANDLER_H__
-#define __NBL_VIDEO_C_CUDA_HANDLER_H__
+#ifndef _NBL_VIDEO_C_CUDA_HANDLER_H_
+#define _NBL_VIDEO_C_CUDA_HANDLER_H_
 
 #include "nbl/system/declarations.h"
 
+#include "nbl/video/CCUDADevice.h"
+
 
 #ifdef _NBL_COMPILE_WITH_CUDA_
-
-#include "cuda.h"
-#include "nvrtc.h"
-#if CUDA_VERSION < 9000
-	#error "Need CUDA 9.0 SDK or higher."
-#endif
-
-#ifdef _NBL_COMPILE_WITH_OPENGL_
-	#include "COpenGLDriver.h"
-	// make CUDA play nice
-	#define WGL_NV_gpu_affinity 0
-	#include "cudaGL.h"
-	#undef WGL_NV_gpu_affinity
-#endif // _NBL_COMPILE_WITH_OPENGL_
-
-// useful includes in the future
-//#include "cudaEGL.h"
-//#include "cudaVDPAU.h"
-
-#include "nbl_os.h"
-
-namespace nbl
-{
-namespace cuda
+namespace nbl::video
 {
 
-#define _NBL_DEFAULT_NVRTC_OPTIONS "--std=c++14",virtualCUDAArchitecture,"-dc","-use_fast_math"
-
-
-class CCUDAHandler
+class CCUDAHandler : public core::IReferenceCounted
 {
     public:
-		using LibLoader = system::DefaultFuncPtrLoader;
+		static bool defaultHandleResult(CUresult result, const system::logger_opt_ptr& logger=nullptr);
+		inline bool defaultHandleResult(CUresult result)
+		{
+			core::smart_refctd_ptr<system::ILogger> logger = m_logger.get();
+			return defaultHandleResult(result,logger.get());
+		}
 
-		NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(CUDA, LibLoader
+		//
+		bool defaultHandleResult(nvrtcResult result);
+
+		//
+		template<typename T>
+		static T* cast_CUDA_ptr(CUdeviceptr ptr) { return reinterpret_cast<T*>(ptr); }
+
+		//
+		core::smart_refctd_ptr<CCUDAHandler> create(system::ISystem* system, core::smart_refctd_ptr<system::ILogger>&& _logger);
+
+		//
+		using LibLoader = system::DefaultFuncPtrLoader;
+		NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(CUDA,LibLoader
 			,cuCtxCreate_v2
 			,cuDevicePrimaryCtxRetain
 			,cuDevicePrimaryCtxRelease
@@ -81,8 +73,6 @@ class CCUDAHandler
 			,cuFuncSetCacheConfig
 			,cuGetErrorName
 			,cuGetErrorString
-			,cuGraphicsGLRegisterBuffer
-			,cuGraphicsGLRegisterImage
 			,cuGraphicsMapResources
 			,cuGraphicsResourceGetMappedPointer_v2
 			,cuGraphicsResourceGetMappedMipmappedArray
@@ -126,28 +116,10 @@ class CCUDAHandler
 			,cuSurfObjectDestroy
 			,cuTexObjectCreate
 			,cuTexObjectDestroy
-			,cuGLGetDevices_v2
 		);
-		static CUDA cuda;
+		const CUDA& getCUDAFunctionTable() const {return m_cuda;}
 
-		struct Device
-		{
-			Device() {}
-			Device(int ordinal);
-			~Device()
-			{
-			}
-
-			CUdevice handle = -1;
-			char name[122] = {};
-			char luid = -1;
-			unsigned int deviceNodeMask = 0;
-			CUuuid uuid = {};
-			size_t vram_size = 0ull;
-			int attributes[CU_DEVICE_ATTRIBUTE_MAX] = {};
-		};
-
-		NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(NVRTC, LibLoader,
+		NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(NVRTC,LibLoader,
 			nvrtcGetErrorString,
 			nvrtcVersion,
 			nvrtcAddNameExpression,
@@ -160,182 +132,9 @@ class CCUDAHandler
 			nvrtcGetProgramLog,
 			nvrtcGetProgramLogSize
 		);
-		static NVRTC nvrtc;
+		const NVRTC& getNVRTCFunctionTable() const {return m_nvrtc;}
 
-	protected:
-        CCUDAHandler() = default;
-
-		_NBL_STATIC_INLINE int CudaVersion = 0;
-		_NBL_STATIC_INLINE int DeviceCount = 0;
-		static core::vector<Device> devices;
-		
-		static core::vector<core::smart_refctd_ptr<const io::IReadFile> > headers;
-		static core::vector<const char*> headerContents;
-		static core::vector<const char*> headerNames;
-
-		_NBL_STATIC_INLINE_CONSTEXPR const char* virtualCUDAArchitectures[] = {	"-arch=compute_30",
-																				"-arch=compute_32",
-																				"-arch=compute_35",
-																				"-arch=compute_37",
-																				"-arch=compute_50",
-																				"-arch=compute_52",
-																				"-arch=compute_53",
-																				"-arch=compute_60",
-																				"-arch=compute_61",
-																				"-arch=compute_62",
-																				"-arch=compute_70",
-																				"-arch=compute_72",
-																				"-arch=compute_75",
-																				"-arch=compute_80"};
-		_NBL_STATIC_INLINE const char* virtualCUDAArchitecture = nullptr;
-
-		#ifdef _MSC_VER
-			_NBL_STATIC_INLINE_CONSTEXPR const char* CUDA_EXTRA_DEFINES = "#ifndef _WIN64\n#define _WIN64\n#endif\n";
-		#else
-			_NBL_STATIC_INLINE_CONSTEXPR const char* CUDA_EXTRA_DEFINES = "#ifndef __LP64__\n#define __LP64__\n#endif\n";
-		#endif
-
-	public:
-		static CUresult init();
-		static void deinit();
-
-		static const char* getCommonVirtualCUDAArchitecture() {return virtualCUDAArchitecture;}
-
-		static bool defaultHandleResult(CUresult result);
-
-		static CUresult getDefaultGLDevices(uint32_t* foundCount, CUdevice* pCudaDevices, uint32_t cudaDeviceCount)
-		{
-			return cuda.pcuGLGetDevices_v2(foundCount,pCudaDevices,cudaDeviceCount,CU_GL_DEVICE_LIST_ALL);
-		}
-
-		template<typename T>
-		static T* cast_CUDA_ptr(CUdeviceptr ptr) {return reinterpret_cast<T*>(ptr);}
-
-		template<typename ObjType>
-		struct GraphicsAPIObjLink
-		{
-				GraphicsAPIObjLink() : obj(nullptr), cudaHandle(nullptr), acquired(false)
-				{
-					asImage = {nullptr};
-				}
-				GraphicsAPIObjLink(core::smart_refctd_ptr<ObjType>&& _obj) : GraphicsAPIObjLink()
-				{
-					obj = std::move(_obj);
-				}
-				GraphicsAPIObjLink(GraphicsAPIObjLink&& other) : GraphicsAPIObjLink()
-				{
-					operator=(std::move(other));
-				}
-
-				GraphicsAPIObjLink(const GraphicsAPIObjLink& other) = delete;
-				GraphicsAPIObjLink& operator=(const GraphicsAPIObjLink& other) = delete;
-				GraphicsAPIObjLink& operator=(GraphicsAPIObjLink&& other)
-				{
-					std::swap(obj,other.obj);
-					std::swap(cudaHandle,other.cudaHandle);
-					std::swap(acquired,other.acquired);
-					std::swap(asImage,other.asImage);
-					return *this;
-				}
-
-				~GraphicsAPIObjLink()
-				{
-					assert(!acquired); // you've fucked up, there's no way for us to fix it, you need to release the objects on a proper stream
-					if (obj)
-						CCUDAHandler::cuda.pcuGraphicsUnregisterResource(cudaHandle);
-				}
-
-				//
-				auto* getObject() const {return obj.get();}
-
-			private:
-				core::smart_refctd_ptr<ObjType> obj;
-				CUgraphicsResource cudaHandle;
-				bool acquired;
-
-				friend class CCUDAHandler;
-			public:
-				union
-				{
-					struct
-					{
-						CUdeviceptr pointer;
-					} asBuffer;
-					struct
-					{
-						CUmipmappedArray mipmappedArray;
-						CUarray array;
-					} asImage;
-				};
-		};
-
-		//
-		static CUresult registerBuffer(GraphicsAPIObjLink<video::IGPUBuffer>* link, uint32_t flags = CU_GRAPHICS_REGISTER_FLAGS_NONE);
-		static CUresult registerImage(GraphicsAPIObjLink<video::IGPUImage>* link, uint32_t flags = CU_GRAPHICS_REGISTER_FLAGS_NONE);
-		
-
-		template<typename ObjType>
-		static CUresult acquireResourcesFromGraphics(void* tmpStorage, GraphicsAPIObjLink<ObjType>* linksBegin, GraphicsAPIObjLink<ObjType>* linksEnd, CUstream stream)
-		{
-			auto count = std::distance(linksBegin,linksEnd);
-
-			auto resources = reinterpret_cast<CUgraphicsResource*>(tmpStorage);
-			auto rit = resources;
-			for (auto iit=linksBegin; iit!=linksEnd; iit++,rit++)
-			{
-				if (iit->acquired)
-					return CUDA_ERROR_UNKNOWN;
-				*rit = iit->cudaHandle;
-			}
-
-			auto retval = cuda.pcuGraphicsMapResources(count,resources,stream);
-			for (auto iit=linksBegin; iit!=linksEnd; iit++)
-				iit->acquired = true;
-			return retval;
-		}
-		template<typename ObjType>
-		static CUresult releaseResourcesToGraphics(void* tmpStorage, GraphicsAPIObjLink<ObjType>* linksBegin, GraphicsAPIObjLink<ObjType>* linksEnd, CUstream stream)
-		{
-			auto count = std::distance(linksBegin,linksEnd);
-
-			auto resources = reinterpret_cast<CUgraphicsResource*>(tmpStorage);
-			auto rit = resources;
-			for (auto iit=linksBegin; iit!=linksEnd; iit++,rit++)
-			{
-				if (!iit->acquired)
-					return CUDA_ERROR_UNKNOWN;
-				*rit = iit->cudaHandle;
-			}
-
-			auto retval = cuda.pcuGraphicsUnmapResources(count,resources,stream);
-			for (auto iit=linksBegin; iit!=linksEnd; iit++)
-				iit->acquired = false;
-			return retval;
-		}
-
-		static CUresult acquireAndGetPointers(GraphicsAPIObjLink<video::IGPUBuffer>* linksBegin, GraphicsAPIObjLink<video::IGPUBuffer>* linksEnd, CUstream stream, size_t* outbufferSizes = nullptr);
-		static CUresult acquireAndGetMipmappedArray(GraphicsAPIObjLink<video::IGPUImage>* linksBegin, GraphicsAPIObjLink<video::IGPUImage>* linksEnd, CUstream stream);
-		static CUresult acquireAndGetArray(GraphicsAPIObjLink<video::IGPUImage>* linksBegin, GraphicsAPIObjLink<video::IGPUImage>* linksEnd, uint32_t* arrayIndices, uint32_t* mipLevels, CUstream stream);
-
-
-		static bool defaultHandleResult(nvrtcResult result)
-		{
-			switch (result)
-			{
-				case NVRTC_SUCCESS:
-					return true;
-					break;
-				default:
-					if (nvrtc.pnvrtcGetErrorString)
-						printf("%s\n",nvrtc.pnvrtcGetErrorString(result));
-					else
-						printf(R"===(CudaHandler: `pnvrtcGetErrorString` is nullptr, the nvrtc library probably not found on the system.\n)===");
-					break;
-			}
-			_NBL_DEBUG_BREAK_IF(true);
-			return false;
-		}
-
+#if 0
 		//
 		static core::SRange<const io::IReadFile* const> getCUDASTDHeaders()
 		{
@@ -410,24 +209,29 @@ class CCUDAHandler
 			}
 			return nvrtc.pnvrtcCreateProgram(prog, sources.data(), main->getFileName().c_str(), numHeaders, headers.data(), includeNames.data());
 		}
-		
+#endif	
+		//
+		inline nvrtcResult compileProgram(nvrtcProgram prog, const size_t optionCount, const char* const* options)
+		{
+			return m_nvrtc.pnvrtcCompileProgram(prog, optionCount, options);
+		}
 		template<typename OptionsT = const std::initializer_list<const char*>&>
-		static nvrtcResult compileProgram(nvrtcProgram prog, OptionsT options={_NBL_DEFAULT_NVRTC_OPTIONS})
+		inline nvrtcResult compileProgram(nvrtcProgram prog, OptionsT options)
 		{
-			return nvrtc.pnvrtcCompileProgram(prog, options.size(), options.begin());
+			return compileProgram(prog, options.size(), options.begin());
 		}
-
-		static nvrtcResult compileProgram(nvrtcProgram prog, const std::vector<const char*>& options)
+		inline nvrtcResult compileProgram(nvrtcProgram prog, const std::vector<const char*>& options)
 		{
-			return nvrtc.pnvrtcCompileProgram(prog, options.size(), options.data());
+			return compileProgram(prog, options.size(), options.data());
 		}
 
 		//
-		static nvrtcResult getProgramLog(nvrtcProgram prog, std::string& log);
+		nvrtcResult getProgramLog(nvrtcProgram prog, std::string& log);
 
 		//
-		static nvrtcResult getPTX(nvrtcProgram prog, std::string& ptx);
+		std::pair<core::smart_refctd_ptr<asset::ICPUBuffer>,nvrtcResult> getPTX(nvrtcProgram prog);
 
+#if 0
 		//
 		template<typename OptionsT = const std::initializer_list<const char*>&>
 		static nvrtcResult compileDirectlyToPTX(std::string& ptx, const char* source, const char* filename,
@@ -485,9 +289,30 @@ class CCUDAHandler
 
 			return result = compileDirectlyToPTX_helper<OptionsT>(ptx,program,std::forward<OptionsT>(options),log);
 		}
+#endif
 
+		core::smart_refctd_ptr<CCUDADevice> createDevice(core::smart_refctd_ptr<CVulkanConnection>&& vulkanConnection, IPhysicalDevice* physicalDevice);
 
 	protected:
+		CCUDAHandler(
+			CUDA&& _cuda,
+			NVRTC&& _nvrtc,
+			core::vector<core::smart_refctd_ptr<system::IFile>>&& _headers,
+			core::smart_refctd_ptr<system::ILogger>&& _logger,
+			int _version
+		);
+		~CCUDAHandler() = default;
+
+#if 0
+		static core::vector<const char*> headerContents;
+		static core::vector<const char*> headerNames;
+
+#ifdef _MSC_VER
+		_NBL_STATIC_INLINE_CONSTEXPR const char* CUDA_EXTRA_DEFINES = "#ifndef _WIN64\n#define _WIN64\n#endif\n";
+#else
+		_NBL_STATIC_INLINE_CONSTEXPR const char* CUDA_EXTRA_DEFINES = "#ifndef __LP64__\n#define __LP64__\n#endif\n";
+#endif
+
 		template<typename OptionsT = const std::initializer_list<const char*>&>
 		static nvrtcResult compileDirectlyToPTX_helper(std::string& ptx, nvrtcProgram program, OptionsT options, std::string* log=nullptr)
 		{
@@ -499,9 +324,17 @@ class CCUDAHandler
 
 			return getPTX(program, ptx);
 		}
+#endif
+		// function tables
+		CUDA m_cuda;
+		NVRTC m_nvrtc;
+
+		//
+		core::vector<core::smart_refctd_ptr<system::IFile>> m_headers;
+		system::logger_opt_smart_ptr m_logger;
+		int m_version;
 };
 
-}
 }
 
 #endif // _NBL_COMPILE_WITH_CUDA_
