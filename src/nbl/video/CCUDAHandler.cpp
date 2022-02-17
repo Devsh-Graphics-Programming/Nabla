@@ -402,6 +402,8 @@ core::smart_refctd_ptr<CCUDAHandler> CCUDAHandler::create(system::ISystem* syste
 			"nvcuda"
 		#elif defined(_NBL_POSIX_API_)
 			"cuda"
+		#else
+			#error "Unsuported Platform"
 		#endif
 	);
 	
@@ -426,6 +428,8 @@ core::smart_refctd_ptr<CCUDAHandler> CCUDAHandler::create(system::ISystem* syste
 	#elif defined(_NBL_POSIX_API_)
 	nvrtc = NVRTC("nvrtc");
 	//nvrtc_builtins = NVRTC("nvrtc-builtins");
+	#else
+	#error "Unsuported Platform"
 	#endif
 	
 
@@ -458,16 +462,34 @@ core::smart_refctd_ptr<CCUDAHandler> CCUDAHandler::create(system::ISystem* syste
 	if (nvrtcVersion[0]<9)
 		return nullptr;
 
+	// add headers
+	core::vector<core::smart_refctd_ptr<system::IFile>> headers;
+	for (const auto& it : jitify::detail::get_jitsafe_headers_map())
+	{
+		const void* contents = it.second.data();
+		headers.push_back(core::make_smart_refctd_ptr<system::CFileView<system::CNullAllocator>>(
+			core::smart_refctd_ptr<system::ISystem>(system),it.first.c_str(),
+			core::bitflag(system::IFile::ECF_READ)|system::IFile::ECF_MAPPABLE,
+			const_cast<void*>(contents),it.second.size()+1u
+		));
+	}
 
-	CCUDAHandler* handler = new CCUDAHandler(std::move(cuda), std::move(nvrtc),/*std::move(headers)*/{}, std::move(_logger), cudaVersion);
+
+	CCUDAHandler* handler = new CCUDAHandler(std::move(cuda), std::move(nvrtc),std::move(headers), std::move(_logger), cudaVersion);
 	return core::smart_refctd_ptr<CCUDAHandler>(handler,core::dont_grab);
 }
 
-#if 0
-core::vector<core::smart_refctd_ptr<const io::IReadFile> > CCUDAHandler::headers;
-core::vector<const char*> CCUDAHandler::headerContents;
-core::vector<const char*> CCUDAHandler::headerNames;
+nvrtcResult CCUDAHandler::createProgram(nvrtcProgram* prog, std::string&& source, const char* name, const int headerCount, const char* const* headerContents, const char* const* includeNames)
+{
+#if defined(_NBL_WINDOWS_API_)
+	source.insert(0ull,"#ifndef _WIN64\n#define _WIN64\n#endif\n");
+#elif defined(_NBL_POSIX_API_)
+	source.insert(0ull,"#ifndef __LP64__\n#define __LP64__\n#endif\n");
+#else
+#error "Unsuported Platform"
 #endif
+	return m_nvrtc.pnvrtcCreateProgram(prog,source.c_str(),name,headerCount,headerContents,includeNames);
+}
 
 nvrtcResult CCUDAHandler::getProgramLog(nvrtcProgram prog, std::string& log)
 {
@@ -482,7 +504,7 @@ nvrtcResult CCUDAHandler::getProgramLog(nvrtcProgram prog, std::string& log)
 	return m_nvrtc.pnvrtcGetProgramLog(prog,log.data());
 }
 
-std::pair<core::smart_refctd_ptr<asset::ICPUBuffer>,nvrtcResult> CCUDAHandler::getPTX(nvrtcProgram prog)
+CCUDAHandler::ptx_and_nvrtcResult_t CCUDAHandler::getPTX(nvrtcProgram prog)
 {
 	size_t _size = 0ull;
 	nvrtcResult sizeRes = m_nvrtc.pnvrtcGetPTXSize(prog,&_size);
@@ -494,39 +516,6 @@ std::pair<core::smart_refctd_ptr<asset::ICPUBuffer>,nvrtcResult> CCUDAHandler::g
 	auto ptx = core::make_smart_refctd_ptr<asset::ICPUBuffer>(_size);
 	return {std::move(ptx),m_nvrtc.pnvrtcGetPTX(prog,reinterpret_cast<char*>(ptx->getPointer()))};
 }
-
-#if 0
-	const int archVersion[2] = { tmp.attributes[CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR],tmp.attributes[CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR] };
-	if (archVersion[0] > 8 || archVersion[0] == 8 && archVersion[1] > 0)
-	{
-		assert(strcmp(virtualCUDAArchitectures[13], "-arch=compute_80") == 0);
-		if (!virtualCUDAArchitecture)
-			virtualCUDAArchitecture = virtualCUDAArchitectures[13];
-	}
-	else
-	{
-		const std::string virtualArchString = "-arch=compute_" + std::to_string(archVersion[0]) + std::to_string(archVersion[1]);
-
-		int32_t i = sizeof(virtualCUDAArchitectures) / sizeof(const char*);
-		while (i > 0)
-			if (virtualCUDAArchitecture == virtualCUDAArchitectures[--i] || !virtualCUDAArchitecture)
-				break;
-
-		if (!virtualCUDAArchitecture || virtualArchString != virtualCUDAArchitecture)
-		{
-			i++;
-			while (i > 0)
-				if (virtualArchString == virtualCUDAArchitectures[--i])
-				{
-					virtualCUDAArchitecture = virtualCUDAArchitectures[i];
-					break;
-				}
-		}
-	}
-
-if (!virtualCUDAArchitecture)
-return result = CUDA_ERROR_INVALID_DEVICE;
-#endif
 
 core::smart_refctd_ptr<CCUDADevice> CCUDAHandler::createDevice(core::smart_refctd_ptr<CVulkanConnection>&& vulkanConnection, IPhysicalDevice* physicalDevice)
 {

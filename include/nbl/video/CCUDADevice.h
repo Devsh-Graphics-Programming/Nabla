@@ -63,7 +63,10 @@ class CCUDADevice : public core::IReferenceCounted
 		};
 		inline E_VIRTUAL_ARCHITECTURE getVirtualArchitecture() {return m_virtualArchitecture;}
 
-		inline const auto& geDefaultCompileOptions() const {return m_defaultCompileOptions;}
+		inline core::SRange<const char* const> geDefaultCompileOptions() const
+		{
+			return {m_defaultCompileOptions.data(),m_defaultCompileOptions.data()+m_defaultCompileOptions.size()};
+		}
 
 		// TODO/REDO Vulkan: https://docs.nvidia.com/cuda/cuda-driver-api/group__CUDA__EXTRES__INTEROP.html
 		// https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#vulkan-interoperability

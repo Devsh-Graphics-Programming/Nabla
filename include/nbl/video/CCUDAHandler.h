@@ -4,6 +4,9 @@
 #ifndef _NBL_VIDEO_C_CUDA_HANDLER_H_
 #define _NBL_VIDEO_C_CUDA_HANDLER_H_
 
+#include "nbl/core/declarations.h"
+#include "nbl/core/definitions.h"
+
 #include "nbl/system/declarations.h"
 
 #include "nbl/video/CCUDADevice.h"
@@ -134,203 +137,133 @@ class CCUDAHandler : public core::IReferenceCounted
 		);
 		const NVRTC& getNVRTCFunctionTable() const {return m_nvrtc;}
 
-#if 0
 		//
-		static core::SRange<const io::IReadFile* const> getCUDASTDHeaders()
+		inline core::SRange<system::IFile* const> getSTDHeaders()
 		{
-			auto begin = headers.empty() ? nullptr:reinterpret_cast<const io::IReadFile* const*>(&headers[0].get());
-			return {begin,begin+headers.size()};
+			auto begin = m_headers.empty() ? nullptr:(&m_headers[0].get());
+			return {begin,begin+m_headers.size()};
 		}
-		static const auto& getCUDASTDHeaderContents() { return headerContents; }
-		static const auto& getCUDASTDHeaderNames() { return headerNames; }
+		inline const auto& getSTDHeaderContents() { return m_headerContents; }
+		inline const auto& getSTDHeaderNames() { return m_headerNames; }
 
 		//
-		static nvrtcResult createProgram(	nvrtcProgram* prog, const char* source, const char* name,
-											const char* const* headersBegin=nullptr, const char* const* headersEnd=nullptr,
-											const char* const* includeNamesBegin=nullptr, const char* const* includeNamesEnd=nullptr)
+		nvrtcResult createProgram(nvrtcProgram* prog, std::string&& source, const char* name, const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr);
+		inline nvrtcResult createProgram(nvrtcProgram* prog, const char* source, const char* name, const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr)
 		{
-			auto headerCount = std::distance(headersBegin, headersEnd);
-			if (headerCount)
-			{
-				if (std::distance(includeNamesBegin,includeNamesEnd)!=headerCount)
-					return NVRTC_ERROR_INVALID_INPUT;
-			}
-			else
-			{
-				headersBegin = nullptr;
-				includeNamesBegin = nullptr;
-			}
-			auto extraLen = strlen(CUDA_EXTRA_DEFINES);
-			auto origLen = strlen(source);
-			auto totalLen = extraLen+origLen;
-			auto tmp = _NBL_NEW_ARRAY(char,totalLen+1u);
-			memcpy(tmp, CUDA_EXTRA_DEFINES, extraLen);
-			memcpy(tmp+extraLen, source, origLen);
-			tmp[totalLen] = 0;
-			auto result = nvrtc.pnvrtcCreateProgram(prog, tmp, name, headerCount, headersBegin, includeNamesBegin);
-			_NBL_DELETE_ARRAY(tmp,totalLen);
-			return result;
+			return createProgram(prog,std::string(source),name,headerCount,headerContents,includeNames);
+		}
+		inline nvrtcResult createProgram(nvrtcProgram* prog, system::IFile* file, const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr)
+		{
+			const auto filesize = file->getSize();
+			std::string source(filesize+1u,'0');
+
+			system::future<size_t> bytesRead;
+			file->read(bytesRead,source.data(),0u,file->getSize());
+			source.resize(bytesRead.get());
+
+			return createProgram(prog,std::move(source),file->getFileName().string().c_str(),headerCount,headerContents,includeNames);
 		}
 
-		template<typename HeaderFileIt>
-		static nvrtcResult createProgram(	nvrtcProgram* prog, nbl::io::IReadFile* main,
-											const HeaderFileIt includesBegin, const HeaderFileIt includesEnd)
-		{
-			int numHeaders = std::distance(includesBegin,includesEnd);
-			core::vector<const char*> headers(numHeaders);
-			core::vector<const char*> includeNames(numHeaders);
-			size_t sourceIt = strlen(CUDA_EXTRA_DEFINES);
-			size_t sourceSize = sourceIt+main->getSize();
-			sourceSize++;
-			for (auto it=includesBegin; it!=includesEnd; it++)
-			{
-				sourceSize += it->getSize()+1u;
-				includeNames.emplace_back(it->getFileName().c_str());
-			}
-			core::vector<char> sources(sourceSize);
-			memcpy(sources.data(),CUDA_EXTRA_DEFINES,sourceIt);
-			auto filesize = main->getSize();
-			main->read(sources.data()+sourceIt,filesize);
-			sourceIt += filesize;
-			sources[sourceIt++] = 0;
-			for (auto it=includesBegin; it!=includesEnd; it++)
-			{
-				auto oldpos = it->getPos();
-				it->seek(0ull);
-
-				auto ptr = sources.data()+sourceIt;
-				headers.push_back(ptr);
-				filesize = it->getSize();
-				it->read(ptr,filesize);
-				sourceIt += filesize;
-				sources[sourceIt++] = 0;
-
-				it->seek(oldpos);
-			}
-			return nvrtc.pnvrtcCreateProgram(prog, sources.data(), main->getFileName().c_str(), numHeaders, headers.data(), includeNames.data());
-		}
-#endif	
 		//
-		inline nvrtcResult compileProgram(nvrtcProgram prog, const size_t optionCount, const char* const* options)
+		inline nvrtcResult compileProgram(nvrtcProgram prog, core::SRange<const char* const> options)
 		{
-			return m_nvrtc.pnvrtcCompileProgram(prog, optionCount, options);
-		}
-		template<typename OptionsT = const std::initializer_list<const char*>&>
-		inline nvrtcResult compileProgram(nvrtcProgram prog, OptionsT options)
-		{
-			return compileProgram(prog, options.size(), options.begin());
-		}
-		inline nvrtcResult compileProgram(nvrtcProgram prog, const std::vector<const char*>& options)
-		{
-			return compileProgram(prog, options.size(), options.data());
+			return m_nvrtc.pnvrtcCompileProgram(prog,options.size(),options.begin());
 		}
 
 		//
 		nvrtcResult getProgramLog(nvrtcProgram prog, std::string& log);
 
 		//
-		std::pair<core::smart_refctd_ptr<asset::ICPUBuffer>,nvrtcResult> getPTX(nvrtcProgram prog);
+		struct ptx_and_nvrtcResult_t
+		{
+			core::smart_refctd_ptr<asset::ICPUBuffer> ptx;
+			nvrtcResult result;
+		};
+		ptx_and_nvrtcResult_t getPTX(nvrtcProgram prog);
 
-#if 0
 		//
-		template<typename OptionsT = const std::initializer_list<const char*>&>
-		static nvrtcResult compileDirectlyToPTX(std::string& ptx, const char* source, const char* filename,
-			const char* const* headersBegin = nullptr, const char* const* headersEnd = nullptr,
-			const char* const* includeNamesBegin = nullptr, const char* const* includeNamesEnd = nullptr,
-			OptionsT options = { _NBL_DEFAULT_NVRTC_OPTIONS },
-			std::string* log = nullptr)
+		inline ptx_and_nvrtcResult_t compileDirectlyToPTX(
+			std::string&& source, const char* filename, core::SRange<const char* const> nvrtcOptions,
+			const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr,
+			std::string* log=nullptr
+		)
 		{
 			nvrtcProgram program = nullptr;
 			nvrtcResult result = NVRTC_ERROR_PROGRAM_CREATION_FAILURE;
-			auto cleanup = core::makeRAIIExiter([&program, &result]() -> void {
-				if (result != NVRTC_SUCCESS && program)
-					nvrtc.pnvrtcDestroyProgram(&program);
-				});
-
-			result = createProgram(&program, source, filename, headersBegin, headersEnd, includeNamesBegin, includeNamesEnd);
-
-			if (result != NVRTC_SUCCESS)
-				return result;
-
-			return result = compileDirectlyToPTX_helper<OptionsT>(ptx, program, std::forward<OptionsT>(options), log);
-		}
-
-		template<typename OptionsT = const std::initializer_list<const char*>&>
-		static nvrtcResult compileDirectlyToPTX(std::string& ptx, nbl::io::IReadFile* main,
-			const char* const* headersBegin = nullptr, const char* const* headersEnd = nullptr,
-			const char* const* includeNamesBegin = nullptr, const char* const* includeNamesEnd = nullptr,
-			OptionsT options = { _NBL_DEFAULT_NVRTC_OPTIONS },
-			std::string* log = nullptr)
-		{
-			char* data = new char[main->getSize()+1ull];
-			main->read(data, main->getSize());
-			data[main->getSize()] = 0;
-			auto result = compileDirectlyToPTX<OptionsT>(ptx, data, main->getFileName().c_str(), headersBegin, headersEnd, std::forward<OptionsT>(options), log);
-			delete[] data;
-
-			return result;
-		}
-
-		template<typename CompileArgsT, typename OptionsT=const std::initializer_list<const char*>&>
-		static nvrtcResult compileDirectlyToPTX(std::string& ptx, nbl::io::IReadFile* main,
-												CompileArgsT includesBegin, CompileArgsT includesEnd,
-												OptionsT options={_NBL_DEFAULT_NVRTC_OPTIONS},
-												std::string* log=nullptr)
-		{
-			nvrtcProgram program = nullptr;
-			nvrtcResult result = NVRTC_ERROR_PROGRAM_CREATION_FAILURE;
-			auto cleanup = core::makeRAIIExiter([&program,&result]() -> void {
+			auto cleanup = core::makeRAIIExiter([&]() -> void
+			{
 				if (result!=NVRTC_SUCCESS && program)
-					nvrtc.pnvrtcDestroyProgram(&program);
+					m_nvrtc.pnvrtcDestroyProgram(&program); // TODO: do we need to destroy the program if we successfully get PTX?
 			});
-			result = createProgram(&program, main, includesBegin, includesEnd);
-			if (result!=NVRTC_SUCCESS)
-				return result;
 
-			return result = compileDirectlyToPTX_helper<OptionsT>(ptx,program,std::forward<OptionsT>(options),log);
+			result = createProgram(&program,std::move(source),filename,headerCount,headerContents,includeNames);
+			return compileDirectlyToPTX_impl(result,program,nvrtcOptions,log);
 		}
-#endif
+		inline ptx_and_nvrtcResult_t compileDirectlyToPTX(
+			const char* source, const char* filename, core::SRange<const char* const> nvrtcOptions,
+			const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr,
+			std::string* log=nullptr
+		)
+		{
+			return compileDirectlyToPTX(std::string(source),filename,nvrtcOptions,headerCount,headerContents,includeNames,log);
+		}
+		inline ptx_and_nvrtcResult_t compileDirectlyToPTX(
+			system::IFile* file, core::SRange<const char* const> nvrtcOptions,
+			const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr,
+			std::string* log=nullptr
+		)
+		{
+			nvrtcProgram program = nullptr;
+			nvrtcResult result = NVRTC_ERROR_PROGRAM_CREATION_FAILURE;
+			auto cleanup = core::makeRAIIExiter([&]() -> void
+			{
+				if (result!=NVRTC_SUCCESS && program)
+					m_nvrtc.pnvrtcDestroyProgram(&program); // TODO: do we need to destroy the program if we successfully get PTX?
+			});
+
+			result = createProgram(&program,file,headerCount,headerContents,includeNames);
+			return compileDirectlyToPTX_impl(result,program,nvrtcOptions,log);
+		}
 
 		core::smart_refctd_ptr<CCUDADevice> createDevice(core::smart_refctd_ptr<CVulkanConnection>&& vulkanConnection, IPhysicalDevice* physicalDevice);
 
 	protected:
-		CCUDAHandler(
-			CUDA&& _cuda,
-			NVRTC&& _nvrtc,
-			core::vector<core::smart_refctd_ptr<system::IFile>>&& _headers,
-			core::smart_refctd_ptr<system::ILogger>&& _logger,
-			int _version
-		);
-		~CCUDAHandler() = default;
-
-#if 0
-		static core::vector<const char*> headerContents;
-		static core::vector<const char*> headerNames;
-
-#ifdef _MSC_VER
-		_NBL_STATIC_INLINE_CONSTEXPR const char* CUDA_EXTRA_DEFINES = "#ifndef _WIN64\n#define _WIN64\n#endif\n";
-#else
-		_NBL_STATIC_INLINE_CONSTEXPR const char* CUDA_EXTRA_DEFINES = "#ifndef __LP64__\n#define __LP64__\n#endif\n";
-#endif
-
-		template<typename OptionsT = const std::initializer_list<const char*>&>
-		static nvrtcResult compileDirectlyToPTX_helper(std::string& ptx, nvrtcProgram program, OptionsT options, std::string* log=nullptr)
+		CCUDAHandler(CUDA&& _cuda, NVRTC&& _nvrtc, core::vector<core::smart_refctd_ptr<system::IFile>>&& _headers, core::smart_refctd_ptr<system::ILogger>&& _logger, int _version)
+			: m_cuda(std::move(_cuda)), m_nvrtc(std::move(_nvrtc)), m_headers(std::move(_headers)), m_logger(std::move(_logger)), m_version(_version)
 		{
-			nvrtcResult result = compileProgram(program,options);
-			if (log)
-				getProgramLog(program, *log);
-			if (result!=NVRTC_SUCCESS)
-				return result;
-
-			return getPTX(program, ptx);
+			for (auto& header : m_headers)
+			{
+				m_headerContents.push_back(reinterpret_cast<const char*>(header->getMappedPointer()));
+				m_headerNamesStorage.push_back(header->getFileName().string());
+				m_headerNames.push_back(m_headerNamesStorage.back().c_str());
+			}
 		}
-#endif
+		~CCUDAHandler() = default;
+		
+		//
+		inline ptx_and_nvrtcResult_t compileDirectlyToPTX_impl(nvrtcResult result, nvrtcProgram program, core::SRange<const char* const> nvrtcOptions, std::string* log)
+		{
+			if (result!=NVRTC_SUCCESS)
+				return {nullptr,result};
+
+			result = compileProgram(program,nvrtcOptions);
+			if (log)
+				getProgramLog(program,*log);
+			if (result!=NVRTC_SUCCESS)
+				return {nullptr,result};
+			
+			return getPTX(program);
+		}
+
 		// function tables
 		CUDA m_cuda;
 		NVRTC m_nvrtc;
 
 		//
 		core::vector<core::smart_refctd_ptr<system::IFile>> m_headers;
+		core::vector<const char*> m_headerContents;
+		core::vector<std::string> m_headerNamesStorage;
+		core::vector<const char*> m_headerNames;
 		system::logger_opt_smart_ptr m_logger;
 		int m_version;
 };
