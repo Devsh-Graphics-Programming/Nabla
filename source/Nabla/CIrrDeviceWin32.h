@@ -6,29 +6,13 @@
 #ifndef __NBL_C_NBL_DEVICE_WIN32_H_INCLUDED__
 #define __NBL_C_NBL_DEVICE_WIN32_H_INCLUDED__
 
-#include "nbl/core/compile_config.h"
-
 #ifdef _NBL_COMPILE_WITH_WINDOWS_DEVICE_
-
-#include "CIrrDeviceStub.h"
-#include "IrrlichtDevice.h"
-
-#define WIN32_LEAN_AND_MEAN
-	#include <windows.h>
-	#include <mmsystem.h> // For JOYCAPS
-	#include <windowsx.h>
-#if !defined(GET_X_LPARAM)
-#define GET_X_LPARAM(lp) ((int)(short)LOWORD(lp))
-#define GET_Y_LPARAM(lp) ((int)(short)HIWORD(lp))
-#endif
 
 namespace nbl
 {
-	struct SJoystickWin32Control;
-
+	
 	class CIrrDeviceWin32 : public CIrrDeviceStub
 	{
-        friend struct SJoystickWin32Control;
 
         protected:
             //! destructor
@@ -63,9 +47,6 @@ namespace nbl
             //! notifies the device that it should close itself
             virtual void closeDevice();
 
-            //! Notifies the device, that it has been resized
-            void OnResized();
-
             //! Sets if the window should be resizable in windowed mode.
             virtual void setResizable(bool resize=false);
 
@@ -78,17 +59,9 @@ namespace nbl
             //! Restores the window size.
             virtual void restoreWindow();
 
-            //! Activate any joysticks, and generate events for them.
-            virtual bool activateJoysticks(core::vector<SJoystickInfo> & joystickInfo);
-
             //! Remove all messages pending in the system message loop
             virtual void clearSystemMessages();
 
-            //! Get the device type
-            virtual E_DEVICE_TYPE getType() const
-            {
-                    return EIDT_WIN32;
-            }
 
             //! Compares to the last call of this function to return double and triple clicks.
             //! \return Returns only 1,2 or 3. A 4th click will start with 1 again.
@@ -392,8 +365,6 @@ namespace nbl
 #if 0
             DEVMODE DesktopMode;
 #endif
-
-            SJoystickWin32Control* JoyControl;
 	};
 
 } // end namespace nbl
