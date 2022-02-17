@@ -13,16 +13,14 @@ add_subdirectory(04.Keyframe EXCLUDE_FROM_ALL)
 add_subdirectory(05.NablaTutorialExample EXCLUDE_FROM_ALL)
 add_subdirectory(06.MeshLoaders EXCLUDE_FROM_ALL)
 add_subdirectory(07.SubpassBaking EXCLUDE_FROM_ALL)
-#add_subdirectory(08.UPFORGRABS EXCLUDE_FROM_ALL)
+#add_subdirectory(08.REUSE EXCLUDE_FROM_ALL)
 add_subdirectory(09.ColorSpaceTest EXCLUDE_FROM_ALL)
 add_subdirectory(10.AllocatorTest EXCLUDE_FROM_ALL)
 add_subdirectory(11.LoDSystem EXCLUDE_FROM_ALL)
 add_subdirectory(12.glTF EXCLUDE_FROM_ALL)
-if (NBL_BUILD_CEGUI)
-	#add_subdirectory(13.BRDF_Explorer EXCLUDE_FROM_ALL)
-endif()
+#add_subdirectory(13.REUSE EXCLUDE_FROM_ALL)
 add_subdirectory(14.ComputeScan EXCLUDE_FROM_ALL)
-# 15 is reserved for Erfan
+#REUSE 15 is reserved for Erfan
 add_subdirectory(16.OrderIndependentTransparency EXCLUDE_FROM_ALL)
 if (NBL_BUILD_BULLET AND NOT NBL_BUILD_ANDROID) # The reason why bullet shouldn't build on android: https://github.com/bulletphysics/bullet3/issues/4025
 	add_subdirectory(17.SimpleBulletIntegration EXCLUDE_FROM_ALL) # Needs example 08 to come back first
@@ -33,19 +31,17 @@ endif()
 add_subdirectory(19.SIMDmatrixMultiplication EXCLUDE_FROM_ALL)
 add_subdirectory(20.Megatexture EXCLUDE_FROM_ALL)
 add_subdirectory(21.DynamicTextureIndexing EXCLUDE_FROM_ALL) # TODO: revive
-if (NBL_BUILD_MITSUBA_LOADER AND NBL_BUILD_RADEON_RAYS)
+if (NBL_BUILD_MITSUBA_LOADER)
 	add_subdirectory(22.RaytracedAO EXCLUDE_FROM_ALL)
 endif()
 add_subdirectory(23.Autoexposure EXCLUDE_FROM_ALL)
-#add_subdirectory(24.BufferSubDataAlignTest EXCLUDE_FROM_ALL) # TODO: @Anastazluk or @Hazardu
+#add_subdirectory(24.REUSE EXCLUDE_FROM_ALL) # TODO: @Anastazluk or @Hazardu
 #add_subdirectory(25.Blur EXCLUDE_FROM_ALL)
 #add_subdirectory(26.MultidrawIndirectVSCPUCull EXCLUDE_FROM_ALL)
 add_subdirectory(27.PLYSTLDemo EXCLUDE_FROM_ALL)
-if (NBL_BUILD_MITSUBA_LOADER AND NBL_BUILD_OPTIX)
-	#add_subdirectory(28.OptiXPathTracing EXCLUDE_FROM_ALL)
-endif()
+#add_subdirectory(28.REUSE EXCLUDE_FROM_ALL)
 add_subdirectory(29.SpecializationConstants EXCLUDE_FROM_ALL)
-add_subdirectory(32.MultiThreadedRefCounting EXCLUDE_FROM_ALL) # TODO: @Anastazluk make this into example 04
+#add_subdirectory(32.REUSE EXCLUDE_FROM_ALL) # TODO: @Anastazluk make this into example 04
 add_subdirectory(33.Draw3DLine EXCLUDE_FROM_ALL)
 add_subdirectory(34.LRUCacheUnitTest EXCLUDE_FROM_ALL)
 add_subdirectory(35.GeometryCreator EXCLUDE_FROM_ALL)
@@ -76,4 +72,4 @@ add_subdirectory(56.RayQuery EXCLUDE_FROM_ALL)
 add_subdirectory(57.AndroidSample EXCLUDE_FROM_ALL)
 add_subdirectory(58.MediaUnpackingOnAndroid EXCLUDE_FROM_ALL)
 add_subdirectory(60.ClusteredRendering EXCLUDE_FROM_ALL)
-add_subdirectory(0.ImportanceSamplingEnvMaps EXCLUDE_FROM_ALL)
+add_subdirectory(0.ImportanceSamplingEnvMaps EXCLUDE_FROM_ALL) #TODO: integrate back into 42
