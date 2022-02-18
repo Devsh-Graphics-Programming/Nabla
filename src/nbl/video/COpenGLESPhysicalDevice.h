@@ -51,7 +51,7 @@ public:
 		m_optimalTilingUsages[format].storageImage = isAllowedImageStoreFormat(format) ? 1 : 0;
 		m_optimalTilingUsages[format].storageImageAtomic = isAllowedImageStoreAtomicFormat(format) ? 1 : 0;
 		m_optimalTilingUsages[format].attachment = isRenderableFormat(format) ? 1 : 0;
-		m_optimalTilingUsages[format].attachmentBlend = isRenderableFormat(format) ? 1 : 0;
+		m_optimalTilingUsages[format].attachmentBlend = (isRenderableFormat(format) && !isIntegerFormat(format)) ? 1 : 0;
 		m_optimalTilingUsages[format].blitSrc = isRenderableFormat(format) ? 1 : 0;
 		m_optimalTilingUsages[format].blitDst = isRenderableFormat(format) ? 1 : 0;
 		const bool anyUsageFlagSet =
@@ -91,8 +91,8 @@ public:
 
 		m_bufferUsages[format].vertexAttribute = isAllowedVertexAttribFormat(format) ? 1 : 0;
 		m_bufferUsages[format].bufferView = isAllowedBufferViewFormat(format) ? 1 : 0;
-		m_bufferUsages[format].storageBufferView = isAllowedBufferViewFormat(format) ? 1 : 0;
-		m_bufferUsages[format].storageBufferViewAtomic = isAllowedBufferViewFormat(format) ? 1 : 0;
+		m_bufferUsages[format].storageBufferView = (isAllowedBufferViewFormat(format) && isAllowedImageStoreFormat(format)) ? 1 : 0;
+		m_bufferUsages[format].storageBufferViewAtomic = (isAllowedBufferViewFormat(format) && isAllowedImageStoreAtomicFormat(format)) ? 1 : 0;
 		m_bufferUsages[format].accelerationStructureVertex = false;
 
 		m_bufferUsages[format].isInitialized = 1;
