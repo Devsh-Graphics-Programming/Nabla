@@ -5,6 +5,12 @@
 #include "nbl/system/CAPKResourcesArchive.h"
 #include <android_native_app_glue.h>
 #include <jni.h>
+#include <sys/system_properties.h>
+#include <sys/ioctl.h>
+#include <linux/fb.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 namespace nbl::system
 {
 	class CSystemAndroid final : public ISystem
@@ -28,8 +34,20 @@ namespace nbl::system
 		}
 		SystemInfo getSystemInfo() const override
 		{
-			assert(false); // TODO
-			return SystemInfo();
+			SystemInfo info;
+			char sdk_ver_str[92];
+			__system_property_get("ro.build.version.sdk", sdk_ver_str);
+			info.OSFullName = std::string("Android ") + sdk_ver_str;
+			// TODO: hardcoded
+			info.cpuFrequency = 1100;
+
+			struct fb_var_screeninfo fb_var;
+			int fd = open("/dev/graphics/fb0", O_RDONLY);
+			ioctl(fd, FBIOGET_VSCREENINFO, &fb_var);
+			close(fd);
+			info.desktopResX = fb_var.width;
+			info.desktopResY = fb_var.height;
+			return info;
 		}
 	};
 }
