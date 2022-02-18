@@ -9,6 +9,7 @@
 using namespace nbl;
 
 // #define SYNC_DEBUG
+// #define DEBUG_VIZ
 
 #define CLIPMAP
 // #define OCTREE
@@ -25,6 +26,11 @@ struct vec3
 struct alignas(16) vec3_aligned
 {
 	float x, y, z;
+};
+
+struct vec4
+{
+	float x, y, z, w;
 };
 
 struct uvec2
@@ -73,6 +79,9 @@ class ClusteredRenderingSampleApp : public ApplicationBase
 
 	constexpr static uint32_t Z_PREPASS_INDEX = 0u;
 	constexpr static uint32_t LIGHTING_PASS_INDEX = 1u;
+#ifdef DEBUG_VIZ
+	constexpr static uint32_t DEBUG_DRAW_PASS_INDEX = 2u;
+#endif
 
 	constexpr static float LIGHT_CONTRIBUTION_THRESHOLD = 2.f;
 	constexpr static float LIGHT_RADIUS = 25.f;
@@ -84,6 +93,10 @@ class ClusteredRenderingSampleApp : public ApplicationBase
 	constexpr static uint32_t VOXEL_COUNT_PER_DIM = 64u; // for the finest level
 #endif
 	constexpr static uint32_t VOXEL_COUNT_PER_LEVEL = VOXEL_COUNT_PER_DIM * VOXEL_COUNT_PER_DIM * VOXEL_COUNT_PER_DIM;
+
+	constexpr static float DEBUG_CONE_RADIUS = 10.f;
+	constexpr static float DEBUG_CONE_LENGTH = 25.f;
+	constexpr static vec3 DEBUG_CONE_DIRECTION = { 0.f, -1.f, 0.f };
 
 	struct cone_t
 	{
@@ -122,6 +135,373 @@ class ClusteredRenderingSampleApp : public ApplicationBase
 		float camPosGenesisVoxelExtent[4];
 		uint32_t hierarchyLevel;
 	};
+#endif
+
+#ifdef DEBUG_VIZ
+	void debugCreateLightVolumeGPUResources()
+	{
+		// Todo(achal): Depending upon the light type I can change the light volume shape here
+		const float radius = 10.f;
+		const float length = 25.f;
+		asset::IGeometryCreator::return_type lightVolume = assetManager->getGeometryCreator()->createConeMesh(radius, length, 10);
+
+		asset::SPushConstantRange pcRange = {};
+		pcRange.offset = 0u;
+		pcRange.size = sizeof(core::matrix4SIMD);
+		pcRange.stageFlags = asset::IShader::ESS_VERTEX;
+
+		auto vertShader = createShader("../debug_draw_light_volume.vert");
+		auto fragShader = createShader("nbl/builtin/material/debug/vertex_normal/specialized_shader.frag");
+
+		video::IGPUSpecializedShader* shaders[2] = { vertShader.get(), fragShader.get() };
+
+		asset::SVertexInputParams& vertexInputParams = lightVolume.inputParams;
+		constexpr uint32_t POS_ATTRIBUTE_LOCATION = 0u;
+		vertexInputParams.enabledAttribFlags = (1u << POS_ATTRIBUTE_LOCATION); // disable all other unused attributes to not get validation perf warning
+
+		asset::SBlendParams blendParams = {};
+		for (size_t i = 0ull; i < nbl::asset::SBlendParams::MAX_COLOR_ATTACHMENT_COUNT; i++)
+			blendParams.blendParams[i].attachmentEnabled = (i == 0ull);
+
+		asset::SRasterizationParams rasterizationParams = {};
+
+		auto renderpassIndep = logicalDevice->createGPURenderpassIndependentPipeline
+		(
+			nullptr,
+			logicalDevice->createGPUPipelineLayout(&pcRange, &pcRange + 1, nullptr, nullptr, nullptr, nullptr),
+			shaders,
+			shaders + 2,
+			lightVolume.inputParams,
+			blendParams,
+			lightVolume.assemblyParams,
+			rasterizationParams
+		);
+
+		constexpr uint32_t MAX_DATA_BUFFER_COUNT = video::IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT + 1u;
+
+		uint32_t cpuBufferCount = 0u;
+		core::vector<asset::ICPUBuffer*> cpuBuffers(MAX_DATA_BUFFER_COUNT);
+		for (size_t i = 0ull; i < video::IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT; ++i)
+		{
+			const bool bufferBindingEnabled = (lightVolume.inputParams.enabledBindingFlags & (1 << i));
+			if (bufferBindingEnabled)
+				cpuBuffers[cpuBufferCount++] = lightVolume.bindings[i].buffer.get();
+		}
+		asset::ICPUBuffer* cpuIndexBuffer = lightVolume.indexBuffer.buffer.get();
+		if (cpuIndexBuffer)
+			cpuBuffers[cpuBufferCount++] = cpuIndexBuffer;
+
+		cpu2gpuParams.beginCommandBuffers();
+		auto gpuArray = cpu2gpu.getGPUObjectsFromAssets(cpuBuffers.data(), cpuBuffers.data() + cpuBufferCount, cpu2gpuParams);
+		if (!gpuArray || gpuArray->size() < 1u || !(*gpuArray)[0])
+		{
+			logger->log("Failed to convert debug light volume's vertex and index buffers from CPU to GPU!\n", system::ILogger::ELL_ERROR);
+			exit(-1);
+		}
+		cpu2gpuParams.waitForCreationToComplete();
+
+		asset::SBufferBinding<video::IGPUBuffer> gpuBufferBindings[MAX_DATA_BUFFER_COUNT] = {};
+		for (auto i = 0, j = 0; i < video::IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT; i++)
+		{
+			const bool bufferBindingEnabled = (lightVolume.inputParams.enabledBindingFlags & (1 << i));
+			if (!bufferBindingEnabled)
+				continue;
+
+			auto buffPair = gpuArray->operator[](j++);
+			gpuBufferBindings[i].offset = buffPair->getOffset();
+			gpuBufferBindings[i].buffer = core::smart_refctd_ptr<video::IGPUBuffer>(buffPair->getBuffer());
+		}
+		if (cpuIndexBuffer)
+		{
+			auto buffPair = gpuArray->back();
+			gpuBufferBindings[video::IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT].offset = buffPair->getOffset();
+			gpuBufferBindings[video::IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT].buffer = core::smart_refctd_ptr<video::IGPUBuffer>(buffPair->getBuffer());
+		}
+
+		debugLightVolumeMeshBuffer = core::make_smart_refctd_ptr<video::IGPUMeshBuffer>(
+			core::smart_refctd_ptr(renderpassIndep),
+			nullptr,
+			gpuBufferBindings,
+			std::move(gpuBufferBindings[video::IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT]));
+		if (!debugLightVolumeMeshBuffer)
+			exit(-1);
+		{
+			debugLightVolumeMeshBuffer->setIndexType(lightVolume.indexType);
+			debugLightVolumeMeshBuffer->setIndexCount(lightVolume.indexCount);
+			debugLightVolumeMeshBuffer->setBoundingBox(lightVolume.bbox);
+		}
+
+		video::IGPUGraphicsPipeline::SCreationParams creationParams = {};
+		creationParams.renderpass = renderpass;
+		creationParams.renderpassIndependent = renderpassIndep;
+		creationParams.subpassIx = DEBUG_DRAW_PASS_INDEX;
+		debugLightVolumeGraphicsPipeline = logicalDevice->createGPUGraphicsPipeline(nullptr, std::move(creationParams));
+		if (!debugLightVolumeGraphicsPipeline)
+			exit(-1);
+	}
+
+	void debugCreateAABBGPUResources()
+	{
+		constexpr size_t INDEX_COUNT = 24ull;
+		uint16_t indices[INDEX_COUNT];
+		{
+			indices[0] = 0b000;
+			indices[1] = 0b001;
+			indices[2] = 0b001;
+			indices[3] = 0b011;
+			indices[4] = 0b011;
+			indices[5] = 0b010;
+			indices[6] = 0b010;
+			indices[7] = 0b000;
+			indices[8] = 0b000;
+			indices[9] = 0b100;
+			indices[10] = 0b001;
+			indices[11] = 0b101;
+			indices[12] = 0b010;
+			indices[13] = 0b110;
+			indices[14] = 0b011;
+			indices[15] = 0b111;
+			indices[16] = 0b100;
+			indices[17] = 0b101;
+			indices[18] = 0b101;
+			indices[19] = 0b111;
+			indices[20] = 0b100;
+			indices[21] = 0b110;
+			indices[22] = 0b110;
+			indices[23] = 0b111;
+		}
+		const size_t indexBufferSize = INDEX_COUNT * sizeof(uint16_t);
+
+		video::IGPUBuffer::SCreationParams creationParams = {};
+		creationParams.usage = static_cast<video::IGPUBuffer::E_USAGE_FLAGS>(video::IGPUBuffer::EUF_INDEX_BUFFER_BIT | video::IGPUBuffer::EUF_TRANSFER_DST_BIT);
+		debugAABBIndexBuffer = logicalDevice->createDeviceLocalGPUBufferOnDedMem(creationParams, indexBufferSize);
+
+		core::smart_refctd_ptr<video::IGPUFence> fence = logicalDevice->createFence(video::IGPUFence::ECF_UNSIGNALED);
+		asset::SBufferRange<video::IGPUBuffer> bufferRange;
+		bufferRange.offset = 0ull;
+		bufferRange.size = debugAABBIndexBuffer->getCachedCreationParams().declaredSize;
+		bufferRange.buffer = debugAABBIndexBuffer;
+		utilities->updateBufferRangeViaStagingBuffer(
+			fence.get(),
+			queues[CommonAPI::InitOutput::EQT_TRANSFER_UP],
+			bufferRange,
+			indices);
+		logicalDevice->blockForFences(1u, &fence.get());
+
+		core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> dsLayout = nullptr;
+		{
+			video::IGPUDescriptorSetLayout::SBinding binding[2];
+			binding[0].binding = 0u;
+			binding[0].type = asset::EDT_STORAGE_BUFFER;
+			binding[0].count = 1u;
+			binding[0].stageFlags = asset::IShader::ESS_VERTEX;
+			binding[0].samplers = nullptr;
+
+			binding[1].binding = 1u;
+			binding[1].type = asset::EDT_UNIFORM_BUFFER;
+			binding[1].count = 1u;
+			binding[1].stageFlags = asset::IShader::ESS_VERTEX;
+			binding[1].samplers = nullptr;
+
+			dsLayout = logicalDevice->createGPUDescriptorSetLayout(binding, binding + 2);
+
+			if (!dsLayout)
+			{
+				logger->log("Failed to create GPU DS layout for debug draw AABB!\n", system::ILogger::ELL_ERROR);
+				exit(-1);
+			}
+		}
+
+		auto pipelineLayout = logicalDevice->createGPUPipelineLayout(nullptr, nullptr, core::smart_refctd_ptr(dsLayout));
+
+		auto vertShader = createShader("../debug_draw_aabb.vert");
+		auto fragShader = createShader("nbl/builtin/material/debug/vertex_normal/specialized_shader.frag");
+
+		core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> renderpassIndep = nullptr;
+		{
+			asset::SVertexInputParams vertexInputParams = {};
+
+			asset::SBlendParams blendParams = {};
+			for (size_t i = 0ull; i < nbl::asset::SBlendParams::MAX_COLOR_ATTACHMENT_COUNT; i++)
+				blendParams.blendParams[i].attachmentEnabled = (i == 0ull);
+
+			asset::SPrimitiveAssemblyParams primitiveAssemblyParams = {};
+			primitiveAssemblyParams.primitiveType = asset::EPT_LINE_LIST;
+
+			asset::SRasterizationParams rasterizationParams = {};
+
+			video::IGPUSpecializedShader* const shaders[2] = { vertShader.get(), fragShader.get() };
+			renderpassIndep = logicalDevice->createGPURenderpassIndependentPipeline(
+				nullptr,
+				std::move(pipelineLayout),
+				shaders, shaders + 2,
+				vertexInputParams,
+				blendParams,
+				primitiveAssemblyParams,
+				rasterizationParams);
+		}
+
+		// graphics pipeline
+		{
+			video::IGPUGraphicsPipeline::SCreationParams creationParams = {};
+			creationParams.renderpassIndependent = renderpassIndep;
+			creationParams.renderpass = renderpass;
+			creationParams.subpassIx = DEBUG_DRAW_PASS_INDEX;
+			debugAABBGraphicsPipeline = logicalDevice->createGPUGraphicsPipeline(nullptr, std::move(creationParams));
+		}
+
+		// create debug draw AABB buffers
+		for (uint32_t i = 0u; i < FRAMES_IN_FLIGHT; ++i)
+		{
+			const size_t neededSSBOSize = VOXEL_COUNT_PER_LEVEL * LOD_COUNT * sizeof(nbl_glsl_shapes_AABB_t);
+
+			video::IGPUBuffer::SCreationParams creationParams = {};
+			creationParams.usage = static_cast<video::IGPUBuffer::E_USAGE_FLAGS>(video::IGPUBuffer::EUF_TRANSFER_DST_BIT | video::IGPUBuffer::EUF_STORAGE_BUFFER_BIT);
+			debugClustersForLightGPU[i] = logicalDevice->createDeviceLocalGPUBufferOnDedMem(creationParams, neededSSBOSize);
+		}
+
+		// create and update descriptor sets
+		{
+			// Todo(achal): Is creating 5 DS the only solution for:
+			// 1. Having a GPU buffer per command buffer? or,
+			// 2. Somehow sharing a GPU buffer amongst 5 different command buffers without
+			// race conditions
+			// Is using a property pool a solution?
+			const uint32_t setCount = FRAMES_IN_FLIGHT;
+			auto dsPool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE, &dsLayout.get(), &dsLayout.get() + 1ull, &setCount);
+
+			for (uint32_t i = 0u; i < setCount; ++i)
+			{
+				debugAABBDescriptorSets[i] = logicalDevice->createGPUDescriptorSet(dsPool.get(), core::smart_refctd_ptr(dsLayout));
+
+				video::IGPUDescriptorSet::SWriteDescriptorSet writes[2];
+
+				writes[0].dstSet = debugAABBDescriptorSets[i].get();
+				writes[0].binding = 0u;
+				writes[0].count = 1u;
+				writes[0].arrayElement = 0u;
+				writes[0].descriptorType = asset::EDT_STORAGE_BUFFER;
+				video::IGPUDescriptorSet::SDescriptorInfo infos[2];
+				{
+					infos[0].desc = debugClustersForLightGPU[i];
+					infos[0].buffer.offset = 0u;
+					infos[0].buffer.size = debugClustersForLightGPU[i]->getCachedCreationParams().declaredSize;
+				}
+				writes[0].info = &infos[0];
+
+				writes[1].dstSet = debugAABBDescriptorSets[i].get();
+				writes[1].binding = 1u;
+				writes[1].count = 1u;
+				writes[1].arrayElement = 0u;
+				writes[1].descriptorType = asset::EDT_UNIFORM_BUFFER;
+				{
+					infos[1].desc = cameraUbo;
+					infos[1].buffer.offset = 0u;
+					infos[1].buffer.size = cameraUbo->getCachedCreationParams().declaredSize;
+				}
+				writes[1].info = &infos[1];
+				logicalDevice->updateDescriptorSets(2u, writes, 0u, nullptr);
+			}
+		}
+	}
+
+	void debugUpdateLightClusterAssignment(
+		video::IGPUCommandBuffer* commandBuffer,
+		const uint32_t lightIndex,
+		core::vector<nbl_glsl_shapes_AABB_t>& clustersForLight,
+		core::unordered_map<uint32_t, core::unordered_set<uint32_t>>& debugDrawLightIDToClustersMap,
+		const nbl_glsl_shapes_AABB_t* clipmap)
+	{
+		// figure out assigned clusters
+		const auto& clusterIndices = debugDrawLightIDToClustersMap[lightIndex];
+		if (!clusterIndices.empty())
+		{
+			// Todo(achal): It might not be very efficient to create a vector (allocate memory) every frame,
+			// would reusing vectors be better? This is debug code anyway..
+			clustersForLight.resize(clusterIndices.size());
+
+			uint32_t i = 0u;
+			for (uint32_t clusterIdx : clusterIndices)
+				clustersForLight[i++] = clipmap[clusterIdx];
+
+			// update buffer needs to go outside of a render pass!!!
+			commandBuffer->updateBuffer(debugClustersForLightGPU[resourceIx].get(), 0ull, clusterIndices.size() * sizeof(nbl_glsl_shapes_AABB_t), clustersForLight.data());
+		}
+	}
+
+	void debugDrawLightClusterAssignment(
+		video::IGPUCommandBuffer* commandBuffer,
+		const uint32_t lightIndex,
+		core::vector<nbl_glsl_shapes_AABB_t>& clustersForLight)
+	{
+		commandBuffer->nextSubpass(asset::ESC_INLINE); // change to debug draw subpass
+
+		if (lightIndex != -1)
+		{
+			debugUpdateModelMatrixForLightVolume(getLightVolume(lights[lightIndex]));
+
+			core::matrix4SIMD mvp = core::concatenateBFollowedByA(camera.getConcatenatedMatrix(), debugLightVolumeModelMatrix);
+			commandBuffer->pushConstants(
+				debugLightVolumeGraphicsPipeline->getRenderpassIndependentPipeline()->getLayout(),
+				asset::IShader::ESS_VERTEX,
+				0u, sizeof(core::matrix4SIMD), &mvp);
+			commandBuffer->bindGraphicsPipeline(debugLightVolumeGraphicsPipeline.get());
+			commandBuffer->drawMeshBuffer(debugLightVolumeMeshBuffer.get());
+		}
+
+		if (!clustersForLight.empty())
+		{
+			// draw assigned clusters
+			video::IGPUDescriptorSet const* descriptorSet[1] = { debugAABBDescriptorSets[resourceIx].get() };
+			commandBuffer->bindDescriptorSets(
+				asset::EPBP_GRAPHICS,
+				debugAABBGraphicsPipeline->getRenderpassIndependentPipeline()->getLayout(),
+				0u, 1u, descriptorSet);
+			commandBuffer->bindGraphicsPipeline(debugAABBGraphicsPipeline.get());
+			commandBuffer->bindIndexBuffer(debugAABBIndexBuffer.get(), 0u, asset::EIT_16BIT);
+			commandBuffer->drawIndexed(24u, clustersForLight.size(), 0u, 0u, 0u);
+		}
+	}
+
+	void debugUpdateModelMatrixForLightVolume(const cone_t& cone)
+	{
+		// Scale
+		core::vectorSIMDf scaleFactor;
+		{
+			const float tanOuterHalfAngle = core::sqrt(core::max(1.f - (cone.cosHalfAngle * cone.cosHalfAngle), 0.f)) / cone.cosHalfAngle;
+			scaleFactor.X = (cone.height * tanOuterHalfAngle) / DEBUG_CONE_RADIUS;
+			scaleFactor.Y = cone.height / DEBUG_CONE_LENGTH;
+			scaleFactor.Z = scaleFactor.X;
+		}
+
+		// Rotation
+		const core::vectorSIMDf modelSpaceConeDirection(DEBUG_CONE_DIRECTION.x, DEBUG_CONE_DIRECTION.y, DEBUG_CONE_DIRECTION.z);
+		const float angle = std::acosf(core::dot(cone.direction, modelSpaceConeDirection).x);
+		core::vectorSIMDf axis = core::normalize(core::cross(modelSpaceConeDirection, cone.direction));
+
+		// Axis of rotation of the cone doesn't pass through its tip, hence
+		// the order of transformations is a bit tricky here
+		// First apply no translation to get the cone tip after scaling and rotation
+		debugLightVolumeModelMatrix.setScaleRotationAndTranslation(
+			scaleFactor,
+			core::quaternion::fromAngleAxis(angle, axis),
+			core::vectorSIMDf(0.f));
+		const core::vectorSIMDf modelSpaceConeTip(0.f, DEBUG_CONE_LENGTH, 0.f);
+		core::vectorSIMDf scaledAndRotatedConeTip = modelSpaceConeTip;
+		debugLightVolumeModelMatrix.transformVect(scaledAndRotatedConeTip);
+		// Now we can apply the correct translation to the model matrix
+		// Translation
+		debugLightVolumeModelMatrix.setTranslation(cone.tip - scaledAndRotatedConeTip);
+	}
+
+#else
+#define debugCreateLightVolumeGPUResources(...)
+#define debugCreateAABBGPUResources(...)
+#define debugRecordLightIDToClustersMap(...)
+#define debugUpdateLightClusterAssignment(...)
+#define debugDrawLightClusterAssignment(...)
+#define debugIncrementActiveLightIndex(...)
+#define debugUpdateModelMatrixForLightVolume(...)
 #endif
 
 public:
@@ -1367,6 +1747,9 @@ public:
 			renderFinished[i] = logicalDevice->createSemaphore();
 		}
 
+		debugCreateLightVolumeGPUResources();
+		debugCreateAABBGPUResources();
+
 		oracle.reportBeginFrameRecord();
 	}
 
@@ -1424,6 +1807,7 @@ public:
 				{
 					camera.keyboardProcess(events);
 
+#ifdef DEBUG_VIZ
 					for (auto eventIt = events.begin(); eventIt != events.end(); eventIt++)
 					{
 						auto ev = *eventIt;
@@ -1434,7 +1818,78 @@ public:
 								system::ILogger::ELL_DEBUG,
 								camPos.x, camPos.y, camPos.z, camPos.w);
 						}
+
+						if ((ev.keyCode == ui::EKC_Q) && (ev.action == ui::SKeyboardEvent::ECA_RELEASED))
+						{
+							const core::vectorSIMDf& camPos = camera.getPosition();
+							logger->log("debugActiveLightIndex: %d\n",
+								system::ILogger::ELL_DEBUG, debugActiveLightIndex);
+						}
+
+						if ((ev.keyCode == ui::EKC_1) && (ev.action == ui::SKeyboardEvent::ECA_RELEASED))
+						{
+							// Todo(achal): Don't know how I'm gonna deal with this when I add
+							// the ability to change active lights at runtime
+
+							++debugActiveLightIndex;
+							debugActiveLightIndex %= LIGHT_COUNT;
+						}
+
+						if ((ev.keyCode == ui::EKC_2) && (ev.action == ui::SKeyboardEvent::ECA_RELEASED))
+						{
+							--debugActiveLightIndex;
+							if (debugActiveLightIndex < 0)
+								debugActiveLightIndex += LIGHT_COUNT;
+						}
+
+						if ((ev.keyCode == ui::EKC_3) && (ev.action == ui::SKeyboardEvent::ECA_RELEASED))
+						{
+							++debugActiveLevelIndex;
+							debugActiveLevelIndex %= LOD_COUNT;
+						}
+
+						if ((ev.keyCode == ui::EKC_4) && (ev.action == ui::SKeyboardEvent::ECA_RELEASED))
+						{
+							--debugActiveLevelIndex;
+							if (debugActiveLevelIndex < 0)
+								debugActiveLevelIndex += LOD_COUNT;
+						}
+						if ((ev.keyCode == ui::EKC_F) && (ev.action == ui::SKeyboardEvent::ECA_RELEASED))
+						{
+							const core::vectorSIMDf aabbCenter = camera.getPosition();
+							const float extent = 500.f;
+							nbl_glsl_shapes_AABB_t aabb;
+							aabb.minVx = { aabbCenter.x - (extent / 2.f), aabbCenter.y - (extent / 2.f), aabbCenter.z - (extent / 2.f) };
+							aabb.maxVx = { aabbCenter.x + (extent / 2.f), aabbCenter.y + (extent / 2.f), aabbCenter.z + (extent / 2.f) };
+
+							debugClustersForLight.push_back(aabb);
+
+							printf("Cluster:\n");
+							printf("\tminVx: [%f,\t %f,\t %f]\n\tmaxVx: [%f,\t %f,\t %f]\n",
+								aabb.minVx.x, aabb.minVx.y, aabb.minVx.z,
+								aabb.maxVx.x, aabb.maxVx.y, aabb.maxVx.z);
+						}
+						if ((ev.keyCode == ui::EKC_G) && (ev.action == ui::SKeyboardEvent::ECA_RELEASED))
+						{
+							const core::vectorSIMDf aabbCenter = camera.getPosition();
+							const float extent = 500.f;
+							nbl_glsl_shapes_AABB_t aabb;
+
+							aabb.minVx = { aabbCenter.x - (extent / 2.f), aabbCenter.y - (extent / 2.f), aabbCenter.z - (extent / 2.f) };
+							aabb.maxVx = { aabbCenter.x + (extent / 2.f), aabbCenter.y + (extent / 2.f), aabbCenter.z + (extent / 2.f) };
+
+							const cone_t& lightCone = getLightVolume(lights[debugActiveLightIndex]);
+							if (!doesLightIntersectAABB(lightCone, aabb))
+								logger->log("NO INTERSECTION!!!!\n");
+							else
+								logger->log("INTERSECTION!!!!\n");
+						}
+						if ((ev.keyCode == ui::EKC_R) && (ev.action == ui::SKeyboardEvent::ECA_RELEASED))
+						{
+							debugClustersForLight.resize(0ull);
+						}
 					}
+#endif
 
 				}, logger.get());
 			camera.endInputProcessing(nextPresentationTimestamp);
@@ -2105,6 +2560,80 @@ public:
 
 #endif
 
+		
+#ifdef DEBUG_VIZ
+		{
+#if 0
+		if (debugActiveLevelIndex != -1)
+		{
+			const core::vectorSIMDf camPos(-560.212585, 200.223846, -66.081284, 0.000000);
+			nbl_glsl_shapes_AABB_t rootAABB;
+			rootAABB.minVx = { camPos.x - (genesisVoxelExtent / 2.f), camPos.y - (genesisVoxelExtent / 2.f), camPos.z - (genesisVoxelExtent / 2.f) };
+			rootAABB.maxVx = { camPos.x + (genesisVoxelExtent / 2.f), camPos.y + (genesisVoxelExtent / 2.f), camPos.z + (genesisVoxelExtent / 2.f) };
+
+			vec3_aligned center = { (rootAABB.minVx.x + rootAABB.maxVx.x) / 2.f, (rootAABB.minVx.y + rootAABB.maxVx.y) / 2.f, (rootAABB.minVx.z + rootAABB.maxVx.z) / 2.f };
+
+			for (int32_t level = LOD_COUNT - 1; level >= 0; --level)
+			{
+				// nbl_glsl_shapes_AABB_t* begin = outClipmap + ((LOD_COUNT - 1ull - level) * VOXEL_COUNT_PER_LEVEL);
+				if (level == debugActiveLevelIndex)
+				{
+					const core::vectorSIMDf extent(rootAABB.maxVx.x - rootAABB.minVx.x, rootAABB.maxVx.y - rootAABB.minVx.y, rootAABB.maxVx.z - rootAABB.minVx.z);
+					const core::vector3df voxelSideLength(extent.X / VOXEL_COUNT_PER_DIM, extent.Y / VOXEL_COUNT_PER_DIM, extent.Z / VOXEL_COUNT_PER_DIM);
+
+					for (uint32_t z = 0u; z < VOXEL_COUNT_PER_DIM; ++z)
+					{
+						for (uint32_t y = 0u; y < VOXEL_COUNT_PER_DIM; ++y)
+						{
+							for (uint32_t x = 0u; x < VOXEL_COUNT_PER_DIM; ++x)
+							{
+								const uint32_t localClusterID[3] = { x, y, z };
+
+								const bool isMidRegion =
+									(localClusterID[0] >= 1 && localClusterID[0] <= 2) &&
+									(localClusterID[1] >= 1 && localClusterID[1] <= 2) &&
+									(localClusterID[2] >= 1 && localClusterID[2] <= 2);
+
+								if (debugActiveLevelIndex != 0)
+								{
+									if (!isMidRegion)
+									{
+										nbl_glsl_shapes_AABB_t voxel;
+										voxel.minVx = { rootAABB.minVx.x + x * voxelSideLength.X, rootAABB.minVx.y + y * voxelSideLength.Y, rootAABB.minVx.z + z * voxelSideLength.Z };
+										voxel.maxVx = { voxel.minVx.x + voxelSideLength.X, voxel.minVx.y + voxelSideLength.Y, voxel.minVx.z + voxelSideLength.Z };
+
+										debugClustersForLight.push_back(voxel);
+									}
+								}
+								else
+								{
+									nbl_glsl_shapes_AABB_t voxel;
+									voxel.minVx = { rootAABB.minVx.x + x * voxelSideLength.X, rootAABB.minVx.y + y * voxelSideLength.Y, rootAABB.minVx.z + z * voxelSideLength.Z };
+									voxel.maxVx = { voxel.minVx.x + voxelSideLength.X, voxel.minVx.y + voxelSideLength.Y, voxel.minVx.z + voxelSideLength.Z };
+
+									debugClustersForLight.push_back(voxel);
+								}
+							}
+						}
+					}
+					
+					break;
+				}
+
+				rootAABB.minVx.x = ((rootAABB.minVx.x - center.x) / 2.f) + center.x;
+				rootAABB.minVx.y = ((rootAABB.minVx.y - center.y) / 2.f) + center.y;
+				rootAABB.minVx.z = ((rootAABB.minVx.z - center.z) / 2.f) + center.z;
+
+				rootAABB.maxVx.x = ((rootAABB.maxVx.x - center.x) / 2.f) + center.x;
+				rootAABB.maxVx.y = ((rootAABB.maxVx.y - center.y) / 2.f) + center.y;
+				rootAABB.maxVx.z = ((rootAABB.maxVx.z - center.z) / 2.f) + center.z;
+			}
+#endif
+			if (!debugClustersForLight.empty())
+				commandBuffer->updateBuffer(debugClustersForLightGPU[resourceIx].get(), 0ull, debugClustersForLight.size() * sizeof(nbl_glsl_shapes_AABB_t), debugClustersForLight.data());
+		}
+#endif
+
 		// renderpass
 		{
 			asset::SViewport viewport;
@@ -2142,6 +2671,7 @@ public:
 			commandBuffer->executeCommands(1u, &zPrepassCommandBuffer.get());
 			commandBuffer->nextSubpass(asset::ESC_SECONDARY_COMMAND_BUFFERS);
 			commandBuffer->executeCommands(1u, &lightingCommandBuffer.get());
+			debugDrawLightClusterAssignment(commandBuffer.get(), debugActiveLightIndex, debugClustersForLight);
 			commandBuffer->endRenderPass();
 			commandBuffer->end();
 		}
@@ -2270,89 +2800,207 @@ private:
 		return cone;
 	}
 
-	// Returns true if the point lies in negative-half-space (space in which the normal to the plane isn't present) of the plane
-	// Point on the plane returns true.
-	// In other words, if you hold the plane such that its normal points towards your face, then this
-	// will return true if the point is "behind" the plane (or farther from your face than the plane's surface)
-	bool isPointBehindPlane(const core::vector3df_SIMD& point, const core::plane3dSIMDf& plane)
+	float projectedSphericalVertex(const core::vectorSIMDf& origin, const core::vectorSIMDf& planeNormal, const core::vectorSIMDf& pos)
 	{
-		// As an optimization we can add an epsilon to 0, to ignore cones which have a
-		// very very small intersecting region with the AABB, could help with FP precision
-		// too when the point is on the plane
-		const float result = (core::dot(point, plane.getNormal()).x + plane.getDistance());
-		return  result <= 0.f /* + EPSILON*/;
+		return core::dot(normalize(pos - origin), planeNormal).x;
 	}
 
-	// Imagine yourself to be at the center of the bounding box. Using CCW winding order
-	// in RH ensures that the normals to the box's planes point towards you.
-	bool doesConeIntersectAABB(const cone_t& cone, const nbl_glsl_shapes_AABB_t& aabb)
+	inline core::vectorSIMDf slerp_till_cosine(const core::vectorSIMDf& start, const core::vectorSIMDf& preScaledWaypoint, float cosAngleFromStart)
 	{
-		constexpr uint32_t PLANE_COUNT = 6u;
-		core::plane3dSIMDf planes[PLANE_COUNT];
-		{
-			// 0 -> (minVx.x, minVx.y, minVx.z)
-			// 1 -> (maxVx.x, minVx.y, minVx.z)
-			// 2 -> (minVx.x, maxVx.y, minVx.z)
-			// 3 -> (maxVx.x, maxVx.y, minVx.z)
-			// 4 -> (minVx.x, minVx.y, maxVx.z)
-			// 5 -> (maxVx.x, minVx.y, maxVx.z)
-			// 6 -> (minVx.x, maxVx.y, maxVx.z)
-			// 7 -> (maxVx.x, maxVx.y, maxVx.z)
+		core::vectorSIMDf planeNormal = core::cross(start, preScaledWaypoint);
 
-			planes[0].setPlane(
-				core::vector3df_SIMD(aabb.maxVx.x, aabb.minVx.y, aabb.minVx.z),
-				core::vector3df_SIMD(aabb.maxVx.x, aabb.minVx.y, aabb.maxVx.z),
-				core::vector3df_SIMD(aabb.maxVx.x, aabb.maxVx.y, aabb.maxVx.z)); // 157
-			planes[1].setPlane(
-				core::vector3df_SIMD(aabb.minVx.x, aabb.minVx.y, aabb.minVx.z),
-				core::vector3df_SIMD(aabb.maxVx.x, aabb.minVx.y, aabb.minVx.z),
-				core::vector3df_SIMD(aabb.maxVx.x, aabb.maxVx.y, aabb.minVx.z)); // 013
-			planes[2].setPlane(
-				core::vector3df_SIMD(aabb.minVx.x, aabb.minVx.y, aabb.maxVx.z),
-				core::vector3df_SIMD(aabb.minVx.x, aabb.minVx.y, aabb.minVx.z),
-				core::vector3df_SIMD(aabb.minVx.x, aabb.maxVx.y, aabb.minVx.z)); // 402
-			planes[3].setPlane(
-				core::vector3df_SIMD(aabb.maxVx.x, aabb.minVx.y, aabb.maxVx.z),
-				core::vector3df_SIMD(aabb.minVx.x, aabb.minVx.y, aabb.maxVx.z),
-				core::vector3df_SIMD(aabb.minVx.x, aabb.maxVx.y, aabb.maxVx.z)); // 546
-			planes[4].setPlane(
-				core::vector3df_SIMD(aabb.minVx.x, aabb.minVx.y, aabb.maxVx.z),
-				core::vector3df_SIMD(aabb.maxVx.x, aabb.minVx.y, aabb.maxVx.z),
-				core::vector3df_SIMD(aabb.maxVx.x, aabb.minVx.y, aabb.minVx.z)); // 451
-			planes[5].setPlane(
-				core::vector3df_SIMD(aabb.maxVx.x, aabb.maxVx.y, aabb.maxVx.z),
-				core::vector3df_SIMD(aabb.minVx.x, aabb.maxVx.y, aabb.maxVx.z),
-				core::vector3df_SIMD(aabb.minVx.x, aabb.maxVx.y, aabb.minVx.z)); // 762
-		}
+		cosAngleFromStart *= 0.5;
+		const float sinAngle = sqrt(0.5 - cosAngleFromStart);
+		const float cosAngle = sqrt(0.5 + cosAngleFromStart);
 
-		// Todo(achal): Cannot handle half angle > 90 degrees right now
+		planeNormal *= sinAngle;
+		const core::vectorSIMDf precompPart = core::cross(planeNormal, start) * 2.0;
+
+		const core::vectorSIMDf result = start + (precompPart * cosAngle + core::cross(planeNormal, precompPart));
+
+		return result;
+	}
+
+	inline core::vectorSIMDf getFarthestPointInFront(const nbl_glsl_shapes_AABB_t& aabb, const core::vectorSIMDf& plane)
+	{
+		const core::vectorSIMDf lessThan(
+			(plane.x < 0.f) ? 1 : 0,
+			(plane.y < 0.f) ? 1 : 0,
+			(plane.z < 0.f) ? 1 : 0);
+
+		const core::vectorSIMDf result(
+			core::mix(aabb.maxVx.x, aabb.minVx.x, lessThan.x),
+			core::mix(aabb.maxVx.y, aabb.minVx.y, lessThan.y),
+			core::mix(aabb.maxVx.z, aabb.minVx.z, lessThan.z));
+
+		return result;
+	}
+
+	inline core::vectorSIMDf findQ(const core::vectorSIMDf& planeNormal, const cone_t& cone)
+	{
 		assert(cone.cosHalfAngle > 0.f);
 		const float tanOuterHalfAngle = core::sqrt(core::max(1.f - (cone.cosHalfAngle * cone.cosHalfAngle), 0.f)) / cone.cosHalfAngle;
 		const float coneRadius = cone.height * tanOuterHalfAngle;
 
-		for (uint32_t i = 0u; i < PLANE_COUNT; ++i)
+		const core::vectorSIMDf m = core::cross(core::cross(planeNormal, cone.direction), cone.direction);
+		const core::vectorSIMDf farthestBasePoint = cone.tip + (cone.direction * cone.height) - (m * coneRadius); // farthest to plane's surface away from positive half-space
+		return farthestBasePoint;
+	}
+
+	//! return true if culled
+	bool cullCone(const cone_t& cone, const nbl_glsl_shapes_AABB_t& aabb)
+	{
+		float maxCosine = projectedSphericalVertex(cone.tip, cone.direction, core::vectorSIMDf(aabb.minVx.x, aabb.minVx.y, aabb.minVx.z));
+
+		for (uint32_t i = 1u; i < 8u; ++i)
 		{
-			// Calling setPlane above ensures normalized normal
+			const uint32_t x = (i >> 0) & 0x1u;
+			const uint32_t y = (i >> 1) & 0x1u;
+			const uint32_t z = (i >> 2) & 0x1u;
 
-			const core::vectorSIMDf m = core::cross(core::cross(planes[i].getNormal(), cone.direction), cone.direction);
-			const core::vectorSIMDf farthestBasePoint = cone.tip + (cone.direction * cone.height) - (m * coneRadius); // farthest to plane's surface away from positive half-space
+			const core::vectorSIMDf aabbVertex(
+				(1u - x) * aabb.minVx.x + x * aabb.maxVx.x,
+				(1u - y) * aabb.minVx.y + y * aabb.maxVx.y,
+				(1u - z) * aabb.minVx.z + z * aabb.maxVx.z);
 
-			const bool isTipBehindPlane = isPointBehindPlane(cone.tip, planes[i]);
-			const bool isFBPBehindPlane = isPointBehindPlane(farthestBasePoint, planes[i]);
-
-			// There are two edge cases here:
-			// 1. When cone's direction and plane's normal are anti-parallel
-			//		There is no reason to check farthestBasePoint in this case, because cone's tip is the farthest point!
-			//		But there is no harm in doing so.
-			// 2. When cone's direction and plane's normal are parallel
-			//		This edge case will get handled nicely by the farthestBasePoint coming as center of the base of the cone itself
-			// if (isPointBehindPlane(cone.tip, planes[i], printMoreStuff) && isPointBehindPlane(farthestBasePoint, planes[i], printMoreStuff))
-			if (isTipBehindPlane && isFBPBehindPlane)
-				return false;
+			// assuming cone.direction is normalized
+			maxCosine = core::max(projectedSphericalVertex(cone.tip, cone.direction, aabbVertex), maxCosine);
 		}
 
-		return true;
-	};
+		const bool allVerticesOutsideCone = maxCosine < cone.cosHalfAngle;
+
+		if (cone.cosHalfAngle <= 0.f) // obtuse
+		{
+			return allVerticesOutsideCone; // cull if whole AABB is inside complementary acute cone
+		}
+		else if (
+			((aabb.minVx.x > cone.tip.x) || (cone.tip.x > aabb.maxVx.x) || 
+			(aabb.minVx.y > cone.tip.y) || (cone.tip.y > aabb.maxVx.y) ||
+			(aabb.minVx.z > cone.tip.z) || (cone.tip.z > aabb.maxVx.z))
+
+			&&
+
+			allVerticesOutsideCone)
+		{
+			// step 1
+			for (uint32_t i = 0u; i < 8u; ++i)
+			{
+				const uint32_t x = (i >> 0) & 0x1u;
+				const uint32_t y = (i >> 1) & 0x1u;
+				const uint32_t z = (i >> 2) & 0x1u;
+
+				printf("Vertex ID: [%d, %d, %d]\n", x, y, z);
+
+				const core::vectorSIMDf aabbVertex(
+					(1u - x) * aabb.minVx.x + x * aabb.maxVx.x,
+					(1u - y) * aabb.minVx.y + y * aabb.maxVx.y,
+					(1u - z) * aabb.minVx.z + z * aabb.maxVx.z);
+
+				printf("Vertex: [%f, %f, %f]\n", aabbVertex.x, aabbVertex.y, aabbVertex.z);
+
+				const core::vectorSIMDf waypoint = core::normalize(aabbVertex - cone.tip);
+				
+				const core::vectorSIMDf normal = slerp_till_cosine(cone.direction, core::normalize(waypoint), core::sqrt(1.f - cone.cosHalfAngle * cone.cosHalfAngle));
+				printf("normal: [%f, %f, %f]\n", normal.x, normal.y, normal.z);
+				printf("dot(cone.direction, normal): %f\n\n", core::dot(cone.direction, normal).x);
+				if (core::dot(getFarthestPointInFront(aabb, normal) - cone.tip, normal).x < 0.f)
+					return true;
+			}
+
+			constexpr uint32_t PLANE_COUNT = 6u;
+			vec4 planes[PLANE_COUNT];
+			{
+				auto setPlane = [](vec4& outPlane, const core::vectorSIMDf& p0, const core::vectorSIMDf& p1, const core::vectorSIMDf& p2)
+				{
+					core::vectorSIMDf normal = core::normalize(core::cross(p1 - p0, p2 - p0));
+
+					outPlane.x = normal.x;
+					outPlane.y = normal.y;
+					outPlane.z = normal.z;
+					outPlane.w = core::dot(normal, p0).x;
+				};
+
+				// 157
+				core::vectorSIMDf p0(aabb.maxVx.x, aabb.minVx.y, aabb.minVx.z);
+				core::vectorSIMDf p1(aabb.maxVx.x, aabb.minVx.y, aabb.maxVx.z);
+				core::vectorSIMDf p2(aabb.maxVx.x, aabb.maxVx.y, aabb.maxVx.z);
+				setPlane(planes[0], p0, p1, p2);
+
+				// 013
+				p0 = core::vectorSIMDf(aabb.minVx.x, aabb.minVx.y, aabb.minVx.z);
+				p1 = core::vectorSIMDf(aabb.maxVx.x, aabb.minVx.y, aabb.minVx.z);
+				p2 = core::vectorSIMDf(aabb.maxVx.x, aabb.maxVx.y, aabb.minVx.z);
+				setPlane(planes[1], p0, p1, p2);
+
+				// 402
+				p0 = core::vectorSIMDf(aabb.minVx.x, aabb.minVx.y, aabb.maxVx.z);
+				p1 = core::vectorSIMDf(aabb.minVx.x, aabb.minVx.y, aabb.minVx.z);
+				p2 = core::vectorSIMDf(aabb.minVx.x, aabb.maxVx.y, aabb.minVx.z);
+				setPlane(planes[2], p0, p1, p2);
+
+				// 546
+				p0 = core::vectorSIMDf(aabb.maxVx.x, aabb.minVx.y, aabb.maxVx.z);
+				p1 = core::vectorSIMDf(aabb.minVx.x, aabb.minVx.y, aabb.maxVx.z);
+				p2 = core::vectorSIMDf(aabb.minVx.x, aabb.maxVx.y, aabb.maxVx.z);
+				setPlane(planes[3], p0, p1, p2);
+
+				// 451
+				p0 = core::vectorSIMDf(aabb.minVx.x, aabb.minVx.y, aabb.maxVx.z);
+				p1 = core::vectorSIMDf(aabb.maxVx.x, aabb.minVx.y, aabb.maxVx.z);
+				p2 = core::vectorSIMDf(aabb.maxVx.x, aabb.minVx.y, aabb.minVx.z);
+				setPlane(planes[4], p0, p1, p2);
+
+				// 762
+				p0 = core::vectorSIMDf(aabb.maxVx.x, aabb.maxVx.y, aabb.maxVx.z);
+				p1 = core::vectorSIMDf(aabb.minVx.x, aabb.maxVx.y, aabb.maxVx.z);
+				p2 = core::vectorSIMDf(aabb.minVx.x, aabb.maxVx.y, aabb.minVx.z);
+				setPlane(planes[5], p0, p1, p2);
+			}
+
+			for (uint32_t i = 0u; i < PLANE_COUNT; ++i)
+			{
+				const core::vectorSIMDf normal(planes[i].x, planes[i].y, planes[i].z);
+
+				float farthestPoint = core::dot(normal, cone.tip).x;
+				if (core::dot(normal, cone.direction).x < cone.cosHalfAngle)
+					farthestPoint = core::max(core::dot(normal, findQ(normal, cone)).x, farthestPoint); // https://www.3dgep.com/forward-plus/#Frustum-Cone_Culling 
+				else
+					farthestPoint += (cone.height/cone.cosHalfAngle);
+
+				if (farthestPoint < planes[i].w)
+					return true;
+			}
+		}
+		return false;
+	}
+
+	bool doesLightIntersectAABB(const cone_t& cone, const nbl_glsl_shapes_AABB_t& aabb)
+	{
+		const core::vectorSIMDf sphereMaxPoint = cone.tip + cone.height;
+		const core::vectorSIMDf sphereMinPoint = cone.tip - cone.height;
+
+		const bool condX = (aabb.minVx.x < sphereMaxPoint.x) && (sphereMinPoint.x < aabb.maxVx.x);
+		const bool condY = (aabb.minVx.y < sphereMaxPoint.y) && (sphereMinPoint.y < aabb.maxVx.y);
+		const bool condZ = (aabb.minVx.z < sphereMaxPoint.z) && (sphereMinPoint.z < aabb.maxVx.z);
+
+		const bool mightIntersect = (condX || condY || condZ);
+
+		if (!mightIntersect)
+			return false;
+
+		const core::vectorSIMDf closestPoint = core::vectorSIMDf( // on the AABB, from the center of the sphere
+			core::clamp(cone.tip.x, aabb.minVx.x, aabb.maxVx.x),
+			core::clamp(cone.tip.y, aabb.minVx.y, aabb.maxVx.y),
+			core::clamp(cone.tip.z, aabb.minVx.z, aabb.maxVx.z));
+
+		if (core::dot(closestPoint - cone.tip, closestPoint - cone.tip).x > (cone.height * cone.height))
+			return false;
+
+		if (cone.cosHalfAngle <= -(1.f - 1e-3f)) // check if the intended light type was a point with spherical volume
+			return false;
+
+		return !cullCone(cone, aabb);
+	}
 
 	bool bakeSecondaryCommandBufferForSubpass(
 		const uint32_t subpass,
@@ -2698,7 +3346,13 @@ private:
 		depthStencilAttRef.attachment = 1u;
 		depthStencilAttRef.layout = asset::EIL_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
+#ifdef DEBUG_VIZ
+		constexpr uint32_t SUBPASS_COUNT = 3U;
+		constexpr uint32_t SUBPASS_DEPS_COUNT = 4U;
+#else
 		constexpr uint32_t SUBPASS_COUNT = 2u;
+		constexpr uint32_t SUBPASS_DEPS_COUNT = 3u;
+#endif
 		video::IGPURenderpass::SCreationParams::SSubpassDescription subpasses[SUBPASS_COUNT] = {};
 
 		// The Z Pre pass subpass
@@ -2711,7 +3365,14 @@ private:
 		subpasses[LIGHTING_PASS_INDEX].colorAttachmentCount = 1u;
 		subpasses[LIGHTING_PASS_INDEX].colorAttachments = &swapchainColorAttRef;
 
-		constexpr uint32_t SUBPASS_DEPS_COUNT = 3u;
+#ifdef DEBUG_VIZ
+		// The debug draw subpass
+		subpasses[DEBUG_DRAW_PASS_INDEX].pipelineBindPoint = asset::EPBP_GRAPHICS;
+		subpasses[DEBUG_DRAW_PASS_INDEX].colorAttachmentCount = 1u;
+		subpasses[DEBUG_DRAW_PASS_INDEX].colorAttachments = &swapchainColorAttRef;
+		subpasses[DEBUG_DRAW_PASS_INDEX].depthStencilAttachment = &depthStencilAttRef;
+#endif
+
 		video::IGPURenderpass::SCreationParams::SSubpassDependency subpassDeps[SUBPASS_DEPS_COUNT];
 
 		subpassDeps[0].srcSubpass = video::IGPURenderpass::SCreationParams::SSubpassDependency::SUBPASS_EXTERNAL;
@@ -2738,6 +3399,16 @@ private:
 		subpassDeps[2].dstStageMask = asset::EPSF_BOTTOM_OF_PIPE_BIT;
 		subpassDeps[2].dstAccessMask = asset::EAF_MEMORY_READ_BIT;
 		subpassDeps[2].dependencyFlags = asset::EDF_BY_REGION_BIT; // Todo(achal): Not sure
+
+#ifdef DEBUG_VIZ
+		subpassDeps[3].srcSubpass = LIGHTING_PASS_INDEX;
+		subpassDeps[3].dstSubpass = DEBUG_DRAW_PASS_INDEX;
+		subpassDeps[3].srcStageMask = static_cast<asset::E_PIPELINE_STAGE_FLAGS>(asset::EPSF_COLOR_ATTACHMENT_OUTPUT_BIT | asset::EPSF_LATE_FRAGMENT_TESTS_BIT);
+		subpassDeps[3].srcAccessMask = static_cast<asset::E_ACCESS_FLAGS>(asset::EAF_COLOR_ATTACHMENT_WRITE_BIT | asset::EAF_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT);
+		subpassDeps[3].dstStageMask = static_cast<asset::E_PIPELINE_STAGE_FLAGS>(asset::EPSF_COLOR_ATTACHMENT_OUTPUT_BIT | asset::EPSF_LATE_FRAGMENT_TESTS_BIT);
+		subpassDeps[3].dstAccessMask = static_cast<asset::E_ACCESS_FLAGS>(asset::EAF_COLOR_ATTACHMENT_WRITE_BIT | asset::EAF_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT);
+		subpassDeps[3].dependencyFlags = asset::EDF_BY_REGION_BIT;  // Todo(achal): Not sure
+#endif
 
 		video::IGPURenderpass::SCreationParams creationParams = {};
 		creationParams.attachmentCount = ATTACHMENT_COUNT;
@@ -3069,6 +3740,25 @@ private:
 	CommonAPI::InputSystem::ChannelReader<ui::IKeyboardEventChannel> keyboard;
 
 	Camera camera = Camera(core::vectorSIMDf(0, 0, 0), core::vectorSIMDf(0, 0, 0), core::matrix4SIMD());
+
+#ifdef DEBUG_VIZ
+
+	int32_t debugActiveLightIndex = 284;
+	int32_t debugActiveLevelIndex = -1;
+	core::smart_refctd_ptr<video::IGPUBuffer> debugClustersForLightGPU[FRAMES_IN_FLIGHT] = { nullptr };
+	core::smart_refctd_ptr<video::IGPUBuffer> debugAABBIndexBuffer = nullptr;
+	core::smart_refctd_ptr<video::IGPUDescriptorSet> debugAABBDescriptorSets[FRAMES_IN_FLIGHT] = { nullptr };
+	core::smart_refctd_ptr<video::IGPUGraphicsPipeline> debugAABBGraphicsPipeline = nullptr;
+	core::smart_refctd_ptr<video::IGPUGraphicsPipeline> debugLightVolumeGraphicsPipeline = nullptr;
+	core::smart_refctd_ptr<video::IGPUMeshBuffer> debugLightVolumeMeshBuffer = nullptr;
+	// Todo(achal): In theory it is possible that the model matrix gets updated but
+	// the following commandbuffer doesn't get the chance to actually execute and consequently
+	// send the model matrix (via push constants), before the next while loop comes
+	// and updates it. To remedy this, I either need FRAMES_IN_FLIGHT model matrices
+	// or some sorta CPU-GPU sync (fence?)
+	core::matrix3x4SIMD debugLightVolumeModelMatrix;
+	core::vector<nbl_glsl_shapes_AABB_t> debugClustersForLight;
+#endif
 
 	const asset::E_ACCESS_FLAGS allSrcAccessFlags = static_cast<asset::E_ACCESS_FLAGS>(
 		asset::EAF_INDIRECT_COMMAND_READ_BIT |

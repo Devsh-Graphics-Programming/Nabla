@@ -55,7 +55,7 @@ void main()
 				const uvec3 localClusterID = 2u*(parentVoxelID >> 1u) + uvec3(voxelX, voxelY, voxelZ);
 				const nbl_glsl_shapes_AABB_t cluster = getCluster(localClusterID, levelMinVertex, voxelSideLength);
 
-				if (coneIntersectAABB(cone, cluster))
+				if (lightIntersectAABB(cone, cluster))
 				{
 					// Record intersection
 					intersection_record_t record;
