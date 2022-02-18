@@ -133,6 +133,7 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
             bool drawIndirectCount = false;
             bool multiDrawIndirect = false;
             bool samplerAnisotropy = false;
+            bool geometryShader    = false;
 
             // RayQuery
             bool rayQuery = false;
