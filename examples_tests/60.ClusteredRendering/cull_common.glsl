@@ -186,6 +186,9 @@ bool cullCone(in cone_t cone, in nbl_glsl_shapes_AABB_t aabb)
 
 			const vec3 waypoint = normalize(vertex - cone.tip);
 			
+			// Todo(achal): nbl_glsl_slerp_impl_impl wants the length of cross of first two params to be exactly 1, hence there should be division
+			// by sine of angle between the cone.direction and waypoint, however, it introduces a chance of divison by zero as well which messes up
+			// things massively (as I have come to find out with a previous bug) --need to think about what to do when the sine approaches 0.
 			const vec3 normal = nbl_glsl_slerp_impl_impl(cone.direction, normalize(waypoint), sqrt(1.f - cone.cosHalfAngle * cone.cosHalfAngle));
 			if (dot(nbl_glsl_shapes_AABB_getFarthestPointInFront(aabb, normal) - cone.tip, normal) < 0.f)
 				return true;
@@ -213,7 +216,6 @@ bool cullCone(in cone_t cone, in nbl_glsl_shapes_AABB_t aabb)
 // Todo(achal): Can make this cone_t something like light_volume_t..
 bool lightIntersectAABB(in cone_t cone, in nbl_glsl_shapes_AABB_t aabb)
 {
-#if 1
 	const vec3 sphereMinPoint = cone.tip - cone.height;
 	const vec3 sphereMaxPoint = cone.tip + cone.height;
 
@@ -227,7 +229,6 @@ bool lightIntersectAABB(in cone_t cone, in nbl_glsl_shapes_AABB_t aabb)
 
 	if (cone.cosHalfAngle <= -(1.f - 1e-3f))
 		return false;
-#endif
 
 	return !cullCone(cone, aabb);
 }

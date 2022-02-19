@@ -9,7 +9,7 @@
 using namespace nbl;
 
 // #define SYNC_DEBUG
-// #define DEBUG_VIZ
+#define DEBUG_VIZ
 
 #define CLIPMAP
 // #define OCTREE
@@ -1857,7 +1857,7 @@ public:
 						if ((ev.keyCode == ui::EKC_F) && (ev.action == ui::SKeyboardEvent::ECA_RELEASED))
 						{
 							const core::vectorSIMDf aabbCenter = camera.getPosition();
-							const float extent = 500.f;
+							const float extent = 100.f;
 							nbl_glsl_shapes_AABB_t aabb;
 							aabb.minVx = { aabbCenter.x - (extent / 2.f), aabbCenter.y - (extent / 2.f), aabbCenter.z - (extent / 2.f) };
 							aabb.maxVx = { aabbCenter.x + (extent / 2.f), aabbCenter.y + (extent / 2.f), aabbCenter.z + (extent / 2.f) };
@@ -1872,7 +1872,7 @@ public:
 						if ((ev.keyCode == ui::EKC_G) && (ev.action == ui::SKeyboardEvent::ECA_RELEASED))
 						{
 							const core::vectorSIMDf aabbCenter = camera.getPosition();
-							const float extent = 500.f;
+							const float extent = 100.f;
 							nbl_glsl_shapes_AABB_t aabb;
 
 							aabb.minVx = { aabbCenter.x - (extent / 2.f), aabbCenter.y - (extent / 2.f), aabbCenter.z - (extent / 2.f) };
@@ -2889,20 +2889,15 @@ private:
 				const uint32_t y = (i >> 1) & 0x1u;
 				const uint32_t z = (i >> 2) & 0x1u;
 
-				printf("Vertex ID: [%d, %d, %d]\n", x, y, z);
 
 				const core::vectorSIMDf aabbVertex(
 					(1u - x) * aabb.minVx.x + x * aabb.maxVx.x,
 					(1u - y) * aabb.minVx.y + y * aabb.maxVx.y,
 					(1u - z) * aabb.minVx.z + z * aabb.maxVx.z);
 
-				printf("Vertex: [%f, %f, %f]\n", aabbVertex.x, aabbVertex.y, aabbVertex.z);
-
 				const core::vectorSIMDf waypoint = core::normalize(aabbVertex - cone.tip);
 				
 				const core::vectorSIMDf normal = slerp_till_cosine(cone.direction, core::normalize(waypoint), core::sqrt(1.f - cone.cosHalfAngle * cone.cosHalfAngle));
-				printf("normal: [%f, %f, %f]\n", normal.x, normal.y, normal.z);
-				printf("dot(cone.direction, normal): %f\n\n", core::dot(cone.direction, normal).x);
 				if (core::dot(getFarthestPointInFront(aabb, normal) - cone.tip, normal).x < 0.f)
 					return true;
 			}
