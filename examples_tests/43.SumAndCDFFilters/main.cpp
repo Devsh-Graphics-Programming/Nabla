@@ -12,11 +12,6 @@ using namespace nbl;
 using namespace core;
 using namespace asset;
 using namespace video;
-s
-s
-ss
-
-//test2
 
 /*
 	Comment IMAGE_VIEW define to use ordinary cpu image.
