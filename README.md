@@ -14,7 +14,7 @@ If you are a programmer with a passion for High Performance Computing, Mathemati
 
 If you can work 100% remotely and be in charge of your own time managment
 
-Then make something impressive using Nabla, open a PR and contact us (jobs devsh.eu) with your CV.
+Then make something impressive using Nabla, open a PRs and contact us (jobs devsh.eu) with your CV.
 
 We would also be happy to sponsor your master thesis as long as:
 - You are an above average student with an interest in Graphics
