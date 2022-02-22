@@ -10,7 +10,7 @@ This framework has been kindly begun by the founder ***[@devshgraphicsprogrammin
 s
 ## (Get Hired) Jobs and Internships
 a
-If you are a programmer with a passion for High Performance Computing, Mathematics and Computer Graphics
+If you are a programmer with a passion for High Pesrformance Computing, Mathematics and Computer Graphics
 s
 If you can work 100% remotely and be in charge of your sown time managment
 s
