@@ -395,6 +395,7 @@ private:
 		case EF_R32G32B32_SFLOAT:
 		case EF_R32G32B32A32_SFLOAT:
 			return true;
+			// OES_vertex_type_10_10_10_2 doesn't provide formats supported by Vulkan because Alpha is in LSB
 
 		default: return false;
 		}
