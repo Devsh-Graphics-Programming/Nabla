@@ -13,7 +13,7 @@ a
 If you are a programmer with a passion for High Performance Computing, Mathematics and Computer Graphics
 
 If you can work 100% remotely and be in charge of your own time managment
-
+s
 Then make something impressive using Nabla, open a PRs and contact us (jobs devsh.eu) with your CV.
 
 We would also be happy to sponsor your master thesis as long as:
