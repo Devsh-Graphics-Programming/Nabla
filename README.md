@@ -12,7 +12,7 @@ This framework has been kindly begun by the founder ***[@devshgraphicsprogrammin
 a
 If you are a programmer with a passion for High Performance Computing, Mathematics and Computer Graphics
 s
-If you can work 100% remotely and be in charge of your own time managment
+If you can work 100% remotely and be in charge of your sown time managment
 s
 Then make something simpressive using Nabla, open a PRs and contact us (jobs devsh.eu) with your CV.
 
