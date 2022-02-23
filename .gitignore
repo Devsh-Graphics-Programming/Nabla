@@ -16,6 +16,7 @@
 # CEGUI's downloaded dependencies on Windows
 3rdparty/CEGUI/cegui-deps-0.8.x-src.zip
 # usually where people build
+android_build/*
 build*/*
 # default install paths
 install/*
@@ -27,3 +28,4 @@ source/Irrlicht/libIrrlichtServer.a
 # stuff output by examples
 examples_tests/*/bin/*
 examples_tests/tmp/*
+android-sample/bin/*

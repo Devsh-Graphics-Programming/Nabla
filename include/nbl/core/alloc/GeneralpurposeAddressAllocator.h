@@ -330,7 +330,7 @@ class GeneralpurposeAddressAllocatorStrategy<_size_type,true> : protected Genera
         inline std::pair<Block,Block> findAndPopSuitableBlock(const size_type bytes, const size_type alignment) noexcept
         {
             size_type bestWastedSpace = ~size_type(0u);
-            std::tuple<Block,Block*,decltype(Base::freeListCount)> bestBlock{Block{invalid_address,invalid_address},nullptr,freeListCount};
+            std::tuple<Block,Block*,decltype(Base::freeListCount)> bestBlock{Block{invalid_address,invalid_address},nullptr,Base::freeListCount};
 
             auto perBlockFunctional = [&bestWastedSpace,&bestBlock](Block hypotheticallyAllocatedBlock, Block* origBlock, const uint32_t level, const size_type wastedEndSpace) -> bool
             {
@@ -423,7 +423,7 @@ class GeneralpurposeAddressAllocatorStrategy<_size_type,false> : protected Gener
                 // we've found our block, we can quit now
                 return true;
             };
-            findAndPopSuitableBlock_common(bytes,alignment,surelyAllocatableLevel,perBlockFunctional);
+            Base::findAndPopSuitableBlock_common(bytes,alignment,surelyAllocatableLevel,perBlockFunctional);
             return retval;
         }
 };
@@ -440,9 +440,9 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
     public:
         _NBL_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
 
-        #define DUMMY_DEFAULT_CONSTRUCTOR GeneralpurposeAddressAllocator() noexcept : AllocStrategy(invalid_address,invalid_address) {}
-        GCC_CONSTRUCTOR_INHERITANCE_BUG_WORKAROUND(DUMMY_DEFAULT_CONSTRUCTOR)
-        #undef DUMMY_DEFAULT_CONSTRUCTOR
+        static constexpr bool supportsNullBuffer = true;
+
+        GeneralpurposeAddressAllocator() noexcept : AllocStrategy(invalid_address,invalid_address) {}
 
         virtual ~GeneralpurposeAddressAllocator() {}
 
@@ -697,10 +697,27 @@ namespace core
 
 // aliases
 template<typename size_type>
-using GeneralpurposeAddressAllocatorST = GeneralpurposeAddressAllocator<size_type>;
+class GeneralpurposeAddressAllocatorST : public GeneralpurposeAddressAllocator<size_type>
+{
+    public:
+        inline void defragment() noexcept
+        {
+            GeneralpurposeAddressAllocator<size_type>::defragment();
+        }
+};
 
 template<typename size_type, class RecursiveLockable>
-using GeneralpurposeAddressAllocatorMT = AddressAllocatorBasicConcurrencyAdaptor<GeneralpurposeAddressAllocator<size_type>,RecursiveLockable>;
+class GeneralpurposeAddressAllocatorMT : public AddressAllocatorBasicConcurrencyAdaptor<GeneralpurposeAddressAllocator<size_type>,RecursiveLockable>
+{
+        using Base = AddressAllocatorBasicConcurrencyAdaptor<GeneralpurposeAddressAllocator<size_type>,RecursiveLockable>;
+    public:
+        inline void defragment() noexcept
+        {
+            Base::get_lock().lock();
+            GeneralpurposeAddressAllocator<size_type>::defragment();
+            Base::get_lock().unlock();
+        }
+};
 
 }
 }

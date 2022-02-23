@@ -5,11 +5,9 @@
 #ifndef __NBL_ASSET_BLOB_H_INCLUDED__
 #define __NBL_ASSET_BLOB_H_INCLUDED__
 
-#include "nbl/core/Types.h"
+#include "nbl/core/decl/Types.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 	struct BlobLoadingParams;
 
@@ -53,6 +51,8 @@ namespace asset
 		~SizedBlob() {}
 
 	public:
+	
+#ifdef OLD_SHADERS
 		static size_t calcBlobSizeForObj(const T*);// { return sizeof(B); }
 
 		//! Utility function for making blobs
@@ -78,6 +78,7 @@ namespace asset
 			new (mem) B(_obj);
 			return (B*)mem;
 		}
+#endif
 	};
 
 	template<typename B, typename T>
@@ -117,7 +118,6 @@ namespace asset
 		return (typename CorrespondingBlobTypeFor<T>::type*)_blob;
 	}
 
-}
 } // nbl::asset
 
 #endif

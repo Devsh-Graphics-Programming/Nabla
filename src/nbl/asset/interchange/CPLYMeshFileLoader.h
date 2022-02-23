@@ -6,6 +6,8 @@
 #ifndef __NBL_ASSET_C_PLY_MESH_FILE_LOADER_H_INCLUDED__
 #define __NBL_ASSET_C_PLY_MESH_FILE_LOADER_H_INCLUDED__
 
+#include "nbl/core/declarations.h"
+#include "nbl/asset/interchange/IAssetLoader.h"
 #include "nbl/asset/ICPUMeshBuffer.h"
 #include "nbl/asset/interchange/IRenderpassIndependentPipelineLoader.h"
 #include "nbl/asset/metadata/CPLYMetadata.h"
@@ -40,7 +42,7 @@ public:
 	//! Constructor
 	CPLYMeshFileLoader(IAssetManager* _am);
 
-    virtual bool isALoadableFileFormat(io::IReadFile* _file) const override;
+    virtual bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const override;
 
     virtual const char** getAssociatedFileExtensions() const override
     {
@@ -51,7 +53,7 @@ public:
     virtual uint64_t getSupportedAssetTypesBitfield() const override { return IAsset::ET_MESH; }
 
 	//! creates/loads an animated mesh from the file.
-    virtual SAssetBundle loadAsset(io::IReadFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
+    virtual SAssetBundle loadAsset(system::IFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
 private:
 
@@ -89,7 +91,7 @@ private:
 
 	struct SPLYProperty
 	{
-		core::stringc Name;
+		std::string Name;
 		E_PLY_PROPERTY_TYPE Type;
 		#include "nbl/nblpack.h"
 		union
@@ -150,7 +152,7 @@ private:
 	{
 		// name of the element. We only want "vertex" and "face" elements
 		// but we have to parse the others anyway.
-		core::stringc Name;
+		std::string Name;
 		// The number of elements in the file
 		uint32_t Count;
 		// Properties of this element
@@ -183,6 +185,7 @@ private:
         bool IsBinaryFile = false, IsWrongEndian = false, EndOfFile = false;
         int32_t LineLength = 0, WordLength = 0;
 		char* StartPointer = nullptr, *EndPointer = nullptr, *LineEndPointer = nullptr;
+		size_t fileOffset = {};
     };
 
 	bool allocateBuffer(SContext& _ctx);

@@ -6,8 +6,9 @@ function(nbl_add_builtin_resources)
   list(APPEND builtin_dependencies_list  ${CMAKE_CURRENT_SOURCE_DIR}/builtin/builtinHeaderGen.py)
   list(APPEND builtin_dependencies_list  ${CMAKE_CURRENT_SOURCE_DIR}/builtin/builtinDataGen.py)
 
+  file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/include/nbl/builtin/)
   add_custom_command(
-	OUTPUT "${CMAKE_BINARY_DIR}/include/nbl/builtin/builtinResources.h" "${CMAKE_CURRENT_BINARY_DIR}/builtin/builtinResourceData.cpp"
+    OUTPUT "${CMAKE_BINARY_DIR}/include/nbl/builtin/builtinResources.h" "${CMAKE_CURRENT_BINARY_DIR}/builtin/builtinResourceData.cpp"
     COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/builtin/builtinHeaderGen.py ${CMAKE_BINARY_DIR}/include/nbl/builtin/builtinResources.h ${CMAKE_SOURCE_DIR}/include "${ARGV}"
     COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/builtin/builtinDataGen.py ${CMAKE_CURRENT_BINARY_DIR}/builtin/builtinResourceData.cpp ${CMAKE_SOURCE_DIR}/include "${ARGV}"
     COMMENT "Generated built-in resources"
@@ -17,12 +18,22 @@ function(nbl_add_builtin_resources)
 endfunction()
 
 set(nbl_resources_to_embed
+  "nbl/builtin/glsl/utils/acceleration_structures.glsl"
   "nbl/builtin/shader/loader/mtl/vertex_impl.glsl"
-  "nbl/builtin/shader/loader/mtl/vertex_no_uv.vert"
-  "nbl/builtin/shader/loader/mtl/vertex_uv.vert"
+  "nbl/builtin/shader/loader/mtl/vertex_no_uv.vert" # TODO: remove naming tautology
+  "nbl/builtin/shader/loader/mtl/vertex_uv.vert" # TODO: remove naming tautology
   "nbl/builtin/shader/loader/mtl/fragment_impl.glsl"
-  "nbl/builtin/shader/loader/mtl/fragment_no_uv.frag"
-  "nbl/builtin/shader/loader/mtl/fragment_uv.frag"
+  "nbl/builtin/shader/loader/mtl/fragment_no_uv.frag" # TODO: remove naming tautology
+  "nbl/builtin/shader/loader/mtl/fragment_uv.frag" # TODO: remove naming tautology
+  "nbl/builtin/shader/loader/gltf/common.glsl"
+  "nbl/builtin/shader/loader/gltf/vertex_impl.glsl"
+  "nbl/builtin/shader/loader/gltf/uv.vert"
+  "nbl/builtin/shader/loader/gltf/color.vert"
+  "nbl/builtin/shader/loader/gltf/no_uv_color.vert"
+  "nbl/builtin/shader/loader/gltf/fragment_impl.glsl"
+  "nbl/builtin/shader/loader/gltf/uv.frag"
+  "nbl/builtin/shader/loader/gltf/color.frag"
+  "nbl/builtin/shader/loader/gltf/no_uv_color.frag"
   "nbl/builtin/specialized_shader/fullscreentriangle.vert"
   "nbl/builtin/material/lambertian/singletexture/specialized_shader.vert"
   "nbl/builtin/material/lambertian/singletexture/specialized_shader.frag"
@@ -70,12 +81,26 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/colorspace/OETF.glsl"
   "nbl/builtin/glsl/colorspace/decodeCIEXYZ.glsl"
   "nbl/builtin/glsl/colorspace/encodeCIEXYZ.glsl"
+  # Culling and LoD System
+  "nbl/builtin/glsl/culling_lod_selection/dispatch_indirect_params.glsl"
+  "nbl/builtin/glsl/culling_lod_selection/draw_instance_count_scan_override.glsl"
+  "nbl/builtin/glsl/culling_lod_selection/input_descriptor_set.glsl"
+  "nbl/builtin/glsl/culling_lod_selection/instance_cull_and_lod_select.comp"
+  "nbl/builtin/glsl/culling_lod_selection/instance_draw_count_scan_override.glsl"
+  "nbl/builtin/glsl/culling_lod_selection/instance_draw_cull.comp"
+  "nbl/builtin/glsl/culling_lod_selection/instance_ref_counting_sort_scatter.comp"
+  "nbl/builtin/glsl/culling_lod_selection/potentially_visible_instance_draw_struct.glsl"
+  "nbl/builtin/glsl/culling_lod_selection/output_descriptor_modifiers.glsl"
+  "nbl/builtin/glsl/culling_lod_selection/output_descriptor_set.glsl"
   # VK_FORMAT support
   "nbl/builtin/glsl/format/decode.glsl"
   "nbl/builtin/glsl/format/encode.glsl"
   "nbl/builtin/glsl/format/constants.glsl"
   # asset loaders (mostly for pipelines)
   "nbl/builtin/glsl/loader/mtl/common.glsl"
+  # LoD Library
+  "nbl/builtin/glsl/lod_library/structs.glsl"
+  "nbl/builtin/glsl/lod_library/descriptor_set.glsl"
   # math and limits
   "nbl/builtin/glsl/math/constants.glsl"
   "nbl/builtin/glsl/math/complex.glsl"
@@ -88,6 +113,9 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/material_compiler/common_declarations.glsl"
   "nbl/builtin/glsl/material_compiler/common_invariant_declarations.glsl"
   "nbl/builtin/glsl/material_compiler/rasterization/impl.glsl"
+  # property pool
+  "nbl/builtin/glsl/property_pool/transfer.glsl"
+  "nbl/builtin/glsl/property_pool/copy.comp"
   # random numbers
   "nbl/builtin/glsl/random/xoroshiro.glsl"
   # sampling
@@ -100,13 +128,30 @@ set(nbl_resources_to_embed
   #"nbl/builtin/glsl/sampling/spherical_rectangle.glsl"
   "nbl/builtin/glsl/sampling/spherical_triangle.glsl"
   "nbl/builtin/glsl/sampling/quantized_sequence.glsl"
+  # global exclusive scan
+  "nbl/builtin/glsl/scan/direct.comp"
+  "nbl/builtin/glsl/scan/declarations.glsl"
+  "nbl/builtin/glsl/scan/descriptors.glsl"
+  "nbl/builtin/glsl/scan/default_scheduler.glsl"
+  "nbl/builtin/glsl/scan/indirect.comp"
+  "nbl/builtin/glsl/scan/parameters_struct.glsl"
+  "nbl/builtin/glsl/scan/virtual_workgroup.glsl"
   # scene
   "nbl/builtin/glsl/scene/animation.glsl"
   "nbl/builtin/glsl/scene/keyframe.glsl"
   "nbl/builtin/glsl/scene/node.glsl"
   # shapes
+  "nbl/builtin/glsl/shapes/aabb.glsl"
+  "nbl/builtin/glsl/shapes/frustum.glsl"
   #"nbl/builtin/glsl/shapes/rectangle.glsl"
   "nbl/builtin/glsl/shapes/triangle.glsl"
+  # skinning
+  "nbl/builtin/glsl/skinning/cache_descriptor_set.glsl"
+  "nbl/builtin/glsl/skinning/cache_update.comp"
+  "nbl/builtin/glsl/skinning/debug.vert"
+  "nbl/builtin/glsl/skinning/linear.glsl"
+  "nbl/builtin/glsl/skinning/render_descriptor_set.glsl"
+  "nbl/builtin/glsl/skinning/update_descriptor_set.glsl"
   # subgroup emulation
   "nbl/builtin/glsl/subgroup/shared_arithmetic_portability.glsl"
   "nbl/builtin/glsl/subgroup/basic_portability.glsl"
@@ -117,9 +162,11 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/utils/indirect_commands.glsl"
   "nbl/builtin/glsl/utils/common.glsl"
   "nbl/builtin/glsl/utils/culling.glsl"
+  "nbl/builtin/glsl/utils/compressed_normal_matrix_t.glsl"
   "nbl/builtin/glsl/utils/normal_decode.glsl"
   "nbl/builtin/glsl/utils/normal_encode.glsl"
   "nbl/builtin/glsl/utils/transform.glsl"
+  "nbl/builtin/glsl/utils/morton.glsl"
   # virtual texturing
   "nbl/builtin/glsl/virtual_texturing/descriptors.glsl"
   "nbl/builtin/glsl/virtual_texturing/extensions.glsl"
@@ -140,8 +187,22 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/workgroup/shuffle.glsl"
   "nbl/builtin/glsl/workgroup/shuffle_relative.glsl"
   "nbl/builtin/glsl/workgroup/vote.glsl"
+  #transform_tree
+  "nbl/builtin/glsl/transform_tree/global_transform_update.comp"
+  "nbl/builtin/glsl/transform_tree/global_transform_and_normal_matrix_update.comp"
+  "nbl/builtin/glsl/transform_tree/global_transform_update_common.glsl"
+  "nbl/builtin/glsl/transform_tree/global_transform_update_descriptor_set.glsl"
+  "nbl/builtin/glsl/transform_tree/modification_request_range.glsl"
+  "nbl/builtin/glsl/transform_tree/pool_descriptor_set.glsl"
+  "nbl/builtin/glsl/transform_tree/render_descriptor_set.glsl"
+  "nbl/builtin/glsl/transform_tree/relative_transform_modification.glsl"
+  "nbl/builtin/glsl/transform_tree/relative_transform_update.comp"
+  "nbl/builtin/glsl/transform_tree/relative_transform_update_common.glsl"
+  "nbl/builtin/glsl/transform_tree/relative_transform_update_descriptor_set.glsl"
+  "nbl/builtin/glsl/transform_tree/debug.vert"
   # ext shouldn't be built into the engine, but there's no harm including some non-dynamic GLSL source to make life easier
   #"nbl/builtin/glsl/ext/.glsl"
+  # radix sort
   "nbl/builtin/glsl/ext/FFT/default_compute_fft.comp"
   "nbl/builtin/glsl/ext/FFT/fft.glsl"
   "nbl/builtin/glsl/ext/FFT/parameters_struct.glsl"
@@ -155,9 +216,18 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/ext/MitsubaLoader/instance_data_struct.glsl"
   "nbl/builtin/glsl/ext/MitsubaLoader/instance_data_descriptor.glsl"
   "nbl/builtin/glsl/ext/MitsubaLoader/material_compiler_compatibility_impl.glsl"
+  # OIT
+  "nbl/builtin/glsl/ext/OIT/oit.glsl"
+  "nbl/builtin/glsl/ext/OIT/insert_node.glsl"
+  "nbl/builtin/glsl/ext/OIT/resolve.frag"
   # virtual geometry
   "nbl/builtin/glsl/virtual_geometry/descriptors.glsl"
   "nbl/builtin/glsl/virtual_geometry/virtual_attribute.glsl"
   "nbl/builtin/glsl/virtual_geometry/virtual_attribute_fetch.glsl"
+  # depth pyramid generator
+  "nbl/builtin/glsl/ext/DepthPyramidGenerator/common.glsl"
+  "nbl/builtin/glsl/ext/DepthPyramidGenerator/push_constants_struct_common.h"
+  "nbl/builtin/glsl/ext/DepthPyramidGenerator/depth_pyramid_generator_impl.glsl"
+  "nbl/builtin/glsl/ext/DepthPyramidGenerator/virtual_work_group.glsl"
 PARENT_SCOPE)
 

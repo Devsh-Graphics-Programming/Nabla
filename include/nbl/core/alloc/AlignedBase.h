@@ -10,9 +10,7 @@
 #include "nbl/core/memory/new_delete.h"
 #include "nbl/core/memory/memory.h"
 
-namespace nbl
-{
-namespace core
+namespace nbl::core
 {
 
 //Maybe: Create a nbl::AllocatedByDynamicAllocation class with a static function new[] like operator that takes an DynamicAllocator* parameter
@@ -207,7 +205,6 @@ struct NBL_FORCE_EBO AllocationOverrideDefault {};
 
 #define _NBL_RESOLVE_NEW_DELETE_AMBIGUITY(...)
 #endif // NBL_TEST_NO_NEW_DELETE_OVERRIDE
-}
 }
 
 #endif

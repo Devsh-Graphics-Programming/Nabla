@@ -5,7 +5,7 @@
 #ifndef _NBL_ASSET_NORMALIZATION_STATES_H_INCLUDED_
 #define _NBL_ASSET_NORMALIZATION_STATES_H_INCLUDED_
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 
 #include <type_traits>
 
@@ -39,11 +39,11 @@ class CGlobalNormalizationState
 		template<typename Tenc>
 		void prepass(Tenc* encodeBuffer, const core::vectorSIMDu32& position, uint32_t blockX, uint32_t blockY, uint8_t channels)
 		{
-			static_assert(std::is_floating_point_v<Tdec>, "Integer decode not supported yet!");
+			static_assert(std::is_floating_point_v<Tenc>, "Integer decode not supported yet!");
 			for (uint8_t channel=0u; channel<4u; ++channel)
 			{
-				const auto val = decodeBuffer[channel];
-				if constexpr (std::is_floating_point_v<Tdec>)
+				const auto val = encodeBuffer[channel];
+				if constexpr (std::is_floating_point_v<Tenc>)
 				{
 					core::atomic_fetch_max(oldMinValue+channel,val);
 					core::atomic_fetch_max(oldMaxValue+channel,val);
@@ -98,10 +98,10 @@ class CGlobalNormalizationState
 
 			if constexpr (isSignedFormat)
 				for (uint8_t channel = 0; channel < channels; ++channel)
-					encodeBuffer[channel] = (2.0 * encodeBuffer[channel] - oldMaxValue.f[channel] - oldMinValue.f[channel]) / (oldMaxValue.f[channel] - oldMinValue.f[channel]);
+					encodeBuffer[channel] = (2.0 * encodeBuffer[channel] - oldMaxValue[channel] - oldMinValue[channel]) / (oldMaxValue[channel] - oldMinValue[channel]);
 			else
 				for (uint8_t channel = 0; channel < channels; ++channel)
-					encodeBuffer[channel] = (encodeBuffer[channel] - oldMinValue.f[channel]) / (oldMaxValue.f[channel] - oldMinValue.f[channel]);
+					encodeBuffer[channel] = (encodeBuffer[channel] - oldMinValue[channel]) / (oldMaxValue[channel] - oldMinValue[channel]);
 		}
 };
 

@@ -10,6 +10,7 @@
 #include "BuildConfigOptions.h"
 #include "vectorSIMD.h"
 #include "nbl/core/math/rational.h"
+#include "nbl/core/math/colorutil.h"
 
 namespace nbl::asset
 {
@@ -243,13 +244,45 @@ enum E_FORMAT_CLASS : uint32_t
     // TODO: and many more for block compression and planar formats... but dont want to waste time on it now
 };
 
+enum E_FORMAT_FEATURE : uint32_t
+{
+    EFF_SAMPLED_IMAGE_BIT = 0x00000001,
+    EFF_STORAGE_IMAGE_BIT = 0x00000002,
+    EFF_STORAGE_IMAGE_ATOMIC_BIT = 0x00000004,
+    EFF_UNIFORM_TEXEL_BUFFER_BIT = 0x00000008,
+    EFF_STORAGE_TEXEL_BUFFER_BIT = 0x00000010,
+    EFF_STORAGE_TEXEL_BUFFER_ATOMIC_BIT = 0x00000020,
+    EFF_VERTEX_BUFFER_BIT = 0x00000040,
+    EFF_COLOR_ATTACHMENT_BIT = 0x00000080,
+    EFF_COLOR_ATTACHMENT_BLEND_BIT = 0x00000100,
+    EFF_DEPTH_STENCIL_ATTACHMENT_BIT = 0x00000200,
+    EFF_BLIT_SRC_BIT = 0x00000400,
+    EFF_BLIT_DST_BIT = 0x00000800,
+    EFF_SAMPLED_IMAGE_FILTER_LINEAR_BIT = 0x00001000,
+    EFF_TRANSFER_SRC_BIT = 0x00004000,
+    EFF_TRANSFER_DST_BIT = 0x00008000,
+    EFF_MIDPOINT_CHROMA_SAMPLES_BIT = 0x00020000,
+    EFF_SAMPLED_IMAGE_YCBCR_CONVERSION_LINEAR_FILTER_BIT = 0x00040000,
+    EFF_SAMPLED_IMAGE_YCBCR_CONVERSION_SEPARATE_RECONSTRUCTION_FILTER_BIT = 0x00080000,
+    EFF_SAMPLED_IMAGE_YCBCR_CONVERSION_CHROMA_RECONSTRUCTION_EXPLICIT_BIT = 0x00100000,
+    EFF_SAMPLED_IMAGE_YCBCR_CONVERSION_CHROMA_RECONSTRUCTION_EXPLICIT_FORCEABLE_BIT = 0x00200000,
+    EFF_DISJOINT_BIT = 0x00400000,
+    EFF_COSITED_CHROMA_SAMPLES_BIT = 0x00800000,
+    EFF_SAMPLED_IMAGE_FILTER_MINMAX_BIT = 0x00010000,
+    EFF_SAMPLED_IMAGE_FILTER_CUBIC_BIT_IMG = 0x00002000,
+    EFF_ACCELERATION_STRUCTURE_VERTEX_BUFFER_BIT = 0x20000000,
+    EFF_FRAGMENT_DENSITY_MAP_BIT = 0x01000000,
+    EFF_FRAGMENT_SHADING_RATE_ATTACHMENT_BIT = 0x40000000,
+    EFF_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF
+};
+
 //
 inline E_FORMAT_CLASS getFormatClass(E_FORMAT _fmt)
 {
 #include "nbl/asset/format/impl/EFormat_getFormatClass.h"
 }
 template<E_FORMAT _fmt>
-constexpr const E_FORMAT_CLASS getFormatClass()
+constexpr E_FORMAT_CLASS getFormatClass()
 {
 #include "nbl/asset/format/impl/EFormat_getFormatClass.h"
 }
@@ -260,7 +293,7 @@ inline uint32_t getFormatClassBlockBytesize(E_FORMAT_CLASS _fclass)
 #include "nbl/asset/format/impl/EFormat_getFormatClassBlockBytesize.h"
 }
 template<E_FORMAT_CLASS _fclass>
-constexpr const uint32_t getFormatClassBlockBytesize()
+constexpr uint32_t getFormatClassBlockBytesize()
 {
 #include "nbl/asset/format/impl/EFormat_getFormatClassBlockBytesize.h"
 }
@@ -272,7 +305,7 @@ inline core::vector3du32_SIMD getBlockDimensions(E_FORMAT_CLASS _fclass)
 #include "nbl/asset/format/impl/EFormat_getBlockDimensions.h"
 }
 template<E_FORMAT_CLASS _fclass>
-constexpr const core::vector3du32_SIMD getBlockDimensions()
+const core::vector3du32_SIMD getBlockDimensions()
 {
 #include "nbl/asset/format/impl/EFormat_getBlockDimensions.h"
 }
@@ -364,7 +397,7 @@ inline core::vector3du32_SIMD getBlockDimensions(asset::E_FORMAT _fmt)
     }
 }
 template<asset::E_FORMAT _fmt>
-constexpr const core::vector3du32_SIMD getBlockDimensions()
+const core::vector3du32_SIMD getBlockDimensions()
 {
     switch (_fmt)
     {
@@ -457,7 +490,7 @@ inline uint32_t getTexelOrBlockBytesize(asset::E_FORMAT _fmt)
 #include "nbl/asset/format/impl/EFormat_getTexelOrBlockBytesize.h"
 }
 template<asset::E_FORMAT _fmt>
-constexpr const uint32_t getTexelOrBlockBytesize()
+constexpr uint32_t getTexelOrBlockBytesize()
 {
 #include "nbl/asset/format/impl/EFormat_getTexelOrBlockBytesize.h"
 }
@@ -468,7 +501,7 @@ inline uint32_t getFormatChannelCount(asset::E_FORMAT _fmt)
 #include "nbl/asset/format/impl/EFormat_getFormatChannelCount.h"
 }
 template<E_FORMAT _fmt>
-constexpr const uint32_t getFormatChannelCount()
+constexpr uint32_t getFormatChannelCount()
 {
 #include "nbl/asset/format/impl/EFormat_getFormatChannelCount.h"
 }
@@ -581,6 +614,8 @@ struct TexelBlockInfo
 
         inline const auto& getDimension() const { return dimension; }
 
+        inline const auto& getBlockByteSize() const { return blockByteSize; }
+
     private:
         core::vector3du32_SIMD dimension;
         core::vector3du32_SIMD maxCoord;
@@ -595,6 +630,24 @@ inline core::rational<uint32_t> getBytesPerPixel(asset::E_FORMAT _fmt)
 
 
 //! Boolean Queries
+
+inline bool isDepthOnlyFormat(asset::E_FORMAT _fmt)
+{
+    switch (_fmt)
+    {
+    case EF_D16_UNORM:
+    case EF_X8_D24_UNORM_PACK32:
+    case EF_D32_SFLOAT:
+        return true;
+    default:
+        return false;
+    }
+}
+
+inline bool isStencilOnlyFormat(asset::E_FORMAT _fmt)
+{
+    return (_fmt == EF_S8_UINT);
+}
 
 inline bool isDepthOrStencilFormat(asset::E_FORMAT _fmt)
 {
@@ -614,7 +667,7 @@ inline bool isDepthOrStencilFormat(asset::E_FORMAT _fmt)
 }
 
 template<asset::E_FORMAT _fmt>
-constexpr const bool isDepthOrStencilFormat()
+constexpr bool isDepthOrStencilFormat()
 {
     switch (_fmt)
     {
@@ -663,7 +716,7 @@ inline bool isBGRALayoutFormat(asset::E_FORMAT _fmt)
 }
 
 template<asset::E_FORMAT _fmt>
-constexpr const bool isBGRALayoutFormat()
+constexpr bool isBGRALayoutFormat()
 {
     switch (_fmt)
     {

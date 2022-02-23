@@ -22,8 +22,6 @@ SOFTWARE.
 
 #ifdef _NBL_COMPILE_WITH_GLI_LOADER_
 
-#include "os.h"
-
 #include "nbl/asset/interchange/IImageAssetHandlerBase.h"
 
 #ifdef _NBL_COMPILE_WITH_GLI_
@@ -36,23 +34,24 @@ namespace nbl
 {
 	namespace asset
 	{
-		static inline std::pair<E_FORMAT, ICPUImageView::SComponentMapping> getTranslatedGLIFormat(const gli::texture& texture, const gli::gl& glVersion);
+		static inline std::pair<E_FORMAT, ICPUImageView::SComponentMapping> getTranslatedGLIFormat(const gli::texture& texture, const gli::gl& glVersion, const system::logger_opt_ptr logger);
 		static inline void assignGLIDataToRegion(void* regionData, const gli::texture& texture, const uint16_t layer, const uint16_t face, const uint16_t level, const uint64_t sizeOfData);
-		static inline bool performLoadingAsIReadFile(gli::texture& texture, io::IReadFile* file);
+		static inline bool performLoadingAsIFile(gli::texture& texture, system::IFile* file, const system::logger_opt_ptr logger);
 
-		asset::SAssetBundle CGLILoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
+		asset::SAssetBundle CGLILoader::loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 		{
 			if (!_file)
 				return {};
 
 			gli::texture texture;
+			
 
-			if (!performLoadingAsIReadFile(texture, _file))
+			if (!performLoadingAsIFile(texture, _file, _params.logger))
 				return {};
 
 		    const gli::gl glVersion(gli::gl::PROFILE_GL33);
 			const auto target = glVersion.translate(texture.target());
-			const auto format = getTranslatedGLIFormat(texture, glVersion);
+			const auto format = getTranslatedGLIFormat(texture, glVersion, _params.logger);
 			IImage::E_TYPE imageType;
 			IImageView<ICPUImage>::E_TYPE imageViewType;
 
@@ -154,6 +153,7 @@ namespace nbl
 					region->imageExtent.depth = texture.extent(regionIndex).z;
 					region->bufferRowLength = region->imageExtent.width;
 					region->bufferImageHeight = 0u;
+					region->imageSubresource.aspectMask = IImage::E_ASPECT_FLAGS::EAF_COLOR_BIT;
 					region->imageSubresource.mipLevel = regionIndex;
 					region->imageSubresource.layerCount = imageInfo.arrayLayers;
 					region->imageSubresource.baseArrayLayer = 0;
@@ -204,7 +204,7 @@ namespace nbl
 			image->setBufferAndRegions(std::move(texelBuffer), regions);
 
 			if (imageInfo.format == asset::EF_R8_SRGB)
-				image = IImageAssetHandlerBase::convertR8ToR8G8B8Image(image);
+				image = IImageAssetHandlerBase::convertR8ToR8G8B8Image(image, _params.logger);
 
 			ICPUImageView::SCreationParams imageViewInfo;
 			imageViewInfo.image = std::move(image);
@@ -212,6 +212,7 @@ namespace nbl
 			imageViewInfo.viewType = imageViewType;
 			imageViewInfo.components = format.second;
 			imageViewInfo.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
+			imageViewInfo.subresourceRange.aspectMask = IImage::E_ASPECT_FLAGS::EAF_COLOR_BIT;
 			imageViewInfo.subresourceRange.baseArrayLayer = 0u;
 			imageViewInfo.subresourceRange.baseMipLevel = 0u;
 			imageViewInfo.subresourceRange.layerCount = imageInfo.arrayLayers;
@@ -222,13 +223,16 @@ namespace nbl
 			return SAssetBundle(nullptr,{std::move(imageView)});
 		}
 
-		bool performLoadingAsIReadFile(gli::texture& texture, io::IReadFile* file)
+		bool performLoadingAsIFile(gli::texture& texture, system::IFile* file, const system::logger_opt_ptr logger)
 		{
-			const auto fileName = std::string(file->getFileName().c_str());
-			std::vector<char> memory(file->getSize());
+			const auto fileName = file->getFileName().string();
+			core::vector<char> memory(file->getSize());
+
 			const auto sizeOfData = memory.size();
 
-			file->read(memory.data(), sizeOfData);
+			system::future<size_t> future;
+			file->read(future, memory.data(), 0, sizeOfData);
+			future.get();
 
 			if (fileName.rfind(".dds") != std::string::npos)
 				texture = gli::load_dds(memory.data(), sizeOfData);
@@ -241,67 +245,76 @@ namespace nbl
 				return true;
 			else
 			{
-				os::Printer::log("LOADING GLI: failed to load the file", file->getFileName().c_str(), ELL_ERROR);
+				logger.log("LOADING GLI: failed to load the file %s", system::ILogger::ELL_ERROR, file->getFileName().string().c_str());
+
 				return false;
 			}
 		}
 
-		bool CGLILoader::isALoadableFileFormat(io::IReadFile* _file) const
+		bool CGLILoader::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const
 		{
-			const auto fileName = std::string(_file->getFileName().c_str());
-			const auto beginningOfFile = _file->getPos();
+			const auto fileName = std::string(_file->getFileName().string());
 
 			constexpr auto ddsMagic = 0x20534444;
-			constexpr std::array<uint8_t, 12> ktxMagic = { '«', 'K', 'T', 'X', ' ', '1', '1', '»', '\r', '\n', '\x1A', '\n' };
+			constexpr std::array<uint8_t, 12> ktxMagic = { 0xAB, 0x4B, 0x54, 0x58, 0x20, 0x31, 0x31, 0xBB, 0x0D, 0x0A, 0x1A, 0x0A };
 			constexpr std::array<uint8_t, 16> kmgMagic = { 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55 };
 
+			system::future<size_t> future;
 			if (fileName.rfind(".dds") != std::string::npos)
 			{
 				std::remove_const<decltype(ddsMagic)>::type tmpBuffer;
-				_file->read(&tmpBuffer, sizeof(ddsMagic));
+				_file->read(future, &tmpBuffer, 0, sizeof(ddsMagic));
+				future.get();
 				if (*reinterpret_cast<decltype(ddsMagic)*>(&tmpBuffer) == ddsMagic)
 				{
-					_file->seek(beginningOfFile);
 					return true;
 				}
 				else
-					os::Printer::log("LOAD GLI: Invalid (non-DDS) file!", ELL_ERROR);
+				{
+					logger.log("LOAD GLI: Invalid (non-DDS) file!", system::ILogger::ELL_ERROR);
+				}
 			}
 			else if (fileName.rfind(".kmg") != std::string::npos)
 			{
 				std::remove_const<decltype(kmgMagic)>::type tmpBuffer;
-				_file->read(tmpBuffer.data(), sizeof(kmgMagic[0]) * kmgMagic.size());
+				_file->read(future, tmpBuffer.data(), 0, sizeof(kmgMagic[0]) * kmgMagic.size());
+				future.get();
 				if (tmpBuffer == kmgMagic)
 				{
-					_file->seek(beginningOfFile);
 					return true;
 				}
 				else
-					os::Printer::log("LOAD GLI: Invalid (non-KMG) file!", ELL_ERROR);
+				{
+					logger.log("LOAD GLI: Invalid (non-KMG) file!", system::ILogger::ELL_ERROR);
+				}
+
 			}
 			else if (fileName.rfind(".ktx") != std::string::npos)
 			{
 				std::remove_const<decltype(ktxMagic)>::type tmpBuffer;
-				_file->read(tmpBuffer.data(), sizeof(ktxMagic[0]) * ktxMagic.size());
+				_file->read(future, tmpBuffer.data(), 0, sizeof(ktxMagic[0]) * ktxMagic.size());
+
+				future.get();
 				if (tmpBuffer == ktxMagic)
 				{
-					_file->seek(beginningOfFile);
 					return true;
 				}
 				else
-					os::Printer::log("LOAD GLI: Invalid (non-KTX) file!", ELL_ERROR);
+				{
+					logger.log("LOAD GLI: Invalid (non-KTX) file!", system::ILogger::ELL_ERROR);
+				}
 			}
 			
 			return false;
 		}
 
-		inline std::pair<E_FORMAT, ICPUImageView::SComponentMapping> getTranslatedGLIFormat(const gli::texture& texture, const gli::gl& glVersion)
+		inline std::pair<E_FORMAT, ICPUImageView::SComponentMapping> getTranslatedGLIFormat(const gli::texture& texture, const gli::gl& glVersion, const system::logger_opt_ptr logger)
 		{
 			using namespace gli;
 			gli::gl::format formatToTranslate = glVersion.translate(texture.format(), texture.swizzles());
 			ICPUImageView::SComponentMapping compomentMapping;
 
-			static const core::unordered_map<gli::gl::swizzle, ICPUImageView::SComponentMapping::E_SWIZZLE> swizzlesMappingAPI =
+			static const std::unordered_map<gli::gl::swizzle, ICPUImageView::SComponentMapping::E_SWIZZLE> swizzlesMappingAPI =
 			{
 				std::make_pair(gl::SWIZZLE_RED, ICPUImageView::SComponentMapping::ES_R),
 				std::make_pair(gl::SWIZZLE_GREEN, ICPUImageView::SComponentMapping::ES_G),
@@ -327,8 +340,9 @@ namespace nbl
 			auto getTranslatedFinalFormat = [&](const E_FORMAT& format = EF_UNKNOWN, const std::string_view &specialErrorOnUnknown = "Unsupported format!")
 			{
 				if(format == EF_UNKNOWN)
-					os::Printer::log(("LOAD GLI: " + std::string(specialErrorOnUnknown)).c_str(), ELL_ERROR);
-
+				{
+					logger.log(("LOAD GLI: " + std::string(specialErrorOnUnknown)).c_str(), system::ILogger::ELL_ERROR);
+				}
 				return std::make_pair(format, compomentMapping);
 			};
 

@@ -1,0 +1,95 @@
+#version 450 core
+#extension GL_EXT_shader_16bit_storage : require
+
+#include "shaderCommon.glsl"
+
+layout(set = 0, binding = 0, std430) buffer Position
+{
+	vec4 positions[];
+};
+
+layout(set = 0, binding = 1, std430) buffer Velocity
+{
+	vec4 velocities[];
+};
+
+layout(set = 0, binding = 2, std430) buffer Color
+{
+	vec4 colors[];
+};
+
+layout(set = 0, binding = 3, std430) buffer ColorRisingFlag
+{
+	bvec4 colorsRisingFlag[];
+};
+
+layout(local_size_x = 128, local_size_y = 1, local_size_z = 1) in;
+
+void manageColorAxieState(float colorAxie, inout bool colorIntensityRisingAxieFlag)
+{
+	if(colorAxie <= 0)
+		colorIntensityRisingAxieFlag = true;
+	else if(colorAxie >= 1)
+		colorIntensityRisingAxieFlag = false;
+}
+
+void manageColorState(vec3 color)
+{
+	uint globalInvocationID = gl_GlobalInvocationID.x; // the .y and .z are both 1 in this case
+	bvec4 isColorIntensityRising = colorsRisingFlag[globalInvocationID];
+
+	manageColorAxieState(color.x, isColorIntensityRising.x);
+	manageColorAxieState(color.y, isColorIntensityRising.y);
+	manageColorAxieState(color.z, isColorIntensityRising.z);
+
+	colorsRisingFlag[globalInvocationID] = isColorIntensityRising;
+}
+
+float getNewAxieColor(float colorAxie, bool colorIntensityRisingAxieFlag)
+{
+	const float colorDelta = 0.04; 
+
+	if(colorIntensityRisingAxieFlag)
+		colorAxie += colorDelta;
+	else
+		colorAxie -= colorDelta;
+
+	return colorAxie;
+}
+
+vec3 getNewColor(vec3 color)
+{
+	uint globalInvocationID = gl_GlobalInvocationID.x; // the .y and .z are both 1 in this case
+	bvec4 isColorIntensityRising = colorsRisingFlag[globalInvocationID];
+
+	return vec3(getNewAxieColor(color.x, isColorIntensityRising.x), getNewAxieColor(color.y, isColorIntensityRising.y), getNewAxieColor(color.z, isColorIntensityRising.z));
+}
+
+void main()
+{
+	const float deltaTime = 0.004;
+	
+	uint globalInvocationID = gl_GlobalInvocationID.x; // the .y and .z are both 1 in this case
+
+	vec3 position = positions[globalInvocationID].xyz;
+	vec3 velocity = velocities[globalInvocationID].xyz;
+	vec3 color = colors[globalInvocationID].xyz;
+
+	if(!pushConstants.isXPressed)
+	{
+		/*
+		if(pushConstants.isZPressed)
+		{
+			// TODO gravity to force a particle's velocity towards the user
+		}
+		*/
+		position += velocity * deltaTime;
+	}
+		
+	vec3 newComputedColor = getNewColor(color);
+	manageColorState(newComputedColor);
+
+	positions[globalInvocationID].xyz = position;
+	velocities[globalInvocationID].xyz = velocity;
+	colors[globalInvocationID].xyz = newComputedColor;
+}

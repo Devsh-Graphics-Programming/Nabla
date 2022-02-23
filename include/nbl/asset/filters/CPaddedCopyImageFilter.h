@@ -5,7 +5,7 @@
 #ifndef __NBL_ASSET_C_PADDED_COPY_IMAGE_FILTER_H_INCLUDED__
 #define __NBL_ASSET_C_PADDED_COPY_IMAGE_FILTER_H_INCLUDED__
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 
 #include <type_traits>
 
@@ -215,7 +215,7 @@ class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, publ
 		}
 		static inline bool execute(state_type* state)
 		{
-			return execute(std::execution::seq,state);
+			return execute(core::execution::seq,state);
 		}
 
 	private:

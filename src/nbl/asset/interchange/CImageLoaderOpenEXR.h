@@ -25,7 +25,7 @@ class CImageLoaderOpenEXR final : public IImageLoader
 	public:
 		CImageLoaderOpenEXR(IAssetManager* _manager) : m_manager(_manager) {}
 
-		bool isALoadableFileFormat(io::IReadFile* _file) const override;
+		bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const override;
 
 		const char** getAssociatedFileExtensions() const override
 		{
@@ -35,7 +35,7 @@ class CImageLoaderOpenEXR final : public IImageLoader
 
 		uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_IMAGE; }
 
-		asset::SAssetBundle loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
+		asset::SAssetBundle loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
 	private:
 

@@ -6,7 +6,10 @@
 #ifndef __NBL_ASSET_C_STL_MESH_FILE_LOADER_H_INCLUDED__
 #define __NBL_ASSET_C_STL_MESH_FILE_LOADER_H_INCLUDED__
 
+#include "nbl/core/declarations.h"
 #include "nbl/asset/interchange/IAssetLoader.h"
+#include "nbl/asset/ICPUMeshBuffer.h"
+#include "nbl/asset/interchange/IRenderpassIndependentPipelineLoader.h"
 #include "nbl/asset/metadata/CSTLMetadata.h"
 
 namespace nbl
@@ -21,9 +24,9 @@ class CSTLMeshFileLoader final : public IRenderpassIndependentPipelineLoader
 
 		CSTLMeshFileLoader(asset::IAssetManager* _m_assetMgr);
 
-		asset::SAssetBundle loadAsset(io::IReadFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
+		asset::SAssetBundle loadAsset(system::IFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
-		bool isALoadableFileFormat(io::IReadFile* _file) const override;
+		bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const override;
 
 		const char** getAssociatedFileExtensions() const override
 		{
@@ -35,18 +38,28 @@ class CSTLMeshFileLoader final : public IRenderpassIndependentPipelineLoader
 
 	private:
 
+		struct SContext
+		{
+			IAssetLoader::SAssetLoadContext inner;
+			uint32_t topHierarchyLevel;
+			IAssetLoader::IAssetLoaderOverride* loaderOverride;
+
+			size_t fileOffset = {};
+		};
+
 		virtual void initialize() override;
 
 		const std::string_view getPipelineCacheKey(bool withColorAttribute) { return withColorAttribute ? "nbl/builtin/pipeline/loader/STL/color_attribute" : "nbl/builtin/pipeline/loader/STL/no_color_attribute"; }
 
 		// skips to the first non-space character available
-		void goNextWord(io::IReadFile* file) const;
+		void goNextWord(SContext* context) const;
 		// returns the next word
-		const core::stringc& getNextToken(io::IReadFile* file, core::stringc& token) const;
+
+		const std::string& getNextToken(SContext* context, std::string& token) const;
 		// skip to next printable character after the first line break
-		void goNextLine(io::IReadFile* file) const;
+		void goNextLine(SContext* context) const;
 		//! Read 3d vector of floats
-		void getNextVector(io::IReadFile* file, core::vectorSIMDf& vec, bool binary) const;
+		void getNextVector(SContext* context, core::vectorSIMDf& vec, bool binary) const;
 
 		template<typename aType>
 		static inline void performActionBasedOnOrientationSystem(aType& varToHandle, void (*performOnCertainOrientation)(aType& varToHandle))

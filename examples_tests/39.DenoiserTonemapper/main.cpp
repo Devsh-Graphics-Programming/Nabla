@@ -1767,7 +1767,7 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 					state.inMipLevel = region->imageSubresource.mipLevel;
 					state.outMipLevel = region->imageSubresource.mipLevel;
 
-					if (!convertFilter.execute(std::execution::par_unseq,&state))
+					if (!convertFilter.execute(core::execution::par_unseq,&state))
 						os::Printer::log("WARNING (" + std::to_string(__LINE__) + " line): Something went wrong while converting the image!", ELL_WARNING);
 
 					_NBL_DELETE(state.ditherState);

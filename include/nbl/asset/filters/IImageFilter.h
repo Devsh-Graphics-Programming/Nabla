@@ -5,7 +5,7 @@
 #ifndef __NBL_ASSET_I_IMAGE_FILTER_H_INCLUDED__
 #define __NBL_ASSET_I_IMAGE_FILTER_H_INCLUDED__
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 
 #include <algorithm>
 
@@ -154,11 +154,11 @@ class IImageFilter
 		virtual bool pValidate(IState* state) const = 0;
 		
 		//
-		virtual bool pExecute(const std::execution::sequenced_policy&, IState* state) const = 0;
-		virtual bool pExecute(const std::execution::parallel_policy&, IState* state) const = 0;
-		virtual bool pExecute(const std::execution::parallel_unsequenced_policy&, IState* state) const = 0;
+		virtual bool pExecute(const core::execution::sequenced_policy&, IState* state) const = 0;
+		virtual bool pExecute(const core::execution::parallel_policy&, IState* state) const = 0;
+		virtual bool pExecute(const core::execution::parallel_unsequenced_policy&, IState* state) const = 0;
 
-		virtual bool pExecute(IState* state) const {return pExecute(std::execution::seq,state);}
+		virtual bool pExecute(IState* state) const {return pExecute(core::execution::seq,state);}
 };
 
 /*
@@ -189,15 +189,15 @@ class CImageFilter : public IImageFilter
 			return CRTP::execute(static_cast<typename CRTP::state_type*>(state));
 		}
 
-		inline bool pExecute(const std::execution::sequenced_policy& policy, IState* state) const override
+		inline bool pExecute(const core::execution::sequenced_policy& policy, IState* state) const override
 		{
 			return execute(policy, state);
 		}
-		inline bool pExecute(const std::execution::parallel_policy& policy, IState* state) const override
+		inline bool pExecute(const core::execution::parallel_policy& policy, IState* state) const override
 		{
 			return execute(policy,state);
 		}
-		inline bool pExecute(const std::execution::parallel_unsequenced_policy& policy, IState* state) const override
+		inline bool pExecute(const core::execution::parallel_unsequenced_policy& policy, IState* state) const override
 		{
 			return execute(policy,state);
 		}

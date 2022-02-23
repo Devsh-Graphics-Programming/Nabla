@@ -5,37 +5,42 @@
 #ifndef __NBL_ASSET_C_OPENGL_RENDERPASS_INDEPENDENT_PIPELINE_H_INCLUDED__
 #define __NBL_ASSET_C_OPENGL_RENDERPASS_INDEPENDENT_PIPELINE_H_INCLUDED__
 
+
 #include "nbl/video/IGPURenderpassIndependentPipeline.h"
 
-#include "COpenGLExtensionHandler.h"
-#include "COpenGLSpecializedShader.h"
+#include <string_view> // for hash
+#include <array>
 
-#include "nbl/video/IOpenGLPipeline.h"
+
+#include "COpenGLSpecializedShader.h"
+#include "IOpenGLPipeline.h"
 
 #ifdef _NBL_COMPILE_WITH_OPENGL_
-namespace nbl
-{
-namespace video
-{
 
+#include "IOpenGL_FunctionTable.h"
+
+namespace nbl::video
+{
 
 class COpenGLRenderpassIndependentPipeline final : public IGPURenderpassIndependentPipeline, public IOpenGLPipeline<IGPURenderpassIndependentPipeline::SHADER_STAGE_COUNT>
 {
     public:
         //! _binaries' elements are getting move()'d!
         COpenGLRenderpassIndependentPipeline(
+            core::smart_refctd_ptr<IOpenGL_LogicalDevice>&& _dev, IOpenGL_FunctionTable* _gl,
             core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
-            IGPUSpecializedShader* const* _shadersBegin, IGPUSpecializedShader* const* _shadersEnd,
+            const IGPUSpecializedShader*const * _shadersBegin, const IGPUSpecializedShader*const * _shadersEnd,
             const asset::SVertexInputParams& _vertexInputParams,
             const asset::SBlendParams& _blendParams,
             const asset::SPrimitiveAssemblyParams& _primAsmParams,
             const asset::SRasterizationParams& _rasterParams,
             uint32_t _ctxCount, uint32_t _ctxID, const GLuint _GLnames[SHADER_STAGE_COUNT], const COpenGLSpecializedShader::SProgramBinary _binaries[SHADER_STAGE_COUNT]
         ) : IGPURenderpassIndependentPipeline(
-            std::move(_layout), _shadersBegin, _shadersEnd,
-            _vertexInputParams, _blendParams, _primAsmParams, _rasterParams
+                core::smart_refctd_ptr<ILogicalDevice>(_dev), std::move(_layout),
+                const_cast<IGPUSpecializedShader*const *>(_shadersBegin), const_cast<IGPUSpecializedShader*const *>(_shadersEnd),
+                _vertexInputParams, _blendParams, _primAsmParams, _rasterParams
             ),
-            IOpenGLPipeline(_ctxCount, _ctxID, _GLnames, _binaries),
+            IOpenGLPipeline(_dev.get(), _gl, _ctxCount, _ctxID, _GLnames, _binaries),
             m_stagePresenceMask(0u)
         {
             static_assert(asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT == asset::SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT, "This code below has to be divided into 2 loops");
@@ -65,7 +70,7 @@ class COpenGLRenderpassIndependentPipeline final : public IGPURenderpassIndepend
         }
 
         // should be called in case of absence of GL_ARB_shader_draw_parameters only
-        void setBaseInstanceUniform(uint32_t _ctxID, GLint _baseInstance) const
+        void setBaseInstanceUniform(IOpenGL_FunctionTable* gl, uint32_t _ctxID, GLint _baseInstance) const
         {
             // only this function touches this uniform
             constexpr const char* SPIRV_CROSS_BaseInstanceUniformName = "SPIRV_Cross_BaseInstance";
@@ -78,14 +83,14 @@ class COpenGLRenderpassIndependentPipeline final : public IGPURenderpassIndepend
             GLint& uid = getBaseInstanceState(_ctxID)->id;
             if (uid == -1)
             {
-                uid = COpenGLExtensionHandler::extGlGetUniformLocation(programID, SPIRV_CROSS_BaseInstanceUniformName);
+                uid = gl->glShader.pglGetUniformLocation(programID, SPIRV_CROSS_BaseInstanceUniformName);
             }
             if (uid == -1)
                 return;
 
             value = _baseInstance;
 
-            COpenGLExtensionHandler::extGlProgramUniform1iv(programID, uid, 1u, &value);
+            gl->glShader.pglProgramUniform1iv(programID, uid, 1u, &value);
         }
 
         uint32_t getStagePresenceMask() const { return m_stagePresenceMask; }
@@ -98,15 +103,15 @@ class COpenGLRenderpassIndependentPipeline final : public IGPURenderpassIndepend
             return IOpenGLPipeline<SHADER_STAGE_COUNT>::getShaderGLnameForCtx(_stageIx, _ctxID);
         }
         
-        struct PushConstantsState
+        struct alignas(128) PushConstantsState
         {
 	        alignas(128) uint8_t data[IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE];
 	        core::smart_refctd_ptr<const COpenGLPipelineLayout> layout;
 	        std::atomic_uint32_t stageUpdateStamps[IGPURenderpassIndependentPipeline::SHADER_STAGE_COUNT] = { 0u };
 
-            inline uint32_t getStamp(IGPUSpecializedShader::E_SHADER_STAGE _stage) const
+            inline uint32_t getStamp(IGPUShader::E_SHADER_STAGE _stage) const
             {
-                const uint32_t ix = core::findLSB<std::underlying_type_t<IGPUSpecializedShader::E_SHADER_STAGE>>(_stage);
+                const uint32_t ix = core::findLSB<std::underlying_type_t<IGPUShader::E_SHADER_STAGE>>(_stage);
                 assert(ix < IGPURenderpassIndependentPipeline::SHADER_STAGE_COUNT);
                 return stageUpdateStamps[ix];
             }
@@ -117,28 +122,46 @@ class COpenGLRenderpassIndependentPipeline final : public IGPURenderpassIndepend
                         ++stageUpdateStamps[i];
 	        }
         };
-        inline void setUniformsImitatingPushConstants(uint32_t _ctxID, const PushConstantsState& _pcState) const
+        inline void setUniformsImitatingPushConstants(IOpenGL_FunctionTable* gl, uint32_t _ctxID, const PushConstantsState& _pcState) const
         {
             for (uint32_t i=0u; i<SHADER_STAGE_COUNT; ++i)
             {
-                auto stage = static_cast<IGPUSpecializedShader::E_SHADER_STAGE>(1u<<i);
+                auto stage = static_cast<IGPUShader::E_SHADER_STAGE>(1u<<i);
                 if ((m_stagePresenceMask&stage)==0u)
                     continue;
 
                 uint32_t stampValue = _pcState.getStamp(stage);
                 if (stampValue>m_lastUpdateStamp[i])
                 {
-                    auto uniforms = static_cast<COpenGLSpecializedShader*>(m_shaders[i].get())->getUniforms();
-                    auto locations = static_cast<COpenGLSpecializedShader*>(m_shaders[i].get())->getLocations();
+                    auto uniforms = IBackendObject::compatibility_cast<COpenGLSpecializedShader*>(m_shaders[i].get(), this)->getUniforms();
+                    auto locations = IBackendObject::compatibility_cast<COpenGLSpecializedShader*>(m_shaders[i].get(), this)->getLocations();
                     if (uniforms.size())
-                        IOpenGLPipeline<SHADER_STAGE_COUNT>::setUniformsImitatingPushConstants(i, _ctxID, _pcState.data, uniforms, locations);
+                        IOpenGLPipeline<SHADER_STAGE_COUNT>::setUniformsImitatingPushConstants(gl, i, _ctxID, _pcState.data, uniforms, locations);
                     m_lastUpdateStamp[i] = stampValue;
                 }
             }
         }
 
+        using SPipelineHash = std::array<GLuint, SHADER_STAGE_COUNT>;
+
+        inline SPipelineHash getPipelineHash(uint32_t ctxid) const
+        {
+            SPipelineHash hash;
+            for (uint32_t i = 0u; i < hash.size(); ++i)
+                hash[i] = getShaderGLnameForCtx(i, ctxid);
+            return hash;
+        }
+
         struct SVAOHash
         {
+            struct hash
+            {
+                std::size_t operator()(const SVAOHash& h) const
+                {
+                    return std::hash<std::string_view>{} (std::string_view(reinterpret_cast<const char*>(h.hashVal), sizeof(h.hashVal)));
+                }
+            };
+
             constexpr static size_t getHashLength()
             {
                 return sizeof(hashVal)/sizeof(uint32_t);
@@ -255,7 +278,7 @@ class COpenGLRenderpassIndependentPipeline final : public IGPURenderpassIndepend
         const SVAOHash& getVAOHash() const { return m_vaoHashval; }
 
     protected:
-        ~COpenGLRenderpassIndependentPipeline() = default;
+        ~COpenGLRenderpassIndependentPipeline();
 
     private:
         SVAOHash m_vaoHashval;
@@ -263,7 +286,6 @@ class COpenGLRenderpassIndependentPipeline final : public IGPURenderpassIndepend
         mutable uint32_t m_lastUpdateStamp[SHADER_STAGE_COUNT];
 };
 
-}
 }
 #endif
 

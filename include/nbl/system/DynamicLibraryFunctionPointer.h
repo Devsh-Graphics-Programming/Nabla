@@ -6,15 +6,12 @@
 #define __NBL_SYSTEM_DYNAMIC_LIBRARY_FUNCTION_POINTER_H_INCLUDED__
 
 
+#include "nbl/core/declarations.h"
+
 #include <functional>
 
 
-#include "nbl/core/core.h"
-
-
-namespace nbl
-{
-namespace system
+namespace nbl::system
 {
 
 template<typename FuncT, class UniqueStringType>
@@ -42,31 +39,37 @@ class DynamicLibraryFunctionPointer
 		inline FuncT* operator&() const { return p; }
 	
 
-		template<typename... T>
-		inline result_type operator()(std::function<result_type(const char*)> error, T&& ... args)
+		/*template<typename... T>
+		inline result_type operator()(std::function<result_type(const char*)> error, T&& ... args) const
 		{
 			if (p)
 				return p(std::forward<T>(args)...);
 			assert(error);
 			return error(name);
-		}
+		}*/
 
 		template<typename... T>
-		inline result_type operator()(std::function<void(const char*)> error, T&& ... args)
+		inline result_type operator()(std::function<void(const char*)> error, T&& ... args) const
 		{
 			if (p)
 				return p(std::forward<T>(args)...);
 			else if (error)
 				error(name);
-			return result_type{};
+			if constexpr (!std::is_void_v<result_type>)
+			{
+				return result_type{};
+			}
 		}
 
 		template<typename... T>
-		inline result_type operator()(T&& ... args)
+		inline result_type operator()(T&& ... args) const
 		{
 			if (p)
 				return p(std::forward<T>(args)...);
-			return result_type{};
+			if constexpr (!std::is_void_v<result_type>)
+			{
+				return result_type{};
+			}
 		}
 
 
@@ -82,7 +85,6 @@ class DynamicLibraryFunctionPointer
 		const char* name = UniqueStringType::value;
 };
 
-}
 }
 
 #define NBL_SYSTEM_DECLARE_DYNLIB_FUNCPTR(FUNC_NAME) nbl::system::DynamicLibraryFunctionPointer<decltype(FUNC_NAME),NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(#FUNC_NAME)> p ## FUNC_NAME;

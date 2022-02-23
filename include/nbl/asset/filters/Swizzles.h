@@ -5,7 +5,7 @@
 #ifndef _NBL_ASSET_SWIZZLES_H_INCLUDED_
 #define _NBL_ASSET_SWIZZLES_H_INCLUDED_
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 
 #include "nbl/asset/ICPUImageView.h"
 

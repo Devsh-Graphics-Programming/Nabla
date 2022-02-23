@@ -6,7 +6,7 @@
 
 #include "nbl/core/core.h"
 #include "nbl/asset/asset.h"
-#include "os.h"
+#include "nbl_os.h"
 
 #include "IFileSystem.h"
 #include "IWriteFile.h"
@@ -59,6 +59,7 @@ struct LzmaMemMngmnt
 	template<>
 	void CBAWMeshWriter::exportAsBlob<ICPUMeshBuffer>(ICPUMeshBuffer* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
 	{
+#ifdef OLD_SHADERS
         MeshBufferBlobV3 data(_obj);
 
         const E_WRITER_FLAGS flags = _ctx.writerOverride->getAssetWritingFlags(_ctx.inner, _obj, 1u);
@@ -66,6 +67,7 @@ struct LzmaMemMngmnt
         _ctx.writerOverride->getEncryptionKey(encrPwd, _ctx.inner, _obj, 1u);
         const float comprLvl = _ctx.writerOverride->getAssetCompressionLevel(_ctx.inner, _obj, 1u);
 		tryWrite(&data, _file, _ctx, sizeof(data), _headerIdx, flags, encrPwd, comprLvl);
+#endif
 	}
 	template<>
 	void CBAWMeshWriter::exportAsBlob<ICPUBuffer>(ICPUBuffer* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)

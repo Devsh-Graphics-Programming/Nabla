@@ -5,11 +5,9 @@
 #ifndef __NBL_CORE_SOBOL_SAMPLER_H_
 #define __NBL_CORE_SOBOL_SAMPLER_H_
 
-#include "nbl/core/Types.h"
+#include "nbl/core/decl/Types.h"
 
-namespace nbl
-{
-namespace core
+namespace nbl::core
 {
 
 // Frances Y. Kuo
@@ -8348,8 +8346,6 @@ class SobolSampler
 		}
 };
 
-
-}
 }
 
 #endif

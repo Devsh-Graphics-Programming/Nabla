@@ -8,7 +8,7 @@
 #include "CCameraSceneNode.h"
 #include "ISceneManager.h"
 #include "IVideoDriver.h"
-#include "os.h"
+#include "nbl_os.h"
 
 namespace nbl
 {

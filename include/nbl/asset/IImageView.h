@@ -79,7 +79,7 @@ class IImageView : public IDescriptor
 		};
 		struct SCreationParams
 		{
-			E_CREATE_FLAGS						flags;
+			E_CREATE_FLAGS						flags = static_cast<E_CREATE_FLAGS>(0);
 			core::smart_refctd_ptr<ImageType>	image;
 			E_TYPE								viewType;
 			E_FORMAT							format;

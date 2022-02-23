@@ -46,8 +46,8 @@ class MyKernel : public CFloatingPointSeparableImageFilterKernelBase<MyKernel<Ke
 				inline void operator()(value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, const IImageFilterKernel::UserData* userData)
 				{
 					preFilter(windowSample, relativePos, globalTexelCoord, userData);
-					auto* scale = IImageFilterKernel::ScaleFactorUserData::cast(userData);
-					for (int32_t i=0; i<MaxChannels; i++)
+					auto* scale = asset::IImageFilterKernel::ScaleFactorUserData::cast(userData);
+					for (int32_t i=0; i< Kernel::MaxChannels; i++)
 					{
 						// this differs from the `CFloatingPointSeparableImageFilterKernelBase`
 						windowSample[i] *= _this->weight(relativePos.x, i);
@@ -116,7 +116,7 @@ class SeparateOutXAxisKernel : public CFloatingPointSeparableImageFilterKernelBa
 		template<class PreFilter, class PostFilter>
 		inline auto create_sample_functor_t(PreFilter& preFilter, PostFilter& postFilter) const
 		{
-			return sample_functor_t(this,preFilter,postFilter);
+			return sample_functor_t<PreFilter, PostFilter>(this,preFilter,postFilter);
 		}
 };
 
@@ -148,7 +148,7 @@ core::smart_refctd_ptr<ICPUImage> CDerivativeMapCreator::createDerivativeMapFrom
 	YDerivKernel yderiv(YDerivKernel_(CBoxImageFilterKernel(), DerivKernel(DerivKernel_(ReconstructionKernel()), extent.height)));
 
 
-	DerivativeMapFilter::state_type state(std::move(xderiv), std::move(yderiv), CBoxImageFilterKernel());
+	typename DerivativeMapFilter::state_type state(std::move(xderiv), std::move(yderiv), CBoxImageFilterKernel());
 
 	const auto& inParams = _inImg->getCreationParameters();
 	auto outParams = inParams;
@@ -186,7 +186,7 @@ core::smart_refctd_ptr<ICPUImage> CDerivativeMapCreator::createDerivativeMapFrom
 	state.scratchMemoryByteSize = DerivativeMapFilter::getRequiredScratchByteSize(&state);
 	state.scratchMemory = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(state.scratchMemoryByteSize, _NBL_SIMD_ALIGNMENT));
 
-	const bool result = DerivativeMapFilter::execute(std::execution::par_unseq,&state);
+	const bool result = DerivativeMapFilter::execute(core::execution::par_unseq,&state);
 	if (result)
 	{
 		out_normalizationFactor[0] = state.normalization.maxAbsPerChannel[0];
@@ -291,7 +291,9 @@ core::smart_refctd_ptr<ICPUImage> CDerivativeMapCreator::createDerivativeMapFrom
 	}
 	else
 	{
-		os::Printer::log("Something went wrong while performing derivative filter operations!", ELL_ERROR);
+		_NBL_DEBUG_BREAK_IF(true);
+		// TODO: use logger
+		// os::Printer::log("Something went wrong while performing derivative filter operations!", ELL_ERROR);
 		return nullptr;
 	}
 
@@ -315,8 +317,12 @@ core::smart_refctd_ptr<ICPUImageView> CDerivativeMapCreator::createDerivativeMap
 
 	auto imageView = ICPUImageView::create(std::move(imageViewInfo));
 
-	if (!imageView.get())
-		os::Printer::log("Something went wrong while creating image view for derivative normal map!", ELL_ERROR);
+	if (!imageView.get()) 
+	{
+		_NBL_DEBUG_BREAK_IF(true);
+		// TODO: use logger
+		// os::Printer::log("Something went wrong while creating image view for derivative normal map!", ELL_ERROR);
+	}
 
 	return imageView;
 }

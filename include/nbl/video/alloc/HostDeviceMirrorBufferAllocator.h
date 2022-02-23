@@ -8,22 +8,24 @@
 
 #include "nbl/video/alloc/SimpleGPUBufferAllocator.h"
 
-namespace nbl
+namespace nbl::video
 {
-namespace video
-{
+
+//class ILogicalDevice;
 
 template<class HostAllocator = core::allocator<uint8_t> >
 class HostDeviceMirrorBufferAllocator : protected SimpleGPUBufferAllocator
 {
-        HostAllocator                                            hostAllocator;
+        HostAllocator hostAllocator;
     public:
-        typedef std::pair<IGPUBuffer*,uint8_t*> value_type;
-
-        HostDeviceMirrorBufferAllocator(IDriver* inDriver);
-        virtual ~HostDeviceMirrorBufferAllocator()
+        struct value_type
         {
-        }
+            typename SimpleGPUBufferAllocator::value_type buffer;
+            uint8_t* ptr; // maybe a ICPUBuffer in the future?
+        };
+
+        HostDeviceMirrorBufferAllocator(ILogicalDevice* inDriver);
+        virtual ~HostDeviceMirrorBufferAllocator() = default;
 
         inline value_type   allocate(size_t bytes, size_t alignment) noexcept
         {
@@ -36,59 +38,32 @@ class HostDeviceMirrorBufferAllocator : protected SimpleGPUBufferAllocator
                 SimpleGPUBufferAllocator::deallocate(buff);
                 return {nullptr,nullptr};
             }
-            return {buff,hostPtr};
-        }
-
-        template<class AddressAllocator>
-        inline void                 reallocate(value_type& allocation, size_t bytes, size_t alignment, const AddressAllocator& allocToQueryOffsets) noexcept
-        {
-            auto newAlloc = allocate(bytes,alignment);
-            if (!newAlloc.first)
-            {
-                deallocate(allocation);
-                return;
-            }
-
-            //move contents
-            auto oldOffset_copyRange_oldSize = getOldOffset_CopyRange_OldSize(allocation.first,bytes,allocToQueryOffsets);
-
-            copyBuffersWrapper(allocation.first,newAlloc.first,std::get<0u>(oldOffset_copyRange_oldSize),0u,std::get<1u>(oldOffset_copyRange_oldSize));
-
-            memcpy(newAlloc.second,allocation.second+std::get<0u>(oldOffset_copyRange_oldSize),std::get<1u>(oldOffset_copyRange_oldSize));
-
-            //swap the internals of buffers and book keeping
-            hostAllocator.deallocate(allocation.second,std::get<2u>(oldOffset_copyRange_oldSize));
-            allocation.first->pseudoMoveAssign(newAlloc.first);
-            newAlloc.first->drop();
-            allocation.second = newAlloc.second;
+            return {std::move(buff),hostPtr};
         }
 
         inline void         deallocate(value_type& allocation) noexcept
         {
-            hostAllocator.deallocate(allocation.second,allocation.first->getSize());
-            SimpleGPUBufferAllocator::deallocate(allocation.first);
-            allocation.second = nullptr;
+            hostAllocator.deallocate(allocation.ptr,allocation.buffer->getSize());
+            SimpleGPUBufferAllocator::deallocate(allocation.buffer);
+            allocation.ptr = nullptr;
         }
-
+#if 0
         //to expose base functions again
         IDriver*   getDriver() noexcept {return SimpleGPUBufferAllocator::getDriver();}
+#endif
 };
 
 
 }
-}
 
-#include "IDriver.h"
+#include "nbl/video/ILogicalDevice.h"
 
-namespace nbl
-{
-namespace video
+namespace nbl::video
 {
 
 template<class HostAllocator>
-HostDeviceMirrorBufferAllocator<HostAllocator>::HostDeviceMirrorBufferAllocator(IDriver* inDriver) : SimpleGPUBufferAllocator(inDriver,inDriver->getDeviceLocalGPUMemoryReqs()) {}
+HostDeviceMirrorBufferAllocator<HostAllocator>::HostDeviceMirrorBufferAllocator(ILogicalDevice* inDriver) : SimpleGPUBufferAllocator(inDriver,inDriver->getDeviceLocalGPUMemoryReqs()) {}
 
-}
 }
 
 #endif

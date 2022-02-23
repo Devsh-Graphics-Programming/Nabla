@@ -5,7 +5,7 @@
 #ifndef _NBL_CORE_ATOMIC_H_INCLUDED_
 #define _NBL_CORE_ATOMIC_H_INCLUDED_
 
-#include "nbl/core/Types.h"
+#include "nbl/core/decl/Types.h"
 
 #include <atomic>
 

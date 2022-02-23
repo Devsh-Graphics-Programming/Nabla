@@ -8,20 +8,21 @@ namespace nbl
 {
 	namespace asset
 	{
-		asset::SAssetBundle CBufferLoaderBIN::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
+		asset::SAssetBundle CBufferLoaderBIN::loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 		{
 			if (!_file)
 				return {};
 
 			SContext ctx(_file->getSize());
 			ctx.file = _file;
-
-			ctx.file->read(ctx.sourceCodeBuffer.get()->getPointer(), ctx.file->getSize());
+			system::future<size_t> read_future;
+			ctx.file->read(read_future, ctx.sourceCodeBuffer->getPointer(), 0u, ctx.sourceCodeBuffer->getSize());
+			read_future.get();
 
 			return SAssetBundle(nullptr,{std::move(ctx.sourceCodeBuffer)});
 		}
 
-		bool CBufferLoaderBIN::isALoadableFileFormat(io::IReadFile* _file) const
+		bool CBufferLoaderBIN::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const
 		{
 			return true; // validation if needed
 		}

@@ -5,12 +5,11 @@
 #ifndef __NBL_CORE_I_BUFFER_H_INCLUDED__
 #define __NBL_CORE_I_BUFFER_H_INCLUDED__
 
-#include "nbl/core/Types.h"
+#include "nbl/core/decl/Types.h"
 #include "nbl/core/IReferenceCounted.h"
+#include "nbl/asset/ECommonEnums.h"
 
-namespace nbl
-{
-namespace core
+namespace nbl::core
 {
 
 struct adopt_memory_t {};
@@ -20,17 +19,13 @@ class IBuffer : public virtual IReferenceCounted
 {
     public:
         //! size in BYTES
-        virtual const uint64_t& getSize() const = 0;
+        virtual uint64_t getSize() const = 0;
 
-        virtual const uint64_t& getLastTimeReallocated() const {return lastTimeReallocated;}
     protected:
         _NBL_INTERFACE_CHILD(IBuffer) {}
-
-        uint64_t lastTimeReallocated;
 };
 
-} // end namespace scene
-} // end namespace nbl
+} // end namespace nbl::video
 
 #endif
 

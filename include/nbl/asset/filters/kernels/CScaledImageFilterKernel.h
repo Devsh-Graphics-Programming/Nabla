@@ -5,7 +5,7 @@
 #ifndef __NBL_ASSET_C_SCALED_IMAGE_FILTER_KERNEL_H_INCLUDED__
 #define __NBL_ASSET_C_SCALED_IMAGE_FILTER_KERNEL_H_INCLUDED__
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 
 #include "nbl/asset/filters/kernels/IImageFilterKernel.h"
 
@@ -52,14 +52,17 @@ class CScaledImageFilterKernel : //order of bases is important! do not change
 		using StaticPolymorphicBase = CImageFilterKernel<CScaledImageFilterKernel<Kernel>,typename Base::value_type>;
 
 	public:
-		_NBL_STATIC_INLINE_CONSTEXPR auto MaxChannels = Kernel::MaxChannels;
+		_NBL_STATIC_INLINE_CONSTEXPR auto MaxChannels = Base::MaxChannels;
+		using value_type = typename Base::value_type;
+
+		_NBL_STATIC_INLINE_CONSTEXPR bool is_separable = Base::is_separable;
 
 		// the scale is how much we want to stretch the support, so if we have a box function kernel with support -0.5,0.5 then scaling it with `_scale=4.0`
 		// would give us a kernel with support -2.0,2.0 which still has the same area under the curve (integral)
 		CScaledImageFilterKernel(const core::vectorSIMDf& _scale, Kernel&& k=Kernel()) : Base(core::vectorSIMDf(1.f).preciseDivision(_scale),std::move(k)),
 			StaticPolymorphicBase(
-					{kernel.positive_support[0]*_scale[0],kernel.positive_support[1]*_scale[1],kernel.positive_support[2]*_scale[2]},
-					{kernel.negative_support[0]*_scale[0],kernel.negative_support[1]*_scale[1],kernel.negative_support[2]*_scale[2]}
+					{Base::kernel.positive_support[0]*_scale[0],Base::kernel.positive_support[1]*_scale[1],Base::kernel.positive_support[2]*_scale[2]},
+					{Base::kernel.negative_support[0]*_scale[0],Base::kernel.negative_support[1]*_scale[1],Base::kernel.negative_support[2]*_scale[2]}
 				)
 		{
 		}
@@ -67,7 +70,7 @@ class CScaledImageFilterKernel : //order of bases is important! do not change
 		CScaledImageFilterKernel(const core::vectorSIMDf& _scale, const Kernel& k=Kernel()) : CScaledImageFilterKernel(_scale,Kernel(k)) {}
 
 		// make sure we let everyone know we changed the domain of the function by stretching it
-		inline const IImageFilterKernel::UserData* getUserData() const { return &userData; }
+		inline const IImageFilterKernel::UserData* getUserData() const { return &(Base::userData); }
 
 		// the validation usually is not support dependent, its usually about the input/output formats of an image, etc. so we use old Kernel validation
 		static inline bool validate(ICPUImage* inImage, ICPUImage* outImage)
@@ -75,9 +78,6 @@ class CScaledImageFilterKernel : //order of bases is important! do not change
 			//is validate() always static?
 			return Kernel::validate(inImage, outImage);
 		}
-
-		// need this to resolve to correct base
-		NBL_DECLARE_DEFINE_CIMAGEFILTER_KERNEL_PASS_THROUGHS(StaticPolymorphicBase)
 
 		// this is the only bit that differs
 		template<class PreFilter, class PostFilter>
@@ -109,8 +109,11 @@ class CScaledImageFilterKernel : //order of bases is important! do not change
 		template<class PreFilter, class PostFilter>
 		inline auto create_sample_functor_t(PreFilter& preFilter, PostFilter& postFilter) const
 		{
-			return sample_functor_t(this,preFilter,postFilter);
+			return sample_functor_t<PreFilter,PostFilter>(this,preFilter,postFilter);
 		}
+
+		// need this to resolve to correct base
+		NBL_DECLARE_DEFINE_CIMAGEFILTER_KERNEL_PASS_THROUGHS(StaticPolymorphicBase)
 };
 
 

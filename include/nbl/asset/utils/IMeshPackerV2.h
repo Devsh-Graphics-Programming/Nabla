@@ -280,14 +280,14 @@ class IMeshPackerV2 : public IMeshPacker<MeshBufferType,MDIStructType>, public I
 {
     static_assert(std::is_base_of<IBuffer,BufferType>::value);
 
-	using base_t = IMeshPacker<MeshBufferType,MDIStructType>;
     using AllocationParams = IMeshPackerBase::AllocationParamsCommon;
 
     using DescriptorSetLayoutType = typename DescriptorSetType::layout_t;
 public:
+	using base_t = IMeshPacker<MeshBufferType,MDIStructType>;
     struct AttribAllocParams
     {
-        size_t offset = INVALID_ADDRESS;
+        size_t offset = base_t::INVALID_ADDRESS;
         size_t size = 0ull;
     };
     
@@ -588,36 +588,42 @@ public:
         {
             const ReservedAllocationMeshBuffers& ramb = rambIn[i];
 
-            base_t::free(ramb);
+            const ReservedAllocationMeshBuffers* const ramb = rambIn + i;
+
+            if (ramb->indexAllocationOffset != base_t::INVALID_ADDRESS)
+                base_t::m_idxBuffAlctr.free_addr(ramb->indexAllocationOffset, ramb->indexAllocationReservedCnt);
+            
+            if (ramb->mdiAllocationOffset != base_t::INVALID_ADDRESS)
+                base_t::m_MDIDataAlctr.free_addr(ramb->mdiAllocationOffset, ramb->mdiAllocationReservedCnt);
             
             for (uint32_t j = 0; j < SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT; j++)
             {
-                const AttribAllocParams& attrAllocParams = ramb.attribAllocParams[j];
-                if (attrAllocParams.offset != INVALID_ADDRESS)
-                    m_vtxBuffAlctr.free_addr(attrAllocParams.offset, attrAllocParams.size);
+                const AttribAllocParams& attrAllocParams = ramb->attribAllocParams[j];
+                if (attrAllocParams.offset != base_t::INVALID_ADDRESS)
+                    base_t::m_vtxBuffAlctr.free_addr(attrAllocParams.offset, attrAllocParams.size);
             }
         }
     }
 
     inline const PackerDataStore& getPackerDataStore() const { return m_packerDataStore; }
 
-    const core::GeneralpurposeAddressAllocator<uint32_t>& getMDIAllocator() const { return m_MDIDataAlctr; }
-    const core::GeneralpurposeAddressAllocator<uint32_t>& getIndexAllocator() const { return m_idxBuffAlctr; }
-    const core::GeneralpurposeAddressAllocator<uint32_t>& getVertexAllocator() const { return m_vtxBuffAlctr; }
+    const core::GeneralpurposeAddressAllocator<uint32_t>& getMDIAllocator() const { return base_t::m_MDIDataAlctr; }
+    const core::GeneralpurposeAddressAllocator<uint32_t>& getIndexAllocator() const { return base_t::m_idxBuffAlctr; }
+    const core::GeneralpurposeAddressAllocator<uint32_t>& getVertexAllocator() const { return base_t::m_vtxBuffAlctr; }
 
 protected:
 	IMeshPackerV2(const AllocationParams& allocParams, const SupportedFormatsContainer& formats, uint16_t minTriangleCountPerMDIData, uint16_t maxTriangleCountPerMDIData)
 		: base_t(minTriangleCountPerMDIData, maxTriangleCountPerMDIData), 
         IMeshPackerV2Base(formats)
 	{
-        initializeCommonAllocators(allocParams);
+        base_t::initializeCommonAllocators(allocParams);
     };
     template<class OtherBufferType, class OtherDescriptorSetType, class OtherMeshBufferType>
 	explicit IMeshPackerV2(const IMeshPackerV2<OtherBufferType,OtherDescriptorSetType,OtherMeshBufferType,MDIStructType>* otherMp)
 		: base_t(otherMp->getMinTriangleCountPerMDI(),otherMp->getMaxTriangleCountPerMDI()),
         IMeshPackerV2Base(otherMp->getVirtualAttribConfig())
 	{
-        initializeCommonAllocators(
+        base_t::initializeCommonAllocators(
             otherMp->getMDIAllocator(),
             otherMp->getIndexAllocator(),
             otherMp->getVertexAllocator()
@@ -632,10 +638,10 @@ protected:
         {
             ReservedAllocationMeshBuffers& ramb = *(rambOut + i);
 
-            if (ramb.indexAllocationOffset == INVALID_ADDRESS)
+            if (ramb.indexAllocationOffset == base_t::INVALID_ADDRESS)
                 return;
 
-            m_idxBuffAlctr.free_addr(ramb.indexAllocationOffset, ramb.indexAllocationReservedCnt);
+            base_t::m_idxBuffAlctr.free_addr(ramb.indexAllocationOffset, ramb.indexAllocationReservedCnt);
 
             const auto& mbVtxInputParams = (*it)->getPipeline()->getVertexInputParams();
             for (uint16_t attrBit = 0x0001, location = 0; location < SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; attrBit <<= 1, location++)
@@ -643,16 +649,16 @@ protected:
                 if (!(attrBit & mbVtxInputParams.enabledAttribFlags))
                     continue;
 
-                if (ramb.attribAllocParams[location].offset == INVALID_ADDRESS)
+                if (ramb.attribAllocParams[location].offset == base_t::INVALID_ADDRESS)
                     return;
 
-                m_vtxBuffAlctr.free_addr(ramb.attribAllocParams[location].offset, ramb.attribAllocParams[location].size);
+                base_t::m_vtxBuffAlctr.free_addr(ramb.attribAllocParams[location].offset, ramb.attribAllocParams[location].size);
             }
 
-            if (ramb.mdiAllocationOffset == INVALID_ADDRESS)
+            if (ramb.mdiAllocationOffset == base_t::INVALID_ADDRESS)
                 return;
 
-            m_MDIDataAlctr.free_addr(ramb.mdiAllocationOffset, ramb.mdiAllocationReservedCnt);
+            base_t::m_MDIDataAlctr.free_addr(ramb.mdiAllocationOffset, ramb.mdiAllocationReservedCnt);
 
             i++;
         }
@@ -670,13 +676,13 @@ bool IMeshPackerV2<BufferType,DescriptorSetType,MeshBufferType,MDIStructType>::a
     for (auto it = mbBegin; it != mbEnd; it++)
     {
         ReservedAllocationMeshBuffers& ramb = *(rambOut + i);
-        const size_t idxCnt = calcIdxCntAfterConversionToTriangleList(*it);
-        const size_t maxVtxCnt = calcVertexCountBoundWithBatchDuplication(*it);
+        const size_t idxCnt = base_t::calcIdxCntAfterConversionToTriangleList(*it);
+        const size_t maxVtxCnt = base_t::calcVertexCountBoundWithBatchDuplication(*it);
         const uint32_t insCnt = (*it)->getInstanceCount();
 
         //allocate indices
-        ramb.indexAllocationOffset = m_idxBuffAlctr.alloc_addr(idxCnt, 1u);
-        if (ramb.indexAllocationOffset == INVALID_ADDRESS)
+        ramb.indexAllocationOffset = base_t::m_idxBuffAlctr.alloc_addr(idxCnt, 1u);
+        if (ramb.indexAllocationOffset == base_t::INVALID_ADDRESS)
         {
             freeAllocatedAddressesOnAllocFail(rambOut, mbBegin, mbEnd);
             return false;
@@ -702,10 +708,10 @@ bool IMeshPackerV2<BufferType,DescriptorSetType,MeshBufferType,MDIStructType>::a
             if (inputRate == EVIR_PER_VERTEX)
             {
                 const uint32_t allocByteSize = maxVtxCnt * attribSize;
-                ramb.attribAllocParams[location].offset = m_vtxBuffAlctr.alloc_addr(allocByteSize, attribSize);
+                ramb.attribAllocParams[location].offset = base_t::m_vtxBuffAlctr.alloc_addr(allocByteSize, attribSize);
                 ramb.attribAllocParams[location].size = allocByteSize;
 
-                if(ramb.attribAllocParams[location].offset == INVALID_ADDRESS)
+                if(ramb.attribAllocParams[location].offset == base_t::INVALID_ADDRESS)
                 {
                     freeAllocatedAddressesOnAllocFail(rambOut, mbBegin, mbEnd);
                     return false;
@@ -714,26 +720,26 @@ bool IMeshPackerV2<BufferType,DescriptorSetType,MeshBufferType,MDIStructType>::a
             else if (inputRate == EVIR_PER_INSTANCE)
             {
                 const uint32_t allocByteSize = insCnt * attribSize;
-                ramb.attribAllocParams[location].offset = m_vtxBuffAlctr.alloc_addr(allocByteSize, attribSize);
+                ramb.attribAllocParams[location].offset = base_t::m_vtxBuffAlctr.alloc_addr(allocByteSize, attribSize);
                 ramb.attribAllocParams[location].size = allocByteSize;
 
-                if (ramb.attribAllocParams[location].offset == INVALID_ADDRESS)
+                if (ramb.attribAllocParams[location].offset == base_t::INVALID_ADDRESS)
                 {
                     freeAllocatedAddressesOnAllocFail(rambOut, mbBegin, mbEnd);
                     return false;
                 }
             }
 
-            if (ramb.attribAllocParams[location].offset == INVALID_ADDRESS)
+            if (ramb.attribAllocParams[location].offset == base_t::INVALID_ADDRESS)
                 return false;
         }
 
         //allocate MDI structs
-        const uint32_t minIdxCntPerPatch = m_minTriangleCountPerMDIData * 3;
+        const uint32_t minIdxCntPerPatch = base_t::m_minTriangleCountPerMDIData * 3;
         size_t possibleMDIStructsNeededCnt = (idxCnt + minIdxCntPerPatch - 1) / minIdxCntPerPatch;
 
-        ramb.mdiAllocationOffset = m_MDIDataAlctr.alloc_addr(possibleMDIStructsNeededCnt, 1u);
-        if (ramb.mdiAllocationOffset == INVALID_ADDRESS)
+        ramb.mdiAllocationOffset = base_t::m_MDIDataAlctr.alloc_addr(possibleMDIStructsNeededCnt, 1u);
+        if (ramb.mdiAllocationOffset == base_t::INVALID_ADDRESS)
         {
             freeAllocatedAddressesOnAllocFail(rambOut, mbBegin, mbEnd);
             return false;

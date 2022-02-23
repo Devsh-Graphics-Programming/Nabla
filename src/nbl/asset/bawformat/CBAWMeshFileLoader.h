@@ -15,7 +15,7 @@
 //#include "nbl/asset/bawformat/legacy/CBAWLegacy.h"
 #include "nbl/asset/bawformat/CBlobsLoadingManager.h"
 
-//#include "os.h"
+#include "nbl/system/ISystem.h"
 
 
 namespace nbl
@@ -99,7 +99,7 @@ private:
 		CBAWMeshFileLoader(IAssetManager* _manager);
 
 
-		virtual bool isALoadableFileFormat(io::IReadFile* _file) const override
+		virtual bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const override
 		{
 			SContext ctx{
 				asset::IAssetLoader::SAssetLoadContext{
@@ -114,12 +114,10 @@ private:
 				{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}
 			};
 
-			const size_t prevPos = _file->getPos();
-			_file->seek(0u);
+
 			bool res = false;
 			for (uint32_t i = 0u; i <= _NBL_FORMAT_VERSION; ++i)
 				res |= verifyFile(_NBL_FORMAT_VERSION-i, ctx);
-			_file->seek(prevPos);
 
 			return res;
 		}
@@ -132,7 +130,7 @@ private:
 
 		virtual uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_MESH; }
 
-		virtual asset::SAssetBundle loadAsset(io::IReadFile* _file, const SAssetLoadParams& _params, IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u);
+		virtual asset::SAssetBundle loadAsset(system::IFile* _file, const SAssetLoadParams& _params, IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u);
 
 private:
 	//! Verifies whether given file is of appropriate format. Also reads file version and assigns it to passed context object.
@@ -158,7 +156,7 @@ private:
 		bool validateHeaders(uint32_t* _blobCnt, uint32_t** _offsets, void** _headers, SContext& _ctx);
 
 		//! Reads `_size` bytes to `_buf` from `_file`, but previously checks whether file is big enough and returns true/false appropriately.
-		bool safeRead(io::IReadFile* _file, void* _buf, size_t _size) const;
+		bool safeRead(system::IFile* _file, void* _buf, size_t _size) const;
 
 		//! Reads blob to memory on stack or allocates sufficient amount on heap if provided stack storage was not big enough.
 		/** @returns `_stackPtr` if blob was read to it or pointer to malloc'd memory otherwise.*/
@@ -267,9 +265,9 @@ private:
 		//! Must return _original if _original's version is IntoVersion.
 		//! If new format version comes up, just increment _NBL_FORMAT_VERSION and specialize this template. All the other code will take care of itself.
 		template<uint64_t IntoVersion>
-		io::IReadFile* createConvertIntoVer_spec(SContext& _ctx, io::IReadFile* _original, asset::IAssetLoader::IAssetLoaderOverride* _override, const CommonDataTuple<IntoVersion-1ull>& _common); // here goes unpack tuple
+		system::IFile* createConvertIntoVer_spec(SContext& _ctx, system::IFile* _original, asset::IAssetLoader::IAssetLoaderOverride* _override, const CommonDataTuple<IntoVersion-1ull>& _common); // here goes unpack tuple
 		template<uint64_t IntoVersion>
-		io::IReadFile* createConvertIntoVer(io::IReadFile* _original, asset::IAssetLoader::IAssetLoaderOverride* _override)
+		system::IFile* createConvertIntoVer(system::IFile* _original, asset::IAssetLoader::IAssetLoaderOverride* _override)
 		{
 			constexpr uint64_t FromVersion = IntoVersion-1ull;
 
@@ -291,11 +289,11 @@ private:
 		}
 
 		template<uint64_t ...Versions>
-		io::IReadFile* tryCreateNewestFormatVersionFile(io::IReadFile* _originalFile, asset::IAssetLoader::IAssetLoaderOverride* _override, std::integer_sequence<uint64_t, Versions...>)
+		system::IFile* tryCreateNewestFormatVersionFile(system::IFile* _originalFile, asset::IAssetLoader::IAssetLoaderOverride* _override, std::integer_sequence<uint64_t, Versions...>)
 		{
 			static_assert(sizeof...(Versions)==_NBL_FORMAT_VERSION, "sizeof...(Versions) must be equal to _NBL_FORMAT_VERSION");
 
-			using convertFuncT = io::IReadFile*(CBAWMeshFileLoader::*)(io::IReadFile*, asset::IAssetLoader::IAssetLoaderOverride*);
+			using convertFuncT = system::IFile*(CBAWMeshFileLoader::*)(system::IFile*, asset::IAssetLoader::IAssetLoaderOverride*);
 			convertFuncT convertFunc[_NBL_FORMAT_VERSION]{ &CBAWMeshFileLoader::createConvertIntoVer<Versions+1ull>... };
 
 			if (!_originalFile)
@@ -308,11 +306,11 @@ private:
 			_originalFile->read(&version, 8u);
 			_originalFile->seek(0u);
 
-			io::IReadFile* newestFormatFile = _originalFile;
+			system::IFile* newestFormatFile = _originalFile;
 			while (version != _NBL_FORMAT_VERSION)
 			{
 	#define CALL_MEMBER_FN(object,ptrToMember)  ((object).*(ptrToMember))
-				io::IReadFile* tmp = CALL_MEMBER_FN(*this, convertFunc[version])(newestFormatFile, _override);
+				system::IFile* tmp = CALL_MEMBER_FN(*this, convertFunc[version])(newestFormatFile, _override);
 				newestFormatFile->drop();
 				newestFormatFile = tmp;
 				++version;
@@ -328,16 +326,18 @@ private:
 
 	private:
 		IAssetManager* m_manager;
-		io::IFileSystem* m_fileSystem;
+		system::ISystem* m_system;
 };
 
 template<typename BAWFileT>
 bool CBAWMeshFileLoader::verifyFile(SContext& _ctx) const
 {
     char headerStr[sizeof(BAWFileT)];
-    _ctx.inner.mainFile->seek(0);
-    if (!safeRead(_ctx.inner.mainFile, headerStr, sizeof(headerStr)))
-        return false;
+	system::ISystem::future_t<uint32_t> future;
+	char firstChar = 0;
+	bool valid = m_system->readFile(future, _ctx.inner.mainFile, headerStr, 0, sizeof(headerStr));
+	if (!valid) return false;
+	future.get();
 
     const char* const headerStrPattern = BAWFileT::HEADER_STRING;
     if (strcmp(headerStr, headerStrPattern) != 0)

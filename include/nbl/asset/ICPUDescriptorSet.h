@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __NBL_ASSET_I_CPU_DESCRIPTOR_SET_H_INCLUDED__
-#define __NBL_ASSET_I_CPU_DESCRIPTOR_SET_H_INCLUDED__
+#ifndef _NBL_ASSET_I_CPU_DESCRIPTOR_SET_H_INCLUDED_
+#define _NBL_ASSET_I_CPU_DESCRIPTOR_SET_H_INCLUDED_
 
 #include "nbl/asset/IAsset.h"
 #include "nbl/asset/ICPUBufferView.h"
@@ -12,9 +12,7 @@
 #include "nbl/asset/ICPUDescriptorSetLayout.h"
 #include "nbl/asset/IDescriptorSet.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 //! CPU Version of Descriptor Set
@@ -89,7 +87,7 @@ class ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetLayout>, 
                 const E_DESCRIPTOR_TYPE type = getDescriptorsType(i);
                 for (uint32_t d = 0u; d < desc.size(); ++d)
                 {
-                    cp_desc.begin()[d].assign(desc.begin()[d], type);
+                    cp_desc.begin()[d] = desc.begin()[d];
                     if (_depth > 0u)
                     {
                         cp_desc.begin()[d].desc = cloneDescriptor(cp_desc.begin()[d].desc, _depth-1u);
@@ -273,7 +271,6 @@ class ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetLayout>, 
 		virtual ~ICPUDescriptorSet() = default;
 };
 
-}
 }
 
 #endif

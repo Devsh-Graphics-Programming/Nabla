@@ -28,10 +28,11 @@ class matrix3x4SIMD;
 template<typename T>
 NBL_FORCE_INLINE T radians(const T& degrees)
 {
-	static_assert(
-		std::is_same<T, float>::value ||
-		std::is_same<T, double>::value,
-		"This code expects the type to be double or float, only (float, double).");
+	//static_assert(
+	//	std::is_same<T, float>::value ||
+	//	std::is_same<T, double>::value ||
+	//	std::is_same<T, vectorSIMDf>::value,
+	//	"This code expects the type to be double, float or vectorSIMDf, only (float, double, vectorSIMDf).");
 
 	return degrees*PI<T>()/T(180);
 }
@@ -40,12 +41,20 @@ NBL_FORCE_INLINE T degrees(const T& radians)
 {
 	static_assert(
 		std::is_same<T, float>::value ||
-		std::is_same<T, double>::value,
-		"This code expects the type to be double or float, only (float, double).");
+		std::is_same<T, double>::value ||
+		std::is_same<T, vectorSIMDf>::value,
+		"This code expects the type to be double, float or vectorSIMDf, only (float, double, vectorSIMDf).");
 
 	return radians*T(180)/PI<T>();
 }
-// TODO : sin,cos,tan,asin,acos,atan(y,x),atan(y_over_x),sinh,cosh,tanh,asinh,acosh,atanh,sincos
+// TODO : sin,cos,tan,asin,acos,atan(y,x),atan(y_over_x),sinh,cosh,tanh,asinh,acosh,atanh,sincos specializations for vectors
+template<typename T>
+T sin(const T& radians);
+template<typename T>
+NBL_FORCE_INLINE T cos(const T& radians)
+{
+	return std::cos(radians);
+}
 
 // TODO : pow,exp,log,exp2,log2
 template<typename T>

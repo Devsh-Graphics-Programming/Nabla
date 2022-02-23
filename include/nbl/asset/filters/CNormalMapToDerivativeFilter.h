@@ -5,7 +5,7 @@
 #ifndef _NBL_ASSET_C_NORMAL_MAP_TO_DERIVATIVE_FILTER_H_INCLUDED_
 #define _NBL_ASSET_C_NORMAL_MAP_TO_DERIVATIVE_FILTER_H_INCLUDED_
 
-#include "nbl/core/core.h"
+#include "nbl/core/pch_core.h"
 
 #include <type_traits>
 #include <functional>

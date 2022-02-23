@@ -6,11 +6,9 @@
 #define __NBL_CORE_EVENT_DEFERRED_HANDLER_H__
 
 
-#include "nbl/core/Types.h"
+#include "nbl/core/decl/Types.h"
 
-namespace nbl
-{
-namespace core
+namespace nbl::core
 {
 
 template<class Event, class Functor>
@@ -47,9 +45,7 @@ class PolymorphicEvent : public core::Uncopyable
 
     public:
         PolymorphicEvent& operator=(const PolymorphicEvent&) = delete;
-        virtual PolymorphicEvent& operator=(PolymorphicEvent&& other) noexcept
-        {
-        }
+        virtual PolymorphicEvent& operator=(PolymorphicEvent&& other) = 0;
 
         virtual bool wait_until(const std::chrono::steady_clock::time_point& timeout_time) = 0;
 
@@ -267,7 +263,6 @@ class DeferredEventHandlerST
 
 //! EventDeferredHandlerMT coming later
 
-}
 }
 
 #endif

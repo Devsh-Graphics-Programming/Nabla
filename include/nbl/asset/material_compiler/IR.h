@@ -173,12 +173,12 @@ public:
         struct SParameter
         {
             //destructor of actually used variant member has to be called by hand!
-            template <typename type_of_const>
+            template <typename type_of_const2>
             union UTextureOrConstant {
                 UTextureOrConstant() : texture{ nullptr,nullptr,0.f } {}
                 ~UTextureOrConstant() {}
 
-                type_of_const constant;
+                type_of_const2 constant;
                 STextureSource texture;
             };
             using TextureOrConstant = UTextureOrConstant<type_of_const>;
@@ -297,7 +297,7 @@ public:
                 if (found != (array+count))
                 {
                     if (ix)
-                        ix[0] = found-array;
+                        ix[0] = std::distance(array,const_cast<INode*const*>(found));
                     return true;
                 }
                 return false;

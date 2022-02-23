@@ -5,7 +5,7 @@
 #ifndef __NBL_ASSET_C_BLIT_IMAGE_FILTER_H_INCLUDED__
 #define __NBL_ASSET_C_BLIT_IMAGE_FILTER_H_INCLUDED__
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 
 #include <type_traits>
 #include <algorithm>
@@ -66,7 +66,7 @@ class CBlitImageFilterBase : public impl::CSwizzleableAndDitherableFilterBase<Sw
 				// no mul by channel count because we're only after alpha
 				retval += outExtentLayerCount.x*outExtentLayerCount.y*outExtentLayerCount.z;
 			}
-			return retval*sizeof(typename value_type);
+			return retval*sizeof(value_type);
 		}
 
 		// nothing to validate here really
@@ -348,7 +348,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 						texelAlpha = intermediateStorage[axis][std::distance(begin,&texelAlpha)*4u+alphaChannel];
 						texelAlpha -= double(sampler.nextSample())*(asset::getFormatPrecision<value_type>(outFormat,alphaChannel,texelAlpha)/double(~0u));
 					});
-					std::nth_element(policy,begin,nth,end);
+					core::nth_element(policy,begin,nth,end);
 					// scale all alpha texels to work with new reference value
 					coverageScale = alphaRefValue/(*nth);
 				}
@@ -371,7 +371,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 				CBasicImageFilterCommon::executePerRegion(policy,outImg,scaleCoverage,outRegions.begin(),outRegions.end(),clip);
 			};
 			// process
-			state->normalization.initialize<double>();
+			state->normalization.template initialize<double>();
 			const core::vectorSIMDf fInExtent(inExtentLayerCount);
 			const core::vectorSIMDf fOutExtent(outExtentLayerCount);
 			const auto fScale = fInExtent.preciseDivision(fOutExtent);
@@ -387,7 +387,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 				const auto windowMinCoord = windowMinCoordBase+vLayer;
 				const auto outOffsetLayer = outOffsetBaseLayer+vLayer;
 				// reset coverage counter
-				constexpr bool is_seq_policy_v = std::is_same_v<std::remove_reference_t<ExecutionPolicy>,std::execution::sequenced_policy>;
+				constexpr bool is_seq_policy_v = std::is_same_v<std::remove_reference_t<ExecutionPolicy>,core::execution::sequenced_policy>;
 				using cond_atomic_int32_t = std::conditional_t<is_seq_policy_v,int32_t,std::atomic_int32_t>;
 				using cond_atomic_uint32_t = std::conditional_t<is_seq_policy_v,uint32_t,std::atomic_uint32_t>;
 				cond_atomic_uint32_t inv_cvg_num(0u);
@@ -461,13 +461,13 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 					CBasicImageFilterCommon::BlockIterator<batch_dims> begin(batchExtent);
 					const uint32_t spaceFillingEnd[batch_dims] = {0u,batchExtent[1]};
 					CBasicImageFilterCommon::BlockIterator<batch_dims> end(begin.getExtentBatches(),spaceFillingEnd);
-					std::for_each(policy,begin,end,[&](const uint32_t* batchCoord) -> void
+					std::for_each(policy,begin,end,[&](const std::array<uint32_t,batch_dims>& batchCoord) -> void
 					{
 						// we need some tmp memory for threads in the first pass so that they dont step on each other
 						uint32_t decode_offset;
 						// whole line plus window borders
 						value_type* lineBuffer;
-						core::vectorSIMDi32 localTexCoord;
+						core::vectorSIMDi32 localTexCoord(0);
 						localTexCoord[loopCoordID[0]] = batchCoord[0];
 						localTexCoord[loopCoordID[1]] = batchCoord[1];
 						if (axis!=IImage::ET_1D)
@@ -481,7 +481,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 							{
 								core::vectorSIMDi32 globalTexelCoord(localTexCoord+windowMinCoord);
 
-								core::vectorSIMDu32 inBlockCoord;
+								core::vectorSIMDu32 inBlockCoord(0u);
 								const void* srcPix[] = { // multiple loads for texture boundaries aren't that bad
 									inImg->getTexelBlockData(inMipLevel,inImg->wrapTextureCoordinate(inMipLevel,globalTexelCoord,axisWraps),inBlockCoord),
 									nullptr,
@@ -495,7 +495,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 								value_type swizzledSample[MaxChannels];
 
 								// TODO: make sure there is no leak due to MaxChannels!
-								base_t::onDecode(inFormat, state, srcPix, sample, swizzledSample, inBlockCoord.x, inBlockCoord.y);
+								base_t::template onDecode(inFormat, state, srcPix, sample, swizzledSample, inBlockCoord.x, inBlockCoord.y);
 
 								if (nonPremultBlendSemantic)
 								{
@@ -532,7 +532,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 							// do the filtering 
 							core::vectorSIMDf tmp;
 							tmp[axis] = float(i)+0.5f;
-							core::vectorSIMDi32 windowCoord;
+							core::vectorSIMDi32 windowCoord(0);
 							windowCoord[axis] = kernel.getWindowMinCoord(tmp*fScale,tmp)[axis];
 							auto relativePos = tmp[axis]-float(windowCoord[axis]);
 							for (auto h=0; h<windowSize; h++)
@@ -551,7 +551,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 									state->normalization.prepass(value,localOutPos,0u,0u,MaxChannels);
 								else // store to image, we're done
 								{
-									core::vectorSIMDu32 dummy;
+									core::vectorSIMDu32 dummy(0u);
 									storeToTexel(value,outImg->getTexelBlockData(outMipLevel,localOutPos,dummy),localOutPos);
 								}
 							}
@@ -575,7 +575,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 		}
 		static inline bool execute(state_type* state)
 		{
-			return execute(std::execution::seq,state);
+			return execute(core::execution::seq,state);
 		}
 
 	private:

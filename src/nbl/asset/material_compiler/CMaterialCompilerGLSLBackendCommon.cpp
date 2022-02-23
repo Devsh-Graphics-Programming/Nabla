@@ -719,7 +719,8 @@ std::pair<instr_t, const IR::INode*> CInterpreter::processSubtree(IR* ir, const 
 			// so we ignore coating layer and process only the coated material
 			if (!is_coated_diffuse)
 			{
-				os::Printer::log("Material compiler GLSL: Coating over non-diffuse materials is not supported. Ignoring coating layer!", ELL_WARNING);
+				// TODO: use logger
+				// os::Printer::log("Material compiler GLSL: Coating over non-diffuse materials is not supported. Ignoring coating layer!", ELL_WARNING);
 
 				auto retval = processSubtree(ir, coated, out_next, cache);
 				instr = retval.first;
@@ -1063,10 +1064,10 @@ instr_stream::tex_prefetch::prefetch_stream_t tex_prefetch::genTraversal(
 
 			// we dont fetch the same texel twice, cache helps us detect duplicates
 			instr_stream::tex_prefetch::prefetch_instr_t prefetch_instr;
-			prefetch_instr.tex_data = bsdf_data.common.param[param_i].tex;
-			if (processed.find(prefetch_instr.tex_data) != processed.end())
+			prefetch_instr.s.tex_data = bsdf_data.common.param[param_i].tex;
+			if (processed.find(prefetch_instr.s.tex_data) != processed.end())
 				continue;
-			processed.insert(prefetch_instr.tex_data);
+			processed.insert(prefetch_instr.s.tex_data);
 
 			const uint32_t dst_reg = regNum;
 			const uint32_t reg_cnt = instr_stream::getRegisterCountForParameter(op, param_i);
@@ -1077,7 +1078,7 @@ instr_stream::tex_prefetch::prefetch_stream_t tex_prefetch::genTraversal(
 
 			prefetch_stream.push_back(prefetch_instr);
 
-			_out_tex2reg.insert({ prefetch_instr.tex_data, dst_reg });
+			_out_tex2reg.insert({ prefetch_instr.s.tex_data, dst_reg });
 
 			_out_regCntFlags |= (1u << reg_cnt);
 		}
@@ -1482,12 +1483,12 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrint(std::ostr
 		using namespace tex_prefetch;
 
 		const instr_stream::tex_prefetch::prefetch_instr_t& instr = _res.prefetch_stream[tex_prefetch.first + i];
-		const auto& vtid = instr.tex_data.vtid;
+		const auto& vtid = instr.s.tex_data.vtid;
 
 		_out << "### instr " << i << "\n";
 		const uint32_t reg_cnt = instr.getRegCnt();
 		const uint32_t reg = instr.getDstReg();
-		uint32_t scale = instr.tex_data.scale;
+		uint32_t scale = instr.s.tex_data.scale;
 		_out << "reg = " << reg << "\n";
 		_out << "reg_count = " << reg_cnt << "\n";
 		_out << "scale = " << core::uintBitsToFloat(scale) << "\n";

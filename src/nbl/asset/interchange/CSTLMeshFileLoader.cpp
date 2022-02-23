@@ -3,17 +3,17 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
-#include "BuildConfigOptions.h"
+#include "CSTLMeshFileLoader.h"
 
 #ifdef _NBL_COMPILE_WITH_STL_LOADER_
 
 #include "nbl/asset/asset.h"
 #include "nbl/asset/utils/CQuantNormalCache.h"
 
-#include "CSTLMeshFileLoader.h"
+#include "nbl/asset/IAssetManager.h"
 
-#include "IReadFile.h"
-#include "os.h"
+#include "nbl/system/ISystem.h"
+#include "nbl/system/IFile.h"
 
 using namespace nbl;
 using namespace nbl::asset;
@@ -124,8 +124,20 @@ void CSTLMeshFileLoader::initialize()
 	precomputeAndCachePipeline(false);
 }
 
-SAssetBundle CSTLMeshFileLoader::loadAsset(IReadFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
+SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
+	if (!_file)
+		return {};
+
+	SContext context = {
+		asset::IAssetLoader::SAssetLoadContext{
+			_params,
+			_file
+		},
+		_hierarchyLevel,
+		_override
+	};
+
 	if (_params.meshManipulatorOverride == nullptr)
 	{
 		_NBL_DEBUG_BREAK_IF(true);
@@ -134,7 +146,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(IReadFile* _file, const IAssetLoader:
 
 	CQuantNormalCache* const quantNormalCache = _params.meshManipulatorOverride->getQuantNormalCache();
 
-	const size_t filesize = _file->getSize();
+	const size_t filesize = context.inner.mainFile->getSize();
 	if (filesize < 6ull) // we need a header
 		return {};
 
@@ -146,8 +158,8 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(IReadFile* _file, const IAssetLoader:
 	meshbuffer->setNormalAttributeIx(NORMAL_ATTRIBUTE);
 
 	bool binary = false;
-	core::stringc token;
-	if (getNextToken(_file, token) != "solid")
+	std::string token;
+	if (getNextToken(&context, token) != "solid")
 		binary = hasColor = true;
 
 	core::vector<core::vectorSIMDf> positions, normals;
@@ -157,30 +169,36 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(IReadFile* _file, const IAssetLoader:
 		if (_file->getSize() < 80)
 			return {};
 
-		_file->seek(80); // skip header
-		uint32_t vtxCnt = 0u;
-		_file->read(&vtxCnt, 4);
-		positions.reserve(3 * vtxCnt);
-		normals.reserve(vtxCnt);
-		colors.reserve(vtxCnt);
+		constexpr size_t headerOffset = 80; 
+		context.fileOffset = headerOffset; //! skip header
+
+		uint32_t vertexCount = 0u;
+
+		system::future<size_t> future;
+		context.inner.mainFile->read(future, &vertexCount, context.fileOffset, sizeof(vertexCount));
+		const auto bytesRead = future.get();
+		context.fileOffset += bytesRead;
+
+		positions.reserve(3 * vertexCount);
+		normals.reserve(vertexCount);
+		colors.reserve(vertexCount);
 	}
 	else
-		goNextLine(_file); // skip header
-
+		goNextLine(&context); // skip header
 
 	uint16_t attrib = 0u;
 	token.reserve(32);
-	while (_file->getPos() < filesize)
+	while (context.fileOffset < filesize) // TODO: check it
 	{
 		if (!binary)
 		{
-			if (getNextToken(_file, token) != "facet")
+			if (getNextToken(&context, token) != "facet")
 			{
 				if (token == "endsolid")
 					break;
 				return {};
 			}
-			if (getNextToken(_file, token) != "normal")
+			if (getNextToken(&context, token) != "normal")
 			{
 				return {};
 			}
@@ -188,7 +206,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(IReadFile* _file, const IAssetLoader:
 
 		{
 			core::vectorSIMDf n;
-			getNextVector(_file, n, binary);
+			getNextVector(&context, n, binary);
 			if(_params.loaderFlags & E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES)
 				performActionBasedOnOrientationSystem<float>(n.x, [](float& varToFlip) {varToFlip = -varToFlip;});
 			normals.push_back(core::normalize(n));
@@ -196,7 +214,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(IReadFile* _file, const IAssetLoader:
 
 		if (!binary)
 		{
-			if (getNextToken(_file, token) != "outer" || getNextToken(_file, token) != "loop")
+			if (getNextToken(&context, token) != "outer" || getNextToken(&context, token) != "loop")
 				return {};
 		}
 
@@ -206,10 +224,10 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(IReadFile* _file, const IAssetLoader:
 			{
 				if (!binary)
 				{
-					if (getNextToken(_file, token) != "vertex")
+					if (getNextToken(&context, token) != "vertex")
 						return {};
 				}
-				getNextVector(_file, p[i], binary);
+				getNextVector(&context, p[i], binary);
 				if (_params.loaderFlags & E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES)
 					performActionBasedOnOrientationSystem<float>(p[i].x, [](float& varToFlip){varToFlip = -varToFlip; });
 			}
@@ -219,12 +237,15 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(IReadFile* _file, const IAssetLoader:
 
 		if (!binary)
 		{
-			if (getNextToken(_file, token) != "endloop" || getNextToken(_file, token) != "endfacet")
+			if (getNextToken(&context, token) != "endloop" || getNextToken(&context, token) != "endfacet")
 				return {};
 		}
 		else
 		{
-			_file->read(&attrib, 2);
+			system::future<size_t> future;
+			context.inner.mainFile->read(future, &attrib, context.fileOffset, sizeof(attrib));
+			const auto bytesRead = future.get();
+			context.fileOffset += bytesRead;
 		}
 
 		if (hasColor && (attrib & 0x8000u)) // assuming VisCam/SolidView non-standard trick to store color in 2 bytes of extra attribute
@@ -293,103 +314,136 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(IReadFile* _file, const IAssetLoader:
 	return SAssetBundle(std::move(meta), { std::move(mesh) });
 }
 
-
-bool CSTLMeshFileLoader::isALoadableFileFormat(io::IReadFile* _file) const
+bool CSTLMeshFileLoader::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const
 {
 	if (!_file || _file->getSize() <= 6u)
 		return false;
 
 	char header[6];
-	const size_t prevPos = _file->getPos();
-	_file->seek(0u);
-	_file->read(header, 6u);
-	_file->seek(prevPos);
+	
+	system::future<size_t> future;
+	_file->read(future, header, 0, sizeof(header));
+	future.get();
 
 	if (strncmp(header, "solid ", 6u) == 0)
 		return true;
 	else
 	{
 		if (_file->getSize() < 84u)
-		{
-			_file->seek(prevPos);
 			return false;
-		}
-		_file->seek(80u);
-		uint32_t triCnt;
-		_file->read(&triCnt, 4u);
-		_file->seek(prevPos);
-		const size_t STL_TRI_SZ = 50u;
-		return _file->getSize() == (STL_TRI_SZ * triCnt + 84u);
+
+		uint32_t triangleCount;
+
+		constexpr size_t readOffset = 80;
+		system::future<size_t> future2;
+		_file->read(future2, &triangleCount, readOffset, sizeof(triangleCount));
+		future2.get();
+
+		constexpr size_t STL_TRI_SZ = 50u;
+		return _file->getSize() == (STL_TRI_SZ * triangleCount + 84u);
 	}
 }
 
 //! Read 3d vector of floats
-void CSTLMeshFileLoader::getNextVector(io::IReadFile* file, core::vectorSIMDf& vec, bool binary) const
+void CSTLMeshFileLoader::getNextVector(SContext* context, core::vectorSIMDf& vec, bool binary) const
 {
 	if (binary)
 	{
-		file->read(&vec.X, 4);
-		file->read(&vec.Y, 4);
-		file->read(&vec.Z, 4);
+		{
+			system::future<size_t> future;
+			context->inner.mainFile->read(future, &vec.X, context->fileOffset, 4);
+
+			const auto bytesRead = future.get();
+			context->fileOffset += bytesRead;
+		}
+		
+		{
+			system::future<size_t> future;
+			context->inner.mainFile->read(future, &vec.Y, context->fileOffset, 4);
+			
+			const auto bytesRead = future.get();
+			context->fileOffset += bytesRead;
+		}
+
+		{
+			system::future<size_t> future;
+			context->inner.mainFile->read(future, &vec.Z, context->fileOffset, 4);
+			
+			const auto bytesRead = future.get();
+			context->fileOffset += bytesRead;
+		}
 	}
 	else
 	{
-		goNextWord(file);
-		core::stringc tmp;
+		goNextWord(context);
+		std::string tmp;
 
-		getNextToken(file, tmp);
+		getNextToken(context, tmp);
 		sscanf(tmp.c_str(), "%f", &vec.X);
-		getNextToken(file, tmp);
+		getNextToken(context, tmp);
 		sscanf(tmp.c_str(), "%f", &vec.Y);
-		getNextToken(file, tmp);
+		getNextToken(context, tmp);
 		sscanf(tmp.c_str(), "%f", &vec.Z);
 	}
 	vec.X = -vec.X;
 }
 
-
 //! Read next word
-const core::stringc& CSTLMeshFileLoader::getNextToken(io::IReadFile* file, core::stringc& token) const
+const std::string& CSTLMeshFileLoader::getNextToken(SContext* context, std::string& token) const
 {
-	goNextWord(file);
-	uint8_t c;
+	goNextWord(context);
+	char c;
 	token = "";
-	while (file->getPos() != file->getSize())
+
+	while (context->fileOffset != context->inner.mainFile->getSize())
 	{
-		file->read(&c, 1);
+		system::future<size_t> future;
+		context->inner.mainFile->read(future, &c, context->fileOffset, sizeof(c));
+		const auto bytesRead = future.get();
+		context->fileOffset += bytesRead;
+
 		// found it, so leave
 		if (core::isspace(c))
 			break;
-		token.append(c);
+		token += c;
 	}
 	return token;
 }
 
 //! skip to next word
-void CSTLMeshFileLoader::goNextWord(io::IReadFile* file) const
+void CSTLMeshFileLoader::goNextWord(SContext* context) const
 {
 	uint8_t c;
-	while (file->getPos() != file->getSize())
+	while (context->fileOffset != context->inner.mainFile->getSize()) // TODO: check it
 	{
-		file->read(&c, 1);
+		system::future<size_t> future;
+		context->inner.mainFile->read(future, &c, context->fileOffset, sizeof(c));
+		const auto bytesRead = future.get();
+		context->fileOffset += bytesRead;
+
 		// found it, so leave
 		if (!core::isspace(c))
 		{
-			file->seek(-1, true);
+			context->fileOffset -= bytesRead;
 			break;
 		}
 	}
 }
 
-
 //! Read until line break is reached and stop at the next non-space character
-void CSTLMeshFileLoader::goNextLine(io::IReadFile* file) const
+void CSTLMeshFileLoader::goNextLine(SContext* context) const
 {
 	uint8_t c;
 	// look for newline characters
-	while (file->getPos() != file->getSize())
+	while (context->fileOffset != context->inner.mainFile->getSize()) // TODO: check it
 	{
-		file->read(&c, 1);
+		system::future<size_t> future;
+		context->inner.mainFile->read(future, &c, context->fileOffset, sizeof(c));
+		{
+			const auto bytesRead = future.get();
+			context->fileOffset += bytesRead;
+		}
+
 		// found it, so leave
 		if (c == '\n' || c == '\r')
 			break;

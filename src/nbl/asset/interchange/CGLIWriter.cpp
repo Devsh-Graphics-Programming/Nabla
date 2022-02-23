@@ -20,9 +20,9 @@ SOFTWARE.
 
 #include "CGLIWriter.h"
 
-#include "os.h"
-
 #ifdef _NBL_COMPILE_WITH_GLI_WRITER_
+
+#include "nbl/system/ISystem.h"
 
 #include "nbl/asset/filters/CBasicImageFilterCommon.h"
 #include "nbl/asset/filters/CSwizzleAndConvertImageFilter.h"
@@ -37,11 +37,11 @@ namespace nbl
 {
 namespace asset
 {
-static inline std::pair<gli::texture::format_type, std::array<gli::gl::swizzle, 4>> getTranslatedIRRFormat(const IImageView<ICPUImage>::SCreationParams& params);
+static inline std::pair<gli::texture::format_type, std::array<gli::gl::swizzle, 4>> getTranslatedIRRFormat(const IImageView<ICPUImage>::SCreationParams& params, const system::logger_opt_ptr logger);
 
-static inline bool performSavingAsIWriteFile(gli::texture& texture, nbl::io::IWriteFile* file);
+static inline bool performSavingAsIFile(gli::texture& texture, system::IFile* file, system::ISystem* sys, const system::logger_opt_ptr logger);
 
-bool CGLIWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
+bool CGLIWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 {
 	if (!_override)
 		getDefaultOverride(_override);
@@ -53,17 +53,17 @@ bool CGLIWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _par
 	if (!imageView)
 		return false;
 
-	io::IWriteFile* file = _override->getOutputFile(_file, ctx, { imageView, 0u });
+	system::IFile* file = _override->getOutputFile(_file, ctx, { imageView, 0u });
 
 	if (!file)
 		return false;
 
-	return writeGLIFile(file, imageView);
+	return writeGLIFile(file, imageView, _params.logger);
 }
 
-bool CGLIWriter::writeGLIFile(io::IWriteFile* file, const asset::ICPUImageView* imageView)
+bool CGLIWriter::writeGLIFile(system::IFile* file, const asset::ICPUImageView* imageView, const system::logger_opt_ptr logger)
 {
-	os::Printer::log("WRITING GLI: writing the file", file->getFileName().c_str(), ELL_INFORMATION);
+	logger.log("WRITING GLI: writing the file %s", system::ILogger::ELL_INFO, file->getFileName().string().c_str());
 
 	const auto& imageViewInfo = imageView->getCreationParameters();
 	const auto& imageInfo = imageViewInfo.image->getCreationParameters();
@@ -71,7 +71,7 @@ bool CGLIWriter::writeGLIFile(io::IWriteFile* file, const asset::ICPUImageView* 
 
 	if (image->getRegions().size() == 0)
 	{
-		os::Printer::log("WRITING GLI: there is a lack of regions!", file->getFileName().c_str(), ELL_INFORMATION);
+		logger.log("WRITING GLI: there is a lack of regions! %s", system::ILogger::ELL_INFO, file->getFileName().string().c_str());
 		return false;
 	}
 
@@ -148,7 +148,7 @@ bool CGLIWriter::writeGLIFile(io::IWriteFile* file, const asset::ICPUImageView* 
 		return std::make_pair(gliLayer, gliFace);
 	};
 
-	auto gliFormatAndSwizzles = getTranslatedIRRFormat(imageViewInfo);
+	auto gliFormatAndSwizzles = getTranslatedIRRFormat(imageViewInfo, logger);
 	gli::target gliTarget = getTarget();
 	gli::extent3d gliExtent3d = {imageInfo.extent.width, imageInfo.extent.height, imageInfo.extent.depth};
 	size_t gliLevels = imageInfo.mipLevels;
@@ -205,17 +205,16 @@ bool CGLIWriter::writeGLIFile(io::IWriteFile* file, const asset::ICPUImageView* 
 	};
 
 	const auto& regions = image->getRegions();
-	CBasicImageFilterCommon::executePerRegion<const std::execution::parallel_unsequenced_policy&,decltype(writeTexel),decltype(updateState)>(std::execution::par_unseq,image.get(),writeTexel,regions.begin(),regions.end(),updateState);
+	CBasicImageFilterCommon::executePerRegion<const core::execution::parallel_unsequenced_policy&,decltype(writeTexel),decltype(updateState)>(core::execution::par_unseq,image.get(),writeTexel,regions.begin(),regions.end(),updateState);
 
-	return performSavingAsIWriteFile(texture, file);
+	return performSavingAsIFile(texture, file, m_system.get(), logger);
 }
-
-bool performSavingAsIWriteFile(gli::texture& texture, nbl::io::IWriteFile* file)
+bool performSavingAsIFile(gli::texture& texture, system::IFile* file, system::ISystem* sys, const system::logger_opt_ptr logger)
 {
 	if (texture.empty())
 		return false;
 
-	const auto fileName = std::string(file->getFileName().c_str());
+	const auto fileName = std::string(file->getFileName().string());
 	std::vector<char> memory;
 	bool properlyStatus = false;
 
@@ -228,22 +227,24 @@ bool performSavingAsIWriteFile(gli::texture& texture, nbl::io::IWriteFile* file)
 
 	if (properlyStatus)
 	{
-		file->write(memory.data(), memory.size());
+		system::future<size_t> future;
+		file->write(future, memory.data(), 0, memory.size());
+		future.get();
 		return true;
 	}
 	else
 	{
-		os::Printer::log("WRITING GLI: failed to save the file", file->getFileName().c_str(), ELL_ERROR);
+		logger.log("WRITING GLI: failed to save the file %s", system::ILogger::ELL_ERROR, file->getFileName().string().c_str());
 		return false;
 	}
 }
 
-inline std::pair<gli::texture::format_type, std::array<gli::gl::swizzle, 4>> getTranslatedIRRFormat(const IImageView<ICPUImage>::SCreationParams& params)
+inline std::pair<gli::texture::format_type, std::array<gli::gl::swizzle, 4>> getTranslatedIRRFormat(const IImageView<ICPUImage>::SCreationParams& params, const system::logger_opt_ptr logger)
 {
 	using namespace gli;
 	std::array<gli::gl::swizzle, 4> compomentMapping;
 
-	static const core::unordered_map<ICPUImageView::SComponentMapping::E_SWIZZLE, gli::gl::swizzle> swizzlesMappingAPI =
+	static const core::unordered_map<ICPUImageView::SComponentMapping::E_SWIZZLE, gli::gl::swizzle> swizzlesMappingAPI(
 	{
 		std::make_pair(ICPUImageView::SComponentMapping::ES_R, gl::SWIZZLE_RED),
 		std::make_pair(ICPUImageView::SComponentMapping::ES_G, gl::SWIZZLE_GREEN),
@@ -251,7 +252,7 @@ inline std::pair<gli::texture::format_type, std::array<gli::gl::swizzle, 4>> get
 		std::make_pair(ICPUImageView::SComponentMapping::ES_A, gl::SWIZZLE_ALPHA),
 		std::make_pair(ICPUImageView::SComponentMapping::ES_ONE, gl::SWIZZLE_ONE),
 		std::make_pair(ICPUImageView::SComponentMapping::ES_ZERO, gl::SWIZZLE_ZERO)
-	};
+	});
 
 	auto getMappedSwizzle = [&](const ICPUImageView::SComponentMapping::E_SWIZZLE& currentSwizzleToCheck) -> gli::gl::swizzle
 	{
@@ -270,7 +271,9 @@ inline std::pair<gli::texture::format_type, std::array<gli::gl::swizzle, 4>> get
 	auto getTranslatedFinalFormat = [&](const gli::texture::format_type& format = FORMAT_UNDEFINED, const std::string_view& specialErrorOnUnknown = "Unsupported format!")
 	{
 		if (format == FORMAT_UNDEFINED)
-			os::Printer::log(("WRITING GLI: " + std::string(specialErrorOnUnknown)).c_str(), ELL_ERROR);
+		{
+			logger.log(("WRITING GLI: " + std::string(specialErrorOnUnknown)).c_str(), system::ILogger::ELL_ERROR);
+		}
 
 		return std::make_pair(format, compomentMapping);
 	};

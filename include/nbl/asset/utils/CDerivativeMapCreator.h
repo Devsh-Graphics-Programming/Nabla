@@ -50,5 +50,4 @@ class CDerivativeMapCreator
 
 }
 
-
-#endif
+#endif // __NBL_I_DERIVATIVE_MAP_CREATOR_H_INCLUDED__

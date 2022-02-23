@@ -5,13 +5,14 @@
 #ifndef __NBL_VIDEO_I_GPU_DESCRIPTOR_SET_LAYOUT_H_INCLUDED__
 #define __NBL_VIDEO_I_GPU_DESCRIPTOR_SET_LAYOUT_H_INCLUDED__
 
+
 #include "nbl/asset/IDescriptorSetLayout.h"
 
+#include "nbl/video/decl/IBackendObject.h"
 #include "nbl/video/IGPUSampler.h"
 
-namespace nbl
-{
-namespace video
+
+namespace nbl::video
 {
 
 //! GPU Version of Descriptor Set Layout
@@ -19,19 +20,20 @@ namespace video
     @see IDescriptorSetLayout
 */
 
-class IGPUDescriptorSetLayout : public asset::IDescriptorSetLayout<IGPUSampler>
+class IGPUDescriptorSetLayout : public asset::IDescriptorSetLayout<IGPUSampler>, public IBackendObject
 {
-public:
-    using IDescriptorSetLayout<IGPUSampler>::IDescriptorSetLayout;
+        using base_t = asset::IDescriptorSetLayout<IGPUSampler>;
 
-protected:
-    virtual ~IGPUDescriptorSetLayout() = default;
+    public:
+        IGPUDescriptorSetLayout(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const SBinding* const _begin, const SBinding* const _end) : base_t(_begin, _end), IBackendObject(std::move(dev)) {}
 
-    bool m_isPushDescLayout = false;
-    bool m_canUpdateAfterBind = false;
+    protected:
+        virtual ~IGPUDescriptorSetLayout() = default;
+
+        bool m_isPushDescLayout = false;
+        bool m_canUpdateAfterBind = false;
 };
 
-}
 }
 
 #endif

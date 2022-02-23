@@ -5,13 +5,14 @@
 #ifndef __NBL_MACROS_H_INCLUDED__
 #define __NBL_MACROS_H_INCLUDED__
 
-#include "nbl/core/compile_config.h"
+#include "nbl/core/decl/compile_config.h"
 #include "assert.h"
 
 // basics
 #define NBL_EVAL(...) __VA_ARGS__
-
-#define NBL_CONCATENATE(X,Y) NBL_EVAL(X) ## NBL_EVAL(Y)
+#define NBL_CONCAT_IMPL2(X,Y) X ## Y
+#define NBL_CONCAT_IMPL(X,Y) NBL_CONCAT_IMPL2(X,Y)
+#define NBL_CONCATENATE(X,Y) NBL_CONCAT_IMPL(NBL_EVAL(X) , NBL_EVAL(Y))
 
 
 //this one needs to be declared for every single child class for it to work
@@ -66,6 +67,8 @@
 #else
 #define _NBL_DEBUG_BREAK_IF( _CONDITION_ )
 #endif
+
+#define _NBL_TODO() _NBL_DEBUG_BREAK_IF(true)
 
 //! Workarounds for compiler specific bugs
 // MSVC 2019 is a special snowflake

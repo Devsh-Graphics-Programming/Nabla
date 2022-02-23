@@ -6,16 +6,215 @@
 #define __NBL_VIDEO_C_OPENGL_COMMON_H_INCLUDED__
 
 #include "BuildConfigOptions.h"
-#include "COpenGLExtensionHandler.h"
-
-#ifdef _NBL_COMPILE_WITH_OPENGL_
-namespace nbl
-{
-namespace video
+#include "nbl/asset/ECommonEnums.h"
+#include "nbl/video/IOpenGL_FunctionTable.h"
+#include "nbl/asset/format/EFormat.h"
+namespace nbl::video
 {
 
-// @Crisspl these switches are woefully incomplete on all 3 functions
-inline GLenum	getSizedOpenGLFormatFromOurFormat(asset::E_FORMAT format)
+struct SOpenGLBarrierHelper
+{
+	public:
+		SOpenGLBarrierHelper(const COpenGLFeatureMap* features) : TransformFeedbackBit(0), // we dont expose transform feedback
+			QueryBufferBit(features->isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_query_buffer_object)||features->Version>=440 ? GL_QUERY_BUFFER_BARRIER_BIT:0),
+			LateFragmentAccessBits(QueryBufferBit|GL_FRAMEBUFFER_BARRIER_BIT),
+			FragmentShaderAndAfterAccessBits(DescriptorAccessBits|LateFragmentAccessBits), EarlyFragmentTestsAndAfterAccessBits(FragmentShaderAndAfterAccessBits),
+			ProgrammablePrimitivePipelineAndAfterAccessBits(TransformFeedbackBit|EarlyFragmentTestsAndAfterAccessBits),
+			InputAssemblyAndAfterAccessBits(GL_ELEMENT_ARRAY_BARRIER_BIT|GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT|ProgrammablePrimitivePipelineAndAfterAccessBits),
+			AllGraphicsBits(GL_COMMAND_BARRIER_BIT|InputAssemblyAndAfterAccessBits), AllBarrierBits(AllGraphicsBits|ComputeAccessBits|TransferBits|HostBits)
+		{
+		}
+
+		inline GLbitfield pipelineStageFlagsToMemoryBarrierBits(asset::E_PIPELINE_STAGE_FLAGS srcflags, asset::E_PIPELINE_STAGE_FLAGS dstflags) const
+		{
+			// stuff GL backend could expose but we dont support
+			assert((srcflags&asset::EPSF_TRANSFORM_FEEDBACK_BIT_EXT)==0);
+			assert((srcflags&asset::EPSF_CONDITIONAL_RENDERING_BIT_EXT)==0);
+			assert(srcflags<asset::EPSF_SHADING_RATE_IMAGE_BIT_NV);
+
+			constexpr GLbitfield HostBits = GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT;
+
+			constexpr uint32_t PipelineStageCount = 14u;
+
+			// Why are all the Pipeline stages except top,indirect command and vertex input are declaring `AllBarrierBits` ?
+			// Because each of these stages can write a buffer or an image
+			// In turn the buffer can be used as anything
+			// (TBO,UBO,SSBO,IndirectCommand,QueryBuffer and Vertex Input/Index Buffer, Transfer Read/Write, Mapping)
+			// as well as the image (Sampled Image, Storage Image, Framebuffer attachment, texture update)
+			GLbitfield srcbits = 0;
+			if (srcflags & asset::EPSF_ALL_GRAPHICS_BIT)
+				srcbits = AllBarrierBits;
+			else if (srcflags & asset::EPSF_ALL_COMMANDS_BIT)
+				srcbits = AllBarrierBits;
+			else
+			{
+				/*
+				const GLbitfield producerBits[PipelineStageCount] = { // src stage mask
+					0, // stages before top of pipe can't possibly create anything
+					0, // indirect command execute doesn't produce any writes 
+					0, // vertex input stage is also readonly
+					AllBarrierBits, // vertex shader stage
+					AllBarrierBits, // control shader stage
+					AllBarrierBits, // evaluation shader stage
+					AllBarrierBits, // geometry shader stage
+					AllBarrierBits, // fragment shader stage
+					AllBarrierBits, // early fragment test stage
+					AllBarrierBits, // late fragment test stage
+					AllBarrierBits, // color attachment output stage
+					AllBarrierBits, // compute shader stage
+					AllBarrierBits, // transfer could have stored into anything
+					AllBarrierBits // bottom of pipe could have produced everything as it logically follows all of them
+				};
+				for (uint32_t i=0u; i<PipelineStageCount; ++i)
+				if ((srcflags>>i)&0x1u)
+					srcbits |= producerBits[i];
+				*/
+				if (srcflags&(asset::EPSF_HOST_BIT-asset::EPSF_VERTEX_SHADER_BIT))
+					srcbits = AllBarrierBits;
+				else if (srcflags & asset::EPSF_HOST_BIT)
+					srcbits = AllBarrierBits^ImageTransferBits; // you cannot map the memory of an image in OpenGL
+			}
+
+			const GLbitfield consumerBits[PipelineStageCount] = { // dst stage mask
+				AllBarrierBits, // every later stage could consume anything
+				AllGraphicsBits|ComputeAccessBits, // every later shader count consume anything
+				InputAssemblyAndAfterAccessBits, // vertex input stage is later than command stage
+				ProgrammablePrimitivePipelineAndAfterAccessBits, // vertex shader stage is later than vertex input stage
+				ProgrammablePrimitivePipelineAndAfterAccessBits, // control shader stage is later than vertex shader stage, but cannot consume any less resource types
+				ProgrammablePrimitivePipelineAndAfterAccessBits, // evaluation shader stage is later than control shader stage, but cannot consume less resource types
+				ProgrammablePrimitivePipelineAndAfterAccessBits, // geometry shader stage is later than evaluation shader stage, but cannot consume any less resource types
+				FragmentShaderAndAfterAccessBits, // fragment shader stage needs to include all the bits late fragment test needs
+				EarlyFragmentTestsAndAfterAccessBits, // early fragment test stage is later than geometry shader stage and ergo no longer writes into transform feedback can no longer occur
+				LateFragmentAccessBits, // late fragment test stage needs access to framebuffer and query buffer
+				GL_FRAMEBUFFER_BARRIER_BIT, // color attachment output stage only writes to framebuffer
+				DescriptorAccessBits, // compute shader stage is later than command stage
+				TransferBits,
+				0 // bottom of pipe reads nothing
+			};
+
+			GLbitfield dstbits = 0;
+			if (dstflags & asset::EPSF_HOST_BIT)
+				dstbits |= HostBits;
+			if (dstflags & asset::EPSF_ALL_GRAPHICS_BIT)
+				dstbits |= AllGraphicsBits;
+			if (dstflags & asset::EPSF_ALL_COMMANDS_BIT)
+				dstbits |= ComputeAccessBits|AllGraphicsBits|TransferBits; // OpenGL queue can do everything
+			for (uint32_t i = 0u; i < PipelineStageCount; ++i)
+				if (dstflags & (1u << i))
+					dstbits |= consumerBits[i];
+
+			return srcbits&dstbits;
+		}
+
+		inline GLbitfield accessFlagsToMemoryBarrierBits(const asset::SMemoryBarrier& barrier) const
+		{
+			constexpr uint32_t AccessBitCount = 28u;
+			const GLbitfield srcBits[AccessBitCount] = {
+				0, // command processing cannot make any writes
+				0, // index buffer reading cannot make any writes
+				0, // vertex buffer reading cannot make any writes
+				0, // UBO reading cannot make any writes
+				0, // input attachment reading cannot make any writes
+				0, // UBO/UTB/sampler/SSBO/STB,Image reading cannot make any writes
+				AllBarrierBits, // writing to the above, can result in any usage of the result whatsoever
+				0, // FBO attachment reading cannot make any writes
+				ImageDescriptorAccessBits|ImageTransferBits, // FBO attachment writing can be later used in image accesses, framebuffer and texture transfers
+				0, // FBO attachment reading cannot make any writes
+				ImageDescriptorAccessBits|ImageTransferBits, // FBO attachment writing can be later used in image accesses, framebuffer and texture transfers
+				0, // reads dont produce writes
+				AllBarrierBits, // writing to a buffer or an image can result in any usage of the result whatsoever
+				0, // reads dont produce writes
+				AllBarrierBits^ImageTransferBits, // writing to a buffer can result in any usage except as a framebuffer/texture (but can as a sampler or image due to BufferViews)
+				0, // reads dont produce writes
+				AllBarrierBits, // writing to a buffer or an image can result in any usage of the result whatsoever
+				0, // we dont support transform feedback
+				0, // we dont support transform feedback
+				0, // we dont support transform feedback
+				0, // we dont support conditional rendering extension
+				GL_FRAMEBUFFER_BARRIER_BIT,
+				0, // OpenGL doesn't have support for acceleration structures
+				0, // OpenGL doesn't have support for acceleration structures
+				0, // we don't support shading rate extension
+				0, // we don't support fragment density map extension
+				0, // command processing cannot make any writes
+				0 // We don't support the NV commandbuffer/token extension
+			};
+			const GLbitfield dstBits[AccessBitCount] = {
+				GL_COMMAND_BARRIER_BIT,
+				GL_ELEMENT_ARRAY_BARRIER_BIT,
+				GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT,
+				GL_UNIFORM_BARRIER_BIT,
+				GL_FRAMEBUFFER_BARRIER_BIT|ImageDescriptorAccessBits, // input attachment read, no idea what should be here TODO
+				DescriptorAccessBits,
+				DescriptorAccessBits,
+				GL_FRAMEBUFFER_BARRIER_BIT,
+				GL_FRAMEBUFFER_BARRIER_BIT,
+				GL_FRAMEBUFFER_BARRIER_BIT,
+				GL_FRAMEBUFFER_BARRIER_BIT,
+				TransferBits,
+				TransferBits,
+				GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT,
+				GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT,
+				AllBarrierBits,
+				AllBarrierBits,
+				0, // we dont support transform feedback
+				0, // we dont support transform feedback
+				0, // we dont support transform feedback
+				0, // we dont support conditional rendering extension
+				GL_FRAMEBUFFER_BARRIER_BIT,
+				0, // OpenGL doesn't have support for acceleration structures
+				0, // OpenGL doesn't have support for acceleration structures
+				0, // we don't support shading rate extension
+				0, // we don't support fragment density map extension
+				0, // command processing cannot make any writes
+				0 // We don't support the NV commandbuffer/token extension
+			};
+
+			GLbitfield srcBarrier=0, dstBarrier=0;
+			for (uint32_t i=0u; i<AccessBitCount; ++i)
+			{
+				const auto flag = 0x1u<<i;
+				if (barrier.srcAccessMask.value&flag)
+					srcBarrier |= srcBits[i];
+				if (barrier.dstAccessMask.value&flag)
+					dstBarrier |= dstBits[i];
+			}
+
+			return srcBarrier&dstBarrier;
+		}
+
+		//
+		static inline constexpr GLbitfield HostBits = GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT;
+
+		//
+		static inline constexpr GLbitfield BufferTransferBits = GL_BUFFER_UPDATE_BARRIER_BIT | GL_PIXEL_BUFFER_BARRIER_BIT;
+		static inline constexpr GLbitfield ImageTransferBits = GL_TEXTURE_UPDATE_BARRIER_BIT | GL_FRAMEBUFFER_BARRIER_BIT; // framebuffer because of glReadPixels for GetSubImage emulation
+		static inline constexpr GLbitfield TransferBits = BufferTransferBits | ImageTransferBits;
+
+		static inline constexpr GLbitfield ImageDescriptorAccessBits = GL_TEXTURE_FETCH_BARRIER_BIT | GL_SHADER_IMAGE_ACCESS_BARRIER_BIT;
+		static inline constexpr GLbitfield DescriptorAccessBits = GL_UNIFORM_BARRIER_BIT | ImageDescriptorAccessBits | GL_SHADER_STORAGE_BARRIER_BIT;
+		// we include the image bits because of `samplerBuffer` and `imageBuffer`
+		static inline constexpr GLbitfield BufferDescriptorAccessBits = DescriptorAccessBits;
+
+		//
+		static inline constexpr GLbitfield ComputeAccessBits = GL_COMMAND_BARRIER_BIT | DescriptorAccessBits;
+		
+
+		// we dont expose transform feedback
+		const GLbitfield TransformFeedbackBit,QueryBufferBit;
+	
+		const GLbitfield LateFragmentAccessBits;
+		const GLbitfield FragmentShaderAndAfterAccessBits;
+		const GLbitfield EarlyFragmentTestsAndAfterAccessBits;
+		const GLbitfield ProgrammablePrimitivePipelineAndAfterAccessBits;
+		const GLbitfield InputAssemblyAndAfterAccessBits;
+		const GLbitfield AllGraphicsBits;
+
+		// we dont expose atomic counters
+		const GLbitfield AllBarrierBits;
+};
+
+inline GLenum	getSizedOpenGLFormatFromOurFormat(IOpenGL_FunctionTable* gl, asset::E_FORMAT format)
 {
 	using namespace asset;
 	switch (format)
@@ -57,14 +256,14 @@ inline GLenum	getSizedOpenGLFormatFromOurFormat(asset::E_FORMAT format)
 			return GL_R8;
 			break;
 		case EF_R8_SRGB:
-			if (!COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::NBL_EXT_texture_sRGB_R8])
+			if (gl && !gl->getFeatures()->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_texture_sRGB_R8))
 				return GL_SR8_EXT;
 			break;
 		case EF_R8G8_UNORM:
 			return GL_RG8;
 			break;
 		case EF_R8G8_SRGB:
-			if (!COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::NBL_EXT_texture_sRGB_RG8])
+			if (gl && !gl->getFeatures()->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_texture_sRGB_RG8))
 				return GL_SRG8_EXT;
 			break;
 		case EF_R8G8B8_UNORM:
@@ -340,9 +539,6 @@ inline GLenum	getSizedOpenGLFormatFromOurFormat(asset::E_FORMAT format)
 		default:
 			break;
 	}
-#ifdef _NBL_DEBUG
-	os::Printer::log("Unsupported texture format", ELL_ERROR);
-#endif // _NBL_DEBUG
 	return GL_INVALID_ENUM;
 }
 
@@ -686,7 +882,7 @@ inline asset::E_FORMAT	getOurFormatFromSizedOpenGLFormat(GLenum sizedFormat)
 	return asset::EF_UNKNOWN;
 }
 #endif
-static GLenum formatEnumToGLenum(asset::E_FORMAT fmt)
+static GLenum formatEnumToGLenum(IOpenGL_FunctionTable* gl, asset::E_FORMAT fmt)
 {
     using namespace asset;
     switch (fmt)
@@ -716,11 +912,11 @@ static GLenum formatEnumToGLenum(asset::E_FORMAT fmt)
 		case EF_B8G8R8A8_UNORM:
 			return GL_UNSIGNED_BYTE;
 		case EF_R8_SRGB:
-			if (COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::NBL_EXT_texture_sRGB_R8])
+			if (gl->getFeatures()->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_texture_sRGB_R8))
 				return GL_UNSIGNED_BYTE;
 			break;
 		case EF_R8G8_SRGB:
-			if (COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::NBL_EXT_texture_sRGB_RG8])
+			if (gl->getFeatures()->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_texture_sRGB_RG8))
 				return GL_UNSIGNED_BYTE;
 			break;
 		case EF_R8_SNORM:
@@ -773,11 +969,15 @@ static GLenum formatEnumToGLenum(asset::E_FORMAT fmt)
 		case EF_R32G32B32A32_SINT:
 			return GL_INT;
 		case EF_A2R10G10B10_UNORM_PACK32:
+		case EF_A2R10G10B10_USCALED_PACK32:
+		case EF_A2R10G10B10_UINT_PACK32:
 		case EF_A2B10G10R10_UNORM_PACK32:
 		case EF_A2B10G10R10_USCALED_PACK32:
 		case EF_A2B10G10R10_UINT_PACK32:
 			return GL_UNSIGNED_INT_2_10_10_10_REV;
 		case EF_A2R10G10B10_SNORM_PACK32:
+		case EF_A2R10G10B10_SSCALED_PACK32:
+		case EF_A2R10G10B10_SINT_PACK32:
 		case EF_A2B10G10R10_SNORM_PACK32:
 		case EF_A2B10G10R10_SSCALED_PACK32:
 		case EF_A2B10G10R10_SINT_PACK32:
@@ -815,7 +1015,7 @@ static GLenum formatEnumToGLenum(asset::E_FORMAT fmt)
 
 
 //! Get opengl values for the GPU texture storage
-inline void getOpenGLFormatAndParametersFromColorFormat(asset::E_FORMAT format, GLenum& colorformat, GLenum& type)
+inline void getOpenGLFormatAndParametersFromColorFormat(IOpenGL_FunctionTable* gl, asset::E_FORMAT format, GLenum& colorformat, GLenum& type, const system::logger_opt_ptr logger = nullptr)
 {
 	using namespace asset;
 	// default
@@ -878,7 +1078,7 @@ inline void getOpenGLFormatAndParametersFromColorFormat(asset::E_FORMAT format, 
 		break;
 		case asset::EF_R8_SRGB:
 		{
-			if (!COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::NBL_EXT_texture_sRGB_R8])
+			if (!gl->getFeatures()->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_texture_sRGB_R8))
 				break;
 			colorformat = GL_RED;
 			type = GL_UNSIGNED_BYTE;
@@ -910,7 +1110,7 @@ inline void getOpenGLFormatAndParametersFromColorFormat(asset::E_FORMAT format, 
 		break;
 		case asset::EF_R8G8_SRGB:
 		{
-			if (!COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::NBL_EXT_texture_sRGB_RG8])
+			if (!gl->getFeatures()->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_texture_sRGB_RG8))
 				break;
 			colorformat = GL_RG;
 			type = GL_UNSIGNED_BYTE;
@@ -1279,7 +1479,6 @@ inline void getOpenGLFormatAndParametersFromColorFormat(asset::E_FORMAT format, 
 			type = GL_FLOAT_32_UNSIGNED_INT_24_8_REV;
 		}
 		break;
-#if 0
 		case asset::EF_BC1_RGB_UNORM_BLOCK:
 		{
 			colorformat = GL_RGB;
@@ -1580,18 +1779,15 @@ inline void getOpenGLFormatAndParametersFromColorFormat(asset::E_FORMAT format, 
 			type = GL_UNSIGNED_BYTE;
 		}
 		break;
-#endif
 		default:
 			break;
 	}
 
 	if (colorformat == GL_INVALID_ENUM || type == GL_INVALID_ENUM)
-		os::Printer::log("Unsupported upload format", ELL_ERROR);
+		logger.log("Unsupported upload format", system::ILogger::ELL_ERROR);
 }
 
 }
-}
-#endif
 
 
 #endif

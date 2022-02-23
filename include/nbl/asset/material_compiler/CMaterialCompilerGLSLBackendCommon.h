@@ -6,7 +6,7 @@
 #define __NBL_ASSET_C_MITSUBA_MATERIAL_COMPILER_GLSL_BACKEND_COMMON_H_INCLUDED__
 
 
-#include <nbl/core/core.h>
+#include <nbl/core/declarations.h>
 
 #include <ostream>
 
@@ -272,16 +272,16 @@ public:
 		}
 
 		using VTID = asset::ICPUVirtualTexture::SMasterTextureData;
-	#include "nbl/nblpack.h"
+#include "nbl/nblpack.h"
 		struct STextureData {
-			STextureData() = default;
-
-			VTID vtid = VTID::invalid();
+			
+			VTID vtid;
 			union {
 				uint32_t prefetch_reg;//uint32
-				uint32_t scale = 0u;//float
-			};
+				uint32_t scale;//float
 
+			};
+			STextureData() : vtid(VTID::invalid()), scale(0u){}
 			bool operator==(const STextureData& rhs) const { return memcmp(this,&rhs,sizeof(rhs))==0; }
 			struct hash
 			{
@@ -503,27 +503,28 @@ public:
 		#include "nbl/nblpack.h"
 			struct prefetch_instr_t
 			{
-				prefetch_instr_t() : qword{ 0ull, 0ull } {}
+				prefetch_instr_t() : qword{ 0ull, 0ull }{}
 
 				_NBL_STATIC_INLINE_CONSTEXPR uint32_t DWORD4_DST_REG_SHIFT = 0u;
 				_NBL_STATIC_INLINE_CONSTEXPR uint32_t DWORD4_DST_REG_WIDTH = 8u;
 				_NBL_STATIC_INLINE_CONSTEXPR uint32_t DWORD4_REG_CNT_SHIFT = DWORD4_DST_REG_SHIFT + DWORD4_DST_REG_WIDTH;
 				_NBL_STATIC_INLINE_CONSTEXPR uint32_t DWORD4_REG_CNT_WIDTH = 2u;
 
-				inline void setDstReg(uint32_t r) { dword4 = core::bitfieldInsert(dword4, r, DWORD4_DST_REG_SHIFT, DWORD4_DST_REG_WIDTH); }
-				inline void setRegCnt(uint32_t c) { dword4 = core::bitfieldInsert(dword4, c, DWORD4_REG_CNT_SHIFT, DWORD4_REG_CNT_WIDTH); }
+				inline void setDstReg(uint32_t r) { s.dword4 = core::bitfieldInsert(s.dword4, r, DWORD4_DST_REG_SHIFT, DWORD4_DST_REG_WIDTH); }
+				inline void setRegCnt(uint32_t c) { s.dword4 = core::bitfieldInsert(s.dword4, c, DWORD4_REG_CNT_SHIFT, DWORD4_REG_CNT_WIDTH); }
 
-				inline uint32_t getDstReg() const { return core::bitfieldExtract(dword4, DWORD4_DST_REG_SHIFT, DWORD4_DST_REG_WIDTH); }
-				inline uint32_t getRegCnt() const { return core::bitfieldExtract(dword4, DWORD4_REG_CNT_SHIFT, DWORD4_REG_CNT_WIDTH); }
+				inline uint32_t getDstReg() const { return core::bitfieldExtract(s.dword4, DWORD4_DST_REG_SHIFT, DWORD4_DST_REG_WIDTH); }
+				inline uint32_t getRegCnt() const { return core::bitfieldExtract(s.dword4, DWORD4_REG_CNT_SHIFT, DWORD4_REG_CNT_WIDTH); }
 
-				union {
+				union{
 					uint64_t qword[2];
 					uint32_t dword[4];
-					struct {
+					struct{
 						STextureData tex_data;
 						uint32_t dword4;
-					} PACK_STRUCT;
+					} s;
 				};
+				
 			} PACK_STRUCT;
 		#include "nbl/nblunpack.h"
 			static_assert(sizeof(prefetch_instr_t) == sizeof_uvec4);

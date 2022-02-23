@@ -65,6 +65,11 @@ class ICPUImageView final : public IImageView<ICPUImage>, public IAsset
 			return params.components;
 		}
 
+		inline void setAspectFlags(core::bitflag<IImage::E_ASPECT_FLAGS> aspect)
+		{
+			params.subresourceRange.aspectMask = aspect.value;
+		}
+
 		bool canBeRestoredFrom(const IAsset* _other) const override
 		{
 			auto* other = static_cast<const ICPUImageView*>(_other);

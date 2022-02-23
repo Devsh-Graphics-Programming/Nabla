@@ -263,7 +263,7 @@ inline bool matrix4SIMD::isBoxInFrustum(const aabbox3d<float>& bbox)
 	MaxEdge.w = 1.f;
 
 
-	auto getClosestDP = [this,&MinEdge,&MaxEdge](const vectorSIMDf& toDot) -> float
+	auto getClosestDP = [&MinEdge,&MaxEdge](const vectorSIMDf& toDot) -> float
 	{
 		return dot(mix(MaxEdge,MinEdge,toDot<vectorSIMDf(0.f)),toDot)[0];
 	};

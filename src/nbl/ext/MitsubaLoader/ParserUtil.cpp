@@ -2,8 +2,6 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#include "os.h"
-
 #include "nbl/ext/MitsubaLoader/ParserUtil.h"
 #include "nbl/ext/MitsubaLoader/CElementFactory.h"
 
@@ -18,13 +16,14 @@ namespace ext
 namespace MitsubaLoader
 {
 
+system::logger_opt_ptr ParserLog::logger = nullptr;
 
 void ParserLog::invalidXMLFileStructure(const std::string& errorMessage)
 {
 	std::string message = "Mitsuba loader error - Invalid .xml file structure: \'"
 		+ errorMessage + '\'';
 
-	os::Printer::log(message.c_str(), ELL_ERROR);
+	//ParserLog::logger.log(message, system::ILogger::E_LOG_LEVEL::ELL_ERROR);
 	_NBL_DEBUG_BREAK_IF(true);
 }
 
@@ -44,26 +43,27 @@ void ParserManager::elementHandlerEnd(void* _data, const char* _el)
 
 
 
-bool ParserManager::parse(io::IReadFile* _file)
+bool ParserManager::parse(system::IFile* _file, const system::logger_opt_ptr& _logger)
 {
 	XML_Parser parser = XML_ParserCreate(nullptr);
 	if (!parser)
 	{
-		os::Printer::log("Could not create XML Parser!", ELL_ERROR);
+		_logger.log("Could not create XML Parser!", system::ILogger::E_LOG_LEVEL::ELL_ERROR);
 		return false;
 	}
 
 	XML_SetElementHandler(parser, elementHandlerStart, elementHandlerEnd);
 
 	//from now data (instance of ParserData struct) will be visible to expat handlers
-	Context ctx = {this,parser,io::IFileSystem::getFileDir(_file->getFileName())+"/"};
+	Context ctx = {this,parser,_file->getFileName().parent_path()/""};
 	XML_SetUserData(parser, &ctx);
 
 
 	char* buff = (char*)_NBL_ALIGNED_MALLOC(_file->getSize(), 4096u);
 
-	_file->seek(0u);
-	_file->read((void*)buff, _file->getSize());
+	system::future<size_t> future;
+	_file->read(future, (void*)buff, 0u, _file->getSize());
+	future.get();
 
 	XML_Status parseStatus = XML_Parse(parser, buff, _file->getSize(), 0);
 	_NBL_ALIGNED_FREE(buff);
@@ -72,18 +72,18 @@ bool ParserManager::parse(io::IReadFile* _file)
 	{
 		case XML_STATUS_ERROR:
 			{
-				os::Printer::log("Parse status: XML_STATUS_ERROR", ELL_ERROR);
+				_logger.log("Parse status: XML_STATUS_ERROR", system::ILogger::E_LOG_LEVEL::ELL_ERROR);
 				return false;
 			}
 			break;
 		case XML_STATUS_OK:
 			#ifdef _NBL_DEBUG
-				os::Printer::log("Parse status: XML_STATUS_OK", ELL_INFORMATION);
+			_logger.log("Parse status: XML_STATUS_OK", system::ILogger::E_LOG_LEVEL::ELL_INFO);
 			#endif
 			break;
 		case XML_STATUS_SUSPENDED:
 			{
-				os::Printer::log("Parse status: XML_STATUS_SUSPENDED", ELL_INFORMATION);
+				_logger.log("Parse status: XML_STATUS_SUSPENDED", system::ILogger::E_LOG_LEVEL::ELL_INFO);
 				return false;
 			}
 			break;
@@ -133,16 +133,17 @@ void ParserManager::parseElement(const Context& ctx, const char* _el, const char
 	
 	if (core::strcmpi(_el, "include") == 0)
 	{
-		auto file = m_filesystem->createAndOpenFile(ctx.currentXMLDir+_atts[1]);
-		if (!file) // try global path
-			file = m_filesystem->createAndOpenFile(_atts[1]);
-		if (!file)
+		system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
+		bool validInput = m_system->createFile(future, ctx.currentXMLDir.string()+_atts[1], system::IFile::ECF_READ);
+		if (!validInput) // try global path
+			validInput = m_system->createFile(future, _atts[1], system::IFile::ECF_READ);
+		if (!validInput)
 		{
 			ParserLog::invalidXMLFileStructure(std::string("Could not open include file: ") + _atts[1]);
 			return;
 		}
-		parse(file);
-		file->drop();
+		auto file = future.get();
+		parse(file.get(), system::logger_opt_ptr(nullptr)); // TODO: fix
 		return;
 	}
 

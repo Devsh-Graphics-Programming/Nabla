@@ -15,17 +15,17 @@ namespace nbl
 namespace asset
 {
 
-inline shaderc_shader_kind ESStoShadercEnum(ISpecializedShader::E_SHADER_STAGE _ss)
+inline shaderc_shader_kind ESStoShadercEnum(IShader::E_SHADER_STAGE _ss)
 {
-    using T = std::underlying_type_t<ISpecializedShader::E_SHADER_STAGE>;
+    using T = core::bitflag<IShader::E_SHADER_STAGE>;
 
     shaderc_shader_kind convert[6];
-    convert[core::findLSB<uint32_t>(ISpecializedShader::ESS_VERTEX)] = shaderc_vertex_shader;
-    convert[core::findLSB<uint32_t>(ISpecializedShader::ESS_TESSELATION_CONTROL)] = shaderc_tess_control_shader;
-    convert[core::findLSB<uint32_t>(ISpecializedShader::ESS_TESSELATION_EVALUATION)] = shaderc_tess_evaluation_shader;
-    convert[core::findLSB<uint32_t>(ISpecializedShader::ESS_GEOMETRY)] = shaderc_geometry_shader;
-    convert[core::findLSB<uint32_t>(ISpecializedShader::ESS_FRAGMENT)] = shaderc_fragment_shader;
-    convert[core::findLSB<uint32_t>(ISpecializedShader::ESS_COMPUTE)] = shaderc_compute_shader;
+    convert[core::findLSB<uint32_t>(IShader::ESS_VERTEX)] = shaderc_vertex_shader;
+    convert[core::findLSB<uint32_t>(IShader::ESS_TESSELATION_CONTROL)] = shaderc_tess_control_shader;
+    convert[core::findLSB<uint32_t>(IShader::ESS_TESSELATION_EVALUATION)] = shaderc_tess_evaluation_shader;
+    convert[core::findLSB<uint32_t>(IShader::ESS_GEOMETRY)] = shaderc_geometry_shader;
+    convert[core::findLSB<uint32_t>(IShader::ESS_FRAGMENT)] = shaderc_fragment_shader;
+    convert[core::findLSB<uint32_t>(IShader::ESS_COMPUTE)] = shaderc_compute_shader;
 
     return convert[core::findLSB<uint32_t>(_ss)];
 }

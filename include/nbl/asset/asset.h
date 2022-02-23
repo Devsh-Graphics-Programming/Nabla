@@ -8,7 +8,8 @@
 #include "nbl/asset/compile_config.h"
 
 // dependencies
-#include "nbl/system/system.h"
+#include "nbl/system/declarations.h"
+#include "nbl/system/definitions.h" // TODO: split `asset.h` into decl and def
 
 // utils
 #include "nbl/asset/asset_utils.h"
@@ -58,7 +59,7 @@
 #include "nbl/asset/ICPUMeshBuffer.h"
 #include "nbl/asset/ICPUMesh.h"
 #include "nbl/asset/utils/IGeometryCreator.h"
-#include "nbl/asset/utils/IMeshPacker.h"
+// #include "nbl/asset/utils/IMeshPacker.h"
 
 // manipulation + reflection + introspection
 #include "nbl/asset/utils/IMeshManipulator.h"
@@ -82,8 +83,8 @@
 #include "nbl/asset/metadata/CSTLMetadata.h"
 
 //VT
-#include "nbl/asset/utils/CCPUMeshPackerV1.h"
-#include "nbl/asset/utils/CCPUMeshPackerV2.h"
+// #include "nbl/asset/utils/CCPUMeshPackerV1.h"
+// #include "nbl/asset/utils/CCPUMeshPackerV2.h"
 #include "nbl/asset/utils/ICPUVirtualTexture.h"
 
 #endif

@@ -5,94 +5,201 @@
 #ifndef _NBL_EXT_SCREEN_SHOT_INCLUDED_
 #define _NBL_EXT_SCREEN_SHOT_INCLUDED_
 
-#include "nabla.h"
+#include <nabla.h>
 
-#include "../../../../source/Nabla/COpenGLBuffer.h"
-#include "../../../../source/Nabla/COpenGLExtensionHandler.h"
-#include "nbl/asset/interchange/IImageAssetHandlerBase.h"
-
-namespace nbl
+namespace nbl::ext::ScreenShot
 {
-	namespace ext
+/*
+	Create a ScreenShot with gpu image usage and save it to a file.
+	The queue being passed must have TRANSFER capability.
+
+	TODO: Add support for downloading a region of a specific subresource
+*/
+
+inline core::smart_refctd_ptr<asset::ICPUImageView> createScreenShot(
+	video::ILogicalDevice* logicalDevice,
+	video::IGPUQueue* queue,
+	video::IGPUSemaphore* semaphore,
+	const video::IGPUImageView* gpuImageView,
+	const asset::E_ACCESS_FLAGS accessMask,
+	const asset::E_IMAGE_LAYOUT imageLayout)
+{
+	assert(logicalDevice->getPhysicalDevice()->getQueueFamilyProperties().begin()[queue->getFamilyIndex()].queueFlags.value&video::IPhysicalDevice::EQF_TRANSFER_BIT);
+
+	auto fetchedImageViewParmas = gpuImageView->getCreationParameters();
+	auto gpuImage = fetchedImageViewParmas.image;
+	auto fetchedGpuImageParams = gpuImage->getCreationParameters();
+
+	if (asset::isBlockCompressionFormat(fetchedGpuImageParams.format))
+		return nullptr;
+
+	core::smart_refctd_ptr<video::IGPUBuffer> gpuTexelBuffer;
+	
+	core::smart_refctd_ptr<video::IGPUCommandBuffer> gpuCommandBuffer;
 	{
-		namespace ScreenShot
+		// commandbuffer should refcount the pool, so it should be 100% legal to drop at the end of the scope
+		auto gpuCommandPool = logicalDevice->createCommandPool(queue->getFamilyIndex(),static_cast<video::IGPUCommandPool::E_CREATE_FLAGS>(0u));
+		logicalDevice->createCommandBuffers(gpuCommandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY, 1u, &gpuCommandBuffer);
+		assert(gpuCommandBuffer);
+	}
+	gpuCommandBuffer->begin(video::IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
+	{
+		auto extent = gpuImage->getMipSize();
+
+		const uint32_t mipLevelToScreenshot = fetchedImageViewParmas.subresourceRange.baseMipLevel;
+
+		video::IGPUImage::SBufferCopy region = {};
+		region.imageSubresource.aspectMask = fetchedImageViewParmas.subresourceRange.aspectMask; 
+		region.imageSubresource.mipLevel = mipLevelToScreenshot;
+		region.imageSubresource.baseArrayLayer = fetchedImageViewParmas.subresourceRange.baseArrayLayer;
+		region.imageSubresource.layerCount = fetchedImageViewParmas.subresourceRange.layerCount;
+		region.imageExtent = { extent.x, extent.y, extent.z };
+
+		video::IGPUBuffer::SCreationParams bufferCreationParams = {};
+		bufferCreationParams.usage = asset::IBuffer::EUF_TRANSFER_DST_BIT;
+
+		auto deviceLocalGPUMemoryReqs = logicalDevice->getDownStreamingMemoryReqs();
+		deviceLocalGPUMemoryReqs.vulkanReqs.size = extent.x*extent.y*extent.z*asset::getTexelOrBlockBytesize(fetchedGpuImageParams.format);
+		gpuTexelBuffer = logicalDevice->createGPUBufferOnDedMem(bufferCreationParams,deviceLocalGPUMemoryReqs);
+
+		video::IGPUCommandBuffer::SImageMemoryBarrier barrier = {};
+		barrier.barrier.srcAccessMask = accessMask;
+		barrier.barrier.dstAccessMask = asset::EAF_TRANSFER_READ_BIT;
+		barrier.oldLayout = imageLayout;
+		barrier.newLayout = asset::EIL_TRANSFER_SRC_OPTIMAL;
+		barrier.srcQueueFamilyIndex = ~0u;
+		barrier.dstQueueFamilyIndex = ~0u;
+		barrier.image = gpuImage;
+		barrier.subresourceRange.aspectMask = fetchedImageViewParmas.subresourceRange.aspectMask;
+		barrier.subresourceRange.baseMipLevel = mipLevelToScreenshot;
+		barrier.subresourceRange.levelCount = 1u;
+		barrier.subresourceRange.baseArrayLayer = fetchedImageViewParmas.subresourceRange.baseArrayLayer;
+		barrier.subresourceRange.layerCount = fetchedImageViewParmas.subresourceRange.layerCount;
+		gpuCommandBuffer->pipelineBarrier(
+			asset::EPSF_TOP_OF_PIPE_BIT,
+			asset::EPSF_TRANSFER_BIT,
+			static_cast<asset::E_DEPENDENCY_FLAGS>(0u),
+			0u, nullptr,
+			0u, nullptr,
+			1u, &barrier);
+
+		gpuCommandBuffer->copyImageToBuffer(gpuImage.get(),asset::EIL_TRANSFER_SRC_OPTIMAL,gpuTexelBuffer.get(),1,&region);
+
+		barrier.barrier.srcAccessMask = asset::EAF_TRANSFER_READ_BIT;
+		barrier.barrier.dstAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0u);
+		barrier.oldLayout = asset::EIL_TRANSFER_SRC_OPTIMAL;
+		barrier.newLayout = imageLayout;
+		gpuCommandBuffer->pipelineBarrier(
+			asset::EPSF_TRANSFER_BIT,
+			asset::EPSF_BOTTOM_OF_PIPE_BIT,
+			static_cast<asset::E_DEPENDENCY_FLAGS>(0u),
+			0u, nullptr,
+			0u, nullptr,
+			1u, &barrier);
+	}
+	gpuCommandBuffer->end();
+
+	auto fence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
+
+	video::IGPUQueue::SSubmitInfo info;
+	info.commandBufferCount = 1u;
+	info.commandBuffers = &gpuCommandBuffer.get();
+	info.pSignalSemaphores = nullptr;
+	info.signalSemaphoreCount = 0u;
+	info.pWaitSemaphores = nullptr;
+	info.waitSemaphoreCount = 0u;
+	auto stageflags = asset::EPSF_ALL_COMMANDS_BIT; // assume the image we're trying to download could be touched by anything before (host manipulation is implicitly visibile because of submit's guarantees)
+	info.pWaitDstStageMask = &stageflags;
+	queue->submit(1u, &info, fence.get());
+
+	if (!logicalDevice->blockForFences(1u, &fence.get()))
+		return nullptr;
+
+	core::smart_refctd_ptr<asset::ICPUImageView> cpuImageView;
+	{
+		const auto gpuTexelBufferSize = gpuTexelBuffer->getSize(); // If you get validation errors from the `invalidateMappedMemoryRanges` we need to expose VK_WHOLE_BUFFER equivalent constant
+		video::IDriverMemoryAllocation::MappedMemoryRange mappedMemoryRange(gpuTexelBuffer->getBoundMemory(),0u,gpuTexelBufferSize);
+		logicalDevice->mapMemory(mappedMemoryRange,video::IDriverMemoryAllocation::EMCAF_READ);
+
+		if (gpuTexelBuffer->getBoundMemory()->haveToMakeVisible())
+			logicalDevice->invalidateMappedMemoryRanges(1u,&mappedMemoryRange);
+
+		auto cpuNewImage = asset::ICPUImage::create(std::move(fetchedGpuImageParams));
+		auto texelBufferRowLength = asset::IImageAssetHandlerBase::calcPitchInBlocks(fetchedGpuImageParams.extent.width * asset::getBlockDimensions(fetchedGpuImageParams.format).X, asset::getTexelOrBlockBytesize(fetchedGpuImageParams.format));
+
+		auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ICPUImage::SBufferCopy>>(1u);
+		asset::ICPUImage::SBufferCopy& region = regions->front();
+
+		region.imageSubresource.mipLevel = 0u;
+		region.imageSubresource.baseArrayLayer = 0u;
+		region.imageSubresource.layerCount = 1u;
+		region.bufferOffset = 0u;
+		region.bufferRowLength = texelBufferRowLength;
+		region.bufferImageHeight = 0u;
+		region.imageOffset = { 0u, 0u, 0u };
+		region.imageExtent = cpuNewImage->getCreationParameters().extent;
+
+		auto cpuNewTexelBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(gpuTexelBufferSize);
 		{
-			/*
-				Creates useful FBO that may be used for instance 
-				to fetch default render target color data attachment 
-				after rendering scene.
-				The usage is following:
-				- create frame buffer using the function
-				- blit framebuffers, driver->blitRenderTargets(nullptr, frameBuffer, false, false);
-				Note that in the call above we don't want to copy depth and stencil buffer, but event though default
-				FBO contains depth buffer.
-				- pass frame buffer to performScreenShot(video::IFrameBuffer*)
-				Notes:
-				- color buffer is placed under video::EFAP_COLOR_ATTACHMENT0 attachment
-				- depth buffer is placed under video::EFAP_DEPTH_ATTACHMENT attachment
-			*/
+			memcpy(cpuNewTexelBuffer->getPointer(), gpuTexelBuffer->getBoundMemory()->getMappedPointer(), gpuTexelBuffer->getSize());
+		}
+		cpuNewImage->setBufferAndRegions(core::smart_refctd_ptr(cpuNewTexelBuffer), regions);
+		logicalDevice->unmapMemory(gpuTexelBuffer->getBoundMemory());
+		{
+			auto newCreationParams = cpuNewImage->getCreationParameters();
 
-			nbl::video::IFrameBuffer* createDefaultFBOForScreenshoting(core::smart_refctd_ptr<IrrlichtDevice> device, asset::E_FORMAT colorFormat=asset::EF_R8G8B8A8_SRGB)
-			{
-				auto driver = device->getVideoDriver();
+			asset::ICPUImageView::SCreationParams viewParams;
+			viewParams.flags = static_cast<asset::ICPUImageView::E_CREATE_FLAGS>(0u);
+			viewParams.image = cpuNewImage;
+			viewParams.format = newCreationParams.format;
+			viewParams.viewType = asset::ICPUImageView::ET_2D;
+			viewParams.subresourceRange.baseArrayLayer = 0u;
+			viewParams.subresourceRange.layerCount = newCreationParams.arrayLayers;
+			viewParams.subresourceRange.baseMipLevel = 0u;
+			viewParams.subresourceRange.levelCount = newCreationParams.mipLevels;
 
-				auto createAttachement = [&](bool colorBuffer)
-				{
-					asset::ICPUImage::SCreationParams imgInfo;
-					imgInfo.format = colorBuffer ? colorFormat:asset::EF_D24_UNORM_S8_UINT;
-					imgInfo.type = asset::ICPUImage::ET_2D;
-					imgInfo.extent.width = driver->getScreenSize().Width;
-					imgInfo.extent.height = driver->getScreenSize().Height;
-					imgInfo.extent.depth = 1u;
-					imgInfo.mipLevels = 1u;
-					imgInfo.arrayLayers = 1u;
-					imgInfo.samples = asset::ICPUImage::ESCF_1_BIT;
-					imgInfo.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0u);
+			cpuImageView = asset::ICPUImageView::create(std::move(viewParams));
+		}
+	}
+	return cpuImageView;
+}
 
-					auto image = asset::ICPUImage::create(std::move(imgInfo));
-					const auto texelFormatBytesize = getTexelOrBlockBytesize(image->getCreationParameters().format);
+inline bool createScreenShot(
+	video::ILogicalDevice* logicalDevice,
+	video::IGPUQueue* queue,
+	video::IGPUSemaphore* semaphore,
+	const video::IGPUImageView* gpuImageView,
+	asset::IAssetManager* assetManager,
+	system::IFile* outFile,
+	const asset::E_ACCESS_FLAGS accessMask,
+	const asset::E_IMAGE_LAYOUT imageLayout)
+{
+	assert(outFile->getFlags()&system::IFile::ECF_WRITE);
+	auto cpuImageView = createScreenShot(logicalDevice,queue,semaphore,gpuImageView,accessMask,imageLayout);
+	asset::IAssetWriter::SAssetWriteParams writeParams(cpuImageView.get());
+	return assetManager->writeAsset(outFile,writeParams);
+}
 
-					auto texelBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(image->getImageDataSizeInBytes());
-					auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ICPUImage::SBufferCopy>>(1u);
-					asset::ICPUImage::SBufferCopy& region = regions->front();
+inline bool createScreenShot(
+	video::ILogicalDevice* logicalDevice,
+	video::IGPUQueue* queue,
+	video::IGPUSemaphore* semaphore,
+	const video::IGPUImageView* gpuImageView,
+	asset::IAssetManager* assetManager,
+	const std::filesystem::path& filename,
+	const asset::E_IMAGE_LAYOUT imageLayout,
+	const asset::E_ACCESS_FLAGS accessMask = asset::EAF_ALL_IMAGE_ACCESSES_DEVSH)
+{
+	auto cpuImageView = createScreenShot(logicalDevice,queue,semaphore,gpuImageView,accessMask,imageLayout);
+	asset::IAssetWriter::SAssetWriteParams writeParams(cpuImageView.get());
+	return assetManager->writeAsset(filename.string(),writeParams); // TODO: Use std::filesystem::path
+}
 
-					region.imageSubresource.mipLevel = 0u;
-					region.imageSubresource.baseArrayLayer = 0u;
-					region.imageSubresource.layerCount = 1u;
-					region.bufferOffset = 0u;
-					region.bufferRowLength = image->getCreationParameters().extent.width;
-					region.bufferImageHeight = 0u;
-					region.imageOffset = { 0u, 0u, 0u };
-					region.imageExtent = image->getCreationParameters().extent;
+} // namespace nbl::ext::ScreenShot
 
-					image->setBufferAndRegions(std::move(texelBuffer), regions);
+#endif
 
-					asset::ICPUImageView::SCreationParams imgViewInfo;
-					imgViewInfo.image = std::move(image);
-					imgViewInfo.format = colorBuffer ? colorFormat:asset::EF_D24_UNORM_S8_UINT;
-					imgViewInfo.viewType = asset::IImageView<asset::ICPUImage>::ET_2D;
-					imgViewInfo.flags = static_cast<asset::ICPUImageView::E_CREATE_FLAGS>(0u);
-					imgViewInfo.subresourceRange.baseArrayLayer = 0u;
-					imgViewInfo.subresourceRange.baseMipLevel = 0u;
-					imgViewInfo.subresourceRange.layerCount = imgInfo.arrayLayers;
-					imgViewInfo.subresourceRange.levelCount = imgInfo.mipLevels;
-
-					auto imageView = asset::ICPUImageView::create(std::move(imgViewInfo));
-					auto gpuImageView = driver->getGPUObjectsFromAssets(&imageView.get(), &imageView.get() + 1)->front();
-
-					return std::move(gpuImageView);
-				};
-
-				auto gpuImageViewDepthBuffer = createAttachement(false);
-				auto gpuImageViewColorBuffer = createAttachement(true);
-
-				auto frameBuffer = driver->addFrameBuffer();
-				frameBuffer->attach(video::EFAP_DEPTH_ATTACHMENT, std::move(gpuImageViewDepthBuffer));
-				frameBuffer->attach(video::EFAP_COLOR_ATTACHMENT0, std::move(gpuImageViewColorBuffer));
-
-				return frameBuffer;
-			};
-
+#ifdef OLD_CODE // code from `master` branch:
 			/*
 				Download mip level image with gpu image usage and save it to IGPUBuffer.
 				Because of the fence placed by driver the function stalls the CPU 
@@ -219,7 +326,7 @@ namespace nbl
 						state.inMipLevel = regionWithMipMap->imageSubresource.mipLevel;
 						state.outMipLevel = regionWithMipMap->imageSubresource.mipLevel;
 
-						const bool ok = convertFilter.execute(std::execution::par_unseq,&state);
+						const bool ok = convertFilter.execute(core::execution::par_unseq,&state);
 						assert(ok);
 					}
 				}
@@ -252,14 +359,4 @@ namespace nbl
 				return status;
 
 			}
-			inline bool createScreenShot(core::smart_refctd_ptr<IrrlichtDevice> device, const video::IGPUImageView* gpuImageView, const std::string& outFileName)
-			{
-				auto driver = device->getVideoDriver();
-				auto assetManager = device->getAssetManager();
-				return createScreenShot(driver, assetManager, gpuImageView, outFileName);
-			}
-		} // namespace ScreenShot
-	} // namespace ext
-} // namespace nbl
-
 #endif

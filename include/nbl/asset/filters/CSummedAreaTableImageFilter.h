@@ -5,7 +5,7 @@
 #ifndef __NBL_ASSET_C_SUMMED_AREA_TABLE_IMAGE_FILTER_H_INCLUDED__
 #define __NBL_ASSET_C_SUMMED_AREA_TABLE_IMAGE_FILTER_H_INCLUDED__
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 
 #include <type_traits>
 #include <functional>
@@ -30,7 +30,7 @@ class CSummedAreaTableImageFilterBase
 				uint8_t*	scratchMemory = nullptr;										//!< memory covering all regions used for temporary filling within computation of sum values
 				size_t	scratchMemoryByteSize = {};											//!< required byte size for entire scratch memory
 				bool normalizeImageByTotalSATValues = false;								//!< after sum performation division will be performed for the entire image by the max sum values in (maxX, 0, z) depending on input image - needed for UNORM and SNORM
-				uint8_t axesToSum = 0u;														//!< which axes you want to sum; X: bit0, Y: bit1, Z: bit2
+				uint8_t axesToSum = 0u;														//!< which axes you want to sum; X: bit0, Y: bit1, Z: bit2 // TODO: make ALL_AXES the default and make sure examples using it work as expected.
 
 				static inline size_t getRequiredScratchByteSize(const ICPUImage* inputImage, asset::VkExtent3D extent)
 				{
@@ -96,13 +96,16 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 
 			if (state->scratchMemoryByteSize < state_type::getRequiredScratchByteSize(state->inImage, state->extent))
 				return false;
+			
+			if (state->axesToSum == 0u)
+				return false;
 
 			if (asset::getFormatChannelCount(outFormat) != asset::getFormatChannelCount(inFormat))
 				return false;
 
 			if (asset::getFormatClass(inFormat) > asset::getFormatClass(outFormat)) // TODO in future! Change to a function checking a bit-depth for an each single channel
 				return false;
-
+			
 			return true;
 		}
 
@@ -120,7 +123,7 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 		}	
 		static inline bool execute(state_type* state)
 		{
-			return execute(std::execution::seq,state);
+			return execute(core::execution::seq,state);
 		}
 
 	private:
@@ -171,7 +174,8 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 			const auto&& [copyInBaseLayer, copyOutBaseLayer, copyLayerCount] = std::make_tuple(state->inBaseLayer, state->outBaseLayer, state->layerCount);
 			state->layerCount = 1u;
 
-			auto resetState = [&]()
+			// https://stackoverflow.com/questions/46114214/lambda-implicit-capture-fails-with-variable-declared-from-structured-binding
+			auto resetState = [&, copyInBaseLayer=copyInBaseLayer, copyOutBaseLayer=copyOutBaseLayer, copyLayerCount=copyLayerCount]()
 			{
 				state->inBaseLayer = copyInBaseLayer;
 				state->outBaseLayer = copyOutBaseLayer;
@@ -240,7 +244,7 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 					CMatchedSizeInOutImageFilterCommon::state_type::TexelRange range = { state->inOffset,state->extent };
 					CBasicImageFilterCommon::clip_region_functor_t clipFunctor(subresource, range, inFormat);
 
-					auto& inRegions = state->inImage->getRegions(state->inMipLevel);
+					const auto& inRegions = state->inImage->getRegions(state->inMipLevel);
 					CBasicImageFilterCommon::executePerRegion(policy, state->inImage, decode, inRegions.begin(), inRegions.end(), clipFunctor);
 
 					if constexpr (ExclusiveMode)
@@ -394,7 +398,7 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 						CMatchedSizeInOutImageFilterCommon::state_type::TexelRange range = { state->outOffset,state->extent };
 						CBasicImageFilterCommon::clip_region_functor_t clipFunctor(subresource, range, outFormat);
 
-						auto& outRegions = state->outImage->getRegions(state->outMipLevel);
+						const auto& outRegions = state->outImage->getRegions(state->outMipLevel);
 						CBasicImageFilterCommon::executePerRegion(policy,state->outImage, encode, outRegions.begin(), outRegions.end(), clipFunctor);
 					}
 				}

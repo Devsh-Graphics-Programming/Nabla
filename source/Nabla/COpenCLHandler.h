@@ -13,11 +13,9 @@
 #ifdef _NBL_COMPILE_WITH_OPENCL_
 
 #include "CL/opencl.h"
-#ifdef _NBL_COMPILE_WITH_OPENGL_
-    #include "COpenGLExtensionHandler.h"
+
 #endif // _NBL_COMPILE_WITH_OPENGL_
 
-#include "os.h"
 
 namespace nbl
 {
@@ -338,4 +336,4 @@ class COpenCLHandler
 
 #endif // _NBL_COMPILE_WITH_OPENCL_
 
-#endif
+

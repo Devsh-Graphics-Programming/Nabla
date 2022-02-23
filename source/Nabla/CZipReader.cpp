@@ -2,21 +2,13 @@
 // This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
-
+#ifdef NEW_FILESYSTEM
 #include "CZipReader.h"
 #include "CMemoryFile.h"
 #include "CLimitReadFile.h"
 
-#include "os.h"
+#include "nbl_os.h"
 #include <sstream>
-
-// This method is used for error output from bzip2.
-extern "C" void bz_internal_error(int errorCode)
-{
-    std::ostringstream tmp;
-    tmp << errorCode;
-	nbl::os::Printer::log("Error in bzip2 handling", tmp.str().c_str(), nbl::ELL_ERROR);
-}
 
 #ifdef __NBL_COMPILE_WITH_ZIP_ARCHIVE_LOADER_
 
@@ -57,7 +49,7 @@ CArchiveLoaderZIP::CArchiveLoaderZIP(io::IFileSystem* fs)
 }
 
 //! returns true if the file maybe is able to be loaded by this class
-bool CArchiveLoaderZIP::isALoadableFileFormat(const io::path& filename) const
+bool CArchiveLoaderZIP::isALoadableFileFormat(const std::filesystem::path& filename) const
 {
 	return core::hasFileExtension(filename, "zip", "pk3") ||
 	       core::hasFileExtension(filename, "gz", "tgz");
@@ -73,7 +65,7 @@ bool CArchiveLoaderZIP::isALoadableFileFormat(E_FILE_ARCHIVE_TYPE fileType) cons
 //! Creates an archive from the filename
 /** \param file File handle to check.
 \return Pointer to newly created archive, or 0 upon error. */
-IFileArchive* CArchiveLoaderZIP::createArchive(const io::path& filename) const
+IFileArchive* CArchiveLoaderZIP::createArchive(const std::filesystem::path& filename) const
 {
 	IFileArchive *archive = 0;
 	io::IReadFile* file = FileSystem->createAndOpenFile(filename);
@@ -128,7 +120,7 @@ bool CArchiveLoaderZIP::isALoadableFileFormat(io::IReadFile* file) const
 // zip archive
 // -----------------------------------------------------------------------------
 
-CZipReader::CZipReader(IReadFile* file, bool isGZip) : CFileList(file ? file->getFileName() : io::path("")), File(file), IsGZip(isGZip)
+CZipReader::CZipReader(IReadFile* file, bool isGZip) : CFileList(file ? file->getFileName() : std::filesystem::path("")), File(file), IsGZip(isGZip)
 {
 	#ifdef _NBL_DEBUG
 	setDebugName("CZipReader");
@@ -194,7 +186,7 @@ bool CZipReader::scanGZipHeader()
 			File->seek(dataLen, true);
 		}
 
-		io::path ZipFileName = "";
+		std::filesystem::path ZipFileName = "";
 
 		if (header.flags & EGZF_FILE_NAME)
 		{
@@ -202,7 +194,7 @@ bool CZipReader::scanGZipHeader()
 			File->read(&c, 1);
 			while (c)
 			{
-				ZipFileName.append(c);
+				ZipFileName += c;
 				File->read(&c, 1);
 			}
 		}
@@ -215,13 +207,12 @@ bool CZipReader::scanGZipHeader()
 			// rename tgz to tar or remove gz extension
 			if (core::hasFileExtension(ZipFileName, "tgz"))
 			{
-				ZipFileName[ ZipFileName.size() - 2] = 'a';
-				ZipFileName[ ZipFileName.size() - 1] = 'r';
+				ZipFileName.string()[ ZipFileName.string().size() - 2] = 'a';
+				ZipFileName.string()[ ZipFileName.string().size() - 1] = 'r';
 			}
 			else if (core::hasFileExtension(ZipFileName, "gz"))
 			{
-				ZipFileName[ ZipFileName.size() - 3] = 0;
-				ZipFileName.validate();
+				ZipFileName.string()[ ZipFileName.string().size() - 3] = 0;
 			}
 		}
 
@@ -238,7 +229,7 @@ bool CZipReader::scanGZipHeader()
 		// we are now at the start of the data blocks
 		entry.Offset = File->getPos();
 
-		entry.header.FilenameLength = ZipFileName.size();
+		entry.header.FilenameLength = ZipFileName.string().length();
 
 		entry.header.CompressionMethod = header.compressionMethod;
 		entry.header.DataDescriptor.CompressedSize = (File->getSize() - 8) - File->getPos();
@@ -263,7 +254,7 @@ bool CZipReader::scanGZipHeader()
 //! scans for a local header, returns false if there is no more local file header.
 bool CZipReader::scanZipHeader(bool ignoreGPBits)
 {
-	io::path ZipFileName = "";
+	std::filesystem::path ZipFileName = "";
 	SZipFileEntry entry;
 	entry.Offset = 0;
 	memset(&entry.header, 0, sizeof(SZIPFileHeader));
@@ -372,7 +363,7 @@ bool CZipReader::scanZipHeader(bool ignoreGPBits)
 	//os::Debuginfo::print("added file from archive", ZipFileName.c_str());
 	#endif
 
-	addItem(ZipFileName, entry.Offset, entry.header.DataDescriptor.UncompressedSize, ZipFileName.lastChar()=='/', FileInfo.size());
+	addItem(ZipFileName, entry.Offset, entry.header.DataDescriptor.UncompressedSize, *ZipFileName.string().rbegin()=='/', FileInfo.size());
 	FileInfo.push_back(entry);
 
 	return true;
@@ -382,7 +373,7 @@ bool CZipReader::scanZipHeader(bool ignoreGPBits)
 //! scans for a local header, returns false if there is no more local file header.
 bool CZipReader::scanCentralDirectoryHeader()
 {
-	io::path ZipFileName = "";
+	std::filesystem::path ZipFileName = "";
 	SZIPFileCentralDirFileHeader entry;
 	File->read(&entry, sizeof(SZIPFileCentralDirFileHeader));
 
@@ -402,7 +393,7 @@ bool CZipReader::scanCentralDirectoryHeader()
 
 
 //! opens a file by file name
-IReadFile* CZipReader::createAndOpenFile(const io::path& filename)
+IReadFile* CZipReader::createAndOpenFile(const std::filesystem::path& filename)
 {
     auto found = findFile(Files.begin(),Files.end(),io::IFileSystem::flattenFilename(filename),false);
 	if (found==Files.end())
@@ -775,3 +766,4 @@ namespace
 } // end namespace nbl
 
 #endif // __NBL_COMPILE_WITH_ZIP_ARCHIVE_LOADER_
+#endif

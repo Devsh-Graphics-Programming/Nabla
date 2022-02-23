@@ -6,8 +6,8 @@
 #ifndef __NBL_RECT_H_INCLUDED__
 #define __NBL_RECT_H_INCLUDED__
 
-#include "nbl/core/Types.h"
 #include "nbl/macros.h"
+#include "nbl/core/decl/Types.h"
 #include "dimension2d.h"
 #include "position2d.h"
 

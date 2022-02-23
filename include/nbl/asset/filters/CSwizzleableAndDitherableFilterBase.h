@@ -5,7 +5,7 @@
 #ifndef __NBL_ASSET_C_SWIZZLEABLE_AND_DITHERABLE_FILTER_BASE_H_INCLUDED__
 #define __NBL_ASSET_C_SWIZZLEABLE_AND_DITHERABLE_FILTER_BASE_H_INCLUDED__
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 
 #include "nbl/asset/format/convertColor.h"
 #include "nbl/asset/filters/dithering/CDither.h"
@@ -69,7 +69,7 @@ class CSwizzleableAndDitherableFilterBase
 			static_assert(sizeof(Tenc)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
 			asset::decodePixels<inFormat>(srcPix, decodeBuffer, blockX, blockY);
 			// TODO: shouldn't swizzles be performed in-place on decode buffers and their values?
-			static_cast<Swizzle&>(*state).operator() < Tdec, Tenc > (decodeBuffer, encodeBuffer);
+			static_cast<Swizzle&>(*state).template operator() < Tdec, Tenc > (decodeBuffer, encodeBuffer);
 		}
 
 		/*
@@ -84,7 +84,7 @@ class CSwizzleableAndDitherableFilterBase
 			static_assert(sizeof(Tenc)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
 			asset::decodePixelsRuntime(inFormat, srcPix, decodeBuffer, blockX, blockY);
 			// TODO: shouldn't swizzles be performed in-place on decode buffers and their values?
-			static_cast<Swizzle&>(*state).operator()<Tdec,Tenc>(decodeBuffer,encodeBuffer);
+			static_cast<Swizzle&>(*state).template operator()<Tdec,Tenc>(decodeBuffer,encodeBuffer);
 		}
 
 		/*
@@ -112,7 +112,7 @@ class CSwizzleableAndDitherableFilterBase
 				*encodeValue += static_cast<Tenc>(ditheredValue) * scale;
 			}
 
-			state->normalization.operator()<outFormat,Tenc>(encodeBuffer,position,blockX,blockY,channels);
+			state->normalization.template operator()<outFormat,Tenc>(encodeBuffer,position,blockX,blockY,channels);
 
 			if constexpr (Clamp)
 			{
@@ -143,7 +143,7 @@ class CSwizzleableAndDitherableFilterBase
 				*encodeValue += static_cast<Tenc>(ditheredValue)* scale;
 			}
 
-			state->normalization.operator()<Tenc>(outFormat,encodeBuffer,position,blockX,blockY,channels);
+			state->normalization.template operator()<Tenc>(outFormat,encodeBuffer,position,blockX,blockY,channels);
 
 			if constexpr (Clamp)
 			{
@@ -204,7 +204,7 @@ class CSwizzleableAndDitherableFilterBase<Swizzle,IdentityDither,Normalization,C
 			static_assert(sizeof(Tenc)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
 			asset::decodePixels<inFormat>(srcPix, decodeBuffer, blockX, blockY);
 			// TODO: shouldn't swizzles be performed in-place on decode buffers and their values?
-			static_cast<Swizzle&>(*state).operator()<Tdec,Tenc>(decodeBuffer,encodeBuffer);
+			static_cast<Swizzle&>(*state).template operator()<Tdec,Tenc>(decodeBuffer,encodeBuffer);
 		}
 
 		/*
@@ -219,7 +219,7 @@ class CSwizzleableAndDitherableFilterBase<Swizzle,IdentityDither,Normalization,C
 			static_assert(sizeof(Tenc)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
 			asset::decodePixelsRuntime(inFormat, srcPix, decodeBuffer, blockX, blockY);
 			// TODO: shouldn't swizzles be performed in-place on decode buffers and their values?
-			static_cast<Swizzle&>(*state).operator()<Tdec,Tenc>(decodeBuffer,encodeBuffer);
+			static_cast<Swizzle&>(*state).template operator()<Tdec,Tenc>(decodeBuffer,encodeBuffer);
 		}
 
 		/*
@@ -240,7 +240,7 @@ class CSwizzleableAndDitherableFilterBase<Swizzle,IdentityDither,Normalization,C
 		{
 			static_assert(sizeof(Tenc)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
 			
-			state->normalization.operator()<outFormat,Tenc>(encodeBuffer,position,blockX,blockY,channels);
+			state->normalization.template operator()<outFormat,Tenc>(encodeBuffer,position,blockX,blockY,channels);
 
 			if constexpr (Clamp)
 			{
@@ -264,7 +264,7 @@ class CSwizzleableAndDitherableFilterBase<Swizzle,IdentityDither,Normalization,C
 		{
 			static_assert(sizeof(Tenc)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
 
-			state->normalization.operator()<Tenc>(outFormat,encodeBuffer,position,blockX,blockY,channels);
+			state->normalization.template operator()<Tenc>(outFormat,encodeBuffer,position,blockX,blockY,channels);
 
 			if constexpr (Clamp)
 			{
@@ -319,7 +319,7 @@ class CSwizzleableAndDitherableFilterBase<PolymorphicSwizzle,Dither,Normalizatio
 			if (!state->ditherState)
 				return false;
 
-			if (!normalization.validate())
+			if (!state->normalization.validate())
 				return false;
 
 			return true;
@@ -338,7 +338,7 @@ class CSwizzleableAndDitherableFilterBase<PolymorphicSwizzle,Dither,Normalizatio
 			static_assert(sizeof(Tenc)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
 			asset::decodePixels<inFormat>(srcPix, decodeBuffer, blockX, blockY);
 			// TODO: shouldn't swizzles be performed in-place on decode buffers and their values?
-			static_cast<Swizzle&>(*state).operator()<Tdec,Tenc>(decodeBuffer,encodeBuffer);
+			state->swizzle->template operator()<Tdec,Tenc>(decodeBuffer,encodeBuffer);
 		}
 
 		/*
@@ -354,7 +354,7 @@ class CSwizzleableAndDitherableFilterBase<PolymorphicSwizzle,Dither,Normalizatio
 			static_assert(sizeof(Tenc)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
 			asset::decodePixelsRuntime(inFormat, srcPix, decodeBuffer, blockX, blockY);
 			// TODO: shouldn't swizzles be performed in-place on decode buffers and their values?
-			static_cast<Swizzle&>(*state).operator()<Tdec,Tenc>(decodeBuffer,encodeBuffer);
+			state->swizzle->template operator()<Tdec,Tenc>(decodeBuffer,encodeBuffer);
 		}
 
 		/*
@@ -382,7 +382,7 @@ class CSwizzleableAndDitherableFilterBase<PolymorphicSwizzle,Dither,Normalizatio
 				*encodeValue += static_cast<Tenc>(ditheredValue) * scale;
 			}
 			
-			state->normalization.operator()<outFormat,Tenc>(encodeBuffer,position,blockX,blockY,channels);
+			state->normalization.template operator()<outFormat,Tenc>(encodeBuffer,position,blockX,blockY,channels);
 
 			if constexpr (Clamp)
 			{
@@ -413,7 +413,7 @@ class CSwizzleableAndDitherableFilterBase<PolymorphicSwizzle,Dither,Normalizatio
 				*encodeValue += static_cast<Tenc>(ditheredValue)* scale;
 			}
 
-			state->normalization.operator()<Tenc>(outFormat,encodeBuffer,position,blockX,blockY,channels);
+			state->normalization.template operator()<Tenc>(outFormat,encodeBuffer,position,blockX,blockY,channels);
 
 			if constexpr (Clamp)
 			{

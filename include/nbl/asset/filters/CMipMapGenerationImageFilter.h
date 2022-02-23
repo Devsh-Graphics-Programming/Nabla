@@ -5,7 +5,7 @@
 #ifndef __NBL_ASSET_C_MIP_MAP_GENERATION_IMAGE_FILTER_H_INCLUDED__
 #define __NBL_ASSET_C_MIP_MAP_GENERATION_IMAGE_FILTER_H_INCLUDED__
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 
 #include "nbl/asset/filters/CBlitImageFilter.h"
 
@@ -96,14 +96,14 @@ class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageF
 			for (auto inMipLevel=state->startMipLevel; inMipLevel!=state->endMipLevel; inMipLevel++)
 			{
 				auto blit = buildBlitState(state, inMipLevel);
-				if (!pseudo_base_t::execute<ExecutionPolicy>(std::forward<ExecutionPolicy>(policy),&blit))
+				if (!pseudo_base_t::template execute<ExecutionPolicy>(std::forward<ExecutionPolicy>(policy),&blit))
 					return false;
 			}
 			return true;
 		}
 		static inline bool execute(state_type* state)
 		{
-			return execute(std::execution::seq,state);
+			return execute(core::execution::seq,state);
 		}
 
 	protected:
@@ -111,7 +111,7 @@ class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageF
 		{
 			const auto prevLevel = inMipLevel-1u;
 
-			pseudo_base_t::state_type blit;
+			typename pseudo_base_t::state_type blit;
 			blit.inOffsetBaseLayer = blit.outOffsetBaseLayer = core::vectorSIMDu32(0, 0, 0, state->baseLayer);
 			blit.inExtentLayerCount = state->inOutImage->getMipSize(prevLevel);
 			blit.outExtentLayerCount = state->inOutImage->getMipSize(inMipLevel);

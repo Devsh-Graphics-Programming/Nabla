@@ -25,11 +25,10 @@ namespace core
         public:
             _NBL_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
 
-            #define DUMMY_DEFAULT_CONSTRUCTOR AddressAllocatorBase() :\
-                reservedSpace(nullptr), addressOffset(invalid_address), alignOffset(invalid_address),\
+            AddressAllocatorBase() :
+                reservedSpace(nullptr), addressOffset(invalid_address), alignOffset(invalid_address),
                 maxRequestableAlignment(invalid_address), combinedOffset(invalid_address) {}
-            GCC_CONSTRUCTOR_INHERITANCE_BUG_WORKAROUND(DUMMY_DEFAULT_CONSTRUCTOR)
-            #undef DUMMY_DEFAULT_CONSTRUCTOR
+            
 
 
             inline _size_type           max_alignment() const noexcept
