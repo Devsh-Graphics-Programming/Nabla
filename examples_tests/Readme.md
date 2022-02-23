@@ -94,6 +94,9 @@ N = No support
 | 60.ClusteredRendering           | W            | N                | W            | W            | N               | W            | N                 | N              |                                                   |
 
 `*` Only Nvidia provides a working GLES 3.1 driver with OES_texture_view on Windows, so we only test there.
+
 `**` Needs the Xcb implementation of the `ui::` namespace to be complete.
+
 `***` Only x86_64 architecture supported for Android builds, also NBL_BUILD_ANDROID is required.
+
 `****` NBL_BUILD_EXAMPLES is needed for any example to build!
