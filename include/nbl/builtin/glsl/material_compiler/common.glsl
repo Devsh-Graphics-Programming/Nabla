@@ -746,9 +746,6 @@ nbl_glsl_MC_eval_pdf_aov_t nbl_glsl_MC_instr_bxdf_eval_and_pdf_common(
 	in uint op, in bool is_not_brdf,
 	in nbl_glsl_MC_params_t params,
 	in mat2x3 ior, in mat2x3 ior2,
-	#if GEN_CHOICE_STREAM>=GEN_CHOICE_WITH_AOV_EXTRACTION
-	in vec3 normal,
-	#endif
 	in float absOrMaxNdotV,
 	in float absOrMaxNdotL,
 	in nbl_glsl_LightSample s,
@@ -775,7 +772,7 @@ nbl_glsl_MC_eval_pdf_aov_t nbl_glsl_MC_instr_bxdf_eval_and_pdf_common(
 		const float a = nbl_glsl_MC_params_getAlpha(params);
 		const float a2 = a*a;
 		#if GEN_CHOICE_STREAM>=GEN_CHOICE_WITH_AOV_EXTRACTION
-		result.aov.normal = normal;
+		result.aov.normal = currInteraction.inner.isotropic.N;
 		#endif
 					
 		#if defined(OP_DIFFUSE) || defined(OP_DIFFTRANS)
@@ -961,9 +958,6 @@ void nbl_glsl_MC_instr_eval_and_pdf_execute(
 			{
 				result = nbl_glsl_MC_instr_bxdf_eval_and_pdf_common(
 					instr,op,is_not_brdf,params,ior,ior2,
-					#if GEN_CHOICE_STREAM>=GEN_CHOICE_WITH_AOV_EXTRACTION
-					precomp.N,
-					#endif
 					NdotV,NdotL,
 					s,microfacet,run
 				);
@@ -1235,7 +1229,7 @@ nbl_glsl_LightSample nbl_bsdf_cos_generate(
 				const float ax = nbl_glsl_MC_params_getAlpha(params);
 				const float ax2 = ax*ax;
 				#if GEN_CHOICE_STREAM>=GEN_CHOICE_WITH_AOV_EXTRACTION
-				out_values.aov.normal = precomp.N;
+				out_values.aov.normal = currInteraction.inner.isotropic.N;
 				#endif
 
 				// TODO: refactor

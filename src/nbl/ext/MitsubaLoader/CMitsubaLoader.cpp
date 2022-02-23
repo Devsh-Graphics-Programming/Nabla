@@ -967,10 +967,16 @@ void CMitsubaLoader::cacheTexture(SContext& ctx, uint32_t hierarchyLevel, const 
 						// check if found
 						auto contentRange = bundle.getContents();
 						if (contentRange.empty())
+						{
+						    os::Printer::log("[ERROR] Could Not Find Texture: "+cacheKey,ELL_ERROR);
 							return;
+						}
 						auto asset = contentRange.begin()[0];
 						if (asset->getAssetType()!=asset::IAsset::ET_IMAGE)
+						{
+						    os::Printer::log("[ERROR] Loaded an Asset but it wasn't a texture, was E_ASSET_TYPE "+std::to_string(asset->getAssetType()),ELL_ERROR);
 							return;
+						}
 
 						viewParams.image = core::smart_refctd_ptr_static_cast<asset::ICPUImage>(asset);
 					}
@@ -1085,12 +1091,6 @@ auto CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* _bs
 		{
 			if (const_or_tex.value.type==SPropertyElementData::INVALID)
 				cacheTexture(ctx,0u,const_or_tex.texture,semantic);
-		};
-		auto unrollScales = [](CElementTexture* tex)
-		{
-			while (tex->type == CElementTexture::SCALE)
-				tex = tex->scale.texture;
-			return tex;
 		};
 
 		core::stack<const CElementBSDF*> stack;

@@ -725,23 +725,25 @@ bool CElementBSDF::processChildData(IElement* _child, const std::string& name)
 					//{"albedo",				processAlbedo}
 				};
 
-				auto found = SetChildMap.find(name);
-				if (found==SetChildMap.end())
+				switch (type)
 				{
-					switch (type)
-					{
-						case Type::BUMPMAP:
-							bumpmap.texture = _texture;
-							break;
-						default:
-							_NBL_DEBUG_BREAK_IF(true);
-							ParserLog::invalidXMLFileStructure("No BSDF can have such property set with name: " + name);
-							return false;
-							break;
-					}
+					case Type::BUMPMAP:
+						bumpmap.texture = _texture;
+						break;
+					default:
+						{
+							auto found = SetChildMap.find(name);
+							if (found!=SetChildMap.end())
+								found->second();
+							else
+							{
+								_NBL_DEBUG_BREAK_IF(true);
+								ParserLog::invalidXMLFileStructure("No BSDF can have such property set with name: " + name);
+								return false;
+							}
+						}
+						break;
 				}
-				else
-					found->second();
 
 				if (error)
 					return false;

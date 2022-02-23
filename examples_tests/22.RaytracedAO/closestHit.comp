@@ -69,16 +69,17 @@ void main()
 			const uvec3 indices = get_triangle_indices(batchInstanceData,triangleID);
 			
 			// positions
-			vec3 geomDenormal;
-			const vec3 lastVxPos = load_positions(geomDenormal,batchInstanceData,indices);
-			const bool frontfacing = bool((batchInstanceData.determinantSignBit^floatBitsToUint(dot(geomDenormal,normalizedV)))&0x80000000u);
+			vec3 geomNormal;
+			const vec3 lastVxPos = load_positions(geomNormal,batchInstanceData,indices);
+
+			const bool frontfacing = bool((batchInstanceData.determinantSignBit^floatBitsToUint(dot(normalizedV,geomNormal)))&0x80000000u);
 
 			// get material
 			const nbl_glsl_MC_oriented_material_t material = nbl_glsl_MC_material_data_t_getOriented(batchInstanceData.material,frontfacing);
 			contrib.color = contrib.albedo = nbl_glsl_MC_oriented_material_t_getEmissive(material);
 	
 			const uint pathDepth = bitfieldExtract(staticViewData.pathDepth_noRussianRouletteDepth_samplesPerPixelPerDispatch,0,8);
-			const bool _continue = vertex_depth!=pathDepth && ray.maxT==nbl_glsl_FLT_MAX; // not last vertex and not NEE path
+			const bool _continue = vertex_depth!=pathDepth && material.genchoice_count!=0u && ray.maxT==nbl_glsl_FLT_MAX; // not last vertex and has a BxDF and not NEE path
 			if (_continue)
 			{
 				// if we ever support spatially varying emissive, we'll need to hoist barycentric computation and UV fetching to the position fetching
@@ -89,7 +90,7 @@ void main()
 				
 				//
 				normalizedN = load_normal_and_prefetch_textures(
-					batchInstanceData,indices,compactBary,geomDenormal,material
+					batchInstanceData,indices,compactBary,geomNormal,material
 #ifdef TEX_PREFETCH_STREAM
 					,mat2(0.0) // TODO: Covariance Rendering
 #endif
@@ -103,10 +104,10 @@ void main()
 				);
 			}
 			else
-				contrib.worldspaceNormal = normalize(geomDenormal)*nbl_glsl_MC_colorToScalar(contrib.albedo);
+				contrib.worldspaceNormal = geomNormal*nbl_glsl_MC_colorToScalar(contrib.albedo);
 		}
 		else
-			Contribution_initMiss(contrib);
+			Contribution_initMiss(contrib,aovThroughputScale);
 			
 		Contribution_normalizeAoV(contrib);
 		
