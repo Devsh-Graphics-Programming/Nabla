@@ -7,7 +7,7 @@
 #include "nbl/asset/filters/CSummedAreaTableImageFilter.h"
 #include "nbl/ext/ScreenShot/ScreenShot.h"
 #include "../common/CommonAPI.h"
-//sss
+
 using namespace nbl;
 using namespace core;
 using namespace asset;
