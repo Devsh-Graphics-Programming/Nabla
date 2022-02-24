@@ -248,7 +248,7 @@ public:
 
 		CommonAPI::Init(
 			initOutput,
-			video::EAT_OPENGL,
+			video::EAT_VULKAN,
 			"35.GeometryCreator",
 			requiredInstanceFeatures,
 			optionalInstanceFeatures,
@@ -515,10 +515,7 @@ public:
 		auto& fence = m_frameComplete[m_resourceIx];
 
 		if (fence)
-		{
-			while (logicalDevice->waitForFences(1u, &fence.get(), false, MAX_TIMEOUT) == video::IGPUFence::ES_TIMEOUT) {}
-			logicalDevice->resetFences(1u, &fence.get());
-		}
+			logicalDevice->blockForFences(1u, &fence.get());
 		else
 			fence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
 
@@ -551,8 +548,6 @@ public:
 		scissor.offset = { 0, 0 };
 		scissor.extent = { WIN_W,WIN_H };
 		commandBuffer->setScissor(0u, 1u, &scissor);
-
-		swapchain->acquireNextImage(MAX_TIMEOUT, m_imageAcquire[m_resourceIx].get(), nullptr, &m_acquiredNextFBO);
 
 		video::IGPUCommandBuffer::SRenderpassBeginInfo beginInfo;
 		{
@@ -594,7 +589,8 @@ public:
 
 		commandBuffer->endRenderPass();
 		commandBuffer->end();
-
+		
+		logicalDevice->resetFences(1, &fence.get());
 		CommonAPI::Submit(
 			logicalDevice.get(),
 			swapchain.get(),

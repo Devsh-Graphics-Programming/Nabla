@@ -51,7 +51,7 @@ public:
 		m_optimalTilingUsages[format].storageImage = isAllowedImageStoreFormat(format) ? 1 : 0;
 		m_optimalTilingUsages[format].storageImageAtomic = isAllowedImageStoreAtomicFormat(format) ? 1 : 0;
 		m_optimalTilingUsages[format].attachment = isRenderableFormat(format) ? 1 : 0;
-		m_optimalTilingUsages[format].attachmentBlend = isRenderableFormat(format) ? 1 : 0;
+		m_optimalTilingUsages[format].attachmentBlend = (isRenderableFormat(format) && !isIntegerFormat(format)) ? 1 : 0;
 		m_optimalTilingUsages[format].blitSrc = isRenderableFormat(format) ? 1 : 0;
 		m_optimalTilingUsages[format].blitDst = isRenderableFormat(format) ? 1 : 0;
 		const bool anyUsageFlagSet =
@@ -91,8 +91,8 @@ public:
 
 		m_bufferUsages[format].vertexAttribute = isAllowedVertexAttribFormat(format) ? 1 : 0;
 		m_bufferUsages[format].bufferView = isAllowedBufferViewFormat(format) ? 1 : 0;
-		m_bufferUsages[format].storageBufferView = isAllowedBufferViewFormat(format) ? 1 : 0;
-		m_bufferUsages[format].storageBufferViewAtomic = isAllowedBufferViewFormat(format) ? 1 : 0;
+		m_bufferUsages[format].storageBufferView = (isAllowedBufferViewFormat(format) && isAllowedImageStoreFormat(format)) ? 1 : 0;
+		m_bufferUsages[format].storageBufferViewAtomic = (isAllowedBufferViewFormat(format) && isAllowedImageStoreAtomicFormat(format)) ? 1 : 0;
 		m_bufferUsages[format].accelerationStructureVertex = false;
 
 		m_bufferUsages[format].isInitialized = 1;
@@ -395,6 +395,7 @@ private:
 		case EF_R32G32B32_SFLOAT:
 		case EF_R32G32B32A32_SFLOAT:
 			return true;
+			// OES_vertex_type_10_10_10_2 doesn't provide formats supported by Vulkan because Alpha is in LSB
 
 		default: return false;
 		}

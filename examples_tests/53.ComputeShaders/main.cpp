@@ -127,7 +127,7 @@ class MeshLoadersApp : public ApplicationBase
 {
 	static constexpr uint32_t WIN_W = 1280;
 	static constexpr uint32_t WIN_H = 720;
-	static constexpr uint32_t FBO_COUNT = 1u;
+	static constexpr uint32_t FBO_COUNT = 2u;
 	static constexpr size_t NBL_FRAMES_TO_AVERAGE = 100ull;
 
 public:
@@ -236,7 +236,7 @@ APP_CONSTRUCTOR(MeshLoadersApp)
 		const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT);
 		const video::ISurface::SFormat surfaceFormat(asset::EF_R8G8B8A8_SRGB, asset::ECP_COUNT, asset::EOTF_UNKNOWN);
 
-		CommonAPI::InitWithDefaultExt(initOutput, video::EAT_OPENGL_ES, "MeshLoaders", WIN_W, WIN_H, FBO_COUNT, swapchainImageUsage, surfaceFormat, nbl::asset::EF_D32_SFLOAT);
+		CommonAPI::InitWithDefaultExt(initOutput, video::EAT_VULKAN, "MeshLoaders", WIN_W, WIN_H, FBO_COUNT, swapchainImageUsage, surfaceFormat, nbl::asset::EF_D32_SFLOAT);
 		window = std::move(initOutput.window);
 		gl = std::move(initOutput.apiConnection);
 		surface = std::move(initOutput.surface);
@@ -288,12 +288,17 @@ APP_CONSTRUCTOR(MeshLoadersApp)
 		}
 
 		auto cpuSSBOBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(SShaderStorageBufferObject));
+		cpuSSBOBuffer->addUsageFlags(asset::IBuffer::EUF_STORAGE_BUFFER_BIT);
 		triggerRandomSetup(reinterpret_cast<SShaderStorageBufferObject*>(cpuSSBOBuffer->getPointer()));
 		core::smart_refctd_ptr<video::IGPUBuffer> gpuSSBOBuffer;
 		{
+			cpu2gpuParams.beginCommandBuffers();
+
 			auto gpu_array = cpu2gpu.getGPUObjectsFromAssets(&cpuSSBOBuffer, &cpuSSBOBuffer + 1, cpu2gpuParams);
 			if (!gpu_array || gpu_array->size() < 1u || !(*gpu_array)[0])
 				assert(false);
+			
+			cpu2gpuParams.waitForCreationToComplete(false);
 
 			auto gpuSSBOOffsetBufferPair = (*gpu_array)[0];
 			gpuSSBOBuffer = core::smart_refctd_ptr<video::IGPUBuffer>(gpuSSBOOffsetBufferPair->getBuffer());
@@ -370,7 +375,7 @@ APP_CONSTRUCTOR(MeshLoadersApp)
 		primitiveAssemblyParams.primitiveType = EPT_POINT_LIST;
 		asset::SRasterizationParams rasterizationParams;
 
-		video::IGPUDescriptorSetLayout::SBinding gpuUboBinding;
+		video::IGPUDescriptorSetLayout::SBinding gpuUboBinding = {};
 		gpuUboBinding.count = 1u;
 		gpuUboBinding.binding = 0;
 		gpuUboBinding.stageFlags = static_cast<asset::ICPUShader::E_SHADER_STAGE>(asset::ICPUShader::ESS_VERTEX | asset::ICPUShader::ESS_FRAGMENT);
@@ -384,7 +389,7 @@ APP_CONSTRUCTOR(MeshLoadersApp)
 		video::IGPUBuffer::SCreationParams gpuUBOCreationParams;
 		//gpuUBOCreationParams.size = sizeof(SBasicViewParameters);
 		gpuUBOCreationParams.usage = asset::IBuffer::E_USAGE_FLAGS::EUF_UNIFORM_BUFFER_BIT;
-		gpuUBOCreationParams.sharingMode = asset::E_SHARING_MODE::ESM_CONCURRENT;
+		gpuUBOCreationParams.sharingMode = asset::E_SHARING_MODE::ESM_EXCLUSIVE;
 		gpuUBOCreationParams.queueFamilyIndexCount = 0u;
 		gpuUBOCreationParams.queueFamilyIndices = nullptr;
 

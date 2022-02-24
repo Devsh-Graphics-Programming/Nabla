@@ -103,11 +103,14 @@ public:
 
 static core::smart_refctd_ptr<system::ISystem> createSystem()
 {
-	core::smart_refctd_ptr<system::ISystemCaller> caller = nullptr;
+	nbl::core::smart_refctd_ptr<system::ISystemCaller> caller = nullptr;
 #ifdef _NBL_PLATFORM_WINDOWS_
-	caller = core::make_smart_refctd_ptr<nbl::system::CSystemCallerWin32>();
+	caller = nbl::core::make_smart_refctd_ptr<nbl::system::CSystemCallerWin32>();
 #endif
-	return make_smart_refctd_ptr<system::ISystem>(std::move(caller));
+#ifdef _NBL_PLATFORM_WINDOWS_
+	return nbl::core::make_smart_refctd_ptr<nbl::system::CSystemWin32>(std::move(caller));
+#endif
+	return nullptr;
 }
 
 class HelloWorldSampleApp : public system::IApplicationFramework, public ui::IGraphicalApplicationFramework

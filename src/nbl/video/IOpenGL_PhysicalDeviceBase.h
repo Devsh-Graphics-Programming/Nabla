@@ -366,6 +366,7 @@ public:
 		{
 			GetIntegerv(GL_MAX_GEOMETRY_OUTPUT_VERTICES, &num);
 			m_glfeatures.MaxGeometryVerticesOut = static_cast<uint32_t>(num);
+			m_features.geometryShader = true;
 		}
 
 		if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_texture_lod_bias))

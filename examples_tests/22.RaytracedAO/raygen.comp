@@ -79,35 +79,41 @@ void main()
 			// get material while waiting for indices
 			const nbl_glsl_MC_oriented_material_t material = nbl_glsl_MC_material_data_t_getOriented(batchInstanceData.material,frontfacing);
 			contrib.color = contrib.albedo = nbl_glsl_MC_oriented_material_t_getEmissive(material);
-
-			// load vertex data
-			vec3 geomDenormal;
-			const vec3 lastVxPos = load_positions(geomDenormal,batchInstanceData,indices);
-						
-			// get initial scramble key while waiting for vertex positions
-			const nbl_glsl_xoroshiro64star_state_t scramble_start_state = texelFetch(scramblebuf,ivec2(outPixelLocation),0).rg;
-
-			//
-			normalizedN = load_normal_and_prefetch_textures(
-				batchInstanceData,indices,compactBary,geomDenormal,material
-				#ifdef TEX_PREFETCH_STREAM
-				,dBarydScreen
-				#endif
-			);
 			
-			const vec3 origin = dPdBary*compactBary+lastVxPos;
-			normalizedV = normalize(pc.cummon.camPos-origin);
+			// load vertex data
+			vec3 geomNormal;
+			const vec3 lastVxPos = load_positions(geomNormal,batchInstanceData,indices);
 
-			// generate rays
-			const uint vertex_depth = 1u;
-			generate_next_rays(
-				samplesPerPixelPerDispatch,material,frontfacing,vertex_depth,
-				scramble_start_state,pc.cummon.samplesComputed,outPixelLocation,origin,
-				vec3(pc.cummon.rcpFramesDispatched),1.f,contrib.albedo,contrib.worldspaceNormal
-			);
+			// little optimization for non-twosided materials
+			if (material.genchoice_count!=0u)
+			{			
+				// get initial scramble key while waiting for vertex positions
+				const nbl_glsl_xoroshiro64star_state_t scramble_start_state = texelFetch(scramblebuf,ivec2(outPixelLocation),0).rg;
+
+				//
+				normalizedN = load_normal_and_prefetch_textures(
+					batchInstanceData,indices,compactBary,geomNormal,material
+					#ifdef TEX_PREFETCH_STREAM
+					,dBarydScreen
+					#endif
+				);
+			
+				const vec3 origin = dPdBary*compactBary+lastVxPos;
+				normalizedV = normalize(pc.cummon.camPos-origin);
+
+				// generate rays
+				const uint vertex_depth = 1u;
+				generate_next_rays(
+					samplesPerPixelPerDispatch,material,frontfacing,vertex_depth,
+					scramble_start_state,pc.cummon.samplesComputed,outPixelLocation,origin,
+					vec3(pc.cummon.rcpFramesDispatched),1.f,contrib.albedo,contrib.worldspaceNormal
+				);
+			}
+			else
+				contrib.worldspaceNormal = geomNormal*nbl_glsl_MC_colorToScalar(contrib.albedo);
 		}
 		else
-			Contribution_initMiss(contrib);
+			Contribution_initMiss(contrib,1.f);
 
 		if (bool(pc.cummon.depth))
 		{

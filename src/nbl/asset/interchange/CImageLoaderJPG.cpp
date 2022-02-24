@@ -156,12 +156,11 @@ bool CImageLoaderJPG::isALoadableFileFormat(system::IFile* _file, const system::
 	if (!_file)
 		return false;
 
-	int32_t jfif = 0;
-	
+	uint32_t header = 0;	
 	system::future<size_t> future;
-	_file->read(future, &jfif, 6, sizeof(uint32_t));
+	_file->read(future, &header, 6, sizeof(uint32_t));
 	future.get();
-	return (jfif == 0x4a464946 || jfif == 0x4649464a || jfif == 0x66697845u || jfif == 0x70747468u); // maybe 0x4a464946 can go
+	return (header&0x00FFD8FFu)==0x00FFD8FFu;
 #endif
 }
 

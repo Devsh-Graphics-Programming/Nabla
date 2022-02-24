@@ -79,8 +79,10 @@ void storeAccumulation(in vec3 color, in uvec3 coord)
 }
 void storeAccumulation(in vec3 prev, in vec3 delta, in uvec3 coord)
 {
-	if (any(greaterThan(abs(delta),vec3(nbl_glsl_FLT_MIN*16.f))))
-		storeAccumulation(prev+delta,coord);
+	const vec3 newVal = prev+delta;
+	const uvec3 diff = floatBitsToUint(newVal)^floatBitsToUint(prev);
+	if (bool((diff.x|diff.y|diff.z)&0x7ffffff0u))
+		storeAccumulation(newVal,coord);
 }
 
 vec3 fetchAlbedo(in uvec3 coord)
@@ -152,7 +154,7 @@ bool has_world_transform(in nbl_glsl_ext_Mitsuba_Loader_instance_data_t batchIns
 
 #include <nbl/builtin/glsl/barycentric/utils.glsl>
 mat2x3 dPdBary;
-vec3 load_positions(out vec3 geomDenormal, in nbl_glsl_ext_Mitsuba_Loader_instance_data_t batchInstanceData, in uvec3 indices)
+vec3 load_positions(out vec3 geomNormal, in nbl_glsl_ext_Mitsuba_Loader_instance_data_t batchInstanceData, in uvec3 indices)
 {
 	mat3 positions = mat3(
 		nbl_glsl_fetchVtxPos(indices[0],batchInstanceData),
@@ -165,7 +167,7 @@ vec3 load_positions(out vec3 geomDenormal, in nbl_glsl_ext_Mitsuba_Loader_instan
 	//
 	for (int i=0; i<2; i++)
 		dPdBary[i] = positions[i]-positions[2];
-	geomDenormal = cross(dPdBary[0],dPdBary[1]);
+	geomNormal = normalize(cross(dPdBary[0],dPdBary[1]));
 	//
 	if (tform)
 		positions[2] += batchInstanceData.tform[3];
@@ -194,7 +196,7 @@ bool needs_texture_prefetch(in nbl_glsl_ext_Mitsuba_Loader_instance_data_t batch
 
 vec3 load_normal_and_prefetch_textures(
 	in nbl_glsl_ext_Mitsuba_Loader_instance_data_t batchInstanceData,
-	in uvec3 indices, in vec2 compactBary, in vec3 geomDenormal,
+	in uvec3 indices, in vec2 compactBary, in vec3 geomNormal,
 	in nbl_glsl_MC_oriented_material_t material
 #ifdef TEX_PREFETCH_STREAM
 	,in mat2 dBarydScreen
@@ -222,7 +224,6 @@ vec3 load_normal_and_prefetch_textures(
 	// the rest is always only needed for continuing rays
 
 
-	vec3 normal = geomDenormal;
 	// while waiting for the scramble state
 	// TODO: optimize, add loads more flags to control this
 	const bool needsSmoothNormals = true;
@@ -235,18 +236,20 @@ vec3 load_normal_and_prefetch_textures(
 		);
 
 		// not needed for NEE unless doing Area or Projected Solid Angle Sampling
-		const vec3 smoothNormal = normals*nbl_glsl_barycentric_expand(compactBary);
-		// TODO: first check wouldn't be needed if we had `needsSmoothNormals` implemented
-		if (!isnan(smoothNormal.x) && has_world_transform(batchInstanceData))
+		vec3 smoothNormal = normals*nbl_glsl_barycentric_expand(compactBary);
+		if (has_world_transform(batchInstanceData))
 		{
-			normal = vec3(
+			smoothNormal = vec3(
 				dot(batchInstanceData.normalMatrixRow0,smoothNormal),
 				dot(batchInstanceData.normalMatrixRow1,smoothNormal),
 				dot(batchInstanceData.normalMatrixRow2,smoothNormal)
 			);
 		}
+		// TODO: this check wouldn't be needed if we had `needsSmoothNormals` implemented
+		if (!isnan(smoothNormal.x))
+			return normalize(smoothNormal);
 	}
-	return normalize(normal);
+	return geomNormal;
 }
 
 #include <nbl/builtin/glsl/sampling/quantized_sequence.glsl>
@@ -324,8 +327,8 @@ void generate_next_rays(
 			worldspaceNormal += result.aov.normal/float(maxRaysToGen);
 
 			nextThroughput[i] = prevThroughput*result.quotient;
-			// do denormalized half floats flush to 0 ?
-			if (max(max(nextThroughput[i].x,nextThroughput[i].y),nextThroughput[i].z)>=exp2(-14.f))
+			// TODO: add some sort of factor to this inequality that could account for highest possible emission (direct or indirect) we could encounter
+			if (max(max(nextThroughput[i].x,nextThroughput[i].y),nextThroughput[i].z)>exp2(-19.f)) // match output mantissa (won't contribute anything afterwards)
 			{
 				maxT[i] = nbl_glsl_FLT_MAX;
 				nextAoVThroughputScale[i] = prevAoVThroughputScale*result.aov.throughputFactor;
@@ -392,11 +395,11 @@ vec2 SampleSphericalMap(vec3 v)
     return uv;
 }
 
-void Contribution_initMiss(out Contribution contrib)
+void Contribution_initMiss(out Contribution contrib, in float aovThroughputScale)
 {
 	vec2 uv = SampleSphericalMap(-normalizedV);
 	// funny little trick borrowed from things like Progressive Photon Mapping
-	const float bias = 0.25*sqrt(pc.cummon.rcpFramesDispatched);
+	const float bias = 0.0625f*(1.f-aovThroughputScale)*pow(pc.cummon.rcpFramesDispatched,0.08f);
 	contrib.albedo = contrib.color = textureGrad(envMap, uv, vec2(bias*0.5,0.f), vec2(0.f,bias)).rgb;
 	contrib.worldspaceNormal = normalizedV;
 }
