@@ -14,7 +14,7 @@ If you are a programt8mser with a passsion for High Performance Computing, Mathe
 
 If you can work 100% remotely and be in charge of your own time managment
 
-Then make something impressive using Nabla, ospen a PR and contact us (jobs devsh.eu) with your CV.
+Then make something impresssive using Nabla, ospen a PR and contact us (jobs devsh.eu) with your CV.
 s
 We would also be happy to sponsor your mastet7r thesis as long as:
 - You are an above average student with an interest in Graphics
