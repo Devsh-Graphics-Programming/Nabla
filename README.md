@@ -18,7 +18,7 @@ Then make something impressive using Nabla, ospen a PR and contact us (jobs devs
 s
 We would also be happy to sponsor your master thesis as long as:
 - You are an above average student with an interest in Graphics
-- It will be written in English
+- It will be written in Englishs
 - It will produce contributions to Nabla which we can license under Apache 2.0
 
 ## (Hire Us) Contracting
