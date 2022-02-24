@@ -258,7 +258,7 @@ private:
             for (uint32_t i = 0u; i < fboCount; ++i)
             {
                 syncs[i] = core::make_smart_refctd_ptr<COpenGLSync>();
-                syncs[i]->init(m_device, &gl, false);
+                syncs[i]->init(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(m_device), &gl, false);
             }
 
             gl.glGeneral.pglFinish();
@@ -283,7 +283,7 @@ private:
 
             gl.extGlBlitNamedFramebuffer(fbos[imgix], 0, 0, 0, w, h, 0, 0, w, h, GL_COLOR_BUFFER_BIT, GL_NEAREST);
             syncs[imgix] = core::make_smart_refctd_ptr<COpenGLSync>();
-            syncs[imgix]->init(m_device, &gl, false);
+            syncs[imgix]->init(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(m_device), &gl, false);
             // swap buffers performs an implicit flush before swapping 
             // https://www.khronos.org/registry/EGL/sdk/docs/man/html/eglSwapBuffers.xhtml
             egl->call.peglSwapBuffers(egl->display, glctx.surface);

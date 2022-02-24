@@ -263,7 +263,7 @@ class COpenGL_Queue final : public IGPUQueue
 
                     if (submit.syncToInit)
                     {
-                        submit.syncToInit->init(m_device, &gl);
+                        submit.syncToInit->init(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(m_device), &gl);
                     }
                     else // need to flush, otherwise OpenGL goes gaslighting the user with wrong error messages
                         gl.glGeneral.pglFlush();

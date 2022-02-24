@@ -19,8 +19,7 @@ class COpenGLFence final : public IGPUFence, public IOpenGLSyncPrimitiveBase
         // signaled ctor
         COpenGLFence(core::smart_refctd_ptr<IOpenGL_LogicalDevice>&& dev, IOpenGL_FunctionTable* gl) : IGPUFence(core::smart_refctd_ptr<const ILogicalDevice>(dev), ECF_SIGNALED_BIT)
         {
-            auto sync = core::make_smart_refctd_ptr<COpenGLSync>();
-            sync->initSignaled(dev.get(), gl);
+            auto sync = core::make_smart_refctd_ptr<COpenGLSync>(std::move(dev),gl,COpenGLSync::signalled);
             associateGLSync(std::move(sync));
         }
         // un-signaled ctor
