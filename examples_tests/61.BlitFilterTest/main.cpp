@@ -11,7 +11,7 @@ using namespace nbl::core;
 using namespace nbl::video;
 
 using ScaledBoxKernel = asset::CScaledImageFilterKernel<CBoxImageFilterKernel>;
-using BlitFilter = asset::CBlitImageFilter<false, false, asset::VoidSwizzle, asset::IdentityDither, ScaledBoxKernel, ScaledBoxKernel, ScaledBoxKernel>;
+using BlitFilter = asset::CBlitImageFilter<asset::VoidSwizzle, asset::IdentityDither, void, false, ScaledBoxKernel, ScaledBoxKernel, ScaledBoxKernel>;
 
 core::smart_refctd_ptr<ICPUImage> createCPUImage(const std::array<uint32_t, 2>& dims)
 {
@@ -49,9 +49,9 @@ void blit(core::smart_refctd_ptr<ICPUImage> inImage, core::smart_refctd_ptr<ICPU
 	const core::vectorSIMDf scaleY(1.f, 3.f, 1.f, 1.f);
 	const core::vectorSIMDf scaleZ(1.f, 1.f, 1.f, 1.f);
 
-	auto kernelX = ScaledBoxKernel(scaleX, CBoxImageFilterKernel()); // [-3/2, 3/2]
-	auto kernelY = ScaledBoxKernel(scaleY, CBoxImageFilterKernel()); // [-3/2, 3/2]
-	auto kernelZ = ScaledBoxKernel(scaleZ, CBoxImageFilterKernel()); // [-1/2, 1/2]
+	auto kernelX = ScaledBoxKernel(scaleX, CBoxImageFilterKernel()); // (-3/2, 3/2)
+	auto kernelY = ScaledBoxKernel(scaleY, CBoxImageFilterKernel()); // (-3/2, 3/2)
+	auto kernelZ = ScaledBoxKernel(scaleZ, CBoxImageFilterKernel()); // (-1/2, 1/2)
 
 	BlitFilter::state_type blitFilterState(std::move(kernelX), std::move(kernelY), std::move(kernelZ));
 	blitFilterState.inOffsetBaseLayer = core::vectorSIMDu32();
@@ -72,32 +72,17 @@ void blit(core::smart_refctd_ptr<ICPUImage> inImage, core::smart_refctd_ptr<ICPU
 	blitFilterState.scratchMemoryByteSize = BlitFilter::getRequiredScratchByteSize(&blitFilterState);
 	blitFilterState.scratchMemory = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(blitFilterState.scratchMemoryByteSize, 32));
 
+	if (useLUT)
+		BlitFilter::CState::computePhaseSupportLUT(&blitFilterState);
+
 	if (!BlitFilter::execute(&blitFilterState))
-		os::Printer::log("Blit filter just shit the bed", ELL_WARNING);
+		printf("Blit filter just shit the bed\n");
 
 	_NBL_ALIGNED_FREE(blitFilterState.scratchMemory);
 }
 
 int main()
 {
-	nbl::SIrrlichtCreationParameters params;
-	params.Bits = 24; //may have to set to 32bit for some platforms
-	params.ZBufferBits = 24; //we'd like 32bit here
-	params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing
-	params.WindowSize = core::dimension2d<uint32_t>(1280, 720);
-	params.Fullscreen = false;
-	params.Vsync = false;
-	params.Doublebuffer = true;
-	params.Stencilbuffer = false; //! This will not even be a choice soon
-	params.AuxGLContexts = 16;
-	auto device = createDeviceEx(params);
-
-	if (!device)
-		return 1;
-
-	video::IVideoDriver* driver = device->getVideoDriver();
-    IAssetManager* assetManager = device->getAssetManager();
-
 	const std::array<uint32_t, 2> inImageDims = { 800u, 5u };
 	const std::array<uint32_t, 2> outImageDims = { 16u, 69u };
 
@@ -114,10 +99,7 @@ int main()
 	}
 	core::smart_refctd_ptr<ICPUImage> outImage_withoutLUT = createCPUImage(outImageDims);
 	core::smart_refctd_ptr<ICPUImage> outImage_withLUT = createCPUImage(outImageDims);
-
-	using ScaledBoxKernel = asset::CScaledImageFilterKernel<CBoxImageFilterKernel>;
-	using BlitFilter = asset::CBlitImageFilter<false, false, asset::VoidSwizzle, asset::IdentityDither, ScaledBoxKernel, ScaledBoxKernel, ScaledBoxKernel>;
-
+	
 	blit(inImage, outImage_withoutLUT, false);
 	blit(inImage, outImage_withLUT, true);
 
