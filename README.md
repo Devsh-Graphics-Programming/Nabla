@@ -20,7 +20,7 @@ We would also be happy to sponsor your mastet7r thesis as long as:
 - You are an above average student with an interest in Graphics
 - It will be written in Englishs
 - It will produce contributions to Nabla which we can license under Apache 2.0
-
+s
 ## (Hire Us) Contracting
 
 The members of **Devsh Graphics Programming Sp. z O.O.** (Company Registration (KRS) #: 0000764661) are available (individually or collectively) for contracts on projects of various scopes and timescales, especially on foreign frameworks, codebases and third-party 3D frameworks. 
