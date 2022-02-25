@@ -47,12 +47,14 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 	
 	# EXTRA_SOURCES is var containing non-common names of sources (if any such sources, then EXTRA_SOURCES must be set before including this cmake code)
 	add_dependencies(${EXECUTABLE_NAME} Nabla)
-
+	get_target_property(NBL_EGL_INCLUDE_DIRECORIES egl INCLUDE_DIRECTORIES)
+	
 	target_include_directories(${EXECUTABLE_NAME}
 		PUBLIC ../../include
 		PRIVATE ${_EXTRA_INCLUDES}
+		PRIVATE ${NBL_EGL_INCLUDE_DIRECORIES}
 	)
-	target_link_libraries(${EXECUTABLE_NAME} Nabla ${_EXTRA_LIBS}) # see, this is how you should code to resolve github issue 311
+	target_link_libraries(${EXECUTABLE_NAME} PUBLIC Nabla ${_EXTRA_LIBS}) # see, this is how you should code to resolve github issue 311
 
 	add_compile_options(${_EXTRA_OPTIONS})
 	
