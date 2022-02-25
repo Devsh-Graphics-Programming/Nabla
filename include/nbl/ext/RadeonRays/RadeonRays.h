@@ -49,10 +49,7 @@ class Manager final : public core::IReferenceCounted
 
 		
 		std::pair<::RadeonRays::Buffer*,cl_mem> linkBuffer(const video::IGPUBuffer* buffer, cl_mem_flags access);
-		inline void deleteRRBuffer(::RadeonRays::Buffer* buffer)
-		{
-			rr->DeleteBuffer(buffer);
-		}
+		void unlinkBuffer(std::pair<::RadeonRays::Buffer*,cl_mem>&& link);
 
 
 		struct MeshBufferRRShapeCache
@@ -203,6 +200,8 @@ class Manager final : public core::IReferenceCounted
 			out_cols[1] = cross(in_rows[2],in_rows[0]);
 			out_cols[2] = cross(in_rows[0],in_rows[1]);
 			const double determinant = dot(in_rows[0],out_cols[0]);
+			//if (core::isnan(determinant)||determinant<FLT_MIN)
+				//exit();
 			out_cols[3] = {};
 			const auto translation = transform.getTranslation();
 			for (auto i=0; i<3; i++)

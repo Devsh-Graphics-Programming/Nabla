@@ -5,7 +5,7 @@
 #ifndef __NBL_ASSET_I_DESCRIPTOR_SET_LAYOUT_H_INCLUDED__
 #define __NBL_ASSET_I_DESCRIPTOR_SET_LAYOUT_H_INCLUDED__
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 #include "nbl/core/SRange.h"
 #include "nbl/asset/ISpecializedShader.h"
 
@@ -26,6 +26,14 @@ enum E_DESCRIPTOR_TYPE : uint32_t
     EDT_UNIFORM_BUFFER_DYNAMIC = 8,
     EDT_STORAGE_BUFFER_DYNAMIC = 9,
     EDT_INPUT_ATTACHMENT = 10,
+	// Provided by VK_EXT_inline_uniform_block
+	EDT_INLINE_UNIFORM_BLOCK_EXT = 1000138000,
+	// Provided by VK_KHR_acceleration_structure
+	EDT_ACCELERATION_STRUCTURE_KHR = 1000150000,
+	// Provided by VK_NV_ray_tracing
+	EDT_ACCELERATION_STRUCTURE_NV = 1000165000,
+	// Provided by VK_VALVE_mutable_descriptor_type
+	EDT_MUTABLE_VALVE = 1000351000,
 	EDT_INVALID = ~0u
 };
 
@@ -78,7 +86,7 @@ class IDescriptorSetLayout : public virtual core::IReferenceCounted
 			uint32_t binding;
 			E_DESCRIPTOR_TYPE type;
 			uint32_t count;
-			ISpecializedShader::E_SHADER_STAGE stageFlags;
+			IShader::E_SHADER_STAGE stageFlags;
 			const core::smart_refctd_ptr<sampler_type>* samplers;
 
 			bool operator<(const SBinding& rhs) const
@@ -132,11 +140,25 @@ class IDescriptorSetLayout : public virtual core::IReferenceCounted
 			}
 			bool operator!=(const SBinding& rhs) const
 			{
-				return !((*this == rhs));
+				const bool equal = operator==(rhs);
+				return !equal;
 			}
 		};
+		
+		// utility functions
+		static inline void fillBindingsSameType(SBinding* bindings, uint32_t count, E_DESCRIPTOR_TYPE type, const uint32_t* counts=nullptr, asset::IShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
+		{
+			for (auto i=0u; i<count; i++)
+			{
+				bindings[i].binding = i;
+				bindings[i].type = type;
+				bindings[i].count = counts ? counts[i]:1u;
+				bindings[i].stageFlags = stageAccessFlags ? stageAccessFlags[i]:asset::IShader::ESS_ALL;
+				bindings[i].samplers = nullptr;
+			}
+		}
 
-	public:
+		//
 		IDescriptorSetLayout(const SBinding* const _begin, const SBinding* const _end) : 
 			m_bindings((_end-_begin) ? core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<SBinding>>(_end-_begin) : nullptr)
 		{

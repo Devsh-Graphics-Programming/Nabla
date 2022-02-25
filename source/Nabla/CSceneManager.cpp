@@ -10,7 +10,7 @@
 #include "IWriteFile.h"
 #include "IrrlichtDevice.h"
 
-#include "os.h"
+#include "nbl_os.h"
 
 #include "CCameraSceneNode.h"
 
@@ -108,7 +108,7 @@ ICameraSceneNode* CSceneManager::addCameraSceneNodeMaya(IDummyTransformationScen
 ICameraSceneNode* CSceneManager::addCameraSceneNodeModifiedMaya(IDummyTransformationSceneNode* parent,
 	float rotateSpeed, float zoomSpeed,
 	float translationSpeed, int32_t id, float distance,
-	float scrlZoomSpeed, bool zoomWithRMB,
+	float scrlZoomSpeedMultiplier, bool zoomWithRMB,
 	bool makeActive)
 {
 	ICameraSceneNode* node = addCameraSceneNode(parent, core::vector3df(),
@@ -116,7 +116,7 @@ ICameraSceneNode* CSceneManager::addCameraSceneNodeModifiedMaya(IDummyTransforma
 	if (node)
 	{
 		ISceneNodeAnimator* anm = new CSceneNodeAnimatorCameraModifiedMaya(CursorControl,
-			rotateSpeed, zoomSpeed, translationSpeed, distance, scrlZoomSpeed, zoomWithRMB);
+			rotateSpeed, zoomSpeed, translationSpeed, distance, scrlZoomSpeedMultiplier, zoomWithRMB);
 
 		node->addAnimator(anm);
 		anm->drop();

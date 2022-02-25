@@ -2,22 +2,14 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __NBL_MATRIX3X4SIMD_IMPL_H_INCLUDED__
-#define __NBL_MATRIX3X4SIMD_IMPL_H_INCLUDED__
+#ifndef _NBL_MATRIX3X4SIMD_IMPL_H_INCLUDED_
+#define _NBL_MATRIX3X4SIMD_IMPL_H_INCLUDED_
 
 #include "matrix3x4SIMD.h"
 #include "nbl/core/math/glslFunctions.tcc"
 
-#include "matrix4x3.h"
-
-namespace nbl
+namespace nbl::core
 {
-namespace core
-{
-
-
-
-
 
 // TODO: move to another implementation header
 inline quaternion::quaternion(const matrix3x4SIMD& m)
@@ -67,35 +59,6 @@ inline quaternion::quaternion(const matrix3x4SIMD& m)
 	*this = normalize(*this);
 }
 
-
-
-
-
-
-
-inline matrix3x4SIMD& matrix3x4SIMD::set(const matrix4x3& _retarded)
-{
-	core::matrix4SIMD c;
-	for (size_t i = 0u; i < VectorCount; ++i)
-		c.rows[i] = vectorSIMDf(&_retarded.getColumn(i).X);
-	*this = core::transpose(c).extractSub3x4();
-	for (size_t i = 0u; i < VectorCount; ++i)
-		rows[i][3] = (&_retarded.getColumn(3).X)[i];
-
-	return *this;
-}
-inline matrix4x3 matrix3x4SIMD::getAsRetardedIrrlichtMatrix() const
-{
-	auto c = core::transpose(core::matrix4SIMD(*this));
-
-	matrix4x3 ret;
-	for (size_t i = 0u; i < VectorCount; ++i)
-		_mm_storeu_ps(&ret.getColumn(i).X, c.rows[i].getAsRegister());
-	std::copy(c.rows[VectorCount].pointer, c.rows[VectorCount].pointer + VectorCount, &ret.getColumn(VectorCount).X);
-
-	return ret;
-}
-
 inline bool matrix3x4SIMD::operator!=(const matrix3x4SIMD& _other)
 {
 	for (size_t i = 0u; i < VectorCount; ++i)
@@ -121,26 +84,6 @@ inline matrix3x4SIMD& matrix3x4SIMD::operator*=(float _scalar)
 	for (size_t i = 0u; i < VectorCount; ++i)
 		rows[i] *= _scalar;
 	return *this;
-}
-
-
-inline aabbox3df transformBoxEx(const aabbox3df& box, const matrix3x4SIMD& _mat)
-{
-	vectorSIMDf inMinPt(&box.MinEdge.X);
-	vectorSIMDf inMaxPt(box.MaxEdge.X, box.MaxEdge.Y, box.MaxEdge.Z); // TODO: after change to SSE aabbox3df
-	inMinPt.makeSafe3D();
-	inMaxPt.makeSafe3D();
-
-	auto c = transpose(matrix4SIMD(_mat));
-
-	const vectorSIMDf zero;
-	vectorSIMDf minPt = c.rows[0] * mix(inMinPt.xxxw(), inMaxPt.xxxw(), c.rows[0] < zero) + c.rows[1] * mix(inMinPt.yyyw(), inMaxPt.yyyw(), c.rows[1] < zero) + c.rows[2] * mix(inMinPt.zzzw(), inMaxPt.zzzw(), c.rows[2] < zero);
-	vectorSIMDf maxPt = c.rows[0] * mix(inMaxPt.xxxw(), inMinPt.xxxw(), c.rows[0] < zero) + c.rows[1] * mix(inMaxPt.yyyw(), inMinPt.yyyw(), c.rows[1] < zero) + c.rows[2] * mix(inMaxPt.zzzw(), inMinPt.zzzw(), c.rows[2] < zero);
-
-	minPt += c.rows[3];
-	maxPt += c.rows[3];
-
-	return aabbox3df(minPt.getAsVector3df(), maxPt.getAsVector3df());
 }
 
 #ifdef __NBL_COMPILE_WITH_SSE3
@@ -210,16 +153,19 @@ inline vectorSIMDf matrix3x4SIMD::getTranslation3D() const
 
 inline matrix3x4SIMD& matrix3x4SIMD::setScale(const core::vectorSIMDf& _scale)
 {
-	const __m128i mask0001 = BUILD_MASKF(0, 0, 0, 1);
+	const vectorSIMDu32 mask0001 = vectorSIMDu32(BUILD_MASKF(0, 0, 0, 1));
+	const vectorSIMDu32 mask0010 = vectorSIMDu32(BUILD_MASKF(0, 0, 1, 0));
+	const vectorSIMDu32 mask0100 = vectorSIMDu32(BUILD_MASKF(0, 1, 0, 0));
+	const vectorSIMDu32 mask1000 = vectorSIMDu32(BUILD_MASKF(1, 0, 0, 0));
 
 	const vectorSIMDu32& scaleAlias = reinterpret_cast<const vectorSIMDu32&>(_scale);
 
 	vectorSIMDu32& rowAlias0 = reinterpret_cast<vectorSIMDu32&>(rows[0]);
 	vectorSIMDu32& rowAlias1 = reinterpret_cast<vectorSIMDu32&>(rows[1]);
 	vectorSIMDu32& rowAlias2 = reinterpret_cast<vectorSIMDu32&>(rows[2]);
-	rowAlias0 = (scaleAlias & BUILD_MASKF(1, 0, 0, 0)) | (rowAlias0 & mask0001);
-	rowAlias1 = (scaleAlias & BUILD_MASKF(0, 1, 0, 0)) | (rowAlias1 & mask0001);
-	rowAlias2 = (scaleAlias & BUILD_MASKF(0, 0, 1, 0)) | (rowAlias2 & mask0001);
+	rowAlias0 = (scaleAlias & reinterpret_cast<const vectorSIMDf&>(mask1000)) | (rowAlias0 & reinterpret_cast<const vectorSIMDf&>(mask0001));
+	rowAlias1 = (scaleAlias & reinterpret_cast<const vectorSIMDf&>(mask0100)) | (rowAlias1 & reinterpret_cast<const vectorSIMDf&>(mask0001));
+	rowAlias2 = (scaleAlias & reinterpret_cast<const vectorSIMDf&>(mask0010)) | (rowAlias2 & reinterpret_cast<const vectorSIMDf&>(mask0001));
 
 	return *this;
 }
@@ -328,17 +274,17 @@ inline matrix3x4SIMD matrix3x4SIMD::buildCameraLookAtMatrixRH(
 
 inline matrix3x4SIMD& matrix3x4SIMD::setRotation(const core::quaternion& _quat)
 {
-	const __m128i mask0001 = BUILD_MASKF(0, 0, 0, 1);
+	const vectorSIMDu32 mask0001 = vectorSIMDu32(BUILD_MASKF(0, 0, 0, 1));
 	const __m128i mask1110 = BUILD_MASKF(1, 1, 1, 0);
 
 	const core::vectorSIMDf& quat = reinterpret_cast<const core::vectorSIMDf&>(_quat);
-	rows[0] = ((quat.yyyy() * ((quat.yxwx() & mask1110) * vectorSIMDf(2.f))) + (quat.zzzz() * (quat.zwxx() & mask1110) * vectorSIMDf(2.f, -2.f, 2.f, 0.f))) | (reinterpret_cast<const vectorSIMDu32&>(rows[0]) & mask0001);
+	rows[0] = ((quat.yyyy() * ((quat.yxwx() & mask1110) * vectorSIMDf(2.f))) + (quat.zzzz() * (quat.zwxx() & mask1110) * vectorSIMDf(2.f, -2.f, 2.f, 0.f))) | (reinterpret_cast<const vectorSIMDu32&>(rows[0]) & (mask0001));
 	rows[0].x = 1.f - rows[0].x;
 
-	rows[1] = ((quat.zzzz() * ((quat.wzyx() & mask1110) * vectorSIMDf(2.f))) + (quat.xxxx() * (quat.yxwx() & mask1110) * vectorSIMDf(2.f, 2.f, -2.f, 0.f))) | (reinterpret_cast<const vectorSIMDu32&>(rows[1]) & mask0001);
+	rows[1] = ((quat.zzzz() * ((quat.wzyx() & mask1110) * vectorSIMDf(2.f))) + (quat.xxxx() * (quat.yxwx() & mask1110) * vectorSIMDf(2.f, 2.f, -2.f, 0.f))) | (reinterpret_cast<const vectorSIMDu32&>(rows[1]) & (mask0001));
 	rows[1].y = 1.f - rows[1].y;
 
-	rows[2] = ((quat.xxxx() * ((quat.zwxx() & mask1110) * vectorSIMDf(2.f))) + (quat.yyyy() * (quat.wzyx() & mask1110) * vectorSIMDf(-2.f, 2.f, 2.f, 0.f))) | (reinterpret_cast<const vectorSIMDu32&>(rows[2]) & mask0001);
+	rows[2] = ((quat.xxxx() * ((quat.zwxx() & mask1110) * vectorSIMDf(2.f))) + (quat.yyyy() * (quat.wzyx() & mask1110) * vectorSIMDf(-2.f, 2.f, 2.f, 0.f))) | (reinterpret_cast<const vectorSIMDu32&>(rows[2]) & (mask0001));
 	rows[2].z = 1.f - rows[2].z;
 
 	return *this;
@@ -519,7 +465,6 @@ inline __m128d matrix3x4SIMD::doJob_d(const __m128d& _a0, const __m128d& _a1, co
 #error "no implementation"
 #endif
 
-}
 } // nbl::core
 
 #endif

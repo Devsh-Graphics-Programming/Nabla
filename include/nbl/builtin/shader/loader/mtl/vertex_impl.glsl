@@ -48,13 +48,14 @@ layout (set = 1, binding = 0, row_major, std140) uniform UBO
 #define _NBL_VERT_MAIN_DEFINED_
 void main()
 {
-    LocalPos = nbl_glsl_fetchVtxPos(gl_VertexIndex, gl_DrawID);
+	//TODO: 0 -> gl_DrawID
+    LocalPos = nbl_glsl_fetchVtxPos(gl_VertexIndex, /*gl_DrawID*/ 0);
     gl_Position = nbl_glsl_pseudoMul4x4with3x1(CamData.params.MVP, LocalPos);
     ViewPos = nbl_glsl_pseudoMul3x4with3x1(CamData.params.MV, LocalPos);
     mat3 normalMat = nbl_glsl_SBasicViewParameters_GetNormalMat(CamData.params.NormalMatAndEyePos);
-    Normal = normalMat*normalize(nbl_glsl_fetchVtxNormal(gl_VertexIndex, gl_DrawID));
+    Normal = normalMat*normalize(nbl_glsl_fetchVtxNormal(gl_VertexIndex, /*gl_DrawID*/ 0));
 #ifndef _NO_UV
-    UV = nbl_glsl_fetchVtxUV(gl_VertexIndex, gl_DrawID);
+    UV = nbl_glsl_fetchVtxUV(gl_VertexIndex, /*gl_DrawID*/ 0);
 #endif
 }
 #endif //_NBL_VERT_MAIN_DEFINED_

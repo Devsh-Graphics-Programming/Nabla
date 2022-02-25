@@ -7,66 +7,40 @@
 
 #include "nbl/core/alloc/address_allocator_traits.h"
 #include "nbl/video/alloc/GPUMemoryAllocatorBase.h"
-#include "IGPUBuffer.h"
 
-namespace nbl
+#include "nbl/video/IGPUBuffer.h"
+
+namespace nbl::video
 {
-namespace video
+
+//! TODO: Use a GPU heap allocator instead of buffer directly -- after move to Vulkan only
+//!     Vulkan and OpenGL should have different implementations
+//!     We should probably split GPUBuffer from Memory allocation (fake it on OpenGL)
+class SimpleGPUBufferAllocator : public GPUMemoryAllocatorBase
 {
+    protected:
+        IDriverMemoryBacked::SDriverMemoryRequirements  mBufferMemReqs;
+        bool canUpdateViaCmdBuff;
 
-    //! TODO: Use a GPU heap allocator instead of buffer directly -- after move to Vulkan only
-    class SimpleGPUBufferAllocator : public GPUMemoryAllocatorBase
-    {
-        protected:
-            IDriverMemoryBacked::SDriverMemoryRequirements  mBufferMemReqs;
+    public:
+        using value_type = core::smart_refctd_ptr<IGPUBuffer>;
 
-            template<class AddressAllocator>
-            std::tuple<typename AddressAllocator::size_type,size_t,size_t> getOldOffset_CopyRange_OldSize(IGPUBuffer* oldBuff, size_t bytes, const AddressAllocator& allocToQueryOffsets)
-            {
-                auto oldSize = oldBuff->getSize();
-                auto oldOffset = core::address_allocator_traits<AddressAllocator>::get_combined_offset(allocToQueryOffsets);
-                auto copyRangeLen = core::min<size_t>(oldSize-oldOffset,bytes);
-                return std::make_tuple(oldOffset,copyRangeLen,oldSize);
-            }
-        public:
-            typedef IGPUBuffer* value_type;
+        SimpleGPUBufferAllocator(ILogicalDevice* inDriver, const IDriverMemoryBacked::SDriverMemoryRequirements& bufferReqs, bool _canUpdateViaCmdBuff=false) :
+                        GPUMemoryAllocatorBase(inDriver), mBufferMemReqs(bufferReqs), canUpdateViaCmdBuff(_canUpdateViaCmdBuff)
+        {
+        }
+        virtual ~SimpleGPUBufferAllocator() = default;
 
-            SimpleGPUBufferAllocator(IDriver* inDriver, const IDriverMemoryBacked::SDriverMemoryRequirements& bufferReqs) :
-                            GPUMemoryAllocatorBase(inDriver), mBufferMemReqs(bufferReqs)
-            {
-            }
+        value_type  allocate(size_t bytes, size_t alignment) noexcept;
 
-            value_type  allocate(size_t bytes, size_t alignment) noexcept;
+        inline void deallocate(value_type& allocation) noexcept
+        {
+            //commented out, it's not fulfilling its purpose since we use smart refctd ptr
+            //assert(allocation->getReferenceCount()==1);
+            allocation = nullptr;
+        }
+};
 
-            template<class AddressAllocator>
-            inline void             reallocate(value_type& allocation, size_t bytes, size_t alignment, const AddressAllocator& allocToQueryOffsets, bool copyBuffers=true) noexcept
-            {
-                auto tmp = allocate(bytes,alignment);
-                if (!tmp)
-                {
-                    deallocate(allocation);
-                    return;
-                }
-
-                //move contents
-                if (copyBuffers)
-                {
-                    auto oldOffset_copyRange = getOldOffset_CopyRange_OldSize(allocation,bytes,allocToQueryOffsets);
-                    copyBufferWrapper(allocation,tmp,oldOffset_copyRange.first,0u,oldOffset_copyRange.second);
-                }
-
-                //swap the internals of buffers
-                allocation->pseudoMoveAssign(tmp);
-                tmp->drop();
-            }
-
-            inline void             deallocate(value_type& allocation) noexcept
-            {
-                allocation->drop();
-                allocation = nullptr;
-            }
-    };
-}
 }
 
 #endif

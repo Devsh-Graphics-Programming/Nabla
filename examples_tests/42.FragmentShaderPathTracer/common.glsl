@@ -3,20 +3,33 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 
 // basic settings
-#define MAX_DEPTH 15
-#define SAMPLES 32
+#define MAX_DEPTH 3
+#define SAMPLES 128
 
 // firefly and variance reduction techniques
 //#define KILL_DIFFUSE_SPECULAR_PATHS
 //#define VISUALIZE_HIGH_VARIANCE
 
-layout(set = 3, binding = 0) uniform sampler2D envMap; 
-layout(set = 3, binding = 1) uniform usamplerBuffer sampleSequence;
-layout(set = 3, binding = 2) uniform usampler2D scramblebuf;
+layout(set = 2, binding = 0) uniform sampler2D envMap; 
+layout(set = 2, binding = 1) uniform usamplerBuffer sampleSequence;
+layout(set = 2, binding = 2) uniform usampler2D scramblebuf;
 
-layout(location = 0) in vec2 TexCoord;
+layout(set=0, binding=0, rgba16f) uniform image2D outImage;
 
-layout(location = 0) out vec4 pixelColor;
+#ifndef _NBL_GLSL_WORKGROUP_SIZE_
+#define _NBL_GLSL_WORKGROUP_SIZE_ 16
+layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_, local_size_y=_NBL_GLSL_WORKGROUP_SIZE_, local_size_z=1) in;
+#endif
+
+ivec2 getCoordinates() {
+    return ivec2(gl_GlobalInvocationID.xy);
+}
+
+vec2 getTexCoords() {
+    ivec2 imageSize = imageSize(outImage);
+    ivec2 iCoords = getCoordinates();
+    return vec2(float(iCoords.x) / imageSize.x, 1.0 - float(iCoords.y) / imageSize.y);
+}
 
 
 #include <nbl/builtin/glsl/limits/numeric.glsl>
@@ -48,7 +61,7 @@ Sphere Sphere_Sphere(in vec3 position, in float radius, in uint bsdfID, in uint 
     return sphere;
 }
 
-// return intersection distance if found, FLT_NAN otherwise
+// return intersection distance if found, nbl_glsl_FLT_NAN otherwise
 float Sphere_intersect(in Sphere sphere, in vec3 origin, in vec3 direction)
 {
     vec3 relOrigin = origin-sphere.position;
@@ -116,7 +129,7 @@ Triangle Triangle_Triangle(in mat3 vertices, in uint bsdfID, in uint lightID)
     return tri;
 }
 
-// return intersection distance if found, FLT_NAN otherwise
+// return intersection distance if found, nbl_glsl_FLT_NAN otherwise
 float Triangle_intersect(in Triangle tri, in vec3 origin, in vec3 direction)
 {
     const vec3 edges[2] = vec3[2](tri.vertex1-tri.vertex0,tri.vertex2-tri.vertex0);
@@ -168,7 +181,7 @@ Rectangle Rectangle_Rectangle(in vec3 offset, in vec3 edge0, in vec3 edge1, in u
     return rect;
 }
 
-// return intersection distance if found, FLT_NAN otherwise
+// return intersection distance if found, nbl_glsl_FLT_NAN otherwise
 float Rectangle_intersect(in Rectangle rect, in vec3 origin, in vec3 direction)
 {
     const vec3 h = cross(direction,rect.edge1);
@@ -371,15 +384,15 @@ vec2 SampleSphericalMap(vec3 v)
 void missProgram(in ImmutableRay_t _immutable, inout Payload_t _payload)
 {
     vec3 finalContribution = _payload.throughput; 
-    //#define USE_ENVMAP
+    // #define USE_ENVMAP
 #ifdef USE_ENVMAP
 	vec2 uv = SampleSphericalMap(_immutable.direction);
     finalContribution *= textureLod(envMap, uv, 0.0).rgb;
 #else
     const vec3 kConstantEnvLightRadiance = vec3(0.15, 0.21, 0.3);
     finalContribution *= kConstantEnvLightRadiance;
-#endif
     _payload.accumulation += finalContribution;
+#endif
 }
 
 #include <nbl/builtin/glsl/bxdf/brdf/diffuse/oren_nayar.glsl>
@@ -464,8 +477,8 @@ vec3 nbl_glsl_bsdf_cos_remainder_and_pdf(out float pdf, in nbl_glsl_LightSample 
     return remainder;
 }
 
-layout (constant_id = 0) const int MAX_DEPTH_LOG2 = 0;
-layout (constant_id = 1) const int MAX_SAMPLES_LOG2 = 0;
+layout (constant_id = 0) const int MAX_DEPTH_LOG2 = 4;
+layout (constant_id = 1) const int MAX_SAMPLES_LOG2 = 10;
 
 
 #include <nbl/builtin/glsl/random/xoroshiro.glsl>
@@ -487,7 +500,7 @@ mat2x3 rand3d(in uint protoDimension, in uint _sample, inout nbl_glsl_xoroshiro6
 void traceRay_extraShape(inout int objectID, inout float intersectionT, in vec3 origin, in vec3 direction);
 int traceRay(inout float intersectionT, in vec3 origin, in vec3 direction)
 {
-    const bool anyHit = intersectionT!=FLT_MAX;
+    const bool anyHit = intersectionT!=nbl_glsl_FLT_MAX;
 
 	int objectID = -1;
 	for (int i=0; i<SPHERE_COUNT; i++)
@@ -590,9 +603,9 @@ bool closestHitProgram(in uint depth, in uint _sample, inout Ray_t ray, inout nb
         const float monochromeEta = dot(throughputCIE_Y,BSDFNode_getEta(bsdf)[0])/(throughputCIE_Y.r+throughputCIE_Y.g+throughputCIE_Y.b);
 
         // do NEE
-        const float neeProbability = BSDFNode_getNEEProb(bsdf);
+        const float neeProbability = 1.0;// BSDFNode_getNEEProb(bsdf);
         float rcpChoiceProb;
-        if (!nbl_glsl_partitionRandVariable(neeProbability,epsilon[0].z,rcpChoiceProb))
+        if (!nbl_glsl_partitionRandVariable(neeProbability,epsilon[0].z,rcpChoiceProb) && depth<2u)
         {
             vec3 neeContrib; float lightPdf, t;
             nbl_glsl_LightSample nee_sample = nbl_glsl_light_generate_and_remainder_and_pdf(
@@ -601,21 +614,36 @@ bool closestHitProgram(in uint depth, in uint _sample, inout Ray_t ray, inout nb
                 isBSDF, epsilon[0], depth
             );
             // We don't allow non watertight transmitters in this renderer
-            bool validPath = nee_sample.NdotL>0.0;
+            bool validPath = nee_sample.NdotL>nbl_glsl_FLT_MIN;
             // but if we allowed non-watertight transmitters (single water surface), it would make sense just to apply this line by itself
             nbl_glsl_AnisotropicMicrofacetCache _cache;
             validPath = validPath && nbl_glsl_calcAnisotropicMicrofacetCache(_cache, interaction, nee_sample, monochromeEta);
+            if (lightPdf<nbl_glsl_FLT_MAX)
+            {
+            if (any(isnan(nee_sample.L)))
+                ray._payload.accumulation += vec3(1000.f,0.f,0.f);
+            else
+            if (all(equal(vec3(69.f),nee_sample.L)))
+                ray._payload.accumulation += vec3(0.f,1000.f,0.f);
+            else
             if (validPath)
             {
                 float bsdfPdf;
                 neeContrib *= nbl_glsl_bsdf_cos_remainder_and_pdf(bsdfPdf,nee_sample,interaction,bsdf,monochromeEta,_cache)*throughput;
-                const float oc = bsdfPdf*rcpChoiceProb;
-                neeContrib /= 1.0/oc+oc/(lightPdf*lightPdf); // MIS weight
-                if (bsdfPdf<FLT_MAX && getLuma(neeContrib)>lumaContributionThreshold && traceRay(t,intersection+nee_sample.L*t*getStartTolerance(depth),nee_sample.L)==-1)
+                const float otherGenOverChoice = bsdfPdf*rcpChoiceProb;
+#if 0
+                const float otherGenOverLightAndChoice = otherGenOverChoice/lightPdf;
+                neeContrib *= otherGenOverChoice/(1.f+otherGenOverLightAndChoice*otherGenOverLightAndChoice); // MIS weight
+#else
+                neeContrib *= otherGenOverChoice;
+#endif
+                if (bsdfPdf<nbl_glsl_FLT_MAX && getLuma(neeContrib)>lumaContributionThreshold && traceRay(t,intersection+nee_sample.L*t*getStartTolerance(depth),nee_sample.L)==-1)
                     ray._payload.accumulation += neeContrib;
-            }
+            }}
         }
-
+#if 1
+        return false;
+#endif
         // sample BSDF
         float bsdfPdf; vec3 bsdfSampleL;
         {
@@ -650,19 +678,27 @@ bool closestHitProgram(in uint depth, in uint _sample, inout Ray_t ray, inout nb
 
 void main()
 {
-    if (((MAX_DEPTH-1)>>MAX_DEPTH_LOG2)>0 || ((SAMPLES-1)>>MAX_SAMPLES_LOG2)>0)
-    {
-        pixelColor = vec4(1.0,0.0,0.0,1.0);
+    const ivec2 coords = getCoordinates();
+    const vec2 texCoord = getTexCoords();
+
+    if (false == (all(lessThanEqual(ivec2(0),coords)) && all(greaterThan(imageSize(outImage),coords)))) {
         return;
     }
 
-	nbl_glsl_xoroshiro64star_state_t scramble_start_state = textureLod(scramblebuf,TexCoord,0).rg;
+    if (((MAX_DEPTH-1)>>MAX_DEPTH_LOG2)>0 || ((SAMPLES-1)>>MAX_SAMPLES_LOG2)>0)
+    {
+        vec4 pixelCol = vec4(1.0,0.0,0.0,1.0);
+        imageStore(outImage, coords, pixelCol);
+        return;
+    }
+
+	nbl_glsl_xoroshiro64star_state_t scramble_start_state = texelFetch(scramblebuf,coords,0).rg;
     const vec2 pixOffsetParam = vec2(1.0)/vec2(textureSize(scramblebuf,0));
 
 
     const mat4 invMVP = inverse(cameraData.params.MVP);
     
-    vec4 NDC = vec4(TexCoord*vec2(2.0,-2.0)+vec2(-1.0,1.0),0.0,1.0);
+    vec4 NDC = vec4(texCoord*vec2(2.0,-2.0)+vec2(-1.0,1.0),0.0,1.0);
     vec3 camPos;
     {
         vec4 tmp = invMVP*NDC;
@@ -712,11 +748,11 @@ void main()
             bool hit = true; bool rayAlive = true;
             for (int d=1; d<=MAX_DEPTH && hit && rayAlive; d+=2)
             {
-                ray._mutable.intersectionT = FLT_MAX;
+                ray._mutable.intersectionT = nbl_glsl_FLT_MAX;
                 ray._mutable.objectID = traceRay(ray._mutable.intersectionT,ray._immutable.origin,ray._immutable.direction);
                 hit = ray._mutable.objectID!=-1;
                 if (hit)
-                    rayAlive = closestHitProgram(3u, i, ray, scramble_state);
+                    rayAlive = closestHitProgram(d, i, ray, scramble_state);
             }
             // was last trace a miss?
             if (!hit)
@@ -742,7 +778,8 @@ void main()
             color = vec3(1.0,0.0,0.0);
     #endif
 
-    pixelColor = vec4(color, 1.0);
+    vec4 pixelCol = vec4(color, 1.0);
+    imageStore(outImage, coords, pixelCol);
 }
 /** TODO: Improving Rendering
 

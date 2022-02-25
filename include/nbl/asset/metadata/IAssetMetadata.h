@@ -2,19 +2,48 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __NBL_ASSET_I_ASSET_METADATA_H_INCLUDED__
-#define __NBL_ASSET_I_ASSET_METADATA_H_INCLUDED__
+#ifndef _NBL_ASSET_I_ASSET_METADATA_H_INCLUDED_
+#define _NBL_ASSET_I_ASSET_METADATA_H_INCLUDED_
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 
 #include "nbl/asset/metadata/IImageMetadata.h"
+#include "nbl/asset/metadata/IImageViewMetadata.h"
 #include "nbl/asset/metadata/IRenderpassIndependentPipelineMetadata.h"
 #include "nbl/asset/metadata/IMeshMetadata.h"
 
-namespace nbl
+namespace nbl::asset
 {
-namespace asset
-{
+namespace impl{
+	class IAssetMetadata_base : public core::IReferenceCounted{
+	protected:
+		template<class Asset>
+		struct asset_metadata;
+
+	};
+
+		template<>
+		struct IAssetMetadata_base::asset_metadata<ICPUImage>
+		{
+			using type = IImageMetadata;
+		};
+		template<>
+		struct IAssetMetadata_base::asset_metadata<ICPUImageView>
+		{
+			using type = IImageViewMetadata;
+		};
+		template<>
+		struct IAssetMetadata_base::asset_metadata<ICPURenderpassIndependentPipeline>
+		{
+			using type = IRenderpassIndependentPipelineMetadata;
+		};
+		template<>
+		struct IAssetMetadata_base::asset_metadata<ICPUMesh>
+		{
+			using type = IMeshMetadata;
+		};
+
+}
 
 
 //! A class managing Asset's metadata context
@@ -32,28 +61,9 @@ namespace asset
 	Flexibility has been provided, it is expected each loader has its own base metadata class implementing the 
 	IAssetMetadata interface with its own type enum that other loader's metadata classes derive from the base.
 */
-class IAssetMetadata : public core::IReferenceCounted
+class IAssetMetadata : public impl::IAssetMetadata_base
 {
 	protected:
-		template<class Asset>
-		struct asset_metadata;
-
-		template<>
-		struct asset_metadata<ICPUImage>
-		{
-			using type = IImageMetadata;
-		};
-		template<>
-		struct asset_metadata<ICPURenderpassIndependentPipeline>
-		{
-			using type = IRenderpassIndependentPipelineMetadata;
-		};
-		template<>
-		struct asset_metadata<ICPUMesh>
-		{
-			using type = IMeshMetadata;
-		};
-
 		template<class Asset>
 		using asset_metadata_t = typename asset_metadata<Asset>::type;
 
@@ -73,6 +83,7 @@ class IAssetMetadata : public core::IReferenceCounted
 
 		std::tuple<
 			asset_metadata_map_t<ICPUImage>,
+			asset_metadata_map_t<ICPUImageView>,
 			asset_metadata_map_t<ICPURenderpassIndependentPipeline>,
 			asset_metadata_map_t<ICPUMesh>
 		> m_metaMaps;
@@ -128,7 +139,6 @@ class IAssetMetadata : public core::IReferenceCounted
 };
 
 
-}
 }
 
 #endif

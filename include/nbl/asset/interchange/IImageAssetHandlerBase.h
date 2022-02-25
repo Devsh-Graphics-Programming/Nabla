@@ -5,10 +5,9 @@
 #ifndef __NBL_ASSET_I_IMAGE_ASSET_HANDLER_BASE_H_INCLUDED__
 #define __NBL_ASSET_I_IMAGE_ASSET_HANDLER_BASE_H_INCLUDED__
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 
-#include "ILogger.h"
-#include "os.h"
+#include "nbl/system/ILogger.h"
 
 #include "nbl/asset/filters/CCopyImageFilter.h"
 #include "nbl/asset/filters/CSwizzleAndConvertImageFilter.h"
@@ -21,8 +20,7 @@ namespace asset
 class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 {
 	protected:
-
-		IImageAssetHandlerBase() = default;
+		IImageAssetHandlerBase() {}
 		virtual ~IImageAssetHandlerBase() = 0;
 
 	public:
@@ -65,7 +63,7 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 		*/
 
 		template<asset::E_FORMAT outFormat = asset::EF_UNKNOWN>
-		static inline core::smart_refctd_ptr<ICPUImage> createImageDataForCommonWriting(const ICPUImageView* imageView, uint32_t arrayLayersMax = 1, uint32_t mipLevelMax = 1)
+		static inline core::smart_refctd_ptr<ICPUImage> createImageDataForCommonWriting(const ICPUImageView* imageView, const system::logger_opt_ptr logger, uint32_t arrayLayersMax = 1, uint32_t mipLevelMax = 1)
 		{ 
 			const auto& viewParams = imageView->getCreationParameters();
 			const auto& subresource = viewParams.subresourceRange;
@@ -117,7 +115,7 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 			}
 
 			using COPY_FILTER = asset::CCopyImageFilter;
-			using CONVERSION_FILTER = asset::CSwizzleAndConvertImageFilter<EF_UNKNOWN, EF_UNKNOWN>;
+			using CONVERSION_FILTER = asset::CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,DefaultSwizzle,IdentityDither/*TODO: Blue noise*/,void,true>;
 
 			bool identityTransform = viewParams.format == finalFormat;
 			for (auto i = 0; i < asset::getFormatChannelCount(outFormat); i++)
@@ -136,7 +134,8 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 					state.inBaseLayer = subresource.baseArrayLayer;
 					state.outOffset = { 0, 0, 0 };
 					state.outBaseLayer = 0;
-					state.extent = reinterpret_cast<const VkExtent3D&>(newImage->getMipSize(i));
+					auto extent = newImage->getMipSize(i);
+					state.extent = reinterpret_cast<const VkExtent3D&>(extent);
 					state.layerCount = newArrayLayers;
 					state.inMipLevel = subresource.baseMipLevel + i;
 					state.outMipLevel = i;
@@ -148,14 +147,14 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 					COPY_FILTER::state_type state;
 					fillCommonState(state);
 
-					if (!COPY_FILTER::execute(std::execution::par_unseq,&state)) // execute is a static method
-						os::Printer::log("Something went wrong while copying texel block data!", ELL_ERROR);
+					if (!COPY_FILTER::execute(core::execution::par_unseq,&state)) // execute is a static method
+						logger.log("Something went wrong while copying texel block data!", system::ILogger::ELL_ERROR);
 				}
 				else
 				{
 					if (asset::isBlockCompressionFormat(finalFormat)) // execute is a static method
 					{
-						os::Printer::log("Transcoding to Block Compressed formats not supported!", ELL_ERROR);
+						logger.log("Transcoding to Block Compressed formats not supported!", system::ILogger::ELL_ERROR);
 						return newImage;
 					}
 
@@ -163,8 +162,8 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 					fillCommonState(state);
 					state.swizzle = viewParams.components;
 
-						if (!CONVERSION_FILTER::execute(std::execution::par_unseq,&state)) // static method
-							os::Printer::log("Something went wrong while converting the image!", ELL_WARNING);
+						if (!CONVERSION_FILTER::execute(core::execution::par_unseq,&state)) // static method
+							logger.log("Something went wrong while converting the image!", system::ILogger::ELL_ERROR);
 				}
 			}
 
@@ -177,12 +176,12 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 			and texel buffer attached as well.
 		*/
 
-		static inline core::smart_refctd_ptr<ICPUImage> convertR8ToR8G8B8Image(core::smart_refctd_ptr<ICPUImage> image)
+		static inline core::smart_refctd_ptr<ICPUImage> convertR8ToR8G8B8Image(core::smart_refctd_ptr<ICPUImage> image, const system::logger_opt_ptr logger)
 		{
 			constexpr auto inputFormat = EF_R8_SRGB;
 			constexpr auto outputFormat = EF_R8G8B8_SRGB;
 		
-			using CONVERSION_SWIZZLE_FILTER = CSwizzleAndConvertImageFilter<inputFormat, outputFormat>;
+			using CONVERSION_SWIZZLE_FILTER = CSwizzleAndConvertImageFilter<inputFormat,outputFormat>;
 
 			core::smart_refctd_ptr<ICPUImage> newConvertedImage;
 			{
@@ -232,8 +231,8 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 					state.inMipLevel = regionWithMipMap->imageSubresource.mipLevel;
 					state.outMipLevel = regionWithMipMap->imageSubresource.mipLevel;
 				
-					if (!convertFilter.execute(std::execution::par_unseq,&state))
-						os::Printer::log("Something went wrong while converting from R8 to R8G8B8 format!", ELL_WARNING);
+					if (!convertFilter.execute(core::execution::par_unseq,&state))
+						logger.log("Something went wrong while converting from R8 to R8G8B8 format!", system::ILogger::ELL_WARNING);
 				}
 			}
 			return newConvertedImage;
@@ -263,7 +262,7 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 		static inline void performImageFlip(uint8_t* entry, uint8_t* end, uint32_t height, uint32_t rowPitch)
 		{
 			for (uint32_t y = 0, yRising = 0; y < height; y += 2, ++yRising)
-				std::swap_ranges(std::execution::par_unseq, entry + (yRising * rowPitch), entry + ((yRising + 1) * rowPitch), end - ((yRising + 1) * rowPitch));
+				core::swap_ranges(core::execution::par_unseq, entry + (yRising * rowPitch), entry + ((yRising + 1) * rowPitch), end - ((yRising + 1) * rowPitch));
 		}
 
 	private:

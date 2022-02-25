@@ -16,5 +16,6 @@ layout (set = 0, binding = 0, row_major, std140) uniform UBO
 
 void main()
 {
+	gl_PointSize = 1;
 	gl_Position = nbl_glsl_pseudoMul4x4with3x1(CamData.params.MVP, vPos);
 }

@@ -8,7 +8,6 @@
 #include "nbl/asset/ICPUMesh.h"
 #include "nbl/video/IGPUMesh.h"
 #include "nbl/asset/ICPUSkeleton.h"
-#include "nbl/video/IGPUSkeleton.h"
 #include "nbl/asset/ICPUShader.h"
 #include "nbl/video/IGPUShader.h"
 #include "nbl/asset/ICPUSpecializedShader.h"
@@ -31,6 +30,8 @@
 #include "nbl/video/IGPUImageView.h"
 #include "nbl/asset/ICPUAnimationLibrary.h"
 #include "nbl/video/IGPUAnimationLibrary.h"
+#include "nbl/asset/ICPUAccelerationStructure.h"
+#include "nbl/video/IGPUAccelerationStructure.h"
 
 
 namespace nbl
@@ -38,7 +39,7 @@ namespace nbl
 namespace video
 {
 
-// TODO: don't we already have a class for this in asset::IBuffer?
+// TODO: don't we already have a class for this in asset::IBuffer? No, its a simple struct, not a refcounted object
 template<typename BuffT>
 class IOffsetBufferPair : public core::IReferenceCounted
 {
@@ -85,8 +86,9 @@ template<>
 struct asset_traits<asset::ICPUPipelineLayout> { using GPUObjectType = video::IGPUPipelineLayout; };
 template<>
 struct asset_traits<asset::ICPURenderpassIndependentPipeline> { using GPUObjectType = video::IGPURenderpassIndependentPipeline; };
-template<>
-struct asset_traits<asset::ICPUSkeleton> { using GPUObjectType = video::IGPUSkeleton; };
+// TODO: figure this out
+//template<>
+//struct asset_traits<asset::ICPUSkeleton> { using GPUObjectType = video::IGPUSkeleton; };
 template<>
 struct asset_traits<asset::ICPUMeshBuffer> { using GPUObjectType = video::IGPUMeshBuffer; };
 template<>
@@ -95,6 +97,8 @@ template<>
 struct asset_traits<asset::ICPUMesh> { using GPUObjectType = video::IGPUMesh; };
 template<>
 struct asset_traits<asset::ICPUAnimationLibrary> { using GPUObjectType = video::IGPUAnimationLibrary; };
+template<>
+struct asset_traits<asset::ICPUAccelerationStructure> { using GPUObjectType = video::IGPUAccelerationStructure; };
 
 
 template<typename AssetType>

@@ -2,43 +2,22 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __NBL_ASSET_I_DESCRIPTOR_SET_H_INCLUDED__
-#define __NBL_ASSET_I_DESCRIPTOR_SET_H_INCLUDED__
+#ifndef _NBL_ASSET_I_DESCRIPTOR_SET_H_INCLUDED_
+#define _NBL_ASSET_I_DESCRIPTOR_SET_H_INCLUDED_
 
 #include <algorithm>
 
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 
 #include "nbl/asset/format/EFormat.h"
 #include "nbl/asset/IDescriptor.h"
 #include "nbl/asset/IDescriptorSetLayout.h" //for E_DESCRIPTOR_TYPE
 #include "nbl/core/SRange.h"
+#include "nbl/asset/EImageLayout.h"
 
-namespace nbl
+namespace nbl::asset
 {
-namespace asset
-{
-
-// TODO: move this to appropriate class
-enum E_IMAGE_LAYOUT : uint32_t
-{
-    EIL_UNDEFINED = 0,
-    EIL_GENERAL = 1,
-    EIL_COLOR_ATTACHMENT_OPTIMAL = 2,
-    EIL_DEPTH_STENCIL_ATTACHMENT_OPTIMAL = 3,
-    EIL_DEPTH_STENCIL_READ_ONLY_OPTIMAL = 4,
-    EIL_SHADER_READ_ONLY_OPTIMAL = 5,
-    EIL_TRANSFER_SRC_OPTIMAL = 6,
-    EIL_TRANSFER_DST_OPTIMAL = 7,
-    EIL_PREINITIALIZED = 8,
-    EIL_DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL = 1000117000,
-    EIL_DEPTH_ATTACHMENT_STENCIL_READ_ONLY_OPTIMAL = 1000117001,
-    EIL_PRESENT_SRC_KHR = 1000001002,
-    EIL_SHARED_PRESENT_KHR = 1000111000,
-    EIL_SHADING_RATE_OPTIMAL_NV = 1000164003,
-    EIL_FRAGMENT_DENSITY_MAP_OPTIMAL_EXT = 1000218000
-};
 
 //! Interface class for various Descriptor Set's resources
 /*
@@ -64,6 +43,8 @@ class IDescriptorSet : public virtual core::IReferenceCounted
                 {
                     size_t offset;
                     size_t size;//in Vulkan it's called `range` but IMO it's misleading so i changed to `size`
+
+					static constexpr inline size_t WholeBuffer = ~0ull;
                 };
                 struct SImageInfo
                 {
@@ -79,33 +60,64 @@ class IDescriptorSet : public virtual core::IReferenceCounted
 					SImageInfo image;
 				};
 
-				void assign(const SDescriptorInfo& _other, E_DESCRIPTOR_TYPE _type)
-				{
-					desc = _other.desc;
-					if (_type == EDT_COMBINED_IMAGE_SAMPLER || _type == EDT_STORAGE_IMAGE)
-						assign_img(_other);
-					else
-						assign_buf(_other);
-				}
-
 				SDescriptorInfo()
 				{
 					memset(&buffer, 0, core::max<size_t>(sizeof(buffer), sizeof(image)));
 				}
+				template<typename BufferType>
+				SDescriptorInfo(const SBufferBinding<BufferType>& binding) : desc()
+				{
+					desc = binding.buffer;
+					buffer.offset = binding.offset;
+					buffer.size = SBufferInfo::WholeBuffer;
+				}
+				template<typename BufferType>
+				SDescriptorInfo(const SBufferRange<BufferType>& range) : desc()
+				{
+					desc = range.buffer;
+					buffer.offset = range.offset;
+					buffer.size = range.size;
+				}
+				SDescriptorInfo(const SDescriptorInfo& other) : SDescriptorInfo()
+				{
+					operator=(other);
+				}
+				SDescriptorInfo(SDescriptorInfo&& other): SDescriptorInfo()
+				{
+					operator=(std::move(other));
+				}
 				~SDescriptorInfo()
 				{
 					if (desc && desc->getTypeCategory()==IDescriptor::EC_IMAGE)
-						image.sampler.~smart_refctd_ptr();
+						image.sampler = nullptr;
 				}
 
-			private:
-				void assign_buf(const SDescriptorInfo& other)
+				inline SDescriptorInfo& operator=(const SDescriptorInfo& other)
 				{
-					buffer = other.buffer;
+					if (desc && desc->getTypeCategory()==IDescriptor::EC_IMAGE)
+						image.sampler = nullptr;
+					desc = other.desc;
+					const auto type = desc->getTypeCategory();
+					if (type!=IDescriptor::EC_IMAGE)
+						buffer = other.buffer;
+					else
+						image = other.image;
+					return *this;
 				}
-				void assign_img(const SDescriptorInfo& other)
+				inline SDescriptorInfo& operator=(SDescriptorInfo&& other)
 				{
-					image = other.image;
+					if (desc && desc->getTypeCategory()==IDescriptor::EC_IMAGE)
+						image = {nullptr,EIL_UNDEFINED};
+					desc = std::move(other.desc);
+					if (desc)
+					{
+						const auto type = desc->getTypeCategory();
+						if (type!=IDescriptor::EC_IMAGE)
+							buffer = other.buffer;
+						else
+							image = other.image;
+					}
+					return *this;
 				}
 		};
 
@@ -159,8 +171,12 @@ class IEmulatedDescriptorSet
 			if (!_layout)
 				return;
 
+			using bnd_t = typename LayoutType::SBinding;
+			auto max_bnd_cmp = [](const bnd_t& a, const bnd_t& b) { return a.binding < b.binding; };
+
 			auto bindings = _layout->getBindings();
-            auto lastBnd = (bindings.end()-1);
+
+            auto lastBnd = std::max_element(bindings.begin(), bindings.end(), max_bnd_cmp);
 
 			m_bindingInfo = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<SBindingInfo> >(lastBnd->binding+1u);
 			for (auto it=m_bindingInfo->begin(); it!=m_bindingInfo->end(); it++)
@@ -180,17 +196,18 @@ class IEmulatedDescriptorSet
 				
 				prevBinding = it->binding;
 			}
+
+			uint32_t offset = descriptorCount;
 			
 			m_descriptors = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<typename IDescriptorSet<LayoutType>::SDescriptorInfo> >(descriptorCount);
-			// set up all offsets
-			// no idea what this code does
-			prevBinding = 0u;
-			for (auto it=m_bindingInfo->begin(); it!=m_bindingInfo->end(); it++)
+			// set up all offsets, reverse iteration important because "it is for filling gaps with offset of next binding"
+			// TODO: rewrite this whole constructor to initialize the `SBindingOffset::offset` to 0 and simply use `std::exclusive_scan` to set it all up
+			for (auto it=m_bindingInfo->end()-1; it!=m_bindingInfo->begin()-1; it--)
 			{
 				if (it->offset < descriptorCount)
-					prevBinding = it->offset;
+					offset = it->offset;
 				else
-					it->offset = prevBinding;
+					it->offset = offset;
 			}
 
 			// this is vital for getDescriptorCountAtIndex
@@ -219,7 +236,6 @@ class IEmulatedDescriptorSet
 
 }
 
-}
 }
 
 #endif

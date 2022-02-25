@@ -2720,7 +2720,7 @@ inline void COpenGLExtensionHandler::extGlBindImageTexture(GLuint index, GLuint 
 
 inline void COpenGLExtensionHandler::extGlBindImageTextures(GLuint first, GLsizei count, const GLuint* textures, const GLenum* formats)
 {
-    if (pGlBindImageTextures)
+    if (pGlBindImageTextures && !IsIntelGPU) // Intel is a special boy, as always
         pGlBindImageTextures(first, count, textures);
     else
     {

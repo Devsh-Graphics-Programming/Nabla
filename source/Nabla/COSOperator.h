@@ -27,13 +27,6 @@ public:
 	//! returns the current operation system version as string.
 	virtual const core::stringc& getOperatingSystemVersion() const;
 
-	//! copies text to the clipboard
-	virtual void copyToClipboard(const char* text) const;
-
-	//! gets text from the clipboard
-	//! \return Returns 0 if no string is in there.
-	virtual const char* getTextFromClipboard() const;
-
 	//! gets the processor speed in megahertz
 	//! \param Mhz:
 	//! \return Returns true if successful, false if not

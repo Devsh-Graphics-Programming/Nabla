@@ -79,7 +79,9 @@ int main(int argc, char* argv[])
 	params.Vsync = true;
 	params.Doublebuffer = true;
 	params.Stencilbuffer = false;
-	params.StreamingDownloadBufferSize = 1024*1024*1024; // for 16k images
+	// TODO: this is a temporary fix for a problem solved in the Vulkan Branch
+	params.StreamingUploadBufferSize = 1024*1024*1024; // for Color + 2 AoV of 8k images
+	params.StreamingDownloadBufferSize = core::roundUp(params.StreamingUploadBufferSize/3u,256u); // for output image
 	auto device = createDeviceEx(params);
 
 	if (check_error(!device,"Could not create Irrlicht Device!"))
@@ -98,10 +100,14 @@ int main(int argc, char* argv[])
 		arguments.reserve(PROPER_CMD_ARGUMENTS_AMOUNT);
 		arguments.emplace_back(argv[0]);
 		if (argc>1)
+		{
+			os::Printer::log("Guess input from Commandline arguments",ELL_INFORMATION);
 			for (auto i = 1ul; i < argc; ++i)
 				arguments.emplace_back(argv[i]);
+		}
 		else
 		{
+			os::Printer::log("No arguments provided, running demo mode from ../exampleInputArguments.txt", ELL_INFORMATION);
 			arguments.emplace_back("-batch");
 			arguments.emplace_back("../exampleInputArguments.txt");
 		}
@@ -1029,15 +1035,24 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 				const float bloomRelativeScale = bloomRelativeScaleBundle[i].value();
 				{
 					auto kerDim = outParam.kernel->getCreationParameters().extent;
-					float kernelScale;
+					float kernelScale,minKernelScale;
 					if (extent.width<extent.height)
+					{
+						minKernelScale = 2.f/float(kerDim.width);
 						kernelScale = float(extent.width)*bloomRelativeScale/float(kerDim.width);
+					}
 					else
+					{
+						minKernelScale = 2.f/float(kerDim.height);
 						kernelScale = float(extent.height)*bloomRelativeScale/float(kerDim.height);
+					}
+					//
 					if (kernelScale>1.f)
 						os::Printer::log(imageIDString + "Bloom Kernel loose sharpness, increase resolution of bloom kernel or reduce its relative scale!", ELL_WARNING);
-					outParam.scaledKernelExtent.width = core::ceil(float(kerDim.width)*kernelScale);
-					outParam.scaledKernelExtent.height = core::ceil(float(kerDim.height)*kernelScale);
+					else if (kernelScale<minKernelScale)
+						os::Printer::log(imageIDString + "Bloom Kernel relative scale pathologically small, clamping to prevent division by 0!", ELL_WARNING);
+					outParam.scaledKernelExtent.width = core::max(core::ceil(float(kerDim.width)*kernelScale),2u);
+					outParam.scaledKernelExtent.height = core::max(core::ceil(float(kerDim.height)*kernelScale),2u);
 					outParam.scaledKernelExtent.depth = 1u;
 				}
 				const auto marginSrcDim = [extent,outParam]() -> auto
@@ -1257,8 +1272,17 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 		uint32_t inImageByteOffset[EII_COUNT];
 		{
 			asset::ICPUBuffer* buffersToUpload[EII_COUNT];
+			size_t inputSize = 0u;
 			for (uint32_t j=0u; j<denoiserInputCount; j++)
+			{
 				buffersToUpload[j] = param.image[j]->getBuffer();
+				inputSize += buffersToUpload[j]->getSize();
+			}
+			if (inputSize>=params.StreamingUploadBufferSize)
+			{
+				printf("[ERROR] Denoiser Failed, input too large to fit in VRAM, Streaming Denoise not implemented yet!");
+				return -1;
+			}
 			auto gpubuffers = driver->getGPUObjectsFromAssets(buffersToUpload,buffersToUpload+denoiserInputCount,&assetConverter);
 
 			bool skip = false;
@@ -1683,7 +1707,7 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 
 			auto getConvertedImageView = [&](core::smart_refctd_ptr<ICPUImage> image, const E_FORMAT& outFormat)
 			{
-				using CONVERSION_FILTER = CConvertFormatImageFilter<EF_UNKNOWN, EF_UNKNOWN, false, true, asset::CPrecomputedDither>;
+				using CONVERSION_FILTER = CConvertFormatImageFilter<EF_UNKNOWN,EF_UNKNOWN,asset::CPrecomputedDither,void,true>;
 
 				core::smart_refctd_ptr<ICPUImage> newConvertedImage;
 				{
@@ -1743,7 +1767,7 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 					state.inMipLevel = region->imageSubresource.mipLevel;
 					state.outMipLevel = region->imageSubresource.mipLevel;
 
-					if (!convertFilter.execute(std::execution::par_unseq,&state))
+					if (!convertFilter.execute(core::execution::par_unseq,&state))
 						os::Printer::log("WARNING (" + std::to_string(__LINE__) + " line): Something went wrong while converting the image!", ELL_WARNING);
 
 					_NBL_DELETE(state.ditherState);

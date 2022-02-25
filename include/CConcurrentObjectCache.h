@@ -6,7 +6,7 @@
 #define __NBL_C_CONCURRENT_OBJECT_CACHE_H_INCLUDED__
 
 #include "CObjectCache.h"
-#include "FW_Mutex.h"
+#include "nbl/system/SReadWriteSpinLock.h"
 
 namespace nbl { namespace core
 {
@@ -22,16 +22,11 @@ namespace impl
         CConcurrentObjectCacheBase& operator=(const CConcurrentObjectCacheBase&) = delete;
         CConcurrentObjectCacheBase& operator=(CConcurrentObjectCacheBase&&) = delete;
 
-        struct
-        {
-            void lockRead() const { FW_AtomicCounterIncr(ctr); }
-            void unlockRead() const { FW_AtomicCounterDecr(ctr); }
-            void lockWrite() const { FW_AtomicCounterBlock(ctr); }
-            void unlockWrite() const { FW_AtomicCounterUnBlock(ctr); }
+        mutable system::SReadWriteSpinLock m_lock;
 
-        private:
-            mutable FW_AtomicCounter ctr = 0;
-        } m_lock;
+    protected:
+        auto lock_read() const { return system::read_lock_guard<>(m_lock); }
+        auto lock_write() const { return system::write_lock_guard<>(m_lock); }
     };
 
     template<typename CacheT>
@@ -57,105 +52,92 @@ namespace impl
 
         inline bool insert(const typename BaseCache::KeyType_impl& _key, const typename BaseCache::ValueType_impl& _val)
         {
-            this->m_lock.lockWrite();
+            auto lk = lock_write();
             const bool r = BaseCache::insert(_key, _val);
-            this->m_lock.unlockWrite();
             return r;
         }
 
         inline bool contains(typename BaseCache::ImmutableValueType_impl& _object) const
         {
-            this->m_lock.lockRead();
+            auto lk = lock_read();
             const bool r = BaseCache::contains(_object);
-            this->m_lock.unlockRead();
             return r;
         }
 
         inline size_t getSize() const
         {
-            this->m_lock.lockRead();
+            auto lk = lock_read();
             const size_t r = BaseCache::getSize();
-            this->m_lock.unlockRead();
             return r;
         }
 
         inline void clear()
         {
-            this->m_lock.lockWrite();
+            auto lk = lock_write();
             BaseCache::clear();
-            this->m_lock.unlockWrite();
         }
 
         //! Returns true if had to insert
         bool swapObjectValue(const typename BaseCache::KeyType_impl& _key, const typename BaseCache::ImmutableValueType_impl& _obj, const typename BaseCache::ValueType_impl& _val)
         {
-            this->m_lock.lockWrite();
+            auto lk = lock_write();
             bool r = BaseCache::swapObjectValue(_key, _obj, _val);
-            this->m_lock.unlockWrite();
             return r;
         }
 
         bool getAndStoreKeyRangeOrReserve(const typename BaseCache::KeyType_impl& _key, size_t& _inOutStorageSize, typename BaseCache::ValueType_impl* _out, bool* _gotAll)
         {
-            this->m_lock.lockWrite();
+            auto lk = lock_write();
             const bool r = BaseCache::getAndStoreKeyRangeOrReserve(_key, _inOutStorageSize, _out, _gotAll);
-            this->m_lock.unlockWrite();
             return r;
         }
 
         inline bool removeObject(const typename BaseCache::ValueType_impl& _obj, const typename BaseCache::KeyType_impl& _key)
         {
-            this->m_lock.lockWrite();
+            auto lk = lock_write();
             const bool r = BaseCache::removeObject(_obj, _key);
-            this->m_lock.unlockWrite();
             return r;
         }
 
         inline bool findAndStoreRange(const typename BaseCache::KeyType_impl& _key, size_t& _inOutStorageSize, typename BaseCache::MutablePairType* _out)
         {
-            m_lock.lockRead();
+            auto lk = lock_read();
             const bool r = BaseCache::findAndStoreRange(_key, _inOutStorageSize, _out);
-            m_lock.unlockRead();
             return r;
         }
 
         inline bool findAndStoreRange(const typename BaseCache::KeyType_impl& _key, size_t& _inOutStorageSize, typename BaseCache::MutablePairType* _out) const
         {
-            m_lock.lockRead();
+            auto lk = lock_read();
             const bool r = BaseCache::findAndStoreRange(_key, _inOutStorageSize, _out);
-            m_lock.unlockRead();
             return r;
         }
 
         inline bool findAndStoreRange(const typename BaseCache::KeyType_impl& _key, size_t& _inOutStorageSize, typename BaseCache::ValueType_impl* _out)
         {
-            m_lock.lockRead();
+            auto lk = lock_read();
             const bool r = BaseCache::findAndStoreRange(_key, _inOutStorageSize, _out);
-            m_lock.unlockRead();
             return r;
         }
 
         inline bool findAndStoreRange(const typename BaseCache::KeyType_impl& _key, size_t& _inOutStorageSize, typename BaseCache::ValueType_impl* _out) const
         {
-            m_lock.lockRead();
+            auto lk = lock_read();
             const bool r = BaseCache::findAndStoreRange(_key, _inOutStorageSize, _out);
-            m_lock.unlockRead();
             return r;
         }
 
         inline bool outputAll(size_t& _inOutStorageSize, MutablePairType* _out) const
         {
-            m_lock.lockRead();
+            auto lk = lock_read();
             const bool r = BaseCache::outputAll(_inOutStorageSize, _out);
-            m_lock.unlockRead();
             return r;
         }
 
         inline bool changeObjectKey(const typename BaseCache::ValueType_impl& _obj, const typename BaseCache::KeyType_impl& _key, const typename BaseCache::KeyType_impl& _newKey)
         {
-            m_lock.lockWrite();
+            auto lk = lock_write();
             const bool r = BaseCache::changeObjectKey(_obj, _key, _newKey);
-            m_lock.unlockWrite();
             return r;
         }
     };

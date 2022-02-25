@@ -3,8 +3,11 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
-#ifndef __NBL_C_VIDEO_OPEN_GL_H_INCLUDED__
-#define __NBL_C_VIDEO_OPEN_GL_H_INCLUDED__
+#include "nbl/asset/utils/IGLSLCompiler.h"
+#include "nbl/asset/utils/CShaderIntrospector.h"
+#include "nbl/asset/utils/spvUtils.h"
+
+#ifdef OLD_CODE
 
 #include "nbl/core/core.h"
 #include "nbl/system/compile_config.h"
@@ -13,13 +16,12 @@
 
 namespace nbl
 {
-	class CIrrDeviceWin32;
-	class CIrrDeviceLinux;
-	class CIrrDeviceSDL;
-	class CIrrDeviceMacOSX;
+	class CIrrDeviceStub;
 }
 
 #ifdef _NBL_COMPILE_WITH_OPENGL_
+
+#include "EGL/egl.h"
 
 #include "IDriverMemoryAllocation.h"
 #include "nbl/video/COpenGLSpecializedShader.h"
@@ -35,33 +37,8 @@ namespace nbl
 #include "nbl/video/CCUDAHandler.h"
 #include "COpenCLHandler.h"
 
-#include <map>
-//#include <atomic>
-//#include <thread>
-#include <mutex>
-//#include <condition_variable>
-
-namespace nbl
+namespace nbl::video
 {
-namespace video
-{
-
-    enum GL_STATE_BITS : uint32_t
-    {
-        // has to be flushed before constants are pushed (before `extGlProgramUniform*`)
-        GSB_PIPELINE = 1u << 0,
-        GSB_RASTER_PARAMETERS = 1u << 1,
-        // we want the two to happen together and just before a draw (set VAO first, then binding)
-        GSB_VAO_AND_VERTEX_INPUT = 1u << 2,
-        // flush just before (indirect)dispatch or (multi)(indirect)draw, textures and samplers first, then storage image, then SSBO, finally UBO
-        GSB_DESCRIPTOR_SETS = 1u << 3,
-        // GL_DISPATCH_INDIRECT_BUFFER 
-        GSB_DISPATCH_INDIRECT = 1u << 4,
-        GSB_PUSH_CONSTANTS = 1u << 5,
-        GSB_PIXEL_PACK_UNPACK = 1u << 6,
-        // flush everything
-        GSB_ALL = ~0x0u
-    };
 
 
 struct SOpenGLState
@@ -79,11 +56,6 @@ struct SOpenGLState
 		core::smart_refctd_ptr<const COpenGLBuffer> idxBinding;
 
         inline bool operator<(const HashVAOPair& rhs) const { return first < rhs.first; }
-    };
-    struct SDescSetBnd {
-        core::smart_refctd_ptr<const COpenGLPipelineLayout> pplnLayout;
-        core::smart_refctd_ptr<const COpenGLDescriptorSet> set;
-        core::smart_refctd_dynamic_array<uint32_t> dynamicOffsets;
     };
 
     using SGraphicsPipelineHash = std::array<GLuint, COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT>;
@@ -209,435 +181,6 @@ using pipeline_for_bindpoint_t = typename pipeline_for_bindpoint<PBP>::type;
 
 class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 {
-    protected:
-		//! destructor
-		virtual ~COpenGLDriver();
-
-		//! inits the parts of the open gl driver used on all platforms
-		bool genericDriverInit(asset::IAssetManager* assMgr) override;
-
-	public:
-        struct SAuxContext;
-
-		#ifdef _NBL_COMPILE_WITH_WINDOWS_DEVICE_
-		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, CIrrDeviceWin32* device, const asset::IGLSLCompiler* glslcomp);
-		//! inits the windows specific parts of the open gl driver
-		bool initDriver(CIrrDeviceWin32* device);
-		bool changeRenderContext(const SExposedVideoData& videoData, CIrrDeviceWin32* device);
-		#endif
-
-		#ifdef _NBL_COMPILE_WITH_X11_DEVICE_
-		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, CIrrDeviceLinux* device, const asset::IGLSLCompiler* glslcomp);
-		//! inits the GLX specific parts of the open gl driver
-		bool initDriver(CIrrDeviceLinux* device, SAuxContext* auxCtxts);
-		bool changeRenderContext(const SExposedVideoData& videoData, CIrrDeviceLinux* device);
-		#endif
-
-		#ifdef _NBL_COMPILE_WITH_SDL_DEVICE_
-		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, CIrrDeviceSDL* device, const asset::IGLSLCompiler* glslcomp);
-		#endif
-
-
-        inline bool isAllowedBufferViewFormat(asset::E_FORMAT _fmt) const override
-        {
-            using namespace asset;
-            switch (_fmt)
-            {
-				case EF_R8_UNORM: [[fallthrough]];
-				case EF_R16_UNORM: [[fallthrough]];
-				case EF_R16_SFLOAT: [[fallthrough]];
-				case EF_R32_SFLOAT: [[fallthrough]];
-				case EF_R8_SINT: [[fallthrough]];
-				case EF_R16_SINT: [[fallthrough]];
-				case EF_R32_SINT: [[fallthrough]];
-				case EF_R8_UINT: [[fallthrough]];
-				case EF_R16_UINT: [[fallthrough]];
-				case EF_R32_UINT: [[fallthrough]];
-				case EF_R8G8_UNORM: [[fallthrough]];
-				case EF_R16G16_UNORM: [[fallthrough]];
-				case EF_R16G16_SFLOAT: [[fallthrough]];
-				case EF_R32G32_SFLOAT: [[fallthrough]];
-				case EF_R8G8_SINT: [[fallthrough]];
-				case EF_R16G16_SINT: [[fallthrough]];
-				case EF_R32G32_SINT: [[fallthrough]];
-				case EF_R8G8_UINT: [[fallthrough]];
-				case EF_R16G16_UINT: [[fallthrough]];
-				case EF_R32G32_UINT: [[fallthrough]];
-				case EF_R32G32B32_SFLOAT: [[fallthrough]];
-				case EF_R32G32B32_SINT: [[fallthrough]];
-				case EF_R32G32B32_UINT: [[fallthrough]];
-				case EF_R8G8B8A8_UNORM: [[fallthrough]];
-				case EF_R16G16B16A16_UNORM: [[fallthrough]];
-				case EF_R16G16B16A16_SFLOAT: [[fallthrough]];
-				case EF_R32G32B32A32_SFLOAT: [[fallthrough]];
-				case EF_R8G8B8A8_SINT: [[fallthrough]];
-				case EF_R16G16B16A16_SINT: [[fallthrough]];
-				case EF_R32G32B32A32_SINT: [[fallthrough]];
-				case EF_R8G8B8A8_UINT: [[fallthrough]];
-				case EF_R16G16B16A16_UINT: [[fallthrough]];
-				case EF_R32G32B32A32_UINT:
-					return true;
-					break;
-				default:
-					return false;
-					break;
-            }
-        }
-
-        inline bool isAllowedVertexAttribFormat(asset::E_FORMAT _fmt) const override
-        {
-            using namespace asset;
-            switch (_fmt)
-            {
-				// signed/unsigned byte
-				case EF_R8_UNORM:
-				case EF_R8_SNORM:
-				case EF_R8_UINT:
-				case EF_R8_SINT:
-				case EF_R8G8_UNORM:
-				case EF_R8G8_SNORM:
-				case EF_R8G8_UINT:
-				case EF_R8G8_SINT:
-				case EF_R8G8B8_UNORM:
-				case EF_R8G8B8_SNORM:
-				case EF_R8G8B8_UINT:
-				case EF_R8G8B8_SINT:
-				case EF_R8G8B8A8_UNORM:
-				case EF_R8G8B8A8_SNORM:
-				case EF_R8G8B8A8_UINT:
-				case EF_R8G8B8A8_SINT:
-				case EF_R8_USCALED:
-				case EF_R8_SSCALED:
-				case EF_R8G8_USCALED:
-				case EF_R8G8_SSCALED:
-				case EF_R8G8B8_USCALED:
-				case EF_R8G8B8_SSCALED:
-				case EF_R8G8B8A8_USCALED:
-				case EF_R8G8B8A8_SSCALED:
-				// unsigned byte BGRA (normalized only)
-				case EF_B8G8R8A8_UNORM:
-				// unsigned/signed short
-				case EF_R16_UNORM:
-				case EF_R16_SNORM:
-				case EF_R16_UINT:
-				case EF_R16_SINT:
-				case EF_R16G16_UNORM:
-				case EF_R16G16_SNORM:
-				case EF_R16G16_UINT:
-				case EF_R16G16_SINT:
-				case EF_R16G16B16_UNORM:
-				case EF_R16G16B16_SNORM:
-				case EF_R16G16B16_UINT:
-				case EF_R16G16B16_SINT:
-				case EF_R16G16B16A16_UNORM:
-				case EF_R16G16B16A16_SNORM:
-				case EF_R16G16B16A16_UINT:
-				case EF_R16G16B16A16_SINT:
-				case EF_R16_USCALED:
-				case EF_R16_SSCALED:
-				case EF_R16G16_USCALED:
-				case EF_R16G16_SSCALED:
-				case EF_R16G16B16_USCALED:
-				case EF_R16G16B16_SSCALED:
-				case EF_R16G16B16A16_USCALED:
-				case EF_R16G16B16A16_SSCALED:
-				// unsigned/signed int
-				case EF_R32_UINT:
-				case EF_R32_SINT:
-				case EF_R32G32_UINT:
-				case EF_R32G32_SINT:
-				case EF_R32G32B32_UINT:
-				case EF_R32G32B32_SINT:
-				case EF_R32G32B32A32_UINT:
-				case EF_R32G32B32A32_SINT:
-				// unsigned/signed rgb10a2 BGRA (normalized only)
-				case EF_A2R10G10B10_UNORM_PACK32:
-				case EF_A2R10G10B10_SNORM_PACK32:
-				// unsigned/signed rgb10a2
-				case EF_A2B10G10R10_UNORM_PACK32:
-				case EF_A2B10G10R10_SNORM_PACK32:
-				case EF_A2B10G10R10_UINT_PACK32:
-				case EF_A2B10G10R10_SINT_PACK32:
-				case EF_A2B10G10R10_SSCALED_PACK32:
-				case EF_A2B10G10R10_USCALED_PACK32:
-				// GL_UNSIGNED_INT_10F_11F_11F_REV
-				case EF_B10G11R11_UFLOAT_PACK32:
-				// half float
-				case EF_R16_SFLOAT:
-				case EF_R16G16_SFLOAT:
-				case EF_R16G16B16_SFLOAT:
-				case EF_R16G16B16A16_SFLOAT:
-				// float
-				case EF_R32_SFLOAT:
-				case EF_R32G32_SFLOAT:
-				case EF_R32G32B32_SFLOAT:
-				case EF_R32G32B32A32_SFLOAT:
-				// double
-				case EF_R64_SFLOAT:
-				case EF_R64G64_SFLOAT:
-				case EF_R64G64B64_SFLOAT:
-				case EF_R64G64B64A64_SFLOAT:
-					return true;
-				default: return false;
-            }
-        }
-        inline bool isColorRenderableFormat(asset::E_FORMAT _fmt) const override
-        {
-            using namespace asset;
-            switch (_fmt)
-            {
-				case EF_A1R5G5B5_UNORM_PACK16:
-				case EF_B5G6R5_UNORM_PACK16:
-				case EF_R5G6B5_UNORM_PACK16:
-				case EF_R4G4_UNORM_PACK8:
-				case EF_R4G4B4A4_UNORM_PACK16:
-				case EF_B4G4R4A4_UNORM_PACK16:
-				case EF_R8_UNORM:
-				case EF_R8_SNORM:
-				case EF_R8_UINT:
-				case EF_R8_SINT:
-				case EF_R8G8_UNORM:
-				case EF_R8G8_SNORM:
-				case EF_R8G8_UINT:
-				case EF_R8G8_SINT:
-				case EF_R8G8B8_UNORM:
-				case EF_R8G8B8_SNORM:
-				case EF_R8G8B8_UINT:
-				case EF_R8G8B8_SINT:
-				case EF_R8G8B8_SRGB:
-				case EF_R8G8B8A8_UNORM:
-				case EF_R8G8B8A8_SNORM:
-				case EF_R8G8B8A8_UINT:
-				case EF_R8G8B8A8_SINT:
-				case EF_R8G8B8A8_SRGB:
-				case EF_A8B8G8R8_UNORM_PACK32:
-				case EF_A8B8G8R8_SNORM_PACK32:
-				case EF_A8B8G8R8_UINT_PACK32:
-				case EF_A8B8G8R8_SINT_PACK32:
-				case EF_A8B8G8R8_SRGB_PACK32:
-				case EF_A2B10G10R10_UNORM_PACK32:
-				case EF_A2B10G10R10_UINT_PACK32:
-				case EF_R16_UNORM:
-				case EF_R16_SNORM:
-				case EF_R16_UINT:
-				case EF_R16_SINT:
-				case EF_R16_SFLOAT:
-				case EF_R16G16_UNORM:
-				case EF_R16G16_SNORM:
-				case EF_R16G16_UINT:
-				case EF_R16G16_SINT:
-				case EF_R16G16_SFLOAT:
-				case EF_R16G16B16_UNORM:
-				case EF_R16G16B16_SNORM:
-				case EF_R16G16B16_UINT:
-				case EF_R16G16B16_SINT:
-				case EF_R16G16B16_SFLOAT:
-				case EF_R16G16B16A16_UNORM:
-				case EF_R16G16B16A16_SNORM:
-				case EF_R16G16B16A16_UINT:
-				case EF_R16G16B16A16_SINT:
-				case EF_R16G16B16A16_SFLOAT:
-				case EF_R32_UINT:
-				case EF_R32_SINT:
-				case EF_R32_SFLOAT:
-				case EF_R32G32_UINT:
-				case EF_R32G32_SINT:
-				case EF_R32G32_SFLOAT:
-				case EF_R32G32B32_UINT:
-				case EF_R32G32B32_SINT:
-				case EF_R32G32B32_SFLOAT:
-				case EF_R32G32B32A32_UINT:
-				case EF_R32G32B32A32_SINT:
-				case EF_R32G32B32A32_SFLOAT:
-					return true;
-				default:
-				{
-					GLint res = GL_FALSE;
-					extGlGetInternalformativ(GL_TEXTURE_2D, getSizedOpenGLFormatFromOurFormat(_fmt), GL_COLOR_RENDERABLE, 1, &res);
-					return res==GL_TRUE;
-				}
-            }
-        }
-        inline bool isAllowedImageStoreFormat(asset::E_FORMAT _fmt) const override
-        {
-            using namespace asset;
-            switch (_fmt)
-            {
-				case EF_R32G32B32A32_SFLOAT:
-				case EF_R16G16B16A16_SFLOAT:
-				case EF_R32G32_SFLOAT:
-				case EF_R16G16_SFLOAT:
-				case EF_B10G11R11_UFLOAT_PACK32:
-				case EF_R32_SFLOAT:
-				case EF_R16_SFLOAT:
-				case EF_R16G16B16A16_UNORM:
-				case EF_A2B10G10R10_UNORM_PACK32:
-				case EF_R8G8B8A8_UNORM:
-				case EF_R16G16_UNORM:
-				case EF_R8G8_UNORM:
-				case EF_R16_UNORM:
-				case EF_R8_UNORM:
-				case EF_R16G16B16A16_SNORM:
-				case EF_R8G8B8A8_SNORM:
-				case EF_R16G16_SNORM:
-				case EF_R8G8_SNORM:
-				case EF_R16_SNORM:
-				case EF_R32G32B32A32_UINT:
-				case EF_R16G16B16A16_UINT:
-				case EF_A2B10G10R10_UINT_PACK32:
-				case EF_R8G8B8A8_UINT:
-				case EF_R32G32_UINT:
-				case EF_R16G16_UINT:
-				case EF_R8G8_UINT:
-				case EF_R32_UINT:
-				case EF_R16_UINT:
-				case EF_R8_UINT:
-				case EF_R32G32B32A32_SINT:
-				case EF_R16G16B16A16_SINT:
-				case EF_R8G8B8A8_SINT:
-				case EF_R32G32_SINT:
-				case EF_R16G16_SINT:
-				case EF_R8G8_SINT:
-				case EF_R32_SINT:
-				case EF_R16_SINT:
-				case EF_R8_SINT:
-					return true;
-				default: return false;
-            }
-        }
-        inline bool isAllowedTextureFormat(asset::E_FORMAT _fmt) const override
-        {
-            using namespace asset;
-            // opengl spec section 8.5.1
-            switch (_fmt)
-            {
-				// formats checked as "Req. tex"
-				case EF_R8_UNORM:
-				case EF_R8_SNORM:
-				case EF_R16_UNORM:
-				case EF_R16_SNORM:
-				case EF_R8G8_UNORM:
-				case EF_R8G8_SNORM:
-				case EF_R16G16_UNORM:
-				case EF_R16G16_SNORM:
-				case EF_R8G8B8_UNORM:
-				case EF_R8G8B8_SNORM:
-				case EF_A1R5G5B5_UNORM_PACK16:
-				case EF_R8G8B8A8_SRGB:
-				case EF_A8B8G8R8_UNORM_PACK32:
-				case EF_A8B8G8R8_SNORM_PACK32:
-				case EF_A8B8G8R8_SRGB_PACK32:
-				case EF_R16_SFLOAT:
-				case EF_R16G16_SFLOAT:
-				case EF_R16G16B16_SFLOAT:
-				case EF_R16G16B16A16_SFLOAT:
-				case EF_R32_SFLOAT:
-				case EF_R32G32_SFLOAT:
-				case EF_R32G32B32_SFLOAT:
-				case EF_R32G32B32A32_SFLOAT:
-				case EF_B10G11R11_UFLOAT_PACK32:
-				case EF_E5B9G9R9_UFLOAT_PACK32:
-				case EF_A2B10G10R10_UNORM_PACK32:
-				case EF_A2B10G10R10_UINT_PACK32:
-				case EF_R16G16B16A16_UNORM:
-				case EF_R8_UINT:
-				case EF_R8_SINT:
-				case EF_R8G8_UINT:
-				case EF_R8G8_SINT:
-				case EF_R8G8B8_UINT:
-				case EF_R8G8B8_SINT:
-				case EF_R8G8B8A8_UNORM:
-				case EF_R8G8B8A8_SNORM:
-				case EF_R8G8B8A8_UINT:
-				case EF_R8G8B8A8_SINT:
-				case EF_B8G8R8A8_UINT:
-				case EF_R16_UINT:
-				case EF_R16_SINT:
-				case EF_R16G16_UINT:
-				case EF_R16G16_SINT:
-				case EF_R16G16B16_UINT:
-				case EF_R16G16B16_SINT:
-				case EF_R16G16B16A16_UINT:
-				case EF_R16G16B16A16_SINT:
-				case EF_R32_UINT:
-				case EF_R32_SINT:
-				case EF_R32G32_UINT:
-				case EF_R32G32_SINT:
-				case EF_R32G32B32_UINT:
-				case EF_R32G32B32_SINT:
-				case EF_R32G32B32A32_UINT:
-				case EF_R32G32B32A32_SINT:
-
-				// depth/stencil/depth+stencil formats checked as "Req. format"
-				case EF_D16_UNORM:
-				case EF_X8_D24_UNORM_PACK32:
-				case EF_D32_SFLOAT:
-				case EF_D24_UNORM_S8_UINT:
-				case EF_S8_UINT:
-
-				// specific compressed formats
-				case EF_BC6H_UFLOAT_BLOCK:
-				case EF_BC6H_SFLOAT_BLOCK:
-				case EF_BC7_UNORM_BLOCK:
-				case EF_BC7_SRGB_BLOCK:
-				case EF_ETC2_R8G8B8_UNORM_BLOCK:
-				case EF_ETC2_R8G8B8_SRGB_BLOCK:
-				case EF_ETC2_R8G8B8A1_UNORM_BLOCK:
-				case EF_ETC2_R8G8B8A1_SRGB_BLOCK:
-				case EF_ETC2_R8G8B8A8_UNORM_BLOCK:
-				case EF_ETC2_R8G8B8A8_SRGB_BLOCK:
-				case EF_EAC_R11_UNORM_BLOCK:
-				case EF_EAC_R11_SNORM_BLOCK:
-				case EF_EAC_R11G11_UNORM_BLOCK:
-				case EF_EAC_R11G11_SNORM_BLOCK:
-					return true;
-
-				// astc
-				case EF_ASTC_4x4_UNORM_BLOCK:
-				case EF_ASTC_5x4_UNORM_BLOCK:
-				case EF_ASTC_5x5_UNORM_BLOCK:
-				case EF_ASTC_6x5_UNORM_BLOCK:
-				case EF_ASTC_6x6_UNORM_BLOCK:
-				case EF_ASTC_8x5_UNORM_BLOCK:
-				case EF_ASTC_8x6_UNORM_BLOCK:
-				case EF_ASTC_8x8_UNORM_BLOCK:
-				case EF_ASTC_10x5_UNORM_BLOCK:
-				case EF_ASTC_10x6_UNORM_BLOCK:
-				case EF_ASTC_10x8_UNORM_BLOCK:
-				case EF_ASTC_10x10_UNORM_BLOCK:
-				case EF_ASTC_12x10_UNORM_BLOCK:
-				case EF_ASTC_12x12_UNORM_BLOCK:
-				case EF_ASTC_4x4_SRGB_BLOCK:
-				case EF_ASTC_5x4_SRGB_BLOCK:
-				case EF_ASTC_5x5_SRGB_BLOCK:
-				case EF_ASTC_6x5_SRGB_BLOCK:
-				case EF_ASTC_6x6_SRGB_BLOCK:
-				case EF_ASTC_8x5_SRGB_BLOCK:
-				case EF_ASTC_8x6_SRGB_BLOCK:
-				case EF_ASTC_8x8_SRGB_BLOCK:
-				case EF_ASTC_10x5_SRGB_BLOCK:
-				case EF_ASTC_10x6_SRGB_BLOCK:
-				case EF_ASTC_10x8_SRGB_BLOCK:
-				case EF_ASTC_10x10_SRGB_BLOCK:
-				case EF_ASTC_12x10_SRGB_BLOCK:
-				case EF_ASTC_12x12_SRGB_BLOCK:
-					return queryOpenGLFeature(NBL_KHR_texture_compression_astc_ldr);
-
-				default: return false;
-            }
-        }
-        inline bool isHardwareBlendableFormat(asset::E_FORMAT _fmt) const override
-        {
-            return isColorRenderableFormat(_fmt) && (asset::isNormalizedFormat(_fmt) || asset::isFloatingPointFormat(_fmt));
-        }
-
-
-        const core::smart_refctd_dynamic_array<std::string> getSupportedGLSLExtensions() const override;
-
-
-        bool bindGraphicsPipeline(const video::IGPURenderpassIndependentPipeline* _gpipeline) override;
-
-        bool bindComputePipeline(const video::IGPUComputePipeline* _cpipeline) override;
 
         bool bindDescriptorSets(E_PIPELINE_BIND_POINT _pipelineType, const IGPUPipelineLayout* _layout,
             uint32_t _first, uint32_t _count, const IGPUDescriptorSet* const* _descSets, core::smart_refctd_dynamic_array<uint32_t>* _dynamicOffsets) override;
@@ -694,7 +237,7 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 
 
 		//! generic version which overloads the unimplemented versions
-		bool changeRenderContext(const SExposedVideoData& videoData, void* device) {return false;}
+		bool changeRenderContext(const SExposedVideoData& videoData) {return false;}
 
         bool initAuxContext();
         const SAuxContext* getThreadContext(const std::thread::id& tid=std::this_thread::get_id());
@@ -771,10 +314,6 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 
 		//! Returns type of video driver
 		inline E_DRIVER_TYPE getDriverType() const override { return EDT_OPENGL; }
-
-		//! get color format of the current color buffer
-		inline asset::E_FORMAT getColorFormat() const override { return ColorFormat; }
-
 
         virtual IFrameBuffer* addFrameBuffer();
 
@@ -886,16 +425,8 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
         //private:
             std::thread::id threadId;
             uint8_t ID; //index in array of contexts, just to be easier in use
-            #ifdef _NBL_WINDOWS_API_
-                HGLRC ctx;
-            #endif
-            #ifdef _NBL_COMPILE_WITH_X11_DEVICE_
-                GLXContext ctx;
-                GLXPbuffer pbuff;
-            #endif
-            #ifdef _NBL_COMPILE_WITH_OSX_DEVICE_
-                AppleMakesAUselessOSWhichHoldsBackTheGamingIndustryAndSabotagesOpenStandards ctx;
-            #endif
+			EGLContext ctx;
+			EGLSurface surface;
 
             //! FBOs
             core::vector<IFrameBuffer*>  FrameBuffers;
@@ -1053,29 +584,10 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 
 		std::string VendorName;
 
-		//! Color buffer format
-		asset::E_FORMAT ColorFormat; //FIXME
-
         mutable core::smart_refctd_dynamic_array<std::string> m_supportedGLSLExtsNames;
 
-		#ifdef _NBL_WINDOWS_API_
-			HDC HDc; // Private GDI Device Context
-			HWND Window;
-		#ifdef _NBL_COMPILE_WITH_WINDOWS_DEVICE_
-			CIrrDeviceWin32 *Win32Device;
-		#endif
-		#endif
-		#ifdef _NBL_COMPILE_WITH_X11_DEVICE_
-			GLXDrawable Drawable;
-			Display* X11Display;
-			CIrrDeviceLinux *X11Device;
-		#endif
-		#ifdef _NBL_COMPILE_WITH_OSX_DEVICE_
-			CIrrDeviceMacOSX *OSXDevice;
-		#endif
-		#ifdef _NBL_COMPILE_WITH_SDL_DEVICE_
-			CIrrDeviceSDL *SDLDevice;
-		#endif
+		EGLDisplay Display;
+		EGLNativeWindowType Window;
 
         size_t maxALUShaderInvocations;
         size_t maxConcurrentShaderInvocations;
@@ -1089,14 +601,10 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
         std::mutex glContextMutex;
 		SAuxContext* AuxContexts;
         core::smart_refctd_ptr<const asset::IGLSLCompiler> GLSLCompiler;
+};
 
-		E_DEVICE_TYPE DeviceType;
-	};
-
-} // end namespace video
-} // end namespace nbl
+} // end namespace nbl::video
 
 
 #endif // _NBL_COMPILE_WITH_OPENGL_
 #endif
-

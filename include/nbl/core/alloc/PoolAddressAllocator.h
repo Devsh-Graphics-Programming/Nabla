@@ -64,9 +64,9 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
     public:
         _NBL_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
 
-        #define DUMMY_DEFAULT_CONSTRUCTOR PoolAddressAllocator() : blockSize(1u), blockCount(0u) {}
-        GCC_CONSTRUCTOR_INHERITANCE_BUG_WORKAROUND(DUMMY_DEFAULT_CONSTRUCTOR)
-        #undef DUMMY_DEFAULT_CONSTRUCTOR
+        static constexpr bool supportsNullBuffer = true;
+
+        PoolAddressAllocator() : blockSize(1u), blockCount(0u) {}
 
         virtual ~PoolAddressAllocator() {}
 
@@ -89,7 +89,6 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
 			other.blockSize = invalid_address;
             other.freeStackCtr = invalid_address;
         }
-
         template<typename... Args>
         PoolAddressAllocator(_size_type newBuffSz, const PoolAddressAllocator& other, Args&&... args) noexcept :
             Base(other, std::forward<Args>(args)...),

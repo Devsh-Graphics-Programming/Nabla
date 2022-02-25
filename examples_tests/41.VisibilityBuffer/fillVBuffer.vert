@@ -4,7 +4,7 @@
 
 layout (push_constant) uniform Block 
 {
-    uint dataBufferOffset;
+  uint dataBufferOffset;
 } pc;
 
 layout(location = 0) flat out uint drawGUID;

@@ -6,7 +6,9 @@
 #define RAYCOUNT_N_BUFFERING_MASK (RAYCOUNT_N_BUFFERING-1)
 
 #define MAX_TRIANGLES_IN_BATCH 16384
-#define MAX_ACCUMULATED_SAMPLES 0x10000
+
+// need to bump to 2 in case of NEE + MIS, 3 in case of Path Guiding
+#define SAMPLING_STRATEGY_COUNT 1
 
 
 #define WORKGROUP_SIZE 256

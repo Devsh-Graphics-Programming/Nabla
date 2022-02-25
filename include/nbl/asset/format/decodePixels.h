@@ -8,7 +8,7 @@
 #include <type_traits>
 #include <cstdint>
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 #include "nbl/asset/format/EFormat.h"
 #include "nbl/core/math/colorutil.h"
 

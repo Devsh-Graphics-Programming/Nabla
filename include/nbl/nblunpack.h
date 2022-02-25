@@ -4,17 +4,13 @@
 // See the original file in irrlicht source for authors
 
 // include this file to switch back to default alignment
-// file belongs to irrpack.h, see there for more info
+// file belongs to nblpack.h, see there for more info
 
 // Default alignment
-#if defined(_MSC_VER) || defined(__BORLANDC__) || defined (__BCPLUSPLUS__)
+#if defined(_MSC_VER) || defined(__GNUC__) || defined (__clang__)
 #	pragma pack( pop, packing )
-#elif defined (__DMC__)
-#	pragma pack( pop )
-#elif defined( __GNUC__ )
-#   if (__GNUC__ > 4 ) || ((__GNUC__ == 4 ) && (__GNUC_MINOR__ >= 7))
-#	    pragma pack( pop, packing )
-#   endif
+#else
+#	error compiler not supported
 #endif
 
 #undef PACK_STRUCT

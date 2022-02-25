@@ -8,6 +8,7 @@
 #include "nbl/asset/asset.h"
 
 // private headers (would be useful to cleanup the folders a bit)
+#ifndef _NBL_PCH_IGNORE_PRIVATE_HEADERS
 
 // buffers
 // loaders
@@ -36,7 +37,7 @@
 // builtins/headers
 #include "nbl/asset/utils/CGLSLVirtualTexturingBuiltinIncludeLoader.h"
 
-	
+
 // mesh
 #include "nbl/asset/utils/CGeometryCreator.h"
 // loaders
@@ -52,9 +53,15 @@
 #include "nbl/asset/utils/COverdrawMeshOptimizer.h"
 #include "nbl/asset/utils/CMeshManipulator.h"
 
-// baw file format
-#include "nbl/asset/bawformat/legacy/CBAWLegacy.h"
-#include "nbl/asset/bawformat/CBAWMeshFileLoader.h"
-#include "nbl/asset/bawformat/CBAWMeshWriter.h"
+// baw file format - not valid anymore
+//#include "nbl/asset/bawformat/legacy/CBAWLegacy.h"
+#ifdef _NBL_COMPILE_WITH_BAW_LOADER_
+//#include "nbl/asset/bawformat/CBAWMeshFileLoader.h"
+#endif
+#ifdef _NBL_COMPILE_WITH_BAW_WRITER_
+//#include "nbl/asset/bawformat/CBAWMeshWriter.h"
+#endif
+
+#endif //_NBL_PCH_IGNORE_PRIVATE_HEADERS
 
 #endif

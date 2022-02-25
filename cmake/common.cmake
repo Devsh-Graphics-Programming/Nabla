@@ -32,10 +32,15 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 	get_filename_component(EXECUTABLE_NAME ${CMAKE_CURRENT_SOURCE_DIR} NAME)
 	string(REGEX REPLACE "^[0-9]+\." "" EXECUTABLE_NAME ${EXECUTABLE_NAME})
 	string(TOLOWER ${EXECUTABLE_NAME} EXECUTABLE_NAME)
+	string(MAKE_C_IDENTIFIER ${EXECUTABLE_NAME} EXECUTABLE_NAME)
 
 	project(${EXECUTABLE_NAME})
 
-	add_executable(${EXECUTABLE_NAME} main.cpp ${_EXTRA_SOURCES})
+	if(ANDROID)
+		add_library(${EXECUTABLE_NAME} SHARED main.cpp ${_EXTRA_SOURCES})
+	else()
+		add_executable(${EXECUTABLE_NAME} main.cpp ${_EXTRA_SOURCES})
+	endif()
 	
 	set_property(TARGET ${EXECUTABLE_NAME} PROPERTY
              MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
@@ -48,10 +53,7 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 		PRIVATE ${_EXTRA_INCLUDES}
 	)
 	target_link_libraries(${EXECUTABLE_NAME} Nabla ${_EXTRA_LIBS}) # see, this is how you should code to resolve github issue 311
-	if (NBL_COMPILE_WITH_OPENGL)
-		find_package(OpenGL REQUIRED)
-		target_link_libraries(${EXECUTABLE_NAME} ${OPENGL_LIBRARIES})
-	endif()
+
 	add_compile_options(${_EXTRA_OPTIONS})
 	
 	if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
@@ -77,6 +79,7 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 	# https://github.com/buildaworldnet/IrrlichtBAW/issues/298 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
 	nbl_adjust_flags() # macro defined in root CMakeLists
 	nbl_adjust_definitions() # macro defined in root CMakeLists
+	add_definitions(-D_NBL_PCH_IGNORE_PRIVATE_HEADERS)
 
 	set_target_properties(${EXECUTABLE_NAME} PROPERTIES DEBUG_POSTFIX _d)
 	set_target_properties(${EXECUTABLE_NAME} PROPERTIES RELWITHDEBINFO_POSTFIX _rwdi)
@@ -152,17 +155,35 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 }")
 		file(WRITE "${PROJECT_BINARY_DIR}/.vscode/tasks.json" ${VSCODE_TASKS_JSON})
 	endif()
+	if(NBL_BUILD_ANDROID)
+		# https://github.com/android-ndk/ndk/issues/381
+		target_link_options(${EXECUTABLE_NAME} PRIVATE -u ANativeActivity_onCreate)
+		set (variadic_args ${ARGN})
+		list(LENGTH variadic_args variadic_count)
+		if (${variadic_count} GREATER 0)
+			list(GET variadic_args 0 optional_arg)
+			set(ASSET_SOURCE_DIR ${optional_arg})
+			#message(FATAL_ERROR  "the path ${optional_arg} doesn't exist")     
+			nbl_android_create_apk(${EXECUTABLE_NAME} ${ASSET_SOURCE_DIR})
+		else()
+			nbl_android_create_apk(${EXECUTABLE_NAME})
+		endif ()
+		
+	endif()
 endmacro()
 
-macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUDES LIB_OPTIONS)
+macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUDES LIB_OPTIONS DEF_OPTIONS)
 	set(LIB_NAME "NblExt${EXT_NAME}")
 	project(${LIB_NAME})
 
 	add_library(${LIB_NAME} ${LIB_SOURCES})
 	# EXTRA_SOURCES is var containing non-common names of sources (if any such sources, then EXTRA_SOURCES must be set before including this cmake code)
 	add_dependencies(${LIB_NAME} Nabla)
+	
+	get_target_property(_NBL_NABLA_TARGET_BINARY_DIR_ Nabla BINARY_DIR)
 
 	target_include_directories(${LIB_NAME}
+		PUBLIC ${_NBL_NABLA_TARGET_BINARY_DIR_}/build/import
 		PUBLIC ${CMAKE_BINARY_DIR}/include/nbl/config/debug
 		PUBLIC ${CMAKE_BINARY_DIR}/include/nbl/config/release
 		PUBLIC ${CMAKE_BINARY_DIR}/include/nbl/config/relwithdebinfo
@@ -174,6 +195,7 @@ macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUD
 	add_dependencies(${LIB_NAME} Nabla)
 	target_link_libraries(${LIB_NAME} PUBLIC Nabla)
 	target_compile_options(${LIB_NAME} PUBLIC ${LIB_OPTIONS})
+	target_compile_definitions(${LIB_NAME} PUBLIC ${DEF_OPTIONS})
 	set_target_properties(${LIB_NAME} PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 	if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
@@ -190,7 +212,7 @@ macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUD
 	nbl_adjust_flags() # macro defined in root CMakeLists
 	nbl_adjust_definitions() # macro defined in root CMakeLists
 
-	set_target_properties(${LIB_NAME} PROPERTIES DEBUG_POSTFIX _d)
+	set_target_properties(${LIB_NAME} PROPERTIES DEBUG_POSTFIX "")
 	set_target_properties(${LIB_NAME} PROPERTIES RELWITHDEBINFO_POSTFIX _rwdb)
 	set_target_properties(${LIB_NAME}
 		PROPERTIES
@@ -255,7 +277,7 @@ endmacro()
 
 function(nbl_get_conf_dir _OUTVAR _CONFIG)
 	string(TOLOWER ${_CONFIG} CONFIG)
-	set(${_OUTVAR} "${CMAKE_BINARY_DIR}/include/nbl/config/${CONFIG}" PARENT_SCOPE)
+	set(${_OUTVAR} "${CMAKE_BINARY_DIR}/include/nbl/config/${CONFIG}" PARENT_SCOPE) # WTF TODO: change CMAKE_BINARY_DIR in future! 
 endfunction()
 
 
@@ -283,8 +305,189 @@ function(nbl_install_config_header _CONF_HDR_NAME)
 	install(FILES ${file_relWithDebInfo} DESTINATION relwithdebinfo/include CONFIGURATIONS RelWithDebInfo)
 endfunction()
 
+macro(nbl_android_create_apk _TARGET)
+	get_target_property(TARGET_NAME ${_TARGET} NAME)
+	# TARGET_NAME_IDENTIFIER is identifier that can be used in code
+	string(MAKE_C_IDENTIFIER ${TARGET_NAME} TARGET_NAME_IDENTIFIER)
 
-# TODO: check the license for this https://gist.github.com/oliora/4961727299ed67337aba#gistcomment-3494802
+	set(APK_FILE_NAME ${TARGET_NAME}.apk)
+	set(APK_FILE ${CMAKE_CURRENT_SOURCE_DIR}/bin/$<CONFIG>/${APK_FILE_NAME})
+	
+	set (variadic_args ${ARGN})
+    
+    # Did we get any optional args?
+    list(LENGTH variadic_args variadic_count)
+    if (${variadic_count} GREATER 0)
+        list(GET variadic_args 0 optional_arg)
+        set(ASSET_SOURCE_DIR ${optional_arg})
+		#message(FATAL_ERROR  "the path ${optional_arg} doesn't exist")     
+	else()
+		set(ASSET_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/assets)
+    endif ()
+	
+	add_custom_target(${TARGET_NAME}_apk ALL DEPENDS ${APK_FILE})
+
+	string(SUBSTRING
+		"${ANDROID_APK_TARGET_ID}"
+		8  # length of "android-"
+		-1 # take remainder
+		TARGET_ANDROID_API_LEVEL
+	)
+	
+	get_filename_component(NBL_GEN_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}" ABSOLUTE)
+	set(NBL_ANDROID_MANIFEST_FILE ${NBL_GEN_DIRECTORY}/$<CONFIG>/AndroidManifest.xml)
+	set(NBL_ANDROID_LOADER_JAVA ${NBL_GEN_DIRECTORY}/$<CONFIG>/src/eu/devsh/${TARGET_NAME}/Loader.java)
+	
+	# AndroidManifest.xml
+	add_custom_command(
+		OUTPUT "${NBL_ANDROID_MANIFEST_FILE}" 
+		COMMAND ${CMAKE_COMMAND} -DNBL_ROOT_PATH:PATH=${NBL_ROOT_PATH} -DNBL_CONFIGURATION:STRING=$<CONFIG> -DNBL_GEN_DIRECTORY:PATH=${NBL_GEN_DIRECTORY} -DTARGET_ANDROID_API_LEVEL:STRING=${TARGET_ANDROID_API_LEVEL} -DSO_NAME:STRING=${_TARGET} -DTARGET_NAME_IDENTIFIER:STRING=${TARGET_NAME_IDENTIFIER} -P ${NBL_ROOT_PATH}/cmake/scripts/nbl/nablaAndroidManifest.cmake #! for some reason CMake fails for OUTPUT_NAME generator expression
+		COMMENT "Launching AndroidManifest.xml generation script!"
+		VERBATIM
+	)
+		
+	# Loader.java
+	add_custom_command(
+		OUTPUT "${NBL_ANDROID_LOADER_JAVA}" 
+		COMMAND ${CMAKE_COMMAND} -DNBL_ROOT_PATH:PATH=${NBL_ROOT_PATH} -DNBL_CONFIGURATION:STRING=$<CONFIG> -DNBL_GEN_DIRECTORY:PATH=${NBL_GEN_DIRECTORY}/$<CONFIG>/src/eu/devsh/${TARGET_NAME} -DSO_NAME:STRING=${_TARGET} -DTARGET_NAME_IDENTIFIER:STRING=${TARGET_NAME_IDENTIFIER} -P ${NBL_ROOT_PATH}/cmake/scripts/nbl/nablaLoaderJava.cmake
+		COMMENT "Launching Loader.java generation script!"
+		VERBATIM
+	)
+	
+	# need to sign the apk in order for android device not to refuse it
+	set(KEYSTORE_FILE ${NBL_GEN_DIRECTORY}/$<CONFIG>/debug.keystore)
+	set(KEY_ENTRY_ALIAS ${TARGET_NAME_IDENTIFIER}_apk_key)
+	add_custom_command(
+		OUTPUT ${KEYSTORE_FILE}
+		WORKING_DIRECTORY ${NBL_GEN_DIRECTORY}/$<CONFIG>
+		COMMAND ${ANDROID_JAVA_BIN}/keytool -genkey -keystore ${KEYSTORE_FILE} -storepass android -alias ${KEY_ENTRY_ALIAS} -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=, OU=, O=, L=, S=, C="
+	)
+	
+	if("${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Windows")
+		set(D8_SCRIPT "${ANDROID_BUILD_TOOLS}/d8.bat")
+		
+		if(EXISTS ${D8_SCRIPT})
+			set(DEX_COMMAND ${D8_SCRIPT} --output ./bin/ ./obj/eu/devsh/${TARGET_NAME}/*.class)
+		else()
+			message(FATAL_ERROR "ANDROID_BUILD_TOOLS path doesn't contain D8 (DEX) bat file!")
+		endif()
+	else()
+		set(D8_SCRIPT "${ANDROID_BUILD_TOOLS}/d8")
+		
+		if(EXISTS ${D8_SCRIPT})
+			set(DEX_COMMAND ${D8_SCRIPT} ./obj/eu/devsh/${TARGET_NAME}/Loader.class --output ./bin/)
+		else()
+			message(FATAL_ERROR "ANDROID_BUILD_TOOLS path doesn't contain D8 (DEX) script file!")
+		endif()
+	endif()
+	
+	set(NBL_APK_LIBRARY_DIR libs/lib/x86_64)
+	set(NBL_APK_OBJ_DIR obj)
+	set(NBL_APK_BIN_DIR bin)
+	set(NBL_APK_ASSETS_DIR assets)
+	
+	if(EXISTS ${ASSET_SOURCE_DIR})
+		add_custom_command(
+			OUTPUT ${APK_FILE}
+			DEPENDS ${_TARGET}
+			DEPENDS ${NBL_ANDROID_MANIFEST_FILE}
+			DEPENDS ${NBL_ANDROID_LOADER_JAVA}
+			DEPENDS ${KEYSTORE_FILE}
+			DEPENDS ${NBL_ROOT_PATH}/android/Loader.java
+			COMMAND ${CMAKE_COMMAND} -E make_directory ${NBL_APK_LIBRARY_DIR}
+			COMMAND ${CMAKE_COMMAND} -E make_directory ${NBL_APK_OBJ_DIR}
+			COMMAND ${CMAKE_COMMAND} -E make_directory ${NBL_APK_BIN_DIR}
+			COMMAND ${CMAKE_COMMAND} -E make_directory ${NBL_APK_ASSETS_DIR}
+			COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${_TARGET}> libs/lib/x86_64/$<TARGET_FILE_NAME:${_TARGET}>
+			COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:tbb> libs/lib/x86_64/$<TARGET_FILE_NAME:tbb>
+			COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:tbbmalloc> libs/lib/x86_64/$<TARGET_FILE_NAME:tbbmalloc>
+			COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:tbbmalloc_proxy> libs/lib/x86_64/$<TARGET_FILE_NAME:tbbmalloc_proxy>
+			COMMAND ${CMAKE_COMMAND} -E copy_directory ${ASSET_SOURCE_DIR} ${NBL_APK_ASSETS_DIR}
+			COMMAND ${ANDROID_BUILD_TOOLS}/aapt package -f -m -J src -M AndroidManifest.xml -I ${ANDROID_JAR}
+			COMMAND ${ANDROID_JAVA_BIN}/javac -d ./obj -source 1.7 -target 1.7 -bootclasspath ${ANDROID_JAVA_RT_JAR} -classpath "${ANDROID_JAR}" -sourcepath src ${NBL_ANDROID_LOADER_JAVA}
+			COMMAND ${DEX_COMMAND}
+			COMMAND ${ANDROID_BUILD_TOOLS}/aapt package -f -M AndroidManifest.xml -A ${NBL_APK_ASSETS_DIR} -I ${ANDROID_JAR} -F ${TARGET_NAME}-unaligned.apk bin libs
+			COMMAND ${ANDROID_BUILD_TOOLS}/zipalign -f 4 ${TARGET_NAME}-unaligned.apk ${APK_FILE_NAME}
+			COMMAND ${ANDROID_BUILD_TOOLS}/apksigner sign --ks ${KEYSTORE_FILE} --ks-pass pass:android --key-pass pass:android --ks-key-alias ${KEY_ENTRY_ALIAS} ${APK_FILE_NAME}
+			COMMAND ${CMAKE_COMMAND} -E copy ${APK_FILE_NAME} ${APK_FILE}
+			COMMAND ${CMAKE_COMMAND} -E rm -rf ${NBL_APK_ASSETS_DIR}
+			WORKING_DIRECTORY ${NBL_GEN_DIRECTORY}/$<CONFIG>
+			COMMENT "Creating ${APK_FILE_NAME}..."
+			VERBATIM
+		)
+	else()
+		add_custom_command(
+			OUTPUT ${APK_FILE}
+			DEPENDS ${_TARGET}
+			DEPENDS ${NBL_ANDROID_MANIFEST_FILE}
+			DEPENDS ${NBL_ANDROID_LOADER_JAVA}
+			DEPENDS ${KEYSTORE_FILE}
+			DEPENDS ${NBL_ROOT_PATH}/android/Loader.java
+			COMMAND ${CMAKE_COMMAND} -E make_directory ${NBL_APK_LIBRARY_DIR}
+			COMMAND ${CMAKE_COMMAND} -E make_directory ${NBL_APK_OBJ_DIR}
+			COMMAND ${CMAKE_COMMAND} -E make_directory ${NBL_APK_BIN_DIR}
+			COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${_TARGET}> libs/lib/x86_64/$<TARGET_FILE_NAME:${_TARGET}>
+			COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:tbb> libs/lib/x86_64/$<TARGET_FILE_NAME:tbb>
+			COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:tbbmalloc> libs/lib/x86_64/$<TARGET_FILE_NAME:tbbmalloc>
+			COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:tbbmalloc_proxy> libs/lib/x86_64/$<TARGET_FILE_NAME:tbbmalloc_proxy>
+			COMMAND ${ANDROID_BUILD_TOOLS}/aapt package -f -m -J src -M AndroidManifest.xml -I ${ANDROID_JAR}
+			COMMAND ${ANDROID_JAVA_BIN}/javac -d ./obj -source 1.7 -target 1.7 -bootclasspath ${ANDROID_JAVA_RT_JAR} -classpath "${ANDROID_JAR}" -sourcepath src ${NBL_ANDROID_LOADER_JAVA}
+			COMMAND ${DEX_COMMAND}
+			COMMAND ${ANDROID_BUILD_TOOLS}/aapt package -f -M AndroidManifest.xml -I ${ANDROID_JAR} -F ${TARGET_NAME}-unaligned.apk bin libs
+			COMMAND ${ANDROID_BUILD_TOOLS}/zipalign -f 4 ${TARGET_NAME}-unaligned.apk ${APK_FILE_NAME}
+			COMMAND ${ANDROID_BUILD_TOOLS}/apksigner sign --ks ${KEYSTORE_FILE} --ks-pass pass:android --key-pass pass:android --ks-key-alias ${KEY_ENTRY_ALIAS} ${APK_FILE_NAME}
+			COMMAND ${CMAKE_COMMAND} -E copy ${APK_FILE_NAME} ${APK_FILE}
+			WORKING_DIRECTORY ${NBL_GEN_DIRECTORY}/$<CONFIG>
+			COMMENT "Creating ${APK_FILE_NAME}..."
+			VERBATIM
+		)
+	endif()
+endmacro()
+
+function(nbl_android_create_media_storage_apk)
+	set(TARGET_NAME android_media_storage)
+	string(MAKE_C_IDENTIFIER ${TARGET_NAME} TARGET_NAME_IDENTIFIER)
+
+	set(APK_FILE_NAME ${TARGET_NAME}.apk)
+	set(APK_FILE ${CMAKE_CURRENT_BINARY_DIR}/media_storage/bin/${APK_FILE_NAME})
+
+	add_custom_target(${TARGET_NAME}_apk ALL DEPENDS ${APK_FILE})
+
+	string(SUBSTRING
+		"${ANDROID_APK_TARGET_ID}"
+		8  # length of "android-"
+		-1 # take remainder
+		TARGET_ANDROID_API_LEVEL
+	)
+	set(PACKAGE_NAME "eu.devsh.${TARGET_NAME_IDENTIFIER}")
+	set(APP_NAME ${TARGET_NAME_IDENTIFIER})
+
+	# configure_file(${NBL_ROOT_PATH}/android/AndroidManifest.xml ${CMAKE_CURRENT_BINARY_DIR}/AndroidManifest.xml)
+
+	# # need to sign the apk in order for android device not to refuse it
+	# set(KEYSTORE_FILE ${CMAKE_CURRENT_BINARY_DIR}/debug.keystore)
+	# set(KEY_ENTRY_ALIAS ${TARGET_NAME_IDENTIFIER}_apk_key)
+	# add_custom_command(
+		# OUTPUT ${KEYSTORE_FILE}
+		# WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+		# COMMAND ${ANDROID_JAVA_BIN}/keytool -genkey -keystore ${KEYSTORE_FILE} -storepass android -alias ${KEY_ENTRY_ALIAS} -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=, OU=, O=, L=, S=, C="
+	# )
+	
+	 add_custom_command(
+		OUTPUT ${APK_FILE}
+		DEPENDS ${KEYSTORE_FILE}
+		DEPENDS ${NBL_ROOT_PATH}/android/AndroidManifest.xml
+		DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/AndroidManifest.xml
+		WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+		COMMENT "Creating ${APK_FILE_NAME} ..."
+		COMMAND ${ANDROID_BUILD_TOOLS}/aapt package -f -m -J src -M AndroidManifest.xml -I ${ANDROID_JAR}
+		COMMAND ${ANDROID_BUILD_TOOLS}/aapt package -f -M AndroidManifest.xml -I ${ANDROID_JAR} -F ${TARGET_NAME}-unaligned.apk ${CMAKE_CURRENT_SOURCE_DIR}/media
+		COMMAND ${ANDROID_BUILD_TOOLS}/zipalign -f 4 ${TARGET_NAME}-unaligned.apk ${APK_FILE_NAME}
+		COMMAND ${ANDROID_BUILD_TOOLS}/apksigner sign --ks ${KEYSTORE_FILE} --ks-pass pass:android --key-pass pass:android --ks-key-alias ${KEY_ENTRY_ALIAS} ${APK_FILE_NAME}
+		COMMAND ${CMAKE_COMMAND} -E copy ${APK_FILE_NAME} ${APK_FILE}
+		VERBATIM
+	 )
+endfunction()
 
 # Start to track variables for change or adding.
 # Note that variables starting with underscore are ignored.
@@ -325,4 +528,81 @@ macro(propagate_changed_variables_to_parent_scope)
             endif()
         endif()
     endforeach()
+endmacro()
+
+macro(glue_source_definitions NBL_TARGET NBL_REFERENCE_RETURN_VARIABLE)
+	macro(NBL_INSERT_DEFINITIONS _NBL_DEFINITIONS_)
+		string(FIND "${_NBL_DEFINITIONS_}" "NOTFOUND" CHECK)
+			if(${CHECK} EQUAL -1)
+				list(APPEND TESTEST ${_NBL_DEFINITIONS_})
+			endif()
+	endmacro()
+		
+	get_directory_property(NBL_DIRECTORY_DEFINITIONS COMPILE_DEFINITIONS)
+
+	if(DEFINED NBL_DIRECTORY_DEFINITIONS)
+		NBL_INSERT_DEFINITIONS("${NBL_DIRECTORY_DEFINITIONS}")
+	endif()
+	
+	get_target_property(NBL_COMPILE_DEFS ${NBL_TARGET} COMPILE_DEFINITIONS)
+	if(DEFINED NBL_COMPILE_DEFS)
+		foreach(def IN LISTS NBL_COMPILE_DEFS)
+			NBL_INSERT_DEFINITIONS(${def})
+		endforeach()
+	endif()
+	
+	foreach(trgt IN LISTS _NBL_3RDPARTY_TARGETS_)			 
+			 get_target_property(NBL_COMPILE_DEFS ${trgt} COMPILE_DEFINITIONS)
+			 
+			 if(DEFINED NBL_COMPILE_DEFS)
+				NBL_INSERT_DEFINITIONS(${NBL_COMPILE_DEFS})
+			 endif()
+	endforeach()
+	
+	foreach(def IN LISTS TESTEST)	
+		string(FIND "${def}" "-D" CHECK)
+			if(${CHECK} EQUAL -1)
+				list(APPEND ${NBL_REFERENCE_RETURN_VARIABLE} ${def})
+			else()
+				string(LENGTH "-D" _NBL_D_LENGTH_)
+				string(LENGTH ${def} _NBL_DEFINITION_LENGTH_)
+				math(EXPR _NBL_DEFINITION_WITHOUT_D_LENGTH_ "${_NBL_DEFINITION_LENGTH_} - ${_NBL_D_LENGTH_}" OUTPUT_FORMAT DECIMAL)
+				string(SUBSTRING ${def} ${_NBL_D_LENGTH_} ${_NBL_DEFINITION_WITHOUT_D_LENGTH_} _NBL_DEFINITION_WITHOUT_D_)
+				
+				list(APPEND ${NBL_REFERENCE_RETURN_VARIABLE} ${_NBL_DEFINITION_WITHOUT_D_})
+			endif()
+	endforeach()
+	
+	list(REMOVE_DUPLICATES ${NBL_REFERENCE_RETURN_VARIABLE})
+	
+	foreach(_NBL_DEF_ IN LISTS ${NBL_REFERENCE_RETURN_VARIABLE})
+		string(FIND "${_NBL_DEF_}" "=" _NBL_POSITION_ REVERSE)
+		
+		if(_NBL_POSITION_ STREQUAL -1)
+			string(APPEND WRAPPER_CODE 
+				"#ifndef ${_NBL_DEF_}\n"
+				"#define ${_NBL_DEF_}\n"
+				"#endif // ${_NBL_DEF_}\n\n"
+			)
+		else()
+			string(SUBSTRING "${_NBL_DEF_}" 0 ${_NBL_POSITION_} _NBL_CLEANED_DEF_)
+			
+			string(LENGTH "${_NBL_DEF_}" _NBL_DEF_LENGTH_)
+			math(EXPR _NBL_SHIFTED_POSITION_ "${_NBL_POSITION_} + 1" OUTPUT_FORMAT DECIMAL)
+			math(EXPR _NBL_DEF_VALUE_LENGTH_ "${_NBL_DEF_LENGTH_} - ${_NBL_SHIFTED_POSITION_}" OUTPUT_FORMAT DECIMAL)
+			string(SUBSTRING "${_NBL_DEF_}" ${_NBL_SHIFTED_POSITION_} ${_NBL_DEF_VALUE_LENGTH_} _NBL_DEF_VALUE_)
+			
+			string(APPEND WRAPPER_CODE 
+				"#ifndef ${_NBL_CLEANED_DEF_}\n"
+				"#define ${_NBL_CLEANED_DEF_} ${_NBL_DEF_VALUE_}\n"
+				"#endif // ${_NBL_CLEANED_DEF_}\n\n"
+			)
+		endif()
+	endforeach()
+	
+	set(${NBL_REFERENCE_RETURN_VARIABLE} "${WRAPPER_CODE}")
+endmacro()
+
+macro(write_source_definitions NBL_FILE NBL_WRAPPER_CODE_TO_WRITE)
+	file(WRITE "${NBL_FILE}" "${NBL_WRAPPER_CODE_TO_WRITE}")
 endmacro()

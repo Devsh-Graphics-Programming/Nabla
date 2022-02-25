@@ -5,17 +5,25 @@
 #ifndef __NBL_ASSET_I_IMAGE_H_INCLUDED__
 #define __NBL_ASSET_I_IMAGE_H_INCLUDED__
 
+#include "nbl/core/util/bitflag.h"
+#include "nbl/core/containers/refctd_dynamic_array.h"
+#include "nbl/core/math/glslFunctions.tcc"
+
 #include "nbl/asset/format/EFormat.h"
 #include "nbl/asset/IBuffer.h"
 #include "nbl/asset/IDescriptor.h"
 #include "nbl/asset/ICPUBuffer.h"
-#include "nbl/core/math/glslFunctions.tcc"
+#include "nbl/asset/EImageLayout.h"
+#include "nbl/asset/ECommonEnums.h"
+#include "nbl/system/ILogger.h"
 
-namespace nbl
+namespace nbl::asset
 {
-namespace asset
-{
-	
+
+// Todo(achal): Vulkan's VkOffset3D has int32_t members, getting rid of this
+// produces a bunch of errors in the filtering APIs and core::vectorSIMD**,
+// gotta do it carefully
+
 //placeholder until we configure Vulkan SDK
 typedef struct VkOffset3D {
 	uint32_t	x;
@@ -36,6 +44,7 @@ typedef struct VkExtent3D {
 	uint32_t	height;
 	uint32_t	depth;
 } VkExtent3D; //depr
+
 inline bool operator!=(const VkExtent3D& v1, const VkExtent3D& v2)
 {
 	return v1.width!=v2.width||v1.height!=v2.height||v1.depth!=v2.depth;
@@ -112,6 +121,20 @@ class IImage : public IDescriptor
 			ET_OPTIMAL,
 			ET_LINEAR
 		};
+		enum E_USAGE_FLAGS : uint32_t
+		{
+            EUF_NONE = 0x00000000,
+			EUF_TRANSFER_SRC_BIT = 0x00000001,
+			EUF_TRANSFER_DST_BIT = 0x00000002,
+			EUF_SAMPLED_BIT = 0x00000004,
+			EUF_STORAGE_BIT = 0x00000008,
+			EUF_COLOR_ATTACHMENT_BIT = 0x00000010,
+			EUF_DEPTH_STENCIL_ATTACHMENT_BIT = 0x00000020,
+			EUF_TRANSIENT_ATTACHMENT_BIT = 0x00000040,
+			EUF_INPUT_ATTACHMENT_BIT = 0x00000080,
+			EUF_SHADING_RATE_IMAGE_BIT_NV = 0x00000100,
+			EUF_FRAGMENT_DENSITY_MAP_BIT_EXT = 0x00000200
+		};
 		struct SSubresourceRange
 		{
 			E_ASPECT_FLAGS	aspectMask = static_cast<E_ASPECT_FLAGS>(0u); // waits for vulkan
@@ -132,6 +155,9 @@ class IImage : public IDescriptor
 			inline bool					isValid() const
 			{
 				// TODO: more complex check of compatible aspects
+				// Image Extent must be a mutiple of texel block dims OR offset + extent = image subresourceDims
+ 				// bufferOffset must be multiple of the compressed texel block size in bytes (matters in IGPU?)
+				// If planar subresource aspectMask should be PLANE_{0,1,2}
 				if (false)
 					return false;
 
@@ -214,12 +240,14 @@ class IImage : public IDescriptor
 			uint32_t									mipLevels;
 			uint32_t									arrayLayers;
 			E_SAMPLE_COUNT_FLAGS						samples;
-			//E_TILING									tiling;
-			//E_USAGE_FLAGS								usage;
-			//E_SHARING_MODE							sharingMode;
-			//core::smart_refctd_dynamic_aray<uint32_t>	queueFamilyIndices;
-			//E_LAYOUT									initialLayout;
-
+			// stuff below is irrelevant in OpenGL backend
+			E_TILING									tiling = ET_OPTIMAL;
+			core::bitflag<E_USAGE_FLAGS>				usage = static_cast<E_USAGE_FLAGS>(0);
+			// TODO: @achal sharing mode and queue family lists shouldn't be in ICPUImage's creation params!
+			E_SHARING_MODE								sharingMode = ESM_EXCLUSIVE;
+			uint32_t									queueFamilyIndexCount = 0u;
+			const uint32_t*								queueFamilyIndices = nullptr;
+			E_IMAGE_LAYOUT								initialLayout = EIL_UNDEFINED;
 			bool operator==(const SCreationParams& rhs) const
 			{
 				return flags == rhs.flags && type == rhs.type && format == rhs.format &&
@@ -231,6 +259,12 @@ class IImage : public IDescriptor
 				return !operator==(rhs);
 			}
 		};
+
+				//!
+		inline const auto& getCreationParameters() const
+		{
+			return params;
+		}
 
 		//!
 		inline static uint32_t calculateMaxMipLevel(const VkExtent3D& extent, E_TYPE type)
@@ -351,8 +385,6 @@ class IImage : public IDescriptor
 			if (_params.mipLevels > calculateMaxMipLevel(_params.extent, _params.type))
 				return false;
 
-			// TODO: initialLayout must be VK_IMAGE_LAYOUT_UNDEFINED or VK_IMAGE_LAYOUT_PREINITIALIZED.
-
 			return true;
 		}
 
@@ -386,50 +418,50 @@ class IImage : public IDescriptor
 					return false;
 
 				// count on the user not being an idiot
-				#ifdef _NBL_DEBUG
-					if (it->srcSubresource.mipLevel>=srcImage->getCreationParameters().mipLevels)
-					{
-						assert(false);
-						return false;
-					}
-					if (it->srcSubresource.baseArrayLayer+it->srcSubresource.layerCount >= srcImage->getCreationParameters().arrayLayers)
-					{
-						assert(false);
-						return false;
-					}
+#ifdef _NBL_DEBUG
+				if (it->srcSubresource.mipLevel>=srcImage->getCreationParameters().mipLevels)
+				{
+					assert(false);
+					return false;
+				}
+				if (it->srcSubresource.baseArrayLayer+it->srcSubresource.layerCount > srcImage->getCreationParameters().arrayLayers)
+				{
+					assert(false);
+					return false;
+				}
 
-					const auto& off = it->srcOffset;
-					const auto& ext = it->extent;
-					switch (srcImage->getCreationParameters().type)
-					{
-						case ET_1D:
-							if (off.y>0u || ext.height>1u)
-								return false;
-							[[fallthrough]];
-						case ET_2D:
-							if (off.z>0u || ext.depth>1u)
-								return false;
-							break;
-						default:
-							break;
-					}
+				const auto& off = it->srcOffset;
+				const auto& ext = it->extent;
+				switch (srcImage->getCreationParameters().type)
+				{
+					case ET_1D:
+						if (off.y>0u || ext.height>1u)
+							return false;
+						[[fallthrough]];
+					case ET_2D:
+						if (off.z>0u || ext.depth>1u)
+							return false;
+						break;
+					default:
+						break;
+				}
 
-					auto minPt = core::vector3du32_SIMD(off.x,off.y,off.z);
-					auto srcBlockDims = asset::getBlockDimensions(srcImage->getCreationParameters().format);
-					if (((minPt%srcBlockDims)!=zero).any())
-					{
-						assert(false);
-						return false;
-					}
+				auto minPt = core::vector3du32_SIMD(off.x,off.y,off.z);
+				auto srcBlockDims = asset::getBlockDimensions(srcImage->getCreationParameters().format);
+				if (((minPt%srcBlockDims)!=zero).any())
+				{
+					assert(false);
+					return false;
+				}
 
-					auto maxPt = core::vector3du32_SIMD(ext.width,ext.height,ext.depth)+minPt;
-					auto srcMipSize = srcImage->getMipSize(it->srcSubresource.mipLevel);
-					if ((maxPt>srcMipSize || maxPt!=srcMipSize && ((maxPt%srcBlockDims)!=zero)).any())
-					{
-						assert(false);
-						return false;
-					}
-				#endif
+				auto maxPt = core::vector3du32_SIMD(ext.width,ext.height,ext.depth)+minPt;
+				auto srcMipSize = srcImage->getMipSize(it->srcSubresource.mipLevel);
+				if ((maxPt>srcMipSize || (maxPt!=srcMipSize && ((maxPt%srcBlockDims)!=zero))).any())
+				{
+					assert(false);
+					return false;
+				}
+#endif
 			}
 
 			return true;
@@ -445,12 +477,6 @@ class IImage : public IDescriptor
 		//!
 		E_CATEGORY getTypeCategory() const override { return EC_IMAGE; }
 
-
-		//!
-		inline const auto& getCreationParameters() const
-		{
-			return params;
-		}
 
 		inline const auto& getTexelBlockInfo() const
 		{
@@ -694,8 +720,7 @@ class IImage : public IDescriptor
 };
 static_assert(sizeof(IImage)-sizeof(IDescriptor)!=3u*sizeof(uint32_t)+sizeof(VkExtent3D)+sizeof(uint32_t)*3u,"BaW File Format won't work");
 
-} // end namespace video
-} // end namespace nbl
+} // end namespace nbl::asset
 
 #endif
 

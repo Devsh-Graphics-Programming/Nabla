@@ -24,15 +24,12 @@ SOFTWARE.
 
 #include "nbl/asset/IAssetManager.h"
 
-
 #ifdef _NBL_COMPILE_WITH_OPENEXR_LOADER_
 
 #include "nbl/asset/filters/CRegionBlockFunctorFilter.h"
 #include "nbl/asset/metadata/COpenEXRMetadata.h"
 
 #include "CImageLoaderOpenEXR.h"
-
-#include "os.h"
 
 #include "openexr/IlmBase/Imath/ImathBox.h"
 #include "openexr/OpenEXR/IlmImf/ImfRgbaFile.h"
@@ -54,16 +51,98 @@ namespace nbl
 		using namespace IMF;
 		using namespace IMATH;
 
+		namespace impl
+		{
+			class nblIStream : public IMF::IStream
+			{
+				public:
+					nblIStream(system::IFile* _nblFile)
+						: IMF::IStream(getFileName(_nblFile).c_str()), nblFile(_nblFile) {}
+					virtual ~nblIStream() {}
+
+					//------------------------------------------------------
+					// Read from the stream:
+					//
+					// read(c,n) reads n bytes from the stream, and stores
+					// them in array c.  If the stream contains less than n
+					// bytes, or if an I/O error occurs, read(c,n) throws
+					// an exception.  If read(c,n) reads the last byte from
+					// the file it returns false, otherwise it returns true.
+					//------------------------------------------------------
+
+					virtual bool read(char c[/*n*/], int n) override
+					{
+						system::future<size_t> future;
+						nblFile->read(future, c, fileOffset, n);
+						const auto bytesRead = future.get();
+						fileOffset += bytesRead;
+						
+						return true;
+					}
+
+					//--------------------------------------------------------
+					// Get the current reading position, in bytes from the
+					// beginning of the file.  If the next call to read() will
+					// read the first byte in the file, tellg() returns 0.
+					//--------------------------------------------------------
+
+					virtual IMF::Int64 tellg() override
+					{
+						return static_cast<IMF::Int64>(fileOffset);
+					}
+
+					//-------------------------------------------
+					// Set the current reading position.
+					// After calling seekg(i), tellg() returns i.
+					//-------------------------------------------
+
+					virtual void seekg(IMF::Int64 pos) override
+					{
+						fileOffset = static_cast<decltype(fileOffset)>(pos);
+					}
+
+					//------------------------------------------------------
+					// Clear error conditions after an operation has failed.
+					//------------------------------------------------------
+
+					virtual void clear() override
+					{
+						/*
+							Probably we don't want to investigate in system::IFile
+							and change the stream error state flags, leaving this 
+							function empty
+						*/
+					}
+
+					void resetFileOffset()
+					{
+						fileOffset = 0u;
+					}
+
+				private:
+
+					const std::string getFileName(system::IFile* _nblFile)
+					{
+						std::filesystem::path filename, extension;
+						core::splitFilename(_nblFile->getFileName(), nullptr, &filename, &extension);
+						return filename.string() + extension.string();
+					}
+
+					system::IFile* nblFile;
+					size_t fileOffset = {};
+			};
+		}
+
 		using suffixOfChannelBundle = std::string;
 		using channelName = std::string;	     									// sytnax if as follows
 		using mapOfChannels = std::unordered_map<channelName, Channel>;				// suffix.channel, where channel are "R", "G", "B", "A"
 
 		class SContext;
-		bool readVersionField(io::IReadFile* _file, SContext& ctx);
-		bool readHeader(const char fileName[], SContext& ctx);
+		bool readVersionField(IMF::IStream* nblIStream, SContext& ctx, const system::logger_opt_ptr);
+		bool readHeader(IMF::IStream* nblIStream, SContext& ctx);
 		template<typename rgbaFormat>
 		void readRgba(InputFile& file, std::array<Array2D<rgbaFormat>, 4>& pixelRgbaMapArray, int& width, int& height, E_FORMAT& format, const suffixOfChannelBundle suffixOfChannels);
-		E_FORMAT specifyIrrlichtEndFormat(const mapOfChannels& mapOfChannels, const suffixOfChannelBundle suffixName, const std::string fileName);
+		E_FORMAT specifyIrrlichtEndFormat(const mapOfChannels& mapOfChannels, const suffixOfChannelBundle suffixName, const std::string fileName, const system::logger_opt_ptr logger);
 
 		//! A helpful struct for handling OpenEXR layout
 		/*
@@ -74,6 +153,7 @@ namespace nbl
 			- line offset table
 			- scan line blocks
 		*/
+
 		struct SContext
 		{
 			constexpr static uint32_t magicNumber = 20000630ul; // 0x76, 0x2f, 0x31, 0x01
@@ -161,8 +241,8 @@ namespace nbl
 					data(reinterpret_cast<uint8_t*>(image->getBuffer()->getPointer())), pixelMapArray(_pixelMapArray)
 				{
 					using StreamFromEXR = CRegionBlockFunctorFilter<ReadTexels<IlmType>,false>;
-					StreamFromEXR::state_type state(*this,image,image->getRegions().begin());
-					StreamFromEXR::execute(std::execution::par_unseq,&state);
+					typename StreamFromEXR::state_type state(*this,image,image->getRegions().begin());
+					StreamFromEXR::execute(core::execution::par_unseq,&state);
 				}
 
 				inline void operator()(uint32_t ptrOffset, const core::vectorSIMDu32& texelCoord)
@@ -173,7 +253,7 @@ namespace nbl
 					for (auto channelIndex=0; channelIndex<availableChannels; channelIndex++)
 					{
 						const auto& element = pixelMapArray[channelIndex][texelCoord.y][texelCoord.x];
-						reinterpret_cast<std::decay<decltype(element)>::type*>(texelPtr)[channelIndex] = element;
+						reinterpret_cast<typename std::decay<decltype(element)>::type*>(texelPtr)[channelIndex] = element;
 					}
 				}
 
@@ -217,22 +297,39 @@ namespace nbl
 				return false;
 		}
 
-
-		SAssetBundle CImageLoaderOpenEXR::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
+		SAssetBundle CImageLoaderOpenEXR::loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 		{
 			if (!_file)
 				return {};
 
-			const auto& fileName = _file->getFileName().c_str();
-
 			SContext ctx;
-			InputFile file = fileName;
 
-			if (!readVersionField(_file, ctx))
-				return {};
+			IMF::IStream* nblIStream = _NBL_NEW(impl::nblIStream, _file); // TODO: THIS NEEDS TESTING
+			InputFile file(*nblIStream);
 
-			if (!readHeader(fileName, ctx))
+			if (file.isComplete())
+				static_cast<impl::nblIStream*>(nblIStream)->resetFileOffset();
+			else
+			{
+				_NBL_DELETE(nblIStream);
 				return {};
+			}
+
+			if (readVersionField(nblIStream, ctx, _params.logger))
+				static_cast<impl::nblIStream*>(nblIStream)->resetFileOffset();
+			else
+			{
+				_NBL_DELETE(nblIStream);
+				return {};
+			}
+
+			if (readHeader(nblIStream, ctx))
+				static_cast<impl::nblIStream*>(nblIStream)->resetFileOffset();
+			else
+			{
+				_NBL_DELETE(nblIStream);
+				return {};
+			}
 
 			core::vector<core::smart_refctd_ptr<ICPUImage>> images;
 			const auto channelsData = getChannels(file);
@@ -249,7 +346,7 @@ namespace nbl
 					int height;
 
 					auto params = perImageData.params;
-					params.format = specifyIrrlichtEndFormat(mapOfChannels, suffixOfChannels, file.fileName());
+					params.format = specifyIrrlichtEndFormat(mapOfChannels, suffixOfChannels, file.fileName(), _params.logger);
 					params.type = ICPUImage::ET_2D;;
 					params.flags = static_cast<ICPUImage::E_CREATE_FLAGS>(0u);
 					params.samples = ICPUImage::ESCF_1_BIT;
@@ -259,7 +356,9 @@ namespace nbl
 
 					if (params.format == EF_UNKNOWN)
 					{
-						os::Printer::log("LOAD EXR: incorrect format specified for " + suffixOfChannels + " channels - skipping the file", file.fileName(), ELL_INFORMATION);
+						#ifndef  _NBL_PLATFORM_ANDROID_
+						_params.logger.log("LOAD EXR: incorrect format specified for " + suffixOfChannels + " channels - skipping the file %s", system::ILogger::ELL_INFO, file.fileName());
+						#endif // ! _NBL_PLATFORM_ANDROID_
 						continue;
 					}
 
@@ -279,7 +378,7 @@ namespace nbl
 						auto texelBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(image->getImageDataSizeInBytes());
 						auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(1u);
 						ICPUImage::SBufferCopy& region = regions->front();
-						//region.imageSubresource.aspectMask = ...; // waits for Vulkan
+						region.imageSubresource.aspectMask = IImage::E_ASPECT_FLAGS::EAF_COLOR_BIT;
 						region.imageSubresource.mipLevel = 0u;
 						region.imageSubresource.baseArrayLayer = 0u;
 						region.imageSubresource.layerCount = 1u;
@@ -304,19 +403,16 @@ namespace nbl
 					images.push_back(std::move(image));
 				}
 			}	
-
+			_NBL_DELETE(nblIStream);
 			return SAssetBundle(std::move(meta),std::move(images));
 		}
 
-		bool CImageLoaderOpenEXR::isALoadableFileFormat(io::IReadFile* _file) const
+		bool CImageLoaderOpenEXR::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const
 		{	
-			const size_t begginingOfFile = _file->getPos();
-            _file->seek(0ull);
-
 			char magicNumberBuffer[sizeof(SContext::magicNumber)];
-			_file->read(magicNumberBuffer, sizeof(SContext::magicNumber));
-			_file->seek(begginingOfFile);
-
+			system::future<size_t> future;
+			_file->read(future, magicNumberBuffer, 0, sizeof(SContext::magicNumber));
+			future.get();
 			return isImfMagic(magicNumberBuffer);
 		}
 
@@ -360,7 +456,7 @@ namespace nbl
 			file.readPixels(dw.min.y, dw.max.y);
 		}
 
-		E_FORMAT specifyIrrlichtEndFormat(const mapOfChannels& mapOfChannels, const suffixOfChannelBundle suffixName, const std::string fileName)
+		E_FORMAT specifyIrrlichtEndFormat(const mapOfChannels& mapOfChannels, const suffixOfChannelBundle suffixName, const std::string fileName, const system::logger_opt_ptr logger)
 		{
 			E_FORMAT retVal;
 
@@ -368,17 +464,19 @@ namespace nbl
 			const auto gChannel = doesTheChannelExist("G", mapOfChannels);
 			const auto bChannel = doesTheChannelExist("B", mapOfChannels);
 			const auto aChannel = doesTheChannelExist("A", mapOfChannels);
-
+			
+			#ifndef _NBL_PLATFORM_ANDROID_
 			if (rChannel && gChannel && bChannel && aChannel)
-				os::Printer::log("LOAD EXR: loading " + suffixName + " RGBA file", fileName, ELL_INFORMATION);
+				logger.log("LOAD EXR: loading " + suffixName + " RGBA file %s", system::ILogger::ELL_INFO, fileName.c_str());
 			else if (rChannel && gChannel && bChannel)
-				os::Printer::log("LOAD EXR: loading " + suffixName + " RGB file", fileName, ELL_INFORMATION);
+				logger.log("LOAD EXR: loading " + suffixName + " RGB file %s", system::ILogger::ELL_INFO, fileName.c_str());
 			else if(rChannel && gChannel)
-				os::Printer::log("LOAD EXR: loading " + suffixName + " RG file", fileName, ELL_INFORMATION);
+				logger.log("LOAD EXR: loading " + suffixName + " RG file %s", system::ILogger::ELL_INFO, fileName.c_str());
 			else if(rChannel)
-				os::Printer::log("LOAD EXR: loading " + suffixName + " R file", fileName, ELL_INFORMATION);
+				logger.log("LOAD EXR: loading " + suffixName + " R file %s", system::ILogger::ELL_INFO, fileName.c_str());
 			else 
-				os::Printer::log("LOAD EXR: the file's channels are invalid to load", fileName, ELL_ERROR);
+				logger.log("LOAD EXR: the file's channels are invalid to load %s", system::ILogger::ELL_ERROR, fileName.c_str());
+			#endif // ! _NBL_PLATFORM_ANDROID_
 
 			auto doesMapOfChannelsFormatHaveTheSameFormatLikePassedToIt = [&](const PixelType ImfTypeToCompare)
 			{
@@ -400,15 +498,21 @@ namespace nbl
 			return retVal;
 		}
 
-		bool readVersionField(io::IReadFile* _file, SContext& ctx)
+		bool readVersionField(IMF::IStream* nblIStream, SContext& ctx, const system::logger_opt_ptr logger)
 		{
-			RgbaInputFile file(_file->getFileName().c_str());
+			RgbaInputFile file(*nblIStream);
+
+			if (!file.isComplete())
+				return false;
+
 			auto& versionField = ctx.versionField;
 			
 			versionField.mainDataRegisterField = file.version();
 
 			auto isTheBitActive = [&](uint16_t bitToCheck)
-			{
+			{		
+				bool readVersionField(IMF::IStream* nblIStream, SContext& ctx);
+				bool readHeader(IMF::IStream* nblIStream, SContext& ctx);
 				return (versionField.mainDataRegisterField & (1 << (bitToCheck - 1)));
 			};
 
@@ -421,7 +525,9 @@ namespace nbl
 				if (isTheBitActive(9))
 				{
 					versionField.Compoment.singlePartFileCompomentSubTypes = SContext::VersionField::Compoment::TILES;
-					os::Printer::log("LOAD EXR: the file consist of not supported tiles", file.fileName(), ELL_ERROR);
+					#ifndef _NBL_PLATFORM_ANDROID_
+					logger.log("LOAD EXR: the file consist of not supported tiles %s", system::ILogger::ELL_ERROR, file.fileName());
+					#endif // !_NBL_PLATFORM_ANDROID_
 					return false;
 				}
 				else
@@ -431,14 +537,18 @@ namespace nbl
 			{
 				versionField.Compoment.type = SContext::VersionField::Compoment::MULTI_PART_FILE;
 				versionField.Compoment.singlePartFileCompomentSubTypes = SContext::VersionField::Compoment::SCAN_LINES_OR_TILES;
-				os::Printer::log("LOAD EXR: the file is a not supported multi part file", file.fileName(), ELL_ERROR);
+				#ifndef  _NBL_PLATFORM_ANDROID_
+				logger.log("LOAD EXR: the file is a not supported multi part file %s", system::ILogger::ELL_ERROR, file.fileName());
+				#endif // ! _NBL_PLATFORM_ANDROID_
 				return false;
 			}
 
 			if (!isTheBitActive(9) && isTheBitActive(11) && isTheBitActive(12))
 			{
 				versionField.doesItSupportDeepData = true;
-				os::Printer::log("LOAD EXR: the file consist of not supported deep data", file.fileName(), ELL_ERROR);
+				#ifndef  _NBL_PLATFORM_ANDROID_
+				logger.log("LOAD EXR: the file consist of not supported deep data%s", system::ILogger::ELL_ERROR, file.fileName());
+				#endif // ! _NBL_PLATFORM_ANDROID_
 				return false;
 			}
 			else
@@ -452,9 +562,13 @@ namespace nbl
 			return true;
 		}
 
-		bool readHeader(const char fileName[], SContext& ctx)
+		bool readHeader(IMF::IStream* nblIStream, SContext& ctx)
 		{
-			RgbaInputFile file(fileName);
+			RgbaInputFile file(*nblIStream);
+
+			if (!file.isComplete())
+				return false;
+
 			auto& attribs = ctx.attributes;
 			auto& versionField = ctx.versionField;
 

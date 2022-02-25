@@ -6,11 +6,11 @@
 #define __NBL_VIDEO_C_OPENGL_PIPELINE_CACHE_H_INCLUDED__
 
 #include "nbl/video/IGPUPipelineCache.h"
-#include "COpenGLExtensionHandler.h"
 #include "nbl/video/COpenGLSpecializedShader.h"
 #include "nbl/video/COpenGLPipelineLayout.h"
-#include "nbl/core/Types.h"
-#include "spirv_cross/spirv_parser.hpp"
+#include "nbl/core/decl/Types.h"
+#include "nbl_spirv_cross/spirv_parser.hpp"
+#include "nbl/video/IOpenGL_FunctionTable.h"
 #include <array>
 
 namespace nbl { namespace video
@@ -26,9 +26,12 @@ public:
 		std::array<uint64_t, 4> hash;
 		COpenGLSpecializedShader::SInfo info;
 		core::smart_refctd_ptr<COpenGLPipelineLayout> layout;
+		asset::IShader::E_SHADER_STAGE shaderStage = asset::IShader::ESS_UNKNOWN;
 
 		bool operator<(const SCacheKey& _rhs) const;
 	};
+
+	using IGPUPipelineCache::IGPUPipelineCache;
 
 	void merge(uint32_t _count, const IGPUPipelineCache** _srcCaches) override
 	{
@@ -38,17 +41,17 @@ public:
 		for (uint32_t i = 0u; i < _count; ++i)
 		{
 			{
-				const auto& src = static_cast<const COpenGLPipelineCache*>(_srcCaches[i])->m_cache;
+				const auto& src = IBackendObject::compatibility_cast<const COpenGLPipelineCache*>(_srcCaches[i], this)->m_cache;
 				m_cache.insert(src.begin(), src.end());
 			}
 			{
-				const auto& src = static_cast<const COpenGLPipelineCache*>(_srcCaches[i])->m_parsedSpirvs;
+				const auto& src = IBackendObject::compatibility_cast<const COpenGLPipelineCache*>(_srcCaches[i], this)->m_parsedSpirvs;
 				m_parsedSpirvs.insert(src.begin(), src.end());
 			}
 		}
 	}
 
-	core::smart_refctd_ptr<asset::ICPUPipelineCache> convertToCPUCache() const override;
+	core::smart_refctd_ptr<asset::ICPUPipelineCache> convertToCPUCache(IOpenGL_FunctionTable* gl) const;
 
 	COpenGLSpecializedShader::SProgramBinary find(const SCacheKey& _key) const
 	{

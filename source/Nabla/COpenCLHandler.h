@@ -13,11 +13,9 @@
 #ifdef _NBL_COMPILE_WITH_OPENCL_
 
 #include "CL/opencl.h"
-#ifdef _NBL_COMPILE_WITH_OPENGL_
-    #include "COpenGLExtensionHandler.h"
+
 #endif // _NBL_COMPILE_WITH_OPENGL_
 
-#include "os.h"
 
 namespace nbl
 {
@@ -281,9 +279,12 @@ class COpenCLHandler
             ,clGetDeviceInfo
             ,clFlush
             ,clFinish
+            ,clReleaseEvent
             ,clEnqueueWaitForEvents
             ,clEnqueueMarker
             ,clWaitForEvents
+            ,clGetEventInfo
+            ,clReleaseMemObject
             ,clEnqueueAcquireGLObjects
             ,clEnqueueReleaseGLObjects
 		);
@@ -335,4 +336,4 @@ class COpenCLHandler
 
 #endif // _NBL_COMPILE_WITH_OPENCL_
 
-#endif
+

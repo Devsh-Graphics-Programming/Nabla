@@ -9,8 +9,8 @@
 
 #ifdef _NBL_COMPILE_WITH_JPG_LOADER_
 
-#include "IReadFile.h"
-#include "os.h"
+#include "nbl/system/IFile.h"
+
 #include "nbl/asset/ICPUBuffer.h"
 #include "nbl/asset/ICPUImageView.h"
 
@@ -21,7 +21,7 @@
 #include <stdio.h> // required for jpeglib.h
 #ifdef _NBL_COMPILE_WITH_LIBJPEG_
 extern "C" {
-#include "libjpeg/jpeglib.h" // use irrlicht jpeglib
+#include "jpeglib.h"
 #include <setjmp.h>
 }
 #endif // _NBL_COMPILE_WITH_LIBJPEG_
@@ -90,8 +90,9 @@ namespace jpeg
 		char temp1[JMSG_LENGTH_MAX];
 		(*cinfo->err->format_message)(cinfo, temp1);
 		std::string errMsg("JPEG FATAL ERROR in ");
-		errMsg += reinterpret_cast<char*>(cinfo->client_data);
-		os::Printer::log(errMsg, temp1, ELL_ERROR);
+		auto ctx = reinterpret_cast<CImageLoaderJPG::SContext*>(cinfo->client_data);
+		errMsg += ctx->filename;
+		ctx->logger.log(errMsg + temp1, system::ILogger::ELL_ERROR);
 	}
 
 	/*	Initialize source.  This is called by jpeg_read_header() before any
@@ -147,7 +148,7 @@ namespace jpeg
 #endif // _NBL_COMPILE_WITH_LIBJPEG_
 
 //! returns true if the file maybe is able to be loaded by this class
-bool CImageLoaderJPG::isALoadableFileFormat(io::IReadFile* _file) const
+bool CImageLoaderJPG::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr) const
 {
 #ifndef _NBL_COMPILE_WITH_LIBJPEG_
 	return false;
@@ -155,18 +156,16 @@ bool CImageLoaderJPG::isALoadableFileFormat(io::IReadFile* _file) const
 	if (!_file)
 		return false;
 
-    const size_t prevPos = _file->getPos();
-
-	int32_t jfif = 0;
-	_file->seek(6);
-	_file->read(&jfif, sizeof(int32_t));
-    _file->seek(prevPos);
-	return (jfif == 0x4a464946 || jfif == 0x4649464a || jfif == 0x66697845u || jfif == 0x70747468u); // maybe 0x4a464946 can go
+	uint32_t header = 0;	
+	system::future<size_t> future;
+	_file->read(future, &header, 6, sizeof(uint32_t));
+	future.get();
+	return (header&0x00FFD8FFu)==0x00FFD8FFu;
 #endif
 }
 
 //! creates a surface from the file
-asset::SAssetBundle CImageLoaderJPG::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
+asset::SAssetBundle CImageLoaderJPG::loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
 #ifndef _NBL_COMPILE_WITH_LIBJPEG_
 	os::Printer::log("Can't load as not compiled with _NBL_COMPILE_WITH_LIBJPEG_:", _file->getFileName().c_str(), ELL_DEBUG);
@@ -175,10 +174,13 @@ asset::SAssetBundle CImageLoaderJPG::loadAsset(io::IReadFile* _file, const asset
 	if (!_file || _file->getSize()>0xffffffffull)
         return {};
 
-	const io::path& Filename = _file->getFileName();
+	const std::filesystem::path& Filename = _file->getFileName();
 
 	uint8_t* input = new uint8_t[_file->getSize()];
-	_file->read(input, static_cast<uint32_t>(_file->getSize()));
+
+	system::future<size_t> future;
+	_file->read(future, input, 0, _file->getSize());
+	future.get();
 
 	// allocate and initialize JPEG decompression object
 	struct jpeg_decompress_struct cinfo;
@@ -188,11 +190,14 @@ asset::SAssetBundle CImageLoaderJPG::loadAsset(io::IReadFile* _file, const asset
 	//step fails.  (Unlikely, but it could happen if you are out of memory.)
 	//This routine fills in the contents of struct jerr, and returns jerr's
 	//address which we place into the link field in cinfo.
-
+	SContext ctx;
+	ctx.filename = const_cast<char*>(Filename.string().c_str());
+	ctx.logger = _params.logger;
 	cinfo.err = jpeg_std_error(&jerr.pub);
 	cinfo.err->error_exit = jpeg::error_exit;
 	cinfo.err->output_message = jpeg::output_message;
-    cinfo.client_data = const_cast<char*>(Filename.c_str());
+	cinfo.client_data = &ctx;
+
 
 	auto exitRoutine = [&] {
 		jpeg_destroy_decompress(&cinfo);
@@ -204,7 +209,7 @@ asset::SAssetBundle CImageLoaderJPG::loadAsset(io::IReadFile* _file, const asset
 	// crashes when throwing within external c code
 	if (setjmp(jerr.setjmp_buffer))
 	{
-		os::Printer::log("Can't load libjpeg threw an error:", _file->getFileName().c_str(), ELL_ERROR);
+		_params.logger.log("Can't load libjpeg threw an error:", system::ILogger::ELL_ERROR, _file->getFileName().string().c_str());
 		// RAIIExiter takes care of cleanup
         return {};
 	}
@@ -269,23 +274,15 @@ asset::SAssetBundle CImageLoaderJPG::loadAsset(io::IReadFile* _file, const asset
 			// https://en.wikipedia.org/wiki/YCbCr#JPEG_conversion
 			break;
 		case JCS_CMYK:
-			os::Printer::log("CMYK color space is unsupported:", _file->getFileName().c_str(), ELL_ERROR);
+			_params.logger.log("CMYK color space is unsupported:", system::ILogger::ELL_ERROR, _file->getFileName().string());
 			return {};
 			break;
 		case JCS_YCCK: // this I have no resources on
-			os::Printer::log("YCCK color space is unsupported:", _file->getFileName().c_str(), ELL_ERROR);
-			return {};
-			break;
-		case JCS_BG_RGB: // interesting
-			os::Printer::log("Loading JPEG Big Gamut RGB is not implemented yet:", _file->getFileName().c_str(), ELL_ERROR);
-			return {};
-			break;
-		case JCS_BG_YCC: // interesting
-			os::Printer::log("Loading JPEG Big Gamut YCbCr is not implemented yet:", _file->getFileName().c_str(), ELL_ERROR);
+			_params.logger.log("YCCK color space is unsupported: %s", system::ILogger::ELL_ERROR, _file->getFileName().string().c_str());
 			return {};
 			break;
 		default:
-			os::Printer::log("Can't load as color space is unknown:", _file->getFileName().c_str(), ELL_ERROR);
+			_params.logger.log("Can't load as color space is unknown: %s", system::ILogger::ELL_ERROR, _file->getFileName().string().c_str());
 			return {};
 			break;
 	}
@@ -296,7 +293,7 @@ asset::SAssetBundle CImageLoaderJPG::loadAsset(io::IReadFile* _file, const asset
 
 	auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(1u);
 	ICPUImage::SBufferCopy& region = regions->front();
-	//region.imageSubresource.aspectMask = ...; //waits for Vulkan
+	region.imageSubresource.aspectMask = IImage::E_ASPECT_FLAGS::EAF_COLOR_BIT;
 	region.imageSubresource.mipLevel = 0u;
 	region.imageSubresource.baseArrayLayer = 0u;
 	region.imageSubresource.layerCount = 1u;
@@ -332,7 +329,7 @@ asset::SAssetBundle CImageLoaderJPG::loadAsset(io::IReadFile* _file, const asset
 	image->setBufferAndRegions(std::move(buffer), regions);
 
 	if (image->getCreationParameters().format == asset::EF_R8_SRGB)
-		image = asset::IImageAssetHandlerBase::convertR8ToR8G8B8Image(image);
+		image = asset::IImageAssetHandlerBase::convertR8ToR8G8B8Image(image, _params.logger);
 	
     return SAssetBundle(nullptr,{image});
 

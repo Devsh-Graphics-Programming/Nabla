@@ -2,7 +2,7 @@
 // This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
-
+#ifdef NEW_FILESYSTEM
 #ifndef __NBL_C_ZIP_READER_H_INCLUDED__
 #define __NBL_C_ZIP_READER_H_INCLUDED__
 
@@ -11,9 +11,8 @@
 #ifdef __NBL_COMPILE_WITH_ZIP_ARCHIVE_LOADER_
 
 #include "nbl/core/Types.h"
-#include "IReadFile.h"
+#include "nbl/system/IFile.h"
 #include "IFileSystem.h"
-#include "CFileList.h"
 
 namespace nbl
 {
@@ -145,7 +144,7 @@ namespace io
 
 		//! returns true if the file maybe is able to be loaded by this class
 		//! based on the file extension (e.g. ".zip")
-		virtual bool isALoadableFileFormat(const io::path& filename) const;
+		virtual bool isALoadableFileFormat(const std::filesystem::path& filename) const;
 
 		//! Check if the file might be loaded by this class
 		/** Check might look into the file.
@@ -162,7 +161,7 @@ namespace io
 		//! Creates an archive from the filename
 		/** \param file File handle to check.
 		\return Pointer to newly created archive, or 0 upon error. */
-		virtual IFileArchive* createArchive(const io::path& filename) const;
+		virtual IFileArchive* createArchive(const std::filesystem::path& filename) const;
 
 		//! creates/loads an archive from the file.
 		//! \return Pointer to the created archive. Returns 0 if loading failed.
@@ -186,7 +185,7 @@ namespace io
             CZipReader(IReadFile* file, bool isGZip=false);
 
             //! opens a file by file name
-            virtual IReadFile* createAndOpenFile(const io::path& filename);
+            virtual IReadFile* createAndOpenFile(const std::filesystem::path& filename);
 
             //! returns the list of files
             virtual const IFileList* getFileList() const;
@@ -222,3 +221,4 @@ namespace io
 #endif // __NBL_COMPILE_WITH_ZIP_ARCHIVE_LOADER_
 #endif
 
+#endif

@@ -10,18 +10,28 @@
 
 #include "nbl/macros.h"
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 
+#include "nbl/builtin/cache/ICacheKeyCreator.h"
 #include "nbl/asset/format/EFormat.h"
 #include "nbl/asset/ISpecializedShader.h"
 #include "nbl/asset/IPipeline.h"
 #include "nbl/asset/IImage.h"
 
+#define VK_NO_PROTOTYPES
+#include <vulkan/vulkan.h>
 
 namespace nbl
 {
 namespace asset
 {
+
+struct SViewport
+{
+    float x, y;
+    float width, height;
+    float minDepth, maxDepth;
+};
 
 enum E_PRIMITIVE_TOPOLOGY : uint8_t
 {
@@ -60,6 +70,11 @@ struct SVertexInputAttribParams
     uint32_t format : 8;//asset::E_FORMAT
     uint32_t relativeOffset : 13;//assuming max=2048
 
+    std::string to_string() const
+    {
+        return ICacheKeyCreator::getHexString(binding) + ICacheKeyCreator::getHexString(format) + ICacheKeyCreator::getHexString(relativeOffset);
+    }
+
     constexpr static size_t serializedSize() { return sizeof(uint32_t); }
 
     void serialize(void* mem) const
@@ -81,6 +96,11 @@ struct SVertexInputBindingParams
 
     uint32_t stride = 0u; // could have packed the stride and input rate together since there are limits on those
     E_VERTEX_INPUT_RATE inputRate = EVIR_PER_VERTEX;
+
+    std::string to_string() const
+    {
+        return ICacheKeyCreator::getHexString(stride) + ICacheKeyCreator::getHexString(inputRate);
+    }
 
     constexpr static size_t serializedSize() { return sizeof(SVertexInputBindingParams); }
 
@@ -110,6 +130,18 @@ struct SVertexInputParams
 	SVertexInputAttribParams attributes[MAX_VERTEX_ATTRIB_COUNT] = {};
     //! index in array denotes binding number
 	SVertexInputBindingParams bindings[MAX_ATTR_BUF_BINDING_COUNT] = {};
+
+    std::string to_string() const
+    {
+        std::string cacheKey;
+
+        cacheKey += ICacheKeyCreator::getHexString(enabledAttribFlags) + ICacheKeyCreator::getHexString(enabledBindingFlags);
+        for (uint32_t i = 0; i < MAX_VERTEX_ATTRIB_COUNT; ++i)
+            cacheKey += attributes[i].to_string();
+        for (uint32_t i = 0; i < MAX_ATTR_BUF_BINDING_COUNT; ++i)
+            cacheKey += bindings[i].to_string();
+        return cacheKey;
+    }
 
     static_assert(sizeof(enabledAttribFlags)*8 >= MAX_VERTEX_ATTRIB_COUNT, "Insufficient flag bits for number of supported attributes");
     static_assert(sizeof(enabledBindingFlags)*8 >= MAX_ATTR_BUF_BINDING_COUNT, "Insufficient flag bits for number of supported bindings");
@@ -217,7 +249,7 @@ struct SRasterizationParams
     E_POLYGON_MODE polygonMode = EPM_FILL;
     E_FACE_CULL_MODE faceCullingMode = EFCM_BACK_BIT;
 	E_COMPARE_OP depthCompareOp = ECO_GREATER;
-    IImage::E_SAMPLE_COUNT_FLAGS rasterizationSamplesHint = IImage::ESCF_1_BIT;
+    IImage::E_SAMPLE_COUNT_FLAGS rasterizationSamplesHint = IImage::ESCF_1_BIT; //TODO depr
 	uint32_t sampleMask[2] = {~0u,~0u};
     float minSampleShading = 0.f;
     float depthBiasSlopeFactor = 0.f;
@@ -364,7 +396,6 @@ enum E_BLEND_OP : uint8_t
 struct SColorAttachmentBlendParams
 {
 	SColorAttachmentBlendParams() : 
-		attachmentEnabled(true),
 		blendEnable(false),
 		srcColorFactor(EBF_ONE),
 		dstColorFactor(EBF_ZERO),
@@ -375,21 +406,20 @@ struct SColorAttachmentBlendParams
 		colorWriteMask(0xfu)
 	{}
 
-    uint8_t attachmentEnabled : 1;
-    uint8_t blendEnable : 1;
-    uint8_t srcColorFactor : 5;
+    uint64_t blendEnable : 1;
+    uint64_t srcColorFactor : 5;
     
-    uint8_t dstColorFactor : 5;
+    uint64_t dstColorFactor : 5;
     
-    uint8_t colorBlendOp : 6;
+    uint64_t colorBlendOp : 6;
     
-    uint8_t srcAlphaFactor : 5;
+    uint64_t srcAlphaFactor : 5;
     
-    uint8_t dstAlphaFactor : 5;
+    uint64_t dstAlphaFactor : 5;
     
-    uint8_t alphaBlendOp : 2;
+    uint64_t alphaBlendOp : 2;
     //RGBA, LSB is R, MSB is A
-    uint8_t colorWriteMask : 4;
+    uint64_t colorWriteMask : 4;
 
     constexpr static size_t serializedSize() { return 5ull; }
 
@@ -397,20 +427,19 @@ struct SColorAttachmentBlendParams
     {
         auto* bf_dst = reinterpret_cast<uint8_t*>(_mem);
         uint64_t bf = 0;
-        bf = core::bitfieldInsert<uint64_t>(bf, attachmentEnabled, 0, 1);
-        bf = core::bitfieldInsert<uint64_t>(bf, blendEnable, 1, 1);
-        bf = core::bitfieldInsert<uint64_t>(bf, srcColorFactor, 2, 5);
-        bf = core::bitfieldInsert<uint64_t>(bf, dstColorFactor, 7, 5);
-        bf = core::bitfieldInsert<uint64_t>(bf, colorBlendOp, 12, 6);
-        bf = core::bitfieldInsert<uint64_t>(bf, srcAlphaFactor, 18, 5);
-        bf = core::bitfieldInsert<uint64_t>(bf, dstAlphaFactor, 23, 5);
-        bf = core::bitfieldInsert<uint64_t>(bf, alphaBlendOp, 28, 2);
-        bf = core::bitfieldInsert<uint64_t>(bf, colorWriteMask, 30, 4);
+        bf = core::bitfieldInsert<uint64_t>(bf, blendEnable, 0, 1);
+        bf = core::bitfieldInsert<uint64_t>(bf, srcColorFactor, 1, 5);
+        bf = core::bitfieldInsert<uint64_t>(bf, dstColorFactor, 6, 5);
+        bf = core::bitfieldInsert<uint64_t>(bf, colorBlendOp, 11, 6);
+        bf = core::bitfieldInsert<uint64_t>(bf, srcAlphaFactor, 17, 5);
+        bf = core::bitfieldInsert<uint64_t>(bf, dstAlphaFactor, 22, 5);
+        bf = core::bitfieldInsert<uint64_t>(bf, alphaBlendOp, 27, 2);
+        bf = core::bitfieldInsert<uint64_t>(bf, colorWriteMask, 29, 4);
 
         memcpy(bf_dst, &bf, serializedSize());
     }
 } PACK_STRUCT;
-static_assert(sizeof(SColorAttachmentBlendParams)==6u, "Unexpected size of SColorAttachmentBlendParams (should be 6)");
+//static_assert(sizeof(SColorAttachmentBlendParams)==5u, "Unexpected size of SColorAttachmentBlendParams (should be 5)");
 
 struct SBlendParams
 {
@@ -493,7 +522,7 @@ class IRenderpassIndependentPipeline : public IPipeline<LayoutType>
 
 		IRenderpassIndependentPipeline(
 			core::smart_refctd_ptr<LayoutType>&& _layout,
-			SpecShaderType* const* _shadersBegin, SpecShaderType* const* _shadersEnd, 
+			SpecShaderType*const * _shadersBegin, SpecShaderType*const * _shadersEnd, 
 			const SVertexInputParams& _vertexInputParams,
 			const SBlendParams& _blendParams,
 			const SPrimitiveAssemblyParams& _primAsmParams,
@@ -518,7 +547,7 @@ class IRenderpassIndependentPipeline : public IPipeline<LayoutType>
 	public:
 		inline const LayoutType* getLayout() const { return IPipeline<LayoutType>::m_layout.get(); }
 
-		inline const SpecShaderType* getShaderAtStage(ISpecializedShader::E_SHADER_STAGE _stage) const { return m_shaders[core::findLSB<uint32_t>(_stage)].get(); }
+		inline const SpecShaderType* getShaderAtStage(IShader::E_SHADER_STAGE _stage) const { return m_shaders[core::findLSB<uint32_t>(_stage)].get(); }
 		inline const SpecShaderType* getShaderAtIndex(uint32_t _ix) const { return m_shaders[_ix].get(); }
 
 		inline const SBlendParams& getBlendParams() const { return m_blendParams; }

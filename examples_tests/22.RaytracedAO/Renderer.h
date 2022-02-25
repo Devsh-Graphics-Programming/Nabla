@@ -2,7 +2,6 @@
 #define _RENDERER_INCLUDED_
 
 #include "nabla.h"
-
 #include "nbl/ext/RadeonRays/RadeonRays.h"
 // pesky leaking defines
 #undef PI
@@ -15,6 +14,9 @@
 #include "nbl/ext/OptiX/Manager.h"
 #endif
 
+#include <thread>
+#include <future>
+#include <filesystem>
 
 class Renderer : public nbl::core::IReferenceCounted, public nbl::core::InterfaceUnmovable
 {
@@ -27,22 +29,49 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 			#undef mat4
 			#undef mat4x3
 		#endif
+		
+		struct DenoiserArgs
+		{
+			std::filesystem::path bloomFilePath;
+			float bloomScale = 0.0f;
+			float bloomIntensity = 0.0f;
+			std::string tonemapperArgs = "";
+		};
 
 		Renderer(nbl::video::IVideoDriver* _driver, nbl::asset::IAssetManager* _assetManager, nbl::scene::ISceneManager* _smgr, bool useDenoiser = true);
 
-		void init(const nbl::asset::SAssetBundle& meshes, nbl::core::smart_refctd_ptr<nbl::asset::ICPUBuffer>&& sampleSequence);
+		void initSceneResources(nbl::asset::SAssetBundle& meshes, nbl::io::path&& _sampleSequenceCachePath="");
 
-		void deinit();
+		void deinitSceneResources();
+		
+		void initScreenSizedResources(uint32_t width, uint32_t height);
 
-		void render(nbl::ITimer* timer);
+		void deinitScreenSizedResources();
+
+		void resetSampleAndFrameCounters();
+
+		void takeAndSaveScreenShot(const std::filesystem::path& screenshotFilePath, bool denoise = false, const DenoiserArgs& denoiserArgs = {});
+		
+		void denoiseCubemapFaces(std::filesystem::path filePaths[6], const std::string& mergedFileName, int borderPixels, const DenoiserArgs& denoiserArgs = {});
+
+		bool render(nbl::ITimer* timer, const bool transformNormals, const bool beauty=true);
 
 		auto* getColorBuffer() { return m_colorBuffer; }
 
 		const auto& getSceneBound() const { return m_sceneBound; }
-
+		
+		uint64_t getSamplesPerPixelPerDispatch() const
+		{
+			return m_staticViewData.samplesPerPixelPerDispatch;
+		}
+		uint64_t getTotalSamplesPerPixelComputed() const
+		{
+			const auto framesDispatched = static_cast<uint64_t>(m_framesDispatched);
+			return framesDispatched*getSamplesPerPixelPerDispatch();
+		}
 		uint64_t getTotalSamplesComputed() const
 		{
-			const auto samplesPerDispatch = static_cast<uint64_t>(m_staticViewData.samplesPerPixelPerDispatch*m_staticViewData.imageDimensions.x*m_staticViewData.imageDimensions.y);
+			const auto samplesPerDispatch = getSamplesPerPixelPerDispatch()*static_cast<uint64_t>(m_staticViewData.imageDimensions.x*m_staticViewData.imageDimensions.y);
 			const auto framesDispatched = static_cast<uint64_t>(m_framesDispatched);
 			return framesDispatched*samplesPerDispatch;
 		}
@@ -57,17 +86,19 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		// Want to see through a glass box, vase, or office 
 		// 7 = glass frontface->glass backface->glass frontface->glass backface->diffuse surface->diffuse surface->light
 		// pick higher numbers for better GI and less bias
-		_NBL_STATIC_INLINE_CONSTEXPR uint32_t MaxPathDepth = 8u;
-		_NBL_STATIC_INLINE_CONSTEXPR uint32_t RandomDimsPerPathVertex = 3u;
-		// one less because the first path vertex is rasterized
-		_NBL_STATIC_INLINE_CONSTEXPR uint32_t MaxDimensions = RandomDimsPerPathVertex*(MaxPathDepth-1u);
-		static const float AntiAliasingSequence[4096][2];
+		static inline constexpr uint32_t DefaultPathDepth = 8u;
+		// TODO: Upload only a subsection of the sample sequence to the GPU, so we can use more samples without trashing VRAM
+		static inline constexpr uint32_t MaxFreeviewSamples = 0x10000u;
+
+		//
+		static constexpr inline uint32_t AntiAliasingSequenceLength = 1024;
+		static const float AntiAliasingSequence[AntiAliasingSequenceLength][2];
     protected:
         ~Renderer();
 
 		struct InitializationData
 		{
-			InitializationData() : lights(),lightCDF(),globalMeta(nullptr) {}
+			InitializationData() : lights(),lightCDF() {}
 			InitializationData(InitializationData&& other) : InitializationData()
 			{
 				operator=(std::move(other));
@@ -78,7 +109,6 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 			{
 				lights = std::move(other.lights);
 				lightCDF = std::move(other.lightCDF);
-				globalMeta = other.globalMeta;
 				return *this;
 			}
 
@@ -88,34 +118,31 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 				nbl::core::vector<float> lightPDF;
 				nbl::core::vector<uint32_t> lightCDF;
 			};
-			const nbl::ext::MitsubaLoader::CMitsubaMetadata* globalMeta = nullptr;
 		};
 		InitializationData initSceneObjects(const nbl::asset::SAssetBundle& meshes);
 		void initSceneNonAreaLights(InitializationData& initData);
 		void finalizeScene(InitializationData& initData);
 
 		//
-		nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> createScreenSizedTexture(nbl::asset::E_FORMAT format, uint32_t layers = 0u);
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> createScreenSizedTexture(nbl::asset::E_FORMAT format, uint32_t layers=0u);
 
 		//
-		uint32_t traceBounce(uint32_t raycount);
+		void preDispatch(const nbl::video::IGPUPipelineLayout* layout, nbl::video::IGPUDescriptorSet*const *const lastDS);
+		bool traceBounce(uint32_t& inoutRayCount);
 
+		//
+		const nbl::ext::MitsubaLoader::CMitsubaMetadata* m_globalMeta = nullptr;
 
 		// "constants"
 		bool m_useDenoiser;
 
 		// managers
-        nbl::video::IVideoDriver* m_driver;
+		nbl::video::IVideoDriver* m_driver;
 
 		nbl::asset::IAssetManager* m_assetManager;
 		nbl::scene::ISceneManager* m_smgr;
 
 		nbl::core::smart_refctd_ptr<nbl::ext::RadeonRays::Manager> m_rrManager;
-#ifdef _NBL_BUILD_OPTIX_
-		nbl::core::smart_refctd_ptr<nbl::ext::OptiX::Manager> m_optixManager;
-		CUstream m_cudaStream;
-		nbl::core::smart_refctd_ptr<nbl::ext::OptiX::IContext> m_optixContext;
-#endif
 
 
 		// persistent (intialized in constructor
@@ -126,6 +153,41 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSetLayout> m_raygenDSLayout,m_closestHitDSLayout,m_resolveDSLayout;
 		nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpassIndependentPipeline> m_visibilityBufferFillPipeline;
 
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUPipelineLayout> m_cullPipelineLayout;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUPipelineLayout> m_raygenPipelineLayout;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUPipelineLayout> m_closestHitPipelineLayout;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUPipelineLayout> m_resolvePipelineLayout;
+		
+		nbl::core::smart_refctd_ptr<IGPUSpecializedShader> m_cullGPUShader;
+		nbl::core::smart_refctd_ptr<IGPUSpecializedShader> m_raygenGPUShader;
+		nbl::core::smart_refctd_ptr<IGPUSpecializedShader> m_closestHitGPUShader;
+		nbl::core::smart_refctd_ptr<IGPUSpecializedShader> m_resolveGPUShader;
+
+		// semi persistent data
+		nbl::io::path sampleSequenceCachePath;
+		struct SampleSequence
+		{
+			public:
+				static inline constexpr auto QuantizedDimensionsBytesize = sizeof(uint64_t);
+				SampleSequence() : bufferView() {}
+
+				// one less because first path vertex uses a different sequence 
+				static inline uint32_t computeQuantizedDimensions(uint32_t maxPathDepth) {return (maxPathDepth-1)*SAMPLING_STRATEGY_COUNT;}
+				nbl::core::smart_refctd_ptr<nbl::asset::ICPUBuffer> createCPUBuffer(uint32_t quantizedDimensions, uint32_t sampleCount);
+
+				// from cache
+				void createBufferView(nbl::video::IVideoDriver* driver, nbl::core::smart_refctd_ptr<nbl::asset::ICPUBuffer>&& buff);
+				// regenerate
+				nbl::core::smart_refctd_ptr<nbl::asset::ICPUBuffer> createBufferView(nbl::video::IVideoDriver* driver, uint32_t quantizedDimensions, uint32_t sampleCount);
+
+				auto getBufferView() const {return bufferView;}
+
+			private:
+				nbl::core::smart_refctd_ptr<nbl::video::IGPUBufferView> bufferView;
+		} sampleSequence;
+		uint16_t pathDepth;
+		uint16_t noRussianRouletteDepth;
+		uint32_t maxSensorSamples;
 
 		// scene specific data
 		nbl::core::vector<::RadeonRays::Shape*> rrShapes;
@@ -167,25 +229,19 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		};
 		InteropBuffer m_rayBuffer[2];
 		InteropBuffer m_intersectionBuffer[2];
-
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> m_accumulation,m_tonemapOutput;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> m_albedoAcc,m_albedoRslv;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> m_normalAcc,m_normalRslv;
 		nbl::video::IFrameBuffer* m_visibilityBuffer,* m_colorBuffer;
+		
+		// Resources used for blending environmental maps
+		nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpassIndependentPipeline> blendEnvPipeline;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSetLayout> blendEnvDescriptorSet;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUMeshBuffer> blendEnvMeshBuffer;
 
-	#ifdef _NBL_BUILD_OPTIX_
-		nbl::core::smart_refctd_ptr<nbl::ext::OptiX::IDenoiser> m_denoiser;
-		OptixDenoiserSizes m_denoiserMemReqs;
-		nbl::cuda::CCUDAHandler::GraphicsAPIObjLink<nbl::video::IGPUBuffer> m_denoiserInputBuffer,m_denoiserStateBuffer,m_denoisedBuffer,m_denoiserScratchBuffer;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> m_finalEnvmap;
 
-		enum E_DENOISER_INPUT
-		{
-			EDI_COLOR,
-			EDI_ALBEDO,
-			EDI_NORMAL,
-			EDI_COUNT
-		};
-		OptixImage2D m_denoiserOutput;
-		OptixImage2D m_denoiserInputs[EDI_COUNT];
-	#endif
+		std::future<bool> compileShadersFuture;
 };
 
 #endif

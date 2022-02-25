@@ -4,9 +4,9 @@
 // See the original file in irrlicht source for authors
 
 
-#include "os.h"
 
-#include "IWriteFile.h"
+#include "nbl/system/IFile.h"
+#include "nbl/system/ISystem.h"
 
 #include "nbl/asset/compile_config.h"
 #include "nbl/asset/format/convertColor.h"
@@ -21,29 +21,25 @@
 #include <stdio.h> // required for jpeglib.h
 extern "C"
 {
-	#include "libjpeg/jpeglib.h"
-	#include "libjpeg/jerror.h"
+	#include "jpeglib.h"
+	#include "jerror.h"
 }
 
 // The writer uses a 4k buffer and flushes to disk each time it's filled
 #define OUTPUT_BUF_SIZE 4096
 
 using namespace nbl;
-using namespace asset;
+using namespace asset;	
 
-namespace 
-{
-typedef struct
+struct mem_destination_mgr
 {
 	struct jpeg_destination_mgr pub;/* public fields */
-
-	io::IWriteFile* file;		/* target file */
+	system::ISystem* system;
+	system::IFile* file;		/* target file */
+	size_t filePos = 0;
 	JOCTET buffer[OUTPUT_BUF_SIZE];	/* image buffer */
-} mem_destination_mgr;
-
-
-typedef mem_destination_mgr * mem_dest_ptr;
-}
+};
+using mem_dest_ptr = mem_destination_mgr*;
 
 // init
 static void jpeg_init_destination(j_compress_ptr cinfo)
@@ -60,12 +56,16 @@ static boolean jpeg_empty_output_buffer(j_compress_ptr cinfo)
 	mem_dest_ptr dest = (mem_dest_ptr) cinfo->dest;
 
 	// for now just exit upon file error
-	if (dest->file->write(dest->buffer, OUTPUT_BUF_SIZE) != OUTPUT_BUF_SIZE)
+	system::future<size_t> future;
+	dest->file->write(future, dest->buffer, dest->filePos, OUTPUT_BUF_SIZE);
+	if (future.get() != OUTPUT_BUF_SIZE)
+	{
 		ERREXIT (cinfo, JERR_FILE_WRITE);
+	}
 
 	dest->pub.next_output_byte = dest->buffer;
 	dest->pub.free_in_buffer = OUTPUT_BUF_SIZE;
-
+	dest->filePos += OUTPUT_BUF_SIZE;
 	return TRUE;
 }
 
@@ -75,13 +75,19 @@ static void jpeg_term_destination(j_compress_ptr cinfo)
 	mem_dest_ptr dest = (mem_dest_ptr) cinfo->dest;
 	const int32_t datacount = (int32_t)(OUTPUT_BUF_SIZE - dest->pub.free_in_buffer);
 	// for now just exit upon file error
-	if (dest->file->write(dest->buffer, datacount) != datacount)
+	system::future<size_t> future;
+	dest->file->write(future, dest->buffer, dest->filePos, datacount);
+	if (future.get() != datacount)
+	{
 		ERREXIT (cinfo, JERR_FILE_WRITE);
+	}
+
+	dest->filePos += datacount;
 }
 
 
 // set up buffer data
-static void jpeg_file_dest(j_compress_ptr cinfo, io::IWriteFile* file)
+static void jpeg_file_dest(j_compress_ptr cinfo, system::IFile* file, system::ISystem* sys)
 {
 	if (cinfo->dest == nullptr)
 	{ /* first time for this JPEG object? */
@@ -100,19 +106,21 @@ static void jpeg_file_dest(j_compress_ptr cinfo, io::IWriteFile* file)
 
 	/* Initialize private member */
 	dest->file = file;
+	dest->system = sys;
+	dest->filePos = 0;
 }
 
 /* write_JPEG_memory: store JPEG compressed image into memory.
 */
-static bool writeJPEGFile(io::IWriteFile* file, const asset::ICPUImageView* imageView, uint32_t quality)
+static bool writeJPEGFile(system::IFile* file, system::ISystem* sys, const asset::ICPUImageView* imageView, uint32_t quality, const system::logger_opt_ptr& logger)
 {
 	core::smart_refctd_ptr<ICPUImage> convertedImage;
 	{
 		const auto channelCount = asset::getFormatChannelCount(imageView->getCreationParameters().format);
 		if (channelCount == 1)
-			convertedImage = asset::IImageAssetHandlerBase::createImageDataForCommonWriting<asset::EF_R8_SRGB>(imageView);
+			convertedImage = asset::IImageAssetHandlerBase::createImageDataForCommonWriting<asset::EF_R8_SRGB>(imageView, logger);
 		else
-			convertedImage = asset::IImageAssetHandlerBase::createImageDataForCommonWriting<asset::EF_R8G8B8_SRGB>(imageView);
+			convertedImage = asset::IImageAssetHandlerBase::createImageDataForCommonWriting<asset::EF_R8G8B8_SRGB>(imageView, logger);
 	}
 
 	const auto& convertedImageParams = convertedImage->getCreationParameters();
@@ -128,7 +136,7 @@ static bool writeJPEGFile(io::IWriteFile* file, const asset::ICPUImageView* imag
 	cinfo.err = jpeg_std_error(&jerr);
 
 	jpeg_create_compress(&cinfo);
-	jpeg_file_dest(&cinfo, file);
+	jpeg_file_dest(&cinfo, file, sys);
 	cinfo.image_width = dim.X;
 	cinfo.image_height = dim.Y;
 	cinfo.input_components = grayscale ? 1 : 3;
@@ -176,14 +184,14 @@ static bool writeJPEGFile(io::IWriteFile* file, const asset::ICPUImageView* imag
 }
 #endif // _NBL_COMPILE_WITH_LIBJPEG_
 
-CImageWriterJPG::CImageWriterJPG()
+CImageWriterJPG::CImageWriterJPG(core::smart_refctd_ptr<system::ISystem>&& sys) : m_system(std::move(sys))
 {
 #ifdef _NBL_DEBUG
 	setDebugName("CImageWriterJPG");
 #endif
 }
 
-bool CImageWriterJPG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
+bool CImageWriterJPG::writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 {
 #if !defined(_NBL_COMPILE_WITH_LIBJPEG_ )
 	return false;
@@ -192,11 +200,11 @@ bool CImageWriterJPG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 
 	auto imageView = IAsset::castDown<const ICPUImageView>(_params.rootAsset);
 
-    io::IWriteFile* file = _override->getOutputFile(_file, ctx, { imageView, 0u});
+    system::IFile* file = _override->getOutputFile(_file, ctx, { imageView, 0u});
     const asset::E_WRITER_FLAGS flags = _override->getAssetWritingFlags(ctx, imageView, 0u);
     const float comprLvl = _override->getAssetCompressionLevel(ctx, imageView, 0u);
 
-	return writeJPEGFile(file, imageView, (!!(flags & asset::EWF_COMPRESSED)) * static_cast<uint32_t>((1.f-comprLvl)*100.f)); // if quality==0, then it defaults to 75
+	return writeJPEGFile(file, m_system.get(), imageView, (!!(flags & asset::EWF_COMPRESSED)) * static_cast<uint32_t>((1.f-comprLvl)*100.f), _params.logger); // if quality==0, then it defaults to 75
 
 #endif//!defined(_NBL_COMPILE_WITH_LIBJPEG_ )
 }

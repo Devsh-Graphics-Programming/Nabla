@@ -5,10 +5,10 @@
 #ifndef __NBL_ASSET_C_BASIC_IMAGE_FILTER_COMMON_H_INCLUDED__
 #define __NBL_ASSET_C_BASIC_IMAGE_FILTER_COMMON_H_INCLUDED__
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
+#include "nbl/core/execution.h"
 
 #include <algorithm>
-#include <execution>
 
 #include "nbl/asset/filters/IImageFilter.h"
 
@@ -26,7 +26,7 @@ class CBasicImageFilterCommon
 			public:
 				using iterator_category = std::random_access_iterator_tag;
 				using difference_type = int64_t;
-				using value_type = const uint32_t*;
+				using value_type = std::array<uint32_t,batch_dims>;
 				using pointer = const value_type*;
 				using reference = value_type;
 
@@ -35,17 +35,17 @@ class CBasicImageFilterCommon
 				BlockIterator()
 				{
 					std::fill_n(extentBatches,batch_dims,0u);
-					std::fill_n(batchCoord,batch_dims,0u);
+					std::fill_n(batchCoord.begin(),batch_dims,0u);
 				}
 				explicit inline BlockIterator(const uint32_t* _extentBatches)
 				{
 					std::copy_n(_extentBatches,batch_dims,extentBatches);
-					std::fill_n(batchCoord,batch_dims,0u);
+					std::fill_n(batchCoord.begin(),batch_dims,0u);
 				}
 				explicit inline BlockIterator(const uint32_t* _extentBatches, const uint32_t* _batchCoord)
 				{
 					std::copy_n(_extentBatches,batch_dims,extentBatches);
-					std::copy_n(_batchCoord,batch_dims,batchCoord);
+					std::copy_n(_batchCoord,batch_dims,batchCoord.begin());
 				}
 				BlockIterator(const BlockIterator<batch_dims>& other) = default;
 				BlockIterator(BlockIterator<batch_dims>&& other) = default;
@@ -58,6 +58,17 @@ class CBasicImageFilterCommon
 					return batchCoord;
 				}
 				inline pointer operator->() const {return &batchCoord;}
+
+				inline value_type operator[] (int index) const
+				{
+					return *(operator+(index));
+				}
+				
+				inline bool operator< (const BlockIterator<batch_dims>& _rhs) const 
+				{ 
+					return toLinearAddress() < _rhs.toLinearAddress();
+				}
+
 				/*
 				inline const BlockIterator<batch_dims>& operator--()
 				{
@@ -95,7 +106,7 @@ class CBasicImageFilterCommon
 					return copy;
 				}
 
-				inline bool operator==(const BlockIterator<batch_dims>& other) const {return std::equal(batchCoord,batchCoord+batch_dims,other.batchCoord);}
+				inline bool operator==(const BlockIterator<batch_dims>& other) const {return std::equal(batchCoord.begin(),batchCoord.end(),other.batchCoord.begin());}
 				inline bool operator!=(const BlockIterator<batch_dims>& other) const {return !operator==(other);}
 
 				inline BlockIterator<batch_dims>& operator+=(const difference_type advance)
@@ -121,7 +132,7 @@ class CBasicImageFilterCommon
 				inline const uint32_t* getExtentBatches() const {return extentBatches;}
 			private:
 				uint32_t extentBatches[batch_dims];
-				uint32_t batchCoord[batch_dims];
+				value_type batchCoord;
 				
 				
 				explicit inline BlockIterator(const uint32_t* _extentBatches, difference_type linearAddress)
@@ -171,7 +182,7 @@ class CBasicImageFilterCommon
 
 			const auto strides = region.getByteStrides(blockInfo);
 			
-			auto batch1D = [&f,&region,trueExtent,strides,trueOffset](const uint32_t* batchCoord)
+			auto batch1D = [&f,&region,trueExtent,strides,trueOffset](const std::array<uint32_t,3u>& batchCoord)
 			{
 				for (auto xBlock=0u; xBlock<trueExtent.x; ++xBlock)
 				{
@@ -179,7 +190,7 @@ class CBasicImageFilterCommon
 					f(region.getByteOffset(localCoord,strides),localCoord+trueOffset);
 				}
 			};
-			auto batch2D = [&f,&region,trueExtent,strides,trueOffset](const uint32_t* batchCoord)
+			auto batch2D = [&f,&region,trueExtent,strides,trueOffset](const std::array<uint32_t,2u>& batchCoord)
 			{
 				for (auto yBlock=0u; yBlock<trueExtent.y; ++yBlock)
 				for (auto xBlock=0u; xBlock<trueExtent.x; ++xBlock)
@@ -188,7 +199,7 @@ class CBasicImageFilterCommon
 					f(region.getByteOffset(localCoord,strides),localCoord+trueOffset);
 				}
 			};
-			auto batch3D = [&f,&region,trueExtent,strides,trueOffset](const uint32_t* batchCoord)
+			auto batch3D = [&f,&region,trueExtent,strides,trueOffset](const std::array<uint32_t,1u>& batchCoord)
 			{
 				for (auto zBlock=0u; zBlock<trueExtent.z; ++zBlock)
 				for (auto yBlock=0u; yBlock<trueExtent.y; ++yBlock)
@@ -201,7 +212,7 @@ class CBasicImageFilterCommon
 
 			constexpr uint32_t batchSizeThreshold = 0x80u;
 			const core::vectorSIMDu32 spaceFillingEnd(0u,0u,0u,trueExtent.w);
-			if (std::is_same_v<ExecutionPolicy,std::execution::sequenced_policy> || trueExtent.x*trueExtent.y<batchSizeThreshold)
+			if (std::is_same_v<ExecutionPolicy,core::execution::sequenced_policy> || trueExtent.x*trueExtent.y<batchSizeThreshold)
 			{
 				constexpr uint32_t batch_dims = 1u;
 				BlockIterator<batch_dims> begin(trueExtent.pointer+4u-batch_dims);
@@ -226,7 +237,7 @@ class CBasicImageFilterCommon
 		template<typename F>
 		static inline void executePerBlock(const ICPUImage* image, const IImage::SBufferCopy& region, F& f)
 		{
-			executePerBlock(std::execution::seq,image,region,f);
+			executePerBlock(core::execution::seq,image,region,f);
 		}
 
 		struct default_region_functor_t
@@ -309,7 +320,7 @@ class CBasicImageFilterCommon
 											const IImage::SBufferCopy* _end,
 											G& g)
 		{
-			return executePerRegion<const std::execution::sequenced_policy&,F,G>(std::execution::seq,image,f,_begin,_end,g);
+			return executePerRegion<const core::execution::sequenced_policy&,F,G>(core::execution::seq,image,f,_begin,_end,g);
 		}
 		template<typename F>
 		static inline void executePerRegion(const ICPUImage* image, F& f,

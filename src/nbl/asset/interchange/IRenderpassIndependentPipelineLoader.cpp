@@ -3,6 +3,7 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 
 #include "nbl/asset/interchange/IRenderpassIndependentPipelineLoader.h"
+#include "nbl/asset/asset_utils.h"
 
 using namespace nbl;
 using namespace asset;
@@ -51,7 +52,7 @@ void IRenderpassIndependentPipelineLoader::initialize()
             semantic.descriptorSection.uniformBufferObject.set = 1u;
             semantic.descriptorSection.uniformBufferObject.relByteoffset = relOffsets[i];
             semantic.descriptorSection.uniformBufferObject.bytesize = sizes[i];
-            semantic.descriptorSection.shaderAccessFlags = ICPUSpecializedShader::ESS_VERTEX;
+            semantic.descriptorSection.shaderAccessFlags = ICPUShader::ESS_VERTEX;
         }
     }
 }

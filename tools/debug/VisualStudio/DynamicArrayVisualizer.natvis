@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+  
+  <Type Name="nbl::core::refctd_dynamic_array&lt;*&gt;">
+    <DisplayString>size={item_count} elementType={"$T1"}</DisplayString>
+    <Expand>
+      <Item Name="size">item_count</Item>
+      <ArrayItems>
+        <Size>item_count</Size>
+        <ValuePointer>reinterpret_cast&lt;$T1*&gt;(this)+dummy_item_count</ValuePointer>
+      </ArrayItems>
+    </Expand>
+  </Type>
+</AutoVisualizer>

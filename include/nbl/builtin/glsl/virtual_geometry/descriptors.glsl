@@ -106,11 +106,14 @@ layout(set = _NBL_VG_SSBO_DESCRIPTOR_SET, binding = _NBL_VG_SSBO_UVEC4_BINDING, 
 #ifdef _NBL_VG_USE_SSBO_INDEX
 layout(set = _NBL_VG_SSBO_DESCRIPTOR_SET, binding = _NBL_VG_SSBO_INDEX_BINDING, std430) readonly buffer TrianglePackedData
 {
-    uint16_t indices[];
+    uint indices[];
 } trianglePackedData;
 uint nbl_glsl_VG_fetchTriangleVertexIndex(in uint baseVertex, in uint triangleVx)
 {
-    return uint(trianglePackedData.indices[baseVertex+triangleVx]);
+    uint realIndex = baseVertex + triangleVx;
+    uint packedData = trianglePackedData.indices[realIndex>>1u];
+    uint extractedData = uint(bitfieldExtract(packedData, bool(realIndex&0x1u) ? 16 : 0, 16));
+    return extractedData;
 }
 #endif
 

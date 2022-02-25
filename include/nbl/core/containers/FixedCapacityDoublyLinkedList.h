@@ -7,18 +7,38 @@
 
 
 #include "nbl/core/alloc/PoolAddressAllocator.h"
-#include "nbl/core/Types.h"
+#include "nbl/core/decl/Types.h"
+
+#include <functional>
 
 namespace nbl
 {
 namespace core
 {
 
+namespace impl
+{
+	class FixedCapacityDoublyLinkedListBase
+	{
+		public:
+			_NBL_STATIC_INLINE_CONSTEXPR uint32_t invalid_iterator = PoolAddressAllocator<uint32_t>::invalid_address;
+		protected:
+
+			template<typename T>
+			FixedCapacityDoublyLinkedListBase(const uint32_t capacity, void*& _reservedSpace, T*& _array)
+			{
+				const auto firstPart = core::alignUp(PoolAddressAllocator<uint32_t>::reserved_size(1u,capacity,1u),alignof(T));
+				_reservedSpace = _NBL_ALIGNED_MALLOC(firstPart+capacity*sizeof(T),alignof(T));
+				_array = reinterpret_cast<T*>(reinterpret_cast<uint8_t*>(_reservedSpace)+firstPart);
+			}
+	};
+}
+
 //Struct for use in a doubly linked list. Stores data and pointers to next and previous elements the list, or invalid iterator if it is first/last
 template<typename Value>
 struct alignas(void*) SDoublyLinkedNode
 {
-	_NBL_STATIC_INLINE_CONSTEXPR uint32_t invalid_iterator = FixedCapacityDoublyLinkedList<Value>::invalid_iterator;
+	_NBL_STATIC_INLINE_CONSTEXPR uint32_t invalid_iterator = impl::FixedCapacityDoublyLinkedListBase::invalid_iterator;
 
 	Value data;
 	uint32_t prev;
@@ -60,26 +80,13 @@ struct alignas(void*) SDoublyLinkedNode
 	}
 };
 
-namespace impl
-{
-	class FixedCapacityDoublyLinkedListBase
-	{
-		protected:
-			template<typename T>
-			FixedCapacityDoublyLinkedListBase(const uint32_t capacity, void*& _reservedSpace, T*& _array)
-			{
-				const auto firstPart = core::alignUp(PoolAddressAllocator<uint32_t>::reserved_size(1u,capacity,1u),alignof(T));
-				_reservedSpace = _NBL_ALIGNED_MALLOC(firstPart+capacity*sizeof(T),alignof(T));
-				_array = reinterpret_cast<T*>(reinterpret_cast<uint8_t*>(_reservedSpace)+firstPart);
-			}
-	};
-}
-
 template<typename Value>
 class FixedCapacityDoublyLinkedList : private impl::FixedCapacityDoublyLinkedListBase
 {
 	public:
-		_NBL_STATIC_INLINE_CONSTEXPR uint32_t invalid_iterator = PoolAddressAllocator<uint32_t>::invalid_address;
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t invalid_iterator = impl::FixedCapacityDoublyLinkedListBase::invalid_iterator;
+
+		using disposal_func_t = std::function<void(Value&)>;
 
 		using node_t = SDoublyLinkedNode<Value>;
 
@@ -155,9 +162,10 @@ class FixedCapacityDoublyLinkedList : private impl::FixedCapacityDoublyLinkedLis
 			m_begin = nodeAddr;
 		}
 		//Constructor, capacity determines the amount of allocated space
-		FixedCapacityDoublyLinkedList(const uint32_t capacity) :
+		FixedCapacityDoublyLinkedList(const uint32_t capacity, disposal_func_t&& dispose_f = disposal_func_t()) :
 			FixedCapacityDoublyLinkedListBase(capacity,m_reservedSpace,m_array),
-			alloc(m_reservedSpace, 0u, 0u, 1u, capacity, 1u)
+			alloc(m_reservedSpace, 0u, 0u, 1u, capacity, 1u),
+			m_dispose_f(std::move(dispose_f))
 		{
 			cap = capacity;
 			m_back = invalid_iterator;
@@ -165,6 +173,16 @@ class FixedCapacityDoublyLinkedList : private impl::FixedCapacityDoublyLinkedLis
 		}
 		~FixedCapacityDoublyLinkedList()
 		{
+			if (m_dispose_f && m_begin != invalid_iterator)
+			{
+				auto* begin = getBegin();
+				auto* back = getBack();
+				do 
+				{
+					m_dispose_f(begin->data);
+					begin = get(begin->next);
+				} while (begin != back);
+			}
 			_NBL_ALIGNED_FREE(m_reservedSpace);
 		}
 
@@ -176,6 +194,8 @@ class FixedCapacityDoublyLinkedList : private impl::FixedCapacityDoublyLinkedLis
 		uint32_t cap;
 		uint32_t m_back;
 		uint32_t m_begin;
+
+		disposal_func_t m_dispose_f;
 		
 		//allocate and get the address of the next free node
 		inline uint32_t reserveAddress()
@@ -202,6 +222,8 @@ class FixedCapacityDoublyLinkedList : private impl::FixedCapacityDoublyLinkedLis
 
 		inline void common_delete(uint32_t address)
 		{
+			if (m_dispose_f)
+				m_dispose_f(get(address)->data);
 			get(address)->~node_t();
 			alloc.free_addr(address, 1u);
 		}

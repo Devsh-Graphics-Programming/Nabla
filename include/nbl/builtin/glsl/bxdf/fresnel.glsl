@@ -2,6 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
+// TODO: rename Eta to something more fitting to let it be known that reciprocal Eta convention is used (ior_dest/ior_src)
+
 #ifndef _BRDF_SPECULAR_FRESNEL_FRESNEL_INCLUDED_
 #define _BRDF_SPECULAR_FRESNEL_FRESNEL_INCLUDED_
 
@@ -65,8 +67,8 @@ vec3 nbl_glsl_fresnel_dielectric_frontface_only(in vec3 Eta, in float CosTheta)
 vec3 nbl_glsl_fresnel_dielectric(vec3 Eta, in float CosTheta)
 {
     vec3 orientedEta,rcpOrientedEta;
-    bool backside = nbl_glsl_getOrientedEtas(orientedEta,rcpOrientedEta,CosTheta,Eta);
-    return nbl_glsl_fresnel_dielectric_common(orientedEta*orientedEta,backside ? (-CosTheta):CosTheta);
+    nbl_glsl_getOrientedEtas(orientedEta,rcpOrientedEta,CosTheta,Eta);
+    return nbl_glsl_fresnel_dielectric_common(orientedEta*orientedEta,abs(CosTheta));
 }
 
 // gets the sum of all R, T R T, T R^3 T, T R^5 T, ... paths

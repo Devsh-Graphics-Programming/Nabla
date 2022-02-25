@@ -10,8 +10,8 @@
 
 #ifdef __NBL_COMPILE_WITH_MOUNT_ARCHIVE_LOADER_
 
-#include "IFileSystem.h"
-#include "CFileList.h"
+#include "nbl/system/ISystem.h"
+#include "nbl/system/IFile.h"
 
 namespace nbl
 {
@@ -19,7 +19,7 @@ namespace io
 {
 
 	//! Archiveloader capable of loading MountPoint Archives
-	class CArchiveLoaderMount : public IArchiveLoader
+	class CArchiveLoaderMount : public system::IArchiveLoader
 	{
 	public:
 
@@ -28,7 +28,7 @@ namespace io
 
 		//! returns true if the file maybe is able to be loaded by this class
 		//! based on the file extension (e.g. ".zip")
-		virtual bool isALoadableFileFormat(const io::path& filename) const;
+		virtual bool isALoadableFileFormat(const std::filesystem::path& filename) const;
 
 		//! Check if the file might be loaded by this class
 		/** Check might look into the file.
@@ -40,41 +40,39 @@ namespace io
 		/** Check based on the archive type.
 		\param fileType The archive type to check.
 		\return True if the archile loader supports this type, false if not */
-		virtual bool isALoadableFileFormat(E_FILE_ARCHIVE_TYPE fileType) const;
+		//virtual bool isALoadableFileFormat(E_FILE_ARCHIVE_TYPE fileType) const;
 
 		//! Creates an archive from the filename
 		/** \param file File handle to check.
 		\return Pointer to newly created archive, or 0 upon error. */
-		virtual IFileArchive* createArchive(const io::path& filename) const;
-
 		//! creates/loads an archive from the file.
 		//! \return Pointer to the created archive. Returns 0 if loading failed.
-		virtual IFileArchive* createArchive(io::IReadFile* file) const;
+		//virtual IFileArchive* createArchive(io::IReadFile* file) const;
 
 	private:
 		io::IFileSystem* FileSystem;
 	};
 
 	//! A File Archive which uses a mountpoint
-	class CMountPointReader : public virtual IFileArchive, virtual CFileList
+	class CMountPointReader : public virtual system::IFileArchive//, virtual system::CFileList
 	{
 	public:
 
 		//! Constructor
-		CMountPointReader(IFileSystem *parent, const io::path& basename);
+		CMountPointReader(IFileSystem *parent, const std::filesystem::path& basename);
 
 		//! opens a file by file name
-		virtual IReadFile* createAndOpenFile(const io::path& filename);
+		virtual IReadFile* createAndOpenFile(const std::filesystem::path& filename);
 
 		//! returns the list of files
 		virtual const IFileList* getFileList() const;
 
 		//! get the class Type
-		virtual E_FILE_ARCHIVE_TYPE getType() const { return EFAT_FOLDER; }
+		//virtual E_FILE_ARCHIVE_TYPE getType() const { return EFAT_FOLDER; }
 
 	private:
 
-		core::vector<io::path> RealFileNames;
+		core::vector<std::filesystem::path> RealFileNames;
 
 		IFileSystem *Parent;
 		void buildDirectory();

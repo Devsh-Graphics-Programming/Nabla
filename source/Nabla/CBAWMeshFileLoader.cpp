@@ -9,7 +9,7 @@
 #include "CFinalBoneHierarchy.h"
 #include "SMesh.h" // Why is this nowhere to be found?
 #include "CSkinnedMesh.h"
-#include "os.h"
+#include "nbl_os.h"
 #include "lzma/LzmaDec.h"
 #include "lz4/lz4.h"
 

@@ -7,7 +7,7 @@
 [submodule "3rdparty/glslang"]
 	path = 3rdparty/glslang
 	url = https://github.com/devshgraphicsprogramming/glslang.git
-	branch = master
+	branch = nabla
 [submodule "3rdparty/shaderc"]
 	path = 3rdparty/shaderc
 	url = https://github.com/google/shaderc.git
@@ -17,10 +17,6 @@
 [submodule "3rdparty/lz4"]
 	path = 3rdparty/lz4
 	url = https://github.com/lz4/lz4.git
-[submodule "3rdparty/spirv_cross"]
-	path = 3rdparty/spirv_cross
-	url = https://github.com/devshgraphicsprogramming/SPIRV-Cross.git
-	branch = master
 [submodule "3rdparty/zlib"]
 	path = 3rdparty/zlib
 	url = https://github.com/madler/zlib.git
@@ -40,19 +36,9 @@
 [submodule "3rdparty/libjpeg-turbo"]
 	path = 3rdparty/libjpeg-turbo
 	url = https://github.com/libjpeg-turbo/libjpeg-turbo.git
-[submodule "3rdparty/libjpeg"]
-	path = 3rdparty/libjpeg
-	url = https://github.com/LuaDist/libjpeg.git
 [submodule "3rdparty/bullet3"]
 	path = 3rdparty/bullet3
 	url = https://github.com/bulletphysics/bullet3.git
-[submodule "examples_tests/media/cegui_alfisko"]
-	path = examples_tests/media/cegui_alfisko
-	url = https://gitlab.com/InnerPieceOSS/cegui_alfisko.git
-[submodule "3rdparty/CEGUI/cegui"]
-	path = 3rdparty/CEGUI/cegui
-	url = https://gitlab.com/InnerPieceOSS/cegui.git
-	branch = saga
 [submodule "ext/CEGUI/stb"]
 	path = ext/CEGUI/stb
 	url = https://github.com/nothings/stb.git
@@ -69,13 +55,6 @@
 [submodule "3rdparty/freetype2"]
 	path = 3rdparty/freetype2
 	url = https://git.sv.nongnu.org/r/freetype/freetype2.git
-[submodule "3rdparty/CEGUI/pcre"]
-	path = 3rdparty/CEGUI/pcre
-	url = https://github.com/svn2github/pcre.git
-[submodule "3rdparty/CEGUI/glew-cmake"]
-	path = 3rdparty/CEGUI/glew
-	url = https://github.com/AnastaZIuk/glew-cmake.git
-	branch = master
 [submodule "3rdparty/openexr"]
 	path = 3rdparty/openexr
 	url = https://github.com/AcademySoftwareFoundation/openexr.git
@@ -87,15 +66,29 @@
 	url = https://github.com/greg7mdp/parallel-hashmap
 [submodule "3rdparty/radeonrays"]
 	path = 3rdparty/radeonrays
-	url = https://github.com/devshgraphicsprogramming/RadeonRays_SDK.git
+	url = git@github.com:devshgraphicsprogramming/RadeonRays_SDK.git
 	branch = baw
 [submodule "3rdparty/jitify"]
 	path = 3rdparty/jitify
 	url = https://github.com/NVIDIA/jitify
-[submodule "3rdparty/SDL2"]
-	path = 3rdparty/SDL2
-	url = https://github.com/spurious/SDL-mirror.git
-	branch = release-2.0.12
 [submodule "3rdparty/volk"]
 	path = 3rdparty/volk
 	url = https://github.com/zeux/volk.git
+[submodule "3rdparty/EGL"]
+	path = 3rdparty/EGL
+	url = https://github.com/Crisspl/EGL.git
+[submodule "3rdparty/simdjson"]
+	path = 3rdparty/simdjson
+	url = https://github.com/simdjson/simdjson.git
+[submodule "3rdparty/glTFSampleModels"]
+	path = 3rdparty/glTFSampleModels
+	url = https://github.com/KhronosGroup/glTF-Sample-Models.git
+[submodule "3rdparty/nbl_spirv_cross"]
+	path = 3rdparty/nbl_spirv_cross
+	url = https://github.com/devshgraphicsprogramming/SPIRV-Cross.git
+[submodule "3rdparty/pstl/oneTBB"]
+	path = 3rdparty/pstl/oneTBB
+	url = https://github.com/Devsh-Graphics-Programming/oneTBB.git
+[submodule "3rdparty/pstl/oneDPL/oneDPL"]
+	path = 3rdparty/pstl/oneDPL/oneDPL
+	url = https://github.com/Devsh-Graphics-Programming/oneDPL.git

@@ -6,19 +6,32 @@
 #define _NBL_BUILTIN_GLSL_BUMP_MAPPING_UTILS_INCLUDED_
 
 
-vec3 nbl_glsl_perturbNormal_heightMap(in vec3 vtxN, in mat2x3 dPdQ, in vec2 dHdQ)
+vec3 nbl_glsl_perturbNormal_heightMap(in vec3 vtxN, in vec2 dhdUV, in mat2x3 dPdUV)
 {
-    vec3 r1 = cross(dPdQ[1],vtxN);
-    vec3 r2 = cross(vtxN,dPdQ[0]);
-    vec3 surfGrad = (r1*dHdQ.x+r2*dHdQ.y)/dot(dPdQ[0],r1);
-    return normalize(vtxN-surfGrad);
+    // no idea if this is correct, but seems to work
+    const vec3 r1 = cross(vtxN,dPdUV[1]);
+    const vec3 r2 = cross(dPdUV[0],vtxN);
+    const float r1len2 = dot(r1,r1);
+    const float r2len2 = dot(r2,r2);
+    const float cosInPlane = dot(r1,r2);
+    // protect against zero length r1 or r2, colinear r1 and r2, and NaN
+    const float sinInPlane2 = r1len2*r2len2-cosInPlane*cosInPlane;
+    if (sinInPlane2>0.0000001f)
+    { 
+        const vec3 surfGrad = r1*sqrt(r2len2)*dhdUV.x+r2*sqrt(r1len2)*dhdUV.y;
+        return normalize(vtxN*sqrt(sinInPlane2)+surfGrad);
+    }
+    return vtxN;
 }
 
-vec3 nbl_glsl_perturbNormal_derivativeMap(in vec3 vtxN, in vec2 dhdUV, in mat2x3 dPdQ, in mat2 dUVdQ)
+vec3 nbl_glsl_perturbNormal_derivativeMap(in vec3 vtxN, in vec2 dhdUV, in mat2x3 dPdQ, mat2 dUVdQ)
 {
-    // apply the chain rule
-    const vec2 dHdQ = vec2(dot(dhdUV,dUVdQ[0]), dot(dhdUV,dUVdQ[1]));
-    return nbl_glsl_perturbNormal_heightMap(vtxN,dPdQ,dHdQ);
+    // apply the chain rule in reverse
+	dUVdQ /= abs(determinant(dUVdQ)); // abs is important to protect against UV coordinate mirroring
+    mat2x3 dPdUV;
+	dPdUV[0] = dPdQ[0]*dUVdQ[1][1]-dPdQ[1]*dUVdQ[0][1];
+	dPdUV[1] = dPdQ[1]*dUVdQ[0][0]-dPdQ[0]*dUVdQ[1][0];
+    return nbl_glsl_perturbNormal_heightMap(vtxN,dhdUV,dPdUV);
 }
 
 #ifdef _NBL_BUILTIN_GLSL_BUMP_MAPPING_DERIVATIVES_DECLARED_

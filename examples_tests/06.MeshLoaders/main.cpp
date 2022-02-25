@@ -7,203 +7,548 @@
 #include <cstdio>
 #include <nabla.h>
 
-//! I advise to check out this file, its a basic input handler
-#include "../common/QToQuitEventReceiver.h"
-#include "nbl/ext/FullScreenTriangle/FullScreenTriangle.h"
-
-//#include "nbl/ext/ScreenShot/ScreenShot.h"
-
+#include "../common/Camera.hpp"
+#include "../common/CommonAPI.h"
+#include "nbl/ext/ScreenShot/ScreenShot.h"
 
 using namespace nbl;
 using namespace core;
+using namespace ui;
+/*
+    Uncomment for more detailed logging
+*/
 
-int main()
+// #define NBL_MORE_LOGS
+
+class MeshLoadersApp : public ApplicationBase
 {
-	// create device with full flexibility over creation parameters
-	// you can add more parameters if desired, check nbl::SIrrlichtCreationParameters
-	nbl::SIrrlichtCreationParameters params;
-	params.Bits = 24; //may have to set to 32bit for some platforms
-	params.ZBufferBits = 24; //we'd like 32bit here
-	params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing
-	params.WindowSize = dimension2d<uint32_t>(1280, 720);
-	params.Fullscreen = false;
-	params.Vsync = true; //! If supported by target platform
-	params.Doublebuffer = true;
-	params.Stencilbuffer = false; //! This will not even be a choice soon
-	auto device = createDeviceEx(params);
+    constexpr static uint32_t WIN_W = 1280;
+    constexpr static uint32_t WIN_H = 720;
+    constexpr static uint32_t SC_IMG_COUNT = 3u;
+    constexpr static uint32_t FRAMES_IN_FLIGHT = 5u;
+    constexpr static uint64_t MAX_TIMEOUT = 99999999999999ull;
+    constexpr static size_t NBL_FRAMES_TO_AVERAGE = 100ull;
 
-	if (!device)
-		return 1; // could not create selected driver.
+    static_assert(FRAMES_IN_FLIGHT > SC_IMG_COUNT);
+public:
+    nbl::core::smart_refctd_ptr<nbl::ui::IWindowManager> windowManager;
+    nbl::core::smart_refctd_ptr<nbl::ui::IWindow> window;
+    nbl::core::smart_refctd_ptr<CommonAPI::CommonAPIEventCallback> windowCb;
+    nbl::core::smart_refctd_ptr<nbl::video::IAPIConnection> apiConnection;
+    nbl::core::smart_refctd_ptr<nbl::video::ISurface> surface;
+    nbl::core::smart_refctd_ptr<nbl::video::IUtilities> utilities;
+    nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice> logicalDevice;
+    nbl::video::IPhysicalDevice* physicalDevice;
+    std::array<video::IGPUQueue*, CommonAPI::InitOutput::MaxQueuesCount> queues;
+    nbl::core::smart_refctd_ptr<nbl::video::ISwapchain> swapchain;
+    nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpass> renderpass;
+    std::array<nbl::core::smart_refctd_ptr<nbl::video::IGPUFramebuffer>, CommonAPI::InitOutput::MaxSwapChainImageCount> fbo;
+    std::array<nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandPool>, CommonAPI::InitOutput::MaxQueuesCount> commandPools;
+    nbl::core::smart_refctd_ptr<nbl::system::ISystem> system;
+    nbl::core::smart_refctd_ptr<nbl::asset::IAssetManager> assetManager;
+    nbl::video::IGPUObjectFromAssetConverter::SParams cpu2gpuParams;
+    nbl::core::smart_refctd_ptr<nbl::system::ILogger> logger;
+    nbl::core::smart_refctd_ptr<CommonAPI::InputSystem> inputSystem;
 
+    nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
+    
+    core::smart_refctd_ptr<video::IDescriptorPool> descriptorPool;
+    video::IDriverMemoryBacked::SDriverMemoryRequirements ubomemreq;
+    core::smart_refctd_ptr<video::IGPUBuffer> gpuubo;
+    core::smart_refctd_ptr<video::IGPUDescriptorSet> gpuds1;
 
-	//! disable mouse cursor, since camera will force it to the middle
-	//! and we don't want a jittery cursor in the middle distracting us
-	device->getCursorControl()->setVisible(false);
+    core::smart_refctd_ptr<video::IQueryPool> occlusionQueryPool;
+    core::smart_refctd_ptr<video::IQueryPool> timestampQueryPool;
 
-	//! Since our cursor will be enslaved, there will be no way to close the window
-	//! So we listen for the "Q" key being pressed and exit the application
-	QToQuitEventReceiver receiver;
-	device->setEventReceiver(&receiver);
-
-
-	auto* driver = device->getVideoDriver();
-	auto* smgr = device->getSceneManager();
-
-    asset::ICPUMesh* mesh_raw = nullptr;
+    asset::ICPUMesh* meshRaw = nullptr;
     const asset::COBJMetadata* metaOBJ = nullptr;
-    // load
+
+    core::smart_refctd_ptr<video::IGPUFence> frameComplete[FRAMES_IN_FLIGHT] = { nullptr };
+    core::smart_refctd_ptr<video::IGPUSemaphore> imageAcquire[FRAMES_IN_FLIGHT] = { nullptr };
+    core::smart_refctd_ptr<video::IGPUSemaphore> renderFinished[FRAMES_IN_FLIGHT] = { nullptr };
+    core::smart_refctd_ptr<video::IGPUCommandBuffer> commandBuffers[FRAMES_IN_FLIGHT];
+
+    CommonAPI::InputSystem::ChannelReader<IMouseEventChannel> mouse;
+    CommonAPI::InputSystem::ChannelReader<IKeyboardEventChannel> keyboard;
+    Camera camera = Camera(vectorSIMDf(0, 0, 0), vectorSIMDf(0, 0, 0), matrix4SIMD());
+
+    using RENDERPASS_INDEPENDENT_PIPELINE_ADRESS = size_t;
+    std::map<RENDERPASS_INDEPENDENT_PIPELINE_ADRESS, core::smart_refctd_ptr<video::IGPUGraphicsPipeline>> gpuPipelines;
+    core::smart_refctd_ptr<video::IGPUMesh> gpumesh;
+    const asset::ICPUMeshBuffer* firstMeshBuffer;
+    const nbl::asset::COBJMetadata::CRenderpassIndependentPipeline* pipelineMetadata;
+
+    uint32_t ds1UboBinding = 0;
+    int resourceIx;
+    uint32_t acquiredNextFBO = {};
+    std::chrono::steady_clock::time_point lastTime;
+    bool frameDataFilled = false;
+    size_t frame_count = 0ull;
+    double time_sum = 0;
+    double dtList[NBL_FRAMES_TO_AVERAGE] = {};
+
+    video::CDumbPresentationOracle oracle;
+    
+    core::smart_refctd_ptr<video::IGPUBuffer> queryResultsBuffer;
+
+    auto createDescriptorPool(const uint32_t textureCount)
     {
-        auto* am = device->getAssetManager();
-        auto* fs = am->getFileSystem();
-
-        auto* qnc = am->getMeshManipulator()->getQuantNormalCache();
-        //loading cache from file
-        qnc->loadCacheFromFile<asset::EF_A2B10G10R10_SNORM_PACK32>(fs, "../../tmp/normalCache101010.sse");
-
-        // register the zip
-        device->getFileSystem()->addFileArchive("../../media/sponza.zip");
-
-        asset::IAssetLoader::SAssetLoadParams lp;
-        auto meshes_bundle = am->getAsset("sponza.obj", lp);
-        assert(!meshes_bundle.getContents().empty());
-
-        metaOBJ = meshes_bundle.getMetadata()->selfCast<const asset::COBJMetadata>();
-
-        auto mesh = meshes_bundle.getContents().begin()[0];
-        mesh_raw = static_cast<asset::ICPUMesh*>(mesh.get());
-
-        //saving cache to file
-        qnc->saveCacheToFile<asset::EF_A2B10G10R10_SNORM_PACK32>(fs,"../../tmp/normalCache101010.sse");
+        constexpr uint32_t maxItemCount = 256u;
+        {
+            nbl::video::IDescriptorPool::SDescriptorPoolSize poolSize;
+            poolSize.count = textureCount;
+            poolSize.type = nbl::asset::EDT_COMBINED_IMAGE_SAMPLER;
+            return logicalDevice->createDescriptorPool(static_cast<nbl::video::IDescriptorPool::E_CREATE_FLAGS>(0), maxItemCount, 1u, &poolSize);
+        }
     }
 
-    //we can safely assume that all meshbuffers within mesh loaded from OBJ has same DS1 layout (used for camera-specific data)
-    asset::ICPUMeshBuffer* const first_mb = *mesh_raw->getMeshBuffers().begin();
-    auto pipelineMetadata = metaOBJ->getAssetSpecificMetadata(first_mb->getPipeline());
-
-    //so we can create just one DS
-    asset::ICPUDescriptorSetLayout* ds1layout = first_mb->getPipeline()->getLayout()->getDescriptorSetLayout(1u);
-    uint32_t ds1UboBinding = 0u;
-    for (const auto& bnd : ds1layout->getBindings())
-        if (bnd.type==asset::EDT_UNIFORM_BUFFER)
+    void setWindow(core::smart_refctd_ptr<nbl::ui::IWindow>&& wnd) override
+    {
+        window = std::move(wnd);
+    }
+    void setSystem(core::smart_refctd_ptr<nbl::system::ISystem>&& s) override
+    {
+        system = std::move(s);
+    }
+    nbl::ui::IWindow* getWindow() override
+    {
+        return window.get();
+    }
+    video::IAPIConnection* getAPIConnection() override
+    {
+        return apiConnection.get();
+    }
+    video::ILogicalDevice* getLogicalDevice()  override
+    {
+        return logicalDevice.get();
+    }
+    video::IGPURenderpass* getRenderpass() override
+    {
+        return renderpass.get();
+    }
+    void setSurface(core::smart_refctd_ptr<video::ISurface>&& s) override
+    {
+        surface = std::move(s);
+    }
+    void setFBOs(std::vector<core::smart_refctd_ptr<video::IGPUFramebuffer>>& f) override
+    {
+        for (int i = 0; i < f.size(); i++)
         {
-            ds1UboBinding = bnd.binding;
-            break;
+            fbo[i] = core::smart_refctd_ptr(f[i]);
+        }
+    }
+    void setSwapchain(core::smart_refctd_ptr<video::ISwapchain>&& s) override
+    {
+        swapchain = std::move(s);
+    }
+    uint32_t getSwapchainImageCount() override
+    {
+        return SC_IMG_COUNT;
+    }
+    virtual nbl::asset::E_FORMAT getDepthFormat() override
+    {
+        return nbl::asset::EF_D32_SFLOAT;
+    }
+
+    void getAndLogQueryPoolResults()
+    {
+#ifdef QUERY_POOL_LOGS
+        {
+            uint64_t samples_passed[4] = {};
+            auto queryResultFlags = core::bitflag<video::IQueryPool::E_QUERY_RESULTS_FLAGS>(video::IQueryPool::EQRF_WITH_AVAILABILITY_BIT) | video::IQueryPool::EQRF_64_BIT;
+            logicalDevice->getQueryPoolResults(occlusionQueryPool.get(), 0u, 2u, sizeof(samples_passed), samples_passed, sizeof(uint64_t) * 2, queryResultFlags);
+            logger->log("[AVAIL+64] SamplesPassed[0] = %d, SamplesPassed[1] = %d, Result Available = %d, %d", system::ILogger::ELL_INFO, samples_passed[0], samples_passed[2], samples_passed[1], samples_passed[3]);
+        }
+        {
+            uint64_t samples_passed[4] = {};
+            auto queryResultFlags = core::bitflag<video::IQueryPool::E_QUERY_RESULTS_FLAGS>(video::IQueryPool::EQRF_WITH_AVAILABILITY_BIT) | video::IQueryPool::EQRF_64_BIT | video::IQueryPool::EQRF_WAIT_BIT;
+            logicalDevice->getQueryPoolResults(occlusionQueryPool.get(), 0u, 2u, sizeof(samples_passed), samples_passed, sizeof(uint64_t) * 2, queryResultFlags);
+            logger->log("[WAIT+AVAIL+64] SamplesPassed[0] = %d, SamplesPassed[1] = %d, Result Available = %d, %d", system::ILogger::ELL_INFO, samples_passed[0], samples_passed[2], samples_passed[1], samples_passed[3]);
+        }
+        {
+            uint32_t samples_passed[2] = {};
+            auto queryResultFlags = core::bitflag<video::IQueryPool::E_QUERY_RESULTS_FLAGS>(video::IQueryPool::EQRF_WAIT_BIT);
+            logicalDevice->getQueryPoolResults(occlusionQueryPool.get(), 0u, 2u, sizeof(samples_passed), samples_passed, sizeof(uint32_t), queryResultFlags);
+            logger->log("[WAIT] SamplesPassed[0] = %d, SamplesPassed[1] = %d", system::ILogger::ELL_INFO, samples_passed[0], samples_passed[1]);
+        }
+        {
+            uint64_t timestamps[4] = {};
+            auto queryResultFlags = core::bitflag<video::IQueryPool::E_QUERY_RESULTS_FLAGS>(video::IQueryPool::EQRF_WAIT_BIT) | video::IQueryPool::EQRF_WITH_AVAILABILITY_BIT | video::IQueryPool::EQRF_64_BIT;
+            logicalDevice->getQueryPoolResults(timestampQueryPool.get(), 0u, 2u, sizeof(timestamps), timestamps, sizeof(uint64_t) * 2ull, queryResultFlags);
+            float timePassed = (timestamps[2] - timestamps[0]) * physicalDevice->getLimits().timestampPeriodInNanoSeconds;
+            logger->log("Time Passed (Seconds) = %f", system::ILogger::ELL_INFO, (timePassed * 1e-9));
+            logger->log("Timestamps availablity: %d, %d", system::ILogger::ELL_INFO, timestamps[1], timestamps[3]);
+        }
+#endif
+    }
+
+    APP_CONSTRUCTOR(MeshLoadersApp)
+    void onAppInitialized_impl() override
+    {
+        CommonAPI::InitOutput initOutput;
+        initOutput.window = core::smart_refctd_ptr(window);
+        initOutput.system = core::smart_refctd_ptr(system);
+
+        const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT);
+        const video::ISurface::SFormat surfaceFormat(asset::EF_R8G8B8A8_SRGB, asset::ECP_SRGB, asset::EOTF_sRGB);
+
+        CommonAPI::InitWithDefaultExt(initOutput, video::EAT_VULKAN, "MeshLoaders", WIN_W, WIN_H, SC_IMG_COUNT, swapchainImageUsage, surfaceFormat, nbl::asset::EF_D32_SFLOAT);
+        window = std::move(initOutput.window);
+        windowCb = std::move(initOutput.windowCb);
+        apiConnection = std::move(initOutput.apiConnection);
+        surface = std::move(initOutput.surface);
+        utilities = std::move(initOutput.utilities);
+        logicalDevice = std::move(initOutput.logicalDevice);
+        physicalDevice = initOutput.physicalDevice;
+        queues = std::move(initOutput.queues);
+        swapchain = std::move(initOutput.swapchain);
+        renderpass = std::move(initOutput.renderpass);
+        fbo = std::move(initOutput.fbo);
+        commandPools = std::move(initOutput.commandPools);
+        system = std::move(initOutput.system);
+        assetManager = std::move(initOutput.assetManager);
+        cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
+        logger = std::move(initOutput.logger);
+        inputSystem = std::move(initOutput.inputSystem);
+        
+        // Occlusion Query
+        {
+            video::IQueryPool::SCreationParams queryPoolCreationParams = {};
+            queryPoolCreationParams.queryType = video::IQueryPool::EQT_OCCLUSION;
+            queryPoolCreationParams.queryCount = 2u;
+            occlusionQueryPool = logicalDevice->createQueryPool(std::move(queryPoolCreationParams));
         }
 
-    size_t neededDS1UBOsz = 0ull;
-    {
-        for (const auto& shdrIn : pipelineMetadata->m_inputSemantics)
-            if (shdrIn.descriptorSection.type==asset::IRenderpassIndependentPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER && shdrIn.descriptorSection.uniformBufferObject.set==1u && shdrIn.descriptorSection.uniformBufferObject.binding==ds1UboBinding)
-                neededDS1UBOsz = std::max<size_t>(neededDS1UBOsz, shdrIn.descriptorSection.uniformBufferObject.relByteoffset+shdrIn.descriptorSection.uniformBufferObject.bytesize);
-    }
-
-    auto gpuds1layout = driver->getGPUObjectsFromAssets(&ds1layout, &ds1layout+1)->front();
-
-    auto gpuubo = driver->createDeviceLocalGPUBufferOnDedMem(neededDS1UBOsz);
-    auto gpuds1 = driver->createGPUDescriptorSet(std::move(gpuds1layout));
-    {
-        video::IGPUDescriptorSet::SWriteDescriptorSet write;
-        write.dstSet = gpuds1.get();
-        write.binding = ds1UboBinding;
-        write.count = 1u;
-        write.arrayElement = 0u;
-        write.descriptorType = asset::EDT_UNIFORM_BUFFER;
-        video::IGPUDescriptorSet::SDescriptorInfo info;
+        // Timestamp Query
+        video::IQueryPool::SCreationParams queryPoolCreationParams = {};
         {
-            info.desc = gpuubo;
-            info.buffer.offset = 0ull;
-            info.buffer.size = neededDS1UBOsz;
+            video::IQueryPool::SCreationParams queryPoolCreationParams = {};
+            queryPoolCreationParams.queryType = video::IQueryPool::EQT_TIMESTAMP;
+            queryPoolCreationParams.queryCount = 2u;
+            timestampQueryPool = logicalDevice->createQueryPool(std::move(queryPoolCreationParams));
         }
-        write.info = &info;
-        driver->updateDescriptorSets(1u, &write, 0u, nullptr);
+
+        {
+            // SAMPLES_PASSED_0 + AVAILABILIY_0 + SAMPLES_PASSED_1 + AVAILABILIY_1 (uint32_t)
+            const size_t queriesSize = sizeof(uint32_t) * 4;
+            auto memreq = logicalDevice->getDeviceLocalGPUMemoryReqs();
+            memreq.vulkanReqs.size = queriesSize;
+            video::IGPUBuffer::SCreationParams gpuuboCreationParams;
+            gpuuboCreationParams.canUpdateSubRange = true;
+            gpuuboCreationParams.usage = core::bitflag<asset::IBuffer::E_USAGE_FLAGS>(asset::IBuffer::EUF_UNIFORM_BUFFER_BIT) | asset::IBuffer::EUF_TRANSFER_DST_BIT;
+            gpuuboCreationParams.sharingMode = asset::E_SHARING_MODE::ESM_EXCLUSIVE;
+            gpuuboCreationParams.queueFamilyIndexCount = 0u;
+            gpuuboCreationParams.queueFamilyIndices = nullptr;
+
+            queryResultsBuffer = logicalDevice->createGPUBufferOnDedMem(gpuuboCreationParams, memreq);
+            queryResultsBuffer->setObjectDebugName("QueryResults");
+        }
+
+        nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
+        {
+            auto* quantNormalCache = assetManager->getMeshManipulator()->getQuantNormalCache();
+            quantNormalCache->loadCacheFromFile<asset::EF_A2B10G10R10_SNORM_PACK32>(system.get(), sharedOutputCWD / "normalCache101010.sse");
+
+            system::path archPath = sharedInputCWD / "sponza.zip";
+            auto arch = system->openFileArchive(archPath);
+            // test no alias loading (TODO: fix loading from absolute paths)
+            system->mount(std::move(arch));
+            asset::IAssetLoader::SAssetLoadParams loadParams;
+            loadParams.workingDirectory = sharedInputCWD;
+            loadParams.logger = logger.get();
+            auto meshes_bundle = assetManager->getAsset((sharedInputCWD / "sponza.zip/sponza.obj").string(), loadParams);
+            assert(!meshes_bundle.getContents().empty());
+
+            metaOBJ = meshes_bundle.getMetadata()->selfCast<const asset::COBJMetadata>();
+
+            auto cpuMesh = meshes_bundle.getContents().begin()[0];
+            meshRaw = static_cast<asset::ICPUMesh*>(cpuMesh.get());
+
+            quantNormalCache->saveCacheToFile<asset::EF_A2B10G10R10_SNORM_PACK32>(system.get(), sharedOutputCWD / "normalCache101010.sse");
+        }
+
+        // Fix FrontFace and BlendParams for meshBuffers
+        for (size_t i = 0ull; i < meshRaw->getMeshBuffers().size(); ++i)
+        {
+            auto& meshBuffer = meshRaw->getMeshBuffers().begin()[i];
+            meshBuffer->getPipeline()->getRasterizationParams().frontFaceIsCCW = false;
+        }
+
+        // we can safely assume that all meshbuffers within mesh loaded from OBJ has same DS1 layout (used for camera-specific data)
+        firstMeshBuffer = *meshRaw->getMeshBuffers().begin();
+        pipelineMetadata = metaOBJ->getAssetSpecificMetadata(firstMeshBuffer->getPipeline());
+
+        // so we can create just one DS
+        const asset::ICPUDescriptorSetLayout* ds1layout = firstMeshBuffer->getPipeline()->getLayout()->getDescriptorSetLayout(1u);
+        ds1UboBinding = 0u;
+        for (const auto& bnd : ds1layout->getBindings())
+            if (bnd.type == asset::EDT_UNIFORM_BUFFER)
+            {
+                ds1UboBinding = bnd.binding;
+                break;
+            }
+
+        size_t neededDS1UBOsz = 0ull;
+        {
+            for (const auto& shdrIn : pipelineMetadata->m_inputSemantics)
+                if (shdrIn.descriptorSection.type == asset::IRenderpassIndependentPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER && shdrIn.descriptorSection.uniformBufferObject.set == 1u && shdrIn.descriptorSection.uniformBufferObject.binding == ds1UboBinding)
+                    neededDS1UBOsz = std::max<size_t>(neededDS1UBOsz, shdrIn.descriptorSection.uniformBufferObject.relByteoffset + shdrIn.descriptorSection.uniformBufferObject.bytesize);
+        }
+
+        core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> gpuds1layout;
+        {
+            auto gpu_array = cpu2gpu.getGPUObjectsFromAssets(&ds1layout, &ds1layout + 1, cpu2gpuParams);
+            if (!gpu_array || gpu_array->size() < 1u || !(*gpu_array)[0])
+                assert(false);
+
+            gpuds1layout = (*gpu_array)[0];
+        }
+
+        descriptorPool = createDescriptorPool(1u);
+
+        ubomemreq = logicalDevice->getDeviceLocalGPUMemoryReqs();
+        ubomemreq.vulkanReqs.size = neededDS1UBOsz;
+        video::IGPUBuffer::SCreationParams gpuuboCreationParams;
+        gpuuboCreationParams.canUpdateSubRange = true;
+        gpuuboCreationParams.usage = core::bitflag<asset::IBuffer::E_USAGE_FLAGS>(asset::IBuffer::EUF_UNIFORM_BUFFER_BIT) | asset::IBuffer::EUF_TRANSFER_DST_BIT;
+        gpuuboCreationParams.sharingMode = asset::E_SHARING_MODE::ESM_EXCLUSIVE;
+        gpuuboCreationParams.queueFamilyIndexCount = 0u;
+        gpuuboCreationParams.queueFamilyIndices = nullptr;
+
+        gpuubo = logicalDevice->createGPUBufferOnDedMem(gpuuboCreationParams,ubomemreq);
+        gpuds1 = logicalDevice->createGPUDescriptorSet(descriptorPool.get(), std::move(gpuds1layout));
+
+        {
+            video::IGPUDescriptorSet::SWriteDescriptorSet write;
+            write.dstSet = gpuds1.get();
+            write.binding = ds1UboBinding;
+            write.count = 1u;
+            write.arrayElement = 0u;
+            write.descriptorType = asset::EDT_UNIFORM_BUFFER;
+            video::IGPUDescriptorSet::SDescriptorInfo info;
+            {
+                info.desc = gpuubo;
+                info.buffer.offset = 0ull;
+                info.buffer.size = neededDS1UBOsz;
+            }
+            write.info = &info;
+            logicalDevice->updateDescriptorSets(1u, &write, 0u, nullptr);
+        }
+        {
+            cpu2gpuParams.beginCommandBuffers();
+
+            auto gpu_array = cpu2gpu.getGPUObjectsFromAssets(&meshRaw, &meshRaw + 1, cpu2gpuParams);
+            if (!gpu_array || gpu_array->size() < 1u || !(*gpu_array)[0])
+                assert(false);
+            
+            cpu2gpuParams.waitForCreationToComplete(false);
+
+            gpumesh = (*gpu_array)[0];
+        }
+       
+        {
+            for (size_t i = 0; i < gpumesh->getMeshBuffers().size(); ++i)
+            {
+                auto gpuIndependentPipeline = gpumesh->getMeshBuffers().begin()[i]->getPipeline();
+
+                nbl::video::IGPUGraphicsPipeline::SCreationParams graphicsPipelineParams;
+                graphicsPipelineParams.renderpassIndependent = core::smart_refctd_ptr<nbl::video::IGPURenderpassIndependentPipeline>(const_cast<video::IGPURenderpassIndependentPipeline*>(gpuIndependentPipeline));
+                graphicsPipelineParams.renderpass = core::smart_refctd_ptr(renderpass);
+
+                const RENDERPASS_INDEPENDENT_PIPELINE_ADRESS adress = reinterpret_cast<RENDERPASS_INDEPENDENT_PIPELINE_ADRESS>(graphicsPipelineParams.renderpassIndependent.get());
+                gpuPipelines[adress] = logicalDevice->createGPUGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
+            }
+        }
+
+        core::vectorSIMDf cameraPosition(0, 5, -10);
+        matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60.0f), float(WIN_W) / WIN_H, 0.1, 1000);
+        camera = Camera(cameraPosition, core::vectorSIMDf(0, 0, 0), projectionMatrix, 10.f, 1.f);
+        lastTime = std::chrono::steady_clock::now();
+
+        for (size_t i = 0ull; i < NBL_FRAMES_TO_AVERAGE; ++i)
+            dtList[i] = 0.0;
+
+        oracle.reportBeginFrameRecord();
+        logicalDevice->createCommandBuffers(commandPools[CommonAPI::InitOutput::EQT_GRAPHICS].get(), video::IGPUCommandBuffer::EL_PRIMARY, FRAMES_IN_FLIGHT, commandBuffers);
+
+        for (uint32_t i = 0u; i < FRAMES_IN_FLIGHT; i++)
+        {
+            imageAcquire[i] = logicalDevice->createSemaphore();
+            renderFinished[i] = logicalDevice->createSemaphore();
+        }
+
+        constexpr uint64_t MAX_TIMEOUT = 99999999999999ull;
+        uint32_t acquiredNextFBO = {};
+        resourceIx = -1;
     }
+    void onAppTerminated_impl() override
+    {
+        const auto& fboCreationParams = fbo[acquiredNextFBO]->getCreationParameters();
+        auto gpuSourceImageView = fboCreationParams.attachments[0];
 
-    auto gpumesh = driver->getGPUObjectsFromAssets(&mesh_raw, &mesh_raw+1)->front();
+        bool status = ext::ScreenShot::createScreenShot(
+            logicalDevice.get(),
+            queues[CommonAPI::InitOutput::EQT_TRANSFER_DOWN],
+            renderFinished[resourceIx].get(),
+            gpuSourceImageView.get(),
+            assetManager.get(),
+            "ScreenShot.png",
+            asset::EIL_PRESENT_SRC,
+            static_cast<asset::E_ACCESS_FLAGS>(0u));
 
-	//! we want to move around the scene and view it from different angles
-	scene::ICameraSceneNode* camera = smgr->addCameraSceneNodeFPS(0,100.0f,0.5f);
+        assert(status);
+        logicalDevice->waitIdle();
+    }
+    void workLoopBody() override
+    {
+        ++resourceIx;
+        if (resourceIx >= FRAMES_IN_FLIGHT)
+            resourceIx = 0;
 
-	camera->setPosition(core::vector3df(-4,0,0));
-	camera->setTarget(core::vector3df(0,0,0));
-	camera->setNearValue(1.f);
-	camera->setFarValue(5000.0f);
+        auto& commandBuffer = commandBuffers[resourceIx];
+        auto& fence = frameComplete[resourceIx];
+        if (fence)
+            logicalDevice->blockForFences(1u, &fence.get());
+        else
+            fence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
 
-    smgr->setActiveCamera(camera);
+        commandBuffer->reset(nbl::video::IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
+        commandBuffer->begin(0);
 
-	uint64_t lastFPSTime = 0;
-	while(device->run() && receiver.keepOpen())
-	{
-		driver->beginScene(true, true, video::SColor(255,255,255,255) );
+        const auto nextPresentationTimestamp = oracle.acquireNextImage(swapchain.get(), imageAcquire[resourceIx].get(), nullptr, &acquiredNextFBO);
+        {
+            inputSystem->getDefaultMouse(&mouse);
+            inputSystem->getDefaultKeyboard(&keyboard);
 
-        //! This animates (moves) the camera and sets the transforms
-		camera->OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(device->getTimer()->getTime()).count());
-		camera->render();
+            camera.beginInputProcessing(nextPresentationTimestamp);
+            mouse.consumeEvents([&](const IMouseEventChannel::range_t& events) -> void { camera.mouseProcess(events); }, logger.get());
+            keyboard.consumeEvents([&](const IKeyboardEventChannel::range_t& events) -> void { camera.keyboardProcess(events); }, logger.get());
+            camera.endInputProcessing(nextPresentationTimestamp);
+        }
 
-        core::vector<uint8_t> uboData(gpuubo->getSize());
+        const auto& viewMatrix = camera.getViewMatrix();
+        const auto& viewProjectionMatrix = camera.getConcatenatedMatrix();
+
+        asset::SViewport viewport;
+        viewport.minDepth = 1.f;
+        viewport.maxDepth = 0.f;
+        viewport.x = 0u;
+        viewport.y = 0u;
+        viewport.width = WIN_W;
+        viewport.height = WIN_H;
+        commandBuffer->setViewport(0u, 1u, &viewport);
+        
+        VkRect2D scissor = {};
+        scissor.offset = { 0, 0 };
+        scissor.extent = { WIN_W, WIN_H };
+        commandBuffer->setScissor(0u, 1u, &scissor);
+
+        core::matrix3x4SIMD modelMatrix;
+        modelMatrix.setTranslation(nbl::core::vectorSIMDf(0, 0, 0, 0));
+        core::matrix4SIMD mvp = core::concatenateBFollowedByA(viewProjectionMatrix, modelMatrix);
+
+        const size_t uboSize = gpuubo->getCachedCreationParams().declaredSize;
+        core::vector<uint8_t> uboData(uboSize);
         for (const auto& shdrIn : pipelineMetadata->m_inputSemantics)
         {
-            if (shdrIn.descriptorSection.type==asset::IRenderpassIndependentPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER && shdrIn.descriptorSection.uniformBufferObject.set==1u && shdrIn.descriptorSection.uniformBufferObject.binding==ds1UboBinding)
+            if (shdrIn.descriptorSection.type == asset::IRenderpassIndependentPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER && shdrIn.descriptorSection.uniformBufferObject.set == 1u && shdrIn.descriptorSection.uniformBufferObject.binding == ds1UboBinding)
             {
                 switch (shdrIn.type)
                 {
-                    case asset::IRenderpassIndependentPipelineMetadata::ECSI_WORLD_VIEW_PROJ:
-                    {
-                        core::matrix4SIMD mvp = camera->getConcatenatedMatrix();
-                        memcpy(uboData.data()+shdrIn.descriptorSection.uniformBufferObject.relByteoffset, mvp.pointer(), shdrIn.descriptorSection.uniformBufferObject.bytesize);
-                    }
-                    break;
-                    case asset::IRenderpassIndependentPipelineMetadata::ECSI_WORLD_VIEW:
-                    {
-                        core::matrix3x4SIMD MV = camera->getViewMatrix();
-                        memcpy(uboData.data() + shdrIn.descriptorSection.uniformBufferObject.relByteoffset, MV.pointer(), shdrIn.descriptorSection.uniformBufferObject.bytesize);
-                    }
-                    break;
-                    case asset::IRenderpassIndependentPipelineMetadata::ECSI_WORLD_VIEW_INVERSE_TRANSPOSE:
-                    {
-                        core::matrix3x4SIMD MV = camera->getViewMatrix();
-                        memcpy(uboData.data()+shdrIn.descriptorSection.uniformBufferObject.relByteoffset, MV.pointer(), shdrIn.descriptorSection.uniformBufferObject.bytesize);
-                    }
-                    break;
+                case asset::IRenderpassIndependentPipelineMetadata::ECSI_WORLD_VIEW_PROJ:
+                {
+                    memcpy(uboData.data() + shdrIn.descriptorSection.uniformBufferObject.relByteoffset, mvp.pointer(), shdrIn.descriptorSection.uniformBufferObject.bytesize);
+                } break;
+
+                case asset::IRenderpassIndependentPipelineMetadata::ECSI_WORLD_VIEW:
+                {
+                    memcpy(uboData.data() + shdrIn.descriptorSection.uniformBufferObject.relByteoffset, viewMatrix.pointer(), shdrIn.descriptorSection.uniformBufferObject.bytesize);
+                } break;
+
+                case asset::IRenderpassIndependentPipelineMetadata::ECSI_WORLD_VIEW_INVERSE_TRANSPOSE:
+                {
+                    memcpy(uboData.data() + shdrIn.descriptorSection.uniformBufferObject.relByteoffset, viewMatrix.pointer(), shdrIn.descriptorSection.uniformBufferObject.bytesize);
+                } break;
                 }
             }
-        }       
-        driver->updateBufferRangeViaStagingBuffer(gpuubo.get(), 0ull, gpuubo->getSize(), uboData.data());
-
-        for (auto gpumb : gpumesh->getMeshBuffers())
+        }
+        commandBuffer->updateBuffer(gpuubo.get(), 0ull, uboSize, uboData.data());
+        
+        nbl::video::IGPUCommandBuffer::SRenderpassBeginInfo beginInfo;
         {
-            const video::IGPURenderpassIndependentPipeline* pipeline = gpumb->getPipeline();
-            const video::IGPUDescriptorSet* ds3 = gpumb->getAttachedDescriptorSet();
+            VkRect2D area;
+            area.offset = { 0,0 };
+            area.extent = { WIN_W, WIN_H };
+            asset::SClearValue clear[2] = {};
+            clear[0].color.float32[0] = 1.f;
+            clear[0].color.float32[1] = 1.f;
+            clear[0].color.float32[2] = 1.f;
+            clear[0].color.float32[3] = 1.f;
+            clear[1].depthStencil.depth = 0.f;
 
-            driver->bindGraphicsPipeline(pipeline);
-            const video::IGPUDescriptorSet* gpuds1_ptr = gpuds1.get();
-            driver->bindDescriptorSets(video::EPBP_GRAPHICS, pipeline->getLayout(), 1u, 1u, &gpuds1_ptr, nullptr);
-            const video::IGPUDescriptorSet* gpuds3_ptr = gpumb->getAttachedDescriptorSet();
-            if (gpuds3_ptr)
-                driver->bindDescriptorSets(video::EPBP_GRAPHICS, pipeline->getLayout(), 3u, 1u, &gpuds3_ptr, nullptr);
-            driver->pushConstants(pipeline->getLayout(), video::IGPUSpecializedShader::ESS_FRAGMENT, 0u, gpumb->MAX_PUSH_CONSTANT_BYTESIZE, gpumb->getPushConstantsDataPtr());
-
-            driver->drawMeshBuffer(gpumb);
+            beginInfo.clearValueCount = 2u;
+            beginInfo.framebuffer = fbo[acquiredNextFBO];
+            beginInfo.renderpass = renderpass;
+            beginInfo.renderArea = area;
+            beginInfo.clearValues = clear;
         }
 
-		driver->endScene();
+        commandBuffer->resetQueryPool(occlusionQueryPool.get(), 0u, 2u);
+        commandBuffer->resetQueryPool(timestampQueryPool.get(), 0u, 2u);
+        commandBuffer->beginRenderPass(&beginInfo, nbl::asset::ESC_INLINE);
+        
+        commandBuffer->writeTimestamp(asset::E_PIPELINE_STAGE_FLAGS::EPSF_TOP_OF_PIPE_BIT, timestampQueryPool.get(), 0u);
+        for (size_t i = 0; i < gpumesh->getMeshBuffers().size(); ++i)
+        {
+            if(i < 2)
+                commandBuffer->beginQuery(occlusionQueryPool.get(), i);
+            auto gpuMeshBuffer = gpumesh->getMeshBuffers().begin()[i];
+            auto gpuGraphicsPipeline = gpuPipelines[reinterpret_cast<RENDERPASS_INDEPENDENT_PIPELINE_ADRESS>(gpuMeshBuffer->getPipeline())];
 
-		// display frames per second in window title
-		uint64_t time = device->getTimer()->getRealTime();
-		if (time-lastFPSTime > 1000)
-		{
-			std::wostringstream str;
-			str << L"Meshloaders Demo - IrrlichtBAW Engine [" << driver->getName() << "] FPS:" << driver->getFPS() << " PrimitvesDrawn:" << driver->getPrimitiveCountDrawn();
+            const video::IGPURenderpassIndependentPipeline* gpuRenderpassIndependentPipeline = gpuMeshBuffer->getPipeline();
+            const video::IGPUDescriptorSet* ds3 = gpuMeshBuffer->getAttachedDescriptorSet();
 
-			device->setWindowCaption(str.str().c_str());
-			lastFPSTime = time;
-		}
-	}
+            commandBuffer->bindGraphicsPipeline(gpuGraphicsPipeline.get());
 
-	//create a screenshot
-	{
-		core::rect<uint32_t> sourceRect(0, 0, params.WindowSize.Width, params.WindowSize.Height);
-		//ext::ScreenShot::dirtyCPUStallingScreenshot(device, "screenshot.png", sourceRect, asset::EF_R8G8B8_SRGB);
-	}
+            const video::IGPUDescriptorSet* gpuds1_ptr = gpuds1.get();
+            commandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS, gpuRenderpassIndependentPipeline->getLayout(), 1u, 1u, &gpuds1_ptr);
+            const video::IGPUDescriptorSet* gpuds3_ptr = gpuMeshBuffer->getAttachedDescriptorSet();
+            if (gpuds3_ptr)
+                commandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS, gpuRenderpassIndependentPipeline->getLayout(), 3u, 1u, &gpuds3_ptr);
+            commandBuffer->pushConstants(gpuRenderpassIndependentPipeline->getLayout(), asset::IShader::ESS_FRAGMENT, 0u, gpuMeshBuffer->MAX_PUSH_CONSTANT_BYTESIZE, gpuMeshBuffer->getPushConstantsDataPtr());
 
-	return 0;
-}
+            commandBuffer->drawMeshBuffer(gpuMeshBuffer);
+
+            if(i < 2)
+                commandBuffer->endQuery(occlusionQueryPool.get(), i);
+        }
+        commandBuffer->writeTimestamp(asset::E_PIPELINE_STAGE_FLAGS::EPSF_BOTTOM_OF_PIPE_BIT, timestampQueryPool.get(), 1u);
+
+        commandBuffer->endRenderPass();
+
+        auto queryResultFlags = core::bitflag<video::IQueryPool::E_QUERY_RESULTS_FLAGS>(video::IQueryPool::EQRF_WAIT_BIT) | video::IQueryPool::EQRF_WITH_AVAILABILITY_BIT;
+        commandBuffer->copyQueryPoolResults(occlusionQueryPool.get(), 0, 2, queryResultsBuffer.get(), 0u, sizeof(uint32_t) * 2, queryResultFlags);
+
+        commandBuffer->end();
+        
+        logicalDevice->resetFences(1, &fence.get());
+        CommonAPI::Submit(logicalDevice.get(),
+            swapchain.get(), 
+            commandBuffer.get(),
+            queues[CommonAPI::InitOutput::EQT_GRAPHICS],
+            imageAcquire[resourceIx].get(),
+            renderFinished[resourceIx].get(),
+            fence.get());
+        CommonAPI::Present(logicalDevice.get(), 
+            swapchain.get(),
+            queues[CommonAPI::InitOutput::EQT_GRAPHICS], renderFinished[resourceIx].get(), acquiredNextFBO);
+
+        getAndLogQueryPoolResults();
+    }
+    bool keepRunning() override
+    {
+        return windowCb->isWindowOpen();
+    }
+};
+
+NBL_COMMON_API_MAIN(MeshLoadersApp)

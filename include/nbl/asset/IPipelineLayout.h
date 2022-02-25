@@ -10,7 +10,7 @@
 
 
 #include "nbl/macros.h"
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 
 #include "nbl/asset/ISpecializedShader.h"
 
@@ -37,10 +37,22 @@ namespace asset
 
 struct SPushConstantRange
 {
-	ISpecializedShader::E_SHADER_STAGE stageFlags;
+	IShader::E_SHADER_STAGE stageFlags;
     uint32_t offset;
     uint32_t size;
 
+    inline bool operator<(const SPushConstantRange& _rhs) const
+    {
+        if (stageFlags==_rhs.stageFlags)
+        {
+            if (offset==_rhs.offset)
+            {
+                return size<_rhs.size;
+            }
+            return offset<_rhs.offset;
+        }
+        return stageFlags<_rhs.stageFlags;
+    }
     inline bool operator==(const SPushConstantRange& _rhs) const
     {
         if (stageFlags != _rhs.stageFlags)

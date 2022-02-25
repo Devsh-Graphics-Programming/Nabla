@@ -4,8 +4,6 @@
 
 #include "CCUDAHandler.h"
 
-#include "CMemoryFile.h"
-
 #ifdef _NBL_COMPILE_WITH_CUDA_
 #include "jitify/jitify.hpp"
 

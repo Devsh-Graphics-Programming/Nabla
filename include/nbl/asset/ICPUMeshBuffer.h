@@ -2,11 +2,10 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __NBL_ASSET_I_CPU_MESH_BUFFER_H_INCLUDED__
-#define __NBL_ASSET_I_CPU_MESH_BUFFER_H_INCLUDED__
+#ifndef _NBL_ASSET_I_CPU_MESH_BUFFER_H_INCLUDED_
+#define _NBL_ASSET_I_CPU_MESH_BUFFER_H_INCLUDED_
 
 #include "nbl/asset/IMeshBuffer.h"
-#include "nbl/asset/ICPUSkeleton.h"
 #include "nbl/asset/ICPUDescriptorSet.h"
 #include "nbl/asset/ICPURenderpassIndependentPipeline.h"
 #include "nbl/asset/bawformat/blobs/MeshBufferBlob.h"
@@ -14,9 +13,7 @@
 #include "nbl/asset/format/decodePixels.h"
 #include "nbl/asset/format/encodePixels.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 // TODO: This should probably go somewhere else, DEFINITELY SHOULD GO SOMEWHERE ELSE @Crisspl
@@ -58,9 +55,9 @@ namespace impl
     }
 }
 
-class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICPURenderpassIndependentPipeline,ICPUSkeleton>, public BlobSerializable, public IAsset
+class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICPURenderpassIndependentPipeline>, public BlobSerializable, public IAsset
 {
-        using base_t = IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICPURenderpassIndependentPipeline,ICPUSkeleton>;
+        using base_t = IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICPURenderpassIndependentPipeline>;
         // knowing the position attribute ID is important for AABB computations etc.
         uint32_t posAttrId : 5;
         uint32_t normalAttrId : 5;
@@ -88,40 +85,51 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
             jointIDAttrId = MAX_VERTEX_ATTRIB_COUNT;
             jointWeightAttrId = MAX_VERTEX_ATTRIB_COUNT;
         }
-
+        
         virtual void* serializeToBlob(void* _stackPtr = nullptr, const size_t& _stackSize = 0) const override
         {
+#ifdef OLD_SHADERS
             return CorrespondingBlobTypeFor<ICPUMeshBuffer>::type::createAndTryOnStack(this, _stackPtr, _stackSize);
+#else
+            return nullptr;
+#endif
         }
 
         core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
         {
+            core::unordered_map<ICPUBuffer*, core::smart_refctd_ptr<ICPUBuffer>> buffers;
+            auto cloneBuf = [&buffers,_depth](ICPUBuffer* buf) -> core::smart_refctd_ptr<ICPUBuffer> {
+                if (!buf)
+                    return nullptr;
+                if (!_depth)
+                    return core::smart_refctd_ptr<ICPUBuffer>(buf);
+
+                auto found = buffers.find(buf);
+                if (found != buffers.end())
+                    return found->second;
+
+                auto cp = core::smart_refctd_ptr_static_cast<ICPUBuffer>(buf->clone(_depth-1u));
+                buffers.insert({ buf, cp });
+                return cp;
+            };
+
             auto cp = core::make_smart_refctd_ptr<ICPUMeshBuffer>();
             clone_common(cp.get());
 
             cp->boundingBox = boundingBox;
 
             cp->m_indexBufferBinding.offset = m_indexBufferBinding.offset;
-            cp->m_indexBufferBinding.buffer = (_depth > 0u && m_indexBufferBinding.buffer) ?
-                core::smart_refctd_ptr_static_cast<ICPUBuffer>(m_indexBufferBinding.buffer->clone(_depth - 1u)) :
-                m_indexBufferBinding.buffer;
+            cp->m_indexBufferBinding.buffer = cloneBuf(m_indexBufferBinding.buffer.get());
             for (uint32_t i = 0u; i < MAX_ATTR_BUF_BINDING_COUNT; ++i)
             {
                 cp->m_vertexBufferBindings[i].offset = m_vertexBufferBindings[i].offset;
-                cp->m_vertexBufferBindings[i].buffer = (_depth > 0u && m_vertexBufferBindings[i].buffer) ?
-                    core::smart_refctd_ptr_static_cast<ICPUBuffer>(m_vertexBufferBindings[i].buffer->clone(_depth - 1u)) :
-                    m_vertexBufferBindings[i].buffer;
+                cp->m_vertexBufferBindings[i].buffer = cloneBuf(m_vertexBufferBindings[i].buffer.get());
             }
 
             cp->m_inverseBindPoseBufferBinding.offset = m_inverseBindPoseBufferBinding.offset;
-            cp->m_inverseBindPoseBufferBinding.buffer = (_depth > 0u && m_inverseBindPoseBufferBinding.buffer) ?
-                core::smart_refctd_ptr_static_cast<ICPUBuffer>(m_inverseBindPoseBufferBinding.buffer->clone(_depth - 1u)) :
-                m_inverseBindPoseBufferBinding.buffer;
+            cp->m_inverseBindPoseBufferBinding.buffer = cloneBuf(m_inverseBindPoseBufferBinding.buffer.get());
             cp->m_jointAABBBufferBinding.offset = m_jointAABBBufferBinding.offset;
-            cp->m_jointAABBBufferBinding.buffer = (_depth > 0u && m_jointAABBBufferBinding.buffer) ?
-                core::smart_refctd_ptr_static_cast<ICPUBuffer>(m_jointAABBBufferBinding.buffer->clone(_depth - 1u)) :
-                m_jointAABBBufferBinding.buffer;
-            cp->m_skeleton = (_depth > 0u && m_skeleton) ? core::smart_refctd_ptr_static_cast<ICPUSkeleton>(m_skeleton->clone(_depth - 1u)) : m_skeleton;
+            cp->m_jointAABBBufferBinding.buffer = cloneBuf(m_jointAABBBufferBinding.buffer.get()); 
             
             cp->m_descriptorSet = (_depth > 0u && m_descriptorSet) ? core::smart_refctd_ptr_static_cast<ICPUDescriptorSet>(m_descriptorSet->clone(_depth - 1u)) : m_descriptorSet;
 
@@ -139,6 +147,7 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
             cp->jointIDAttrId = jointIDAttrId;
             cp->jointWeightAttrId = jointWeightAttrId;
 
+            cp->jointCount = jointCount;
             cp->maxJointsPerVx = maxJointsPerVx;
             cp->indexType = indexType;
 
@@ -146,123 +155,64 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
         }
 
         virtual void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
-	    {
+        {
             convertToDummyObject_common(referenceLevelsBelowToConvert);
 
-		    if (referenceLevelsBelowToConvert)
-		    {
+            if (referenceLevelsBelowToConvert)
+            {
                 --referenceLevelsBelowToConvert;
-			    for (auto i=0u; i<MAX_ATTR_BUF_BINDING_COUNT; i++)
+                for (auto i=0u; i<MAX_ATTR_BUF_BINDING_COUNT; i++)
                     if (m_vertexBufferBindings[i].buffer)
-				        m_vertexBufferBindings[i].buffer->convertToDummyObject(referenceLevelsBelowToConvert);
+                        m_vertexBufferBindings[i].buffer->convertToDummyObject(referenceLevelsBelowToConvert);
                 if (m_indexBufferBinding.buffer)
-			        m_indexBufferBinding.buffer->convertToDummyObject(referenceLevelsBelowToConvert);
+                    m_indexBufferBinding.buffer->convertToDummyObject(referenceLevelsBelowToConvert);
                 if (m_inverseBindPoseBufferBinding.buffer)
                     m_inverseBindPoseBufferBinding.buffer->convertToDummyObject(referenceLevelsBelowToConvert);
                 if (m_jointAABBBufferBinding.buffer)
                     m_jointAABBBufferBinding.buffer->convertToDummyObject(referenceLevelsBelowToConvert);
-                if (m_skeleton)
-                    m_skeleton->convertToDummyObject(referenceLevelsBelowToConvert);
                 if (m_descriptorSet)
-			        m_descriptorSet->convertToDummyObject(referenceLevelsBelowToConvert);
+                    m_descriptorSet->convertToDummyObject(referenceLevelsBelowToConvert);
                 if (m_pipeline)
-			        m_pipeline->convertToDummyObject(referenceLevelsBelowToConvert);
-		    }
-	    }
+                    m_pipeline->convertToDummyObject(referenceLevelsBelowToConvert);
+            }
+        }
 
         _NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_SUB_MESH;
         inline E_TYPE getAssetType() const override { return AssetType; }
 
         inline size_t conservativeSizeEstimate() const override { return sizeof(base_t) + sizeof(uint32_t); }
-
-        //!
-        inline const SBufferBinding<const ICPUBuffer>& getAttribBoundBuffer(uint32_t attrId) const
-        {
-            return base_t::getAttribBoundBuffer(attrId);
-        }
-        inline SBufferBinding<ICPUBuffer>& getAttribBoundBuffer(uint32_t attrId)
-        {
-            const uint32_t bnd = getBindingNumForAttribute(attrId);
-            return m_vertexBufferBindings[bnd];
-        }
-        //!
-        inline const SBufferBinding<const ICPUBuffer>* getVertexBufferBindings() const
-        {
-            return base_t::getVertexBufferBindings();
-        }
-        inline const SBufferBinding<ICPUBuffer>* getVertexBufferBindings()
-        {
-            return m_vertexBufferBindings;
-        }
-	    inline bool setVertexBufferBinding(SBufferBinding<ICPUBuffer>&& bufferBinding, uint32_t bindingIndex)
-	    {
-            assert(!isImmutable_debug());
-		    if (bindingIndex >= MAX_ATTR_BUF_BINDING_COUNT)
-			    return false;
-
-            m_vertexBufferBindings[bindingIndex] = std::move(bufferBinding);
-
-		    return true;
-	    }
-
-        //!
-        inline const SBufferBinding<const ICPUBuffer>& getIndexBufferBinding() const
-        {
-            return base_t::getIndexBufferBinding();
-        }
-        inline const SBufferBinding<ICPUBuffer>& getIndexBufferBinding()
-        {
-            return m_indexBufferBinding;
-        }
-	    inline void setIndexBufferBinding(SBufferBinding<ICPUBuffer>&& bufferBinding)
-	    {
-            assert(!isImmutable_debug());
-
-		    m_indexBufferBinding = std::move(bufferBinding);
-	    }
-
-
-        //!
-        inline const SBufferBinding<const ICPUBuffer>& getInverseBindPoseBufferBinding() const
-        {
-            return base_t::getInverseBindPoseBufferBinding();
-        }
-        inline const SBufferBinding<ICPUBuffer>& getInverseBindPoseBufferBinding()
-        {
-            return m_inverseBindPoseBufferBinding;
-        }
-
-        //!
-        inline const SBufferBinding<const ICPUBuffer>& getJointAABBBufferBinding() const
-        {
-            return base_t::getJointAABBBufferBinding();
-        }
-        inline const SBufferBinding<ICPUBuffer>& getJointAABBBufferBinding()
-        {
-            return m_jointAABBBufferBinding;
-        }
-
-        //!
-        inline const ICPUSkeleton* getSkeleton() const
-        {
-            return base_t::getSkeleton();
-        }
-        inline ICPUSkeleton* getSkeleton()
+        
+        inline bool setVertexBufferBinding(SBufferBinding<ICPUBuffer>&& bufferBinding, uint32_t bindingIndex)
         {
             assert(!isImmutable_debug());
-            return m_skeleton.get();
+            if(bufferBinding.buffer)
+                bufferBinding.buffer->addUsageFlags(IBuffer::EUF_VERTEX_BUFFER_BIT);
+            return base_t::setVertexBufferBinding(std::move(bufferBinding), bindingIndex);
+        }
+
+        inline void setIndexBufferBinding(SBufferBinding<ICPUBuffer>&& bufferBinding)
+        {
+            assert(!isImmutable_debug());
+            if(bufferBinding.buffer)
+                bufferBinding.buffer->addUsageFlags(IBuffer::EUF_INDEX_BUFFER_BIT);
+            return base_t::setIndexBufferBinding(std::move(bufferBinding));
         }
 
         //! You need to set skeleton, bind poses and AABBs all at once
         inline bool setSkin(
             SBufferBinding<ICPUBuffer>&& _inverseBindPoseBufferBinding,
             SBufferBinding<ICPUBuffer>&& _jointAABBBufferBinding,
-            core::smart_refctd_ptr<ICPUSkeleton>&& _skeleton,
-            const uint32_t _maxJointsPerVx
+            const uint32_t _jointCount, const uint32_t _maxJointsPerVx
         ) override
         {
             assert(!isImmutable_debug());
-            return base_t::setSkin(std::move(_inverseBindPoseBufferBinding),std::move(_jointAABBBufferBinding),std::move(_skeleton),_maxJointsPerVx);
+            
+            if(_inverseBindPoseBufferBinding.buffer)
+                _inverseBindPoseBufferBinding.buffer->addUsageFlags(IBuffer::EUF_STORAGE_BUFFER_BIT);
+            if(_jointAABBBufferBinding.buffer)
+                _jointAABBBufferBinding.buffer->addUsageFlags(IBuffer::EUF_STORAGE_BUFFER_BIT);
+
+            return base_t::setSkin(std::move(_inverseBindPoseBufferBinding),std::move(_jointAABBBufferBinding),_jointCount,_maxJointsPerVx);
         }
 
         //!
@@ -275,11 +225,11 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
             //assert(!isImmutable_debug()); // TODO? @Crisspl?
             return m_descriptorSet.get();
         }
-	    inline void setAttachedDescriptorSet(core::smart_refctd_ptr<ICPUDescriptorSet>&& descriptorSet)
-	    {
+        inline void setAttachedDescriptorSet(core::smart_refctd_ptr<ICPUDescriptorSet>&& descriptorSet)
+        {
             assert(!isImmutable_debug());
-		    m_descriptorSet = std::move(descriptorSet);
-	    }
+            base_t::setAttachedDescriptorSet(std::move(descriptorSet));
+        }
 
         //!
         inline const ICPURenderpassIndependentPipeline* getPipeline() const {return base_t::getPipeline();}
@@ -288,11 +238,11 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
             assert(!isImmutable_debug());
             return m_pipeline.get();
         }
-	    inline void setPipeline(core::smart_refctd_ptr<ICPURenderpassIndependentPipeline>&& pipeline)
-	    {
+        inline void setPipeline(core::smart_refctd_ptr<ICPURenderpassIndependentPipeline>&& pipeline) override final
+        {
             assert(!isImmutable_debug());
-		    m_pipeline = std::move(pipeline);
-	    }
+            base_t::setPipeline(std::move(pipeline));
+        }
 
         //
         inline uint32_t getIndexValue(uint32_t _i) const
@@ -342,7 +292,7 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
         //! Returns id of jointID attribute.
         inline uint32_t getJointIDAttributeIx() const { return jointIDAttrId; }
 
-        //! Sets id of position atrribute.
+        //! Sets id of joint atrribute.
         inline void setJointIDAttributeIx(const uint32_t attrId)
         {
             assert(!isImmutable_debug());
@@ -352,7 +302,7 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
         //! Returns id of joint weight attribute.
         inline uint32_t getJointWeightAttributeIx() const { return jointWeightAttrId; }
 
-        //! Sets id of position atrribute.
+        //! Sets id of joint's weight atrribute.
         inline void setJointWeightAttributeIx(const uint32_t attrId)
         {
             assert(!isImmutable_debug());
@@ -368,11 +318,16 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
                     return 0u;
                 return getFormatChannelCount(getAttribFormat(attrId));
             };
-            return core::min(safelyGetAttributeFormatChannelCount(jointIDAttrId),safelyGetAttributeFormatChannelCount(jointWeightAttrId)+1u);
+            return (core::min)(safelyGetAttributeFormatChannelCount(jointIDAttrId),safelyGetAttributeFormatChannelCount(jointWeightAttrId)+1u);
         }
 
         //! Tells us if the mesh is skinned
-        inline bool isSkinned() const override { return base_t::isSkinned() && deduceMaxJointsPerVertex()>0u; }
+        inline bool isSkinned() const override
+        {
+            if (!base_t::isSkinned())
+                return false;
+            return deduceMaxJointsPerVertex()!=0u;
+        }
 
         //! Get access to Indices.
         /** \return Pointer to indices array. */
@@ -449,10 +404,10 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
 
             return reinterpret_cast<uint8_t*>(mappedAttrBuf->getPointer()) + ix;
         }
-	    inline const uint8_t* getAttribPointer(uint32_t attrId) const
-	    {
-		    return const_cast<typename std::decay<decltype(*this)>::type&>(*this).getAttribPointer(attrId);
-	    }
+        inline const uint8_t* getAttribPointer(uint32_t attrId) const
+        {
+            return const_cast<typename std::decay<decltype(*this)>::type&>(*this).getAttribPointer(attrId);
+        }
 
         static inline bool getAttribute(core::vectorSIMDf& output, const void* src, E_FORMAT format)
         {
@@ -659,35 +614,35 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
             return setAttribute(_input, dst, getAttribFormat(attrId));
         }
 
-		//!
-		inline const core::matrix3x4SIMD* getInverseBindPoses() const
-		{
+        //!
+        inline const core::matrix3x4SIMD* getInverseBindPoses() const
+        {
             if (!m_inverseBindPoseBufferBinding.buffer)
                 return nullptr;
 
-			const uint8_t* ptr = reinterpret_cast<const uint8_t*>(m_inverseBindPoseBufferBinding.buffer->getPointer());
-			return reinterpret_cast<const core::matrix3x4SIMD*>(ptr+m_inverseBindPoseBufferBinding.offset);
-		}
-		inline core::matrix3x4SIMD* getInverseBindPoses()
-		{
+            const uint8_t* ptr = reinterpret_cast<const uint8_t*>(m_inverseBindPoseBufferBinding.buffer->getPointer());
+            return reinterpret_cast<const core::matrix3x4SIMD*>(ptr+m_inverseBindPoseBufferBinding.offset);
+        }
+        inline core::matrix3x4SIMD* getInverseBindPoses()
+        {
             assert(!isImmutable_debug());
-			return const_cast<core::matrix3x4SIMD*>(const_cast<const ICPUMeshBuffer*>(this)->getInverseBindPoses());
-		}
+            return const_cast<core::matrix3x4SIMD*>(const_cast<const ICPUMeshBuffer*>(this)->getInverseBindPoses());
+        }
 
-		//!
-		inline const core::aabbox3df* getJointAABBs() const
-		{
+        //!
+        inline const core::aabbox3df* getJointAABBs() const
+        {
             if (!m_jointAABBBufferBinding.buffer)
                 return nullptr;
 
-			const uint8_t* ptr = reinterpret_cast<const uint8_t*>(m_jointAABBBufferBinding.buffer->getPointer());
-			return reinterpret_cast<const core::aabbox3df*>(ptr+ m_jointAABBBufferBinding.offset);
-		}
-		inline core::aabbox3df* getJointAABBs()
-		{
+            const uint8_t* ptr = reinterpret_cast<const uint8_t*>(m_jointAABBBufferBinding.buffer->getPointer());
+            return reinterpret_cast<const core::aabbox3df*>(ptr+ m_jointAABBBufferBinding.offset);
+        }
+        inline core::aabbox3df* getJointAABBs()
+        {
             assert(!isImmutable_debug());
-			return const_cast<core::aabbox3df*>(const_cast<const ICPUMeshBuffer*>(this)->getJointAABBs());
-		}
+            return const_cast<core::aabbox3df*>(const_cast<const ICPUMeshBuffer*>(this)->getJointAABBs());
+        }
 
         bool canBeRestoredFrom(const IAsset* _other) const override
         {
@@ -709,6 +664,8 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
             if (jointIDAttrId != other->jointIDAttrId)
                 return false;
             if (jointWeightAttrId != other->jointWeightAttrId)
+                return false;
+            if (jointCount != other->jointCount)
                 return false;
             if (maxJointsPerVx != other->maxJointsPerVx)
                 return false;
@@ -739,10 +696,6 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
             if ((!m_jointAABBBufferBinding.buffer) != (!other->m_jointAABBBufferBinding.buffer))
                 return false;
             if (m_jointAABBBufferBinding.buffer && !m_jointAABBBufferBinding.buffer->canBeRestoredFrom(other->m_jointAABBBufferBinding.buffer.get()))
-                return false;
-            if ((!m_skeleton) != (!other->m_skeleton))
-                return false;
-            if (m_skeleton && !m_skeleton->canBeRestoredFrom(other->m_skeleton.get()))
                 return false;
 
             if ((!m_descriptorSet) != (!other->m_descriptorSet))
@@ -775,8 +728,6 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
                     restoreFromDummy_impl_call(m_inverseBindPoseBufferBinding.buffer.get(), other->m_inverseBindPoseBufferBinding.buffer.get(), _levelsBelow);
                 if (m_jointAABBBufferBinding.buffer)
                     restoreFromDummy_impl_call(m_jointAABBBufferBinding.buffer.get(), other->m_jointAABBBufferBinding.buffer.get(), _levelsBelow);
-                if (m_skeleton)
-                    restoreFromDummy_impl_call(m_skeleton.get(), other->m_skeleton.get(), _levelsBelow);
 
                 for (uint32_t i = 0u; i < MAX_ATTR_BUF_BINDING_COUNT; ++i)
                     if (m_vertexBufferBindings[i].buffer)
@@ -798,8 +749,6 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
                 return true;
             if (m_jointAABBBufferBinding.buffer && m_jointAABBBufferBinding.buffer->isAnyDependencyDummy(_levelsBelow))
                 return true;
-            if (m_skeleton && m_skeleton->isAnyDependencyDummy(_levelsBelow))
-                return true;
 
             for (uint32_t i = 0u; i < MAX_ATTR_BUF_BINDING_COUNT; ++i)
                 if (m_vertexBufferBindings[i].buffer && m_vertexBufferBindings[i].buffer->isAnyDependencyDummy(_levelsBelow))
@@ -809,6 +758,6 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
         }
 };
 
-}}
+}
 
 #endif

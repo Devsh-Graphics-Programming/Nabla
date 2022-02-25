@@ -4,10 +4,6 @@
 
 #include "nbl/asset/compile_config.h"
 
-#include "nbl/core/core.h"
-#include "IReadFile.h"
-#include "os.h"
-
 #include "nbl/ext/MitsubaLoader/CSerializedLoader.h"
 #include "nbl/ext/MitsubaLoader/CMitsubaSerializedMetadata.h"
 
@@ -65,7 +61,7 @@ using unaligned_dvec3 = unaligned_gvecN<double,3ull>;
 
 
 //! creates/loads an animated mesh from the file.
-asset::SAssetBundle CSerializedLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
+asset::SAssetBundle CSerializedLoader::loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
 	if (!_file)
         return {};
@@ -86,24 +82,25 @@ asset::SAssetBundle CSerializedLoader::loadAsset(io::IReadFile* _file, const ass
 	size_t maxSize = 0u;
 	{
 		FileHeader header;
-		ctx.inner.mainFile->seek(0u);
-		ctx.inner.mainFile->read(&header, sizeof(header));
+		system::future<size_t> future;
+		ctx.inner.mainFile->read(future, &header, 0u, sizeof(header));
+		future.get();
 		if (header!=FileHeader())
 		{
-			os::Printer::log("Not a valid `.serialized` file", ctx.inner.mainFile->getFileName().c_str(), ELL_ERROR);
+			_params.logger.log("Not a valid `.serialized` file", system::ILogger::E_LOG_LEVEL::ELL_ERROR, ctx.inner.mainFile->getFileName().string().c_str());
 			return {};
 		}
 
 		size_t backPos = ctx.inner.mainFile->getSize() - sizeof(uint32_t);
-		ctx.inner.mainFile->seek(backPos);
-		ctx.inner.mainFile->read(&ctx.meshCount,sizeof(uint32_t));
+		ctx.inner.mainFile->read(future,&ctx.meshCount,backPos,sizeof(uint32_t));
+		future.get();
 		if (ctx.meshCount==0u)
 			return {};
 
 		ctx.meshOffsets = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint64_t> >(ctx.meshCount*2u);
 		backPos -= sizeof(uint64_t)*ctx.meshCount;
-		ctx.inner.mainFile->seek(backPos);
-		ctx.inner.mainFile->read(ctx.meshOffsets->data(),sizeof(uint64_t)*ctx.meshCount);
+		ctx.inner.mainFile->read(future, ctx.meshOffsets->data(),backPos,sizeof(uint64_t)*ctx.meshCount);
+		future.get();
 		for (uint32_t i=0; i<ctx.meshCount; i++)
 		{
 			size_t localSize;
@@ -126,11 +123,11 @@ asset::SAssetBundle CSerializedLoader::loadAsset(io::IReadFile* _file, const ass
 	uint8_t* data = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(maxSize,alignof(double)));
 	constexpr size_t CHUNK = 256ull*1024ull;
 	core::vector<Page_t> decompressed(CHUNK/sizeof(Page_t));
+	system::future<size_t> future;
 	for (uint32_t i=0; i<ctx.meshCount; i++)
 	{
 		auto localSize = ctx.meshOffsets->operator[](i+ctx.meshCount);
-		ctx.inner.mainFile->seek(sizeof(FileHeader)+ctx.meshOffsets->operator[](i));
-		ctx.inner.mainFile->read(data,localSize);
+		ctx.inner.mainFile->read(future,data,sizeof(FileHeader)+ctx.meshOffsets->operator[](i),localSize);
 		// decompress
 		size_t decompressSize;
 		{
@@ -167,9 +164,9 @@ asset::SAssetBundle CSerializedLoader::loadAsset(io::IReadFile* _file, const ass
 				err = err2;
 			if (err != Z_OK)
 			{
-				std::wstring msg(L"Error decompressing mesh ix ");
-				msg += std::to_wstring(i);
-				os::Printer::log(msg, ELL_ERROR);
+				std::string msg("Error decompressing mesh ix ");
+				msg += std::to_string(i);
+				_params.logger.log(msg, system::ILogger::E_LOG_LEVEL::ELL_ERROR);
 				continue;
 			}
 		}
@@ -312,13 +309,13 @@ asset::SAssetBundle CSerializedLoader::loadAsset(io::IReadFile* _file, const ass
 			if (sourceIsDoubles)
 			{
 				auto*& typedPtr = reinterpret_cast<unaligned_dvec3*&>(ptr);
-				std::for_each_n(std::execution::seq,typedPtr,vertexCount,readPositions);
+				std::for_each_n(core::execution::seq,typedPtr,vertexCount,readPositions);
 				typedPtr += vertexCount;
 			}
 			else
 			{
 				auto*& typedPtr = reinterpret_cast<unaligned_vec3*&>(ptr);
-				std::for_each_n(std::execution::seq,typedPtr,vertexCount,readPositions);
+				std::for_each_n(core::execution::seq,typedPtr,vertexCount,readPositions);
 				typedPtr += vertexCount;
 			}
 			meshBuffer->setBoundingBox(aabb);
@@ -337,14 +334,14 @@ asset::SAssetBundle CSerializedLoader::loadAsset(io::IReadFile* _file, const ass
 			{
 				auto*& typedPtr = reinterpret_cast<unaligned_dvec3*&>(ptr);
 				if (read)
-					std::for_each_n(std::execution::seq,typedPtr,vertexCount,readNormals);
+					std::for_each_n(core::execution::seq,typedPtr,vertexCount,readNormals);
 				typedPtr += vertexCount;
 			}
 			else
 			{
 				auto*& typedPtr = reinterpret_cast<unaligned_vec3*&>(ptr);
 				if (read)
-					std::for_each_n(std::execution::seq,typedPtr,vertexCount,readNormals);
+					std::for_each_n(core::execution::seq,typedPtr,vertexCount,readNormals);
 				typedPtr += vertexCount;
 			}
 			meshBuffer->setNormalAttributeIx(NORMAL_ATTRIBUTE);
@@ -361,13 +358,13 @@ asset::SAssetBundle CSerializedLoader::loadAsset(io::IReadFile* _file, const ass
 			if (sourceIsDoubles)
 			{
 				auto*& typedPtr = reinterpret_cast<unaligned_dvec2*&>(ptr);
-				std::for_each_n(std::execution::seq,typedPtr,vertexCount,readUVs);
+				std::for_each_n(core::execution::seq,typedPtr,vertexCount,readUVs);
 				typedPtr += vertexCount;
 			}
 			else
 			{
 				auto*& typedPtr = reinterpret_cast<unaligned_vec2*&>(ptr);
-				std::for_each_n(std::execution::seq,typedPtr,vertexCount,readUVs);
+				std::for_each_n(core::execution::seq,typedPtr,vertexCount,readUVs);
 				typedPtr += vertexCount;
 			}
 		}
@@ -383,13 +380,13 @@ asset::SAssetBundle CSerializedLoader::loadAsset(io::IReadFile* _file, const ass
 			if (sourceIsDoubles)
 			{
 				auto*& typedPtr = reinterpret_cast<unaligned_dvec3*&>(ptr);
-				std::for_each_n(std::execution::seq,typedPtr,vertexCount,readColors);
+				std::for_each_n(core::execution::seq,typedPtr,vertexCount,readColors);
 				typedPtr += vertexCount;
 			}
 			else
 			{
 				auto*& typedPtr = reinterpret_cast<unaligned_vec3*&>(ptr);
-				std::for_each_n(std::execution::seq,typedPtr,vertexCount,readColors);
+				std::for_each_n(core::execution::seq,typedPtr,vertexCount,readColors);
 				typedPtr += vertexCount;
 			}
 		}

@@ -24,21 +24,25 @@ layout(set = 2, binding = 0, row_major) uniform StaticViewData
 	StaticViewData_t staticViewData;
 };
 // rng
-layout(set = 2, binding = 1, rg32ui) uniform uimage2DArray scramblebuf;
-layout(set = 2, binding = 2) uniform usamplerBuffer sampleSequence;
+layout(set = 2, binding = 1) uniform usamplerBuffer quantizedSampleSequence;
 // accumulation
-layout(set = 2, binding = 3, rg32ui) restrict uniform uimage2DArray accumulation;
+layout(set = 2, binding = 2, rg32ui) restrict uniform uimage2DArray accumulation;
 // ray data
 #include <nbl/builtin/glsl/ext/RadeonRays/ray.glsl>
-layout(set = 2, binding = 4, std430) restrict writeonly buffer SinkRays
+layout(set = 2, binding = 3, std430) restrict writeonly buffer SinkRays
 {
 	nbl_glsl_ext_RadeonRays_ray sinkRays[];
 };
 #include <nbl/builtin/glsl/utils/indirect_commands.glsl>
-layout(set = 2, binding = 5) restrict coherent buffer RayCount // maybe remove coherent keyword
+layout(set = 2, binding = 4) restrict coherent buffer RayCount // maybe remove coherent keyword
 {
 	uint rayCount[RAYCOUNT_N_BUFFERING];
 };
+// aovs
+layout(set = 2, binding = 5, r32ui) restrict uniform uimage2DArray albedoAOV;
+layout(set = 2, binding = 6, r32ui) restrict uniform uimage2DArray normalAOV;
+// environment emitter
+layout(set = 2, binding = 7) uniform sampler2D envMap; 
 
 void clear_raycount()
 {
@@ -73,32 +77,60 @@ void storeAccumulation(in vec3 color, in uvec3 coord)
 	const uvec2 data = nbl_glsl_encodeRGB19E7(color);
 	imageStore(accumulation,ivec3(coord),uvec4(data,0u,0u));
 }
-
-bool record_emission_common(out vec3 acc, in uvec3 accumulationLocation, vec3 emissive, in bool first_accumulating_path_vertex)
+void storeAccumulation(in vec3 prev, in vec3 delta, in uvec3 coord)
 {
-	acc = vec3(0.0);
-	const bool notFirstFrame = pc.cummon.rcpFramesDispatched!=1.f;
-	if (!first_accumulating_path_vertex || notFirstFrame)
-		acc = fetchAccumulation(accumulationLocation);
-	if (first_accumulating_path_vertex) // a bit useless to add && notFirstFrame) its a tautology with acc=vec3(0.0)
-		emissive -= acc;
-	emissive *= pc.cummon.rcpFramesDispatched;
-	
-	const bool anyChange = any(greaterThan(abs(emissive),vec3(nbl_glsl_FLT_MIN)));
-	acc += emissive;
-	return anyChange;
+	const vec3 newVal = prev+delta;
+	const uvec3 diff = floatBitsToUint(newVal)^floatBitsToUint(prev);
+	if (bool((diff.x|diff.y|diff.z)&0x7ffffff0u))
+		storeAccumulation(newVal,coord);
 }
 
-
-
-float packOutPixelLocation(in uvec2 outPixelLocation)
+vec3 fetchAlbedo(in uvec3 coord)
 {
-	return uintBitsToFloat(bitfieldInsert(outPixelLocation.x,outPixelLocation.y,16,16));
+	const uint data = imageLoad(albedoAOV,ivec3(coord)).r;
+	return nbl_glsl_decodeRGB10A2_UNORM(data).rgb;
 }
-uvec2 unpackOutPixelLocation(in float packed)
+void storeAlbedo(in vec3 color, in uvec3 coord)
 {
-	const uint asUint = floatBitsToUint(packed);
-	return uvec2(asUint&0xffffu,asUint>>16u);
+	const uint data = nbl_glsl_encodeRGB10A2_UNORM(vec4(color,1.f));
+	imageStore(albedoAOV,ivec3(coord),uvec4(data,0u,0u,0u));
+}
+void storeAlbedo(in vec3 prev, in vec3 delta, in uvec3 coord)
+{
+	if (any(greaterThan(abs(delta),vec3(1.f/1024.f))))
+		storeAlbedo(prev+delta,coord);
+}
+
+vec3 fetchWorldspaceNormal(in uvec3 coord)
+{
+	const uint data = imageLoad(normalAOV,ivec3(coord)).r;
+	return nbl_glsl_decodeRGB10A2_SNORM(data).xyz;
+}
+void storeWorldspaceNormal(in vec3 normal, in uvec3 coord)
+{
+	const uint data = nbl_glsl_encodeRGB10A2_SNORM(vec4(normal,1.f));
+	imageStore(normalAOV,ivec3(coord),uvec4(data,0u,0u,0u));
+}
+void storeWorldspaceNormal(in vec3 prev, in vec3 delta, in uvec3 coord)
+{
+	if (any(greaterThan(abs(delta),vec3(1.f/512.f))))
+		storeWorldspaceNormal(prev+delta,coord);
+}
+
+// due to memory limitations we can only do 6k renders
+// so that's 13 bits for width, 12 bits for height, which leaves us with 7 bits for throughput
+void packOutPixelLocationAndAoVThroughputFactor(out float val, in uvec2 outPixelLocation, in float aovThroughputFactor)
+{
+	uint data = outPixelLocation.x;
+	data |= outPixelLocation.y<<13u;
+	data |= uint(aovThroughputFactor*127.f+0.5f)<<25u;
+	val = uintBitsToFloat(data);
+}
+void unpackOutPixelLocationAndAoVThroughputFactor(in float val, out uvec2 outPixelLocation, out float aovThroughputFactor)
+{
+	const uint asUint = floatBitsToUint(val);
+	outPixelLocation = uvec2(asUint,asUint>>13u)&uvec2(0x1fffu,0x0fffu);
+	aovThroughputFactor = float(asUint>>25u)/127.f;
 }
 
 #include "bin/runtime_defines.glsl"
@@ -122,7 +154,7 @@ bool has_world_transform(in nbl_glsl_ext_Mitsuba_Loader_instance_data_t batchIns
 
 #include <nbl/builtin/glsl/barycentric/utils.glsl>
 mat2x3 dPdBary;
-vec3 load_positions(out vec3 geomDenormal, in nbl_glsl_ext_Mitsuba_Loader_instance_data_t batchInstanceData, in uvec3 indices)
+vec3 load_positions(out vec3 geomNormal, in nbl_glsl_ext_Mitsuba_Loader_instance_data_t batchInstanceData, in uvec3 indices)
 {
 	mat3 positions = mat3(
 		nbl_glsl_fetchVtxPos(indices[0],batchInstanceData),
@@ -135,7 +167,7 @@ vec3 load_positions(out vec3 geomDenormal, in nbl_glsl_ext_Mitsuba_Loader_instan
 	//
 	for (int i=0; i<2; i++)
 		dPdBary[i] = positions[i]-positions[2];
-	geomDenormal = cross(dPdBary[0],dPdBary[1]);
+	geomNormal = normalize(cross(dPdBary[0],dPdBary[1]));
 	//
 	if (tform)
 		positions[2] += batchInstanceData.tform[3];
@@ -162,11 +194,10 @@ bool needs_texture_prefetch(in nbl_glsl_ext_Mitsuba_Loader_instance_data_t batch
 	return true;
 }
 
-nbl_glsl_xoroshiro64star_state_t load_aux_vertex_attrs(
+vec3 load_normal_and_prefetch_textures(
 	in nbl_glsl_ext_Mitsuba_Loader_instance_data_t batchInstanceData,
-	in uvec3 indices, in vec2 compactBary, in vec3 geomDenormal,
-	in nbl_glsl_MC_oriented_material_t material,
-	in uvec2 outPixelLocation, in uint vertex_depth_mod_2
+	in uvec3 indices, in vec2 compactBary, in vec3 geomNormal,
+	in nbl_glsl_MC_oriented_material_t material
 #ifdef TEX_PREFETCH_STREAM
 	,in mat2 dBarydScreen
 #endif
@@ -187,15 +218,14 @@ nbl_glsl_xoroshiro64star_state_t load_aux_vertex_attrs(
 		dUVdBary = mat2(uvs[0]-uvs[2],uvs[1]-uvs[2]);
 		const vec2 UV = dUVdBary*compactBary+uvs[2];
 		const mat2 dUVdScreen = nbl_glsl_applyChainRule2D(dUVdBary,dBarydScreen);
-		nbl_glsl_MC_runTexPrefetchStream(tps,UV,dUVdScreen);
+		nbl_glsl_MC_runTexPrefetchStream(tps,UV,dUVdScreen*pc.cummon.textureFootprintFactor);
 	}
 	#endif
-	// the rest is always only needed for continuing
+	// the rest is always only needed for continuing rays
 
-	// init scramble
-	const nbl_glsl_xoroshiro64star_state_t scramble_start_state = imageLoad(scramblebuf,ivec3(outPixelLocation,1u/*vertex_depth_mod_2*/)).rg;
 
 	// while waiting for the scramble state
+	// TODO: optimize, add loads more flags to control this
 	const bool needsSmoothNormals = true;
 	if (needsSmoothNormals)
 	{
@@ -206,52 +236,66 @@ nbl_glsl_xoroshiro64star_state_t load_aux_vertex_attrs(
 		);
 
 		// not needed for NEE unless doing Area or Projected Solid Angle Sampling
-		normalizedN = normals*nbl_glsl_barycentric_expand(compactBary);
+		vec3 smoothNormal = normals*nbl_glsl_barycentric_expand(compactBary);
 		if (has_world_transform(batchInstanceData))
 		{
-			normalizedN = vec3(
-				dot(batchInstanceData.normalMatrixRow0,normalizedN),
-				dot(batchInstanceData.normalMatrixRow1,normalizedN),
-				dot(batchInstanceData.normalMatrixRow2,normalizedN)
+			smoothNormal = vec3(
+				dot(batchInstanceData.normalMatrixRow0,smoothNormal),
+				dot(batchInstanceData.normalMatrixRow1,smoothNormal),
+				dot(batchInstanceData.normalMatrixRow2,smoothNormal)
 			);
 		}
+		// TODO: this check wouldn't be needed if we had `needsSmoothNormals` implemented
+		if (!isnan(smoothNormal.x))
+			return normalize(smoothNormal);
 	}
-	else
-		normalizedN = geomDenormal;
-	normalizedN = normalize(normalizedN);
-
-	return scramble_start_state;
+	return geomNormal;
 }
 
-vec3 rand3d(inout nbl_glsl_xoroshiro64star_state_t scramble_state, in int _sample, in int depth)
+#include <nbl/builtin/glsl/sampling/quantized_sequence.glsl>
+vec3 rand3d(in uvec3 scramble_key, in int _sample, int depth)
 {
-	uvec3 seqVal = texelFetch(sampleSequence,int(_sample)+(depth-1)*MAX_ACCUMULATED_SAMPLES).xyz;
-	seqVal ^= uvec3(nbl_glsl_xoroshiro64star(scramble_state),nbl_glsl_xoroshiro64star(scramble_state),nbl_glsl_xoroshiro64star(scramble_state));
-    return vec3(seqVal)*uintBitsToFloat(0x2f800004u);
+	// decrement depth because first vertex is rasterized and picked with a different sample sequence
+	--depth;
+	//
+	const nbl_glsl_sampling_quantized3D quant = texelFetch(quantizedSampleSequence,int(_sample)*SAMPLE_SEQUENCE_STRIDE+depth).xy;
+    return nbl_glsl_sampling_decodeSample3Dimensions(quant,scramble_key);
 }
 
-void gen_sample_ray(
-	out float maxT, out vec3 direction, out vec3 throughput,
-	inout nbl_glsl_xoroshiro64star_state_t scramble_state, in uint sampleID, in uint depth,
-	in nbl_glsl_MC_precomputed_t precomp, in nbl_glsl_MC_instr_stream_t gcs, in nbl_glsl_MC_instr_stream_t rnps
+nbl_glsl_MC_quot_pdf_aov_t gen_sample_ray(
+	out vec3 direction,
+	in uvec3 scramble_key,
+	in uint sampleID, in uint depth,
+	in nbl_glsl_MC_precomputed_t precomp,
+	in nbl_glsl_MC_instr_stream_t gcs,
+	in nbl_glsl_MC_instr_stream_t rnps
 )
 {
-	maxT = nbl_glsl_FLT_MAX;
+	vec3 rand = rand3d(scramble_key,int(sampleID),int(depth));
 	
-	vec3 rand = rand3d(scramble_state,int(sampleID),int(depth));
-	
-	float pdf;
 	nbl_glsl_LightSample s;
-	throughput = nbl_glsl_MC_runGenerateAndRemainderStream(precomp,gcs,rnps,rand,pdf,s);
+	nbl_glsl_MC_quot_pdf_aov_t result = nbl_glsl_MC_runGenerateAndRemainderStream(precomp,gcs,rnps,rand,s);
+
+	// russian roulette
+	const uint noRussianRouletteDepth = bitfieldExtract(staticViewData.pathDepth_noRussianRouletteDepth_samplesPerPixelPerDispatch,8,8);
+	if (depth>noRussianRouletteDepth)
+	{
+		const float rrContinuationFactor = 0.25f;
+		const float survivalProb = min(nbl_glsl_MC_colorToScalar(result.quotient)/rrContinuationFactor,1.f);
+		result.pdf *= survivalProb;
+		float dummy; // not going to use it, because we can optimize out better
+		const bool kill = nbl_glsl_partitionRandVariable(survivalProb,rand.z,dummy);
+		result.quotient *= kill ? 0.f:(1.f/survivalProb);
+	}
 
 	direction = s.L;
+	return result;
 }
-
 
 void generate_next_rays(
 	in uint maxRaysToGen, in nbl_glsl_MC_oriented_material_t material, in bool frontfacing, in uint vertex_depth,
-	in nbl_glsl_xoroshiro64star_state_t scramble_start_state, in uint sampleID, in uvec2 outPixelLocation,
-	in vec3 origin, in vec3 prevThroughput)
+	nbl_glsl_xoroshiro64star_state_t scramble_state, in uint sampleID, in uvec2 outPixelLocation,
+	in vec3 origin, in vec3 prevThroughput, in float prevAoVThroughputScale, inout vec3 albedo, out vec3 worldspaceNormal)
 {
 	// get material streams as well
 	const nbl_glsl_MC_instr_stream_t gcs = nbl_glsl_MC_oriented_material_t_getGenChoiceStream(material);
@@ -260,35 +304,37 @@ void generate_next_rays(
 
 	// need to do this after we have worldspace V and N ready
 	const nbl_glsl_MC_precomputed_t precomputed = nbl_glsl_MC_precomputeData(frontfacing);
+	worldspaceNormal = precomputed.N*nbl_glsl_MC_colorToScalar(albedo);
 #ifdef NORM_PRECOMP_STREAM
 	const nbl_glsl_MC_instr_stream_t nps = nbl_glsl_MC_oriented_material_t_getNormalPrecompStream(material);
 	nbl_glsl_MC_runNormalPrecompStream(nps,precomputed);
 #endif
 	
-	const uint vertex_depth_mod_2 = vertex_depth&0x1u;
-	const uint vertex_depth_mod_2_inv = vertex_depth_mod_2^0x1u;
 	// prepare rays
 	uint raysToAllocate = 0u;
-	float maxT[MAX_RAYS_GENERATED]; vec3 direction[MAX_RAYS_GENERATED]; vec3 nextThroughput[MAX_RAYS_GENERATED];	
-for (uint i=1u; i!=vertex_depth; i++)
-{
-	nbl_glsl_xoroshiro64star(scramble_start_state);
-	nbl_glsl_xoroshiro64star(scramble_start_state);
-	nbl_glsl_xoroshiro64star(scramble_start_state);
-}
-	for (uint i=0u; i<maxRaysToGen; i++)
+	vec3 direction[MAX_RAYS_GENERATED];
+	float maxT[MAX_RAYS_GENERATED];
+	vec3 nextThroughput[MAX_RAYS_GENERATED];
+	float nextAoVThroughputScale[MAX_RAYS_GENERATED];
 	{
-		nbl_glsl_xoroshiro64star_state_t scramble_state = scramble_start_state;
-		// TODO: When generating NEE rays, advance the dimension, NOT the sampleID
-		gen_sample_ray(maxT[i],direction[i],nextThroughput[i],scramble_state,sampleID+i,vertex_depth,precomputed,gcs,rnps);
-// TODO: bad idea, invent something else
-//		if (i==0u)
-//			imageStore(scramblebuf,ivec3(outPixelLocation,vertex_depth_mod_2_inv),uvec4(scramble_state,0u,0u));
-		nextThroughput[i] *= prevThroughput;
-		if (max(max(nextThroughput[i].x,nextThroughput[i].y),nextThroughput[i].z)>exp2(-19.f)) // TODO: reverse tonemap to adjust the threshold
-			raysToAllocate++;
-		else
+		const uvec3 scramble_key = uvec3(nbl_glsl_xoroshiro64star(scramble_state),nbl_glsl_xoroshiro64star(scramble_state),nbl_glsl_xoroshiro64star(scramble_state));
+		for (uint i=0u; i<maxRaysToGen; i++)
+		{
 			maxT[i] = 0.f;
+			// TODO: When generating NEE rays, advance the dimension, NOT the sampleID
+			const nbl_glsl_MC_quot_pdf_aov_t result = gen_sample_ray(direction[i],scramble_key,sampleID+i,vertex_depth,precomputed,gcs,rnps);
+			albedo += result.aov.albedo/float(maxRaysToGen);
+			worldspaceNormal += result.aov.normal/float(maxRaysToGen);
+
+			nextThroughput[i] = prevThroughput*result.quotient;
+			// TODO: add some sort of factor to this inequality that could account for highest possible emission (direct or indirect) we could encounter
+			if (max(max(nextThroughput[i].x,nextThroughput[i].y),nextThroughput[i].z)>exp2(-19.f)) // match output mantissa (won't contribute anything afterwards)
+			{
+				maxT[i] = nbl_glsl_FLT_MAX;
+				nextAoVThroughputScale[i] = prevAoVThroughputScale*result.aov.throughputFactor;
+				raysToAllocate++;
+			}
+		}
 	}
 	// TODO: investigate workgroup reductions here
 	const uint baseOutputID = atomicAdd(rayCount[pc.cummon.rayCountWriteIx],raysToAllocate);
@@ -322,9 +368,9 @@ for (uint i=1u; i!=vertex_depth; i++)
 			newRay.origin = ray_origin[0];
 		newRay.maxT = maxT[i];
 		newRay.direction = direction[i];
-		newRay.time = packOutPixelLocation(outPixelLocation);
-		newRay.mask = -1;
-		newRay._active = 1;
+		packOutPixelLocationAndAoVThroughputFactor(newRay.time,outPixelLocation,nextAoVThroughputScale[i]);
+		newRay.mask = int(scramble_state[0]);
+		newRay._active = int(scramble_state[1]);
 		newRay.useless_padding[0] = packHalf2x16(nextThroughput[i].rg);
 		newRay.useless_padding[1] = bitfieldInsert(packHalf2x16(nextThroughput[i].bb),sampleID+i,16,16);
 		const uint outputID = baseOutputID+(offset++);
@@ -332,40 +378,36 @@ for (uint i=1u; i!=vertex_depth; i++)
 	}
 }
 
-/* TODO: optimize and reorganize
-void main()
-{ 
-	clear_raycount();
-	const bool alive = useful_invocation();
-	uint raysToAllocate = 0u;
-	vec3 emissive;
-	if (alive)
-	{
-		emissive = staticViewData.envmapBaseColor;
 
-		raysToAllocate = main_prolog(emissive,...);
-	}
+struct Contribution
+{
+	vec3 color;
+	vec3 albedo;
+	vec3 worldspaceNormal;
+};
 
-	const uint raysLocalEnd = nbl_glsl_workgroupInclusiveAdd(raysToAllocate);
-	uint baseOutputID;
-	if (gl_LocalInvocationIndex==WORKGROUP_SIZE-1)
-		baseOutputID = atomicAdd(rayCount[pc.cummon.rayCountWriteIx],raysLocalEnd);
-	baseOutputID = nbl_glsl_workgroupBroadcast(baseOutputID,WORKGROUP_SIZE-1);
-
-	// coalesce rays
-	for ()
-	{
-	}
-	// write them out to global mem
-	for ()
-	{
-	}
-
-	if (alive)
-	{
-		// store accumulation
-		main_epilog();
-	}
+vec2 SampleSphericalMap(vec3 v)
+{
+    vec2 uv = vec2(atan(v.z,v.x),acos(v.y));
+    uv.x *= nbl_glsl_RECIPROCAL_PI*0.5;
+    uv.x += 0.25; 
+    uv.y *= nbl_glsl_RECIPROCAL_PI;
+    return uv;
 }
-*/
+
+void Contribution_initMiss(out Contribution contrib, in float aovThroughputScale)
+{
+	vec2 uv = SampleSphericalMap(-normalizedV);
+	// funny little trick borrowed from things like Progressive Photon Mapping
+	const float bias = 0.0625f*(1.f-aovThroughputScale)*pow(pc.cummon.rcpFramesDispatched,0.08f);
+	contrib.albedo = contrib.color = textureGrad(envMap, uv, vec2(bias*0.5,0.f), vec2(0.f,bias)).rgb;
+	contrib.worldspaceNormal = normalizedV;
+}
+
+void Contribution_normalizeAoV(inout Contribution contrib)
+{
+	// could do some other normalization factor, whats important is that albedo looks somewhat like the HDR value, albeit scaled down
+	contrib.albedo = contrib.albedo/max(max(contrib.albedo.r,contrib.albedo.g),max(contrib.albedo.b,1.f));
+	contrib.worldspaceNormal *= inversesqrt(max(dot(contrib.worldspaceNormal,contrib.worldspaceNormal),1.f));
+}
 #endif

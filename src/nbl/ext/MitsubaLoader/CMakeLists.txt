@@ -55,6 +55,7 @@ nbl_create_ext_library_project(
 	"${NBL_EXT_MITSUBA_LOADER_SRC}"
 	"${NBL_EXT_MITSUBA_LOADER_EXTERNAL_INCLUDE}"
 	""
+    ""
 )
 
 add_compile_definitions(XML_STATIC)

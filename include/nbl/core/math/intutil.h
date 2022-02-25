@@ -7,6 +7,7 @@
 
 #include "BuildConfigOptions.h"
 
+#include <cstdint>
 #include <limits.h> // For INT_MAX / UINT_MAX
 #include <initializer_list>
 #include <type_traits>
@@ -21,7 +22,6 @@ namespace nbl
 {
 namespace core
 {
-
 
 template<typename INT_TYPE>
 NBL_FORCE_INLINE constexpr bool isNPoT(INT_TYPE value)
