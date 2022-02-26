@@ -31,38 +31,35 @@ void main()
 	const vec2 support = vec2(-0.5f*scale, 0.5f*scale);
 	const float windowSize = ceil(support[1] - support[0]); // this should correspond to WG_DIM
 
+	// all the invocations I'm sending needs to be divided up into spans, such that one span covers the operating area of a Kogge-Stone Adder
 
-	const uint elementCount = _NBL_GLSL_WORKGROUP_SIZE_;
-	if (gl_LocalInvocationIndex < elementCount)
-		scratchShared[gl_LocalInvocationIndex] = imageLoad(inImage, int(gl_LocalInvocationIndex)).r;
+	const uint spanWidth = uint(windowSize);
+	const uint spansPerWG = _NBL_GLSL_WORKGROUP_SIZE_/spanWidth;
+
+	if (gl_GlobalInvocationID.x < inWidth)
+		scratchShared[gl_LocalInvocationIndex] = imageLoad(inImage, int(gl_GlobalInvocationID.x)).r;
 	barrier();
 
-	const uint stepCount = uint(ceil(log2(float(elementCount))));
-	for (uint step = 0u; step < stepCount; ++step)
+	// Todo(achal): Gotta be careful here when spanWidth becomes 1 or 0
+	const uint stepPerSpanCount = uint(ceil(log2(float(spanWidth))));
+	const uint spanIndex = gl_LocalInvocationIndex/spanWidth;
+	for (uint step = 0u; step < stepPerSpanCount; ++step)
 	{
 		const uint offset = (1 << step);
-		const uint baseIndex = (1 << (step+1))*gl_LocalInvocationIndex;
+		const uint baseIndex = (1 << (step+1))*(gl_LocalInvocationIndex % spanWidth);
 
-		if (baseIndex < elementCount)
+		if (baseIndex < spanWidth)
 		{
 			float addend = 0.f;
-			if (baseIndex + offset < elementCount)
-				addend = scratchShared[baseIndex + offset];
+			if (baseIndex + offset < spanWidth)
+				addend = scratchShared[spanWidth*spanIndex + (baseIndex + offset)];
 
-			scratchShared[baseIndex] += addend;
+			scratchShared[spanWidth*spanIndex + baseIndex] = weight * scratchShared[spanWidth*spanIndex + baseIndex] + weight * addend;
 		}
 		barrier();
 	}
 
-	if (gl_GlobalInvocationID.x == 0u)
-		imageStore(outImage, int(gl_GlobalInvocationID.x), vec4(scratchShared[gl_GlobalInvocationID.x], 0.f, 0.f, 0.f));
-
-#if 0
-	const float inputPixel = imageLoad(inImage, int(gl_GlobalInvocationID.x)).r;
-
-	const float result = nbl_glsl_workgroupAdd(inputPixel*weight);
-
-	if (gl_LocalInvocationIndex == 0u)
-		imageStore(outImage, int(gl_WorkGroupID.x), vec4(result, 0.f, 0.f, 0.f));
-#endif
+	// elect one invocation from a span to write to the output image
+	if ((gl_LocalInvocationIndex % spanWidth) == 0u)
+		imageStore(outImage, int(spanIndex), vec4(scratchShared[gl_LocalInvocationIndex], 0.f, 0.f, 0.f));
 }
