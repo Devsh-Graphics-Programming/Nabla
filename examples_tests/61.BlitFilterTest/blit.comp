@@ -1,0 +1,68 @@
+#version 450 core
+
+#define _NBL_GLSL_WORKGROUP_SIZE_ 64u
+
+layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_) in;
+
+
+// #include <nbl/builtin/glsl/workgroup/arithmetic.glsl>
+shared float scratchShared[64];
+
+// This should most likely be a sampler
+layout (set = 0, binding = 0, r32f) uniform readonly image1D inImage;
+layout (set = 0, binding = 1, r32f) uniform writeonly image1D outImage;
+
+#if 0
+// Todo(achal): std140??
+layout (set = 0, binding = 2) uniform Weights
+{
+	uvec2 data[];
+} weights;
+#endif
+
+void main()
+{
+	// assuming downscale ALWAYS, for now
+	const uint inWidth = 8u;
+	const uint outWidth = 4u;
+	const float scale = float(inWidth)/float(outWidth);
+
+	const float weight = 1.f/scale;
+	const vec2 support = vec2(-0.5f*scale, 0.5f*scale);
+	const float windowSize = ceil(support[1] - support[0]); // this should correspond to WG_DIM
+
+
+	const uint elementCount = _NBL_GLSL_WORKGROUP_SIZE_;
+	if (gl_LocalInvocationIndex < elementCount)
+		scratchShared[gl_LocalInvocationIndex] = imageLoad(inImage, int(gl_LocalInvocationIndex)).r;
+	barrier();
+
+	const uint stepCount = uint(ceil(log2(float(elementCount))));
+	for (uint step = 0u; step < stepCount; ++step)
+	{
+		const uint offset = (1 << step);
+		const uint baseIndex = (1 << (step+1))*gl_LocalInvocationIndex;
+
+		if (baseIndex < elementCount)
+		{
+			float addend = 0.f;
+			if (baseIndex + offset < elementCount)
+				addend = scratchShared[baseIndex + offset];
+
+			scratchShared[baseIndex] += addend;
+		}
+		barrier();
+	}
+
+	if (gl_GlobalInvocationID.x == 0u)
+		imageStore(outImage, int(gl_GlobalInvocationID.x), vec4(scratchShared[gl_GlobalInvocationID.x], 0.f, 0.f, 0.f));
+
+#if 0
+	const float inputPixel = imageLoad(inImage, int(gl_GlobalInvocationID.x)).r;
+
+	const float result = nbl_glsl_workgroupAdd(inputPixel*weight);
+
+	if (gl_LocalInvocationIndex == 0u)
+		imageStore(outImage, int(gl_WorkGroupID.x), vec4(result, 0.f, 0.f, 0.f));
+#endif
+}
