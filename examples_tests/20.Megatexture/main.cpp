@@ -13,6 +13,7 @@
 
 using namespace nbl;
 using namespace core;
+using namespace ui;
 
 constexpr const char* SHADER_OVERRIDES = //also turns off set3 bindings (textures) because they're not needed anymore as we're using VT
 R"(
@@ -219,7 +220,7 @@ core::smart_refctd_ptr<asset::ICPUSpecializedShader> createModifiedFragShader(co
     fwrite(glsl.c_str(), 1, glsl.size(), f);
     fclose(f);
 
-    auto unspecNew = core::make_smart_refctd_ptr<asset::ICPUShader>(glsl.c_str());
+    auto unspecNew = core::make_smart_refctd_ptr<asset::ICPUShader>(glsl.c_str(), asset::IShader::ESS_FRAGMENT, "????");
     auto specinfo = _fs->getSpecializationInfo();//intentional copy
     auto fsNew = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecNew), std::move(specinfo));
 
@@ -269,9 +270,13 @@ class EventReceiver : public nbl::IEventReceiver
 
 class MegaTextureApp : public ApplicationBase
 {
-    static constexpr uint32_t WIN_W = 1280;
-    static constexpr uint32_t WIN_H = 720;
-    static constexpr uint32_t FBO_COUNT = 1u;
+    constexpr static uint32_t WIN_W = 1280u;
+    constexpr static uint32_t WIN_H = 720u;
+    constexpr static uint32_t SC_IMG_COUNT = 3u;
+    constexpr static uint32_t FRAMES_IN_FLIGHT = 5u;
+    constexpr static uint64_t MAX_TIMEOUT = 99999999999999ull;
+    constexpr static size_t NBL_FRAMES_TO_AVERAGE = 100ull;
+    static_assert(FRAMES_IN_FLIGHT > SC_IMG_COUNT);
 
     using RENDERPASS_INDEPENDENT_PIPELINE_ADRESS = size_t;
 
@@ -299,10 +304,19 @@ public:
     nbl::core::smart_refctd_ptr<video::IGPUFence> gpuComputeFence;
     nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
     
-    core::smart_refctd_ptr<nbl::video::IGPUCommandBuffer> commandBuffers[1];
+    core::smart_refctd_ptr<video::IGPUSemaphore> imageAcquire[FRAMES_IN_FLIGHT] = { nullptr };
+    core::smart_refctd_ptr<video::IGPUSemaphore> renderFinished[FRAMES_IN_FLIGHT] = { nullptr };
+    core::smart_refctd_ptr<video::IGPUFence> frameComplete[FRAMES_IN_FLIGHT] = { nullptr };
+    core::smart_refctd_ptr<video::IGPUCommandBuffer> commandBuffers[FRAMES_IN_FLIGHT] = { nullptr };
     
-    core::matrix3x4SIMD viewMatrix;
-    core::matrix4SIMD viewProjectionMatrix;
+    CommonAPI::InputSystem::ChannelReader<IMouseEventChannel> mouse;
+    CommonAPI::InputSystem::ChannelReader<IKeyboardEventChannel> keyboard;
+    Camera camera = Camera(vectorSIMDf(0, 0, 0), vectorSIMDf(0, 0, 0), matrix4SIMD());
+
+    std::chrono::steady_clock::time_point lastTime;
+    double dtList[NBL_FRAMES_TO_AVERAGE] = {};
+
+    video::CDumbPresentationOracle oracle;
     
     std::map<RENDERPASS_INDEPENDENT_PIPELINE_ADRESS, core::smart_refctd_ptr<video::IGPUGraphicsPipeline>> gpuPipelines;
     const asset::CMTLMetadata::CRenderpassIndependentPipeline* pipelineMetadata;
@@ -312,6 +326,9 @@ public:
     uint32_t ds1UboBinding = 0u;
     core::smart_refctd_ptr<video::IGPUBuffer> gpuubo;
     core::smart_refctd_ptr<video::IGPUMesh> gpumesh;
+
+    int32_t resourceIx = -1;
+    uint32_t acquiredNextFBO = {};
     
     const asset::COBJMetadata* metaOBJ = nullptr;
     
@@ -356,7 +373,7 @@ public:
     }
     uint32_t getSwapchainImageCount() override
     {
-        return FBO_COUNT;
+        return SC_IMG_COUNT;
     }
     virtual nbl::asset::E_FORMAT getDepthFormat() override
     {
@@ -372,9 +389,9 @@ APP_CONSTRUCTOR(MegaTextureApp)
         initOutput.system = core::smart_refctd_ptr(system);
 
         const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT);
-        const video::ISurface::SFormat surfaceFormat(asset::EF_R8G8B8A8_SRGB, asset::ECP_COUNT, asset::EOTF_UNKNOWN);
+        const video::ISurface::SFormat surfaceFormat(asset::EF_B8G8R8A8_SRGB, asset::ECP_COUNT, asset::EOTF_UNKNOWN);
 
-        CommonAPI::InitWithDefaultExt(initOutput, video::EAT_OPENGL_ES, "MeshLoaders", WIN_W, WIN_H, FBO_COUNT, swapchainImageUsage, surfaceFormat, nbl::asset::EF_D32_SFLOAT);
+        CommonAPI::InitWithDefaultExt(initOutput, video::EAT_OPENGL, "MegaTexture", WIN_W, WIN_H, SC_IMG_COUNT, swapchainImageUsage, surfaceFormat, nbl::asset::EF_D32_SFLOAT);
         window = std::move(initOutput.window);
         windowCb = std::move(initOutput.windowCb);
         gl = std::move(initOutput.apiConnection);
@@ -393,7 +410,7 @@ APP_CONSTRUCTOR(MegaTextureApp)
         logger = std::move(initOutput.logger);
         inputSystem = std::move(initOutput.inputSystem);
 
-        logicalDevice->createCommandBuffers(commandPools[CommonAPI::InitOutput::EQT_GRAPHICS].get(), nbl::video::IGPUCommandBuffer::EL_PRIMARY, 1, commandBuffers);
+        logicalDevice->createCommandBuffers(commandPools[CommonAPI::InitOutput::EQT_GRAPHICS].get(), nbl::video::IGPUCommandBuffer::EL_PRIMARY, FRAMES_IN_FLIGHT, commandBuffers);
 
         gpuTransferFence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
         gpuComputeFence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));        
@@ -554,13 +571,14 @@ APP_CONSTRUCTOR(MegaTextureApp)
             mb->setPipeline(std::move(newPipeline));
         }
 
+
         vt->shrink();
         for (const auto& cm : vt_commits)
         {
             vt->commit(cm.addr, cm.texture.get(), cm.subresource, cm.uwrap, cm.vwrap, cm.border);
         }
 
-        auto gpuvt = core::make_smart_refctd_ptr<video::IGPUVirtualTexture>(logicalDevice.get(), gpuTransferFence.get(), queues[CommonAPI::InitOutput::EQT_TRANSFER_UP], vt.get());
+        auto gpuvt = core::make_smart_refctd_ptr<video::IGPUVirtualTexture>(logicalDevice.get(), gpuTransferFence.get(), queues[CommonAPI::InitOutput::EQT_TRANSFER_UP], vt.get(), utilities.get());
 
         core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> gpuds0layout;
         {
@@ -587,7 +605,6 @@ APP_CONSTRUCTOR(MegaTextureApp)
 
         //we can safely assume that all meshbuffers within mesh loaded from OBJ has same DS1 layout (used for camera-specific data)
         //so we can create just one DS
-
         asset::ICPUDescriptorSetLayout* ds1layout = mesh_raw->getMeshBuffers().begin()[0]->getPipeline()->getLayout()->getDescriptorSetLayout(1u);
         for (const auto& bnd : ds1layout->getBindings())
             if (bnd.type == asset::EDT_UNIFORM_BUFFER)
@@ -613,8 +630,9 @@ APP_CONSTRUCTOR(MegaTextureApp)
         }
 
         video::IGPUBuffer::SCreationParams gpuuboCreationParams;
-        gpuuboCreationParams.usage = asset::IBuffer::EUF_UNIFORM_BUFFER_BIT;
-        gpuuboCreationParams.sharingMode = asset::E_SHARING_MODE::ESM_CONCURRENT;
+        gpuuboCreationParams.canUpdateSubRange = true;
+        gpuuboCreationParams.usage = core::bitflag<asset::IBuffer::E_USAGE_FLAGS>(asset::IBuffer::EUF_UNIFORM_BUFFER_BIT) | asset::IBuffer::EUF_TRANSFER_DST_BIT;
+        gpuuboCreationParams.sharingMode = asset::E_SHARING_MODE::ESM_EXCLUSIVE;
         gpuuboCreationParams.queueFamilyIndexCount = 0u;
         gpuuboCreationParams.queueFamilyIndices = nullptr;
         auto ubomemreq = logicalDevice->getDeviceLocalGPUMemoryReqs();
@@ -643,9 +661,11 @@ APP_CONSTRUCTOR(MegaTextureApp)
 
         
         {
+            cpu2gpuParams.beginCommandBuffers();
             auto gpu_array = cpu2gpu.getGPUObjectsFromAssets(&mesh_raw, &mesh_raw + 1, cpu2gpuParams);
             if (!gpu_array || gpu_array->size() < 1u || !(*gpu_array)[0])
                 assert(false);
+            cpu2gpuParams.waitForCreationToComplete(false);
 
             gpumesh = (*gpu_array)[0];
         }
@@ -698,18 +718,55 @@ APP_CONSTRUCTOR(MegaTextureApp)
             }
         }
 
-        core::vectorSIMDf cameraPosition(-1, 2, -10);
-        core::matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(90), float(WIN_W) / WIN_H, 0.01, 100);
-        viewMatrix = matrix3x4SIMD::buildCameraLookAtMatrixLH(cameraPosition, core::vectorSIMDf(0, 0, 0), core::vectorSIMDf(0, 1, 0));
-        viewProjectionMatrix = matrix4SIMD::concatenateBFollowedByA(projectionMatrix, matrix4SIMD(viewMatrix));
+        core::vectorSIMDf cameraPosition(0, 5, -10);
+        matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60.0f), float(WIN_W) / WIN_H, 0.1, 1000.f);
+        camera = Camera(cameraPosition, core::vectorSIMDf(0, 0, 0), projectionMatrix, 10.f, 1.f);
+        lastTime = std::chrono::steady_clock::now();
+
+        for (size_t i = 0ull; i < NBL_FRAMES_TO_AVERAGE; ++i)
+            dtList[i] = 0.0;
+
+        oracle.reportBeginFrameRecord();
+
+        for (uint32_t i = 0u; i < FRAMES_IN_FLIGHT; i++)
+        {
+            imageAcquire[i] = logicalDevice->createSemaphore();
+            renderFinished[i] = logicalDevice->createSemaphore();
+        }
     }
 
     void workLoopBody() override
     {
-        auto commandBuffer = commandBuffers[0];
+        ++resourceIx;
+        if (resourceIx >= FRAMES_IN_FLIGHT)
+            resourceIx = 0;
+
+        auto& commandBuffer = commandBuffers[resourceIx];
+        auto& fence = frameComplete[resourceIx];
+        if (fence)
+        {
+            logicalDevice->blockForFences(1u, &fence.get());
+            logicalDevice->resetFences(1u, &fence.get());
+        }
+        else
+            fence = logicalDevice->createFence(video::IGPUFence::ECF_UNSIGNALED);
 
         commandBuffer->reset(nbl::video::IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
-        commandBuffer->begin(0);
+        commandBuffer->begin(video::IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
+
+        const auto nextPresentationTimestamp = oracle.acquireNextImage(swapchain.get(), imageAcquire[resourceIx].get(), nullptr, &acquiredNextFBO);
+        {
+            inputSystem->getDefaultMouse(&mouse);
+            inputSystem->getDefaultKeyboard(&keyboard);
+
+            camera.beginInputProcessing(nextPresentationTimestamp);
+            mouse.consumeEvents([&](const IMouseEventChannel::range_t& events) -> void { camera.mouseProcess(events); }, logger.get());
+            keyboard.consumeEvents([&](const IKeyboardEventChannel::range_t& events) -> void { camera.keyboardProcess(events); }, logger.get());
+            camera.endInputProcessing(nextPresentationTimestamp);
+        }
+
+        const auto& viewMatrix = camera.getViewMatrix();
+        const auto& viewProjectionMatrix = camera.getConcatenatedMatrix();
 
         asset::SViewport viewport;
         viewport.minDepth = 1.f;
@@ -720,29 +777,17 @@ APP_CONSTRUCTOR(MegaTextureApp)
         viewport.height = WIN_H;
         commandBuffer->setViewport(0u, 1u, &viewport);
 
-        nbl::video::IGPUCommandBuffer::SRenderpassBeginInfo beginInfo;
-        VkRect2D area;
-        area.offset = { 0,0 };
-        area.extent = { WIN_W, WIN_H };
-        nbl::asset::SClearValue clear;
-        clear.color.float32[0] = 1.f;
-        clear.color.float32[1] = 1.f;
-        clear.color.float32[2] = 1.f;
-        clear.color.float32[3] = 1.f;
-        beginInfo.clearValueCount = 1u;
-        beginInfo.framebuffer = fbos[0];
-        beginInfo.renderpass = renderpass;
-        beginInfo.renderArea = area;
-        beginInfo.clearValues = &clear;
-
-        commandBuffer->beginRenderPass(&beginInfo, nbl::asset::ESC_INLINE);
+        VkRect2D scissor = {};
+        scissor.offset = { 0, 0 };
+        scissor.extent = { WIN_W, WIN_H };
+        commandBuffer->setScissor(0u, 1u, &scissor);
 
         core::matrix3x4SIMD modelMatrix;
         modelMatrix.setTranslation(nbl::core::vectorSIMDf(0, 0, 0, 0));
-
         core::matrix4SIMD mvp = core::concatenateBFollowedByA(viewProjectionMatrix, modelMatrix);
 
-        core::vector<uint8_t> uboData(gpuubo->getSize());
+        const size_t uboSize = gpuubo->getCachedCreationParams().declaredSize;
+        core::vector<uint8_t> uboData(uboSize);
         for (const auto& shdrIn : pipelineMetadata->m_inputSemantics)
         {
             if (shdrIn.descriptorSection.type == asset::IRenderpassIndependentPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER && shdrIn.descriptorSection.uniformBufferObject.set == 1u && shdrIn.descriptorSection.uniformBufferObject.binding == ds1UboBinding)
@@ -761,13 +806,38 @@ APP_CONSTRUCTOR(MegaTextureApp)
 
                 case asset::IRenderpassIndependentPipelineMetadata::ECSI_WORLD_VIEW_INVERSE_TRANSPOSE:
                 {
-                    memcpy(uboData.data() + shdrIn.descriptorSection.uniformBufferObject.relByteoffset, viewMatrix.pointer(), shdrIn.descriptorSection.uniformBufferObject.bytesize);
+                    core::matrix3x4SIMD invertedTransposedViewMatrix;
+                    bool invertible = viewMatrix.getSub3x3InverseTranspose(invertedTransposedViewMatrix);
+                    assert(invertible);
+                    invertedTransposedViewMatrix.setTranslation(camera.getPosition());
+
+                    memcpy(uboData.data() + shdrIn.descriptorSection.uniformBufferObject.relByteoffset, invertedTransposedViewMatrix.pointer(), shdrIn.descriptorSection.uniformBufferObject.bytesize);
                 } break;
                 }
             }
         }
+        commandBuffer->updateBuffer(gpuubo.get(), 0ull, uboSize, uboData.data());
 
-        commandBuffer->updateBuffer(gpuubo.get(), 0ull, gpuubo->getSize(), uboData.data());
+        nbl::video::IGPUCommandBuffer::SRenderpassBeginInfo beginInfo;
+        {
+            VkRect2D area;
+            area.offset = { 0,0 };
+            area.extent = { WIN_W, WIN_H };
+            asset::SClearValue clear[2] = {};
+            clear[0].color.float32[0] = 1.f;
+            clear[0].color.float32[1] = 1.f;
+            clear[0].color.float32[2] = 1.f;
+            clear[0].color.float32[3] = 1.f;
+            clear[1].depthStencil.depth = 0.f;
+
+            beginInfo.clearValueCount = 2u;
+            beginInfo.framebuffer = fbos[acquiredNextFBO];
+            beginInfo.renderpass = renderpass;
+            beginInfo.renderArea = area;
+            beginInfo.clearValues = clear;
+        }
+
+        commandBuffer->beginRenderPass(&beginInfo, nbl::asset::ESC_INLINE);
 
         for (size_t i = 0; i < gpumesh->getMeshBuffers().size(); ++i)
         {
@@ -787,21 +857,31 @@ APP_CONSTRUCTOR(MegaTextureApp)
         commandBuffer->endRenderPass();
         commandBuffer->end();
 
-        auto img_acq_sem = logicalDevice->createSemaphore();
-        auto render_finished_sem = logicalDevice->createSemaphore();
+        CommonAPI::Submit(
+            logicalDevice.get(),
+            swapchain.get(),
+            commandBuffer.get(),
+            queues[CommonAPI::InitOutput::EQT_GRAPHICS],
+            imageAcquire[resourceIx].get(),
+            renderFinished[resourceIx].get(),
+            fence.get());
 
-        uint32_t imgnum = 0u;
-        constexpr uint64_t MAX_TIMEOUT = 99999999999999ull; // ns
-        swapchain->acquireNextImage(MAX_TIMEOUT, img_acq_sem.get(), nullptr, &imgnum);
+        CommonAPI::Present(
+            logicalDevice.get(),
+            swapchain.get(),
+            queues[CommonAPI::InitOutput::EQT_GRAPHICS],
+            renderFinished[resourceIx].get(),
+            acquiredNextFBO);
+    }
 
-        CommonAPI::Submit(logicalDevice.get(), swapchain.get(), commandBuffer.get(), queues[CommonAPI::InitOutput::EQT_GRAPHICS], img_acq_sem.get(), render_finished_sem.get());
-        CommonAPI::Present(logicalDevice.get(), swapchain.get(), queues[CommonAPI::InitOutput::EQT_GRAPHICS], render_finished_sem.get(), imgnum);
+    void onAppTerminated_impl() override
+    {
+        logicalDevice->waitIdle();
     }
 
     bool keepRunning() override
     {
-        //return windowCb->isWindowOpen();
-        return true;
+        return windowCb->isWindowOpen();
     }
 };
 

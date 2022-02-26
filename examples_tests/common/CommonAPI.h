@@ -951,7 +951,8 @@ public:
 
 		bool headlessCompute = (swapchainImageUsage == nbl::asset::IImage::E_USAGE_FLAGS::EUF_NONE || sc_image_count <= 0u || window_width <= 0u || window_height <= 0u);
 
-		auto logLevelMask = nbl::core::bitflag(system::ILogger::ELL_DEBUG) | system::ILogger::ELL_PERFORMANCE | system::ILogger::ELL_WARNING | system::ILogger::ELL_ERROR | system::ILogger::ELL_INFO;
+		// auto logLevelMask = nbl::core::bitflag(system::ILogger::ELL_DEBUG) | system::ILogger::ELL_PERFORMANCE | system::ILogger::ELL_WARNING | system::ILogger::ELL_ERROR | system::ILogger::ELL_INFO;
+		auto logLevelMask = nbl::core::bitflag(system::ILogger::ELL_DEBUG) | system::ILogger::ELL_PERFORMANCE | system::ILogger::ELL_WARNING | system::ILogger::ELL_ERROR;
 
 #ifdef _NBL_PLATFORM_WINDOWS_
 		result.system = createSystem();
