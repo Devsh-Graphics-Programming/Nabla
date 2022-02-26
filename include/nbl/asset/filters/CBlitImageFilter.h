@@ -204,7 +204,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 								scale.factor[k] *= otherScale->factor[k];
 						}
 
-						value_type* phaseSupportLUTPixel = reinterpret_cast<value_type*>(state->scratchMemory + state->phaseSupportLUTByteOffset + axisOffsets[axis]);
+						value_type* phaseSupportLUTPixel = reinterpret_cast<value_type*>(state->scratchMemory + getPhaseSupportLUTByteOffset(state) + axisOffsets[axis]);
 						for (uint32_t i = 0u; i < phaseCount[axis]; ++i)
 						{
 							core::vectorSIMDf tmp;
@@ -275,12 +275,11 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 				KernelY								kernelY;
 				KernelZ								kernelZ;
 				bool								enableLUTUsage = true; // temporary state for testing, will remove before merge
-				uint32_t							phaseSupportLUTByteOffset = ~0u;
 		};
 		using state_type = CState;
 		
-		// This method is also responsible for setting the phaseSupportLUTOffset member of CState
-		static inline uint32_t getRequiredScratchByteSize(state_type* state)
+		// If you're changing this method don't forget to change the one below (getPhaseSupportLUTByteOffset)
+		static inline uint32_t getRequiredScratchByteSize(const state_type* state)
 		{
 			const auto scaledKernelX = state->contructScaledKernel(state->kernelX);
 			const auto scaledKernelY = state->contructScaledKernel(state->kernelY);
@@ -289,13 +288,22 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 			// need to add the memory for ping pong buffers
 			uint32_t retval = getScratchOffset(state, true, scaledKernelX, scaledKernelY, scaledKernelZ);
 			retval += base_t::getRequiredScratchByteSize(state->alphaSemantic,state->outExtentLayerCount);
-
-			state->phaseSupportLUTByteOffset = retval;
 			
 			// need to add the memory for phase support LUT
 			const core::vectorSIMDu32 phaseCount = getPhaseCount(state->inExtentLayerCount, state->outExtentLayerCount, state->inImage->getCreationParameters().type);
 			retval += ((phaseCount[0]*scaledKernelX.getWindowSize().x) + (phaseCount[1]*scaledKernelY.getWindowSize().x) + (phaseCount[2]*scaledKernelZ.getWindowSize().x)) * sizeof(value_type);
 
+			return retval;
+		}
+
+		static inline uint32_t getPhaseSupportLUTByteOffset(const state_type* state)
+		{
+			const auto scaledKernelX = state->contructScaledKernel(state->kernelX);
+			const auto scaledKernelY = state->contructScaledKernel(state->kernelY);
+			const auto scaledKernelZ = state->contructScaledKernel(state->kernelZ);
+
+			uint32_t retval = getScratchOffset(state, true, scaledKernelX, scaledKernelY, scaledKernelZ);
+			retval += base_t::getRequiredScratchByteSize(state->alphaSemantic, state->outExtentLayerCount);
 			return retval;
 		}
 
@@ -609,7 +617,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 							}
 						}
 
-						value_type* phaseSupportLUTPixel = reinterpret_cast<value_type*>(state->scratchMemory + state->phaseSupportLUTByteOffset + axisOffsets[axis]);
+						value_type* phaseSupportLUTPixel = reinterpret_cast<value_type*>(state->scratchMemory + getPhaseSupportLUTByteOffset(state) + axisOffsets[axis]);
 
 						// TODO: this loop should probably get rewritten
 						for (auto& i=(localTexCoord[axis]=0); i<outExtentLayerCount[axis]; i++)

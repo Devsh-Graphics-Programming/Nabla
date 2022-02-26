@@ -96,6 +96,7 @@ class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageF
 			for (auto inMipLevel=state->startMipLevel; inMipLevel!=state->endMipLevel; inMipLevel++)
 			{
 				auto blit = buildBlitState(state, inMipLevel);
+				pseudo_base_t::state_type::computePhaseSupportLUT(&blit);
 				if (!pseudo_base_t::template execute<ExecutionPolicy>(std::forward<ExecutionPolicy>(policy),&blit))
 					return false;
 			}
@@ -119,6 +120,7 @@ class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageF
 			blit.inMipLevel = prevLevel;
 			blit.outMipLevel = inMipLevel;
 			blit.inImage = blit.outImage = state->inOutImage;
+			blit.enableLUTUsage = true;
 			//not all kernels are default-constructible, this is going to be a problem (i already added appropriate ctor for blit filter state class though)
 			//blit.kernel = Kernel(); // gets default constructed, we should probably do a `static_assert` about this property
 			static_cast<state_base_t&>(blit) = *static_cast<const state_base_t*>(state);
