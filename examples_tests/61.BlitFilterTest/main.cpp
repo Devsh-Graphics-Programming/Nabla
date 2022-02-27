@@ -133,6 +133,13 @@ public:
 		// GPU blit
 		core::vector<float> gpuOutput(outImageDim[0] * outImageDim[1]);
 		{
+			constexpr uint32_t WG_DIM = 256u;
+			struct push_constants_t
+			{
+				uint32_t inWidth;
+				uint32_t outWidth;
+			};
+
 			core::smart_refctd_ptr<video::IGPUImageView> inImageView = nullptr;
 			core::smart_refctd_ptr<video::IGPUImageView> outImageView = nullptr;
 			core::smart_refctd_ptr<video::IGPUImage> inImageGPU = nullptr;
@@ -228,7 +235,11 @@ public:
 			const uint32_t dsCount = 1u;
 			auto descriptorPool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE, &dsLayout.get(), &dsLayout.get() + 1ull, &dsCount);
 
-			core::smart_refctd_ptr<video::IGPUPipelineLayout> pipelineLayout = logicalDevice->createGPUPipelineLayout(nullptr, nullptr, core::smart_refctd_ptr(dsLayout));
+			asset::SPushConstantRange pcRange = {};
+			pcRange.stageFlags = asset::IShader::ESS_COMPUTE;
+			pcRange.offset = 0u;
+			pcRange.size = sizeof(push_constants_t);
+			core::smart_refctd_ptr<video::IGPUPipelineLayout> pipelineLayout = logicalDevice->createGPUPipelineLayout(&pcRange, &pcRange + 1ull, core::smart_refctd_ptr(dsLayout));
 
 			core::smart_refctd_ptr<video::IGPUDescriptorSet> ds = logicalDevice->createGPUDescriptorSet(descriptorPool.get(), core::smart_refctd_ptr(dsLayout));
 			{
@@ -265,16 +276,18 @@ public:
 				logicalDevice->updateDescriptorSets(DESCRIPTOR_COUNT, writes, 0u, nullptr);
 			}
 
-			const char* computeShaderPath = "../blit.comp";
+			const char* blitCompShaderPath = "../blit.comp";
 			core::smart_refctd_ptr<video::IGPUSpecializedShader> compShader = nullptr;
 			{
 				asset::IAssetLoader::SAssetLoadParams params = {};
 				params.logger = logger.get();
-				auto cpuSpecShader = core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(*assetManager->getAsset(computeShaderPath, params).getContents().begin());
-				if (!cpuSpecShader)
-					FATAL_LOG("Failed to load shader at path %s!\n", computeShaderPath);
+				auto loadedShader = core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(*assetManager->getAsset(blitCompShaderPath, params).getContents().begin());
 
-				auto gpuArray = cpu2gpu.getGPUObjectsFromAssets(&cpuSpecShader.get(), &cpuSpecShader.get() + 1, cpu2gpuParams);
+				auto unspecOverridenShader = asset::IGLSLCompiler::createOverridenCopy(loadedShader->getUnspecialized(), "#define _NBL_GLSL_WORKGROUP_SIZE_ %d\n", WG_DIM);
+
+				auto specShader_cpu = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecOverridenShader), asset::ISpecializedShader::SInfo(nullptr, nullptr, "main"));
+
+				auto gpuArray = cpu2gpu.getGPUObjectsFromAssets(&specShader_cpu.get(), &specShader_cpu.get() + 1, cpu2gpuParams);
 				if (!gpuArray || gpuArray->size() < 1u || !(*gpuArray)[0])
 					FATAL_LOG("Failed to convert CPU specialized shader to GPU specialized shaders!\n");
 
@@ -288,6 +301,8 @@ public:
 			cmdbuf->begin(video::IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
 			cmdbuf->bindComputePipeline(pipeline.get());
 			cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE, pipeline->getLayout(), 0u, 1u, &ds.get());
+			push_constants_t pc = { inImageDim[0], outImageDim[0] };
+			cmdbuf->pushConstants(pipeline->getLayout(), asset::IShader::ESS_COMPUTE, 0u, sizeof(push_constants_t), &pc);
 			const uint32_t wgCount = outImageDim[0];
 			// cmdbuf->dispatch(wgCount, 1u, 1u);
 			cmdbuf->dispatch(1u, 1u, 1u);

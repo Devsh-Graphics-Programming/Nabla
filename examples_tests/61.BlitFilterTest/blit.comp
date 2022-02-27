@@ -1,11 +1,14 @@
 #version 450 core
 
-#define _NBL_GLSL_WORKGROUP_SIZE_ 64u
+layout(push_constant) uniform Block
+{
+	uint inWidth;
+	uint outWidth;
+} pc;
+
 
 layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_) in;
 
-
-// #include <nbl/builtin/glsl/workgroup/arithmetic.glsl>
 shared float scratchShared[64];
 
 // This should most likely be a sampler
@@ -23,20 +26,18 @@ layout (set = 0, binding = 2) uniform Weights
 void main()
 {
 	// assuming downscale ALWAYS, for now
-	const uint inWidth = 8u;
-	const uint outWidth = 4u;
-	const float scale = float(inWidth)/float(outWidth);
+	const float scale = float(pc.inWidth)/float(pc.outWidth);
 
 	const float weight = 1.f/scale;
 	const vec2 support = vec2(-0.5f*scale, 0.5f*scale);
-	const float windowSize = ceil(support[1] - support[0]); // this should correspond to WG_DIM
+	const float windowSize = ceil(support[1] - support[0]);
 
 	// all the invocations I'm sending needs to be divided up into spans, such that one span covers the operating area of a Kogge-Stone Adder
 
 	const uint spanWidth = uint(windowSize);
 	const uint spansPerWG = _NBL_GLSL_WORKGROUP_SIZE_/spanWidth;
 
-	if (gl_GlobalInvocationID.x < inWidth)
+	if (gl_GlobalInvocationID.x < pc.inWidth)
 		scratchShared[gl_LocalInvocationIndex] = imageLoad(inImage, int(gl_GlobalInvocationID.x)).r;
 	barrier();
 
