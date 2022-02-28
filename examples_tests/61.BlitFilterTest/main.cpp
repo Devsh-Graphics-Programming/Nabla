@@ -74,8 +74,8 @@ public:
 		logger = std::move(initOutput.logger);
 		inputSystem = std::move(initOutput.inputSystem);
 
-		std::array<uint32_t, 2> inImageDim = { 8u, 1u }; // { 800u, 5u };
-		std::array<uint32_t, 2> outImageDim = { 4u, 1u }; // { 16u, 69u };
+		std::array<uint32_t, 2> inImageDim = { 2304u, 1u }; // { 800u, 5u };
+		std::array<uint32_t, 2> outImageDim = { 384u, 1u }; // { 16u, 69u };
 
 		auto inImage = createCPUImage(inImageDim);
 
@@ -87,11 +87,12 @@ public:
 				inImagePixel[j * inImageDim[0] + i] = k++;
 		}
 
-		core::smart_refctd_ptr<ICPUImage> outImage = createCPUImage(outImageDim);
 
 		// CPU blit
 		core::vector<float> cpuOutput(outImageDim[0] * outImageDim[1]);
 		{
+			core::smart_refctd_ptr<ICPUImage> outImage = createCPUImage(outImageDim);
+
 			const core::vectorSIMDf scaleX(1.f, 1.f, 1.f, 1.f);
 			const core::vectorSIMDf scaleY(1.f, 1.f, 1.f, 1.f);
 			const core::vectorSIMDf scaleZ(1.f, 1.f, 1.f, 1.f);
@@ -133,6 +134,8 @@ public:
 		// GPU blit
 		core::vector<float> gpuOutput(outImageDim[0] * outImageDim[1]);
 		{
+			core::smart_refctd_ptr<ICPUImage> outImage = createCPUImage(outImageDim);
+
 			constexpr uint32_t WG_DIM = 256u;
 			struct push_constants_t
 			{
@@ -145,7 +148,7 @@ public:
 			core::smart_refctd_ptr<video::IGPUImage> inImageGPU = nullptr;
 			core::smart_refctd_ptr<video::IGPUImage> outImageGPU = nullptr;
 
-			inImage->addImageUsageFlags(asset::ICPUImage::EUF_STORAGE_BIT);
+			inImage->addImageUsageFlags(asset::ICPUImage::EUF_SAMPLED_BIT);
 			outImage->addImageUsageFlags(asset::ICPUImage::EUF_STORAGE_BIT);
 
 			core::smart_refctd_ptr<asset::ICPUImage> tmp[2] = { inImage, outImage };
@@ -212,6 +215,22 @@ public:
 				outImageView = logicalDevice->createGPUImageView(std::move(creationParams));
 			}
 
+			core::smart_refctd_ptr<video::IGPUSampler> sampler = nullptr;
+			{
+				video::IGPUSampler::SParams params = { };
+				params.TextureWrapU = asset::ISampler::ETC_CLAMP_TO_EDGE;
+				params.TextureWrapV = asset::ISampler::ETC_CLAMP_TO_EDGE;
+				params.TextureWrapW = asset::ISampler::ETC_CLAMP_TO_EDGE;
+				params.BorderColor = asset::ISampler::ETBC_FLOAT_OPAQUE_BLACK;
+				params.MinFilter = asset::ISampler::ETF_LINEAR;
+				params.MaxFilter = asset::ISampler::ETF_LINEAR;
+				params.MipmapMode = asset::ISampler::ESMM_NEAREST;
+				params.AnisotropicFilter = 0u;
+				params.CompareEnable = 0u;
+				params.CompareFunc = asset::ISampler::ECO_ALWAYS;
+				sampler = logicalDevice->createGPUSampler(std::move(params));
+			}
+
 			constexpr uint32_t DESCRIPTOR_COUNT = 2u; // 3u;
 			core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> dsLayout = nullptr;
 			{
@@ -226,7 +245,9 @@ public:
 					bindings[i].count = 1u;
 					bindings[i].stageFlags = asset::IShader::ESS_COMPUTE;
 				}
-				bindings[0].type = asset::EDT_STORAGE_IMAGE;
+				bindings[0].type = asset::EDT_COMBINED_IMAGE_SAMPLER;
+				bindings[0].samplers = &sampler;
+
 				bindings[1].type = asset::EDT_STORAGE_IMAGE;
 				// bindings[2].type = asset::EDT_UNIFORM_BUFFER;
 
@@ -256,7 +277,7 @@ public:
 				}
 
 				// inImage
-				writes[0].descriptorType = asset::EDT_STORAGE_IMAGE;
+				writes[0].descriptorType = asset::EDT_COMBINED_IMAGE_SAMPLER;
 				infos[0].desc = inImageView;
 				infos[0].image.imageLayout = asset::EIL_GENERAL;
 				infos[0].image.sampler = nullptr;
@@ -303,9 +324,11 @@ public:
 			cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE, pipeline->getLayout(), 0u, 1u, &ds.get());
 			push_constants_t pc = { inImageDim[0], outImageDim[0] };
 			cmdbuf->pushConstants(pipeline->getLayout(), asset::IShader::ESS_COMPUTE, 0u, sizeof(push_constants_t), &pc);
-			const uint32_t wgCount = outImageDim[0];
-			// cmdbuf->dispatch(wgCount, 1u, 1u);
-			cmdbuf->dispatch(1u, 1u, 1u);
+			const uint32_t totalWindowCount = outImageDim[0];
+			const uint32_t windowDim = std::ceil(inImageDim[0] / outImageDim[0]);
+			const uint32_t windowsPerWG = WG_DIM / windowDim; // we want to make sure that the WG covers a window COMPLETELY even if it means throwing away some invocations
+			const uint32_t wgCount = (totalWindowCount + windowsPerWG - 1) / windowsPerWG;
+			cmdbuf->dispatch(wgCount, 1u, 1u);
 
 			// after the dispatch download the buffer to check
 			core::smart_refctd_ptr<video::IGPUBuffer> downloadBuffer = nullptr;
