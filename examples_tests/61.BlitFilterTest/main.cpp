@@ -74,8 +74,8 @@ public:
 		logger = std::move(initOutput.logger);
 		inputSystem = std::move(initOutput.inputSystem);
 
-		std::array<uint32_t, 2> inImageDim = { 17*17, 1u }; // { 800u, 5u };
-		std::array<uint32_t, 2> outImageDim = { 17, 1u }; // { 16u, 69u };
+		std::array<uint32_t, 2> inImageDim = { 809u, 1u }; // { 800u, 5u };
+		std::array<uint32_t, 2> outImageDim = { 16u, 1u }; // { 16u, 69u };
 
 		auto inImage = createCPUImage(inImageDim);
 
@@ -90,7 +90,6 @@ public:
 		const core::vectorSIMDf scaleX(1.f, 1.f, 1.f, 1.f);
 		const core::vectorSIMDf scaleY(1.f, 1.f, 1.f, 1.f);
 		const core::vectorSIMDf scaleZ(1.f, 1.f, 1.f, 1.f);
-
 
 		// CPU blit
 		core::vector<float> cpuOutput(outImageDim[0] * outImageDim[1]);
@@ -147,7 +146,6 @@ public:
 
 				float negativeSupport;
 				float positiveSupport;
-				float kernelWeight;
 
 				uint32_t windowDim;
 				uint32_t maxLoadIndex;
@@ -339,13 +337,12 @@ public:
 				const float scale = float(inImageDim[0]) / float(outImageDim[0]);
 				pc.negativeSupport = -0.5f * scale; // kernelX/Y/Z stores absolute values of support so they won't be helpful here
 				pc.positiveSupport = 0.5f * scale;
-				pc.kernelWeight = 1.f/scale;
 				// I think this formulation is better than ceil(scaledPositiveSupport-scaledNegativeSupport) because if scaledPositiveSupport comes out a tad bit
 				// greater than what it should be and if scaledNegativeSupport comes out a tad bit smaller than it should be then the distance between them would
 				// become a tad bit greater than it should be and when we take a ceil it'll jump up to the next integer thus giving us 1 more than the actual window
 				// size, example: 49x1 -> 7x1.
 				// I think (hope) it won't happen with this formulation. 
-				pc.windowDim = 1.f*scale; // cannot use kernelX/Y/Z.getWindowSize() here because they haven't been scaled yet for upscaling/downscaling
+				pc.windowDim = std::ceil(1.f*scale); // cannot use kernelX/Y/Z.getWindowSize() here because they haven't been scaled yet for upscaling/downscaling
 				// the last pixel of the last window which is used to compute the last output pixel, required for bounds checking, avoids repeated computation in the shader
 				const float maxOutputPixelCenter = ((pc.outWidth - 1) + 0.5f) * scale;
 				pc.maxLoadIndex = core::floor( (maxOutputPixelCenter-0.5f) + core::abs(pc.positiveSupport) );

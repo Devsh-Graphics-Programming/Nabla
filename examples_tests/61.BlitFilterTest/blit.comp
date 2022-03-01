@@ -8,12 +8,10 @@ layout(push_constant) uniform Block
 
 	float negativeSupport;
 	float positiveSupport;
-	float weight;
 
 	uint windowDim;
 	uint maxLoadIndex;
 } pc;
-
 
 layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_) in;
 
@@ -53,7 +51,10 @@ float kernelEval(in float x)
 {
 	float result = 0.f;
 	if (x > pc.negativeSupport && x < pc.positiveSupport)
-		result = pc.weight;
+	{
+		const float scale = float(pc.inWidth)/float(pc.outWidth);
+		result = 1.f/scale;
+	}
 	return result;
 }
 
@@ -64,8 +65,8 @@ void main()
 	const float scale = float(pc.inWidth)/float(pc.outWidth);
 
 	// figure out how much of the input image we want to preload into shared memory for this workgroup
-	const float firstOutputPixelCenterOfWG = ((gl_WorkGroupID.x * windowsPerWG) + 0.5f)*scale; // in input space // 514.5
-	const int firstLoadIndex = getWindowMinCoord(firstOutputPixelCenterOfWG); // min window coord of the first pixel, this can go negative in which case we wrap // 538
+	const float firstOutputPixelCenterOfWG = ((gl_WorkGroupID.x * windowsPerWG) + 0.5f)*scale; // in input space
+	const int firstLoadIndex = getWindowMinCoord(firstOutputPixelCenterOfWG); // min window coord of the first pixel, this can go negative in which case we wrap
 	const float lastOutputPixelCenterOfWG = (((gl_WorkGroupID.x+1)*windowsPerWG-1u) + 0.5f)*scale;
 	const int lastLoadIndex = min(int(pc.maxLoadIndex), getWindowMaxCoord(lastOutputPixelCenterOfWG)); // inclusive boundary
 
@@ -79,18 +80,19 @@ void main()
 	}
 	barrier();
 
-	const uint localWindowIndex = uint(gl_LocalInvocationIndex/pc.windowDim); // 0
-	const uint globalWindowIndex = gl_WorkGroupID.x*windowsPerWG + localWindowIndex; // 10
+	const uint localWindowIndex = uint(gl_LocalInvocationIndex/pc.windowDim);
+	const uint globalWindowIndex = gl_WorkGroupID.x*windowsPerWG + localWindowIndex;
 
 	const uint localPixelIndex = gl_LocalInvocationIndex % pc.windowDim; // local to a window
-	const float firstOutputPixelCenterOfWindow = (globalWindowIndex+0.5f)*scale; // globalWindowIndex maps 1-to-1 to output pixel indices // 514.5
-	const int windowMinIndex = getWindowMinCoord(firstOutputPixelCenterOfWindow); // this is in global input space // 490
-	const int globalPixelIndex = int(windowMinIndex + localPixelIndex); // 490+[0..48]
+	const float outputPixelCenter = (globalWindowIndex+0.5f)*scale; // globalWindowIndex maps 1-to-1 to output pixel indices
+	const int windowMinIndex = getWindowMinCoord(outputPixelCenter); // this is in global input space
+	const int globalPixelIndex = int(windowMinIndex + localPixelIndex);
 
-	// firstOutputPixelCenterOfWindow + gl_LocalInvocationIndex%windowDim)
+	const float kernelEvalPoint = (globalPixelIndex+0.5f) - outputPixelCenter;
+	const float weight = kernelEval(kernelEvalPoint);
 
 	if (globalWindowIndex < pc.outWidth)
-		scratchShared[localWindowIndex*pc.windowDim + localPixelIndex] = preloadedInputPixels[globalPixelIndex - firstLoadIndex]*pc.weight; // it is best to apply the weights here, for now, this won't fly later
+		scratchShared[localWindowIndex*pc.windowDim + localPixelIndex] = preloadedInputPixels[globalPixelIndex - firstLoadIndex]*weight; // it is best to apply the weights here, for now, this won't fly later
 	barrier();
 
 	// Todo(achal): Gotta be careful here when windowDim becomes 1 or 0
@@ -110,13 +112,6 @@ void main()
 		}
 		barrier();
 	}
-
-#if 0
-	if ((globalWindowIndex == 10u) && (gl_LocalInvocationIndex == 0u))
-	{
-		imageStore(outImage, int(gl_LocalInvocationIndex), vec4(scratchShared[0], 0.f, 0.f, 0.f));
-	}
-#endif
 
 	// select the first invocation from a window because corresponding to that we'll have the result in scratchShared, to write to the output image
 	if ( (localPixelIndex == 0u) && (localWindowIndex < windowsPerWG) && (globalWindowIndex < pc.outWidth))
