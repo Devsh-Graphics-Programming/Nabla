@@ -57,7 +57,7 @@ class COpenGLSync final : public core::IReferenceCounted
         // Already signalled constructor (for IGPUFence)
         struct signalled_t {};
         constexpr static inline signalled_t signalled = {};
-        inline COpenGLSync(core::smart_refctd_ptr<IOpenGL_LogicalDevice>&& _dev, IOpenGL_FunctionTable* _gl, signalled_t signalled);
+        COpenGLSync(core::smart_refctd_ptr<IOpenGL_LogicalDevice>&& _dev, IOpenGL_FunctionTable* _gl, signalled_t signalled);
 
     private:
         core::smart_refctd_ptr<IOpenGL_LogicalDevice> device;
