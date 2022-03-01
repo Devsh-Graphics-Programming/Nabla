@@ -13,7 +13,6 @@
 #include <iomanip>
 #include <regex>
 #include <cstdarg>
-#include <codecvt>
 
 
 namespace nbl::system
@@ -31,10 +30,6 @@ class ILogger : public core::IReferenceCounted
 			ELL_PERFORMANCE = 8,
 			ELL_ERROR = 16
 		};
-	protected:
-		static core::bitflag<E_LOG_LEVEL> defaultLogMask();
-	public:
-		ILogger(core::bitflag<E_LOG_LEVEL> logLevelMask) : m_logLevelMask(logLevelMask) {}
 
 		void log(const std::string_view& fmtString, E_LOG_LEVEL logLevel = ELL_DEBUG, ...)
 		{
@@ -53,6 +48,10 @@ class ILogger : public core::IReferenceCounted
 		}
 
 	protected:
+		static core::bitflag<E_LOG_LEVEL> defaultLogMask();
+
+		ILogger(core::bitflag<E_LOG_LEVEL> logLevelMask) : m_logLevelMask(logLevelMask) {}
+
 		virtual void log_impl(const std::string_view& fmtString, E_LOG_LEVEL logLevel, va_list args) = 0;
 		virtual std::string constructLogString(const std::string_view& fmtString, E_LOG_LEVEL logLevel, va_list l)
 		{
@@ -106,14 +105,7 @@ class ILogger : public core::IReferenceCounted
  			return out_str;
 			return "";
 		}
-		virtual std::wstring constructLogWstring(const std::wstring_view& fmtString, E_LOG_LEVEL logLevel, va_list l)
-		{
-			std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
-			std::string narrow = converter.to_bytes(std::wstring(fmtString));
-			std::string narrowStr = constructLogString(narrow, logLevel, l);
-			std::wstring wide = converter.from_bytes(narrowStr);
-			return wide;
-		}
+
 	private:
 		core::bitflag<E_LOG_LEVEL> m_logLevelMask;
 };

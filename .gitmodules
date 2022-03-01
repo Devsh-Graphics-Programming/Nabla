@@ -20,12 +20,6 @@
 [submodule "3rdparty/zlib"]
 	path = 3rdparty/zlib
 	url = https://github.com/madler/zlib.git
-[submodule "3rdparty/utfcpp"]
-	path = 3rdparty/utfcpp
-	url = https://github.com/nemtrif/utfcpp.git
-[submodule "3rdparty/convertutf"]
-	path = 3rdparty/convertutf
-	url = https://github.com/plenluno/convertutf.git
 [submodule "3rdparty/libpng"]
 	path = 3rdparty/libpng
 	url = https://github.com/glennrp/libpng.git

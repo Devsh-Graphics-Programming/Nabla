@@ -376,8 +376,6 @@ if (NBL_EMBED_BUILTIN_RESOURCES)
 endif()
 
 set(COMMON_INCLUDE_DIRS
-	${THIRD_PARTY_SOURCE_DIR}/convertutf # TODO: remove
-	${THIRD_PARTY_SOURCE_DIR}/utfcpp/source # TODO: remove
 	${THIRD_PARTY_SOURCE_DIR}/glm
         ${THIRD_PARTY_SOURCE_DIR}/renderdoc # for renderdoc api header
 	${CMAKE_BINARY_DIR}/3rdparty/zlib #for dynamically generated zconf.h
@@ -386,10 +384,6 @@ set(COMMON_INCLUDE_DIRS
 	$<TARGET_PROPERTY:png_static,BINARY_DIR> #for dynamically generated pnglibconf.h
 	$<TARGET_PROPERTY:jpeg-static,BINARY_DIR> #for dynamically generated jconfig.h
 )
-
-macro(nbl_target_link_utfcpp _trgt)  # TODO: remove
-	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/utfcpp/source)
-endmacro()
 
 # TODO: Change all MACROS into FUNCTIONS (if possible, need to clarify variable scoping rules)
 macro(nbl_target_link_zlib _trgt)
@@ -505,7 +499,6 @@ add_library(Nabla STATIC
 	${NABLA_HEADERS}
 	$<TARGET_OBJECTS:aesGladman>
 	$<TARGET_OBJECTS:bzip2>
-	$<TARGET_OBJECTS:convert_utf>
 	$<TARGET_OBJECTS:lz4>
 	$<TARGET_OBJECTS:lzma>
 	$<TARGET_OBJECTS:spirv_cross>

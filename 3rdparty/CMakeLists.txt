@@ -18,8 +18,6 @@ if(NBL_UPDATE_GIT_SUBMODULE)
 	update_git_submodule(./nbl_spirv_cross)
 	update_git_submodule(./zlib)
 	update_git_submodule(./openexr)
-	update_git_submodule(./utfcpp) # TODO: remove
-	update_git_submodule(./convertutf) # TODO: remove
 	update_git_submodule(./libpng)
 	update_git_submodule(./openssl)
 	update_git_submodule(./libjpeg-turbo)
@@ -269,12 +267,6 @@ add_library(spirv_cross OBJECT
 target_compile_definitions(spirv_cross PUBLIC SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS)
 
 
-# TODO: remove
-add_library(convert_utf OBJECT
-	convertutf/ConvertUTF.cpp
-)
-
-
 add_library(aesGladman OBJECT
 	aesGladman/aes_ni.c
 	aesGladman/aescrypt.c
@@ -350,7 +342,6 @@ set(NBL_3RDPARTY_TARGETS
 				shaderc_util
 				shaderc
 				jpeg-static
-				convert_utf
 				bzip2			
 				glslang
 				OGLCompiler 
