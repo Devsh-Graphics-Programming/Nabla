@@ -382,7 +382,7 @@ namespace nbl::system
 					delete[] decryptedBuf;
 					return 0;
 				}
-				decrypted = core::make_smart_refctd_ptr<CFileView<VirtualAllocator>>(core::smart_refctd_ptr<ISystem>(m_system), found->fullName, IFile::ECF_READ_WRITE, decryptedSize);//new io::CMemoryReadFile(decryptedBuf, decryptedSize, found->FullName);
+				decrypted = core::make_smart_refctd_ptr<CFileView<VirtualAllocator>>(core::smart_refctd_ptr<ISystem>(m_system), found->fullName, IFile::ECF_READ_WRITE, decryptedSize);
 
 				{
 					write_blocking(decrypted.get(), decryptedBuf, 0, decryptedSize);

@@ -185,62 +185,47 @@ class ISystem : public core::IReferenceCounted
             return f;
         }
 
-    protected:
-        virtual ~ISystem() {}
-
-        struct Loaders
-        {
-            core::vector<core::smart_refctd_ptr<IArchiveLoader> > vector;
-            //! The key is file extension
-            core::CMultiObjectCache<std::string,core::smart_refctd_ptr<IArchiveLoader>,std::vector> perFileExt;
-
-            void pushToVector(core::smart_refctd_ptr<IArchiveLoader>&& _loader)
-            {
-                vector.push_back(std::move(_loader));
-            }
-            void eraseFromVector(decltype(vector)::const_iterator _loaderItr)
-            {
-                vector.erase(_loaderItr);
-            }
-        } m_loaders;
-
-        core::CMultiObjectCache<system::path,core::smart_refctd_ptr<IFileArchive>> m_cachedArchiveFiles;
-
     public:
         template <typename T>
         using future_t = CAsyncQueue::future_t<T>;
 
+        //
         explicit ISystem(core::smart_refctd_ptr<ISystemCaller>&& caller);
 
-        uint32_t addArchiveLoader(core::smart_refctd_ptr<IArchiveLoader>&& loader)
-        {
-            const char** exts = loader->getAssociatedFileExtensions();
-            uint32_t i = 0u;
-            while (const char* e = exts[i++])
-                m_loaders.perFileExt.insert(e, core::smart_refctd_ptr(loader));
-            m_loaders.pushToVector(std::move(loader));
+        //
+        core::smart_refctd_ptr<IFile> loadBuiltinData(const std::string& builtinPath);
 
-            return m_loaders.vector.size() - 1u;
+        //! Compile time resource ID
+        template<typename StringUniqueType>
+        inline core::smart_refctd_ptr<IFile> loadBuiltinData()
+        {
+        #ifdef _NBL_EMBED_BUILTIN_RESOURCES_
+            return impl_loadEmbeddedBuiltinData(StringUniqueType::value,nbl::builtin::get_resource<StringUniqueType>());
+        #else
+            return loadBuiltinData(StringUniqueType::value);
+        #endif
         }
 
         //
-        bool exists(const system::path& filename, core::bitflag<IFile::E_CREATE_FLAGS> flags) const
-        {
-        #ifdef _NBL_EMBED_BUILTIN_RESOURCES_
-            std::pair<const uint8_t*, size_t> found = nbl::builtin::get_resource_runtime(filename.string());
-            if (found.first && found.second)
-                return true;
-        #endif
-            // filename too long
-            if (filename.string().size() >= sizeof(SRequestParams_CREATE_FILE::filename))
-                return false;
-            // archive file
-            if (flags.value&IFile::ECF_READ)
-            if (std::get<IFileArchive*>(findFileInArchive(filename)))
-                return true;
-            // regular file
-            return std::filesystem::exists(filename);
-        }
+        void addArchiveLoader(core::smart_refctd_ptr<IArchiveLoader>&& loader);
+
+        // `flags` is the intended usage of the file
+        bool exists(const system::path& filename, core::bitflag<IFile::E_CREATE_FLAGS> flags) const;
+
+        /*
+            Returns true if the path is writable (e.g. if p is a path inside an archive the function will return true).
+            The path existence is not checked.
+        */
+        bool isPathReadOnly(const system::path& p);
+
+        // can only perform operations on non-virtual filesystem paths
+        bool createDirectory(const system::path& p);
+
+        // can only perform operations on non-virtual filesystem paths
+        bool deleteDirectory(const system::path& p);
+
+        // can only perform operations on non-virtual filesystem paths
+        std::error_code moveFileOrDirectory(const system::path& oldPath, const system::path& newPath);
 
         //
         bool createFile(future_t<core::smart_refctd_ptr<IFile>>& future, const std::filesystem::path& filename, core::bitflag<IFile::E_CREATE_FLAGS> flags)
@@ -256,55 +241,9 @@ class ISystem : public core::IReferenceCounted
 
             return true;
         }
-
-        inline core::smart_refctd_ptr<IFile> loadBuiltinData(const std::string& builtinPath)
-        {
-         #ifdef _NBL_EMBED_BUILTIN_RESOURCES_
-            std::pair<const uint8_t*, size_t> found = nbl::builtin::get_resource_runtime(builtinPath);
-            if (found.first && found.second)
-            {
-                auto fileView = core::make_smart_refctd_ptr<CFileView<VirtualAllocator>>(core::smart_refctd_ptr<ISystem>(this), builtinPath, core::bitflag<IFile::E_CREATE_FLAGS>(IFile::ECF_READ) | IFile::ECF_WRITE, found.second);
-                fileView->write_impl(found.first, 0, found.second);
-                return fileView;
-            }
-            return nullptr;
-        #else
-            constexpr auto pathPrefix = "nbl/builtin/";
-            auto pos = builtinPath.find(pathPrefix);
-            std::string path;
-            if (pos != std::string::npos)
-                path = builtinResourceDirectory + builtinPath.substr(pos + strlen(pathPrefix));
-            else
-                path = builtinResourceDirectory + builtinPath;
-
-            future_t<core::smart_refctd_ptr<IFile>> fut;
-            createFile(future, path.c_str(), core::bitflag<IFile::E_CREATE_FLAGS>(IFile::ECF_READ) :: IFile::ECF_MAPPABLE);
-            auto file = fut.get();
-            if (file.get())
-            {
-                return file;
-            }
-            return nullptr;
-        #endif
-        }
-        //! Compile time resource ID
-        template<typename StringUniqueType>
-        inline core::smart_refctd_ptr<IFile> loadBuiltinData()
-        {
-        #ifdef _NBL_EMBED_BUILTIN_RESOURCES_
-            std::pair<const uint8_t*, size_t> found = nbl::builtin::get_resource<StringUniqueType>();
-            if (found.first && found.second)
-            {
-                auto fileView = core::make_smart_refctd_ptr<CFileView<VirtualAllocator>>(core::smart_refctd_ptr<ISystem>(this), StringUniqueType::value, core::bitflag<IFile::E_CREATE_FLAGS>(IFile::ECF_READ) | IFile::ECF_WRITE, found.second);
-                fileView->write_impl(found.first, 0, found.second);
-                return fileView;
-            }
-            return nullptr;
-        #else
-            return loadBuiltinData(StringUniqueType::value);
-        #endif
-        }
-
+        
+        // Create a IFileArchive from a IFile
+        core::smart_refctd_ptr<IFileArchive> openFileArchive(core::smart_refctd_ptr<IFile>&& file, const std::string_view& password="");
         //! Warning: blocking call
         core::smart_refctd_ptr<IFileArchive> openFileArchive(const std::filesystem::path& filename, const std::string_view& password = "")
         {
@@ -316,72 +255,23 @@ class ISystem : public core::IReferenceCounted
             if (file.get() == nullptr) return nullptr;
             return openFileArchive(std::move(file), password);
         }
-        core::smart_refctd_ptr<IFileArchive> openFileArchive(core::smart_refctd_ptr<IFile>&& file, const std::string_view& password = "")
-        {
-            if (file->getFlags() & IFile::ECF_READ == 0)
-                return nullptr;
 
-            auto ext = system::extension_wo_dot(file->getFileName());
-            auto loaders = m_loaders.perFileExt.findRange(ext);
-            for (auto& loader : loaders)
-            {
-                auto arch = loader.second->createArchive(std::move(file), password);
-                if (arch.get() == nullptr) continue;
-                return arch;
-            }
-            return nullptr;
-        }
-
-        void mount(core::smart_refctd_ptr<IFileArchive>&& archive, const system::path& pathAlias = "")
+        inline void mount(core::smart_refctd_ptr<IFileArchive>&& archive, const system::path& pathAlias="")
         {
-            auto path = archive->asFile()->getFileName();
-            m_cachedArchiveFiles.insert(path, std::move(archive));
-            if (!pathAlias.empty())
-            {
-                m_cachedArchiveFiles.insert(pathAlias, std::move(archive));
-            }
-        }
-        void unmount(const IFileArchive* archive, const system::path& pathAlias)
-        {
-            assert(false); // TODO(dan): i swear i'll get to it at some point
-        }
-
-        /*
-            Returns true if the path is writable (e.g. if p is a path inside an archive the function will return true).
-            The path existence is not checked.
-        */
-        bool isPathReadOnly(const system::path& p)
-        {
-            auto curPath = p;
-            while (!curPath.empty() && curPath.parent_path() != curPath)
-            {
-                auto archives = m_cachedArchiveFiles.findRange(curPath);
-                if (!archives.empty()) return true;
-
-                curPath = curPath.parent_path().generic_string();
-            }
-            return false;
-        }
-
-        bool createDirectory(const system::path& p)
-        {
-            return std::filesystem::create_directories(p);
-        }
-
-        bool deleteDirectory(const system::path& p)
-        {
-            if (std::filesystem::exists(p))
-                return std::filesystem::remove_all(p);
+            if (pathAlias.empty())
+                m_cachedArchiveFiles.insert(archive->asFile()->getFileName(),std::move(archive));
             else
-                return false;
+                m_cachedArchiveFiles.insert(pathAlias,std::move(archive));
+        }
+        void unmount(const IFileArchive* archive, const system::path& pathAlias="")
+        {
+            auto dummy = reinterpret_cast<const core::smart_refctd_ptr<IFileArchive>&>(archive);
+            if (pathAlias.empty())
+                m_cachedArchiveFiles.removeObject(dummy,archive->asFile()->getFileName());
+            else
+                m_cachedArchiveFiles.removeObject(dummy,pathAlias);
         }
 
-        bool moveFileOrDirectory(const system::path oldPath, const system::path newPath)
-        {
-            std::error_code ec;
-            std::filesystem::rename(oldPath, newPath, ec);
-            return static_cast<bool>(ec);
-        }
         /*
             Recursively lists all files and directories in the directory.
         */
@@ -533,6 +423,33 @@ class ISystem : public core::IReferenceCounted
             std::string OSFullName;
         };
         virtual SystemInfo getSystemInfo() const = 0;
+        
+
+    protected:
+        virtual ~ISystem() {}
+
+        //
+        core::smart_refctd_ptr<IFile> impl_loadEmbeddedBuiltinData(const std::string& builtinPath, const std::pair<const uint8_t*,size_t>& found);
+
+
+        //
+        struct Loaders
+        {
+            core::vector<core::smart_refctd_ptr<IArchiveLoader> > vector;
+            //! The key is file extension
+            core::CMultiObjectCache<std::string,core::smart_refctd_ptr<IArchiveLoader>,std::vector> perFileExt;
+
+            void pushToVector(core::smart_refctd_ptr<IArchiveLoader>&& _loader)
+            {
+                vector.push_back(std::move(_loader));
+            }
+            void eraseFromVector(decltype(vector)::const_iterator _loaderItr)
+            {
+                vector.erase(_loaderItr);
+            }
+        } m_loaders;
+        //
+        core::CMultiObjectCache<system::path,core::smart_refctd_ptr<IFileArchive>> m_cachedArchiveFiles;
 };
 
 template<typename T>

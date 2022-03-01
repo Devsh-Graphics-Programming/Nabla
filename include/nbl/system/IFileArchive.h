@@ -3,18 +3,14 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
-#ifndef __NBL_I_FILE_ARCHIVE_H_INCLUDED__
-#define __NBL_I_FILE_ARCHIVE_H_INCLUDED__
-
+#ifndef _NBL_I_FILE_ARCHIVE_H_INCLUDED_
+#define _NBL_I_FILE_ARCHIVE_H_INCLUDED_
 
 #include "nbl/system/IFile.h"
 #include "nbl/system/CFileView.h"
 #include "nbl/system/IFileViewAllocator.h"
-#include "nbl/system/CFileViewVirtualAllocatorWin32.h"
-namespace nbl
-{
 
-namespace system
+namespace nbl::system
 {
 
 template<typename T>
@@ -57,8 +53,8 @@ public:
 //! The FileArchive manages archives and provides access to files inside them.
 class IFileArchive : public core::IReferenceCounted
 {
-	static inline constexpr size_t SIZEOF_INNER_ARCHIVE_FILE = std::max(sizeof(CInnerArchiveFile<CPlainHeapAllocator>), sizeof(CInnerArchiveFile<VirtualAllocator>));
-	static inline constexpr size_t ALIGNOF_INNER_ARCHIVE_FILE = std::max(alignof(CInnerArchiveFile<CPlainHeapAllocator>), alignof(CInnerArchiveFile<VirtualAllocator>));
+	static inline constexpr size_t SIZEOF_INNER_ARCHIVE_FILE = std::max(sizeof(CInnerArchiveFile<CPlainHeapAllocator>), sizeof(CInnerArchiveFile<VirtualMemoryAllocator>));
+	static inline constexpr size_t ALIGNOF_INNER_ARCHIVE_FILE = std::max(alignof(CInnerArchiveFile<CPlainHeapAllocator>), alignof(CInnerArchiveFile<VirtualMemoryAllocator>));
 
 protected:
 	enum E_ALLOCATOR_TYPE
@@ -169,7 +165,7 @@ public:
 			return getFile_impl<CPlainHeapAllocator>(params, index);
 			break;
 		case EAT_VIRTUAL_ALLOC:
-			return getFile_impl<VirtualAllocator>(params, index);
+			return getFile_impl<VirtualMemoryAllocator>(params, index);
 			break;
 		}
 		assert(false);
@@ -206,7 +202,9 @@ public:
 	}
 
 	const core::vector<SFileListEntry>& getArchivedFiles() const { return m_files; }
+
 	IFile* asFile() { return m_file.get(); }
+	const IFile* asFile() const { return m_file.get(); }
 protected:
 	void setFlagsVectorSize(size_t fileCount);
 
@@ -270,9 +268,7 @@ protected:
 	virtual core::smart_refctd_ptr<IFileArchive> createArchive_impl(core::smart_refctd_ptr<IFile>&& file, const std::string_view& password) const = 0;
 };
 
-
-} // end namespace system
-} // end namespace nbl
+} // end namespace nbl::system
 
 #endif
 
