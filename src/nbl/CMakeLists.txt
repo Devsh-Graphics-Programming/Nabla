@@ -45,6 +45,7 @@ message(FATAL_ERROR "XDDDDDDD")
 if (NOT ANDROID)
 	find_package(OpenGL REQUIRED OPTIONAL_COMPONENTS EGL)
 else()
+	# TODO: @AnastaZluk we have these in our own 3rdparty anyway!
 	find_path(GLES3_INCLUDE_DIR GLES3/gl31.h HINTS ${ANDROID_NDK_ROOT_PATH} REQUIRED)
 	if (${GLES3_INCLUDE_DIR})
 		set(OpenGL_OpenGL_FOUND True)
@@ -56,6 +57,7 @@ else()
 	endif()
 endif()
 if(UNIX AND NOT ANDROID)
+	# TODO: maybe require the `-dev` packages for both? (or ship headers ourselves?)
 	find_package(Wayland)
 	find_package(X11 REQUIRED)
 	set(CMAKE_THREAD_PREFER_PTHREAD 1)
@@ -124,7 +126,7 @@ option(_NBL_COMPILE_WITH_GLTF_WRITER_ "Compile with GLTF Writer" ON)
 if(NBL_BUILD_ANDROID)
 	set(_NBL_COMPILE_WITH_BAW_LOADER_ OFF CACHE BOOL "Off for Android purposes at the moment" FORCE)	# TODO - remove when BAW-v4 is done
 	set(_NBL_COMPILE_WITH_BAW_WRITER_ OFF CACHE BOOL "Off for Android purposes at the moment" FORCE)	# TODO - remove when BAW-v4 is done
-	set(NBL_BUILD_MITSUBA_LOADER OFF CACHE BOOL "Off for Android purposes at the moment" FORCE) 		# TODO - compile/linker errors
+	set(NBL_BUILD_MITSUBA_LOADER OFF CACHE BOOL "Android doesn't need this loader, if you want it, pay us.'" FORCE)
 endif()
 
 nbl_get_conf_dir(NABLA_CONF_DIR_DEBUG Debug)
@@ -147,6 +149,8 @@ endif()
 set(_NBL_EMBED_BUILTIN_RESOURCES_ ${NBL_EMBED_BUILTIN_RESOURCES})
 
 #set(_NBL_TARGET_ARCH_ARM_ ${NBL_TARGET_ARCH_ARM}) #uncomment in the future
+
+# TODO: this is a mess and not the right way to about it
 if (WAYLAND_CLIENT_FOUND AND OpenGL_EGL_FOUND)
 	set(_NBL_BUILD_WITH_WAYLAND 1)
 	#message(FATAL_ERROR "found wayland! ${WAYLAND_CLIENT_LIBRARY}")
@@ -154,6 +158,7 @@ else()
 	set(_NBL_BUILD_WITH_WAYLAND 0)
 	#message(FATAL_ERROR "NOT found wayland!")
 endif()
+
 set(__NBL_FAST_MATH ${NBL_FAST_MATH})
 set(_NBL_DEBUG 0)
 set(_NBL_RELWITHDEBINFO 0)
@@ -165,6 +170,8 @@ set(_NBL_DEBUG 1)
 set(_NBL_RELWITHDEBINFO 0)
 configure_file("${NBL_ROOT_PATH}/include/nbl/config/BuildConfigOptions.h.in" "${NABLA_CONF_DIR_DEBUG}/BuildConfigOptions.h")
 
+
+# a little bit of globbing for headers never hurt anyone
 file(GLOB_RECURSE TEMP_GLOB_RES "${NBL_ROOT_PATH}/include/*.h")
 set(NABLA_HEADERS_PUBLIC ${NABLA_HEADERS_PUBLIC} ${TEMP_GLOB_RES})
 file(GLOB_RECURSE TEMP_GLOB_RES "${NBL_ROOT_PATH}/include/*.tcc")
@@ -175,6 +182,8 @@ file(GLOB_RECURSE NABLA_HEADERS_PRIV2 "${NBL_ROOT_PATH}/src/nbl/*.h")
 # just gather all the header files and later put them into project so it's easy to search for things using IDE
 set(NABLA_HEADERS "${CMAKE_CURRENT_BINARY_DIR}/include/nabla.h" ${NABLA_HEADERS_PUBLIC} ${NABLA_HEADERS_PIRV1} ${NABLA_HEADERS_PRIV2})
 
+
+#
 set(NBL_CORE_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/core/IReferenceCounted.cpp
 )
@@ -234,7 +243,6 @@ set(NBL_ASSET_SOURCES
 
 # Mesh writers
 #	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/CBAWMeshWriter.cpp
-
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CPLYMeshWriter.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CSTLMeshWriter.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CGLTFWriter.cpp
@@ -275,10 +283,6 @@ set(NBL_VIDEO_SOURCES
 # Allocators
 	${NBL_ROOT_PATH}/src/nbl/video/alloc/SimpleGPUBufferAllocator.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/alloc/StreamingGPUBufferAllocator.cpp
-	
-# Shaders
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLShader.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLSpecializedShader.cpp
 
 # Utilities
 	${NBL_ROOT_PATH}/src/nbl/video/utilities/IDescriptorSetCache.cpp
@@ -293,31 +297,28 @@ set(NBL_VIDEO_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/video/ILogicalDevice.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IGPUFence.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IDriverMemoryAllocation.cpp
-)
-set(NBL_SCENE_SOURCES
-	${NBL_ROOT_PATH}/src/nbl/scene/ITransformTree.cpp
-)
-set(NABLA_SRCS_COMMON
-	${NBL_CORE_SOURCES}
-	${NBL_SYSTEM_SOURCES}
-	${NBL_ASSET_SOURCES}
-	${NBL_VIDEO_SOURCES}
-	${NBL_SCENE_SOURCES}
-	${NBL_SYSTEM_SOURCES}
-	${NBL_UI_SOURCES}
-)
 
-if(MSVC)
-	list(APPEND NABLA_SRCS_COMMON "${PROJECT_SOURCE_DIR}/tools/debug/VisualStudio/DynamicArrayVisualizer.natvis")
-endif()
-
-if (NBL_EMBED_BUILTIN_RESOURCES)
-	list(APPEND NABLA_SRCS_COMMON "${CMAKE_BINARY_DIR}/src/nbl/builtin/builtinResourceData.cpp")
-endif()
-
-
-set(NABLA_SRCS_NORMAL
-	# Vulkan
+# OpenGL
+	${NBL_ROOT_PATH}/src/nbl/video/IOpenGL_FunctionTable.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/COpenGLPipelineCache.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/COpenGLImage.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/COpenGLImageView.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/COpenGLBuffer.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/COpenGLBufferView.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/COpenGLSpecializedShader.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/COpenGLSampler.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/COpenGLCommandBuffer.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/SOpenGLContextLocalCache.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/COpenGLSync.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/COpenGLShader.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/COpenGLRenderpassIndependentPipeline.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/COpenGLFramebuffer.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/COpenGL_Connection.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/COpenGLComputePipeline.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/COpenGLQueryPool.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/debug/COpenGLDebugCallback.cpp
+	
+# Vulkan
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanSwapchain.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanFence.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanImage.cpp
@@ -347,30 +348,32 @@ set(NABLA_SRCS_NORMAL
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanGraphicsPipeline.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanEvent.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CSurfaceVulkan.cpp
-
-
-	#opengl
-	${NBL_ROOT_PATH}/src/nbl/video/IOpenGL_FunctionTable.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLPipelineCache.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLImage.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLImageView.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLBuffer.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLBufferView.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLSampler.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLCommandBuffer.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/SOpenGLContextLocalCache.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLSync.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLRenderpassIndependentPipeline.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLFramebuffer.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGL_Connection.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLComputePipeline.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLQueryPool.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/debug/COpenGLDebugCallback.cpp
 	
-	# CUDA
+# CUDA
 	${NBL_ROOT_PATH}/src/nbl/video/CCUDAHandler.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CCUDADevice.cpp
 )
+
+set(NBL_SCENE_SOURCES
+	${NBL_ROOT_PATH}/src/nbl/scene/ITransformTree.cpp
+)
+
+set(NABLA_SRCS_COMMON
+	${NBL_CORE_SOURCES}
+	${NBL_SYSTEM_SOURCES}
+	${NBL_UI_SOURCES}
+	${NBL_ASSET_SOURCES}
+	${NBL_VIDEO_SOURCES}
+	${NBL_SCENE_SOURCES}
+)
+
+if(MSVC)
+	list(APPEND NABLA_SRCS_COMMON "${PROJECT_SOURCE_DIR}/tools/debug/VisualStudio/DynamicArrayVisualizer.natvis")
+endif()
+
+if (NBL_EMBED_BUILTIN_RESOURCES)
+	list(APPEND NABLA_SRCS_COMMON "${CMAKE_BINARY_DIR}/src/nbl/builtin/builtinResourceData.cpp")
+endif()
 
 set(COMMON_INCLUDE_DIRS
 	${THIRD_PARTY_SOURCE_DIR}/convertutf # TODO: remove
@@ -499,7 +502,6 @@ endmacro()
 
 add_library(Nabla STATIC
 	${NABLA_SRCS_COMMON}
-	${NABLA_SRCS_NORMAL}
 	${NABLA_HEADERS}
 	$<TARGET_OBJECTS:aesGladman>
 	$<TARGET_OBJECTS:bzip2>
