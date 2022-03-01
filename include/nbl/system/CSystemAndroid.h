@@ -1,5 +1,6 @@
 #ifndef _NBL_SYSTEM_C_SYSTEM_ANDROID_H_INCLUDED_
 #define _NBL_SYSTEM_C_SYSTEM_ANDROID_H_INCLUDED_
+
 #ifdef _NBL_PLATFORM_ANDROID_
 #include "nbl/system/ISystem.h"
 #include "nbl/system/CAPKResourcesArchive.h"
@@ -34,4 +35,5 @@ namespace nbl::system
 	};
 }
 #endif
+
 #endif

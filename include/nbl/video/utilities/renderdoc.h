@@ -1,5 +1,5 @@
-#ifndef __NBL_VIDEO_UTILITIES_RENDERDOC_H_INCLUDED_
-#define __NBL_VIDEO_UTILITIES_RENDERDOC_H_INCLUDED_
+#ifndef _NBL_VIDEO_UTILITIES_RENDERDOC_H_INCLUDED_
+#define _NBL_VIDEO_UTILITIES_RENDERDOC_H_INCLUDED_
 
 #include "renderdoc/renderdoc_app.h" // renderdoc_app from /3rdparty
 

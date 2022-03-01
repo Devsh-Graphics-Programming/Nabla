@@ -384,10 +384,6 @@ set(COMMON_INCLUDE_DIRS
 	$<TARGET_PROPERTY:jpeg-static,BINARY_DIR> #for dynamically generated jconfig.h
 )
 
-macro(nbl_target_link_vulkan _trgt) # we don't want to link against library directly
-	target_include_directories(${_trgt} PUBLIC "$ENV{VULKAN_SDK}/include")
-endmacro()
-
 macro(nbl_target_link_utfcpp _trgt)  # TODO: remove
 	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/utfcpp/source)
 endmacro()
@@ -536,9 +532,7 @@ set_property(TARGET Nabla PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG
 if(ANDROID AND NOT "${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Windows") # OpenSSL can't be built for Android platform using windows OS host
 	add_dependencies(Nabla openssl_build)
 endif()
-if(DEFINED ENV{VULKAN_SDK})
-	nbl_target_link_vulkan(Nabla)
-endif()
+target_include_directories(Nabla PUBLIC "${THIRD_PARTY_SOURCE_DIR}/Vulkan-Headers/include")
 nbl_target_link_openssl(Nabla)
 nbl_target_link_zlib(Nabla)
 nbl_target_link_shaderc(Nabla)

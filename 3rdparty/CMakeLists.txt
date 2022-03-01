@@ -47,29 +47,30 @@ set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
 set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
 set(BUILD_TESTING ${_OLD_BUILD_TESTING})
 
+
 # openssl
 add_subdirectory(openssl openssl EXCLUDE_FROM_ALL)
 
+
 # volk
-if(DEFINED ENV{VULKAN_SDK})
-	# workaround to make sure vulkan library will not be linked in examples
-	set(VOLK_PULL_IN_VULKAN OFF CACHE INTERNAL "" FORCE)
+set(VOLK_PULL_IN_VULKAN OFF CACHE INTERNAL "" FORCE) # Needed to make sure vulkan library will not be linked in examples
 	
-	if (WIN32)
-		set(VOLK_STATIC_DEFINES VK_USE_PLATFORM_WIN32_KHR)
-	endif()
-	add_subdirectory(volk volk EXCLUDE_FROM_ALL)
-	
-    target_include_directories(volk PUBLIC "$ENV{VULKAN_SDK}/Include")
-    target_include_directories(volk_headers INTERFACE "$ENV{VULKAN_SDK}/Include")
+if (WIN32)
+	set(VOLK_STATIC_DEFINES VK_USE_PLATFORM_WIN32_KHR)
 endif()
+add_subdirectory(volk volk EXCLUDE_FROM_ALL)
+	
+target_include_directories(volk PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Vulkan-Headers/include")
+target_include_directories(volk_headers INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/Vulkan-Headers/include")
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 	add_subdirectory(pstl pstl)
 endif()
 
+
+# TODO: redo
 find_package(OpenGL OPTIONAL_COMPONENTS EGL)
-find_package(Wayland)  # TODO: remove, do it dynamically
+find_package(Wayland)  # TODO: remove, load Wayland dynamically
 #[[if (OpenGL_EGL_FOUND)
 	message(FATAL_ERROR "FOUND EGL!!")
 else()
@@ -85,7 +86,9 @@ if (OpenGL_EGL_FOUND AND UNIX AND NOT APPLE)
 		message(FATAL_ERROR "Using Wayland backend!!!")
 	endif()
 endif()
+# all of the above fuckery can be dismissed
 add_subdirectory(EGL/EGL)
+
 
 # zlib (target is zlibstatic)
 set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
@@ -139,6 +142,7 @@ set(ZLIB_LIBRARY # for PNGLIB purposes
 		$<$<CONFIG:RelWithDebInfo>:${ZLIB_LIBRARY_RELWITHDEBINFO}>
 CACHE INTERNAL "" FORCE)
 
+
 set(SPIRV_HEADERS_SKIP_INSTALL ON CACHE INTERNAL "Skip SPIRV-Headers install")
 set(SPIRV_HEADERS_SKIP_EXAMPLES ON CACHE INTERNAL "Skip SPIRV-Headers examples")
 add_subdirectory(SPIRV-Headers SPIRV-Headers EXCLUDE_FROM_ALL)
@@ -164,6 +168,7 @@ if (UNIX)
 endif()
 add_subdirectory(shaderc shaderc EXCLUDE_FROM_ALL)
 
+
 # libjpeg-turbo
 option(WITH_SIMD "libjpeg-turbo" ON)
 option(WITH_MEM_SRCDST "libjpeg-turbo" ON)
@@ -179,12 +184,14 @@ add_subdirectory(libjpeg-turbo libjpeg-turbo EXCLUDE_FROM_ALL)
 unset(CMAKE_INSTALL_DOCDIR)
 unset(CMAKE_INSTALL_MANDIR)
 
+
 #manipulating libpng cmake options from within cmake script
 set(PNG_BUILD_ZLIB ON CACHE INTERNAL "" FORCE) # get ZLIB from our /3rdparty
 option(PNG_SHARED "Build shared lib" OFF)
 option(PNG_TESTS  "Build libpng tests" OFF)
 add_subdirectory(libpng libpng EXCLUDE_FROM_ALL)
 add_dependencies(png_static zlibstatic)
+
 
 #openexr
 option(_NBL_COMPILE_WITH_OPEN_EXR_ "Build with OpenEXR library" ON)
@@ -204,6 +211,7 @@ if (_NBL_COMPILE_WITH_OPEN_EXR_)
 	set(BUILD_TESTING ${_OLD_BUILD_TESTING})
 endif()
 
+
 #gli
 option(_NBL_COMPILE_WITH_GLI_ "Build with GLI library" ON)
 if(_NBL_COMPILE_WITH_GLI_)
@@ -219,7 +227,9 @@ if(_NBL_COMPILE_WITH_GLI_)
 	set(BUILD_TESTING ${_OLD_BUILD_TESTING})
 endif()
 
+
 nbl_adjust_flags()
+
 
 add_library(lzma OBJECT
 	lzma/C/Alloc.c
@@ -229,12 +239,14 @@ add_library(lzma OBJECT
 )
 target_compile_definitions(lzma PRIVATE _7ZIP_ST)
 
+
 add_library(lz4 OBJECT
 	lz4/lib/lz4.c
 	lz4/lib/lz4frame.c
 	lz4/lib/lz4hc.c
 	lz4/lib/xxhash.c
 )
+
 
 add_library(bzip2 OBJECT
 	bzip2/blocksort.c
@@ -256,10 +268,12 @@ add_library(spirv_cross OBJECT
 )
 target_compile_definitions(spirv_cross PUBLIC SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS)
 
+
 # TODO: remove
 add_library(convert_utf OBJECT
 	convertutf/ConvertUTF.cpp
 )
+
 
 add_library(aesGladman OBJECT
 	aesGladman/aes_ni.c
@@ -278,6 +292,7 @@ option(GLM_TEST_ENABLE "Build unit tests" OFF)
 #add_subdirectory(glm EXCLUDE_FROM_ALL)
 set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
 set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
+
 
 if (NBL_BUILD_MITSUBA_LOADER)
 	if(NBL_UPDATE_GIT_SUBMODULE)
@@ -304,6 +319,7 @@ if (NBL_BUILD_MITSUBA_LOADER)
    set(MITSUBA_LOADER_DEPENDENT_LIBS ${MITSUBA_LOADER_DEPENDENT_LIBS} PARENT_SCOPE)
 endif()
 
+
 if (NBL_BUILD_BULLET)
 	if(NBL_UPDATE_GIT_SUBMODULE)
 		update_git_submodule(./bullet3)
@@ -322,6 +338,8 @@ if (NBL_COMPILE_WITH_CUDA)
 	endif()
 endif()
 
+
+# Final gather
 set(NBL_3RDPARTY_TARGETS
 				lzma
 				lz4
@@ -376,6 +394,8 @@ endforeach()
 
 set(_NBL_3RDPARTY_TARGETS_ ${NBL_3RDPARTY_TARGETS} PARENT_SCOPE)
 
+
+## REMINDER / NOTE : This is how we install 3rdparty headers we need !
 # parallel hashmap headers
 install(
 	DIRECTORY ./parallel-hashmap/parallel_hashmap 
@@ -383,7 +403,7 @@ install(
 	CONFIGURATIONS Release
 )
 install(
-	DIRECTORY ./parallel-hashmap//parallel_hashmap 
+	DIRECTORY ./parallel-hashmap/parallel_hashmap 
 	DESTINATION ./debug/include/parallel-hashmap
 	CONFIGURATIONS Debug
 )
