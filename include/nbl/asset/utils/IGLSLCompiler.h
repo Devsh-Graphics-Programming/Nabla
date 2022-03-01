@@ -48,7 +48,7 @@ class IGLSLCompiler final : public core::IReferenceCounted
 			bool _genDebugInfo = true,
 			std::string* _outAssembly = nullptr,
 			system::logger_opt_ptr logger = nullptr,
-			const E_SPIRV_VERSION targetSpirvVersion = ESV_1_5) const;
+			const E_SPIRV_VERSION targetSpirvVersion = ESV_1_6) const;
 
 		/**
 		If _stage is ESS_UNKNOWN, then compiler will try to deduce shader stage from #pragma annotation, i.e.:
@@ -80,7 +80,7 @@ class IGLSLCompiler final : public core::IReferenceCounted
 			bool _genDebugInfo = true,
 			std::string* _outAssembly = nullptr,
 			system::logger_opt_ptr logger = nullptr,
-			const E_SPIRV_VERSION targetSpirvVersion = ESV_1_5) const;
+			const E_SPIRV_VERSION targetSpirvVersion = ESV_1_6) const;
 
 		core::smart_refctd_ptr<ICPUShader> createSPIRVFromGLSL(
 			system::IFile* _sourcefile,
@@ -91,7 +91,7 @@ class IGLSLCompiler final : public core::IReferenceCounted
 			bool _genDebugInfo = true,
 			std::string* _outAssembly = nullptr,
 			system::logger_opt_ptr logger = nullptr,
-			const E_SPIRV_VERSION targetSpirvVersion = ESV_1_5) const;
+			const E_SPIRV_VERSION targetSpirvVersion = ESV_1_6) const;
 
 		/**
 		Resolves ALL #include directives regardless of any other preprocessor directive.
@@ -113,7 +113,7 @@ class IGLSLCompiler final : public core::IReferenceCounted
 			const char* _originFilepath,
 			uint32_t _maxSelfInclusionCnt = 4u,
 			system::logger_opt_ptr logger = nullptr,
-			const E_SPIRV_VERSION targetSpirvVersion = ESV_1_5) const;
+			const E_SPIRV_VERSION targetSpirvVersion = ESV_1_6) const;
 
 		core::smart_refctd_ptr<ICPUShader> resolveIncludeDirectives(
 			system::IFile* _sourcefile,
@@ -121,7 +121,7 @@ class IGLSLCompiler final : public core::IReferenceCounted
 			const char* _originFilepath,
 			uint32_t _maxSelfInclusionCnt = 4u,
 			system::logger_opt_ptr logger = nullptr,
-			const E_SPIRV_VERSION targetSpirvVersion = ESV_1_5) const;
+			const E_SPIRV_VERSION targetSpirvVersion = ESV_1_6) const;
 		
 		/*
 			Creates a formatted copy of the original

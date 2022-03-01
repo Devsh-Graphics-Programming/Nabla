@@ -493,7 +493,7 @@ public:
 			
 			m_limits.nonCoherentAtomSize = 256ull;
 
-			m_limits.spirvVersion = asset::IGLSLCompiler::ESV_1_5;
+			m_limits.spirvVersion = asset::IGLSLCompiler::ESV_1_6;
 
 			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_KHR_shader_subgroup))
 			{

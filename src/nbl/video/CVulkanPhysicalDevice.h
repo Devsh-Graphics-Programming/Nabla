@@ -106,7 +106,7 @@ public:
                 m_limits.spirvVersion = asset::IGLSLCompiler::ESV_1_5;
                 break;
             case 3:
-                m_limits.spirvVersion = asset::IGLSLCompiler::ESV_1_5; // TODO: change this to spirv 1.6
+                m_limits.spirvVersion = asset::IGLSLCompiler::ESV_1_6;
                 break;
             default:
                 _NBL_DEBUG_BREAK_IF("Invalid Vulkan minor version!");
