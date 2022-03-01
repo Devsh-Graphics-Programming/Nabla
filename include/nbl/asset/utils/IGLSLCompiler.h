@@ -31,6 +31,7 @@ class IGLSLCompiler final : public core::IReferenceCounted
 			ESV_1_3 = 0x010300u,
 			ESV_1_4 = 0x010400u,
 			ESV_1_5 = 0x010500u,
+			ESV_1_6 = 0x010600u,
 			ESV_COUNT = 0x7FFFFFFFu
 		};
 
