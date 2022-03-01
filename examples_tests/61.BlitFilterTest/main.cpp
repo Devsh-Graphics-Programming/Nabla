@@ -74,8 +74,8 @@ public:
 		logger = std::move(initOutput.logger);
 		inputSystem = std::move(initOutput.inputSystem);
 
-		std::array<uint32_t, 2> inImageDim = { 2304u, 1u }; // { 800u, 5u };
-		std::array<uint32_t, 2> outImageDim = { 384u, 1u }; // { 16u, 69u };
+		std::array<uint32_t, 2> inImageDim = { 17*17, 1u }; // { 800u, 5u };
+		std::array<uint32_t, 2> outImageDim = { 17, 1u }; // { 16u, 69u };
 
 		auto inImage = createCPUImage(inImageDim);
 
@@ -87,20 +87,19 @@ public:
 				inImagePixel[j * inImageDim[0] + i] = k++;
 		}
 
+		const core::vectorSIMDf scaleX(1.f, 1.f, 1.f, 1.f);
+		const core::vectorSIMDf scaleY(1.f, 1.f, 1.f, 1.f);
+		const core::vectorSIMDf scaleZ(1.f, 1.f, 1.f, 1.f);
+
 
 		// CPU blit
 		core::vector<float> cpuOutput(outImageDim[0] * outImageDim[1]);
 		{
 			core::smart_refctd_ptr<ICPUImage> outImage = createCPUImage(outImageDim);
 
-			const core::vectorSIMDf scaleX(1.f, 1.f, 1.f, 1.f);
-			const core::vectorSIMDf scaleY(1.f, 1.f, 1.f, 1.f);
-			const core::vectorSIMDf scaleZ(1.f, 1.f, 1.f, 1.f);
-
 			auto kernelX = ScaledBoxKernel(scaleX, asset::CBoxImageFilterKernel()); // (-1/2, 1/2)
 			auto kernelY = ScaledBoxKernel(scaleY, asset::CBoxImageFilterKernel()); // (-1/2, 1/2)
 			auto kernelZ = ScaledBoxKernel(scaleZ, asset::CBoxImageFilterKernel()); // (-1/2, 1/2)
-
 			BlitFilter::state_type blitFilterState(std::move(kernelX), std::move(kernelY), std::move(kernelZ));
 
 			blitFilterState.inOffsetBaseLayer = core::vectorSIMDu32();
@@ -134,6 +133,10 @@ public:
 		// GPU blit
 		core::vector<float> gpuOutput(outImageDim[0] * outImageDim[1]);
 		{
+			auto kernelX = ScaledBoxKernel(scaleX, asset::CBoxImageFilterKernel()); // (-1/2, 1/2)
+			auto kernelY = ScaledBoxKernel(scaleY, asset::CBoxImageFilterKernel()); // (-1/2, 1/2)
+			auto kernelZ = ScaledBoxKernel(scaleZ, asset::CBoxImageFilterKernel()); // (-1/2, 1/2)
+
 			core::smart_refctd_ptr<ICPUImage> outImage = createCPUImage(outImageDim);
 
 			constexpr uint32_t WG_DIM = 256u;
@@ -141,6 +144,13 @@ public:
 			{
 				uint32_t inWidth;
 				uint32_t outWidth;
+
+				float negativeSupport;
+				float positiveSupport;
+				float kernelWeight;
+
+				uint32_t windowDim;
+				uint32_t maxLoadIndex;
 			};
 
 			core::smart_refctd_ptr<video::IGPUImageView> inImageView = nullptr;
@@ -322,7 +332,24 @@ public:
 			cmdbuf->begin(video::IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
 			cmdbuf->bindComputePipeline(pipeline.get());
 			cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE, pipeline->getLayout(), 0u, 1u, &ds.get());
-			push_constants_t pc = { inImageDim[0], outImageDim[0] };
+			push_constants_t pc = { };
+			{
+				pc.inWidth = inImageDim[0];
+				pc.outWidth = outImageDim[0];
+				const float scale = float(inImageDim[0]) / float(outImageDim[0]);
+				pc.negativeSupport = -0.5f * scale; // kernelX/Y/Z stores absolute values of support so they won't be helpful here
+				pc.positiveSupport = 0.5f * scale;
+				pc.kernelWeight = 1.f/scale;
+				// I think this formulation is better than ceil(scaledPositiveSupport-scaledNegativeSupport) because if scaledPositiveSupport comes out a tad bit
+				// greater than what it should be and if scaledNegativeSupport comes out a tad bit smaller than it should be then the distance between them would
+				// become a tad bit greater than it should be and when we take a ceil it'll jump up to the next integer thus giving us 1 more than the actual window
+				// size, example: 49x1 -> 7x1.
+				// I think (hope) it won't happen with this formulation. 
+				pc.windowDim = 1.f*scale; // cannot use kernelX/Y/Z.getWindowSize() here because they haven't been scaled yet for upscaling/downscaling
+				// the last pixel of the last window which is used to compute the last output pixel, required for bounds checking, avoids repeated computation in the shader
+				const float maxOutputPixelCenter = ((pc.outWidth - 1) + 0.5f) * scale;
+				pc.maxLoadIndex = core::floor( (maxOutputPixelCenter-0.5f) + core::abs(pc.positiveSupport) );
+			}
 			cmdbuf->pushConstants(pipeline->getLayout(), asset::IShader::ESS_COMPUTE, 0u, sizeof(push_constants_t), &pc);
 			const uint32_t totalWindowCount = outImageDim[0];
 			const uint32_t windowDim = std::ceil(inImageDim[0] / outImageDim[0]);
@@ -336,25 +363,7 @@ public:
 				const size_t downloadSize = outImageDim[0] * outImageDim[1] * sizeof(float); // Todo(achal): Need to change this for more complex images
 				video::IGPUBuffer::SCreationParams creationParams = {};
 				creationParams.usage = video::IGPUBuffer::EUF_TRANSFER_DST_BIT;
-				downloadBuffer = logicalDevice->createGPUBuffer(creationParams, downloadSize);
-				{
-					video::IDriverMemoryBacked::SDriverMemoryRequirements memReqs = {};
-					memReqs.vulkanReqs.alignment = downloadBuffer->getMemoryReqs().vulkanReqs.alignment;
-					memReqs.vulkanReqs.size = downloadBuffer->getMemoryReqs().vulkanReqs.size;
-					memReqs.vulkanReqs.memoryTypeBits = downloadBuffer->getMemoryReqs().vulkanReqs.memoryTypeBits;
-
-					memReqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL;
-					memReqs.mappingCapability = video::IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ;
-					memReqs.prefersDedicatedAllocation = downloadBuffer->getMemoryReqs().prefersDedicatedAllocation;
-					memReqs.requiresDedicatedAllocation = downloadBuffer->getMemoryReqs().requiresDedicatedAllocation;
-					auto downloadGPUBufferMemory = logicalDevice->allocateGPUMemory(memReqs);
-
-					video::ILogicalDevice::SBindBufferMemoryInfo bindBufferInfo = {};
-					bindBufferInfo.buffer = downloadBuffer.get();
-					bindBufferInfo.memory = downloadGPUBufferMemory.get();
-					bindBufferInfo.offset = 0ull;
-					logicalDevice->bindBufferMemory(1u, &bindBufferInfo);
-				}
+				downloadBuffer = logicalDevice->createCPUSideGPUVisibleGPUBufferOnDedMem(creationParams, downloadSize);
 
 				// need a memory dependency to ensure that the compute shader has finished writing to the image
 				video::IGPUCommandBuffer::SImageMemoryBarrier imageBarrier = {};
