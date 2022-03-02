@@ -74,8 +74,8 @@ public:
 		logger = std::move(initOutput.logger);
 		inputSystem = std::move(initOutput.inputSystem);
 
-		std::array<uint32_t, 2> inImageDim = { 809u, 1u }; // { 800u, 5u };
-		std::array<uint32_t, 2> outImageDim = { 16u, 1u }; // { 16u, 69u };
+		std::array<uint32_t, 2> inImageDim = { 3381, 1u }; // { 800u, 5u };
+		std::array<uint32_t, 2> outImageDim = { 112, 1u }; // { 16u, 69u };
 
 		auto inImage = createCPUImage(inImageDim);
 
@@ -132,10 +132,6 @@ public:
 		// GPU blit
 		core::vector<float> gpuOutput(outImageDim[0] * outImageDim[1]);
 		{
-			auto kernelX = ScaledBoxKernel(scaleX, asset::CBoxImageFilterKernel()); // (-1/2, 1/2)
-			auto kernelY = ScaledBoxKernel(scaleY, asset::CBoxImageFilterKernel()); // (-1/2, 1/2)
-			auto kernelZ = ScaledBoxKernel(scaleZ, asset::CBoxImageFilterKernel()); // (-1/2, 1/2)
-
 			core::smart_refctd_ptr<ICPUImage> outImage = createCPUImage(outImageDim);
 
 			constexpr uint32_t WG_DIM = 256u;
@@ -148,8 +144,49 @@ public:
 				float positiveSupport;
 
 				uint32_t windowDim;
-				uint32_t maxLoadIndex;
 			};
+
+			core::smart_refctd_ptr<video::IGPUBuffer> phaseSupportLUT = nullptr;
+			{
+				const core::vectorSIMDu32 inExtent(inImage->getCreationParameters().extent.width, inImage->getCreationParameters().extent.height, inImage->getCreationParameters().extent.depth);
+				const core::vectorSIMDu32 outExtent(outImage->getCreationParameters().extent.width, outImage->getCreationParameters().extent.height, outImage->getCreationParameters().extent.depth);
+				const core::vectorSIMDu32 phaseCount = BlitFilter::getPhaseCount(inExtent, outExtent, inImage->getCreationParameters().type);
+
+				// create a blit filter state just compute the LUT (this will change depending on how we choose to expose this to the user i.e. do we want
+				// the same API as asset::CBlitImageFilter or something else?)
+
+				auto kernelX = ScaledBoxKernel(scaleX, asset::CBoxImageFilterKernel()); // (-1/2, 1/2)
+				auto kernelY = ScaledBoxKernel(scaleY, asset::CBoxImageFilterKernel()); // (-1/2, 1/2)
+				auto kernelZ = ScaledBoxKernel(scaleZ, asset::CBoxImageFilterKernel()); // (-1/2, 1/2)
+				BlitFilter::state_type blitFilterState(std::move(kernelX), std::move(kernelY), std::move(kernelZ));
+
+				blitFilterState.inOffsetBaseLayer = core::vectorSIMDu32();
+				blitFilterState.inExtentLayerCount = inExtent + inImage->getMipSize();
+				blitFilterState.inImage = inImage.get();
+
+				blitFilterState.outOffsetBaseLayer = core::vectorSIMDu32();
+				blitFilterState.outExtentLayerCount = outExtent + outImage->getMipSize();
+				blitFilterState.outImage = outImage.get();
+
+				blitFilterState.axisWraps[0] = asset::ISampler::ETC_CLAMP_TO_EDGE;
+				blitFilterState.axisWraps[1] = asset::ISampler::ETC_CLAMP_TO_EDGE;
+				blitFilterState.axisWraps[2] = asset::ISampler::ETC_CLAMP_TO_EDGE;
+				blitFilterState.borderColor = asset::ISampler::E_TEXTURE_BORDER_COLOR::ETBC_FLOAT_OPAQUE_WHITE;
+
+				blitFilterState.scratchMemoryByteSize = BlitFilter::getRequiredScratchByteSize(&blitFilterState);
+				blitFilterState.scratchMemory = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(blitFilterState.scratchMemoryByteSize, 32));
+
+				blitFilterState.computePhaseSupportLUT(&blitFilterState);
+				BlitFilter::value_type* lut = reinterpret_cast<BlitFilter::value_type*>(blitFilterState.scratchMemory + BlitFilter::getPhaseSupportLUTByteOffset(&blitFilterState));
+
+				// need to compute the size
+				// take each element of the LUT and convert to half floats and pack it
+
+				// const size_t neededSize = ;
+				// video::IGPUBuffer::SCreationParams uboCreationParams = {};
+				// uboCreationParams.usage = static_cast<video::IGPUBuffer::E_USAGE_FLAGS>(video::IGPUBuffer::EUF_UNIFORM_BUFFER_BIT | video::IGPUBuffer::EUF_TRANSFER_DST_BIT);
+				// phaseSupportLUT = logicalDevice->createDeviceLocalGPUBufferOnDedMem(uboCreationParams, neededSize);
+			}
 
 			core::smart_refctd_ptr<video::IGPUImageView> inImageView = nullptr;
 			core::smart_refctd_ptr<video::IGPUImageView> outImageView = nullptr;
@@ -343,9 +380,6 @@ public:
 				// size, example: 49x1 -> 7x1.
 				// I think (hope) it won't happen with this formulation. 
 				pc.windowDim = std::ceil(1.f*scale); // cannot use kernelX/Y/Z.getWindowSize() here because they haven't been scaled yet for upscaling/downscaling
-				// the last pixel of the last window which is used to compute the last output pixel, required for bounds checking, avoids repeated computation in the shader
-				const float maxOutputPixelCenter = ((pc.outWidth - 1) + 0.5f) * scale;
-				pc.maxLoadIndex = core::floor( (maxOutputPixelCenter-0.5f) + core::abs(pc.positiveSupport) );
 			}
 			cmdbuf->pushConstants(pipeline->getLayout(), asset::IShader::ESS_COMPUTE, 0u, sizeof(push_constants_t), &pc);
 			const uint32_t totalWindowCount = outImageDim[0];

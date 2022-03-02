@@ -104,8 +104,10 @@ template<typename Swizzle=DefaultSwizzle, typename Dither=CWhiteNoiseDither, typ
 class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Normalization,Clamp,KernelX,KernelX,KernelX>>, public CBlitImageFilterBase<typename KernelX::value_type,Swizzle,Dither,Normalization,Clamp>
 {
 		static_assert(std::is_same<typename KernelX::value_type,typename KernelY::value_type>::value&&std::is_same<typename KernelZ::value_type,typename KernelY::value_type>::value,"Kernel value_type need to be identical");
+	public:
 		using value_type = typename KernelX::value_type;
-		
+
+	private:
 		_NBL_STATIC_INLINE_CONSTEXPR auto MaxChannels = KernelX::MaxChannels>KernelY::MaxChannels ? (KernelX::MaxChannels>KernelZ::MaxChannels ? KernelX::MaxChannels:KernelZ::MaxChannels):(KernelY::MaxChannels>KernelZ::MaxChannels ? KernelY::MaxChannels:KernelZ::MaxChannels);
 
 		using base_t = CBlitImageFilterBase<value_type,Swizzle,Dither,Normalization,Clamp>;
@@ -305,6 +307,14 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 			uint32_t retval = getScratchOffset(state, true, scaledKernelX, scaledKernelY, scaledKernelZ);
 			retval += base_t::getRequiredScratchByteSize(state->alphaSemantic, state->outExtentLayerCount);
 			return retval;
+		}
+
+		static inline core::vectorSIMDu32 getPhaseCount(const core::vectorSIMDu32& inExtent, const core::vectorSIMDu32& outExtent, const asset::IImage::E_TYPE inImageType)
+		{
+			core::vectorSIMDu32 result(0u);
+			for (uint32_t i = 0u; i <= inImageType; ++i)
+				result[i] = outExtent[i] / std::gcd(inExtent[i], outExtent[i]);
+			return result;
 		}
 
 		static inline bool validate(state_type* state)
@@ -742,14 +752,6 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 				texelCount += core::max<uint32_t>(state->outExtent.width*state->outExtent.height*(state->inExtent.depth+window_end[2]),(state->inExtent.width+window_end[0])*std::thread::hardware_concurrency()*VectorizationBoundSTL);
 			// obviously we have multiple channels and each channel has a certain type for arithmetic
 			return texelCount*MaxChannels*sizeof(value_type);
-		}
-
-		static inline core::vectorSIMDu32 getPhaseCount(const core::vectorSIMDu32& in, const core::vectorSIMDu32& out, const asset::IImage::E_TYPE inImageType)
-		{
-			core::vectorSIMDu32 result(0u);
-			for (uint32_t i = 0u; i <= inImageType; ++i)
-				result[i] = out[i] / std::gcd(in[i], out[i]);
-			return result;
 		}
 };
 
