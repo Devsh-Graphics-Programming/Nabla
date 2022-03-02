@@ -17,6 +17,10 @@ class IFileView : public IFile
 		}
 
 	protected:
+		IFileView(IFileView&& other) : IFile(std::move(other.m_system),other.getFileName(),other.m_flags), m_buffer(other.m_buffer), m_size(other.m_size)
+		{
+			other.m_buffer = nullptr;
+		}
 		// TODO: do we even need to keep a smartpointer back to the ISystem!?
 		IFileView(core::smart_refctd_ptr<ISystem>&& sys, const path& _name, const core::bitflag<E_CREATE_FLAGS> _flags, void* buffer, size_t fileSize) :
 			IFile(std::move(sys),_name,_flags|ECF_COHERENT), m_buffer((std::byte*)buffer), m_size(fileSize)
@@ -47,7 +51,7 @@ class IFileView : public IFile
 			return m_buffer;
 		}
 
-	private:
+		//
 		std::byte* m_buffer;
 		size_t m_size;
 };
@@ -59,12 +63,6 @@ class CFileView : public IFileView
 		friend class CAPKResourcesArchive;
 
 	public:
-#if 0
-		CFileView(CFileView<allocator_t>&& other) : IFile(std::move(other.m_system), path(other.getFileName()), other.m_flags), m_size(other.m_size), m_buffer(other.m_buffer) 
-		{
-			other.m_buffer = nullptr;
-		}
-#endif
 		// constructor for making a file with memory already allocated by the allocator
 		CFileView(core::smart_refctd_ptr<ISystem>&& sys, const path& _name, core::bitflag<E_CREATE_FLAGS> _flags, void* buffer, size_t fileSize, allocator_t&& _allocator) :
 			IFileView(std::move(sys),_name,_flags,buffer,fileSize), allocator(std::move(_allocator)) {}
@@ -80,6 +78,7 @@ class CFileView : public IFileView
 		}
 
 	protected:
+		CFileView(CFileView<allocator_t>&& other) : IFileView(std::move(other)), allocator(std::move(other.allocator)) {}
 		~CFileView()
 		{
 			if (m_buffer)
@@ -98,18 +97,11 @@ template<>
 class CFileView<CNullAllocator> : public IFileView
 {
 	public:
-#if 0
-		CFileView(CFileView<CNullAllocator>&& other) :
-			IFile(std::move(other.m_system),path(other.getFileName()),other.m_flags|ECF_COHERENT),
-			m_size(other.m_size), m_buffer(other.m_buffer)
-		{
-			other.m_buffer = nullptr;
-		}
-#endif
 		CFileView(core::smart_refctd_ptr<ISystem>&& sys, const path& _name, core::bitflag<E_CREATE_FLAGS> _flags, void* buffer, size_t fileSize) :
 			IFileView(std::move(sys),_name,_flags,buffer,fileSize) {}
 
 	protected:
+		CFileView(CFileView<CNullAllocator>&& other) : IFileView(std::move(other)) {}
 		~CFileView() = default;
 };
 
