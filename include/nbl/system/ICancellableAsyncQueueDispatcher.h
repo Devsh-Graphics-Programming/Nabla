@@ -151,6 +151,7 @@ class ICancellableAsyncQueueDispatcher : public IAsyncQueueDispatcher<CRTP, Requ
         {
                 friend this_async_queue_t;
 
+            protected:
                 // construct the retval element 
                 template <typename... Args>
                 void notify(Args&&... args)

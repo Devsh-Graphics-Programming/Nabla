@@ -1,58 +1,30 @@
-#ifndef _NBL_SYSTEM_CSYSTEMWIN32_H_INCLUDED_
-#define _NBL_SYSTEM_CSYSTEMWIN32_H_INCLUDED_
+#ifndef _NBL_SYSTEM_C_SYSTEM_WIN32_H_INCLUDED_
+#define _NBL_SYSTEM_C_SYSTEM_WIN32_H_INCLUDED_
 
-#ifdef _NBL_PLATFORM_WINDOWS_
-#include <windows.h>
-#include <powerbase.h>
 #include "ISystem.h"
-#include "CFileWin32.h"
 
 namespace nbl::system
 {
-	
-class CSystemCallerWin32 final : public ISystemCaller        
-{
-    protected:
-        ~CSystemCallerWin32() override = default;
 
-    public:
-        core::smart_refctd_ptr<IFile> createFile_impl(core::smart_refctd_ptr<ISystem>&& sys, const std::filesystem::path& filename, core::bitflag<IFile::E_CREATE_FLAGS> flags) override final
-        {
-            auto f = core::make_smart_refctd_ptr<CFileWin32>(std::move(sys), filename, flags);
-            return f->isOpenedProperly() ? f : nullptr;
-        }
-};
-
+#ifdef _NBL_PLATFORM_WINDOWS_
 class CSystemWin32 : public ISystem
 {
-public:
-    CSystemWin32(core::smart_refctd_ptr<ISystemCaller>&& caller) : ISystem(std::move(caller)) {}
-    //LOL the struct definition wasn't added to winapi headers do they ask to declare them yourself
-    typedef struct _PROCESSOR_POWER_INFORMATION {
-        ULONG Number;
-        ULONG MaxMhz;
-        ULONG CurrentMhz;
-        ULONG MhzLimit;
-        ULONG MaxIdleState;
-        ULONG CurrentIdleState;
-    } PROCESSOR_POWER_INFORMATION, * PPROCESSOR_POWER_INFORMATION;
+    protected:
+        class CCaller final : public ICaller
+        {
+            public:
+                CCaller(ISystem* _system) : ICaller(_system) {}
 
-    SystemInfo getSystemInfo() const override
-    {
-        SystemInfo info;
-        LARGE_INTEGER speed;
-        QueryPerformanceFrequency(&speed);
+                core::smart_refctd_ptr<ISystemFile> createFile(const std::filesystem::path& filename, const core::bitflag<IFile::E_CREATE_FLAGS> flags) override final;
+        };
+        
+    public:
+        CSystemWin32() : ISystem(core::make_smart_refctd_ptr<CCaller>(this)) {}
 
-        info.cpuFrequency = speed.QuadPart;
-
-        info.desktopResX = GetSystemMetrics(SM_CXSCREEN);
-        info.desktopResY = GetSystemMetrics(SM_CYSCREEN);
-
-        return info;
-    }
+        SystemInfo getSystemInfo() const override;
 };
+#endif
 
 }
 
-#endif
 #endif

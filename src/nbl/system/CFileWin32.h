@@ -1,41 +1,43 @@
 #ifndef	_NBL_SYSTEM_CFILEWIN32_H_INCLUDED_
 #define	_NBL_SYSTEM_CFILEWIN32_H_INCLUDED_
 
-#include "IFile.h"
-
-#include "nbl/system/DefaultFuncPtrLoader.h"
-#ifdef _NBL_PLATFORM_WINDOWS_
+#include "nbl/system/ISystemFile.h"
 
 namespace nbl::system
 {
 
-class CFileWin32 : public IFile
+#ifdef _NBL_PLATFORM_WINDOWS_
+class CFileWin32 : public ISystemFile
 {
-		using base_t = IFile;
-		using native_file_handle_t = HANDLE;
-	private:
-		DWORD m_allocGranularity;
-		bool m_openedProperly = true;  // TODO: @sadiuk remove
-		size_t m_size = 0;
-		native_file_handle_t m_native = nullptr;
-		HANDLE m_fileMappingObj = nullptr;
-		mutable core::vector<void*> m_openedFileViews;
 	public:
-		CFileWin32(core::smart_refctd_ptr<ISystem>&& sys, const std::filesystem::path& _filename, core::bitflag<E_CREATE_FLAGS> _flags);
-		~CFileWin32();
-		// Inherited via IFile
-		virtual size_t getSize() const override;
-		virtual void* getMappedPointer() override;
-		virtual const void* getMappedPointer() const override;
-		bool isOpenedProperly() const { return m_openedProperly; }  // TODO: @sadiuk remove
-	private:
-		virtual size_t read_impl(void* buffer, size_t offset, size_t sizeToRead) override;
-		virtual size_t write_impl(const void* buffer, size_t offset, size_t sizeToWrite) override;
+		CFileWin32(
+			core::smart_refctd_ptr<ISystem>&& sys,
+			path&& _filename,
+			const core::bitflag<E_CREATE_FLAGS> _flags,
+			void* const _mappedPtr,
+			const size_t _size,
+			HANDLE _native,
+			HANDLE _fileMappingObj
+		);
 
-		void seek(size_t bytesFromBeginningOfFile);
+		//
+		inline size_t getSize() const override {return m_size;}
+
+	protected:
+		~CFileWin32();
+		
+		size_t asyncRead(void* buffer, size_t offset, size_t sizeToRead) override;
+		size_t asyncWrite(const void* buffer, size_t offset, size_t sizeToWrite) override;
+
+	private:
+		void seek(const size_t bytesFromBeginningOfFile);
+
+		HANDLE m_native;
+		HANDLE m_fileMappingObj;
+		size_t m_size;
 };
+#endif
 
 }
-#endif
 
 #endif

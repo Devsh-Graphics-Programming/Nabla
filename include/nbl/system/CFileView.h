@@ -2,13 +2,13 @@
 #define _NBL_SYSTEM_C_FILE_VIEW_H_
 
 
-#include <nbl/system/IFile.h>
+#include "nbl/system/IFile.h"
 
 
 namespace nbl::system
 {
 
-class IFileView : public IFile
+class IFileView : public IFile, private ISystem::IFutureManipulator
 {
 	public:
 		size_t getSize() const override final
@@ -17,29 +17,28 @@ class IFileView : public IFile
 		}
 
 	protected:
-		IFileView(IFileView&& other) : IFile(std::move(other.m_system),other.getFileName(),other.m_flags), m_buffer(other.m_buffer), m_size(other.m_size)
+		IFileView(IFileView&& other) : IFile(other.getFileName(),other.getFlags()), m_buffer(other.m_buffer), m_size(other.m_size)
 		{
 			other.m_buffer = nullptr;
 		}
-		// TODO: do we even need to keep a smartpointer back to the ISystem!?
-		IFileView(core::smart_refctd_ptr<ISystem>&& sys, const path& _name, const core::bitflag<E_CREATE_FLAGS> _flags, void* buffer, size_t fileSize) :
-			IFile(std::move(sys),_name,_flags|ECF_COHERENT), m_buffer((std::byte*)buffer), m_size(fileSize)
+		IFileView(const path& _name, const core::bitflag<E_CREATE_FLAGS> _flags, void* buffer, size_t fileSize) :
+			IFile(_name,_flags|ECF_COHERENT), m_buffer((std::byte*)buffer), m_size(fileSize)
 		{
 		}
 
-		size_t read_impl(void* buffer, size_t offset, size_t sizeToRead) override final
+		inline void read(ISystem::future_t<size_t>& fut, void* buffer, size_t offset, size_t sizeToRead) override final
 		{
 			if (offset+sizeToRead > m_size)
 				sizeToRead = m_size-offset;
 			memcpy(buffer, m_buffer+offset, sizeToRead);
-			return sizeToRead;
+			fake_notify(fut,sizeToRead);
 		}
-		size_t write_impl(const void* buffer, size_t offset, size_t sizeToWrite) override final
+		inline void write(ISystem::future_t<size_t>& fut, const void* buffer, size_t offset, size_t sizeToWrite) override final
 		{
 			if (offset+sizeToWrite > m_size)
 				sizeToWrite = m_size-offset;
 			memcpy(m_buffer+offset, buffer, sizeToWrite);
-			return sizeToWrite;
+			fake_notify(fut,sizeToWrite);
 		}
 
 		const void* getMappedPointer_impl() const override final

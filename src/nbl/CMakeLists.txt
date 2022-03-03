@@ -188,7 +188,8 @@ set(NBL_CORE_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/core/IReferenceCounted.cpp
 )
 set(NBL_SYSTEM_SOURCES
-	${NBL_ROOT_PATH}/src/nbl/system/IFile.cpp
+	${NBL_ROOT_PATH}/src/nbl/system/IFileBase.cpp
+	${NBL_ROOT_PATH}/src/nbl/system/CSystemWin32.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/CFileWin32.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/CFilePOSIX.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/ILogger.cpp

@@ -1,34 +1,43 @@
 #ifndef _NBL_SYSTEM_C_FILE_POSIX_H_INCLUDED_
 #define _NBL_SYSTEM_C_FILE_POSIX_H_INCLUDED_
-#if defined(_NBL_PLATFORM_ANDROID_) | defined(_NBL_PLATFORM_LINUX_)
-#include "IFile.h"
+
+#include "nbl/system/ISystemFile.h"
 
 namespace nbl::system
 {
-	class CFilePOSIX : public IFile
-	{
-		using base_t = IFile;
-		using native_file_handle_t = int;
-		using native_file_mapping_handle_t = void*;
-	private:
-		bool m_openedProperly = true; // TODO: @sadiuk remove
-		size_t m_size = 0;
-		native_file_handle_t m_native = -1;
-		native_file_mapping_handle_t m_memoryMappedObj;
-	public:
-		CFilePOSIX(core::smart_refctd_ptr<ISystem>&& sys, const std::filesystem::path& _filename, core::bitflag<E_CREATE_FLAGS> _flags);
-		~CFilePOSIX();
-		// Inherited via IFile
-		virtual size_t getSize() const override;
-		virtual void* getMappedPointer() override;
-		virtual const void* getMappedPointer() const override;
-		bool isOpenedProperly() const { return m_openedProperly; }  // TODO: @sadiuk remove
-	private:
-		virtual size_t read_impl(void* buffer, size_t offset, size_t sizeToRead) override;
-		virtual size_t write_impl(const void* buffer, size_t offset, size_t sizeToWrite) override;
 
-		void seek(size_t bytesFromBeginningOfFile);
-	};
-}
-#endif // _NBL_SYSTEM_C_FILE_POSIX_H_INCLUDED
+#if defined(_NBL_PLATFORM_ANDROID_) | defined(_NBL_PLATFORM_LINUX_)
+class CFilePOSIX : public ISystemFile
+{
+	public:
+		using native_file_handle_t = int;
+		CFilePOSIX(
+			core::smart_refctd_ptr<ISystem>&& sys,
+			path&& _filename,
+			const core::bitflag<E_CREATE_FLAGS> _flags,
+			void* const _mappedPtr,
+			const size_t _size,
+			const native_file_handle_t _native
+		);
+
+		//
+		inline size_t getSize() const override {return m_size;}
+
+	protected:
+		~CFilePOSIX();
+
+		//
+		size_t asyncRead(void* buffer, size_t offset, size_t sizeToRead) override;
+		size_t asyncWrite(const void* buffer, size_t offset, size_t sizeToWrite) override;
+
+	private:
+		void seek(const size_t bytesFromBeginningOfFile);
+
+		const size_t m_size;
+		const native_file_handle_t m_native;
+};
 #endif
+
+}
+
+#endif // _NBL_SYSTEM_C_FILE_POSIX_H_INCLUDED

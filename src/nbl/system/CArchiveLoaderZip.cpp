@@ -5,6 +5,7 @@
 #include <zlib/zlib.h>
 #include <bzip2/bzlib.h>
 
+#if 0
 namespace nbl::system
 {
 	bool CFileArchiveZip::scanGZipHeader(size_t& offset)
@@ -660,3 +661,4 @@ namespace nbl::system
 		}
 	}
 }
+#endif

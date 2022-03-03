@@ -298,10 +298,11 @@ class CDirQuantCacheBase : public impl::CDirQuantCacheBase
 				return false;
 
 			auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(file->getSize());
-			system::future<size_t> future;
 
-			file->read(future, buffer->getPointer(), 0, file->getSize());
-			future.get();
+			system::IFile::success_t succ;
+			file->read(succ, buffer->getPointer(), 0, file->getSize());
+			if (!succ)
+				return false;
 
 			asset::SBufferRange<const asset::ICPUBuffer> bufferRange;
 			bufferRange.offset = 0;
@@ -315,12 +316,11 @@ class CDirQuantCacheBase : public impl::CDirQuantCacheBase
 		inline bool loadCacheFromFile(nbl::system::ISystem* system, const system::path& path, bool replaceCurrentContents = false)
 		{
 			system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
-			bool validInput = system->createFile(future,path,nbl::system::IFile::ECF_READ);
-
-			if (!validInput) 
+			system->createFile(future,path,nbl::system::IFile::ECF_READ);
+			auto file = future.get();
+			if (!file) 
 				return false;
 
-			core::smart_refctd_ptr<system::IFile> file = future.get();
 			return loadCacheFromFile<CacheFormat>(file.get(),replaceCurrentContents);
 		}
 
@@ -340,7 +340,7 @@ class CDirQuantCacheBase : public impl::CDirQuantCacheBase
 
 		//!
 		template<E_FORMAT CacheFormat>
-		inline bool saveCacheToFile(system::IFile* file)
+		inline system::IFile::success_t saveCacheToFile(system::IFile* file)
 		{
 			if (!file)
 				return false;
@@ -352,24 +352,21 @@ class CDirQuantCacheBase : public impl::CDirQuantCacheBase
 		
 			saveCacheToBuffer<CacheFormat>(bufferRange);
 
-			system::future<size_t> future;
-			file->write(future, bufferRange.buffer->getPointer(), 0, bufferRange.buffer->getSize());
-			future.get(); // NOTE: should it wait?
-
-			return true;
+			system::IFile::success_t succ;
+			file->write(succ,bufferRange.buffer->getPointer(), 0, bufferRange.buffer->getSize());
+			return succ;
 		}
 
 		//!
 		template<E_FORMAT CacheFormat>
-		inline bool saveCacheToFile(nbl::system::ISystem* system, const system::path& path)
+		inline system::IFile::success_t saveCacheToFile(nbl::system::ISystem* system, const system::path& path)
 		{
 			system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
-			bool validInput = system->createFile(future, path, nbl::system::IFile::ECF_WRITE);
-
-			if (!validInput)
+			system->createFile(future, path, nbl::system::IFile::ECF_WRITE);
+			auto file = future.get();
+			if (!file)
 				return false;
 
-			core::smart_refctd_ptr<system::IFile> file = future.get();
 			return saveCacheToFile<CacheFormat>(file.get());
 		}
 
