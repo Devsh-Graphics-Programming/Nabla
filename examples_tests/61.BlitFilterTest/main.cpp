@@ -17,13 +17,13 @@ using namespace nbl::video;
 using ScaledBoxKernel = asset::CScaledImageFilterKernel<CBoxImageFilterKernel>;
 using BlitFilter = asset::CBlitImageFilter<asset::VoidSwizzle, asset::IdentityDither, void, false, ScaledBoxKernel, ScaledBoxKernel, ScaledBoxKernel>;
 
-core::smart_refctd_ptr<ICPUImage> createCPUImage(const std::array<uint32_t, 2>& dims)
+core::smart_refctd_ptr<ICPUImage> createCPUImage(const std::array<uint32_t, 3>& dims, const asset::IImage::E_TYPE imageType)
 {
 	IImage::SCreationParams imageParams = {};
 	imageParams.flags = static_cast<IImage::E_CREATE_FLAGS>(0u);
-	imageParams.type = IImage::ET_1D;
+	imageParams.type = imageType;
 	imageParams.format = asset::EF_R32_SFLOAT;
-	imageParams.extent = { dims[0], dims[1], 1 };
+	imageParams.extent = { dims[0], dims[1], dims[2] };
 	imageParams.mipLevels = 1u;
 	imageParams.arrayLayers = 1u;
 	imageParams.samples = asset::ICPUImage::ESCF_1_BIT;
@@ -33,13 +33,13 @@ core::smart_refctd_ptr<ICPUImage> createCPUImage(const std::array<uint32_t, 2>& 
 	region.bufferImageHeight = 0u;
 	region.bufferOffset = 0ull;
 	region.bufferRowLength = dims[0];
-	region.imageExtent = { dims[0], dims[1], 1u };
+	region.imageExtent = { dims[0], dims[1], dims[2] };
 	region.imageOffset = { 0u, 0u, 0u };
 	region.imageSubresource.baseArrayLayer = 0u;
 	region.imageSubresource.layerCount = 1u;
 	region.imageSubresource.mipLevel = 0;
 
-	size_t bufferSize = asset::getTexelOrBlockBytesize(imageParams.format) * region.imageExtent.width * region.imageExtent.height;
+	size_t bufferSize = asset::getTexelOrBlockBytesize(imageParams.format) * static_cast<size_t>(region.imageExtent.width) * region.imageExtent.height * region.imageExtent.depth;
 	auto imageBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(bufferSize);
 	core::smart_refctd_ptr<ICPUImage> image = ICPUImage::create(std::move(imageParams));
 	image->setBufferAndRegions(core::smart_refctd_ptr(imageBuffer), imageRegions);
@@ -74,27 +74,32 @@ public:
 		logger = std::move(initOutput.logger);
 		inputSystem = std::move(initOutput.inputSystem);
 
-		std::array<uint32_t, 2> inImageDim = { 3381, 1u }; // { 800u, 5u };
-		std::array<uint32_t, 2> outImageDim = { 112, 1u }; // { 16u, 69u };
+		std::array<uint32_t, 3> inImageDim = { 4u, 4u, 4u }; // { 800u, 5u };
+		std::array<uint32_t, 3> outImageDim = { 2u, 2u, 2u }; // { 16u, 69u };
 
-		auto inImage = createCPUImage(inImageDim);
+		core::smart_refctd_ptr<asset::ICPUImage> inImage = createCPUImage(inImageDim, asset::IImage::ET_3D);
 
-		float k = 1.f;
+		float inputVal = 1.f;
 		float* inImagePixel = reinterpret_cast<float*>(inImage->getBuffer()->getPointer());
-		for (uint32_t j = 0u; j < inImageDim[1]; ++j)
+		for (uint32_t k = 0u; k < inImageDim[2]; ++k)
 		{
-			for (uint32_t i = 0; i < inImageDim[0]; ++i)
-				inImagePixel[j * inImageDim[0] + i] = k++;
+			for (uint32_t j = 0u; j < inImageDim[1]; ++j)
+			{
+				for (uint32_t i = 0; i < inImageDim[0]; ++i)
+				{
+					inImagePixel[k * (inImageDim[1]*inImageDim[0]) + j * inImageDim[0] + i] = inputVal++;
+				}
+			}
 		}
-
+		
 		const core::vectorSIMDf scaleX(1.f, 1.f, 1.f, 1.f);
 		const core::vectorSIMDf scaleY(1.f, 1.f, 1.f, 1.f);
 		const core::vectorSIMDf scaleZ(1.f, 1.f, 1.f, 1.f);
 
 		// CPU blit
-		core::vector<float> cpuOutput(outImageDim[0] * outImageDim[1]);
+		core::vector<float> cpuOutput(inImageDim[0] * inImageDim[1] * inImageDim[2]);
 		{
-			core::smart_refctd_ptr<ICPUImage> outImage = createCPUImage(outImageDim);
+			core::smart_refctd_ptr<ICPUImage> outImage = createCPUImage(outImageDim, asset::IImage::ET_3D);
 
 			auto kernelX = ScaledBoxKernel(scaleX, asset::CBoxImageFilterKernel()); // (-1/2, 1/2)
 			auto kernelY = ScaledBoxKernel(scaleY, asset::CBoxImageFilterKernel()); // (-1/2, 1/2)
@@ -124,15 +129,30 @@ public:
 
 			_NBL_ALIGNED_FREE(blitFilterState.scratchMemory);
 
-			// Todo(achal): This needs to change when testing with more complex images
+			// This needs to change when testing with more complex images
 			float* outPixel = reinterpret_cast<float*>(outImage->getBuffer()->getPointer());
-			memcpy(cpuOutput.data(), outPixel, cpuOutput.size() * sizeof(float));
+			memcpy(cpuOutput.data(), outPixel, cpuOutput.size()*sizeof(float));
+		}
+
+		for (uint32_t k = 0u; k < outImageDim[2]; ++k)
+		{
+			for (uint32_t j = 0u; j < outImageDim[1]; ++j)
+			{
+				for (uint32_t i = 0u; i < outImageDim[0]; ++i)
+				{
+					const uint32_t index = k * (outImageDim[1] * outImageDim[0]) + j * outImageDim[0] + i;
+					printf("%f\t", cpuOutput[index]);
+				}
+				printf("\n");
+			}
+
+			printf("\n\n");
 		}
 
 		// GPU blit
-		core::vector<float> gpuOutput(outImageDim[0] * outImageDim[1]);
+		core::vector<float> gpuOutput(outImageDim[0] * outImageDim[1] * outImageDim[2]);
 		{
-			core::smart_refctd_ptr<ICPUImage> outImage = createCPUImage(outImageDim);
+			core::smart_refctd_ptr<ICPUImage> outImage = createCPUImage(outImageDim, asset::IImage::ET_3D);
 
 			constexpr uint32_t WG_DIM = 256u;
 			struct push_constants_t
@@ -146,6 +166,7 @@ public:
 				uint32_t windowDim;
 			};
 
+#if 0
 			core::smart_refctd_ptr<video::IGPUBuffer> phaseSupportLUT = nullptr;
 			{
 				const core::vectorSIMDu32 inExtent(inImage->getCreationParameters().extent.width, inImage->getCreationParameters().extent.height, inImage->getCreationParameters().extent.depth);
@@ -187,6 +208,7 @@ public:
 				// uboCreationParams.usage = static_cast<video::IGPUBuffer::E_USAGE_FLAGS>(video::IGPUBuffer::EUF_UNIFORM_BUFFER_BIT | video::IGPUBuffer::EUF_TRANSFER_DST_BIT);
 				// phaseSupportLUT = logicalDevice->createDeviceLocalGPUBufferOnDedMem(uboCreationParams, neededSize);
 			}
+#endif
 
 			core::smart_refctd_ptr<video::IGPUImageView> inImageView = nullptr;
 			core::smart_refctd_ptr<video::IGPUImageView> outImageView = nullptr;
@@ -200,7 +222,7 @@ public:
 			cpu2gpuParams.beginCommandBuffers();
 			auto gpuArray = cpu2gpu.getGPUObjectsFromAssets(tmp, tmp + 2ull, cpu2gpuParams);
 			cpu2gpuParams.waitForCreationToComplete();
-			if (!gpuArray || gpuArray->size() < 2u || (!(*gpuArray)[0]))
+			if (!gpuArray || gpuArray->size() < 2ull || (!(*gpuArray)[0]))
 				FATAL_LOG("Failed to convert CPU images to GPU images\n");
 
 			inImageGPU = gpuArray->begin()[0];
@@ -211,7 +233,9 @@ public:
 			// do the layout transition for them)
 			core::smart_refctd_ptr<video::IGPUCommandBuffer> cmdbuf = nullptr;
 			logicalDevice->createCommandBuffers(commandPools[CommonAPI::InitOutput::EQT_COMPUTE].get(), video::IGPUCommandBuffer::EL_PRIMARY, 1u, &cmdbuf);
+			auto fence = logicalDevice->createFence(video::IGPUFence::ECF_UNSIGNALED);
 			video::IGPUCommandBuffer::SImageMemoryBarrier barriers[2] = {};
+
 			barriers[0].oldLayout = asset::EIL_UNDEFINED;
 			barriers[0].newLayout = asset::EIL_GENERAL;
 			barriers[0].srcQueueFamilyIndex = ~0u;
@@ -228,36 +252,28 @@ public:
 			cmdbuf->pipelineBarrier(asset::EPSF_TOP_OF_PIPE_BIT, asset::EPSF_BOTTOM_OF_PIPE_BIT, asset::EDF_NONE, 0u, nullptr, 0u, nullptr, 2u, barriers);
 			cmdbuf->end();
 
-			auto fence = logicalDevice->createFence(video::IGPUFence::ECF_UNSIGNALED);
-
 			video::IGPUQueue::SSubmitInfo submitInfo = {};
 			submitInfo.commandBufferCount = 1u;
 			submitInfo.commandBuffers = &cmdbuf.get();
 			queues[CommonAPI::InitOutput::EQT_COMPUTE]->submit(1u, &submitInfo, fence.get());
 			logicalDevice->blockForFences(1u, &fence.get());
 
+			// create image views for images
 			{
-				video::IGPUImageView::SCreationParams creationParams = {};
-				creationParams.image = inImageGPU;
-				creationParams.viewType = video::IGPUImageView::ET_1D;
-				creationParams.format = inImageGPU->getCreationParameters().format;
-				creationParams.subresourceRange.aspectMask = video::IGPUImage::EAF_COLOR_BIT;
-				creationParams.subresourceRange.layerCount = 1u;
-				creationParams.subresourceRange.levelCount = 1u;
+				video::IGPUImageView::SCreationParams inCreationParams = {};
+				inCreationParams.image = inImageGPU;
+				inCreationParams.viewType = video::IGPUImageView::ET_3D;
+				inCreationParams.format = inImageGPU->getCreationParameters().format;
+				inCreationParams.subresourceRange.aspectMask = video::IGPUImage::EAF_COLOR_BIT;
+				inCreationParams.subresourceRange.layerCount = 1u;
+				inCreationParams.subresourceRange.levelCount = 1u;
 
-				inImageView = logicalDevice->createGPUImageView(std::move(creationParams));
-			}
+				video::IGPUImageView::SCreationParams outCreationParams = inCreationParams;
+				outCreationParams.image = outImageGPU;
+				outCreationParams.format = outImageGPU->getCreationParameters().format;
 
-			{
-				video::IGPUImageView::SCreationParams creationParams = {};
-				creationParams.image = outImageGPU;
-				creationParams.viewType = video::IGPUImageView::ET_1D;
-				creationParams.format = outImageGPU->getCreationParameters().format;
-				creationParams.subresourceRange.aspectMask = video::IGPUImage::EAF_COLOR_BIT;
-				creationParams.subresourceRange.layerCount = 1u;
-				creationParams.subresourceRange.levelCount = 1u;
-
-				outImageView = logicalDevice->createGPUImageView(std::move(creationParams));
+				inImageView = logicalDevice->createGPUImageView(std::move(inCreationParams));
+				outImageView = logicalDevice->createGPUImageView(std::move(outCreationParams));
 			}
 
 			core::smart_refctd_ptr<video::IGPUSampler> sampler = nullptr;
@@ -298,14 +314,15 @@ public:
 
 				dsLayout = logicalDevice->createGPUDescriptorSetLayout(bindings, bindings + DESCRIPTOR_COUNT);
 			}
-			const uint32_t dsCount = 1u;
-			auto descriptorPool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE, &dsLayout.get(), &dsLayout.get() + 1ull, &dsCount);
 
 			asset::SPushConstantRange pcRange = {};
 			pcRange.stageFlags = asset::IShader::ESS_COMPUTE;
 			pcRange.offset = 0u;
 			pcRange.size = sizeof(push_constants_t);
 			core::smart_refctd_ptr<video::IGPUPipelineLayout> pipelineLayout = logicalDevice->createGPUPipelineLayout(&pcRange, &pcRange + 1ull, core::smart_refctd_ptr(dsLayout));
+
+			const uint32_t dsCount = 1u;
+			auto descriptorPool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE, &dsLayout.get(), &dsLayout.get() + 1ull, &dsCount);
 
 			core::smart_refctd_ptr<video::IGPUDescriptorSet> ds = logicalDevice->createGPUDescriptorSet(descriptorPool.get(), core::smart_refctd_ptr(dsLayout));
 			{
@@ -363,10 +380,8 @@ public:
 			auto pipeline = logicalDevice->createGPUComputePipeline(nullptr, std::move(pipelineLayout), std::move(compShader));
 
 			cmdbuf->reset(nbl::video::IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
-
 			cmdbuf->begin(video::IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
 			cmdbuf->bindComputePipeline(pipeline.get());
-			cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE, pipeline->getLayout(), 0u, 1u, &ds.get());
 			push_constants_t pc = { };
 			{
 				pc.inWidth = inImageDim[0];
@@ -382,41 +397,36 @@ public:
 				pc.windowDim = std::ceil(1.f*scale); // cannot use kernelX/Y/Z.getWindowSize() here because they haven't been scaled yet for upscaling/downscaling
 			}
 			cmdbuf->pushConstants(pipeline->getLayout(), asset::IShader::ESS_COMPUTE, 0u, sizeof(push_constants_t), &pc);
+
 			const uint32_t totalWindowCount = outImageDim[0];
 			const uint32_t windowDim = std::ceil(inImageDim[0] / outImageDim[0]);
 			const uint32_t windowsPerWG = WG_DIM / windowDim; // we want to make sure that the WG covers a window COMPLETELY even if it means throwing away some invocations
 			const uint32_t wgCount = (totalWindowCount + windowsPerWG - 1) / windowsPerWG;
-			cmdbuf->dispatch(wgCount, 1u, 1u);
 
-			// after the dispatch download the buffer to check
+			cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE, pipeline->getLayout(), 0u, 1u, &ds.get());
+			// cmdbuf->dispatch(wgCount, 1u, 1u);
+			cmdbuf->dispatch(2u, 2u, 2u);
+
+			// after the dispatch download the buffer to check, one buffer to download contents from all images
 			core::smart_refctd_ptr<video::IGPUBuffer> downloadBuffer = nullptr;
+			const size_t downloadSize = static_cast<size_t>(outImageDim[0]) * outImageDim[1] * outImageDim[2] * asset::getTexelOrBlockBytesize(outImageGPU->getCreationParameters().format);
 			{
-				const size_t downloadSize = outImageDim[0] * outImageDim[1] * sizeof(float); // Todo(achal): Need to change this for more complex images
 				video::IGPUBuffer::SCreationParams creationParams = {};
 				creationParams.usage = video::IGPUBuffer::EUF_TRANSFER_DST_BIT;
 				downloadBuffer = logicalDevice->createCPUSideGPUVisibleGPUBufferOnDedMem(creationParams, downloadSize);
 
-				// need a memory dependency to ensure that the compute shader has finished writing to the image
+				// need a memory dependency to ensure that the compute shader has finished writing to the image(s)
+				asset::SMemoryBarrier memoryBarrier = { asset::EAF_SHADER_WRITE_BIT, asset::EAF_TRANSFER_READ_BIT };
 				video::IGPUCommandBuffer::SImageMemoryBarrier imageBarrier = {};
-				imageBarrier.barrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
-				imageBarrier.barrier.dstAccessMask = asset::EAF_TRANSFER_READ_BIT;
-				imageBarrier.oldLayout = asset::EIL_GENERAL;
-				imageBarrier.newLayout = asset::EIL_GENERAL;
-				imageBarrier.srcQueueFamilyIndex = ~0u;
-				imageBarrier.dstQueueFamilyIndex = ~0u;
-				imageBarrier.image = outImageGPU;
-				imageBarrier.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
-				imageBarrier.subresourceRange.levelCount = 1u;
-				imageBarrier.subresourceRange.layerCount = 1u;
-				cmdbuf->pipelineBarrier(asset::EPSF_COMPUTE_SHADER_BIT, asset::EPSF_TRANSFER_BIT, asset::EDF_NONE, 0u, nullptr, 0u, nullptr, 1u, &imageBarrier);
-
-				asset::ICPUImage::SBufferCopy copyRegion = {};
-				copyRegion.imageSubresource.aspectMask = video::IGPUImage::EAF_COLOR_BIT;
-				copyRegion.imageSubresource.layerCount = 1u;
-				copyRegion.imageExtent = outImageGPU->getCreationParameters().extent;
-				cmdbuf->copyImageToBuffer(outImageGPU.get(), asset::EIL_GENERAL, downloadBuffer.get(), 1u, &copyRegion);
+				cmdbuf->pipelineBarrier(asset::EPSF_COMPUTE_SHADER_BIT, asset::EPSF_TRANSFER_BIT, asset::EDF_NONE, 1u, &memoryBarrier, 0u, nullptr, 0u, nullptr);
 			}
 
+			asset::ICPUImage::SBufferCopy copyRegion = {};
+			copyRegion.imageSubresource.aspectMask = video::IGPUImage::EAF_COLOR_BIT;
+			copyRegion.imageSubresource.layerCount = 1u;
+			copyRegion.imageExtent = outImageGPU->getCreationParameters().extent;
+
+			cmdbuf->copyImageToBuffer(outImageGPU.get(), asset::EIL_GENERAL, downloadBuffer.get(), 1u, &copyRegion);
 			cmdbuf->end();
 
 			logicalDevice->resetFences(1u, &fence.get());
@@ -434,22 +444,25 @@ public:
 			float* mappedGPUData = reinterpret_cast<float*>(logicalDevice->mapMemory(memoryRange));
 
 			// Todo(achal): This needs to change for more complex images
-			memcpy(gpuOutput.data(), mappedGPUData, outImageDim[0] * outImageDim[1] * sizeof(float));
+			memcpy(gpuOutput.data(), mappedGPUData, static_cast<size_t>(outImageDim[0]) * outImageDim[1] * outImageDim[2] * sizeof(float));
 			logicalDevice->unmapMemory(downloadBuffer->getBoundMemory());
 		}
 
 		// now test (this will have to change for other formats/real images)
-		for (uint32_t j = 0u; j < outImageDim[1]; ++j)
+		for (uint32_t k = 0u; k < outImageDim[2]; ++k)
 		{
-			for (uint32_t i = 0u; i < outImageDim[0]; ++i)
+			for (uint32_t j = 0u; j < outImageDim[1]; ++j)
 			{
-				const uint32_t index = j * outImageDim[0] + i;
-				if (gpuOutput[index] != cpuOutput[index])
+				for (uint32_t i = 0u; i < outImageDim[0]; ++i)
 				{
-					printf("Failed at (%u, %u)\n", i, j);
-					printf("CPU: %f\n", cpuOutput[index]);
-					printf("GPU: %f\n", gpuOutput[index]);
-					__debugbreak();
+					const uint32_t index = k * (outImageDim[1] * outImageDim[0]) + j * outImageDim[0] + i;
+					if (gpuOutput[index] != cpuOutput[index])
+					{
+						printf("Failed at (%u, %u, %u)\n", i, j, k);
+						printf("CPU: %f\n", cpuOutput[index]);
+						printf("GPU: %f\n", gpuOutput[index]);
+						__debugbreak();
+					}
 				}
 			}
 		}

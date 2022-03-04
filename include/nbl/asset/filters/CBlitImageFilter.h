@@ -696,7 +696,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 				// filter in Y-axis
 				filterAxis(IImage::ET_2D,kernelY);
 				// filter in Z-axis
-				assert(inImageType!=IImage::ET_3D); // TODO: Need to test this in the future
+				// assert(inImageType!=IImage::ET_3D); // TODO: Need to test this in the future
 				filterAxis(IImage::ET_3D,kernelZ);
 			}
 			return true;
