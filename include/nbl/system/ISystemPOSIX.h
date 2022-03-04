@@ -1,7 +1,7 @@
 #ifndef _NBL_SYSTEM_C_SYSTEM_CALLER_POSIX_INCLUDED_
 #define _NBL_SYSTEM_C_SYSTEM_CALLER_POSIX_INCLUDED_
 
-#include "ISystem.h"
+#include "nbl/system/ISystem.h"
 
 namespace nbl::system
 {
@@ -15,6 +15,8 @@ class ISystemPOSIX : public ISystem
             public:
                 core::smart_refctd_ptr<IFile> createFile_impl(const std::filesystem::path& filename, core::bitflag<IFile::E_CREATE_FLAGS> flags) override final;
         };
+
+        ISystemPOSIX() : ISystem(core::make_smart_refctd_ptr<CCaller>(this)) {}
 };
 #endif
 
