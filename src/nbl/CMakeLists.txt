@@ -176,6 +176,19 @@ file(GLOB_RECURSE TEMP_GLOB_RES "${NBL_ROOT_PATH}/include/*.h")
 set(NABLA_HEADERS_PUBLIC ${NABLA_HEADERS_PUBLIC} ${TEMP_GLOB_RES})
 file(GLOB_RECURSE TEMP_GLOB_RES "${NBL_ROOT_PATH}/include/*.tcc")
 set(NABLA_HEADERS_PUBLIC ${NABLA_HEADERS_PUBLIC} ${TEMP_GLOB_RES})
+file(GLOB_RECURSE TEMP_GLOB_RES  "${NBL_ROOT_PATH}/src/*.h")
+set(NABLA_HEADERS_PUBLIC2 ${NABLA_HEADERS_PUBLIC2} ${TEMP_GLOB_RES}) # TODO: we should have moved all headers from src directory to /include, but we need it for install target
+
+foreach(NBL_CURRENT_HEADER IN LISTS NABLA_HEADERS_PUBLIC2)
+	cmake_path(GET NBL_CURRENT_HEADER PARENT_PATH NBL_CURRENT_HEADER_DIR)
+	file(RELATIVE_PATH NBL_TMP_REL_DESTINATION "${NBL_ROOT_PATH}/src" ${NBL_CURRENT_HEADER_DIR})
+	
+	install(FILES ${NBL_CURRENT_HEADER} DESTINATION include/${NBL_TMP_REL_DESTINATION} CONFIGURATIONS Release)
+	install(FILES ${NBL_CURRENT_HEADER} DESTINATION debug/include/${NBL_TMP_REL_DESTINATION} CONFIGURATIONS Debug)
+	install(FILES ${NBL_CURRENT_HEADER} DESTINATION relwithdebinfo/include/${NBL_TMP_REL_DESTINATION} CONFIGURATIONS RelWithDebInfo)
+endforeach()
+
+unset(NABLA_HEADERS_PUBLIC2 ${NBL_TMP_FULL_PATHS})
 
 file(GLOB_RECURSE NABLA_HEADERS_PRIV1 "*.h")
 file(GLOB_RECURSE NABLA_HEADERS_PRIV2 "${NBL_ROOT_PATH}/src/nbl/*.h")
@@ -647,7 +660,6 @@ start_tracking_variables_for_propagation_to_parent()
 add_subdirectory(ext)
 propagate_changed_variables_to_parent_scope()
 
-
 set(NABLA_HEADERS_TO_INSTALL 
 	${NABLA_HEADERS_PUBLIC}
 )
@@ -664,6 +676,12 @@ nbl_install_headers("${CMAKE_CURRENT_BINARY_DIR}/include/nabla.h" "${CMAKE_CURRE
 nbl_install_headers("${NABLA_HEADERS_TO_INSTALL}" "${NBL_ROOT_PATH}/include")
 nbl_install_headers("${NABLA_HEADERS_TO_INSTALL_SOURCE_REFACTOR}" "${NBL_ROOT_PATH}/source/Nabla")
 nbl_install_config_header(BuildConfigOptions.h)
+
+macro(nbl_install_program _TRGT)
+	install(PROGRAMS $<TARGET_FILE:${_TRGT}> DESTINATION lib CONFIGURATIONS Release)
+	install(PROGRAMS $<TARGET_FILE:${_TRGT}> DESTINATION debug/lib CONFIGURATIONS Debug)
+	install(PROGRAMS $<TARGET_FILE:${_TRGT}> DESTINATION relwithdebinfo/lib CONFIGURATIONS RelWithDebInfo)
+endmacro()
 
 macro(nbl_install_lib _TRGT)
 	install(TARGETS ${_TRGT} ARCHIVE DESTINATION lib CONFIGURATIONS Release)
@@ -709,7 +727,7 @@ nbl_install_lib(zlibstatic)
 nbl_install_lib(simdjson)
 nbl_install_lib(volk)
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-	nbl_install_lib(tbb)
-	nbl_install_lib(tbbmalloc)
-	nbl_install_lib(tbbmalloc_proxy)
+	nbl_install_program(tbb)
+	nbl_install_program(tbbmalloc)
+	nbl_install_program(tbbmalloc_proxy)
 endif()
