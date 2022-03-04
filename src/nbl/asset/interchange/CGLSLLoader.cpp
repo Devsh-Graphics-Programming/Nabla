@@ -14,12 +14,14 @@ SAssetBundle CGLSLLoader::loadAsset(system::IFile* _file, const IAssetLoader::SA
 	if (!_file)
         return {};
 
-
 	auto len = _file->getSize();
 	void* source = _NBL_ALIGNED_MALLOC(len+1u,_NBL_SIMD_ALIGNMENT);
-	system::future<size_t> future;
-	_file->read(future, source, 0, len);
-	future.get();
+
+	system::IFile::success_t success;
+	_file->read(success, source, 0, len);
+	if (!success)
+		return {};
+
 	reinterpret_cast<char*>(source)[len] = 0;
 
 

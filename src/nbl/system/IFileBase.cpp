@@ -33,7 +33,7 @@ std::string deletePathFromPath(const std::string& filename, int32_t pathcount)
 	return str.c_str();
 }
 
-path IFile::flattenFilename(const path& p)
+path IFileBase::flattenFilename(const path& p)
 {
 	if (p.empty()) return p;
 

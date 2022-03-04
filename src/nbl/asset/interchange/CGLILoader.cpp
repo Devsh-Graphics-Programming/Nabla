@@ -230,9 +230,10 @@ namespace nbl
 
 			const auto sizeOfData = memory.size();
 
-			system::future<size_t> future;
-			file->read(future, memory.data(), 0, sizeOfData);
-			future.get();
+			system::IFile::success_t success;
+			file->read(success, memory.data(), 0, sizeOfData);
+			if (!success)
+				return false;
 
 			if (fileName.rfind(".dds") != std::string::npos)
 				texture = gli::load_dds(memory.data(), sizeOfData);
@@ -246,7 +247,6 @@ namespace nbl
 			else
 			{
 				logger.log("LOADING GLI: failed to load the file %s", system::ILogger::ELL_ERROR, file->getFileName().string().c_str());
-
 				return false;
 			}
 		}
@@ -259,50 +259,34 @@ namespace nbl
 			constexpr std::array<uint8_t, 12> ktxMagic = { 0xAB, 0x4B, 0x54, 0x58, 0x20, 0x31, 0x31, 0xBB, 0x0D, 0x0A, 0x1A, 0x0A };
 			constexpr std::array<uint8_t, 16> kmgMagic = { 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55 };
 
-			system::future<size_t> future;
+			// TODO: try to read the headers regardless of extension
+			system::IFile::success_t success;
 			if (fileName.rfind(".dds") != std::string::npos)
 			{
 				std::remove_const<decltype(ddsMagic)>::type tmpBuffer;
-				_file->read(future, &tmpBuffer, 0, sizeof(ddsMagic));
-				future.get();
-				if (*reinterpret_cast<decltype(ddsMagic)*>(&tmpBuffer) == ddsMagic)
-				{
+				_file->read(success, &tmpBuffer, 0, sizeof(ddsMagic));
+				if (success && *reinterpret_cast<decltype(ddsMagic)*>(&tmpBuffer) == ddsMagic)
 					return true;
-				}
 				else
-				{
 					logger.log("LOAD GLI: Invalid (non-DDS) file!", system::ILogger::ELL_ERROR);
-				}
 			}
 			else if (fileName.rfind(".kmg") != std::string::npos)
 			{
 				std::remove_const<decltype(kmgMagic)>::type tmpBuffer;
-				_file->read(future, tmpBuffer.data(), 0, sizeof(kmgMagic[0]) * kmgMagic.size());
-				future.get();
-				if (tmpBuffer == kmgMagic)
-				{
+				_file->read(success, tmpBuffer.data(), 0, sizeof(kmgMagic[0]) * kmgMagic.size());
+				if (success && tmpBuffer==kmgMagic)
 					return true;
-				}
 				else
-				{
 					logger.log("LOAD GLI: Invalid (non-KMG) file!", system::ILogger::ELL_ERROR);
-				}
-
 			}
 			else if (fileName.rfind(".ktx") != std::string::npos)
 			{
 				std::remove_const<decltype(ktxMagic)>::type tmpBuffer;
-				_file->read(future, tmpBuffer.data(), 0, sizeof(ktxMagic[0]) * ktxMagic.size());
-
-				future.get();
-				if (tmpBuffer == ktxMagic)
-				{
+				_file->read(success, tmpBuffer.data(), 0, sizeof(ktxMagic[0]) * ktxMagic.size());
+				if (success && tmpBuffer==ktxMagic)
 					return true;
-				}
 				else
-				{
 					logger.log("LOAD GLI: Invalid (non-KTX) file!", system::ILogger::ELL_ERROR);
-				}
 			}
 			
 			return false;

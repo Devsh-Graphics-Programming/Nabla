@@ -62,9 +62,10 @@ SAssetBundle CSPVLoader::loadAsset(system::IFile* _file, const IAssetLoader::SAs
 	
 	auto buffer = core::make_smart_refctd_ptr<ICPUBuffer>(_file->getSize());
 	
-	system::future<size_t> future;
-	_file->read(future, buffer->getPointer(), 0, _file->getSize());
-	future.get();
+	system::IFile::success_t success;
+	_file->read(success, buffer->getPointer(), 0, _file->getSize());
+    if (!success)
+        return {};
 
 	if (reinterpret_cast<uint32_t*>(buffer->getPointer())[0]!=SPV_MAGIC_NUMBER)
 		return {};

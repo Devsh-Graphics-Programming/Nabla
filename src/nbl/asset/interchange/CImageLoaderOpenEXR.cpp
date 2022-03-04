@@ -72,12 +72,11 @@ namespace nbl
 
 					virtual bool read(char c[/*n*/], int n) override
 					{
-						system::future<size_t> future;
+						system::ISystem::future_t<size_t> future;
 						nblFile->read(future, c, fileOffset, n);
-						const auto bytesRead = future.get();
-						fileOffset += bytesRead;
+						fileOffset += future.get();
 						
-						return true;
+						return future.get()==static_cast<size_t>(n);
 					}
 
 					//--------------------------------------------------------
@@ -410,10 +409,9 @@ namespace nbl
 		bool CImageLoaderOpenEXR::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const
 		{	
 			char magicNumberBuffer[sizeof(SContext::magicNumber)];
-			system::future<size_t> future;
-			_file->read(future, magicNumberBuffer, 0, sizeof(SContext::magicNumber));
-			future.get();
-			return isImfMagic(magicNumberBuffer);
+			system::IFile::success_t success;
+			_file->read(success, magicNumberBuffer, 0, sizeof(SContext::magicNumber));
+			return success && isImfMagic(magicNumberBuffer);
 		}
 
 		template<typename rgbaFormat>

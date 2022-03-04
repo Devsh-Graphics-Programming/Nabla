@@ -98,6 +98,6 @@ core::smart_refctd_ptr<ISystemFile> CSystemWin32::CCaller::createFile(const std:
             return nullptr;
         }
     }
-    return core::make_smart_refctd_ptr<CFileWin32>(core::smart_refctd_ptr<ISystem>(m_system),filename,flags,_native,_fileMappingObj,_mappedPtr,_size);
+    return core::make_smart_refctd_ptr<CFileWin32>(core::smart_refctd_ptr<ISystem>(m_system),path(filename),flags,_mappedPtr,_size,_native,_fileMappingObj);
 }
 #endif

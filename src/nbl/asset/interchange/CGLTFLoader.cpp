@@ -7,15 +7,15 @@
 #ifdef _NBL_COMPILE_WITH_GLTF_LOADER_
 
 #include "nbl/asset/utils/CDerivativeMapCreator.h"
+
 #include "simdjson/singleheader/simdjson.h"
 #include <algorithm>
+
 #include "nbl/core/execution.h"
 
+using namespace nbl;
+using namespace nbl::asset;
 
-namespace nbl
-{
-	namespace asset
-	{
 		enum WEIGHT_ENCODING
 		{
 			WE_UNORM8,
@@ -104,9 +104,10 @@ namespace nbl
 
 			auto jsonBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(_file->getSize());
 			{
-				system::future<size_t> future;
-				_file->read(future, jsonBuffer->getPointer(), 0u, jsonBuffer->getSize());
-				future.get();
+				system::IFile::success_t success;
+				_file->read(success, jsonBuffer->getPointer(), 0u, jsonBuffer->getSize());
+				if (!success)
+					return false;
 			}
 
 			simdjson::dom::object tweets;
@@ -1637,9 +1638,10 @@ namespace nbl
 
 			auto jsonBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(_file->getSize());
 			{
-				system::future<size_t> future;
-				_file->read(future, jsonBuffer->getPointer(), 0u, jsonBuffer->getSize());
-				future.get();
+				system::IFile::success_t success;
+				_file->read(success, jsonBuffer->getPointer(), 0u, jsonBuffer->getSize());
+				if (!success)
+					return false;
 			}
 
 			simdjson::dom::object tweets = parser.parse(reinterpret_cast<uint8_t*>(jsonBuffer->getPointer()), jsonBuffer->getSize());
@@ -2428,8 +2430,5 @@ namespace nbl
 
 			return true;
 		}
-
-}
-}
 
 #endif // _NBL_COMPILE_WITH_GLTF_LOADER_

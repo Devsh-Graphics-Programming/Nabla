@@ -44,7 +44,7 @@ class ISystemFile : public IFile
 		}
 
 		//
-		//friend class ISystem::CAsyncQueue;
+		friend class ISystem::CAsyncQueue;
 		virtual size_t asyncRead(void* buffer, size_t offset, size_t sizeToRead) = 0;
 		virtual size_t asyncWrite(const void* buffer, size_t offset, size_t sizeToWrite) = 0;
 
