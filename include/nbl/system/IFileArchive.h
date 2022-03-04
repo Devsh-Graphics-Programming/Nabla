@@ -32,16 +32,8 @@ class IFileArchive : public core::IReferenceCounted
 		//! An entry in a list of items, can be a folder or a file.
 		struct SListEntry
 		{
-#if 0
-			//! The name of the file
-			/** If this is a file or folder in the virtual filesystem and the archive
-			was created with the ignoreCase flag then the file name will be lower case. */
-			system::path name;
-#endif
-			//! The name of the file including the path
-			/** If this is a file or folder in the virtual filesystem and the archive was
-			created with the ignoreDirs flag then it will be the same as Name. */
-			system::path fullName;
+			//! The name of the file including the path relative to archive root
+			system::path pathRelativeToArchive;
 
 			//! The size of the file in bytes
 			size_t size;
@@ -58,15 +50,15 @@ class IFileArchive : public core::IReferenceCounted
 			E_ALLOCATOR_TYPE allocatorType;
 
 			//! The == operator is provided so that CFileList can slowly search the list!
-			inline bool operator ==(const struct SListEntry& other) const
+			inline bool operator==(const struct SListEntry& other) const
 			{
-				return fullName.string()==other.fullName.string();
+				return pathRelativeToArchive.string()==other.pathRelativeToArchive.string();
 			}
 
 			//! The < operator is provided so that CFileList can sort and quickly search the list.
 			inline bool operator<(const struct SListEntry& other) const
 			{
-				return fullName<other.fullName;
+				return pathRelativeToArchive<other.pathRelativeToArchive;
 			}
 		};
 
@@ -76,57 +68,15 @@ class IFileArchive : public core::IReferenceCounted
 		// List all files and directories in a specific dir of the archive
 		core::SRange<const SListEntry> listAssets(const path& asset_path) const;
 
-		struct SOpenFileParams
-		{
-			path filename;
-			path absolutePath;
-			std::string_view password;
-		};
-#if 0	
-		core::smart_refctd_ptr<IFile> readFile(const SOpenFileParams& params)
-		{
-			auto index = getIndexByPath(params.filename);
-			if (index == -1) return nullptr;
-			switch (this->listAssets(index))
-			{
-			case EAT_NULL:
-				return getFile_impl<CNullAllocator>(params, index);
-				break;
-			case EAT_MALLOC:
-				return getFile_impl<CPlainHeapAllocator>(params, index);
-				break;
-			case EAT_VIRTUAL_ALLOC:
-				return getFile_impl<VirtualMemoryAllocator>(params, index);
-				break;
-			}
-			assert(false);
-			return nullptr;
-		}
-		virtual core::smart_refctd_ptr<IFile> readFile_impl(const SOpenFileParams& params) = 0;
-		int32_t getIndexByPath(const system::path& p)
-		{
-			for (int i = 0; i < m_files.size(); ++i)
-			{
-				if (p == m_files[i].fullName) return i;
-			}
-			return -1;
-		}
-		E_ALLOCATOR_TYPE getFileType(uint32_t index)
-		{
-			return m_files[index].allocatorType;
-		}
-
-#endif
+		//
+		virtual core::smart_refctd_ptr<IFile> getFile(const path& pathRelativeToArchive, const std::string_view& password) = 0;
 
 		//
-		IFile* asFile() { return m_file.get(); }
-		const IFile* asFile() const { return m_file.get(); }
+		const path& getDefaultAbsolutePath() const {return m_defaultAbsolutePath;}
 
 	protected:
-		IFileArchive(core::smart_refctd_ptr<IFile>&& file, system::logger_opt_smart_ptr&& logger) :
-			m_file(std::move(file)), m_logger(std::move(logger))
-		{
-		}
+		IFileArchive(path&& _defaultAbsolutePath, system::logger_opt_smart_ptr&& logger) :
+			m_defaultAbsolutePath(std::move(_defaultAbsolutePath)), m_logger(std::move(logger)) {}
 /*
 		virtual void addItem(const system::path& fullPath, uint32_t offset, uint32_t size, E_ALLOCATOR_TYPE allocatorType, uint32_t id = 0)
 		{
@@ -143,9 +93,16 @@ class IFileArchive : public core::IReferenceCounted
 			m_items.insert(std::lower_bound(m_items.begin(), m_items.end(), entry), entry);
 		}
 */
+		inline uint32_t getIndexFromPath(const system::path& pathRelativeToArchive) const
+		{
+            const IFileArchive::SListEntry itemToFind = { pathRelativeToArchive };
+			return std::distance(m_items.begin(),std::lower_bound(m_items.begin(),m_items.end(),itemToFind));
+		}
+
+		path m_defaultAbsolutePath;
 		// files and directories
 		core::vector<SListEntry> m_items;
-		core::smart_refctd_ptr<IFile> m_file;
+		//
 		system::logger_opt_smart_ptr m_logger;
 };
 

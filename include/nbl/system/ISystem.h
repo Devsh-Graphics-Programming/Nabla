@@ -156,7 +156,7 @@ class ISystem : public core::IReferenceCounted
         /*
             Recursively lists all files and directories in the directory.
         */
-        core::vector<system::path> listFilesInDirectory(const system::path& p) const;
+        core::vector<system::path> listItemsInDirectory(const system::path& p) const;
 
         // can only perform operations on non-virtual filesystem paths
         bool createDirectory(const system::path& p);
@@ -175,7 +175,12 @@ class ISystem : public core::IReferenceCounted
         bool copy(const system::path& from, const system::path& to);
 
         //
-        void createFile(future_t<core::smart_refctd_ptr<IFile>>& future, std::filesystem::path filename, const core::bitflag<IFileBase::E_CREATE_FLAGS> flags);
+        void createFile(
+            future_t<core::smart_refctd_ptr<IFile>>& future, // creation may happen on a dedicated thread, so its async
+            std::filesystem::path filename, // absolute path within our virtual filesystem
+            const core::bitflag<IFileBase::E_CREATE_FLAGS> flags, // access flags (IMPORTANT: files from most archives wont open with ECF_WRITE bit)
+            const std::string_view& accessToken="" // usually password for archives, but should be SSH key for URL downloads
+        );
         
         // Create a IFileArchive from a IFile
         core::smart_refctd_ptr<IFileArchive> openFileArchive(core::smart_refctd_ptr<IFile>&& file, const std::string_view& password="");
@@ -193,8 +198,23 @@ class ISystem : public core::IReferenceCounted
         }
 
         // After opening and archive, you must mount it if you want the global path lookup to work seamlessly.
-        void mount(core::smart_refctd_ptr<IFileArchive>&& archive, const system::path& pathAlias="");
-        void unmount(const IFileArchive* archive, const system::path& pathAlias="");
+        inline void mount(core::smart_refctd_ptr<IFileArchive>&& archive, const system::path& pathAlias="")
+        {
+            if (pathAlias.empty())
+                m_cachedArchiveFiles.insert(archive->getDefaultAbsolutePath(),std::move(archive));
+            else
+                m_cachedArchiveFiles.insert(pathAlias,std::move(archive));
+        }
+
+        //
+        inline void unmount(const IFileArchive* archive, const system::path& pathAlias = "")
+        {
+            auto dummy = reinterpret_cast<const core::smart_refctd_ptr<IFileArchive>&>(archive);
+            if (pathAlias.empty())
+                m_cachedArchiveFiles.removeObject(dummy,archive->getDefaultAbsolutePath());
+            else
+                m_cachedArchiveFiles.removeObject(dummy,pathAlias);
+        }
 
         //
         struct SystemInfo
@@ -243,11 +263,13 @@ class ISystem : public core::IReferenceCounted
         //
         core::smart_refctd_ptr<IFile> impl_loadEmbeddedBuiltinData(const std::string& builtinPath, const std::pair<const uint8_t*,size_t>& found) const;
 
-        // given an absolute `path` find the archive it belongs to
-        std::pair<IFileArchive*,IFileArchive::SOpenFileParams> findFileInArchive(const system::path& _path) const;
-
-        //
-        core::smart_refctd_ptr<IFile> getFileFromArchive(const system::path& path);
+        // given an `absolutePath` find the archive it belongs to
+        struct FoundArchiveFile
+        {
+            IFileArchive* archive;
+            path pathRelativeToArchive;
+        };
+        FoundArchiveFile findFileInArchive(const system::path& absolutePath) const;
 
 
         //
