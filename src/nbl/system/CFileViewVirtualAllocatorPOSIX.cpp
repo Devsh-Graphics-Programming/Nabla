@@ -1,4 +1,4 @@
-#include "nbl/system/CFileViewVirtualAllocatorPOSIX.h"
+#include "nbl/system/IFileViewAllocator.h"
 
 using namespace nbl::system;
 
