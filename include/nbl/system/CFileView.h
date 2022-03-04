@@ -8,7 +8,7 @@
 namespace nbl::system
 {
 
-class IFileView : public IFile, private ISystem::IFutureManipulator
+class IFileView : public IFile
 {
 	public:
 		size_t getSize() const override final
@@ -17,29 +17,12 @@ class IFileView : public IFile, private ISystem::IFutureManipulator
 		}
 
 	protected:
-		IFileView(IFileView&& other) : IFile(other.getFileName(),other.getFlags()), m_buffer(other.m_buffer), m_size(other.m_size)
+		IFileView(IFileView&& other) : IFile(path(other.getFileName()),other.getFlags()), m_buffer(other.m_buffer), m_size(other.m_size)
 		{
 			other.m_buffer = nullptr;
 		}
-		IFileView(const path& _name, const core::bitflag<E_CREATE_FLAGS> _flags, void* buffer, size_t fileSize) :
-			IFile(_name,_flags|ECF_COHERENT), m_buffer((std::byte*)buffer), m_size(fileSize)
-		{
-		}
-
-		inline void read(ISystem::future_t<size_t>& fut, void* buffer, size_t offset, size_t sizeToRead) override final
-		{
-			if (offset+sizeToRead > m_size)
-				sizeToRead = m_size-offset;
-			memcpy(buffer, m_buffer+offset, sizeToRead);
-			fake_notify(fut,sizeToRead);
-		}
-		inline void write(ISystem::future_t<size_t>& fut, const void* buffer, size_t offset, size_t sizeToWrite) override final
-		{
-			if (offset+sizeToWrite > m_size)
-				sizeToWrite = m_size-offset;
-			memcpy(m_buffer+offset, buffer, sizeToWrite);
-			fake_notify(fut,sizeToWrite);
-		}
+		IFileView(path&& _name, const core::bitflag<E_CREATE_FLAGS> _flags, void* buffer, size_t fileSize) :
+			IFile(std::move(_name),_flags), m_buffer(buffer), m_size(fileSize) {}
 
 		const void* getMappedPointer_impl() const override final
 		{
@@ -51,7 +34,7 @@ class IFileView : public IFile, private ISystem::IFutureManipulator
 		}
 
 		//
-		std::byte* m_buffer;
+		void* m_buffer;
 		size_t m_size;
 };
 
@@ -63,11 +46,11 @@ class CFileView : public IFileView
 
 	public:
 		// constructor for making a file with memory already allocated by the allocator
-		CFileView(core::smart_refctd_ptr<ISystem>&& sys, const path& _name, core::bitflag<E_CREATE_FLAGS> _flags, void* buffer, size_t fileSize, allocator_t&& _allocator) :
-			IFileView(std::move(sys),_name,_flags,buffer,fileSize), allocator(std::move(_allocator)) {}
+		CFileView(path&& _name, const core::bitflag<E_CREATE_FLAGS> _flags, void* buffer, const size_t fileSize, allocator_t&& _allocator) :
+			IFileView(std::move(sys),std::move(_name),_flags,buffer,fileSize), allocator(std::move(_allocator)) {}
 
 		// 
-		static inline core::smart_refctd_ptr<CFileView<allocator_t>> create(core::smart_refctd_ptr<ISystem>&& sys, const path& _name, core::bitflag<E_CREATE_FLAGS> _flags, size_t fileSize, allocator_t&& _allocator={})
+		static inline core::smart_refctd_ptr<CFileView<allocator_t>> create(path&& _name, const core::bitflag<E_CREATE_FLAGS> _flags, size_t fileSize, allocator_t&& _allocator={})
 		{
 			auto mem = reintepret_cast<std::byte*>(_allocator.alloc(fileSize));
 			if (!mem)
@@ -96,8 +79,8 @@ template<>
 class CFileView<CNullAllocator> : public IFileView
 {
 	public:
-		CFileView(core::smart_refctd_ptr<ISystem>&& sys, const path& _name, core::bitflag<E_CREATE_FLAGS> _flags, void* buffer, size_t fileSize) :
-			IFileView(std::move(sys),_name,_flags,buffer,fileSize) {}
+		CFileView(path&& _name, const core::bitflag<E_CREATE_FLAGS> _flags, void* buffer, const size_t fileSize) :
+			IFileView(std::move(_name),_flags,buffer,fileSize) {}
 
 	protected:
 		CFileView(CFileView<CNullAllocator>&& other) : IFileView(std::move(other)) {}

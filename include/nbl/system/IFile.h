@@ -6,12 +6,38 @@
 namespace nbl::system
 {
 
-class IFile : public IFileBase
+class IFile : public IFileBase, private ISystem::IFutureManipulator
 {
 	public:
 		//
-		virtual void read(ISystem::future_t<size_t>& fut, void* buffer, size_t offset, size_t sizeToRead) = 0;
-		virtual void write(ISystem::future_t<size_t>& fut, const void* buffer, size_t offset, size_t sizeToWrite) = 0;
+		inline void read(ISystem::future_t<size_t>& fut, void* buffer, size_t offset, size_t sizeToRead)
+		{
+			const auto* ptr = reinterpret_cast<const std::byte*>(getMappedPointer());
+			if (ptr)
+			{
+				const size_t size = getSize();
+				if (offset+sizeToRead>size)
+					sizeToRead = size-offset;
+				memcpy(buffer,ptr+offset,sizeToRead);
+				fake_notify(fut,sizeToRead);
+			}
+			else
+				unmappedRead(fut,buffer,offset,sizeToRead);
+		}
+		inline void write(ISystem::future_t<size_t>& fut, const void* buffer, size_t offset, size_t sizeToWrite)
+		{
+			auto* ptr = reinterpret_cast<std::byte*>(getMappedPointer());
+			if (ptr)
+			{
+				// TODO: growable mappings
+				if (offset+sizeToWrite>getSize())
+					sizeToWrite = getSize()-offset;
+				memcpy(ptr+offset,buffer,sizeToWrite);
+				fake_notify(fut,sizeToWrite);
+			}
+			else
+				unmappedWrite(fut,buffer,offset,sizeToWrite);
+		}
 
 		//
 		struct success_t
@@ -46,6 +72,16 @@ class IFile : public IFileBase
 	protected:
 		// this is an abstract interface class so this stays protected
 		using IFileBase::IFileBase;
+
+		//
+		virtual void unmappedRead(ISystem::future_t<size_t>& fut, void* buffer, size_t offset, size_t sizeToRead)
+		{
+			fake_notify(fut,0ull);
+		}
+		virtual void unmappedWrite(ISystem::future_t<size_t>& fut, const void* buffer, size_t offset, size_t sizeToWrite)
+		{
+			fake_notify(fut,0ull);
+		}
 };
 
 }

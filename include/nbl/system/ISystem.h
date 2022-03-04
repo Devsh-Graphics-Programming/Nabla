@@ -10,7 +10,7 @@
 #include <variant>
 
 #include "nbl/system/ICancellableAsyncQueueDispatcher.h"
-#include "nbl/system/IFileBase.h"
+#include "nbl/system/IFileArchive.h"
 
 
 namespace nbl::system
@@ -18,8 +18,6 @@ namespace nbl::system
 
 class IFile;
 class ISystemFile;
-class IFileArchive;
-class IArchiveLoader;
 
 class ISystem : public core::IReferenceCounted
 {
@@ -128,7 +126,14 @@ class ISystem : public core::IReferenceCounted
         }
 
         //
-        void addArchiveLoader(core::smart_refctd_ptr<IArchiveLoader>&& loader);
+        inline void addArchiveLoader(core::smart_refctd_ptr<IArchiveLoader>&& loader)
+        {
+            const char** exts = loader->getAssociatedFileExtensions();
+            uint32_t i = 0u;
+            while (const char* e = exts[i++])
+                m_loaders.perFileExt.insert(e, core::smart_refctd_ptr(loader));
+            m_loaders.vector.push_back(std::move(loader));
+        }
 
         // `flags` is the intended usage of the file
         bool exists(const system::path& filename, const core::bitflag<IFileBase::E_CREATE_FLAGS> flags) const;
@@ -238,6 +243,9 @@ class ISystem : public core::IReferenceCounted
         //
         core::smart_refctd_ptr<IFile> impl_loadEmbeddedBuiltinData(const std::string& builtinPath, const std::pair<const uint8_t*,size_t>& found) const;
 
+        // given an absolute `path` find the archive it belongs to
+        std::pair<IFileArchive*,IFileArchive::SOpenFileParams> findFileInArchive(const system::path& _path) const;
+
         //
         core::smart_refctd_ptr<IFile> getFileFromArchive(const system::path& path);
 
@@ -248,15 +256,6 @@ class ISystem : public core::IReferenceCounted
             core::vector<core::smart_refctd_ptr<IArchiveLoader> > vector;
             //! The key is file extension
             core::CMultiObjectCache<std::string,core::smart_refctd_ptr<IArchiveLoader>,std::vector> perFileExt;
-
-            void pushToVector(core::smart_refctd_ptr<IArchiveLoader>&& _loader)
-            {
-                vector.push_back(std::move(_loader));
-            }
-            void eraseFromVector(decltype(vector)::const_iterator _loaderItr)
-            {
-                vector.erase(_loaderItr);
-            }
         } m_loaders;
         //
         core::CMultiObjectCache<system::path,core::smart_refctd_ptr<IFileArchive>> m_cachedArchiveFiles;

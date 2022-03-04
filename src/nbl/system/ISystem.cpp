@@ -1,5 +1,5 @@
 #include "nbl/system/ISystem.h"
-#include "nbl/system/IFileArchive.h"
+#include "nbl/system/ISystemFile.h"
 
 #include "nbl/system/CArchiveLoaderZip.h"
 #include "nbl/system/CArchiveLoaderTar.h"
@@ -11,8 +11,10 @@ using namespace nbl::system;
 
 ISystem::ISystem(core::smart_refctd_ptr<ISystem::ICaller>&& caller) : m_dispatcher(std::move(caller))
 {
-    addArchiveLoader(core::make_smart_refctd_ptr<CArchiveLoaderZip>(core::smart_refctd_ptr<ISystem>(this), nullptr));
-    addArchiveLoader(core::make_smart_refctd_ptr<CArchiveLoaderTar>(core::smart_refctd_ptr<ISystem>(this), nullptr));
+#if 0
+    addArchiveLoader(core::make_smart_refctd_ptr<CArchiveLoaderZip>(core::smart_refctd_ptr<ISystem>(this),nullptr));
+    addArchiveLoader(core::make_smart_refctd_ptr<CArchiveLoaderTar>(core::smart_refctd_ptr<ISystem>(this),nullptr));
+#endif
 }
 
 core::smart_refctd_ptr<IFile> ISystem::loadBuiltinData(const std::string& builtinPath) const
@@ -55,15 +57,6 @@ core::smart_refctd_ptr<IFile> ISystem::impl_loadEmbeddedBuiltinData(const std::s
     }
 #endif
     return nullptr;
-}
-
-void ISystem::addArchiveLoader(core::smart_refctd_ptr<IArchiveLoader>&& loader)
-{
-    const char** exts = loader->getAssociatedFileExtensions();
-    uint32_t i = 0u;
-    while (const char* e = exts[i++])
-        m_loaders.perFileExt.insert(e, core::smart_refctd_ptr(loader));
-    m_loaders.pushToVector(std::move(loader));
 }
 
 bool ISystem::exists(const system::path& filename, const core::bitflag<IFile::E_CREATE_FLAGS> flags) const
@@ -180,7 +173,7 @@ bool ISystem::copy(const system::path& from, const system::path& to)
         if (!readF || !readF->getMappedPointer() || !writeF)
             return false;
 
-        IFile::success bytesWritten;
+        IFile::success_t bytesWritten;
         writeF->write(bytesWritten,readF->getMappedPointer(),0,readF->getSize());
         return bool(bytesWritten);
     };
@@ -294,8 +287,53 @@ void ISystem::unmount(const IFileArchive* archive, const system::path& pathAlias
         m_cachedArchiveFiles.removeObject(dummy,pathAlias);
 }
 
+std::pair<IFileArchive*, IFileArchive::SOpenFileParams> ISystem::findFileInArchive(const system::path& _path) const
+{
+    system::path path = std::filesystem::exists(_path) ? system::path(std::filesystem::canonical(_path.parent_path()).generic_string()) : _path.parent_path();
+
+    // going up the directory tree
+    while (!path.empty() && path.parent_path() != path)
+    {
+        system::path realPath = std::filesystem::exists(path) ? system::path(std::filesystem::canonical(path).generic_string()) : path;
+        auto archives = m_cachedArchiveFiles.findRange(realPath);
+
+        for (auto& archive : archives)
+        {
+#if 0
+            auto relative = std::filesystem::relative(_path, path);
+            auto files = archive.second->listAssets();
+
+            const auto itemToFind = IFileArchive::SListEntry{ relative, relative, 0 };
+            bool hasFile = std::binary_search(files.begin(), files.end(), itemToFind, [](const IFileArchive::SFileListEntry& l, const IFileArchive::SFileListEntry& r) { return l.fullName == r.fullName; });
+            auto f = archive.second->asFile();
+            if (f)
+            {
+                auto realPath = f->getFileName();
+                auto absolute = (realPath / relative).generic_string();
+                if (hasFile)
+                {
+                    auto f = archive.second;
+                    return { f.get(),{relative,_path,""} };
+                }
+            }
+            else
+            {
+                if (hasFile)
+                {
+                    auto f = archive.second;
+                    return { f.get(),{relative,_path,""} };
+                }
+            }
+#endif
+        }
+        path = path.parent_path();
+    }
+    return { nullptr,{} };
+}
+
 core::smart_refctd_ptr<IFile> ISystem::getFileFromArchive(const system::path& path)
 {
+#if 0
     // given an absolute `path` find the archive it belongs to
     std::pair<IFileArchive*, IFileArchive::SOpenFileParams> found = {nullptr,{}};
     system::path path = std::filesystem::exists(path) ? std::filesystem::canonical(path.parent_path()):path.parent_path();
@@ -341,6 +379,8 @@ core::smart_refctd_ptr<IFile> ISystem::getFileFromArchive(const system::path& pa
     auto& params = std::get<IFileArchive::SOpenFileParams>(found);
     // TODO: support passwords
     return archive->readFile(params);
+#endif
+    return nullptr;
 }
 
 
@@ -357,62 +397,17 @@ void ISystem::CAsyncQueue::process_request(SRequestType& req)
         case ERT_READ:
         {
             auto& p = std::get<SRequestParams_READ>(req.params);
-            base_t::notify_future<size_t>(req, m_caller->read(p.file, p.buffer, p.offset, p.size));
+            base_t::notify_future<size_t>(req,p.file->asyncRead(p.buffer, p.offset, p.size));
         }
         break;
         case ERT_WRITE:
         {
             auto& p = std::get<SRequestParams_WRITE>(req.params);
-            base_t::notify_future<size_t>(req, m_caller->write(p.file, p.buffer, p.offset, p.size));
+            base_t::notify_future<size_t>(req,p.file->asyncWrite(p.buffer, p.offset, p.size));
         }
         break;
     }
 }
-
-#if 0 
-
-// given an absolute `path` find the archive it belongs to
-std::pair<IFileArchive*, IFileArchive::SOpenFileParams> ISystem::findFileInArchive(const system::path& _path) const
-{
-    system::path path = std::filesystem::exists(_path) ? system::path(std::filesystem::canonical(_path.parent_path()).generic_string()) : _path.parent_path();
-
-    // going up the directory tree
-    while (!path.empty() && path.parent_path() != path)
-    {
-        system::path realPath = std::filesystem::exists(path) ? system::path(std::filesystem::canonical(path).generic_string()) : path;
-        auto archives = m_cachedArchiveFiles.findRange(realPath);
-
-        for (auto& archive : archives)
-        {
-            auto relative = std::filesystem::relative(_path, path);
-            auto files = archive.second->getArchivedFiles();
-            auto itemToFind = IFileArchive::SFileListEntry{ relative, relative, 0 };
-            bool hasFile = std::binary_search(files.begin(), files.end(), itemToFind, [](const IFileArchive::SFileListEntry& l, const IFileArchive::SFileListEntry& r) { return l.fullName == r.fullName; });
-            auto f = archive.second->asFile();
-            if (f)
-            {
-                auto realPath = f->getFileName();
-                auto absolute = (realPath / relative).generic_string();
-                if (hasFile)
-                {
-                    auto f = archive.second;
-                    return { f.get(),{relative,_path,""} };
-                }
-            }
-            else
-            {
-                if (hasFile)
-                {
-                    auto f = archive.second;
-                    return { f.get(),{relative,_path,""} };
-                }
-            }
-        }
-        path = path.parent_path();
-    }
-    return { nullptr,{} };
-}
-#endif
 
 bool ISystem::ICaller::invalidateMapping(IFile* file, size_t offset, size_t size)
 {
