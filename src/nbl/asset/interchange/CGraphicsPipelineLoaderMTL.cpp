@@ -3,16 +3,15 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 
 #include "nbl/asset/asset.h"
+#include "nbl/asset/interchange/CGraphicsPipelineLoaderMTL.h"
+#include "nbl/asset/utils/IGLSLEmbeddedIncludeLoader.h"
+#include "nbl/asset/utils/CDerivativeMapCreator.h"
 
 #include <utility>
 #include <regex>
 #include <filesystem>
 
-#include "nbl/asset/asset.h"
-#include "nbl/asset/interchange/CGraphicsPipelineLoaderMTL.h"
-#include "nbl/asset/utils/IGLSLEmbeddedIncludeLoader.h"
-#include "nbl/asset/utils/CDerivativeMapCreator.h"
-#include "nbl/system/IFileViewAllocator.h"
+#include "nbl/system/CFileView.h"
 
 #include "nbl/builtin/MTLdefaults.h"
 
@@ -84,13 +83,12 @@ void CGraphicsPipelineLoaderMTL::initialize()
     }
 
     // default pipelines
-    constexpr std::string_view filename = "Nabla default MTL material";
-
-    auto default_mtl_file = core::make_smart_refctd_ptr<system::CFileView<system::CPlainHeapAllocator>>(core::smart_refctd_ptr(m_system), filename, system::IFile::ECF_READ_WRITE, strlen(DUMMY_MTL_CONTENT));
-    
-    system::future<size_t> future;
-    default_mtl_file->write(future, DUMMY_MTL_CONTENT, 0, strlen(DUMMY_MTL_CONTENT));
-    future.get();
+    auto default_mtl_file = core::make_smart_refctd_ptr<system::CFileView<system::CNullAllocator>>(
+        system::path("Nabla default MTL material"),
+        system::IFile::ECF_READ,
+        const_cast<char*>(DUMMY_MTL_CONTENT),
+        strlen(DUMMY_MTL_CONTENT)
+    );
 
     SAssetLoadParams assetLoadParams;
     auto bundle = loadAsset(default_mtl_file.get(), assetLoadParams, &dfltOver);
@@ -105,11 +103,9 @@ bool CGraphicsPipelineLoaderMTL::isALoadableFileFormat(system::IFile* _file, con
 
     std::string mtl;
     mtl.resize(_file->getSize());
-    system::future<size_t> future;
-    _file->read(future, mtl.data(), 0, _file->getSize());
-    future.get();
-
-    return mtl.find("newmtl") != std::string::npos;
+    system::IFile::success_t success;
+    _file->read(success, mtl.data(), 0, _file->getSize());
+    return success && mtl.find("newmtl")!=std::string::npos;
 }
 
 SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(system::IFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
@@ -726,10 +722,11 @@ auto CGraphicsPipelineLoaderMTL::readMaterials(system::IFile* _file, const syste
     std::string mtl;
     size_t fileSize = _file->getSize();
     mtl.resize(fileSize);
-    system::future<size_t> fut;
-    
-    _file->read(fut, mtl.data(), 0, fileSize);
-    fut.get();
+
+    system::IFile::success_t success;
+    _file->read(success, mtl.data(), 0, fileSize);
+    if (!success)
+        return {};
 
     const char* bufPtr = mtl.c_str();
     const char* const bufEnd = mtl.c_str()+mtl.size();
@@ -868,7 +865,7 @@ auto CGraphicsPipelineLoaderMTL::readMaterials(system::IFile* _file, const syste
                 {
                 case 'f':		// Tf - Transmitivity
                     currMaterial->params.transmissionFilter = readRGB();
-                    sprintf(tmpbuf, "%s, %s: Detected Tf parameter, it won't be used in generated shader - fallback to alpha=0.5 instead", _file->getFileName().c_str(), currMaterial->name.c_str());
+                    sprintf(tmpbuf, "%s, %s: Detected Tf parameter, it won't be used in generated shader - fallback to alpha=0.5 instead", _file->getFileName().string().c_str(), currMaterial->name.c_str());
                     logger.log(tmpbuf, system::ILogger::ELL_WARNING);
                     break;
                 case 'r':       // Tr, transparency = 1.0-d

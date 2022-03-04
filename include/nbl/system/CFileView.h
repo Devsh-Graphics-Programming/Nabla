@@ -46,8 +46,8 @@ class CFileView : public IFileView
 
 	public:
 		// constructor for making a file with memory already allocated by the allocator
-		CFileView(path&& _name, const core::bitflag<E_CREATE_FLAGS> _flags, void* buffer, const size_t fileSize, allocator_t&& _allocator) :
-			IFileView(std::move(sys),std::move(_name),_flags,buffer,fileSize), allocator(std::move(_allocator)) {}
+		CFileView(path&& _name, const core::bitflag<E_CREATE_FLAGS> _flags, void* buffer, const size_t fileSize, allocator_t&& _allocator={}) :
+			IFileView(std::move(_name),_flags,buffer,fileSize), allocator(std::move(_allocator)) {}
 
 		// 
 		static inline core::smart_refctd_ptr<CFileView<allocator_t>> create(path&& _name, const core::bitflag<E_CREATE_FLAGS> _flags, size_t fileSize, allocator_t&& _allocator={})
@@ -55,7 +55,7 @@ class CFileView : public IFileView
 			auto mem = reintepret_cast<std::byte*>(_allocator.alloc(fileSize));
 			if (!mem)
 				return nullptr;
-			auto retval = new CFileView(std::move(sys),_name,_flags,mem,fileSize,std::move(_allocator));
+			auto retval = new CFileView(std::move(_name),_flags,mem,fileSize,std::move(_allocator));
 			return core::smart_refctd_ptr(retval,core::dont_grab);
 		}
 
