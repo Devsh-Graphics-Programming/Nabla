@@ -1,5 +1,20 @@
 #version 450 core
 
+#ifndef _NBL_GLSL_WORKGROUP_SIZE_X_
+#error "_NBL_GLSL_WORKGROUP_SIZE_X_ is not defined"
+#endif
+
+#ifndef _NBL_GLSL_WORKGROUP_SIZE_Y_
+#error "_NBL_GLSL_WORKGROUP_SIZE_Y_ is not defined"
+#endif
+
+#ifndef _NBL_GLSL_WORKGROUP_SIZE_Z_
+#error "_NBL_GLSL_WORKGROUP_SIZE_Z_ is not defined"
+#endif
+
+// layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_) in;
+layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_X_, local_size_y = _NBL_GLSL_WORKGROUP_SIZE_Y_, local_size_z = _NBL_GLSL_WORKGROUP_SIZE_Z_) in;
+
 layout(push_constant) uniform Block
 {
 	// Todo(achal): Some of these will not be needed in the future
@@ -12,8 +27,6 @@ layout(push_constant) uniform Block
 	uint windowDim;
 } pc;
 
-// layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_) in;
-layout (local_size_x = 2, local_size_y = 2, local_size_z = 2) in;
 
 #define MAX_SMEM_SIZE (16*1024)
 
@@ -60,13 +73,97 @@ float kernelEval(in float x)
 void main()
 {
 	// assuming downscale ALWAYS, for now
-	
-	scratchShared[gl_LocalInvocationIndex] = texelFetch(inImage, ivec3(gl_LocalInvocationID.xyz), 0).r;
+	const vec3 inDim = vec3(4.f, 4.f, 4.f);
+	const vec3 outDim = vec3(2.f, 2.f, 2.f);
+	const vec3 scale = inDim/outDim;
+	const vec3 positiveSupport = vec3(0.5f, 0.5f, 0.5f)*scale;
+	const vec3 negativeSupport = vec3(-0.5f, -0.5f, -0.5f)*scale;
+	const uvec3 windowDim = uvec3(2u, 2u, 2u);
+
+	const vec3 outputPixelCenter = (gl_WorkGroupID.xyz + vec3(0.5f, 0.5f, 0.5f))*scale;
+
+	const ivec3 windowMinCoord = ivec3(ceil( outputPixelCenter-vec3(0.5f, 0.5f, 0.5f) - abs(negativeSupport) )); // this can be negative
+	const ivec3 inputPixelCoord = windowMinCoord + ivec3(gl_LocalInvocationID.xyz);
+
+	scratchShared[gl_LocalInvocationIndex] = texelFetch(inImage, inputPixelCoord, 0).r;
 	barrier();
 
-	if (gl_WorkGroupID.xyz == uvec3(0, 0, 0))
+	// filtering across X
 	{
-		imageStore(outImage, ivec3(gl_LocalInvocationID.xyz), vec4(scratchShared[gl_LocalInvocationIndex], 0.f, 0.f, 0.f));
+		const uint elementsToAdd = windowDim.x;
+		const uint stepCount = uint(ceil(log2(float(elementsToAdd)))); // how many steps it would take for it to add all elements in this window
+		const uint rowStart = gl_LocalInvocationID.z*(windowDim.y*windowDim.x) + gl_LocalInvocationID.y*windowDim.x;
+
+		for (uint step = 0u; step < stepCount; ++step)
+		{
+			const uint offset = (1 << step);
+			const uint baseIndex = (1 << (step+1))*(gl_LocalInvocationIndex - rowStart);
+
+			if ((baseIndex < elementsToAdd) /*&& (globalWindowIndex < pc.outWidth)*/)
+			{
+				float addend = 0.f;
+				if (baseIndex + offset < elementsToAdd)
+					addend = scratchShared[rowStart + (baseIndex + offset)];
+
+				scratchShared[rowStart + baseIndex] += addend;
+			}
+			barrier();
+		}
+	}
+
+	// kernel weights for Y should be applied after filtering in X
+
+	// filtering across Y
+	{
+		const uint elementsToAdd = windowDim.y;
+		const uint start = gl_LocalInvocationID.z*(windowDim.x*windowDim.y);
+		const uint stepCount = uint(ceil(log2(float(elementsToAdd)))); // how many steps it would take for it to add all elements in this window
+		const uint stride = 2u;
+		for (uint step = 0u; step < stepCount; ++step)
+		{
+			const uint offset = (1 << step);
+			const uint baseIndex = (1 << (step+1))*(gl_LocalInvocationIndex - start);
+
+			if (baseIndex < elementsToAdd)
+			{
+				float addend = 0.f;
+				if (baseIndex + offset < elementsToAdd)
+					addend = scratchShared[start + (baseIndex+offset)*stride];
+
+				scratchShared[start + baseIndex*stride] += addend;
+			}
+			barrier();
+		}
+	}
+
+
+	// filtering across Z
+	{
+		const uint elementsToAdd = windowDim.z;
+		const uint stepCount = uint(ceil(log2(float(elementsToAdd)))); // how many steps it would take for it to add all elements in this window
+		const uint start = 0u;
+		const uint stride = 4u;
+		for (uint step = 0u; step < stepCount; ++step)
+		{
+			const uint offset = (1 << step);
+			const uint baseIndex = (1 << (step+1))*(gl_LocalInvocationIndex - start);
+
+			if (baseIndex < elementsToAdd)
+			{
+				float addend = 0.f;
+				if (baseIndex + offset < elementsToAdd)
+					addend = scratchShared[start + (baseIndex+offset)*stride];
+
+				scratchShared[start + baseIndex*stride] += addend;
+			}
+			barrier();
+		}
+	}
+
+	if (gl_WorkGroupID.xyz == uvec3(0))
+	{
+		if (windowDim.x*windowDim.y*windowDim.z*gl_LocalInvocationIndex < windowDim.x*windowDim.y*windowDim.z)
+			imageStore(outImage, ivec3(gl_LocalInvocationID.xyz), vec4(scratchShared[gl_LocalInvocationIndex*windowDim.x*windowDim.y*windowDim.z], 0.f, 0.f, 0.f));
 	}
 
 #if 0

@@ -150,11 +150,48 @@ public:
 		}
 
 		// GPU blit
-		core::vector<float> gpuOutput(outImageDim[0] * outImageDim[1] * outImageDim[2]);
+		core::vector<float> gpuOutput(static_cast<uint64_t>(outImageDim[0]) * outImageDim[1] * outImageDim[2]);
 		{
+			// it is probably a good idea to expose VkPhysicalDeviceLimits::maxComputeSharedMemorySize
+			constexpr size_t MAX_SMEM_SIZE = 16ull * 1024ull;
+
+			const core::vectorSIMDf inExtent(inImageDim[0], inImageDim[1], inImageDim[2]);
+			const core::vectorSIMDf outExtent(outImageDim[0], outImageDim[1], outImageDim[2]);
+
+			const core::vectorSIMDf scale = inExtent.preciseDivision(outExtent);
+			
+			// kernelX/Y/Z stores absolute values of support so they won't be helpful here
+			const core::vectorSIMDf negativeSupport = core::vectorSIMDf(-0.5f, -0.5f, -0.5f)*scale;
+			const core::vectorSIMDf positiveSupport = core::vectorSIMDf(0.5f, 0.5f, 0.5f)*scale;
+
+			// I think this formulation is better than ceil(scaledPositiveSupport-scaledNegativeSupport) because if scaledPositiveSupport comes out a tad bit
+			// greater than what it should be and if scaledNegativeSupport comes out a tad bit smaller than it should be then the distance between them would
+			// become a tad bit greater than it should be and when we take a ceil it'll jump up to the next integer thus giving us 1 more than the actual window
+			// size, example: 49x1 -> 7x1.
+			// Also, cannot use kernelX/Y/Z.getWindowSize() here because they haven't been scaled (yet) for upscaling/downscaling
+			const core::vectorSIMDu32 windowDim = static_cast<core::vectorSIMDu32>(core::ceil(scale*core::vectorSIMDf(scaleX.x, scaleY.y, scaleZ.z)));
+
+			// fail if the window cannot be preloaded into shared memory
+			const size_t windowSize = static_cast<size_t>(windowDim.x) * windowDim.y * windowDim.z * asset::getTexelOrBlockBytesize(inImage->getCreationParameters().format);
+			if (windowSize > MAX_SMEM_SIZE)
+			{
+				printf("Failed to blit because supports are too large\n");
+				__debugbreak();
+			}
+
+			const auto& limits = physicalDevice->getLimits();
+			constexpr uint32_t MAX_INVOCATION_COUNT = 1024u;
+			// matching workgroup size DIRECTLY to windowDims for now --this does mean that unfortunately my workgroups will be sized weirdly, and sometimes
+			// they could be too small as well
+			const uint32_t totalInvocationCount = windowDim.x * windowDim.y * windowDim.z;
+			if ((totalInvocationCount > MAX_INVOCATION_COUNT) || (windowDim.x > limits.maxWorkgroupSize[0]) || (windowDim.y > limits.maxWorkgroupSize[1]) || (windowDim.z > limits.maxWorkgroupSize[2]))
+			{
+				printf("Failed to blit because workgroup size limit exceeded\n");
+				__debugbreak();
+			}
+
 			core::smart_refctd_ptr<ICPUImage> outImage = createCPUImage(outImageDim, asset::IImage::ET_3D);
 
-			constexpr uint32_t WG_DIM = 256u;
 			struct push_constants_t
 			{
 				uint32_t inWidth;
@@ -366,7 +403,11 @@ public:
 				params.logger = logger.get();
 				auto loadedShader = core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(*assetManager->getAsset(blitCompShaderPath, params).getContents().begin());
 
-				auto unspecOverridenShader = asset::IGLSLCompiler::createOverridenCopy(loadedShader->getUnspecialized(), "#define _NBL_GLSL_WORKGROUP_SIZE_ %d\n", WG_DIM);
+				auto unspecOverridenShader = asset::IGLSLCompiler::createOverridenCopy(loadedShader->getUnspecialized(),
+					"#define _NBL_GLSL_WORKGROUP_SIZE_X_ %d\n"
+					"#define _NBL_GLSL_WORKGROUP_SIZE_Y_ %d\n"
+					"#define _NBL_GLSL_WORKGROUP_SIZE_Z_ %d\n",
+					windowDim.x, windowDim.y, windowDim.z);
 
 				auto specShader_cpu = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecOverridenShader), asset::ISpecializedShader::SInfo(nullptr, nullptr, "main"));
 
@@ -399,9 +440,9 @@ public:
 			cmdbuf->pushConstants(pipeline->getLayout(), asset::IShader::ESS_COMPUTE, 0u, sizeof(push_constants_t), &pc);
 
 			const uint32_t totalWindowCount = outImageDim[0];
-			const uint32_t windowDim = std::ceil(inImageDim[0] / outImageDim[0]);
-			const uint32_t windowsPerWG = WG_DIM / windowDim; // we want to make sure that the WG covers a window COMPLETELY even if it means throwing away some invocations
-			const uint32_t wgCount = (totalWindowCount + windowsPerWG - 1) / windowsPerWG;
+			// const uint32_t windowDim = std::ceil(inImageDim[0] / outImageDim[0]);
+			// const uint32_t windowsPerWG = WG_DIM / windowDim; // we want to make sure that the WG covers a window COMPLETELY even if it means throwing away some invocations
+			// const uint32_t wgCount = (totalWindowCount + windowsPerWG - 1) / windowsPerWG;
 
 			cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE, pipeline->getLayout(), 0u, 1u, &ds.get());
 			// cmdbuf->dispatch(wgCount, 1u, 1u);
