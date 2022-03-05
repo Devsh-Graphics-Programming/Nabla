@@ -74,8 +74,10 @@ public:
 		logger = std::move(initOutput.logger);
 		inputSystem = std::move(initOutput.inputSystem);
 
-		std::array<uint32_t, 3> inImageDim = { 4u, 4u, 4u }; // { 800u, 5u };
-		std::array<uint32_t, 3> outImageDim = { 2u, 2u, 2u }; // { 16u, 69u };
+		std::array<uint32_t, 3> inImageDim = { 1023u, 1u, 1u }; // { 800u, 5u };
+		if (inImageDim[0]*inImageDim[1]*inImageDim[2] > 1024) // until this holds I will NOT run of of smem as well, given my current format
+			__debugbreak();
+		std::array<uint32_t, 3> outImageDim = { 1u, 1u, 1u }; // { 16u, 69u };
 
 		core::smart_refctd_ptr<asset::ICPUImage> inImage = createCPUImage(inImageDim, asset::IImage::ET_3D);
 
@@ -98,6 +100,7 @@ public:
 
 		// CPU blit
 		core::vector<float> cpuOutput(inImageDim[0] * inImageDim[1] * inImageDim[2]);
+#if 0
 		{
 			core::smart_refctd_ptr<ICPUImage> outImage = createCPUImage(outImageDim, asset::IImage::ET_3D);
 
@@ -131,7 +134,7 @@ public:
 
 			// This needs to change when testing with more complex images
 			float* outPixel = reinterpret_cast<float*>(outImage->getBuffer()->getPointer());
-			memcpy(cpuOutput.data(), outPixel, cpuOutput.size()*sizeof(float));
+			// memcpy(cpuOutput.data(), outPixel, cpuOutput.size()*sizeof(float));
 		}
 
 		for (uint32_t k = 0u; k < outImageDim[2]; ++k)
@@ -148,6 +151,7 @@ public:
 
 			printf("\n\n");
 		}
+#endif
 
 		// GPU blit
 		core::vector<float> gpuOutput(static_cast<uint64_t>(outImageDim[0]) * outImageDim[1] * outImageDim[2]);
@@ -192,8 +196,27 @@ public:
 
 			core::smart_refctd_ptr<ICPUImage> outImage = createCPUImage(outImageDim, asset::IImage::ET_3D);
 
+#if 1
+			struct alignas(16) vec3_aligned
+			{
+				float x, y, z;
+			};
+
+			struct alignas(16) uvec3_aligned
+			{
+				uint32_t x, y, z;
+			};
+#endif
+
 			struct push_constants_t
 			{
+				uvec3_aligned inDim;
+				uvec3_aligned outDim;
+				vec3_aligned negativeSupport;
+				vec3_aligned positiveSupport;
+				uvec3_aligned windowDim;
+
+#if 0
 				uint32_t inWidth;
 				uint32_t outWidth;
 
@@ -201,6 +224,7 @@ public:
 				float positiveSupport;
 
 				uint32_t windowDim;
+#endif
 			};
 
 #if 0
@@ -425,17 +449,11 @@ public:
 			cmdbuf->bindComputePipeline(pipeline.get());
 			push_constants_t pc = { };
 			{
-				pc.inWidth = inImageDim[0];
-				pc.outWidth = outImageDim[0];
-				const float scale = float(inImageDim[0]) / float(outImageDim[0]);
-				pc.negativeSupport = -0.5f * scale; // kernelX/Y/Z stores absolute values of support so they won't be helpful here
-				pc.positiveSupport = 0.5f * scale;
-				// I think this formulation is better than ceil(scaledPositiveSupport-scaledNegativeSupport) because if scaledPositiveSupport comes out a tad bit
-				// greater than what it should be and if scaledNegativeSupport comes out a tad bit smaller than it should be then the distance between them would
-				// become a tad bit greater than it should be and when we take a ceil it'll jump up to the next integer thus giving us 1 more than the actual window
-				// size, example: 49x1 -> 7x1.
-				// I think (hope) it won't happen with this formulation. 
-				pc.windowDim = std::ceil(1.f*scale); // cannot use kernelX/Y/Z.getWindowSize() here because they haven't been scaled yet for upscaling/downscaling
+				pc.inDim.x = inImageDim[0]; pc.inDim.y = inImageDim[1]; pc.inDim.z = inImageDim[2];
+				pc.outDim.x = outImageDim[0]; pc.outDim.y = outImageDim[1]; pc.outDim.z = outImageDim[2];
+				pc.negativeSupport.x = negativeSupport.x; pc.negativeSupport.y = negativeSupport.y; pc.negativeSupport.z = negativeSupport.z;
+				pc.positiveSupport.x = positiveSupport.x; pc.positiveSupport.y = positiveSupport.y; pc.positiveSupport.z = positiveSupport.z;
+				pc.windowDim.x = windowDim.x; pc.windowDim.y = windowDim.y; pc.windowDim.z = windowDim.z;
 			}
 			cmdbuf->pushConstants(pipeline->getLayout(), asset::IShader::ESS_COMPUTE, 0u, sizeof(push_constants_t), &pc);
 
@@ -446,7 +464,7 @@ public:
 
 			cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE, pipeline->getLayout(), 0u, 1u, &ds.get());
 			// cmdbuf->dispatch(wgCount, 1u, 1u);
-			cmdbuf->dispatch(2u, 2u, 2u);
+			cmdbuf->dispatch(1u, 1u, 1u);
 
 			// after the dispatch download the buffer to check, one buffer to download contents from all images
 			core::smart_refctd_ptr<video::IGPUBuffer> downloadBuffer = nullptr;

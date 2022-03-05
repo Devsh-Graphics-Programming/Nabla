@@ -17,6 +17,14 @@ layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_X_, local_size_y = _NBL_GLSL_WOR
 
 layout(push_constant) uniform Block
 {
+	uvec3 inDim;
+	uvec3 outDim;
+
+	vec3 negativeSupport;
+	vec3 positiveSupport;
+
+	uvec3 windowDim;
+#if 0
 	// Todo(achal): Some of these will not be needed in the future
 	uint inWidth;
 	uint outWidth;
@@ -25,6 +33,7 @@ layout(push_constant) uniform Block
 	float positiveSupport;
 
 	uint windowDim;
+#endif
 } pc;
 
 
@@ -58,6 +67,7 @@ int getWindowMaxCoord(in float p)
 	return int(floor( (p-0.5f)+abs(pc.positiveSupport) ));
 }
 
+#if 0
 // evaluates scaled kernel, and is temporary
 float kernelEval(in float x)
 {
@@ -69,20 +79,16 @@ float kernelEval(in float x)
 	}
 	return result;
 }
+#endif
 
 void main()
 {
 	// assuming downscale ALWAYS, for now
-	const vec3 inDim = vec3(4.f, 4.f, 4.f);
-	const vec3 outDim = vec3(2.f, 2.f, 2.f);
-	const vec3 scale = inDim/outDim;
-	const vec3 positiveSupport = vec3(0.5f, 0.5f, 0.5f)*scale;
-	const vec3 negativeSupport = vec3(-0.5f, -0.5f, -0.5f)*scale;
-	const uvec3 windowDim = uvec3(2u, 2u, 2u);
+	const vec3 scale = vec3(pc.inDim)/vec3(pc.outDim);
 
 	const vec3 outputPixelCenter = (gl_WorkGroupID.xyz + vec3(0.5f, 0.5f, 0.5f))*scale;
 
-	const ivec3 windowMinCoord = ivec3(ceil( outputPixelCenter-vec3(0.5f, 0.5f, 0.5f) - abs(negativeSupport) )); // this can be negative
+	const ivec3 windowMinCoord = ivec3(ceil( outputPixelCenter-vec3(0.5f, 0.5f, 0.5f) - abs(pc.negativeSupport) )); // this can be negative
 	const ivec3 inputPixelCoord = windowMinCoord + ivec3(gl_LocalInvocationID.xyz);
 
 	scratchShared[gl_LocalInvocationIndex] = texelFetch(inImage, inputPixelCoord, 0).r;
@@ -90,9 +96,9 @@ void main()
 
 	// filtering across X
 	{
-		const uint elementsToAdd = windowDim.x;
+		const uint elementsToAdd = pc.windowDim.x;
 		const uint stepCount = uint(ceil(log2(float(elementsToAdd)))); // how many steps it would take for it to add all elements in this window
-		const uint rowStart = gl_LocalInvocationID.z*(windowDim.y*windowDim.x) + gl_LocalInvocationID.y*windowDim.x;
+		const uint rowStart = gl_LocalInvocationID.z*(pc.windowDim.y*pc.windowDim.x) + gl_LocalInvocationID.y*pc.windowDim.x;
 
 		for (uint step = 0u; step < stepCount; ++step)
 		{
@@ -115,10 +121,10 @@ void main()
 
 	// filtering across Y
 	{
-		const uint elementsToAdd = windowDim.y;
-		const uint start = gl_LocalInvocationID.z*(windowDim.x*windowDim.y);
+		const uint elementsToAdd = pc.windowDim.y;
+		const uint start = gl_LocalInvocationID.z*(pc.windowDim.x*pc.windowDim.y);
 		const uint stepCount = uint(ceil(log2(float(elementsToAdd)))); // how many steps it would take for it to add all elements in this window
-		const uint stride = 2u;
+		const uint stride = pc.windowDim.x;
 		for (uint step = 0u; step < stepCount; ++step)
 		{
 			const uint offset = (1 << step);
@@ -139,10 +145,10 @@ void main()
 
 	// filtering across Z
 	{
-		const uint elementsToAdd = windowDim.z;
+		const uint elementsToAdd = pc.windowDim.z;
 		const uint stepCount = uint(ceil(log2(float(elementsToAdd)))); // how many steps it would take for it to add all elements in this window
 		const uint start = 0u;
-		const uint stride = 4u;
+		const uint stride = pc.windowDim.x*pc.windowDim.y;
 		for (uint step = 0u; step < stepCount; ++step)
 		{
 			const uint offset = (1 << step);
@@ -162,8 +168,8 @@ void main()
 
 	if (gl_WorkGroupID.xyz == uvec3(0))
 	{
-		if (windowDim.x*windowDim.y*windowDim.z*gl_LocalInvocationIndex < windowDim.x*windowDim.y*windowDim.z)
-			imageStore(outImage, ivec3(gl_LocalInvocationID.xyz), vec4(scratchShared[gl_LocalInvocationIndex*windowDim.x*windowDim.y*windowDim.z], 0.f, 0.f, 0.f));
+		if (pc.windowDim.x*pc.windowDim.y*pc.windowDim.z*gl_LocalInvocationIndex < pc.windowDim.x*pc.windowDim.y*pc.windowDim.z)
+			imageStore(outImage, ivec3(gl_LocalInvocationID.xyz), vec4(scratchShared[gl_LocalInvocationIndex*pc.windowDim.x*pc.windowDim.y*pc.windowDim.z], 0.f, 0.f, 0.f));
 	}
 
 #if 0
