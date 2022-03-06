@@ -17,12 +17,12 @@ using namespace nbl::video;
 using ScaledBoxKernel = asset::CScaledImageFilterKernel<CBoxImageFilterKernel>;
 using BlitFilter = asset::CBlitImageFilter<asset::VoidSwizzle, asset::IdentityDither, void, false, ScaledBoxKernel, ScaledBoxKernel, ScaledBoxKernel>;
 
-core::smart_refctd_ptr<ICPUImage> createCPUImage(const std::array<uint32_t, 3>& dims, const asset::IImage::E_TYPE imageType)
+core::smart_refctd_ptr<ICPUImage> createCPUImage(const std::array<uint32_t, 3>& dims, const asset::IImage::E_TYPE imageType, const asset::E_FORMAT format)
 {
 	IImage::SCreationParams imageParams = {};
 	imageParams.flags = static_cast<IImage::E_CREATE_FLAGS>(0u);
 	imageParams.type = imageType;
-	imageParams.format = asset::EF_R32_SFLOAT;
+	imageParams.format = format;
 	imageParams.extent = { dims[0], dims[1], dims[2] };
 	imageParams.mipLevels = 1u;
 	imageParams.arrayLayers = 1u;
@@ -74,12 +74,13 @@ public:
 		logger = std::move(initOutput.logger);
 		inputSystem = std::move(initOutput.inputSystem);
 
-		std::array<uint32_t, 3> inImageDim = { 1023u, 1u, 1u }; // { 800u, 5u };
-		if (inImageDim[0]*inImageDim[1]*inImageDim[2] > 1024) // until this holds I will NOT run of of smem as well, given my current format
+		const uint32_t inChannelCount = 4u;
+		std::array<uint32_t, 3> inImageDim = { 6u, 7u, 7u }; // { 800u, 5u };
+		if (inImageDim[0]*inImageDim[1]*inImageDim[2] > 1024) // until this holds I will NOT run of of smem as well
 			__debugbreak();
 		std::array<uint32_t, 3> outImageDim = { 1u, 1u, 1u }; // { 16u, 69u };
 
-		core::smart_refctd_ptr<asset::ICPUImage> inImage = createCPUImage(inImageDim, asset::IImage::ET_3D);
+		core::smart_refctd_ptr<asset::ICPUImage> inImage = createCPUImage(inImageDim, asset::IImage::ET_3D, asset::EF_R32G32B32A32_SFLOAT);
 
 		float inputVal = 1.f;
 		float* inImagePixel = reinterpret_cast<float*>(inImage->getBuffer()->getPointer());
@@ -89,7 +90,10 @@ public:
 			{
 				for (uint32_t i = 0; i < inImageDim[0]; ++i)
 				{
-					inImagePixel[k * (inImageDim[1]*inImageDim[0]) + j * inImageDim[0] + i] = inputVal++;
+					const float valueToPut = inputVal++; // replicate the same value in all channels for now
+					const uint32_t pixelIndex = k * (inImageDim[1] * inImageDim[0]) + j * inImageDim[0] + i;
+					for (uint32_t c = 0u; c < inChannelCount; ++c)
+						inImagePixel[inChannelCount * pixelIndex + c] = valueToPut;
 				}
 			}
 		}
@@ -99,10 +103,9 @@ public:
 		const core::vectorSIMDf scaleZ(1.f, 1.f, 1.f, 1.f);
 
 		// CPU blit
-		core::vector<float> cpuOutput(inImageDim[0] * inImageDim[1] * inImageDim[2]);
-#if 0
+		core::vector<float> cpuOutput(static_cast<uint64_t>(inImageDim[0]) * inImageDim[1] * inImageDim[2] * inChannelCount);
 		{
-			core::smart_refctd_ptr<ICPUImage> outImage = createCPUImage(outImageDim, asset::IImage::ET_3D);
+			core::smart_refctd_ptr<ICPUImage> outImage = createCPUImage(outImageDim, asset::IImage::ET_3D, asset::EF_R32G32B32A32_SFLOAT);
 
 			auto kernelX = ScaledBoxKernel(scaleX, asset::CBoxImageFilterKernel()); // (-1/2, 1/2)
 			auto kernelY = ScaledBoxKernel(scaleY, asset::CBoxImageFilterKernel()); // (-1/2, 1/2)
@@ -122,10 +125,13 @@ public:
 			blitFilterState.axisWraps[2] = asset::ISampler::ETC_CLAMP_TO_EDGE;
 			blitFilterState.borderColor = asset::ISampler::E_TEXTURE_BORDER_COLOR::ETBC_FLOAT_OPAQUE_WHITE;
 
-			blitFilterState.enableLUTUsage = false;
+			blitFilterState.enableLUTUsage = true;
 
 			blitFilterState.scratchMemoryByteSize = BlitFilter::getRequiredScratchByteSize(&blitFilterState);
 			blitFilterState.scratchMemory = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(blitFilterState.scratchMemoryByteSize, 32));
+
+			blitFilterState.computePhaseSupportLUT(&blitFilterState);
+			BlitFilter::value_type* lut = reinterpret_cast<BlitFilter::value_type*>(blitFilterState.scratchMemory + BlitFilter::getPhaseSupportLUTByteOffset(&blitFilterState));
 
 			if (!BlitFilter::execute(&blitFilterState))
 				printf("Blit filter just shit the bed\n");
@@ -134,7 +140,7 @@ public:
 
 			// This needs to change when testing with more complex images
 			float* outPixel = reinterpret_cast<float*>(outImage->getBuffer()->getPointer());
-			// memcpy(cpuOutput.data(), outPixel, cpuOutput.size()*sizeof(float));
+			memcpy(cpuOutput.data(), outPixel, cpuOutput.size()*sizeof(float));
 		}
 
 		for (uint32_t k = 0u; k < outImageDim[2]; ++k)
@@ -143,26 +149,29 @@ public:
 			{
 				for (uint32_t i = 0u; i < outImageDim[0]; ++i)
 				{
-					const uint32_t index = k * (outImageDim[1] * outImageDim[0]) + j * outImageDim[0] + i;
-					printf("%f\t", cpuOutput[index]);
+					const uint32_t pixelIndex = k * (outImageDim[1] * outImageDim[0]) + j * outImageDim[0] + i;
+					for (uint32_t c = 0u; c < inChannelCount; ++c)
+						printf("%f\t", cpuOutput[inChannelCount * pixelIndex + c]);
 				}
 				printf("\n");
 			}
 
 			printf("\n\n");
 		}
-#endif
 
 		// GPU blit
-		core::vector<float> gpuOutput(static_cast<uint64_t>(outImageDim[0]) * outImageDim[1] * outImageDim[2]);
+		core::vector<float> gpuOutput(static_cast<uint64_t>(outImageDim[0]) * outImageDim[1] * outImageDim[2]*inChannelCount);
 		{
 			// it is probably a good idea to expose VkPhysicalDeviceLimits::maxComputeSharedMemorySize
 			constexpr size_t MAX_SMEM_SIZE = 16ull * 1024ull;
 
-			const core::vectorSIMDf inExtent(inImageDim[0], inImageDim[1], inImageDim[2]);
-			const core::vectorSIMDf outExtent(outImageDim[0], outImageDim[1], outImageDim[2]);
+			core::vectorSIMDf scale;
+			{
+				const core::vectorSIMDf inExtent(inImageDim[0], inImageDim[1], inImageDim[2]);
+				const core::vectorSIMDf outExtent(outImageDim[0], outImageDim[1], outImageDim[2]);
 
-			const core::vectorSIMDf scale = inExtent.preciseDivision(outExtent);
+				scale = inExtent.preciseDivision(outExtent);
+			}
 			
 			// kernelX/Y/Z stores absolute values of support so they won't be helpful here
 			const core::vectorSIMDf negativeSupport = core::vectorSIMDf(-0.5f, -0.5f, -0.5f)*scale;
@@ -194,9 +203,8 @@ public:
 				__debugbreak();
 			}
 
-			core::smart_refctd_ptr<ICPUImage> outImage = createCPUImage(outImageDim, asset::IImage::ET_3D);
+			core::smart_refctd_ptr<ICPUImage> outImage = createCPUImage(outImageDim, asset::IImage::ET_3D, asset::EF_R32G32B32A32_SFLOAT);
 
-#if 1
 			struct alignas(16) vec3_aligned
 			{
 				float x, y, z;
@@ -206,7 +214,6 @@ public:
 			{
 				uint32_t x, y, z;
 			};
-#endif
 
 			struct push_constants_t
 			{
@@ -215,25 +222,14 @@ public:
 				vec3_aligned negativeSupport;
 				vec3_aligned positiveSupport;
 				uvec3_aligned windowDim;
-
-#if 0
-				uint32_t inWidth;
-				uint32_t outWidth;
-
-				float negativeSupport;
-				float positiveSupport;
-
-				uint32_t windowDim;
-#endif
+				uvec3_aligned phaseCount;
 			};
 
-#if 0
+			const core::vectorSIMDu32 inExtent(inImage->getCreationParameters().extent.width, inImage->getCreationParameters().extent.height, inImage->getCreationParameters().extent.depth);
+			const core::vectorSIMDu32 outExtent(outImage->getCreationParameters().extent.width, outImage->getCreationParameters().extent.height, outImage->getCreationParameters().extent.depth);
+			const core::vectorSIMDu32 phaseCount = BlitFilter::getPhaseCount(inExtent, outExtent, inImage->getCreationParameters().type);
 			core::smart_refctd_ptr<video::IGPUBuffer> phaseSupportLUT = nullptr;
 			{
-				const core::vectorSIMDu32 inExtent(inImage->getCreationParameters().extent.width, inImage->getCreationParameters().extent.height, inImage->getCreationParameters().extent.depth);
-				const core::vectorSIMDu32 outExtent(outImage->getCreationParameters().extent.width, outImage->getCreationParameters().extent.height, outImage->getCreationParameters().extent.depth);
-				const core::vectorSIMDu32 phaseCount = BlitFilter::getPhaseCount(inExtent, outExtent, inImage->getCreationParameters().type);
-
 				// create a blit filter state just compute the LUT (this will change depending on how we choose to expose this to the user i.e. do we want
 				// the same API as asset::CBlitImageFilter or something else?)
 
@@ -261,15 +257,31 @@ public:
 				blitFilterState.computePhaseSupportLUT(&blitFilterState);
 				BlitFilter::value_type* lut = reinterpret_cast<BlitFilter::value_type*>(blitFilterState.scratchMemory + BlitFilter::getPhaseSupportLUTByteOffset(&blitFilterState));
 
-				// need to compute the size
-				// take each element of the LUT and convert to half floats and pack it
+				const size_t lutSize = (static_cast<size_t>(phaseCount.x)*windowDim.x + static_cast<size_t>(phaseCount.y)*windowDim.y + static_cast<size_t>(phaseCount.z)*windowDim.z)*sizeof(float)*4ull;
 
-				// const size_t neededSize = ;
-				// video::IGPUBuffer::SCreationParams uboCreationParams = {};
-				// uboCreationParams.usage = static_cast<video::IGPUBuffer::E_USAGE_FLAGS>(video::IGPUBuffer::EUF_UNIFORM_BUFFER_BIT | video::IGPUBuffer::EUF_TRANSFER_DST_BIT);
-				// phaseSupportLUT = logicalDevice->createDeviceLocalGPUBufferOnDedMem(uboCreationParams, neededSize);
+				// lut has the LUT in doubles, I want it in floats
+				core::vector<float> lutInFloats(lutSize / sizeof(float));
+				for (uint32_t i = 0u; i < lutInFloats.size()/4; ++i)
+				{
+					// losing precision here
+					lutInFloats[4 * i + 0] = static_cast<float>(lut[i]);
+					lutInFloats[4 * i + 1] = static_cast<float>(lut[i]);
+					lutInFloats[4 * i + 2] = static_cast<float>(lut[i]);
+					lutInFloats[4 * i + 3] = static_cast<float>(lut[i]);
+				}
+
+				// Todo(achal): Probably need to pack them as half floats? But they are not different for each channel??
+				video::IGPUBuffer::SCreationParams uboCreationParams = {};
+				uboCreationParams.usage = static_cast<video::IGPUBuffer::E_USAGE_FLAGS>(video::IGPUBuffer::EUF_UNIFORM_BUFFER_BIT | video::IGPUBuffer::EUF_TRANSFER_DST_BIT);
+				phaseSupportLUT = logicalDevice->createDeviceLocalGPUBufferOnDedMem(uboCreationParams, lutSize);
+
+				// fill it up with data
+				asset::SBufferRange<video::IGPUBuffer> bufferRange = {};
+				bufferRange.offset = 0ull;
+				bufferRange.size = lutSize;
+				bufferRange.buffer = phaseSupportLUT;
+				utilities->updateBufferRangeViaStagingBuffer(queues[CommonAPI::InitOutput::EQT_COMPUTE], bufferRange, lutInFloats.data());
 			}
-#endif
 
 			core::smart_refctd_ptr<video::IGPUImageView> inImageView = nullptr;
 			core::smart_refctd_ptr<video::IGPUImageView> outImageView = nullptr;
@@ -353,7 +365,7 @@ public:
 				sampler = logicalDevice->createGPUSampler(std::move(params));
 			}
 
-			constexpr uint32_t DESCRIPTOR_COUNT = 2u; // 3u;
+			constexpr uint32_t DESCRIPTOR_COUNT = 3u;
 			core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> dsLayout = nullptr;
 			{
 				video::IGPUDescriptorSetLayout::SBinding bindings[DESCRIPTOR_COUNT] = {};
@@ -371,7 +383,7 @@ public:
 				bindings[0].samplers = &sampler;
 
 				bindings[1].type = asset::EDT_STORAGE_IMAGE;
-				// bindings[2].type = asset::EDT_UNIFORM_BUFFER;
+				bindings[2].type = asset::EDT_UNIFORM_BUFFER;
 
 				dsLayout = logicalDevice->createGPUDescriptorSetLayout(bindings, bindings + DESCRIPTOR_COUNT);
 			}
@@ -412,10 +424,10 @@ public:
 				infos[1].image.sampler = nullptr;
 
 				// cached weights
-				// writes[2].descriptorType = asset::EDT_UNIFORM_BUFFER;
-				// infos[2].desc = octreeScratchBuffers[0];
-				// infos[2].buffer.offset = 0ull;
-				// infos[2].buffer.size = octreeScratchBuffers[0]->getCachedCreationParams().declaredSize;
+				writes[2].descriptorType = asset::EDT_UNIFORM_BUFFER;
+				infos[2].desc = phaseSupportLUT;
+				infos[2].buffer.offset = 0ull;
+				infos[2].buffer.size = phaseSupportLUT->getCachedCreationParams().declaredSize;
 
 				logicalDevice->updateDescriptorSets(DESCRIPTOR_COUNT, writes, 0u, nullptr);
 			}
@@ -454,6 +466,7 @@ public:
 				pc.negativeSupport.x = negativeSupport.x; pc.negativeSupport.y = negativeSupport.y; pc.negativeSupport.z = negativeSupport.z;
 				pc.positiveSupport.x = positiveSupport.x; pc.positiveSupport.y = positiveSupport.y; pc.positiveSupport.z = positiveSupport.z;
 				pc.windowDim.x = windowDim.x; pc.windowDim.y = windowDim.y; pc.windowDim.z = windowDim.z;
+				pc.phaseCount.x = phaseCount.x; pc.phaseCount.y = phaseCount.y; pc.phaseCount.z = phaseCount.z;
 			}
 			cmdbuf->pushConstants(pipeline->getLayout(), asset::IShader::ESS_COMPUTE, 0u, sizeof(push_constants_t), &pc);
 
@@ -503,7 +516,7 @@ public:
 			float* mappedGPUData = reinterpret_cast<float*>(logicalDevice->mapMemory(memoryRange));
 
 			// Todo(achal): This needs to change for more complex images
-			memcpy(gpuOutput.data(), mappedGPUData, static_cast<size_t>(outImageDim[0]) * outImageDim[1] * outImageDim[2] * sizeof(float));
+			memcpy(gpuOutput.data(), mappedGPUData, static_cast<size_t>(outImageDim[0]) * outImageDim[1] * outImageDim[2] * inChannelCount * sizeof(float));
 			logicalDevice->unmapMemory(downloadBuffer->getBoundMemory());
 		}
 
@@ -514,13 +527,16 @@ public:
 			{
 				for (uint32_t i = 0u; i < outImageDim[0]; ++i)
 				{
-					const uint32_t index = k * (outImageDim[1] * outImageDim[0]) + j * outImageDim[0] + i;
-					if (gpuOutput[index] != cpuOutput[index])
+					const uint32_t pixelIndex = k * (outImageDim[1] * outImageDim[0]) + j * outImageDim[0] + i;
+					for (uint32_t c = 0u; c < inChannelCount; ++c)
 					{
-						printf("Failed at (%u, %u, %u)\n", i, j, k);
-						printf("CPU: %f\n", cpuOutput[index]);
-						printf("GPU: %f\n", gpuOutput[index]);
-						__debugbreak();
+						if (gpuOutput[inChannelCount * pixelIndex + c] != cpuOutput[inChannelCount * pixelIndex + c])
+						{
+							printf("Failed at (%u, %u, %u, ch: %u)\n", i, j, k, c);
+							printf("CPU: %f\n", cpuOutput[inChannelCount * pixelIndex + c]);
+							printf("GPU: %f\n", gpuOutput[inChannelCount * pixelIndex + c]);
+							__debugbreak();
+						}
 					}
 				}
 			}
