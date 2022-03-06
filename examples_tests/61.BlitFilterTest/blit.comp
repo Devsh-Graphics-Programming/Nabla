@@ -30,7 +30,6 @@ layout(push_constant) uniform Block
 
 #define MAX_SMEM_SIZE (16*1024)
 
-// arbitrary smem sizes
 // need to change the type based on formats to not waste smem
 shared vec4 scratchShared[MAX_SMEM_SIZE/8];
 
@@ -68,10 +67,14 @@ void main()
 
 	const uvec3 globalWindowIndex = gl_WorkGroupID.xyz;
 	const uvec3 windowPhase = globalWindowIndex % pc.phaseCount;
-	const uvec3 lutIndex = windowPhase + gl_LocalInvocationID.xyz;
+	uvec3 lutIndex;
+	lutIndex.x = windowPhase.x*pc.windowDim.x + gl_LocalInvocationID.x;
+	lutIndex.y = pc.phaseCount.x*pc.windowDim.x + windowPhase.y*pc.windowDim.y + gl_LocalInvocationID.y;
+	lutIndex.z = pc.phaseCount.x*pc.windowDim.x + pc.phaseCount.y*pc.windowDim.y + gl_LocalInvocationID.z;
 
-	const vec3 weight = vec3(weights.data[lutIndex.x], weights.data[pc.windowDim.x*pc.phaseCount.x + lutIndex.y], weights.data[(pc.windowDim.x*pc.phaseCount.x + pc.windowDim.y*pc.phaseCount.y) + lutIndex.z]);
+	const vec3 weight = vec3(weights.data[lutIndex.x], weights.data[lutIndex.y], weights.data[lutIndex.z]);
 
+	// Premultiplying weights together like this can butcher floating point precision, is it a better idea to first multiply on the CPU with double precision and then upload??
 	scratchShared[gl_LocalInvocationIndex] = texelFetch(inImage, inputPixelCoord, 0)*weight.x*weight.y*weight.z;
 	barrier();
 
@@ -99,11 +102,13 @@ void main()
 			}
 			barrier();
 		}
+
+		barrier();
 	}
 
-	if (gl_WorkGroupID.xyz == uvec3(0))
+	// Currently doing only one window per workgroup and I expect the result in scratchShared[0]
+	if ((gl_LocalInvocationIndex == 0u))
 	{
-		if (pc.windowDim.x*pc.windowDim.y*pc.windowDim.z*gl_LocalInvocationIndex < pc.windowDim.x*pc.windowDim.y*pc.windowDim.z)
-			imageStore(outImage, ivec3(gl_LocalInvocationID.xyz), scratchShared[gl_LocalInvocationIndex*pc.windowDim.x*pc.windowDim.y*pc.windowDim.z]);
+		imageStore(outImage, ivec3(gl_WorkGroupID.xyz), scratchShared[gl_LocalInvocationIndex]);
 	}
 }

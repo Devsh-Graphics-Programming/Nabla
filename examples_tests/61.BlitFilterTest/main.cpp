@@ -75,10 +75,8 @@ public:
 		inputSystem = std::move(initOutput.inputSystem);
 
 		const uint32_t inChannelCount = 4u;
-		std::array<uint32_t, 3> inImageDim = { 6u, 7u, 7u }; // { 800u, 5u };
-		if (inImageDim[0]*inImageDim[1]*inImageDim[2] > 1024) // until this holds I will NOT run of of smem as well
-			__debugbreak();
-		std::array<uint32_t, 3> outImageDim = { 1u, 1u, 1u }; // { 16u, 69u };
+		std::array<uint32_t, 3> inImageDim = { 7u, 19u, 13u };
+		std::array<uint32_t, 3> outImageDim = { 5u, 17u, 11u };
 
 		core::smart_refctd_ptr<asset::ICPUImage> inImage = createCPUImage(inImageDim, asset::IImage::ET_3D, asset::EF_R32G32B32A32_SFLOAT);
 
@@ -103,7 +101,7 @@ public:
 		const core::vectorSIMDf scaleZ(1.f, 1.f, 1.f, 1.f);
 
 		// CPU blit
-		core::vector<float> cpuOutput(static_cast<uint64_t>(inImageDim[0]) * inImageDim[1] * inImageDim[2] * inChannelCount);
+		core::vector<float> cpuOutput(static_cast<uint64_t>(outImageDim[0]) * outImageDim[1] * outImageDim[2] * inChannelCount);
 		{
 			core::smart_refctd_ptr<ICPUImage> outImage = createCPUImage(outImageDim, asset::IImage::ET_3D, asset::EF_R32G32B32A32_SFLOAT);
 
@@ -141,22 +139,6 @@ public:
 			// This needs to change when testing with more complex images
 			float* outPixel = reinterpret_cast<float*>(outImage->getBuffer()->getPointer());
 			memcpy(cpuOutput.data(), outPixel, cpuOutput.size()*sizeof(float));
-		}
-
-		for (uint32_t k = 0u; k < outImageDim[2]; ++k)
-		{
-			for (uint32_t j = 0u; j < outImageDim[1]; ++j)
-			{
-				for (uint32_t i = 0u; i < outImageDim[0]; ++i)
-				{
-					const uint32_t pixelIndex = k * (outImageDim[1] * outImageDim[0]) + j * outImageDim[0] + i;
-					for (uint32_t c = 0u; c < inChannelCount; ++c)
-						printf("%f\t", cpuOutput[inChannelCount * pixelIndex + c]);
-				}
-				printf("\n");
-			}
-
-			printf("\n\n");
 		}
 
 		// GPU blit
@@ -476,8 +458,7 @@ public:
 			// const uint32_t wgCount = (totalWindowCount + windowsPerWG - 1) / windowsPerWG;
 
 			cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE, pipeline->getLayout(), 0u, 1u, &ds.get());
-			// cmdbuf->dispatch(wgCount, 1u, 1u);
-			cmdbuf->dispatch(1u, 1u, 1u);
+			cmdbuf->dispatch(outImageDim[0], outImageDim[1], outImageDim[2]);
 
 			// after the dispatch download the buffer to check, one buffer to download contents from all images
 			core::smart_refctd_ptr<video::IGPUBuffer> downloadBuffer = nullptr;
