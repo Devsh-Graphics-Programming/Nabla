@@ -293,7 +293,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 			
 			// need to add the memory for phase support LUT
 			const core::vectorSIMDu32 phaseCount = getPhaseCount(state->inExtentLayerCount, state->outExtentLayerCount, state->inImage->getCreationParameters().type);
-			retval += ((phaseCount[0]*scaledKernelX.getWindowSize().x) + (phaseCount[1]*scaledKernelY.getWindowSize().x) + (phaseCount[2]*scaledKernelZ.getWindowSize().x)) * sizeof(value_type);
+			retval += ((phaseCount[0]*scaledKernelX.getWindowSize().x) + (phaseCount[1]*scaledKernelY.getWindowSize().y) + (phaseCount[2]*scaledKernelZ.getWindowSize().z)) * sizeof(value_type);
 
 			return retval;
 		}
@@ -489,7 +489,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 			const auto halfTexelOffset = fScale*0.5f-core::vectorSIMDf(0.f,0.f,0.f,0.5f);
 			const auto startCoord =  [&halfTexelOffset,&kernelX,&kernelY,&kernelZ]() -> core::vectorSIMDi32
 			{
-				return core::vectorSIMDi32(kernelX.getWindowMinCoord(halfTexelOffset).x-1,kernelY.getWindowMinCoord(halfTexelOffset).y-1,kernelZ.getWindowMinCoord(halfTexelOffset).z-1,0);
+				return core::vectorSIMDi32(kernelX.getWindowMinCoord(halfTexelOffset).x,kernelY.getWindowMinCoord(halfTexelOffset).y,kernelZ.getWindowMinCoord(halfTexelOffset).z,0);
 			}();
 			const auto windowMinCoordBase = inOffsetBaseLayer+startCoord;
 
@@ -716,11 +716,11 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 		)
 		{
 			// TODO: investigate properly if its supposed be `size` or `size-1` (polyphase kinda shows need for `size`)
-			core::vectorSIMDi32 last(kernelX.getWindowSize().x,0,0,0);
+			core::vectorSIMDi32 last(kernelX.getWindowSize().x-1,0,0,0);
 			if (inImageType>=IImage::ET_2D)
-				last.y = kernelY.getWindowSize().x;
+				last.y = kernelY.getWindowSize().y-1;
 			if (inImageType>=IImage::ET_3D)
-				last.z = kernelZ.getWindowSize().x;
+				last.z = kernelZ.getWindowSize().z-1;
 			return last;
 		}
 		static inline core::vectorSIMDu32 getPhaseSupportLUTAxisOffsets(const core::vectorSIMDu32& phaseCount,
@@ -731,7 +731,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 			core::vectorSIMDu32 result;
 			result.x = 0u;
 			result.y = (phaseCount[0] * kernelX.getWindowSize().x) * sizeof(value_type);
-			result.z = ((phaseCount[0] * kernelX.getWindowSize().x) + (phaseCount[1] * kernelY.getWindowSize().x)) * sizeof(value_type);
+			result.z = ((phaseCount[0] * kernelX.getWindowSize().x) + (phaseCount[1] * kernelY.getWindowSize().y)) * sizeof(value_type);
 			return result;
 		}
 		// the blit filter will filter one axis at a time, hence necessitating "ping ponging" between two scratch buffers
