@@ -2,8 +2,8 @@
 #include "nbl/system/ISystemFile.h"
 #include "nbl/system/CFileView.h"
 
-//#include "nbl/system/CArchiveLoaderZip.h"
-//#include "nbl/system/CArchiveLoaderTar.h"
+#include "nbl/system/CArchiveLoaderZip.h"
+#include "nbl/system/CArchiveLoaderTar.h"
 
 
 using namespace nbl;
@@ -12,8 +12,8 @@ using namespace nbl::system;
 
 ISystem::ISystem(core::smart_refctd_ptr<ISystem::ICaller>&& caller) : m_dispatcher(std::move(caller))
 {
-    //addArchiveLoader(core::make_smart_refctd_ptr<CArchiveLoaderZip>(nullptr));
-    //addArchiveLoader(core::make_smart_refctd_ptr<CArchiveLoaderTar>(nullptr));
+    addArchiveLoader(core::make_smart_refctd_ptr<CArchiveLoaderZip>(nullptr));
+    addArchiveLoader(core::make_smart_refctd_ptr<CArchiveLoaderTar>(nullptr));
 }
 
 core::smart_refctd_ptr<IFile> ISystem::impl_loadEmbeddedBuiltinData(const std::string& builtinPath, const std::pair<const uint8_t*,size_t>& found) const

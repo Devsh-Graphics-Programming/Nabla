@@ -2,13 +2,14 @@
 // This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
-
 #ifndef _NBL_SYSTEM_C_FILE_ARCHIVE_H_INCLUDED_
 #define _NBL_SYSTEM_C_FILE_ARCHIVE_H_INCLUDED_
+
 
 #include "nbl/system/IFileArchive.h"
 #include "nbl/system/CFileView.h"
 #include "nbl/system/IFileViewAllocator.h"
+
 
 namespace nbl::system
 {
@@ -58,62 +59,74 @@ class CFileArchive : public IFileArchive
 		static inline constexpr size_t ALIGNOF_INNER_ARCHIVE_FILE = std::max(alignof(CInnerArchiveFile<CPlainHeapAllocator>), alignof(CInnerArchiveFile<VirtualMemoryAllocator>));
 
 	public:
-		core::smart_refctd_ptr<IFile> readFile(const SOpenFileParams& params)
+		inline core::smart_refctd_ptr<IFile> getFile(const path& pathRelativeToArchive, const std::string_view& password) override
 		{
-			auto index = getIndexByPath(params.filename);
-			if (index == -1) return nullptr;
-			switch (listAssets()[index].allocatorType)
+			std::unique_lock lock(itemMutex);
+
+			const auto* item = getItemFromPath(pathRelativeToArchive);
+			if (!item)
+				return nullptr;
+			/*
+			switch (item->allocatorType)
 			{
-			case EAT_NULL:
-				return getFile_impl<CNullAllocator>(params, index);
-				break;
-			case EAT_MALLOC:
-				return getFile_impl<CPlainHeapAllocator>(params, index);
-				break;
-			case EAT_VIRTUAL_ALLOC:
-				return getFile_impl<VirtualMemoryAllocator>(params, index);
-				break;
+				case EAT_NULL:
+					return getFile_impl<CNullAllocator>(item);
+					break;
+				case EAT_MALLOC:
+					return getFile_impl<CPlainHeapAllocator>(item);
+					break;
+				case EAT_VIRTUAL_ALLOC:
+					return getFile_impl<VirtualMemoryAllocator>(item);
+					break;
+				default: // directory or something
+					break;
 			}
-			assert(false);
+			*/
 			return nullptr;
-		}
-		virtual core::smart_refctd_ptr<IFile> readFile_impl(const SOpenFileParams& params) = 0;
-		int32_t getIndexByPath(const system::path& p)
-		{
-			for (int i = 0; i < m_files.size(); ++i)
-			{
-				if (p == m_files[i].fullName) return i;
-			}
-			return -1;
-		}
-		template<class Allocator>
-		core::smart_refctd_ptr<CInnerArchiveFile<Allocator>> getFile_impl(const SOpenFileParams& params, const uint32_t index)
-		{
-			std::unique_lock lock(fileMutex);
-
-			auto* file = reinterpret_cast<CInnerArchiveFile<Allocator>*>(m_filesBuffer + index * SIZEOF_INNER_ARCHIVE_FILE);
-			//  intentionally calling grab() on maybe-not-existing object
-			const auto oldRefcount = file->grab();
-
-			if (oldRefcount == 0) // need to construct
-			{
-				m_fileFlags[index].wait(true); //what should the param of wait be?
-				new (file, &m_fileFlags[index]) CInnerArchiveFile<Allocator>(static_cast<CFileView<Allocator>*>(readFile_impl(params).get()), &m_fileFlags[index]);
-			}
-			return core::smart_refctd_ptr<CInnerArchiveFile<Allocator>>(file, core::dont_grab);
 		}
 
 	protected:
-		CFileArchive(core::smart_refctd_ptr<IFile>&& file, system::logger_opt_smart_ptr&& logger) : IFileArchive(std::move(file),std::move(logger)) {}
+		CFileArchive(path&& _defaultAbsolutePath, system::logger_opt_smart_ptr&& logger, core::vector<SListEntry> _items) :
+			IFileArchive(std::move(_defaultAbsolutePath),std::move(logger))
+		{
+			m_items = std::move(_items);
+			std::sort(m_items.begin(),m_items.end());
+
+			const auto fileCount = m_items.size();
+			m_filesBuffer = (std::byte*)_NBL_ALIGNED_MALLOC(fileCount*SIZEOF_INNER_ARCHIVE_FILE, ALIGNOF_INNER_ARCHIVE_FILE);
+			m_fileFlags = (std::atomic_flag*)_NBL_ALIGNED_MALLOC(fileCount*sizeof(std::atomic_flag), alignof(std::atomic_flag));
+			for (size_t i=0u; i<fileCount; i++)
+				m_fileFlags[i].clear();
+			memset(m_filesBuffer,0,fileCount*SIZEOF_INNER_ARCHIVE_FILE);
+		}
 		~CFileArchive()
 		{ 
 			_NBL_ALIGNED_FREE(m_filesBuffer);
 			_NBL_ALIGNED_FREE(m_fileFlags);
 		}
+		/*
+		template<class Allocator>
+		core::smart_refctd_ptr<CInnerArchiveFile<Allocator>> getFile_impl(const IFileArchive::SListEntry* item)
+		{
+			auto* file = reinterpret_cast<CInnerArchiveFile<Allocator>*>(m_filesBuffer+item->ID*SIZEOF_INNER_ARCHIVE_FILE);
+			// NOTE: Intentionally calling grab() on maybe-not-existing object!
+			const auto oldRefcount = file->grab();
 
-		void setFlagsVectorSize(size_t fileCount);
+			if (oldRefcount==0) // need to construct (previous refcount was 0)
+			{
+				// Might have barged inbetween a refctr drop and finish of a destructor + delete,
+				// need to wait for the "alive" flag to become `false` which tells us `operator delete` has finished.
+				m_fileFlags[item->ID].wait(true);
+				// coast is clear, do placement new
+				new (file, &m_fileFlags[item->ID]) CInnerArchiveFile<Allocator>(
+					static_cast<CFileView<Allocator>*>(readFile_impl(params).get()),
+					&m_fileFlags[item->ID]
+				);
+			}
+			return core::smart_refctd_ptr<CInnerArchiveFile<Allocator>>(file,core::dont_grab);
+		}
+		*/
 
-		std::mutex fileMutex;
 		std::atomic_flag* m_fileFlags = nullptr;
 		std::byte* m_filesBuffer = nullptr;
 };
