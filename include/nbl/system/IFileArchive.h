@@ -25,9 +25,9 @@ class IFileArchive : public core::IReferenceCounted
 		enum E_ALLOCATOR_TYPE
 		{
 			EAT_NONE = 0,
-			EAT_NULL,
-			EAT_VIRTUAL_ALLOC,
-			EAT_MALLOC
+			EAT_NULL, // read directly from archive's underlying mapped file
+			EAT_VIRTUAL_ALLOC, // decompress to RAM (with sparse paging)
+			EAT_MALLOC // decompress to RAM
 		};
 		//! An entry in a list of items, can be a folder or a file.
 		struct SListEntry
@@ -38,13 +38,11 @@ class IFileArchive : public core::IReferenceCounted
 			//! The size of the file in bytes
 			size_t size;
 
-			//! The ID of the file in an archive
-			/** This is used to link the FileList entry to extra info held about this
-			file in an archive, which can hold things like data offset and CRC. */
-			uint32_t ID;
-
 			//! FileOffset inside an archive
-			uint32_t offset;
+			size_t offset;
+
+			//! The ID of the file in an archive, it maps it to a memory pool entry for CFileView
+			uint32_t ID;
 
 			// `EAT_NONE` for directories
 			E_ALLOCATOR_TYPE allocatorType;
@@ -77,28 +75,17 @@ class IFileArchive : public core::IReferenceCounted
 	protected:
 		IFileArchive(path&& _defaultAbsolutePath, system::logger_opt_smart_ptr&& logger) :
 			m_defaultAbsolutePath(std::move(_defaultAbsolutePath)), m_logger(std::move(logger)) {}
-/*
-		virtual void addItem(const system::path& fullPath, uint32_t offset, uint32_t size, E_ALLOCATOR_TYPE allocatorType, uint32_t id = 0)
-		{
-			SFileListEntry entry;
-			entry.ID = id ? id : m_items.size();
-			entry.offset = offset;
-			entry.size = size;
-			entry.name = fullPath;
-			entry.allocatorType = allocatorType;
-			entry.fullName = entry.name;
 
-			core::deletePathFromFilename(entry.name);
-
-			m_items.insert(std::lower_bound(m_items.begin(), m_items.end(), entry), entry);
-		}
-*/
-		inline uint32_t getIndexFromPath(const system::path& pathRelativeToArchive) const
+		inline const SListEntry* getItemFromPath(const system::path& pathRelativeToArchive) const
 		{
             const IFileArchive::SListEntry itemToFind = { pathRelativeToArchive };
-			return std::distance(m_items.begin(),std::lower_bound(m_items.begin(),m_items.end(),itemToFind));
+			const auto found = std::lower_bound(m_items.begin(),m_items.end(),itemToFind);
+			if (found!=m_items.end() || found->pathRelativeToArchive!=pathRelativeToArchive)
+				return nullptr;
+			return &(*found);
 		}
 
+		std::mutex itemMutex; // TODO: update to readers writer lock
 		path m_defaultAbsolutePath;
 		// files and directories
 		core::vector<SListEntry> m_items;
