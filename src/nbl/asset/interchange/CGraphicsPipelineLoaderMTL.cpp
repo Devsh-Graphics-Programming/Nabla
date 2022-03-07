@@ -31,7 +31,7 @@ CGraphicsPipelineLoaderMTL::CGraphicsPipelineLoaderMTL(IAssetManager* _am, core:
     //create vertex shaders and insert them into cache
     auto registerShader = [&](auto constexprStringType, ICPUShader::E_SHADER_STAGE stage) -> void
     {
-        auto data = m_assetMgr->getSystem()->loadBuiltinData<decltype(constexprStringType)>();
+        core::smart_refctd_ptr<const system::IFile> data = m_assetMgr->getSystem()->loadBuiltinData<decltype(constexprStringType)>();
         auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(data->getSize());
         memcpy(buffer->getPointer(), data->getMappedPointer(), data->getSize());
         auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(

@@ -53,7 +53,7 @@ class IGLSLEmbeddedIncludeLoader : public IBuiltinIncludeLoader
 			system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
 			auto path = "nbl/builtin/" + _name;
 			s->createFile(future,path,core::bitflag(system::IFileBase::ECF_READ)|system::IFileBase::ECF_MAPPABLE);
-			auto data = future.get();
+			core::smart_refctd_ptr<const system::IFile> data = future.get();
 			if (!data)
 				return "";
 			auto begin = reinterpret_cast<const char*>(data->getMappedPointer());

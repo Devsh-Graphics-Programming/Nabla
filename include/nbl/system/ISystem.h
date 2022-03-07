@@ -113,7 +113,7 @@ class ISystem : public core::IReferenceCounted
 
         //! Compile time resource ID
         template<typename StringUniqueType>
-        inline core::smart_refctd_ptr<IFile> loadBuiltinData() const
+        inline core::smart_refctd_ptr<const IFile> loadBuiltinData() const
         {
         #ifdef _NBL_EMBED_BUILTIN_RESOURCES_
             return impl_loadEmbeddedBuiltinData(StringUniqueType::value,nbl::builtin::get_resource<StringUniqueType>());
@@ -260,7 +260,7 @@ class ISystem : public core::IReferenceCounted
         virtual ~ISystem() {}
 
         //
-        core::smart_refctd_ptr<IFile> impl_loadEmbeddedBuiltinData(const std::string& builtinPath, const std::pair<const uint8_t*,size_t>& found) const;
+        core::smart_refctd_ptr<const IFile> impl_loadEmbeddedBuiltinData(const std::string& builtinPath, const std::pair<const uint8_t*,size_t>& found) const;
 
         // given an `absolutePath` find the archive it belongs to
         struct FoundArchiveFile

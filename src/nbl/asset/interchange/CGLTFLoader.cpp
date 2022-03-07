@@ -45,7 +45,7 @@ using namespace nbl::asset;
 		{
 			auto registerShader = [&](auto constexprStringType, IShader::E_SHADER_STAGE stage, const char* extraDefine=nullptr) -> void
 			{
-				auto glslFile = assetManager->getSystem()->loadBuiltinData<decltype(constexprStringType)>();
+				core::smart_refctd_ptr<const system::IFile> glslFile = assetManager->getSystem()->loadBuiltinData<decltype(constexprStringType)>();
 				auto glsl = core::make_smart_refctd_ptr<asset::ICPUBuffer>(glslFile->getSize());
 				memcpy(glsl->getPointer(),glslFile->getMappedPointer(),glsl->getSize());
 

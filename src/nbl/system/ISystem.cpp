@@ -16,7 +16,7 @@ ISystem::ISystem(core::smart_refctd_ptr<ISystem::ICaller>&& caller) : m_dispatch
     addArchiveLoader(core::make_smart_refctd_ptr<CArchiveLoaderTar>(nullptr));
 }
 
-core::smart_refctd_ptr<IFile> ISystem::impl_loadEmbeddedBuiltinData(const std::string& builtinPath, const std::pair<const uint8_t*,size_t>& found) const
+core::smart_refctd_ptr<const IFile> ISystem::impl_loadEmbeddedBuiltinData(const std::string& builtinPath, const std::pair<const uint8_t*,size_t>& found) const
 {
 #ifdef _NBL_EMBED_BUILTIN_RESOURCES_
     if (found.first && found.second)
@@ -215,7 +215,7 @@ void ISystem::createFile(future_t<core::smart_refctd_ptr<IFile>>& future, std::f
             auto file = impl_loadEmbeddedBuiltinData(filename.string(),nbl::builtin::get_resource_runtime(filename.string()));
             if (file)
             {
-                future.notify(std::move(file));
+                future.notify(core::smart_refctd_ptr<IFile>(const_cast<IFile*>(file.get())));
                 return;
             }
         #else

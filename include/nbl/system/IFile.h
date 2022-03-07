@@ -12,7 +12,8 @@ class IFile : public IFileBase, private ISystem::IFutureManipulator
 		//
 		inline void read(ISystem::future_t<size_t>& fut, void* buffer, size_t offset, size_t sizeToRead)
 		{
-			const auto* ptr = reinterpret_cast<const std::byte*>(getMappedPointer());
+			const IFileBase* constThis = this;
+			const auto* ptr = reinterpret_cast<const std::byte*>(constThis->getMappedPointer());
 			if (ptr)
 			{
 				const size_t size = getSize();
