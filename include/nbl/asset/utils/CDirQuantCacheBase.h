@@ -340,7 +340,7 @@ class CDirQuantCacheBase : public impl::CDirQuantCacheBase
 
 		//!
 		template<E_FORMAT CacheFormat>
-		inline system::IFile::success_t saveCacheToFile(system::IFile* file)
+		inline bool saveCacheToFile(system::IFile* file)
 		{
 			if (!file)
 				return false;
@@ -354,12 +354,12 @@ class CDirQuantCacheBase : public impl::CDirQuantCacheBase
 
 			system::IFile::success_t succ;
 			file->write(succ,bufferRange.buffer->getPointer(), 0, bufferRange.buffer->getSize());
-			return succ;
+			return bool(succ);
 		}
 
 		//!
 		template<E_FORMAT CacheFormat>
-		inline system::IFile::success_t saveCacheToFile(nbl::system::ISystem* system, const system::path& path)
+		inline bool saveCacheToFile(nbl::system::ISystem* system, const system::path& path)
 		{
 			system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
 			system->createFile(future, path, nbl::system::IFile::ECF_WRITE);
@@ -367,7 +367,7 @@ class CDirQuantCacheBase : public impl::CDirQuantCacheBase
 			if (!file)
 				return false;
 
-			return saveCacheToFile<CacheFormat>(file.get());
+			return bool(saveCacheToFile<CacheFormat>(file.get()));
 		}
 
 		//!
