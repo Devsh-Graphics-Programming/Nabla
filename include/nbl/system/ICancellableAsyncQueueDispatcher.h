@@ -1,5 +1,5 @@
-#ifndef __NBL_I_CANCELLABLE_ASYNC_QUEUE_DISPATCHER_H_INCLUDED__
-#define __NBL_I_CANCELLABLE_ASYNC_QUEUE_DISPATCHER_H_INCLUDED__
+#ifndef _NBL_I_CANCELLABLE_ASYNC_QUEUE_DISPATCHER_H_INCLUDED_
+#define _NBL_I_CANCELLABLE_ASYNC_QUEUE_DISPATCHER_H_INCLUDED_
 
 #include "nbl/system/IAsyncQueueDispatcher.h"
 #include "nbl/system/SReadWriteSpinLock.h"
@@ -151,6 +151,7 @@ class ICancellableAsyncQueueDispatcher : public IAsyncQueueDispatcher<CRTP, Requ
         {
                 friend this_async_queue_t;
 
+            protected:
                 // construct the retval element 
                 template <typename... Args>
                 void notify(Args&&... args)

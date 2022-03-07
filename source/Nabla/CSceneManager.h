@@ -58,38 +58,6 @@ class CSceneManager : public ISceneManager, public ISceneNode
 			SKeyMap* keyMapArray=0, int32_t keyMapSize=0,
 			bool noVerticalMovement=false, float jumpSpeed = 0.f,
 			bool invertMouseY=false, bool makeActive=true);
-
-		//! Returns the current active camera.
-		//! \return The active camera is returned. Note that this can be NULL, if there
-		//! was no camera created yet.
-		virtual ICameraSceneNode* getActiveCamera() const;
-
-		//! Sets the active camera. The previous active camera will be deactivated.
-		//! \param camera: The new camera which should be active.
-		virtual void setActiveCamera(ICameraSceneNode* camera);
-
-		//! Clears the whole scene. All scene nodes are removed.
-		virtual void clear();
-
-		//! Removes all children of this scene node
-		virtual void removeAll();
-
-	protected:
-
-		//! clears the deletion list
-		void clearDeletionList();
-
-		//! video driver
-		video::IVideoDriver* Driver;
-
-		//! timer
-		nbl::ITimer* Timer;
-
-        //! parent device
-        IrrlichtDevice* Device;
-
-		//! current active camera
-		ICameraSceneNode* ActiveCamera;
 	};
 
 } // end namespace video

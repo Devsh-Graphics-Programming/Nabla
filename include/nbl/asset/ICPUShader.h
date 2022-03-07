@@ -95,6 +95,7 @@ class ICPUShader : public IAsset, public IShader
 			if(isImmutable_debug())
 				return m_shaderStage == stage;
 			m_shaderStage = stage;
+			return true;
 		}
 
 		bool setFilePathHint(std::string&& filepathHint)
@@ -102,6 +103,7 @@ class ICPUShader : public IAsset, public IShader
 			if(isImmutable_debug())
 				return false;
 			m_filepathHint = std::move(filepathHint);
+			return true;
 		}
 
 		bool canBeRestoredFrom(const IAsset* _other) const override

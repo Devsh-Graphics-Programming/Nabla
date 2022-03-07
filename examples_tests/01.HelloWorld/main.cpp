@@ -103,12 +103,8 @@ public:
 
 static core::smart_refctd_ptr<system::ISystem> createSystem()
 {
-	nbl::core::smart_refctd_ptr<system::ISystemCaller> caller = nullptr;
 #ifdef _NBL_PLATFORM_WINDOWS_
-	caller = nbl::core::make_smart_refctd_ptr<nbl::system::CSystemCallerWin32>();
-#endif
-#ifdef _NBL_PLATFORM_WINDOWS_
-	return nbl::core::make_smart_refctd_ptr<nbl::system::CSystemWin32>(std::move(caller));
+	return nbl::core::make_smart_refctd_ptr<nbl::system::CSystemWin32>();
 #endif
 	return nullptr;
 }

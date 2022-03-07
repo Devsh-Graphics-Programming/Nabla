@@ -220,7 +220,7 @@ void IAssetManager::insertBuiltinAssets()
 	// materials
 	{
 		//
-		auto buildInGLSLShader = [&](	core::smart_refctd_ptr<system::IFile>&& data,
+		auto buildInGLSLShader = [&](	core::smart_refctd_ptr<const system::IFile>&& data,
 									asset::IShader::E_SHADER_STAGE type,
 									std::initializer_list<const char*> paths) -> void
 		{

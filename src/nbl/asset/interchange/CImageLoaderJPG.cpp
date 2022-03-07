@@ -157,10 +157,9 @@ bool CImageLoaderJPG::isALoadableFileFormat(system::IFile* _file, const system::
 		return false;
 
 	uint32_t header = 0;	
-	system::future<size_t> future;
-	_file->read(future, &header, 6, sizeof(uint32_t));
-	future.get();
-	return (header&0x00FFD8FFu)==0x00FFD8FFu;
+	system::IFile::success_t success;
+	_file->read(success, &header, 6, sizeof(uint32_t));
+	return success && (header&0x00FFD8FFu)==0x00FFD8FFu;
 #endif
 }
 
@@ -178,9 +177,10 @@ asset::SAssetBundle CImageLoaderJPG::loadAsset(system::IFile* _file, const asset
 
 	uint8_t* input = new uint8_t[_file->getSize()];
 
-	system::future<size_t> future;
-	_file->read(future, input, 0, _file->getSize());
-	future.get();
+	system::IFile::success_t success;
+	_file->read(success, input, 0, _file->getSize());
+	if (!success)
+		return {};
 
 	// allocate and initialize JPEG decompression object
 	struct jpeg_decompress_struct cinfo;

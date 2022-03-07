@@ -49,9 +49,6 @@ namespace nbl
             //! runs the device. Returns false if device wants to be deleted
             virtual bool run();
 
-            //! Cause the device to temporarily pause execution and let other processes to run
-            // This should bring down processor usage without major performance loss for Irrlicht
-            virtual void yield();
 
             //! Pause execution and let other processes to run for a specified amount of time.
             virtual void sleep(uint32_t timeMs, bool pauseTimer);
@@ -99,13 +96,6 @@ namespace nbl
 
             //! Remove all messages pending in the system message loop
             virtual void clearSystemMessages();
-
-            //! Get the device type
-            virtual E_DEVICE_TYPE getType() const
-            {
-                    return EIDT_X11;
-            }
-
 
         private:
 

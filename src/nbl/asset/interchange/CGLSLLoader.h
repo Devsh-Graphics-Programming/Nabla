@@ -2,17 +2,15 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __NBL_ASSET_C_GLSL_LOADER_H_INCLUDED__
-#define __NBL_ASSET_C_GLSL_LOADER_H_INCLUDED__
+#ifndef _NBL_ASSET_C_GLSL_LOADER_H_INCLUDED_
+#define _NBL_ASSET_C_GLSL_LOADER_H_INCLUDED_
 
 #include <algorithm>
 
 #include "nbl/asset/interchange/IAssetLoader.h"
 #include <nbl/system/ISystem.h>
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 //!  Surface Loader for PNG files
@@ -20,6 +18,7 @@ class CGLSLLoader final : public asset::IAssetLoader
 {
 	public:
 		CGLSLLoader() = default;
+
 		bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger = nullptr) const override
 		{
 			char tmp[10] = { 0 };
@@ -28,16 +27,17 @@ class CGLSLLoader final : public asset::IAssetLoader
 			size_t readPos = 0;
 			while (readPos+sizeof(tmp)<filesize)
 			{
-				system::future<size_t> future;
-				_file->read(future, tmp, readPos, sizeof tmp);
-				size_t count = future.get();
+				system::IFile::success_t success;
+				_file->read(success, tmp, readPos, sizeof(tmp));
+				if (!success)
+					return false;
 				
 				if (strncmp(tmp,"#version ",9u)==0)
 					return true;
 				auto found = std::find(tmp,end,'#');
 				if (found==end || found==tmp)
 				{
-					readPos += count;
+					readPos += sizeof(tmp);
 					continue;
 				}
 				readPos += found - end;
@@ -57,8 +57,7 @@ class CGLSLLoader final : public asset::IAssetLoader
 		asset::SAssetBundle loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 };
 
-} // namespace asset
-} // namespace nbl
+} // namespace nbl::asset
 
 #endif
 

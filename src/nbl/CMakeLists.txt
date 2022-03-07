@@ -176,11 +176,19 @@ file(GLOB_RECURSE TEMP_GLOB_RES "${NBL_ROOT_PATH}/include/*.h")
 set(NABLA_HEADERS_PUBLIC ${NABLA_HEADERS_PUBLIC} ${TEMP_GLOB_RES})
 file(GLOB_RECURSE TEMP_GLOB_RES "${NBL_ROOT_PATH}/include/*.tcc")
 set(NABLA_HEADERS_PUBLIC ${NABLA_HEADERS_PUBLIC} ${TEMP_GLOB_RES})
+file(GLOB_RECURSE TEMP_GLOB_RES  "${NBL_ROOT_PATH}/src/*.h")
+set(NABLA_HEADERS_PUBLIC2 ${NABLA_HEADERS_PUBLIC2} ${TEMP_GLOB_RES}) # TODO: we should have moved all headers from src directory to /include, but we need it for install target
 
-file(GLOB_RECURSE NABLA_HEADERS_PRIV1 "*.h")
-file(GLOB_RECURSE NABLA_HEADERS_PRIV2 "${NBL_ROOT_PATH}/src/nbl/*.h")
-# just gather all the header files and later put them into project so it's easy to search for things using IDE
-set(NABLA_HEADERS "${CMAKE_CURRENT_BINARY_DIR}/include/nabla.h" ${NABLA_HEADERS_PUBLIC} ${NABLA_HEADERS_PIRV1} ${NABLA_HEADERS_PRIV2})
+foreach(NBL_CURRENT_HEADER IN LISTS NABLA_HEADERS_PUBLIC2)
+	cmake_path(GET NBL_CURRENT_HEADER PARENT_PATH NBL_CURRENT_HEADER_DIR)
+	file(RELATIVE_PATH NBL_TMP_REL_DESTINATION "${NBL_ROOT_PATH}/src" ${NBL_CURRENT_HEADER_DIR})
+	
+	install(FILES ${NBL_CURRENT_HEADER} DESTINATION include/${NBL_TMP_REL_DESTINATION} CONFIGURATIONS Release)
+	install(FILES ${NBL_CURRENT_HEADER} DESTINATION debug/include/${NBL_TMP_REL_DESTINATION} CONFIGURATIONS Debug)
+	install(FILES ${NBL_CURRENT_HEADER} DESTINATION relwithdebinfo/include/${NBL_TMP_REL_DESTINATION} CONFIGURATIONS RelWithDebInfo)
+endforeach()
+
+unset(NABLA_HEADERS_PUBLIC2 ${NBL_TMP_FULL_PATHS})
 
 
 #
@@ -188,17 +196,20 @@ set(NBL_CORE_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/core/IReferenceCounted.cpp
 )
 set(NBL_SYSTEM_SOURCES
-	${NBL_ROOT_PATH}/src/nbl/system/IFile.cpp
-	${NBL_ROOT_PATH}/src/nbl/system/CFileWin32.cpp
-	${NBL_ROOT_PATH}/src/nbl/system/CFilePOSIX.cpp
+	${NBL_ROOT_PATH}/src/nbl/system/IFileBase.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/ILogger.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/CArchiveLoaderZip.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/CArchiveLoaderTar.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/ISystem.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/IFileArchive.cpp
+	${NBL_ROOT_PATH}/src/nbl/system/CStdoutLoggerAndroid.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/CFileViewVirtualAllocatorWin32.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/CFileViewVirtualAllocatorPOSIX.cpp
-	${NBL_ROOT_PATH}/src/nbl/system/CStdoutLoggerAndroid.cpp
+	${NBL_ROOT_PATH}/src/nbl/system/CFileWin32.cpp
+	${NBL_ROOT_PATH}/src/nbl/system/CFilePOSIX.cpp
+	${NBL_ROOT_PATH}/src/nbl/system/CSystemWin32.cpp
+	${NBL_ROOT_PATH}/src/nbl/system/CSystemAndroid.cpp
+	${NBL_ROOT_PATH}/src/nbl/system/CSystemLinux.cpp
 )
 set(NBL_UI_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/ui/CWindowWin32.cpp
@@ -497,6 +508,18 @@ macro(nbl_target_link_simdjson _trgt)
 	set_target_properties(simdjson PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 endmacro()
 
+# just gather all the header files and later put them into project so it's easy to search for things using IDE
+file(GLOB_RECURSE NABLA_HEADERS_PRIV1 "*.h")
+file(GLOB_RECURSE NABLA_HEADERS_PRIV2 "${NBL_ROOT_PATH}/src/nbl/*.h")
+
+#always install builtins (some may be included in cpp regardless if embedded or not)
+foreach(X IN LISTS nbl_resources_to_embed)
+	list(APPEND NABLA_HEADERS_PUBLIC  ${NBL_ROOT_PATH}/include/${X})
+endforeach()
+
+set(NABLA_HEADERS "${CMAKE_CURRENT_BINARY_DIR}/include/nabla.h" ${NABLA_HEADERS_PUBLIC} ${NABLA_HEADERS_PIRV1} ${NABLA_HEADERS_PRIV2})
+
+# declare the library!
 add_library(Nabla STATIC
 	${NABLA_SRCS_COMMON}
 	${NABLA_HEADERS}
@@ -628,15 +651,9 @@ if(NBL_PCH)
 endif()
 
 if(NBL_EMBED_BUILTIN_RESOURCES)
-	add_custom_target(builtin_resources
-	   DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/builtin/builtinResourceData.cpp)
-	  add_dependencies(Nabla builtin_resources)
+	add_custom_target(builtin_resources DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/builtin/builtinResourceData.cpp)
+	add_dependencies(Nabla builtin_resources)
 endif()
-
-#always install builtins (some may be included in cpp regardless if embedded or not)
-foreach(X IN LISTS nbl_resources_to_embed)
-	list(APPEND NABLA_HEADERS_PUBLIC  ${NBL_ROOT_PATH}/include/${X})
-endforeach()
 
 
 # extensions
@@ -644,23 +661,15 @@ start_tracking_variables_for_propagation_to_parent()
 add_subdirectory(ext)
 propagate_changed_variables_to_parent_scope()
 
-
-set(NABLA_HEADERS_TO_INSTALL 
-	${NABLA_HEADERS_PUBLIC}
-)
-
-set(NABLA_HEADERS_TO_INSTALL_SOURCE_REFACTOR
-	# Junk to refactor
-	${NBL_ROOT_PATH}/source/Nabla/CMountPointReader.h
-	${NBL_ROOT_PATH}/source/Nabla/CPakReader.h
-	${NBL_ROOT_PATH}/source/Nabla/CTarReader.h
-	${NBL_ROOT_PATH}/source/Nabla/CZipReader.h
-)
-
 nbl_install_headers("${CMAKE_CURRENT_BINARY_DIR}/include/nabla.h" "${CMAKE_CURRENT_BINARY_DIR}/include")
-nbl_install_headers("${NABLA_HEADERS_TO_INSTALL}" "${NBL_ROOT_PATH}/include")
-nbl_install_headers("${NABLA_HEADERS_TO_INSTALL_SOURCE_REFACTOR}" "${NBL_ROOT_PATH}/source/Nabla")
+nbl_install_headers("${NABLA_HEADERS_PUBLIC}" "${NBL_ROOT_PATH}/include")
 nbl_install_config_header(BuildConfigOptions.h)
+
+macro(nbl_install_program _TRGT)
+	install(PROGRAMS $<TARGET_FILE:${_TRGT}> DESTINATION lib CONFIGURATIONS Release)
+	install(PROGRAMS $<TARGET_FILE:${_TRGT}> DESTINATION debug/lib CONFIGURATIONS Debug)
+	install(PROGRAMS $<TARGET_FILE:${_TRGT}> DESTINATION relwithdebinfo/lib CONFIGURATIONS RelWithDebInfo)
+endmacro()
 
 macro(nbl_install_lib _TRGT)
 	install(TARGETS ${_TRGT} ARCHIVE DESTINATION lib CONFIGURATIONS Release)
@@ -706,7 +715,7 @@ nbl_install_lib(zlibstatic)
 nbl_install_lib(simdjson)
 nbl_install_lib(volk)
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-	nbl_install_lib(tbb)
-	nbl_install_lib(tbbmalloc)
-	nbl_install_lib(tbbmalloc_proxy)
+	nbl_install_program(tbb)
+	nbl_install_program(tbbmalloc)
+	nbl_install_program(tbbmalloc_proxy)
 endif()

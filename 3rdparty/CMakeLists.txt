@@ -62,7 +62,7 @@ target_include_directories(volk PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Vulkan-Heade
 target_include_directories(volk_headers INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/Vulkan-Headers/include")
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-	add_subdirectory(pstl pstl)
+	add_subdirectory(pstl pstl EXCLUDE_FROM_ALL)
 endif()
 
 

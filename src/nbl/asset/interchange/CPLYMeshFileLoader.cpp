@@ -36,10 +36,11 @@ bool CPLYMeshFileLoader::isALoadableFileFormat(system::IFile* _file, const syste
     };
 
     char buf[40];
-   
-	system::future<size_t> future;
-	_file->read(future, buf, 0, sizeof(buf));
-	future.get();
+
+	system::IFile::success_t success;
+	_file->read(success, buf, 0, sizeof(buf));
+	if (!success)
+		return false;
 
     char* header = buf;
     if (strncmp(header, "ply", 3u) != 0)
@@ -753,7 +754,7 @@ void CPLYMeshFileLoader::fillBuffer(SContext& _ctx)
 	else
 	{
 		// read data from the file
-		system::future<size_t> future;
+		system::ISystem::future_t<size_t> future;
 		_ctx.inner.mainFile->read(future, _ctx.EndPointer, _ctx.fileOffset, PLY_INPUT_BUFFER_SIZE - length);
 		const auto bytesRead = future.get();
 

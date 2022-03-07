@@ -22,6 +22,7 @@ class IImageView : public IDescriptor
 		// no flags for now, yet
 		enum E_CREATE_FLAGS
 		{
+			ECF_NONE = 0
 		};
 		enum E_TYPE
 		{
