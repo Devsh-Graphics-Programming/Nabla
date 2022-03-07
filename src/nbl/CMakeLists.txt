@@ -190,11 +190,6 @@ endforeach()
 
 unset(NABLA_HEADERS_PUBLIC2 ${NBL_TMP_FULL_PATHS})
 
-file(GLOB_RECURSE NABLA_HEADERS_PRIV1 "*.h")
-file(GLOB_RECURSE NABLA_HEADERS_PRIV2 "${NBL_ROOT_PATH}/src/nbl/*.h")
-# just gather all the header files and later put them into project so it's easy to search for things using IDE
-set(NABLA_HEADERS "${CMAKE_CURRENT_BINARY_DIR}/include/nabla.h" ${NABLA_HEADERS_PUBLIC} ${NABLA_HEADERS_PIRV1} ${NABLA_HEADERS_PRIV2})
-
 
 #
 set(NBL_CORE_SOURCES
@@ -513,9 +508,21 @@ macro(nbl_target_link_simdjson _trgt)
 	set_target_properties(simdjson PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 endmacro()
 
+# just gather all the header files and later put them into project so it's easy to search for things using IDE
+file(GLOB_RECURSE NABLA_HEADERS_PRIV1 "*.h")
+file(GLOB_RECURSE NABLA_HEADERS_PRIV2 "${NBL_ROOT_PATH}/src/nbl/*.h")
+set(NABLA_HEADERS "${CMAKE_CURRENT_BINARY_DIR}/include/nabla.h" ${NABLA_HEADERS_PUBLIC} ${NABLA_HEADERS_PIRV1} ${NABLA_HEADERS_PRIV2})
+
+#always install builtins (some may be included in cpp regardless if embedded or not)
+foreach(X IN LISTS nbl_resources_to_embed)
+	list(APPEND NABLA_HEADERS_PUBLIC  ${NBL_ROOT_PATH}/include/${X})
+endforeach()
+
+# declare the library!
 add_library(Nabla STATIC
 	${NABLA_SRCS_COMMON}
 	${NABLA_HEADERS}
+	${nbl_resources_to_embed}
 	$<TARGET_OBJECTS:aesGladman>
 	$<TARGET_OBJECTS:bzip2>
 	$<TARGET_OBJECTS:lz4>
@@ -644,15 +651,9 @@ if(NBL_PCH)
 endif()
 
 if(NBL_EMBED_BUILTIN_RESOURCES)
-	add_custom_target(builtin_resources
-	   DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/builtin/builtinResourceData.cpp)
-	  add_dependencies(Nabla builtin_resources)
+	add_custom_target(builtin_resources DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/builtin/builtinResourceData.cpp)
+	add_dependencies(Nabla builtin_resources)
 endif()
-
-#always install builtins (some may be included in cpp regardless if embedded or not)
-foreach(X IN LISTS nbl_resources_to_embed)
-	list(APPEND NABLA_HEADERS_PUBLIC  ${NBL_ROOT_PATH}/include/${X})
-endforeach()
 
 
 # extensions
@@ -660,21 +661,8 @@ start_tracking_variables_for_propagation_to_parent()
 add_subdirectory(ext)
 propagate_changed_variables_to_parent_scope()
 
-set(NABLA_HEADERS_TO_INSTALL 
-	${NABLA_HEADERS_PUBLIC}
-)
-
-set(NABLA_HEADERS_TO_INSTALL_SOURCE_REFACTOR
-	# Junk to refactor
-	${NBL_ROOT_PATH}/source/Nabla/CMountPointReader.h
-	${NBL_ROOT_PATH}/source/Nabla/CPakReader.h
-	${NBL_ROOT_PATH}/source/Nabla/CTarReader.h
-	${NBL_ROOT_PATH}/source/Nabla/CZipReader.h
-)
-
 nbl_install_headers("${CMAKE_CURRENT_BINARY_DIR}/include/nabla.h" "${CMAKE_CURRENT_BINARY_DIR}/include")
-nbl_install_headers("${NABLA_HEADERS_TO_INSTALL}" "${NBL_ROOT_PATH}/include")
-nbl_install_headers("${NABLA_HEADERS_TO_INSTALL_SOURCE_REFACTOR}" "${NBL_ROOT_PATH}/source/Nabla")
+nbl_install_headers("${NABLA_HEADERS_PUBLIC}" "${NBL_ROOT_PATH}/include")
 nbl_install_config_header(BuildConfigOptions.h)
 
 macro(nbl_install_program _TRGT)
