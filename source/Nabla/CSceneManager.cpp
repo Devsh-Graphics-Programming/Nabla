@@ -109,27 +109,6 @@ ICameraSceneNode* CSceneManager::addCameraSceneNodeFPS(IDummyTransformationScene
 }
 
 
-//! Returns the current active camera.
-//! \return The active camera is returned. Note that this can be NULL, if there
-//! was no camera created yet.
-ICameraSceneNode* CSceneManager::getActiveCamera() const
-{
-	return ActiveCamera;
-}
-
-
-//! Sets the active camera. The previous active camera will be deactivated.
-//! \param camera: The new camera which should be active.
-void CSceneManager::setActiveCamera(ICameraSceneNode* camera)
-{
-	if (camera)
-		camera->grab();
-	if (ActiveCamera)
-		ActiveCamera->drop();
-
-	ActiveCamera = camera;
-}
-
 //!
 void CSceneManager::OnAnimate(uint32_t timeMs)
 {
