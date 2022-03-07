@@ -111,9 +111,6 @@ class ISystem : public core::IReferenceCounted
                 }
         };
 
-        // [[deprecated]] use `createFile` instead
-        core::smart_refctd_ptr<IFile> loadBuiltinData(const std::string& builtinPath) const;
-
         //! Compile time resource ID
         template<typename StringUniqueType>
         inline core::smart_refctd_ptr<IFile> loadBuiltinData() const
@@ -121,7 +118,9 @@ class ISystem : public core::IReferenceCounted
         #ifdef _NBL_EMBED_BUILTIN_RESOURCES_
             return impl_loadEmbeddedBuiltinData(StringUniqueType::value,nbl::builtin::get_resource<StringUniqueType>());
         #else
-            return loadBuiltinData(StringUniqueType::value);
+            future_t<core::smart_refctd_ptr<IFile>> future;
+            createFile(future,StringUniqueType::value,core::bitflag(IFileBase::ECF_READ)|IFileBase::ECF_MAPPABLE);
+            return future.get();
         #endif
         }
 
@@ -177,7 +176,7 @@ class ISystem : public core::IReferenceCounted
         //
         void createFile(
             future_t<core::smart_refctd_ptr<IFile>>& future, // creation may happen on a dedicated thread, so its async
-            std::filesystem::path filename, // absolute path within our virtual filesystem
+            path filename, // absolute path within our virtual filesystem
             const core::bitflag<IFileBase::E_CREATE_FLAGS> flags, // access flags (IMPORTANT: files from most archives wont open with ECF_WRITE bit)
             const std::string_view& accessToken="" // usually password for archives, but should be SSH key for URL downloads
         );
