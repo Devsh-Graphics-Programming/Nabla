@@ -54,10 +54,11 @@ class CColoredStdoutLoggerWin32 : public IThreadsafeLogger
 				}
 				case ELL_NONE: 
 				{
-					assert(false); // how did this happen?? Btw, do we even need this log level? 
-					return 0;
+					assert(false); // how did this happen?? Btw, do we even need this log level?
+					break;
 				}
 			}
+			return 0;
 		}
 };
 

@@ -383,8 +383,7 @@ class CGLTFLoader final : public IRenderpassIndependentPipelineLoader
 
 					if (!count.has_value())
 						return false;
-					else
-						if (count.has_value() < 1)
+					else if (count.value() < 1)
 							return false;
 
 					if (!type.has_value())
