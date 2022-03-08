@@ -257,7 +257,7 @@ void ISystem::createFile(future_t<core::smart_refctd_ptr<IFile>>& future, std::f
 core::smart_refctd_ptr<IFileArchive> ISystem::openFileArchive(core::smart_refctd_ptr<IFile>&& file, const std::string_view& password)
 {
     // the file backing the archive needs to be readable
-    if (file->getFlags()&IFile::ECF_READ == 0)
+    if ((file->getFlags()&IFile::ECF_READ) == 0)
         return nullptr;
 
     // try the archive loaders by using the extension first

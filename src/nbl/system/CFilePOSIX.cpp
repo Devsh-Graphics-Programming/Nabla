@@ -4,7 +4,9 @@ using namespace nbl::system;
 
 #ifdef __unix__ // WTF: can it be `defined(_NBL_PLATFORM_ANDROID_) | defined(_NBL_PLATFORM_LINUX_)` instead?
 #include <unistd.h>
+#include <sys/mman.h>
 #include <sys/types.h>
+
 CFilePOSIX::CFilePOSIX(
 	core::smart_refctd_ptr<ISystem>&& sys,
 	path&& _filename,
