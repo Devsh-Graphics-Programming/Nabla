@@ -13,7 +13,7 @@ class ISystemPOSIX : public ISystem
         class CCaller final : public ISystem::ICaller
         {
             public:
-                core::smart_refctd_ptr<IFile> createFile_impl(const std::filesystem::path& filename, core::bitflag<IFile::E_CREATE_FLAGS> flags) override final;
+                core::smart_refctd_ptr<ISystemFile> createFile(const std::filesystem::path& filename, const core::bitflag<IFile::E_CREATE_FLAGS> flags) override;
         };
 
         ISystemPOSIX() : ISystem(core::make_smart_refctd_ptr<CCaller>(this)) {}

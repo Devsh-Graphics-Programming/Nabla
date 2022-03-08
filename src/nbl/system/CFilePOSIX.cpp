@@ -14,7 +14,7 @@ CFilePOSIX::CFilePOSIX(
 	void* const _mappedPtr,
 	const size_t _size,
 	const native_file_handle_t _native
-) : IFile(std::move(sys),std::move(_filename),_flags,_mappedPtr),
+) : ISystemFile(std::move(sys),std::move(_filename),_flags,_mappedPtr),
 	m_size(_size), m_native(_native)
 {
 }

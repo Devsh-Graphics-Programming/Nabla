@@ -9,7 +9,7 @@ using namespace nbl::system;
 #include <sys/mman.h>
 #include <sys/stat.h>
 
-core::smart_refctd_ptr<ISystemFile> ISystemPOSIX::CCaller::createFile_impl(const std::filesystem::path& filename, const core::bitflag<IFile::E_CREATE_FLAGS> flags)
+core::smart_refctd_ptr<ISystemFile> ISystemPOSIX::CCaller::createFile(const std::filesystem::path& filename, const core::bitflag<IFile::E_CREATE_FLAGS> flags)
 {	
     const bool writeAccess = flags.value&IFile::ECF_WRITE;
 	int createFlags = O_LARGEFILE|(writeAccess ? O_CREAT:0);
