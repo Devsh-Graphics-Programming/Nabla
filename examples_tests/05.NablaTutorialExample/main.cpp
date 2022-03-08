@@ -296,7 +296,7 @@ public:
 
 			IGPUBuffer::SCreationParams creationParams = {};
 			creationParams.canUpdateSubRange = true;
-			creationParams.usage = asset::IBuffer::EUF_UNIFORM_BUFFER_BIT;
+			creationParams.usage = core::bitflag(asset::IBuffer::EUF_UNIFORM_BUFFER_BIT)|asset::IBuffer::EUF_TRANSFER_DST_BIT;
 			IDriverMemoryBacked::SDriverMemoryRequirements memReq;
 			memReq.vulkanReqs.size = sizeof(SBasicViewParameters);
 			memReq.vulkanReqs.alignment = physicalDevice->getLimits().UBOAlignment;
@@ -459,7 +459,10 @@ public:
 		auto& fence = frameComplete[resourceIx];
 
 		if (fence)
-			while (logicalDevice->waitForFences(1u, &fence.get(), false, MAX_TIMEOUT) == video::IGPUFence::ES_TIMEOUT) {}
+		{
+			logicalDevice->blockForFences(1u,&fence.get());
+			logicalDevice->resetFences(1u,&fence.get());
+		}
 		else
 			fence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
 
@@ -510,29 +513,10 @@ public:
 		viewport.width = WIN_W;
 		viewport.height = WIN_H;
 		commandBuffer->setViewport(0u, 1u, &viewport);
-
-		swapchain->acquireNextImage(MAX_TIMEOUT, imageAcquire[resourceIx].get(), nullptr, &acquiredNextFBO);
-
-		nbl::video::IGPUCommandBuffer::SRenderpassBeginInfo beginInfo;
-		{
-			VkRect2D area;
-			area.offset = { 0,0 };
-			area.extent = { WIN_W, WIN_H };
-			asset::SClearValue clear[2] = {};
-			clear[0].color.float32[0] = 0.f;
-			clear[0].color.float32[1] = 0.f;
-			clear[0].color.float32[2] = 0.f;
-			clear[0].color.float32[3] = 1.f;
-			clear[1].depthStencil.depth = 0.f;
-
-			beginInfo.clearValueCount = 2u;
-			beginInfo.framebuffer = fbo[acquiredNextFBO];
-			beginInfo.renderpass = renderpass;
-			beginInfo.renderArea = area;
-			beginInfo.clearValues = clear;
-		}
-
-		commandBuffer->beginRenderPass(&beginInfo, nbl::asset::ESC_INLINE);
+		VkRect2D scissor;
+		scissor.offset = {0u,0u};
+		scissor.extent = {WIN_W,WIN_H};
+		commandBuffer->setScissor(0u,1u,&scissor);
 
 		const auto viewProjection = camera.getConcatenatedMatrix();
 		core::matrix3x4SIMD modelMatrix;
@@ -554,6 +538,28 @@ public:
 		memcpy(uboData.MVP, mvp.pointer(), sizeof(mvp));
 		memcpy(uboData.NormalMat, normalMat.pointer(), sizeof(normalMat));
 		commandBuffer->updateBuffer(gpuubo.get(), 0ull, gpuubo->getSize(), &uboData);
+
+		swapchain->acquireNextImage(MAX_TIMEOUT, imageAcquire[resourceIx].get(), nullptr, &acquiredNextFBO);
+
+		nbl::video::IGPUCommandBuffer::SRenderpassBeginInfo beginInfo;
+		{
+			VkRect2D area;
+			area.offset = { 0,0 };
+			area.extent = { WIN_W, WIN_H };
+			asset::SClearValue clear[2] = {};
+			clear[0].color.float32[0] = 0.f;
+			clear[0].color.float32[1] = 0.f;
+			clear[0].color.float32[2] = 0.f;
+			clear[0].color.float32[3] = 1.f;
+			clear[1].depthStencil.depth = 0.f;
+
+			beginInfo.clearValueCount = 2u;
+			beginInfo.framebuffer = fbo[acquiredNextFBO];
+			beginInfo.renderpass = renderpass;
+			beginInfo.renderArea = area;
+			beginInfo.clearValues = clear;
+		}
+		commandBuffer->beginRenderPass(&beginInfo, nbl::asset::ESC_INLINE);
 
 		/*
 			Binding the most important objects needed to
