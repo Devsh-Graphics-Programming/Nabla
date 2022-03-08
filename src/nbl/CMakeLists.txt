@@ -514,8 +514,10 @@ file(GLOB_RECURSE NABLA_HEADERS_PRIV2 "${NBL_ROOT_PATH}/src/nbl/*.h")
 
 #always install builtins (some may be included in cpp regardless if embedded or not)
 foreach(X IN LISTS nbl_resources_to_embed)
-	list(APPEND NABLA_HEADERS_PUBLIC  ${NBL_ROOT_PATH}/include/${X})
+	list(APPEND NABLA_RESOURCES_TO_EMBED_PUBLIC ${NBL_ROOT_PATH}/include/${X})
 endforeach()
+list(APPEND NABLA_HEADERS_PUBLIC ${NABLA_RESOURCES_TO_EMBED_PUBLIC})
+source_group("Resources to embed" FILES ${NABLA_RESOURCES_TO_EMBED_PUBLIC})
 
 set(NABLA_HEADERS "${CMAKE_CURRENT_BINARY_DIR}/include/nabla.h" ${NABLA_HEADERS_PUBLIC} ${NABLA_HEADERS_PIRV1} ${NABLA_HEADERS_PRIV2})
 
