@@ -3,10 +3,10 @@
 
 #include "nbl/system/IThreadsafeLogger.h"
 
-#ifdef _NBL_PLATFORM_ANDROID_
 namespace nbl::system
 {
 
+#ifdef _NBL_PLATFORM_ANDROID_
 class CStdoutLoggerAndroid : public IThreadsafeLogger
 {
 	public:
@@ -15,8 +15,8 @@ class CStdoutLoggerAndroid : public IThreadsafeLogger
 	private:
 		void threadsafeLog_impl(const std::string_view& fmt, E_LOG_LEVEL logLevel, va_list args) override;
 };
+#endif
 
 }
 
-#endif
 #endif

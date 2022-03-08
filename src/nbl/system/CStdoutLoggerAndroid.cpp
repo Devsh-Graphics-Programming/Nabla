@@ -1,11 +1,11 @@
 #include "nbl/system/CStdoutLoggerAndroid.h"
 
+using namespace nbl::system;
+
 #ifdef _NBL_PLATFORM_ANDROID_
 #include <android/log.h>
 
-using namespace nbl::system;
-
-void CStdoutLoggerAndroid::threadsafeLog_impl(const std::string_view& fmt, E_LOG_LEVEL logLevel, va_list args) override
+void CStdoutLoggerAndroid::threadsafeLog_impl(const std::string_view& fmt, E_LOG_LEVEL logLevel, va_list args)
 {
 	auto nativeLogLevel = ANDROID_LOG_UNKNOWN;
 	switch (logLevel)

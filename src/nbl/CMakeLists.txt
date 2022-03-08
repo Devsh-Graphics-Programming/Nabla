@@ -399,115 +399,6 @@ set(COMMON_INCLUDE_DIRS
 	$<TARGET_PROPERTY:jpeg-static,BINARY_DIR> #for dynamically generated jconfig.h
 )
 
-# TODO: Change all MACROS into FUNCTIONS (if possible, need to clarify variable scoping rules)
-macro(nbl_target_link_zlib _trgt)
-	add_dependencies(zlibstatic zlib_copy)
-	add_dependencies(${_trgt} zlibstatic)
-	target_link_libraries(${_trgt} INTERFACE zlibstatic)
-
-	target_link_libraries(${_trgt} INTERFACE
-		$<$<CONFIG:Debug>:${ZLIB_LIBRARY_DEBUG}>
-		$<$<CONFIG:Release>:${ZLIB_LIBRARY_RELEASE}>
-		$<$<CONFIG:RelWithDebInfo>:${ZLIB_LIBRARY_RELWITHDEBINFO}>
-	)
-	
-	target_include_directories(${_trgt} PUBLIC $<TARGET_PROPERTY:zlibstatic,BINARY_DIR>/copy_source)
-endmacro()
-
-# PSTL
-macro(nbl_target_link_oneDPL _trgt)
-	add_dependencies(${_trgt} oneDPL)
-	target_include_directories(${_trgt} PUBLIC ${ONETBB_INSTALL_DIR}/include)
-	target_include_directories(${_trgt} PUBLIC ${ONEDPL_INSTALL_DIR}/include)
-	
-	target_link_libraries(${_trgt} INTERFACE
-		tbb tbbmalloc tbbmalloc_proxy
-	)
-endmacro()
-
-#Parallel hashmap
-macro(nbl_target_include_parallel_hashmap _trgt)
-	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/parallel-hashmap/parallel_hashmap)
-endmacro()
-
-macro(nbl_target_link_openssl _trgt)
-	if(ANDROID AND NOT "${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Windows") # OpenSSL can't be built for Android platform using windows OS host
-		target_link_libraries(${_trgt} INTERFACE
-			"$<TARGET_PROPERTY:OpenSSL,INTERFACE_LINK_LIBRARIES>"
-		)
-
-		target_include_directories(${_trgt} PUBLIC "$<TARGET_PROPERTY:OpenSSL,BINARY_DIR>/build/include")
-	endif()
-endmacro()
-macro(nbl_target_link_shaderc _trgt)
-	add_dependencies(${_trgt} shaderc)
-	target_link_libraries(${_trgt} INTERFACE
-		shaderc
-	)
-	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/shaderc/libshaderc/include)
-endmacro()
-macro(nbl_target_link_libjpeg_turbo _trgt)
-	add_dependencies(${_trgt} jpeg-static)
-	target_link_libraries(${_trgt} INTERFACE
-		jpeg-static
-	)
-	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/libjpeg-turbo)
-endmacro()
-macro(nbl_target_link_libpng _trgt)
-	add_dependencies(${_trgt} png_static)
-	target_link_libraries(${_trgt} INTERFACE
-		png_static
-	)
-	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/libpng)
-endmacro()
-macro(nbl_target_link_openexr _trgt)
-	add_dependencies(${_trgt} OpenEXR::IlmImf)
-	target_link_libraries(${_trgt} INTERFACE 
-		OpenEXR::IlmImf
-	)
-	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/openexr/OpenEXR/IlmImf
-							   ${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/openexr/IlmBase/Half
-							   ${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/openexr/IlmBase/Iex
-							   ${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/openexr/IlmBase/IexMath
-							   ${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/openexr/IlmBase/Imath
-							   ${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/openexr/IlmBase/IlmThread						   
-	)
-endmacro()
-macro(nbl_target_link_gli _trgt)
-	add_dependencies(${_trgt} gli)
-	target_link_libraries(${_trgt} INTERFACE
-		gli
-	)
-	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/gli)
-endmacro()
-macro(nbl_target_link_spirv_tools _trgt)
-	add_dependencies(${_trgt} SPIRV)
-	add_dependencies(${_trgt} SPIRV-Tools)
-	add_dependencies(${_trgt} SPIRV-Tools-opt)
-	target_link_libraries(${_trgt} INTERFACE
-		SPIRV SPIRV-Tools SPIRV-Tools-opt
-	)
-	target_include_directories(${_trgt} PUBLIC BEFORE
-		${THIRD_PARTY_SOURCE_DIR}/SPIRV-Tools/include
-	)
-endmacro()
-macro(nbl_target_link_volk _trgt)
-	target_link_libraries(${_trgt} PUBLIC volk)
-endmacro()
-macro(nbl_target_link_EGL _trgt)
-	target_link_libraries(${_trgt} PRIVATE egl)
-endmacro()
-
-# simdjson
-macro(nbl_target_link_simdjson _trgt)
-	add_dependencies(${_trgt} simdjson)
-	target_link_libraries(${_trgt} INTERFACE
-		simdjson
-	)
-	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/simdjson)
-	set_target_properties(simdjson PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-endmacro()
-
 # just gather all the header files and later put them into project so it's easy to search for things using IDE
 file(GLOB_RECURSE NABLA_HEADERS_PRIV1 "*.h")
 file(GLOB_RECURSE NABLA_HEADERS_PRIV2 "${NBL_ROOT_PATH}/src/nbl/*.h")
@@ -549,44 +440,113 @@ if (ANDROID)
 	)
 endif()
 
-#TODO maybe make a macro to do this (note: it's also used in common.cmake)
+#TODO maybe make a macro/function to do this (note: it's also used in common.cmake)
 set_property(TARGET Nabla PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
-if(ANDROID AND NOT "${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Windows") # OpenSSL can't be built for Android platform using windows OS host
-	add_dependencies(Nabla openssl_build)
-endif()
-target_include_directories(Nabla PUBLIC "${THIRD_PARTY_SOURCE_DIR}/Vulkan-Headers/include")
-nbl_target_link_openssl(Nabla)
-nbl_target_link_zlib(Nabla)
-nbl_target_link_shaderc(Nabla)
-nbl_target_link_libjpeg_turbo(Nabla)
-nbl_target_link_libpng(Nabla)
-if (_NBL_COMPILE_WITH_OPEN_EXR_)
-	nbl_target_link_openexr(Nabla)
-endif()
-if(_NBL_COMPILE_WITH_GLI_)
-	nbl_target_link_gli(Nabla)
-endif()
-nbl_target_include_parallel_hashmap(Nabla)
-nbl_target_link_spirv_tools(Nabla)
-nbl_target_link_volk(Nabla)
-nbl_target_link_EGL(Nabla)
-nbl_target_link_simdjson(Nabla)
+
+## Set up 3rdparty deps
+# Parallel Hashmap
+target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/parallel-hashmap/parallel_hashmap)
+# oneDPL for clang C++17 parallelism
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-	nbl_target_link_oneDPL(Nabla)
+	add_dependencies(Nabla oneDPL)
+	target_include_directories(Nabla PUBLIC ${ONETBB_INSTALL_DIR}/include)
+	target_include_directories(Nabla PUBLIC ${ONEDPL_INSTALL_DIR}/include)
+	target_link_libraries(Nabla INTERFACE tbb tbbmalloc tbbmalloc_proxy)
 endif()
 
-#target_link_libraries(Nabla INTERFACE ${OPENGL_gl_LIBRARY})
 if (UNIX)
 	target_link_libraries(Nabla INTERFACE 
 		${CMAKE_THREAD_LIBS_INIT}
 		${CMAKE_DL_LIBS}
 	)
-	if (NOT ANDROID)
-		target_link_libraries(Nabla INTERFACE $<$<CONFIG:DEBUG>:-lunwind>)
-	endif()
+endif()
+# OpenSSL
+if(ANDROID AND NOT "${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Windows") # OpenSSL can't be built for Android platform using windows OS host
+	add_dependencies(Nabla openssl_build)
+	target_link_libraries(Nabla INTERFACE "$<TARGET_PROPERTY:OpenSSL,INTERFACE_LINK_LIBRARIES>")
+	target_include_directories(Nabla PUBLIC "$<TARGET_PROPERTY:OpenSSL,BINARY_DIR>/build/include")
+endif()
+# zlib
+add_dependencies(zlibstatic zlib_copy)
+add_dependencies(Nabla zlibstatic)
+target_link_libraries(Nabla INTERFACE zlibstatic)
+target_link_libraries(Nabla INTERFACE
+	$<$<CONFIG:Debug>:${ZLIB_LIBRARY_DEBUG}>
+	$<$<CONFIG:Release>:${ZLIB_LIBRARY_RELEASE}>
+	$<$<CONFIG:RelWithDebInfo>:${ZLIB_LIBRARY_RELWITHDEBINFO}>
+)
+target_include_directories(Nabla PUBLIC $<TARGET_PROPERTY:zlibstatic,BINARY_DIR>/copy_source)
+
+# shaderc
+add_dependencies(Nabla shaderc)
+target_link_libraries(Nabla INTERFACE shaderc)
+target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/shaderc/libshaderc/include)
+# spirv tools
+add_dependencies(Nabla SPIRV)
+add_dependencies(Nabla SPIRV-Tools)
+add_dependencies(Nabla SPIRV-Tools-opt)
+target_link_libraries(Nabla INTERFACE SPIRV SPIRV-Tools SPIRV-Tools-opt)
+target_include_directories(Nabla PUBLIC BEFORE ${THIRD_PARTY_SOURCE_DIR}/SPIRV-Tools/include)
+# simdjson
+add_dependencies(Nabla simdjson)
+target_link_libraries(Nabla INTERFACE simdjson)
+target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/simdjson)
+set_target_properties(simdjson PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+# libjpeg
+add_dependencies(Nabla jpeg-static)
+target_link_libraries(Nabla INTERFACE jpeg-static)
+target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/libjpeg-turbo)
+# libpng
+add_dependencies(Nabla png_static)
+target_link_libraries(Nabla INTERFACE png_static)
+target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/libpng)
+# OpenEXR
+if (_NBL_COMPILE_WITH_OPEN_EXR_)
+	add_dependencies(Nabla OpenEXR::IlmImf)
+	target_link_libraries(Nabla INTERFACE OpenEXR::IlmImf)
+	target_include_directories(
+		Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/openexr/OpenEXR/IlmImf
+		Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/openexr/IlmBase/Half
+		Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/openexr/IlmBase/Iex
+		Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/openexr/IlmBase/IexMath
+		Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/openexr/IlmBase/Imath
+		Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/openexr/IlmBase/IlmThread						   
+	)
+endif()
+if(_NBL_COMPILE_WITH_GLI_)
+	add_dependencies(Nabla gli)
+	target_link_libraries(Nabla INTERFACE gli)
+	target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/gli)
 endif()
 
+# Linux Display Systems
+if (UNIX AND NOT ANDROID AND NOT APPLE)
+	target_include_directories(Nabla PUBLIC 
+		${X11_INCLUDE_DIR} 
+		X11_Xrandr_INCLUDE_PATH
+		${X11_xf86vmode_INCLUDE_PATH}
+	)
+endif()
+
+# Vulkan
+target_include_directories(Nabla PUBLIC "${THIRD_PARTY_SOURCE_DIR}/Vulkan-Headers/include")
+target_link_libraries(Nabla PUBLIC volk)
+if(WIN32)
+	target_compile_definitions(Nabla PRIVATE VK_USE_PLATFORM_WIN32_KHR)
+endif()
+# CUDA
+if (NBL_COMPILE_WITH_CUDA)
+	target_include_directories(Nabla PUBLIC ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
+endif()
+# OpenGL (EGL)
+target_link_libraries(Nabla PRIVATE egl)
+if (ANDROID)
+	target_compile_definitions(Nabla PUBLIC $<$<BOOL:${OpenGL_EGL_FOUND}>:WL_EGL_PLATFORM>)
+endif()
+
+
+# Include dirs for self
 target_include_directories(Nabla PUBLIC 
 	${CMAKE_CURRENT_BINARY_DIR}/include
 	${NBL_ROOT_PATH}/include
@@ -602,31 +562,14 @@ target_include_directories(Nabla PUBLIC
 
 target_include_directories(Nabla PUBLIC ${NBL_ROOT_PATH}/src ${NBL_ROOT_PATH}/source/Nabla ${NBL_ROOT_PATH}/src/3rdparty) # this should be PRIVATE, but things from /src (or /source) are sometimes included in things in /include and so examples have to put source dirs into theirs Include Path
 target_include_directories(Nabla PRIVATE ${CMAKE_BINARY_DIR}/include)
-if (UNIX AND NOT ANDROID AND NOT APPLE)
-	target_include_directories(Nabla PUBLIC 
-		${X11_INCLUDE_DIR} 
-		X11_Xrandr_INCLUDE_PATH
-		${X11_xf86vmode_INCLUDE_PATH})
-endif()
 
-if (NBL_COMPILE_WITH_CUDA)
-	target_include_directories(Nabla PUBLIC ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
-endif()
 
 target_compile_definitions(Nabla 
 	PRIVATE	_NBL_STATIC_LIB_ EGL_STATIC SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS
-	PUBLIC UNW_LOCAL_ONLY
 	INTERFACE _NBL_PCH_IGNORE_PRIVATE_HEADERS
 )
 
-if(WIN32)
-	target_compile_definitions(Nabla PRIVATE VK_USE_PLATFORM_WIN32_KHR)
-endif()
-
-if (ANDROID)
-	target_compile_definitions(Nabla PUBLIC $<$<BOOL:${OpenGL_EGL_FOUND}>:WL_EGL_PLATFORM>)
-endif()
-
+# generate definitions out to a header
 glue_source_definitions(Nabla _NBL_SOURCE_DEFINITIONS_)
 set(_NBL_DEFINE_FILE_WRAPPER_ ${CMAKE_CURRENT_BINARY_DIR}/include/define.h)
 
@@ -643,7 +586,8 @@ add_custom_command(
 add_custom_target(generate_nabla_header DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/include/nabla.h")
 add_dependencies(Nabla generate_nabla_header)
 
-if (MSVC) #on MSVC it won't compile without this option!
+#on MSVC it won't compile without this option!
+if (MSVC)
 	target_compile_options(Nabla PUBLIC /bigobj)
 endif()
 
@@ -667,17 +611,18 @@ nbl_install_headers("${CMAKE_CURRENT_BINARY_DIR}/include/nabla.h" "${CMAKE_CURRE
 nbl_install_headers("${NABLA_HEADERS_PUBLIC}" "${NBL_ROOT_PATH}/include")
 nbl_install_config_header(BuildConfigOptions.h)
 
+# TODO: @AnastazIuk change macros to functions! https://github.com/buildaworldnet/IrrlichtBAW/issues/311
 macro(nbl_install_program _TRGT)
 	install(PROGRAMS $<TARGET_FILE:${_TRGT}> DESTINATION lib CONFIGURATIONS Release)
 	install(PROGRAMS $<TARGET_FILE:${_TRGT}> DESTINATION debug/lib CONFIGURATIONS Debug)
 	install(PROGRAMS $<TARGET_FILE:${_TRGT}> DESTINATION relwithdebinfo/lib CONFIGURATIONS RelWithDebInfo)
 endmacro()
-
 macro(nbl_install_lib _TRGT)
 	install(TARGETS ${_TRGT} ARCHIVE DESTINATION lib CONFIGURATIONS Release)
 	install(TARGETS ${_TRGT} ARCHIVE DESTINATION debug/lib CONFIGURATIONS Debug)
 	install(TARGETS ${_TRGT} ARCHIVE DESTINATION relwithdebinfo/lib CONFIGURATIONS RelWithDebInfo)
 endmacro()
+
 # Install main lib
 set_target_properties(Nabla PROPERTIES DEBUG_POSTFIX _debug)
 set_target_properties(Nabla PROPERTIES RELWITHDEBINFO_POSTFIX _relwithdebinfo)
