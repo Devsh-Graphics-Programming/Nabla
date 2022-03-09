@@ -17,7 +17,7 @@ namespace nbl::system
 class CAPKResourcesArchive final : public CFileArchive
 {
 	public:
-		CAPKResourcesArchive(const path& _path, system::logger_opt_smart_ptr&& logger, ANativeActivity* act, JNIEnv* jni);
+		CAPKResourcesArchive(const path& _path, system::logger_opt_smart_ptr&& logger, ANativeActivity* act, JNIEnv* jniEnv);
 		
 	protected:
 		static core::vector<SListEntry> computeItems(const std::string& asset_path);
@@ -26,7 +26,6 @@ class CAPKResourcesArchive final : public CFileArchive
 		
 
 		AAssetManager* m_mgr;
-		JNIEnv* m_jniEnv;
 		ANativeActivity* m_activity;
 };
 
