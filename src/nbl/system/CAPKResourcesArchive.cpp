@@ -5,7 +5,7 @@ using namespace nbl::system;
 
 #ifdef _NBL_PLATFORM_ANDROID_
 #include <jni.h>
-#include <asset_manager.h>
+#include <android/asset_manager.h>
 
 CAPKResourcesArchive::CAPKResourcesArchive(const path& _path, system::logger_opt_smart_ptr&& logger, ANativeActivity* act, JNIEnv* jni)
 	: CFileArchive(path(_path),std::move(logger),computeItems(_path.string())), m_mgr(act->assetManager), m_activity(act), m_jniEnv(jni)

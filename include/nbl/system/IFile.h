@@ -46,6 +46,7 @@ class IFile : public IFileBase, private ISystem::IFutureManipulator
 			public:
 				success_t() = default;
 				~success_t() = default;
+
 				inline explicit operator bool()
 				{
 					return m_internalFuture.get()==sizeToProcess;
@@ -54,6 +55,9 @@ class IFile : public IFileBase, private ISystem::IFutureManipulator
 				{
 					return m_internalFuture.get()!=sizeToProcess;
 				}
+
+				inline size_t getSizeToProcess() const {return sizeToProcess;}
+
 			private:
 				friend IFile;
 				ISystem::future_t<size_t> m_internalFuture;

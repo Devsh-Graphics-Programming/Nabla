@@ -241,7 +241,7 @@ void ISystem::createFile(future_t<core::smart_refctd_ptr<IFile>>& future, std::f
     //
     if (std::filesystem::exists(filename))
         filename = std::filesystem::absolute(filename).generic_string();
-    if (filename.string().size()>=SRequestParams_CREATE_FILE::MAX_FILENAME_LENGTH)
+    if (filename.string().size()>=MAX_FILENAME_LENGTH)
     {
         future.notify(nullptr);
         return;

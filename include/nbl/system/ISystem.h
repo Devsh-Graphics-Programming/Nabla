@@ -21,6 +21,8 @@ class ISystemFile;
 
 class ISystem : public core::IReferenceCounted
 {
+    public:
+        inline static constexpr uint32_t MAX_FILENAME_LENGTH = 4096;
     protected:
         class ICaller;
     private:
@@ -38,8 +40,6 @@ class ISystem : public core::IReferenceCounted
         };
         struct SRequestParams_CREATE_FILE : SRequestParamsBase<ERT_CREATE_FILE>
         {
-            inline static constexpr uint32_t MAX_FILENAME_LENGTH = 4096;
-
             char filename[MAX_FILENAME_LENGTH] {};
             IFileBase::E_CREATE_FLAGS flags;
         };

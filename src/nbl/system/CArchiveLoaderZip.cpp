@@ -1,3 +1,4 @@
+#include "nbl/system/IFileViewAllocator.h"
 #include "nbl/system/CArchiveLoaderZip.h"
 
 
@@ -94,162 +95,140 @@ core::smart_refctd_ptr<IFileArchive> CArchiveLoaderZip::createArchive_impl(core:
 {
 	if (!file)
 		return nullptr;
-/*
-	core::smart_refctd_ptr<IFileArchive> archive = nullptr;
-	if (file.get())
+
+	uint16_t sig;
 	{
-		uint16_t sig;
-		{
-			system::future<size_t> fut;
-			file->read(fut, &sig, 0, 2);
-			fut.get();
-		}
-		bool isGZip = (sig == 0x8b1f);
-
-		archive = core::make_smart_refctd_ptr<CFileArchiveZip>(std::move(file), core::smart_refctd_ptr<ISystem>(m_system), isGZip, password);
-	}
-	return archive;
-*/
-	return nullptr;
-}
-
-#if 0
-bool CFileArchiveZip::scanGZipHeader(size_t& offset)
-{
-	SZipFileEntry entry;
-	entry.Offset = 0;
-	memset(&entry.header, 0, sizeof(SZIPFileHeader));
-
-	SGZIPMemberHeader header;
-	system::future<size_t> headerFuture;
-	m_file->read(headerFuture, &header, offset, sizeof(SGZIPMemberHeader));
-	headerFuture.get();
-	offset += sizeof(SGZIPMemberHeader);
-	if (headerFuture.get() == sizeof(SGZIPMemberHeader))
-	{
-		// check header value
-		if (header.sig != 0x8b1f)
-			return false;
-		// now get the file info
-		if (header.flags & EGZF_EXTRA_FIELDS)
-		{
-			// read lenth of extra data
-			uint16_t dataLen;
-
-			system::future<size_t> lenFuture;
-			m_file->read(lenFuture, &dataLen, offset, 2);
-			lenFuture.get();
-			offset += 2; // TODO: I think it should be `+= dataLen;`
-		}
-		std::filesystem::path zipFileName = "";
-		if (header.flags & EGZF_FILE_NAME)
-		{
-			char c;
-			{
-				system::future<size_t> fut;
-				m_file->read(fut, &c, offset++, 1);
-				fut.get();
-			}
-			while (c)
-			{
-				zipFileName += c;
-				system::future<size_t> fut;
-				m_file->read(fut, &c, offset++, 1);
-				fut.get();
-			}
-		}
-		else
-		{
-			// no file name?
-			zipFileName = m_file->getFileName().filename();
-
-			// rename tgz to tar or remove gz extension
-			if (zipFileName.extension() == ".tgz")
-			{
-				zipFileName.string()[zipFileName.string().size() - 2] = 'a';
-				zipFileName.string()[zipFileName.string().size() - 1] = 'r';
-			}
-			else if (zipFileName.extension() == ".gz")
-			{
-				zipFileName.string()[zipFileName.string().size() - 3] = 0;
-			}
-		}
-		if (header.flags & EGZF_COMMENT)
-		{
-			char c = 'a';
-			while (c)
-			{
-				system::future<size_t> fut;
-				m_file->read(fut, &c, offset++, 1);
-				fut.get();
-			}
-		}
-		if (header.flags & EGZF_CRC16)
-			offset += 2;
-
-		entry.Offset = offset;
-		entry.header.FilenameLength = zipFileName.native().length();
-		entry.header.CompressionMethod = header.compressionMethod;
-		entry.header.DataDescriptor.CompressedSize = (m_file->getSize() - 8) - offset;
-
-		offset += entry.header.DataDescriptor.CompressedSize;
-
-		// read CRC
-		{
-			system::future<size_t> fut;
-			m_file->read(fut, &entry.header.DataDescriptor.CRC32, offset, 4);
-			fut.get();
-			offset += 4;
-		}
-		// read uncompressed size
-		{
-			system::future<size_t> fut;
-			m_file->read(fut, &entry.header.DataDescriptor.UncompressedSize, offset, 4);
-			fut.get();
-			offset += 4;
-		}
-
-		addItem(zipFileName, entry.Offset, entry.header.DataDescriptor.UncompressedSize, getAllocatorType(entry.header.CompressionMethod), 0);
-		m_fileInfo.push_back(entry);
-	}
-	return false;
-}
-
-bool CFileArchiveZip::scanZipHeader(size_t& offset, bool ignoreGPBits)
-{
-	std::filesystem::path ZipFileName = "";
-	SZipFileEntry entry;
-	entry.Offset = 0;
-	memset(&entry.header, 0, sizeof(SZIPFileHeader));
-
-	{
-		system::future<size_t> fut;
-		m_file->read(fut, &entry.header, offset, sizeof(SZIPFileHeader));
-		fut.get();
-		offset += sizeof(SZIPFileHeader);
+		IFile::success_t success;
+		file->read(success,&sig,0,sizeof(sig));
+		if (!success)
+			return nullptr;
 	}
 
-	if (entry.header.Sig != 0x04034b50)
-		return false; // local file headers end here.
-
-	// read filename
+	core::vector<IFileArchive::SListEntry> items;
+	core::vector<SZIPFileHeader> itemsMetadata;
+	// load file entries
 	{
-		char* tmp = new char[entry.header.FilenameLength + 2];
+		const bool isGZip = sig==0x8b1fu;
+		size_t offset = 0ull;
+		std::string filename;
+		filename.reserve(ISystem::MAX_FILENAME_LENGTH);
+		while (true)
 		{
-			system::future<size_t> fut;
-			m_file->read(fut, tmp, offset, entry.header.FilenameLength);
-			fut.get();
-			offset += entry.header.FilenameLength;
-		}
-		tmp[entry.header.FilenameLength] = 0;
-		ZipFileName = tmp;
-		delete[] tmp;
-	}
+			SZIPFileHeader header;
+			memset(&header,0,sizeof(SZIPFileHeader));
 
-#ifdef _NBL_COMPILE_WITH_ZIP_ENCRYPTION_
-	// AES encryption
-	if ((entry.header.GeneralBitFlag & ZIP_FILE_ENCRYPTED) && (entry.header.CompressionMethod == 99))
-	{
+			const auto& zipHeader = header;
+			static_assert(sizeof(SGZIPMemberHeader)<sizeof(header));
+			const auto& gzipHeader = reinterpret_cast<SGZIPMemberHeader&>(header);
+
+			IFile::success_t headerReadSuccess;
+			file->read(headerReadSuccess,&header,offset,isGZip ? sizeof(SGZIPMemberHeader):sizeof(header));
+			if (!headerReadSuccess)
+				break;
+			offset += headerReadSuccess.getSizeToProcess();
+
+			IFileArchive::SListEntry item;
+			if (isGZip)
+			{
+				//! The gzip file format seems to think that there can be multiple files in a gzip file
+				//! TODO: But OLD Irrlicht Impl doesn't honor it!?
+				if (gzipHeader.sig!=0x8b1fu)
+					break;
+			
+				// now get the file info
+				if (gzipHeader.flags&EGZF_EXTRA_FIELDS)
+				{
+					// read lenth of extra data
+					uint16_t dataLen;
+					IFile::success_t success;
+					file->read(success,&dataLen,offset,sizeof(dataLen));
+					if (!success)
+						break;
+					offset += success.getSizeToProcess();
+					// skip the extra data
+					offset += dataLen;
+				}
+				//
+				filename.clear();
+				if (gzipHeader.flags&EGZF_FILE_NAME)
+				{
+					char c = 0x45; // make sure we start with non-zero char
+					while (c)
+					{
+						IFile::success_t success;
+						file->read(success,&c,offset,sizeof(c));
+						if (!success)
+							break;
+						offset += success.getSizeToProcess();
+						filename.push_back(c);
+					}
+					// if string is not null terminated, something went wrong reading the file
+					if (c)
+						break;
+				}
+				//
+				if (gzipHeader.flags&EGZF_COMMENT)
+				{
+					char c = 0x45; // make sure we start with non-zero char
+					while (c)
+					{
+						IFile::success_t success;
+						file->read(success,&c,offset,sizeof(c));
+						if (!success)
+							break;
+						offset += success.getSizeToProcess();
+					}
+					// if string is not null terminated, something went wrong reading the file
+					if (c)
+						break;
+				}
+				// skip crc16
+				if (gzipHeader.flags&EGZF_CRC16)
+					offset += 2;
+
+				header.FilenameLength = filename.length();
+				header.CompressionMethod = gzipHeader.compressionMethod;
+				header.DataDescriptor.CompressedSize = file->getSize()-(offset+sizeof(uint64_t));
+
+				item.offset = offset;
+			
+				offset += header.DataDescriptor.CompressedSize;
+				// read CRC
+				{
+					IFile::success_t success;
+					file->read(success,&header.DataDescriptor.CRC32,offset,sizeof(header.DataDescriptor.CRC32));
+					if (!success)
+						break;
+					offset += success.getSizeToProcess();
+				}
+				// read uncompressed size
+				{
+					IFile::success_t success;
+					file->read(success,&header.DataDescriptor.UncompressedSize,offset,sizeof(header.DataDescriptor.UncompressedSize));
+					if (!success)
+						break;
+					offset += success.getSizeToProcess();
+					item.size = header.DataDescriptor.UncompressedSize;
+				}
+			}
+			else
+			{	if (zipHeader.Sig!=0x04034b50u)
+					break;
+
+				filename.resize(zipHeader.FilenameLength);
+				{
+					IFile::success_t success;
+					file->read(success,filename.data(),offset,zipHeader.FilenameLength);
+					if (!success)
+						break;
+					offset += success.getSizeToProcess();
+				}
+
+				// AES encryption
+				if ((header.GeneralBitFlag&ZIP_FILE_ENCRYPTED) && (header.CompressionMethod==99))
+				{
+/*/
+					#ifdef _NBL_COMPILE_WITH_ZIP_ENCRYPTION_
 		int16_t restSize = entry.header.ExtraFieldLength;
 		SZipFileExtraHeader extraHeader;
 		while (restSize)
@@ -285,12 +264,46 @@ bool CFileArchiveZip::scanZipHeader(size_t& offset, bool ignoreGPBits)
 				}
 			}
 		}
+					#else
+*/
+					break; // no support, can't decrypt
+//					#endif
+				}
+				else
+					offset += header.ExtraFieldLength;
+		
+
+
+
+
+
+				item.offset = offset;
+				// move forward length of data
+				offset += zipHeader.DataDescriptor.CompressedSize;
+			}
+
+			// we need to have a filename or we skip
+			if (filename.empty())
+				continue;
+
+			item.pathRelativeToArchive = filename;
+			item.ID = items.size();
+			item.allocatorType = header.CompressionMethod ? IFileArchive::EAT_VIRTUAL_ALLOC:IFileArchive::EAT_NULL;
+			items.push_back(item);
+			itemsMetadata.push_back(header);
+		}
 	}
-	// move forward length of extra field.
-	else
-#endif
-		if (entry.header.ExtraFieldLength)
-			offset += entry.header.ExtraFieldLength;
+
+	assert(items.size()==itemsMetadata.size());
+	if (items.empty())
+		return nullptr;
+
+	return core::make_smart_refctd_ptr<CArchive>(std::move(file),core::smart_refctd_ptr(m_logger.get()),std::move(items),std::move(itemsMetadata));
+}
+
+#if 0
+bool CFileArchiveZip::scanZipHeader(size_t& offset, bool ignoreGPBits)
+{
 
 	// if bit 3 was set, use CentralDirectory for setup
 	if (!ignoreGPBits && entry.header.GeneralBitFlag & ZIP_INFO_IN_DATA_DESCRIPTOR)
@@ -345,13 +358,6 @@ bool CFileArchiveZip::scanZipHeader(size_t& offset, bool ignoreGPBits)
 		while (scanCentralDirectoryHeader(offset)) {}
 		return false;
 	}
-	entry.Offset = offset;
-	// move forward length of data
-	offset += entry.header.DataDescriptor.CompressedSize;
-
-	addItem(ZipFileName, entry.Offset, entry.header.DataDescriptor.UncompressedSize, getAllocatorType(entry.header.CompressionMethod), m_fileInfo.size());
-	m_fileInfo.push_back(entry);
-	return true;
 }
 
 bool CFileArchiveZip::scanCentralDirectoryHeader(size_t& offset)
@@ -381,41 +387,17 @@ bool CFileArchiveZip::scanCentralDirectoryHeader(size_t& offset)
 
 core::smart_refctd_ptr<IFile> CFileArchiveZip::readFile_impl(const SOpenFileParams& params)
 {
-	size_t readOffset;
-	auto found = std::find_if(m_files.begin(), m_files.end(), [&params](const SFileListEntry& entry) { return params.filename == entry.fullName; });
 
-	if (found != m_files.end())
-	{
 		const SZipFileEntry& e = m_fileInfo[found->ID];
 		wchar_t buf[64];
-		// Nabla supports 0, 8, 12, 14, 99
-		//0 - The file is stored (no compression)
-		//1 - The file is Shrunk
-		//2 - The file is Reduced with compression factor 1
-		//3 - The file is Reduced with compression factor 2
-		//4 - The file is Reduced with compression factor 3
-		//5 - The file is Reduced with compression factor 4
-		//6 - The file is Imploded
-		//7 - Reserved for Tokenizing compression algorithm
-		//8 - The file is Deflated
-		//9 - Reserved for enhanced Deflating
-		//10 - PKWARE Date Compression Library Imploding
-		//12 - bzip2 - Compression Method from libbz2, WinZip 10
-		//14 - LZMA - Compression Method, WinZip 12
-		//96 - Jpeg compression - Compression Method, WinZip 12
-		//97 - WavPack - Compression Method, WinZip 11
-		//98 - PPMd - Compression Method, WinZip 10
-		//99 - AES encryption, WinZip 9
-		int16_t actualCompressionMethod = e.header.CompressionMethod;
-		//TODO: CFileView factory
-		// CFileViewVirtualAllocatorWin32
-		// @sadiuk WTF!? You hand out a new file every time!?
-		core::smart_refctd_ptr<CFileView<VirtualAllocator>> decrypted = nullptr;
+
 		uint8_t* decryptedBuf = 0;
 		uint32_t decryptedSize = e.header.DataDescriptor.CompressedSize;
 #ifdef _NBL_COMPILE_WITH_ZIP_ENCRYPTION_
 		if ((e.header.GeneralBitFlag & ZIP_FILE_ENCRYPTED) && (e.header.CompressionMethod == 99))
 		{
+			size_t readOffset;
+
 			uint8_t salt[16] = { 0 };
 			const uint16_t saltSize = (((e.header.Sig & 0x00ff0000) >> 16) + 1) * 4;
 			{
@@ -510,260 +492,198 @@ core::smart_refctd_ptr<IFile> CFileArchiveZip::readFile_impl(const SOpenFilePara
 #endif
 		}
 #endif
-		switch (actualCompressionMethod)
+}
+#endif
+
+CFileArchive::file_buffer_t CArchiveLoaderZip::CArchive::getFileBuffer(const IFileArchive::SListEntry* item)
+{
+	CFileArchive::file_buffer_t retval = {nullptr,item->size,nullptr};
+
+	// Nabla supports 0, 8, 12, 14, 99
+	//0 - The file is stored (no compression)
+	//1 - The file is Shrunk
+	//2 - The file is Reduced with compression factor 1
+	//3 - The file is Reduced with compression factor 2
+	//4 - The file is Reduced with compression factor 3
+	//5 - The file is Reduced with compression factor 4
+	//6 - The file is Imploded
+	//7 - Reserved for Tokenizing compression algorithm
+	//8 - The file is Deflated
+	//9 - Reserved for enhanced Deflating
+	//10 - PKWARE Date Compression Library Imploding
+	//12 - bzip2 - Compression Method from libbz2, WinZip 10
+	//14 - LZMA - Compression Method, WinZip 12
+	//96 - Jpeg compression - Compression Method, WinZip 12
+	//97 - WavPack - Compression Method, WinZip 11
+	//98 - PPMd - Compression Method, WinZip 10
+	//99 - AES encryption, WinZip 9
+	int16_t actualCompressionMethod = m_itemsMetadata[item->ID].CompressionMethod;
+
+	//
+	void* decrypted = nullptr;
+	size_t decryptedSize = 0ull;
+	auto freeOnFail = core::makeRAIIExiter([&actualCompressionMethod,&retval,&decrypted,&decryptedSize](){
+		if (decrypted && retval.buffer!=decrypted)
 		{
-		case 0: // no compression
-		{
-			delete[] decryptedBuf;
-			if (decrypted)
-				return decrypted;
+			if (actualCompressionMethod)
+				CPlainHeapAllocator(nullptr).dealloc(decrypted,decryptedSize);
 			else
-			{
-				uint8_t* buff = (uint8_t*)m_file->getMappedPointer() + e.Offset;
-				auto a = core::make_smart_refctd_ptr<CFileView<CNullAllocator>>(
-					core::smart_refctd_ptr<ISystem>(m_system),
-					params.absolutePath,
-					IFile::ECF_READ_WRITE, // TODO: should be READONLY
-					buff,
-					decryptedSize);
-				return a;
-			}
+				VirtualMemoryAllocator(nullptr).dealloc(decrypted,decryptedSize);
 		}
+	});
+	//
+	void* decompressed = nullptr;
+	auto freeMMappedOnFail = core::makeRAIIExiter([item,&retval,&decompressed](){
+		if (decompressed && retval.buffer!=decompressed)
+			VirtualMemoryAllocator(nullptr).dealloc(decompressed,item->size);
+	});
+
+	const auto* const cFile = m_file.get();
+	void* const filePtr = const_cast<void*>(cFile->getMappedPointer());
+	std::byte* const mmapPtr = reinterpret_cast<std::byte*>(filePtr)+item->offset;
+
+	// decrypt
+	if (false)
+	{
+		if (actualCompressionMethod)
+			decrypted = CPlainHeapAllocator(nullptr).alloc(decryptedSize);
+		else
+			decrypted = VirtualMemoryAllocator(nullptr).alloc(decryptedSize);
+	}
+	//
+	if (actualCompressionMethod)
+	{
+		// TODO
+		//const uint32_t uncompressedSize = e.header.DataDescriptor.UncompressedSize;
+		decompressed = VirtualMemoryAllocator(nullptr).alloc(item->size);
+		if (!decompressed)
+		{
+			m_logger.log("Not enough memory for decompressing %s",ILogger::ELL_ERROR,item->pathRelativeToArchive.string().c_str());
+			return retval;
+		}
+	}
+	switch (actualCompressionMethod)
+	{
+		case 0: // no compression
+			if (decrypted)
+				retval.buffer = decrypted;
+			else
+				retval.buffer = mmapPtr;
+			break;
 		case 8:
 		{
-#ifdef _NBL_COMPILE_WITH_ZLIB_
-
-			const uint32_t uncompressedSize = e.header.DataDescriptor.UncompressedSize;
-			char* pBuf = new char[uncompressedSize];
-			if (!pBuf)
-			{
-				delete[] decryptedBuf;
-				// TODO: log error
-				return 0;
-			}
-
-			uint8_t* pcData = decryptedBuf;
-			if (!pcData)
-			{
-				pcData = new uint8_t[decryptedSize];
-				if (!pcData)
-				{
-					delete[] decryptedBuf;
-					delete[] pBuf;
-					// TODO: log error
-					return 0;
-				}
-
-				//memset(pcData, 0, decryptedSize);
-				readOffset = e.Offset;
-				{
-					read_blocking(m_file.get(), pcData, readOffset, decryptedSize);
-					readOffset += decryptedSize;
-				}
-			}
-
+		#ifdef _NBL_COMPILE_WITH_ZLIB_
 			// Setup the inflate stream.
 			z_stream stream;
-			int32_t err;
-
-			stream.next_in = (Bytef*)pcData;
+			stream.next_in = (Bytef*)(decrypted ? decrypted:mmapPtr);
 			stream.avail_in = (uInt)decryptedSize;
-			stream.next_out = (Bytef*)pBuf;
-			stream.avail_out = uncompressedSize;
+			stream.next_out = (Bytef*)decompressed;
+			stream.avail_out = item->size;
 			stream.zalloc = (alloc_func)0;
 			stream.zfree = (free_func)0;
 
 			// Perform inflation. wbits < 0 indicates no zlib header inside the data.
-			err = inflateInit2(&stream, -MAX_WBITS);
-			if (err == Z_OK)
+			int32_t err = inflateInit2(&stream, -MAX_WBITS);
+			if (err==Z_OK)
 			{
-				err = inflate(&stream, Z_FINISH);
+				err = inflate(&stream,Z_FINISH);
 				inflateEnd(&stream);
-				if (err == Z_STREAM_END)
+				if (err==Z_STREAM_END)
 					err = Z_OK;
 				err = Z_OK;
 				inflateEnd(&stream);
 			}
 
-			if (!decrypted)
-				delete[] pcData;
-
-			delete[] decryptedBuf;
-			if (err != Z_OK)
-			{
-				delete[] pBuf;
-				// TODO: log error
-				return 0;
-			}
-			else
-			{
-				auto ret = core::make_smart_refctd_ptr<CFileView<VirtualAllocator>>(
-					core::smart_refctd_ptr<ISystem>(m_system),
-					params.absolutePath,
-					IFile::ECF_READ_WRITE, // TODO: readonly!
-					uncompressedSize);
-				{
-					write_blocking(ret.get(), pBuf, 0, uncompressedSize);
-				}
-				delete[] pBuf;
-				return ret;
-			}
-
-#else
-			return 0; // zlib not compiled, we cannot decompress the data.
-#endif
+			if (err==Z_OK)
+				retval.buffer = decompressed;
+		#else
+			m_logger.log("ZLIB decompression not supported. File cannot be read.",ILogger::ELL_ERROR);
+		#endif
+			break;
 		}
 		case 12:
 		{
-#ifdef _NBL_COMPILE_WITH_BZIP2_
-
-			const uint32_t uncompressedSize = e.header.DataDescriptor.UncompressedSize;
-			char* pBuf = new char[uncompressedSize];
-			if (!pBuf)
-			{
-				m_logger.log("Not enough memory for decompressing %s", ILogger::ELL_ERROR, params.absolutePath.string().c_str());
-				delete[] decryptedBuf;
-				return 0;
-			}
-
-			uint8_t* pcData = decryptedBuf;
-			if (!pcData)
-			{
-				pcData = new uint8_t[decryptedSize];
-				if (!pcData)
-				{
-					m_logger.log("Not enough memory for decompressing %s", ILogger::ELL_ERROR, params.absolutePath.string().c_str());
-					delete[] pBuf;
-					delete[] decryptedBuf;
-					return 0;
-				}
-
-				{
-					readOffset = e.Offset;
-					read_blocking(m_file.get(), pcData, readOffset, decryptedSize);
-					readOffset += decryptedSize;
-				}
-			}
-
+		#ifdef _NBL_COMPILE_WITH_BZIP2_
 			bz_stream bz_ctx = { 0 };
-			/* use BZIP2's default memory allocation
-			bz_ctx->bzalloc = NULL;
-			bz_ctx->bzfree  = NULL;
-			bz_ctx->opaque  = NULL;
-			*/
-			int err = BZ2_bzDecompressInit(&bz_ctx, 0, 0); /* decompression */
-			if (err != BZ_OK)
+			// use BZIP2's default memory allocation
+			//bz_ctx->bzalloc = NULL;
+			//bz_ctx->bzfree  = NULL;
+			//bz_ctx->opaque  = NULL;
+			int err = BZ2_bzDecompressInit(&bz_ctx, 0, 0);
+			if (err==BZ_OK)
 			{
-				m_logger.log("bzip2 decompression failed. File cannot be read.", ILogger::ELL_ERROR);
-				delete[] decryptedBuf;
-				return 0;
+				bz_ctx.next_in = (char*)(decrypted ? decrypted:mmapPtr);
+				bz_ctx.avail_in = decryptedSize;
+				bz_ctx.next_out = (char*)decompressed;
+				bz_ctx.avail_out = item->size;
+				err = BZ2_bzDecompress(&bz_ctx);
+				err = BZ2_bzDecompressEnd(&bz_ctx);
 			}
-			bz_ctx.next_in = (char*)pcData;
-			bz_ctx.avail_in = decryptedSize;
-			/* pass all input to decompressor */
-			bz_ctx.next_out = pBuf;
-			bz_ctx.avail_out = uncompressedSize;
-			err = BZ2_bzDecompress(&bz_ctx);
-			err = BZ2_bzDecompressEnd(&bz_ctx);
-
-			if (!decrypted)
-				delete[] pcData;
-
-			if (err != BZ_OK)
-			{
-				m_logger.log("Error decompressing %s", ILogger::ELL_ERROR, params.absolutePath.string().c_str());
-				delete[] pBuf;
-				delete[] decryptedBuf;
-				return 0;
-			}
-			else
-			{
-				auto ret = core::make_smart_refctd_ptr<CFileView<VirtualAllocator>>(std::move(m_system), found->fullName, IFile::ECF_READ_WRITE, uncompressedSize); // TODO: readonly
-				{
-					write_blocking(decrypted.get(), pBuf, 0, uncompressedSize); // huh!?
-				}
-				delete[] pBuf;
-				return ret;
-			}
-
-#else
-			delete[] decryptedBuf;
+			
+			if (err==BZ_OK)
+				retval.buffer = decompressed;
+		#else
 			m_logger.log("bzip2 decompression not supported. File cannot be read.", ILogger::ELL_ERROR);
-			return 0;
-#endif
+		#endif
+			break;
 		}
 		case 14:
 		{
-#ifdef _NBL_COMPILE_WITH_LZMA_
-			uint32_t uncompressedSize = e.header.DataDescriptor.UncompressedSize;
-			char* pBuf = new char[uncompressedSize];
-			if (!pBuf)
-			{
-				m_logger.log("Not enough memory for decompressing %s", ILogger::ELL_ERROR, params.absolutePath.c_str());
-				delete[] decryptedBuf;
-				return 0;
-			}
-
-			uint8_t* pcData = decryptedBuf;
-			if (!pcData)
-			{
-				pcData = new uint8_t[decryptedSize];
-				if (!pcData)
-				{
-					m_logger.log("Not enough memory for decompressing %s", ILogger::ELL_ERROR, params.absolutePath.string().c_str());
-					delete[] pBuf;
-					return 0;
-				}
-
-				//memset(pcData, 0, decryptedSize);
-				readOffset = e.Offset;
-				{
-					read_blocking(m_file.get(), pcData, readOffset, decryptedSize);
-					readOffset += decryptedSize;
-				}
-			}
-
+		#ifdef _NBL_COMPILE_WITH_LZMA_
 			ELzmaStatus status;
-			SizeT tmpDstSize = uncompressedSize;
+			SizeT tmpDstSize = item->size;
 			SizeT tmpSrcSize = decryptedSize;
 
-			unsigned int propSize = (pcData[3] << 8) + pcData[2];
-			int err = LzmaDecode((Byte*)pBuf, &tmpDstSize,
-				pcData + 4 + propSize, &tmpSrcSize,
-				pcData + 4, propSize,
-				e.header.GeneralBitFlag & 0x1 ? LZMA_FINISH_END : LZMA_FINISH_ANY, &status,
-				&lzmaAlloc);
-			uncompressedSize = tmpDstSize; // may be different to expected value
+			const Byte* pcData = decrypted ? reinterpret_cast<std::byte*>(decrypted):mmapPtr;
+			const uint32_t propSize = (uint32_t(pcData[3])<<8)+pcData[2];
+			int err = LzmaDecode(
+				(Byte*)decompressed,
+				&tmpDstSize,
+				pcData + sizeof(uint32_t) + propSize,
+				&tmpSrcSize,
+				pcData + sizeof(uint32_t), propSize,
+				(m_itemsMetadata[item->ID].GeneralBitFlag&0x1u) ? LZMA_FINISH_END:LZMA_FINISH_ANY, &status,
+				&lzmaAlloc
+			);
 
-			if (!decrypted)
-				delete[] pcData;
-
-			delete[] decryptedBuf;
-			if (err != SZ_OK)
+			if (err==SZ_OK)
 			{
-				m_logger.log("Error decompressing %s", ELL_ERROR, params.absolutePath.string().c_str());
-				delete[] pBuf;
-				return 0;
+				retval.buffer = decompressed;
+				retval.size = tmpDstSize; // may be different to expected value
 			}
-			else
-				return io::createMemoryReadFile(pBuf, uncompressedSize, params.absolutePath, true);
-
-#else
-			delete[] decryptedBuf;
-			m_logger.log("lzma decompression not supported. File cannot be read.", ILogger::ELL_ERROR);
-			return 0;
-#endif
+		#else
+					m_logger.log("lzma decompression not supported. File cannot be read.", ILogger::ELL_ERROR);
+		#endif
+			break;
 		}
 		case 99:
 			// If we come here with an encrypted file, decryption support is missing
-			m_logger.log("Decryption support not enabled. File cannot be read.", ILogger::ELL_ERROR);
-			delete[] decryptedBuf;
-			return 0;
+			m_logger.log("Decryption support not enabled. File cannot be read.",ILogger::ELL_ERROR);
+			break;
 		default:
-			m_logger.log("file has unsupported compression method. %s", ILogger::ELL_ERROR, params.absolutePath.string().c_str());
-			delete[] decryptedBuf;
-			return 0;
-		};
+			m_logger.log("File has unsupported compression method.",ILogger::ELL_ERROR);
+			break;
 	}
+
+	if (!retval.buffer)
+	{
+		if (actualCompressionMethod)
+			m_logger.log("Error decompressing %s",ILogger::ELL_ERROR,item->pathRelativeToArchive.string().c_str());
+		else
+			m_logger.log("Unknown error opening file %s from ZIP archive",ILogger::ELL_ERROR,item->pathRelativeToArchive.string().c_str());
+	}
+
+	return retval;
+}
+
+
+
+#ifdef _NBL_COMPILE_WITH_LZMA_
+//! Used for LZMA decompression. The lib has no default memory management
+namespace
+{
+	void *SzAlloc(void *p, size_t size) { p = p; return _NBL_ALIGNED_MALLOC(size,_NBL_SIMD_ALIGNMENT); }
+	void SzFree(void *p, void *address) { p = p; _NBL_ALIGNED_FREE(address); }
+	ISzAlloc lzmaAlloc = { SzAlloc, SzFree };
 }
 #endif

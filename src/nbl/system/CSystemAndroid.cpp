@@ -6,7 +6,6 @@ using namespace nbl::system;
 #include "nbl/system/CAPKResourcesArchive.h"
 
 #include <android_native_app_glue.h>
-#include <jni.h>
 #include <sys/system_properties.h>
 #include <sys/ioctl.h>
 #include <linux/fb.h>

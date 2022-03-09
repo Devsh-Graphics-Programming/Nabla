@@ -8,34 +8,6 @@
 namespace nbl::system
 {
 
-#if 0
-		CFileArchiveZip(core::smart_refctd_ptr<system::IFile>&& file, core::smart_refctd_ptr<ISystem>&& system, bool isGZip, const std::string_view& password, system::logger_opt_smart_ptr&& logger = nullptr) :
-			IFileArchive(std::move(file), std::move(system), std::move(logger)), m_isGZip(isGZip), m_password(password)
-		{
-			size_t offset = 0;
-			if (m_file.get())
-			{
-				// load file entries
-				if (m_isGZip)
-					while (scanGZipHeader(offset)) {}
-				else
-					while (scanZipHeader(offset)) {}
-			}
-		}
-
-		bool scanGZipHeader(size_t& offset);
-		bool scanZipHeader(size_t& offset, bool ignoreGPBits = false);
-		bool scanCentralDirectoryHeader(size_t& offset);
-		E_ALLOCATOR_TYPE getAllocatorType(uint32_t compressionType)
-		{
-			switch (compressionType)
-			{
-			case 0: return EAT_NULL;
-			default: return EAT_VIRTUAL_ALLOC;
-			}
-		}
-#endif
-
 class CArchiveLoaderZip final : public IArchiveLoader
 {
 	public:
@@ -68,11 +40,9 @@ class CArchiveLoaderZip final : public IArchiveLoader
 					core::smart_refctd_ptr<IFile>&& _file,
 					system::logger_opt_smart_ptr&& logger,
 					core::vector<SListEntry>&& _items,
-					core::vector<SZIPFileHeader>&& _itemsMetadata,
-					const bool _isGZip
+					core::vector<SZIPFileHeader>&& _itemsMetadata
 				) : CFileArchive(path(_file->getFileName()),std::move(logger),std::move(_items)),
-					m_file(std::move(_file)), m_itemsMetadata(std::move(_itemsMetadata)),
-					m_password(""), m_isGZip(_isGZip)
+					m_file(std::move(_file)), m_itemsMetadata(std::move(_itemsMetadata)), m_password("")
 				{}
 
 			private:
@@ -81,7 +51,6 @@ class CArchiveLoaderZip final : public IArchiveLoader
 				core::smart_refctd_ptr<IFile> m_file;
 				core::vector<SZIPFileHeader> m_itemsMetadata;
 				const std::string m_password; // TODO password
-				const bool m_isGZip;
 		};
 
 		CArchiveLoaderZip(system::logger_opt_smart_ptr&& logger) : IArchiveLoader(std::move(logger)) {}
