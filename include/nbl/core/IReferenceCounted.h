@@ -2,9 +2,8 @@
 // This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
-
-#ifndef __NBL_CORE_I_IREFERENCE_COUNTED_H_INCLUDED__
-#define __NBL_CORE_I_IREFERENCE_COUNTED_H_INCLUDED__
+#ifndef _NBL_CORE_I_IREFERENCE_COUNTED_H_INCLUDED_
+#define _NBL_CORE_I_IREFERENCE_COUNTED_H_INCLUDED_
 
 #include "nbl/core/decl/Types.h"
 #include "nbl/core/decl/BaseClasses.h"

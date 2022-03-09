@@ -457,7 +457,10 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 					};
 					//
 					constexpr uint32_t batch_dims = 2u;
-					const uint32_t batchExtent[batch_dims] = {intermediateExtent[axis][loopCoordID[0]],intermediateExtent[axis][loopCoordID[1]]};
+					const uint32_t batchExtent[batch_dims] = {
+						static_cast<uint32_t>(intermediateExtent[axis][loopCoordID[0]]),
+						static_cast<uint32_t>(intermediateExtent[axis][loopCoordID[1]])
+					};
 					CBasicImageFilterCommon::BlockIterator<batch_dims> begin(batchExtent);
 					const uint32_t spaceFillingEnd[batch_dims] = {0u,batchExtent[1]};
 					CBasicImageFilterCommon::BlockIterator<batch_dims> end(begin.getExtentBatches(),spaceFillingEnd);

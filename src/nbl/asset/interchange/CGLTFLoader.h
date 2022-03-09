@@ -355,7 +355,7 @@ class CGLTFLoader final : public IRenderpassIndependentPipelineLoader
 				};
 
 				std::optional<uint32_t> bufferView;
-				std::optional<uint32_t> byteOffset;
+				std::optional<size_t> byteOffset;
 				std::optional<SCompomentType> componentType;
 				std::optional<bool> normalized;
 				std::optional<uint32_t> count;
@@ -508,8 +508,8 @@ class CGLTFLoader final : public IRenderpassIndependentPipelineLoader
 			struct SGLTFBufferView
 			{
 				std::optional<uint32_t> buffer;
-				std::optional<uint32_t> byteOffset;
-				std::optional<uint32_t> byteLength;
+				std::optional<size_t> byteOffset;
+				std::optional<size_t> byteLength;
 				std::optional<uint32_t> byteStride;
 				std::optional<uint32_t> target;
 				std::optional<std::string> name;
@@ -536,7 +536,7 @@ class CGLTFLoader final : public IRenderpassIndependentPipelineLoader
 			{
 				std::optional<std::string> uri;
 				std::optional<std::string> mimeType;
-				std::optional<uint32_t> bufferView;
+				std::optional<size_t> bufferView;
 				std::optional<std::string> name;
 
 				struct SMIMEType
