@@ -2,12 +2,13 @@
 #define	_NBL_SYSTEM_C_APK_RESOURCES_ARCHIVE_LOADER_H_INCLUDED_
 
 
-#include "nbl/system/IFileArchive.h"
-
+#include "nbl/system/CFileArchive.h"
 
 #ifdef _NBL_PLATFORM_ANDROID_
+#include <jni.h>
+
+
 struct AAssetManager;
-struct JNIEnv;
 struct ANativeActivity;
 
 namespace nbl::system

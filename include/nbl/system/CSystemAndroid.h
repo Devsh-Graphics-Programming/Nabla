@@ -7,8 +7,10 @@
 #ifdef _NBL_PLATFORM_ANDROID_
 #include "nbl/system/ISystemPOSIX.h"
 
+#include <jni.h>
+
+
 struct ANativeActivity;
-struct JNIEnv;
 
 namespace nbl::system
 {
