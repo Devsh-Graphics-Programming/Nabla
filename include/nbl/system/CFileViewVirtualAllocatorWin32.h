@@ -7,6 +7,8 @@ namespace nbl::system
 class CFileViewVirtualAllocatorWin32 : public IFileViewAllocator
 {
 	public:
+		using IFileViewAllocator::IFileViewAllocator;
+
 		void* alloc(size_t size) override;
 		bool dealloc(void* data, size_t size) override;
 };

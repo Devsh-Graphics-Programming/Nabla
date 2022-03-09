@@ -14,16 +14,14 @@ using namespace nbl::system;
 #include <sys/stat.h>
 #include <fcntl.h>
 
-CSystemAndroid::CSystemAndroid(ANativeActivity* activity, JNIEnv* jni, const system::path& APKResourcesPath) :
+CSystemAndroid::CSystemAndroid(ANativeActivity* activity, JNIEnv* jni, const path& APKResourcesPath) :
 	ISystemPOSIX(), m_nativeActivity(activity), m_jniEnv(jni)
 {
-	addArchiveLoader(core::make_smart_refctd_ptr<CArchiveLoaderTar>(core::smart_refctd_ptr<ISystem>(this), nullptr));
 	m_cachedArchiveFiles.insert(APKResourcesPath,core::make_smart_refctd_ptr<CAPKResourcesArchive>(
-		core::smart_refctd_ptr<ISystem>(this),
-		nullptr, 
-		activity->assetManager,
-		nativeActivity,
-		env
+		path(APKResourcesPath),
+		nullptr, // for now no logger
+		m_nativeActivity,
+		m_jniEnv
 	));
 }
 

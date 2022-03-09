@@ -10,6 +10,9 @@
 #include "nbl/system/CFileView.h"
 #include "nbl/system/IFileViewAllocator.h"
 
+#ifdef _NBL_PLATFORM_ANDROID_
+#include "nbl/system/CFileViewAPKAllocator.h"
+#endif
 
 namespace nbl::system
 {
@@ -90,6 +93,13 @@ class CFileArchive : public IFileArchive
 				case EAT_VIRTUAL_ALLOC:
 					return getFile_impl<VirtualMemoryAllocator>(item);
 					break;
+				case EAT_APK_ALLOCATOR:
+					#ifdef _NBL_PLATFORM_ANDROID_
+					return getFile_impl<CFileViewAPKAllocator>(item);
+					#else
+					assert(false);
+					#endif
+					break;
 				default: // directory or something
 					break;
 			}
@@ -134,9 +144,9 @@ class CFileArchive : public IFileArchive
 					m_fileFlags+item->ID,
 					getDefaultAbsolutePath()/item->pathRelativeToArchive,
 					IFile::ECF_READ, // TODO: stay like this until we allow write access to archived files
-					std::get<void*>(fileBuffer),
-					std::get<size_t>(fileBuffer),
-					Allocator() // no archive uses stateful allocators yet
+					fileBuffer.buffer,
+					fileBuffer.size,
+					Allocator(fileBuffer.allocatorState) // no archive uses stateful allocators yet
 				);
 			}
 			// don't grab because we've already grabbed
@@ -144,7 +154,13 @@ class CFileArchive : public IFileArchive
 		}
 
 		// this function will return a buffer that needs to be deallocated with an allocator matching `item->allocatorType`
-		virtual std::pair<void*,size_t> getFileBuffer(const IFileArchive::SListEntry* item) = 0;
+		struct file_buffer_t
+		{
+			void* buffer;
+			size_t size;
+			void* allocatorState;
+		};
+		virtual file_buffer_t getFileBuffer(const IFileArchive::SListEntry* item) = 0;
 
 		std::atomic_flag* m_fileFlags = nullptr;
 		std::byte* m_filesBuffer = nullptr;

@@ -200,11 +200,13 @@ set(NBL_SYSTEM_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/system/ILogger.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/CArchiveLoaderZip.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/CArchiveLoaderTar.cpp
+	${NBL_ROOT_PATH}/src/nbl/system/CAPKResourcesArchive.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/ISystem.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/IFileArchive.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/CStdoutLoggerAndroid.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/CFileViewVirtualAllocatorWin32.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/CFileViewVirtualAllocatorPOSIX.cpp
+	${NBL_ROOT_PATH}/src/nbl/system/CFileViewAPKAllocator.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/CFileWin32.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/CFilePOSIX.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/CSystemWin32.cpp

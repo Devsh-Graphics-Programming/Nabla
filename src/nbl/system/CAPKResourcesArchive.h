@@ -16,17 +16,12 @@ namespace nbl::system
 class CAPKResourcesArchive final : public CFileArchive
 {
 	public:
-		static core::smart_refctd_ptr<CAPKResourcesArchive> create();
-
-	protected:
-		CAPKResourcesArchive(
-			path&& _path, system::logger_opt_smart_ptr&& logger,
-			AAssetManager* _mgr, ANativeActivity* act, JNIEnv* jni
-		) : CFileArchive(std::move(_path),std::move(logger),std::move(_items)),
-			m_mgr(_mgr), m_activity(act), m_jniEnv(jni)
-		{}
+		CAPKResourcesArchive(const path& _path, system::logger_opt_smart_ptr&& logger, ANativeActivity* act, JNIEnv* jni);
 		
-		std::pair<void*, size_t> getFileBuffer(const IFileArchive::SListEntry* item) override;
+	protected:
+		static core::vector<SListEntry> computeItems(const std::string& asset_path);
+
+		file_buffer_t getFileBuffer(const IFileArchive::SListEntry* item) override;
 		
 
 		AAssetManager* m_mgr;

@@ -13,14 +13,21 @@ namespace nbl::system
 class IFileViewAllocator
 {
 	public:
+		IFileViewAllocator(void* _state) : m_state(_state) {}
+
 		virtual void* alloc(size_t size) = 0;
 		virtual bool dealloc(void* data, size_t size) = 0;
+
+	protected:
+		void* m_state;
 };
 
 // Regular old file in RAM
 class CPlainHeapAllocator : public IFileViewAllocator
 {
 	public:
+		using IFileViewAllocator::IFileViewAllocator;
+
 		void* alloc(size_t size) override
 		{
 			return malloc(size);
@@ -37,6 +44,8 @@ class CPlainHeapAllocator : public IFileViewAllocator
 class CNullAllocator : public IFileViewAllocator
 {
 	public:
+		using IFileViewAllocator::IFileViewAllocator;
+
 		void* alloc(size_t size) override
 		{
 			return nullptr;

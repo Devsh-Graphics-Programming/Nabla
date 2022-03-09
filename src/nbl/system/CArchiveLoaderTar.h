@@ -18,17 +18,14 @@ class CArchiveLoaderTar final : public IArchiveLoader
 					CFileArchive(path(_file->getFileName()),std::move(logger),std::move(_items)), m_file(std::move(_file)) {}
 
 			protected:
-				std::pair<void*,size_t> getFileBuffer(const IFileArchive::SListEntry* item) override;
+				file_buffer_t getFileBuffer(const IFileArchive::SListEntry* item) override;
 
 				core::smart_refctd_ptr<IFile> m_file;
 		};
 
 		CArchiveLoaderTar(system::logger_opt_smart_ptr&& logger) : IArchiveLoader(std::move(logger)) {}
 
-		inline bool isALoadableFileFormat(IFile* file) const override
-		{
-			return !!createArchive_impl(core::smart_refctd_ptr<IFile>(file),"");
-		}
+		bool isALoadableFileFormat(IFile* file) const override;
 
 		inline const char** getAssociatedFileExtensions() const override
 		{
@@ -37,6 +34,8 @@ class CArchiveLoaderTar final : public IArchiveLoader
 		}
 
 	private:
+		static constexpr size_t BlockSize = 512ull;
+
 		core::smart_refctd_ptr<IFileArchive> createArchive_impl(core::smart_refctd_ptr<system::IFile>&& file, const std::string_view& password) const override;
 };
 

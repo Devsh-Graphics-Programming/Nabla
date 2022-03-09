@@ -41,10 +41,56 @@ struct STarHeader
 using namespace nbl;
 using namespace nbl::system;
 
-std::pair<void*,size_t> CArchiveLoaderTar::CArchive::getFileBuffer(const IFileArchive::SListEntry* item)
+CFileArchive::file_buffer_t CArchiveLoaderTar::CArchive::getFileBuffer(const IFileArchive::SListEntry* item)
 {
 	assert(item->allocatorType==EAT_NULL);
-	return {reinterpret_cast<uint8_t*>(m_file->getMappedPointer())+item->offset,item->size};
+	return {reinterpret_cast<uint8_t*>(m_file->getMappedPointer())+item->offset,item->size,nullptr};
+}
+
+
+bool CArchiveLoaderTar::isALoadableFileFormat(IFile* file) const
+{
+	// TAR files consist of blocks of 512 bytes
+	// if it isn't a multiple of 512 then it's not a TAR file.
+	if (file->getSize()%BlockSize)
+		return false;
+
+	STarHeader fHead;
+	IFile::success_t success;
+	file->read(success,&fHead,0ull,sizeof(fHead));
+	if (!success)
+		return false;
+
+	uint32_t checksum = 0;
+	sscanf(fHead.Checksum,"%o",&checksum);
+	
+	// verify checksum
+
+	// some old TAR writers assume that chars are signed, others assume unsigned
+	// USTAR archives have a longer header, old TAR archives end after linkname
+
+	uint32_t checksum1=0;
+	int32_t checksum2=0;
+
+	// remember to blank the checksum field!
+	memset(fHead.Checksum, ' ', 8);
+
+	// old header
+	for (uint8_t* p = (uint8_t*)(&fHead); p < (uint8_t*)(&fHead.Magic[0]); ++p)
+	{
+		checksum1 += *p;
+		checksum2 += char(*p);
+	}
+
+	if (!strncmp(fHead.Magic, "ustar", 5))
+	{
+		for (uint8_t* p = (uint8_t*)(&fHead.Magic[0]); p < (uint8_t*)(&fHead) + sizeof(fHead); ++p)
+		{
+			checksum1 += *p;
+			checksum2 += char(*p);
+		}
+	}
+	return checksum1 == checksum || checksum2 == (int32_t)checksum;
 }
 
 core::smart_refctd_ptr<IFileArchive> CArchiveLoaderTar::createArchive_impl(core::smart_refctd_ptr<system::IFile>&& file, const std::string_view& password) const
@@ -106,10 +152,10 @@ core::smart_refctd_ptr<IFileArchive> CArchiveLoaderTar::createArchive_impl(core:
 					m_logger.log("File %s is too large", ILogger::ELL_WARNING, fullPath.c_str());
 
 				// save start position
-				const uint32_t offset = pos + 512;
+				const uint32_t offset = pos + BlockSize;
 
 				// move to next file header block
-				pos = offset + (size / 512) * 512 + ((size % 512) ? 512 : 0);
+				pos = offset + core::roundUp(size,BlockSize);
 
 				// add file to list
 				auto& item = items.emplace_back();
@@ -123,7 +169,7 @@ core::smart_refctd_ptr<IFileArchive> CArchiveLoaderTar::createArchive_impl(core:
 			// TODO: ETLI_DIRECTORY, ETLI_LINK_TO_ARCHIVED_FILE
 			default:
 				// move to next block
-				pos += 512;
+				pos += BlockSize;
 				break;
 		}
 	}

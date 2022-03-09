@@ -27,6 +27,7 @@ class IFileArchive : public core::IReferenceCounted
 			EAT_NONE = 0,
 			EAT_NULL, // read directly from archive's underlying mapped file
 			EAT_VIRTUAL_ALLOC, // decompress to RAM (with sparse paging)
+			EAT_APK_ALLOCATOR, // specialization to be able to call `AAsset_close`
 			EAT_MALLOC // decompress to RAM
 		};
 		//! An entry in a list of items, can be a folder or a file.

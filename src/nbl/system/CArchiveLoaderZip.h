@@ -20,8 +20,6 @@ namespace nbl::system
 					while (scanGZipHeader(offset)) {}
 				else
 					while (scanZipHeader(offset)) {}
-			
-				setFlagsVectorSize(m_files.size());
 			}
 		}
 
@@ -63,22 +61,27 @@ class CArchiveLoaderZip final : public IArchiveLoader
 			// extra field (variable size )
 		} PACK_STRUCT;
 		#include "nbl/nblunpack.h"
-		class CArchive : public CFileArchive
+		class CArchive final : public CFileArchive
 		{
 			public:
-			private:
-				//! Contains extended info about zip files in the archive
-				struct SZipFileEntry
-				{
-					//! Position of data in the archive file
-					int32_t Offset;
-					//! The header for this file containing compression info etc
-					SZIPFileHeader header;
-				};
+				CArchive(
+					core::smart_refctd_ptr<IFile>&& _file,
+					system::logger_opt_smart_ptr&& logger,
+					core::vector<SListEntry>&& _items,
+					core::vector<SZIPFileHeader>&& _itemsMetadata,
+					const bool _isGZip
+				) : CFileArchive(path(_file->getFileName()),std::move(logger),std::move(_items)),
+					m_file(std::move(_file)), m_itemsMetadata(std::move(_itemsMetadata)),
+					m_password(""), m_isGZip(_isGZip)
+				{}
 
-				const bool m_isGZip;
-				core::vector<SZipFileEntry> m_fileInfo;
+			private:
+				file_buffer_t getFileBuffer(const IFileArchive::SListEntry* item) override;
+
+				core::smart_refctd_ptr<IFile> m_file;
+				core::vector<SZIPFileHeader> m_itemsMetadata;
 				const std::string m_password; // TODO password
+				const bool m_isGZip;
 		};
 
 		CArchiveLoaderZip(system::logger_opt_smart_ptr&& logger) : IArchiveLoader(std::move(logger)) {}
