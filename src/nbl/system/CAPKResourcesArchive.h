@@ -20,7 +20,7 @@ class CAPKResourcesArchive final : public CFileArchive
 		CAPKResourcesArchive(const path& _path, system::logger_opt_smart_ptr&& logger, ANativeActivity* act, JNIEnv* jniEnv);
 		
 	protected:
-		static core::vector<SListEntry> computeItems(const std::string& asset_path);
+		static core::vector<SListEntry> computeItems(const std::string& asset_path, AAssetManager* mgr, JNIEnv* env);
 
 		file_buffer_t getFileBuffer(const IFileArchive::SListEntry* item) override;
 		
