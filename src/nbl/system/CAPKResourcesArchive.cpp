@@ -5,6 +5,7 @@ using namespace nbl::system;
 
 #ifdef _NBL_PLATFORM_ANDROID_
 #include <jni.h>
+#include <android/native_activity.h>
 #include <android/asset_manager.h>
 
 CAPKResourcesArchive::CAPKResourcesArchive(const path& _path, system::logger_opt_smart_ptr&& logger, ANativeActivity* act, JNIEnv* jni)
@@ -56,7 +57,7 @@ core::vector<IFileArchive::SListEntry> CAPKResourcesArchive::computeItems(const 
 CFileArchive::file_buffer_t CAPKResourcesArchive::getFileBuffer(const IFileArchive::SListEntry* item)
 {
 	AAsset* asset = AAssetManager_open(m_mgr,item->pathRelativeToArchive.string().c_str(),AASSET_MODE_BUFFER);
-	return {AAsset_getBuffer(asset),AAsset_getLength(asset),asset};
+	return {const_cast<void*>(AAsset_getBuffer(asset)),AAsset_getLength(asset),asset};
 }
 
 #endif
