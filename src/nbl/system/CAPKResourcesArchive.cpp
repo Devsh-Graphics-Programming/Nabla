@@ -15,24 +15,24 @@ CAPKResourcesArchive::CAPKResourcesArchive(const path& _path, system::logger_opt
 core::vector<IFileArchive::SListEntry> CAPKResourcesArchive::computeItems(const std::string& asset_path, ANativeActivity* activity, JNIEnv* jniEnv)
 {
 	auto context_object = activity->clazz;
-	auto getAssets_method = env->GetMethodID(env->GetObjectClass(context_object), "getAssets", "()Landroid/content/res/AssetManager;");
-	auto assetManager_object = env->CallObjectMethod(context_object,getAssets_method);
-	auto list_method = env->GetMethodID(env->GetObjectClass(assetManager_object), "list", "(Ljava/lang/String;)[Ljava/lang/String;");
+	auto getAssets_method = jniEnv->GetMethodID(jniEnv->GetObjectClass(context_object), "getAssets", "()Landroid/content/res/AssetManager;");
+	auto assetManager_object = jniEnv->CallObjectMethod(context_object,getAssets_method);
+	auto list_method = jniEnv->GetMethodID(jniEnv->GetObjectClass(assetManager_object), "list", "(Ljava/lang/String;)[Ljava/lang/String;");
 
-	jstring path_object = env->NewStringUTF(asset_path.c_str());
+	jstring path_object = jniEnv->NewStringUTF(asset_path.c_str());
 
-	auto files_object = (jobjectArray)env->CallObjectMethod(assetManager_object, list_method, path_object);
+	auto files_object = (jobjectArray)jniEnv->CallObjectMethod(assetManager_object, list_method, path_object);
 
-	env->DeleteLocalRef(path_object);
+	jniEnv->DeleteLocalRef(path_object);
 
-	auto length = env->GetArrayLength(files_object);
+	auto length = jniEnv->GetArrayLength(files_object);
 	
 	core::vector<IFileArchive::SListEntry> result;
 	for (decltype(length) i=0; i<length; i++)
 	{
-		jstring jstr = (jstring)env->GetObjectArrayElement(files_object,i);
+		jstring jstr = (jstring)jniEnv->GetObjectArrayElement(files_object,i);
 
-		const char* filename = env->GetStringUTFChars(jstr,nullptr);
+		const char* filename = jniEnv->GetStringUTFChars(jstr,nullptr);
 		if (filename != nullptr)
 		{
 			auto& item = result.emplace_back();
@@ -46,10 +46,10 @@ core::vector<IFileArchive::SListEntry> CAPKResourcesArchive::computeItems(const 
 			item.ID = i;
 			item.allocatorType = EAT_APK_ALLOCATOR;
 				
-			env->ReleaseStringUTFChars(jstr,filename);
+			jniEnv->ReleaseStringUTFChars(jstr,filename);
 		}
 
-		env->DeleteLocalRef(jstr);
+		jniEnv->DeleteLocalRef(jstr);
 	}
 }
 

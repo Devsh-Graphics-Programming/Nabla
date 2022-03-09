@@ -2,8 +2,8 @@
 #define	_NBL_SYSTEM_I_APPLICATION_FRAMEWORK_H_INCLUDED_
 
 #include "nbl/core/declarations.h"
-#include "nbl/system/declarations.h"
 
+#include "nbl/system/declarations.h"
 #include "nbl/system/definitions.h"
 
 namespace nbl::system

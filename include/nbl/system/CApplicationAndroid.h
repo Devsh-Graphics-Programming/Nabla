@@ -1,19 +1,21 @@
 #ifndef	_NBL_SYSTEM_C_APPLICATION_FRAMEWORK_ANDROID_H_INCLUDED_
 #define	_NBL_SYSTEM_C_APPLICATION_FRAMEWORK_ANDROID_H_INCLUDED_
 
-#ifdef _NBL_PLATFORM_ANDROID_
-
 #include "nbl/core/declarations.h"
-#include "nbl/system/CStdoutLoggerAndroid.h"
+
 #include "nbl/system/IApplicationFramework.h"
+#include "nbl/system/CStdoutLoggerAndroid.h"
+
+
+namespace nbl::system
+{
+#ifdef _NBL_PLATFORM_ANDROID_
 #include <android_native_app_glue.h>
 #include <android/sensor.h>
 #include <android/log.h>
-namespace nbl::system
-{
 
     class CApplicationAndroid : public IApplicationFramework
-    {
+{
     public:
         void onStateSaved(android_app* params)
         {
@@ -132,10 +134,9 @@ namespace nbl::system
         };
         CEventPoller eventPoller;
         bool keepPolling() const { return eventPoller.continuePredicate(); }
-    };
-
-}
+};
 
 #endif
+}
 
 #endif 
