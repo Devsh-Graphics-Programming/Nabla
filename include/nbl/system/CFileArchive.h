@@ -20,7 +20,8 @@ class CInnerArchiveFile : public CFileView<T>
 {
 		std::atomic_flag* alive;
 	public:
-		CInnerArchiveFile(CFileView<T>* arch, std::atomic_flag* _flag) : CFileView<T>(std::move(*arch)), alive(_flag)
+		template<typename... Args>
+		CInnerArchiveFile(std::atomic_flag* _flag, Args&&... args) : CFileView<T>(std::forward<Args>(args)...), alive(_flag)
 		{
 		}
 		~CInnerArchiveFile() = default;
@@ -28,18 +29,22 @@ class CInnerArchiveFile : public CFileView<T>
 		static void* operator new(size_t size) noexcept
 		{
 			assert(false);
+			exit(-0x45);
 			return nullptr;
 		}
 		static void* operator new[](size_t size) noexcept
 		{
 			assert(false);
+			exit(-0x45);
 			return nullptr;
 		}
-		static void* operator new(size_t size, void* ptr, std::atomic_flag* alive)
+		static void* operator new(size_t size, void* ptr, std::atomic_flag* alive) noexcept
 		{
 			alive->test_and_set();
-			return ::operator new(size, ptr);
+			return ::operator new(size,ptr);
 		}
+
+		//
 		static void operator delete(void* ptr) noexcept
 		{
 			static_cast<CInnerArchiveFile*>(ptr)->alive->clear();
@@ -48,6 +53,13 @@ class CInnerArchiveFile : public CFileView<T>
 		static void  operator delete[](void* ptr) noexcept
 		{
 			assert(false);
+			exit(-0x45);
+		}
+
+		// make compiler shut up about initizaliation throwing exceptions
+		static void operator delete(void* dummy, void* ptr, std::atomic_flag* alive) noexcept
+		{
+			::operator delete(ptr);
 		}
 };
 
@@ -66,7 +78,7 @@ class CFileArchive : public IFileArchive
 			const auto* item = getItemFromPath(pathRelativeToArchive);
 			if (!item)
 				return nullptr;
-			/*
+			
 			switch (item->allocatorType)
 			{
 				case EAT_NULL:
@@ -81,7 +93,6 @@ class CFileArchive : public IFileArchive
 				default: // directory or something
 					break;
 			}
-			*/
 			return nullptr;
 		}
 
@@ -104,9 +115,9 @@ class CFileArchive : public IFileArchive
 			_NBL_ALIGNED_FREE(m_filesBuffer);
 			_NBL_ALIGNED_FREE(m_fileFlags);
 		}
-		/*
+		
 		template<class Allocator>
-		core::smart_refctd_ptr<CInnerArchiveFile<Allocator>> getFile_impl(const IFileArchive::SListEntry* item)
+		inline core::smart_refctd_ptr<CInnerArchiveFile<Allocator>> getFile_impl(const IFileArchive::SListEntry* item)
 		{
 			auto* file = reinterpret_cast<CInnerArchiveFile<Allocator>*>(m_filesBuffer+item->ID*SIZEOF_INNER_ARCHIVE_FILE);
 			// NOTE: Intentionally calling grab() on maybe-not-existing object!
@@ -114,18 +125,26 @@ class CFileArchive : public IFileArchive
 
 			if (oldRefcount==0) // need to construct (previous refcount was 0)
 			{
+				const auto fileBuffer = getFileBuffer(item);
 				// Might have barged inbetween a refctr drop and finish of a destructor + delete,
 				// need to wait for the "alive" flag to become `false` which tells us `operator delete` has finished.
 				m_fileFlags[item->ID].wait(true);
 				// coast is clear, do placement new
 				new (file, &m_fileFlags[item->ID]) CInnerArchiveFile<Allocator>(
-					static_cast<CFileView<Allocator>*>(readFile_impl(params).get()),
-					&m_fileFlags[item->ID]
+					m_fileFlags+item->ID,
+					getDefaultAbsolutePath()/item->pathRelativeToArchive,
+					IFile::ECF_READ, // TODO: stay like this until we allow write access to archived files
+					std::get<void*>(fileBuffer),
+					std::get<size_t>(fileBuffer),
+					Allocator() // no archive uses stateful allocators yet
 				);
 			}
+			// don't grab because we've already grabbed
 			return core::smart_refctd_ptr<CInnerArchiveFile<Allocator>>(file,core::dont_grab);
 		}
-		*/
+
+		// this function will return a buffer that needs to be deallocated with an allocator matching `item->allocatorType`
+		virtual std::pair<void*,size_t> getFileBuffer(const IFileArchive::SListEntry* item) = 0;
 
 		std::atomic_flag* m_fileFlags = nullptr;
 		std::byte* m_filesBuffer = nullptr;

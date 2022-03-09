@@ -17,10 +17,6 @@ class IFileView : public IFile
 		}
 
 	protected:
-		IFileView(IFileView&& other) : IFile(path(other.getFileName()),other.getFlags()), m_buffer(other.m_buffer), m_size(other.m_size)
-		{
-			other.m_buffer = nullptr;
-		}
 		IFileView(path&& _name, const core::bitflag<E_CREATE_FLAGS> _flags, void* buffer, size_t fileSize) :
 			IFile(std::move(_name),_flags), m_buffer(buffer), m_size(fileSize) {}
 
@@ -60,7 +56,6 @@ class CFileView : public IFileView
 		}
 
 	protected:
-		CFileView(CFileView<allocator_t>&& other) : IFileView(std::move(other)), allocator(std::move(other.allocator)) {}
 		~CFileView()
 		{
 			if (m_buffer)
@@ -81,9 +76,11 @@ class CFileView<CNullAllocator> : public IFileView
 	public:
 		CFileView(path&& _name, const core::bitflag<E_CREATE_FLAGS> _flags, void* buffer, const size_t fileSize) :
 			IFileView(std::move(_name),_flags,buffer,fileSize) {}
+		// the `_allocator` parameter is useless and unused but its necessary to have a uniform constructor signature across all specializations (saves us headaches in `CFileArchive`)
+		CFileView(path&& _name, const core::bitflag<E_CREATE_FLAGS> _flags, void* buffer, const size_t fileSize, CNullAllocator&& _allocator) :
+			CFileView(std::move(_name),_flags,buffer,fileSize) {}
 
 	protected:
-		CFileView(CFileView<CNullAllocator>&& other) : IFileView(std::move(other)) {}
 		~CFileView() = default;
 };
 

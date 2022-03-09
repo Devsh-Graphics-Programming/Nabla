@@ -41,19 +41,11 @@ struct STarHeader
 using namespace nbl;
 using namespace nbl::system;
 
-/*
-core::smart_refctd_ptr<IFile> CArchiveLoaderTar::CArchive::readFile_impl(const SListEntry* item)
+std::pair<void*,size_t> CArchiveLoaderTar::CArchive::getFileBuffer(const IFileArchive::SListEntry* item)
 {
-	uint8_t* buff = reinterpret_cast<uint8_t*>(m_file->getMappedPointer())+item->offset;
-	auto a = core::make_smart_refctd_ptr<CFileView<CNullAllocator>>(
-		core::smart_refctd_ptr<ISystem>(m_system),
-		params.absolutePath,
-		IFile::ECF_READ_WRITE, // TODO: this file cannot grow, unsure whether we should allow write access!
-		buff,
-		found->size);
-	return a;
+	assert(item->allocatorType==EAT_NULL);
+	return {reinterpret_cast<uint8_t*>(m_file->getMappedPointer())+item->offset,item->size};
 }
-*/
 
 core::smart_refctd_ptr<IFileArchive> CArchiveLoaderTar::createArchive_impl(core::smart_refctd_ptr<system::IFile>&& file, const std::string_view& password) const
 {

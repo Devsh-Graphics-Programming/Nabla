@@ -1,6 +1,8 @@
 #ifndef	_NBL_SYSTEM_C_APPLICATION_FRAMEWORK_ANDROID_H_INCLUDED_
 #define	_NBL_SYSTEM_C_APPLICATION_FRAMEWORK_ANDROID_H_INCLUDED_
+
 #ifdef _NBL_PLATFORM_ANDROID_
+
 #include "nbl/core/declarations.h"
 #include "nbl/system/CStdoutLoggerAndroid.h"
 #include "nbl/system/IApplicationFramework.h"
@@ -135,4 +137,5 @@ namespace nbl::system
 }
 
 #endif
+
 #endif 
