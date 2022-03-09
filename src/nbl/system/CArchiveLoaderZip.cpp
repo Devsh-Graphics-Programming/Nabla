@@ -38,6 +38,8 @@ struct SZIPFileCentralDirFileHeader
 } PACK_STRUCT;
 struct SZIPFileCentralDirEnd
 {
+	static inline constexpr uint32_t ExpectedSig = 0x06054b50u;
+
 	uint32_t Sig;			// 'PK0506' end_of central dir signature			// (0x06054b50)
 	uint16_t NumberDisk;		// number of this disk
 	uint16_t NumberStart;	// number of the disk with the start of the central directory
@@ -109,110 +111,134 @@ core::smart_refctd_ptr<IFileArchive> CArchiveLoaderZip::createArchive_impl(core:
 	// load file entries
 	{
 		const bool isGZip = sig==0x8b1fu;
+
+		//
+		auto addItem = [&items,&itemsMetadata](const std::string& _path, const size_t offset, const SZIPFileHeader& meta) -> void
+		{
+			// we need to have a filename or we skip
+			if (_path.empty())
+				return;
+
+			auto& item = items.emplace_back();
+			item.pathRelativeToArchive = _path;
+			item.size = meta.DataDescriptor.UncompressedSize;
+			item.offset = offset;
+			item.ID = items.size();
+			item.allocatorType = meta.CompressionMethod ? IFileArchive::EAT_VIRTUAL_ALLOC:IFileArchive::EAT_NULL;
+			itemsMetadata.push_back(meta);
+		};
+
+		//
 		size_t offset = 0ull;
+		auto readStringFromFile = [&file,&offset](auto charCallback) -> bool
+		{
+			char c = 0x45; // make sure we start with non-zero char
+			while (c)
+			{
+				IFile::success_t success;
+				file->read(success,&c,offset,sizeof(c));
+				if (!success)
+					return false;
+				offset += success.getSizeToProcess();
+				charCallback(c);
+			}
+			// if string is not null terminated, something went wrong reading the file
+			return !c;
+		};
+		
+		//
 		std::string filename;
 		filename.reserve(ISystem::MAX_FILENAME_LENGTH);
-		while (true)
+		if (isGZip)
 		{
+			SGZIPMemberHeader gzipHeader;
+			{
+				IFile::success_t success;
+				file->read(success,&gzipHeader,0ull,sizeof(gzipHeader));
+				if (!success)
+					return nullptr;
+				offset += success.getSizeToProcess();
+			}
+
+			//! The gzip file format seems to think that there can be multiple files in a gzip file
+			//! TODO: But OLD Irrlicht Impl doesn't honor it!?
+			if (gzipHeader.sig!=0x8b1fu)
+				return nullptr;
+			
+			// now get the file info
+			if (gzipHeader.flags&EGZF_EXTRA_FIELDS)
+			{
+				// read lenth of extra data
+				uint16_t dataLen;
+				IFile::success_t success;
+				file->read(success,&dataLen,offset,sizeof(dataLen));
+				if (!success)
+					return nullptr;
+				offset += success.getSizeToProcess();
+				// skip the extra data
+				offset += dataLen;
+			}
+			//
+			if (gzipHeader.flags&EGZF_FILE_NAME)
+			{
+				filename.clear();
+				if (!readStringFromFile([&](const char c){filename.push_back(c);}))
+					return nullptr;
+			}
+			//
+			if (gzipHeader.flags&EGZF_COMMENT)
+			{
+				if (!readStringFromFile([](const char c){}))
+					return nullptr;
+			}
+			// skip crc16
+			if (gzipHeader.flags&EGZF_CRC16)
+				offset += 2;
+
+
 			SZIPFileHeader header;
 			memset(&header,0,sizeof(SZIPFileHeader));
+			header.FilenameLength = filename.length();
+			header.CompressionMethod = gzipHeader.compressionMethod;
+			header.DataDescriptor.CompressedSize = file->getSize()-(offset+sizeof(uint64_t));
 
-			const auto& zipHeader = header;
-			static_assert(sizeof(SGZIPMemberHeader)<sizeof(header));
-			const auto& gzipHeader = reinterpret_cast<SGZIPMemberHeader&>(header);
-
-			IFile::success_t headerReadSuccess;
-			file->read(headerReadSuccess,&header,offset,isGZip ? sizeof(SGZIPMemberHeader):sizeof(header));
-			if (!headerReadSuccess)
-				break;
-			offset += headerReadSuccess.getSizeToProcess();
-
-			IFileArchive::SListEntry item;
-			if (isGZip)
+			const size_t itemOffset = offset;
+			
+			offset += header.DataDescriptor.CompressedSize;
+			// read CRC
 			{
-				//! The gzip file format seems to think that there can be multiple files in a gzip file
-				//! TODO: But OLD Irrlicht Impl doesn't honor it!?
-				if (gzipHeader.sig!=0x8b1fu)
-					break;
-			
-				// now get the file info
-				if (gzipHeader.flags&EGZF_EXTRA_FIELDS)
-				{
-					// read lenth of extra data
-					uint16_t dataLen;
-					IFile::success_t success;
-					file->read(success,&dataLen,offset,sizeof(dataLen));
-					if (!success)
-						break;
-					offset += success.getSizeToProcess();
-					// skip the extra data
-					offset += dataLen;
-				}
-				//
-				filename.clear();
-				if (gzipHeader.flags&EGZF_FILE_NAME)
-				{
-					char c = 0x45; // make sure we start with non-zero char
-					while (c)
-					{
-						IFile::success_t success;
-						file->read(success,&c,offset,sizeof(c));
-						if (!success)
-							break;
-						offset += success.getSizeToProcess();
-						filename.push_back(c);
-					}
-					// if string is not null terminated, something went wrong reading the file
-					if (c)
-						break;
-				}
-				//
-				if (gzipHeader.flags&EGZF_COMMENT)
-				{
-					char c = 0x45; // make sure we start with non-zero char
-					while (c)
-					{
-						IFile::success_t success;
-						file->read(success,&c,offset,sizeof(c));
-						if (!success)
-							break;
-						offset += success.getSizeToProcess();
-					}
-					// if string is not null terminated, something went wrong reading the file
-					if (c)
-						break;
-				}
-				// skip crc16
-				if (gzipHeader.flags&EGZF_CRC16)
-					offset += 2;
-
-				header.FilenameLength = filename.length();
-				header.CompressionMethod = gzipHeader.compressionMethod;
-				header.DataDescriptor.CompressedSize = file->getSize()-(offset+sizeof(uint64_t));
-
-				item.offset = offset;
-			
-				offset += header.DataDescriptor.CompressedSize;
-				// read CRC
-				{
-					IFile::success_t success;
-					file->read(success,&header.DataDescriptor.CRC32,offset,sizeof(header.DataDescriptor.CRC32));
-					if (!success)
-						break;
-					offset += success.getSizeToProcess();
-				}
-				// read uncompressed size
-				{
-					IFile::success_t success;
-					file->read(success,&header.DataDescriptor.UncompressedSize,offset,sizeof(header.DataDescriptor.UncompressedSize));
-					if (!success)
-						break;
-					offset += success.getSizeToProcess();
-					item.size = header.DataDescriptor.UncompressedSize;
-				}
+				IFile::success_t success;
+				file->read(success,&header.DataDescriptor.CRC32,offset,sizeof(header.DataDescriptor.CRC32));
+				if (!success)
+					return nullptr;
+				offset += success.getSizeToProcess();
 			}
-			else
-			{	if (zipHeader.Sig!=0x04034b50u)
+			// read uncompressed size
+			{
+				IFile::success_t success;
+				file->read(success,&header.DataDescriptor.UncompressedSize,offset,sizeof(header.DataDescriptor.UncompressedSize));
+				if (!success)
+					return nullptr;
+				offset += success.getSizeToProcess();
+			}
+
+			//
+			addItem(filename,itemOffset,header);
+		}
+		else
+		{
+			while (true)
+			{
+				SZIPFileHeader zipHeader;
+				{
+					IFile::success_t success;
+					file->read(success,&zipHeader,0ull,sizeof(zipHeader));
+					if (!success)
+						break;
+					offset += success.getSizeToProcess();
+				}
+
+				if (zipHeader.Sig!=0x04034b50u)
 					break;
 
 				filename.resize(zipHeader.FilenameLength);
@@ -225,72 +251,85 @@ core::smart_refctd_ptr<IFileArchive> CArchiveLoaderZip::createArchive_impl(core:
 				}
 
 				// AES encryption
-				if ((header.GeneralBitFlag&ZIP_FILE_ENCRYPTED) && (header.CompressionMethod==99))
+				if ((zipHeader.GeneralBitFlag&ZIP_FILE_ENCRYPTED) && (zipHeader.CompressionMethod==99))
 				{
-/*/
-					#ifdef _NBL_COMPILE_WITH_ZIP_ENCRYPTION_
-		int16_t restSize = entry.header.ExtraFieldLength;
-		SZipFileExtraHeader extraHeader;
-		while (restSize)
-		{
-			{
-				system::future<size_t> fut;
-				m_file->read(fut, &extraHeader, offset, sizeof(extraHeader));
-				fut.get();
-				offset += sizeof(extraHeader);
-			}
-			restSize -= sizeof(extraHeader);
-			if (extraHeader.ID == (int16_t)0x9901)
-			{
-				SZipFileAESExtraData data;
-				{
-					system::future<size_t> fut;
-					m_file->read(fut, &data, offset, sizeof(data));
-					fut.get();
-					offset += sizeof(data);
-				}
+					SZipFileExtraHeader extraHeader;
+					SZipFileAESExtraData data;
 
-				restSize -= sizeof(data);
-				if (data.Vendor[0] == 'A' && data.Vendor[1] == 'E')
-				{
-					// encode values into Sig
-					// AE-Version | Strength | ActualMode
-					entry.header.Sig =
-						((data.Version & 0xff) << 24) |
-						(data.EncryptionStrength << 16) |
-						(data.CompressionMode);
-					offset += restSize;
-					break;
-				}
-			}
-		}
-					#else
-*/
-					break; // no support, can't decrypt
-//					#endif
+					size_t localOffset = offset;
+					offset += zipHeader.ExtraFieldLength;
+					while (true)
+					{
+						{
+							IFile::success_t success;
+							file->read(success,&extraHeader,localOffset,sizeof(extraHeader));
+							if (!success)
+								break;
+							localOffset += success.getSizeToProcess();
+							if (localOffset>offset)
+								break;
+						}
+
+						if (extraHeader.ID!=0x9901u)
+							continue;
+
+						{
+							IFile::success_t success;
+							file->read(success,&data,localOffset,sizeof(data));
+							if (!success)
+								break;
+							localOffset += success.getSizeToProcess();
+							if (localOffset>offset)
+								break;
+						}
+						if (data.Vendor[0]=='A' && data.Vendor[1]=='E')
+						{
+							#ifdef _NBL_COMPILE_WITH_ZIP_ENCRYPTION_
+							// encode values into Sig
+							// AE-Version | Strength | ActualMode
+							zipHeader.Sig =
+								((data.Version & 0xff) << 24) |
+								(data.EncryptionStrength << 16) |
+								(data.CompressionMode);
+							break;
+							#else
+							filename.clear(); // no support, can't decrypt
+							#endif
+						}
+					}
 				}
 				else
-					offset += header.ExtraFieldLength;
-		
+					offset += zipHeader.ExtraFieldLength;
 
+				// if bit 3 was set, use CentralDirectory for setup
+				if (zipHeader.GeneralBitFlag&ZIP_INFO_IN_DATA_DESCRIPTOR)
+				{
+					SZIPFileCentralDirEnd dirEnd;
+					dirEnd.Sig = 0u;
 
-
-
-
-				item.offset = offset;
+					// First place where the end record could be stored
+					offset = file->getSize()-sizeof(SZIPFileCentralDirEnd)+1ull;
+					while (dirEnd.Sig!=SZIPFileCentralDirEnd::ExpectedSig)
+					{
+						IFile::success_t success;
+						file->read(success,&dirEnd,--offset,sizeof(dirEnd));
+						if (!success)
+							return nullptr;
+					}
+					items.reserve(dirEnd.TotalEntries);
+					itemsMetadata.reserve(dirEnd.TotalEntries);
+					offset = dirEnd.Offset;
+					#if 0
+					while (scanCentralDirectoryHeader(offset)) {}
+					#endif
+					assert(false); // if you ever hit this, msg @devsh
+					break;
+				}
+			
+				addItem(filename,offset,zipHeader);
 				// move forward length of data
 				offset += zipHeader.DataDescriptor.CompressedSize;
 			}
-
-			// we need to have a filename or we skip
-			if (filename.empty())
-				continue;
-
-			item.pathRelativeToArchive = filename;
-			item.ID = items.size();
-			item.allocatorType = header.CompressionMethod ? IFileArchive::EAT_VIRTUAL_ALLOC:IFileArchive::EAT_NULL;
-			items.push_back(item);
-			itemsMetadata.push_back(header);
 		}
 	}
 
@@ -302,64 +341,6 @@ core::smart_refctd_ptr<IFileArchive> CArchiveLoaderZip::createArchive_impl(core:
 }
 
 #if 0
-bool CFileArchiveZip::scanZipHeader(size_t& offset, bool ignoreGPBits)
-{
-
-	// if bit 3 was set, use CentralDirectory for setup
-	if (!ignoreGPBits && entry.header.GeneralBitFlag & ZIP_INFO_IN_DATA_DESCRIPTOR)
-	{
-		SZIPFileCentralDirEnd dirEnd;
-		m_fileInfo.clear();
-		m_files.clear();
-		// First place where the end record could be stored
-		offset = m_file->getSize() - 22;
-		const char endID[] = { 0x50, 0x4b, 0x05, 0x06, 0x0 };
-		char tmp[5] = { '\0' };
-		bool found = false;
-		// search for the end record ID
-		while (!found && offset > 0)
-		{
-			int seek = 8;
-			{
-				system::future<size_t> fut;
-				m_file->read(fut, tmp, offset, 4);
-				fut.get();
-				offset += 4;
-			}
-			switch (tmp[0])
-			{
-			case 0x50:
-				if (!strcmp(endID, tmp))
-				{
-					seek = 4;
-					found = true;
-				}
-				break;
-			case 0x4b:
-				seek = 5;
-				break;
-			case 0x05:
-				seek = 6;
-				break;
-			case 0x06:
-				seek = 7;
-				break;
-			}
-			offset -= seek;
-		}
-		{
-			system::future<size_t> fut;
-			m_file->read(fut, &dirEnd, offset, sizeof(dirEnd));
-			fut.get();
-			offset += sizeof(dirEnd);
-		}
-		m_fileInfo.reserve(dirEnd.TotalEntries);
-		offset = dirEnd.Offset;
-		while (scanCentralDirectoryHeader(offset)) {}
-		return false;
-	}
-}
-
 bool CFileArchiveZip::scanCentralDirectoryHeader(size_t& offset)
 {
 	std::filesystem::path ZipFileName = "";
@@ -384,121 +365,11 @@ bool CFileArchiveZip::scanCentralDirectoryHeader(size_t& offset)
 	m_files.back().size = entry.UncompressedSize;
 	return true;
 }
-
-core::smart_refctd_ptr<IFile> CFileArchiveZip::readFile_impl(const SOpenFileParams& params)
-{
-
-		const SZipFileEntry& e = m_fileInfo[found->ID];
-		wchar_t buf[64];
-
-		uint8_t* decryptedBuf = 0;
-		uint32_t decryptedSize = e.header.DataDescriptor.CompressedSize;
-#ifdef _NBL_COMPILE_WITH_ZIP_ENCRYPTION_
-		if ((e.header.GeneralBitFlag & ZIP_FILE_ENCRYPTED) && (e.header.CompressionMethod == 99))
-		{
-			size_t readOffset;
-
-			uint8_t salt[16] = { 0 };
-			const uint16_t saltSize = (((e.header.Sig & 0x00ff0000) >> 16) + 1) * 4;
-			{
-				readOffset = e.Offset;
-				read_blocking(m_file.get(), salt, readOffset, saltSize);
-				readOffset += saltSize;
-			}
-			char pwVerification[2];
-			char pwVerificationFile[2];
-			{
-				read_blocking(m_file.get(), pwVerification, readOffset, 2);
-				readOffset += 2;
-			}
-			fcrypt_ctx zctx; // the encryption context
-			int rc = fcrypt_init(
-				(e.header.Sig & 0x00ff0000) >> 16,
-				(const unsigned char*)m_password.c_str(), // the password
-				m_password.size(), // number of bytes in password
-				salt, // the salt
-				(unsigned char*)pwVerificationFile, // on return contains password verifier
-				&zctx); // encryption context
-			if (strncmp(pwVerificationFile, pwVerification, 2))
-			{
-				m_logger.log("Wrong password", ILogger::ELL_ERROR);
-				return 0;
-			}
-			decryptedSize = e.header.DataDescriptor.CompressedSize - saltSize - 12;
-			decryptedBuf = new uint8_t[decryptedSize];
-			//
-			constexpr uint32_t kChunkSize = 0x8000u;
-			uint32_t c = 0;
-			while ((c + kChunkSize) <= decryptedSize)
-			{
-				{
-					read_blocking(m_file.get(), decryptedBuf + c, readOffset, kChunkSize);
-					readOffset += kChunkSize;
-				}
-				fcrypt_decrypt(
-					decryptedBuf + c, // pointer to the data to decrypt
-					kChunkSize,   // how many bytes to decrypt
-					&zctx); // decryption context
-				c += kChunkSize;
-			}
-			{
-				read_blocking(m_file.get(), decryptedBuf + c, readOffset, decryptedSize - c);
-				readOffset += decryptedSize - c;
-			}
-			fcrypt_decrypt(
-				decryptedBuf + c, // pointer to the data to decrypt
-				decryptedSize - c,   // how many bytes to decrypt
-				&zctx); // decryption context
-
-			char fileMAC[10];
-			char resMAC[10];
-			rc = fcrypt_end(
-				(unsigned char*)resMAC, // on return contains the authentication code
-				&zctx); // encryption context
-			if (rc != 10)
-			{
-				m_logger.log("Error on encryption closing", ILogger::ELL_ERROR);
-				delete[] decryptedBuf;
-				return 0;
-			}
-			{
-				read_blocking(m_file.get(), fileMAC, readOffset, 10);
-				readOffset += 10;
-			}
-			if (strncmp(fileMAC, resMAC, 10))
-			{
-				m_logger.log("Error on encryption check", ILogger::ELL_ERROR);
-				delete[] decryptedBuf;
-				return 0;
-			}
-			decrypted = core::make_smart_refctd_ptr<CFileView<VirtualAllocator>>(core::smart_refctd_ptr<ISystem>(m_system), found->fullName, IFile::ECF_READ_WRITE, decryptedSize);
-
-			{
-				write_blocking(decrypted.get(), decryptedBuf, 0, decryptedSize);
-			}
-			actualCompressionMethod = (e.header.Sig & 0xffff);
-#if 0
-			if ((e.header.Sig & 0xff000000) == 0x01000000)
-			{
-			}
-			else if ((e.header.Sig & 0xff000000) == 0x02000000)
-			{
-			}
-			else
-			{
-				m_logger.log("Unknown encryption method", ILogger::ELL_ERROR);
-				return 0;
-			}
-#endif
-		}
-#endif
-}
 #endif
 
 CFileArchive::file_buffer_t CArchiveLoaderZip::CArchive::getFileBuffer(const IFileArchive::SListEntry* item)
 {
-	CFileArchive::file_buffer_t retval = {nullptr,item->size,nullptr};
-
+	const auto& header = m_itemsMetadata[item->ID];
 	// Nabla supports 0, 8, 12, 14, 99
 	//0 - The file is stored (no compression)
 	//1 - The file is Shrunk
@@ -517,8 +388,9 @@ CFileArchive::file_buffer_t CArchiveLoaderZip::CArchive::getFileBuffer(const IFi
 	//97 - WavPack - Compression Method, WinZip 11
 	//98 - PPMd - Compression Method, WinZip 10
 	//99 - AES encryption, WinZip 9
-	int16_t actualCompressionMethod = m_itemsMetadata[item->ID].CompressionMethod;
+	int16_t actualCompressionMethod = header.CompressionMethod;
 
+	CFileArchive::file_buffer_t retval = { nullptr,item->size,nullptr };
 	//
 	void* decrypted = nullptr;
 	size_t decryptedSize = 0ull;
@@ -540,21 +412,83 @@ CFileArchive::file_buffer_t CArchiveLoaderZip::CArchive::getFileBuffer(const IFi
 
 	const auto* const cFile = m_file.get();
 	void* const filePtr = const_cast<void*>(cFile->getMappedPointer());
-	std::byte* const mmapPtr = reinterpret_cast<std::byte*>(filePtr)+item->offset;
+	std::byte* mmapPtr = reinterpret_cast<std::byte*>(filePtr)+item->offset;
 
 	// decrypt
-	if (false)
+	if ((header.GeneralBitFlag&ZIP_FILE_ENCRYPTED) && (header.CompressionMethod==99))
 	{
+		const uint8_t* salt = reinterpret_cast<uint8_t*>(mmapPtr);
+	#ifdef _NBL_COMPILE_WITH_ZIP_ENCRYPTION_
+		const uint16_t saltSize = ((header.Sig>>14u)&0x3fcu)+4u;
+		{
+			const size_t reduction = saltSize+12u;
+			if (header.DataDescriptor.CompressedSize<=reduction)
+				return retval;
+			decryptedSize = header.DataDescriptor.CompressedSize-reduction;
+		}
+		mmapPtr += saltSize;
+		uint16_t& pwVerification = *reinterpret_cast<uint16_t*>(mmapPtr);
+		mmapPtr += 2u;
+		uint16_t pwVerificationFile;
+
+		fcrypt_ctx zctx; // the encryption context
+		int rc = fcrypt_init(
+			(header.Sig>>16u)&0xffu,
+			(const unsigned char*)m_password.c_str(), // the password
+			m_password.size(), // number of bytes in password
+			salt, // the salt
+			(unsigned char*)&pwVerificationFile, // on return contains password verifier
+			&zctx
+		); // encryption context
+		if (pwVerification!=pwVerificationFile)
+		{
+			m_logger.log("Wrong password for ZIP Archive.",ILogger::ELL_ERROR);
+			return retval;
+		}
+
 		if (actualCompressionMethod)
 			decrypted = CPlainHeapAllocator(nullptr).alloc(decryptedSize);
 		else
 			decrypted = VirtualMemoryAllocator(nullptr).alloc(decryptedSize);
+		if (!decrypted)
+	#endif
+			return retval;
+	#ifdef _NBL_COMPILE_WITH_ZIP_ENCRYPTION_
+		constexpr uint32_t kChunkSize = 0x8000u;
+		for (size_t offset=0u; offset<decryptedSize; offset+=kChunkSize)
+		{
+			const uint32_t size = core::min<size_t>(decryptedSize-offset,kChunkSize);
+			fcrypt_decrypt(
+				reinterpret_cast<unsigned char*>(decrypted)+offset, // pointer to the data to decrypt
+				size,   // how many bytes to decrypt
+				&zctx // decryption context
+			);
+			mmapPtr += size;
+		}
+		char resMAC[10];
+		rc = fcrypt_end(
+			(unsigned char*)resMAC, // on return contains the authentication code
+			&zctx // encryption context
+		);
+		if (rc != 10)
+		{
+			m_logger.log("Error on encryption closing",ILogger::ELL_ERROR);
+			return retval;
+		}
+		const char* fileMAC = reinterpret_cast<char*>(mmapPtr);
+		mmapPtr += 10;
+		if (strncmp(fileMAC,resMAC,10))
+		{
+			m_logger.log("Error on encryption check", ILogger::ELL_ERROR);
+			return retval;
+		}
+
+		actualCompressionMethod = (header.Sig & 0xffff);
+	#endif
 	}
 	//
 	if (actualCompressionMethod)
 	{
-		// TODO
-		//const uint32_t uncompressedSize = e.header.DataDescriptor.UncompressedSize;
 		decompressed = VirtualMemoryAllocator(nullptr).alloc(item->size);
 		if (!decompressed)
 		{
@@ -642,7 +576,7 @@ CFileArchive::file_buffer_t CArchiveLoaderZip::CArchive::getFileBuffer(const IFi
 				pcData + sizeof(uint32_t) + propSize,
 				&tmpSrcSize,
 				pcData + sizeof(uint32_t), propSize,
-				(m_itemsMetadata[item->ID].GeneralBitFlag&0x1u) ? LZMA_FINISH_END:LZMA_FINISH_ANY, &status,
+				(header.GeneralBitFlag&0x1u) ? LZMA_FINISH_END:LZMA_FINISH_ANY, &status,
 				&lzmaAlloc
 			);
 

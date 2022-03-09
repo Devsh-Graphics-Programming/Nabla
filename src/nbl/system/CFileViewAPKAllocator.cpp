@@ -4,7 +4,7 @@ using namespace nbl::system;
 
 #ifdef _NBL_PLATFORM_ANDROID_
 #include <jni.h>
-#include <asset_manager.h>
+#include <android/asset_manager.h>
 
 void* CFileViewAPKAllocator::alloc(size_t size)
 {

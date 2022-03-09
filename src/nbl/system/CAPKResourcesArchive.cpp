@@ -51,6 +51,7 @@ core::vector<IFileArchive::SListEntry> CAPKResourcesArchive::computeItems(const 
 
 		jniEnv->DeleteLocalRef(jstr);
 	}
+	return result;
 }
 
 CFileArchive::file_buffer_t CAPKResourcesArchive::getFileBuffer(const IFileArchive::SListEntry* item)
