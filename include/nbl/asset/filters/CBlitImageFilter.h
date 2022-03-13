@@ -439,7 +439,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 			};
 			const core::SRange<const IImage::SBufferCopy> outRegions = outImg->getRegions(outMipLevel);
 			auto storeToImage = [policy,coverageSemantic,needsNormalization,outExtent,intermediateStorage,&sampler,outFormat,alphaRefValue,outData,intermediateStrides,alphaChannel,storeToTexel,outMipLevel,outOffset,outRegions,outImg](
-				const core::rational<>& inverseCoverage, const int axis, const core::vectorSIMDu32& outOffsetLayer
+				const core::rational<int64_t>& inverseCoverage, const int axis, const core::vectorSIMDu32& outOffsetLayer
 			) -> void
 			{
 				assert(needsNormalization);
@@ -448,10 +448,10 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 				{
 					const auto outputTexelCount = outExtent.width*outExtent.height*outExtent.depth;
 					// all values with index<=rankIndex will be %==inverseCoverage of the overall array
-					const int32_t rankIndex = (inverseCoverage*core::rational<int32_t>(outputTexelCount)).getIntegerApprox()-1;
+					const int64_t rankIndex = (inverseCoverage*core::rational<int64_t>(outputTexelCount)).getIntegerApprox()-1;
 					auto* const begin = intermediateStorage[(axis+1)%3];
 					// this is our new reference value
-					auto* const nth = begin+core::max<int32_t>(rankIndex,0);
+					auto* const nth = begin+core::max<int64_t>(rankIndex,0);
 					auto* const end = begin+outputTexelCount;
 					std::for_each(policy,begin,end,[&intermediateStorage,axis,begin,alphaChannel,&sampler,outFormat](value_type& texelAlpha)
 					{
@@ -689,7 +689,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 					});
 					// we'll only get here if we have to do coverage adjustment
 					if (needsNormalization && lastPass)
-						storeToImage(core::rational<>(inv_cvg_num,inv_cvg_den),axis,outOffsetLayer);
+						storeToImage(core::rational<int64_t>(inv_cvg_num,inv_cvg_den),axis,outOffsetLayer);
 				};
 				// filter in X-axis
 				filterAxis(IImage::ET_1D,kernelX);

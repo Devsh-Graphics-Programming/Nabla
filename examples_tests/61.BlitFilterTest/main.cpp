@@ -6,6 +6,7 @@
 #include <nabla.h>
 
 #include "../common/CommonAPI.h"
+#include "nbl/ext/ScreenShot/ScreenShot.h"
 
 using namespace nbl;
 using namespace nbl::asset;
@@ -47,6 +48,187 @@ core::smart_refctd_ptr<ICPUImage> createCPUImage(const std::array<uint32_t, 3>& 
 	return image;
 }
 
+static inline asset::IImageView<asset::ICPUImage>::E_TYPE getImageViewTypeFromImageType_CPU(const asset::IImage::E_TYPE type)
+{
+	switch (type)
+	{
+	case asset::IImage::ET_1D:
+		return asset::ICPUImageView::ET_1D;
+	case asset::IImage::ET_2D:
+		return asset::ICPUImageView::ET_2D;
+	case asset::IImage::ET_3D:
+		return asset::ICPUImageView::ET_3D;
+	default:
+		__debugbreak();
+		return static_cast<asset::IImageView<asset::ICPUImage>::E_TYPE>(0u);
+	}
+}
+
+static inline video::IGPUImageView::E_TYPE getImageViewTypeFromImageType_GPU(const video::IGPUImage::E_TYPE type)
+{
+	switch (type)
+	{
+	case video::IGPUImage::ET_1D:
+		return video::IGPUImageView::ET_1D;
+	case video::IGPUImage::ET_2D:
+		return video::IGPUImageView::ET_2D;
+	case video::IGPUImage::ET_3D:
+		return video::IGPUImageView::ET_3D;
+	default:
+		__debugbreak();
+		return static_cast<video::IGPUImageView::E_TYPE>(0u);
+	}
+}
+
+float computeAlphaCoverage(const double referenceAlpha, asset::ICPUImage* image)
+{
+	const uint32_t mipLevel = 0u;
+
+	uint32_t alphaTestPassCount = 0u;
+	const auto& extent = image->getCreationParameters().extent;
+
+	for (uint32_t z = 0u; z < extent.depth; ++z)
+	{
+		for (uint32_t y = 0u; y < extent.height; ++y)
+		{
+			for (uint32_t x = 0u; x < extent.width; ++x)
+			{
+				const core::vectorSIMDu32 texCoord(x, y, z);
+				core::vectorSIMDu32 dummy;
+				const void* encodedPixel = image->getTexelBlockData(mipLevel, texCoord, dummy);
+
+				double decodedPixel[4];
+				asset::decodePixelsRuntime(image->getCreationParameters().format, &encodedPixel, decodedPixel, dummy.x, dummy.y);
+
+				if (decodedPixel[3] > referenceAlpha)
+					++alphaTestPassCount;
+			}
+		}
+	}
+
+	const float alphaCoverage = float(alphaTestPassCount) / float(extent.width * extent.height * extent.depth);
+	return alphaCoverage;
+};
+
+class CBlitFilter
+{
+private:
+	struct alignas(16) vec3_aligned
+	{
+		float x, y, z;
+	};
+
+	struct alignas(16) uvec3_aligned
+	{
+		uint32_t x, y, z;
+	};
+
+public:
+	struct alpha_test_push_constants_t
+	{
+		float referenceAlpha;
+	};
+
+	struct blit_push_constants_t
+	{
+		uvec3_aligned inDim;
+		uvec3_aligned outDim;
+		vec3_aligned negativeSupport;
+		vec3_aligned positiveSupport;
+		uvec3_aligned windowDim;
+		uvec3_aligned phaseCount;
+	};
+
+	CBlitFilter(video::ILogicalDevice* logicalDevice)
+	{
+		core::smart_refctd_ptr<video::IGPUSampler> sampler = nullptr;
+		{
+			video::IGPUSampler::SParams params = {};
+			params.TextureWrapU = asset::ISampler::ETC_CLAMP_TO_EDGE;
+			params.TextureWrapV = asset::ISampler::ETC_CLAMP_TO_EDGE;
+			params.TextureWrapW = asset::ISampler::ETC_CLAMP_TO_EDGE;
+			params.BorderColor = asset::ISampler::ETBC_FLOAT_OPAQUE_BLACK;
+			params.MinFilter = asset::ISampler::ETF_LINEAR;
+			params.MaxFilter = asset::ISampler::ETF_LINEAR;
+			params.MipmapMode = asset::ISampler::ESMM_NEAREST;
+			params.AnisotropicFilter = 0u;
+			params.CompareEnable = 0u;
+			params.CompareFunc = asset::ISampler::ECO_ALWAYS;
+			sampler = logicalDevice->createGPUSampler(std::move(params));
+		}
+
+		// alpha test
+		{
+			{
+				constexpr uint32_t DESCRIPTOR_COUNT = 2u;
+				asset::E_DESCRIPTOR_TYPE types[DESCRIPTOR_COUNT] = { asset::EDT_COMBINED_IMAGE_SAMPLER, asset::EDT_STORAGE_BUFFER }; // input image, atomic counter
+				alphaTestDSLayout = getDSLayout(DESCRIPTOR_COUNT, types, logicalDevice, sampler);
+			}
+
+			asset::SPushConstantRange pcRange = {};
+			{
+				pcRange.stageFlags = asset::IShader::ESS_COMPUTE;
+				pcRange.offset = 0u;
+				pcRange.size = sizeof(alpha_test_push_constants_t);
+			}
+
+			alphaTestPipelineLayout = logicalDevice->createGPUPipelineLayout(&pcRange, &pcRange + 1ull, core::smart_refctd_ptr(alphaTestDSLayout));
+		}
+
+		// blit
+		{
+			{
+				constexpr uint32_t DESCRIPTOR_COUNT = 3u;
+				asset::E_DESCRIPTOR_TYPE types[DESCRIPTOR_COUNT] = { asset::EDT_COMBINED_IMAGE_SAMPLER, asset::EDT_STORAGE_IMAGE, asset::EDT_UNIFORM_BUFFER }; // input image, output image, cached weights
+				blitDSLayout = getDSLayout(DESCRIPTOR_COUNT, types, logicalDevice, sampler);
+			}
+
+			asset::SPushConstantRange pcRange = {};
+			{
+				pcRange.stageFlags = asset::IShader::ESS_COMPUTE;
+				pcRange.offset = 0u;
+				pcRange.size = sizeof(blit_push_constants_t);
+			}
+
+			blitPipelineLayout = logicalDevice->createGPUPipelineLayout(&pcRange, &pcRange + 1ull, core::smart_refctd_ptr(blitDSLayout));
+		}
+	}
+
+	
+	inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> getDefaultAlphaTestDSLayout() const { return alphaTestDSLayout; }
+	inline core::smart_refctd_ptr<video::IGPUPipelineLayout> getDefaultAlphaTestPipelineLayout() const { return alphaTestPipelineLayout; };
+	inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> getDefaultBlitDSLayout() const { return blitDSLayout; };
+	inline core::smart_refctd_ptr<video::IGPUPipelineLayout> getDefaultBlitPipelineLayout() const { return blitPipelineLayout; };
+
+private:
+	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> alphaTestDSLayout = nullptr;
+	core::smart_refctd_ptr<video::IGPUPipelineLayout> alphaTestPipelineLayout = nullptr;
+	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> blitDSLayout = nullptr;
+	core::smart_refctd_ptr<video::IGPUPipelineLayout> blitPipelineLayout = nullptr;
+
+	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> getDSLayout(const uint32_t descriptorCount, const asset::E_DESCRIPTOR_TYPE* descriptorTypes, video::ILogicalDevice* logicalDevice, core::smart_refctd_ptr<video::IGPUSampler> sampler)
+	{
+		constexpr uint32_t MAX_DESCRIPTOR_COUNT = 100u;
+		assert(descriptorCount < MAX_DESCRIPTOR_COUNT);
+
+		video::IGPUDescriptorSetLayout::SBinding bindings[MAX_DESCRIPTOR_COUNT] = {};
+
+		for (uint32_t i = 0u; i < descriptorCount; ++i)
+		{
+			bindings[i].binding = i;
+			bindings[i].count = 1u;
+			bindings[i].stageFlags = asset::IShader::ESS_COMPUTE;
+			bindings[i].type = descriptorTypes[i];
+
+			if (bindings[i].type == asset::EDT_COMBINED_IMAGE_SAMPLER)
+				bindings[i].samplers = &sampler;
+		}
+
+		auto dsLayout = logicalDevice->createGPUDescriptorSetLayout(bindings, bindings + descriptorCount);
+		return dsLayout;
+	}
+};
+
 class BlitFilterTestApp : public ApplicationBase
 {
 	constexpr static uint32_t SC_IMG_COUNT = 3u;
@@ -74,36 +256,63 @@ public:
 		logger = std::move(initOutput.logger);
 		inputSystem = std::move(initOutput.inputSystem);
 
-		const uint32_t inChannelCount = 4u;
-		std::array<uint32_t, 3> inImageDim = { 7u, 19u, 13u };
-		std::array<uint32_t, 3> outImageDim = { 5u, 17u, 11u };
+		const BlitFilter::CState::E_ALPHA_SEMANTIC alphaSemantic = BlitFilter::CState::EAS_REFERENCE_OR_COVERAGE;
+		const double referenceAlpha = 0.5;
 
-		core::smart_refctd_ptr<asset::ICPUImage> inImage = createCPUImage(inImageDim, asset::IImage::ET_3D, asset::EF_R32G32B32A32_SFLOAT);
-
-		float inputVal = 1.f;
-		float* inImagePixel = reinterpret_cast<float*>(inImage->getBuffer()->getPointer());
-		for (uint32_t k = 0u; k < inImageDim[2]; ++k)
+		const char* pathToInputImage = "alpha_test_input.exr";// "../../media/colorexr.exr";
+		core::smart_refctd_ptr<asset::ICPUImage> inImage = nullptr;
 		{
-			for (uint32_t j = 0u; j < inImageDim[1]; ++j)
-			{
-				for (uint32_t i = 0; i < inImageDim[0]; ++i)
-				{
-					const float valueToPut = inputVal++; // replicate the same value in all channels for now
-					const uint32_t pixelIndex = k * (inImageDim[1] * inImageDim[0]) + j * inImageDim[0] + i;
-					for (uint32_t c = 0u; c < inChannelCount; ++c)
-						inImagePixel[inChannelCount * pixelIndex + c] = valueToPut;
-				}
-			}
+			constexpr auto cachingFlags = static_cast<nbl::asset::IAssetLoader::E_CACHING_FLAGS>(nbl::asset::IAssetLoader::ECF_DONT_CACHE_REFERENCES & nbl::asset::IAssetLoader::ECF_DONT_CACHE_TOP_LEVEL);
+
+			asset::IAssetLoader::SAssetLoadParams loadParams(0ull, nullptr, cachingFlags);
+			auto cpuImageBundle = assetManager->getAsset(pathToInputImage, loadParams);
+			auto cpuImageContents = cpuImageBundle.getContents();
+			if (cpuImageContents.empty() || cpuImageContents.begin() == cpuImageContents.end())
+				FATAL_LOG("Failed to load the image at path %s\n", pathToInputImage);
+
+			auto asset = *cpuImageContents.begin();
+			if (asset->getAssetType() == asset::IAsset::ET_IMAGE_VIEW)
+				__debugbreak(); // it would be weird if the loaded image is already an image view
+
+			inImage = core::smart_refctd_ptr_static_cast<asset::ICPUImage>(asset);
 		}
-		
+
+		const float inAlphaCoverage = computeAlphaCoverage(referenceAlpha, inImage.get());
+
+		std::array<uint32_t, 3> outImageDim = { inImage->getCreationParameters().extent.width/3, inImage->getCreationParameters().extent.height / 7, 1u };
+
+
+		//const uint32_t inChannelCount = 4u;
+		//std::array<uint32_t, 3> inImageDim = { 1024u, 1024u, 1u };
+
+		// core::smart_refctd_ptr<asset::ICPUImage> inImage = createCPUImage(inImageDim, asset::IImage::ET_3D, asset::EF_R32G32B32A32_SFLOAT);
+
+		// float inputVal = 1.f;
+		// float* inImagePixel = reinterpret_cast<float*>(inImage->getBuffer()->getPointer());
+		// for (uint32_t k = 0u; k < inImageDim[2]; ++k)
+		// {
+		// 	for (uint32_t j = 0u; j < inImageDim[1]; ++j)
+		// 	{
+		// 		for (uint32_t i = 0; i < inImageDim[0]; ++i)
+		// 		{
+		// 			const float valueToPut = inputVal++; // replicate the same value in all channels for now
+		// 			const uint32_t pixelIndex = k * (inImageDim[1] * inImageDim[0]) + j * inImageDim[0] + i;
+		// 			for (uint32_t c = 0u; c < inChannelCount; ++c)
+		// 				inImagePixel[inChannelCount * pixelIndex + c] = valueToPut;
+		// 		}
+		// 	}
+		// }
+
 		const core::vectorSIMDf scaleX(1.f, 1.f, 1.f, 1.f);
 		const core::vectorSIMDf scaleY(1.f, 1.f, 1.f, 1.f);
 		const core::vectorSIMDf scaleZ(1.f, 1.f, 1.f, 1.f);
 
 		// CPU blit
-		core::vector<float> cpuOutput(static_cast<uint64_t>(outImageDim[0]) * outImageDim[1] * outImageDim[2] * inChannelCount);
+		// core::vector<float> cpuOutput(static_cast<uint64_t>(outImageDim[0]) * outImageDim[1] * outImageDim[2] * inChannelCount);
 		{
-			core::smart_refctd_ptr<ICPUImage> outImage = createCPUImage(outImageDim, asset::IImage::ET_3D, asset::EF_R32G32B32A32_SFLOAT);
+			printf("CPU begin..\n");
+
+			auto outImage = createCPUImage(outImageDim, inImage->getCreationParameters().type, inImage->getCreationParameters().format);
 
 			auto kernelX = ScaledBoxKernel(scaleX, asset::CBoxImageFilterKernel()); // (-1/2, 1/2)
 			auto kernelY = ScaledBoxKernel(scaleY, asset::CBoxImageFilterKernel()); // (-1/2, 1/2)
@@ -125,35 +334,152 @@ public:
 
 			blitFilterState.enableLUTUsage = true;
 
+			blitFilterState.alphaChannel = 3u;
+			blitFilterState.alphaRefValue = referenceAlpha;
+			blitFilterState.alphaSemantic = alphaSemantic;
+
 			blitFilterState.scratchMemoryByteSize = BlitFilter::getRequiredScratchByteSize(&blitFilterState);
 			blitFilterState.scratchMemory = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(blitFilterState.scratchMemoryByteSize, 32));
 
 			blitFilterState.computePhaseSupportLUT(&blitFilterState);
 			BlitFilter::value_type* lut = reinterpret_cast<BlitFilter::value_type*>(blitFilterState.scratchMemory + BlitFilter::getPhaseSupportLUTByteOffset(&blitFilterState));
 
-			if (!BlitFilter::execute(&blitFilterState))
+			if (!BlitFilter::execute(core::execution::par_unseq, &blitFilterState))
 				printf("Blit filter just shit the bed\n");
 
 			_NBL_ALIGNED_FREE(blitFilterState.scratchMemory);
 
 			// This needs to change when testing with more complex images
-			float* outPixel = reinterpret_cast<float*>(outImage->getBuffer()->getPointer());
-			memcpy(cpuOutput.data(), outPixel, cpuOutput.size()*sizeof(float));
+			// float* outPixel = reinterpret_cast<float*>(outImage->getBuffer()->getPointer());
+			// memcpy(cpuOutput.data(), outPixel, cpuOutput.size()*sizeof(float));
+			printf("CPU end..\n");
+
+			const float outAlphaCoverage = computeAlphaCoverage(referenceAlpha, outImage.get());
+
+			const char* writePath = "cpu_out.exr";
+			{
+				// create an image view to write the image to disk
+				core::smart_refctd_ptr<asset::ICPUImageView> outImageView = nullptr;
+				{
+					ICPUImageView::SCreationParams viewParams;
+					viewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
+					viewParams.image = outImage;
+					viewParams.format = viewParams.image->getCreationParameters().format;
+					viewParams.viewType = getImageViewTypeFromImageType_CPU(viewParams.image->getCreationParameters().type);
+					viewParams.subresourceRange.baseArrayLayer = 0u;
+					viewParams.subresourceRange.layerCount = outImage->getCreationParameters().arrayLayers;
+					viewParams.subresourceRange.baseMipLevel = 0u;
+					viewParams.subresourceRange.levelCount = outImage->getCreationParameters().mipLevels;
+
+					outImageView = ICPUImageView::create(std::move(viewParams));
+				}
+
+				asset::IAssetWriter::SAssetWriteParams wparams(outImageView.get());
+				wparams.logger = logger.get();
+				if (!assetManager->writeAsset(writePath, wparams))
+					FATAL_LOG("Failed to write cpu image at path %s\n", writePath);
+			}
 		}
 
 		// GPU blit
-		core::vector<float> gpuOutput(static_cast<uint64_t>(outImageDim[0]) * outImageDim[1] * outImageDim[2]*inChannelCount);
+		// core::vector<float> gpuOutput(static_cast<uint64_t>(outImageDim[0]) * outImageDim[1] * outImageDim[2]*inChannelCount);
 		{
+			printf("GPU begin..\n");
+
+			auto outImage = createCPUImage(outImageDim, inImage->getCreationParameters().type, inImage->getCreationParameters().format);
+
+			inImage->addImageUsageFlags(asset::ICPUImage::EUF_SAMPLED_BIT);
+			outImage->addImageUsageFlags(asset::ICPUImage::EUF_STORAGE_BIT);
+
+			core::smart_refctd_ptr<video::IGPUImage> inImageGPU = nullptr;
+			core::smart_refctd_ptr<video::IGPUImage> outImageGPU = nullptr;
+			core::smart_refctd_ptr<video::IGPUImageView> inImageView = nullptr;
+			core::smart_refctd_ptr<video::IGPUImageView> outImageView = nullptr;
+
+			if (!getGPUImagesAndTheirViews(inImage, outImage, &inImageGPU, &outImageGPU, &inImageView, &outImageView))
+				FATAL_LOG("Failed to convert CPU images to GPU images\n");
+
+			core::smart_refctd_ptr<video::IGPUBuffer> alphaTestCounterBuffer = nullptr;
+			{
+				const size_t neededSize = sizeof(uint32_t);
+
+				video::IGPUBuffer::SCreationParams creationParams = {};
+				creationParams.usage = static_cast<video::IGPUBuffer::E_USAGE_FLAGS>(video::IGPUBuffer::EUF_TRANSFER_DST_BIT | video::IGPUBuffer::EUF_TRANSFER_SRC_BIT | video::IGPUBuffer::EUF_STORAGE_BUFFER_BIT);
+
+				alphaTestCounterBuffer = logicalDevice->createDeviceLocalGPUBufferOnDedMem(creationParams, neededSize);
+
+				asset::SBufferRange<video::IGPUBuffer> bufferRange = {};
+				bufferRange.offset = 0ull;
+				bufferRange.size = alphaTestCounterBuffer->getCachedCreationParams().declaredSize;
+				bufferRange.buffer = alphaTestCounterBuffer;
+
+				const uint32_t fillValue = 0u;
+				utilities->updateBufferRangeViaStagingBuffer(queues[CommonAPI::InitOutput::EQT_COMPUTE], bufferRange, &fillValue);
+			}
+
 			// it is probably a good idea to expose VkPhysicalDeviceLimits::maxComputeSharedMemorySize
 			constexpr size_t MAX_SMEM_SIZE = 16ull * 1024ull;
 
-			core::vectorSIMDf scale;
-			{
-				const core::vectorSIMDf inExtent(inImageDim[0], inImageDim[1], inImageDim[2]);
-				const core::vectorSIMDf outExtent(outImageDim[0], outImageDim[1], outImageDim[2]);
+			CBlitFilter blitFilter(logicalDevice.get());
 
-				scale = inExtent.preciseDivision(outExtent);
+			const auto alphaTestDSLayout = blitFilter.getDefaultAlphaTestDSLayout();
+			const uint32_t alphaTestDSCount = 1u;
+			auto alphaDescriptorPool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE, &alphaTestDSLayout.get(), &alphaTestDSLayout.get() + 1ull, &alphaTestDSCount);
+
+			auto alphaTestDS = logicalDevice->createGPUDescriptorSet(alphaDescriptorPool.get(), core::smart_refctd_ptr(alphaTestDSLayout));
+			{
+				constexpr uint32_t MAX_DESCRIPTOR_COUNT = 10u;
+				const uint32_t descriptorCount = static_cast<uint32_t>(alphaTestDSLayout->getBindings().size());
+				assert(descriptorCount < MAX_DESCRIPTOR_COUNT);
+
+				video::IGPUDescriptorSet::SWriteDescriptorSet writes[MAX_DESCRIPTOR_COUNT] = {};
+				video::IGPUDescriptorSet::SDescriptorInfo infos[MAX_DESCRIPTOR_COUNT] = {};
+
+				for (uint32_t i = 0u; i < descriptorCount; ++i)
+				{
+					writes[i].dstSet = alphaTestDS.get();
+					writes[i].binding = i;
+					writes[i].arrayElement = 0u;
+					writes[i].count = 1u;
+					writes[i].info = &infos[i];
+				}
+
+				// inImage
+				writes[0].descriptorType = asset::EDT_COMBINED_IMAGE_SAMPLER;
+				infos[0].desc = inImageView;
+				infos[0].image.imageLayout = asset::EIL_GENERAL;
+				infos[0].image.sampler = nullptr;
+
+				// alphaTestCounterBuffer
+				writes[1].descriptorType = asset::EDT_STORAGE_BUFFER;
+				infos[1].desc = alphaTestCounterBuffer;
+				infos[1].buffer.offset = 0u;
+				infos[1].buffer.size = alphaTestCounterBuffer->getCachedCreationParams().declaredSize;
+
+				logicalDevice->updateDescriptorSets(descriptorCount, writes, 0u, nullptr);
 			}
+
+			const char* alphaTestCompShaderPath = "../alpha_test.comp";
+			core::smart_refctd_ptr<video::IGPUSpecializedShader> alphaTestCompShader = nullptr;
+			{
+				asset::IAssetLoader::SAssetLoadParams params = {};
+				params.logger = logger.get();
+
+				auto specShader_cpu = core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(*assetManager->getAsset(alphaTestCompShaderPath, params).getContents().begin());
+
+				auto gpuArray = cpu2gpu.getGPUObjectsFromAssets(&specShader_cpu.get(), &specShader_cpu.get() + 1, cpu2gpuParams);
+				if (!gpuArray || gpuArray->size() < 1u || !(*gpuArray)[0])
+					FATAL_LOG("Failed to convert CPU specialized shader to GPU specialized shaders!\n");
+
+				alphaTestCompShader = gpuArray->begin()[0];
+			}
+
+			const auto& alphaTestPipelineLayout = blitFilter.getDefaultAlphaTestPipelineLayout();
+			auto alphaTestPipeline = logicalDevice->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(alphaTestPipelineLayout), std::move(alphaTestCompShader));
+
+			const core::vectorSIMDu32 inExtent(inImage->getCreationParameters().extent.width, inImage->getCreationParameters().extent.height, inImage->getCreationParameters().extent.depth);
+			const core::vectorSIMDu32 outExtent(outImageDim[0], outImageDim[1], outImageDim[2]);
+			core::vectorSIMDf scale = static_cast<core::vectorSIMDf>(inExtent).preciseDivision(static_cast<core::vectorSIMDf>(outExtent));
 			
 			// kernelX/Y/Z stores absolute values of support so they won't be helpful here
 			const core::vectorSIMDf negativeSupport = core::vectorSIMDf(-0.5f, -0.5f, -0.5f)*scale;
@@ -169,10 +495,7 @@ public:
 			// fail if the window cannot be preloaded into shared memory
 			const size_t windowSize = static_cast<size_t>(windowDim.x) * windowDim.y * windowDim.z * asset::getTexelOrBlockBytesize(inImage->getCreationParameters().format);
 			if (windowSize > MAX_SMEM_SIZE)
-			{
-				printf("Failed to blit because supports are too large\n");
-				__debugbreak();
-			}
+				FATAL_LOG("Failed to blit because supports are too large\n");
 
 			const auto& limits = physicalDevice->getLimits();
 			constexpr uint32_t MAX_INVOCATION_COUNT = 1024u;
@@ -180,35 +503,8 @@ public:
 			// they could be too small as well
 			const uint32_t totalInvocationCount = windowDim.x * windowDim.y * windowDim.z;
 			if ((totalInvocationCount > MAX_INVOCATION_COUNT) || (windowDim.x > limits.maxWorkgroupSize[0]) || (windowDim.y > limits.maxWorkgroupSize[1]) || (windowDim.z > limits.maxWorkgroupSize[2]))
-			{
-				printf("Failed to blit because workgroup size limit exceeded\n");
-				__debugbreak();
-			}
+				FATAL_LOG("Failed to blit because workgroup size limit exceeded\n");
 
-			core::smart_refctd_ptr<ICPUImage> outImage = createCPUImage(outImageDim, asset::IImage::ET_3D, asset::EF_R32G32B32A32_SFLOAT);
-
-			struct alignas(16) vec3_aligned
-			{
-				float x, y, z;
-			};
-
-			struct alignas(16) uvec3_aligned
-			{
-				uint32_t x, y, z;
-			};
-
-			struct push_constants_t
-			{
-				uvec3_aligned inDim;
-				uvec3_aligned outDim;
-				vec3_aligned negativeSupport;
-				vec3_aligned positiveSupport;
-				uvec3_aligned windowDim;
-				uvec3_aligned phaseCount;
-			};
-
-			const core::vectorSIMDu32 inExtent(inImage->getCreationParameters().extent.width, inImage->getCreationParameters().extent.height, inImage->getCreationParameters().extent.depth);
-			const core::vectorSIMDu32 outExtent(outImage->getCreationParameters().extent.width, outImage->getCreationParameters().extent.height, outImage->getCreationParameters().extent.depth);
 			const core::vectorSIMDu32 phaseCount = BlitFilter::getPhaseCount(inExtent, outExtent, inImage->getCreationParameters().type);
 			core::smart_refctd_ptr<video::IGPUBuffer> phaseSupportLUT = nullptr;
 			{
@@ -242,6 +538,9 @@ public:
 				const size_t lutSize = (static_cast<size_t>(phaseCount.x)*windowDim.x + static_cast<size_t>(phaseCount.y)*windowDim.y + static_cast<size_t>(phaseCount.z)*windowDim.z)*sizeof(float)*4ull;
 
 				// lut has the LUT in doubles, I want it in floats
+				// Todo(achal): Probably need to pack them as half floats? But they are NOT different for each channel??
+				// If we're under std140 layout, wouldn't it be better just make a static array of vec4 inside the uniform block
+				// since a static array of floats of the same length would take up the same amount of space?
 				core::vector<float> lutInFloats(lutSize / sizeof(float));
 				for (uint32_t i = 0u; i < lutInFloats.size()/4; ++i)
 				{
@@ -252,7 +551,6 @@ public:
 					lutInFloats[4 * i + 3] = static_cast<float>(lut[i]);
 				}
 
-				// Todo(achal): Probably need to pack them as half floats? But they are not different for each channel??
 				video::IGPUBuffer::SCreationParams uboCreationParams = {};
 				uboCreationParams.usage = static_cast<video::IGPUBuffer::E_USAGE_FLAGS>(video::IGPUBuffer::EUF_UNIFORM_BUFFER_BIT | video::IGPUBuffer::EUF_TRANSFER_DST_BIT);
 				phaseSupportLUT = logicalDevice->createDeviceLocalGPUBufferOnDedMem(uboCreationParams, lutSize);
@@ -265,128 +563,23 @@ public:
 				utilities->updateBufferRangeViaStagingBuffer(queues[CommonAPI::InitOutput::EQT_COMPUTE], bufferRange, lutInFloats.data());
 			}
 
-			core::smart_refctd_ptr<video::IGPUImageView> inImageView = nullptr;
-			core::smart_refctd_ptr<video::IGPUImageView> outImageView = nullptr;
-			core::smart_refctd_ptr<video::IGPUImage> inImageGPU = nullptr;
-			core::smart_refctd_ptr<video::IGPUImage> outImageGPU = nullptr;
+			const auto& blitDSLayout = blitFilter.getDefaultBlitDSLayout();
+			const uint32_t blitDSCount = 1u;
+			auto blitDescriptorPool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE, &blitDSLayout.get(), &blitDSLayout.get() + 1ull, &blitDSCount);
 
-			inImage->addImageUsageFlags(asset::ICPUImage::EUF_SAMPLED_BIT);
-			outImage->addImageUsageFlags(asset::ICPUImage::EUF_STORAGE_BIT);
-
-			core::smart_refctd_ptr<asset::ICPUImage> tmp[2] = { inImage, outImage };
-			cpu2gpuParams.beginCommandBuffers();
-			auto gpuArray = cpu2gpu.getGPUObjectsFromAssets(tmp, tmp + 2ull, cpu2gpuParams);
-			cpu2gpuParams.waitForCreationToComplete();
-			if (!gpuArray || gpuArray->size() < 2ull || (!(*gpuArray)[0]))
-				FATAL_LOG("Failed to convert CPU images to GPU images\n");
-
-			inImageGPU = gpuArray->begin()[0];
-			outImageGPU = gpuArray->begin()[1];
-
-			// do layout transition to GENERAL
-			// (I think it might be a good idea to allow the user to change asset::ICPUImage's initialLayout and have the asset converter
-			// do the layout transition for them)
-			core::smart_refctd_ptr<video::IGPUCommandBuffer> cmdbuf = nullptr;
-			logicalDevice->createCommandBuffers(commandPools[CommonAPI::InitOutput::EQT_COMPUTE].get(), video::IGPUCommandBuffer::EL_PRIMARY, 1u, &cmdbuf);
-			auto fence = logicalDevice->createFence(video::IGPUFence::ECF_UNSIGNALED);
-			video::IGPUCommandBuffer::SImageMemoryBarrier barriers[2] = {};
-
-			barriers[0].oldLayout = asset::EIL_UNDEFINED;
-			barriers[0].newLayout = asset::EIL_GENERAL;
-			barriers[0].srcQueueFamilyIndex = ~0u;
-			barriers[0].dstQueueFamilyIndex = ~0u;
-			barriers[0].image = inImageGPU;
-			barriers[0].subresourceRange.aspectMask = video::IGPUImage::EAF_COLOR_BIT;
-			barriers[0].subresourceRange.levelCount = 1u;
-			barriers[0].subresourceRange.layerCount = 1u;
-
-			barriers[1] = barriers[0];
-			barriers[1].image = outImageGPU;
-
-			cmdbuf->begin(video::IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
-			cmdbuf->pipelineBarrier(asset::EPSF_TOP_OF_PIPE_BIT, asset::EPSF_BOTTOM_OF_PIPE_BIT, asset::EDF_NONE, 0u, nullptr, 0u, nullptr, 2u, barriers);
-			cmdbuf->end();
-
-			video::IGPUQueue::SSubmitInfo submitInfo = {};
-			submitInfo.commandBufferCount = 1u;
-			submitInfo.commandBuffers = &cmdbuf.get();
-			queues[CommonAPI::InitOutput::EQT_COMPUTE]->submit(1u, &submitInfo, fence.get());
-			logicalDevice->blockForFences(1u, &fence.get());
-
-			// create image views for images
+			auto blitDS = logicalDevice->createGPUDescriptorSet(blitDescriptorPool.get(), core::smart_refctd_ptr(blitDSLayout));
 			{
-				video::IGPUImageView::SCreationParams inCreationParams = {};
-				inCreationParams.image = inImageGPU;
-				inCreationParams.viewType = video::IGPUImageView::ET_3D;
-				inCreationParams.format = inImageGPU->getCreationParameters().format;
-				inCreationParams.subresourceRange.aspectMask = video::IGPUImage::EAF_COLOR_BIT;
-				inCreationParams.subresourceRange.layerCount = 1u;
-				inCreationParams.subresourceRange.levelCount = 1u;
+				const uint32_t descriptorCount = static_cast<uint32_t>(blitDSLayout->getBindings().size());
 
-				video::IGPUImageView::SCreationParams outCreationParams = inCreationParams;
-				outCreationParams.image = outImageGPU;
-				outCreationParams.format = outImageGPU->getCreationParameters().format;
+				constexpr uint32_t MAX_DESCRIPTOR_COUNT = 10u;
+				assert(descriptorCount < MAX_DESCRIPTOR_COUNT);
 
-				inImageView = logicalDevice->createGPUImageView(std::move(inCreationParams));
-				outImageView = logicalDevice->createGPUImageView(std::move(outCreationParams));
-			}
+				video::IGPUDescriptorSet::SWriteDescriptorSet writes[MAX_DESCRIPTOR_COUNT] = {};
+				video::IGPUDescriptorSet::SDescriptorInfo infos[MAX_DESCRIPTOR_COUNT] = {};
 
-			core::smart_refctd_ptr<video::IGPUSampler> sampler = nullptr;
-			{
-				video::IGPUSampler::SParams params = { };
-				params.TextureWrapU = asset::ISampler::ETC_CLAMP_TO_EDGE;
-				params.TextureWrapV = asset::ISampler::ETC_CLAMP_TO_EDGE;
-				params.TextureWrapW = asset::ISampler::ETC_CLAMP_TO_EDGE;
-				params.BorderColor = asset::ISampler::ETBC_FLOAT_OPAQUE_BLACK;
-				params.MinFilter = asset::ISampler::ETF_LINEAR;
-				params.MaxFilter = asset::ISampler::ETF_LINEAR;
-				params.MipmapMode = asset::ISampler::ESMM_NEAREST;
-				params.AnisotropicFilter = 0u;
-				params.CompareEnable = 0u;
-				params.CompareFunc = asset::ISampler::ECO_ALWAYS;
-				sampler = logicalDevice->createGPUSampler(std::move(params));
-			}
-
-			constexpr uint32_t DESCRIPTOR_COUNT = 3u;
-			core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> dsLayout = nullptr;
-			{
-				video::IGPUDescriptorSetLayout::SBinding bindings[DESCRIPTOR_COUNT] = {};
-
-				// 0. inImage
-				// 1. outImage
-				// 2. cached kernel weights
-				for (uint32_t i = 0u; i < DESCRIPTOR_COUNT; ++i)
+				for (uint32_t i = 0u; i < descriptorCount; ++i)
 				{
-					bindings[i].binding = i;
-					bindings[i].count = 1u;
-					bindings[i].stageFlags = asset::IShader::ESS_COMPUTE;
-				}
-				bindings[0].type = asset::EDT_COMBINED_IMAGE_SAMPLER;
-				bindings[0].samplers = &sampler;
-
-				bindings[1].type = asset::EDT_STORAGE_IMAGE;
-				bindings[2].type = asset::EDT_UNIFORM_BUFFER;
-
-				dsLayout = logicalDevice->createGPUDescriptorSetLayout(bindings, bindings + DESCRIPTOR_COUNT);
-			}
-
-			asset::SPushConstantRange pcRange = {};
-			pcRange.stageFlags = asset::IShader::ESS_COMPUTE;
-			pcRange.offset = 0u;
-			pcRange.size = sizeof(push_constants_t);
-			core::smart_refctd_ptr<video::IGPUPipelineLayout> pipelineLayout = logicalDevice->createGPUPipelineLayout(&pcRange, &pcRange + 1ull, core::smart_refctd_ptr(dsLayout));
-
-			const uint32_t dsCount = 1u;
-			auto descriptorPool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE, &dsLayout.get(), &dsLayout.get() + 1ull, &dsCount);
-
-			core::smart_refctd_ptr<video::IGPUDescriptorSet> ds = logicalDevice->createGPUDescriptorSet(descriptorPool.get(), core::smart_refctd_ptr(dsLayout));
-			{
-				video::IGPUDescriptorSet::SWriteDescriptorSet writes[DESCRIPTOR_COUNT] = {};
-				video::IGPUDescriptorSet::SDescriptorInfo infos[DESCRIPTOR_COUNT] = {};
-
-				for (uint32_t i = 0u; i < DESCRIPTOR_COUNT; ++i)
-				{
-					writes[i].dstSet = ds.get();
+					writes[i].dstSet = blitDS.get();
 					writes[i].binding = i;
 					writes[i].arrayElement = 0u;
 					writes[i].count = 1u;
@@ -411,11 +604,11 @@ public:
 				infos[2].buffer.offset = 0ull;
 				infos[2].buffer.size = phaseSupportLUT->getCachedCreationParams().declaredSize;
 
-				logicalDevice->updateDescriptorSets(DESCRIPTOR_COUNT, writes, 0u, nullptr);
+				logicalDevice->updateDescriptorSets(descriptorCount, writes, 0u, nullptr);
 			}
 
 			const char* blitCompShaderPath = "../blit.comp";
-			core::smart_refctd_ptr<video::IGPUSpecializedShader> compShader = nullptr;
+			core::smart_refctd_ptr<video::IGPUSpecializedShader> blitCompShader = nullptr;
 			{
 				asset::IAssetLoader::SAssetLoadParams params = {};
 				params.logger = logger.get();
@@ -433,46 +626,93 @@ public:
 				if (!gpuArray || gpuArray->size() < 1u || !(*gpuArray)[0])
 					FATAL_LOG("Failed to convert CPU specialized shader to GPU specialized shaders!\n");
 
-				compShader = gpuArray->begin()[0];
+				blitCompShader = gpuArray->begin()[0];
 			}
 
-			auto pipeline = logicalDevice->createGPUComputePipeline(nullptr, std::move(pipelineLayout), std::move(compShader));
+			const auto& blitPipelineLayout = blitFilter.getDefaultBlitPipelineLayout();
+			auto blitPipeline = logicalDevice->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(blitPipelineLayout), std::move(blitCompShader));
+
+			core::smart_refctd_ptr<video::IGPUBuffer> downloadBuffer = nullptr;
+			const size_t downloadSize = core::max(alphaTestCounterBuffer->getCachedCreationParams().declaredSize, static_cast<size_t>(outImageDim[0]) * outImageDim[1] * outImageDim[2] * asset::getTexelOrBlockBytesize(outImageGPU->getCreationParameters().format));
+			{
+				video::IGPUBuffer::SCreationParams creationParams = {};
+				creationParams.usage = video::IGPUBuffer::EUF_TRANSFER_DST_BIT;
+				downloadBuffer = logicalDevice->createCPUSideGPUVisibleGPUBufferOnDedMem(creationParams, downloadSize);
+			}
+
+			auto fence = logicalDevice->createFence(video::IGPUFence::ECF_UNSIGNALED);
+			core::smart_refctd_ptr<video::IGPUCommandBuffer> cmdbuf;
+			logicalDevice->createCommandBuffers(commandPools[CommonAPI::InitOutput::EQT_COMPUTE].get(), video::IGPUCommandBuffer::EL_PRIMARY, 1u, &cmdbuf);
+
+			cmdbuf->begin(video::IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
+
+			cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE, alphaTestPipeline->getLayout(), 0u, 1u, &alphaTestDS.get());
+			cmdbuf->bindComputePipeline(alphaTestPipeline.get());
+			CBlitFilter::alpha_test_push_constants_t alpha_test_pc = { referenceAlpha };
+			cmdbuf->pushConstants(alphaTestPipeline->getLayout(), asset::IShader::ESS_COMPUTE, 0u, sizeof(CBlitFilter::alpha_test_push_constants_t), &alpha_test_pc);
+			if (inExtent.z == 0u) __debugbreak();
+			cmdbuf->dispatch((inExtent.x + 16u - 1)/16u, (inExtent.y + 16u - 1u)/16u, (inExtent.z + 16u - 1u)/16u);
+
+			// memory dependency to ensure alpha test counting has finished
+			video::IGPUCommandBuffer::SBufferMemoryBarrier alphaTestBarrier = {};
+			alphaTestBarrier.barrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
+			alphaTestBarrier.barrier.dstAccessMask = asset::EAF_TRANSFER_READ_BIT;
+			alphaTestBarrier.srcQueueFamilyIndex = ~0u;
+			alphaTestBarrier.dstQueueFamilyIndex = ~0u;
+			alphaTestBarrier.buffer = alphaTestCounterBuffer;
+			alphaTestBarrier.size = alphaTestCounterBuffer->getCachedCreationParams().declaredSize;
+
+			cmdbuf->pipelineBarrier(asset::EPSF_COMPUTE_SHADER_BIT, asset::EPSF_TRANSFER_BIT, asset::EDF_NONE, 0u, nullptr, 1u, &alphaTestBarrier, 0u, nullptr);
+
+			// download the buffer to figure out rankIndex
+			asset::SBufferCopy downloadRegion = {};
+			downloadRegion.srcOffset = 0ull;
+			downloadRegion.dstOffset = 0ull;
+			downloadRegion.size = alphaTestCounterBuffer->getCachedCreationParams().declaredSize;
+
+			cmdbuf->copyBuffer(alphaTestCounterBuffer.get(), downloadBuffer.get(), 1u, &downloadRegion);
+
+			cmdbuf->end();
+
+			video::IGPUQueue::SSubmitInfo submitInfo = {};
+			submitInfo.commandBufferCount = 1u;
+			submitInfo.commandBuffers = &cmdbuf.get();
+			queues[CommonAPI::InitOutput::EQT_COMPUTE]->submit(1u, &submitInfo, fence.get());
+
+			logicalDevice->blockForFences(1u, &fence.get());
+
+			video::IDriverMemoryAllocation::MappedMemoryRange memoryRange = {};
+			memoryRange.memory = downloadBuffer->getBoundMemory();
+			memoryRange.length = alphaTestCounterBuffer->getCachedCreationParams().declaredSize;
+			uint32_t* mappedGPUData = reinterpret_cast<uint32_t*>(logicalDevice->mapMemory(memoryRange));
+
+			printf("Number of input pixels which pass the alpha test: %u\n", *mappedGPUData);
+
+			__debugbreak();
+
 
 			cmdbuf->reset(nbl::video::IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
 			cmdbuf->begin(video::IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
-			cmdbuf->bindComputePipeline(pipeline.get());
-			push_constants_t pc = { };
+
+
+			cmdbuf->bindComputePipeline(blitPipeline.get());
+			CBlitFilter::blit_push_constants_t pc = { };
 			{
-				pc.inDim.x = inImageDim[0]; pc.inDim.y = inImageDim[1]; pc.inDim.z = inImageDim[2];
+				pc.inDim.x = inImageGPU->getCreationParameters().extent.width; pc.inDim.y = inImageGPU->getCreationParameters().extent.height; pc.inDim.z = inImageGPU->getCreationParameters().extent.depth;
 				pc.outDim.x = outImageDim[0]; pc.outDim.y = outImageDim[1]; pc.outDim.z = outImageDim[2];
 				pc.negativeSupport.x = negativeSupport.x; pc.negativeSupport.y = negativeSupport.y; pc.negativeSupport.z = negativeSupport.z;
 				pc.positiveSupport.x = positiveSupport.x; pc.positiveSupport.y = positiveSupport.y; pc.positiveSupport.z = positiveSupport.z;
 				pc.windowDim.x = windowDim.x; pc.windowDim.y = windowDim.y; pc.windowDim.z = windowDim.z;
 				pc.phaseCount.x = phaseCount.x; pc.phaseCount.y = phaseCount.y; pc.phaseCount.z = phaseCount.z;
 			}
-			cmdbuf->pushConstants(pipeline->getLayout(), asset::IShader::ESS_COMPUTE, 0u, sizeof(push_constants_t), &pc);
-
-			const uint32_t totalWindowCount = outImageDim[0];
-			// const uint32_t windowDim = std::ceil(inImageDim[0] / outImageDim[0]);
-			// const uint32_t windowsPerWG = WG_DIM / windowDim; // we want to make sure that the WG covers a window COMPLETELY even if it means throwing away some invocations
-			// const uint32_t wgCount = (totalWindowCount + windowsPerWG - 1) / windowsPerWG;
-
-			cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE, pipeline->getLayout(), 0u, 1u, &ds.get());
-			cmdbuf->dispatch(outImageDim[0], outImageDim[1], outImageDim[2]);
+			cmdbuf->pushConstants(blitPipeline->getLayout(), asset::IShader::ESS_COMPUTE, 0u, sizeof(CBlitFilter::blit_push_constants_t), &pc);
+			cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE, blitPipeline->getLayout(), 0u, 1u, &blitDS.get());
+			cmdbuf->dispatch(outImageDim[0], outImageDim[1], /*outImageDim[2]*/1u);
 
 			// after the dispatch download the buffer to check, one buffer to download contents from all images
-			core::smart_refctd_ptr<video::IGPUBuffer> downloadBuffer = nullptr;
-			const size_t downloadSize = static_cast<size_t>(outImageDim[0]) * outImageDim[1] * outImageDim[2] * asset::getTexelOrBlockBytesize(outImageGPU->getCreationParameters().format);
-			{
-				video::IGPUBuffer::SCreationParams creationParams = {};
-				creationParams.usage = video::IGPUBuffer::EUF_TRANSFER_DST_BIT;
-				downloadBuffer = logicalDevice->createCPUSideGPUVisibleGPUBufferOnDedMem(creationParams, downloadSize);
-
-				// need a memory dependency to ensure that the compute shader has finished writing to the image(s)
-				asset::SMemoryBarrier memoryBarrier = { asset::EAF_SHADER_WRITE_BIT, asset::EAF_TRANSFER_READ_BIT };
-				video::IGPUCommandBuffer::SImageMemoryBarrier imageBarrier = {};
-				cmdbuf->pipelineBarrier(asset::EPSF_COMPUTE_SHADER_BIT, asset::EPSF_TRANSFER_BIT, asset::EDF_NONE, 1u, &memoryBarrier, 0u, nullptr, 0u, nullptr);
-			}
+			// need a memory dependency to ensure that the compute shader has finished writing to the image(s)
+			asset::SMemoryBarrier memoryBarrier = { asset::EAF_SHADER_WRITE_BIT, asset::EAF_TRANSFER_READ_BIT };
+			cmdbuf->pipelineBarrier(asset::EPSF_COMPUTE_SHADER_BIT, asset::EPSF_TRANSFER_BIT, asset::EDF_NONE, 1u, &memoryBarrier, 0u, nullptr, 0u, nullptr);
 
 			asset::ICPUImage::SBufferCopy copyRegion = {};
 			copyRegion.imageSubresource.aspectMask = video::IGPUImage::EAF_COLOR_BIT;
@@ -491,16 +731,35 @@ public:
 
 			logicalDevice->blockForFences(1u, &fence.get());
 
-			video::IDriverMemoryAllocation::MappedMemoryRange memoryRange = {};
-			memoryRange.memory = downloadBuffer->getBoundMemory();
-			memoryRange.length = downloadBuffer->getMemoryReqs().vulkanReqs.size;
-			float* mappedGPUData = reinterpret_cast<float*>(logicalDevice->mapMemory(memoryRange));
+			printf("GPU end..\n");
+
+			const char* writePath = "gpu_out.exr";
+
+			auto outCPUImageView = ext::ScreenShot::createScreenShot(
+				logicalDevice.get(),
+				queues[CommonAPI::InitOutput::EQT_COMPUTE],
+				nullptr,
+				outImageView.get(),
+				asset::EAF_ALL_IMAGE_ACCESSES_DEVSH,
+				asset::EIL_GENERAL);
+
+			float outCoverage = computeAlphaCoverage(referenceAlpha, outCPUImageView->getCreationParameters().image.get());
+
+			asset::IAssetWriter::SAssetWriteParams writeParams(outCPUImageView.get());
+			assetManager->writeAsset(writePath, writeParams);
+			
+
+			// video::IDriverMemoryAllocation::MappedMemoryRange memoryRange = {};
+			// memoryRange.memory = downloadBuffer->getBoundMemory();
+			// memoryRange.length = downloadBuffer->getMemoryReqs().vulkanReqs.size;
+			// float* mappedGPUData = reinterpret_cast<float*>(logicalDevice->mapMemory(memoryRange));
 
 			// Todo(achal): This needs to change for more complex images
-			memcpy(gpuOutput.data(), mappedGPUData, static_cast<size_t>(outImageDim[0]) * outImageDim[1] * outImageDim[2] * inChannelCount * sizeof(float));
-			logicalDevice->unmapMemory(downloadBuffer->getBoundMemory());
+			// memcpy(gpuOutput.data(), mappedGPUData, static_cast<size_t>(outImageDim[0]) * outImageDim[1] * outImageDim[2] * inChannelCount * sizeof(float));
+			// logicalDevice->unmapMemory(downloadBuffer->getBoundMemory());
 		}
 
+#if 0
 		// now test (this will have to change for other formats/real images)
 		for (uint32_t k = 0u; k < outImageDim[2]; ++k)
 		{
@@ -524,6 +783,7 @@ public:
 		}
 
 		printf("Passed\n");
+#endif
 	}
 
 	void onAppTerminated_impl() override
@@ -542,6 +802,76 @@ public:
 	}
 
 private:
+	bool getGPUImagesAndTheirViews(
+		core::smart_refctd_ptr<asset::ICPUImage> inCPU,
+		core::smart_refctd_ptr<asset::ICPUImage> outCPU,
+		core::smart_refctd_ptr<video::IGPUImage>* inGPU,
+		core::smart_refctd_ptr<video::IGPUImage>* outGPU,
+		core::smart_refctd_ptr<video::IGPUImageView>* inGPUView,
+		core::smart_refctd_ptr<video::IGPUImageView>* outGPUView)
+	{
+		core::smart_refctd_ptr<asset::ICPUImage> tmp[2] = { inCPU, outCPU };
+		cpu2gpuParams.beginCommandBuffers();
+		auto gpuArray = cpu2gpu.getGPUObjectsFromAssets(tmp, tmp + 2ull, cpu2gpuParams);
+		cpu2gpuParams.waitForCreationToComplete();
+		if (!gpuArray || gpuArray->size() < 2ull || (!(*gpuArray)[0]))
+			return false;
+
+		*inGPU = gpuArray->begin()[0];
+		*outGPU = gpuArray->begin()[1];
+
+		// do layout transition to GENERAL
+		// (I think it might be a good idea to allow the user to change asset::ICPUImage's initialLayout and have the asset converter
+		// do the layout transition for them)
+		core::smart_refctd_ptr<video::IGPUCommandBuffer> cmdbuf = nullptr;
+		logicalDevice->createCommandBuffers(commandPools[CommonAPI::InitOutput::EQT_COMPUTE].get(), video::IGPUCommandBuffer::EL_PRIMARY, 1u, &cmdbuf);
+
+		auto fence = logicalDevice->createFence(video::IGPUFence::ECF_UNSIGNALED);
+		video::IGPUCommandBuffer::SImageMemoryBarrier barriers[2] = {};
+
+		barriers[0].oldLayout = asset::EIL_UNDEFINED;
+		barriers[0].newLayout = asset::EIL_GENERAL;
+		barriers[0].srcQueueFamilyIndex = ~0u;
+		barriers[0].dstQueueFamilyIndex = ~0u;
+		barriers[0].image = *inGPU;
+		barriers[0].subresourceRange.aspectMask = video::IGPUImage::EAF_COLOR_BIT;
+		barriers[0].subresourceRange.levelCount = 1u;
+		barriers[0].subresourceRange.layerCount = 1u;
+
+		barriers[1] = barriers[0];
+		barriers[1].image = *outGPU;
+
+		cmdbuf->begin(video::IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
+		cmdbuf->pipelineBarrier(asset::EPSF_TOP_OF_PIPE_BIT, asset::EPSF_BOTTOM_OF_PIPE_BIT, asset::EDF_NONE, 0u, nullptr, 0u, nullptr, 2u, barriers);
+		cmdbuf->end();
+
+		video::IGPUQueue::SSubmitInfo submitInfo = {};
+		submitInfo.commandBufferCount = 1u;
+		submitInfo.commandBuffers = &cmdbuf.get();
+		queues[CommonAPI::InitOutput::EQT_COMPUTE]->submit(1u, &submitInfo, fence.get());
+		logicalDevice->blockForFences(1u, &fence.get());
+
+		// create views for images
+		{
+			video::IGPUImageView::SCreationParams inCreationParams = {};
+			inCreationParams.image = *inGPU;
+			inCreationParams.viewType = getImageViewTypeFromImageType_GPU((*inGPU)->getCreationParameters().type);
+			inCreationParams.format = (*inGPU)->getCreationParameters().format;
+			inCreationParams.subresourceRange.aspectMask = video::IGPUImage::EAF_COLOR_BIT;
+			inCreationParams.subresourceRange.layerCount = 1u;
+			inCreationParams.subresourceRange.levelCount = 1u;
+
+			video::IGPUImageView::SCreationParams outCreationParams = inCreationParams;
+			outCreationParams.image = *outGPU;
+			outCreationParams.format = (*outGPU)->getCreationParameters().format;
+
+			*inGPUView = logicalDevice->createGPUImageView(std::move(inCreationParams));
+			*outGPUView = logicalDevice->createGPUImageView(std::move(outCreationParams));
+		}
+
+		return true;
+	};
+
 	core::smart_refctd_ptr<nbl::ui::IWindowManager> windowManager;
 	core::smart_refctd_ptr<nbl::ui::IWindow> window;
 	core::smart_refctd_ptr<CommonAPI::CommonAPIEventCallback> windowCb;
