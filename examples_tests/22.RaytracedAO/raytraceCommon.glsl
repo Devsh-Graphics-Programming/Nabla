@@ -275,7 +275,7 @@ nbl_glsl_MC_quot_pdf_aov_t gen_sample_ray(
 	
 	nbl_glsl_LightSample s;
 	nbl_glsl_MC_quot_pdf_aov_t result = nbl_glsl_MC_runGenerateAndRemainderStream(precomp,gcs,rnps,rand,s);
-
+	
 	// russian roulette
 	const uint noRussianRouletteDepth = bitfieldExtract(staticViewData.pathDepth_noRussianRouletteDepth_samplesPerPixelPerDispatch,8,8);
 	if (depth>noRussianRouletteDepth)
@@ -378,6 +378,61 @@ void generate_next_rays(
 	}
 }
 
+#include <nbl/builtin/glsl/limits/numeric.glsl>
+
+vec3 sunColor = vec3(50.0, 50.0, 50.0);
+vec3 sunDirection = vec3(-1.0, 0.3, 0.0);
+float cosThetaMaxSun = 0.999f;
+
+// return intersection distance if found, nbl_glsl_FLT_NAN otherwise
+bool Sun_intersect(in vec3 rayDirection)
+{
+	vec3 normalizedSunDir = normalize(sunDirection);
+	return dot(rayDirection,normalizedSunDir)>cosThetaMaxSun;
+}
+
+// Can be precomputed for sun but meh, since we're only doing this for test
+float Sphere_getSolidAngle_impl(in float cosThetaMax)
+{
+    return 2.0*nbl_glsl_PI*(1.0-cosThetaMax);
+}
+
+// return pdf of sample
+float Sun_deferred_pdf(in vec3 rayDirection)
+{
+    if(Sun_intersect(rayDirection))
+	{
+		return 1.0f / Sphere_getSolidAngle_impl(cosThetaMaxSun);
+	}
+	return 0.0f;
+}
+
+// return sample + pdf
+vec3 Sun_generateSample_and_pdf(out float pdf, in vec3 origin, in vec3 rand)
+{
+	const float cosThetaMax = cosThetaMaxSun;
+    const float cosThetaMax2 = cosThetaMaxSun * cosThetaMaxSun;
+    if (cosThetaMax2>0.0)
+    {
+		vec3 Z = normalize(sunDirection);
+
+        const float cosTheta = mix(1.0,cosThetaMax,rand.x);
+        vec3 L = Z*cosTheta;
+
+        const float cosTheta2 = cosTheta*cosTheta;
+        const float sinTheta = sqrt(1.0-cosTheta2);
+        float sinPhi,cosPhi;
+        nbl_glsl_sincos(2.0*nbl_glsl_PI*rand.y-nbl_glsl_PI,sinPhi,cosPhi);
+        mat2x3 sunTangentFrame = nbl_glsl_frisvad(Z);
+    
+        L += (sunTangentFrame[0]*cosPhi+sunTangentFrame[1]*sinPhi)*sinTheta;
+    
+        pdf = 1.0/Sphere_getSolidAngle_impl(cosThetaMax);
+        return L;
+    }
+    pdf = 0.0;
+    return vec3(0.0,0.0,0.0);
+}
 
 struct Contribution
 {
@@ -397,10 +452,12 @@ vec2 SampleSphericalMap(vec3 v)
 
 void Contribution_initMiss(out Contribution contrib, in float aovThroughputScale)
 {
-	vec2 uv = SampleSphericalMap(-normalizedV);
+	// Check hit with sphere from last ray (have to know ray.origin+dir or only dir??);
+	bool intersectedSun = Sun_intersect(-normalizedV);
+
 	// funny little trick borrowed from things like Progressive Photon Mapping
 	const float bias = 0.0625f*(1.f-aovThroughputScale)*pow(pc.cummon.rcpFramesDispatched,0.08f);
-	contrib.albedo = contrib.color = textureGrad(envMap, uv, vec2(bias*0.5,0.f), vec2(0.f,bias)).rgb;
+	contrib.albedo = contrib.color = intersectedSun ? sunColor : vec3(0.0f);
 	contrib.worldspaceNormal = normalizedV;
 }
 
