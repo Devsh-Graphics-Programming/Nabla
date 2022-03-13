@@ -253,13 +253,20 @@ vec3 load_normal_and_prefetch_textures(
 }
 
 #include <nbl/builtin/glsl/sampling/quantized_sequence.glsl>
-vec3 rand3d(in uvec3 scramble_key, in int _sample, int depth)
+mat2x3 rand6d(in uvec3 scramble_key, in int _sample, int depth)
 {
+	mat2x3 retVal;
 	// decrement depth because first vertex is rasterized and picked with a different sample sequence
 	--depth;
 	//
-	const nbl_glsl_sampling_quantized3D quant = texelFetch(quantizedSampleSequence,int(_sample)*SAMPLE_SEQUENCE_STRIDE+depth).xy;
-    return nbl_glsl_sampling_decodeSample3Dimensions(quant,scramble_key);
+	int offset = int(_sample)*SAMPLE_SEQUENCE_STRIDE+depth;
+	int eachStrategyStride = SAMPLE_SEQUENCE_STRIDE/2; // get this from cpp side?
+
+	const nbl_glsl_sampling_quantized3D quant1 = texelFetch(quantizedSampleSequence, offset).xy;
+	const nbl_glsl_sampling_quantized3D quant2 = texelFetch(quantizedSampleSequence, offset + eachStrategyStride).xy;
+    retVal[0] = nbl_glsl_sampling_decodeSample3Dimensions(quant1,scramble_key);
+    retVal[1] = nbl_glsl_sampling_decodeSample3Dimensions(quant2,scramble_key);
+	return retVal;
 }
 
 nbl_glsl_MC_quot_pdf_aov_t gen_sample_ray(
@@ -271,11 +278,11 @@ nbl_glsl_MC_quot_pdf_aov_t gen_sample_ray(
 	in nbl_glsl_MC_instr_stream_t rnps
 )
 {
-	vec3 rand = rand3d(scramble_key,int(sampleID),int(depth));
-	
+	mat2x3 rand = rand6d(scramble_key,int(sampleID),int(depth));
+
 	nbl_glsl_LightSample s;
-	nbl_glsl_MC_quot_pdf_aov_t result = nbl_glsl_MC_runGenerateAndRemainderStream(precomp,gcs,rnps,rand,s);
-	
+	nbl_glsl_MC_quot_pdf_aov_t result = nbl_glsl_MC_runGenerateAndRemainderStream(precomp,gcs,rnps,rand[0],s);
+
 	// russian roulette
 	const uint noRussianRouletteDepth = bitfieldExtract(staticViewData.pathDepth_noRussianRouletteDepth_samplesPerPixelPerDispatch,8,8);
 	if (depth>noRussianRouletteDepth)
@@ -284,7 +291,7 @@ nbl_glsl_MC_quot_pdf_aov_t gen_sample_ray(
 		const float survivalProb = min(nbl_glsl_MC_colorToScalar(result.quotient)/rrContinuationFactor,1.f);
 		result.pdf *= survivalProb;
 		float dummy; // not going to use it, because we can optimize out better
-		const bool kill = nbl_glsl_partitionRandVariable(survivalProb,rand.z,dummy);
+		const bool kill = nbl_glsl_partitionRandVariable(survivalProb,rand[0].z,dummy);
 		result.quotient *= kill ? 0.f:(1.f/survivalProb);
 	}
 
@@ -381,7 +388,7 @@ void generate_next_rays(
 #include <nbl/builtin/glsl/limits/numeric.glsl>
 
 vec3 sunColor = vec3(50.0, 50.0, 50.0);
-vec3 sunDirection = vec3(-1.0, 0.3, 0.0);
+vec3 sunDirection = vec3(1.0, 1.0, 0.0);
 float cosThetaMaxSun = 0.999f;
 
 // return intersection distance if found, nbl_glsl_FLT_NAN otherwise

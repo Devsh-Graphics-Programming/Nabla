@@ -1174,6 +1174,7 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height)
 		}
 	}
 	
+	// write a SAMPLE_SEQUENCE_STRIDE_EACH_STRATEGY + STRATEGY_COUNT for clarity(??) 
 	(std::ofstream("runtime_defines.glsl")
 		<< "#define _NBL_EXT_MITSUBA_LOADER_VT_STORAGE_VIEW_COUNT " << m_globalMeta->m_global.getVTStorageViewCount() << "\n"
 		<< m_globalMeta->m_global.m_materialCompilerGLSL_declarations
