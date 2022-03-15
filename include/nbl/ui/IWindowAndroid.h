@@ -1,5 +1,5 @@
-#ifndef __NBL_I_WINDOW_ANDROID_H_INCLUDED__
-#define __NBL_I_WINDOW_ANDROID_H_INCLUDED__
+#ifndef _NBL_I_WINDOW_ANDROID_H_INCLUDED_
+#define _NBL_I_WINDOW_ANDROID_H_INCLUDED_
 
 #include "nbl/ui/IWindow.h"
 
@@ -12,15 +12,16 @@ namespace nbl::ui
 
 class IWindowAndroid : public IWindow
 {
-protected:
-    virtual ~IWindowAndroid() = default;
-    IWindowAndroid(SCreationParams&& params) : IWindow(std::move(params)) {}
-public:
-    using IWindow::IWindow;
+    protected:
+        virtual ~IWindowAndroid() = default;
+        IWindowAndroid(SCreationParams&& params) : IWindow(std::move(params)) {}
 
-    using native_handle_t = struct ANativeWindow*;
+    public:
+        using IWindow::IWindow;
 
-    virtual const native_handle_t& getNativeHandle() const = 0;
+        using native_handle_t = struct ANativeWindow*;
+
+        virtual const native_handle_t& getNativeHandle() const = 0;
 };
 
 }

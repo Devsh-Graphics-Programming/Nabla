@@ -1,13 +1,14 @@
 #ifndef _NBL_UI_C_GRAPHICAL_APPLICATION_ANDROID_H_INCLUDED_
 #define _NBL_UI_C_GRAPHICAL_APPLICATION_ANDROID_H_INCLUDED_
-#ifdef _NBL_PLATFORM_ANDROID_
+
 #include "nbl/system/CApplicationAndroid.h"
 #include "nbl/system/CSystemAndroid.h"
-#include "nbl/system/CSystemLinux.h"
-#include "nbl/system/CSystemCallerPOSIX.h"
+
 #include "nbl/ui/IGraphicalApplicationFramework.h"
 #include "nbl/ui/IWindow.h"
 #include "nbl/ui/CWindowManagerAndroid.h"
+
+#ifdef _NBL_PLATFORM_ANDROID_
 #include <jni.h>
 #include <fstream>
 namespace nbl::ui

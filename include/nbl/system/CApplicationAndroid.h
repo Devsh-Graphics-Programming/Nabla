@@ -14,7 +14,7 @@ namespace nbl::system
 #include <android/sensor.h>
 #include <android/log.h>
 
-    class CApplicationAndroid : public IApplicationFramework
+class CApplicationAndroid : public IApplicationFramework
 {
     public:
         void onStateSaved(android_app* params)
