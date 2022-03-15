@@ -6,13 +6,15 @@
 #include "nbl/system/IApplicationFramework.h"
 #include "nbl/system/CStdoutLoggerAndroid.h"
 
-
-namespace nbl::system
-{
 #ifdef _NBL_PLATFORM_ANDROID_
 #include <android_native_app_glue.h>
 #include <android/sensor.h>
 #include <android/log.h>
+#endif
+
+namespace nbl::system
+{
+#ifdef _NBL_PLATFORM_ANDROID_
 
 class CApplicationAndroid : public IApplicationFramework
 {

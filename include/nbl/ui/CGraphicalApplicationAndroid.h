@@ -64,8 +64,7 @@ namespace nbl::ui
 					ctx.framework = framework.get();
 					nbl::ui::IWindow::SCreationParams params;
 					params.callback = nullptr;
-					auto caller = core::make_smart_refctd_ptr<nbl::system::CSystemCallerPOSIX>();
-					auto system = core::make_smart_refctd_ptr<nbl::system::CSystemAndroid>(std::move(caller), app->activity, env, APKResourcesPath);
+					auto system = core::make_smart_refctd_ptr<nbl::system::CSystemAndroid>(app->activity, env, APKResourcesPath);
 					framework->setSystem(std::move(system));
 					//if (app->savedState != nullptr) {
 					//	ctx.state = (nbl::system::CApplicationAndroid::SSavedState*)app->savedState;
@@ -110,8 +109,7 @@ namespace nbl::ui
 					app->userData = &ctx;
 					auto framework = nbl::core::make_smart_refctd_ptr<android_app_class>(app, env, APKResourcesPath, privateOutputCWD, sharedInputCWD, sharedOutputCWD);
 					ctx.framework = framework.get();
-					auto caller = core::make_smart_refctd_ptr<nbl::system::CSystemCallerPOSIX>();
-					auto system = core::make_smart_refctd_ptr<nbl::system::CSystemAndroid>(std::move(caller), app->activity, env, APKResourcesPath);
+					auto system = core::make_smart_refctd_ptr<nbl::system::CSystemAndroid>(app->activity, env, APKResourcesPath);
 					framework->setSystem(std::move(system));
 					//if (app->savedState != nullptr) {
 					//	ctx.state = (nbl::system::CApplicationAndroid::SSavedState*)app->savedState;
