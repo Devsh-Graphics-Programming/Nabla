@@ -321,9 +321,14 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
         SAssetBundle getAssetInHierarchy_impl(const std::string& _filePath, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
         {
             IAssetLoader::SAssetLoadContext ctx(_params, nullptr);
-            system::path filePath = _filePath;
 
+            system::path filePath = _filePath;
             _override->getLoadFilename(filePath, m_system.get(), ctx, _hierarchyLevel);
+            if (!m_system->exists(filePath,system::IFile::ECF_READ))
+            {
+                filePath = _params.workingDirectory/filePath;
+                _override->getLoadFilename(filePath, m_system.get(), ctx, _hierarchyLevel);
+            }
 
             system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
             m_system->createFile(future, filePath, system::IFile::ECF_READ);

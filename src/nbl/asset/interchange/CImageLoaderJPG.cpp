@@ -159,7 +159,7 @@ bool CImageLoaderJPG::isALoadableFileFormat(system::IFile* _file, const system::
 	uint32_t header = 0;	
 	system::IFile::success_t success;
 	_file->read(success, &header, 6, sizeof(uint32_t));
-	return success && (header&0x00FFD8FFu)==0x00FFD8FFu;
+	return success && ((header&0x00FFD8FFu)==0x00FFD8FFu || header == 0x4a464946 || header == 0x4649464a || header == 0x66697845u || header == 0x70747468u); // maybe 0x4a464946 can go
 #endif
 }
 

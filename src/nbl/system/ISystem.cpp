@@ -84,12 +84,12 @@ core::vector<system::path> ISystem::listItemsInDirectory(const system::path& p) 
     core::vector<system::path> res;
     res.reserve(512u);
 
-    auto addArchiveItems = [this,&res](const path& archPath) -> void
+    auto addArchiveItems = [this,&res](const path& archPath, const path& dirPath) -> void
     {
         const auto archives = m_cachedArchiveFiles.findRange(archPath);
         for (auto& arch : archives)
         {
-            const auto assets = arch.second->listAssets();
+            const auto assets = arch.second->listAssets(std::filesystem::relative(dirPath,archPath));
             for (auto& item : assets)
                 res.push_back(archPath/item.pathRelativeToArchive);
         }
@@ -102,7 +102,7 @@ core::vector<system::path> ISystem::listItemsInDirectory(const system::path& p) 
     {
         res.push_back(entry.path());
         // entry could have been an archive
-        addArchiveItems(entry.path());
+        addArchiveItems(entry.path(),p);
     }
     else
     {
@@ -122,13 +122,15 @@ core::vector<system::path> ISystem::listItemsInDirectory(const system::path& p) 
         }
         #endif
         // check for part of subpath being an archive
-        system::path path = std::filesystem::exists(p) ? std::filesystem::canonical(p.parent_path()):p.parent_path();
+        auto path = std::filesystem::exists(p) ? std::filesystem::canonical(p):p;
         // going up the directory tree
         while (!path.empty() && path.parent_path()!=path)
         {
-            path = std::filesystem::exists(path) ? std::filesystem::canonical(path):path;
-            addArchiveItems(path);
+            addArchiveItems(path,p);
+            const bool ex = std::filesystem::exists(path);
             path = path.parent_path();
+            if (ex)
+                path = std::filesystem::canonical(path);
         }
     }
     return res;
@@ -165,12 +167,13 @@ bool ISystem::copy(const system::path& from, const system::path& to)
         createFile(readFileFut,from,core::bitflag(IFile::ECF_READ)|IFile::ECF_COHERENT);
         createFile(writeFileFut,to,IFile::ECF_WRITE);
         auto readF = readFileFut.get();
+        const IFile* readFptr = readF.get();
         auto writeF = writeFileFut.get();
-        if (!readF || !readF->getMappedPointer() || !writeF)
+        if (!readF || !readFptr->getMappedPointer() || !writeF)
             return false;
 
         IFile::success_t bytesWritten;
-        writeF->write(bytesWritten,readF->getMappedPointer(),0,readF->getSize());
+        writeF->write(bytesWritten,readFptr->getMappedPointer(),0,readF->getSize());
         return bool(bytesWritten);
     };
     if (isPathReadOnly(from))

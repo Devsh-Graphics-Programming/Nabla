@@ -10,8 +10,8 @@ namespace nbl::system
 class CFileLogger : public IThreadsafeLogger
 {
 	public:
-		CFileLogger(core::smart_refctd_ptr<IFile>&& _file, const core::bitflag<E_LOG_LEVEL> logLevelMask=ILogger::defaultLogMask())
-			: IThreadsafeLogger(logLevelMask), m_file(std::move(_file))
+		CFileLogger(core::smart_refctd_ptr<IFile>&& _file, const bool append, const core::bitflag<E_LOG_LEVEL> logLevelMask=ILogger::defaultLogMask())
+			: IThreadsafeLogger(logLevelMask), m_file(std::move(_file)), m_pos(append ? m_file->getSize():0ull)
 		{
 		}
 
@@ -22,11 +22,12 @@ class CFileLogger : public IThreadsafeLogger
 		{
 			const auto str = constructLogString(fmt, logLevel, args);
 			ISystem::future_t<size_t> future;
-			m_file->write(future,str.data(),m_file->getSize(),str.length());
-			future.get(); // need to use the future to make sure op is actually executed :(
+			m_file->write(future,str.data(),m_pos,str.length());
+			m_pos += future.get(); // need to use the future to make sure op is actually executed :(
 		}
 
 		core::smart_refctd_ptr<IFile> m_file;
+		size_t m_pos;
 };
 
 }
