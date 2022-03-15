@@ -40,7 +40,7 @@ class CGLSLLoader final : public asset::IAssetLoader
 					readPos += sizeof(tmp);
 					continue;
 				}
-				readPos += found - end;
+				readPos += found-tmp;
 			}
 
 			return false;

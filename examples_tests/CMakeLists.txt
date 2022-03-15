@@ -28,7 +28,7 @@ endif()
 if (NBL_BUILD_MITSUBA_LOADER)
 	add_subdirectory(18.MitsubaLoader EXCLUDE_FROM_ALL)
 endif()
-add_subdirectory(19.SIMDmatrixMultiplication EXCLUDE_FROM_ALL)
+#REUSE 19
 add_subdirectory(20.Megatexture EXCLUDE_FROM_ALL)
 add_subdirectory(21.DynamicTextureIndexing EXCLUDE_FROM_ALL) # TODO: revive
 if (NBL_BUILD_MITSUBA_LOADER)
