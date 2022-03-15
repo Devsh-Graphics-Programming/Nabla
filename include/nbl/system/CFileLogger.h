@@ -23,6 +23,7 @@ class CFileLogger : public IThreadsafeLogger
 			const auto str = constructLogString(fmt, logLevel, args);
 			ISystem::future_t<size_t> future;
 			m_file->write(future,str.data(),m_file->getSize(),str.length());
+			future.get(); // need to use the future to make sure op is actually executed :(
 		}
 
 		core::smart_refctd_ptr<IFile> m_file;

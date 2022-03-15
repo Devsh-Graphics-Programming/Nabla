@@ -13,8 +13,7 @@ using namespace nbl;
 using namespace core;
 
 _NBL_STATIC_INLINE_CONSTEXPR size_t WORK_GROUP_SIZE = 32;				                 //! work-items per work-group
-_NBL_STATIC_INLINE_CONSTEXPR size_t MAX_TEST_RGB_VALUES = WORK_GROUP_SIZE * 1;           //! total number of rgb values to test
-_NBL_STATIC_INLINE_CONSTEXPR size_t FRAMES_IN_FLIGHT = 3u;          
+_NBL_STATIC_INLINE_CONSTEXPR size_t MAX_TEST_RGB_VALUES = WORK_GROUP_SIZE * 1;           //! total number of rgb values to test         
 
 enum E_SSBO
 {
@@ -45,7 +44,7 @@ int main()
     constexpr std::string_view APP_NAME = "RGB18E7S3 utility test";
 
 	CommonAPI::InitOutput initOutput;
-    CommonAPI::InitWithNoExt(initOutput, video::EAT_OPENGL, APP_NAME.data());
+    CommonAPI::InitWithNoExt(initOutput, video::EAT_VULKAN, APP_NAME.data());
 	auto system = std::move(initOutput.system);
     auto gl = std::move(initOutput.apiConnection);
     auto logger = std::move(initOutput.logger);
@@ -81,6 +80,7 @@ int main()
     {
         auto cpuComputeShader = core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(computeShaderBundle.getContents().begin()[0]);
 
+        cpu2gpuParams.beginCommandBuffers();
         auto gpu_array = cpu2gpu.getGPUObjectsFromAssets(&cpuComputeShader, &cpuComputeShader + 1, cpu2gpuParams);
         if (!gpu_array || gpu_array->size() < 1u || !(*gpu_array)[0])
             assert(false);
@@ -128,9 +128,9 @@ int main()
     ssboMemoryReqs.mappingCapability = video::IDriverMemoryAllocation::EMCAF_READ_AND_WRITE;
 
     video::IGPUBuffer::SCreationParams ssboCreationParams;
-    ssboCreationParams.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
+    ssboCreationParams.usage = core::bitflag(asset::IBuffer::EUF_STORAGE_BUFFER_BIT)|asset::IBuffer::EUF_TRANSFER_DST_BIT;
     ssboCreationParams.canUpdateSubRange = true;
-    ssboCreationParams.sharingMode = asset::E_SHARING_MODE::ESM_CONCURRENT;
+    ssboCreationParams.sharingMode = asset::E_SHARING_MODE::ESM_EXCLUSIVE;
     ssboCreationParams.queueFamilyIndexCount = 0u;
     ssboCreationParams.queueFamilyIndices = nullptr;
 
@@ -182,13 +182,10 @@ int main()
     auto gpuCPipelineLayout = logicalDevice->createGPUPipelineLayout(nullptr, nullptr, std::move(gpuCDescriptorSetLayout), nullptr, nullptr, nullptr);
     auto gpuComputePipeline = logicalDevice->createGPUComputePipeline(nullptr, std::move(gpuCPipelineLayout), std::move(gpuComputeShader));
 
-    core::smart_refctd_ptr<video::IGPUCommandBuffer> commandBuffers[FRAMES_IN_FLIGHT];
-    logicalDevice->createCommandBuffers(commandPools[CommonAPI::InitOutput::EQT_COMPUTE].get(), video::IGPUCommandBuffer::EL_PRIMARY, FRAMES_IN_FLIGHT, commandBuffers);
+    core::smart_refctd_ptr<video::IGPUCommandBuffer> commandBuffer;
+    logicalDevice->createCommandBuffers(commandPools[CommonAPI::InitOutput::EQT_COMPUTE].get(), video::IGPUCommandBuffer::EL_PRIMARY, 1u, &commandBuffer);
     auto gpuFence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
-
-    for(size_t i = 0; i < FRAMES_IN_FLIGHT; ++i)
     {
-        auto& commandBuffer = commandBuffers[i];
 
         commandBuffer->begin(0);
 
@@ -216,18 +213,7 @@ int main()
             queues[decltype(initOutput)::EQT_COMPUTE]->submit(1u, &submit, gpuFence.get());
         }
     }
-
-    {
-        video::IGPUFence::E_STATUS waitStatus = video::IGPUFence::ES_NOT_READY;
-        while (waitStatus != video::IGPUFence::ES_SUCCESS)
-        {
-            waitStatus = logicalDevice->waitForFences(1u, &gpuFence.get(), false, 99999999999ull);
-            if (waitStatus == video::IGPUFence::ES_ERROR)
-                assert(false);
-            else if (waitStatus == video::IGPUFence::ES_TIMEOUT)
-                break;
-        }
-    }
+    logicalDevice->blockForFences(1u,&gpuFence.get());
 
     video::IDriverMemoryAllocation::MappedMemoryRange mappedMemoryRange(gpuDownloadSSBOmapped->getBoundMemory(), 0u, gpuDownloadSSBOmapped->getSize());
     logicalDevice->mapMemory(mappedMemoryRange, video::IDriverMemoryAllocation::EMCAF_READ);
