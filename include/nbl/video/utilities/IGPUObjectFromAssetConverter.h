@@ -157,10 +157,13 @@ class IGPUObjectFromAssetConverter
                     if (pFence && pFence.get()) // user wanted, and something actually got submitted
                         fence_ptrs[count++] = pFence.get();
                 }
-                device->blockForFences(count,fence_ptrs);
-                if(resetFencesAfterWait)
+                if (count)
                 {
-                    device->resetFences(count, fence_ptrs);
+                    device->blockForFences(count,fence_ptrs);
+                    if(resetFencesAfterWait)
+                    {
+                        device->resetFences(count, fence_ptrs);
+                    }
                 }
                 setFencesToNull();
                 resetCommandBuffers();
