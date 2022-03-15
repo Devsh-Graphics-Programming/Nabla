@@ -26,26 +26,6 @@ layout (set = 0, binding = 2) buffer restrict readonly PassedInputPixelCount
 	uint data;
 } passedInputPixelCount;
 
-#if 0
-uint lower_bound_arr_NBL_GLSL_LESS(uint begin, in uint end, in TYPE value)
-{
-	uint len = end-begin;
-	if (NBL_GLSL_IS_NOT_POT(len))
-	{
-		const uint newLen = 0x1u<<findMSB(len);
-		const uint diff = len-newLen;
-		begin = NBL_GLSL_LESS(NBL_GLSL_EVAL(arr)[newLen],value) ? diff:0u;
-		len = newLen;
-	}
-	while (len!=0u)
-	{
-		begin += NBL_GLSL_LESS(NBL_GLSL_EVAL(arr)[begin+(len>>=1u)],value) ? len:0u;
-		begin += NBL_GLSL_LESS(NBL_GLSL_EVAL(arr)[begin+(len>>=1u)],value) ? len:0u;
-	}
-	return begin+(NBL_GLSL_LESS(NBL_GLSL_EVAL(ARRAY_NAME)[begin],value) ? 1u:0u);
-}
-#endif
-
 #define scratchShared _NBL_GLSL_SCRATCH_SHARED_DEFINED_
 
 void main()
@@ -68,27 +48,28 @@ void main()
 	const uint pixelsShouldPassCount = quotient;
 	const uint pixelsShouldFailCount = outputPixelCount - pixelsShouldPassCount;
 
-
 	uint bucketIndex;
 	{
 		uint begin = 0u;
 		const uint end = _NBL_GLSL_BIN_COUNT_;
 		const uint value = pixelsShouldFailCount;
-		uint len = end-begin;
+		uint len = end - begin;
 		if (NBL_GLSL_IS_NOT_POT(len))
 		{
-			const uint newLen = 0x1u<<findMSB(len);
-			const uint diff = len-newLen;
+		    const uint newLen = 0x1u << findMSB(len);
+		    const uint diff = len - newLen;
 
-			begin = NBL_GLSL_LESS(NBL_GLSL_EVAL(scratchShared)[newLen],value) ? diff:0u;
-			len = newLen;
+		    begin = NBL_GLSL_LESS(value, NBL_GLSL_EVAL(scratchShared)[newLen]) ? 0u : diff;
+		    len = newLen;
 		}
-		while (len!=0u)
+
+		while (len != 0u)
 		{
-			begin += NBL_GLSL_LESS(NBL_GLSL_EVAL(scratchShared)[begin+(len>>=1u)],value) ? len:0u;
-			begin += NBL_GLSL_LESS(NBL_GLSL_EVAL(scratchShared)[begin+(len>>=1u)],value) ? len:0u;
+		    begin += NBL_GLSL_LESS(value, NBL_GLSL_EVAL(scratchShared)[begin + (len >>= 1u)]) ? 0u : len;
+		    begin += NBL_GLSL_LESS(value, NBL_GLSL_EVAL(scratchShared)[begin + (len >>= 1u)]) ? 0u : len;
 		}
-		bucketIndex = begin+(NBL_GLSL_LESS(NBL_GLSL_EVAL(scratchShared)[begin],value) ? 1u:0u);
+
+		bucketIndex = begin + (NBL_GLSL_LESS(value, NBL_GLSL_EVAL(scratchShared)[begin]) ? 0u : 1u);
 	}
 
 	// Essentially inverting packUnorm4x8. Would unpackUnorm4x8 work here?
@@ -98,28 +79,7 @@ void main()
 
 	if (all(lessThan(gl_GlobalInvocationID.xy, pc.outImageDim.xy)))
 	{
-
-#if 0
-		if (gl_WorkGroupID.xy == uvec2(0))
-		{
-			imageStore(inImage, ivec2(gl_GlobalInvocationID.xy), vec4(scratchShared[gl_LocalInvocationIndex], 1.f, 1.f, 1.f));
-		}
-#endif
-
-#if 1
 		const vec4 pixel = imageLoad(inImage, ivec2(gl_GlobalInvocationID.xy));
 		imageStore( inImage, ivec2(gl_GlobalInvocationID.xy), vec4(pixel.rgb, pixel.a * alphaScale) );
-		// imageStore( inImage, ivec2(gl_GlobalInvocationID.xy), vec4(pixel.rgb, bucketIndex) );
-#endif
-
-
-#if 0
-		if (gl_GlobalInvocationID.xy == uvec2(40, 0))
-		{
-			const uint lsb = histogramVal & 0xFFFF;
-			const uint msb = (histogramVal >> 16) & 0xFFFF;
-			imageStore( inImage, ivec2(gl_GlobalInvocationID.xy), vec4(pixel.rg, msb, lsb) );
-		}
-#endif
 	}
 }
