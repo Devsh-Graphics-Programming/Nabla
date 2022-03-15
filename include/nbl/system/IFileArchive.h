@@ -81,7 +81,7 @@ class IFileArchive : public core::IReferenceCounted
 		{
             const IFileArchive::SListEntry itemToFind = { pathRelativeToArchive };
 			const auto found = std::lower_bound(m_items.begin(),m_items.end(),itemToFind);
-			if (found!=m_items.end() || found->pathRelativeToArchive!=pathRelativeToArchive)
+			if (found==m_items.end() || found->pathRelativeToArchive!=pathRelativeToArchive)
 				return nullptr;
 			return &(*found);
 		}
