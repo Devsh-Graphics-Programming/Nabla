@@ -78,7 +78,7 @@ enum E_GZIP_FLAGS
 };
 struct SZipFileExtraHeader
 {
-	int16_t ID;
+	uint16_t ID;
 	int16_t Size;
 };
 

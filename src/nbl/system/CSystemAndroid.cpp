@@ -28,7 +28,7 @@ ISystem::SystemInfo CSystemAndroid::getSystemInfo() const
 {
 	SystemInfo info;
 	// TODO: hardcoded
-	info.cpuFrequency = 1100;
+	info.cpuFrequencyHz = 1100000000;
 	info.totalMemory = 4ull<<30ull;
 	info.availableMemory = 2ull<<30ull;
 

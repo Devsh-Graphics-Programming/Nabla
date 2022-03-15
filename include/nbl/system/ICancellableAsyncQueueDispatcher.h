@@ -186,6 +186,7 @@ class ICancellableAsyncQueueDispatcher : public IAsyncQueueDispatcher<CRTP, Requ
                     _NBL_DEBUG_BREAK_IF(didntUseFuture);
                 }
 
+                // can only be called once!
                 T& get()
                 {
                     future_base_t::wait();
