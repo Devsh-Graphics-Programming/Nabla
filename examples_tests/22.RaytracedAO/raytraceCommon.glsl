@@ -252,6 +252,71 @@ vec3 load_normal_and_prefetch_textures(
 	return geomNormal;
 }
 
+// Sun Stuff
+#include <nbl/builtin/glsl/limits/numeric.glsl>
+vec3 sunColor = vec3(9.7, 8.4, 10.9) * 10;
+vec3 sunDirection = vec3(-0.2, 0.5, 0.0);
+float cosThetaMaxSun = 0.999f;
+
+// return intersection distance if found, nbl_glsl_FLT_NAN otherwise
+bool Sun_intersect(in vec3 rayDirection)
+{
+	vec3 normalizedSunDir = normalize(sunDirection);
+	return dot(rayDirection,normalizedSunDir)>cosThetaMaxSun;
+}
+
+// Can be precomputed for sun but meh, since we're only doing this for test
+float Sphere_getSolidAngle_impl(in float cosThetaMax)
+{
+    return 2.0*nbl_glsl_PI*(1.0-cosThetaMax);
+}
+
+// return pdf of sample
+float Sun_deferred_pdf(in vec3 rayDirection)
+{
+    if(Sun_intersect(rayDirection))
+	{
+		return 1.0f / Sphere_getSolidAngle_impl(cosThetaMaxSun);
+	}
+	return 0.0f;
+}
+
+vec3 Sun_getContribution(in vec3 rayDirection)
+{
+	bool intersectedSun = Sun_intersect(rayDirection);
+	return (intersectedSun) ? sunColor : vec3(0.0f);
+}
+
+// returns quotient ad fills sample + pdf
+nbl_glsl_MC_bxdf_spectrum_t Sun_generateSample_and_pdf(out float pdf, out nbl_glsl_LightSample lightSample, in nbl_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 rand)
+{
+	const float cosThetaMax = cosThetaMaxSun;
+    const float cosThetaMax2 = cosThetaMaxSun * cosThetaMaxSun;
+    if (cosThetaMax2>0.0)
+    {
+		vec3 Z = normalize(sunDirection);
+
+        const float cosTheta = mix(1.0,cosThetaMax,rand.x);
+        vec3 L = Z*cosTheta;
+
+        const float cosTheta2 = cosTheta*cosTheta;
+        const float sinTheta = sqrt(1.0-cosTheta2);
+        float sinPhi,cosPhi;
+        nbl_glsl_sincos(2.0*nbl_glsl_PI*rand.y-nbl_glsl_PI,sinPhi,cosPhi);
+        mat2x3 sunTangentFrame = nbl_glsl_frisvad(Z);
+    
+        L += (sunTangentFrame[0]*cosPhi+sunTangentFrame[1]*sinPhi)*sinTheta;
+    
+		lightSample = nbl_glsl_createLightSample(L, interaction);
+
+		float rcpPdf = Sphere_getSolidAngle_impl(cosThetaMax);
+        pdf = 1.0/rcpPdf;
+		return Sun_getContribution(lightSample.L) * rcpPdf;
+    }
+    pdf = 0.0;
+    return vec3(0.0,0.0,0.0);
+}
+
 #include <nbl/builtin/glsl/sampling/quantized_sequence.glsl>
 mat2x3 rand6d(in uvec3 scramble_key, in int _sample, int depth)
 {
@@ -280,8 +345,74 @@ nbl_glsl_MC_quot_pdf_aov_t gen_sample_ray(
 {
 	mat2x3 rand = rand6d(scramble_key,int(sampleID),int(depth));
 
-	nbl_glsl_LightSample s;
-	nbl_glsl_MC_quot_pdf_aov_t result = nbl_glsl_MC_runGenerateAndRemainderStream(precomp,gcs,rnps,rand[0],s);
+	const int beta = 1; // power-heuristic power
+
+	// (1) BXDF Sample and Weight
+	nbl_glsl_LightSample bxdfSample;
+	nbl_glsl_MC_quot_pdf_aov_t bxdfCosThroughput = nbl_glsl_MC_runGenerateAndRemainderStream(precomp,gcs,rnps,rand[0],bxdfSample);
+	float bxdfWeight = 0;
+	float envPDFAtBXDFSample = Sun_deferred_pdf(bxdfSample.L);
+	// P_env(X_bxdf) = envPDFAtBXDFSample
+	// P_bxdf(x_bxdf) = bxdfCosThroughput.pdf
+	float p_ratio_bxdf_w = envPDFAtBXDFSample/bxdfCosThroughput.pdf;
+	if(!isnan(p_ratio_bxdf_w))
+	{
+		bxdfWeight = 1.0f / ((1.0f/envPDFAtBXDFSample)+pow(p_ratio_bxdf_w, beta-1)/bxdfCosThroughput.pdf);
+	}
+	
+	// (2) Envmap Sample and Weight
+	nbl_glsl_LightSample pgSample;
+	nbl_glsl_MC_quot_pdf_aov_t pgThroughput;
+	float pgWeight = 0;
+	{
+		nbl_glsl_MC_setCurrInteraction(precomp);
+
+		float pgPDF = 0.0f; // pdf of light sample
+		const nbl_glsl_MC_bxdf_spectrum_t pgQuotient 
+			= Sun_generateSample_and_pdf(/*out*/pgPDF, /*out*/ pgSample, currInteraction.inner, rand[1].xy);
+
+		nbl_glsl_MC_microfacet_t microfacet;
+		microfacet.inner = nbl_glsl_calcAnisotropicMicrofacetCache(currInteraction.inner, pgSample);
+		nbl_glsl_MC_finalizeMicrofacet(/*inout*/microfacet);
+
+		// bxdf eval_pdf_aov of light sample
+		const nbl_glsl_MC_eval_pdf_aov_t epa = nbl_bsdf_eval_and_pdf(precomp, rnps, 0xdeafbeefu, /*inout*/pgSample, /*inout*/microfacet);
+  		pgThroughput.quotient = epa.value/(epa.pdf*pgPDF);
+		pgThroughput.pdf = epa.pdf*pgPDF;
+		pgThroughput.aov = epa.aov;
+
+		// P_env(X_env) = pgPDF
+		// P_bxdf(x_env) = epa.pdf
+		float p_ratio_env_w = epa.pdf/pgPDF;
+		if(!isnan(p_ratio_env_w))
+		{
+			pgWeight = 1.0f / ((1.0f/epa.pdf)+pow(p_ratio_env_w, beta-1)/pgPDF);
+		}
+
+		// regularization
+		// const float kFakeAmbientAssumption = 0.2f;
+		// pgContrib += kFakeAmbientAssumption*nbl_glsl_MC_colorToScalar(pgThroughput.quotient);
+	}
+
+	float rcpChoiceProb;
+	const float kBxDFChoiceBound = 0.0f;
+	const float bxdfProbability = (1.f-kBxDFChoiceBound)/(1.f+pgWeight/bxdfWeight)+kBxDFChoiceBound;
+	
+	nbl_glsl_LightSample outSample;
+	nbl_glsl_MC_quot_pdf_aov_t result;
+
+	float mean_of_weights = 0.5f * (bxdfWeight + pgWeight);
+	
+	if (!nbl_glsl_partitionRandVariable(1.0f,rand[0].z,rcpChoiceProb))
+	{
+		outSample = bxdfSample;
+		result = bxdfCosThroughput;
+	}
+	else
+	{
+		outSample = pgSample;
+		result = pgThroughput;
+	}
 
 	// russian roulette
 	const uint noRussianRouletteDepth = bitfieldExtract(staticViewData.pathDepth_noRussianRouletteDepth_samplesPerPixelPerDispatch,8,8);
@@ -295,7 +426,7 @@ nbl_glsl_MC_quot_pdf_aov_t gen_sample_ray(
 		result.quotient *= kill ? 0.f:(1.f/survivalProb);
 	}
 
-	direction = s.L;
+	direction = outSample.L;
 	return result;
 }
 
@@ -385,62 +516,6 @@ void generate_next_rays(
 	}
 }
 
-#include <nbl/builtin/glsl/limits/numeric.glsl>
-
-vec3 sunColor = vec3(50.0, 50.0, 50.0);
-vec3 sunDirection = vec3(1.0, 1.0, 0.0);
-float cosThetaMaxSun = 0.999f;
-
-// return intersection distance if found, nbl_glsl_FLT_NAN otherwise
-bool Sun_intersect(in vec3 rayDirection)
-{
-	vec3 normalizedSunDir = normalize(sunDirection);
-	return dot(rayDirection,normalizedSunDir)>cosThetaMaxSun;
-}
-
-// Can be precomputed for sun but meh, since we're only doing this for test
-float Sphere_getSolidAngle_impl(in float cosThetaMax)
-{
-    return 2.0*nbl_glsl_PI*(1.0-cosThetaMax);
-}
-
-// return pdf of sample
-float Sun_deferred_pdf(in vec3 rayDirection)
-{
-    if(Sun_intersect(rayDirection))
-	{
-		return 1.0f / Sphere_getSolidAngle_impl(cosThetaMaxSun);
-	}
-	return 0.0f;
-}
-
-// return sample + pdf
-vec3 Sun_generateSample_and_pdf(out float pdf, in vec3 origin, in vec3 rand)
-{
-	const float cosThetaMax = cosThetaMaxSun;
-    const float cosThetaMax2 = cosThetaMaxSun * cosThetaMaxSun;
-    if (cosThetaMax2>0.0)
-    {
-		vec3 Z = normalize(sunDirection);
-
-        const float cosTheta = mix(1.0,cosThetaMax,rand.x);
-        vec3 L = Z*cosTheta;
-
-        const float cosTheta2 = cosTheta*cosTheta;
-        const float sinTheta = sqrt(1.0-cosTheta2);
-        float sinPhi,cosPhi;
-        nbl_glsl_sincos(2.0*nbl_glsl_PI*rand.y-nbl_glsl_PI,sinPhi,cosPhi);
-        mat2x3 sunTangentFrame = nbl_glsl_frisvad(Z);
-    
-        L += (sunTangentFrame[0]*cosPhi+sunTangentFrame[1]*sinPhi)*sinTheta;
-    
-        pdf = 1.0/Sphere_getSolidAngle_impl(cosThetaMax);
-        return L;
-    }
-    pdf = 0.0;
-    return vec3(0.0,0.0,0.0);
-}
-
 struct Contribution
 {
 	vec3 color;
@@ -459,12 +534,9 @@ vec2 SampleSphericalMap(vec3 v)
 
 void Contribution_initMiss(out Contribution contrib, in float aovThroughputScale)
 {
-	// Check hit with sphere from last ray (have to know ray.origin+dir or only dir??);
-	bool intersectedSun = Sun_intersect(-normalizedV);
-
 	// funny little trick borrowed from things like Progressive Photon Mapping
 	const float bias = 0.0625f*(1.f-aovThroughputScale)*pow(pc.cummon.rcpFramesDispatched,0.08f);
-	contrib.albedo = contrib.color = intersectedSun ? sunColor : vec3(0.0f);
+	contrib.albedo = contrib.color = Sun_getContribution(-normalizedV);
 	contrib.worldspaceNormal = normalizedV;
 }
 
