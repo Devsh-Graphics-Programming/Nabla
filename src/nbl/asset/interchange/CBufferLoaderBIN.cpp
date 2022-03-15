@@ -16,7 +16,7 @@ asset::SAssetBundle CBufferLoaderBIN::loadAsset(system::IFile* _file, const asse
 
 	system::IFile::success_t success;
 	ctx.file->read(success, ctx.sourceCodeBuffer->getPointer(), 0u, ctx.sourceCodeBuffer->getSize());
-	if (success)
+	if (!success)
 		return {};
 
 	return SAssetBundle(nullptr,{std::move(ctx.sourceCodeBuffer)});
