@@ -367,7 +367,7 @@ nbl_glsl_MC_quot_pdf_aov_t gen_sample_ray(
 	{
 		nbl_glsl_MC_setCurrInteraction(precomp);
 
-		float pgPDF = 0.0f; // pdf of light sample
+		float pgPDF = 0.0f; // light pdf at light sample
 		const nbl_glsl_MC_bxdf_spectrum_t pgQuotient 
 			= Sun_generateSample_and_pdf(/*out*/pgPDF, /*out*/ pgSample, currInteraction.inner, rand[1].xy);
 
@@ -403,16 +403,23 @@ nbl_glsl_MC_quot_pdf_aov_t gen_sample_ray(
 
 	float mean_of_weights = 0.5f * (bxdfWeight + pgWeight);
 	
-	if (!nbl_glsl_partitionRandVariable(1.0f,rand[0].z,rcpChoiceProb))
+	if (!nbl_glsl_partitionRandVariable(bxdfProbability,rand[0].z,rcpChoiceProb))
 	{
 		outSample = bxdfSample;
 		result = bxdfCosThroughput;
+		result.quotient /= (envPDFAtBXDFSample);
+		result.pdf *= (envPDFAtBXDFSample);
+		// throughput_bxdf = [bxdf_throughput(X_bxdf) / p_env(X_bxdf)] * mean_of_weights 
 	}
 	else
 	{
 		outSample = pgSample;
 		result = pgThroughput;
-	}
+		// throughput_env = [bxdf_throughput(X_env) / p_env(X_env)] * mean_of_weights 
+	}		
+	
+	result.quotient *= (mean_of_weights);
+	result.pdf /= mean_of_weights;
 
 	// russian roulette
 	const uint noRussianRouletteDepth = bitfieldExtract(staticViewData.pathDepth_noRussianRouletteDepth_samplesPerPixelPerDispatch,8,8);
