@@ -1,0 +1,125 @@
+#version 460 core
+
+layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_X_, local_size_y = _NBL_GLSL_WORKGROUP_SIZE_Y_, local_size_z = 1) in;
+
+#define _NBL_GLSL_WORKGROUP_SIZE_ (_NBL_GLSL_WORKGROUP_SIZE_X_ * _NBL_GLSL_WORKGROUP_SIZE_Y_)
+
+#include <nbl/builtin/glsl/workgroup/arithmetic.glsl>
+
+layout (push_constant) uniform Block
+{
+	uvec3 outImageDim;
+	uint padding;
+	uint inPixelCount;
+	float oldReferenceAlpha;
+} pc;
+
+layout (set = 0, binding = 0, rgba16f) uniform image2D inImage;
+
+layout (set = 0, binding = 1) buffer restrict readonly AlphaHistogram
+{
+	uint data[_NBL_GLSL_BIN_COUNT_];
+} alphaHistogram;
+
+layout (set = 0, binding = 2) buffer restrict readonly PassedInputPixelCount
+{
+	uint data;
+} passedInputPixelCount;
+
+#if 0
+uint lower_bound_arr_NBL_GLSL_LESS(uint begin, in uint end, in TYPE value)
+{
+	uint len = end-begin;
+	if (NBL_GLSL_IS_NOT_POT(len))
+	{
+		const uint newLen = 0x1u<<findMSB(len);
+		const uint diff = len-newLen;
+		begin = NBL_GLSL_LESS(NBL_GLSL_EVAL(arr)[newLen],value) ? diff:0u;
+		len = newLen;
+	}
+	while (len!=0u)
+	{
+		begin += NBL_GLSL_LESS(NBL_GLSL_EVAL(arr)[begin+(len>>=1u)],value) ? len:0u;
+		begin += NBL_GLSL_LESS(NBL_GLSL_EVAL(arr)[begin+(len>>=1u)],value) ? len:0u;
+	}
+	return begin+(NBL_GLSL_LESS(NBL_GLSL_EVAL(ARRAY_NAME)[begin],value) ? 1u:0u);
+}
+#endif
+
+#define scratchShared _NBL_GLSL_SCRATCH_SHARED_DEFINED_
+
+void main()
+{
+	const uint histogramVal = alphaHistogram.data[gl_LocalInvocationIndex];
+	const uint cumHistogramVal = nbl_glsl_workgroupInclusiveAdd(histogramVal);
+
+	scratchShared[gl_LocalInvocationIndex] = cumHistogramVal;
+	barrier();
+
+	const uint outputPixelCount = pc.outImageDim.x * pc.outImageDim.y * pc.outImageDim.z;
+
+	uint outMsb, outLsb;
+	umulExtended(passedInputPixelCount.data, outputPixelCount, outMsb, outLsb);
+
+	const uint MAX_UINT = ~0u;
+	const float msbRatio = float(outMsb)/float(pc.inPixelCount);
+	const uint quotient = uint((msbRatio * MAX_UINT) + msbRatio) + outLsb/pc.inPixelCount;
+
+	const uint pixelsShouldPassCount = quotient;
+	const uint pixelsShouldFailCount = outputPixelCount - pixelsShouldPassCount;
+
+
+	uint bucketIndex;
+	{
+		uint begin = 0u;
+		const uint end = _NBL_GLSL_BIN_COUNT_;
+		const uint value = pixelsShouldFailCount;
+		uint len = end-begin;
+		if (NBL_GLSL_IS_NOT_POT(len))
+		{
+			const uint newLen = 0x1u<<findMSB(len);
+			const uint diff = len-newLen;
+
+			begin = NBL_GLSL_LESS(NBL_GLSL_EVAL(scratchShared)[newLen],value) ? diff:0u;
+			len = newLen;
+		}
+		while (len!=0u)
+		{
+			begin += NBL_GLSL_LESS(NBL_GLSL_EVAL(scratchShared)[begin+(len>>=1u)],value) ? len:0u;
+			begin += NBL_GLSL_LESS(NBL_GLSL_EVAL(scratchShared)[begin+(len>>=1u)],value) ? len:0u;
+		}
+		bucketIndex = begin+(NBL_GLSL_LESS(NBL_GLSL_EVAL(scratchShared)[begin],value) ? 1u:0u);
+	}
+
+	// Essentially inverting packUnorm4x8. Would unpackUnorm4x8 work here?
+	const float newReferenceAlpha = min( (bucketIndex-0.5f)/float(_NBL_GLSL_BIN_COUNT_ - 1), 1.f);
+
+	const float alphaScale = pc.oldReferenceAlpha/newReferenceAlpha;
+
+	if (all(lessThan(gl_GlobalInvocationID.xy, pc.outImageDim.xy)))
+	{
+
+#if 0
+		if (gl_WorkGroupID.xy == uvec2(0))
+		{
+			imageStore(inImage, ivec2(gl_GlobalInvocationID.xy), vec4(scratchShared[gl_LocalInvocationIndex], 1.f, 1.f, 1.f));
+		}
+#endif
+
+#if 1
+		const vec4 pixel = imageLoad(inImage, ivec2(gl_GlobalInvocationID.xy));
+		imageStore( inImage, ivec2(gl_GlobalInvocationID.xy), vec4(pixel.rgb, pixel.a * alphaScale) );
+		// imageStore( inImage, ivec2(gl_GlobalInvocationID.xy), vec4(pixel.rgb, bucketIndex) );
+#endif
+
+
+#if 0
+		if (gl_GlobalInvocationID.xy == uvec2(40, 0))
+		{
+			const uint lsb = histogramVal & 0xFFFF;
+			const uint msb = (histogramVal >> 16) & 0xFFFF;
+			imageStore( inImage, ivec2(gl_GlobalInvocationID.xy), vec4(pixel.rg, msb, lsb) );
+		}
+#endif
+	}
+}
