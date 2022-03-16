@@ -38,6 +38,13 @@ void main()
 
 	const uint outputPixelCount = pc.outImageDim.x * pc.outImageDim.y * pc.outImageDim.z;
 
+	// Considering the max dim is 16384
+	//		max(outputPixelCount) is 2^42
+	//		max(passedInputPixelCount.data) is 2^42
+	// i.e the max value of their multiplication can be 2^84
+	// for which even umulExtended is not enough, then I must take a CPU path.
+	// In fact, if I detect the passedInputPixelCount*outputPixelCount > 2^56 then I
+	// must take the CPU path or just fail blit entirely
 	uint outMsb, outLsb;
 	umulExtended(passedInputPixelCount.data, outputPixelCount, outMsb, outLsb);
 
