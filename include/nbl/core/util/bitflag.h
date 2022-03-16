@@ -2,12 +2,10 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __NBL_CORE_C_BITFLAG_H_INCLUDED__
-#define __NBL_CORE_C_BITFLAG_H_INCLUDED__
+#ifndef _NBL_CORE_C_BITFLAG_H_INCLUDED_
+#define _NBL_CORE_C_BITFLAG_H_INCLUDED_
 
-namespace nbl
-{
-namespace core
+namespace nbl::core
 {
 
 template <typename ENUM_TYPE>
@@ -18,7 +16,7 @@ struct bitflag final
 	ENUM_TYPE value = static_cast<ENUM_TYPE>(0);
 
 	bitflag() = default;
-	bitflag(ENUM_TYPE value) : value(value) {}
+	bitflag(const ENUM_TYPE value) : value(value) {}
 
 	inline bitflag<ENUM_TYPE> operator~() { return static_cast<ENUM_TYPE>(~value); }
 	inline bitflag<ENUM_TYPE> operator|(bitflag<ENUM_TYPE> rhs) const { return static_cast<ENUM_TYPE>(value | rhs.value); }
@@ -30,7 +28,6 @@ struct bitflag final
 	inline bool hasValue(bitflag<ENUM_TYPE> val) const { return (value & val.value) != 0; }
 };
 
-}
 }
 
 #endif

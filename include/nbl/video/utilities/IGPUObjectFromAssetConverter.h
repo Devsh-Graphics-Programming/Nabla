@@ -157,10 +157,13 @@ class IGPUObjectFromAssetConverter
                     if (pFence && pFence.get()) // user wanted, and something actually got submitted
                         fence_ptrs[count++] = pFence.get();
                 }
-                device->blockForFences(count,fence_ptrs);
-                if(resetFencesAfterWait)
+                if (count)
                 {
-                    device->resetFences(count, fence_ptrs);
+                    device->blockForFences(count,fence_ptrs);
+                    if(resetFencesAfterWait)
+                    {
+                        device->resetFences(count, fence_ptrs);
+                    }
                 }
                 setFencesToNull();
                 resetCommandBuffers();
@@ -1801,7 +1804,7 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
     auto gpuImgViews = getGPUObjectsFromAssets<asset::ICPUImageView>(cpuImgViews.data(), cpuImgViews.data()+cpuImgViews.size(), _params);
     auto gpuSamplers = getGPUObjectsFromAssets<asset::ICPUSampler>(cpuSamplers.data(), cpuSamplers.data()+cpuSamplers.size(), _params);
 
-    uint32_t dsCounts[] = { assetCount };
+    uint32_t dsCounts[] = {static_cast<uint32_t>(assetCount)};
     auto dsPool = _params.device->createDescriptorPoolForDSLayouts(IDescriptorPool::ECF_NONE,&gpuLayouts->begin()->get(),&gpuLayouts->end()->get(), dsCounts);
 
 	core::vector<IGPUDescriptorSet::SWriteDescriptorSet> writes(maxWriteCount);

@@ -547,13 +547,17 @@ class TransformationApp : public ApplicationBase
 					auto gfxLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(range,range+1u,scene::ITransformTreeWithNormalMatrices::createRenderDescriptorSetLayout());
 					pipeline->setLayout(core::smart_refctd_ptr(gfxLayout));
 
+					cpu2gpuParams.beginCommandBuffers();
 					core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> rpIndependentPipeline = CPU2GPU.getGPUObjectsFromAssets(&pipeline, &pipeline + 1, cpu2gpuParams)->front();
+					cpu2gpuParams.waitForCreationToComplete(false);
 
 					asset::SBufferBinding<video::IGPUBuffer> colorBufBinding;
 					colorBufBinding.offset = colorBufferOffset;
 					colorBufBinding.buffer = colorBuffer;
 
+					cpu2gpuParams.beginCommandBuffers();
 					ret.gpuMesh = CPU2GPU.getGPUObjectsFromAssets(&cpuMesh, &cpuMesh + 1, cpu2gpuParams)->front();
+					cpu2gpuParams.waitForCreationToComplete(false);
 					ret.gpuMesh->setVertexBufferBinding(std::move(colorBufBinding), ColorBindingNum);
 					ret.gpuMesh->setInstanceCount(numInstances);
 

@@ -19,7 +19,8 @@ public:
 
     ~CVulkanFence();
 
-    VkFence getInternalObject() const { return m_fence; }
+    inline void* getNativeHandle() override {return &m_fence;}
+    VkFence getInternalObject() const {return m_fence;}
 
     void setObjectDebugName(const char* label) const override;
 

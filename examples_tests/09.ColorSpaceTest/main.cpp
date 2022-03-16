@@ -77,7 +77,7 @@ public:
 		initOutput.window = core::smart_refctd_ptr(window);
 		CommonAPI::InitWithDefaultExt(
 			initOutput,
-			video::EAT_VULKAN,
+			video::EAT_OPENGL,
 			"09.ColorSpaceTest",
 			WIN_W, WIN_H, SC_IMG_COUNT,
 			swapchainImageUsage,

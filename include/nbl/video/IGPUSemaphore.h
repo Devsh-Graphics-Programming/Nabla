@@ -16,6 +16,10 @@ class IGPUSemaphore : public core::IReferenceCounted, public IBackendObject
         IGPUSemaphore(core::smart_refctd_ptr<const ILogicalDevice>&& dev) : IBackendObject(std::move(dev)) {}
 
         virtual ~IGPUSemaphore() = default;
+
+        // OpenGL: core::smart_refctd_ptr<COpenGLSync>*
+        // Vulkan: const VkSemaphore*
+        virtual void* getNativeHandle() = 0;
 };
 
 }

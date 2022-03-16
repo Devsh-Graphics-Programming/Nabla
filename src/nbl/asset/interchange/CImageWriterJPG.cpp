@@ -56,9 +56,9 @@ static boolean jpeg_empty_output_buffer(j_compress_ptr cinfo)
 	mem_dest_ptr dest = (mem_dest_ptr) cinfo->dest;
 
 	// for now just exit upon file error
-	system::future<size_t> future;
-	dest->file->write(future, dest->buffer, dest->filePos, OUTPUT_BUF_SIZE);
-	if (future.get() != OUTPUT_BUF_SIZE)
+	system::IFile::success_t success;
+	dest->file->write(success, dest->buffer, dest->filePos, OUTPUT_BUF_SIZE);
+	if (!success)
 	{
 		ERREXIT (cinfo, JERR_FILE_WRITE);
 	}
@@ -75,9 +75,9 @@ static void jpeg_term_destination(j_compress_ptr cinfo)
 	mem_dest_ptr dest = (mem_dest_ptr) cinfo->dest;
 	const int32_t datacount = (int32_t)(OUTPUT_BUF_SIZE - dest->pub.free_in_buffer);
 	// for now just exit upon file error
-	system::future<size_t> future;
-	dest->file->write(future, dest->buffer, dest->filePos, datacount);
-	if (future.get() != datacount)
+	system::IFile::success_t success;
+	dest->file->write(success, dest->buffer, dest->filePos, datacount);
+	if (!success)
 	{
 		ERREXIT (cinfo, JERR_FILE_WRITE);
 	}

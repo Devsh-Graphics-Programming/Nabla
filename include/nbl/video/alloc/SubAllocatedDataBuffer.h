@@ -227,7 +227,7 @@ class SubAllocatedDataBuffer : protected core::impl::FriendOfHeterogenousMemoryA
             return multi_alloc(GPUEventWrapper::default_wait(),count,std::forward<Args>(args)...);
         }
         //!
-        template<class Clock=typename std::chrono::high_resolution_clock, typename... Args>
+        template<class Clock=typename std::chrono::steady_clock, typename... Args>
         inline size_type    multi_alloc(const std::chrono::time_point<Clock>& maxWaitPoint, const Args&... args) noexcept
         {
             #ifdef _NBL_DEBUG

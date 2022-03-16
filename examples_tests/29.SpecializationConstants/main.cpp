@@ -6,7 +6,6 @@
 #include <nabla.h>
 
 #include "../common/CommonAPI.h"
-// #include "CFileSystem.h"
 using namespace nbl;
 using namespace core;
 using namespace ui;
@@ -155,7 +154,7 @@ public:
 		initOutp.system = system;
 		CommonAPI::Init(
 			initOutp,
-			video::EAT_OPENGL,
+			video::EAT_VULKAN,
 			"29.SpecializationConstants",
 			requiredInstanceFeatures,
 			optionalInstanceFeatures,

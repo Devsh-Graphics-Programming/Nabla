@@ -114,7 +114,8 @@ void addLoDTable(
 
         poly <<= 1u;
     }
-    auto gpumeshes = video::CAssetPreservingGPUObjectFromAssetConverter().getGPUObjectsFromAssets(cpumeshes, cpumeshes + LoDLevels, cpu2gpuParams);
+    cpu2gpuParams.beginCommandBuffers();
+    auto gpumeshes = video::CAssetPreservingGPUObjectFromAssetConverter().getGPUObjectsFromAssets(cpumeshes, cpumeshes+LoDLevels, cpu2gpuParams);
 
     core::smart_refctd_ptr<video::IGPUGraphicsPipeline> pipeline;
     {
@@ -346,7 +347,7 @@ class LoDSystemApp : public ApplicationBase
             const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_TRANSFER_DST_BIT);
             const video::ISurface::SFormat surfaceFormat(asset::EF_B8G8R8A8_SRGB, asset::ECP_COUNT, asset::EOTF_UNKNOWN);
 
-            CommonAPI::InitWithDefaultExt(initOutput, video::EAT_OPENGL_ES, "Level of Detail System", WIN_W, WIN_H, FBO_COUNT, swapchainImageUsage, surfaceFormat, asset::EF_D32_SFLOAT);
+            CommonAPI::InitWithDefaultExt(initOutput, video::EAT_OPENGL, "Level of Detail System", WIN_W, WIN_H, FBO_COUNT, swapchainImageUsage, surfaceFormat, asset::EF_D32_SFLOAT);
             window = std::move(initOutput.window);
             gl = std::move(initOutput.apiConnection);
             surface = std::move(initOutput.surface);

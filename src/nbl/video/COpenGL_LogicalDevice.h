@@ -68,8 +68,6 @@ public:
         m_config(config),
         m_gl_ver(major, minor)
     {
-        EGLContext master_ctx = m_threadHandler.getContext();
-
         uint32_t totalQCount = getTotalQueueCount(params);
         assert(totalQCount <= MaxQueueCount);
 
@@ -84,7 +82,7 @@ public:
             {
                 const float priority = qci.priorities[j];
 
-                SGLContext glctx = createWindowlessGLContext(FunctionTableType::EGL_API_TYPE, _egl, major, minor, config, master_ctx);
+                auto glctx = createWindowlessGLContext(FunctionTableType::EGL_API_TYPE, _egl, major, minor, config, m_threadHandler.glctx.ctx);
 
                 const uint32_t ix = offset + j;
                 const uint32_t ctxid = 1u + ix; // +1 because one ctx is here, in logical device (consider if it means we have to have another spec shader GL name for it, probably not) -- [TODO]
@@ -92,8 +90,8 @@ public:
                 (*m_queues)[ix] = new CThreadSafeGPUQueueAdapter
                 (
                     this,
-                    (IGPUQueue*)new QueueType(this, rdoc, _egl, m_glfeatures, ctxid, glctx.ctx,
-                        glctx.pbuffer, famIx, flags, priority,
+                    (IGPUQueue*)new QueueType(this, rdoc, _egl, m_glfeatures, ctxid,
+                        glctx, famIx, flags, priority,
                         static_cast<COpenGLDebugCallback*>(physicalDevice->getDebugCallback()))
                 );
             }
@@ -195,13 +193,12 @@ public:
                 return nullptr;
         }
 
-        EGLContext master_ctx = m_threadHandler.getContext();
         EGLConfig fbconfig = m_config;
         auto glver = m_gl_ver;
 
         // master context must not be current while creating a context with whom it will be sharing
         unbindMasterContext();
-        EGLContext ctx = createGLContext(FunctionTableType::EGL_API_TYPE, m_egl, glver.first, glver.second, fbconfig, master_ctx);
+        EGLContext ctx = createGLContext(FunctionTableType::EGL_API_TYPE, m_egl, glver.first, glver.second, fbconfig, m_threadHandler.glctx.ctx);
         auto sc = SwapchainType::create(std::move(params),core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this),m_egl,std::move(images),m_glfeatures,ctx,fbconfig,static_cast<COpenGLDebugCallback*>(m_physicalDevice->getDebugCallback()));
         if (!sc)
             return nullptr;
@@ -665,6 +662,9 @@ public:
             openglQueue->destroyQueries(queriesToDestroy);
         }
     }
+
+    const void* getNativeHandle() const override { return &m_threadHandler.glctx; }
+
 protected:
     void bindMasterContext()
     {

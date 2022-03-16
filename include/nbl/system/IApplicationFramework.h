@@ -2,8 +2,8 @@
 #define	_NBL_SYSTEM_I_APPLICATION_FRAMEWORK_H_INCLUDED_
 
 #include "nbl/core/declarations.h"
-#include "nbl/system/declarations.h"
 
+#include "nbl/system/declarations.h"
 #include "nbl/system/definitions.h"
 
 namespace nbl::system
@@ -38,6 +38,7 @@ class IApplicationFramework : public core::IReferenceCounted
     protected:
         ~IApplicationFramework() {}
 
+        // TODO: why aren't these pure virtual, and why do we even need a `_impl()`suffix?
         virtual void onAppInitialized_impl() {}
         virtual void onAppTerminated_impl() {}
 

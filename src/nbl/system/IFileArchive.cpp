@@ -1,16 +1,58 @@
 #include "nbl/system/IFileArchive.h"
-#include "nbl/system/IFileViewAllocator.h"
-namespace nbl::system
+
+
+using namespace nbl;
+using namespace nbl::system;
+
+
+core::SRange<const IFileArchive::SListEntry> IFileArchive::listAssets(const path& asset_path) const
 {
-	void IFileArchive::setFlagsVectorSize(size_t fileCount)
+	// TODO: use something from ISystem for this?
+	constexpr auto isSubDir = [](path p, path root) -> bool
 	{
-		assert(!m_filesBuffer && !m_fileFlags);
-		m_filesBuffer = (std::byte*)_NBL_ALIGNED_MALLOC(fileCount * SIZEOF_INNER_ARCHIVE_FILE, ALIGNOF_INNER_ARCHIVE_FILE);
-		m_fileFlags = (std::atomic_flag*)_NBL_ALIGNED_MALLOC(fileCount * sizeof(std::atomic_flag), alignof(std::atomic_flag));
-		for (int i = 0; i < fileCount; i++)
+		while (p != path())
 		{
-			m_fileFlags[i].clear();
+			if (p==root)
+				return true;
+			p = p.parent_path();
 		}
-		memset(m_filesBuffer, 0, fileCount * SIZEOF_INNER_ARCHIVE_FILE);
+		return false;
+	};
+
+	const IFileArchive::SListEntry* begin = nullptr;
+	const IFileArchive::SListEntry* end = nullptr;
+	for (auto& entry : m_items)
+	{
+		if (isSubDir(entry.pathRelativeToArchive, asset_path))
+		{
+			if (begin)
+				end = &entry;
+			else
+				begin = &entry;
+		}
+		else if (end)
+			break;
 	}
+	return {begin,end};
+
+	/*
+	// future, cause lower/upper bound don't work like that
+	auto begin = std::lower_bound(m_items.begin(), m_items.end(),asset_path);
+	if (begin!=m_items.end())
+	{
+		auto end = std::upper_bound(begin,m_items.end(),asset_path);
+		if (begin==end)
+			return {&(*begin),&(*end)};
+	}
+	return {nullptr,nullptr};
+	*/
+}
+
+
+core::smart_refctd_ptr<IFileArchive> IArchiveLoader::createArchive(core::smart_refctd_ptr<IFile>&& file, const std::string_view& password) const
+{
+	if (!(file->getFlags()&IFile::ECF_READ))
+		return nullptr;
+
+	return createArchive_impl(std::move(file),password);
 }

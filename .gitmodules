@@ -20,12 +20,6 @@
 [submodule "3rdparty/zlib"]
 	path = 3rdparty/zlib
 	url = https://github.com/madler/zlib.git
-[submodule "3rdparty/utfcpp"]
-	path = 3rdparty/utfcpp
-	url = https://github.com/nemtrif/utfcpp.git
-[submodule "3rdparty/convertutf"]
-	path = 3rdparty/convertutf
-	url = https://github.com/plenluno/convertutf.git
 [submodule "3rdparty/libpng"]
 	path = 3rdparty/libpng
 	url = https://github.com/glennrp/libpng.git
@@ -39,9 +33,6 @@
 [submodule "3rdparty/bullet3"]
 	path = 3rdparty/bullet3
 	url = https://github.com/bulletphysics/bullet3.git
-[submodule "ext/CEGUI/stb"]
-	path = ext/CEGUI/stb
-	url = https://github.com/nothings/stb.git
 [submodule "3rdparty/portable-file-dialogs"]
 	path = 3rdparty/portable-file-dialogs
 	url = https://github.com/samhocevar/portable-file-dialogs.git
@@ -92,3 +83,7 @@
 [submodule "3rdparty/pstl/oneDPL/oneDPL"]
 	path = 3rdparty/pstl/oneDPL/oneDPL
 	url = https://github.com/Devsh-Graphics-Programming/oneDPL.git
+[submodule "3rdparty/Vulkan-Headers"]
+	path = 3rdparty/Vulkan-Headers
+	url = git@github.com:KhronosGroup/Vulkan-Headers.git
+	branch = main

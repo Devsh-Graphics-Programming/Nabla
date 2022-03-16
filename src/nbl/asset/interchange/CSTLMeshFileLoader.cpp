@@ -17,7 +17,6 @@
 
 using namespace nbl;
 using namespace nbl::asset;
-using namespace nbl::io;
 
 constexpr auto POSITION_ATTRIBUTE = 0;
 constexpr auto COLOR_ATTRIBUTE = 1;
@@ -174,10 +173,11 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 
 		uint32_t vertexCount = 0u;
 
-		system::future<size_t> future;
-		context.inner.mainFile->read(future, &vertexCount, context.fileOffset, sizeof(vertexCount));
-		const auto bytesRead = future.get();
-		context.fileOffset += bytesRead;
+		system::IFile::success_t success;
+		context.inner.mainFile->read(success, &vertexCount, context.fileOffset, sizeof(vertexCount));
+		if (!success)
+			return {};
+		context.fileOffset += sizeof(vertexCount);
 
 		positions.reserve(3 * vertexCount);
 		normals.reserve(vertexCount);
@@ -242,10 +242,11 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		}
 		else
 		{
-			system::future<size_t> future;
-			context.inner.mainFile->read(future, &attrib, context.fileOffset, sizeof(attrib));
-			const auto bytesRead = future.get();
-			context.fileOffset += bytesRead;
+			system::IFile::success_t success;
+			context.inner.mainFile->read(success, &attrib, context.fileOffset, sizeof(attrib));
+			if (!success)
+				return {};
+			context.fileOffset += sizeof(attrib);
 		}
 
 		if (hasColor && (attrib & 0x8000u)) // assuming VisCam/SolidView non-standard trick to store color in 2 bytes of extra attribute
@@ -320,10 +321,12 @@ bool CSTLMeshFileLoader::isALoadableFileFormat(system::IFile* _file, const syste
 		return false;
 
 	char header[6];
-	
-	system::future<size_t> future;
-	_file->read(future, header, 0, sizeof(header));
-	future.get();
+	{
+		system::IFile::success_t success;
+		_file->read(success, header, 0, sizeof(header));
+		if (!success)
+			return false;
+	}
 
 	if (strncmp(header, "solid ", 6u) == 0)
 		return true;
@@ -335,9 +338,10 @@ bool CSTLMeshFileLoader::isALoadableFileFormat(system::IFile* _file, const syste
 		uint32_t triangleCount;
 
 		constexpr size_t readOffset = 80;
-		system::future<size_t> future2;
-		_file->read(future2, &triangleCount, readOffset, sizeof(triangleCount));
-		future2.get();
+		system::IFile::success_t success;
+		_file->read(success, &triangleCount, readOffset, sizeof(triangleCount));
+		if (!success)
+			return false;
 
 		constexpr size_t STL_TRI_SZ = 50u;
 		return _file->getSize() == (STL_TRI_SZ * triangleCount + 84u);
@@ -350,7 +354,7 @@ void CSTLMeshFileLoader::getNextVector(SContext* context, core::vectorSIMDf& vec
 	if (binary)
 	{
 		{
-			system::future<size_t> future;
+			system::ISystem::future_t<size_t> future;
 			context->inner.mainFile->read(future, &vec.X, context->fileOffset, 4);
 
 			const auto bytesRead = future.get();
@@ -358,7 +362,7 @@ void CSTLMeshFileLoader::getNextVector(SContext* context, core::vectorSIMDf& vec
 		}
 		
 		{
-			system::future<size_t> future;
+			system::ISystem::future_t<size_t> future;
 			context->inner.mainFile->read(future, &vec.Y, context->fileOffset, 4);
 			
 			const auto bytesRead = future.get();
@@ -366,7 +370,7 @@ void CSTLMeshFileLoader::getNextVector(SContext* context, core::vectorSIMDf& vec
 		}
 
 		{
-			system::future<size_t> future;
+			system::ISystem::future_t<size_t> future;
 			context->inner.mainFile->read(future, &vec.Z, context->fileOffset, 4);
 			
 			const auto bytesRead = future.get();
@@ -397,7 +401,7 @@ const std::string& CSTLMeshFileLoader::getNextToken(SContext* context, std::stri
 
 	while (context->fileOffset != context->inner.mainFile->getSize())
 	{
-		system::future<size_t> future;
+		system::ISystem::future_t<size_t> future;
 		context->inner.mainFile->read(future, &c, context->fileOffset, sizeof(c));
 		const auto bytesRead = future.get();
 		context->fileOffset += bytesRead;
@@ -416,7 +420,7 @@ void CSTLMeshFileLoader::goNextWord(SContext* context) const
 	uint8_t c;
 	while (context->fileOffset != context->inner.mainFile->getSize()) // TODO: check it
 	{
-		system::future<size_t> future;
+		system::ISystem::future_t<size_t> future;
 		context->inner.mainFile->read(future, &c, context->fileOffset, sizeof(c));
 		const auto bytesRead = future.get();
 		context->fileOffset += bytesRead;
@@ -437,7 +441,7 @@ void CSTLMeshFileLoader::goNextLine(SContext* context) const
 	// look for newline characters
 	while (context->fileOffset != context->inner.mainFile->getSize()) // TODO: check it
 	{
-		system::future<size_t> future;
+		system::ISystem::future_t<size_t> future;
 		context->inner.mainFile->read(future, &c, context->fileOffset, sizeof(c));
 		{
 			const auto bytesRead = future.get();

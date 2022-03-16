@@ -24,6 +24,10 @@ public:
         asset::IBufferView<IGPUBuffer>(std::move(_buffer), _format, _offset, _size), IBackendObject(std::move(dev))
     {}
 
+    // OpenGL: const GLuint* handle of GL_TEXTURE_BUFFER
+    // Vulkan: const VkBufferView*
+    virtual const void* getNativeHandle() const = 0;
+
 protected:
     virtual ~IGPUBufferView() = default;
 };

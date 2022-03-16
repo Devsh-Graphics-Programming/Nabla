@@ -644,6 +644,10 @@ class ILogicalDevice : public core::IReferenceCounted
             return IGPUAccelerationStructure::BuildSizes{};
         }
 
+        // OpenGL: const egl::CEGL::Context*
+        // Vulkan: const VkDevice*
+        virtual const void* getNativeHandle() const = 0;
+
     protected:
         ILogicalDevice(core::smart_refctd_ptr<IAPIConnection>&& api, IPhysicalDevice* physicalDevice, const SCreationParams& params)
             : m_api(api), m_physicalDevice(physicalDevice)

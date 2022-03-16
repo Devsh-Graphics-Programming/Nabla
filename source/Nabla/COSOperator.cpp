@@ -1,54 +1,3 @@
-// Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
-// This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
-// For conditions of distribution and use, see copyright notice in nabla.h
-// See the original file in irrlicht source for authors
-
-#include "COSOperator.h"
-
-#ifdef _NBL_WINDOWS_API_
-#include <windows.h>
-#else
-#include <string.h>
-#include <unistd.h>
-#ifndef _NBL_SOLARIS_PLATFORM_
-#include <sys/types.h>
-#include <sys/sysctl.h>
-#endif
-#endif
-
-#if defined(_NBL_COMPILE_WITH_X11_DEVICE_)
-#include "CIrrDeviceLinux.h"
-#include <fstream>
-#endif
-
-namespace nbl
-{
-
-#if defined(_NBL_COMPILE_WITH_X11_DEVICE_)
-// constructor  linux
-	COSOperator::COSOperator(const core::stringc& osVersion, CIrrDeviceLinux* device)
-: OperatingSystem(osVersion), IrrDeviceLinux(device)
-{
-}
-#endif
-
-// constructor
-COSOperator::COSOperator(const core::stringc& osVersion) : OperatingSystem(osVersion)
-{
-	#ifdef _NBL_DEBUG
-	setDebugName("COSOperator");
-	#endif
-}
-
-
-//! returns the current operating system version as string.
-const core::stringc& COSOperator::getOperatingSystemVersion() const
-{
-	return OperatingSystem;
-}
-
-
-
 bool COSOperator::getProcessorSpeedMHz(uint32_t* MHz) const
 {
 #if defined(_NBL_WINDOWS_API_) && !defined(_WIN32_WCE )
@@ -155,7 +104,3 @@ bool COSOperator::getSystemMemory(uint32_t* Total, uint32_t* Avail) const
 	return false;
 #endif
 }
-
-
-} // end namespace
-

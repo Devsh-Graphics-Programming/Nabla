@@ -8,38 +8,18 @@
 
 #include "ISceneManager.h"
 #include "ISceneNode.h"
-#include "ICursorControl.h"
-
-#include <map>
-#include <string>
 
 namespace nbl
 {
-	class ITimer;
-namespace io
-{
-	class IFileSystem;
-}
 namespace scene
 {
 
-	/*!
-		The Scene Manager manages scene nodes, mesh recources, cameras and all the other stuff.
-	*/
-	class CSceneManager : public ISceneManager, public ISceneNode
-	{
-    protected:
-		//! destructor
-		virtual ~CSceneManager();
-
+/*!
+	The Scene Manager manages scene nodes, mesh recources, cameras and all the other stuff.
+*/
+class CSceneManager : public ISceneManager, public ISceneNode
+{
 	public:
-		//! constructor
-		CSceneManager(	IrrlichtDevice* device, video::IVideoDriver* driver,
-						nbl::ITimer* timer, io::IFileSystem* fs, gui::ICursorControl* cursorControl);
-
-		//! returns the video driver
-		inline video::IVideoDriver* getVideoDriver() override { return Driver; }
-
         //!
 		virtual void OnAnimate(uint32_t timeMs);
 
@@ -78,45 +58,6 @@ namespace scene
 			SKeyMap* keyMapArray=0, int32_t keyMapSize=0,
 			bool noVerticalMovement=false, float jumpSpeed = 0.f,
 			bool invertMouseY=false, bool makeActive=true);
-
-		//! Returns the current active camera.
-		//! \return The active camera is returned. Note that this can be NULL, if there
-		//! was no camera created yet.
-		virtual ICameraSceneNode* getActiveCamera() const;
-
-		//! Sets the active camera. The previous active camera will be deactivated.
-		//! \param camera: The new camera which should be active.
-		virtual void setActiveCamera(ICameraSceneNode* camera);
-
-		//! Posts an input event to the environment. Usually you do not have to
-		//! use this method, it is used by the internal engine.
-		virtual bool receiveIfEventReceiverDidNotAbsorb(const SEvent& event);
-
-		//! Clears the whole scene. All scene nodes are removed.
-		virtual void clear();
-
-		//! Removes all children of this scene node
-		virtual void removeAll();
-
-	protected:
-
-		//! clears the deletion list
-		void clearDeletionList();
-
-		//! video driver
-		video::IVideoDriver* Driver;
-
-		//! timer
-		nbl::ITimer* Timer;
-
-        //! parent device
-        IrrlichtDevice* Device;
-
-		//! cursor control
-		gui::ICursorControl* CursorControl;
-
-		//! current active camera
-		ICameraSceneNode* ActiveCamera;
 	};
 
 } // end namespace video

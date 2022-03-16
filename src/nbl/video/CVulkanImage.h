@@ -23,7 +23,8 @@ class CVulkanImage : public IGPUImage
 			const IDriverMemoryBacked::SDriverMemoryRequirements& reqs = IDriverMemoryBacked::SDriverMemoryRequirements())
 			: IGPUImage(std::move(_vkdev), std::move(_params), reqs), m_vkImage(_vkimg)
 		{}
-
+		
+		inline const void* getNativeHandle() const override {return &m_vkImage;}
 		inline VkImage getInternalObject() const { return m_vkImage; }
 
 		inline IDriverMemoryAllocation* getBoundMemory() override { return m_memory.get(); }

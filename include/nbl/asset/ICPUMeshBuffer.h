@@ -422,7 +422,8 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
             {
                 double output64[4]{ 0., 0., 0., 1. };
                 decodePixels<double>(format, &src, output64, 0u, 0u);
-                std::copy(output64, output64+4, output.pointer);
+                for (auto i=0u; i<4u; i++)
+                    output[i] = static_cast<float>(output64[i]);
             }
             else
             {
@@ -430,13 +431,15 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
                 {
                     int64_t output64i[4]{ 0, 0, 0, 1 };
                     decodePixels<int64_t>(impl::getCorrespondingIntegerFmt(format), &src, output64i, 0u, 0u);
-                    std::copy(output64i, output64i+4, output.pointer);
+                    for (auto i=0u; i<4u; i++)
+                        output[i] = static_cast<float>(output64i[i]);
                 }
                 else
                 {
                     uint64_t output64u[4]{ 0u, 0u, 0u, 1u };
                     decodePixels<uint64_t>(impl::getCorrespondingIntegerFmt(format), &src, output64u, 0u, 0u);
-                    std::copy(output64u, output64u+4, output.pointer);
+                    for (auto i=0u; i<4u; i++)
+                        output[i] = static_cast<float>(output64u[i]);
                 }
             }
 

@@ -520,6 +520,7 @@ public:
 				asset::SPushConstantRange range[1] = { asset::IShader::ESS_VERTEX,0u,sizeof(core::matrix4SIMD) };
 				cpuLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(range, range + 1u, std::move(dsLayout));
 			}
+			cpu2gpuParams.beginCommandBuffers();
 			m_gpuLayout = CPU2GPU.getGPUObjectsFromAssets(&cpuLayout.get(), &cpuLayout.get() + 1, cpu2gpuParams)->front();
 
 			{
@@ -648,6 +649,8 @@ public:
 
 			GPUObject ret = {};
 			ret.pool = pool;
+			cpu2gpuParams.waitForCreationToComplete(true);
+			cpu2gpuParams.beginCommandBuffers();
 			// get the mesh
 			ret.gpuMesh = CPU2GPU.getGPUObjectsFromAssets(&cpuMesh, &cpuMesh + 1, cpu2gpuParams)->front();
 			asset::SBufferBinding<video::IGPUBuffer> instanceRedirectBufBnd;

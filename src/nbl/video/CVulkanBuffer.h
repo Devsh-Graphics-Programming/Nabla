@@ -23,7 +23,8 @@ public:
 
     ~CVulkanBuffer();
 
-    inline VkBuffer getInternalObject() const { return m_vkBuffer; };
+    inline const void* getNativeHandle() const override {return &m_vkBuffer;}
+    inline VkBuffer getInternalObject() const {return m_vkBuffer;}
 
     IDriverMemoryAllocation* getBoundMemory() override
     {

@@ -210,25 +210,24 @@ private:
 
 int main(int argc, char** argv)
 {
-	path CWD = path(argv[0]).parent_path().generic_string() + "/";
-	path mediaWD = CWD.generic_string() + "../../media/";
+	const path CWD = path(argv[0]).parent_path().generic_string() + "/";
+	const path mediaWD = CWD.generic_string() + "../../media/";
+
 	auto system = CommonAPI::createSystem();
-	// *** Select stdout/file logger ***
-	auto logger = make_smart_refctd_ptr<system::CColoredStdoutLoggerWin32>();
-	//auto logger = system::CFileLogger::create(logFileName);
-	// *** If you don't want logging, uncomment this one line***
-	// logger = nullptr;
-	// **************************************************************************************
+	// TODO: system->deleteFile("log.txt");
+
+	core::smart_refctd_ptr<system::ILogger> logger;
+	{
+		system::ISystem::future_t<smart_refctd_ptr<system::IFile>> future;
+		system->createFile(future, CWD/"log.txt", nbl::system::IFile::ECF_READ_WRITE);
+		auto file = future.get();
+		logger = core::make_smart_refctd_ptr<system::CFileLogger>(std::move(file),false);
+	}
 
 	auto assetManager = core::make_smart_refctd_ptr<IAssetManager>(smart_refctd_ptr(system));
 
 	auto winManager = core::make_smart_refctd_ptr<CWindowManagerWin32>();
 	
-	{
-		system::ISystem::future_t<smart_refctd_ptr<system::IFile>> future;
-		system->createFile(future, "log.txt", nbl::system::IFile::ECF_READ_WRITE);
-		auto file = future.get();
-	}
 
 	IWindow::SCreationParams params;
 	params.callback = nullptr;
@@ -240,26 +239,36 @@ int main(int argc, char** argv)
 	params.flags = IWindow::ECF_NONE;
 	params.windowCaption = "Test Window";
 
-	auto input = make_smart_refctd_ptr<InputSystem>(system::logger_opt_smart_ptr(logger));
-	auto windowCb = make_smart_refctd_ptr<WindowEventCallback>(core::smart_refctd_ptr(input),system::logger_opt_smart_ptr(logger));
+	auto input = make_smart_refctd_ptr<InputSystem>(system::logger_opt_smart_ptr(smart_refctd_ptr(logger)));
+	auto windowCb = make_smart_refctd_ptr<WindowEventCallback>(core::smart_refctd_ptr(input),system::logger_opt_smart_ptr(smart_refctd_ptr(logger)));
 	params.callback = windowCb;
 	// *********************************
 	auto window = winManager->createWindow(std::move(params));
 	auto* cursorControl = window->getCursorControl();
 
 	system::ISystem::future_t<smart_refctd_ptr<system::IFile>> future;
-	system->createFile(future, CWD.generic_string() + "testFile.txt", core::bitflag(nbl::system::IFile::ECF_READ_WRITE) | IFile::ECF_MAPPABLE);
+	system->createFile(future, CWD/"testFile.txt", core::bitflag(nbl::system::IFile::ECF_READ_WRITE)/*Growing mappable files are a TODO |IFile::ECF_MAPPABLE*/);
 	auto file = future.get();
-	std::string fileData = "Test file data!";
 
-	system::future<size_t> writeFuture;
-	file->write(writeFuture, fileData.data(), 0, fileData.length());
-	assert(writeFuture.get() == fileData.length());
+	{
+		const std::string fileData = "Test file data!";
 
-	std::string readStr(fileData.length(), '\0');
-	system::future<size_t> readFuture;
-	file->read(readFuture, readStr.data(), 0, readStr.length());
-	assert(readFuture.get() == fileData.length());
+		system::IFile::success_t writeSuccess;
+		file->write(writeSuccess, fileData.data(), 0, fileData.length());
+		{
+			const bool success = bool(writeSuccess);
+			assert(success);
+		}
+
+		std::string readStr(fileData.length(), '\0');
+		system::IFile::success_t readSuccess;
+		file->read(readSuccess, readStr.data(), 0, readStr.length());
+		{
+			const bool success = bool(readSuccess);
+			assert(success);
+		}
+		assert(readStr == fileData);
+	}
 
 	// polling for events!
 	InputSystem::ChannelReader<IMouseEventChannel> mouse;
@@ -305,44 +314,19 @@ int main(int argc, char** argv)
 			}
 		}
 	};
-	
-	auto bigarch = system->openFileArchive(CWD.generic_string() + "../../media/sponza.zip");
-	system->mount(std::move(bigarch), "sponza");
-
-	system->copy(CWD.generic_string() + "pngWriteSuccessful.png", "pngCopy.png");
-	
-	system->createDirectory(CWD.generic_string() + "textures1");
-	system->copy(CWD.generic_string() + "textures", CWD.generic_string() + "textures1");
-	system->copy("sponza/textures", CWD.generic_string() + "textures");
-	system->moveFileOrDirectory("file.tar", "movedFile.tar");
-	system->listFilesInDirectory(CWD.generic_string() + "textures");
-	{
-		system::future<smart_refctd_ptr<IFile>> fut;
-		system->createFile(fut, "tarArch/file.txt", IFile::ECF_READ);
-		auto file = fut.get();
-		{
-			system::future<smart_refctd_ptr<IFile>> fut;
-			system->createFile(fut, "tarArch/file.txt", IFile::ECF_READ);
-			file = fut.get();
-		}
-		std::string str(5, '\0');
-		system::future<size_t> readFut;
-		file->read(readFut, str.data(), 0, 5);
-		readFut.get();
-		std::cout << str << std::endl;
-	}
 
 	IAssetLoader::SAssetLoadParams lp;
 	lp.workingDirectory = mediaWD;
 	//PNG loader test
 	{
-		auto asset = assetManager->getAsset("cegui_alfisko/screenshot.png", lp);
+		auto asset = assetManager->getAsset("Cerberus_by_Andrew_Maximov/Textures/Cerberus_H.png", lp);
 		assert(!asset.getContents().empty());
-		auto cpuImage = static_cast<ICPUImage*>(asset.getContents().begin()->get());
+		auto cpuImage = IAsset::castDown<ICPUImage>(asset.getContents()[0]);
 		core::smart_refctd_ptr<ICPUImageView> imageView;
+
 		ICPUImageView::SCreationParams imgViewParams;
 		imgViewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
-		imgViewParams.format = E_FORMAT::EF_R8G8B8_UINT;
+		imgViewParams.format = cpuImage->getCreationParameters().format;
 		imgViewParams.image = core::smart_refctd_ptr<ICPUImage>(cpuImage);
 		imgViewParams.viewType = ICPUImageView::ET_2D;
 		imgViewParams.subresourceRange = { static_cast<IImage::E_ASPECT_FLAGS>(0u),0u,1u,0u,1u };
@@ -350,7 +334,6 @@ int main(int argc, char** argv)
 
 		IAssetWriter::SAssetWriteParams wp(imageView.get());
 		wp.workingDirectory = CWD;
-
 		assetManager->writeAsset("pngWriteSuccessful.png", wp);
 	}
 	//TODO OBJ loader test 
@@ -367,7 +350,7 @@ int main(int argc, char** argv)
 	{
 		auto asset = assetManager->getAsset("dwarf.jpg", lp);
 		assert(!asset.getContents().empty());
-		auto cpuImage = static_cast<ICPUImage*>(asset.getContents().begin()->get());
+		auto cpuImage = IAsset::castDown<ICPUImage>(asset.getContents()[0]);
 		core::smart_refctd_ptr<ICPUImageView> imageView;
 		ICPUImageView::SCreationParams imgViewParams;
 		imgViewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
@@ -382,6 +365,40 @@ int main(int argc, char** argv)
 
 		assetManager->writeAsset("jpgWriteSuccessful.jpg", wp);
 	}
+	
+	
+	auto bigarch = system->openFileArchive(CWD/"../../media/sponza.zip");
+	system->mount(std::move(bigarch), "sponza");
+
+	system->copy(CWD/"pngWriteSuccessful.png", CWD/"pngCopy.png");
+	
+	system->createDirectory(CWD/"textures1");
+	system->copy(CWD/"textures", CWD/"textures1");
+	system->copy("sponza/textures", CWD/"textures");
+
+	const auto items = system->listItemsInDirectory(CWD/"textures");
+	for (const auto& item : items)
+		logger->log("%s",system::ILogger::ELL_DEBUG,item.c_str());
+
+/* TODO: Tart Archive reader test
+	system->moveFileOrDirectory("file.tar","movedFile.tar");
+	{
+		system::future<smart_refctd_ptr<IFile>> fut;
+		system->createFile(fut, "tarArch/file.txt", IFile::ECF_READ);
+		auto file = fut.get();
+		{
+			system::future<smart_refctd_ptr<IFile>> fut;
+			system->createFile(fut, "tarArch/file.txt", IFile::ECF_READ);
+			file = fut.get();
+		}
+		std::string str(5, '\0');
+		system::future<size_t> readFut;
+		file->read(readFut, str.data(), 0, 5);
+		readFut.get();
+		std::cout << str << std::endl;
+	}
+*/
+
 	while (windowCb->isWindowOpen())
 	{
 		input->getDefaultMouse(&mouse);

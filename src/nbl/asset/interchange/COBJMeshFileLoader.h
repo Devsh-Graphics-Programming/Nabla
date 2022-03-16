@@ -11,14 +11,7 @@
 #include "nbl/asset/interchange/IAssetLoader.h"
 #include "nbl/asset/metadata/CMTLMetadata.h"
 
-namespace nbl
-{
-namespace io
-{
-    class IFileSystem;
-}
-
-namespace asset
+namespace nbl::asset
 {
 
 #include "nbl/nblpack.h"
@@ -83,14 +76,13 @@ public:
 	//! Constructor
 	COBJMeshFileLoader(IAssetManager* _manager);
 
-    virtual bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const override
+    inline bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const override
     {
         // OBJ doesn't really have any header but usually starts with a comment
-        system::future<size_t> future;
+        system::IFile::success_t succ;
         char firstChar = 0;
-        _file->read(future, &firstChar, 0, 1);
-        future.get();
-        return firstChar =='#' || firstChar =='v';
+        _file->read(succ, &firstChar, 0, sizeof(firstChar));
+        return succ && (firstChar =='#' || firstChar =='v');
     }
 
     virtual const char** getAssociatedFileExtensions() const override
@@ -142,7 +134,6 @@ private:
 	}
 };
 
-} // end namespace asset
-} // end namespace nbl
+} // end namespace nbl::asset
 
 #endif

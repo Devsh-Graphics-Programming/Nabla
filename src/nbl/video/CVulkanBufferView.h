@@ -18,8 +18,9 @@ public:
         VkBufferView handle)
         : IGPUBufferView(std::move(dev), buffer, format, offset, size), m_vkBufferView(handle)
     {}
-
-    inline VkBufferView getInternalObject() const { return m_vkBufferView; }
+    
+    inline const void* getNativeHandle() const override {return &m_vkBufferView;}
+    inline VkBufferView getInternalObject() const {return m_vkBufferView;}
 
     ~CVulkanBufferView();
 	

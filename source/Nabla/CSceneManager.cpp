@@ -5,10 +5,6 @@
 
 #include "BuildConfigOptions.h"
 #include "CSceneManager.h"
-#include "IFileSystem.h"
-#include "IReadFile.h"
-#include "IWriteFile.h"
-#include "IrrlichtDevice.h"
 
 #include "nbl_os.h"
 
@@ -22,44 +18,6 @@ namespace nbl
 {
 namespace scene
 {
-
-//! constructor
-CSceneManager::CSceneManager(IrrlichtDevice* device, video::IVideoDriver* driver, nbl::ITimer* timer, io::IFileSystem* fs,
-		gui::ICursorControl* cursorControl)
-: ISceneNode(0, 0), Driver(driver), Timer(timer), Device(device),
-	CursorControl(cursorControl), ActiveCamera(0)
-{
-	#ifdef _NBL_DEBUG
-	ISceneManager::setDebugName("CSceneManager ISceneManager");
-	#endif
-
-	if (Driver)
-		Driver->grab();
-	if (CursorControl)
-		CursorControl->grab();
-}
-
-
-//! destructor
-CSceneManager::~CSceneManager()
-{
-	if (CursorControl)
-		CursorControl->drop();
-
-	if (ActiveCamera)
-		ActiveCamera->drop();
-	ActiveCamera = 0;
-
-	// remove all nodes and animators before dropping the driver
-	// as render targets may be destroyed twice
-
-	removeAll();
-	removeAnimators();
-
-	if (Driver)
-		Driver->drop();
-}
-
 
 //! Adds a camera scene node to the tree and sets it as active camera.
 //! \param position: Position of the space relative to its parent where the camera will be placed.
@@ -151,33 +109,6 @@ ICameraSceneNode* CSceneManager::addCameraSceneNodeFPS(IDummyTransformationScene
 }
 
 
-//! Returns the current active camera.
-//! \return The active camera is returned. Note that this can be NULL, if there
-//! was no camera created yet.
-ICameraSceneNode* CSceneManager::getActiveCamera() const
-{
-	return ActiveCamera;
-}
-
-
-//! Sets the active camera. The previous active camera will be deactivated.
-//! \param camera: The new camera which should be active.
-void CSceneManager::setActiveCamera(ICameraSceneNode* camera)
-{
-	if (camera)
-		camera->grab();
-	if (ActiveCamera)
-		ActiveCamera->drop();
-
-	ActiveCamera = camera;
-}
-
-
-//! renders the node.
-void CSceneManager::render()
-{
-}
-
 //!
 void CSceneManager::OnAnimate(uint32_t timeMs)
 {
@@ -208,22 +139,6 @@ bool CSceneManager::receiveIfEventReceiverDidNotAbsorb(const SEvent& event)
 
 	return ret;
 }
-
-
-//! Removes all children of this scene node
-void CSceneManager::removeAll()
-{
-	ISceneNode::removeAll();
-	setActiveCamera(0);
-}
-
-
-//! Clears the whole scene. All scene nodes are removed.
-void CSceneManager::clear()
-{
-	removeAll();
-}
-
 
 } // end namespace scene
 } // end namespace nbl

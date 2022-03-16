@@ -149,7 +149,7 @@ APP_CONSTRUCTOR(PLYSTLDemo)
 		const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT);
 		const video::ISurface::SFormat surfaceFormat(asset::EF_R8G8B8A8_SRGB, asset::ECP_COUNT, asset::EOTF_UNKNOWN);
 
-		CommonAPI::InitWithDefaultExt(initOutput, video::EAT_OPENGL_ES, "plystldemo", WIN_W, WIN_H, SC_IMG_COUNT, swapchainImageUsage, surfaceFormat, nbl::asset::EF_D32_SFLOAT);
+		CommonAPI::InitWithDefaultExt(initOutput, video::EAT_OPENGL/*Vulkan doesn't work yet*/, "plystldemo", WIN_W, WIN_H, SC_IMG_COUNT, swapchainImageUsage, surfaceFormat, nbl::asset::EF_D32_SFLOAT);
 		window = std::move(initOutput.window);
 		gl = std::move(initOutput.apiConnection);
 		surface = std::move(initOutput.surface);
@@ -194,19 +194,23 @@ APP_CONSTRUCTOR(PLYSTLDemo)
 			gpuComputeFence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
 			gpuComputeSemaphore = logicalDevice->createSemaphore();
 
-			cpu2gpuParams.assetManager = assetManager.get();
-			cpu2gpuParams.device = logicalDevice.get();
-			cpu2gpuParams.finalQueueFamIx = queues[decltype(initOutput)::EQT_GRAPHICS]->getFamilyIndex();
-			cpu2gpuParams.limits = gpuPhysicalDevice->getLimits();
-			cpu2gpuParams.pipelineCache = nullptr;
-			cpu2gpuParams.sharingMode = nbl::asset::ESM_CONCURRENT;
 			cpu2gpuParams.utilities = utilities.get();
+			cpu2gpuParams.device = logicalDevice.get();
+			cpu2gpuParams.assetManager = assetManager.get();
+			cpu2gpuParams.pipelineCache = nullptr;
+			cpu2gpuParams.limits = gpuPhysicalDevice->getLimits();
+			cpu2gpuParams.finalQueueFamIx = queues[decltype(initOutput)::EQT_GRAPHICS]->getFamilyIndex();
+			cpu2gpuParams.sharingMode = nbl::asset::ESM_EXCLUSIVE;
 
-			cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].semaphore = &gpuTransferSemaphore;
+			logicalDevice->createCommandBuffers(commandPools[CommonAPI::InitOutput::EQT_TRANSFER_UP].get(),video::IGPUCommandBuffer::EL_PRIMARY,1u,&cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].cmdbuf);
 			cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].queue = queues[decltype(initOutput)::EQT_TRANSFER_UP];
-
-			cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].semaphore = &gpuComputeSemaphore;
+			cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].semaphore = &gpuTransferSemaphore;
+			
+			logicalDevice->createCommandBuffers(commandPools[CommonAPI::InitOutput::EQT_COMPUTE].get(),video::IGPUCommandBuffer::EL_PRIMARY,1u,&cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].cmdbuf);
 			cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].queue = queues[decltype(initOutput)::EQT_COMPUTE];
+			cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].semaphore = &gpuComputeSemaphore;
+
+			cpu2gpuParams.beginCommandBuffers();
 		}
 
 		auto loadAndGetCpuMesh = [&](system::path path) -> std::pair<core::smart_refctd_ptr<asset::ICPUMesh>, const asset::IAssetMetadata*>
@@ -336,6 +340,8 @@ APP_CONSTRUCTOR(PLYSTLDemo)
 			core::smart_refctd_ptr<video::IGPUMesh> gpumesh;
 			{
 				auto gpu_array = cpu2gpu.getGPUObjectsFromAssets(&cpuMesh.get(), &cpuMesh.get() + 1, cpu2gpuParams);
+				cpu2gpuParams.waitForCreationToComplete(true);
+				cpu2gpuParams.beginCommandBuffers();
 				if (!gpu_array || gpu_array->size() < 1u || !(*gpu_array)[0])
 					assert(false);
 
@@ -370,7 +376,7 @@ APP_CONSTRUCTOR(PLYSTLDemo)
 
 		core::vectorSIMDf cameraPosition(0, 5, -10);
 		matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60.0f), float(WIN_W) / WIN_H, 0.001, 1000);
-		camera = Camera(cameraPosition, core::vectorSIMDf(0, 0, 0), projectionMatrix, 10.f, 1.f);
+		camera = Camera(cameraPosition, core::vectorSIMDf(0, 0, 0), projectionMatrix, 0.01f, 1.f);
 		lastTime = std::chrono::system_clock::now();
 
 		for (size_t i = 0ull; i < NBL_FRAMES_TO_AVERAGE; ++i)
