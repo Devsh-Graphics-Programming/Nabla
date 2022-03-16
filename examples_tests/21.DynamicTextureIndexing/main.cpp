@@ -372,6 +372,9 @@ public:
             mdiCallParams[i].maxCount = pmbData.mdiParameterCount;
         }
 
+        //
+        cpu2gpuParams.beginCommandBuffers();
+
         //create pipeline
         IAssetLoader::SAssetLoadParams lp;
         auto vertexShaderBundle = assetManager->getAsset("../mesh.vert", lp);
@@ -417,7 +420,6 @@ public:
             }
 
             auto gpuShaders = cpu2gpu.getGPUObjectsFromAssets(shaders, shaders + 2, cpu2gpuParams);
-            //cpu2gpuParams.waitForCreationToComplete();
             IGPUSpecializedShader* shaders[2] = { gpuShaders->operator[](0).get(), gpuShaders->operator[](1).get() };
 
             gpuPipelineLayout = logicalDevice->createGPUPipelineLayout(range, range + 1, core::smart_refctd_ptr(ds0layout), core::smart_refctd_ptr(ds1layout));
@@ -454,7 +456,6 @@ public:
 
 
                 auto gpuTexture = cpu2gpu.getGPUObjectsFromAssets(&texture, &texture + 1, cpu2gpuParams)->front();
-                cpu2gpuParams.waitForCreationToComplete();
 
                 info[bind].image.imageLayout = asset::EIL_UNDEFINED;
                 info[bind].image.sampler = core::smart_refctd_ptr(sampler);
@@ -486,6 +487,8 @@ public:
                 logicalDevice->updateDescriptorSets(1u, &_w, 0u, nullptr);
             }
         }
+
+        cpu2gpuParams.waitForCreationToComplete();
 
         core::vectorSIMDf cameraPosition(-4, 0, 0);
         matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60.0f), float(WIN_W) / WIN_H, 0.1, 100000);
