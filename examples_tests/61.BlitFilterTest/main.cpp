@@ -124,6 +124,9 @@ private:
 	};
 
 public:
+	static constexpr uint32_t NBL_GLSL_DEFAULT_WORKGROUP_DIM = 16u;
+	static constexpr uint32_t NBL_GLSL_DEFAULT_BIN_COUNT = 256u;
+
 	struct alpha_test_push_constants_t
 	{
 		float referenceAlpha;
@@ -210,6 +213,77 @@ public:
 		return alphaTestPipelineLayout;
 	}
 
+	core::smart_refctd_ptr<video::IGPUSpecializedShader> getDefaultAlphaTestSpecializedShader(video::ILogicalDevice* logicalDevice)
+	{
+		if (!alphaTestSpecShader)
+		{
+			auto system = logicalDevice->getPhysicalDevice()->getSystem();
+			system::future<core::smart_refctd_ptr<system::IFile>> future;
+			const bool status = system->createFile(future, "../alpha_test.comp", static_cast<system::IFile::E_CREATE_FLAGS>(system::IFile::ECF_READ | system::IFile::ECF_MAPPABLE));
+			if (!status)
+				return nullptr;
+
+			auto glslFile = future.get();
+			auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(glslFile->getSize());
+			memcpy(buffer->getPointer(), glslFile->getMappedPointer(), glslFile->getSize());
+
+			auto cpuShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(buffer), asset::IShader::buffer_contains_glsl_t{}, asset::IShader::ESS_COMPUTE, "????");
+
+			// Todo(achal): This needs to be extended to 3D images
+			auto cpuShaderOverriden = asset::IGLSLCompiler::createOverridenCopy(cpuShader.get(), "#define _NBL_GLSL_WORKGROUP_SIZE_ %d\n", NBL_GLSL_DEFAULT_WORKGROUP_DIM);
+
+			cpuShaderOverriden->setFilePathHint("../alpha_test.comp");
+
+			auto gpuUnspecShader = logicalDevice->createGPUShader(std::move(cpuShaderOverriden));
+
+			alphaTestSpecShader = logicalDevice->createGPUSpecializedShader(gpuUnspecShader.get(), { nullptr, nullptr, "main" });
+		}
+
+		return alphaTestSpecShader;
+	}
+
+	inline core::smart_refctd_ptr<video::IGPUComputePipeline> getDefaultAlphaTestPipeline(video::ILogicalDevice* logicalDevice, core::smart_refctd_ptr<video::IGPUPipelineLayout>&& pipelineLayout, core::smart_refctd_ptr<video::IGPUSpecializedShader> specShader)
+	{
+		if (!alphaTestPipeline)
+			alphaTestPipeline = logicalDevice->createGPUComputePipeline(nullptr, std::move(pipelineLayout), std::move(specShader));
+
+		return alphaTestPipeline;
+	}
+
+	static void updateAlphaTestDescriptorSet(video::ILogicalDevice* logicalDevice, video::IGPUDescriptorSet* ds, core::smart_refctd_ptr<video::IGPUImageView> inImageView, core::smart_refctd_ptr<video::IGPUBuffer> alphaTestCounterBuffer)
+	{
+		constexpr uint32_t MAX_DESCRIPTOR_COUNT = 4u;
+
+		const auto& bindings = ds->getLayout()->getBindings();
+		const uint32_t descriptorCount = static_cast<uint32_t>(bindings.size());
+		assert(descriptorCount < MAX_DESCRIPTOR_COUNT);
+
+		video::IGPUDescriptorSet::SWriteDescriptorSet writes[MAX_DESCRIPTOR_COUNT] = {};
+		video::IGPUDescriptorSet::SDescriptorInfo infos[MAX_DESCRIPTOR_COUNT] = {};
+
+		for (uint32_t i = 0u; i < descriptorCount; ++i)
+		{
+			writes[i].dstSet = ds;
+			writes[i].binding = i;
+			writes[i].arrayElement = 0u;
+			writes[i].count = 1u;
+			writes[i].info = &infos[i];
+			writes[i].descriptorType = bindings.begin()[i].type;
+		}
+
+		// input image
+		infos[0].desc = inImageView;
+		infos[0].image.imageLayout = asset::EIL_GENERAL;
+		infos[0].image.sampler = nullptr;
+
+		// alpha test counter buffer (this will be assimilated into the scratch buffer soon which will hold the space both for the histogram and this atomic counter)
+		infos[1].desc = alphaTestCounterBuffer;
+		infos[1].buffer.offset = 0u;
+		infos[1].buffer.size = alphaTestCounterBuffer->getCachedCreationParams().declaredSize;
+
+		logicalDevice->updateDescriptorSets(descriptorCount, writes, 0u, nullptr);
+	}
+
 	inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> getDefaultNormalizationDSLayout(video::ILogicalDevice* logicalDevice)
 	{
 		if (!normalizationDSLayout)
@@ -239,13 +313,101 @@ public:
 		return normalizationPipelineLayout;
 	}
 
+	core::smart_refctd_ptr<video::IGPUSpecializedShader> getDefaultNormalizationSpecializedShader(video::ILogicalDevice* logicalDevice)
+	{
+		if (!normalizationSpecShader)
+		{
+			auto system = logicalDevice->getPhysicalDevice()->getSystem();
+			system::future<core::smart_refctd_ptr<system::IFile>> future;
+			const bool status = system->createFile(future, "../normalization.comp", static_cast<system::IFile::E_CREATE_FLAGS>(system::IFile::ECF_READ | system::IFile::ECF_MAPPABLE));
+			if (!status)
+				return nullptr;
+
+			auto glslFile = future.get();
+			auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(glslFile->getSize());
+			memcpy(buffer->getPointer(), glslFile->getMappedPointer(), glslFile->getSize());
+
+			auto cpuShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(buffer), asset::IShader::buffer_contains_glsl_t{}, asset::IShader::ESS_COMPUTE, "????");
+
+			auto cpuShaderOverriden = asset::IGLSLCompiler::createOverridenCopy(cpuShader.get(),
+				"#define _NBL_GLSL_WORKGROUP_SIZE_X_ %d\n"
+				"#define _NBL_GLSL_WORKGROUP_SIZE_Y_ %d\n"
+				"#define _NBL_GLSL_WORKGROUP_SIZE_Z_ %d\n"
+				"#define _NBL_GLSL_BIN_COUNT_ %d\n",
+				// Todo(achal): Not make DEFAULT_WG_SIZE_Z = 1
+				NBL_GLSL_DEFAULT_WORKGROUP_DIM, NBL_GLSL_DEFAULT_WORKGROUP_DIM, 1u, NBL_GLSL_DEFAULT_BIN_COUNT);
+
+			cpuShaderOverriden->setFilePathHint("../normalization.comp");
+
+			auto gpuUnspecShader = logicalDevice->createGPUShader(std::move(cpuShaderOverriden));
+
+			normalizationSpecShader = logicalDevice->createGPUSpecializedShader(gpuUnspecShader.get(), { nullptr, nullptr, "main" });
+		}
+
+		return normalizationSpecShader;
+	}
+
+	inline core::smart_refctd_ptr<video::IGPUComputePipeline> getDefaultNormalizationPipeline(video::ILogicalDevice* logicalDevice, core::smart_refctd_ptr<video::IGPUPipelineLayout>&& pipelineLayout, core::smart_refctd_ptr<video::IGPUSpecializedShader> specShader)
+	{
+		if (!normalizationPipeline)
+			normalizationPipeline = logicalDevice->createGPUComputePipeline(nullptr, std::move(pipelineLayout), std::move(specShader));
+
+		return normalizationPipeline;
+	}
+
+	static void updateNormalizationDescriptorSet(video::ILogicalDevice* logicalDevice, video::IGPUDescriptorSet* ds, core::smart_refctd_ptr<video::IGPUImageView> outImageView, core::smart_refctd_ptr<video::IGPUBuffer> alphaHistogramBuffer, core::smart_refctd_ptr<video::IGPUBuffer> alphaTestCounterBuffer)
+	{
+		constexpr uint32_t MAX_DESCRIPTOR_COUNT = 4u;
+
+		const auto& bindings = ds->getLayout()->getBindings();
+		const uint32_t descriptorCount = static_cast<uint32_t>(bindings.size());
+		assert(descriptorCount < MAX_DESCRIPTOR_COUNT);
+
+		video::IGPUDescriptorSet::SWriteDescriptorSet writes[MAX_DESCRIPTOR_COUNT] = {};
+		video::IGPUDescriptorSet::SDescriptorInfo infos[MAX_DESCRIPTOR_COUNT] = {};
+
+		for (uint32_t i = 0u; i < descriptorCount; ++i)
+		{
+			writes[i].dstSet = ds;
+			writes[i].binding = i;
+			writes[i].arrayElement = 0u;
+			writes[i].count = 1u;
+			writes[i].info = &infos[i];
+			writes[i].descriptorType = bindings.begin()[i].type;
+		}
+
+		// input image
+		infos[0].desc = outImageView;
+		infos[0].image.imageLayout = asset::EIL_GENERAL;
+		infos[0].image.sampler = nullptr;
+
+		// alpha histogram buffer
+		infos[1].desc = alphaHistogramBuffer;
+		infos[1].buffer.offset = 0u;
+		infos[1].buffer.size = alphaHistogramBuffer->getCachedCreationParams().declaredSize;
+
+		// alpha test counter buffer
+		infos[2].desc = alphaTestCounterBuffer;
+		infos[2].buffer.offset = 0u;
+		infos[2].buffer.size = alphaTestCounterBuffer->getCachedCreationParams().declaredSize;
+
+		logicalDevice->updateDescriptorSets(descriptorCount, writes, 0u, nullptr);
+	}
+
 private:
 	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> alphaTestDSLayout = nullptr;
 	core::smart_refctd_ptr<video::IGPUPipelineLayout> alphaTestPipelineLayout = nullptr;
+	core::smart_refctd_ptr<video::IGPUSpecializedShader> alphaTestSpecShader = nullptr;
+	core::smart_refctd_ptr<video::IGPUComputePipeline> alphaTestPipeline = nullptr;
+
 	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> blitDSLayout = nullptr;
 	core::smart_refctd_ptr<video::IGPUPipelineLayout> blitPipelineLayout = nullptr;
+
 	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> normalizationDSLayout = nullptr;
 	core::smart_refctd_ptr<video::IGPUPipelineLayout> normalizationPipelineLayout = nullptr;
+	core::smart_refctd_ptr<video::IGPUSpecializedShader> normalizationSpecShader = nullptr;
+	core::smart_refctd_ptr<video::IGPUComputePipeline> normalizationPipeline = nullptr;
+
 	core::smart_refctd_ptr<video::IGPUSampler> sampler = nullptr;
 
 	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> getDSLayout(const uint32_t descriptorCount, const asset::E_DESCRIPTOR_TYPE* descriptorTypes, video::ILogicalDevice* logicalDevice, core::smart_refctd_ptr<video::IGPUSampler> sampler) const
@@ -408,7 +570,7 @@ public:
 			printf("GPU begin..\n");
 
 			constexpr uint32_t NBL_GLSL_DEFAULT_WORKGROUP_SIZE = 16u;
-			constexpr uint32_t NBL_GLSL_DEFAULT_BIN_COUNT = 256;
+			constexpr uint32_t NBL_GLSL_DEFAULT_BIN_COUNT = 256u;
 			constexpr size_t NBL_GLSL_DEFAULT_SMEM_SIZE = MAX_SMEM_SIZE;
 
 			auto outImage = createCPUImage(outImageDim, inImage->getCreationParameters().type, inImage->getCreationParameters().format);
@@ -470,131 +632,27 @@ public:
 					utilities->updateBufferRangeViaStagingBuffer(queues[CommonAPI::InitOutput::EQT_COMPUTE], bufferRange, fillValues.data());
 				}
 
-				const auto alphaTestDSLayout = blitFilter.getDefaultAlphaTestDSLayout(logicalDevice.get());
-				const uint32_t alphaTestDSCount = 1u;
-				auto alphaDescriptorPool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE, &alphaTestDSLayout.get(), &alphaTestDSLayout.get() + 1ull, &alphaTestDSCount);
-
-				alphaTestDS = logicalDevice->createGPUDescriptorSet(alphaDescriptorPool.get(), core::smart_refctd_ptr(alphaTestDSLayout));
-				{
-					constexpr uint32_t MAX_DESCRIPTOR_COUNT = 10u;
-					const uint32_t descriptorCount = static_cast<uint32_t>(alphaTestDSLayout->getBindings().size());
-					assert(descriptorCount < MAX_DESCRIPTOR_COUNT);
-
-					video::IGPUDescriptorSet::SWriteDescriptorSet writes[MAX_DESCRIPTOR_COUNT] = {};
-					video::IGPUDescriptorSet::SDescriptorInfo infos[MAX_DESCRIPTOR_COUNT] = {};
-
-					for (uint32_t i = 0u; i < descriptorCount; ++i)
-					{
-						writes[i].dstSet = alphaTestDS.get();
-						writes[i].binding = i;
-						writes[i].arrayElement = 0u;
-						writes[i].count = 1u;
-						writes[i].info = &infos[i];
-					}
-
-					// inImage
-					writes[0].descriptorType = asset::EDT_COMBINED_IMAGE_SAMPLER;
-					infos[0].desc = inImageView;
-					infos[0].image.imageLayout = asset::EIL_GENERAL;
-					infos[0].image.sampler = nullptr;
-
-					// alphaTestCounterBuffer
-					writes[1].descriptorType = asset::EDT_STORAGE_BUFFER;
-					infos[1].desc = alphaTestCounterBuffer;
-					infos[1].buffer.offset = 0u;
-					infos[1].buffer.size = alphaTestCounterBuffer->getCachedCreationParams().declaredSize;
-
-					logicalDevice->updateDescriptorSets(descriptorCount, writes, 0u, nullptr);
-				}
-
-				const char* alphaTestCompShaderPath = "../alpha_test.comp";
-				core::smart_refctd_ptr<video::IGPUSpecializedShader> alphaTestCompShader = nullptr;
-				{
-					asset::IAssetLoader::SAssetLoadParams params = {};
-					params.logger = logger.get();
-					auto loadedShader = core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(*assetManager->getAsset(alphaTestCompShaderPath, params).getContents().begin());
-
-					auto unspecOverridenShader = asset::IGLSLCompiler::createOverridenCopy(loadedShader->getUnspecialized(), "#define _NBL_GLSL_WORKGROUP_SIZE_ %d\n", NBL_GLSL_DEFAULT_WORKGROUP_SIZE);
-
-					auto specShader_cpu = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecOverridenShader), asset::ISpecializedShader::SInfo(nullptr, nullptr, "main"));
-
-					auto gpuArray = cpu2gpu.getGPUObjectsFromAssets(&specShader_cpu.get(), &specShader_cpu.get() + 1, cpu2gpuParams);
-					if (!gpuArray || gpuArray->size() < 1u || !(*gpuArray)[0])
-						FATAL_LOG("Failed to convert CPU specialized shader to GPU specialized shaders!\n");
-
-					alphaTestCompShader = gpuArray->begin()[0];
-				}
-
+				const auto& alphaTestDSLayout = blitFilter.getDefaultAlphaTestDSLayout(logicalDevice.get());
+				const auto& alphaTestCompShader = blitFilter.getDefaultAlphaTestSpecializedShader(logicalDevice.get());
 				const auto& alphaTestPipelineLayout = blitFilter.getDefaultAlphaTestPipelineLayout(logicalDevice.get(), core::smart_refctd_ptr(alphaTestDSLayout));
-				alphaTestPipeline = logicalDevice->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(alphaTestPipelineLayout), std::move(alphaTestCompShader));
+				alphaTestPipeline = blitFilter.getDefaultAlphaTestPipeline(logicalDevice.get(), core::smart_refctd_ptr(alphaTestPipelineLayout), std::move(alphaTestCompShader));
+				
+				const uint32_t alphaTestDSCount = 1u;
+				auto alphaTestDescriptorPool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE, &alphaTestDSLayout.get(), &alphaTestDSLayout.get() + 1ull, &alphaTestDSCount);
+
+				alphaTestDS = logicalDevice->createGPUDescriptorSet(alphaTestDescriptorPool.get(), core::smart_refctd_ptr(alphaTestDSLayout));
+				CBlitFilter::updateAlphaTestDescriptorSet(logicalDevice.get(), alphaTestDS.get(), inImageView, alphaTestCounterBuffer);
 
 				const auto& normDSLayout = blitFilter.getDefaultNormalizationDSLayout(logicalDevice.get());
+				const auto& normCompShader = blitFilter.getDefaultNormalizationSpecializedShader(logicalDevice.get());
+				const auto& normPipelineLayout = blitFilter.getDefaultNormalizationPipelineLayout(logicalDevice.get(), core::smart_refctd_ptr(normDSLayout));
+				normPipeline = blitFilter.getDefaultNormalizationPipeline(logicalDevice.get(), core::smart_refctd_ptr(normPipelineLayout), std::move(normCompShader));
+
 				const uint32_t normDSCount = 1u;
 				auto normDescriptorPool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE, &normDSLayout.get(), &normDSLayout.get() + 1ull, &normDSCount);
 
 				normDS = logicalDevice->createGPUDescriptorSet(normDescriptorPool.get(), core::smart_refctd_ptr(normDSLayout));
-				{
-					constexpr uint32_t MAX_DESCRIPTOR_COUNT = 10u;
-					const uint32_t descriptorCount = static_cast<uint32_t>(normDSLayout->getBindings().size());
-					assert(descriptorCount < MAX_DESCRIPTOR_COUNT);
-
-					video::IGPUDescriptorSet::SWriteDescriptorSet writes[MAX_DESCRIPTOR_COUNT] = {};
-					video::IGPUDescriptorSet::SDescriptorInfo infos[MAX_DESCRIPTOR_COUNT] = {};
-
-					for (uint32_t i = 0u; i < descriptorCount; ++i)
-					{
-						writes[i].dstSet = normDS.get();
-						writes[i].binding = i;
-						writes[i].arrayElement = 0u;
-						writes[i].count = 1u;
-						writes[i].info = &infos[i];
-					}
-
-					// image to normalize (typically outImage)
-					writes[0].descriptorType = asset::EDT_STORAGE_IMAGE;
-					infos[0].desc = outImageView;
-					infos[0].image.imageLayout = asset::EIL_GENERAL;
-					infos[0].image.sampler = nullptr;
-
-					// alphaHistogramBuffer
-					writes[1].descriptorType = asset::EDT_STORAGE_BUFFER;
-					infos[1].desc = alphaHistogramBuffer;
-					infos[1].buffer.offset = 0ull;
-					infos[1].buffer.size = alphaHistogramBuffer->getCachedCreationParams().declaredSize;
-
-					// alphaTestCounterBuffer
-					writes[2].descriptorType = asset::EDT_STORAGE_BUFFER;
-					infos[2].desc = alphaTestCounterBuffer;
-					infos[2].buffer.offset = 0u;
-					infos[2].buffer.size = alphaTestCounterBuffer->getCachedCreationParams().declaredSize;
-
-					logicalDevice->updateDescriptorSets(descriptorCount, writes, 0u, nullptr);
-				}
-
-				const char* normCompShaderPath = "../normalization.comp";
-				core::smart_refctd_ptr<video::IGPUSpecializedShader> normCompShader = nullptr;
-				{
-					asset::IAssetLoader::SAssetLoadParams params = {};
-					params.logger = logger.get();
-					auto loadedShader = core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(*assetManager->getAsset(normCompShaderPath, params).getContents().begin());
-
-					auto unspecOverridenShader = asset::IGLSLCompiler::createOverridenCopy(loadedShader->getUnspecialized(),
-						"#define _NBL_GLSL_WORKGROUP_SIZE_X_ %d\n"
-						"#define _NBL_GLSL_WORKGROUP_SIZE_Y_ %d\n"
-						"#define _NBL_GLSL_BIN_COUNT_ %d\n",
-						NBL_GLSL_DEFAULT_WORKGROUP_SIZE, NBL_GLSL_DEFAULT_WORKGROUP_SIZE, NBL_GLSL_DEFAULT_BIN_COUNT);
-
-					auto specShader_cpu = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecOverridenShader), asset::ISpecializedShader::SInfo(nullptr, nullptr, "main"));
-
-					auto gpuArray = cpu2gpu.getGPUObjectsFromAssets(&specShader_cpu.get(), &specShader_cpu.get() + 1, cpu2gpuParams);
-					if (!gpuArray || gpuArray->size() < 1u || !(*gpuArray)[0])
-						FATAL_LOG("Failed to convert CPU specialized shader to GPU specialized shaders!\n");
-
-					normCompShader = gpuArray->begin()[0];
-				}
-
-				const auto& normPipelineLayout = blitFilter.getDefaultNormalizationPipelineLayout(logicalDevice.get(), core::smart_refctd_ptr(normDSLayout));
-				normPipeline = logicalDevice->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(normPipelineLayout), std::move(normCompShader));
+				CBlitFilter::updateNormalizationDescriptorSet(logicalDevice.get(), normDS.get(), outImageView, alphaHistogramBuffer, alphaTestCounterBuffer);
 			}
 
 			const core::vectorSIMDu32 inExtent(inImage->getCreationParameters().extent.width, inImage->getCreationParameters().extent.height, inImage->getCreationParameters().extent.depth);
