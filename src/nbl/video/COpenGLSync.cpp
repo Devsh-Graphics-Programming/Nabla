@@ -32,7 +32,7 @@ uint64_t COpenGLSync::prewait() const
     if (sync)
         return 0ull;
 
-    using clock_t = std::chrono::high_resolution_clock;
+    using clock_t = std::chrono::steady_clock;
     auto start = clock_t::now();
     while (!sync)
     { 
@@ -53,7 +53,7 @@ COpenGLSync::E_STATUS COpenGLSync::waitCPU(IOpenGL_FunctionTable* _gl, uint64_t 
         return (cachedRetval = ES_TIMEOUT_EXPIRED);
     timeout -= spintime;
 
-    GLenum status = _gl->glSync.pglClientWaitSync(sync, lockedTable?GL_SYNC_FLUSH_COMMANDS_BIT:0, timeout); // GL_SYNC_FLUSH_COMMANDS_BIT to flags?
+    GLenum status = _gl->glSync.pglClientWaitSync(sync, lockedTable ? GL_SYNC_FLUSH_COMMANDS_BIT:0, timeout);
     switch (status)
     {
     case GL_ALREADY_SIGNALED:

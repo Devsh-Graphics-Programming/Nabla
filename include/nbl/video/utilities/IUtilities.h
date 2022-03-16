@@ -317,7 +317,7 @@ namespace nbl::video
                 const uint32_t subSize = core::min(alllocationSize,size);
                 // cannot use `multi_place` because of the extra padding size we could have added
                 uint32_t localOffset = video::StreamingTransientDataBufferMT<>::invalid_address;
-                m_defaultUploadBuffer.get()->multi_alloc(std::chrono::high_resolution_clock::now()+std::chrono::microseconds(500u),1u,&localOffset,&alllocationSize,&alignment);
+                m_defaultUploadBuffer.get()->multi_alloc(std::chrono::steady_clock::now()+std::chrono::microseconds(500u),1u,&localOffset,&alllocationSize,&alignment);
                 // copy only the unpadded part
                 if (localOffset != video::StreamingTransientDataBufferMT<>::invalid_address)
                 {
