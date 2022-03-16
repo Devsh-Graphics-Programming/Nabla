@@ -123,7 +123,7 @@ core::smart_refctd_ptr<IFileArchive> CArchiveLoaderZip::createArchive_impl(core:
 			item.pathRelativeToArchive = _path;
 			item.size = meta.DataDescriptor.UncompressedSize;
 			item.offset = offset;
-			item.ID = items.size();
+			item.ID = itemsMetadata.size();
 			item.allocatorType = meta.CompressionMethod ? IFileArchive::EAT_VIRTUAL_ALLOC:IFileArchive::EAT_NULL;
 			itemsMetadata.push_back(meta);
 		};
@@ -232,7 +232,7 @@ core::smart_refctd_ptr<IFileArchive> CArchiveLoaderZip::createArchive_impl(core:
 				SZIPFileHeader zipHeader;
 				{
 					IFile::success_t success;
-					file->read(success,&zipHeader,0ull,sizeof(zipHeader));
+					file->read(success,&zipHeader,offset,sizeof(zipHeader));
 					if (!success)
 						break;
 					offset += success.getSizeToProcess();
@@ -393,7 +393,7 @@ CFileArchive::file_buffer_t CArchiveLoaderZip::CArchive::getFileBuffer(const IFi
 	CFileArchive::file_buffer_t retval = { nullptr,item->size,nullptr };
 	//
 	void* decrypted = nullptr;
-	size_t decryptedSize = 0ull;
+	size_t decryptedSize = header.DataDescriptor.CompressedSize;
 	auto freeOnFail = core::makeRAIIExiter([&actualCompressionMethod,&retval,&decrypted,&decryptedSize](){
 		if (decrypted && retval.buffer!=decrypted)
 		{
@@ -424,7 +424,7 @@ CFileArchive::file_buffer_t CArchiveLoaderZip::CArchive::getFileBuffer(const IFi
 			const size_t reduction = saltSize+12u;
 			if (header.DataDescriptor.CompressedSize<=reduction)
 				return retval;
-			decryptedSize = header.DataDescriptor.CompressedSize-reduction;
+			decryptedSize -= reduction;
 		}
 		mmapPtr += saltSize;
 		uint16_t& pwVerification = *reinterpret_cast<uint16_t*>(mmapPtr);
