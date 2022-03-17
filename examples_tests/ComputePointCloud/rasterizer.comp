@@ -6,32 +6,58 @@
 
 #pragma shader_stage(compute)
 
-layout (local_size_x = 16, local_size_y = 16) in;
+layout (local_size_x = 256, local_size_y = 1) in;
 
 layout (push_constant) uniform pushConstants
 {
 	uvec2 imgSize;
 	uint pointCount;
+	mat4 mvp;
 } u_pushConstants;
 
-layout (set = 0, binding = 0, rgba8) uniform coherent image2D outImage;
-layout (set = 0, binding = 1, std430) readonly buffer PointCloud {
-	vec3 position;
+layout (set = 0, binding = 0, r32ui) uniform coherent uimage2D outImage;
+layout (set = 0, binding = 1, std430) readonly buffer pointCloud {
+	vec3 position[];
 } u_pointCloud;
 
 void main()
 {
-	const uint halfWidth = u_pushConstants.imgSize.x/2;
-	if (all(lessThan(gl_GlobalInvocationID.xy, u_pushConstants.imgSize)))
+	if (gl_GlobalInvocationID.x >= u_pushConstants.pointCount) 
 	{
-		const vec3 inColor = vec3(0.0);
-		vec4 outColor = vec4(inColor, 1.f);
-		if (gl_GlobalInvocationID.x < halfWidth)
+		return;
+	}
+	vec3 pointPosition = u_pointCloud.position[gl_GlobalInvocationID.x];
+	vec4 transformed = u_pushConstants.mvp * vec4(pointPosition, 1.0);
+
+	// Behind the camera
+	if (transformed.z < 0.0) 
+	{
+		return;
+	}
+
+	vec3 ndc = transformed.xyz / vec3(transformed.w);
+	vec2 uv = (ndc.xy + 1.0) * 0.5;
+	const ivec2 size = ivec2(5, 5);
+	const vec2 halfTexelSize = (vec2(size) * 0.5) / vec2(u_pushConstants.imgSize);
+	// AABB for the point: uv - halfTexelSize to uv + halfTexelSize
+
+	ivec2 offset = ivec2((uv - halfTexelSize) * vec2(u_pushConstants.imgSize));
+	ivec2 curPixel = ivec2(0);
+	// Flattened iteration over the AABB
+	// TODO make the points circles
+	
+	// If the Y has gone outside the AABB, it has no more pixels
+	while (curPixel.y > size.y) {
+		ivec2 coords = offset + curPixel;
+		if (all(greaterThanEqual(coords, ivec2(0))) && all(lessThan(coords, ivec2(u_pushConstants.imgSize))))
 		{
-			float grayscale = 0.2126 * inColor.r + 0.7152 * inColor.g + 0.0722 * inColor.b;
-			outColor = vec4(vec3(grayscale), 1.f);
+			// Write out depth
+			imageAtomicMax(outImage, coords, floatBitsToUint(ndc.z));
 		}
-		
-		imageStore(outImage, ivec2(gl_GlobalInvocationID.xy), outColor);
+
+		curPixel.x += 1;
+		// If curPixel.x == size.x, increments Y by 1 and reset X to 0
+		curPixel.y += curPixel.x / size.x;
+		curPixel.x = curPixel.x % size.x;
 	}
 }

@@ -85,8 +85,12 @@ public:
 	Camera camera = Camera(core::vectorSIMDf(0, 0, 0), core::vectorSIMDf(0, 0, 0), core::matrix4SIMD());
 
 	core::smart_refctd_ptr<video::IGPUDescriptorSet> m_rasterizeDescriptorSet;
+	core::smart_refctd_ptr<video::IGPUComputePipeline> m_rasterizerPipeline;
+
 	core::smart_refctd_ptr<video::IGPUImage> m_visbuffer;
 	core::smart_refctd_ptr<video::IGPUImageView> m_visbufferView;
+
+	uint32_t m_pointCount;
 
 	void setWindow(core::smart_refctd_ptr<nbl::ui::IWindow>&& wnd) override
 	{
@@ -228,6 +232,7 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 		};
 
 		auto rasterizerShader = getSpecializedShader("../rasterizer.comp");
+		core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> rasterizerDsLayout;
 
 		{
 			const uint32_t bindingCount = 2u;
@@ -238,8 +243,7 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 				{1u, asset::EDT_STORAGE_BUFFER, 1u, asset::IShader::ESS_COMPUTE, nullptr}
 			};
 
-			core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> dsLayout =
-				logicalDevice->createGPUDescriptorSetLayout(bindings, bindings + bindingCount);
+			rasterizerDsLayout = logicalDevice->createGPUDescriptorSetLayout(bindings, bindings + bindingCount);
 
 			const uint32_t descriptorPoolSizeCount = 2u;
 			video::IDescriptorPool::SDescriptorPoolSize poolSizes[descriptorPoolSizeCount] = {
@@ -253,7 +257,7 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 				= logicalDevice->createDescriptorPool(descriptorPoolFlags, 1,
 					descriptorPoolSizeCount, poolSizes);
 
-			m_rasterizeDescriptorSet = logicalDevice->createGPUDescriptorSet(descriptorPool.get(), core::smart_refctd_ptr(dsLayout));
+			m_rasterizeDescriptorSet = logicalDevice->createGPUDescriptorSet(descriptorPool.get(), core::smart_refctd_ptr(rasterizerDsLayout));
 		}
 
 		// Create the point cloud visbuffer image
@@ -305,131 +309,6 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 		core::smart_refctd_ptr<asset::ICPUMesh> cpuMeshPly = cpuBundlePLYData.first;
 		auto metadataPly = cpuBundlePLYData.second->selfCast<const asset::CPLYMetadata>();
 
-#ifdef WRITE_ASSETS
-		{
-			asset::IAssetWriter::SAssetWriteParams wp(cpuMeshPly.get());
-			bool status = assetManager->writeAsset("Spanner_ply.ply", wp);
-			assert(status);
-		}
-#endif // WRITE_ASSETS
-
-		auto gpuUBODescriptorPool = createDescriptorPool(1, asset::EDT_UNIFORM_BUFFER);
-
-		/*
-			For the testing puposes we can safely assume all meshbuffers within mesh loaded from PLY & STL has same DS1 layout (used for camera-specific data)
-		*/
-
-		auto getMeshDependentDrawData = [&](core::smart_refctd_ptr<asset::ICPUMesh> cpuMesh) -> DependentDrawData
-		{
-			const asset::ICPUMeshBuffer* const firstMeshBuffer = cpuMesh->getMeshBuffers().begin()[0];
-			const asset::ICPUDescriptorSetLayout* ds1layout = firstMeshBuffer->getPipeline()->getLayout()->getDescriptorSetLayout(1u); //! DS1
-			const asset::IRenderpassIndependentPipelineMetadata* pipelineMetadata;
-			pipelineMetadata = metadataPly->getAssetSpecificMetadata(firstMeshBuffer->getPipeline());
-
-			/*
-				So we can create just one DescriptorSet
-			*/
-
-			auto getDS1UboBinding = [&]()
-			{
-				uint32_t ds1UboBinding = 0u;
-				for (const auto& bnd : ds1layout->getBindings())
-					if (bnd.type == asset::EDT_UNIFORM_BUFFER)
-					{
-						ds1UboBinding = bnd.binding;
-						break;
-					}
-				return ds1UboBinding;
-			};
-
-			const uint32_t ds1UboBinding = getDS1UboBinding();
-
-			auto getNeededDS1UboByteSize = [&]()
-			{
-				size_t neededDS1UboSize = 0ull;
-				{
-					for (const auto& shaderInputs : pipelineMetadata->m_inputSemantics)
-						if (shaderInputs.descriptorSection.type == asset::IRenderpassIndependentPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER && shaderInputs.descriptorSection.uniformBufferObject.set == 1u && shaderInputs.descriptorSection.uniformBufferObject.binding == ds1UboBinding)
-							neededDS1UboSize = std::max<size_t>(neededDS1UboSize, shaderInputs.descriptorSection.uniformBufferObject.relByteoffset + shaderInputs.descriptorSection.uniformBufferObject.bytesize);
-				}
-				return neededDS1UboSize;
-			};
-
-			const uint64_t uboDS1ByteSize = getNeededDS1UboByteSize();
-
-			core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> gpuds1layout;
-			{
-				auto gpu_array = cpu2gpu.getGPUObjectsFromAssets(&ds1layout, &ds1layout + 1, cpu2gpuParams);
-				if (!gpu_array || gpu_array->size() < 1u || !(*gpu_array)[0])
-					assert(false);
-
-				gpuds1layout = (*gpu_array)[0];
-			}
-
-			auto ubomemreq = logicalDevice->getDeviceLocalGPUMemoryReqs();
-			ubomemreq.vulkanReqs.size = uboDS1ByteSize;
-
-			video::IGPUBuffer::SCreationParams creationParams;
-			creationParams.canUpdateSubRange = true;
-			creationParams.usage = asset::IBuffer::E_USAGE_FLAGS::EUF_UNIFORM_BUFFER_BIT;
-			creationParams.sharingMode = asset::E_SHARING_MODE::ESM_EXCLUSIVE;
-			creationParams.queueFamilyIndices = 0u;
-			creationParams.queueFamilyIndices = nullptr;
-
-			auto gpuubo = logicalDevice->createGPUBufferOnDedMem(creationParams, ubomemreq);
-			auto gpuds1 = logicalDevice->createGPUDescriptorSet(gpuUBODescriptorPool.get(), std::move(gpuds1layout));
-			{
-				video::IGPUDescriptorSet::SWriteDescriptorSet write;
-				write.dstSet = gpuds1.get();
-				write.binding = ds1UboBinding;
-				write.count = 1u;
-				write.arrayElement = 0u;
-				write.descriptorType = asset::EDT_UNIFORM_BUFFER;
-				video::IGPUDescriptorSet::SDescriptorInfo info;
-				{
-					info.desc = gpuubo;
-					info.buffer.offset = 0ull;
-					info.buffer.size = uboDS1ByteSize;
-				}
-				write.info = &info;
-				logicalDevice->updateDescriptorSets(1u, &write, 0u, nullptr);
-			}
-
-			core::smart_refctd_ptr<video::IGPUMesh> gpumesh;
-			{
-				auto gpu_array = cpu2gpu.getGPUObjectsFromAssets(&cpuMesh.get(), &cpuMesh.get() + 1, cpu2gpuParams);
-				cpu2gpuParams.waitForCreationToComplete(true);
-				cpu2gpuParams.beginCommandBuffers();
-				if (!gpu_array || gpu_array->size() < 1u || !(*gpu_array)[0])
-					assert(false);
-
-				gpumesh = (*gpu_array)[0];
-			}
-
-			return std::make_tuple(gpumesh, gpuubo, gpuds1, ds1UboBinding, pipelineMetadata);
-		};
-
-		/*plyDrawData = getMeshDependentDrawData(cpuMeshPly);
-
-		{
-			auto fillGpuPipeline = [&](GPU_PIPELINE_HASH_CONTAINER& container, video::IGPUMesh* gpuMesh)
-			{
-				for (size_t i = 0; i < gpuMesh->getMeshBuffers().size(); ++i)
-				{
-					auto gpuIndependentPipeline = gpuMesh->getMeshBuffers().begin()[i]->getPipeline();
-
-					nbl::video::IGPUGraphicsPipeline::SCreationParams graphicsPipelineParams;
-					graphicsPipelineParams.renderpassIndependent = core::smart_refctd_ptr<nbl::video::IGPURenderpassIndependentPipeline>(const_cast<video::IGPURenderpassIndependentPipeline*>(gpuIndependentPipeline));
-					graphicsPipelineParams.renderpass = core::smart_refctd_ptr(renderpass);
-
-					const RENDERPASS_INDEPENDENT_PIPELINE_ADRESS adress = reinterpret_cast<RENDERPASS_INDEPENDENT_PIPELINE_ADRESS>(graphicsPipelineParams.renderpassIndependent.get());
-					container[adress] = logicalDevice->createGPUGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
-				}
-			};
-
-			fillGpuPipeline(gpuPipelinesPly, std::get<core::smart_refctd_ptr<video::IGPUMesh>>(plyDrawData).get());
-		}*/
-
 		// Get the positions from the mesh
 		core::smart_refctd_ptr<video::IGPUOffsetBufferPair> positionsVertexBuffer;
 		core::smart_refctd_ptr<video::IGPUBufferView> positionsVertexBufferView;
@@ -444,9 +323,10 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 			//	logger->log("Pos %f %f %f", system::ILogger::E_LOG_LEVEL::ELL_INFO, positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2]);
 			//}
 
+			m_pointCount = posBuffer->getSize() / 12;
 			auto posBuffer_cpu = posBuffer.get();
 			positionsVertexBuffer = cpu2gpu.getGPUObjectsFromAssets(&posBuffer_cpu, &posBuffer_cpu + 1, cpu2gpuParams)->front();
-			positionsVertexBufferView = logicalDevice->createGPUBufferView(positionsVertexBuffer->getBuffer(), asset::E_FORMAT::EF_R32G32B32_SFLOAT, positionsVertexBuffer->getOffset());
+			positionsVertexBufferView = logicalDevice->createGPUBufferView(positionsVertexBuffer->getBuffer(), asset::E_FORMAT::EF_R32G32B32_SFLOAT);
 		}
 
 		// Fill out the descriptor sets
@@ -472,19 +352,35 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 
 			// Point cloud vertex buffer
 			{
-				descriptorInfos[1].image.imageLayout = asset::EIL_GENERAL;
-				descriptorInfos[1].image.sampler = nullptr;
+				descriptorInfos[1].buffer.offset = positionsVertexBuffer->getOffset();
+				descriptorInfos[1].buffer.size = positionsVertexBuffer->getBuffer()->getSize();
 				descriptorInfos[1].desc = positionsVertexBufferView;
 
 				writeDescriptorSets[1].dstSet = m_rasterizeDescriptorSet.get();
-				writeDescriptorSets[1].binding = 0u;
+				writeDescriptorSets[1].binding = 1u;
 				writeDescriptorSets[1].arrayElement = 0u;
 				writeDescriptorSets[1].count = 1u;
 				writeDescriptorSets[1].descriptorType = asset::EDT_STORAGE_BUFFER;
 				writeDescriptorSets[1].info = &descriptorInfos[1];
 			}
+
+			logicalDevice->updateDescriptorSets(writeDescriptorCount, writeDescriptorSets, 0u, nullptr);
 		}
 
+		{
+			asset::SPushConstantRange pcRange = {};
+			pcRange.stageFlags = asset::IShader::ESS_COMPUTE;
+			pcRange.offset = 0u;
+			pcRange.size = (2 + 1 + 16) * sizeof(uint32_t);
+
+			// Rasterizer pipeline
+			core::smart_refctd_ptr<video::IGPUPipelineLayout> pipelineLayout =
+				logicalDevice->createGPUPipelineLayout(&pcRange, &pcRange + 1, core::smart_refctd_ptr(rasterizerDsLayout));
+			m_rasterizerPipeline = logicalDevice->createGPUComputePipeline(nullptr,
+				core::smart_refctd_ptr(pipelineLayout), core::smart_refctd_ptr(rasterizerShader));
+		}
+
+		// Other initialization
 		core::vectorSIMDf cameraPosition(0, 5, -10);
 		matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60.0f), float(WIN_W) / WIN_H, 0.001, 1000);
 		camera = Camera(cameraPosition, core::vectorSIMDf(0, 0, 0), projectionMatrix, 0.01f, 1.f);
@@ -585,6 +481,24 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 		swapchain->acquireNextImage(MAX_TIMEOUT, imageAcquire[resourceIx].get(), nullptr, &acquiredNextFBO);
 
 
+		commandBuffer->bindDescriptorSets(asset::EPBP_COMPUTE, m_rasterizerPipeline->getLayout(), 0u, 1u, &m_rasterizeDescriptorSet.get());
+
+		core::matrix3x4SIMD modelMatrix;
+		core::matrix4SIMD mvp = core::concatenateBFollowedByA(viewProjectionMatrix, modelMatrix);
+		// Rasterize the visbuffer
+		{
+			commandBuffer->bindComputePipeline(m_rasterizerPipeline.get());
+
+			const asset::SPushConstantRange& pcRange = m_rasterizerPipeline->getLayout()->getPushConstantRanges().begin()[0];
+			uint32_t pushConstants[2 + 1 + 16];
+			pushConstants[0] = window->getWidth();
+			pushConstants[1] = window->getHeight();
+			pushConstants[2] = m_pointCount;
+			memcpy(&pushConstants[3], mvp.pointer(), sizeof(core::matrix4SIMD));
+
+			commandBuffer->pushConstants(m_rasterizerPipeline->getLayout(), pcRange.stageFlags, pcRange.offset, pcRange.size, &pushConstants);
+			commandBuffer->dispatch((m_pointCount + 255u) / 256u, 1u, 1u);
+		}
 
 		commandBuffer->end();
 
