@@ -59,33 +59,30 @@ public:
 	nbl::video::IGPUObjectFromAssetConverter::SParams cpu2gpuParams;
 	nbl::core::smart_refctd_ptr<nbl::system::ILogger> logger;
 	nbl::core::smart_refctd_ptr<CommonAPI::InputSystem> inputSystem;
-	
+
 	nbl::core::smart_refctd_ptr<video::IGPUFence> gpuTransferFence;
 	nbl::core::smart_refctd_ptr<video::IGPUFence> gpuComputeFence;
 	nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
-	
+
 	uint32_t acquiredNextFBO = {};
 	int resourceIx = -1;
-	
+
 	core::smart_refctd_ptr<video::IGPUCommandBuffer> commandBuffers[FRAMES_IN_FLIGHT];
-	
+
 	core::smart_refctd_ptr<video::IGPUFence> frameComplete[FRAMES_IN_FLIGHT] = { nullptr };
 	core::smart_refctd_ptr<video::IGPUSemaphore> imageAcquire[FRAMES_IN_FLIGHT] = { nullptr };
 	core::smart_refctd_ptr<video::IGPUSemaphore> renderFinished[FRAMES_IN_FLIGHT] = { nullptr };
-	
+
 	std::chrono::system_clock::time_point lastTime;
 	bool frameDataFilled = false;
 	size_t frame_count = 0ull;
 	double time_sum = 0;
 	double dtList[NBL_FRAMES_TO_AVERAGE] = {};
-	
+
 	CommonAPI::InputSystem::ChannelReader<ui::IMouseEventChannel> mouse;
 	CommonAPI::InputSystem::ChannelReader<ui::IKeyboardEventChannel> keyboard;
-	
+
 	Camera camera = Camera(core::vectorSIMDf(0, 0, 0), core::vectorSIMDf(0, 0, 0), core::matrix4SIMD());
-	
-	GPU_PIPELINE_HASH_CONTAINER gpuPipelinesPly;	
-	DependentDrawData plyDrawData;
 
 	core::smart_refctd_ptr<video::IGPUDescriptorSet> m_rasterizeDescriptorSet;
 	core::smart_refctd_ptr<video::IGPUImage> m_visbuffer;
@@ -203,11 +200,11 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 			cpu2gpuParams.finalQueueFamIx = queues[decltype(initOutput)::EQT_GRAPHICS]->getFamilyIndex();
 			cpu2gpuParams.sharingMode = nbl::asset::ESM_EXCLUSIVE;
 
-			logicalDevice->createCommandBuffers(commandPools[CommonAPI::InitOutput::EQT_TRANSFER_UP].get(),video::IGPUCommandBuffer::EL_PRIMARY,1u,&cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].cmdbuf);
+			logicalDevice->createCommandBuffers(commandPools[CommonAPI::InitOutput::EQT_TRANSFER_UP].get(), video::IGPUCommandBuffer::EL_PRIMARY, 1u, &cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].cmdbuf);
 			cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].queue = queues[decltype(initOutput)::EQT_TRANSFER_UP];
 			cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_TRANSFER].semaphore = &gpuTransferSemaphore;
-			
-			logicalDevice->createCommandBuffers(commandPools[CommonAPI::InitOutput::EQT_COMPUTE].get(),video::IGPUCommandBuffer::EL_PRIMARY,1u,&cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].cmdbuf);
+
+			logicalDevice->createCommandBuffers(commandPools[CommonAPI::InitOutput::EQT_COMPUTE].get(), video::IGPUCommandBuffer::EL_PRIMARY, 1u, &cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].cmdbuf);
 			cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].queue = queues[decltype(initOutput)::EQT_COMPUTE];
 			cpu2gpuParams.perQueue[nbl::video::IGPUObjectFromAssetConverter::EQU_COMPUTE].semaphore = &gpuComputeSemaphore;
 
@@ -272,7 +269,7 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 				imageParams.arrayLayers = 1;
 			}
 			m_visbuffer = logicalDevice->createDeviceLocalGPUImageOnDedMem(std::move(imageParams));
-			
+
 			video::IGPUImageView::SCreationParams imgViewInfo;
 			{
 				imgViewInfo.flags = static_cast<video::IGPUImageView::E_CREATE_FLAGS>(0u);
@@ -412,7 +409,7 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 			return std::make_tuple(gpumesh, gpuubo, gpuds1, ds1UboBinding, pipelineMetadata);
 		};
 
-		plyDrawData = getMeshDependentDrawData(cpuMeshPly);
+		/*plyDrawData = getMeshDependentDrawData(cpuMeshPly);
 
 		{
 			auto fillGpuPipeline = [&](GPU_PIPELINE_HASH_CONTAINER& container, video::IGPUMesh* gpuMesh)
@@ -431,16 +428,25 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 			};
 
 			fillGpuPipeline(gpuPipelinesPly, std::get<core::smart_refctd_ptr<video::IGPUMesh>>(plyDrawData).get());
-		}
+		}*/
 
 		// Get the positions from the mesh
 		core::smart_refctd_ptr<video::IGPUOffsetBufferPair> positionsVertexBuffer;
+		core::smart_refctd_ptr<video::IGPUBufferView> positionsVertexBufferView;
 		{
 			const asset::ICPUMeshBuffer* const firstMeshBuffer = cpuMeshPly->getMeshBuffers().begin()[0];
 			const asset::SBufferBinding<const asset::ICPUBuffer> posBufferBinding = firstMeshBuffer->getVertexBufferBindings()[firstMeshBuffer->getPositionAttributeIx()];
 			core::smart_refctd_ptr<const asset::ICPUBuffer> posBuffer = posBufferBinding.buffer;
+
+			//const float* positions = static_cast<const float*>(posBuffer->getPointer());
+			//logger->log("Mesh buffer %i bytes %i", system::ILogger::E_LOG_LEVEL::ELL_INFO, 0, posBuffer->getSize());
+			//for (uint32_t i = 0; i < posBuffer->getSize() / 12; i++) {
+			//	logger->log("Pos %f %f %f", system::ILogger::E_LOG_LEVEL::ELL_INFO, positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2]);
+			//}
+
 			auto posBuffer_cpu = posBuffer.get();
 			positionsVertexBuffer = cpu2gpu.getGPUObjectsFromAssets(&posBuffer_cpu, &posBuffer_cpu + 1, cpu2gpuParams)->front();
+			positionsVertexBufferView = logicalDevice->createGPUBufferView(positionsVertexBuffer->getBuffer(), asset::E_FORMAT::EF_R32G32B32_SFLOAT, positionsVertexBuffer->getOffset());
 		}
 
 		// Fill out the descriptor sets
@@ -468,8 +474,7 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 			{
 				descriptorInfos[1].image.imageLayout = asset::EIL_GENERAL;
 				descriptorInfos[1].image.sampler = nullptr;
-				// TODO
-				// descriptorInfos[1].desc = positionsVertexBuffer;
+				descriptorInfos[1].desc = positionsVertexBufferView;
 
 				writeDescriptorSets[1].dstSet = m_rasterizeDescriptorSet.get();
 				writeDescriptorSets[1].binding = 0u;
@@ -579,98 +584,8 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 
 		swapchain->acquireNextImage(MAX_TIMEOUT, imageAcquire[resourceIx].get(), nullptr, &acquiredNextFBO);
 
-		nbl::video::IGPUCommandBuffer::SRenderpassBeginInfo beginInfo;
-		{
-			VkRect2D area;
-			area.offset = { 0,0 };
-			area.extent = { WIN_W, WIN_H };
-			asset::SClearValue clear[2] = {};
-			clear[0].color.float32[0] = 1.f;
-			clear[0].color.float32[1] = 1.f;
-			clear[0].color.float32[2] = 1.f;
-			clear[0].color.float32[3] = 1.f;
-			clear[1].depthStencil.depth = 0.f;
 
-			beginInfo.clearValueCount = 2u;
-			beginInfo.framebuffer = fbos[acquiredNextFBO];
-			beginInfo.renderpass = renderpass;
-			beginInfo.renderArea = area;
-			beginInfo.clearValues = clear;
-		}
 
-		commandBuffer->beginRenderPass(&beginInfo, nbl::asset::ESC_INLINE);
-
-		auto renderMesh = [&](GPU_PIPELINE_HASH_CONTAINER& gpuPipelines, DependentDrawData& drawData, uint32_t index)
-		{
-			auto gpuMesh = std::get<core::smart_refctd_ptr<video::IGPUMesh>>(drawData);
-			auto gpuubo = std::get<core::smart_refctd_ptr<video::IGPUBuffer>>(drawData);
-			auto gpuds1 = std::get<core::smart_refctd_ptr<video::IGPUDescriptorSet>>(drawData);
-			auto ds1UboBinding = std::get<uint32_t>(drawData);
-			const auto* pipelineMetadata = std::get<const asset::IRenderpassIndependentPipelineMetadata*>(drawData);
-
-			core::matrix3x4SIMD modelMatrix;
-
-			if (index == 1)
-				modelMatrix.setScale(core::vectorSIMDf(10, 10, 10));
-			modelMatrix.setTranslation(nbl::core::vectorSIMDf(index * 150, 0, 0, 0));
-
-			core::matrix4SIMD mvp = core::concatenateBFollowedByA(viewProjectionMatrix, modelMatrix);
-
-			core::vector<uint8_t> uboData(gpuubo->getSize());
-			for (const auto& shaderInputs : pipelineMetadata->m_inputSemantics)
-			{
-				if (shaderInputs.descriptorSection.type == asset::IRenderpassIndependentPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER && shaderInputs.descriptorSection.uniformBufferObject.set == 1u && shaderInputs.descriptorSection.uniformBufferObject.binding == ds1UboBinding)
-				{
-					switch (shaderInputs.type)
-					{
-					case asset::IRenderpassIndependentPipelineMetadata::ECSI_WORLD_VIEW_PROJ:
-					{
-						memcpy(uboData.data() + shaderInputs.descriptorSection.uniformBufferObject.relByteoffset, mvp.pointer(), shaderInputs.descriptorSection.uniformBufferObject.bytesize);
-					} break;
-
-					case asset::IRenderpassIndependentPipelineMetadata::ECSI_WORLD_VIEW:
-					{
-						memcpy(uboData.data() + shaderInputs.descriptorSection.uniformBufferObject.relByteoffset, viewMatrix.pointer(), shaderInputs.descriptorSection.uniformBufferObject.bytesize);
-					} break;
-
-					case asset::IRenderpassIndependentPipelineMetadata::ECSI_WORLD_VIEW_INVERSE_TRANSPOSE:
-					{
-						memcpy(uboData.data() + shaderInputs.descriptorSection.uniformBufferObject.relByteoffset, viewMatrix.pointer(), shaderInputs.descriptorSection.uniformBufferObject.bytesize);
-					} break;
-					}
-				}
-			}
-
-			commandBuffer->updateBuffer(gpuubo.get(), 0ull, gpuubo->getSize(), uboData.data());
-
-			for (auto gpuMeshBuffer : gpuMesh->getMeshBuffers())
-			{
-				auto gpuGraphicsPipeline = gpuPipelines[reinterpret_cast<RENDERPASS_INDEPENDENT_PIPELINE_ADRESS>(gpuMeshBuffer->getPipeline())];
-
-				const video::IGPURenderpassIndependentPipeline* gpuRenderpassIndependentPipeline = gpuMeshBuffer->getPipeline();
-				const video::IGPUDescriptorSet* ds3 = gpuMeshBuffer->getAttachedDescriptorSet();
-
-				commandBuffer->bindGraphicsPipeline(gpuGraphicsPipeline.get());
-
-				const video::IGPUDescriptorSet* gpuds1_ptr = gpuds1.get();
-				commandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS, gpuRenderpassIndependentPipeline->getLayout(), 1u, 1u, &gpuds1_ptr, 0u);
-				const video::IGPUDescriptorSet* gpuds3_ptr = gpuMeshBuffer->getAttachedDescriptorSet();
-
-				if (gpuds3_ptr)
-					commandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS, gpuRenderpassIndependentPipeline->getLayout(), 3u, 1u, &gpuds3_ptr, 0u);
-				commandBuffer->pushConstants(gpuRenderpassIndependentPipeline->getLayout(), video::IGPUShader::ESS_FRAGMENT, 0u, gpuMeshBuffer->MAX_PUSH_CONSTANT_BYTESIZE, gpuMeshBuffer->getPushConstantsDataPtr());
-
-				commandBuffer->drawMeshBuffer(gpuMeshBuffer);
-			}
-		};
-
-		/*
-			Record PLY and STL rendering commands
-		*/
-
-		renderMesh(gpuPipelinesPly, plyDrawData, 0);
-
-		commandBuffer->endRenderPass();
 		commandBuffer->end();
 
 		CommonAPI::Submit(logicalDevice.get(), swapchain.get(), commandBuffer.get(), queues[CommonAPI::InitOutput::EQT_GRAPHICS], imageAcquire[resourceIx].get(), renderFinished[resourceIx].get(), fence.get());
