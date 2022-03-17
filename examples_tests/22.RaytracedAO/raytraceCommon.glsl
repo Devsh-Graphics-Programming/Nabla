@@ -265,6 +265,13 @@ bool Sun_intersect(in vec3 rayDirection)
 	return dot(rayDirection,normalizedSunDir)>cosThetaMaxSun;
 }
 
+const float regularizationFactor = 0.5;
+
+float RegularizeSunPDF(float pdf_sun)
+{
+	return regularizationFactor/(4*nbl_glsl_PI)+(1.f-regularizationFactor)*pdf_sun;
+}
+
 // Can be precomputed for sun but meh, since we're only doing this for test
 float Sphere_getSolidAngle_impl(in float cosThetaMax)
 {
@@ -281,14 +288,28 @@ float Sun_deferred_pdf(in vec3 rayDirection)
 	return 0.0f;
 }
 
+// return regularized pdf of sample
+float Sun_regularized_deferred_pdf(in vec3 rayDirection)
+{
+	return RegularizeSunPDF(Sun_deferred_pdf(rayDirection));
+}
+
 vec3 Sun_getContribution(in vec3 rayDirection)
 {
 	bool intersectedSun = Sun_intersect(rayDirection);
 	return (intersectedSun) ? sunColor : vec3(0.0f);
 }
 
+vec3 sampleUniformSphere(in vec2 rand)
+{
+	float z = 1.0f - 2.0f * rand.x;
+    float r = sqrt(1.0f - z * z);
+    float phi = 2 * nbl_glsl_PI * rand.y;
+    return vec3(r * cos(phi), r * sin(phi), z);
+}
+
 // returns quotient ad fills sample + pdf
-nbl_glsl_MC_bxdf_spectrum_t Sun_generateSample_and_pdf(out float pdf, out nbl_glsl_LightSample lightSample, in nbl_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 rand)
+void Sun_generateSample_and_pdf(out float pdf, out nbl_glsl_LightSample lightSample, in nbl_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 rand)
 {
 	const float cosThetaMax = cosThetaMaxSun;
     const float cosThetaMax2 = cosThetaMaxSun * cosThetaMaxSun;
@@ -306,15 +327,31 @@ nbl_glsl_MC_bxdf_spectrum_t Sun_generateSample_and_pdf(out float pdf, out nbl_gl
         mat2x3 sunTangentFrame = nbl_glsl_frisvad(Z);
     
         L += (sunTangentFrame[0]*cosPhi+sunTangentFrame[1]*sinPhi)*sinTheta;
-    
-		lightSample = nbl_glsl_createLightSample(L, interaction);
 
-		float rcpPdf = Sphere_getSolidAngle_impl(cosThetaMax);
-        pdf = 1.0/rcpPdf;
-		return Sun_getContribution(lightSample.L) * rcpPdf;
+    	lightSample = nbl_glsl_createLightSample(L, interaction);
+
+        pdf = 1.0/Sphere_getSolidAngle_impl(cosThetaMax);
     }
-    pdf = 0.0;
-    return vec3(0.0,0.0,0.0);
+	else
+	{
+		pdf = 0.0;
+	}
+}
+
+void Sun_generateRegularizedSample_and_pdf(out float pdf, out nbl_glsl_LightSample lightSample, in nbl_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 rand)
+{
+  	float dummy;
+	if (!nbl_glsl_partitionRandVariable(regularizationFactor,/*inout*/rand.y,dummy))
+	{
+	 	vec3 L = sampleUniformSphere(rand);
+    	lightSample = nbl_glsl_createLightSample(L, interaction);
+	 	pdf = Sun_regularized_deferred_pdf(L);
+  	}
+  	else
+  	{
+		Sun_generateSample_and_pdf(pdf, lightSample, interaction, rand);
+		pdf = RegularizeSunPDF(pdf);
+  	}
 }
 
 #include <nbl/builtin/glsl/sampling/quantized_sequence.glsl>
@@ -353,7 +390,7 @@ nbl_glsl_MC_quot_pdf_aov_t gen_sample_ray(
 	float bxdfWeight = 0;
 
 	float p_bxdf_bxdf = bxdfCosThroughput.pdf; // BxDF PDF evaluated with BxDF sample (returned from 
-	float p_env_bxdf = Sun_deferred_pdf(bxdfSample.L); // Envmap PDF evaluated with BxDF sample (returned by manual tap of the envmap PDF texture)
+	float p_env_bxdf = Sun_regularized_deferred_pdf(bxdfSample.L); // Envmap PDF evaluated with BxDF sample (returned by manual tap of the envmap PDF texture)
 
 	float p_env_env = 0.0f; // Envmap PDF evaluated with Envmap sample (returned from envmap importance sampling)
 	float p_bxdf_env = 0.0f; // BXDF evaluated with Envmap sample (returned from envmap importance sampling)
@@ -364,8 +401,7 @@ nbl_glsl_MC_quot_pdf_aov_t gen_sample_ray(
 	{
 		nbl_glsl_MC_setCurrInteraction(precomp);
 
-		const nbl_glsl_MC_bxdf_spectrum_t pgQuotient 
-			= Sun_generateSample_and_pdf(/*out*/p_env_env, /*out*/ envmapSample, currInteraction.inner, rand[1].xy);
+		Sun_generateRegularizedSample_and_pdf(/*out*/p_env_env, /*out*/ envmapSample, currInteraction.inner, rand[1].xy);
 
 		nbl_glsl_MC_microfacet_t microfacet;
 		microfacet.inner = nbl_glsl_calcAnisotropicMicrofacetCache(currInteraction.inner, envmapSample);
@@ -380,7 +416,8 @@ nbl_glsl_MC_quot_pdf_aov_t gen_sample_ray(
 	}
 
 	const float p_ratio_bxdf = p_env_bxdf/p_bxdf_bxdf;
-#if TRADE_REGISTERS_FOR_IEEE754_ACCURACY
+#define TRADE_REGISTERS_FOR_IEEE754_ACCURACY
+#ifdef TRADE_REGISTERS_FOR_IEEE754_ACCURACY
 	const float rcp_w_bxdf = 1.f/p_env_bxdf+p_ratio_bxdf/p_bxdf_bxdf;
 	float w_sum = 1.f/rcp_w_bxdf;
 
