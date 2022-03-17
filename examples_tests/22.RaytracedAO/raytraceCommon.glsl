@@ -351,75 +351,88 @@ nbl_glsl_MC_quot_pdf_aov_t gen_sample_ray(
 	nbl_glsl_LightSample bxdfSample;
 	nbl_glsl_MC_quot_pdf_aov_t bxdfCosThroughput = nbl_glsl_MC_runGenerateAndRemainderStream(precomp,gcs,rnps,rand[0],bxdfSample);
 	float bxdfWeight = 0;
-	float envPDFAtBXDFSample = Sun_deferred_pdf(bxdfSample.L);
-	// P_env(X_bxdf) = envPDFAtBXDFSample
-	// P_bxdf(x_bxdf) = bxdfCosThroughput.pdf
-	float p_ratio_bxdf_w = envPDFAtBXDFSample/bxdfCosThroughput.pdf;
-	if(!isnan(p_ratio_bxdf_w))
-	{
-		bxdfWeight = 1.0f / ((1.0f/envPDFAtBXDFSample)+pow(p_ratio_bxdf_w, beta-1)/bxdfCosThroughput.pdf);
-	}
-	
+
+	float p_bxdf_bxdf = bxdfCosThroughput.pdf; // BxDF PDF evaluated with BxDF sample (returned from 
+	float p_env_bxdf = Sun_deferred_pdf(bxdfSample.L); // Envmap PDF evaluated with BxDF sample (returned by manual tap of the envmap PDF texture)
+
+	float p_env_env = 0.0f; // Envmap PDF evaluated with Envmap sample (returned from envmap importance sampling)
+	float p_bxdf_env = 0.0f; // BXDF evaluated with Envmap sample (returned from envmap importance sampling)
+
 	// (2) Envmap Sample and Weight
-	nbl_glsl_LightSample pgSample;
-	nbl_glsl_MC_quot_pdf_aov_t pgThroughput;
-	float pgWeight = 0;
+	nbl_glsl_LightSample envmapSample;
+	nbl_glsl_MC_quot_pdf_aov_t envmapSampleThroughput;
 	{
 		nbl_glsl_MC_setCurrInteraction(precomp);
 
-		float pgPDF = 0.0f; // light pdf at light sample
 		const nbl_glsl_MC_bxdf_spectrum_t pgQuotient 
-			= Sun_generateSample_and_pdf(/*out*/pgPDF, /*out*/ pgSample, currInteraction.inner, rand[1].xy);
+			= Sun_generateSample_and_pdf(/*out*/p_env_env, /*out*/ envmapSample, currInteraction.inner, rand[1].xy);
 
 		nbl_glsl_MC_microfacet_t microfacet;
-		microfacet.inner = nbl_glsl_calcAnisotropicMicrofacetCache(currInteraction.inner, pgSample);
+		microfacet.inner = nbl_glsl_calcAnisotropicMicrofacetCache(currInteraction.inner, envmapSample);
 		nbl_glsl_MC_finalizeMicrofacet(/*inout*/microfacet);
 
 		// bxdf eval_pdf_aov of light sample
-		const nbl_glsl_MC_eval_pdf_aov_t epa = nbl_bsdf_eval_and_pdf(precomp, rnps, 0xdeafbeefu, /*inout*/pgSample, /*inout*/microfacet);
-  		pgThroughput.quotient = epa.value/(epa.pdf*pgPDF);
-		pgThroughput.pdf = epa.pdf*pgPDF;
-		pgThroughput.aov = epa.aov;
-
-		// P_env(X_env) = pgPDF
-		// P_bxdf(x_env) = epa.pdf
-		float p_ratio_env_w = epa.pdf/pgPDF;
-		if(!isnan(p_ratio_env_w))
-		{
-			pgWeight = 1.0f / ((1.0f/epa.pdf)+pow(p_ratio_env_w, beta-1)/pgPDF);
-		}
-
-		// regularization
-		// const float kFakeAmbientAssumption = 0.2f;
-		// pgContrib += kFakeAmbientAssumption*nbl_glsl_MC_colorToScalar(pgThroughput.quotient);
+		const nbl_glsl_MC_eval_pdf_aov_t epa = nbl_bsdf_eval_and_pdf(precomp, rnps, 0xdeafbeefu, /*inout*/envmapSample, /*inout*/microfacet);
+  		envmapSampleThroughput.quotient = epa.value/epa.pdf;
+		envmapSampleThroughput.pdf = epa.pdf;
+		envmapSampleThroughput.aov = epa.aov;
+		p_bxdf_env = epa.pdf;
 	}
 
-	float rcpChoiceProb;
-	const float kBxDFChoiceBound = 0.0f;
-	const float bxdfProbability = (1.f-kBxDFChoiceBound)/(1.f+pgWeight/bxdfWeight)+kBxDFChoiceBound;
-	
+	const float p_ratio_bxdf = p_env_bxdf/p_bxdf_bxdf;
+#if TRADE_REGISTERS_FOR_IEEE754_ACCURACY
+	const float rcp_w_bxdf = 1.f/p_env_bxdf+p_ratio_bxdf/p_bxdf_bxdf;
+	float w_sum = 1.f/rcp_w_bxdf;
+
+	float w_env_over_w_bxdf = rcp_w_bxdf;
+
+	if (p_bxdf_env<nbl_glsl_FLT_MAX)
+	{
+		const float p_ratio_env = p_bxdf_env/p_env_env;
+		const float w_env =  1.f/(1.f/p_bxdf_env+p_ratio_env/p_env_env);
+		w_env_over_w_bxdf *= w_env;
+		w_sum += w_env;
+	}
+
+	const float bxdfChoiceProb = 1.f/(1.f+w_env_over_w_bxdf);
+#else
+	const float w_bxdf = p_env_bxdf/(1.f+p_ratio_bxdf*p_ratio_bxdf);
+
+	float w_sum = w_bxdf;
+	if (p_bxdf_env<nbl_glsl_FLT_MAX)
+	{
+		const float p_ratio_env = p_bxdf_env/p_env_env;
+		w_sum += p_bxdf_env/(1.f+p_ratio_env*p_ratio_env);
+	}
+
+	const float bxdfChoiceProb = w_bxdf/w_sum;
+#endif
+
 	nbl_glsl_LightSample outSample;
 	nbl_glsl_MC_quot_pdf_aov_t result;
 
-	float mean_of_weights = 0.5f * (bxdfWeight + pgWeight);
-	
-	if (!nbl_glsl_partitionRandVariable(bxdfProbability,rand[0].z,rcpChoiceProb))
+	float rcpChoiceProb;
+	float w_star_over_p_env = w_sum;
+	if (!nbl_glsl_partitionRandVariable(bxdfChoiceProb,rand[0].z,rcpChoiceProb))
 	{
 		outSample = bxdfSample;
 		result = bxdfCosThroughput;
-		result.quotient /= (envPDFAtBXDFSample);
-		result.pdf *= (envPDFAtBXDFSample);
-		// throughput_bxdf = [bxdf_throughput(X_bxdf) / p_env(X_bxdf)] * mean_of_weights 
+  		w_star_over_p_env /= p_env_bxdf;
 	}
 	else
 	{
-		outSample = pgSample;
-		result = pgThroughput;
-		// throughput_env = [bxdf_throughput(X_env) / p_env(X_env)] * mean_of_weights 
+		outSample = envmapSample;
+		result = envmapSampleThroughput;
+  		w_star_over_p_env /= p_env_env;
 	}		
 	
-	result.quotient *= (mean_of_weights);
-	result.pdf /= mean_of_weights;
+	result.quotient *= w_star_over_p_env;
+	result.pdf /= w_star_over_p_env;
+
+#ifdef USE_ONLY_BXDF
+	outSample = bxdfSample;
+	result = bxdfCosThroughput;
+#endif
 
 	// russian roulette
 	const uint noRussianRouletteDepth = bitfieldExtract(staticViewData.pathDepth_noRussianRouletteDepth_samplesPerPixelPerDispatch,8,8);
