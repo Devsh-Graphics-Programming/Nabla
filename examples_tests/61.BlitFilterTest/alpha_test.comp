@@ -1,6 +1,6 @@
 #version 460 core
 
-layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_, local_size_y = _NBL_GLSL_WORKGROUP_SIZE_, local_size_z = 1) in;
+layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_X_, local_size_y = _NBL_GLSL_WORKGROUP_SIZE_Y_, local_size_z = 1) in;
 
 layout (push_constant) uniform Block
 {

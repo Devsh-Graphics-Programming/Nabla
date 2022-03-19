@@ -235,7 +235,11 @@ public:
 			auto cpuShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(buffer), asset::IShader::buffer_contains_glsl_t{}, asset::IShader::ESS_COMPUTE, "????");
 
 			// Todo(achal): This needs to be extended to 3D images
-			auto cpuShaderOverriden = asset::IGLSLCompiler::createOverridenCopy(cpuShader.get(), "#define _NBL_GLSL_WORKGROUP_SIZE_ %d\n", NBL_GLSL_DEFAULT_WORKGROUP_DIM);
+			auto cpuShaderOverriden = asset::IGLSLCompiler::createOverridenCopy(cpuShader.get(),
+				"#define _NBL_GLSL_WORKGROUP_SIZE_X_ %d\n"
+				"#define _NBL_GLSL_WORKGROUP_SIZE_Y_ %d\n"
+				"#define _NBL_GLSL_WORKGROUP_SIZE_Z_ %d\n",
+				NBL_GLSL_DEFAULT_WORKGROUP_DIM, NBL_GLSL_DEFAULT_WORKGROUP_DIM, NBL_GLSL_DEFAULT_WORKGROUP_DIM);
 
 			cpuShaderOverriden->setFilePathHint("../alpha_test.comp");
 
@@ -441,11 +445,7 @@ public:
 			auto cpuShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(buffer), asset::IShader::buffer_contains_glsl_t{}, asset::IShader::ESS_COMPUTE, "????");
 
 			auto cpuShaderOverriden = asset::IGLSLCompiler::createOverridenCopy(cpuShader.get(),
-				"#define _NBL_GLSL_WORKGROUP_SIZE_X_ %d\n"
-				"#define _NBL_GLSL_WORKGROUP_SIZE_Y_ %d\n"
-				"#define _NBL_GLSL_WORKGROUP_SIZE_Z_ %d\n",
-				// Todo(achal): Replace this with the DEFAULT_WORKGROUP_DIM
-				windowDim.x, windowDim.y, windowDim.z);
+				"#define _NBL_GLSL_WORKGROUP_SIZE_ %d\n", NBL_GLSL_DEFAULT_WORKGROUP_DIM*NBL_GLSL_DEFAULT_WORKGROUP_DIM);
 
 			cpuShaderOverriden->setFilePathHint("../blit.comp");
 
@@ -531,9 +531,16 @@ public:
 		const core::vectorSIMDu32 phaseCount = BlitFilter::getPhaseCount(inImageExtent, outImageExtent, inImageType);
 		outPC.phaseCount.x = phaseCount.x; outPC.phaseCount.y = phaseCount.y; outPC.phaseCount.z = phaseCount.z;
 
-		outDispatchInfo.wgCount[0] = outImageExtent.x;
-		outDispatchInfo.wgCount[1] = outImageExtent.y;
-		outDispatchInfo.wgCount[2] = 1u;// outImageExtent.z; // Todo(achal): Test and remove
+		const uint32_t totalWindowCount = outPC.outDim.x * outPC.outDim.y * outPC.outDim.z;
+		const uint32_t windowPixelCount = outPC.windowDim.x * outPC.windowDim.y * outPC.windowDim.z;
+		const uint32_t smemPerWindow = windowPixelCount * asset::getTexelOrBlockBytesize(asset::EF_R32G32B32A32_SFLOAT);
+		constexpr uint32_t MAX_SMEM = 16384u;
+		const uint32_t windowsPerWG = MAX_SMEM / smemPerWindow;
+		const uint32_t wgCount = (totalWindowCount + windowsPerWG - 1) / windowsPerWG;
+
+		outDispatchInfo.wgCount[0] = wgCount;
+		outDispatchInfo.wgCount[1] = 1u;
+		outDispatchInfo.wgCount[2] = 1u;
 	}
 
 	template <typename push_constants_t>
@@ -706,7 +713,7 @@ public:
 		logger = std::move(initOutput.logger);
 		inputSystem = std::move(initOutput.inputSystem);
 
-		const BlitFilter::CState::E_ALPHA_SEMANTIC alphaSemantic = BlitFilter::CState::EAS_REFERENCE_OR_COVERAGE; // BlitFilter::CState::EAS_NONE_OR_PREMULTIPLIED;
+		const BlitFilter::CState::E_ALPHA_SEMANTIC alphaSemantic = BlitFilter::CState::EAS_NONE_OR_PREMULTIPLIED; // BlitFilter::CState::EAS_REFERENCE_OR_COVERAGE
 		const double referenceAlpha = 0.5;
 
 		const char* pathToInputImage = "alpha_test_input.exr"; // "../../media/colorexr.exr";
@@ -738,46 +745,45 @@ public:
 		const core::vectorSIMDf scaleY(1.f, 1.f, 1.f, 1.f);
 		const core::vectorSIMDf scaleZ(1.f, 1.f, 1.f, 1.f);
 
+		auto kernelX = ScaledBoxKernel(scaleX, asset::CBoxImageFilterKernel()); // (-1/2, 1/2)
+		auto kernelY = ScaledBoxKernel(scaleY, asset::CBoxImageFilterKernel()); // (-1/2, 1/2)
+		auto kernelZ = ScaledBoxKernel(scaleZ, asset::CBoxImageFilterKernel()); // (-1/2, 1/2)
+
+		BlitFilter::state_type blitFilterState(std::move(kernelX), std::move(kernelY), std::move(kernelZ));
+
+		blitFilterState.inOffsetBaseLayer = core::vectorSIMDu32();
+		blitFilterState.inExtentLayerCount = core::vectorSIMDu32(0u, 0u, 0u, inImage->getCreationParameters().arrayLayers) + inImage->getMipSize();
+		blitFilterState.inImage = inImage.get();
+
+		blitFilterState.outOffsetBaseLayer = core::vectorSIMDu32();
+		const uint32_t outImageLayerCount = 1u;
+		blitFilterState.outExtentLayerCount = core::vectorSIMDu32(outImageDim[0], outImageDim[1], outImageDim[2], 1u);
+
+		blitFilterState.axisWraps[0] = asset::ISampler::ETC_CLAMP_TO_EDGE;
+		blitFilterState.axisWraps[1] = asset::ISampler::ETC_CLAMP_TO_EDGE;
+		blitFilterState.axisWraps[2] = asset::ISampler::ETC_CLAMP_TO_EDGE;
+		blitFilterState.borderColor = asset::ISampler::E_TEXTURE_BORDER_COLOR::ETBC_FLOAT_OPAQUE_WHITE;
+
+		blitFilterState.enableLUTUsage = true;
+
+		blitFilterState.alphaSemantic = alphaSemantic;
+		blitFilterState.alphaChannel = 3u;
+		blitFilterState.alphaRefValue = referenceAlpha;
+
+		blitFilterState.scratchMemoryByteSize = BlitFilter::getRequiredScratchByteSize(&blitFilterState);
+		blitFilterState.scratchMemory = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(blitFilterState.scratchMemoryByteSize, 32));
+
+		blitFilterState.computePhaseSupportLUT(&blitFilterState);
+
 		// CPU blit
 		{
 			printf("CPU begin..\n");
 
 			auto outImage = createCPUImage(outImageDim, inImage->getCreationParameters().type, inImage->getCreationParameters().format);
-
-			auto kernelX = ScaledBoxKernel(scaleX, asset::CBoxImageFilterKernel()); // (-1/2, 1/2)
-			auto kernelY = ScaledBoxKernel(scaleY, asset::CBoxImageFilterKernel()); // (-1/2, 1/2)
-			auto kernelZ = ScaledBoxKernel(scaleZ, asset::CBoxImageFilterKernel()); // (-1/2, 1/2)
-			BlitFilter::state_type blitFilterState(std::move(kernelX), std::move(kernelY), std::move(kernelZ));
-
-			blitFilterState.inOffsetBaseLayer = core::vectorSIMDu32();
-			blitFilterState.inExtentLayerCount = core::vectorSIMDu32(0u, 0u, 0u, inImage->getCreationParameters().arrayLayers) + inImage->getMipSize();
-			blitFilterState.inImage = inImage.get();
-
-			blitFilterState.outOffsetBaseLayer = core::vectorSIMDu32();
-			blitFilterState.outExtentLayerCount = core::vectorSIMDu32(0u, 0u, 0u, outImage->getCreationParameters().arrayLayers) + outImage->getMipSize();
 			blitFilterState.outImage = outImage.get();
-
-			blitFilterState.axisWraps[0] = asset::ISampler::ETC_CLAMP_TO_EDGE;
-			blitFilterState.axisWraps[1] = asset::ISampler::ETC_CLAMP_TO_EDGE;
-			blitFilterState.axisWraps[2] = asset::ISampler::ETC_CLAMP_TO_EDGE;
-			blitFilterState.borderColor = asset::ISampler::E_TEXTURE_BORDER_COLOR::ETBC_FLOAT_OPAQUE_WHITE;
-
-			blitFilterState.enableLUTUsage = true;
-
-			blitFilterState.alphaSemantic = alphaSemantic;
-			blitFilterState.alphaChannel = 3u;
-			blitFilterState.alphaRefValue = referenceAlpha;
-
-			blitFilterState.scratchMemoryByteSize = BlitFilter::getRequiredScratchByteSize(&blitFilterState);
-			blitFilterState.scratchMemory = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(blitFilterState.scratchMemoryByteSize, 32));
-
-			blitFilterState.computePhaseSupportLUT(&blitFilterState);
-			BlitFilter::value_type* lut = reinterpret_cast<BlitFilter::value_type*>(blitFilterState.scratchMemory + BlitFilter::getPhaseSupportLUTByteOffset(&blitFilterState));
 
 			if (!BlitFilter::execute(core::execution::par_unseq, &blitFilterState))
 				printf("Blit filter just shit the bed\n");
-
-			_NBL_ALIGNED_FREE(blitFilterState.scratchMemory);
 
 			printf("CPU end..\n");
 
@@ -814,7 +820,7 @@ public:
 		{
 			printf("GPU begin..\n");
 
-			constexpr uint32_t NBL_GLSL_DEFAULT_WORKGROUP_SIZE = 16u;
+			constexpr uint32_t NBL_GLSL_DEFAULT_WORKGROUP_DIM = 16u;
 			constexpr uint32_t NBL_GLSL_DEFAULT_BIN_COUNT = 256u;
 			constexpr size_t NBL_GLSL_DEFAULT_SMEM_SIZE = MAX_SMEM_SIZE;
 
@@ -900,8 +906,6 @@ public:
 				CBlitFilter::updateNormalizationDescriptorSet(logicalDevice.get(), normDS.get(), outImageView, alphaHistogramBuffer, alphaTestCounterBuffer);
 			}
 
-
-
 			const core::vectorSIMDu32 inExtent(inImage->getCreationParameters().extent.width, inImage->getCreationParameters().extent.height, inImage->getCreationParameters().extent.depth);
 			const core::vectorSIMDu32 outExtent(outImageDim[0], outImageDim[1], outImageDim[2]);
 			core::vectorSIMDf scale = static_cast<core::vectorSIMDf>(inExtent).preciseDivision(static_cast<core::vectorSIMDf>(outExtent));
@@ -933,31 +937,6 @@ public:
 			const core::vectorSIMDu32 phaseCount = BlitFilter::getPhaseCount(inExtent, outExtent, inImage->getCreationParameters().type);
 			core::smart_refctd_ptr<video::IGPUBuffer> phaseSupportLUT = nullptr;
 			{
-				// create a blit filter state just compute the LUT (this will change depending on how we choose to expose this to the user i.e. do we want
-				// the same API as asset::CBlitImageFilter or something else?)
-
-				auto kernelX = ScaledBoxKernel(scaleX, asset::CBoxImageFilterKernel()); // (-1/2, 1/2)
-				auto kernelY = ScaledBoxKernel(scaleY, asset::CBoxImageFilterKernel()); // (-1/2, 1/2)
-				auto kernelZ = ScaledBoxKernel(scaleZ, asset::CBoxImageFilterKernel()); // (-1/2, 1/2)
-				BlitFilter::state_type blitFilterState(std::move(kernelX), std::move(kernelY), std::move(kernelZ));
-
-				blitFilterState.inOffsetBaseLayer = core::vectorSIMDu32();
-				blitFilterState.inExtentLayerCount = inExtent + inImage->getMipSize();
-				blitFilterState.inImage = inImage.get();
-
-				blitFilterState.outOffsetBaseLayer = core::vectorSIMDu32();
-				blitFilterState.outExtentLayerCount = outExtent + outImage->getMipSize();
-				blitFilterState.outImage = outImage.get();
-
-				blitFilterState.axisWraps[0] = asset::ISampler::ETC_CLAMP_TO_EDGE;
-				blitFilterState.axisWraps[1] = asset::ISampler::ETC_CLAMP_TO_EDGE;
-				blitFilterState.axisWraps[2] = asset::ISampler::ETC_CLAMP_TO_EDGE;
-				blitFilterState.borderColor = asset::ISampler::E_TEXTURE_BORDER_COLOR::ETBC_FLOAT_OPAQUE_WHITE;
-
-				blitFilterState.scratchMemoryByteSize = BlitFilter::getRequiredScratchByteSize(&blitFilterState);
-				blitFilterState.scratchMemory = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(blitFilterState.scratchMemoryByteSize, 32));
-
-				blitFilterState.computePhaseSupportLUT(&blitFilterState);
 				BlitFilter::value_type* lut = reinterpret_cast<BlitFilter::value_type*>(blitFilterState.scratchMemory + BlitFilter::getPhaseSupportLUTByteOffset(&blitFilterState));
 
 				const size_t lutSize = (static_cast<size_t>(phaseCount.x)*windowDim.x + static_cast<size_t>(phaseCount.y)*windowDim.y + static_cast<size_t>(phaseCount.z)*windowDim.z)*sizeof(float)*4ull;
@@ -1023,6 +1002,8 @@ public:
 			
 			__debugbreak();
 		}
+
+		_NBL_ALIGNED_FREE(blitFilterState.scratchMemory);
 	}
 
 	void onAppTerminated_impl() override
