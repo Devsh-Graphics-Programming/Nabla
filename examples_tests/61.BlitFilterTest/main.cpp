@@ -340,7 +340,7 @@ public:
 		{
 			auto system = logicalDevice->getPhysicalDevice()->getSystem();
 			system::future<core::smart_refctd_ptr<system::IFile>> future;
-			const bool status = system->createFile(future, "../normalization/normalization.comp", static_cast<system::IFile::E_CREATE_FLAGS>(system::IFile::ECF_READ | system::IFile::ECF_MAPPABLE));
+			const bool status = system->createFile(future, "../normalization_2d.comp", static_cast<system::IFile::E_CREATE_FLAGS>(system::IFile::ECF_READ | system::IFile::ECF_MAPPABLE));
 			if (!status)
 				return nullptr;
 
@@ -358,7 +358,7 @@ public:
 				// Todo(achal): Not make DEFAULT_WG_SIZE_Z = 1
 				NBL_GLSL_DEFAULT_WORKGROUP_DIM, NBL_GLSL_DEFAULT_WORKGROUP_DIM, 1u, NBL_GLSL_DEFAULT_BIN_COUNT);
 
-			cpuShaderOverriden->setFilePathHint("../normalization/normalization.comp");
+			cpuShaderOverriden->setFilePathHint("../normalization_2d.comp");
 
 			auto gpuUnspecShader = logicalDevice->createGPUShader(std::move(cpuShaderOverriden));
 
@@ -435,7 +435,7 @@ public:
 		{
 			auto system = logicalDevice->getPhysicalDevice()->getSystem();
 			system::future<core::smart_refctd_ptr<system::IFile>> future;
-			const bool status = system->createFile(future, "../blit/blit.comp", static_cast<system::IFile::E_CREATE_FLAGS>(system::IFile::ECF_READ | system::IFile::ECF_MAPPABLE));
+			const bool status = system->createFile(future, "../blit_2d.comp", static_cast<system::IFile::E_CREATE_FLAGS>(system::IFile::ECF_READ | system::IFile::ECF_MAPPABLE));
 			if (!status)
 				return nullptr;
 
@@ -448,7 +448,7 @@ public:
 			auto cpuShaderOverriden = asset::IGLSLCompiler::createOverridenCopy(cpuShader.get(),
 				"#define _NBL_GLSL_WORKGROUP_SIZE_ %d\n", NBL_GLSL_DEFAULT_WORKGROUP_DIM*NBL_GLSL_DEFAULT_WORKGROUP_DIM);
 
-			cpuShaderOverriden->setFilePathHint("../blit/blit.comp");
+			cpuShaderOverriden->setFilePathHint("../blit_2d.comp");
 
 			auto gpuUnspecShader = logicalDevice->createGPUShader(std::move(cpuShaderOverriden));
 
