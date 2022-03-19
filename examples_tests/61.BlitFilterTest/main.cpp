@@ -140,6 +140,7 @@ public:
 		vec3_aligned positiveSupport;
 		uvec3_aligned windowDim;
 		uvec3_aligned phaseCount;
+		uint32_t windowsPerWG;
 	};
 
 	struct normalization_push_constants_t
@@ -154,7 +155,7 @@ public:
 		uint32_t wgCount[3];
 	};
 
-	CBlitFilter(video::ILogicalDevice* logicalDevice)
+	CBlitFilter(video::ILogicalDevice* logicalDevice, const uint32_t smemSize = 16*1024u) : sharedMemorySize(smemSize)
 	{
 		sampler = nullptr;
 		{
@@ -224,7 +225,7 @@ public:
 		{
 			auto system = logicalDevice->getPhysicalDevice()->getSystem();
 			system::future<core::smart_refctd_ptr<system::IFile>> future;
-			const bool status = system->createFile(future, "../alpha_test.comp", static_cast<system::IFile::E_CREATE_FLAGS>(system::IFile::ECF_READ | system::IFile::ECF_MAPPABLE));
+			const bool status = system->createFile(future, "../alpha_test_2d.comp", static_cast<system::IFile::E_CREATE_FLAGS>(system::IFile::ECF_READ | system::IFile::ECF_MAPPABLE));
 			if (!status)
 				return nullptr;
 
@@ -241,7 +242,7 @@ public:
 				"#define _NBL_GLSL_WORKGROUP_SIZE_Z_ %d\n",
 				NBL_GLSL_DEFAULT_WORKGROUP_DIM, NBL_GLSL_DEFAULT_WORKGROUP_DIM, NBL_GLSL_DEFAULT_WORKGROUP_DIM);
 
-			cpuShaderOverriden->setFilePathHint("../alpha_test.comp");
+			cpuShaderOverriden->setFilePathHint("../alpha_test_2d.comp");
 
 			auto gpuUnspecShader = logicalDevice->createGPUShader(std::move(cpuShaderOverriden));
 
@@ -339,7 +340,7 @@ public:
 		{
 			auto system = logicalDevice->getPhysicalDevice()->getSystem();
 			system::future<core::smart_refctd_ptr<system::IFile>> future;
-			const bool status = system->createFile(future, "../normalization.comp", static_cast<system::IFile::E_CREATE_FLAGS>(system::IFile::ECF_READ | system::IFile::ECF_MAPPABLE));
+			const bool status = system->createFile(future, "../normalization/normalization.comp", static_cast<system::IFile::E_CREATE_FLAGS>(system::IFile::ECF_READ | system::IFile::ECF_MAPPABLE));
 			if (!status)
 				return nullptr;
 
@@ -357,7 +358,7 @@ public:
 				// Todo(achal): Not make DEFAULT_WG_SIZE_Z = 1
 				NBL_GLSL_DEFAULT_WORKGROUP_DIM, NBL_GLSL_DEFAULT_WORKGROUP_DIM, 1u, NBL_GLSL_DEFAULT_BIN_COUNT);
 
-			cpuShaderOverriden->setFilePathHint("../normalization.comp");
+			cpuShaderOverriden->setFilePathHint("../normalization/normalization.comp");
 
 			auto gpuUnspecShader = logicalDevice->createGPUShader(std::move(cpuShaderOverriden));
 
@@ -434,7 +435,7 @@ public:
 		{
 			auto system = logicalDevice->getPhysicalDevice()->getSystem();
 			system::future<core::smart_refctd_ptr<system::IFile>> future;
-			const bool status = system->createFile(future, "../blit.comp", static_cast<system::IFile::E_CREATE_FLAGS>(system::IFile::ECF_READ | system::IFile::ECF_MAPPABLE));
+			const bool status = system->createFile(future, "../blit/blit.comp", static_cast<system::IFile::E_CREATE_FLAGS>(system::IFile::ECF_READ | system::IFile::ECF_MAPPABLE));
 			if (!status)
 				return nullptr;
 
@@ -447,7 +448,7 @@ public:
 			auto cpuShaderOverriden = asset::IGLSLCompiler::createOverridenCopy(cpuShader.get(),
 				"#define _NBL_GLSL_WORKGROUP_SIZE_ %d\n", NBL_GLSL_DEFAULT_WORKGROUP_DIM*NBL_GLSL_DEFAULT_WORKGROUP_DIM);
 
-			cpuShaderOverriden->setFilePathHint("../blit.comp");
+			cpuShaderOverriden->setFilePathHint("../blit/blit.comp");
 
 			auto gpuUnspecShader = logicalDevice->createGPUShader(std::move(cpuShaderOverriden));
 
@@ -531,12 +532,12 @@ public:
 		const core::vectorSIMDu32 phaseCount = BlitFilter::getPhaseCount(inImageExtent, outImageExtent, inImageType);
 		outPC.phaseCount.x = phaseCount.x; outPC.phaseCount.y = phaseCount.y; outPC.phaseCount.z = phaseCount.z;
 
-		const uint32_t totalWindowCount = outPC.outDim.x * outPC.outDim.y * outPC.outDim.z;
 		const uint32_t windowPixelCount = outPC.windowDim.x * outPC.windowDim.y * outPC.windowDim.z;
 		const uint32_t smemPerWindow = windowPixelCount * asset::getTexelOrBlockBytesize(asset::EF_R32G32B32A32_SFLOAT);
-		constexpr uint32_t MAX_SMEM = 16384u;
-		const uint32_t windowsPerWG = MAX_SMEM / smemPerWindow;
-		const uint32_t wgCount = (totalWindowCount + windowsPerWG - 1) / windowsPerWG;
+		outPC.windowsPerWG = sharedMemorySize / smemPerWindow;
+
+		const uint32_t totalWindowCount = outPC.outDim.x * outPC.outDim.y * outPC.outDim.z;
+		const uint32_t wgCount = (totalWindowCount + outPC.windowsPerWG - 1) / outPC.windowsPerWG;
 
 		outDispatchInfo.wgCount[0] = wgCount;
 		outDispatchInfo.wgCount[1] = 1u;
@@ -660,6 +661,8 @@ private:
 	core::smart_refctd_ptr<video::IGPUSpecializedShader> normalizationSpecShader = nullptr;
 	core::smart_refctd_ptr<video::IGPUComputePipeline> normalizationPipeline = nullptr;
 
+	const uint32_t sharedMemorySize;
+
 	core::smart_refctd_ptr<video::IGPUSampler> sampler = nullptr;
 
 	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> getDSLayout(const uint32_t descriptorCount, const asset::E_DESCRIPTOR_TYPE* descriptorTypes, video::ILogicalDevice* logicalDevice, core::smart_refctd_ptr<video::IGPUSampler> sampler) const
@@ -713,7 +716,7 @@ public:
 		logger = std::move(initOutput.logger);
 		inputSystem = std::move(initOutput.inputSystem);
 
-		const BlitFilter::CState::E_ALPHA_SEMANTIC alphaSemantic = BlitFilter::CState::EAS_NONE_OR_PREMULTIPLIED; // BlitFilter::CState::EAS_REFERENCE_OR_COVERAGE
+		const BlitFilter::CState::E_ALPHA_SEMANTIC alphaSemantic = BlitFilter::CState::EAS_REFERENCE_OR_COVERAGE; // BlitFilter::CState::EAS_NONE_OR_PREMULTIPLIED;
 		const double referenceAlpha = 0.5;
 
 		const char* pathToInputImage = "alpha_test_input.exr"; // "../../media/colorexr.exr";
