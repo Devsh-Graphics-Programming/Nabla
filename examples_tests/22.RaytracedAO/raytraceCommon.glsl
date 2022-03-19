@@ -254,8 +254,8 @@ vec3 load_normal_and_prefetch_textures(
 
 // Sun Stuff
 #include <nbl/builtin/glsl/limits/numeric.glsl>
-vec3 sunColor = vec3(9.7, 8.4, 10.9) * 10;
-vec3 sunDirection = vec3(-0.2, 0.5, 0.0);
+vec3 sunColor = vec3(9.7, 8.4, 10.9) * 20;
+vec3 sunDirection = vec3(-0.7, 0.5, -0.4);
 float cosThetaMaxSun = 0.999f;
 
 // return intersection distance if found, nbl_glsl_FLT_NAN otherwise
@@ -265,7 +265,7 @@ bool Sun_intersect(in vec3 rayDirection)
 	return dot(rayDirection,normalizedSunDir)>cosThetaMaxSun;
 }
 
-const float regularizationFactor = 0.5;
+const float regularizationFactor = 0.5f;
 
 float RegularizeSunPDF(float pdf_sun)
 {
@@ -382,8 +382,6 @@ nbl_glsl_MC_quot_pdf_aov_t gen_sample_ray(
 {
 	mat2x3 rand = rand6d(scramble_key,int(sampleID),int(depth));
 
-	const int beta = 1; // power-heuristic power
-
 	// (1) BXDF Sample and Weight
 	nbl_glsl_LightSample bxdfSample;
 	nbl_glsl_MC_quot_pdf_aov_t bxdfCosThroughput = nbl_glsl_MC_runGenerateAndRemainderStream(precomp,gcs,rnps,rand[0],bxdfSample);
@@ -416,7 +414,6 @@ nbl_glsl_MC_quot_pdf_aov_t gen_sample_ray(
 	}
 
 	const float p_ratio_bxdf = p_env_bxdf/p_bxdf_bxdf;
-#define TRADE_REGISTERS_FOR_IEEE754_ACCURACY
 #ifdef TRADE_REGISTERS_FOR_IEEE754_ACCURACY
 	const float rcp_w_bxdf = 1.f/p_env_bxdf+p_ratio_bxdf/p_bxdf_bxdf;
 	float w_sum = 1.f/rcp_w_bxdf;
