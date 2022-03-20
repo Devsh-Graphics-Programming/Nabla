@@ -6,9 +6,10 @@
 #include <../blit/parameters.glsl>
 nbl_glsl_blit_parameters_t nbl_glsl_blit_getParameters();
 
-nbl_glsl_blit_input_pixel_t nbl_glsl_blit_getData(in ivec3 coord);
+vec4 nbl_glsl_blit_getData(in ivec3 coord);
 void nbl_glsl_blit_setData(in uvec3 coord, in vec4 data);
 float nbl_glsl_blit_getCachedWeightsPremultiplied(in uvec3 lutCoord);
+void nbl_glsl_blit_addToHistogram(in uint bucketIndex);
 
 #define scratchShared _NBL_GLSL_SCRATCH_SHARED_DEFINED_
 
@@ -18,13 +19,13 @@ void nbl_glsl_blit_main()
 
 	const vec3 scale = vec3(params.inDim) / vec3(params.outDim);
 
-	const uint windowPixelCount = params.windowDim.x * params.windowDim.y * params.windowDim.z; // 21
+	const uint windowPixelCount = params.windowDim.x * params.windowDim.y * params.windowDim.z; // 2
 
 	// Todo(achal): assert on the CPU windowPixelCount <= _NBL_GLSL_WORKGROUP_SIZE_
-	const uint windowsPerStep = _NBL_GLSL_WORKGROUP_SIZE_ / windowPixelCount; // 256/21 = 12
-	const uint stepCount = (params.windowsPerWG + windowsPerStep - 1) / windowsPerStep; // 4
+	const uint windowsPerStep = _NBL_GLSL_WORKGROUP_SIZE_ / windowPixelCount; // 256/2 = 128
+	const uint stepCount = (params.windowsPerWG + windowsPerStep - 1) / windowsPerStep; // 16
 
-	const uint totalWindowCount = params.outDim.x * params.outDim.y * params.outDim.z;
+	const uint totalWindowCount = params.outDim.x * params.outDim.y * params.outDim.z; // 4
 
 	for (uint step = 0u; step < stepCount; ++step)
 	{
@@ -64,8 +65,8 @@ void nbl_glsl_blit_main()
 
 			const uint sliceLocalIndex = windowLocalPixelIndex % pixelsPerSlice;
 
-			windowLocalPixelID.x = sliceLocalIndex / params.windowDim.x;
-			windowLocalPixelID.y = sliceLocalIndex % params.windowDim.x;
+			windowLocalPixelID.y = sliceLocalIndex / params.windowDim.x;
+			windowLocalPixelID.x = sliceLocalIndex % params.windowDim.x;
 		}
 
 		const ivec3 inputPixelCoord = windowMinCoord + ivec3(windowLocalPixelID);
@@ -83,8 +84,7 @@ void nbl_glsl_blit_main()
 	barrier();
 
 	const uvec3 stride = uvec3(1u, params.windowDim.x, params.windowDim.x * params.windowDim.y);
-	const uint axisCount = 2u; // Todo(achal): Get it via push constants
-	for (uint axis = 0u; axis < axisCount; ++axis)
+	for (uint axis = 0u; axis < params.axisCount; ++axis)
 	{
 		const uint stride = stride[axis]; // { 1, 3, 21 }
 		const uint elementCount = (windowPixelCount * params.windowsPerWG) / stride; // { 21*48/1 = 1008, 21*48/3 = 336, 21*48/21 = 48 }
@@ -109,7 +109,7 @@ void nbl_glsl_blit_main()
 
 				if ((baseIndex < adderLength) && (wgLocalAdderIndex < adderCount))
 				{
-					vec4 addend = vec4(0.f);
+					nbl_glsl_blit_input_pixel_t addend = nbl_glsl_blit_input_pixel_t(0.f);
 					if (baseIndex + offset < adderLength) // Don't need any kind of finer bounds checking here since we're ensuring that all windows fit COMPLETELY in a workgroup
 						addend = scratchShared[((baseIndex + wgLocalAdderIndex * adderLength) + offset) * stride];
 
@@ -137,10 +137,12 @@ void nbl_glsl_blit_main()
 		if (globalWindowIndex >= totalWindowCount)
 			break;
 
+		// const nbl_glsl_blit_input_pixel_t result = scratchShared[globalWindowIndex]; // scratchShared[wgLocalWindowIndex * windowPixelCount];
 		const nbl_glsl_blit_input_pixel_t result = scratchShared[wgLocalWindowIndex * windowPixelCount];
 
-		const uint bucketIndex = packUnorm4x8(vec4(result.a, 0.f, 0.f, 0.f));
-		atomicAdd(alphaHistogram.data[bucketIndex], 1u);
+		// Doing vec4(result) should set the alpha component to 0 for all cases when nbl_glsl_blit_input_pixel_t != vec4
+		const uint bucketIndex = packUnorm4x8(vec4(vec4(result).a, 0.f, 0.f, 0.f));
+		nbl_glsl_blit_addToHistogram(bucketIndex);
 
 		uvec3 globalWindowID;
 		{

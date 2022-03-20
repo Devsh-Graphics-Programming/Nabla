@@ -14,6 +14,7 @@ struct nbl_glsl_blit_parameters_t
 
 	uint padding;
 	uint windowsPerWG;
+	uint axisCount;
 };
 
 #endif
