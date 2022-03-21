@@ -95,6 +95,7 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/sampling/box_muller_transform.glsl"
   "nbl/builtin/glsl/sampling/concentric_mapping.glsl"
   "nbl/builtin/glsl/sampling/cos_weighted.glsl"
+  "nbl/builtin/glsl/sampling/envmap.glsl"
   "nbl/builtin/glsl/sampling/linear.glsl"
   "nbl/builtin/glsl/sampling/projected_spherical_triangle.glsl"
   #"nbl/builtin/glsl/sampling/spherical_rectangle.glsl"
