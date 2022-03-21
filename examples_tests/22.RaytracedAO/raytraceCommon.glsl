@@ -577,15 +577,6 @@ struct Contribution
 	vec3 worldspaceNormal;
 };
 
-vec2 SampleSphericalMap(vec3 v)
-{
-    vec2 uv = vec2(atan(v.z,v.x),acos(v.y));
-    uv.x *= nbl_glsl_RECIPROCAL_PI*0.5;
-    uv.x += 0.25; 
-    uv.y *= nbl_glsl_RECIPROCAL_PI;
-    return uv;
-}
-
 void Contribution_initMiss(out Contribution contrib, in float aovThroughputScale)
 {
 	// funny little trick borrowed from things like Progressive Photon Mapping
