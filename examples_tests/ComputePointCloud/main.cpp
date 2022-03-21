@@ -310,8 +310,9 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 		auto metadataPly = cpuBundlePLYData.second->selfCast<const asset::CPLYMetadata>();
 
 		// Get the positions from the mesh
-		core::smart_refctd_ptr<video::IGPUOffsetBufferPair> positionsVertexBuffer;
-		core::smart_refctd_ptr<video::IGPUBufferView> positionsVertexBufferView;
+		uint32_t positionVbOffset;
+		core::smart_refctd_ptr<video::IGPUBuffer> positionVb;
+
 		{
 			const asset::ICPUMeshBuffer* const firstMeshBuffer = cpuMeshPly->getMeshBuffers().begin()[0];
 			const asset::SBufferBinding<const asset::ICPUBuffer> posBufferBinding = firstMeshBuffer->getVertexBufferBindings()[firstMeshBuffer->getPositionAttributeIx()];
@@ -325,8 +326,9 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 
 			m_pointCount = posBuffer->getSize() / 12;
 			auto posBuffer_cpu = posBuffer.get();
-			positionsVertexBuffer = cpu2gpu.getGPUObjectsFromAssets(&posBuffer_cpu, &posBuffer_cpu + 1, cpu2gpuParams)->front();
-			positionsVertexBufferView = logicalDevice->createGPUBufferView(positionsVertexBuffer->getBuffer(), asset::E_FORMAT::EF_R32G32B32_SFLOAT);
+			auto positionsVertexBuffer = cpu2gpu.getGPUObjectsFromAssets(&posBuffer_cpu, &posBuffer_cpu + 1, cpu2gpuParams)->front();
+			positionVbOffset = positionsVertexBuffer->getOffset();
+			positionVb = core::smart_refctd_ptr<video::IGPUBuffer>(positionsVertexBuffer->getBuffer());
 		}
 
 		// Fill out the descriptor sets
@@ -352,9 +354,9 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 
 			// Point cloud vertex buffer
 			{
-				descriptorInfos[1].buffer.offset = positionsVertexBuffer->getOffset();
-				descriptorInfos[1].buffer.size = positionsVertexBuffer->getBuffer()->getSize();
-				descriptorInfos[1].desc = positionsVertexBufferView;
+				descriptorInfos[1].buffer.offset = positionVbOffset;
+				descriptorInfos[1].buffer.size = positionVb->getSize();
+				descriptorInfos[1].desc = positionVb;
 
 				writeDescriptorSets[1].dstSet = m_rasterizeDescriptorSet.get();
 				writeDescriptorSets[1].binding = 1u;
@@ -480,14 +482,13 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 
 		swapchain->acquireNextImage(MAX_TIMEOUT, imageAcquire[resourceIx].get(), nullptr, &acquiredNextFBO);
 
-
-		commandBuffer->bindDescriptorSets(asset::EPBP_COMPUTE, m_rasterizerPipeline->getLayout(), 0u, 1u, &m_rasterizeDescriptorSet.get());
-
 		core::matrix3x4SIMD modelMatrix;
 		core::matrix4SIMD mvp = core::concatenateBFollowedByA(viewProjectionMatrix, modelMatrix);
 		// Rasterize the visbuffer
 		{
 			commandBuffer->bindComputePipeline(m_rasterizerPipeline.get());
+
+			commandBuffer->bindDescriptorSets(asset::EPBP_COMPUTE, m_rasterizerPipeline->getLayout(), 0u, 1u, &m_rasterizeDescriptorSet.get());
 
 			const asset::SPushConstantRange& pcRange = m_rasterizerPipeline->getLayout()->getPushConstantRanges().begin()[0];
 			uint32_t pushConstants[2 + 1 + 16];
