@@ -312,6 +312,22 @@ add_library(convert_utf OBJECT
 	convertutf/ConvertUTF.cpp
 )
 
+add_library(imgui
+	"imgui/imconfig.h"
+	"imgui/imgui_demo.cpp"
+	"imgui/imgui_draw.cpp"
+	"imgui/imgui_internal.h"
+	"imgui/imgui_tables.cpp"
+	"imgui/imgui_widgets.cpp"
+	"imgui/imgui.cpp"
+	"imgui/imgui.h"
+	"imgui/imgui_stdlib.cpp"
+	"imgui/imgui_stdlib.h"
+	"imgui/imstb_rectpack.h"
+	"imgui/imstb_textedit.h"
+	"imgui/imstb_truetype.h"
+)
+
 add_library(aesGladman OBJECT
 	aesGladman/aes_ni.c
 	aesGladman/aescrypt.c
@@ -564,6 +580,7 @@ set(NBL_3RDPARTY_TARGETS
 				SPIRV-Tools-static # SPIRV-Tools-shared in case of SHARED lib
 				SPIRV-Tools-opt
 				egl 
+				imgui
 )
 if (_NBL_COMPILE_WITH_OPEN_EXR_)
 	list(APPEND NBL_3RDPARTY_TARGETS

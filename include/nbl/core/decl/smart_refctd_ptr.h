@@ -99,6 +99,11 @@ class smart_refctd_ptr
 		inline I_REFERENCE_COUNTED& operator[](size_t idx) { return ptr[idx]; }
 		inline const I_REFERENCE_COUNTED& operator[](size_t idx) const { return ptr[idx]; }
 
+		[[nodiscard]]
+		bool isValid() const noexcept
+		{
+			return ptr != nullptr;
+		}
 
 		inline explicit operator bool() const { return ptr; }
 		inline bool operator!() const { return !ptr; }

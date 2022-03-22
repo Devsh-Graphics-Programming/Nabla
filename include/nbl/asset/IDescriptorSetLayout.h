@@ -17,6 +17,7 @@ namespace asset
 // TODO: move this to appropriate class
 enum E_DESCRIPTOR_TYPE : uint32_t
 {
+	EDT_SAMPLER = 0,
     EDT_COMBINED_IMAGE_SAMPLER = 1,
     EDT_STORAGE_IMAGE = 3,
     EDT_UNIFORM_TEXEL_BUFFER = 4,
