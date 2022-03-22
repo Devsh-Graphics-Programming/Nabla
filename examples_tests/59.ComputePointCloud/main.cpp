@@ -64,6 +64,8 @@ public:
 	nbl::core::smart_refctd_ptr<video::IGPUFence> gpuComputeFence;
 	nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
 
+	video::CDumbPresentationOracle oracle;
+
 	uint32_t acquiredNextFBO = {};
 	int resourceIx = -1;
 
@@ -280,7 +282,7 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 				imgViewInfo.image = m_visbuffer;
 				imgViewInfo.viewType = video::IGPUImageView::ET_2D;
 				imgViewInfo.format = asset::E_FORMAT::EF_R32_UINT;
-				imgViewInfo.subresourceRange.aspectMask = static_cast<asset::IImage::E_ASPECT_FLAGS>(0u);
+				imgViewInfo.subresourceRange.aspectMask = static_cast<asset::IImage::E_ASPECT_FLAGS>(asset::IImage::E_ASPECT_FLAGS::EAF_COLOR_BIT);
 				imgViewInfo.subresourceRange.baseMipLevel = 0;
 				imgViewInfo.subresourceRange.levelCount = 1;
 				imgViewInfo.subresourceRange.baseArrayLayer = 0;
@@ -355,7 +357,7 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 			// Point cloud vertex buffer
 			{
 				descriptorInfos[1].buffer.offset = positionVbOffset;
-				descriptorInfos[1].buffer.size = positionVb->getSize();
+				descriptorInfos[1].buffer.size = positionVb->getSize() - positionVbOffset;
 				descriptorInfos[1].desc = positionVb;
 
 				writeDescriptorSets[1].dstSet = m_rasterizeDescriptorSet.get();
@@ -398,6 +400,8 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 			imageAcquire[i] = logicalDevice->createSemaphore();
 			renderFinished[i] = logicalDevice->createSemaphore();
 		}
+
+		oracle.reportBeginFrameRecord();
 	}
 
 	void onAppTerminated_impl() override
@@ -428,42 +432,19 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 		auto& fence = frameComplete[resourceIx];
 
 		if (fence)
-			while (logicalDevice->waitForFences(1u, &fence.get(), false, MAX_TIMEOUT) == video::IGPUFence::ES_TIMEOUT) {}
+			logicalDevice->blockForFences(1u, &fence.get());
 		else
 			fence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
 
-		auto renderStart = std::chrono::system_clock::now();
-		const auto renderDt = std::chrono::duration_cast<std::chrono::milliseconds>(renderStart - lastTime).count();
-		lastTime = renderStart;
-		{ // Calculate Simple Moving Average for FrameTime
-			time_sum -= dtList[frame_count];
-			time_sum += renderDt;
-			dtList[frame_count] = renderDt;
-			frame_count++;
-			if (frame_count >= NBL_FRAMES_TO_AVERAGE)
-			{
-				frameDataFilled = true;
-				frame_count = 0;
-			}
-
-		}
-		const double averageFrameTime = frameDataFilled ? (time_sum / (double)NBL_FRAMES_TO_AVERAGE) : (time_sum / frame_count);
-
-#ifdef NBL_MORE_LOGS
-		logger->log("renderDt = %f ------ averageFrameTime = %f", system::ILogger::ELL_INFO, renderDt, averageFrameTime);
-#endif // NBL_MORE_LOGS
-
-		auto averageFrameTimeDuration = std::chrono::duration<double, std::milli>(averageFrameTime);
-		auto nextPresentationTime = renderStart + averageFrameTimeDuration;
-		auto nextPresentationTimeStamp = std::chrono::duration_cast<std::chrono::microseconds>(nextPresentationTime.time_since_epoch());
+		const auto nextPresentationTimestamp = oracle.acquireNextImage(swapchain.get(), imageAcquire[resourceIx].get(), nullptr, &acquiredNextFBO);
 
 		inputSystem->getDefaultMouse(&mouse);
 		inputSystem->getDefaultKeyboard(&keyboard);
 
-		camera.beginInputProcessing(nextPresentationTimeStamp);
+		camera.beginInputProcessing(nextPresentationTimestamp);
 		mouse.consumeEvents([&](const ui::IMouseEventChannel::range_t& events) -> void { camera.mouseProcess(events); }, logger.get());
 		keyboard.consumeEvents([&](const ui::IKeyboardEventChannel::range_t& events) -> void { camera.keyboardProcess(events); }, logger.get());
-		camera.endInputProcessing(nextPresentationTimeStamp);
+		camera.endInputProcessing(nextPresentationTimestamp);
 
 		const auto& viewMatrix = camera.getViewMatrix();
 		const auto& viewProjectionMatrix = camera.getConcatenatedMatrix();

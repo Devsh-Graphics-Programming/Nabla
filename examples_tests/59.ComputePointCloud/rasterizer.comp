@@ -14,7 +14,6 @@ layout (push_constant) uniform pushConstants
 	uint pointCount;
 	mat4 mvp;
 } u_pushConstants;
-
 layout (set = 0, binding = 0, r32ui) uniform coherent uimage2D outImage;
 layout (set = 0, binding = 1, std430) readonly buffer pointCloud {
 	vec3 position[];
