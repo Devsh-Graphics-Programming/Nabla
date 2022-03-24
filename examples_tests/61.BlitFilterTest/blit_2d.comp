@@ -31,7 +31,7 @@ nbl_glsl_blit_parameters_t nbl_glsl_blit_getParameters()
 #endif
 
 layout (set = 0, binding = 0) uniform sampler2D inImage;
-layout (set = 0, binding = 1, rgba16f) uniform writeonly image2D outImage;
+layout (set = 0, binding = 1, rgba32f) uniform writeonly image2D outImage;
 
 #ifndef _NBL_GLSL_BLIT_GET_DATA_DEFINED_
 nbl_glsl_blit_input_pixel_t nbl_glsl_blit_getData(in ivec3 coord)
@@ -56,6 +56,14 @@ float nbl_glsl_blit_getCachedWeightsPremultiplied(in uvec3 lutCoord)
 	return weight.x*weight.y;
 }
 #define _NBL_GLSL_BLIT_GET_CACHED_WEIGHTS_PREMULTIPLIED_DEFINED_
+#endif
+
+#ifndef _NBL_GLSL_BLIT_ADD_TO_HISTOGRAM_DEFINED_
+void nbl_glsl_blit_addToHistogram(in uint bucketIndex)
+{
+	// atomicAdd(alphaHistogram.data[bucketIndex], 1u);
+}
+#define _NBL_GLSL_BLIT_ADD_TO_HISTOGRAM_DEFINED_
 #endif
 
 void main()

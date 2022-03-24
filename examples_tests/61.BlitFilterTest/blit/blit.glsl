@@ -19,13 +19,13 @@ void nbl_glsl_blit_main()
 
 	const vec3 scale = vec3(params.inDim) / vec3(params.outDim);
 
-	const uint windowPixelCount = params.windowDim.x * params.windowDim.y * params.windowDim.z; // 2
+	const uint windowPixelCount = params.windowDim.x * params.windowDim.y * params.windowDim.z;
 
 	// Todo(achal): assert on the CPU windowPixelCount <= _NBL_GLSL_WORKGROUP_SIZE_
-	const uint windowsPerStep = _NBL_GLSL_WORKGROUP_SIZE_ / windowPixelCount; // 256/2 = 128
-	const uint stepCount = (params.windowsPerWG + windowsPerStep - 1) / windowsPerStep; // 16
+	const uint windowsPerStep = _NBL_GLSL_WORKGROUP_SIZE_ / windowPixelCount;
+	const uint stepCount = (params.windowsPerWG + windowsPerStep - 1) / windowsPerStep;
 
-	const uint totalWindowCount = params.outDim.x * params.outDim.y * params.outDim.z; // 4
+	const uint totalWindowCount = params.outDim.x * params.outDim.y * params.outDim.z;
 
 	for (uint step = 0u; step < stepCount; ++step)
 	{
@@ -34,6 +34,8 @@ void nbl_glsl_blit_main()
 			break;
 
 		const uint wgLocalWindowIndex = stepLocalWindowIndex + step * windowsPerStep;
+		if (wgLocalWindowIndex >= params.windowsPerWG)
+			break;
 
 		// It could be the case that the last workgroup processes LESS THAN windowsPerWG windows
 		const uint globalWindowIndex = gl_WorkGroupID.x * params.windowsPerWG + wgLocalWindowIndex;
@@ -86,31 +88,32 @@ void nbl_glsl_blit_main()
 	const uvec3 stride = uvec3(1u, params.windowDim.x, params.windowDim.x * params.windowDim.y);
 	for (uint axis = 0u; axis < params.axisCount; ++axis)
 	{
-		const uint stride = stride[axis]; // { 1, 3, 21 }
-		const uint elementCount = (windowPixelCount * params.windowsPerWG) / stride; // { 21*48/1 = 1008, 21*48/3 = 336, 21*48/21 = 48 }
+		const uint stride = stride[axis];
+		const uint elementCount = (windowPixelCount * params.windowsPerWG) / stride;
 
-		const uint adderLength = params.windowDim[axis]; // { 3, 7, 1 }
-		const uint adderCount = elementCount / adderLength; // { 1008/3 = 336, 336/7 = 48, 48/1 = 48 }
-		const uint addersPerStep = _NBL_GLSL_WORKGROUP_SIZE_ / adderLength; // { 256/3 = 85, 256/7 = 36, 256/1 = 256 }
-		const uint adderStepCount = (adderCount + addersPerStep - 1) / addersPerStep; // { (336+85-1)/85 = 4, (48+36-1)/36 = 2, (48+256-1)/256 = 1 }
+		const uint adderLength = params.windowDim[axis];
+		const uint adderCount = elementCount / adderLength;
+		const uint addersPerStep = _NBL_GLSL_WORKGROUP_SIZE_ / adderLength;
+		const uint adderStepCount = (adderCount + addersPerStep - 1) / addersPerStep;
 
 		for (uint adderStep = 0u; adderStep < adderStepCount; ++adderStep)
 		{
-			const uint wgLocalAdderIndex = adderStep * addersPerStep + gl_LocalInvocationIndex / adderLength;
+			const uint stepLocalAdderIndex = gl_LocalInvocationIndex / adderLength;
+			const uint wgLocalAdderIndex = adderStep * addersPerStep + stepLocalAdderIndex;
 			const uint adderLocalPixelIndex = gl_LocalInvocationIndex % adderLength;
 
 			// To make this code dynamically uniform we have to ensure that the following for loop runs at least once
 			// even if adderLength = 1, hence the `max`
-			const uint reduceStepCount = max(uint(ceil(log2(float(adderLength)))), 1u); // { 2, 3, 1 }
+			const uint reduceStepCount = max(uint(ceil(log2(float(adderLength)))), 1u);
 			for (uint reduceStep = 0u; reduceStep < reduceStepCount; ++reduceStep)
 			{
-				const uint offset = (1u << reduceStep); // { {1,2}, {1,2,4}, {1} }
+				const uint offset = (1u << reduceStep);
 				const uint baseIndex = (1u << (reduceStep + 1u)) * adderLocalPixelIndex;
 
-				if ((baseIndex < adderLength) && (wgLocalAdderIndex < adderCount))
+				if ((baseIndex < adderLength) && (stepLocalAdderIndex < addersPerStep) && (wgLocalAdderIndex < adderCount))
 				{
 					nbl_glsl_blit_input_pixel_t addend = nbl_glsl_blit_input_pixel_t(0.f);
-					if (baseIndex + offset < adderLength) // Don't need any kind of finer bounds checking here since we're ensuring that all windows fit COMPLETELY in a workgroup
+					if (baseIndex + offset < adderLength) // No additional checks since our windows don't get split between steps or workgroups i.e. there is a whole number of them in a step or workgroup
 						addend = scratchShared[((baseIndex + wgLocalAdderIndex * adderLength) + offset) * stride];
 
 					scratchShared[(baseIndex + wgLocalAdderIndex * adderLength) * stride] += addend;
@@ -127,17 +130,17 @@ void nbl_glsl_blit_main()
 			break;
 
 		const uint stepLocalWindowIndex = gl_LocalInvocationIndex / windowPixelCount;
-		if (stepLocalWindowIndex >= windowsPerStep) // This is important, otherwise some invocations in this step might interfere with next step's windows.
+		if (stepLocalWindowIndex >= windowsPerStep) // otherwise some invocations in this step might interfere with next step's windows.
 			break;
 
-		// This doesn't need additional bounds checking because windows are packed tightly in workgroups. Same cannot be said for above where there might be some
-		// empty space at the end of a step-- where a full window could not fit.
 		const uint wgLocalWindowIndex = stepLocalWindowIndex + step * windowsPerStep;
+		if (wgLocalWindowIndex >= params.windowsPerWG) // otherwise some invocations in this workgroup might interfere with next workgroup's windows.
+			break;
+
 		const uint globalWindowIndex = gl_WorkGroupID.x * params.windowsPerWG + wgLocalWindowIndex;
 		if (globalWindowIndex >= totalWindowCount)
 			break;
 
-		// const nbl_glsl_blit_input_pixel_t result = scratchShared[globalWindowIndex]; // scratchShared[wgLocalWindowIndex * windowPixelCount];
 		const nbl_glsl_blit_input_pixel_t result = scratchShared[wgLocalWindowIndex * windowPixelCount];
 
 		// Doing vec4(result) should set the alpha component to 0 for all cases when nbl_glsl_blit_input_pixel_t != vec4
