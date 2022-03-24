@@ -92,6 +92,8 @@ public:
 	core::smart_refctd_ptr<video::IGPUImage> m_visbuffer;
 	core::smart_refctd_ptr<video::IGPUImageView> m_visbufferView;
 
+	core::smart_refctd_ptr<video::IGPUBuffer> m_debugBuffer;
+
 	uint32_t m_pointCount;
 
 	void setWindow(core::smart_refctd_ptr<nbl::ui::IWindow>&& wnd) override
@@ -237,19 +239,22 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 		core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> rasterizerDsLayout;
 
 		{
-			const uint32_t bindingCount = 2u;
+			const uint32_t bindingCount = 3u;
 			video::IGPUDescriptorSetLayout::SBinding bindings[bindingCount] = {
 				// Binding 0: outImage
 				{0u, asset::EDT_STORAGE_IMAGE, 1u, asset::IShader::ESS_COMPUTE, nullptr},
 				// Binding 1: u_pointCloud
-				{1u, asset::EDT_STORAGE_BUFFER, 1u, asset::IShader::ESS_COMPUTE, nullptr}
+				{1u, asset::EDT_STORAGE_BUFFER, 1u, asset::IShader::ESS_COMPUTE, nullptr},
+				// Binding 2: u_debugOutput (temp)
+				{2u, asset::EDT_STORAGE_BUFFER, 1u, asset::IShader::ESS_COMPUTE, nullptr}
 			};
 
 			rasterizerDsLayout = logicalDevice->createGPUDescriptorSetLayout(bindings, bindings + bindingCount);
 
-			const uint32_t descriptorPoolSizeCount = 2u;
+			const uint32_t descriptorPoolSizeCount = 3u;
 			video::IDescriptorPool::SDescriptorPoolSize poolSizes[descriptorPoolSizeCount] = {
 				{asset::EDT_STORAGE_IMAGE, 1},
+				{asset::EDT_STORAGE_BUFFER, 1},
 				{asset::EDT_STORAGE_BUFFER, 1}
 			};
 
@@ -316,6 +321,8 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 		core::smart_refctd_ptr<video::IGPUBuffer> positionVb;
 
 		{
+			auto meshManipulator = assetManager->getMeshManipulator();
+
 			const asset::ICPUMeshBuffer* const firstMeshBuffer = cpuMeshPly->getMeshBuffers().begin()[0];
 			const asset::SBufferBinding<const asset::ICPUBuffer> posBufferBinding = firstMeshBuffer->getVertexBufferBindings()[firstMeshBuffer->getPositionAttributeIx()];
 			core::smart_refctd_ptr<const asset::ICPUBuffer> posBuffer = posBufferBinding.buffer;
@@ -335,7 +342,7 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 
 		// Fill out the descriptor sets
 		{
-			const uint32_t writeDescriptorCount = 2u;
+			const uint32_t writeDescriptorCount = 3u;
 
 			video::IGPUDescriptorSet::SDescriptorInfo descriptorInfos[writeDescriptorCount];
 			video::IGPUDescriptorSet::SWriteDescriptorSet writeDescriptorSets[writeDescriptorCount] = {};
@@ -368,6 +375,23 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 				writeDescriptorSets[1].info = &descriptorInfos[1];
 			}
 
+			// (Temp) Debug buffer
+			{
+				video::IGPUBuffer::SCreationParams dbgBufParams;
+				m_debugBuffer = logicalDevice->createDeviceLocalGPUBufferOnDedMem(dbgBufParams, m_pointCount * 16);
+
+				descriptorInfos[2].buffer.offset = 0;
+				descriptorInfos[2].buffer.size = m_debugBuffer->getSize();
+				descriptorInfos[2].desc = m_debugBuffer;
+
+				writeDescriptorSets[2].dstSet = m_rasterizeDescriptorSet.get();
+				writeDescriptorSets[2].binding = 2u;
+				writeDescriptorSets[2].arrayElement = 0u;
+				writeDescriptorSets[2].count = 1u;
+				writeDescriptorSets[2].descriptorType = asset::EDT_STORAGE_BUFFER;
+				writeDescriptorSets[2].info = &descriptorInfos[2];
+			}
+
 			logicalDevice->updateDescriptorSets(writeDescriptorCount, writeDescriptorSets, 0u, nullptr);
 		}
 
@@ -375,7 +399,7 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 			asset::SPushConstantRange pcRange = {};
 			pcRange.stageFlags = asset::IShader::ESS_COMPUTE;
 			pcRange.offset = 0u;
-			pcRange.size = (2 + 1 + 16) * sizeof(uint32_t);
+			pcRange.size = (16 + 2 + 1 + 1) * sizeof(uint32_t);
 
 			// Rasterizer pipeline
 			core::smart_refctd_ptr<video::IGPUPipelineLayout> pipelineLayout =
@@ -472,11 +496,11 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 			commandBuffer->bindDescriptorSets(asset::EPBP_COMPUTE, m_rasterizerPipeline->getLayout(), 0u, 1u, &m_rasterizeDescriptorSet.get());
 
 			const asset::SPushConstantRange& pcRange = m_rasterizerPipeline->getLayout()->getPushConstantRanges().begin()[0];
-			uint32_t pushConstants[2 + 1 + 16];
+			uint32_t pushConstants[16 + 2 + 1 + 1];
 			pushConstants[0] = window->getWidth();
 			pushConstants[1] = window->getHeight();
 			pushConstants[2] = m_pointCount;
-			memcpy(&pushConstants[3], mvp.pointer(), sizeof(core::matrix4SIMD));
+			memcpy(&pushConstants[4], mvp.pointer(), sizeof(core::matrix4SIMD));
 
 			commandBuffer->pushConstants(m_rasterizerPipeline->getLayout(), pcRange.stageFlags, pcRange.offset, pcRange.size, &pushConstants);
 			commandBuffer->dispatch((m_pointCount + 255u) / 256u, 1u, 1u);

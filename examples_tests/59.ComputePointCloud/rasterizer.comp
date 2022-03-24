@@ -12,12 +12,33 @@ layout (push_constant) uniform pushConstants
 {
 	uvec2 imgSize;
 	uint pointCount;
+	uint pad;
 	mat4 mvp;
 } u_pushConstants;
 layout (set = 0, binding = 0, r32ui) uniform coherent uimage2D outImage;
+
+struct WorldPosition {
+	float x, y, z;
+};
+
 layout (set = 0, binding = 1, std430) readonly buffer pointCloud {
-	vec3 position[];
+	WorldPosition position[];
 } u_pointCloud;
+
+struct DebugOutputPoint {
+	vec4 transformed;
+	vec3 ndc;
+	uint pad;
+	vec2 uv;
+	vec2 pad2;
+	ivec2 coords;
+	vec2 pad3;
+};
+
+// TODO remove (temp debug)
+layout (set = 0, binding = 2, std430) buffer debugOutput {
+	DebugOutputPoint transformed[];
+} u_debugOutput;
 
 void main()
 {
@@ -25,8 +46,11 @@ void main()
 	{
 		return;
 	}
-	vec3 pointPosition = u_pointCloud.position[gl_GlobalInvocationID.x];
-	vec4 transformed = u_pushConstants.mvp * vec4(pointPosition, 1.0);
+	WorldPosition pointPos = u_pointCloud.position[gl_GlobalInvocationID.x];
+	vec3 pointPos3 = vec3(pointPos.x, pointPos.y, pointPos.z);
+	vec4 transformed = u_pushConstants.mvp * vec4(pointPos3, 1.0);
+
+	u_debugOutput.transformed[gl_GlobalInvocationID.x].transformed = transformed;
 
 	// Behind the camera
 	if (transformed.z < 0.0) 
@@ -37,26 +61,16 @@ void main()
 	vec3 ndc = transformed.xyz / vec3(transformed.w);
 	vec2 uv = (ndc.xy + 1.0) * 0.5;
 	const ivec2 size = ivec2(5, 5);
-	const vec2 halfTexelSize = (vec2(size) * 0.5) / vec2(u_pushConstants.imgSize);
-	// AABB for the point: uv - halfTexelSize to uv + halfTexelSize
 
-	ivec2 offset = ivec2((uv - halfTexelSize) * vec2(u_pushConstants.imgSize));
-	ivec2 curPixel = ivec2(0);
-	// Flattened iteration over the AABB
-	// TODO make the points circles
+	ivec2 coords = ivec2(uv * vec2(u_pushConstants.imgSize));
 	
-	// If the Y has gone outside the AABB, it has no more pixels
-	while (curPixel.y > size.y) {
-		ivec2 coords = offset + curPixel;
-		if (all(greaterThanEqual(coords, ivec2(0))) && all(lessThan(coords, ivec2(u_pushConstants.imgSize))))
-		{
-			// Write out depth
-			imageAtomicMax(outImage, coords, floatBitsToUint(ndc.z));
-		}
-
-		curPixel.x += 1;
-		// If curPixel.x == size.x, increments Y by 1 and reset X to 0
-		curPixel.y += curPixel.x / size.x;
-		curPixel.x = curPixel.x % size.x;
+	if (all(greaterThanEqual(coords, ivec2(0))) && all(lessThan(coords, ivec2(u_pushConstants.imgSize))))
+	{
+		// Write out depth
+		imageAtomicMax(outImage, coords, floatBitsToUint(ndc.z));
 	}
+
+	u_debugOutput.transformed[gl_GlobalInvocationID.x].ndc = ndc;
+	u_debugOutput.transformed[gl_GlobalInvocationID.x].uv = uv;
+	u_debugOutput.transformed[gl_GlobalInvocationID.x].coords = coords;
 }
