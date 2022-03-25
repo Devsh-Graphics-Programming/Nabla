@@ -12,7 +12,7 @@ layout (push_constant) uniform pushConstants
 {
 	uvec2 imgSize;
 	uint pointCount;
-	uint pad;
+	uint totalThreads;
 	mat4 mvp;
 } u_pushConstants;
 layout (set = 0, binding = 0, r32ui) uniform coherent uimage2D outImage;
@@ -43,37 +43,38 @@ layout (set = 0, binding = 2, std430) buffer debugOutput {
 
 void main()
 {
-	if (gl_GlobalInvocationID.x >= u_pushConstants.pointCount) 
-	{
-		return;
+	uint localThread = gl_GlobalInvocationID.x;
+	// Persistent threads
+	// e.g. thread 1 starts with 1, then goes for totalThreads + 1 and so on until there are no more points for it
+	for (uint virtInvoc = localThread; virtInvoc < u_pushConstants.pointCount; virtInvoc += u_pushConstants.totalThreads) {
+		WorldPosition pointPos = u_pointCloud.position[virtInvoc];
+		vec3 pointPos3 = vec3(pointPos.x, pointPos.y, pointPos.z);
+		vec4 transformed = u_pushConstants.mvp * vec4(pointPos3, 1.0);
+
+		u_debugOutput.transformed[virtInvoc].transformed = transformed;
+		u_debugOutput.transformed[virtInvoc].cameraCull = uvec4(floatBitsToUint(transformed.z) >> 31, floatBitsToUint(transformed.w) >> 31, (floatBitsToUint(transformed.z) ^ floatBitsToUint(transformed.w)) >> 31, 0);
+
+		// Behind the camera
+		// XOR of the sign bits (if only one of Z or W is negative, cull it)
+		if ((floatBitsToUint(transformed.z) ^ floatBitsToUint(transformed.w)) >> 31 == 1) 
+		{
+			return;
+		}
+
+		vec3 ndc = transformed.xyz / vec3(transformed.w);
+		vec2 uv = (ndc.xy + 1.0) * 0.5;
+		const ivec2 size = ivec2(5, 5);
+
+		ivec2 coords = ivec2(uv * vec2(u_pushConstants.imgSize));
+		
+		if (all(greaterThanEqual(coords, ivec2(0))) && all(lessThan(coords, ivec2(u_pushConstants.imgSize))))
+		{
+			// Write out depth
+			imageAtomicMax(outImage, coords, floatBitsToUint(ndc.z));
+		}
+
+		u_debugOutput.transformed[virtInvoc].ndc = ndc;
+		u_debugOutput.transformed[virtInvoc].uv = uv;
+		u_debugOutput.transformed[virtInvoc].coords = coords;
 	}
-	WorldPosition pointPos = u_pointCloud.position[gl_GlobalInvocationID.x];
-	vec3 pointPos3 = vec3(pointPos.x, pointPos.y, pointPos.z);
-	vec4 transformed = u_pushConstants.mvp * vec4(pointPos3, 1.0);
-
-	u_debugOutput.transformed[gl_GlobalInvocationID.x].transformed = transformed;
-	u_debugOutput.transformed[gl_GlobalInvocationID.x].cameraCull = uvec4(floatBitsToUint(transformed.z) >> 31, floatBitsToUint(transformed.w) >> 31, (floatBitsToUint(transformed.z) ^ floatBitsToUint(transformed.w)) >> 31, 0);
-
-	// Behind the camera
-	// XOR of the sign bits (if only one of Z or W is negative, cull it)
-	if ((floatBitsToUint(transformed.z) ^ floatBitsToUint(transformed.w)) >> 31 == 1) 
-	{
-		return;
-	}
-
-	vec3 ndc = transformed.xyz / vec3(transformed.w);
-	vec2 uv = (ndc.xy + 1.0) * 0.5;
-	const ivec2 size = ivec2(5, 5);
-
-	ivec2 coords = ivec2(uv * vec2(u_pushConstants.imgSize));
-	
-	if (all(greaterThanEqual(coords, ivec2(0))) && all(lessThan(coords, ivec2(u_pushConstants.imgSize))))
-	{
-		// Write out depth
-		imageAtomicMax(outImage, coords, floatBitsToUint(ndc.z));
-	}
-
-	u_debugOutput.transformed[gl_GlobalInvocationID.x].ndc = ndc;
-	u_debugOutput.transformed[gl_GlobalInvocationID.x].uv = uv;
-	u_debugOutput.transformed[gl_GlobalInvocationID.x].coords = coords;
 }

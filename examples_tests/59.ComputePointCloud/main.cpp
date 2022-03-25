@@ -100,6 +100,7 @@ public:
 	core::smart_refctd_ptr<video::IGPUBuffer> m_debugBuffer;
 
 	uint32_t m_pointCount;
+	uint32_t optimalWorkgroupCount;
 
 	void setWindow(core::smart_refctd_ptr<nbl::ui::IWindow>&& wnd) override
 	{
@@ -392,6 +393,8 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 			core::smart_refctd_ptr<const asset::ICPUBuffer> posBuffer = posBufferBinding.buffer;
 
 			m_pointCount = posBuffer->getSize() / 12;
+			optimalWorkgroupCount = logicalDevice->getPhysicalDevice()->getLimits().computeOptimalPersistentWorkgroupDispatchSize(m_pointCount, 256);
+
 			auto posBuffer_cpu = posBuffer.get();
 			auto positionsVertexBuffer = cpu2gpu.getGPUObjectsFromAssets(&posBuffer_cpu, &posBuffer_cpu + 1, cpu2gpuParams)->front();
 			positionVbOffset = positionsVertexBuffer->getOffset();
@@ -437,7 +440,7 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 			// (Temp) Debug buffer
 			{
 				video::IGPUBuffer::SCreationParams dbgBufParams;
-				m_debugBuffer = logicalDevice->createDeviceLocalGPUBufferOnDedMem(dbgBufParams, m_pointCount * 16);
+				m_debugBuffer = logicalDevice->createDeviceLocalGPUBufferOnDedMem(dbgBufParams, m_pointCount * 16 * 5);
 
 				descriptorInfos[2].buffer.offset = 0;
 				descriptorInfos[2].buffer.size = m_debugBuffer->getSize();
@@ -641,10 +644,11 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 			pushConstants[0] = window->getWidth();
 			pushConstants[1] = window->getHeight();
 			pushConstants[2] = m_pointCount;
+			pushConstants[3] = optimalWorkgroupCount * 256;
 			memcpy(&pushConstants[4], mvp.pointer(), sizeof(core::matrix4SIMD));
 
 			commandBuffer->pushConstants(m_rasterizerPipeline->getLayout(), pcRange.stageFlags, pcRange.offset, pcRange.size, &pushConstants);
-			commandBuffer->dispatch((m_pointCount + 255u) / 256u, 1u, 1u);
+			commandBuffer->dispatch(optimalWorkgroupCount, 1u, 1u);
 		}
 
 		// Transition swapchain for shading
