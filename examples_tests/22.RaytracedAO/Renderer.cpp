@@ -1556,30 +1556,32 @@ void Renderer::denoiseCubemapFaces(
 	for(uint32_t i = 0; i < 6; ++i)
 		normalFilePaths[i] = filePaths[i].replace_extension().string() + "_normal.exr";
 	
-	std::string mergedRenderFilePath = mergedFileName + ".exr";
-	std::string mergedAlbedoFilePath = mergedFileName + "_albedo.exr";
-	std::string mergedNormalFilePath = mergedFileName + "_normal.exr";
-	std::string mergedDenoisedFilePath = mergedFileName + "_denoised.exr";
+	std::filesystem::path mergedCubeMapOutputPath = filePaths[0].parent_path();
+
+	std::filesystem::path mergedRenderFilePath = mergedCubeMapOutputPath / std::filesystem::path(mergedFileName + ".exr");
+	std::filesystem::path mergedAlbedoFilePath = mergedCubeMapOutputPath / std::filesystem::path(mergedFileName + "_albedo.exr");
+	std::filesystem::path mergedNormalFilePath = mergedCubeMapOutputPath / std::filesystem::path(mergedFileName + "_normal.exr");
+	std::filesystem::path mergedDenoisedFilePath = mergedCubeMapOutputPath / std::filesystem::path(mergedFileName + "_denoised.exr");
 	
 	std::ostringstream mergeRendersCmd;
 	mergeRendersCmd << "call ../mergeCubemap.bat";
 	for(uint32_t i = 0; i < 6; ++i)
 		mergeRendersCmd << " " << renderFilePaths[i];
-	mergeRendersCmd << " " << mergedRenderFilePath;
+	mergeRendersCmd << " " << mergedRenderFilePath.string();
 	std::system(mergeRendersCmd.str().c_str());
 
 	std::ostringstream mergeAlbedosCmd;
 	mergeAlbedosCmd << "call ../mergeCubemap.bat ";
 	for(uint32_t i = 0; i < 6; ++i)
 		mergeAlbedosCmd << " " << albedoFilePaths[i];
-	mergeAlbedosCmd << " " << mergedAlbedoFilePath;
+	mergeAlbedosCmd << " " << mergedAlbedoFilePath.string();
 	std::system(mergeAlbedosCmd.str().c_str());
 	
 	std::ostringstream mergeNormalsCmd;
 	mergeNormalsCmd << "call ../mergeCubemap.bat ";
 	for(uint32_t i = 0; i < 6; ++i)
 		mergeNormalsCmd << " " << normalFilePaths[i];
-	mergeNormalsCmd << " " << mergedNormalFilePath;
+	mergeNormalsCmd << " " << mergedNormalFilePath.string();
 	std::system(mergeNormalsCmd.str().c_str());
 
 	const std::string defaultBloomFile = "../../media/kernels/physical_flare_512.exr";
