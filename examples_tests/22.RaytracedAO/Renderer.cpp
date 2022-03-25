@@ -1596,9 +1596,9 @@ void Renderer::denoiseCubemapFaces(
 	std::ostringstream denoiserCmd;
 	// 1.ColorFile 2.AlbedoFile 3.NormalFile 4.BloomPsfFilePath(STRING) 5.BloomScale(FLOAT) 6.BloomIntensity(FLOAT) 7.TonemapperArgs(STRING)
 	denoiserCmd << "call ../denoiser_hook.bat";
-	denoiserCmd << " \"" << mergedRenderFilePath << "\"";
-	denoiserCmd << " \"" << mergedAlbedoFilePath << "\"";
-	denoiserCmd << " \"" << mergedNormalFilePath << "\"";
+	denoiserCmd << " \"" << mergedRenderFilePath.string() << "\"";
+	denoiserCmd << " \"" << mergedAlbedoFilePath.string() << "\"";
+	denoiserCmd << " \"" << mergedNormalFilePath.string() << "\"";
 	denoiserCmd << " \"" << bloomFilePathStr << "\"";
 	denoiserCmd << " " << bloomScale;
 	denoiserCmd << " " << bloomIntensity;
