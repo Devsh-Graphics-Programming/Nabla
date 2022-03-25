@@ -90,7 +90,12 @@ public:
 	core::smart_refctd_ptr<video::IGPUComputePipeline> m_rasterizerPipeline;
 
 	core::smart_refctd_ptr<video::IGPUImage> m_visbuffer;
-	core::smart_refctd_ptr<video::IGPUImageView> m_visbufferView;
+	core::smart_refctd_ptr<video::IGPUImageView> m_visbufferViewRender;
+	core::smart_refctd_ptr<video::IGPUImageView> m_visbufferViewFloat;
+
+	core::vector<core::smart_refctd_ptr<video::IGPUDescriptorSet>> m_shadingDescriptorSets;
+	core::smart_refctd_ptr<video::IGPUComputePipeline> m_shadingPipeline;
+	core::vector<core::smart_refctd_ptr<video::IGPUImageView>> m_swapchainImageViews;
 
 	core::smart_refctd_ptr<video::IGPUBuffer> m_debugBuffer;
 
@@ -236,6 +241,7 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 		};
 
 		auto rasterizerShader = getSpecializedShader("../rasterizer.comp");
+		auto shadingShader = getSpecializedShader("../shading.comp");
 		core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> rasterizerDsLayout;
 
 		{
@@ -251,11 +257,10 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 
 			rasterizerDsLayout = logicalDevice->createGPUDescriptorSetLayout(bindings, bindings + bindingCount);
 
-			const uint32_t descriptorPoolSizeCount = 3u;
+			const uint32_t descriptorPoolSizeCount = 2u;
 			video::IDescriptorPool::SDescriptorPoolSize poolSizes[descriptorPoolSizeCount] = {
 				{asset::EDT_STORAGE_IMAGE, 1},
-				{asset::EDT_STORAGE_BUFFER, 1},
-				{asset::EDT_STORAGE_BUFFER, 1}
+				{asset::EDT_STORAGE_BUFFER, 2}
 			};
 
 			video::IDescriptorPool::E_CREATE_FLAGS descriptorPoolFlags =
@@ -265,6 +270,61 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 					descriptorPoolSizeCount, poolSizes);
 
 			m_rasterizeDescriptorSet = logicalDevice->createGPUDescriptorSet(descriptorPool.get(), core::smart_refctd_ptr(rasterizerDsLayout));
+		}
+
+		const uint32_t swapchainImageCount = swapchain->getImageCount();
+
+		m_swapchainImageViews.resize(swapchainImageCount);
+		for (uint32_t i = 0; i < swapchainImageCount; i++)
+		{
+			auto img = swapchain->getImages().begin()[i];
+			{
+				video::IGPUImageView::SCreationParams viewParams;
+				viewParams.format = img->getCreationParameters().format;
+				viewParams.viewType = asset::IImageView<video::IGPUImage>::ET_2D;
+				viewParams.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
+				viewParams.subresourceRange.baseMipLevel = 0u;
+				viewParams.subresourceRange.levelCount = 1u;
+				viewParams.subresourceRange.baseArrayLayer = 0u;
+				viewParams.subresourceRange.layerCount = 1u;
+				viewParams.image = core::smart_refctd_ptr<video::IGPUImage>(img);
+
+				m_swapchainImageViews[i] = logicalDevice->createGPUImageView(std::move(viewParams));
+				assert(m_swapchainImageViews[i]);
+			}
+		}
+
+		core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> shadingDsLayout;
+		{
+			const uint32_t bindingCount = 3u;
+			video::IGPUDescriptorSetLayout::SBinding bindings[bindingCount] = {
+				// Binding 0: visbufferInput
+				{0u, asset::EDT_STORAGE_IMAGE, 1u, asset::IShader::ESS_COMPUTE, nullptr},
+				// Binding 1: u_pointCloud
+				{1u, asset::EDT_STORAGE_BUFFER, 1u, asset::IShader::ESS_COMPUTE, nullptr},
+				// Binding 2: swapchainOutput
+				{2u, asset::EDT_STORAGE_IMAGE, 1u, asset::IShader::ESS_COMPUTE, nullptr}
+			};
+
+			shadingDsLayout = logicalDevice->createGPUDescriptorSetLayout(bindings, bindings + bindingCount);
+
+			const uint32_t descriptorPoolSizeCount = 2u;
+			video::IDescriptorPool::SDescriptorPoolSize poolSizes[descriptorPoolSizeCount] = {
+				{asset::EDT_STORAGE_IMAGE, 2},
+				{asset::EDT_STORAGE_BUFFER, 1},
+			};
+
+			video::IDescriptorPool::E_CREATE_FLAGS descriptorPoolFlags =
+				static_cast<video::IDescriptorPool::E_CREATE_FLAGS>(0);
+			core::smart_refctd_ptr<video::IDescriptorPool> descriptorPool
+				= logicalDevice->createDescriptorPool(descriptorPoolFlags, swapchainImageCount,
+					descriptorPoolSizeCount, poolSizes);
+
+			m_shadingDescriptorSets.resize(swapchainImageCount);
+			for (uint32_t i = 0; i < swapchainImageCount; i++)
+			{
+				m_shadingDescriptorSets[i] = logicalDevice->createGPUDescriptorSet(descriptorPool.get(), core::smart_refctd_ptr(shadingDsLayout));
+			}
 		}
 
 		// Create the point cloud visbuffer image
@@ -281,19 +341,22 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 			}
 			m_visbuffer = logicalDevice->createDeviceLocalGPUImageOnDedMem(std::move(imageParams));
 
-			video::IGPUImageView::SCreationParams imgViewInfo;
+			auto getImgView = [&](core::smart_refctd_ptr<video::IGPUImage> image, asset::E_FORMAT format) -> core::smart_refctd_ptr<video::IGPUImageView>
 			{
+				video::IGPUImageView::SCreationParams imgViewInfo;
 				imgViewInfo.flags = static_cast<video::IGPUImageView::E_CREATE_FLAGS>(0u);
-				imgViewInfo.image = m_visbuffer;
+				imgViewInfo.image = image;
 				imgViewInfo.viewType = video::IGPUImageView::ET_2D;
-				imgViewInfo.format = asset::E_FORMAT::EF_R32_UINT;
 				imgViewInfo.subresourceRange.aspectMask = static_cast<asset::IImage::E_ASPECT_FLAGS>(asset::IImage::E_ASPECT_FLAGS::EAF_COLOR_BIT);
 				imgViewInfo.subresourceRange.baseMipLevel = 0;
 				imgViewInfo.subresourceRange.levelCount = 1;
 				imgViewInfo.subresourceRange.baseArrayLayer = 0;
 				imgViewInfo.subresourceRange.layerCount = 1;
-			}
-			m_visbufferView = logicalDevice->createGPUImageView(std::move(imgViewInfo));
+				imgViewInfo.format = format;
+				return logicalDevice->createGPUImageView(std::move(imgViewInfo));
+			};
+			m_visbufferViewRender = getImgView(m_visbuffer, asset::E_FORMAT::EF_R32_UINT);
+			m_visbufferViewFloat = getImgView(m_visbuffer, asset::E_FORMAT::EF_R32_SFLOAT);
 		}
 
 		// Load the mesh
@@ -321,17 +384,12 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 		core::smart_refctd_ptr<video::IGPUBuffer> positionVb;
 
 		{
+			// TODO repack with mesh manipulator
 			auto meshManipulator = assetManager->getMeshManipulator();
 
 			const asset::ICPUMeshBuffer* const firstMeshBuffer = cpuMeshPly->getMeshBuffers().begin()[0];
 			const asset::SBufferBinding<const asset::ICPUBuffer> posBufferBinding = firstMeshBuffer->getVertexBufferBindings()[firstMeshBuffer->getPositionAttributeIx()];
 			core::smart_refctd_ptr<const asset::ICPUBuffer> posBuffer = posBufferBinding.buffer;
-
-			//const float* positions = static_cast<const float*>(posBuffer->getPointer());
-			//logger->log("Mesh buffer %i bytes %i", system::ILogger::E_LOG_LEVEL::ELL_INFO, 0, posBuffer->getSize());
-			//for (uint32_t i = 0; i < posBuffer->getSize() / 12; i++) {
-			//	logger->log("Pos %f %f %f", system::ILogger::E_LOG_LEVEL::ELL_INFO, positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2]);
-			//}
 
 			m_pointCount = posBuffer->getSize() / 12;
 			auto posBuffer_cpu = posBuffer.get();
@@ -341,6 +399,7 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 		}
 
 		// Fill out the descriptor sets
+		// Rasterizer descriptor sets
 		{
 			const uint32_t writeDescriptorCount = 3u;
 
@@ -351,7 +410,7 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 			{
 				descriptorInfos[0].image.imageLayout = asset::EIL_GENERAL;
 				descriptorInfos[0].image.sampler = nullptr;
-				descriptorInfos[0].desc = m_visbufferView;
+				descriptorInfos[0].desc = m_visbufferViewRender;
 
 				writeDescriptorSets[0].dstSet = m_rasterizeDescriptorSet.get();
 				writeDescriptorSets[0].binding = 0u;
@@ -395,10 +454,64 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 			logicalDevice->updateDescriptorSets(writeDescriptorCount, writeDescriptorSets, 0u, nullptr);
 		}
 
+		// Shading descriptor sets
+		for (uint32_t i = 0u; i < swapchainImageCount; i++)
+		{
+			const uint32_t writeDescriptorCount = 3u;
+
+			video::IGPUDescriptorSet::SDescriptorInfo descriptorInfos[writeDescriptorCount];
+			video::IGPUDescriptorSet::SWriteDescriptorSet writeDescriptorSets[writeDescriptorCount] = {};
+
+			// Visbuffer
+			{
+				descriptorInfos[0].image.imageLayout = asset::EIL_GENERAL;
+				descriptorInfos[0].image.sampler = nullptr;
+				descriptorInfos[0].desc = m_visbufferViewFloat;
+
+				writeDescriptorSets[0].dstSet = m_shadingDescriptorSets[i].get();
+				writeDescriptorSets[0].binding = 0u;
+				writeDescriptorSets[0].arrayElement = 0u;
+				writeDescriptorSets[0].count = 1u;
+				writeDescriptorSets[0].descriptorType = asset::EDT_STORAGE_IMAGE;
+				writeDescriptorSets[0].info = &descriptorInfos[0];
+			}
+
+			// Point cloud vertex buffer
+			{
+				descriptorInfos[1].buffer.offset = positionVbOffset;
+				descriptorInfos[1].buffer.size = positionVb->getSize() - positionVbOffset;
+				descriptorInfos[1].desc = positionVb;
+
+				writeDescriptorSets[1].dstSet = m_shadingDescriptorSets[i].get();
+				writeDescriptorSets[1].binding = 1u;
+				writeDescriptorSets[1].arrayElement = 0u;
+				writeDescriptorSets[1].count = 1u;
+				writeDescriptorSets[1].descriptorType = asset::EDT_STORAGE_BUFFER;
+				writeDescriptorSets[1].info = &descriptorInfos[1];
+			}
+
+			// Swapchain output
+			{
+				descriptorInfos[2].image.imageLayout = asset::EIL_GENERAL;
+				descriptorInfos[2].image.sampler = nullptr;
+				descriptorInfos[2].desc = m_swapchainImageViews[i];
+
+				writeDescriptorSets[2].dstSet = m_shadingDescriptorSets[i].get();
+				writeDescriptorSets[2].binding = 2u;
+				writeDescriptorSets[2].arrayElement = 0u;
+				writeDescriptorSets[2].count = 1u;
+				writeDescriptorSets[2].descriptorType = asset::EDT_STORAGE_IMAGE;
+				writeDescriptorSets[2].info = &descriptorInfos[2];
+			}
+
+			logicalDevice->updateDescriptorSets(writeDescriptorCount, writeDescriptorSets, 0u, nullptr);
+		}
+
 		{
 			asset::SPushConstantRange pcRange = {};
 			pcRange.stageFlags = asset::IShader::ESS_COMPUTE;
 			pcRange.offset = 0u;
+			// TODO get with shader introspection
 			pcRange.size = (16 + 2 + 1 + 1) * sizeof(uint32_t);
 
 			// Rasterizer pipeline
@@ -406,6 +519,20 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 				logicalDevice->createGPUPipelineLayout(&pcRange, &pcRange + 1, core::smart_refctd_ptr(rasterizerDsLayout));
 			m_rasterizerPipeline = logicalDevice->createGPUComputePipeline(nullptr,
 				core::smart_refctd_ptr(pipelineLayout), core::smart_refctd_ptr(rasterizerShader));
+		}
+
+		{
+			asset::SPushConstantRange pcRange = {};
+			pcRange.stageFlags = asset::IShader::ESS_COMPUTE;
+			pcRange.offset = 0u;
+			// TODO get with shader introspection
+			pcRange.size = 2 * sizeof(uint32_t);
+
+			// Shading pipeline
+			core::smart_refctd_ptr<video::IGPUPipelineLayout> pipelineLayout =
+				logicalDevice->createGPUPipelineLayout(&pcRange, &pcRange + 1, core::smart_refctd_ptr(shadingDsLayout));
+			m_shadingPipeline = logicalDevice->createGPUComputePipeline(nullptr,
+				core::smart_refctd_ptr(pipelineLayout), core::smart_refctd_ptr(shadingShader));
 		}
 
 		// Other initialization
@@ -489,6 +616,20 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 
 		core::matrix3x4SIMD modelMatrix;
 		core::matrix4SIMD mvp = core::concatenateBFollowedByA(viewProjectionMatrix, modelMatrix);
+
+		// For transitioning the swapchain
+		video::IGPUCommandBuffer::SImageMemoryBarrier layoutTransBarrier;
+		{
+			layoutTransBarrier.srcQueueFamilyIndex = ~0u;
+			layoutTransBarrier.dstQueueFamilyIndex = ~0u;
+			layoutTransBarrier.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
+			layoutTransBarrier.subresourceRange.baseMipLevel = 0u;
+			layoutTransBarrier.subresourceRange.levelCount = 1u;
+			layoutTransBarrier.subresourceRange.baseArrayLayer = 0u;
+			layoutTransBarrier.subresourceRange.layerCount = 1u;
+			layoutTransBarrier.image = *(swapchain->getImages().begin() + acquiredNextFBO);
+		}
+
 		// Rasterize the visbuffer
 		{
 			commandBuffer->bindComputePipeline(m_rasterizerPipeline.get());
@@ -504,6 +645,51 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 
 			commandBuffer->pushConstants(m_rasterizerPipeline->getLayout(), pcRange.stageFlags, pcRange.offset, pcRange.size, &pushConstants);
 			commandBuffer->dispatch((m_pointCount + 255u) / 256u, 1u, 1u);
+		}
+
+		// Transition swapchain for shading
+		{
+			layoutTransBarrier.barrier.srcAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0);
+			layoutTransBarrier.barrier.dstAccessMask = asset::EAF_SHADER_WRITE_BIT;
+			layoutTransBarrier.oldLayout = asset::EIL_UNDEFINED;
+			layoutTransBarrier.newLayout = asset::EIL_GENERAL;
+			commandBuffer->pipelineBarrier(
+				asset::EPSF_TOP_OF_PIPE_BIT,
+				asset::EPSF_COMPUTE_SHADER_BIT,
+				static_cast<asset::E_DEPENDENCY_FLAGS>(0u),
+				0u, nullptr,
+				0u, nullptr,
+				1u, &layoutTransBarrier);
+		}
+
+		// Shade the visbuffer
+		{
+			commandBuffer->bindComputePipeline(m_shadingPipeline.get());
+
+			commandBuffer->bindDescriptorSets(asset::EPBP_COMPUTE, m_shadingPipeline->getLayout(),  0u, 1u, &m_shadingDescriptorSets[acquiredNextFBO].get());
+
+			const asset::SPushConstantRange& pcRange = m_shadingPipeline->getLayout()->getPushConstantRanges().begin()[0];
+			uint32_t pushConstants[2];
+			pushConstants[0] = window->getWidth();
+			pushConstants[1] = window->getHeight();
+
+			commandBuffer->pushConstants(m_shadingPipeline->getLayout(), pcRange.stageFlags, pcRange.offset, pcRange.size, &pushConstants);
+			commandBuffer->dispatch((WIN_W + 15u) / 16u, (WIN_H + 15u) / 16u, 1u);
+		}
+
+		// Transition swapchain for present
+		{
+			layoutTransBarrier.barrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
+			layoutTransBarrier.barrier.dstAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0);
+			layoutTransBarrier.oldLayout = asset::EIL_GENERAL;
+			layoutTransBarrier.newLayout = asset::EIL_PRESENT_SRC;
+			commandBuffer->pipelineBarrier(
+				asset::EPSF_COMPUTE_SHADER_BIT,
+				asset::EPSF_BOTTOM_OF_PIPE_BIT,
+				static_cast<asset::E_DEPENDENCY_FLAGS>(0u),
+				0u, nullptr,
+				0u, nullptr,
+				1u, &layoutTransBarrier);
 		}
 
 		commandBuffer->end();

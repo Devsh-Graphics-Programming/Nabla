@@ -27,6 +27,7 @@ layout (set = 0, binding = 1, std430) readonly buffer pointCloud {
 
 struct DebugOutputPoint {
 	vec4 transformed;
+	uvec4 cameraCull;
 	vec3 ndc;
 	uint pad;
 	vec2 uv;
@@ -51,9 +52,11 @@ void main()
 	vec4 transformed = u_pushConstants.mvp * vec4(pointPos3, 1.0);
 
 	u_debugOutput.transformed[gl_GlobalInvocationID.x].transformed = transformed;
+	u_debugOutput.transformed[gl_GlobalInvocationID.x].cameraCull = uvec4(floatBitsToUint(transformed.z) >> 31, floatBitsToUint(transformed.w) >> 31, (floatBitsToUint(transformed.z) ^ floatBitsToUint(transformed.w)) >> 31, 0);
 
 	// Behind the camera
-	if (transformed.z < 0.0) 
+	// XOR of the sign bits (if only one of Z or W is negative, cull it)
+	if ((floatBitsToUint(transformed.z) ^ floatBitsToUint(transformed.w)) >> 31 == 1) 
 	{
 		return;
 	}
