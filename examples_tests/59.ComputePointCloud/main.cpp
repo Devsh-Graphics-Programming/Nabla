@@ -10,6 +10,7 @@
 #include "../common/Camera.hpp"
 #include "../common/CommonAPI.h"
 #include "nbl/ext/ScreenShot/ScreenShot.h"
+#include "common.h"
 
 using namespace nbl;
 using namespace core;
@@ -333,7 +334,7 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 			video::IGPUImage::SCreationParams imageParams;
 			{
 				imageParams.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0u);
-				imageParams.format = asset::E_FORMAT::EF_R32_UINT;
+				imageParams.format = asset::E_FORMAT::EF_R32G32_UINT;
 				imageParams.type = asset::IImage::E_TYPE::ET_2D;
 				imageParams.samples = asset::IImage::E_SAMPLE_COUNT_FLAGS::ESCF_1_BIT;
 				imageParams.extent = { WIN_W, WIN_H, 1 };
@@ -356,8 +357,8 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 				imgViewInfo.format = format;
 				return logicalDevice->createGPUImageView(std::move(imgViewInfo));
 			};
-			m_visbufferViewRender = getImgView(m_visbuffer, asset::E_FORMAT::EF_R32_UINT);
-			m_visbufferViewFloat = getImgView(m_visbuffer, asset::E_FORMAT::EF_R32_SFLOAT);
+			m_visbufferViewRender = getImgView(m_visbuffer, asset::E_FORMAT::EF_R32G32_UINT);
+			m_visbufferViewFloat = getImgView(m_visbuffer, asset::E_FORMAT::EF_R32G32_SFLOAT);
 		}
 
 		// Load the mesh
@@ -514,8 +515,7 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 			asset::SPushConstantRange pcRange = {};
 			pcRange.stageFlags = asset::IShader::ESS_COMPUTE;
 			pcRange.offset = 0u;
-			// TODO get with shader introspection
-			pcRange.size = (16 + 2 + 1 + 1) * sizeof(uint32_t);
+			pcRange.size = sizeof(RasterizerPushConstants);
 
 			// Rasterizer pipeline
 			core::smart_refctd_ptr<video::IGPUPipelineLayout> pipelineLayout =
@@ -528,8 +528,7 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 			asset::SPushConstantRange pcRange = {};
 			pcRange.stageFlags = asset::IShader::ESS_COMPUTE;
 			pcRange.offset = 0u;
-			// TODO get with shader introspection
-			pcRange.size = 2 * sizeof(uint32_t);
+			pcRange.size = sizeof(ShadingPushConstants);
 
 			// Shading pipeline
 			core::smart_refctd_ptr<video::IGPUPipelineLayout> pipelineLayout =
@@ -640,12 +639,11 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 			commandBuffer->bindDescriptorSets(asset::EPBP_COMPUTE, m_rasterizerPipeline->getLayout(), 0u, 1u, &m_rasterizeDescriptorSet.get());
 
 			const asset::SPushConstantRange& pcRange = m_rasterizerPipeline->getLayout()->getPushConstantRanges().begin()[0];
-			uint32_t pushConstants[16 + 2 + 1 + 1];
-			pushConstants[0] = window->getWidth();
-			pushConstants[1] = window->getHeight();
-			pushConstants[2] = m_pointCount;
-			pushConstants[3] = optimalWorkgroupCount * 256;
-			memcpy(&pushConstants[4], mvp.pointer(), sizeof(core::matrix4SIMD));
+			RasterizerPushConstants pushConstants = (RasterizerPushConstants) 0;
+			pushConstants.imgSize = { window->getWidth(), window->getHeight() };
+			pushConstants.pointCount = m_pointCount;
+			pushConstants.totalThreads = optimalWorkgroupCount * 256;
+			memcpy(&pushConstants.mvp, mvp.pointer(), sizeof(core::matrix4SIMD));
 
 			commandBuffer->pushConstants(m_rasterizerPipeline->getLayout(), pcRange.stageFlags, pcRange.offset, pcRange.size, &pushConstants);
 			commandBuffer->dispatch(optimalWorkgroupCount, 1u, 1u);
@@ -673,9 +671,8 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 			commandBuffer->bindDescriptorSets(asset::EPBP_COMPUTE, m_shadingPipeline->getLayout(),  0u, 1u, &m_shadingDescriptorSets[acquiredNextFBO].get());
 
 			const asset::SPushConstantRange& pcRange = m_shadingPipeline->getLayout()->getPushConstantRanges().begin()[0];
-			uint32_t pushConstants[2];
-			pushConstants[0] = window->getWidth();
-			pushConstants[1] = window->getHeight();
+			ShadingPushConstants pushConstants = (ShadingPushConstants) 0;
+			pushConstants.imgSize = { window->getWidth(), window->getHeight() };
 
 			commandBuffer->pushConstants(m_shadingPipeline->getLayout(), pcRange.stageFlags, pcRange.offset, pcRange.size, &pushConstants);
 			commandBuffer->dispatch((WIN_W + 15u) / 16u, (WIN_H + 15u) / 16u, 1u);
