@@ -14,13 +14,14 @@ layout (push_constant) uniform pushConstants
 {
 	RasterizerPushConstants c;
 } u_pushConstants;
-layout (set = 0, binding = 0, r32ui) uniform coherent uimage2D outImage;
+layout (set = 0, binding = 0, rg32ui) uniform coherent uimage2D outImage;
+layout (set = 0, binding = 1, r32ui) uniform coherent uimage2D spinLock;
 
 struct WorldPosition {
 	float x, y, z;
 };
 
-layout (set = 0, binding = 1, std430) readonly buffer pointCloud {
+layout (set = 0, binding = 2, std430) readonly buffer pointCloud {
 	WorldPosition position[];
 } u_pointCloud;
 
@@ -35,10 +36,18 @@ struct DebugOutputPoint {
 	vec2 pad3;
 };
 
+
 // TODO remove (temp debug)
-layout (set = 0, binding = 2, std430) buffer debugOutput {
+layout (set = 0, binding = 3, std430) buffer debugOutput {
 	DebugOutputPoint transformed[];
 } u_debugOutput;
+
+void writeOut(ivec2 coords, float pointDepth, uint pointId) {
+	float previousDepth = uintBitsToFloat(imageLoad(outImage, coords).x);
+	if (previousDepth <= pointDepth) {
+		imageStore(outImage, coords, uvec4(floatBitsToUint(pointDepth), pointId, 0, 0));
+	}
+}
 
 void main()
 {
@@ -69,7 +78,15 @@ void main()
 		if (all(greaterThanEqual(coords, ivec2(0))) && all(lessThan(coords, ivec2(u_pushConstants.c.imgSize))))
 		{
 			// Write out depth
-			imageAtomicMax(outImage, coords, floatBitsToUint(ndc.z));
+			// (Spinlock implementation)
+			// TODO 64 bit atomic implementation
+			for (bool done = false; !done;) {
+				if (imageAtomicExchange(spinLock, coords, 1u) == 0u) {
+					writeOut(coords, ndc.z, virtInvoc);
+					imageStore(spinLock, coords, uvec4(0u));
+					done = true;
+				}
+			}
 		}
 
 		u_debugOutput.transformed[virtInvoc].ndc = ndc;
