@@ -8,9 +8,41 @@
 #define nbl_glsl_blit_input_pixel_t float
 #endif
 
+#ifndef INPUT_SAMPLER_TYPE
+#define INPUT_SAMPLER_TYPE sampler1D
+#endif
+
+#ifndef SMEM_FLOAT_COUNT
+#define SMEM_FLOAT_COUNT 4096
+#endif
+
+#ifndef OUT_IMAGE_FORMAT
+#define OUT_IMAGE_FORMAT r32f
+#endif
+
+#ifndef OUT_IMAGE_TYPE
+#define OUT_IMAGE_TYPE image1D
+#endif
+
+#ifndef PREMULT_WEIGHT_EXPRESSION
+#define PREMULT_WEIGHT_EXPRESSION weight.x
+#endif
+
+#ifndef INPUT_SAMPLE_POINT_TYPE
+#define INPUT_SAMPLE_POINT_TYPE int
+#endif
+
+#ifndef _NBL_GLSL_BLIT_PIXEL_TYPE_DEFINED_
+#define _NBL_GLSL_BLIT_PIXEL_TYPE_DEFINED_
+struct nbl_glsl_blit_pixel_t
+{
+	vec4 data;
+};
+#endif
+
 layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_) in;
 
-shared nbl_glsl_blit_input_pixel_t nbl_glsl_blit_scratchShared[4096];
+shared nbl_glsl_blit_input_pixel_t nbl_glsl_blit_scratchShared[SMEM_FLOAT_COUNT];
 #define _NBL_GLSL_SCRATCH_SHARED_DEFINED_ nbl_glsl_blit_scratchShared
 
 #include <../blit/parameters.glsl>
@@ -30,30 +62,38 @@ nbl_glsl_blit_parameters_t nbl_glsl_blit_getParameters()
 #define _NBL_GLSL_BLIT_GET_PARAMETERS_DEFINED_
 #endif
 
-layout (set = 0, binding = 0) uniform sampler1D inImage;
-layout (set = 0, binding = 1, r32f) uniform writeonly image1D outImage;
+layout (set = 0, binding = 0) uniform INPUT_SAMPLER_TYPE inImage;
+layout (set = 0, binding = 1, OUT_IMAGE_FORMAT) uniform writeonly OUT_IMAGE_TYPE outImage;
+
+#include <../blit/formats/single_channel_required_formats.glsl>
 
 #ifndef _NBL_GLSL_BLIT_GET_DATA_DEFINED_
-vec4 nbl_glsl_blit_getData(in ivec3 coord)
+nbl_glsl_blit_pixel_t nbl_glsl_blit_getData(in INPUT_SAMPLE_POINT_TYPE coord)
 {
-	return texelFetch(inImage, coord.x, 0);
+	nbl_glsl_blit_pixel_t result;
+	result.data.r = texelFetch(inImage, coord, 0).r;
+	return result;
 }
 #define _NBL_GLSL_BLIT_GET_DATA_DEFINED_
 #endif
 
+#if 0
+
 #ifndef _NBL_GLSL_BLIT_SET_DATA_DEFINED_
-void nbl_glsl_blit_setData(in uvec3 coord, in vec4 data)
+void nbl_glsl_blit_setData(in nbl_glsl_blit_input_pixel_t data, in ivec3 coord)
 {
-	imageStore(outImage, int(coord.x), data);
+	imageStore(outImage, int(coord.x), vec4(data, 0.f, 0.f, 0.f));
 }
 #define _NBL_GLSL_BLIT_SET_DATA_DEFINED_
+#endif
+
 #endif
 
 #ifndef _NBL_GLSL_BLIT_GET_CACHED_WEIGHTS_PREMULTIPLIED_DEFINED_
 float nbl_glsl_blit_getCachedWeightsPremultiplied(in uvec3 lutCoord)
 {
 	const vec3 weight = vec3(weights.data[lutCoord.x], weights.data[lutCoord.y], weights.data[lutCoord.z]);
-	return weight.x;
+	return PREMULT_WEIGHT_EXPRESSION;
 }
 #define _NBL_GLSL_BLIT_GET_CACHED_WEIGHTS_PREMULTIPLIED_DEFINED_
 #endif

@@ -5,12 +5,12 @@
 #endif
 
 #ifndef nbl_glsl_blit_input_pixel_t
-#define nbl_glsl_blit_input_pixel_t vec4
+#define nbl_glsl_blit_input_pixel_t vec2
 #endif
 
 layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_) in;
 
-shared nbl_glsl_blit_input_pixel_t nbl_glsl_blit_scratchShared[1024];
+shared nbl_glsl_blit_input_pixel_t nbl_glsl_blit_scratchShared[2048];
 #define _NBL_GLSL_SCRATCH_SHARED_DEFINED_ nbl_glsl_blit_scratchShared
 
 #include <../blit/parameters.glsl>
@@ -30,13 +30,13 @@ nbl_glsl_blit_parameters_t nbl_glsl_blit_getParameters()
 #define _NBL_GLSL_BLIT_GET_PARAMETERS_DEFINED_
 #endif
 
-layout (set = 0, binding = 0) uniform sampler2D inImage;
-layout (set = 0, binding = 1, rgba16f) uniform writeonly image2D outImage;
+layout (set = 0, binding = 0) uniform sampler3D inImage;
+layout (set = 0, binding = 1, rgba32f) uniform writeonly image3D outImage;
 
 #ifndef _NBL_GLSL_BLIT_GET_DATA_DEFINED_
-nbl_glsl_blit_input_pixel_t nbl_glsl_blit_getData(in ivec3 coord)
+vec4 nbl_glsl_blit_getData(in ivec3 coord)
 {
-	return texelFetch(inImage, coord.xy, 0);
+	return texelFetch(inImage, coord, 0);
 }
 #define _NBL_GLSL_BLIT_GET_DATA_DEFINED_
 #endif
@@ -44,7 +44,7 @@ nbl_glsl_blit_input_pixel_t nbl_glsl_blit_getData(in ivec3 coord)
 #ifndef _NBL_GLSL_BLIT_SET_DATA_DEFINED_
 void nbl_glsl_blit_setData(in uvec3 coord, in nbl_glsl_blit_input_pixel_t data)
 {
-	imageStore(outImage, ivec2(coord.xy), vec4(data.r, data.g, data.b, data.a));
+	imageStore(outImage, ivec3(coord), vec4(data.xy, 0.f, 0.f));
 }
 #define _NBL_GLSL_BLIT_SET_DATA_DEFINED_
 #endif
@@ -53,7 +53,7 @@ void nbl_glsl_blit_setData(in uvec3 coord, in nbl_glsl_blit_input_pixel_t data)
 float nbl_glsl_blit_getCachedWeightsPremultiplied(in uvec3 lutCoord)
 {
 	const vec3 weight = vec3(weights.data[lutCoord.x], weights.data[lutCoord.y], weights.data[lutCoord.z]);
-	return weight.x*weight.y;
+	return weight.x*weight.y*weight.z;
 }
 #define _NBL_GLSL_BLIT_GET_CACHED_WEIGHTS_PREMULTIPLIED_DEFINED_
 #endif
@@ -70,3 +70,5 @@ void main()
 {
 	nbl_glsl_blit_main();
 }
+
+
