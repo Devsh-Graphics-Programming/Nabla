@@ -7,11 +7,8 @@
 nbl_glsl_blit_parameters_t nbl_glsl_blit_getParameters();
 
 nbl_glsl_blit_pixel_t nbl_glsl_blit_getData(in ivec3 coord);
-nbl_glsl_blit_pixel_t nbl_glsl_blit_getData(in ivec2 coord);
-nbl_glsl_blit_pixel_t nbl_glsl_blit_getData(in int coord);
 void nbl_glsl_blit_setData(in nbl_glsl_blit_pixel_t data, in ivec3 coord);
-void nbl_glsl_blit_setData(in nbl_glsl_blit_pixel_t data, in ivec2 coord);
-void nbl_glsl_blit_setData(in nbl_glsl_blit_pixel_t data, in int coord);
+
 float nbl_glsl_blit_getCachedWeightsPremultiplied(in uvec3 lutCoord);
 void nbl_glsl_blit_addToHistogram(in uint bucketIndex);
 
@@ -90,18 +87,17 @@ void nbl_glsl_blit_main()
 		lutIndex.z = params.phaseCount.x * params.windowDim.x + params.phaseCount.y * params.windowDim.y + windowLocalPixelID.z;
 
 		const float premultWeights = nbl_glsl_blit_getCachedWeightsPremultiplied(lutIndex);
-		// scratchShared[wgLocalWindowIndex * windowPixelCount + windowLocalPixelIndex] = nbl_glsl_blit_input_pixel_t(nbl_glsl_blit_getData(inputPixelCoord.x).data) * premultWeights;
-		const vec4 loadedData = nbl_glsl_blit_getData(inputPixelCoord.x).data * premultWeights;
-		for (uint ch = 0u; ch < CHANNEL_COUNT; ++ch)
+		const vec4 loadedData = nbl_glsl_blit_getData(inputPixelCoord).data * premultWeights;
+		for (uint ch = 0u; ch < _NBL_GLSL_BLIT_CHANNEL_COUNT_; ++ch)
 			scratchShared[ch][wgLocalWindowIndex * windowPixelCount + windowLocalPixelIndex] = loadedData[ch];
 	}
 	barrier();
 
-	for (uint ch = 0u; ch < CHANNEL_COUNT; ++ch)
+	for (uint ch = 0u; ch < _NBL_GLSL_BLIT_CHANNEL_COUNT_; ++ch)
 	{
 		const uvec3 stride = uvec3(1u, params.windowDim.x, params.windowDim.x * params.windowDim.y);
 
-		for (uint axis = 0u; axis < params.axisCount; ++axis)
+		for (uint axis = 0u; axis < _NBL_GLSL_BLIT_DIM_COUNT_; ++axis)
 		{
 			const uint stride = stride[axis];
 			const uint elementCount = (windowPixelCount * params.windowsPerWG) / stride;
@@ -122,7 +118,7 @@ void nbl_glsl_blit_main()
 				{
 					if ((adderLocalPixelIndex < s) && (stepLocalAdderIndex < addersPerStep) && (wgLocalAdderIndex < adderCount))
 					{
-						nbl_glsl_blit_input_pixel_t addend = nbl_glsl_blit_input_pixel_t(0.f);
+						float addend = 0.f;
 						if (adderLocalPixelIndex + s < adderLength)
 							addend = scratchShared[ch][(wgLocalAdderIndex * adderLength + adderLocalPixelIndex + s) * stride];
 
@@ -154,9 +150,8 @@ void nbl_glsl_blit_main()
 			break;
 
 		nbl_glsl_blit_pixel_t dataToStore;
-		for (uint ch = 0u; ch < CHANNEL_COUNT; ++ch)
+		for (uint ch = 0u; ch < _NBL_GLSL_BLIT_CHANNEL_COUNT_; ++ch)
 			dataToStore.data[ch] = scratchShared[ch][wgLocalWindowIndex * windowPixelCount];
-		// const nbl_glsl_blit_input_pixel_t result = scratchShared[wgLocalWindowIndex * windowPixelCount];
 
 		// Doing vec4(result) should set the alpha component to 0 for all cases when nbl_glsl_blit_input_pixel_t != vec4
 		// const uint bucketIndex = packUnorm4x8(vec4(vec4(result).a, 0.f, 0.f, 0.f));
@@ -174,10 +169,7 @@ void nbl_glsl_blit_main()
 			globalWindowID.x = sliceLocalIndex % params.outDim.x;
 		}
 
-		// nbl_glsl_blit_pixel_t dataToStore;
-		// dataToStore.data = result;
-		// nbl_glsl_blit_setData(dataToStore, ivec3(globalWindowID));
-		nbl_glsl_blit_setData(dataToStore, int(globalWindowID.x));
+		nbl_glsl_blit_setData(dataToStore, ivec3(globalWindowID));
 	}
 }
 

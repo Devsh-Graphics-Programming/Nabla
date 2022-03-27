@@ -1,39 +1,38 @@
 #version 460 core
 
+#include <nbl/builtin/glsl/macros.glsl>
+
 #ifndef _NBL_GLSL_WORKGROUP_SIZE_
 #define _NBL_GLSL_WORKGROUP_SIZE_ 256
 #endif
 
-#ifndef nbl_glsl_blit_input_pixel_t
-#define nbl_glsl_blit_input_pixel_t float
+#ifndef _NBL_GLSL_BLIT_CHANNEL_COUNT_
+#define _NBL_GLSL_BLIT_CHANNEL_COUNT_ 4
 #endif
 
-#ifndef INPUT_SAMPLER_TYPE
-#define INPUT_SAMPLER_TYPE sampler1D
+#ifndef _NBL_GLSL_BLIT_DIM_COUNT_
+#define _NBL_GLSL_BLIT_DIM_COUNT_ 1
+#endif
+
+#ifndef _NBL_GLSL_BLIT_OUT_IMAGE_FORMAT_
+#define _NBL_GLSL_BLIT_OUT_IMAGE_FORMAT_ rgba32f
 #endif
 
 #ifndef SMEM_FLOAT_COUNT
 #define SMEM_FLOAT_COUNT 1024
 #endif
 
-#ifndef OUT_IMAGE_FORMAT
-#define OUT_IMAGE_FORMAT rgba32f
-#endif
-
-#ifndef CHANNEL_COUNT
-#define CHANNEL_COUNT 4
-#endif
-
-#ifndef OUT_IMAGE_TYPE
-#define OUT_IMAGE_TYPE image1D
-#endif
-
-#ifndef PREMULT_WEIGHT_EXPRESSION
-#define PREMULT_WEIGHT_EXPRESSION weight.x
-#endif
-
-#ifndef INPUT_SAMPLE_POINT_TYPE
-#define INPUT_SAMPLE_POINT_TYPE int
+#if NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 1)
+	#define IN_SAMPLER_TYPE sampler1D
+	#define OUT_IMAGE_TYPE image1D
+#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 2)
+	#define IN_SAMPLER_TYPE sampler2D
+	#define OUT_IMAGE_TYPE image2D
+#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 3)
+	#define IN_SAMPLER_TYPE sampler3D
+	#define OUT_IMAGE_TYPE image3D
+#else
+	#error _NBL_GLSL_BLIT_DIM_COUNT_ not supported
 #endif
 
 #ifndef _NBL_GLSL_BLIT_PIXEL_TYPE_DEFINED_
@@ -46,7 +45,7 @@ struct nbl_glsl_blit_pixel_t
 
 layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_) in;
 
-shared nbl_glsl_blit_input_pixel_t nbl_glsl_blit_scratchShared[4][SMEM_FLOAT_COUNT];
+shared float nbl_glsl_blit_scratchShared[_NBL_GLSL_BLIT_CHANNEL_COUNT_][SMEM_FLOAT_COUNT];
 #define _NBL_GLSL_SCRATCH_SHARED_DEFINED_ nbl_glsl_blit_scratchShared
 
 #include <../blit/parameters.glsl>
@@ -66,19 +65,32 @@ nbl_glsl_blit_parameters_t nbl_glsl_blit_getParameters()
 #define _NBL_GLSL_BLIT_GET_PARAMETERS_DEFINED_
 #endif
 
-layout (set = 0, binding = 0) uniform INPUT_SAMPLER_TYPE inImage;
-layout (set = 0, binding = 1, OUT_IMAGE_FORMAT) uniform writeonly OUT_IMAGE_TYPE outImage;
+layout (set = 0, binding = 0) uniform IN_SAMPLER_TYPE inImage;
+layout (set = 0, binding = 1, _NBL_GLSL_BLIT_OUT_IMAGE_FORMAT_) uniform writeonly OUT_IMAGE_TYPE outImage;
 
 // #include <../blit/formats/single_channel_required_formats.glsl>
 #include <../blit/formats/quad_channel_required_formats.glsl>
 
 #ifndef _NBL_GLSL_BLIT_GET_DATA_DEFINED_
-nbl_glsl_blit_pixel_t nbl_glsl_blit_getData(in INPUT_SAMPLE_POINT_TYPE coord)
+
+nbl_glsl_blit_pixel_t nbl_glsl_blit_getData(in ivec3 coord)
 {
 	nbl_glsl_blit_pixel_t result;
-	result.data = texelFetch(inImage, coord, 0);
+
+#if NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 1)
+	#define COORD coord.x
+#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 2)
+	#define COORD coord.xy
+#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 3)
+	#define COORD coord
+#else
+	#error _NBL_GLSL_BLIT_DIM_COUNT_ not supported
+#endif
+
+	result.data = texelFetch(inImage, COORD, 0);
 	return result;
 }
+
 #define _NBL_GLSL_BLIT_GET_DATA_DEFINED_
 #endif
 
@@ -86,7 +98,12 @@ nbl_glsl_blit_pixel_t nbl_glsl_blit_getData(in INPUT_SAMPLE_POINT_TYPE coord)
 float nbl_glsl_blit_getCachedWeightsPremultiplied(in uvec3 lutCoord)
 {
 	const vec3 weight = vec3(weights.data[lutCoord.x], weights.data[lutCoord.y], weights.data[lutCoord.z]);
-	return PREMULT_WEIGHT_EXPRESSION;
+
+	float result = 1.f;
+	for (uint d = 0u; d < _NBL_GLSL_BLIT_DIM_COUNT_; ++d)
+		result *= weight[d];
+
+	return result;
 }
 #define _NBL_GLSL_BLIT_GET_CACHED_WEIGHTS_PREMULTIPLIED_DEFINED_
 #endif
