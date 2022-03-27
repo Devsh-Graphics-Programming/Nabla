@@ -811,7 +811,7 @@ public:
 			printf("Test #1\n");
 			const core::vectorSIMDu32 inImageDim(800u, 1u, 1u);
 			const asset::IImage::E_TYPE imageType = asset::IImage::ET_1D;
-			const asset::E_FORMAT imageFormat = asset::EF_R32_SFLOAT;
+			const asset::E_FORMAT imageFormat = asset::EF_R32G32B32A32_SFLOAT;
 			const core::vectorSIMDu32 outImageDim(59u, 1u, 1u);
 			const BlitFilter::CState::E_ALPHA_SEMANTIC alphaSemantic = BlitFilter::CState::EAS_NONE_OR_PREMULTIPLIED;
 			blitTest(inImageDim, imageType, imageFormat, outImageDim, alphaSemantic);

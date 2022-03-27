@@ -13,11 +13,15 @@
 #endif
 
 #ifndef SMEM_FLOAT_COUNT
-#define SMEM_FLOAT_COUNT 4096
+#define SMEM_FLOAT_COUNT 1024
 #endif
 
 #ifndef OUT_IMAGE_FORMAT
-#define OUT_IMAGE_FORMAT r32f
+#define OUT_IMAGE_FORMAT rgba32f
+#endif
+
+#ifndef CHANNEL_COUNT
+#define CHANNEL_COUNT 4
 #endif
 
 #ifndef OUT_IMAGE_TYPE
@@ -42,7 +46,7 @@ struct nbl_glsl_blit_pixel_t
 
 layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_) in;
 
-shared nbl_glsl_blit_input_pixel_t nbl_glsl_blit_scratchShared[SMEM_FLOAT_COUNT];
+shared nbl_glsl_blit_input_pixel_t nbl_glsl_blit_scratchShared[4][SMEM_FLOAT_COUNT];
 #define _NBL_GLSL_SCRATCH_SHARED_DEFINED_ nbl_glsl_blit_scratchShared
 
 #include <../blit/parameters.glsl>
@@ -65,28 +69,17 @@ nbl_glsl_blit_parameters_t nbl_glsl_blit_getParameters()
 layout (set = 0, binding = 0) uniform INPUT_SAMPLER_TYPE inImage;
 layout (set = 0, binding = 1, OUT_IMAGE_FORMAT) uniform writeonly OUT_IMAGE_TYPE outImage;
 
-#include <../blit/formats/single_channel_required_formats.glsl>
+// #include <../blit/formats/single_channel_required_formats.glsl>
+#include <../blit/formats/quad_channel_required_formats.glsl>
 
 #ifndef _NBL_GLSL_BLIT_GET_DATA_DEFINED_
 nbl_glsl_blit_pixel_t nbl_glsl_blit_getData(in INPUT_SAMPLE_POINT_TYPE coord)
 {
 	nbl_glsl_blit_pixel_t result;
-	result.data.r = texelFetch(inImage, coord, 0).r;
+	result.data = texelFetch(inImage, coord, 0);
 	return result;
 }
 #define _NBL_GLSL_BLIT_GET_DATA_DEFINED_
-#endif
-
-#if 0
-
-#ifndef _NBL_GLSL_BLIT_SET_DATA_DEFINED_
-void nbl_glsl_blit_setData(in nbl_glsl_blit_input_pixel_t data, in ivec3 coord)
-{
-	imageStore(outImage, int(coord.x), vec4(data, 0.f, 0.f, 0.f));
-}
-#define _NBL_GLSL_BLIT_SET_DATA_DEFINED_
-#endif
-
 #endif
 
 #ifndef _NBL_GLSL_BLIT_GET_CACHED_WEIGHTS_PREMULTIPLIED_DEFINED_
