@@ -116,7 +116,13 @@ float nbl_glsl_blit_getCachedWeightsPremultiplied(in uvec3 lutCoord)
 #ifndef _NBL_GLSL_BLIT_ADD_TO_HISTOGRAM_DEFINED_
 void nbl_glsl_blit_addToHistogram(in uint bucketIndex)
 {
-	// atomicAdd(alphaHistogram.data[bucketIndex], 1u);
+#ifdef _NBL_GLSL_BLIT_COVERAGE_SEMANTIC_
+	#ifndef _NBL_GLSL_BLIT_ALPHA_HISTOGRAM_DESCRIPTOR_DEFINED_
+		#error _NBL_GLSL_BLIT_ALPHA_HISTOGRAM_DESCRIPTOR_DEFINED_ must be defined
+	#endif
+
+	atomicAdd(_NBL_GLSL_BLIT_ALPHA_HISTOGRAM_DESCRIPTOR_DEFINED_.data[bucketIndex], 1u);
+#endif
 }
 #define _NBL_GLSL_BLIT_ADD_TO_HISTOGRAM_DEFINED_
 #endif

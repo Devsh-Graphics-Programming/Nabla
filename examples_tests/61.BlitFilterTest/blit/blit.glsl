@@ -42,7 +42,6 @@ void nbl_glsl_blit_main()
 
 	const uint windowPixelCount = params.windowDim.x * params.windowDim.y * params.windowDim.z;
 
-	// Todo(achal): assert on the CPU windowPixelCount <= _NBL_GLSL_WORKGROUP_SIZE_
 	const uint windowsPerStep = _NBL_GLSL_WORKGROUP_SIZE_ / windowPixelCount;
 	const uint stepCount = (params.windowsPerWG + windowsPerStep - 1) / windowsPerStep;
 
@@ -148,9 +147,8 @@ void nbl_glsl_blit_main()
 		for (uint ch = 0u; ch < _NBL_GLSL_BLIT_OUT_CHANNEL_COUNT_; ++ch)
 			dataToStore.data[ch] = scratchShared[ch][wgLocalWindowIndex * windowPixelCount];
 
-		// Doing vec4(result) should set the alpha component to 0 for all cases when nbl_glsl_blit_input_pixel_t != vec4
-		// const uint bucketIndex = packUnorm4x8(vec4(vec4(result).a, 0.f, 0.f, 0.f));
-		// nbl_glsl_blit_addToHistogram(bucketIndex);
+		const uint bucketIndex = packUnorm4x8(vec4(dataToStore.data.a, 0.f, 0.f, 0.f));
+		nbl_glsl_blit_addToHistogram(bucketIndex);
 
 		uvec3 globalWindowID = linearIndexTo3DIndex(globalWindowIndex, params.outDim);
 

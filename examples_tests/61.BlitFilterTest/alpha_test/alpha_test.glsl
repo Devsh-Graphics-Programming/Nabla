@@ -4,16 +4,21 @@
 #ifndef _NBL_GLSL_BLIT_ALPHA_TEST_MAIN_DEFINED_
 
 #include <../alpha_test/parameters.glsl>
+
+#ifndef _NBL_GLSL_BLIT_ALPHA_TEST_PASSED_COUNTER_DESCRIPTOR_DEFINED_
+#error _NBL_GLSL_BLIT_ALPHA_TEST_PASSED_COUNTER_DESCRIPTOR_DEFINED_ must be defined
+#endif
+
 nbl_glsl_blit_alpha_test_parameters_t nbl_glsl_blit_alpha_test_getParameters();
 
-float nbl_glsl_blit_alpha_test_getPaddedData(in uvec3 texCoords);
+float nbl_glsl_blit_alpha_test_getPaddedData(in ivec3 texCoords);
 
 void nbl_glsl_blit_alpha_test_main()
 {
-	const float alpha = nbl_glsl_blit_alpha_test_getPaddedData(gl_GlobalInvocationID);
+	const float alpha = nbl_glsl_blit_alpha_test_getPaddedData(ivec3(gl_GlobalInvocationID));
 
 	if (alpha > nbl_glsl_blit_alpha_test_getParameters().referenceAlpha)
-		atomicAdd(alphaTestScratch.data, 1u);
+		atomicAdd(_NBL_GLSL_BLIT_ALPHA_TEST_PASSED_COUNTER_DESCRIPTOR_DEFINED_.data, 1u);
 }
 
 #define _NBL_GLSL_BLIT_ALPHA_TEST_MAIN_DEFINED_
