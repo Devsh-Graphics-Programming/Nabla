@@ -12,7 +12,7 @@ layout (local_size_x = 256, local_size_y = 1) in;
 
 layout (push_constant) uniform pushConstants
 {
-	RasterizerPushConstants c;
+	layout(row_major) RasterizerPushConstants c;
 } u_pushConstants;
 layout (set = 0, binding = 0, rg32ui) uniform coherent uimage2D outImage;
 layout (set = 0, binding = 1, r32ui) uniform coherent uimage2D spinLock;
@@ -49,6 +49,10 @@ void writeOut(ivec2 coords, float pointDepth, uint pointId) {
 	}
 }
 
+#include <nbl/builtin/glsl/utils/transform.glsl>
+
+mat4 spvWorkaroundRowMajor(mat4 wrap) { return wrap; }
+
 void main()
 {
 	uint localThread = gl_GlobalInvocationID.x;
@@ -57,7 +61,7 @@ void main()
 	for (uint virtInvoc = localThread; virtInvoc < u_pushConstants.c.pointCount; virtInvoc += u_pushConstants.c.totalThreads) {
 		WorldPosition pointPos = u_pointCloud.position[virtInvoc];
 		vec3 pointPos3 = vec3(pointPos.x, pointPos.y, pointPos.z);
-		vec4 transformed = u_pushConstants.c.mvp * vec4(pointPos3, 1.0);
+		vec4 transformed = nbl_glsl_pseudoMul4x4with3x1(spvWorkaroundRowMajor(u_pushConstants.c.mvp), pointPos3);
 
 		u_debugOutput.transformed[virtInvoc].transformed = transformed;
 		u_debugOutput.transformed[virtInvoc].cameraCull = uvec4(floatBitsToUint(transformed.z) >> 31, floatBitsToUint(transformed.w) >> 31, (floatBitsToUint(transformed.z) ^ floatBitsToUint(transformed.w)) >> 31, 0);

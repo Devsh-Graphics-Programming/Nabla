@@ -13,7 +13,7 @@ struct RasterizerPushConstants {
 	uvec2 imgSize;
 	uint pointCount;
 	uint totalThreads;
-	mat4 mvp;
+   	mat4 mvp;
 };
 
 struct ShadingPushConstants {
