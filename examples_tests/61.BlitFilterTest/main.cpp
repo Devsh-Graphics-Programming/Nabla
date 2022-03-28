@@ -125,6 +125,7 @@ private:
 
 public:
 	static constexpr uint32_t NBL_GLSL_DEFAULT_WORKGROUP_DIM = 16u;
+	static constexpr uint32_t NBL_GLSL_DEFAULT_WORKGROUP_SIZE = 256u;
 	static constexpr uint32_t NBL_GLSL_DEFAULT_BIN_COUNT = 256u;
 
 	struct alpha_test_push_constants_t
@@ -462,11 +463,27 @@ public:
 		outDispatchInfo.wgCount[2] = workgroupCount.z;
 	}
 
-	core::smart_refctd_ptr<video::IGPUSpecializedShader> getBlitSpecializedShader(const asset::E_FORMAT inFormat, const asset::E_FORMAT outFormat)
+	core::smart_refctd_ptr<video::IGPUSpecializedShader> createBlitSpecializedShader(const asset::E_FORMAT inFormat, const asset::E_FORMAT outFormat, const asset::IImage::E_TYPE inImageType,
+		const core::vectorSIMDu32& inExtent, const core::vectorSIMDu32& outExtent)
 	{
+		const uint32_t inChannelCount = asset::getFormatChannelCount(inFormat);
+		const uint32_t outChannelCount = asset::getFormatChannelCount(outFormat);
+		assert(outChannelCount <= inChannelCount);
+
+		// fail if the window cannot be preloaded into shared memory
+		core::vectorSIMDf scale = static_cast<core::vectorSIMDf>(inExtent).preciseDivision(static_cast<core::vectorSIMDf>(outExtent));
+
+		const core::vectorSIMDu32 windowDim = static_cast<core::vectorSIMDu32>(core::ceil(scale));
+		// It is important not to use asset::getTexelOrBlockBytesize here.
+		// Even though input pixels are stored in the shared memory we use outChannelCount here because only outChannelCount channels of
+		// the input image actually need blitting and hence only those channels are stored in shared memory.
+		const size_t windowSize = static_cast<size_t>(windowDim.x) * windowDim.y * windowDim.z * outChannelCount * sizeof(float);
+		if (windowSize > sharedMemorySize)
+			return nullptr;
+
 		auto system = device->getPhysicalDevice()->getSystem();
 		system::future<core::smart_refctd_ptr<system::IFile>> future;
-		const char* shaderpath = "../blit_1d.comp";
+		const char* shaderpath = "../default_compute_blit.comp";
 		const bool status = system->createFile(future, shaderpath, static_cast<system::IFile::E_CREATE_FLAGS>(system::IFile::ECF_READ | system::IFile::ECF_MAPPABLE));
 		if (!status)
 			return nullptr;
@@ -477,8 +494,28 @@ public:
 
 		auto cpuShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(buffer), asset::IShader::buffer_contains_glsl_t{}, asset::IShader::ESS_COMPUTE, "????");
 
+		// inFormat should support SAMPLED_BIT format feature
+
+		if (!isOutImageFormatAllowed(outFormat))
+			return nullptr;
+
+		const asset::E_FORMAT outImageViewFormat = getOutImageViewFormat(outFormat);
+
+		const char* outFormatGLSLString = getGLSLFormatStringFromFormat(outImageViewFormat);
+
+		const uint32_t smemFloatCount = sharedMemorySize / (sizeof(float) * outChannelCount);
+
 		auto cpuShaderOverriden = asset::IGLSLCompiler::createOverridenCopy(cpuShader.get(),
-			"#define _NBL_GLSL_WORKGROUP_SIZE_ %d\n", NBL_GLSL_DEFAULT_WORKGROUP_DIM * NBL_GLSL_DEFAULT_WORKGROUP_DIM);
+			"#define _NBL_GLSL_WORKGROUP_SIZE_ %d\n"
+			"#define _NBL_GLSL_BLIT_OUT_CHANNEL_COUNT_ %d\n"
+			"#define _NBL_GLSL_BLIT_DIM_COUNT_ %d\n"
+			"#define _NBL_GLSL_BLIT_OUT_IMAGE_FORMAT_ %s\n"
+			"#define _NBL_GLSL_BLIT_SMEM_FLOAT_COUNT_ %d\n",
+			NBL_GLSL_DEFAULT_WORKGROUP_SIZE,
+			outChannelCount,
+			static_cast<uint32_t>(inImageType + 1u),
+			outFormatGLSLString,
+			smemFloatCount);
 
 		cpuShaderOverriden->setFilePathHint(shaderpath);
 
@@ -489,63 +526,10 @@ public:
 		return specShader;
 	}
 
-	inline core::smart_refctd_ptr<video::IGPUComputePipeline> getBlitPipeline(core::smart_refctd_ptr<video::IGPUSpecializedShader>&& specShader)
+	inline core::smart_refctd_ptr<video::IGPUComputePipeline> createBlitPipeline(core::smart_refctd_ptr<video::IGPUSpecializedShader>&& specShader)
 	{
 		auto blitPipeline = device->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(blitPipelineLayout), std::move(specShader));
 		return blitPipeline;
-	}
-
-	core::smart_refctd_ptr<video::IGPUSpecializedShader> getDefaultBlitSpecializedShader(const asset::IImage::E_TYPE imageType)
-	{
-		if (!blitSpecShader[imageType])
-		{
-			auto system = device->getPhysicalDevice()->getSystem();
-			system::future<core::smart_refctd_ptr<system::IFile>> future;
-			const char* shaderpath = "";
-			switch (imageType)
-			{
-			case asset::IImage::ET_1D:
-				shaderpath = "../blit_1d.comp";
-				break;
-			case asset::IImage::ET_2D:
-				shaderpath = "../blit_2d.comp";
-				break;
-			case asset::IImage::ET_3D:
-				shaderpath = "../blit_3d.comp";
-				break;
-			default:
-				_NBL_DEBUG_BREAK_IF(true);
-				return nullptr;
-			}
-			const bool status = system->createFile(future, shaderpath, static_cast<system::IFile::E_CREATE_FLAGS>(system::IFile::ECF_READ | system::IFile::ECF_MAPPABLE));
-			if (!status)
-				return nullptr;
-
-			auto glslFile = future.get();
-			auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(glslFile->getSize());
-			memcpy(buffer->getPointer(), glslFile->getMappedPointer(), glslFile->getSize());
-
-			auto cpuShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(buffer), asset::IShader::buffer_contains_glsl_t{}, asset::IShader::ESS_COMPUTE, "????");
-
-			auto cpuShaderOverriden = asset::IGLSLCompiler::createOverridenCopy(cpuShader.get(),
-				"#define _NBL_GLSL_WORKGROUP_SIZE_ %d\n", NBL_GLSL_DEFAULT_WORKGROUP_DIM*NBL_GLSL_DEFAULT_WORKGROUP_DIM);
-
-			cpuShaderOverriden->setFilePathHint(shaderpath);
-
-			auto gpuUnspecShader = device->createGPUShader(std::move(cpuShaderOverriden));
-
-			blitSpecShader[imageType] = device->createGPUSpecializedShader(gpuUnspecShader.get(), { nullptr, nullptr, "main" });
-		}
-
-		return blitSpecShader[imageType];
-	}
-
-	inline core::smart_refctd_ptr<video::IGPUComputePipeline> getDefaultBlitPipeline(const asset::IImage::E_TYPE imageType)
-	{
-		if (!blitPipeline[imageType])
-			blitPipeline[imageType] = device->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(blitPipelineLayout), core::smart_refctd_ptr(blitSpecShader[imageType]));
-
-		return blitPipeline[imageType];
 	}
 
 	static void updateBlitDescriptorSet(video::ILogicalDevice* logicalDevice, video::IGPUDescriptorSet* ds, core::smart_refctd_ptr<video::IGPUImageView> inImageView, core::smart_refctd_ptr<video::IGPUImageView> outImageView, core::smart_refctd_ptr<video::IGPUBuffer> phaseSupportLUT, core::smart_refctd_ptr<video::IGPUBuffer> alphaHistogramBuffer = nullptr)
@@ -735,6 +719,96 @@ public:
 		device->blockForFences(1u, &fence.get());
 	}
 
+	inline asset::E_FORMAT getOutImageViewFormat(const asset::E_FORMAT format)
+	{
+		// required for all GL, GLES and Vulkan
+		const bool isRequiredFormat =
+			(format == asset::EF_R32G32B32A32_SFLOAT) ||
+			(format == asset::EF_R16G16B16A16_SFLOAT) ||
+			(format == asset::EF_R32_SFLOAT) ||
+			(format == asset::EF_R8G8B8A8_UNORM) ||
+			(format == asset::EF_R8G8B8A8_SNORM);
+
+		if (isRequiredFormat)
+		{
+			return format;
+		}
+		else
+		{
+			__debugbreak();
+			return asset::EF_UNKNOWN;
+		}
+	}
+
+	static inline const char* getGLSLFormatStringFromFormat(const asset::E_FORMAT format)
+	{
+		const char* result;
+		switch (format)
+		{
+		case asset::EF_R32G32B32A32_SFLOAT:
+			result = "rgba32f";
+			break;
+		case asset::EF_R16G16B16A16_SFLOAT:
+			result = "rgba16f";
+			break;
+		case asset::EF_R32G32_SFLOAT:
+			result = "rg32f";
+			break;
+		case asset::EF_R16G16_SFLOAT:
+			result = "rg16f";
+			break;
+		case asset::EF_B10G11R11_UFLOAT_PACK32:
+			result = "r11f_g11f_b10f";
+			break;
+		case asset::EF_R32_SFLOAT:
+			result = "r32f";
+			break;
+		case asset::EF_R16_SFLOAT:
+			result = "r16f";
+			break;
+		case asset::EF_R16G16B16A16_UNORM:
+			result = "rgba16";
+			break;
+		case asset::EF_A2B10G10R10_UNORM_PACK32:
+			result = "rgb10_a2";
+			break;
+		case asset::EF_R8G8B8A8_UNORM:
+			result = "rgba8";
+			break;
+		case asset::EF_R16G16_UNORM:
+			result = "rg16";
+			break;
+		case asset::EF_R8G8_UNORM:
+			result = "rg8";
+			break;
+		case asset::EF_R16_UNORM:
+			result = "r16";
+			break;
+		case asset::EF_R8_UNORM:
+			result = "r8";
+			break;
+		case asset::EF_R16G16B16A16_SNORM:
+			result = "rgba16_snorm";
+			break;
+		case asset::EF_R8G8B8A8_SNORM:
+			result = "rgba8_snorm";
+			break;
+		case asset::EF_R16G16_SNORM:
+			result = "rg16_snorm";
+			break;
+		case asset::EF_R8G8_SNORM:
+			result = "rg8_snorm";
+			break;
+		case asset::EF_R16_SNORM:
+			result = "r16_snorm";
+			break;
+		default:
+			__debugbreak();
+		}
+
+		return result;
+	}
+
 private:
 	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> alphaTestDSLayout = nullptr;
 	core::smart_refctd_ptr<video::IGPUPipelineLayout> alphaTestPipelineLayout = nullptr;
@@ -743,8 +817,6 @@ private:
 
 	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> blitDSLayout = nullptr;
 	core::smart_refctd_ptr<video::IGPUPipelineLayout> blitPipelineLayout = nullptr;
-	core::smart_refctd_ptr<video::IGPUSpecializedShader> blitSpecShader[3] = { nullptr };
-	core::smart_refctd_ptr<video::IGPUComputePipeline> blitPipeline[3] = { nullptr };
 
 	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> normalizationDSLayout = nullptr;
 	core::smart_refctd_ptr<video::IGPUPipelineLayout> normalizationPipelineLayout = nullptr;
@@ -777,6 +849,36 @@ private:
 		auto dsLayout = logicalDevice->createGPUDescriptorSetLayout(bindings, bindings + descriptorCount);
 		return dsLayout;
 	}
+
+	static inline bool isOutImageFormatAllowed(const asset::E_FORMAT format)
+	{
+		// Floating point (and normalized integer) formats in the list: https://www.khronos.org/opengl/wiki/Image_Load_Store#Images_in_the_context
+		switch (format)
+		{
+		case EF_R32G32B32A32_SFLOAT:
+		case EF_R16G16B16A16_SFLOAT:
+		case EF_R32G32_SFLOAT:
+		case EF_R16G16_SFLOAT:
+		case EF_B10G11R11_UFLOAT_PACK32:
+		case EF_R32_SFLOAT:
+		case EF_R16_SFLOAT:
+		case EF_R16G16B16A16_UNORM:
+		case EF_A2B10G10R10_UNORM_PACK32:
+		case EF_R8G8B8A8_UNORM:
+		case EF_R16G16_UNORM:
+		case EF_R8G8_UNORM:
+		case EF_R16_UNORM:
+		case EF_R8_UNORM:
+		case EF_R16G16B16A16_SNORM:
+		case EF_R8G8B8A8_SNORM:
+		case EF_R16G16_SNORM:
+		case EF_R8G8_SNORM:
+		case EF_R16_SNORM:
+			return true;
+		default:
+			return false;
+		}
+	}
 };
 
 class BlitFilterTestApp : public ApplicationBase
@@ -808,7 +910,8 @@ public:
 		inputSystem = std::move(initOutput.inputSystem);
 
 		{
-			printf("Test #1\n");
+			logger->log("Test #1");
+
 			const core::vectorSIMDu32 inImageDim(800u, 1u, 1u);
 			const asset::IImage::E_TYPE imageType = asset::IImage::ET_1D;
 			const asset::E_FORMAT imageFormat = asset::EF_R32G32B32A32_SFLOAT;
@@ -817,9 +920,8 @@ public:
 			blitTest(inImageDim, imageType, imageFormat, outImageDim, alphaSemantic);
 		}
 
-#if 0
 		{
-			printf("Test #2\n");
+			logger->log("Test #2");
 
 			const char* pathToInputImage = "../../media/colorexr.exr";
 			core::smart_refctd_ptr<asset::ICPUImage> inImage = loadImage(pathToInputImage);
@@ -832,6 +934,7 @@ public:
 			blitTest(inImage, outImageDim, alphaSemantic);
 		}
 
+#if 0
 		{
 			printf("Test #3\n");
 
@@ -845,17 +948,17 @@ public:
 			const BlitFilter::CState::E_ALPHA_SEMANTIC alphaSemantic = BlitFilter::CState::EAS_REFERENCE_OR_COVERAGE;
 			blitTest(inImage, outImageDim, alphaSemantic);
 		}
+#endif
 
 		{
-			printf("Test #4\n");
-			const core::vectorSIMDu32 inImageDim(256u, 256u, 256u);
+			logger->log("Test #4");
+			const core::vectorSIMDu32 inImageDim(257u, 129u, 63u);
 			const asset::IImage::E_TYPE imageType = asset::IImage::ET_3D;
-			const asset::E_FORMAT imageFormat = asset::EF_R32G32_SFLOAT;
-			const core::vectorSIMDu32 outImageDim(64u, 64u, 64u);
+			const asset::E_FORMAT imageFormat = asset::EF_R32_SFLOAT;
+			const core::vectorSIMDu32 outImageDim(256u, 128u, 64u);
 			const BlitFilter::CState::E_ALPHA_SEMANTIC alphaSemantic = BlitFilter::CState::EAS_NONE_OR_PREMULTIPLIED;
 			blitTest(inImageDim, imageType, imageFormat, outImageDim, alphaSemantic);
 		}
-#endif
 	}
 
 	void onAppTerminated_impl() override
@@ -874,7 +977,6 @@ public:
 	}
 
 private:
-#if 0
 	void blitTest(core::smart_refctd_ptr<asset::ICPUImage> inImage, const core::vectorSIMDu32& outImageDim, const BlitFilter::CState::E_ALPHA_SEMANTIC alphaSemantic, const float referenceAlpha = 0.f)
 	{
 		const core::vectorSIMDf scaleX(1.f, 1.f, 1.f, 1.f);
@@ -914,16 +1016,15 @@ private:
 		// CPU
 		core::smart_refctd_ptr<asset::ICPUImage> cpuOutput = nullptr;
 		{
-			printf("CPU begin..\n");
 
 			cpuOutput = createCPUImage(outImageDim, inImage->getCreationParameters().type, inImage->getCreationParameters().format);
 
 			blitFilterState.outImage = cpuOutput.get();
 
+			logger->log("CPU begin..");
 			if (!BlitFilter::execute(core::execution::par_unseq, &blitFilterState))
-				printf("Failed to blit\n");
-
-			printf("CPU end...\n");
+				logger->log("Failed to blit", system::ILogger::ELL_ERROR);
+			logger->log("CPU end..");
 
 			const char* writePath = "cpu_out.exr";
 			{
@@ -952,9 +1053,8 @@ private:
 
 		core::smart_refctd_ptr<asset::ICPUImage> gpuOutput = nullptr;
 		{
-			printf("GPU begin..\n");
-
 			const auto& inImageType = inImage->getCreationParameters().type;
+			const core::vectorSIMDu32 inImageDim(inImage->getCreationParameters().extent.width, inImage->getCreationParameters().extent.height, inImage->getCreationParameters().extent.depth);
 
 			auto outImage = createCPUImage(outImageDim, inImage->getCreationParameters().type, inImage->getCreationParameters().format);
 
@@ -1043,12 +1143,7 @@ private:
 			core::vectorSIMDf scale = static_cast<core::vectorSIMDf>(inExtent).preciseDivision(static_cast<core::vectorSIMDf>(outExtent));
 
 			// Cannot use kernelX/Y/Z.getWindowSize() here because they haven't been scaled (yet) for upscaling/downscaling
-			const core::vectorSIMDu32 windowDim = static_cast<core::vectorSIMDu32>(core::ceil(scale * core::vectorSIMDf(scaleX.x, scaleY.y, scaleZ.z)));
-
-			// fail if the window cannot be preloaded into shared memory
-			const size_t windowSize = static_cast<size_t>(windowDim.x) * windowDim.y * windowDim.z * asset::getTexelOrBlockBytesize(inImage->getCreationParameters().format);
-			if (windowSize > MAX_SMEM_SIZE)
-				FATAL_LOG("Failed to blit because supports are too large\n");
+			const core::vectorSIMDu32 windowDim = static_cast<core::vectorSIMDu32>(core::ceil(scale));
 
 			const core::vectorSIMDu32 phaseCount = BlitFilter::getPhaseCount(inExtent, outExtent, inImage->getCreationParameters().type);
 			core::smart_refctd_ptr<video::IGPUBuffer> phaseSupportLUT = nullptr;
@@ -1086,9 +1181,9 @@ private:
 			const auto& inImageFormat = inImage->getCreationParameters().format;
 
 			const auto& blitDSLayout = blitFilter.getDefaultBlitDSLayout();
-			const auto& blitShader = blitFilter.getDefaultBlitSpecializedShader(inImageType);
+			const auto& blitShader = blitFilter.createBlitSpecializedShader(inImageFormat, outImageGPU->getCreationParameters().format, inImageType, inImageDim, outImageDim);
 			const auto& blitPipelineLayout = blitFilter.getDefaultBlitPipelineLayout();
-			const auto& blitPipeline = blitFilter.getDefaultBlitPipeline(inImageType);
+			const auto& blitPipeline = blitFilter.createBlitPipeline(core::smart_refctd_ptr(blitShader));
 
 			const uint32_t blitDSCount = 1u;
 			auto blitDescriptorPool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE, &blitDSLayout.get(), &blitDSLayout.get() + 1ull, &blitDSCount);
@@ -1096,10 +1191,9 @@ private:
 			auto blitDS = logicalDevice->createGPUDescriptorSet(blitDescriptorPool.get(), core::smart_refctd_ptr(blitDSLayout));
 			CBlitFilter::updateBlitDescriptorSet(logicalDevice.get(), blitDS.get(), inImageView, outImageView, phaseSupportLUT);
 
-			// blitFilter.blit(queues[CommonAPI::InitOutput::EQT_COMPUTE], alphaSemantic, nullptr, blitDS.get(), nullptr, inExtent, inImageType, inImageFormat, outImageGPU, referenceAlpha);
-			blitFilter.blit(queues[CommonAPI::InitOutput::EQT_COMPUTE], alphaSemantic, alphaTestDS.get(), blitDS.get(), normDS.get(), inExtent, inImageType, inImageFormat, outImageGPU, referenceAlpha, alphaTestCounterBuffer);
-
-			printf("GPU end..\n");
+			logger->log("GPU begin..");
+			blitFilter.blit(queues[CommonAPI::InitOutput::EQT_COMPUTE], alphaSemantic, alphaTestDS.get(), blitDS.get(), blitPipeline.get(), normDS.get(), inExtent, inImageType, inImageFormat, outImageGPU, referenceAlpha, alphaTestCounterBuffer);
+			logger->log("GPU end..");
 
 			auto outCPUImageView = ext::ScreenShot::createScreenShot(
 				logicalDevice.get(),
@@ -1158,13 +1252,13 @@ private:
 			}
 
 			const double RMSE =  core::sqrt(sqErr / (static_cast<uint64_t>(extent0.width) * extent0.height * extent0.depth));
-			printf("RMSE: %f\n", RMSE);
+			logger->log("RMSE: %f\n", system::ILogger::ELL_DEBUG, RMSE);
 		}
 
 		_NBL_ALIGNED_FREE(blitFilterState.scratchMemory);
 	}
-#endif
 
+	// Only for 1D and 3D 32 bit floating-point images because ext::ScreenShot doesn't support them yet
 	void blitTest(const core::vectorSIMDu32& inImageDim, const asset::IImage::E_TYPE imageType, const asset::E_FORMAT imageFormat, const core::vectorSIMDu32& outImageDim, const BlitFilter::CState::E_ALPHA_SEMANTIC alphaSemantic)
 	{
 		const uint32_t channelCount = asset::getFormatChannelCount(imageFormat);
@@ -1224,25 +1318,23 @@ private:
 		// CPU
 		core::vector<float> cpuOutput(static_cast<uint64_t>(outImageDim[0]) * outImageDim[1] * outImageDim[2] * channelCount);
 		{
-			printf("CPU begin..\n");
 
 			auto outImage = createCPUImage(outImageDim, inImage->getCreationParameters().type, inImage->getCreationParameters().format);
 
 			blitFilterState.outImage = outImage.get();
 
+			logger->log("CPU begin..");
 			if (!BlitFilter::execute(core::execution::par_unseq, &blitFilterState))
-				printf("Failed to blit\n");
+				logger->log("Failed to blit\n", system::ILogger::ELL_ERROR);
 
-			printf("CPU end...\n");
+			logger->log("CPU end..");
 
-			memcpy(cpuOutput.data(), outImage->getBuffer()->getPointer(), cpuOutput.size() * sizeof(float)); // will only work for 32_SFLOAT formats
+			memcpy(cpuOutput.data(), outImage->getBuffer()->getPointer(), cpuOutput.size() * sizeof(float));
 		}
 
 		// GPU
 		core::vector<float> gpuOutput(static_cast<uint64_t>(outImageDim[0]) * outImageDim[1] * outImageDim[2] * channelCount);
 		{
-			printf("GPU begin..\n");
-
 			auto outImage = createCPUImage(outImageDim, inImage->getCreationParameters().type, inImage->getCreationParameters().format);
 
 			inImage->addImageUsageFlags(asset::ICPUImage::EUF_SAMPLED_BIT);
@@ -1264,11 +1356,6 @@ private:
 
 			// Also, cannot use kernelX/Y/Z.getWindowSize() here because they haven't been scaled (yet) for upscaling/downscaling
 			const core::vectorSIMDu32 windowDim = static_cast<core::vectorSIMDu32>(core::ceil(scale * core::vectorSIMDf(scaleX.x, scaleY.y, scaleZ.z)));
-
-			// fail if the window cannot be preloaded into shared memory
-			const size_t windowSize = static_cast<size_t>(windowDim.x) * windowDim.y * windowDim.z * asset::getTexelOrBlockBytesize(inImage->getCreationParameters().format);
-			if (windowSize > MAX_SMEM_SIZE)
-				FATAL_LOG("Failed to blit because supports are too large\n");
 
 			const core::vectorSIMDu32 phaseCount = BlitFilter::getPhaseCount(inExtent, outExtent, inImage->getCreationParameters().type);
 			core::smart_refctd_ptr<video::IGPUBuffer> phaseSupportLUT = nullptr;
@@ -1305,10 +1392,8 @@ private:
 
 			const auto& blitDSLayout = blitFilter.getDefaultBlitDSLayout();
 			const auto& blitPipelineLayout = blitFilter.getDefaultBlitPipelineLayout();
-			const auto& blitShader = blitFilter.getBlitSpecializedShader(inImageGPU->getCreationParameters().format, outImageGPU->getCreationParameters().format);
-			const auto& blitPipeline = blitFilter.getBlitPipeline(core::smart_refctd_ptr(blitShader));
-			// const auto& blitShader = blitFilter.getDefaultBlitSpecializedShader(imageType);
-			// const auto& blitPipeline = blitFilter.getDefaultBlitPipeline(imageType);
+			const auto& blitShader = blitFilter.createBlitSpecializedShader(inImageGPU->getCreationParameters().format, outImageGPU->getCreationParameters().format, inImageGPU->getCreationParameters().type, inImageDim, outImageDim);
+			const auto& blitPipeline = blitFilter.createBlitPipeline(core::smart_refctd_ptr(blitShader));
 
 			const uint32_t blitDSCount = 1u;
 			auto blitDescriptorPool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE, &blitDSLayout.get(), &blitDSLayout.get() + 1ull, &blitDSCount);
@@ -1316,9 +1401,9 @@ private:
 			auto blitDS = logicalDevice->createGPUDescriptorSet(blitDescriptorPool.get(), core::smart_refctd_ptr(blitDSLayout));
 			CBlitFilter::updateBlitDescriptorSet(logicalDevice.get(), blitDS.get(), inImageView, outImageView, phaseSupportLUT);
 
+			logger->log("GPU begin..");
 			blitFilter.blit(queues[CommonAPI::InitOutput::EQT_COMPUTE], alphaSemantic, nullptr, blitDS.get(), blitPipeline.get(), nullptr, inImageDim, imageType, imageFormat, outImageGPU);
-
-			printf("GPU end..\n");
+			logger->log("GPU end..\n");
 
 			// download results to check
 			{
@@ -1368,7 +1453,7 @@ private:
 			sqErr += (gpuOutput[i] - cpuOutput[i]) * (gpuOutput[i] - cpuOutput[i]);
 
 		const double RMSE = core::sqrt(sqErr / gpuOutput.size());
-		printf("RMSE: %f\n", RMSE);
+		logger->log("RMSE: %f\n", system::ILogger::ELL_DEBUG, RMSE);
 
 		_NBL_ALIGNED_FREE(blitFilterState.scratchMemory);
 	}

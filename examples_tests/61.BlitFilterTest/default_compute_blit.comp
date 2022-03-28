@@ -6,31 +6,31 @@
 #define _NBL_GLSL_WORKGROUP_SIZE_ 256
 #endif
 
-#ifndef _NBL_GLSL_BLIT_CHANNEL_COUNT_
-#define _NBL_GLSL_BLIT_CHANNEL_COUNT_ 4
+#ifndef _NBL_GLSL_BLIT_OUT_CHANNEL_COUNT_
+#error _NBL_GLSL_BLIT_OUT_CHANNEL_COUNT_ must be defined
 #endif
 
 #ifndef _NBL_GLSL_BLIT_DIM_COUNT_
-#define _NBL_GLSL_BLIT_DIM_COUNT_ 1
+#error _NBL_GLSL_BLIT_DIM_COUNT_ must be defined
 #endif
 
 #ifndef _NBL_GLSL_BLIT_OUT_IMAGE_FORMAT_
-#define _NBL_GLSL_BLIT_OUT_IMAGE_FORMAT_ rgba32f
+#error _NBL_GLSL_BLIT_OUT_IMAGE_FORMAT_ must be defined
 #endif
 
-#ifndef SMEM_FLOAT_COUNT
-#define SMEM_FLOAT_COUNT 1024
+#ifndef _NBL_GLSL_BLIT_SMEM_FLOAT_COUNT_
+#error _NBL_GLSL_BLIT_SMEM_FLOAT_COUNT_ must be defined
 #endif
 
 #if NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 1)
-	#define IN_SAMPLER_TYPE sampler1D
-	#define OUT_IMAGE_TYPE image1D
+	#define _NBL_GLSL_BLIT_IN_SAMPLER_TYPE_ sampler1D
+	#define _NBL_GLSL_BLIT_OUT_IMAGE_TYPE_ image1D
 #elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 2)
-	#define IN_SAMPLER_TYPE sampler2D
-	#define OUT_IMAGE_TYPE image2D
+	#define _NBL_GLSL_BLIT_IN_SAMPLER_TYPE_ sampler2D
+	#define _NBL_GLSL_BLIT_OUT_IMAGE_TYPE_ image2D
 #elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 3)
-	#define IN_SAMPLER_TYPE sampler3D
-	#define OUT_IMAGE_TYPE image3D
+	#define _NBL_GLSL_BLIT_IN_SAMPLER_TYPE_ sampler3D
+	#define _NBL_GLSL_BLIT_OUT_IMAGE_TYPE_ image3D
 #else
 	#error _NBL_GLSL_BLIT_DIM_COUNT_ not supported
 #endif
@@ -45,7 +45,7 @@ struct nbl_glsl_blit_pixel_t
 
 layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_) in;
 
-shared float nbl_glsl_blit_scratchShared[_NBL_GLSL_BLIT_CHANNEL_COUNT_][SMEM_FLOAT_COUNT];
+shared float nbl_glsl_blit_scratchShared[_NBL_GLSL_BLIT_OUT_CHANNEL_COUNT_][_NBL_GLSL_BLIT_SMEM_FLOAT_COUNT_];
 #define _NBL_GLSL_SCRATCH_SHARED_DEFINED_ nbl_glsl_blit_scratchShared
 
 #include <../blit/parameters.glsl>
@@ -65,13 +65,13 @@ nbl_glsl_blit_parameters_t nbl_glsl_blit_getParameters()
 #define _NBL_GLSL_BLIT_GET_PARAMETERS_DEFINED_
 #endif
 
-layout (set = 0, binding = 0) uniform IN_SAMPLER_TYPE inImage;
-layout (set = 0, binding = 1, _NBL_GLSL_BLIT_OUT_IMAGE_FORMAT_) uniform writeonly OUT_IMAGE_TYPE outImage;
-
-// #include <../blit/formats/single_channel_required_formats.glsl>
-#include <../blit/formats/quad_channel_required_formats.glsl>
+#include <../blit/formats/required_formats.glsl>
 
 #ifndef _NBL_GLSL_BLIT_GET_DATA_DEFINED_
+
+#ifndef _NBL_GLSL_BLIT_IN_DESCRIPTOR_DEFINED_
+#error _NBL_GLSL_BLIT_IN_DESCRIPTOR_DEFINED_ must be defined
+#endif
 
 nbl_glsl_blit_pixel_t nbl_glsl_blit_getData(in ivec3 coord)
 {
@@ -87,7 +87,7 @@ nbl_glsl_blit_pixel_t nbl_glsl_blit_getData(in ivec3 coord)
 	#error _NBL_GLSL_BLIT_DIM_COUNT_ not supported
 #endif
 
-	result.data = texelFetch(inImage, COORD, 0);
+	result.data = texelFetch(_NBL_GLSL_BLIT_IN_DESCRIPTOR_DEFINED_, COORD, 0);
 	return result;
 }
 
@@ -95,9 +95,14 @@ nbl_glsl_blit_pixel_t nbl_glsl_blit_getData(in ivec3 coord)
 #endif
 
 #ifndef _NBL_GLSL_BLIT_GET_CACHED_WEIGHTS_PREMULTIPLIED_DEFINED_
+
+#ifndef _NBL_GLSL_BLIT_WEIGHTS_DESCRIPTOR_DEFINED_
+#error _NBL_GLSL_BLIT_WEIGHTS_DESCRIPTOR_DEFINED_ must be defined
+#endif
+
 float nbl_glsl_blit_getCachedWeightsPremultiplied(in uvec3 lutCoord)
 {
-	const vec3 weight = vec3(weights.data[lutCoord.x], weights.data[lutCoord.y], weights.data[lutCoord.z]);
+	const vec3 weight = vec3(_NBL_GLSL_BLIT_WEIGHTS_DESCRIPTOR_DEFINED_.data[lutCoord.x], _NBL_GLSL_BLIT_WEIGHTS_DESCRIPTOR_DEFINED_.data[lutCoord.y], _NBL_GLSL_BLIT_WEIGHTS_DESCRIPTOR_DEFINED_.data[lutCoord.z]);
 
 	float result = 1.f;
 	for (uint d = 0u; d < _NBL_GLSL_BLIT_DIM_COUNT_; ++d)

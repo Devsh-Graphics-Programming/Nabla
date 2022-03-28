@@ -19,6 +19,21 @@ uint roundUpToPoT(in uint value)
 	return 1u << (1u + findMSB(value - 1u));
 }
 
+uvec3 linearIndexTo3DIndex(in uint linearIndex, in uvec3 gridDim)
+{
+	uvec3 index3d;
+	const uint itemsPerSlice = gridDim.x * gridDim.y;
+
+	index3d.z = linearIndex / itemsPerSlice;
+
+	const uint sliceLocalIndex = linearIndex % itemsPerSlice;
+
+	index3d.y = sliceLocalIndex / gridDim.x;
+	index3d.x = sliceLocalIndex % gridDim.x;
+
+	return index3d;
+}
+
 void nbl_glsl_blit_main()
 {
 	const nbl_glsl_blit_parameters_t params = nbl_glsl_blit_getParameters();
@@ -48,34 +63,14 @@ void nbl_glsl_blit_main()
 		if (globalWindowIndex >= totalWindowCount)
 			break;
 
-		uvec3 globalWindowID;
-		{
-			const uint windowsPerSlice = params.outDim.x * params.outDim.y;
-
-			globalWindowID.z = globalWindowIndex / windowsPerSlice;
-
-			const uint sliceLocalIndex = globalWindowIndex % windowsPerSlice;
-
-			globalWindowID.y = sliceLocalIndex / params.outDim.x;
-			globalWindowID.x = sliceLocalIndex % params.outDim.x;
-		}
+		uvec3 globalWindowID = linearIndexTo3DIndex(globalWindowIndex, params.outDim);
 
 		const vec3 outputPixelCenter = (globalWindowID + vec3(0.5f)) * scale;
 
 		const ivec3 windowMinCoord = ivec3(ceil(outputPixelCenter - vec3(0.5f) - abs(params.negativeSupport))); // this can be negative
 
 		const uint windowLocalPixelIndex = gl_LocalInvocationIndex % windowPixelCount;
-		uvec3 windowLocalPixelID;
-		{
-			const uint pixelsPerSlice = params.windowDim.x * params.windowDim.y;
-
-			windowLocalPixelID.z = windowLocalPixelIndex / pixelsPerSlice;
-
-			const uint sliceLocalIndex = windowLocalPixelIndex % pixelsPerSlice;
-
-			windowLocalPixelID.y = sliceLocalIndex / params.windowDim.x;
-			windowLocalPixelID.x = sliceLocalIndex % params.windowDim.x;
-		}
+		uvec3 windowLocalPixelID = linearIndexTo3DIndex(windowLocalPixelIndex, params.windowDim);
 
 		const ivec3 inputPixelCoord = windowMinCoord + ivec3(windowLocalPixelID);
 		const vec3 inputPixelCenter = vec3(inputPixelCoord) + vec3(0.5f);
@@ -88,12 +83,12 @@ void nbl_glsl_blit_main()
 
 		const float premultWeights = nbl_glsl_blit_getCachedWeightsPremultiplied(lutIndex);
 		const vec4 loadedData = nbl_glsl_blit_getData(inputPixelCoord).data * premultWeights;
-		for (uint ch = 0u; ch < _NBL_GLSL_BLIT_CHANNEL_COUNT_; ++ch)
+		for (uint ch = 0u; ch < _NBL_GLSL_BLIT_OUT_CHANNEL_COUNT_; ++ch)
 			scratchShared[ch][wgLocalWindowIndex * windowPixelCount + windowLocalPixelIndex] = loadedData[ch];
 	}
 	barrier();
 
-	for (uint ch = 0u; ch < _NBL_GLSL_BLIT_CHANNEL_COUNT_; ++ch)
+	for (uint ch = 0u; ch < _NBL_GLSL_BLIT_OUT_CHANNEL_COUNT_; ++ch)
 	{
 		const uvec3 stride = uvec3(1u, params.windowDim.x, params.windowDim.x * params.windowDim.y);
 
@@ -150,24 +145,14 @@ void nbl_glsl_blit_main()
 			break;
 
 		nbl_glsl_blit_pixel_t dataToStore;
-		for (uint ch = 0u; ch < _NBL_GLSL_BLIT_CHANNEL_COUNT_; ++ch)
+		for (uint ch = 0u; ch < _NBL_GLSL_BLIT_OUT_CHANNEL_COUNT_; ++ch)
 			dataToStore.data[ch] = scratchShared[ch][wgLocalWindowIndex * windowPixelCount];
 
 		// Doing vec4(result) should set the alpha component to 0 for all cases when nbl_glsl_blit_input_pixel_t != vec4
 		// const uint bucketIndex = packUnorm4x8(vec4(vec4(result).a, 0.f, 0.f, 0.f));
 		// nbl_glsl_blit_addToHistogram(bucketIndex);
 
-		uvec3 globalWindowID;
-		{
-			const uint windowsPerSlice = params.outDim.x * params.outDim.y;
-
-			globalWindowID.z = globalWindowIndex / windowsPerSlice;
-
-			const uint sliceLocalIndex = globalWindowIndex % windowsPerSlice;
-
-			globalWindowID.y = sliceLocalIndex / params.outDim.x;
-			globalWindowID.x = sliceLocalIndex % params.outDim.x;
-		}
+		uvec3 globalWindowID = linearIndexTo3DIndex(globalWindowIndex, params.outDim);
 
 		nbl_glsl_blit_setData(dataToStore, ivec3(globalWindowID));
 	}

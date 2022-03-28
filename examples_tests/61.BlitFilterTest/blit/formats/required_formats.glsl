@@ -7,6 +7,10 @@
 	#error _NBL_GLSL_BLIT_DIM_COUNT_ must be defined
 #endif
 
+#ifndef _NBL_GLSL_BLIT_OUT_DESCRIPTOR_DEFINED_
+	#error _NBL_GLSL_BLIT_OUT_DESCRIPTOR_DEFINED_ must be defined
+#endif
+
 void nbl_glsl_blit_setData(in nbl_glsl_blit_pixel_t value, in ivec3 coord)
 {
 #if NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 1)
@@ -19,7 +23,7 @@ void nbl_glsl_blit_setData(in nbl_glsl_blit_pixel_t value, in ivec3 coord)
 	#error _NBL_GLSL_BLIT_DIM_COUNT_ not supported
 #endif
 
-	imageStore(outImage, COORD, value.data);
+	imageStore(_NBL_GLSL_BLIT_OUT_DESCRIPTOR_DEFINED_, COORD, value.data);
 }
 
 #endif
