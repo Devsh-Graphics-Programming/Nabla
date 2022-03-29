@@ -3,6 +3,8 @@
 
 #include "virtualGeometry.glsl"
 
+// #define TEST_ENVMAP_SUN
+#define ONLY_BXDF_SAMPLING
 
 layout(push_constant, row_major) uniform PushConstants
 {
@@ -288,12 +290,6 @@ float Sun_deferred_pdf(in vec3 rayDirection)
 	return 0.0f;
 }
 
-// return regularized pdf of sample
-float Sun_regularized_deferred_pdf(in vec3 rayDirection)
-{
-	return RegularizeSunPDF(Sun_deferred_pdf(rayDirection));
-}
-
 vec3 Sun_getContribution(in vec3 rayDirection)
 {
 	bool intersectedSun = Sun_intersect(rayDirection);
@@ -338,20 +334,34 @@ void Sun_generateSample_and_pdf(out float pdf, out nbl_glsl_LightSample lightSam
 	}
 }
 
-void Sun_generateRegularizedSample_and_pdf(out float pdf, out nbl_glsl_LightSample lightSample, in nbl_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 rand)
+// return regularized pdf of sample
+float Envmap_regularized_deferred_pdf(in vec3 rayDirection)
 {
+#ifdef TEST_ENVMAP_SUN
+	return RegularizeSunPDF(Sun_deferred_pdf(rayDirection));
+#else
+	return 0; // TODO
+#endif
+}
+
+void Envmap_generateRegularizedSample_and_pdf(out float pdf, out nbl_glsl_LightSample lightSample, in nbl_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 rand)
+{
+#ifdef TEST_ENVMAP_SUN
   	float dummy;
 	if (!nbl_glsl_partitionRandVariable(regularizationFactor,/*inout*/rand.y,dummy))
 	{
 	 	vec3 L = sampleUniformSphere(rand);
     	lightSample = nbl_glsl_createLightSample(L, interaction);
-	 	pdf = Sun_regularized_deferred_pdf(L);
+	 	pdf = Envmap_regularized_deferred_pdf(L);
   	}
   	else
   	{
 		Sun_generateSample_and_pdf(pdf, lightSample, interaction, rand);
 		pdf = RegularizeSunPDF(pdf);
   	}
+#else
+	//TODO
+#endif
 }
 
 #include <nbl/builtin/glsl/sampling/quantized_sequence.glsl>
@@ -388,7 +398,7 @@ nbl_glsl_MC_quot_pdf_aov_t gen_sample_ray(
 	float bxdfWeight = 0;
 
 	float p_bxdf_bxdf = bxdfCosThroughput.pdf; // BxDF PDF evaluated with BxDF sample (returned from 
-	float p_env_bxdf = Sun_regularized_deferred_pdf(bxdfSample.L); // Envmap PDF evaluated with BxDF sample (returned by manual tap of the envmap PDF texture)
+	float p_env_bxdf = Envmap_regularized_deferred_pdf(bxdfSample.L); // Envmap PDF evaluated with BxDF sample (returned by manual tap of the envmap PDF texture)
 
 	float p_env_env = 0.0f; // Envmap PDF evaluated with Envmap sample (returned from envmap importance sampling)
 	float p_bxdf_env = 0.0f; // BXDF evaluated with Envmap sample (returned from envmap importance sampling)
@@ -399,7 +409,7 @@ nbl_glsl_MC_quot_pdf_aov_t gen_sample_ray(
 	{
 		nbl_glsl_MC_setCurrInteraction(precomp);
 
-		Sun_generateRegularizedSample_and_pdf(/*out*/p_env_env, /*out*/ envmapSample, currInteraction.inner, rand[1].xy);
+		Envmap_generateRegularizedSample_and_pdf(/*out*/p_env_env, /*out*/ envmapSample, currInteraction.inner, rand[1].xy);
 
 		nbl_glsl_MC_microfacet_t microfacet;
 		microfacet.inner = nbl_glsl_calcAnisotropicMicrofacetCache(currInteraction.inner, envmapSample);
@@ -463,7 +473,7 @@ nbl_glsl_MC_quot_pdf_aov_t gen_sample_ray(
 	result.quotient *= w_star_over_p_env;
 	result.pdf /= w_star_over_p_env;
 
-#ifdef USE_ONLY_BXDF
+#ifdef ONLY_BXDF_SAMPLING
 	outSample = bxdfSample;
 	result = bxdfCosThroughput;
 #endif
@@ -577,12 +587,20 @@ struct Contribution
 	vec3 worldspaceNormal;
 };
 
+#include <nbl/builtin/glsl/sampling/envmap.glsl>
 void Contribution_initMiss(out Contribution contrib, in float aovThroughputScale)
 {
 	// funny little trick borrowed from things like Progressive Photon Mapping
-	const float bias = 0.0625f*(1.f-aovThroughputScale)*pow(pc.cummon.rcpFramesDispatched,0.08f);
+#ifdef TEST_ENVMAP_SUN
 	contrib.albedo = contrib.color = Sun_getContribution(-normalizedV);
 	contrib.worldspaceNormal = normalizedV;
+#else
+	vec2 uv = nbl_glsl_sampling_generateUVCoordFromDirection(-normalizedV);
+	// funny little trick borrowed from things like Progressive Photon Mapping
+	const float bias = 0.0625f*(1.f-aovThroughputScale)*pow(pc.cummon.rcpFramesDispatched,0.08f);
+	contrib.albedo = contrib.color = textureGrad(envMap, uv, vec2(bias*0.5,0.f), vec2(0.f,bias)).rgb;
+	contrib.worldspaceNormal = normalizedV;
+#endif
 }
 
 void Contribution_normalizeAoV(inout Contribution contrib)
