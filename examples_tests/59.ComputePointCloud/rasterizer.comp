@@ -70,10 +70,16 @@ void main()
 		// XOR of the sign bits (if only one of Z or W is negative, cull it)
 		if ((floatBitsToUint(transformed.z) ^ floatBitsToUint(transformed.w)) >> 31 == 1) 
 		{
-			return;
+			continue;
 		}
 
 		vec3 ndc = transformed.xyz / vec3(transformed.w);
+
+		if (ndc.z > 1.0) 
+		{
+			continue;
+		}
+
 		vec2 uv = (ndc.xy + 1.0) * 0.5;
 		const ivec2 size = ivec2(5, 5);
 
