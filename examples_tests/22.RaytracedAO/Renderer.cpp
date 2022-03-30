@@ -1924,8 +1924,8 @@ void Renderer::initWarpingResources()
 
 	{
 		const uint32_t resolution = 0x1u<<(MipCountEnvmap-1); // same size as envmap
-		const uint32_t width = std::max(resolution-1u, 1u);
-		const uint32_t height = std::max(resolution/2u-1u, 1u);
+		const uint32_t width = std::max(resolution, 1u);
+		const uint32_t height = std::max(resolution/2u, 1u);
 		m_warpMap = createTexture(width, height, EF_R16G16_SFLOAT);
 		// m_warpMap = createTexture(width, height, EF_R32_UINT);
 	}
@@ -2176,7 +2176,7 @@ void Renderer::computeWarpMap()
 		const uint32_t warpMapHeight = std::max(resolution/2u, 1u);
 
 		uint32_t workGroups[2] = {
-			(warpMapWidth-1u)/WARP_MAP_GEN_WORKGROUP_DIM+1u+5u,
+			(warpMapWidth-1u)/WARP_MAP_GEN_WORKGROUP_DIM+1u,
 			(warpMapHeight-1u)/WARP_MAP_GEN_WORKGROUP_DIM+1u
 		};
 
