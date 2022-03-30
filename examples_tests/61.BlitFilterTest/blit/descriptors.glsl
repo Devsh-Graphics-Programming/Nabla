@@ -32,7 +32,7 @@
 	#endif
 
 	#ifndef _NBL_GLSL_BLIT_OUT_IMAGE_TYPE_
-		#error _NBL_GLSL_BLIT_OUT_IMAGE_TYPE_ must be defined to any of image1D/image2D/image3D
+		#error _NBL_GLSL_BLIT_OUT_IMAGE_TYPE_ must be defined to any of (u)image1D/(u)image2D/(u)image3D
 	#endif
 
 	layout(set = _NBL_GLSL_BLIT_DESCRIPTOR_SET_DEFINED_, binding = _NBL_GLSL_BLIT_OUT_BINDING_DEFINED_, _NBL_GLSL_BLIT_OUT_IMAGE_FORMAT_) uniform writeonly _NBL_GLSL_BLIT_OUT_IMAGE_TYPE_ _NBL_GLSL_BLIT_OUT_DESCRIPTOR_DEFINED_;
