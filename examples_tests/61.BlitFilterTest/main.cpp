@@ -18,7 +18,7 @@ using namespace nbl::video;
 using ScaledBoxKernel = asset::CScaledImageFilterKernel<CBoxImageFilterKernel>;
 using BlitFilter = asset::CBlitImageFilter<asset::VoidSwizzle, asset::IdentityDither, void, false, ScaledBoxKernel, ScaledBoxKernel, ScaledBoxKernel>;
 
-core::smart_refctd_ptr<ICPUImage> createCPUImage(const core::vectorSIMDu32& dims, const asset::IImage::E_TYPE imageType, const asset::E_FORMAT format)
+core::smart_refctd_ptr<ICPUImage> createCPUImage(const core::vectorSIMDu32& dims, const asset::IImage::E_TYPE imageType, const asset::E_FORMAT format, const bool fillWithTestData = false)
 {
 	IImage::SCreationParams imageParams = {};
 	imageParams.flags = static_cast<IImage::E_CREATE_FLAGS>(0u);
@@ -44,6 +44,30 @@ core::smart_refctd_ptr<ICPUImage> createCPUImage(const core::vectorSIMDu32& dims
 	auto imageBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(bufferSize);
 	core::smart_refctd_ptr<ICPUImage> image = ICPUImage::create(std::move(imageParams));
 	image->setBufferAndRegions(core::smart_refctd_ptr(imageBuffer), imageRegions);
+
+	if (fillWithTestData)
+	{
+		double pixelValueUpperBound = 20.0;
+		if (asset::isNormalizedFormat(format))
+			pixelValueUpperBound = 1.00000000001;
+
+		std::uniform_real_distribution<double> dist(0.0, pixelValueUpperBound);
+		std::mt19937 prng;
+
+		uint8_t* bytePtr = reinterpret_cast<uint8_t*>(image->getBuffer()->getPointer());
+		for (uint64_t k = 0u; k < dims[2]; ++k)
+		{
+			for (uint64_t j = 0u; j < dims[1]; ++j)
+			{
+				for (uint64_t i = 0; i < dims[0]; ++i)
+				{
+					const double decodedPixel[4] = { dist(prng), dist(prng), dist(prng), dist(prng) };
+					const uint64_t pixelIndex = (k * dims[1] * dims[0]) + (j * dims[0]) + i;
+					asset::encodePixelsRuntime(format, bytePtr + pixelIndex * asset::getTexelOrBlockBytesize(format), decodedPixel);
+				}
+			}
+		}
+	}
 
 	return image;
 }
@@ -704,6 +728,10 @@ public:
 		}
 		else
 		{
+			const auto& formatUsages = device->getPhysicalDevice()->getImageFormatUsagesOptimal(format);
+			if (formatUsages.storageImage)
+				return format;
+			else
 			__debugbreak();
 			return asset::EF_UNKNOWN;
 		}
@@ -874,6 +902,9 @@ public:
 		logger = std::move(initOutput.logger);
 		inputSystem = std::move(initOutput.inputSystem);
 
+		constexpr bool enableOtherTests = false;
+
+		if (enableOtherTests)
 		{
 			logger->log("Test #1");
 
@@ -885,6 +916,7 @@ public:
 			blitTest(inImageDim, imageType, imageFormat, outImageDim, alphaSemantic);
 		}
 
+		if (enableOtherTests)
 		{
 			logger->log("Test #2");
 
@@ -899,6 +931,7 @@ public:
 			blitTest(inImage, outImageDim, alphaSemantic);
 		}
 
+		if (enableOtherTests)
 		{
 			logger->log("Test #3");
 
@@ -914,12 +947,24 @@ public:
 			blitTest(inImage, outImageDim, alphaSemantic, referenceAlpha);
 		}
 
+		if (enableOtherTests)
 		{
 			logger->log("Test #4");
 			const core::vectorSIMDu32 inImageDim(257u, 129u, 63u);
 			const asset::IImage::E_TYPE imageType = asset::IImage::ET_3D;
 			const asset::E_FORMAT imageFormat = asset::EF_R32_SFLOAT;
 			const core::vectorSIMDu32 outImageDim(256u, 128u, 64u);
+			const BlitFilter::CState::E_ALPHA_SEMANTIC alphaSemantic = BlitFilter::CState::EAS_NONE_OR_PREMULTIPLIED;
+			blitTest(inImageDim, imageType, imageFormat, outImageDim, alphaSemantic);
+		}
+
+		// if (enableOtherTests)
+		{
+			logger->log("Test #5");
+			const core::vectorSIMDu32 inImageDim(511u, 1024u, 1u);
+			const asset::IImage::E_TYPE imageType = asset::IImage::ET_2D;
+			const asset::E_FORMAT imageFormat = asset::EF_R16_SFLOAT;
+			const core::vectorSIMDu32 outImageDim(512u, 257u, 1u);
 			const BlitFilter::CState::E_ALPHA_SEMANTIC alphaSemantic = BlitFilter::CState::EAS_NONE_OR_PREMULTIPLIED;
 			blitTest(inImageDim, imageType, imageFormat, outImageDim, alphaSemantic);
 		}
@@ -979,7 +1024,6 @@ private:
 		// CPU
 		core::smart_refctd_ptr<asset::ICPUImage> cpuOutput = nullptr;
 		{
-
 			cpuOutput = createCPUImage(outImageDim, inImage->getCreationParameters().type, inImage->getCreationParameters().format);
 
 			blitFilterState.outImage = cpuOutput.get();
@@ -1220,30 +1264,12 @@ private:
 		_NBL_ALIGNED_FREE(blitFilterState.scratchMemory);
 	}
 
-	// Only for 1D and 3D 32 bit floating-point images because ext::ScreenShot doesn't support them yet
-	void blitTest(const core::vectorSIMDu32& inImageDim, const asset::IImage::E_TYPE imageType, const asset::E_FORMAT imageFormat, const core::vectorSIMDu32& outImageDim, const BlitFilter::CState::E_ALPHA_SEMANTIC alphaSemantic)
+	void blitTest(const core::vectorSIMDu32& inImageDim, const asset::IImage::E_TYPE imageType, const asset::E_FORMAT inImageFormat, const core::vectorSIMDu32& outImageDim, const BlitFilter::CState::E_ALPHA_SEMANTIC alphaSemantic)
 	{
-		const uint32_t channelCount = asset::getFormatChannelCount(imageFormat);
+		const asset::E_FORMAT outImageFormat = inImageFormat; // I can test with different input and output image formats later
+		const uint32_t inChannelCount = asset::getFormatChannelCount(inImageFormat);
 
-		core::smart_refctd_ptr<asset::ICPUImage> inImage = createCPUImage(inImageDim, imageType, imageFormat);
-
-		std::uniform_real_distribution<float> dist(0.f, 20.f);
-		std::mt19937 prng;
-
-		float* inImagePixel = reinterpret_cast<float*>(inImage->getBuffer()->getPointer());
-		for (uint32_t k = 0u; k < inImageDim[2]; ++k)
-		{
-			for (uint32_t j = 0u; j < inImageDim[1]; ++j)
-			{
-				for (uint32_t i = 0; i < inImageDim[0]; ++i)
-				{
-					const float valueToPut = dist(prng); // replicate the same value in all channels for now
-					const uint32_t pixelIndex = k * (inImageDim[1] * inImageDim[0]) + j * inImageDim[0] + i;
-					for (uint32_t c = 0u; c < channelCount; ++c)
-						inImagePixel[channelCount * pixelIndex + c] = valueToPut;
-				}
-			}
-		}
+		core::smart_refctd_ptr<asset::ICPUImage> inImage = createCPUImage(inImageDim, imageType, inImageFormat, true);
 
 		const core::vectorSIMDf scaleX(1.f, 1.f, 1.f, 1.f);
 		const core::vectorSIMDf scaleY(1.f, 1.f, 1.f, 1.f);
@@ -1277,11 +1303,11 @@ private:
 
 		blitFilterState.computePhaseSupportLUT(&blitFilterState);
 
-		// CPU
-		core::vector<float> cpuOutput(static_cast<uint64_t>(outImageDim[0]) * outImageDim[1] * outImageDim[2] * channelCount);
-		{
 
-			auto outImage = createCPUImage(outImageDim, inImage->getCreationParameters().type, inImage->getCreationParameters().format);
+		// CPU
+		core::vector<uint8_t> cpuOutput(static_cast<uint64_t>(outImageDim[0]) * outImageDim[1] * outImageDim[2] * asset::getTexelOrBlockBytesize(outImageFormat));
+		{
+			auto outImage = createCPUImage(outImageDim, inImage->getCreationParameters().type, outImageFormat);
 
 			blitFilterState.outImage = outImage.get();
 
@@ -1291,13 +1317,13 @@ private:
 
 			logger->log("CPU end..");
 
-			memcpy(cpuOutput.data(), outImage->getBuffer()->getPointer(), cpuOutput.size() * sizeof(float));
+			memcpy(cpuOutput.data(), outImage->getBuffer()->getPointer(), cpuOutput.size());
 		}
 
 		// GPU
-		core::vector<float> gpuOutput(static_cast<uint64_t>(outImageDim[0]) * outImageDim[1] * outImageDim[2] * channelCount);
+		core::vector<uint8_t> gpuOutput(static_cast<uint64_t>(outImageDim[0]) * outImageDim[1] * outImageDim[2] * asset::getTexelOrBlockBytesize(outImageFormat));
 		{
-			auto outImage = createCPUImage(outImageDim, inImage->getCreationParameters().type, inImage->getCreationParameters().format);
+			auto outImage = createCPUImage(outImageDim, inImage->getCreationParameters().type, outImageFormat);
 
 			inImage->addImageUsageFlags(asset::ICPUImage::EUF_SAMPLED_BIT);
 			outImage->addImageUsageFlags(asset::ICPUImage::EUF_STORAGE_BIT);
@@ -1364,13 +1390,13 @@ private:
 			CBlitFilter::updateBlitDescriptorSet(logicalDevice.get(), blitDS.get(), inImageView, outImageView, phaseSupportLUT);
 
 			logger->log("GPU begin..");
-			blitFilter.blit(queues[CommonAPI::InitOutput::EQT_COMPUTE], alphaSemantic, nullptr, nullptr, blitDS.get(), blitPipeline.get(), nullptr, nullptr, inImageDim, imageType, imageFormat, outImageGPU);
+			blitFilter.blit(queues[CommonAPI::InitOutput::EQT_COMPUTE], alphaSemantic, nullptr, nullptr, blitDS.get(), blitPipeline.get(), nullptr, nullptr, inImageDim, imageType, inImageFormat, outImageGPU);
 			logger->log("GPU end..\n");
 
 			// download results to check
 			{
 				core::smart_refctd_ptr<video::IGPUBuffer> downloadBuffer = nullptr;
-				const size_t downloadSize = gpuOutput.size() * sizeof(float);
+				const size_t downloadSize = gpuOutput.size();
 
 				video::IGPUBuffer::SCreationParams creationParams = {};
 				creationParams.usage = video::IGPUBuffer::EUF_TRANSFER_DST_BIT;
@@ -1400,21 +1426,49 @@ private:
 
 				video::IDriverMemoryAllocation::MappedMemoryRange memoryRange = {};
 				memoryRange.memory = downloadBuffer->getBoundMemory();
-				memoryRange.length = downloadBuffer->getMemoryReqs().vulkanReqs.size;
-				float* mappedGPUData = reinterpret_cast<float*>(logicalDevice->mapMemory(memoryRange));
+				memoryRange.length = downloadSize;
+				uint8_t* mappedGPUData = reinterpret_cast<uint8_t*>(logicalDevice->mapMemory(memoryRange));
 
-				memcpy(gpuOutput.data(), mappedGPUData, gpuOutput.size() * sizeof(float));
+				memcpy(gpuOutput.data(), mappedGPUData, gpuOutput.size());
 				logicalDevice->unmapMemory(downloadBuffer->getBoundMemory());
 			}
 		}
 
 		assert(gpuOutput.size() == cpuOutput.size());
 
-		double sqErr = 0.0;
-		for (uint64_t i = 0ull; i < gpuOutput.size(); ++i)
-			sqErr += (gpuOutput[i] - cpuOutput[i]) * (gpuOutput[i] - cpuOutput[i]);
+		const uint32_t outChannelCount = asset::getFormatChannelCount(outImageFormat);
 
-		const double RMSE = core::sqrt(sqErr / gpuOutput.size());
+		double sqErr = 0.0;
+		uint8_t* cpuBytePtr = cpuOutput.data();
+		uint8_t* gpuBytePtr = gpuOutput.data();
+		for (uint64_t k = 0u; k < outImageDim[2]; ++k)
+		{
+			for (uint64_t j = 0u; j < outImageDim[1]; ++j)
+			{
+				for (uint64_t i = 0; i < outImageDim[0]; ++i)
+				{
+					const uint64_t pixelIndex = (k * outImageDim[1] * outImageDim[0]) + (j * outImageDim[0]) + i;
+					core::vectorSIMDu32 dummy;
+
+					const void* cpuEncodedPixel = cpuBytePtr + pixelIndex * asset::getTexelOrBlockBytesize(outImageFormat);
+					const void* gpuEncodedPixel = gpuBytePtr + pixelIndex * asset::getTexelOrBlockBytesize(outImageFormat);
+
+					double cpuDecodedPixel[4];
+					asset::decodePixelsRuntime(outImageFormat, &cpuEncodedPixel, cpuDecodedPixel, dummy.x, dummy.y);
+
+					double gpuDecodedPixel[4];
+					asset::decodePixelsRuntime(outImageFormat, &gpuEncodedPixel, gpuDecodedPixel, dummy.x, dummy.y);
+
+					for (uint32_t ch = 0u; ch < outChannelCount; ++ch)
+					{
+						sqErr += (cpuDecodedPixel[ch] - gpuDecodedPixel[ch]) * (cpuDecodedPixel[ch] - gpuDecodedPixel[ch]);
+					}
+				}
+			}
+		}
+
+		const uint64_t totalPixelCount = static_cast<uint64_t>(outImageDim[2]) * outImageDim[1] * outImageDim[0];
+		const double RMSE = core::sqrt(sqErr / totalPixelCount);
 		logger->log("RMSE: %f\n", system::ILogger::ELL_DEBUG, RMSE);
 
 		_NBL_ALIGNED_FREE(blitFilterState.scratchMemory);
