@@ -23,6 +23,7 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
     public:
 		#include "rasterizationCommon.h"
 		#include "raytraceCommon.h"
+		#include "warpCommon.h"
 		#ifdef __cplusplus
 			#undef uint
 			#undef vec4
@@ -124,6 +125,7 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		void finalizeScene(InitializationData& initData);
 
 		//
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> createTexture(uint32_t width, uint32_t height, nbl::asset::E_FORMAT format, uint32_t layers=0u);
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> createScreenSizedTexture(nbl::asset::E_FORMAT format, uint32_t layers=0u);
 
 		//
@@ -162,7 +164,7 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		nbl::core::smart_refctd_ptr<IGPUSpecializedShader> m_raygenGPUShader;
 		nbl::core::smart_refctd_ptr<IGPUSpecializedShader> m_closestHitGPUShader;
 		nbl::core::smart_refctd_ptr<IGPUSpecializedShader> m_resolveGPUShader;
-
+		
 		// semi persistent data
 		nbl::io::path sampleSequenceCachePath;
 		struct SampleSequence
@@ -235,11 +237,34 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		nbl::video::IFrameBuffer* m_visibilityBuffer,* m_colorBuffer;
 		
 		// Resources used for blending environmental maps
+		static constexpr uint32_t MipCountEnvmap = 13u;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> m_finalEnvmap;
 		nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpassIndependentPipeline> blendEnvPipeline;
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSetLayout> blendEnvDescriptorSet;
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUMeshBuffer> blendEnvMeshBuffer;
 
-		nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> m_finalEnvmap;
+		// Shader and Resources for Generating Luminance MipMaps from EnvMap
+		static constexpr uint32_t MipCountLuminance = MipCountEnvmap;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> m_luminanceMipMaps[MipCountLuminance];
+		uint32_t m_lumaWorkGroups[2];
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSetLayout> m_lumaDSLayout;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSet> m_lumaDS[MipCountLuminance - 1];
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUPipelineLayout> m_lumaPipelineLayout;
+		nbl::core::smart_refctd_ptr<IGPUSpecializedShader> m_lumaGPUShader;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUComputePipeline> m_lumaPipeline;
+
+		// Shader and Resources for EnvironmentalMap Sample Warping
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> m_warpMap; // Warps Sample based on EnvMap Luminance
+
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSetLayout> m_warpLayout;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSet> m_warpDS;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUPipelineLayout> m_warpPipelineLayout;
+		nbl::core::smart_refctd_ptr<IGPUSpecializedShader> m_warpGPUShader;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUComputePipeline> m_warpPipeline;
+		
+		void initWarpingResources();
+		void deinitWarpingResources();
+		void computeLuminanceMipMaps();
 
 		std::future<bool> compileShadersFuture;
 };

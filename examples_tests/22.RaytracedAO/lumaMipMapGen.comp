@@ -1,54 +1,56 @@
 #version 430 core
-layout(local_size_x = WORKGROUP_DIM, local_size_y = WORKGROUP_DIM) in;
+#include "warpCommon.h"
+layout(local_size_x = LUMA_MIP_MAP_GEN_WORKGROUP_DIM, local_size_y = LUMA_MIP_MAP_GEN_WORKGROUP_DIM) in;
 
 #define MAX_LUMINANCE_LEVELS 13
 
-layout(set = 0, binding = 0) uniform sampler2DArray envMap; // should be PoT
-layout(set = 0, binding = 1, rgba16f) uniform image2D luminance[MAX_LUMINANCE_LEVELS];
+layout(set = 0, binding = 0) uniform sampler2D envMap; // should be PoT
+layout(set = 0, binding = 1, r32f) uniform coherent image2D srcLuminance;
+layout(set = 0, binding = 2, r32f) uniform coherent image2D dstluminance;
 
 layout(push_constant) uniform PushConstants
 {
-	uvec4 luminanceScales;
-	uint sourceMipLevel;
+	LumaMipMapGenShaderData_t data;
 } pc;
 
 void main()
 {
 	const ivec2 pixelCoord = ivec2(gl_GlobalInvocationID.xy);
-	ivec2 envMapSize = textureSize(envMap, 0);
-	uint maxLevel = log2(envMapSize.x); // 2^12 -> 11 10 9 8 7 6 5 4 3 2 1(2x1) -> 1x1 
+	
+	ivec2 envMapSize = textureSize(envMap, 0).xy;
+	const uint maxLevel = uint(log2(envMapSize.x));
+	ivec2 srcMipLevelSize = imageSize(srcLuminance).xy;
+	ivec2 dstMipLevelSize = imageSize(dstluminance).xy;
 
 	if (all(lessThan(pixelCoord,envMapSize)))
 	{
-		if(maxLevel >= MAX_LUMINANCE_LEVELS || pc.sourceMipLevel > maxLevel || pc.sourceMipLevel <= 0)
-			imageStore(luminance[maxLevel], pixelCoord, vec4(1.0, 0.0, 0.0, 0.0)); // Error
+		if(maxLevel >= MAX_LUMINANCE_LEVELS || srcMipLevelSize.x > envMapSize.x || dstMipLevelSize.x > srcMipLevelSize.x)
+		{
+			imageStore(dstluminance, pixelCoord, vec4(1.0, 0.0, 0.0, 0.0)); // Error
+		}
 
 		// Copy EnvMap to Last Luma MipMap Level
 		{
-			if(pc.sourceMipLevel == maxLevel)
+			if(srcMipLevelSize.x == envMapSize.x) // sourceMipLevel == maxLevel
 			{
-				vec4 envMapSample = texelFetch(envMap,ivec3(pixelCoord,0),0);
-				float luminance = dot(pc.luminanceScales, envMapSample);
-				imageStore(luminance[maxLevel], pixelCoord, luminance);
+				vec4 envMapSample = texelFetch(envMap, pixelCoord, 0);
+				float luma = dot(pc.data.luminanceScales, envMapSample);
+				imageStore(srcLuminance, pixelCoord, vec4(luma));
 
 				memoryBarrier();
 				barrier();
 			}
-			
-			uint dstMipLevel = pc.sourceMipLevel - 1;
-			
-			ivec2 dstMipLevelSize = vec2(
-				max(envMapSize.x >> (maxLevel - dstMipLevel), 1),
-				max(envMapSize.y >> (maxLevel - dstMipLevel), 1));
 
 			if (all(lessThan(pixelCoord,dstMipLevelSize)))
 			{
-				vec2 gatherCoordinate = (vec2(pixelCoord) + vec2(0.5, 0.5)) / vec2(dstMipLevelSize);
+				ivec2 gatherCoordinate = pixelCoord*2;
 
-				vec4 lumaValues = textureGather(luminance[pc.sourceMipLevel], gatherCoordinate);
-				float luma = lumaValues[0] + lumaValues[1] + lumaValues[2] + lumaValues[3];
+				float luma = imageLoad(srcLuminance, gatherCoordinate + ivec2(0,0)).r;
+				luma += imageLoad(srcLuminance, gatherCoordinate + ivec2(1,0)).r;
+				luma += imageLoad(srcLuminance, gatherCoordinate + ivec2(0,1)).r;
+				luma += imageLoad(srcLuminance, gatherCoordinate + ivec2(1,1)).r;
 
-				imageStore(luminance[dstMipLevel], pixelCoord, luma);
+				imageStore(dstluminance, pixelCoord, vec4(luma));
 			}
 		}
 	}

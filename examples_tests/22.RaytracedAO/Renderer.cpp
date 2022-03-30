@@ -705,8 +705,7 @@ void Renderer::initSceneNonAreaLights(Renderer::InitializationData& initData)
 	video::IFrameBuffer* finalEnvFramebuffer = nullptr;
 	{
 		const auto colorFormat = asset::EF_R16G16B16A16_SFLOAT;
-		const auto mipCount = 13u;
-		const auto resolution = 0x1u<<(mipCount-1u);
+		const auto resolution = 0x1u<<(MipCountEnvmap-1u);
 
 		IGPUImage::SCreationParams imgInfo;
 		imgInfo.format = colorFormat;
@@ -714,7 +713,7 @@ void Renderer::initSceneNonAreaLights(Renderer::InitializationData& initData)
 		imgInfo.extent.width = resolution;
 		imgInfo.extent.height = resolution/2;
 		imgInfo.extent.depth = 1u;
-		imgInfo.mipLevels = mipCount;
+		imgInfo.mipLevels = MipCountEnvmap;
 		imgInfo.arrayLayers = 1u;
 		imgInfo.samples = asset::ICPUImage::ESCF_1_BIT;
 		imgInfo.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0u);
@@ -729,7 +728,7 @@ void Renderer::initSceneNonAreaLights(Renderer::InitializationData& initData)
 		imgViewInfo.subresourceRange.baseArrayLayer = 0u;
 		imgViewInfo.subresourceRange.baseMipLevel = 0u;
 		imgViewInfo.subresourceRange.layerCount = 1u;
-		imgViewInfo.subresourceRange.levelCount = mipCount;
+		imgViewInfo.subresourceRange.levelCount = MipCountEnvmap;
 
 		m_finalEnvmap = m_driver->createGPUImageView(std::move(imgViewInfo));
 
@@ -786,6 +785,9 @@ void Renderer::initSceneNonAreaLights(Renderer::InitializationData& initData)
 	// always needs doing after rendering
 	// TODO: better filter and GPU accelerated
 	m_finalEnvmap->regenerateMipMapLevels();
+
+	initWarpingResources();
+	computeLuminanceMipMaps();
 }
 
 void Renderer::finalizeScene(Renderer::InitializationData& initData)
@@ -826,12 +828,12 @@ void Renderer::finalizeScene(Renderer::InitializationData& initData)
 	}
 }
 
-core::smart_refctd_ptr<IGPUImageView> Renderer::createScreenSizedTexture(E_FORMAT format, uint32_t layers)
+core::smart_refctd_ptr<IGPUImageView> Renderer::createTexture(uint32_t width, uint32_t height, E_FORMAT format, uint32_t layers)
 {
 	const auto real_layers = layers ? layers:1u;
 
 	IGPUImage::SCreationParams imgparams;
-	imgparams.extent = {m_staticViewData.imageDimensions.x,m_staticViewData.imageDimensions.y,1u};
+	imgparams.extent = {width, height, 1u};
 	imgparams.arrayLayers = real_layers;
 	imgparams.flags = static_cast<IImage::E_CREATE_FLAGS>(0);
 	imgparams.format = format;
@@ -853,6 +855,10 @@ core::smart_refctd_ptr<IGPUImageView> Renderer::createScreenSizedTexture(E_FORMA
 	return m_driver->createGPUImageView(std::move(viewparams));
 }
 
+core::smart_refctd_ptr<IGPUImageView> Renderer::createScreenSizedTexture(E_FORMAT format, uint32_t layers)
+{
+	return createTexture(m_staticViewData.imageDimensions.x, m_staticViewData.imageDimensions.y, format, layers);
+}
 
 core::smart_refctd_ptr<asset::ICPUBuffer> Renderer::SampleSequence::createCPUBuffer(uint32_t quantizedDimensions, uint32_t sampleCount)
 {
@@ -900,8 +906,6 @@ core::smart_refctd_ptr<ICPUBuffer> Renderer::SampleSequence::createBufferView(IV
 	// return for caching
 	return buff;
 }
-
-//
 
 // TODO: be able to fail
 void Renderer::initSceneResources(SAssetBundle& meshes, nbl::io::path&& _sampleSequenceCachePath)
@@ -1114,6 +1118,7 @@ void Renderer::deinitSceneResources()
 	m_sceneBound = core::aabbox3df(FLT_MAX, FLT_MAX, FLT_MAX, -FLT_MAX, -FLT_MAX, -FLT_MAX);
 	
 	m_finalEnvmap = nullptr;
+	deinitWarpingResources();
 	m_staticViewData = {{0u,0u},0u,0u};
 
 	auto rr = m_rrManager->getRadeonRaysAPI();
@@ -1641,6 +1646,8 @@ bool Renderer::render(nbl::ITimer* timer, const bool transformNormals, const boo
 	camera->OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(timer->getTime()).count());
 	camera->render();
 
+	computeLuminanceMipMaps();
+
 	// check if camera moved
 	{
 		auto properEquals = [](const core::matrix4x3& lhs, const core::matrix4x3& rhs) -> bool
@@ -1904,6 +1911,150 @@ bool Renderer::traceBounce(uint32_t& raycount)
 	return true;
 }
 
+void Renderer::initWarpingResources()
+{
+	for(int i = MipCountLuminance - 1; i >= 0; --i)
+	{
+		const uint32_t resolution = 0x1u<<i;
+		const uint32_t width = std::max(resolution, 1u);
+		const uint32_t height = std::max(resolution/2u, 1u);
+		m_luminanceMipMaps[i] = createTexture(width, height, EF_R32_SFLOAT);
+		assert(m_luminanceMipMaps[i]);
+	}
+
+	ISampler::SParams samplerParams;
+	samplerParams.TextureWrapU = samplerParams.TextureWrapV = samplerParams.TextureWrapW = ISampler::ETC_CLAMP_TO_EDGE;
+	samplerParams.MinFilter = samplerParams.MaxFilter = ISampler::ETF_NEAREST;
+	samplerParams.MipmapMode = ISampler::ESMM_NEAREST;
+	samplerParams.AnisotropicFilter = 0u;
+	samplerParams.CompareEnable = false;
+	auto sampler = m_driver->createGPUSampler(samplerParams);
+
+	// Create DescriptorLayout
+	{
+		constexpr auto lumaDescriptorCount = 3u;
+		IGPUDescriptorSetLayout::SBinding bindings[lumaDescriptorCount];
+		bindings[0].binding = 0u;
+		bindings[0].type = asset::EDT_COMBINED_IMAGE_SAMPLER;
+		bindings[0].stageFlags = ISpecializedShader::ESS_COMPUTE;
+		bindings[0].count = 1u;
+		bindings[0].samplers = &sampler;
+		
+		bindings[1].binding = 1u;
+		bindings[1].type = asset::EDT_STORAGE_IMAGE;
+		bindings[1].stageFlags = ISpecializedShader::ESS_COMPUTE;
+		bindings[1].count = 1u;
+
+		bindings[2].binding = 2u;
+		bindings[2].type = asset::EDT_STORAGE_IMAGE;
+		bindings[2].stageFlags = ISpecializedShader::ESS_COMPUTE;
+		bindings[2].count = 1u;
+
+		m_lumaDSLayout = m_driver->createGPUDescriptorSetLayout(bindings,bindings+lumaDescriptorCount);
+	}
+
+	{
+		SPushConstantRange range{ISpecializedShader::ESS_COMPUTE,0u,sizeof(LumaMipMapGenShaderData_t)};
+		m_lumaPipelineLayout = m_driver->createGPUPipelineLayout(&range,&range+1u,core::smart_refctd_ptr(m_lumaDSLayout));
+		
+		for(uint32_t i = 0u; i < MipCountLuminance - 1; ++i)
+		 	m_lumaDS[i] = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_lumaDSLayout));
+	
+		for(uint32_t i = 0u; i < MipCountLuminance - 1; ++i)
+		{
+			const uint32_t src = i + 1;
+			const uint32_t dst = i;
+			
+			IGPUDescriptorSet::SDescriptorInfo envMapDescriptorInfo = {};
+			envMapDescriptorInfo.desc = m_finalEnvmap;
+			envMapDescriptorInfo.image.sampler = nullptr;
+			envMapDescriptorInfo.image.imageLayout = asset::EIL_SHADER_READ_ONLY_OPTIMAL;
+		
+			IGPUDescriptorSet::SDescriptorInfo srcMipDescriptorInfo = {};
+			srcMipDescriptorInfo.desc = m_luminanceMipMaps[src];
+			srcMipDescriptorInfo.image.sampler = nullptr;
+			srcMipDescriptorInfo.image.imageLayout = asset::EIL_GENERAL;
+
+			IGPUDescriptorSet::SDescriptorInfo dstMipDescriptorInfo = {};
+			dstMipDescriptorInfo.desc = m_luminanceMipMaps[dst];
+			dstMipDescriptorInfo.image.sampler = nullptr;
+			dstMipDescriptorInfo.image.imageLayout = asset::EIL_GENERAL;
+
+			IGPUDescriptorSet::SWriteDescriptorSet writes[3u];
+			writes[0].binding = 0u;
+			writes[0].arrayElement = 0u;
+			writes[0].count = 1u;
+			writes[0].descriptorType = EDT_COMBINED_IMAGE_SAMPLER;
+			writes[0].dstSet = m_lumaDS[i].get();
+			writes[0].info = &envMapDescriptorInfo;
+		
+			writes[1].binding = 1u;
+			writes[1].arrayElement = 0u;
+			writes[1].count = 1u;
+			writes[1].descriptorType = EDT_STORAGE_IMAGE;
+			writes[1].dstSet = m_lumaDS[i].get();
+			writes[1].info = &srcMipDescriptorInfo;
+
+			writes[2].binding = 2u;
+			writes[2].arrayElement = 0u;
+			writes[2].count = 1u;
+			writes[2].descriptorType = EDT_STORAGE_IMAGE;
+			writes[2].dstSet = m_lumaDS[i].get();
+			writes[2].info = &dstMipDescriptorInfo;
+
+			m_driver->updateDescriptorSets(3u,writes,0u,nullptr);
+		}
+	}
+
+	{
+		m_lumaGPUShader = gpuSpecializedShaderFromFile(m_assetManager, m_driver, "../lumaMipMapGen.comp");
+		assert(m_lumaGPUShader);
+
+		m_lumaPipeline = m_driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(m_lumaPipelineLayout), core::smart_refctd_ptr(m_lumaGPUShader));
+		assert(m_lumaPipeline);
+
+	}
+
+}
+
+void Renderer::deinitWarpingResources()
+{
+	m_lumaPipeline = nullptr;
+	m_lumaGPUShader = nullptr;
+	for(uint32_t i = 0u; i < MipCountLuminance - 1; ++i)
+		m_lumaDS[i] = nullptr;
+	m_lumaPipelineLayout = nullptr;
+	m_lumaDSLayout = nullptr;
+	for(uint32_t i = 0; i < MipCountLuminance; ++i)
+		m_luminanceMipMaps[i] = nullptr;
+}
+
+void Renderer::computeLuminanceMipMaps()
+{
+	m_driver->bindComputePipeline(m_lumaPipeline.get());
+
+	LumaMipMapGenShaderData_t pcData = {};
+	pcData.luminanceScales = { 0.2126729f , 0.7151522f, 0.0721750f, 0.0f };;
+	
+	for(uint32_t s = MipCountLuminance - 1; s > 0u; --s)
+	{
+		m_driver->bindDescriptorSets(EPBP_COMPUTE,m_lumaPipeline->getLayout(),0u,1u,&m_lumaDS[s-1].get(),nullptr);
+
+		const uint32_t resolution = 0x1u<<s;
+		const uint32_t sourceMipWidth = std::max(resolution, 1u);
+		const uint32_t sourceMipHeight = std::max(resolution/2u, 1u);
+		
+		uint32_t workGroups[2] = {
+			(sourceMipWidth-1u)/LUMA_MIP_MAP_GEN_WORKGROUP_DIM+1u,
+			(sourceMipHeight-1u)/LUMA_MIP_MAP_GEN_WORKGROUP_DIM+1u
+		};
+
+		m_driver->pushConstants(m_lumaPipeline->getLayout(),ICPUSpecializedShader::ESS_COMPUTE,0u,sizeof(pcData),&pcData);
+		m_driver->dispatch(workGroups[0],workGroups[1],1);
+		COpenGLExtensionHandler::pGlMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT|GL_SHADER_IMAGE_ACCESS_BARRIER_BIT|GL_TEXTURE_UPDATE_BARRIER_BIT|GL_SHADER_STORAGE_BARRIER_BIT);
+	}
+
+}
 
 const float Renderer::AntiAliasingSequence[Renderer::AntiAliasingSequenceLength][2] =
 {
