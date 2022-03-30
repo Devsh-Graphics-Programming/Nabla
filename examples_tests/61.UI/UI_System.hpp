@@ -7,16 +7,14 @@ namespace UI_System
 
     // TODO Support for custom font
     void Init(
-	    nbl::video::ILogicalDevice & device,
+	    nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice> const & device,
+        float screenWidth, float screenHeight,
 	    nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpass> & renderPass,
 	    nbl::video::IGPUPipelineCache * pipelineCache,
 	    nbl::video::IGPUObjectFromAssetConverter::SParams & cpu2GpuParams
     );
 
-    bool Render(
-        float deltaTimeInSec,
-        RT::CommandRecordState & drawPass
-    );
+    bool Render(float const deltaTimeInSec, nbl::video::IGPUCommandBuffer & commandBuffer);
 
     void PostRender(float deltaTimeInSec);
 
