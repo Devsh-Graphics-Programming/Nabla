@@ -256,7 +256,7 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		// Shader and Resources for EnvironmentalMap Sample Warping
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> m_warpMap; // Warps Sample based on EnvMap Luminance
 
-		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSetLayout> m_warpLayout;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSetLayout> m_warpDSLayout;
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSet> m_warpDS;
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUPipelineLayout> m_warpPipelineLayout;
 		nbl::core::smart_refctd_ptr<IGPUSpecializedShader> m_warpGPUShader;
@@ -264,7 +264,7 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		
 		void initWarpingResources();
 		void deinitWarpingResources();
-		void computeLuminanceMipMaps();
+		void computeWarpMap();
 
 		std::future<bool> compileShadersFuture;
 };
