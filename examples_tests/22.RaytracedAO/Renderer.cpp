@@ -1646,8 +1646,6 @@ bool Renderer::render(nbl::ITimer* timer, const bool transformNormals, const boo
 	camera->OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(timer->getTime()).count());
 	camera->render();
 
-	computeLuminanceMipMaps();
-
 	// check if camera moved
 	{
 		auto properEquals = [](const core::matrix4x3& lhs, const core::matrix4x3& rhs) -> bool
@@ -2034,10 +2032,12 @@ void Renderer::computeLuminanceMipMaps()
 	m_driver->bindComputePipeline(m_lumaPipeline.get());
 
 	LumaMipMapGenShaderData_t pcData = {};
-	pcData.luminanceScales = { 0.2126729f , 0.7151522f, 0.0721750f, 0.0f };;
+	pcData.luminanceScales = { 0.2126729f , 0.7151522f, 0.0721750f, 0.0f };
 	
-	for(uint32_t s = MipCountLuminance - 1; s > 0u; --s)
+	// Calc Luma
 	{
+		pcData.calcLuma = 1;
+		uint32_t s = MipCountLuminance - 1;
 		m_driver->bindDescriptorSets(EPBP_COMPUTE,m_lumaPipeline->getLayout(),0u,1u,&m_lumaDS[s-1].get(),nullptr);
 
 		const uint32_t resolution = 0x1u<<s;
@@ -2051,7 +2051,27 @@ void Renderer::computeLuminanceMipMaps()
 
 		m_driver->pushConstants(m_lumaPipeline->getLayout(),ICPUSpecializedShader::ESS_COMPUTE,0u,sizeof(pcData),&pcData);
 		m_driver->dispatch(workGroups[0],workGroups[1],1);
-		COpenGLExtensionHandler::pGlMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT|GL_SHADER_IMAGE_ACCESS_BARRIER_BIT|GL_TEXTURE_UPDATE_BARRIER_BIT|GL_SHADER_STORAGE_BARRIER_BIT);
+		COpenGLExtensionHandler::pGlMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT|GL_SHADER_IMAGE_ACCESS_BARRIER_BIT|GL_TEXTURE_UPDATE_BARRIER_BIT);
+	}
+
+	// Calc Mipmaps
+	for(uint32_t s = MipCountLuminance - 1; s > 0u; --s)
+	{
+		m_driver->bindDescriptorSets(EPBP_COMPUTE,m_lumaPipeline->getLayout(),0u,1u,&m_lumaDS[s-1].get(),nullptr);
+
+		const uint32_t resolution = 0x1u<<s;
+		const uint32_t sourceMipWidth = std::max(resolution, 1u);
+		const uint32_t sourceMipHeight = std::max(resolution/2u, 1u);
+		
+		uint32_t workGroups[2] = {
+			(sourceMipWidth-1u)/LUMA_MIP_MAP_GEN_WORKGROUP_DIM+1u,
+			(sourceMipHeight-1u)/LUMA_MIP_MAP_GEN_WORKGROUP_DIM+1u
+		};
+
+		pcData.calcLuma = 0;
+		m_driver->pushConstants(m_lumaPipeline->getLayout(),ICPUSpecializedShader::ESS_COMPUTE,0u,sizeof(pcData),&pcData);
+		m_driver->dispatch(workGroups[0],workGroups[1],1);
+		COpenGLExtensionHandler::pGlMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT|GL_SHADER_IMAGE_ACCESS_BARRIER_BIT|GL_TEXTURE_UPDATE_BARRIER_BIT);
 	}
 
 }
