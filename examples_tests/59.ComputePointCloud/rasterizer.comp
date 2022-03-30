@@ -44,7 +44,7 @@ layout (set = 0, binding = 3, std430) buffer debugOutput {
 
 void writeOut(ivec2 coords, float pointDepth, uint pointId) {
 	float previousDepth = uintBitsToFloat(imageLoad(outImage, coords).x);
-	if (previousDepth <= pointDepth) {
+	if (pointDepth > previousDepth) {
 		imageStore(outImage, coords, uvec4(floatBitsToUint(pointDepth), pointId, 0, 0));
 	}
 }
@@ -79,6 +79,7 @@ void main()
 		{
 			continue;
 		}
+		ndc.z = 1.0 - ndc.z;
 
 		vec2 uv = (ndc.xy + 1.0) * 0.5;
 		const ivec2 size = ivec2(5, 5);
@@ -92,8 +93,10 @@ void main()
 			// TODO 64 bit atomic implementation
 			for (bool done = false; !done;) {
 				if (imageAtomicExchange(spinLock, coords, 1u) == 0u) {
+					memoryBarrierImage();
 					writeOut(coords, ndc.z, virtInvoc);
 					imageStore(spinLock, coords, uvec4(0u));
+					memoryBarrierImage();
 					done = true;
 				}
 			}

@@ -94,7 +94,6 @@ public:
 
 	core::smart_refctd_ptr<video::IGPUImage> m_visbuffer;
 	core::smart_refctd_ptr<video::IGPUImageView> m_visbufferViewRender;
-	core::smart_refctd_ptr<video::IGPUImageView> m_visbufferViewFloat;
 
 	core::smart_refctd_ptr<video::IGPUImage> m_spinlock;
 	core::smart_refctd_ptr<video::IGPUImageView> m_spinlockView;
@@ -393,7 +392,6 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 			}
 			m_visbuffer = logicalDevice->createDeviceLocalGPUImageOnDedMem(std::move(imageParams));
 			m_visbufferViewRender = getImgView(m_visbuffer, asset::E_FORMAT::EF_R32G32_UINT);
-			m_visbufferViewFloat = getImgView(m_visbuffer, asset::E_FORMAT::EF_R32G32_SFLOAT);
 		}
 
 		// Create the spinlock image
@@ -427,7 +425,7 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 			//return std::make_pair(core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(meshes_bundle.getContents().begin()[0]), meshes_bundle.getMetadata());
 		};
 
-		auto cpuBundlePLYData = loadAndGetCpuMesh(sharedInputCWD / "ply/Spanner-ply.ply");
+		auto cpuBundlePLYData = loadAndGetCpuMesh(sharedInputCWD / "ply/Ruddington_Neighbrhd_2022-03-29_10h19_10_611.ply");
 
 		core::smart_refctd_ptr<asset::ICPUMesh> cpuMeshPly = cpuBundlePLYData.first;
 		auto metadataPly = cpuBundlePLYData.second->selfCast<const asset::CPLYMetadata>();
@@ -548,7 +546,7 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 			{
 				descriptorInfos[0].image.imageLayout = asset::EIL_GENERAL;
 				descriptorInfos[0].image.sampler = nullptr;
-				descriptorInfos[0].desc = m_visbufferViewFloat;
+				descriptorInfos[0].desc = m_visbufferViewRender;
 
 				writeDescriptorSets[0].dstSet = m_shadingDescriptorSets[i].get();
 				writeDescriptorSets[0].binding = 0u;
@@ -613,7 +611,7 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 			{
 				descriptorInfos[0].image.imageLayout = asset::EIL_GENERAL;
 				descriptorInfos[0].image.sampler = nullptr;
-				descriptorInfos[0].desc = m_visbufferViewFloat;
+				descriptorInfos[0].desc = m_visbufferViewRender;
 
 				writeDescriptorSets[0].dstSet = m_clearDescriptorSet.get();
 				writeDescriptorSets[0].binding = 0u;
@@ -642,7 +640,7 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 		// Other initialization
 		core::vectorSIMDf cameraPosition(0, 5, -10);
 		matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60.0f), float(WIN_W) / WIN_H, 0.001, 1000);
-		camera = Camera(cameraPosition, core::vectorSIMDf(0, 0, 0), projectionMatrix, 0.01f, 1.f);
+		camera = Camera(cameraPosition, core::vectorSIMDf(0, 0, 0), projectionMatrix, 0.1f, 1.f);
 		lastTime = std::chrono::system_clock::now();
 
 		for (size_t i = 0ull; i < NBL_FRAMES_TO_AVERAGE; ++i)

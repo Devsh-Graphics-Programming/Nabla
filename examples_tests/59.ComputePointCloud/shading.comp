@@ -14,7 +14,7 @@ layout (push_constant) uniform pushConstants
 {
 	ShadingPushConstants c;
 } u_pushConstants;
-layout (set = 0, binding = 0, rg32f) uniform readonly image2D visbuffer;
+layout (set = 0, binding = 0, rg32ui) uniform readonly uimage2D visbuffer;
 
 struct WorldPosition {
 	float x, y, z;
@@ -35,14 +35,14 @@ void main()
 	}
 	ivec2 coordsi = ivec2(coords);
 
-	vec2 vis = imageLoad(visbuffer, coordsi).xy;
-	float depth = vis.x;
-	uint pointId = floatBitsToUint(vis.y);
+	uvec2 vis = imageLoad(visbuffer, coordsi).xy;
+	float depth = uintBitsToFloat(vis.x);
+	uint pointId = vis.y;
 	
 	// Sky pixel
 	if (depth == 0.0) {
 		imageStore(outImage, coordsi, vec4(0.0));
 	} else {
-		imageStore(outImage, coordsi, vec4(1.0));
+		imageStore(outImage, coordsi, vec4(mix(vec3(186, 0, 13) / vec3(255), vec3(118, 255, 3) / vec3(255), vec3(depth * 10000.0)), 1.0));
 	}
 }
