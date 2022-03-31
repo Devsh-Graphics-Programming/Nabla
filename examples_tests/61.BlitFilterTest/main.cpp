@@ -61,7 +61,10 @@ core::smart_refctd_ptr<ICPUImage> createCPUImage(const core::vectorSIMDu32& dims
 			{
 				for (uint64_t i = 0; i < dims[0]; ++i)
 				{
-					const double decodedPixel[4] = { dist(prng), dist(prng), dist(prng), dist(prng) };
+					double decodedPixel[4] = { 0 };
+					for (uint32_t ch = 0u; ch < asset::getFormatChannelCount(format); ++ch)
+						decodedPixel[ch] = dist(prng);
+
 					const uint64_t pixelIndex = (k * dims[1] * dims[0]) + (j * dims[0]) + i;
 					asset::encodePixelsRuntime(format, bytePtr + pixelIndex * asset::getTexelOrBlockBytesize(format), decodedPixel);
 				}
@@ -104,7 +107,7 @@ static inline video::IGPUImageView::E_TYPE getImageViewTypeFromImageType_GPU(con
 	}
 }
 
-constexpr asset::E_FORMAT TEST_FORMAT = asset::EF_R16G16_SFLOAT;
+constexpr asset::E_FORMAT TEST_FORMAT = asset::EF_B10G11R11_UFLOAT_PACK32;
 
 class CBlitFilter
 {

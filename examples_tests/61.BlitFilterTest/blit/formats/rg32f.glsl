@@ -1,5 +1,5 @@
-#ifndef _NBL_GLSL_BLIT_RG16F_INCLUDED_
-#define _NBL_GLSL_BLIT_RG16F_INCLUDED_
+#ifndef _NBL_GLSL_BLIT_RG32F_INCLUDED_
+#define _NBL_GLSL_BLIT_RG32F_INCLUDED_
 
 #ifndef _NBL_GLSL_BLIT_DIM_COUNT_
 	#error _NBL_GLSL_BLIT_DIM_COUNT_ must be defined
@@ -21,9 +21,9 @@ void nbl_glsl_blit_setData(in nbl_glsl_blit_pixel_t value, in ivec3 coord)
 	#error _NBL_GLSL_BLIT_DIM_COUNT_ not supported
 #endif
 
-	const uint encoded = packHalf2x16(vec2(value.data.r, value.data.g));
+	const uvec4 encoded = uvec4(floatBitsToUint(value.data.r), floatBitsToUint(value.data.g), 0u, 0u);
 
-	imageStore(_NBL_GLSL_BLIT_OUT_DESCRIPTOR_DEFINED_, COORD, uvec4(encoded, 0, 0, 0));
+	imageStore(_NBL_GLSL_BLIT_OUT_DESCRIPTOR_DEFINED_, COORD, encoded);
 
 #undef COORD
 }
