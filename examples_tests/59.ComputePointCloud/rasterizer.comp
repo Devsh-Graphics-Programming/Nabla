@@ -36,12 +36,6 @@ struct DebugOutputPoint {
 	vec2 pad3;
 };
 
-
-// TODO remove (temp debug)
-layout (set = 0, binding = 3, std430) buffer debugOutput {
-	DebugOutputPoint transformed[];
-} u_debugOutput;
-
 void writeOut(ivec2 coords, float pointDepth, uint pointId) {
 	float previousDepth = uintBitsToFloat(imageLoad(outImage, coords).x);
 	if (pointDepth > previousDepth) {
@@ -62,9 +56,6 @@ void main()
 		WorldPosition pointPos = u_pointCloud.position[virtInvoc];
 		vec3 pointPos3 = vec3(pointPos.x, pointPos.y, pointPos.z);
 		vec4 transformed = nbl_glsl_pseudoMul4x4with3x1(spvWorkaroundRowMajor(u_pushConstants.c.mvp), pointPos3);
-
-		u_debugOutput.transformed[virtInvoc].transformed = transformed;
-		u_debugOutput.transformed[virtInvoc].cameraCull = uvec4(floatBitsToUint(transformed.z) >> 31, floatBitsToUint(transformed.w) >> 31, (floatBitsToUint(transformed.z) ^ floatBitsToUint(transformed.w)) >> 31, 0);
 
 		// Behind the camera
 		// XOR of the sign bits (if only one of Z or W is negative, cull it)
@@ -101,9 +92,5 @@ void main()
 				}
 			}
 		}
-
-		u_debugOutput.transformed[virtInvoc].ndc = ndc;
-		u_debugOutput.transformed[virtInvoc].uv = uv;
-		u_debugOutput.transformed[virtInvoc].coords = coords;
 	}
 }

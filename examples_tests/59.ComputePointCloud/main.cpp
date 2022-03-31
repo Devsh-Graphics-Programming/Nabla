@@ -253,7 +253,7 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 		core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> rasterizerDsLayout;
 		{
 			// Rasterizer descriptor set layout
-			const uint32_t bindingCount = 4u;
+			const uint32_t bindingCount = 3u;
 			video::IGPUDescriptorSetLayout::SBinding bindings[bindingCount] = {
 				// Binding 0: outImage
 				{0u, asset::EDT_STORAGE_IMAGE, 1u, asset::IShader::ESS_COMPUTE, nullptr},
@@ -261,8 +261,6 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 				{1u, asset::EDT_STORAGE_IMAGE, 1u, asset::IShader::ESS_COMPUTE, nullptr},
 				// Binding 2: u_pointCloud
 				{2u, asset::EDT_STORAGE_BUFFER, 1u, asset::IShader::ESS_COMPUTE, nullptr},
-				// Binding 3: u_debugOutput (temp)
-				{3u, asset::EDT_STORAGE_BUFFER, 1u, asset::IShader::ESS_COMPUTE, nullptr}
 			};
 
 			rasterizerDsLayout = logicalDevice->createGPUDescriptorSetLayout(bindings, bindings + bindingCount);
@@ -270,7 +268,7 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 			const uint32_t descriptorPoolSizeCount = 2u;
 			video::IDescriptorPool::SDescriptorPoolSize poolSizes[descriptorPoolSizeCount] = {
 				{asset::EDT_STORAGE_IMAGE, 2},
-				{asset::EDT_STORAGE_BUFFER, 2}
+				{asset::EDT_STORAGE_BUFFER, 1}
 			};
 
 			video::IDescriptorPool::E_CREATE_FLAGS descriptorPoolFlags =
@@ -464,7 +462,7 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 		// Fill out the descriptor sets
 		// Rasterizer descriptor sets
 		{
-			const uint32_t writeDescriptorCount = 4u;
+			const uint32_t writeDescriptorCount = 3u;
 
 			video::IGPUDescriptorSet::SDescriptorInfo descriptorInfos[writeDescriptorCount];
 			video::IGPUDescriptorSet::SWriteDescriptorSet writeDescriptorSets[writeDescriptorCount] = {};
@@ -509,23 +507,6 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 				writeDescriptorSets[2].count = 1u;
 				writeDescriptorSets[2].descriptorType = asset::EDT_STORAGE_BUFFER;
 				writeDescriptorSets[2].info = &descriptorInfos[2];
-			}
-
-			// (Temp) Debug buffer
-			{
-				video::IGPUBuffer::SCreationParams dbgBufParams;
-				m_debugBuffer = logicalDevice->createDeviceLocalGPUBufferOnDedMem(dbgBufParams, m_pointCount * 16 * 5);
-
-				descriptorInfos[3].buffer.offset = 0;
-				descriptorInfos[3].buffer.size = m_debugBuffer->getSize();
-				descriptorInfos[3].desc = m_debugBuffer;
-
-				writeDescriptorSets[3].dstSet = m_rasterizeDescriptorSet.get();
-				writeDescriptorSets[3].binding = 3u;
-				writeDescriptorSets[3].arrayElement = 0u;
-				writeDescriptorSets[3].count = 1u;
-				writeDescriptorSets[3].descriptorType = asset::EDT_STORAGE_BUFFER;
-				writeDescriptorSets[3].info = &descriptorInfos[3];
 			}
 
 			logicalDevice->updateDescriptorSets(writeDescriptorCount, writeDescriptorSets, 0u, nullptr);
