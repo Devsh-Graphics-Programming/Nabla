@@ -435,11 +435,21 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 		core::smart_refctd_ptr<video::IGPUBuffer> positionVb;
 
 		{
-			// TODO repack with mesh manipulator
 			auto meshManipulator = assetManager->getMeshManipulator();
 
 			const asset::ICPUMeshBuffer* const firstMeshBuffer = cpuMeshPly->getMeshBuffers().begin()[0];
-			const asset::SBufferBinding<const asset::ICPUBuffer> posBufferBinding = firstMeshBuffer->getVertexBufferBindings()[firstMeshBuffer->getPositionAttributeIx()];
+			core::smart_refctd_ptr<asset::ICPUMeshBuffer> meshBuffer = core::smart_refctd_ptr_static_cast<asset::ICPUMeshBuffer>(firstMeshBuffer->clone());
+
+			meshBuffer->setIndexBufferBinding({});
+			for (uint32_t binding = 0; binding < asset::ICPUMeshBuffer::MAX_VERTEX_ATTRIB_COUNT; binding++)
+			{
+				if (binding != meshBuffer->getPositionAttributeIx()) 
+				{
+					meshBuffer->setVertexBufferBinding({}, binding);
+				}
+			}
+
+			const asset::SBufferBinding<asset::ICPUBuffer> posBufferBinding = meshBuffer->getVertexBufferBindings()[meshBuffer->getPositionAttributeIx()];
 			core::smart_refctd_ptr<const asset::ICPUBuffer> posBuffer = posBufferBinding.buffer;
 
 			m_pointCount = posBuffer->getSize() / 12;
