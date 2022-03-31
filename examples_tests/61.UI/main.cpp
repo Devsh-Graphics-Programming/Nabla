@@ -88,7 +88,7 @@ class UIApp : public ApplicationBase
 			
 			const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT);
 			const video::ISurface::SFormat surfaceFormat(asset::EF_B8G8R8A8_SRGB, asset::ECP_COUNT, asset::EOTF_UNKNOWN);
-			CommonAPI::InitWithDefaultExt(initOutput, video::EAT_OPENGL, "glTF", WIN_W, WIN_H, SC_IMG_COUNT, swapchainImageUsage, surfaceFormat, asset::EF_D32_SFLOAT);
+			CommonAPI::InitWithDefaultExt(initOutput, video::EAT_VULKAN, "UI", WIN_W, WIN_H, SC_IMG_COUNT, swapchainImageUsage, surfaceFormat, asset::EF_D32_SFLOAT);
 			window = std::move(initOutput.window);
 			gl = std::move(initOutput.apiConnection);
 			surface = std::move(initOutput.surface);
@@ -118,6 +118,12 @@ class UIApp : public ApplicationBase
 				nullptr, 
 				cpu2gpuParams
 			);
+
+			UI::Register([]()->void{
+				UI::BeginWindow("Test window");
+				UI::Text("Hi");
+				UI::EndWindow();
+			});
 
 			logicalDevice->createCommandBuffers(commandPools[CommonAPI::InitOutput::EQT_GRAPHICS].get(),video::IGPUCommandBuffer::EL_PRIMARY,FRAMES_IN_FLIGHT,commandBuffers);
 
@@ -151,6 +157,8 @@ class UIApp : public ApplicationBase
 			commandBuffer->reset(nbl::video::IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
 			commandBuffer->begin(0);
 
+			swapchain->acquireNextImage(imageAcquire[resourceIx].get(), fence.get(), &acquiredNextFBO);
+			
 			asset::SViewport viewport;
 			viewport.minDepth = 1.f;
 			viewport.maxDepth = 0.f;
@@ -166,9 +174,9 @@ class UIApp : public ApplicationBase
 				area.offset = { 0,0 };
 				area.extent = { WIN_W, WIN_H };
 				asset::SClearValue clear[2] = {};
-				clear[0].color.float32[0] = 1.f;
-				clear[0].color.float32[1] = 1.f;
-				clear[0].color.float32[2] = 1.f;
+				clear[0].color.float32[0] = 0.f;
+				clear[0].color.float32[1] = 0.f;
+				clear[0].color.float32[2] = 0.f;
 				clear[0].color.float32[3] = 1.f;
 				clear[1].depthStencil.depth = 0.f;
 
@@ -191,7 +199,7 @@ class UIApp : public ApplicationBase
 			CommonAPI::Submit(logicalDevice.get(), swapchain.get(), commandBuffer.get(), queues[decltype(initOutput)::EQT_GRAPHICS], imageAcquire[resourceIx].get(), renderFinished[resourceIx].get(), fence.get());
 			CommonAPI::Present(logicalDevice.get(), swapchain.get(), queues[decltype(initOutput)::EQT_GRAPHICS], renderFinished[resourceIx].get(), acquiredNextFBO);
 
-			UI::PostRender(deltaTimeInSec);
+			UI::Update(deltaTimeInSec);
 		}
 
 		bool keepRunning() override
@@ -226,9 +234,7 @@ class UIApp : public ApplicationBase
 		core::smart_refctd_ptr<video::IGPUFence> frameComplete[FRAMES_IN_FLIGHT] = { nullptr };
 		core::smart_refctd_ptr<video::IGPUSemaphore> imageAcquire[FRAMES_IN_FLIGHT] = { nullptr };
 		core::smart_refctd_ptr<video::IGPUSemaphore> renderFinished[FRAMES_IN_FLIGHT] = { nullptr };
-
-		//video::CDumbPresentationOracle oracle;
-
+		
 		_NBL_STATIC_INLINE_CONSTEXPR uint64_t MAX_TIMEOUT = 99999999999999ull;
 		uint32_t acquiredNextFBO = {};
 		int32_t resourceIx = -1;
