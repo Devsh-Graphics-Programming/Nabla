@@ -3,14 +3,18 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 
 #define _NBL_STATIC_LIB_
+#include <nabla.h>
 
-#include <iostream>
-#include <cstdio>
-#include <random>
 
-#include "../common/Camera.hpp"
+//#include <iostream>
+//#include <cstdio>
+//#include <random>
+//
+//#include <nabla.h>
+//
+//#include "../common/Camera.hpp"
 #include "../common/CommonAPI.h"
-#include "nbl/ext/ScreenShot/ScreenShot.h"
+//#include "nbl/ext/ScreenShot/ScreenShot.h"
 
 #include "UI_System.hpp"
 

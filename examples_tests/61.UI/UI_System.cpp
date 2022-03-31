@@ -10,7 +10,7 @@ using namespace nbl::core;
 using namespace nbl::asset;
 using namespace nbl::ui;
 
-namespace MFA::UI_System
+namespace UI_System
 {
 
 	//-----------------------------------------------------------------------------
@@ -508,11 +508,11 @@ namespace MFA::UI_System
 	//-------------------------------------------------------------------------------------------------
 
 	void Init(
-		smart_refctd_ptr<ILogicalDevice> const& device,
+		nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice> const& device,
 		float screenWidth, float screenHeight,
-		smart_refctd_ptr<IGPURenderpass>& renderPass,
-		IGPUPipelineCache* pipelineCache,
-		IGPUObjectFromAssetConverter::SParams& cpu2GpuParams
+		nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpass>& renderPass,
+		nbl::video::IGPUPipelineCache* pipelineCache,
+		nbl::video::IGPUObjectFromAssetConverter::SParams& cpu2GpuParams
 	)
 	{
 		state = new State();
@@ -607,7 +607,7 @@ namespace MFA::UI_System
 
 	//-------------------------------------------------------------------------------------------------
 
-	bool Render(float const deltaTimeInSec, IGPUCommandBuffer& commandBuffer)
+	bool Render(float deltaTimeInSec, nbl::video::IGPUCommandBuffer& commandBuffer)
 	{
 		ImGuiIO& io = ImGui::GetIO();
 		assert(io.Fonts->IsBuilt() && "Font atlas not built! It is generally built by the renderer backend. Missing call to renderer _NewFrame() function? e.g. ImGui_ImplOpenGL3_NewFrame().");
@@ -628,7 +628,12 @@ namespace MFA::UI_System
 		//);
 
 		auto const* drawData = ImGui::GetDrawData();
-		assert(drawData != nullptr);
+
+		if (drawData == nullptr)
+		{
+			return false;
+		}
+		//assert(drawData != nullptr);
 
 		// Avoid rendering when minimized, scale coordinates for retina displays (screen coordinates != framebuffer coordinates)
 		float const frameBufferWidth = drawData->DisplaySize.x * drawData->FramebufferScale.x;
@@ -822,11 +827,11 @@ namespace MFA::UI_System
 
 	//-------------------------------------------------------------------------------------------------
 
-	void PostRender(float deltaTimeInSec)
+	void Update(float deltaTimeInSec)
 	{
 		ImGui::NewFrame();
 		state->hasFocus = false;
-		for (auto const & subscriber : state->subscribers)
+		for (auto const& subscriber : state->subscribers)
 		{
 			subscriber.listener();
 		}
@@ -1090,12 +1095,12 @@ namespace MFA::UI_System
 
 	//-------------------------------------------------------------------------------------------------
 
-#ifdef __ANDROID__
-	void SetAndroidApp(android_app* pApp)
-	{
-		androidApp = pApp;
-	}
-#endif
+//#ifdef __ANDROID__
+//	void SetAndroidApp(android_app* pApp)
+//	{
+//		androidApp = pApp;
+//	}
+//#endif
 
 	//-------------------------------------------------------------------------------------------------
 
