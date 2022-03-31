@@ -107,7 +107,7 @@ static inline video::IGPUImageView::E_TYPE getImageViewTypeFromImageType_GPU(con
 	}
 }
 
-constexpr asset::E_FORMAT TEST_FORMAT = asset::EF_B10G11R11_UFLOAT_PACK32;
+constexpr asset::E_FORMAT TEST_FORMAT = asset::EF_R16_SNORM;
 
 class CBlitFilter
 {
