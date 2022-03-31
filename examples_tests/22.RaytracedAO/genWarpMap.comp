@@ -5,8 +5,6 @@
 
 layout(local_size_x = WARP_MAP_GEN_WORKGROUP_DIM, local_size_y = WARP_MAP_GEN_WORKGROUP_DIM) in;
 
-#define MAX_LUMINANCE_LEVELS 13
-
 layout(set = 0, binding = 0) uniform sampler2D luminance[MAX_LUMINANCE_LEVELS];
 // layout(set = 0, binding = 1, r32ui) uniform image2D warpMap;
 layout(set = 0, binding = 1, rg16f) uniform image2D warpMap;
@@ -25,6 +23,11 @@ void main()
 
 	if (all(lessThan(pixelCoord,warpMapSize)))
 	{
+		
+#if 0
+		vec2 xi = vec2(pixelCoord)/vec2(lastWarpMapPixel);
+		imageStore(warpMap,pixelCoord,vec4(xi, 0, 0));
+#else
 		// Corner Sampling, this is why it was important to have the envmap be PoT-1, so you can have xi both 0% and 100%
 		vec2 xi = vec2(pixelCoord)/vec2(lastWarpMapPixel);
 		ivec2 p = ivec2(0, 0);
@@ -43,14 +46,18 @@ void main()
 					p.y *= 2;
 			}
 
-			vec4 values = textureGather(luminance[i], (p + ivec2(1,1))/luminanceMipSize); // 0_1, 1_1, 1_0, 0_0
-			
+			vec4 values = vec4(0);
+			values[0] = texelFetch(luminance[i], p + ivec2(0, 1), 0).r;
+			values[1] = texelFetch(luminance[i], p + ivec2(1, 1), 0).r;
+			values[2] = texelFetch(luminance[i], p + ivec2(1, 0), 0).r;
+			values[3] = texelFetch(luminance[i], p + ivec2(0, 0), 0).r;
+
 			float wx_0 = values[3] + values[0]; // Left Weight (0,0) + (0,1) 
 			float wx_1 = values[2] + values[1]; // Right Weight (1,0) + (1,1)
 			float wy_0 = 0.0f;
 			float wy_1 = 0.0f;
 
-			float leftProb = 1.0f/(1+wx_1/wx_0);
+			float leftProb = 1.0f/(1.0f+wx_1/wx_0);
 			float dummy = 0.0f;
 			if(nbl_glsl_partitionRandVariable(leftProb, xi.x, dummy))
 			{
@@ -66,7 +73,7 @@ void main()
 				wy_1 = values[0]; // (0, 1)
 			}
 			
-			float upProb = 1.0f/(1+wy_1/wy_0);
+			float upProb = 1.0f/(1.0f+wy_1/wy_0);
 			if(nbl_glsl_partitionRandVariable(upProb, xi.y, dummy))
 			{
 				// Picked Down
@@ -76,7 +83,8 @@ void main()
 
 		const vec2 directionUV = vec2(p.x,p.y)/vec2(lastWarpMapPixel);
 		// imageStore(warpMap,pixelCoord, vec4(packUnorm2x16(directionUV)));
-		imageStore(warpMap,pixelCoord,vec4(directionUV.x, directionUV.y, 0, 0));
+		imageStore(warpMap,pixelCoord,vec4(directionUV, 0, 0));
+#endif
 	}
 
 }

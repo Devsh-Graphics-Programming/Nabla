@@ -5,8 +5,6 @@
 
 layout(local_size_x = LUMA_MIP_MAP_GEN_WORKGROUP_DIM, local_size_y = LUMA_MIP_MAP_GEN_WORKGROUP_DIM) in;
 
-#define MAX_LUMINANCE_LEVELS 13
-
 layout(set = 0, binding = 0) uniform sampler2D envMap; // should be PoT
 layout(set = 0, binding = 1, r32f) uniform image2D srcLuminance;
 layout(set = 0, binding = 2, r32f) uniform image2D dstluminance;
@@ -45,7 +43,6 @@ void main()
 			{
 				ivec2 gatherCoordinate = pixelCoord*2;
 
-				// vec4 lumaValues = textureGather(, gatherCoordinate);
 				float luma = imageLoad(srcLuminance, gatherCoordinate + ivec2(0,0)).r;
 				luma += imageLoad(srcLuminance, gatherCoordinate + ivec2(1,0)).r;
 				luma += imageLoad(srcLuminance, gatherCoordinate + ivec2(0,1)).r;

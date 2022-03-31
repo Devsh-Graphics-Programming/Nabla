@@ -6,6 +6,8 @@
 #define LUMA_MIP_MAP_GEN_WORKGROUP_DIM 16
 #define WARP_MAP_GEN_WORKGROUP_DIM 16
 
+#define MAX_LUMINANCE_LEVELS 13
+
 struct LumaMipMapGenShaderData_t
 {
 	vec4 luminanceScales;
