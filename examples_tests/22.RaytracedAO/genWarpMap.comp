@@ -6,8 +6,7 @@
 layout(local_size_x = WARP_MAP_GEN_WORKGROUP_DIM, local_size_y = WARP_MAP_GEN_WORKGROUP_DIM) in;
 
 layout(set = 0, binding = 0) uniform sampler2D luminance[MAX_LUMINANCE_LEVELS];
-// layout(set = 0, binding = 1, r32ui) uniform image2D warpMap;
-layout(set = 0, binding = 1, rg16f) uniform image2D warpMap;
+layout(set = 0, binding = 1, rg32f) uniform image2D warpMap;
 
 layout(push_constant) uniform PushConstants
 {
@@ -23,15 +22,9 @@ void main()
 
 	if (all(lessThan(pixelCoord,warpMapSize)))
 	{
-		
-#if 0
-		vec2 xi = vec2(pixelCoord)/vec2(lastWarpMapPixel);
-		imageStore(warpMap,pixelCoord,vec4(xi, 0, 0));
-#else
 		// Corner Sampling, this is why it was important to have the envmap be PoT-1, so you can have xi both 0% and 100%
 		vec2 xi = vec2(pixelCoord)/vec2(lastWarpMapPixel);
 		ivec2 p = ivec2(0, 0);
-
 		// WARP
 		// (skip 0 which is 1x1 and useless in warping)
 		for(int i = 1; i < pc.data.lumaMipCount; ++i)
@@ -39,10 +32,10 @@ void main()
 			ivec2 luminanceMipSize = textureSize(luminance[i], 0).xy;
 			if(i > 0)
 			{
-				ivec2 preLuminanceMipSize = textureSize(luminance[i-1], 0).xy;
-				if(luminanceMipSize.x > preLuminanceMipSize.x)
+				ivec2 prevLuminanceMipSize = textureSize(luminance[i-1], 0).xy;
+				if(luminanceMipSize.x > prevLuminanceMipSize.x)
 					p.x *= 2;
-				if(luminanceMipSize.y > preLuminanceMipSize.y)
+				if(luminanceMipSize.y > prevLuminanceMipSize.y)
 					p.y *= 2;
 			}
 
@@ -82,9 +75,7 @@ void main()
 		}
 
 		const vec2 directionUV = vec2(p.x,p.y)/vec2(lastWarpMapPixel);
-		// imageStore(warpMap,pixelCoord, vec4(packUnorm2x16(directionUV)));
-		imageStore(warpMap,pixelCoord,vec4(directionUV, 0, 0));
-#endif
+		imageStore(warpMap,pixelCoord, vec4(directionUV, 0, 0));
 	}
 
 }

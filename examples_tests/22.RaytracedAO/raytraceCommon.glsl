@@ -2,9 +2,18 @@
 #define _RAYTRACE_COMMON_GLSL_INCLUDED_
 
 #include "virtualGeometry.glsl"
+#include "warpCommon.h"
+#include <nbl/builtin/glsl/sampling/envmap.glsl>
 
+// Sun Stuff
 // #define TEST_ENVMAP_SUN
-#define ONLY_BXDF_SAMPLING
+#include <nbl/builtin/glsl/limits/numeric.glsl>
+vec3 sunColor = vec3(9.7, 8.4, 10.9) * 20;
+vec3 sunDirection = vec3(-0.7, 0.5, -0.4);
+float cosThetaMaxSun = 0.999f;
+
+// #define ONLY_BXDF_SAMPLING
+#define ONLY_ENV_SAMPLING
 
 layout(push_constant, row_major) uniform PushConstants
 {
@@ -45,6 +54,8 @@ layout(set = 2, binding = 5, r32ui) restrict uniform uimage2DArray albedoAOV;
 layout(set = 2, binding = 6, r32ui) restrict uniform uimage2DArray normalAOV;
 // environment emitter
 layout(set = 2, binding = 7) uniform sampler2D envMap; 
+layout(set = 2, binding = 8) uniform sampler2D warpMap; 
+layout(set = 2, binding = 9) uniform sampler2D luminance[MAX_LUMINANCE_LEVELS];
 
 void clear_raycount()
 {
@@ -254,12 +265,6 @@ vec3 load_normal_and_prefetch_textures(
 	return geomNormal;
 }
 
-// Sun Stuff
-#include <nbl/builtin/glsl/limits/numeric.glsl>
-vec3 sunColor = vec3(9.7, 8.4, 10.9) * 20;
-vec3 sunDirection = vec3(-0.7, 0.5, -0.4);
-float cosThetaMaxSun = 0.999f;
-
 // return intersection distance if found, nbl_glsl_FLT_NAN otherwise
 bool Sun_intersect(in vec3 rayDirection)
 {
@@ -334,13 +339,133 @@ void Sun_generateSample_and_pdf(out float pdf, out nbl_glsl_LightSample lightSam
 	}
 }
 
+#include <nbl/builtin/glsl/sampling/bilinear.glsl>
+
+vec2 inverseWarp(vec2 p)
+{
+	vec2 bMin = vec2(0,0); vec2 bMax = vec2(1,1);
+	vec2 uMin = vec2(0,0); vec2 uMax = vec2(1,1);
+	ivec2 pi = ivec2(0,0);
+
+	// (skip 0 which is 1x1 and useless in warping)
+	const ivec2 warpMapSize = textureSize(warpMap,0);
+	uint luminanceMips = uint(log2(warpMapSize.x)) + 1u; // TODO: later turn into push constant
+	for(int i = 1; i < 11; ++i)
+	{
+		ivec2 luminanceMipSize = textureSize(luminance[i], 0).xy;
+		if(i > 0)
+		{
+			ivec2 prevLuminanceMipSize = textureSize(luminance[i-1], 0).xy;
+			if(luminanceMipSize.x > prevLuminanceMipSize.x)
+				p.x *= 2;
+			if(luminanceMipSize.y > prevLuminanceMipSize.y)
+				p.y *= 2;
+		}
+
+		vec4 values = vec4(0);
+		values[0] = texelFetch(luminance[i], pi + ivec2(0, 1), 0).r;
+		values[1] = texelFetch(luminance[i], pi + ivec2(1, 1), 0).r;
+		values[2] = texelFetch(luminance[i], pi + ivec2(1, 0), 0).r;
+		values[3] = texelFetch(luminance[i], pi + ivec2(0, 0), 0).r;
+
+		float wx_0 = values[3] + values[0]; // Left Weight (0,0) + (0,1) 
+		float wx_1 = values[2] + values[1]; // Right Weight (1,0) + (1,1)
+		float wy_0 = 0.0f;
+		float wy_1 = 0.0f;
+
+		if(luminanceMipSize.x > 1)
+		{
+			float xMid = mix(bMin.x, bMax.x, 0.5f);
+			float leftProb = 1.0f/(1.0f+wx_1/wx_0);
+			if(p.x >= xMid)
+			{
+				uMin.x = mix(uMin.x, uMax.x, leftProb);
+				pi.x += 1;
+				bMin.x = xMid;
+
+				wy_0 = values[2]; // (1, 0)
+				wy_1 = values[1]; // (1, 1)
+			}
+			else
+			{
+				uMax.x = mix(uMin.x, uMax.x, leftProb);
+				bMax.x = xMid;
+				
+				wy_0 = values[3]; // (0, 0)
+				wy_1 = values[0]; // (0, 1)
+			}
+		}
+
+		if(luminanceMipSize.y > 1)
+		{
+			float upProb = 1.0f/(1.0f+wy_1/wy_0);
+			float yMid = mix(bMin.y, bMax.y, 0.5f);
+			if(p.y >= yMid)
+			{
+				uMin.y = mix(uMin.y, uMax.y, upProb);
+				bMin.y = yMid;
+				pi.y += 1;
+			}
+			else
+			{
+				uMax.y = mix(uMin.y, uMax.y, upProb);
+				bMax.y = yMid;
+			}
+		}
+	}
+
+	vec2 delta = (p-bMin)/(bMax-bMin);
+	vec2 u = mix(uMin, uMax, delta);
+	return u;
+}
+
+vec3 nbl_glsl_unormSphericalToCartesian(in vec2 uv, out float sinTheta)
+{
+	vec3 dir;
+	nbl_glsl_sincos((uv.x-0.5)*2.f*nbl_glsl_PI,dir.y,dir.x);
+	nbl_glsl_sincos(uv.y*nbl_glsl_PI,sinTheta,dir.z);
+	dir.xy *= sinTheta;
+	return dir;
+}
+
 // return regularized pdf of sample
 float Envmap_regularized_deferred_pdf(in vec3 rayDirection)
 {
 #ifdef TEST_ENVMAP_SUN
 	return RegularizeSunPDF(Sun_deferred_pdf(rayDirection));
 #else
-	return 0; // TODO
+	const ivec2 warpMapSize = textureSize(warpMap,0);
+	const ivec2 lastWarpMapPixel = warpMapSize - ivec2(1.f);
+	const vec2 sampleUV = nbl_glsl_sampling_generateUVCoordFromDirection(rayDirection);
+	const vec2 invWarp = inverseWarp(sampleUV); // gives inverse value in range of envmapsize
+	const vec2 warpMapLoc = (invWarp+vec2(0.5f)) / vec2(warpMapSize);
+
+	const vec4 encDirsX = textureGather(warpMap, warpMapLoc, 0); // 0_1, 1_1, 1_0, 0_0
+	const vec4 encDirsY = textureGather(warpMap, warpMapLoc, 1); // 0_1, 1_1, 1_0, 0_0
+	const mat4x2 uvs = transpose(mat2x4(encDirsX,encDirsY));
+
+	const vec2 interpolant = nbl_glsl_invBilinear2D(sampleUV, uvs[3], uvs[2], uvs[1], uvs[0]);
+
+	const vec2 xDiffs[] = {
+		uvs[2]-uvs[3],
+		uvs[1]-uvs[0]
+	};
+	const vec2 yVals[] = {
+		xDiffs[0]*interpolant.x+uvs[3],
+		xDiffs[1]*interpolant.x+uvs[0]
+	};
+  	const vec2 yDiff = yVals[1]-yVals[0];
+
+	const float detInterpolJacobian = determinant(mat2(
+		mix(xDiffs[0],xDiffs[1],interpolant.y), // first column dFdx
+		yDiff // second column dFdy
+	));
+
+	float sinTheta = sin(sampleUV.y * nbl_glsl_PI);
+
+	float pdfConstant = 1.f/(4.f*nbl_glsl_PI*float(lastWarpMapPixel.x*lastWarpMapPixel.y));
+	float pdf = pdfConstant/abs(sinTheta*detInterpolJacobian);
+	return pdf;
 #endif
 }
 
@@ -360,7 +485,51 @@ void Envmap_generateRegularizedSample_and_pdf(out float pdf, out nbl_glsl_LightS
 		pdf = RegularizeSunPDF(pdf);
   	}
 #else
-	//TODO
+	const ivec2 warpMapSize = textureSize(warpMap,0);
+	const ivec2 lastWarpMapPixel = warpMapSize - ivec2(1.f);
+	vec2 xi = rand;
+	// xi.y = acos(1-2*xi.y)/nbl_glsl_PI;
+	const vec2 unnormCoord = xi*lastWarpMapPixel;
+
+	const vec2 interpolant = fract(unnormCoord);
+
+	vec2 warpSampleCoord = (unnormCoord+vec2(0.5f))/vec2(warpMapSize);
+	const vec4 dirsX = textureGather(warpMap, warpSampleCoord, 0); // 0_1, 1_1, 1_0, 0_0
+	const vec4 dirsY = textureGather(warpMap, warpSampleCoord, 1); // 0_1, 1_1, 1_0, 0_0
+	const mat4x2 uvs = transpose(mat2x4(dirsX,dirsY));
+
+	const vec2 xDiffs[] = {
+		uvs[2]-uvs[3],
+		uvs[1]-uvs[0]
+	};
+	const vec2 yVals[] = {
+		xDiffs[0]*interpolant.x+uvs[3],
+		xDiffs[1]*interpolant.x+uvs[0]
+	};
+	const vec2 yDiff = yVals[1]-yVals[0];
+	const vec2 uv = yDiff*interpolant.y+yVals[0];
+
+	float sinTheta;
+	const vec3 L = nbl_glsl_unormSphericalToCartesian(uv, sinTheta);
+	lightSample = nbl_glsl_createLightSample(L, interaction);
+	
+	#ifndef TEST_DEFERRED_PDF
+
+		const float detInterpolJacobian = determinant(mat2(
+			mix(xDiffs[0],xDiffs[1],interpolant.y), // first column dFdx
+			yDiff // second column dFdy
+		));
+
+		float pdfConstant = 1.f/(4.f*nbl_glsl_PI*float(lastWarpMapPixel.x*lastWarpMapPixel.y));
+		pdf = pdfConstant/abs(sinTheta*detInterpolJacobian);
+
+	#else
+
+		pdf = 0.0f;
+
+	#endif
+
+
 #endif
 }
 
@@ -476,6 +645,9 @@ nbl_glsl_MC_quot_pdf_aov_t gen_sample_ray(
 #ifdef ONLY_BXDF_SAMPLING
 	outSample = bxdfSample;
 	result = bxdfCosThroughput;
+#elif defined(ONLY_ENV_SAMPLING)
+	outSample = envmapSample;
+	result = envmapSampleThroughput;
 #endif
 
 	// russian roulette
@@ -587,7 +759,6 @@ struct Contribution
 	vec3 worldspaceNormal;
 };
 
-#include <nbl/builtin/glsl/sampling/envmap.glsl>
 void Contribution_initMiss(out Contribution contrib, in float aovThroughputScale)
 {
 	// funny little trick borrowed from things like Progressive Photon Mapping

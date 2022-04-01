@@ -116,7 +116,7 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 	}
 	
 	{
-		constexpr auto raytracingCommonDescriptorCount = 8u;
+		constexpr auto raytracingCommonDescriptorCount = 10u;
 		IGPUDescriptorSetLayout::SBinding bindings[raytracingCommonDescriptorCount];
 		fillIotaDescriptorBindingDeclarations(bindings,ISpecializedShader::ESS_COMPUTE,raytracingCommonDescriptorCount);
 		bindings[0].type = asset::EDT_UNIFORM_BUFFER;
@@ -127,6 +127,9 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 		bindings[5].type = asset::EDT_STORAGE_IMAGE;
 		bindings[6].type = asset::EDT_STORAGE_IMAGE;
 		bindings[7].type = asset::EDT_COMBINED_IMAGE_SAMPLER;
+		bindings[8].type = asset::EDT_COMBINED_IMAGE_SAMPLER;
+		bindings[9].type = asset::EDT_COMBINED_IMAGE_SAMPLER;
+		bindings[9].count = MipCountLuminance;
 
 		m_commonRaytracingDSLayout = m_driver->createGPUDescriptorSetLayout(bindings,bindings+raytracingCommonDescriptorCount);
 	}
@@ -610,7 +613,7 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 void Renderer::initSceneNonAreaLights(Renderer::InitializationData& initData)
 {
 	core::vectorSIMDf _envmapBaseColor;
-	_envmapBaseColor.set(0.0f,0.0f,0.0f,1.f);
+	_envmapBaseColor.set(0.2f,0.8f,0.5f,1.f);
 
 	for (const auto& emitter : m_globalMeta->m_global.m_emitters)
 	{
@@ -1271,7 +1274,7 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height)
 	m_albedoRslv = createScreenSizedTexture(EF_A2B10G10R10_UNORM_PACK32);
 	m_normalRslv = createScreenSizedTexture(EF_R16G16B16A16_SFLOAT);
 
-	constexpr uint32_t MaxDescritorUpdates = 8u;
+	constexpr uint32_t MaxDescritorUpdates = 10u;
 	IGPUDescriptorSet::SDescriptorInfo infos[MaxDescritorUpdates];
 	IGPUDescriptorSet::SWriteDescriptorSet writes[MaxDescritorUpdates];
 
@@ -1287,10 +1290,33 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height)
 		setImageInfo(infos+6,asset::EIL_GENERAL,core::smart_refctd_ptr(m_normalAcc));
 
 		// envmap
-		setImageInfo(infos+7,asset::EIL_GENERAL,core::smart_refctd_ptr(m_finalEnvmap));
-		ISampler::SParams samplerParams = { ISampler::ETC_REPEAT, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_FLOAT_OPAQUE_BLACK, ISampler::ETF_LINEAR, ISampler::ETF_LINEAR, ISampler::ESMM_LINEAR, 0u, false, ECO_ALWAYS };
-		infos[7].image.sampler = m_driver->createGPUSampler(samplerParams);
-		infos[7].image.imageLayout = EIL_SHADER_READ_ONLY_OPTIMAL;
+		{
+			setImageInfo(infos+7,asset::EIL_GENERAL,core::smart_refctd_ptr(m_finalEnvmap));
+			ISampler::SParams samplerParams = { ISampler::ETC_REPEAT, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_FLOAT_OPAQUE_BLACK, ISampler::ETF_LINEAR, ISampler::ETF_LINEAR, ISampler::ESMM_LINEAR, 0u, false, ECO_ALWAYS };
+			infos[7].image.sampler = m_driver->createGPUSampler(samplerParams);
+			infos[7].image.imageLayout = EIL_SHADER_READ_ONLY_OPTIMAL;
+		}
+		// warpmap
+		{
+			setImageInfo(infos+8,asset::EIL_GENERAL,core::smart_refctd_ptr(m_warpMap));
+			ISampler::SParams samplerParams = { ISampler::ETC_REPEAT, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_FLOAT_OPAQUE_BLACK, ISampler::ETF_LINEAR, ISampler::ETF_LINEAR, ISampler::ESMM_LINEAR, 0u, false, ECO_ALWAYS };
+			infos[8].image.sampler = m_driver->createGPUSampler(samplerParams);
+			infos[8].image.imageLayout = EIL_SHADER_READ_ONLY_OPTIMAL;
+		}
+		
+		IGPUDescriptorSet::SDescriptorInfo luminanceDescriptorInfos[MipCountLuminance];
+		// luminance mip maps
+		{
+			ISampler::SParams samplerParams = { ISampler::ETC_REPEAT, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_FLOAT_OPAQUE_BLACK, ISampler::ETF_NEAREST, ISampler::ETF_NEAREST, ISampler::ETF_NEAREST, 0u, false, ECO_ALWAYS };
+			auto sampler = m_driver->createGPUSampler(samplerParams);
+
+			for(uint32_t i = 0; i < MipCountLuminance; ++i)
+			{
+				luminanceDescriptorInfos[i].desc = m_luminanceMipMaps[i];
+				luminanceDescriptorInfos[i].image.sampler = sampler;
+				luminanceDescriptorInfos[i].image.imageLayout = asset::EIL_SHADER_READ_ONLY_OPTIMAL;
+			}
+		}
 
 		createEmptyInteropBufferAndSetUpInfo(infos+3,m_rayBuffer[0],raygenBufferSize);
 		setBufferInfo(infos+4,m_rayCountBuffer);
@@ -1298,7 +1324,7 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height)
 		for (auto i=0u; i<2u; i++)
 			m_commonRaytracingDS[i] = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_commonRaytracingDSLayout));
 
-		constexpr auto descriptorUpdateCount = 8u;
+		constexpr auto descriptorUpdateCount = 10u;
 		setDstSetAndDescTypesOnWrites(m_commonRaytracingDS[0].get(),writes,infos,{
 			EDT_UNIFORM_BUFFER,
 			EDT_UNIFORM_TEXEL_BUFFER,
@@ -1308,7 +1334,17 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height)
 			EDT_STORAGE_IMAGE,
 			EDT_STORAGE_IMAGE,
 			EDT_COMBINED_IMAGE_SAMPLER,
+			EDT_COMBINED_IMAGE_SAMPLER,
 		});
+		
+		// Set last write which is a descriptor array
+		writes[9].binding = 9u;
+		writes[9].arrayElement = 0u;
+		writes[9].count = MipCountLuminance;
+		writes[9].descriptorType = EDT_COMBINED_IMAGE_SAMPLER;
+		writes[9].dstSet = m_commonRaytracingDS[0].get();
+		writes[9].info = luminanceDescriptorInfos;
+
 		m_driver->updateDescriptorSets(descriptorUpdateCount,writes,0u,nullptr);
 		// set up second DS
 		createEmptyInteropBufferAndSetUpInfo(infos+3,m_rayBuffer[1],raygenBufferSize);
@@ -1926,8 +1962,8 @@ void Renderer::initWarpingResources()
 		const uint32_t resolution = 0x1u<<(MipCountEnvmap-1); // same size as envmap
 		const uint32_t width = std::max(resolution, 1u);
 		const uint32_t height = std::max(resolution/2u, 1u);
-		m_warpMap = createTexture(width, height, EF_R16G16_SFLOAT);
-		// m_warpMap = createTexture(width, height, EF_R32_UINT);
+		// m_warpMap = createTexture(width, height, EF_R16G16_SFLOAT);
+		m_warpMap = createTexture(width, height, EF_R32G32_SFLOAT);
 	}
 
 	ISampler::SParams samplerParams;
@@ -2058,7 +2094,7 @@ void Renderer::initWarpingResources()
 			warpMApDescriptorInfo.image.sampler = nullptr;
 			warpMApDescriptorInfo.image.imageLayout = asset::EIL_GENERAL;
 
-			IGPUDescriptorSet::SWriteDescriptorSet writes[3u];
+			IGPUDescriptorSet::SWriteDescriptorSet writes[2u];
 			writes[0].binding = 0u;
 			writes[0].arrayElement = 0u;
 			writes[0].count = MipCountLuminance;

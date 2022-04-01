@@ -237,7 +237,7 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		nbl::video::IFrameBuffer* m_visibilityBuffer,* m_colorBuffer;
 		
 		// Resources used for blending environmental maps
-		static constexpr uint32_t MipCountEnvmap = 13u;
+		static constexpr uint32_t MipCountEnvmap = 11u;
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> m_finalEnvmap;
 		nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpassIndependentPipeline> blendEnvPipeline;
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSetLayout> blendEnvDescriptorSet;
