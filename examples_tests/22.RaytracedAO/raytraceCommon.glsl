@@ -5,12 +5,7 @@
 #include "warpCommon.h"
 #include <nbl/builtin/glsl/sampling/envmap.glsl>
 
-// Sun Stuff
-// #define TEST_ENVMAP_SUN
 #include <nbl/builtin/glsl/limits/numeric.glsl>
-vec3 sunColor = vec3(9.7, 8.4, 10.9) * 20;
-vec3 sunDirection = vec3(-0.7, 0.5, -0.4);
-float cosThetaMaxSun = 0.999f;
 
 // #define ONLY_BXDF_SAMPLING
 // #define ONLY_ENV_SAMPLING
@@ -265,160 +260,6 @@ vec3 load_normal_and_prefetch_textures(
 	return geomNormal;
 }
 
-// return intersection distance if found, nbl_glsl_FLT_NAN otherwise
-bool Sun_intersect(in vec3 rayDirection)
-{
-	vec3 normalizedSunDir = normalize(sunDirection);
-	return dot(rayDirection,normalizedSunDir)>cosThetaMaxSun;
-}
-
-const float regularizationFactor = 0.5f;
-
-float RegularizeSunPDF(float pdf_sun)
-{
-	return regularizationFactor/(4*nbl_glsl_PI)+(1.f-regularizationFactor)*pdf_sun;
-}
-
-// Can be precomputed for sun but meh, since we're only doing this for test
-float Sphere_getSolidAngle_impl(in float cosThetaMax)
-{
-    return 2.0*nbl_glsl_PI*(1.0-cosThetaMax);
-}
-
-// return pdf of sample
-float Sun_deferred_pdf(in vec3 rayDirection)
-{
-    if(Sun_intersect(rayDirection))
-	{
-		return 1.0f / Sphere_getSolidAngle_impl(cosThetaMaxSun);
-	}
-	return 0.0f;
-}
-
-vec3 Sun_getContribution(in vec3 rayDirection)
-{
-	bool intersectedSun = Sun_intersect(rayDirection);
-	return (intersectedSun) ? sunColor : vec3(0.0f);
-}
-
-vec3 sampleUniformSphere(in vec2 rand)
-{
-	float z = 1.0f - 2.0f * rand.x;
-    float r = sqrt(1.0f - z * z);
-    float phi = 2 * nbl_glsl_PI * rand.y;
-    return vec3(r * cos(phi), r * sin(phi), z);
-}
-
-// returns quotient ad fills sample + pdf
-void Sun_generateSample_and_pdf(out float pdf, out nbl_glsl_LightSample lightSample, in nbl_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 rand)
-{
-	const float cosThetaMax = cosThetaMaxSun;
-    const float cosThetaMax2 = cosThetaMaxSun * cosThetaMaxSun;
-    if (cosThetaMax2>0.0)
-    {
-		vec3 Z = normalize(sunDirection);
-
-        const float cosTheta = mix(1.0,cosThetaMax,rand.x);
-        vec3 L = Z*cosTheta;
-
-        const float cosTheta2 = cosTheta*cosTheta;
-        const float sinTheta = sqrt(1.0-cosTheta2);
-        float sinPhi,cosPhi;
-        nbl_glsl_sincos(2.0*nbl_glsl_PI*rand.y-nbl_glsl_PI,sinPhi,cosPhi);
-        mat2x3 sunTangentFrame = nbl_glsl_frisvad(Z);
-    
-        L += (sunTangentFrame[0]*cosPhi+sunTangentFrame[1]*sinPhi)*sinTheta;
-
-    	lightSample = nbl_glsl_createLightSample(L, interaction);
-
-        pdf = 1.0/Sphere_getSolidAngle_impl(cosThetaMax);
-    }
-	else
-	{
-		pdf = 0.0;
-	}
-}
-
-#include <nbl/builtin/glsl/sampling/bilinear.glsl>
-
-vec2 inverseWarp(vec2 p)
-{
-	vec2 bMin = vec2(0,0); vec2 bMax = vec2(1,1);
-	vec2 uMin = vec2(0,0); vec2 uMax = vec2(1,1);
-	ivec2 pi = ivec2(0,0);
-
-	// (skip 0 which is 1x1 and useless in warping)
-	const ivec2 warpMapSize = textureSize(warpMap,0);
-	uint luminanceMips = uint(log2(warpMapSize.x)) + 1u; // TODO: later turn into push constant
-	for(int i = 1; i < 11; ++i)
-	{
-		ivec2 luminanceMipSize = textureSize(luminance[i], 0).xy;
-		if(i > 0)
-		{
-			ivec2 prevLuminanceMipSize = textureSize(luminance[i-1], 0).xy;
-			if(luminanceMipSize.x > prevLuminanceMipSize.x)
-				p.x *= 2;
-			if(luminanceMipSize.y > prevLuminanceMipSize.y)
-				p.y *= 2;
-		}
-
-		vec4 values = vec4(0);
-		values[0] = texelFetch(luminance[i], pi + ivec2(0, 1), 0).r;
-		values[1] = texelFetch(luminance[i], pi + ivec2(1, 1), 0).r;
-		values[2] = texelFetch(luminance[i], pi + ivec2(1, 0), 0).r;
-		values[3] = texelFetch(luminance[i], pi + ivec2(0, 0), 0).r;
-
-		float wx_0 = values[3] + values[0]; // Left Weight (0,0) + (0,1) 
-		float wx_1 = values[2] + values[1]; // Right Weight (1,0) + (1,1)
-		float wy_0 = 0.0f;
-		float wy_1 = 0.0f;
-
-		if(luminanceMipSize.x > 1)
-		{
-			float xMid = mix(bMin.x, bMax.x, 0.5f);
-			float leftProb = 1.0f/(1.0f+wx_1/wx_0);
-			if(p.x >= xMid)
-			{
-				uMin.x = mix(uMin.x, uMax.x, leftProb);
-				pi.x += 1;
-				bMin.x = xMid;
-
-				wy_0 = values[2]; // (1, 0)
-				wy_1 = values[1]; // (1, 1)
-			}
-			else
-			{
-				uMax.x = mix(uMin.x, uMax.x, leftProb);
-				bMax.x = xMid;
-				
-				wy_0 = values[3]; // (0, 0)
-				wy_1 = values[0]; // (0, 1)
-			}
-		}
-
-		if(luminanceMipSize.y > 1)
-		{
-			float upProb = 1.0f/(1.0f+wy_1/wy_0);
-			float yMid = mix(bMin.y, bMax.y, 0.5f);
-			if(p.y >= yMid)
-			{
-				uMin.y = mix(uMin.y, uMax.y, upProb);
-				bMin.y = yMid;
-				pi.y += 1;
-			}
-			else
-			{
-				uMax.y = mix(uMin.y, uMax.y, upProb);
-				bMax.y = yMid;
-			}
-		}
-	}
-
-	vec2 delta = (p-bMin)/(bMax-bMin);
-	vec2 u = mix(uMin, uMax, delta);
-	return u;
-}
-
 vec3 nbl_glsl_unormSphericalToCartesian(in vec2 uv, out float sinTheta)
 {
 	vec3 dir;
@@ -431,10 +272,6 @@ vec3 nbl_glsl_unormSphericalToCartesian(in vec2 uv, out float sinTheta)
 // return regularized pdf of sample
 float Envmap_regularized_deferred_pdf(in vec3 rayDirection)
 {
-#define FAST_DEFERRED_PDF
-#ifdef TEST_ENVMAP_SUN
-	return RegularizeSunPDF(Sun_deferred_pdf(rayDirection));
-#elif defined(FAST_DEFERRED_PDF)
 	const ivec2 envmapSize = textureSize(envMap, 0);
 	uint luminanceMips = uint(log2(envmapSize.x)) + 1u; // TODO: later turn into push constant
 	const vec2 envmapUV = nbl_glsl_sampling_generateUVCoordFromDirection(rayDirection);
@@ -444,62 +281,13 @@ float Envmap_regularized_deferred_pdf(in vec3 rayDirection)
 	float luminance = textureLod(luminance[luminanceMips-1], envmapUV, 0).r;
 	float bigfactor = float(envmapSize.x*envmapSize.y)/sumLum;
 	return bigfactor*(luminance/(sinTheta*4.0f*nbl_glsl_PI));
-#else
-	const ivec2 warpMapSize = textureSize(warpMap,0);
-	const ivec2 lastWarpMapPixel = warpMapSize - ivec2(1.f);
-	const vec2 sampleUV = nbl_glsl_sampling_generateUVCoordFromDirection(rayDirection);
-	const vec2 invWarp = inverseWarp(sampleUV); // gives inverse value in range of envmapsize
-	const vec2 warpMapLoc = (invWarp+vec2(0.5f)) / vec2(warpMapSize);
-
-	const vec4 encDirsX = textureGather(warpMap, warpMapLoc, 0); // 0_1, 1_1, 1_0, 0_0
-	const vec4 encDirsY = textureGather(warpMap, warpMapLoc, 1); // 0_1, 1_1, 1_0, 0_0
-	const mat4x2 uvs = transpose(mat2x4(encDirsX,encDirsY));
-
-	const vec2 interpolant = nbl_glsl_invBilinear2D(sampleUV, uvs[3], uvs[2], uvs[1], uvs[0]);
-
-	const vec2 xDiffs[] = {
-		uvs[2]-uvs[3],
-		uvs[1]-uvs[0]
-	};
-	const vec2 yVals[] = {
-		xDiffs[0]*interpolant.x+uvs[3],
-		xDiffs[1]*interpolant.x+uvs[0]
-	};
-  	const vec2 yDiff = yVals[1]-yVals[0];
-
-	const float detInterpolJacobian = determinant(mat2(
-		mix(xDiffs[0],xDiffs[1],interpolant.y), // first column dFdx
-		yDiff // second column dFdy
-	));
-
-	float sinTheta = length(rayDirection.xz);
-
-	float pdfConstant = 1.f/(4.f*nbl_glsl_PI*float(lastWarpMapPixel.x*lastWarpMapPixel.y));
-	float pdf = pdfConstant/abs(sinTheta*detInterpolJacobian);
-	return pdf;
-#endif
 }
 
 void Envmap_generateRegularizedSample_and_pdf(out float pdf, out nbl_glsl_LightSample lightSample, in nbl_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 rand)
 {
-#ifdef TEST_ENVMAP_SUN
-  	float dummy;
-	if (!nbl_glsl_partitionRandVariable(regularizationFactor,/*inout*/rand.y,dummy))
-	{
-	 	vec3 L = sampleUniformSphere(rand);
-    	lightSample = nbl_glsl_createLightSample(L, interaction);
-	 	pdf = Envmap_regularized_deferred_pdf(L);
-  	}
-  	else
-  	{
-		Sun_generateSample_and_pdf(pdf, lightSample, interaction, rand);
-		pdf = RegularizeSunPDF(pdf);
-  	}
-#else
 	const ivec2 warpMapSize = textureSize(warpMap,0);
 	const ivec2 lastWarpMapPixel = warpMapSize - ivec2(1.f);
 	vec2 xi = rand;
-	// xi.y = acos(1-2*xi.y)/nbl_glsl_PI;
 	const vec2 unnormCoord = xi*lastWarpMapPixel;
 
 	const vec2 interpolant = fract(unnormCoord);
@@ -524,24 +312,13 @@ void Envmap_generateRegularizedSample_and_pdf(out float pdf, out nbl_glsl_LightS
 	const vec3 L = nbl_glsl_unormSphericalToCartesian(uv, sinTheta);
 	lightSample = nbl_glsl_createLightSample(L, interaction);
 	
-	#ifndef TEST_DEFERRED_PDF
+	const float detInterpolJacobian = determinant(mat2(
+		mix(xDiffs[0],xDiffs[1],interpolant.y), // first column dFdx
+		yDiff // second column dFdy
+	));
 
-		const float detInterpolJacobian = determinant(mat2(
-			mix(xDiffs[0],xDiffs[1],interpolant.y), // first column dFdx
-			yDiff // second column dFdy
-		));
-
-		float pdfConstant = 1.f/(4.f*nbl_glsl_PI*float(lastWarpMapPixel.x*lastWarpMapPixel.y));
-		pdf = pdfConstant/abs(sinTheta*detInterpolJacobian);
-
-	#else
-
-		pdf = 0.0f;
-
-	#endif
-
-
-#endif
+	float pdfConstant = 1.f/(4.f*nbl_glsl_PI*float(lastWarpMapPixel.x*lastWarpMapPixel.y));
+	pdf = pdfConstant/abs(sinTheta*detInterpolJacobian);
 }
 
 #include <nbl/builtin/glsl/sampling/quantized_sequence.glsl>
@@ -772,17 +549,11 @@ struct Contribution
 
 void Contribution_initMiss(out Contribution contrib, in float aovThroughputScale)
 {
-	// funny little trick borrowed from things like Progressive Photon Mapping
-#ifdef TEST_ENVMAP_SUN
-	contrib.albedo = contrib.color = Sun_getContribution(-normalizedV);
-	contrib.worldspaceNormal = normalizedV;
-#else
 	vec2 uv = nbl_glsl_sampling_generateUVCoordFromDirection(-normalizedV);
 	// funny little trick borrowed from things like Progressive Photon Mapping
 	const float bias = 0.0625f*(1.f-aovThroughputScale)*pow(pc.cummon.rcpFramesDispatched,0.08f);
 	contrib.albedo = contrib.color = textureGrad(envMap, uv, vec2(bias*0.5,0.f), vec2(0.f,bias)).rgb;
 	contrib.worldspaceNormal = normalizedV;
-#endif
 }
 
 void Contribution_normalizeAoV(inout Contribution contrib)
