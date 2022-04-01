@@ -646,8 +646,11 @@ nbl_glsl_MC_quot_pdf_aov_t gen_sample_ray(
 	outSample = bxdfSample;
 	result = bxdfCosThroughput;
 #elif defined(ONLY_ENV_SAMPLING)
+if(p_env_env >= 0.0 && p_env_env <= 1.0)
+{
 	outSample = envmapSample;
 	result = envmapSampleThroughput;
+}
 #endif
 
 	// russian roulette
