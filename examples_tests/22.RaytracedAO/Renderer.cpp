@@ -613,7 +613,7 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 void Renderer::initSceneNonAreaLights(Renderer::InitializationData& initData)
 {
 	core::vectorSIMDf _envmapBaseColor;
-	_envmapBaseColor.set(0.2f,0.8f,0.5f,1.f);
+	_envmapBaseColor.set(0.0f,0.0f,0.0f,1.f);
 
 	for (const auto& emitter : m_globalMeta->m_global.m_emitters)
 	{
