@@ -1307,7 +1307,7 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height)
 		IGPUDescriptorSet::SDescriptorInfo luminanceDescriptorInfos[MipCountLuminance];
 		// luminance mip maps
 		{
-			ISampler::SParams samplerParams = { ISampler::ETC_REPEAT, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_FLOAT_OPAQUE_BLACK, ISampler::ETF_NEAREST, ISampler::ETF_NEAREST, ISampler::ETF_NEAREST, 0u, false, ECO_ALWAYS };
+			ISampler::SParams samplerParams = { ISampler::ETC_CLAMP_TO_BORDER, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_FLOAT_OPAQUE_BLACK, ISampler::ETF_NEAREST, ISampler::ETF_NEAREST, ISampler::ETF_NEAREST, 0u, false, ECO_ALWAYS };
 			auto sampler = m_driver->createGPUSampler(samplerParams);
 
 			for(uint32_t i = 0; i < MipCountLuminance; ++i)
@@ -1999,9 +1999,19 @@ void Renderer::initWarpingResources()
 		}
 
 		{
+			
+			ISampler::SParams lumaSamplerParams;
+			lumaSamplerParams.TextureWrapU = lumaSamplerParams.TextureWrapV = lumaSamplerParams.TextureWrapW = ISampler::ETC_CLAMP_TO_BORDER;
+			lumaSamplerParams.BorderColor = ISampler::ETBC_FLOAT_OPAQUE_BLACK;
+			lumaSamplerParams.MinFilter = samplerParams.MaxFilter = ISampler::ETF_NEAREST;
+			lumaSamplerParams.MipmapMode = ISampler::ESMM_NEAREST;
+			lumaSamplerParams.AnisotropicFilter = 0u;
+			lumaSamplerParams.CompareEnable = false;
+			auto lumaSampler = m_driver->createGPUSampler(lumaSamplerParams);
+
 			core::smart_refctd_ptr<IGPUSampler> samplers[MipCountLuminance];
 			for(uint32_t i = 0u; i < MipCountLuminance; ++i)
-				samplers[i] = nearestSampler;
+				samplers[i] = lumaSampler;
 
 			constexpr auto warpDescriptorCount = 2u;
 			IGPUDescriptorSetLayout::SBinding bindings[warpDescriptorCount];
@@ -2153,7 +2163,8 @@ void Renderer::computeWarpMap()
 {
 
 	LumaMipMapGenShaderData_t pcData = {};
-	pcData.luminanceScales = { 0.2126729f , 0.7151522f, 0.0721750f, 0.0f };
+	const float regularizationFactor = 0.5f;
+	pcData.luminanceScales = { 0.2126729f * regularizationFactor, 0.7151522f * regularizationFactor, 0.0721750f* regularizationFactor, (1.0f-regularizationFactor) };
 	
 	m_driver->bindComputePipeline(m_lumaPipeline.get());
 

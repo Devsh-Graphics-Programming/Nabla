@@ -13,7 +13,7 @@ vec3 sunDirection = vec3(-0.7, 0.5, -0.4);
 float cosThetaMaxSun = 0.999f;
 
 // #define ONLY_BXDF_SAMPLING
-#define ONLY_ENV_SAMPLING
+// #define ONLY_ENV_SAMPLING
 
 layout(push_constant, row_major) uniform PushConstants
 {
@@ -53,7 +53,7 @@ layout(set = 2, binding = 4) restrict coherent buffer RayCount // maybe remove c
 layout(set = 2, binding = 5, r32ui) restrict uniform uimage2DArray albedoAOV;
 layout(set = 2, binding = 6, r32ui) restrict uniform uimage2DArray normalAOV;
 // environment emitter
-layout(set = 2, binding = 7) uniform sampler2D envMap; 
+layout(set = 2, binding = 7) uniform sampler2D envMap;
 layout(set = 2, binding = 8) uniform sampler2D warpMap; 
 layout(set = 2, binding = 9) uniform sampler2D luminance[MAX_LUMINANCE_LEVELS];
 
@@ -431,8 +431,19 @@ vec3 nbl_glsl_unormSphericalToCartesian(in vec2 uv, out float sinTheta)
 // return regularized pdf of sample
 float Envmap_regularized_deferred_pdf(in vec3 rayDirection)
 {
+#define FAST_DEFERRED_PDF
 #ifdef TEST_ENVMAP_SUN
 	return RegularizeSunPDF(Sun_deferred_pdf(rayDirection));
+#elif defined(FAST_DEFERRED_PDF)
+	const ivec2 envmapSize = textureSize(envMap, 0);
+	uint luminanceMips = uint(log2(envmapSize.x)) + 1u; // TODO: later turn into push constant
+	const vec2 envmapUV = nbl_glsl_sampling_generateUVCoordFromDirection(rayDirection);
+
+	float sinTheta = length(rayDirection.zx);
+	float sumLum = texelFetch(luminance[0], ivec2(0), 0).r;
+	float luminance = textureLod(luminance[luminanceMips-1], envmapUV, 0).r;
+	float bigfactor = float(envmapSize.x*envmapSize.y)/sumLum;
+	return bigfactor*(luminance/(sinTheta*4.0f*nbl_glsl_PI));
 #else
 	const ivec2 warpMapSize = textureSize(warpMap,0);
 	const ivec2 lastWarpMapPixel = warpMapSize - ivec2(1.f);
@@ -461,7 +472,7 @@ float Envmap_regularized_deferred_pdf(in vec3 rayDirection)
 		yDiff // second column dFdy
 	));
 
-	float sinTheta = sin(sampleUV.y * nbl_glsl_PI);
+	float sinTheta = length(rayDirection.xz);
 
 	float pdfConstant = 1.f/(4.f*nbl_glsl_PI*float(lastWarpMapPixel.x*lastWarpMapPixel.y));
 	float pdf = pdfConstant/abs(sinTheta*detInterpolJacobian);
@@ -646,11 +657,8 @@ nbl_glsl_MC_quot_pdf_aov_t gen_sample_ray(
 	outSample = bxdfSample;
 	result = bxdfCosThroughput;
 #elif defined(ONLY_ENV_SAMPLING)
-if(p_env_env >= 0.0 && p_env_env <= 1.0)
-{
 	outSample = envmapSample;
 	result = envmapSampleThroughput;
-}
 #endif
 
 	// russian roulette
