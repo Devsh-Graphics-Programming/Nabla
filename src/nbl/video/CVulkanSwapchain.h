@@ -1,5 +1,5 @@
-#ifndef __NBL_C_VULKAN_SWAPCHAIN_H_INCLUDED__
-#define __NBL_C_VULKAN_SWAPCHAIN_H_INCLUDED__
+#ifndef _NBL_C_VULKAN_SWAPCHAIN_H_INCLUDED_
+#define _NBL_C_VULKAN_SWAPCHAIN_H_INCLUDED_
 
 #include "nbl/video/ISwapchain.h"
 
@@ -22,7 +22,8 @@ public:
 
     ~CVulkanSwapchain();
 
-    inline VkSwapchainKHR getInternalObject() const { return m_vkSwapchainKHR; }
+    inline const void* getNativeHandle() const {return &m_vkSwapchainKHR;}
+    inline VkSwapchainKHR getInternalObject() const {return m_vkSwapchainKHR;}
 
     E_ACQUIRE_IMAGE_RESULT acquireNextImage(uint64_t timeout, IGPUSemaphore* semaphore, IGPUFence* fence, uint32_t* out_imgIx) override;
 	

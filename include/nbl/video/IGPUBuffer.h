@@ -41,6 +41,10 @@ class IGPUBuffer : public asset::IBuffer, public IDriverMemoryBacked, public IBa
 		inline uint64_t getSize() const override {return cachedMemoryReqs.vulkanReqs.size;}
 
 		inline const SCachedCreationParams& getCachedCreationParams() const {return m_cachedCreationParams;}
+
+		// OpenGL: const GLuint* handle of a Buffer
+		// Vulkan: const VkBuffer*
+		virtual const void* getNativeHandle() const = 0;
 		
     protected:
         IGPUBuffer(

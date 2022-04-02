@@ -1,5 +1,5 @@
-#ifndef __NBL_C_VULKAN_LOGICAL_DEVICE_H_INCLUDED__
-#define __NBL_C_VULKAN_LOGICAL_DEVICE_H_INCLUDED__
+#ifndef _NBL_C_VULKAN_LOGICAL_DEVICE_H_INCLUDED_
+#define _NBL_C_VULKAN_LOGICAL_DEVICE_H_INCLUDED_
 
 #include <algorithm>
 
@@ -946,7 +946,8 @@ public:
 
     IGPUAccelerationStructure::BuildSizes getAccelerationStructureBuildSizes(const IGPUAccelerationStructure::DeviceBuildGeometryInfo& pBuildInfo, const uint32_t* pMaxPrimitiveCounts) override;
 
-    inline memory_pool_mt_t & getMemoryPoolForDeferredOperations() {
+    inline memory_pool_mt_t & getMemoryPoolForDeferredOperations()
+    {
         return m_deferred_op_mempool;
     }
 
@@ -1071,7 +1072,8 @@ public:
 
     const CVulkanDeviceFunctionTable* getFunctionTable() const { return &m_devf; }
 
-    VkDevice getInternalObject() const { return m_vkdev; }
+    inline const void* getNativeHandle() const {return &m_vkdev;}
+    VkDevice getInternalObject() const {return m_vkdev;}
 
 protected:
     bool createCommandBuffers_impl(IGPUCommandPool* cmdPool, IGPUCommandBuffer::E_LEVEL level,
@@ -1274,7 +1276,7 @@ protected:
             vkDescSetLayoutBinding.stageFlags = static_cast<VkShaderStageFlags>(binding->stageFlags);
             vkDescSetLayoutBinding.pImmutableSamplers = nullptr;
 
-            if (binding->samplers && binding->count > 0u)
+            if (binding->type==asset::ESRT_SAMPLED_IMAGE && binding->samplers && binding->count > 0u)
             {
                 // If descriptorType is VK_DESCRIPTOR_TYPE_SAMPLER or VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, and descriptorCount is not 0 and pImmutableSamplers is not NULL:
                 // pImmutableSamplers must be a valid pointer to an array of descriptorCount valid VkSampler handles.

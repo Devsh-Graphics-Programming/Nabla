@@ -151,7 +151,7 @@ void IUtilities::updateImageViaStagingBuffer(
         subSize = std::max(subSize, memoryLowerBound);
         const uint32_t uploadBufferSize = core::alignUp(subSize, allocationAlignment);
         // cannot use `multi_place` because of the extra padding size we could have added
-        m_defaultUploadBuffer.get()->multi_alloc(std::chrono::high_resolution_clock::now()+std::chrono::microseconds(500u), 1u, &localOffset, &uploadBufferSize, &allocationAlignment);
+        m_defaultUploadBuffer.get()->multi_alloc(std::chrono::steady_clock::now()+std::chrono::microseconds(500u), 1u, &localOffset, &uploadBufferSize, &allocationAlignment);
         bool failedAllocation = (localOffset == video::StreamingTransientDataBufferMT<>::invalid_address);
 
         // keep trying again

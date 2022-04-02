@@ -393,8 +393,8 @@ public:
 
 			swapchain->acquireNextImage(MAX_TIMEOUT, imageAcquire[resourceIx].get(), nullptr, &acquiredNextFBO);
 
-			nbl::video::IGPUCommandBuffer::SRenderpassBeginInfo beginInfo;
 			{
+				nbl::video::IGPUCommandBuffer::SRenderpassBeginInfo beginInfo;
 				VkRect2D area;
 				area.offset = { 0,0 };
 				area.extent = { NBL_WINDOW_WIDTH, NBL_WINDOW_HEIGHT };
@@ -408,9 +408,9 @@ public:
 				beginInfo.renderpass = renderpass;
 				beginInfo.renderArea = area;
 				beginInfo.clearValues = &clear;
+				commandBuffer->beginRenderPass(&beginInfo, nbl::asset::ESC_INLINE);
 			}
 
-			commandBuffer->beginRenderPass(&beginInfo, nbl::asset::ESC_INLINE);
 			commandBuffer->bindGraphicsPipeline(gpuGraphicsPipeline.get());
 			commandBuffer->bindDescriptorSets(asset::EPBP_GRAPHICS, gpuGraphicsPipeline->getRenderpassIndependentPipeline()->getLayout(), 3, 1, &gpuSamplerDescriptorSet3.get(), 0u);
 			ext::FullScreenTriangle::recordDrawCalls(commandBuffer.get());
@@ -498,7 +498,7 @@ public:
 		const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT);
 		const video::ISurface::SFormat surfaceFormat(asset::EF_R8G8B8A8_SRGB, asset::ECP_COUNT, asset::EOTF_UNKNOWN);
 
-		CommonAPI::InitWithDefaultExt(initOutput, video::EAT_OPENGL_ES, "MeshLoaders", NBL_WINDOW_WIDTH, NBL_WINDOW_HEIGHT, SC_IMG_COUNT, swapchainImageUsage, surfaceFormat, nbl::asset::EF_D32_SFLOAT);
+		CommonAPI::InitWithDefaultExt(initOutput, video::EAT_OPENGL, "MeshLoaders", NBL_WINDOW_WIDTH, NBL_WINDOW_HEIGHT, SC_IMG_COUNT, swapchainImageUsage, surfaceFormat);
 		window = std::move(initOutput.window);
 		gl = std::move(initOutput.apiConnection);
 		surface = std::move(initOutput.surface);
@@ -541,17 +541,19 @@ public:
 			{
 				switch (typeOfImage)
 				{
-				case nbl::asset::IImageView<nbl::asset::ICPUImage>::ET_2D:
-					return "../present2D.frag";
-				case nbl::asset::IImageView<nbl::asset::ICPUImage>::ET_2D_ARRAY:
-					return "../present2DArray.frag";
-				case nbl::asset::IImageView<nbl::asset::ICPUImage>::ET_CUBE_MAP:
-					return "../presentCubemap.frag";
-				default:
-				{
-					assert(false);
+					case nbl::asset::IImageView<nbl::asset::ICPUImage>::ET_2D:
+						return "../present2D.frag";
+					case nbl::asset::IImageView<nbl::asset::ICPUImage>::ET_2D_ARRAY:
+						return "../present2DArray.frag";
+					case nbl::asset::IImageView<nbl::asset::ICPUImage>::ET_CUBE_MAP:
+						return "../presentCubemap.frag";
+					default:
+					{
+						assert(false);
+						break;
+					}
 				}
-				}
+				return "";
 			};
 
 			auto fs_bundle = assetManager->getAsset(getPathToFragmentShader(), {});
@@ -631,18 +633,21 @@ public:
 						auto& captionData = captionTexturesData.emplace_back();
 						captionData.name = filename.string();
 						captionData.extension = extension.string();
-						captionData.viewType = [&]()
+						captionData.viewType = [&]() -> std::string
 						{
 							const auto& viewType = newCpuImageViewTexture->getCreationParameters().viewType;
 
 							if (viewType == nbl::asset::IImageView<nbl::video::IGPUImage>::ET_2D)
-								return std::string("ET_2D");
+								return "ET_2D";
 							else if (viewType == nbl::asset::IImageView<nbl::video::IGPUImage>::ET_2D_ARRAY)
-								return std::string("ET_2D_ARRAY");
+								return "ET_2D_ARRAY";
 							else if (viewType == nbl::asset::IImageView<nbl::video::IGPUImage>::ET_CUBE_MAP)
-								return std::string("ET_CUBE_MAP");
+								return "ET_CUBE_MAP";
 							else
+							{
 								assert(false);
+								return "";
+							}
 						}();
 
 						const std::string finalFileNameWithExtension = captionData.name + captionData.extension;
@@ -663,9 +668,10 @@ public:
 			}
 		}
 		
-		gpuImageViews = cpu2gpu.getGPUObjectsFromAssets(cpuImageViews.data(), cpuImageViews.data() + cpuImageViews.size(), cpu2gpuParams);
-		if (!gpuImageViews || gpuImageViews->size() < cpuImageViews.size())
-			assert(false);
+		cpu2gpuParams.beginCommandBuffers();
+		gpuImageViews = cpu2gpu.getGPUObjectsFromAssets(cpuImageViews.data(), cpuImageViews.data()+cpuImageViews.size(), cpu2gpuParams);
+		cpu2gpuParams.waitForCreationToComplete(false);
+		assert(gpuImageViews && gpuImageViews->size()==cpuImageViews.size());
 	}
 
 	void workLoopBody() override

@@ -1,23 +1,20 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#include <sstream>
-#include <regex>
-#include <iterator>
-
 #include "nbl/asset/utils/IGLSLCompiler.h"
 #include "nbl/asset/utils/shadercUtils.h"
 #include "nbl/asset/utils/CIncludeHandler.h"
 
 #include "nbl/asset/utils/CGLSLVirtualTexturingBuiltinIncludeLoader.h"
 
+#include <sstream>
+#include <regex>
+#include <iterator>
 
-namespace nbl
-{
-using namespace system;
-namespace asset
-{
+
+using namespace nbl;
+using namespace nbl::asset;
+
 
 IGLSLCompiler::IGLSLCompiler(system::ISystem* _s)
     : m_inclHandler(core::make_smart_refctd_ptr<CIncludeHandler>(_s)), m_system(_s)
@@ -103,13 +100,16 @@ core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::createSPIRVFromGLSL(
 {
     size_t fileSize = _sourcefile->getSize();
     std::string glsl(fileSize, '\0');
-    system::future<size_t> future;
-   _sourcefile->read(future, glsl.data(), 0, fileSize);
-    future.get();
+
+    system::IFile::success_t success;
+    _sourcefile->read(success, glsl.data(), 0, fileSize);
+    if (!success)
+        return nullptr;
+
     return createSPIRVFromGLSL(glsl.c_str(), _stage, _entryPoint, _compilationId, _opt, _genDebugInfo, _outAssembly, logger, targetSpirvVersion);
 }
 
-namespace impl
+namespace nbl::asset::impl
 {
     //string to be replaced with all "#" except those in "#include"
     static constexpr const char* PREPROC_DIRECTIVE_DISABLER = "_this_is_a_hash_";
@@ -293,10 +293,11 @@ core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::resolveIncludeDirectives(
     const E_SPIRV_VERSION targetSpirvVersion) const
 {
     std::string glsl(_sourcefile->getSize(), '\0');
-    system::future<size_t> future;
-    _sourcefile->read(future, glsl.data(), 0, _sourcefile->getSize());
-    future.get();
+
+    system::IFile::success_t success;
+    _sourcefile->read(success, glsl.data(), 0, _sourcefile->getSize());
+    if (!success)
+        return nullptr;
+
     return resolveIncludeDirectives(std::move(glsl), _stage, _originFilepath, _maxSelfInclusionCnt, logger, targetSpirvVersion);
 }
-
-}}

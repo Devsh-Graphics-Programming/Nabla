@@ -321,19 +321,22 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
         SAssetBundle getAssetInHierarchy_impl(const std::string& _filePath, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
         {
             IAssetLoader::SAssetLoadContext ctx(_params, nullptr);
-            system::path filePath = _filePath;
 
+            system::path filePath = _filePath;
             _override->getLoadFilename(filePath, m_system.get(), ctx, _hierarchyLevel);
+            if (!m_system->exists(filePath,system::IFile::ECF_READ))
+            {
+                filePath = _params.workingDirectory/filePath;
+                _override->getLoadFilename(filePath, m_system.get(), ctx, _hierarchyLevel);
+            }
 
             system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
-            bool validInput = m_system->createFile(future, filePath, system::IFile::ECF_READ);
-            if (!validInput)
+            m_system->createFile(future, filePath, system::IFile::ECF_READ);
+            auto file = future.get();
+            if (!file)
                 return SAssetBundle(0);
 
-            core::smart_refctd_ptr<system::IFile> file = future.get();
-            SAssetBundle asset = getAssetInHierarchy_impl<RestoreWholeBundle>(file.get(), filePath.string(), ctx.params, _hierarchyLevel, _override);
-
-            return asset;
+            return getAssetInHierarchy_impl<RestoreWholeBundle>(file.get(), filePath.string(), ctx.params, _hierarchyLevel, _override);
         }
 
         //TODO change name
@@ -647,10 +650,9 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
             if (!_override)
                 _override = &defOverride;
 
-            core::smart_refctd_ptr<system::IFile> file;
             system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
-            bool valid = m_system->createFile(future, (_params.workingDirectory.generic_string() + _filename).c_str(), system::IFile::ECF_WRITE);
-            if (valid) file = future.get();
+            m_system->createFile(future, (_params.workingDirectory.generic_string() + _filename).c_str(), system::IFile::ECF_WRITE);
+            auto file = future.get();
 			if (file) // could fail creating file (lack of permissions)
 			{
 				bool res = writeAsset(file.get(), _params, _override);

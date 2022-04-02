@@ -5,10 +5,6 @@
 #ifndef __NBL_I_VIDEO_CAPABILITY_REPORTER_H_INCLUDED__
 #define __NBL_I_VIDEO_CAPABILITY_REPORTER_H_INCLUDED__
 
-#include <string>
-
-#include "nbl/video/IGPUImageView.h"
-//#include "EDriverTypes.h"
 
 
 namespace nbl
@@ -59,32 +55,8 @@ namespace video
             EDF_COUNT
         };
 
-		//! Queries the features of the driver.
-		/** Returns true if a feature is available
-		\param feature Feature to query.
-		\return True if the feature is available, false if not. */
-		virtual bool queryFeature(const E_DRIVER_FEATURE& feature) const {return false;}
-
-		//! Gets name of this video driver.
-		/** \return Returns the name of the video driver, e.g. in case
-		of the Direct3D8 driver, it would return "Direct3D 8.1". */
-		virtual const wchar_t* getName() const =0;
-
-		//! Get the graphics card vendor name.
-		virtual std::string getVendorInfo() =0;
-
-		//!
-		virtual uint32_t getMinimumMemoryMapAlignment() const { return _NBL_MIN_MAP_BUFFER_ALIGNMENT; }
-
         virtual uint16_t retrieveDisplayRefreshRate() const { return 0u; }
 		virtual uint32_t getMaxTextureBindingsCompute() const { return 0u; }
-
-		virtual bool isAllowedBufferViewFormat(asset::E_FORMAT _fmt) const { return false; }
-		virtual bool isAllowedVertexAttribFormat(asset::E_FORMAT _fmt) const { return false; }
-		virtual bool isColorRenderableFormat(asset::E_FORMAT _fmt) const { return false; }
-		virtual bool isAllowedImageStoreFormat(asset::E_FORMAT _fmt) const { return false; }
-		virtual bool isAllowedTextureFormat(asset::E_FORMAT _fmt) const { return false; }
-		virtual bool isHardwareBlendableFormat(asset::E_FORMAT _fmt) const { return false; }
 	};
 
 } // end namespace video

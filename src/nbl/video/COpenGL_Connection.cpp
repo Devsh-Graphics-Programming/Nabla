@@ -2,7 +2,6 @@
 
 #include "nbl/video/COpenGLPhysicalDevice.h"
 #include "nbl/video/COpenGLESPhysicalDevice.h"
-#include "nbl/video/CEGL.h"
 
 
 namespace nbl::video
@@ -49,6 +48,12 @@ IDebugCallback* COpenGL_Connection<API_TYPE>::getDebugCallback() const
         return static_cast<IOpenGL_PhysicalDeviceBase<COpenGLLogicalDevice>*>(*getPhysicalDevices().begin())->getDebugCallback();
     else
         return static_cast<IOpenGL_PhysicalDeviceBase<COpenGLESLogicalDevice>*>(*getPhysicalDevices().begin())->getDebugCallback();
+}
+
+template<E_API_TYPE API_TYPE>
+const egl::CEGL& COpenGL_Connection<API_TYPE>::getInternalObject() const
+{
+    return static_cast<const IOpenGLPhysicalDeviceBase*>(m_physicalDevices.front().get())->getInternalObject();
 }
 
 

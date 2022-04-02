@@ -113,11 +113,12 @@ bool CImageWriterTGA::writeAsset(system::IFile* _file, const SAssetWriteParams& 
 		}
 	}
 
-	system::future<size_t> future;
-	file->write(future, &imageHeader, 0, sizeof(imageHeader));
-
-	if (future.get() != sizeof(imageHeader))
-		return false;
+	{
+		system::IFile::success_t success;
+		file->write(success, &imageHeader, 0, sizeof(imageHeader));
+		if (!success)
+			return false;
+	}
 
 	uint8_t* scan_lines = (uint8_t*)convertedImage->getBuffer()->getPointer();
 	if (!scan_lines)
@@ -142,9 +143,9 @@ bool CImageWriterTGA::writeAsset(system::IFile* _file, const SAssetWriteParams& 
 	{
 		memcpy(row_pointer, &scan_lines[y * row_stride], row_size);
 		
-		system::future<size_t> future;
-		file->write(future, row_pointer, offset, row_size);
-		if (future.get() != row_size)
+		system::IFile::success_t success;
+		file->write(success, row_pointer, offset, row_size);
+		if (!success)
 			break;
 		offset += row_size;
 	}
@@ -152,13 +153,13 @@ bool CImageWriterTGA::writeAsset(system::IFile* _file, const SAssetWriteParams& 
 	STGAExtensionArea extension;
 	extension.ExtensionSize = sizeof(extension);
 	extension.Gamma = isSRGBFormat(convertedFormat) ? ((100.0f / 30.0f) - 1.1f) : 1.0f;
-	
-	system::future<size_t> extFuture;
-	file->write(extFuture, &extension, offset, sizeof(extension));
-	
-	if (extFuture.get() < (int32_t)sizeof(extension))
-		return false;
 
+	{
+		system::IFile::success_t success;
+		file->write(success, &extension, offset, sizeof(extension));
+		if (!success)
+			return false;
+	}
 	offset += sizeof extension;
 
 	STGAFooter imageFooter;
@@ -166,10 +167,9 @@ bool CImageWriterTGA::writeAsset(system::IFile* _file, const SAssetWriteParams& 
 	imageFooter.DeveloperOffset = 0;
 	strncpy(imageFooter.Signature, "TRUEVISION-XFILE.", 18);
 
-	system::future<size_t> footerFuture;
-	file->write(footerFuture, &extension, offset, sizeof(extension));
-
-	if (footerFuture.get() < (int32_t)sizeof(imageFooter))
+	system::IFile::success_t success;
+	file->write(success, &extension, offset, sizeof(extension));
+	if (!success)
 		return false;
 
 	return imageHeader.ImageHeight <= y;

@@ -174,7 +174,7 @@ uint32_t CPropertyPoolHandler::transferProperties(
 	StreamingTransientDataBufferMT<>* const upBuff, IGPUCommandBuffer* const cmdbuf, IGPUFence* const fence, IGPUQueue* const queue,
 	const asset::SBufferBinding<video::IGPUBuffer>& scratch, UpStreamingRequest* &requests, const uint32_t requestCount,
 	uint32_t& waitSemaphoreCount, IGPUSemaphore* const*& semaphoresToWaitBeforeOverwrite, const asset::E_PIPELINE_STAGE_FLAGS*& stagesToWaitForPerSemaphore,
-	system::logger_opt_ptr logger, const std::chrono::high_resolution_clock::time_point& maxWaitPoint
+	system::logger_opt_ptr logger, const std::chrono::steady_clock::time_point& maxWaitPoint
 )
 {
 	if (!requestCount)

@@ -6,7 +6,7 @@ using namespace video;
 core::smart_refctd_ptr<asset::ICPUShader> CScanner::createShader(const bool indirect, const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op) const
 {
 	auto system = m_device->getPhysicalDevice()->getSystem();
-	core::smart_refctd_ptr<nbl::system::IFile> glsl;
+	core::smart_refctd_ptr<const system::IFile> glsl;
 	{
 		if(indirect)
 			glsl = system->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/scan/indirect.comp")>();

@@ -1,73 +1,92 @@
-#ifndef __NBL_I_FILE_H_INCLUDED__
-#define __NBL_I_FILE_H_INCLUDED__
+#ifndef _NBL_SYSTEM_I_FILE_H_INCLUDED_
+#define _NBL_SYSTEM_I_FILE_H_INCLUDED_
 
-#include "nbl/core/decl/smart_refctd_ptr.h"
-#include "nbl/core/util/bitflag.h"
-#include "nbl/system/path.h"
-
-#include <filesystem>
-#include <type_traits>
+#include "nbl/system/ISystem.h"
 
 namespace nbl::system
 {
 
-class ISystem;
-template<typename T>
-class future;
-
-class IFile : public core::IReferenceCounted
+class IFile : public IFileBase, private ISystem::IFutureManipulator
 {
-	friend class ISystemCaller;
-	friend class ISystem;
-	friend class IFileArchive;
 	public:
-		enum E_CREATE_FLAGS : uint32_t
+		//
+		inline void read(ISystem::future_t<size_t>& fut, void* buffer, size_t offset, size_t sizeToRead)
 		{
-			ECF_READ = 0b0001,
-			ECF_WRITE = 0b0010,
-			ECF_READ_WRITE = 0b0011,
-			ECF_MAPPABLE = 0b0100,
-			//! Implies ECF_MAPPABLE
-			ECF_COHERENT = 0b1100
-		};
-
-		//! Get size of file.
-		/** \return Size of the file in bytes. */
-		virtual size_t getSize() const = 0;
-
-		//! Get name of file.
-		/** \return File name as zero terminated character string. */
-		inline const path& getFileName() const { return m_filename; }
-
-		E_CREATE_FLAGS getFlags() const { return m_flags.value; }
-
-		virtual void* getMappedPointer() = 0;
-		virtual const void* getMappedPointer() const = 0;
-	
-
-		bool isMappingCoherent() const
+			const IFileBase* constThis = this;
+			const auto* ptr = reinterpret_cast<const std::byte*>(constThis->getMappedPointer());
+			if (ptr)
+			{
+				const size_t size = getSize();
+				if (offset+sizeToRead>size)
+					sizeToRead = size-offset;
+				memcpy(buffer,ptr+offset,sizeToRead);
+				fake_notify(fut,sizeToRead);
+			}
+			else
+				unmappedRead(fut,buffer,offset,sizeToRead);
+		}
+		inline void write(ISystem::future_t<size_t>& fut, const void* buffer, size_t offset, size_t sizeToWrite)
 		{
-			return (m_flags & ECF_COHERENT).value == ECF_COHERENT;
+			auto* ptr = reinterpret_cast<std::byte*>(getMappedPointer());
+			if (ptr)
+			{
+				// TODO: growable mappings
+				if (offset+sizeToWrite>getSize())
+					sizeToWrite = getSize()-offset;
+				memcpy(ptr+offset,buffer,sizeToWrite);
+				fake_notify(fut,sizeToWrite);
+			}
+			else
+				unmappedWrite(fut,buffer,offset,sizeToWrite);
 		}
 
-		// TODO: make the `ISystem` methods protected instead 
-		void read(future<size_t>& fut, void* buffer, size_t offset, size_t sizeToRead);
-		void write(future<size_t>& fut, const void* buffer, size_t offset, size_t sizeToWrite);
+		//
+		struct success_t
+		{
+			public:
+				success_t() = default;
+				~success_t() = default;
 
-		static path flattenFilename(const path& p);
+				inline explicit operator bool()
+				{
+					return m_internalFuture.get()==sizeToProcess;
+				}
+				inline bool operator!()
+				{
+					return m_internalFuture.get()!=sizeToProcess;
+				}
+
+				inline size_t getSizeToProcess() const {return sizeToProcess;}
+
+			private:
+				friend IFile;
+				ISystem::future_t<size_t> m_internalFuture;
+				size_t sizeToProcess;
+		};
+		void read(success_t& fut, void* buffer, size_t offset, size_t sizeToRead)
+		{
+			read(fut.m_internalFuture,buffer,offset,sizeToRead);
+			fut.sizeToProcess = sizeToRead;
+		}
+		void write(success_t& fut, const void* buffer, size_t offset, size_t sizeToWrite)
+		{
+			write(fut.m_internalFuture,buffer,offset,sizeToWrite);
+			fut.sizeToProcess = sizeToWrite;
+		}
 
 	protected:
-		virtual size_t read_impl(void* buffer, size_t offset, size_t sizeToRead) = 0;
-		virtual size_t write_impl(const void* buffer, size_t offset, size_t sizeToWrite) = 0;
+		// this is an abstract interface class so this stays protected
+		using IFileBase::IFileBase;
 
-		// the ISystem is the factory, so this starys protected
-		explicit IFile(core::smart_refctd_ptr<ISystem>&& _system, const path& _filename, core::bitflag<E_CREATE_FLAGS> _flags);
-
-		core::smart_refctd_ptr<ISystem> m_system;
-		core::bitflag<E_CREATE_FLAGS> m_flags;
-
-	private:
-		path m_filename;
+		//
+		virtual void unmappedRead(ISystem::future_t<size_t>& fut, void* buffer, size_t offset, size_t sizeToRead)
+		{
+			fake_notify(fut,0ull);
+		}
+		virtual void unmappedWrite(ISystem::future_t<size_t>& fut, const void* buffer, size_t offset, size_t sizeToWrite)
+		{
+			fake_notify(fut,0ull);
+		}
 };
 
 }

@@ -39,8 +39,8 @@ namespace nbl::video
 
 namespace impl
 {
-    class IOpenGL_LogicalDeviceBase
-    {
+class IOpenGL_LogicalDeviceBase
+{
     public:
         static inline constexpr uint32_t MaxQueueCount = 8u;
         static inline constexpr uint32_t MaxGlNamesForSingleObject = MaxQueueCount + 1u;
@@ -264,7 +264,7 @@ namespace impl
             static inline constexpr E_REQUEST_TYPE type = ERT_WAIT_IDLE;
             using retval_t = void;
         };
-    };
+};
 
 /*
     template <>
@@ -297,12 +297,6 @@ namespace impl
 class IOpenGL_LogicalDevice : public ILogicalDevice, protected impl::IOpenGL_LogicalDeviceBase
 {
 protected:
-    struct SGLContext
-    {
-        EGLContext ctx = EGL_NO_CONTEXT;
-        EGLSurface pbuffer = EGL_NO_SURFACE;
-    };
-
     static EGLContext createGLContext(EGLenum apiType, const egl::CEGL* egl, EGLint major, EGLint minor, EGLConfig config, EGLContext master = EGL_NO_CONTEXT)
     {
         egl->call.peglBindAPI(apiType);
@@ -328,9 +322,9 @@ protected:
 
         return ctx;
     }
-    static SGLContext createWindowlessGLContext(EGLenum apiType, const egl::CEGL* egl, EGLint major, EGLint minor, EGLConfig config, EGLContext master = EGL_NO_CONTEXT)
+    static auto createWindowlessGLContext(EGLenum apiType, const egl::CEGL* egl, EGLint major, EGLint minor, EGLConfig config, EGLContext master = EGL_NO_CONTEXT)
     {
-        SGLContext retval;
+        egl::CEGL::Context retval;
 
         retval.ctx = createGLContext(apiType, egl, major, minor, config, master);
 
@@ -341,8 +335,8 @@ protected:
 
             EGL_NONE
         };
-        retval.pbuffer = egl->call.peglCreatePbufferSurface(egl->display, config, pbuffer_attributes);
-        assert(retval.pbuffer != EGL_NO_SURFACE);
+        retval.surface = egl->call.peglCreatePbufferSurface(egl->display, config, pbuffer_attributes);
+        assert(retval.surface != EGL_NO_SURFACE);
 
         return retval;
     }
@@ -418,27 +412,17 @@ protected:
             const egl::CEGL* _egl,
             const FeaturesType* _features,
             uint32_t _qcount,
-            const SGLContext& glctx,
+            const egl::CEGL::Context& _glctx,
             const COpenGLDebugCallback* _dbgCb) :
             m_queueCount(_qcount),
             masterContextSync(_masterContextSync),
             masterContextCallsReturned(_masterContextCallsReturned),
             egl(_egl),
-            thisCtx(glctx.ctx), pbuffer(glctx.pbuffer),
+            glctx(_glctx),
             features(_features),
             device(dev),
             m_dbgCb(_dbgCb)
         {
-        }
-
-        EGLContext getContext() const
-        {
-            return thisCtx;
-        }
-
-        EGLSurface getSurface() const
-        {
-            return pbuffer;
         }
 
         uint32_t getQueueCount() const
@@ -462,7 +446,7 @@ protected:
         {
             egl->call.peglBindAPI(FunctionTableType::EGL_API_TYPE);
 
-            EGLBoolean mcres = egl->call.peglMakeCurrent(egl->display, pbuffer, pbuffer, thisCtx);
+            EGLBoolean mcres = egl->call.peglMakeCurrent(egl->display, glctx.surface, glctx.surface, glctx.ctx);
             assert(mcres == EGL_TRUE);
 
             auto logger = m_dbgCb->getLogger();
@@ -674,7 +658,7 @@ protected:
                 auto& p = std::get<SRequestMakeCurrent>(req.params_variant);
                 EGLBoolean mcres = EGL_FALSE;
                 if (p.bind)
-                    mcres = egl->call.peglMakeCurrent(egl->display, pbuffer, pbuffer, thisCtx);
+                    mcres = egl->call.peglMakeCurrent(egl->display, glctx.surface, glctx.surface, glctx.ctx);
                 else
                     mcres = egl->call.peglMakeCurrent(egl->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
                 assert(mcres);
@@ -704,10 +688,11 @@ protected:
             gl->~FunctionTableType();
 
             egl->call.peglMakeCurrent(egl->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT); // detach ctx from thread
-            egl->call.peglDestroyContext(egl->display, thisCtx);
-            egl->call.peglDestroySurface(egl->display, pbuffer);
+            egl->call.peglDestroyContext(egl->display, glctx.ctx);
+            egl->call.peglDestroySurface(egl->display, glctx.surface);
         }
 
+        egl::CEGL::Context glctx;
     private:
         core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> createRenderpassIndependentPipeline(IOpenGL_FunctionTable& gl, const IGPURenderpassIndependentPipeline::SCreationParams& params, IGPUPipelineCache* _pipelineCache)
         {
@@ -867,7 +852,12 @@ protected:
                         if(notFirstRun && now>=timeoutPoint)
                             return IGPUFence::ES_TIMEOUT;
                         else if (_waitAll) // all fences have to get signalled anyway so no use round robining
-                            timeout = std::chrono::duration_cast<std::chrono::nanoseconds>(timeoutPoint-now).count();
+                        {
+                            if (timeoutPoint>now)
+                                timeout = std::chrono::duration_cast<std::chrono::nanoseconds>(timeoutPoint-now).count();
+                            else
+                                timeout = 0ull;
+                        }
                         else if (i==0u) // if we're only looking for one to succeed then poll with increasing timeouts until deadline
                             timeout <<= 1u;
                     }
@@ -930,9 +920,6 @@ protected:
         std::atomic<uint64_t>* const masterContextCallsReturned;
 
         const egl::CEGL* egl;
-
-        EGLContext thisCtx;
-        EGLSurface pbuffer;
         const FeaturesType* features;
 
         IOpenGL_LogicalDevice* device;

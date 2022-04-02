@@ -55,6 +55,10 @@ class IGPUImage : public core::impl::ResolveAlignment<IDriverMemoryBacked,asset:
 
 		inline const SDriverMemoryRequirements& getMemoryReqs() const { return base_t::getMemoryReqs(); }
 
+		// OpenGL: const GLuint* handle of a texture target
+		// Vulkan: const VkImage*
+		virtual const void* getNativeHandle() const = 0;
+
     protected:
         _NBL_INTERFACE_CHILD(IGPUImage) {}
 

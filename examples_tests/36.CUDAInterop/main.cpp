@@ -6,8 +6,6 @@
 #include <nabla.h>
 
 
-#include "../src/nbl/video/CCUDAHandler.h"
-
 /**
 This example just shows a screen which clears to red,
 nothing fancy, just to show that Irrlicht links fine

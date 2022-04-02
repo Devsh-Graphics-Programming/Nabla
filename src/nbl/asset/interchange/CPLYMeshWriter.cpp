@@ -212,7 +212,7 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
     header += "end_header\n";
 
     {
-        system::future<size_t> future;
+        system::ISystem::future_t<size_t> future;
         file->write(future, header.c_str(), context.fileOffset, header.size());
         const auto bytesWritten = future.get();
         context.fileOffset += bytesWritten;
@@ -279,14 +279,14 @@ void CPLYMeshWriter::writeBinary(const asset::ICPUMeshBuffer* _mbuf, size_t _vtx
         for (size_t i = 0u; i < _fcCount; ++i)
         {
             {
-                system::future<size_t> future;
+                system::ISystem::future_t<size_t> future;
                 context.writeContext.outputFile->write(future, &listSize, context.fileOffset, sizeof(listSize));
                 const auto bytesWritten = future.get();
                 context.fileOffset += bytesWritten;
             }
 
             {
-                system::future<size_t> future;
+                system::ISystem::future_t<size_t> future;
                 context.writeContext.outputFile->write(future, ind, context.fileOffset, listSize * 4);
                 const auto bytesWritten = future.get();
                 context.fileOffset += bytesWritten;
@@ -301,14 +301,14 @@ void CPLYMeshWriter::writeBinary(const asset::ICPUMeshBuffer* _mbuf, size_t _vtx
         for (size_t i = 0u; i < _fcCount; ++i)
         {
             {
-                system::future<size_t> future;
+                system::ISystem::future_t<size_t> future;
                 context.writeContext.outputFile->write(future, &listSize, context.fileOffset, sizeof(listSize));
                 const auto bytesWritten = future.get();
                 context.fileOffset += bytesWritten;
             }
 
             {
-                system::future<size_t> future;
+                system::ISystem::future_t<size_t> future;
                 context.writeContext.outputFile->write(future, ind, context.fileOffset, listSize * 2);
                 const auto bytesWritten = future.get();
                 context.fileOffset += bytesWritten;
@@ -379,7 +379,7 @@ void CPLYMeshWriter::writeText(const asset::ICPUMeshBuffer* _mbuf, size_t _vtxCo
         }
 
         {
-            system::future<size_t> future;
+            system::ISystem::future_t<size_t> future;
             context.writeContext.outputFile->write(future, "\n", context.fileOffset, 1);
             const auto bytesWritten = future.get();
             context.fileOffset += bytesWritten;
@@ -408,7 +408,7 @@ void CPLYMeshWriter::writeText(const asset::ICPUMeshBuffer* _mbuf, size_t _vtxCo
         for (size_t i = 0u; i < _fcCount; ++i)
         {
             {
-                system::future<size_t> future;
+                system::ISystem::future_t<size_t> future;
                 context.writeContext.outputFile->write(future, listSize, context.fileOffset, 2);
                 const auto bytesWritten = future.get();
                 context.fileOffset += bytesWritten;
@@ -417,7 +417,7 @@ void CPLYMeshWriter::writeText(const asset::ICPUMeshBuffer* _mbuf, size_t _vtxCo
             writeVectorAsText(context, ind, 3);
 
             {
-                system::future<size_t> future;
+                system::ISystem::future_t<size_t> future;
                 context.writeContext.outputFile->write(future, "\n", context.fileOffset, 1);
                 const auto bytesWritten = future.get();
                 context.fileOffset += bytesWritten;
@@ -432,7 +432,7 @@ void CPLYMeshWriter::writeText(const asset::ICPUMeshBuffer* _mbuf, size_t _vtxCo
         for (size_t i = 0u; i < _fcCount; ++i)
         {
             {
-                system::future<size_t> future;
+                system::ISystem::future_t<size_t> future;
                 context.writeContext.outputFile->write(future, listSize, context.fileOffset, 2);
                 const auto bytesWritten = future.get();
                 context.fileOffset += bytesWritten;
@@ -441,7 +441,7 @@ void CPLYMeshWriter::writeText(const asset::ICPUMeshBuffer* _mbuf, size_t _vtxCo
             writeVectorAsText(context, ind, 3);
 
             {
-                system::future<size_t> future;
+                system::ISystem::future_t<size_t> future;
                 context.writeContext.outputFile->write(future, "\n", context.fileOffset, 1);
                 const auto bytesWritten = future.get();
                 context.fileOffset += bytesWritten;
@@ -475,7 +475,7 @@ void CPLYMeshWriter::writeAttribBinary(SContext& context, asset::ICPUMeshBuffer*
                 a[k] = ui[k];
 
             {
-                system::future<size_t> future;
+                system::ISystem::future_t<size_t> future;
                 context.writeContext.outputFile->write(future, a, context.fileOffset, _cpa);
                 const auto bytesWritten = future.get();
                 context.fileOffset += bytesWritten;
@@ -488,7 +488,7 @@ void CPLYMeshWriter::writeAttribBinary(SContext& context, asset::ICPUMeshBuffer*
                 a[k] = ui[k];
 
             {
-                system::future<size_t> future;
+                system::ISystem::future_t<size_t> future;
                 context.writeContext.outputFile->write(future, a, context.fileOffset, 2 * _cpa);
                 const auto bytesWritten = future.get();
                 context.fileOffset += bytesWritten;
@@ -497,7 +497,7 @@ void CPLYMeshWriter::writeAttribBinary(SContext& context, asset::ICPUMeshBuffer*
         else if (bytesPerCh == 4u)
         {
             {
-                system::future<size_t> future;
+                system::ISystem::future_t<size_t> future;
                 context.writeContext.outputFile->write(future, ui, context.fileOffset, 4 * _cpa);
                 const auto bytesWritten = future.get();
                 context.fileOffset += bytesWritten;
@@ -511,7 +511,7 @@ void CPLYMeshWriter::writeAttribBinary(SContext& context, asset::ICPUMeshBuffer*
             f[0] = -f[0];
 
         {
-            system::future<size_t> future;
+            system::ISystem::future_t<size_t> future;
             context.writeContext.outputFile->write(future, f.pointer, context.fileOffset, 4 * _cpa);
             const auto bytesWritten = future.get();
             context.fileOffset += bytesWritten;

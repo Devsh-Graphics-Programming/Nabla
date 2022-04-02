@@ -109,7 +109,8 @@ class ISurface : public core::IReferenceCounted
         virtual const void* getNativeWindowHandle() const = 0;
 };
 
-template<class Window, class ImmediateBase = ISurface>
+// Base for use with Nabla's window wrappers
+template<class Window, class ImmediateBase>
 class CSurface : public ImmediateBase
 {
     public:
@@ -129,7 +130,8 @@ class CSurface : public ImmediateBase
         core::smart_refctd_ptr<Window> m_window;
 };
 
-template<class Window, class ImmediateBase = ISurface>
+// Base to make surfaces directly from Native OS window handles
+template<class Window, class ImmediateBase>
 class CSurfaceNative : public ImmediateBase
 {
     public:

@@ -388,12 +388,8 @@ public:
 	{
 		using namespace nbl;
 		using namespace system;
-		nbl::core::smart_refctd_ptr<nbl::system::ISystemCaller> caller = nullptr;
 #ifdef _NBL_PLATFORM_WINDOWS_
-		caller = nbl::core::make_smart_refctd_ptr<nbl::system::CSystemCallerWin32>();
-#endif
-#ifdef _NBL_PLATFORM_WINDOWS_
-		return nbl::core::make_smart_refctd_ptr<nbl::system::CSystemWin32>(std::move(caller));
+		return nbl::core::make_smart_refctd_ptr<nbl::system::CSystemWin32>();
 #elif defined(_NBL_PLATFORM_ANDROID_)
 #if 0
 		return nbl::core::make_smart_refctd_ptr<nbl::system::CSystemAndroid>(std::move(caller));

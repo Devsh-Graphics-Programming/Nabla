@@ -167,7 +167,7 @@ public:
 		const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT);
 		const video::ISurface::SFormat surfaceFormat(asset::EF_R8G8B8A8_SRGB, asset::ECP_COUNT, asset::EOTF_UNKNOWN);
 
-        CommonAPI::InitWithDefaultExt(initOutput, video::EAT_OPENGL_ES, "NablaTutorialExample", WIN_W, WIN_H, SC_IMG_COUNT, swapchainImageUsage, surfaceFormat, nbl::asset::EF_D32_SFLOAT);
+        CommonAPI::InitWithDefaultExt(initOutput, video::EAT_VULKAN, "NablaTutorialExample", WIN_W, WIN_H, SC_IMG_COUNT, swapchainImageUsage, surfaceFormat, nbl::asset::EF_D32_SFLOAT);
 		window = std::move(initOutput.window);
 		windowCb = std::move(initOutput.windowCb);
 		apiConnection = std::move(initOutput.apiConnection);
@@ -202,13 +202,19 @@ public:
 		Loading an asset bundle. You can specify some flags
 		and parameters to have an impact on extraordinary
 		tasks while loading for example.
-	*/
+		*/
 
 		asset::IAssetLoader::SAssetLoadParams loadingParams;
 		auto images_bundle = assetManager->getAsset("../../media/color_space_test/R8G8B8A8_1.png", loadingParams);
 		assert(!images_bundle.getContents().empty());
 		auto image = images_bundle.getContents().begin()[0];
+
+		/*
+		By default an image that comes out of an image loader will only have the TRANSFER_DST usage flag.
+		We need to add more usages, as only we know what we'll do with the image farther along in the pipeline.
+		*/
 		auto image_raw = static_cast<asset::ICPUImage*>(image.get());
+		image_raw->addImageUsageFlags(asset::IImage::EUF_SAMPLED_BIT);
 
 		/*
 			Specifing gpu image view parameters to create a gpu
@@ -220,7 +226,16 @@ public:
 		cpu2gpuParams.waitForCreationToComplete();
 		auto& gpuParams = gpuImage->getCreationParameters();
 
-		IImageView<IGPUImage>::SCreationParams gpuImageViewParams = { static_cast<IGPUImageView::E_CREATE_FLAGS>(0), gpuImage, IImageView<IGPUImage>::ET_2D, gpuParams.format, {}, {static_cast<IImage::E_ASPECT_FLAGS>(0u), 0, gpuParams.mipLevels, 0, gpuParams.arrayLayers} };
+		IImageView<IGPUImage>::SCreationParams gpuImageViewParams = {
+			IGPUImageView::ECF_NONE,
+			gpuImage,
+			IImageView<IGPUImage>::ET_2D,
+			gpuParams.format,
+			{},
+			{
+				IImage::EAF_COLOR_BIT, 0, gpuParams.mipLevels, 0, gpuParams.arrayLayers
+			}
+		};
 		auto gpuImageView = logicalDevice->createGPUImageView(std::move(gpuImageViewParams));
 
 		/*
@@ -279,15 +294,18 @@ public:
 				We know ahead of time that `SBasicViewParameters` struct is the expected structure of the only UBO block in the descriptor set nr. 1 of the shader.
 			*/
 
-			IGPUBuffer::SCreationParams creationParams;
+			IGPUBuffer::SCreationParams creationParams = {};
 			creationParams.canUpdateSubRange = true;
-			creationParams.usage = asset::IBuffer::EUF_UNIFORM_BUFFER_BIT;
-			creationParams.sharingMode = asset::E_SHARING_MODE::ESM_CONCURRENT;
-			creationParams.queueFamilyIndexCount = 0u;
-			creationParams.queueFamilyIndices = nullptr;
+			creationParams.usage = core::bitflag(asset::IBuffer::EUF_UNIFORM_BUFFER_BIT)|asset::IBuffer::EUF_TRANSFER_DST_BIT;
 			IDriverMemoryBacked::SDriverMemoryRequirements memReq;
 			memReq.vulkanReqs.size = sizeof(SBasicViewParameters);
-			gpuubo = logicalDevice->createGPUBufferOnDedMem(creationParams, memReq);
+			memReq.vulkanReqs.alignment = physicalDevice->getLimits().UBOAlignment;
+			memReq.vulkanReqs.memoryTypeBits = 0xffffffffu;
+			memReq.memoryHeapLocation = IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+			memReq.mappingCapability = IDriverMemoryAllocation::EMAF_NONE;
+			memReq.prefersDedicatedAllocation = true;
+			memReq.requiresDedicatedAllocation = true;
+			gpuubo = logicalDevice->createGPUBufferOnDedMem(creationParams,memReq);
 
 			/*
 				Creating descriptor sets - texture (sampler) and basic view parameters (UBO).
@@ -380,6 +398,7 @@ public:
 			if (cpuindexbuffer)
 				cpubuffers.push_back(cpuindexbuffer);
 
+			cpu2gpuParams.beginCommandBuffers();
 			auto gpubuffers = cpu2gpu.getGPUObjectsFromAssets(cpubuffers.data(), cpubuffers.data() + cpubuffers.size(), cpu2gpuParams);
 			cpu2gpuParams.waitForCreationToComplete();
 
@@ -440,7 +459,10 @@ public:
 		auto& fence = frameComplete[resourceIx];
 
 		if (fence)
-			while (logicalDevice->waitForFences(1u, &fence.get(), false, MAX_TIMEOUT) == video::IGPUFence::ES_TIMEOUT) {}
+		{
+			logicalDevice->blockForFences(1u,&fence.get());
+			logicalDevice->resetFences(1u,&fence.get());
+		}
 		else
 			fence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
 
@@ -491,29 +513,10 @@ public:
 		viewport.width = WIN_W;
 		viewport.height = WIN_H;
 		commandBuffer->setViewport(0u, 1u, &viewport);
-
-		swapchain->acquireNextImage(MAX_TIMEOUT, imageAcquire[resourceIx].get(), nullptr, &acquiredNextFBO);
-
-		nbl::video::IGPUCommandBuffer::SRenderpassBeginInfo beginInfo;
-		{
-			VkRect2D area;
-			area.offset = { 0,0 };
-			area.extent = { WIN_W, WIN_H };
-			asset::SClearValue clear[2] = {};
-			clear[0].color.float32[0] = 0.f;
-			clear[0].color.float32[1] = 0.f;
-			clear[0].color.float32[2] = 0.f;
-			clear[0].color.float32[3] = 1.f;
-			clear[1].depthStencil.depth = 0.f;
-
-			beginInfo.clearValueCount = 2u;
-			beginInfo.framebuffer = fbo[acquiredNextFBO];
-			beginInfo.renderpass = renderpass;
-			beginInfo.renderArea = area;
-			beginInfo.clearValues = clear;
-		}
-
-		commandBuffer->beginRenderPass(&beginInfo, nbl::asset::ESC_INLINE);
+		VkRect2D scissor;
+		scissor.offset = {0u,0u};
+		scissor.extent = {WIN_W,WIN_H};
+		commandBuffer->setScissor(0u,1u,&scissor);
 
 		const auto viewProjection = camera.getConcatenatedMatrix();
 		core::matrix3x4SIMD modelMatrix;
@@ -535,6 +538,28 @@ public:
 		memcpy(uboData.MVP, mvp.pointer(), sizeof(mvp));
 		memcpy(uboData.NormalMat, normalMat.pointer(), sizeof(normalMat));
 		commandBuffer->updateBuffer(gpuubo.get(), 0ull, gpuubo->getSize(), &uboData);
+
+		swapchain->acquireNextImage(MAX_TIMEOUT, imageAcquire[resourceIx].get(), nullptr, &acquiredNextFBO);
+
+		nbl::video::IGPUCommandBuffer::SRenderpassBeginInfo beginInfo;
+		{
+			VkRect2D area;
+			area.offset = { 0,0 };
+			area.extent = { WIN_W, WIN_H };
+			asset::SClearValue clear[2] = {};
+			clear[0].color.float32[0] = 0.f;
+			clear[0].color.float32[1] = 0.f;
+			clear[0].color.float32[2] = 0.f;
+			clear[0].color.float32[3] = 1.f;
+			clear[1].depthStencil.depth = 0.f;
+
+			beginInfo.clearValueCount = 2u;
+			beginInfo.framebuffer = fbo[acquiredNextFBO];
+			beginInfo.renderpass = renderpass;
+			beginInfo.renderArea = area;
+			beginInfo.clearValues = clear;
+		}
+		commandBuffer->beginRenderPass(&beginInfo, nbl::asset::ESC_INLINE);
 
 		/*
 			Binding the most important objects needed to

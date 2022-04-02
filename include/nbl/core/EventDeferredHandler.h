@@ -105,7 +105,7 @@ class DeferredEventHandlerST
                 auto prev = mEvents.before_begin();
                 for (auto it = mEvents.begin(); it!=mEvents.end(); )
                 {
-                    if (it->m_event.wait_until(std::chrono::high_resolution_clock::now()+std::chrono::microseconds(250ull)))
+                    if (it->m_event.wait_until(std::chrono::steady_clock::now()+std::chrono::microseconds(250ull)))
                     {
                         it->m_function();
                         it = mEvents.erase_after(prev);

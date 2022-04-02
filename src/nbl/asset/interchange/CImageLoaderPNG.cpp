@@ -61,7 +61,7 @@ void PNGAPI user_read_data_fcn(png_structp png_pt, png_bytep data, png_size_t le
 
 	system::IFile* file=(system::IFile*)png_get_io_ptr(png_pt);
 
-	system::future<size_t> future;
+	system::ISystem::future_t<size_t> future;
 	file->read(future, data, file_pos, length);
 	check = future.get();
 	file_pos += length;
@@ -83,13 +83,12 @@ bool CImageLoaderPng::isALoadableFileFormat(system::IFile* _file, const system::
 
 	png_byte buffer[8];
 
-	system::future<size_t> future;
-	_file->read(future, buffer, 0, 8);
 	// Read the first few bytes of the PNG _file
-    if (future.get() != 8)
-    {
+	system::IFile::success_t success;
+	_file->read(success, buffer, 0, sizeof(buffer));
+    if (!success)
         return false;
-    }
+    
 	// Check if it really is a PNG _file
 	return !png_sig_cmp(buffer, 0, 8);
 #else
@@ -114,9 +113,9 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(system::IFile* _file, const asset
 	png_byte buffer[8];
 	// Read the first few bytes of the PNG _file
 
-	system::future<size_t> future;
-	_file->read(future, buffer, 0, sizeof buffer);
-	if(future.get() != 8 )
+	system::IFile::success_t success;
+	_file->read(success, buffer, 0, sizeof(buffer));
+	if (!success)
 	{
 		_params.logger.log("LOAD PNG: can't read _file\n", system::ILogger::ELL_ERROR, _file->getFileName().string());
         return {};

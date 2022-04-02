@@ -174,6 +174,10 @@ public:
         return m_cachedInheritanceInfo;
     }
 
+    // OpenGL: nullptr, because commandbuffer doesn't exist in GL (we might expose the linked list command storage in the future)
+    // Vulkan: const VkCommandBuffer*
+    virtual const void* getNativeHandle() const = 0;
+
 protected:
     friend class IGPUQueue;
 

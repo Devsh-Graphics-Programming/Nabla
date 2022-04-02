@@ -22,7 +22,7 @@ public:
 	{
 		CommonAPI::InitOutput initOutput;
 		initOutput.system = core::smart_refctd_ptr(system);
-		CommonAPI::InitWithNoExt(initOutput, video::EAT_OPENGL_ES, "Subgroup Arithmetic Test");
+		CommonAPI::InitWithNoExt(initOutput, video::EAT_OPENGL, "Subgroup Arithmetic Test");
 		system = std::move(initOutput.system);
 		auto gl = std::move(initOutput.apiConnection);
 		auto logger = std::move(initOutput.logger);

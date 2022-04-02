@@ -55,6 +55,11 @@ class CThreadSafeGPUQueueAdapter : public IGPUQueue
         {
             return originalQueue;
         }
+
+        virtual const void* getNativeHandle() const
+        {
+            return originalQueue->getNativeHandle();
+        }
 };
 
 }

@@ -18,8 +18,9 @@ public:
     {}
 
     ~CVulkanSemaphore();
-
-    VkSemaphore getInternalObject() const { return m_semaphore; }
+    
+	inline void* getNativeHandle() override {return &m_semaphore;}
+    VkSemaphore getInternalObject() const {return m_semaphore;}
 
     void setObjectDebugName(const char* label) const override;
 
