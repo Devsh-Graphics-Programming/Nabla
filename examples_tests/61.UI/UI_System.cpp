@@ -3,8 +3,6 @@
 #include "imgui/imgui.h"
 #include "imgui/imgui_stdlib.h"
 
-#include "../common/CommonAPI.h"
-
 using namespace nbl::video;
 using namespace nbl::core;
 using namespace nbl::asset;
@@ -21,7 +19,7 @@ namespace UI_System
 	// # glslangValidator -V -x -o glsl_shader.vert.u32 glsl_shader.vert
 	/*
 	#version 450 core
-	layout(location = 0) in vec2 aPos;d
+	layout(location = 0) in vec2 aPos;
 	layout(location = 1) in vec2 aUV;
 	layout(location = 2) in vec4 aColor;
 	layout(push_constant) uniform uPushConstant { vec2 uScale; vec2 uTranslate; } pc;
@@ -133,6 +131,7 @@ namespace UI_System
 		smart_refctd_ptr<IGPURenderpassIndependentPipeline> independentPipeline{};
 		smart_refctd_ptr<IGPUGraphicsPipeline> pipeline{};
 		smart_refctd_ptr<IGPUImageView> fontTexture{};
+		smart_refctd_ptr<CommonAPI::InputSystem> inputSystem{};
 		bool hasFocus = false;
 		//Signal<> UIRecordSignal{};
 		struct Subscriber {
@@ -266,13 +265,13 @@ namespace UI_System
 		vertexInputParams.enabledAttribFlags = 0b111u;
 		vertexInputParams.bindings[0].inputRate = EVIR_PER_VERTEX;
 		vertexInputParams.bindings[0].stride = sizeof(ImDrawVert);
-		vertexInputParams.attributes[0].format = VK_FORMAT_R32G32_SFLOAT;
+		vertexInputParams.attributes[0].format = EF_R32G32_SFLOAT;//VK_FORMAT_R32G32_SFLOAT;
 		vertexInputParams.attributes[0].relativeOffset = offsetof(ImDrawVert, pos);
 		vertexInputParams.attributes[0].binding = 0u;
-		vertexInputParams.attributes[1].format = VK_FORMAT_R32G32_SFLOAT;
+		vertexInputParams.attributes[1].format = EF_R32G32_SFLOAT;//VK_FORMAT_R32G32_SFLOAT;
 		vertexInputParams.attributes[1].relativeOffset = offsetof(ImDrawVert, uv);
 		vertexInputParams.attributes[1].binding = 0u;
-		vertexInputParams.attributes[2].format = VK_FORMAT_R8G8B8A8_UNORM;
+		vertexInputParams.attributes[2].format = EF_R32G32B32A32_UINT;//VK_FORMAT_R8G8B8A8_UNORM;
 		vertexInputParams.attributes[2].relativeOffset = offsetof(ImDrawVert, col);
 		vertexInputParams.attributes[2].binding = 0u;
 
@@ -280,14 +279,14 @@ namespace UI_System
 		SBlendParams blendParams{};
 		blendParams.logicOpEnable = false;
 		blendParams.logicOp = ELO_NO_OP;
-		blendParams.blendParams[0].blendEnable = VK_TRUE;
-		blendParams.blendParams[0].srcColorFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-		blendParams.blendParams[0].dstColorFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-		blendParams.blendParams[0].colorBlendOp = VK_BLEND_OP_ADD;
-		blendParams.blendParams[0].srcAlphaFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-		blendParams.blendParams[0].dstAlphaFactor = VK_BLEND_FACTOR_ZERO;
-		blendParams.blendParams[0].alphaBlendOp = VK_BLEND_OP_ADD;
-		blendParams.blendParams[0].colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+		blendParams.blendParams[0].blendEnable = true;//VK_TRUE;
+		blendParams.blendParams[0].srcColorFactor = EBF_SRC_ALPHA;//VK_BLEND_FACTOR_SRC_ALPHA;
+		blendParams.blendParams[0].dstColorFactor = EBF_ONE_MINUS_SRC_ALPHA;//VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+		blendParams.blendParams[0].colorBlendOp = EBO_ADD;//VK_BLEND_OP_ADD;
+		blendParams.blendParams[0].srcAlphaFactor = EBF_ONE_MINUS_SRC_ALPHA;//VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+		blendParams.blendParams[0].dstAlphaFactor = EBF_ZERO;//VK_BLEND_FACTOR_ZERO;
+		blendParams.blendParams[0].alphaBlendOp = EBO_ADD;//VK_BLEND_OP_ADD;
+		blendParams.blendParams[0].colorWriteMask = (1u << 0u) | (1u << 1u) | (1u << 2u) | (1u << 3u);//VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
 
 		// Rasterization params -------------------------
 		SRasterizationParams rasterizationParams{};
@@ -512,12 +511,15 @@ namespace UI_System
 		float screenWidth, float screenHeight,
 		nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpass>& renderPass,
 		nbl::video::IGPUPipelineCache* pipelineCache,
-		nbl::video::IGPUObjectFromAssetConverter::SParams& cpu2GpuParams
+		nbl::video::IGPUObjectFromAssetConverter::SParams& cpu2GpuParams,
+		nbl::core::smart_refctd_ptr<CommonAPI::InputSystem>& inputSystem
 	)
 	{
 		state = new State();
 
 		state->device = device;
+
+		state->inputSystem = inputSystem;
 
 		// Setup Dear ImGui context
 		IMGUI_CHECKVERSION();
@@ -551,13 +553,55 @@ namespace UI_System
 	{
 		auto& io = ImGui::GetIO();
 
-		//CommonAPI::InputSystem::ChannelReader<IMouseEventChannel> mouse;
+		CommonAPI::InputSystem::ChannelReader<IMouseEventChannel> mouse;
 		//CommonAPI::InputSystem::ChannelReader<IKeyboardEventChannel> keyboard;
 
-		//inputSystem->getDefaultMouse(&mouse);
+		state->inputSystem->getDefaultMouse(&mouse);
 		//inputSystem->getDefaultKeyboard(&keyboard);
 
-		//mouse.consumeEvents([&](const IMouseEventChannel::range_t& events) -> void { camera.mouseProcess(events); }, logger.get());
+		mouse.consumeEvents([&](const IMouseEventChannel::range_t& events) -> void {
+			for (auto eventIt=events.begin(); eventIt!=events.end(); eventIt++)
+			{
+				auto ev = *eventIt;
+
+				if(ev.type == nbl::ui::SMouseEvent::EET_CLICK)
+				{
+					int buttonIndex = -1;
+					if (ev.clickEvent.mouseButton == EMB_LEFT_BUTTON) 
+					{
+						buttonIndex = 0;
+					} else if (ev.clickEvent.mouseButton == EMB_RIGHT_BUTTON)
+					{
+						buttonIndex = 1;
+					} else if (ev.clickEvent.mouseButton == EMB_MIDDLE_BUTTON)
+					{
+						buttonIndex = 2;
+					}
+
+					if(ev.clickEvent.action == SMouseEvent::SClickEvent::EA_PRESSED) {
+						io.MouseDown[buttonIndex] = true;
+					} else if (ev.clickEvent.action == SMouseEvent::SClickEvent::EA_RELEASED) {
+						io.MouseDown[buttonIndex] = false;
+					}
+
+					io.MousePos.x = static_cast<float>(ev.clickEvent.clickPosX);
+					io.MousePos.y = static_cast<float>(ev.clickEvent.clickPosY);
+				} else if (ev.type == SMouseEvent::EET_MOVEMENT)
+				{
+					//io.MousePos.x = ev.movementEvent.relativeMovementX;
+					//io.MousePos.y = ev.movementEvent.relativeMovementY;
+				}
+			}
+			printf("MousePos: X %f Y %f\n", io.MousePos.x, io.MousePos.y);
+
+			//POINT cursorPos;
+			//GetCursorPos(&cursorPos);
+			//io.MousePos.x = static_cast<float>(cursorPos.x);
+			//io.MousePos.y = static_cast<float>(cursorPos.y);
+			
+		});
+		
+
 		//keyboard.consumeEvents([&](const IKeyboardEventChannel::range_t& events) -> void { camera.keyboardProcess(events); }, logger.get());
 
 
@@ -613,6 +657,15 @@ namespace UI_System
 		assert(io.Fonts->IsBuilt() && "Font atlas not built! It is generally built by the renderer backend. Missing call to renderer _NewFrame() function? e.g. ImGui_ImplOpenGL3_NewFrame().");
 
 		io.DeltaTime = deltaTimeInSec;
+
+		ImGui::NewFrame();
+		state->hasFocus = false;
+		for (auto const& subscriber : state->subscribers)
+		{
+			subscriber.listener();
+		}
+		ImGui::Render();
+
 		UpdateMousePositionAndButtons();
 		//UpdateMouseCursor();
 
@@ -638,186 +691,187 @@ namespace UI_System
 		// Avoid rendering when minimized, scale coordinates for retina displays (screen coordinates != framebuffer coordinates)
 		float const frameBufferWidth = drawData->DisplaySize.x * drawData->FramebufferScale.x;
 		float const frameBufferHeight = drawData->DisplaySize.y * drawData->FramebufferScale.y;
-		if (frameBufferWidth > 0 && frameBufferHeight > 0)
+		if (frameBufferWidth > 0 && frameBufferHeight > 0 && drawData->TotalVtxCount > 0)
 		{
-			if (drawData->TotalVtxCount > 0)
+			// Create or resize the vertex/index buffers
+			size_t const vertexSize = drawData->TotalVtxCount * sizeof(ImDrawVert);
+			size_t const indexSize = drawData->TotalIdxCount * sizeof(ImDrawIdx);
+
+			IGPUBuffer::SCreationParams vertexCreationParams = {};
+			vertexCreationParams.usage = nbl::asset::IBuffer::EUF_VERTEX_BUFFER_BIT;
+			vertexCreationParams.canUpdateSubRange = true;
+
+			// TODO: We can allocate buffer only if new size is larger than previous one
+			auto vertexBuffer = state->device->createCPUSideGPUVisibleGPUBufferOnDedMem(
+				vertexCreationParams,
+				vertexSize
+			);
+
+			IGPUBuffer::SCreationParams indexCreationParams = {};
+			indexCreationParams.usage = nbl::asset::IBuffer::EUF_INDEX_BUFFER_BIT;
+			indexCreationParams.canUpdateSubRange = true;
+
+			auto indexBuffer = state->device->createCPUSideGPUVisibleGPUBufferOnDedMem(
+				indexCreationParams,
+				indexSize
+			);
+			//auto const vertexData = Memory::Alloc(vertexSize);
+			//auto const indexData = Memory::Alloc(indexSize);
 			{
-				// Create or resize the vertex/index buffers
-				size_t const vertexSize = drawData->TotalVtxCount * sizeof(ImDrawVert);
-				size_t const indexSize = drawData->TotalIdxCount * sizeof(ImDrawIdx);
-
-				IGPUBuffer::SCreationParams vertexCreationParams = {};
-				vertexCreationParams.usage = nbl::asset::IBuffer::EUF_VERTEX_BUFFER_BIT;
-
-				auto vertexBuffer = state->device->createCPUSideGPUVisibleGPUBufferOnDedMem(
-					vertexCreationParams,
-					vertexSize
+				IDriverMemoryAllocation::MappedMemoryRange const vertexMappedMemory(
+					vertexBuffer->getBoundMemory(),
+					vertexBuffer->getBoundMemoryOffset(),
+					vertexBuffer->getSize()
 				);
 
-				IGPUBuffer::SCreationParams indexCreationParams = {};
-				indexCreationParams.usage = nbl::asset::IBuffer::EUF_INDEX_BUFFER_BIT;
-
-				auto const indexBuffer = state->device->createCPUSideGPUVisibleGPUBufferOnDedMem(
-					indexCreationParams,
-					indexSize
-				);
-				//auto const vertexData = Memory::Alloc(vertexSize);
-				//auto const indexData = Memory::Alloc(indexSize);
-				{
-					IDriverMemoryAllocation::MappedMemoryRange const vertexMappedMemory(
-						vertexBuffer->getBoundMemory(),
-						0u,
-						vertexBuffer->getSize()
-					);
-
-					IDriverMemoryAllocation::MappedMemoryRange const indexMappedMemory(
-						indexBuffer->getBoundMemory(),
-						0u,
-						indexBuffer->getSize()
-					);
-
-					/*vertexMappedMemoryRange(
-						IDriverMemoryAllocation::EMCAF_WRITE,
-						IDriverMemoryAllocation::MemoryRange(0u,vertexBuffer->getSize())
-					)*/
-					state->device->mapMemory(vertexMappedMemory, IDriverMemoryAllocation::EMCAF_WRITE);
-					state->device->mapMemory(indexMappedMemory, IDriverMemoryAllocation::EMCAF_WRITE);
-
-					auto* vertex_ptr = static_cast<ImDrawVert*>(vertexMappedMemory.memory->getMappedPointer());
-					auto* index_ptr = static_cast<ImDrawIdx*>(indexMappedMemory.memory->getMappedPointer());
-
-					for (int n = 0; n < drawData->CmdListsCount; n++)
-					{
-						const ImDrawList* cmd_list = drawData->CmdLists[n];
-						::memcpy(vertex_ptr, cmd_list->VtxBuffer.Data, cmd_list->VtxBuffer.Size * sizeof(ImDrawVert));
-						::memcpy(index_ptr, cmd_list->IdxBuffer.Data, cmd_list->IdxBuffer.Size * sizeof(ImDrawIdx));
-						vertex_ptr += cmd_list->VtxBuffer.Size;
-						index_ptr += cmd_list->IdxBuffer.Size;
-					}
-
-					state->device->unmapMemory(vertexMappedMemory.memory);
-					state->device->unmapMemory(indexMappedMemory.memory);
-				}
-
-				// TODO Prevent buffer to create mesh buffer every frame, Maybe we can update buffer instead when they have same size
-
-
-				/*{
-					auto it = reinterpret_cast<ImDrawVert*>(vertexBuffer->getBoundMemory()->mapMemoryRange(
-						IDriverMemoryAllocation::EMCAF_WRITE,
-						IDriverMemoryAllocation::MemoryRange(0u,vertexBuffer->getSize())
-					));
-
-					vertexBuffer->getBoundMemory()->unmapMemory();
-				}*/
-				//vertexBuffer->Update(vertexData);
-
-				/*IGPUBuffer::SCreationParams indexCreationParams = {};
-				indexCreationParams.usage = nbl::asset::IBuffer::EUF_INDEX_BUFFER_BIT;
-
-				auto const indexBuffer = state->device->createCPUSideGPUVisibleGPUBufferOnDedMem(
-					indexCreationParams,
-					indexSize
-				);*/
-
-				//indexBuffer->Update(indexData);
-
-				commandBuffer.bindIndexBuffer(
-					indexBuffer.get(),
-					0,
-					sizeof(ImDrawIdx) == 2 ? EIT_16BIT : EIT_32BIT
+				IDriverMemoryAllocation::MappedMemoryRange const indexMappedMemory(
+					indexBuffer->getBoundMemory(),
+					indexBuffer->getBoundMemoryOffset(),
+					indexBuffer->getSize()
 				);
 
-				static constexpr size_t offset = 0;
-				commandBuffer.bindVertexBuffers(
-					0,
-					1,
-					&vertexBuffer.get(),
-					&offset
-				);
+				/*vertexMappedMemoryRange(
+					IDriverMemoryAllocation::EMCAF_WRITE,
+					IDriverMemoryAllocation::MemoryRange(0u,vertexBuffer->getSize())
+				)*/
+				state->device->mapMemory(vertexMappedMemory, IDriverMemoryAllocation::EMCAF_WRITE);
+				state->device->mapMemory(indexMappedMemory, IDriverMemoryAllocation::EMCAF_WRITE);
 
-				// Setup viewport:
-				SViewport const viewport
-				{
-					.x = 0,
-					.y = 0,
-					.width = frameBufferWidth,
-					.height = frameBufferHeight,
-					.minDepth = 0.0f,
-					.maxDepth = 1.0f,
-				};
-				commandBuffer.setViewport(0, 1, &viewport);
+				auto* vertex_ptr = static_cast<ImDrawVert*>(vertexMappedMemory.memory->getMappedPointer());
+				auto* index_ptr = static_cast<ImDrawIdx*>(indexMappedMemory.memory->getMappedPointer());
 
-				// Setup scale and translation:
-				// Our visible imgui space lies from draw_data->DisplayPps (top left) to draw_data->DisplayPos+data_data->DisplaySize (bottom right). DisplayPos is (0,0) for single viewport apps.
-				{
-					PushConstants constants{};
-					constants.scale[0] = 2.0f / drawData->DisplaySize.x;
-					constants.scale[1] = 2.0f / drawData->DisplaySize.y;
-					constants.translate[0] = -1.0f - drawData->DisplayPos.x * constants.scale[0];
-					constants.translate[1] = -1.0f - drawData->DisplayPos.y * constants.scale[1];
 
-					commandBuffer.pushConstants(
-						state->independentPipeline->getLayout(),
-						IShader::ESS_VERTEX,
-						0,
-						sizeof(constants),
-						&constants
-					);
-				}
-
-				// Will project scissor/clipping rectangles into frame-buffer space
-				ImVec2 const clip_off = drawData->DisplayPos;         // (0,0) unless using multi-viewports
-				ImVec2 const clip_scale = drawData->FramebufferScale; // (1,1) unless using retina display which are often (2,2)
-
-				// Render command lists
-				// (Because we merged all buffers into a single one, we maintain our own offset into them)
-				int global_vtx_offset = 0;
-				int global_idx_offset = 0;
 				for (int n = 0; n < drawData->CmdListsCount; n++)
 				{
-					const ImDrawList* cmd_list = drawData->CmdLists[n];
-					for (int cmd_i = 0; cmd_i < cmd_list->CmdBuffer.Size; cmd_i++)
-					{
-						const ImDrawCmd* pcmd = &cmd_list->CmdBuffer[cmd_i];
-
-						// Project scissor/clipping rectangles into frame-buffer space
-						ImVec4 clip_rect;
-						clip_rect.x = (pcmd->ClipRect.x - clip_off.x) * clip_scale.x;
-						clip_rect.y = (pcmd->ClipRect.y - clip_off.y) * clip_scale.y;
-						clip_rect.z = (pcmd->ClipRect.z - clip_off.x) * clip_scale.x;
-						clip_rect.w = (pcmd->ClipRect.w - clip_off.y) * clip_scale.y;
-
-						if (clip_rect.x < frameBufferWidth && clip_rect.y < frameBufferHeight && clip_rect.z >= 0.0f && clip_rect.w >= 0.0f)
-						{
-							// Negative offsets are illegal for vkCmdSetScissor
-							if (clip_rect.x < 0.0f)
-								clip_rect.x = 0.0f;
-							if (clip_rect.y < 0.0f)
-								clip_rect.y = 0.0f;
-
-							{// Apply scissor/clipping rectangle
-								VkRect2D scissor{};
-								scissor.offset.x = static_cast<int32_t>(clip_rect.x);
-								scissor.offset.y = static_cast<int32_t>(clip_rect.y);
-								scissor.extent.width = static_cast<uint32_t>(clip_rect.z - clip_rect.x);
-								scissor.extent.height = static_cast<uint32_t>(clip_rect.w - clip_rect.y);
-								commandBuffer.setScissor(0, 1, &scissor);
-							}
-
-							// Draw
-							commandBuffer.drawIndexed(
-								pcmd->ElemCount,
-								1,
-								pcmd->IdxOffset + global_idx_offset,
-								pcmd->VtxOffset + global_vtx_offset,
-								0
-							);
-						}
-					}
-					global_idx_offset += cmd_list->IdxBuffer.Size;
-					global_vtx_offset += cmd_list->VtxBuffer.Size;
+					const ImDrawList* cmd = drawData->CmdLists[n];
+					::memcpy(vertex_ptr, cmd->VtxBuffer.Data, cmd->VtxBuffer.Size * sizeof(ImDrawVert));
+					::memcpy(index_ptr, cmd->IdxBuffer.Data, cmd->IdxBuffer.Size * sizeof(ImDrawIdx));
+					vertex_ptr += cmd->VtxBuffer.Size;
+					index_ptr += cmd->IdxBuffer.Size;
 				}
+
+				state->device->unmapMemory(vertexMappedMemory.memory);
+				state->device->unmapMemory(indexMappedMemory.memory);
+			}
+
+			// TODO Prevent buffer to create mesh buffer every frame, Maybe we can update buffer instead when they have same size
+
+
+			/*{
+				auto it = reinterpret_cast<ImDrawVert*>(vertexBuffer->getBoundMemory()->mapMemoryRange(
+					IDriverMemoryAllocation::EMCAF_WRITE,
+					IDriverMemoryAllocation::MemoryRange(0u,vertexBuffer->getSize())
+				));
+
+				vertexBuffer->getBoundMemory()->unmapMemory();
+			}*/
+			//vertexBuffer->Update(vertexData);
+
+			/*IGPUBuffer::SCreationParams indexCreationParams = {};
+			indexCreationParams.usage = nbl::asset::IBuffer::EUF_INDEX_BUFFER_BIT;
+
+			auto const indexBuffer = state->device->createCPUSideGPUVisibleGPUBufferOnDedMem(
+				indexCreationParams,
+				indexSize
+			);*/
+
+			//indexBuffer->Update(indexData);
+
+			commandBuffer.bindIndexBuffer(
+				indexBuffer.get(),
+				0,
+				sizeof(ImDrawIdx) == 2 ? EIT_16BIT : EIT_32BIT
+			);
+
+			static constexpr size_t offset = 0;
+			commandBuffer.bindVertexBuffers(
+				0,
+				1,
+				&vertexBuffer.get(),
+				&offset
+			);
+
+			// Setup viewport:
+			SViewport const viewport
+			{
+				.x = 0,
+				.y = 0,
+				.width = frameBufferWidth,
+				.height = frameBufferHeight,
+				.minDepth = 0.0f,
+				.maxDepth = 1.0f,
+			};
+			commandBuffer.setViewport(0, 1, &viewport);
+
+			// Setup scale and translation:
+			// Our visible imgui space lies from draw_data->DisplayPps (top left) to draw_data->DisplayPos+data_data->DisplaySize (bottom right). DisplayPos is (0,0) for single viewport apps.
+			{
+				PushConstants constants{};
+				constants.scale[0] = 2.0f / drawData->DisplaySize.x;
+				constants.scale[1] = 2.0f / drawData->DisplaySize.y;
+				constants.translate[0] = -1.0f - drawData->DisplayPos.x * constants.scale[0];
+				constants.translate[1] = -1.0f - drawData->DisplayPos.y * constants.scale[1];
+
+				commandBuffer.pushConstants(
+					state->independentPipeline->getLayout(),
+					IShader::ESS_VERTEX,
+					0,
+					sizeof(constants),
+					&constants
+				);
+			}
+
+			// Will project scissor/clipping rectangles into frame-buffer space
+			ImVec2 const clip_off = drawData->DisplayPos;         // (0,0) unless using multi-viewports
+			ImVec2 const clip_scale = drawData->FramebufferScale; // (1,1) unless using retina display which are often (2,2)
+
+			// Render command lists
+			// (Because we merged all buffers into a single one, we maintain our own offset into them)
+			int global_vtx_offset = 0;
+			int global_idx_offset = 0;
+			for (int n = 0; n < drawData->CmdListsCount; n++)
+			{
+				const ImDrawList* cmd_list = drawData->CmdLists[n];
+				for (int cmd_i = 0; cmd_i < cmd_list->CmdBuffer.Size; cmd_i++)
+				{
+					const ImDrawCmd* pcmd = &cmd_list->CmdBuffer[cmd_i];
+
+					// Project scissor/clipping rectangles into frame-buffer space
+					ImVec4 clip_rect;
+					clip_rect.x = (pcmd->ClipRect.x - clip_off.x) * clip_scale.x;
+					clip_rect.y = (pcmd->ClipRect.y - clip_off.y) * clip_scale.y;
+					clip_rect.z = (pcmd->ClipRect.z - clip_off.x) * clip_scale.x;
+					clip_rect.w = (pcmd->ClipRect.w - clip_off.y) * clip_scale.y;
+
+					if (clip_rect.x < frameBufferWidth && clip_rect.y < frameBufferHeight && clip_rect.z >= 0.0f && clip_rect.w >= 0.0f)
+					{
+						// Negative offsets are illegal for vkCmdSetScissor
+						if (clip_rect.x < 0.0f)
+							clip_rect.x = 0.0f;
+						if (clip_rect.y < 0.0f)
+							clip_rect.y = 0.0f;
+
+						{// Apply scissor/clipping rectangle
+							VkRect2D scissor{};
+							scissor.offset.x = static_cast<int32_t>(clip_rect.x);
+							scissor.offset.y = static_cast<int32_t>(clip_rect.y);
+							scissor.extent.width = static_cast<uint32_t>(clip_rect.z - clip_rect.x);
+							scissor.extent.height = static_cast<uint32_t>(clip_rect.w - clip_rect.y);
+							commandBuffer.setScissor(0, 1, &scissor);
+						}
+
+						// Draw
+						commandBuffer.drawIndexed(
+							pcmd->ElemCount,
+							1,
+							pcmd->IdxOffset + global_idx_offset,
+							pcmd->VtxOffset + global_vtx_offset,
+							0
+						);
+					}
+				}
+				global_idx_offset += cmd_list->IdxBuffer.Size;
+				global_vtx_offset += cmd_list->VtxBuffer.Size;
 			}
 		}
 
@@ -829,13 +883,13 @@ namespace UI_System
 
 	void Update(float deltaTimeInSec)
 	{
-		ImGui::NewFrame();
-		state->hasFocus = false;
-		for (auto const& subscriber : state->subscribers)
-		{
-			subscriber.listener();
-		}
-		ImGui::Render();
+		//ImGui::NewFrame();
+		//state->hasFocus = false;
+		//for (auto const& subscriber : state->subscribers)
+		//{
+		//	subscriber.listener();
+		//}
+		//ImGui::Render();
 	}
 
 	//-------------------------------------------------------------------------------------------------
@@ -886,6 +940,13 @@ namespace UI_System
 	void SetNextItemWidth(float const nextItemWidth)
 	{
 		ImGui::SetNextItemWidth(nextItemWidth);
+	}
+
+	//-------------------------------------------------------------------------------------------------
+
+	void SetWindowSize(float const width, float const height)
+	{
+		ImGui::SetWindowSize(ImVec2(width, height));
 	}
 
 	//-------------------------------------------------------------------------------------------------

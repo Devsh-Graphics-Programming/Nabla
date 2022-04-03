@@ -1,3 +1,5 @@
+#pragma once
+
 #define _NBL_STATIC_LIB_
 #include <nabla.h>
 
@@ -15,9 +17,6 @@
 #include "nbl/system/CSystemLinux.h"
 #include "nbl/system/CSystemWin32.h"
 // TODO: make these include themselves via `nabla.h`
-
-
-
 
 class CommonAPI
 {

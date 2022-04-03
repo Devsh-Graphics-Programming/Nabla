@@ -4,6 +4,8 @@
 
 #include <glm/vec3.hpp>
 
+#include "../common/CommonAPI.h"
+
 namespace UI_System
 {
 
@@ -13,7 +15,8 @@ namespace UI_System
 		float screenWidth, float screenHeight,
 		nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpass>& renderPass,
 		nbl::video::IGPUPipelineCache* pipelineCache,
-		nbl::video::IGPUObjectFromAssetConverter::SParams& cpu2GpuParams
+		nbl::video::IGPUObjectFromAssetConverter::SParams& cpu2GpuParams,
+		nbl::core::smart_refctd_ptr<CommonAPI::InputSystem>& inputSystem
 	);
 
 	bool Render(float deltaTimeInSec, nbl::video::IGPUCommandBuffer& commandBuffer);
@@ -29,6 +32,8 @@ namespace UI_System
 	bool UnRegister(int listenerId);
 
 	void SetNextItemWidth(float nextItemWidth);
+
+	void SetWindowSize(float width, float height);
 
 	void Text(char const* label, ...);
 

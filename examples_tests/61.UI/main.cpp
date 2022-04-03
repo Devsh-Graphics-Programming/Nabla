@@ -87,9 +87,22 @@ class UIApp : public ApplicationBase
 			initOutput.window = core::smart_refctd_ptr(window);
 			
 			const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT);
-			const video::ISurface::SFormat surfaceFormat(asset::EF_B8G8R8A8_SRGB, asset::ECP_COUNT, asset::EOTF_UNKNOWN);
-			CommonAPI::InitWithDefaultExt(initOutput, video::EAT_VULKAN, "UI", WIN_W, WIN_H, SC_IMG_COUNT, swapchainImageUsage, surfaceFormat, asset::EF_D32_SFLOAT);
-			window = std::move(initOutput.window);
+			const video::ISurface::SFormat surfaceFormat(asset::EF_R8G8B8A8_SRGB, asset::ECP_SRGB, asset::EOTF_sRGB);
+
+	        CommonAPI::InitWithDefaultExt(
+				initOutput, 
+				video::EAT_VULKAN, 
+				"UI", 
+				WIN_W, 
+				WIN_H, 
+				SC_IMG_COUNT, 
+				swapchainImageUsage, 
+				surfaceFormat, 
+				nbl::asset::EF_D32_SFLOAT
+			);
+
+		    window = std::move(initOutput.window);
+
 			gl = std::move(initOutput.apiConnection);
 			surface = std::move(initOutput.surface);
 			gpuPhysicalDevice = std::move(initOutput.physicalDevice);
@@ -116,13 +129,28 @@ class UIApp : public ApplicationBase
 				static_cast<float>(WIN_H), 
 				renderpass, 
 				nullptr, 
-				cpu2gpuParams
+				cpu2gpuParams,
+				inputSystem
 			);
 
 			UI::Register([]()->void{
 				UI::BeginWindow("Test window");
+				UI::SetWindowSize(1000.0f, 200.0f);
+				UI::SetNextItemWidth(100);
 				UI::Text("Hi");
+				UI::SetNextItemWidth(100);
+				UI::Button("Button", []()->void {
+
+				});
 				UI::EndWindow();
+				//UI::SetNextItemWidth(100);
+				//UI::BeginWindow("Test window");
+				//UI::Text("Hi 2");
+				//UI::Spacing();
+				//UI::Button("Button", []()->void {
+
+				//});
+				//UI::EndWindow();
 			});
 
 			logicalDevice->createCommandBuffers(commandPools[CommonAPI::InitOutput::EQT_GRAPHICS].get(),video::IGPUCommandBuffer::EL_PRIMARY,FRAMES_IN_FLIGHT,commandBuffers);
@@ -157,7 +185,7 @@ class UIApp : public ApplicationBase
 			commandBuffer->reset(nbl::video::IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
 			commandBuffer->begin(0);
 
-			swapchain->acquireNextImage(imageAcquire[resourceIx].get(), fence.get(), &acquiredNextFBO);
+			swapchain->acquireNextImage(imageAcquire[resourceIx].get(), /*fence.get()*/ nullptr, &acquiredNextFBO);
 			
 			asset::SViewport viewport;
 			viewport.minDepth = 1.f;
@@ -196,8 +224,24 @@ class UIApp : public ApplicationBase
 			commandBuffer->endRenderPass();
 			commandBuffer->end();
 
-			CommonAPI::Submit(logicalDevice.get(), swapchain.get(), commandBuffer.get(), queues[decltype(initOutput)::EQT_GRAPHICS], imageAcquire[resourceIx].get(), renderFinished[resourceIx].get(), fence.get());
-			CommonAPI::Present(logicalDevice.get(), swapchain.get(), queues[decltype(initOutput)::EQT_GRAPHICS], renderFinished[resourceIx].get(), acquiredNextFBO);
+			logicalDevice->resetFences(1, &fence.get());
+        
+			CommonAPI::Submit(
+				logicalDevice.get(), 
+				swapchain.get(), 
+				commandBuffer.get(), 
+				queues[decltype(initOutput)::EQT_GRAPHICS], 
+				imageAcquire[resourceIx].get(), 
+				renderFinished[resourceIx].get(), 
+				fence.get()
+			);
+			CommonAPI::Present(
+				logicalDevice.get(), 
+				swapchain.get(), 
+				queues[decltype(initOutput)::EQT_GRAPHICS], 
+				renderFinished[resourceIx].get(), 
+				acquiredNextFBO
+			);
 
 			UI::Update(deltaTimeInSec);
 		}
@@ -227,8 +271,8 @@ class UIApp : public ApplicationBase
 		nbl::video::IGPUObjectFromAssetConverter::SParams cpu2gpuParams;
 		nbl::core::smart_refctd_ptr<nbl::video::IUtilities> utilities;
 
-		CommonAPI::InputSystem::ChannelReader<IMouseEventChannel> mouse;
-		CommonAPI::InputSystem::ChannelReader<IKeyboardEventChannel> keyboard;
+		//CommonAPI::InputSystem::ChannelReader<IMouseEventChannel> mouse;
+		//CommonAPI::InputSystem::ChannelReader<IKeyboardEventChannel> keyboard;
 
 		core::smart_refctd_ptr<video::IGPUCommandBuffer> commandBuffers[FRAMES_IN_FLIGHT];
 		core::smart_refctd_ptr<video::IGPUFence> frameComplete[FRAMES_IN_FLIGHT] = { nullptr };
