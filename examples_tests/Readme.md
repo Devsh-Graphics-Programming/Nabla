@@ -92,6 +92,7 @@ N = No support
 | 58.MediaUnpackingOnAndroid      | N            | N                | N            | N            | N               | N            | Y                 | Y              |                                                   |
 | FREE_SLOT                       |              |                  |              |              |                 |              |                   |                |                                                   |
 | 60.ClusteredRendering           | W            | N                | W            | W            | N               | W            | N                 | N              |                                                   |
+| 61.OrientedBoundingBox          | W            | -                | W            | W            | -               | W            | -                 | -              |                                                   |
 
 `*` Only Nvidia provides a working GLES 3.1 driver with OES_texture_view on Windows, so we only test there.
 

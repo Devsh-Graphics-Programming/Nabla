@@ -68,6 +68,13 @@ NBL_FORCE_INLINE T HALF_PI()
 	return PI<T>() * T(0.5);
 }
 
+//! Constant for quarter of PI.
+template<typename T>
+NBL_FORCE_INLINE T QUARTER_PI()
+{
+  return PI<T>() * T(0.25);
+}
+
 namespace impl
 {
 	constexpr uint16_t NAN_U16		= 0x7FFFu;

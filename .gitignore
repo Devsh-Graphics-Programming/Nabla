@@ -3,6 +3,7 @@
 *.layout
 # Visual Studio Code
 .vscode/*
+.vs/*
 # clion
 .idea/*
 # temporary compiler files
@@ -17,7 +18,9 @@
 3rdparty/CEGUI/cegui-deps-0.8.x-src.zip
 # usually where people build
 android_build/*
-build*/*
+out/
+build/
+**/*build*/*
 # default install paths
 install/*
 # legacy temporary and output directories

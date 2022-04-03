@@ -11,6 +11,7 @@
 #include "nbl/core/declarations.h"
 #include "vector3d.h"
 #include "aabbox3d.h"
+#include "obbox3d.h"
 
 #include "nbl/asset/ICPUMeshBuffer.h"
 #include "nbl/asset/ICPUMesh.h"
@@ -455,6 +456,16 @@ class IMeshManipulator : public virtual core::IReferenceCounted
 		{
 			meshbuffer->setBoundingBox(calculateBoundingBox(meshbuffer,meshbuffer->getJointAABBs()));
 		}
+
+    static inline core::OBB calculateOrientedBBox(const ICPUMeshBuffer *meshBuffer, size_t vertexCount)
+    {
+      core::KDOP kDOP(meshBuffer, vertexCount);
+      core::OBB obb;
+
+      kDOP.compute(obb);
+
+      return obb;
+    }
 
 		//! Flips the direction of surfaces.
 		/** Changes backfacing triangles to frontfacing
