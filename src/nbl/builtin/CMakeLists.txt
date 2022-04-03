@@ -6,11 +6,18 @@ function(nbl_add_builtin_resources)
   list(APPEND builtin_dependencies_list  ${CMAKE_CURRENT_SOURCE_DIR}/builtin/builtinHeaderGen.py)
   list(APPEND builtin_dependencies_list  ${CMAKE_CURRENT_SOURCE_DIR}/builtin/builtinDataGen.py)
 
+  # Just in case if not found yet (3rd parties should've found it already though regardless of platform)
+  find_package(Python3 REQUIRED)
+
+  set(RESOURCES_FILE ${CMAKE_BINARY_DIR}/include/nbl/builtin/resources.txt)
+
+  string(REPLACE ";" "," RESOURCES_ARGS "${ARGV}")
   file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/include/nbl/builtin/)
+  file(WRITE ${RESOURCES_FILE} ${RESOURCES_ARGS})
   add_custom_command(
     OUTPUT "${CMAKE_BINARY_DIR}/include/nbl/builtin/builtinResources.h" "${CMAKE_CURRENT_BINARY_DIR}/builtin/builtinResourceData.cpp"
-    COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/builtin/builtinHeaderGen.py ${CMAKE_BINARY_DIR}/include/nbl/builtin/builtinResources.h ${CMAKE_SOURCE_DIR}/include "${ARGV}"
-    COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/builtin/builtinDataGen.py ${CMAKE_CURRENT_BINARY_DIR}/builtin/builtinResourceData.cpp ${CMAKE_SOURCE_DIR}/include "${ARGV}"
+    COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/builtin/builtinHeaderGen.py ${CMAKE_BINARY_DIR}/include/nbl/builtin/builtinResources.h ${CMAKE_SOURCE_DIR}/include ${RESOURCES_FILE}
+    COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/builtin/builtinDataGen.py ${CMAKE_CURRENT_BINARY_DIR}/builtin/builtinResourceData.cpp ${CMAKE_SOURCE_DIR}/include ${RESOURCES_FILE}
     COMMENT "Generated built-in resources"
     DEPENDS ${builtin_dependencies_list}
     VERBATIM  
