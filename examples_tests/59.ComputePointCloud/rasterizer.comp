@@ -10,12 +10,12 @@ layout (push_constant) uniform pushConstants
 } u_pushConstants;
 
 #if defined(Z_PREPASS) || defined(USE_Z_PREPASS)
-layout (set = 0, binding = 0, r32ui) uniform coherent uimage2D outImage;
+layout (set = 0, binding = 0, r32ui) uniform uimage2D outImage;
+layout (set = 0, binding = 1, r32ui) uniform coherent uimage2D depthBuffer;
 #else
 layout (set = 0, binding = 0, rg32ui) uniform coherent uimage2D outImage;
-#endif
-// Used as depth for Z-prepass mode
 layout (set = 0, binding = 1, r32ui) uniform coherent uimage2D spinLock;
+#endif
 
 struct WorldPosition {
 	float x, y, z;
@@ -74,13 +74,13 @@ void main()
 		{
 			#ifdef Z_PREPASS
 			// (Z-prepass generation)
-			imageAtomicMax(spinLock, coords, floatBitsToUint(ndc.z));
+			imageAtomicMax(depthBuffer, coords, floatBitsToUint(ndc.z));
 
 			#elif defined(USE_Z_PREPASS)
 
 			// (Z-prepass usage for visbuffer generation)
 			// Set the visbuffer value if the depth matches
-			if (ndc.z == uintBitsToFloat(imageLoad(spinLock, coords).x))
+			if (ndc.z == uintBitsToFloat(imageLoad(depthBuffer, coords).x))
 			{
 				imageStore(outImage, coords, uvec4(floatBitsToUint(ndc.z), 0, 0, 0));
 			}
