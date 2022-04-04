@@ -240,19 +240,11 @@ public:
 
 	core::smart_refctd_ptr<video::IGPUSpecializedShader> createAlphaTestSpecializedShader(const asset::IImage::E_TYPE inImageType)
 	{
-		auto system = device->getPhysicalDevice()->getSystem();
-		system::future<core::smart_refctd_ptr<system::IFile>> future;
 		const char* shaderpath = "../default_compute_alpha_test.comp";
+		auto cpuShader = loadShaderFromFile(shaderpath);
 
-		const bool status = system->createFile(future, shaderpath, static_cast<system::IFile::E_CREATE_FLAGS>(system::IFile::ECF_READ | system::IFile::ECF_MAPPABLE));
-		if (!status)
+		if (!cpuShader)
 			return nullptr;
-
-		auto glslFile = future.get();
-		auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(glslFile->getSize());
-		memcpy(buffer->getPointer(), glslFile->getMappedPointer(), glslFile->getSize());
-
-		auto cpuShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(buffer), asset::IShader::buffer_contains_glsl_t{}, asset::IShader::ESS_COMPUTE, "????");
 
 		auto cpuShaderOverriden = asset::IGLSLCompiler::createOverridenCopy(cpuShader.get(),
 			"#define _NBL_GLSL_WORKGROUP_SIZE_X_ %d\n"
@@ -355,6 +347,8 @@ public:
 	{
 		const char* shaderpath = "../default_compute_normalization.comp";
 		auto cpuShader = loadShaderFromFile(shaderpath);
+		if (!cpuShader)
+			return nullptr;
 
 		const asset::E_FORMAT outImageViewFormat = getOutImageViewFormat(outFormat);
 		if (outImageViewFormat == asset::EF_UNKNOWN)
@@ -459,6 +453,8 @@ public:
 	{
 		const char* shaderpath = "../default_compute_blit.comp";
 		auto cpuShader = loadShaderFromFile(shaderpath);
+		if (!cpuShader)
+			return nullptr;
 
 		const uint32_t inChannelCount = asset::getFormatChannelCount(inFormat);
 		const uint32_t outChannelCount = asset::getFormatChannelCount(outFormat);
@@ -888,15 +884,16 @@ private:
 
 	core::smart_refctd_ptr<asset::ICPUShader> loadShaderFromFile(const char* filepath)
 	{
-		auto system = device->getPhysicalDevice()->getSystem();
-		system::future<core::smart_refctd_ptr<system::IFile>> future;
-		const bool status = system->createFile(future, filepath, static_cast<system::IFile::E_CREATE_FLAGS>(system::IFile::ECF_READ | system::IFile::ECF_MAPPABLE));
-		if (!status)
+		auto sys = device->getPhysicalDevice()->getSystem();
+		system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
+		sys->createFile(future, filepath, static_cast<system::IFile::E_CREATE_FLAGS>(system::IFile::ECF_READ | system::IFile::ECF_MAPPABLE));
+
+		const auto glslFile = future.get();
+		if (!glslFile)
 			return nullptr;
 
-		auto glslFile = future.get();
 		auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(glslFile->getSize());
-		memcpy(buffer->getPointer(), glslFile->getMappedPointer(), glslFile->getSize());
+		memcpy(buffer->getPointer(), reinterpret_cast<const system::IFile*>(glslFile.get())->getMappedPointer(), glslFile->getSize());
 
 		auto cpuShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(buffer), asset::IShader::buffer_contains_glsl_t{}, asset::IShader::ESS_COMPUTE, "????");
 
