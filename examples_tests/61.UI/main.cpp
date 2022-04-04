@@ -125,17 +125,17 @@ class UIApp : public ApplicationBase
 			// TOOD: Pass pipeline cache in future
 			UI::Init(
 				logicalDevice, 
-				static_cast<float>(WIN_W), 
-				static_cast<float>(WIN_H), 
+				FRAMES_IN_FLIGHT,
 				renderpass, 
 				nullptr, 
 				cpu2gpuParams,
-				inputSystem
+				inputSystem,
+				window
 			);
 
 			UI::Register([]()->void{
 				UI::BeginWindow("Test window");
-				UI::SetWindowSize(1000.0f, 200.0f);
+				//UI::SetWindowSize(1000.0f, 200.0f);
 				UI::SetNextItemWidth(100);
 				UI::Text("Hi");
 				UI::SetNextItemWidth(100);
@@ -143,14 +143,6 @@ class UIApp : public ApplicationBase
 
 				});
 				UI::EndWindow();
-				//UI::SetNextItemWidth(100);
-				//UI::BeginWindow("Test window");
-				//UI::Text("Hi 2");
-				//UI::Spacing();
-				//UI::Button("Button", []()->void {
-
-				//});
-				//UI::EndWindow();
 			});
 
 			logicalDevice->createCommandBuffers(commandPools[CommonAPI::InitOutput::EQT_GRAPHICS].get(),video::IGPUCommandBuffer::EL_PRIMARY,FRAMES_IN_FLIGHT,commandBuffers);
@@ -165,6 +157,7 @@ class UIApp : public ApplicationBase
 
 		void onAppTerminated_impl() override
 		{
+			logicalDevice->waitIdle();
 			UI::Shutdown();
 		}
 
@@ -185,8 +178,9 @@ class UIApp : public ApplicationBase
 			commandBuffer->reset(nbl::video::IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
 			commandBuffer->begin(0);
 
-			swapchain->acquireNextImage(imageAcquire[resourceIx].get(), /*fence.get()*/ nullptr, &acquiredNextFBO);
-			
+			auto acquireResult = swapchain->acquireNextImage(imageAcquire[resourceIx].get(), /*fence.get()*/ nullptr, &acquiredNextFBO);
+			assert(acquireResult == ISwapchain::EAIR_SUCCESS);
+
 			asset::SViewport viewport;
 			viewport.minDepth = 1.f;
 			viewport.maxDepth = 0.f;
@@ -219,7 +213,7 @@ class UIApp : public ApplicationBase
 
 			float deltaTimeInSec = 0.1f;
 			// TODO: Use deltaTime instead
-			UI::Render(deltaTimeInSec, *commandBuffer);
+			UI::Render(*commandBuffer, resourceIx);
 
 			commandBuffer->endRenderPass();
 			commandBuffer->end();

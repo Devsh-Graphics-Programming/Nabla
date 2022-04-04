@@ -12,14 +12,15 @@ namespace UI_System
 	// TODO Support for custom font
 	void Init(
 		nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice> const& device,
-		float screenWidth, float screenHeight,
+		int maxFramesInFlight,
 		nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpass>& renderPass,
 		nbl::video::IGPUPipelineCache* pipelineCache,
 		nbl::video::IGPUObjectFromAssetConverter::SParams& cpu2GpuParams,
-		nbl::core::smart_refctd_ptr<CommonAPI::InputSystem>& inputSystem
+		nbl::core::smart_refctd_ptr<CommonAPI::InputSystem>& inputSystem,
+		nbl::core::smart_refctd_ptr<nbl::ui::IWindow>& window
 	);
 
-	bool Render(float deltaTimeInSec, nbl::video::IGPUCommandBuffer& commandBuffer);
+	bool Render(nbl::video::IGPUCommandBuffer& commandBuffer, int frameIndex);
 
 	void Update(float deltaTimeInSec);
 

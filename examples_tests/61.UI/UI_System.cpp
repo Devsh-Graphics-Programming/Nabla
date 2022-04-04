@@ -3,6 +3,8 @@
 #include "imgui/imgui.h"
 #include "imgui/imgui_stdlib.h"
 
+#include <nbl/ui/CCursorControlWin32.h>
+
 using namespace nbl::video;
 using namespace nbl::core;
 using namespace nbl::asset;
@@ -132,6 +134,9 @@ namespace UI_System
 		smart_refctd_ptr<IGPUGraphicsPipeline> pipeline{};
 		smart_refctd_ptr<IGPUImageView> fontTexture{};
 		smart_refctd_ptr<CommonAPI::InputSystem> inputSystem{};
+		smart_refctd_ptr<IWindow> window{};
+		std::vector<smart_refctd_ptr<IGPUBuffer>> vertexBuffers{};
+		std::vector<smart_refctd_ptr<IGPUBuffer>> indexBuffers{};
 		bool hasFocus = false;
 		//Signal<> UIRecordSignal{};
 		struct Subscriber {
@@ -154,10 +159,10 @@ namespace UI_System
 
 	//-------------------------------------------------------------------------------------------------
 
-	static void onResize(float screenWidth, float screenHeight)
-	{
-		ImGuiIO& io = ImGui::GetIO();
-		assert(io.Fonts->IsBuilt() && "Font atlas not built! It is generally built by the renderer backend. Missing call to renderer _NewFrame() function? e.g. ImGui_ImplOpenGL3_NewFrame().");
+	//static void onResize(float screenWidth, float screenHeight)
+	//{
+	//	ImGuiIO& io = ImGui::GetIO();
+	//	assert(io.Fonts->IsBuilt() && "Font atlas not built! It is generally built by the renderer backend. Missing call to renderer _NewFrame() function? e.g. ImGui_ImplOpenGL3_NewFrame().");
 
 		// Setup display size (every frame to accommodate for window resizing)
 		//int32_t window_width, window_height;
@@ -172,9 +177,9 @@ namespace UI_System
 
 		//RF::GetDrawableSize(drawable_width, drawable_height);
 
-		io.DisplaySize = ImVec2(screenWidth, screenHeight);
-		io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
-	}
+		//io.DisplaySize = ImVec2(screenWidth, screenHeight);
+		//io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
+	//}
 
 	//-------------------------------------------------------------------------------------------------
 
@@ -271,7 +276,7 @@ namespace UI_System
 		vertexInputParams.attributes[1].format = EF_R32G32_SFLOAT;//VK_FORMAT_R32G32_SFLOAT;
 		vertexInputParams.attributes[1].relativeOffset = offsetof(ImDrawVert, uv);
 		vertexInputParams.attributes[1].binding = 0u;
-		vertexInputParams.attributes[2].format = EF_R32G32B32A32_UINT;//VK_FORMAT_R8G8B8A8_UNORM;
+		vertexInputParams.attributes[2].format = EF_R8G8B8A8_UNORM;//VK_FORMAT_R8G8B8A8_UNORM;
 		vertexInputParams.attributes[2].relativeOffset = offsetof(ImDrawVert, col);
 		vertexInputParams.attributes[2].binding = 0u;
 
@@ -279,7 +284,7 @@ namespace UI_System
 		SBlendParams blendParams{};
 		blendParams.logicOpEnable = false;
 		blendParams.logicOp = ELO_NO_OP;
-		blendParams.blendParams[0].blendEnable = true;//VK_TRUE;
+		blendParams.blendParams[0].blendEnable = VK_TRUE;
 		blendParams.blendParams[0].srcColorFactor = EBF_SRC_ALPHA;//VK_BLEND_FACTOR_SRC_ALPHA;
 		blendParams.blendParams[0].dstColorFactor = EBF_ONE_MINUS_SRC_ALPHA;//VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
 		blendParams.blendParams[0].colorBlendOp = EBO_ADD;//VK_BLEND_OP_ADD;
@@ -483,6 +488,9 @@ namespace UI_System
 		params.MinLod = -1000;
 		params.MaxLod = 1000;
 		params.AnisotropicFilter = 1.0f;
+		params.TextureWrapU = ISampler::ETC_REPEAT;
+		params.TextureWrapV = ISampler::ETC_REPEAT;
+		params.TextureWrapW = ISampler::ETC_REPEAT;
 
 		state->fontSampler = state->device->createGPUSampler(params);
 	}
@@ -508,11 +516,12 @@ namespace UI_System
 
 	void Init(
 		nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice> const& device,
-		float screenWidth, float screenHeight,
+		int maxFramesInFlight,
 		nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpass>& renderPass,
 		nbl::video::IGPUPipelineCache* pipelineCache,
 		nbl::video::IGPUObjectFromAssetConverter::SParams& cpu2GpuParams,
-		nbl::core::smart_refctd_ptr<CommonAPI::InputSystem>& inputSystem
+		nbl::core::smart_refctd_ptr<CommonAPI::InputSystem>& inputSystem,
+		nbl::core::smart_refctd_ptr<nbl::ui::IWindow>& window
 	)
 	{
 		state = new State();
@@ -520,6 +529,8 @@ namespace UI_System
 		state->device = device;
 
 		state->inputSystem = inputSystem;
+
+		state->window = window;
 
 		// Setup Dear ImGui context
 		IMGUI_CHECKVERSION();
@@ -542,69 +553,24 @@ namespace UI_System
 		updateDescriptorSets();
 
 		// TODO: Register to resize event
-		// TODO: Register to Keyboard and mouse events
 
-		onResize(screenWidth, screenHeight);
+		//onResize(window->getWidth(), window->getHeight());
+		auto & io = ImGui::GetIO();
+		io.DisplaySize = ImVec2(window->getWidth(), window->getHeight());
+		io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
+
+		state->vertexBuffers.resize(maxFramesInFlight);
+		state->indexBuffers.resize(maxFramesInFlight);
+
+		//smart_refctd_ptr<IWindow::IEventCallback> eventCallback {};
+		//window->setEventCallback(std::move(eventCallback));
 	}
 
 	//-------------------------------------------------------------------------------------------------
 
 	static void UpdateMousePositionAndButtons()
 	{
-		auto& io = ImGui::GetIO();
-
-		CommonAPI::InputSystem::ChannelReader<IMouseEventChannel> mouse;
-		//CommonAPI::InputSystem::ChannelReader<IKeyboardEventChannel> keyboard;
-
-		state->inputSystem->getDefaultMouse(&mouse);
-		//inputSystem->getDefaultKeyboard(&keyboard);
-
-		mouse.consumeEvents([&](const IMouseEventChannel::range_t& events) -> void {
-			for (auto eventIt=events.begin(); eventIt!=events.end(); eventIt++)
-			{
-				auto ev = *eventIt;
-
-				if(ev.type == nbl::ui::SMouseEvent::EET_CLICK)
-				{
-					int buttonIndex = -1;
-					if (ev.clickEvent.mouseButton == EMB_LEFT_BUTTON) 
-					{
-						buttonIndex = 0;
-					} else if (ev.clickEvent.mouseButton == EMB_RIGHT_BUTTON)
-					{
-						buttonIndex = 1;
-					} else if (ev.clickEvent.mouseButton == EMB_MIDDLE_BUTTON)
-					{
-						buttonIndex = 2;
-					}
-
-					if(ev.clickEvent.action == SMouseEvent::SClickEvent::EA_PRESSED) {
-						io.MouseDown[buttonIndex] = true;
-					} else if (ev.clickEvent.action == SMouseEvent::SClickEvent::EA_RELEASED) {
-						io.MouseDown[buttonIndex] = false;
-					}
-
-					io.MousePos.x = static_cast<float>(ev.clickEvent.clickPosX);
-					io.MousePos.y = static_cast<float>(ev.clickEvent.clickPosY);
-				} else if (ev.type == SMouseEvent::EET_MOVEMENT)
-				{
-					//io.MousePos.x = ev.movementEvent.relativeMovementX;
-					//io.MousePos.y = ev.movementEvent.relativeMovementY;
-				}
-			}
-			printf("MousePos: X %f Y %f\n", io.MousePos.x, io.MousePos.y);
-
-			//POINT cursorPos;
-			//GetCursorPos(&cursorPos);
-			//io.MousePos.x = static_cast<float>(cursorPos.x);
-			//io.MousePos.y = static_cast<float>(cursorPos.y);
-			
-		});
-		
-
-		//keyboard.consumeEvents([&](const IKeyboardEventChannel::range_t& events) -> void { camera.keyboardProcess(events); }, logger.get());
-
-
+		// TODO: Handle keyboard events
 		//// Set OS mouse position if requested (rarely used, only when ImGuiConfigFlags_NavEnableSetMousePos is enabled by user)
 		//if (io.WantSetMousePos)
 		//{
@@ -623,6 +589,52 @@ namespace UI_System
 		//{
 		//    io.MousePos = ImVec2(static_cast<float>(mx), static_cast<float>(my));
 		//}
+
+		CommonAPI::InputSystem::ChannelReader<IMouseEventChannel> mouse;
+		//CommonAPI::InputSystem::ChannelReader<IKeyboardEventChannel> keyboard;
+
+		state->inputSystem->getDefaultMouse(&mouse);
+		//inputSystem->getDefaultKeyboard(&keyboard);
+
+		static std::chrono::microseconds previousEventTimestamp {};
+
+		mouse.consumeEvents([](const IMouseEventChannel::range_t& events) -> void {
+			auto& io = ImGui::GetIO();
+			for (auto event : events)
+			{
+				if (event.timeStamp < previousEventTimestamp)
+				{
+					continue;
+				}
+				previousEventTimestamp = event.timeStamp;
+
+				if(event.type == nbl::ui::SMouseEvent::EET_CLICK)
+				{
+					int buttonIndex = -1;
+					if (event.clickEvent.mouseButton == EMB_LEFT_BUTTON) 
+					{
+						buttonIndex = 0;
+					} else if (event.clickEvent.mouseButton == EMB_RIGHT_BUTTON)
+					{
+						buttonIndex = 1;
+					} else if (event.clickEvent.mouseButton == EMB_MIDDLE_BUTTON)
+					{
+						buttonIndex = 2;
+					}
+
+					if(event.clickEvent.action == SMouseEvent::SClickEvent::EA_PRESSED) {
+						io.MouseDown[buttonIndex] = true;
+					} else if (event.clickEvent.action == SMouseEvent::SClickEvent::EA_RELEASED) {
+						io.MouseDown[buttonIndex] = false;
+					}
+				}
+			}
+		});
+
+		auto const position = state->window->getCursorControl()->getPosition();
+		auto& io = ImGui::GetIO();
+		io.MousePos.x = static_cast<float>(position.x) - state->window->getX();
+		io.MousePos.y = static_cast<float>(position.y) - state->window->getY();
 	}
 
 	//-------------------------------------------------------------------------------------------------
@@ -651,43 +663,25 @@ namespace UI_System
 
 	//-------------------------------------------------------------------------------------------------
 
-	bool Render(float deltaTimeInSec, nbl::video::IGPUCommandBuffer& commandBuffer)
+	bool Render(IGPUCommandBuffer& commandBuffer, int frameIndex)
 	{
 		ImGuiIO& io = ImGui::GetIO();
 		assert(io.Fonts->IsBuilt() && "Font atlas not built! It is generally built by the renderer backend. Missing call to renderer _NewFrame() function? e.g. ImGui_ImplOpenGL3_NewFrame().");
 
-		io.DeltaTime = deltaTimeInSec;
-
-		ImGui::NewFrame();
-		state->hasFocus = false;
-		for (auto const& subscriber : state->subscribers)
-		{
-			subscriber.listener();
-		}
-		ImGui::Render();
-
 		UpdateMousePositionAndButtons();
-		//UpdateMouseCursor();
-
+		
 		// Setup desired Vulkan state
 		// Bind pipeline and descriptor sets:
 		commandBuffer.bindGraphicsPipeline(state->pipeline.get());
 		commandBuffer.bindDescriptorSets(EPBP_GRAPHICS, state->independentPipeline->getLayout(), 0, 1, &state->gpuDescriptorSet.get());
-		//RF::BindPipeline(drawPass, *state->pipeline);
-		//RF::BindDescriptorSet(
-		//    drawPass,
-		//    RenderFrontend::DescriptorSetType::PerFrame,
-		//    state->gpuDescriptorSet
-		//);
-
+		
 		auto const* drawData = ImGui::GetDrawData();
 
 		if (drawData == nullptr)
 		{
 			return false;
 		}
-		//assert(drawData != nullptr);
-
+		
 		// Avoid rendering when minimized, scale coordinates for retina displays (screen coordinates != framebuffer coordinates)
 		float const frameBufferWidth = drawData->DisplaySize.x * drawData->FramebufferScale.x;
 		float const frameBufferHeight = drawData->DisplaySize.y * drawData->FramebufferScale.y;
@@ -701,22 +695,30 @@ namespace UI_System
 			vertexCreationParams.usage = nbl::asset::IBuffer::EUF_VERTEX_BUFFER_BIT;
 			vertexCreationParams.canUpdateSubRange = true;
 
-			// TODO: We can allocate buffer only if new size is larger than previous one
-			auto vertexBuffer = state->device->createCPUSideGPUVisibleGPUBufferOnDedMem(
-				vertexCreationParams,
-				vertexSize
-			);
+			auto & vertexBuffer = state->vertexBuffers[frameIndex];
+
+			if (vertexBuffer.isValid() == false || vertexBuffer->getSize() < vertexSize)
+			{
+				vertexBuffer = state->device->createCPUSideGPUVisibleGPUBufferOnDedMem(
+					vertexCreationParams,
+					vertexSize
+				);
+			}
 
 			IGPUBuffer::SCreationParams indexCreationParams = {};
 			indexCreationParams.usage = nbl::asset::IBuffer::EUF_INDEX_BUFFER_BIT;
 			indexCreationParams.canUpdateSubRange = true;
 
-			auto indexBuffer = state->device->createCPUSideGPUVisibleGPUBufferOnDedMem(
-				indexCreationParams,
-				indexSize
-			);
-			//auto const vertexData = Memory::Alloc(vertexSize);
-			//auto const indexData = Memory::Alloc(indexSize);
+			auto & indexBuffer = state->indexBuffers[frameIndex];
+
+			if (indexBuffer.isValid() == false || indexBuffer->getSize() < indexSize)
+			{
+				indexBuffer = state->device->createCPUSideGPUVisibleGPUBufferOnDedMem(
+					indexCreationParams,
+					indexSize
+				);
+			}
+
 			{
 				IDriverMemoryAllocation::MappedMemoryRange const vertexMappedMemory(
 					vertexBuffer->getBoundMemory(),
@@ -730,10 +732,6 @@ namespace UI_System
 					indexBuffer->getSize()
 				);
 
-				/*vertexMappedMemoryRange(
-					IDriverMemoryAllocation::EMCAF_WRITE,
-					IDriverMemoryAllocation::MemoryRange(0u,vertexBuffer->getSize())
-				)*/
 				state->device->mapMemory(vertexMappedMemory, IDriverMemoryAllocation::EMCAF_WRITE);
 				state->device->mapMemory(indexMappedMemory, IDriverMemoryAllocation::EMCAF_WRITE);
 
@@ -753,29 +751,6 @@ namespace UI_System
 				state->device->unmapMemory(vertexMappedMemory.memory);
 				state->device->unmapMemory(indexMappedMemory.memory);
 			}
-
-			// TODO Prevent buffer to create mesh buffer every frame, Maybe we can update buffer instead when they have same size
-
-
-			/*{
-				auto it = reinterpret_cast<ImDrawVert*>(vertexBuffer->getBoundMemory()->mapMemoryRange(
-					IDriverMemoryAllocation::EMCAF_WRITE,
-					IDriverMemoryAllocation::MemoryRange(0u,vertexBuffer->getSize())
-				));
-
-				vertexBuffer->getBoundMemory()->unmapMemory();
-			}*/
-			//vertexBuffer->Update(vertexData);
-
-			/*IGPUBuffer::SCreationParams indexCreationParams = {};
-			indexCreationParams.usage = nbl::asset::IBuffer::EUF_INDEX_BUFFER_BIT;
-
-			auto const indexBuffer = state->device->createCPUSideGPUVisibleGPUBufferOnDedMem(
-				indexCreationParams,
-				indexSize
-			);*/
-
-			//indexBuffer->Update(indexData);
 
 			commandBuffer.bindIndexBuffer(
 				indexBuffer.get(),
@@ -881,15 +856,18 @@ namespace UI_System
 
 	//-------------------------------------------------------------------------------------------------
 
-	void Update(float deltaTimeInSec)
+	void Update(float const deltaTimeInSec)
 	{
-		//ImGui::NewFrame();
-		//state->hasFocus = false;
-		//for (auto const& subscriber : state->subscribers)
-		//{
-		//	subscriber.listener();
-		//}
-		//ImGui::Render();
+		auto & io = ImGui::GetIO();
+		io.DeltaTime = deltaTimeInSec;
+		io.DisplaySize = ImVec2(state->window->getWidth(), state->window->getHeight());
+		ImGui::NewFrame();
+		state->hasFocus = false;
+		for (auto const& subscriber : state->subscribers)
+		{
+			subscriber.listener();
+		}
+		ImGui::Render();
 	}
 
 	//-------------------------------------------------------------------------------------------------
@@ -1127,7 +1105,6 @@ namespace UI_System
 	void Shutdown()
 	{
 		// TODO: Unregister from resize event
-		// TODO: Unregister from keyboard and mouse events
 
 		delete state;
 		state = nullptr;
@@ -1153,15 +1130,6 @@ namespace UI_System
 	{
 		ImGui::TreePop();
 	}
-
-	//-------------------------------------------------------------------------------------------------
-
-//#ifdef __ANDROID__
-//	void SetAndroidApp(android_app* pApp)
-//	{
-//		androidApp = pApp;
-//	}
-//#endif
 
 	//-------------------------------------------------------------------------------------------------
 
