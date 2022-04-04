@@ -1,14 +1,6 @@
 #ifndef _NBL_GLSL_BLIT_R11FG11FB10F_INCLUDED_
 #define _NBL_GLSL_BLIT_R11FG11FB10F_INCLUDED_
 
-#ifndef _NBL_GLSL_BLIT_DIM_COUNT_
-	#error _NBL_GLSL_BLIT_DIM_COUNT_ must be defined
-#endif
-
-#ifndef _NBL_GLSL_BLIT_OUT_DESCRIPTOR_DEFINED_
-	#error _NBL_GLSL_BLIT_OUT_DESCRIPTOR_DEFINED_ must be defined
-#endif
-
 uint to11bitFloat(in float _f32)
 {
 	const uint f32 = floatBitsToUint(_f32);
@@ -73,26 +65,14 @@ uint to10bitFloat(in float _f32)
 	return f10;
 }
 
-void nbl_glsl_blit_setData(in nbl_glsl_blit_pixel_t value, in ivec3 coord)
+uvec4 nbl_glsl_blit_formats_encode(in vec4 value)
 {
-#if NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 1)
-	#define COORD coord.x
-#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 2)
-	#define COORD coord.xy
-#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 3)
-	#define COORD coord
-#else
-	#error _NBL_GLSL_BLIT_DIM_COUNT_ not supported
-#endif
-
-	const uint x = to11bitFloat(value.data.r);
-	const uint y = to11bitFloat(value.data.g) << 11;
-	const uint z = to10bitFloat(value.data.b) << 22;
+	const uint x = to11bitFloat(value.r);
+	const uint y = to11bitFloat(value.g) << 11;
+	const uint z = to10bitFloat(value.b) << 22;
 	const uint encoded = z | y | x;
 
-	imageStore(_NBL_GLSL_BLIT_OUT_DESCRIPTOR_DEFINED_, COORD, uvec4(encoded, 0, 0, 0));
-
-#undef COORD
+	return uvec4(encoded, 0, 0, 0);
 }
 
 #endif

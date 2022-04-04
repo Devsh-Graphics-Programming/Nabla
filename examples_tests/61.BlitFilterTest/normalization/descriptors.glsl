@@ -13,7 +13,7 @@
 	#endif
 
 	#ifndef _NBL_GLSL_BLIT_NORMALIZATION_INOUT_IMAGE_TYPE_
-		#error _NBL_GLSL_BLIT_NORMALIZATION_INOUT_IMAGE_TYPE_ must be defined to any of image1D/image2D/image3D
+		#error _NBL_GLSL_BLIT_NORMALIZATION_INOUT_IMAGE_TYPE_ must be defined to any of (u)image1D/(u)image2D/(u)image3D
 	#endif
 
 	#ifndef _NBL_GLSL_BLIT_NORMALIZATION_INOUT_IMAGE_FORMAT_

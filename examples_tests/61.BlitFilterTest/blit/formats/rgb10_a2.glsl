@@ -3,32 +3,17 @@
 
 #include <nbl/builtin/glsl/limits/numeric.glsl> // Todo(achal): Can remove this after merging with `master`
 #include <nbl/builtin/glsl/format/encode.glsl>
+#include <nbl/builtin/glsl/format/decode.glsl>
 
-#ifndef _NBL_GLSL_BLIT_DIM_COUNT_
-	#error _NBL_GLSL_BLIT_DIM_COUNT_ must be defined
-#endif
-
-#ifndef _NBL_GLSL_BLIT_OUT_DESCRIPTOR_DEFINED_
-	#error _NBL_GLSL_BLIT_OUT_DESCRIPTOR_DEFINED_ must be defined
-#endif
-
-void nbl_glsl_blit_setData(in nbl_glsl_blit_pixel_t value, in ivec3 coord)
+uvec4 nbl_glsl_blit_formats_encode(in vec4 value)
 {
-#if NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 1)
-	#define COORD coord.x
-#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 2)
-	#define COORD coord.xy
-#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 3)
-	#define COORD coord
-#else
-	#error _NBL_GLSL_BLIT_DIM_COUNT_ not supported
-#endif
+	const uint encoded = nbl_glsl_encodeRGB10A2_UNORM(value);
+	return uvec4(encoded, 0, 0, 0);
+}
 
-	const uint encoded = nbl_glsl_encodeRGB10A2_UNORM(value.data);
-
-	imageStore(_NBL_GLSL_BLIT_OUT_DESCRIPTOR_DEFINED_, COORD, uvec4(encoded, 0, 0, 0));
-
-#undef COORD
+vec4 nbl_glsl_blit_formats_decode(in uvec4 value)
+{
+	return nbl_glsl_decodeRGB10A2_UNORM(value.x);
 }
 
 #endif

@@ -26,14 +26,36 @@
 #error _NBL_GLSL_BLIT_NORMALIZATION_INOUT_IMAGE_FORMAT_ must be defined
 #endif
 
+// #define _NBL_GLSL_BLIT_NORMALIZATION_SOFTWARE_CODEC_
+
 #if NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_NORMALIZATION_DIM_COUNT_, 1)
-	#define _NBL_GLSL_BLIT_NORMALIZATION_INOUT_IMAGE_TYPE_ image1D
+	#ifdef _NBL_GLSL_BLIT_NORMALIZATION_SOFTWARE_CODEC_
+		#define _NBL_GLSL_BLIT_NORMALIZATION_INOUT_IMAGE_TYPE_ uimage1D
+	#else
+		#define _NBL_GLSL_BLIT_NORMALIZATION_INOUT_IMAGE_TYPE_ image1D
+	#endif
 #elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_NORMALIZATION_DIM_COUNT_, 2)
-	#define _NBL_GLSL_BLIT_NORMALIZATION_INOUT_IMAGE_TYPE_ image2D
+	#ifdef _NBL_GLSL_BLIT_NORMALIZATION_SOFTWARE_CODEC_
+		#define _NBL_GLSL_BLIT_NORMALIZATION_INOUT_IMAGE_TYPE_ uimage2D
+	#else
+		#define _NBL_GLSL_BLIT_NORMALIZATION_INOUT_IMAGE_TYPE_ image2D
+	#endif
 #elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_NORMALIZATION_DIM_COUNT_, 3)
-	#define _NBL_GLSL_BLIT_NORMALIZATION_INOUT_IMAGE_TYPE_ image3D
+	#ifdef _NBL_GLSL_BLIT_NORMALIZATION_SOFTWARE_CODEC_
+		#define _NBL_GLSL_BLIT_NORMALIZATION_INOUT_IMAGE_TYPE_ uimage3D
+	#else
+		#define _NBL_GLSL_BLIT_NORMALIZATION_INOUT_IMAGE_TYPE_ image3D
+	#endif
 #else
 	#error _NBL_GLSL_BLIT_NORMALIZATION_DIM_COUNT_ not supported
+#endif
+
+#ifndef _NBL_GLSL_BLIT_NORMALIZATION_PIXEL_TYPE_DEFINED_
+#define _NBL_GLSL_BLIT_NORMALIZATION_PIXEL_TYPE_DEFINED_
+struct nbl_glsl_blit_normalization_pixel_t
+{
+	vec4 data;
+};
 #endif
 
 #define _NBL_GLSL_WORKGROUP_SIZE_ (_NBL_GLSL_WORKGROUP_SIZE_X_ * _NBL_GLSL_WORKGROUP_SIZE_Y_ * _NBL_GLSL_WORKGROUP_SIZE_Z_)
@@ -43,6 +65,7 @@ layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_X_, local_size_y = _NBL_GLSL_WOR
 #include <../normalization/parameters.glsl>
 #include <../normalization/normalization.glsl>
 #include <../normalization/descriptors.glsl>
+// #include <../blit/formats/rgba16.glsl>
 
 layout (push_constant) uniform Block
 {
@@ -63,7 +86,7 @@ nbl_glsl_blit_normalization_parameters_t nbl_glsl_blit_normalization_getParamete
 #error _NBL_GLSL_BLIT_NORMALIZATION_INOUT_IMAGE_DESCRIPTOR_DEFINED_ must be defined
 #endif
 
-vec4 nbl_glsl_blit_normalization_getPaddedData(in ivec3 coord)
+nbl_glsl_blit_normalization_pixel_t nbl_glsl_blit_normalization_getPaddedData(in ivec3 coord)
 {
 	const nbl_glsl_blit_normalization_parameters_t params = nbl_glsl_blit_normalization_getParameters();
 
@@ -80,14 +103,21 @@ vec4 nbl_glsl_blit_normalization_getPaddedData(in ivec3 coord)
 	#error _NBL_GLSL_BLIT_NORMALIZATION_DIM_COUNT_ not supported
 #endif
 
-	vec4 data = vec4(0.f);
+	nbl_glsl_blit_normalization_pixel_t result;
+	result.data = vec4(0.f);
 	if (all(lessThan(COORD, IMAGE_DIM)))
-		data = imageLoad(_NBL_GLSL_BLIT_NORMALIZATION_INOUT_IMAGE_DESCRIPTOR_DEFINED_, COORD);
+	{
+	#ifdef _NBL_GLSL_BLIT_NORMALIZATION_SOFTWARE_CODEC_
+		result.data = nbl_glsl_blit_formats_decode(imageLoad(_NBL_GLSL_BLIT_NORMALIZATION_INOUT_IMAGE_DESCRIPTOR_DEFINED_, COORD));
+	#else
+		result.data = imageLoad(_NBL_GLSL_BLIT_NORMALIZATION_INOUT_IMAGE_DESCRIPTOR_DEFINED_, COORD);
+	#endif
+	}
 
 #undef COORD
 #undef IMAGE_DIM
 
-	return data;
+	return result;
 }
 #define _NBL_GLSL_BLIT_NORMALIZATION_GET_PADDED_DATA_DEFINED_
 #endif
@@ -99,7 +129,7 @@ vec4 nbl_glsl_blit_normalization_getPaddedData(in ivec3 coord)
 #error _NBL_GLSL_BLIT_NORMALIZATION_INOUT_IMAGE_DESCRIPTOR_DEFINED_ must be defined
 #endif
 
-void nbl_glsl_blit_normalization_setData(in ivec3 coord, in vec4 data)
+void nbl_glsl_blit_normalization_setData(in nbl_glsl_blit_normalization_pixel_t value, in ivec3 coord)
 {
 	const nbl_glsl_blit_normalization_parameters_t params = nbl_glsl_blit_normalization_getParameters();
 
@@ -117,7 +147,13 @@ void nbl_glsl_blit_normalization_setData(in ivec3 coord, in vec4 data)
 #endif
 
 	if (all(lessThan(COORD, IMAGE_DIM)))
-		imageStore(_NBL_GLSL_BLIT_NORMALIZATION_INOUT_IMAGE_DESCRIPTOR_DEFINED_, COORD, data);
+	{
+	#ifdef _NBL_GLSL_BLIT_NORMALIZATION_SOFTWARE_CODEC_
+		imageStore(_NBL_GLSL_BLIT_NORMALIZATION_INOUT_IMAGE_DESCRIPTOR_DEFINED_, COORD, nbl_glsl_blit_formats_encode(value.data));
+	#else
+		imageStore(_NBL_GLSL_BLIT_NORMALIZATION_INOUT_IMAGE_DESCRIPTOR_DEFINED_, COORD, value.data);
+	#endif
+	}
 
 #undef COORD
 #undef IMAGE_DIM
