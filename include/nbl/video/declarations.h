@@ -26,6 +26,9 @@
 #include "nbl/video/surface/CSurfaceGL.h"
 #include "nbl/video/surface/CSurfaceVulkan.h"
 
+// CUDA
+#include "nbl/video/CCUDAHandler.h"
+
 // utilities
 #include "nbl/video/utilities/CDumbPresentationOracle.h"
 #include "nbl/video/utilities/ICommandPoolCache.h"

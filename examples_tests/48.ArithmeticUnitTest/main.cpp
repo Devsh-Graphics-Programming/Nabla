@@ -201,6 +201,7 @@ bool validateResults(ILogicalDevice* device, const uint32_t* inputData, const ui
 	auto dataFromBuffer = reinterpret_cast<uint32_t*>(mem->getMappedPointer());
 	const uint32_t subgroupSize = (*dataFromBuffer++);
 
+	// TODO: parallel for
 	// now check if the data obtained has valid values
 	uint32_t* tmp = new uint32_t[workgroupSize];
 	uint32_t* ballotInput = new uint32_t[workgroupSize];
@@ -281,7 +282,7 @@ bool runTest(
 	passed = validateResults<Arithmetic,max_op>(device, inputData, workgroupSize, workgroupCount, buffers[6].get(),logger)&&passed;
 	if(is_workgroup_test)
 	{
-		passed = validateResults<Arithmetic,ballot>(device, inputData, workgroupSize, workgroupCount, buffers[7].get(),logger) && passed;
+		passed = validateResults<Arithmetic,ballot>(device, inputData, workgroupSize, workgroupCount, buffers[7].get(),logger)&&passed;
 	}
 
 	return passed;
@@ -300,7 +301,7 @@ public:
 	void onAppInitialized_impl() override
 	{
 		CommonAPI::InitOutput initOutput;
-		CommonAPI::InitWithNoExt(initOutput, nbl::video::EAT_OPENGL, "Subgroup Arithmetic Test");
+		CommonAPI::InitWithNoExt(initOutput, video::EAT_OPENGL, "Subgroup Arithmetic Test");
 		gl = std::move(initOutput.apiConnection);
 		gpuPhysicalDevice = std::move(initOutput.physicalDevice);
 		logicalDevice = std::move(initOutput.logicalDevice);
@@ -335,7 +336,7 @@ public:
 			params.queueFamilyIndexCount = 0;
 			params.queueFamilyIndices = nullptr;
 			params.sharingMode = ESM_CONCURRENT;
-			params.usage = IGPUBuffer::EUF_STORAGE_BUFFER_BIT;
+			params.usage = core::bitflag(IGPUBuffer::EUF_STORAGE_BUFFER_BIT)|IGPUBuffer::EUF_TRANSFER_SRC_BIT;
 			IDriverMemoryBacked::SDriverMemoryRequirements reqs;
 			reqs.vulkanReqs.memoryTypeBits = ~0u;
 			reqs.vulkanReqs.alignment = 256u;
@@ -424,7 +425,7 @@ public:
 		core::smart_refctd_ptr<IGPUCommandBuffer> cmdbuf;
 		logicalDevice->createCommandBuffers(cmdPool.get(), IGPUCommandBuffer::EL_PRIMARY, 1u, &cmdbuf);
 		computeQueue->startCapture();
-		for (uint32_t workgroupSize = 1u; workgroupSize <= 1024u; workgroupSize++)
+		for (uint32_t workgroupSize=45u; workgroupSize<=1024u; workgroupSize++)
 		{
 			core::smart_refctd_ptr<IGPUComputePipeline> pipelines[kTestTypeCount];
 			for (uint32_t i = 0u; i < kTestTypeCount; i++)

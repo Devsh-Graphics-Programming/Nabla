@@ -2,6 +2,7 @@
 #define _IRR_BUILTIN_GLSL_FORMAT_ENCODE_INCLUDED_
 
 #include <nbl/builtin/glsl/format/constants.glsl>
+#include <nbl/builtin/glsl/limits/numeric.glsl>
 
 uvec3 nbl_glsl_impl_sharedExponentEncodeCommon(in vec3 clamped, in int newExpBias, in int newMaxExp, in int mantissaBits, out int shared_exp)
 {

@@ -12,12 +12,12 @@
 namespace nbl::video
 {
 
-template<class Window, template<typename> typename Base, class CRTP = void>
-class CSurfaceGLImpl : public Base<Window>
+template<class Window, template<typename,typename> typename Base, class CRTP = void>
+class CSurfaceGLImpl : public Base<Window,ISurface>
 {
     public:
         using this_t = std::conditional_t<std::is_void_v<CRTP>,CSurfaceGLImpl<Window,Base>,CRTP>;
-        using base_t = Base<Window>;
+        using base_t = Base<Window,ISurface>;
 
         template<video::E_API_TYPE API_TYPE>
         static inline core::smart_refctd_ptr<this_t> create(core::smart_refctd_ptr<video::COpenGL_Connection<API_TYPE>>&& api, core::smart_refctd_ptr<Window>&& window)
@@ -96,35 +96,30 @@ using CSurfaceNativeGL = CSurfaceGLImpl<Window, CSurfaceNative, CRTP>;
 // TODO: conditional defines
 #ifdef _NBL_PLATFORM_WINDOWS_
 using CSurfaceGLWin32 = CSurfaceGL<ui::IWindowWin32>;
-class CSurfaceNativeGLWin32 : public CSurfaceNativeGL<ui::IWindowWin32, CSurfaceNativeGLWin32>
+class CSurfaceNativeGLWin32 : public CSurfaceNativeGL<ui::IWindowWin32,CSurfaceNativeGLWin32>
 {
-protected:
-    using base_t = CSurfaceNativeGL<ui::IWindowWin32, CSurfaceNativeGLWin32>;
-    using base_t::base_t;
+    protected:
+        using base_t = CSurfaceNativeGL<ui::IWindowWin32,CSurfaceNativeGLWin32>;
+        using base_t::base_t;
 
-    uint32_t getWidth() const override 
-    { 
-        RECT wr;
-        GetWindowRect(m_handle, &wr);
-        return wr.right - wr.left;
-    }
-    uint32_t getHeight() const override 
-    { 
-        RECT wr;
-        GetWindowRect(m_handle, &wr);
-        return wr.top - wr.bottom;
-    }
+        uint32_t getWidth() const override 
+        { 
+            RECT wr;
+            GetWindowRect(m_handle, &wr);
+            return wr.right - wr.left;
+        }
+        uint32_t getHeight() const override 
+        { 
+            RECT wr;
+            GetWindowRect(m_handle, &wr);
+            return wr.top - wr.bottom;
+        }
 };
 #elif defined(_NBL_PLATFORM_LINUX_)
 using CSurfaceGLX11 = CSurfaceGL<ui::IWindowX11>;
 #elif defined(_NBL_PLATFORM_ANDROID_)
 using CSurfaceGLAndroid = CSurfaceGL<ui::IWindowAndroid>;
 #endif
-
-
-//using CSurfaceGLAndroid = CSurfaceGL<ui::IWindowAndroid>;
-//using CSurfaceGLX11 = CSurfaceGL<ui::IWindowX11>;
-//using CSurfaceGLWayland = CSurfaceGL<ui::IWindowWayland>;
 
 }
 

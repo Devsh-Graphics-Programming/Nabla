@@ -73,7 +73,7 @@ class CPLYMeshWriter : public asset::IAssetWriter
 			}
             auto str = ss.str();
 
-            system::future<size_t> future;
+            system::ISystem::future_t<size_t> future;
             context.writeContext.outputFile->write(future, str.c_str(), context.fileOffset, str.size());
             {
                 const auto bytesWritten = future.get();

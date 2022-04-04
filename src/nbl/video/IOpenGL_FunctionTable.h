@@ -37,7 +37,7 @@ extern thread_local char g_NBL_GL_CALL_msg_buffer[4096];
 }
 }
 
-// TODO os::Printer is deprecated but we dont have anything new for logging
+// TODO: get rid of sprintf and g_NBL_GL_CALL_msg_buffer
 #	define _NBL_GL_CALL(logger, callname_)\
 	{ \
 		callname_ ;\
@@ -55,13 +55,13 @@ extern thread_local char g_NBL_GL_CALL_msg_buffer[4096];
 #	define _NBL_GL_CALL(...) __VA_ARGS__
 #endif
 
-namespace nbl {
-	namespace video {
+namespace nbl::video
+{
 
-		// This class contains pointers to functions common in GL 4.6 and GLES 3.2
-		// And implements (at least a common part) extGl* methods which can be implemented with those pointers
-		class IOpenGL_FunctionTable
-		{
+	// This class contains pointers to functions common in GL 4.6 and GLES 3.2
+	// And implements (at least a common part) extGl* methods which can be implemented with those pointers
+	class IOpenGL_FunctionTable
+	{
 			static std::atomic_uint32_t s_guidGenerator;
 
 		public:
@@ -610,7 +610,7 @@ namespace nbl {
 			{
 				--s_guidGenerator;
 			}
-		};	// end of class IOpenGL_FunctionTable
+	};	// end of class IOpenGL_FunctionTable
 
 		void IOpenGL_FunctionTable::extGlCreateTextures(GLenum target, GLsizei n, GLuint* textures)
 		{
@@ -1255,7 +1255,6 @@ namespace nbl {
 		}
 
 
-		}		//namespace video
-	}		//namespace nbl
+}		//namespace nbl
 
 #endif

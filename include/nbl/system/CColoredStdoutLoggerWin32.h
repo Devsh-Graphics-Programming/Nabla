@@ -2,13 +2,12 @@
 #define _NBL_SYSTEM_C_COLORFUL_STDOUT_LOGGER_WIN32_INCLUDED_
 
 #include "nbl/system/IThreadsafeLogger.h"
-//instead of #include <Windows.h>
-#include "nbl/system/DefaultFuncPtrLoader.h"
-
-#ifdef _NBL_PLATFORM_WINDOWS_
 
 namespace nbl::system
 {
+#ifdef _NBL_PLATFORM_WINDOWS_
+//instead of #include <Windows.h>
+#include "nbl/system/DefaultFuncPtrLoader.h"
 
 class CColoredStdoutLoggerWin32 : public IThreadsafeLogger
 {
@@ -55,14 +54,15 @@ class CColoredStdoutLoggerWin32 : public IThreadsafeLogger
 				}
 				case ELL_NONE: 
 				{
-					assert(false); // how did this happen?? Btw, do we even need this log level? 
-					return 0;
+					assert(false); // how did this happen?? Btw, do we even need this log level?
+					break;
 				}
 			}
+			return 0;
 		}
 };
 
-}
 #endif
+}
 
 #endif

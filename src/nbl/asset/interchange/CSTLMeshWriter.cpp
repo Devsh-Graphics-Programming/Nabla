@@ -2,22 +2,16 @@
 // This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
-
-#include "CSTLMeshWriter.h"
-
-#ifdef _NBL_COMPILE_WITH_STL_WRITER_
-
 #include "nbl/system/ISystem.h"
 #include "nbl/system/IFile.h"
 
-namespace nbl
-{
-namespace asset
-{
+#include "CSTLMeshWriter.h"
 
-using namespace io;
-using namespace core;
 
+using namespace nbl;
+using namespace nbl::asset;
+
+#ifdef _NBL_COMPILE_WITH_STL_WRITER_
 constexpr auto POSITION_ATTRIBUTE = 0;
 constexpr auto COLOR_ATTRIBUTE = 1;
 constexpr auto UV_ATTRIBUTE = 2;
@@ -137,35 +131,35 @@ inline void writeFacesBinary(const asset::ICPUMeshBuffer* buffer, const bool& no
 			flipVectors();
 
 		{
-			system::future<size_t> future;
+			system::ISystem::future_t<size_t> future;
 			file->write(future, &normal, *fileOffset, 12);
 			const auto bytesWritten = future.get();
 			*fileOffset += bytesWritten;
 		}
 
 		{
-			system::future<size_t> future;
+			system::ISystem::future_t<size_t> future;
 			file->write(future, &vertex1, *fileOffset, 12);
 			const auto bytesWritten = future.get();
 			*fileOffset += bytesWritten;
 		}
 
 		{
-			system::future<size_t> future;
+			system::ISystem::future_t<size_t> future;
 			file->write(future, &vertex2, *fileOffset, 12);
 			const auto bytesWritten = future.get();
 			*fileOffset += bytesWritten;
 		}
 
 		{
-			system::future<size_t> future;
+			system::ISystem::future_t<size_t> future;
 			file->write(future, &vertex3, *fileOffset, 12);
 			const auto bytesWritten = future.get();
 			*fileOffset += bytesWritten;
 		}
 
 		{
-			system::future<size_t> future;
+			system::ISystem::future_t<size_t> future;
 			file->write(future, &color, *fileOffset, 2); // saving color using non-standard VisCAM/SolidView trick
 			const auto bytesWritten = future.get();
 			*fileOffset += bytesWritten;
@@ -181,7 +175,7 @@ bool CSTLMeshWriter::writeMeshBinary(const asset::ICPUMesh* mesh, SContext* cont
     constexpr size_t HEADER_SIZE = 80u;
 
 	{
-		system::future<size_t> future;
+		system::ISystem::future_t<size_t> future;
 		context->writeContext.outputFile->write(future, headerTxt, context->fileOffset, sizeof(headerTxt));
 		const auto bytesWritten = future.get();
 		context->fileOffset += bytesWritten;
@@ -192,7 +186,7 @@ bool CSTLMeshWriter::writeMeshBinary(const asset::ICPUMesh* mesh, SContext* cont
 
 	if (sizeleft < 0)
 	{
-		system::future<size_t> future;
+		system::ISystem::future_t<size_t> future;
 		context->writeContext.outputFile->write(future, name.c_str(), context->fileOffset, HEADER_SIZE - sizeof(headerTxt));
 		const auto bytesWritten = future.get();
 		context->fileOffset += bytesWritten;
@@ -202,14 +196,14 @@ bool CSTLMeshWriter::writeMeshBinary(const asset::ICPUMesh* mesh, SContext* cont
 		const char buf[80] = {0};
 
 		{
-			system::future<size_t> future;
+			system::ISystem::future_t<size_t> future;
 			context->writeContext.outputFile->write(future, name.c_str(), context->fileOffset, name.size());
 			const auto bytesWritten = future.get();
 			context->fileOffset += bytesWritten;
 		}
 
 		{
-			system::future<size_t> future;
+			system::ISystem::future_t<size_t> future;
 			context->writeContext.outputFile->write(future, buf, context->fileOffset, sizeleft);
 			const auto bytesWritten = future.get();
 			context->fileOffset += bytesWritten;
@@ -220,7 +214,7 @@ bool CSTLMeshWriter::writeMeshBinary(const asset::ICPUMesh* mesh, SContext* cont
 	for (auto& mb : mesh->getMeshBuffers())
 		facenum += mb->getIndexCount()/3;
 	{
-		system::future<size_t> future;
+		system::ISystem::future_t<size_t> future;
 		context->writeContext.outputFile->write(future, &facenum, context->fileOffset, sizeof(facenum));
 		const auto bytesWritten = future.get();
 		context->fileOffset += bytesWritten;
@@ -250,7 +244,7 @@ bool CSTLMeshWriter::writeMeshASCII(const asset::ICPUMesh* mesh, SContext* conte
     const char headerTxt[] = "Irrlicht-baw Engine ";
 
 	{
-		system::future<size_t> future;
+		system::ISystem::future_t<size_t> future;
 		context->writeContext.outputFile->write(future, "solid ", context->fileOffset, 6);
 		const auto bytesWritten = future.get();
 		context->fileOffset += bytesWritten;
@@ -258,7 +252,7 @@ bool CSTLMeshWriter::writeMeshASCII(const asset::ICPUMesh* mesh, SContext* conte
 
 
 	{
-		system::future<size_t> future;
+		system::ISystem::future_t<size_t> future;
 		context->writeContext.outputFile->write(future, headerTxt, context->fileOffset, sizeof(headerTxt) - 1);
 		const auto bytesWritten = future.get();
 		context->fileOffset += bytesWritten;
@@ -267,7 +261,7 @@ bool CSTLMeshWriter::writeMeshASCII(const asset::ICPUMesh* mesh, SContext* conte
 	const std::string name = context->writeContext.outputFile->getFileName().filename().replace_extension().string();
 
 	{
-		system::future<size_t> future;
+		system::ISystem::future_t<size_t> future;
 		context->writeContext.outputFile->write(future, name.c_str(), context->fileOffset, name.size());
 		const auto bytesWritten = future.get();
 		context->fileOffset += bytesWritten;
@@ -275,7 +269,7 @@ bool CSTLMeshWriter::writeMeshASCII(const asset::ICPUMesh* mesh, SContext* conte
 
 
 	{
-		system::future<size_t> future;
+		system::ISystem::future_t<size_t> future;
 		context->writeContext.outputFile->write(future, "\n", context->fileOffset, 1);
 		const auto bytesWritten = future.get();
 		context->fileOffset += bytesWritten;
@@ -330,7 +324,7 @@ bool CSTLMeshWriter::writeMeshASCII(const asset::ICPUMesh* mesh, SContext* conte
         }
 
 		{
-			system::future<size_t> future;
+			system::ISystem::future_t<size_t> future;
 			context->writeContext.outputFile->write(future, "\n", context->fileOffset, 1);
 			const auto bytesWritten = future.get();
 			context->fileOffset += bytesWritten;
@@ -338,21 +332,21 @@ bool CSTLMeshWriter::writeMeshASCII(const asset::ICPUMesh* mesh, SContext* conte
 	}
 
 	{
-		system::future<size_t> future;
+		system::ISystem::future_t<size_t> future;
 		context->writeContext.outputFile->write(future, "endsolid ", context->fileOffset, 9);
 		const auto bytesWritten = future.get();
 		context->fileOffset += bytesWritten;
 	}
 
 	{
-		system::future<size_t> future;
+		system::ISystem::future_t<size_t> future;
 		context->writeContext.outputFile->write(future, headerTxt, context->fileOffset, sizeof(headerTxt) - 1);
 		const auto bytesWritten = future.get();
 		context->fileOffset += bytesWritten;
 	}
 
 	{
-		system::future<size_t> future;
+		system::ISystem::future_t<size_t> future;
 		context->writeContext.outputFile->write(future, name.c_str(), context->fileOffset, name.size());
 		const auto bytesWritten = future.get();
 		context->fileOffset += bytesWritten;
@@ -392,7 +386,7 @@ void CSTLMeshWriter::writeFaceText(
 		flipVectors();
 	
 	{
-		system::future<size_t> future;
+		system::ISystem::future_t<size_t> future;
 		context->writeContext.outputFile->write(future, "facet normal ", context->fileOffset, 13);
 		const auto bytesWritten = future.get();
 		context->fileOffset += bytesWritten;
@@ -401,21 +395,21 @@ void CSTLMeshWriter::writeFaceText(
 	getVectorAsStringLine(normal, tmp);
 
 	{
-		system::future<size_t> future;
+		system::ISystem::future_t<size_t> future;
 		context->writeContext.outputFile->write(future, tmp.c_str(), context->fileOffset, tmp.size());
 		const auto bytesWritten = future.get();
 		context->fileOffset += bytesWritten;
 	}
 
 	{
-		system::future<size_t> future;
+		system::ISystem::future_t<size_t> future;
 		context->writeContext.outputFile->write(future, "  outer loop\n", context->fileOffset, 13);
 		const auto bytesWritten = future.get();
 		context->fileOffset += bytesWritten;
 	}
 
 	{
-		system::future<size_t> future;
+		system::ISystem::future_t<size_t> future;
 		context->writeContext.outputFile->write(future, "    vertex ", context->fileOffset, 11);
 		const auto bytesWritten = future.get();
 		context->fileOffset += bytesWritten;
@@ -424,14 +418,14 @@ void CSTLMeshWriter::writeFaceText(
 	getVectorAsStringLine(vertex1, tmp);
 
 	{
-		system::future<size_t> future;
+		system::ISystem::future_t<size_t> future;
 		context->writeContext.outputFile->write(future, tmp.c_str(), context->fileOffset, tmp.size());
 		const auto bytesWritten = future.get();
 		context->fileOffset += bytesWritten;
 	}
 
 	{
-		system::future<size_t> future;
+		system::ISystem::future_t<size_t> future;
 		context->writeContext.outputFile->write(future, "    vertex ", context->fileOffset, 11);
 		const auto bytesWritten = future.get();
 		context->fileOffset += bytesWritten;
@@ -440,14 +434,14 @@ void CSTLMeshWriter::writeFaceText(
 	getVectorAsStringLine(vertex2, tmp);
 
 	{
-		system::future<size_t> future;
+		system::ISystem::future_t<size_t> future;
 		context->writeContext.outputFile->write(future, tmp.c_str(), context->fileOffset, tmp.size());
 		const auto bytesWritten = future.get();
 		context->fileOffset += bytesWritten;
 	}
 
 	{
-		system::future<size_t> future;
+		system::ISystem::future_t<size_t> future;
 		context->writeContext.outputFile->write(future, "    vertex ", context->fileOffset, 11);
 		const auto bytesWritten = future.get();
 		context->fileOffset += bytesWritten;
@@ -456,28 +450,25 @@ void CSTLMeshWriter::writeFaceText(
 	getVectorAsStringLine(vertex3, tmp);
 
 	{
-		system::future<size_t> future;
+		system::ISystem::future_t<size_t> future;
 		context->writeContext.outputFile->write(future, tmp.c_str(), context->fileOffset, tmp.size());
 		const auto bytesWritten = future.get();
 		context->fileOffset += bytesWritten;
 	}
 
 	{
-		system::future<size_t> future;
+		system::ISystem::future_t<size_t> future;
 		context->writeContext.outputFile->write(future, "  endloop\n", context->fileOffset, 10);
 		const auto bytesWritten = future.get();
 		context->fileOffset += bytesWritten;
 	}
 
 	{
-		system::future<size_t> future;
+		system::ISystem::future_t<size_t> future;
 		context->writeContext.outputFile->write(future, "endfacet\n", context->fileOffset, 9);
 		const auto bytesWritten = future.get();
 		context->fileOffset += bytesWritten;
 	}
 }
-
-} // end namespace
-} // end namespace
 
 #endif

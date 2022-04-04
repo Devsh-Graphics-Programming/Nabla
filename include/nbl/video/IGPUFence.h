@@ -30,6 +30,10 @@ class IGPUFence : public core::IReferenceCounted, public IBackendObject
         {
         }
 
+        // OpenGL: core::smart_refctd_ptr<COpenGLSync>*
+        // Vulkan: const VkFence*
+        virtual void* getNativeHandle() = 0;
+
     protected:
         virtual ~IGPUFence() = default;
 };
@@ -61,10 +65,11 @@ public:
         return *this;
     }
 
-    template<class Clock=std::chrono::high_resolution_clock, class Duration=typename Clock::duration>
+    template<class Clock=std::chrono::steady_clock, class Duration=typename Clock::duration>
     inline static std::chrono::time_point<Clock,Duration> default_wait()
     {
-        return std::chrono::high_resolution_clock::now()+std::chrono::nanoseconds(50000ull); // 50 us
+        //return typename Clock::now()+std::chrono::nanoseconds(50000ull); // 50 us
+        return Clock::now()+std::chrono::nanoseconds(50000ull); // 50 us
     }
 
     IGPUFence::E_STATUS waitFenceWrapper(IGPUFence* fence, uint64_t timeout);

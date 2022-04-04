@@ -76,7 +76,8 @@ class COpenGLImageView final : public IGPUImageView
 				gl->extGlTextureParameteriv(name, target, pname[i], swizzle+i);
 			}
 		}
-
+		
+		inline const void* getNativeHandle() const override {return &name;}
 		inline GLuint getOpenGLName() const { return name; }
 		inline GLenum getInternalFormat() const { return internalFormat; }
 };

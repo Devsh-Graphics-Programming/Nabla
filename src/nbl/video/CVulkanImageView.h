@@ -20,7 +20,8 @@ public:
     {}
 
     ~CVulkanImageView();
-
+    
+	inline const void* getNativeHandle() const override {return &m_vkImageView;}
     inline VkImageView getInternalObject() const { return m_vkImageView; }
 
     void setObjectDebugName(const char* label) const override;

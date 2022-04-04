@@ -39,6 +39,8 @@ class COpenGLCommandPool final : public IGPUCommandPool
             std::unique_lock<std::mutex> lk(mutex);
             mempool.free_n<T>(const_cast<T*>(ptr), n);
         }
+        
+		inline const void* getNativeHandle() const override {return nullptr;}
 
     private:
         std::mutex mutex;

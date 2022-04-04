@@ -14,49 +14,27 @@ class IPhysicalDevice;
 
 class IAPIConnection : public core::IReferenceCounted
 {
-public:
-    enum E_FEATURE
-    {
-        EF_SURFACE = 0,
-        EF_COUNT
-    };
-
-    virtual E_API_TYPE getAPIType() const = 0;
-
-    virtual IDebugCallback* getDebugCallback() const = 0;
-
-    core::SRange<IPhysicalDevice* const> getPhysicalDevices() const;
-
-    static core::SRange<const E_FEATURE> getDependentFeatures(const E_FEATURE feature);
-
-protected:
-    inline IAPIConnection() : m_physicalDevices(), m_rdoc_api(nullptr)
-    {
-#ifdef _NBL_PLATFORM_WINDOWS_
-        if (HMODULE mod = GetModuleHandleA("renderdoc.dll"))
-#elif defined(_NBL_PLATFORM_ANDROID_)
-        if (void* mod = dlopen("libVkLayer_GLES_RenderDoc.so", RTLD_NOW | RTLD_NOLOAD))
-#elif defined(_NBL_PLATFORM_LINUX_)
-        if (void* mod = dlopen("librenderdoc.so", RTLD_NOW | RTLD_NOLOAD))
-#else
-        if (false)
-#endif
+    public:
+        // TODO: are these "instance features" ?
+        enum E_FEATURE
         {
-#if defined(_NBL_PLATFORM_WINDOWS_)
-            pRENDERDOC_GetAPI RENDERDOC_GetAPI =
-                (pRENDERDOC_GetAPI)GetProcAddress(mod, "RENDERDOC_GetAPI");
-            int ret = RENDERDOC_GetAPI(MinRenderdocVersion, (void**)&m_rdoc_api);
-            assert(ret == 1);
-#elif defined(_NBL_PLATFORM_ANDROID_) || defined(_NBL_PLATFORM_LINUX_)
-            pRENDERDOC_GetAPI RENDERDOC_GetAPI = (pRENDERDOC_GetAPI)dlsym(mod, "RENDERDOC_GetAPI");
-            int ret = RENDERDOC_GetAPI(MinRenderdocVersion, (void**)&m_rdoc_api);
-            assert(ret == 1);
-#endif
-        }
-    }
+            EF_SURFACE = 0,
+            EF_COUNT
+        };
 
-    std::vector<std::unique_ptr<IPhysicalDevice>> m_physicalDevices;
-    renderdoc_api_t* m_rdoc_api;
+        virtual E_API_TYPE getAPIType() const = 0;
+
+        virtual IDebugCallback* getDebugCallback() const = 0;
+
+        core::SRange<IPhysicalDevice* const> getPhysicalDevices() const;
+
+        static core::SRange<const E_FEATURE> getDependentFeatures(const E_FEATURE feature);
+
+    protected:
+        IAPIConnection();
+
+        std::vector<std::unique_ptr<IPhysicalDevice>> m_physicalDevices;
+        renderdoc_api_t* m_rdoc_api;
 };
 
 }

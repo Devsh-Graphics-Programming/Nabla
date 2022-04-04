@@ -45,6 +45,7 @@ class COpenGLBuffer final : public IGPUBuffer, public IDriverMemoryAllocation
         void setObjectDebugName(const char* label) const override;
 
         //!
+        inline const void* getNativeHandle() const override {return &BufferName;}
         inline const GLuint& getOpenGLName() const {return BufferName;}
 
         //!

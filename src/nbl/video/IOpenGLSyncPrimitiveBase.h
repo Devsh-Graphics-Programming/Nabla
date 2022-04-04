@@ -6,8 +6,7 @@
 #include <atomic>
 #include <chrono>
 
-namespace nbl {
-namespace video
+namespace nbl::video
 {
 
 class IOpenGLSyncPrimitiveBase
@@ -37,7 +36,6 @@ protected:
     core::smart_refctd_ptr<COpenGLSync> m_sync;
 };
 
-}
 }
 
 #endif

@@ -21,9 +21,7 @@
 	#include "libpng/png.h"
 #endif // _NBL_COMPILE_WITH_LIBPNG_
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 #ifdef _NBL_COMPILE_WITH_LIBPNG_
@@ -54,13 +52,13 @@ void PNGAPI user_write_data_fcn(png_structp png_ptr, png_bytep data, png_size_t 
 	//check=(png_size_t) file->write((const void*)data,(uint32_t)length);
 	auto usrData = (CImageWriterPNG::SContext*)png_get_user_chunk_ptr(png_ptr);
 	
-	system::future<size_t> future;
-	file->write(future, data, usrData->file_pos, length);
-	usrData->file_pos += length;
-	png_set_read_user_chunk_fn(png_ptr, usrData, nullptr);
-
-	if (future.get() != length)
+	system::IFile::success_t success;
+	file->write(success, data, usrData->file_pos, length);
+	if (!success)
 		png_error(png_ptr, "Write Error");
+
+	usrData->file_pos += success.getSizeToProcess();
+	png_set_read_user_chunk_fn(png_ptr, usrData, nullptr);
 }
 #endif // _NBL_COMPILE_WITH_LIBPNG_
 
@@ -219,7 +217,6 @@ bool CImageWriterPNG::writeAsset(system::IFile* _file, const SAssetWriteParams& 
 #endif//defined(_NBL_COMPILE_WITH_LIBPNG_)
 }
 
-} // namespace video
-} // namespace nbl
+} // namespace nbl::video
 
 #endif

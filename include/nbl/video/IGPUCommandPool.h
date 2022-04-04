@@ -27,6 +27,10 @@ class IGPUCommandPool : public core::IReferenceCounted, public IBackendObject
         core::bitflag<E_CREATE_FLAGS> getCreationFlags() const { return m_flags; }
         uint32_t getQueueFamilyIndex() const { return m_familyIx; }
 
+        // OpenGL: nullptr, because commandpool doesn't exist in GL (we might expose the internal allocator in the future)
+        // Vulkan: const VkCommandPool*
+        virtual const void* getNativeHandle() const = 0;
+
     protected:
         virtual ~IGPUCommandPool() = default;
 

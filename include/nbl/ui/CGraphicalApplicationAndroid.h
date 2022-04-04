@@ -1,13 +1,14 @@
 #ifndef _NBL_UI_C_GRAPHICAL_APPLICATION_ANDROID_H_INCLUDED_
 #define _NBL_UI_C_GRAPHICAL_APPLICATION_ANDROID_H_INCLUDED_
-#ifdef _NBL_PLATFORM_ANDROID_
+
 #include "nbl/system/CApplicationAndroid.h"
 #include "nbl/system/CSystemAndroid.h"
-#include "nbl/system/CSystemLinux.h"
-#include "nbl/system/CSystemCallerPOSIX.h"
+
 #include "nbl/ui/IGraphicalApplicationFramework.h"
 #include "nbl/ui/IWindow.h"
 #include "nbl/ui/CWindowManagerAndroid.h"
+
+#ifdef _NBL_PLATFORM_ANDROID_
 #include <jni.h>
 #include <fstream>
 namespace nbl::ui
@@ -63,8 +64,7 @@ namespace nbl::ui
 					ctx.framework = framework.get();
 					nbl::ui::IWindow::SCreationParams params;
 					params.callback = nullptr;
-					auto caller = core::make_smart_refctd_ptr<nbl::system::CSystemCallerPOSIX>();
-					auto system = core::make_smart_refctd_ptr<nbl::system::CSystemAndroid>(std::move(caller), app->activity, env, APKResourcesPath);
+					auto system = core::make_smart_refctd_ptr<nbl::system::CSystemAndroid>(app->activity, env, APKResourcesPath);
 					framework->setSystem(std::move(system));
 					//if (app->savedState != nullptr) {
 					//	ctx.state = (nbl::system::CApplicationAndroid::SSavedState*)app->savedState;
@@ -109,8 +109,7 @@ namespace nbl::ui
 					app->userData = &ctx;
 					auto framework = nbl::core::make_smart_refctd_ptr<android_app_class>(app, env, APKResourcesPath, privateOutputCWD, sharedInputCWD, sharedOutputCWD);
 					ctx.framework = framework.get();
-					auto caller = core::make_smart_refctd_ptr<nbl::system::CSystemCallerPOSIX>();
-					auto system = core::make_smart_refctd_ptr<nbl::system::CSystemAndroid>(std::move(caller), app->activity, env, APKResourcesPath);
+					auto system = core::make_smart_refctd_ptr<nbl::system::CSystemAndroid>(app->activity, env, APKResourcesPath);
 					framework->setSystem(std::move(system));
 					//if (app->savedState != nullptr) {
 					//	ctx.state = (nbl::system::CApplicationAndroid::SSavedState*)app->savedState;

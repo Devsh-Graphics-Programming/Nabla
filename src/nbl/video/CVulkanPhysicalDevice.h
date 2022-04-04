@@ -86,6 +86,7 @@ public:
                 [NO NABALA SUPPORT] Vulkan 1.0 implementation must support the 1.0 version of SPIR-V and the 1.0 version of the SPIR-V Extended Instructions for GLSL. If the VK_KHR_spirv_1_4 extension is enabled, the implementation must additionally support the 1.4 version of SPIR-V.
                 A Vulkan 1.1 implementation must support the 1.0, 1.1, 1.2, and 1.3 versions of SPIR-V and the 1.0 version of the SPIR-V Extended Instructions for GLSL.
                 A Vulkan 1.2 implementation must support the 1.0, 1.1, 1.2, 1.3, 1.4, and 1.5 versions of SPIR-V and the 1.0 version of the SPIR-V Extended Instructions for GLSL.
+                A Vulkan 1.3 implementation must support the 1.0, 1.1, 1.2, 1.3, 1.4, and 1.5 versions of SPIR-V and the 1.0 version of the SPIR-V Extended Instructions for GLSL.
             */
             
             uint32_t apiVersion = std::min(instanceApiVersion, deviceProperties.properties.apiVersion);
@@ -105,7 +106,7 @@ public:
                 m_limits.spirvVersion = asset::IGLSLCompiler::ESV_1_5;
                 break;
             case 3:
-                m_limits.spirvVersion = asset::IGLSLCompiler::ESV_1_5;
+                m_limits.spirvVersion = asset::IGLSLCompiler::ESV_1_6;
                 break;
             default:
                 _NBL_DEBUG_BREAK_IF("Invalid Vulkan minor version!");

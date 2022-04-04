@@ -39,7 +39,7 @@ public:
         freeSpaceInCmdPool();
     }
 
-    bool begin(uint32_t recordingFlags, const SInheritanceInfo* inheritanceInfo = nullptr) override
+    bool begin(uint32_t recordingFlags, const SInheritanceInfo* inheritanceInfo=nullptr) override
     {
         VkCommandBufferBeginInfo beginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
         beginInfo.pNext = nullptr; // pNext must be NULL or a pointer to a valid instance of VkDeviceGroupCommandBufferBeginInfo
@@ -1335,8 +1335,9 @@ public:
     bool copyAccelerationStructureToMemory(const IGPUAccelerationStructure::DeviceCopyToMemoryInfo& copyInfo) override;
 
     bool copyAccelerationStructureFromMemory(const IGPUAccelerationStructure::DeviceCopyFromMemoryInfo& copyInfo) override;
-
-    VkCommandBuffer getInternalObject() const { return m_cmdbuf; }
+    
+	inline const void* getNativeHandle() const override {return &m_cmdbuf;}
+    VkCommandBuffer getInternalObject() const {return m_cmdbuf;}
 
 private:
     void freeSpaceInCmdPool()
