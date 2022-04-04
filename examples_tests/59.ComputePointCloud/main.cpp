@@ -726,6 +726,7 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 
 		camera.beginInputProcessing(nextPresentationTimestamp);
 		mouse.consumeEvents([&](const ui::IMouseEventChannel::range_t& events) -> void { camera.mouseProcess(events); }, logger.get());
+		bool clearSpinlock = false;
 		keyboard.consumeEvents([&](const ui::IKeyboardEventChannel::range_t& events) -> void 
 		{ 
 			camera.keyboardProcess(events); 
@@ -736,6 +737,7 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 				// "G" for toggling modes
 				if (ev.keyCode == nbl::ui::EKC_G) {
 					useSpinlockPath = !useSpinlockPath;
+					clearSpinlock = true;
 				}
 			}
 		}, logger.get());
@@ -833,6 +835,13 @@ APP_CONSTRUCTOR(PointCloudRasterizer)
 				0u, nullptr,
 				0u, nullptr,
 				1u, &layoutTransBarrier);
+		}
+
+		if (clearSpinlock)
+		{
+			// Clear the spinlock buffer
+			runClearPath(1);
+			clearSpinlock = false;
 		}
 
 		if (useSpinlockPath) 
