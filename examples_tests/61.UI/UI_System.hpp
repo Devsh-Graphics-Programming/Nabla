@@ -105,10 +105,6 @@ namespace UI_System
 
 	void TreePop();
 
-	//#ifdef __ANDROID__
-	//    void SetAndroidApp(android_app * pApp);
-	//#endif
-
 }
 
 namespace UI = UI_System;

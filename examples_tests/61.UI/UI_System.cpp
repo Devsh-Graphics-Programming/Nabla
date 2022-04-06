@@ -122,8 +122,6 @@ namespace UI_System
 		0x00010038
 	};
 
-	//static VkDeviceSize g_BufferMemoryAlignment = 256;
-
 	struct State
 	{
 		smart_refctd_ptr<ILogicalDevice> device{};
@@ -138,15 +136,13 @@ namespace UI_System
 		std::vector<smart_refctd_ptr<IGPUBuffer>> vertexBuffers{};
 		std::vector<smart_refctd_ptr<IGPUBuffer>> indexBuffers{};
 		bool hasFocus = false;
-		//Signal<> UIRecordSignal{};
+
+		// TODO: Use a signal class instead.//Signal<> UIRecordSignal{};
 		struct Subscriber {
 			int id = -1;
 			std::function<void()> listener = nullptr;
 		};
 		std::vector<Subscriber> subscribers{};
-
-		// TODO: Mouse and keyboard events
-		// TODO: Resize events
 	};
 
 	static State* state = nullptr;
@@ -156,30 +152,6 @@ namespace UI_System
 		float scale[2];
 		float translate[2];
 	};
-
-	//-------------------------------------------------------------------------------------------------
-
-	//static void onResize(float screenWidth, float screenHeight)
-	//{
-	//	ImGuiIO& io = ImGui::GetIO();
-	//	assert(io.Fonts->IsBuilt() && "Font atlas not built! It is generally built by the renderer backend. Missing call to renderer _NewFrame() function? e.g. ImGui_ImplOpenGL3_NewFrame().");
-
-		// Setup display size (every frame to accommodate for window resizing)
-		//int32_t window_width, window_height;
-		//int32_t drawable_width, drawable_height;
-		//
-		//RF::GetDrawableSize(window_width, window_height);
-
-		//if (RF::GetWindowFlags() & MSDL::SDL_WINDOW_MINIMIZED)
-		//{
-		//    window_width = window_height = 0;
-		//}
-
-		//RF::GetDrawableSize(drawable_width, drawable_height);
-
-		//io.DisplaySize = ImVec2(screenWidth, screenHeight);
-		//io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
-	//}
 
 	//-------------------------------------------------------------------------------------------------
 
@@ -418,6 +390,7 @@ namespace UI_System
 	void prepareKeyMapForDesktop()
 	{
 		ImGuiIO& io = ImGui::GetIO();
+		// TODO:
 		// Keyboard mapping. ImGui will use those indices to peek into the io.KeysDown[] array.
 		//io.KeyMap[ImGuiKey_Tab] = MSDL::SDL_SCANCODE_TAB;
 		//io.KeyMap[ImGuiKey_LeftArrow] = MSDL::SDL_SCANCODE_LEFT;
@@ -552,19 +525,12 @@ namespace UI_System
 
 		updateDescriptorSets();
 
-		// TODO: Register to resize event
-
-		//onResize(window->getWidth(), window->getHeight());
 		auto & io = ImGui::GetIO();
 		io.DisplaySize = ImVec2(window->getWidth(), window->getHeight());
 		io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
 
 		state->vertexBuffers.resize(maxFramesInFlight);
-		state->indexBuffers.resize(maxFramesInFlight);
-
-		//smart_refctd_ptr<IWindow::IEventCallback> eventCallback {};
-		//window->setEventCallback(std::move(eventCallback));
-	}
+		state->indexBuffers.resize(maxFramesInFlight);}
 
 	//-------------------------------------------------------------------------------------------------
 

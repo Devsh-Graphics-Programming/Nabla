@@ -6,15 +6,7 @@
 #include <nabla.h>
 
 
-//#include <iostream>
-//#include <cstdio>
-//#include <random>
-//
-//#include <nabla.h>
-//
-//#include "../common/Camera.hpp"
 #include "../common/CommonAPI.h"
-//#include "nbl/ext/ScreenShot/ScreenShot.h"
 
 #include "UI_System.hpp"
 
@@ -135,12 +127,11 @@ class UIApp : public ApplicationBase
 
 			UI::Register([]()->void{
 				UI::BeginWindow("Test window");
-				//UI::SetWindowSize(1000.0f, 200.0f);
 				UI::SetNextItemWidth(100);
 				UI::Text("Hi");
 				UI::SetNextItemWidth(100);
 				UI::Button("Button", []()->void {
-
+					printf("Button pressed!\n");
 				});
 				UI::EndWindow();
 			});
@@ -264,9 +255,6 @@ class UIApp : public ApplicationBase
 		nbl::core::smart_refctd_ptr<CommonAPI::CommonAPIEventCallback> windowCallback;
 		nbl::video::IGPUObjectFromAssetConverter::SParams cpu2gpuParams;
 		nbl::core::smart_refctd_ptr<nbl::video::IUtilities> utilities;
-
-		//CommonAPI::InputSystem::ChannelReader<IMouseEventChannel> mouse;
-		//CommonAPI::InputSystem::ChannelReader<IKeyboardEventChannel> keyboard;
 
 		core::smart_refctd_ptr<video::IGPUCommandBuffer> commandBuffers[FRAMES_IN_FLIGHT];
 		core::smart_refctd_ptr<video::IGPUFence> frameComplete[FRAMES_IN_FLIGHT] = { nullptr };
