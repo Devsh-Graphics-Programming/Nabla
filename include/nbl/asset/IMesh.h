@@ -7,6 +7,7 @@
 
 #include "nbl/core/IReferenceCounted.h"
 #include "aabbox3d.h"
+#include "obbox3d.h"
 
 namespace nbl
 {
@@ -22,6 +23,7 @@ namespace asset
 		protected:
 			//! The cached bounding box of this mesh
 			core::aabbox3d<float> m_cachedBoundingBox;
+      core::OBB m_orientedBoundingBox;
 
 			virtual ~IMesh() {}
 
@@ -39,6 +41,16 @@ namespace asset
 			{
 				m_cachedBoundingBox = newBoundingBox;
 			}
+
+      //! Get an oriented bounding box of the mesh.
+      /** \return Oriented Bounding box of this mesh. */
+      inline const core::OBB& getOrientedBoundingBox() const { return m_orientedBoundingBox; }
+
+      //!
+      inline virtual void setBoundingBox(const core::OBB& newBoundingBox)
+      {
+        m_orientedBoundingBox = newBoundingBox;
+      }
 	};
 
 } // end namespace asset

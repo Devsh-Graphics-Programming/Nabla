@@ -60,6 +60,17 @@ class ICPUMesh final : public IMesh<ICPUMeshBuffer>, public BlobSerializable, pu
 			return IMesh<ICPUMeshBuffer>::setBoundingBox(newBoundingBox);
 		}
 
+    //!
+    inline const core::OBB& getOrientedBoundingBox() const // needed so the compiler doesn't freak out
+    {
+      return IMesh<ICPUMeshBuffer>::getOrientedBoundingBox();
+    }
+    inline void setBoundingBox(const core::OBB& newBoundingBox) override
+    {
+      assert(!isImmutable_debug());
+      return IMesh<ICPUMeshBuffer>::setBoundingBox(newBoundingBox);
+    }
+
 		//! Serializes mesh to blob for *.baw file format.
 		/** @param _stackPtr Optional pointer to stack memory to write blob on. If _stackPtr==NULL, sufficient amount of memory will be allocated.
 			@param _stackSize Size of stack memory pointed by _stackPtr.

@@ -457,9 +457,49 @@ class IMeshManipulator : public virtual core::IReferenceCounted
 			meshbuffer->setBoundingBox(calculateBoundingBox(meshbuffer,meshbuffer->getJointAABBs()));
 		}
 
-    static inline core::OBB calculateOrientedBBox(const ICPUMeshBuffer *meshBuffer, size_t vertexCount)
+    static inline core::OBB calculateOrientedBBox(
+      const ICPUMeshBuffer* meshBuffer,
+      const SVertexInputBindingParams& vtxInputBindingParams
+    )
     {
-      core::KDOP kDOP(meshBuffer, vertexCount);
+      const auto vtxCount = calcVertexSize(meshBuffer);
+
+      {
+        uint32_t posAttrIdx = meshBuffer->getPositionAttributeIx();
+        auto posPtr = const_cast<uint8_t *>(meshBuffer->getAttribPointer(posAttrIdx));
+        const uint32_t stride = vtxInputBindingParams.stride;
+        core::matrix3x4SIMD rs;
+        const auto quarterPI = core::QUARTER_PI<float>();
+        rs.setRotation(core::quaternion(0.0f, -quarterPI, -quarterPI));
+        core::matrix3x4SIMD s;
+        //s.setScale(core::vectorSIMDf(10.0f, 1.0f, 1.0f));
+        rs = core::matrix3x4SIMD::concatenateBFollowedByA(rs, s);
+
+        for (size_t i = 0ull; i < vtxCount; i++)
+        {
+          auto vtxPos = meshBuffer->getPosition(i);
+          rs.pseudoMulWith4x1(vtxPos);
+          memcpy(posPtr, vtxPos.pointer, sizeof(float) * 3);
+          posPtr += stride;
+        }
+      }
+
+//      const uint8_t k = 13;
+//      const uint8_t vtxArraySize = k * 2;
+//      std::array<core::vectorSIMDf, vtxArraySize> vtxArray;
+//
+//      for(auto i = 0u; i < vtxCount; i++)
+//      {
+//        if(i >= vtxArraySize) break; // cap to max
+//
+//        vtxArray[i] = meshBuffer->getPosition(i);
+//      }
+
+      const auto& vtxPosGetCb = [=](size_t idx) { return meshBuffer->getPosition(idx); };
+
+      core::KDOP kDOP(vtxPosGetCb, vtxCount);
+
+//      core::KDOP<k> kDOP(vtxArray, vtxCount);
       core::OBB obb;
 
       kDOP.compute(obb);

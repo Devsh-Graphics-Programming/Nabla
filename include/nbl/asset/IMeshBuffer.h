@@ -5,6 +5,7 @@
 #define _NBL_ASSET_I_MESH_BUFFER_H_INCLUDED_
 
 #include "nbl/core/shapes/AABB.h"
+#include "nbl/core/shapes/OBB.h"
 
 #include "nbl/asset/IRenderpassIndependentPipeline.h"
 #include "nbl/asset/ECommonEnums.h"
@@ -27,6 +28,7 @@ class IMeshBuffer : public virtual core::IReferenceCounted
         virtual ~IMeshBuffer() = default;
 
         alignas(32) core::aabbox3df boundingBox;
+        alignas(32) core::OBB orientedBBox;
 
         SBufferBinding<BufferType> m_vertexBufferBindings[MAX_ATTR_BUF_BINDING_COUNT];
         SBufferBinding<BufferType> m_indexBufferBinding;
@@ -319,6 +321,18 @@ class IMeshBuffer : public virtual core::IReferenceCounted
 	    {
 		    boundingBox = box;
 	    }
+
+      //! Get the Oriented bounding box of this meshbuffer.
+      /** \return Oriented bounding box of this buffer. */
+      inline const core::OBB& getOrientedBoundingBox() const {return orientedBBox;}
+
+      //! Set oriented bounding box
+      /** \param box User defined oriented bounding box to use
+      for this buffer. */
+      inline virtual void setBoundingBox(const core::OBB& box)
+      {
+        orientedBBox = box;
+      }
 
         uint8_t* getPushConstantsDataPtr() { return m_pushConstantsData; }
         const uint8_t* getPushConstantsDataPtr() const { return m_pushConstantsData; }

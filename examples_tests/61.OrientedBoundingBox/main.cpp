@@ -25,6 +25,12 @@ using namespace video;
 
 class OrientedBoundingBox : public ApplicationBase
 {
+  template<typename T>
+  using shared_ptr = core::smart_refctd_ptr<T>;
+
+  template<typename T>
+  using make_shared_ptr = core::smart_refctd_ptr<T>;
+
   static constexpr uint32_t WIN_W = 1280;
   static constexpr uint32_t WIN_H = 720;
   static constexpr uint32_t SC_IMG_COUNT = 3u;
@@ -34,52 +40,23 @@ class OrientedBoundingBox : public ApplicationBase
   static_assert(FRAMES_IN_FLIGHT > SC_IMG_COUNT);
 
   public:
-    void setWindow(core::smart_refctd_ptr<nbl::ui::IWindow>&& wnd) override
-    {
-      m_window = std::move(wnd);
-    }
-    nbl::ui::IWindow* getWindow() override
-    {
-      return m_window.get();
-    }
-    void setSystem(core::smart_refctd_ptr<nbl::system::ISystem>&& s) override
-    {
-      m_system = std::move(s);
-    }
-    video::IAPIConnection* getAPIConnection() override
-    {
-      return m_apiConnection.get();
-    }
-    video::ILogicalDevice* getLogicalDevice()  override
-    {
-      return m_logicalDevice.get();
-    }
-    video::IGPURenderpass* getRenderpass() override
-    {
-      return m_renderpass.get();
-    }
-    void setSurface(core::smart_refctd_ptr<video::ISurface>&& s) override
-    {
-      m_surface = std::move(s);
-    }
-    void setFBOs(std::vector<core::smart_refctd_ptr<video::IGPUFramebuffer>>& f) override
+    void            setSystem   (shared_ptr<system::ISystem>&& s) override { m_system = std::move(s); }
+    void            setWindow   (shared_ptr<IWindow>&& wnd)       override { m_window = std::move(wnd); }
+    void            setSurface  (shared_ptr<ISurface>&& s)        override { m_surface = std::move(s); }
+    void            setSwapchain(shared_ptr<ISwapchain>&& s)      override { m_swapchain = std::move(s); }
+    IWindow*        getWindow()                                   override { return m_window.get(); }
+    IAPIConnection* getAPIConnection()                            override { return m_apiConnection.get(); }
+    ILogicalDevice* getLogicalDevice()                            override { return m_logicalDevice.get(); }
+    IGPURenderpass* getRenderpass()                               override { return m_renderpass.get(); }
+    uint32_t        getSwapchainImageCount()                      override { return SC_IMG_COUNT; }
+    E_FORMAT        getDepthFormat()                              override { return asset::EF_D32_SFLOAT; }
+
+    void setFBOs(std::vector<shared_ptr<IGPUFramebuffer>>& f) override
     {
       for (int i = 0; i < f.size(); i++)
       {
-        m_fbos[i] = core::smart_refctd_ptr(f[i]);
+        m_fbos[i] = make_shared_ptr<IGPUFramebuffer>(f[i]);
       }
-    }
-    void setSwapchain(core::smart_refctd_ptr<video::ISwapchain>&& s) override
-    {
-      m_swapchain = std::move(s);
-    }
-    uint32_t getSwapchainImageCount() override
-    {
-      return SC_IMG_COUNT;
-    }
-    virtual nbl::asset::E_FORMAT getDepthFormat() override
-    {
-      return nbl::asset::EF_D32_SFLOAT;
     }
 
     APP_CONSTRUCTOR(OrientedBoundingBox)
@@ -89,8 +66,8 @@ class OrientedBoundingBox : public ApplicationBase
     void onAppInitialized_impl() override
     {
       CommonAPI::InitOutput initOutput;
-      initOutput.window = core::smart_refctd_ptr(m_window);
-      initOutput.system = core::smart_refctd_ptr(m_system);
+      initOutput.window = make_shared_ptr<IWindow>(m_window);
+      initOutput.system = make_shared_ptr<system::ISystem>(m_system);
 
       const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(
         asset::IImage::EUF_COLOR_ATTACHMENT_BIT// | asset::IImage::EUF_STORAGE_BIT
@@ -109,22 +86,22 @@ class OrientedBoundingBox : public ApplicationBase
         nbl::asset::EF_D32_SFLOAT
       );
 
-      m_window = std::move(initOutput.window);
-      m_apiConnection = std::move(initOutput.apiConnection);
-      m_surface = std::move(initOutput.surface);
-      m_logicalDevice = std::move(initOutput.logicalDevice);
-      m_queues = initOutput.queues;
-      m_swapchain = std::move(initOutput.swapchain);
-      m_renderpass = std::move(initOutput.renderpass);
-      m_fbos = std::move(initOutput.fbo);
-      m_commandPools = std::move(initOutput.commandPools);
-      m_assetManager = std::move(initOutput.assetManager);
-      m_cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
-      m_logger = std::move(initOutput.logger);
-      m_inputSystem = std::move(initOutput.inputSystem);
-      m_system = std::move(initOutput.system);
-      m_windowCallback = std::move(initOutput.windowCb);
-      m_utilities = std::move(initOutput.utilities);
+      m_window          = std::move(initOutput.window);
+      m_apiConnection   = std::move(initOutput.apiConnection);
+      m_surface         = std::move(initOutput.surface);
+      m_logicalDevice   = std::move(initOutput.logicalDevice);
+      m_queues          = initOutput.queues;
+      m_swapchain       = std::move(initOutput.swapchain);
+      m_renderpass      = std::move(initOutput.renderpass);
+      m_fbos            = std::move(initOutput.fbo);
+      m_commandPools    = std::move(initOutput.commandPools);
+      m_assetManager    = std::move(initOutput.assetManager);
+      m_cpu2gpuParams   = std::move(initOutput.cpu2gpuParams);
+      m_logger          = std::move(initOutput.logger);
+      m_inputSystem     = std::move(initOutput.inputSystem);
+      m_system          = std::move(initOutput.system);
+      m_windowCallback  = std::move(initOutput.windowCb);
+      m_utilities       = std::move(initOutput.utilities);
 
       IAssetLoader::SAssetLoadParams loadParams;
       loadParams.workingDirectory = sharedInputCWD;
@@ -132,7 +109,6 @@ class OrientedBoundingBox : public ApplicationBase
       auto meshes_bundle = m_assetManager->getAsset((sharedInputCWD / "cow.obj").string(), loadParams);
       assert(!meshes_bundle.getContents().empty());
 
-      auto metaOBJ = meshes_bundle.getMetadata()->selfCast<const asset::COBJMetadata>();
       auto mesh = meshes_bundle.getContents().begin()[0];
       auto mesh_raw = dynamic_cast<asset::ICPUMesh*>(mesh.get());
       const asset::ICPUMeshBuffer* cpuMB = mesh_raw->getMeshBuffers()[0];
@@ -152,33 +128,12 @@ class OrientedBoundingBox : public ApplicationBase
       asset::SPushConstantRange pcRange = { asset::ICPUShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD) };
       auto gpuPipelineLayout = m_logicalDevice->createGPUPipelineLayout(&pcRange, &pcRange + 1);
 
-      const auto vtxCount = IMeshManipulator::calcVertexSize(cpuMB);
       const auto vtxInputParams = cpuMBPipeline->getVertexInputParams();
 
-      {
-        uint32_t posAttrIdx = cpuMB->getPositionAttributeIx();
-        auto posPtr = const_cast<uint8_t *>(cpuMB->getAttribPointer(posAttrIdx));
-        const uint32_t stride = vtxInputParams.bindings[0].stride;
-        core::matrix3x4SIMD rs;
-        const auto quarterPI = core::QUARTER_PI<float>();
-        rs.setRotation(core::quaternion(0.0f, -quarterPI, -quarterPI));
-        core::matrix3x4SIMD s;
-        //s.setScale(core::vectorSIMDf(10.0f, 1.0f, 1.0f));
-        rs = core::matrix3x4SIMD::concatenateBFollowedByA(rs, s);
-
-        for (size_t i = 0ull; i < vtxCount; i++)
-        {
-          auto vtxPos = cpuMB->getPosition(i);
-          rs.pseudoMulWith4x1(vtxPos);
-          memcpy(posPtr, vtxPos.pointer, sizeof(float) * 3);
-          posPtr += stride;
-        }
-      }
-
       m_draw3DLine = ext::DebugDraw::CDraw3DLine::create(m_logicalDevice);
-      core::OBB obb = IMeshManipulator::calculateOrientedBBox(cpuMB, vtxCount);
+      core::OBB obb = IMeshManipulator::calculateOrientedBBox(cpuMB, vtxInputParams.bindings[0]);
       m_draw3DLine->addBox(core::aabbox3df(), 0, 1, 0, 1, obb.asMat3x4);
-      core::smart_refctd_ptr<video::IGPUFence> fence;
+      shared_ptr<video::IGPUFence> fence;
       m_draw3DLine->updateVertexBuffer(m_utilities.get(), m_queues[CommonAPI::InitOutput::EQT_GRAPHICS], &fence);
       m_logicalDevice->waitForFences(1, const_cast<video::IGPUFence**>(&fence.get()), false, MAX_TIMEOUT);
 
@@ -200,8 +155,8 @@ class OrientedBoundingBox : public ApplicationBase
 
       nbl::video::IGPUGraphicsPipeline::SCreationParams graphicsPipelineParams;
 
-      graphicsPipelineParams.renderpassIndependent = core::smart_refctd_ptr<nbl::video::IGPURenderpassIndependentPipeline>(m_gpuPipeline.get());
-      graphicsPipelineParams.renderpass = core::smart_refctd_ptr(m_renderpass);
+      graphicsPipelineParams.renderpassIndependent = make_shared_ptr<IGPURenderpassIndependentPipeline>(m_gpuPipeline.get());
+      graphicsPipelineParams.renderpass = make_shared_ptr<IGPURenderpass>(m_renderpass);
 
       m_gpuGraphicsPipeline = m_logicalDevice->createGPUGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
 
@@ -237,6 +192,11 @@ class OrientedBoundingBox : public ApplicationBase
       if (m_resourceIx >= FRAMES_IN_FLIGHT)
         m_resourceIx = 0;
 
+      const auto& gpuQueue = m_queues[CommonAPI::InitOutput::EQT_GRAPHICS];
+      const auto& logicalDevicePtr = getLogicalDevice();
+      const auto& swapchainPtr  = m_swapchain.get();
+      const auto& renderSemaphorePtr = m_renderFinished[m_resourceIx].get();
+      const auto& imageSemaphorePtr = m_imageAcquire[m_resourceIx].get();
       auto& commandBuffer = m_commandBuffers[m_resourceIx];
       auto& fence = m_frameComplete[m_resourceIx];
 
@@ -250,7 +210,7 @@ class OrientedBoundingBox : public ApplicationBase
         fence = m_logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
       }
 
-      const auto nextPresentationTimestamp = m_oracle.acquireNextImage(m_swapchain.get(), m_imageAcquire[m_resourceIx].get(), nullptr, &m_acquiredNextFBO);
+      const auto nextPresentationTimestamp = m_oracle.acquireNextImage(swapchainPtr, imageSemaphorePtr, nullptr, &m_acquiredNextFBO);
 
       m_inputSystem->getDefaultMouse(&m_mouse);
       m_inputSystem->getDefaultKeyboard(&m_keyboard);
@@ -260,7 +220,7 @@ class OrientedBoundingBox : public ApplicationBase
       m_keyboard.consumeEvents([=](const IKeyboardEventChannel::range_t& events) { m_camera.keyboardProcess(events); }, m_logger.get());
       m_camera.endInputProcessing(nextPresentationTimestamp);
 
-      commandBuffer->reset(nbl::video::IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
+      commandBuffer->reset(IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
       commandBuffer->begin(0);
 
       {
@@ -277,13 +237,11 @@ class OrientedBoundingBox : public ApplicationBase
         scissor.extent = {WIN_W,WIN_H};
         commandBuffer->setScissor(0u,1u,&scissor);
 
-        m_swapchain->acquireNextImage(MAX_TIMEOUT, m_imageAcquire[m_resourceIx].get(), nullptr, &m_acquiredNextFBO);
+        m_swapchain->acquireNextImage(MAX_TIMEOUT, imageSemaphorePtr, nullptr, &m_acquiredNextFBO);
 
-        const auto& viewProjection = m_camera.getConcatenatedMatrix();
+        m_draw3DLine->setViewProjMatrix(m_camera.getConcatenatedMatrix());
 
-        m_draw3DLine->setViewProjMatrix(viewProjection);
-
-        nbl::video::IGPUCommandBuffer::SRenderpassBeginInfo beginInfo;
+        IGPUCommandBuffer::SRenderpassBeginInfo beginInfo;
         {
           VkRect2D area;
           area.offset = { 0,0 };
@@ -313,15 +271,15 @@ class OrientedBoundingBox : public ApplicationBase
       commandBuffer->end();
 
       CommonAPI::Submit(
-        m_logicalDevice.get(), m_swapchain.get(),commandBuffer.get(),
-        m_queues[CommonAPI::InitOutput::EQT_GRAPHICS],
-        m_imageAcquire[m_resourceIx].get(),m_renderFinished[m_resourceIx].get(),
+        logicalDevicePtr, swapchainPtr, commandBuffer.get(),
+        gpuQueue,
+        imageSemaphorePtr, renderSemaphorePtr,
         fence.get()
       );
       CommonAPI::Present(
-        m_logicalDevice.get(), m_swapchain.get(),
-        m_queues[CommonAPI::InitOutput::EQT_GRAPHICS],
-        m_renderFinished[m_resourceIx].get(), m_acquiredNextFBO
+        logicalDevicePtr, swapchainPtr,
+        gpuQueue,
+        renderSemaphorePtr, m_acquiredNextFBO
       );
     }
 
@@ -331,7 +289,7 @@ class OrientedBoundingBox : public ApplicationBase
       auto gpuSourceImageView = fboCreationParams.attachments[0];
 
       bool status = ext::ScreenShot::createScreenShot(
-        m_logicalDevice.get(),
+        getLogicalDevice(),
         m_queues[CommonAPI::InitOutput::EQT_TRANSFER_DOWN],
         m_renderFinished[m_resourceIx].get(),
         gpuSourceImageView.get(),
@@ -344,43 +302,44 @@ class OrientedBoundingBox : public ApplicationBase
     }
 
   private:
-    nbl::core::smart_refctd_ptr<nbl::ui::IWindow> m_window;
-    nbl::core::smart_refctd_ptr<CommonAPI::CommonAPIEventCallback> m_windowCallback;
-    nbl::core::smart_refctd_ptr<nbl::video::IAPIConnection> m_apiConnection;
-    nbl::core::smart_refctd_ptr<nbl::video::ISurface> m_surface;
-    nbl::core::smart_refctd_ptr<nbl::video::IUtilities> m_utilities;
-    nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice> m_logicalDevice;
-    std::array<nbl::video::IGPUQueue*, CommonAPI::InitOutput::MaxQueuesCount> m_queues = { nullptr, nullptr, nullptr, nullptr };
-    nbl::core::smart_refctd_ptr<nbl::video::ISwapchain> m_swapchain;
-    nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpass> m_renderpass;
-    std::array<nbl::core::smart_refctd_ptr<nbl::video::IGPUFramebuffer>, CommonAPI::InitOutput::MaxSwapChainImageCount> m_fbos;
-    std::array<nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandPool>, CommonAPI::InitOutput::MaxQueuesCount> m_commandPools;
-    nbl::core::smart_refctd_ptr<nbl::system::ISystem> m_system;
-    nbl::core::smart_refctd_ptr<nbl::asset::IAssetManager> m_assetManager;
-    nbl::video::IGPUObjectFromAssetConverter::SParams m_cpu2gpuParams;
-    nbl::core::smart_refctd_ptr<nbl::system::ILogger> m_logger;
-    nbl::core::smart_refctd_ptr<CommonAPI::InputSystem> m_inputSystem;
+    shared_ptr<IWindow> m_window;
+    shared_ptr<CommonAPI::CommonAPIEventCallback> m_windowCallback;
+    shared_ptr<IAPIConnection> m_apiConnection;
+    shared_ptr<ISurface> m_surface;
+    shared_ptr<IUtilities> m_utilities;
+    shared_ptr<ILogicalDevice> m_logicalDevice;
+    shared_ptr<ISwapchain> m_swapchain;
+    shared_ptr<IGPURenderpass> m_renderpass;
+    shared_ptr<system::ISystem> m_system;
+    shared_ptr<IAssetManager> m_assetManager;
+    shared_ptr<system::ILogger> m_logger;
+    shared_ptr<CommonAPI::InputSystem> m_inputSystem;
 
-    nbl::video::IGPUObjectFromAssetConverter m_cpu2gpu;
-    core::smart_refctd_ptr<video::IGPUMeshBuffer> m_gpuMeshBuffer;
+    shared_ptr<IGPUMeshBuffer> m_gpuMeshBuffer;
 
-    core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> m_gpuPipeline;
-    core::smart_refctd_ptr<IGPUGraphicsPipeline> m_gpuGraphicsPipeline;
-    core::smart_refctd_ptr<ext::DebugDraw::CDraw3DLine> m_draw3DLine;
+    shared_ptr<IGPURenderpassIndependentPipeline> m_gpuPipeline;
+    shared_ptr<IGPUGraphicsPipeline> m_gpuGraphicsPipeline;
+    shared_ptr<ext::DebugDraw::CDraw3DLine> m_draw3DLine;
+
+    shared_ptr<video::IGPUCommandBuffer> m_commandBuffers[FRAMES_IN_FLIGHT];
+    shared_ptr<IGPUFence> m_frameComplete[FRAMES_IN_FLIGHT] = { nullptr };
+    shared_ptr<IGPUSemaphore> m_imageAcquire[FRAMES_IN_FLIGHT] = { nullptr };
+    shared_ptr<IGPUSemaphore> m_renderFinished[FRAMES_IN_FLIGHT] = { nullptr };
+
+    std::array<IGPUQueue*, CommonAPI::InitOutput::MaxQueuesCount> m_queues = { nullptr, nullptr, nullptr, nullptr };
+    std::array<shared_ptr<IGPUFramebuffer>, CommonAPI::InitOutput::MaxSwapChainImageCount> m_fbos;
+    std::array<shared_ptr<IGPUCommandPool>, CommonAPI::InitOutput::MaxQueuesCount> m_commandPools;
+
+    IGPUObjectFromAssetConverter::SParams m_cpu2gpuParams;
+    IGPUObjectFromAssetConverter m_cpu2gpu;
 
     video::CDumbPresentationOracle m_oracle;
 
     uint32_t m_acquiredNextFBO = {};
     int m_resourceIx = -1;
 
-    core::smart_refctd_ptr<video::IGPUCommandBuffer> m_commandBuffers[FRAMES_IN_FLIGHT];
-
-    core::smart_refctd_ptr<video::IGPUFence> m_frameComplete[FRAMES_IN_FLIGHT] = { nullptr };
-    core::smart_refctd_ptr<video::IGPUSemaphore> m_imageAcquire[FRAMES_IN_FLIGHT] = { nullptr };
-    core::smart_refctd_ptr<video::IGPUSemaphore> m_renderFinished[FRAMES_IN_FLIGHT] = { nullptr };
-
-    CommonAPI::InputSystem::ChannelReader<ui::IMouseEventChannel> m_mouse;
-    CommonAPI::InputSystem::ChannelReader<ui::IKeyboardEventChannel> m_keyboard;
+    CommonAPI::InputSystem::ChannelReader<IMouseEventChannel> m_mouse;
+    CommonAPI::InputSystem::ChannelReader<IKeyboardEventChannel> m_keyboard;
 
     Camera m_camera = Camera(core::vectorSIMDf(0, 0, 0), core::vectorSIMDf(0, 0, 0), core::matrix4SIMD());
 };
