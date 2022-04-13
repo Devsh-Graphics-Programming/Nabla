@@ -103,6 +103,13 @@ class OrientedBoundingBox : public ApplicationBase
       m_windowCallback  = std::move(initOutput.windowCb);
       m_utilities       = std::move(initOutput.utilities);
 
+      m_camera = Camera(
+        core::vectorSIMDf(0, -2, 1),
+        core::vectorSIMDf(0, 0, 0),
+        matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60.0f), float(WIN_W) / WIN_H, 0.1, 1000),
+        10.f, 1.f
+      );
+
       IAssetLoader::SAssetLoadParams loadParams;
       loadParams.workingDirectory = sharedInputCWD;
       loadParams.logger = m_logger.get();
@@ -111,61 +118,65 @@ class OrientedBoundingBox : public ApplicationBase
 
       auto mesh = meshes_bundle.getContents().begin()[0];
       auto mesh_raw = dynamic_cast<asset::ICPUMesh*>(mesh.get());
-      const asset::ICPUMeshBuffer* cpuMB = mesh_raw->getMeshBuffers()[0];
+      const ICPUMeshBuffer* cpuMB = mesh_raw->getMeshBuffers()[0];
       const auto cpuMBPipeline = cpuMB->getPipeline();
-
-      auto vertexShaderBundle = m_assetManager->getAsset("../obb.vert", loadParams);
-      auto fragShaderBundle = m_assetManager->getAsset("../obb.frag", loadParams);
-      auto cpuVertexShader = IAsset::castDown<ICPUSpecializedShader>(vertexShaderBundle.getContents().begin()->get());
-      auto cpuFragmentShader = IAsset::castDown<ICPUSpecializedShader>(fragShaderBundle.getContents().begin()->get());
-
-      m_cpu2gpuParams.beginCommandBuffers();
-      auto gpuVertexShader = m_cpu2gpu.getGPUObjectsFromAssets(&cpuVertexShader, &cpuVertexShader + 1, m_cpu2gpuParams)->front();
-      auto gpuFragmentShader = m_cpu2gpu.getGPUObjectsFromAssets(&cpuFragmentShader, &cpuFragmentShader + 1, m_cpu2gpuParams)->front();
-      m_cpu2gpuParams.waitForCreationToComplete();
-      std::array<IGPUSpecializedShader*, 2> gpuShaders = { gpuVertexShader.get(), gpuFragmentShader.get() };
-
-      asset::SPushConstantRange pcRange = { asset::ICPUShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD) };
-      auto gpuPipelineLayout = m_logicalDevice->createGPUPipelineLayout(&pcRange, &pcRange + 1);
-
       const auto vtxInputParams = cpuMBPipeline->getVertexInputParams();
 
-      m_draw3DLine = ext::DebugDraw::CDraw3DLine::create(m_logicalDevice);
-      core::OBB obb = IMeshManipulator::calculateOrientedBBox(cpuMB, vtxInputParams.bindings[0]);
-      m_draw3DLine->addBox(core::aabbox3df(), 0, 1, 0, 1, obb.asMat3x4);
-      shared_ptr<video::IGPUFence> fence;
-      m_draw3DLine->updateVertexBuffer(m_utilities.get(), m_queues[CommonAPI::InitOutput::EQT_GRAPHICS], &fence);
-      m_logicalDevice->waitForFences(1, const_cast<video::IGPUFence**>(&fence.get()), false, MAX_TIMEOUT);
+      // mesh pipeline
+      {
+        auto vertexShaderBundle = m_assetManager->getAsset("../example_mesh.vert", loadParams);
+        auto fragShaderBundle = m_assetManager->getAsset("../example_mesh.frag", loadParams);
+        auto cpuVertexShader = IAsset::castDown<ICPUSpecializedShader>(vertexShaderBundle.getContents().begin()->get());
+        auto cpuFragmentShader = IAsset::castDown<ICPUSpecializedShader>(fragShaderBundle.getContents().begin()->get());
 
-      asset::SBlendParams blendParams;
-      asset::SPrimitiveAssemblyParams primAsmParams;
-      asset::SRasterizationParams rasterParams;
-      rasterParams.faceCullingMode = asset::EFCM_NONE;
+        m_cpu2gpuParams.beginCommandBuffers();
+        auto gpuVertexShader = m_cpu2gpu.getGPUObjectsFromAssets(&cpuVertexShader, &cpuVertexShader + 1, m_cpu2gpuParams)->front();
+        auto gpuFragmentShader = m_cpu2gpu.getGPUObjectsFromAssets(&cpuFragmentShader, &cpuFragmentShader + 1, m_cpu2gpuParams)->front();
+        m_cpu2gpuParams.waitForCreationToComplete();
 
-      m_gpuPipeline = m_logicalDevice->createGPURenderpassIndependentPipeline(
-        nullptr,
-        std::move(gpuPipelineLayout),
-        gpuShaders.data(),
-        gpuShaders.data() + gpuShaders.size(),
-        vtxInputParams,
-        blendParams,
-        primAsmParams,
-        rasterParams
-      );
+        std::array<IGPUSpecializedShader*, 2> gpuShaders = { gpuVertexShader.get(), gpuFragmentShader.get() };
 
-      nbl::video::IGPUGraphicsPipeline::SCreationParams graphicsPipelineParams;
+        asset::SPushConstantRange pcRange = { asset::ICPUShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD) };
+        auto gpuPipelineLayout = m_logicalDevice->createGPUPipelineLayout(&pcRange, &pcRange + 1);
 
-      graphicsPipelineParams.renderpassIndependent = make_shared_ptr<IGPURenderpassIndependentPipeline>(m_gpuPipeline.get());
-      graphicsPipelineParams.renderpass = make_shared_ptr<IGPURenderpass>(m_renderpass);
+        asset::SBlendParams blendParams;
+        asset::SPrimitiveAssemblyParams primAsmParams;
+        asset::SRasterizationParams rasterParams;
+        rasterParams.faceCullingMode = asset::EFCM_NONE;
 
-      m_gpuGraphicsPipeline = m_logicalDevice->createGPUGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
+        auto meshPipeline = m_logicalDevice->createGPURenderpassIndependentPipeline(
+          nullptr,
+          std::move(gpuPipelineLayout),
+          gpuShaders.data(),
+          gpuShaders.data() + gpuShaders.size(),
+          vtxInputParams,
+          blendParams,
+          primAsmParams,
+          rasterParams
+        );
+        IGPUGraphicsPipeline::SCreationParams meshPipelineParams;
+        meshPipelineParams.renderpassIndependent = make_shared_ptr<IGPURenderpassIndependentPipeline>(meshPipeline.get());
+        meshPipelineParams.renderpass = make_shared_ptr<IGPURenderpass>(m_renderpass);
+        m_gpuMeshPipeline = m_logicalDevice->createGPUGraphicsPipeline(nullptr, std::move(meshPipelineParams));
+      }
 
-      m_camera = Camera(
-        core::vectorSIMDf(0, -2, 1),
-        core::vectorSIMDf(0, 0, 0),
-        matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60.0f), float(WIN_W) / WIN_H, 0.1, 1000),
-        10.f, 1.f
-      );
+      // obb debug draw pipeline
+      {
+        core::OBB obb = IMeshManipulator::calculateOrientedBBox(cpuMB, vtxInputParams.bindings[0]);
+
+        m_draw3DLine = ext::DebugDraw::CDraw3DLine::create(m_logicalDevice);
+        m_draw3DLine->setViewProjMatrix(m_camera.getConcatenatedMatrix());
+        m_draw3DLine->addBox(cpuMB->getBoundingBox(), 0.f, 1.f, 0.f, 1.f, obb.asMat3x4);
+        shared_ptr<video::IGPUFence> fence;
+        m_draw3DLine->updateVertexBuffer(m_utilities.get(), m_queues[CommonAPI::InitOutput::EQT_GRAPHICS], &fence);
+        m_logicalDevice->waitForFences(1, const_cast<video::IGPUFence**>(&fence.get()), false, MAX_TIMEOUT);
+
+        auto obbPipeline = m_draw3DLine->getRenderpassIndependentPipeline();
+        IGPUGraphicsPipeline::SCreationParams obbPipelineParams;
+        obbPipelineParams.renderpassIndependent = make_shared_ptr<IGPURenderpassIndependentPipeline>(obbPipeline);
+        obbPipelineParams.renderpass = make_shared_ptr<IGPURenderpass>(m_renderpass);
+        m_gpuOBBPipeline = m_logicalDevice->createGPUGraphicsPipeline(nullptr, std::move(obbPipelineParams));
+      }
 
       m_logicalDevice->createCommandBuffers(
         m_commandPools[CommonAPI::InitOutput::EQT_GRAPHICS].get(),
@@ -262,8 +273,18 @@ class OrientedBoundingBox : public ApplicationBase
 
         commandBuffer->beginRenderPass(&beginInfo, nbl::asset::ESC_INLINE);
 
-        m_draw3DLine->recordToCommandBuffer(commandBuffer.get(), m_gpuGraphicsPipeline.get());
-        commandBuffer->drawMeshBuffer(m_gpuMeshBuffer.get());
+        // draw mesh
+        {
+          const auto meshIndependentPipeline = m_gpuMeshBuffer->getPipeline();
+
+          commandBuffer->pushConstants(const_cast<IGPUPipelineLayout*>(meshIndependentPipeline->getLayout()), IShader::ESS_ALL_GRAPHICS, 0, sizeof(m_camera.getConcatenatedMatrix()), &m_camera.getConcatenatedMatrix());
+          commandBuffer->bindGraphicsPipeline(m_gpuMeshPipeline.get());
+          commandBuffer->drawMeshBuffer(m_gpuMeshBuffer.get());
+        }
+
+        // debug draw obb
+        // TODO: update pc stage flag and offset or use descriptor set for mesh shaders
+        m_draw3DLine->recordToCommandBuffer(commandBuffer.get(), m_gpuOBBPipeline.get());
 
         commandBuffer->endRenderPass();
       }
@@ -296,9 +317,11 @@ class OrientedBoundingBox : public ApplicationBase
         m_assetManager.get(),
         "ScreenShot.png",
         asset::EIL_PRESENT_SRC,
-        static_cast<asset::E_ACCESS_FLAGS>(0u));
+        static_cast<asset::E_ACCESS_FLAGS>(0u)
+      );
 
       assert(status);
+      m_logicalDevice->waitIdle();
     }
 
   private:
@@ -317,11 +340,11 @@ class OrientedBoundingBox : public ApplicationBase
 
     shared_ptr<IGPUMeshBuffer> m_gpuMeshBuffer;
 
-    shared_ptr<IGPURenderpassIndependentPipeline> m_gpuPipeline;
-    shared_ptr<IGPUGraphicsPipeline> m_gpuGraphicsPipeline;
+    shared_ptr<IGPUGraphicsPipeline> m_gpuMeshPipeline;
+    shared_ptr<IGPUGraphicsPipeline> m_gpuOBBPipeline;
     shared_ptr<ext::DebugDraw::CDraw3DLine> m_draw3DLine;
 
-    shared_ptr<video::IGPUCommandBuffer> m_commandBuffers[FRAMES_IN_FLIGHT];
+    shared_ptr<IGPUCommandBuffer> m_commandBuffers[FRAMES_IN_FLIGHT];
     shared_ptr<IGPUFence> m_frameComplete[FRAMES_IN_FLIGHT] = { nullptr };
     shared_ptr<IGPUSemaphore> m_imageAcquire[FRAMES_IN_FLIGHT] = { nullptr };
     shared_ptr<IGPUSemaphore> m_renderFinished[FRAMES_IN_FLIGHT] = { nullptr };

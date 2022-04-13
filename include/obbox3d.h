@@ -13,17 +13,26 @@ namespace nbl
   {
     /**
      * @struct OBB (Oriented Bounding Box)
+     *
+     * @note OBB is currently computed only by DiTO-k algorithms
+     * if need PCA or BF methods may need to update to include
+     * eigen vectors, etc.
+     *
+     * PCA method example for Maya: https://obb.readthedocs.io/en/latest/index.html
      */
     struct OBB final
     {
       matrix3x4SIMD asMat3x4; // equivalent of glsl's mat4x3
 
       float bestVal = 0;  // the best obb quality value
-      matrix3x4SIMD b;    // The currently best found OBB orientation (transposed)
+
       vectorSIMDf bMin;
       vectorSIMDf bMax;
-      vectorSIMDf dims; // (bLen)
-      vectorSIMDf extents; // half-extents
+
+      vectorSIMDf origin;
+      vectorSIMDf midPoint;
+      matrix3x4SIMD b;      // The currently best found OBB orientation (transposed)
+      vectorSIMDf extents;  // (bLen)
 
       /**
        *
@@ -46,47 +55,71 @@ namespace nbl
       )
       {
         matrix3x4SIMD scaleMat;
-        scaleMat.setScale(scale);
+
+        extents   = scale * 0.5f;
+        midPoint  = mid;
+
+        scaleMat.setScale(extents);
 
         asMat3x4 = concatenateBFollowedByA(rotation, scaleMat);
-        asMat3x4.setTranslation(mid);
+        asMat3x4.setTranslation(midPoint);
       }
+    };
+
+    /**
+     * @class DiTOBase Base class for Ditetrahedron OBB Algorithms
+     *
+     * @tparam projCount        (k)  Number of sample directions (projections)
+     * @tparam maxPointCount    (np) Maximum Number of points selected along the sample directions
+     *
+     * @brief holds common functionality and data across LBT, KDOP,
+     * and other DiTO-k algos with uniformly distributed normal sets
+     */
+    template<uint8_t projCount, uint8_t maxPointCount = projCount * 2>
+    class DiTOBase
+    {
+      protected:
+        using VectorSIMDfHalfArr    = std::array<vectorSIMDf, projCount>;
+        using VectorSIMDfFullArr    = std::array<vectorSIMDf, maxPointCount>;
+        using VectorSIMDfArrayPair  = std::pair<VectorSIMDfHalfArr, VectorSIMDfHalfArr>;
+
+        enum class DegenCase
+        {
+          NONE,
+          EDGE, // max|p0 - p1| < threshold (eps)
+          TRI,  // max|p0 - e0| < threshold (eps)
+          TETRA //
+        };
+
+      protected:
+        const float m_threshold = 0.000001f; // epsilon (eps)
     };
 
     /**
      * @class LBT (Large Base Triangle)
      *
-     * @tparam projCount (k) Number of sample directions (projections)
+     * @tparam projCount        (k)  Number of sample directions (projections)
+     * @tparam maxPointCount    (np) Maximum Number of points selected along the sample directions
      */
-    template<uint8_t projCount>
-    class LBT final
+    template<uint8_t projCount, uint8_t maxPointCount = projCount * 2>
+    class LBT final : private DiTOBase<projCount, maxPointCount>
     {
-      // if any DiTO-k algo needs LBT, should be friended here for explicit access
-      template<uint8_t, uint8_t>
-      friend class KDOP;
+      using VectorSIMDfFullArr    = typename DiTOBase<projCount>::VectorSIMDfFullArr;
+      using VectorSIMDfArrayPair  = typename DiTOBase<projCount>::VectorSIMDfArrayPair;
+      using DegenCase             = typename DiTOBase<projCount>::DegenCase;
 
-      using VectorSIMDfHalfArr    = std::array<vectorSIMDf, projCount>;
-      using VectorSIMDfFullArr    = std::array<vectorSIMDf, projCount * 2>;
-      using VectorSIMDfArrayPair  = std::pair<VectorSIMDfHalfArr, VectorSIMDfHalfArr>;
+      public:
+        struct Data final
+        {
+          vectorSIMDf p0, p1, p2; // Vertices of the large base triangle
+          vectorSIMDf e0, e1, e2; // Edge vectors of the large base triangle
+          vectorSIMDf n;          // Unit normal of the large base triangle
+        };
 
-      struct Data final
-      {
-        vectorSIMDf p0, p1, p2; // Vertices of the large base triangle
-        vectorSIMDf e0, e1, e2; // Edge vectors of the large base triangle
-        vectorSIMDf n;          // Unit normal of the large base triangle
-      };
-
-      enum class DegenCase
-      {
-        NONE,
-        EDGE, // max|p0 - p1| < threshold (eps)
-        TRI,  // max|p0 - e0| < threshold (eps)
-        TETRA //
-      };
-
-      private:
-        inline Data getData() const noexcept { return m_data; }
-        inline DegenCase getDegenerateCase() const noexcept { return m_degenerate; }
+      public:
+        inline Data         getData()           const noexcept { return m_data; }
+        inline vectorSIMDf  getOffendingEdge()  const noexcept { return m_offendingEdge; }
+        inline DegenCase    getDegenerateCase() const noexcept { return m_degenerate; }
 
         /**
          * @brief calculate first 2 vertices
@@ -99,13 +132,6 @@ namespace nbl
         {
           auto& [minVtxPos, maxVtxPos] = extremalPoints;
 
-//          auto distanceSquared = [=](const vectorSIMDf& a, const vectorSIMDf& b)
-//          {
-//            vectorSIMDf diff(b.x - a.x, b.y - a.y, b.z - a.z); // sub
-//
-//            return diff.x * diff.x + diff.y * diff.y + diff.z * diff.z; // sqLength/dot
-//          };
-
           auto maxDistance = distancesquared(minVtxPos[0], maxVtxPos[0]).x;
           uint32_t farthestPairIdx = 0u;
 
@@ -113,7 +139,7 @@ namespace nbl
           {
             auto distance = distancesquared(minVtxPos[k], maxVtxPos[k]).x;
 
-            if(distance > maxDistance) maxDistance = distance; farthestPairIdx = k;
+            if(distance > maxDistance) { maxDistance = distance; farthestPairIdx = k; }
           }
 
           m_data.p0 = minVtxPos[farthestPairIdx];
@@ -121,37 +147,39 @@ namespace nbl
 
           // Detrimental Case 1 Check: Degenerate Edge
           // If the found furthest points are located very close, return OBB aligned with the initial AABB
-          if(distancesquared(m_data.p0, m_data.p1).x < s_threshold) m_degenerate = DegenCase::EDGE;
+          if(distancesquared(m_data.p0, m_data.p1).x < this->m_threshold) m_degenerate = DegenCase::EDGE;
         }
 
         /**
+         * @brief calculate third vertex furthest away from line given by p0, e0
          *
          * @param[in] selVtxArr
+         * @param[in] vtxCount
          */
-        inline void calcThirdPoint(const VectorSIMDfFullArr& selVtxArr, uint8_t pointCount) noexcept
+        inline void calcThirdPoint(
+          const VectorSIMDfFullArr& selVtxArr,
+          const uint8_t vtxCount
+        ) noexcept
         {
           // TODO: Need to be consistent, if it's vector from p0 then the directions all need to be -p0 for oriented lines
           m_data.e0 = normalize(m_data.p0 - m_data.p1);
 
-          // Find a third vertex the furthest away from line given by p0, e0
-          auto maxDistance = calcPointToLineDistance(m_data.p0, m_data.e0, selVtxArr[0]);
-          m_data.p2 = selVtxArr[0];
+          auto vtxPos = selVtxArr[0];
 
-          for(uint32_t i = 1u; i < pointCount; i++)
+          auto maxDistance = calcPointToLineDistance(m_data.p0, m_data.e0, vtxPos);
+          m_data.p2 = vtxPos;
+
+          for(auto i = 1u; i < vtxCount; i++)
           {
-            float distance = calcPointToLineDistance(m_data.p0, m_data.e0, selVtxArr[i]);
+            vtxPos = selVtxArr[i];
+            const auto distance = calcPointToLineDistance(m_data.p0, m_data.e0, vtxPos);
 
-            if(distance > maxDistance)
-            {
-              m_data.p2 = selVtxArr[i];
-              maxDistance = distance;
-            }
+            if(distance > maxDistance) { maxDistance = distance; m_data.p2 = vtxPos; }
           }
 
-          // TODO: construct OBB with local X axis along the p1-p0 line and any random rotation (fixed?)
           // Detrimental Case 2 Check: Degenerate Triangle
           // If the third point is located very close to the line, return an OBB aligned with the line
-          if(maxDistance < s_threshold) m_degenerate = DegenCase::TRI;
+          if(maxDistance < this->m_threshold) { m_degenerate = DegenCase::TRI; m_offendingEdge = m_data.e0; }
         }
 
         /**
@@ -171,30 +199,39 @@ namespace nbl
           m_data.n  = normalize(cross(m_data.e1, m_data.e0));
         }
 
+      private:
         /**
          *
          * @param[in] p
          * @param[in] dir
-         * @param[in] v
+         * @param[in] vtx
          *
          * @return point to line distance
          */
-        inline static float calcPointToLineDistance(
+        inline float calcPointToLineDistance(
           const vectorSIMDf& p,
           const vectorSIMDf& dir,
-          const vectorSIMDf& v
-        ) noexcept
+          const vectorSIMDf& vtx
+        ) const noexcept
         {
-          _NBL_DEBUG_BREAK_IF(length(dir).x < s_threshold);
+          _NBL_DEBUG_BREAK_IF(length(dir).x < this->m_threshold);
 
-          return length(cross(v - p, dir)).x;
+          // TODO: make sure this calculation is correct
+
+//          auto u0 = vtx - p;
+//          auto t = dot(dir, u0);
+//          auto dirLen = length(dir);
+//          auto dist = length(u0) - t * t / dirLen;
+
+//          return dist.x;
+
+          return length(cross(vtx - p, dir)).x;
         }
 
       private:
-        static constexpr float s_threshold = 0.000001f; // epsilon (eps)
-
         Data m_data;
-        DegenCase m_degenerate;
+        DegenCase m_degenerate = DegenCase::NONE;
+        vectorSIMDf m_offendingEdge;
     };
 
     /**
@@ -206,16 +243,13 @@ namespace nbl
      * @brief DiTO-14 and DiTO-26
      */
     template<uint8_t projCount = 13, uint8_t maxPointCount = projCount * 2>
-    class KDOP final
+    class KDOP final : private DiTOBase<projCount, maxPointCount>
     {
-      struct Slab;
-
-      using LBT                   = LBT<projCount>;
-      using VectorSIMDfHalfArr    = typename LBT::VectorSIMDfHalfArr;
-      using VectorSIMDfFullArr    = typename LBT::VectorSIMDfFullArr;
-      using VectorSIMDfArrayPair  = typename LBT::VectorSIMDfArrayPair;
-      using VtxPosGetCallback     = std::function<vectorSIMDf(size_t)>;
-      using SlabArr               = std::array<Slab, projCount>;
+      using VectorSIMDfHalfArr    = typename DiTOBase<projCount>::VectorSIMDfHalfArr;
+      using VectorSIMDfFullArr    = typename DiTOBase<projCount>::VectorSIMDfFullArr;
+      using VectorSIMDfArrayPair  = typename DiTOBase<projCount>::VectorSIMDfArrayPair;
+      using DegenCase             = typename DiTOBase<projCount>::DegenCase;
+      using LBTData               = typename LBT<projCount>::Data;
 
       enum class OBBType
       {
@@ -230,15 +264,24 @@ namespace nbl
         float max = -FLT_MAX;
       };
 
+      struct Tetra final
+      {
+        vectorSIMDf vtxPos;
+        DegenCase degenerate = DegenCase::NONE;
+      };
+
       struct AABB final
       {
-        vectorSIMDf dims;     // axis aligned dimensions of the vertices (alLen)
+        vectorSIMDf origin;
+        vectorSIMDf extents;  // axis aligned dimensions of the vertices (alLen)
         vectorSIMDf midPoint; // axis aligned mid point of the vertices (alMid)
         float area = 0;       // quality measure of the axis-aligned box (alVal)
       };
 
       /**
-       * @brief constructs efficient normal sets for DiTO-14 and DiTO-26 with k-dop computation
+       * @struct EtaNormal
+       * @brief constructs efficient normal sets (predefined slab directions)
+       * for DiTO-14 and DiTO-26 with k-dop computation
        */
       struct EtaNormal final
       {
@@ -246,6 +289,7 @@ namespace nbl
 
         EtaNormal()
         {
+          // DiTO-14 Normal sets
           sets = {
             vectorSIMDf(1.0f, 0.0f, 0.0f),
             vectorSIMDf(0.0f, 1.0f, 0.0f),
@@ -256,6 +300,7 @@ namespace nbl
             vectorSIMDf(1.0f, -1.0f, -1.0f)
           };
 
+          // DiTO-26 Normal sets
           if(projCount == 13)
           {
             sets[7]   = vectorSIMDf(1.0f, 1.0f, 0.0f);
@@ -268,15 +313,19 @@ namespace nbl
         }
       };
 
+      using LBT                   = LBT<projCount>;
+      using VtxPosGetCallback     = std::function<vectorSIMDf(size_t)>;
+      using SlabArr               = std::array<Slab, projCount>;
+
       public:
         /**
          *
          * @param[in] selVtxArray fixed array of pre-selected vertices (capped to maxPointCount)
          * @param[in] totalVtxCount total number of vertices
          */
-        KDOP(const VectorSIMDfFullArr& selVtxArray, size_t totalVtxCount)
-        : m_selVtxArray   (selVtxArray)
-        , m_totalVtxCount (totalVtxCount)
+        KDOP(VectorSIMDfFullArr selVtxArray, const size_t totalVtxCount)
+        : m_selVtxArray   (std::move(selVtxArray))
+        , m_totalVtxCount (getCappedVtxCount(totalVtxCount))
         , m_baseVtxPos    (m_selVtxArray[0]) {}
 
         /**
@@ -287,9 +336,9 @@ namespace nbl
          * @param[in] vtxPosGetCallback lambda expression returning vertex position by specified index
          * @param[in] totalVtxCount total number of vertices
          */
-        KDOP(const VtxPosGetCallback& vtxPosGetCallback, size_t totalVtxCount)
-        : m_totalVtxCount (totalVtxCount)
-        , m_selVtxArray   (selectVtxArray(vtxPosGetCallback))
+        KDOP(const VtxPosGetCallback& vtxPosGetCallback, const size_t totalVtxCount)
+        : m_selVtxArray   (getSelectedVtxArray(vtxPosGetCallback, totalVtxCount))
+        , m_totalVtxCount (getCappedVtxCount(totalVtxCount))
         , m_baseVtxPos    (m_selVtxArray[0]) {}
 
       public:
@@ -308,80 +357,46 @@ namespace nbl
           VectorSIMDfArrayPair extremalPoints;
           SlabArr slabs;
 
-          findExtremalValues(extremalPoints, slabs);
+          findPredefinedExtremalValues(extremalPoints, slabs);
           calcAABBOrientationForStdBase(slabs, obb.bestVal);
-
-          // if vtxCount > pointCount then array is capped to maxPointCount (selected extremal points)
-//          m_pointCount = m_vtxCount > m_pointCount ? m_pointCount : m_vtxCount;
 
           LBT lbt;
           lbt.calcFarthestPointPair(extremalPoints);
 
-          if(lbt.getDegenerateCase() == LBT::DegenCase::EDGE) { finalizeOBB(obb, OBBType::AA); return; }
+          if(m_totalVtxCount > maxPointCount)
+          {
+            for(auto k = 0u; k < projCount; k++)
+            {
+              m_selVtxArray[k]              = extremalPoints.first[k];  // minVtxPos
+              m_selVtxArray[k + projCount]  = extremalPoints.second[k]; // maxVtxPos
+            }
+          }
 
-          lbt.calcThirdPoint(m_selVtxArray, maxPointCount);
+          if(lbt.getDegenerateCase() == DegenCase::EDGE)
+          { finalizeOBB(obb, OBBType::AA, true); return; }
 
-          if(lbt.getDegenerateCase() == LBT::DegenCase::TRI) { finalizeOBB(obb, OBBType::LA); return; }
+          lbt.calcThirdPoint(m_selVtxArray, m_totalVtxCount);
+
+          if(lbt.getDegenerateCase() == DegenCase::TRI)
+          { finalizeOBB(obb, OBBType::LA, true, lbt.getOffendingEdge()); return; }
 
           lbt.calcEdges();
           lbt.calcNormal();
 
-          calcOBBAxes(lbt.getData(), extremalPoints, obb.b, obb.bestVal);
-          calcOBBDimensions(obb.b, obb.bMin, obb.bMax, obb.dims);
+          calcOBBAxes(lbt.getData(), obb.b, obb.bestVal);
+          calcOBBDimensions(obb.b, obb.bMin, obb.bMax, obb.extents);
 
           finalizeOBB(obb);
         }
 
       private:
-        inline bool isIdxInvalid(size_t idx) const noexcept { return idx >= maxPointCount; }
-
-        /**
-         *
-         * @param vtxPosGetCallback
-         * @return fixed array of pre-selected vertices (capped to maxPointCount)
-         */
-        inline VectorSIMDfFullArr selectVtxArray(
-          const VtxPosGetCallback& vtxPosGetCallback
-        ) noexcept
-        {
-          VectorSIMDfFullArr vtxArray;
-
-          for(auto i = 0u; i < m_totalVtxCount; i++)
-          {
-            if(isIdxInvalid(i)) break; // cap to max
-
-            vtxArray[i] = vtxPosGetCallback(i);
-          }
-
-          return vtxArray;
-        }
-
-        /**
-         *
-         * @param[in] vtxPos
-         * @param[in] normalSet
-         * @param[in] idx
-         * @return normalized projection/slab (float)
-         */
-        inline float normalizeSlab(
-          const vectorSIMDf& vtxPos,
-          const vectorSIMDf& normalSet,
-          uint8_t idx
-        ) const noexcept
-        {
-          const auto& slab = dot(vtxPos, normalSet);
-          return idx < 3
-              ? (idx == 0 ? slab.x : (idx == 1 ? slab.y : slab.z)) // slabs 0, 1 and 2 define AABB
-              : slab.x + slab.y + slab.z;
-        }
-
          /**
-          * @brief calculate/initialize max & min points and projections of the meshBuffer
+          * @brief calculate/initialize max & min points and predefined projections of the meshBuffer
           *
           * @param[out] extremalPoints
           * @param[out] slabs
           */
-        inline void findExtremalValues(
+        inline void findPredefinedExtremalValues(
           VectorSIMDfArrayPair& extremalPoints,
           SlabArr& slabs
         ) noexcept
@@ -400,8 +415,6 @@ namespace nbl
 
           for(auto i = 1u; i < m_totalVtxCount; i++)
           {
-            if(isIdxInvalid(i)) break; // cap to max
-
             const auto& vtxPos = m_selVtxArray[i];
 
             for(auto j = 0u; j < projCount; j++)
@@ -423,92 +436,133 @@ namespace nbl
          * @param[in] slabs
          * @param[out] bestVal
          */
-        inline void calcAABBOrientationForStdBase(const SlabArr& slabs, float& bestVal) noexcept
+        inline void calcAABBOrientationForStdBase(
+          const SlabArr& slabs,
+          float& bestVal
+        ) noexcept
         {
           // TODO: keep track of origin instead (OBB forms an orthogonal local basis with scale)
+          m_aabb.origin = vectorSIMDf(
+
+          );
+
           m_aabb.midPoint = vectorSIMDf(
             slabs[0].min + slabs[0].max,
             slabs[1].min + slabs[1].max,
             slabs[2].min + slabs[2].max
           ) * 0.5f;
 
-          m_aabb.dims = vectorSIMDf(
+          m_aabb.extents = vectorSIMDf(
             slabs[0].max - slabs[0].min,
             slabs[1].max - slabs[1].min,
             slabs[2].max - slabs[2].min
           );
 
-          m_aabb.area = m_aabb.dims.x * m_aabb.dims.y +
-                        m_aabb.dims.x * m_aabb.dims.z +
-                        m_aabb.dims.y * m_aabb.dims.z; // half box area
+          m_aabb.area = getQualityValue(m_aabb.extents);
 
           bestVal = m_aabb.area;
+        }
+
+        /**
+         *
+         * @param[in] baseTri
+         * @param[out] b
+         * @param[out] bestVal
+         */
+        inline void calcOBBAxes(
+          const LBTData& baseTri,
+          matrix3x4SIMD &b,
+          float &bestVal
+        ) noexcept
+        {
+          // Find improved OBB axes from base triangle
+          calcTetraEdgesImprovedAxes(baseTri.e0, baseTri.e1, baseTri.e2, baseTri.n, b, bestVal);
+
+          Tetra lowerTetra, upperTetra; // two connected tetrahedron
+          findDitetraPoints(baseTri.p0, baseTri.n, lowerTetra, upperTetra);
+
+          // Find improved OBB axes from ditetrahedra
+          if(lowerTetra.degenerate != DegenCase::TETRA)
+          { findTetraImprovedAxes(lowerTetra.vtxPos, baseTri, b, bestVal); }
+
+          if(upperTetra.degenerate != DegenCase::TETRA)
+          { findTetraImprovedAxes(upperTetra.vtxPos, baseTri, b, bestVal); }
+
+          // TODO: is this transpose correct?
+          matrix3x4SIMD resultRotation;
+          resultRotation[0] = vectorSIMDf(b[0].x, b[1].x, b[2].x);
+          resultRotation[1] = vectorSIMDf(b[0].y, b[1].y, b[2].y);
+          resultRotation[2] = vectorSIMDf(b[0].z, b[1].z, b[2].z);
+
+          b = resultRotation;
         }
 
         /**
          * @brief calculate remaining points (vertices) of ditetrahedron
          *
          * @param[in] p
-         * @param[in] n
-         * @param[in] extremalPoints
-         * @param[out] ditetraPoints
+         * @param[in] normal
+         * @param[out] lowerTetra
+         * @param[out] upperTetra
          */
         inline void findDitetraPoints(
           const vectorSIMDf& p,
-          const vectorSIMDf& n,
-          const VectorSIMDfArrayPair& extremalPoints,
-          std::pair<vectorSIMDf, vectorSIMDf>& ditetraPoints
+          const vectorSIMDf& normal,
+          Tetra& lowerTetra,
+          Tetra& upperTetra
         ) noexcept
         {
-          // find vertices that are furthest from the plane defined by p0, p1 and p2 (base triangle)
-          // on the both positive and negative half space
-          // n dot x = d
-          const float& d = dot(p, n).x;
-          const auto& [minVtxPos, maxVtxPos] = extremalPoints;
-          auto& [t0, t1] = ditetraPoints;
-          float minDistance;
-          float maxDistance;
+          float minSlab, maxSlab; // min & max tetra's projection slabs
+          const auto& triProj = dot(p, normal).x;
 
-          minDistance = maxDistance = dot(m_baseVtxPos, n).x - d;
-          t0 = t1 = m_baseVtxPos;
+          minSlab = maxSlab = dot(m_baseVtxPos, normal).x;
+          lowerTetra.vtxPos = upperTetra.vtxPos = m_baseVtxPos; // q0 = q1
 
-          for(size_t i = 0; i < projCount; i++)
+          for(auto i = 1u; i < m_totalVtxCount; i++)
           {
-            const auto& maxVtxPosition = minVtxPos[i];
-            const auto& minVtxPosition = maxVtxPos[i];
-            float maxDist = dot(maxVtxPosition, n).x - d;
-            float minDist = dot(minVtxPosition, n).x - d;
+            const auto& vtxPos = m_selVtxArray[i];
+            auto proj = dot(vtxPos, normal).x;
 
-            if(maxDist > maxDistance) { maxDistance = maxDist; t1 = maxVtxPosition; }
-            if(minDist < minDistance) { minDistance = minDist; t0 = minVtxPosition; }
+            if(proj < minSlab) { minSlab = proj; lowerTetra.vtxPos = vtxPos; }
+            if(proj > maxSlab) { maxSlab = proj; upperTetra.vtxPos = vtxPos; }
           }
 
-          // Detrimental Case 3 Check: Degenerate Tetrahedron
-          if(distancesquared(t0, t1).x < LBT::s_threshold)
-          {
-
-          }
+          const auto threshold = this->m_threshold;
+          if(maxSlab - threshold <= triProj) lowerTetra.degenerate = DegenCase::TETRA;
+          if(minSlab + threshold >= triProj) upperTetra.degenerate = DegenCase::TETRA;
         }
 
         /**
          *
-         * @param[in] dir
-         * @param[out] minSlab
-         * @param[out] maxSlab
+         * @param[in] vtxPos top/bottom tetrahedron vertex position
+         * @param[in] baseTri
+         * @param[out] b
+         * @param[out] bestVal
          */
-        inline void calcExtremalProjections(const vectorSIMDf& dir, float& minSlab, float& maxSlab) noexcept
+        inline void findTetraImprovedAxes(
+          const vectorSIMDf& vtxPos,
+          const LBTData& baseTri,
+          matrix3x4SIMD& b,
+          float& bestVal
+        )
         {
-          minSlab = maxSlab = dot(m_baseVtxPos, dir).x;
+          const auto& p0 = baseTri.p0; const auto& p1 = baseTri.p1; const auto& p2 = baseTri.p2;
+          const auto& e0 = baseTri.e0; const auto& e1 = baseTri.e1; const auto& e2 = baseTri.e2;
 
-          for(size_t i = 1u; i < m_totalVtxCount; i++)
-          {
-            if(isIdxInvalid(i)) break; // cap to max
+          vectorSIMDf f0, f1, f2; // Edges towards tetra
+          vectorSIMDf n0, n1, n2; // Normals of tetra triangles
 
-            float proj = dot(m_selVtxArray[i], dir).x;
+          f0 = normalize(vtxPos - p0);
+          f1 = normalize(vtxPos - p1);
+          f2 = normalize(vtxPos - p2);
 
-            if(proj > maxSlab) maxSlab = proj;
-            if(proj < minSlab) minSlab = proj;
-          }
+          n0 = normalize(cross(f1, e0));
+          n1 = normalize(cross(f2, e1));
+          n2 = normalize(cross(f0, e2));
+
+          calcTetraEdgesImprovedAxes(e0, f1, f0, n0, b, bestVal);
+          calcTetraEdgesImprovedAxes(e1, f2, f1, n1, b, bestVal);
+          calcTetraEdgesImprovedAxes(e2, f0, f2, n2, b, bestVal);
         }
 
         /**
@@ -520,111 +574,76 @@ namespace nbl
          * @param[out] b
          * @param[out] bestVal
          */
-        inline void calcImprovedAxes(
-          const vectorSIMDf& v0, const vectorSIMDf& v1, const vectorSIMDf& v2, const vectorSIMDf& n,
+        inline void calcTetraEdgesImprovedAxes(
+          const vectorSIMDf& v0, const vectorSIMDf& v1, const vectorSIMDf& v2,
+          const vectorSIMDf& n,
           matrix3x4SIMD& b,
           float& bestVal
         ) noexcept
         {
           vectorSIMDf dMin, dMax, len;
 
-          vectorSIMDf m0 = cross(v0, n);
-          vectorSIMDf m1 = cross(v1, n);
-          vectorSIMDf m2 = cross(v2, n);
+          findExtremalProjections(n, dMin.y, dMax.y);
+          len.y = dMax.y - dMin.y;
 
-          calcExtremalProjections(v0, dMin.x, dMax.x);
-          calcExtremalProjections(n, dMin.y, dMax.y);
-          calcExtremalProjections(m0, dMin.z, dMax.z);
-
-          len = dMax - dMin;
-          float quality = len.x * len.y + len.x * len.z + len.y * len.z;
-
-          if(quality < bestVal)
-          {
-            bestVal = quality;
-            b = matrix3x4SIMD(v0, n, m0);
-          }
-
-          calcExtremalProjections(v1, dMin.x, dMax.x);
-          calcExtremalProjections(m1, dMin.z, dMax.z);
-
-          len = dMax - dMin;
-          quality = len.x * len.y + len.x * len.z + len.y * len.z;
-
-          if(quality < bestVal)
-          {
-            bestVal = quality;
-            b = matrix3x4SIMD(v1, n, m1);
-          }
-
-          calcExtremalProjections(v2, dMin.x, dMax.x);
-          calcExtremalProjections(m2, dMin.z, dMax.z);
-
-          len = dMax - dMin;
-          quality = len.x * len.y + len.x * len.z + len.y * len.z;
-
-          if(quality < bestVal)
-          {
-            bestVal = quality;
-            b = matrix3x4SIMD(v2, n, m2);
-          }
+          calcTriEdgeImprovedAxes(v0, n, dMin, dMax, len, b, bestVal);
+          calcTriEdgeImprovedAxes(v1, n, dMin, dMax, len, b, bestVal);
+          calcTriEdgeImprovedAxes(v2, n, dMin, dMax, len, b, bestVal);
         }
 
         /**
          *
-         * @param[in] baseTri
-         * @param[in] extremalPoints
+         * @param[in] edge
+         * @param[in] normal
+         * @param[in,out] dMin
+         * @param[in,out] dMax
+         * @param[in,out] len
          * @param[out] b
          * @param[out] bestVal
          */
-        inline void calcOBBAxes(
-          const typename LBT::Data& baseTri,
-          const VectorSIMDfArrayPair& extremalPoints,
-          matrix3x4SIMD &b,
-          float &bestVal
+        inline void calcTriEdgeImprovedAxes(
+          const vectorSIMDf& edge,
+          const vectorSIMDf& normal,
+          vectorSIMDf& dMin, vectorSIMDf& dMax, vectorSIMDf& len,
+          matrix3x4SIMD& b,
+          float& bestVal
         ) noexcept
         {
-          auto& p0 = baseTri.p0; auto& p1 = baseTri.p1; auto& p2 = baseTri.p2;
-          auto& e0 = baseTri.e0; auto& e1 = baseTri.e1; auto& e2 = baseTri.e2;
-          auto& n  = baseTri.n;
+          vectorSIMDf dir = cross(edge, normal);
 
-          std::pair<vectorSIMDf, vectorSIMDf> ditetraPoints; // two connected tetrahedron's vertices
-          findDitetraPoints(p0, n, extremalPoints, ditetraPoints);
+          findExtremalProjections(edge, dMin.x, dMax.x);
+          findExtremalProjections(dir, dMin.z, dMax.z);
 
-          auto& [t0, t1] = ditetraPoints;
+          len.x = dMax.x - dMin.x;
+          len.z = dMax.z - dMin.z;
 
-          // from base triangle
-          calcImprovedAxes(e0, e1, e2, n, b, bestVal);
+          auto quality = getQualityValue(len);
 
-          // from top tetrahedra
-          vectorSIMDf f0 = normalize(t0 - p0);
-          vectorSIMDf f1 = normalize(t0 - p1);
-          vectorSIMDf f2 = normalize(t0 - p2);
-          vectorSIMDf n0 = normalize(cross(f1, e0));
-          vectorSIMDf n1 = normalize(cross(f2, e1));
-          vectorSIMDf n2 = normalize(cross(f0, e2));
+          if(quality < bestVal) { bestVal = quality; b = matrix3x4SIMD(edge, normal, dir); }
+        }
 
-//          calcImprovedAxes(e0, f1, f0, n0, b, bestVal);
-//          calcImprovedAxes(e1, f2, f1, n1, b, bestVal);
-//          calcImprovedAxes(e2, f0, f2, n2, b, bestVal);
+        /**
+         *
+         * @param[in] dir
+         * @param[in,out] minSlab
+         * @param[in,out] maxSlab
+         */
+        inline void findExtremalProjections(
+          const vectorSIMDf& dir,
+          float& minSlab,
+          float& maxSlab
+        ) noexcept
+        {
+          minSlab = maxSlab = dot(m_baseVtxPos, dir).x;
 
-          // from bottom tetrahedra
-          f0 = normalize(t1 - p0);
-          f1 = normalize(t1 - p1);
-          f2 = normalize(t1 - p2);
-          n0 = normalize(cross(f1, e0));
-          n1 = normalize(cross(f2, e1));
-          n2 = normalize(cross(f0, e2));
+          for(auto i = 1u; i < m_totalVtxCount; i++)
+          {
+            // TODO: does selVtxArray here need to be of selected extremalPoints (ordered) if vtxCount > maxPointCount?
+            auto proj = dot(m_selVtxArray[i], dir).x;
 
-//          calcImprovedAxes(e0, f1, f0, n0, b, bestVal);
-//          calcImprovedAxes(e1, f2, f1, n1, b, bestVal);
-//          calcImprovedAxes(e2, f0, f2, n2, b, bestVal);
-
-          matrix3x4SIMD resultRotation;
-          resultRotation[0] = vectorSIMDf(b[0].x, b[1].x, b[2].x);
-          resultRotation[1] = vectorSIMDf(b[0].y, b[1].y, b[2].y);
-          resultRotation[2] = vectorSIMDf(b[0].z, b[1].z, b[2].z);
-          b = resultRotation;
+            if(proj > maxSlab) maxSlab = proj;
+            if(proj < minSlab) minSlab = proj;
+          }
         }
 
         /**
@@ -632,99 +651,182 @@ namespace nbl
          * @param[in] b
          * @param[out] bMin
          * @param[out] bMax
-         * @param[out] dims
+         * @param[out] extents
          */
         inline void calcOBBDimensions(
           const matrix3x4SIMD& b,
-          vectorSIMDf& bMin, vectorSIMDf& bMax, vectorSIMDf& dims
+          vectorSIMDf& bMin, vectorSIMDf& bMax, vectorSIMDf& extents
         ) noexcept
         {
-          // b is an orthonormal matrix, which represent rotation of the bounding box
-          bMin.x = bMax.x = dot(m_baseVtxPos, b[0]).x;
-          bMin.y = bMax.y = dot(m_baseVtxPos, b[1]).x;
-          bMin.z = bMax.z = dot(m_baseVtxPos, b[2]).x;
+          findExtremalProjections(b[0], bMin.x, bMax.x);
+          findExtremalProjections(b[1], bMin.x, bMax.x);
+          findExtremalProjections(b[2], bMin.x, bMax.x);
 
-          for(size_t i = 1u; i < m_totalVtxCount; i++)
-          {
-            if(isIdxInvalid(i)) break; // cap to max
-
-            const auto vtxPos = m_selVtxArray[i];
-
-            for(uint32_t j = 0u; j < 3u; j++)
-            {
-              float proj = dot(vtxPos, b[j]).x;
-
-              if(proj > bMax[j]) bMax[j] = proj;
-              if(proj < bMin[j]) bMin[j] = proj;
-            }
-          }
-
-          dims = bMax - bMin;
+          extents = bMax - bMin;
         }
 
         /**
          *
-         * @param[in] obbType
          * @param[in,out] obb
+         * @param[in] obbType
+         * @param[in] isDegenerate
+         * @param[in] offendingEdge line-aligned edge position of the degenerate triangle
          */
-        inline void finalizeOBB(OBB& obb, const OBBType& obbType = OBBType::DEFAULT)
+        inline void finalizeOBB(
+          OBB& obb,
+          const OBBType& obbType            = OBBType::DEFAULT,
+          const bool isDegenerate           = false,
+          const vectorSIMDf& offendingEdge  = vectorSIMDf()
+        )
         {
-          switch (obbType)
+          switch(obbType)
           {
-            case OBBType::AA: finalizeAAOBB(obb); break;
-            case OBBType::LA: finalizeLAOBB(obb); break;
+            case OBBType::AA: finalizeAAOBB(isDegenerate, obb); break;
+            case OBBType::LA: finalizeLAOBB(offendingEdge, obb); break;
             default:
             {
-              vectorSIMDf dims  = obb.dims;
-              float bestVal     = obb.bestVal = dims.x * dims.y +
-                                                dims.x * dims.z +
-                                                dims.y * dims.z;
+              obb.bestVal = getQualityValue(obb.extents);
 
-              const vectorSIMDf   &scale    = bestVal < m_aabb.area ? dims   : m_aabb.dims;
-              const matrix3x4SIMD &rotation = bestVal < m_aabb.area ? obb.b  : matrix3x4SIMD();
-              const vectorSIMDf   &mid      = vectorSIMDf();
+              const vectorSIMDf   &scale    = obb.bestVal < m_aabb.area ? obb.extents : m_aabb.extents;
+              const matrix3x4SIMD &rotation = obb.bestVal < m_aabb.area ? obb.b       : matrix3x4SIMD();
 
-              obb.init(scale / 2.0f, rotation, mid);
+              // q is the midpoint expressed in the OBB's local coordinate system
+              vectorSIMDf q = (obb.bMin + obb.bMax) * 0.5f;
+
+              // Compute midpoint expressed in the standard base
+              vectorSIMDf mid = obb.b[0] * q.x;
+              mid = mid + obb.b[1] * q.y;
+              mid = mid + obb.b[2] * q.z;
+
+              obb.init(scale, rotation, mid);
             }
             break;
           }
         }
 
         /**
-         * @brief finalize Axis Aligned OBB (when it's degenerate edge case)
+         * @brief finalize Axis Aligned OBB (when it's degenerate edge case or totalVtxCount <= 0)
          *
-         * @param obb
+         * @param[in] isDegenerate
+         * @param[in,out] obb
          */
-        inline void finalizeAAOBB(OBB& obb)
+        inline void finalizeAAOBB(const bool isDegenerate, OBB& obb)
         {
-          const vectorSIMDf   &scale     = m_aabb.dims;
-          const matrix3x4SIMD &rotation  = matrix3x4SIMD();
-          const vectorSIMDf   &mid       = vectorSIMDf();
+          const vectorSIMDf   &scale    = isDegenerate ? m_aabb.extents : vectorSIMDf();
+          const matrix3x4SIMD &rotation = matrix3x4SIMD();
+          const vectorSIMDf   &mid      = isDegenerate ? m_aabb.midPoint : vectorSIMDf();
 
-          obb.init(scale / 2.0f, rotation, mid);
+          obb.init(scale, rotation, mid);
         }
 
         /**
          * @brief finalize Line Aligned OBB (when it's degenerate triangle case)
          *
-         * @param obb
+         * @param[in] edge
+         * @param[in,out] obb
          */
-        inline void finalizeLAOBB(OBB& obb)
+        inline void finalizeLAOBB(const vectorSIMDf& edge, OBB& obb)
         {
-          auto diff = [=](vectorSIMDf& a, vectorSIMDf& b)
-          {
-            return vectorSIMDf(a.x - b.x, a.y - b.y, a.z - b.z);
-          };
+          vectorSIMDf r = edge;
 
-          obb.dims = diff(obb.bMax, obb.bMin);
+          // Make sure r is not equal to edge
+          if(fabs(edge.x) > fabs(edge.y) && fabs(edge.x) > fabs(edge.z))
+          { r.x = 0; }
+          else if(fabs(edge.y) > fabs(edge.z) )
+          { r.y = 0; }
+          else
+          { r.z = 0; }
+
+          if(length(r).x < this->m_threshold) { r.x = r.y = r.z = 1; }
+
+          obb.b[0] = edge;
+          obb.b[1] = normalize(cross(edge, r));
+          obb.b[2] = normalize(cross(edge, obb.b[1]));
+
+          calcOBBDimensions(obb.b,obb.bMin, obb.bMax, obb.extents);
+
+          const vectorSIMDf   &scale    = obb.extents;
+          const matrix3x4SIMD &rotation = obb.b;
+
+          // q is the midpoint expressed in the OBB's local coordinate system
+          vectorSIMDf q = (obb.bMin + obb.bMax) * 0.5f;
+
+          // Compute midpoint expressed in the standard base
+          vectorSIMDf mid = obb.b[0] * q.x;
+          mid = mid + obb.b[1] * q.y;
+          mid = mid + obb.b[2] * q.z;
+
+          obb.init(scale, rotation, mid);
+        }
+
+      private:
+        /**
+         *
+         * @param[in] vtxPosGetCallback
+         * @param[in] totalVtxCount
+         * @return fixed array of pre-selected vertices (capped to maxPointCount)
+         */
+        inline VectorSIMDfFullArr getSelectedVtxArray(
+          const VtxPosGetCallback& vtxPosGetCallback,
+          const size_t totalVtxCount
+        ) const noexcept
+        {
+          VectorSIMDfFullArr vtxArray;
+
+          for(auto i = 0u; i < getCappedVtxCount(totalVtxCount); i++)
+          {
+            vtxArray[i] = vtxPosGetCallback(i);
+          }
+
+          return vtxArray;
+        }
+
+        /**
+         * @brief to cap the iteration going beyond maxPointCount
+         *
+         * @param[in] totalVtxCount
+         * @return bool
+         */
+        inline uint8_t getCappedVtxCount(const size_t totalVtxCount) const noexcept
+        { return totalVtxCount > maxPointCount ? maxPointCount : totalVtxCount; }
+
+        /**
+         *
+         * @param[in] vtxPos
+         * @param[in] normalSet
+         * @param[in] idx
+         * @return normalized projection/slab (float)
+         */
+        inline float normalizeSlab(
+          const vectorSIMDf& vtxPos,
+          const vectorSIMDf& normalSet,
+          const uint8_t idx
+        ) const noexcept
+        {
+          const auto& slab = dot(vtxPos, normalSet);
+          return idx < 3
+              ? (idx == 0 ? slab.x : (idx == 1 ? slab.y : slab.z)) // slabs 0, 1 and 2 define AABB
+              : slab.x + slab.y + slab.z;
+        }
+
+        /**
+         *
+         * @param[in] len
+         * @return quality value - half box area (float)
+         */
+        float getQualityValue(const vectorSIMDf& len)
+        {
+          return  len.x * len.y +
+                  len.x * len.z +
+                  len.y * len.z;
         }
 
       private:
         static_assert(projCount == 7 || projCount == 13, "size of sample directions (k) should only be either 7 or 13!");
         static_assert(maxPointCount == projCount * 2, "maximum number of points (np) should be twice the size of the sample directions!");
 
-        const VectorSIMDfFullArr m_selVtxArray; // pre-selected vertices or total vertices (if fewer than max) of the mesh
-        size_t m_totalVtxCount;
+        VectorSIMDfFullArr m_selVtxArray; // pre-selected vertices or total vertices (if fewer than max) of the mesh
+        uint8_t m_totalVtxCount;
         vectorSIMDf m_baseVtxPos;
 
         AABB m_aabb;

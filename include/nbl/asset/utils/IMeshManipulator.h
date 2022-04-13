@@ -462,7 +462,7 @@ class IMeshManipulator : public virtual core::IReferenceCounted
       const SVertexInputBindingParams& vtxInputBindingParams
     )
     {
-      const auto vtxCount = calcVertexSize(meshBuffer);
+      auto vtxCount = calcVertexSize(meshBuffer);
 
       {
         uint32_t posAttrIdx = meshBuffer->getPositionAttributeIx();
@@ -488,18 +488,18 @@ class IMeshManipulator : public virtual core::IReferenceCounted
 //      const uint8_t vtxArraySize = k * 2;
 //      std::array<core::vectorSIMDf, vtxArraySize> vtxArray;
 //
+//      vtxCount = vtxCount > vtxArraySize ? vtxArraySize : vtxCount;
+//
 //      for(auto i = 0u; i < vtxCount; i++)
 //      {
-//        if(i >= vtxArraySize) break; // cap to max
-//
 //        vtxArray[i] = meshBuffer->getPosition(i);
 //      }
+//
+//      core::KDOP<k> kDOP(vtxArray, vtxCount);
 
       const auto& vtxPosGetCb = [=](size_t idx) { return meshBuffer->getPosition(idx); };
 
       core::KDOP kDOP(vtxPosGetCb, vtxCount);
-
-//      core::KDOP<k> kDOP(vtxArray, vtxCount);
       core::OBB obb;
 
       kDOP.compute(obb);
