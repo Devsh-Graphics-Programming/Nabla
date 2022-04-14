@@ -97,6 +97,8 @@ public:
             assert(false);
             return false;
         }
+
+        deleteCommandSegmentList();
         return base_t::reset(_flags);
     }
 
@@ -178,13 +180,16 @@ public:
     // Vulkan: const VkCommandBuffer*
     virtual const void* getNativeHandle() const = 0;
 
-protected:
+protected: 
     friend class IGPUQueue;
 
     IGPUCommandBuffer(core::smart_refctd_ptr<const ILogicalDevice>&& dev, E_LEVEL lvl, core::smart_refctd_ptr<IGPUCommandPool>&& _cmdpool) : base_t(lvl), IBackendObject(std::move(dev)), m_cmdpool(_cmdpool)
     {
     }
-    virtual ~IGPUCommandBuffer() = default;
+    virtual ~IGPUCommandBuffer()
+    {
+        deleteCommandSegmentList();
+    }
 
     core::smart_refctd_ptr<IGPUCommandPool> m_cmdpool;
     SInheritanceInfo m_cachedInheritanceInfo;
@@ -227,6 +232,91 @@ protected:
             for (uint32_t i = _first + 1u; i < IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
                 _destPplnLayouts[i] = nullptr;
     }
+
+    template <typename Cmd, typename... Args>
+    Cmd* emplace(Args&&... args)
+    {
+        if (m_segmentListTail == nullptr)
+        {
+            void* cmdSegmentMem = m_cmdpool->m_commandSegmentPool.allocate(IGPUCommandPool::COMMAND_SEGMENT_SIZE, alignof(IGPUCommandPool::CommandSegment));
+            if (!cmdSegmentMem)
+                return nullptr;
+
+            m_segmentListTail = new (cmdSegmentMem) IGPUCommandPool::CommandSegment;
+            m_segmentListHeadItr.m_segment = m_segmentListTail;
+        }
+
+        Cmd* cmd = m_segmentListTail->allocate<Cmd, Args...>(args...);
+        if (!cmd)
+        {
+            void* nextSegmentMem = m_cmdpool->m_commandSegmentPool.allocate(IGPUCommandPool::COMMAND_SEGMENT_SIZE, alignof(IGPUCommandPool::CommandSegment));
+            if (nextSegmentMem == nullptr)
+                return nullptr;
+
+            IGPUCommandPool::CommandSegment* nextSegment = new (nextSegmentMem) IGPUCommandPool::CommandSegment;
+
+            cmd = m_segmentListTail->allocate<Cmd, Args...>(args...);
+            if (!cmd)
+                return nullptr;
+
+            m_segmentListTail->params.m_next = nextSegment;
+            m_segmentListTail = m_segmentListTail->params.m_next;
+        }
+
+        if (m_segmentListHeadItr.m_cmd == nullptr)
+            m_segmentListHeadItr.m_cmd = cmd;
+
+        return cmd;
+    }
+
+    IGPUCommandPool::CommandSegment::Iterator m_segmentListHeadItr = {};
+    IGPUCommandPool::CommandSegment* m_segmentListTail = nullptr;
+
+    private:
+        void deleteCommandSegmentList()
+        {
+            IGPUCommandPool::CommandSegment::Iterator itr = m_segmentListHeadItr;
+
+            if (itr.m_segment && itr.m_cmd)
+            {
+                bool lastCmd = itr.m_cmd->m_size == 0u;
+                while (!lastCmd)
+                {
+                    IGPUCommandPool::ICommand* currCmd = itr.m_cmd;
+                    IGPUCommandPool::CommandSegment* currSegment = itr.m_segment;
+
+                    itr.m_cmd = reinterpret_cast<IGPUCommandPool::ICommand*>(reinterpret_cast<uint8_t*>(itr.m_cmd) + currCmd->m_size);
+                    currCmd->~ICommand();
+                    // No need to deallocate currCmd because it has been allocated from the LinearAddressAllocator where deallocate is a No-OP and the memory will
+                    // get reclaimed in ~LinearAddressAllocator
+
+                    if (reinterpret_cast<uint8_t*>(itr.m_cmd) - reinterpret_cast<uint8_t*>(itr.m_segment) > (IGPUCommandPool::COMMAND_SEGMENT_SIZE - sizeof(IGPUCommandPool::CommandSegment::params_t)))
+                    {
+                        IGPUCommandPool::CommandSegment* nextSegment = currSegment->params.m_next;
+                        if (!nextSegment)
+                            break;
+
+                        currSegment->~CommandSegment();
+                        m_cmdpool->m_commandSegmentPool.deallocate(currSegment, IGPUCommandPool::COMMAND_SEGMENT_SIZE);
+
+                        itr.m_segment = nextSegment;
+                        itr.m_cmd = reinterpret_cast<video::IGPUCommandPool::ICommand*>(itr.m_segment->m_data);
+                    }
+
+                    lastCmd = itr.m_cmd->m_size == 0u;
+                    if (lastCmd)
+                    {
+                        currSegment->~CommandSegment();
+                        m_cmdpool->m_commandSegmentPool.deallocate(currSegment, IGPUCommandPool::COMMAND_SEGMENT_SIZE);
+                    }
+                }
+
+                m_segmentListHeadItr.m_cmd = nullptr;
+                m_segmentListHeadItr.m_segment = nullptr;
+                m_segmentListTail = nullptr;
+            }
+        }
+
 };
 
 }

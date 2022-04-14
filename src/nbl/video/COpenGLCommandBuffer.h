@@ -1015,6 +1015,10 @@ public:
     {
         if (!this->isCompatibleDevicewise(pRenderPassBegin->framebuffer.get()))
             return false;
+
+        if (!emplace<COpenGLCommandPool::CBeginRenderPassCmd>(pRenderPassBegin[0], content))
+            return false;
+
         SCmd<impl::ECT_BEGIN_RENDERPASS> cmd;
         cmd.renderpassBegin = pRenderPassBegin[0];
         if (cmd.renderpassBegin.clearValueCount > 0u)
@@ -1036,6 +1040,9 @@ public:
     }
     bool endRenderPass() override
     {
+        if (!emplace<COpenGLCommandPool::CEndRenderPassCmd>())
+            return false;
+
         SCmd<impl::ECT_END_RENDERPASS> cmd;
         pushCommand(std::move(cmd));
         return true;

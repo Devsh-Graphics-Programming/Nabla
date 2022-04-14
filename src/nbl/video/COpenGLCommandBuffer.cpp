@@ -503,6 +503,19 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
 
     void COpenGLCommandBuffer::executeAll(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid) const
     {
+#if 0
+        IGPUCommandPool::CommandSegment::Iterator itr = m_segmentListHeadItr;
+        if (itr.m_segment && itr.m_cmd)
+        {
+            bool lastCmd = (itr.m_cmd->m_size == 0u);
+            while (!lastCmd)
+            {
+                COpenGLCommandPool::ICommand* glcmd = dynamic_cast<COpenGLCommandPool::ICommand*>(itr.m_cmd);
+                glcmd->operator()(gl, ctxlocal, ctxid, m_logger.getOptRawPtr());
+            }
+        }
+#endif
+
         for (const SCommand& cmd : m_commands)
         {
             switch (cmd.type)

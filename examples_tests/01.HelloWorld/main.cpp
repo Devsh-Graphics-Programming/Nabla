@@ -546,11 +546,6 @@ Choose Graphics API:
 		}
 		commandBuffer->beginRenderPass(&beginInfo, nbl::asset::ESC_INLINE);
 
-		// constexpr uint32_t ref_count_drop = 5u;
-		// for (uint32_t i = 0u; i < ref_count_drop; ++i)
-		// 	renderpass->drop();
-		// __debugbreak();
-
 		// Do nothing
 
 		commandBuffer->endRenderPass();

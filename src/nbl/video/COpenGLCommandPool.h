@@ -11,9 +11,6 @@ namespace nbl::video
 
 class COpenGLCommandPool final : public IGPUCommandPool
 {
-    class ICommand;
-    class CBeginRenderPassCmd;
-
         constexpr static inline size_t MIN_ALLOC_SZ = 64ull;
         // TODO: there's an optimization possible if we set the block size to 64kb (max cmd upload size) and then:
         // - use Pool Address Allocator within a block
@@ -25,6 +22,9 @@ class COpenGLCommandPool final : public IGPUCommandPool
         constexpr static inline size_t MAX_BLOCK_COUNT = 256u;
 
     public:
+        class ICommand;
+        class CBeginRenderPassCmd;
+        class CEndRenderPassCmd;
         using IGPUCommandPool::IGPUCommandPool;
         COpenGLCommandPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, core::bitflag<E_CREATE_FLAGS> _flags, uint32_t _familyIx) : IGPUCommandPool(std::move(dev), _flags.value, _familyIx), mempool(BLOCK_SIZE,0u,MAX_BLOCK_COUNT,MIN_ALLOC_SZ) {}
 
@@ -50,7 +50,7 @@ class COpenGLCommandPool final : public IGPUCommandPool
         core::CMemoryPool<core::GeneralpurposeAddressAllocator<uint32_t>,core::default_aligned_allocator,false,uint32_t> mempool;
 };
 
-class COpenGLCommandPool::ICommand
+class NBL_FORCE_EBO COpenGLCommandPool::ICommand
 {
 public:
     virtual void operator() (IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxLocal, uint32_t ctxid, const system::logger_opt_ptr logger) = 0;
@@ -69,9 +69,64 @@ protected:
     }
 };
 
-class COpenGLCommandPool::CBeginRenderPassCmd
+class COpenGLCommandPool::CBeginRenderPassCmd : public COpenGLCommandPool::ICommand, public IGPUCommandPool::CBeginRenderPassCmd
 {
+public:
+    using base_cmd_t = IGPUCommandPool::CBeginRenderPassCmd;
 
+    CBeginRenderPassCmd(const IGPUCommandBuffer::SRenderpassBeginInfo& beginInfo, const asset::E_SUBPASS_CONTENTS subpassContents)
+        : base_cmd_t(std::move(beginInfo.renderpass), std::move(beginInfo.framebuffer)), m_renderArea(beginInfo.renderArea), m_clearValueCount(beginInfo.clearValueCount),
+        m_subpassContents(subpassContents)
+    {
+        m_size = calc_size(beginInfo, subpassContents);
+        if (m_clearValueCount > 0u)
+            memcpy(m_clearValues, beginInfo.clearValues, m_clearValueCount * sizeof(asset::SClearValue));
+    }
+
+    static uint32_t calc_size(const IGPUCommandBuffer::SRenderpassBeginInfo& beginInfo, const asset::E_SUBPASS_CONTENTS subpassContents)
+    {
+        return core::alignUp(end_offset<CBeginRenderPassCmd>(std::move(beginInfo.renderpass), std::move(beginInfo.framebuffer)), alignof(CBeginRenderPassCmd));
+    }
+
+    void operator() (IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid, const system::logger_opt_ptr logger) override
+    {
+        // auto& c = cmd.get<impl::ECT_BEGIN_RENDERPASS>();
+        auto framebuf = core::smart_refctd_ptr_static_cast<const video::COpenGLFramebuffer>(m_framebuffer);
+
+        ctxlocal->nextState.framebuffer.hash = framebuf->getHashValue();
+        ctxlocal->nextState.framebuffer.fbo = std::move(framebuf);
+        ctxlocal->flushStateGraphics(gl, SOpenGLContextLocalCache::GSB_FRAMEBUFFER, ctxid);
+
+        __debugbreak();
+
+        GLuint fbo = ctxlocal->currentState.framebuffer.GLname;
+        // if (fbo)
+        //     beginRenderpass_clearAttachments(gl, ctxlocal, ctxid, c.renderpassBegin, fbo, logger);
+
+        // currentlyRecordingRenderPass = c.renderpassBegin.renderpass.get();
+    }
+
+private:
+    const VkRect2D m_renderArea;
+    const uint32_t m_clearValueCount;
+    asset::SClearValue m_clearValues[asset::IRenderpass::SCreationParams::MaxColorAttachments];
+    const asset::E_SUBPASS_CONTENTS m_subpassContents;
+};
+
+class COpenGLCommandPool::CEndRenderPassCmd : public COpenGLCommandPool::ICommand, public IGPUCommandPool::CEndRenderPassCmd
+{
+public:
+    using base_cmd_t = IGPUCommandPool::CEndRenderPassCmd;
+
+    static uint32_t calc_size()
+    {
+        return core::alignUp(end_offset<CEndRenderPassCmd>(), alignof(CBeginRenderPassCmd));
+    }
+
+    void operator() (IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxLocal, uint32_t ctxid, const system::logger_opt_ptr logger) override
+    {
+
+    }
 };
 
 }
