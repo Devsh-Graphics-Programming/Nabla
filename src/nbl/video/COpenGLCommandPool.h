@@ -11,6 +11,9 @@ namespace nbl::video
 
 class COpenGLCommandPool final : public IGPUCommandPool
 {
+    class ICommand;
+    class CBeginRenderPassCmd;
+
         constexpr static inline size_t MIN_ALLOC_SZ = 64ull;
         // TODO: there's an optimization possible if we set the block size to 64kb (max cmd upload size) and then:
         // - use Pool Address Allocator within a block
@@ -45,6 +48,30 @@ class COpenGLCommandPool final : public IGPUCommandPool
     private:
         std::mutex mutex;
         core::CMemoryPool<core::GeneralpurposeAddressAllocator<uint32_t>,core::default_aligned_allocator,false,uint32_t> mempool;
+};
+
+class COpenGLCommandPool::ICommand
+{
+public:
+    virtual void operator() (IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxLocal, uint32_t ctxid, const system::logger_opt_ptr logger) = 0;
+
+    using base_cmd_t = void;
+
+protected:
+    template <typename CRTP, typename... Args>
+    static uint32_t end_offset(const Args&... args)
+    {
+        using other_base_t = typename CRTP::base_cmd_t;
+        if constexpr (std::is_void_v<other_base_t>)
+            return sizeof(CRTP);
+        else
+            return other_base_t::calc_size(args...) - sizeof(other_base_t) + sizeof(CRTP);
+    }
+};
+
+class COpenGLCommandPool::CBeginRenderPassCmd
+{
+
 };
 
 }

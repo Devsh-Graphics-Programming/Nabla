@@ -14,6 +14,10 @@ namespace nbl::video
 class IGPUCommandPool : public core::IReferenceCounted, public IBackendObject
 {
     public:
+        class ICommand;
+        class CBeginRenderPassCmd;
+        class CEndRenderPassCmd;
+
         enum E_CREATE_FLAGS : uint32_t
         {
             ECF_NONE = 0x00,
@@ -36,6 +40,52 @@ class IGPUCommandPool : public core::IReferenceCounted, public IBackendObject
 
         core::bitflag<E_CREATE_FLAGS> m_flags;
         uint32_t m_familyIx;
+};
+
+class alignas(64u) IGPUCommandPool::ICommand
+{
+public:
+    virtual ~ICommand() {}
+
+    // static void* operator new(std::size_t size) = delete;
+    static void* operator new[](std::size_t size) = delete;
+    // static void* operator new(std::size_t size, std::align_val_t al) = delete;
+    static void* operator new[](std::size_t size, std::align_val_t al) = delete;
+
+    // static void operator delete  (void* ptr) = delete;
+    static void operator delete[](void* ptr) = delete;
+    static void operator delete  (void* ptr, std::align_val_t al) = delete;
+    static void operator delete[](void* ptr, std::align_val_t al) = delete;
+    static void operator delete  (void* ptr, std::size_t sz) = delete;
+    static void operator delete[](void* ptr, std::size_t sz) = delete;
+    static void operator delete  (void* ptr, std::size_t sz, std::align_val_t al) = delete;
+    static void operator delete[](void* ptr, std::size_t sz, std::align_val_t al) = delete;
+
+    uint32_t m_size;
+protected:
+    ICommand(uint32_t size) : m_size(size) {}
+};
+
+class IGPUCommandPool::CBeginRenderPassCmd : public IGPUCommandPool::ICommand
+{
+public:
+    CBeginRenderPassCmd(const core::smart_refctd_ptr<const video::IGPURenderpass>&& renderpass, const core::smart_refctd_ptr<const video::IGPUFramebuffer>&& framebuffer)
+        : ICommand(calc_size(core::smart_refctd_ptr(renderpass), core::smart_refctd_ptr(framebuffer))), m_renderpass(std::move(renderpass)), m_framebuffer(std::move(framebuffer))
+    {}
+
+    static uint32_t calc_size(const core::smart_refctd_ptr<const video::IGPURenderpass>& renderpass, const core::smart_refctd_ptr<const video::IGPUFramebuffer>& framebuffer)
+    {
+        return core::alignUp(2ull*sizeof(void*), alignof(CBeginRenderPassCmd));
+    }
+
+private:
+    core::smart_refctd_ptr<const video::IGPURenderpass> m_renderpass;
+    core::smart_refctd_ptr<const video::IGPUFramebuffer> m_framebuffer;
+};
+
+class IGPUCommandPool::CEndRenderPassCmd : public IGPUCommandPool::ICommand
+{
+    // no params
 };
 
 }

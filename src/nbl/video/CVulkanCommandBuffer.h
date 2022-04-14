@@ -21,11 +21,25 @@ struct ArgumentReferenceSegment;
 
 class CVulkanCommandBuffer : public IGPUCommandBuffer
 {
+    static inline constexpr uint32_t MAX_SEGMENT_BLOCK_COUNT = 3u;// 16u;
+    static inline constexpr uint32_t SEGMENTS_PER_BLOCK = 2u; // 256u;
+    static inline constexpr uint32_t SEGMENT_SIZE = 128u << 10u;
+
+    static inline constexpr uint32_t MIN_POOL_ALLOC_SIZE = SEGMENT_SIZE;
+
+    static inline constexpr uint32_t COMMAND_SEGMENT_ALIGNMENT = 64u;
+
 public:
     CVulkanCommandBuffer(core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice, E_LEVEL level,
         VkCommandBuffer _vkcmdbuf, core::smart_refctd_ptr<IGPUCommandPool>&& commandPool)
-        : IGPUCommandBuffer(std::move(logicalDevice), level, std::move(commandPool)), m_cmdbuf(_vkcmdbuf)
+        : m_commandSegmentPool(SEGMENTS_PER_BLOCK * SEGMENT_SIZE, 0u, MAX_SEGMENT_BLOCK_COUNT, MIN_POOL_ALLOC_SIZE),
+        IGPUCommandBuffer(std::move(logicalDevice), level, std::move(commandPool)), m_cmdbuf(_vkcmdbuf)
     {
+        // Todo(achal): Technically, I don't need to allocate here. I should be able to just allocate whenever the first command is recorded.
+        // void* cmdSegmentMem = m_commandSegmentPool.allocate(SEGMENT_SIZE, alignof(SCommandSegment));
+
+        // m_segment = new (cmdSegmentMem) SCommandSegment;
+
         if (m_cmdpool->getAPIType() == EAT_VULKAN)
         {
             CVulkanCommandPool* vulkanCommandPool = static_cast<CVulkanCommandPool*>(m_cmdpool.get());
@@ -88,7 +102,6 @@ public:
         
     }
 
-    // API needs to changed, vkEndCommandBuffer can fail
     bool end() override
     {
         const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
@@ -909,6 +922,23 @@ public:
         if (!saveReferencesToResources(tmp, tmp + totalResourceCount))
             return false;
 
+        const uint32_t requiredSize = totalResourceCount * sizeof(core::smart_refctd_ptr<asset::IDescriptor>);
+        if (m_segmentListTail == nullptr)
+        {
+            void* cmdSegmentMem = m_commandSegmentPool.allocate(SEGMENT_SIZE, alignof(SCommandSegment));
+            m_segmentListTail = new (cmdSegmentMem) SCommandSegment;
+            m_segmentListHead.m_segment = m_segmentListTail;
+        }
+        const uint32_t address = m_segmentListTail->params.m_commandAllocator.alloc_addr(requiredSize, alignof(video::IGPUCommandPool::ICommand));
+        if (address == core::LinearAddressAllocator<uint32_t>::invalid_address)
+        {
+            // not fail, but get a new segment from the pool and try to allocate in that because the condition above means that there is no space in the current segment
+            __debugbreak();
+        }
+
+        void* cmd = m_segmentListTail->m_data + address;
+        // construct the pipelineBarrier command
+
         VkMemoryBarrier vk_memoryBarriers[MAX_BARRIER_COUNT];
         for (uint32_t i = 0u; i < memoryBarrierCount; ++i)
         {
@@ -964,8 +994,49 @@ public:
 
     bool beginRenderPass(const SRenderpassBeginInfo* pRenderPassBegin, asset::E_SUBPASS_CONTENTS content) override
     {
+        if (m_segmentListTail == nullptr)
+        {
+            void* cmdSegmentMem = m_commandSegmentPool.allocate(SEGMENT_SIZE, alignof(SCommandSegment));
+            m_segmentListTail = new (cmdSegmentMem) SCommandSegment;
+            m_segmentListHead.m_segment = m_segmentListTail;
+        }
+
+        const size_t requiredSize = video::IGPUCommandPool::CBeginRenderPassCmd::calc_size(core::smart_refctd_ptr(pRenderPassBegin->renderpass), core::smart_refctd_ptr(pRenderPassBegin->framebuffer));
+
+        auto address = m_segmentListTail->params.m_commandAllocator.alloc_addr(requiredSize, alignof(video::IGPUCommandPool::CBeginRenderPassCmd));
+        if (address == core::LinearAddressAllocator<uint32_t>::invalid_address)
+        {
+            void* nextSegmentMem = m_commandSegmentPool.allocate(SEGMENT_SIZE, COMMAND_SEGMENT_ALIGNMENT);
+            if (nextSegmentMem == nullptr)
+                __debugbreak(); // fail condition
+
+            SCommandSegment* next = new (nextSegmentMem) SCommandSegment;
+
+            {
+                address = next->params.m_commandAllocator.alloc_addr(requiredSize, alignof(video::IGPUCommandPool::CBeginRenderPassCmd));
+                if (address == core::LinearAddressAllocator<uint32_t>::invalid_address)
+                    __debugbreak(); // fail condition
+
+                m_segmentListTail->params.m_next = next;
+                m_segmentListTail = next;
+            }
+        }
+
+        void* cmdMem = m_segmentListTail->m_data + address;
+
+        video::IGPUCommandPool::CBeginRenderPassCmd* cmd = new (cmdMem) video::IGPUCommandPool::CBeginRenderPassCmd(std::move(pRenderPassBegin->renderpass), std::move(pRenderPassBegin->framebuffer));
+
+        if (m_segmentListHead.m_cmd == nullptr)
+            m_segmentListHead.m_cmd = cmd;
+
+        m_segmentListTail->wipeNextCommandSize();
+
         if ((pRenderPassBegin->renderpass->getAPIType() != EAT_VULKAN) || (pRenderPassBegin->framebuffer->getAPIType() != EAT_VULKAN))
             return false;
+
+        // const core::smart_refctd_ptr<const core::IReferenceCounted> tmp[] = { core::smart_refctd_ptr<const renderpass_t>(pRenderPassBegin->renderpass), core::smart_refctd_ptr<const framebuffer_t>(pRenderPassBegin->framebuffer) };
+        // if (!saveReferencesToResources(tmp, tmp + 2))
+        //     return false;
 
         constexpr uint32_t MAX_CLEAR_VALUE_COUNT = (1 << 12ull) / sizeof(VkClearValue);
         VkClearValue vk_clearValues[MAX_CLEAR_VALUE_COUNT];
@@ -1111,9 +1182,6 @@ public:
                 }
             }
         }
-
-        // vk->vk.vkCmdBindDescriptorSets(m_cmdbuf, static_cast<VkPipelineBindPoint>(pipelineBindPoint),
-        //     vk_pipelineLayout, firstSet, descriptorSetCount, vk_descriptorSets, dynamicOffsetCount, dynamicOffsets);
 
         return true;
     }
@@ -1342,6 +1410,48 @@ public:
 private:
     void freeSpaceInCmdPool()
     {
+        SegmentIterator itr = m_segmentListHead;
+
+        if (itr.m_segment && itr.m_cmd)
+        {
+            bool lastCmd = itr.m_cmd->m_size == 0u;
+            while (!lastCmd)
+            {
+                video::IGPUCommandPool::ICommand* currCmd = itr.m_cmd;
+                SCommandSegment* currSegment = itr.m_segment;
+
+                // itr.m_cmd += currCmd->m_size;
+                itr.m_cmd = reinterpret_cast<IGPUCommandPool::ICommand*>(reinterpret_cast<uint8_t*>(itr.m_cmd) + currCmd->m_size);
+                currCmd->~ICommand();
+                // No need to deallocate currCmd because it has been allocated from the LinearAddressAllocator where deallocate is a No-OP and the memory will
+                // get reclaimed in ~LinearAddressAllocator
+
+                if (reinterpret_cast<uint8_t*>(itr.m_cmd) - reinterpret_cast<uint8_t*>(itr.m_segment) > (SEGMENT_SIZE - sizeof(SCommandSegment::params_t)))
+                {
+                    SCommandSegment* nextSegment = currSegment->params.m_next;
+                    if (!nextSegment)
+                        break;
+
+                    currSegment->~SCommandSegment();
+                    m_commandSegmentPool.deallocate(currSegment, SEGMENT_SIZE);
+
+                    itr.m_segment = nextSegment;
+                    itr.m_cmd = reinterpret_cast<video::IGPUCommandPool::ICommand*>(itr.m_segment->m_data);
+                }
+
+                lastCmd = itr.m_cmd->m_size == 0u;
+                if (lastCmd)
+                {
+                    currSegment->~SCommandSegment();
+                    m_commandSegmentPool.deallocate(currSegment, SEGMENT_SIZE);
+                }
+            }
+
+            m_segmentListHead.m_cmd = nullptr;
+            m_segmentListHead.m_segment = nullptr;
+            m_segmentListTail = nullptr;
+        }
+
         if (m_cmdpool->getAPIType() == EAT_VULKAN && m_argListHead)
         {
             CVulkanCommandPool* vulkanCommandPool = IBackendObject::compatibility_cast<CVulkanCommandPool*>(m_cmdpool.get(), this);
@@ -1366,7 +1476,48 @@ private:
     CVulkanCommandPool::ArgumentReferenceSegment* m_argListHead = nullptr;
     CVulkanCommandPool::ArgumentReferenceSegment* m_argListTail = nullptr;
     VkCommandBuffer m_cmdbuf;
-};
+
+    class alignas(COMMAND_SEGMENT_ALIGNMENT) SCommandSegment
+    {
+    public:
+        struct params_t
+        {
+            core::LinearAddressAllocator<uint32_t> m_commandAllocator;
+            SCommandSegment* m_next;
+        } params;
+
+        static inline constexpr uint32_t STORAGE_SIZE = SEGMENT_SIZE - sizeof(params_t);
+
+        alignas(video::IGPUCommandPool::ICommand) uint8_t m_data[STORAGE_SIZE];
+
+        SCommandSegment()
+        {
+            params.m_commandAllocator = core::LinearAddressAllocator<uint32_t>(nullptr, 0u, 0u, COMMAND_SEGMENT_ALIGNMENT, SEGMENT_SIZE);
+            params.m_next = nullptr;
+
+            wipeNextCommandSize();
+        }
+
+        void wipeNextCommandSize()
+        {
+            const auto cursor = params.m_commandAllocator.get_allocated_size();
+            const uint32_t wipeSize = offsetof(IGPUCommandPool::ICommand, m_size) + sizeof(IGPUCommandPool::ICommand::m_size);
+            if (cursor + wipeSize < params.m_commandAllocator.get_total_size())
+                memset(m_data + cursor, 0, wipeSize);
+        }
+    };
+
+    struct SegmentIterator
+    {
+        SCommandSegment* m_segment = nullptr;
+        video::IGPUCommandPool::ICommand* m_cmd = nullptr;
+    };
+
+    SegmentIterator m_segmentListHead = {};
+    SCommandSegment* m_segmentListTail = nullptr;
+
+    core::CMemoryPool<core::GeneralpurposeAddressAllocator<uint32_t>, core::default_aligned_allocator, false, uint32_t> m_commandSegmentPool;
+};  
 
 }
 

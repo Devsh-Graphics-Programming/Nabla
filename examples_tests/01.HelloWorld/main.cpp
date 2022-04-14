@@ -286,28 +286,22 @@ Choose Graphics API:
 		auto gpus = apiConnection->getPhysicalDevices();
 		assert(!gpus.empty());
 
-
-
 		// Find a suitable gpu
 		uint32_t graphicsFamilyIndex(~0u);
 		uint32_t presentFamilyIndex(~0u);
 
-		// Todo(achal): Probably want to put these into some struct
 		uint32_t minSwapchainImageCount(~0u);
 		video::ISurface::SFormat surfaceFormat;
 		video::ISurface::E_PRESENT_MODE presentMode;
 		asset::E_SHARING_MODE imageSharingMode;
 		VkExtent2D swapchainExtent;
 
-		// Todo(achal): Look at this:
-		// https://github.com/Devsh-Graphics-Programming/Nabla/blob/6bd5061abe0a2020142efda827269ea6c07f0f2f/examples_tests/common/CommonAPI.h
 		for (size_t i = 0ull; i < gpus.size(); ++i)
 		{
 			gpu = gpus.begin()[i];
 
 			bool isGPUSuitable = false;
 
-			// Todo(achal): Abstract out
 			// Find required queue family indices
 			{
 				const auto& queueFamilyProperties = gpu->getQueueFamilyProperties();
@@ -334,7 +328,6 @@ Choose Graphics API:
 			if (!gpu->isSwapchainSupported())
 				isGPUSuitable = false;
 
-			// Todo(achal): Abstract it out
 			// Check if the surface is adequate
 			{
 				uint32_t surfaceFormatCount;
@@ -349,13 +342,9 @@ Choose Graphics API:
 				if (!surface->getSurfaceCapabilitiesForPhysicalDevice(gpu, surfaceCapabilities))
 					isGPUSuitable = false;
 
-				printf("Min swapchain image count: %d\n", surfaceCapabilities.minImageCount);
-				printf("Max swapchain image count: %d\n", surfaceCapabilities.maxImageCount);
-
 				if ((surfaceFormats.empty()) || (availablePresentModes == video::ISurface::EPM_UNKNOWN))
 					isGPUSuitable = false;
 
-				// Todo(achal): Probably a more sophisticated way to choose these
 				minSwapchainImageCount = surfaceCapabilities.minImageCount + 1u;
 				if (minSwapchainImageCount > surfaceCapabilities.maxImageCount)
 					minSwapchainImageCount = surfaceCapabilities.maxImageCount;
@@ -532,7 +521,8 @@ Choose Graphics API:
 		else
 			fence = device->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
 
-		commandBuffer->begin(0u);
+		commandBuffer->reset(video::IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
+		commandBuffer->begin(video::IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
 
 		swapchain->acquireNextImage(MAX_TIMEOUT, m_imageAcquire[m_resourceIx].get(), nullptr, &m_acquiredNextFBO);
 
@@ -555,6 +545,11 @@ Choose Graphics API:
 			beginInfo.clearValues = clear;
 		}
 		commandBuffer->beginRenderPass(&beginInfo, nbl::asset::ESC_INLINE);
+
+		// constexpr uint32_t ref_count_drop = 5u;
+		// for (uint32_t i = 0u; i < ref_count_drop; ++i)
+		// 	renderpass->drop();
+		// __debugbreak();
 
 		// Do nothing
 

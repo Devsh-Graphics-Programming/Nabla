@@ -139,7 +139,6 @@ public:
         }
     }
             
-    // API needs to change. vkResetFences can fail.
     bool resetFences(uint32_t _count, IGPUFence*const* _fences) override
     {
         constexpr uint32_t MAX_FENCE_COUNT = 100u;
@@ -1643,7 +1642,7 @@ private:
     }
 
     VkDevice m_vkdev;
-    CVulkanDeviceFunctionTable m_devf; // Todo(achal): I don't have a function table yet
+    CVulkanDeviceFunctionTable m_devf;
     
     constexpr static inline uint32_t NODES_PER_BLOCK_DEFERRED_OP = 4096u;
     constexpr static inline uint32_t MAX_BLOCK_COUNT_DEFERRED_OP = 256u;
