@@ -332,6 +332,7 @@ set(NBL_VIDEO_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGL_Connection.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLComputePipeline.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLQueryPool.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/COpenGLCommandPool.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/debug/COpenGLDebugCallback.cpp
 	
 # Vulkan

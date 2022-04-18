@@ -503,19 +503,28 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
 
     void COpenGLCommandBuffer::executeAll(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid) const
     {
-#if 0
         IGPUCommandPool::CommandSegment::Iterator itr = m_segmentListHeadItr;
+
         if (itr.m_segment && itr.m_cmd)
         {
-            bool lastCmd = (itr.m_cmd->m_size == 0u);
-            while (!lastCmd)
+            while (itr.m_cmd->m_size != 0u)
             {
                 COpenGLCommandPool::ICommand* glcmd = dynamic_cast<COpenGLCommandPool::ICommand*>(itr.m_cmd);
-                glcmd->operator()(gl, ctxlocal, ctxid, m_logger.getOptRawPtr());
+                glcmd->operator()(gl, ctxlocal, ctxid, m_logger.getOptRawPtr(), this);
+
+                itr.m_cmd = reinterpret_cast<IGPUCommandPool::ICommand*>(reinterpret_cast<uint8_t*>(itr.m_cmd) + itr.m_cmd->m_size);
+                if ((reinterpret_cast<uint8_t*>(itr.m_cmd) - itr.m_segment->m_data) > IGPUCommandPool::CommandSegment::STORAGE_SIZE)
+                {
+                    IGPUCommandPool::CommandSegment* nextSegment = itr.m_segment->params.m_next;
+                    if (!nextSegment)
+                        break;
+
+                    itr.m_segment = nextSegment;
+                    itr.m_cmd = reinterpret_cast<IGPUCommandPool::ICommand*>(itr.m_segment->m_data);
+                }
             }
         }
-#endif
-
+#if 0
         for (const SCommand& cmd : m_commands)
         {
             switch (cmd.type)
@@ -1326,6 +1335,7 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
             break;
             }
         }
+#endif
     }
 
     void COpenGLCommandBuffer::blit(IOpenGL_FunctionTable* gl, GLuint src, GLuint dst, const asset::VkOffset3D srcOffsets[2], const asset::VkOffset3D dstOffsets[2], asset::ISampler::E_TEXTURE_FILTER filter)

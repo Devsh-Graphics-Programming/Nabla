@@ -8,6 +8,7 @@
 
 namespace nbl::video
 {
+class COpenGLCommandBuffer;
 
 class COpenGLCommandPool final : public IGPUCommandPool
 {
@@ -53,7 +54,7 @@ class COpenGLCommandPool final : public IGPUCommandPool
 class NBL_FORCE_EBO COpenGLCommandPool::ICommand
 {
 public:
-    virtual void operator() (IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxLocal, uint32_t ctxid, const system::logger_opt_ptr logger) = 0;
+    virtual void operator() (IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxLocal, uint32_t ctxid, const system::logger_opt_ptr logger, const COpenGLCommandBuffer* executingCmdbuf) = 0;
 
     using base_cmd_t = void;
 
@@ -85,26 +86,10 @@ public:
 
     static uint32_t calc_size(const IGPUCommandBuffer::SRenderpassBeginInfo& beginInfo, const asset::E_SUBPASS_CONTENTS subpassContents)
     {
-        return core::alignUp(end_offset<CBeginRenderPassCmd>(std::move(beginInfo.renderpass), std::move(beginInfo.framebuffer)), alignof(CBeginRenderPassCmd));
+        return core::alignUp(end_offset<CBeginRenderPassCmd>(beginInfo.renderpass, beginInfo.framebuffer), alignof(CBeginRenderPassCmd));
     }
 
-    void operator() (IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid, const system::logger_opt_ptr logger) override
-    {
-        // auto& c = cmd.get<impl::ECT_BEGIN_RENDERPASS>();
-        auto framebuf = core::smart_refctd_ptr_static_cast<const video::COpenGLFramebuffer>(m_framebuffer);
-
-        ctxlocal->nextState.framebuffer.hash = framebuf->getHashValue();
-        ctxlocal->nextState.framebuffer.fbo = std::move(framebuf);
-        ctxlocal->flushStateGraphics(gl, SOpenGLContextLocalCache::GSB_FRAMEBUFFER, ctxid);
-
-        __debugbreak();
-
-        GLuint fbo = ctxlocal->currentState.framebuffer.GLname;
-        // if (fbo)
-        //     beginRenderpass_clearAttachments(gl, ctxlocal, ctxid, c.renderpassBegin, fbo, logger);
-
-        // currentlyRecordingRenderPass = c.renderpassBegin.renderpass.get();
-    }
+    void operator() (IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid, const system::logger_opt_ptr logger, const COpenGLCommandBuffer* executingCmdbuf) override;
 
 private:
     const VkRect2D m_renderArea;
@@ -123,10 +108,7 @@ public:
         return core::alignUp(end_offset<CEndRenderPassCmd>(), alignof(CBeginRenderPassCmd));
     }
 
-    void operator() (IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxLocal, uint32_t ctxid, const system::logger_opt_ptr logger) override
-    {
-
-    }
+    void operator() (IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxLocal, uint32_t ctxid, const system::logger_opt_ptr logger, const COpenGLCommandBuffer* executingCmdbuf) override;
 };
 
 }

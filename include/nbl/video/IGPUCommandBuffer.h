@@ -290,7 +290,7 @@ protected:
                     // No need to deallocate currCmd because it has been allocated from the LinearAddressAllocator where deallocate is a No-OP and the memory will
                     // get reclaimed in ~LinearAddressAllocator
 
-                    if (reinterpret_cast<uint8_t*>(itr.m_cmd) - reinterpret_cast<uint8_t*>(itr.m_segment) > (IGPUCommandPool::COMMAND_SEGMENT_SIZE - sizeof(IGPUCommandPool::CommandSegment::params_t)))
+                    if ((reinterpret_cast<uint8_t*>(itr.m_cmd) - reinterpret_cast<uint8_t*>(itr.m_segment)) > IGPUCommandPool::CommandSegment::STORAGE_SIZE)
                     {
                         IGPUCommandPool::CommandSegment* nextSegment = currSegment->params.m_next;
                         if (!nextSegment)
@@ -300,7 +300,7 @@ protected:
                         m_cmdpool->m_commandSegmentPool.deallocate(currSegment, IGPUCommandPool::COMMAND_SEGMENT_SIZE);
 
                         itr.m_segment = nextSegment;
-                        itr.m_cmd = reinterpret_cast<video::IGPUCommandPool::ICommand*>(itr.m_segment->m_data);
+                        itr.m_cmd = reinterpret_cast<IGPUCommandPool::ICommand*>(itr.m_segment->m_data);
                     }
 
                     lastCmd = itr.m_cmd->m_size == 0u;
