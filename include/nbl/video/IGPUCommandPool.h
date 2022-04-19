@@ -29,8 +29,22 @@ private:
     public:
         class ICommand;
         class CommandSegment;
+
+        class CBindIndexBufferCmd;
+
+        class CDrawCmd;
+        class CDrawIndexedCmd;
+
+        class CDrawIndirectCommonBase;
+        class CDrawIndirectCmd;
+        class CDrawIndexedIndirectCmd;
+        class CDrawIndirectCountCmd;
+        class CDrawIndexedIndirectCountCmd;
+
         class CBeginRenderPassCmd;
         class CEndRenderPassCmd;
+
+
 
         enum E_CREATE_FLAGS : uint32_t
         {
@@ -108,7 +122,8 @@ public:
     }
 
     template <typename Cmd, typename... Args>
-    Cmd* allocate(const Args&... args)
+    // Cmd* allocate(const Args&... args)
+    Cmd* allocate(Args&&... args)
     {
         const uint32_t cmdSize = Cmd::calc_size(args...);
         const auto address = params.m_commandAllocator.alloc_addr(cmdSize, alignof(Cmd));
@@ -118,7 +133,7 @@ public:
         wipeNextCommandSize();
 
         void* cmdMem = m_data + address;
-        return new (cmdMem) Cmd(std::forward<Args>(args)...);
+        return new (cmdMem) Cmd(args...);
     }
 
 private:
@@ -137,16 +152,115 @@ struct IGPUCommandPool::CommandSegment::Iterator
     ICommand* m_cmd = nullptr;
 };
 
+class IGPUCommandPool::CBindIndexBufferCmd : public IGPUCommandPool::ICommand
+{
+public:
+    CBindIndexBufferCmd(const core::smart_refctd_ptr<const video::IGPUBuffer>& indexBuffer) : ICommand(calc_size(indexBuffer)), m_indexBuffer(indexBuffer) {}
+
+    static uint32_t calc_size(const core::smart_refctd_ptr<const video::IGPUBuffer>& indexBuffer)
+    {
+        return core::alignUp(sizeof(void*), alignof(CBindIndexBufferCmd));
+    }
+
+protected:
+    core::smart_refctd_ptr<const video::IGPUBuffer> m_indexBuffer;
+};
+
+class IGPUCommandPool::CDrawCmd : public IGPUCommandPool::ICommand
+{
+public:
+    CDrawCmd() : ICommand(calc_size()) {}
+
+    static uint32_t calc_size()
+    {
+        return core::alignUp(1u, alignof(CDrawCmd));
+    }
+};
+
+class IGPUCommandPool::CDrawIndexedCmd : public IGPUCommandPool::ICommand
+{
+public:
+    CDrawIndexedCmd() : ICommand(calc_size()) {}
+
+    static uint32_t calc_size()
+    {
+        return core::alignUp(1u, alignof(CDrawIndexedCmd));
+    }
+};
+
+class IGPUCommandPool::CDrawIndirectCommonBase : public IGPUCommandPool::ICommand
+{
+public:
+    CDrawIndirectCommonBase(const core::smart_refctd_ptr<const video::IGPUBuffer>& buffer, const uint32_t size) : ICommand(size), m_buffer(buffer) {}
+
+protected:
+    core::smart_refctd_ptr<const IGPUBuffer> m_buffer;
+};
+
+class IGPUCommandPool::CDrawIndirectCmd : public IGPUCommandPool::CDrawIndirectCommonBase
+{
+public:
+    CDrawIndirectCmd(const core::smart_refctd_ptr<const video::IGPUBuffer>& buffer) : CDrawIndirectCommonBase(buffer, calc_size(buffer)) {}
+
+    static uint32_t calc_size(const core::smart_refctd_ptr<const video::IGPUBuffer>& buffer)
+    {
+        return core::alignUp(sizeof(void*), alignof(CDrawIndirectCmd));
+    }
+};
+
+class IGPUCommandPool::CDrawIndexedIndirectCmd : public IGPUCommandPool::CDrawIndirectCommonBase
+{
+public:
+    CDrawIndexedIndirectCmd(const core::smart_refctd_ptr<const video::IGPUBuffer>& buffer) : CDrawIndirectCommonBase(buffer, calc_size(buffer)) {}
+
+    static uint32_t calc_size(const core::smart_refctd_ptr<const video::IGPUBuffer>& buffer)
+    {
+        return core::alignUp(sizeof(void*), alignof(CDrawIndexedIndirectCmd));
+    }
+};
+
+class IGPUCommandPool::CDrawIndirectCountCmd : public IGPUCommandPool::CDrawIndirectCommonBase
+{
+public:
+    CDrawIndirectCountCmd(const core::smart_refctd_ptr<const video::IGPUBuffer>& buffer, const core::smart_refctd_ptr<const video::IGPUBuffer>& countBuffer)
+        : CDrawIndirectCommonBase(buffer, calc_size(buffer, countBuffer)), m_countBuffer(countBuffer)
+    {}
+
+    static uint32_t calc_size(const core::smart_refctd_ptr<const video::IGPUBuffer>& buffer, const core::smart_refctd_ptr<const video::IGPUBuffer>& countBuffer)
+    {
+        return core::alignUp(2u * sizeof(void*), alignof(CDrawIndirectCountCmd));
+    }
+
+protected:
+    core::smart_refctd_ptr<const IGPUBuffer> m_countBuffer;
+};
+
+class IGPUCommandPool::CDrawIndexedIndirectCountCmd : public IGPUCommandPool::CDrawIndirectCommonBase
+{
+public:
+    CDrawIndexedIndirectCountCmd(const core::smart_refctd_ptr<const video::IGPUBuffer>& buffer, const core::smart_refctd_ptr<const video::IGPUBuffer>& countBuffer)
+        : CDrawIndirectCommonBase(buffer, calc_size(buffer, countBuffer)), m_countBuffer(countBuffer)
+    {}
+
+    static uint32_t calc_size(const core::smart_refctd_ptr<const video::IGPUBuffer>& buffer, const core::smart_refctd_ptr<const video::IGPUBuffer>& countBuffer)
+    {
+        return core::alignUp(2u*sizeof(void*), alignof(CDrawIndexedIndirectCmd));
+    }
+
+protected:
+    core::smart_refctd_ptr<const IGPUBuffer> m_countBuffer;
+};
+
 class IGPUCommandPool::CBeginRenderPassCmd : public IGPUCommandPool::ICommand
 {
 public:
-    CBeginRenderPassCmd(const core::smart_refctd_ptr<const video::IGPURenderpass>&& renderpass, const core::smart_refctd_ptr<const video::IGPUFramebuffer>&& framebuffer)
-        : ICommand(calc_size(core::smart_refctd_ptr(renderpass), core::smart_refctd_ptr(framebuffer))), m_renderpass(std::move(renderpass)), m_framebuffer(std::move(framebuffer))
+    CBeginRenderPassCmd(const core::smart_refctd_ptr<const video::IGPURenderpass>& renderpass, const core::smart_refctd_ptr<const video::IGPUFramebuffer>& framebuffer)
+        : ICommand(calc_size(renderpass, framebuffer)), m_renderpass(renderpass), m_framebuffer(framebuffer)
     {}
 
     static uint32_t calc_size(const core::smart_refctd_ptr<const video::IGPURenderpass>& renderpass, const core::smart_refctd_ptr<const video::IGPUFramebuffer>& framebuffer)
     {
-        return core::alignUp(2ull*sizeof(void*), alignof(CBeginRenderPassCmd));
+        return core::alignUp(2u * sizeof(void*), alignof(CBeginRenderPassCmd));
     }
 
 protected:

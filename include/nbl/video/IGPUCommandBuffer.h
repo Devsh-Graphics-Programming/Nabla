@@ -246,7 +246,8 @@ protected:
             m_segmentListHeadItr.m_segment = m_segmentListTail;
         }
 
-        Cmd* cmd = m_segmentListTail->allocate<Cmd, Args...>(args...);
+        // Cmd* cmd = m_segmentListTail->allocate<Cmd, Args...>(args...);
+        Cmd* cmd = m_segmentListTail->allocate<Cmd>(std::forward<Args>(args)...);
         if (!cmd)
         {
             void* nextSegmentMem = m_cmdpool->m_commandSegmentPool.allocate(IGPUCommandPool::COMMAND_SEGMENT_SIZE, alignof(IGPUCommandPool::CommandSegment));
@@ -255,7 +256,8 @@ protected:
 
             IGPUCommandPool::CommandSegment* nextSegment = new (nextSegmentMem) IGPUCommandPool::CommandSegment;
 
-            cmd = m_segmentListTail->allocate<Cmd, Args...>(args...);
+            // cmd = m_segmentListTail->allocate<Cmd, Args...>(args...);
+            cmd = m_segmentListTail->allocate<Cmd>(std::forward<Args>(args)...);
             if (!cmd)
                 return nullptr;
 

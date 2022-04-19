@@ -491,6 +491,24 @@ protected:
         return bufbarrier | imgbarrier | membarrier;
     }
 
+    
+
+    COpenGLCommandPool* getGLCommandPool() const { return static_cast<COpenGLCommandPool*>(m_cmdpool.get()); }
+
+    template <impl::E_COMMAND_TYPE ECT>
+    void pushCommand(SCmd<ECT>&& cmd)
+    {
+        m_commands.emplace_back(std::move(cmd));
+    }
+    core::vector<SCommand> m_commands; // TODO: embed in the command pool via the use of linked list
+    const COpenGLFeatureMap* m_features;
+    mutable core::bitflag<IQueryPool::E_QUERY_TYPE> queriesActive;
+    mutable std::tuple<IQueryPool const *,uint32_t/*query ix*/,renderpass_t const *,uint32_t/*subpass ix*/> currentlyRecordingQueries[IQueryPool::EQT_COUNT];
+
+public:
+    // Todo(achal): Should probably move these into COpenGLCommandPool now
+    static void beginRenderpass_clearAttachments(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid, const SRenderpassBeginInfo& info, GLuint fbo, const system::logger_opt_ptr logger);
+
     static inline GLenum getGLprimitiveType(asset::E_PRIMITIVE_TOPOLOGY pt)
     {
         using namespace asset;
@@ -523,22 +541,6 @@ protected:
         }
     }
 
-    COpenGLCommandPool* getGLCommandPool() const { return static_cast<COpenGLCommandPool*>(m_cmdpool.get()); }
-
-    template <impl::E_COMMAND_TYPE ECT>
-    void pushCommand(SCmd<ECT>&& cmd)
-    {
-        m_commands.emplace_back(std::move(cmd));
-    }
-    core::vector<SCommand> m_commands; // TODO: embed in the command pool via the use of linked list
-    const COpenGLFeatureMap* m_features;
-    mutable core::bitflag<IQueryPool::E_QUERY_TYPE> queriesActive;
-    mutable std::tuple<IQueryPool const *,uint32_t/*query ix*/,renderpass_t const *,uint32_t/*subpass ix*/> currentlyRecordingQueries[IQueryPool::EQT_COUNT];
-
-public:
-    // Todo(achal): Should probably move this into COpenGLCommandPool now
-    static void beginRenderpass_clearAttachments(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid, const SRenderpassBeginInfo& info, GLuint fbo, const system::logger_opt_ptr logger);
-
     mutable renderpass_t const * currentlyRecordingRenderPass = nullptr;
 
     void executeAll(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid) const;
@@ -570,6 +572,9 @@ public:
             if (!this->isCompatibleDevicewise(buffer))
                 return false;
 
+        if (!emplace<COpenGLCommandPool::CBindIndexBufferCmd>(core::smart_refctd_ptr<const buffer_t>(buffer), offset, indexType))
+            return false;
+
         SCmd<impl::ECT_BIND_INDEX_BUFFER> cmd;
         cmd.buffer = core::smart_refctd_ptr<const buffer_t>(buffer);
         cmd.indexType = indexType;
@@ -579,6 +584,9 @@ public:
     }
     bool draw(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex, uint32_t firstInstance) override
     {
+        if (!emplace<COpenGLCommandPool::CDrawCmd>(vertexCount, instanceCount, firstVertex, firstInstance))
+            return false;
+
         SCmd<impl::ECT_DRAW> cmd;
         cmd.vertexCount = vertexCount;
         cmd.instanceCount = instanceCount;
@@ -589,6 +597,9 @@ public:
     }
     bool drawIndexed(uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, int32_t vertexOffset, uint32_t firstInstance) override
     {
+        if (!emplace<COpenGLCommandPool::CDrawIndexedCmd>(indexCount, instanceCount, firstIndex, vertexOffset, firstInstance))
+            return false;
+
         SCmd<impl::ECT_DRAW_INDEXED> cmd;
         cmd.indexCount = indexCount;
         cmd.instanceCount = instanceCount;
@@ -600,6 +611,9 @@ public:
     }
     bool drawIndirect(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) override
     {
+        if (!emplace<COpenGLCommandPool::CDrawIndirectCmd>(core::smart_refctd_ptr<const buffer_t>(buffer), offset, drawCount, stride))
+            return false;
+
         SCmd<impl::ECT_DRAW_INDIRECT> cmd;
         cmd.buffer = core::smart_refctd_ptr<const buffer_t>(buffer);
         cmd.offset = offset;
@@ -612,6 +626,9 @@ public:
     }
     bool drawIndexedIndirect(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) override
     {
+        if (!emplace<COpenGLCommandPool::CDrawIndexedIndirectCmd>(core::smart_refctd_ptr<const buffer_t>(buffer), offset, drawCount, stride))
+            return false;
+
         SCmd<impl::ECT_DRAW_INDEXED_INDIRECT> cmd;
         cmd.buffer = core::smart_refctd_ptr<const buffer_t>(buffer);
         cmd.offset = offset;
@@ -624,6 +641,9 @@ public:
     }
     bool drawIndirectCount(const buffer_t* buffer, size_t offset, const buffer_t* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride) override
     {
+        if (!emplace<COpenGLCommandPool::CDrawIndirectCountCmd>(core::smart_refctd_ptr<const buffer_t>(buffer), offset, core::smart_refctd_ptr<const buffer_t>(countBuffer), countBufferOffset, maxDrawCount, stride))
+            return false;
+
         SCmd<impl::ECT_DRAW_INDIRECT> cmd;
         cmd.buffer = core::smart_refctd_ptr<const buffer_t>(buffer);
         cmd.offset = offset;
@@ -636,6 +656,9 @@ public:
     }
     bool drawIndexedIndirectCount(const buffer_t* buffer, size_t offset, const buffer_t* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride) override
     {
+        if (!emplace<COpenGLCommandPool::CDrawIndexedIndirectCountCmd>(core::smart_refctd_ptr<const buffer_t>(buffer), offset, core::smart_refctd_ptr<const buffer_t>(countBuffer), countBufferOffset, maxDrawCount, stride))
+            return false;
+
         SCmd<impl::ECT_DRAW_INDEXED_INDIRECT> cmd;
         cmd.buffer = core::smart_refctd_ptr<const buffer_t>(buffer);
         cmd.offset = offset;

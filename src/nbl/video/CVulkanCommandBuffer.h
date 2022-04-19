@@ -128,6 +128,9 @@ public:
         if (!buffer || (buffer->getAPIType() != EAT_VULKAN))
             return false;
 
+        if (!emplace<IGPUCommandPool::CBindIndexBufferCmd>(core::smart_refctd_ptr<const IGPUBuffer>(buffer)))
+            return false;
+
         const core::smart_refctd_ptr<const core::IReferenceCounted> tmp[1] = { core::smart_refctd_ptr<const IGPUBuffer>(buffer) };
         if (!saveReferencesToResources(tmp, tmp + 1))
             return false;
@@ -148,6 +151,9 @@ public:
     bool draw(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex,
         uint32_t firstInstance) override
     {
+        if (!emplace<IGPUCommandPool::CDrawCmd>())
+            return false;
+
         const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
         vk->vk.vkCmdDraw(m_cmdbuf, vertexCount, instanceCount, firstVertex, firstInstance);
         return true;
@@ -156,6 +162,9 @@ public:
     bool drawIndexed(uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex,
         int32_t vertexOffset, uint32_t firstInstance) override
     {
+        if (!emplace<IGPUCommandPool::CDrawIndexedCmd>())
+            return false;
+
         const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
         vk->vk.vkCmdDrawIndexed(m_cmdbuf, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
         return true;
@@ -164,6 +173,9 @@ public:
     bool drawIndirect(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) override
     {
         if (!buffer || buffer->getAPIType() != EAT_VULKAN)
+            return false;
+
+        if (!emplace<IGPUCommandPool::CDrawIndirectCmd>(core::smart_refctd_ptr<const IGPUBuffer>(buffer)))
             return false;
 
         const core::smart_refctd_ptr<const core::IReferenceCounted> tmp[1] = {
@@ -186,6 +198,9 @@ public:
     bool drawIndexedIndirect(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) override
     {
         if (!buffer || buffer->getAPIType() != EAT_VULKAN)
+            return false;
+
+        if (!emplace<IGPUCommandPool::CDrawIndexedIndirectCmd>(core::smart_refctd_ptr<const buffer_t>(buffer)))
             return false;
 
         const core::smart_refctd_ptr<const core::IReferenceCounted> tmp[1] = {
@@ -211,6 +226,9 @@ public:
             return false;
 
         if (!countBuffer || countBuffer->getAPIType() != EAT_VULKAN)
+            return false;
+
+        if (!emplace<IGPUCommandPool::CDrawIndirectCountCmd>(core::smart_refctd_ptr<const buffer_t>(buffer), core::smart_refctd_ptr<const buffer_t>(countBuffer)))
             return false;
 
         const core::smart_refctd_ptr<const core::IReferenceCounted> tmp[2] = {
@@ -239,6 +257,9 @@ public:
             return false;
 
         if (!countBuffer || countBuffer->getAPIType() != EAT_VULKAN)
+            return false;
+
+        if (!emplace<IGPUCommandPool::CDrawIndexedIndirectCountCmd>(core::smart_refctd_ptr<const buffer_t>(buffer), core::smart_refctd_ptr<const buffer_t>(countBuffer)))
             return false;
 
         const core::smart_refctd_ptr<const core::IReferenceCounted> tmp[2] = {
