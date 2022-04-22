@@ -273,14 +273,14 @@ vec3 nbl_glsl_unormSphericalToCartesian(in vec2 uv, out float sinTheta)
 float Envmap_regularized_deferred_pdf(in vec3 rayDirection)
 {
 	const ivec2 envmapSize = textureSize(envMap, 0);
-	uint luminanceMips = uint(log2(envmapSize.x)) + 1u; // TODO: later turn into push constant
+	uint lastLuminanceMip = uint(log2(envmapSize.x)); // TODO: later turn into push constant
 	const vec2 envmapUV = nbl_glsl_sampling_generateUVCoordFromDirection(rayDirection);
 
 	float sinTheta = length(rayDirection.zx);
 	float sumLum = texelFetch(luminance[0], ivec2(0), 0).r;
-	float luminance = textureLod(luminance[luminanceMips-1], envmapUV, 0).r;
+	float luminance = textureLod(luminance[lastLuminanceMip], envmapUV, 0).r;
 	float bigfactor = float(envmapSize.x*envmapSize.y)/sumLum;
-	return bigfactor*(luminance/(sinTheta*4.0f*nbl_glsl_PI));
+	return bigfactor*(luminance/(sinTheta*2.0f*nbl_glsl_PI*nbl_glsl_PI));
 }
 
 void Envmap_generateRegularizedSample_and_pdf(out float pdf, out nbl_glsl_LightSample lightSample, in nbl_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 rand)
