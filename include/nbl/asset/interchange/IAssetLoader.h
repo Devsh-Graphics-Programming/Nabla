@@ -112,6 +112,7 @@ public:
 			restoreLevels(rhs.restoreLevels),
 			logger(rhs.logger),
 			workingDirectory(rhs.workingDirectory),
+      isOBBDisabled(rhs.isOBBDisabled),
 			reload(_reload)
 		{
 		}
@@ -120,11 +121,12 @@ public:
         const uint8_t* decryptionKey;
         E_CACHING_FLAGS cacheFlags;
         E_LOADER_PARAMETER_FLAGS loaderFlags;				//!< Flags having an impact on extraordinary tasks during loading process
-		IMeshManipulator* meshManipulatorOverride = nullptr;    //!< pointer used for specifying custom mesh manipulator to use, if nullptr - default mesh manipulator will be used
-		uint32_t restoreLevels = 0u;
-		const bool reload = false;
-		std::filesystem::path workingDirectory = "";
-		system::logger_opt_ptr logger;
+        IMeshManipulator* meshManipulatorOverride = nullptr;    //!< pointer used for specifying custom mesh manipulator to use, if nullptr - default mesh manipulator will be used
+        uint32_t restoreLevels = 0u;
+        bool isOBBDisabled = false;
+        const bool reload = false;
+        std::filesystem::path workingDirectory = "";
+        system::logger_opt_ptr logger;
     };
 
     //! Struct for keeping the state of the current loadoperation for safe threading

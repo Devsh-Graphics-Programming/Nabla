@@ -18,8 +18,6 @@
 #include "nbl/ext/ScreenShot/ScreenShot.h"
 
 using namespace nbl;
-using namespace core;
-using namespace ui;
 using namespace asset;
 using namespace video;
 
@@ -31,6 +29,10 @@ class OrientedBoundingBox : public ApplicationBase
   template<typename T>
   using make_shared_ptr = core::smart_refctd_ptr<T>;
 
+  using IWindow                   = ui::IWindow;
+  using IMouseEventChannel        = ui::IMouseEventChannel;
+  using IKeyboardEventChannel     = ui::IKeyboardEventChannel;
+
   static constexpr uint32_t WIN_W = 1280;
   static constexpr uint32_t WIN_H = 720;
   static constexpr uint32_t SC_IMG_COUNT = 3u;
@@ -40,24 +42,17 @@ class OrientedBoundingBox : public ApplicationBase
   static_assert(FRAMES_IN_FLIGHT > SC_IMG_COUNT);
 
   public:
-    void            setSystem   (shared_ptr<system::ISystem>&& s) override { m_system = std::move(s); }
-    void            setWindow   (shared_ptr<IWindow>&& wnd)       override { m_window = std::move(wnd); }
-    void            setSurface  (shared_ptr<ISurface>&& s)        override { m_surface = std::move(s); }
-    void            setSwapchain(shared_ptr<ISwapchain>&& s)      override { m_swapchain = std::move(s); }
-    IWindow*        getWindow()                                   override { return m_window.get(); }
-    IAPIConnection* getAPIConnection()                            override { return m_apiConnection.get(); }
-    ILogicalDevice* getLogicalDevice()                            override { return m_logicalDevice.get(); }
-    IGPURenderpass* getRenderpass()                               override { return m_renderpass.get(); }
-    uint32_t        getSwapchainImageCount()                      override { return SC_IMG_COUNT; }
-    E_FORMAT        getDepthFormat()                              override { return asset::EF_D32_SFLOAT; }
-
-    void setFBOs(std::vector<shared_ptr<IGPUFramebuffer>>& f) override
-    {
-      for (int i = 0; i < f.size(); i++)
-      {
-        m_fbos[i] = make_shared_ptr<IGPUFramebuffer>(f[i]);
-      }
-    }
+    void            setSystem   (shared_ptr<system::ISystem>&& s)             override {}
+    void            setWindow   (shared_ptr<IWindow>&& wnd)                   override {}
+    void            setSurface  (shared_ptr<ISurface>&& s)                    override {}
+    void            setSwapchain(shared_ptr<ISwapchain>&& s)                  override {}
+    void            setFBOs     (std::vector<shared_ptr<IGPUFramebuffer>>& f) override {}
+    IWindow*        getWindow()                                               override { return m_window.get(); }
+    IAPIConnection* getAPIConnection()                                        override { return m_apiConnection.get(); }
+    ILogicalDevice* getLogicalDevice()                                        override { return m_logicalDevice.get(); }
+    IGPURenderpass* getRenderpass()                                           override { return m_renderpass.get(); }
+    uint32_t        getSwapchainImageCount()                                  override { return SC_IMG_COUNT; }
+    asset::E_FORMAT getDepthFormat()                                          override { return asset::EF_D32_SFLOAT; }
 
     APP_CONSTRUCTOR(OrientedBoundingBox)
 
@@ -66,32 +61,21 @@ class OrientedBoundingBox : public ApplicationBase
     void onAppInitialized_impl() override
     {
       CommonAPI::InitOutput initOutput;
-      initOutput.window = make_shared_ptr<IWindow>(m_window);
-      initOutput.system = make_shared_ptr<system::ISystem>(m_system);
-
-      const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(
-        asset::IImage::EUF_COLOR_ATTACHMENT_BIT// | asset::IImage::EUF_STORAGE_BIT
-      );
-      const video::ISurface::SFormat surfaceFormat(
-        asset::EF_R8G8B8A8_SRGB, asset::ECP_COUNT, asset::EOTF_UNKNOWN
-      );
+      DEBUG_DATA debugData(DEBUG_DATA::MESH_NAME::FLOWER);
 
       CommonAPI::InitWithDefaultExt(
         initOutput,
         video::EAT_OPENGL,
         "61. Oriented Bounding Box",
         WIN_W, WIN_H, SC_IMG_COUNT,
-        swapchainImageUsage,
-        surfaceFormat,
-        nbl::asset::EF_D32_SFLOAT
+        static_cast<IImage::E_USAGE_FLAGS>(IImage::EUF_COLOR_ATTACHMENT_BIT),
+        ISurface::SFormat(asset::EF_R8G8B8A8_SRGB, asset::ECP_SRGB, asset::EOTF_sRGB),
+        getDepthFormat()
       );
 
-      m_window          = std::move(initOutput.window);
-      m_apiConnection   = std::move(initOutput.apiConnection);
-      m_surface         = std::move(initOutput.surface);
-      m_logicalDevice   = std::move(initOutput.logicalDevice);
       m_queues          = initOutput.queues;
       m_swapchain       = std::move(initOutput.swapchain);
+      m_logicalDevice   = std::move(initOutput.logicalDevice);
       m_renderpass      = std::move(initOutput.renderpass);
       m_fbos            = std::move(initOutput.fbo);
       m_commandPools    = std::move(initOutput.commandPools);
@@ -99,31 +83,36 @@ class OrientedBoundingBox : public ApplicationBase
       m_cpu2gpuParams   = std::move(initOutput.cpu2gpuParams);
       m_logger          = std::move(initOutput.logger);
       m_inputSystem     = std::move(initOutput.inputSystem);
-      m_system          = std::move(initOutput.system);
       m_windowCallback  = std::move(initOutput.windowCb);
       m_utilities       = std::move(initOutput.utilities);
 
       m_camera = Camera(
-        core::vectorSIMDf(0, -2, 1),
+        debugData.CAM_POS(),
         core::vectorSIMDf(0, 0, 0),
-        matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60.0f), float(WIN_W) / WIN_H, 0.1, 1000),
+        core::matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(debugData.CAM_FOV()), float(WIN_W) / WIN_H, 0.1, 1000),
         10.f, 1.f
       );
 
       IAssetLoader::SAssetLoadParams loadParams;
       loadParams.workingDirectory = sharedInputCWD;
       loadParams.logger = m_logger.get();
-      auto meshes_bundle = m_assetManager->getAsset((sharedInputCWD / "cow.obj").string(), loadParams);
+      loadParams.isOBBDisabled = false;
+
+      auto meshes_bundle = m_assetManager->getAsset((sharedInputCWD / debugData.MESH_PATH()).string(), loadParams);
       assert(!meshes_bundle.getContents().empty());
 
-      auto mesh = meshes_bundle.getContents().begin()[0];
-      auto mesh_raw = dynamic_cast<asset::ICPUMesh*>(mesh.get());
-      const ICPUMeshBuffer* cpuMB = mesh_raw->getMeshBuffers()[0];
+      const auto mesh = meshes_bundle.getContents().begin()[0];
+      const auto mesh_raw = dynamic_cast<ICPUMesh*>(mesh.get());
+      const auto* cpuMB = mesh_raw->getMeshBuffers()[0];
       const auto cpuMBPipeline = cpuMB->getPipeline();
       const auto vtxInputParams = cpuMBPipeline->getVertexInputParams();
 
-      // mesh pipeline
+      // mesh draw pipeline
       {
+        core::matrix3x4SIMD modelMatrix;
+        modelMatrix.setRotation(core::quaternion(0, 1, 0));
+//        modelMatrix.setTranslation(core::vectorSIMDf(0, 0, 0, 0));
+
         auto vertexShaderBundle = m_assetManager->getAsset("../example_mesh.vert", loadParams);
         auto fragShaderBundle = m_assetManager->getAsset("../example_mesh.frag", loadParams);
         auto cpuVertexShader = IAsset::castDown<ICPUSpecializedShader>(vertexShaderBundle.getContents().begin()->get());
@@ -136,12 +125,12 @@ class OrientedBoundingBox : public ApplicationBase
 
         std::array<IGPUSpecializedShader*, 2> gpuShaders = { gpuVertexShader.get(), gpuFragmentShader.get() };
 
-        asset::SPushConstantRange pcRange = { asset::ICPUShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD) };
+        SPushConstantRange pcRange = { ICPUShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD) };
         auto gpuPipelineLayout = m_logicalDevice->createGPUPipelineLayout(&pcRange, &pcRange + 1);
 
-        asset::SBlendParams blendParams;
-        asset::SPrimitiveAssemblyParams primAsmParams;
-        asset::SRasterizationParams rasterParams;
+        SBlendParams blendParams;
+        SPrimitiveAssemblyParams primAsmParams;
+        SRasterizationParams rasterParams;
         rasterParams.faceCullingMode = asset::EFCM_NONE;
 
         auto meshPipeline = m_logicalDevice->createGPURenderpassIndependentPipeline(
@@ -162,14 +151,19 @@ class OrientedBoundingBox : public ApplicationBase
 
       // obb debug draw pipeline
       {
-        core::OBB obb = IMeshManipulator::calculateOrientedBBox(cpuMB, vtxInputParams.bindings[0]);
+        m_draw3DLine = ext::DebugDraw::CDraw3DLine::create(m_logicalDevice, true);
+        m_draw3DLine->setViewProj(m_camera.getConcatenatedMatrix());
 
-        m_draw3DLine = ext::DebugDraw::CDraw3DLine::create(m_logicalDevice);
-        m_draw3DLine->setViewProjMatrix(m_camera.getConcatenatedMatrix());
-        m_draw3DLine->addBox(cpuMB->getBoundingBox(), 0.f, 1.f, 0.f, 1.f, obb.asMat3x4);
-        shared_ptr<video::IGPUFence> fence;
+        if(loadParams.isOBBDisabled) m_draw3DLine->addBox(cpuMB->getBoundingBox());
+        else
+        {
+          const auto& bbox = cpuMB->getOrientedBoundingBox();
+          m_draw3DLine->addBox(bbox, bbox.orientation);
+        }
+
+        shared_ptr<IGPUFence> fence;
         m_draw3DLine->updateVertexBuffer(m_utilities.get(), m_queues[CommonAPI::InitOutput::EQT_GRAPHICS], &fence);
-        m_logicalDevice->waitForFences(1, const_cast<video::IGPUFence**>(&fence.get()), false, MAX_TIMEOUT);
+        m_logicalDevice->waitForFences(1, const_cast<IGPUFence**>(&fence.get()), false, MAX_TIMEOUT);
 
         auto obbPipeline = m_draw3DLine->getRenderpassIndependentPipeline();
         IGPUGraphicsPipeline::SCreationParams obbPipelineParams;
@@ -180,7 +174,7 @@ class OrientedBoundingBox : public ApplicationBase
 
       m_logicalDevice->createCommandBuffers(
         m_commandPools[CommonAPI::InitOutput::EQT_GRAPHICS].get(),
-        video::IGPUCommandBuffer::EL_PRIMARY,
+        IGPUCommandBuffer::EL_PRIMARY,
         FRAMES_IN_FLIGHT, m_commandBuffers
       );
 
@@ -200,8 +194,7 @@ class OrientedBoundingBox : public ApplicationBase
     void workLoopBody() override
     {
       ++m_resourceIx;
-      if (m_resourceIx >= FRAMES_IN_FLIGHT)
-        m_resourceIx = 0;
+      if(m_resourceIx >= FRAMES_IN_FLIGHT) m_resourceIx = 0;
 
       const auto& gpuQueue = m_queues[CommonAPI::InitOutput::EQT_GRAPHICS];
       const auto& logicalDevicePtr = getLogicalDevice();
@@ -213,13 +206,11 @@ class OrientedBoundingBox : public ApplicationBase
 
       if(fence)
       {
-        while(m_logicalDevice->waitForFences(1u, &fence.get(), false, MAX_TIMEOUT) == video::IGPUFence::ES_TIMEOUT) {}
+        while(m_logicalDevice->waitForFences(1u, &fence.get(), false, MAX_TIMEOUT) == IGPUFence::ES_TIMEOUT) {}
         m_logicalDevice->resetFences(1u, &fence.get());
       }
       else
-      {
-        fence = m_logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
-      }
+      { fence = m_logicalDevice->createFence(static_cast<IGPUFence::E_CREATE_FLAGS>(0)); }
 
       const auto nextPresentationTimestamp = m_oracle.acquireNextImage(swapchainPtr, imageSemaphorePtr, nullptr, &m_acquiredNextFBO);
 
@@ -235,7 +226,7 @@ class OrientedBoundingBox : public ApplicationBase
       commandBuffer->begin(0);
 
       {
-        asset::SViewport viewport = {};
+        SViewport viewport = {};
         viewport.minDepth = 1.f;
         viewport.maxDepth = 0.f;
         viewport.x = 0u;
@@ -250,14 +241,12 @@ class OrientedBoundingBox : public ApplicationBase
 
         m_swapchain->acquireNextImage(MAX_TIMEOUT, imageSemaphorePtr, nullptr, &m_acquiredNextFBO);
 
-        m_draw3DLine->setViewProjMatrix(m_camera.getConcatenatedMatrix());
-
         IGPUCommandBuffer::SRenderpassBeginInfo beginInfo;
         {
           VkRect2D area;
           area.offset = { 0,0 };
           area.extent = { WIN_W, WIN_H };
-          asset::SClearValue clear[2] = {};
+          SClearValue clear[2] = {};
           clear[0].color.float32[0] = 0.f;
           clear[0].color.float32[1] = 0.f;
           clear[0].color.float32[2] = 0.f;
@@ -271,19 +260,22 @@ class OrientedBoundingBox : public ApplicationBase
           beginInfo.clearValues = clear;
         }
 
-        commandBuffer->beginRenderPass(&beginInfo, nbl::asset::ESC_INLINE);
+        commandBuffer->beginRenderPass(&beginInfo, asset::ESC_INLINE);
+
+        const auto& viewProj = m_camera.getConcatenatedMatrix();
 
         // draw mesh
         {
           const auto meshIndependentPipeline = m_gpuMeshBuffer->getPipeline();
+          const auto layout = const_cast<IGPUPipelineLayout*>(meshIndependentPipeline->getLayout());
 
-          commandBuffer->pushConstants(const_cast<IGPUPipelineLayout*>(meshIndependentPipeline->getLayout()), IShader::ESS_ALL_GRAPHICS, 0, sizeof(m_camera.getConcatenatedMatrix()), &m_camera.getConcatenatedMatrix());
+          commandBuffer->pushConstants(layout, IShader::ESS_VERTEX, 0, sizeof(viewProj), &viewProj);
           commandBuffer->bindGraphicsPipeline(m_gpuMeshPipeline.get());
           commandBuffer->drawMeshBuffer(m_gpuMeshBuffer.get());
         }
 
         // debug draw obb
-        // TODO: update pc stage flag and offset or use descriptor set for mesh shaders
+        m_draw3DLine->setViewProj(viewProj);
         m_draw3DLine->recordToCommandBuffer(commandBuffer.get(), m_gpuOBBPipeline.get());
 
         commandBuffer->endRenderPass();
@@ -309,6 +301,7 @@ class OrientedBoundingBox : public ApplicationBase
       const auto& fboCreationParams = m_fbos[m_acquiredNextFBO]->getCreationParameters();
       auto gpuSourceImageView = fboCreationParams.attachments[0];
 
+      // TODO: is upvector upside down at this point?
       bool status = ext::ScreenShot::createScreenShot(
         getLogicalDevice(),
         m_queues[CommonAPI::InitOutput::EQT_TRANSFER_DOWN],
@@ -328,7 +321,6 @@ class OrientedBoundingBox : public ApplicationBase
     shared_ptr<IWindow> m_window;
     shared_ptr<CommonAPI::CommonAPIEventCallback> m_windowCallback;
     shared_ptr<IAPIConnection> m_apiConnection;
-    shared_ptr<ISurface> m_surface;
     shared_ptr<IUtilities> m_utilities;
     shared_ptr<ILogicalDevice> m_logicalDevice;
     shared_ptr<ISwapchain> m_swapchain;
@@ -356,7 +348,7 @@ class OrientedBoundingBox : public ApplicationBase
     IGPUObjectFromAssetConverter::SParams m_cpu2gpuParams;
     IGPUObjectFromAssetConverter m_cpu2gpu;
 
-    video::CDumbPresentationOracle m_oracle;
+    CDumbPresentationOracle m_oracle;
 
     uint32_t m_acquiredNextFBO = {};
     int m_resourceIx = -1;
@@ -364,7 +356,49 @@ class OrientedBoundingBox : public ApplicationBase
     CommonAPI::InputSystem::ChannelReader<IMouseEventChannel> m_mouse;
     CommonAPI::InputSystem::ChannelReader<IKeyboardEventChannel> m_keyboard;
 
-    Camera m_camera = Camera(core::vectorSIMDf(0, 0, 0), core::vectorSIMDf(0, 0, 0), core::matrix4SIMD());
+    Camera m_camera;
+
+  private:
+    struct DEBUG_DATA
+    {
+      static constexpr const auto COW     = "cow.obj";
+      static constexpr const auto FLOWER  = "yellowflower.obj";
+      static constexpr const auto SPANNER = "ply/Spanner-ply.ply";
+      static constexpr const auto GUN     = "Cerberus_by_Andrew_Maximov/Cerberus_LP.obj";
+      enum class MESH_NAME { COW, FLOWER, SPANNER, GUN }; // COW, FLOWER, SPANNER, GUN
+      MESH_NAME meshName;
+      explicit DEBUG_DATA(const MESH_NAME& _meshName = MESH_NAME::COW) : meshName(_meshName) {}
+      inline float CAM_FOV() const noexcept
+      {
+        switch(meshName)
+        {
+          case MESH_NAME::COW:      return 20.f;
+          case MESH_NAME::FLOWER:   return 35.f;
+          case MESH_NAME::SPANNER:  return 95.f;
+          case MESH_NAME::GUN:      return 80.f;
+        } return 0.f;
+      }
+      inline const char* const MESH_PATH() const noexcept
+      {
+        switch(meshName)
+        {
+          case MESH_NAME::COW:      return COW;
+          case MESH_NAME::FLOWER:   return FLOWER;
+          case MESH_NAME::SPANNER:  return SPANNER;
+          case MESH_NAME::GUN:      return GUN;
+        } return "N/A";
+      }
+      inline core::vectorSIMDf CAM_POS() const noexcept
+      {
+        switch(meshName)
+        {
+          case MESH_NAME::COW:
+          case MESH_NAME::FLOWER:   return core::vectorSIMDf(-4, 5, 5);
+          case MESH_NAME::SPANNER:  return core::vectorSIMDf(-4, 5, -70);
+          case MESH_NAME::GUN:      return core::vectorSIMDf(-100, 30, -140);
+        } return {};
+      }
+    };
 };
 
 NBL_COMMON_API_MAIN(OrientedBoundingBox)

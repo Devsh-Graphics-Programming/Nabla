@@ -117,6 +117,7 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
             clone_common(cp.get());
 
             cp->boundingBox = boundingBox;
+            cp->orientedBBox = orientedBBox;
 
             cp->m_indexBufferBinding.offset = m_indexBufferBinding.offset;
             cp->m_indexBufferBinding.buffer = cloneBuf(m_indexBufferBinding.buffer.get());

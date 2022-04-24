@@ -12,25 +12,25 @@ namespace ext
 namespace DebugDraw
 {
 
-static const char* Draw3DLineVertexShader = R"===(
+static constexpr const auto Draw3DLineVertexShader = R"===(
 #version 430 core
 
-layout(location = 0) in vec4 vPos;
+layout(location = 0) in vec3 vPos;
 layout(location = 1) in vec4 vCol;
 
-layout( push_constant, row_major ) uniform Block {
-	mat4 modelViewProj;
-} PushConstants;
+layout( push_constant, row_major ) uniform PushConstants {
+  mat4 vp;
+} pc;
 layout(location = 0) out vec4 Color;
 
 void main()
 {
-    gl_Position = PushConstants.modelViewProj * vPos;
+    gl_Position = pc.vp * vec4(vPos, 1.0);
     Color = vCol;
 }
 )===";
 
-static const char* Draw3DLineFragmentShader = R"===(
+static constexpr const auto Draw3DLineFragmentShader = R"===(
 #version 430 core
 
 layout(location = 0) in vec4 Color;

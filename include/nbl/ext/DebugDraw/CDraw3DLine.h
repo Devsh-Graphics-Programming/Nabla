@@ -10,131 +10,189 @@
 
 namespace nbl
 {
-namespace ext
-{
-namespace DebugDraw
-{
+  namespace ext
+  {
+    namespace DebugDraw
+    {
+      #include "nbl/nblpack.h"
+      struct S3DLineVertex
+      {
+        float Position[3];
+        float Color[4];
+      } PACK_STRUCT;
+      #include "nbl/nblunpack.h"
 
+      class CDraw3DLine : public core::IReferenceCounted
+      {
+        template<typename T>
+        using shared_ptr = core::smart_refctd_ptr<T>;
 
-#include "nbl/nblpack.h"
-struct S3DLineVertex
-{
-    float Position[3];
-    float Color[4];
-} PACK_STRUCT;
-#include "nbl/nblunpack.h"
+        using CDraw3DLinePtr        = shared_ptr<CDraw3DLine>;
+        using LogicalDevicePtr      = shared_ptr<video::ILogicalDevice>;
+        using S3DLineVertexPairList = core::vector<std::pair<S3DLineVertex, S3DLineVertex>>;
 
-class CDraw3DLine : public core::IReferenceCounted
-{
-    public:
-		static core::smart_refctd_ptr<CDraw3DLine> create(const core::smart_refctd_ptr<video::ILogicalDevice>& device)
-		{
-			return core::smart_refctd_ptr<CDraw3DLine>(new CDraw3DLine(device), core::dont_grab);
-		}
+        public:
+          inline static CDraw3DLinePtr create(
+            const LogicalDevicePtr& device,
+            bool isDepthEnabled = false
+          ) noexcept
+          { return CDraw3DLinePtr(new CDraw3DLine(device, isDepthEnabled), core::dont_grab); }
 
+        public:
+          inline video::IGPURenderpassIndependentPipeline* getRenderpassIndependentPipeline() noexcept
+          { return m_rpindependent_pipeline.get(); }
 
-		void setData(const core::matrix4SIMD& viewProjMat, const core::vector<std::pair<S3DLineVertex, S3DLineVertex>>& linesData)
-		{
-			m_viewProj = viewProjMat;
-			m_lines = linesData;
+          inline void setData(
+            const core::matrix4SIMD& viewProj,
+            const S3DLineVertexPairList& linesData
+          ) noexcept
+          {
+            m_viewProj = viewProj;
+            m_lines = linesData;
+          }
 
-		}
+          inline void setViewProj(const core::matrix4SIMD& viewProj) noexcept
+          { m_viewProj = viewProj; }
 
-		void clearData()
-		{
-			m_lines.clear();
-		}
+          inline void setLinesData(const S3DLineVertexPairList& linesData) noexcept
+          { m_lines = linesData; }
 
-		void setLine(const core::matrix4SIMD& viewProjMat,
-			float fromX, float fromY, float fromZ,
-			float toX, float toY, float toZ,
-			float r, float g, float b, float a
-		)
-		{
-			m_lines = core::vector<std::pair<S3DLineVertex, S3DLineVertex>>{ std::pair(S3DLineVertex{{ fromX, fromY, fromZ }, { r, g, b, a }}, S3DLineVertex{{ toX, toY, toZ }, { r, g, b, a }}) };
-		}
+          inline void setLine(
+            const core::matrix4SIMD& viewProj,
+            const core::vectorSIMDf& from, const core::vectorSIMDf& to,
+            const core::vectorSIMDf& fromColor  = core::vectorSIMDf(0.f, 1.f, 0.f, 1.f),
+            const core::vectorSIMDf& toColor    = core::vectorSIMDf(0.f, 1.f, 0.f, 1.f)
+          ) noexcept
+          {
+            m_viewProj = viewProj;
 
-		void addLine(const core::matrix4SIMD& viewProjMat,
-			float fromX, float fromY, float fromZ,
-			float toX, float toY, float toZ,
-			float r, float g, float b, float a
-		)
-		{
-			m_lines.emplace_back(S3DLineVertex{{ fromX, fromY, fromZ }, { r, g, b, a }}, S3DLineVertex{{ toX, toY, toZ }, { r, g, b, a }});
-		}
+            m_lines = S3DLineVertexPairList{
+              std::pair(
+                S3DLineVertex{{ from.x, from.y, from.z }, { fromColor.r, fromColor.g, fromColor.b, fromColor.a }},
+                S3DLineVertex{{ to.x, to.y, to.z }, { toColor.r, toColor.g, toColor.b, toColor.a }}
+              )
+            };
+          }
 
-		void setLinesData(const core::vector<std::pair<S3DLineVertex, S3DLineVertex>>& linesData)
-		{
-			m_lines = linesData;
-		}
+          inline void clearData() noexcept { m_lines.clear(); }
 
-		void addLines(const core::vector<std::pair<S3DLineVertex, S3DLineVertex>>& linesData)
-		{
-			m_lines.insert(m_lines.end(), linesData.begin(), linesData.end());
-		}
+          inline void addLine(
+            const core::matrix4SIMD& viewProj,
+            const core::vectorSIMDf& from, const core::vectorSIMDf& to,
+            const core::vectorSIMDf& fromColor  = core::vectorSIMDf(0.f, 1.f, 0.f, 1.f),
+            const core::vectorSIMDf& toColor    = core::vectorSIMDf(0.f, 1.f, 0.f, 1.f)
+          ) noexcept
+          {
+            m_viewProj = viewProj;
 
-		void setViewProjMatrix(const core::matrix4SIMD& viewProjMat)
-		{
-			m_viewProj = viewProjMat;
-		}
+            m_lines.emplace_back(
+              S3DLineVertex{{ from.x, from.y, from.z }, { fromColor.r, fromColor.g, fromColor.b, fromColor.a }},
+              S3DLineVertex{{ to.x, to.y, to.z }, { toColor.r, toColor.g, toColor.b, toColor.a }}
+            );
+          }
 
-		video::IGPURenderpassIndependentPipeline* getRenderpassIndependentPipeline()
-		{
-			return m_rpindependent_pipeline.get();
-		}
-		/*
-			The function which records the debug draw call into the command buffer @cmdBuffer.
-			The function assumes that the cmdBuffer is in the recording state, so you should call cmdBuffer->begin() 
-			before calling CDraw3DLine::recordToCommandBuffer.
-			The @graphics_pipeline parameter is the graphics pipeline, built up on the renderpass independent pipeline, which you can 
-			retrieve with CDraw3DLine::getRenderpassIndependentPipeline()
-		*/
-		void recordToCommandBuffer(video::IGPUCommandBuffer* cmdBuffer, video::IGPUGraphicsPipeline* graphics_pipeline);
+          inline void addLine(
+            const core::vectorSIMDf& from, const core::vectorSIMDf& to,
+            const core::vectorSIMDf& fromColor  = core::vectorSIMDf(0.f, 1.f, 0.f, 1.f),
+            const core::vectorSIMDf& toColor    = core::vectorSIMDf(0.f, 1.f, 0.f, 1.f)
+          ) noexcept
+          {
+            m_lines.emplace_back(
+              S3DLineVertex{{ from.x, from.y, from.z }, { fromColor.r, fromColor.g, fromColor.b, fromColor.a }},
+              S3DLineVertex{{ to.x, to.y, to.z }, { toColor.r, toColor.g, toColor.b, toColor.a }}
+            );
+          }
 
-		inline void addBox(const core::aabbox3df& box, float r, float g, float b, float a, const core::matrix3x4SIMD& tform=core::matrix3x4SIMD())
-		{
-			auto addLine = [&](auto s, auto e) -> void
-			{
-				m_lines.emplace_back(S3DLineVertex{{s.X,s.Y,s.Z},{r,g,b,a}},S3DLineVertex{{e.X,e.Y,e.Z},{r,g,b,a}});
-			};
+          inline void addLines(const S3DLineVertexPairList& linesData) noexcept
+          { m_lines.insert(m_lines.end(), linesData.begin(), linesData.end()); }
 
-			core::vectorSIMDf verts[8];
-			box.getEdges(verts);
-			for (auto i=0; i<8; i++)
-				tform.pseudoMulWith4x1(verts[i]);
+          // to use for both AABB and OBB (cannot/should not alter bbox here!)
+          template<class TBox = core::aabbox3dsf>
+          inline void addBox(
+            const TBox& box,
+            const core::matrix3x4SIMD& tform    = core::matrix3x4SIMD(),
+            const core::vectorSIMDf& fromColor  = core::vectorSIMDf(0.f, 1.f, 0.f, 1.f),
+            const core::vectorSIMDf& toColor    = core::vectorSIMDf(0.f, 1.f, 0.f, 1.f)
+          ) noexcept
+          {
+            static_assert(
+              std::is_base_of<core::aabbox3dsf, TBox>::value ||
+              std::is_base_of<core::aabbox3df,  TBox>::value ||
+              std::is_base_of<core::aabbox3di,  TBox>::value,
+              "TBox should derive from aabbox3d<T, UVector>"
+            );
 
-			addLine(verts[0], verts[1]);
-			addLine(verts[0], verts[2]);
-			addLine(verts[1], verts[3]);
-			addLine(verts[2], verts[3]);
+            core::vectorSIMDf verts[10];
 
-			addLine(verts[0], verts[4]);
-			addLine(verts[1], verts[5]);
-			addLine(verts[2], verts[6]);
-			addLine(verts[3], verts[7]);
+            box.getEdges(verts);
 
-			addLine(verts[4], verts[5]);
-			addLine(verts[4], verts[6]);
-			addLine(verts[5], verts[7]);
-			addLine(verts[6], verts[7]);
-		}
-		// If @fence is not nullptr, you'll get a new fence assigned to @fence that you can wait for,
-		// If @fence is nullptr, the function will automatically manage fence waiting
-        void updateVertexBuffer(video::IUtilities* utilities, video::IGPUQueue* queue, core::smart_refctd_ptr<video::IGPUFence>* fence = nullptr);
-    private:
-		CDraw3DLine(const core::smart_refctd_ptr<video::ILogicalDevice>& device);
-		virtual ~CDraw3DLine() {}
-	private:
-		core::smart_refctd_ptr<video::ILogicalDevice> m_device;
-		core::smart_refctd_ptr<video::IGPUBuffer> m_linesBuffer =  nullptr;
-		core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> m_rpindependent_pipeline;
-		core::matrix4SIMD m_viewProj;
-		core::vector<std::pair<S3DLineVertex, S3DLineVertex>> m_lines;
-        const uint32_t alignments[1] = { sizeof(S3DLineVertex) };
-};
+            for(auto i=0; i<10; i++)
+            { tform.pseudoMulWith4x1(verts[i]); }
 
-} // namespace DebugDraw
-} // namespace ext
+            addLine(verts[0], verts[1], fromColor, toColor);
+            addLine(verts[0], verts[2], fromColor, toColor);
+            addLine(verts[1], verts[3], fromColor, toColor);
+            addLine(verts[2], verts[3], fromColor, toColor);
+
+            addLine(verts[0], verts[4], fromColor, toColor);
+            addLine(verts[1], verts[5], fromColor, toColor);
+            addLine(verts[2], verts[6], fromColor, toColor);
+            addLine(verts[3], verts[7], fromColor, toColor);
+
+            addLine(verts[4], verts[5], fromColor, toColor);
+            addLine(verts[4], verts[6], fromColor, toColor);
+            addLine(verts[5], verts[7], fromColor, toColor);
+            addLine(verts[6], verts[7], fromColor, toColor);
+
+            // TODO: remove once done testing
+            addLine(verts[8], verts[9], core::vectorSIMDf(1,0,0,1), core::vectorSIMDf(0,0,1,1));
+          }
+
+          inline void addKDOP(
+            const core::OBB& dito,
+            const core::matrix3x4SIMD& tform    = core::matrix3x4SIMD(),
+            const core::vectorSIMDf& fromColor  = core::vectorSIMDf(0.f, 1.f, 0.f, 1.f),
+            const core::vectorSIMDf& toColor    = core::vectorSIMDf(0.f, 1.f, 0.f, 1.f)
+          ) noexcept
+          {}
+
+        public:
+          // If @fence is not nullptr, you'll get a new fence assigned to @fence that you can wait for,
+          // If @fence is nullptr, the function will automatically manage fence waiting
+          void updateVertexBuffer(
+            video::IUtilities* utilities,
+            video::IGPUQueue* queue,
+            shared_ptr<video::IGPUFence>* fence = nullptr
+          ) noexcept;
+
+          /*
+            The function which records the debug draw call into the command buffer @cmdBuffer.
+            The function assumes that the cmdBuffer is in the recording state, so you should call cmdBuffer->begin()
+            before calling CDraw3DLine::recordToCommandBuffer.
+            The @graphics_pipeline parameter is the graphics pipeline, built up on the renderpass independent pipeline, which you can
+            retrieve with CDraw3DLine::getRenderpassIndependentPipeline()
+          */
+          void recordToCommandBuffer(
+            video::IGPUCommandBuffer* cmdBuffer,
+            video::IGPUGraphicsPipeline* graphics_pipeline,
+            uint32_t pushConstOffset = 0
+          ) noexcept;
+
+        private:
+          explicit CDraw3DLine(const LogicalDevicePtr& device, bool isDepthEnabled = false);
+          ~CDraw3DLine() override = default;
+
+        private:
+          LogicalDevicePtr m_device;
+          shared_ptr<video::IGPUBuffer> m_linesBuffer = nullptr;
+          shared_ptr<video::IGPURenderpassIndependentPipeline> m_rpindependent_pipeline;
+          core::matrix4SIMD m_viewProj;
+          S3DLineVertexPairList m_lines;
+
+          const uint32_t alignments[1] = { sizeof(S3DLineVertex) };
+      };
+    } // namespace DebugDraw
+  } // namespace ext
 } // namespace nbl
 
 #endif

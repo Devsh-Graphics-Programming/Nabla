@@ -445,12 +445,12 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const as
 					return {};
             }
 
-			IMeshManipulator::recalculateBoundingBox(mb.get());
+			IMeshManipulator::recalculateBoundingBox(mb.get(), _params.isOBBDisabled);
 
 			mesh = core::make_smart_refctd_ptr<ICPUMesh>();
 			mesh->getMeshBufferVector().emplace_back(std::move(mb));
 
-			IMeshManipulator::recalculateBoundingBox(mesh.get());
+			IMeshManipulator::recalculateBoundingBox(mesh.get(), _params.isOBBDisabled);
 		}
 	}
 	

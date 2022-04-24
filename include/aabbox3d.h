@@ -6,6 +6,15 @@
 #ifndef __NBL_AABBOX_3D_H_INCLUDED__
 #define __NBL_AABBOX_3D_H_INCLUDED__
 
+/**
+ * @TODO: This seems to be used for only one function here which is not invoked anywhere in the
+ *   current state of the codebase and line3d is effectively replaced by CDraw3DLine extension
+ *   two suggestions:
+ *   - can inherit from line3d for all CDraw3DLine debug extension and cover all funcs from the superclass?
+ *   - can remove all line3d instances/usages and unify all line drawing funcs to CDraw3DLine?
+ *     (not the impl yet though to complete CDraw3DLine if smth missing,
+ *     and use not only for debug draw, but any other line3d draw)
+ */
 #include "line3d.h"
 
 namespace nbl
@@ -15,20 +24,33 @@ namespace core
 
 //! Axis aligned bounding box in 3d dimensional space.
 /** Has some useful methods used with occlusion culling or clipping.
+ * @TODO UVector was introduced to allow for usage other than of vector3d<float> (i.e. vectorSIMDf)
+ *   and defaulted to allow for gradual migration of vector3d-based usage/implementation of aabbox3df
+ *   to vectorSIMDf (i.e. vector3df_SIMD) everywhere in the codebase
 */
-template <class T>
+template<class T, class UVector>
 class aabbox3d // : public AllocationOverrideDefault ?
 {
+  static_assert(
+    std::is_convertible<vector3d<T>, UVector>::value ||
+    std::is_convertible<vectorSIMDf, UVector>::value ,
+    "UVector should be of either vector3d<T>, vectorSIMDf or their typedefs"
+  );
+
 	public:
 
 		//! Default Constructor.
-		aabbox3d(): MinEdge(-1,-1,-1), MaxEdge(1,1,1) {}
+		aabbox3d()
+    : MinEdge(-1,-1,-1), MaxEdge(1,1,1) {}
 		//! Constructor with min edge and max edge.
-		aabbox3d(const vector3d<T>& min, const vector3d<T>& max): MinEdge(min), MaxEdge(max) {}
-		//! Constructor with only one point.
-		aabbox3d(const vector3d<T>& init): MinEdge(init), MaxEdge(init) {}
+		aabbox3d(const UVector& min, const UVector& max)
+    : MinEdge(min), MaxEdge(max) {}
 		//! Constructor with min edge and max edge as single values, not vectors.
-		aabbox3d(T minx, T miny, T minz, T maxx, T maxy, T maxz): MinEdge(minx, miny, minz), MaxEdge(maxx, maxy, maxz) {}
+		aabbox3d(T minx, T miny, T minz, T maxx, T maxy, T maxz)
+    : MinEdge(minx, miny, minz), MaxEdge(maxx, maxy, maxz) {}
+    //! Constructor with only one point.
+    explicit aabbox3d(const UVector& _init)
+    : MinEdge(_init), MaxEdge(_init) {}
 
 		// operators
 		//! Equality operator
@@ -61,28 +83,34 @@ class aabbox3d // : public AllocationOverrideDefault ?
 
 		//! Resets the bounding box to a one-point box.
 		/** \param initValue New point. */
-		void reset(const vector3d<T>& initValue)
+		void reset(const UVector& initValue)
 		{
 			MaxEdge = initValue;
 			MinEdge = initValue;
 		}
 
-		//! Adds a point to the bounding box
-		/** The box grows bigger, if point was outside of the box.
-		\param p: Point to add into the box. */
-		void addInternalPoint(const vector3d<T>& p)
-		{
-			addInternalPoint(p.X, p.Y, p.Z);
-		}
-
 		//! Adds another bounding box
 		/** The box grows bigger, if the new box was outside of the box.
 		\param b: Other bounding box to add into this box. */
-		void addInternalBox(const aabbox3d<T>& b)
+		template<typename TBox = aabbox3d<T, UVector>>
+		void addInternalBox(const TBox& b)
 		{
+      static_assert(
+        std::is_base_of<aabbox3d<T, UVector>, TBox>::value,
+        "TBox should derive from aabbox3d<T, UVector>"
+      );
+
 			addInternalPoint(b.MaxEdge);
 			addInternalPoint(b.MinEdge);
 		}
+
+    //! Adds a point to the bounding box
+    /** The box grows bigger, if point was outside of the box.
+    \param p: Point to add into the box. */
+    void addInternalPoint(const UVector& p)
+    {
+      addInternalPoint(p.X, p.Y, p.Z);
+    }
 
 		//! Adds a point to the bounding box
 		/** The box grows bigger, if point is outside of the box.
@@ -102,14 +130,14 @@ class aabbox3d // : public AllocationOverrideDefault ?
 
 		//! Get center of the bounding box
 		/** \return Center of the bounding box. */
-		vector3d<T> getCenter() const
+		UVector getCenter() const
 		{
 			return (MinEdge + MaxEdge) / 2;
 		}
 
 		//! Get extent of the box (maximal distance of two points in the box)
 		/** \return Extent of the bounding box. */
-		vector3d<T> getExtent() const
+		UVector getExtent() const
 		{
 			return MaxEdge - MinEdge;
 		}
@@ -125,14 +153,14 @@ class aabbox3d // : public AllocationOverrideDefault ?
 		//! Get the volume enclosed by the box in cubed units
 		T getVolume() const
 		{
-			const vector3d<T> e = getExtent();
+			const UVector e = getExtent();
 			return e.X * e.Y * e.Z;
 		}
 
 		//! Get the surface area of the box in squared units
 		T getArea() const
 		{
-			const vector3d<T> e = getExtent();
+			const UVector e = getExtent();
 			return 2*(e.X*e.Y + e.X*e.Z + e.Y*e.Z);
 		}
 
@@ -141,8 +169,8 @@ class aabbox3d // : public AllocationOverrideDefault ?
 		template<class vectorT>
 		void getEdges(vectorT* edges) const
 		{
-			const core::vector3d<T> middle = getCenter();
-			const core::vector3d<T> diag = middle - MaxEdge;
+			const UVector middle = getCenter();
+			const UVector diag = middle - MaxEdge;
 
 			/*
 			Edges are stored in this way:
@@ -165,7 +193,11 @@ class aabbox3d // : public AllocationOverrideDefault ?
 			edges[5].set(middle.X - diag.X, middle.Y - diag.Y, middle.Z + diag.Z);
 			edges[6].set(middle.X - diag.X, middle.Y + diag.Y, middle.Z - diag.Z);
 			edges[7].set(middle.X - diag.X, middle.Y - diag.Y, middle.Z - diag.Z);
-		}
+
+      // TODO: remove once done testing
+      edges[8].set(MinEdge.X, MinEdge.Y, MinEdge.Z); // red
+      edges[9].set(MaxEdge.X, MaxEdge.Y, MaxEdge.Z); // blue
+    }
 
 		//! Repairs the box.
 		/** Necessary if for example MinEdge and MaxEdge are swapped. */
@@ -185,7 +217,7 @@ class aabbox3d // : public AllocationOverrideDefault ?
 		/** Border is included (IS part of the box)!
 		\param p: Point to check.
 		\return True if the point is within the box and false if not */
-		bool isPointInside(const vector3d<T>& p) const
+		bool isPointInside(const UVector& p) const
 		{
 			return (p.X >= MinEdge.X && p.X <= MaxEdge.X &&
 				p.Y >= MinEdge.Y && p.Y <= MaxEdge.Y &&
@@ -196,7 +228,7 @@ class aabbox3d // : public AllocationOverrideDefault ?
 		/** Border is excluded (NOT part of the box)!
 		\param p: Point to check.
 		\return True if the point is within the box and false if not. */
-		bool isPointTotalInside(const vector3d<T>& p) const
+		bool isPointTotalInside(const UVector& p) const
 		{
 			return (p.X > MinEdge.X && p.X < MaxEdge.X &&
 				p.Y > MinEdge.Y && p.Y < MaxEdge.Y &&
@@ -237,11 +269,11 @@ class aabbox3d // : public AllocationOverrideDefault ?
 		\param linevect Vector of the line.
 		\param halflength Half length of the line.
 		\return True if there is an intersection, else false. */
-		bool intersectsWithLine(const vector3d<T>& linemiddle,
-					const vector3d<T>& linevect, T halflength) const
+		bool intersectsWithLine(const UVector& linemiddle,
+					const UVector& linevect, T halflength) const
 		{
-			const vector3d<T> e = getExtent() * (T)0.5;
-			const vector3d<T> t = getCenter() - linemiddle;
+			const UVector e = getExtent() * (T)0.5;
+			const UVector t = getCenter() - linemiddle;
 
 			if ((fabs(t.X) > e.X + halflength * fabs(linevect.X)) ||
 				(fabs(t.Y) > e.Y + halflength * fabs(linevect.Y)) ||
@@ -264,16 +296,20 @@ class aabbox3d // : public AllocationOverrideDefault ?
 		}
 
 		//! The near edge
-		vector3d<T> MinEdge;
+		UVector MinEdge;
 
 		//! The far edge
-		vector3d<T> MaxEdge;
+		UVector MaxEdge;
+
+    float Area = 0;   // quality measure of the bounding box
 };
 
+//! Typedef for a SIMD float 3d bounding box.
+typedef aabbox3d<float, vectorSIMDf> aabbox3dsf;
 //! Typedef for a float 3d bounding box.
-typedef aabbox3d<float> aabbox3df;
+typedef aabbox3d<float, vector3d<float>> aabbox3df;
 //! Typedef for an integer 3d bounding box.
-typedef aabbox3d<int32_t> aabbox3di;
+typedef aabbox3d<int32_t, vector3d<int32_t>> aabbox3di;
 
 } // end namespace core
 } // end namespace nbl

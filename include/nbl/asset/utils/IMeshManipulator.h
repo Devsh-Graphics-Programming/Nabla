@@ -371,11 +371,14 @@ class IMeshManipulator : public virtual core::IReferenceCounted
 			
 			const bool computeJointAABBs = outJointAABBs&&meshbuffer->isSkinned();
 			if (computeJointAABBs)
-			for (auto i=0u; i<meshbuffer->getJointCount(); i++)
-				outJointAABBs[i] = aabb;
+      {
+        for (auto i=0u; i<meshbuffer->getJointCount(); i++)
+        { outJointAABBs[i] = aabb; }
+      }
 
 			if (indexCountOverride==0u)
-				indexCountOverride = meshbuffer->getIndexCount();
+      { indexCountOverride = meshbuffer->getIndexCount(); }
+
 			auto impl = [meshbuffer,computeJointAABBs,&aabb,indexCountOverride](const auto* indexPtr, auto* jointAABBs) -> void
 			{
 				const uint32_t jointCount = meshbuffer->getJointCount();
@@ -406,14 +409,16 @@ class IMeshManipulator : public virtual core::IReferenceCounted
 						{
 							const auto jointID = jointIDs[i];
 							if (jointID<jointCount)
-							if ((i<maxWeights ? weights[i]:weightRemainder)>FLT_MIN)
-							{
-								core::vectorSIMDf boneSpacePos;
-								inverseBindPoses[jointID].transformVect(boneSpacePos,pos);
-								jointAABBs[jointID].addInternalPoint(boneSpacePos.getAsVector3df());
-								noJointInfluence = false;
-							}
-							weightRemainder -= weights[i];
+              {
+                if ((i<maxWeights ? weights[i]:weightRemainder)>FLT_MIN)
+                {
+                  core::vectorSIMDf boneSpacePos;
+                  inverseBindPoses[jointID].transformVect(boneSpacePos,pos);
+                  jointAABBs[jointID].addInternalPoint(boneSpacePos.getAsVector3df());
+                  noJointInfluence = false;
+                }
+                weightRemainder -= weights[i];
+              }
 						}
 					}
 					
@@ -452,54 +457,25 @@ class IMeshManipulator : public virtual core::IReferenceCounted
 		}
 
 		//! Recalculates the cached bounding box of the meshbuffer
-		static inline void recalculateBoundingBox(ICPUMeshBuffer* meshbuffer)
+		static inline void recalculateBoundingBox(ICPUMeshBuffer* meshbuffer, bool isOBBDisabled)
 		{
-			meshbuffer->setBoundingBox(calculateBoundingBox(meshbuffer,meshbuffer->getJointAABBs()));
+      if(isOBBDisabled)
+      { meshbuffer->setBoundingBox(calculateBoundingBox(meshbuffer,meshbuffer->getJointAABBs())); }
+      else
+      { meshbuffer->setBoundingBox(calculateOrientedBBox(meshbuffer)); }
 		}
 
-    static inline core::OBB calculateOrientedBBox(
-      const ICPUMeshBuffer* meshBuffer,
-      const SVertexInputBindingParams& vtxInputBindingParams
-    )
+    static inline core::OBB calculateOrientedBBox(const ICPUMeshBuffer* meshBuffer)
     {
-      auto vtxCount = calcVertexSize(meshBuffer);
+      auto vtxCount = meshBuffer->getIndexCount();
 
-      {
-        uint32_t posAttrIdx = meshBuffer->getPositionAttributeIx();
-        auto posPtr = const_cast<uint8_t *>(meshBuffer->getAttribPointer(posAttrIdx));
-        const uint32_t stride = vtxInputBindingParams.stride;
-        core::matrix3x4SIMD rs;
-        const auto quarterPI = core::QUARTER_PI<float>();
-        rs.setRotation(core::quaternion(0.0f, -quarterPI, -quarterPI));
-        core::matrix3x4SIMD s;
-        //s.setScale(core::vectorSIMDf(10.0f, 1.0f, 1.0f));
-        rs = core::matrix3x4SIMD::concatenateBFollowedByA(rs, s);
+      std::vector<core::vectorSIMDf> vtxList;
+      vtxList.reserve(vtxCount);
 
-        for (size_t i = 0ull; i < vtxCount; i++)
-        {
-          auto vtxPos = meshBuffer->getPosition(i);
-          rs.pseudoMulWith4x1(vtxPos);
-          memcpy(posPtr, vtxPos.pointer, sizeof(float) * 3);
-          posPtr += stride;
-        }
-      }
+      for(auto i = 0u; i < vtxCount; i++)
+      { vtxList.push_back(meshBuffer->getPosition(i)); }
 
-//      const uint8_t k = 13;
-//      const uint8_t vtxArraySize = k * 2;
-//      std::array<core::vectorSIMDf, vtxArraySize> vtxArray;
-//
-//      vtxCount = vtxCount > vtxArraySize ? vtxArraySize : vtxCount;
-//
-//      for(auto i = 0u; i < vtxCount; i++)
-//      {
-//        vtxArray[i] = meshBuffer->getPosition(i);
-//      }
-//
-//      core::KDOP<k> kDOP(vtxArray, vtxCount);
-
-      const auto& vtxPosGetCb = [=](size_t idx) { return meshBuffer->getPosition(idx); };
-
-      core::KDOP kDOP(vtxPosGetCb, vtxCount);
+      core::KDOP kDOP(vtxList, vtxCount);
       core::OBB obb;
 
       kDOP.compute(obb);
@@ -718,18 +694,34 @@ class IMeshManipulator : public virtual core::IReferenceCounted
 		{
 			core::aabbox3df aabb(FLT_MAX, FLT_MAX, FLT_MAX, -FLT_MAX, -FLT_MAX, -FLT_MAX);
 
-			auto meshbuffers = mesh->getMeshBuffers();
-			for (auto mesh : meshbuffers)
-				aabb.addInternalBox(mesh->getBoundingBox());
+			const auto& meshBuffers = mesh->getMeshBuffers();
+			for(const auto& buffer : meshBuffers)
+      { aabb.addInternalBox(buffer->getBoundingBox()); }
 			
 			return aabb;
 		}
 
+    //! Calculates oriented bounding box of the mesh
+    template<typename T>
+    static inline core::OBB calculateOrientedBBox(const IMesh<T>* mesh)
+    {
+      core::OBB obb;
+
+      const auto& meshBuffers = mesh->getMeshBuffers();
+      for(const auto& buffer : meshBuffers)
+      { obb.addInternalBox(buffer->getOrientedBoundingBox()); }
+
+      return obb;
+    }
+
 		//! Recalculates the cached bounding box of the mesh
 		template<typename T>
-		static inline void recalculateBoundingBox(IMesh<T>* mesh)
+		static inline void recalculateBoundingBox(IMesh<T>* mesh, bool isOBBDisabled)
 		{
-			mesh->setBoundingBox(calculateBoundingBox(mesh));
+      if(isOBBDisabled)
+      { mesh->setBoundingBox(calculateBoundingBox(mesh)); }
+      else
+      { mesh->setBoundingBox(calculateOrientedBBox(mesh)); }
 		}
 
 

@@ -499,11 +499,11 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
     auto mesh = core::make_smart_refctd_ptr<ICPUMesh>();
     for (auto& submesh : submeshes)
     {
-		IMeshManipulator::recalculateBoundingBox(submesh.get());
+		IMeshManipulator::recalculateBoundingBox(submesh.get(), _params.isOBBDisabled);
         mesh->getMeshBufferVector().emplace_back(std::move(submesh));
     }
 
-	IMeshManipulator::recalculateBoundingBox(mesh.get());
+	IMeshManipulator::recalculateBoundingBox(mesh.get(), _params.isOBBDisabled);
 	if (mesh->getMeshBuffers().empty())
         return {};
     

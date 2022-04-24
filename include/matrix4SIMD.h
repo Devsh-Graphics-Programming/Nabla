@@ -12,7 +12,7 @@ namespace nbl
 namespace core
 {
 
-template<typename T>
+template<typename T, typename vectorU = vector3d<T>>
 class aabbox3d;
 
 
