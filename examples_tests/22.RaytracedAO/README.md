@@ -55,8 +55,9 @@ You can switch between those sensors using `PAGE UP/DOWN` Keys defined in more d
 |   bloomScale   | Denoiser Bloom Scale                                                                   | float  | 0.1                                                                                                                                                                      |
 | bloomIntensity | Denoiser Bloom Intensity                                                               | float  | 0.1                                                                                                                                                                      |
 |  bloomFilePath | Lens Flare File Path                                                                   | string | "../../media/kernels/physical_flare_512.exr"                                                                                                                             |
-|   tonemapper   | Tonemapper Settings for Denoiser                                                       | string | "ACES=0.4,0.8"                                                                                                                                                           |
-|   highQualityEdges   | Number in pixels (prevously was bool) to add to borders for more accurate denoising            | integer| 0                                                                                                                                                           |
+|   tonemapper   | Tonemapper Settings for Denoiser                                                       | string | "ACES=0.4,0.8"
+| cropOffsetX, cropOffsetY | Used to control the offset for cropping cubemap renders (instead of highQualityEdges)  | int    | 0                                                                                                                                                                        |
+| cropWidth, cropHeight    | Used to control the size for cropping cubemap renders (instead of highQualityEdges)    | int    | width-cropOffsetX, height-cropOffsetY                                                                                             
 
 ### Example of a sensor using all new properties described above.
 ```xml
@@ -87,6 +88,38 @@ You can switch between those sensors using `PAGE UP/DOWN` Keys defined in more d
 	</film>
 </sensor>
 ```
+### Example of Cubemap Render
+```xml
+<sensor type="spherical" >
+		<transform name="toWorld" >
+			<matrix value="-0.89874 -0.0182716 -0.4381 1.211 0 0.999131 -0.0416703 1.80475 0.438481 -0.0374507 -0.89796 3.85239 0 0 0 1"/>
+		</transform>
+		<sampler type="sobol" >
+			<integer name="sampleCount" value="128" />
+		</sampler>
+		<film type="ldrfilm" >
+			<string name="outputFilePath" value="C:\Users\Erfan\Desktop\Renders\MyCubeMapRender.exr" />
+			<integer name="width" value="1152" />
+			<integer name="height" value="1152" />
+			<integer name="cropWidth" value="1024" />
+			<integer name="cropHeight" value="1024" />
+			<integer name="cropOffsetX" value="64" />
+			<integer name="cropOffsetY" value="64" />
+			<string name="fileFormat" value="png" />
+			<string name="pixelFormat" value="rgb" />
+			<float name="gamma" value="2.2" />
+			<boolean name="banner" value="false" />
+			<float name="bloomScale" value="0.1" />
+			<float name="bloomIntensity" value="0.1" />
+			<string name="bloomFilePath" value="../../media/kernels/physical_flare_512.exr" />
+			<string name="tonemapper" value="ACES=0.4,0.8" />
+			<rfilter type="tent" />
+		</film>
+</sensor>
+```
+
+Example above renders to 1024x1024 cubemap sides and uses 64 offset pixels for higher quality. 
+So the full width, height are 1152x1152 (64+1024+64=1152)
 
 ## Mouse
 
