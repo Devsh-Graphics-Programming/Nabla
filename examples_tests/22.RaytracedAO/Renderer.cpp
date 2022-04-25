@@ -1581,7 +1581,7 @@ void Renderer::takeAndSaveScreenShot(const std::filesystem::path& screenshotFile
 void Renderer::denoiseCubemapFaces(
 	std::filesystem::path filePaths[6],
 	const std::string& mergedFileName,
-	int borderPixels,
+	int32_t cropOffsetX, int32_t cropOffsetY, int32_t cropWidth, int32_t cropHeight,
 	const DenoiserArgs& denoiserArgs)
 {
 	auto commandQueue = m_rrManager->getCLCommandQueue();
@@ -1657,7 +1657,10 @@ void Renderer::denoiseCubemapFaces(
 		std::ostringstream extractImagesCmd;
 		auto mergedDenoisedWithoutExtension = std::filesystem::path(mergedDenoisedFilePath).replace_extension().string();
 		extractImagesCmd << "call ../extractCubemap.bat ";
-		extractImagesCmd << " " << std::to_string(borderPixels);
+		extractImagesCmd << " " << std::to_string(cropOffsetX);
+		extractImagesCmd << " " << std::to_string(cropOffsetY);
+		extractImagesCmd << " " << std::to_string(cropWidth);
+		extractImagesCmd << " " << std::to_string(cropHeight);
 		extractImagesCmd << " " << mergedDenoisedWithoutExtension + extension;
 		for(uint32_t i = 0; i < 6; ++i)
 		{

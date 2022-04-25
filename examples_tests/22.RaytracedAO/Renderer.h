@@ -53,7 +53,11 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 
 		void takeAndSaveScreenShot(const std::filesystem::path& screenshotFilePath, bool denoise = false, const DenoiserArgs& denoiserArgs = {});
 		
-		void denoiseCubemapFaces(std::filesystem::path filePaths[6], const std::string& mergedFileName, int borderPixels, const DenoiserArgs& denoiserArgs = {});
+		void denoiseCubemapFaces(
+			std::filesystem::path filePaths[6],
+			const std::string& mergedFileName, 
+			int32_t cropOffsetX, int32_t cropOffsetY, int32_t cropWidth, int32_t cropHeight,
+			const DenoiserArgs& denoiserArgs = {});
 
 		bool render(nbl::ITimer* timer, const bool transformNormals, const bool beauty=true);
 
