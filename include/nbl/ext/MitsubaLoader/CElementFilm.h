@@ -125,7 +125,7 @@ class CElementFilm : public IElement
 		PixelFormat		pixelFormat;
 		ComponentFormat	componentFormat;
 		bool banner;
-		int32_t highQualityEdges;
+		bool highQualityEdges;
 		CElementRFilter rfilter;
 		union
 		{
@@ -141,6 +141,7 @@ class CElementFilm : public IElement
 		float denoiserBloomIntensity = 0.0f;
 		_NBL_STATIC_INLINE_CONSTEXPR size_t MaxTonemapperArgsLen = 128;
 		char denoiserTonemapperArgs[MaxTonemapperArgsLen+1] = {0};
+		float EnvmapRegularizationFactor = 0.0f; // 1.0f means all envmap, 0.0f means no envmap
 };
 
 
