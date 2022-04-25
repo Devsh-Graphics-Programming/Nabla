@@ -1183,14 +1183,16 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height)
 	}
 	
 	// write a SAMPLE_SEQUENCE_STRIDE_EACH_STRATEGY + STRATEGY_COUNT for clarity(??) 
-	(std::ofstream("runtime_defines.glsl")
-		<< "#define _NBL_EXT_MITSUBA_LOADER_VT_STORAGE_VIEW_COUNT " << m_globalMeta->m_global.getVTStorageViewCount() << "\n"
+	auto stream = std::ofstream("runtime_defines.glsl");
+
+	stream << "#define _NBL_EXT_MITSUBA_LOADER_VT_STORAGE_VIEW_COUNT " << m_globalMeta->m_global.getVTStorageViewCount() << "\n"
 		<< m_globalMeta->m_global.m_materialCompilerGLSL_declarations
 		<< "#define SAMPLE_SEQUENCE_STRIDE " << SampleSequence::computeQuantizedDimensions(pathDepth) << "\n"
 		<< "#ifndef MAX_RAYS_GENERATED\n"
 		<< "#	define MAX_RAYS_GENERATED " << getSamplesPerPixelPerDispatch() << "\n"
-		<< "#endif\n"
-	).close();
+		<< "#endif\n";
+
+	stream.close();
 	
 	compileShadersFuture = std::async(std::launch::async, [&]()
 	{
@@ -1682,7 +1684,7 @@ bool Renderer::render(nbl::ITimer* timer, const bool transformNormals, const boo
 	camera->OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(timer->getTime()).count());
 	camera->render();
 
-	computeWarpMap();
+	// computeWarpMap(); // For test when capturing
 
 	// check if camera moved
 	{
@@ -2161,7 +2163,6 @@ void Renderer::deinitWarpingResources()
 
 void Renderer::computeWarpMap()
 {
-
 	LumaMipMapGenShaderData_t pcData = {};
 	const float regularizationFactor = 0.5f;
 	pcData.luminanceScales = { 0.2126729f * regularizationFactor, 0.7151522f * regularizationFactor, 0.0721750f* regularizationFactor, (1.0f-regularizationFactor) };
@@ -2207,7 +2208,6 @@ void Renderer::computeWarpMap()
 		m_driver->dispatch(workGroups[0],workGroups[1],1);
 		COpenGLExtensionHandler::pGlMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT|GL_SHADER_IMAGE_ACCESS_BARRIER_BIT|GL_TEXTURE_UPDATE_BARRIER_BIT);
 	}
-	
 
 	// Generate WarpMap
 	{
