@@ -4,9 +4,9 @@ import shutil
 import filecmp
 from pathlib import *
 
-NBL_IMAGEMAGICK_EXE = Path(@_NBL_IMAGEMAGICK_EXE_@)
-NBL_PATHTRACER_EXE = Path(@_NBL_PATHTRACER_EXE_@)
-NBL_SCENES_INPUT_TXT = Path(@_NBL_SCENES_INPUT_TXT_@)
+NBL_IMAGEMAGICK_EXE = Path('@_NBL_IMAGEMAGICK_EXE_@')
+NBL_PATHTRACER_EXE = Path('@_NBL_PATHTRACER_EXE_@')
+NBL_SCENES_INPUT_TXT = Path('@_NBL_SCENES_INPUT_TXT_@')
 
 NBL_CI_WORKING_DIR = Path(str(NBL_PATHTRACER_EXE.parent.absolute()) + '/ci_working_dir')
 NBL_CI_REFERENCES_DIR = Path(str(NBL_CI_WORKING_DIR.absolute()) + '/references')

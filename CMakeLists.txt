@@ -213,9 +213,9 @@ option(NBL_BUILD_BULLET "Enable Bullet Physics building and integration?" OFF)
 
 option(NBL_BUILD_DOCS "Enable building documentation?" OFF) # No one has doxygen installed, plus we dont know when was the last time we generated working doxy and we'll use SphinX in the future
 
-option(NBL_CI_BUILDS "Enables CI mode - only for Nabla developers" OFF)
-if(NBL_CI_BUILDS)
-	find_program(NBL_CI_IMAGEMAGICK_FILEPATH NAMES magick.exe PATHS ENV PATH REQUIRED)
+option(NBL_RUN_TESTS "Enables CI mode - only for Nabla developers" OFF)
+if(NBL_RUN_TESTS)
+	find_program(_NBL_IMAGEMAGICK_EXE_ NAMES magick.exe PATHS ENV PATH REQUIRED)
 endif()
 
 set(THIRD_PARTY_SOURCE_DIR "${PROJECT_SOURCE_DIR}/3rdparty")
