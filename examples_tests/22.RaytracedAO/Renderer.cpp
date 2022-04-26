@@ -1192,6 +1192,9 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height)
 		<< "#	define MAX_RAYS_GENERATED " << getSamplesPerPixelPerDispatch() << "\n"
 		<< "#endif\n";
 
+	if(!enableRIS)
+		stream << "#define ONLY_BXDF_SAMPLING\n";
+
 	stream.close();
 	
 	compileShadersFuture = std::async(std::launch::async, [&]()
@@ -2167,14 +2170,48 @@ void Renderer::deinitWarpingResources()
 void Renderer::computeWarpMap()
 {
 	LumaMipMapGenShaderData_t pcData = {};
-	const float regularizationFactor = 0.5f;
-	pcData.luminanceScales = { 0.2126729f * regularizationFactor, 0.7151522f * regularizationFactor, 0.0721750f* regularizationFactor, (1.0f-regularizationFactor) };
+	const float envMapRegularizationFactor = 0.5f;
+	const nbl::core::vectorSIMDf lumaScales = nbl::core::vectorSIMDf(0.2126729f, 0.7151522f, 0.0721750f, 1.0f);
 	
 	m_driver->bindComputePipeline(m_lumaPipeline.get());
 
-	// Calc Luma
+	// Calc Luma without Sin Factor
 	{
+		pcData.luminanceScales = nbl::core::vectorSIMDf(lumaScales[0] * envMapRegularizationFactor, lumaScales[1] * envMapRegularizationFactor, lumaScales[2] * envMapRegularizationFactor, (1.0f-envMapRegularizationFactor));
 		pcData.calcLuma = 1;
+		pcData.sinFactor = 0;
+		uint32_t s = MipCountLuminance - 1;
+		m_driver->bindDescriptorSets(EPBP_COMPUTE,m_lumaPipeline->getLayout(),0u,1u,&m_lumaDS[s-1].get(),nullptr);
+
+		const uint32_t resolution = 0x1u<<s;
+		const uint32_t sourceMipWidth = std::max(resolution, 1u);
+		const uint32_t sourceMipHeight = std::max(resolution/2u, 1u);
+		
+		uint32_t workGroups[2] = {
+			(sourceMipWidth-1u)/LUMA_MIP_MAP_GEN_WORKGROUP_DIM+1u,
+			(sourceMipHeight-1u)/LUMA_MIP_MAP_GEN_WORKGROUP_DIM+1u
+		};
+
+		m_driver->pushConstants(m_lumaPipeline->getLayout(),ICPUSpecializedShader::ESS_COMPUTE,0u,sizeof(pcData),&pcData);
+		m_driver->dispatch(workGroups[0],workGroups[1],1);
+		COpenGLExtensionHandler::pGlMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT|GL_SHADER_IMAGE_ACCESS_BARRIER_BIT|GL_TEXTURE_UPDATE_BARRIER_BIT);
+	}
+
+	// Download Luma Image and caclulate Variance and new Regularization Factor
+	float variance = 0.0f;
+	{
+	}
+
+	float regularizationFactor = envMapRegularizationFactor*(1.0f-1.0f/(1.0f+variance));
+	constexpr float varianceThreshold = 0.001f;
+	enableRIS = (variance >= varianceThreshold);
+
+	// Calc Luma again with Sin Factor and new Regularization Factor
+	{
+		pcData.luminanceScales = nbl::core::vectorSIMDf(lumaScales[0] * regularizationFactor, lumaScales[1] * regularizationFactor, lumaScales[2] * regularizationFactor, (1.0f-regularizationFactor));
+		pcData.calcLuma = 1;
+		pcData.sinFactor = 1;
+
 		uint32_t s = MipCountLuminance - 1;
 		m_driver->bindDescriptorSets(EPBP_COMPUTE,m_lumaPipeline->getLayout(),0u,1u,&m_lumaDS[s-1].get(),nullptr);
 

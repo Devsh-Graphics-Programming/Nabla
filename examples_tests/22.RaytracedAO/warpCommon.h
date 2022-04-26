@@ -10,9 +10,10 @@
 
 struct LumaMipMapGenShaderData_t
 {
-	vec4 luminanceScales;
+    vec4 luminanceScales;
     uint calcLuma;
-    vec3 padding;
+    uint sinFactor;
+    vec2 padding;
 };
 
 struct WarpMapGenShaderData_t

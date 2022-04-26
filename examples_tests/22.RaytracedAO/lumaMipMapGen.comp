@@ -36,7 +36,9 @@ void main()
 			{
 				float sinTheta = sin(nbl_glsl_PI * (float(pixelCoord.y + 0.5f) / envMapSize.y));
 				vec4 envMapSample = texelFetch(envMap, pixelCoord, 0);
-				float luma = sinTheta * dot(pc.data.luminanceScales, envMapSample);
+				float luma = dot(pc.data.luminanceScales, envMapSample);
+				if(pc.data.sinFactor > 0)
+					luma *= sinTheta;
 				imageStore(srcLuminance, pixelCoord, vec4(luma));
 			}
 			else if (all(lessThan(pixelCoord,dstMipLevelSize)))

@@ -266,6 +266,8 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		nbl::core::smart_refctd_ptr<IGPUSpecializedShader> m_warpGPUShader;
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUComputePipeline> m_warpPipeline;
 		
+		bool enableRIS = false;
+
 		void initWarpingResources();
 		void deinitWarpingResources();
 		void computeWarpMap();
