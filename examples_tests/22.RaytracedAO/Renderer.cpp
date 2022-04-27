@@ -2197,8 +2197,71 @@ void Renderer::computeWarpMap()
 	}
 
 	// Download Luma Image and caclulate Variance and new Regularization Factor
-	float variance = 10000.0f;
+	float variance = 0.0f;
 	{
+		const uint32_t resolution = 0x1u<<(MipCountLuminance - 1);
+		const uint32_t width = std::max(resolution, 1u);
+		const uint32_t height = std::max(resolution/2u, 1u);
+
+		const uint32_t colorBufferBytesize = width * height * asset::getTexelOrBlockBytesize(EF_R32_SFLOAT);
+
+		auto downloadStagingArea = m_driver->getDefaultDownStreamingBuffer();
+
+		constexpr uint64_t timeoutInNanoSeconds = 300000000000u;
+		const auto waitPoint = std::chrono::high_resolution_clock::now()+std::chrono::nanoseconds(timeoutInNanoSeconds);
+
+		uint32_t address = std::remove_pointer<decltype(downloadStagingArea)>::type::invalid_address; // remember without initializing the address to be allocated to invalid_address you won't get an allocation!
+		const uint32_t alignment = 4096u; // common page size
+		auto unallocatedSize = downloadStagingArea->multi_alloc(waitPoint, 1u, &address, &colorBufferBytesize, &alignment);
+		if (unallocatedSize)
+		{
+			os::Printer::log("Could not download the buffer from the GPU!", ELL_ERROR);
+		}
+
+		IImage::SBufferCopy copyRegion = {};
+		copyRegion.bufferOffset = 0u;
+		copyRegion.bufferRowLength = 0u;
+		copyRegion.bufferImageHeight = 0u;
+		//copyRegion.imageSubresource.aspectMask = wait for Vulkan;
+		copyRegion.imageSubresource.mipLevel = 0u;
+		copyRegion.imageSubresource.baseArrayLayer = 0u;
+		copyRegion.imageSubresource.layerCount = 1u;
+		copyRegion.imageOffset = { 0u,0u,0u };
+		copyRegion.imageExtent = { width, height, 1u };
+
+		auto luminanceGPUImage = m_luminanceMipMaps[0].get()->getCreationParameters().image.get();
+		m_driver->copyImageToBuffer(luminanceGPUImage, downloadStagingArea->getBuffer(), 1, &copyRegion);
+		
+		auto downloadFence = m_driver->placeFence(true);
+		
+		auto* data = reinterpret_cast<uint8_t*>(downloadStagingArea->getBufferPointer()) + address;
+		
+		// wait for download fence and then invalidate the CPU cache
+		{
+			auto result = downloadFence->waitCPU(timeoutInNanoSeconds,true);
+			if (result==E_DRIVER_FENCE_RETVAL::EDFR_TIMEOUT_EXPIRED||result==E_DRIVER_FENCE_RETVAL::EDFR_FAIL)
+			{
+				os::Printer::log("Could not download the buffer from the GPU, fence not signalled!", ELL_ERROR);
+				downloadStagingArea->multi_free(1u, &address, &colorBufferBytesize, nullptr);
+			}
+			if (downloadStagingArea->needsManualFlushOrInvalidate())
+				m_driver->invalidateMappedMemoryRanges({{downloadStagingArea->getBuffer()->getBoundMemory(),address,colorBufferBytesize}});
+		}
+
+		float* fltData = reinterpret_cast<float*>(data);
+		float avg_x2 = 0.0f;
+		float avg_x = 0.0f;
+		for(uint32_t i = 0; i < width * height; ++i)
+		{
+			const float x = fltData[i]; 
+			const float x2 = x*x;
+			const float n = float(i + 1);
+			avg_x = avg_x + (x-avg_x)/(n);
+			avg_x2 = avg_x2 + (x2-avg_x2)/(n);
+		}
+
+		variance = avg_x2 - avg_x * avg_x; // V[x] = E[X^2]-E[X]^2
+		std::cout << "Final Luminance Variance = " << variance << std::endl;
 	}
 
 	float regularizationFactor = envMapRegularizationFactor*(1.0f-1.0f/(1.0f+variance));
