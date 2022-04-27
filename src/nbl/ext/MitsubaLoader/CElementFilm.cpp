@@ -270,6 +270,8 @@ bool CElementFilm::addProperty(SNamedPropertyElement&& _property)
 	auto setBloomScale			= SET_PROPERTY(denoiserBloomScale,SNamedPropertyElement::Type::FLOAT);
 	auto setBloomIntensity		= SET_PROPERTY(denoiserBloomIntensity,SNamedPropertyElement::Type::FLOAT);
 
+	auto setEnvmapRegularizationFactor = SET_PROPERTY(envmapRegularizationFactor,SNamedPropertyElement::Type::FLOAT);
+
 	const core::unordered_map<std::string, std::function<void()>, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> SetPropertyMap =
 	{
 		{"width",				setWidth},
@@ -295,7 +297,8 @@ bool CElementFilm::addProperty(SNamedPropertyElement&& _property)
 		{"bloomFilePath",		setBloomFilePath},
 		{"bloomScale",			setBloomScale},
 		{"bloomIntensity",		setBloomIntensity},
-		{"tonemapper",			setTonemapperArgs}
+		{"tonemapper",			setTonemapperArgs},
+		{"envmapRegularizationFactor", setEnvmapRegularizationFactor}
 	};
 
 	auto found = SetPropertyMap.find(_property.name);
