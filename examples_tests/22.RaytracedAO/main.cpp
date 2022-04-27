@@ -315,6 +315,7 @@ int main(int argc, char** argv)
 		ext::MitsubaLoader::CElementFilm::FileFormat fileFormat;
 		Renderer::DenoiserArgs denoiserInfo = {};
 		bool envmap = false;
+		float envmapRegFactor = 0.0f;
 
 		scene::CSceneNodeAnimatorCameraModifiedMaya* getInteractiveCameraAnimator()
 		{
@@ -413,6 +414,7 @@ int main(int argc, char** argv)
 		mainSensorData.denoiserInfo.bloomIntensity = film.denoiserBloomIntensity;
 		mainSensorData.denoiserInfo.tonemapperArgs = std::string(film.denoiserTonemapperArgs);
 		mainSensorData.fileFormat = film.fileFormat;
+		mainSensorData.envmapRegFactor = film.envmapRegularizationFactor;
 		mainSensorData.outputFilePath = std::filesystem::path(film.outputFilePath);
 		if(!isFileExtensionCompatibleWithFormat(mainSensorData.outputFilePath.extension().string(), mainSensorData.fileFormat))
 		{
@@ -753,6 +755,7 @@ int main(int argc, char** argv)
 	// Render To file
 	int32_t prevWidth = 0;
 	int32_t prevHeight = 0;
+	float prevRegFactor = 0.0f;
 	for(uint32_t s = 0u; s < sensors.size(); ++s)
 	{
 		if(!receiver.keepOpen())
@@ -762,15 +765,16 @@ int main(int argc, char** argv)
 		
 		printf("[INFO] Rendering %s - Sensor(%d) to file.\n", filePath.c_str(), s);
 
-		bool needsReinit = (prevWidth != sensorData.width) || (prevHeight != sensorData.height); // >= or !=
+		bool needsReinit = (prevWidth != sensorData.width) || (prevHeight != sensorData.height) || (prevRegFactor != sensorData.envmapRegFactor); // >= or !=
 		prevWidth = sensorData.width;
 		prevHeight = sensorData.height;
+		prevRegFactor = sensorData.envmapRegFactor;
 		
 		renderer->resetSampleAndFrameCounters(); // so that renderer->getTotalSamplesPerPixelComputed is 0 at the very beginning
 		if(needsReinit) 
 		{
 			renderer->deinitScreenSizedResources();
-			renderer->initScreenSizedResources(sensorData.width,sensorData.height);
+			renderer->initScreenSizedResources(sensorData.width,sensorData.height,sensorData.envmapRegFactor);
 		}
 		
 		smgr->setActiveCamera(sensorData.staticCamera);
@@ -866,14 +870,14 @@ int main(int argc, char** argv)
 		{
 			if(index >= 0 && index < sensors.size())
 			{
-				bool needsReinit = (activeSensor == -1) || (sensors[activeSensor].width != sensors[index].width) || (sensors[activeSensor].height != sensors[index].height); // should be >= or != ?
+				bool needsReinit = (activeSensor == -1) || (sensors[activeSensor].width != sensors[index].width) || (sensors[activeSensor].height != sensors[index].height) || (sensors[activeSensor].envmapRegFactor != sensors[index].envmapRegFactor); // should be >= or != ?
 				activeSensor = index;
 
 				renderer->resetSampleAndFrameCounters();
 				if(needsReinit)
 				{
 					renderer->deinitScreenSizedResources();
-					renderer->initScreenSizedResources(sensors[activeSensor].width,sensors[activeSensor].height);
+					renderer->initScreenSizedResources(sensors[activeSensor].width,sensors[activeSensor].height,sensors[activeSensor].envmapRegFactor);
 				}
 
 				smgr->setActiveCamera(sensors[activeSensor].interactiveCamera);
