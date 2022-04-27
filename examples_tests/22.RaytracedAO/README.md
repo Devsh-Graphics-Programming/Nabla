@@ -58,7 +58,7 @@ You can switch between those sensors using `PAGE UP/DOWN` Keys defined in more d
 |   tonemapper   | Tonemapper Settings for Denoiser                                                       | string | "ACES=0.4,0.8"
 | cropOffsetX, cropOffsetY | Used to control the offset for cropping cubemap renders (instead of highQualityEdges)  | int    | 0                                                                                                                                                                        |
 | cropWidth, cropHeight    | Used to control the size for cropping cubemap renders (instead of highQualityEdges)    | int    | width-cropOffsetX, height-cropOffsetY                                                                      
-| envmapRegularizationFactor | if RIS is enabled then paths will be guided towards envmap based on this regularization factor.<br>1.0 means light paths will be distributed based on environmental map luminance.<br>0.0 means light paths will be distributed uniformly. | float  | 0.0                                                                                                                                                                      |               
+| envmapRegularizationFactor | if RIS is enabled then paths will be guided towards envmap based on this regularization factor.<br><br>1.0 is based on product of envmap and bxdf<br>0.0 is based only on bxdf<br><br>But 1.0 is never a valid value to use.<br>Valid Range is [0.2, 0.8] | float  | 0.0                                                                                                                                                                      |          
 
 ### Example of a sensor using all new properties described above.
 ```xml
