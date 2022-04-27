@@ -1957,9 +1957,9 @@ bool Renderer::traceBounce(uint32_t& raycount)
 
 void Renderer::initWarpingResources()
 {
-	for(int i = MipCountLuminance - 1; i >= 0; --i)
+	for(uint32_t i = 0; i < MipCountLuminance; ++i)
 	{
-		const uint32_t resolution = 0x1u<<i;
+		const uint32_t resolution = 0x1u<<(MipCountLuminance - 1 - i);
 		const uint32_t width = std::max(resolution, 1u);
 		const uint32_t height = std::max(resolution/2u, 1u);
 		m_luminanceMipMaps[i] = createTexture(width, height, EF_R32_SFLOAT);
@@ -2048,8 +2048,8 @@ void Renderer::initWarpingResources()
 	
 			for(uint32_t i = 0u; i < MipCountLuminance - 1; ++i)
 			{
-				const uint32_t src = i + 1;
-				const uint32_t dst = i;
+				const uint32_t src = i;
+				const uint32_t dst = i + 1;
 			
 				IGPUDescriptorSet::SDescriptorInfo envMapDescriptorInfo = {};
 				envMapDescriptorInfo.desc = m_finalEnvmap;
@@ -2107,10 +2107,10 @@ void Renderer::initWarpingResources()
 				luminanceDescriptorInfos[i].image.imageLayout = asset::EIL_SHADER_READ_ONLY_OPTIMAL;
 			}
 		
-			IGPUDescriptorSet::SDescriptorInfo warpMApDescriptorInfo = {};
-			warpMApDescriptorInfo.desc = m_warpMap;
-			warpMApDescriptorInfo.image.sampler = nullptr;
-			warpMApDescriptorInfo.image.imageLayout = asset::EIL_GENERAL;
+			IGPUDescriptorSet::SDescriptorInfo warpMapDescriptorInfo = {};
+			warpMapDescriptorInfo.desc = m_warpMap;
+			warpMapDescriptorInfo.image.sampler = nullptr;
+			warpMapDescriptorInfo.image.imageLayout = asset::EIL_GENERAL;
 
 			IGPUDescriptorSet::SWriteDescriptorSet writes[2u];
 			writes[0].binding = 0u;
@@ -2125,7 +2125,7 @@ void Renderer::initWarpingResources()
 			writes[1].count = 1u;
 			writes[1].descriptorType = EDT_STORAGE_IMAGE;
 			writes[1].dstSet = m_warpDS.get();
-			writes[1].info = &warpMApDescriptorInfo;
+			writes[1].info = &warpMapDescriptorInfo;
 
 			m_driver->updateDescriptorSets(2u,writes,0u,nullptr);
 		}
@@ -2180,10 +2180,9 @@ void Renderer::computeWarpMap()
 		pcData.luminanceScales = nbl::core::vectorSIMDf(lumaScales[0] * envMapRegularizationFactor, lumaScales[1] * envMapRegularizationFactor, lumaScales[2] * envMapRegularizationFactor, (1.0f-envMapRegularizationFactor));
 		pcData.calcLuma = 1;
 		pcData.sinFactor = 0;
-		uint32_t s = MipCountLuminance - 1;
-		m_driver->bindDescriptorSets(EPBP_COMPUTE,m_lumaPipeline->getLayout(),0u,1u,&m_lumaDS[s-1].get(),nullptr);
+		m_driver->bindDescriptorSets(EPBP_COMPUTE,m_lumaPipeline->getLayout(),0u,1u,&m_lumaDS[0].get(),nullptr);
 
-		const uint32_t resolution = 0x1u<<s;
+		const uint32_t resolution = 0x1u<<(MipCountLuminance - 1);
 		const uint32_t sourceMipWidth = std::max(resolution, 1u);
 		const uint32_t sourceMipHeight = std::max(resolution/2u, 1u);
 		
@@ -2198,7 +2197,7 @@ void Renderer::computeWarpMap()
 	}
 
 	// Download Luma Image and caclulate Variance and new Regularization Factor
-	float variance = 0.0f;
+	float variance = 10000.0f;
 	{
 	}
 
@@ -2212,10 +2211,9 @@ void Renderer::computeWarpMap()
 		pcData.calcLuma = 1;
 		pcData.sinFactor = 1;
 
-		uint32_t s = MipCountLuminance - 1;
-		m_driver->bindDescriptorSets(EPBP_COMPUTE,m_lumaPipeline->getLayout(),0u,1u,&m_lumaDS[s-1].get(),nullptr);
+		m_driver->bindDescriptorSets(EPBP_COMPUTE,m_lumaPipeline->getLayout(),0u,1u,&m_lumaDS[0].get(),nullptr);
 
-		const uint32_t resolution = 0x1u<<s;
+		const uint32_t resolution = 0x1u<<(MipCountLuminance - 1);
 		const uint32_t sourceMipWidth = std::max(resolution, 1u);
 		const uint32_t sourceMipHeight = std::max(resolution/2u, 1u);
 		
@@ -2230,11 +2228,11 @@ void Renderer::computeWarpMap()
 	}
 
 	// Calc Mipmaps
-	for(uint32_t s = MipCountLuminance - 1; s > 0u; --s)
+	for(uint32_t s = 0; s < MipCountLuminance - 1; ++s)
 	{
-		m_driver->bindDescriptorSets(EPBP_COMPUTE,m_lumaPipeline->getLayout(),0u,1u,&m_lumaDS[s-1].get(),nullptr);
-
-		const uint32_t resolution = 0x1u<<s;
+		m_driver->bindDescriptorSets(EPBP_COMPUTE,m_lumaPipeline->getLayout(),0u,1u,&m_lumaDS[s].get(),nullptr);
+		
+		const uint32_t resolution = 0x1u<<(MipCountLuminance - 1 - s);
 		const uint32_t sourceMipWidth = std::max(resolution, 1u);
 		const uint32_t sourceMipHeight = std::max(resolution/2u, 1u);
 		

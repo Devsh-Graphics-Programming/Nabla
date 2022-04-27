@@ -28,7 +28,7 @@ void main()
 		ivec2 prevLuminanceMipSize = ivec2(0);
 		// WARP
 		// (skip 0 which is 1x1 and useless in warping)
-		for(int i = 1; i < pc.data.lumaMipCount; ++i)
+		for(int i = int(pc.data.lumaMipCount - 1); i >= 1; --i)
 		{
 			ivec2 luminanceMipSize = textureSize(luminance[i], 0).xy;
 
@@ -81,7 +81,10 @@ void main()
 		const vec2 directionUV = (vec2(p.x,p.y)+xi)/vec2(warpMapSize);
 		imageStore(warpMap,pixelCoord, vec4(directionUV, 0, 0));
 
-		/*const vec2 directionUV = vec2(p.x,p.y)/vec2(warpMapSize);
+		/*
+		mips are reversed:
+		
+		const vec2 directionUV = vec2(p.x,p.y)/vec2(warpMapSize);
 
 		vec4 lumNeighbourhood = textureGather(luminance[pc.data.lumaMipCount-1], directionUV, 0);
 
