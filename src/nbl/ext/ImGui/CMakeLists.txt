@@ -16,7 +16,7 @@ set(NBL_EXT_IMGUI_EXTERNAL_INCLUDE
 )
 
 nbl_create_ext_library_project(
-	ImGui
+	IMGUI_UI
 	"${NBL_EXT_IMGUI_H}"
 	"${NBL_EXT_IMGUI_SRC}"
 	"${NBL_EXT_IMGUI_EXTERNAL_INCLUDE}"
