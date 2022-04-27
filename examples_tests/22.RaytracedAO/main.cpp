@@ -414,7 +414,7 @@ int main(int argc, char** argv)
 		mainSensorData.denoiserInfo.bloomIntensity = film.denoiserBloomIntensity;
 		mainSensorData.denoiserInfo.tonemapperArgs = std::string(film.denoiserTonemapperArgs);
 		mainSensorData.fileFormat = film.fileFormat;
-		mainSensorData.envmapRegFactor = film.envmapRegularizationFactor;
+		mainSensorData.envmapRegFactor = core::clamp(film.envmapRegularizationFactor, 0.2f, 0.8f);
 		mainSensorData.outputFilePath = std::filesystem::path(film.outputFilePath);
 		if(!isFileExtensionCompatibleWithFormat(mainSensorData.outputFilePath.extension().string(), mainSensorData.fileFormat))
 		{
