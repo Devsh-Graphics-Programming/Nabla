@@ -253,7 +253,9 @@ option(NBL_BUILD_EXAMPLES "Enable building examples" ON)
 
 option(NBL_BUILD_TOOLS "Enable building tools (just convert2BAW as for now)" ON)
 
-option(NBL_BUILD_MITSUBA_LOADER "Enable nbl::ext::MitsubaLoader?" ON)
+option(NBL_BUILD_MITSUBA_LOADER "Enable nbl::ext::MitsubaLoader?" OFF)
+
+option(NBL_BUILD_IMGUI "Enable nbl::ext::ImGui?" ON)
 
 if (NBL_COMPILE_WITH_CUDA)
 	find_package(OPTIX)

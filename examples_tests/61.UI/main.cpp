@@ -5,10 +5,9 @@
 #define _NBL_STATIC_LIB_
 #include <nabla.h>
 
-
 #include "../common/CommonAPI.h"
-
-#include "UI_System.hpp"
+#include "nbl/ext/ImGui/ImGui.h"
+#include "nbl/ui/ICursorControl.h"
 
 using namespace nbl;
 using namespace asset;
@@ -114,26 +113,24 @@ class UIApp : public ApplicationBase
 
 			nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
 
-			// TOOD: Pass pipeline cache in future
-			UI::Init(
+			ui = core::make_smart_refctd_ptr<nbl::ext::imgui::UI>(
 				logicalDevice, 
 				FRAMES_IN_FLIGHT,
 				renderpass, 
 				nullptr, 
 				cpu2gpuParams,
-				inputSystem,
 				window
 			);
 
-			UI::Register([]()->void{
-				UI::BeginWindow("Test window");
-				UI::SetNextItemWidth(100);
-				UI::Text("Hi");
-				UI::SetNextItemWidth(100);
-				UI::Button("Button", []()->void {
+			ui->Register([this]()->void{
+				ui->BeginWindow("Test window");
+				ui->SetNextItemWidth(100);
+				ui->Text("Hi");
+				ui->SetNextItemWidth(100);
+				ui->Button("Button", []()->void {
 					printf("Button pressed!\n");
 				});
-				UI::EndWindow();
+				ui->EndWindow();
 			});
 
 			logicalDevice->createCommandBuffers(commandPools[CommonAPI::InitOutput::EQT_GRAPHICS].get(),video::IGPUCommandBuffer::EL_PRIMARY,FRAMES_IN_FLIGHT,commandBuffers);
@@ -149,7 +146,6 @@ class UIApp : public ApplicationBase
 		void onAppTerminated_impl() override
 		{
 			logicalDevice->waitIdle();
-			UI::Shutdown();
 		}
 
 		void workLoopBody() override
@@ -202,9 +198,10 @@ class UIApp : public ApplicationBase
 
 			commandBuffer->beginRenderPass(&beginInfo, nbl::asset::ESC_INLINE);
 
+			// TODO: Use real deltaTime instead
 			float deltaTimeInSec = 0.1f;
-			// TODO: Use deltaTime instead
-			UI::Render(*commandBuffer, resourceIx);
+			
+			ui->Render(*commandBuffer, resourceIx);
 
 			commandBuffer->endRenderPass();
 			commandBuffer->end();
@@ -228,7 +225,36 @@ class UIApp : public ApplicationBase
 				acquiredNextFBO
 			);
 
-			UI::Update(deltaTimeInSec);
+			CommonAPI::InputSystem::ChannelReader<IMouseEventChannel> mouse;
+
+			inputSystem->getDefaultMouse(&mouse);
+
+			static std::chrono::microseconds previousEventTimestamp {};
+
+			std::vector<SMouseEvent> validEvents {};
+
+			mouse.consumeEvents([&validEvents](const IMouseEventChannel::range_t& events) -> void {
+				for (auto event : events)
+				{
+					if (event.timeStamp < previousEventTimestamp)
+					{
+						continue;
+					}
+					previousEventTimestamp = event.timeStamp;
+
+					validEvents.push_back(event);
+				}
+			});
+
+			auto const mousePosition = window->getCursorControl()->getPosition();
+
+			ui->Update(
+				deltaTimeInSec, 
+				static_cast<float>(mousePosition.x), 
+				static_cast<float>(mousePosition.y),
+				validEvents.size(),
+				validEvents.data()
+			);
 		}
 
 		bool keepRunning() override
@@ -260,7 +286,9 @@ class UIApp : public ApplicationBase
 		core::smart_refctd_ptr<video::IGPUFence> frameComplete[FRAMES_IN_FLIGHT] = { nullptr };
 		core::smart_refctd_ptr<video::IGPUSemaphore> imageAcquire[FRAMES_IN_FLIGHT] = { nullptr };
 		core::smart_refctd_ptr<video::IGPUSemaphore> renderFinished[FRAMES_IN_FLIGHT] = { nullptr };
-		
+
+		nbl::core::smart_refctd_ptr<nbl::ext::imgui::UI> ui {};
+
 		_NBL_STATIC_INLINE_CONSTEXPR uint64_t MAX_TIMEOUT = 99999999999999ull;
 		uint32_t acquiredNextFBO = {};
 		int32_t resourceIx = -1;

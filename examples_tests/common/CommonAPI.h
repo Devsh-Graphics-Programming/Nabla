@@ -1,4 +1,5 @@
-#pragma once
+#ifndef COMMON_API_H
+#define COMMON_API_H
 
 #define _NBL_STATIC_LIB_
 #include <nabla.h>
@@ -1854,3 +1855,4 @@ CommonAPI::main<app_class>(argc, argv);\
 #endif
 //***** Application framework macros ******
 
+#endif

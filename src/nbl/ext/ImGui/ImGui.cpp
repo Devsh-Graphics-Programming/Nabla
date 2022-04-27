@@ -1,16 +1,14 @@
-#include "UI_System.hpp"
+#include "../../../include/nbl/ext/ImGui/ImGui.h"
 
 #include "imgui/imgui.h"
 #include "imgui/imgui_stdlib.h"
-
-#include <nbl/ui/CCursorControlWin32.h>
 
 using namespace nbl::video;
 using namespace nbl::core;
 using namespace nbl::asset;
 using namespace nbl::ui;
 
-namespace UI_System
+namespace nbl::ext::imgui
 {
 
 	//-----------------------------------------------------------------------------
@@ -122,31 +120,6 @@ namespace UI_System
 		0x00010038
 	};
 
-	struct State
-	{
-		smart_refctd_ptr<ILogicalDevice> device{};
-		smart_refctd_ptr<IGPUSampler> fontSampler{};
-		smart_refctd_ptr<IDescriptorPool> descriptorPool{};
-		smart_refctd_ptr<IGPUDescriptorSet> gpuDescriptorSet{};
-		smart_refctd_ptr<IGPURenderpassIndependentPipeline> independentPipeline{};
-		smart_refctd_ptr<IGPUGraphicsPipeline> pipeline{};
-		smart_refctd_ptr<IGPUImageView> fontTexture{};
-		smart_refctd_ptr<CommonAPI::InputSystem> inputSystem{};
-		smart_refctd_ptr<IWindow> window{};
-		std::vector<smart_refctd_ptr<IGPUBuffer>> vertexBuffers{};
-		std::vector<smart_refctd_ptr<IGPUBuffer>> indexBuffers{};
-		bool hasFocus = false;
-
-		// TODO: Use a signal class instead.//Signal<> UIRecordSignal{};
-		struct Subscriber {
-			int id = -1;
-			std::function<void()> listener = nullptr;
-		};
-		std::vector<Subscriber> subscribers{};
-	};
-
-	static State* state = nullptr;
-
 	struct PushConstants
 	{
 		float scale[2];
@@ -155,7 +128,7 @@ namespace UI_System
 
 	//-------------------------------------------------------------------------------------------------
 
-	static smart_refctd_ptr<IGPUDescriptorSetLayout> createDescriptorSetLayout()
+	smart_refctd_ptr<IGPUDescriptorSetLayout> UI::CreateDescriptorSetLayout()
 	{
 		static constexpr int Count = 1;
 		IGPUDescriptorSetLayout::SBinding bindings[1]{
@@ -164,15 +137,15 @@ namespace UI_System
 				.type = EDT_COMBINED_IMAGE_SAMPLER,
 				.count = 1,
 				.stageFlags = IShader::ESS_FRAGMENT,
-				.samplers = &state->fontSampler,
+				.samplers = &m_fontSampler,
 			}
 		};
-		return state->device->createGPUDescriptorSetLayout(bindings, bindings + Count);
+		return m_device->createGPUDescriptorSetLayout(bindings, bindings + Count);
 	}
 
 	//-------------------------------------------------------------------------------------------------
 
-	static void createPipeline(
+	void UI::CreatePipeline(
 		smart_refctd_ptr<IGPURenderpass>& renderPass,
 		IGPUPipelineCache* pipelineCache
 	)
@@ -187,15 +160,15 @@ namespace UI_System
 			}
 		};
 
-		auto descriptorSetLayout = createDescriptorSetLayout();
+		auto descriptorSetLayout = CreateDescriptorSetLayout();
 
 		// Create Descriptor Set:
-		state->gpuDescriptorSet = state->device->createGPUDescriptorSet(
-			state->descriptorPool.get(),
+		m_gpuDescriptorSet = m_device->createGPUDescriptorSet(
+			m_descriptorPool.get(),
 			descriptorSetLayout
 		); // Original number was 1 , Now it creates as many as swap_chain_image_count
 
-		auto pipelineLayout = state->device->createGPUPipelineLayout(
+		auto pipelineLayout = m_device->createGPUPipelineLayout(
 			pushConstantRanges,
 			pushConstantRanges + PushConstantCount,
 			std::move(descriptorSetLayout)
@@ -209,14 +182,14 @@ namespace UI_System
 
 		smart_refctd_ptr<ICPUShader> cpuVertShader = make_smart_refctd_ptr<ICPUShader>(std::move(vertCpuBuffer), IShader::ESS_VERTEX, "");
 
-		auto const unSpecVertexShader = state->device->createGPUShader(std::move(cpuVertShader));
+		auto const unSpecVertexShader = m_device->createGPUShader(std::move(cpuVertShader));
 
-		auto const vertexShader = state->device->createGPUSpecializedShader(
+		auto const vertexShader = m_device->createGPUSpecializedShader(
 			unSpecVertexShader.get(),
 			IGPUSpecializedShader::SInfo(nullptr, nullptr, "main")
 		);
 
-		assert(vertexShader.isValid());
+		assert(static_cast<bool>(vertexShader));
 
 		// Fragment shader
 		smart_refctd_ptr<ICPUBuffer> cpuFragBuffer = make_smart_refctd_ptr<ICPUBuffer>(sizeof(fragmentShaderSpv));
@@ -225,14 +198,14 @@ namespace UI_System
 
 		smart_refctd_ptr<ICPUShader> cpuFragShader = make_smart_refctd_ptr<ICPUShader>(std::move(cpuFragBuffer), IShader::ESS_FRAGMENT, "");
 
-		auto const unSpecFragmentShader = state->device->createGPUShader(std::move(cpuFragShader));
+		auto const unSpecFragmentShader = m_device->createGPUShader(std::move(cpuFragShader));
 
-		auto const fragmentShader = state->device->createGPUSpecializedShader(
+		auto const fragmentShader = m_device->createGPUSpecializedShader(
 			unSpecFragmentShader.get(),
 			IGPUSpecializedShader::SInfo(nullptr, nullptr, "main")
 		);
 
-		assert(fragmentShader.isValid());
+		assert(static_cast<bool>(fragmentShader));
 
 		IGPUSpecializedShader* shaders[2] = { vertexShader.get(), fragmentShader.get() };
 
@@ -277,7 +250,7 @@ namespace UI_System
 		SPrimitiveAssemblyParams primitiveAssemblyParams{};
 		primitiveAssemblyParams.primitiveType = EPT_TRIANGLE_LIST;
 
-		state->independentPipeline = state->device->createGPURenderpassIndependentPipeline(
+		m_independentPipeline = m_device->createGPURenderpassIndependentPipeline(
 			pipelineCache,
 			std::move(pipelineLayout),
 			shaders,
@@ -289,16 +262,16 @@ namespace UI_System
 		);
 
 		IGPUGraphicsPipeline::SCreationParams creationParams{
-			.renderpassIndependent = smart_refctd_ptr<IGPURenderpassIndependentPipeline>(state->independentPipeline.get()),
+			.renderpassIndependent = smart_refctd_ptr<IGPURenderpassIndependentPipeline>(m_independentPipeline.get()),
 			.rasterizationSamplesHint = IImage::ESCF_1_BIT,
 			.renderpass = renderPass,
 		};
-		state->pipeline = state->device->createGPUGraphicsPipeline(pipelineCache, std::move(creationParams));
+		m_pipeline = m_device->createGPUGraphicsPipeline(pipelineCache, std::move(creationParams));
 	}
 
 	//-------------------------------------------------------------------------------------------------
 
-	static void createFontTexture(IGPUObjectFromAssetConverter::SParams& cpu2GpuParams)
+	void UI::CreateFontTexture(IGPUObjectFromAssetConverter::SParams& cpu2GpuParams)
 	{
 		// Load Fonts
 		// - If no fonts are loaded, dear imgui will use the default font. You can also load multiple fonts and use ImGui::PushFont()/PopFont() to select them.
@@ -382,7 +355,7 @@ namespace UI_System
 		viewParams.subresourceRange.layerCount = 1u;
 		viewParams.image = gpuImage->begin()[0];
 
-		state->fontTexture = state->device->createGPUImageView(std::move(viewParams));
+		m_fontTexture = m_device->createGPUImageView(std::move(viewParams));
 	}
 
 	//-------------------------------------------------------------------------------------------------
@@ -426,25 +399,25 @@ namespace UI_System
 
 	//-------------------------------------------------------------------------------------------------
 
-	static void updateDescriptorSets()
+	void UI::UpdateDescriptorSets()
 	{
 		// Update the Descriptor Set:
-		nbl::video::IGPUDescriptorSet::SDescriptorInfo info;
+		IGPUDescriptorSet::SDescriptorInfo info;
 		{
-			info.desc = state->fontTexture;
-			info.image.sampler = state->fontSampler;
+			info.desc = m_fontTexture;
+			info.image.sampler = m_fontSampler;
 			info.image.imageLayout = nbl::asset::EIL_SHADER_READ_ONLY_OPTIMAL;
 		}
 
 		IGPUDescriptorSet::SWriteDescriptorSet writeDescriptorSet{};
-		writeDescriptorSet.dstSet = state->gpuDescriptorSet.get();
+		writeDescriptorSet.dstSet = m_gpuDescriptorSet.get();
 		writeDescriptorSet.binding = 0;
 		writeDescriptorSet.arrayElement = 0;
 		writeDescriptorSet.count = 1;
 		writeDescriptorSet.descriptorType = EDT_COMBINED_IMAGE_SAMPLER;
 		writeDescriptorSet.info = &info;
 
-		state->device->updateDescriptorSets(
+		m_device->updateDescriptorSets(
 			1,
 			&writeDescriptorSet,
 			0,
@@ -454,7 +427,7 @@ namespace UI_System
 
 	//-------------------------------------------------------------------------------------------------
 
-	static void createFontSampler()
+	void UI::CreateFontSampler()
 	{
 		// TODO: Recheck this settings
 		IGPUSampler::SParams params{};
@@ -465,146 +438,115 @@ namespace UI_System
 		params.TextureWrapV = ISampler::ETC_REPEAT;
 		params.TextureWrapW = ISampler::ETC_REPEAT;
 
-		state->fontSampler = state->device->createGPUSampler(params);
+		m_fontSampler = m_device->createGPUSampler(params);
 	}
 
 	//-------------------------------------------------------------------------------------------------
 
-	static void createDescriptorPool()
+	void UI::CreateDescriptorPool()
 	{
 		static constexpr int TotalSetCount = 1;
 		IDescriptorPool::SDescriptorPoolSize const poolSize{
 			.type = EDT_COMBINED_IMAGE_SAMPLER,
 			.count = TotalSetCount,
 		};
-		state->descriptorPool = state->device->createDescriptorPool(
+		m_descriptorPool = m_device->createDescriptorPool(
 			IDescriptorPool::E_CREATE_FLAGS::ECF_NONE,
 			TotalSetCount,
 			1,
 			&poolSize
 		);
 	}
+	
+	//-------------------------------------------------------------------------------------------------
+
+	void UI::HandleMouseEvents(
+		float const mousePosX, 
+		float const mousePosY,
+		size_t const mouseEventsCount,
+		SMouseEvent const * mouseEvents
+	) const
+	{
+		auto& io = ImGui::GetIO();
+
+		io.MousePos.x = mousePosX - m_window->getX();
+		io.MousePos.y = mousePosY - m_window->getY();
+
+		for (size_t i = 0; i < mouseEventsCount; ++i)
+		{
+			auto const & event = mouseEvents[i];
+			if(event.type == SMouseEvent::EET_CLICK)
+			{
+				int buttonIndex = -1;
+				if (event.clickEvent.mouseButton == EMB_LEFT_BUTTON) 
+				{
+					buttonIndex = 0;
+				} else if (event.clickEvent.mouseButton == EMB_RIGHT_BUTTON)
+				{
+					buttonIndex = 1;
+				} else if (event.clickEvent.mouseButton == EMB_MIDDLE_BUTTON)
+				{
+					buttonIndex = 2;
+				}
+
+				if (buttonIndex == -1)
+				{
+					assert(false);
+					continue;
+				}
+
+				if(event.clickEvent.action == SMouseEvent::SClickEvent::EA_PRESSED) {
+					io.MouseDown[buttonIndex] = true;
+				} else if (event.clickEvent.action == SMouseEvent::SClickEvent::EA_RELEASED) {
+					io.MouseDown[buttonIndex] = false;
+				}
+			}
+		}
+	}
 
 	//-------------------------------------------------------------------------------------------------
 
-	void Init(
-		nbl::core::smart_refctd_ptr<nbl::video::ILogicalDevice> const& device,
+	UI::UI(
+		smart_refctd_ptr<ILogicalDevice> device,
 		int maxFramesInFlight,
-		nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpass>& renderPass,
-		nbl::video::IGPUPipelineCache* pipelineCache,
-		nbl::video::IGPUObjectFromAssetConverter::SParams& cpu2GpuParams,
-		nbl::core::smart_refctd_ptr<CommonAPI::InputSystem>& inputSystem,
-		nbl::core::smart_refctd_ptr<nbl::ui::IWindow>& window
+		smart_refctd_ptr<IGPURenderpass>& renderPass,
+		IGPUPipelineCache* pipelineCache,
+		IGPUObjectFromAssetConverter::SParams& cpu2GpuParams,
+		smart_refctd_ptr<IWindow> window
 	)
+		: m_device(std::move(device))
+		, m_window(std::move(window))
 	{
-		state = new State();
-
-		state->device = device;
-
-		state->inputSystem = inputSystem;
-
-		state->window = window;
-
 		// Setup Dear ImGui context
 		IMGUI_CHECKVERSION();
 		ImGui::CreateContext();
 
-		createFontSampler();
+		CreateFontSampler();
 
-		createDescriptorPool();
+		CreateDescriptorPool();
 
-		createDescriptorSetLayout();
+		CreateDescriptorSetLayout();
 
-		createPipeline(renderPass, pipelineCache);
+		CreatePipeline(renderPass, pipelineCache);
 
-		createFontTexture(cpu2GpuParams);
+		CreateFontTexture(cpu2GpuParams);
 
 		prepareKeyMapForDesktop();
 
 		adjustGlobalFontScale();
 
-		updateDescriptorSets();
+		UpdateDescriptorSets();
 
 		auto & io = ImGui::GetIO();
-		io.DisplaySize = ImVec2(window->getWidth(), window->getHeight());
+		io.DisplaySize = ImVec2(m_window->getWidth(), m_window->getHeight());
 		io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
 
-		state->vertexBuffers.resize(maxFramesInFlight);
-		state->indexBuffers.resize(maxFramesInFlight);}
-
-	//-------------------------------------------------------------------------------------------------
-
-	static void UpdateMousePositionAndButtons()
-	{
-		// TODO: Handle keyboard events
-		//// Set OS mouse position if requested (rarely used, only when ImGuiConfigFlags_NavEnableSetMousePos is enabled by user)
-		//if (io.WantSetMousePos)
-		//{
-		//    RF::WarpMouseInWindow(static_cast<int32_t>(io.MousePos.x), static_cast<int32_t>(io.MousePos.y));
-		//}
-		//else
-		//{
-		//    io.MousePos = ImVec2(-FLT_MAX, -FLT_MAX);
-		//}
-		//int mx, my;
-		//uint32_t const mouse_buttons = MSDL::SDL_GetMouseState(&mx, &my);
-		//io.MouseDown[0] = (mouse_buttons & SDL_BUTTON(SDL_BUTTON_LEFT)) != 0;  // If a mouse press event came, always pass it as "mouse held this frame", so we don't miss click-release events that are shorter than 1 frame.
-		//io.MouseDown[1] = (mouse_buttons & SDL_BUTTON(SDL_BUTTON_RIGHT)) != 0;
-		//io.MouseDown[2] = (mouse_buttons & SDL_BUTTON(SDL_BUTTON_MIDDLE)) != 0;
-		//if (RF::GetWindowFlags() & MSDL::SDL_WINDOW_INPUT_FOCUS)
-		//{
-		//    io.MousePos = ImVec2(static_cast<float>(mx), static_cast<float>(my));
-		//}
-
-		CommonAPI::InputSystem::ChannelReader<IMouseEventChannel> mouse;
-		//CommonAPI::InputSystem::ChannelReader<IKeyboardEventChannel> keyboard;
-
-		state->inputSystem->getDefaultMouse(&mouse);
-		//inputSystem->getDefaultKeyboard(&keyboard);
-
-		static std::chrono::microseconds previousEventTimestamp {};
-
-		mouse.consumeEvents([](const IMouseEventChannel::range_t& events) -> void {
-			auto& io = ImGui::GetIO();
-			for (auto event : events)
-			{
-				if (event.timeStamp < previousEventTimestamp)
-				{
-					continue;
-				}
-				previousEventTimestamp = event.timeStamp;
-
-				if(event.type == nbl::ui::SMouseEvent::EET_CLICK)
-				{
-					int buttonIndex = -1;
-					if (event.clickEvent.mouseButton == EMB_LEFT_BUTTON) 
-					{
-						buttonIndex = 0;
-					} else if (event.clickEvent.mouseButton == EMB_RIGHT_BUTTON)
-					{
-						buttonIndex = 1;
-					} else if (event.clickEvent.mouseButton == EMB_MIDDLE_BUTTON)
-					{
-						buttonIndex = 2;
-					}
-
-					if(event.clickEvent.action == SMouseEvent::SClickEvent::EA_PRESSED) {
-						io.MouseDown[buttonIndex] = true;
-					} else if (event.clickEvent.action == SMouseEvent::SClickEvent::EA_RELEASED) {
-						io.MouseDown[buttonIndex] = false;
-					}
-				}
-			}
-		});
-
-		auto const position = state->window->getCursorControl()->getPosition();
-		auto& io = ImGui::GetIO();
-		io.MousePos.x = static_cast<float>(position.x) - state->window->getX();
-		io.MousePos.y = static_cast<float>(position.y) - state->window->getY();
+		m_vertexBuffers.resize(maxFramesInFlight);
+		m_indexBuffers.resize(maxFramesInFlight);
 	}
 
 	//-------------------------------------------------------------------------------------------------
-
+	// TODO: Handle mouse cursor for nabla
 	//static void UpdateMouseCursor()
 	//{
 		//auto & io = ImGui::GetIO();
@@ -622,24 +564,22 @@ namespace UI_System
 		//else
 		//{
 		//    // Show OS mouse cursor
-		//    MSDL::SDL_SetCursor(state->mouseCursors[imgui_cursor] ? state->mouseCursors[imgui_cursor] : state->mouseCursors[ImGuiMouseCursor_Arrow]);
+		//    MSDL::SDL_SetCursor(mouseCursors[imgui_cursor] ? mouseCursors[imgui_cursor] : mouseCursors[ImGuiMouseCursor_Arrow]);
 		//    MSDL::SDL_ShowCursor(MSDL::SDL_TRUE);
 		//}
 	//}
 
 	//-------------------------------------------------------------------------------------------------
 
-	bool Render(IGPUCommandBuffer& commandBuffer, int frameIndex)
+	bool UI::Render(IGPUCommandBuffer& commandBuffer, int const frameIndex)
 	{
 		ImGuiIO& io = ImGui::GetIO();
 		assert(io.Fonts->IsBuilt() && "Font atlas not built! It is generally built by the renderer backend. Missing call to renderer _NewFrame() function? e.g. ImGui_ImplOpenGL3_NewFrame().");
 
-		UpdateMousePositionAndButtons();
-		
 		// Setup desired Vulkan state
 		// Bind pipeline and descriptor sets:
-		commandBuffer.bindGraphicsPipeline(state->pipeline.get());
-		commandBuffer.bindDescriptorSets(EPBP_GRAPHICS, state->independentPipeline->getLayout(), 0, 1, &state->gpuDescriptorSet.get());
+		commandBuffer.bindGraphicsPipeline(m_pipeline.get());
+		commandBuffer.bindDescriptorSets(EPBP_GRAPHICS, m_independentPipeline->getLayout(), 0, 1, &m_gpuDescriptorSet.get());
 		
 		auto const* drawData = ImGui::GetDrawData();
 
@@ -661,11 +601,11 @@ namespace UI_System
 			vertexCreationParams.usage = nbl::asset::IBuffer::EUF_VERTEX_BUFFER_BIT;
 			vertexCreationParams.canUpdateSubRange = true;
 
-			auto & vertexBuffer = state->vertexBuffers[frameIndex];
+			auto & vertexBuffer = m_vertexBuffers[frameIndex];
 
-			if (vertexBuffer.isValid() == false || vertexBuffer->getSize() < vertexSize)
+			if (static_cast<bool>(vertexBuffer) == false || vertexBuffer->getSize() < vertexSize)
 			{
-				vertexBuffer = state->device->createCPUSideGPUVisibleGPUBufferOnDedMem(
+				vertexBuffer = m_device->createCPUSideGPUVisibleGPUBufferOnDedMem(
 					vertexCreationParams,
 					vertexSize
 				);
@@ -675,11 +615,11 @@ namespace UI_System
 			indexCreationParams.usage = nbl::asset::IBuffer::EUF_INDEX_BUFFER_BIT;
 			indexCreationParams.canUpdateSubRange = true;
 
-			auto & indexBuffer = state->indexBuffers[frameIndex];
+			auto & indexBuffer = m_indexBuffers[frameIndex];
 
-			if (indexBuffer.isValid() == false || indexBuffer->getSize() < indexSize)
+			if (static_cast<bool>(indexBuffer) == false || indexBuffer->getSize() < indexSize)
 			{
-				indexBuffer = state->device->createCPUSideGPUVisibleGPUBufferOnDedMem(
+				indexBuffer = m_device->createCPUSideGPUVisibleGPUBufferOnDedMem(
 					indexCreationParams,
 					indexSize
 				);
@@ -698,8 +638,8 @@ namespace UI_System
 					indexBuffer->getSize()
 				);
 
-				state->device->mapMemory(vertexMappedMemory, IDriverMemoryAllocation::EMCAF_WRITE);
-				state->device->mapMemory(indexMappedMemory, IDriverMemoryAllocation::EMCAF_WRITE);
+				m_device->mapMemory(vertexMappedMemory, IDriverMemoryAllocation::EMCAF_WRITE);
+				m_device->mapMemory(indexMappedMemory, IDriverMemoryAllocation::EMCAF_WRITE);
 
 				auto* vertex_ptr = static_cast<ImDrawVert*>(vertexMappedMemory.memory->getMappedPointer());
 				auto* index_ptr = static_cast<ImDrawIdx*>(indexMappedMemory.memory->getMappedPointer());
@@ -714,8 +654,8 @@ namespace UI_System
 					index_ptr += cmd->IdxBuffer.Size;
 				}
 
-				state->device->unmapMemory(vertexMappedMemory.memory);
-				state->device->unmapMemory(indexMappedMemory.memory);
+				m_device->unmapMemory(vertexMappedMemory.memory);
+				m_device->unmapMemory(indexMappedMemory.memory);
 			}
 
 			commandBuffer.bindIndexBuffer(
@@ -754,7 +694,7 @@ namespace UI_System
 				constants.translate[1] = -1.0f - drawData->DisplayPos.y * constants.scale[1];
 
 				commandBuffer.pushConstants(
-					state->independentPipeline->getLayout(),
+					m_independentPipeline->getLayout(),
 					IShader::ESS_VERTEX,
 					0,
 					sizeof(constants),
@@ -822,14 +762,24 @@ namespace UI_System
 
 	//-------------------------------------------------------------------------------------------------
 
-	void Update(float const deltaTimeInSec)
+	void UI::Update(
+		float const deltaTimeInSec,
+		float const mousePosX,
+		float const mousePosY,
+		size_t const mouseEventsCount,
+		ui::SMouseEvent const * mouseEvents
+		// TODO: Keyboard events
+	)
 	{
 		auto & io = ImGui::GetIO();
 		io.DeltaTime = deltaTimeInSec;
-		io.DisplaySize = ImVec2(state->window->getWidth(), state->window->getHeight());
+		io.DisplaySize = ImVec2(m_window->getWidth(), m_window->getHeight());
+
+		HandleMouseEvents(mousePosX, mousePosY, mouseEventsCount, mouseEvents);
+
 		ImGui::NewFrame();
-		state->hasFocus = false;
-		for (auto const& subscriber : state->subscribers)
+		hasFocus = false;
+		for (auto const& subscriber : m_subscribers)
 		{
 			subscriber.listener();
 		}
@@ -838,41 +788,41 @@ namespace UI_System
 
 	//-------------------------------------------------------------------------------------------------
 
-	void BeginWindow(char const* windowName)
+	void UI::BeginWindow(char const* windowName)
 	{
 		ImGui::Begin(windowName);
 	}
 
 	//-------------------------------------------------------------------------------------------------
 
-	void EndWindow()
+	void UI::EndWindow()
 	{
 		if (ImGui::IsWindowFocused())
 		{
-			state->hasFocus = true;
+			hasFocus = true;
 		}
 		ImGui::End();
 	}
 
 	//-------------------------------------------------------------------------------------------------
 
-	int Register(std::function<void()> const& listener)
+	int UI::Register(std::function<void()> const& listener)
 	{
 		assert(listener != nullptr);
 		static int NextId = 0;
-		state->subscribers.emplace_back(NextId++, listener);
-		return state->subscribers.back().id;
+		m_subscribers.emplace_back(NextId++, listener);
+		return m_subscribers.back().id;
 	}
 
 	//-------------------------------------------------------------------------------------------------
 
-	bool UnRegister(int const listenerId)
+	bool UI::UnRegister(int const listenerId)
 	{
-		for (int i = state->subscribers.size() - 1; i >= 0; --i)
+		for (int i = m_subscribers.size() - 1; i >= 0; --i)
 		{
-			if (state->subscribers[i].id == listenerId)
+			if (m_subscribers[i].id == listenerId)
 			{
-				state->subscribers.erase(state->subscribers.begin() + i);
+				m_subscribers.erase(m_subscribers.begin() + i);
 				return true;
 			}
 		}
@@ -881,21 +831,21 @@ namespace UI_System
 
 	//-------------------------------------------------------------------------------------------------
 
-	void SetNextItemWidth(float const nextItemWidth)
+	void UI::SetNextItemWidth(float const nextItemWidth)
 	{
 		ImGui::SetNextItemWidth(nextItemWidth);
 	}
 
 	//-------------------------------------------------------------------------------------------------
 
-	void SetWindowSize(float const width, float const height)
+	void UI::SetWindowSize(float const width, float const height)
 	{
 		ImGui::SetWindowSize(ImVec2(width, height));
 	}
 
 	//-------------------------------------------------------------------------------------------------
 
-	void Text(char const* label, ...)
+	void UI::Text(char const* label, ...)
 	{
 		va_list args;
 		va_start(args, label);
@@ -905,38 +855,38 @@ namespace UI_System
 
 	//-------------------------------------------------------------------------------------------------
 
-	void InputFloat(char const* label, float* value)
+	void UI::InputFloat(char const* label, float* value)
 	{
 		ImGui::InputFloat(label, value);
 	}
 
 	//-------------------------------------------------------------------------------------------------
 
-	void InputFloat2(char const* label, float* value)
+	void UI::InputFloat2(char const* label, float* value)
 	{
 		ImGui::InputFloat2(label, value);
 	}
 
 	//-------------------------------------------------------------------------------------------------
 
-	void InputFloat3(char const* label, float* value)
+	void UI::InputFloat3(char const* label, float* value)
 	{
 		ImGui::InputFloat3(label, value);
 	}
 
 	//-------------------------------------------------------------------------------------------------
 
-	void InputFloat4(char const* label, float* value)
+	void UI::InputFloat4(char const* label, float* value)
 	{
 		ImGui::InputFloat3(label, value);
 	}
 
 	//-------------------------------------------------------------------------------------------------
 
-	void InputFloat3(char const* label, glm::vec3& value)
+	void UI::InputFloat3(char const* label, glm::vec3& value)
 	{
 		float tempValue[3]{ value.x, value.y, value.z };
-		UI::InputFloat3(label, tempValue);
+		InputFloat3(label, tempValue);
 
 		if (memcmp(tempValue, &value[0], sizeof(float) * 3) != 0)
 		{
@@ -946,8 +896,7 @@ namespace UI_System
 
 	//-------------------------------------------------------------------------------------------------
 
-	// TODO Maybe we could cache unchanged vertices
-	bool Combo(
+	bool UI::Combo(
 		char const* label,
 		int32_t* selectedItemIndex,
 		char const** items,
@@ -966,13 +915,13 @@ namespace UI_System
 	// Based on https://eliasdaler.github.io/using-imgui-with-sfml-pt2/
 	static auto vector_getter = [](void* vec, int idx, const char** out_text)
 	{
-		auto& vector = *static_cast<std::vector<std::string>*>(vec);
+		auto const& vector = *static_cast<std::vector<std::string>*>(vec);
 		if (idx < 0 || idx >= static_cast<int>(vector.size())) { return false; }
 		*out_text = vector.at(idx).c_str();
 		return true;
 	};
 
-	bool Combo(
+	bool UI::Combo(
 		const char* label,
 		int* selectedItemIndex,
 		std::vector<std::string>& values
@@ -993,7 +942,7 @@ namespace UI_System
 
 	//-------------------------------------------------------------------------------------------------
 
-	void SliderInt(
+	void UI::SliderInt(
 		char const* label,
 		int* value,
 		int const minValue,
@@ -1010,7 +959,7 @@ namespace UI_System
 
 	//-------------------------------------------------------------------------------------------------
 
-	void SliderFloat(
+	void UI::SliderFloat(
 		char const* label,
 		float* value,
 		float const minValue,
@@ -1027,21 +976,21 @@ namespace UI_System
 
 	//-------------------------------------------------------------------------------------------------
 
-	void Checkbox(char const* label, bool* value)
+	void UI::Checkbox(char const* label, bool* value)
 	{
 		ImGui::Checkbox(label, value);
 	}
 
 	//-------------------------------------------------------------------------------------------------
 
-	void Spacing()
+	void UI::Spacing()
 	{
 		ImGui::Spacing();
 	}
 
 	//-------------------------------------------------------------------------------------------------
 
-	void Button(char const* label, std::function<void()> const& onPress)
+	void UI::Button(char const* label, std::function<void()> const& onPress)
 	{
 		if (ImGui::Button(label))
 		{
@@ -1054,45 +1003,39 @@ namespace UI_System
 
 	//-------------------------------------------------------------------------------------------------
 
-	void InputText(char const* label, std::string& outValue)
+	void UI::InputText(char const* label, std::string& outValue)
 	{
 		ImGui::InputText(label, &outValue);
 	}
 
 	//-------------------------------------------------------------------------------------------------
 
-	bool HasFocus()
+	bool UI::HasFocus()
 	{
-		return state->hasFocus;
+		return hasFocus;
 	}
 
 	//-------------------------------------------------------------------------------------------------
 
-	void Shutdown()
-	{
-		// TODO: Unregister from resize event
-
-		delete state;
-		state = nullptr;
-	}
+	UI::~UI() = default;
 
 	//-------------------------------------------------------------------------------------------------
 
-	bool IsItemActive()
+	bool UI::IsItemActive()
 	{
 		return ImGui::IsItemActive();
 	}
 
 	//-------------------------------------------------------------------------------------------------
 
-	bool TreeNode(char const* name)
+	bool UI::TreeNode(char const* name)
 	{
 		return ImGui::TreeNode(name);
 	}
 
 	//-------------------------------------------------------------------------------------------------
 
-	void TreePop()
+	void UI::TreePop()
 	{
 		ImGui::TreePop();
 	}
