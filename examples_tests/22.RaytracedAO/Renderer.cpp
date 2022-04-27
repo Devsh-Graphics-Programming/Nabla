@@ -790,7 +790,6 @@ void Renderer::initSceneNonAreaLights(Renderer::InitializationData& initData)
 	m_finalEnvmap->regenerateMipMapLevels();
 
 	initWarpingResources();
-	computeWarpMap();
 }
 
 void Renderer::finalizeScene(Renderer::InitializationData& initData)
@@ -1141,8 +1140,10 @@ void Renderer::deinitSceneResources()
 	maxSensorSamples = MaxFreeviewSamples;
 }
 
-void Renderer::initScreenSizedResources(uint32_t width, uint32_t height)
+void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, float envMapRegularizationFactor)
 {
+	bool enableRIS = computeWarpMap(envMapRegularizationFactor);
+
 	m_staticViewData.imageDimensions = {width, height};
 	m_rcpPixelSize = { 2.f/float(m_staticViewData.imageDimensions.x),-2.f/float(m_staticViewData.imageDimensions.y) };
 
@@ -1690,8 +1691,6 @@ bool Renderer::render(nbl::ITimer* timer, const bool transformNormals, const boo
 	camera->OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(timer->getTime()).count());
 	camera->render();
 
-	// computeWarpMap(); // For test when capturing
-
 	// check if camera moved
 	{
 		auto properEquals = [](const core::matrix4x3& lhs, const core::matrix4x3& rhs) -> bool
@@ -2167,10 +2166,11 @@ void Renderer::deinitWarpingResources()
 	m_warpMap = nullptr;
 }
 
-void Renderer::computeWarpMap()
+bool Renderer::computeWarpMap(float envMapRegularizationFactor)
 {
+	bool enableRIS = false;
+
 	LumaMipMapGenShaderData_t pcData = {};
-	const float envMapRegularizationFactor = 0.5f;
 	const nbl::core::vectorSIMDf lumaScales = nbl::core::vectorSIMDf(0.2126729f, 0.7151522f, 0.0721750f, 1.0f);
 	
 	m_driver->bindComputePipeline(m_lumaPipeline.get());
@@ -2265,6 +2265,7 @@ void Renderer::computeWarpMap()
 	}
 
 	float regularizationFactor = envMapRegularizationFactor*(1.0f-1.0f/(1.0f+variance));
+	std::cout << "New Regularization Factor based on Variance = " << regularizationFactor << std::endl;
 	constexpr float varianceThreshold = 0.001f;
 	enableRIS = (variance >= varianceThreshold);
 
@@ -2332,6 +2333,8 @@ void Renderer::computeWarpMap()
 		m_driver->dispatch(workGroups[0],workGroups[1],1);
 		COpenGLExtensionHandler::pGlMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT|GL_SHADER_IMAGE_ACCESS_BARRIER_BIT|GL_TEXTURE_UPDATE_BARRIER_BIT);
 	}
+
+	return enableRIS;
 }
 
 const float Renderer::AntiAliasingSequence[Renderer::AntiAliasingSequenceLength][2] =

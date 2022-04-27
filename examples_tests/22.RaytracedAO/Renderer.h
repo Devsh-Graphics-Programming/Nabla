@@ -45,7 +45,7 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 
 		void deinitSceneResources();
 		
-		void initScreenSizedResources(uint32_t width, uint32_t height);
+		void initScreenSizedResources(uint32_t width, uint32_t height, float envMapRegularizationFactor);
 
 		void deinitScreenSizedResources();
 
@@ -266,11 +266,11 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		nbl::core::smart_refctd_ptr<IGPUSpecializedShader> m_warpGPUShader;
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUComputePipeline> m_warpPipeline;
 		
-		bool enableRIS = false;
-
 		void initWarpingResources();
 		void deinitWarpingResources();
-		void computeWarpMap();
+
+		// returns if RIS should be enabled based on variance calculations
+		bool computeWarpMap(float envMapRegularizationFactor);
 
 		std::future<bool> compileShadersFuture;
 };
