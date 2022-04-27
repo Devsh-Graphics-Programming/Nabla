@@ -105,3 +105,6 @@
 [submodule "3rdparty/glTFSampleModels"]
 	path = 3rdparty/glTFSampleModels
 	url = https://github.com/KhronosGroup/glTF-Sample-Models
+[submodule "ci/ditt/Ditt-Reference-Scenes"]
+	path = ci/ditt/Ditt-Reference-Scenes
+	url = git@github.com:Devsh-Graphics-Programming/Ditt-Reference-Scenes.git
