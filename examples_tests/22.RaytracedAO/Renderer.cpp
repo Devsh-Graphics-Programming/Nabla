@@ -1382,7 +1382,7 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, float e
 			//region.imageSubresource.aspectMask = ;
 			region.imageSubresource.baseArrayLayer = 0u;
 			region.imageSubresource.layerCount = 1u;
-			region.imageExtent = {m_staticViewData.imageDimensions.x,m_staticViewData.imageDimensions.y,0u};
+			region.imageExtent = {m_staticViewData.imageDimensions.x,m_staticViewData.imageDimensions.y,1u};
 			auto scrambleKeys = createScreenSizedTexture(EF_R32G32_UINT);
 			m_driver->copyBufferToImage(tmpBuff.get(),scrambleKeys->getCreationParameters().image.get(),1u,&region);
 			setImageInfo(infos+0,asset::EIL_SHADER_READ_ONLY_OPTIMAL,std::move(scrambleKeys));
