@@ -319,7 +319,7 @@ void Envmap_generateRegularizedSample_and_pdf(out float pdf, out nbl_glsl_LightS
 }
 
 #include <nbl/builtin/glsl/sampling/quantized_sequence.glsl>
-mat2x3 rand6d(in uvec3 scramble_key, in int _sample, int depth)
+mat2x3 rand6d(in uvec3 scramble_keys[2], in int _sample, int depth)
 {
 	mat2x3 retVal;
 	// decrement depth because first vertex is rasterized and picked with a different sample sequence
@@ -330,21 +330,21 @@ mat2x3 rand6d(in uvec3 scramble_key, in int _sample, int depth)
 
 	const nbl_glsl_sampling_quantized3D quant1 = texelFetch(quantizedSampleSequence, offset).xy;
 	const nbl_glsl_sampling_quantized3D quant2 = texelFetch(quantizedSampleSequence, offset + eachStrategyStride).xy;
-    retVal[0] = nbl_glsl_sampling_decodeSample3Dimensions(quant1,scramble_key);
-    retVal[1] = nbl_glsl_sampling_decodeSample3Dimensions(quant2,scramble_key);
+    retVal[0] = nbl_glsl_sampling_decodeSample3Dimensions(quant1,scramble_keys[0]);
+    retVal[1] = nbl_glsl_sampling_decodeSample3Dimensions(quant2,scramble_keys[1]);
 	return retVal;
 }
 
 nbl_glsl_MC_quot_pdf_aov_t gen_sample_ray(
 	out vec3 direction,
-	in uvec3 scramble_key,
+	in uvec3 scramble_keys[2],
 	in uint sampleID, in uint depth,
 	in nbl_glsl_MC_precomputed_t precomp,
 	in nbl_glsl_MC_instr_stream_t gcs,
 	in nbl_glsl_MC_instr_stream_t rnps
 )
 {
-	mat2x3 rand = rand6d(scramble_key,int(sampleID),int(depth));
+	mat2x3 rand = rand6d(scramble_keys,int(sampleID),int(depth));
 
 	// (1) BXDF Sample and Weight
 	nbl_glsl_LightSample bxdfSample;
@@ -476,12 +476,16 @@ void generate_next_rays(
 	vec3 nextThroughput[MAX_RAYS_GENERATED];
 	float nextAoVThroughputScale[MAX_RAYS_GENERATED];
 	{
-		const uvec3 scramble_key = uvec3(nbl_glsl_xoroshiro64star(scramble_state),nbl_glsl_xoroshiro64star(scramble_state),nbl_glsl_xoroshiro64star(scramble_state));
+		const uvec3 scramble_keys[2] = { 
+			uvec3(nbl_glsl_xoroshiro64star(scramble_state),nbl_glsl_xoroshiro64star(scramble_state),nbl_glsl_xoroshiro64star(scramble_state)),
+			uvec3(nbl_glsl_xoroshiro64star(scramble_state),nbl_glsl_xoroshiro64star(scramble_state),nbl_glsl_xoroshiro64star(scramble_state))
+		};
+		
 		for (uint i=0u; i<maxRaysToGen; i++)
 		{
 			maxT[i] = 0.f;
 			// TODO: When generating NEE rays, advance the dimension, NOT the sampleID
-			const nbl_glsl_MC_quot_pdf_aov_t result = gen_sample_ray(direction[i],scramble_key,sampleID+i,vertex_depth,precomputed,gcs,rnps);
+			const nbl_glsl_MC_quot_pdf_aov_t result = gen_sample_ray(direction[i],scramble_keys,sampleID+i,vertex_depth,precomputed,gcs,rnps);
 			albedo += result.aov.albedo/float(maxRaysToGen);
 			worldspaceNormal += result.aov.normal/float(maxRaysToGen);
 
