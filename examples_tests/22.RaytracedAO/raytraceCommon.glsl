@@ -7,9 +7,6 @@
 
 #include <nbl/builtin/glsl/limits/numeric.glsl>
 
-// #define ONLY_BXDF_SAMPLING
-// #define ONLY_ENV_SAMPLING
-
 layout(push_constant, row_major) uniform PushConstants
 {
 	RaytraceShaderCommonData_t cummon;
@@ -352,6 +349,11 @@ nbl_glsl_MC_quot_pdf_aov_t gen_sample_ray(
 	// (1) BXDF Sample and Weight
 	nbl_glsl_LightSample bxdfSample;
 	nbl_glsl_MC_quot_pdf_aov_t bxdfCosThroughput = nbl_glsl_MC_runGenerateAndRemainderStream(precomp,gcs,rnps,rand[0],bxdfSample);
+
+	nbl_glsl_LightSample outSample;
+	nbl_glsl_MC_quot_pdf_aov_t result;
+
+#ifndef ONLY_BXDF_SAMPLING
 	float bxdfWeight = 0;
 
 	float p_bxdf_bxdf = bxdfCosThroughput.pdf; // BxDF PDF evaluated with BxDF sample (returned from 
@@ -407,10 +409,7 @@ nbl_glsl_MC_quot_pdf_aov_t gen_sample_ray(
 	}
 
 	const float bxdfChoiceProb = w_bxdf/w_sum;
-#endif
-
-	nbl_glsl_LightSample outSample;
-	nbl_glsl_MC_quot_pdf_aov_t result;
+#endif // ifdef TRADE_REGISTERS_FOR_IEEE754_ACCURACY
 
 	float rcpChoiceProb;
 	float w_star_over_p_env = w_sum;
@@ -429,13 +428,11 @@ nbl_glsl_MC_quot_pdf_aov_t gen_sample_ray(
 	
 	result.quotient *= w_star_over_p_env;
 	result.pdf /= w_star_over_p_env;
+#endif // ifndef ONLY_BXDF_SAMPLING
 
 #ifdef ONLY_BXDF_SAMPLING
 	outSample = bxdfSample;
 	result = bxdfCosThroughput;
-#elif defined(ONLY_ENV_SAMPLING)
-	outSample = envmapSample;
-	result = envmapSampleThroughput;
 #endif
 
 	// russian roulette
