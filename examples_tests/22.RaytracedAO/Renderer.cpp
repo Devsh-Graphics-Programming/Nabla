@@ -1162,7 +1162,7 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, float e
 		uint32_t _maxRaysPerDispatch = 0u;
 		auto setRayBufferSizes = [renderPixelCount,this,&_maxRaysPerDispatch,&raygenBufferSize,&intersectionBufferSize](uint32_t sampleMultiplier) -> void
 		{
-			m_staticViewData.samplesPerPixelPerDispatch = SAMPLING_STRATEGY_COUNT*sampleMultiplier;
+			m_staticViewData.samplesPerPixelPerDispatch = sampleMultiplier;
 
 			const size_t minimumSampleCountPerDispatch = static_cast<size_t>(renderPixelCount)*getSamplesPerPixelPerDispatch();
 			_maxRaysPerDispatch = static_cast<uint32_t>(minimumSampleCountPerDispatch);
