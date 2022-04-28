@@ -129,7 +129,7 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		void finalizeScene(InitializationData& initData);
 
 		//
-		nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> createTexture(uint32_t width, uint32_t height, nbl::asset::E_FORMAT format, uint32_t layers=0u);
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> createTexture(uint32_t width, uint32_t height, nbl::asset::E_FORMAT format, uint32_t mipLevels=1u, uint32_t layers=0u);
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> createScreenSizedTexture(nbl::asset::E_FORMAT format, uint32_t layers=0u);
 
 		//
@@ -249,6 +249,7 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 
 		// Shader and Resources for Generating Luminance MipMaps from EnvMap
 		static constexpr uint32_t MipCountLuminance = MipCountEnvmap;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> m_luminanceBaseImageView;
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> m_luminanceMipMaps[MipCountLuminance];
 		uint32_t m_lumaWorkGroups[2];
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSetLayout> m_lumaDSLayout;

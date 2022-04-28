@@ -50,7 +50,7 @@ layout(set = 2, binding = 6, r32ui) restrict uniform uimage2DArray normalAOV;
 // environment emitter
 layout(set = 2, binding = 7) uniform sampler2D envMap;
 layout(set = 2, binding = 8) uniform sampler2D warpMap; 
-layout(set = 2, binding = 9) uniform sampler2D luminance[MAX_LUMINANCE_LEVELS];
+layout(set = 2, binding = 9) uniform sampler2D luminance;
 
 void clear_raycount()
 {
@@ -272,13 +272,13 @@ vec3 nbl_glsl_unormSphericalToCartesian(in vec2 uv, out float sinTheta)
 // return regularized pdf of sample
 float Envmap_regularized_deferred_pdf(in vec3 rayDirection)
 {
-	const ivec2 luminanceMapSize = textureSize(luminance[0], 0);
-	uint lastLuminanceMip = uint(log2(luminanceMapSize.x)); // TODO: later turn into push constant
+	const ivec2 luminanceMapSize = textureSize(luminance, 0);
+	int lastLuminanceMip = int(log2(luminanceMapSize.x)); // TODO: later turn into push constant
 	const vec2 envmapUV = nbl_glsl_sampling_generateUVCoordFromDirection(rayDirection);
 
 	float sinTheta = length(rayDirection.zx);
-	float sumLum = texelFetch(luminance[lastLuminanceMip], ivec2(0), 0).r;
-	float lum = textureLod(luminance[0], envmapUV, 0).r;
+	float sumLum = texelFetch(luminance, ivec2(0), lastLuminanceMip).r;
+	float lum = textureLod(luminance, envmapUV, 0).r;
 	float bigfactor = float(luminanceMapSize.x*luminanceMapSize.y)/sumLum;
 	return bigfactor*(lum/(sinTheta*2.0f*nbl_glsl_PI*nbl_glsl_PI));
 }

@@ -830,7 +830,7 @@ void Renderer::finalizeScene(Renderer::InitializationData& initData)
 	}
 }
 
-core::smart_refctd_ptr<IGPUImageView> Renderer::createTexture(uint32_t width, uint32_t height, E_FORMAT format, uint32_t layers)
+core::smart_refctd_ptr<IGPUImageView> Renderer::createTexture(uint32_t width, uint32_t height, E_FORMAT format, uint32_t mipLevels, uint32_t layers)
 {
 	const auto real_layers = layers ? layers:1u;
 
@@ -839,7 +839,7 @@ core::smart_refctd_ptr<IGPUImageView> Renderer::createTexture(uint32_t width, ui
 	imgparams.arrayLayers = real_layers;
 	imgparams.flags = static_cast<IImage::E_CREATE_FLAGS>(0);
 	imgparams.format = format;
-	imgparams.mipLevels = 1u;
+	imgparams.mipLevels = mipLevels;
 	imgparams.samples = IImage::ESCF_1_BIT;
 	imgparams.type = IImage::ET_2D;
 
@@ -852,14 +852,14 @@ core::smart_refctd_ptr<IGPUImageView> Renderer::createTexture(uint32_t width, ui
 	viewparams.subresourceRange.baseArrayLayer = 0u;
 	viewparams.subresourceRange.layerCount = real_layers;
 	viewparams.subresourceRange.baseMipLevel = 0u;
-	viewparams.subresourceRange.levelCount = 1u;
+	viewparams.subresourceRange.levelCount = mipLevels;
 
 	return m_driver->createGPUImageView(std::move(viewparams));
 }
 
 core::smart_refctd_ptr<IGPUImageView> Renderer::createScreenSizedTexture(E_FORMAT format, uint32_t layers)
 {
-	return createTexture(m_staticViewData.imageDimensions.x, m_staticViewData.imageDimensions.y, format, layers);
+	return createTexture(m_staticViewData.imageDimensions.x, m_staticViewData.imageDimensions.y, format, 1u, layers);
 }
 
 core::smart_refctd_ptr<asset::ICPUBuffer> Renderer::SampleSequence::createCPUBuffer(uint32_t quantizedDimensions, uint32_t sampleCount)
@@ -1310,18 +1310,15 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, float e
 			infos[8].image.imageLayout = EIL_SHADER_READ_ONLY_OPTIMAL;
 		}
 		
-		IGPUDescriptorSet::SDescriptorInfo luminanceDescriptorInfos[MipCountLuminance];
+		IGPUDescriptorSet::SDescriptorInfo luminanceDescriptorInfo = {};
 		// luminance mip maps
 		{
 			ISampler::SParams samplerParams = { ISampler::ETC_CLAMP_TO_BORDER, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_FLOAT_OPAQUE_BLACK, ISampler::ETF_NEAREST, ISampler::ETF_NEAREST, ISampler::ETF_NEAREST, 0u, false, ECO_ALWAYS };
 			auto sampler = m_driver->createGPUSampler(samplerParams);
 
-			for(uint32_t i = 0; i < MipCountLuminance; ++i)
-			{
-				luminanceDescriptorInfos[i].desc = m_luminanceMipMaps[i];
-				luminanceDescriptorInfos[i].image.sampler = sampler;
-				luminanceDescriptorInfos[i].image.imageLayout = asset::EIL_SHADER_READ_ONLY_OPTIMAL;
-			}
+			luminanceDescriptorInfo.desc = m_luminanceBaseImageView;
+			luminanceDescriptorInfo.image.sampler = sampler;
+			luminanceDescriptorInfo.image.imageLayout = asset::EIL_SHADER_READ_ONLY_OPTIMAL;
 		}
 
 		createEmptyInteropBufferAndSetUpInfo(infos+3,m_rayBuffer[0],raygenBufferSize);
@@ -1343,13 +1340,13 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, float e
 			EDT_COMBINED_IMAGE_SAMPLER,
 		});
 		
-		// Set last write which is a descriptor array
+		// Set last write
 		writes[9].binding = 9u;
 		writes[9].arrayElement = 0u;
-		writes[9].count = MipCountLuminance;
+		writes[9].count = 1u;
 		writes[9].descriptorType = EDT_COMBINED_IMAGE_SAMPLER;
 		writes[9].dstSet = m_commonRaytracingDS[0].get();
-		writes[9].info = luminanceDescriptorInfos;
+		writes[9].info = &luminanceDescriptorInfo;
 
 		m_driver->updateDescriptorSets(descriptorUpdateCount,writes,0u,nullptr);
 		// set up second DS
@@ -1956,20 +1953,28 @@ bool Renderer::traceBounce(uint32_t& raycount)
 
 void Renderer::initWarpingResources()
 {
-	for(uint32_t i = 0; i < MipCountLuminance; ++i)
 	{
-		const uint32_t resolution = 0x1u<<(MipCountLuminance - 1 - i);
+		const uint32_t resolution = 0x1u<<(MipCountLuminance - 1);
 		const uint32_t width = std::max(resolution, 1u);
 		const uint32_t height = std::max(resolution/2u, 1u);
-		m_luminanceMipMaps[i] = createTexture(width, height, EF_R32_SFLOAT);
-		assert(m_luminanceMipMaps[i]);
+		m_luminanceBaseImageView = createTexture(width, height, EF_R32_SFLOAT, MipCountLuminance);
+		assert(m_luminanceBaseImageView);
+
+		m_luminanceMipMaps[0] = m_luminanceBaseImageView;
+		for(uint32_t i = 1; i < MipCountLuminance; ++i)
+		{
+			IGPUImageView::SCreationParams viewCreateParams = m_luminanceBaseImageView->getCreationParameters();
+			viewCreateParams.subresourceRange.baseMipLevel = i;
+			viewCreateParams.subresourceRange.levelCount = 1u;
+
+			m_luminanceMipMaps[i] = m_driver->createGPUImageView(std::move(viewCreateParams));
+		}
 	}
 
 	{
 		const uint32_t resolution = 0x1u<<(MipCountEnvmap-1); // same size as envmap
 		const uint32_t width = std::max(resolution, 1u);
 		const uint32_t height = std::max(resolution/2u, 1u);
-		// m_warpMap = createTexture(width, height, EF_R16G16_SFLOAT);
 		m_warpMap = createTexture(width, height, EF_R32G32_SFLOAT);
 	}
 
@@ -2098,13 +2103,10 @@ void Renderer::initWarpingResources()
 		
 		 	m_warpDS = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_warpDSLayout));
 			
-			IGPUDescriptorSet::SDescriptorInfo luminanceDescriptorInfos[MipCountLuminance] = {};
-			for(uint32_t i = 0; i < MipCountLuminance; ++i)
-			{
-				luminanceDescriptorInfos[i].desc = m_luminanceMipMaps[i];
-				luminanceDescriptorInfos[i].image.sampler = nullptr;
-				luminanceDescriptorInfos[i].image.imageLayout = asset::EIL_SHADER_READ_ONLY_OPTIMAL;
-			}
+			IGPUDescriptorSet::SDescriptorInfo luminanceDescriptorInfo = {};
+			luminanceDescriptorInfo.desc = m_luminanceBaseImageView;
+			luminanceDescriptorInfo.image.sampler = nullptr;
+			luminanceDescriptorInfo.image.imageLayout = asset::EIL_SHADER_READ_ONLY_OPTIMAL;
 		
 			IGPUDescriptorSet::SDescriptorInfo warpMapDescriptorInfo = {};
 			warpMapDescriptorInfo.desc = m_warpMap;
@@ -2114,10 +2116,10 @@ void Renderer::initWarpingResources()
 			IGPUDescriptorSet::SWriteDescriptorSet writes[2u];
 			writes[0].binding = 0u;
 			writes[0].arrayElement = 0u;
-			writes[0].count = MipCountLuminance;
+			writes[0].count = 1u;
 			writes[0].descriptorType = EDT_COMBINED_IMAGE_SAMPLER;
 			writes[0].dstSet = m_warpDS.get();
-			writes[0].info = luminanceDescriptorInfos;
+			writes[0].info = &luminanceDescriptorInfo;
 		
 			writes[1].binding = 1u;
 			writes[1].arrayElement = 0u;
@@ -2288,7 +2290,7 @@ bool Renderer::computeWarpMap(float envMapRegularizationFactor)
 
 		m_driver->pushConstants(m_lumaPipeline->getLayout(),ICPUSpecializedShader::ESS_COMPUTE,0u,sizeof(pcData),&pcData);
 		m_driver->dispatch(workGroups[0],workGroups[1],1);
-		COpenGLExtensionHandler::pGlMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT|GL_SHADER_IMAGE_ACCESS_BARRIER_BIT|GL_TEXTURE_UPDATE_BARRIER_BIT);
+		COpenGLExtensionHandler::pGlMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT|GL_SHADER_IMAGE_ACCESS_BARRIER_BIT|GL_TEXTURE_UPDATE_BARRIER_BIT|GL_SHADER_STORAGE_BARRIER_BIT);
 	}
 
 	// Calc Mipmaps
