@@ -3,7 +3,7 @@
 
 #include <nbl/builtin/glsl/math/constants.glsl>
 
-vec2 nbl_glsl_sampling_generateUVCoordFromDirection(vec3 v)
+vec2 nbl_glsl_sampling_envmap_generateUVCoordFromDirection(vec3 v)
 {
     vec2 uv = vec2(atan(v.z, v.x), acos(v.y));
     uv.x *= nbl_glsl_RECIPROCAL_PI*0.5;

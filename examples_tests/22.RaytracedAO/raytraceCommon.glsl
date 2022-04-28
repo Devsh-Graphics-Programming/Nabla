@@ -271,7 +271,7 @@ float Envmap_regularized_deferred_pdf(in vec3 rayDirection)
 {
 	const ivec2 luminanceMapSize = textureSize(luminance, 0);
 	int lastLuminanceMip = int(log2(luminanceMapSize.x)); // TODO: later turn into push constant
-	const vec2 envmapUV = nbl_glsl_sampling_generateUVCoordFromDirection(rayDirection);
+	const vec2 envmapUV = nbl_glsl_sampling_envmap_generateUVCoordFromDirection(rayDirection);
 
 	float sinTheta = length(rayDirection.zx);
 	float sumLum = texelFetch(luminance, ivec2(0), lastLuminanceMip).r;
@@ -550,7 +550,7 @@ struct Contribution
 
 void Contribution_initMiss(out Contribution contrib, in float aovThroughputScale)
 {
-	vec2 uv = nbl_glsl_sampling_generateUVCoordFromDirection(-normalizedV);
+	vec2 uv = nbl_glsl_sampling_envmap_generateUVCoordFromDirection(-normalizedV);
 	// funny little trick borrowed from things like Progressive Photon Mapping
 	const float bias = 0.0625f*(1.f-aovThroughputScale)*pow(pc.cummon.rcpFramesDispatched,0.08f);
 	contrib.albedo = contrib.color = textureGrad(envMap, uv, vec2(bias*0.5,0.f), vec2(0.f,bias)).rgb;
