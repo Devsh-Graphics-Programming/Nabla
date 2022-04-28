@@ -141,7 +141,7 @@ class CElementFilm : public IElement
 		float denoiserBloomIntensity = 0.0f;
 		_NBL_STATIC_INLINE_CONSTEXPR size_t MaxTonemapperArgsLen = 128;
 		char denoiserTonemapperArgs[MaxTonemapperArgsLen+1] = {0};
-		float envmapRegularizationFactor = 0.0f; // 1.0f means based envmap luminance, 0.0f means uniform
+		float envmapRegularizationFactor = 0.5f; // 1.0f means based envmap luminance, 0.0f means uniform
 };
 
 
