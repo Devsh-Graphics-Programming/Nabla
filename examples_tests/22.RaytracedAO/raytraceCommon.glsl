@@ -326,7 +326,7 @@ mat2x3 rand6d(in uvec3 scramble_key, in int _sample, int depth)
 	--depth;
 	//
 	int offset = int(_sample)*SAMPLE_SEQUENCE_STRIDE+depth;
-	int eachStrategyStride = SAMPLE_SEQUENCE_STRIDE/2; // get this from cpp side?
+	int eachStrategyStride = SAMPLE_SEQUENCE_STRIDE/SAMPLING_STRATEGY_COUNT;
 
 	const nbl_glsl_sampling_quantized3D quant1 = texelFetch(quantizedSampleSequence, offset).xy;
 	const nbl_glsl_sampling_quantized3D quant2 = texelFetch(quantizedSampleSequence, offset + eachStrategyStride).xy;
