@@ -2221,7 +2221,7 @@ bool Renderer::computeWarpMap(float envMapRegularizationFactor)
 		}
 
 		IImage::SBufferCopy copyRegion = {};
-		copyRegion.bufferOffset = 0u;
+		copyRegion.bufferOffset = address;
 		copyRegion.bufferRowLength = 0u;
 		copyRegion.bufferImageHeight = 0u;
 		//copyRegion.imageSubresource.aspectMask = wait for Vulkan;
@@ -2264,6 +2264,8 @@ bool Renderer::computeWarpMap(float envMapRegularizationFactor)
 
 		variance = avg_x2 - avg_x * avg_x; // V[x] = E[X^2]-E[X]^2
 		std::cout << "Final Luminance Variance = " << variance << std::endl;
+		
+		downloadStagingArea->multi_free(1u, &address, &colorBufferBytesize, nullptr);
 	}
 
 	float regularizationFactor = envMapRegularizationFactor*(1.0f-1.0f/(1.0f+variance));
