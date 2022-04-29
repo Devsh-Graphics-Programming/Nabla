@@ -31,6 +31,7 @@ endif()
 
 set(EXTRA_SOURCES
 	../../src/nbl/ext/DebugDraw/CDraw3DLine.cpp
+	../../src/nbl/ext/EnvmapImportanceSampling/EnvmapImportanceSampling.cpp
 	Renderer.cpp
 	CommandLineHandler.cpp
 )
