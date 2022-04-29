@@ -12,4 +12,13 @@ vec2 nbl_glsl_sampling_envmap_generateUVCoordFromDirection(vec3 v)
     return uv;
 }
 
+vec3 nbl_glsl_sampling_envmap_generateDirectionFromUVCoord(in vec2 uv, out float sinTheta)
+{
+	vec3 dir;
+	nbl_glsl_sincos((uv.x-0.5)*2.f*nbl_glsl_PI,dir.y,dir.x);
+	nbl_glsl_sincos(uv.y*nbl_glsl_PI,sinTheta,dir.z);
+	dir.xy *= sinTheta;
+	return dir;
+}
+
 #endif

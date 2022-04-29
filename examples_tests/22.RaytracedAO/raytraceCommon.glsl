@@ -256,15 +256,6 @@ vec3 load_normal_and_prefetch_textures(
 	return geomNormal;
 }
 
-vec3 nbl_glsl_unormSphericalToCartesian(in vec2 uv, out float sinTheta)
-{
-	vec3 dir;
-	nbl_glsl_sincos((uv.x-0.5)*2.f*nbl_glsl_PI,dir.y,dir.x);
-	nbl_glsl_sincos(uv.y*nbl_glsl_PI,sinTheta,dir.z);
-	dir.xy *= sinTheta;
-	return dir;
-}
-
 // return regularized pdf of sample
 float Envmap_regularized_deferred_pdf(in vec3 rayDirection)
 {
@@ -305,7 +296,7 @@ void Envmap_generateRegularizedSample_and_pdf(out float pdf, out nbl_glsl_LightS
 	const vec2 uv = yDiff*interpolant.y+yVals[0];
 
 	float sinTheta;
-	const vec3 L = nbl_glsl_unormSphericalToCartesian(uv, sinTheta);
+	const vec3 L = nbl_glsl_sampling_envmap_generateDirectionFromUVCoord(uv, sinTheta);
 	lightSample = nbl_glsl_createLightSample(L, interaction);
 	
 	const float detInterpolJacobian = determinant(mat2(
