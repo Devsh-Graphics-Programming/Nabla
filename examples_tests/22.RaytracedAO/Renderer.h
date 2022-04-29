@@ -23,7 +23,7 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
     public:
 		#include "rasterizationCommon.h"
 		#include "raytraceCommon.h"
-		#include "warpCommon.h"
+		#include "nbl/builtin/glsl/ext/EnvmapImportanceSampling/parameters.glsl"
 		#ifdef __cplusplus
 			#undef uint
 			#undef vec4
@@ -248,12 +248,23 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUMeshBuffer> blendEnvMeshBuffer;
 
 		// Shader and Resources for Generating Luminance MipMaps from EnvMap
-		static constexpr uint32_t MipCountLuminance = MipCountEnvmap;
+		struct ComputeWarpMapInfo
+		{
+			uint32_t MipCountEnvmap;
+			uint32_t MipCountLuminance;
+			uint32_t lumaMipMapGenWorkgroupDimension;
+			uint32_t warpMapGenWorkgroupDimension;
+		};
+		
+		static constexpr uint32_t MaxMipCountLuminance = 13u;
+		static constexpr uint32_t DefaultLumaMipMapGenWorkgroupDimension = 16u;
+		static constexpr uint32_t DefaultWarpMapGenWorkgroupDimension = 16u;
+
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> m_luminanceBaseImageView;
-		nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> m_luminanceMipMaps[MipCountLuminance];
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> m_luminanceMipMaps[MaxMipCountLuminance];
 		uint32_t m_lumaWorkGroups[2];
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSetLayout> m_lumaDSLayout;
-		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSet> m_lumaDS[MipCountLuminance - 1];
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSet> m_lumaDS[MaxMipCountLuminance - 1];
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUPipelineLayout> m_lumaPipelineLayout;
 		nbl::core::smart_refctd_ptr<IGPUSpecializedShader> m_lumaGPUShader;
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUComputePipeline> m_lumaPipeline;
@@ -267,12 +278,16 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		nbl::core::smart_refctd_ptr<IGPUSpecializedShader> m_warpGPUShader;
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUComputePipeline> m_warpPipeline;
 		
-		void initWarpingResources();
+		ComputeWarpMapInfo initWarpingResources(
+			nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> envmap, 
+			uint32_t lumaMipMapGenWorkgroupDimension = DefaultLumaMipMapGenWorkgroupDimension,
+			uint32_t warpMapGenWorkgroupDimension = DefaultWarpMapGenWorkgroupDimension);
 		void deinitWarpingResources();
 
 		// returns if RIS should be enabled based on variance calculations
-		bool computeWarpMap(float envMapRegularizationFactor);
+		bool computeWarpMap(float envMapRegularizationFactor, ComputeWarpMapInfo info);
 
+		ComputeWarpMapInfo m_computeWarpMapInfo;
 		std::future<bool> compileShadersFuture;
 };
 

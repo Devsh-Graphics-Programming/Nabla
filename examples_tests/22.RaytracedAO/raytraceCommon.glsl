@@ -2,7 +2,6 @@
 #define _RAYTRACE_COMMON_GLSL_INCLUDED_
 
 #include "virtualGeometry.glsl"
-#include "warpCommon.h"
 #include <nbl/builtin/glsl/sampling/envmap.glsl>
 
 #include <nbl/builtin/glsl/limits/numeric.glsl>

@@ -1,6 +1,7 @@
-#version 430 core
+#ifndef _NBL_GLSL_EXT_ENVMAP_SAMPLING_GEN_LUMA_INCLUDED_
+#define _NBL_GLSL_EXT_ENVMAP_SAMPLING_GEN_LUMA_INCLUDED_
 
-#include "warpCommon.h"
+#include <nbl/builtin/glsl/ext/EnvmapImportanceSampling/parameters.glsl>
 #include <nbl/builtin/glsl/math/functions.glsl>
 
 layout(local_size_x = LUMA_MIP_MAP_GEN_WORKGROUP_DIM, local_size_y = LUMA_MIP_MAP_GEN_WORKGROUP_DIM) in;
@@ -55,3 +56,5 @@ void main()
 		}
 	}
 }
+
+#endif
