@@ -89,8 +89,8 @@ def generateHTMLStatus(_htmlData, _cacheChanged):
             anIndexOfRenderAspect = i + HTML_TUPLE_REFERENCE_INDEX
 
             aspectRenderData = _htmlRowTuple[anIndexOfRenderAspect]
-
-            HTML_ROW_BODY += '<td scope="col">' + '<a href="https://TODO.com">' + aspectRenderData[HTML_R_A_N_D_D_DIFF] + '</a></td>' + '<td scope="col">An error: ' + aspectRenderData[HTML_R_A_N_D_D_ERROR] + '</td>'
+            HTML_HYPERLINK_DIFF = 'https://artifactory.devsh.eu/Ditt/ci/data/' + _htmlRowTuple[HTML_TUPLE_RENDER_INDEX] + '/' + aspectRenderData[HTML_R_A_N_D_D_DIFF]
+            HTML_ROW_BODY += '<td scope="col">' + '<a href="' + HTML_HYPERLINK_DIFF + '">' + aspectRenderData[HTML_R_A_N_D_D_DIFF] + '</a></td>' + '<td scope="col">An error: ' + aspectRenderData[HTML_R_A_N_D_D_ERROR] + '</td>'
 
             if aspectRenderData[HTML_R_A_N_D_D_PASS]:
                 HTML_ROW_BODY += '<td scope="col" style="color: green;">PASSED</td>'
@@ -145,10 +145,16 @@ if __name__ == '__main__':
                 generatedUndenoisedTargetName = str(NBL_PATHTRACER_EXE.parent.absolute()) + '/' + undenoisedTargetName
                 destinationReferenceUndenoisedTargetName = str(NBL_CI_REFERENCES_DIR.absolute()) + '/' + renderName + '/' + undenoisedTargetName
 
+                # if we start the path tracer first time
+                if NBL_DUMMY_CACHE_CASE:
+                    sceneDummyRender = '"../ci/dummy_4096spp_128depth.xml"'
+
+                    executor = str(NBL_PATHTRACER_EXE.absolute()) + ' -SCENE=' + sceneDummyRender + ' -TERMINATE'
+                    subprocess.run(executor, capture_output=True)
+                    shutil.copyfile(generatedReferenceCache, destinationReferenceCache)
+
+                # if we render first time a scene then we need to have a reference of this scene for following ci checks
                 if NBL_DUMMY_RENDER_CASE:
-                    # TODO: check why it doesn't process with dummy render (even when absolute path is involved)
-                    #sceneDummyRender = '"' + renderPath + ' ../ci/dummy_4096spp_128depth.xml' + '"'
-                    
                     sceneDummyRender = line.strip()
                     executor = str(NBL_PATHTRACER_EXE.absolute()) + ' -SCENE=' + sceneDummyRender + ' -TERMINATE'
                     subprocess.run(executor, capture_output=True)
@@ -161,10 +167,9 @@ if __name__ == '__main__':
                     shutil.copyfile(generatedUndenoisedTargetName + '_normal.exr', destinationReferenceUndenoisedTargetName + '_normal.exr')
                     shutil.copyfile(generatedUndenoisedTargetName + '_denoised.exr',destinationReferenceUndenoisedTargetName + '_denoised.exr')
 
-                if NBL_DUMMY_CACHE_CASE:
-                    shutil.copyfile(generatedReferenceCache, destinationReferenceCache)
-
-                htmlRowTuple[HTML_TUPLE_RENDER_INDEX] = scene = line.strip()
+                #htmlRowTuple[HTML_TUPLE_RENDER_INDEX] = scene = line.strip()
+                scene = line.strip()
+                htmlRowTuple[HTML_TUPLE_RENDER_INDEX] = renderName
                 executor = str(NBL_PATHTRACER_EXE.absolute()) + ' -SCENE=' + scene + ' -TERMINATE'
                 subprocess.run(executor, capture_output=True)
 
@@ -176,7 +181,7 @@ if __name__ == '__main__':
                 anIndex = HTML_TUPLE_REFERENCE_INDEX
                 outputDiffTerminators = ['', '_albedo', '_normal', '_denoised']
                 for diffTerminator in outputDiffTerminators:
-                    diffImageFilepath = str(NBL_CI_REFERENCES_DIR.absolute()) + '/' + renderName + '/' + renderName + diffTerminator + '_diff.png'
+                    diffImageFilepath = str(NBL_CI_REFERENCES_DIR.absolute()) + '/' + renderName + '/' + renderName + diffTerminator + '_diff.exr'
                     diffValueFilepath = str(NBL_CI_REFERENCES_DIR.absolute()) + '/' + renderName + '/' + renderName + diffTerminator + '_diff.txt'
                     executor = str(NBL_IMAGEMAGICK_EXE.absolute()) + ' compare -metric AE ' + destinationReferenceUndenoisedTargetName + diffTerminator + '.exr ' + generatedUndenoisedTargetName + diffTerminator + '.exr -compose src ' + diffImageFilepath
                     magicProcess = subprocess.run(executor, capture_output=True)
@@ -192,7 +197,7 @@ if __name__ == '__main__':
                         CI_PASS_STATUS = False
                         htmlRowTuple[HTML_TUPLE_PASS_STATUS_INDEX] = False
 
-                    htmlRowTuple[anIndex][HTML_R_A_N_D_D_DIFF] = renderName + diffTerminator + '_diff.png'
+                    htmlRowTuple[anIndex][HTML_R_A_N_D_D_DIFF] = renderName + diffTerminator + '_diff.exr'
                     htmlRowTuple[anIndex][HTML_R_A_N_D_D_ERROR] = str(magicDecodeValue)
                     htmlRowTuple[anIndex][HTML_R_A_N_D_D_PASS] = DIFF_PASS
                     anIndex += 1
