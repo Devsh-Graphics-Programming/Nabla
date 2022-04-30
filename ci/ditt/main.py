@@ -89,7 +89,7 @@ def generateHTMLStatus(_htmlData, _cacheChanged):
             anIndexOfRenderAspect = i + HTML_TUPLE_REFERENCE_INDEX
 
             aspectRenderData = _htmlRowTuple[anIndexOfRenderAspect]
-            HTML_HYPERLINK_DIFF = 'https://artifactory.devsh.eu/Ditt/ci/data/' + _htmlRowTuple[HTML_TUPLE_RENDER_INDEX] + '/' + aspectRenderData[HTML_R_A_N_D_D_DIFF]
+            HTML_HYPERLINK_DIFF = 'https://artifactory.devsh.eu/Ditt/ci/data/references' + _htmlRowTuple[HTML_TUPLE_RENDER_INDEX] + '/' + aspectRenderData[HTML_R_A_N_D_D_DIFF]
             HTML_ROW_BODY += '<td scope="col">' + '<a href="' + HTML_HYPERLINK_DIFF + '">' + aspectRenderData[HTML_R_A_N_D_D_DIFF] + '</a></td>' + '<td scope="col">An error: ' + aspectRenderData[HTML_R_A_N_D_D_ERROR] + '</td>'
 
             if aspectRenderData[HTML_R_A_N_D_D_PASS]:
@@ -191,8 +191,8 @@ if __name__ == '__main__':
                     diffValueFile.write('difference error: ' + str(magicDecodeValue))
                     diffValueFile.close()
 
-                    # threshold for an error, for now we fail CI on any difference
-                    DIFF_PASS = float(magicDecodeValue) == 0.0
+                    # threshold for an error, for now we fail CI when the difference is greater then 64.0
+                    DIFF_PASS = float(magicDecodeValue) <= 64.0
                     if not DIFF_PASS:
                         CI_PASS_STATUS = False
                         htmlRowTuple[HTML_TUPLE_PASS_STATUS_INDEX] = False
@@ -209,4 +209,4 @@ if __name__ == '__main__':
         exit(-1)
 
 if not CI_PASS_STATUS:
-    exit(-1)
+    exit(-2)
