@@ -131,7 +131,7 @@ if __name__ == '__main__':
                 htmlRowTuple = ['', True, ['', '', True], ['', '', True], ['', '', True], ['', '', True]]
 
                 renderPath = line.strip().replace('"', '').split()[0]
-                htmlRowTuple[HTML_TUPLE_RENDER_INDEX] = renderName = os.path.splitext(str(Path(renderPath).name))[0]
+                renderName = os.path.splitext(str(Path(renderPath).name))[0]
                 undenoisedTargetName = 'Render_' + renderName + '_scene'
 
                 NBL_DUMMY_CACHE_CASE = not bool(Path(str(NBL_CI_REFERENCES_DIR.absolute()) + '/' + NBL_CI_LDS_CACHE_FILENAME).is_file())
@@ -148,7 +148,8 @@ if __name__ == '__main__':
                 if NBL_DUMMY_RENDER_CASE:
                     # TODO: check why it doesn't process with dummy render (even when absolute path is involved)
                     #sceneDummyRender = '"' + renderPath + ' ../ci/dummy_4096spp_128depth.xml' + '"'
-                    sceneDummyRender = '"' + renderPath + ' scene.xml' + '"'
+                    
+                    sceneDummyRender = line.strip()
                     executor = str(NBL_PATHTRACER_EXE.absolute()) + ' -SCENE=' + sceneDummyRender + ' -TERMINATE'
                     subprocess.run(executor, capture_output=True)
 
@@ -163,7 +164,7 @@ if __name__ == '__main__':
                 if NBL_DUMMY_CACHE_CASE:
                     shutil.copyfile(generatedReferenceCache, destinationReferenceCache)
 
-                scene = line.strip()
+                htmlRowTuple[HTML_TUPLE_RENDER_INDEX] = scene = line.strip()
                 executor = str(NBL_PATHTRACER_EXE.absolute()) + ' -SCENE=' + scene + ' -TERMINATE'
                 subprocess.run(executor, capture_output=True)
 
