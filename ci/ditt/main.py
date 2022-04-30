@@ -78,11 +78,11 @@ def generateHTMLStatus(_htmlData, _cacheChanged):
     for _htmlRowTuple in _htmlData:
         HTML_ROW_BODY = '''
         <tr>
-          <td>''' + _htmlRowTuple[HTML_TUPLE_RENDER_INDEX] '</td>'
+          <td>''' + _htmlRowTuple[HTML_TUPLE_RENDER_INDEX] + '</td>'
 
         if _htmlRowTuple[HTML_TUPLE_PASS_STATUS_INDEX]:
             HTML_ROW_BODY += '<td style="color: green;">PASSED</td>'
-        else
+        else:
             HTML_ROW_BODY += '<td style="color: red;">FAILED</td>'
 
         for i in range(4):
@@ -90,12 +90,11 @@ def generateHTMLStatus(_htmlData, _cacheChanged):
 
             aspectRenderData = _htmlRowTuple[anIndexOfRenderAspect]
 
-            HTML_ROW_BODY += '<td scope="col">' + '<a href="https://TODO.com">' + aspectRenderData[HTML_R_A_N_D_D_DIFF] + '</a></td>' +
-            '<td scope="col">An error: ' + aspectRenderData[HTML_R_A_N_D_D_ERROR] + '</td>'
+            HTML_ROW_BODY += '<td scope="col">' + '<a href="https://TODO.com">' + aspectRenderData[HTML_R_A_N_D_D_DIFF] + '</a></td>' + '<td scope="col">An error: ' + aspectRenderData[HTML_R_A_N_D_D_ERROR] + '</td>'
 
             if aspectRenderData[HTML_R_A_N_D_D_PASS]:
                 HTML_ROW_BODY += '<td scope="col" style="color: green;">PASSED</td>'
-            else
+            else:
                 HTML_ROW_BODY += '<td scope="col" style="color: red;">FAILED</td>'
         HTML_ROW_BODY += '</tr>'
 
@@ -108,7 +107,7 @@ def generateHTMLStatus(_htmlData, _cacheChanged):
     </html>
     '''
 
-    htmlFile = open(NBL_CI_WORKING_DIR + '/index.html', "w")
+    htmlFile = open(str(NBL_CI_WORKING_DIR.absolute()) + '/index.html', "w")
     htmlFile.write(HTML_BODY)
     htmlFile.close()
 
@@ -129,7 +128,7 @@ if __name__ == '__main__':
         for line in inputLines:
             if list(line)[0] != ';':
 
-                htmlRowTuple = ('', True, ['', '', True], ['', '', True], ['', '', True], ['', '', True])
+                htmlRowTuple = ['', True, ['', '', True], ['', '', True], ['', '', True], ['', '', True]]
 
                 renderPath = line.strip().replace('"', '').split()[0]
                 htmlRowTuple[HTML_TUPLE_RENDER_INDEX] = renderName = os.path.splitext(str(Path(renderPath).name))[0]
@@ -147,7 +146,9 @@ if __name__ == '__main__':
                 destinationReferenceUndenoisedTargetName = str(NBL_CI_REFERENCES_DIR.absolute()) + '/' + renderName + '/' + undenoisedTargetName
 
                 if NBL_DUMMY_RENDER_CASE:
-                    sceneDummyRender = '"' + renderPath + ' ../ci/dummy_4096spp_128depth.xml' + '"'
+                    # TODO: check why it doesn't process with dummy render (even when absolute path is involved)
+                    #sceneDummyRender = '"' + renderPath + ' ../ci/dummy_4096spp_128depth.xml' + '"'
+                    sceneDummyRender = '"' + renderPath + ' scene.xml' + '"'
                     executor = str(NBL_PATHTRACER_EXE.absolute()) + ' -SCENE=' + sceneDummyRender + ' -TERMINATE'
                     subprocess.run(executor, capture_output=True)
 
@@ -193,7 +194,7 @@ if __name__ == '__main__':
                     htmlRowTuple[anIndex][HTML_R_A_N_D_D_DIFF] = renderName + diffTerminator + '_diff.png'
                     htmlRowTuple[anIndex][HTML_R_A_N_D_D_ERROR] = str(magicDecodeValue)
                     htmlRowTuple[anIndex][HTML_R_A_N_D_D_PASS] = DIFF_PASS
-                    ++anIndex
+                    anIndex += 1
                 htmlData.append(htmlRowTuple)
 
         generateHTMLStatus(htmlData, cacheChanged)
