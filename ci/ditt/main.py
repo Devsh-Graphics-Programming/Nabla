@@ -89,7 +89,7 @@ def generateHTMLStatus(_htmlData, _cacheChanged):
             anIndexOfRenderAspect = i + HTML_TUPLE_REFERENCE_INDEX
 
             aspectRenderData = _htmlRowTuple[anIndexOfRenderAspect]
-            HTML_HYPERLINK_DIFF = 'https://artifactory.devsh.eu/Ditt/ci/data/references' + _htmlRowTuple[HTML_TUPLE_RENDER_INDEX] + '/' + aspectRenderData[HTML_R_A_N_D_D_DIFF]
+            HTML_HYPERLINK_DIFF = 'https://artifactory.devsh.eu/Ditt/ci/data/references/' + _htmlRowTuple[HTML_TUPLE_RENDER_INDEX] + '/' + aspectRenderData[HTML_R_A_N_D_D_DIFF]
             HTML_ROW_BODY += '<td scope="col">' + '<a href="' + HTML_HYPERLINK_DIFF + '">' + aspectRenderData[HTML_R_A_N_D_D_DIFF] + '</a></td>' + '<td scope="col">An error: ' + aspectRenderData[HTML_R_A_N_D_D_ERROR] + '</td>'
 
             if aspectRenderData[HTML_R_A_N_D_D_PASS]:
