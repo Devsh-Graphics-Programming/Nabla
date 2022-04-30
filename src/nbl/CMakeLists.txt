@@ -426,9 +426,8 @@ if (UNIX)
 		${X11_xf86vmode_INCLUDE_PATH})
 endif()
 
-
 if (NBL_COMPILE_WITH_CUDA)
-	target_include_directories(Nabla PUBLIC ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
+	target_include_directories(Nabla PUBLIC ${CUDAToolkit_INCLUDE_DIRS})
 endif()
 
 target_compile_definitions(Nabla 

@@ -10,7 +10,6 @@ set(OpenGL_GL_PREFERENCE LEGACY)
 
 project(Nabla LANGUAGES CXX C)
 
-
 find_package(Vulkan)
 if (Vulkan_FOUND)
 	message(STATUS "Building with Vulkan driver")
@@ -19,25 +18,15 @@ else()
 endif()
 
 option(NBL_COMPILE_WITH_CUDA "Compile with CUDA interop?" OFF)
-
-# CUDA test
-include(CheckLanguage)
-check_language(CUDA)
-#if(NOT CMAKE_CUDA_COMPILER OR CMAKE_CUDA_COMPILER_VERSION VERSION_LESS "9.0")
-if(NOT CMAKE_CUDA_COMPILER)
-	if (NBL_COMPILE_WITH_CUDA)
-		#message(WARNING "CUDA not found or version (${CMAKE_CUDA_COMPILER_VERSION}) lower than 9.0 found, version 9.0+ needed for C++14 support.")
-		message(WARNING "CUDA not found.")
-	endif()
-else()
-	if (NBL_COMPILE_WITH_CUDA)
-		enable_language(CUDA)
+if(NBL_COMPILE_WITH_CUDA)
+	find_package(CUDAToolkit REQUIRED)
+	if(${CUDAToolkit_VERSION} VERSION_GREATER "9.0")
+		message(STATUS "CUDA version 9.0+ found!")
 	else()
-		message(STATUS "CUDA version 9.0+ found, you can enable the NBL_COMPILE_WITH_CUDA option.")
+		message(FATAL_ERROR "CUDA version 9.0+ needed for C++14 support!")
 	endif()
 endif()
 
-#
 get_filename_component(NBL_ROOT_PATH "${CMAKE_CURRENT_SOURCE_DIR}" ABSOLUTE)
 get_filename_component(NBL_BINARY_PATH "${CMAKE_CURRENT_BINARY_DIR}" ABSOLUTE)
 
@@ -208,16 +197,14 @@ option(NBL_BUILD_MITSUBA_LOADER "Enable nbl::ext::MitsubaLoader?" ON)
 
 option(NBL_BUILD_RADEON_RAYS "Enable nbl::ext::RadeonRays?" OFF)
 
-if (NBL_COMPILE_WITH_CUDA)
-	find_package(OPTIX)
-	if (OPTIX_FOUND)
-		message(STATUS "CUDA and OptiX found, you can enable NBL_BUILD_OPTIX")
-	else()
-		message(STATUS "OptiX not found")
-	endif()
-	option(NBL_BUILD_OPTIX "Enable nbl::ext::OptiX?" OFF)
+option(NBL_BUILD_OPTIX "Enable nbl::ext::OptiX?" OFF)
+if(NBL_COMPILE_WITH_CUDA)
+	find_package(OPTIX REQUIRED)
+	message(STATUS "CUDA enabled and OptiX found!")
 else()
-	message(STATUS "Because NBL_COMPILE_WITH_CUDA is not enabled, the NBL_BUILD_OPTIX option will be hidden.")
+	if(NBL_BUILD_OPTIX)
+		message(FATAL_ERROR "You cannot build Optix without enabled CUDA! NBL_COMPILE_WITH_CUDA must be ON!")
+	endif()
 endif()
 
 option(NBL_BUILD_CEGUI "Enable CEGUI building and integration?" OFF)
@@ -225,6 +212,11 @@ option(NBL_BUILD_CEGUI "Enable CEGUI building and integration?" OFF)
 option(NBL_BUILD_BULLET "Enable Bullet Physics building and integration?" OFF)
 
 option(NBL_BUILD_DOCS "Enable building documentation?" OFF) # No one has doxygen installed, plus we dont know when was the last time we generated working doxy and we'll use SphinX in the future
+
+option(NBL_RUN_TESTS "Enables CI mode - only for Nabla developers" OFF)
+if(NBL_RUN_TESTS)
+	find_program(_NBL_IMAGEMAGICK_EXE_ NAMES magick.exe PATHS ENV PATH REQUIRED)
+endif()
 
 set(THIRD_PARTY_SOURCE_DIR "${PROJECT_SOURCE_DIR}/3rdparty")
 set(THIRD_PARTY_BINARY_DIR "${PROJECT_BINARY_DIR}/3rdparty")
@@ -237,10 +229,7 @@ add_subdirectory(${THIRD_PARTY_SOURCE_DIR})
 
 OPTION(NBL_EMBED_BUILTIN_RESOURCES "Embed built-in resources?" ON)
 
-
 add_subdirectory(src/nbl) # Nabla code	|	Moved cmakelists.txt from source/Nabla to src/nbl
-
-
 
 if(NBL_BUILD_TOOLS)
 	add_subdirectory(tools) # convert2BAW
