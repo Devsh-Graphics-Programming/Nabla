@@ -6,6 +6,24 @@
 #include <nbl/builtin/glsl/math/functions.glsl>
 #include <nbl/builtin/glsl/bxdf/common.glsl>
 
+float nbl_glsl_sampling_envmap_HierarchicalWarp_deferred_pdf(in vec3 rayDirection, in sampler2D luminance, ivec2 luminanceMapSize, int lastLuminanceMip)
+{
+	const vec2 envmapUV = nbl_glsl_sampling_envmap_generateUVCoordFromDirection(rayDirection);
+
+	float sinTheta = length(rayDirection.zx);
+	float sumLum = texelFetch(luminance, ivec2(0), lastLuminanceMip).r;
+	float lum = textureLod(luminance, envmapUV, 0).r;
+	float bigfactor = float(luminanceMapSize.x*luminanceMapSize.y)/sumLum;
+	return bigfactor*(lum/(sinTheta*2.0f*nbl_glsl_PI*nbl_glsl_PI));
+}
+
+float nbl_glsl_sampling_envmap_HierarchicalWarp_deferred_pdf(in vec3 rayDirection, in sampler2D luminance)
+{
+	const ivec2 luminanceMapSize = textureSize(luminance, 0);
+	int lastLuminanceMip = int(log2(luminanceMapSize.x)); // TODO: later turn into push constant
+	return nbl_glsl_sampling_envmap_HierarchicalWarp_deferred_pdf(rayDirection, luminance, luminanceMapSize, lastLuminanceMip);
+}
+
 vec3 nbl_glsl_sampling_envmap_HierarchicalWarp_generate(out float pdf, in vec2 rand, in sampler2D warpMap, ivec2 warpMapSize, ivec2 lastWarpMapPixel, float pdfConstant)
 {
 	vec2 xi = rand;

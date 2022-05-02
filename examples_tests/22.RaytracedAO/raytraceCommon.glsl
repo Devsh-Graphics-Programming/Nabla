@@ -256,22 +256,6 @@ vec3 load_normal_and_prefetch_textures(
 	return geomNormal;
 }
 
-#include <nbl/builtin/glsl/ext/EnvmapImportanceSampling/functions.glsl>
-
-// return regularized pdf of sample
-float Envmap_regularized_deferred_pdf(in vec3 rayDirection)
-{
-	const ivec2 luminanceMapSize = textureSize(luminance, 0);
-	int lastLuminanceMip = int(log2(luminanceMapSize.x)); // TODO: later turn into push constant
-	const vec2 envmapUV = nbl_glsl_sampling_envmap_generateUVCoordFromDirection(rayDirection);
-
-	float sinTheta = length(rayDirection.zx);
-	float sumLum = texelFetch(luminance, ivec2(0), lastLuminanceMip).r;
-	float lum = textureLod(luminance, envmapUV, 0).r;
-	float bigfactor = float(luminanceMapSize.x*luminanceMapSize.y)/sumLum;
-	return bigfactor*(lum/(sinTheta*2.0f*nbl_glsl_PI*nbl_glsl_PI));
-}
-
 #include <nbl/builtin/glsl/sampling/quantized_sequence.glsl>
 mat2x3 rand6d(in uvec3 scramble_keys[2], in int _sample, int depth)
 {
@@ -288,6 +272,8 @@ mat2x3 rand6d(in uvec3 scramble_keys[2], in int _sample, int depth)
     retVal[1] = nbl_glsl_sampling_decodeSample3Dimensions(quant2,scramble_keys[1]);
 	return retVal;
 }
+
+#include <nbl/builtin/glsl/ext/EnvmapImportanceSampling/functions.glsl>
 
 nbl_glsl_MC_quot_pdf_aov_t gen_sample_ray(
 	out vec3 direction,
@@ -311,7 +297,7 @@ nbl_glsl_MC_quot_pdf_aov_t gen_sample_ray(
 	float bxdfWeight = 0;
 
 	float p_bxdf_bxdf = bxdfCosThroughput.pdf; // BxDF PDF evaluated with BxDF sample (returned from 
-	float p_env_bxdf = Envmap_regularized_deferred_pdf(bxdfSample.L); // Envmap PDF evaluated with BxDF sample (returned by manual tap of the envmap PDF texture)
+	float p_env_bxdf = nbl_glsl_sampling_envmap_HierarchicalWarp_deferred_pdf(bxdfSample.L, luminance); // Envmap PDF evaluated with BxDF sample (returned by manual tap of the envmap PDF texture)
 
 	float p_env_env = 0.0f; // Envmap PDF evaluated with Envmap sample (returned from envmap importance sampling)
 	float p_bxdf_env = 0.0f; // BXDF evaluated with Envmap sample (returned from envmap importance sampling)
