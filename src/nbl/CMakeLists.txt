@@ -437,7 +437,11 @@ endif()
 nbl_adjust_flags() # macro defined in root CMakeLists
 nbl_adjust_definitions() # macro defined in root CMakeLists
 
-set_property(TARGET Nabla PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+if(NBL_DYNAMIC_MSVC_RUNTIME)
+	set_property(TARGET Nabla PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+else()
+	set_property(TARGET Nabla PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endif()
 
 if (ANDROID)
 	add_library(android_native_app_glue STATIC
@@ -479,41 +483,75 @@ endif()
 # zlib
 add_dependencies(zlibstatic zlib_copy)
 add_dependencies(Nabla zlibstatic)
-target_link_libraries(Nabla INTERFACE zlibstatic)
-target_link_libraries(Nabla INTERFACE
-	$<$<CONFIG:Debug>:${ZLIB_LIBRARY_DEBUG}>
-	$<$<CONFIG:Release>:${ZLIB_LIBRARY_RELEASE}>
-	$<$<CONFIG:RelWithDebInfo>:${ZLIB_LIBRARY_RELWITHDEBINFO}>
-)
+
+if(NBL_STATIC_BUILD)
+	target_link_libraries(Nabla INTERFACE zlibstatic)
+	target_link_libraries(Nabla INTERFACE
+		$<$<CONFIG:Debug>:${ZLIB_LIBRARY_DEBUG}>
+		$<$<CONFIG:Release>:${ZLIB_LIBRARY_RELEASE}>
+		$<$<CONFIG:RelWithDebInfo>:${ZLIB_LIBRARY_RELWITHDEBINFO}>
+	)
+else()
+	target_link_libraries(Nabla PUBLIC zlibstatic)
+	target_link_libraries(Nabla PUBLIC
+		$<$<CONFIG:Debug>:${ZLIB_LIBRARY_DEBUG}>
+		$<$<CONFIG:Release>:${ZLIB_LIBRARY_RELEASE}>
+		$<$<CONFIG:RelWithDebInfo>:${ZLIB_LIBRARY_RELWITHDEBINFO}>
+	)
+endif()
 target_include_directories(Nabla PUBLIC $<TARGET_PROPERTY:zlibstatic,BINARY_DIR>/copy_source)
 
 # shaderc
 add_dependencies(Nabla shaderc)
-target_link_libraries(Nabla INTERFACE shaderc)
+if(NBL_STATIC_BUILD)
+	target_link_libraries(Nabla INTERFACE shaderc)
+else()
+	target_link_libraries(Nabla PUBLIC shaderc)
+endif()
 target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/shaderc/libshaderc/include)
 # spirv tools
 add_dependencies(Nabla SPIRV)
 add_dependencies(Nabla SPIRV-Tools)
 add_dependencies(Nabla SPIRV-Tools-opt)
-target_link_libraries(Nabla INTERFACE SPIRV SPIRV-Tools SPIRV-Tools-opt)
+if(NBL_STATIC_BUILD)
+	target_link_libraries(Nabla INTERFACE SPIRV SPIRV-Tools SPIRV-Tools-opt)
+else()
+	target_link_libraries(Nabla PUBLIC SPIRV SPIRV-Tools SPIRV-Tools-opt)
+endif()
 target_include_directories(Nabla PUBLIC BEFORE ${THIRD_PARTY_SOURCE_DIR}/SPIRV-Tools/include)
 # simdjson
 add_dependencies(Nabla simdjson)
-target_link_libraries(Nabla INTERFACE simdjson)
+if(NBL_STATIC_BUILD)
+	target_link_libraries(Nabla INTERFACE simdjson)
+else()
+	target_link_libraries(Nabla PUBLIC simdjson)
+endif()
 target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/simdjson)
 set_target_properties(simdjson PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 # libjpeg
 add_dependencies(Nabla jpeg-static)
-target_link_libraries(Nabla INTERFACE jpeg-static)
+if(NBL_STATIC_BUILD)
+	target_link_libraries(Nabla INTERFACE jpeg-static)
+else()
+	target_link_libraries(Nabla PUBLIC jpeg-static)
+endif()
 target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/libjpeg-turbo)
 # libpng
 add_dependencies(Nabla png_static)
-target_link_libraries(Nabla INTERFACE png_static)
+if(NBL_STATIC_BUILD)
+	target_link_libraries(Nabla INTERFACE png_static)
+else()
+	target_link_libraries(Nabla PUBLIC png_static)
+endif()
 target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/libpng)
 # OpenEXR
 if (_NBL_COMPILE_WITH_OPEN_EXR_)
 	add_dependencies(Nabla OpenEXR::IlmImf)
-	target_link_libraries(Nabla INTERFACE OpenEXR::IlmImf)
+	if(NBL_STATIC_BUILD)
+		target_link_libraries(Nabla INTERFACE OpenEXR::IlmImf)
+	else()
+		target_link_libraries(Nabla PUBLIC OpenEXR::IlmImf)
+	endif()
 	target_include_directories(
 		Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/openexr/OpenEXR/IlmImf
 		Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/openexr/IlmBase/Half
@@ -525,7 +563,11 @@ if (_NBL_COMPILE_WITH_OPEN_EXR_)
 endif()
 if(_NBL_COMPILE_WITH_GLI_)
 	add_dependencies(Nabla gli)
-	target_link_libraries(Nabla INTERFACE gli)
+	if(NBL_STATIC_BUILD)
+		target_link_libraries(Nabla INTERFACE gli)
+	else()
+		target_link_libraries(Nabla PUBLIC gli)
+	endif()
 	target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/gli)
 endif()
 
@@ -554,7 +596,6 @@ if (ANDROID)
 	target_compile_definitions(Nabla PUBLIC $<$<BOOL:${OpenGL_EGL_FOUND}>:WL_EGL_PLATFORM>)
 endif()
 
-
 # Include dirs for self
 target_include_directories(Nabla PUBLIC 
 	${CMAKE_CURRENT_BINARY_DIR}/include
@@ -571,7 +612,6 @@ target_include_directories(Nabla PUBLIC
 
 target_include_directories(Nabla PUBLIC ${NBL_ROOT_PATH}/src ${NBL_ROOT_PATH}/source/Nabla ${NBL_ROOT_PATH}/src/3rdparty) # this should be PRIVATE, but things from /src (or /source) are sometimes included in things in /include and so examples have to put source dirs into theirs Include Path
 target_include_directories(Nabla PRIVATE ${CMAKE_BINARY_DIR}/include)
-
 
 target_compile_definitions(Nabla 
 	PRIVATE	_NBL_STATIC_LIB_ EGL_STATIC SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS
@@ -609,7 +649,6 @@ if(NBL_EMBED_BUILTIN_RESOURCES)
 	add_custom_target(builtin_resources DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/builtin/builtinResourceData.cpp)
 	add_dependencies(Nabla builtin_resources)
 endif()
-
 
 # extensions
 start_tracking_variables_for_propagation_to_parent()

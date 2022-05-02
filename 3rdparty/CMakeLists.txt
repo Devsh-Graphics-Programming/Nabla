@@ -342,7 +342,8 @@ set(NBL_3RDPARTY_TARGETS
 				shaderc_util
 				shaderc
 				jpeg-static
-				bzip2			
+				bzip2
+				simdjson
 				glslang
 				OGLCompiler 
 				OSDependent
@@ -379,8 +380,11 @@ if(ENABLE_HLSL)
 endif()
 
 foreach(trgt IN LISTS NBL_3RDPARTY_TARGETS)
-		set_property(TARGET ${trgt} PROPERTY
-             MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+		if(NBL_DYNAMIC_MSVC_RUNTIME)
+			set_property(TARGET ${trgt} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+		else()
+			set_property(TARGET ${trgt} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+		endif()
 endforeach()
 
 set(_NBL_3RDPARTY_TARGETS_ ${NBL_3RDPARTY_TARGETS} PARENT_SCOPE)
