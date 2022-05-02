@@ -100,7 +100,9 @@ class GeneralpurposeAddressAllocatorBase
         // members
         size_type               bufferSize;
         size_type               freeSize;
+public: // TODO!
         uint32_t                freeListCount;
+protected:
         uint32_t                usingFirstBuffer;
         size_type               minBlockSize;
 
