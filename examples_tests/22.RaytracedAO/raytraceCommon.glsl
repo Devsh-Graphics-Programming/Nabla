@@ -256,6 +256,8 @@ vec3 load_normal_and_prefetch_textures(
 	return geomNormal;
 }
 
+#include <nbl/builtin/glsl/ext/EnvmapImportanceSampling/functions.glsl>
+
 // return regularized pdf of sample
 float Envmap_regularized_deferred_pdf(in vec3 rayDirection)
 {
@@ -268,44 +270,6 @@ float Envmap_regularized_deferred_pdf(in vec3 rayDirection)
 	float lum = textureLod(luminance, envmapUV, 0).r;
 	float bigfactor = float(luminanceMapSize.x*luminanceMapSize.y)/sumLum;
 	return bigfactor*(lum/(sinTheta*2.0f*nbl_glsl_PI*nbl_glsl_PI));
-}
-
-void Envmap_generateRegularizedSample_and_pdf(out float pdf, out nbl_glsl_LightSample lightSample, in nbl_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 rand)
-{
-	const ivec2 warpMapSize = textureSize(warpMap,0);
-	const ivec2 lastWarpMapPixel = warpMapSize - ivec2(1.f);
-	vec2 xi = rand;
-	const vec2 unnormCoord = xi*lastWarpMapPixel;
-
-	const vec2 interpolant = fract(unnormCoord);
-
-	vec2 warpSampleCoord = (unnormCoord+vec2(0.5f))/vec2(warpMapSize);
-	const vec4 dirsX = textureGather(warpMap, warpSampleCoord, 0); // 0_1, 1_1, 1_0, 0_0
-	const vec4 dirsY = textureGather(warpMap, warpSampleCoord, 1); // 0_1, 1_1, 1_0, 0_0
-	const mat4x2 uvs = transpose(mat2x4(dirsX,dirsY));
-
-	const vec2 xDiffs[] = {
-		uvs[2]-uvs[3],
-		uvs[1]-uvs[0]
-	};
-	const vec2 yVals[] = {
-		xDiffs[0]*interpolant.x+uvs[3],
-		xDiffs[1]*interpolant.x+uvs[0]
-	};
-	const vec2 yDiff = yVals[1]-yVals[0];
-	const vec2 uv = yDiff*interpolant.y+yVals[0];
-
-	float sinTheta;
-	const vec3 L = nbl_glsl_sampling_envmap_generateDirectionFromUVCoord(uv, sinTheta);
-	lightSample = nbl_glsl_createLightSample(L, interaction);
-	
-	const float detInterpolJacobian = determinant(mat2(
-		mix(xDiffs[0],xDiffs[1],interpolant.y), // first column dFdx
-		yDiff // second column dFdy
-	));
-
-	float pdfConstant = 1.f/(4.f*nbl_glsl_PI*float(lastWarpMapPixel.x*lastWarpMapPixel.y));
-	pdf = pdfConstant/abs(sinTheta*detInterpolJacobian);
 }
 
 #include <nbl/builtin/glsl/sampling/quantized_sequence.glsl>
@@ -358,7 +322,7 @@ nbl_glsl_MC_quot_pdf_aov_t gen_sample_ray(
 	{
 		nbl_glsl_MC_setCurrInteraction(precomp);
 
-		Envmap_generateRegularizedSample_and_pdf(/*out*/p_env_env, /*out*/ envmapSample, currInteraction.inner, rand[1].xy);
+		envmapSample = nbl_glsl_sampling_envmap_HierarchicalWarp_generate(/*out*/p_env_env, rand[1].xy, warpMap, currInteraction.inner);
 
 		nbl_glsl_MC_microfacet_t microfacet;
 		microfacet.inner = nbl_glsl_calcAnisotropicMicrofacetCache(currInteraction.inner, envmapSample);
