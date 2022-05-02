@@ -546,7 +546,7 @@ if(WIN32)
 endif()
 # CUDA
 if (NBL_COMPILE_WITH_CUDA)
-	target_include_directories(Nabla PUBLIC ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
+	target_include_directories(Nabla PUBLIC ${CUDAToolkit_INCLUDE_DIRS})
 endif()
 # OpenGL (EGL)
 target_link_libraries(Nabla PRIVATE egl)
