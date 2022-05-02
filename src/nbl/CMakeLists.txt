@@ -414,8 +414,7 @@ source_group("Resources to embed" FILES ${NABLA_RESOURCES_TO_EMBED_PUBLIC})
 
 set(NABLA_HEADERS "${CMAKE_CURRENT_BINARY_DIR}/include/nabla.h" ${NABLA_HEADERS_PUBLIC} ${NABLA_HEADERS_PIRV1} ${NABLA_HEADERS_PRIV2})
 
-# declare the library!
-add_library(Nabla STATIC
+set(NBL_LIBRARY_CREATION_SOURCES 
 	${NABLA_SRCS_COMMON}
 	${NABLA_HEADERS}
 	$<TARGET_OBJECTS:aesGladman>
@@ -425,8 +424,20 @@ add_library(Nabla STATIC
 	$<TARGET_OBJECTS:spirv_cross>
 )
 
+if(NBL_STATIC_BUILD)
+	add_library(Nabla STATIC
+		${NBL_LIBRARY_CREATION_SOURCES}
+	)
+else()
+	add_library(Nabla SHARED
+		${NBL_LIBRARY_CREATION_SOURCES}
+	)
+endif()
+
 nbl_adjust_flags() # macro defined in root CMakeLists
 nbl_adjust_definitions() # macro defined in root CMakeLists
+
+set_property(TARGET Nabla PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 if (ANDROID)
 	add_library(android_native_app_glue STATIC
@@ -441,10 +452,6 @@ if (ANDROID)
     	${ANDROID_NDK_ROOT_PATH}/sources/android/native_app_glue
 	)
 endif()
-
-#TODO maybe make a macro/function to do this (note: it's also used in common.cmake)
-set_property(TARGET Nabla PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-
 
 ## Set up 3rdparty deps
 # Parallel Hashmap
@@ -628,7 +635,11 @@ endmacro()
 # Install main lib
 set_target_properties(Nabla PROPERTIES DEBUG_POSTFIX _debug)
 set_target_properties(Nabla PROPERTIES RELWITHDEBINFO_POSTFIX _relwithdebinfo)
-nbl_install_lib(Nabla)
+if(NBL_STATIC_BUILD)
+	nbl_install_lib(Nabla)
+else()
+	nbl_install_program(Nabla)
+endif()
 
 #install dependencies
 nbl_install_lib(egl)
