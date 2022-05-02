@@ -53,9 +53,6 @@ public:
 	static constexpr uint32_t DefaultLumaMipMapGenWorkgroupDimension = 16u;
 	static constexpr uint32_t DefaultWarpMapGenWorkgroupDimension = 16u;
 	
-	nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> m_luminanceBaseImageView;
-	nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> m_warpMap; // Warps Sample based on EnvMap Luminance
-
 	void initResources(
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> envmap, 
 		uint32_t lumaMipMapGenWorkgroupDimension = DefaultLumaMipMapGenWorkgroupDimension,
@@ -64,9 +61,15 @@ public:
 
 	// returns if RIS should be enabled based on variance calculations
 	bool computeWarpMap(float envMapRegularizationFactor);
+	
+	nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> getLuminanceImageView() { return m_luminanceBaseImageView; }
+	nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> getWarpMapImageView() { return m_warpMap; }
 
 private:
 	
+	nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> m_luminanceBaseImageView;
+	nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> m_warpMap; // Warps Sample based on EnvMap Luminance
+
 	uint32_t m_mipCountEnvmap;
 	uint32_t m_mipCountLuminance;
 	uint32_t m_lumaMipMapGenWorkgroupDimension;

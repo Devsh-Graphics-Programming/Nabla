@@ -621,7 +621,11 @@ int main(int argc, char** argv)
 		{
 			mainSensorData.width = film.cropWidth;
 			mainSensorData.height = film.cropHeight;
-			assert(film.cropOffsetX == 0 && film.cropOffsetY == 0);
+			
+			if(film.cropOffsetX != 0 || film.cropOffsetY != 0)
+			{
+				std::cout << "[WARN] CropOffsets are non-zero. cropping is not supported for non cubemap renders." << std::endl;
+			}
 
 			mainSensorData.staticCamera = smgr->addCameraSceneNode(nullptr); 
 			auto& staticCamera = mainSensorData.staticCamera;

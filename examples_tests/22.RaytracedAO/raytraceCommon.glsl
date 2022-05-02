@@ -256,21 +256,12 @@ vec3 load_normal_and_prefetch_textures(
 	return geomNormal;
 }
 
-vec3 nbl_glsl_unormSphericalToCartesian(in vec2 uv, out float sinTheta)
-{
-	vec3 dir;
-	nbl_glsl_sincos((uv.x-0.5)*2.f*nbl_glsl_PI,dir.y,dir.x);
-	nbl_glsl_sincos(uv.y*nbl_glsl_PI,sinTheta,dir.z);
-	dir.xy *= sinTheta;
-	return dir;
-}
-
 // return regularized pdf of sample
 float Envmap_regularized_deferred_pdf(in vec3 rayDirection)
 {
 	const ivec2 luminanceMapSize = textureSize(luminance, 0);
 	int lastLuminanceMip = int(log2(luminanceMapSize.x)); // TODO: later turn into push constant
-	const vec2 envmapUV = nbl_glsl_sampling_generateUVCoordFromDirection(rayDirection);
+	const vec2 envmapUV = nbl_glsl_sampling_envmap_generateUVCoordFromDirection(rayDirection);
 
 	float sinTheta = length(rayDirection.zx);
 	float sumLum = texelFetch(luminance, ivec2(0), lastLuminanceMip).r;
@@ -305,7 +296,7 @@ void Envmap_generateRegularizedSample_and_pdf(out float pdf, out nbl_glsl_LightS
 	const vec2 uv = yDiff*interpolant.y+yVals[0];
 
 	float sinTheta;
-	const vec3 L = nbl_glsl_unormSphericalToCartesian(uv, sinTheta);
+	const vec3 L = nbl_glsl_sampling_envmap_generateDirectionFromUVCoord(uv, sinTheta);
 	lightSample = nbl_glsl_createLightSample(L, interaction);
 	
 	const float detInterpolJacobian = determinant(mat2(
@@ -549,7 +540,7 @@ struct Contribution
 
 void Contribution_initMiss(out Contribution contrib, in float aovThroughputScale)
 {
-	vec2 uv = nbl_glsl_sampling_generateUVCoordFromDirection(-normalizedV);
+	vec2 uv = nbl_glsl_sampling_envmap_generateUVCoordFromDirection(-normalizedV);
 	// funny little trick borrowed from things like Progressive Photon Mapping
 	const float bias = 0.0625f*(1.f-aovThroughputScale)*pow(pc.cummon.rcpFramesDispatched,0.08f);
 	contrib.albedo = contrib.color = textureGrad(envMap, uv, vec2(bias*0.5,0.f), vec2(0.f,bias)).rgb;

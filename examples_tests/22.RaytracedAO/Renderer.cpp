@@ -1282,7 +1282,10 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, float e
 	constexpr uint32_t MaxDescritorUpdates = 10u;
 	IGPUDescriptorSet::SDescriptorInfo infos[MaxDescritorUpdates];
 	IGPUDescriptorSet::SWriteDescriptorSet writes[MaxDescritorUpdates];
-
+	
+	auto warpMap = m_envMapImportanceSampling.getWarpMapImageView();
+	auto lumaMap = m_envMapImportanceSampling.getLuminanceImageView();
+	
 	// set up m_commonRaytracingDS
 	core::smart_refctd_ptr<IGPUBuffer> _staticViewDataBuffer;
 	size_t staticViewDataBufferSize=0u;
@@ -1303,7 +1306,7 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, float e
 		}
 		// warpmap
 		{
-			setImageInfo(infos+8,asset::EIL_GENERAL,core::smart_refctd_ptr(m_envMapImportanceSampling.m_warpMap));
+			setImageInfo(infos+8,asset::EIL_GENERAL,core::smart_refctd_ptr(warpMap));
 			ISampler::SParams samplerParams = { ISampler::ETC_REPEAT, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_FLOAT_OPAQUE_BLACK, ISampler::ETF_LINEAR, ISampler::ETF_LINEAR, ISampler::ESMM_LINEAR, 0u, false, ECO_ALWAYS };
 			infos[8].image.sampler = m_driver->createGPUSampler(samplerParams);
 			infos[8].image.imageLayout = EIL_SHADER_READ_ONLY_OPTIMAL;
@@ -1315,7 +1318,7 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, float e
 			ISampler::SParams samplerParams = { ISampler::ETC_CLAMP_TO_BORDER, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_FLOAT_OPAQUE_BLACK, ISampler::ETF_NEAREST, ISampler::ETF_NEAREST, ISampler::ETF_NEAREST, 0u, false, ECO_ALWAYS };
 			auto sampler = m_driver->createGPUSampler(samplerParams);
 
-			luminanceDescriptorInfo.desc = m_envMapImportanceSampling.m_luminanceBaseImageView;
+			luminanceDescriptorInfo.desc = lumaMap;
 			luminanceDescriptorInfo.image.sampler = sampler;
 			luminanceDescriptorInfo.image.imageLayout = asset::EIL_SHADER_READ_ONLY_OPTIMAL;
 		}
