@@ -95,6 +95,7 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/sampling/box_muller_transform.glsl"
   "nbl/builtin/glsl/sampling/concentric_mapping.glsl"
   "nbl/builtin/glsl/sampling/cos_weighted.glsl"
+  "nbl/builtin/glsl/sampling/envmap.glsl"
   "nbl/builtin/glsl/sampling/linear.glsl"
   "nbl/builtin/glsl/sampling/projected_spherical_triangle.glsl"
   #"nbl/builtin/glsl/sampling/spherical_rectangle.glsl"
@@ -142,6 +143,10 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/workgroup/vote.glsl"
   # ext shouldn't be built into the engine, but there's no harm including some non-dynamic GLSL source to make life easier
   #"nbl/builtin/glsl/ext/.glsl"
+  "nbl/builtin/glsl/ext/EnvmapImportanceSampling/functions.glsl"
+  "nbl/builtin/glsl/ext/EnvmapImportanceSampling/gen_luma_mipmap.comp"
+  "nbl/builtin/glsl/ext/EnvmapImportanceSampling/gen_warpmap.comp"
+  "nbl/builtin/glsl/ext/EnvmapImportanceSampling/parameters.glsl"
   "nbl/builtin/glsl/ext/FFT/default_compute_fft.comp"
   "nbl/builtin/glsl/ext/FFT/fft.glsl"
   "nbl/builtin/glsl/ext/FFT/parameters_struct.glsl"

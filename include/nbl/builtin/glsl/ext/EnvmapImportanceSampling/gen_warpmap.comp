@@ -1,0 +1,134 @@
+#ifndef _NBL_GLSL_EXT_ENVMAP_SAMPLING_GEN_WARPMAP_INCLUDED_
+#define _NBL_GLSL_EXT_ENVMAP_SAMPLING_GEN_WARPMAP_INCLUDED_
+
+#include <nbl/builtin/glsl/ext/EnvmapImportanceSampling/parameters.glsl>
+#include <nbl/builtin/glsl/math/functions.glsl>
+
+layout(local_size_x = WARP_MAP_GEN_WORKGROUP_DIM, local_size_y = WARP_MAP_GEN_WORKGROUP_DIM) in;
+
+layout(set = 0, binding = 0) uniform sampler2D luminance;
+layout(set = 0, binding = 1, rg32f) uniform image2D warpMap;
+
+layout(push_constant) uniform PushConstants
+{
+	WarpMapGenShaderData_t data;
+} pc;
+
+void main()
+{
+	const ivec2 pixelCoord = ivec2(gl_GlobalInvocationID.xy);
+	
+	ivec2 warpMapSize = imageSize(warpMap).xy;
+	const ivec2 lastWarpMapPixel = warpMapSize-ivec2(1);
+
+	if (all(lessThan(pixelCoord,warpMapSize)))
+	{
+		// Corner Sampling, this is why it was important to have the envmap be PoT-1, so you can have xi both 0% and 100%
+		vec2 xi = vec2(pixelCoord)/vec2(lastWarpMapPixel);
+		ivec2 p = ivec2(0, 0);
+		ivec2 prevLuminanceMipSize = ivec2(0);
+		// WARP
+		// (skip 0 which is 1x1 and useless in warping)
+		for(int i = int(pc.data.lumaMipCount - 1); i >= 1; --i)
+		{
+			ivec2 luminanceMipSize = textureSize(luminance, i).xy;
+
+			vec4 values = vec4(0);
+			values[0] = texelFetch(luminance, p + ivec2(0, 1), i).r;
+			values[1] = texelFetch(luminance, p + ivec2(1, 1), i).r;
+			values[2] = texelFetch(luminance, p + ivec2(1, 0), i).r;
+			values[3] = texelFetch(luminance, p + ivec2(0, 0), i).r;
+
+			float wy_0 = 0.0f;
+			float wy_1 = 0.0f;
+			if(luminanceMipSize.x > prevLuminanceMipSize.x)
+			{
+				p.x *= 2;
+				float wx_0 = values[3] + values[0]; // Left Weight (0,0) + (0,1) 
+				float wx_1 = values[2] + values[1]; // Right Weight (1,0) + (1,1)
+
+				float leftProb = 1.0f/(1.0f+wx_1/wx_0);
+				float dummy = 0.0f;
+				if(nbl_glsl_partitionRandVariable(leftProb, xi.x, dummy))
+				{
+					// Picked Right
+					p.x += 1;
+					wy_0 = values[2]; // (1, 0)
+					wy_1 = values[1]; // (1, 1)
+				}
+				else
+				{
+					// Picked Left
+					wy_0 = values[3]; // (0, 0)
+					wy_1 = values[0]; // (0, 1)
+				}
+			}
+			
+			if(luminanceMipSize.y > prevLuminanceMipSize.y)
+			{
+				p.y *= 2;
+				float upProb = 1.0f/(1.0f+wy_1/wy_0);
+				float dummy = 0.0f;
+				if(nbl_glsl_partitionRandVariable(upProb, xi.y, dummy))
+				{
+					// Picked Down
+					p.y += 1;
+				}
+			}
+
+			prevLuminanceMipSize = luminanceMipSize;
+		}
+
+		const vec2 directionUV = (vec2(p.x,p.y)+xi)/vec2(warpMapSize);
+		imageStore(warpMap,pixelCoord, vec4(directionUV, 0, 0));
+
+		/*
+		mips are reversed:
+		
+		const vec2 directionUV = vec2(p.x,p.y)/vec2(warpMapSize);
+
+		vec4 lumNeighbourhood = textureGather(luminance[pc.data.lumaMipCount-1], directionUV, 0);
+
+		vec2 bMin = vec2(0);
+		vec2 bMax = vec2(0);
+
+		for(int i = pc.data.lumaMipCount; i < 24; ++i)
+		{
+			float extent = exp2(pc.data.lumaMipCount-i);
+
+			float wx_0 = values[3] + values[0]; // Left Weight (0,0) + (0,1) 
+			float wx_1 = values[2] + values[1]; // Right Weight (1,0) + (1,1)
+			float wy_0 = 0.0f;
+			float wy_1 = 0.0f;
+
+			float leftProb = 1.0f/(1.0f+wx_1/wx_0);
+			float dummy = 0.0f;
+			if(nbl_glsl_partitionRandVariable(leftProb, xi.x, dummy))
+			{
+				// Picked Right
+				p.x += 1;
+				wy_0 = values[2]; // (1, 0)
+				wy_1 = values[1]; // (1, 1)
+			}
+			else
+			{
+				// Picked Left
+				wy_0 = values[3]; // (0, 0)
+				wy_1 = values[0]; // (0, 1)
+			}
+			
+			float upProb = 1.0f/(1.0f+wy_1/wy_0);
+			if(nbl_glsl_partitionRandVariable(upProb, xi.y, dummy))
+			{
+				// Picked Down
+				p.y += 1;
+			}
+		}
+
+		imageStore(warpMap,pixelCoord, vec4(vec2(p)/vec2(1u << 23u, 1u << 22u), 0, 0));
+		*/
+	}
+
+}
+
+#endif

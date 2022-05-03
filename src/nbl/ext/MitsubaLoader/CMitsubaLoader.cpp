@@ -1168,16 +1168,28 @@ auto CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* _bs
 
 
 // TODO: this function shouldn't really exist because the backend should produce this directly @Crisspl
-asset::material_compiler::oriented_material_t impl_backendToGLSLStream(const core::vectorSIMDf& emissive, const asset::material_compiler::CMaterialCompilerGLSLBackendCommon::result_t::instr_streams_t& streams)
+asset::material_compiler::oriented_material_t impl_backendToGLSLStream(const core::vectorSIMDf& emissive, const asset::material_compiler::CMaterialCompilerGLSLBackendCommon::result_t::instr_streams_t* streams)
 {
 	asset::material_compiler::oriented_material_t orientedMaterial;
 	orientedMaterial.emissive = core::rgb32f_to_rgb19e7(emissive.pointer);
-	orientedMaterial.prefetch_offset = streams.prefetch_offset;
-	orientedMaterial.prefetch_count = streams.tex_prefetch_count;
-	orientedMaterial.instr_offset = streams.offset;
-	orientedMaterial.rem_pdf_count = streams.rem_and_pdf_count;
-	orientedMaterial.nprecomp_count = streams.norm_precomp_count;
-	orientedMaterial.genchoice_count = streams.gen_choice_count;
+	if(streams)
+	{
+		orientedMaterial.prefetch_offset = streams->prefetch_offset;
+		orientedMaterial.prefetch_count = streams->tex_prefetch_count;
+		orientedMaterial.instr_offset = streams->offset;
+		orientedMaterial.rem_pdf_count = streams->rem_and_pdf_count;
+		orientedMaterial.nprecomp_count = streams->norm_precomp_count;
+		orientedMaterial.genchoice_count = streams->gen_choice_count;
+	}
+	else
+	{
+		orientedMaterial.prefetch_offset = 0xdeadbeefu;
+		orientedMaterial.prefetch_count = 0u;
+		orientedMaterial.instr_offset = 0xdeadbeefu;
+		orientedMaterial.rem_pdf_count = 0u;
+		orientedMaterial.nprecomp_count = 0u;
+		orientedMaterial.genchoice_count = 0u;
+	}
 	return orientedMaterial;
 }
 
@@ -1271,26 +1283,32 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 			auto bsdf_back  = bsdf.back;
 			auto streams_it = _compResult.streams.find(bsdf_front);
 			{
-				_NBL_DEBUG_BREAK_IF(streams_it == _compResult.streams.end());
-				const auto& streams = streams_it->second;
+				const asset::material_compiler::CMaterialCompilerGLSLBackendCommon::result_t::instr_streams_t* streams = 
+					(streams_it != _compResult.streams.end()) ? &streams_it->second : nullptr;
 
 #ifdef DEBUG_MITSUBA_LOADER
 				//os::Printer::log("Debug print front BSDF with id = ", std::to_string(&bsdf), ELL_INFORMATION);
-				ofile << "Debug print front BSDF with id = " << &bsdf << std::endl;
-				_ctx.backend.debugPrint(ofile, streams, _compResult, &_ctx.backend_ctx);
+				if(streams)
+				{
+					ofile << "Debug print front BSDF with id = " << &bsdf << std::endl;
+					_ctx.backend.debugPrint(ofile, *streams, _compResult, &_ctx.backend_ctx);
+				}
 #endif
 				const auto emissive = inst.frontEmitter.type==CElementEmitter::AREA ? inst.frontEmitter.area.radiance:core::vectorSIMDf(0.f);
 				instData.material.front = impl_backendToGLSLStream(emissive,streams);
 			}
 			streams_it = _compResult.streams.find(bsdf_back);
 			{
-				_NBL_DEBUG_BREAK_IF(streams_it == _compResult.streams.end());
-				const auto& streams = streams_it->second;
+				const asset::material_compiler::CMaterialCompilerGLSLBackendCommon::result_t::instr_streams_t* streams = 
+					(streams_it != _compResult.streams.end()) ? &streams_it->second : nullptr;
 
 #ifdef DEBUG_MITSUBA_LOADER
 				//os::Printer::log("Debug print back BSDF with id = ", std::to_string(&bsdf), ELL_INFORMATION);
-				ofile << "Debug print back BSDF with id = " << &bsdf << std::endl;
-				_ctx.backend.debugPrint(ofile, streams, _compResult, &_ctx.backend_ctx);
+				if(streams)
+				{
+					ofile << "Debug print back BSDF with id = " << &bsdf << std::endl;
+					_ctx.backend.debugPrint(ofile, *streams, _compResult, &_ctx.backend_ctx);
+				}
 #endif
 				const auto emissive = inst.backEmitter.type==CElementEmitter::AREA ? inst.backEmitter.area.radiance:core::vectorSIMDf(0.f);
 				instData.material.back = impl_backendToGLSLStream(emissive,streams);

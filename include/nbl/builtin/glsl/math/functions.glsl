@@ -13,6 +13,7 @@ int nbl_glsl_dot(in ivec3 a, in ivec3 b) {return a.x*b.x+a.y*b.y+a.z*b.z;}
 uint nbl_glsl_dot(in uvec3 a, in uvec3 b) {return a.x*b.x+a.y*b.y+a.z*b.z;}
 int nbl_glsl_dot(in ivec4 a, in ivec4 b) {return a.x*b.x+a.y*b.y+a.z*b.z+a.w*b.w;}
 uint nbl_glsl_dot(in uvec4 a, in uvec4 b) {return a.x*b.x+a.y*b.y+a.z*b.z+a.w*b.w;}
+float nbl_glsl_cross( in vec2 a, in vec2 b ) {return a.x*b.y-a.y*b.x;}
 
 //
 float nbl_glsl_erf(in float _x)

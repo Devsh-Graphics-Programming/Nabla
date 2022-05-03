@@ -1,0 +1,61 @@
+#ifndef _NBL_GLSL_EXT_ENVMAP_SAMPLING_GEN_LUMA_INCLUDED_
+#define _NBL_GLSL_EXT_ENVMAP_SAMPLING_GEN_LUMA_INCLUDED_
+
+#include <nbl/builtin/glsl/ext/EnvmapImportanceSampling/parameters.glsl>
+#include <nbl/builtin/glsl/math/functions.glsl>
+
+layout(local_size_x = LUMA_MIP_MAP_GEN_WORKGROUP_DIM, local_size_y = LUMA_MIP_MAP_GEN_WORKGROUP_DIM) in;
+
+layout(set = 0, binding = 0) uniform sampler2D envMap; // should be PoT
+layout(set = 0, binding = 1, r32f) uniform image2D srcLuminance;
+layout(set = 0, binding = 2, r32f) uniform image2D dstluminance;
+
+layout(push_constant) uniform PushConstants
+{
+	LumaMipMapGenShaderData_t data;
+} pc;
+
+void main()
+{
+	const ivec2 pixelCoord = ivec2(gl_GlobalInvocationID.xy);
+	
+	ivec2 envMapSize = textureSize(envMap, 0).xy;
+	const uint maxLevel = uint(log2(envMapSize.x));
+	ivec2 srcMipLevelSize = imageSize(srcLuminance).xy;
+	ivec2 dstMipLevelSize = imageSize(dstluminance).xy;
+
+	if (all(lessThan(pixelCoord,envMapSize)))
+	{
+		if(maxLevel >= MAX_LUMINANCE_LEVELS || srcMipLevelSize.x > envMapSize.x || dstMipLevelSize.x > srcMipLevelSize.x)
+		{
+			imageStore(dstluminance, pixelCoord, vec4(1.0, 0.0, 0.0, 0.0)); // Error
+		}
+
+		// Copy EnvMap to Last Luma MipMap Level
+		{
+			if(pc.data.calcLuma > 0)
+			{
+				float sinTheta = sin(nbl_glsl_PI * (float(pixelCoord.y + 0.5f) / envMapSize.y));
+				vec3 envMapSample = texelFetch(envMap, pixelCoord, 0).rgb;
+				// alpha is not 1.0 in all exr images but we need it to be 1 for correct calculations
+				float luma = dot(pc.data.luminanceScales, vec4(envMapSample, 1.0f));
+				if(pc.data.sinFactor > 0)
+					luma *= sinTheta;
+				imageStore(srcLuminance, pixelCoord, vec4(luma));
+			}
+			else if (all(lessThan(pixelCoord,dstMipLevelSize)))
+			{
+				ivec2 gatherCoordinate = pixelCoord*2;
+
+				float luma = imageLoad(srcLuminance, gatherCoordinate + ivec2(0,0)).r;
+				luma += imageLoad(srcLuminance, gatherCoordinate + ivec2(1,0)).r;
+				luma += imageLoad(srcLuminance, gatherCoordinate + ivec2(0,1)).r;
+				luma += imageLoad(srcLuminance, gatherCoordinate + ivec2(1,1)).r;
+
+				imageStore(dstluminance, pixelCoord, vec4(luma));
+			}
+		}
+	}
+}
+
+#endif
