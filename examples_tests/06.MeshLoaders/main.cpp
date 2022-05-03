@@ -189,7 +189,7 @@ public:
         initOutput.window = core::smart_refctd_ptr(window);
         initOutput.system = core::smart_refctd_ptr(system);
 
-        const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT);
+        const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_TRANSFER_SRC_BIT);
         const video::ISurface::SFormat surfaceFormat(asset::EF_R8G8B8A8_SRGB, asset::ECP_SRGB, asset::EOTF_sRGB);
 
         CommonAPI::InitWithDefaultExt(initOutput, video::EAT_VULKAN, "MeshLoaders", WIN_W, WIN_H, SC_IMG_COUNT, swapchainImageUsage, surfaceFormat, nbl::asset::EF_D32_SFLOAT);

@@ -41,7 +41,7 @@ core::smart_refctd_ptr<ISwapchain> CVulkanLogicalDevice::createSwapchain(ISwapch
     vk_createInfo.imageColorSpace = getVkColorSpaceKHRFromColorSpace(params.surfaceFormat.colorSpace);
     vk_createInfo.imageExtent = { params.width, params.height };
     vk_createInfo.imageArrayLayers = params.arrayLayers;
-    vk_createInfo.imageUsage = static_cast<VkImageUsageFlags>(params.imageUsage);
+    vk_createInfo.imageUsage = static_cast<VkImageUsageFlags>(params.imageUsage.value);
     vk_createInfo.imageSharingMode = static_cast<VkSharingMode>(params.imageSharingMode);
     vk_createInfo.queueFamilyIndexCount = params.queueFamilyIndexCount;
     vk_createInfo.pQueueFamilyIndices = params.queueFamilyIndices;
@@ -75,13 +75,14 @@ core::smart_refctd_ptr<ISwapchain> CVulkanLogicalDevice::createSwapchain(ISwapch
     for (auto& image : (*images))
     {
         CVulkanForeignImage::SCreationParams creationParams;
-        creationParams.arrayLayers = params.arrayLayers;
-        creationParams.extent = { params.width, params.height, 1u };
         creationParams.flags = static_cast<CVulkanForeignImage::E_CREATE_FLAGS>(0); // Todo(achal)
-        creationParams.format = params.surfaceFormat.format;
-        creationParams.mipLevels = 1u;
-        creationParams.samples = CVulkanImage::ESCF_1_BIT; // Todo(achal)
         creationParams.type = CVulkanImage::ET_2D;
+        creationParams.format = params.surfaceFormat.format;
+        creationParams.extent = { params.width, params.height, 1u };
+        creationParams.mipLevels = 1u;
+        creationParams.arrayLayers = params.arrayLayers;
+        creationParams.samples = CVulkanImage::ESCF_1_BIT; // Todo(achal)
+        creationParams.usage = params.imageUsage;
 
         image = core::make_smart_refctd_ptr<CVulkanForeignImage>(
             core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(creationParams),

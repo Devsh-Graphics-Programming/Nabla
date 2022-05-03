@@ -181,6 +181,7 @@ public:
         imgci.samples = asset::IImage::ESCF_1_BIT;
         imgci.type = asset::IImage::ET_2D;
         imgci.extent = asset::VkExtent3D{ params.width, params.height, 1u };
+        imgci.usage = params.imageUsage;
 
         IDriverMemoryBacked::SDriverMemoryRequirements mreqs;
         mreqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
