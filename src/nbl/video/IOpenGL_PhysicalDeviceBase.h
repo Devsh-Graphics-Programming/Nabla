@@ -477,6 +477,10 @@ public:
 			m_limits.maxViewportDims[0] = maxViewportExtent[0];
 			m_limits.maxViewportDims[1] = maxViewportExtent[1];
 
+			GLint maxComputeSharedMemorySize = 0;
+			GetIntegerv(GL_MAX_COMPUTE_SHARED_MEMORY_SIZE, &maxComputeSharedMemorySize);
+			m_limits.maxComputeSharedMemorySize = maxComputeSharedMemorySize;
+
 			m_limits.maxWorkgroupSize[0] = m_glfeatures.MaxComputeWGSize[0];
 			m_limits.maxWorkgroupSize[1] = m_glfeatures.MaxComputeWGSize[1];
 			m_limits.maxWorkgroupSize[2] = m_glfeatures.MaxComputeWGSize[2];

@@ -64,10 +64,12 @@ public:
             m_limits.pointSizeRange[1] = deviceProperties.properties.limits.pointSizeRange[1];
             m_limits.lineWidthRange[0] = deviceProperties.properties.limits.lineWidthRange[0];
             m_limits.lineWidthRange[1] = deviceProperties.properties.limits.lineWidthRange[1];
-                    
+
             m_limits.maxViewports = deviceProperties.properties.limits.maxViewports;
             m_limits.maxViewportDims[0] = deviceProperties.properties.limits.maxViewportDimensions[0];
             m_limits.maxViewportDims[1] = deviceProperties.properties.limits.maxViewportDimensions[1];
+            
+            m_limits.maxComputeSharedMemorySize = deviceProperties.properties.limits.maxComputeSharedMemorySize;
                     
             m_limits.maxWorkgroupSize[0] = deviceProperties.properties.limits.maxComputeWorkGroupSize[0];
             m_limits.maxWorkgroupSize[1] = deviceProperties.properties.limits.maxComputeWorkGroupSize[1];

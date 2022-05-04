@@ -77,6 +77,7 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
             uint32_t maxViewports;
             uint32_t maxViewportDims[2];
 
+            uint32_t maxComputeSharedMemorySize;
             uint32_t maxWorkgroupSize[3];
             // its 1D because multidimensional workgroups are an illusion
             uint32_t maxOptimallyResidentWorkgroupInvocations = 0u;
