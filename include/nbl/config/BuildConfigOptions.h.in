@@ -73,13 +73,21 @@
 // DDL exports
 #cmakedefine _NBL_SHARED_BUILD_
 #ifdef _NBL_SHARED_BUILD_
-#if defined(_NBL_PLATFORM_WINDOWS_) && defined(_MSC_VER)
-#define NBL_EXPORTS __declspec(dllexport)
+    #if defined(__NBL_BUILDING_NABLA__) // currently compiling nabla, this define is passed through the commandline
+        #if defined(_MSC_VER)
+            #define NBL_API __declspec(dllexport)
+        #elif defined(__GNUC__)
+            #define NBL_API __attribute__ ((visibility ("default")))
+        #endif
+    #else
+        #if defined(_MSC_VER)
+            #define NBL_API __declspec(dllimport)
+        #else
+            #define NBL_API
+        #endif
+    #endif
 #else
-#pragma error("Shared builds are only available for Windows OS & MSVC target for now!")
-#endif
-#else
-#define NBL_EXPORTS
+    #define NBL_API
 #endif
 
 #endif // __NBL_BUILD_CONFIG_OPTIONS_H_INCLUDED__

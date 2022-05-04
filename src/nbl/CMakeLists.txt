@@ -443,6 +443,8 @@ else()
 	set_property(TARGET Nabla PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 endif()
 
+target_compile_definitions(Nabla PRIVATE __NBL_BUILDING_NABLA__)
+
 if (ANDROID)
 	add_library(android_native_app_glue STATIC
     	${ANDROID_NDK_ROOT_PATH}/sources/android/native_app_glue/android_native_app_glue.c
