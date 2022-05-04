@@ -249,6 +249,12 @@ elseif(UNIX)
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4.1")
 endif()
 
+if(NBL_STATIC_BUILD)
+	unset(_NBL_SHARED_BUILD_ CACHE)
+else()
+	set(_NBL_SHARED_BUILD_ ON CACHE INTERNAL "")
+endif()
+
 #uncomment in the future
 #option(NBL_TARGET_ARCH_ARM "Build for ARM?" OFF)
 

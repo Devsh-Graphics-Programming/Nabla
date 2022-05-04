@@ -70,4 +70,16 @@
 // TODO: This has to disapppear from the main header and go to the OptiX extension header + config
 #cmakedefine OPTIX_INCLUDE_DIR "@OPTIX_INCLUDE_DIR@"
 
+// DDL exports
+#cmakedefine _NBL_SHARED_BUILD_
+#ifdef _NBL_SHARED_BUILD_
+#if defined(_NBL_PLATFORM_WINDOWS_) && defined(_MSC_VER)
+#define NBL_EXPORTS __declspec(dllexport)
+#else
+#pragma error("Shared builds are only available for Windows OS & MSVC target for now!")
 #endif
+#else
+#define NBL_EXPORTS
+#endif
+
+#endif // __NBL_BUILD_CONFIG_OPTIONS_H_INCLUDED__
