@@ -81,8 +81,6 @@ class IDriverMemoryBacked : public virtual core::IReferenceCounted
         IDriverMemoryBacked(const SDriverMemoryRequirements& reqs) : cachedMemoryReqs(reqs) {}
 
         SDriverMemoryRequirements cachedMemoryReqs;
-        // TODO: backward link to the IDriverMemoryAllocation
-        core::smart_refctd_ptr<IDriverMemoryAllocation> m_backedMemory;
 };
 
 } // end namespace nbl::video

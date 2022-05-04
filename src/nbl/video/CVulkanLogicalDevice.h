@@ -440,25 +440,27 @@ public:
                 if(!bindInfo.memory->getAllocateFlags().hasValue(IDriverMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT))
                 {
                     // TODO(erfan): Log-> if buffer was created with EUF_SHADER_DEVICE_ADDRESS_BIT set, memory must have been allocated with the EMAF_DEVICE_ADDRESS_BIT bit.
-                    _NBL_DEBUG_BREAK_IF(false);
+                    _NBL_DEBUG_BREAK_IF(true);
                     anyFailed = true;
                     continue;
                 }
             }
 
             CVulkanBuffer* vulkanBuffer = IBackendObject::device_compatibility_cast<CVulkanBuffer*>(bindInfo.buffer, this);
-            vulkanBuffer->setMemoryAndOffset(
-                core::smart_refctd_ptr<IDriverMemoryAllocation>(bindInfo.memory), bindInfo.offset);
-
             VkBuffer vk_buffer = vulkanBuffer->getInternalObject();
             VkDeviceMemory vk_memory = static_cast<const CVulkanMemoryAllocation*>(pBindInfos[i].memory)->getInternalObject();
-            if (m_devf.vk.vkBindBufferMemory(m_vkdev, vk_buffer, vk_memory, static_cast<VkDeviceSize>(pBindInfos[i].offset)) != VK_SUCCESS)
+            if (m_devf.vk.vkBindBufferMemory(m_vkdev, vk_buffer, vk_memory, static_cast<VkDeviceSize>(pBindInfos[i].offset)) == VK_SUCCESS)
+            {
+                vulkanBuffer->setMemoryAndOffset(
+                    core::smart_refctd_ptr<IDriverMemoryAllocation>(bindInfo.memory), bindInfo.offset);
+            }
+            else
             {
                 // Todo(achal): Log which one failed
-                _NBL_DEBUG_BREAK_IF(false);
+                _NBL_DEBUG_BREAK_IF(true);
                 anyFailed = true;
             }
-        }   
+        }
 
         return !anyFailed;
     }
@@ -617,15 +619,19 @@ public:
                 continue;
 
             CVulkanImage* vulkanImage = IBackendObject::device_compatibility_cast<CVulkanImage*>(bindInfo.image, this);
-            vulkanImage->setMemoryAndOffset(
-                core::smart_refctd_ptr<IDriverMemoryAllocation>(bindInfo.memory),
-                bindInfo.offset);
 
             VkImage vk_image = vulkanImage->getInternalObject();
             VkDeviceMemory vk_deviceMemory = static_cast<const CVulkanMemoryAllocation*>(bindInfo.memory)->getInternalObject();
-            if (m_devf.vk.vkBindImageMemory(m_vkdev, vk_image, vk_deviceMemory, static_cast<VkDeviceSize>(bindInfo.offset)) != VK_SUCCESS)
+            if (m_devf.vk.vkBindImageMemory(m_vkdev, vk_image, vk_deviceMemory, static_cast<VkDeviceSize>(bindInfo.offset)) == VK_SUCCESS)
+            {
+                vulkanImage->setMemoryAndOffset(
+                    core::smart_refctd_ptr<IDriverMemoryAllocation>(bindInfo.memory),
+                    bindInfo.offset);
+            }
+            else
             {
                 // Todo(achal): Log which one failed
+                _NBL_DEBUG_BREAK_IF(true);
                 anyFailed = true;
             }
         }
