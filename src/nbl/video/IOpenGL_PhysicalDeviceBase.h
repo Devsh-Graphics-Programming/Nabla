@@ -238,8 +238,16 @@ public:
 		}
 
 		// initialize features
-		std::string vendor = reinterpret_cast<const char*>(GetString(GL_VENDOR));
-		m_glfeatures.isIntelGPU = (vendor.find("Intel") != vendor.npos || vendor.find("INTEL") != vendor.npos);
+		const char* vendor = reinterpret_cast<const char*>(GetString(GL_VENDOR));
+		const char* renderer = reinterpret_cast<const char*>(GetString(GL_RENDERER));
+		std::string vendor_lowercase = std::string(vendor);
+		std::string renderer_lowercase = std::string(renderer);
+		std::transform(vendor_lowercase.begin(), vendor_lowercase.end(), vendor_lowercase.begin(), [](unsigned char c){ return std::tolower(c); });
+		std::transform(renderer_lowercase.begin(), renderer_lowercase.end(), renderer_lowercase.begin(), [](unsigned char c){ return std::tolower(c); });
+
+		// TODO: Get m_properties.driverID
+
+		m_glfeatures.isIntelGPU = (vendor_lowercase.find("intel") != vendor_lowercase.npos);
 
 		const std::regex version_re("([1-9]\\.[0-9])");
 		std::cmatch re_match;
@@ -358,7 +366,7 @@ public:
 			GetIntegerv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &num);
 			m_glfeatures.MaxAnisotropy = static_cast<uint8_t>(num);
 			m_features.samplerAnisotropy = true;
-			m_limits.maxSamplerAnisotropyLog2 = std::log2((float)m_glfeatures.MaxAnisotropy);
+			m_properties.limits.maxSamplerAnisotropyLog2 = std::log2((float)m_glfeatures.MaxAnisotropy);
 		}
 		else m_glfeatures.MaxAnisotropy = 0u;
 
@@ -430,20 +438,30 @@ public:
 
 		// physical device limits
 		{
+			// TODO: get deviceUUID
+			// TODO: get deviceType
+			int majorVer = 0;
+			int minorVer = 0;
+			GetIntegerv(GL_MAJOR_VERSION, &majorVer);
+			GetIntegerv(GL_MINOR_VERSION, &minorVer);
+			m_properties.apiVersion.major = majorVer;
+			m_properties.apiVersion.minor = minorVer;
+			m_properties.apiVersion.patch = 0u;
+			
 			// GL doesnt have any limit on this (???)
-			m_limits.maxDrawIndirectCount = std::numeric_limits<decltype(m_limits.maxDrawIndirectCount)>::max();
+			m_properties.limits.maxDrawIndirectCount = std::numeric_limits<decltype(m_properties.limits.maxDrawIndirectCount)>::max();
 
-			m_limits.UBOAlignment = m_glfeatures.reqUBOAlignment;
-			m_limits.SSBOAlignment = m_glfeatures.reqSSBOAlignment;
-			m_limits.bufferViewAlignment = m_glfeatures.reqTBOAlignment;
+			m_properties.limits.UBOAlignment = m_glfeatures.reqUBOAlignment;
+			m_properties.limits.SSBOAlignment = m_glfeatures.reqSSBOAlignment;
+			m_properties.limits.bufferViewAlignment = m_glfeatures.reqTBOAlignment;
 
-			m_limits.maxUBOSize = m_glfeatures.maxUBOSize;
-			m_limits.maxSSBOSize = m_glfeatures.maxSSBOSize;
-			m_limits.maxBufferViewSizeTexels = m_glfeatures.maxTBOSizeInTexels;
-			m_limits.maxBufferSize = std::max(m_limits.maxUBOSize, m_limits.maxSSBOSize);
+			m_properties.limits.maxUBOSize = m_glfeatures.maxUBOSize;
+			m_properties.limits.maxSSBOSize = m_glfeatures.maxSSBOSize;
+			m_properties.limits.maxBufferViewSizeTexels = m_glfeatures.maxTBOSizeInTexels;
+			m_properties.limits.maxBufferSize = std::max(m_properties.limits.maxUBOSize, m_properties.limits.maxSSBOSize);
 
-			m_limits.maxImageArrayLayers = m_glfeatures.MaxArrayTextureLayers;
-			m_limits.timestampPeriodInNanoSeconds = 1.0f;
+			m_properties.limits.maxImageArrayLayers = m_glfeatures.MaxArrayTextureLayers;
+			m_properties.limits.timestampPeriodInNanoSeconds = 1.0f;
 
 			GLint max_ssbos[5];
 			GetIntegerv(GL_MAX_VERTEX_SHADER_STORAGE_BLOCKS, max_ssbos + 0);
@@ -453,18 +471,18 @@ public:
 			GetIntegerv(GL_MAX_FRAGMENT_SHADER_STORAGE_BLOCKS, max_ssbos + 4);
 			uint32_t maxSSBOsPerStage = static_cast<uint32_t>(*std::min_element(max_ssbos, max_ssbos + 5));
 
-			m_limits.maxPerStageSSBOs = maxSSBOsPerStage;
+			m_properties.limits.maxPerStageSSBOs = maxSSBOsPerStage;
 
-			m_limits.maxSSBOs = m_glfeatures.maxSSBOBindings;
-			m_limits.maxUBOs = m_glfeatures.maxUBOBindings;
-			m_limits.maxDynamicOffsetSSBOs = SOpenGLState::MaxDynamicOffsetSSBOs;
-			m_limits.maxDynamicOffsetUBOs = SOpenGLState::MaxDynamicOffsetUBOs;
-			m_limits.maxTextures = m_glfeatures.maxTextureBindings;
-			m_limits.maxStorageImages = m_glfeatures.maxImageBindings;
-			GetInteger64v(GL_MAX_TEXTURE_SIZE, reinterpret_cast<GLint64*>(&m_limits.maxTextureSize));
+			m_properties.limits.maxSSBOs = m_glfeatures.maxSSBOBindings;
+			m_properties.limits.maxUBOs = m_glfeatures.maxUBOBindings;
+			m_properties.limits.maxDynamicOffsetSSBOs = SOpenGLState::MaxDynamicOffsetSSBOs;
+			m_properties.limits.maxDynamicOffsetUBOs = SOpenGLState::MaxDynamicOffsetUBOs;
+			m_properties.limits.maxTextures = m_glfeatures.maxTextureBindings;
+			m_properties.limits.maxStorageImages = m_glfeatures.maxImageBindings;
+			GetInteger64v(GL_MAX_TEXTURE_SIZE, reinterpret_cast<GLint64*>(&m_properties.limits.maxTextureSize));
 
-			GetFloatv(GL_POINT_SIZE_RANGE, m_limits.pointSizeRange);
-			GetFloatv(GL_ALIASED_LINE_WIDTH_RANGE, m_limits.lineWidthRange);
+			GetFloatv(GL_POINT_SIZE_RANGE, m_properties.limits.pointSizeRange);
+			GetFloatv(GL_ALIASED_LINE_WIDTH_RANGE, m_properties.limits.lineWidthRange);
 
 			GLint maxViewportExtent[2]{0,0};
 			GetIntegerv(GL_MAX_VIEWPORT_DIMS, maxViewportExtent);
@@ -472,32 +490,32 @@ public:
 			GLint maxViewports = 16;
 			GetIntegerv(GL_MAX_VIEWPORTS, &maxViewports);
 
-			m_limits.maxViewports = maxViewports;
+			m_properties.limits.maxViewports = maxViewports;
 
-			m_limits.maxViewportDims[0] = maxViewportExtent[0];
-			m_limits.maxViewportDims[1] = maxViewportExtent[1];
+			m_properties.limits.maxViewportDims[0] = maxViewportExtent[0];
+			m_properties.limits.maxViewportDims[1] = maxViewportExtent[1];
 
 			GLint maxComputeSharedMemorySize = 0;
 			GetIntegerv(GL_MAX_COMPUTE_SHARED_MEMORY_SIZE, &maxComputeSharedMemorySize);
-			m_limits.maxComputeSharedMemorySize = maxComputeSharedMemorySize;
+			m_properties.limits.maxComputeSharedMemorySize = maxComputeSharedMemorySize;
 
-			m_limits.maxWorkgroupSize[0] = m_glfeatures.MaxComputeWGSize[0];
-			m_limits.maxWorkgroupSize[1] = m_glfeatures.MaxComputeWGSize[1];
-			m_limits.maxWorkgroupSize[2] = m_glfeatures.MaxComputeWGSize[2];
+			m_properties.limits.maxWorkgroupSize[0] = m_glfeatures.MaxComputeWGSize[0];
+			m_properties.limits.maxWorkgroupSize[1] = m_glfeatures.MaxComputeWGSize[1];
+			m_properties.limits.maxWorkgroupSize[2] = m_glfeatures.MaxComputeWGSize[2];
 
 			// TODO: get this from OpenCL interop, or just a GPU Device & Vendor ID table
-			GetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS,reinterpret_cast<int32_t*>(&m_limits.maxOptimallyResidentWorkgroupInvocations));
-			m_limits.maxOptimallyResidentWorkgroupInvocations = core::min(core::roundDownToPoT(m_limits.maxOptimallyResidentWorkgroupInvocations),512u);
+			GetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS,reinterpret_cast<int32_t*>(&m_properties.limits.maxOptimallyResidentWorkgroupInvocations));
+			m_properties.limits.maxOptimallyResidentWorkgroupInvocations = core::min(core::roundDownToPoT(m_properties.limits.maxOptimallyResidentWorkgroupInvocations),512u);
 			constexpr auto beefyGPUWorkgroupMaxOccupancy = 256u; // TODO: find a way to query and report this somehow, persistent threads are very useful!
-			m_limits.maxResidentInvocations = beefyGPUWorkgroupMaxOccupancy*m_limits.maxOptimallyResidentWorkgroupInvocations;
+			m_properties.limits.maxResidentInvocations = beefyGPUWorkgroupMaxOccupancy*m_properties.limits.maxOptimallyResidentWorkgroupInvocations;
 
 			// TODO: better subgroup exposal
-			m_limits.subgroupSize = 0u;
-			m_limits.subgroupOpsShaderStages = static_cast<asset::IShader::E_SHADER_STAGE>(0u);
+			m_properties.limits.subgroupSize = 0u;
+			m_properties.limits.subgroupOpsShaderStages = static_cast<asset::IShader::E_SHADER_STAGE>(0u);
 			
-			m_limits.nonCoherentAtomSize = 256ull;
+			m_properties.limits.nonCoherentAtomSize = 256ull;
 
-			m_limits.spirvVersion = asset::IGLSLCompiler::ESV_1_6;
+			m_properties.limits.spirvVersion = asset::IGLSLCompiler::ESV_1_6;
 
 			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_KHR_shader_subgroup))
 			{
@@ -507,28 +525,19 @@ public:
 				GLint subgroupOpsStages = 0;
 				GetIntegerv(GL_SUBGROUP_SUPPORTED_STAGES_KHR, &subgroupOpsStages);
 				if (subgroupOpsStages & GL_VERTEX_SHADER_BIT)
-					m_limits.subgroupOpsShaderStages |= asset::IShader::ESS_VERTEX;
+					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_VERTEX;
 				if (subgroupOpsStages & GL_TESS_CONTROL_SHADER_BIT)
-					m_limits.subgroupOpsShaderStages |= asset::IShader::ESS_TESSELATION_CONTROL;
+					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_TESSELATION_CONTROL;
 				if (subgroupOpsStages & GL_TESS_EVALUATION_SHADER_BIT)
-					m_limits.subgroupOpsShaderStages |= asset::IShader::ESS_TESSELATION_EVALUATION;
+					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_TESSELATION_EVALUATION;
 				if (subgroupOpsStages & GL_GEOMETRY_SHADER_BIT)
-					m_limits.subgroupOpsShaderStages |= asset::IShader::ESS_GEOMETRY;
+					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_GEOMETRY;
 				if (subgroupOpsStages & GL_FRAGMENT_SHADER_BIT)
-					m_limits.subgroupOpsShaderStages |= asset::IShader::ESS_FRAGMENT;
+					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_FRAGMENT;
 				if (subgroupOpsStages & GL_COMPUTE_SHADER_BIT)
-					m_limits.subgroupOpsShaderStages |= asset::IShader::ESS_COMPUTE;
+					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_COMPUTE;
 			}
 		}
-		
-		int majorVer = 0;
-		int minorVer = 0;
-		GetIntegerv(GL_MAJOR_VERSION, &majorVer);
-		GetIntegerv(GL_MINOR_VERSION, &minorVer);
-		m_apiVersion.major = majorVer;
-		m_apiVersion.minor = minorVer;
-		m_apiVersion.patch = 0u;
-
 
 		std::ostringstream pool;
 		addCommonGLSLDefines(pool,runningInRenderDoc);

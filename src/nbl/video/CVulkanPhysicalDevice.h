@@ -29,7 +29,8 @@ public:
         }
 
         // Get physical device's limits/properties
-        VkPhysicalDeviceIDProperties deviceIDProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES };
+        VkPhysicalDeviceDriverProperties driverProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DRIVER_PROPERTIES };
+        VkPhysicalDeviceIDProperties deviceIDProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES, &driverProperties };
         VkPhysicalDeviceSubgroupProperties subgroupProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_PROPERTIES, &deviceIDProperties };
         VkPhysicalDeviceRayTracingPipelinePropertiesKHR rayTracingPipelineProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR, &subgroupProperties };
         VkPhysicalDeviceAccelerationStructurePropertiesKHR accelerationStructureProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR, &rayTracingPipelineProperties };
@@ -38,53 +39,53 @@ public:
             deviceProperties.pNext = &accelerationStructureProperties;
             vkGetPhysicalDeviceProperties2(m_vkPhysicalDevice, &deviceProperties);
             
-            memcpy(m_limits.deviceUUID, deviceIDProperties.deviceUUID, VK_UUID_SIZE);
+            memcpy(m_properties.deviceUUID, deviceIDProperties.deviceUUID, VK_UUID_SIZE);
             // TODO fill m_properties
                     
-            m_limits.UBOAlignment = deviceProperties.properties.limits.minUniformBufferOffsetAlignment;
-            m_limits.SSBOAlignment = deviceProperties.properties.limits.minStorageBufferOffsetAlignment;
-            m_limits.bufferViewAlignment = deviceProperties.properties.limits.minTexelBufferOffsetAlignment;
-            m_limits.maxSamplerAnisotropyLog2 = std::log2(deviceProperties.properties.limits.maxSamplerAnisotropy);
+            m_properties.limits.UBOAlignment = deviceProperties.properties.limits.minUniformBufferOffsetAlignment;
+            m_properties.limits.SSBOAlignment = deviceProperties.properties.limits.minStorageBufferOffsetAlignment;
+            m_properties.limits.bufferViewAlignment = deviceProperties.properties.limits.minTexelBufferOffsetAlignment;
+            m_properties.limits.maxSamplerAnisotropyLog2 = std::log2(deviceProperties.properties.limits.maxSamplerAnisotropy);
             
-            m_limits.timestampPeriodInNanoSeconds = deviceProperties.properties.limits.timestampPeriod;
+            m_properties.limits.timestampPeriodInNanoSeconds = deviceProperties.properties.limits.timestampPeriod;
             
-            m_limits.maxUBOSize = deviceProperties.properties.limits.maxUniformBufferRange;
-            m_limits.maxSSBOSize = deviceProperties.properties.limits.maxStorageBufferRange;
-            m_limits.maxBufferViewSizeTexels = deviceProperties.properties.limits.maxTexelBufferElements;
-            m_limits.maxBufferSize = core::max(m_limits.maxUBOSize, m_limits.maxSSBOSize);
+            m_properties.limits.maxUBOSize = deviceProperties.properties.limits.maxUniformBufferRange;
+            m_properties.limits.maxSSBOSize = deviceProperties.properties.limits.maxStorageBufferRange;
+            m_properties.limits.maxBufferViewSizeTexels = deviceProperties.properties.limits.maxTexelBufferElements;
+            m_properties.limits.maxBufferSize = core::max(m_properties.limits.maxUBOSize, m_properties.limits.maxSSBOSize);
                     
-            m_limits.maxPerStageSSBOs = deviceProperties.properties.limits.maxPerStageDescriptorStorageBuffers;
+            m_properties.limits.maxPerStageSSBOs = deviceProperties.properties.limits.maxPerStageDescriptorStorageBuffers;
                     
-            m_limits.maxSSBOs = deviceProperties.properties.limits.maxDescriptorSetStorageBuffers;
-            m_limits.maxUBOs = deviceProperties.properties.limits.maxDescriptorSetUniformBuffers;
-            m_limits.maxDynamicOffsetSSBOs = deviceProperties.properties.limits.maxDescriptorSetStorageBuffersDynamic;
-            m_limits.maxDynamicOffsetUBOs = deviceProperties.properties.limits.maxDescriptorSetUniformBuffersDynamic;
-            m_limits.maxTextures = deviceProperties.properties.limits.maxDescriptorSetSamplers;
-            m_limits.maxStorageImages = deviceProperties.properties.limits.maxDescriptorSetStorageImages;
+            m_properties.limits.maxSSBOs = deviceProperties.properties.limits.maxDescriptorSetStorageBuffers;
+            m_properties.limits.maxUBOs = deviceProperties.properties.limits.maxDescriptorSetUniformBuffers;
+            m_properties.limits.maxDynamicOffsetSSBOs = deviceProperties.properties.limits.maxDescriptorSetStorageBuffersDynamic;
+            m_properties.limits.maxDynamicOffsetUBOs = deviceProperties.properties.limits.maxDescriptorSetUniformBuffersDynamic;
+            m_properties.limits.maxTextures = deviceProperties.properties.limits.maxDescriptorSetSamplers;
+            m_properties.limits.maxStorageImages = deviceProperties.properties.limits.maxDescriptorSetStorageImages;
                     
-            m_limits.pointSizeRange[0] = deviceProperties.properties.limits.pointSizeRange[0];
-            m_limits.pointSizeRange[1] = deviceProperties.properties.limits.pointSizeRange[1];
-            m_limits.lineWidthRange[0] = deviceProperties.properties.limits.lineWidthRange[0];
-            m_limits.lineWidthRange[1] = deviceProperties.properties.limits.lineWidthRange[1];
+            m_properties.limits.pointSizeRange[0] = deviceProperties.properties.limits.pointSizeRange[0];
+            m_properties.limits.pointSizeRange[1] = deviceProperties.properties.limits.pointSizeRange[1];
+            m_properties.limits.lineWidthRange[0] = deviceProperties.properties.limits.lineWidthRange[0];
+            m_properties.limits.lineWidthRange[1] = deviceProperties.properties.limits.lineWidthRange[1];
 
-            m_limits.maxViewports = deviceProperties.properties.limits.maxViewports;
-            m_limits.maxViewportDims[0] = deviceProperties.properties.limits.maxViewportDimensions[0];
-            m_limits.maxViewportDims[1] = deviceProperties.properties.limits.maxViewportDimensions[1];
+            m_properties.limits.maxViewports = deviceProperties.properties.limits.maxViewports;
+            m_properties.limits.maxViewportDims[0] = deviceProperties.properties.limits.maxViewportDimensions[0];
+            m_properties.limits.maxViewportDims[1] = deviceProperties.properties.limits.maxViewportDimensions[1];
             
-            m_limits.maxComputeSharedMemorySize = deviceProperties.properties.limits.maxComputeSharedMemorySize;
+            m_properties.limits.maxComputeSharedMemorySize = deviceProperties.properties.limits.maxComputeSharedMemorySize;
                     
-            m_limits.maxWorkgroupSize[0] = deviceProperties.properties.limits.maxComputeWorkGroupSize[0];
-            m_limits.maxWorkgroupSize[1] = deviceProperties.properties.limits.maxComputeWorkGroupSize[1];
-            m_limits.maxWorkgroupSize[2] = deviceProperties.properties.limits.maxComputeWorkGroupSize[2];
+            m_properties.limits.maxWorkgroupSize[0] = deviceProperties.properties.limits.maxComputeWorkGroupSize[0];
+            m_properties.limits.maxWorkgroupSize[1] = deviceProperties.properties.limits.maxComputeWorkGroupSize[1];
+            m_properties.limits.maxWorkgroupSize[2] = deviceProperties.properties.limits.maxComputeWorkGroupSize[2];
                     
-            m_limits.subgroupSize = subgroupProperties.subgroupSize;
-            m_limits.subgroupOpsShaderStages = static_cast<asset::IShader::E_SHADER_STAGE>(subgroupProperties.supportedStages);
+            m_properties.limits.subgroupSize = subgroupProperties.subgroupSize;
+            m_properties.limits.subgroupOpsShaderStages = static_cast<asset::IShader::E_SHADER_STAGE>(subgroupProperties.supportedStages);
 
-            m_limits.nonCoherentAtomSize = deviceProperties.properties.limits.nonCoherentAtomSize;
+            m_properties.limits.nonCoherentAtomSize = deviceProperties.properties.limits.nonCoherentAtomSize;
             
-            m_limits.maxOptimallyResidentWorkgroupInvocations = core::min(core::roundDownToPoT(deviceProperties.properties.limits.maxComputeWorkGroupInvocations),512u);
+            m_properties.limits.maxOptimallyResidentWorkgroupInvocations = core::min(core::roundDownToPoT(deviceProperties.properties.limits.maxComputeWorkGroupInvocations),512u);
             constexpr auto beefyGPUWorkgroupMaxOccupancy = 256u; // TODO: find a way to query and report this somehow, persistent threads are very useful!
-            m_limits.maxResidentInvocations = beefyGPUWorkgroupMaxOccupancy*m_limits.maxOptimallyResidentWorkgroupInvocations;
+            m_properties.limits.maxResidentInvocations = beefyGPUWorkgroupMaxOccupancy*m_properties.limits.maxOptimallyResidentWorkgroupInvocations;
 
             /*
                 [NO NABALA SUPPORT] Vulkan 1.0 implementation must support the 1.0 version of SPIR-V and the 1.0 version of the SPIR-V Extended Instructions for GLSL. If the VK_KHR_spirv_1_4 extension is enabled, the implementation must additionally support the 1.4 version of SPIR-V.
@@ -95,56 +96,56 @@ public:
             
             uint32_t apiVersion = std::min(instanceApiVersion, deviceProperties.properties.apiVersion);
             assert(apiVersion >= MinimumVulkanApiVersion);
-            m_limits.spirvVersion = asset::IGLSLCompiler::ESV_1_3;
+            m_properties.limits.spirvVersion = asset::IGLSLCompiler::ESV_1_3;
 
             switch (VK_API_VERSION_MINOR(apiVersion))
             {
             case 0:
-                m_limits.spirvVersion = asset::IGLSLCompiler::ESV_1_0; 
+                m_properties.limits.spirvVersion = asset::IGLSLCompiler::ESV_1_0; 
                 assert(false);
                 break;
             case 1:
-                m_limits.spirvVersion = asset::IGLSLCompiler::ESV_1_3;
+                m_properties.limits.spirvVersion = asset::IGLSLCompiler::ESV_1_3;
                 break;
             case 2:
-                m_limits.spirvVersion = asset::IGLSLCompiler::ESV_1_5;
+                m_properties.limits.spirvVersion = asset::IGLSLCompiler::ESV_1_5;
                 break;
             case 3:
-                m_limits.spirvVersion = asset::IGLSLCompiler::ESV_1_5;
+                m_properties.limits.spirvVersion = asset::IGLSLCompiler::ESV_1_6;
                 break;
             default:
                 _NBL_DEBUG_BREAK_IF("Invalid Vulkan minor version!");
                 break;
             }
 
-            m_apiVersion.major = VK_API_VERSION_MAJOR(apiVersion);
-            m_apiVersion.minor = VK_API_VERSION_MINOR(apiVersion);
-            m_apiVersion.patch = VK_API_VERSION_PATCH(apiVersion);
+            m_properties.apiVersion.major = VK_API_VERSION_MAJOR(apiVersion);
+            m_properties.apiVersion.minor = VK_API_VERSION_MINOR(apiVersion);
+            m_properties.apiVersion.patch = VK_API_VERSION_PATCH(apiVersion);
 
             // AccelerationStructure
             if (m_availableFeatureSet.find(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME) != m_availableFeatureSet.end())
             {
-                m_limits.maxGeometryCount = accelerationStructureProperties.maxGeometryCount;
-                m_limits.maxInstanceCount = accelerationStructureProperties.maxInstanceCount;
-                m_limits.maxPrimitiveCount = accelerationStructureProperties.maxPrimitiveCount;
-                m_limits.maxPerStageDescriptorAccelerationStructures = accelerationStructureProperties.maxPerStageDescriptorAccelerationStructures;
-                m_limits.maxPerStageDescriptorUpdateAfterBindAccelerationStructures = accelerationStructureProperties.maxPerStageDescriptorUpdateAfterBindAccelerationStructures;
-                m_limits.maxDescriptorSetAccelerationStructures = accelerationStructureProperties.maxDescriptorSetAccelerationStructures;
-                m_limits.maxDescriptorSetUpdateAfterBindAccelerationStructures = accelerationStructureProperties.maxDescriptorSetUpdateAfterBindAccelerationStructures;
-                m_limits.minAccelerationStructureScratchOffsetAlignment = accelerationStructureProperties.minAccelerationStructureScratchOffsetAlignment;
+                m_properties.limits.maxGeometryCount = accelerationStructureProperties.maxGeometryCount;
+                m_properties.limits.maxInstanceCount = accelerationStructureProperties.maxInstanceCount;
+                m_properties.limits.maxPrimitiveCount = accelerationStructureProperties.maxPrimitiveCount;
+                m_properties.limits.maxPerStageDescriptorAccelerationStructures = accelerationStructureProperties.maxPerStageDescriptorAccelerationStructures;
+                m_properties.limits.maxPerStageDescriptorUpdateAfterBindAccelerationStructures = accelerationStructureProperties.maxPerStageDescriptorUpdateAfterBindAccelerationStructures;
+                m_properties.limits.maxDescriptorSetAccelerationStructures = accelerationStructureProperties.maxDescriptorSetAccelerationStructures;
+                m_properties.limits.maxDescriptorSetUpdateAfterBindAccelerationStructures = accelerationStructureProperties.maxDescriptorSetUpdateAfterBindAccelerationStructures;
+                m_properties.limits.minAccelerationStructureScratchOffsetAlignment = accelerationStructureProperties.minAccelerationStructureScratchOffsetAlignment;
             }
 
             // RayTracingPipeline
             if (m_availableFeatureSet.find(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME) != m_availableFeatureSet.end())
             {
-                m_limits.shaderGroupHandleSize = rayTracingPipelineProperties.shaderGroupHandleSize;
-                m_limits.maxRayRecursionDepth = rayTracingPipelineProperties.maxRayRecursionDepth;
-                m_limits.maxShaderGroupStride = rayTracingPipelineProperties.maxShaderGroupStride;
-                m_limits.shaderGroupBaseAlignment = rayTracingPipelineProperties.shaderGroupBaseAlignment;
-                m_limits.shaderGroupHandleCaptureReplaySize = rayTracingPipelineProperties.shaderGroupHandleCaptureReplaySize;
-                m_limits.maxRayDispatchInvocationCount = rayTracingPipelineProperties.maxRayDispatchInvocationCount;
-                m_limits.shaderGroupHandleAlignment = rayTracingPipelineProperties.shaderGroupHandleAlignment;
-                m_limits.maxRayHitAttributeSize = rayTracingPipelineProperties.maxRayHitAttributeSize;
+                m_properties.limits.shaderGroupHandleSize = rayTracingPipelineProperties.shaderGroupHandleSize;
+                m_properties.limits.maxRayRecursionDepth = rayTracingPipelineProperties.maxRayRecursionDepth;
+                m_properties.limits.maxShaderGroupStride = rayTracingPipelineProperties.maxShaderGroupStride;
+                m_properties.limits.shaderGroupBaseAlignment = rayTracingPipelineProperties.shaderGroupBaseAlignment;
+                m_properties.limits.shaderGroupHandleCaptureReplaySize = rayTracingPipelineProperties.shaderGroupHandleCaptureReplaySize;
+                m_properties.limits.maxRayDispatchInvocationCount = rayTracingPipelineProperties.maxRayDispatchInvocationCount;
+                m_properties.limits.shaderGroupHandleAlignment = rayTracingPipelineProperties.shaderGroupHandleAlignment;
+                m_properties.limits.maxRayHitAttributeSize = rayTracingPipelineProperties.maxRayHitAttributeSize;
             }
         }
         
@@ -375,9 +376,9 @@ protected:
                 continue;
         }
                     
-        if (m_availableFeatureSet.find(VK_KHR_SPIRV_1_4_EXTENSION_NAME) != m_availableFeatureSet.end() && (m_limits.spirvVersion < asset::IGLSLCompiler::ESV_1_4))
+        if (m_availableFeatureSet.find(VK_KHR_SPIRV_1_4_EXTENSION_NAME) != m_availableFeatureSet.end() && (m_properties.limits.spirvVersion < asset::IGLSLCompiler::ESV_1_4))
         {
-            m_limits.spirvVersion = asset::IGLSLCompiler::ESV_1_4;
+            m_properties.limits.spirvVersion = asset::IGLSLCompiler::ESV_1_4;
             selectedFeatureSet.insert(VK_KHR_SPIRV_1_4_EXTENSION_NAME);
         }
 

@@ -26,21 +26,30 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
     public:
         //
         virtual E_API_TYPE getAPIType() const = 0;
-        
-        // TODO: fold into SLimits
+
+        enum E_TYPE : uint8_t {
+            ET_OTHER = 0,
+            ET_INTEGRATED_GPU = 1,
+            ET_DISCRETE_GPU = 2,
+            ET_VIRTUAL_GPU = 3,
+            ET_CPU = 4,
+        };
+
+        enum E_DRIVER_ID : uint32_t
+        {
+        };
+
+        //
         struct APIVersion
         {
             uint32_t major : 5;
             uint32_t minor : 5;
             uint32_t patch : 22;
         };
-        const APIVersion& getAPIVersion() const { return m_apiVersion; }
-        
+
         //
         struct SLimits
         {
-            uint8_t deviceUUID[VK_UUID_SIZE] = {};
-
             //
             uint32_t UBOAlignment;
             uint32_t SSBOAlignment;
@@ -127,7 +136,37 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
                 return static_cast<uint32_t>(core::min<uint64_t>(infinitelyWideDeviceWGCount,maxResidentWorkgroups));
             }
         };
-        const SLimits& getLimits() const { return m_limits; }
+        
+        struct SProperties
+        {
+            //--> VkPhysicalDeviceProperties:
+            APIVersion  apiVersion;
+            // uint32_t driverVersion;
+            // uint32_t vendorID;
+            // uint32_t deviceID;
+            E_TYPE      deviceType;
+            // char     deviceName[VK_MAX_PHYSICAL_DEVICE_NAME_SIZE];
+            // uint8_t  pipelineCacheUUID[VK_UUID_SIZE];
+            SLimits     limits;
+            // VkPhysicalDeviceSparseProperties    sparseProperties;
+
+            //--> VkPhysicalDeviceDriverProperties
+            E_DRIVER_ID driverID;
+            // char driverName[VK_MAX_DRIVER_NAME_SIZE];
+            // char driverInfo[VK_MAX_DRIVER_INFO_SIZE];
+            // VkConformanceVersion conformanceVersion;
+
+            //--> VkPhysicalDeviceIDProperties
+            uint8_t deviceUUID[VK_UUID_SIZE];
+            // uint8_t driverUUID[VK_UUID_SIZE];
+            // uint8_t deviceLUID[VK_LUID_SIZE];
+            // uint32_t deviceNodeMask;
+            // VkBool32 deviceLUIDValid;
+        };
+
+        const SProperties& getProperties() const { return m_properties; }
+        const SLimits& getLimits() const { return m_properties.limits; }
+        const APIVersion& getAPIVersion() const { return m_properties.apiVersion; }
 
         //
         struct SFeatures
@@ -420,10 +459,9 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
         core::smart_refctd_ptr<system::ISystem> m_system;
         core::smart_refctd_ptr<asset::IGLSLCompiler> m_GLSLCompiler;
 
-        SLimits m_limits;
+        SProperties m_properties;
         SFeatures m_features;
         SMemoryProperties m_memoryProperties;
-        APIVersion m_apiVersion;
         using qfam_props_array_t = core::smart_refctd_dynamic_array<SQueueFamilyProperties>;
         qfam_props_array_t m_qfamProperties;
 
