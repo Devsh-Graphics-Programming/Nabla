@@ -154,7 +154,7 @@ public:
 		initOutp.system = system;
 		CommonAPI::Init(
 			initOutp,
-			video::EAT_VULKAN,
+			video::EAT_OPENGL,
 			"29.SpecializationConstants",
 			requiredInstanceFeatures,
 			optionalInstanceFeatures,
@@ -313,7 +313,7 @@ public:
 			i[1].buffer.size = BUF_SZ;
 			i[2].desc = gpuUboCompute;
 			i[2].buffer.offset = 0ull;
-			i[2].buffer.size = gpuUboCompute->getCachedCreationParams().declaredSize;
+			i[2].buffer.size = gpuUboCompute->getSize();
 
 			device->updateDescriptorSets(2u, w, 0u, nullptr);
 		}
@@ -385,7 +385,7 @@ public:
 			w.info = &i;
 			i.desc = gpuUboGraphics;
 			i.buffer.offset = 0u;
-			i.buffer.size = gpuUboGraphics->getCachedCreationParams().declaredSize; // gpuUboGraphics->getSize();
+			i.buffer.size = gpuUboGraphics->getSize(); // gpuUboGraphics->getSize();
 
 			device->updateDescriptorSets(1u, &w, 0u, nullptr);
 		}
@@ -393,8 +393,8 @@ public:
 		m_lastTime = std::chrono::high_resolution_clock::now();
 		constexpr uint32_t FRAME_COUNT = 500000u;
 		constexpr uint64_t MAX_TIMEOUT = 99999999999999ull;
-		m_computeUBORange = { 0, gpuUboCompute->getCachedCreationParams().declaredSize, gpuUboCompute };
-		m_graphicsUBORange = { 0, gpuUboGraphics->getCachedCreationParams().declaredSize, gpuUboGraphics };
+		m_computeUBORange = { 0, gpuUboCompute->getSize(), gpuUboCompute };
+		m_graphicsUBORange = { 0, gpuUboGraphics->getSize(), gpuUboGraphics };
 
 		device->createCommandBuffers(commandPools[CommonAPI::InitOutput::EQT_GRAPHICS].get(), video::IGPUCommandBuffer::EL_PRIMARY, FRAMES_IN_FLIGHT, m_cmdbuf);
 

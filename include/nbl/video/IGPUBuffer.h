@@ -27,10 +27,10 @@ class IGPUBuffer : public asset::IBuffer, public IDriverMemoryBacked, public IBa
     public:
 		struct SCachedCreationParams
 		{
-			core::bitflag<E_USAGE_FLAGS> usage = EUF_NONE;
-			bool canUpdateSubRange = false; // whether `IGPUCommandBuffer::updateBuffer` can be used on this buffer
-			asset::E_SHARING_MODE sharingMode = asset::ESM_EXCLUSIVE;
 			size_t declaredSize = 0ull;
+			core::bitflag<E_USAGE_FLAGS> usage = EUF_NONE;
+			asset::E_SHARING_MODE sharingMode = asset::ESM_EXCLUSIVE;
+			bool canUpdateSubRange = false; // whether `IGPUCommandBuffer::updateBuffer` can be used on this buffer
 		};
 		struct SCreationParams : SCachedCreationParams
 		{
@@ -38,7 +38,7 @@ class IGPUBuffer : public asset::IBuffer, public IDriverMemoryBacked, public IBa
 			const uint32_t* queueFamilyIndices = nullptr;
 		};
 
-		inline uint64_t getSize() const override {return cachedMemoryReqs.vulkanReqs.size;}
+		inline uint64_t getSize() const override {return m_cachedCreationParams.declaredSize;}
 
 		inline const SCachedCreationParams& getCachedCreationParams() const {return m_cachedCreationParams;}
 

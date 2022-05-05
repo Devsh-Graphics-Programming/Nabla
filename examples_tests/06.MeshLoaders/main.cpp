@@ -447,7 +447,7 @@ public:
         modelMatrix.setTranslation(nbl::core::vectorSIMDf(0, 0, 0, 0));
         core::matrix4SIMD mvp = core::concatenateBFollowedByA(viewProjectionMatrix, modelMatrix);
 
-        const size_t uboSize = gpuubo->getCachedCreationParams().declaredSize;
+        const size_t uboSize = gpuubo->getSize();
         core::vector<uint8_t> uboData(uboSize);
         for (const auto& shdrIn : pipelineMetadata->m_inputSemantics)
         {
