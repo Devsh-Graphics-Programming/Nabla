@@ -39,7 +39,7 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
         //
         struct SLimits
         {
-            uint8_t deviceUUID[VK_UUID_SIZE] = {}; // TODO: implement on Vulkan with VkPhysicalDeviceIDProperties
+            uint8_t deviceUUID[VK_UUID_SIZE] = {};
 
             //
             uint32_t UBOAlignment;

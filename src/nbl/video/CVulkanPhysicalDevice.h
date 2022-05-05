@@ -29,14 +29,16 @@ public:
         }
 
         // Get physical device's limits/properties
-        VkPhysicalDeviceSubgroupProperties subgroupProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_PROPERTIES };
+        VkPhysicalDeviceIDProperties deviceIDProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES };
+        VkPhysicalDeviceSubgroupProperties subgroupProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_PROPERTIES, &deviceIDProperties };
         VkPhysicalDeviceRayTracingPipelinePropertiesKHR rayTracingPipelineProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR, &subgroupProperties };
         VkPhysicalDeviceAccelerationStructurePropertiesKHR accelerationStructureProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR, &rayTracingPipelineProperties };
         {
             VkPhysicalDeviceProperties2 deviceProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
             deviceProperties.pNext = &accelerationStructureProperties;
             vkGetPhysicalDeviceProperties2(m_vkPhysicalDevice, &deviceProperties);
-                    
+            
+            memcpy(m_limits.deviceUUID, deviceIDProperties.deviceUUID, VK_UUID_SIZE);
             // TODO fill m_properties
                     
             m_limits.UBOAlignment = deviceProperties.properties.limits.minUniformBufferOffsetAlignment;
@@ -108,7 +110,7 @@ public:
                 m_limits.spirvVersion = asset::IGLSLCompiler::ESV_1_5;
                 break;
             case 3:
-                m_limits.spirvVersion = asset::IGLSLCompiler::ESV_1_6;
+                m_limits.spirvVersion = asset::IGLSLCompiler::ESV_1_5;
                 break;
             default:
                 _NBL_DEBUG_BREAK_IF("Invalid Vulkan minor version!");
