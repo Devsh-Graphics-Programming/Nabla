@@ -160,7 +160,7 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
             //--> VkPhysicalDeviceSubgroupProperties
             uint32_t subgroupSize;
             core::bitflag<asset::IShader::E_SHADER_STAGE> subgroupOpsShaderStages;
-            //VkSubgroupFeatureFlags    supportedOperations;
+            //VkSubgroupFeatureFlags    supportedOperations; -> in SFeatures as booleans instead of flags
             //VkBool32                  quadOperationsInAllStages;
             
             //--> VkPhysicalDeviceAccelerationStructurePropertiesKHR
@@ -183,16 +183,11 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
             uint32_t           shaderGroupHandleAlignment;
             uint32_t           maxRayHitAttributeSize;
 
-            //--> Nabla limits (non-vk, other apis, helpers)
+            //--> Nabla:
             uint32_t maxBufferSize;
             uint64_t maxTextureSize; // TODO: Use maxImageDimensions1D/2D/3D/Cube instead for gl and get rid of this
-
-            // its 1D because multidimensional workgroups are an illusion
-            uint32_t maxOptimallyResidentWorkgroupInvocations = 0u;
-
-            // These are maximum number of invocations you could expect to execute simultaneously on this device.
-            uint32_t maxResidentInvocations = 0u;
-
+            uint32_t maxOptimallyResidentWorkgroupInvocations = 0u; //  its 1D because multidimensional workgroups are an illusion
+            uint32_t maxResidentInvocations = 0u; //  These are maximum number of invocations you could expect to execute simultaneously on this device.
             asset::IGLSLCompiler::E_SPIRV_VERSION spirvVersion;
 
             // utility functions
@@ -243,11 +238,62 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
         struct SFeatures
         {
             bool robustBufferAccess = false;
+            //VkBool32    fullDrawIndexUint32;
             bool imageCubeArray = false;
+            //VkBool32    independentBlend;
+            bool geometryShader    = false;
+            //VkBool32    tessellationShader;
+            //VkBool32    sampleRateShading;
+            //VkBool32    dualSrcBlend;
             bool logicOp = false;
+            bool multiDrawIndirect = false;
+            //VkBool32    drawIndirectFirstInstance;
+            //VkBool32    depthClamp;
+            //VkBool32    depthBiasClamp;
+            //VkBool32    fillModeNonSolid;
+            //VkBool32    depthBounds;
+            //VkBool32    wideLines;
+            //VkBool32    largePoints;
+            //VkBool32    alphaToOne;
             bool multiViewport = false;
-            bool vertexAttributeDouble = false;
-            bool dispatchBase = false;
+            bool samplerAnisotropy = false;
+            //VkBool32    textureCompressionETC2;
+            //VkBool32    textureCompressionASTC_LDR;
+            //VkBool32    textureCompressionBC;
+            //VkBool32    occlusionQueryPrecise;
+            //VkBool32    pipelineStatisticsQuery;
+            //VkBool32    vertexPipelineStoresAndAtomics;
+            //VkBool32    fragmentStoresAndAtomics;
+            //VkBool32    shaderTessellationAndGeometryPointSize;
+            //VkBool32    shaderImageGatherExtended;
+            //VkBool32    shaderStorageImageExtendedFormats;
+            //VkBool32    shaderStorageImageMultisample;
+            //VkBool32    shaderStorageImageReadWithoutFormat;
+            //VkBool32    shaderStorageImageWriteWithoutFormat;
+            //VkBool32    shaderUniformBufferArrayDynamicIndexing;
+            //VkBool32    shaderSampledImageArrayDynamicIndexing;
+            //VkBool32    shaderStorageBufferArrayDynamicIndexing;
+            //VkBool32    shaderStorageImageArrayDynamicIndexing;
+            //VkBool32    shaderClipDistance;
+            //VkBool32    shaderCullDistance;
+            bool vertexAttributeDouble = false; // shaderFloat64
+            //VkBool32    shaderInt64;
+            //VkBool32    shaderInt16;
+            //VkBool32    shaderResourceResidency;
+            //VkBool32    shaderResourceMinLod;
+            //VkBool32    sparseBinding;
+            //VkBool32    sparseResidencyBuffer;
+            //VkBool32    sparseResidencyImage2D;
+            //VkBool32    sparseResidencyImage3D;
+            //VkBool32    sparseResidency2Samples;
+            //VkBool32    sparseResidency4Samples;
+            //VkBool32    sparseResidency8Samples;
+            //VkBool32    sparseResidency16Samples;
+            //VkBool32    sparseResidencyAliased;
+            //VkBool32    variableMultisampleRate;
+            bool inheritedQueries = false;
+
+            //--> VkPhysicalDeviceSubgroupProperties: // TODO(Erfan): I think we should move these into SProperties::SLimits since it's part of properties and not features
             bool shaderSubgroupBasic = false;
             bool shaderSubgroupVote = false;
             bool shaderSubgroupArithmetic = false;
@@ -259,39 +305,39 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
             // Whether `shaderSubgroupQuad` flag refer to all stages where subgroup ops are reported to be supported.
             // See SLimit::subgroupOpsShaderStages.
             bool shaderSubgroupQuadAllStages = false;
-            bool drawIndirectCount = false;
-            bool multiDrawIndirect = false;
-            bool samplerAnisotropy = false;
-            bool geometryShader    = false;
 
-            // RayQuery
+            //--> VkPhysicalDeviceRayQueryFeaturesKHR
             bool rayQuery = false;
 
-            // AccelerationStructure
+            //--> VkPhysicalDeviceAccelerationStructureFeaturesKHR
             bool accelerationStructure = false;
             bool accelerationStructureCaptureReplay = false;
             bool accelerationStructureIndirectBuild = false;
             bool accelerationStructureHostCommands = false;
             bool descriptorBindingAccelerationStructureUpdateAfterBind = false;
 
-            // RayTracingPipeline
+            //--> VkPhysicalDeviceRayTracingPipelineFeaturesKHR
             bool rayTracingPipeline = false;
             bool rayTracingPipelineShaderGroupHandleCaptureReplay = false;
             bool rayTracingPipelineShaderGroupHandleCaptureReplayMixed = false;
             bool rayTracingPipelineTraceRaysIndirect = false;
             bool rayTraversalPrimitiveCulling = false;
 
-            // Fragment Shader Interlock
+            //--> VkPhysicalDeviceFragmentShaderInterlockFeaturesEXT
             bool fragmentShaderSampleInterlock = false;
             bool fragmentShaderPixelInterlock = false;
             bool fragmentShaderShadingRateInterlock = false;
 
-            // Queries
-            bool allowCommandBufferQueryCopies = false;
-            bool inheritedQueries = false;
 
-            // Buffer Device Address
+            //--> VkPhysicalDeviceBufferDeviceAddressFeaturesKHR
             bool bufferDeviceAddress = false;
+            //VkBool32           bufferDeviceAddressCaptureReplay;
+            //VkBool32           bufferDeviceAddressMultiDevice;
+            
+            //--> Nabla:
+            bool dispatchBase = false;
+            bool drawIndirectCount = false;
+            bool allowCommandBufferQueryCopies = false;
         };
         const SFeatures& getFeatures() const { return m_features; }
 
