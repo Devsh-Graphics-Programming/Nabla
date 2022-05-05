@@ -24,7 +24,7 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createGPUDescrip
         }
     }
     const auto& limits = m_physicalDevice->getLimits();
-    if (dynamicSSBOCount>limits.maxDynamicOffsetSSBOs || dynamicUBOCount>limits.maxDynamicOffsetUBOs)
+    if (dynamicSSBOCount>limits.maxDescriptorSetDynamicOffsetSSBOs || dynamicUBOCount>limits.maxDescriptorSetDynamicOffsetUBOs)
         return nullptr;
     return createGPUDescriptorSetLayout_impl(_begin,_end);
 }

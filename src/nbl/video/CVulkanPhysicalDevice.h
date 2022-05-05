@@ -42,26 +42,26 @@ public:
             memcpy(m_properties.deviceUUID, deviceIDProperties.deviceUUID, VK_UUID_SIZE);
             // TODO fill m_properties
                     
+            m_properties.limits.bufferViewAlignment = deviceProperties.properties.limits.minTexelBufferOffsetAlignment;
             m_properties.limits.UBOAlignment = deviceProperties.properties.limits.minUniformBufferOffsetAlignment;
             m_properties.limits.SSBOAlignment = deviceProperties.properties.limits.minStorageBufferOffsetAlignment;
-            m_properties.limits.bufferViewAlignment = deviceProperties.properties.limits.minTexelBufferOffsetAlignment;
             m_properties.limits.maxSamplerAnisotropyLog2 = std::log2(deviceProperties.properties.limits.maxSamplerAnisotropy);
             
             m_properties.limits.timestampPeriodInNanoSeconds = deviceProperties.properties.limits.timestampPeriod;
             
+            m_properties.limits.maxBufferViewSizeTexels = deviceProperties.properties.limits.maxTexelBufferElements;
             m_properties.limits.maxUBOSize = deviceProperties.properties.limits.maxUniformBufferRange;
             m_properties.limits.maxSSBOSize = deviceProperties.properties.limits.maxStorageBufferRange;
-            m_properties.limits.maxBufferViewSizeTexels = deviceProperties.properties.limits.maxTexelBufferElements;
             m_properties.limits.maxBufferSize = core::max(m_properties.limits.maxUBOSize, m_properties.limits.maxSSBOSize);
                     
-            m_properties.limits.maxPerStageSSBOs = deviceProperties.properties.limits.maxPerStageDescriptorStorageBuffers;
+            m_properties.limits.maxPerStageDescriptorSSBOs = deviceProperties.properties.limits.maxPerStageDescriptorStorageBuffers;
                     
-            m_properties.limits.maxSSBOs = deviceProperties.properties.limits.maxDescriptorSetStorageBuffers;
-            m_properties.limits.maxUBOs = deviceProperties.properties.limits.maxDescriptorSetUniformBuffers;
-            m_properties.limits.maxDynamicOffsetSSBOs = deviceProperties.properties.limits.maxDescriptorSetStorageBuffersDynamic;
-            m_properties.limits.maxDynamicOffsetUBOs = deviceProperties.properties.limits.maxDescriptorSetUniformBuffersDynamic;
-            m_properties.limits.maxTextures = deviceProperties.properties.limits.maxDescriptorSetSamplers;
-            m_properties.limits.maxStorageImages = deviceProperties.properties.limits.maxDescriptorSetStorageImages;
+            m_properties.limits.maxDescriptorSetSSBOs = deviceProperties.properties.limits.maxDescriptorSetStorageBuffers;
+            m_properties.limits.maxDescriptorSetUBOs = deviceProperties.properties.limits.maxDescriptorSetUniformBuffers;
+            m_properties.limits.maxDescriptorSetDynamicOffsetSSBOs = deviceProperties.properties.limits.maxDescriptorSetStorageBuffersDynamic;
+            m_properties.limits.maxDescriptorSetDynamicOffsetUBOs = deviceProperties.properties.limits.maxDescriptorSetUniformBuffersDynamic;
+            m_properties.limits.maxDescriptorSetImages = deviceProperties.properties.limits.maxDescriptorSetSampledImages;
+            m_properties.limits.maxDescriptorSetStorageImages = deviceProperties.properties.limits.maxDescriptorSetStorageImages;
                     
             m_properties.limits.pointSizeRange[0] = deviceProperties.properties.limits.pointSizeRange[0];
             m_properties.limits.pointSizeRange[1] = deviceProperties.properties.limits.pointSizeRange[1];

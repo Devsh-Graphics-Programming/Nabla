@@ -9,7 +9,7 @@ using namespace video;
 CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice>&& device) : m_device(std::move(device)), m_dsCache()
 {
 	const auto& deviceLimits = m_device->getPhysicalDevice()->getLimits();
-	m_maxPropertiesPerPass = core::min<uint32_t>((deviceLimits.maxPerStageSSBOs-2u)/2u,MaxPropertiesPerDispatch);
+	m_maxPropertiesPerPass = core::min<uint32_t>((deviceLimits.maxPerStageDescriptorSSBOs-2u)/2u,MaxPropertiesPerDispatch);
 	m_alignment = core::max(deviceLimits.SSBOAlignment,256u/*TODO: deviceLimits.nonCoherentAtomSize*/);
 
 	auto system = m_device->getPhysicalDevice()->getSystem();

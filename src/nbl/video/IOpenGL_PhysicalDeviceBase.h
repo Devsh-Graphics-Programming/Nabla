@@ -471,14 +471,14 @@ public:
 			GetIntegerv(GL_MAX_FRAGMENT_SHADER_STORAGE_BLOCKS, max_ssbos + 4);
 			uint32_t maxSSBOsPerStage = static_cast<uint32_t>(*std::min_element(max_ssbos, max_ssbos + 5));
 
-			m_properties.limits.maxPerStageSSBOs = maxSSBOsPerStage;
+			m_properties.limits.maxPerStageDescriptorSSBOs = maxSSBOsPerStage;
 
-			m_properties.limits.maxSSBOs = m_glfeatures.maxSSBOBindings;
-			m_properties.limits.maxUBOs = m_glfeatures.maxUBOBindings;
-			m_properties.limits.maxDynamicOffsetSSBOs = SOpenGLState::MaxDynamicOffsetSSBOs;
-			m_properties.limits.maxDynamicOffsetUBOs = SOpenGLState::MaxDynamicOffsetUBOs;
-			m_properties.limits.maxTextures = m_glfeatures.maxTextureBindings;
-			m_properties.limits.maxStorageImages = m_glfeatures.maxImageBindings;
+			m_properties.limits.maxDescriptorSetSSBOs = m_glfeatures.maxSSBOBindings;
+			m_properties.limits.maxDescriptorSetUBOs = m_glfeatures.maxUBOBindings;
+			m_properties.limits.maxDescriptorSetDynamicOffsetSSBOs = SOpenGLState::MaxDynamicOffsetSSBOs;
+			m_properties.limits.maxDescriptorSetDynamicOffsetUBOs = SOpenGLState::MaxDynamicOffsetUBOs;
+			m_properties.limits.maxDescriptorSetImages = m_glfeatures.maxTextureBindings;
+			m_properties.limits.maxDescriptorSetStorageImages = m_glfeatures.maxImageBindings;
 			GetInteger64v(GL_MAX_TEXTURE_SIZE, reinterpret_cast<GLint64*>(&m_properties.limits.maxTextureSize));
 
 			GetFloatv(GL_POINT_SIZE_RANGE, m_properties.limits.pointSizeRange);
