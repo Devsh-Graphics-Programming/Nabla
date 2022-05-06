@@ -259,7 +259,7 @@ core::smart_refctd_ptr<IDriverMemoryAllocation> CVulkanLogicalDevice::allocateGP
     {
         const bool memoryTypeSupportedForResource = (reqs.vulkanReqs.memoryTypeBits & (1 << i));
 
-        const bool memoryHasDesirableProperties = (memoryProperties.memoryTypes[i].propertyFlags
+        const bool memoryHasDesirableProperties = (memoryProperties.memoryTypes[i].propertyFlags.value
             & desiredMemoryProperties) == desiredMemoryProperties;
 
         if (memoryTypeSupportedForResource && memoryHasDesirableProperties)

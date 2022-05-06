@@ -364,13 +364,44 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
         };
         const SFeatures& getFeatures() const { return m_features; }
 
+        enum E_MEMORY_PROPERTY_FLAGS : uint32_t
+        {
+            EMPF_DEVICE_LOCAL_BIT = 0x00000001,
+            EMPF_HOST_VISIBLE_BIT = 0x00000002,
+            EMPF_HOST_COHERENT_BIT = 0x00000004,
+            EMPF_HOST_CACHED_BIT = 0x00000008,
+            EMPF_LAZILY_ALLOCATED_BIT = 0x00000010,
+            EMPF_PROTECTED_BIT = 0x00000020,
+            EMPF_DEVICE_COHERENT_BIT_AMD = 0x00000040,
+            EMPF_DEVICE_UNCACHED_BIT_AMD = 0x00000080,
+            EMPF_RDMA_CAPABLE_BIT_NV = 0x00000100,
+        };
+
+        struct MemoryType
+        {
+            core::bitflag<E_MEMORY_PROPERTY_FLAGS> propertyFlags;
+            uint32_t heapIndex;
+        };
+
+        enum E_MEMORY_HEAP_FLAGS : uint32_t
+        {
+            EMHF_DEVICE_LOCAL_BIT = 0x00000001,
+            EMHF_MULTI_INSTANCE_BIT = 0x00000002,
+        };
+
+        struct MemoryHeap
+        {
+            size_t size;
+            core::bitflag<E_MEMORY_HEAP_FLAGS> flags;
+        };
+
         //
         struct SMemoryProperties
         {
             uint32_t        memoryTypeCount = 0u;
-            VkMemoryType    memoryTypes[VK_MAX_MEMORY_TYPES];
+            MemoryType      memoryTypes[VK_MAX_MEMORY_TYPES];
             uint32_t        memoryHeapCount = 0u;
-            VkMemoryHeap    memoryHeaps[VK_MAX_MEMORY_HEAPS];
+            MemoryHeap      memoryHeaps[VK_MAX_MEMORY_HEAPS];
         };
         const SMemoryProperties& getMemoryProperties() const { return m_memoryProperties; }
 
