@@ -1143,20 +1143,13 @@ private:
 			{
 				BlitFilter::value_type* lut = reinterpret_cast<BlitFilter::value_type*>(blitFilterState.scratchMemory + BlitFilter::getPhaseSupportLUTByteOffset(&blitFilterState));
 
-				const size_t lutSize = (static_cast<size_t>(phaseCount.x) * windowDim.x + static_cast<size_t>(phaseCount.y) * windowDim.y + static_cast<size_t>(phaseCount.z) * windowDim.z) * sizeof(float) * 4ull;
+				const size_t lutSize = BlitFilter::getRequiredScratchByteSize(&blitFilterState) - BlitFilter::getPhaseSupportLUTByteOffset(&blitFilterState);
 
 				// lut has the LUT in doubles, I want it in floats
-				// Todo(achal): Probably need to pack them as half floats? But they are NOT different for each channel??
-				// If we're under std140 layout, wouldn't it be better just make a static array of vec4 inside the uniform block
-				// since a static array of floats of the same length would take up the same amount of space?
-				core::vector<float> lutInFloats(lutSize / sizeof(float));
-				for (uint32_t i = 0u; i < lutInFloats.size() / 4; ++i)
-				{
-					lutInFloats[4 * i + 0] = static_cast<float>(lut[i]);
-					lutInFloats[4 * i + 1] = static_cast<float>(lut[i]);
-					lutInFloats[4 * i + 2] = static_cast<float>(lut[i]);
-					lutInFloats[4 * i + 3] = static_cast<float>(lut[i]);
-				}
+				// Todo(achal): Probably need to pack them as half floats?
+				core::vector<float> lutInFloats(lutSize / sizeof(BlitFilter::value_type));
+				for (uint32_t i = 0u; i < lutInFloats.size(); ++i)
+					lutInFloats[i] = static_cast<float>(lut[i]);
 
 				video::IGPUBuffer::SCreationParams uboCreationParams = {};
 				uboCreationParams.usage = static_cast<video::IGPUBuffer::E_USAGE_FLAGS>(video::IGPUBuffer::EUF_UNIFORM_BUFFER_BIT | video::IGPUBuffer::EUF_TRANSFER_DST_BIT);
@@ -1165,7 +1158,7 @@ private:
 				// fill it up with data
 				asset::SBufferRange<video::IGPUBuffer> bufferRange = {};
 				bufferRange.offset = 0ull;
-				bufferRange.size = lutSize;
+				bufferRange.size = lutInFloats.size() * sizeof(float);
 				bufferRange.buffer = phaseSupportLUT;
 				utilities->updateBufferRangeViaStagingBuffer(queues[CommonAPI::InitOutput::EQT_COMPUTE], bufferRange, lutInFloats.data());
 			}

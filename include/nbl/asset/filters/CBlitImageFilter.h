@@ -644,7 +644,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 									windowSample[h] = lineBuffer[(globalTexelCoord[axis]-windowMinCoord[axis])*MaxChannels+h];
 							};
 							// kernel evaluation functor
-							auto evaluate = [value](const value_type* windowSample, const core::vectorSIMDf& unused0, const core::vectorSIMDi32& unused1, const IImageFilterKernel::UserData* userData) -> void
+							auto evaluate = [value](const value_type* windowSample, const core::vectorSIMDf&, const core::vectorSIMDi32&, const IImageFilterKernel::UserData* userData) -> void
 							{
 								for (auto h=0; h<MaxChannels; h++)
 									value[h] += windowSample[h];
@@ -661,7 +661,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 								if (state->enableLUTUsage)
 								{
 									for (auto ch = 0; ch < MaxChannels; ch++)
-										value[ch] += phaseSupportLUTPixel[phaseIndex * windowSize + h] * lineBuffer[(windowCoord[axis] - windowMinCoord[axis]) * MaxChannels + ch];
+										value[ch] += phaseSupportLUTPixel[(phaseIndex * windowSize + h)*MaxChannels + ch] * lineBuffer[(windowCoord[axis] - windowMinCoord[axis]) * MaxChannels + ch];
 								}
 								else
 								{
@@ -730,8 +730,8 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 		{
 			core::vectorSIMDu32 result;
 			result.x = 0u;
-			result.y = (phaseCount[0] * kernelX.getWindowSize().x) * sizeof(value_type);
-			result.z = ((phaseCount[0] * kernelX.getWindowSize().x) + (phaseCount[1] * kernelY.getWindowSize().y)) * sizeof(value_type);
+			result.y = (phaseCount[0] * kernelX.getWindowSize().x) * sizeof(value_type) * MaxChannels;
+			result.z = ((phaseCount[0] * kernelX.getWindowSize().x) + (phaseCount[1] * kernelY.getWindowSize().y)) * sizeof(value_type) * MaxChannels;
 			return result;
 		}
 		// the blit filter will filter one axis at a time, hence necessitating "ping ponging" between two scratch buffers
