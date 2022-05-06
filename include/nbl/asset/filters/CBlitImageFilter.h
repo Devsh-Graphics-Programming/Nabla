@@ -206,7 +206,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 								scale.factor[k] *= otherScale->factor[k];
 						}
 
-						value_type* phaseSupportLUTPixel = reinterpret_cast<value_type*>(state->scratchMemory + getPhaseSupportLUTByteOffset(state, scaledKernelX, scaledKernelY, scaledKernelZ) + axisOffsets[axis]);
+						value_type* phaseSupportLUTPixel = reinterpret_cast<value_type*>(state->scratchMemory + getPhaseSupportLUTByteOffset(state) + axisOffsets[axis]);
 						for (uint32_t i = 0u; i < phaseCount[axis]; ++i)
 						{
 							core::vectorSIMDf tmp;
@@ -288,7 +288,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 			const auto scaledKernelZ = state->contructScaledKernel(state->kernelZ);
 
 			// need to add the memory for ping pong buffers
-			uint32_t retval = getPhaseSupportLUTByteOffset(state, scaledKernelX, scaledKernelY, scaledKernelZ);
+			uint32_t retval = getPhaseSupportLUTByteOffset(state);
 			
 			// need to add the memory for phase support LUT
 			const core::vectorSIMDu32 phaseCount = getPhaseCount(state->inExtentLayerCount, state->outExtentLayerCount, state->inImage->getCreationParameters().type);
@@ -297,12 +297,13 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 			return retval;
 		}
 
-		static inline uint32_t getPhaseSupportLUTByteOffset(const state_type* state,
-			const CScaledImageFilterKernel<KernelX>& scaledKernelX,
-			const CScaledImageFilterKernel<KernelY>& scaledKernelY,
-			const CScaledImageFilterKernel<KernelZ>& scaledKernelZ)
+		static inline uint32_t getPhaseSupportLUTByteOffset(const state_type* state)
 		{
-			const uint32_t retval = getScratchOffset(state, true, scaledKernelX, scaledKernelY, scaledKernelZ) + base_t::getRequiredScratchByteSize(state->alphaSemantic, state->outExtentLayerCount);
+			const auto scaledKernelX = state->contructScaledKernel(state->kernelX);
+			const auto scaledKernelY = state->contructScaledKernel(state->kernelY);
+			const auto scaledKernelZ = state->contructScaledKernel(state->kernelZ);
+
+			const uint32_t retval = getScratchOffset(state, true) + base_t::getRequiredScratchByteSize(state->alphaSemantic, state->outExtentLayerCount);
 			return retval;
 		}
 
@@ -413,7 +414,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 			};
 			value_type* const intermediateStorage[3] = {
 				reinterpret_cast<value_type*>(state->scratchMemory),
-				reinterpret_cast<value_type*>(state->scratchMemory+getScratchOffset(state, false, kernelX, kernelY, kernelZ)),
+				reinterpret_cast<value_type*>(state->scratchMemory+getScratchOffset(state, false)),
 				reinterpret_cast<value_type*>(state->scratchMemory)
 			};
 			const core::vectorSIMDu32 intermediateStrides[3] = {
@@ -627,7 +628,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 							}
 						}
 
-						value_type* phaseSupportLUTPixel = reinterpret_cast<value_type*>(state->scratchMemory + getPhaseSupportLUTByteOffset(state, kernelX, kernelY, kernelZ) + axisOffsets[axis]);
+						value_type* phaseSupportLUTPixel = reinterpret_cast<value_type*>(state->scratchMemory + getPhaseSupportLUTByteOffset(state) + axisOffsets[axis]);
 
 						// TODO: this loop should probably get rewritten
 						for (auto& i=(localTexCoord[axis]=0); i<outExtentLayerCount[axis]; i++)
@@ -712,8 +713,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 		static inline core::vectorSIMDi32 getWindowEnd(const IImage::E_TYPE inImageType,
 			const CScaledImageFilterKernel<KernelX>& kernelX,
 			const CScaledImageFilterKernel<KernelY>& kernelY,
-			const CScaledImageFilterKernel<KernelZ>& kernelZ
-		)
+			const CScaledImageFilterKernel<KernelZ>& kernelZ)
 		{
 			// TODO: investigate properly if its supposed be `size` or `size-1` (polyphase kinda shows need for `size`)
 			core::vectorSIMDi32 last(kernelX.getWindowSize().x-1,0,0,0);
@@ -735,14 +735,14 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 			return result;
 		}
 		// the blit filter will filter one axis at a time, hence necessitating "ping ponging" between two scratch buffers
-		static inline uint32_t getScratchOffset(const state_type* state, bool secondPong,
-			const CScaledImageFilterKernel<KernelX>& scaledKernelX,
-			const CScaledImageFilterKernel<KernelY>& scaledKernelY,
-			const CScaledImageFilterKernel<KernelZ>& scaledKernelZ)
+		static inline uint32_t getScratchOffset(const state_type* state, bool secondPong)
 		{
 			const auto inType = state->inImage->getCreationParameters().type;
+			const auto kernelX = state->contructScaledKernel(state->kernelX);
+			const auto kernelY = state->contructScaledKernel(state->kernelY);
+			const auto kernelZ = state->contructScaledKernel(state->kernelZ);
 
-			const auto window_end = getWindowEnd(state->inImage->getCreationParameters().type,scaledKernelX,scaledKernelY,scaledKernelZ);
+			const auto window_end = getWindowEnd(state->inImage->getCreationParameters().type,kernelX,kernelY,kernelZ);
 			// TODO: account for the size needed for coverage adjustment
 			// the first pass will be along X, so new temporary image will have the width of the output extent, but the height and depth will need to be padded
 			// but the last pass will be along Z and the new temporary image will have the exact dimensions of `outExtent` which is why there is a `core::max`
