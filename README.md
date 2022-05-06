@@ -311,12 +311,6 @@ on each submodule's directory required!
 
 ### CMake notes
 
-#### Make sure Python's executable is found
-
-- The paragraph concerns *Windows system* only
-
-Unfortunately on Windows there are often troubles with **Python 3.0+** versions, because it isn't able to find and determine `PYTHON_EXECUTABLE` variable, so you have to fill it manually. If you use **CMake-GUI** you will find it in advanced options.
-
 #### Consider CMake and Visual Studio version, **important**! 
 
 - The paragraph concerns *Visual Studio* only
