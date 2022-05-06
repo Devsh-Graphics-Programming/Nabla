@@ -237,23 +237,81 @@ public:
 			}
 		}
 
+		// Some usefull stringy searchy functions
+		auto hasInString = [](const std::string& str, const std::string& toFind, bool matchWholeWord = false, bool matchCase = false) -> bool
+		{
+			std::string base = str;
+			std::string to_find = toFind;
+			if(!matchCase)
+			{
+				std::transform(base.begin(), base.end(), base.begin(), [](unsigned char c){ return std::tolower(c); });
+				std::transform(to_find.begin(), to_find.end(), to_find.begin(), [](unsigned char c){ return std::tolower(c); });
+			}
+
+			if(matchWholeWord) // Because we don't want to detect "armadillo" as an "arm" driver, I couldn't come up with a better example
+			{
+				std::regex r("\\b" + toFind + "\\b"); // the pattern \b matches a word boundary
+				std::smatch m;
+				return std::regex_search(base, m, r);
+			}
+			else
+			{
+				return (base.find(toFind) != base.npos);
+			}
+		};
+
+		// Some tests to ensure "matchWholeWord" works as expected
+		assert(hasInString("RADV/ACO FIJI", "radv", true));
+		assert(hasInString("Intel(R)", "intel", true));
+		assert(hasInString("ATI Technologies Inc.", "ati technologies", true));
+
 		// initialize features
 		const char* vendor = reinterpret_cast<const char*>(GetString(GL_VENDOR));
 		const char* renderer = reinterpret_cast<const char*>(GetString(GL_RENDERER));
-		std::string vendor_lowercase = std::string(vendor);
-		std::string renderer_lowercase = std::string(renderer);
-		std::transform(vendor_lowercase.begin(), vendor_lowercase.end(), vendor_lowercase.begin(), [](unsigned char c){ return std::tolower(c); });
-		std::transform(renderer_lowercase.begin(), renderer_lowercase.end(), renderer_lowercase.begin(), [](unsigned char c){ return std::tolower(c); });
+		const char* ogl_ver_str = reinterpret_cast<const char*>(GetString(GL_VERSION));
 
-		// TODO: Get m_properties.driverID
+		// Detecting DriverID from vendor, renderer and gl_version:
+		// the logic comes from exhaustive search and matching between OpenGL and Vulkan GPUInfo website
+		// https://vulkan.gpuinfo.org/displaycoreproperty.php?core=1.2&name=driverID&platform=all
+		if(hasInString(vendor, "mesa", true) || hasInString(renderer, "mesa", true) || hasInString(ogl_ver_str, "mesa", true))
+		{
+			// Mesa Driver
+			if(hasInString(vendor, "intel", true) || hasInString(renderer, "intel", true))
+				m_properties.driverID = E_DRIVER_ID::EDI_INTEL_OPEN_SOURCE_MESA;
+			else if(hasInString(renderer, "radv", true))
+				m_properties.driverID = E_DRIVER_ID::EDI_MESA_RADV;
+			else if(hasInString(renderer, "llvmpipe", true))
+				m_properties.driverID = E_DRIVER_ID::EDI_MESA_LLVMPIPE;
+			else if(hasInString(renderer, "amd", true) || hasInString(renderer, "radeon", true) || hasInString(vendor, "ati technologies", true))
+				m_properties.driverID = E_DRIVER_ID::EDI_AMD_OPEN_SOURCE;
+		}
+		else if(hasInString(vendor, "intel", true) || hasInString(renderer, "intel", true))
+			m_properties.driverID = E_DRIVER_ID::EDI_INTEL_PROPRIETARY_WINDOWS;
+		else if(hasInString(vendor, "ati technologies", true) || hasInString(vendor, "amd", true) || hasInString(renderer, "amd", true))
+			m_properties.driverID = E_DRIVER_ID::EDI_AMD_PROPRIETARY;
+		else if(hasInString(vendor, "nvidia", true)) // easiest to detect :D
+			m_properties.driverID = E_DRIVER_ID::EDI_NVIDIA_PROPRIETARY;
+		else 
+			m_properties.driverID = E_DRIVER_ID::EDI_OTHER;
 
-		m_glfeatures.isIntelGPU = (vendor_lowercase.find("intel") != vendor_lowercase.npos);
+		m_glfeatures.isIntelGPU = (m_properties.driverID == E_DRIVER_ID::EDI_INTEL_OPEN_SOURCE_MESA || m_properties.driverID == E_DRIVER_ID::EDI_INTEL_PROPRIETARY_WINDOWS);
+
+		// Heuristic to detect Physical Device Type until we have something better:
+		if(m_properties.driverID == E_DRIVER_ID::EDI_INTEL_OPEN_SOURCE_MESA || m_properties.driverID == E_DRIVER_ID::EDI_INTEL_PROPRIETARY_WINDOWS)
+			m_properties.deviceType = E_TYPE::ET_INTEGRATED_GPU;
+		else if(m_properties.driverID == E_DRIVER_ID::EDI_AMD_OPEN_SOURCE || m_properties.driverID == E_DRIVER_ID::EDI_AMD_PROPRIETARY)
+			m_properties.deviceType = E_TYPE::ET_DISCRETE_GPU;
+		else if(m_properties.driverID == E_DRIVER_ID::EDI_NVIDIA_PROPRIETARY)
+			m_properties.deviceType = E_TYPE::ET_DISCRETE_GPU;
+		else if(hasInString(renderer, "virgl", true))
+			m_properties.deviceType = E_TYPE::ET_VIRTUAL_GPU;
+		else
+			m_properties.deviceType = E_TYPE::ET_OTHER;
 
 		const std::regex version_re("([1-9]\\.[0-9])");
 		std::cmatch re_match;
 
 		float ogl_ver = 0.f;
-		const char* ogl_ver_str = reinterpret_cast<const char*>(GetString(GL_VERSION));
 		if (std::regex_search(ogl_ver_str, re_match, version_re) && re_match.size() >= 2)
 		{
 			sscanf(re_match[1].str().c_str(), "%f", &ogl_ver);

@@ -35,8 +35,31 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
             ET_CPU = 4,
         };
 
-        enum E_DRIVER_ID : uint32_t
+        enum E_DRIVER_ID : uint8_t
         {
+            EDI_OTHER = 0,
+            EDI_AMD_PROPRIETARY = 1,
+            EDI_AMD_OPEN_SOURCE = 2,
+            EDI_MESA_RADV = 3,
+            EDI_NVIDIA_PROPRIETARY = 4,
+            EDI_INTEL_PROPRIETARY_WINDOWS = 5,
+            EDI_INTEL_OPEN_SOURCE_MESA = 6,
+            EDI_IMAGINATION_PROPRIETARY = 7,
+            EDI_QUALCOMM_PROPRIETARY = 8,
+            EDI_ARM_PROPRIETARY = 9,
+            EDI_GOOGLE_SWIFTSHADER = 10,
+            EDI_GGP_PROPRIETARY = 11,
+            EDI_BROADCOM_PROPRIETARY = 12,
+            EDI_MESA_LLVMPIPE = 13,
+            EDI_MOLTENVK = 14,
+            EDI_COREAVI_PROPRIETARY = 15,
+            EDI_JUICE_PROPRIETARY = 16,
+            EDI_VERISILICON_PROPRIETARY = 17,
+            EDI_MESA_TURNIP = 18,
+            EDI_MESA_V3DV = 19,
+            EDI_MESA_PANVK = 20,
+            EDI_SAMSUNG_PROPRIETARY = 21,
+            EDI_MESA_VENUS = 22,
         };
 
         //

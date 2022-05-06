@@ -40,6 +40,8 @@ public:
             vkGetPhysicalDeviceProperties2(m_vkPhysicalDevice, &deviceProperties);
             
             memcpy(m_properties.deviceUUID, deviceIDProperties.deviceUUID, VK_UUID_SIZE);
+            m_properties.deviceType = static_cast<E_TYPE>(deviceProperties.properties.deviceType);
+            m_properties.driverID = static_cast<E_DRIVER_ID>(driverProperties.driverID);
             // TODO fill m_properties
                     
             m_properties.limits.bufferViewAlignment = deviceProperties.properties.limits.minTexelBufferOffsetAlignment;
