@@ -144,7 +144,6 @@ public:
         blit.outImage = upscaled_img.get();
         blit.scratchMemoryByteSize = blit_filter_t::getRequiredScratchByteSize(&blit);
         blit.scratchMemory = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(blit.scratchMemoryByteSize, _NBL_SIMD_ALIGNMENT));
-        blit.enableLUTUsage = true;
 
         blit_filter_t::CState::computePhaseSupportLUT(&blit);
 

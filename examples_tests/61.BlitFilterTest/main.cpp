@@ -1045,8 +1045,6 @@ private:
 		blitFilterState.axisWraps[2] = asset::ISampler::ETC_CLAMP_TO_EDGE;
 		blitFilterState.borderColor = asset::ISampler::E_TEXTURE_BORDER_COLOR::ETBC_FLOAT_OPAQUE_WHITE;
 
-		blitFilterState.enableLUTUsage = true;
-
 		blitFilterState.alphaSemantic = alphaSemantic;
 
 		blitFilterState.scratchMemoryByteSize = BlitFilter::getRequiredScratchByteSize(&blitFilterState);

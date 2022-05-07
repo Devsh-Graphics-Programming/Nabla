@@ -162,7 +162,8 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 
 					const core::vectorSIMDu32 phaseCount = getPhaseCount(state->inExtentLayerCount, state->outExtentLayerCount, state->inImage->getCreationParameters().type);
 
-					const core::vectorSIMDu32 axisOffsets = getPhaseSupportLUTAxisOffsets(phaseCount, scaledKernelX, scaledKernelY, scaledKernelZ);
+					const auto real_window_size = getRealWindowSize(state->inImage->getCreationParameters().type, scaledKernelX, scaledKernelY, scaledKernelZ);
+					const core::vectorSIMDu32 axisOffsets = getPhaseSupportLUTAxisOffsets(phaseCount, real_window_size);
 
 					const core::vectorSIMDf fInExtent(state->inExtentLayerCount);
 					const core::vectorSIMDf fOutExtent(state->outExtentLayerCount);
@@ -179,12 +180,9 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 							windowSample[h] = value_type(1);
 					};
 
-					// There's no real reason that this should have `MaxChannels` number of elements except for the fact that
-					// `CFloatingPointSeparableImageFilterKernelBase<CRTP>::sample_functor_t<PreFilter,PostFilter>::operator()` expects that.
-					// So this, for now, just replicates the same value in all 4 channels.
 					value_type kernelWeight[MaxChannels];
 					// actually used to put values in the LUT
-					auto dummyEvaluate = [&kernelWeight](const value_type* windowSample, const core::vectorSIMDf& unused0, const core::vectorSIMDi32& unused1, const IImageFilterKernel::UserData* unused2) -> void
+					auto dummyEvaluate = [&kernelWeight](const value_type* windowSample, const core::vectorSIMDf&, const core::vectorSIMDi32&, const IImageFilterKernel::UserData*) -> void
 					{
 						for (auto h = 0; h < MaxChannels; h++)
 							kernelWeight[h] = windowSample[h];
@@ -209,7 +207,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 						value_type* phaseSupportLUTPixel = reinterpret_cast<value_type*>(state->scratchMemory + getPhaseSupportLUTByteOffset(state) + axisOffsets[axis]);
 						for (uint32_t i = 0u; i < phaseCount[axis]; ++i)
 						{
-							core::vectorSIMDf tmp;
+							core::vectorSIMDf tmp(0.f);
 							tmp[axis] = float(i) + 0.5f;
 
 							core::vectorSIMDi32 windowCoord;
@@ -277,7 +275,6 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 				KernelX								kernelX;
 				KernelY								kernelY;
 				KernelZ								kernelZ;
-				bool								enableLUTUsage = true; // temporary state for testing, will remove before merge
 		};
 		using state_type = CState;
 		
@@ -349,6 +346,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 			return state->kernelX.validate(state->inImage,state->outImage)&&state->kernelY.validate(state->inImage,state->outImage)&&state->kernelZ.validate(state->inImage,state->outImage);
 		}
 
+		// CState::computePhaseSupportLUT stores the kernel entries, in the LUT, in reverse, which are then forward iterated to compute the CONVOLUTION.
 		template<class ExecutionPolicy>
 		static inline bool execute(ExecutionPolicy&& policy, state_type* state)
 		{
@@ -401,12 +399,9 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 
 			// filtering and alpha handling happens separately for every layer, so save on scratch memory size
 			const auto inImageType = inParams.type;
-			const auto window_end = getWindowEnd(inImageType,kernelX,kernelY,kernelZ);
-			const core::vectorSIMDi32 intermediateExtent[3] = {
-				core::vectorSIMDi32(outExtent.width,inExtent.height+window_end[1],inExtent.depth+window_end[2]),
-				core::vectorSIMDi32(outExtent.width,outExtent.height,inExtent.depth+window_end[2]),
-				core::vectorSIMDi32(outExtent.width,outExtent.height,outExtent.depth)
-			};
+			const auto real_window_size = getRealWindowSize(inImageType,kernelX,kernelY,kernelZ);
+			core::vectorSIMDi32 intermediateExtent[3];
+			getIntermediateExtents(intermediateExtent, state, real_window_size);
 			const core::vectorSIMDi32 intermediateLastCoord[3] = {
 				intermediateExtent[0]-core::vectorSIMDi32(1,1,1,0),
 				intermediateExtent[1]-core::vectorSIMDi32(1,1,1,0),
@@ -492,7 +487,11 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 			const auto windowMinCoordBase = inOffsetBaseLayer+startCoord;
 
 			const core::vectorSIMDu32 phaseCount = getPhaseCount(inExtentLayerCount, outExtentLayerCount, inImageType);
-			const core::vectorSIMDu32 axisOffsets = getPhaseSupportLUTAxisOffsets(phaseCount, kernelX, kernelY, kernelZ);
+			const core::vectorSIMDu32 axisOffsets = getPhaseSupportLUTAxisOffsets(phaseCount, real_window_size);
+			constexpr auto MaxAxisCount = 3;
+			value_type* phaseSupportLUTPixel[MaxAxisCount];
+			for (auto i = 0; i < MaxAxisCount; ++i)
+				phaseSupportLUTPixel[i] = reinterpret_cast<value_type*>(state->scratchMemory + getPhaseSupportLUTByteOffset(state) + axisOffsets[i]);
 
 			for (uint32_t layer=0; layer!=layerCount; layer++) // TODO: could be parallelized
 			{
@@ -510,6 +509,8 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 				{
 					if (axis>inImageType)
 						return;
+
+					assert(phaseCount[axis] != 0 && "Filtering should not happen for the axis with 0 phaseCount!");
 
 					const bool lastPass = inImageType==axis;
 					const auto windowSize = kernel.getWindowSize()[axis];
@@ -590,10 +591,10 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 							lineBuffer = intermediateStorage[axis-1]+core::dot(static_cast<const core::vectorSIMDi32&>(intermediateStrides[axis-1]),localTexCoord)[0];
 						else
 						{
-							const auto windowEnd = inExtent.width+window_end.x;
+							const auto inputEnd = inExtent.width+real_window_size.x;
 							decode_offset = alloc_decode_scratch();
-							lineBuffer = intermediateStorage[1]+decode_offset*MaxChannels*windowEnd;
-							for (auto& i=localTexCoord.x; i<windowEnd; i++)
+							lineBuffer = intermediateStorage[1]+decode_offset*MaxChannels*inputEnd;
+							for (auto& i=localTexCoord.x; i<inputEnd; i++)
 							{
 								core::vectorSIMDi32 globalTexelCoord(localTexCoord+windowMinCoord);
 
@@ -628,50 +629,34 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 							}
 						}
 
-						value_type* phaseSupportLUTPixel = reinterpret_cast<value_type*>(state->scratchMemory + getPhaseSupportLUTByteOffset(state) + axisOffsets[axis]);
+						auto getPhaseSupportLUTPixel = [phaseSupportLUTPixel, windowSize, lineBuffer, &windowMinCoord, axis](const auto& windowCoord, const auto phaseIndex, const auto windowPixel, const auto channel) -> value_type
+						{
+							return phaseSupportLUTPixel[axis][(phaseIndex * windowSize + windowPixel) * MaxChannels + channel] * lineBuffer[(windowCoord[axis] - windowMinCoord[axis]) * MaxChannels + channel];
+						};
 
+						uint32_t phaseIndex = 0;
 						// TODO: this loop should probably get rewritten
 						for (auto& i=(localTexCoord[axis]=0); i<outExtentLayerCount[axis]; i++)
 						{
 							// get output pixel
 							auto* const value = intermediateStorage[axis]+core::dot(static_cast<const core::vectorSIMDi32&>(intermediateStrides[axis]),localTexCoord)[0];
-							std::fill(value,value+MaxChannels,value_type(0));
-							// kernel load functor
-							auto load = [axis,&windowMinCoord,lineBuffer](value_type* windowSample, const core::vectorSIMDf& unused0,
-								const core::vectorSIMDi32& globalTexelCoord, const IImageFilterKernel::UserData* userData) -> void
-							{
-								for (auto h = 0; h < MaxChannels; h++)
-									windowSample[h] = lineBuffer[(globalTexelCoord[axis]-windowMinCoord[axis])*MaxChannels+h];
-							};
-							// kernel evaluation functor
-							auto evaluate = [value](const value_type* windowSample, const core::vectorSIMDf&, const core::vectorSIMDi32&, const IImageFilterKernel::UserData* userData) -> void
-							{
-								for (auto h=0; h<MaxChannels; h++)
-									value[h] += windowSample[h];
-							};
+
 							// do the filtering
 							core::vectorSIMDf tmp;
 							tmp[axis] = float(i)+0.5f;
 							core::vectorSIMDi32 windowCoord(0);
 							windowCoord[axis] = kernel.getWindowMinCoord(tmp*fScale,tmp)[axis];
 							auto relativePos = tmp[axis]-float(windowCoord[axis]);
-							const uint32_t phaseIndex = i % phaseCount[axis];
-							for (auto h=0; h<windowSize; h++)
-							{
-								if (state->enableLUTUsage)
-								{
-									for (auto ch = 0; ch < MaxChannels; ch++)
-										value[ch] += phaseSupportLUTPixel[(phaseIndex * windowSize + h)*MaxChannels + ch] * lineBuffer[(windowCoord[axis] - windowMinCoord[axis]) * MaxChannels + ch];
-								}
-								else
-								{
-									value_type windowSample[MaxChannels];
-									core::vectorSIMDf tmp(relativePos,0.f,0.f);
-									kernel.evaluateImpl(load,evaluate,windowSample,tmp,windowCoord,&scale);
-									relativePos -= 1.f;
-								}
 
+							for (auto ch = 0; ch < MaxChannels; ++ch)
+								value[ch] = getPhaseSupportLUTPixel(windowCoord, phaseIndex, 0, ch);
+
+							for (auto h=1; h<windowSize; h++)
+							{
 								windowCoord[axis]++;
+
+								for (auto ch = 0; ch < MaxChannels; ch++)
+									value[ch] += getPhaseSupportLUTPixel(windowCoord, phaseIndex, h, ch);
 							}
 							if (lastPass)
 							{
@@ -684,6 +669,9 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 									storeToTexel(value,outImg->getTexelBlockData(outMipLevel,localOutPos,dummy),localOutPos);
 								}
 							}
+
+							if (++phaseIndex == phaseCount[axis])
+								phaseIndex = 0;
 						}
 						if (axis==IImage::ET_1D)
 							free_decode_scratch(decode_offset);
@@ -697,7 +685,6 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 				// filter in Y-axis
 				filterAxis(IImage::ET_2D,kernelY);
 				// filter in Z-axis
-				// assert(inImageType!=IImage::ET_3D); // TODO: Need to test this in the future
 				filterAxis(IImage::ET_3D,kernelZ);
 			}
 			return true;
@@ -710,29 +697,33 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 	private:
 		static inline constexpr uint32_t VectorizationBoundSTL = /*AVX2*/16u;
 		//
-		static inline core::vectorSIMDi32 getWindowEnd(const IImage::E_TYPE inImageType,
+		static inline core::vectorSIMDi32 getRealWindowSize(const IImage::E_TYPE inImageType,
 			const CScaledImageFilterKernel<KernelX>& kernelX,
 			const CScaledImageFilterKernel<KernelY>& kernelY,
 			const CScaledImageFilterKernel<KernelZ>& kernelZ)
 		{
-			// TODO: investigate properly if its supposed be `size` or `size-1` (polyphase kinda shows need for `size`)
-			core::vectorSIMDi32 last(kernelX.getWindowSize().x-1,0,0,0);
+			core::vectorSIMDi32 last(kernelX.getWindowSize().x,0,0,0);
 			if (inImageType>=IImage::ET_2D)
-				last.y = kernelY.getWindowSize().y-1;
+				last.y = kernelY.getWindowSize().y;
 			if (inImageType>=IImage::ET_3D)
-				last.z = kernelZ.getWindowSize().z-1;
+				last.z = kernelZ.getWindowSize().z;
 			return last;
 		}
-		static inline core::vectorSIMDu32 getPhaseSupportLUTAxisOffsets(const core::vectorSIMDu32& phaseCount,
-			const CScaledImageFilterKernel<KernelX>& kernelX,
-			const CScaledImageFilterKernel<KernelY>& kernelY,
-			const CScaledImageFilterKernel<KernelZ>& kernelZ)
+		static inline core::vectorSIMDu32 getPhaseSupportLUTAxisOffsets(const core::vectorSIMDu32& phaseCount, const core::vectorSIMDi32& real_window_size)
 		{
 			core::vectorSIMDu32 result;
 			result.x = 0u;
-			result.y = (phaseCount[0] * kernelX.getWindowSize().x) * sizeof(value_type) * MaxChannels;
-			result.z = ((phaseCount[0] * kernelX.getWindowSize().x) + (phaseCount[1] * kernelY.getWindowSize().y)) * sizeof(value_type) * MaxChannels;
-			return result;
+			result.y = (phaseCount[0] * real_window_size.x);
+			result.z = ((phaseCount[0] * real_window_size.x) + (phaseCount[1] * real_window_size.y));
+			return result*sizeof(value_type)*MaxChannels;
+		}
+		static inline void getIntermediateExtents(core::vectorSIMDi32* intermediateExtent, const state_type* state, const core::vectorSIMDi32& real_window_size)
+		{
+			assert(intermediateExtent);
+
+			intermediateExtent[0] = core::vectorSIMDi32(state->outExtent.width, state->inExtent.height + real_window_size[1], state->inExtent.depth + real_window_size[2]);
+			intermediateExtent[1] = core::vectorSIMDi32(state->outExtent.width, state->outExtent.height, state->inExtent.depth + real_window_size[2]);
+			intermediateExtent[2] = core::vectorSIMDi32(state->outExtent.width, state->outExtent.height, state->outExtent.depth);
 		}
 		// the blit filter will filter one axis at a time, hence necessitating "ping ponging" between two scratch buffers
 		static inline uint32_t getScratchOffset(const state_type* state, bool secondPong)
@@ -742,14 +733,18 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 			const auto kernelY = state->contructScaledKernel(state->kernelY);
 			const auto kernelZ = state->contructScaledKernel(state->kernelZ);
 
-			const auto window_end = getWindowEnd(state->inImage->getCreationParameters().type,kernelX,kernelY,kernelZ);
+			const auto real_window_size = getRealWindowSize(state->inImage->getCreationParameters().type,kernelX,kernelY,kernelZ);
 			// TODO: account for the size needed for coverage adjustment
 			// the first pass will be along X, so new temporary image will have the width of the output extent, but the height and depth will need to be padded
 			// but the last pass will be along Z and the new temporary image will have the exact dimensions of `outExtent` which is why there is a `core::max`
-			auto texelCount = state->outExtent.width*core::max<uint32_t>((state->inExtent.height+window_end[1])*(state->inExtent.depth+window_end[2]),state->outExtent.height*state->outExtent.depth);
-			// the second pass will result in an image that has the width and height equal to `outExtent`
+
+			core::vectorSIMDi32 intermediateExtent[3];
+			getIntermediateExtents(intermediateExtent, state, real_window_size);
+
+			assert(intermediateExtent[0].x == intermediateExtent[2].x);
+			auto texelCount = intermediateExtent[0].x * core::max<uint32_t>(intermediateExtent[0].y*intermediateExtent[0].z, intermediateExtent[2].y * intermediateExtent[2].z);
 			if (secondPong)
-				texelCount += core::max<uint32_t>(state->outExtent.width*state->outExtent.height*(state->inExtent.depth+window_end[2]),(state->inExtent.width+window_end[0])*std::thread::hardware_concurrency()*VectorizationBoundSTL);
+				texelCount += core::max<uint32_t>(intermediateExtent[1].x * intermediateExtent[1].y * intermediateExtent[1].z, (state->inExtent.width + real_window_size[0]) * std::thread::hardware_concurrency() * VectorizationBoundSTL);
 			// obviously we have multiple channels and each channel has a certain type for arithmetic
 			return texelCount*MaxChannels*sizeof(value_type);
 		}
