@@ -94,7 +94,7 @@ template <
     typename EventType,
     typename CommandBufferType
 >
-class ICommandBuffer
+class NBL_API ICommandBuffer
 {
 protected:
     using buffer_t = BufferType;

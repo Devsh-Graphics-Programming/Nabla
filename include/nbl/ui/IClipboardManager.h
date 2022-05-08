@@ -10,7 +10,7 @@ namespace nbl {
 namespace ui
 {
 
-class IClipboardManager : public core::IReferenceCounted
+class NBL_API IClipboardManager : public core::IReferenceCounted
 {
 public:
     struct SImageClipboardRegion

@@ -13,7 +13,7 @@
 namespace nbl::scene
 {
 
-class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
+class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 {
 	public:
 		//

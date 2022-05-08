@@ -128,7 +128,7 @@ namespace core
 //Maybe: Create a nbl::AllocatedByDynamicAllocation class with a static function new[] like operator that takes an DynamicAllocator* parameter
 
 template<class CRTP, class Alloc=aligned_allocator<CRTP> >
-class NBL_FORCE_EBO AllocatedWithStatelessAllocator
+class NBL_API NBL_FORCE_EBO AllocatedWithStatelessAllocator
 {
     public:
 };

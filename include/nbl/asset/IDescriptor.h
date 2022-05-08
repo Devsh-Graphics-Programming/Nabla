@@ -12,7 +12,7 @@ namespace nbl
 namespace asset
 {
 
-class IDescriptor : public virtual core::IReferenceCounted
+class NBL_API IDescriptor : public virtual core::IReferenceCounted
 {
 	public:
 		enum E_CATEGORY

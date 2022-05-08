@@ -7,7 +7,7 @@
 
 namespace nbl::ui
 {
-	class CCursorControlWin32 final : public ICursorControl
+	class NBL_API CCursorControlWin32 final : public ICursorControl
 	{
 		core::smart_refctd_ptr<CWindowManagerWin32> m_windowManager;
 	public:

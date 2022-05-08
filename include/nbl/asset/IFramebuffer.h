@@ -10,7 +10,7 @@ namespace asset
 {
 
 template <typename RenderpassType, typename ImageViewType>
-class IFramebuffer
+class NBL_API IFramebuffer
 {
 public:
     using renderpass_t = RenderpassType;

@@ -54,7 +54,7 @@ struct QuantQuaternionHash
 }
 
 
-class CQuantQuaternionCache : public CDirQuantCacheBase<impl::Projection,impl::QuantQuaternionHash,EF_R8G8B8A8_SNORM,EF_R16G16B16A16_SNORM>
+class NBL_API CQuantQuaternionCache : public CDirQuantCacheBase<impl::Projection,impl::QuantQuaternionHash,EF_R8G8B8A8_SNORM,EF_R16G16B16A16_SNORM>
 {
 		using Base = CDirQuantCacheBase<impl::Projection,impl::QuantQuaternionHash,EF_R8G8B8A8_SNORM,EF_R16G16B16A16_SNORM>;
 

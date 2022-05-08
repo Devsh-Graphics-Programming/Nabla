@@ -30,7 +30,7 @@ namespace impl
     };
 
     template<typename CacheT>
-    class CMakeCacheConcurrent : private impl::CConcurrentObjectCacheBase, private CacheT
+    class NBL_API CMakeCacheConcurrent : private impl::CConcurrentObjectCacheBase, private CacheT
     {
         using BaseCache = CacheT;
         using K = typename BaseCache::KeyType_impl;

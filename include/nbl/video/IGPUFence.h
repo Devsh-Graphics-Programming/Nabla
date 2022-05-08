@@ -10,7 +10,7 @@
 namespace nbl::video
 {
 
-class IGPUFence : public core::IReferenceCounted, public IBackendObject
+class NBL_API IGPUFence : public core::IReferenceCounted, public IBackendObject
 {
     public:
         enum E_CREATE_FLAGS : uint32_t
@@ -39,7 +39,7 @@ class IGPUFence : public core::IReferenceCounted, public IBackendObject
 };
 
 
-class GPUEventWrapper : public core::Uncopyable
+class NBL_API GPUEventWrapper : public core::Uncopyable
 {
 protected:
     ILogicalDevice* mDevice;

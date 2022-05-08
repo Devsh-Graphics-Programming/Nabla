@@ -15,7 +15,7 @@ namespace nbl::core
 struct adopt_memory_t {};
 constexpr adopt_memory_t adopt_memory{};
 
-class IBuffer : public virtual IReferenceCounted
+class NBL_API IBuffer : public virtual IReferenceCounted
 {
     public:
         //! size in BYTES

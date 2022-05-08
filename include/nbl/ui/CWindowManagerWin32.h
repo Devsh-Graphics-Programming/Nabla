@@ -17,7 +17,7 @@
 namespace nbl::ui
 {
 
-	class CWindowManagerWin32 : public IWindowManager
+	class NBL_API CWindowManagerWin32 : public IWindowManager
 	{
 	public:
 		CWindowManagerWin32() = default;

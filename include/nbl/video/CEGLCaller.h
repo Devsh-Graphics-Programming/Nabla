@@ -59,7 +59,7 @@ namespace nbl::video::egl
     eglWaitSync,\
     eglGetPlatformDependentHandles
 
-class CEGLLoader : public system::FuncPtrLoader
+class NBL_API CEGLLoader : public system::FuncPtrLoader
 {
         system::DefaultFuncPtrLoader m_libEGL;
     public:

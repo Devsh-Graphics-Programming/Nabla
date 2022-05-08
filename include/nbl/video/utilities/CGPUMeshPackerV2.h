@@ -19,7 +19,7 @@ namespace video
 {
 
 template <typename MDIStructType = asset::DrawElementsIndirectCommand_t>
-class CGPUMeshPackerV2 final : public asset::IMeshPackerV2<IGPUBuffer,IGPUDescriptorSet,IGPUMeshBuffer,MDIStructType>
+class NBL_API CGPUMeshPackerV2 final : public asset::IMeshPackerV2<IGPUBuffer,IGPUDescriptorSet,IGPUMeshBuffer,MDIStructType>
 {
         using base_t = asset::IMeshPackerV2<IGPUBuffer,IGPUDescriptorSet,IGPUMeshBuffer,MDIStructType>;
         using Triangle = typename base_t::Triangle;

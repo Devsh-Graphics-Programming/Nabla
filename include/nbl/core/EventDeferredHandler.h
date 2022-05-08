@@ -37,7 +37,7 @@ struct DeferredEvent
     functor_t m_function;
 };
 
-class PolymorphicEvent : public core::Uncopyable
+class NBL_API PolymorphicEvent : public core::Uncopyable
 {
     protected:
         PolymorphicEvent() = default;
@@ -67,7 +67,7 @@ using DeferredPolymorphicEventPolymorphic = DeferredEvent<PolymorphicEvent*,std:
 
 
 template<class DeferredEvent>
-class DeferredEventHandlerST
+class NBL_API DeferredEventHandlerST
 {
     protected:
         using EventContainerType = core::forward_list<DeferredEvent>;

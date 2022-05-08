@@ -41,7 +41,7 @@ namespace video
 
 // TODO: don't we already have a class for this in asset::IBuffer? No, its a simple struct, not a refcounted object
 template<typename BuffT>
-class IOffsetBufferPair : public core::IReferenceCounted
+class NBL_API IOffsetBufferPair : public core::IReferenceCounted
 {
 protected:
 	virtual ~IOffsetBufferPair() {}

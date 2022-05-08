@@ -15,7 +15,7 @@
 namespace nbl::asset
 {
 namespace impl{
-	class IAssetMetadata_base : public core::IReferenceCounted{
+	class NBL_API IAssetMetadata_base : public core::IReferenceCounted{
 	protected:
 		template<class Asset>
 		struct asset_metadata;
@@ -61,7 +61,7 @@ namespace impl{
 	Flexibility has been provided, it is expected each loader has its own base metadata class implementing the 
 	IAssetMetadata interface with its own type enum that other loader's metadata classes derive from the base.
 */
-class IAssetMetadata : public impl::IAssetMetadata_base
+class NBL_API IAssetMetadata : public impl::IAssetMetadata_base
 {
 	protected:
 		template<class Asset>

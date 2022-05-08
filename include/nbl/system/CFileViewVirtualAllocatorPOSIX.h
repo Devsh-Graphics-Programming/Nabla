@@ -4,7 +4,7 @@
 namespace nbl::system
 {
 #if defined(_NBL_PLATFORM_LINUX_) || defined(_NBL_PLATFORM_ANDROID_)
-class CFileViewVirtualAllocatorPOSIX : public IFileViewAllocator
+class NBL_API CFileViewVirtualAllocatorPOSIX : public IFileViewAllocator
 {
 	public:
 		using IFileViewAllocator::IFileViewAllocator;

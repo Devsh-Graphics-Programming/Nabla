@@ -13,7 +13,7 @@ namespace nbl
 namespace video
 {
 
-class IGPUAnimationLibrary final : public asset::IAnimationLibrary<IGPUBuffer>
+class NBL_API IGPUAnimationLibrary final : public asset::IAnimationLibrary<IGPUBuffer>
 {
         using base_t = asset::IAnimationLibrary<IGPUBuffer>;
 

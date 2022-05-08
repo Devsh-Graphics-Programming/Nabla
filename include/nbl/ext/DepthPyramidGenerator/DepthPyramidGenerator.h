@@ -26,7 +26,7 @@ namespace DepthPyramidGenerator
 
 // TODO: test: `E_MIPMAP_GENERATION_OPERATOR::BOTH`, `reundUpToPoTWithPadding = true`
 
-class DepthPyramidGenerator final
+class NBL_API DepthPyramidGenerator final
 {
 public:
 

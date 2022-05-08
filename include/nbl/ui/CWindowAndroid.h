@@ -11,7 +11,7 @@
 namespace nbl::ui
 {
 
-class CWindowAndroid : public IWindowAndroid
+class NBL_API CWindowAndroid : public IWindowAndroid
 {
 	public:
 		constexpr static uint32_t CIRCULAR_BUFFER_CAPACITY = 256;

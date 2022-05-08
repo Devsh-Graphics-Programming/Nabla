@@ -28,7 +28,7 @@ in another part of you program, because this part still needs the object.
 Note, that you only need to call drop() to the object, if you created it,
 and the method had a 'create' in it.
 */
-class NBL_FORCE_EBO IReferenceCounted : public Interface, public AllocationOverrideDefault
+class NBL_API NBL_FORCE_EBO IReferenceCounted : public Interface, public AllocationOverrideDefault
 {
 	public:
 		//! Grabs the object. Increments the reference counter by one.

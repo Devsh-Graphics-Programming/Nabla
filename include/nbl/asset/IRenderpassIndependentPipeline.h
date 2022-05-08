@@ -506,7 +506,7 @@ enum E_VERTEX_ATTRIBUTE_ID
 */
 
 template<typename SpecShaderType, typename LayoutType>
-class IRenderpassIndependentPipeline : public IPipeline<LayoutType>
+class NBL_API IRenderpassIndependentPipeline : public IPipeline<LayoutType>
 {
 	public:
 		_NBL_STATIC_INLINE_CONSTEXPR size_t SHADER_STAGE_COUNT = 5u;

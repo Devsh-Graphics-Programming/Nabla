@@ -49,7 +49,7 @@ namespace nbl::asset
 	could have been a long time ago.
 */
 
-class ISpecializedShader : public virtual core::IReferenceCounted
+class NBL_API ISpecializedShader : public virtual core::IReferenceCounted
 {
 	public:
 		//! Parameter class used in constructor of ISpecializedShader

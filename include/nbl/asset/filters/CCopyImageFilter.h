@@ -36,7 +36,7 @@ namespace asset
 */
 
 // copy while converting format from input image to output image
-class CCopyImageFilter : public CImageFilter<CCopyImageFilter>, public CMatchedSizeInOutImageFilterCommon
+class NBL_API CCopyImageFilter : public CImageFilter<CCopyImageFilter>, public CMatchedSizeInOutImageFilterCommon
 {
 	public:
 		virtual ~CCopyImageFilter() {}

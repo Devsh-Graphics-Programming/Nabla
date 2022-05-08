@@ -11,7 +11,7 @@
 namespace nbl::asset
 {
 
-class CBufferPhmapInputArchive
+class NBL_API CBufferPhmapInputArchive
 {
 	public:
 		CBufferPhmapInputArchive(const SBufferRange<const ICPUBuffer>& _buffer)

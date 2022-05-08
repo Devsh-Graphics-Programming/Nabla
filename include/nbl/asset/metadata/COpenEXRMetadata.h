@@ -9,7 +9,7 @@
 namespace nbl::asset
 {
 
-class COpenEXRMetadata final : public IAssetMetadata
+class NBL_API COpenEXRMetadata final : public IAssetMetadata
 {
     public:
         class CImage : public IImageMetadata

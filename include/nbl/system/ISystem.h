@@ -19,7 +19,7 @@ namespace nbl::system
 class IFile;
 class ISystemFile;
 
-class ISystem : public core::IReferenceCounted
+class NBL_API ISystem : public core::IReferenceCounted
 {
     public:
         inline static constexpr uint32_t MAX_FILENAME_LENGTH = 4096;

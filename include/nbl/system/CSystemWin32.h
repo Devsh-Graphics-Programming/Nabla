@@ -7,7 +7,7 @@ namespace nbl::system
 {
 
 #ifdef _NBL_PLATFORM_WINDOWS_
-class CSystemWin32 : public ISystem
+class NBL_API CSystemWin32 : public ISystem
 {
     protected:
         class CCaller final : public ICaller

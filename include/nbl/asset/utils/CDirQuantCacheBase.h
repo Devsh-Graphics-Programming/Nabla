@@ -33,7 +33,7 @@ namespace asset
 namespace impl
 {
 
-class CDirQuantCacheBase
+class NBL_API CDirQuantCacheBase
 {
 	public:
 		struct alignas(uint8_t) Vector8u3
@@ -244,7 +244,7 @@ struct CDirQuantCacheBase::value_type<EF_R16G16B16A16_SNORM>
 
 
 template<typename Key, class Hash, E_FORMAT... Formats>
-class CDirQuantCacheBase : public impl::CDirQuantCacheBase
+class NBL_API CDirQuantCacheBase : public impl::CDirQuantCacheBase
 { 
 	public:
 		template<E_FORMAT CacheFormat>

@@ -82,7 +82,7 @@ struct AssetBundleIterator
 
 
 
-class IGPUObjectFromAssetConverter
+class NBL_API IGPUObjectFromAssetConverter
 {
     public:
 
@@ -381,7 +381,7 @@ class IGPUObjectFromAssetConverter
 };
 
 
-class CAssetPreservingGPUObjectFromAssetConverter : public IGPUObjectFromAssetConverter
+class NBL_API CAssetPreservingGPUObjectFromAssetConverter : public IGPUObjectFromAssetConverter
 {
     public:
         using IGPUObjectFromAssetConverter::IGPUObjectFromAssetConverter;

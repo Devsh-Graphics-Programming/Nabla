@@ -18,12 +18,12 @@ namespace nbl::video
 {
     
 template<typename _size_type=uint32_t, class CPUAllocator=core::allocator<uint8_t>, class CustomDeferredFreeFunctor=void, class RecursiveLockable=std::recursive_mutex>
-class StreamingTransientDataBufferMT;
+class NBL_API StreamingTransientDataBufferMT;
 
 namespace impl
 {
 template<typename _size_type=uint32_t, class CPUAllocator=core::allocator<uint8_t>, class CustomDeferredFreeFunctor=void>
-class StreamingTransientDataBuffer
+class NBL_API StreamingTransientDataBuffer
 {
         typedef core::HeterogenousMemoryAddressAllocatorAdaptor<core::GeneralpurposeAddressAllocator<_size_type>,StreamingGPUBufferAllocator,CPUAllocator> HeterogenousMemoryAddressAllocator;
         typedef StreamingTransientDataBuffer<_size_type,CPUAllocator> ThisType;
@@ -96,7 +96,7 @@ class StreamingTransientDataBuffer
 }
 
 template<typename _size_type=uint32_t, class CPUAllocator=core::allocator<uint8_t>, class CustomDeferredFreeFunctor=void>
-class StreamingTransientDataBufferST : public core::IReferenceCounted, public impl::StreamingTransientDataBuffer<_size_type,CPUAllocator,CustomDeferredFreeFunctor>
+class NBL_API StreamingTransientDataBufferST : public core::IReferenceCounted, public impl::StreamingTransientDataBuffer<_size_type,CPUAllocator,CustomDeferredFreeFunctor>
 {
         using Base = impl::StreamingTransientDataBuffer<_size_type,CPUAllocator,CustomDeferredFreeFunctor>;
     protected:
@@ -107,7 +107,7 @@ class StreamingTransientDataBufferST : public core::IReferenceCounted, public im
 };
 
 template<typename _size_type, class CPUAllocator, class CustomDeferredFreeFunctor, class RecursiveLockable>
-class StreamingTransientDataBufferMT : public core::IReferenceCounted
+class NBL_API StreamingTransientDataBufferMT : public core::IReferenceCounted
 {
         using Composed = impl::StreamingTransientDataBuffer<_size_type,CPUAllocator,CustomDeferredFreeFunctor>;
     protected:

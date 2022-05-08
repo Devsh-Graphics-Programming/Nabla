@@ -11,7 +11,7 @@
 namespace nbl::ui
 {
 
-class IWindowWin32 : public IWindow
+class NBL_API IWindowWin32 : public IWindow
 {
     protected:
         virtual ~IWindowWin32() = default;

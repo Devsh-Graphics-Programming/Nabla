@@ -14,7 +14,7 @@
 namespace nbl::video
 {
 
-    class IUtilities : public core::IReferenceCounted
+    class NBL_API IUtilities : public core::IReferenceCounted
     {
     public:
         IUtilities(core::smart_refctd_ptr<ILogicalDevice>&& _device, size_t downstreamSize = 0x4000000ull, size_t upstreamSize = 0x4000000ull) : m_device(std::move(_device))

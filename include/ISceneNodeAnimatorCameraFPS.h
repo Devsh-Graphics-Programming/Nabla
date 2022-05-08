@@ -18,7 +18,7 @@ namespace scene
 	/** This scene node animator can be attached to a camera to make it act
 	like a first person shooter
 	*/
-	class ISceneNodeAnimatorCameraFPS : public ISceneNodeAnimator
+	class NBL_API ISceneNodeAnimatorCameraFPS : public ISceneNodeAnimator
 	{
 	public:
 

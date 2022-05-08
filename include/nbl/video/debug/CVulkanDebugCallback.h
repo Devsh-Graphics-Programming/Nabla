@@ -9,7 +9,7 @@
 namespace nbl::video
 {
 
-class CVulkanDebugCallback : public IDebugCallback
+class NBL_API CVulkanDebugCallback : public IDebugCallback
 {
 public:
     explicit CVulkanDebugCallback(core::smart_refctd_ptr<system::ILogger>&& _logger)

@@ -9,7 +9,7 @@ namespace nbl::system
 #ifdef _NBL_PLATFORM_LINUX_
 #include "nbl/system/ISystemPOSIX.h"
 
-class CSystemLinux final : public ISystemPOSIX
+class NBL_API CSystemLinux final : public ISystemPOSIX
 {
 	public:
 		CSystemLinux() : ISystemPOSIX() {}

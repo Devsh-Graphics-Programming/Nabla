@@ -15,7 +15,7 @@ namespace asset
 {
 
 //! A class storing Assets with the same type
-class SAssetBundle
+class NBL_API SAssetBundle
 {
 		inline bool allSameTypeAndNotNull()
 		{

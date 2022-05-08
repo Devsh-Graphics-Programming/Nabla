@@ -37,7 +37,7 @@ public:
 namespace impl
 {
     template <typename EventType>
-    class IEventChannelBase : public IInputEventChannel
+    class NBL_API IEventChannelBase : public IInputEventChannel
     {
     protected:
         using cb_t = core::CConstantRuntimeSizedCircularBuffer<EventType>;
@@ -100,7 +100,7 @@ namespace impl
     };
 }
 
-class IMouseEventChannel : public impl::IEventChannelBase<SMouseEvent>
+class NBL_API IMouseEventChannel : public impl::IEventChannelBase<SMouseEvent>
 {
     using base_t = impl::IEventChannelBase<SMouseEvent>;
 
@@ -121,7 +121,7 @@ public:
 };
 
 // TODO left/right shift/ctrl/alt kb flags
-class IKeyboardEventChannel : public impl::IEventChannelBase<SKeyboardEvent>
+class NBL_API IKeyboardEventChannel : public impl::IEventChannelBase<SKeyboardEvent>
 {
     using base_t = impl::IEventChannelBase<SKeyboardEvent>;
 

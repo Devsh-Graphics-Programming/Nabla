@@ -17,7 +17,7 @@
 namespace nbl::ui
 {
 
-class CWindowManagerAndroid : public IWindowManager
+class NBL_API CWindowManagerAndroid : public IWindowManager
 {
 		android_app* m_app;
 		std::atomic_flag windowIsCreated;

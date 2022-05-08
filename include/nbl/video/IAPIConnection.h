@@ -12,7 +12,7 @@ namespace nbl::video
 
 class IPhysicalDevice;
 
-class IAPIConnection : public core::IReferenceCounted
+class NBL_API IAPIConnection : public core::IReferenceCounted
 {
     public:
         // TODO: are these "instance features" ?

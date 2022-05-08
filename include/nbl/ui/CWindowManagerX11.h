@@ -62,7 +62,7 @@ NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(Xxf86vm, system::DefaultFuncPtr
     ,XRRFreeScreenConfigInfo
 );
 
-class CWindowManagerX11 : public IWindowManager
+class NBL_API CWindowManagerX11 : public IWindowManager
 {
 public:
     CWindowManagerX11();

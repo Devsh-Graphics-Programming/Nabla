@@ -13,7 +13,7 @@
 #include <fstream>
 namespace nbl::ui
 {
-	class CGraphicalApplicationAndroid : public system::CApplicationAndroid, public ui::IGraphicalApplicationFramework
+	class NBL_API CGraphicalApplicationAndroid : public system::CApplicationAndroid, public ui::IGraphicalApplicationFramework
 	{
 	public:
 		struct SGraphicalContext : SContext

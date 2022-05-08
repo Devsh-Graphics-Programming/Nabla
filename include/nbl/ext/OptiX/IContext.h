@@ -23,7 +23,7 @@ class Manager;
 
 #define _NBL_OPTIX_DEFAULT_NVRTC_OPTIONS "--std=c++14",cuda::CCUDAHandler::getCommonVirtualCUDAArchitecture(),"-dc","-use_fast_math","-default-device","--device-debug"
 
-class IContext final : public core::IReferenceCounted
+class NBL_API IContext final : public core::IReferenceCounted
 {
 	public:
 		inline OptixDeviceContext getOptiXHandle() {return optixContext;}

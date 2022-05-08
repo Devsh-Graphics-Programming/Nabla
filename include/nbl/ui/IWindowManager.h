@@ -12,7 +12,7 @@ namespace nbl::ui
 		uint32_t resY;
 		std::string name; // this one is really more of a placeholder right now
 	};
-	class IWindowManager : public core::IReferenceCounted
+	class NBL_API IWindowManager : public core::IReferenceCounted
 	{
 	public:
 		virtual core::smart_refctd_ptr<IWindow> createWindow(IWindow::SCreationParams&& creationParams) = 0;

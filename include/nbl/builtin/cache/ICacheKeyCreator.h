@@ -7,7 +7,7 @@ namespace nbl
 {
 	namespace asset
 	{
-		class ICacheKeyCreator
+		class NBL_API ICacheKeyCreator
 		{
 			public:
 				virtual std::string to_string() = 0;

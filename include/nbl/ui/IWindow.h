@@ -15,7 +15,7 @@ namespace nbl::ui
 
 class ICursorControl;
 
-class IWindow : public core::IReferenceCounted
+class NBL_API IWindow : public core::IReferenceCounted
 {
 public:
     enum E_CREATE_FLAGS : uint32_t
@@ -39,7 +39,7 @@ public:
 
 
    
-    class IEventCallback : public core::IReferenceCounted
+    class NBL_API IEventCallback : public core::IReferenceCounted
     {
     public:
         [[nodiscard]] bool onWindowShown(IWindow* w) 

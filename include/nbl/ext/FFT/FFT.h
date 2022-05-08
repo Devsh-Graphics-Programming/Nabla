@@ -27,7 +27,7 @@ struct alignas(16) uvec4 {
 };
 #include "nbl/builtin/glsl/ext/FFT/parameters_struct.glsl";
 
-class FFT final : public core::IReferenceCounted
+class NBL_API FFT final : public core::IReferenceCounted
 {
 	public:
 		struct Parameters_t alignas(16) : nbl_glsl_ext_FFT_Parameters_t

@@ -25,7 +25,7 @@ namespace nbl::scene
 #undef int
 #undef uint
 
-class ITransformTreeManager : public virtual core::IReferenceCounted
+class NBL_API ITransformTreeManager : public virtual core::IReferenceCounted
 {
 		template<uint32_t BindingCount>
 		static inline auto createDescriptorSetLayout(video::ILogicalDevice* device)

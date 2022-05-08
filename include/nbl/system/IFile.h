@@ -6,7 +6,7 @@
 namespace nbl::system
 {
 
-class IFile : public IFileBase, private ISystem::IFutureManipulator
+class NBL_API IFile : public IFileBase, private ISystem::IFutureManipulator
 {
 	public:
 		//

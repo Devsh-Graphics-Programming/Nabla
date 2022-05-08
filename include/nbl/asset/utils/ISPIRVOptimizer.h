@@ -11,7 +11,7 @@ namespace nbl
 namespace asset
 {
 
-class ISPIRVOptimizer final : public core::IReferenceCounted
+class NBL_API ISPIRVOptimizer final : public core::IReferenceCounted
 {
 public:
     enum E_OPTIMIZER_PASS

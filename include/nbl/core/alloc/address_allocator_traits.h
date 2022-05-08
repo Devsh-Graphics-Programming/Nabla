@@ -99,7 +99,7 @@ namespace nbl::core
 
     //! TODO: https://en.cppreference.com/w/cpp/experimental/is_detected
     template<class AddressAlloc>
-    class address_allocator_traits : protected AddressAlloc //maybe private?
+    class NBL_API address_allocator_traits : protected AddressAlloc //maybe private?
     {
         public:
             typedef AddressAlloc                        allocator_type;

@@ -12,7 +12,7 @@ namespace nbl::system
 {
 
 template<class FuncPtrLoaderT=DefaultFuncPtrLoader>
-class DynamicFunctionCallerBase : public core::Unmovable
+class NBL_API DynamicFunctionCallerBase : public core::Unmovable
 {
 	protected:
 		static_assert(std::is_base_of<FuncPtrLoader,FuncPtrLoaderT>::value, "Need a function pointer loader derived from `FuncPtrLoader`");
@@ -43,7 +43,7 @@ class DynamicFunctionCallerBase : public core::Unmovable
 #define NBL_SYSTEM_IMPL_SWAP_DYNLIB_FUNCPTR(FUNC_NAME) std::swap(NBL_CONCATENATE(p, FUNC_NAME),other.NBL_CONCATENATE(p, FUNC_NAME));
 
 #define NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS( CLASS_NAME, FUNC_PTR_LOADER_TYPE, ... ) \
-class CLASS_NAME : public nbl::system::DynamicFunctionCallerBase<FUNC_PTR_LOADER_TYPE>\
+class NBL_API CLASS_NAME : public nbl::system::DynamicFunctionCallerBase<FUNC_PTR_LOADER_TYPE>\
 {\
 	public:\
 		using Base = nbl::system::DynamicFunctionCallerBase<FUNC_PTR_LOADER_TYPE>;\

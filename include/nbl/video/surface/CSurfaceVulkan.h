@@ -12,7 +12,7 @@ namespace nbl::video
 
 #include "volk.h"
 
-class ISurfaceVulkan : public ISurface
+class NBL_API ISurfaceVulkan : public ISurface
 {
     using base_t = ISurface;
 public:
@@ -31,7 +31,7 @@ protected:
 };
 
 #ifdef _NBL_PLATFORM_WINDOWS_
-class CSurfaceVulkanWin32 final : public CSurface<ui::IWindowWin32, ISurfaceVulkan>
+class NBL_API CSurfaceVulkanWin32 final : public CSurface<ui::IWindowWin32, ISurfaceVulkan>
 {
     using this_t = CSurfaceVulkanWin32;
     using base_t = CSurface<ui::IWindowWin32, ISurfaceVulkan>;

@@ -7,7 +7,7 @@ namespace nbl::system
 {
 
 #if defined(__unix__)
-class ISystemPOSIX : public ISystem
+class NBL_API ISystemPOSIX : public ISystem
 {
     protected:
         class CCaller final : public ISystem::ICaller

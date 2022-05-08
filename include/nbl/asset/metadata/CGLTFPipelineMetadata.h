@@ -9,7 +9,7 @@
 namespace nbl::asset
 {
 
-class CGLTFPipelineMetadata final : public IRenderpassIndependentPipelineMetadata
+class NBL_API CGLTFPipelineMetadata final : public IRenderpassIndependentPipelineMetadata
 {
     public:
         CGLTFPipelineMetadata() {}

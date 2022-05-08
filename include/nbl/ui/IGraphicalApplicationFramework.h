@@ -6,7 +6,7 @@
 
 namespace nbl::ui
 {
-	class IGraphicalApplicationFramework
+	class NBL_API IGraphicalApplicationFramework
 	{
 	public:
 		virtual nbl::ui::IWindow* getWindow() = 0;

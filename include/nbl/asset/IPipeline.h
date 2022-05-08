@@ -52,7 +52,7 @@ struct DispatchIndirectCommand_t
 */
 
 template<typename LayoutType>
-class IPipeline : public virtual core::IReferenceCounted
+class NBL_API IPipeline : public virtual core::IReferenceCounted
 {
 	public:
 		enum E_PIPELINE_CREATION : uint32_t

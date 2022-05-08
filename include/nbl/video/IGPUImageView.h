@@ -14,7 +14,7 @@
 namespace nbl::video
 {
 
-class IGPUImageView : public asset::IImageView<IGPUImage>, public IBackendObject
+class NBL_API IGPUImageView : public asset::IImageView<IGPUImage>, public IBackendObject
 {
 	public:
         const SCreationParams& getCreationParameters() const { return params; }

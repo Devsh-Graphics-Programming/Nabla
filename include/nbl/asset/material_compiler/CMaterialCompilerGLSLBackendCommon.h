@@ -43,10 +43,10 @@ using material_data_t = nbl_glsl_MC_material_data_t;
 
 
 template <typename stack_el_t>
-class ITraversalGenerator;
+class NBL_API ITraversalGenerator;
 
 
-class CMaterialCompilerGLSLBackendCommon
+class NBL_API CMaterialCompilerGLSLBackendCommon
 {
 public:
 	struct instr_stream

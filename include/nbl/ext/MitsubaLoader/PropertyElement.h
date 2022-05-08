@@ -305,7 +305,7 @@ template<> struct SPropertyElementData::get_typename<SPropertyElementData::Type:
 { using type = void; };
 
 
-class CPropertyElementManager
+class NBL_API CPropertyElementManager
 {
 	public:
 		static std::pair<bool, SNamedPropertyElement> createPropertyData(const char* _el, const char** _atts);

@@ -31,7 +31,7 @@ namespace nbl::asset
 */
 
 template<typename LayoutType>
-class IDescriptorSet : public virtual core::IReferenceCounted
+class NBL_API IDescriptorSet : public virtual core::IReferenceCounted
 {
 		using this_type = IDescriptorSet<LayoutType>;
 
@@ -162,7 +162,7 @@ namespace impl
 	
 //! Only reason this class exists is because OpenGL back-end implements a similar interface
 template<typename LayoutType>
-class IEmulatedDescriptorSet
+class NBL_API IEmulatedDescriptorSet
 {
 	public:
 		//! Contructor computes the flattened out array of descriptors

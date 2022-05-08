@@ -10,7 +10,7 @@
 namespace nbl::scene
 {
 
-class ISkinInstanceCache : public virtual core::IReferenceCounted
+class NBL_API ISkinInstanceCache : public virtual core::IReferenceCounted
 {
 	public:
 		using skin_instance_t = uint32_t;

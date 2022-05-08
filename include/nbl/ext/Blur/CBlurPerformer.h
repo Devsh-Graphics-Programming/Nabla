@@ -25,7 +25,7 @@ namespace ext
 namespace Blur
 {
 
-class CBlurPerformer : public core::IReferenceCounted
+class NBL_API CBlurPerformer : public core::IReferenceCounted
 {
     struct ImageBindingData
     {

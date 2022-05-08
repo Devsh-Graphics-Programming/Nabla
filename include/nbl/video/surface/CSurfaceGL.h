@@ -13,7 +13,7 @@ namespace nbl::video
 {
 
 template<class Window, template<typename,typename> typename Base, class CRTP = void>
-class CSurfaceGLImpl : public Base<Window,ISurface>
+class NBL_API CSurfaceGLImpl : public Base<Window,ISurface>
 {
     public:
         using this_t = std::conditional_t<std::is_void_v<CRTP>,CSurfaceGLImpl<Window,Base>,CRTP>;
@@ -96,7 +96,7 @@ using CSurfaceNativeGL = CSurfaceGLImpl<Window, CSurfaceNative, CRTP>;
 // TODO: conditional defines
 #ifdef _NBL_PLATFORM_WINDOWS_
 using CSurfaceGLWin32 = CSurfaceGL<ui::IWindowWin32>;
-class CSurfaceNativeGLWin32 : public CSurfaceNativeGL<ui::IWindowWin32,CSurfaceNativeGLWin32>
+class NBL_API CSurfaceNativeGLWin32 : public CSurfaceNativeGL<ui::IWindowWin32,CSurfaceNativeGLWin32>
 {
     protected:
         using base_t = CSurfaceNativeGL<ui::IWindowWin32,CSurfaceNativeGLWin32>;

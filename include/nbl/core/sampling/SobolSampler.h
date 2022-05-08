@@ -61,7 +61,7 @@ namespace nbl::core
 
 
 //! With modification and class encapsulation by DevSH
-class SobolSampler
+class NBL_API SobolSampler
 {
 	public:
 		_NBL_STATIC_INLINE_CONSTEXPR uint32_t SOBOL_BITS = sizeof(uint32_t)*8u;

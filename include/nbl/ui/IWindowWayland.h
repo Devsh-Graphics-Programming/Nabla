@@ -13,7 +13,7 @@
 namespace nbl::ui
 {
 
-class IWindowWayland : public IWindow
+class NBL_API IWindowWayland : public IWindow
 {
 protected:
     virtual ~IWindowWayland() = default;

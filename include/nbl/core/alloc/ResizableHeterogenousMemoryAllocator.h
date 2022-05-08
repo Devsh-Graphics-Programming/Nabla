@@ -19,7 +19,7 @@ namespace impl
     template<class HeterogenousMemoryAllocator> class ResizableHeterogenousMemoryAllocatorBase;
 
     template<class HeterogenousMemoryAllocator>
-    class ResizableHeterogenousMemoryAllocatorBase : public HeterogenousMemoryAllocator // make protected?
+    class NBL_API ResizableHeterogenousMemoryAllocatorBase : public HeterogenousMemoryAllocator // make protected?
     {
         protected:
             typedef HeterogenousMemoryAllocator Base;
@@ -38,7 +38,7 @@ namespace impl
 }
 
 template<class HeterogenousMemoryAllocator>
-class ResizableHeterogenousMemoryAllocator : public impl::ResizableHeterogenousMemoryAllocatorBase<HeterogenousMemoryAllocator> // make protected?
+class NBL_API ResizableHeterogenousMemoryAllocator : public impl::ResizableHeterogenousMemoryAllocatorBase<HeterogenousMemoryAllocator> // make protected?
 {
         typedef impl::ResizableHeterogenousMemoryAllocatorBase<HeterogenousMemoryAllocator> Base;
         typedef typename Base::alloc_traits                                                                                             alloc_traits;

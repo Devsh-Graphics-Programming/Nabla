@@ -17,7 +17,7 @@ namespace core
 /** Has some useful methods used with occlusion culling or clipping.
 */
 template <class T>
-class aabbox3d // : public AllocationOverrideDefault ?
+class NBL_API aabbox3d // : public AllocationOverrideDefault ?
 {
 	public:
 

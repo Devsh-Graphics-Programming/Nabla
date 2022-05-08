@@ -14,7 +14,7 @@ namespace core
 
 
 template<typename _size_type>
-class LinearAddressAllocator : public AddressAllocatorBase<LinearAddressAllocator<_size_type>,_size_type>
+class NBL_API LinearAddressAllocator : public AddressAllocatorBase<LinearAddressAllocator<_size_type>,_size_type>
 {
         typedef AddressAllocatorBase<LinearAddressAllocator<_size_type>,_size_type> Base;
     public:

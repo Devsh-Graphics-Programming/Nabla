@@ -24,7 +24,7 @@ struct S3DLineVertex
 } PACK_STRUCT;
 #include "nbl/nblunpack.h"
 
-class CDraw3DLine : public core::IReferenceCounted
+class NBL_API CDraw3DLine : public core::IReferenceCounted
 {
     public:
 		static core::smart_refctd_ptr<CDraw3DLine> create(const core::smart_refctd_ptr<video::ILogicalDevice>& device)

@@ -11,7 +11,7 @@
 namespace nbl::asset
 {
 
-class ICPUSkeleton final : public ISkeleton<ICPUBuffer>, /*TODO: public BlobSerializable, */public IAsset
+class NBL_API ICPUSkeleton final : public ISkeleton<ICPUBuffer>, /*TODO: public BlobSerializable, */public IAsset
 {
 	public:
 		using base_t = ISkeleton<ICPUBuffer>;

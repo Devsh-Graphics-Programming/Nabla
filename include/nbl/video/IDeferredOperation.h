@@ -9,7 +9,7 @@
 namespace nbl::video
 {
 
-class IDeferredOperation : public core::IReferenceCounted, public IBackendObject
+class NBL_API IDeferredOperation : public core::IReferenceCounted, public IBackendObject
 {
 public:
         explicit IDeferredOperation(core::smart_refctd_ptr<const ILogicalDevice>&& dev) : IBackendObject(std::move(dev)) {}

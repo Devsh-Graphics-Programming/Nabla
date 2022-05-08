@@ -10,7 +10,7 @@
 namespace nbl::ui
 {
 
-class IWindowAndroid : public IWindow
+class NBL_API IWindowAndroid : public IWindow
 {
     protected:
         virtual ~IWindowAndroid() = default;

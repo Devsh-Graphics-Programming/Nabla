@@ -5,7 +5,7 @@
 #include "nbl/ui/IWindow.h"
 namespace nbl::ui
 {
-	class ICursorControl : public core::IReferenceCounted
+	class NBL_API ICursorControl : public core::IReferenceCounted
 	{
 	public:
 		struct SPosition

@@ -7,7 +7,7 @@
 namespace nbl::system
 {
 
-class CFileLogger : public IThreadsafeLogger
+class NBL_API CFileLogger : public IThreadsafeLogger
 {
 	public:
 		CFileLogger(core::smart_refctd_ptr<IFile>&& _file, const bool append, const core::bitflag<E_LOG_LEVEL> logLevelMask=ILogger::defaultLogMask())

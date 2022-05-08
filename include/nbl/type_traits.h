@@ -142,7 +142,7 @@ namespace impl
 
 
 	template<typename T>
-	class pointer_level_constness_seq
+	class NBL_API pointer_level_constness_seq
 	{
 		template<typename... Levels>
 		static constexpr auto get_constness(type_sequence<Levels...>) -> bool_sequence<std::is_const_v<Levels>...>;
@@ -162,7 +162,7 @@ namespace impl
 } // namespace impl
 
 template<typename T>
-class pointer_levels_constness
+class NBL_API pointer_levels_constness
 {
 	template<bool... Vals>
 	constexpr static auto func(bool_sequence<Vals...>) { return impl::integer_array<bool, Vals...>::get_array(); }

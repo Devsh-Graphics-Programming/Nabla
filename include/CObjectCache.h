@@ -707,7 +707,7 @@ template<
     template<typename...> class ContainerT_T,
     typename Alloc
 >
-class NBL_FORCE_EBO CMultiObjectCache<K, T, ContainerT_T, Alloc, true> :
+class NBL_API NBL_FORCE_EBO CMultiObjectCache<K, T, ContainerT_T, Alloc, true> :
     public impl::CDirectMultiCacheBase<true, ContainerT_T, Alloc, std::pair<K, T>>,
     public impl::PropagTypedefs<T, K>
 {
@@ -723,7 +723,7 @@ template<
     template<typename...> class ContainerT_T,
     typename Alloc
 >
-class NBL_FORCE_EBO CMultiObjectCache<K, T, ContainerT_T, Alloc, false> :
+class NBL_API NBL_FORCE_EBO CMultiObjectCache<K, T, ContainerT_T, Alloc, false> :
     public impl::CDirectMultiCacheBase<false, ContainerT_T, Alloc, T, const K>,
     public impl::PropagTypedefs<T, const K>
 {
@@ -751,7 +751,7 @@ template<
     template<typename...> class ContainerT_T,
     typename Alloc
 >
-class NBL_FORCE_EBO CObjectCache<K, T, ContainerT_T, Alloc, true> :
+class NBL_API NBL_FORCE_EBO CObjectCache<K, T, ContainerT_T, Alloc, true> :
     public impl::CDirectUniqCacheBase<true, ContainerT_T, Alloc, std::pair<K, T>>,
     public impl::PropagTypedefs<T, K>
 {
@@ -768,7 +768,7 @@ template<
     template<typename...> class ContainerT_T,
     typename Alloc
 >
-class NBL_FORCE_EBO CObjectCache<K, T, ContainerT_T, Alloc, false> :
+class NBL_API NBL_FORCE_EBO CObjectCache<K, T, ContainerT_T, Alloc, false> :
     public impl::CDirectUniqCacheBase<false, ContainerT_T, Alloc, T, const K>,
     public impl::PropagTypedefs<T, const K>
 {
@@ -784,7 +784,7 @@ public:
 // BELOW SHALL NOT BE COMPILED! it's because Visual Studio's Intellisense crashes with the code above and doesn't even highlight syntax in any file which includes this
 
 template<typename K, typename T, template<typename...> class C = std::vector, typename A = core::allocator<std::pair<const K, T*>>>
-class CObjectCache
+class NBL_API CObjectCache
 {
 public:
     CObjectCache() = default;
@@ -806,7 +806,7 @@ public:
     size_t getSize() const;
 };
 template<typename K, typename T, template<typename...> class C = std::vector, typename A = core::allocator<std::pair<const K, T*>>>
-class CMultiObjectCache
+class NBL_API CMultiObjectCache
 {
 public:
     CMultiObjectCache() = default;

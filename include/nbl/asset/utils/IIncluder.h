@@ -15,7 +15,7 @@ namespace nbl
 namespace asset
 {
 
-class IIncluder : public core::IReferenceCounted
+class NBL_API IIncluder : public core::IReferenceCounted
 {
 	protected:
 		core::vector<std::filesystem::path> m_searchDirectories;

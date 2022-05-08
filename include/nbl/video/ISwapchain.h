@@ -12,7 +12,7 @@ namespace nbl::video
 {
 
 // TODO: decouple swapchain from queue some more (make presentation a method of swapchain), then we can have fake UE5, Unity, Qt6 swapchains
-class ISwapchain : public core::IReferenceCounted, public IBackendObject
+class NBL_API ISwapchain : public core::IReferenceCounted, public IBackendObject
 {
     public:
         using images_array_t = core::smart_refctd_dynamic_array<core::smart_refctd_ptr<IGPUImage>>;

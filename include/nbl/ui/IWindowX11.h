@@ -10,7 +10,7 @@
 namespace nbl::ui
 {
 
-class IWindowX11 : public IWindow
+class NBL_API IWindowX11 : public IWindow
 {
 protected:
     virtual ~IWindowX11() = default;

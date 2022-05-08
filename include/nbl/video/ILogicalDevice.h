@@ -33,7 +33,7 @@ namespace nbl::video
 class IDescriptorPool;
 class IPhysicalDevice;
 
-class ILogicalDevice : public core::IReferenceCounted
+class NBL_API ILogicalDevice : public core::IReferenceCounted
 {
     public:
         enum E_FEATURE

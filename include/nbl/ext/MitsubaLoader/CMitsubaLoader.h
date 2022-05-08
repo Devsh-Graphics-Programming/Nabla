@@ -51,7 +51,7 @@ struct nbl_glsl_ext_Mitsuba_Loader_instance_data_t
 using instance_data_t = nbl_glsl_ext_Mitsuba_Loader_instance_data_t;
 
 
-class CMitsubaLoader : public asset::IRenderpassIndependentPipelineLoader
+class NBL_API CMitsubaLoader : public asset::IRenderpassIndependentPipelineLoader
 {
 		friend class CMitsubaMaterialCompilerFrontend;
 	public:

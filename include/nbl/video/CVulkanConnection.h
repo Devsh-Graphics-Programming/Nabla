@@ -12,7 +12,7 @@
 
 namespace nbl::video
 {
-class CVulkanConnection final : public IAPIConnection
+class NBL_API CVulkanConnection final : public IAPIConnection
 {
 public:
     static core::smart_refctd_ptr<CVulkanConnection> create(

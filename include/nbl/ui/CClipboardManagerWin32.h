@@ -5,7 +5,7 @@
 
 namespace nbl::ui
 {
-class CClipboardManagerWin32 final : public IClipboardManager
+class NBL_API CClipboardManagerWin32 final : public IClipboardManager
 {
 	using base_t = IClipboardManager;
 public:

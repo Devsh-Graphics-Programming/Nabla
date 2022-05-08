@@ -11,7 +11,7 @@ namespace nbl::video
 {
 
 template<E_API_TYPE API_TYPE>
-class COpenGL_Connection final : public IAPIConnection
+class NBL_API COpenGL_Connection final : public IAPIConnection
 {
     public:
         //
