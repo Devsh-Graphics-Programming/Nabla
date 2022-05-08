@@ -6,13 +6,13 @@ namespace nbl::ui
 {
 class IWindow;
 
-struct SEventBase
+struct NBL_API SEventBase
 {
     std::chrono::microseconds timeStamp;
     SEventBase(std::chrono::microseconds ts) : timeStamp(ts) {}
 };
 
-struct SMouseEvent : SEventBase
+struct NBL_API SMouseEvent : SEventBase
 {
     SMouseEvent(std::chrono::microseconds ts) : SEventBase(ts) {}
     enum E_EVENT_TYPE : uint8_t
@@ -52,7 +52,7 @@ struct SMouseEvent : SEventBase
 };
 
 
-struct SKeyboardEvent : SEventBase
+struct NBL_API SKeyboardEvent : SEventBase
 {
     SKeyboardEvent(std::chrono::microseconds ts) : SEventBase(ts) { }
     enum E_KEY_ACTION : uint8_t

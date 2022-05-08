@@ -432,7 +432,7 @@ class NBL_API Float16Compressor
 		}
 };
 
-struct rgb32f {
+struct NBL_API rgb32f {
 	float x, y, z;
 };
 

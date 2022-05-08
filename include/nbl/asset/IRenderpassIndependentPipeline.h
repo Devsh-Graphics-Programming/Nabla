@@ -26,7 +26,7 @@ namespace nbl
 namespace asset
 {
 
-struct SViewport
+struct NBL_API SViewport
 {
     float x, y;
     float width, height;
@@ -55,7 +55,7 @@ enum E_VERTEX_INPUT_RATE : uint8_t
 };
 
 #include "nbl/nblpack.h"
-struct SVertexInputAttribParams
+struct NBL_API SVertexInputAttribParams
 {
 	SVertexInputAttribParams() : binding(0u), format(EF_UNKNOWN), relativeOffset(0u) {}
 	SVertexInputAttribParams(uint32_t _binding, uint32_t _format, uint32_t _relativeOffset) :
@@ -86,7 +86,7 @@ struct SVertexInputAttribParams
     }
 } PACK_STRUCT;
 static_assert(sizeof(SVertexInputAttribParams)==(4u), "Unexpected size!");
-struct SVertexInputBindingParams
+struct NBL_API SVertexInputBindingParams
 {
 
     inline bool operator==(const SVertexInputBindingParams& rhs) const
@@ -110,7 +110,7 @@ struct SVertexInputBindingParams
     }
 } PACK_STRUCT;
 static_assert(sizeof(SVertexInputBindingParams)==5u, "Unexpected size!");
-struct SVertexInputParams
+struct NBL_API SVertexInputParams
 {
     _NBL_STATIC_INLINE_CONSTEXPR size_t MAX_VERTEX_ATTRIB_COUNT = 16u;
     _NBL_STATIC_INLINE_CONSTEXPR size_t MAX_ATTR_BUF_BINDING_COUNT = 16u;
@@ -163,7 +163,7 @@ struct SVertexInputParams
 } PACK_STRUCT;
 static_assert(sizeof(SVertexInputParams) == (2u * 2u + SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT * sizeof(SVertexInputAttribParams) + SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT * sizeof(SVertexInputBindingParams)), "Unexpected size!");
 
-struct SPrimitiveAssemblyParams
+struct NBL_API SPrimitiveAssemblyParams
 {
     E_PRIMITIVE_TOPOLOGY primitiveType = EPT_TRIANGLE_LIST;
     uint8_t primitiveRestartEnable = false;
@@ -202,7 +202,7 @@ enum E_COMPARE_OP : uint8_t
     ECO_ALWAYS = 7
 };
 
-struct SStencilOpParams
+struct NBL_API SStencilOpParams
 {
     E_STENCIL_OP failOp = ESO_KEEP;
     E_STENCIL_OP passOp = ESO_KEEP;
@@ -228,7 +228,7 @@ enum E_FACE_CULL_MODE : uint8_t
     EFCM_FRONT_AND_BACK = 3
 };
 
-struct SRasterizationParams
+struct NBL_API SRasterizationParams
 {
 	SRasterizationParams()
 	{
@@ -393,7 +393,7 @@ enum E_BLEND_OP : uint8_t
     EBO_BLUE_EXT
 };
 
-struct SColorAttachmentBlendParams
+struct NBL_API SColorAttachmentBlendParams
 {
 	SColorAttachmentBlendParams() : 
 		blendEnable(false),
@@ -441,7 +441,7 @@ struct SColorAttachmentBlendParams
 } PACK_STRUCT;
 //static_assert(sizeof(SColorAttachmentBlendParams)==5u, "Unexpected size of SColorAttachmentBlendParams (should be 5)");
 
-struct SBlendParams
+struct NBL_API SBlendParams
 {
 	SBlendParams() : logicOpEnable(false), logicOp(ELO_NO_OP), blendParams{} {}
 

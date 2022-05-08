@@ -12,7 +12,7 @@
 namespace nbl::core
 {
 
-struct adopt_memory_t {};
+struct NBL_API adopt_memory_t {};
 constexpr adopt_memory_t adopt_memory{};
 
 class NBL_API IBuffer : public virtual IReferenceCounted

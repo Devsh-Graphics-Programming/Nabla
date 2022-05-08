@@ -15,7 +15,7 @@ namespace ext
 namespace DepthPyramidGenerator
 {
 
-struct uvec2
+struct NBL_API uvec2
 {
     uvec2() = default;
     uvec2(uint32_t _x, uint32_t _y) : x(_x), y(_y) {}
@@ -29,7 +29,7 @@ struct uvec2
 }
 #endif
 
-struct nbl_glsl_depthPyramid_PushConstantsData
+struct NBL_API nbl_glsl_depthPyramid_PushConstantsData
 {
 #ifdef __cplusplus
     nbl::ext::DepthPyramidGenerator::uvec2 mainDispatchFirstMipExtent;

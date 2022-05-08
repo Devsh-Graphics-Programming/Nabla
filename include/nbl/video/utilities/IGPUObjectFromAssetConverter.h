@@ -33,7 +33,7 @@ inline constexpr bool is_const_iterator_v =
     (!std::is_pointer_v<iterator_type> && std::is_const_v<iterator_type>);
 
 template<class AssetType>
-struct AssetBundleIterator
+struct NBL_API AssetBundleIterator
 {
         using iterator_category = std::random_access_iterator_tag;
         using difference_type = std::ptrdiff_t;
@@ -397,7 +397,7 @@ class NBL_API CAssetPreservingGPUObjectFromAssetConverter : public IGPUObjectFro
 
 // need to specialize outside because of GCC
 template<>
-struct IGPUObjectFromAssetConverter::Hash<const asset::ICPURenderpassIndependentPipeline>
+struct NBL_API IGPUObjectFromAssetConverter::Hash<const asset::ICPURenderpassIndependentPipeline>
 {
     inline std::size_t operator()(const asset::ICPURenderpassIndependentPipeline* _ppln) const
     {
@@ -430,7 +430,7 @@ struct IGPUObjectFromAssetConverter::Hash<const asset::ICPURenderpassIndependent
     }
 };
 template<>
-struct IGPUObjectFromAssetConverter::Hash<const asset::ICPUComputePipeline>
+struct NBL_API IGPUObjectFromAssetConverter::Hash<const asset::ICPUComputePipeline>
 {
     inline std::size_t operator()(const asset::ICPUComputePipeline* _ppln) const
     {
@@ -449,13 +449,13 @@ struct IGPUObjectFromAssetConverter::Hash<const asset::ICPUComputePipeline>
 };
 
 template<>
-struct IGPUObjectFromAssetConverter::KeyEqual<const asset::ICPURenderpassIndependentPipeline>
+struct NBL_API IGPUObjectFromAssetConverter::KeyEqual<const asset::ICPURenderpassIndependentPipeline>
 {
     //equality depends on hash only
     bool operator()(const asset::ICPURenderpassIndependentPipeline* lhs, const asset::ICPURenderpassIndependentPipeline* rhs) const { return true; }
 };
 template<>
-struct IGPUObjectFromAssetConverter::KeyEqual<const asset::ICPUComputePipeline>
+struct NBL_API IGPUObjectFromAssetConverter::KeyEqual<const asset::ICPUComputePipeline>
 {
     //equality depends on hash only
     bool operator()(const asset::ICPUComputePipeline* lhs, const asset::ICPUComputePipeline* rhs) const { return true; }
@@ -586,7 +586,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUBuffer** const _begin
 namespace impl
 {
 template<typename MapIterator>
-struct CustomBoneNameIterator
+struct NBL_API CustomBoneNameIterator
 {
         inline CustomBoneNameIterator(const MapIterator& it) : m_it(it) {}
         inline CustomBoneNameIterator(MapIterator&& it) : m_it(std::move(it)) {}

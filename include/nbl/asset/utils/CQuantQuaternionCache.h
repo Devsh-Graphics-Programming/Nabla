@@ -17,7 +17,7 @@ namespace asset
 namespace impl
 {
 
-struct Projection
+struct NBL_API Projection
 {
 	inline Projection(const core::vectorSIMDf& absDir)
 	{
@@ -37,7 +37,7 @@ struct Projection
 	float z;
 };
 
-struct QuantQuaternionHash
+struct NBL_API QuantQuaternionHash
 {
 	inline size_t operator()(const Projection& vec) const noexcept
 	{

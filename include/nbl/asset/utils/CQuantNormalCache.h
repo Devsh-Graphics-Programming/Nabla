@@ -17,7 +17,7 @@ namespace asset
 namespace impl
 {
 
-struct VectorUV
+struct NBL_API VectorUV
 {
 	inline VectorUV(const core::vectorSIMDf& absNormal)
 	{
@@ -35,7 +35,7 @@ struct VectorUV
 	float v;
 };
 
-struct QuantNormalHash
+struct NBL_API QuantNormalHash
 {
 	inline size_t operator()(const VectorUV& vec) const noexcept
 	{

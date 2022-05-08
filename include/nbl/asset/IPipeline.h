@@ -12,7 +12,7 @@
 namespace nbl::asset
 {
 
-struct DrawArraysIndirectCommand_t
+struct NBL_API DrawArraysIndirectCommand_t
 {
 	uint32_t  count;
 	uint32_t  instanceCount;
@@ -20,7 +20,7 @@ struct DrawArraysIndirectCommand_t
 	uint32_t  baseInstance;
 };
 
-struct DrawElementsIndirectCommand_t
+struct NBL_API DrawElementsIndirectCommand_t
 {
 	uint32_t count;
 	uint32_t instanceCount;
@@ -29,7 +29,7 @@ struct DrawElementsIndirectCommand_t
 	uint32_t baseInstance;
 };
 
-struct DispatchIndirectCommand_t
+struct NBL_API DispatchIndirectCommand_t
 {
 	uint32_t  num_groups_x;
 	uint32_t  num_groups_y;

@@ -20,7 +20,7 @@ namespace nbl::asset
 	class IAssetManager;
 
 
-	struct BlobLoadingParams
+	struct NBL_API BlobLoadingParams
 	{
         IAssetLoader* const ldr;
         IAssetManager* const manager;

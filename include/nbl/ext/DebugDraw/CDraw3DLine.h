@@ -17,7 +17,7 @@ namespace DebugDraw
 
 
 #include "nbl/nblpack.h"
-struct S3DLineVertex
+struct NBL_API S3DLineVertex
 {
     float Position[3];
     float Color[4];

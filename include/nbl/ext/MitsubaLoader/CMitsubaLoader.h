@@ -29,7 +29,7 @@ class CMitsubaMaterialCompilerFrontend;
 #define uvec2 uint64_t
 #define mat4x3 nbl::core::matrix3x4SIMD
 #define nbl_glsl_MC_material_data_t asset::material_compiler::material_data_t
-struct nbl_glsl_ext_Mitsuba_Loader_instance_data_t
+struct NBL_API nbl_glsl_ext_Mitsuba_Loader_instance_data_t
 {
 	struct vec3
 	{

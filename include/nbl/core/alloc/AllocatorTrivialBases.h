@@ -26,7 +26,7 @@ class NBL_API NBL_FORCE_EBO AllocatorTrivialBase<void>
 };
 
 template<typename T>
-class NBL_FORCE_EBO AllocatorTrivialBase
+class NBL_API NBL_FORCE_EBO AllocatorTrivialBase
 {
     public:
         typedef T                                               value_type;

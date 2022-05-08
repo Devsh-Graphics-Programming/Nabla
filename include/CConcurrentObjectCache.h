@@ -13,7 +13,7 @@ namespace nbl { namespace core
 
 namespace impl
 {
-    struct NBL_FORCE_EBO CConcurrentObjectCacheBase
+    struct NBL_API NBL_FORCE_EBO CConcurrentObjectCacheBase
     {
         CConcurrentObjectCacheBase() = default;
         // explicitely making concurrent caches non-copy-and-move-constructible and non-copy-and-move-assignable

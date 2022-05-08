@@ -14,7 +14,7 @@ namespace asset
 {
 
 #include "nbl/nblpack.h"
-struct NBL_FORCE_EBO FinalBoneHierarchyBlobV3 : VariableSizeBlob<FinalBoneHierarchyBlobV3,CFinalBoneHierarchy>, TypedBlob<FinalBoneHierarchyBlobV3, CFinalBoneHierarchy>
+struct NBL_API NBL_FORCE_EBO FinalBoneHierarchyBlobV3 : VariableSizeBlob<FinalBoneHierarchyBlobV3,CFinalBoneHierarchy>, TypedBlob<FinalBoneHierarchyBlobV3, CFinalBoneHierarchy>
 {
 public:
 	enum E_BLOB_FINAL_BONE_HIERARCHY_FLAG : uint32_t
@@ -99,7 +99,7 @@ static_assert(
 );
 
 template<>
-struct CorrespondingBlobTypeFor<CFinalBoneHierarchy> { typedef FinalBoneHierarchyBlobV3 type; };
+struct NBL_API CorrespondingBlobTypeFor<CFinalBoneHierarchy> { typedef FinalBoneHierarchyBlobV3 type; };
 
 }
 } // nbl::asset

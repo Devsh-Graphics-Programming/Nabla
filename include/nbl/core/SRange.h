@@ -20,7 +20,7 @@ namespace nbl::core
 {
 
 template<typename T, typename IteratorType = std::add_pointer_t<T>, typename ConstIteratorType = std::add_pointer_t<const T> >
-struct SRange
+struct NBL_API SRange
 {
 	public:
 		using iterator_type = IteratorType;

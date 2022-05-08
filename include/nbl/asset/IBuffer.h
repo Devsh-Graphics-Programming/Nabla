@@ -45,7 +45,7 @@ class NBL_API IBuffer : public core::IBuffer, public IDescriptor
 };
 
 template<class BufferType>
-struct SBufferBinding
+struct NBL_API SBufferBinding
 {
 	bool isValid() const
 	{
@@ -60,7 +60,7 @@ struct SBufferBinding
 };
 
 template<typename BufferType>
-struct SBufferRange
+struct NBL_API SBufferRange
 {
 	inline bool isValid() const
 	{

@@ -213,29 +213,29 @@ class NBL_API CDirQuantCacheBase
 };
 
 template<> 
-struct CDirQuantCacheBase::value_type<EF_R8G8B8_SNORM>
+struct NBL_API CDirQuantCacheBase::value_type<EF_R8G8B8_SNORM>
 {
 	typedef Vector8u3 type;
 };
 template<> 
-struct CDirQuantCacheBase::value_type<EF_R8G8B8A8_SNORM>
+struct NBL_API CDirQuantCacheBase::value_type<EF_R8G8B8A8_SNORM>
 {
 	typedef Vector8u4 type;
 };
 
 template<> 
-struct CDirQuantCacheBase::value_type<EF_A2B10G10R10_SNORM_PACK32>
+struct NBL_API CDirQuantCacheBase::value_type<EF_A2B10G10R10_SNORM_PACK32>
 {
 	typedef Vector1010102 type;
 };
 
 template<> 
-struct CDirQuantCacheBase::value_type<EF_R16G16B16_SNORM>
+struct NBL_API CDirQuantCacheBase::value_type<EF_R16G16B16_SNORM>
 {
 	typedef Vector16u3 type;
 };
 template<> 
-struct CDirQuantCacheBase::value_type<EF_R16G16B16A16_SNORM>
+struct NBL_API CDirQuantCacheBase::value_type<EF_R16G16B16A16_SNORM>
 {
 	typedef Vector16u4 type;
 };

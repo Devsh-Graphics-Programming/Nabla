@@ -14,7 +14,7 @@
 namespace nbl::ext::MitsubaLoader
 {
 
-struct SContext;
+struct NBL_API SContext;
 
 class NBL_API CMitsubaMaterialCompilerFrontend
 {

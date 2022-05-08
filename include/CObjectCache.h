@@ -28,44 +28,44 @@ namespace nbl::core
 #ifndef INTELLISENSE_WORKAROUND
 namespace impl
 {
-    struct NBL_FORCE_EBO NBL_NO_VTABLE CMultiCache_tag {};
+    struct NBL_API NBL_FORCE_EBO NBL_NO_VTABLE CMultiCache_tag {};
 
     template<template<typename...> class, template<typename...> class>
-    struct is_same_templ : std::false_type {};
+    struct NBL_API is_same_templ : std::false_type {};
 
     template<template<typename...> class T>
-    struct is_same_templ<T, T> : std::true_type {};
+    struct NBL_API is_same_templ<T, T> : std::true_type {};
 
     template <typename T>
-    struct is_string : std::false_type {};
+    struct NBL_API is_string : std::false_type {};
     template <typename C, typename T, typename A>
-    struct is_string<std::basic_string<C, T, A>> : std::true_type {};
+    struct NBL_API is_string<std::basic_string<C, T, A>> : std::true_type {};
 
     template<template<typename...> class T>
-    struct is_multi_container : std::false_type {};
+    struct NBL_API is_multi_container : std::false_type {};
     template<>
-    struct is_multi_container<std::multimap> : std::true_type {};
+    struct NBL_API is_multi_container<std::multimap> : std::true_type {};
     template<>
-    struct is_multi_container<std::unordered_multimap> : std::true_type {};
+    struct NBL_API is_multi_container<std::unordered_multimap> : std::true_type {};
 
     template<template<typename...> class>
-    struct is_assoc_container : std::false_type {};
+    struct NBL_API is_assoc_container : std::false_type {};
     template<>
-    struct is_assoc_container<std::map> : std::true_type {};
+    struct NBL_API is_assoc_container<std::map> : std::true_type {};
     template<>
-    struct is_assoc_container<std::unordered_map> : std::true_type {};
+    struct NBL_API is_assoc_container<std::unordered_map> : std::true_type {};
     template<>
-    struct is_assoc_container<std::multimap> : std::true_type {};
+    struct NBL_API is_assoc_container<std::multimap> : std::true_type {};
     template<>
-    struct is_assoc_container<std::unordered_multimap> : std::true_type {};
+    struct NBL_API is_assoc_container<std::unordered_multimap> : std::true_type {};
 
     template<typename K, typename...>
-    struct NBL_FORCE_EBO NBL_NO_VTABLE PropagKeyTypeTypedef_ { using KeyType = K; };
+    struct NBL_API NBL_FORCE_EBO NBL_NO_VTABLE PropagKeyTypeTypedef_ { using KeyType = K; };
     template<typename ...K>
-    struct NBL_FORCE_EBO NBL_NO_VTABLE PropagKeyTypeTypedef : PropagKeyTypeTypedef_<K...> {};
+    struct NBL_API NBL_FORCE_EBO NBL_NO_VTABLE PropagKeyTypeTypedef : PropagKeyTypeTypedef_<K...> {};
 
     template<typename T, typename ...K>
-    struct NBL_FORCE_EBO NBL_NO_VTABLE PropagTypedefs : PropagKeyTypeTypedef<K...> { using CachedType = T; };
+    struct NBL_API NBL_FORCE_EBO NBL_NO_VTABLE PropagTypedefs : PropagKeyTypeTypedef<K...> { using CachedType = T; };
 
     template<
         template<typename...> class ContainerT_T,
@@ -73,20 +73,20 @@ namespace impl
         typename T, //value type for container
         typename ...K //optionally key type for std::map/std::unordered_map
     >
-    struct NBL_FORCE_EBO CObjectCacheBase
+    struct NBL_API NBL_FORCE_EBO CObjectCacheBase
     {
     private:
         template<bool isAssoc, template<typename...> class C>
         struct help;
 
         template<template<typename...> class C>
-        struct help<true, C>
+        struct NBL_API help<true, C>
         {
             template<typename KK, typename TT, typename AAlloc>
             using container_t = C<KK, TT, std::less<KK>, AAlloc>;
         };
         template<template<typename...> class C>
-        struct help<false, C>
+        struct NBL_API help<false, C>
         {
             template<typename TT, typename AAlloc>
             using container_t = C<TT, AAlloc>;
@@ -239,15 +239,15 @@ namespace impl
     };
 
     template<template<typename...> class ContainerT_T, typename ContainerT, bool ForMultiCache, bool IsAssocContainer = impl::is_assoc_container<ContainerT_T>::value>
-    struct CPreInsertionVerifier;
+    struct NBL_API CPreInsertionVerifier;
     template<template<typename...> class ContainerT_T, typename ContainerT, bool IsAssocContainer>
-    struct CPreInsertionVerifier<ContainerT_T, ContainerT, true, IsAssocContainer>
+    struct NBL_API CPreInsertionVerifier<ContainerT_T, ContainerT, true, IsAssocContainer>
     {
         template<typename ...Ts>
         static bool verify(Ts...) { return true; }
     };
     template<template<typename...> class ContainerT_T, typename ContainerT>
-    struct CPreInsertionVerifier<ContainerT_T, ContainerT, false, false>
+    struct NBL_API CPreInsertionVerifier<ContainerT_T, ContainerT, false, false>
     {
         static bool verify(const ContainerT& _container, const typename ContainerT::iterator& _itr, const typename ContainerT::value_type::first_type& _key)
         {
@@ -258,7 +258,7 @@ namespace impl
         }
     };
     template<template<typename...> class ContainerT_T, typename ContainerT>
-    struct CPreInsertionVerifier<ContainerT_T, ContainerT, false, true>
+    struct NBL_API CPreInsertionVerifier<ContainerT_T, ContainerT, false, true>
     {
         static bool verify(const std::pair<typename ContainerT::iterator, bool>& _insertionRes)
         {
@@ -311,7 +311,7 @@ namespace impl
         typename T, //value type for container
         typename ...K //optionally key type for std::map/std::unordered_map
     >
-    struct CMultiObjectCacheBase;
+    struct NBL_API CMultiObjectCacheBase;
 
     template<
         template<typename...> class ContainerT_T,
@@ -319,7 +319,7 @@ namespace impl
         typename T, //value type for container
         typename ...K //optionally key type for std::map/std::unordered_map
     >
-    struct NBL_FORCE_EBO CMultiObjectCacheBase<true, ContainerT_T, Alloc, T, K...> : public CObjectCacheBase<ContainerT_T, Alloc, T, K...>, public CMultiCache_tag
+    struct NBL_API NBL_FORCE_EBO CMultiObjectCacheBase<true, ContainerT_T, Alloc, T, K...> : public CObjectCacheBase<ContainerT_T, Alloc, T, K...>, public CMultiCache_tag
     {
     private:
         using Base = CObjectCacheBase<ContainerT_T, Alloc, T, K...>;
@@ -351,7 +351,7 @@ namespace impl
         typename T, //value type for container
         typename ...K //optionally key type for std::map/std::unordered_map
     >
-    struct NBL_FORCE_EBO CMultiObjectCacheBase<false, ContainerT_T, Alloc, T, K...> : public CObjectCacheBase<ContainerT_T, Alloc, T, K...>, public CMultiCache_tag
+    struct NBL_API NBL_FORCE_EBO CMultiObjectCacheBase<false, ContainerT_T, Alloc, T, K...> : public CObjectCacheBase<ContainerT_T, Alloc, T, K...>, public CMultiCache_tag
     {
     private:
         using Base = CObjectCacheBase<ContainerT_T, Alloc, T, K...>;
@@ -400,7 +400,7 @@ namespace impl
         typename T, //value type for container
         typename ...K //optionally key type for std::map/std::unordered_map
     >
-    struct NBL_FORCE_EBO CMultiObjectCacheBaseExt : public CMultiObjectCacheBase<!IsVectorContainer, ContainerT_T, Alloc, T, K...>
+    struct NBL_API NBL_FORCE_EBO CMultiObjectCacheBaseExt : public CMultiObjectCacheBase<!IsVectorContainer, ContainerT_T, Alloc, T, K...>
     {
     private:
         using Base = CMultiObjectCacheBase<!IsVectorContainer, ContainerT_T, Alloc, T, K...>;
@@ -478,7 +478,7 @@ namespace impl
         typename T, //value type for container
         typename ...K //optionally key type for std::map/std::unordered_map
     >
-    struct NBL_FORCE_EBO CUniqObjectCacheBase<true, ContainerT_T, Alloc, T, K...> : public CObjectCacheBase<ContainerT_T, Alloc, T, K...>
+    struct NBL_API NBL_FORCE_EBO CUniqObjectCacheBase<true, ContainerT_T, Alloc, T, K...> : public CObjectCacheBase<ContainerT_T, Alloc, T, K...>
     {
     private:
         using Base = CObjectCacheBase<ContainerT_T, Alloc, T, K...>;
@@ -513,7 +513,7 @@ namespace impl
         typename T, //value type for container
         typename ...K //optionally key type for std::map/std::unordered_map
     >
-    struct NBL_FORCE_EBO CUniqObjectCacheBase<false, ContainerT_T, Alloc, T, K...> : public CObjectCacheBase<ContainerT_T, Alloc, T, K...>
+    struct NBL_API NBL_FORCE_EBO CUniqObjectCacheBase<false, ContainerT_T, Alloc, T, K...> : public CObjectCacheBase<ContainerT_T, Alloc, T, K...>
     {
     private:
         using Base = CObjectCacheBase<ContainerT_T, Alloc, T, K...>;
@@ -549,7 +549,7 @@ namespace impl
         typename T, //value type for container
         typename ...K //optionally key type for std::map/std::unordered_map
     >
-    struct CUniqObjectCacheBaseExt : public CUniqObjectCacheBase<isVectorContainer, ContainerT_T, Alloc, T, K...>
+    struct NBL_API CUniqObjectCacheBaseExt : public CUniqObjectCacheBase<isVectorContainer, ContainerT_T, Alloc, T, K...>
     {
     private:
         using Base = CUniqObjectCacheBase<isVectorContainer, ContainerT_T, Alloc, T, K...>;
@@ -603,7 +603,7 @@ namespace impl
         typename T, //value type for container
         typename ...K //optionally key type for std::map/std::unordered_map
     >
-    struct NBL_FORCE_EBO CDirectCacheBase :
+    struct NBL_API NBL_FORCE_EBO CDirectCacheBase :
         public std::conditional<forMultiCache, CMultiObjectCacheBaseExt<isVectorContainer, ContainerT_T, Alloc, T, K...>, CUniqObjectCacheBaseExt<isVectorContainer, ContainerT_T, Alloc, T, K...>>::type
     {
     private:
@@ -687,10 +687,10 @@ namespace impl
 namespace impl
 {
     template<template<typename...> class Container, typename K, typename V>
-    struct key_val_pair_type_for { using type = std::pair<const K, V>; };
+    struct NBL_API key_val_pair_type_for { using type = std::pair<const K, V>; };
 
     template<typename K, typename V>
-    struct key_val_pair_type_for<std::vector, K, V> { using type = std::pair<K, V>; };
+    struct NBL_API key_val_pair_type_for<std::vector, K, V> { using type = std::pair<K, V>; };
 }
 template<
     typename K,

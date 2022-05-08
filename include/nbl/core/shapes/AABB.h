@@ -31,7 +31,7 @@ struct AABB : nbl_glsl_shapes_AABB_t
 };
 */
 // TODO: redo in terms of `AABB`
-struct CompressedAABB : impl::nbl_glsl_shapes_CompressedAABB_t
+struct NBL_API CompressedAABB : impl::nbl_glsl_shapes_CompressedAABB_t
 {
     CompressedAABB()
     {

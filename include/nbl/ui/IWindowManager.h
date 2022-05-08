@@ -4,7 +4,7 @@
 #include "IWindow.h"
 namespace nbl::ui
 {
-	struct SDisplayInfo
+	NBL_API struct SDisplayInfo
 	{
 		int32_t x;
 		int32_t y;

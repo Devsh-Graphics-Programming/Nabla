@@ -16,7 +16,7 @@ namespace ext
 namespace MitsubaLoader
 {
 
-struct SPropertyElementData
+struct NBL_API SPropertyElementData
 {
 	enum Type
 	{
@@ -196,7 +196,7 @@ struct SPropertyElementData
 	};
 };
 
-struct SNamedPropertyElement : SPropertyElementData
+struct NBL_API SNamedPropertyElement : SPropertyElementData
 {
 	SNamedPropertyElement() : SPropertyElementData(), name("")
 	{

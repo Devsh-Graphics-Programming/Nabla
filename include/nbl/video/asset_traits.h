@@ -62,43 +62,43 @@ private:
 using IGPUOffsetBufferPair = IOffsetBufferPair<video::IGPUBuffer>;
 
 template<typename AssetType>
-struct asset_traits;
+struct NBL_API asset_traits;
 
 template<>
-struct asset_traits<asset::ICPUBuffer> { using GPUObjectType = IGPUOffsetBufferPair; };
+struct NBL_API asset_traits<asset::ICPUBuffer> { using GPUObjectType = IGPUOffsetBufferPair; };
 template<>
-struct asset_traits<asset::ICPUBufferView> { using GPUObjectType = video::IGPUBufferView; };
+struct NBL_API asset_traits<asset::ICPUBufferView> { using GPUObjectType = video::IGPUBufferView; };
 template<>
-struct asset_traits<asset::ICPUImage> { using GPUObjectType = video::IGPUImage; };
+struct NBL_API asset_traits<asset::ICPUImage> { using GPUObjectType = video::IGPUImage; };
 template<>
-struct asset_traits<asset::ICPUImageView> { using GPUObjectType = video::IGPUImageView; };
+struct NBL_API asset_traits<asset::ICPUImageView> { using GPUObjectType = video::IGPUImageView; };
 template<>
-struct asset_traits<asset::ICPUSampler> { using GPUObjectType = video::IGPUSampler; };
+struct NBL_API asset_traits<asset::ICPUSampler> { using GPUObjectType = video::IGPUSampler; };
 template<>
-struct asset_traits<asset::ICPUShader> { using GPUObjectType = video::IGPUShader; };
+struct NBL_API asset_traits<asset::ICPUShader> { using GPUObjectType = video::IGPUShader; };
 template<>
-struct asset_traits<asset::ICPUSpecializedShader> { using GPUObjectType = video::IGPUSpecializedShader; };
+struct NBL_API asset_traits<asset::ICPUSpecializedShader> { using GPUObjectType = video::IGPUSpecializedShader; };
 template<>
-struct asset_traits<asset::ICPUDescriptorSet> { using GPUObjectType = video::IGPUDescriptorSet; };
+struct NBL_API asset_traits<asset::ICPUDescriptorSet> { using GPUObjectType = video::IGPUDescriptorSet; };
 template<>
-struct asset_traits<asset::ICPUDescriptorSetLayout> { using GPUObjectType = video::IGPUDescriptorSetLayout; };
+struct NBL_API asset_traits<asset::ICPUDescriptorSetLayout> { using GPUObjectType = video::IGPUDescriptorSetLayout; };
 template<>
-struct asset_traits<asset::ICPUPipelineLayout> { using GPUObjectType = video::IGPUPipelineLayout; };
+struct NBL_API asset_traits<asset::ICPUPipelineLayout> { using GPUObjectType = video::IGPUPipelineLayout; };
 template<>
-struct asset_traits<asset::ICPURenderpassIndependentPipeline> { using GPUObjectType = video::IGPURenderpassIndependentPipeline; };
+struct NBL_API asset_traits<asset::ICPURenderpassIndependentPipeline> { using GPUObjectType = video::IGPURenderpassIndependentPipeline; };
 // TODO: figure this out
 //template<>
 //struct asset_traits<asset::ICPUSkeleton> { using GPUObjectType = video::IGPUSkeleton; };
 template<>
-struct asset_traits<asset::ICPUMeshBuffer> { using GPUObjectType = video::IGPUMeshBuffer; };
+struct NBL_API asset_traits<asset::ICPUMeshBuffer> { using GPUObjectType = video::IGPUMeshBuffer; };
 template<>
-struct asset_traits<asset::ICPUComputePipeline> { using GPUObjectType = video::IGPUComputePipeline; };
+struct NBL_API asset_traits<asset::ICPUComputePipeline> { using GPUObjectType = video::IGPUComputePipeline; };
 template<>
-struct asset_traits<asset::ICPUMesh> { using GPUObjectType = video::IGPUMesh; };
+struct NBL_API asset_traits<asset::ICPUMesh> { using GPUObjectType = video::IGPUMesh; };
 template<>
-struct asset_traits<asset::ICPUAnimationLibrary> { using GPUObjectType = video::IGPUAnimationLibrary; };
+struct NBL_API asset_traits<asset::ICPUAnimationLibrary> { using GPUObjectType = video::IGPUAnimationLibrary; };
 template<>
-struct asset_traits<asset::ICPUAccelerationStructure> { using GPUObjectType = video::IGPUAccelerationStructure; };
+struct NBL_API asset_traits<asset::ICPUAccelerationStructure> { using GPUObjectType = video::IGPUAccelerationStructure; };
 
 
 template<typename AssetType>

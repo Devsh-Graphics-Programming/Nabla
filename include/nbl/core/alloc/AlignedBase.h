@@ -216,7 +216,7 @@ static_assert(sizeof(AllocationOverrideDefault)==_NBL_SIMD_ALIGNMENT,"This compi
             static inline void operator delete[](void* ptr, size_t size) noexcept {nbl::core::impl::ResolveAlignment<__VA_ARGS__>::operator delete[](ptr,size);} \
             static inline void operator delete(void* dummy, void* ptr)   noexcept {nbl::core::impl::ResolveAlignment<__VA_ARGS__>::operator delete(dummy,ptr);}
 #else
-struct NBL_FORCE_EBO AllocationOverrideDefault {};
+struct NBL_API NBL_FORCE_EBO AllocationOverrideDefault {};
 
 #define _NBL_RESOLVE_NEW_DELETE_AMBIGUITY(...)
 #endif // NBL_TEST_NO_NEW_DELETE_OVERRIDE

@@ -106,7 +106,7 @@ namespace core
 
 	namespace impl
 	{
-		struct NBL_FORCE_EBO empty_base {};
+		struct NBL_API NBL_FORCE_EBO empty_base {};
 	}
 
     //a class for bitwise shizz

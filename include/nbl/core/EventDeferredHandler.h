@@ -12,7 +12,7 @@ namespace nbl::core
 {
 
 template<class Event, class Functor>
-struct DeferredEvent
+struct NBL_API DeferredEvent
 {
     using event_t = Event;
     using functor_t = Functor;

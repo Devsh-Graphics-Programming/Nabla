@@ -36,7 +36,7 @@ namespace impl
 
 //Struct for use in a doubly linked list. Stores data and pointers to next and previous elements the list, or invalid iterator if it is first/last
 template<typename Value>
-struct alignas(void*) SDoublyLinkedNode
+struct NBL_API alignas(void*) SDoublyLinkedNode
 {
 	_NBL_STATIC_INLINE_CONSTEXPR uint32_t invalid_iterator = impl::FixedCapacityDoublyLinkedListBase::invalid_iterator;
 
