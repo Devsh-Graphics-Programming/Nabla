@@ -241,6 +241,11 @@ public:
         return output;
     }
 
+    SMemoryOffset allocate(const SAllocateInfo& info) override
+    {
+        return {}; //TODO: Erfan
+    }
+
     core::smart_refctd_ptr<IGPUSemaphore> createSemaphore() override final
     {
         return core::make_smart_refctd_ptr<COpenGLSemaphore>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this));

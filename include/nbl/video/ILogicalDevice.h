@@ -26,6 +26,7 @@
 
 // TODO: undo the circular ref
 #include "nbl/video/CThreadSafeGPUQueueAdapter.h"
+#include "nbl/video/IDeviceMemoryAllocator.h"
 
 namespace nbl::video
 {
@@ -33,7 +34,7 @@ namespace nbl::video
 class IDescriptorPool;
 class IPhysicalDevice;
 
-class ILogicalDevice : public core::IReferenceCounted
+class ILogicalDevice : public core::IReferenceCounted, public IDeviceMemoryAllocator
 {
     public:
         enum E_FEATURE

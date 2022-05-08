@@ -858,6 +858,8 @@ public:
     core::smart_refctd_ptr<IDriverMemoryAllocation> allocateGPUMemory(
         const IDriverMemoryBacked::SDriverMemoryRequirements& reqs, core::bitflag<IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags = IDriverMemoryAllocation::EMAF_NONE) override;
 
+    SMemoryOffset allocate(const SAllocateInfo& info) override;
+
     core::smart_refctd_ptr<IGPUSampler> createGPUSampler(const IGPUSampler::SParams& _params) override
     {
         VkSamplerCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };

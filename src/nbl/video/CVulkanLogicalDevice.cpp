@@ -294,6 +294,12 @@ core::smart_refctd_ptr<IDriverMemoryAllocation> CVulkanLogicalDevice::allocateGP
     return nullptr;
 }
 
+
+IDeviceMemoryAllocator::SMemoryOffset CVulkanLogicalDevice::allocate(const SAllocateInfo& info)
+{
+    return {}; // TODO
+}
+
 bool CVulkanLogicalDevice::createCommandBuffers_impl(IGPUCommandPool* cmdPool, IGPUCommandBuffer::E_LEVEL level,
     uint32_t count, core::smart_refctd_ptr<IGPUCommandBuffer>* outCmdBufs)
 {

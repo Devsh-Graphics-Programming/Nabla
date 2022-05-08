@@ -27,6 +27,17 @@ class IDriverMemoryBacked : public virtual core::IReferenceCounted
             uint32_t prefersDedicatedAllocation     : 1; /// Used and valid only in Vulkan
             uint32_t requiresDedicatedAllocation    : 1; /// Used and valid only in Vulkan
         };
+        
+        struct SDriverMemoryRequirements2
+        {
+            size_t   size;
+            uint32_t memoryTypeBits;
+            uint32_t alignmentLog2 : 6;
+            uint32_t prefersDedicatedAllocation     : 1;
+            uint32_t requiresDedicatedAllocation    : 1;
+        };
+        static_assert(sizeof(SDriverMemoryRequirements2)==16);
+
         //! Combine requirements
         /** \return true on success, some requirements are mutually exclusive, so it may be impossible to combine them. */
         static inline bool combineRequirements(SDriverMemoryRequirements& out, const SDriverMemoryRequirements& a, const SDriverMemoryRequirements& b)
