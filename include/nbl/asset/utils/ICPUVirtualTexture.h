@@ -145,7 +145,8 @@ public:
         blit.scratchMemoryByteSize = blit_filter_t::getRequiredScratchByteSize(&blit);
         blit.scratchMemory = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(blit.scratchMemoryByteSize, _NBL_SIMD_ALIGNMENT));
 
-        blit_filter_t::CState::computePhaseSupportLUT(&blit);
+        if (!blit_filter_t::CState::computePhaseSupportLUT(&blit))
+            return nullptr;
 
         const bool blit_succeeded = blit_filter_t::execute(&blit);
         _NBL_ALIGNED_FREE(blit.scratchMemory);

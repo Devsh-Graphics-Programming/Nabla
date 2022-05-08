@@ -231,7 +231,8 @@ static core::smart_refctd_ptr<asset::ICPUImage> createDerivMapFromHeightMap(asse
 	state.scratchMemoryByteSize = DerivativeMapFilter::getRequiredScratchByteSize(&state);
 	state.scratchMemory = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(state.scratchMemoryByteSize, _NBL_SIMD_ALIGNMENT));
 
-	state.computePhaseSupportLUT(&state);
+	if (!state.computePhaseSupportLUT(&state))
+		return nullptr;
 
 	DerivativeMapFilter::execute(&state);
 

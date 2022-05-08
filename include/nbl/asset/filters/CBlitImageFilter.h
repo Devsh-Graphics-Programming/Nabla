@@ -154,13 +154,18 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 					return CScaledImageFilterKernel<Kernel>(fScale,kernel);
 				}
 
-				static void computePhaseSupportLUT(const CState* state)
+				static bool computePhaseSupportLUT(const CState* state)
 				{
+					const core::vectorSIMDu32 phaseCount = getPhaseCount(state->inExtentLayerCount, state->outExtentLayerCount, state->inImage->getCreationParameters().type);
+					for (auto i = 0; i <= state->inImage->getCreationParameters().type; ++i)
+					{
+						if (phaseCount[i] == 0)
+							return false;
+					}
+
 					const auto scaledKernelX = state->contructScaledKernel(state->kernelX);
 					const auto scaledKernelY = state->contructScaledKernel(state->kernelY);
 					const auto scaledKernelZ = state->contructScaledKernel(state->kernelZ);
-
-					const core::vectorSIMDu32 phaseCount = getPhaseCount(state->inExtentLayerCount, state->outExtentLayerCount, state->inImage->getCreationParameters().type);
 
 					const auto real_window_size = getRealWindowSize(state->inImage->getCreationParameters().type, scaledKernelX, scaledKernelY, scaledKernelZ);
 					const core::vectorSIMDu32 axisOffsets = getPhaseSupportLUTAxisOffsets(phaseCount, real_window_size);
@@ -174,7 +179,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 					// weights when eventually `windowSample` gets multiplied by them later in
 					// `CFloatingPointSeparableImageFilterKernelBase<CRTP>::sample_functor_t<PreFilter,PostFilter>::operator()`
 					// this exists only because `evaluateImpl` expects a pre filtering step.
-					auto dummyLoad = [](value_type* windowSample, const core::vectorSIMDf& unused0, const core::vectorSIMDi32& unused1, const IImageFilterKernel::UserData* unused2) -> void
+					auto dummyLoad = [](value_type* windowSample, const core::vectorSIMDf&, const core::vectorSIMDi32&, const IImageFilterKernel::UserData*) -> void
 					{
 						for (auto h = 0; h < MaxChannels; h++)
 							windowSample[h] = value_type(1);
@@ -210,15 +215,14 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 							core::vectorSIMDf tmp(0.f);
 							tmp[axis] = float(i) + 0.5f;
 
-							core::vectorSIMDi32 windowCoord;
-							windowCoord[axis] = kernel.getWindowMinCoord(tmp * fScale, tmp)[axis];
+							const int32_t windowCoord = kernel.getWindowMinCoord(tmp * fScale, tmp)[axis];
 
-							float relativePos = tmp[axis] - float(windowCoord[axis]); // relative position of the last pixel in window from current (ith) output pixel having a unique phase sequence of kernel evaluation points
+							float relativePos = tmp[axis] - float(windowCoord); // relative position of the last pixel in window from current (ith) output pixel having a unique phase sequence of kernel evaluation points
 
 							for (int32_t j = 0; j < windowSize; ++j)
 							{
 								core::vectorSIMDf tmp(relativePos, 0.f, 0.f);
-								kernel.evaluateImpl(dummyLoad, dummyEvaluate, kernelWeight, tmp, windowCoord, &scale); // `windowCoord` is unused
+								kernel.evaluateImpl(dummyLoad, dummyEvaluate, kernelWeight, tmp, core::vectorSIMDi32(), &scale); // `windowCoord` is unused
 								for (uint32_t ch = 0; ch < MaxChannels; ++ch)
 									phaseSupportLUTPixel[(i * windowSize + j)*MaxChannels + ch] = kernelWeight[ch];
 								relativePos -= 1.f;
@@ -229,6 +233,8 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 					computeForAxis(asset::IImage::ET_1D, scaledKernelX);
 					computeForAxis(asset::IImage::ET_2D, scaledKernelY);
 					computeForAxis(asset::IImage::ET_3D, scaledKernelZ);
+
+					return true;
 				}
 
 				union
@@ -486,7 +492,8 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 			}();
 			const auto windowMinCoordBase = inOffsetBaseLayer+startCoord;
 
-			const core::vectorSIMDu32 phaseCount = getPhaseCount(inExtentLayerCount, outExtentLayerCount, inImageType);
+			core::vectorSIMDu32 phaseCount = getPhaseCount(inExtentLayerCount, outExtentLayerCount, inImageType);
+			phaseCount = core::max(phaseCount, core::vectorSIMDu32(1, 1, 1));
 			const core::vectorSIMDu32 axisOffsets = getPhaseSupportLUTAxisOffsets(phaseCount, real_window_size);
 			constexpr auto MaxAxisCount = 3;
 			value_type* phaseSupportLUTPixel[MaxAxisCount];
@@ -509,8 +516,6 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 				{
 					if (axis>inImageType)
 						return;
-
-					assert(phaseCount[axis] != 0 && "Filtering should not happen for the axis with 0 phaseCount!");
 
 					const bool lastPass = inImageType==axis;
 					const auto windowSize = kernel.getWindowSize()[axis];
@@ -629,7 +634,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 							}
 						}
 
-						auto getPhaseSupportLUTPixel = [phaseSupportLUTPixel, windowSize, lineBuffer, &windowMinCoord, axis](const auto& windowCoord, const auto phaseIndex, const auto windowPixel, const auto channel) -> value_type
+						auto getWeightedSample = [phaseSupportLUTPixel, windowSize, lineBuffer, &windowMinCoord, axis](const auto& windowCoord, const auto phaseIndex, const auto windowPixel, const auto channel) -> value_type
 						{
 							return phaseSupportLUTPixel[axis][(phaseIndex * windowSize + windowPixel) * MaxChannels + channel] * lineBuffer[(windowCoord[axis] - windowMinCoord[axis]) * MaxChannels + channel];
 						};
@@ -649,14 +654,14 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 							auto relativePos = tmp[axis]-float(windowCoord[axis]);
 
 							for (auto ch = 0; ch < MaxChannels; ++ch)
-								value[ch] = getPhaseSupportLUTPixel(windowCoord, phaseIndex, 0, ch);
+								value[ch] = getWeightedSample(windowCoord, phaseIndex, 0, ch);
 
 							for (auto h=1; h<windowSize; h++)
 							{
 								windowCoord[axis]++;
 
 								for (auto ch = 0; ch < MaxChannels; ch++)
-									value[ch] += getPhaseSupportLUTPixel(windowCoord, phaseIndex, h, ch);
+									value[ch] += getWeightedSample(windowCoord, phaseIndex, h, ch);
 							}
 							if (lastPass)
 							{

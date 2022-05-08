@@ -1050,7 +1050,8 @@ private:
 		blitFilterState.scratchMemoryByteSize = BlitFilter::getRequiredScratchByteSize(&blitFilterState);
 		blitFilterState.scratchMemory = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(blitFilterState.scratchMemoryByteSize, 32));
 
-		blitFilterState.computePhaseSupportLUT(&blitFilterState);
+		if (!blitFilterState.computePhaseSupportLUT(&blitFilterState))
+			logger->log("Failed to compute the LUT for blitting\n", system::ILogger::ELL_ERROR);
 
 		// CPU
 		core::vector<uint8_t> cpuOutput(static_cast<uint64_t>(outImageDim[0]) * outImageDim[1] * outImageDim[2] * asset::getTexelOrBlockBytesize(outImageFormat));
