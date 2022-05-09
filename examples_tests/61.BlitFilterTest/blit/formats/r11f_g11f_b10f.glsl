@@ -1,68 +1,49 @@
 #ifndef _NBL_GLSL_BLIT_R11FG11FB10F_INCLUDED_
 #define _NBL_GLSL_BLIT_R11FG11FB10F_INCLUDED_
 
-uint to11bitFloat(in float _f32)
+uint nbl_glsl_encode_ufloat(in float _f32, in uint mantissaMask, in uint mantissaBits)
 {
 	const uint f32 = floatBitsToUint(_f32);
 
-	if ((f32 & 0x80000000u) != 0u)
-		return 0u;
+	if ((f32 & 0x80000000u) != 0u) // negative numbers converts to 0 (represented by all zeroes)
+		return 0;
 
-	const uint f11MantissaMask = 0x3fu;
-	const uint f11ExpMask = 0x1fu << 6;
+	const uint expMask = 0x1fu << mantissaBits;
 
 	const int exp = int(((f32 >> 23) & 0xffu) - 127);
 	const uint mantissa = f32 & 0x7fffffu;
 
-	uint f11 = 0u;
+	uint f = 0u;
 	if (exp == 128) // inf / NaN
 	{
-		f11 = f11ExpMask;
+		f = expMask;
 		if (mantissa != 0u)
-			f11 |= (mantissa & f11MantissaMask);
+			f |= (mantissa & mantissaMask);
 	}
-	else if (exp > 15) // overflow converts to infinity
-		f11 = f11ExpMask;
+	else if (exp > 15) // overflow, converts to infinity
+		f = expMask;
 	else if (exp > -15)
 	{
 		const int e = exp + 15;
-		const uint m = mantissa >> (23 - 6);
-		f11 = (e << 6) | m;
+		const uint m = mantissa >> (23 - mantissaBits);
+		f = (e << mantissaBits) | m;
 	}
 
-	return f11;
+	return f;
+}
+
+uint to11bitFloat(in float _f32)
+{
+	const uint mantissaMask = 0x3fu;
+	const uint mantissaBits = 6;
+	return nbl_glsl_encode_ufloat(_f32, mantissaMask, mantissaBits);
 }
 
 uint to10bitFloat(in float _f32)
 {
-	const uint f32 = floatBitsToUint(_f32);
-
-	if ((f32 & 0x80000000u) != 0u) // negative numbers converts to 0 (represented by all zeroes in 10bit format)
-		return 0;
-
-	const uint f10MantissaMask = 0x1fu;
-	const uint f10ExpMask = 0x1fu << 5;
-
-	const int exp = int(((f32 >> 23) & 0xffu) - 127);
-	const uint mantissa = f32 & 0x7fffffu;
-
-	uint f10 = 0u;
-	if (exp == 128) // inf / NaN
-	{
-		f10 = f10ExpMask;
-		if (mantissa != 0u)
-			f10 |= (mantissa & f10MantissaMask);
-	}
-	else if (exp > 15) // overflow, converts to infinity
-		f10 = f10ExpMask;
-	else if (exp > -15)
-	{
-		const int e = exp + 15;
-		const uint m = mantissa >> (23 - 5);
-		f10 = (e << 5) | m;
-	}
-
-	return f10;
+	const uint mantissaMask = 0x1fu;
+	const uint mantissaBits = 5;
+	return nbl_glsl_encode_ufloat(_f32, mantissaMask, mantissaBits);
 }
 
 uvec4 nbl_glsl_blit_formats_encode(in vec4 value)

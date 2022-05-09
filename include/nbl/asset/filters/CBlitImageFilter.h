@@ -20,7 +20,25 @@
 
 namespace nbl::asset
 {
+class CBlitUtilities
+{
+public:
+	enum E_ALPHA_SEMANTIC : uint32_t
+	{
+		EAS_NONE_OR_PREMULTIPLIED = 0u, // just filter the channels independently (also works for a texture for blending equation `dstCol*(1-srcAlpha)+srcCol`)
+		EAS_REFERENCE_OR_COVERAGE, // try to preserve coverage (percentage of pixels above a threshold value) across mipmap levels
+		EAS_SEPARATE_BLEND, // compute a new alpha value for a texture to be used with the blending equation `mix(dstCol,srcCol,srcAlpha)`
+		EAS_COUNT
+	};
 
+	static inline core::vectorSIMDu32 getPhaseCount(const core::vectorSIMDu32& inExtent, const core::vectorSIMDu32& outExtent, const asset::IImage::E_TYPE inImageType)
+	{
+		core::vectorSIMDu32 result(0u);
+		for (uint32_t i = 0u; i <= inImageType; ++i)
+			result[i] = outExtent[i] / std::gcd(inExtent[i], outExtent[i]);
+		return result;
+	}
+};
 
 template<typename value_type, typename Swizzle, typename Dither, typename Normalization, bool Clamp>
 class CBlitImageFilterBase : public impl::CSwizzleableAndDitherableFilterBase<Swizzle,Dither,Normalization,Clamp>, public CBasicImageFilterCommon
@@ -32,21 +50,13 @@ class CBlitImageFilterBase : public impl::CSwizzleableAndDitherableFilterBase<Sw
 				CStateBase() {}
 				virtual ~CStateBase() {}
 
-				enum E_ALPHA_SEMANTIC : uint32_t
-				{
-					EAS_NONE_OR_PREMULTIPLIED = 0u, // just filter the channels independently (also works for a texture for blending equation `dstCol*(1-srcAlpha)+srcCol`)
-					EAS_REFERENCE_OR_COVERAGE, // try to preserve coverage (percentage of pixels above a threshold value) across mipmap levels
-					EAS_SEPARATE_BLEND, // compute a new alpha value for a texture to be used with the blending equation `mix(dstCol,srcCol,srcAlpha)`
-					EAS_COUNT
-				};
-
 				// we need scratch memory because we'll decode the whole image into one contiguous chunk of memory for faster filtering amongst other things
 				uint8_t*							scratchMemory = nullptr;
 				uint32_t							scratchMemoryByteSize = 0u;
 				_NBL_STATIC_INLINE_CONSTEXPR auto	NumWrapAxes = 3;
 				ISampler::E_TEXTURE_CLAMP			axisWraps[NumWrapAxes] = { ISampler::ETC_REPEAT,ISampler::ETC_REPEAT,ISampler::ETC_REPEAT };
 				ISampler::E_TEXTURE_BORDER_COLOR	borderColor = ISampler::ETBC_FLOAT_TRANSPARENT_BLACK;
-				E_ALPHA_SEMANTIC					alphaSemantic = EAS_NONE_OR_PREMULTIPLIED;
+				CBlitUtilities::E_ALPHA_SEMANTIC	alphaSemantic = CBlitUtilities::EAS_NONE_OR_PREMULTIPLIED;
 				double								alphaRefValue = 0.5; // only required to make sense if `alphaSemantic==EAS_REFERENCE_OR_COVERAGE`
 				uint32_t							alphaChannel = 3u; // index of the alpha channel (could be different cause of swizzles)
 		};
@@ -56,12 +66,12 @@ class CBlitImageFilterBase : public impl::CSwizzleableAndDitherableFilterBase<Sw
 		virtual ~CBlitImageFilterBase() {}
 
 		// this will be called by derived classes because it doesn't account for all scratch needed, just the stuff for coverage adjustment
-		static inline uint32_t getRequiredScratchByteSize(	typename CStateBase::E_ALPHA_SEMANTIC alphaSemantic=CStateBase::EAS_NONE_OR_PREMULTIPLIED,
+		static inline uint32_t getRequiredScratchByteSize(CBlitUtilities::E_ALPHA_SEMANTIC alphaSemantic=CBlitUtilities::EAS_NONE_OR_PREMULTIPLIED,
 															const core::vectorSIMDu32& outExtentLayerCount=core::vectorSIMDu32(0,0,0,0))
 		{
 			uint32_t retval = 0u;
 			// 
-			if (alphaSemantic==CStateBase::EAS_REFERENCE_OR_COVERAGE)
+			if (alphaSemantic==CBlitUtilities::EAS_REFERENCE_OR_COVERAGE)
 			{
 				// no mul by channel count because we're only after alpha
 				retval += outExtentLayerCount.x*outExtentLayerCount.y*outExtentLayerCount.z;
@@ -86,7 +96,7 @@ class CBlitImageFilterBase : public impl::CSwizzleableAndDitherableFilterBase<Sw
 			if (state->borderColor>=ISampler::ETBC_COUNT)
 				return false;
 
-			if (state->alphaSemantic>=CStateBase::EAS_COUNT)
+			if (state->alphaSemantic>=CBlitUtilities::EAS_COUNT)
 				return false;
 
 			if (state->alphaChannel>=4)
@@ -156,7 +166,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 
 				static bool computePhaseSupportLUT(const CState* state)
 				{
-					const core::vectorSIMDu32 phaseCount = getPhaseCount(state->inExtentLayerCount, state->outExtentLayerCount, state->inImage->getCreationParameters().type);
+					const core::vectorSIMDu32 phaseCount = CBlitUtilities::getPhaseCount(state->inExtentLayerCount, state->outExtentLayerCount, state->inImage->getCreationParameters().type);
 					for (auto i = 0; i <= state->inImage->getCreationParameters().type; ++i)
 					{
 						if (phaseCount[i] == 0)
@@ -294,7 +304,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 			uint32_t retval = getPhaseSupportLUTByteOffset(state);
 			
 			// need to add the memory for phase support LUT
-			const core::vectorSIMDu32 phaseCount = getPhaseCount(state->inExtentLayerCount, state->outExtentLayerCount, state->inImage->getCreationParameters().type);
+			const core::vectorSIMDu32 phaseCount = CBlitUtilities::getPhaseCount(state->inExtentLayerCount, state->outExtentLayerCount, state->inImage->getCreationParameters().type);
 			retval += ((phaseCount[0]*scaledKernelX.getWindowSize().x) + (phaseCount[1]*scaledKernelY.getWindowSize().y) + (phaseCount[2]*scaledKernelZ.getWindowSize().z)) * sizeof(value_type) * MaxChannels;
 
 			return retval;
@@ -308,14 +318,6 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 
 			const uint32_t retval = getScratchOffset(state, true) + base_t::getRequiredScratchByteSize(state->alphaSemantic, state->outExtentLayerCount);
 			return retval;
-		}
-
-		static inline core::vectorSIMDu32 getPhaseCount(const core::vectorSIMDu32& inExtent, const core::vectorSIMDu32& outExtent, const asset::IImage::E_TYPE inImageType)
-		{
-			core::vectorSIMDu32 result(0u);
-			for (uint32_t i = 0u; i <= inImageType; ++i)
-				result[i] = outExtent[i] / std::gcd(inExtent[i], outExtent[i]);
-			return result;
 		}
 
 		static inline bool validate(state_type* state)
@@ -342,7 +344,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 			const auto inFormat = inParams.format;
 			const auto outFormat = outParams.format;
 			// cannot do alpha adjustment if we dont have alpha or will discard alpha
-			if (state->alphaSemantic!=CState::EAS_NONE_OR_PREMULTIPLIED && (getFormatChannelCount(inFormat)!=4u||getFormatChannelCount(outFormat)!=4u))
+			if (state->alphaSemantic!=CBlitUtilities::EAS_NONE_OR_PREMULTIPLIED && (getFormatChannelCount(inFormat)!=4u||getFormatChannelCount(outFormat)!=4u))
 				return false;
 
 			// TODO: remove this later when we can actually write/encode to block formats
@@ -391,9 +393,9 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 			const auto outLimit = outOffsetBaseLayer+outExtentLayerCount;
 
 			const auto* const axisWraps = state->axisWraps;
-			const bool nonPremultBlendSemantic = state->alphaSemantic==CState::EAS_SEPARATE_BLEND;
+			const bool nonPremultBlendSemantic = state->alphaSemantic==CBlitUtilities::EAS_SEPARATE_BLEND;
 			// TODO: reformulate coverage adjustment as a normalization
-			const bool coverageSemantic = state->alphaSemantic==CState::EAS_REFERENCE_OR_COVERAGE;
+			const bool coverageSemantic = state->alphaSemantic==CBlitUtilities::EAS_REFERENCE_OR_COVERAGE;
 			const bool needsNormalization = !std::is_void_v<Normalization> || coverageSemantic;
 			const auto alphaRefValue = state->alphaRefValue;
 			const auto alphaChannel = state->alphaChannel;
@@ -492,7 +494,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 			}();
 			const auto windowMinCoordBase = inOffsetBaseLayer+startCoord;
 
-			core::vectorSIMDu32 phaseCount = getPhaseCount(inExtentLayerCount, outExtentLayerCount, inImageType);
+			core::vectorSIMDu32 phaseCount = CBlitUtilities::getPhaseCount(inExtentLayerCount, outExtentLayerCount, inImageType);
 			phaseCount = core::max(phaseCount, core::vectorSIMDu32(1, 1, 1));
 			const core::vectorSIMDu32 axisOffsets = getPhaseSupportLUTAxisOffsets(phaseCount, real_window_size);
 			constexpr auto MaxAxisCount = 3;
@@ -651,7 +653,6 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 							tmp[axis] = float(i)+0.5f;
 							core::vectorSIMDi32 windowCoord(0);
 							windowCoord[axis] = kernel.getWindowMinCoord(tmp*fScale,tmp)[axis];
-							auto relativePos = tmp[axis]-float(windowCoord[axis]);
 
 							for (auto ch = 0; ch < MaxChannels; ++ch)
 								value[ch] = getWeightedSample(windowCoord, phaseIndex, 0, ch);

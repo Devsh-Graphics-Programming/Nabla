@@ -10,6 +10,7 @@
 #include "nbl/video/alloc/StreamingTransientDataBuffer.h"
 #include "nbl/video/utilities/CPropertyPoolHandler.h"
 #include "nbl/video/utilities/CScanner.h"
+#include "nbl/video/utilities/CComputeBlit.h"
 
 namespace nbl::video
 {
