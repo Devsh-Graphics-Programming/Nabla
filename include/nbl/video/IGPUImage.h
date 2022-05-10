@@ -23,9 +23,11 @@ class IGPUImage : public core::impl::ResolveAlignment<IDriverMemoryBacked,asset:
 	private:
 		using base_t = core::impl::ResolveAlignment<IDriverMemoryBacked, asset::IImage>;
 
-    public:
-        _NBL_RESOLVE_NEW_DELETE_AMBIGUITY(IDriverMemoryBacked,asset::IImage)
+	public:
+		_NBL_RESOLVE_NEW_DELETE_AMBIGUITY(IDriverMemoryBacked,asset::IImage)
 			
+		E_OBJECT_TYPE getObjectType() const override { return EOT_IMAGE; }
+
 		//!
 		virtual bool validateCopies(const SBufferCopy* pRegionsBegin, const SBufferCopy* pRegionsEnd, const IGPUBuffer* src) const
 		{
@@ -59,17 +61,17 @@ class IGPUImage : public core::impl::ResolveAlignment<IDriverMemoryBacked,asset:
 		// Vulkan: const VkImage*
 		virtual const void* getNativeHandle() const = 0;
 
-    protected:
-        _NBL_INTERFACE_CHILD(IGPUImage) {}
+	protected:
+		_NBL_INTERFACE_CHILD(IGPUImage) {}
 
-        //! constructor
+		//! constructor
 		IGPUImage(core::smart_refctd_ptr<const ILogicalDevice>&& dev,
 			SCreationParams&& _params,
 			const IDriverMemoryBacked::SDriverMemoryRequirements reqs = IDriverMemoryBacked::SDriverMemoryRequirements())
 			: base_t(reqs), IBackendObject(std::move(dev))
-        {
+		{
 			params = std::move(_params);
-        }
+		}
 };
 
 

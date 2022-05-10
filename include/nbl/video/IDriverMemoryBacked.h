@@ -18,6 +18,12 @@ namespace nbl::video
 class IDriverMemoryBacked : public virtual core::IReferenceCounted
 {
     public:
+        enum E_OBJECT_TYPE : bool
+        {
+            EOT_BUFFER,
+            EOT_IMAGE
+        };
+
         struct SDriverMemoryRequirements
         {
             VkMemoryRequirements vulkanReqs;
@@ -37,6 +43,9 @@ class IDriverMemoryBacked : public virtual core::IReferenceCounted
             uint32_t requiresDedicatedAllocation    : 1;
         };
         static_assert(sizeof(SDriverMemoryRequirements2)==16);
+        
+        //! Return type of memory backed object (image or buffer)
+        virtual E_OBJECT_TYPE getObjectType() const = 0;
 
         //! Combine requirements
         /** \return true on success, some requirements are mutually exclusive, so it may be impossible to combine them. */

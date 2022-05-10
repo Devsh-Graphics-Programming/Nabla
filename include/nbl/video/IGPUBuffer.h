@@ -37,6 +37,8 @@ class IGPUBuffer : public asset::IBuffer, public IDriverMemoryBacked, public IBa
 			uint32_t queueFamilyIndexCount = 0u;
 			const uint32_t* queueFamilyIndices = nullptr;
 		};
+		
+		E_OBJECT_TYPE getObjectType() const override { return EOT_BUFFER; }
 
 		inline uint64_t getSize() const override {return m_cachedCreationParams.declaredSize;}
 

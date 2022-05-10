@@ -297,7 +297,79 @@ core::smart_refctd_ptr<IDriverMemoryAllocation> CVulkanLogicalDevice::allocateGP
 
 IDeviceMemoryAllocator::SMemoryOffset CVulkanLogicalDevice::allocate(const SAllocateInfo& info)
 {
-    return {}; // TODO
+    IDeviceMemoryAllocator::SMemoryOffset ret = {nullptr, IDeviceMemoryAllocator::InvalidMemoryOffset};
+
+    core::bitflag<IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags(info.flags);
+
+    VkMemoryDedicatedAllocateInfo vk_dedicatedInfo = {VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO, nullptr};
+    VkMemoryAllocateFlagsInfo vk_allocateFlagsInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO, nullptr };
+    VkMemoryAllocateInfo vk_allocateInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, &vk_allocateFlagsInfo};
+
+    if (allocateFlags.hasValue(IDriverMemoryAllocation::EMAF_DEVICE_MASK_BIT))
+        vk_allocateFlagsInfo.flags |= VK_MEMORY_ALLOCATE_DEVICE_MASK_BIT;
+    else if(allocateFlags.hasValue(IDriverMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT))
+        vk_allocateFlagsInfo.flags |= VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
+    else if (allocateFlags.hasValue(IDriverMemoryAllocation::EMAF_DEVICE_ADDRESS_CAPTURE_REPLAY_BIT))
+        vk_allocateFlagsInfo.flags |= VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_CAPTURE_REPLAY_BIT;
+    vk_allocateFlagsInfo.deviceMask = 0u; // unused
+    
+    vk_allocateInfo.allocationSize = info.size;
+    vk_allocateInfo.memoryTypeIndex = info.memoryTypeIndex;
+
+    VkDeviceMemory vk_deviceMemory;
+    if(info.dedication)
+    {
+        // VK_KHR_dedicated_allocation is in core 1.1, no querying for support needed
+        static_assert(MinimumVulkanApiVersion >= VK_MAKE_API_VERSION(0, 1, 1, 0));
+        const auto& dedicationMemoryRequirements = info.dedication->getMemoryReqs();
+        if(dedicationMemoryRequirements.prefersDedicatedAllocation || dedicationMemoryRequirements.requiresDedicatedAllocation) 
+        {
+            vk_allocateFlagsInfo.pNext = &vk_dedicatedInfo;
+            if(info.dedication->getObjectType() == IDriverMemoryBacked::EOT_BUFFER)
+                vk_dedicatedInfo.buffer = static_cast<CVulkanBuffer*>(info.dedication)->getInternalObject();
+            else if(info.dedication->getObjectType() == IDriverMemoryBacked::EOT_IMAGE)
+                vk_dedicatedInfo.image = static_cast<CVulkanImage*>(info.dedication)->getInternalObject();
+        }
+    }
+
+    auto vk_res = m_devf.vk.vkAllocateMemory(m_vkdev, &vk_allocateInfo, nullptr, &vk_deviceMemory);
+    if (vk_res == VK_SUCCESS)
+    {
+        ret.memory = core::make_smart_refctd_ptr<CVulkanMemoryAllocation>(this, info.size, false, vk_deviceMemory, allocateFlags);
+        ret.offset = 0ull; // currently we allocate on demand so offset will be 0 relative to the memory handle
+
+        // TODO: Move this logic to parent class (ILogicalDevice) and make this a protected _impl function if OpenGL did a similiar thing
+        if(info.dedication)
+        {
+            bool dedicationSuccess = false;
+            if(info.dedication->getObjectType() == IDriverMemoryBacked::EOT_BUFFER)
+            {
+                SBindBufferMemoryInfo bindBufferInfo = {};
+                bindBufferInfo.buffer = static_cast<IGPUBuffer*>(info.dedication);
+                bindBufferInfo.memory = ret.memory.get();
+                bindBufferInfo.offset = ret.offset;
+                dedicationSuccess = bindBufferMemory(1u, &bindBufferInfo);
+            }
+            else if(info.dedication->getObjectType() == IDriverMemoryBacked::EOT_IMAGE)
+            {
+                SBindImageMemoryInfo bindImageInfo = {};
+                bindImageInfo.image = static_cast<IGPUImage*>(info.dedication);
+                bindImageInfo.memory = ret.memory.get();
+                bindImageInfo.offset = ret.offset;
+                dedicationSuccess = bindImageMemory(1u, &bindImageInfo);
+            }
+            if(!dedicationSuccess)
+            {
+                // automatically allocation goes out of scope and frees itself
+                ret = {nullptr, IDeviceMemoryAllocator::InvalidMemoryOffset};
+            }
+        }
+    }
+    // TODO: Log errors:
+    // else if(vk_res == VK_ERROR_OUT_OF_DEVICE_MEMORY)
+    // else if(vk_res == VK_ERROR_OUT_OF_HOST_MEMORY)
+
+    return ret;
 }
 
 bool CVulkanLogicalDevice::createCommandBuffers_impl(IGPUCommandPool* cmdPool, IGPUCommandBuffer::E_LEVEL level,

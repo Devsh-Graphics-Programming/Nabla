@@ -96,7 +96,6 @@ class IDriverMemoryAllocation : public virtual core::IReferenceCounted
             EMAF_DEVICE_MASK_BIT = 0x00000001,
             EMAF_DEVICE_ADDRESS_BIT = 0x00000002,
             EMAF_DEVICE_ADDRESS_CAPTURE_REPLAY_BIT = 0x00000004,
-            // Mapping Capability Flags
         };
 
         E_API_TYPE getAPIType() const;
