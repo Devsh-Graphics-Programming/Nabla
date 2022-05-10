@@ -12,7 +12,7 @@ namespace nbl
 namespace asset
 {
 
-class NBL_API CSTLMetadata final : public IAssetMetadata
+class CSTLMetadata final : public IAssetMetadata
 {
     public:
         class CRenderpassIndependentPipeline : public IRenderpassIndependentPipelineMetadata
@@ -28,7 +28,12 @@ class NBL_API CSTLMetadata final : public IAssetMetadata
                 inline CRenderpassIndependentPipeline& operator=(CRenderpassIndependentPipeline&& other)
                 {
                     IRenderpassIndependentPipelineMetadata::operator=(std::move(other));
-                    return *this;
+                    return *this;   
+                }
+
+                inline bool operator!=(const CRenderpassIndependentPipeline& other) const
+                {
+                    return IRenderpassIndependentPipelineMetadata::operator!=(other);
                 }
         };
             

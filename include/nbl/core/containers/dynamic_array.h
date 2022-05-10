@@ -58,7 +58,7 @@ namespace impl
 	@see core::refctd_dynamic_array
 */
 template<typename T, class allocator, class CRTP, typename... OverAlignmentTypes>
-class NBL_API NBL_FORCE_EBO dynamic_array : public impl::dynamic_array_base<allocator,T,OverAlignmentTypes...>
+class NBL_FORCE_EBO dynamic_array : public impl::dynamic_array_base<allocator,T,OverAlignmentTypes...>
 {
 		using base_t = impl::dynamic_array_base<allocator,T,OverAlignmentTypes...>;
 		_NBL_STATIC_INLINE_CONSTEXPR bool is_const = std::is_const<T>::value;

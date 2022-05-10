@@ -37,7 +37,7 @@ class NBL_API IDescriptorSet : public virtual core::IReferenceCounted
 
 	public:
 		using layout_t = LayoutType;
-		struct SDescriptorInfo
+		struct NBL_API SDescriptorInfo
 		{
                 struct SBufferInfo
                 {
@@ -45,6 +45,8 @@ class NBL_API IDescriptorSet : public virtual core::IReferenceCounted
                     size_t size;//in Vulkan it's called `range` but IMO it's misleading so i changed to `size`
 
 					static constexpr inline size_t WholeBuffer = ~0ull;
+
+					auto operator<=>(const SBufferInfo&) const = default;
                 };
                 struct SImageInfo
                 {
@@ -118,6 +120,13 @@ class NBL_API IDescriptorSet : public virtual core::IReferenceCounted
 							image = other.image;
 					}
 					return *this;
+				}
+
+				inline bool operator!=(const SDescriptorInfo& other) const
+				{
+					if (desc != desc)
+						return true;
+					return buffer != other.buffer;
 				}
 		};
 
@@ -226,6 +235,11 @@ class NBL_API IEmulatedDescriptorSet
 
 		struct SBindingInfo
 		{
+			inline bool operator!=(const SBindingInfo& other) const
+			{
+				return offset!=other.offset || descriptorType!=other.descriptorType;
+			}
+
 			uint32_t offset;
 			E_DESCRIPTOR_TYPE descriptorType = EDT_INVALID;//whatever, default value
 		};

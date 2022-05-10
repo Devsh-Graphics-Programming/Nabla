@@ -347,6 +347,11 @@ class NBL_API IPhysicalDevice : public core::Interface, public core::Unmovable
             uint32_t queueCount;
             uint32_t timestampValidBits;
             asset::VkExtent3D minImageTransferGranularity;
+
+            inline bool operator!=(const SQueueFamilyProperties& other) const
+            {
+                return queueFlags.value != other.queueFlags.value || queueCount != other.queueCount || timestampValidBits != other.timestampValidBits || minImageTransferGranularity != other.minImageTransferGranularity;
+            }
         };
         auto getQueueFamilyProperties() const 
         {

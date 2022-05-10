@@ -74,6 +74,8 @@ class NBL_API ISpecializedShader : public virtual core::IReferenceCounted
 					uint32_t specConstID;		//!< The ID of the specialization constant in SPIR-V. If it isn't used in the shader, the map entry does not affect the behavior of the pipeline.
 					uint32_t offset;			//!< The byte offset of the specialization constant value within the supplied data buffer.		
 					size_t size;				//!< The byte size of the specialization constant value within the supplied data buffer.
+				
+					auto operator<=>(const SMapEntry&) const = default;
 				};
 
 				SInfo() = default;
