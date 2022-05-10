@@ -16,7 +16,9 @@ struct bitflag final
 	ENUM_TYPE value = static_cast<ENUM_TYPE>(0);
 
 	bitflag() = default;
-	bitflag(const ENUM_TYPE value) : value(value) {}
+	bitflag(const ENUM_TYPE _value) : value(value) {}
+	template<typename Integer, std::enable_if_t<std::is_integral<Integer>::value, bool> = true, std::enable_if_t<std::is_unsigned<Integer>::value, bool> = true>
+	explicit bitflag(const Integer value) : value(static_cast<ENUM_TYPE>(value)) {}
 
 	inline bitflag<ENUM_TYPE> operator~() { return static_cast<ENUM_TYPE>(~value); }
 	inline bitflag<ENUM_TYPE> operator|(bitflag<ENUM_TYPE> rhs) const { return static_cast<ENUM_TYPE>(value | rhs.value); }
