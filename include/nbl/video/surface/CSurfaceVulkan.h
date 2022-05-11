@@ -1,6 +1,8 @@
 #ifndef __NBL_C_SURFACE_VULKAN_H_INCLUDED__
 #define __NBL_C_SURFACE_VULKAN_H_INCLUDED__
 
+#include "BuildConfigOptions.h"
+
 #include "nbl/video/surface/ISurface.h"
 #include "nbl/video/CVulkanConnection.h"
 

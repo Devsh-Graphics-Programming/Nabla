@@ -42,18 +42,6 @@
 
 #ifdef _NBL_WINDOWS_API_
 
-// To build Nabla as a static library, you must define _NBL_STATIC_LIB_ in both the
-// Nabla build, *and* in the user application, before #including <nabla.h>
-#ifndef _NBL_STATIC_LIB_
-#ifdef NABLA_EXPORTS
-#define NABLA_API __declspec(dllexport)
-#else
-#define NABLA_API __declspec(dllimport)
-#endif // NABLA_EXPORT
-#else
-#define NABLA_API
-#endif // _NBL_STATIC_LIB_
-
 // Declare the calling convention.
 #if defined(_STDCALL_SUPPORTED)
 #define NBLCALLCONV __stdcall
@@ -62,13 +50,6 @@
 #endif // STDCALL_SUPPORTED
 
 #else // _NBL_WINDOWS_API_
-
-// Force symbol export in shared libraries built with gcc.
-#if (__GNUC__ >= 4) && !defined(_NBL_STATIC_LIB_) && defined(NABLA_EXPORTS)
-#define NABLA_API __attribute__ ((visibility("default")))
-#else
-#define NABLA_API
-#endif
 
 #define NBLCALLCONV
 

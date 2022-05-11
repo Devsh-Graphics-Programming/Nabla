@@ -585,13 +585,17 @@ macro(glue_source_definitions NBL_TARGET NBL_REFERENCE_RETURN_VARIABLE)
 	foreach(_NBL_DEF_ IN LISTS ${NBL_REFERENCE_RETURN_VARIABLE})
 		string(FIND "${_NBL_DEF_}" "=" _NBL_POSITION_ REVERSE)
 		
+		# put target compile definitions without any value into wrapper file
 		if(_NBL_POSITION_ STREQUAL -1)
-			string(APPEND WRAPPER_CODE 
-				"#ifndef ${_NBL_DEF_}\n"
-				"#define ${_NBL_DEF_}\n"
-				"#endif // ${_NBL_DEF_}\n\n"
-			)
+			if(NOT ${_NBL_DEF_} STREQUAL "__NBL_BUILDING_NABLA__")
+				string(APPEND WRAPPER_CODE 
+					"#ifndef ${_NBL_DEF_}\n"
+					"#define ${_NBL_DEF_}\n"
+					"#endif // ${_NBL_DEF_}\n\n"
+				)
+			endif()
 		else()
+			# put target compile definitions with an assigned value into wrapper file
 			string(SUBSTRING "${_NBL_DEF_}" 0 ${_NBL_POSITION_} _NBL_CLEANED_DEF_)
 			
 			string(LENGTH "${_NBL_DEF_}" _NBL_DEF_LENGTH_)

@@ -170,7 +170,6 @@ set(_NBL_DEBUG 1)
 set(_NBL_RELWITHDEBINFO 0)
 configure_file("${NBL_ROOT_PATH}/include/nbl/config/BuildConfigOptions.h.in" "${NABLA_CONF_DIR_DEBUG}/BuildConfigOptions.h")
 
-
 # a little bit of globbing for headers never hurt anyone
 file(GLOB_RECURSE TEMP_GLOB_RES "${NBL_ROOT_PATH}/include/*.h")
 set(NABLA_HEADERS_PUBLIC ${NABLA_HEADERS_PUBLIC} ${TEMP_GLOB_RES})
@@ -189,8 +188,6 @@ foreach(NBL_CURRENT_HEADER IN LISTS NABLA_HEADERS_PUBLIC2)
 endforeach()
 
 unset(NABLA_HEADERS_PUBLIC2 ${NBL_TMP_FULL_PATHS})
-
-
 #
 set(NBL_CORE_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/core/IReferenceCounted.cpp
@@ -412,7 +409,7 @@ endforeach()
 list(APPEND NABLA_HEADERS_PUBLIC ${NABLA_RESOURCES_TO_EMBED_PUBLIC})
 source_group("Resources to embed" FILES ${NABLA_RESOURCES_TO_EMBED_PUBLIC})
 
-set(NABLA_HEADERS "${CMAKE_CURRENT_BINARY_DIR}/include/nabla.h" ${NABLA_HEADERS_PUBLIC} ${NABLA_HEADERS_PIRV1} ${NABLA_HEADERS_PRIV2})
+set(NABLA_HEADERS "${NBL_ROOT_PATH}/include/nabla.h" ${NABLA_HEADERS_PUBLIC} ${NABLA_HEADERS_PIRV1} ${NABLA_HEADERS_PRIV2})
 
 set(NBL_LIBRARY_CREATION_SOURCES 
 	${NABLA_SRCS_COMMON}
@@ -583,11 +580,8 @@ endif()
 
 # Vulkan
 target_include_directories(Nabla PUBLIC "${THIRD_PARTY_SOURCE_DIR}/Vulkan-Headers/include")
-if(NBL_STATIC_BUILD)
-	target_link_libraries(Nabla PUBLIC volk)
-else()
-	target_link_libraries(Nabla PRIVATE volk)
-endif()
+target_include_directories(Nabla PUBLIC "${THIRD_PARTY_SOURCE_DIR}/volk")
+target_link_libraries(Nabla PRIVATE volk)
 if(WIN32)
 	target_compile_definitions(Nabla PRIVATE VK_USE_PLATFORM_WIN32_KHR)
 endif()
@@ -619,26 +613,14 @@ target_include_directories(Nabla PUBLIC ${NBL_ROOT_PATH}/src ${NBL_ROOT_PATH}/so
 target_include_directories(Nabla PRIVATE ${CMAKE_BINARY_DIR}/include)
 
 target_compile_definitions(Nabla 
-	PRIVATE	_NBL_STATIC_LIB_ EGL_STATIC SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS
+	PRIVATE EGL_STATIC SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS
 	INTERFACE _NBL_PCH_IGNORE_PRIVATE_HEADERS
 )
 
-# generate definitions out to a header
+# generate Nabla definitions to a header
 glue_source_definitions(Nabla _NBL_SOURCE_DEFINITIONS_)
 set(_NBL_DEFINE_FILE_WRAPPER_ ${CMAKE_CURRENT_BINARY_DIR}/include/define.h)
-
 write_source_definitions("${_NBL_DEFINE_FILE_WRAPPER_}" "${_NBL_SOURCE_DEFINITIONS_}")
-
-add_custom_command(
-	OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/include/nabla.h" 
-	COMMAND ${CMAKE_COMMAND} -DNBL_ROOT_PATH:PATH=${NBL_ROOT_PATH} -DNBL_WRAPPER_FILE:FILEPATH=${_NBL_DEFINE_FILE_WRAPPER_} -DNBL_GEN_DIRECTORY:PATH=${CMAKE_CURRENT_BINARY_DIR}/include -P ${NBL_ROOT_PATH}/cmake/scripts/nbl/nablaHeader.cmake
-	DEPENDS ${NBL_ROOT_PATH}/include/nabla.h.in
-	COMMENT "Generating nabla.h"
-	VERBATIM
-)
-
-add_custom_target(generate_nabla_header DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/include/nabla.h")
-add_dependencies(Nabla generate_nabla_header)
 
 #on MSVC it won't compile without this option!
 if (MSVC)
@@ -660,8 +642,8 @@ start_tracking_variables_for_propagation_to_parent()
 add_subdirectory(ext)
 propagate_changed_variables_to_parent_scope()
 
-nbl_install_headers("${CMAKE_CURRENT_BINARY_DIR}/include/nabla.h" "${CMAKE_CURRENT_BINARY_DIR}/include")
 nbl_install_headers("${NABLA_HEADERS_PUBLIC}" "${NBL_ROOT_PATH}/include")
+nbl_install_headers("${CMAKE_CURRENT_BINARY_DIR}/include/define.h" "${CMAKE_CURRENT_BINARY_DIR}/include")
 nbl_install_config_header(BuildConfigOptions.h)
 
 # TODO: @AnastazIuk change macros to functions! https://github.com/buildaworldnet/IrrlichtBAW/issues/311
