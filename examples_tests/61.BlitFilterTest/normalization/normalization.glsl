@@ -29,7 +29,6 @@ uint nbl_glsl_blit_normalization_getPassedInputPixelCountData();
 
 void nbl_glsl_blit_normalization_main()
 {
-	// Todo(achal): Assert on the CPU that _NBL_GLSL_BLIT_NORMALIZATION_BIN_COUNT_ == WORKGROUP_SIZE
 	uint histogramVal = 0u;
 	if (gl_LocalInvocationIndex < _NBL_GLSL_BLIT_NORMALIZATION_BIN_COUNT_)
 		histogramVal = nbl_glsl_blit_normalization_getAlphaHistogramData(gl_LocalInvocationIndex);

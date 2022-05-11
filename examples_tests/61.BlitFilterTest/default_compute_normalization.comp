@@ -65,7 +65,6 @@ layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_X_, local_size_y = _NBL_GLSL_WOR
 #include <../normalization/parameters.glsl>
 #include <../normalization/normalization.glsl>
 #include <../normalization/descriptors.glsl>
-// #include <../blit/formats/rgba16.glsl>
 
 layout (push_constant) uniform Block
 {

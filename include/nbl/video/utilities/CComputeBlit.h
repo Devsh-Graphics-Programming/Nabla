@@ -18,7 +18,6 @@ private:
 	};
 
 public:
-	static constexpr uint32_t DefaultWorkgroupDim = 16u;
 	static constexpr uint32_t DefaultWorkgroupSize = 256u;
 	static constexpr uint32_t DefaultAlphaBinCount = 256u;
 
@@ -143,14 +142,16 @@ public:
 		if (!cpuShader)
 			return nullptr;
 
+		const auto workgroupDims = getDefaultWorkgroupDims(inImageType);
+
 		auto cpuShaderOverriden = asset::IGLSLCompiler::createOverridenCopy(cpuShader.get(),
 			"#define _NBL_GLSL_WORKGROUP_SIZE_X_ %d\n"
 			"#define _NBL_GLSL_WORKGROUP_SIZE_Y_ %d\n"
 			"#define _NBL_GLSL_WORKGROUP_SIZE_Z_ %d\n"
 			"#define _NBL_GLSL_BLIT_ALPHA_TEST_DIM_COUNT_ %d\n",
-			inImageType >= asset::IImage::ET_1D ? DefaultWorkgroupDim : 1u,
-			inImageType >= asset::IImage::ET_2D ? DefaultWorkgroupDim : 1u,
-			inImageType >= asset::IImage::ET_3D ? DefaultWorkgroupDim : 1u,
+			inImageType >= asset::IImage::ET_1D ? workgroupDims.x : 1u,
+			inImageType >= asset::IImage::ET_2D ? workgroupDims.y : 1u,
+			inImageType >= asset::IImage::ET_3D ? workgroupDims.z : 1u,
 			static_cast<uint32_t>(inImageType) + 1u);
 
 		cpuShaderOverriden->setFilePathHint(shaderpath);
@@ -200,12 +201,12 @@ public:
 		logicalDevice->updateDescriptorSets(descriptorCount, writes, 0u, nullptr);
 	}
 
-	inline void buildAlphaTestParameters(const float referenceAlpha, const core::vectorSIMDu32& inImageExtent, alpha_test_push_constants_t& outPC, dispatch_info_t& outDispatchInfo)
+	inline void buildAlphaTestParameters(const float referenceAlpha, const asset::IImage::E_TYPE inImageType, const core::vectorSIMDu32& inImageExtent, alpha_test_push_constants_t& outPC, dispatch_info_t& outDispatchInfo)
 	{
 		outPC.referenceAlpha = referenceAlpha;
 
-		const core::vectorSIMDu32 workgroupSize(DefaultWorkgroupDim, DefaultWorkgroupDim, DefaultWorkgroupDim, 1u);
-		const core::vectorSIMDu32 workgroupCount = (inImageExtent + workgroupSize - core::vectorSIMDu32(1u, 1u, 1u, 1u)) / workgroupSize;
+		const core::vectorSIMDu32 workgroupDims = getDefaultWorkgroupDims(inImageType);
+		const core::vectorSIMDu32 workgroupCount = (inImageExtent + workgroupDims - core::vectorSIMDu32(1u, 1u, 1u, 1u)) / workgroupDims;
 		outDispatchInfo.wgCount[0] = workgroupCount.x;
 		outDispatchInfo.wgCount[1] = workgroupCount.y;
 		outDispatchInfo.wgCount[2] = workgroupCount.z;
@@ -268,11 +269,13 @@ public:
 			"%s\n" // _NBL_GLSL_BLIT_NORMALIZATION_SOFTWARE_CODEC_
 			"%s\n"; // format include
 
+		core::vectorSIMDu32 workgroupDim = getDefaultWorkgroupDims(inImageType);
+
 		auto cpuShaderOverriden = asset::IGLSLCompiler::createOverridenCopy(cpuShader.get(),
 			overrideFormat,
-			inImageType >= asset::IImage::ET_1D ? DefaultWorkgroupDim : 1u,
-			inImageType >= asset::IImage::ET_2D ? DefaultWorkgroupDim : 1u,
-			inImageType >= asset::IImage::ET_3D ? DefaultWorkgroupDim : 1u,
+			inImageType >= asset::IImage::ET_1D ? workgroupDim.x : 1u,
+			inImageType >= asset::IImage::ET_2D ? workgroupDim.y : 1u,
+			inImageType >= asset::IImage::ET_3D ? workgroupDim.z : 1u,
 			DefaultAlphaBinCount,
 			static_cast<uint32_t>(inImageType + 1u),
 			outImageViewFormatGLSLString,
@@ -331,14 +334,30 @@ public:
 		logicalDevice->updateDescriptorSets(descriptorCount, writes, 0u, nullptr);
 	}
 
-	void buildNormalizationParameters(const core::vectorSIMDu32& inImageExtent, const core::vectorSIMDu32& outImageExtent, const float referenceAlpha, normalization_push_constants_t& outPC, dispatch_info_t& outDispatchInfo)
+	static inline core::vectorSIMDu32 getDefaultWorkgroupDims(const asset::IImage::E_TYPE inImageType)
+	{
+		switch (inImageType)
+		{
+		case asset::IImage::ET_1D:
+			return core::vectorSIMDu32(256, 1, 1);
+		case asset::IImage::ET_2D:
+			return core::vectorSIMDu32(16, 16, 1);
+		case asset::IImage::ET_3D:
+			return core::vectorSIMDu32(8, 8, 4);
+		default:
+			return core::vectorSIMDu32(0, 0, 0, 0);
+		}
+	}
+
+	void buildNormalizationParameters(const asset::IImage::E_TYPE inImageType, const core::vectorSIMDu32& inImageExtent, const core::vectorSIMDu32& outImageExtent, const float referenceAlpha, normalization_push_constants_t& outPC, dispatch_info_t& outDispatchInfo)
 	{
 		outPC.outDim = { outImageExtent.x, outImageExtent.y, outImageExtent.z };
 		outPC.inPixelCount = inImageExtent.x * inImageExtent.y * inImageExtent.z;
 		outPC.referenceAlpha = static_cast<float>(referenceAlpha);
 
-		const core::vectorSIMDu32 workgroupSize(DefaultWorkgroupDim, DefaultWorkgroupDim, DefaultWorkgroupDim, 1u);
-		const core::vectorSIMDu32 workgroupCount = (outImageExtent + workgroupSize - core::vectorSIMDu32(1u, 1u, 1u, 1u)) / workgroupSize;
+		const core::vectorSIMDu32 workgroupDims = getDefaultWorkgroupDims(inImageType);
+		assert(workgroupDims.x * workgroupDims.y * workgroupDims.z <= DefaultAlphaBinCount);
+		const core::vectorSIMDu32 workgroupCount = (outImageExtent + workgroupDims - core::vectorSIMDu32(1u, 1u, 1u, 1u)) / workgroupDims;
 
 		outDispatchInfo.wgCount[0] = workgroupCount.x;
 		outDispatchInfo.wgCount[1] = workgroupCount.y;
@@ -533,7 +552,7 @@ public:
 			cmdbuf->bindComputePipeline(alphaTestPipeline);
 			CComputeBlit::alpha_test_push_constants_t alphaTestPC;
 			CComputeBlit::dispatch_info_t alphaTestDispatchInfo;
-			buildAlphaTestParameters(referenceAlpha, inImageExtent, alphaTestPC, alphaTestDispatchInfo);
+			buildAlphaTestParameters(referenceAlpha, inImageType, inImageExtent, alphaTestPC, alphaTestDispatchInfo);
 			dispatchHelper<CComputeBlit::alpha_test_push_constants_t>(cmdbuf, alphaTestPipeline->getLayout(), alphaTestPC, alphaTestDispatchInfo);
 		}
 
@@ -578,7 +597,7 @@ public:
 			cmdbuf->bindComputePipeline(normalizationPipeline);
 			CComputeBlit::normalization_push_constants_t normPC = {};
 			CComputeBlit::dispatch_info_t normDispatchInfo = {};
-			buildNormalizationParameters(inImageExtent, outImageExtent, referenceAlpha, normPC, normDispatchInfo);
+			buildNormalizationParameters(inImageType, inImageExtent, outImageExtent, referenceAlpha, normPC, normDispatchInfo);
 			dispatchHelper<CComputeBlit::normalization_push_constants_t>(cmdbuf, normalizationPipeline->getLayout(), normPC, normDispatchInfo);
 		}
 	}

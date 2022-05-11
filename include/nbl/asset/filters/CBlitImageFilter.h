@@ -232,7 +232,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 							for (int32_t j = 0; j < windowSize; ++j)
 							{
 								core::vectorSIMDf tmp(relativePos, 0.f, 0.f);
-								kernel.evaluateImpl(dummyLoad, dummyEvaluate, kernelWeight, tmp, core::vectorSIMDi32(), &scale); // `windowCoord` is unused
+								kernel.evaluateImpl(dummyLoad, dummyEvaluate, kernelWeight, tmp, core::vectorSIMDi32(), &scale);
 								for (uint32_t ch = 0; ch < MaxChannels; ++ch)
 									phaseSupportLUTPixel[(i * windowSize + j)*MaxChannels + ch] = kernelWeight[ch];
 								relativePos -= 1.f;
