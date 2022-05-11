@@ -225,7 +225,7 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
                 return static_cast<uint32_t>(core::min<uint64_t>(infinitelyWideDeviceWGCount,maxResidentWorkgroups));
             }
         };
-        
+
         struct SProperties
         {
             //--> VkPhysicalDeviceProperties:
@@ -405,6 +405,76 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
             MemoryHeap      memoryHeaps[VK_MAX_MEMORY_HEAPS];
         };
         const SMemoryProperties& getMemoryProperties() const { return m_memoryProperties; }
+        
+        //! Bit `i` in MemoryTypeMasks will be set if m_memoryProperties.memoryTypes[i] has the `flags`
+        uint32_t getMemoryTypeMaskFromMemoryTypeFlags(core::bitflag<E_MEMORY_PROPERTY_FLAGS> flags) const
+        {
+            uint32_t ret = 0u;
+            for(uint32_t i = 0; i < m_memoryProperties.memoryTypeCount; ++i)
+                if(m_memoryProperties.memoryTypes[i].propertyFlags.hasValue(flags))
+                    ret |= (1u << i);
+            return ret;
+        }
+
+        // TODO: cache the result of functions below in the Physdev since they don't change during the existance of the PhysicalDevice
+
+        //! DeviceLocal: most efficient for device access
+        //! Requires EMPF_DEVICE_LOCAL_BIT from MemoryTypes
+        uint32_t getDeviceLocalMemoryTypeMask() const
+        {
+            return getMemoryTypeMaskFromMemoryTypeFlags(EMPF_DEVICE_LOCAL_BIT);
+        }
+        //! DirectVRAMAccess: Mappable for read and write and device local, will often return 0, always check if the mask != 0
+        //! Requires EMPF_DEVICE_LOCAL_BIT, EMPF_HOST_READABLE_BIT, EMPF_HOST_WRITABLE_BIT from MemoryTypes
+        uint32_t getDirectVRAMAccessMemoryTypeMask() const
+        {
+            core::bitflag<E_MEMORY_PROPERTY_FLAGS> requiredFlags = core::bitflag<E_MEMORY_PROPERTY_FLAGS>(EMPF_DEVICE_LOCAL_BIT) | EMPF_HOST_READABLE_BIT | EMPF_HOST_WRITABLE_BIT;
+            return getMemoryTypeMaskFromMemoryTypeFlags(requiredFlags);
+        }
+        //! UpStreaming: Mappable for write and preferably device local
+        //! Requires EMPF_HOST_WRITABLE_BIT
+        //! Prefers EMPF_DEVICE_LOCAL_BIT
+        uint32_t getUpStreamingMemoryTypeMask() const
+        {
+            uint32_t hostWritable = getMemoryTypeMaskFromMemoryTypeFlags(EMPF_HOST_WRITABLE_BIT);
+            uint32_t deviceLocal = getMemoryTypeMaskFromMemoryTypeFlags(EMPF_DEVICE_LOCAL_BIT);
+            uint32_t both = hostWritable & deviceLocal;
+            if(both > 0)
+                return both;
+            else
+                return hostWritable;
+        }
+        //! Mappable for read and preferably host cached
+        //! Requires EMPF_HOST_READABLE_BIT
+        //! Preferably EMPF_HOST_CACHED_BIT
+        uint32_t getDownStreamingMemoryTypeMask() const
+        {
+            uint32_t hostReadable = getMemoryTypeMaskFromMemoryTypeFlags(EMPF_HOST_READABLE_BIT);
+            uint32_t hostCached = getMemoryTypeMaskFromMemoryTypeFlags(EMPF_HOST_CACHED_BIT);
+            uint32_t both = hostReadable & hostCached;
+            if(both > 0)
+                return both;
+            else
+                return hostReadable;
+        }
+        //! Spillover: Not host visible(read&write) and Not device local
+        //! Excludes EMPF_DEVICE_LOCAL_BIT, EMPF_HOST_READABLE_BIT, EMPF_HOST_WRITABLE_BIT
+        uint32_t getSpilloverMemoryTypeMask() const
+        {
+            uint32_t all = getMemoryTypeMaskFromMemoryTypeFlags(core::bitflag<E_MEMORY_PROPERTY_FLAGS>(0u));
+            uint32_t deviceLocal = getMemoryTypeMaskFromMemoryTypeFlags(EMPF_DEVICE_LOCAL_BIT);
+            return all & (~deviceLocal);
+        }
+        //! HostVisibleSpillover: Same as Spillover but mappable for read&write
+        //! Requires EMPF_HOST_READABLE_BIT, EMPF_HOST_WRITABLE_BIT
+        //! Excludes EMPF_DEVICE_LOCAL_BIT
+        uint32_t getHostVisibleSpilloverMemoryTypeMask() const
+        {
+            uint32_t hostWritable = getMemoryTypeMaskFromMemoryTypeFlags(EMPF_HOST_WRITABLE_BIT);
+            uint32_t hostReadable = getMemoryTypeMaskFromMemoryTypeFlags(EMPF_HOST_READABLE_BIT);
+            uint32_t deviceLocal = getMemoryTypeMaskFromMemoryTypeFlags(EMPF_DEVICE_LOCAL_BIT);
+            return (hostWritable & hostReadable) & (~deviceLocal);
+        }
 
         //
         struct SFormatBufferUsage
