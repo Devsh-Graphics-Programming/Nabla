@@ -688,6 +688,57 @@ static inline VkPipelineStageFlags getVkPipelineStageFlagsFromPipelineStageFlags
     return static_cast<VkPipelineStageFlags>(in);
 }
 
+static inline VkMemoryPropertyFlags getVkMemoryPropertyFlagsFromMemoryPropertyFlags(const core::bitflag<IPhysicalDevice::E_MEMORY_PROPERTY_FLAGS> in)
+{
+    VkMemoryPropertyFlags ret = 0u;
+    if(in.hasValue(IPhysicalDevice::E_MEMORY_PROPERTY_FLAGS::EMPF_DEVICE_LOCAL_BIT))
+        ret |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    if(in.hasValue(IPhysicalDevice::E_MEMORY_PROPERTY_FLAGS::EMPF_HOST_READABLE_BIT) || in.hasValue(IPhysicalDevice::E_MEMORY_PROPERTY_FLAGS::EMPF_HOST_WRITABLE_BIT))
+        ret |= VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+    if(in.hasValue(IPhysicalDevice::E_MEMORY_PROPERTY_FLAGS::EMPF_HOST_COHERENT_BIT))
+        ret |= VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+    if(in.hasValue(IPhysicalDevice::E_MEMORY_PROPERTY_FLAGS::EMPF_HOST_CACHED_BIT))
+        ret |= VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
+    //if(in.hasValue(IPhysicalDevice::E_MEMORY_PROPERTY_FLAGS::EMPF_LAZILY_ALLOCATED_BIT))
+    //    ret |= VK_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT;
+    //if(in.hasValue(IPhysicalDevice::E_MEMORY_PROPERTY_FLAGS::EMPF_PROTECTED_BIT))
+    //    ret |= VK_MEMORY_PROPERTY_PROTECTED_BIT;
+    //if(in.hasValue(IPhysicalDevice::E_MEMORY_PROPERTY_FLAGS::EMPF_DEVICE_COHERENT_BIT_AMD))
+    //    ret |= VK_MEMORY_PROPERTY_DEVICE_COHERENT_BIT_AMD;
+    //if(in.hasValue(IPhysicalDevice::E_MEMORY_PROPERTY_FLAGS::EMPF_DEVICE_UNCACHED_BIT_AMD))
+    //    ret |= VK_MEMORY_PROPERTY_DEVICE_UNCACHED_BIT_AMD;
+    //if(in.hasValue(IPhysicalDevice::E_MEMORY_PROPERTY_FLAGS::EMPF_RDMA_CAPABLE_BIT_NV))
+    //    ret |= VK_MEMORY_PROPERTY_RDMA_CAPABLE_BIT_NV;
+    return ret;
+}
+
+static inline core::bitflag<IPhysicalDevice::E_MEMORY_PROPERTY_FLAGS> getMemoryPropertyFlagsFromVkMemoryPropertyFlags(const VkMemoryPropertyFlags in)
+{
+    core::bitflag<IPhysicalDevice::E_MEMORY_PROPERTY_FLAGS> ret;
+
+    if((in & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) != 0)
+        ret |= IPhysicalDevice::E_MEMORY_PROPERTY_FLAGS::EMPF_DEVICE_LOCAL_BIT;
+    if((in & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0)
+        ret |= core::bitflag<IPhysicalDevice::E_MEMORY_PROPERTY_FLAGS>(IPhysicalDevice::E_MEMORY_PROPERTY_FLAGS::EMPF_HOST_READABLE_BIT) | IPhysicalDevice::E_MEMORY_PROPERTY_FLAGS::EMPF_HOST_WRITABLE_BIT;
+    if((in & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) != 0)
+        ret |= IPhysicalDevice::E_MEMORY_PROPERTY_FLAGS::EMPF_HOST_COHERENT_BIT;
+    if((in & VK_MEMORY_PROPERTY_HOST_CACHED_BIT) != 0)
+        ret |= IPhysicalDevice::E_MEMORY_PROPERTY_FLAGS::EMPF_HOST_CACHED_BIT;
+    
+    //if((in & VK_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT) != 0)
+    //    ret |= IPhysicalDevice::E_MEMORY_PROPERTY_FLAGS::EMPF_LAZILY_ALLOCATED_BIT;
+    //if((in & VK_MEMORY_PROPERTY_PROTECTED_BIT) != 0)
+    //    ret |= IPhysicalDevice::E_MEMORY_PROPERTY_FLAGS::EMPF_PROTECTED_BIT;
+    //if((in & VK_MEMORY_PROPERTY_DEVICE_COHERENT_BIT_AMD) != 0)
+    //    ret |= IPhysicalDevice::E_MEMORY_PROPERTY_FLAGS::EMPF_DEVICE_COHERENT_BIT_AMD;
+    //if((in & VK_MEMORY_PROPERTY_DEVICE_UNCACHED_BIT_AMD) != 0)
+    //    ret |= IPhysicalDevice::E_MEMORY_PROPERTY_FLAGS::EMPF_DEVICE_UNCACHED_BIT_AMD;
+    //if((in & VK_MEMORY_PROPERTY_RDMA_CAPABLE_BIT_NV) != 0)
+    //    ret |= IPhysicalDevice::E_MEMORY_PROPERTY_FLAGS::EMPF_RDMA_CAPABLE_BIT_NV;
+
+    return ret;
+}
+
 }
 
 #define __NBL_VIDEO_C_VULKAN_COMMON_H_INCLUDED__

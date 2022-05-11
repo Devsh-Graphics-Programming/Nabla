@@ -255,7 +255,7 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
 
         const SProperties& getProperties() const { return m_properties; }
         const SLimits& getLimits() const { return m_properties.limits; }
-        const APIVersion& getAPIVersion() const { return m_properties.apiVersion; }
+        APIVersion getAPIVersion() const { return m_properties.apiVersion; }
 
         //
         struct SFeatures
@@ -367,16 +367,15 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
         enum E_MEMORY_PROPERTY_FLAGS : uint32_t
         {
             EMPF_DEVICE_LOCAL_BIT = 0x00000001,
-            // TO HOST_READABLE/WRITABLE cause OpenGL differs between the two 
-            //-> custom conversion to/from vulkan enum (READABLE||WRITABLE->VK_HOST_VISIBLE) (VK_HOST_VISIBLE->READABLE&&WRITABLE)
-            EMPF_HOST_VISIBLE_BIT = 0x00000002, 
-            EMPF_HOST_COHERENT_BIT = 0x00000004,
-            EMPF_HOST_CACHED_BIT = 0x00000008,
-            EMPF_LAZILY_ALLOCATED_BIT = 0x00000010,
-            EMPF_PROTECTED_BIT = 0x00000020,
-            EMPF_DEVICE_COHERENT_BIT_AMD = 0x00000040,
-            EMPF_DEVICE_UNCACHED_BIT_AMD = 0x00000080,
-            EMPF_RDMA_CAPABLE_BIT_NV = 0x00000100,
+            EMPF_HOST_READABLE_BIT = 0x00000002, 
+            EMPF_HOST_WRITABLE_BIT = 0x00000004, 
+            EMPF_HOST_COHERENT_BIT = 0x00000008,
+            EMPF_HOST_CACHED_BIT = 0x000000010,
+            //EMPF_LAZILY_ALLOCATED_BIT = 0x00000020,
+            //EMPF_PROTECTED_BIT = 0x00000040,
+            //EMPF_DEVICE_COHERENT_BIT_AMD = 0x00000080,
+            //EMPF_DEVICE_UNCACHED_BIT_AMD = 0x00000100,
+            //EMPF_RDMA_CAPABLE_BIT_NV = 0x00000200,
         };
 
         struct MemoryType

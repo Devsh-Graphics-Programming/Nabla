@@ -234,13 +234,13 @@ public:
             for(uint32_t i = 0; i < m_memoryProperties.memoryTypeCount; ++i)
             {
                 m_memoryProperties.memoryTypes[i].heapIndex = vk_physicalDeviceMemoryProperties.memoryTypes[i].heapIndex;
-                m_memoryProperties.memoryTypes[i].propertyFlags = static_cast<E_MEMORY_PROPERTY_FLAGS>(vk_physicalDeviceMemoryProperties.memoryTypes[i].propertyFlags);
+                m_memoryProperties.memoryTypes[i].propertyFlags = getMemoryPropertyFlagsFromVkMemoryPropertyFlags(vk_physicalDeviceMemoryProperties.memoryTypes[i].propertyFlags);
             }
             m_memoryProperties.memoryHeapCount = vk_physicalDeviceMemoryProperties.memoryHeapCount;
             for(uint32_t i = 0; i < m_memoryProperties.memoryHeapCount; ++i)
             {
                 m_memoryProperties.memoryHeaps[i].size = vk_physicalDeviceMemoryProperties.memoryHeaps[i].size;
-                m_memoryProperties.memoryHeaps[i].flags = static_cast<E_MEMORY_HEAP_FLAGS>(vk_physicalDeviceMemoryProperties.memoryHeaps[i].flags);
+                m_memoryProperties.memoryHeaps[i].flags = core::bitflag<E_MEMORY_HEAP_FLAGS>(vk_physicalDeviceMemoryProperties.memoryHeaps[i].flags);
             }
         }
                 
