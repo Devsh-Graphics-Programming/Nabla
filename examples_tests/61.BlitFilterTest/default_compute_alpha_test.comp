@@ -2,31 +2,47 @@
 
 #include <nbl/builtin/glsl/macros.glsl>
 
-#ifndef _NBL_GLSL_WORKGROUP_SIZE_X_
-#define _NBL_GLSL_WORKGROUP_SIZE_X_ 16
-#endif
-
-#ifndef _NBL_GLSL_WORKGROUP_SIZE_Y_
-#define _NBL_GLSL_WORKGROUP_SIZE_Y_ 16
-#endif
-
-#ifndef _NBL_GLSL_WORKGROUP_SIZE_Z_
-#define _NBL_GLSL_WORKGROUP_SIZE_Z_ 16
-#endif
-
 #ifndef _NBL_GLSL_BLIT_ALPHA_TEST_DIM_COUNT_
 #error _NBL_GLSL_BLIT_ALPHA_TEST_DIM_COUNT_ must be defined
 #endif
 
 #if NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_ALPHA_TEST_DIM_COUNT_, 1)
 	#define _NBL_GLSL_BLIT_ALPHA_TEST_IN_SAMPLER_TYPE_ sampler1D
+
+	#define WG_X 256
+	#define WG_Y 1
+	#define WG_Z 1
 #elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_ALPHA_TEST_DIM_COUNT_, 2)
 	#define _NBL_GLSL_BLIT_ALPHA_TEST_IN_SAMPLER_TYPE_ sampler2D
+
+	#define WG_X 16
+	#define WG_Y 16
+	#define WG_Z 1
 #elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_ALPHA_TEST_DIM_COUNT_, 3)
 	#define _NBL_GLSL_BLIT_ALPHA_TEST_IN_SAMPLER_TYPE_ sampler3D
+
+	#define WG_X 8
+	#define WG_Y 8
+	#define WG_Z 4
 #else
 	#error _NBL_GLSL_BLIT_ALPHA_TEST_DIM_COUNT_ not supported
 #endif
+
+#ifndef _NBL_GLSL_WORKGROUP_SIZE_X_
+#define _NBL_GLSL_WORKGROUP_SIZE_X_ WG_X
+#endif
+
+#ifndef _NBL_GLSL_WORKGROUP_SIZE_Y_
+#define _NBL_GLSL_WORKGROUP_SIZE_Y_ WG_Y
+#endif
+
+#ifndef _NBL_GLSL_WORKGROUP_SIZE_Z_
+#define _NBL_GLSL_WORKGROUP_SIZE_Z_ WG_Z
+#endif
+
+#undef WG_X
+#undef WG_Y
+#undef WG_Z
 
 layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_X_, local_size_y = _NBL_GLSL_WORKGROUP_SIZE_Y_, local_size_z = _NBL_GLSL_WORKGROUP_SIZE_Z_) in;
 

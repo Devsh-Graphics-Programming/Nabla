@@ -18,7 +18,9 @@ private:
 	};
 
 public:
-	static constexpr uint32_t DefaultWorkgroupSize = 256u;
+	// This default is only for the blitting step (not alpha test or normalization steps) which always uses a 1D workgroup.
+	// For the default values of alpha test and normalization steps, see getDefaultWorkgroupDims.
+	static constexpr uint32_t DefaultBlitWorkgroupSize = 256u;
 	static constexpr uint32_t DefaultAlphaBinCount = 256u;
 
 	struct alpha_test_push_constants_t
@@ -339,13 +341,13 @@ public:
 		switch (inImageType)
 		{
 		case asset::IImage::ET_1D:
-			return core::vectorSIMDu32(256, 1, 1);
+			return core::vectorSIMDu32(256, 1, 1, 1);
 		case asset::IImage::ET_2D:
-			return core::vectorSIMDu32(16, 16, 1);
+			return core::vectorSIMDu32(16, 16, 1, 1);
 		case asset::IImage::ET_3D:
-			return core::vectorSIMDu32(8, 8, 4);
+			return core::vectorSIMDu32(8, 8, 4, 1);
 		default:
-			return core::vectorSIMDu32(0, 0, 0, 0);
+			return core::vectorSIMDu32(1, 1, 1, 1);
 		}
 	}
 
@@ -388,8 +390,12 @@ public:
 		if (windowSize > sharedMemorySize)
 			return nullptr;
 
+		// Fail if any dimension of the window is bigger than workgroup size, forcing us to reuse inovcation to process just a single dimension of that window
+		if ((windowDim.x > DefaultBlitWorkgroupSize) || (windowDim.y > DefaultBlitWorkgroupSize) || (windowDim.z > DefaultBlitWorkgroupSize))
+			return nullptr;
+
 		// Fail if I would need to reuse invocations just to process a single window
-		if (windowPixelCount > DefaultWorkgroupSize)
+		if (windowPixelCount > DefaultBlitWorkgroupSize)
 			return nullptr;
 
 		// inFormat should support SAMPLED_BIT format feature
@@ -419,7 +425,7 @@ public:
 
 		auto cpuShaderOverriden = asset::IGLSLCompiler::createOverridenCopy(cpuShader.get(),
 			overrideFormat,
-			DefaultWorkgroupSize,
+			DefaultBlitWorkgroupSize,
 			outChannelCount,
 			static_cast<uint32_t>(inImageType + 1u),
 			outImageViewFormatGLSLString,

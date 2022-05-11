@@ -156,6 +156,8 @@ void nbl_glsl_blit_main()
 	}
 }
 
+#undef scratchShared
+
 #define _NBL_GLSL_BLIT_MAIN_DEFINED_
 #endif
 

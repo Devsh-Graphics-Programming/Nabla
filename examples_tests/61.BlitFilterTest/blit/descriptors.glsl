@@ -46,7 +46,6 @@
 	#define _NBL_GLSL_BLIT_WEIGHTS_BINDING_DEFINED_ 2
 	#endif
 
-	// Todo(achal): I don't think I need row_major here
 	layout(set = _NBL_GLSL_BLIT_DESCRIPTOR_SET_DEFINED_, binding = _NBL_GLSL_BLIT_WEIGHTS_BINDING_DEFINED_, std140, row_major) uniform nbl_glsl_blit_Weights
 	{
 		// Todo(achal): Put max3DWindowPixelCount*channelCount here
