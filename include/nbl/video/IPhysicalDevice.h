@@ -367,7 +367,9 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
         enum E_MEMORY_PROPERTY_FLAGS : uint32_t
         {
             EMPF_DEVICE_LOCAL_BIT = 0x00000001,
-            EMPF_HOST_VISIBLE_BIT = 0x00000002,
+            // TO HOST_READABLE/WRITABLE cause OpenGL differs between the two 
+            //-> custom conversion to/from vulkan enum (READABLE||WRITABLE->VK_HOST_VISIBLE) (VK_HOST_VISIBLE->READABLE&&WRITABLE)
+            EMPF_HOST_VISIBLE_BIT = 0x00000002, 
             EMPF_HOST_COHERENT_BIT = 0x00000004,
             EMPF_HOST_CACHED_BIT = 0x00000008,
             EMPF_LAZILY_ALLOCATED_BIT = 0x00000010,
