@@ -306,16 +306,19 @@ public:
 
         descriptorPool = createDescriptorPool(1u);
 
-        ubomemreq = logicalDevice->getDeviceLocalGPUMemoryReqs();
-        ubomemreq.vulkanReqs.size = neededDS1UBOsz;
         video::IGPUBuffer::SCreationParams gpuuboCreationParams;
+        gpuuboCreationParams.declaredSize = neededDS1UBOsz;
         gpuuboCreationParams.canUpdateSubRange = true;
         gpuuboCreationParams.usage = core::bitflag<asset::IBuffer::E_USAGE_FLAGS>(asset::IBuffer::EUF_UNIFORM_BUFFER_BIT) | asset::IBuffer::EUF_TRANSFER_DST_BIT;
         gpuuboCreationParams.sharingMode = asset::E_SHARING_MODE::ESM_EXCLUSIVE;
         gpuuboCreationParams.queueFamilyIndexCount = 0u;
         gpuuboCreationParams.queueFamilyIndices = nullptr;
 
-        gpuubo = logicalDevice->createGPUBufferOnDedMem(gpuuboCreationParams,ubomemreq);
+        gpuubo = logicalDevice->createBuffer(gpuuboCreationParams);
+        auto gpuuboMemReqs = gpuubo->getMemoryReqs2();
+        gpuuboMemReqs.memoryTypeMask &= physicalDevice->getDeviceLocalMemoryTypeMask();
+        auto uboMemoryOffset = logicalDevice->allocate(gpuuboMemReqs, gpuubo.get(), video::IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS::EMAF_NONE);
+
         gpuds1 = logicalDevice->createGPUDescriptorSet(descriptorPool.get(), std::move(gpuds1layout));
 
         {

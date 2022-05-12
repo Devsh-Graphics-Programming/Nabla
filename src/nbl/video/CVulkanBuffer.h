@@ -20,6 +20,13 @@ public:
     ) : IGPUBuffer(std::move(dev),reqs,cachedCreationParams), m_vkBuffer(buffer)
     {
     }
+    CVulkanBuffer(
+        core::smart_refctd_ptr<ILogicalDevice>&& dev,
+        const IDriverMemoryBacked::SDriverMemoryRequirements2& reqs,
+        const IGPUBuffer::SCachedCreationParams& cachedCreationParams, VkBuffer buffer
+    ) : IGPUBuffer(std::move(dev),reqs,cachedCreationParams), m_vkBuffer(buffer)
+    {
+    }
 
     ~CVulkanBuffer();
 

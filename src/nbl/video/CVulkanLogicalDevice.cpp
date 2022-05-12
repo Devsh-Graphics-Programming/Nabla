@@ -292,7 +292,6 @@ core::smart_refctd_ptr<IDriverMemoryAllocation> CVulkanLogicalDevice::allocateGP
     return nullptr;
 }
 
-
 IDeviceMemoryAllocator::SMemoryOffset CVulkanLogicalDevice::allocate(const SAllocateInfo& info)
 {
     IDeviceMemoryAllocator::SMemoryOffset ret = {nullptr, IDeviceMemoryAllocator::InvalidMemoryOffset};
@@ -313,7 +312,8 @@ IDeviceMemoryAllocator::SMemoryOffset CVulkanLogicalDevice::allocate(const SAllo
     vk_allocateInfo.memoryTypeIndex = info.memoryTypeIndex;
 
     VkDeviceMemory vk_deviceMemory;
-    if(info.dedication)
+    bool isDedicated = (info.dedication != nullptr);
+    if(isDedicated)
     {
         // VK_KHR_dedicated_allocation is in core 1.1, no querying for support needed
         static_assert(MinimumVulkanApiVersion >= VK_MAKE_API_VERSION(0, 1, 1, 0));
@@ -328,7 +328,7 @@ IDeviceMemoryAllocator::SMemoryOffset CVulkanLogicalDevice::allocate(const SAllo
     auto vk_res = m_devf.vk.vkAllocateMemory(m_vkdev, &vk_allocateInfo, nullptr, &vk_deviceMemory);
     if (vk_res == VK_SUCCESS)
     {
-        ret.memory = core::make_smart_refctd_ptr<CVulkanMemoryAllocation>(this, info.size, false, vk_deviceMemory, allocateFlags);
+        ret.memory = core::make_smart_refctd_ptr<CVulkanMemoryAllocation>(this, info.size, isDedicated, vk_deviceMemory, allocateFlags);
         ret.offset = 0ull; // LogicalDevice doesn't suballocate, so offset is always 0, if you want to suballocate, write/use an allocator
 
         // TODO: Move this logic to parent class (ILogicalDevice) and make this a protected _impl function if OpenGL did a similiar thing
@@ -337,7 +337,7 @@ IDeviceMemoryAllocator::SMemoryOffset CVulkanLogicalDevice::allocate(const SAllo
             bool dedicationSuccess = false;
             switch (info.dedication->getObjectType())
             {
-            case IDriverMemoryBacked::EOT_IMAGE:
+            case IDriverMemoryBacked::EOT_BUFFER:
             {
                 SBindBufferMemoryInfo bindBufferInfo = {};
                 bindBufferInfo.buffer = static_cast<IGPUBuffer*>(info.dedication);
@@ -346,7 +346,7 @@ IDeviceMemoryAllocator::SMemoryOffset CVulkanLogicalDevice::allocate(const SAllo
                 dedicationSuccess = bindBufferMemory(1u, &bindBufferInfo);
             }
                 break;
-            case IDriverMemoryBacked::EOT_BUFFER:
+            case IDriverMemoryBacked::EOT_IMAGE:
             {
                 SBindImageMemoryInfo bindImageInfo = {};
                 bindImageInfo.image = static_cast<IGPUImage*>(info.dedication);

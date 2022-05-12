@@ -72,6 +72,13 @@ class IGPUImage : public core::impl::ResolveAlignment<IDriverMemoryBacked,asset:
 		{
 			params = std::move(_params);
 		}
+		IGPUImage(core::smart_refctd_ptr<const ILogicalDevice>&& dev,
+			SCreationParams&& _params,
+			const IDriverMemoryBacked::SDriverMemoryRequirements2 reqs)
+			: base_t(reqs), IBackendObject(std::move(dev))
+		{
+			params = std::move(_params);
+		}
 };
 
 

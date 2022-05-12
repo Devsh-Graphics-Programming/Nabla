@@ -37,7 +37,7 @@ class IDriverMemoryBacked : public virtual core::IReferenceCounted
         struct SDriverMemoryRequirements2
         {
             size_t   size;
-            uint32_t memoryTypeBits;
+            uint32_t memoryTypeMask;
             uint32_t alignmentLog2 : 6;
             uint32_t prefersDedicatedAllocation     : 1;
             uint32_t requiresDedicatedAllocation    : 1;
@@ -86,6 +86,7 @@ class IDriverMemoryBacked : public virtual core::IReferenceCounted
 
         //! Before allocating memory from the driver or trying to bind a range of an existing allocation
         inline const SDriverMemoryRequirements& getMemoryReqs() const {return cachedMemoryReqs;}
+        inline const SDriverMemoryRequirements2& getMemoryReqs2() const {return cachedMemoryReqs2;}
 
         //! Returns the allocation which is bound to the resource
         virtual IDriverMemoryAllocation* getBoundMemory() = 0;
@@ -99,8 +100,10 @@ class IDriverMemoryBacked : public virtual core::IReferenceCounted
     protected:
         IDriverMemoryBacked() {}
         IDriverMemoryBacked(const SDriverMemoryRequirements& reqs) : cachedMemoryReqs(reqs) {}
+        IDriverMemoryBacked(const SDriverMemoryRequirements2& reqs) : cachedMemoryReqs2(reqs) {}
 
         SDriverMemoryRequirements cachedMemoryReqs;
+        SDriverMemoryRequirements2 cachedMemoryReqs2;
 };
 
 } // end namespace nbl::video

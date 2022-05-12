@@ -24,7 +24,7 @@ buffer to buffer copies, one needs a command buffer in Vulkan as these operation
 performed by the GPU and not wholly by the driver, so look for them in IGPUCommandBuffer. */
 class IGPUBuffer : public asset::IBuffer, public IDriverMemoryBacked, public IBackendObject
 {
-    public:
+	public:
 		struct SCachedCreationParams
 		{
 			size_t declaredSize = 0ull;
@@ -48,10 +48,17 @@ class IGPUBuffer : public asset::IBuffer, public IDriverMemoryBacked, public IBa
 		// Vulkan: const VkBuffer*
 		virtual const void* getNativeHandle() const = 0;
 		
-    protected:
-        IGPUBuffer(
+	protected:
+		IGPUBuffer(
 			core::smart_refctd_ptr<const ILogicalDevice>&& dev,
 			const IDriverMemoryBacked::SDriverMemoryRequirements& reqs,
+			const SCachedCreationParams& cachedCreationParams
+		) : IDriverMemoryBacked(reqs), IBackendObject(std::move(dev)), m_cachedCreationParams(cachedCreationParams)
+		{
+		}
+		IGPUBuffer(
+			core::smart_refctd_ptr<const ILogicalDevice>&& dev,
+			const IDriverMemoryBacked::SDriverMemoryRequirements2& reqs,
 			const SCachedCreationParams& cachedCreationParams
 		) : IDriverMemoryBacked(reqs), IBackendObject(std::move(dev)), m_cachedCreationParams(cachedCreationParams)
 		{
