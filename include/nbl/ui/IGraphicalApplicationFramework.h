@@ -7,7 +7,8 @@
 namespace nbl::ui
 {
 
-class NBL_API2 IGraphicalApplicationFramework
+// no NBL_API because nothing in Nabla uses it
+class IGraphicalApplicationFramework
 {
 	public:
 		virtual nbl::ui::IWindow* getWindow() = 0;

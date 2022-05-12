@@ -4,9 +4,8 @@
 
 /**
 This example just shows a screen which clears to red,
-nothing fancy, just to show that Irrlicht links fine
+nothing fancy, just to show that Nabla links fine
 **/
-#define _NBL_STATIC_LIB_
 #include <iostream>
 #include <cstdio>
 #include <nabla.h>
