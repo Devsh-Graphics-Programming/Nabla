@@ -11,13 +11,13 @@ namespace nbl::video
 {
 
 template<E_API_TYPE API_TYPE>
-class NBL_API COpenGL_Connection final : public IAPIConnection
+class NBL_API2 COpenGL_Connection final : public IAPIConnection
 {
     public:
         //
         static core::smart_refctd_ptr<COpenGL_Connection<API_TYPE>> create(core::smart_refctd_ptr<system::ISystem>&& sys, uint32_t appVer, const char* appName, COpenGLDebugCallback&& dbgCb);
 
-        E_API_TYPE getAPIType() const override
+        inline E_API_TYPE getAPIType() const override
         {
             return API_TYPE;
         }
@@ -27,7 +27,7 @@ class NBL_API COpenGL_Connection final : public IAPIConnection
         const egl::CEGL& getInternalObject() const;
 
     private:
-        COpenGL_Connection() : IAPIConnection()
+        inline COpenGL_Connection() : IAPIConnection()
         {}
 };
 

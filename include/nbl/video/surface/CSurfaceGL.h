@@ -13,7 +13,7 @@ namespace nbl::video
 {
 
 template<class Window, template<typename,typename> typename Base, class CRTP = void>
-class NBL_API CSurfaceGLImpl : public Base<Window,ISurface>
+class CSurfaceGLImpl : public Base<Window,ISurface>
 {
     public:
         using this_t = std::conditional_t<std::is_void_v<CRTP>,CSurfaceGLImpl<Window,Base>,CRTP>;
@@ -36,7 +36,7 @@ class NBL_API CSurfaceGLImpl : public Base<Window,ISurface>
             return core::smart_refctd_ptr<this_t>(retval, core::dont_grab);
         }
 
-        bool isSupportedForPhysicalDevice(const IPhysicalDevice* dev, uint32_t _queueFamIx) const override
+        inline bool isSupportedForPhysicalDevice(const IPhysicalDevice* dev, uint32_t _queueFamIx) const override
         {
             const E_API_TYPE pdev_api = dev->getAPIType();
             // GL/GLES backends have just 1 queue family and device
@@ -45,7 +45,7 @@ class NBL_API CSurfaceGLImpl : public Base<Window,ISurface>
             return _queueFamIx==0u && dev==*base_t::m_api->getPhysicalDevices().begin();
         }
         
-        void getAvailableFormatsForPhysicalDevice(const IPhysicalDevice* physicalDevice, uint32_t& formatCount, ISurface::SFormat* formats) const override
+        inline void getAvailableFormatsForPhysicalDevice(const IPhysicalDevice* physicalDevice, uint32_t& formatCount, ISurface::SFormat* formats) const override
         {
             // Todo(achal): Need to properly map asset::E_FORMAT which would also dictate
             // formatCount
@@ -60,12 +60,12 @@ class NBL_API CSurfaceGLImpl : public Base<Window,ISurface>
             // formats[0].colorSpace.primary = ;
         }
 
-        ISurface::E_PRESENT_MODE getAvailablePresentModesForPhysicalDevice(const IPhysicalDevice* physicalDevice) const override
+        inline ISurface::E_PRESENT_MODE getAvailablePresentModesForPhysicalDevice(const IPhysicalDevice* physicalDevice) const override
         {
             return static_cast<ISurface::E_PRESENT_MODE>(ISurface::EPM_IMMEDIATE | ISurface::EPM_FIFO | ISurface::EPM_FIFO_RELAXED);
         }
 
-        bool getSurfaceCapabilitiesForPhysicalDevice(const IPhysicalDevice* physicalDevice, ISurface::SCapabilities& capabilities) const override
+        inline bool getSurfaceCapabilitiesForPhysicalDevice(const IPhysicalDevice* physicalDevice, ISurface::SCapabilities& capabilities) const override
         {
             capabilities.minImageCount = 2u;
             capabilities.maxImageCount = ~0u;
@@ -96,19 +96,19 @@ using CSurfaceNativeGL = CSurfaceGLImpl<Window, CSurfaceNative, CRTP>;
 // TODO: conditional defines
 #ifdef _NBL_PLATFORM_WINDOWS_
 using CSurfaceGLWin32 = CSurfaceGL<ui::IWindowWin32>;
-class NBL_API CSurfaceNativeGLWin32 : public CSurfaceNativeGL<ui::IWindowWin32,CSurfaceNativeGLWin32>
+class CSurfaceNativeGLWin32 : public CSurfaceNativeGL<ui::IWindowWin32,CSurfaceNativeGLWin32>
 {
     protected:
         using base_t = CSurfaceNativeGL<ui::IWindowWin32,CSurfaceNativeGLWin32>;
         using base_t::base_t;
 
-        uint32_t getWidth() const override 
+        inline uint32_t getWidth() const override 
         { 
             RECT wr;
             GetWindowRect(m_handle, &wr);
             return wr.right - wr.left;
         }
-        uint32_t getHeight() const override 
+        inline uint32_t getHeight() const override 
         { 
             RECT wr;
             GetWindowRect(m_handle, &wr);

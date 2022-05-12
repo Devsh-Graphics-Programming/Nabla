@@ -21,7 +21,7 @@ namespace impl
 {
 
 template<typename T>
-struct NBL_API KeyAdaptor
+struct KeyAdaptor
 {
 	static_assert(std::is_integral_v<T>&&std::is_unsigned_v<T>,"Need to use your own key value accessor.");
 	_NBL_STATIC_INLINE_CONSTEXPR size_t key_bit_count = sizeof(T)*8u;
@@ -50,7 +50,7 @@ constexpr int8_t find_msb(const T& a_variable)
 }
 
 template<size_t key_bit_count, typename histogram_t>
-struct NBL_API RadixSorter
+struct RadixSorter
 {
 		_NBL_STATIC_INLINE_CONSTEXPR uint16_t histogram_bytesize = 8192u;
 		_NBL_STATIC_INLINE_CONSTEXPR size_t histogram_size = size_t(histogram_bytesize)/sizeof(histogram_t);

@@ -13,18 +13,18 @@
 namespace nbl::ui
 {
 
-class NBL_API IWindowWayland : public IWindow
+class NBL_API2 IWindowWayland : public IWindow
 {
-protected:
-    virtual ~IWindowWayland() = default;
+    protected:
+        virtual ~IWindowWayland() = default;
 
-public:
-    using IWindow::IWindow;
+    public:
+        using IWindow::IWindow;
 
-    using native_handle_t = struct wl_egl_window*;
+        using native_handle_t = struct wl_egl_window*;
 
-    virtual const native_handle_t& getNativeHandle() const = 0;
-    virtual struct wl_display* getDisplay() const = 0;
+        virtual const native_handle_t& getNativeHandle() const = 0;
+        virtual struct wl_display* getDisplay() const = 0;
 };
 
 }

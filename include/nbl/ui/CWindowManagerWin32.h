@@ -1,9 +1,12 @@
-#ifndef C_WINDOWMANAGER_WIN32
-#define C_WINDOWMANAGER_WIN32
+#ifndef _NBL_UI_C_WINDOWMANAGER_WIN32_
+#define _NBL_UI_C_WINDOWMANAGER_WIN32_
 
 #include "nbl/ui/IWindowManager.h"
+
 #include <cstdint>
 #include <queue>
+
+#include "nbl/ui/CWindowWin32.h"
 
 #ifdef _NBL_PLATFORM_WINDOWS_
 #include <codecvt>
@@ -12,39 +15,40 @@
 //#include <hidpi.h>
 #include <hidusage.h>
 
-#include "nbl/ui/CWindowWin32.h"
-
 namespace nbl::ui
 {
 
-	class NBL_API CWindowManagerWin32 : public IWindowManager
-	{
+class CWindowManagerWin32 : public IWindowManager
+{
 	public:
-		CWindowManagerWin32() = default;
-		~CWindowManagerWin32() {};
-		core::smart_refctd_ptr<IWindow> createWindow(IWindow::SCreationParams&& creationParams) override final
+		inline CWindowManagerWin32() = default;
+		inline ~CWindowManagerWin32() {};
+
+		inline core::smart_refctd_ptr<IWindow> createWindow(IWindow::SCreationParams&& creationParams) override final
 		{
-			CWindowWin32::native_handle_t handle = createNativeWindow(creationParams.x,
+			CWindowWin32::native_handle_t handle = createNativeWindow(
+				creationParams.x,
 				creationParams.y,
 				creationParams.width,
 				creationParams.height,
 				creationParams.flags,
-				creationParams.windowCaption);
+				creationParams.windowCaption
+			);
+
 			if (handle == nullptr)
-			{
 				return nullptr;
-			}
+
 			return core::make_smart_refctd_ptr<CWindowWin32>(core::smart_refctd_ptr<CWindowManagerWin32>(this), std::move(creationParams), handle);
 		}
-		void destroyWindow(IWindow* wnd) override final
+		inline void destroyWindow(IWindow* wnd) override final
 		{
 			destroyNativeWindow(static_cast<IWindowWin32*>(wnd)->getNativeHandle());
 		}
-		void setCursorVisibility(bool visible)
+		inline void setCursorVisibility(bool visible)
 		{
 			m_windowThreadManager.setCursorVisibility(visible);
 		}
-		SDisplayInfo getPrimaryDisplayInfo() const override final
+		inline SDisplayInfo getPrimaryDisplayInfo() const override final
 		{
 			RECT size;
 			BOOL res_ok = SystemParametersInfo(SPI_GETWORKAREA, 0, &size, 0);
@@ -55,17 +59,19 @@ namespace nbl::ui
 			info.y = size.top;
 			return info;
 		}
+
 	private:
-		IWindowWin32::native_handle_t createNativeWindow(int _x, int _y, uint32_t _w, uint32_t _h, IWindow::E_CREATE_FLAGS _flags, const std::string_view& caption)
+		inline IWindowWin32::native_handle_t createNativeWindow(int _x, int _y, uint32_t _w, uint32_t _h, IWindow::E_CREATE_FLAGS _flags, const std::string_view& caption)
 		{
 			IWindowWin32::native_handle_t out_handle;
 			m_windowThreadManager.createWindow(_x, _y, _w, _h, _flags, &out_handle, caption);
 			return out_handle;
 		}
-		void destroyNativeWindow(IWindowWin32::native_handle_t wnd)
+		inline void destroyNativeWindow(IWindowWin32::native_handle_t wnd)
 		{
 			m_windowThreadManager.destroyWindow(wnd);
 		}
+
 	private:
 		enum E_REQUEST_TYPE
 		{
@@ -113,238 +119,240 @@ namespace nbl::ui
 
 		class CThreadHandler final : public system::IAsyncQueueDispatcher<CThreadHandler, SRequest, 256u>
 		{
-			using base_t = system::IAsyncQueueDispatcher<CThreadHandler, SRequest, 256u>;
-			friend base_t;
-			friend base_t::base_t;
-		public:
-			void createWindow(int32_t _x, int32_t _y, uint32_t _w, uint32_t _h, CWindowWin32::E_CREATE_FLAGS _flags, CWindowWin32::native_handle_t* wnd, const std::string_view& caption)
-			{
-				SRequestParams_CreateWindow params = SRequestParams_CreateWindow(_x, _y, _w, _h, _flags, wnd, caption);
-				auto& rq = request(params);
-				waitForCompletion(rq);
-			}
-			void destroyWindow(CWindowWin32::native_handle_t window)
-			{
-				SRequestParams_DestroyWindow params;
-				params.nativeWindow = window;
-				auto& rq = request(params);
-				waitForCompletion(rq);
-			}
-			void setCursorVisibility(bool visible)
-			{
-				SRequestParams_ChangeCursorVisibility params;
-				params.visible = visible;
-				auto& rq = request(params);
-				waitForCompletion(rq);
-			}
-			CThreadHandler()
-			{
-				this->start();
-			}
-			~CThreadHandler()
-			{
-			}
-
-		private:
-			void waitForCompletion(SRequest& req)
-			{
-				req.wait_ready();
-				req.discard_storage();
-			}
-
-		private:
-			void init() {}
-
-			void exit() {}
-
-			void background_work()
-			{
-				MSG message;
-				constexpr uint32_t timeoutInMS = 8; // gonna become 10 anyway
-				if (getMessageWithTimeout(&message, timeoutInMS))
+				using base_t = system::IAsyncQueueDispatcher<CThreadHandler, SRequest, 256u>;
+				friend base_t;
+				friend base_t::base_t;
+			public:
+				inline void createWindow(int32_t _x, int32_t _y, uint32_t _w, uint32_t _h, CWindowWin32::E_CREATE_FLAGS _flags, CWindowWin32::native_handle_t* wnd, const std::string_view& caption)
 				{
-					TranslateMessage(&message);
-					DispatchMessage(&message);
+					SRequestParams_CreateWindow params = SRequestParams_CreateWindow(_x, _y, _w, _h, _flags, wnd, caption);
+					auto& rq = request(params);
+					waitForCompletion(rq);
 				}
-			}
-
-			void process_request(SRequest& req)
-			{
-				switch (req.type)
+				inline void destroyWindow(CWindowWin32::native_handle_t window)
 				{
-				case ERT_CREATE_WINDOW:
+					SRequestParams_DestroyWindow params;
+					params.nativeWindow = window;
+					auto& rq = request(params);
+					waitForCompletion(rq);
+				}
+				inline void setCursorVisibility(bool visible)
 				{
-					auto& params = req.createWindowParam;
-					HINSTANCE hinstance = GetModuleHandle(NULL);
+					SRequestParams_ChangeCursorVisibility params;
+					params.visible = visible;
+					auto& rq = request(params);
+					waitForCompletion(rq);
+				}
 
-					const char* classname = "Nabla Engine";
+				inline CThreadHandler()
+				{
+					this->start();
+				}
+				inline ~CThreadHandler()
+				{
+				}
 
-					WNDCLASSEXA wcex;
-					wcex.cbSize = sizeof(WNDCLASSEX);
-					wcex.style = CS_HREDRAW | CS_VREDRAW;
-					wcex.lpfnWndProc = CWindowWin32::WndProc;
-					wcex.cbClsExtra = 0;
-					wcex.cbWndExtra = 0;
-					wcex.hInstance = hinstance;
-					wcex.hIcon = NULL;
-					wcex.hCursor = nullptr;
-					wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
-					wcex.lpszMenuName = 0;
-					wcex.lpszClassName = classname;
-					wcex.hIconSm = 0;
+			private:
+				void waitForCompletion(SRequest& req)
+				{
+					req.wait_ready();
+					req.discard_storage();
+				}
 
-					RegisterClassExA(&wcex);
-					// calculate client size
+			private:
+				void init() {}
 
-					RECT clientSize;
-					clientSize.top = params.y;
-					clientSize.left = params.x;
-					clientSize.right = clientSize.left + params.width;
-					clientSize.bottom = clientSize.top + params.height;
+				void exit() {}
 
-					DWORD style = WS_POPUP; // TODO why popup?
-
-					if ((params.flags & CWindowWin32::ECF_FULLSCREEN) == 0)
+				void background_work()
+				{
+					MSG message;
+					constexpr uint32_t timeoutInMS = 8; // gonna become 10 anyway
+					if (getMessageWithTimeout(&message, timeoutInMS))
 					{
-						if ((params.flags & CWindowWin32::ECF_BORDERLESS) == 0)
+						TranslateMessage(&message);
+						DispatchMessage(&message);
+					}
+				}
+
+				void process_request(SRequest& req)
+				{
+					switch (req.type)
+					{
+					case ERT_CREATE_WINDOW:
+					{
+						auto& params = req.createWindowParam;
+						HINSTANCE hinstance = GetModuleHandle(NULL);
+
+						const char* classname = "Nabla Engine";
+
+						WNDCLASSEXA wcex;
+						wcex.cbSize = sizeof(WNDCLASSEX);
+						wcex.style = CS_HREDRAW | CS_VREDRAW;
+						wcex.lpfnWndProc = CWindowWin32::WndProc;
+						wcex.cbClsExtra = 0;
+						wcex.cbWndExtra = 0;
+						wcex.hInstance = hinstance;
+						wcex.hIcon = NULL;
+						wcex.hCursor = nullptr;
+						wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+						wcex.lpszMenuName = 0;
+						wcex.lpszClassName = classname;
+						wcex.hIconSm = 0;
+
+						RegisterClassExA(&wcex);
+						// calculate client size
+
+						RECT clientSize;
+						clientSize.top = params.y;
+						clientSize.left = params.x;
+						clientSize.right = clientSize.left + params.width;
+						clientSize.bottom = clientSize.top + params.height;
+
+						DWORD style = WS_POPUP; // TODO why popup?
+
+						if ((params.flags & CWindowWin32::ECF_FULLSCREEN) == 0)
 						{
-							style |= WS_BORDER;
-							style |= (WS_SYSMENU | WS_CAPTION);
+							if ((params.flags & CWindowWin32::ECF_BORDERLESS) == 0)
+							{
+								style |= WS_BORDER;
+								style |= (WS_SYSMENU | WS_CAPTION);
+							}
+							// ? not sure about those below
+							style |= WS_CLIPCHILDREN;
+							style |= WS_CLIPSIBLINGS;
 						}
-						// ? not sure about those below
-						style |= WS_CLIPCHILDREN;
-						style |= WS_CLIPSIBLINGS;
-					}
-					if (params.flags & CWindowWin32::ECF_MINIMIZED)
-					{
-						style |= WS_MINIMIZE;
-					}
-					if (params.flags & CWindowWin32::ECF_MAXIMIZED)
-					{
-						style |= WS_MAXIMIZE;
-					}
-					if (params.flags & CWindowWin32::ECF_ALWAYS_ON_TOP)
-					{
-						style |= WS_EX_TOPMOST;
-					}
-					if ((params.flags & CWindowWin32::ECF_HIDDEN) == 0)
-					{
-						style |= WS_VISIBLE;
-					}
-					style |= WS_OVERLAPPEDWINDOW;
+						if (params.flags & CWindowWin32::ECF_MINIMIZED)
+						{
+							style |= WS_MINIMIZE;
+						}
+						if (params.flags & CWindowWin32::ECF_MAXIMIZED)
+						{
+							style |= WS_MAXIMIZE;
+						}
+						if (params.flags & CWindowWin32::ECF_ALWAYS_ON_TOP)
+						{
+							style |= WS_EX_TOPMOST;
+						}
+						if ((params.flags & CWindowWin32::ECF_HIDDEN) == 0)
+						{
+							style |= WS_VISIBLE;
+						}
+						style |= WS_OVERLAPPEDWINDOW;
 
-					// TODO:
-					// if (hasMouseCaptured())
-					// if (hasInputFocus())
-					// if (hasMouseFocus())
+						// TODO:
+						// if (hasMouseCaptured())
+						// if (hasInputFocus())
+						// if (hasMouseFocus())
 
-					AdjustWindowRect(&clientSize, style, FALSE);
+						AdjustWindowRect(&clientSize, style, FALSE);
 
-					const int32_t realWidth = clientSize.right - clientSize.left;
-					const int32_t realHeight = clientSize.bottom - clientSize.top;
+						const int32_t realWidth = clientSize.right - clientSize.left;
+						const int32_t realHeight = clientSize.bottom - clientSize.top;
 
 					
-					*params.nativeWindow = CreateWindowA(classname, params.windowCaption.c_str(), style, clientSize.left, clientSize.top,
-						realWidth, realHeight, NULL, NULL, hinstance, NULL);
-					if ((params.flags & CWindowWin32::ECF_HIDDEN) == 0)
-						ShowWindow(*params.nativeWindow, SW_SHOWNORMAL);
-					UpdateWindow(*params.nativeWindow);
+						*params.nativeWindow = CreateWindowA(classname, params.windowCaption.c_str(), style, clientSize.left, clientSize.top,
+							realWidth, realHeight, NULL, NULL, hinstance, NULL);
+						if ((params.flags & CWindowWin32::ECF_HIDDEN) == 0)
+							ShowWindow(*params.nativeWindow, SW_SHOWNORMAL);
+						UpdateWindow(*params.nativeWindow);
 
-					// fix ugly ATI driver bugs. Thanks to ariaci
-					// TODO still needed?
-					MoveWindow(*params.nativeWindow, clientSize.left, clientSize.top, realWidth, realHeight, TRUE);
-					{
-						//TODO: thoroughly test this stuff	(what is this about, you need to register devices yourself!? I thought Windows can give you a list of raw input devices!?)
-						constexpr uint32_t INPUT_DEVICES_COUNT = 5;
-						RAWINPUTDEVICE inputDevices[INPUT_DEVICES_COUNT];
-						inputDevices[0].hwndTarget = *params.nativeWindow;
-						inputDevices[0].dwFlags = RIDEV_DEVNOTIFY | RIDEV_INPUTSINK;
-						inputDevices[0].usUsagePage = HID_USAGE_PAGE_GENERIC;
-						inputDevices[0].usUsage = HID_USAGE_GENERIC_POINTER;
+						// fix ugly ATI driver bugs. Thanks to ariaci
+						// TODO still needed?
+						MoveWindow(*params.nativeWindow, clientSize.left, clientSize.top, realWidth, realHeight, TRUE);
+						{
+							//TODO: thoroughly test this stuff	(what is this about, you need to register devices yourself!? I thought Windows can give you a list of raw input devices!?)
+							constexpr uint32_t INPUT_DEVICES_COUNT = 5;
+							RAWINPUTDEVICE inputDevices[INPUT_DEVICES_COUNT];
+							inputDevices[0].hwndTarget = *params.nativeWindow;
+							inputDevices[0].dwFlags = RIDEV_DEVNOTIFY | RIDEV_INPUTSINK;
+							inputDevices[0].usUsagePage = HID_USAGE_PAGE_GENERIC;
+							inputDevices[0].usUsage = HID_USAGE_GENERIC_POINTER;
 
-						inputDevices[1].hwndTarget = *params.nativeWindow;
-						inputDevices[1].dwFlags = RIDEV_DEVNOTIFY | RIDEV_INPUTSINK;
-						inputDevices[1].usUsagePage = HID_USAGE_PAGE_GENERIC;
-						inputDevices[1].usUsage = HID_USAGE_GENERIC_MOUSE;
+							inputDevices[1].hwndTarget = *params.nativeWindow;
+							inputDevices[1].dwFlags = RIDEV_DEVNOTIFY | RIDEV_INPUTSINK;
+							inputDevices[1].usUsagePage = HID_USAGE_PAGE_GENERIC;
+							inputDevices[1].usUsage = HID_USAGE_GENERIC_MOUSE;
 
-						inputDevices[2].hwndTarget = *params.nativeWindow;
-						inputDevices[2].dwFlags = RIDEV_DEVNOTIFY | RIDEV_INPUTSINK;
-						inputDevices[2].usUsagePage = HID_USAGE_PAGE_GENERIC;
-						inputDevices[2].usUsage = HID_USAGE_GENERIC_KEYBOARD;
+							inputDevices[2].hwndTarget = *params.nativeWindow;
+							inputDevices[2].dwFlags = RIDEV_DEVNOTIFY | RIDEV_INPUTSINK;
+							inputDevices[2].usUsagePage = HID_USAGE_PAGE_GENERIC;
+							inputDevices[2].usUsage = HID_USAGE_GENERIC_KEYBOARD;
 
-						inputDevices[3].hwndTarget = *params.nativeWindow;
-						inputDevices[3].dwFlags = RIDEV_DEVNOTIFY | RIDEV_INPUTSINK;
-						inputDevices[3].usUsagePage = HID_USAGE_PAGE_GAME;
-						inputDevices[3].usUsage = HID_USAGE_GENERIC_JOYSTICK;
+							inputDevices[3].hwndTarget = *params.nativeWindow;
+							inputDevices[3].dwFlags = RIDEV_DEVNOTIFY | RIDEV_INPUTSINK;
+							inputDevices[3].usUsagePage = HID_USAGE_PAGE_GAME;
+							inputDevices[3].usUsage = HID_USAGE_GENERIC_JOYSTICK;
 
-						inputDevices[4].hwndTarget = *params.nativeWindow;
-						inputDevices[4].dwFlags = RIDEV_DEVNOTIFY | RIDEV_INPUTSINK;
-						inputDevices[4].usUsagePage = HID_USAGE_PAGE_GAME;
-						inputDevices[4].usUsage = HID_USAGE_GENERIC_GAMEPAD;
+							inputDevices[4].hwndTarget = *params.nativeWindow;
+							inputDevices[4].dwFlags = RIDEV_DEVNOTIFY | RIDEV_INPUTSINK;
+							inputDevices[4].usUsagePage = HID_USAGE_PAGE_GAME;
+							inputDevices[4].usUsage = HID_USAGE_GENERIC_GAMEPAD;
 
-						RegisterRawInputDevices(inputDevices, INPUT_DEVICES_COUNT, sizeof(RAWINPUTDEVICE));
+							RegisterRawInputDevices(inputDevices, INPUT_DEVICES_COUNT, sizeof(RAWINPUTDEVICE));
+						}
+						break;
 					}
-					break;
-				}
-				case ERT_DESTROY_WINDOW:
-				{
-					auto& params = req.destroyWindowParam;
-					DestroyWindow(params.nativeWindow);
-					break;
-				}
-				case ERT_CHANGE_CURSOR_VISIBILITY:
-				{
-					auto& params = req.changeCursorVisibilityParam;
-					if(params.visible)
+					case ERT_DESTROY_WINDOW:
 					{
-						int ret = ShowCursor(true);
-						while (ret < 0)  ret = ShowCursor(true);
+						auto& params = req.destroyWindowParam;
+						DestroyWindow(params.nativeWindow);
+						break;
 					}
-					else
+					case ERT_CHANGE_CURSOR_VISIBILITY:
 					{
-						int ret = ShowCursor(false);
-						while (ret >= 0)  ret = ShowCursor(false);
+						auto& params = req.changeCursorVisibilityParam;
+						if(params.visible)
+						{
+							int ret = ShowCursor(true);
+							while (ret < 0)  ret = ShowCursor(true);
+						}
+						else
+						{
+							int ret = ShowCursor(false);
+							while (ret >= 0)  ret = ShowCursor(false);
+						}
+						break;
 					}
-					break;
+					}
 				}
-				}
-			}
 
-			template <typename RequestParams>
-			void request_impl(SRequest& req, RequestParams&& params)
-			{
-				req.type = params.type;
-				if constexpr (std::is_same_v<RequestParams, SRequestParams_CreateWindow&>)
+				template <typename RequestParams>
+				void request_impl(SRequest& req, RequestParams&& params)
 				{
-					req.createWindowParam = std::move(params);
+					req.type = params.type;
+					if constexpr (std::is_same_v<RequestParams, SRequestParams_CreateWindow&>)
+					{
+						req.createWindowParam = std::move(params);
+					}
+					else if constexpr (std::is_same_v<RequestParams, SRequestParams_DestroyWindow&>)
+					{
+						req.destroyWindowParam = std::move(params);
+					}
+					else if constexpr (std::is_same_v<RequestParams, SRequestParams_ChangeCursorVisibility&>)
+					{
+						req.changeCursorVisibilityParam = std::move(params);
+					}
 				}
-				else if constexpr (std::is_same_v<RequestParams, SRequestParams_DestroyWindow&>)
+
+				inline bool wakeupPredicate() const { return true; }
+				inline bool continuePredicate() const { return true; }
+
+			private:
+				static inline bool getMessageWithTimeout(MSG* msg, uint32_t timeoutInMilliseconds)
 				{
-					req.destroyWindowParam = std::move(params);
+					bool res;
+					UINT_PTR timerId = SetTimer(NULL, NULL, timeoutInMilliseconds, NULL);
+					res = GetMessage(msg, nullptr, 0, 0);
+
+					KillTimer(NULL, timerId);
+
+					if (!res)
+						return false;
+					if (msg->message == WM_TIMER && msg->hwnd == NULL && msg->wParam == timerId)
+						return false;
+					return true;
 				}
-				else if constexpr (std::is_same_v<RequestParams, SRequestParams_ChangeCursorVisibility&>)
-				{
-					req.changeCursorVisibilityParam = std::move(params);
-				}
-			}
-
-			bool wakeupPredicate() const { return true; }
-			bool continuePredicate() const { return true; }
-		private:
-			static bool getMessageWithTimeout(MSG* msg, uint32_t timeoutInMilliseconds)
-			{
-				bool res;
-				UINT_PTR timerId = SetTimer(NULL, NULL, timeoutInMilliseconds, NULL);
-				res = GetMessage(msg, nullptr, 0, 0);
-
-				KillTimer(NULL, timerId);
-
-				if (!res)
-					return false;
-				if (msg->message == WM_TIMER && msg->hwnd == NULL && msg->wParam == timerId)
-					return false;
-				return true;
-			}
 		} m_windowThreadManager;
 };
 

@@ -6,7 +6,7 @@
 namespace nbl::video
 {
 	
-class NBL_API COpenGLDebugCallback : public IDebugCallback
+class NBL_API2 COpenGLDebugCallback : public IDebugCallback
 {
     public:
         COpenGLDebugCallback() : IDebugCallback(nullptr), m_callback(nullptr) {}

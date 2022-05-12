@@ -6,15 +6,15 @@ namespace nbl::ui
 {
 class IWindow;
 
-struct NBL_API SEventBase
+struct SEventBase
 {
     std::chrono::microseconds timeStamp;
-    SEventBase(std::chrono::microseconds ts) : timeStamp(ts) {}
+    inline SEventBase(std::chrono::microseconds ts) : timeStamp(ts) {}
 };
 
-struct NBL_API SMouseEvent : SEventBase
+struct SMouseEvent : SEventBase
 {
-    SMouseEvent(std::chrono::microseconds ts) : SEventBase(ts) {}
+    inline SMouseEvent(std::chrono::microseconds ts) : SEventBase(ts) {}
     enum E_EVENT_TYPE : uint8_t
     {
         EET_UNITIALIZED = 0,
@@ -52,9 +52,9 @@ struct NBL_API SMouseEvent : SEventBase
 };
 
 
-struct NBL_API SKeyboardEvent : SEventBase
+struct SKeyboardEvent : SEventBase
 {
-    SKeyboardEvent(std::chrono::microseconds ts) : SEventBase(ts) { }
+    inline SKeyboardEvent(std::chrono::microseconds ts) : SEventBase(ts) { }
     enum E_KEY_ACTION : uint8_t
     {
         ECA_UNITIALIZED = 0,

@@ -69,7 +69,7 @@ namespace core
 	namespace impl
 	{
 	    template<class CRTP>
-        class NBL_API NBL_FORCE_EBO vectorSIMDIntBase  : public core::vectorSIMDIntBase
+        class NBL_FORCE_EBO vectorSIMDIntBase  : public core::vectorSIMDIntBase
         {
                 typedef core::vectorSIMDIntBase Base;
             public:
@@ -106,7 +106,7 @@ namespace core
 
 	namespace impl
 	{
-		struct NBL_API NBL_FORCE_EBO empty_base {};
+		struct NBL_FORCE_EBO empty_base {};
 	}
 
     //a class for bitwise shizz

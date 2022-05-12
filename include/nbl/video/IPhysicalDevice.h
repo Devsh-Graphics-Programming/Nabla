@@ -21,7 +21,7 @@
 namespace nbl::video
 {
 
-class NBL_API IPhysicalDevice : public core::Interface, public core::Unmovable
+class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
 {
     public:
         //

@@ -15,7 +15,7 @@ namespace nbl::ui
 
 class CWindowManagerX11;
 
-class NBL_API CWindowX11 final : public IWindowX11
+class NBL_API2 CWindowX11 final : public IWindowX11
 {
 	static int printXErrorCallback(Display *Display, XErrorEvent *event);
 

@@ -7,18 +7,18 @@ namespace nbl::system
 {
 
 #if defined(__unix__)
-class NBL_API ISystemPOSIX : public ISystem
+class ISystemPOSIX : public ISystem
 {
     protected:
         class CCaller final : public ISystem::ICaller
         {
             public:
-                CCaller(ISystemPOSIX* _system) : ICaller(_system) {}
+                inline CCaller(ISystemPOSIX* _system) : ICaller(_system) {}
 
-                core::smart_refctd_ptr<ISystemFile> createFile(const std::filesystem::path& filename, const core::bitflag<IFile::E_CREATE_FLAGS> flags) override;
+                NBL_API2 core::smart_refctd_ptr<ISystemFile> createFile(const std::filesystem::path& filename, const core::bitflag<IFile::E_CREATE_FLAGS> flags) override;
         };
 
-        ISystemPOSIX() : ISystem(core::make_smart_refctd_ptr<CCaller>(this)) {}
+        inline ISystemPOSIX() : ISystem(core::make_smart_refctd_ptr<CCaller>(this)) {}
 };
 #endif
 

@@ -15,7 +15,7 @@ struct ANativeActivity;
 namespace nbl::system
 {
 
-class NBL_API CSystemAndroid final : public ISystemPOSIX
+class NBL_API2 CSystemAndroid final : public ISystemPOSIX
 {
 	public:
 		CSystemAndroid(ANativeActivity* activity, JNIEnv* jni, const path& APKResourcesPath);

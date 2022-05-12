@@ -1,8 +1,9 @@
-#ifdef _NBL_PLATFORM_LINUX_
 #ifndef C_WINDOW_MANAGER_X11
 #define C_WINDOW_MANAGER_X11
 
-#include <IWindowManager.h>
+#include "nbl/ui/CWindowX11.h"
+
+#ifdef _NBL_PLATFORM_LINUX_
 #include <X11/Xlib.h>
 #include <CWindowX11.h>
 #include <string>
@@ -62,7 +63,7 @@ NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(Xxf86vm, system::DefaultFuncPtr
     ,XRRFreeScreenConfigInfo
 );
 
-class NBL_API CWindowManagerX11 : public IWindowManager
+class CWindowManagerX11 : public IWindowManager
 {
 public:
     CWindowManagerX11();

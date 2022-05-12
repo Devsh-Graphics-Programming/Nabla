@@ -11,11 +11,11 @@
 namespace nbl::ui
 {
 
-class NBL_API IWindowWin32 : public IWindow
+class NBL_API2 IWindowWin32 : public IWindow
 {
     protected:
         virtual ~IWindowWin32() = default;
-        IWindowWin32(SCreationParams&& params) : IWindow(std::move(params)) {}
+        inline IWindowWin32(SCreationParams&& params) : IWindow(std::move(params)) {}
 
     public:
         using IWindow::IWindow;

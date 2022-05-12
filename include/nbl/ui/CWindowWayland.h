@@ -11,7 +11,7 @@
 namespace nbl::ui
 {
 
-class NBL_API CWindowWayland : public IWindowWayland
+class NBL_API2 CWindowWayland : public IWindowWayland
 {
 	static void registry_callback(void* data, struct wl_registry* registry, uint32_t id, const char* interface, uint32_t version);
     static const struct wl_registry_listener s_listener;

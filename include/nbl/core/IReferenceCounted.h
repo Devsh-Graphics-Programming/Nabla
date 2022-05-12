@@ -28,7 +28,7 @@ in another part of you program, because this part still needs the object.
 Note, that you only need to call drop() to the object, if you created it,
 and the method had a 'create' in it.
 */
-class NBL_API NBL_FORCE_EBO IReferenceCounted : public Interface, public AllocationOverrideDefault
+class NBL_FORCE_EBO IReferenceCounted : public Interface, public AllocationOverrideDefault
 {
 	public:
 		//! Grabs the object. Increments the reference counter by one.
@@ -134,7 +134,7 @@ class NBL_API NBL_FORCE_EBO IReferenceCounted : public Interface, public Allocat
 		// Old destructor, but needed virtual for abstractness!
 		// _NBL_INTERFACE_CHILD_DEFAULT(IReferenceCounted);
 		//! Destructor, no need to define really, but make it pure virtual to truly prevent instantiation.
-		virtual ~IReferenceCounted() = 0;
+		NBL_API2 virtual ~IReferenceCounted() = 0;
 
 		//! Sets the debug name of the object.
 		/** The Debugname may only be set and changed by the object

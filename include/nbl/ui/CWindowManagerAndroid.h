@@ -17,7 +17,7 @@
 namespace nbl::ui
 {
 
-class NBL_API CWindowManagerAndroid : public IWindowManager
+class NBL_API2 CWindowManagerAndroid : public IWindowManager
 {
 		android_app* m_app;
 		std::atomic_flag windowIsCreated;
@@ -26,13 +26,13 @@ class NBL_API CWindowManagerAndroid : public IWindowManager
 		float lastCursorX, lastCursorY;
 		bool initialized = false;
 	public:
-		CWindowManagerAndroid(android_app* app) : m_app(app) 
+		inline CWindowManagerAndroid(android_app* app) : m_app(app) 
         {
 			windowIsCreated.clear();
         }
-		~CWindowManagerAndroid() = default;
+		inline ~CWindowManagerAndroid() = default;
 
-		core::smart_refctd_ptr<IWindow> createWindow(IWindow::SCreationParams&& creationParams) override final
+		inline core::smart_refctd_ptr<IWindow> createWindow(IWindow::SCreationParams&& creationParams) override final
 		{
 			bool createdBefore = windowIsCreated.test_and_set();
 			if (!createdBefore)
@@ -42,7 +42,7 @@ class NBL_API CWindowManagerAndroid : public IWindowManager
 			return nullptr;
 		}
 
-		SDisplayInfo getPrimaryDisplayInfo() const override final
+		inline SDisplayInfo getPrimaryDisplayInfo() const override final
 		{
 			struct fb_var_screeninfo fb_var;
 			int fd = open("/dev/graphics/fb0", O_RDONLY);
@@ -57,7 +57,7 @@ class NBL_API CWindowManagerAndroid : public IWindowManager
 			return info;
 		}
 
-        void destroyWindow(IWindow* wnd) override final
+        inline void destroyWindow(IWindow* wnd) override final
         { 
         }
 

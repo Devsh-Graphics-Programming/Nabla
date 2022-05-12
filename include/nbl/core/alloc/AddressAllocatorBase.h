@@ -20,7 +20,7 @@ namespace core
             static constexpr size_type                          invalid_address = nbl::core::address_type_traits<size_type>::invalid_address
 
     template<typename CRTP, typename _size_type>
-    class NBL_API AddressAllocatorBase
+    class AddressAllocatorBase
     {
         public:
             _NBL_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);

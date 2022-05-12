@@ -6,8 +6,9 @@
 
 namespace nbl::ui
 {
-	class NBL_API IGraphicalApplicationFramework
-	{
+
+class NBL_API2 IGraphicalApplicationFramework
+{
 	public:
 		virtual nbl::ui::IWindow* getWindow() = 0;
 		virtual video::IAPIConnection* getAPIConnection() = 0;
@@ -23,6 +24,7 @@ namespace nbl::ui
 		virtual nbl::asset::E_FORMAT getDepthFormat() = 0;
 
 		virtual void recreateSurface() = 0;
-	};
+};
+
 }
 #endif

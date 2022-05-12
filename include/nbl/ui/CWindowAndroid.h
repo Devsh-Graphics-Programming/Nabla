@@ -11,32 +11,36 @@
 namespace nbl::ui
 {
 
-class NBL_API CWindowAndroid : public IWindowAndroid
+class CWindowAndroid : public IWindowAndroid
 {
 	public:
-		constexpr static uint32_t CIRCULAR_BUFFER_CAPACITY = 256;
-		explicit CWindowAndroid(SCreationParams&& params, native_handle_t anw) : m_native(anw), IWindowAndroid(std::move(params))
+		constexpr static inline uint32_t CIRCULAR_BUFFER_CAPACITY = 256;
+		explicit inline CWindowAndroid(SCreationParams&& params, native_handle_t anw) : m_native(anw), IWindowAndroid(std::move(params))
 		{
 			m_width = ANativeWindow_getWidth(anw);
 			m_height = ANativeWindow_getHeight(anw);
 		}
 
-		virtual IClipboardManager* getClipboardManager() override { return nullptr; }
-		virtual ICursorControl* getCursorControl() override { return nullptr; }
+		virtual inline IClipboardManager* getClipboardManager() override { return nullptr; }
+		virtual inline ICursorControl* getCursorControl() override { return nullptr; }
 
-		const native_handle_t& getNativeHandle() const override { return m_native; }
-		void setCaption(const std::string_view& caption) override {}
+		inline const native_handle_t& getNativeHandle() const override { return m_native; }
+		
+		inline void setCaption(const std::string_view& caption) override {}
+
+		// WHY THE FUCK ARE THESE PUBLIC?
 		core::map<uint32_t, core::smart_refctd_ptr<IMouseEventChannel>> m_mouseEventChannels;
 		core::map<uint32_t, core::smart_refctd_ptr<IKeyboardEventChannel>> m_keyboardEventChannels;
-		bool hasMouseEventChannel(uint32_t deviceId)
+
+		inline bool hasMouseEventChannel(uint32_t deviceId)
 		{
 			return m_mouseEventChannels.find(deviceId) != m_mouseEventChannels.end();
 		}
-		bool hasKeyboardEventChannel(uint32_t deviceId)
+		inline bool hasKeyboardEventChannel(uint32_t deviceId)
 		{
 			return m_keyboardEventChannels.find(deviceId) != m_keyboardEventChannels.end();
 		}
-		bool addMouseEventChannel(uint32_t deviceId, const core::smart_refctd_ptr<IMouseEventChannel>& channel)
+		inline bool addMouseEventChannel(uint32_t deviceId, const core::smart_refctd_ptr<IMouseEventChannel>& channel)
 		{
 			if (m_mouseEventChannels.find(deviceId) == m_mouseEventChannels.end())
 			{
@@ -45,7 +49,7 @@ class NBL_API CWindowAndroid : public IWindowAndroid
 			}
 			return false;
 		}
-		bool addKeyboardEventChannel(uint32_t deviceId, const core::smart_refctd_ptr<IKeyboardEventChannel>& channel)
+		inline bool addKeyboardEventChannel(uint32_t deviceId, const core::smart_refctd_ptr<IKeyboardEventChannel>& channel)
 		{
 			if (m_keyboardEventChannels.find(deviceId) == m_keyboardEventChannels.end())
 			{
@@ -54,17 +58,18 @@ class NBL_API CWindowAndroid : public IWindowAndroid
 			}
 			return false;
 		}
-		IMouseEventChannel* getMouseEventChannel(uint32_t deviceId)
+		inline IMouseEventChannel* getMouseEventChannel(uint32_t deviceId)
 		{
 			auto ch = m_mouseEventChannels.find(deviceId);
 			return m_mouseEventChannels.find(deviceId)->second.get();
 		}
 
-		IKeyboardEventChannel* getKeyboardEventChannel(uint32_t deviceId)
+		inline IKeyboardEventChannel* getKeyboardEventChannel(uint32_t deviceId)
 		{
 			auto ch = m_keyboardEventChannels.find(deviceId);
 			return m_keyboardEventChannels.find(deviceId)->second.get();
 		}
+
 	private:
 		native_handle_t m_native;
 };

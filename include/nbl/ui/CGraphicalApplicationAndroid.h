@@ -13,8 +13,9 @@
 #include <fstream>
 namespace nbl::ui
 {
-	class NBL_API CGraphicalApplicationAndroid : public system::CApplicationAndroid, public ui::IGraphicalApplicationFramework
-	{
+
+class CGraphicalApplicationAndroid : public system::CApplicationAndroid, public ui::IGraphicalApplicationFramework
+{
 	public:
 		struct SGraphicalContext : SContext
 		{
