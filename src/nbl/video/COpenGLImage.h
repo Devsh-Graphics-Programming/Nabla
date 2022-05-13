@@ -66,6 +66,64 @@ class COpenGLImage final : public IGPUImage, public IDriverMemoryAllocation
 					break;
 			}
 		}
+		COpenGLImage(core::smart_refctd_ptr<const ILogicalDevice>&& dev, IOpenGL_FunctionTable* gl, const IDriverMemoryBacked::SDriverMemoryRequirements2 reqs, IGPUImage::SCreationParams&& _params) : IGPUImage(std::move(dev), std::move(reqs), std::move(_params)),
+			IDriverMemoryAllocation(getOriginDevice()), internalFormat(GL_INVALID_ENUM), target(GL_INVALID_ENUM), name(0u)
+		{
+			#ifdef OPENGL_LEAK_DEBUG
+				COpenGLExtensionHandler::textureLeaker.registerObj(this);
+			#endif // OPENGL_LEAK_DEBUG
+
+			GLsizei samples = params.samples;
+			switch (params.type) // TODO what about multisample targets?
+			{
+				case IGPUImage::ET_1D:
+					target = GL_TEXTURE_1D_ARRAY;
+					gl->extGlCreateTextures(target, 1, &name);
+					break;
+				case IGPUImage::ET_2D:
+					if (params.flags & ECF_CUBE_COMPATIBLE_BIT)
+						target = GL_TEXTURE_CUBE_MAP_ARRAY;
+					else
+						target = samples>1 ? GL_TEXTURE_2D_MULTISAMPLE_ARRAY : GL_TEXTURE_2D_ARRAY;
+					gl->extGlCreateTextures(target, 1, &name);
+					break;
+				case IGPUImage::ET_3D:
+					target = GL_TEXTURE_3D;
+					gl->extGlCreateTextures(target, 1, &name);
+					break;
+				default:
+					assert(false);
+					break;
+			}
+		}
+		
+		// TODO(Erfan): Move IDriverMemoryAllocation stuff + pure virtual init function to COpenGLMemory
+		void initMemory(IOpenGL_FunctionTable* gl, core::bitflag<IPhysicalDevice::E_MEMORY_PROPERTY_FLAGS> memoryFlags)
+		{
+			internalFormat = getSizedOpenGLFormatFromOurFormat(gl, params.format);
+
+			GLsizei samples = params.samples;
+			switch (params.type) // TODO what about multisample targets?
+			{
+				case IGPUImage::ET_1D:
+					gl->extGlTextureStorage2D(name, target, params.mipLevels, internalFormat,
+																	params.extent.width, params.arrayLayers);
+					break;
+				case IGPUImage::ET_2D:
+					if (samples == 1)
+						gl->extGlTextureStorage3D(name, target, params.mipLevels, internalFormat, params.extent.width, params.extent.height, params.arrayLayers);
+					else
+						gl->extGlTextureStorage3DMultisample(name, target, samples, internalFormat, params.extent.width, params.extent.height, params.arrayLayers, GL_TRUE);
+					break;
+				case IGPUImage::ET_3D:
+					gl->extGlTextureStorage3D(name, target, params.mipLevels, internalFormat,
+																	params.extent.width, params.extent.height, params.extent.depth);
+					break;
+				default:
+					assert(false);
+					break;
+			}
+		}
 
 		void setObjectDebugName(const char* label) const override;
 
