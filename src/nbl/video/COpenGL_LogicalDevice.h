@@ -135,7 +135,33 @@ public:
 
         return retval;
     }
+    core::smart_refctd_ptr<IGPUImage> createImage(IGPUImage::SCreationParams&& params) override final
+    {
+        if (!asset::IImage::validateCreationParameters(params))
+            return nullptr;
+        if constexpr (IsGLES)
+        {
+            if (params.type == IGPUImage::ET_1D)
+                return nullptr;
+        }
 
+        core::smart_refctd_ptr<IGPUImage> retval;
+
+        SRequestImageCreate2 reqParams;
+
+        reqParams.mreqs.size = 0u; // TODO(Erfan) some approx of image size -> considering dimensions, mipLevels, arrayLayers, samples, minImageGranularity and texelBlockInfo (see ImageUploadUtility)
+        reqParams.mreqs.memoryTypeBits = m_physicalDevice->getDeviceLocalMemoryTypeBits();
+        reqParams.mreqs.alignmentLog2 = 0u; // TODO(Erfan) Alignment previously was 0u in getXXXMemoryRequirementsOnDedMem(). what to set here? get minXXXOffsetAlignment from physical device and deduce from usage?
+        reqParams.mreqs.prefersDedicatedAllocation = true;
+        reqParams.mreqs.requiresDedicatedAllocation = true;
+
+        reqParams.creationParams = std::move(params);
+        auto& req = m_threadHandler.request(std::move(reqParams), &retval);
+        m_masterContextCallsInvoked++;
+        m_threadHandler.template waitForRequestCompletion<SRequestImageCreate>(req);
+
+        return retval;
+    }
 
     core::smart_refctd_ptr<IGPUSampler> createGPUSampler(const IGPUSampler::SParams& _params) override final
     {
@@ -229,14 +255,35 @@ public:
     
     SMemoryOffset allocate(const SAllocateInfo& info) override
     {
-        return {}; //TODO: Erfan
+        SRequestAllocate reqParams;
+        reqParams.allocateInfo = info;
+        reqParams.memoryTypeIndexFlags = m_physicalDevice->getMemoryProperties().memoryTypes[info.memoryTypeIndex].propertyFlags;
+
+        SMemoryOffset output;
+        auto& req = m_threadHandler.request(std::move(reqParams),&output);
+        m_masterContextCallsInvoked++;
+        m_threadHandler.template waitForRequestCompletion<SRequestAllocate>(req);
+
+        return output;
     }
 
     core::smart_refctd_ptr<IGPUBuffer> createBuffer(const IGPUBuffer::SCreationParams& creationParams) override
     {
-        return {}; //TODO: Erfan
-    }
+        SRequestBufferCreate2 reqParams;
+        reqParams.mreqs.size = creationParams.declaredSize;
+        reqParams.mreqs.memoryTypeBits = 0xffffffffu;
+        reqParams.mreqs.alignmentLog2 = 0u; // TODO(Erfan) Alignment previously was 0u in getXXXMemoryRequirementsOnDedMem(). what to set here? get minXXXOffsetAlignment from physical device and deduce from usage?
+        reqParams.mreqs.prefersDedicatedAllocation = true;
+        reqParams.mreqs.requiresDedicatedAllocation = true;
 
+        reqParams.creationParams = creationParams;
+        core::smart_refctd_ptr<IGPUBuffer> output;
+        auto& req = m_threadHandler.request(std::move(reqParams),&output);
+        m_masterContextCallsInvoked++;
+        m_threadHandler.template waitForRequestCompletion<SRequestBufferCreate2>(req);
+
+        return output;
+    }
     core::smart_refctd_ptr<IGPUBuffer> createGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& params, const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs) override
     {
         SRequestBufferCreate reqParams;

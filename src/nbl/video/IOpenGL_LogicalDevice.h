@@ -65,8 +65,10 @@ class IOpenGL_LogicalDeviceBase
             ERT_PROGRAM_DESTROY,
 
             ERT_BUFFER_CREATE,
+            ERT_BUFFER_CREATE2,
             ERT_BUFFER_VIEW_CREATE,
             ERT_IMAGE_CREATE,
+            ERT_IMAGE_CREATE2,
             ERT_IMAGE_VIEW_CREATE,
             ERT_FENCE_CREATE,
             ERT_SAMPLER_CREATE,
@@ -81,6 +83,7 @@ class IOpenGL_LogicalDeviceBase
             ERT_INVALIDATE_MAPPED_MEMORY_RANGES,
             ERT_MAP_BUFFER_RANGE,
             ERT_UNMAP_BUFFER,
+            ERT_ALLOCATE,
             //BIND_BUFFER_MEMORY,
             
             ERT_SET_DEBUG_NAME,
@@ -139,6 +142,13 @@ class IOpenGL_LogicalDeviceBase
             IDriverMemoryBacked::SDriverMemoryRequirements mreqs;
             IGPUBuffer::SCachedCreationParams cachedCreationParams;
         };
+        struct SRequestBufferCreate2
+        {
+            static inline constexpr E_REQUEST_TYPE type = ERT_BUFFER_CREATE2;
+            using retval_t = core::smart_refctd_ptr<IGPUBuffer>;
+            IDriverMemoryBacked::SDriverMemoryRequirements2 mreqs;
+            IGPUBuffer::SCachedCreationParams creationParams;
+        };
         struct SRequestBufferViewCreate
         {
             static inline constexpr E_REQUEST_TYPE type = ERT_BUFFER_VIEW_CREATE;
@@ -153,6 +163,13 @@ class IOpenGL_LogicalDeviceBase
             static inline constexpr E_REQUEST_TYPE type = ERT_IMAGE_CREATE;
             using retval_t = core::smart_refctd_ptr<IGPUImage>;
             IGPUImage::SCreationParams params;
+        };
+        struct SRequestImageCreate2
+        {
+            static inline constexpr E_REQUEST_TYPE type = ERT_IMAGE_CREATE2;
+            using retval_t = core::smart_refctd_ptr<IGPUImage>;
+            IDriverMemoryBacked::SDriverMemoryRequirements2 mreqs;
+            IGPUImage::SCreationParams creationParams;
         };
         struct SRequestImageViewCreate
         {
@@ -229,6 +246,13 @@ class IOpenGL_LogicalDeviceBase
             using retval_t = void;
 
             core::smart_refctd_ptr<IDriverMemoryAllocation> buf;
+        };
+        struct SRequestAllocate
+        {
+            static inline constexpr E_REQUEST_TYPE type = ERT_ALLOCATE;
+            using retval_t = IDeviceMemoryAllocator::SMemoryOffset;
+            IDeviceMemoryAllocator::SAllocateInfo allocateInfo;
+            core::bitflag<IPhysicalDevice::E_MEMORY_PROPERTY_FLAGS> memoryTypeIndexFlags;
         };
         struct SRequestSetDebugName
         {
@@ -345,9 +369,12 @@ protected:
     {
         using params_variant_t = std::variant<
             SRequestFenceCreate,
+            SRequestAllocate,
             SRequestBufferCreate,
+            SRequestBufferCreate2,
             SRequestBufferViewCreate,
             SRequestImageCreate,
+            SRequestImageCreate2,
             SRequestImageViewCreate,
             SRequestSamplerCreate,
             SRequestRenderpassIndependentPipelineCreate,
@@ -535,6 +562,13 @@ protected:
                 pretval[0] = core::make_smart_refctd_ptr<COpenGLBuffer>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device), &gl, p.mreqs, p.cachedCreationParams);
             }
                 break;
+            case ERT_BUFFER_CREATE2:
+            {
+                auto& p = std::get<SRequestBufferCreate2>(req.params_variant);
+                core::smart_refctd_ptr<IGPUBuffer>* pretval = reinterpret_cast<core::smart_refctd_ptr<IGPUBuffer>*>(req.pretval);
+                pretval[0] = core::make_smart_refctd_ptr<COpenGLBuffer>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device), &gl, p.mreqs, p.creationParams);
+            }
+                break;
             case ERT_BUFFER_VIEW_CREATE:
             {
                 auto& p = std::get<SRequestBufferViewCreate>(req.params_variant);
@@ -547,6 +581,13 @@ protected:
                 auto& p = std::get<SRequestImageCreate>(req.params_variant);
                 core::smart_refctd_ptr<IGPUImage>* pretval = reinterpret_cast<core::smart_refctd_ptr<IGPUImage>*>(req.pretval);
                 pretval[0] = core::make_smart_refctd_ptr<COpenGLImage>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device), &gl, std::move(p.params));
+            }
+                break;
+            case ERT_IMAGE_CREATE2:
+            {
+                auto& p = std::get<SRequestImageCreate2>(req.params_variant);
+                core::smart_refctd_ptr<IGPUImage>* pretval = reinterpret_cast<core::smart_refctd_ptr<IGPUImage>*>(req.pretval);
+                pretval[0] = core::make_smart_refctd_ptr<COpenGLImage>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device), &gl, std::move(p.mreqs), std::move(p.creationParams));
             }
                 break;
             case ERT_IMAGE_VIEW_CREATE:
@@ -623,6 +664,27 @@ protected:
                 gl.extGlUnmapNamedBuffer(static_cast<COpenGLBuffer*>(p.buf.get())->getOpenGLName());
                 // unfortunately I have to make every other context wait on the master to ensure the unmapping completes
                 incrementProgressionSync(_gl);
+            }
+                break;
+            case ERT_ALLOCATE:
+            {
+                auto& p = std::get<SRequestAllocate>(req.params_variant);
+                IDeviceMemoryAllocator::SMemoryOffset* pretval = reinterpret_cast<IDeviceMemoryAllocator::SMemoryOffset*>(req.pretval);
+                IDeviceMemoryAllocator::SMemoryOffset& retval = *pretval;
+                if(p.allocateInfo.dedication)
+                {
+                    // TODO(Erfan): Use COpenGLMemoryAllocation to include COpenGLImage too and static cast to that and use the virtual funtion initMemory
+                    COpenGLBuffer* glBuffer = static_cast<COpenGLBuffer*>(p.allocateInfo.dedication);
+                    glBuffer->initMemory(&gl, p.memoryTypeIndexFlags);
+                    retval.memory = core::smart_refctd_ptr<COpenGLBuffer>(glBuffer);
+                    retval.offset = 0ull;
+                }
+                else
+                {
+                    //! Always Dedicate in OpenGL
+                    retval.memory = nullptr;
+                    retval.offset = IDeviceMemoryAllocator::InvalidMemoryOffset;
+                }
             }
                 break;
             case ERT_GET_FENCE_STATUS:
