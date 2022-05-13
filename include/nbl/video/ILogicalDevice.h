@@ -350,6 +350,7 @@ class ILogicalDevice : public core::IReferenceCounted, public IDeviceMemoryAlloc
 
         //! Creates an Image (@see ICPUImage)
         virtual core::smart_refctd_ptr<IGPUImage> createGPUImage(asset::IImage::SCreationParams&& params) { return nullptr; }
+        virtual core::smart_refctd_ptr<IGPUImage> createImage(asset::IImage::SCreationParams&& params) { return nullptr; }
 
         //! The counterpart of @see bindBufferMemory for images
         virtual bool bindImageMemory(uint32_t bindInfoCount, const SBindImageMemoryInfo* pBindInfos) { return false; }

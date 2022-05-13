@@ -539,7 +539,7 @@ public:
 
             IDriverMemoryBacked::SDriverMemoryRequirements2 bufferMemoryReqs = {};
             bufferMemoryReqs.size = vk_memoryRequirements.memoryRequirements.size;
-            bufferMemoryReqs.memoryTypeMask = vk_memoryRequirements.memoryRequirements.memoryTypeBits;
+            bufferMemoryReqs.memoryTypeBits = vk_memoryRequirements.memoryRequirements.memoryTypeBits;
             bufferMemoryReqs.alignmentLog2 = std::log2(vk_memoryRequirements.memoryRequirements.alignment);
             bufferMemoryReqs.prefersDedicatedAllocation = vk_dedicatedMemoryRequirements.prefersDedicatedAllocation;
             bufferMemoryReqs.requiresDedicatedAllocation = vk_dedicatedMemoryRequirements.requiresDedicatedAllocation;
@@ -648,6 +648,7 @@ public:
     }
 
     core::smart_refctd_ptr<IGPUImage> createGPUImage(asset::IImage::SCreationParams&& params) override;
+    core::smart_refctd_ptr<IGPUImage> createImage(asset::IImage::SCreationParams&& params) override;
 
     bool bindImageMemory(uint32_t bindInfoCount, const SBindImageMemoryInfo* pBindInfos) override
     {

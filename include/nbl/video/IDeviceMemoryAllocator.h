@@ -28,7 +28,7 @@ public:
 		// size_t opaqueCaptureAddress = 0u; Note that this mechanism is intended only to support capture/replay tools, and is not recommended for use in other applications.
 	};
 
-	//! IMemoryTypeIterator extracts memoryType indices from memoryTypeMask in arbitrary order
+	//! IMemoryTypeIterator extracts memoryType indices from memoryTypeBits in arbitrary order
 	//! which is used to give priority to memoryTypes in try-allocate usages where allocations may fail with some memoryTypes
 	//! IMemoryTypeIterator will construct SAllocateInfo from object's memory requirements, allocateFlags and dedication using operator()
 	class IMemoryTypeIterator
@@ -63,18 +63,18 @@ public:
 		virtual bool operator==(uint32_t rhs) const = 0;
 		virtual bool operator!=(uint32_t rhs) const = 0;
 		
-		uint32_t m_allocateFlags;
 		IDriverMemoryBacked::SDriverMemoryRequirements2 m_reqs;
+		uint32_t m_allocateFlags;
 	};
 
-	//! DefaultMemoryTypeIterator will iterate through set bits of memoryTypeMask from LSB to MSB
+	//! DefaultMemoryTypeIterator will iterate through set bits of memoryTypeBits from LSB to MSB
 	class DefaultMemoryTypeIterator : public IMemoryTypeIterator
 	{
 	public:
 		DefaultMemoryTypeIterator(const IDriverMemoryBacked::SDriverMemoryRequirements2& reqs, core::bitflag<IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags)
 			: IMemoryTypeIterator(reqs, allocateFlags)
 		{
-			currentIndex = core::findLSB(m_reqs.memoryTypeMask);
+			currentIndex = core::findLSB(m_reqs.memoryTypeBits);
 		}
 
 		bool operator==(uint32_t rhs) const override { return currentIndex == rhs; }
@@ -88,7 +88,7 @@ public:
 
 		void advance() override
 		{
-			uint32_t leftBits = m_reqs.memoryTypeMask & ~((1u << (currentIndex + 1u)) - 1u); // set lower bits to 0
+			uint32_t leftBits = m_reqs.memoryTypeBits & ~((1u << (currentIndex + 1u)) - 1u); // set lower bits to 0
 			if(leftBits > 0u)
 				currentIndex = core::findLSB(leftBits);
 			else
@@ -101,6 +101,7 @@ public:
 	virtual SMemoryOffset allocate(const SAllocateInfo& info) = 0;
 
 	// TODO: use template for Iterator
+	// template<class memory_type_iterator_t=DefaultMemoryTypeIterator>
 	SMemoryOffset allocate(
 		const IDriverMemoryBacked::SDriverMemoryRequirements2& reqs,
 		IDriverMemoryBacked* dedication = nullptr,

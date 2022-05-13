@@ -37,7 +37,7 @@ class IDriverMemoryBacked : public virtual core::IReferenceCounted
         struct SDriverMemoryRequirements2
         {
             size_t   size;
-            uint32_t memoryTypeMask;
+            uint32_t memoryTypeBits;
             uint32_t alignmentLog2 : 6;
             uint32_t prefersDedicatedAllocation     : 1;
             uint32_t requiresDedicatedAllocation    : 1;

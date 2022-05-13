@@ -406,8 +406,8 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
         };
         const SMemoryProperties& getMemoryProperties() const { return m_memoryProperties; }
         
-        //! Bit `i` in MemoryTypeMasks will be set if m_memoryProperties.memoryTypes[i] has the `flags`
-        uint32_t getMemoryTypeMaskFromMemoryTypeFlags(core::bitflag<E_MEMORY_PROPERTY_FLAGS> flags) const
+        //! Bit `i` in MemoryTypeBitss will be set if m_memoryProperties.memoryTypes[i] has the `flags`
+        uint32_t getMemoryTypeBitsFromMemoryTypeFlags(core::bitflag<E_MEMORY_PROPERTY_FLAGS> flags) const
         {
             uint32_t ret = 0u;
             for(uint32_t i = 0; i < m_memoryProperties.memoryTypeCount; ++i)
@@ -420,24 +420,24 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
 
         //! DeviceLocal: most efficient for device access
         //! Requires EMPF_DEVICE_LOCAL_BIT from MemoryTypes
-        uint32_t getDeviceLocalMemoryTypeMask() const
+        uint32_t getDeviceLocalMemoryTypeBits() const
         {
-            return getMemoryTypeMaskFromMemoryTypeFlags(EMPF_DEVICE_LOCAL_BIT);
+            return getMemoryTypeBitsFromMemoryTypeFlags(EMPF_DEVICE_LOCAL_BIT);
         }
         //! DirectVRAMAccess: Mappable for read and write and device local, will often return 0, always check if the mask != 0
         //! Requires EMPF_DEVICE_LOCAL_BIT, EMPF_HOST_READABLE_BIT, EMPF_HOST_WRITABLE_BIT from MemoryTypes
-        uint32_t getDirectVRAMAccessMemoryTypeMask() const
+        uint32_t getDirectVRAMAccessMemoryTypeBits() const
         {
             core::bitflag<E_MEMORY_PROPERTY_FLAGS> requiredFlags = core::bitflag<E_MEMORY_PROPERTY_FLAGS>(EMPF_DEVICE_LOCAL_BIT) | EMPF_HOST_READABLE_BIT | EMPF_HOST_WRITABLE_BIT;
-            return getMemoryTypeMaskFromMemoryTypeFlags(requiredFlags);
+            return getMemoryTypeBitsFromMemoryTypeFlags(requiredFlags);
         }
         //! UpStreaming: Mappable for write and preferably device local
         //! Requires EMPF_HOST_WRITABLE_BIT
         //! Prefers EMPF_DEVICE_LOCAL_BIT
-        uint32_t getUpStreamingMemoryTypeMask() const
+        uint32_t getUpStreamingMemoryTypeBits() const
         {
-            uint32_t hostWritable = getMemoryTypeMaskFromMemoryTypeFlags(EMPF_HOST_WRITABLE_BIT);
-            uint32_t deviceLocal = getMemoryTypeMaskFromMemoryTypeFlags(EMPF_DEVICE_LOCAL_BIT);
+            uint32_t hostWritable = getMemoryTypeBitsFromMemoryTypeFlags(EMPF_HOST_WRITABLE_BIT);
+            uint32_t deviceLocal = getMemoryTypeBitsFromMemoryTypeFlags(EMPF_DEVICE_LOCAL_BIT);
             uint32_t both = hostWritable & deviceLocal;
             if(both > 0)
                 return both;
@@ -447,10 +447,10 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
         //! Mappable for read and preferably host cached
         //! Requires EMPF_HOST_READABLE_BIT
         //! Preferably EMPF_HOST_CACHED_BIT
-        uint32_t getDownStreamingMemoryTypeMask() const
+        uint32_t getDownStreamingMemoryTypeBits() const
         {
-            uint32_t hostReadable = getMemoryTypeMaskFromMemoryTypeFlags(EMPF_HOST_READABLE_BIT);
-            uint32_t hostCached = getMemoryTypeMaskFromMemoryTypeFlags(EMPF_HOST_CACHED_BIT);
+            uint32_t hostReadable = getMemoryTypeBitsFromMemoryTypeFlags(EMPF_HOST_READABLE_BIT);
+            uint32_t hostCached = getMemoryTypeBitsFromMemoryTypeFlags(EMPF_HOST_CACHED_BIT);
             uint32_t both = hostReadable & hostCached;
             if(both > 0)
                 return both;
@@ -459,20 +459,20 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
         }
         //! Spillover: Not host visible(read&write) and Not device local
         //! Excludes EMPF_DEVICE_LOCAL_BIT, EMPF_HOST_READABLE_BIT, EMPF_HOST_WRITABLE_BIT
-        uint32_t getSpilloverMemoryTypeMask() const
+        uint32_t getSpilloverMemoryTypeBits() const
         {
-            uint32_t all = getMemoryTypeMaskFromMemoryTypeFlags(core::bitflag<E_MEMORY_PROPERTY_FLAGS>(0u));
-            uint32_t deviceLocal = getMemoryTypeMaskFromMemoryTypeFlags(EMPF_DEVICE_LOCAL_BIT);
+            uint32_t all = getMemoryTypeBitsFromMemoryTypeFlags(core::bitflag<E_MEMORY_PROPERTY_FLAGS>(0u));
+            uint32_t deviceLocal = getMemoryTypeBitsFromMemoryTypeFlags(EMPF_DEVICE_LOCAL_BIT);
             return all & (~deviceLocal);
         }
         //! HostVisibleSpillover: Same as Spillover but mappable for read&write
         //! Requires EMPF_HOST_READABLE_BIT, EMPF_HOST_WRITABLE_BIT
         //! Excludes EMPF_DEVICE_LOCAL_BIT
-        uint32_t getHostVisibleSpilloverMemoryTypeMask() const
+        uint32_t getHostVisibleSpilloverMemoryTypeBits() const
         {
-            uint32_t hostWritable = getMemoryTypeMaskFromMemoryTypeFlags(EMPF_HOST_WRITABLE_BIT);
-            uint32_t hostReadable = getMemoryTypeMaskFromMemoryTypeFlags(EMPF_HOST_READABLE_BIT);
-            uint32_t deviceLocal = getMemoryTypeMaskFromMemoryTypeFlags(EMPF_DEVICE_LOCAL_BIT);
+            uint32_t hostWritable = getMemoryTypeBitsFromMemoryTypeFlags(EMPF_HOST_WRITABLE_BIT);
+            uint32_t hostReadable = getMemoryTypeBitsFromMemoryTypeFlags(EMPF_HOST_READABLE_BIT);
+            uint32_t deviceLocal = getMemoryTypeBitsFromMemoryTypeFlags(EMPF_DEVICE_LOCAL_BIT);
             return (hostWritable & hostReadable) & (~deviceLocal);
         }
 

@@ -316,7 +316,7 @@ public:
 
         gpuubo = logicalDevice->createBuffer(gpuuboCreationParams);
         auto gpuuboMemReqs = gpuubo->getMemoryReqs2();
-        gpuuboMemReqs.memoryTypeMask &= physicalDevice->getDeviceLocalMemoryTypeMask();
+        gpuuboMemReqs.memoryTypeBits &= physicalDevice->getDeviceLocalMemoryTypeBits();
         auto uboMemoryOffset = logicalDevice->allocate(gpuuboMemReqs, gpuubo.get(), video::IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS::EMAF_NONE);
 
         gpuds1 = logicalDevice->createGPUDescriptorSet(descriptorPool.get(), std::move(gpuds1layout));
