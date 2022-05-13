@@ -45,6 +45,7 @@ class StreamingTransientDataBuffer
         const auto& getAllocator() const {return m_composed.getAllocator();}
 
 
+        // TODO(Erfan): Replace with getBuffer()->getBoundMemory()->getMemoryTypeFlags or something and assert it has Coherent bit + cache memoryTypeFlags in IDriverMemoryAllocation
         inline bool         needsManualFlushOrInvalidate() const {return !(getBuffer()->getMemoryReqs().mappingCapability&video::IDriverMemoryAllocation::EMCF_COHERENT);}
 
         inline IGPUBuffer*  getBuffer() noexcept {return m_composed.getBuffer();}

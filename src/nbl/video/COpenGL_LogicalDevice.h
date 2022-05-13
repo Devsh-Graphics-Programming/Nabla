@@ -226,6 +226,16 @@ public:
     {
         return core::make_smart_refctd_ptr<IDescriptorPool>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this),maxSets);
     }
+    
+    SMemoryOffset allocate(const SAllocateInfo& info) override
+    {
+        return {}; //TODO: Erfan
+    }
+
+    core::smart_refctd_ptr<IGPUBuffer> createBuffer(const IGPUBuffer::SCreationParams& creationParams) override
+    {
+        return {}; //TODO: Erfan
+    }
 
     core::smart_refctd_ptr<IGPUBuffer> createGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& params, const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs) override
     {
@@ -239,11 +249,6 @@ public:
         m_threadHandler.template waitForRequestCompletion<SRequestBufferCreate>(req);
 
         return output;
-    }
-
-    SMemoryOffset allocate(const SAllocateInfo& info) override
-    {
-        return {}; //TODO: Erfan
     }
 
     core::smart_refctd_ptr<IGPUSemaphore> createSemaphore() override final
@@ -358,18 +363,17 @@ public:
         m_threadHandler.template waitForRequestCompletion<SRequestInvalidateMappedMemoryRanges>(req);
     }
 
-    void* mapMemory(const IDriverMemoryAllocation::MappedMemoryRange& memory, IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAG access = IDriverMemoryAllocation::EMCAF_READ_AND_WRITE) override final
+    void* mapMemory(const IDriverMemoryAllocation::MappedMemoryRange& memory) override final
     {
-        assert(access != IDriverMemoryAllocation::EMCAF_NO_MAPPING_ACCESS);
         assert(!memory.memory->isCurrentlyMapped());
 
         auto* buf = static_cast<COpenGLBuffer*>(memory.memory);
         const GLbitfield storageFlags = buf->getOpenGLStorageFlags();
 
-        GLbitfield flags = GL_MAP_PERSISTENT_BIT | ((access & IDriverMemoryAllocation::EMCAF_READ) ? GL_MAP_READ_BIT : 0);
+        GLbitfield flags = GL_MAP_PERSISTENT_BIT | ((storageFlags & GL_MAP_READ_BIT) ? GL_MAP_READ_BIT : 0);
         if (storageFlags & GL_MAP_COHERENT_BIT)
-            flags |= GL_MAP_COHERENT_BIT | ((access & IDriverMemoryAllocation::EMCAF_WRITE) ? GL_MAP_WRITE_BIT : 0);
-        else if (access & IDriverMemoryAllocation::EMCAF_WRITE)
+            flags |= GL_MAP_COHERENT_BIT | ((storageFlags & GL_MAP_WRITE_BIT) ? GL_MAP_WRITE_BIT : 0);
+        else if (storageFlags & GL_MAP_WRITE_BIT)
             flags |= GL_MAP_FLUSH_EXPLICIT_BIT | GL_MAP_WRITE_BIT;
 
         SRequestMapBufferRange req_params;
@@ -383,13 +387,8 @@ public:
         m_masterContextCallsInvoked++;
         m_threadHandler.template waitForRequestCompletion<SRequestMapBufferRange>(req);
 
-        core::bitflag<IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAG> actualAccess = static_cast< IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAG>(0);
-        if (flags & GL_MAP_READ_BIT)
-            actualAccess |= IDriverMemoryAllocation::EMCAF_READ;
-        if (flags & GL_MAP_WRITE_BIT)
-            actualAccess |= IDriverMemoryAllocation::EMCAF_WRITE;
         if (retval)
-            post_mapMemory(memory.memory, retval, memory.range, actualAccess.value);
+            post_mapMemory(memory.memory, retval, memory.range);
 
         return retval;
     }

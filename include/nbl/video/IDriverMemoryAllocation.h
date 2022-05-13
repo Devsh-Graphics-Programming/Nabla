@@ -125,9 +125,6 @@ class IDriverMemoryAllocation : public virtual core::IReferenceCounted
         virtual E_MAPPING_CAPABILITY_FLAGS getMappingCaps() const {return EMCF_CANNOT_MAP;}
 
         //!
-        inline E_MAPPING_CPU_ACCESS_FLAG getCurrentMappingCaps() const {return currentMappingAccess;}
-        
-        //!
         inline core::bitflag<E_MEMORY_ALLOCATE_FLAGS> getAllocateFlags() const {return allocateFlags;}
 
         inline bool isCurrentlyMapped() const { return mappedPtr != nullptr; }
@@ -148,22 +145,19 @@ class IDriverMemoryAllocation : public virtual core::IReferenceCounted
         inline const void* getMappedPointer() const { return mappedPtr; }
 
     protected:
-        inline void postMapSetMembers(void* ptr, MemoryRange rng, E_MAPPING_CPU_ACCESS_FLAG access)
+        inline void postMapSetMembers(void* ptr, MemoryRange rng)
         {
             mappedPtr = reinterpret_cast<uint8_t*>(ptr);
             mappedRange = rng;
-            currentMappingAccess = access;
         }
 
         IDriverMemoryAllocation(const ILogicalDevice* originDevice, core::bitflag<E_MEMORY_ALLOCATE_FLAGS> flags = E_MEMORY_ALLOCATE_FLAGS::EMAF_NONE)
-            : m_originDevice(originDevice), mappedPtr(nullptr), mappedRange(0,0),
-            currentMappingAccess(EMCAF_NO_MAPPING_ACCESS), allocateFlags(flags)
+            : m_originDevice(originDevice), mappedPtr(nullptr), mappedRange(0,0), allocateFlags(flags)
         {}
 
         const ILogicalDevice* m_originDevice = nullptr;
         uint8_t* mappedPtr;
-        MemoryRange                 mappedRange;
-        E_MAPPING_CPU_ACCESS_FLAG   currentMappingAccess;
+        MemoryRange mappedRange;
         const core::bitflag<E_MEMORY_ALLOCATE_FLAGS> allocateFlags;
 };
 

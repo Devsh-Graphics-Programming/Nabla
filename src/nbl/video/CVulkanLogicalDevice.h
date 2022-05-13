@@ -947,7 +947,7 @@ public:
         assert(retval == VK_SUCCESS);
     }
 
-    void* mapMemory(const IDriverMemoryAllocation::MappedMemoryRange& memory, IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAG accessHint = IDriverMemoryAllocation::EMCAF_READ_AND_WRITE) override
+    void* mapMemory(const IDriverMemoryAllocation::MappedMemoryRange& memory) override
     {
         if (memory.memory->getAPIType() != EAT_VULKAN)
             return nullptr;
@@ -959,7 +959,7 @@ public:
         if (m_devf.vk.vkMapMemory(m_vkdev, vk_memory, static_cast<VkDeviceSize>(memory.offset),
             static_cast<VkDeviceSize>(memory.length), vk_memoryMapFlags, &mappedPtr) == VK_SUCCESS)
         {
-            vulkanMemory->setMembersPostMap(mappedPtr, memory.range, accessHint);
+            vulkanMemory->setMembersPostMap(mappedPtr, memory.range);
             return mappedPtr;
         }
         else

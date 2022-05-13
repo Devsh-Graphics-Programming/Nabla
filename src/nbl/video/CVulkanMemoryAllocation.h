@@ -26,10 +26,10 @@ public:
 
     inline VkDeviceMemory getInternalObject() const { return m_deviceMemoryHandle; }
 
-    inline void setMembersPostMap(void* ptr, MemoryRange rng, E_MAPPING_CPU_ACCESS_FLAG access)
+    inline void setMembersPostMap(void* ptr, MemoryRange rng)
     {
         // Probably should just make this public
-        postMapSetMembers(ptr, rng, access);
+        postMapSetMembers(ptr, rng);
     }
 
 private:

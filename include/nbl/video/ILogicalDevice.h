@@ -598,7 +598,7 @@ class ILogicalDevice : public core::IReferenceCounted, public IDeviceMemoryAlloc
         virtual void waitIdle() = 0;
 
         //
-        virtual void* mapMemory(const IDriverMemoryAllocation::MappedMemoryRange& memory, IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAG accessHint = IDriverMemoryAllocation::EMCAF_READ_AND_WRITE) = 0;
+        virtual void* mapMemory(const IDriverMemoryAllocation::MappedMemoryRange& memory) = 0;
 
         //
         virtual void unmapMemory(IDriverMemoryAllocation* memory) = 0;
@@ -677,14 +677,14 @@ class ILogicalDevice : public core::IReferenceCounted, public IDeviceMemoryAlloc
         }
 
         // must be called by implementations of mapMemory()
-        static void post_mapMemory(IDriverMemoryAllocation* memory, void* ptr, IDriverMemoryAllocation::MemoryRange rng, IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAG access) 
+        static void post_mapMemory(IDriverMemoryAllocation* memory, void* ptr, IDriverMemoryAllocation::MemoryRange rng) 
         {
-            memory->postMapSetMembers(ptr, rng, access);
+            memory->postMapSetMembers(ptr, rng);
         }
         // must be called by implementations of unmapMemory()
         static void post_unmapMemory(IDriverMemoryAllocation* memory)
         {
-            post_mapMemory(memory, nullptr, { 0,0 }, IDriverMemoryAllocation::EMCAF_NO_MAPPING_ACCESS);
+            post_mapMemory(memory, nullptr, { 0,0 });
         }
 
         virtual bool createCommandBuffers_impl(IGPUCommandPool* _cmdPool, IGPUCommandBuffer::E_LEVEL _level, uint32_t _count, core::smart_refctd_ptr<IGPUCommandBuffer>* _outCmdBufs) = 0;
