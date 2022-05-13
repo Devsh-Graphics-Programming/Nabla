@@ -207,6 +207,7 @@ public:
 
 		m_egl.call.peglMakeCurrent(m_egl.display, pbuf, pbuf, ctx);
 
+		auto GetError = reinterpret_cast<decltype(glGetError)*>(m_egl.call.peglGetProcAddress("glGetError"));
 		auto GetString = reinterpret_cast<decltype(glGetString)*>(m_egl.call.peglGetProcAddress("glGetString"));
 		auto GetStringi = reinterpret_cast<PFNGLGETSTRINGIPROC>(m_egl.call.peglGetProcAddress("glGetStringi"));
 		auto GetIntegerv = reinterpret_cast<decltype(glGetIntegerv)*>(m_egl.call.peglGetProcAddress("glGetIntegerv"));
@@ -307,6 +308,76 @@ public:
 			m_properties.deviceType = E_TYPE::ET_VIRTUAL_GPU;
 		else
 			m_properties.deviceType = E_TYPE::ET_OTHER;
+		
+		// Query VRAM Size 
+		GetError();
+		size_t VRAMSize = 0u;
+		GLint tmp[4] = {0,0,0,0};
+		switch (m_properties.deviceType)
+		{
+		case E_DRIVER_ID::EDI_AMD_PROPRIETARY:
+			GetIntegerv(0x87FC,tmp); //TEXTURE_FREE_MEMORY_ATI, only textures
+			VRAMSize = size_t(tmp[0])*1024ull;
+			assert(VRAMSize > 0u);
+			break;
+		case EDI_INTEL_OPEN_SOURCE_MESA: [[fallthrough]];
+		case EDI_MESA_RADV: [[fallthrough]];
+		case EDI_MESA_LLVMPIPE: [[fallthrough]];
+		case EDI_AMD_OPEN_SOURCE: [[fallthrough]];
+			// TODO https://www.khronos.org/registry/OpenGL/extensions/MESA/GLX_MESA_query_renderer.txt
+		default: // other vendors sometimes implement the NVX extension
+			GetIntegerv(0x9047,tmp); // dedicated as per https://www.khronos.org/registry/OpenGL/extensions/NVX/NVX_gpu_memory_info.txt
+			VRAMSize = size_t(tmp[0])*1024ull;
+			assert(VRAMSize > 0u);
+			break;
+		}
+		if (GetError()!=GL_NO_ERROR)
+			VRAMSize = 2047u;
+
+		// Spoof Memory Types and Heaps
+		m_memoryProperties = {};
+		m_memoryProperties.memoryHeapCount = 3u;
+		m_memoryProperties.memoryHeaps[0u].flags = core::bitflag<E_MEMORY_HEAP_FLAGS>(EMHF_DEVICE_LOCAL_BIT);
+		m_memoryProperties.memoryHeaps[0u].size = VRAMSize; // VRAM SIZE
+		m_memoryProperties.memoryHeaps[1u].flags = core::bitflag<E_MEMORY_HEAP_FLAGS>(0u);
+		m_memoryProperties.memoryHeaps[1u].size = size_t(0.7f * float(m_system->getSystemInfo().totalMemory)); // 70% System memory
+		m_memoryProperties.memoryHeaps[2u].flags = core::bitflag<E_MEMORY_HEAP_FLAGS>(EMHF_DEVICE_LOCAL_BIT);
+		m_memoryProperties.memoryHeaps[2u].size = 256u * 1024u * 1024u; // 256MB
+
+		m_memoryProperties.memoryTypeCount = 14u;
+		m_memoryProperties.memoryTypes[0u].heapIndex = 0u;
+		m_memoryProperties.memoryTypes[0u].propertyFlags = core::bitflag<E_MEMORY_PROPERTY_FLAGS>(EMPF_DEVICE_LOCAL_BIT);
+
+		m_memoryProperties.memoryTypes[1u].heapIndex = 2u;
+		m_memoryProperties.memoryTypes[1u].propertyFlags = core::bitflag<E_MEMORY_PROPERTY_FLAGS>(EMPF_DEVICE_LOCAL_BIT) | EMPF_HOST_READABLE_BIT | EMPF_HOST_WRITABLE_BIT | EMPF_HOST_COHERENT_BIT;
+		m_memoryProperties.memoryTypes[2u].heapIndex = 2u;
+		m_memoryProperties.memoryTypes[2u].propertyFlags = core::bitflag<E_MEMORY_PROPERTY_FLAGS>(EMPF_DEVICE_LOCAL_BIT) | EMPF_HOST_READABLE_BIT | EMPF_HOST_COHERENT_BIT;
+		m_memoryProperties.memoryTypes[3u].heapIndex = 2u;
+		m_memoryProperties.memoryTypes[3u].propertyFlags = core::bitflag<E_MEMORY_PROPERTY_FLAGS>(EMPF_DEVICE_LOCAL_BIT) | EMPF_HOST_WRITABLE_BIT | EMPF_HOST_COHERENT_BIT;
+		
+		m_memoryProperties.memoryTypes[4u].heapIndex = 2u;
+		m_memoryProperties.memoryTypes[4u].propertyFlags = core::bitflag<E_MEMORY_PROPERTY_FLAGS>(EMPF_DEVICE_LOCAL_BIT) | EMPF_HOST_READABLE_BIT | EMPF_HOST_WRITABLE_BIT | EMPF_HOST_CACHED_BIT;
+		m_memoryProperties.memoryTypes[5u].heapIndex = 2u;
+		m_memoryProperties.memoryTypes[5u].propertyFlags = core::bitflag<E_MEMORY_PROPERTY_FLAGS>(EMPF_DEVICE_LOCAL_BIT) | EMPF_HOST_READABLE_BIT | EMPF_HOST_CACHED_BIT;
+		m_memoryProperties.memoryTypes[6u].heapIndex = 2u;
+		m_memoryProperties.memoryTypes[6u].propertyFlags = core::bitflag<E_MEMORY_PROPERTY_FLAGS>(EMPF_DEVICE_LOCAL_BIT) | EMPF_HOST_WRITABLE_BIT | EMPF_HOST_CACHED_BIT;
+		
+		m_memoryProperties.memoryTypes[7u].heapIndex = 1u;
+		m_memoryProperties.memoryTypes[7u].propertyFlags = core::bitflag<E_MEMORY_PROPERTY_FLAGS>(0u);
+		
+		m_memoryProperties.memoryTypes[8u].heapIndex = 1u;
+		m_memoryProperties.memoryTypes[8u].propertyFlags = core::bitflag<E_MEMORY_PROPERTY_FLAGS>(EMPF_HOST_COHERENT_BIT) | EMPF_HOST_READABLE_BIT | EMPF_HOST_WRITABLE_BIT ;
+		m_memoryProperties.memoryTypes[9u].heapIndex = 1u;
+		m_memoryProperties.memoryTypes[9u].propertyFlags = core::bitflag<E_MEMORY_PROPERTY_FLAGS>(EMPF_HOST_COHERENT_BIT) | EMPF_HOST_READABLE_BIT;
+		m_memoryProperties.memoryTypes[10u].heapIndex = 1u;
+		m_memoryProperties.memoryTypes[10u].propertyFlags = core::bitflag<E_MEMORY_PROPERTY_FLAGS>(EMPF_HOST_COHERENT_BIT) | EMPF_HOST_WRITABLE_BIT;
+		
+		m_memoryProperties.memoryTypes[11u].heapIndex = 1u;
+		m_memoryProperties.memoryTypes[11u].propertyFlags = core::bitflag<E_MEMORY_PROPERTY_FLAGS>(EMPF_HOST_CACHED_BIT) | EMPF_HOST_READABLE_BIT | EMPF_HOST_WRITABLE_BIT ;
+		m_memoryProperties.memoryTypes[12u].heapIndex = 1u;
+		m_memoryProperties.memoryTypes[12u].propertyFlags = core::bitflag<E_MEMORY_PROPERTY_FLAGS>(EMPF_HOST_CACHED_BIT) | EMPF_HOST_READABLE_BIT;
+		m_memoryProperties.memoryTypes[13u].heapIndex = 1u;
+		m_memoryProperties.memoryTypes[13u].propertyFlags = core::bitflag<E_MEMORY_PROPERTY_FLAGS>(EMPF_HOST_CACHED_BIT) | EMPF_HOST_WRITABLE_BIT;
 
 		const std::regex version_re("([1-9]\\.[0-9])");
 		std::cmatch re_match;
