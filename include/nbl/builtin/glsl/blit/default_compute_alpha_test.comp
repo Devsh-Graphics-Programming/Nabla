@@ -46,9 +46,9 @@
 
 layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_X_, local_size_y = _NBL_GLSL_WORKGROUP_SIZE_Y_, local_size_z = _NBL_GLSL_WORKGROUP_SIZE_Z_) in;
 
-#include <../alpha_test/parameters.glsl>
-#include <../alpha_test/descriptors.glsl>
-#include <../alpha_test/alpha_test.glsl>
+#include <nbl/builtin/glsl/blit/alpha_test/parameters.glsl>
+#include <nbl/builtin/glsl/blit/alpha_test/descriptors.glsl>
+#include <nbl/builtin/glsl/blit/alpha_test/alpha_test.glsl>
 
 layout (push_constant) uniform Block
 {

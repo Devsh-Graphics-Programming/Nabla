@@ -236,5 +236,36 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/ext/DepthPyramidGenerator/push_constants_struct_common.h"
   "nbl/builtin/glsl/ext/DepthPyramidGenerator/depth_pyramid_generator_impl.glsl"
   "nbl/builtin/glsl/ext/DepthPyramidGenerator/virtual_work_group.glsl"
+  # blit
+  "nbl/builtin/glsl/blit/default_compute_blit.comp"
+  "nbl/builtin/glsl/blit/blit/blit.glsl"
+  "nbl/builtin/glsl/blit/blit/descriptors.glsl"
+  "nbl/builtin/glsl/blit/blit/parameters.glsl"
+
+  "nbl/builtin/glsl/blit/default_compute_alpha_test.comp"
+  "nbl/builtin/glsl/blit/alpha_test/alpha_test.glsl"
+  "nbl/builtin/glsl/blit/alpha_test/parameters.glsl"
+  "nbl/builtin/glsl/blit/alpha_test/descriptors.glsl"
+
+  "nbl/builtin/glsl/blit/default_compute_normalization.comp"
+  "nbl/builtin/glsl/blit/normalization/normalization.glsl"
+  "nbl/builtin/glsl/blit/normalization/parameters.glsl"
+  "nbl/builtin/glsl/blit/normalization/descriptors.glsl"
+
+  "nbl/builtin/glsl/blit/blit/formats/r8.glsl"
+  "nbl/builtin/glsl/blit/blit/formats/r11f_g11f_b10f.glsl"
+  "nbl/builtin/glsl/blit/blit/formats/r16.glsl"
+  "nbl/builtin/glsl/blit/blit/formats/r16_snorm.glsl"
+  "nbl/builtin/glsl/blit/blit/formats/r16f.glsl"
+  "nbl/builtin/glsl/blit/blit/formats/rg8.glsl"
+  "nbl/builtin/glsl/blit/blit/formats/rg8_snorm.glsl"
+  "nbl/builtin/glsl/blit/blit/formats/rg16.glsl"
+  "nbl/builtin/glsl/blit/blit/formats/rg16_snorm.glsl"
+  "nbl/builtin/glsl/blit/blit/formats/rg16f.glsl"
+  "nbl/builtin/glsl/blit/blit/formats/rg32f.glsl"
+  "nbl/builtin/glsl/blit/blit/formats/rgb10_a2.glsl"
+  "nbl/builtin/glsl/blit/blit/formats/rgba16.glsl"
+  "nbl/builtin/glsl/blit/blit/formats/rgba16_snorm.glsl"
+
 PARENT_SCOPE)
 

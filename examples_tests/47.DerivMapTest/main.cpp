@@ -231,7 +231,8 @@ static core::smart_refctd_ptr<asset::ICPUImage> createDerivMapFromHeightMap(asse
 	state.scratchMemoryByteSize = DerivativeMapFilter::getRequiredScratchByteSize(&state);
 	state.scratchMemory = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(state.scratchMemoryByteSize, _NBL_SIMD_ALIGNMENT));
 
-	if (!state.computePhaseSupportLUT(&state))
+	using blit_utils_t = asset::CBlitUtilities<XDerivKernel, YDerivKernel, CBoxImageFilterKernel>;
+	if (!blit_utils_t::computePhaseSupportLUT(state.scratchMemory + DerivativeMapFilter::getPhaseSupportLUTByteOffset(&state), state.inExtentLayerCount, state.outExtentLayerCount, state.inImage->getCreationParameters().type, xderiv, yderiv, CBoxImageFilterKernel()))
 		return nullptr;
 
 	DerivativeMapFilter::execute(&state);

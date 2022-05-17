@@ -77,9 +77,9 @@ struct nbl_glsl_blit_normalization_pixel_t
 
 layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_X_, local_size_y = _NBL_GLSL_WORKGROUP_SIZE_Y_, local_size_z = _NBL_GLSL_WORKGROUP_SIZE_Z_) in;
 
-#include <../normalization/parameters.glsl>
-#include <../normalization/normalization.glsl>
-#include <../normalization/descriptors.glsl>
+#include <nbl/builtin/glsl/blit/normalization/parameters.glsl>
+#include <nbl/builtin/glsl/blit/normalization/normalization.glsl>
+#include <nbl/builtin/glsl/blit/normalization/descriptors.glsl>
 
 layout (push_constant) uniform Block
 {

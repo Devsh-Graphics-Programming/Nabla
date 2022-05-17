@@ -20,7 +20,7 @@ uint integerDivide_64_32_32(in uint dividendMsb, in uint dividendLsb, in uint di
 
 #define scratchShared _NBL_GLSL_SCRATCH_SHARED_DEFINED_
 
-#include <../normalization/parameters.glsl>
+#include <nbl/builtin/glsl/blit/normalization/parameters.glsl>
 nbl_glsl_blit_normalization_parameters_t nbl_glsl_blit_normalization_getParameters();
 
 nbl_glsl_blit_normalization_pixel_t nbl_glsl_blit_normalization_getPaddedData(in ivec3 coord);

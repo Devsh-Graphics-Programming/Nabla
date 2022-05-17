@@ -3,7 +3,7 @@
 
 #ifndef _NBL_GLSL_BLIT_ALPHA_TEST_MAIN_DEFINED_
 
-#include <../alpha_test/parameters.glsl>
+#include <nbl/builtin/glsl/blit/alpha_test/parameters.glsl>
 
 #ifndef _NBL_GLSL_BLIT_ALPHA_TEST_PASSED_COUNTER_DESCRIPTOR_DEFINED_
 #error _NBL_GLSL_BLIT_ALPHA_TEST_PASSED_COUNTER_DESCRIPTOR_DEFINED_ must be defined
