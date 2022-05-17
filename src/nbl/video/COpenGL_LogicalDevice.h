@@ -148,13 +148,7 @@ public:
         core::smart_refctd_ptr<IGPUImage> retval;
 
         SRequestImageCreate2 reqParams;
-
-        reqParams.mreqs.size = 0u; // TODO(Erfan) some approx of image size -> considering dimensions, mipLevels, arrayLayers, samples, minImageGranularity and texelBlockInfo (see ImageUploadUtility)
-        reqParams.mreqs.memoryTypeBits = m_physicalDevice->getDeviceLocalMemoryTypeBits();
-        reqParams.mreqs.alignmentLog2 = 0u; // TODO(Erfan) Alignment previously was 0u in getXXXMemoryRequirementsOnDedMem(). what to set here? get minXXXOffsetAlignment from physical device and deduce from usage?
-        reqParams.mreqs.prefersDedicatedAllocation = true;
-        reqParams.mreqs.requiresDedicatedAllocation = true;
-
+        reqParams.deviceLocalMemoryTypeBits = m_physicalDevice->getDeviceLocalMemoryTypeBits();
         reqParams.creationParams = std::move(params);
         auto& req = m_threadHandler.request(std::move(reqParams), &retval);
         m_masterContextCallsInvoked++;
@@ -297,12 +291,6 @@ public:
     core::smart_refctd_ptr<IGPUBuffer> createBuffer(const IGPUBuffer::SCreationParams& creationParams) override
     {
         SRequestBufferCreate2 reqParams;
-        reqParams.mreqs.size = creationParams.declaredSize;
-        reqParams.mreqs.memoryTypeBits = 0xffffffffu;
-        reqParams.mreqs.alignmentLog2 = 0u; // TODO(Erfan) Alignment previously was 0u in getXXXMemoryRequirementsOnDedMem(). what to set here? get minXXXOffsetAlignment from physical device and deduce from usage?
-        reqParams.mreqs.prefersDedicatedAllocation = true;
-        reqParams.mreqs.requiresDedicatedAllocation = true;
-
         reqParams.creationParams = creationParams;
         core::smart_refctd_ptr<IGPUBuffer> output;
         auto& req = m_threadHandler.request(std::move(reqParams),&output);
