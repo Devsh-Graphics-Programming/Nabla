@@ -292,9 +292,9 @@ core::smart_refctd_ptr<IDriverMemoryAllocation> CVulkanLogicalDevice::allocateGP
     return nullptr;
 }
 
-IDeviceMemoryAllocator::SMemoryOffset CVulkanLogicalDevice::allocate(const SAllocateInfo& info)
+IDriverMemoryAllocator::SMemoryOffset CVulkanLogicalDevice::allocate(const SAllocateInfo& info)
 {
-    IDeviceMemoryAllocator::SMemoryOffset ret = {nullptr, IDeviceMemoryAllocator::InvalidMemoryOffset};
+    IDriverMemoryAllocator::SMemoryOffset ret = {nullptr, IDriverMemoryAllocator::InvalidMemoryOffset};
 
     core::bitflag<IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags(info.flags);
 
@@ -365,7 +365,7 @@ IDeviceMemoryAllocator::SMemoryOffset CVulkanLogicalDevice::allocate(const SAllo
                 if(!dedicationSuccess)
                 {
                     // automatically allocation goes out of scope and frees itself
-                    ret = {nullptr, IDeviceMemoryAllocator::InvalidMemoryOffset};
+                    ret = {nullptr, IDriverMemoryAllocator::InvalidMemoryOffset};
                 }
             }
         }

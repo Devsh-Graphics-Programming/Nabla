@@ -249,7 +249,7 @@ public:
     
     SMemoryOffset allocate(const SAllocateInfo& info) override
     {
-        SMemoryOffset ret =  {nullptr, IDeviceMemoryAllocator::InvalidMemoryOffset};
+        SMemoryOffset ret =  {nullptr, IDriverMemoryAllocator::InvalidMemoryOffset};
         if(info.dedication)
         {
             IOpenGLMemoryAllocation* glAllocation = nullptr;
@@ -274,7 +274,7 @@ public:
                 auto& req = m_threadHandler.request(std::move(reqParams),&ret);
                 m_masterContextCallsInvoked++;
                 m_threadHandler.template waitForRequestCompletion<SRequestAllocate>(req);
-                assert(ret.memory && ret.offset != IDeviceMemoryAllocator::InvalidMemoryOffset);
+                assert(ret.memory && ret.offset != IDriverMemoryAllocator::InvalidMemoryOffset);
             }
             else
             {

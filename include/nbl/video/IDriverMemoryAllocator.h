@@ -8,7 +8,7 @@
 namespace nbl::video
 {
 
-class IDeviceMemoryAllocator
+class IDriverMemoryAllocator
 {
 public:
 	static constexpr size_t InvalidMemoryOffset = 0xdeadbeefBadC0ffeull;

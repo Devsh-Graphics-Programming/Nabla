@@ -95,7 +95,7 @@ class IDriverMemoryAllocation : public virtual core::IReferenceCounted
             EMAF_NONE = 0x00000000,
             EMAF_DEVICE_MASK_BIT = 0x00000001,
             EMAF_DEVICE_ADDRESS_BIT = 0x00000002,
-            // EMAF_DEVICE_ADDRESS_CAPTURE_REPLAY_BIT = 0x00000004, // See notes in VulkanSpec and IDeviceMemoryAllocator::SAllocateInfo
+            // EMAF_DEVICE_ADDRESS_CAPTURE_REPLAY_BIT = 0x00000004, // See notes in VulkanSpec and IDriverMemoryAllocator::SAllocateInfo
         };
         
         enum E_MEMORY_PROPERTY_FLAGS : uint32_t

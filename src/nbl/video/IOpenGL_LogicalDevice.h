@@ -255,7 +255,7 @@ class IOpenGL_LogicalDeviceBase
         struct SRequestAllocate
         {
             static inline constexpr E_REQUEST_TYPE type = ERT_ALLOCATE;
-            using retval_t = IDeviceMemoryAllocator::SMemoryOffset;
+            using retval_t = IDriverMemoryAllocator::SMemoryOffset;
             IOpenGLMemoryAllocation* dedicationAsAllocation = nullptr;
             core::bitflag<IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> memoryAllocateFlags;
             core::bitflag<IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> memoryPropertyFlags;
@@ -726,8 +726,8 @@ protected:
             case ERT_ALLOCATE:
             {
                 auto& p = std::get<SRequestAllocate>(req.params_variant);
-                IDeviceMemoryAllocator::SMemoryOffset* pretval = reinterpret_cast<IDeviceMemoryAllocator::SMemoryOffset*>(req.pretval);
-                IDeviceMemoryAllocator::SMemoryOffset& retval = *pretval;
+                IDriverMemoryAllocator::SMemoryOffset* pretval = reinterpret_cast<IDriverMemoryAllocator::SMemoryOffset*>(req.pretval);
+                IDriverMemoryAllocator::SMemoryOffset& retval = *pretval;
                 if(p.dedicationAsAllocation)
                 {
                     p.dedicationAsAllocation->initMemory(&gl, p.memoryAllocateFlags, p.memoryPropertyFlags);
@@ -737,7 +737,7 @@ protected:
                 else
                 {
                     retval.memory = nullptr;
-                    retval.offset = IDeviceMemoryAllocator::InvalidMemoryOffset;
+                    retval.offset = IDriverMemoryAllocator::InvalidMemoryOffset;
                 }
             }
                 break;
