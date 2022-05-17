@@ -12,12 +12,13 @@
 
 #include "nbl/video/COpenGLCommon.h"
 #include "nbl/video/IOpenGL_FunctionTable.h"
+#include "nbl/video/IOpenGLMemoryAllocation.h"
 
 
 namespace nbl::video
 {
 
-class COpenGLImage final : public IGPUImage, public IDriverMemoryAllocation
+class COpenGLImage final : public IGPUImage, public IOpenGLMemoryAllocation
 {
 	protected:
 		virtual ~COpenGLImage();
@@ -28,7 +29,7 @@ class COpenGLImage final : public IGPUImage, public IDriverMemoryAllocation
 	public:
 		//! constructor
 		COpenGLImage(core::smart_refctd_ptr<const ILogicalDevice>&& dev, IOpenGL_FunctionTable* gl, IGPUImage::SCreationParams&& _params) : IGPUImage(std::move(dev), std::move(_params)),
-			IDriverMemoryAllocation(getOriginDevice()), internalFormat(GL_INVALID_ENUM), target(GL_INVALID_ENUM), name(0u)
+			IOpenGLMemoryAllocation(getOriginDevice()), internalFormat(GL_INVALID_ENUM), target(GL_INVALID_ENUM), name(0u)
 		{
 			#ifdef OPENGL_LEAK_DEBUG
 				COpenGLExtensionHandler::textureLeaker.registerObj(this);
@@ -66,42 +67,26 @@ class COpenGLImage final : public IGPUImage, public IDriverMemoryAllocation
 					break;
 			}
 		}
-		COpenGLImage(core::smart_refctd_ptr<const ILogicalDevice>&& dev, IOpenGL_FunctionTable* gl, const IDriverMemoryBacked::SDriverMemoryRequirements2 reqs, IGPUImage::SCreationParams&& _params) : IGPUImage(std::move(dev), std::move(reqs), std::move(_params)),
-			IDriverMemoryAllocation(getOriginDevice()), internalFormat(GL_INVALID_ENUM), target(GL_INVALID_ENUM), name(0u)
+		COpenGLImage(
+			core::smart_refctd_ptr<const ILogicalDevice>&& dev,
+			const IDriverMemoryBacked::SDriverMemoryRequirements2 reqs,
+			IGPUImage::SCreationParams&& _params,
+			GLenum internalFormat,
+			GLenum target,
+			GLuint name
+		) : IGPUImage(std::move(dev), std::move(reqs), std::move(_params)),
+			IOpenGLMemoryAllocation(getOriginDevice()), internalFormat(internalFormat), target(target), name(name)
 		{
-			#ifdef OPENGL_LEAK_DEBUG
-				COpenGLExtensionHandler::textureLeaker.registerObj(this);
-			#endif // OPENGL_LEAK_DEBUG
-
-			GLsizei samples = params.samples;
-			switch (params.type) // TODO what about multisample targets?
-			{
-				case IGPUImage::ET_1D:
-					target = GL_TEXTURE_1D_ARRAY;
-					gl->extGlCreateTextures(target, 1, &name);
-					break;
-				case IGPUImage::ET_2D:
-					if (params.flags & ECF_CUBE_COMPATIBLE_BIT)
-						target = GL_TEXTURE_CUBE_MAP_ARRAY;
-					else
-						target = samples>1 ? GL_TEXTURE_2D_MULTISAMPLE_ARRAY : GL_TEXTURE_2D_ARRAY;
-					gl->extGlCreateTextures(target, 1, &name);
-					break;
-				case IGPUImage::ET_3D:
-					target = GL_TEXTURE_3D;
-					gl->extGlCreateTextures(target, 1, &name);
-					break;
-				default:
-					assert(false);
-					break;
-			}
 		}
 		
-		// TODO(Erfan): Move IDriverMemoryAllocation stuff + pure virtual init function to COpenGLMemory
-		void initMemory(IOpenGL_FunctionTable* gl, core::bitflag<IPhysicalDevice::E_MEMORY_PROPERTY_FLAGS> memoryFlags)
+	
+		bool initMemory(
+			IOpenGL_FunctionTable* gl,
+			core::bitflag<E_MEMORY_ALLOCATE_FLAGS> allocateFlags,
+			core::bitflag<IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> memoryPropertyFlags) override
 		{
-			internalFormat = getSizedOpenGLFormatFromOurFormat(gl, params.format);
-
+			if(!IOpenGLMemoryAllocation::initMemory(gl, allocateFlags, memoryPropertyFlags))
+				return false;
 			GLsizei samples = params.samples;
 			switch (params.type) // TODO what about multisample targets?
 			{

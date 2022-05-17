@@ -12,8 +12,14 @@ class ILogicalDevice;
 class CVulkanMemoryAllocation : public IDriverMemoryAllocation
 {
 public:
-    CVulkanMemoryAllocation(ILogicalDevice* dev, size_t size, bool isDedicated, VkDeviceMemory deviceMemoryHandle, core::bitflag<IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> flags = E_MEMORY_ALLOCATE_FLAGS::EMAF_NONE)
-        : IDriverMemoryAllocation(dev, flags), m_size(size), m_isDedicated(isDedicated), m_deviceMemoryHandle(deviceMemoryHandle)
+    CVulkanMemoryAllocation(
+        ILogicalDevice* dev,
+        size_t size,
+        bool isDedicated, 
+        VkDeviceMemory deviceMemoryHandle,
+        core::bitflag<IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> flags,
+        core::bitflag<IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> memoryPropertyFlags)
+        : IDriverMemoryAllocation(dev, flags, memoryPropertyFlags), m_size(size), m_isDedicated(isDedicated), m_deviceMemoryHandle(deviceMemoryHandle)
     {}
 
     ~CVulkanMemoryAllocation();

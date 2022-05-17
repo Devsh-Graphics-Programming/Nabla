@@ -7,6 +7,7 @@
 
 #include "nbl/core/declarations.h"
 #include "nbl/video/IGPUBuffer.h"
+#include "nbl/video/IOpenGLMemoryAllocation.h"
 
 #include <assert.h>
 
@@ -15,7 +16,7 @@
 namespace nbl::video
 {
 
-class COpenGLBuffer final : public IGPUBuffer, public IDriverMemoryAllocation
+class COpenGLBuffer final : public IGPUBuffer, public IOpenGLMemoryAllocation
 {
     protected:
         virtual ~COpenGLBuffer();
@@ -25,7 +26,7 @@ class COpenGLBuffer final : public IGPUBuffer, public IDriverMemoryAllocation
             core::smart_refctd_ptr<const ILogicalDevice>&& dev, IOpenGL_FunctionTable* gl,
             const IDriverMemoryBacked::SDriverMemoryRequirements &mreqs,
             const IGPUBuffer::SCachedCreationParams& cachedCreationParams
-        ) : IGPUBuffer(std::move(dev),mreqs,cachedCreationParams), IDriverMemoryAllocation(getOriginDevice()), BufferName(0), cachedFlags(0)
+        ) : IGPUBuffer(std::move(dev),mreqs,cachedCreationParams), IOpenGLMemoryAllocation(getOriginDevice()), BufferName(0), cachedFlags(0)
         {
             gl->extGlCreateBuffers(1,&BufferName);
             if (BufferName==0)
@@ -42,26 +43,28 @@ class COpenGLBuffer final : public IGPUBuffer, public IDriverMemoryAllocation
             gl->extGlNamedBufferStorage(BufferName,cachedMemoryReqs.vulkanReqs.size,nullptr,cachedFlags);
         }
         COpenGLBuffer(
-            core::smart_refctd_ptr<const ILogicalDevice>&& dev, IOpenGL_FunctionTable* gl,
+            core::smart_refctd_ptr<const ILogicalDevice>&& dev,
             const IDriverMemoryBacked::SDriverMemoryRequirements2 &mreqs,
-            const IGPUBuffer::SCachedCreationParams& cachedCreationParams
-        ) : IGPUBuffer(std::move(dev),mreqs,cachedCreationParams), IDriverMemoryAllocation(getOriginDevice()), BufferName(0), cachedFlags(0)
+            const IGPUBuffer::SCachedCreationParams& cachedCreationParams,
+            GLuint bufferName
+        ) : IGPUBuffer(std::move(dev),mreqs,cachedCreationParams), IOpenGLMemoryAllocation(getOriginDevice()), BufferName(bufferName), cachedFlags(0)
         {
-            gl->extGlCreateBuffers(1,&BufferName);
-            if (BufferName==0)
-                return;
         }
 
-        // TODO(Erfan): Move IDriverMemoryAllocation stuff + pure virtual init function to COpenGLMemory
-        void initMemory(IOpenGL_FunctionTable* gl, core::bitflag<IPhysicalDevice::E_MEMORY_PROPERTY_FLAGS> memoryFlags)
+        bool initMemory(
+            IOpenGL_FunctionTable* gl,
+            core::bitflag<E_MEMORY_ALLOCATE_FLAGS> allocateFlags,
+            core::bitflag<IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> memoryPropertyFlags) override
         {
+            if(!IOpenGLMemoryAllocation::initMemory(gl, allocateFlags, memoryPropertyFlags))
+                return false;
             cachedFlags =   (m_cachedCreationParams.canUpdateSubRange ? GL_DYNAMIC_STORAGE_BIT:0)|
-                            (memoryFlags.hasValue(IPhysicalDevice::EMPF_DEVICE_LOCAL_BIT) ? 0:GL_CLIENT_STORAGE_BIT);
-            if (memoryFlags.hasValue(IPhysicalDevice::E_MEMORY_PROPERTY_FLAGS::EMPF_HOST_READABLE_BIT))
+                            (memoryPropertyFlags.hasValue(IDriverMemoryAllocation::EMPF_DEVICE_LOCAL_BIT) ? 0:GL_CLIENT_STORAGE_BIT);
+            if (memoryPropertyFlags.hasValue(IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_HOST_READABLE_BIT))
                 cachedFlags |= GL_MAP_PERSISTENT_BIT|GL_MAP_READ_BIT;
-            if (memoryFlags.hasValue(IPhysicalDevice::E_MEMORY_PROPERTY_FLAGS::EMPF_HOST_WRITABLE_BIT))
+            if (memoryPropertyFlags.hasValue(IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_HOST_WRITABLE_BIT))
                 cachedFlags |= GL_MAP_PERSISTENT_BIT|GL_MAP_WRITE_BIT;
-            if (memoryFlags.hasValue(IPhysicalDevice::E_MEMORY_PROPERTY_FLAGS::EMPF_HOST_COHERENT_BIT))
+            if (memoryPropertyFlags.hasValue(IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_HOST_COHERENT_BIT))
                 cachedFlags |= GL_MAP_COHERENT_BIT;
             gl->extGlNamedBufferStorage(BufferName,cachedMemoryReqs2.size,nullptr,cachedFlags);
         }

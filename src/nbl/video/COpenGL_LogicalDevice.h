@@ -255,16 +255,43 @@ public:
     
     SMemoryOffset allocate(const SAllocateInfo& info) override
     {
-        SRequestAllocate reqParams;
-        reqParams.allocateInfo = info;
-        reqParams.memoryTypeIndexFlags = m_physicalDevice->getMemoryProperties().memoryTypes[info.memoryTypeIndex].propertyFlags;
+        SMemoryOffset ret =  {nullptr, IDeviceMemoryAllocator::InvalidMemoryOffset};
+        if(info.dedication)
+        {
+            IOpenGLMemoryAllocation* glAllocation = nullptr;
+            if(info.dedication->getObjectType() == IDriverMemoryBacked::EOT_BUFFER)
+            {
+                COpenGLBuffer* buffer = static_cast<COpenGLBuffer*>(info.dedication);
+                glAllocation = static_cast<IOpenGLMemoryAllocation*>(buffer);
+            }
+            else if(info.dedication->getObjectType() == IDriverMemoryBacked::EOT_IMAGE)
+            {
+                COpenGLImage* image = static_cast<COpenGLImage*>(info.dedication);
+                glAllocation = static_cast<IOpenGLMemoryAllocation*>(image);
+            }
 
-        SMemoryOffset output;
-        auto& req = m_threadHandler.request(std::move(reqParams),&output);
-        m_masterContextCallsInvoked++;
-        m_threadHandler.template waitForRequestCompletion<SRequestAllocate>(req);
+            if(info.memoryTypeIndex < m_physicalDevice->getMemoryProperties().memoryTypeCount)
+            {
+                SRequestAllocate reqParams;
+                reqParams.dedicationAsAllocation = glAllocation;
+                reqParams.memoryAllocateFlags = core::bitflag<IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS>(info.flags);
+                reqParams.memoryPropertyFlags = m_physicalDevice->getMemoryProperties().memoryTypes[info.memoryTypeIndex].propertyFlags;
 
-        return output;
+                auto& req = m_threadHandler.request(std::move(reqParams),&ret);
+                m_masterContextCallsInvoked++;
+                m_threadHandler.template waitForRequestCompletion<SRequestAllocate>(req);
+                assert(ret.memory && ret.offset != IDeviceMemoryAllocator::InvalidMemoryOffset);
+            }
+            else
+            {
+                assert(false);
+            }
+        }
+        else
+        {
+            assert(false);
+        }
+        return ret;
     }
 
     core::smart_refctd_ptr<IGPUBuffer> createBuffer(const IGPUBuffer::SCreationParams& creationParams) override
