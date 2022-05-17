@@ -365,7 +365,7 @@ public:
 
         core::vectorSIMDf cameraPosition(-250.0f,177.0f,1.69f);
         core::vectorSIMDf cameraTarget(50.0f,125.0f,-3.0f);
-        matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60.0f), float(WIN_W) / WIN_H, 0.1, 1000);
+        matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60.0f), float(WIN_W) / WIN_H, 0.1, 10000);
         camera = Camera(cameraPosition, cameraTarget, projectionMatrix, 10.f, 1.f);
         lastTime = std::chrono::steady_clock::now();
 
