@@ -53,7 +53,12 @@ class IOpenGL_LogicalDeviceBase
             static void copyContentsToOwnedMemory(CRTP&, void*) {}
         };
         */
-
+        
+        //! Request Type
+        //! Cross-context Sync Sensitive Request Types:
+        //!     some requests need to sync between contexts such as creation requests
+        //!     for such requests ensure `incrementProgressionSync` gets called on your request, by direct function call or making it a creation request (see isCreationRequest)
+        //!     [WARNING] otherwise you may encounter a deadlock waiting for master context
         enum E_REQUEST_TYPE : uint8_t
         {
             // GL pipelines and vaos are kept, created and destroyed in COpenGL_Queue internal thread
@@ -64,6 +69,8 @@ class IOpenGL_LogicalDeviceBase
             //ERT_GRAPHICS_PIPELINE_DESTROY,
             ERT_PROGRAM_DESTROY,
 
+            //! create requests
+            //! creation requests are cross-context sync sensitive (see description above
             ERT_BUFFER_CREATE,
             ERT_BUFFER_CREATE2,
             ERT_BUFFER_VIEW_CREATE,
@@ -72,6 +79,7 @@ class IOpenGL_LogicalDeviceBase
             ERT_IMAGE_VIEW_CREATE,
             ERT_FENCE_CREATE,
             ERT_SAMPLER_CREATE,
+            ERT_ALLOCATE,
             ERT_RENDERPASS_INDEPENDENT_PIPELINE_CREATE,
             ERT_COMPUTE_PIPELINE_CREATE,
             //ERT_GRAPHICS_PIPELINE_CREATE,
@@ -83,8 +91,6 @@ class IOpenGL_LogicalDeviceBase
             ERT_INVALIDATE_MAPPED_MEMORY_RANGES,
             ERT_MAP_BUFFER_RANGE,
             ERT_UNMAP_BUFFER,
-            ERT_ALLOCATE,
-            //BIND_BUFFER_MEMORY,
             
             ERT_SET_DEBUG_NAME,
             ERT_GET_QUERY_POOL_RESULTS,

@@ -158,7 +158,7 @@ public:
         reqParams.creationParams = std::move(params);
         auto& req = m_threadHandler.request(std::move(reqParams), &retval);
         m_masterContextCallsInvoked++;
-        m_threadHandler.template waitForRequestCompletion<SRequestImageCreate>(req);
+        m_threadHandler.template waitForRequestCompletion<SRequestImageCreate2>(req);
 
         return retval;
     }

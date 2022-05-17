@@ -22,9 +22,6 @@ public:
     //! Whether the allocation was made for a specific resource and is supposed to only be bound to that resource.
     bool isDedicated() const override { return true; }
     
-    //! Returns the size of the memory allocation
-    size_t getAllocationSize() const override { return 0ull; }
-    
     //! Strictly prohibited to use buffers and images in openGl when the memory is not initialized (no descriptorset writing, imageview creation, transfer, ...) 
     //! Important to check
     bool isInitialized() const { return initialized; }
