@@ -97,6 +97,27 @@ class IDriverMemoryAllocation : public virtual core::IReferenceCounted
             EMAF_DEVICE_ADDRESS_BIT = 0x00000002,
             // EMAF_DEVICE_ADDRESS_CAPTURE_REPLAY_BIT = 0x00000004, // See notes in VulkanSpec and IDeviceMemoryAllocator::SAllocateInfo
         };
+        
+        enum E_MEMORY_PROPERTY_FLAGS : uint32_t
+        {
+            EMPF_NONE               = 0x00000000,
+            EMPF_DEVICE_LOCAL_BIT   = 0x00000001,
+            EMPF_HOST_READABLE_BIT  = 0x00000002, 
+            EMPF_HOST_WRITABLE_BIT  = 0x00000004, 
+            EMPF_HOST_COHERENT_BIT  = 0x00000008,
+            EMPF_HOST_CACHED_BIT    = 0x000000010,
+            //EMPF_LAZILY_ALLOCATED_BIT = 0x00000020,
+            //EMPF_PROTECTED_BIT = 0x00000040,
+            //EMPF_DEVICE_COHERENT_BIT_AMD = 0x00000080,
+            //EMPF_DEVICE_UNCACHED_BIT_AMD = 0x00000100,
+            //EMPF_RDMA_CAPABLE_BIT_NV = 0x00000200,
+        };
+        
+        enum E_MEMORY_HEAP_FLAGS : uint32_t
+        {
+            EMHF_DEVICE_LOCAL_BIT = 0x00000001,
+            EMHF_MULTI_INSTANCE_BIT = 0x00000002,
+        };
 
         E_API_TYPE getAPIType() const;
 
@@ -126,6 +147,8 @@ class IDriverMemoryAllocation : public virtual core::IReferenceCounted
 
         //!
         inline core::bitflag<E_MEMORY_ALLOCATE_FLAGS> getAllocateFlags() const {return allocateFlags;}
+        //!
+        inline core::bitflag<E_MEMORY_PROPERTY_FLAGS> getMemoryProperyFlags() const {return memoryPropertyFlags; }
 
         inline bool isCurrentlyMapped() const { return mappedPtr != nullptr; }
 
@@ -151,14 +174,18 @@ class IDriverMemoryAllocation : public virtual core::IReferenceCounted
             mappedRange = rng;
         }
 
-        IDriverMemoryAllocation(const ILogicalDevice* originDevice, core::bitflag<E_MEMORY_ALLOCATE_FLAGS> flags = E_MEMORY_ALLOCATE_FLAGS::EMAF_NONE)
-            : m_originDevice(originDevice), mappedPtr(nullptr), mappedRange(0,0), allocateFlags(flags)
+        IDriverMemoryAllocation(
+            const ILogicalDevice* originDevice,
+            core::bitflag<E_MEMORY_ALLOCATE_FLAGS> allocateFlags = E_MEMORY_ALLOCATE_FLAGS::EMAF_NONE,
+            core::bitflag<E_MEMORY_PROPERTY_FLAGS> memoryPropertyFlags = E_MEMORY_PROPERTY_FLAGS::EMPF_NONE)
+            : m_originDevice(originDevice), mappedPtr(nullptr), mappedRange(0,0), allocateFlags(allocateFlags), memoryPropertyFlags(memoryPropertyFlags)
         {}
 
         const ILogicalDevice* m_originDevice = nullptr;
         uint8_t* mappedPtr;
         MemoryRange mappedRange;
-        const core::bitflag<E_MEMORY_ALLOCATE_FLAGS> allocateFlags;
+        core::bitflag<E_MEMORY_ALLOCATE_FLAGS> allocateFlags;
+        core::bitflag<E_MEMORY_PROPERTY_FLAGS> memoryPropertyFlags;
 };
 
 } // end namespace nbl::video

@@ -364,36 +364,16 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
         };
         const SFeatures& getFeatures() const { return m_features; }
 
-        enum E_MEMORY_PROPERTY_FLAGS : uint32_t
-        {
-            EMPF_DEVICE_LOCAL_BIT = 0x00000001,
-            EMPF_HOST_READABLE_BIT = 0x00000002, 
-            EMPF_HOST_WRITABLE_BIT = 0x00000004, 
-            EMPF_HOST_COHERENT_BIT = 0x00000008,
-            EMPF_HOST_CACHED_BIT = 0x000000010,
-            //EMPF_LAZILY_ALLOCATED_BIT = 0x00000020,
-            //EMPF_PROTECTED_BIT = 0x00000040,
-            //EMPF_DEVICE_COHERENT_BIT_AMD = 0x00000080,
-            //EMPF_DEVICE_UNCACHED_BIT_AMD = 0x00000100,
-            //EMPF_RDMA_CAPABLE_BIT_NV = 0x00000200,
-        };
-
         struct MemoryType
         {
-            core::bitflag<E_MEMORY_PROPERTY_FLAGS> propertyFlags;
+            core::bitflag<IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> propertyFlags;
             uint32_t heapIndex;
-        };
-
-        enum E_MEMORY_HEAP_FLAGS : uint32_t
-        {
-            EMHF_DEVICE_LOCAL_BIT = 0x00000001,
-            EMHF_MULTI_INSTANCE_BIT = 0x00000002,
         };
 
         struct MemoryHeap
         {
             size_t size;
-            core::bitflag<E_MEMORY_HEAP_FLAGS> flags;
+            core::bitflag<IDriverMemoryAllocation::E_MEMORY_HEAP_FLAGS> flags;
         };
 
         //
@@ -407,7 +387,7 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
         const SMemoryProperties& getMemoryProperties() const { return m_memoryProperties; }
         
         //! Bit `i` in MemoryTypeBitss will be set if m_memoryProperties.memoryTypes[i] has the `flags`
-        uint32_t getMemoryTypeBitsFromMemoryTypeFlags(core::bitflag<E_MEMORY_PROPERTY_FLAGS> flags) const
+        uint32_t getMemoryTypeBitsFromMemoryTypeFlags(core::bitflag<IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> flags) const
         {
             uint32_t ret = 0u;
             for(uint32_t i = 0; i < m_memoryProperties.memoryTypeCount; ++i)
@@ -422,13 +402,13 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
         //! Requires EMPF_DEVICE_LOCAL_BIT from MemoryTypes
         uint32_t getDeviceLocalMemoryTypeBits() const
         {
-            return getMemoryTypeBitsFromMemoryTypeFlags(EMPF_DEVICE_LOCAL_BIT);
+            return getMemoryTypeBitsFromMemoryTypeFlags(IDriverMemoryAllocation::EMPF_DEVICE_LOCAL_BIT);
         }
         //! DirectVRAMAccess: Mappable for read and write and device local, will often return 0, always check if the mask != 0
         //! Requires EMPF_DEVICE_LOCAL_BIT, EMPF_HOST_READABLE_BIT, EMPF_HOST_WRITABLE_BIT from MemoryTypes
         uint32_t getDirectVRAMAccessMemoryTypeBits() const
         {
-            core::bitflag<E_MEMORY_PROPERTY_FLAGS> requiredFlags = core::bitflag<E_MEMORY_PROPERTY_FLAGS>(EMPF_DEVICE_LOCAL_BIT) | EMPF_HOST_READABLE_BIT | EMPF_HOST_WRITABLE_BIT;
+            core::bitflag<IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> requiredFlags = core::bitflag<IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>(IDriverMemoryAllocation::EMPF_DEVICE_LOCAL_BIT) | IDriverMemoryAllocation::EMPF_HOST_READABLE_BIT | IDriverMemoryAllocation::EMPF_HOST_WRITABLE_BIT;
             return getMemoryTypeBitsFromMemoryTypeFlags(requiredFlags);
         }
         //! UpStreaming: Mappable for write and preferably device local
@@ -436,8 +416,8 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
         //! Prefers EMPF_DEVICE_LOCAL_BIT
         uint32_t getUpStreamingMemoryTypeBits() const
         {
-            uint32_t hostWritable = getMemoryTypeBitsFromMemoryTypeFlags(EMPF_HOST_WRITABLE_BIT);
-            uint32_t deviceLocal = getMemoryTypeBitsFromMemoryTypeFlags(EMPF_DEVICE_LOCAL_BIT);
+            uint32_t hostWritable = getMemoryTypeBitsFromMemoryTypeFlags(IDriverMemoryAllocation::EMPF_HOST_WRITABLE_BIT);
+            uint32_t deviceLocal = getMemoryTypeBitsFromMemoryTypeFlags(IDriverMemoryAllocation::EMPF_DEVICE_LOCAL_BIT);
             uint32_t both = hostWritable & deviceLocal;
             if(both > 0)
                 return both;
@@ -449,8 +429,8 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
         //! Preferably EMPF_HOST_CACHED_BIT
         uint32_t getDownStreamingMemoryTypeBits() const
         {
-            uint32_t hostReadable = getMemoryTypeBitsFromMemoryTypeFlags(EMPF_HOST_READABLE_BIT);
-            uint32_t hostCached = getMemoryTypeBitsFromMemoryTypeFlags(EMPF_HOST_CACHED_BIT);
+            uint32_t hostReadable = getMemoryTypeBitsFromMemoryTypeFlags(IDriverMemoryAllocation::EMPF_HOST_READABLE_BIT);
+            uint32_t hostCached = getMemoryTypeBitsFromMemoryTypeFlags(IDriverMemoryAllocation::EMPF_HOST_CACHED_BIT);
             uint32_t both = hostReadable & hostCached;
             if(both > 0)
                 return both;
@@ -461,8 +441,8 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
         //! Excludes EMPF_DEVICE_LOCAL_BIT, EMPF_HOST_READABLE_BIT, EMPF_HOST_WRITABLE_BIT
         uint32_t getSpilloverMemoryTypeBits() const
         {
-            uint32_t all = getMemoryTypeBitsFromMemoryTypeFlags(core::bitflag<E_MEMORY_PROPERTY_FLAGS>(0u));
-            uint32_t deviceLocal = getMemoryTypeBitsFromMemoryTypeFlags(EMPF_DEVICE_LOCAL_BIT);
+            uint32_t all = getMemoryTypeBitsFromMemoryTypeFlags(core::bitflag<IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>(0u));
+            uint32_t deviceLocal = getMemoryTypeBitsFromMemoryTypeFlags(IDriverMemoryAllocation::EMPF_DEVICE_LOCAL_BIT);
             return all & (~deviceLocal);
         }
         //! HostVisibleSpillover: Same as Spillover but mappable for read&write
@@ -470,9 +450,9 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
         //! Excludes EMPF_DEVICE_LOCAL_BIT
         uint32_t getHostVisibleSpilloverMemoryTypeBits() const
         {
-            uint32_t hostWritable = getMemoryTypeBitsFromMemoryTypeFlags(EMPF_HOST_WRITABLE_BIT);
-            uint32_t hostReadable = getMemoryTypeBitsFromMemoryTypeFlags(EMPF_HOST_READABLE_BIT);
-            uint32_t deviceLocal = getMemoryTypeBitsFromMemoryTypeFlags(EMPF_DEVICE_LOCAL_BIT);
+            uint32_t hostWritable = getMemoryTypeBitsFromMemoryTypeFlags(IDriverMemoryAllocation::EMPF_HOST_WRITABLE_BIT);
+            uint32_t hostReadable = getMemoryTypeBitsFromMemoryTypeFlags(IDriverMemoryAllocation::EMPF_HOST_READABLE_BIT);
+            uint32_t deviceLocal = getMemoryTypeBitsFromMemoryTypeFlags(IDriverMemoryAllocation::EMPF_DEVICE_LOCAL_BIT);
             return (hostWritable & hostReadable) & (~deviceLocal);
         }
 

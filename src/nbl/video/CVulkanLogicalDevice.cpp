@@ -285,7 +285,7 @@ core::smart_refctd_ptr<IDriverMemoryAllocation> CVulkanLogicalDevice::allocateGP
         if (m_devf.vk.vkAllocateMemory(m_vkdev, &vk_allocateInfo, nullptr, &vk_deviceMemory) == VK_SUCCESS)
         {
             // Todo(achal): Change dedicate to not always be false
-            return core::make_smart_refctd_ptr<CVulkanMemoryAllocation>(this, reqs.vulkanReqs.size, false, vk_deviceMemory, allocateFlags);
+            return core::make_smart_refctd_ptr<CVulkanMemoryAllocation>(this, reqs.vulkanReqs.size, false, vk_deviceMemory, allocateFlags, IDriverMemoryAllocation::EMPF_NONE);
         }
     }
 
@@ -328,42 +328,51 @@ IDeviceMemoryAllocator::SMemoryOffset CVulkanLogicalDevice::allocate(const SAllo
     auto vk_res = m_devf.vk.vkAllocateMemory(m_vkdev, &vk_allocateInfo, nullptr, &vk_deviceMemory);
     if (vk_res == VK_SUCCESS)
     {
-        ret.memory = core::make_smart_refctd_ptr<CVulkanMemoryAllocation>(this, info.size, isDedicated, vk_deviceMemory, allocateFlags);
-        ret.offset = 0ull; // LogicalDevice doesn't suballocate, so offset is always 0, if you want to suballocate, write/use an allocator
-
-        // TODO: Move this logic to parent class (ILogicalDevice) and make this a protected _impl function if OpenGL did a similiar thing
-        if(info.dedication)
+        if(info.memoryTypeIndex < m_physicalDevice->getMemoryProperties().memoryTypeCount)
         {
-            bool dedicationSuccess = false;
-            switch (info.dedication->getObjectType())
-            {
-            case IDriverMemoryBacked::EOT_BUFFER:
-            {
-                SBindBufferMemoryInfo bindBufferInfo = {};
-                bindBufferInfo.buffer = static_cast<IGPUBuffer*>(info.dedication);
-                bindBufferInfo.memory = ret.memory.get();
-                bindBufferInfo.offset = ret.offset;
-                dedicationSuccess = bindBufferMemory(1u, &bindBufferInfo);
-            }
-                break;
-            case IDriverMemoryBacked::EOT_IMAGE:
-            {
-                SBindImageMemoryInfo bindImageInfo = {};
-                bindImageInfo.image = static_cast<IGPUImage*>(info.dedication);
-                bindImageInfo.memory = ret.memory.get();
-                bindImageInfo.offset = ret.offset;
-                dedicationSuccess = bindImageMemory(1u, &bindImageInfo);
-            }
-                break;
-            default:
-                assert(false);
-            }
+            auto memoryPropertyFlags = m_physicalDevice->getMemoryProperties().memoryTypes[info.memoryTypeIndex].propertyFlags;
+            ret.memory = core::make_smart_refctd_ptr<CVulkanMemoryAllocation>(this, info.size, isDedicated, vk_deviceMemory, allocateFlags, memoryPropertyFlags);
+            ret.offset = 0ull; // LogicalDevice doesn't suballocate, so offset is always 0, if you want to suballocate, write/use an allocator
 
-            if(!dedicationSuccess)
+            // TODO: Move this logic to parent class (ILogicalDevice) and make this a protected _impl function if OpenGL did a similiar thing
+            if(info.dedication)
             {
-                // automatically allocation goes out of scope and frees itself
-                ret = {nullptr, IDeviceMemoryAllocator::InvalidMemoryOffset};
+                bool dedicationSuccess = false;
+                switch (info.dedication->getObjectType())
+                {
+                case IDriverMemoryBacked::EOT_BUFFER:
+                {
+                    SBindBufferMemoryInfo bindBufferInfo = {};
+                    bindBufferInfo.buffer = static_cast<IGPUBuffer*>(info.dedication);
+                    bindBufferInfo.memory = ret.memory.get();
+                    bindBufferInfo.offset = ret.offset;
+                    dedicationSuccess = bindBufferMemory(1u, &bindBufferInfo);
+                }
+                    break;
+                case IDriverMemoryBacked::EOT_IMAGE:
+                {
+                    SBindImageMemoryInfo bindImageInfo = {};
+                    bindImageInfo.image = static_cast<IGPUImage*>(info.dedication);
+                    bindImageInfo.memory = ret.memory.get();
+                    bindImageInfo.offset = ret.offset;
+                    dedicationSuccess = bindImageMemory(1u, &bindImageInfo);
+                }
+                    break;
+                default:
+                    assert(false);
+                }
+
+                if(!dedicationSuccess)
+                {
+                    // automatically allocation goes out of scope and frees itself
+                    ret = {nullptr, IDeviceMemoryAllocator::InvalidMemoryOffset};
+                }
             }
+        }
+        else
+        {
+            assert(false);
+            // and probably log memoryTypeIndex is invalid
         }
     }
     // TODO: Log errors:

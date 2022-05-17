@@ -251,8 +251,9 @@ class IOpenGL_LogicalDeviceBase
         {
             static inline constexpr E_REQUEST_TYPE type = ERT_ALLOCATE;
             using retval_t = IDeviceMemoryAllocator::SMemoryOffset;
-            IDeviceMemoryAllocator::SAllocateInfo allocateInfo;
-            core::bitflag<IPhysicalDevice::E_MEMORY_PROPERTY_FLAGS> memoryTypeIndexFlags;
+            IOpenGLMemoryAllocation* dedicationAsAllocation = nullptr;
+            core::bitflag<IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> memoryAllocateFlags;
+            core::bitflag<IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> memoryPropertyFlags;
         };
         struct SRequestSetDebugName
         {
@@ -566,7 +567,16 @@ protected:
             {
                 auto& p = std::get<SRequestBufferCreate2>(req.params_variant);
                 core::smart_refctd_ptr<IGPUBuffer>* pretval = reinterpret_cast<core::smart_refctd_ptr<IGPUBuffer>*>(req.pretval);
-                pretval[0] = core::make_smart_refctd_ptr<COpenGLBuffer>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device), &gl, p.mreqs, p.creationParams);
+                GLuint bufferName;
+                gl.extGlCreateBuffers(1,&bufferName);
+                if (bufferName!=0)
+                {
+                    pretval[0] = core::make_smart_refctd_ptr<COpenGLBuffer>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device), p.mreqs, p.creationParams, bufferName);
+                }
+                else
+                {
+                    pretval[0] = nullptr;
+                }
             }
                 break;
             case ERT_BUFFER_VIEW_CREATE:
@@ -587,7 +597,34 @@ protected:
             {
                 auto& p = std::get<SRequestImageCreate2>(req.params_variant);
                 core::smart_refctd_ptr<IGPUImage>* pretval = reinterpret_cast<core::smart_refctd_ptr<IGPUImage>*>(req.pretval);
-                pretval[0] = core::make_smart_refctd_ptr<COpenGLImage>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device), &gl, std::move(p.mreqs), std::move(p.creationParams));
+
+                GLenum internalFormat = getSizedOpenGLFormatFromOurFormat(&gl, p.creationParams.format);
+                GLenum target;
+                GLuint name;
+
+                GLsizei samples = p.creationParams.samples;
+                switch (p.creationParams.type)
+                {
+                    case IGPUImage::ET_1D:
+                        target = GL_TEXTURE_1D_ARRAY;
+                        gl.extGlCreateTextures(target, 1, &name);
+                        break;
+                    case IGPUImage::ET_2D:
+                        if (p.creationParams.flags & asset::IImage::ECF_CUBE_COMPATIBLE_BIT)
+                            target = GL_TEXTURE_CUBE_MAP_ARRAY;
+                        else
+                            target = samples>1 ? GL_TEXTURE_2D_MULTISAMPLE_ARRAY : GL_TEXTURE_2D_ARRAY;
+                        gl.extGlCreateTextures(target, 1, &name);
+                        break;
+                    case IGPUImage::ET_3D:
+                        target = GL_TEXTURE_3D;
+                        gl.extGlCreateTextures(target, 1, &name);
+                        break;
+                    default:
+                        assert(false);
+                        break;
+                }
+                pretval[0] = core::make_smart_refctd_ptr<COpenGLImage>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device), std::move(p.mreqs), std::move(p.creationParams), internalFormat, target, name);
             }
                 break;
             case ERT_IMAGE_VIEW_CREATE:
@@ -671,17 +708,14 @@ protected:
                 auto& p = std::get<SRequestAllocate>(req.params_variant);
                 IDeviceMemoryAllocator::SMemoryOffset* pretval = reinterpret_cast<IDeviceMemoryAllocator::SMemoryOffset*>(req.pretval);
                 IDeviceMemoryAllocator::SMemoryOffset& retval = *pretval;
-                if(p.allocateInfo.dedication)
+                if(p.dedicationAsAllocation)
                 {
-                    // TODO(Erfan): Use COpenGLMemoryAllocation to include COpenGLImage too and static cast to that and use the virtual funtion initMemory
-                    COpenGLBuffer* glBuffer = static_cast<COpenGLBuffer*>(p.allocateInfo.dedication);
-                    glBuffer->initMemory(&gl, p.memoryTypeIndexFlags);
-                    retval.memory = core::smart_refctd_ptr<COpenGLBuffer>(glBuffer);
+                    p.dedicationAsAllocation->initMemory(&gl, p.memoryAllocateFlags, p.memoryPropertyFlags);
+                    retval.memory = core::smart_refctd_ptr<IDriverMemoryAllocation>(p.dedicationAsAllocation);
                     retval.offset = 0ull;
                 }
                 else
                 {
-                    //! Always Dedicate in OpenGL
                     retval.memory = nullptr;
                     retval.offset = IDeviceMemoryAllocator::InvalidMemoryOffset;
                 }
