@@ -425,13 +425,13 @@ public:
         m_threadHandler.template waitForRequestCompletion<SRequestInvalidateMappedMemoryRanges>(req);
     }
 
-    void* mapMemory(const IDriverMemoryAllocation::MappedMemoryRange& memory, core::bitflag<IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAG> access = IDriverMemoryAllocation::EMCAF_READ_AND_WRITE) override final
+    void* mapMemory(const IDriverMemoryAllocation::MappedMemoryRange& memory, core::bitflag<IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> access = IDriverMemoryAllocation::EMCAF_READ_AND_WRITE) override final
     {
         if (memory.memory == nullptr || memory.memory->getAPIType() != EAT_OPENGL)
             return nullptr;
 
         assert(!memory.memory->isCurrentlyMapped());
-        assert(IDriverMemoryAllocation::isMappingAccessConsistentWithMemoryType(access, memory.memory->getMemoryProperyFlags()));
+        assert(IDriverMemoryAllocation::isMappingAccessConsistentWithMemoryType(access, memory.memory->getMemoryPropertyFlags()));
 
         auto* buf = static_cast<COpenGLBuffer*>(memory.memory);
         const GLbitfield storageFlags = buf->getOpenGLStorageFlags();
@@ -453,7 +453,7 @@ public:
         m_masterContextCallsInvoked++;
         m_threadHandler.template waitForRequestCompletion<SRequestMapBufferRange>(req);
 
-        core::bitflag<IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAG> actualAccess(0u);
+        core::bitflag<IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> actualAccess(0u);
         if (flags & GL_MAP_READ_BIT)
             actualAccess |= IDriverMemoryAllocation::EMCAF_READ;
         if (flags & GL_MAP_WRITE_BIT)

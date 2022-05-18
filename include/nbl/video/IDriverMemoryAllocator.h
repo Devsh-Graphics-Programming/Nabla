@@ -56,12 +56,13 @@ public:
 			ret.dedication = dedication;
 			return ret;
 		}
+		
+		bool operator==(uint32_t rhs) const {return dereference() == rhs;}
+		bool operator!=(uint32_t rhs) const {return dereference() != rhs;}
 
 	protected:
 		virtual uint32_t dereference() const = 0;
 		virtual void advance() = 0;
-		virtual bool operator==(uint32_t rhs) const = 0;
-		virtual bool operator!=(uint32_t rhs) const = 0;
 		
 		IDriverMemoryBacked::SDriverMemoryRequirements2 m_reqs;
 		uint32_t m_allocateFlags;
@@ -76,9 +77,6 @@ public:
 		{
 			currentIndex = core::findLSB(m_reqs.memoryTypeBits);
 		}
-
-		bool operator==(uint32_t rhs) const override { return currentIndex == rhs; }
-		bool operator!=(uint32_t rhs) const override { return currentIndex != rhs; }
 
 	protected:
 		uint32_t dereference() const override
@@ -106,7 +104,7 @@ public:
 		IDriverMemoryBacked* dedication = nullptr,
 		const core::bitflag<IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags = IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS::EMAF_NONE)
 	{
-		for(memory_type_iterator_t memTypeIt(reqs, allocateFlags); memTypeIt != memory_type_iterator_t::end(); ++memTypeIt)
+		for(memory_type_iterator_t memTypeIt(reqs, allocateFlags); memTypeIt != IMemoryTypeIterator::end(); ++memTypeIt)
 		{
 			SAllocateInfo allocateInfo = memTypeIt.operator()(dedication);
 			SMemoryOffset allocation = allocate(allocateInfo);

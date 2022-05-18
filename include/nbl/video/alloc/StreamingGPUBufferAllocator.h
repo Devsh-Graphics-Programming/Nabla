@@ -15,7 +15,7 @@ namespace nbl::video
 class StreamingGPUBufferAllocator : protected SimpleGPUBufferAllocator
 {
     private:
-        void* mapWrapper(IDriverMemoryAllocation* mem, IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAG access, const IDriverMemoryAllocation::MemoryRange& range) noexcept;
+        void* mapWrapper(IDriverMemoryAllocation* mem, core::bitflag<IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> access, const IDriverMemoryAllocation::MemoryRange& range) noexcept;
         void unmapWrapper(IDriverMemoryAllocation* mem) noexcept;
 
     public:
@@ -46,9 +46,15 @@ class StreamingGPUBufferAllocator : protected SimpleGPUBufferAllocator
             }
             else
             {
-                const auto mappingCaps = mem->getMappingCaps()&IDriverMemoryAllocation::EMCAF_READ_AND_WRITE; // TODO: getMappingCaps would get removed -> use getMemoryTypeFlags instead
+                core::bitflag<IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> access(0u);
+                const auto memoryFlags = mem->getMemoryPropertyFlags();
+                if(memoryFlags.hasFlags(IDriverMemoryAllocation::EMPF_HOST_READABLE_BIT))
+                    access |= IDriverMemoryAllocation::EMCAF_READ;
+                if(memoryFlags.hasFlags(IDriverMemoryAllocation::EMPF_HOST_WRITABLE_BIT))
+                    access |= IDriverMemoryAllocation::EMCAF_WRITE;
+
                 const auto rangeToMap = IDriverMemoryAllocation::MemoryRange{0u,mem->getAllocationSize()};
-                mappedPtr = reinterpret_cast<uint8_t*>(mapWrapper(mem, static_cast<IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAG>(mappingCaps),rangeToMap));
+                mappedPtr = reinterpret_cast<uint8_t*>(mapWrapper(mem,access,rangeToMap));
             }
             if (!mappedPtr)
             {

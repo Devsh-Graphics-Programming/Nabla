@@ -598,7 +598,7 @@ class ILogicalDevice : public core::IReferenceCounted, public IDriverMemoryAlloc
         virtual void waitIdle() = 0;
 
         //
-        virtual void* mapMemory(const IDriverMemoryAllocation::MappedMemoryRange& memory, core::bitflag<IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAG> accessHint = IDriverMemoryAllocation::EMCAF_READ_AND_WRITE) = 0;
+        virtual void* mapMemory(const IDriverMemoryAllocation::MappedMemoryRange& memory, core::bitflag<IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> accessHint = IDriverMemoryAllocation::EMCAF_READ_AND_WRITE) = 0;
 
         //
         virtual void unmapMemory(IDriverMemoryAllocation* memory) = 0;
@@ -677,7 +677,7 @@ class ILogicalDevice : public core::IReferenceCounted, public IDriverMemoryAlloc
         }
 
         // must be called by implementations of mapMemory()
-        static void post_mapMemory(IDriverMemoryAllocation* memory, void* ptr, IDriverMemoryAllocation::MemoryRange rng, core::bitflag<IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAG> access) 
+        static void post_mapMemory(IDriverMemoryAllocation* memory, void* ptr, IDriverMemoryAllocation::MemoryRange rng, core::bitflag<IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> access) 
         {
             memory->postMapSetMembers(ptr, rng, access);
         }

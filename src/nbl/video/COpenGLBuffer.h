@@ -93,9 +93,6 @@ class COpenGLBuffer final : public IGPUBuffer, public IOpenGLMemoryAllocation
         //!
         inline E_SOURCE_MEMORY_TYPE getType() const override {return ESMT_DONT_KNOW;}
 
-        //!
-        inline E_MAPPING_CAPABILITY_FLAGS getMappingCaps() const override {return static_cast<E_MAPPING_CAPABILITY_FLAGS>(cachedMemoryReqs.mappingCapability);} //move up?
-
         //! Whether the allocation was made for a specific resource and is supposed to only be bound to that resource.
         inline bool isDedicated() const override { return true; }
 
