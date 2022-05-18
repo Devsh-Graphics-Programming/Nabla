@@ -75,7 +75,7 @@ class IDriverMemoryAllocation : public virtual core::IReferenceCounted
             EMCAF_NO_MAPPING_ACCESS=0x0u,
             EMCAF_READ=0x1u,
             EMCAF_WRITE=0x2u,
-            EMCAF_READ_AND_WRITE=0x3u
+            EMCAF_READ_AND_WRITE=(EMCAF_READ|EMCAF_WRITE)
         };
         //! Memory mapping capability flags
         /** Depending on their creation flags (E_MAPPING_CPU_ACCESS_FLAG) memory allocations
@@ -145,6 +145,8 @@ class IDriverMemoryAllocation : public virtual core::IReferenceCounted
         //! For details @see E_MAPPING_CAPABILITY_FLAGS
         virtual E_MAPPING_CAPABILITY_FLAGS getMappingCaps() const {return EMCF_CANNOT_MAP;}
 
+        //! returns current mapping access based on latest mapMemory's "accessHint", has no effect on Nabla's Vulkan Backend
+        inline core::bitflag<E_MAPPING_CPU_ACCESS_FLAG> getCurrentMappingCaps() const {return currentMappingAccess;}
         //!
         inline core::bitflag<E_MEMORY_ALLOCATE_FLAGS> getAllocateFlags() const {return allocateFlags;}
         //!
@@ -168,24 +170,31 @@ class IDriverMemoryAllocation : public virtual core::IReferenceCounted
         inline const void* getMappedPointer() const { return mappedPtr; }
 
     protected:
-        inline void postMapSetMembers(void* ptr, MemoryRange rng)
+        inline void postMapSetMembers(void* ptr, MemoryRange rng, core::bitflag<E_MAPPING_CPU_ACCESS_FLAG> access)
         {
             mappedPtr = reinterpret_cast<uint8_t*>(ptr);
             mappedRange = rng;
+            currentMappingAccess = access;
         }
 
         IDriverMemoryAllocation(
             const ILogicalDevice* originDevice,
             core::bitflag<E_MEMORY_ALLOCATE_FLAGS> allocateFlags = E_MEMORY_ALLOCATE_FLAGS::EMAF_NONE,
             core::bitflag<E_MEMORY_PROPERTY_FLAGS> memoryPropertyFlags = E_MEMORY_PROPERTY_FLAGS::EMPF_NONE)
-            : m_originDevice(originDevice), mappedPtr(nullptr), mappedRange(0,0), allocateFlags(allocateFlags), memoryPropertyFlags(memoryPropertyFlags)
+            : m_originDevice(originDevice)
+            , mappedPtr(nullptr)
+            , mappedRange(0,0)
+            , currentMappingAccess(EMCAF_NO_MAPPING_ACCESS)
+            , allocateFlags(allocateFlags)
+            , memoryPropertyFlags(memoryPropertyFlags)
         {}
 
         const ILogicalDevice* m_originDevice = nullptr;
         uint8_t* mappedPtr;
         MemoryRange mappedRange;
-        core::bitflag<E_MEMORY_ALLOCATE_FLAGS> allocateFlags;
-        core::bitflag<E_MEMORY_PROPERTY_FLAGS> memoryPropertyFlags;
+        core::bitflag<E_MAPPING_CPU_ACCESS_FLAG>    currentMappingAccess;
+        core::bitflag<E_MEMORY_ALLOCATE_FLAGS>      allocateFlags;
+        core::bitflag<E_MEMORY_PROPERTY_FLAGS>      memoryPropertyFlags;
 };
 
 } // end namespace nbl::video

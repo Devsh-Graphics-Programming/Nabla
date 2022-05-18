@@ -32,10 +32,10 @@ public:
 
     inline VkDeviceMemory getInternalObject() const { return m_deviceMemoryHandle; }
 
-    inline void setMembersPostMap(void* ptr, MemoryRange rng)
+    inline void setMembersPostMap(void* ptr, MemoryRange rng, core::bitflag<E_MAPPING_CPU_ACCESS_FLAG> access)
     {
         // Probably should just make this public
-        postMapSetMembers(ptr, rng);
+        postMapSetMembers(ptr, rng, access);
     }
 
 private:

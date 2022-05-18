@@ -334,7 +334,6 @@ IDriverMemoryAllocator::SMemoryOffset CVulkanLogicalDevice::allocate(const SAllo
             ret.memory = core::make_smart_refctd_ptr<CVulkanMemoryAllocation>(this, info.size, isDedicated, vk_deviceMemory, allocateFlags, memoryPropertyFlags);
             ret.offset = 0ull; // LogicalDevice doesn't suballocate, so offset is always 0, if you want to suballocate, write/use an allocator
 
-            // TODO: Move this logic to parent class (ILogicalDevice) and make this a protected _impl function if OpenGL did a similiar thing
             if(info.dedication)
             {
                 bool dedicationSuccess = false;
