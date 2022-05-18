@@ -90,7 +90,10 @@ namespace nbl::video
             if (!((params.usage & asset::IImage::EUF_TRANSFER_DST_BIT).value))
                 params.usage |= asset::IImage::EUF_TRANSFER_DST_BIT;
 
-            auto retval = m_device->createDeviceLocalGPUImageOnDedMem(std::move(params));
+            auto retImg = m_device->createImage(std::move(params));
+            auto retImgMemReqs = retImg->getMemoryReqs2();
+            retImgMemReqs.memoryTypeBits &= m_device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+            auto retImgMem = m_device->allocate(retImgMemReqs, retImg.get());
 
             assert(cmdbuf->getState() == IGPUCommandBuffer::ES_RECORDING);
 
@@ -101,15 +104,15 @@ namespace nbl::video
             barrier.newLayout = asset::EIL_TRANSFER_DST_OPTIMAL;
             barrier.srcQueueFamilyIndex = ~0u;
             barrier.dstQueueFamilyIndex = ~0u;
-            barrier.image = retval;
+            barrier.image = retImg;
             barrier.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT; // need this from input, infact this family of functions would be more usable if we take in a SSubresourceRange to operate on
             barrier.subresourceRange.baseArrayLayer = 0u;
-            barrier.subresourceRange.layerCount = retval->getCreationParameters().arrayLayers;
+            barrier.subresourceRange.layerCount = retImg->getCreationParameters().arrayLayers;
             barrier.subresourceRange.baseMipLevel = 0u;
-            barrier.subresourceRange.levelCount = retval->getCreationParameters().mipLevels;
+            barrier.subresourceRange.levelCount = retImg->getCreationParameters().mipLevels;
             cmdbuf->pipelineBarrier(asset::EPSF_TOP_OF_PIPE_BIT, asset::EPSF_TRANSFER_BIT, asset::EDF_NONE, 0u, nullptr, 0u, nullptr, 1u, &barrier);
 
-            cmdbuf->copyBufferToImage(srcBuffer, retval.get(), asset::EIL_TRANSFER_DST_OPTIMAL, regionCount, pRegions);
+            cmdbuf->copyBufferToImage(srcBuffer, retImg.get(), asset::EIL_TRANSFER_DST_OPTIMAL, regionCount, pRegions);
 
             if (finalLayout != asset::EIL_TRANSFER_DST_OPTIMAL)
             {
@@ -120,7 +123,7 @@ namespace nbl::video
                 cmdbuf->pipelineBarrier(asset::EPSF_TRANSFER_BIT, asset::EPSF_TRANSFER_BIT, asset::EDF_NONE, 0u, nullptr, 0u, nullptr, 1u, &barrier);
             }
 
-            return retval;
+            return retImg;
         }
         //! Don't use this function in hot loops or to do batch updates, its merely a convenience for one-off uploads
         inline core::smart_refctd_ptr<IGPUImage> createFilledDeviceLocalGPUImageOnDedMem(
@@ -199,7 +202,10 @@ namespace nbl::video
             if (!((params.usage & asset::IImage::EUF_TRANSFER_DST_BIT).value))
                 params.usage |= asset::IImage::EUF_TRANSFER_DST_BIT;
 
-            auto retval = m_device->createDeviceLocalGPUImageOnDedMem(std::move(params));
+            auto retImg = m_device->createImage(std::move(params));
+            auto retImgMemReqs = retImg->getMemoryReqs2();
+            retImgMemReqs.memoryTypeBits &= m_device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+            auto retImgMem = m_device->allocate(retImgMemReqs, retImg.get());
 
             assert(cmdbuf->getState() == IGPUCommandBuffer::ES_RECORDING);
 
@@ -210,15 +216,15 @@ namespace nbl::video
             barrier.newLayout = asset::EIL_TRANSFER_DST_OPTIMAL;
             barrier.srcQueueFamilyIndex = ~0u;
             barrier.dstQueueFamilyIndex = ~0u;
-            barrier.image = retval;
+            barrier.image = retImg;
             barrier.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT; // need this from input, infact this family of functions would be more usable if we take in a SSubresourceRange to operate on
             barrier.subresourceRange.baseArrayLayer = 0u;
-            barrier.subresourceRange.layerCount = retval->getCreationParameters().arrayLayers;
+            barrier.subresourceRange.layerCount = retImg->getCreationParameters().arrayLayers;
             barrier.subresourceRange.baseMipLevel = 0u;
-            barrier.subresourceRange.levelCount = retval->getCreationParameters().mipLevels;
+            barrier.subresourceRange.levelCount = retImg->getCreationParameters().mipLevels;
             cmdbuf->pipelineBarrier(asset::EPSF_TOP_OF_PIPE_BIT, asset::EPSF_TRANSFER_BIT, asset::EDF_NONE, 0u, nullptr, 0u, nullptr, 1u, &barrier);
 
-            cmdbuf->copyImage(srcImage, asset::EIL_TRANSFER_SRC_OPTIMAL, retval.get(), asset::EIL_TRANSFER_DST_OPTIMAL, regionCount, pRegions);
+            cmdbuf->copyImage(srcImage, asset::EIL_TRANSFER_SRC_OPTIMAL, retImg.get(), asset::EIL_TRANSFER_DST_OPTIMAL, regionCount, pRegions);
 
             if (finalLayout != asset::EIL_TRANSFER_DST_OPTIMAL)
             {
@@ -228,7 +234,7 @@ namespace nbl::video
                 barrier.newLayout = finalLayout;
                 cmdbuf->pipelineBarrier(asset::EPSF_TRANSFER_BIT, asset::EPSF_TRANSFER_BIT, asset::EDF_NONE, 0u, nullptr, 0u, nullptr, 1u, &barrier);
             }
-            return retval;
+            return retImg;
         }
         //! Don't use this function in hot loops or to do batch updates, its merely a convenience for one-off uploads
         inline core::smart_refctd_ptr<IGPUImage> createFilledDeviceLocalGPUImageOnDedMem(

@@ -355,14 +355,6 @@ class ILogicalDevice : public core::IReferenceCounted, public IDriverMemoryAlloc
         //! The counterpart of @see bindBufferMemory for images
         virtual bool bindImageMemory(uint32_t bindInfoCount, const SBindImageMemoryInfo* pBindInfos) { return false; }
 
-        //! Creates the Image, allocates dedicated memory and binds it at once.
-        inline core::smart_refctd_ptr<IGPUImage> createDeviceLocalGPUImageOnDedMem(IGPUImage::SCreationParams&& params)
-        {
-            auto reqs = getDeviceLocalGPUMemoryReqs();
-            params.initialLayout = asset::EIL_UNDEFINED; // initialLayout in Vulkan could either be UNDEFINED or PREINITIALIZED, can't find a use case for PREINITIALIZED yet
-            return this->createGPUImageOnDedMem(std::move(params), reqs);
-        }
-
         //!
         virtual core::smart_refctd_ptr<IGPUImage> createGPUImageOnDedMem(IGPUImage::SCreationParams&& params, const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs) = 0;
 

@@ -1093,7 +1093,10 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
         if (needToCompMipsForThisImg(cpuimg))
             params.usage |= asset::IImage::EUF_TRANSFER_SRC_BIT;
 
-        auto gpuimg = _params.device->createDeviceLocalGPUImageOnDedMem(std::move(params));
+        auto gpuimg = _params.device->createImage(std::move(params));
+        auto gpuimgMemReqs = gpuimg->getMemoryReqs2();
+        gpuimgMemReqs.memoryTypeBits &= _params.device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+        auto gpuimgMem = _params.device->allocate(gpuimgMemReqs, gpuimg.get());
 
 		res->operator[](i) = std::move(gpuimg);
     }

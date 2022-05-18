@@ -1665,7 +1665,11 @@ public:
 				imgParams.mipLevels = 1u;
 				imgParams.arrayLayers = 1u;
 				imgParams.samples = asset::IImage::ESCF_1_BIT;
-				nbl::core::smart_refctd_ptr<nbl::video::IGPUImage> depthImg = device->createDeviceLocalGPUImageOnDedMem(std::move(imgParams));
+
+				auto depthImg = device->createImage(std::move(imgParams));
+				auto depthImgMemReqs = depthImg->getMemoryReqs2();
+				depthImgMemReqs.memoryTypeBits &= device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+				auto depthImgMem = device->allocate(depthImgMemReqs, depthImg.get());
 
 				nbl::video::IGPUImageView::SCreationParams view_params;
 				view_params.format = depthFormat;
