@@ -315,14 +315,6 @@ class ILogicalDevice : public core::IReferenceCounted, public IDriverMemoryAlloc
             return this->createGPUBufferOnDedMem(params, reqs);
         }
 
-        //! Creates the buffer, allocates memory dedicated memory and binds it at once.
-        inline core::smart_refctd_ptr<IGPUBuffer> createCPUSideGPUVisibleGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& params, const size_t size)
-        {
-            auto reqs = getCPUSideGPUVisibleGPUMemoryReqs();
-            reqs.vulkanReqs.size = size;
-            return this->createGPUBufferOnDedMem(params, reqs);
-        }
-
         //! Low level function used to implement the above, use with caution
         virtual core::smart_refctd_ptr<IGPUBuffer> createGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& creationParams, const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs) { return nullptr; }
 
