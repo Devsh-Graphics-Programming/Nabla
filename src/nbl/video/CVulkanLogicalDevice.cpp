@@ -501,7 +501,7 @@ core::smart_refctd_ptr<IGPUImage> CVulkanLogicalDevice::createImage(asset::IImag
         IDriverMemoryBacked::SDriverMemoryRequirements2 imageMemReqs = {};
         imageMemReqs.size = vk_memReqs.memoryRequirements.size;
         imageMemReqs.memoryTypeBits = vk_memReqs.memoryRequirements.memoryTypeBits;
-        imageMemReqs.alignmentLog2 = vk_memReqs.memoryRequirements.alignment;
+        imageMemReqs.alignmentLog2 = std::log2(vk_memReqs.memoryRequirements.alignment);
         imageMemReqs.prefersDedicatedAllocation = vk_memDedReqs.prefersDedicatedAllocation;
         imageMemReqs.requiresDedicatedAllocation = vk_memDedReqs.requiresDedicatedAllocation;
 
