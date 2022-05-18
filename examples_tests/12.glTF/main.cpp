@@ -676,7 +676,7 @@ class GLTFApp : public ApplicationBase
 			gpuubo = logicalDevice->createGPUBufferOnDedMem(uboBufferCreationParams, uboMemoryReqs);
 			gpuUboDescriptorPool = createDescriptorPool(1u, EDT_UNIFORM_BUFFER);
 
-			gpuDescriptorSet1 = logicalDevice->createGPUDescriptorSet(gpuUboDescriptorPool.get(), core::smart_refctd_ptr(gpuDescriptorSet1Layout));
+			gpuDescriptorSet1 = logicalDevice->createDescriptorSet(gpuUboDescriptorPool.get(), core::smart_refctd_ptr(gpuDescriptorSet1Layout));
 			{
 				video::IGPUDescriptorSet::SWriteDescriptorSet write;
 				write.dstSet = gpuDescriptorSet1.get();

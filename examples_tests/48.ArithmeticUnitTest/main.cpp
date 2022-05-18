@@ -354,14 +354,14 @@ public:
 		IGPUDescriptorSetLayout::SBinding binding[totalBufferCount];
 		for (uint32_t i = 0u; i < totalBufferCount; i++)
 			binding[i] = { i,EDT_STORAGE_BUFFER,1u,IShader::ESS_COMPUTE,nullptr };
-		auto gpuDSLayout = logicalDevice->createGPUDescriptorSetLayout(binding, binding + totalBufferCount);
+		auto gpuDSLayout = logicalDevice->createDescriptorSetLayout(binding, binding + totalBufferCount);
 
 		constexpr uint32_t pushconstantSize = 8u * totalBufferCount;
 		SPushConstantRange pcRange[1] = { IShader::ESS_COMPUTE,0u,pushconstantSize };
-		auto pipelineLayout = logicalDevice->createGPUPipelineLayout(pcRange, pcRange + pushconstantSize, core::smart_refctd_ptr(gpuDSLayout));
+		auto pipelineLayout = logicalDevice->createPipelineLayout(pcRange, pcRange + pushconstantSize, core::smart_refctd_ptr(gpuDSLayout));
 
 		auto descPool = logicalDevice->createDescriptorPoolForDSLayouts(IDescriptorPool::ECF_NONE, &gpuDSLayout.get(), &gpuDSLayout.get() + 1u);
-		auto descriptorSet = logicalDevice->createGPUDescriptorSet(descPool.get(), core::smart_refctd_ptr(gpuDSLayout));
+		auto descriptorSet = logicalDevice->createDescriptorSet(descPool.get(), core::smart_refctd_ptr(gpuDSLayout));
 		{
 			IGPUDescriptorSet::SDescriptorInfo infos[totalBufferCount];
 			infos[0].desc = gpuinputDataBuffer;
@@ -429,7 +429,7 @@ public:
 		{
 			core::smart_refctd_ptr<IGPUComputePipeline> pipelines[kTestTypeCount];
 			for (uint32_t i = 0u; i < kTestTypeCount; i++)
-				pipelines[i] = logicalDevice->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(pipelineLayout), std::move(getGPUShader(shaderGLSL[i].get(), workgroupSize)));
+				pipelines[i] = logicalDevice->createComputePipeline(nullptr, core::smart_refctd_ptr(pipelineLayout), std::move(getGPUShader(shaderGLSL[i].get(), workgroupSize)));
 
 			bool passed = true;
 

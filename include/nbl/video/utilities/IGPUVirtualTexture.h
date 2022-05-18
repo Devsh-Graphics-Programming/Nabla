@@ -166,7 +166,7 @@ protected:
     private:
         core::smart_refctd_ptr<IGPUImageView> createView_internal(IGPUImageView::SCreationParams&& _params) const override
         {
-            return m_logicalDevice->createGPUImageView(std::move(_params));
+            return m_logicalDevice->createImageView(std::move(_params));
         }
 
         ILogicalDevice* m_logicalDevice;
@@ -298,7 +298,7 @@ public:
 protected:
     core::smart_refctd_ptr<IGPUImageView> createPageTableView() const override
     {
-        return m_logicalDevice->createGPUImageView(createPageTableViewCreationParams());
+        return m_logicalDevice->createImageView(createPageTableViewCreationParams());
     }
     core::smart_refctd_ptr<IVTResidentStorage> createVTResidentStorage(asset::E_FORMAT _format, uint32_t _tileExtent, uint32_t _layers, uint32_t _tilesPerDim) override
     {
@@ -314,7 +314,7 @@ protected:
     }
     core::smart_refctd_ptr<IGPUSampler> createSampler(const asset::ISampler::SParams& _params) const override
     {
-        return m_logicalDevice->createGPUSampler(_params);
+        return m_logicalDevice->createSampler(_params);
     }
 };
 

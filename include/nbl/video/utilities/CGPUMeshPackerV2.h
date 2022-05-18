@@ -67,7 +67,7 @@ class CGPUMeshPackerV2 final : public asset::IMeshPackerV2<IGPUBuffer,IGPUDescri
         {
             auto createBufferView = [&](core::smart_refctd_ptr<IGPUBuffer>&& buff, asset::E_FORMAT format) -> core::smart_refctd_ptr<asset::IDescriptor>
             {
-                return m_driver->createGPUBufferView(buff.get(),format);
+                return m_driver->createBufferView(buff.get(),format);
             };
             return base_t::getDescriptorSetWritesForUTB(outWrites,outInfo,dstSet,createBufferView,params);
         }

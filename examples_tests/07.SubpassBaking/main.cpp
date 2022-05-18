@@ -248,7 +248,7 @@ public:
             cameraUBOCreationParams.queueFamilyIndices = nullptr;
 
             cameraUBO = logicalDevice->createGPUBufferOnDedMem(cameraUBOCreationParams, ubomemreq);
-            perCameraDescSet = logicalDevice->createGPUDescriptorSet(descriptorPool.get(), std::move(gpuds1layout));
+            perCameraDescSet = logicalDevice->createDescriptorSet(descriptorPool.get(), std::move(gpuds1layout));
             {
                 video::IGPUDescriptorSet::SWriteDescriptorSet write;
                 write.dstSet = perCameraDescSet.get();

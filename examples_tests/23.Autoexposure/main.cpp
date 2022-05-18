@@ -67,14 +67,14 @@ int main()
 		imgViewInfo.subresourceRange.levelCount = 1;
 		imgViewInfo.subresourceRange.baseArrayLayer = 0;
 		imgViewInfo.subresourceRange.layerCount = 1;
-		imgToTonemapView = driver->createGPUImageView(IGPUImageView::SCreationParams(imgViewInfo));
+		imgToTonemapView = driver->createImageView(IGPUImageView::SCreationParams(imgViewInfo));
 
 		imgInfo.format = outFormat;
 		outImg = driver->createDeviceLocalGPUImageOnDedMem(std::move(imgInfo));
 
 		imgViewInfo.image = outImg;
 		imgViewInfo.format = outFormat;
-		outImgView = driver->createGPUImageView(IGPUImageView::SCreationParams(imgViewInfo));
+		outImgView = driver->createImageView(IGPUImageView::SCreationParams(imgViewInfo));
 	}
 
 	auto glslCompiler = am->getGLSLCompiler();
@@ -86,8 +86,8 @@ int main()
 	const float maxLuma = 65536.f;
 
 	auto cpuLumaMeasureSpecializedShader = LumaMeterClass::createShader(glslCompiler,inputColorSpace,MeterMode,minLuma,maxLuma);
-	auto gpuLumaMeasureShader = driver->createGPUShader(smart_refctd_ptr<const ICPUShader>(cpuLumaMeasureSpecializedShader->getUnspecialized()));
-	auto gpuLumaMeasureSpecializedShader = driver->createGPUSpecializedShader(gpuLumaMeasureShader.get(), cpuLumaMeasureSpecializedShader->getSpecializationInfo());
+	auto gpuLumaMeasureShader = driver->createShader(smart_refctd_ptr<const ICPUShader>(cpuLumaMeasureSpecializedShader->getUnspecialized()));
+	auto gpuLumaMeasureSpecializedShader = driver->createSpecializedShader(gpuLumaMeasureShader.get(), cpuLumaMeasureSpecializedShader->getSpecializationInfo());
 
 	const float meteringMinUV[2] = { 0.1f,0.1f };
 	const float meteringMaxUV[2] = { 0.9f,0.9f };
@@ -107,8 +107,8 @@ int main()
 		std::make_tuple(outFormat,ECP_SRGB,OETF_sRGB),
 		TMO,usingLumaMeter,MeterMode,minLuma,maxLuma,usingTemporalAdapatation
 	);
-	auto gpuTonemappingShader = driver->createGPUShader(smart_refctd_ptr<const ICPUShader>(cpuTonemappingSpecializedShader->getUnspecialized()));
-	auto gpuTonemappingSpecializedShader = driver->createGPUSpecializedShader(gpuTonemappingShader.get(),cpuTonemappingSpecializedShader->getSpecializationInfo());
+	auto gpuTonemappingShader = driver->createShader(smart_refctd_ptr<const ICPUShader>(cpuTonemappingSpecializedShader->getUnspecialized()));
+	auto gpuTonemappingSpecializedShader = driver->createSpecializedShader(gpuTonemappingShader.get(),cpuTonemappingSpecializedShader->getSpecializationInfo());
 
 	auto outImgStorage = ToneMapperClass::createViewForImage(driver,false,core::smart_refctd_ptr(outImg),{static_cast<IImage::E_ASPECT_FLAGS>(0u),0,1,0,1});
 
@@ -123,10 +123,10 @@ int main()
 
 	auto commonPipelineLayout = ToneMapperClass::getDefaultPipelineLayout(driver,usingLumaMeter);
 
-	auto lumaMeteringPipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(commonPipelineLayout),std::move(gpuLumaMeasureSpecializedShader));
-	auto toneMappingPipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(commonPipelineLayout),std::move(gpuTonemappingSpecializedShader));
+	auto lumaMeteringPipeline = driver->createComputePipeline(nullptr,core::smart_refctd_ptr(commonPipelineLayout),std::move(gpuLumaMeasureSpecializedShader));
+	auto toneMappingPipeline = driver->createComputePipeline(nullptr,core::smart_refctd_ptr(commonPipelineLayout),std::move(gpuTonemappingSpecializedShader));
 
-	auto commonDescriptorSet = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(commonPipelineLayout->getDescriptorSetLayout(0u)));
+	auto commonDescriptorSet = driver->createDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(commonPipelineLayout->getDescriptorSetLayout(0u)));
 	ToneMapperClass::updateDescriptorSet<TMO,MeterMode>(driver,commonDescriptorSet.get(),parameterBuffer,imgToTonemapView,outImgStorage,1u,2u,usingLumaMeter ? 3u:0u,uniformBuffer,0u,usingTemporalAdapatation);
 
 

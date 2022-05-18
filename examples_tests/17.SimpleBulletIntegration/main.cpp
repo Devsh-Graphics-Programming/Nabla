@@ -526,7 +526,7 @@ public:
 			{
 				auto globalDsLayout = m_gpuLayout->getDescriptorSetLayout(0u);
 				auto pool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE, &globalDsLayout, &globalDsLayout + 1u);
-				m_globalDs = logicalDevice->createGPUDescriptorSet(pool.get(), core::smart_refctd_ptr<const video::IGPUDescriptorSetLayout>(globalDsLayout)); // TODO: change method signature to make it obvious we're taking shared ownership of a pool
+				m_globalDs = logicalDevice->createDescriptorSet(pool.get(), core::smart_refctd_ptr<const video::IGPUDescriptorSetLayout>(globalDsLayout)); // TODO: change method signature to make it obvious we're taking shared ownership of a pool
 
 				video::IGPUDescriptorSet::SWriteDescriptorSet writes[GLOBAL_DS_COUNT];
 				video::IGPUDescriptorSet::SDescriptorInfo infos[GLOBAL_DS_COUNT];

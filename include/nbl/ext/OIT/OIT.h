@@ -81,7 +81,7 @@ class COIT
                     vparams.subresourceRange.baseMipLevel = 0u;
                     vparams.subresourceRange.levelCount = 1u;
                     vparams.image = img;
-                    view = dev->createGPUImageView(std::move(vparams));
+                    view = dev->createImageView(std::move(vparams));
                     assert(view);
                 }
                 return view;
@@ -115,7 +115,7 @@ class COIT
                 m_images.spinlock = createOITImage(SpinlockImageFormat);
 
             auto cpushader = core::make_smart_refctd_ptr<asset::ICPUShader>(resolve_glsl.c_str(), asset::IShader::ESS_FRAGMENT, "oit_resolve.frag");
-            auto shader = dev->createGPUShader(std::move(cpushader));
+            auto shader = dev->createShader(std::move(cpushader));
             if (!shader)
                 return false;
 
@@ -142,7 +142,7 @@ class COIT
             info.entryPoint = "main";
             info.m_backingBuffer = nullptr;
             info.m_entries = nullptr;
-            m_proto_pipeline.fs = dev->createGPUSpecializedShader(shader.get(), info);
+            m_proto_pipeline.fs = dev->createSpecializedShader(shader.get(), info);
             if (!m_proto_pipeline.fs)
                 return false;
 
@@ -208,7 +208,7 @@ class COIT
             video::IGPUDescriptorSetLayout::SBinding b[MaxImgBindingCount];
             const auto bindingCount = getDSLayoutBindings<video::IGPUDescriptorSetLayout>(b, _colorBinding, _depthBinding, _visBinding, _spinlockBinding);
 
-            return dev->createGPUDescriptorSetLayout(b,b+bindingCount);
+            return dev->createDescriptorSetLayout(b,b+bindingCount);
         }
 
         // should be required in first frame only

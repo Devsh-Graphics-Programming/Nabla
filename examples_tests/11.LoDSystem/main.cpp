@@ -410,7 +410,7 @@ class LoDSystemApp : public ApplicationBase
                             bindings[i].stageFlags = asset::IShader::ESS_COMPUTE;
                             bindings[i].samplers = nullptr;
                         }
-                        return logicalDevice->createGPUDescriptorSetLayout(bindings,bindings + BindingCount);
+                        return logicalDevice->createDescriptorSetLayout(bindings,bindings + BindingCount);
                     }()
                 };
                 cullingDSPool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE, &layouts->get(), &layouts->get() + LayoutCount);
@@ -446,7 +446,7 @@ class LoDSystemApp : public ApplicationBase
                     cullingParams.perInstanceRedirectAttribs,
                     cullingParams.drawCounts
                 );
-                cullingParams.customDS = logicalDevice->createGPUDescriptorSet(cullingDSPool.get(), std::move(layouts[3]));
+                cullingParams.customDS = logicalDevice->createDescriptorSet(cullingDSPool.get(), std::move(layouts[3]));
                 {
                     video::IGPUDescriptorSet::SWriteDescriptorSet write;
                     video::IGPUDescriptorSet::SDescriptorInfo info(nodePP->getPropertyMemoryBlock(scene::ITransformTree::global_transform_prop_ix));
@@ -495,9 +495,9 @@ class LoDSystemApp : public ApplicationBase
                 cpuPerViewDSLayout = core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(cpuBindings, cpuBindings + BindingCount);
 
                 auto bindings = reinterpret_cast<video::IGPUDescriptorSetLayout::SBinding*>(cpuBindings);
-                auto perViewDSLayout = logicalDevice->createGPUDescriptorSetLayout(bindings, bindings + BindingCount);
+                auto perViewDSLayout = logicalDevice->createDescriptorSetLayout(bindings, bindings + BindingCount);
                 auto dsPool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE, &perViewDSLayout.get(), &perViewDSLayout.get() + 1u);
-                perViewDS = logicalDevice->createGPUDescriptorSet(dsPool.get(), std::move(perViewDSLayout));
+                perViewDS = logicalDevice->createDescriptorSet(dsPool.get(), std::move(perViewDSLayout));
                 {
                     video::IGPUDescriptorSet::SWriteDescriptorSet writes[BindingCount];
                     video::IGPUDescriptorSet::SDescriptorInfo infos[BindingCount];
@@ -520,7 +520,7 @@ class LoDSystemApp : public ApplicationBase
             {
                 auto layout = ttm->createRecomputeGlobalTransformsDescriptorSetLayout(logicalDevice.get());
                 auto pool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE,&layout.get(),&layout.get()+1u);
-                recomputeGlobalTransformsDS = logicalDevice->createGPUDescriptorSet(pool.get(),std::move(layout));
+                recomputeGlobalTransformsDS = logicalDevice->createDescriptorSet(pool.get(),std::move(layout));
                 ttm->updateRecomputeGlobalTransformsDescriptorSet(logicalDevice.get(),recomputeGlobalTransformsDS.get(),{0ull,nodeList.buffer});
             }
 

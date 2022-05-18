@@ -289,39 +289,39 @@ public:
 		auto arrowGeometry = geometryCreator->createArrowMesh();
 		auto icosphereGeometry = geometryCreator->createIcoSphere(1, 3, true);
 
-		auto createGPUSpecializedShaderFromSource = [=](const char* source, asset::IShader::E_SHADER_STAGE stage) -> core::smart_refctd_ptr<video::IGPUSpecializedShader>
+		auto createSpecializedShaderFromSource = [=](const char* source, asset::IShader::E_SHADER_STAGE stage) -> core::smart_refctd_ptr<video::IGPUSpecializedShader>
 		{
 			auto spirv = assetManager->getGLSLCompiler()->createSPIRVFromGLSL(source, stage, "main", "runtimeID", nullptr, true, nullptr, logger.get());
 			if (!spirv)
 				return nullptr;
 
-			auto gpuUnspecializedShader = logicalDevice->createGPUShader(std::move(spirv));
-			return logicalDevice->createGPUSpecializedShader(gpuUnspecializedShader.get(), { nullptr, nullptr, "main" });
+			auto gpuUnspecializedShader = logicalDevice->createShader(std::move(spirv));
+			return logicalDevice->createSpecializedShader(gpuUnspecializedShader.get(), { nullptr, nullptr, "main" });
 		};
 
-		auto createGPUSpecializedShaderFromSourceWithIncludes = [&](const char* source, asset::IShader::E_SHADER_STAGE stage, const char* origFilepath)
+		auto createSpecializedShaderFromSourceWithIncludes = [&](const char* source, asset::IShader::E_SHADER_STAGE stage, const char* origFilepath)
 		{
 			auto resolved_includes = assetManager->getGLSLCompiler()->resolveIncludeDirectives(source, stage, origFilepath);
-			return createGPUSpecializedShaderFromSource(reinterpret_cast<const char*>(resolved_includes->getSPVorGLSL()->getPointer()), stage);
+			return createSpecializedShaderFromSource(reinterpret_cast<const char*>(resolved_includes->getSPVorGLSL()->getPointer()), stage);
 		};
 
 		core::smart_refctd_ptr<video::IGPUSpecializedShader> gpuShaders[2] =
 		{
-			createGPUSpecializedShaderFromSourceWithIncludes(vertexSource,asset::IShader::ESS_VERTEX, "shader.vert"),
-			createGPUSpecializedShaderFromSource(fragmentSource,asset::IShader::ESS_FRAGMENT)
+			createSpecializedShaderFromSourceWithIncludes(vertexSource,asset::IShader::ESS_VERTEX, "shader.vert"),
+			createSpecializedShaderFromSource(fragmentSource,asset::IShader::ESS_FRAGMENT)
 		};
 		auto gpuShadersRaw = reinterpret_cast<video::IGPUSpecializedShader**>(gpuShaders);
 
 		core::smart_refctd_ptr<video::IGPUSpecializedShader> gpuShaders_cone[2] =
 		{
-			createGPUSpecializedShaderFromSourceWithIncludes(vertexSource_cone, asset::IShader::ESS_VERTEX, "shader_cone.vert"),
+			createSpecializedShaderFromSourceWithIncludes(vertexSource_cone, asset::IShader::ESS_VERTEX, "shader_cone.vert"),
 			gpuShaders[1]
 		};
 		auto gpuShadersRaw_cone = reinterpret_cast<video::IGPUSpecializedShader**>(gpuShaders_cone);
 
 		core::smart_refctd_ptr<video::IGPUSpecializedShader> gpuShaders_ico[2] =
 		{
-			createGPUSpecializedShaderFromSourceWithIncludes(vertexSource_ico, asset::IShader::ESS_VERTEX, "shader_ico.vert"),
+			createSpecializedShaderFromSourceWithIncludes(vertexSource_ico, asset::IShader::ESS_VERTEX, "shader_ico.vert"),
 			gpuShaders[1]
 		};
 		auto gpuShadersRaw_ico = reinterpret_cast<video::IGPUSpecializedShader**>(gpuShaders_ico);
@@ -339,10 +339,10 @@ public:
 			core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> gpuRenderpassIndependentPipeline = nullptr;
 			if (object == Objects::E_CONE)
 			{
-				gpuRenderpassIndependentPipeline = logicalDevice->createGPURenderpassIndependentPipeline
+				gpuRenderpassIndependentPipeline = logicalDevice->createRenderpassIndependentPipeline
 				(
 					nullptr,
-					logicalDevice->createGPUPipelineLayout(range, range + 1u, nullptr, nullptr, nullptr, nullptr),
+					logicalDevice->createPipelineLayout(range, range + 1u, nullptr, nullptr, nullptr, nullptr),
 					gpuShadersRaw_cone,
 					gpuShadersRaw_cone + sizeof(gpuShaders_cone) / sizeof(core::smart_refctd_ptr<video::IGPUSpecializedShader>),
 					geometryObject.inputParams,
@@ -353,10 +353,10 @@ public:
 			}
 			else if (object == Objects::E_ICOSPHERE)
 			{
-				gpuRenderpassIndependentPipeline = logicalDevice->createGPURenderpassIndependentPipeline
+				gpuRenderpassIndependentPipeline = logicalDevice->createRenderpassIndependentPipeline
 				(
 					nullptr,
-					logicalDevice->createGPUPipelineLayout(range, range + 1u, nullptr, nullptr, nullptr, nullptr),
+					logicalDevice->createPipelineLayout(range, range + 1u, nullptr, nullptr, nullptr, nullptr),
 					gpuShadersRaw_ico,
 					gpuShadersRaw_ico + sizeof(gpuShaders_ico) / sizeof(core::smart_refctd_ptr<video::IGPUSpecializedShader>),
 					geometryObject.inputParams,
@@ -367,10 +367,10 @@ public:
 			}
 			else
 			{
-				gpuRenderpassIndependentPipeline = logicalDevice->createGPURenderpassIndependentPipeline
+				gpuRenderpassIndependentPipeline = logicalDevice->createRenderpassIndependentPipeline
 				(
 					nullptr,
-					logicalDevice->createGPUPipelineLayout(range, range + 1u, nullptr, nullptr, nullptr, nullptr),
+					logicalDevice->createPipelineLayout(range, range + 1u, nullptr, nullptr, nullptr, nullptr),
 					gpuShadersRaw,
 					gpuShadersRaw + sizeof(gpuShaders) / sizeof(core::smart_refctd_ptr<video::IGPUSpecializedShader>),
 					geometryObject.inputParams,

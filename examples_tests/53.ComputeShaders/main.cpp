@@ -313,8 +313,8 @@ APP_CONSTRUCTOR(MeshLoadersApp)
 		};
 
 		auto gpuCDescriptorPool = createDescriptorPool(EE_COUNT, EDT_STORAGE_BUFFER);
-		auto gpuCDescriptorSetLayout = logicalDevice->createGPUDescriptorSetLayout(gpuBindingsLayout, gpuBindingsLayout + EE_COUNT);
-		gpuCDescriptorSet = logicalDevice->createGPUDescriptorSet(gpuCDescriptorPool.get(), core::smart_refctd_ptr(gpuCDescriptorSetLayout));
+		auto gpuCDescriptorSetLayout = logicalDevice->createDescriptorSetLayout(gpuBindingsLayout, gpuBindingsLayout + EE_COUNT);
+		gpuCDescriptorSet = logicalDevice->createDescriptorSet(gpuCDescriptorPool.get(), core::smart_refctd_ptr(gpuCDescriptorSetLayout));
 		{
 			video::IGPUDescriptorSet::SDescriptorInfo gpuDescriptorSetInfos[EE_COUNT];
 
@@ -349,8 +349,8 @@ APP_CONSTRUCTOR(MeshLoadersApp)
 			pushConstantRange.size = sizeof(SPushConstants);
 		}
 
-		auto gpuCPipelineLayout = logicalDevice->createGPUPipelineLayout(&pushConstantRange, &pushConstantRange + 1, std::move(gpuCDescriptorSetLayout), nullptr, nullptr, nullptr);
-		gpuComputePipeline = logicalDevice->createGPUComputePipeline(nullptr, std::move(gpuCPipelineLayout), std::move(gpuComputeShader));
+		auto gpuCPipelineLayout = logicalDevice->createPipelineLayout(&pushConstantRange, &pushConstantRange + 1, std::move(gpuCDescriptorSetLayout), nullptr, nullptr, nullptr);
+		gpuComputePipeline = logicalDevice->createComputePipeline(nullptr, std::move(gpuCPipelineLayout), std::move(gpuComputeShader));
 
 		/*
 			Graphics Pipeline
@@ -382,7 +382,7 @@ APP_CONSTRUCTOR(MeshLoadersApp)
 		gpuUboBinding.type = asset::EDT_UNIFORM_BUFFER;
 
 		auto gpuGDescriptorPool = createDescriptorPool(1, EDT_UNIFORM_BUFFER);
-		auto gpuGDs1Layout = logicalDevice->createGPUDescriptorSetLayout(&gpuUboBinding, &gpuUboBinding + 1);
+		auto gpuGDs1Layout = logicalDevice->createDescriptorSetLayout(&gpuUboBinding, &gpuUboBinding + 1);
 		auto dev_local_reqs = logicalDevice->getDeviceLocalGPUMemoryReqs();
 		dev_local_reqs.vulkanReqs.size = sizeof(SBasicViewParameters);
 
@@ -395,7 +395,7 @@ APP_CONSTRUCTOR(MeshLoadersApp)
 
 		gpuUBO = logicalDevice->createGPUBufferOnDedMem(gpuUBOCreationParams, dev_local_reqs);
 
-		gpuGDescriptorSet1 = logicalDevice->createGPUDescriptorSet(gpuGDescriptorPool.get(), gpuGDs1Layout);
+		gpuGDescriptorSet1 = logicalDevice->createDescriptorSet(gpuGDescriptorPool.get(), gpuGDs1Layout);
 		{
 			video::IGPUDescriptorSet::SWriteDescriptorSet write;
 			write.dstSet = gpuGDescriptorSet1.get();
@@ -464,9 +464,9 @@ APP_CONSTRUCTOR(MeshLoadersApp)
 		core::smart_refctd_ptr<video::IGPUSpecializedShader> gpuGShaders[] = { gpuVertexShader, gpuFragmentShader, gpuGeometryShader };
 		auto gpuGShadersPointer = reinterpret_cast<video::IGPUSpecializedShader**>(gpuGShaders);
 
-		auto gpuGPipelineLayout = logicalDevice->createGPUPipelineLayout(&pushConstantRange, &pushConstantRange + 1, nullptr, std::move(gpuGDs1Layout), nullptr, nullptr);
-		auto gpuRenderpassIndependentPipeline = logicalDevice->createGPURenderpassIndependentPipeline(nullptr, core::smart_refctd_ptr(gpuGPipelineLayout), gpuGShadersPointer, gpuGShadersPointer + 2 /* discard geometry shader*/, inputVertexParams, blendParams, primitiveAssemblyParams, rasterizationParams);
-		auto gpuRenderpassIndependentPipeline2 = logicalDevice->createGPURenderpassIndependentPipeline(nullptr, core::smart_refctd_ptr(gpuGPipelineLayout), gpuGShadersPointer, gpuGShadersPointer + 3, inputVertexParams, blendParams, primitiveAssemblyParams, rasterizationParams);
+		auto gpuGPipelineLayout = logicalDevice->createPipelineLayout(&pushConstantRange, &pushConstantRange + 1, nullptr, std::move(gpuGDs1Layout), nullptr, nullptr);
+		auto gpuRenderpassIndependentPipeline = logicalDevice->createRenderpassIndependentPipeline(nullptr, core::smart_refctd_ptr(gpuGPipelineLayout), gpuGShadersPointer, gpuGShadersPointer + 2 /* discard geometry shader*/, inputVertexParams, blendParams, primitiveAssemblyParams, rasterizationParams);
+		auto gpuRenderpassIndependentPipeline2 = logicalDevice->createRenderpassIndependentPipeline(nullptr, core::smart_refctd_ptr(gpuGPipelineLayout), gpuGShadersPointer, gpuGShadersPointer + 3, inputVertexParams, blendParams, primitiveAssemblyParams, rasterizationParams);
 
 		asset::SBufferBinding<video::IGPUBuffer> gpuGbindings[video::IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT];
 

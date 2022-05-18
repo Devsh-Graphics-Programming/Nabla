@@ -41,7 +41,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 				bnd[i] = bnd[i - 1u];
 				bnd[i].binding = i;
 			}
-			return device->createGPUDescriptorSetLayout(bnd, bnd + BindingCount);
+			return device->createDescriptorSetLayout(bnd, bnd + BindingCount);
 		}
 		template<uint32_t BindingCount>
 		static inline void updateDescriptorSet(
@@ -114,8 +114,8 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 					glsl = core::make_smart_refctd_ptr<asset::ICPUBuffer>(glslFile->getSize());
 					memcpy(glsl->getPointer(), glslFile->getMappedPointer(), glsl->getSize());
 				}
-				auto shader = device->createGPUShader(core::make_smart_refctd_ptr<asset::ICPUShader>(core::smart_refctd_ptr(glsl),asset::IShader::buffer_contains_glsl_t{}, type, "????"));
-				return device->createGPUSpecializedShader(shader.get(),{nullptr,nullptr,"main"});
+				auto shader = device->createShader(core::make_smart_refctd_ptr<asset::ICPUShader>(core::smart_refctd_ptr(glsl),asset::IShader::buffer_contains_glsl_t{}, type, "????"));
+				return device->createSpecializedShader(shader.get(),{nullptr,nullptr,"main"});
 			};
 
 			auto updateRelativeSpec = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/transform_tree/relative_transform_update.comp")());
@@ -780,9 +780,9 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			auto pool = device->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE,&layouts->get(),&layouts->get()+3u);
 
 			DescriptorSets descSets;
-			descSets.updateLocal = device->createGPUDescriptorSet(pool.get(),std::move(layouts[0]));
-			descSets.recomputeGlobal = device->createGPUDescriptorSet(pool.get(),std::move(layouts[1]));
-			descSets.debugDraw = device->createGPUDescriptorSet(pool.get(),std::move(layouts[2]));
+			descSets.updateLocal = device->createDescriptorSet(pool.get(),std::move(layouts[0]));
+			descSets.recomputeGlobal = device->createDescriptorSet(pool.get(),std::move(layouts[1]));
+			descSets.debugDraw = device->createDescriptorSet(pool.get(),std::move(layouts[2]));
 			return descSets;
 		}
 	protected:
@@ -835,16 +835,16 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 
 			auto poolLayout = TransformTree::createPoolDescriptorSetLayout(device);
 			
-			auto updateRelativeLayout = device->createGPUPipelineLayout(nullptr,nullptr,core::smart_refctd_ptr(poolLayout),core::smart_refctd_ptr(updateLocalDsLayout));
-			auto recomputeGlobalLayout = device->createGPUPipelineLayout(nullptr,nullptr,core::smart_refctd_ptr(poolLayout),core::smart_refctd_ptr(recomputeGlobalDsLayout));
+			auto updateRelativeLayout = device->createPipelineLayout(nullptr,nullptr,core::smart_refctd_ptr(poolLayout),core::smart_refctd_ptr(updateLocalDsLayout));
+			auto recomputeGlobalLayout = device->createPipelineLayout(nullptr,nullptr,core::smart_refctd_ptr(poolLayout),core::smart_refctd_ptr(recomputeGlobalDsLayout));
 			asset::SPushConstantRange pcRange;
 			pcRange.offset = 0u;
 			pcRange.size = sizeof(DebugPushConstants);
 			pcRange.stageFlags = asset::IShader::ESS_VERTEX;
-			auto debugDrawLayout = device->createGPUPipelineLayout(&pcRange,&pcRange+1u,core::smart_refctd_ptr(poolLayout),core::smart_refctd_ptr(debugDrawDsLayout));
+			auto debugDrawLayout = device->createPipelineLayout(&pcRange,&pcRange+1u,core::smart_refctd_ptr(poolLayout),core::smart_refctd_ptr(debugDrawDsLayout));
 
-			retval.updateRelative = device->createGPUComputePipeline(nullptr,std::move(updateRelativeLayout),core::smart_refctd_ptr(updateRelativeSpec));
-			retval.recomputeGlobal = device->createGPUComputePipeline(nullptr,std::move(recomputeGlobalLayout),core::smart_refctd_ptr(recomputeGlobalSpec));
+			retval.updateRelative = device->createComputePipeline(nullptr,std::move(updateRelativeLayout),core::smart_refctd_ptr(updateRelativeSpec));
+			retval.recomputeGlobal = device->createComputePipeline(nullptr,std::move(recomputeGlobalLayout),core::smart_refctd_ptr(recomputeGlobalSpec));
 			core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> debugDrawIndepenedentPipeline;
 			{
 				asset::SVertexInputParams vertexInputParams = {};
@@ -870,7 +870,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 				rasterizationParams.depthTestEnable = false;
 
 				video::IGPUSpecializedShader* const debugDrawShaders[] = {debugDrawVertexSpec.get(),debugDrawFragmentSpec.get()};
-				retval.debugDraw = device->createGPURenderpassIndependentPipeline(
+				retval.debugDraw = device->createRenderpassIndependentPipeline(
 					nullptr,std::move(debugDrawLayout),debugDrawShaders,debugDrawShaders+2u,vertexInputParams,blendParams,primitiveAssemblyParams,rasterizationParams
 				);
 			}

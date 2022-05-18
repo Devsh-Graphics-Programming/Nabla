@@ -70,7 +70,7 @@ public:
             }
         }
 
-        m_dummyDSLayout = createGPUDescriptorSetLayout(nullptr, nullptr);
+        m_dummyDSLayout = createDescriptorSetLayout(nullptr, nullptr);
     }
             
     ~CVulkanLogicalDevice()
@@ -257,7 +257,7 @@ public:
         }
     }
             
-    core::smart_refctd_ptr<IGPURenderpass> createGPURenderpass(const IGPURenderpass::SCreationParams& params) override
+    core::smart_refctd_ptr<IGPURenderpass> createRenderpass(const IGPURenderpass::SCreationParams& params) override
     {
         VkRenderPassCreateInfo createInfo = { VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO };
         createInfo.pNext = nullptr;
@@ -589,7 +589,7 @@ public:
         return gpuBuffer;
     }
         
-    core::smart_refctd_ptr<IGPUShader> createGPUShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader) override
+    core::smart_refctd_ptr<IGPUShader> createShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader) override
     {
         const char* entryPoint = "main";
         const asset::IShader::E_SHADER_STAGE shaderStage = cpushader->getStage();
@@ -902,7 +902,7 @@ public:
 
     SMemoryOffset allocate(const SAllocateInfo& info) override;
 
-    core::smart_refctd_ptr<IGPUSampler> createGPUSampler(const IGPUSampler::SParams& _params) override
+    core::smart_refctd_ptr<IGPUSampler> createSampler(const IGPUSampler::SParams& _params) override
     {
         VkSamplerCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
         vk_createInfo.pNext = nullptr; // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkSamplerCustomBorderColorCreateInfoEXT, VkSamplerReductionModeCreateInfo, or VkSamplerYcbcrConversionInfo
@@ -1135,7 +1135,7 @@ protected:
         return false;
     }
 
-    core::smart_refctd_ptr<IGPUFramebuffer> createGPUFramebuffer_impl(IGPUFramebuffer::SCreationParams&& params) override
+    core::smart_refctd_ptr<IGPUFramebuffer> createFramebuffer_impl(IGPUFramebuffer::SCreationParams&& params) override
     {
         // This flag isn't supported until Vulkan 1.2
         // assert(!(m_params.flags & ECF_IMAGELESS_BIT));
@@ -1181,7 +1181,7 @@ protected:
         }
     }
 
-    core::smart_refctd_ptr<IGPUSpecializedShader> createGPUSpecializedShader_impl(
+    core::smart_refctd_ptr<IGPUSpecializedShader> createSpecializedShader_impl(
         const IGPUShader* _unspecialized,
         const asset::ISpecializedShader::SInfo& specInfo,
         const asset::ISPIRVOptimizer* spvopt) override
@@ -1204,7 +1204,7 @@ protected:
             core::smart_refctd_ptr<const CVulkanShader>(vulkanShader), specInfo);
     }
 
-    core::smart_refctd_ptr<IGPUBufferView> createGPUBufferView_impl(IGPUBuffer* _underlying, asset::E_FORMAT _fmt, size_t _offset = 0ull, size_t _size = IGPUBufferView::whole_buffer) override
+    core::smart_refctd_ptr<IGPUBufferView> createBufferView_impl(IGPUBuffer* _underlying, asset::E_FORMAT _fmt, size_t _offset = 0ull, size_t _size = IGPUBufferView::whole_buffer) override
     {
         if (_underlying->getAPIType() != EAT_VULKAN)
             return nullptr;
@@ -1233,7 +1233,7 @@ protected:
         }
     }
 
-    core::smart_refctd_ptr<IGPUImageView> createGPUImageView_impl(IGPUImageView::SCreationParams&& params) override
+    core::smart_refctd_ptr<IGPUImageView> createImageView_impl(IGPUImageView::SCreationParams&& params) override
     {
         VkImageViewCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
         vk_createInfo.pNext = nullptr; // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkImageViewASTCDecodeModeEXT, VkImageViewUsageCreateInfo, VkSamplerYcbcrConversionInfo, VkVideoProfileKHR, or VkVideoProfilesKHR
@@ -1268,7 +1268,7 @@ protected:
         }
     }
 
-    core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet_impl(IDescriptorPool* pool, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout) override
+    core::smart_refctd_ptr<IGPUDescriptorSet> createDescriptorSet_impl(IDescriptorPool* pool, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout) override
     {
         if (pool->getAPIType() != EAT_VULKAN)
             return nullptr;
@@ -1300,7 +1300,7 @@ protected:
         }
     }
 
-    core::smart_refctd_ptr<IGPUDescriptorSetLayout> createGPUDescriptorSetLayout_impl(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end) override
+    core::smart_refctd_ptr<IGPUDescriptorSetLayout> createDescriptorSetLayout_impl(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end) override
     {
         uint32_t bindingCount = std::distance(_begin, _end);
         uint32_t maxSamplersCount = 0u;
@@ -1369,9 +1369,9 @@ protected:
         }
     }
     
-    core::smart_refctd_ptr<IGPUAccelerationStructure> createGPUAccelerationStructure_impl(IGPUAccelerationStructure::SCreationParams&& params) override;
+    core::smart_refctd_ptr<IGPUAccelerationStructure> createAccelerationStructure_impl(IGPUAccelerationStructure::SCreationParams&& params) override;
 
-    core::smart_refctd_ptr<IGPUPipelineLayout> createGPUPipelineLayout_impl(
+    core::smart_refctd_ptr<IGPUPipelineLayout> createPipelineLayout_impl(
         const asset::SPushConstantRange* const _pcRangesBegin = nullptr,
         const asset::SPushConstantRange* const _pcRangesEnd = nullptr,
         core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& layout0 = nullptr,
@@ -1432,9 +1432,9 @@ protected:
     }
 
     // For consistency's sake why not pass IGPUComputePipeline::SCreationParams as
-    // only second argument, like in createGPUComputePipelines_impl below? Especially
+    // only second argument, like in createComputePipelines_impl below? Especially
     // now, since I've added more members to IGPUComputePipeline::SCreationParams
-    core::smart_refctd_ptr<IGPUComputePipeline> createGPUComputePipeline_impl(
+    core::smart_refctd_ptr<IGPUComputePipeline> createComputePipeline_impl(
         IGPUPipelineCache* _pipelineCache, core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
         core::smart_refctd_ptr<IGPUSpecializedShader>&& _shader) override
     {
@@ -1450,7 +1450,7 @@ protected:
         core::SRange<const IGPUComputePipeline::SCreationParams> creationParamsRange(&creationParams,
             &creationParams + 1);
 
-        if (createGPUComputePipelines_impl(_pipelineCache, creationParamsRange, &result))
+        if (createComputePipelines_impl(_pipelineCache, creationParamsRange, &result))
         {
             return result;
         }
@@ -1460,7 +1460,7 @@ protected:
         }
     }
 
-    bool createGPUComputePipelines_impl(IGPUPipelineCache* pipelineCache,
+    bool createComputePipelines_impl(IGPUPipelineCache* pipelineCache,
         core::SRange<const IGPUComputePipeline::SCreationParams> createInfos,
         core::smart_refctd_ptr<IGPUComputePipeline>* output) override
     {
@@ -1567,7 +1567,7 @@ protected:
         }
     }
 
-    core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> createGPURenderpassIndependentPipeline_impl(
+    core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> createRenderpassIndependentPipeline_impl(
         IGPUPipelineCache* _pipelineCache,
         core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
         IGPUSpecializedShader* const* _shadersBegin, IGPUSpecializedShader* const* _shadersEnd,
@@ -1589,11 +1589,11 @@ protected:
         core::SRange<const IGPURenderpassIndependentPipeline::SCreationParams> creationParamsRange(&creationParams, &creationParams + 1);
 
         core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> result = nullptr;
-        createGPURenderpassIndependentPipelines_impl(_pipelineCache, creationParamsRange, &result);
+        createRenderpassIndependentPipelines_impl(_pipelineCache, creationParamsRange, &result);
         return result;
     }
 
-    bool createGPURenderpassIndependentPipelines_impl(IGPUPipelineCache* pipelineCache,
+    bool createRenderpassIndependentPipelines_impl(IGPUPipelineCache* pipelineCache,
         core::SRange<const IGPURenderpassIndependentPipeline::SCreationParams> createInfos,
         core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>* output) override
     {
@@ -1670,9 +1670,9 @@ protected:
         return ret;
     }
 
-    core::smart_refctd_ptr<IGPUGraphicsPipeline> createGPUGraphicsPipeline_impl(IGPUPipelineCache* pipelineCache, IGPUGraphicsPipeline::SCreationParams&& params);
+    core::smart_refctd_ptr<IGPUGraphicsPipeline> createGraphicsPipeline_impl(IGPUPipelineCache* pipelineCache, IGPUGraphicsPipeline::SCreationParams&& params);
 
-    bool createGPUGraphicsPipelines_impl(IGPUPipelineCache* pipelineCache, core::SRange<const IGPUGraphicsPipeline::SCreationParams> params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output) override;
+    bool createGraphicsPipelines_impl(IGPUPipelineCache* pipelineCache, core::SRange<const IGPUGraphicsPipeline::SCreationParams> params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output) override;
 
 private:
     inline void getVkMappedMemoryRanges(VkMappedMemoryRange* outRanges, const IDriverMemoryAllocation::MappedMemoryRange* inRangeBegin, const IDriverMemoryAllocation::MappedMemoryRange* inRangeEnd)

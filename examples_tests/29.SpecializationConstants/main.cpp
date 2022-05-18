@@ -289,7 +289,7 @@ public:
 		video::IGPUBuffer::SCreationParams uboComputeCreationParams = {};
 		uboComputeCreationParams.usage = static_cast<asset::IBuffer::E_USAGE_FLAGS>(asset::IBuffer::EUF_UNIFORM_BUFFER_BIT | asset::IBuffer::EUF_TRANSFER_DST_BIT);
 		auto gpuUboCompute = device->createGPUBufferOnDedMem(uboComputeCreationParams, devLocalReqs);
-		m_gpuds0Compute = device->createGPUDescriptorSet(dscPool.get(), std::move(gpuDs0layoutCompute));
+		m_gpuds0Compute = device->createDescriptorSet(dscPool.get(), std::move(gpuDs0layoutCompute));
 		{
 			video::IGPUDescriptorSet::SDescriptorInfo i[3];
 			video::IGPUDescriptorSet::SWriteDescriptorSet w[2];
@@ -360,7 +360,7 @@ public:
 		m_rpIndependentPipeline = CPU2GPU.getGPUObjectsFromAssets(&pipeline.get(), &pipeline.get() + 1, cpu2gpuParams)->front();
 		auto* ds0layoutGraphics = gfxLayout->getDescriptorSetLayout(0);
 		core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> gpuDs0layoutGraphics = CPU2GPU.getGPUObjectsFromAssets(&ds0layoutGraphics, &ds0layoutGraphics + 1, cpu2gpuParams)->front();
-		m_gpuds0Graphics = device->createGPUDescriptorSet(dscPool.get(), std::move(gpuDs0layoutGraphics));
+		m_gpuds0Graphics = device->createDescriptorSet(dscPool.get(), std::move(gpuDs0layoutGraphics));
 
 		video::IGPUGraphicsPipeline::SCreationParams gp_params;
 		gp_params.rasterizationSamplesHint = asset::IImage::ESCF_1_BIT;

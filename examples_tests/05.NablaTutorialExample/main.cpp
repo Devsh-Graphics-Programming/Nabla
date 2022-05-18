@@ -236,7 +236,7 @@ public:
 				IImage::EAF_COLOR_BIT, 0, gpuParams.mipLevels, 0, gpuParams.arrayLayers
 			}
 		};
-		auto gpuImageView = logicalDevice->createGPUImageView(std::move(gpuImageViewParams));
+		auto gpuImageView = logicalDevice->createImageView(std::move(gpuImageViewParams));
 
 		/*
 			Specifying cache key to default exsisting cached asset bundle
@@ -285,8 +285,8 @@ public:
 				IrrlichtBaW provides 4 places for descriptor set layout usage.
 			*/
 
-			auto gpuDs1Layout = logicalDevice->createGPUDescriptorSetLayout(&gpuUboBinding, &gpuUboBinding + 1);
-			auto gpuDs3Layout = logicalDevice->createGPUDescriptorSetLayout(&gpuSamplerBinding, &gpuSamplerBinding + 1);
+			auto gpuDs1Layout = logicalDevice->createDescriptorSetLayout(&gpuUboBinding, &gpuUboBinding + 1);
+			auto gpuDs3Layout = logicalDevice->createDescriptorSetLayout(&gpuSamplerBinding, &gpuSamplerBinding + 1);
 
 			/*
 				Creating gpu UBO with appropiate size.
@@ -316,7 +316,7 @@ public:
 
 			auto descriptorPool = createDescriptorPool(1u);
 
-			auto gpuDescriptorSet3 = logicalDevice->createGPUDescriptorSet(descriptorPool.get(), gpuDs3Layout);
+			auto gpuDescriptorSet3 = logicalDevice->createDescriptorSet(descriptorPool.get(), gpuDs3Layout);
 			{
 				video::IGPUDescriptorSet::SWriteDescriptorSet write;
 				write.dstSet = gpuDescriptorSet3.get();
@@ -328,13 +328,13 @@ public:
 				{
 					info.desc = std::move(gpuImageView);
 					ISampler::SParams samplerParams = { ISampler::ETC_CLAMP_TO_EDGE,ISampler::ETC_CLAMP_TO_EDGE,ISampler::ETC_CLAMP_TO_EDGE,ISampler::ETBC_FLOAT_OPAQUE_BLACK,ISampler::ETF_LINEAR,ISampler::ETF_LINEAR,ISampler::ESMM_LINEAR,0u,false,ECO_ALWAYS };
-					info.image = { logicalDevice->createGPUSampler(samplerParams),EIL_SHADER_READ_ONLY_OPTIMAL };
+					info.image = { logicalDevice->createSampler(samplerParams),EIL_SHADER_READ_ONLY_OPTIMAL };
 				}
 				write.info = &info;
 				logicalDevice->updateDescriptorSets(1u, &write, 0u, nullptr);
 			}
 
-			auto gpuDescriptorSet1 = logicalDevice->createGPUDescriptorSet(descriptorPool.get(), gpuDs1Layout);
+			auto gpuDescriptorSet1 = logicalDevice->createDescriptorSet(descriptorPool.get(), gpuDs1Layout);
 			{
 				video::IGPUDescriptorSet::SWriteDescriptorSet write;
 				write.dstSet = gpuDescriptorSet1.get();
@@ -352,7 +352,7 @@ public:
 				logicalDevice->updateDescriptorSets(1u, &write, 0u, nullptr);
 			}
 
-			auto gpuPipelineLayout = logicalDevice->createGPUPipelineLayout(nullptr, nullptr, nullptr, std::move(gpuDs1Layout), nullptr, std::move(gpuDs3Layout));
+			auto gpuPipelineLayout = logicalDevice->createPipelineLayout(nullptr, nullptr, nullptr, std::move(gpuDs1Layout), nullptr, std::move(gpuDs3Layout));
 
 			/*
 				Preparing required pipeline parameters and filling choosen one.
@@ -369,7 +369,7 @@ public:
 				Attaching vertex shader and fragment shaders.
 			*/
 
-			auto gpuPipeline = logicalDevice->createGPURenderpassIndependentPipeline(nullptr, std::move(gpuPipelineLayout), gpuShaders.data(), gpuShaders.data() + gpuShaders.size(), geometryObject.inputParams, blendParams, geometryObject.assemblyParams, rasterParams);
+			auto gpuPipeline = logicalDevice->createRenderpassIndependentPipeline(nullptr, std::move(gpuPipelineLayout), gpuShaders.data(), gpuShaders.data() + gpuShaders.size(), geometryObject.inputParams, blendParams, geometryObject.assemblyParams, rasterParams);
 
 			nbl::video::IGPUGraphicsPipeline::SCreationParams graphicsPipelineParams;
 			graphicsPipelineParams.renderpassIndependent = core::smart_refctd_ptr<nbl::video::IGPURenderpassIndependentPipeline>(gpuPipeline.get());

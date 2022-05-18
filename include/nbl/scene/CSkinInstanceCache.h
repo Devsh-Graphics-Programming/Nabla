@@ -90,8 +90,8 @@ class CSkinInstanceCache final : public ISkinInstanceCache
 			if (!cacheUpdateLayout || !renderLayout)
 				return false;
 
-            auto cacheUpdateDescriptorSet = params.device->createGPUDescriptorSet(dsp.get(),std::move(cacheUpdateLayout));
-            auto renderDescriptorSet = params.device->createGPUDescriptorSet(dsp.get(),std::move(renderLayout));
+            auto cacheUpdateDescriptorSet = params.device->createDescriptorSet(dsp.get(),std::move(cacheUpdateLayout));
+            auto renderDescriptorSet = params.device->createDescriptorSet(dsp.get(),std::move(renderLayout));
 			if (!cacheUpdateDescriptorSet || !renderDescriptorSet)
 				return nullptr;
 

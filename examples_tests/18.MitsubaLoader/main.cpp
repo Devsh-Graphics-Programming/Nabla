@@ -153,7 +153,7 @@ static core::smart_refctd_ptr<asset::ICPUSpecializedShader> createModifiedFragSh
 	return fsNew;
 }
 
-static auto createGPUImageView(const std::string& path, IAssetManager* am, ILogicalDevice* logicalDevice, nbl::video::IGPUObjectFromAssetConverter& cpu2gpu, nbl::video::IGPUObjectFromAssetConverter::SParams& cpu2gpuParams)
+static auto createImageView(const std::string& path, IAssetManager* am, ILogicalDevice* logicalDevice, nbl::video::IGPUObjectFromAssetConverter& cpu2gpu, nbl::video::IGPUObjectFromAssetConverter::SParams& cpu2gpuParams)
 {
 	IAssetLoader::SAssetLoadParams lp(0ull, nullptr, IAssetLoader::ECF_DONT_CACHE_REFERENCES);
 	auto cpuTexture = am->getAsset(path, lp);
@@ -173,7 +173,7 @@ static auto createGPUImageView(const std::string& path, IAssetManager* am, ILogi
 	viewParams.subresourceRange.baseMipLevel = 0u;
 	viewParams.subresourceRange.levelCount = viewParams.image->getCreationParameters().mipLevels;
 
-	auto gpuImageView = logicalDevice->createGPUImageView(std::move(viewParams));
+	auto gpuImageView = logicalDevice->createImageView(std::move(viewParams));
 
 	return gpuImageView;
 };
@@ -735,7 +735,7 @@ public:
 		IDriverMemoryBacked::SDriverMemoryRequirements memReq;
 		memReq.vulkanReqs.size = sizeof(SBasicViewParameters);
 		cameraUBO = logicalDevice->createGPUBufferOnDedMem(cameraUBOCreationParams, memReq);
-		gpuDS1 = logicalDevice->createGPUDescriptorSet(descriptorPool.get(), std::move(gpuDS1Layout));
+		gpuDS1 = logicalDevice->createDescriptorSet(descriptorPool.get(), std::move(gpuDS1Layout));
 		{
 			video::IGPUDescriptorSet::SWriteDescriptorSet write;
 			write.dstSet = gpuDS1.get();
@@ -773,7 +773,7 @@ public:
 			cpu2gpuParams.waitForCreationToComplete();
 			auto gpuSequenceBuffer = core::smart_refctd_ptr<video::IGPUBuffer>(gpuSSBOOffsetBufferPair->getBuffer());
 
-			gpuSequenceBufferView = logicalDevice->createGPUBufferView(gpuSequenceBuffer.get(), asset::EF_R32G32B32_UINT);
+			gpuSequenceBufferView = logicalDevice->createBufferView(gpuSequenceBuffer.get(), asset::EF_R32G32B32_UINT);
 		}
 
 		smart_refctd_ptr<video::IGPUImageView> gpuScrambleImageView;
@@ -818,10 +818,10 @@ public:
 			viewParams.format = asset::EF_R32G32_UINT;
 			viewParams.subresourceRange.levelCount = 1u;
 			viewParams.subresourceRange.layerCount = 1u;
-			gpuScrambleImageView = logicalDevice->createGPUImageView(std::move(viewParams));
+			gpuScrambleImageView = logicalDevice->createImageView(std::move(viewParams));
 		}
 
-		gpuDS2 = logicalDevice->createGPUDescriptorSet(descriptorPool.get(), std::move(gpuDS2Layout));
+		gpuDS2 = logicalDevice->createDescriptorSet(descriptorPool.get(), std::move(gpuDS2Layout));
 		{
 			auto cpuBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(lights.size() * sizeof(SLight));
 			memcpy(cpuBuffer->getPointer(), lights.data(), cpuBuffer->getSize());
@@ -847,7 +847,7 @@ public:
 			w[1].descriptorType = asset::EDT_COMBINED_IMAGE_SAMPLER;
 			w[1].dstSet = gpuDS2.get();
 			w[1].info = info + 1;
-			auto gpuEnvmapImageView = createGPUImageView("../../media/envmap/envmap_0.exr", assetManager.get(), logicalDevice.get(), cpu2gpu, cpu2gpuParams);
+			auto gpuEnvmapImageView = createImageView("../../media/envmap/envmap_0.exr", assetManager.get(), logicalDevice.get(), cpu2gpu, cpu2gpuParams);
 			info[1].image.imageLayout = asset::EIL_UNDEFINED;
 			info[1].image.sampler = nullptr;
 			info[1].desc = std::move(gpuEnvmapImageView);
@@ -1481,7 +1481,7 @@ public:
 //	IDriverMemoryBacked::SDriverMemoryRequirements memReq;
 //	memReq.vulkanReqs.size = sizeof(SBasicViewParameters);
 //	core::smart_refctd_ptr<IGPUBuffer> cameraUBO = logicalDevice->createGPUBufferOnDedMem(memReq, true);
-//	auto gpuDS1 = logicalDevice->createGPUDescriptorSet(descriptorPool.get(), std::move(gpuDS1Layout));
+//	auto gpuDS1 = logicalDevice->createDescriptorSet(descriptorPool.get(), std::move(gpuDS1Layout));
 //	{
 //		video::IGPUDescriptorSet::SWriteDescriptorSet write;
 //		write.dstSet = gpuDS1.get();
@@ -1519,7 +1519,7 @@ public:
 //		cpu2gpuParams.waitForCreationToComplete();
 //		auto gpuSequenceBuffer = core::smart_refctd_ptr<video::IGPUBuffer>(gpuSSBOOffsetBufferPair->getBuffer());
 //
-//		gpuSequenceBufferView = logicalDevice->createGPUBufferView(gpuSequenceBuffer.get(), asset::EF_R32G32B32_UINT);
+//		gpuSequenceBufferView = logicalDevice->createBufferView(gpuSequenceBuffer.get(), asset::EF_R32G32B32_UINT);
 //	}
 //
 //	smart_refctd_ptr<video::IGPUImageView> gpuScrambleImageView;
@@ -1564,10 +1564,10 @@ public:
 //		viewParams.format = asset::EF_R32G32_UINT;
 //		viewParams.subresourceRange.levelCount = 1u;
 //		viewParams.subresourceRange.layerCount = 1u;
-//		gpuScrambleImageView = logicalDevice->createGPUImageView(std::move(viewParams));
+//		gpuScrambleImageView = logicalDevice->createImageView(std::move(viewParams));
 //	}
 //
-//	auto gpuDS2 = logicalDevice->createGPUDescriptorSet(descriptorPool.get(), std::move(gpuDS2Layout));
+//	auto gpuDS2 = logicalDevice->createDescriptorSet(descriptorPool.get(), std::move(gpuDS2Layout));
 //	{
 //		auto cpuBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(lights.size() * sizeof(SLight));
 //		memcpy(cpuBuffer->getPointer(), lights.data(), cpuBuffer->getSize());
@@ -1593,7 +1593,7 @@ public:
 //		w[1].descriptorType = asset::EDT_COMBINED_IMAGE_SAMPLER;
 //		w[1].dstSet = gpuDS2.get();
 //		w[1].info = info + 1;
-//		auto gpuEnvmapImageView = createGPUImageView("../../media/envmap/envmap_0.exr", assetManager.get(), logicalDevice.get(), cpu2gpu, cpu2gpuParams);
+//		auto gpuEnvmapImageView = createImageView("../../media/envmap/envmap_0.exr", assetManager.get(), logicalDevice.get(), cpu2gpu, cpu2gpuParams);
 //		info[1].image.imageLayout = asset::EIL_UNDEFINED;
 //		info[1].image.sampler = nullptr;
 //		info[1].desc = std::move(gpuEnvmapImageView);

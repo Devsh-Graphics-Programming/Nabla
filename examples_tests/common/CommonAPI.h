@@ -1620,7 +1620,7 @@ public:
 		rp_params.subpasses = &sp;
 		rp_params.subpassCount = 1u;
 
-		return device->createGPURenderpass(rp_params);
+		return device->createRenderpass(rp_params);
 	}
 
 	static auto createFBOWithSwapchainImages(
@@ -1651,7 +1651,7 @@ public:
 				view_params.subresourceRange.layerCount = 1u;
 				view_params.image = std::move(img);
 
-				view[0] = device->createGPUImageView(std::move(view_params));
+				view[0] = device->createImageView(std::move(view_params));
 				assert(view[0]);
 			}
 			
@@ -1677,7 +1677,7 @@ public:
 				view_params.subresourceRange.layerCount = 1u;
 				view_params.image = std::move(depthImg);
 
-				view[1] = device->createGPUImageView(std::move(view_params));
+				view[1] = device->createImageView(std::move(view_params));
 				assert(view[1]);
 			}
 
@@ -1690,7 +1690,7 @@ public:
 			fb_params.attachmentCount = (useDepth) ? 2u : 1u;
 			fb_params.attachments = view;
 
-			fbo[i] = device->createGPUFramebuffer(std::move(fb_params));
+			fbo[i] = device->createFramebuffer(std::move(fb_params));
 			assert(fbo[i]);
 		}
 		return fbo;
@@ -1766,7 +1766,7 @@ public:
 		creation_params.viewType = nbl::video::IGPUImageView::ET_2D;
 		creation_params.subresourceRange = { static_cast<nbl::asset::IImage::E_ASPECT_FLAGS>(0u), 0, 1, 0, 1 };
 		creation_params.flags = static_cast<nbl::video::IGPUImageView::E_CREATE_FLAGS>(0u);
-		nbl::core::smart_refctd_ptr image_view = device->createGPUImageView(std::move(creation_params));
+		nbl::core::smart_refctd_ptr image_view = device->createImageView(std::move(creation_params));
 		return std::pair(image, image_view);
 	}
 

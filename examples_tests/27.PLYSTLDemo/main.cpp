@@ -319,7 +319,7 @@ APP_CONSTRUCTOR(PLYSTLDemo)
 			creationParams.queueFamilyIndices = nullptr;
 
 			auto gpuubo = logicalDevice->createGPUBufferOnDedMem(creationParams, ubomemreq);
-			auto gpuds1 = logicalDevice->createGPUDescriptorSet(gpuUBODescriptorPool.get(), std::move(gpuds1layout));
+			auto gpuds1 = logicalDevice->createDescriptorSet(gpuUBODescriptorPool.get(), std::move(gpuds1layout));
 			{
 				video::IGPUDescriptorSet::SWriteDescriptorSet write;
 				write.dstSet = gpuds1.get();

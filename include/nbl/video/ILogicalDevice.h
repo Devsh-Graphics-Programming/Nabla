@@ -161,16 +161,16 @@ class ILogicalDevice : public core::IReferenceCounted, public IDriverMemoryAlloc
         virtual core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(uint32_t _familyIx, core::bitflag<IGPUCommandPool::E_CREATE_FLAGS> flags) = 0;
         virtual core::smart_refctd_ptr<IDescriptorPool> createDescriptorPool(IDescriptorPool::E_CREATE_FLAGS flags, uint32_t maxSets, uint32_t poolSizeCount, const IDescriptorPool::SDescriptorPoolSize* poolSizes) = 0;
 
-        core::smart_refctd_ptr<IGPUFramebuffer> createGPUFramebuffer(IGPUFramebuffer::SCreationParams&& params)
+        core::smart_refctd_ptr<IGPUFramebuffer> createFramebuffer(IGPUFramebuffer::SCreationParams&& params)
         {
             if (!params.renderpass->wasCreatedBy(this))
                 return nullptr;
             if (!IGPUFramebuffer::validate(params))
                 return nullptr;
-            return createGPUFramebuffer_impl(std::move(params));
+            return createFramebuffer_impl(std::move(params));
         }
 
-        virtual core::smart_refctd_ptr<IGPURenderpass> createGPURenderpass(const IGPURenderpass::SCreationParams& params) = 0;
+        virtual core::smart_refctd_ptr<IGPURenderpass> createRenderpass(const IGPURenderpass::SCreationParams& params) = 0;
 
         static inline IDriverMemoryBacked::SDriverMemoryRequirements getDeviceLocalGPUMemoryReqs()
         {
@@ -326,13 +326,13 @@ class ILogicalDevice : public core::IReferenceCounted, public IDriverMemoryAlloc
         //! Low level function used to implement the above, use with caution
         virtual core::smart_refctd_ptr<IGPUBuffer> createGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& creationParams, const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs) { return nullptr; }
 
-        virtual core::smart_refctd_ptr<IGPUShader> createGPUShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader) = 0;
+        virtual core::smart_refctd_ptr<IGPUShader> createShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader) = 0;
 
-        core::smart_refctd_ptr<IGPUSpecializedShader> createGPUSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo, const asset::ISPIRVOptimizer* _spvopt = nullptr)
+        core::smart_refctd_ptr<IGPUSpecializedShader> createSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo, const asset::ISPIRVOptimizer* _spvopt = nullptr)
         {
             if (!_unspecialized->wasCreatedBy(this))
                 return nullptr;
-            auto retval =  createGPUSpecializedShader_impl(_unspecialized, _specInfo, _spvopt);
+            auto retval =  createSpecializedShader_impl(_unspecialized, _specInfo, _spvopt);
             const auto path = _unspecialized->getFilepathHint();
             if (retval && !path.empty())
                 retval->setObjectDebugName(path.c_str());
@@ -340,11 +340,11 @@ class ILogicalDevice : public core::IReferenceCounted, public IDriverMemoryAlloc
         }
 
         //! Create a BufferView, to a shader; a fake 1D texture with no interpolation (@see ICPUBufferView)
-        core::smart_refctd_ptr<IGPUBufferView> createGPUBufferView(IGPUBuffer* _underlying, asset::E_FORMAT _fmt, size_t _offset = 0ull, size_t _size = IGPUBufferView::whole_buffer)
+        core::smart_refctd_ptr<IGPUBufferView> createBufferView(IGPUBuffer* _underlying, asset::E_FORMAT _fmt, size_t _offset = 0ull, size_t _size = IGPUBufferView::whole_buffer)
         {
             if (!_underlying->wasCreatedBy(this))
                 return nullptr;
-            return createGPUBufferView_impl(_underlying, _fmt, _offset, _size);
+            return createBufferView_impl(_underlying, _fmt, _offset, _size);
         }
 
 
@@ -368,27 +368,27 @@ class ILogicalDevice : public core::IReferenceCounted, public IDriverMemoryAlloc
 
 
         //! Create an ImageView that can actually be used by shaders (@see ICPUImageView)
-        core::smart_refctd_ptr<IGPUImageView> createGPUImageView(IGPUImageView::SCreationParams&& params)
+        core::smart_refctd_ptr<IGPUImageView> createImageView(IGPUImageView::SCreationParams&& params)
         {
             if (!params.image->wasCreatedBy(this))
                 return nullptr;
-            return createGPUImageView_impl(std::move(params));
+            return createImageView_impl(std::move(params));
         }
 
-        core::smart_refctd_ptr<IGPUAccelerationStructure> createGPUAccelerationStructure(IGPUAccelerationStructure::SCreationParams&& params)
+        core::smart_refctd_ptr<IGPUAccelerationStructure> createAccelerationStructure(IGPUAccelerationStructure::SCreationParams&& params)
         {
             if (!params.bufferRange.buffer->wasCreatedBy(this))
                 return nullptr;
-            return createGPUAccelerationStructure_impl(std::move(params));
+            return createAccelerationStructure_impl(std::move(params));
         }
 
-        core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(IDescriptorPool* pool, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout)
+        core::smart_refctd_ptr<IGPUDescriptorSet> createDescriptorSet(IDescriptorPool* pool, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout)
         {
             if (!pool->wasCreatedBy(this))
                 return nullptr;
             if (!layout->wasCreatedBy(this))
                 return nullptr;
-            return createGPUDescriptorSet_impl(pool, std::move(layout));
+            return createDescriptorSet_impl(pool, std::move(layout));
         }
 
         core::smart_refctd_ptr<IDescriptorPool> createDescriptorPoolForDSLayouts(const IDescriptorPool::E_CREATE_FLAGS flags, const IGPUDescriptorSetLayout* const* const begin, const IGPUDescriptorSetLayout* const* const end, const uint32_t* setCounts=nullptr)
@@ -421,18 +421,18 @@ class ILogicalDevice : public core::IReferenceCounted, public IDriverMemoryAlloc
             return dsPool;
         }
 
-        void createGPUDescriptorSets(IDescriptorPool* pool, uint32_t count, const IGPUDescriptorSetLayout* const* _layouts, core::smart_refctd_ptr<IGPUDescriptorSet>* output)
+        void createDescriptorSets(IDescriptorPool* pool, uint32_t count, const IGPUDescriptorSetLayout* const* _layouts, core::smart_refctd_ptr<IGPUDescriptorSet>* output)
         {
             core::SRange<const IGPUDescriptorSetLayout* const> layouts{ _layouts, _layouts + count };
-            createGPUDescriptorSets(pool, layouts, output);
+            createDescriptorSets(pool, layouts, output);
         }
-        void createGPUDescriptorSets(IDescriptorPool* pool, core::SRange<const IGPUDescriptorSetLayout* const> layouts, core::smart_refctd_ptr<IGPUDescriptorSet>* output)
+        void createDescriptorSets(IDescriptorPool* pool, core::SRange<const IGPUDescriptorSetLayout* const> layouts, core::smart_refctd_ptr<IGPUDescriptorSet>* output)
         {
             uint32_t i = 0u;
             for (const IGPUDescriptorSetLayout* layout_ : layouts)
             {
                 auto layout = core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(layout_);
-                output[i++] = createGPUDescriptorSet(pool, std::move(layout));
+                output[i++] = createDescriptorSet(pool, std::move(layout));
             }
         }
 
@@ -440,16 +440,16 @@ class ILogicalDevice : public core::IReferenceCounted, public IDriverMemoryAlloc
         virtual void updateDescriptorSets(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites, uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies) = 0;
 
         //! Create a sampler object to use with images
-        virtual core::smart_refctd_ptr<IGPUSampler> createGPUSampler(const IGPUSampler::SParams& _params) = 0;
+        virtual core::smart_refctd_ptr<IGPUSampler> createSampler(const IGPUSampler::SParams& _params) = 0;
 
         //! Create a pipeline cache object
-        virtual core::smart_refctd_ptr<IGPUPipelineCache> createGPUPipelineCache() { return nullptr; }
+        virtual core::smart_refctd_ptr<IGPUPipelineCache> createPipelineCache() { return nullptr; }
 
         //! Create a descriptor set layout (@see ICPUDescriptorSetLayout)
-        core::smart_refctd_ptr<IGPUDescriptorSetLayout> createGPUDescriptorSetLayout(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end);
+        core::smart_refctd_ptr<IGPUDescriptorSetLayout> createDescriptorSetLayout(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end);
 
         //! Create a pipeline layout (@see ICPUPipelineLayout)
-        core::smart_refctd_ptr<IGPUPipelineLayout> createGPUPipelineLayout(
+        core::smart_refctd_ptr<IGPUPipelineLayout> createPipelineLayout(
             const asset::SPushConstantRange* const _pcRangesBegin = nullptr, const asset::SPushConstantRange* const _pcRangesEnd = nullptr,
             core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout0 = nullptr, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout1 = nullptr,
             core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout2 = nullptr, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout3 = nullptr
@@ -463,10 +463,10 @@ class ILogicalDevice : public core::IReferenceCounted, public IDriverMemoryAlloc
                 return nullptr;
             if (_layout3 && !_layout3->wasCreatedBy(this))
                 return nullptr;
-            return createGPUPipelineLayout_impl(_pcRangesBegin, _pcRangesEnd, std::move(_layout0), std::move(_layout1), std::move(_layout2), std::move(_layout3));
+            return createPipelineLayout_impl(_pcRangesBegin, _pcRangesEnd, std::move(_layout0), std::move(_layout1), std::move(_layout2), std::move(_layout3));
         }
 
-        core::smart_refctd_ptr<IGPUComputePipeline> createGPUComputePipeline(
+        core::smart_refctd_ptr<IGPUComputePipeline> createComputePipeline(
             IGPUPipelineCache* _pipelineCache,
             core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
             core::smart_refctd_ptr<IGPUSpecializedShader>&& _shader
@@ -478,13 +478,13 @@ class ILogicalDevice : public core::IReferenceCounted, public IDriverMemoryAlloc
             if (!_shader->wasCreatedBy(this))
                 return nullptr;
             const char* debugName = _shader->getObjectDebugName();
-            auto retval = createGPUComputePipeline_impl(_pipelineCache, std::move(_layout), std::move(_shader));
+            auto retval = createComputePipeline_impl(_pipelineCache, std::move(_layout), std::move(_shader));
             if (retval && debugName[0])
                 retval->setObjectDebugName(debugName);
             return retval;
         }
 
-        bool createGPUComputePipelines(
+        bool createComputePipelines(
             IGPUPipelineCache* pipelineCache,
             core::SRange<const IGPUComputePipeline::SCreationParams> createInfos,
             core::smart_refctd_ptr<IGPUComputePipeline>* output
@@ -494,10 +494,10 @@ class ILogicalDevice : public core::IReferenceCounted, public IDriverMemoryAlloc
             for (const auto& ci : createInfos)
                 if (!ci.layout->wasCreatedBy(this) || !ci.shader->wasCreatedBy(this))
                     return false;
-            return createGPUComputePipelines_impl(pipelineCache, createInfos, output);
+            return createComputePipelines_impl(pipelineCache, createInfos, output);
         }
 
-        bool createGPUComputePipelines(
+        bool createComputePipelines(
             IGPUPipelineCache* pipelineCache,
             uint32_t count,
             const IGPUComputePipeline::SCreationParams* createInfos,
@@ -505,10 +505,10 @@ class ILogicalDevice : public core::IReferenceCounted, public IDriverMemoryAlloc
         ) 
         {
             auto ci = core::SRange<const IGPUComputePipeline::SCreationParams>{createInfos, createInfos+count};
-            return createGPUComputePipelines(pipelineCache, ci, output);
+            return createComputePipelines(pipelineCache, ci, output);
         }
 
-        core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> createGPURenderpassIndependentPipeline(
+        core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> createRenderpassIndependentPipeline(
             IGPUPipelineCache* _pipelineCache,
             core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
             IGPUSpecializedShader* const* _shaders, IGPUSpecializedShader* const* _shadersEnd,
@@ -526,10 +526,10 @@ class ILogicalDevice : public core::IReferenceCounted, public IDriverMemoryAlloc
                 if (!(*s)->wasCreatedBy(this))
                     return nullptr;
             }
-            return createGPURenderpassIndependentPipeline_impl(_pipelineCache, std::move(_layout), _shaders, _shadersEnd, _vertexInputParams, _blendParams, _primAsmParams, _rasterParams);
+            return createRenderpassIndependentPipeline_impl(_pipelineCache, std::move(_layout), _shaders, _shadersEnd, _vertexInputParams, _blendParams, _primAsmParams, _rasterParams);
         }
 
-        bool createGPURenderpassIndependentPipelines(
+        bool createRenderpassIndependentPipelines(
             IGPUPipelineCache* pipelineCache,
             core::SRange<const IGPURenderpassIndependentPipeline::SCreationParams> createInfos,
             core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>* output
@@ -544,10 +544,10 @@ class ILogicalDevice : public core::IReferenceCounted, public IDriverMemoryAlloc
                     if (s && !s->wasCreatedBy(this))
                         return false;
             }
-            return createGPURenderpassIndependentPipelines_impl(pipelineCache, createInfos, output);
+            return createRenderpassIndependentPipelines_impl(pipelineCache, createInfos, output);
         }
 
-        bool createGPURenderpassIndependentPipelines(
+        bool createRenderpassIndependentPipelines(
             IGPUPipelineCache* pipelineCache,
             uint32_t count,
             const IGPURenderpassIndependentPipeline::SCreationParams* createInfos,
@@ -555,7 +555,7 @@ class ILogicalDevice : public core::IReferenceCounted, public IDriverMemoryAlloc
         )
         {
             auto ci = core::SRange<const IGPURenderpassIndependentPipeline::SCreationParams>{createInfos, createInfos+count};
-            return createGPURenderpassIndependentPipelines(pipelineCache, ci, output);
+            return createRenderpassIndependentPipelines(pipelineCache, ci, output);
         }
 
         core::smart_refctd_ptr<IGPUGraphicsPipeline> createGPUGraphicsPipeline(IGPUPipelineCache* pipelineCache, IGPUGraphicsPipeline::SCreationParams&& params)
@@ -568,10 +568,10 @@ class ILogicalDevice : public core::IReferenceCounted, public IDriverMemoryAlloc
                 return nullptr;
             if (!IGPUGraphicsPipeline::validate(params))
                 return nullptr;
-            return createGPUGraphicsPipeline_impl(pipelineCache, std::move(params));
+            return createGraphicsPipeline_impl(pipelineCache, std::move(params));
         }
 
-        bool createGPUGraphicsPipelines(IGPUPipelineCache* pipelineCache, core::SRange<const IGPUGraphicsPipeline::SCreationParams> params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output)
+        bool createGraphicsPipelines(IGPUPipelineCache* pipelineCache, core::SRange<const IGPUGraphicsPipeline::SCreationParams> params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output)
         {
             if (pipelineCache && !pipelineCache->wasCreatedBy(this))
                 return false;
@@ -584,13 +584,13 @@ class ILogicalDevice : public core::IReferenceCounted, public IDriverMemoryAlloc
                 if (!IGPUGraphicsPipeline::validate(ci))
                     return false;
             }
-            return createGPUGraphicsPipelines_impl(pipelineCache, params, output);
+            return createGraphicsPipelines_impl(pipelineCache, params, output);
         }
 
-        bool createGPUGraphicsPipelines(IGPUPipelineCache* pipelineCache, uint32_t count, const IGPUGraphicsPipeline::SCreationParams* params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output)
+        bool createGraphicsPipelines(IGPUPipelineCache* pipelineCache, uint32_t count, const IGPUGraphicsPipeline::SCreationParams* params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output)
         {
             auto ci = core::SRange<const IGPUGraphicsPipeline::SCreationParams>{ params, params + count };
-            return createGPUGraphicsPipelines(pipelineCache, ci, output);
+            return createGraphicsPipelines(pipelineCache, ci, output);
         }
 
         virtual core::smart_refctd_ptr<ISwapchain> createSwapchain(ISwapchain::SCreationParams&& params) = 0;
@@ -689,29 +689,29 @@ class ILogicalDevice : public core::IReferenceCounted, public IDriverMemoryAlloc
 
         virtual bool createCommandBuffers_impl(IGPUCommandPool* _cmdPool, IGPUCommandBuffer::E_LEVEL _level, uint32_t _count, core::smart_refctd_ptr<IGPUCommandBuffer>* _outCmdBufs) = 0;
         virtual bool freeCommandBuffers_impl(IGPUCommandBuffer** _cmdbufs, uint32_t _count) = 0;
-        virtual core::smart_refctd_ptr<IGPUFramebuffer> createGPUFramebuffer_impl(IGPUFramebuffer::SCreationParams&& params) = 0;
-        virtual core::smart_refctd_ptr<IGPUSpecializedShader> createGPUSpecializedShader_impl(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo, const asset::ISPIRVOptimizer* _spvopt) = 0;
-        virtual core::smart_refctd_ptr<IGPUBufferView> createGPUBufferView_impl(IGPUBuffer* _underlying, asset::E_FORMAT _fmt, size_t _offset = 0ull, size_t _size = IGPUBufferView::whole_buffer) = 0;
-        virtual core::smart_refctd_ptr<IGPUImageView> createGPUImageView_impl(IGPUImageView::SCreationParams&& params) = 0;
-        virtual core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet_impl(IDescriptorPool* pool, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout) = 0;
-        virtual core::smart_refctd_ptr<IGPUDescriptorSetLayout> createGPUDescriptorSetLayout_impl(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end) = 0;
-        virtual core::smart_refctd_ptr<IGPUAccelerationStructure> createGPUAccelerationStructure_impl(IGPUAccelerationStructure::SCreationParams&& params) = 0;
-        virtual core::smart_refctd_ptr<IGPUPipelineLayout> createGPUPipelineLayout_impl(
+        virtual core::smart_refctd_ptr<IGPUFramebuffer> createFramebuffer_impl(IGPUFramebuffer::SCreationParams&& params) = 0;
+        virtual core::smart_refctd_ptr<IGPUSpecializedShader> createSpecializedShader_impl(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo, const asset::ISPIRVOptimizer* _spvopt) = 0;
+        virtual core::smart_refctd_ptr<IGPUBufferView> createBufferView_impl(IGPUBuffer* _underlying, asset::E_FORMAT _fmt, size_t _offset = 0ull, size_t _size = IGPUBufferView::whole_buffer) = 0;
+        virtual core::smart_refctd_ptr<IGPUImageView> createImageView_impl(IGPUImageView::SCreationParams&& params) = 0;
+        virtual core::smart_refctd_ptr<IGPUDescriptorSet> createDescriptorSet_impl(IDescriptorPool* pool, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout) = 0;
+        virtual core::smart_refctd_ptr<IGPUDescriptorSetLayout> createDescriptorSetLayout_impl(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end) = 0;
+        virtual core::smart_refctd_ptr<IGPUAccelerationStructure> createAccelerationStructure_impl(IGPUAccelerationStructure::SCreationParams&& params) = 0;
+        virtual core::smart_refctd_ptr<IGPUPipelineLayout> createPipelineLayout_impl(
             const asset::SPushConstantRange* const _pcRangesBegin = nullptr, const asset::SPushConstantRange* const _pcRangesEnd = nullptr,
             core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout0 = nullptr, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout1 = nullptr,
             core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout2 = nullptr, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout3 = nullptr
         ) = 0;
-        virtual core::smart_refctd_ptr<IGPUComputePipeline> createGPUComputePipeline_impl(
+        virtual core::smart_refctd_ptr<IGPUComputePipeline> createComputePipeline_impl(
             IGPUPipelineCache* _pipelineCache,
             core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
             core::smart_refctd_ptr<IGPUSpecializedShader>&& _shader
         ) = 0;
-        virtual bool createGPUComputePipelines_impl(
+        virtual bool createComputePipelines_impl(
             IGPUPipelineCache* pipelineCache,
             core::SRange<const IGPUComputePipeline::SCreationParams> createInfos,
             core::smart_refctd_ptr<IGPUComputePipeline>* output
         ) = 0;
-        virtual core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> createGPURenderpassIndependentPipeline_impl(
+        virtual core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> createRenderpassIndependentPipeline_impl(
             IGPUPipelineCache* _pipelineCache,
             core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
             IGPUSpecializedShader* const* _shaders, IGPUSpecializedShader* const* _shadersEnd,
@@ -720,13 +720,13 @@ class ILogicalDevice : public core::IReferenceCounted, public IDriverMemoryAlloc
             const asset::SPrimitiveAssemblyParams& _primAsmParams,
             const asset::SRasterizationParams& _rasterParams
         ) = 0;
-        virtual bool createGPURenderpassIndependentPipelines_impl(
+        virtual bool createRenderpassIndependentPipelines_impl(
             IGPUPipelineCache* pipelineCache,
             core::SRange<const IGPURenderpassIndependentPipeline::SCreationParams> createInfos,
             core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>* output
         ) = 0;
-        virtual core::smart_refctd_ptr<IGPUGraphicsPipeline> createGPUGraphicsPipeline_impl(IGPUPipelineCache* pipelineCache, IGPUGraphicsPipeline::SCreationParams&& params) = 0;
-        virtual bool createGPUGraphicsPipelines_impl(IGPUPipelineCache* pipelineCache, core::SRange<const IGPUGraphicsPipeline::SCreationParams> params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output) = 0;
+        virtual core::smart_refctd_ptr<IGPUGraphicsPipeline> createGraphicsPipeline_impl(IGPUPipelineCache* pipelineCache, IGPUGraphicsPipeline::SCreationParams&& params) = 0;
+        virtual bool createGraphicsPipelines_impl(IGPUPipelineCache* pipelineCache, core::SRange<const IGPUGraphicsPipeline::SCreationParams> params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output) = 0;
 
         core::smart_refctd_ptr<IAPIConnection> m_api;
         IPhysicalDevice* m_physicalDevice;

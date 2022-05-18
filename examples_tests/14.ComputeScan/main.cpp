@@ -83,7 +83,7 @@ public:
 
 		auto dsLayout = scanner->getDefaultDescriptorSetLayout();
 		auto dsPool = logicalDevice->createDescriptorPoolForDSLayouts(IDescriptorPool::ECF_NONE, &dsLayout, &dsLayout + 1u);
-		auto ds = logicalDevice->createGPUDescriptorSet(dsPool.get(), core::smart_refctd_ptr<IGPUDescriptorSetLayout>(dsLayout));
+		auto ds = logicalDevice->createDescriptorSet(dsPool.get(), core::smart_refctd_ptr<IGPUDescriptorSetLayout>(dsLayout));
 		scanner->updateDescriptorSet(ds.get(), in_gpu_range, scratch_gpu_range);
 
 		constexpr auto BenchmarkingRuns = 1u;
@@ -285,7 +285,7 @@ NBL_COMMON_API_MAIN(ComputeScanApp)
 //
 //	auto dsLayout = scanner->getDefaultDescriptorSetLayout();
 //	auto dsPool = logicalDevice->createDescriptorPoolForDSLayouts(IDescriptorPool::ECF_NONE,&dsLayout,&dsLayout+1u);
-//	auto ds = logicalDevice->createGPUDescriptorSet(dsPool.get(),core::smart_refctd_ptr<IGPUDescriptorSetLayout>(dsLayout));
+//	auto ds = logicalDevice->createDescriptorSet(dsPool.get(),core::smart_refctd_ptr<IGPUDescriptorSetLayout>(dsLayout));
 //	scanner->updateDescriptorSet(ds.get(),in_gpu_range,scratch_gpu_range);
 //
 //	constexpr auto BenchmarkingRuns = 1u;

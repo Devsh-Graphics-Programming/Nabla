@@ -514,18 +514,18 @@ core::smart_refctd_ptr<IGPUImage> CVulkanLogicalDevice::createImage(asset::IImag
     }
 }
 
-core::smart_refctd_ptr<IGPUGraphicsPipeline> CVulkanLogicalDevice::createGPUGraphicsPipeline_impl(
+core::smart_refctd_ptr<IGPUGraphicsPipeline> CVulkanLogicalDevice::createGraphicsPipeline_impl(
     IGPUPipelineCache* pipelineCache,
     IGPUGraphicsPipeline::SCreationParams&& params)
 {
     core::smart_refctd_ptr<IGPUGraphicsPipeline> result;
-    if (createGPUGraphicsPipelines_impl(pipelineCache, { &params, &params + 1 }, &result))
+    if (createGraphicsPipelines_impl(pipelineCache, { &params, &params + 1 }, &result))
         return result;
     else
         return nullptr;
 }
 
-bool CVulkanLogicalDevice::createGPUGraphicsPipelines_impl(
+bool CVulkanLogicalDevice::createGraphicsPipelines_impl(
     IGPUPipelineCache* pipelineCache,
     core::SRange<const IGPUGraphicsPipeline::SCreationParams> params,
     core::smart_refctd_ptr<IGPUGraphicsPipeline>* output)
@@ -858,7 +858,7 @@ bool CVulkanLogicalDevice::createGPUGraphicsPipelines_impl(
     }
 }
 
-core::smart_refctd_ptr<IGPUAccelerationStructure> CVulkanLogicalDevice::createGPUAccelerationStructure_impl(IGPUAccelerationStructure::SCreationParams&& params) 
+core::smart_refctd_ptr<IGPUAccelerationStructure> CVulkanLogicalDevice::createAccelerationStructure_impl(IGPUAccelerationStructure::SCreationParams&& params) 
 {
     auto physicalDevice = static_cast<const CVulkanPhysicalDevice*>(getPhysicalDevice());
     auto features = physicalDevice->getFeatures();
