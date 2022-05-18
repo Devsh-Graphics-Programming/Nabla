@@ -32,6 +32,7 @@ class IGPUBuffer : public asset::IBuffer, public IDriverMemoryBacked, public IBa
 			asset::E_SHARING_MODE sharingMode = asset::ESM_EXCLUSIVE;
 			bool canUpdateSubRange = false; // whether `IGPUCommandBuffer::updateBuffer` can be used on this buffer
 		};
+		static_assert(sizeof(SCachedCreationParams)==16u);
 		struct SCreationParams : SCachedCreationParams
 		{
 			uint32_t queueFamilyIndexCount = 0u;

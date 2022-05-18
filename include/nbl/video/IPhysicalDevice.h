@@ -28,7 +28,7 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
         virtual E_API_TYPE getAPIType() const = 0;
 
         enum E_TYPE : uint8_t {
-            ET_OTHER = 0,
+            ET_UNKNOWN = 0,
             ET_INTEGRATED_GPU = 1,
             ET_DISCRETE_GPU = 2,
             ET_VIRTUAL_GPU = 3,
@@ -37,7 +37,7 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
 
         enum E_DRIVER_ID : uint8_t
         {
-            EDI_OTHER = 0,
+            EDI_UNKNOWN = 0,
             EDI_AMD_PROPRIETARY = 1,
             EDI_AMD_OPEN_SOURCE = 2,
             EDI_MESA_RADV = 3,

@@ -293,7 +293,7 @@ public:
 		else if(hasInString(vendor, "nvidia", true)) // easiest to detect :D
 			m_properties.driverID = E_DRIVER_ID::EDI_NVIDIA_PROPRIETARY;
 		else 
-			m_properties.driverID = E_DRIVER_ID::EDI_OTHER;
+			m_properties.driverID = E_DRIVER_ID::EDI_UNKNOWN;
 
 		m_glfeatures.isIntelGPU = (m_properties.driverID == E_DRIVER_ID::EDI_INTEL_OPEN_SOURCE_MESA || m_properties.driverID == E_DRIVER_ID::EDI_INTEL_PROPRIETARY_WINDOWS);
 
@@ -307,7 +307,7 @@ public:
 		else if(hasInString(renderer, "virgl", true))
 			m_properties.deviceType = E_TYPE::ET_VIRTUAL_GPU;
 		else
-			m_properties.deviceType = E_TYPE::ET_OTHER;
+			m_properties.deviceType = E_TYPE::ET_UNKNOWN;
 		
 		// Query VRAM Size 
 		GetError();
