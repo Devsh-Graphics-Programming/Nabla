@@ -30,7 +30,7 @@ inline core::smart_refctd_ptr<asset::ICPUImageView> createScreenShot(
 	auto gpuImage = fetchedImageViewParmas.image;
 	auto fetchedGpuImageParams = gpuImage->getCreationParameters();
 
-	if(!fetchedGpuImageParams.usage.hasValue(asset::IImage::EUF_TRANSFER_SRC_BIT))
+	if(!fetchedGpuImageParams.usage.hasFlags(asset::IImage::EUF_TRANSFER_SRC_BIT))
 	{
 		assert(false);
 		return nullptr;

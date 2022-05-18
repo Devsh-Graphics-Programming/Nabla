@@ -691,23 +691,23 @@ static inline VkPipelineStageFlags getVkPipelineStageFlagsFromPipelineStageFlags
 static inline VkMemoryPropertyFlags getVkMemoryPropertyFlagsFromMemoryPropertyFlags(const core::bitflag<IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> in)
 {
     VkMemoryPropertyFlags ret = 0u;
-    if(in.hasValue(IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_DEVICE_LOCAL_BIT))
+    if(in.hasFlags(IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_DEVICE_LOCAL_BIT))
         ret |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-    if(in.hasValue(IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_HOST_READABLE_BIT) || in.hasValue(IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_HOST_WRITABLE_BIT))
+    if(in.hasFlags(IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_HOST_READABLE_BIT) || in.hasFlags(IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_HOST_WRITABLE_BIT))
         ret |= VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
-    if(in.hasValue(IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_HOST_COHERENT_BIT))
+    if(in.hasFlags(IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_HOST_COHERENT_BIT))
         ret |= VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-    if(in.hasValue(IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_HOST_CACHED_BIT))
+    if(in.hasFlags(IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_HOST_CACHED_BIT))
         ret |= VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
-    //if(in.hasValue(IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_LAZILY_ALLOCATED_BIT))
+    //if(in.hasFlags(IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_LAZILY_ALLOCATED_BIT))
     //    ret |= VK_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT;
-    //if(in.hasValue(IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_PROTECTED_BIT))
+    //if(in.hasFlags(IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_PROTECTED_BIT))
     //    ret |= VK_MEMORY_PROPERTY_PROTECTED_BIT;
-    //if(in.hasValue(IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_DEVICE_COHERENT_BIT_AMD))
+    //if(in.hasFlags(IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_DEVICE_COHERENT_BIT_AMD))
     //    ret |= VK_MEMORY_PROPERTY_DEVICE_COHERENT_BIT_AMD;
-    //if(in.hasValue(IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_DEVICE_UNCACHED_BIT_AMD))
+    //if(in.hasFlags(IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_DEVICE_UNCACHED_BIT_AMD))
     //    ret |= VK_MEMORY_PROPERTY_DEVICE_UNCACHED_BIT_AMD;
-    //if(in.hasValue(IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_RDMA_CAPABLE_BIT_NV))
+    //if(in.hasFlags(IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_RDMA_CAPABLE_BIT_NV))
     //    ret |= VK_MEMORY_PROPERTY_RDMA_CAPABLE_BIT_NV;
     return ret;
 }

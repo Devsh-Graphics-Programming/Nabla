@@ -171,11 +171,11 @@ class IDriverMemoryAllocation : public virtual core::IReferenceCounted
 
         static inline bool isMappingAccessConsistentWithMemoryType(core::bitflag<E_MAPPING_CPU_ACCESS_FLAG> access, core::bitflag<E_MEMORY_PROPERTY_FLAGS> memoryPropertyFlags)
         {
-            if(access.hasValue(EMCAF_READ))
-                if(!memoryPropertyFlags.hasValue(EMPF_HOST_READABLE_BIT))
+            if(access.hasFlags(EMCAF_READ))
+                if(!memoryPropertyFlags.hasFlags(EMPF_HOST_READABLE_BIT))
                     return false;
-            if(access.hasValue(EMCAF_WRITE))
-                if(!memoryPropertyFlags.hasValue(EMPF_HOST_WRITABLE_BIT))
+            if(access.hasFlags(EMCAF_WRITE))
+                if(!memoryPropertyFlags.hasFlags(EMPF_HOST_WRITABLE_BIT))
                     return false;
             return true;
         }

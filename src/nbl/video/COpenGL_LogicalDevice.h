@@ -436,10 +436,10 @@ public:
         auto* buf = static_cast<COpenGLBuffer*>(memory.memory);
         const GLbitfield storageFlags = buf->getOpenGLStorageFlags();
 
-        GLbitfield flags = GL_MAP_PERSISTENT_BIT | (access.hasValue(IDriverMemoryAllocation::EMCAF_READ) ? GL_MAP_READ_BIT : 0);
+        GLbitfield flags = GL_MAP_PERSISTENT_BIT | (access.hasFlags(IDriverMemoryAllocation::EMCAF_READ) ? GL_MAP_READ_BIT : 0);
         if (storageFlags & GL_MAP_COHERENT_BIT)
-            flags |= GL_MAP_COHERENT_BIT | (access.hasValue(IDriverMemoryAllocation::EMCAF_WRITE) ? GL_MAP_WRITE_BIT : 0);
-        else if (access.hasValue(IDriverMemoryAllocation::EMCAF_WRITE))
+            flags |= GL_MAP_COHERENT_BIT | (access.hasFlags(IDriverMemoryAllocation::EMCAF_WRITE) ? GL_MAP_WRITE_BIT : 0);
+        else if (access.hasFlags(IDriverMemoryAllocation::EMCAF_WRITE))
             flags |= GL_MAP_FLUSH_EXPLICIT_BIT | GL_MAP_WRITE_BIT;
 
         SRequestMapBufferRange req_params;
@@ -521,10 +521,10 @@ public:
         if(pData != nullptr && qp != nullptr)
         {
             IQueryPool::E_QUERY_TYPE queryType = qp->getCreationParameters().queryType;
-            bool use64Version = flags.hasValue(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_64_BIT);
-            bool availabilityFlag = flags.hasValue(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WITH_AVAILABILITY_BIT);
-            bool waitForAllResults = flags.hasValue(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WAIT_BIT);
-            bool partialResults = flags.hasValue(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_PARTIAL_BIT);
+            bool use64Version = flags.hasFlags(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_64_BIT);
+            bool availabilityFlag = flags.hasFlags(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WITH_AVAILABILITY_BIT);
+            bool waitForAllResults = flags.hasFlags(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WAIT_BIT);
+            bool partialResults = flags.hasFlags(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_PARTIAL_BIT);
 
             assert(queryType == IQueryPool::E_QUERY_TYPE::EQT_OCCLUSION || queryType == IQueryPool::E_QUERY_TYPE::EQT_TIMESTAMP);
 

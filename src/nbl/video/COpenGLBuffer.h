@@ -59,12 +59,12 @@ class COpenGLBuffer final : public IGPUBuffer, public IOpenGLMemoryAllocation
             if(!IOpenGLMemoryAllocation::initMemory(gl, allocateFlags, memoryPropertyFlags))
                 return false;
             cachedFlags =   (m_cachedCreationParams.canUpdateSubRange ? GL_DYNAMIC_STORAGE_BIT:0)|
-                            (memoryPropertyFlags.hasValue(IDriverMemoryAllocation::EMPF_DEVICE_LOCAL_BIT) ? 0:GL_CLIENT_STORAGE_BIT);
-            if (memoryPropertyFlags.hasValue(IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_HOST_READABLE_BIT))
+                            (memoryPropertyFlags.hasFlags(IDriverMemoryAllocation::EMPF_DEVICE_LOCAL_BIT) ? 0:GL_CLIENT_STORAGE_BIT);
+            if (memoryPropertyFlags.hasFlags(IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_HOST_READABLE_BIT))
                 cachedFlags |= GL_MAP_PERSISTENT_BIT|GL_MAP_READ_BIT;
-            if (memoryPropertyFlags.hasValue(IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_HOST_WRITABLE_BIT))
+            if (memoryPropertyFlags.hasFlags(IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_HOST_WRITABLE_BIT))
                 cachedFlags |= GL_MAP_PERSISTENT_BIT|GL_MAP_WRITE_BIT;
-            if (memoryPropertyFlags.hasValue(IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_HOST_COHERENT_BIT))
+            if (memoryPropertyFlags.hasFlags(IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_HOST_COHERENT_BIT))
                 cachedFlags |= GL_MAP_COHERENT_BIT;
             gl->extGlNamedBufferStorage(BufferName,cachedMemoryReqs2.size,nullptr,cachedFlags);
         }

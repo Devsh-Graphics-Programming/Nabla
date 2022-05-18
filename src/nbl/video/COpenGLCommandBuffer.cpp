@@ -931,7 +931,7 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
                 auto& c = cmd.get<impl::ECT_BEGIN_QUERY>();
                 const COpenGLQueryPool* qp = static_cast<const COpenGLQueryPool*>(c.queryPool.get());
                 auto currentQuery = core::bitflag(qp->getCreationParameters().queryType);
-                if(!queriesActive.hasValue(currentQuery))
+                if(!queriesActive.hasFlags(currentQuery))
                 {
                     qp->beginQuery(gl, ctxid, c.query, c.flags.value);
                     queriesActive |= currentQuery;
@@ -955,7 +955,7 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
                 auto& c = cmd.get<impl::ECT_END_QUERY>();
                 const COpenGLQueryPool* qp = static_cast<const COpenGLQueryPool*>(c.queryPool.get());
                 auto currentQuery = core::bitflag(qp->getCreationParameters().queryType);
-                if(queriesActive.hasValue(currentQuery))
+                if(queriesActive.hasFlags(currentQuery))
                 {
                     uint32_t queryTypeIndex = std::log2<uint32_t>(currentQuery.value);
                     IQueryPool const * currentQueryPool = std::get<0>(currentlyRecordingQueries[queryTypeIndex]);
@@ -1004,10 +1004,10 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
                     GLuint bufferId = buffer->getOpenGLName();
 
                     IQueryPool::E_QUERY_TYPE queryType = qp->getCreationParameters().queryType;
-                    bool use64Version = c.flags.hasValue(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_64_BIT);
-                    bool availabilityFlag = c.flags.hasValue(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WITH_AVAILABILITY_BIT);
-                    bool waitForAllResults = c.flags.hasValue(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WAIT_BIT);
-                    bool partialResults = c.flags.hasValue(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_PARTIAL_BIT);
+                    bool use64Version = c.flags.hasFlags(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_64_BIT);
+                    bool availabilityFlag = c.flags.hasFlags(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WITH_AVAILABILITY_BIT);
+                    bool waitForAllResults = c.flags.hasFlags(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WAIT_BIT);
+                    bool partialResults = c.flags.hasFlags(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_PARTIAL_BIT);
 
                     assert(queryType == IQueryPool::E_QUERY_TYPE::EQT_OCCLUSION || queryType == IQueryPool::E_QUERY_TYPE::EQT_TIMESTAMP);
 
@@ -1295,7 +1295,7 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
             {
                 auto& c = cmd.get<impl::ECT_EXECUTE_COMMANDS>();
                 auto inheritanceInfo = c.cmdbuf->getCachedInheritanceInfo();
-                if(queriesActive.hasValue(IQueryPool::EQT_OCCLUSION))
+                if(queriesActive.hasFlags(IQueryPool::EQT_OCCLUSION))
                 {
                     // For a secondary command buffer to be executed while a query is active, it must set the occlusionQueryEnable, queryFlags, and/or pipelineStatistics members of InheritanceInfo to conservative values
                     assert(inheritanceInfo.occlusionQueryEnable);

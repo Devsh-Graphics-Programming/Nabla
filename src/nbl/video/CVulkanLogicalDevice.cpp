@@ -270,9 +270,9 @@ core::smart_refctd_ptr<IDriverMemoryAllocation> CVulkanLogicalDevice::allocateGP
     {
         // Todo(achal): Make use of requiresDedicatedAllocation and prefersDedicatedAllocation
         VkMemoryAllocateFlagsInfo vk_allocateFlags = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO, nullptr };
-        if (allocateFlags.hasValue(IDriverMemoryAllocation::EMAF_DEVICE_MASK_BIT))
+        if (allocateFlags.hasFlags(IDriverMemoryAllocation::EMAF_DEVICE_MASK_BIT))
             vk_allocateFlags.flags |= VK_MEMORY_ALLOCATE_DEVICE_MASK_BIT;
-        else if(allocateFlags.hasValue(IDriverMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT))
+        else if(allocateFlags.hasFlags(IDriverMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT))
             vk_allocateFlags.flags |= VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
         vk_allocateFlags.deviceMask = 0u; // unused
 
@@ -302,9 +302,9 @@ IDriverMemoryAllocator::SMemoryOffset CVulkanLogicalDevice::allocate(const SAllo
     VkMemoryAllocateFlagsInfo vk_allocateFlagsInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO, nullptr };
     VkMemoryAllocateInfo vk_allocateInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, &vk_allocateFlagsInfo};
 
-    if (allocateFlags.hasValue(IDriverMemoryAllocation::EMAF_DEVICE_MASK_BIT))
+    if (allocateFlags.hasFlags(IDriverMemoryAllocation::EMAF_DEVICE_MASK_BIT))
         vk_allocateFlagsInfo.flags |= VK_MEMORY_ALLOCATE_DEVICE_MASK_BIT;
-    else if(allocateFlags.hasValue(IDriverMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT))
+    else if(allocateFlags.hasFlags(IDriverMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT))
         vk_allocateFlagsInfo.flags |= VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
     vk_allocateFlagsInfo.deviceMask = 0u; // unused
     

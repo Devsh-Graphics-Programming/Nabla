@@ -435,9 +435,9 @@ public:
             if ((bindInfo.buffer->getAPIType() != EAT_VULKAN) || (bindInfo.memory->getAPIType() != EAT_VULKAN))
                 continue;
 
-            if (bindInfo.buffer->getCachedCreationParams().usage.hasValue(asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT))
+            if (bindInfo.buffer->getCachedCreationParams().usage.hasFlags(asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT))
             {
-                if(!bindInfo.memory->getAllocateFlags().hasValue(IDriverMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT))
+                if(!bindInfo.memory->getAllocateFlags().hasFlags(IDriverMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT))
                 {
                     // TODO(erfan): Log-> if buffer was created with EUF_SHADER_DEVICE_ADDRESS_BIT set, memory must have been allocated with the EMAF_DEVICE_ADDRESS_BIT bit.
                     _NBL_DEBUG_BREAK_IF(true);
@@ -569,7 +569,7 @@ public:
 
         core::bitflag<IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags;
 
-        if(creationParams.usage.hasValue(asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT))
+        if(creationParams.usage.hasFlags(asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT))
             allocateFlags |= IDriverMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT;
 
         core::smart_refctd_ptr<video::IDriverMemoryAllocation> bufferMemory =

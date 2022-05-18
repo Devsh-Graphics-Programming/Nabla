@@ -391,7 +391,7 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
         {
             uint32_t ret = 0u;
             for(uint32_t i = 0; i < m_memoryProperties.memoryTypeCount; ++i)
-                if(m_memoryProperties.memoryTypes[i].propertyFlags.hasValue(flags))
+                if(m_memoryProperties.memoryTypes[i].propertyFlags.hasFlags(flags))
                     ret |= (1u << i);
             return ret;
         }
