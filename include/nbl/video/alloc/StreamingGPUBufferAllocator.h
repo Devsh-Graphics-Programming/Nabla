@@ -54,7 +54,7 @@ class StreamingGPUBufferAllocator : protected SimpleGPUBufferAllocator
                     access |= IDriverMemoryAllocation::EMCAF_WRITE;
 
                 const auto rangeToMap = IDriverMemoryAllocation::MemoryRange{0u,mem->getAllocationSize()};
-                mappedPtr = reinterpret_cast<uint8_t*>(mapWrapper(mem,access,rangeToMap));
+                mappedPtr = reinterpret_cast<uint8_t*>(mapWrapper(mem,IDriverMemoryAllocation::EMCAF_READ_AND_WRITE,rangeToMap)); //TODO(Erfan): use `access` instead after things are settled
             }
             if (!mappedPtr)
             {
