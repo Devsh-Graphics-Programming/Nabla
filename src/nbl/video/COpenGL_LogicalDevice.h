@@ -427,12 +427,14 @@ public:
 
     void* mapMemory(const IDriverMemoryAllocation::MappedMemoryRange& memory, core::bitflag<IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAG> access = IDriverMemoryAllocation::EMCAF_READ_AND_WRITE) override final
     {
+        if (memory.memory == nullptr || memory.memory->getAPIType() != EAT_OPENGL)
+            return nullptr;
+
         assert(!memory.memory->isCurrentlyMapped());
+        assert(IDriverMemoryAllocation::isMappingAccessConsistentWithMemoryType(access, memory.memory->getMemoryProperyFlags()));
 
         auto* buf = static_cast<COpenGLBuffer*>(memory.memory);
         const GLbitfield storageFlags = buf->getOpenGLStorageFlags();
-
-        // TODO: assert access is compatible with memoryTypeFlags
 
         GLbitfield flags = GL_MAP_PERSISTENT_BIT | (access.hasValue(IDriverMemoryAllocation::EMCAF_READ) ? GL_MAP_READ_BIT : 0);
         if (storageFlags & GL_MAP_COHERENT_BIT)

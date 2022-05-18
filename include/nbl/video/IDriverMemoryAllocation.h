@@ -146,7 +146,7 @@ class IDriverMemoryAllocation : public virtual core::IReferenceCounted
         virtual E_MAPPING_CAPABILITY_FLAGS getMappingCaps() const {return EMCF_CANNOT_MAP;}
 
         //! returns current mapping access based on latest mapMemory's "accessHint", has no effect on Nabla's Vulkan Backend
-        inline core::bitflag<E_MAPPING_CPU_ACCESS_FLAG> getCurrentMappingCaps() const {return currentMappingAccess;}
+        inline core::bitflag<E_MAPPING_CPU_ACCESS_FLAG> getCurrentMappingAccess() const {return currentMappingAccess;}
         //!
         inline core::bitflag<E_MEMORY_ALLOCATE_FLAGS> getAllocateFlags() const {return allocateFlags;}
         //!
@@ -168,6 +168,17 @@ class IDriverMemoryAllocation : public virtual core::IReferenceCounted
 
         //! Constant variant of getMappedPointer
         inline const void* getMappedPointer() const { return mappedPtr; }
+
+        static inline bool isMappingAccessConsistentWithMemoryType(core::bitflag<E_MAPPING_CPU_ACCESS_FLAG> access, core::bitflag<E_MEMORY_PROPERTY_FLAGS> memoryPropertyFlags)
+        {
+            if(access.hasValue(EMCAF_READ))
+                if(!memoryPropertyFlags.hasValue(EMPF_HOST_READABLE_BIT))
+                    return false;
+            if(access.hasValue(EMCAF_WRITE))
+                if(!memoryPropertyFlags.hasValue(EMPF_HOST_WRITABLE_BIT))
+                    return false;
+            return true;
+        }
 
     protected:
         inline void postMapSetMembers(void* ptr, MemoryRange rng, core::bitflag<E_MAPPING_CPU_ACCESS_FLAG> access)

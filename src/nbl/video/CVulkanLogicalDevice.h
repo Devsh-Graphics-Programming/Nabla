@@ -949,8 +949,9 @@ public:
 
     void* mapMemory(const IDriverMemoryAllocation::MappedMemoryRange& memory, core::bitflag<IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAG> accessHint = IDriverMemoryAllocation::EMCAF_READ_AND_WRITE) override
     {
-        if (memory.memory->getAPIType() != EAT_VULKAN)
+        if (memory.memory == nullptr || memory.memory->getAPIType() != EAT_VULKAN)
             return nullptr;
+        assert(IDriverMemoryAllocation::isMappingAccessConsistentWithMemoryType(accessHint, memory.memory->getMemoryProperyFlags()));
 
         VkMemoryMapFlags vk_memoryMapFlags = 0; // reserved for future use, by Vulkan
         auto vulkanMemory = static_cast<CVulkanMemoryAllocation*>(memory.memory);
