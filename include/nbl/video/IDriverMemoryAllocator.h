@@ -3,7 +3,7 @@
 
 #include "IDriverMemoryAllocation.h"
 #include "IDriverMemoryBacked.h"
-#include "nbl/core/math/glslFunctions.h" // findLSB
+#include "nbl/core/definitions.h" // findLSB
 
 namespace nbl::video
 {

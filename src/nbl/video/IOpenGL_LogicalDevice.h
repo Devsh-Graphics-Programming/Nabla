@@ -618,7 +618,7 @@ protected:
                 IDriverMemoryBacked::SDriverMemoryRequirements2 mreqs;
                 mreqs.size = 0u; // TODO(Erfan) some approx of image size -> considering dimensions, mipLevels, arrayLayers, samples, minImageGranularity and texelBlockInfo (see ImageUploadUtility)
                 mreqs.memoryTypeBits = p.deviceLocalMemoryTypeBits;
-                mreqs.alignmentLog2 = 0u; // TODO(Erfan) Alignment previously was 0u in getXXXMemoryRequirementsOnDedMem(). what to set here? get minXXXOffsetAlignment from physical device and deduce from usage?
+                mreqs.alignmentLog2 = std::log2(256u);
                 mreqs.prefersDedicatedAllocation = true;
                 mreqs.requiresDedicatedAllocation = true;
 
