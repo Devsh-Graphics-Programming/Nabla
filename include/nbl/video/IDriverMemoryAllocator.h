@@ -100,14 +100,13 @@ public:
 
 	virtual SMemoryOffset allocate(const SAllocateInfo& info) = 0;
 
-	// TODO: use template for Iterator
-	// template<class memory_type_iterator_t=DefaultMemoryTypeIterator>
+	template<class memory_type_iterator_t=DefaultMemoryTypeIterator>
 	SMemoryOffset allocate(
 		const IDriverMemoryBacked::SDriverMemoryRequirements2& reqs,
 		IDriverMemoryBacked* dedication = nullptr,
 		const core::bitflag<IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags = IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS::EMAF_NONE)
 	{
-		for(DefaultMemoryTypeIterator memTypeIt(reqs, allocateFlags); memTypeIt != IMemoryTypeIterator::end(); ++memTypeIt)
+		for(memory_type_iterator_t memTypeIt(reqs, allocateFlags); memTypeIt != memory_type_iterator_t::end(); ++memTypeIt)
 		{
 			SAllocateInfo allocateInfo = memTypeIt.operator()(dedication);
 			SMemoryOffset allocation = allocate(allocateInfo);
