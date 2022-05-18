@@ -164,26 +164,6 @@ public:
 		return m_pipelineLayouts;
 	}
 
-	inline void getDefaultAlphaTestCounterBufferRange(asset::SBufferRange<video::IGPUBuffer>& outBufferRange, core::smart_refctd_ptr<video::IGPUBuffer> scratchBuffer, const uint32_t layer, const uint32_t layersToBlit)
-	{
-		assert((scratchBuffer->getCachedCreationParams().declaredSize % layersToBlit) == 0);
-		const auto scratchSizePerBlit = scratchBuffer->getCachedCreationParams().declaredSize/layersToBlit;
-
-		outBufferRange.offset = layer * scratchSizePerBlit;
-		outBufferRange.size = core::alignUp(sizeof(uint32_t), device->getPhysicalDevice()->getLimits().SSBOAlignment);
-		outBufferRange.buffer = scratchBuffer;
-	}
-
-	inline void getDefaultAlphaHistogramBufferRange(asset::SBufferRange<video::IGPUBuffer>& outBufferRange, core::smart_refctd_ptr<video::IGPUBuffer> scratchBuffer, const uint32_t alphaBinCount, const uint32_t layer, const uint32_t layersToBlit)
-	{
-		assert((scratchBuffer->getCachedCreationParams().declaredSize % layersToBlit) == 0);
-		const auto scratchSizePerBlit = scratchBuffer->getCachedCreationParams().declaredSize / layersToBlit;
-
-		outBufferRange.offset = layer*scratchSizePerBlit + core::alignUp(sizeof(uint32_t), device->getPhysicalDevice()->getLimits().SSBOAlignment);
-		outBufferRange.size = sizeof(uint32_t) * alphaBinCount;
-		outBufferRange.buffer = scratchBuffer;
-	}
-
 	core::smart_refctd_ptr<video::IGPUSpecializedShader> createAlphaTestSpecializedShader(const asset::IImage::E_TYPE inImageType);
 
 	static inline void buildAlphaTestParameters(const float referenceAlpha, const asset::IImage::E_TYPE inImageType, const core::vectorSIMDu32& inImageExtent, const uint32_t layersToBlit, alpha_test_push_constants_t& outPC, dispatch_info_t& outDispatchInfo)
@@ -310,66 +290,6 @@ public:
 
 			updateDS(kernelWeightsDS, &info);
 		}
-	}
-	
-	// Todo(achal): No need for this, remove
-	void updateBlitDescriptorSets(video::IGPUDescriptorSet* blitDS, video::IGPUDescriptorSet* weightsDS, core::smart_refctd_ptr<video::IGPUImageView> inImageView, core::smart_refctd_ptr<video::IGPUImageView> outImageView, core::smart_refctd_ptr<video::IGPUBuffer> phaseSupportLUT, asset::SBufferRange<video::IGPUBuffer> alphaHistogram = {})
-	{
-		constexpr auto MAX_DESCRIPTOR_COUNT = 5;
-
-		auto updateDS = [this](video::IGPUDescriptorSet* ds, video::IGPUDescriptorSet::SDescriptorInfo* infos)
-		{
-			const auto& bindings = ds->getLayout()->getBindings();
-
-			video::IGPUDescriptorSet::SWriteDescriptorSet writes[MAX_DESCRIPTOR_COUNT] = {};
-
-			auto descriptorCount = 0;
-			for (auto i = 0; i < bindings.size(); ++i)
-			{
-				if (!infos[i].desc)
-					continue;
-
-				auto& write = writes[descriptorCount++];
-
-				write.dstSet = ds;
-				write.binding = i;
-				write.arrayElement = 0u;
-				write.count = 1u;
-				write.info = &infos[i];
-				write.descriptorType = bindings.begin()[i].type;
-			}
-			assert(descriptorCount <= MAX_DESCRIPTOR_COUNT);
-
-			device->updateDescriptorSets(descriptorCount, writes, 0u, nullptr);
-		};
-
-		video::IGPUDescriptorSet::SDescriptorInfo blitInfos[MAX_DESCRIPTOR_COUNT] = {};
-		// input image
-		blitInfos[0].desc = inImageView;
-		blitInfos[0].image.imageLayout = asset::EIL_GENERAL; // Todo(achal): Make it not GENERAL, this is a sampled image
-		blitInfos[0].image.sampler = nullptr;
-
-		// output image
-		blitInfos[1].desc = outImageView;
-		blitInfos[1].image.imageLayout = asset::EIL_GENERAL;
-		blitInfos[1].image.sampler = nullptr;
-
-		if (alphaHistogram.buffer)
-		{
-			blitInfos[2].desc = alphaHistogram.buffer;
-			blitInfos[2].buffer.offset = alphaHistogram.offset;
-			blitInfos[2].buffer.size = alphaHistogram.size;
-		}
-
-		updateDS(blitDS, blitInfos);
-
-		// scaled kernel phased LUT (cached weights)
-		video::IGPUDescriptorSet::SDescriptorInfo weightsInfos[MAX_DESCRIPTOR_COUNT] = {};
-		weightsInfos[0].desc = phaseSupportLUT;
-		weightsInfos[0].buffer.offset = 0ull;
-		weightsInfos[0].buffer.size = phaseSupportLUT->getCachedCreationParams().declaredSize;
-
-		updateDS(weightsDS, weightsInfos);
 	}
 
 	inline void buildBlitParameters(const core::vectorSIMDu32& inImageExtent, const core::vectorSIMDu32& outImageExtent, const asset::IImage::E_TYPE inImageType, const asset::E_FORMAT inImageFormat, const uint32_t layersToBlit, blit_push_constants_t& outPC, dispatch_info_t& outDispatchInfo)
