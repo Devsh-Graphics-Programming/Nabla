@@ -7,13 +7,13 @@
 #endif
 
 #if NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_ALPHA_TEST_DIM_COUNT_, 1)
-	#define _NBL_GLSL_BLIT_ALPHA_TEST_IN_SAMPLER_TYPE_ sampler1D
+	#define _NBL_GLSL_BLIT_ALPHA_TEST_IN_SAMPLER_TYPE_ sampler1DArray
 
 	#define WG_X 256
 	#define WG_Y 1
 	#define WG_Z 1
 #elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_ALPHA_TEST_DIM_COUNT_, 2)
-	#define _NBL_GLSL_BLIT_ALPHA_TEST_IN_SAMPLER_TYPE_ sampler2D
+	#define _NBL_GLSL_BLIT_ALPHA_TEST_IN_SAMPLER_TYPE_ sampler2DArray
 
 	#define WG_X 16
 	#define WG_Y 16
@@ -72,9 +72,9 @@ nbl_glsl_blit_alpha_test_parameters_t nbl_glsl_blit_alpha_test_getParameters()
 float nbl_glsl_blit_alpha_test_getPaddedData(in ivec3 coord)
 {
 #if NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_ALPHA_TEST_DIM_COUNT_, 1)
-	#define COORD coord.x
-#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_ALPHA_TEST_DIM_COUNT_, 2)
 	#define COORD coord.xy
+#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_ALPHA_TEST_DIM_COUNT_, 2)
+	#define COORD coord
 #elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_ALPHA_TEST_DIM_COUNT_, 3)
 	#define COORD coord
 #else

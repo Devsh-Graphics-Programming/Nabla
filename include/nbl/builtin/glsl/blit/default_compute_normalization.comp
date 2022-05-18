@@ -10,36 +10,39 @@
 #error _NBL_GLSL_BLIT_NORMALIZATION_DIM_COUNT_ must be defined
 #endif
 
-#ifndef _NBL_GLSL_BLIT_NORMALIZATION_INOUT_IMAGE_FORMAT_
-#error _NBL_GLSL_BLIT_NORMALIZATION_INOUT_IMAGE_FORMAT_ must be defined
+#ifndef _NBL_GLSL_BLIT_NORMALIZATION_OUT_IMAGE_FORMAT_
+#error _NBL_GLSL_BLIT_NORMALIZATION_OUT_IMAGE_FORMAT_ must be defined
 #endif
 
 
 #if NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_NORMALIZATION_DIM_COUNT_, 1)
+	#define _NBL_GLSL_BLIT_NORMALIZATION_IN_SAMPLER_TYPE_ sampler1DArray
 	#ifdef _NBL_GLSL_BLIT_NORMALIZATION_SOFTWARE_CODEC_
-		#define _NBL_GLSL_BLIT_NORMALIZATION_INOUT_IMAGE_TYPE_ uimage1D
+		#define _NBL_GLSL_BLIT_NORMALIZATION_OUT_IMAGE_TYPE_ uimage1DArray
 	#else
-		#define _NBL_GLSL_BLIT_NORMALIZATION_INOUT_IMAGE_TYPE_ image1D
+		#define _NBL_GLSL_BLIT_NORMALIZATION_OUT_IMAGE_TYPE_ image1DArray
 	#endif
 
 	#define WG_X 256
 	#define WG_Y 1
 	#define WG_Z 1
 #elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_NORMALIZATION_DIM_COUNT_, 2)
+	#define _NBL_GLSL_BLIT_NORMALIZATION_IN_SAMPLER_TYPE_ sampler2DArray
 	#ifdef _NBL_GLSL_BLIT_NORMALIZATION_SOFTWARE_CODEC_
-		#define _NBL_GLSL_BLIT_NORMALIZATION_INOUT_IMAGE_TYPE_ uimage2D
+		#define _NBL_GLSL_BLIT_NORMALIZATION_OUT_IMAGE_TYPE_ uimage2DArray
 	#else
-		#define _NBL_GLSL_BLIT_NORMALIZATION_INOUT_IMAGE_TYPE_ image2D
+		#define _NBL_GLSL_BLIT_NORMALIZATION_OUT_IMAGE_TYPE_ image2DArray
 	#endif
 
 	#define WG_X 16
 	#define WG_Y 16
 	#define WG_Z 1
 #elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_NORMALIZATION_DIM_COUNT_, 3)
+	#define _NBL_GLSL_BLIT_NORMALIZATION_IN_SAMPLER_TYPE_ sampler3D
 	#ifdef _NBL_GLSL_BLIT_NORMALIZATION_SOFTWARE_CODEC_
-		#define _NBL_GLSL_BLIT_NORMALIZATION_INOUT_IMAGE_TYPE_ uimage3D
+		#define _NBL_GLSL_BLIT_NORMALIZATION_OUT_IMAGE_TYPE_ uimage3D
 	#else
-		#define _NBL_GLSL_BLIT_NORMALIZATION_INOUT_IMAGE_TYPE_ image3D
+		#define _NBL_GLSL_BLIT_NORMALIZATION_OUT_IMAGE_TYPE_ image3D
 	#endif
 
 	#define WG_X 8
@@ -96,8 +99,8 @@ nbl_glsl_blit_normalization_parameters_t nbl_glsl_blit_normalization_getParamete
 
 #ifndef _NBL_GLSL_BLIT_NORMALIZATION_GET_PADDED_DATA_DEFINED_
 
-#ifndef _NBL_GLSL_BLIT_NORMALIZATION_INOUT_IMAGE_DESCRIPTOR_DEFINED_
-#error _NBL_GLSL_BLIT_NORMALIZATION_INOUT_IMAGE_DESCRIPTOR_DEFINED_ must be defined
+#ifndef _NBL_GLSL_BLIT_NORMALIZATION_IN_IMAGE_DESCRIPTOR_DEFINED_
+#error _NBL_GLSL_BLIT_NORMALIZATION_IN_IMAGE_DESCRIPTOR_DEFINED_ must be defined
 #endif
 
 nbl_glsl_blit_normalization_pixel_t nbl_glsl_blit_normalization_getPaddedData(in ivec3 coord)
@@ -105,11 +108,11 @@ nbl_glsl_blit_normalization_pixel_t nbl_glsl_blit_normalization_getPaddedData(in
 	const nbl_glsl_blit_normalization_parameters_t params = nbl_glsl_blit_normalization_getParameters();
 
 #if NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_NORMALIZATION_DIM_COUNT_, 1)
-	#define COORD coord.x
-	#define IMAGE_DIM params.outImageDim.x
-#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_NORMALIZATION_DIM_COUNT_, 2)
 	#define COORD coord.xy
 	#define IMAGE_DIM params.outImageDim.xy
+#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_NORMALIZATION_DIM_COUNT_, 2)
+	#define COORD coord
+	#define IMAGE_DIM params.outImageDim
 #elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_NORMALIZATION_DIM_COUNT_, 3)
 	#define COORD coord
 	#define IMAGE_DIM params.outImageDim
@@ -121,11 +124,7 @@ nbl_glsl_blit_normalization_pixel_t nbl_glsl_blit_normalization_getPaddedData(in
 	result.data = vec4(0.f);
 	if (all(lessThan(COORD, IMAGE_DIM)))
 	{
-	#ifdef _NBL_GLSL_BLIT_NORMALIZATION_SOFTWARE_CODEC_
-		result.data = nbl_glsl_blit_formats_decode(imageLoad(_NBL_GLSL_BLIT_NORMALIZATION_INOUT_IMAGE_DESCRIPTOR_DEFINED_, COORD));
-	#else
-		result.data = imageLoad(_NBL_GLSL_BLIT_NORMALIZATION_INOUT_IMAGE_DESCRIPTOR_DEFINED_, COORD);
-	#endif
+		result.data = texelFetch(_NBL_GLSL_BLIT_NORMALIZATION_IN_IMAGE_DESCRIPTOR_DEFINED_, COORD, 0);
 	}
 
 #undef COORD
@@ -139,8 +138,8 @@ nbl_glsl_blit_normalization_pixel_t nbl_glsl_blit_normalization_getPaddedData(in
 #ifndef _NBL_GLSL_BLIT_NORMALIZATION_SET_DATA_DEFINED_
 #define _NBL_GLSL_BLIT_NORMALIZATION_SET_DATA_DEFINED_
 
-#ifndef _NBL_GLSL_BLIT_NORMALIZATION_INOUT_IMAGE_DESCRIPTOR_DEFINED_
-#error _NBL_GLSL_BLIT_NORMALIZATION_INOUT_IMAGE_DESCRIPTOR_DEFINED_ must be defined
+#ifndef _NBL_GLSL_BLIT_NORMALIZATION_OUT_IMAGE_DESCRIPTOR_DEFINED_
+#error _NBL_GLSL_BLIT_NORMALIZATION_OUT_IMAGE_DESCRIPTOR_DEFINED_ must be defined
 #endif
 
 void nbl_glsl_blit_normalization_setData(in nbl_glsl_blit_normalization_pixel_t value, in ivec3 coord)
@@ -148,11 +147,11 @@ void nbl_glsl_blit_normalization_setData(in nbl_glsl_blit_normalization_pixel_t 
 	const nbl_glsl_blit_normalization_parameters_t params = nbl_glsl_blit_normalization_getParameters();
 
 #if NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_NORMALIZATION_DIM_COUNT_, 1)
-	#define COORD coord.x
-	#define IMAGE_DIM params.outImageDim.x
-#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_NORMALIZATION_DIM_COUNT_, 2)
 	#define COORD coord.xy
 	#define IMAGE_DIM params.outImageDim.xy
+#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_NORMALIZATION_DIM_COUNT_, 2)
+	#define COORD coord
+	#define IMAGE_DIM params.outImageDim
 #elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_NORMALIZATION_DIM_COUNT_, 3)
 	#define COORD coord
 	#define IMAGE_DIM params.outImageDim
@@ -163,9 +162,9 @@ void nbl_glsl_blit_normalization_setData(in nbl_glsl_blit_normalization_pixel_t 
 	if (all(lessThan(COORD, IMAGE_DIM)))
 	{
 	#ifdef _NBL_GLSL_BLIT_NORMALIZATION_SOFTWARE_CODEC_
-		imageStore(_NBL_GLSL_BLIT_NORMALIZATION_INOUT_IMAGE_DESCRIPTOR_DEFINED_, COORD, nbl_glsl_blit_formats_encode(value.data));
+		imageStore(_NBL_GLSL_BLIT_NORMALIZATION_OUT_IMAGE_DESCRIPTOR_DEFINED_, COORD, nbl_glsl_blit_formats_encode(value.data));
 	#else
-		imageStore(_NBL_GLSL_BLIT_NORMALIZATION_INOUT_IMAGE_DESCRIPTOR_DEFINED_, COORD, value.data);
+		imageStore(_NBL_GLSL_BLIT_NORMALIZATION_OUT_IMAGE_DESCRIPTOR_DEFINED_, COORD, value.data);
 	#endif
 	}
 
@@ -176,26 +175,27 @@ void nbl_glsl_blit_normalization_setData(in nbl_glsl_blit_normalization_pixel_t 
 
 #ifndef _NBL_GLSL_BLIT_NORMALIZATION_GET_ALPHA_HISTOGRAM_DATA_DEFINED_
 
-#ifndef _NBL_GLSL_BLIT_NORMALIZATION_ALPHA_HISTOGRAM_DESCRIPTOR_DEFINED_
-#error _NBL_GLSL_BLIT_NORMALIZATION_ALPHA_HISTOGRAM_DESCRIPTOR_DEFINED_ must be defined
+#ifndef _NBL_GLSL_BLIT_NORMALIZATION_PASSED_COUNTER_ALPHA_HISTOGRAM_DESCRIPTOR_DEFINED_
+#error _NBL_GLSL_BLIT_NORMALIZATION_PASSED_COUNTER_ALPHA_HISTOGRAM_DESCRIPTOR_DEFINED_ must be defined
 #endif
 
-uint nbl_glsl_blit_normalization_getAlphaHistogramData(in uint index)
+uint nbl_glsl_blit_normalization_getAlphaHistogramData(in uint index, in uint layerIdx)
 {
-	return _NBL_GLSL_BLIT_NORMALIZATION_ALPHA_HISTOGRAM_DESCRIPTOR_DEFINED_.data[index];
+	return _NBL_GLSL_BLIT_NORMALIZATION_PASSED_COUNTER_ALPHA_HISTOGRAM_DESCRIPTOR_DEFINED_.data[layerIdx].histogram[index];
 }
 #define _NBL_GLSL_BLIT_NORMALIZATION_GET_ALPHA_HISTOGRAM_DATA_DEFINED_
 #endif
 
 #ifndef _NBL_GLSL_BLIT_NORMALIZATION_GET_PASSED_INPUT_PIXEL_COUNT_DATA_DEFINED_
 
-#ifndef _NBL_GLSL_BLIT_NORMALIZATION_PASSED_INPUT_PIXEL_COUNT_DESCRIPTOR_DEFINED_
-#error _NBL_GLSL_BLIT_NORMALIZATION_PASSED_INPUT_PIXEL_COUNT_DESCRIPTOR_DEFINED_ must be defined
+#ifndef _NBL_GLSL_BLIT_NORMALIZATION_PASSED_COUNTER_ALPHA_HISTOGRAM_DESCRIPTOR_DEFINED_
+#error _NBL_GLSL_BLIT_NORMALIZATION_PASSED_COUNTER_ALPHA_HISTOGRAM_DESCRIPTOR_DEFINED_ must be defined
 #endif
 
-uint nbl_glsl_blit_normalization_getPassedInputPixelCountData()
+// Todo(achal): Why is there a data in the function name??!!
+uint nbl_glsl_blit_normalization_getPassedInputPixelCountData(in uint layerIdx)
 {
-	return _NBL_GLSL_BLIT_NORMALIZATION_PASSED_INPUT_PIXEL_COUNT_DESCRIPTOR_DEFINED_.data;
+	return _NBL_GLSL_BLIT_NORMALIZATION_PASSED_COUNTER_ALPHA_HISTOGRAM_DESCRIPTOR_DEFINED_.data[layerIdx].passedPixelCount;
 }
 #define _NBL_GLSL_BLIT_NORMALIZATION_GET_PASSED_INPUT_PIXEL_COUNT_DATA_DEFINED_
 #endif

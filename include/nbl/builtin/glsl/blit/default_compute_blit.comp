@@ -23,18 +23,18 @@
 #endif
 
 #if NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 1)
-	#define _NBL_GLSL_BLIT_IN_SAMPLER_TYPE_ sampler1D
+	#define _NBL_GLSL_BLIT_IN_SAMPLER_TYPE_ sampler1DArray
 	#ifdef _NBL_GLSL_BLIT_SOFTWARE_CODEC_
-		#define _NBL_GLSL_BLIT_OUT_IMAGE_TYPE_ uimage1D
+		#define _NBL_GLSL_BLIT_OUT_IMAGE_TYPE_ uimage1DArray
 	#else
-		#define _NBL_GLSL_BLIT_OUT_IMAGE_TYPE_ image1D
+		#define _NBL_GLSL_BLIT_OUT_IMAGE_TYPE_ image1DArray
 	#endif
 #elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 2)
-	#define _NBL_GLSL_BLIT_IN_SAMPLER_TYPE_ sampler2D
+	#define _NBL_GLSL_BLIT_IN_SAMPLER_TYPE_ sampler2DArray
 	#ifdef _NBL_GLSL_BLIT_SOFTWARE_CODEC_
-		#define _NBL_GLSL_BLIT_OUT_IMAGE_TYPE_ uimage2D
+		#define _NBL_GLSL_BLIT_OUT_IMAGE_TYPE_ uimage2DArray
 	#else
-		#define _NBL_GLSL_BLIT_OUT_IMAGE_TYPE_ image2D
+		#define _NBL_GLSL_BLIT_OUT_IMAGE_TYPE_ image2DArray
 	#endif
 #elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 3)
 	#define _NBL_GLSL_BLIT_IN_SAMPLER_TYPE_ sampler3D
@@ -88,9 +88,9 @@ nbl_glsl_blit_pixel_t nbl_glsl_blit_getData(in ivec3 coord)
 	nbl_glsl_blit_pixel_t result;
 
 #if NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 1)
-	#define COORD coord.x
-#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 2)
 	#define COORD coord.xy
+#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 2)
+	#define COORD coord
 #elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 3)
 	#define COORD coord
 #else
@@ -118,9 +118,9 @@ nbl_glsl_blit_pixel_t nbl_glsl_blit_getData(in ivec3 coord)
 void nbl_glsl_blit_setData(in nbl_glsl_blit_pixel_t value, in ivec3 coord)
 {
 #if NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 1)
-	#define COORD coord.x
-#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 2)
 	#define COORD coord.xy
+#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 2)
+	#define COORD coord
 #elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 3)
 	#define COORD coord
 #else
@@ -159,14 +159,14 @@ float nbl_glsl_blit_getCachedWeightsPremultiplied(in uvec3 lutCoord)
 #endif
 
 #ifndef _NBL_GLSL_BLIT_ADD_TO_HISTOGRAM_DEFINED_
-void nbl_glsl_blit_addToHistogram(in uint bucketIndex)
+void nbl_glsl_blit_addToHistogram(in uint bucketIndex, in uint layerIdx)
 {
 #ifdef _NBL_GLSL_BLIT_COVERAGE_SEMANTIC_
 	#ifndef _NBL_GLSL_BLIT_ALPHA_HISTOGRAM_DESCRIPTOR_DEFINED_
 		#error _NBL_GLSL_BLIT_ALPHA_HISTOGRAM_DESCRIPTOR_DEFINED_ must be defined
 	#endif
 
-	atomicAdd(_NBL_GLSL_BLIT_ALPHA_HISTOGRAM_DESCRIPTOR_DEFINED_.data[bucketIndex], 1u);
+	atomicAdd(_NBL_GLSL_BLIT_ALPHA_HISTOGRAM_DESCRIPTOR_DEFINED_.data[layerIdx].histogram[bucketIndex], 1u);
 #endif
 }
 #define _NBL_GLSL_BLIT_ADD_TO_HISTOGRAM_DEFINED_

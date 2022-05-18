@@ -10,7 +10,7 @@ nbl_glsl_blit_pixel_t nbl_glsl_blit_getData(in ivec3 coord);
 void nbl_glsl_blit_setData(in nbl_glsl_blit_pixel_t data, in ivec3 coord);
 
 float nbl_glsl_blit_getCachedWeightsPremultiplied(in uvec3 lutCoord);
-void nbl_glsl_blit_addToHistogram(in uint bucketIndex);
+void nbl_glsl_blit_addToHistogram(in uint bucketIndex, in uint layerIdx);
 
 #define scratchShared _NBL_GLSL_SCRATCH_SHARED_DEFINED_
 
@@ -147,8 +147,21 @@ void nbl_glsl_blit_main()
 		for (uint ch = 0u; ch < _NBL_GLSL_BLIT_OUT_CHANNEL_COUNT_; ++ch)
 			dataToStore.data[ch] = scratchShared[ch][wgLocalWindowIndex * windowPixelCount];
 
+		// Todo(achal): Need to pull this out in setData
+#if NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 1)
+	#define LAYER_IDX gl_GlobalInvocationID.y
+#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 2)
+	#define LAYER_IDX gl_GlobalInvocationID.z
+#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 3)
+	#define LAYER_IDX 0
+#else
+	#error _NBL_GLSL_BLIT_DIM_COUNT_ not supported
+#endif
+
 		const uint bucketIndex = packUnorm4x8(vec4(dataToStore.data.a, 0.f, 0.f, 0.f));
-		nbl_glsl_blit_addToHistogram(bucketIndex);
+		nbl_glsl_blit_addToHistogram(bucketIndex, LAYER_IDX);
+
+#undef LAYER_IDX
 
 		uvec3 globalWindowID = linearIndexTo3DIndex(globalWindowIndex, params.outDim);
 

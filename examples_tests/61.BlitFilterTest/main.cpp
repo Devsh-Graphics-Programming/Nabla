@@ -97,9 +97,9 @@ static inline video::IGPUImageView::E_TYPE getImageViewTypeFromImageType_GPU(con
 	switch (type)
 	{
 	case video::IGPUImage::ET_1D:
-		return video::IGPUImageView::ET_1D;
+		return video::IGPUImageView::ET_1D_ARRAY;
 	case video::IGPUImage::ET_2D:
-		return video::IGPUImageView::ET_2D;
+		return video::IGPUImageView::ET_2D_ARRAY;
 	case video::IGPUImage::ET_3D:
 		return video::IGPUImageView::ET_3D;
 	default:
@@ -228,7 +228,7 @@ private:
 	void blitTest(core::smart_refctd_ptr<asset::ICPUImage>&& inImageCPU, const core::vectorSIMDu32& outExtent, const asset::IBlitUtilities::E_ALPHA_SEMANTIC alphaSemantic, const float referenceAlpha = 0.f)
 	{
 		const asset::E_FORMAT inImageFormat = inImageCPU->getCreationParameters().format;
-		const asset::E_FORMAT ouImageFormat = inImageFormat; // I can test with different input and output image formats later
+		const asset::E_FORMAT outImageFormat = inImageFormat; // I can test with different input and output image formats later
 
 		const core::vectorSIMDf scaleX(1.f, 1.f, 1.f, 1.f);
 		const core::vectorSIMDf scaleY(1.f, 1.f, 1.f, 1.f);
@@ -239,9 +239,9 @@ private:
 		auto kernelZ = ScaledBoxKernel(scaleZ, asset::CBoxImageFilterKernel()); // (-1/2, 1/2)
 
 		// CPU
-		core::vector<uint8_t> cpuOutput(static_cast<uint64_t>(outExtent[0]) * outExtent[1] * outExtent[2] * asset::getTexelOrBlockBytesize(ouImageFormat));
+		core::vector<uint8_t> cpuOutput(static_cast<uint64_t>(outExtent[0]) * outExtent[1] * outExtent[2] * asset::getTexelOrBlockBytesize(outImageFormat));
 		{
-			auto outImageCPU = createCPUImage(outExtent, inImageCPU->getCreationParameters().type, ouImageFormat);
+			auto outImageCPU = createCPUImage(outExtent, inImageCPU->getCreationParameters().type, outImageFormat);
 
 			BlitFilter::state_type blitFilterState(std::move(kernelX), std::move(kernelY), std::move(kernelZ));
 
@@ -306,7 +306,7 @@ private:
 		}
 
 		// GPU
-		core::vector<uint8_t> gpuOutput(static_cast<uint64_t>(outExtent[0]) * outExtent[1] * outExtent[2] * asset::getTexelOrBlockBytesize(ouImageFormat));
+		core::vector<uint8_t> gpuOutput(static_cast<uint64_t>(outExtent[0]) * outExtent[1] * outExtent[2] * asset::getTexelOrBlockBytesize(outImageFormat));
 		{
 			assert(inImageCPU->getCreationParameters().mipLevels == 1);
 
@@ -359,7 +359,7 @@ private:
 				video::IGPUImage::SCreationParams creationParams = {};
 				creationParams.flags = video::IGPUImage::ECF_MUTABLE_FORMAT_BIT;
 				creationParams.type = inImage->getCreationParameters().type;
-				creationParams.format = ouImageFormat;
+				creationParams.format = outImageFormat;
 				creationParams.extent = { outExtent.x, outExtent.y, outExtent.z };
 				creationParams.mipLevels = inImageCPU->getCreationParameters().mipLevels; // Asset converter will make the mip levels 10 for inImage
 				creationParams.arrayLayers = inImage->getCreationParameters().arrayLayers;
@@ -371,67 +371,59 @@ private:
 				transitionImageLayout(core::smart_refctd_ptr(outImage), asset::EIL_GENERAL);
 			}
 
-			const auto layersToBlit = inImage->getCreationParameters().arrayLayers;
-
 			// Create resources needed to do the blit
 			auto blitFilter = core::make_smart_refctd_ptr<video::CComputeBlit>(core::smart_refctd_ptr(logicalDevice));
 
-			core::vector<core::smart_refctd_ptr<video::IGPUImageView>> normalizationInImageView(layersToBlit, nullptr);
-			core::smart_refctd_ptr<video::IGPUImage> normalizationInImage = outImage;
-			auto normalizationInFormat = ouImageFormat;
-			if (alphaSemantic == IBlitUtilities::EAS_REFERENCE_OR_COVERAGE)
+			const asset::E_FORMAT outImageViewFormat = blitFilter->getOutImageViewFormat(outImageFormat);
+
+			const auto layersToBlit = inImage->getCreationParameters().arrayLayers;
+			core::smart_refctd_ptr<video::IGPUImageView> inImageView = nullptr;
+			core::smart_refctd_ptr<video::IGPUImageView> outImageView = nullptr;
 			{
-				normalizationInFormat = video::CComputeBlit::getIntermediateFormat(ouImageFormat);
+				video::IGPUImageView::SCreationParams creationParams = {};
+				creationParams.image = inImage;
+				creationParams.viewType = getImageViewTypeFromImageType_GPU(inImage->getCreationParameters().type);
+				creationParams.format = inImage->getCreationParameters().format;
+				creationParams.subresourceRange.aspectMask = video::IGPUImage::EAF_COLOR_BIT;
+				creationParams.subresourceRange.baseMipLevel = 0;
+				creationParams.subresourceRange.levelCount = 1;
+				creationParams.subresourceRange.baseArrayLayer = 0;
+				creationParams.subresourceRange.layerCount = layersToBlit;
 
-				if (normalizationInFormat != ouImageFormat)
-				{
-					__debugbreak();
-					video::IGPUImage::SCreationParams creationParams = {};
-					creationParams.format = normalizationInFormat;
-					creationParams.arrayLayers = outImage->getCreationParameters().arrayLayers;
-					creationParams.mipLevels = 1;
-					normalizationInImage = logicalDevice->createDeviceLocalGPUImageOnDedMem(std::move(creationParams));
-					transitionImageLayout(core::smart_refctd_ptr(normalizationInImage), asset::EIL_GENERAL);
+				video::IGPUImageView::SCreationParams outCreationParams = creationParams;
+				outCreationParams.image = outImage;
+				outCreationParams.format = outImageViewFormat;
 
-					for (auto layer = 0; layer < layersToBlit; ++layer)
-					{
-						video::IGPUImageView::SCreationParams creationParams = {};
-						creationParams.image = normalizationInImage;
-						creationParams.viewType = getImageViewTypeFromImageType_GPU(inImage->getCreationParameters().type);
-						creationParams.format = normalizationInImage->getCreationParameters().format;
-						creationParams.subresourceRange.aspectMask = video::IGPUImage::EAF_COLOR_BIT;
-						creationParams.subresourceRange.baseMipLevel = 0;
-						creationParams.subresourceRange.levelCount = 1;
-						creationParams.subresourceRange.baseArrayLayer = layer;
-						creationParams.subresourceRange.layerCount = 1;
-
-						normalizationInImageView[layer] = logicalDevice->createGPUImageView(std::move(creationParams));
-					}
-				}
+				inImageView = logicalDevice->createGPUImageView(std::move(creationParams));
+				outImageView = logicalDevice->createGPUImageView(std::move(outCreationParams));
 			}
 
-			const asset::E_FORMAT outImageViewFormat = blitFilter->getOutImageViewFormat(ouImageFormat);
-			core::vector<core::smart_refctd_ptr<video::IGPUImageView>> inImageView(layersToBlit, nullptr);
-			core::vector<core::smart_refctd_ptr<video::IGPUImageView>> outImageView(inImageView.size(), nullptr);
+			core::smart_refctd_ptr<video::IGPUImageView> normalizationInImageView = outImageView;
+			core::smart_refctd_ptr<video::IGPUImage> normalizationInImage = outImage;
+			auto normalizationInFormat = outImageFormat;
+			if (alphaSemantic == IBlitUtilities::EAS_REFERENCE_OR_COVERAGE)
 			{
-				for (auto layer = 0; layer < layersToBlit; ++layer)
+				normalizationInFormat = video::CComputeBlit::getIntermediateFormat(outImageFormat);
+
+				if (normalizationInFormat != outImageFormat)
 				{
-					video::IGPUImageView::SCreationParams inCreationParams = {};
-					inCreationParams.image = inImage;
-					inCreationParams.viewType = getImageViewTypeFromImageType_GPU(inImage->getCreationParameters().type);
-					inCreationParams.format = inImage->getCreationParameters().format;
-					inCreationParams.subresourceRange.aspectMask = video::IGPUImage::EAF_COLOR_BIT;
-					inCreationParams.subresourceRange.baseMipLevel = 0;
-					inCreationParams.subresourceRange.levelCount = 1;
-					inCreationParams.subresourceRange.baseArrayLayer = layer;
-					inCreationParams.subresourceRange.layerCount = 1;
+					video::IGPUImage::SCreationParams creationParams = outImage->getCreationParameters();
+					creationParams.format = normalizationInFormat;
+					creationParams.usage = static_cast<video::IGPUImage::E_USAGE_FLAGS>(video::IGPUImage::EUF_STORAGE_BIT | video::IGPUImage::EUF_SAMPLED_BIT);
+					normalizationInImage = logicalDevice->createDeviceLocalGPUImageOnDedMem(std::move(creationParams));
+					transitionImageLayout(core::smart_refctd_ptr(normalizationInImage), asset::EIL_GENERAL); // First we do the blit which requires storage image so starting layout is GENERAL
 
-					video::IGPUImageView::SCreationParams outCreationParams = inCreationParams;
-					outCreationParams.image = outImage;
-					outCreationParams.format = outImageViewFormat;
+					video::IGPUImageView::SCreationParams viewCreationParams = {};
+					viewCreationParams.image = normalizationInImage;
+					viewCreationParams.viewType = getImageViewTypeFromImageType_GPU(inImage->getCreationParameters().type);
+					viewCreationParams.format = normalizationInImage->getCreationParameters().format;
+					viewCreationParams.subresourceRange.aspectMask = video::IGPUImage::EAF_COLOR_BIT;
+					viewCreationParams.subresourceRange.baseMipLevel = 0;
+					viewCreationParams.subresourceRange.levelCount = 1;
+					viewCreationParams.subresourceRange.baseArrayLayer = 0;
+					viewCreationParams.subresourceRange.layerCount = layersToBlit;
 
-					inImageView[layer] = logicalDevice->createGPUImageView(std::move(inCreationParams));
-					outImageView[layer] = logicalDevice->createGPUImageView(std::move(outCreationParams));
+					normalizationInImageView = logicalDevice->createGPUImageView(std::move(viewCreationParams));
 				}
 			}
 			
@@ -489,19 +481,27 @@ private:
 				utilities->updateBufferRangeViaStagingBuffer(queues[CommonAPI::InitOutput::EQT_COMPUTE], bufferRange, lutInFloats.data());
 			}
 
-			core::smart_refctd_ptr<video::IGPUComputePipeline> alphaTestPipeline = nullptr;
-			core::vector<core::smart_refctd_ptr<video::IGPUDescriptorSet>> alphaTestDS(layersToBlit, nullptr);
-			core::smart_refctd_ptr<video::IGPUComputePipeline> normalizationPipeline = nullptr;
-			core::vector<core::smart_refctd_ptr<video::IGPUDescriptorSet>> normalizationDS(layersToBlit, nullptr);
-
-			core::vector<asset::SBufferRange<video::IGPUBuffer>> alphaTestCounter(layersToBlit, asset::SBufferRange<video::IGPUBuffer>{});
-			core::vector<asset::SBufferRange<video::IGPUBuffer>> alphaHistogram(layersToBlit, asset::SBufferRange<video::IGPUBuffer>{});
-
 			uint32_t dsLayoutCount;
 			const auto* dsLayouts = blitFilter->getDefaultDSLayouts(dsLayoutCount);
 
 			uint32_t pipelineLayoutCount;
 			const auto* pipelineLayouts = blitFilter->getDefaultPipelineLayouts(pipelineLayoutCount, alphaSemantic);
+
+			const auto& blitDSLayout = dsLayouts[0];
+			const auto& blitWeightsDSLayout = dsLayouts[3];
+			video::IGPUDescriptorSetLayout* blitDSLayouts_raw[] = { blitDSLayout.get(), blitWeightsDSLayout.get() };
+			uint32_t dsCounts[] = { layersToBlit, layersToBlit };
+			auto descriptorPool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_UPDATE_AFTER_BIND_BIT, blitDSLayouts_raw, blitDSLayouts_raw + 2ull, dsCounts);
+
+			core::smart_refctd_ptr<video::IGPUDescriptorSet> blitDS = nullptr;
+			core::smart_refctd_ptr<video::IGPUDescriptorSet> blitWeightsDS = nullptr;
+
+			core::smart_refctd_ptr<video::IGPUComputePipeline> alphaTestPipeline = nullptr;
+			core::smart_refctd_ptr<video::IGPUDescriptorSet> alphaTestDS = nullptr;
+			core::smart_refctd_ptr<video::IGPUComputePipeline> normalizationPipeline = nullptr;
+			core::smart_refctd_ptr<video::IGPUDescriptorSet> normalizationDS = nullptr;
+
+			asset::SBufferRange<video::IGPUBuffer> coverageAdjustmentScratchBufferRange = {};
 
 			if (alphaSemantic == IBlitUtilities::EAS_REFERENCE_OR_COVERAGE)
 			{
@@ -509,7 +509,7 @@ private:
 				const auto& alphaTestPipelineLayout = pipelineLayouts[1];
 				alphaTestPipeline = logicalDevice->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(alphaTestPipelineLayout), std::move(alphaTestSpecShader));
 
-				auto normalizationSpecShader = blitFilter->createNormalizationSpecializedShader(normalizationInImage->getCreationParameters().type, ouImageFormat, outImageViewFormat);
+				auto normalizationSpecShader = blitFilter->createNormalizationSpecializedShader(normalizationInImage->getCreationParameters().type, outImageFormat, outImageViewFormat);
 				const auto& normalizationPipelineLayout = pipelineLayouts[2];
 				normalizationPipeline = logicalDevice->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(normalizationPipelineLayout), std::move(normalizationSpecShader));
 
@@ -517,39 +517,35 @@ private:
 				const auto& normalizationDSLayout = dsLayouts[2];
 
 				video::IGPUDescriptorSetLayout* dsLayouts_raw[2] = { alphaTestDSLayout.get(), normalizationDSLayout.get() };
-				uint32_t dsCounts[2] = { layersToBlit, layersToBlit };
+				uint32_t dsCounts[2] = { 1, 1 };
 				auto descriptorPool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE, dsLayouts_raw, dsLayouts_raw + 2ull, dsCounts);
 
-				for (auto layer = 0; layer < layersToBlit; ++layer)
-				{
-					alphaTestDS[layer] = logicalDevice->createGPUDescriptorSet(descriptorPool.get(), core::smart_refctd_ptr(alphaTestDSLayout));
-					blitFilter->getDefaultAlphaTestCounterBufferRange(alphaTestCounter[layer], coverageAdjustmentScratchBuffer, layer, layersToBlit);
-					blitFilter->updateAlphaTestDescriptorSet(alphaTestDS[layer].get(), inImageView[layer], alphaTestCounter[layer]);
+				coverageAdjustmentScratchBufferRange.offset = 0;
+				coverageAdjustmentScratchBufferRange.buffer = coverageAdjustmentScratchBuffer;
+				coverageAdjustmentScratchBufferRange.size = coverageAdjustmentScratchBuffer->getCachedCreationParams().declaredSize;
 
-					normalizationDS[layer] = logicalDevice->createGPUDescriptorSet(descriptorPool.get(), core::smart_refctd_ptr(normalizationDSLayout));
-					blitFilter->getDefaultAlphaHistogramBufferRange(alphaHistogram[layer], coverageAdjustmentScratchBuffer, video::CComputeBlit::DefaultAlphaBinCount, layer, layersToBlit);
-					blitFilter->updateNormalizationDescriptorSet(normalizationDS[layer].get(), outImageView[layer], alphaHistogram[layer], alphaTestCounter[layer]);
-				}
+				alphaTestDS = logicalDevice->createGPUDescriptorSet(descriptorPool.get(), core::smart_refctd_ptr(alphaTestDSLayout));
+				blitFilter->updateAlphaTestDescriptorSet(alphaTestDS.get(), inImageView, coverageAdjustmentScratchBufferRange);
+
+				normalizationDS = logicalDevice->createGPUDescriptorSet(descriptorPool.get(), core::smart_refctd_ptr(normalizationDSLayout));
+				blitFilter->updateNormalizationDescriptorSet(normalizationDS.get(), core::smart_refctd_ptr(normalizationInImageView), outImageView, coverageAdjustmentScratchBufferRange);
 			}
 
 			core::smart_refctd_ptr<video::IGPUSpecializedShader> blitSpecShader = nullptr;
 			if (alphaSemantic == IBlitUtilities::EAS_REFERENCE_OR_COVERAGE)
 				blitSpecShader = blitFilter->createBlitSpecializedShader(inImage->getCreationParameters().format, normalizationInImage->getCreationParameters().format, normalizationInImage->getCreationParameters().format, inImageType, inExtent, outExtent, alphaSemantic);
 			else
-				blitSpecShader = blitFilter->createBlitSpecializedShader(inImage->getCreationParameters().format, ouImageFormat, outImageViewFormat, inImageType, inExtent, outExtent, alphaSemantic);
+				blitSpecShader = blitFilter->createBlitSpecializedShader(inImage->getCreationParameters().format, outImageFormat, outImageViewFormat, inImageType, inExtent, outExtent, alphaSemantic);
 
 			const auto& blitPipelineLayout = pipelineLayouts[0];
 			const auto blitPipeline = logicalDevice->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(blitPipelineLayout), std::move(blitSpecShader));
 
-			const auto& blitDSLayout = dsLayouts[0];
-
-			core::vector<core::smart_refctd_ptr<video::IGPUDescriptorSet>> blitDS(layersToBlit, nullptr);
-			auto descriptorPool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE, &blitDSLayout.get(), &blitDSLayout.get() + 1ull, &layersToBlit);
-			for (auto layer = 0; layer < layersToBlit; ++layer)
-			{
-				blitDS[layer] = logicalDevice->createGPUDescriptorSet(descriptorPool.get(), core::smart_refctd_ptr(blitDSLayout));
-				blitFilter->updateBlitDescriptorSet(blitDS[layer].get(), inImageView[layer], outImageView[layer], scaledKernelPhasedLUT, alphaHistogram[layer]);
-			}
+			blitDS = logicalDevice->createGPUDescriptorSet(descriptorPool.get(), core::smart_refctd_ptr(blitDSLayout));
+			blitWeightsDS = logicalDevice->createGPUDescriptorSet(descriptorPool.get(), core::smart_refctd_ptr(blitWeightsDSLayout));
+			if (alphaSemantic == IBlitUtilities::EAS_REFERENCE_OR_COVERAGE)
+				blitFilter->updateBlitDescriptorSet(blitDS.get(), blitWeightsDS.get(), inImageView, normalizationInImageView, scaledKernelPhasedLUT, coverageAdjustmentScratchBufferRange);
+			else
+				blitFilter->updateBlitDescriptorSet(blitDS.get(), blitWeightsDS.get(), inImageView, outImageView, scaledKernelPhasedLUT, coverageAdjustmentScratchBufferRange);
 
 			core::smart_refctd_ptr<video::IGPUCommandBuffer> cmdbuf;
 			logicalDevice->createCommandBuffers(commandPools[CommonAPI::InitOutput::EQT_COMPUTE].get(), video::IGPUCommandBuffer::EL_PRIMARY, 1u, &cmdbuf);
@@ -565,61 +561,64 @@ private:
 			video::CComputeBlit::dispatch_info_t normalizationDispatchInfo;
 			if (alphaSemantic == asset::IBlitUtilities::EAS_REFERENCE_OR_COVERAGE)
 			{
-				video::CComputeBlit::buildAlphaTestParameters(referenceAlpha, inImageType, inExtent, alphaTestPC, alphaTestDispatchInfo);
-				video::CComputeBlit::buildNormalizationParameters(inImageType, inExtent, outExtent, referenceAlpha, normalizationPC, normalizationDispatchInfo);
+				video::CComputeBlit::buildAlphaTestParameters(referenceAlpha, inImageType, inExtent, layersToBlit, alphaTestPC, alphaTestDispatchInfo);
+				video::CComputeBlit::buildNormalizationParameters(inImageType, inExtent, outExtent, referenceAlpha, layersToBlit, normalizationPC, normalizationDispatchInfo);
 			}
 
 			video::CComputeBlit::blit_push_constants_t blitPC;
 			video::CComputeBlit::dispatch_info_t blitDispatchInfo;
-			blitFilter->buildBlitParameters(inExtent, outExtent, inImageType, inImageFormat, blitPC, blitDispatchInfo); // Todo(achal): I should probably take in sharedMemorySize as a param and make this static
+			blitFilter->buildBlitParameters(inExtent, outExtent, inImageType, inImageFormat, layersToBlit, blitPC, blitDispatchInfo); // Todo(achal): I should probably take in sharedMemorySize as a param and make this static
 
-			for (auto layer = 0; layer < layersToBlit; ++layer)
+			if (alphaSemantic == asset::IBlitUtilities::EAS_REFERENCE_OR_COVERAGE)
 			{
-				if (alphaSemantic == asset::IBlitUtilities::EAS_REFERENCE_OR_COVERAGE)
-				{
-					cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE, alphaTestPipeline->getLayout(), 0, 1, &alphaTestDS[layer].get());
-					cmdbuf->bindComputePipeline(alphaTestPipeline.get());
-					video::CComputeBlit::dispatchHelper<CComputeBlit::alpha_test_push_constants_t>(cmdbuf.get(), alphaTestPipeline->getLayout(), alphaTestPC, alphaTestDispatchInfo);
-				}
+				// updateBlitDS(blitDS[layer].get(), core::smart_refctd_ptr(inImageView[layer]), core::smart_refctd_ptr(normalizationInImageView[layer]), layer);
+				// cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE, alphaTestPipeline->getLayout(), 0, 1, &blitDS[layer].get());
+				cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE, alphaTestPipeline->getLayout(), 0, 1, &alphaTestDS.get());
+				cmdbuf->bindComputePipeline(alphaTestPipeline.get());
+				video::CComputeBlit::dispatchHelper<CComputeBlit::alpha_test_push_constants_t>(cmdbuf.get(), alphaTestPipeline->getLayout(), alphaTestPC, alphaTestDispatchInfo);
+			}
 
-				cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE, blitPipeline->getLayout(), 0, 1, &blitDS[layer].get());
-				cmdbuf->bindComputePipeline(blitPipeline.get());
-				video::CComputeBlit::dispatchHelper<video::CComputeBlit::blit_push_constants_t>(cmdbuf.get(), blitPipeline->getLayout(), blitPC, blitDispatchInfo);
+			video::IGPUDescriptorSet* ds_raw[] = { blitDS.get(), blitWeightsDS.get() };
+			cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE, blitPipeline->getLayout(), 0, 2, ds_raw);
+			// cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE, blitPipeline->getLayout(), 1, 1, &blitWeightsDS[layer].get());
+			cmdbuf->bindComputePipeline(blitPipeline.get());
+			video::CComputeBlit::dispatchHelper<video::CComputeBlit::blit_push_constants_t>(cmdbuf.get(), blitPipeline->getLayout(), blitPC, blitDispatchInfo);
+			// Memory dependency to ensure that the previous compute pass has finished writing to the output image
+			if (alphaSemantic == asset::IBlitUtilities::EAS_REFERENCE_OR_COVERAGE)
+			{
+				assert(coverageAdjustmentScratchBufferRange.buffer);
+
+				// Memory dependency to ensure the alpha test pass has finished writing to alphaTestCounterBuffer
+				video::IGPUCommandBuffer::SBufferMemoryBarrier alphaTestBarrier = {};
+				alphaTestBarrier.barrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
+				alphaTestBarrier.barrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
+				alphaTestBarrier.srcQueueFamilyIndex = ~0u;
+				alphaTestBarrier.dstQueueFamilyIndex = ~0u;
+				alphaTestBarrier.buffer = coverageAdjustmentScratchBufferRange.buffer;
+				alphaTestBarrier.size = coverageAdjustmentScratchBufferRange.size;
+				alphaTestBarrier.offset = coverageAdjustmentScratchBufferRange.offset;
 
 				// Memory dependency to ensure that the previous compute pass has finished writing to the output image
-				if (alphaSemantic == asset::IBlitUtilities::EAS_REFERENCE_OR_COVERAGE)
-				{
-					assert(alphaTestCounter[layer].buffer);
+				video::IGPUCommandBuffer::SImageMemoryBarrier readyForNorm = {};
+				readyForNorm.barrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
+				readyForNorm.barrier.dstAccessMask = static_cast<asset::E_ACCESS_FLAGS>(asset::EAF_SHADER_READ_BIT | asset::EAF_SHADER_WRITE_BIT);
+				readyForNorm.oldLayout = asset::EIL_GENERAL;
+				readyForNorm.newLayout = asset::EIL_GENERAL;
+				readyForNorm.srcQueueFamilyIndex = ~0u;
+				readyForNorm.dstQueueFamilyIndex = ~0u;
+				readyForNorm.image = normalizationInImage;
+				readyForNorm.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
+				readyForNorm.subresourceRange.levelCount = 1u;
+				readyForNorm.subresourceRange.baseArrayLayer = 0;
+				readyForNorm.subresourceRange.layerCount = layersToBlit;
+				cmdbuf->pipelineBarrier(asset::EPSF_COMPUTE_SHADER_BIT, asset::EPSF_COMPUTE_SHADER_BIT, asset::EDF_NONE, 0u, nullptr, 1u, &alphaTestBarrier, 1u, &readyForNorm);
 
-					// Memory dependency to ensure the alpha test pass has finished writing to alphaTestCounterBuffer
-					video::IGPUCommandBuffer::SBufferMemoryBarrier alphaTestBarrier = {};
-					alphaTestBarrier.barrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
-					alphaTestBarrier.barrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
-					alphaTestBarrier.srcQueueFamilyIndex = ~0u;
-					alphaTestBarrier.dstQueueFamilyIndex = ~0u;
-					alphaTestBarrier.buffer = alphaTestCounter[layer].buffer;
-					alphaTestBarrier.size = alphaTestCounter[layer].size;
-					alphaTestBarrier.offset = alphaTestCounter[layer].offset;
+				// updateBlitDS(blitDS[layer].get(), core::smart_refctd_ptr(normalizationInImageView[layer]), core::smart_refctd_ptr(outImageView[layer]), layer);
 
-					// Memory dependency to ensure that the previous compute pass has finished writing to the output image
-					video::IGPUCommandBuffer::SImageMemoryBarrier readyForNorm = {};
-					readyForNorm.barrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
-					readyForNorm.barrier.dstAccessMask = static_cast<asset::E_ACCESS_FLAGS>(asset::EAF_SHADER_READ_BIT | asset::EAF_SHADER_WRITE_BIT);
-					readyForNorm.oldLayout = asset::EIL_GENERAL;
-					readyForNorm.newLayout = asset::EIL_GENERAL;
-					readyForNorm.srcQueueFamilyIndex = ~0u;
-					readyForNorm.dstQueueFamilyIndex = ~0u;
-					readyForNorm.image = normalizationInImage;
-					readyForNorm.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
-					readyForNorm.subresourceRange.levelCount = 1u;
-					readyForNorm.subresourceRange.baseArrayLayer = layer;
-					readyForNorm.subresourceRange.layerCount = 1u;
-					cmdbuf->pipelineBarrier(asset::EPSF_COMPUTE_SHADER_BIT, asset::EPSF_COMPUTE_SHADER_BIT, asset::EDF_NONE, 0u, nullptr, 1u, &alphaTestBarrier, 1u, &readyForNorm);
-
-					cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE, normalizationPipeline->getLayout(), 0u, 1u, &normalizationDS[layer].get());
-					cmdbuf->bindComputePipeline(normalizationPipeline.get());
-					video::CComputeBlit::dispatchHelper<CComputeBlit::normalization_push_constants_t>(cmdbuf.get(), normalizationPipeline->getLayout(), normalizationPC, normalizationDispatchInfo);
-				}
+				cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE, normalizationPipeline->getLayout(), 0u, 1u, &normalizationDS.get());
+				// cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE, normalizationPipeline->getLayout(), 0u, 1u, &blitDS[layer].get());
+				cmdbuf->bindComputePipeline(normalizationPipeline.get());
+				video::CComputeBlit::dispatchHelper<CComputeBlit::normalization_push_constants_t>(cmdbuf.get(), normalizationPipeline->getLayout(), normalizationPC, normalizationDispatchInfo);
 			}
 
 			cmdbuf->end();
@@ -638,7 +637,7 @@ private:
 					logicalDevice.get(),
 					queues[CommonAPI::InitOutput::EQT_COMPUTE],
 					nullptr,
-					outImageView[0].get(),
+					outImageView.get(),
 					static_cast<asset::E_ACCESS_FLAGS>(0u),
 					asset::EIL_GENERAL);
 
@@ -696,7 +695,7 @@ private:
 
 		assert(gpuOutput.size() == cpuOutput.size());
 
-		const uint32_t outChannelCount = asset::getFormatChannelCount(ouImageFormat);
+		const uint32_t outChannelCount = asset::getFormatChannelCount(outImageFormat);
 
 		double sqErr = 0.0;
 		uint8_t* cpuBytePtr = cpuOutput.data();
@@ -710,14 +709,14 @@ private:
 					const uint64_t pixelIndex = (k * outExtent[1] * outExtent[0]) + (j * outExtent[0]) + i;
 					core::vectorSIMDu32 dummy;
 
-					const void* cpuEncodedPixel = cpuBytePtr + pixelIndex * asset::getTexelOrBlockBytesize(ouImageFormat);
-					const void* gpuEncodedPixel = gpuBytePtr + pixelIndex * asset::getTexelOrBlockBytesize(ouImageFormat);
+					const void* cpuEncodedPixel = cpuBytePtr + pixelIndex * asset::getTexelOrBlockBytesize(outImageFormat);
+					const void* gpuEncodedPixel = gpuBytePtr + pixelIndex * asset::getTexelOrBlockBytesize(outImageFormat);
 
 					double cpuDecodedPixel[4];
-					asset::decodePixelsRuntime(ouImageFormat, &cpuEncodedPixel, cpuDecodedPixel, dummy.x, dummy.y);
+					asset::decodePixelsRuntime(outImageFormat, &cpuEncodedPixel, cpuDecodedPixel, dummy.x, dummy.y);
 
 					double gpuDecodedPixel[4];
-					asset::decodePixelsRuntime(ouImageFormat, &gpuEncodedPixel, gpuDecodedPixel, dummy.x, dummy.y);
+					asset::decodePixelsRuntime(outImageFormat, &gpuEncodedPixel, gpuDecodedPixel, dummy.x, dummy.y);
 
 					for (uint32_t ch = 0u; ch < outChannelCount; ++ch)
 					{

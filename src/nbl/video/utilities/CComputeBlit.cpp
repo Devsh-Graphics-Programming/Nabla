@@ -59,7 +59,7 @@ core::smart_refctd_ptr<video::IGPUSpecializedShader> CComputeBlit::createNormali
 		"#define _NBL_GLSL_WORKGROUP_SIZE_Z_ %d\n"
 		"#define _NBL_GLSL_BLIT_NORMALIZATION_BIN_COUNT_ %d\n"
 		"#define _NBL_GLSL_BLIT_NORMALIZATION_DIM_COUNT_ %d\n"
-		"#define _NBL_GLSL_BLIT_NORMALIZATION_INOUT_IMAGE_FORMAT_ %s\n"
+		"#define _NBL_GLSL_BLIT_NORMALIZATION_OUT_IMAGE_FORMAT_ %s\n"
 		"%s\n" // _NBL_GLSL_BLIT_NORMALIZATION_SOFTWARE_CODEC_
 		"%s\n"; // Todo(achal): Remove format include in favour of the symbol gotten from outImageFormatGLSLString
 

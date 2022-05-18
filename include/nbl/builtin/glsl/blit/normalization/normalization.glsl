@@ -25,17 +25,28 @@ nbl_glsl_blit_normalization_parameters_t nbl_glsl_blit_normalization_getParamete
 
 nbl_glsl_blit_normalization_pixel_t nbl_glsl_blit_normalization_getPaddedData(in ivec3 coord);
 void nbl_glsl_blit_normalization_setData(in nbl_glsl_blit_normalization_pixel_t data, in ivec3 coord);
-uint nbl_glsl_blit_normalization_getAlphaHistogramData(in uint index);
-uint nbl_glsl_blit_normalization_getPassedInputPixelCountData();
+uint nbl_glsl_blit_normalization_getAlphaHistogramData(in uint index, in uint layerIdx);
+uint nbl_glsl_blit_normalization_getPassedInputPixelCountData(in uint layerIdx);
 
 // #include <nbl/builtin/glsl/algorithm.glsl>
 // NBL_GLSL_DEFINE_LOWER_BOUND(scratchShared, uint);
 
 void nbl_glsl_blit_normalization_main()
 {
+	// Todo(achal): Need to pull this out
+#if NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_NORMALIZATION_DIM_COUNT_, 1)
+	#define LAYER_IDX gl_GlobalInvocationID.y
+#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_NORMALIZATION_DIM_COUNT_, 2)
+	#define LAYER_IDX gl_GlobalInvocationID.z
+#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_NORMALIZATION_DIM_COUNT_, 3)
+	#define LAYER_IDX 0
+#else
+	#error _NBL_GLSL_BLIT_NORMALIZATION_DIM_COUNT_ not supported
+#endif
+
 	uint histogramVal = 0u;
 	if (gl_LocalInvocationIndex < _NBL_GLSL_BLIT_NORMALIZATION_BIN_COUNT_)
-		histogramVal = nbl_glsl_blit_normalization_getAlphaHistogramData(gl_LocalInvocationIndex);
+		histogramVal = nbl_glsl_blit_normalization_getAlphaHistogramData(gl_LocalInvocationIndex, LAYER_IDX);
 
 	const uint cumHistogramVal = nbl_glsl_workgroupInclusiveAdd(histogramVal);
 
@@ -48,7 +59,7 @@ void nbl_glsl_blit_normalization_main()
 	const uint outputPixelCount = params.outImageDim.x * params.outImageDim.y * params.outImageDim.z;
 
 	uint productMsb, productLsb;
-	umulExtended(nbl_glsl_blit_normalization_getPassedInputPixelCountData(), outputPixelCount, productMsb, productLsb);
+	umulExtended(nbl_glsl_blit_normalization_getPassedInputPixelCountData(LAYER_IDX), outputPixelCount, productMsb, productLsb);
 
 	const uint pixelsShouldPassCount = integerDivide_64_32_32(productMsb, productLsb, params.inPixelCount);
 	const uint pixelsShouldFailCount = outputPixelCount - pixelsShouldPassCount;

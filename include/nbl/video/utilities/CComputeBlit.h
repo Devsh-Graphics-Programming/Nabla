@@ -70,6 +70,7 @@ public:
 			sampler = device->createGPUSampler(std::move(params));
 		}
 
+#if 0
 		constexpr uint32_t BLIT_DESCRIPTOR_COUNT = 4u;
 		asset::E_DESCRIPTOR_TYPE types[BLIT_DESCRIPTOR_COUNT] = { asset::EDT_COMBINED_IMAGE_SAMPLER, asset::EDT_STORAGE_IMAGE, asset::EDT_UNIFORM_BUFFER, asset::EDT_STORAGE_BUFFER }; // input image, output image, cached weights, alpha histogram
 		blitDSLayout = getDSLayout(BLIT_DESCRIPTOR_COUNT, types, device.get(), sampler);
@@ -82,31 +83,42 @@ public:
 		}
 
 		blitPipelineLayout = device->createGPUPipelineLayout(&pcRange, &pcRange + 1ull, core::smart_refctd_ptr(blitDSLayout));
+#endif
 	}
 
 	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout>* getDefaultDSLayouts(uint32_t& outCount) /*Todo(achal): const*/
 	{
 		// Todo(achal): Make it two
-		outCount = 3u;
+		outCount = 4u;
 
 		// Todo(achal): No need for the if checks, because both DS layouts will be created in the static create method
 		if (!m_dsLayouts[0]) // blit
 		{
-			m_dsLayouts[0] = blitDSLayout;
+			constexpr uint32_t BLIT_DESCRIPTOR_COUNT = 3u;
+			asset::E_DESCRIPTOR_TYPE types[BLIT_DESCRIPTOR_COUNT] = { asset::EDT_COMBINED_IMAGE_SAMPLER, asset::EDT_STORAGE_IMAGE, asset::EDT_STORAGE_BUFFER }; // input image, output image, alpha histogram
+
+			m_dsLayouts[0] = getDSLayout(BLIT_DESCRIPTOR_COUNT, types, device.get(), sampler);;
 		}
 
 		if (!m_dsLayouts[1]) // alpha test
 		{
-			constexpr uint32_t DESCRIPTOR_COUNT = 2u;
-			asset::E_DESCRIPTOR_TYPE types[DESCRIPTOR_COUNT] = { asset::EDT_COMBINED_IMAGE_SAMPLER, asset::EDT_STORAGE_BUFFER }; // input image, alpha test atomic counter
+			constexpr uint32_t DESCRIPTOR_COUNT = 3u;
+			asset::E_DESCRIPTOR_TYPE types[DESCRIPTOR_COUNT] = { asset::EDT_COMBINED_IMAGE_SAMPLER, asset::EDT_STORAGE_IMAGE, asset::EDT_STORAGE_BUFFER }; // input SAMPLED image, output STORAGE image, alpha test atomic counter
 			m_dsLayouts[1] = getDSLayout(DESCRIPTOR_COUNT, types, device.get(), sampler);
 		}
 
 		if (!m_dsLayouts[2]) // normalization
 		{
 			constexpr uint32_t DESCRIPTOR_COUNT = 3u;
-			asset::E_DESCRIPTOR_TYPE types[DESCRIPTOR_COUNT] = { asset::EDT_STORAGE_IMAGE, asset::EDT_STORAGE_BUFFER, asset::EDT_STORAGE_BUFFER }; // image to normalize, alpha histogram, alpha test atomic counter
+			asset::E_DESCRIPTOR_TYPE types[DESCRIPTOR_COUNT] = { asset::EDT_COMBINED_IMAGE_SAMPLER, asset::EDT_STORAGE_IMAGE, asset::EDT_STORAGE_BUFFER }; // input sampled image, output storage image, alpha histogram & alpha test atomic counter
 			m_dsLayouts[2] = getDSLayout(DESCRIPTOR_COUNT, types, device.get(), sampler);
+		}
+
+		if (!m_dsLayouts[3]) // cached weights for blit
+		{
+			constexpr uint32_t DESCRIPTOR_COUNT = 1u;
+			asset::E_DESCRIPTOR_TYPE types[DESCRIPTOR_COUNT] = { asset::EDT_UNIFORM_BUFFER }; // cached weights
+			m_dsLayouts[3] = getDSLayout(DESCRIPTOR_COUNT, types, device.get(), sampler);
 		}
 
 		return m_dsLayouts;
@@ -120,9 +132,18 @@ public:
 			outCount = 1;
 
 		// Todo(achal): No need for these checks here as they will be created in the static creat method
+		// I will have the blit pipeline layout always created but the second pipeline layout will be created on demand
 		if (!m_pipelineLayouts[0]) // blit
 		{
-			m_pipelineLayouts[0] = blitPipelineLayout;
+			asset::SPushConstantRange pcRange = {};
+			{
+				pcRange.stageFlags = asset::IShader::ESS_COMPUTE;
+				pcRange.offset = 0u;
+				pcRange.size = sizeof(blit_push_constants_t);
+			}
+
+			assert(m_dsLayouts[0]);
+			m_pipelineLayouts[0] = device->createGPUPipelineLayout(&pcRange, &pcRange + 1ull, core::smart_refctd_ptr(m_dsLayouts[0]), core::smart_refctd_ptr(m_dsLayouts[3]));
 		}
 
 		if (!m_pipelineLayouts[1]) // alpha test
@@ -154,9 +175,6 @@ public:
 		return m_pipelineLayouts;
 	}
 
-	inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> getDefaultBlitDSLayout() const { return blitDSLayout; }
-	inline core::smart_refctd_ptr<video::IGPUPipelineLayout> getDefaultBlitPipelineLayout() const { return blitPipelineLayout; }
-
 	inline void getDefaultAlphaTestCounterBufferRange(asset::SBufferRange<video::IGPUBuffer>& outBufferRange, core::smart_refctd_ptr<video::IGPUBuffer> scratchBuffer, const uint32_t layer, const uint32_t layersToBlit)
 	{
 		assert((scratchBuffer->getCachedCreationParams().declaredSize % layersToBlit) == 0);
@@ -179,26 +197,32 @@ public:
 
 	core::smart_refctd_ptr<video::IGPUSpecializedShader> createAlphaTestSpecializedShader(const asset::IImage::E_TYPE inImageType);
 
+	// Todo(achal): No need for this, remove
 	void updateAlphaTestDescriptorSet(video::IGPUDescriptorSet* ds, core::smart_refctd_ptr<video::IGPUImageView> inImageView, const asset::SBufferRange<video::IGPUBuffer>& alphaTestCounter)
 	{
-		constexpr uint32_t MAX_DESCRIPTOR_COUNT = 5u;
+		constexpr auto MAX_DESCRIPTOR_COUNT = 5;
 
 		const auto& bindings = ds->getLayout()->getBindings();
-		const uint32_t descriptorCount = static_cast<uint32_t>(bindings.size());
-		assert(descriptorCount < MAX_DESCRIPTOR_COUNT);
 
 		video::IGPUDescriptorSet::SWriteDescriptorSet writes[MAX_DESCRIPTOR_COUNT] = {};
 		video::IGPUDescriptorSet::SDescriptorInfo infos[MAX_DESCRIPTOR_COUNT] = {};
 
-		for (uint32_t i = 0u; i < descriptorCount; ++i)
+		auto descriptorCount = 0;
+		for (auto i = 0; i < bindings.size(); ++i)
 		{
-			writes[i].dstSet = ds;
-			writes[i].binding = i;
-			writes[i].arrayElement = 0u;
-			writes[i].count = 1u;
-			writes[i].info = &infos[i];
-			writes[i].descriptorType = bindings.begin()[i].type;
+			// By default, binding = 1 is out storage image which has no use in alpha test 
+			if (i == 1)
+				continue;
+
+			auto& write = writes[descriptorCount++];
+			write.dstSet = ds;
+			write.binding = i;
+			write.arrayElement = 0u;
+			write.count = 1u;
+			write.info = &infos[i];
+			write.descriptorType = bindings.begin()[i].type;
 		}
+		assert(descriptorCount <= MAX_DESCRIPTOR_COUNT);
 
 		// input image
 		infos[0].desc = inImageView;
@@ -206,18 +230,18 @@ public:
 		infos[0].image.sampler = nullptr;
 
 		// alpha test atomic counter
-		infos[1].desc = alphaTestCounter.buffer;
-		infos[1].buffer.offset = alphaTestCounter.offset;
-		infos[1].buffer.size = alphaTestCounter.size;
+		infos[2].desc = alphaTestCounter.buffer;
+		infos[2].buffer.offset = alphaTestCounter.offset;
+		infos[2].buffer.size = alphaTestCounter.size;
 
 		device->updateDescriptorSets(descriptorCount, writes, 0u, nullptr);
 	}
 
-	static inline void buildAlphaTestParameters(const float referenceAlpha, const asset::IImage::E_TYPE inImageType, const core::vectorSIMDu32& inImageExtent, alpha_test_push_constants_t& outPC, dispatch_info_t& outDispatchInfo)
+	static inline void buildAlphaTestParameters(const float referenceAlpha, const asset::IImage::E_TYPE inImageType, const core::vectorSIMDu32& inImageExtent, const uint32_t layersToBlit, alpha_test_push_constants_t& outPC, dispatch_info_t& outDispatchInfo)
 	{
 		outPC.referenceAlpha = referenceAlpha;
 
-		const core::vectorSIMDu32 workgroupDims = getDefaultWorkgroupDims(inImageType);
+		const core::vectorSIMDu32 workgroupDims = getDefaultWorkgroupDims(inImageType, layersToBlit);
 		const core::vectorSIMDu32 workgroupCount = (inImageExtent + workgroupDims - core::vectorSIMDu32(1u, 1u, 1u, 1u)) / workgroupDims;
 		outDispatchInfo.wgCount[0] = workgroupCount.x;
 		outDispatchInfo.wgCount[1] = workgroupCount.y;
@@ -228,7 +252,8 @@ public:
 	// outImageViewFormat dictates the GLSL storage image format qualifier.
 	core::smart_refctd_ptr<video::IGPUSpecializedShader> createNormalizationSpecializedShader(const asset::IImage::E_TYPE inImageType, const asset::E_FORMAT outImageFormat, const asset::E_FORMAT outImageViewFormat);
 
-	void updateNormalizationDescriptorSet(video::IGPUDescriptorSet* ds, core::smart_refctd_ptr<video::IGPUImageView> outImageView, asset::SBufferRange<video::IGPUBuffer> alphaHistogram, asset::SBufferRange<video::IGPUBuffer> alphaTestCounter)
+	// Todo(achal): No need for this, remove
+	void updateNormalizationDescriptorSet(video::IGPUDescriptorSet* ds, core::smart_refctd_ptr<video::IGPUImageView>&& inImageView, core::smart_refctd_ptr<video::IGPUImageView> outImageView, asset::SBufferRange<video::IGPUBuffer> alphaTestCounterAndHistogram)
 	{
 		constexpr uint32_t MAX_DESCRIPTOR_COUNT = 5u;
 
@@ -249,33 +274,34 @@ public:
 			writes[i].descriptorType = bindings.begin()[i].type;
 		}
 
-		// input image
-		infos[0].desc = outImageView;
-		infos[0].image.imageLayout = asset::EIL_GENERAL;
+		// input sampled image
+		infos[0].desc = inImageView;
+		infos[0].image.imageLayout = asset::EIL_GENERAL; // Todo(achal): SHADER_READ_ONLY_OPTIMAL
 		infos[0].image.sampler = nullptr;
 
-		// alpha histogram buffer
-		infos[1].desc = alphaHistogram.buffer;
-		infos[1].buffer.offset = alphaHistogram.offset;
-		infos[1].buffer.size = alphaHistogram.size;
+		// output storage image
+		infos[1].desc = outImageView;
+		infos[1].image.imageLayout = asset::EIL_GENERAL;
+		infos[1].image.sampler = nullptr;
 
-		// alpha test counter buffer
-		infos[2].desc = alphaTestCounter.buffer;
-		infos[2].buffer.offset = alphaTestCounter.offset;
-		infos[2].buffer.size = alphaTestCounter.size;
+		// alpha test counter buffer & alpha histogram buffer
+		infos[2].desc = alphaTestCounterAndHistogram.buffer;
+		infos[2].buffer.offset = alphaTestCounterAndHistogram.offset;
+		infos[2].buffer.size = alphaTestCounterAndHistogram.size;
 
 		device->updateDescriptorSets(descriptorCount, writes, 0u, nullptr);
 	}
 
-	static inline core::vectorSIMDu32 getDefaultWorkgroupDims(const asset::IImage::E_TYPE inImageType)
+	static inline core::vectorSIMDu32 getDefaultWorkgroupDims(const asset::IImage::E_TYPE inImageType, const uint32_t layersToBlit = 1)
 	{
 		switch (inImageType)
 		{
 		case asset::IImage::ET_1D:
-			return core::vectorSIMDu32(256, 1, 1, 1);
+			return core::vectorSIMDu32(256, layersToBlit, 1, 1);
 		case asset::IImage::ET_2D:
-			return core::vectorSIMDu32(16, 16, 1, 1);
+			return core::vectorSIMDu32(16, 16, layersToBlit, 1);
 		case asset::IImage::ET_3D:
+			assert(layersToBlit == 1);
 			return core::vectorSIMDu32(8, 8, 4, 1);
 		default:
 			return core::vectorSIMDu32(1, 1, 1, 1);
@@ -297,13 +323,13 @@ public:
 		return scratchSize*layersToBlit;
 	}
 
-	static void buildNormalizationParameters(const asset::IImage::E_TYPE inImageType, const core::vectorSIMDu32& inImageExtent, const core::vectorSIMDu32& outImageExtent, const float referenceAlpha, normalization_push_constants_t& outPC, dispatch_info_t& outDispatchInfo)
+	static void buildNormalizationParameters(const asset::IImage::E_TYPE inImageType, const core::vectorSIMDu32& inImageExtent, const core::vectorSIMDu32& outImageExtent, const float referenceAlpha, const uint32_t layersToBlit, normalization_push_constants_t& outPC, dispatch_info_t& outDispatchInfo)
 	{
 		outPC.outDim = { outImageExtent.x, outImageExtent.y, outImageExtent.z };
 		outPC.inPixelCount = inImageExtent.x * inImageExtent.y * inImageExtent.z;
 		outPC.referenceAlpha = static_cast<float>(referenceAlpha);
 
-		const core::vectorSIMDu32 workgroupDims = getDefaultWorkgroupDims(inImageType);
+		const core::vectorSIMDu32 workgroupDims = getDefaultWorkgroupDims(inImageType, layersToBlit);
 		assert(workgroupDims.x * workgroupDims.y * workgroupDims.z <= DefaultAlphaBinCount);
 		const core::vectorSIMDu32 workgroupCount = (outImageExtent + workgroupDims - core::vectorSIMDu32(1u, 1u, 1u, 1u)) / workgroupDims;
 
@@ -316,60 +342,68 @@ public:
 	core::smart_refctd_ptr<video::IGPUSpecializedShader> createBlitSpecializedShader(const asset::E_FORMAT inImageFormat, const asset::E_FORMAT outImageFormat, const asset::E_FORMAT outImageViewFormat,
 		const asset::IImage::E_TYPE inImageType, const core::vectorSIMDu32& inExtent, const core::vectorSIMDu32& outExtent, const asset::IBlitUtilities::E_ALPHA_SEMANTIC alphaSemantic);
 
-	inline core::smart_refctd_ptr<video::IGPUComputePipeline> createBlitPipeline(core::smart_refctd_ptr<video::IGPUSpecializedShader>&& specShader)
+	
+	// Todo(achal): No need for this, remove
+	void updateBlitDescriptorSet(video::IGPUDescriptorSet* blitDS, video::IGPUDescriptorSet* weightsDS, core::smart_refctd_ptr<video::IGPUImageView> inImageView, core::smart_refctd_ptr<video::IGPUImageView> outImageView, core::smart_refctd_ptr<video::IGPUBuffer> phaseSupportLUT, asset::SBufferRange<video::IGPUBuffer> alphaHistogram = {})
 	{
-		auto blitPipeline = device->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(blitPipelineLayout), std::move(specShader));
-		return blitPipeline;
-	}
+		constexpr auto MAX_DESCRIPTOR_COUNT = 5;
 
-	void updateBlitDescriptorSet(video::IGPUDescriptorSet* ds, core::smart_refctd_ptr<video::IGPUImageView> inImageView, core::smart_refctd_ptr<video::IGPUImageView> outImageView, core::smart_refctd_ptr<video::IGPUBuffer> phaseSupportLUT, asset::SBufferRange<video::IGPUBuffer> alphaHistogram = {})
-	{
-		constexpr uint32_t MAX_DESCRIPTOR_COUNT = 5u;
-
-		const auto& bindings = ds->getLayout()->getBindings();
-		const uint32_t bindingCount = static_cast<uint32_t>(bindings.size());
-		const uint32_t descriptorCount = alphaHistogram.buffer ? bindingCount : bindingCount - 1u;
-		assert(descriptorCount < MAX_DESCRIPTOR_COUNT);
-
-		video::IGPUDescriptorSet::SWriteDescriptorSet writes[MAX_DESCRIPTOR_COUNT] = {};
-		video::IGPUDescriptorSet::SDescriptorInfo infos[MAX_DESCRIPTOR_COUNT] = {};
-
-		for (uint32_t i = 0u; i < descriptorCount; ++i)
+		auto updateDS = [this](video::IGPUDescriptorSet* ds, video::IGPUDescriptorSet::SDescriptorInfo* infos)
 		{
-			writes[i].dstSet = ds;
-			writes[i].binding = i;
-			writes[i].arrayElement = 0u;
-			writes[i].count = 1u;
-			writes[i].info = &infos[i];
-			writes[i].descriptorType = bindings.begin()[i].type;
-		}
+			const auto& bindings = ds->getLayout()->getBindings();
 
+			video::IGPUDescriptorSet::SWriteDescriptorSet writes[MAX_DESCRIPTOR_COUNT] = {};
+
+			auto descriptorCount = 0;
+			for (auto i = 0; i < bindings.size(); ++i)
+			{
+				if (!infos[i].desc)
+					continue;
+
+				auto& write = writes[descriptorCount++];
+
+				write.dstSet = ds;
+				write.binding = i;
+				write.arrayElement = 0u;
+				write.count = 1u;
+				write.info = &infos[i];
+				write.descriptorType = bindings.begin()[i].type;
+			}
+			assert(descriptorCount <= MAX_DESCRIPTOR_COUNT);
+
+			device->updateDescriptorSets(descriptorCount, writes, 0u, nullptr);
+		};
+
+		video::IGPUDescriptorSet::SDescriptorInfo blitInfos[MAX_DESCRIPTOR_COUNT] = {};
 		// input image
-		infos[0].desc = inImageView;
-		infos[0].image.imageLayout = asset::EIL_GENERAL; // Todo(achal): Make it not GENERAL, this is a sampled image
-		infos[0].image.sampler = nullptr;
+		blitInfos[0].desc = inImageView;
+		blitInfos[0].image.imageLayout = asset::EIL_GENERAL; // Todo(achal): Make it not GENERAL, this is a sampled image
+		blitInfos[0].image.sampler = nullptr;
 
 		// output image
-		infos[1].desc = outImageView;
-		infos[1].image.imageLayout = asset::EIL_GENERAL;
-		infos[1].image.sampler = nullptr;
-
-		// phase support LUT (cached weights)
-		infos[2].desc = phaseSupportLUT;
-		infos[2].buffer.offset = 0ull;
-		infos[2].buffer.size = phaseSupportLUT->getCachedCreationParams().declaredSize;
+		blitInfos[1].desc = outImageView;
+		blitInfos[1].image.imageLayout = asset::EIL_GENERAL;
+		blitInfos[1].image.sampler = nullptr;
 
 		if (alphaHistogram.buffer)
 		{
-			infos[3].desc = alphaHistogram.buffer;
-			infos[3].buffer.offset = alphaHistogram.offset;
-			infos[3].buffer.size = alphaHistogram.size;
+			blitInfos[2].desc = alphaHistogram.buffer;
+			blitInfos[2].buffer.offset = alphaHistogram.offset;
+			blitInfos[2].buffer.size = alphaHistogram.size;
 		}
 
-		device->updateDescriptorSets(descriptorCount, writes, 0u, nullptr);
+		updateDS(blitDS, blitInfos);
+
+		// scaled kernel phased LUT (cached weights)
+		video::IGPUDescriptorSet::SDescriptorInfo weightsInfos[MAX_DESCRIPTOR_COUNT] = {};
+		weightsInfos[0].desc = phaseSupportLUT;
+		weightsInfos[0].buffer.offset = 0ull;
+		weightsInfos[0].buffer.size = phaseSupportLUT->getCachedCreationParams().declaredSize;
+
+		updateDS(weightsDS, weightsInfos);
 	}
 
-	inline void buildBlitParameters(const core::vectorSIMDu32& inImageExtent, const core::vectorSIMDu32& outImageExtent, const asset::IImage::E_TYPE inImageType, const asset::E_FORMAT inImageFormat, blit_push_constants_t& outPC, dispatch_info_t& outDispatchInfo)
+	inline void buildBlitParameters(const core::vectorSIMDu32& inImageExtent, const core::vectorSIMDu32& outImageExtent, const asset::IImage::E_TYPE inImageType, const asset::E_FORMAT inImageFormat, const uint32_t layersToBlit, blit_push_constants_t& outPC, dispatch_info_t& outDispatchInfo)
 	{
 		outPC.inDim.x = inImageExtent.x; outPC.inDim.y = inImageExtent.y; outPC.inDim.z = inImageExtent.z;
 		outPC.outDim.x = outImageExtent.x; outPC.outDim.y = outImageExtent.y; outPC.outDim.z = outImageExtent.z;
@@ -398,7 +432,7 @@ public:
 		const uint32_t wgCount = (totalWindowCount + outPC.windowsPerWG - 1) / outPC.windowsPerWG;
 
 		outDispatchInfo.wgCount[0] = wgCount;
-		outDispatchInfo.wgCount[1] = 1u;
+		outDispatchInfo.wgCount[1] = layersToBlit;
 		outDispatchInfo.wgCount[2] = 1u;
 	}
 
@@ -423,6 +457,7 @@ public:
 		const asset::E_FORMAT inImageFormat,
 		core::smart_refctd_ptr<video::IGPUImage> outImage,
 		const float referenceAlpha = 0.f,
+		const uint32_t layersToBlit = 1,
 		const asset::SBufferRange<video::IGPUBuffer>* alphaTestCounter = nullptr)
 	{
 		if (alphaSemantic == asset::IBlitUtilities::EAS_REFERENCE_OR_COVERAGE)
@@ -431,7 +466,7 @@ public:
 			cmdbuf->bindComputePipeline(alphaTestPipeline);
 			CComputeBlit::alpha_test_push_constants_t alphaTestPC;
 			CComputeBlit::dispatch_info_t alphaTestDispatchInfo;
-			buildAlphaTestParameters(referenceAlpha, inImageType, inImageExtent, alphaTestPC, alphaTestDispatchInfo);
+			buildAlphaTestParameters(referenceAlpha, inImageType, inImageExtent, layersToBlit, alphaTestPC, alphaTestDispatchInfo);
 			dispatchHelper<CComputeBlit::alpha_test_push_constants_t>(cmdbuf, alphaTestPipeline->getLayout(), alphaTestPC, alphaTestDispatchInfo);
 		}
 
@@ -440,7 +475,7 @@ public:
 		CComputeBlit::blit_push_constants_t blitPC;
 		CComputeBlit::dispatch_info_t blitDispatchInfo;
 		const core::vectorSIMDu32 outImageExtent(outImage->getCreationParameters().extent.width, outImage->getCreationParameters().extent.height, outImage->getCreationParameters().extent.depth, 1u);
-		buildBlitParameters(inImageExtent, outImageExtent, inImageType, inImageFormat, blitPC, blitDispatchInfo);
+		buildBlitParameters(inImageExtent, outImageExtent, inImageType, inImageFormat, layersToBlit, blitPC, blitDispatchInfo);
 		dispatchHelper<CComputeBlit::blit_push_constants_t>(cmdbuf, blitPipeline->getLayout(), blitPC, blitDispatchInfo);
 
 		// After this dispatch ends and finishes writing to outImage, normalize outImage
@@ -476,7 +511,7 @@ public:
 			cmdbuf->bindComputePipeline(normalizationPipeline);
 			CComputeBlit::normalization_push_constants_t normPC = {};
 			CComputeBlit::dispatch_info_t normDispatchInfo = {};
-			buildNormalizationParameters(inImageType, inImageExtent, outImageExtent, referenceAlpha, normPC, normDispatchInfo);
+			buildNormalizationParameters(inImageType, inImageExtent, outImageExtent, referenceAlpha, layersToBlit, normPC, normDispatchInfo);
 			dispatchHelper<CComputeBlit::normalization_push_constants_t>(cmdbuf, normalizationPipeline->getLayout(), normPC, normDispatchInfo);
 		}
 	}
@@ -496,6 +531,7 @@ public:
 		const asset::E_FORMAT inImageFormat,
 		core::smart_refctd_ptr<video::IGPUImage> outImage,
 		const float referenceAlpha = 0.f,
+		const uint32_t layersToBlit = 1,
 		const asset::SBufferRange<video::IGPUBuffer>* alphaTestCounter = nullptr)
 	{
 		auto cmdpool = device->createCommandPool(computeQueue->getFamilyIndex(), video::IGPUCommandPool::ECF_NONE);
@@ -505,7 +541,7 @@ public:
 		auto fence = device->createFence(video::IGPUFence::ECF_UNSIGNALED);
 
 		cmdbuf->begin(video::IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
-		blit(cmdbuf.get(), alphaSemantic, alphaTestDS, alphaTestPipeline, blitDS, blitPipeline, normalizationDS, normalizationPipeline, inImageExtent, inImageType, inImageFormat, outImage, referenceAlpha, alphaTestCounter);
+		blit(cmdbuf.get(), alphaSemantic, alphaTestDS, alphaTestPipeline, blitDS, blitPipeline, normalizationDS, normalizationPipeline, inImageExtent, inImageType, inImageFormat, outImage, referenceAlpha, layersToBlit, alphaTestCounter);
 		cmdbuf->end();
 
 		video::IGPUQueue::SSubmitInfo submitInfo = {};
@@ -536,10 +572,52 @@ public:
 		}
 	}
 
-	static inline asset::E_FORMAT getIntermediateFormat(const asset::E_FORMAT outFormat)
+	static inline asset::E_FORMAT getIntermediateFormat(const asset::E_FORMAT format)
 	{
-		// Todo(achal): impl
-		return outFormat;
+		using namespace nbl::asset;
+
+		switch (format)
+		{
+		case EF_R32G32B32A32_SFLOAT:
+		case EF_R16G16B16A16_SFLOAT:
+		case EF_R16G16B16A16_UNORM:
+		case EF_R16G16B16A16_SNORM:
+			return EF_R32G32B32A32_SFLOAT;
+		
+		case EF_R32G32_SFLOAT:
+		case EF_R16G16_SFLOAT:
+		case EF_R16G16_UNORM:
+		case EF_R16G16_SNORM:
+			return EF_R32G32_SFLOAT;
+
+		case EF_B10G11R11_UFLOAT_PACK32:
+			return EF_R16G16B16A16_SFLOAT;
+
+		case EF_R32_SFLOAT:
+		case EF_R16_SFLOAT:
+		case EF_R16_UNORM:
+		case EF_R16_SNORM:
+			return EF_R32_SFLOAT;
+
+		case EF_A2B10G10R10_UNORM_PACK32:
+		case EF_R8G8B8A8_UNORM:
+			return EF_R16G16B16A16_UNORM;
+
+		case EF_R8G8_UNORM:
+			return EF_R16G16_UNORM;
+
+		case EF_R8_UNORM:
+			return EF_R16_UNORM;
+
+		case EF_R8G8B8A8_SNORM:
+			return EF_R16G16B16A16_SNORM;
+
+		case EF_R8G8_SNORM:
+			return EF_R16G16_SNORM;
+
+		default:
+			return EF_UNKNOWN;
+		}
 	}
 
 	static inline const char* getGLSLFormatStringFromFormat(const asset::E_FORMAT format)
@@ -627,11 +705,8 @@ public:
 	}
 
 private:
-	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> m_dsLayouts[3]; // Todo(achal): Make it two
+	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> m_dsLayouts[4]; // Todo(achal): Make it two
 	core::smart_refctd_ptr<video::IGPUPipelineLayout> m_pipelineLayouts[3]; // Todo(achal): Make it two
-
-	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> blitDSLayout = nullptr;
-	core::smart_refctd_ptr<video::IGPUPipelineLayout> blitPipelineLayout = nullptr;
 
 	const uint32_t sharedMemorySize;
 	core::smart_refctd_ptr<video::ILogicalDevice> device;
