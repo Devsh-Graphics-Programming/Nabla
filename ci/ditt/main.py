@@ -7,9 +7,9 @@ from pathlib import *
 NBL_IMAGEMAGICK_EXE = Path('@_NBL_IMAGEMAGICK_EXE_@')
 NBL_PATHTRACER_EXE = Path('@_NBL_PATHTRACER_EXE_@')
 NBL_SCENES_INPUT_TXT = Path('@_NBL_SCENES_INPUT_TXT_@')
-
 NBL_ERROR_THRESHOLD = "0.05" #relative error between reference and generated images, value between 1.0 and 0.0
 NBL_ERROR_TOLERANCE_COUNT = 64          
+CLOSE_TO_ZERO = "0.000001"         
 
 NBL_CI_WORKING_DIR = Path(str(NBL_PATHTRACER_EXE.parent.absolute()) + '/ci_working_dir')
 NBL_CI_REFERENCES_DIR = Path(str(NBL_CI_WORKING_DIR.absolute()) + '/references')
@@ -18,7 +18,7 @@ CI_PASS_STATUS = True
 
 HTML_TUPLE_RENDER_INDEX = 0
 HTML_TUPLE_PASS_STATUS_INDEX = 1
-HTML_TUPLE_REFERENCE_INDEX = 2
+HTML_TUPLE_INPUT_INDEX = 2
 HTML_TUPLE_ALBEDO_INDEX = 3
 HTML_TUPLE_NORMAL_INDEX = 4
 HTML_TUPLE_DENOISED_INDEX = 5
@@ -26,6 +26,7 @@ HTML_TUPLE_DENOISED_INDEX = 5
 HTML_R_A_N_D_D_DIFF = 0
 HTML_R_A_N_D_D_ERROR = 1
 HTML_R_A_N_D_D_PASS = 2
+HTML_R_A_N_D_D_REF = 3
 
 def generateHTMLStatus(_htmlData, _cacheChanged):
     HTML_BODY = '''
@@ -91,12 +92,17 @@ def generateHTMLStatus(_htmlData, _cacheChanged):
             HTML_ROW_BODY += '<td style="color: red;">FAILED</td>'
 
         for i in range(4):
-            anIndexOfRenderAspect = i + HTML_TUPLE_REFERENCE_INDEX
+            anIndexOfRenderAspect = i + HTML_TUPLE_INPUT_INDEX
 
             aspectRenderData = _htmlRowTuple[anIndexOfRenderAspect]
             HTML_HYPERLINK_DIFF = 'https://artifactory.devsh.eu/Ditt/ci/data/references/' + _htmlRowTuple[HTML_TUPLE_RENDER_INDEX] + '/' + aspectRenderData[HTML_R_A_N_D_D_DIFF]
+            HTML_HYPERLINK_REF = 'https://artifactory.devsh.eu/Ditt/ci/data/references/' + _htmlRowTuple[HTML_TUPLE_RENDER_INDEX] + '/' + aspectRenderData[HTML_R_A_N_D_D_REF]
             HTML_ROW_BODY += (  '<td scope="col">' + '<a href="' + HTML_HYPERLINK_DIFF + '">' 
-                + aspectRenderData[HTML_R_A_N_D_D_DIFF] + '</a></td>' 
+                + aspectRenderData[HTML_R_A_N_D_D_DIFF] + '</a><br/>'
+                '<a href="'+HTML_HYPERLINK_REF+ '">' 
+                + '(reference)</a>'
+                '</td>' 
+
                 '<td scope="col">Errors: ' + aspectRenderData[HTML_R_A_N_D_D_ERROR] + '</td>')
             if aspectRenderData[HTML_R_A_N_D_D_PASS]:
                 HTML_ROW_BODY += '<td scope="col" style="color: green;">PASSED</td>'
@@ -149,7 +155,7 @@ if __name__ == '__main__':
         for line in inputLines:
             if list(line)[0] != ';':
 
-                htmlRowTuple = ['', True, ['', '', True], ['', '', True], ['', '', True], ['', '', True]]
+                htmlRowTuple = ['', True, ['', '', True, ''], ['', '', True, ''], ['', '', True, ''], ['', '', True, '']]
                 renderPath = line.strip().replace('"', '').split()[0]
                 renderName = os.path.splitext(str(Path(renderPath).name))[0]
                 undenoisedTargetName = 'Render_' + renderName + '_scene'
@@ -183,7 +189,7 @@ if __name__ == '__main__':
                     CI_PASS_STATUS = False
 
 
-                anIndex = HTML_TUPLE_REFERENCE_INDEX
+                anIndex = HTML_TUPLE_INPUT_INDEX
                 outputDiffTerminators = ['', '_albedo', '_normal', '_denoised']
                 for diffTerminator in outputDiffTerminators:
                     imageDiffFilePath = str(NBL_CI_REFERENCES_DIR.absolute()) + '/' + renderName + '/' + renderName + diffTerminator +"_diff.exr"
@@ -198,7 +204,7 @@ if __name__ == '__main__':
                     #calculate the amount of pixels whose relative errors are above NBL_ERROR_THRESHOLD
                     #logic operators in image magick return 1.0 if true, 0.0 if false 
                     #image magick convert -compose divide does not work with HDRI, this requiring use of -fx 
-                    diffValueCommandParams = f" {imageRefFilepath} {imageGenFilepath}  -define histogram:unique-colors=true -fx \"(abs(u-v)/((0!=min(u,v))?abs(min(u,v)):1.0))>={NBL_ERROR_THRESHOLD}\" -format %c histogram:info:" 
+                    diffValueCommandParams = f" {imageRefFilepath} {imageGenFilepath}  -define histogram:unique-colors=true -fx \"(min(u,v)>{CLOSE_TO_ZERO})?((abs(u-v)/min(u,v))>{NBL_ERROR_THRESHOLD}):(max(u,v)<={CLOSE_TO_ZERO})\" -format %c histogram:info:" 
                     executor = str(NBL_IMAGEMAGICK_EXE.absolute()) + diffValueCommandParams
                     magickDiffValProcess = subprocess.run(executor, capture_output=True)
                    
@@ -221,6 +227,8 @@ if __name__ == '__main__':
                     htmlRowTuple[anIndex][HTML_R_A_N_D_D_DIFF] = renderName + diffTerminator + '_diff.exr'
                     htmlRowTuple[anIndex][HTML_R_A_N_D_D_ERROR] = str(errorPixelCount)
                     htmlRowTuple[anIndex][HTML_R_A_N_D_D_PASS] = DIFF_PASS
+                    htmlRowTuple[anIndex][HTML_R_A_N_D_D_REF] = 'Render_' + renderName + '_scene'+diffTerminator+".exr"
+
                     anIndex += 1
                 htmlData.append(htmlRowTuple)
 
