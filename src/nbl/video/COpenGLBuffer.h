@@ -44,10 +44,9 @@ class COpenGLBuffer final : public IGPUBuffer, public IOpenGLMemoryAllocation
         }
         COpenGLBuffer(
             core::smart_refctd_ptr<const ILogicalDevice>&& dev,
-            const IDriverMemoryBacked::SDriverMemoryRequirements2 &mreqs,
             const IGPUBuffer::SCachedCreationParams& cachedCreationParams,
             GLuint bufferName
-        ) : IGPUBuffer(std::move(dev),mreqs,cachedCreationParams), IOpenGLMemoryAllocation(getOriginDevice()), BufferName(bufferName), cachedFlags(0)
+        ) : IGPUBuffer(std::move(dev), SDriverMemoryRequirements2{cachedCreationParams.declaredSize, 0xffffffffu, 0u, true, true},cachedCreationParams), IOpenGLMemoryAllocation(getOriginDevice()), BufferName(bufferName), cachedFlags(0)
         {
         }
 
