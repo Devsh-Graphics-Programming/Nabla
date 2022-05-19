@@ -11,7 +11,7 @@
 #include <cstring>
 
 #include "nbl/video/alloc/SubAllocatedDataBuffer.h"
-#include "nbl/video/alloc/StreamingGPUBufferAllocator.h"
+#include "nbl/video/alloc/CStreamingBufferAllocator.h"
 
 
 namespace nbl::video
@@ -25,7 +25,7 @@ namespace impl
 template<typename _size_type=uint32_t, class CPUAllocator=core::allocator<uint8_t>, class CustomDeferredFreeFunctor=void>
 class StreamingTransientDataBuffer
 {
-        typedef core::HeterogenousMemoryAddressAllocatorAdaptor<core::GeneralpurposeAddressAllocator<_size_type>,StreamingGPUBufferAllocator,CPUAllocator> HeterogenousMemoryAddressAllocator;
+        typedef core::HeterogenousMemoryAddressAllocatorAdaptor<core::GeneralpurposeAddressAllocator<_size_type>,CStreamingBufferAllocator,CPUAllocator> HeterogenousMemoryAddressAllocator;
         typedef StreamingTransientDataBuffer<_size_type,CPUAllocator> ThisType;
         using Composed = impl::SubAllocatedDataBuffer<HeterogenousMemoryAddressAllocator,CustomDeferredFreeFunctor>;
     protected:
@@ -39,8 +39,13 @@ class StreamingTransientDataBuffer
         //!
         /**
         \param default minAllocSize has been carefully picked to reflect the lowest nonCoherentAtomSize under Vulkan 1.1 which is not 1u .*/
-        StreamingTransientDataBuffer(ILogicalDevice* inDevice, const IDriverMemoryBacked::SDriverMemoryRequirements& bufferReqs, const CPUAllocator& reservedMemAllocator = CPUAllocator(), size_type minAllocSize = 1024u)
-            : m_composed(inDevice, reservedMemAllocator, StreamingGPUBufferAllocator(inDevice, bufferReqs), 0u, 0u, bufferReqs.vulkanReqs.alignment, bufferReqs.vulkanReqs.size, minAllocSize) {}
+        StreamingTransientDataBuffer(
+            ILogicalDevice* inDevice,
+            const uint32_t usableMemoryTypeBits,
+            const IGPUBuffer::SCreationParams& bufferCreationParams,
+            const core::bitflag<IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags,
+            const CPUAllocator& reservedMemAllocator = CPUAllocator(), size_type minAllocSize = 1024u)
+            : m_composed(inDevice, reservedMemAllocator, CStreamingBufferAllocator(inDevice, usableMemoryTypeBits), 0u, 0u, bufferCreationParams, allocateFlags, minAllocSize) {}
 
         const auto& getAllocator() const {return m_composed.getAllocator();}
 

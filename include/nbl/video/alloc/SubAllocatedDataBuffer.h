@@ -10,7 +10,7 @@
 #include <type_traits>
 #include <mutex>
 
-#include "nbl/video/alloc/SimpleGPUBufferAllocator.h"
+#include "nbl/video/alloc/CSimpleBufferAllocator.h"
 #include "nbl/video/IGPUFence.h"
 
 namespace nbl::video
@@ -66,7 +66,7 @@ class SubAllocatedDataBuffer : protected core::impl::FriendOfHeterogenousMemoryA
                 size_type   numAllocs;
             public:
                 template<typename T>
-				inline DefaultDeferredFreeFunctor(ThisType* _this, size_type numAllocsToFree, const size_type* addrs, const size_type* bytes, const T*const *const objectsToHold)
+                inline DefaultDeferredFreeFunctor(ThisType* _this, size_type numAllocsToFree, const size_type* addrs, const size_type* bytes, const T*const *const objectsToHold)
                                                     : sadbRef(_this), rangeData(nullptr), numAllocs(numAllocsToFree)
                 {
                     static_assert(std::is_base_of_v<core::IReferenceCounted,T>);
@@ -86,12 +86,12 @@ class SubAllocatedDataBuffer : protected core::impl::FriendOfHeterogenousMemoryA
                     }
                 }
                 DefaultDeferredFreeFunctor(const DefaultDeferredFreeFunctor& other) = delete;
-				inline DefaultDeferredFreeFunctor(DefaultDeferredFreeFunctor&& other) : sadbRef(nullptr), rangeData(nullptr), numAllocs(0u)
+                inline DefaultDeferredFreeFunctor(DefaultDeferredFreeFunctor&& other) : sadbRef(nullptr), rangeData(nullptr), numAllocs(0u)
                 {
                     this->operator=(std::forward<DefaultDeferredFreeFunctor>(other));
                 }
 
-				inline ~DefaultDeferredFreeFunctor()
+                inline ~DefaultDeferredFreeFunctor()
                 {
                     if (rangeData)
                     {
@@ -177,15 +177,15 @@ class SubAllocatedDataBuffer : protected core::impl::FriendOfHeterogenousMemoryA
             auto allocation = mAllocator.getCurrentBufferAllocation();
 
             IGPUBuffer* retval;
-			if constexpr(has_buffer_member<decltype(allocation)>::value)
-			{
-				retval = allocation.buffer.get();
-			}
-			else
-			{
-				retval = allocation.get();
-			}
-			
+            if constexpr(has_buffer_member<decltype(allocation)>::value)
+            {
+                retval = allocation.buffer.get();
+            }
+            else
+            {
+                retval = allocation.get();
+            }
+            
 
             return retval;
         }
@@ -281,7 +281,7 @@ class SubAllocatedDataBuffer : protected core::impl::FriendOfHeterogenousMemoryA
 }
 
 // this buffer is not growable
-template< typename _size_type=uint32_t, class BasicAddressAllocator=core::GeneralpurposeAddressAllocator<_size_type>, class GPUBufferAllocator=SimpleGPUBufferAllocator, class CPUAllocator=core::allocator<uint8_t> >
+template< typename _size_type=uint32_t, class BasicAddressAllocator=core::GeneralpurposeAddressAllocator<_size_type>, class GPUBufferAllocator=CSimpleBufferAllocator, class CPUAllocator=core::allocator<uint8_t> >
 class SubAllocatedDataBufferST : public core::IReferenceCounted, public impl::SubAllocatedDataBuffer<core::HeterogenousMemoryAddressAllocatorAdaptor<BasicAddressAllocator, GPUBufferAllocator, CPUAllocator> >
 {
         using Base = impl::SubAllocatedDataBuffer<core::HeterogenousMemoryAddressAllocatorAdaptor<BasicAddressAllocator,GPUBufferAllocator,CPUAllocator> >;
