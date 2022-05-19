@@ -233,22 +233,6 @@ class ILogicalDevice : public core::IReferenceCounted, public IDriverMemoryAlloc
             return reqs;
         }
 
-        //! Best for Mesh data, UBOs, SSBOs, etc.
-        virtual core::smart_refctd_ptr<IDriverMemoryAllocation> allocateDeviceLocalMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) { return nullptr; }
-
-        //! If cannot or don't want to use device local memory, then this memory can be used
-        /** If the above fails (only possible on vulkan) or we have perfomance hitches due to video memory oversubscription.*/
-        virtual core::smart_refctd_ptr<IDriverMemoryAllocation> allocateSpilloverMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) { return nullptr; }
-
-        //! Best for staging uploads to the GPU, such as resource streaming, and data to update the above memory with
-        virtual core::smart_refctd_ptr<IDriverMemoryAllocation> allocateUpStreamingMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) { return nullptr; }
-
-        //! Best for staging downloads from the GPU, such as query results, Z-Buffer, video frames for recording, etc.
-        virtual core::smart_refctd_ptr<IDriverMemoryAllocation> allocateDownStreamingMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) { return nullptr; }
-
-        //! Should be just as fast to play around with on the CPU as regular malloc'ed memory, but slowest to access with GPU
-        virtual core::smart_refctd_ptr<IDriverMemoryAllocation> allocateCPUSideGPUVisibleMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) { return nullptr; }
-
         virtual core::smart_refctd_ptr<IDriverMemoryAllocation> allocateGPUMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& reqs, core::bitflag<IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags = IDriverMemoryAllocation::EMAF_NONE) { return nullptr; }
 
         //! For memory allocations without the video::IDriverMemoryAllocation::EMCF_COHERENT mapping capability flag you need to call this for the CPU writes to become GPU visible
