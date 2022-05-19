@@ -185,18 +185,6 @@ class ILogicalDevice : public core::IReferenceCounted, public IDriverMemoryAlloc
             return reqs;
         }
 
-        static inline IDriverMemoryBacked::SDriverMemoryRequirements getSpilloverGPUMemoryReqs()
-        {
-            IDriverMemoryBacked::SDriverMemoryRequirements reqs;
-            reqs.vulkanReqs.alignment = 0;
-            reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
-            reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL;
-            reqs.mappingCapability = IDriverMemoryAllocation::EMCF_CANNOT_MAP;
-            reqs.prefersDedicatedAllocation = true;
-            reqs.requiresDedicatedAllocation = true;
-            return reqs;
-        }
-
         static inline IDriverMemoryBacked::SDriverMemoryRequirements getUpStreamingMemoryReqs()
         {
             IDriverMemoryBacked::SDriverMemoryRequirements reqs;
@@ -216,18 +204,6 @@ class ILogicalDevice : public core::IReferenceCounted, public IDriverMemoryAlloc
             reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
             reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL;
             reqs.mappingCapability = IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ | IDriverMemoryAllocation::EMCF_CACHED;
-            reqs.prefersDedicatedAllocation = true;
-            reqs.requiresDedicatedAllocation = true;
-            return reqs;
-        }
-
-        static inline IDriverMemoryBacked::SDriverMemoryRequirements getCPUSideGPUVisibleGPUMemoryReqs()
-        {
-            IDriverMemoryBacked::SDriverMemoryRequirements reqs;
-            reqs.vulkanReqs.alignment = 0;
-            reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
-            reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL;
-            reqs.mappingCapability = IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ | IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_WRITE | IDriverMemoryAllocation::EMCF_COHERENT | IDriverMemoryAllocation::EMCF_CACHED;
             reqs.prefersDedicatedAllocation = true;
             reqs.requiresDedicatedAllocation = true;
             return reqs;
@@ -271,14 +247,6 @@ class ILogicalDevice : public core::IReferenceCounted, public IDriverMemoryAlloc
         inline core::smart_refctd_ptr<IGPUBuffer> createDeviceLocalGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& params, const size_t size)
         {
             auto reqs = getDeviceLocalGPUMemoryReqs();
-            reqs.vulkanReqs.size = size;
-            return this->createGPUBufferOnDedMem(params, reqs);
-        }
-
-        //! Creates the buffer, allocates memory dedicated memory and binds it at once.
-        inline core::smart_refctd_ptr<IGPUBuffer> createSpilloverGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& params, const size_t size)
-        {
-            auto reqs = getSpilloverGPUMemoryReqs();
             reqs.vulkanReqs.size = size;
             return this->createGPUBufferOnDedMem(params, reqs);
         }
