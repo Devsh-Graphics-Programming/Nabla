@@ -1,0 +1,92 @@
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#ifndef _NBL_VIDEO_C_SINGLE_BUFFER_SUB_ALLOCATOR_H_
+#define _NBL_VIDEO_C_SINGLE_BUFFER_SUB_ALLOCATOR_H_
+
+#include "nbl/video/IGPUBuffer.h"
+#include "nbl/video/alloc/IBufferAllocator.h"
+
+#include <type_traits>
+
+namespace nbl::video
+{
+
+// address allocator gives offsets
+// reserved allocator allocates memory to keep the address allocator state inside
+template<class AddrAllocator, class ReservAllocator>
+class CSingleBufferSubAllocator final : public IBufferAllocator
+{
+  public:
+        using AddressAllocator = AddrAllocator;
+        using ReservedAllocator = ReservAllocator;
+        using value_type = AddressAllocator::size_type;
+        static constexpr value_type invalid_value = AddressAllocator::invalid_address;
+
+        // constructors
+        inline CSimpleBufferAllocator(asset::SBufferRange<IGPUBuffer>&& _bufferRange, ReservedAllocator&& _reservedAllocator, const value_type maxAllocatableAlignment, const Args&...) :
+            m_addressAllocator(
+                _reservedAllocator.allocate(AddressAllocator::reserved_size(maxAllocatableAlignment,_bufferRange.size,args...),_NBL_SIMD_ALIGNMENT),
+                _bufferRange.offset, 0u, maxAllocatableAlignment, _bufferRange.size, std::forward<Args>(args)...
+            ), m_reservedAllocator(std::move(_reservedAllocator)), m_buffer(std::move(_bufferRange.buffer))
+        {
+        }
+        // version with default constructed reserved allocator
+        template<typename = std::enable_if_t<std::is_default_constructible_v<ReservedAllocator>>>
+        explicit inline CSimpleBufferAllocator(asset::SBufferRange<IGPUBuffer>&& _bufferRange, const value_type maxAllocatableAlignment, const Args&...) :
+            CSimpleBufferAllocator(std::move(_bufferRange),ReservedAllocator(),maxAllocatableAlignment,std::forward<Args>(args)...)
+        {
+        }
+        ~CSimpleBufferAllocator()
+        {
+            m_reservedAllocator.deallocate(,m_reservedSize);
+        }
+
+        // anyone gonna use it?
+        inline const AddressAllocator& getAddressAllocator() const {return m_addressAllocator;}
+
+        // buffer getters
+        inline IGPUBuffer* getBuffer() {return m_buffer.get();}
+        inline const IGPUBuffer* getBuffer() const {return m_buffer.get();}
+
+        // main methods
+
+        //! Warning `outAddresses` needs to be primed with `invalid_value` values, otherwise no allocation happens for elements not equal to `invalid_value`
+        template<typename... Args>
+        inline void multi_allocate(uint32_t count, value_type* outAddresses, const AddressAllocator::size_type* byteSizes, const AddressAllocator::size_type* alignments, const Args&... args)
+        {
+            address_allocator_traits<AddressAllocator>::multi_alloc_addr(m_addressAllocator,count,outAddresses,byteSizes,alignments,args...);
+        }
+        template<typename... Args>
+        inline void multi_deallocate(Args&&... args)
+        {
+            address_allocator_traits<AddressAllocator>::multi_free_addr(m_addressAllocator,std::forward<Args>(args)...);
+        }
+
+        // to conform to IBufferAllocator concept
+        template<typename... Args>
+        inline value_type allocate(const AddressAllocator::size_type bytes, const AddressAllocator::size_type alignment, const Args&... args)
+        {
+            value_type retval = invalid_value;
+            multi_allocate(&retval,&bytes,&alignment,args...);
+            return retval;
+        }
+        template<typename... Args>
+        inline void deallocate(value_type& allocation, Args&&... args)
+        {
+            multi_deallocate(std::forward<Args>(args)...);
+            allocation = invalid_value;
+        }
+
+    private:
+        AddressAllocator                    m_addressAllocator;
+        ReservedAllocator                   m_reservedAllocator;
+        size_t                              m_reservedSize;
+        core::smart_refctd_ptr<IGPUBuffer>  m_buffer;
+};
+
+}
+
+#endif
+

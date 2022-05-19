@@ -2,33 +2,33 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __NBL_VIDEO_C_SIMPLE_BUFFER_ALLOCATOR_H__
-#define __NBL_VIDEO_C_SIMPLE_BUFFER_ALLOCATOR_H__
+#ifndef _NBL_VIDEO_C_SIMPLE_BUFFER_ALLOCATOR_H_
+#define _NBL_VIDEO_C_SIMPLE_BUFFER_ALLOCATOR_H_
 
-#include "nbl/core/alloc/address_allocator_traits.h"
+#include "nbl/video/IDriverMemoryAllocator.h"
 #include "nbl/video/alloc/IBufferAllocator.h"
-
-#include "nbl/video/IGPUBuffer.h"
 
 namespace nbl::video
 {
+
 class CSimpleBufferAllocator : public IBufferAllocator
 {
+    core::smart_refctd_ptr<ILogicalDevice> m_device;
     uint32_t m_memoryTypesToUse;
 
   public:
     using value_type = asset::SBufferBinding<IGPUBuffer>;
 
-    CSimpleBufferAllocator(core::smart_refctd_ptr<ILogicalDevice>&& _device, const uint32_t _memoryTypesToUse) : IBufferAllocator(std::move(_device)), m_memoryTypesToUse(_memoryTypesToUse) {}
+    CSimpleBufferAllocator(core::smart_refctd_ptr<ILogicalDevice>&& _device, const uint32_t _memoryTypesToUse) : m_device(std::move(_device)), m_memoryTypesToUse(_memoryTypesToUse) {}
     virtual ~CSimpleBufferAllocator() = default;
 
-    inline ILogicalDevice* getDevice() {return static_cast<ILogicalDevice*>(m_memoryAllocator.get());}
+    inline ILogicalDevice* getDevice() {return m_device.get();}
 
     value_type allocate(
         const IGPUBuffer::SCreationParams& creationParams,
         const core::bitflag<IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags=IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS::EMAF_NONE);
 
-    void deallocate(value_type& allocation)
+    inline void deallocate(value_type& allocation)
     {
         allocation = {IDriverMemoryAllocator::InvalidMemoryOffset,nullptr};
     }

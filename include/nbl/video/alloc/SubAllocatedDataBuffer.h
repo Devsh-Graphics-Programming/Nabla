@@ -1,16 +1,14 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#ifndef __NBL_VIDEO_SUB_ALLOCATED_DATA_BUFFER_H__
-#define __NBL_VIDEO_SUB_ALLOCATED_DATA_BUFFER_H__
+#ifndef _NBL_VIDEO_SUB_ALLOCATED_DATA_BUFFER_H_
+#define _NBL_VIDEO_SUB_ALLOCATED_DATA_BUFFER_H_
 
 #include "nbl/core/declarations.h"
 
-#include <type_traits>
 #include <mutex>
 
-#include "nbl/video/alloc/CSimpleBufferAllocator.h"
+#include "nbl/video/alloc/CSingleBufferSubAllocator.h"
 #include "nbl/video/IGPUFence.h"
 
 namespace nbl::video

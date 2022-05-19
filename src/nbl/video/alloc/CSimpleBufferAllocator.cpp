@@ -13,11 +13,11 @@ CSimpleBufferAllocator::value_type CSimpleBufferAllocator::allocate(
     const IGPUBuffer::SCreationParams& creationParams,
     const core::bitflag<IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags=IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS::EMAF_NONE)
 {
-    auto buffer = getDevice()->createBuffer(bufferParams);
+    auto buffer = m_device->createBuffer(creationParams);
     auto reqs = buffer->getMemoryReqs2();
     reqs.memoryTypeBits &= m_memoryTypesToUse;
-    auto mem = m_memoryAllocator->allocate(reqs,buffer.get(),allocateFlags);
-    if (!mem)
-        return {nullptr,0xdeadbeefull};
-    return {std::move(buffer),0ull};
+    auto mem = m_device->allocate(reqs,buffer.get(),allocateFlags);
+    if (!mem.memory)
+        return {0xdeadbeefull,nullptr};
+    return {0ull,std::move(buffer)};
 }

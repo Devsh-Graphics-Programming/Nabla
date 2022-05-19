@@ -21,7 +21,7 @@ public:
     using CSimpleBufferAllocator::CSimpleBufferAllocator;
     virtual ~CStreamingBufferAllocator() = default;
 
-    value_type allocate(const IGPUBuffer::SCreationParams& creationParams, const core::bitflag<IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags = IDriverMemoryAllocation::EMAF_NONE)
+    inline value_type allocate(const IGPUBuffer::SCreationParams& creationParams, const core::bitflag<IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags = IDriverMemoryAllocation::EMAF_NONE)
     {
         auto bufferBinding = CSimpleBufferAllocator::allocate(creationParams, allocateFlags);
         uint8_t* mappedPtr = nullptr;
