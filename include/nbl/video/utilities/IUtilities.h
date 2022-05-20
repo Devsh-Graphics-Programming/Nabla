@@ -322,16 +322,16 @@ namespace nbl::video
                 // make sure we dont overrun the destination buffer due to padding
                 const uint32_t subSize = core::min(alllocationSize,size);
                 // cannot use `multi_place` because of the extra padding size we could have added
-                uint32_t localOffset = video::StreamingTransientDataBufferMT<>::invalid_address;
+                uint32_t localOffset = video::StreamingTransientDataBufferMT<>::invalid_value;
                 m_defaultUploadBuffer.get()->multi_alloc(std::chrono::steady_clock::now()+std::chrono::microseconds(500u),1u,&localOffset,&alllocationSize,&alignment);
                 // copy only the unpadded part
-                if (localOffset != video::StreamingTransientDataBufferMT<>::invalid_address)
+                if (localOffset != video::StreamingTransientDataBufferMT<>::invalid_value)
                 {
                     const void* dataPtr = reinterpret_cast<const uint8_t*>(data) + uploadedSize;
                     memcpy(reinterpret_cast<uint8_t*>(m_defaultUploadBuffer->getBufferPointer()) + localOffset, dataPtr, subSize);
                 }
                 // keep trying again
-                if (localOffset == video::StreamingTransientDataBufferMT<>::invalid_address)
+                if (localOffset == video::StreamingTransientDataBufferMT<>::invalid_value)
                 {
                     // but first sumbit the already buffered up copies
                     cmdbuf->end();

@@ -1,41 +1,41 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#ifndef __NBL_VIDEO_STREAMING_TRANSIENT_DATA_BUFFER_H__
-#define __NBL_VIDEO_STREAMING_TRANSIENT_DATA_BUFFER_H__
+#ifndef _NBL_VIDEO_STREAMING_TRANSIENT_DATA_BUFFER_H_
+#define _NBL_VIDEO_STREAMING_TRANSIENT_DATA_BUFFER_H_
 
 
 #include "nbl/core/declarations.h"
 
 #include <cstring>
 
-#include "nbl/video/alloc/SubAllocatedDataBuffer.h"
-#include "nbl/video/alloc/CStreamingBufferAllocator.h"
+#include "nbl/video/alloc/CAsyncSingleBufferSubAllocator.h"
 
 
 namespace nbl::video
 {
     
-template<typename _size_type=uint32_t, class CPUAllocator=core::allocator<uint8_t>, class CustomDeferredFreeFunctor=void, class RecursiveLockable=std::recursive_mutex>
+template<class HostAllocator=core::allocator<uint8_t>, class RecursiveLockable=std::recursive_mutex>
 class StreamingTransientDataBufferMT;
 
 namespace impl
 {
-template<typename _size_type=uint32_t, class CPUAllocator=core::allocator<uint8_t>, class CustomDeferredFreeFunctor=void>
+template<class HostAllocator>
 class StreamingTransientDataBuffer
 {
-        typedef core::HeterogenousMemoryAddressAllocatorAdaptor<core::GeneralpurposeAddressAllocator<_size_type>,CStreamingBufferAllocator,CPUAllocator> HeterogenousMemoryAddressAllocator;
-        typedef StreamingTransientDataBuffer<_size_type,CPUAllocator> ThisType;
-        using Composed = impl::SubAllocatedDataBuffer<HeterogenousMemoryAddressAllocator,CustomDeferredFreeFunctor>;
+        using ThisType = StreamingTransientDataBuffer<HostAllocator>;
+        using Composed = impl::CAsyncSingleBufferSubAllocator<core::GeneralpurposeAddressAllocator<uint32_t>,HostAllocator>;
+
     protected:
-        Composed m_composed;
-    public:
-        using size_type = typename Composed::size_type;
-        static constexpr inline size_type invalid_address = Composed::invalid_address;
-        
         virtual ~StreamingTransientDataBuffer() {}
 
+        Composed m_composed;
+
+    public:
+        using size_type = typename Composed::size_type;
+        static constexpr inline size_type invalid_value = Composed::invalid_value;
+
+#if 0
         //!
         /**
         \param default minAllocSize has been carefully picked to reflect the lowest nonCoherentAtomSize under Vulkan 1.1 which is not 1u .*/
@@ -48,23 +48,24 @@ class StreamingTransientDataBuffer
             : m_composed(inDevice, reservedMemAllocator, CStreamingBufferAllocator(inDevice, usableMemoryTypeBits), 0u, 0u, bufferCreationParams, allocateFlags, minAllocSize) {}
 
         const auto& getAllocator() const {return m_composed.getAllocator();}
+#endif
 
+        //
+        inline bool         needsManualFlushOrInvalidate() const {return getBuffer()->getBoundMemory()->haveToMakeVisible();}
 
-        // TODO(Erfan): Replace with getBuffer()->getBoundMemory()->getMemoryTypeFlags or something and assert it has Coherent bit + cache memoryTypeFlags in IDriverMemoryAllocation
-        inline bool         needsManualFlushOrInvalidate() const {return !(getBuffer()->getMemoryReqs().mappingCapability&video::IDriverMemoryAllocation::EMCF_COHERENT);}
-
+        // getters
         inline IGPUBuffer*  getBuffer() noexcept {return m_composed.getBuffer();}
         inline const IGPUBuffer*  getBuffer() const noexcept {return m_composed.getBuffer();}
-
+#if 0
         inline void*        getBufferPointer() noexcept {return m_composed.getAllocator().getCurrentBufferAllocation().ptr;}
-
+#endif
+        //
         inline void         cull_frees() noexcept {m_composed.cull_frees();}
 
+        //
         inline size_type    max_size() noexcept {return m_composed.max_size();}
 
-        inline size_type    max_alignment() const noexcept {return m_composed.maxalignment();}
-
-
+#if 0
         template<typename... Args>
         inline size_type    multi_place(uint32_t count, Args&&... args) noexcept
         {
@@ -98,60 +99,60 @@ class StreamingTransientDataBuffer
         {
             m_composed.multi_free(std::forward<Args>(args)...);
         }
+#endif
 };
 }
 
-template<typename _size_type=uint32_t, class CPUAllocator=core::allocator<uint8_t>, class CustomDeferredFreeFunctor=void>
-class StreamingTransientDataBufferST : public core::IReferenceCounted, public impl::StreamingTransientDataBuffer<_size_type,CPUAllocator,CustomDeferredFreeFunctor>
+template<class HostAllocator=core::allocator<uint8_t>>
+class StreamingTransientDataBufferST : public core::IReferenceCounted, public impl::StreamingTransientDataBuffer<HostAllocator>
 {
-        using Base = impl::StreamingTransientDataBuffer<_size_type,CPUAllocator,CustomDeferredFreeFunctor>;
+        using Base = impl::StreamingTransientDataBuffer<HostAllocator>;
+
     protected:
         ~StreamingTransientDataBufferST() = default;
+
     public:
         template<typename... Args>
         StreamingTransientDataBufferST(Args&&... args) : Base(std::forward<Args>(args)...) {}
 };
 
-template<typename _size_type, class CPUAllocator, class CustomDeferredFreeFunctor, class RecursiveLockable>
+template<class HostAllocator, class RecursiveLockable>
 class StreamingTransientDataBufferMT : public core::IReferenceCounted
 {
-        using Composed = impl::StreamingTransientDataBuffer<_size_type,CPUAllocator,CustomDeferredFreeFunctor>;
+        using Composed = impl::StreamingTransientDataBuffer<HostAllocator>;
+
     protected:
         Composed m_composed;
         RecursiveLockable lock;
 
         virtual ~StreamingTransientDataBufferMT() {}
+
     public:
         using size_type = typename Composed::size_type;
-        static constexpr inline size_type invalid_address = Composed::invalid_address;
+        static constexpr inline size_type invalid_value = Composed::invalid_value;
 
         template<typename... Args>
         StreamingTransientDataBufferMT(Args... args) : m_composed(std::forward<Args>(args)...) {}
-
-        const auto& getAllocator() const {return m_composed.getAllocator();}
-
-
+#if 0
+        //
         inline bool         needsManualFlushOrInvalidate()
         {
-            lock.lock();
-            bool retval = m_composed.needsManualFlushOrInvalidate(); // if this cap doesn't change we can cache it and avoid a stupid lock that protects against invalid buffer pointer
-            lock.unlock();
-            return retval;
+            return m_composed.needsManualFlushOrInvalidate();
         }
-
+#endif
 
         //! With the right Data Allocator, this pointer should remain constant after first allocation but the underlying gfx API object may change!
         inline IGPUBuffer*  getBuffer() noexcept
         {
             return m_composed.getBuffer();
         }
-
+#if 0
         //! you should really `this->get_lock()`  if you need the pointer to not become invalid while you use it
         inline void*        getBufferPointer() noexcept
         {
             return m_composed.getBufferPointer();
         }
-
+#endif
         //! you should really `this->get_lock()` if you need the guarantee that you'll be able to allocate a block of this size!
         inline void    cull_frees() noexcept
         {
@@ -169,11 +170,7 @@ class StreamingTransientDataBufferMT : public core::IReferenceCounted
             return retval;
         }
 
-
-        //! this value should be immutable
-        inline size_type    max_alignment() const noexcept {return m_composed.maxalignment();}
-
-
+#if 0
         template<typename... Args>
         inline size_type    multi_alloc(Args&&... args) noexcept
         {
@@ -199,7 +196,7 @@ class StreamingTransientDataBufferMT : public core::IReferenceCounted
             m_composed.multi_free(std::forward<Args>(args)...);
             lock.unlock();
         }
-
+#endif
 
         //! Extra == Use WITH EXTREME CAUTION
         inline RecursiveLockable&   get_lock() noexcept
