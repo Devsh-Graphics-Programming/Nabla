@@ -226,8 +226,7 @@ public:
 
 		if (alphaSemantic == asset::IBlitUtilities::EAS_REFERENCE_OR_COVERAGE)
 		{
-			// Todo(achal): Do alignUp on the combined size?
-			scratchSize += core::alignUp(sizeof(uint32_t), device->getPhysicalDevice()->getLimits().SSBOAlignment); // for passed pixel atomic counter
+			scratchSize += sizeof(uint32_t); // for passed pixel atomic counter
 			scratchSize += alphaBinCount * sizeof(uint32_t); // for alpha histogram
 		}
 

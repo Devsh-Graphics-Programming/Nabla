@@ -44,7 +44,6 @@
 struct nbl_glsl_blit_AlphaStatistics_t
 {
 	uint passedPixelCount;
-	uint _pad[3];
 	uint histogram[ALPHA_BIN_COUNT];
 };
 
